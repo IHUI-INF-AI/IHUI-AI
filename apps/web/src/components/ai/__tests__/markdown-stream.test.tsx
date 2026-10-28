@@ -24,6 +24,10 @@ vi.mock('@/components/feedback', () => ({
 
 const renderWithIntl = (ui: React.ReactElement) => render(ui)
 
+// 2026-10-28 观感档⑤源码级对账:jsdom 不计算样式,CSS 真相用 readFileSync 直验
+// (本仓源码级判据惯例,back-chevron 族同型)——规则在位、贴最后一个块元素、
+// 色走 design-token、节拍与思考区光标同谱(cursor-blink),四缺一即断。
+
 // 提升 vi.fn 引用,便于在 mock 工厂和测试用例中共享(支持运行时改主题)
 // 返回类型用 union 形式,允许测试动态切换 light/dark
 const { mockUseTheme } = vi.hoisted(() => ({
@@ -113,9 +117,51 @@ describe('MarkdownStream - P2-1 流式 Markdown 增强', () => {
       expect(container.querySelector('pre')).toBeTruthy()
       expect(container.textContent).toContain('const x = 1')
     })
-    // 流式中的代码块带 opacity-60 标记(临时闭合位置)
+    // 2026-10-28 流式观感档③④:流式代码块不再整块"草稿灰"(opacity-60 已退役,
+    // 在写信号交给硬闪终端光标);反向锁死灰化不回潮。
     const pre = container.querySelector('pre')
-    expect(pre?.className).toContain('opacity-60')
+    expect(pre?.className).not.toContain('opacity-60')
+    expect(pre?.className).not.toContain('opacity-')
+    // 2026-10-28 观感档⑤:正文打字光标内联化 —— 容器挂 stream-caret-host,
+    // CSS ::after 贴最后一个块元素(定义在 animations.css,jsdom 不带样式表,
+    // DOM 面锁两件:类在位 + 容器里不再有多余的 caret span——悬行旧形态禁回潮)。
+    const root = container.querySelector('[data-testid="markdown-stream"]')
+    expect(root?.className).toContain('stream-caret-host')
+    expect(root?.querySelector('span[aria-hidden]')).toBeNull()
+  })
+
+  it('完成态容器不挂 stream-caret-host(光标随流结束消失,规则判据全在 isStreaming)', () => {
+    const { container } = renderWithIntl(
+      <MarkdownStream content="已经写完的一段话。" isStreaming={false} />,
+    )
+    const root = container.querySelector('[data-testid="markdown-stream"]')
+    expect(root?.className).not.toContain('stream-caret-host')
+    expect(root?.querySelector('span[aria-hidden]')).toBeNull()
+  })
+
+  it('2026-10-28 流式观感档③:长代码块流式中尾部跟随全展(不再是冻前 5 行)', async () => {
+    // 12 行未闭合围栏:此前流式档 collapsed=true ⇒ 显示恒为前 5 行,
+    // 模型写到 v11、屏幕停在 v4 = 观感断档主罪;档③后末行应可达。
+    const content =
+      '```js\n' + Array.from({ length: 12 }, (_, i) => `const v${i} = ${i}`).join('\n')
+    const { container } = renderWithIntl(<MarkdownStream content={content} isStreaming />)
+    await waitFor(() => {
+      expect(container.textContent).toContain('const v11 = 11')
+    })
+    // 折叠控件流式中不出现(不打扰书写,完成后再给)
+    expect(container.textContent).not.toContain('展开 (12 行)')
+  })
+
+  it('2026-10-28 渲染层平滑:节流尾沿 flush 不丢尾,长内容最终完整渲染', async () => {
+    // base 超过 stable/active 切分阈值(1500)→ 走双容器路径,验证节流尾沿仍能补全。
+    const base = '填'.repeat(2200)
+    const { container, rerender } = renderWithIntl(<MarkdownStream content={base} isStreaming />)
+    await waitFor(() => expect(container.textContent).toContain(base))
+
+    // 续写更长内容:若节流尾沿 flush 失效,末尾文字会卡在节流窗口的旧值、永不补全。
+    const extended = base + '追加的结尾文字 XYZ'
+    rerender(<MarkdownStream content={extended} isStreaming />)
+    await waitFor(() => expect(container.textContent).toContain('追加的结尾文字 XYZ'))
   })
 
   it('完整代码块渲染语法高亮(SyntaxHighlighter 被调用 + className 含 language-)', async () => {
@@ -307,6 +353,42 @@ describe('MarkdownStream - P2 中期增强 oneDark → oneLight 主题切换', (
     // 容器使用 theme-aware 类:bg-zinc-100(light) + dark:bg-zinc-950
     expect(pre.className).toContain('bg-zinc-100')
     expect(pre.className).toContain('dark:bg-zinc-950')
+  })
+
+  // 2026-10-28 观感档⑥:「完成瞬间 active→stable 重排」回归锁。
+  // 旧实现 isStreaming=false 强制不切分 ⇒ 渲染子节点从 [StableBlock, Active] 塌成
+  // [ReactMarkdown(全文)],React 卸载旧子树、重建整棵 ⇒ 视觉「跳一下」。
+  // 修复后切分始终启用 ⇒ 翻转前后子节点结构恒定、StableBlock DOM 复用、零重排。
+  it('isStreaming 翻转 true→false 时,渲染子节点结构恒定且 StableBlock DOM 复用(零重排)', () => {
+    // 构造 >1500 字符且含多段(满足 splitMarkdownStable 安全切点)的内容
+    const para = '这是一段用于流式渲染压测的普通正文，包含中文与 english 混合内容。'
+    // 纯文本长内容(无代码块,避免完成态长代码块默认折叠干扰文本断言);
+    // 段落间空行满足 split 的「空行后非列表/非缩进」安全切点规则
+    const content = Array.from({ length: 40 }, (_, i) => `${para}（第 ${i + 1} 段）`).join('\n\n')
+
+    const { container, rerender } = render(<MarkdownStream content={content} isStreaming />)
+
+    const root = container.querySelector('[data-testid="markdown-stream"]') as HTMLElement
+    // 流式态:stable 非空 ⇒ 结构为 [StableBlock 根, Active 根] 两段
+    const streamingChildren = root.children.length
+    expect(streamingChildren).toBeGreaterThanOrEqual(1)
+
+    // 记录 StableBlock 输出子树的首个根节点引用(react-markdown 默认 div)
+    const firstChildBefore = root.firstElementChild as HTMLElement
+    expect(firstChildBefore).toBeTruthy()
+
+    // 翻转:流式结束
+    rerender(<MarkdownStream content={content} isStreaming={false} />)
+
+    const rootAfter = container.querySelector('[data-testid="markdown-stream"]') as HTMLElement
+    const firstChildAfter = rootAfter.firstElementChild as HTMLElement
+
+    // 子节点数量恒定(未塌缩成单 ReactMarkdown)
+    expect(rootAfter.children.length).toBe(streamingChildren)
+    // StableBlock 根 DOM 节点被复用(非卸载重建)⇒ 零重排
+    expect(firstChildAfter).toBe(firstChildBefore)
+    // 内容完整无损(纯文本完成态不折叠,全文在 DOM)
+    expect(rootAfter.textContent ?? '').toContain('（第 40 段）')
   })
 })
 

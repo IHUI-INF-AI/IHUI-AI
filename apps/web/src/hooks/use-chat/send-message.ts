@@ -84,7 +84,6 @@ import {
   createToolSummaryHandler,
   createReviewFindingHandler,
   createUsageHandler,
-  createDeltaBatcher,
   createAgentDeltaBatcher,
   localizeQuotaExhausted,
   isMaxTokensTruncatedFinishReason,
@@ -122,6 +121,9 @@ import { persistMessageSafe, persistQuestionSafe } from './persistence'
 // Runtime 插话能力声明落库口(帧载荷 → store;D69 runtimeSupportsInterjection 的数据源)
 import { noteRuntimeCapabilities } from './runtime-capabilities'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
+// 建会话后的 URL 同步目标:侧栏/根形态恒 '/chat'(旧行为逐字),工作台形态留在 /chat/workbench
+// (两形态共享内核的"新建会话不得被拽回侧栏"钉子;判据单一真相源见 spec)。
+import { chatDeeplinkPath } from '@ihui/shared/ui/chat-workbench-shell-spec'
 import type { ChatActionContext } from './types'
 
 // =============================================================================
@@ -366,7 +368,9 @@ export function createSendMessage(
         useAiPanelStore.getState().bindWorkspaceToConversation(slashCid)
         const sp = new URLSearchParams(window.location.search)
         sp.set('conversationId', slashCid)
-        router.replace(`/chat?${sp.toString()}`, { scroll: false })
+        router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
+          scroll: false,
+        })
         queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
       }
       // 持久化 user + assistant(后台 fire-and-forget,失败沿用 persistMessageSafe 现有 toast 行为)
@@ -442,7 +446,9 @@ export function createSendMessage(
       useAiPanelStore.getState().bindWorkspaceToConversation(conversationId)
       const sp = new URLSearchParams(window.location.search)
       sp.set('conversationId', conversationId)
-      router.replace(`/chat?${sp.toString()}`, { scroll: false })
+      router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
+        scroll: false,
+      })
       queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
     }
 
@@ -630,8 +636,11 @@ export function createSendMessage(
       }
     }, 60000)
 
-    // #16 流式平滑渲染(2026-09-15 立):content 走平滑 batcher(rAF 逐帧推进,落后越多追越快);
-    // reasoning/agent 保持原帧级 rAF 合并(原样不动)。onProgress 节流估算实时 token 用量(#21)。
+    // #16 流式平滑渲染(2026-09-15 立):content 走平滑 batcher(rAF 逐帧推进,落后越多追越快)。
+    // 2026-10-28 流式观感档续:reasoning 同泵换 smooth —— 原判据"reasoning 保持帧级合并"
+    // 留下一处观感断档:正文逐字平滑、思考整坨每帧蹦出,同一条回复两种节拍。契约(batch/flush/
+    // cancel)与 createDeltaBatcher 逐参数一致(smooth 头注锁死),drop-in 无调用面改动。
+    // onProgress 节流估算实时 token 用量(#21)。
     let finalUsageReceived = false
     let lastLiveUsageAt = 0
     const contentBatcher = createSmoothDeltaBatcher(
@@ -651,7 +660,7 @@ export function createSendMessage(
         },
       },
     )
-    const reasoningBatcher = createDeltaBatcher((d) =>
+    const reasoningBatcher = createSmoothDeltaBatcher((d) =>
       chatStore.getState().appendReasoningToMessage(assistantId, d),
     )
     const agentBatcher = createAgentDeltaBatcher(chatStore)
@@ -1784,7 +1793,9 @@ export async function branchMessage(
     if (typeof window !== 'undefined') {
       const sp = new URLSearchParams(window.location.search)
       sp.set('conversationId', newId)
-      ctx.router.replace(`/chat?${sp.toString()}`, { scroll: false })
+      ctx.router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
+        scroll: false,
+      })
     }
     toast.success('已创建分支会话')
     return true

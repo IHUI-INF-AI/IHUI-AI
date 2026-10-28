@@ -76,7 +76,9 @@ const selectAuditLogsMock = vi.hoisted(() => vi.fn())
 vi.mock('../src/db/audit-queries.js', () => ({ selectAuditLogs: selectAuditLogsMock }))
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'mock-admin-id', roleId: 1 }),
+  verifyAccessToken: vi
+    .fn()
+    .mockResolvedValue({ userId: '00000000-0000-4000-8000-000000000ad1', roleId: 1 }),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),
@@ -86,7 +88,10 @@ vi.mock('../src/db/index.js', () => ({
   dbRead: { select: vi.fn(() => []) },
 }))
 
-import { buildSignedAuditExport, canonicalAuditExportPayload } from '../src/services/siem-exporter.js'
+import {
+  buildSignedAuditExport,
+  canonicalAuditExportPayload,
+} from '../src/services/siem-exporter.js'
 import {
   auditEvidenceExportRoutes,
   auditEvidencePublicKeyRoutes,
@@ -199,7 +204,10 @@ describe('86G-2 第二半:匿名/admin 公钥面按 kid 取钥匙(轮换期外�
   })
 
   it('② 反回落:?kid 未登记 ⇒ 404 点名该 kid,且响应体里绝不出现当前公钥', async () => {
-    const res = await server.inject({ method: 'GET', url: `${ANON_URL}?kid=ihui-audit-export-ffffffffffffffff` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `${ANON_URL}?kid=ihui-audit-export-ffffffffffffffff`,
+    })
     expect(res.statusCode).toBe(404)
     const text = res.body
     expect(text).toContain('ihui-audit-export-ffffffffffffffff')

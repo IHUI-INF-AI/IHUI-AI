@@ -12,7 +12,9 @@ vi.hoisted(() => {
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'mock-user-id', roleId: 1 }),
+  verifyAccessToken: vi
+    .fn()
+    .mockResolvedValue({ userId: '00000000-0000-4000-8000-000000000fee', roleId: 1 }),
 }))
 
 // 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,
@@ -139,7 +141,10 @@ describe('agreements routes', () => {
 
   describe('403 普通用户', () => {
     beforeEach(() => {
-      vi.mocked(verifyAccessToken).mockResolvedValue({ userId: 'mock-user-id', roleId: 0 })
+      vi.mocked(verifyAccessToken).mockResolvedValue({
+        userId: '00000000-0000-4000-8000-000000000fee',
+        roleId: 0,
+      })
     })
 
     it('GET /api/admin/agreements 普通用户返回 403', async () => {
@@ -198,7 +203,10 @@ describe('agreements routes', () => {
 
   describe('带管理员认证', () => {
     beforeEach(() => {
-      vi.mocked(verifyAccessToken).mockResolvedValue({ userId: 'mock-user-id', roleId: 1 })
+      vi.mocked(verifyAccessToken).mockResolvedValue({
+        userId: '00000000-0000-4000-8000-000000000fee',
+        roleId: 1,
+      })
     })
 
     it('GET /api/admin/agreements 返回 200', async () => {

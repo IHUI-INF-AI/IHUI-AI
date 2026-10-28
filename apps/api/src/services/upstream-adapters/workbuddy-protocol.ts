@@ -16,7 +16,7 @@
  * - 错误分类 classifyUpstreamFailure 决定转发层是否罚号:请求级错误(400 系)与限流
  *   不罚号;credit/session_dead/auth 走各自的自愈路径。
  */
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, createHmac, randomBytes } from 'node:crypto'
 
 // =============================================================================
 // realm(国内 CN / 国际 global)判定与常量
@@ -68,9 +68,50 @@ function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex')
 }
 
-/** X-Machine-ID / X-Session-ID:sha256("wb2a:"+purpose+":"+uid) 前 36 hex(跨请求稳定、账号间互异) */
-export function deriveStableId(purpose: 'machine' | 'session', uid: string): string {
-  return sha256Hex(`wb2a:${purpose}:${uid}`).slice(0, 36)
+/** X-Machine-ID / X-Session-ID 的派生输入(O72 整改@2026-10-28,见 deriveStableId 头注) */
+export interface WorkBuddyIdSeed {
+  /** 随请求同行出镜的 X-User-Id —— 在旧派生里它是唯一输入,在新派生里只是分隔项 */
+  uid: string
+  /** row.machineId:账号级存储的客户端设备材料(请求不携带它,优先种子) */
+  storedMachineId?: string | null
+  /** row.deviceId:账号级存储的客户端设备材料(次选种子) */
+  storedDeviceId?: string | null
+  /** 部署级机密盐(workBuddyIdDeploymentSalt 的产物;账号无存储材料时兜底) */
+  deploymentSalt?: string | null
+}
+
+/**
+ * X-Machine-ID / X-Session-ID:sha256 前 36 hex,跨请求稳定、账号间互异。
+ *
+ * 旧派生 sha256("wb2a:"+purpose+":"+uid) 零熵且自我相关 —— 同一请求就携带 X-User-Id,
+ * 任何抓包方(含上游)拿一枚 uid 即可离线重算全部账号的机器/会话 id,把多轮流量钉死关联。
+ * 新派生保证**输出不可由 uid 单独反推**,种子两档取一(优先级):
+ *  1) 账号级存储非机密材料(row.machineId > row.deviceId):请求不携带它,行不变则 id 不变
+ *     (上游惩罚改机 id 的账号,存储材料天然保持"每账号稳定"且不随部署密钥漂移);
+ *  2) 部署级机密盐(调用方以应用密钥域分隔算出,见 workBuddyIdDeploymentSalt):
+ *     作 HMAC 类密钥输入,绝不随请求出镜。
+ * 两档皆无 ⇒ 显式抛错(未判定),**绝不回落明文 uid 哈希**(回落即是该漏洞本身)。
+ */
+export function deriveStableId(purpose: 'machine' | 'session', seed: WorkBuddyIdSeed): string {
+  const stored = (seed.storedMachineId?.trim() ?? '') || (seed.storedDeviceId?.trim() ?? '')
+  const salt = seed.deploymentSalt?.trim() ?? ''
+  const secret = stored || salt
+  if (!secret) {
+    throw new Error(
+      'workbuddy stable-id 派生未判定:账号无存储设备材料且无部署级机密盐 ⇒ 不回落明文 uid 哈希',
+    )
+  }
+  const source = stored ? `acct:${stored}` : `salt:${salt}`
+  return sha256Hex(`wb2b:${purpose}:${source}:${seed.uid}`).slice(0, 36)
+}
+
+/**
+ * 部署级机密盐:以应用级密钥(如 CREDENTIALS_ENCRYPTION_KEY)做域分隔 HMAC,
+ * 产物只进本地哈希输入、绝不进任何请求头;同一部署恒定 ⇒ id 跨重启稳定,
+ * 不同密钥产出不同 ⇒ 与"任何人都能由 uid 重算"彻底绝缘。输出不含密钥材料。
+ */
+export function workBuddyIdDeploymentSalt(appSecret: string): string {
+  return createHmac('sha256', appSecret).update('ihui-relay:workbuddy:stable-id:v1').digest('hex')
 }
 
 /** 每请求随机 32hex(X-Conversation-Message-ID / X-Request-ID) */

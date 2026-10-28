@@ -261,7 +261,10 @@ export const ThinkingSection = React.memo(function ThinkingSection({
           {content && (
             <div
               ref={preRef}
-              className="max-h-[200px] overflow-y-auto whitespace-pre-wrap break-all text-xs leading-relaxed text-foreground/75"
+              /* 2026-10-28 观感档:思考视口 200px → 320px(对标 Qoder 量级"看着它想"窗口)。
+                 旧档一屏只容 ~10 行,长思考的"边生成边读"退化成窥管;尾随滚动(上方 effect)
+                 与滚动容器形态不变,只扩可读纵深。 */
+              className="max-h-[320px] overflow-y-auto whitespace-pre-wrap break-all text-xs leading-relaxed text-foreground/75"
               aria-live={thinkingActive ? 'polite' : undefined}
               aria-atomic={thinkingActive ? 'false' : undefined}
               data-testid="thinking-content"
@@ -278,10 +281,13 @@ export const ThinkingSection = React.memo(function ThinkingSection({
                   )}
                   <div className="whitespace-pre-wrap break-all">
                     {s.body}
-                    {/* 2026-08-29:流式/交错增长期脉冲光标(思考仍在输出),内联在最后节正文末尾 */}
+                    {/* 2026-08-29:流式/交错增长期光标(思考仍在输出),内联在最后节正文末尾。
+                        2026-10-28 观感档:软呼吸 pulse → 与正文终端光标同一 step-end 硬闪节拍
+                        —— 同一屏两种光标节奏打架(正文脆闪/思考慢呼吸),统一"在敲"语义;
+                        透明度取 /60 比正文 /100 低一档,保留主次层级;motion-reduce 常亮。 */}
                     {thinkingActive && i === sections.length - 1 && (
                       <span
-                        className="ml-0.5 inline-block w-0.5 animate-pulse bg-primary/50 align-middle"
+                        className="ml-0.5 inline-block w-0.5 animate-cursor-blink bg-primary/60 align-middle motion-reduce:animate-none"
                         style={{ height: '10px' }}
                         aria-hidden
                       />

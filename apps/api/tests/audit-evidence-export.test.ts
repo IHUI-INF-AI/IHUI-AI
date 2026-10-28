@@ -47,7 +47,9 @@ vi.mock('../src/db/audit-queries.js', () => ({
 }))
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'mock-admin-id', roleId: 1 }),
+  verifyAccessToken: vi
+    .fn()
+    .mockResolvedValue({ userId: '00000000-0000-4000-8000-000000000ad1', roleId: 1 }),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),
@@ -375,7 +377,10 @@ describe('86C 路由面:requireAdmin 鉴权 + 只读 + 不泄露私钥', () => {
     primeEnv()
     const mockVerify = vi.mocked(verifyAccessToken)
     const original = mockVerify.getMockImplementation()
-    mockVerify.mockResolvedValue({ userId: 'u-x', roleId: 0 } as never)
+    mockVerify.mockResolvedValue({
+      userId: '00000000-0000-4000-8000-0000000000b2',
+      roleId: 0,
+    } as never)
     const denied = await server.inject({
       method: 'GET',
       url: '/api/admin/audit-evidence/signed',

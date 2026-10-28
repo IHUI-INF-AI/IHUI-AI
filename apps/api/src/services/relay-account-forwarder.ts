@@ -11,7 +11,9 @@
  *
  * 设计(对标 + 超越码道):
  * - 模型→平台反查:join ai_model_config(_models),providerCode ∈ RELAY_PROVIDERS 且启用;60s 进程缓存
- * - 选号:priority asc → weight desc → lastUsedAt asc(未用优先),跳过冷却中的号;上限 3 号 failover
+ * - 选号:priority asc → 有效权重 desc → lastUsedAt asc(未用优先),跳过冷却中的号;上限 3 号 failover
+ *   (O67 起策略钮与打分住 relay-pool-policy.ts 单源:weighted_random / 闲置加权 / 临期优先 /
+ *   积分地板 / 跨域互兜,默认档保持上述既有顺序;过滤排空一律回落未过滤集并留标签)
  * - 会话亲和:affinityKey(apiKeyId)+model → 同账号,30 分钟 TTL(Trae 多轮上下文连续性靠它;
  *   30–60 分钟是社区风控实践中"同会话不致跨号漂移"的下限)
  * - 多实例协同(2026-10-22):冷却/亲和走 relay-account-shared-state(Redis 优先、
@@ -29,6 +31,9 @@
  *   · 请求级错误(参数非法/超长/审核)不罚号(直接透传失败,不计数不冷却)
  * - 账号级并发上限(2026-10-22):同一账号在途请求默认 ≤3,超出则 failover 到下一候选
  *   (上游对单账号并发极敏感;这是与"每账号独立代理出口"配套的第二道指纹护栏)
+ * - 全局在途并发闸(O67,对标 pool.max_in_flight_global):钮值住 relay-pool-policy,
+ *   计数住 relay-account-shared-state(Redis INCR/DECR + TTL 安全网、内存兜底);
+ *   达上限像冷却一样跳过该候选,绝不排队久等(关闭档零 Redis 往返)
  * - 出口代理:行.proxyUrl → undici ProxyAgent(按 URL 缓存连接池,每号独立出口 IP 降风控)
  * - 流式:上游 SSE 帧逐帧 adapter.translateStreamChunk → OpenAI chunk 重封装 + [DONE];
  *   executeChat 的 chunk 序列合成同款 SSE Response,pipeChannelStream 原样消费
@@ -76,7 +81,15 @@ import {
   getSessionAffinity,
   setAccountCooldown,
   setSessionAffinity,
+  tryAcquireGlobalInflight,
+  type GlobalInflightHandle,
 } from './relay-account-shared-state.js'
+import {
+  domainKeyOfRow,
+  readRelayPoolPolicy,
+  selectPoolOrdered,
+  type RelayPoolPolicy,
+} from './relay-pool-policy.js'
 import { recordAccountUsage } from './relay-account-usage.js'
 import { pickProxyForAccount, reportProxyFailure, reportProxySuccess } from './relay-proxy-pool.js'
 import { resolveModelAlias } from './relay-model-catalog.js'
@@ -304,7 +317,8 @@ async function selectAccountCandidates(
   req: UpstreamForwardRequest,
   rawModel: string,
   providerCodes: RelayProviderCode[],
-): Promise<AiRelayAccountPool[]> {
+  opts: { policy?: RelayPoolPolicy; rng?: () => number } = {},
+): Promise<{ rows: AiRelayAccountPool[]; fallbacks: string[] }> {
   // 双池隔离:请求带用户身份时 = 该用户的个人池 ∪ 运营池(个人池优先,运营池兜底);
   // 无身份(匿名/渠道 key)= 仅运营池。用户自己的账号绝不服务他人请求。
   const ownerCond = req.userId
@@ -330,30 +344,43 @@ async function selectAccountCandidates(
   // 冷却跨实例共享(shared-state:Redis 优先、内存兜底);读失败已在内部降级,不会抛
   const cooling = await getAccountsInCooldown(rows.map((r) => r.id))
   const usable = rows.filter((r) => !cooling.has(r.id))
-  // 同优先级同权重:最久未用优先(null = 从未用过,排最前)
-  usable.sort(
-    (a, b) =>
-      a.priority - b.priority ||
-      b.weight - a.weight ||
-      (a.lastUsedAt?.getTime() ?? 0) - (b.lastUsedAt?.getTime() ?? 0),
-  )
 
-  // 亲和命中且仍可用 → 置顶(多轮上下文连续;失效则自然 failover 到下一候选)
+  // 会话亲和读取前置到策略管线之前:亲和账号所在域是跨域互兜唯一的「请求域」取材
+  // (号池表无 realm/domain 列;域判据 = workbuddy 行 extraMetadata.domain,单源
+  // relay-pool-policy.domainKeyOfRow → workbuddy-protocol.resolveRealm)。
   const aKey = affinityKeyOf(req, rawModel)
-  if (aKey) {
-    const hitId = await getSessionAffinity(aKey)
-    if (hitId) {
-      const idx = usable.findIndex((r) => r.id === hitId)
-      if (idx > 0) {
-        const row = usable[idx]
-        if (row) {
-          usable.splice(idx, 1)
-          usable.unshift(row)
-        }
+  const hitId = aKey ? await getSessionAffinity(aKey) : null
+
+  const policy = opts.policy ?? readRelayPoolPolicy()
+  let requestedDomain: 'cn' | 'global' | null = null
+  if (policy.crossDomainFallback && hitId) {
+    const hitRow = rows.find((r) => r.id === hitId)
+    requestedDomain = hitRow ? domainKeyOfRow(hitRow) : null
+  }
+  // 选号管线(credit_floor → 域过滤 → 确定性/加权随机排序;过滤回空即回落并带标签)
+  const sel = selectPoolOrdered(usable, { policy, rng: opts.rng, requestedDomain })
+  const ordered = sel.rows
+
+  // 亲和命中且仍在候选 → 置顶(多轮上下文连续优先于负载均衡;失效则自然 failover)
+  if (hitId) {
+    const idx = ordered.findIndex((r) => r.id === hitId)
+    if (idx > 0) {
+      const row = ordered[idx]
+      if (row) {
+        ordered.splice(idx, 1)
+        ordered.unshift(row)
       }
     }
   }
-  return usable.slice(0, MAX_ACCOUNT_CANDIDATES)
+  if (sel.fallbacks.length > 0) {
+    // §0.3「没判/判不了」必须喊出来:过滤会排空候选 ⇒ 已回落未过滤集,留标签问责
+    logger.warn('[relay-account-forwarder] 号池策略过滤回空,已回落未过滤候选集', {
+      model: rawModel,
+      fallbacks: sel.fallbacks.join(','),
+      poolSize: usable.length,
+    })
+  }
+  return { rows: ordered.slice(0, MAX_ACCOUNT_CANDIDATES), fallbacks: sel.fallbacks }
 }
 
 // =============================================================================
@@ -1471,11 +1498,15 @@ export async function forwardToAccountPool(
     if (req.logprobs === true) return null
     const providers = await resolvePoolProviders(rawModel)
     if (providers.length === 0) return null
-    const candidates = await selectAccountCandidates(
+    // 选号策略每请求现读(env 旋钮单源 relay-pool-policy,默认档 = 既有确定性行为)
+    const policy = readRelayPoolPolicy()
+    const selection = await selectAccountCandidates(
       req,
       rawModel,
       providers.map((p) => p.providerCode),
+      { policy },
     )
+    const candidates = selection.rows
     if (candidates.length === 0) return null
 
     const configIdByProvider = new Map<string, number>(
@@ -1498,11 +1529,24 @@ export async function forwardToAccountPool(
         lastError = `账号 ${row.name} 并发已达上限(${ACCOUNT_MAX_INFLIGHT})`
         continue
       }
+      // 全局在途闸(O67,pool.max_in_flight_global 对标):达上限像冷却一样跳过该候选,
+      // 不排队久等;关闭档(maxInFlightGlobal<=0)零 Redis 往返。全候选都被闸挡下 ⇒
+      // 本请求以带标签的失败结论回绝(调用方回退 ai-service,不是硬中断)。
+      let globalHandle: GlobalInflightHandle | null = null
+      if (policy.maxInFlightGlobal > 0) {
+        globalHandle = await tryAcquireGlobalInflight(policy.maxInFlightGlobal)
+        if (!globalHandle) {
+          releaseAccount(row.id)
+          lastError = `号池全局并发已达上限(${policy.maxInFlightGlobal})`
+          continue
+        }
+      }
       let released = false
       const releaseOnce = (): void => {
         if (released) return
         released = true
         releaseAccount(row.id)
+        if (globalHandle) void globalHandle.release()
       }
       const proxy = await pickProxyForAccount({ id: row.id, proxyUrl: row.proxyUrl })
       let attempt: AccountAttempt
@@ -1641,5 +1685,8 @@ export const __test__ = {
   kindForStreamInterrupt,
   // ── 出网复检(档位判据住在 utils/relay-egress-guard.ts,此处只暴露接线入口)──
   poolFetch,
+  // ── 选号(O67):策略管线接线入口(policy 与 rng 注入 ⇒ 用例无需碰 env/时钟)──
+  selectAccountCandidates,
+  readRelayPoolPolicy,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

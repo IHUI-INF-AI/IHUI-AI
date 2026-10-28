@@ -35,6 +35,10 @@
  * 26. POST   /admin/relay/account-pool/match-phone — 批量候选全号自动归位(双向唯一命中才改名)
  * 27. POST   /admin/relay/accounts/:id/login-local — 把该号写进本机客户端登录态(支持 trae + 六平台,
  *            文件级备份+原子写;其余平台 409 并点名无法离线重封的原因)
+ * 28. GET    /admin/relay/accounts/:id/tasks    — WorkBuddy 任务清单(O68,转发 ai-service;
+ *            unjudged 显式透传,不拿空列表冒充"判过")
+ * 29. POST   /admin/relay/accounts/:id/task-run — WorkBuddy 任务手动触发(O68,kind=growth/
+ *            travel/activity/blackcat,dryRun 预览;429/404 原样透传,转发纪律同 23 立即签到)
  *
  * 加密:token/refreshToken/cookies/账号级 proxyUrl 走 encryptField(AES-256-GCM),
  * 响应面永不回传密文/明文(代理只回脱敏值)。
@@ -106,6 +110,7 @@ import {
   deleteModelCatalog,
 } from '../../services/relay-model-catalog.js'
 import { loginAccountLocal, LocalLoginError } from '../../services/relay-local-login.js'
+import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
 
 /**
  * 导入载荷的**结构**闸门(2026-10-27 立)。
@@ -415,6 +420,115 @@ const safeProjection = {
 function presentAccountRow<T extends { proxyUrlEnc: string | null }>(row: T) {
   const { proxyUrlEnc, ...rest } = row
   return { ...rest, proxyUrlMasked: maskAccountProxyUrl(proxyUrlEnc) }
+}
+
+// =============================================================================
+// O68 WorkBuddy 任务自动化(2026-10-29 立):转发纪律与 23 立即签到同款 ——
+// 号池行 → 签到平台映射(映射即拦截)→ pool-status 解析 ai-service 账号 id →
+// 转发 /api/checkin/accounts/{id}/tasks|task-run;429/404 原样透传,其余非 2xx 归 502;
+// 网络错误永不冒绿。unjudged 是显式三态之一:解析不出清单形状 = 未判定,不冒充空列表(§0.3)。
+// =============================================================================
+
+/** 任务自动化覆盖的签到平台(引擎侧只有 WorkBuddy;其余平台映射即拦截) */
+const TASK_AUTOMATION_PLATFORM = 'workbuddy'
+
+/** 任务触发 kind 白名单(与 ai-service task-run 契约逐字一致) */
+const TASK_RUN_KINDS = ['growth', 'travel', 'activity', 'blackcat'] as const
+
+const taskRunBodySchema = z.object({
+  kind: z.enum(TASK_RUN_KINDS),
+  /** 预览模式:引擎只报告将会执行的动作,不落实际副作用 */
+  dryRun: z.boolean().optional(),
+})
+
+/** 单条任务(响应面 camelCase 归一;null = 引擎没给,不是 0) */
+interface NormalizedTaskItem {
+  taskCode: string
+  title: string
+  progress: number | null
+  target: number | null
+  status: string | null
+  acceptStatus: string | null
+  rewardCredit: number | null
+  rewardEnergy: number | null
+  validTo: string | null
+}
+
+function numOrNull(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null
+}
+function strOrNull(v: unknown): string | null {
+  return typeof v === 'string' ? v : null
+}
+function strArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+}
+
+/** 上游 tasks 条目归一;非对象/无 task_code 的条目剔除(形状坏不冒充数据) */
+function normalizeTaskItem(raw: unknown): NormalizedTaskItem | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const r = raw as Record<string, unknown>
+  const taskCode = strOrNull(r.task_code) ?? strOrNull(r.taskCode)
+  if (!taskCode) return null
+  return {
+    taskCode,
+    title: strOrNull(r.title) ?? taskCode,
+    progress: numOrNull(r.progress),
+    target: numOrNull(r.target),
+    status: strOrNull(r.status),
+    acceptStatus: strOrNull(r.accept_status),
+    rewardCredit: numOrNull(r.reward_credit),
+    rewardEnergy: numOrNull(r.reward_energy),
+    validTo: strOrNull(r.valid_to),
+  }
+}
+
+/** 号池账号 → ai-service 签到账号 id 的解析结果(错误带 HTTP 状态,由调用方直发) */
+type TaskTargetResult =
+  { ok: true; checkinAccountId: number } | { ok: false; status: number; message: string }
+
+/**
+ * 解析任务自动化目标账号:号池行存在 ∧ 平台有任务引擎 ∧ 已同步到签到侧。
+ * 三态各自点名:404 不存在 / 400 平台无引擎 / 502 签到侧不可达 / 409 未同步。
+ */
+async function resolveWorkbuddyTaskTarget(poolAccountId: string): Promise<TaskTargetResult> {
+  const [row] = await dbRead
+    .select({
+      providerCode: aiRelayAccountPool.providerCode,
+      uid: aiRelayAccountPool.uid,
+    })
+    .from(aiRelayAccountPool)
+    .where(eq(aiRelayAccountPool.id, poolAccountId))
+    .limit(1)
+  if (!row) return { ok: false, status: 404, message: '账号不存在' }
+  const platform = checkinPlatformFor(row.providerCode)
+  if (platform !== TASK_AUTOMATION_PLATFORM) {
+    return {
+      ok: false,
+      status: 400,
+      message: `平台 ${row.providerCode} 无 WorkBuddy 任务自动化引擎,无法操作任务`,
+    }
+  }
+  const st = await fetchPoolStatus(platform, {
+    poolAccountId,
+    uid: row.uid ?? '',
+  })
+  if (!st.ok) {
+    return { ok: false, status: 502, message: st.error ?? '签到侧状态点查失败,无法解析任务账号' }
+  }
+  if (!st.found || st.accountId === null) {
+    return { ok: false, status: 409, message: '账号尚未同步到签到侧(或已被删除),无法操作任务' }
+  }
+  return { ok: true, checkinAccountId: st.accountId }
+}
+
+/** 上游非 2xx → 透传状态映射(429/404 原样,其余 502);detail/reason 择优带出 */
+function upstreamTaskErrorStatus(httpStatus: number): number {
+  return httpStatus === 404 || httpStatus === 429 ? httpStatus : 502
+}
+function upstreamTaskErrorDetail(body: Record<string, unknown> | null): string {
+  const detail = strOrNull(body?.detail) ?? strOrNull(body?.reason) ?? ''
+  return detail ? `: ${detail.slice(0, 200)}` : ''
 }
 
 const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
@@ -1005,6 +1119,104 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     // 404(未同步)/429(冷却/限流)原样透传;502(网络)由 ai-service 不可达导致
     const status = r.httpStatus === 404 || r.httpStatus === 429 ? r.httpStatus : 502
     return reply.status(status).send(error(status, r.error ?? '触发签到失败'))
+  })
+
+  // ===== 28. GET /admin/relay/accounts/:id/tasks — WorkBuddy 任务清单(O68) =====
+  // 转发 ai-service /api/checkin/accounts/{id}/tasks(立即签到同款纪律):
+  // unjudged 显式透传;响应形状读不出清单 ⇒ ok:false + unjudged:true(不冒充空列表)。
+  server.get('/admin/relay/accounts/:id/tasks', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const target = await resolveWorkbuddyTaskTarget(p.data.id)
+    if (!target.ok) {
+      return reply.status(target.status).send(error(target.status, target.message))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/checkin/accounts/${target.checkinAccountId}/tasks`,
+        { signal: AbortSignal.timeout(30_000) },
+      )
+      const body = (await resp.json().catch(() => null)) as Record<string, unknown> | null
+      if (!resp.ok) {
+        const status = upstreamTaskErrorStatus(resp.status)
+        return reply
+          .status(status)
+          .send(
+            error(status, `任务清单获取失败 HTTP ${resp.status}${upstreamTaskErrorDetail(body)}`),
+          )
+      }
+      const rawTasks = Array.isArray(body?.tasks) ? (body!.tasks as unknown[]) : null
+      const listed = rawTasks !== null
+      const tasks = listed
+        ? rawTasks.map(normalizeTaskItem).filter((x): x is NormalizedTaskItem => x !== null)
+        : []
+      const engineOk = body !== null && body.ok === true
+      return reply.send(
+        success({
+          ok: engineOk && listed,
+          tasks,
+          reason: strOrNull(body?.reason),
+          // 引擎自报未判定 ∨ 形状读不出清单 ⇒ 未判定;两者都不是才算"判过"
+          unjudged: body?.unjudged === true || !listed || !engineOk,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, '任务清单服务暂不可用'))
+    }
+  })
+
+  // ===== 29. POST /admin/relay/accounts/:id/task-run — WorkBuddy 任务手动触发(O68) =====
+  // body {kind, dryRun?} → 上游 {kind, dry_run};429/404 原样透传;
+  // credit/energy delta 形状读不出 = null + unjudged,绝不用 0 冒充"没拿到"。
+  server.post('/admin/relay/accounts/:id/task-run', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const b = taskRunBodySchema.safeParse(request.body ?? {})
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    const target = await resolveWorkbuddyTaskTarget(p.data.id)
+    if (!target.ok) {
+      return reply.status(target.status).send(error(target.status, target.message))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/checkin/accounts/${target.checkinAccountId}/task-run`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ kind: b.data.kind, dry_run: b.data.dryRun ?? false }),
+          signal: AbortSignal.timeout(60_000),
+        },
+      )
+      const body = (await resp.json().catch(() => null)) as Record<string, unknown> | null
+      if (!resp.ok) {
+        const status = upstreamTaskErrorStatus(resp.status)
+        return reply
+          .status(status)
+          .send(error(status, `任务触发失败 HTTP ${resp.status}${upstreamTaskErrorDetail(body)}`))
+      }
+      // 2xx 但对象面读不出(ok 非布尔 / delta 族整体缺失)⇒ unjudged 如实标注
+      const engineOk = body !== null && typeof body.ok === 'boolean' ? (body.ok as boolean) : false
+      const shaped = body !== null && typeof body.ok === 'boolean'
+      return reply.send(
+        success({
+          ok: engineOk,
+          kind: b.data.kind,
+          accepted: strArray(body?.accepted),
+          claimed: strArray(body?.claimed),
+          creditDelta: numOrNull(body?.credit_delta),
+          energyDelta: numOrNull(body?.energy_delta),
+          reason: strOrNull(body?.reason),
+          unjudged: body?.unjudged === true || !shaped,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, '任务触发服务暂不可用'))
+    }
   })
 
   // ===== 10. POST /admin/relay/accounts/:id/claim — 认领账号 =====
