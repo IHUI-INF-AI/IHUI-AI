@@ -25,7 +25,7 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { DROP_LEDGER_REL } from '../lib/plan-drop-record.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const { droppedOpenRowsOf, catchUpForCommit } = src
+const { droppedOpenRowsOf, catchUpForCommit, MAX_AUTO_CATCH } = src
 
 const OPEN_A = '- [ ] G-901 兜底腿夹具甲'
 const OPEN_B = '- [ ] G-902 兜底腿夹具乙'
@@ -132,5 +132,43 @@ test('⑧ 真仓台账只被本器写过一次,且未判定不写', () => {
   const bad = catchUpForCommit({ sha: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', root: ROOT })
   assert.equal(bad.rc, 2, '不存在的提交 ⇒ 未判定')
   assert.equal(readFileSync(real, 'utf8'), before, '未判定不得动真账')
+})
+
+/** 造一枚"一次抹掉 n 条未勾登记行"的提交 = 整片回退型(§5b 记过 19339 行那一族的微缩版)。 */
+function makeBulkRepo(t, n) {
+  const dir = mkScratch('closedrop-bulk-')
+  t.after(() => rmScratch(dir))
+  runGit(dir, ['init', '-q'])
+  runGit(dir, ['config', 'user.email', 'fixture@example.invalid'])
+  runGit(dir, ['config', 'user.name', 'fixture'])
+  const rows = Array.from(
+    { length: n },
+    (_, i) => `- [ ] G-9${String(i).padStart(2, '0')} 批量夹具`,
+  )
+  const file = join(dir, 'PROJECT_PLAN.md')
+  writeFileSync(file, [...rows, ''].join('\n'), 'utf8')
+  runGit(dir, ['add', '-A'])
+  runGit(dir, ['commit', '-q', '-m', 'init'])
+  writeFileSync(file, '', 'utf8')
+  runGit(dir, ['add', '-A'])
+  runGit(dir, ['commit', '-q', '-m', 'chore(plan): 整片回退型删除'])
+  return dir
+}
+
+test('⑨ 超限 ⇒ 拒绝补凭据 + 零入账(真丢的行不许被器物洗成"已处置")', (t) => {
+  const dir = makeBulkRepo(t, MAX_AUTO_CATCH + 1)
+  const r = catchUpForCommit({ sha: 'HEAD', root: dir })
+  assert.equal(r.rc, 2, '超限必须是未判定档,不得记绿也不得冒成"已入账"')
+  assert.equal(r.verdict, 'over-limit', r.why)
+  assert.equal(ledgerOf(dir), '', '超限一律零入账')
+})
+
+test('⑩ 同一批显式放宽上限 ⇒ 放行(证明牙是"多问一次",不是死门)', (t) => {
+  const n = MAX_AUTO_CATCH + 1
+  const dir = makeBulkRepo(t, n)
+  const r = catchUpForCommit({ sha: 'HEAD', root: dir, max: n })
+  assert.equal(r.rc, 0, r.why)
+  assert.equal(r.verdict, 'recorded', '人确认过就该放行,否则这条出路是跑不通的(§0.8)')
+  assert.equal(r.res.written, n)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

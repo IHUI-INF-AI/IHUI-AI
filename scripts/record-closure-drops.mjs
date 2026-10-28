@@ -31,6 +31,12 @@
  * 只补"父版有、本版没有"的那几条,且刻意**不看工作区**:旁路落地(commit-tree+CAS)不跑钩子,
  * 而工作区副本常年滞后 HEAD,拿它当输入会把别人在飞的行当成"被我删了"。
  *
+ * 本器自己有**一条必须先答的危险**:补留痕 = 宣布"这行本侧已正当处置",而门 71 认逐字留痕且排在
+ * 丢失判定之前 ⇒ 记了账的行**永远不会再被回捞**。所以一枚"用旧基线整片抹掉别人活行"的回退型提交
+ * 若被顺手补上凭据,就是拿器物把真丢的行洗成已处置(§5b 记过 19339 行、§1 记过 350→1699 那一型)。
+ * 牙 = `MAX_AUTO_CATCH` 单批上限(定档依据是现读的分布,不是拍的),超限一律未判定 + 零入账 + 给
+ * 出路,要人先看再显式 `--max` 放宽;这一档与 §0.10 同向(失效只能"多问一次",不得"多放一次")。
+ *
  * 三态(§0.3):0 = 已判定(含零候选);2 = 未判定(父版/本版取不到、祖先问不到、台账写不进)。
  * 未判定一律**零入账**,不猜"它大概是没人删过"。
  *
@@ -51,6 +57,40 @@ export const SEAT = 'post-commit-closure-catch'
 export const NOTE =
   'record-closure-drops 兜底入账:该枚提交删掉了未勾登记行但当时没有留痕(结清通道未接留痕腿),' +
   '现按父版逐字原文补记,供 scrub-declared-removals、union declaredDropCaps 与门 71 declaredExempt 认账'
+
+/**
+ * 单批补凭据的条数上限(2026-10-28 立,是本器**自己**那条危险通道的牙)。
+ *
+ * 为什么非有不可:补留痕 = 宣布"这一行是本侧正当处置掉的",而门 71 的 `declaredExempt` 排在
+ * 丢失判定**之前** ⇒ 一行一旦记进这本账,它就**永远不会再被回捞**。于是"该给谁补"必须收窄:
+ * 一枚把别人整片活行抹掉的旧基线回退(§5b 记过 19339 行、§1 记过 350→1699 那一型)若被本器
+ * 顺手"补了凭据",就是拿器物把**真丢的行**洗成已处置 —— 灾难方向与本器要修的那个缺陷同量级,
+ * 而且失效方向是安静的(账面上只会更绿)。
+ *
+ * 上限不是拍的:现读锚点 = 最近 40 枚提交里只有 3 枚动过登记行、每枚各 1 条 ⇒ 合法结清是
+ * "几条"量级;整片回退是"成百上千"量级。取 20 留足归并/批量摘副本的正常余量,又远低于回退型。
+ * 超限 ⇒ 未判定 + 零入账 + 点名要求人先看过,再显式 `--max` 放宽(§0.10:失效方向只能是"多问一次")。
+ */
+export const MAX_AUTO_CATCH = 20
+
+/** 批量上限判据(纯函数、零 IO)。`max` 非正整数 ⇒ 用法错,不得静默回落缺省。 */
+export function judgeBatchLimit({ candidates, max = MAX_AUTO_CATCH } = {}) {
+  const n = Number(candidates)
+  const cap = Number(max)
+  if (!Number.isInteger(cap) || cap < 1)
+    return { ok: false, misuse: true, why: `上限值不是正整数(实得 ${String(max)})⇒ 用法错` }
+  if (!Number.isInteger(n) || n < 0)
+    return { ok: false, misuse: true, why: `候选数不成数(实得 ${String(candidates)})⇒ 用法错` }
+  if (n > cap)
+    return {
+      ok: false,
+      why:
+        `候选 ${n} 条 > 上限 ${cap} ⇒ 这更像整片回退而不是结清,拒绝补凭据` +
+        '(补了就等于永久放弃回捞那些可能真丢的行)。先查这枚提交到底干了什么;' +
+        '确认合法再显式加 --max 放宽。',
+    }
+  return { ok: true, why: '' }
+}
 
 /**
  * 父版→本版消失的未勾登记行(纯函数、零 IO)。
@@ -87,7 +127,13 @@ function readFace(sha, doc, root) {
 }
 
 /** 对一枚提交补留痕;返回 {rc, verdict, rows, res} —— rc 2 一律零入账。 */
-export function catchUpForCommit({ sha, doc = LEDGER_DOC, root = ROOT, dryRun = false } = {}) {
+export function catchUpForCommit({
+  sha,
+  doc = LEDGER_DOC,
+  root = ROOT,
+  dryRun = false,
+  max = MAX_AUTO_CATCH,
+} = {}) {
   const full = git(['rev-parse', '--verify', '--quiet', `${sha}^{commit}`], {
     root,
     allowFail: true,
@@ -124,6 +170,11 @@ export function catchUpForCommit({ sha, doc = LEDGER_DOC, root = ROOT, dryRun = 
     return { rc: 2, verdict: 'undetermined', why: '形态尺输入不成文本 ⇒ 未判定' }
   if (parentRows.length === 0)
     return { rc: 0, verdict: 'none', rows: [], why: '本版相对父版未消失未勾登记行 ⇒ 零入账' }
+  // 批量上限的牙必须在**任何写盘之前**,也必须在 dry-run 之前 —— 否则 `--dry-run` 会说"将会入账"
+  // 一批根本不该入账的行,把危险通道读成正常。
+  const cap = judgeBatchLimit({ candidates: parentRows.length, max })
+  if (cap.misuse) return { rc: 2, verdict: 'undetermined', rows: parentRows, why: cap.why }
+  if (!cap.ok) return { rc: 2, verdict: 'over-limit', rows: parentRows, why: cap.why }
   const ancestor = isAncestor(full, headSha, { root })
   if (ancestor === null)
     return { rc: 2, verdict: 'undetermined', why: '祖先关系问不到 ⇒ 未判定(零入账)' }
@@ -227,6 +278,24 @@ export function selfTestCases() {
         return droppedOpenRowsOf({ parentText: t, headText: t }).length === 0
       },
     },
+    {
+      name: '⑧ 超限 ⇒ 拒绝补凭据(整片回退不许被洗成"已处置")',
+      run: () => {
+        const r = judgeBatchLimit({ candidates: MAX_AUTO_CATCH + 1, max: MAX_AUTO_CATCH })
+        return r.ok === false && typeof r.why === 'string' && r.why.length > 10
+      },
+    },
+    {
+      name: '⑨ 恰好顶到上限 ⇒ 放行(边界不得多拦一条)',
+      run: () => judgeBatchLimit({ candidates: MAX_AUTO_CATCH, max: MAX_AUTO_CATCH }).ok === true,
+    },
+    {
+      name: '⑩ 上限值不是正整数 ⇒ 用法错,不静默回落缺省',
+      run: () =>
+        judgeBatchLimit({ candidates: 1, max: 'abc' }).misuse === true &&
+        judgeBatchLimit({ candidates: 1, max: 0 }).misuse === true &&
+        judgeBatchLimit({ candidates: 1, max: 2.5 }).misuse === true,
+    },
   ]
 }
 
@@ -250,10 +319,11 @@ function runSelfTest() {
 }
 
 function parseArgv(argv) {
-  const opts = { sha: 'HEAD', doc: LEDGER_DOC, dryRun: false, json: false }
+  const opts = { sha: 'HEAD', doc: LEDGER_DOC, max: MAX_AUTO_CATCH, dryRun: false, json: false }
   const valueFlags = [
     ['--sha', 'sha', '提交'],
     ['--doc', 'doc', '路径'],
+    ['--max', 'max', '正整数条数上限'],
   ]
   for (const [flag, key, noun] of valueFlags) {
     const f = requireFlagValue(argv, flag, { noun })
@@ -286,12 +356,25 @@ function main() {
     console.log(
       `用法: node scripts/record-closure-drops.mjs [--sha <commit>] [--doc <path>] [--dry-run] [--json]\n` +
         `      node scripts/record-closure-drops.mjs --self-test\n` +
-        `职责: 把"某枚提交删掉却未入账的未勾登记行"补进 ${DROP_LEDGER_REL}(判定面不改)。`,
+        `职责: 把"某枚提交删掉却未入账的未勾登记行"补进 ${DROP_LEDGER_REL}(判定面不改)。\n` +
+        `批量上限: 单批最多 ${MAX_AUTO_CATCH} 条;超限 ⇒ 未判定 + 零入账(补凭据=放弃回捞,整片回退型不许补)。\n` +
+        `          确认那枚提交是合法批量摘除后,显式加 --max <正整数> 放宽。`,
     )
     return 0
   }
   if (opts.selfTest) return runSelfTest()
-  const r = catchUpForCommit({ sha: opts.sha, doc: opts.doc, root: ROOT, dryRun: opts.dryRun })
+  const r = catchUpForCommit({
+    sha: opts.sha,
+    doc: opts.doc,
+    root: ROOT,
+    dryRun: opts.dryRun,
+    max: opts.max,
+  })
+  if (r.verdict === 'over-limit')
+    console.error(
+      `🔧 出路(是"多问一次",不是"多放一次"):先跑 node scripts/check-plan-line-loss.mjs 看这枚提交` +
+        `被判缺的到底是哪些行;确认这些行确属正当批量摘除,再带 --max <条数> 复跑本器。`,
+    )
   if (opts.json) {
     console.log(
       JSON.stringify({
@@ -320,7 +403,9 @@ if (isDirectRun) {
 export const __test__ = {
   droppedOpenRowsOf,
   catchUpForCommit,
+  judgeBatchLimit,
   selfTestCases,
+  MAX_AUTO_CATCH,
   SEAT,
   NOTE,
   RESULT_PREFIX,
