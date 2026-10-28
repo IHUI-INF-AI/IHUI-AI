@@ -49,8 +49,6 @@ function toAutomationItem(item: UserAutomation, t: TReturn): AutomationItem {
     nextRunText: formatDateTime(item.nextRunAt),
     prompt: item.prompt,
     lastResultSummary: item.lastResult?.summary ?? null,
-    // G-241 终态成因(null = 无终态);徽章判据单源在 @ihui/shared,本屏只做数据搬运
-    terminalReason: item.terminalReason,
   }
 }
 
