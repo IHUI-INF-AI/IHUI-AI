@@ -10703,6 +10703,11 @@
     "noAssessment": "評価はまだありません"
   },
   "goalCard": {
+    "resumeServerOk": "目標を再開しました",
+    "resumeAlreadyActive": "目標は既に進行中です。再開の必要はありません",
+    "resumeTerminal": "目標は完了済みのため再開できません",
+    "resumeNoGoal": "このセッションに再開できる目標がありません",
+    "resumeFailed": "再開に失敗しました:{message}",
     "editAriaLabel": "目標を編集",
     "editSave": "保存",
     "editCancel": "キャンセル",
