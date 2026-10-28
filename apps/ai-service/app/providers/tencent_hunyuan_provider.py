@@ -31,6 +31,22 @@ logger = logging.getLogger(__name__)
 _HUNYUAN_VIDEO_BASE = "https://hunyuan.tencentcloudapi.com"
 _HUNYUAN_VIDEO_VERSION = "2023-04-01"
 
+# 2026-10-28: 老 hunyuan.*.tencentcloudapi.com 模型已于 2026-06-22 全量停服,
+# HUNYUAN_API_KEY 改为 TokenHub(MaaS)密钥。目录/种子里的旧模型名统一映射到 TokenHub 上
+# 实测可用的 hy3(hy4-preview 控制台状态「已停止」,调用返 402 401006)。
+_TOKENHUB_MODEL_ALIAS: dict[str, str] = {
+    "hunyuan-lite": "hy3",
+    "hunyuan-standard": "hy3",
+    "hunyuan-pro": "hy3",
+    "hunyuan-turbo": "hy3",
+    "hunyuan-turbos-latest": "hy3",
+    "hunyuan-hy3": "hy3",
+}
+
+
+def _is_tokenhub(base_url: str) -> bool:
+    return "tokenhub.tencentmaas.com" in base_url
+
 
 def _htc3_signer(
     secret_id: str,
@@ -97,6 +113,14 @@ class TencentHunyuanProvider(BaseProvider):
         base = api_base or "https://hunyuan.tencentcloudapi.com"
         super().__init__(api_key, base, timeout)
         self.base_url = base.rstrip("/")
+        self._tokenhub = _is_tokenhub(self.base_url)
+        # TokenHub 是 OpenAI 兼容网关,直接复用 OpenAIProvider(LiteLLM 的 tencent/ 适配不认 hy3)。
+        self._openai_delegate: Any = None
+        if self._tokenhub:
+            from .openai_provider import OpenAIProvider
+
+            origin = self.base_url[:-3] if self.base_url.endswith("/v1") else self.base_url
+            self._openai_delegate = OpenAIProvider(api_key, origin, timeout)
         sid, sk = self._resolve_credentials(api_key)
         self._secret_id = sid
         self._secret_key = sk
@@ -124,6 +148,10 @@ class TencentHunyuanProvider(BaseProvider):
         tools: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        if self._openai_delegate is not None:
+            return await self._openai_delegate.complete(
+                messages, _TOKENHUB_MODEL_ALIAS.get(model, model), tools=tools, **kwargs
+            )
         try:
             import litellm
         except ImportError:
@@ -185,6 +213,12 @@ class TencentHunyuanProvider(BaseProvider):
         tools: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
+        if self._openai_delegate is not None:
+            async for chunk in self._openai_delegate.astream(
+                messages, _TOKENHUB_MODEL_ALIAS.get(model, model), tools=tools, **kwargs
+            ):
+                yield chunk
+            return
         try:
             import litellm
         except ImportError:

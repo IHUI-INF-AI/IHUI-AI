@@ -344,8 +344,8 @@ export const auditEvidenceExportRoutes: FastifyPluginAsync = async (server) => {
 
 /**
  * 匿名面的逐路由限流档 —— 复用仓内既有机制 `@fastify/rate-limit`(全局注册见
- * `server.ts`,逐路由 override 的既有形态见 `routes/auth-carrier.ts` /
- * `routes/auth-extended.ts`),**不自写内存计数器**。
+ * `server.ts`,逐路由 override 的既有形态见 `routes/auth-extended.ts`),
+ * **不自写内存计数器**。
  *
  * 30/min/IP 的依据:验签公钥是给外部审计方在交付核验时取用的,不是热路径轮询对象;
  * 全局档(生产 100/min/IP)对一个匿名只读端点仍然偏宽。导出这个常量是为了测试能

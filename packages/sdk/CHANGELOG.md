@@ -6,7 +6,7 @@
 
 # 变更日志(Changelog)
 
-`@ihui/sdk` 的显著变更记录于此。格式遵循
+`@ihui-ai/sdk` 的显著变更记录于此。格式遵循
 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-CN/1.1.0/),版本号遵循
 [Semantic Versioning 2.0.0](https://semver.org/lang/zh-CN/)。
 

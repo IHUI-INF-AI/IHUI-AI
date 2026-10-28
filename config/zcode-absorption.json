@@ -2199,9 +2199,9 @@
     {
       "path": "apps/zcode-cli/packages/core/src",
       "status": "windowed",
-      "files": 212,
-      "read": 212,
-      "notes": "W5 四路按互斥目录读到体:tool 176/72(根17+executor22+handlers33;窗口6:call-runner/permission-flow/result-serialization/read/edit/bash;仅结构1:generated/bash-command-registry.ts 系 1.8MB ISC 数据块)、runtime 164/25(窗口2:events/streaming-tool-coordinator)、workflow+subagent+context+agent+memory 89/85(subagent/runner.ts 与 agent/ 三件仅窗口读,不计 read)、小而密长尾 71/66(hooks19/19、permission6/6、compact6/6、runtime-task5/5、plugin-reference4/4、session-context4/4、mcp3/3、system-reminder3/3、embedded-search2/2、errors·model·telemetry 各1/1、顶层散件4/4、browser-client7/3、repl5/4)。⚠️ read=248 是【下界】不是相加值:W3 旧登记的 44 个按 notes 判定全部落在上述目录内(tool/handlers 4、runtime/methods 14、runtime/helpers+subagent+system-reminder 11、a-m/n-z 15),父子相加会双计;真实区间 [248,292]。⚠️ 刻意不新增子切片条目:M1 只判覆盖不判互斥,而头条按切片求和 ⇒ 父子并存等于给覆盖数发合格证;目录明细只写在本字段。W5-A 报的『审批等待吃掉执行预算』已三面证伪(runToolInner/requestToolApproval 全仓零命中),不得重新提出。 ｜09-29 第五十九批:core 竞窗与权限三簇 +11 枚具名整读到体(runtime-task/registry 296、tool/executor/background-task-registry 289、background-tasks 1198、runtime/methods/background 484、background-notifications 246、runtime-command-queue 476、command-queue 241、permission/service 687、broker 166、permission-responder-race 93、helpers/permission-broker 25)。少报(代理自报只读到区间,不计整读):permission-flow.ts(431,只 100-236)、headless-workflow.ts(379,只 1-60/290-355)、prompt-command.ts(642,只 295-340)。;W6-67(2026-09-29)两路只读取证:core 余量 45 份/8,935 行、ui 行为核心 5 份/2,439 行,去重后入账 42 份(core 42/ui 5),3 份与既有清单同路径已按\"下界\"少报(interaction-auto-resolution / permission-grant-recovery / permission-grant-resume);W6-68(2026-09-29)只读取证 13 份,去重后可入账 13 份,行数逐条 wc 复核、锚点逐条 awk 回读;W6-69(2026-09-29)只读取证并入账 4 份(逐条 wc 复核,誊写不符者已排除并报名);批次73(2026-09-29)四路只读取证入账:A/B/C 三路(bash 族 + handlers 前后半),代理报 136 份,逐条对克隆 29628c9 blob 现量核行,去重后入账 +121 份(readFiles 逐条 {p,lines}),排除 15 份已逐条报名,票候选见台账第六十四批;read 现值压到 500(M8 上限:386+121=507 超切片现量,与 legacy 自报重叠不可枚举,按下界计不冒进;故头条 1622→1799 而非 1806)",
+      "files": 126,
+      "read": 126,
+      "notes": "W5 四路按互斥目录读到体:tool 176/72(根17+executor22+handlers33;窗口6:call-runner/permission-flow/result-serialization/read/edit/bash;仅结构1:generated/bash-command-registry.ts 系 1.8MB ISC 数据块)、runtime 164/25(窗口2:events/streaming-tool-coordinator)、workflow+subagent+context+agent+memory 89/85(subagent/runner.ts 与 agent/ 三件仅窗口读,不计 read)、小而密长尾 71/66(hooks19/19、permission6/6、compact6/6、runtime-task5/5、plugin-reference4/4、session-context4/4、mcp3/3、system-reminder3/3、embedded-search2/2、errors·model·telemetry 各1/1、顶层散件4/4、browser-client7/3、repl5/4)。⚠️ read=248 是【下界】不是相加值:W3 旧登记的 44 个按 notes 判定全部落在上述目录内(tool/handlers 4、runtime/methods 14、runtime/helpers+subagent+system-reminder 11、a-m/n-z 15),父子相加会双计;真实区间 [248,292]。⚠️ 刻意不新增子切片条目:M1 只判覆盖不判互斥,而头条按切片求和 ⇒ 父子并存等于给覆盖数发合格证;目录明细只写在本字段。W5-A 报的『审批等待吃掉执行预算』已三面证伪(runToolInner/requestToolApproval 全仓零命中),不得重新提出。 ｜09-29 第五十九批:core 竞窗与权限三簇 +11 枚具名整读到体(runtime-task/registry 296、tool/executor/background-task-registry 289、background-tasks 1198、runtime/methods/background 484、background-notifications 246、runtime-command-queue 476、command-queue 241、permission/service 687、broker 166、permission-responder-race 93、helpers/permission-broker 25)。少报(代理自报只读到区间,不计整读):permission-flow.ts(431,只 100-236)、headless-workflow.ts(379,只 1-60/290-355)、prompt-command.ts(642,只 295-340)。;W6-67(2026-09-29)两路只读取证:core 余量 45 份/8,935 行、ui 行为核心 5 份/2,439 行,去重后入账 42 份(core 42/ui 5),3 份与既有清单同路径已按\"下界\"少报(interaction-auto-resolution / permission-grant-recovery / permission-grant-resume);W6-68(2026-09-29)只读取证 13 份,去重后可入账 13 份,行数逐条 wc 复核、锚点逐条 awk 回读;W6-69(2026-09-29)只读取证并入账 4 份(逐条 wc 复核,誊写不符者已排除并报名);批次73(2026-09-29)四路只读取证入账:A/B/C 三路(bash 族 + handlers 前后半),代理报 136 份,逐条对克隆 29628c9 blob 现量核行,去重后入账 +121 份(readFiles 逐条 {p,lines}),排除 15 份已逐条报名,票候选见台账第六十四批;read 现值压到 500(M8 上限:386+121=507 超切片现量,与 legacy 自报重叠不可枚举,按下界计不冒进;故头条 1622→1799 而非 1806 ｜第五批(2026-10-28,波3):tool/handlers 余 86 枚逐文件拆出独立切片(全部 deep,主会话代理逐文件读到体、readFiles 逐条对克隆 29628c9 git show 面 wc 现量),父面现量 212→126、read 同步 126(拆出的 86 枚此前被父面 read=counted 口径顶为已读,而 notes 老账点名 read-session-context/node-repl/create-workflow/store/read-pdf/cron 等确在未读列 ⇒ 本次拆分同时是纠偏:这 86 枚的合格证从父片转移到了各自带清单的子片)。)",
       "remaining": "约 251 未读。tool 余 97:background-tasks.ts 1198、result-display 461、read-session-context 440、edit-matchers/node-repl/create-workflow 411、store/read-pdf/cron/bash-command-permission-policy 38x。runtime 余 137:session-fork 1487、steering 1403、types 924、subagent 915、turn 872、turn-model-step 803、rewind-message 740、compact-active 725、file-rewind 717、agent-runtime 664、turn-tools 527、model 518。窗口读过的 events.ts / streaming-tool-coordinator.ts / subagent/runner.ts / agent 三件需回读补体。 ｜09-29 第六十四批复量回填:主会话 wc -l 逐份现量后具名整读到体 +13(代理报 14 枚候选,跳过 1 枚重叠/取不到);新立票 9 枚(G-815969…G-815977),每票的我方侧命中数由主会话在 HEAD 面重跑。 ｜09-29 第六十五批复量回填:代理报 9 份而逐名去重后计 +5(其余已在历史 notes 点过名,重叠不可计算);新证据 8 条按 b≤wc -l 兑现;新票 3 枚(G-815980…G-815981…G-815982)。 | W6-67 后本区余量:core 约 155-165 份未读(下一刀 subagent.ts+background-tasks.ts+task-output*/task-stop,再 compact.ts+compact-selection+context-usage+media-budget,后转 mcp/memory/workflow 整域);ui 约 1545 份/324,983 行未读(下一刀 packages/ui/src/v4 下 *.ts 非 .tsx:实测 60 份/约 9,100 行) | W6-68 后 core 同族还差 2 份/326 行(workflow-published-artifacts.ts 余 71-234、result-persistence-format.ts 未读);下一刀 tool/executor 的结果出口三件 result-display.ts 461 + result-serialization.ts 395 + permission-flow.ts 431(约 1,287 行),再 call-runner.ts 703 与 handlers/bash.ts 569(为 G-816026 的\"谁发的 SIGTERM\"落点写实)",
       "evidence": [
         "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-egress-guard.ts:77",
@@ -16884,7 +16884,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/workspace-checkpoint-persistence.ts:1-266"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/workspace-checkpoint-persistence.ts:1-266"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -16900,7 +16902,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/workspace-checkpoints.ts:1-357"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/workspace-checkpoints.ts:1-357"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -16948,7 +16952,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-description.ts:1-20"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-description.ts:1-20"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -16964,7 +16970,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-resolve.ts:1-238"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-resolve.ts:1-238"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17044,7 +17052,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-background-lifecycle.ts:1-36"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-background-lifecycle.ts:1-36"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17092,7 +17102,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-command-permission-policy.ts:1-383"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-command-permission-policy.ts:1-383"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17108,7 +17120,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-command-rule-evaluator.ts:1-50"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-command-rule-evaluator.ts:1-50"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17156,7 +17170,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-git-runtime-safety.ts:1-211"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-git-runtime-safety.ts:1-211"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17252,7 +17268,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-read-file-sources.ts:1-275"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-read-file-sources.ts:1-275"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17284,7 +17302,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-direct.ts:1-146"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-direct.ts:1-146"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17300,7 +17320,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-flags.ts:1-182"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-flags.ts:1-182"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17316,7 +17338,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-git.ts:1-79"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-git.ts:1-79"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17332,7 +17356,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-io.ts:1-99"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-io.ts:1-99"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17348,7 +17374,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv.ts:1-108"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv.ts:1-108"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17364,7 +17392,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-callbacks.ts:1-354"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-callbacks.ts:1-354"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17380,7 +17410,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-commands.ts:1-24"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-commands.ts:1-24"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17396,7 +17428,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-file.ts:1-195"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-file.ts:1-195"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17412,7 +17446,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-git.ts:1-243"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-git.ts:1-243"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17428,7 +17464,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-process.ts:1-323"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-process.ts:1-323"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17444,7 +17482,9 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-text.ts:1-362"],
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-text.ts:1-362"
+      ],
       "tickets": [],
       "readFiles": [
         {
@@ -17453,6 +17493,1436 @@
         }
       ],
       "notes": "文本类命令安全 flags 表（tree/cat/head/tail/wc/rg/grep/sed/xargs/file）；导出 OPTION_PATTERN 与各 SAFE_FLAGS 常量。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags.ts:1-4"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags.ts",
+          "lines": 4
+        }
+      ],
+      "notes": "再导出 barrel:把 flags 按 file/git/process/text 四件拆分后在此聚合 export *。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy.ts:1-5"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy.ts",
+          "lines": 5
+        }
+      ],
+      "notes": "出口 barrel:re-export evaluateBashReadonlyPolicy/hasKnownBashWriteOption(argv)与 isSedInPlaceOption(callbacks)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-constants.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch-constants.ts:1-11"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-constants.ts",
+          "lines": 11
+        }
+      ],
+      "notes": "WebFetch 常量单源:超时 60s、URL ≤2000 字符、响应 ≤10MB、模型输入 ≤100k 字符、缓存 15min TTL/50MB 预算、重定向 ≤10、专用 UA。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/eval-workflow-snippet-description.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/eval-workflow-snippet-description.ts:1-12"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/eval-workflow-snippet-description.ts",
+          "lines": 12
+        }
+      ],
+      "notes": "EvalWorkflowSnippet 常驻描述:同步编译并运行动态工作流 TS 片段的测试台;写作规则在 dynamic-workflow 技能,技能门未加载即拒调;code/path 互斥。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-types.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-types.ts:1-14"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-types.ts",
+          "lines": 14
+        }
+      ],
+      "notes": "SafeFlagValue 六档枚举与 BashReadonlyCommandPolicy 接口:safeFlags/regex/commandOnly/allowAnyArgs/respectsDoubleDash/危险回调钩子。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/save-workflow-description.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/save-workflow-description.ts:1-16"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/save-workflow-description.ts",
+          "lines": 16
+        }
+      ],
+      "notes": "SaveWorkflow 常驻描述:唯一须先于技能加载可见的规则=绝不主动保存(写用户仓库文件须用户同意);scope 决定项目级/全局;script 与 script_path 互斥。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/websearch-support.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/websearch-support.ts:1-18"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/websearch-support.ts",
+          "lines": 18
+        }
+      ],
+      "notes": "webSearchTraceFromContext:从 ToolExecutionContext 铸 TraceContext(traceId/spanId/sessionId/turnId+toolCallId·toolName=WebSearch 属性)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-analysis.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-analysis.ts:1-23"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-analysis.ts",
+          "lines": 23
+        }
+      ],
+      "notes": "analyzeScript 按脚本原文做单槽记忆:审批 gate 前析+handler 后析两次 TS 编译折叠成一次;刻意非通用缓存;Create/Save 两工具共用同一检查器防「能存不能跑」。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-path.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-path.ts:1-32"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-path.ts",
+          "lines": 32
+        }
+      ],
+      "notes": "describeWorkflowScriptPath:journal 存绝对路径(run 身份),模型面给工作区相对写法;path.relative 结果以 .. 开头/绝对/空串三态退回绝对,挡目录外兄弟路径与 Windows 跨盘符;三处模型面共用防分叉。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-description.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-description.ts:1-33"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-description.ts",
+          "lines": 33
+        }
+      ],
+      "notes": "CreateWorkflow 常驻描述四段:INTRO(typecheck+确认+后台跑)、WHEN_TO_USE(只有用户点名 workflow 才发起,大小只决定子代理数量)、SKILL_GATE(技能未加载拒调,跑已存工作流豁免)、SOURCES(script/saved/path 三源互斥,改既有 run 走 AmendWorkflow)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/index.ts:1-33"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/index.ts",
+          "lines": 33
+        }
+      ],
+      "notes": "saved-workflows 模块出口:frontmatter(SENTINEL/parse/serialize)+store(list/save/move/resolve/exists/path/roots/shadowing)+args(validateWorkflowArgs)三件聚合再导出。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-errors.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch-errors.ts:1-35"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-errors.ts",
+          "lines": 35
+        }
+      ],
+      "notes": "webFetchError 铸 ToolExecutionFailed 核心错误(可恢复),仅 FetchFailed/ProcessingFailed 标 retryable;十档错误码映射表(invalid_url/unsupported_protocol/credentials_in_url/redirect 诸态/egress_blocked/too_large 等)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-multiword-core.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-multiword-core.ts:1-36"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-multiword-core.ts",
+          "lines": 36
+        }
+      ],
+      "notes": "只读多词策略核心三条目:docker inspect/docker logs(safeFlags+dockerCommandIsDangerous)、gh auth status(五旗标+gh 危险回调);as const satisfies 策略二元组。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-trace.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch-trace.ts:1-37"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-trace.ts",
+          "lines": 37
+        }
+      ],
+      "notes": "emitNetworkRequestStatus 向会话发 NetworkRequestStatus 事件;traceFromContext 从执行上下文铸 TraceContext(toolName=WebFetch)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-types.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch-types.ts:1-38"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-types.ts",
+          "lines": 38
+        }
+      ],
+      "notes": "WebFetch 抓取结果三面类型:CachedFetchContent(含 artifact/redirects/sizeBytes)、RedirectFetchContent、HttpErrorFetchContent(retryAfter),FetchAndExtractContentResult 为三者判别联合。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/node-repl-model-content.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/node-repl-model-content.ts:1-41"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/node-repl-model-content.ts",
+          "lines": 41
+        }
+      ],
+      "notes": "formatJsModelContent:错误头 name: message 后剥重复 header 只留栈帧(多行 locator 不能只删首行);logs/=> result/浏览器截图路径拼文本;emitImage 图片转 image 内容块置于文本摘要前(canonical order)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-analysis-display.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/workflow-analysis-display.ts:1-46"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-analysis-display.ts",
+          "lines": 46
+        }
+      ],
+      "notes": "静态分析→显示图唯一投影:因果图给站点车道/控制流图给阶段词汇/交接图给子代理卡,三份拼一次(boundCausalityGraph);CreateWorkflow handler、确认窗 gate、直接启动三处共用,中枢直启缺时间线事故即此立因;Amend 复用同 display kind 传自己工具名。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-cache.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch-cache.ts:1-58"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-cache.ts",
+          "lines": 58
+        }
+      ],
+      "notes": "WebFetch 进程内 Map 缓存:get 命中续序/过期即删并扣字节,put 拒超 50MB 单值、覆盖扣旧值,prune 先扫过期再按插入序淘汰到预算内;TTL 15min;clear 供测试。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-skill-gate.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/workflow-skill-gate.ts:1-61"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-skill-gate.ts",
+          "lines": 61
+        }
+      ],
+      "notes": "四工作流工具的技能门前置检查:错误码 428 与参数 400 分离(调用方不靠文本区分「改参数」与「先读技能」);判据取模型可见 messageHistory,compaction 清正文即失效、resume/rewind 随历史恢复;探针缺席不设不可满足前提;Create 跑 saved / Amend 只改设定两条例外。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-draft-read-state.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/workflow-draft-read-state.ts:1-68"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-draft-read-state.ts",
+          "lines": 68
+        }
+      ],
+      "notes": "内联草稿记入 readFileState(字节即本次 script 入参,否则第一次 Edit 必 FILE_NOT_READ、补救要重读两万 token);仅内联分支调用,saved 拷贝/沿用前驱/中枢直启/GUI 修订都不是模型亲手写字节;写后 stat 取 revision 与 Edit stale 校验同端口;并落 tool part metadata 供 resume 水化。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-notes.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-notes.ts:1-86"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-notes.ts",
+          "lines": 86
+        }
+      ],
+      "notes": "脚本文件模型面文案单源:draft/path 只影响动词;诊断行有文件写 {path}:L{line+offset} 可粘进 Edit、无文件退回正文坐标;NOTE 三态(内联/path、saved 拷贝交代来源与 SaveWorkflow 出路、启动后修订指引),Create/Amend 共用防分叉。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/read-video.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/read-video.ts:1-88"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read-video.ts",
+          "lines": 88
+        }
+      ],
+      "notes": "Read 视频分支:CLI 不引 ffmpeg,只 base64+READ_VIDEO_MAX_INPUT_BYTES 校验;空文件显式报 read_video_input_empty(否则 adapter 静默丢空 data URL 而 Read 已宣告成功);too_large 归一化带 maxBytes 上下文;wire 侧转 video_url/anthropic video block。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/args.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/args.ts:1-101"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/args.ts",
+          "lines": 101
+        }
+      ],
+      "notes": "保存工作流入参校验(确认窗之前,错参不配弹窗):收集全部违规一次返回;未声明 workflow 收任何参数皆错(静默丢=假生效);缺省与显式 undefined 同态;默认值走与传入值同一条类型检查(声明 number 默认 \"3\" 错在保存时);number 拒 NaN/Infinity(JSON 过不了界),json 什么都收含 null。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-egress-guard.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch-egress-guard.ts:1-107"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-egress-guard.ts",
+          "lines": 107
+        }
+      ],
+      "notes": "WebFetch 出口闸(仅 URL 字面量层,DNS preflight 因 1s 内不完被摘):localhost/.localhost 拦;IP 字面量走 ipaddr.js 判 range()==unicast;IPv4 拒 198.18.0.0/15 benchmark 段;IPv6 先剥 IPv4-mapped 与 DNS64 well-known prefix(64:ff9b::/96 低 32 位还原后套同一策略)再显式排五个 special-use 段(ipaddr.js 把其归 unicast 的坑)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-path-source.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/workflow-path-source.ts:1-113"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-path-source.ts",
+          "lines": 113
+        }
+      ],
+      "notes": "path 来源共读段(Create/Amend/Save/EvalSnippet 四工具共用,防同一文件两处解释分叉):读一次带到 hook/确认窗/handler,批准后再改文件改不了将执行的东西;sentinel 首行判据与 parseSavedWorkflow 入口逐字一致防死角;EvalSnippet 用 parseFrontmatter:false;失败文案点名文件不点名模型会原样重试;不走 resolveWorkspacePath 因 ToolInputResolutionContext 刻意只有 workingDirectory。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-content.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch-content.ts:1-115"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-content.ts",
+          "lines": 115
+        }
+      ],
+      "notes": "正文提取与落盘:非 text-like mime 报 FetchFailed;html 走正则式 htmlToMarkdown(剥注释/script/style/noscript,h1-6/a/li/br 映射再全剥标签,实体解码含十十六进制码点,压缩空白并去重连续空行);超 100k 字符落 session 级 artifact;truncateContentForModel 头部截断带显式标记。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-callbacks.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-callbacks.ts:1-121"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-callbacks.ts",
+          "lines": 121
+        }
+      ],
+      "notes": "git 只读白名单的危险回调七枚:revision-format 拒 %G/%(signature 占位;reflog 只 show/list;ls-remote 拒任何 positional;remote show 必须 -n+单合法远域名;tag/branch 走 list-like 公共判据(须有 --list/-l,--merged/--no-merged 后的 positional 例外,valueFlags 跳值,裸 positional 即危险)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/frontmatter.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/frontmatter.ts:1-125"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/frontmatter.ts",
+          "lines": 125
+        }
+      ],
+      "notes": "保存工作流 frontmatter 编解码:块注释 /* zcode-workflow 而非 --- 围栏(.dwf.ts 保持合法 TS,高亮格式化照常),body 用 YAML(已有依赖+人改容错);serialize 固定键序 description→whenToUse→args(保存两次逐字节相同,防 git 噪声 diff);script 逐字节置于终止行后(resume 以脚本原文比对);四种失败各有 reason(缺块/未闭合/YAML 坏/schema 不过)供不同建议;bodyLineOffset 单源防诊断行号分叉。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-roster-output.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-roster-output.ts:1-127"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-roster-output.ts",
+          "lines": 127
+        }
+      ],
+      "notes": "情势截面端口→工具输出逐字段搬(strict 输出 schema 防端口演进背后改变模型面);可选键一律缺席不写 undefined(模型面契约:不知道就没这个键);turn/toolCalls 绝不 ??0(0 读作没调过工具,老 journal 无 node-progress 必须可分辨);花名册按上限截断且 truncated 显式说出口;health.leftoverRunning 为 0 时缺席。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-processing.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch-processing.ts:1-127"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-processing.ts",
+          "lines": 127
+        }
+      ],
+      "notes": "WebFetch 二阶段模型加工:preapproved+markdown+限长内直返;否则截断后 auxiliary 模型 generateText(querySource=web_fetch_processing、maxOutput≤min(4096,max)),空文本回固定文案,异常归一 ProcessingFailed;非预批 prompt 带版权约束(引用≤125 字符、引号外不得逐字、不复现歌词、不评论合法性),预批只要求简洁含代码示例。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/plan-mode-prompts.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/plan-mode-prompts.ts:1-128"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/plan-mode-prompts.ts",
+          "lines": 128
+        }
+      ],
+      "notes": "Plan Mode 两个 provider 描述:EnterPlanMode 七条判据(新功能/多方案/改行为/架构决策/多文件/需求不清/偏好敏感)+反例清单+探索工具名按 embeddedSearchEnabled 切换;ExitPlanMode 说明 plan 参数携全文、研究类任务禁用、禁止用 AskUserQuestion 问「计划行不行」(那正是本工具语义)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-graph-fold.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-graph-fold.ts:1-136"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-graph-fold.ts",
+          "lines": 136
+        }
+      ],
+      "notes": "显示图阶段层唯一删边点(自 bounds 拆出的纯图论):同有序对折叠首见序、back 取成员合取(宁多不少)、自环丢;归约必须跑在前向边 SCC 缩点上——原图喂归约时见证路径绕环说谎(两组 if/else 复用同名阶段即假话型);跨分量按(分量对,kind)去重喂 reduceOrdering(回边作 carryOf seq)再展开回原边保输入序;SCC 用互相可达非 Tarjan(≤32 节点);/projections 子路径导入防 typescript 拖进浏览器包。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/tool-perf.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/tool-perf.ts:1-136"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/tool-perf.ts",
+          "lines": 136
+        }
+      ],
+      "notes": "工具遥测共用件:commandHash 定界 sha256(长度+前4096+后4096 截 16);classifyCommand 只解 2048 前缀(test/package/git/search/build/network 正则序);classifySafeCommandIdentity >8KB 直接 other(埋点不产 O(n));隐私边界=只有公开命令表 BASH_COMMAND_REGISTRY 里的静态可执行名进远端 Trace;attachToolExecutionTelemetry 用非枚举 perf 键、read/compact/merge 三件投影。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/respond-to-coordinator.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/respond-to-coordinator.ts:1-139"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/respond-to-coordinator.ts",
+          "lines": 139
+        }
+      ],
+      "notes": "子代理回话协调者工具:runtimeScope!==subagent 或端口缺席即 ConfigurationError;模型面指令六条(收 coordinator 前缀消息用它回、剩余工作期不用 assistant text 当回复、不作最终结果的替身);失败文案把 continuation 放在无上限 error 详情前防 resultBudget 截掉关键指引;4KB 预算、并发安全、plan mode 允许。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-drafts.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/workflow-drafts.ts:1-147"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-drafts.ts",
+          "lines": 147
+        }
+      ],
+      "notes": "草稿=模型两次提交之间的把手(<cwd>/.zcode/workflow-drafts/):每次内联提交铸新文件绝不背后覆盖,wx 独占创建使取名占名原子同成(stat 再写会并发撞车);slug 保 Unicode 字母数字与 _.- 截 64 码点(ASCII 版曾把中文 run 名全压成 workflow-N),丢字符天然挡路径穿越;目录 .gitignore 只缺席时写一次;尽力而为返回 undefined 且不回落临时目录;名字兜底取脚本第一个 phase 字面量。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/skill.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/skill.ts:1-150"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/skill.ts",
+          "lines": 150
+        }
+      ],
+      "notes": "Skill 工具:skillPort.loadSkill(100KB 预算)后包 <skill_content> 块并附 base directory 声明(相对路径锚点)+truncated 标记;${CLAUDE_SKILL_DIR}/${ZCODE_SKILL_DIR} 只在加载处展开;遥测记 qualifiedName/pluginId/source;描述含 BLOCKING REQUIREMENT/不得只提不调/已运行不再调/command-name 在场即已加载等模型面纪律;只读、并发安全、session 副作用域。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-url.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch-url.ts:1-152"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-url.ts",
+          "lines": 152
+        }
+      ],
+      "notes": "URL 归一与重定向裁决:≤2000 字符、仅 http/https、带凭据即拒(报错文案脱敏),http 按 provider 约定升 https;URL 层只做稳定形态过滤,IP 字面量交给贴近真实 GET 的 egress guard,普通域名无 DNS preflight;localhost/.local/非公网 IP 逐 v4/v6 分文案、单段无点域名拒;重定向须无凭据+公网+协议与有效端口同+www 模等同host。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-run-introspection.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/workflow-run-introspection.ts:1-152"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-run-introspection.ts",
+          "lines": 152
+        }
+      ],
+      "notes": "List/GetWorkflowRun 共用面:能力缺席绝不清列表(「没跑过」与「读不到」是两件事),判别键落 message 前缀(errorCode 被 executor 压成 code:1);轮询禁止文案单源(不设禁令只设默认);epoch→ISO、时长两级阶梯带分秒补零、负值/NaN 折 0、坏时间戳落原文不抛;千分位手写(宿主 ICU 不可钉);escapeXml 复用 runtime-task 那一份防抄表分叉。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/read-image.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/read-image.ts:1-160"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read-image.ts",
+          "lines": 160
+        }
+      ],
+      "notes": "Read 图片分支:FileSystemPort+ImageProcessorPort 双端口缺一即 ConfigurationError;readBinaryFile 限 READ_IMAGE_MAX_INPUT_BYTES、prepareForModel 带 base64/尺寸/原字节/token 比四预算;输出含 originalSize/transformedSize/resized/compressed/strategy/双维度;too_large 与 processor 错误各归 read_image_* 码可恢复;mime 由扩展名推 jpeg/png/gif/webp。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/task-output-bash.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/task-output-bash.ts:1-163"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/task-output-bash.ts",
+          "lines": 163
+        }
+      ],
+      "notes": "local_bash 任务投影:snapshot 在位走 stdout/stderr 双路(同路径不重读),缺席回退 outputFile;运行中固定读头部 30000B(复用通用 8MiB 尾读会让模型先看末尾);路径优先级 snapshot.outputPath→task.outputFile→persisted→artifact;outputFile 仅 stderr 空或同路才挂出;abort 检查环绕读循环,IO 错吞成 available:false 而 AbortError 必抛。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/task-output-projection.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/task-output-projection.ts:1-163"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/task-output-projection.ts",
+          "lines": 163
+        }
+      ],
+      "notes": "task-output.ts 顶 oxlint 400 行上限的拆分件(公开面仍从 task-output.ts 出):projectTask 四分支 local_bash/local_agent/local_dynamic_workflow/其他;dwf 优先 resultText(只读 outputFile 会漏终态结果);agent 取 completed output 的 text 块拼接、回退盘上;尾读 8MiB 且在头部补 [NKB omitted] 计数行;formatCompactFileSize 单位小数 bytes/KB/MB/GB。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/glob.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/glob.ts:1-164"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/glob.ts",
+          "lines": 164
+        }
+      ],
+      "notes": "Glob 工具:fileSystemPort.searchFiles maxResults 100、mtime 排序;展示路径在工作目录下给相对并统一正斜杠,越界/绝对回原样;空结果固定 No files found、truncated 附「换更具体 pattern」指引;artifact 预算 100KB、read 权限、并发安全、无副作用域。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/send-message.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/send-message.ts:1-164"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/send-message.ts",
+          "lines": 164
+        }
+      ],
+      "notes": "SendMessage:闲时轮直接拒(off-peak 泄漏路径——续跑已完成子代理不带 subagentModelOverride,全额计用户套餐,而闲时子代理本就前台完成,该工具在闲时唯一用途就是泄漏);描述点破「纯文本输出对其他 agent 不可见、必须调工具」「inbox 自动送达」;恢复终态 agent 用 agentId 后台续;模型面文案分 delivery/queued/failed 三态。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/list-saved-workflows.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/list-saved-workflows.ts:1-169"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/list-saved-workflows.ts",
+          "lines": 169
+        }
+      ],
+      "notes": "列可跑定义(与 ListWorkflowRuns 的「跑过的 run」在描述里说穿,防答成「你没有工作流」):cwd 恒取会话工作目录(模型无权跨项目扫盘=sideEffectScope none 的前提);invalid 文件点名不静默跳;模型面每条几行的 XML 块(与 run 的单行属性式刻意相反:定义是高信息低基数实体);空集说一句话防「工具没答上来」误读;不继承 Save/Create 的 alwaysAsk(读清单两条 gate 理由都不沾);同步扫描不可取消。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/escalate.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/escalate.ts:1-170"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/escalate.ts",
+          "lines": 170
+        }
+      ],
+      "notes": "工作流 actor 向主代理升级阻塞问题并停驻等待:answered/refused 两支都是普通工具结果而非 Failure(与 submit_result 的「修复通道」分道——把预算已尽渲染成错误只会诱导反复撞墙=本特性要消灭的投机绕过);描述即纪律四条(最后手段/一个聚焦问题/阻塞可能很久/per-ask 上限 3);timeout kind none(超时自行判断恰会重引绕过),逃生舱=cancelAsk 连升级 deferred 一起拒;concurrentSafe 刻意区别于 submit_result(非终态工具)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/task-stop.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/task-stop.ts:1-171"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/task-stop.ts",
+          "lines": 171
+        }
+      ],
+      "notes": "TaskStop(别名 KillShell/KillBash):task_id/shell_id 兼容;stopBackgroundTask 带 initiator=model(终态通知说「被你停」不冒充用户决定)+strict;not_running/cancel_not_supported/无此任务三态各配码(1|3)与上下文;provider 描述用长版(短说明让模型看不见参数返回时机,capability 留短)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash-semantics.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash-semantics.ts:1-174"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-semantics.ts",
+          "lines": 174
+        }
+      ],
+      "notes": "Bash 语义判据:isRuntimeReadOnlyBashCommand 全命令逐一过只读策略(写选项目/ git+cd 组合/运行时不安全的 git 上下文皆否);isSilentBashCommand 把 || 后中性命令(:/echo/true 等)豁免、须有非兜底命令且全在静默表;exit 1 语义非错四文(No matches/Files differ/Condition false/inaccessible)只认末条命令,git grep/diff 折成同名子命令防「前面出现过 rg 就把后面 test/exit 1 误判」;isBashProviderErrorStatus 据此不打红。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-summary.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-summary.ts:1-179"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-summary.ts",
+          "lines": 179
+        }
+      ],
+      "notes": "确定性一句话摘要(无模型参与可逐字钉住):两句骨架任何预算不丢、可选句整句丢、丢不动硬切留一个省略字符;「不知道就不说」贯穿(无年龄不给年龄);leftover_running 说成「进程死时还挂着、resume 会重派」;runningBreakdown 不变式 executing+waiting+parked 恰=nodesRunning(活相位各名下恰一条未结算 ask 行);pendingQuestionsKnown 为假必须说「本会话查不到」;交付物标题不加引号(XML-ish 转义会把它变两团实体);非本会话归属首句写明(通知不会来)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/edit.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/edit.ts:1-656"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/edit.ts",
+          "lines": 656
+        }
+      ],
+      "notes": "Edit 工具全文读到体:read-before-edit 判据(findEditableReadFileState+isPartialView 拒、hasReadStateChanged 用整数毫秒归一的 mtime 前进∨size 变化、严格全读且内容逐字同则放行)、old_string 空串走新建(文件须空白否则 FILE_EXISTS_NO_OLD_STRING)、ipynb 拒转 NotebookEdit、findEditMatch 策略+歧义计数、preserveQuoteStyle/normalizeReplacementForMatch;缺失文件提示同 stem/编辑距离≤3 相似名(levenshtein 手写);写回 atomic+expectedRevision+createParents、detectLineEndings CRLF 多数判定、memory 文件盖 origin sessionId、edit 后回写 readFileState+metadata;structuredPatch 与 fileByteCount 缓存进 perf;replacement 用回调防 String.replace 的 $ 特殊 token;1GB 上限;空路径自修成 INVALID_PATH 失败保 envelope(注释记因)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/bash.ts:1-569"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash.ts",
+          "lines": 569
+        }
+      ],
+      "notes": "Bash 工具全文读到体:只读命令经 resolvePermissionCapability 降 low/免审批;闲时轮显式后台拒+关自动转后台(与 subagent BACKGROUND_UNAVAILABLE 对称,注释记套餐泄漏因);三态运行(显式后台/auto_on_timeout/前台)经 backgroundLifecyclePort;cwd 决策 decideBashCwdPolicy 成功保项目内 cwd、出界 reset 回原区并把文案塞 stderr;遥测 span 分 timeout/cancel/spawn/execute 归因(非零退出是命令事实不污染失败率);progress 事件带首输出毫秒;执行请求组 embedded-search prelude、30KB inline/5GB persisted、后台 always 落盘;createBashToolEntry 工厂按 policy 重建描述/schema/超时预算(watchdog 与 handler 共用 timeout||default/max 解析,0 不再被压成 1ms);shellKind 由 display/dialect 归五档。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/submit-result.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/submit-result.ts:1-185"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/submit-result.ts",
+          "lines": 185
+        }
+      ],
+      "notes": "工作流 actor 终态提交:accept 挂 turnControl 终止 turn(stopTurnOnSuccess 声明式表达,executor 通用 withTerminalToolTurnStop 消费,不按工具名硬编码);reject 以 ToolHandlerFailure 成 error tool_result 不挂终止=修复通道,违规一行「path: expected X, got Y」;per-ask schema 不进工具声明走 ask epilogue(frozen-tool 缓存不变式),typed 工厂版对 actor 冻结并标 strict 让 Anthropic adapter 原生约束,handler/权限/预算两版逐字节同;gate 判据是端口存在而非 runtimeScope(actor 的 runtimeScope 是 main);timeout kind none,concurrentSafe:false 借串行组天然实现兄弟取消。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/websearch-results.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/websearch-results.ts:1-186"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/websearch-results.ts",
+          "lines": 186
+        }
+      ],
+      "notes": "WebSearch 输出装配:结果与来源四路收集(模型 sources/results/toolResults/summary markdown 链接——流式后引用有时只出现在 summary,图片链接 ! 前缀跳过)按 url 小写去重;结果收集递归穿 content/sources 数组只认 web_search_result/url 型;模型面尾附 REMINDER 强制 markdown 超链接引源、链接上限 20;usage 任一键在场才透传。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/list-models.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/list-models.ts:1-189"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/list-models.ts",
+          "lines": 189
+        }
+      ],
+      "notes": "列宿主模型目录,存在只为给 workflow 挑 subagent_model——描述说穿「不改你自己跑的模型」防报告没发生过的切换;catalog 缺席回能力缺口失败绝不清列表(「没配模型」≠「读不到」,否则模型告诉用户一个模型都没有而他正在用);端口每次调用现读活目录不回冻结拷贝;无档位给空数组(知「接 $ 是错的」)而 current 允许缺席(选择可指向已删 provider);行式模型面 [current]/[disabled] 尾置防长表挤出视线;错误码 31 起编与三表视觉不撞。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/resolve-workflow-question.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/resolve-workflow-question.ts:1-193"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/resolve-workflow-question.ts",
+          "lines": 193
+        }
+      ],
+      "notes": "主代理答 actor 升级的阻塞问题:handler 薄(取端口/透传/投影),三个拒绝分支只挑 errorCode 不重写服务端文案(键与文分家迟早说两种话,读者是模型);端口缺席与方法缺席同回能力失败,绝不静默成功(否则 actor 永远等而模型以为答过了);契约外 reason 也回结构化失败(throw 只留给接线故障);成功文案说清「答案已送达且 run 没停,不必守着」;作答免确认(run 已过窗,弹窗反把等答案的 actor 挂更久);码表从 21 起、三表数值空间互禁比对。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/list-workflow-runs.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/list-workflow-runs.ts:1-194"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/list-workflow-runs.ts",
+          "lines": 194
+        }
+      ],
+      "notes": "按项目列 run(含跨会话,journal 按项目不按会话):handler 薄,cwd 字面等值不规范化(写入侧原样落、规范化造单侧不匹配),limit schema 钳 [1,50] 使端口永不见无界枚举;possiblyInterrupted 是注解非裁决、为真才在场(false 不挂噪音字段);描述把六种 stop_reason 的下一步逐条写死(user 等用户开口/model 你停的/provider 先查因/superseded 永不 resume 且有后继名/interrupted 续跑通常合意);任何 run 皆可 AmendWorkflow 修订(旧完成工作作 warm cache 导入),errored 是该拿它的场景;行式单 run 一行防 50×8 元素读成几百行。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/todo.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/todo.ts:1-198"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/todo.ts",
+          "lines": 198
+        }
+      ],
+      "notes": "TodoRead/TodoWrite 双条目:sessionStore 读/整表替换(每次全量 list 覆盖旧),write 回 oldTodos+新表+四计数摘要(total/pending/inProgress/completed);TodoWrite 声明 readOnly:true(只动会话内进度态)但 concurrentSafe:false(整表替换不可并发),TodoRead 并发安全;两侧均 session 级低危免审批、100KB 预算。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-subcommands-core.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-subcommands-core.ts:1-202"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-subcommands-core.ts",
+          "lines": 202
+        }
+      ],
+      "notes": "git 只读子命令策略核心十条:blame(25 旗标含 porcelain/ignore-revs)/branch(+list-like 危险回调)/cat-file/config --get/describe/diff/for-each-ref(+format 签名回调)/grep/log(allowCompactNumericCountFlag 明确声明 -8 缩写防 Plan mode 错拦纯历史查询)/ls-files,as const satisfies 策略表。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-simple-commands.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-simple-commands.ts:1-223"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-simple-commands.ts",
+          "lines": 223
+        }
+      ],
+      "notes": "单词命令只读策略表 60+ 条(alias/pwd/whoami commandOnly 档、cat/grep/rg/jq/sed/test/[[ 等 safeFlags+危险回调档、cd/ls/find/echo allowAnyArgs 档);git 全局旗标三集(--no-pager/paginate 无值、危险集 -c/-C/--git-dir/--work-tree 等钉死改 git 目录语义的旗标);READONLY_ALLOW_ANY_ARG_COMMANDS 兜底集与 docker images/ps 多词前缀白名单。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/websearch.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/websearch.ts:1-224"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/websearch.ts",
+          "lines": 224
+        }
+      ],
+      "notes": "WebSearch=provider-native 包装:supportsNativeWebSearch 属性门(缺席可恢复错);单工具+system 提示触发自动选择(BigModel 兼容端点拒 named forced web_search tool_choice 1210);必须走流式(非流式 JSON 把裸 tool_result 交回会 AI SDK schema 炸,流式复用 SSE compat);描述 get description() 每次现算月份(写死会跨月过期);maxUses 8、network 副作用域、20KB 预算;流收集器四事件型,error 归一 ModelError 可恢复。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-subcommands-history.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-subcommands-history.ts:1-227"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-subcommands-history.ts",
+          "lines": 227
+        }
+      ],
+      "notes": "git 只读子命令历史族十三条:ls-remote(positional 即危)/merge-base/reflog(sub-command 白名单)/remote show(-n+单远域名)/remote(仅 -v)/rev-list(format 签名回调)/rev-parse(只列问路旗)/shortlog/show/stash list/stash show/status/tag(list-like)/worktree list;COMMON_GIT_* 五族旗标集 spread 复用。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/resume-workflow-run.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/resume-workflow-run.ts:1-239"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/resume-workflow-run.ts",
+          "lines": 239
+        }
+      ],
+      "notes": "恢复 stopped run(同 runId,完结步 journal replay 零 token、未完结重派):handler 薄,门/注册表/scriptHash 重验全在 port;superseded 唯一不可复、errored 复也同败须走 AmendWorkflow、completed 无可复;scriptHash 钉死 submit 已批脚本⇒免确认直接执行(与 UI 按钮同档,PreToolUse/deny 面仍拦),不设 prepareApproval(runId 无同步校验、弹窗裁不掉东西);码表 11-17 与内省表 1/2 数值空间独立且 not_found 复用内省同键同码;already_running 门作用域本实例、文案不替跨实例承诺;backgroundTaskId≡runId 恒等式让取消/查询/通知三路共键;成功文案显式劝阻 TaskOutput 轮询(实测缺这句模型会把异步变同步等)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/model-reference.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/model-reference.ts:1-247"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/model-reference.ts",
+          "lines": 247
+        }
+      ],
+      "notes": "subagent_model 字符串→选型纯函数(零 I/O 为可测,宿主事实走 ModelCatalogPort;解析必须发生在确认窗前,窗上显示将要生效的模型):三档匹配(全称精确/裸 id 单挂/多挂取 current 否则 ambiguous)顺序即规格、大小写不敏感;禁用条目绝不静默命中(只中禁用回 disabled 带理由——静默换模型=给用户没要的,静默选中=等子代理开口才炸);失败一律带 candidates(猜错名后最有用的是「这里有哪些」,否则换个拼法再猜),not_found 清单只列可用者+40 行上界超出指路 ListModels(截断不是能拿全量的路);$level 非法回该模型的档位表而非整目录,注册表拼写胜出防 canonical 回填变形;parseWorkflowSubagentModel 到 handler 仍未归一=接线故障按故障喊(静默丢会让子代理安静跑会话模型);splitReasoningLevel 从 provider 分隔符后扫防 a$b/c 切错位。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/read-text.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/read-text.ts:1-252"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read-text.ts",
+          "lines": 252
+        }
+      ],
+      "notes": "Read 文本底座:readTextFileForModel 走 readTextFileRange(带 limit 不套字节帽),超 READ_MAX_OUTPUT_TOKENS 时仅「初始全量读」允许部分回退(offset/limit 指名读超限直接抛可恢复错);回退二分找最大行前缀(目标=帽的 85%),首行独超再二分字符;partialViewNotice 给下一段 offset/limit 续读坐标;空文件 numLines/totalLines 归一 1;模型面契约=条件提醒(<system-reminder>)+带行号正文,历史安全提醒不入;offset<=1 归 0 行。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/grep.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/grep.ts:1-255"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/grep.ts",
+          "lines": 255
+        }
+      ],
+      "notes": "Grep=ripgrep 封装:描述劝「别经 Bash 跑 grep/rg」(结果接权限 UI 与文件链)、rg 非 grep 须花括号转义、三 output_mode+multiline;参数面 -A/-B/-C/context 合流、-n 默认开、head_limit/offset 分页回显 appliedLimit/Offset;cancelled 端口错归 ToolCancelled 可恢复;content 模式 path:line:text、count 模式 path:n 附总命中句、files 模式单行清单;展示路径同 Glob 相对化正斜杠;artifact 预算 20KB。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/off-peak.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/off-peak.ts:1-277"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/off-peak.ts",
+          "lines": 277
+        }
+      ],
+      "notes": "OffPeakCreate/List:assertNotOffPeakTurn 是 turn denylist 外第二层纵深(provider denylist 只限可见性,异常 provider 仍可能直提),判据取 executor 传入本轮事实 offPeakTurn 且刻意不看 automationTurn(cron 轮放行 OffPeakCreate,勿照抄 cron 防御方向);SendMessage/Workflow 复用本函数(绕开本轮 modelExecution 重起子 Agent 落用户套餐);业务失败按 errorCategory 翻译稳定 CoreError 禁止猜 message(quota_3103/eligibility_3101/model_not_allowed/session_bound/offpeak_disabled/network 各有可转述文案);模型指令九条含「无时钟、服务器定时」「prompt 绝不让 run 再造闲时任务」「配额失败转述别再试」;create 需确认 medium/workspace,list 只读低危。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run.ts:1-253"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run.ts",
+          "lines": 253
+        }
+      ],
+      "notes": "单 run 自适应详情:handler 只做四件端口做不了的(产物序列化与完成通知/TaskOutput 共 serializeWorkflowArtifact 防两貌、未知 runId 归结构化失败、时钟 generatedAt 读一次全输出同一把尺、确定性摘要最后拼);刻意无 wait/block(那是 TaskOutput 的活);undefined 产物整字段缺席而 null 是合法产物;pendingQuestions 空数组缺席(读作「没人在等」而非「问过错完」);artifacts 上界 32 bytes 取最新版;两个 artifact 一词两义有警告注释;400KB artifact 预算、同步不可取消。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-format.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-format.ts:1-266"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-format.ts",
+          "lines": 266
+        }
+      ],
+      "notes": "模型面纯格式器(不碰 Date.now,时钟读数已在 generatedAt;块序即契约:summary→身份→停驻问题(唯一的此刻要模型做的事,埋叙事后=藏解除阻塞路径)→健康/阶段/花名册/叙事→usage→收场→路由);pending 查不到必须说出口(沉默读成没人在等,而 actor 无超时可等无限久);result 不转义(整段 JSON/代码转义即与真产物不同)、providerStop 块与终态通知同函数铸、含要照抄的 run_id 片段;resumable/amendable 并列各说差别(同 run 同脚本 vs 新 run 新脚本),errored 是修订最高价值场景劝「别从头重写」,健康在跑只给一句防挤占注意力;可恢复谓词与 port 门同语义只认 stopped、绝不放宽 errored。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch.ts:1-271"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch.ts",
+          "lines": 271
+        }
+      ],
+      "notes": "WebFetch 编排:cache key 用原始入参 url、新鲜内容才入缓存;redirect/http_error 终态直返不缓存——跨主机重定向回吐「带新 URL 再调」的整段操作指引,HTTP 错误附 Retry-After 与「要鉴权走 gh/MCP」出路;statusText 空回 STATUS_CODES 兜底;描述四条先说穿「认证/私有 URL 必失败」;network 副作用域 medium 需审批、artifact 预算 100KB;formatModelContent 只透 result 字符串。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-graph-bounds.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-graph-bounds.ts:1-276"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-graph-bounds.ts",
+          "lines": 276
+        }
+      ],
+      "notes": "显示图有界投影(display 不过 tool result budget,进实时事件与持久化 metadata 前独立限长):裁剪序固定 step(源序截尾保脚本开头)→收敛其引用 lane→按存活 step 过滤边与 sink,引用完整性优先于数量(宁少画不給 UI 悬空 id);参与者卡成员 step 收窄、无成员卡走、被丢卡的 step 仍在 steps 供运行状态关联;阶段词汇 all-or-nothing 超界整表连 step.phase 一起剥;alongside 是节点事实不经归约(否则被当 runs after 砍真边);boundGraphText surrogate-safe 截断防半字符毁序列化;participant.phase 悬空归 UNPHASED 而卡 id 不动。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-format-roster.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-format-roster.ts:1-284"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-format-roster.ts",
+          "lines": 284
+        }
+      ],
+      "notes": "情势三块表格格式器:两纪律=缺席即不写(0 tool calls 是事实、缺席是另一件)与列宽由本次行算(上界 24,超长原样写不撑表);health 行 stalled 只对活 run 有意义、终态 leftover 必说「是尸体上的标记不是活的工作」;phases 表 ahead 行只有名字、终态 nodesRunning 说 unfinished、无 exitedAt 的终态阶段不减 now(把进程死后的小时算进阶段是假话);subagents 活动列按相位分叉(parked 说等哪个问题等了多久/waiting 说退避与还要多久/executing 报 ask+turn+工具数+last tool)正为「一眼看出谁卡住」;actorSeq 0 基转人读 1 基;log_tail 老 journal 无 at 列的行只带序号。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/index.ts:1-312"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/index.ts",
+          "lines": 312
+        }
+      ],
+      "notes": "内建工具表与注册器:builtInTools 40+ 条目登记序即工具面序(每条带注册理由注释:escalate 与 submit_result 同构端口在场即注册、resume 因 alwaysAsk 须进 workflow_child disallow、resolveWorkflowQuestion 进 actor 禁用名单防子代理替主代理作答);DYNAMIC_WORKFLOW_TOOL_NAMES 十枚灰度下架集(只显式 false 才下架,fail-closed 缺省在协议服务端);registerBuiltInTools 逐条过滤(embeddedSearch 隐藏 Glob/Grep 由 Bash find/grep 接管、allowed/disallowed、include* 门);resolveBuiltInToolEntryForBranch 按门重建 Bash/submit_result typed/Agent/Task/EnterPlanMode/js——灰度门同管描述,首装配与分支刷新描述必一致。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/task-output.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/task-output.ts:1-303"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/task-output.ts",
+          "lines": 303
+        }
+      ],
+      "notes": "TaskOutput 等待与取回:block=false 活跃即 not_ready 不写 claim;终态投影后 await 回来必须再查 abortSignal 才 markTaskNotified(投影前写入会在读取失败/取消时吞掉后续 completion notification);block 轮询 100ms、超时仍活跃回 timeout+快照;validateInput 与 handler 共用同一失败判据;截断只在有真实 outputFile 时伪装「Full output: 路径」,TASK_MAX_OUTPUT_LENGTH 解析 NaN/≤0 回 32k 上界 160k;timeout kind none、持久信封 2k 预览。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/save-workflow.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/save-workflow.ts:1-319"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/save-workflow.ts",
+          "lines": 319
+        }
+      ],
+      "notes": "保存定义三步与 CreateWorkflow 同构(同一检查器编译→干净才弹窗→Allow 落盘;编不过不弹窗不落盘=不打断模型改错回路):确认窗问题不同(花钱跑 vs 留仓库),窗所需事实(落点/overwrite/shadowing)算进归一化入参而非 display(入参通道无 schema 透传全客户端版本可见,display 新字段旧端读不到甚至载荷校验不过,本工具刻意无 display);内联脚本自带 sentinel 拒绝且不做聪明合并(分不清哪个 description 生效、encode 幂等失守),script_path 分支豁免(草稿本带块、resolveInput 丢块);overwritten 写时重判不读入参值(hook 可改入参,展示字段不得变行为开关);alwaysAsk+yolo/plan 都要问、allowAlways:false(每次写不同文件,永久关掉只会吞掉未来的决定)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/eval-workflow-snippet.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/eval-workflow-snippet.ts:1-323"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/eval-workflow-snippet.ts",
+          "lines": 323
+        }
+      ],
+      "notes": "snippet 实验通道(同步编译+运行,完全瞬态):双路径由端口注入决定,端口缺席诚实回 NOT executed 绝不假装执行过;工具超时 660s 是外兜底、内层 timeoutMs(≤600s)驱动 harness kill,双时钟语义刻意不存在;确认门只落带 world.run 站点的 snippet(纯读与编不过放行,与 Create 同姿态),v1 普通 ask 无富预览(已部署桌面权限 schema .strict(),新载荷种类会让旧桌面丢整个 permission 事件=确认门消失,实测复现过);gate 与端口各编译一次(ts.Program 不跨包,snippet 小换 gate 不依赖端口);undefined 产物如实说 returned no value 不发明空对象;logs 必须渲进 response(formatModelContent 只交 response)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/plan-mode.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/plan-mode.ts:1-329"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/plan-mode.ts",
+          "lines": 329
+        }
+      ],
+      "notes": "Enter/ExitPlanMode:sessionModePort 断言式取端口;Exit 前置状态校验(isPlanEnabled ?? getMode==='plan')不在 plan 态回 InvalidStateTransition 可恢复(并劝「计划已批过就继续实现」);退出前 writeApprovedPlanFile 持久化批准的计划(取消归 ToolCancelled,其余持久化失败静默不阻断退出);allowedPrompts 随批准计划透出;Enter 免审批 Exit needsApproval+requiresUserInteraction:true;描述工厂按 embeddedSearchEnabled 重建;模型面文案把「现在别写文件」与「先更新 todo」分别钉在两侧。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-multiword-gh.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-multiword-gh.ts:1-345"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-multiword-gh.ts",
+          "lines": 345
+        }
+      ],
+      "notes": "gh 只读多词策略二十一条目(issue list/status/view、label、pr checks/diff/list/status/view、release、repo view、run list/view、search code/commits/issues/prs/repos、workflow list/view):GH_REPO/JSON_REPO/LIMIT_REPO 三旗标基座 spread 扩档;读写面命令(含 gh api)一律挂 ghCommandIsDangerous 双闸,search 族免回调(纯查询无写风险)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-source.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-source.ts:1-347"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-source.ts",
+          "lines": 347
+        }
+      ],
+      "notes": "三来源合流唯一读盘点(合流点必须单一,放回 handler 会长出「saved 特殊处理」岔路,第一个受害者=确认窗展示与将执行字节不同):XOR 校验不能写进 zod(归一化后 script 与 saved/path 同场合法,只在非内联路径炸);args 与 path 同进同退(静默丢=假生效);并发超天花板压低不拒(用户要上界不是报错)、天花板未知原样放行让端口再钳;模型解析排读盘前、端口缺席而字段在场明确拒(否则子代理开口时炸得离确认很远);内联恒等零盘操作(例外只有压低过的并发与未归一模型名,比原始入参防 schema .trim 把空白带上确认窗);saved 写逐字节工作副本带元数据块、定义永不被 run 改动;从零拼入参的分支每顶层字段点名否则静默丢(「只在 saved 路径丢」最难发现);猜错名列全部可用名带作用域标签。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-network.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/webfetch-network.ts:1-354"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-network.ts",
+          "lines": 354
+        }
+      ],
+      "notes": "真实抓取循环:每次 GET 前 assertWebFetchLiteralEgress(移除 DNS preflight 后仍防 NO_PROXY 越界);redirect=manual 手控 ≤10,跨主机/带凭据/非公网重定向回吐 RedirectFetchContent 交上层再调,同 host 链内追;每请求 pending/complete/error 三态 NetworkRequestStatus 事件;fetch failed 剥最深 cause+code 归一(Connect Timeout 压缩格式),egress_blocked 文案绝不含被阻断域名解析出的内网 IP(错误进模型上下文);x-proxy-error: blocked-by-allowlist 头判代理白名单拦;retry-after 只收纯数字秒;headers 取值大小写不敏感兜底。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/write.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/write.ts:1-377"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/write.ts",
+          "lines": 377
+        }
+      ],
+      "notes": "Write 全文覆盖:先读后判 fresh(assertWritableExistingFileIsFresh:没读过/部分视图抛 write_file_not_read,stale 判据 revision id→归一 mtime 前进∨size 变→严格全读逐字比,严格全读且内容未变放行防误判已批内容);文件在不在都走同一路(not_found 吞成 originalFile=null 走 create);写回保原 encoding/lineEndings、atomic+expectedRevision+createParents、memory 文件盖 origin sessionId、写后回写 readFileState+metadata;update 带 structuredPatch 而 create 空数组;模型面文案区分 userModified(有则不写「不必回读」的误导后缀)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/read-pdf.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/read-pdf.ts:1-383"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read-pdf.ts",
+          "lines": 383
+        }
+      ],
+      "notes": "Read PDF 双路:模型 inputFormat.supportsPdf 决定 schema/描述行注入/超时预算(pages 分支独立外预算=Poppler 120s+30s,防 executor 同上限吃掉检查与清理);native 路限 READ_PDF_NATIVE_MAX_INPUT_BYTES、pdfinfo 页数超 100 拒并教 pages 用法、验 %PDF- magic;pages 路 range 解析/≤20 页/双端口齐备才渲页、逐页走 imageProcessor 同一预算管线并按页码排序回 parts;PdfDocumentPortError 穷尽映射九码不折叠成 PDF_INVALID(环境故障与输入错必须可分),cancelled 在 Core 边界转 ToolCancelled(ExecutionPort 可在 shutdown 返回 cancelled 而不动调用方 signal);pages 在场而模型不支持 image 先拒。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/cron.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/cron.ts:1-383"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/cron.ts",
+          "lines": 383
+        }
+      ],
+      "notes": "Cron 四工具:assertNotAutomationTurn 以本轮事实终拒(provider denylist 只限可见性,旧入口/异常 provider 仍可直提,拒绝且不调端口);create 的 model 取当前 runtime 非模型可控入参、固定复用当前 sessionId;toModelAutomation 曾因漏投影 scheduleRule 把真实间隔显示成每小时(bug 注释在案);模型指令钉死两型失效:相对「N 后」一律 delayMinutes(模型时钟陈旧,自算一次性时刻刚过被静默滚一年)、每 N 单位必走 intervalUnit+interval(1-200 即便 cron 可直表达,防墙钟对齐/字段越界),cron 只供日历槽位;title 须保留用户时序原语、Update 必重同步 title;禁递归调度、禁删后重建模拟更新。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/store.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/store.ts:1-405"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/store.ts",
+          "lines": 405
+        }
+      ],
+      "notes": "保存定义存储层全同步 fs(prepareApproval 契约同步且 saved 源须在弹窗前读出脚本,否则用户在空窗批准执行;KB 级本地文件代价远小于另开异步审批路径):roots 恒 [project,global] first-wins,homeDir 仅测试注入不跟 storage.dir 配置;resolve 名字先过合法性再拼路径=路径穿越防线本身(../../.ssh/id_rsa 进 join 即绝对路径),ENOENT/ENOTDIR 才跳下一根、权限类读错点名文件不装作没找到;list 平铺深度1排序扫描、坏文件进 invalid 不抛、不给 scope 时被遮蔽那份不列(列表答「跑这个名字得到什么」)、给 scope 不遮蔽;ResolvedSavedWorkflow.source 逐字节保真(重序列化会让拷贝的默认值与手写 YAML 漂移,而拷贝正是模型要 path 回传的东西);move 只全局→项目一向(项目→全局是概括动作非搬文件)、逐字节 renameSync 优先 EXDEV 回落读写的删、目标存在即拒不覆盖。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/node-repl.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/node-repl.ts:1-411"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/node-repl.ts",
+          "lines": 411
+        }
+      ],
+      "notes": "持久 Node REPL(Code-Act):每 session 一 NodeReplSession(globalThis/顶层声明跨调用存续);browserRuntimeGenerations 代际号进程内单调递增防 session 释放同 id 重建的 ABA 串线,transport 每次 await 前后双向 assertCurrentRuntime(reset 期间迟到的 backend 结果不得污染新 cell 的 response meta);截图落 artifact 失败不改写已成功的 Browser 命令结果但 abort 必须沿用取消语义;syncTimeoutMs=min(入参,120s);描述工厂 browserUseEnabled 时注入 agent.browsers 全套纪律(先 domSnapshot 再建定位符、popup 时两表同 cell 无条件下、evaluate 是页内可改状态通道、截图必须 emitImage 同 call 返回 image block 绝不留 Uint8Array 终表达式、禁猜 URL 网格遍历);64KiB 输出上限因 documentation() 全文超旧 30KB 丢 API;high/system 权限、alwaysAllowPatternSources 空。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/create-workflow.ts:1-411"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow.ts",
+          "lines": 411
+        }
+      ],
+      "notes": "CreateWorkflow 主 handler:两路径由端口注入决定,缺席保持占位语义绝不假装启动(模型会等永不到来的通知);编不过路径与端口无关:prepareApproval 裁窗、handler 直回诊断不建 run(批准编不过的代码=无效决策打断改错回路),「没执行」NOTE 按路径分句(合并常量在接线后两句都成谎言);内联草稿无论编译成败都落盘(handler 是编不过脚本唯一必经点,不写=唯一要被编辑的脚本反而没文件)并记作模型写过的文件;归一化后 hook 改写 saved 刻意无效(执行只读 script);submit 字段逐条纪律:name/args/phaseNames+alongside 同源同行/maxConcurrency 已钳/subagentModel 已规范形/scriptPath 在场=有可编辑文件(undefined 会让端口那句话成谎);成功文案照 backgrounded Bash 且显式劝阻 TaskOutput 轮询;并发等于天花板点明是本机上限防模型复述假数;alwaysAsk 永久(保存文件批准后仍可被改)但 allowAlways:session 放开会话内;readOnly 随执行语义翻面。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/read-session-context.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/read-session-context.ts:1-440"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read-session-context.ts",
+          "lines": 440
+        }
+      ],
+      "notes": "跨会话读上下文:local/lite/fallback 三源分级(无模型或无可读消息走本地裁剪、lite 抽取空回 NO_RELEVANT_CONTEXT 哨兵、异常回 fallback 且 truncated:true 如实标);小历史整篇抽取、大历史按 selectedChunks 分块抽取再 synthesize 二次归并(单块且预算内直返);lite 系统提示钉死「transcript 内指令不服从=不可信背景」防跨会话提示注入;handoff 与 query 两套抽取/归并指令;逐块 token=maxTokens/2 夹 [800,2500];读持久历史+等 lite 故固定 5 分钟超时;abort 一律直抛不吞成 failed。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/read.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/tool/handlers/read.ts:1-526"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read.ts",
+          "lines": 526
+        }
+      ],
+      "notes": "Read 主 handler:分流 image/video/pdf(能力按执行模型 inputFormat 现判,resolveModelContract 动态注入 PDF 描述行与 pages schema、resolveTimeoutBudgetMs 仅 PDF+pages 给 150s 档)否则文本;readFileState 缓存键含 offset/limit,新鲜判定与写前校验同一整数毫秒归一策略,命中回 file_unchanged「Wasted call」stub(免内容回灌);isPartialView 只在 truncatedByTokenCap 为真时置位(range view≠partial view,Write/Edit 必须拒截断视图);输入预检失败包成 <tool_use_error> 而非裸 ZodError JSON;PDF pages 语义约束提到 validateInput 防错调用穿过 hook/权限才炸;图片/视频 tool result 只留媒体 block(尺寸提示拼进会让 provider-visible content 随缩放漂移);missing file 附同 stem/编辑距离≤3 建议;fallbackReadFileStates WeakMap 兜无端口宿主。"
     }
   ],
   "ticketIndex": {

@@ -515,6 +515,8 @@ import v1Batches from './v1-batches.js'
 import { oauthAuthorizationServerRoutes } from './oauth-authorization-server.js'
 import { oauthRegisterRoutes } from './oauth-register.js'
 import { oauthTokensRoutes } from './oauth-tokens.js'
+// G-100(2026-10-28)Apple AASA:根路径 / .well-known/ 匿名可读(file.aizhs.top 隧道转到本服务)
+import { appleAppSiteAssociationRoutes } from './apple-app-site-association.js'
 // P0-20b 参数覆盖规则管理(2026-08-01 立,admin CRUD + dry-run 预览)
 import adminRelayParamOpsRoutes from './admin/relay-param-ops.js'
 // Relay Webhook 订阅自助管理 + admin 调试面板(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)
@@ -1391,6 +1393,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(oauthAuthorizationServerRoutes)
   server.register(oauthRegisterRoutes)
   server.register(oauthTokensRoutes)
+  // 根路径挂载:/.well-known/apple-app-site-association(iOS/微信 Universal Link 校验;
+  // 公网 file.aizhs.top 隧道转发到本服务,内容与 web 8801 同源,见 @ihui/shared 常量件)
+  server.register(appleAppSiteAssociationRoutes)
   // P0-20b 参数覆盖规则管理(2026-08-01 立):/api/admin/relay-param-ops(CRUD + dry-run)
   server.register(adminRelayParamOpsRoutes, { prefix: '/api/admin' })
 

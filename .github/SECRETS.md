@@ -61,7 +61,7 @@
 ### 发布与部署
 
 - `NPM_PUBLISH_TOKEN` — npm granular token（**已配置**，2026-10-19）。用途：`release-cli.yml` 发布 `ihui-cli`、`npm-bootstrap.yml` 的 publish job。形态：All packages + read-write + 勾 Bypass 2FA，有效期 90 天（2027-01-17 到期，到期前需在 npm Tokens 页重新生成）。项目**不启用 2FA**、不登记 Trusted Publisher（AGENTS.md §0 第 11 条），故该 token 是 CLI 通道唯一鉴权方式
-- `NPM_TOKEN` — npm 发布令牌（用于 `release-sdk.yml` 发布 `@ihui/sdk` 到 npm registry）。**尚未配置**：npm 账号 `ihui-ai` 已建成（`ihui-cli@1.0.0` 已发布），缺的是 SDK 通道专用 token。建议复用与 `NPM_PUBLISH_TOKEN` 相同的 granular 形态（All packages + read-write + 勾 Bypass 2FA）。未配置时 `release-sdk.yml` real 模式 npm gate 判红，不会静默跳过
+- `NPM_TOKEN` — npm 发布令牌（用于 `release-sdk.yml` 发布 `@ihui-ai/sdk` 到 npm registry）。**尚未配置**：npm 账号 `ihui-ai` 已建成（`ihui-cli@1.0.0` 已发布），缺的是 SDK 通道专用 token。建议复用与 `NPM_PUBLISH_TOKEN` 相同的 granular 形态（All packages + read-write + 勾 Bypass 2FA）。未配置时 `release-sdk.yml` real 模式 npm gate 判红，不会静默跳过
 - `DOCKER_REGISTRY` — Docker 镜像仓库地址
 - `DOCKER_USERNAME` — Docker 仓库用户名
 - `DOCKER_PASSWORD` — Docker 仓库密码

@@ -170,7 +170,7 @@
 #   宽松匹配会产出 4 类**假边** —— packages/design-tokens → @ihui/ui-react
 #   (只出现在 JSDoc 注释里)、packages/eslint-config → @ihui/shared(只出现在
 #   规则文案字符串里)、apps/api → @ihui/ui-react(代码生成器拼的模板字符串)、
-#   apps/web → @ihui/sdk(示例页模板字符串)。首版实测这些假边共 12 处。
+#   apps/web → @ihui-ai/sdk(示例页模板字符串)。首版实测这些假边共 12 处。
 # 配置层文件(*.config.*、*.d.ts)整体不入依赖图:它们 import @ihui/eslint-config
 # 属于工具装配,不是运行时依赖(否则每个包都会多出一条"依赖 lint 配置"的边)。
 #
@@ -449,7 +449,7 @@ modules:
       - '.'
 
   - id: 'packages/sdk'
-    package: '@ihui/sdk'
+    package: '@ihui-ai/sdk'
     layer: 'platform'
     exported: true
     managed: true

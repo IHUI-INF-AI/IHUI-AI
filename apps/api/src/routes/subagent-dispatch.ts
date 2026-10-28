@@ -35,11 +35,114 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { subagentDispatchService } from '../services/subagent-dispatch-service.js'
+import {
+  subagentDispatchService,
+  type DagVisualization,
+  type DispatchResourceStats,
+} from '../services/subagent-dispatch-service.js'
 import { findAgentTasksByAgentId } from '../db/agent-queries.js'
 import type { AgentTask } from '@ihui/database'
 import { mapStatus, type AgentTaskStatus } from '@ihui/types'
+import type { SubagentDispatch } from '@ihui/shared/subagents'
 import { isUuidString } from '../utils/uuid.js'
+
+// ---------------------------------------------------------------------------
+// D08 ③(2026-10-27,gb17c-e17):Fleet 统一仪表盘 —— 会话归属 + 逐 agent 指标
+// ---------------------------------------------------------------------------
+
+/**
+ * 会话归属的语义与落点(D08 ③)。
+ *
+ * 会话语义 = chat_conversations.id(web 侧 chatStore.conversationId):这次派单发生在
+ * 哪个聊天会话里。**声明面** = shared 的 `DispatchInput.conversationId` /
+ * `SubagentDispatch.conversationId`(packages/shared/src/subagents/index.ts),
+ * 路由层只接收 + 透传,落库由 service 的 buildDispatch 抄进派单记录本身 ——
+ * 路由层不另存一份映射表(§0.6)。
+ *
+ * 没有会话上下文的派单入口(独立派单页 / agent 详情页)**不传这个字段**;
+ * 记录上就没有它 ⇒ 载荷里也没有 ⇒ 消费方按「未归属会话」渲染,
+ * 不许拿 goal 文本反推、不许塞常量顶替(§0.3「没判」不能写成「判过」)。
+ */
+
+/** 单个派单步骤(逐 agent 的 token/耗时/状态) */
+interface SubagentDispatchStep {
+  agent: string
+  status: 'ok' | 'failed' | 'quota_exceeded'
+  durationMs: number
+  attempt: number
+  tokenUsage: { prompt: number; completion: number; total: number }
+  error?: string
+}
+
+/** 单个派单的运行指标(per-agent token + 进度);载荷缺该字段 ⇒ 视作「未判定」,不用 0 冒充 */
+interface SubagentDispatchMetrics {
+  /** 该派单累计 token(逐 step 求和,口径在 service 侧) */
+  totalTokens: number
+  /** 已耗时(ms);未开跑 = 0 */
+  elapsedMs: number
+  /** 已产生的步骤明细 */
+  steps: SubagentDispatchStep[]
+  /** DAG 编排时:已完成节点数 */
+  dagDone?: number
+  /** DAG 编排时:节点总数 */
+  dagTotal?: number
+}
+
+/** GET /subagents/all 的行 = 派单记录 + 运行指标 + 会话归属 */
+interface FleetDispatchRow extends SubagentDispatch {
+  conversationId?: string
+  metrics?: SubagentDispatchMetrics
+}
+
+/** buildFleetRow 的统计输入口径 = service 自己的两个出口(不另立一套) */
+type FleetStatsInput = DispatchResourceStats
+type FleetDagInput = DagVisualization
+
+/**
+ * 读派单记录上的会话归属。
+ * 取不到(记录上没有该字段)⇒ undefined ⇒ 前端归「未归属会话」组,
+ * **不从别处反推、不塞常量**(否则就是拿假字段糊面板)。
+ */
+export function readConversationId(dispatch: SubagentDispatch): string | undefined {
+  const raw = (dispatch as SubagentDispatch & { conversationId?: unknown }).conversationId
+  return typeof raw === 'string' && raw.length > 0 ? raw : undefined
+}
+
+/**
+ * 由派单记录 + service 自己的统计口径,算出 GET /subagents/all 的一行。
+ *
+ * **纯函数**(零 IO):stats / dag 由调用方从 service 取好再喂进来,
+ * 路由层不复算、不另存(§0.6 单一真相源:token/耗时口径只认 service 的 getDispatchStats/getDag)。
+ *
+ * 三档语义:
+ * - stats 取不到(派单已不在 runtime,重启后 Redis 只恢复 pending/running)⇒ **不带 metrics 字段**
+ *   ⇒ 前端按「未判定」渲染,**不用 0 冒充**(§0.3);
+ * - 未开跑(startedAt 为空)⇒ elapsedMs 记 0(service 的 totalDurationMs 在该态退化成 Date.now()-0);
+ * - dag 取不到 ⇒ 不带 dagDone/dagTotal(而不是记 0/0 冒充「无节点」)。
+ */
+export function buildFleetRow(
+  dispatch: SubagentDispatch,
+  stats: FleetStatsInput | null | undefined,
+  dag: FleetDagInput | null | undefined,
+): FleetDispatchRow {
+  const conversationId = readConversationId(dispatch)
+  if (!stats) return conversationId ? { ...dispatch, conversationId } : { ...dispatch }
+  const metrics: SubagentDispatchMetrics = {
+    totalTokens: stats.totalTokens,
+    elapsedMs: dispatch.startedAt ? Math.max(0, stats.totalDurationMs) : 0,
+    steps: stats.steps.map((s) => ({
+      agent: s.agent,
+      status: s.status,
+      durationMs: s.durationMs,
+      attempt: s.attempt,
+      tokenUsage: s.tokenUsage,
+      error: s.error,
+    })),
+    dagDone: dag ? dag.nodes.filter((n) => n.status === 'completed').length : undefined,
+    dagTotal: dag ? dag.nodes.length : undefined,
+  }
+  return { ...dispatch, conversationId, metrics }
+}
 
 export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // 注入 Redis 客户端(fastify.decorate 挂载后,服务初始化时从 app 拿取)
@@ -115,6 +218,10 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     quotas: quotasSchema.optional(),
     // 2026-08-06: 关联 agent 主表 id,派单运行轨迹持久化到 agent_tasks(agents 详情页 5 Tab 数据源)
     agentId: z.string().uuid().optional(),
+    // 2026-10-27(D08 ③):会话归属 = chat_conversations.id(web chatStore.conversationId)。
+    // 语义单一:「这次派单发生在哪个聊天会话里」;路由层只接收 + 透传,
+    // 落库归派单记录本身(service 的 buildDispatch/_persistDispatch),路由层不另存映射(§0.6)。
+    conversationId: z.string().uuid().optional(),
   })
 
   // ---------- GET /subagents/by-agent/:agentId/summary 聚合类型 ----------
@@ -410,6 +517,8 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     const input = parsed.data
 
     try {
+      // 会话归属透传:schema 已声明 conversationId,service 的 buildDispatch 抄进派单记录,
+      // GET /subagents/all 原样回读 ⇒ 前端「按会话分组」即刻生效,路由层无需再改。
       const result = await subagentDispatchService.dispatch(input)
 
       // 并发超限 → 429
@@ -443,6 +552,9 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // 派单历史(含 completed/failed/cancelled),/subagents/active 只是 pending/running 子集 ——
   // 客户端改道 active 会把"页面少了历史"写成"已修",所以补这条真面。
   // 形状与 active 同({dispatches}),排序取新→旧(消费方按列表直读);status/limit 透传自查询串。
+  // D08 ③(2026-10-27):逐行挂「运行指标」(per-agent token / 步骤进度)与「会话归属」——
+  // 指标口径来自 service 自己的统计,会话归属读派单记录本身(记录上没有 ⇒ 载荷里就没有,
+  // 前端按「未归属会话」渲染;不拿别处反推、不塞常量)。
   server.get('/subagents/all', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
@@ -452,7 +564,14 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (q.status) dispatches = dispatches.filter((d) => d.status === q.status)
     const limit = Number(q.limit)
     if (Number.isFinite(limit) && limit >= 1) dispatches = dispatches.slice(0, limit)
-    return reply.send(success({ dispatches }))
+    const rows: FleetDispatchRow[] = dispatches.map((d) =>
+      buildFleetRow(
+        d,
+        subagentDispatchService.getDispatchStats(d.id),
+        subagentDispatchService.getDag(d.id),
+      ),
+    )
+    return reply.send(success({ dispatches: rows }))
   })
 
   // ---------- POST /subagents/:id/cancel ----------
@@ -623,4 +742,10 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 }
 
 export default subagentDispatchRoutes
+
+/** 供镜像测试 import 的生产判据(§22c:测试不复制判据,直接引源) */
+export const __test__ = {
+  buildFleetRow,
+  readConversationId,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

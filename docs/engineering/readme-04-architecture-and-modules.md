@@ -601,7 +601,7 @@ IHUI-AI/
 │   ├── dom-actions/         # @ihui/dom-actions (8 个 BrowserControlActionType 纯 DOM 操作,9 端可复用,无 chrome.* 依赖,2026-07-27 从 extension/lib/agent-control.ts 下沉)
 │   ├── eslint-config/       # @ihui/eslint-config
 │   ├── i18n/                # @ihui/i18n (4 端 i18n 翻译单一来源库:web/extension/miniapp-taro/mobile-rn,check-i18n-keys 守门)
-│   ├── sdk/                 # @ihui/sdk (自动生成)
+│   ├── sdk/                 # @ihui-ai/sdk (自动生成)
 │   ├── shared/              # @ihui/shared (9端共享业务逻辑:auth/sso + context + memory + notifications + plan + skills + spec + subagents + tasks + utils + validation + workflows)
 │   ├── tsconfig/            # @ihui/tsconfig
 │   ├── types/               # @ihui/types

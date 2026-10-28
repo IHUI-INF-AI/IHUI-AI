@@ -98,7 +98,7 @@
   "sdk": {
     "languages": ["TypeScript", "Python", "Go", ".NET", "Java"],
     "packageManager": {
-      "typescript": "@ihui/sdk",
+      "typescript": "@ihui-ai/sdk",
       "python": "ihui-ai",
       "go": "github.com/ihui/ihui-sdk-go",
       "dotnet": "IHUI.AI.SDK",

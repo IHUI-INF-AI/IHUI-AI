@@ -194,12 +194,12 @@ curl -v -X POST "$IHUI_BASE_URL/v1/chat/completions" \
 **排查步骤**:
 1. 确认 SDK 版本 ≥ 0.1.0:
    ```bash
-   npm ls @ihui/sdk
+   npm ls @ihui-ai/sdk
    ```
 2. 确认导入方式正确:
    ```typescript
-   import { createClient } from '@ihui/sdk'  // ✅
-   import { IhuiClient } from '@ihui/sdk'    // ❌ IhuiClient 是接口,不能直接 new
+   import { createClient } from '@ihui-ai/sdk'  // ✅
+   import { IhuiClient } from '@ihui-ai/sdk'    // ❌ IhuiClient 是接口,不能直接 new
    ```
 3. 确认方法名拼写(camelCase,非 snake_case):
    ```typescript
@@ -422,7 +422,7 @@ curl -i "$IHUI_BASE_URL/v1/chat/completions" \
    - `X-Request-Id` 响应头
    - 完整的错误响应体(JSON)
    - 触发问题的最小复现请求(cURL 命令)
-   - SDK 版本(`npm ls @ihui/sdk` / `pip show ihui-ai`)
+   - SDK 版本(`npm ls @ihui-ai/sdk` / `pip show ihui-ai`)
    - 发生时间(精确到分钟)
 
 ---

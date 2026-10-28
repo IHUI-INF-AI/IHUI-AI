@@ -59,7 +59,8 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `name` | string ≤128 | 否 | 展示名;缺省用 `#序号` |
+| `name` | string ≤128 | 否 | 展示名;缺省按 `phone` → 平台特化字段 → `#序号` 兜底(2026-10-28 O66 统一口径) |
+| `phone` | string ≤128 | 否 | 全平台通用展示名兜底(手机号优先):`name` 缺省时先于平台昵称/标签生效 |
 | `token` | string | trae/workbuddy/qoder 必填 | JWT access token(trae/workbuddy)或 Qoder opaque 串(dt- 前缀);codearts 见 §3 |
 | `refreshToken` | string ≤128 | 否 | 缺失时过期号入库即摘除 |
 | `deviceId` | string ≤128 | 否 | 设备指纹;web 聊天链路不强制 |
@@ -113,7 +114,8 @@ Qoder 桌面端(`com.qodercn.app.*`/`com.qoder.app.*`)登录态:token 是 27 字
 | `uid` | 否* | 账号唯一 id(auth.v1.dat 的 `user.id`);缺省时按 token 哈希去重 |
 | `expiresAt` | 否* | access token 到期:ISO 8601 字符串(如 `2026-11-21T11:38:26Z`)或 epoch 秒;缺省则无过期时间、不临期刷新 |
 | `refreshTokenExpiresAt` | 否 | refreshToken 到期(ISO/epoch),落 `extraMetadata.refreshTokenExpiresAt` |
-| `nickname` / `phone` | 否 | `name` 缺省时的展示名兜底(手机号优先) |
+| `nickname` | 否 | `name`/`phone` 均缺省时的展示名兜底 |
+| `phone` | 否 | 展示名兜底(§2 通用字段,手机号优先于 `nickname`) |
 | `machineToken` / `machineCode` / `machineType` / `version` | 否 | Cosy-* 设备头族(客户端 `runtime-info.exe` 产出),落 `extraMetadata.cosy`,刷新/健康检查时带上 |
 
 \* 不填不阻塞导入,但 uid 退化为 `auto:sha256(token)[:32]`、无过期时刻——桌面端捕获的会话应尽量带全。

@@ -212,7 +212,7 @@ IHUI-AI 是一个 9 端同源(web/api/ai-service/cli/desktop/extension/mobile/mo
 
 ```ts
 // 9 端共用同一个 SDK
-import { IhuiClient } from '@ihui/sdk';
+import { IhuiClient } from '@ihui-ai/sdk';
 
 const client = new IhuiClient({ apiKey: process.env.IHUI_API_KEY });
 

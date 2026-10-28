@@ -55,7 +55,7 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | `ihui-cli`(npm) | ✅ 已发布 1.0.0(2026-10-19T00:31:04Z,`latest=1.0.0`) | `npm view ihui-cli version dist-tags --registry=https://registry.npmjs.org/` | `1.0.0` / `{ latest: '1.0.0' }` |
 | `ihui-cli` bin 映射 | ✅ 正确 | `npm view ihui-cli@1.0.0 bin --registry=https://registry.npmjs.org/` | `{ ihui: 'dist/index.js' }` |
 | `ihui-cli` 安装可用性 | ✅ 实测通过 | `npm i ihui-cli@1.0.0 --prefix $env:TEMP\ihui-cli-verify` 后跑 `.bin\ihui --version` | 生成 `ihui / ihui.cmd / ihui.ps1`,输出 `1.0.0` |
-| `@ihui/sdk`(npm) | ❌ 未发布 | `curl -s https://registry.npmjs.org/@ihui%2Fsdk` | `{"error":"Not found"}`(HTTP 404) |
+| `@ihui-ai/sdk`(npm) | ❌ 未发布 | `curl -s https://registry.npmjs.org/@ihui-ai%2Fsdk` | `{"error":"Not found"}`(HTTP 404) |
 | `@ihui/api-client`(npm) | ❌ 未发布(定位为内部包,见下) | `curl -s https://registry.npmjs.org/@ihui%2Fapi-client` | `{"error":"Not found"}` |
 | `ihui-ai`(PyPI) | ❌ 未发布 | `curl -s https://pypi.org/pypi/ihui-ai/json` | `{"message": "Not Found"}`(HTTP 404) |
 | SDK 发布 tag | ❌ 一个都没有 | `git tag -l 'sdk-v*'`(另测 `v*` / `cli-v*`) | 0 行 |
@@ -550,7 +550,7 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 
 | SDK | 仓库 | 发布命令(tag 触发后的实际步骤) | 审核 | 当前可发布性 |
 | --- | --- | --- | --- | --- |
-| TS | npm | `pnpm --filter @ihui/sdk build` → `npm publish --access public --provenance`(OIDC 失败自动回退 `NPM_TOKEN`) | 即时 | ⚠️ 产物已可安装,缺 `NPM_TOKEN` |
+| TS | npm | `pnpm --filter @ihui-ai/sdk build` → `npm publish --access public --provenance`(OIDC 失败自动回退 `NPM_TOKEN`) | 即时 | ⚠️ 产物已可安装,缺 `NPM_TOKEN` |
 | Python | PyPI | 复制根 `LICENSE`/`NOTICE` → `python -m build` → `twine check` → `twine upload` | 即时 | ⚠️ 产物已可安装,缺 `PYPI_TOKEN` |
 | Go | GitHub(无中心仓库) | 打 `sdk/v<VERSION>` 子 tag 并推送,proxy.golang.org 自动抓取 | 即时 | ⚠️ 依赖 workflow 有 `git push` 权限 |
 | Java | Maven Central | `mvn -B clean deploy` | Sonatype 审核(首次约 2 小时) | ❌ `pom.xml` 缺 `<licenses>` / `<developers>` / `<scm>` / `<url>`,无 sources/javadoc jar、无 GPG 签名插件,`MAVEN_USERNAME` / `MAVEN_TOKEN` 也未配置 |
@@ -568,9 +568,9 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 
 | 包 | 定位 | 处理 |
 | --- | --- | --- |
-| `@ihui/sdk` | 对外唯一 TS 入口 | 已改为可发布形态:`main/types → dist`、`files` 白名单、`license: Apache-2.0`、`publishConfig.registry` 锁 npmjs.org、`@ihui/types` 移到 devDependencies(纯类型引用,发行包不需要) |
-| `@ihui/api-client` | **内部传输层,不对外发布** | 保留 `private: true`。理由:① 它被 9 端经 workspace 直接按源码消费,翻成 `dist` 入口会让 `pnpm dev` 依赖先构建,收益为零;② 对外契约由 `@ihui/sdk` 承担,同时发布两个高度重叠的客户端包只会让使用者困惑;③ 它 `dependencies: { "@ihui/types": "workspace:*" }`,而 `@ihui/types` 是 private —— 去 private 也发不出去。**注意:`build` 脚本(`tsc`)是好的,`packages/api-client/dist` 能正常产出**,只是不用于发布。 |
-| `@ihui/types` | 契约包 | 仍是 `private: true`。`@ihui/sdk` 的 `dist/*.d.ts` 有 13 处 `import type … from '@ihui/types'`,严格消费者(`skipLibCheck: false`)会报 13 个 TS2307 —— 见"SDK 类型面遗留问题" |
+| `@ihui-ai/sdk` | 对外唯一 TS 入口 | 已改为可发布形态:`main/types → dist`、`files` 白名单、`license: Apache-2.0`、`publishConfig.registry` 锁 npmjs.org、`@ihui/types` 移到 devDependencies(纯类型引用,发行包不需要) |
+| `@ihui/api-client` | **内部传输层,不对外发布** | 保留 `private: true`。理由:① 它被 9 端经 workspace 直接按源码消费,翻成 `dist` 入口会让 `pnpm dev` 依赖先构建,收益为零;② 对外契约由 `@ihui-ai/sdk` 承担,同时发布两个高度重叠的客户端包只会让使用者困惑;③ 它 `dependencies: { "@ihui/types": "workspace:*" }`,而 `@ihui/types` 是 private —— 去 private 也发不出去。**注意:`build` 脚本(`tsc`)是好的,`packages/api-client/dist` 能正常产出**,只是不用于发布。 |
+| `@ihui/types` | 契约包 | 仍是 `private: true`。`@ihui-ai/sdk` 的 `dist/*.d.ts` 有 13 处 `import type … from '@ihui/types'`,严格消费者(`skipLibCheck: false`)会报 13 个 TS2307 —— 见"SDK 类型面遗留问题" |
 | `ihui-cli` | 对外发布 npm 包 `ihui-cli`(unscoped) | 已收口为**单文件 bundle**:`build:npm`(esbuild CJS)产出 `apps/cli/npm-dist/`,`@ihui/*` 全部内联,`package.json` **无 `dependencies`**,语言包在 `dist/messages/{cli,shared}/`;发布命令为 `npm publish ./npm-dist --access public`。`packages/i18n` 的 `findMessagesRoot()` 已增加 `dist/messages` 探测。**首版 `1.0.0` 已于 2026-10-19 用 granular token 手动 bootstrap 发布并通过安装验证**;后续版本的 CI 发布走 `secrets.NPM_PUBLISH_TOKEN`(同一枚 granular token,勾 Bypass 2FA),**不再需要 Trusted Publisher**(已定案永久不登记) |
 
 ### SDK 类型面遗留问题(`@ihui/types` 未发布导致 d.ts 解析不到)
@@ -584,7 +584,7 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 
 两条可选收口路径(都需要仓库级决策,不在本次可改范围内):
 
-1. **发布 `@ihui/types`**(改动最小):去掉 private + 补 `build`/`files`/`exports` + 首版 `0.1.0`,然后 `@ihui/sdk` 把它列回 `dependencies`。需要动 `packages/types/**`。
+1. **发布 `@ihui/types`**(改动最小):去掉 private + 补 `build`/`files`/`exports` + 首版 `0.1.0`,然后 `@ihui-ai/sdk` 把它列回 `dependencies`。需要动 `packages/types/**`。
 2. **打包时内联声明**(不动 types):给 SDK 构建加一步 `.d.ts` bundler(如 `rollup-plugin-dts` / `api-extractor`),把 `@ihui/types` 的 113 个被引用类型卷进单一 `dist/index.d.ts`。需要新增 devDependency + 改 lockfile。
 
 > 禁止把 types 的声明**手抄**进 `packages/sdk/src/types/`:那份契约是活的 —— 实测本次任务期间

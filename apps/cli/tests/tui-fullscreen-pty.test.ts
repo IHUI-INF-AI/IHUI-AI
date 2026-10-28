@@ -96,18 +96,19 @@ suite('全屏 TUI × 真 PTY(G-329)', () => {
     PTY_TEST_TIMEOUT_MS,
   )
 
-  it.fails(
-    '缺陷点名(G-329):全屏从未开启鼠标上报模式 —— 1000/1002/1003/1006/9 系开关实测缺席,滚轮字节只被当未绑定序列吞掉',
+  it(
+    '全屏开启鼠标上报(1000+1006),滚轮有解码通道(G-329 原缺陷格,2026-10-28 补齐)',
     async () => {
       const session = await startTui()
       await quitByEsc(session, 15_000)
       await session.exited
       await session.waitFor(/left fullscreen/, 0, SETTLE_MS)
-      // 真 PTY 读端全量流里找鼠标上报开关:实测一条都没有(缺陷)。
+      // 真 PTY 读端全量流里找鼠标上报开关:进全屏必须开、退全屏必须关。
       // ConPTY 自身会开 ?1004(焦点上报)与 ?9001,那不是鼠标模式,判据不含它们。
-      // 实现补上鼠标模式后本用例会"意外通过"而翻转成红,逼着把它改回 it() —— 这就是棘轮。
-      const mouseModeOn = /\x1b\[\?(?:1000|1002|1003|1006|9)[hl]/.test(session.stream)
+      const mouseModeOn = /\x1b\[\?(?:1000|1006)h/.test(session.stream)
+      const mouseModeOff = /\x1b\[\?(?:1000|1006)l/.test(session.stream)
       expect(mouseModeOn, '全屏会话应开启鼠标上报(滚轮翻页)能力').toBe(true)
+      expect(mouseModeOff, '退出全屏必须关掉鼠标上报,否则滚轮会污染 shell').toBe(true)
     },
     PTY_TEST_TIMEOUT_MS,
   )

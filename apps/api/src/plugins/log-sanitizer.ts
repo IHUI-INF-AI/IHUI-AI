@@ -23,7 +23,16 @@ type LogLevel = (typeof LOG_LEVELS)[number]
  * 实现方式：onRequest 阶段用 Proxy 包装 request.log，对各级别方法的入参
  * （mergeObject / message）做递归脱敏后再委托给原 logger 输出。
  */
-function redactCredentialText(text: string): string {
+/**
+ * 自由文本里的凭据打码(**日志面唯一出口**,2026-10-28 起具名导出)。
+ *
+ * 立因:此前这一维只有本插件的 request.log Proxy 用得到,而 `api_logs.error` 那一列
+ * 是**直接落库**的文本,不经过 pino,也就没人给它打码 —— 于是"想把异常摘要写进表"
+ * 这一件事在结构上就不成立(写进去的原文可能带 token/cookie)。
+ * 现在落库面与日志面共用同一条规则(共享层 `@ihui/shared/utils/redact`),
+ * 不写第二份打码(§0.6 单一真相源)。
+ */
+export function redactCredentialText(text: string): string {
   let out = redactUrl(text)
   for (const rule of SECRET_RULES) out = out.replace(rule.pattern, rule.replacement)
   return out
