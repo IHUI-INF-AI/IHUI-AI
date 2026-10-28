@@ -1437,6 +1437,7 @@
     "validUntil": "有效期至"
   },
   "ranking": {
+    "anonymous": "匿名用户",
     "title": "排行榜",
     "loadFailed": "加载排行榜失败",
     "empty": "暂无排名数据",
