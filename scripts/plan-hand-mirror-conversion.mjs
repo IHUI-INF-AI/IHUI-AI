@@ -62,6 +62,9 @@ export const END_UI_FACILITIES = new Set([
   // 搜索框:props 只有 value/placeholder/onInput/onSearch/onClear(受控,零取数、零业务),
   // 与 FocusField 同类 —— 只说明页面有搜索入口,壳承载页由共享屏自带的搜索件承担。
   '@/components/SearchBar',
+  // 分类横栏:props 只有 items/value/onChange(标签由调用方 t() 注入,组件零文案零取数),
+  // 与 FocusField/SearchBar 同类 —— 只说明页面有分类筛选,壳承载页由共享屏自带的分类栏承担。
+  '@/components/CategoryBar',
   'useI18n',
   'useTheme',
   'useTt',
@@ -484,6 +487,15 @@ export function judgeConversion({
   if (!pageText) return { spec, kind: 'undetermined', why: '页面正文取不到' }
   if (shellText === null || shellText === undefined)
     return { spec, kind: 'no-shell', why: `${shellTargetRel(name)} 在本面不存在` }
+  // 注释不是实现。此前下面 14 个谓词一律拿**原文**判"壳里有没有这个能力",于是壳里一句
+  // `// 对齐小程序 useDidShow`(现读 VipScreen.tsx:263)就能把页面真正需要的钩子销成"已覆盖"
+  // ⇒ 自动落地会静默丢掉回屏刷新。**假销账比误拒危险**(误拒只是不动手,假销账是改错代码),
+  // 故在入口处统一遮注释,一处生效、不逐条打补丁(§0.6)。
+  // 刻意只遮注释、不遮字符串:端点('/api/x')、路由名、i18n 键都住在字符串字面量里,
+  // 那些判定必须继续看得见(遮了就等于把另一族判据弄瞎)。
+  pageText = maskComments(String(pageText))
+  shellText = maskComments(String(shellText))
+  if (sharedText !== null && sharedText !== undefined) sharedText = maskComments(String(sharedText))
   if (!rnConsumes({ text: shellText }, name))
     return {
       spec,
@@ -831,6 +843,35 @@ function main(argv) {
       apiEndpointsCovered("import { get } from '@/api'\nget('/agents/list')", "fetchApi('/api/agents')"),
       apiEndpointsCovered("import { getX } from '@/api'\nget('/x')", "fetchApi('/api/x')"),
     ], [true, false, false])
+    // S14 注释不是实现(2026-10-28 现读缺陷):壳里一句 `// 对齐小程序 useDidShow` 曾被读成
+    // "壳已承担回屏刷新" ⇒ 页面真钩子被销账,自动落地会静默丢行为(假销账比误拒危险)。
+    // 同时留反向对照:壳里**真调用**时仍须销账,否则这条锁只是把判据遮成另一种瞎。
+    const s14Page =
+      "import Taro, { useDidShow } from '@tarojs/taro'\nuseDidShow(() => load())\nexport default function P() { return null }"
+    const s14Judge = (shellText) =>
+      judgeConversion({
+        spec: 'packages/app/src/features/foo/FooScreen.tsx',
+        pageText: s14Page,
+        shellText,
+        sharedText: 'export function FooScreen() { return null }',
+      })
+    const s14Has = (r) => (String(r.why) + String(r.kind)).includes('useDidShow')
+    P(
+      'S14 壳侧能力只出现在注释里 ⇒ 不销账;壳里真接了回屏重取层 ⇒ 销账',
+      s14Has(
+        // 反例:壳里只有注释提到 useDidShow(现读 VipScreen.tsx:263 那型)
+        s14Judge(
+          "import { FooScreen } from '@ihui/rn-app'\n// 对齐小程序 useDidShow\nexport function FooHost() { return <FooScreen /> }",
+        ),
+      ) === true &&
+        s14Has(
+          // 正例:壳真用 useFocusEffect + 自己取数 ⇒ 与页面的 useDidShow(() => load()) 同一件事
+          s14Judge(
+            "import { FooScreen } from '@ihui/rn-app'\nimport { fetchApi } from '@ihui/api-client'\nuseFocusEffect(() => fetchApi('/api/foo'))\nexport function FooHost() { return <FooScreen /> }",
+          ),
+        ) === false,
+      '',
+    )
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
