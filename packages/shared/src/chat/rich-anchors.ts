@@ -181,6 +181,16 @@ export function countRichAnchors(nodes: readonly RichAnchorNode[], tag?: RichAnc
   return total
 }
 
+/**
+ * 串内是否真的含白名单锚点(解析层判据)。
+ * 供渲染分支选择使用 —— 各端不得再自带正则判据(否则与白名单漂开)。
+ * 无 '<' 的常见路径直接短路,不进入解析。
+ */
+export function hasRichAnchors(input: string): boolean {
+  if (!input.includes('<')) return false
+  return countRichAnchors(parseRichAnchors(input)) > 0
+}
+
 /** 展平为标签序列(便于断言"五语言语序变体"这类顺序判据) */
 export function richAnchorTagSequence(nodes: readonly RichAnchorNode[]): readonly RichAnchorTag[] {
   const seq: RichAnchorTag[] = []
