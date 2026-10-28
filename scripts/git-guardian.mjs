@@ -27,7 +27,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
 import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
-import { runIpAttributionTrustAudit } from './lib/ip-attribution-trust-audit.mjs'
 import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { isInteractiveUserHome } from './check-home-junctions.mjs'
@@ -4527,20 +4526,6 @@ const FEEDBACK_CLOSURE_WINDOW_MS = Number(process.env.IHUI_FEEDBACK_CLOSURE_WIND
 const FEEDBACK_CLOSURE_TICK = join(WORKTREE, '.ihui-agent', 'state', 'feedback-loop-closure-tick.ts')
 const FEEDBACK_CLOSURE_LAST = join(WORKTREE, '.ihui-agent', 'state', 'feedback-loop-closure-last.json')
 
-/**
- * IP 归属判定信任面哨兵(2026-10-28 立)。尺子 = scripts/check-ip-attribution-trust.mjs,
- * 判据/节流/到人住 lib/ip-attribution-trust-audit.mjs;判机器状态 ⇒ **不进提交链**(§12e)。
- * 立因 = 实测 request.ip 完全由 `X-Forwarded-For` 最左值决定(只要 socket 对端命中
- * TRUSTED_PROXIES),而今天不成立只因为"CDN 出口 IP 恰好不在表里"—— 谁按常规做法把出口 IP
- * 填进表，admin 分段/信誉封禁/限流键就同时可伪造。本层把"巧合"变成有人看守的状态。
- */
-export function auditIpAttributionTrust(opts = {}) {
-  return runIpAttributionTrustAudit({
-    logger: log,
-    notify: (title, detail, notifyOpts) => notifyGuardRed(title, detail, notifyOpts),
-    ...opts,
-  })
-}
 
 /**
  * 反馈闭环断点巡检(2026-10-28 立)。
@@ -5797,9 +5782,6 @@ function main() {
     // 调用者,链断了没人喊。30 分钟节流;超 48 小时处置窗口仍卡同一段才喊,窗口内只写日志。
     // 判机器状态 ⇒ 不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。
     if (!CHECK_ONLY) auditFeedbackLoopClosure()
-    // IP 归属信任面(尺子 = check-ip-attribution-trust.mjs;判定/节流/到人住 lib)。
-    // 60min 节流;未判定只写日志不喊人,红档按"状态翻转"寄一封(同一身份连续多轮压住不重复寄)。
-    if (!CHECK_ONLY) auditIpAttributionTrust()
     // 「完成即删」兜底清扫已提前到 healWorktreeTracked 之后(2026-10-22 调度加固,见该处注释):
     // 挂在这一长串探测之后实测整轮到不了,清扫心跳会长期停摆。
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
