@@ -1,4 +1,10 @@
 {
+  "setting": {
+    "operationFailed": "작업 실패"
+  },
+  "message": {
+    "deleted": "삭제됨"
+  },
   "workflows": {
     "title": "워크플로우",
     "empty": "워크플로우가 없습니다",
