@@ -13,8 +13,9 @@
  * expo-file-system 同型;逐套件加局部 vi.mock 正是要根治的反模式。
  *
  * 覆盖面按 src 里实际用到的成员给(不是全量 API):
- *   BlurView(apps/mobile-rn/src/components/TabBar.tsx:props intensity/tint/style)
- * 测试态不需要真模糊,渲染普通元素即可;Android 实机端本来就是磨砂实底而非真模糊。
+ *   BlurView(apps/mobile-rn/src/components/TabBar.tsx:props intensity/tint/style/blurTarget)
+ *   BlurTargetView(各 Screen 包裹胶囊背景内容,真包非 Android 端本就渲染普通 View)
+ * 测试态不需要真模糊,渲染普通元素即可。
  */
 import { createElement, forwardRef, type ReactNode } from 'react'
 
@@ -31,5 +32,11 @@ export const BlurView = forwardRef<HTMLElement, BlurViewProps>(function BlurView
   return createElement('div', { ...props, ref }, props.children as ReactNode)
 })
 
-export default { BlurView }
+export const BlurTargetView = forwardRef<HTMLElement, BlurViewProps>(
+  function BlurTargetView(props, ref) {
+    return createElement('div', { ...props, ref }, props.children as ReactNode)
+  },
+)
+
+export default { BlurView, BlurTargetView }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
