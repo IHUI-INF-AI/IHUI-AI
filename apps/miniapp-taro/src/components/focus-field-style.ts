@@ -30,7 +30,11 @@ export type FieldInlineStyle = { borderWidth?: string; borderStyle?: string; bor
 /**
  * 调用方这一串 class 里是否已经自己画了描边(有 ⇒ 常态不得覆盖它,否则可见边框会消失)。
  * 工具类可能带变体前缀(`focus:border-primary`)、染色后缀(`border-primary/20`)、任意值
- * (`border-[2rpx]`),所以按 `:` 切段后判"某段以 border 开头";`rounded-*`/`divide-*` 不是本元素的描边。
+ * (`border-[length:2rpx]`),所以按 `:` 切段后判"某段以 border 开头";`rounded-*`/`divide-*` 不是本元素的描边。
+ *
+ * ⚠️ 注释里也**不得**写"裸形态"字面量(无量词前缀的那一形):Tailwind 连注释一起当候选扫,
+ * 裸/提示两形会被归一成同一条候选而只产出裸选择器,运行时挂的却是提示名 ⇒ 描边整片不落地。
+ * 判据见 `scripts/check-miniapp-css-landing.mjs` C1 的"裸/提示坍缩"一条(守门 93 R7 同规)。
  */
 export function hasRestingBorder(className?: string): boolean {
   if (!className) return false
