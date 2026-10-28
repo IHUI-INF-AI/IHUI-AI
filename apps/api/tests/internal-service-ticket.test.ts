@@ -471,8 +471,11 @@ describe('源码形状锁', () => {
   })
 
   it('分流判据必须同时认两种凭据头(摘掉票那一半 ⇒ 本条红)', () => {
+    // 2026-10-28:分流的实现是 `!!a || !!b` 直连,此前正则里多要求一个右括号
+    // (那是旧写法 `!!(a) || !!b` 的形状)⇒ 判据在源码无括号化之后恒定失败。
+    // 钉的语义不变:两个头必须都被 `!!` 取真并在同一个 `||` 里出现。
     expect(tokenSrc()).toMatch(
-      /request\.headers\[INTERNAL_TOKEN_HEADER\]\s*\)\s*\|\|\s*!!\s*request\.headers\[INTERNAL_TICKET_HEADER\]/,
+      /!!\s*request\.headers\[INTERNAL_TOKEN_HEADER\]\s*\|\|\s*!!\s*request\.headers\[INTERNAL_TICKET_HEADER\]/,
     )
   })
 })

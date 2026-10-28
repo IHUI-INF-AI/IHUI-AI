@@ -83,6 +83,15 @@ vi.mock('../src/services/relay-proxy-pool.js', () => ({
   pickProxyForAccount: (account: { id: string; proxyUrl: string | null }) => mockPickProxy(account),
   reportProxyFailure: (u: string) => mockReportProxyFailure(u),
   reportProxySuccess: (u: string) => mockReportProxySuccess(u),
+  // 2026-10-28:代理 URL 改为加密存储后,换票链路(doRefreshRowInPlace)会在调用
+  // adapter.refreshToken **之前**先求值 resolveAccountProxyUrl(row.proxyUrl)。手写全量
+  // mock 漏这一个导出 ⇒ 该求值当场抛 "No … export is defined on the mock",异常被
+  // 换票的 catch 吞成 null ⇒ 表现为"401 不自愈、refreshToken 一次都没被调用",
+  // 与真实的自愈缺陷同形(排查方向会被带偏到自愈逻辑上)。此处按明文透传即可:
+  // 本文件夹具里的 proxyUrl 本就是明文/null,不涉及解密。
+  resolveAccountProxyUrl: (stored: string | null | undefined) => stored ?? null,
+  encryptAccountProxyUrl: (plain: string | null | undefined) => plain ?? null,
+  maskAccountProxyUrl: (stored: string | null | undefined) => stored ?? null,
 }))
 vi.mock('../src/services/relay-model-catalog.js', () => ({
   resolveModelAlias: (p: string, m: string) => mockResolveAlias(p, m),
