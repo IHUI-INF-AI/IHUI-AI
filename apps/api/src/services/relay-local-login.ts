@@ -133,7 +133,7 @@ export interface LocalLoginResult {
   /** Trae 专属:设备证明信封是否在场/是否写回 */
   deviceEnvelopePresent?: boolean
   deviceEnvelopeWritten?: boolean
-  /** Trae 专属:写回时该产品是否在跑、是否被优雅关闭、是否已自动重新拉起 */
+  /** 写回时该产品是否在跑、是否被关闭、是否已自动重新拉起(codex/opencode 是 CLI,恒 false) */
   clientProduct?: string
   clientWasRunning?: boolean
   clientClosed?: boolean
@@ -456,6 +456,27 @@ async function loginViaScript(
   if (!targetFile) {
     throw new LocalLoginError('写回脚本未回报落点(未判定)', 'bad-output', 502)
   }
+  /**
+   * 六平台自 2026-10-28 起与 trae 同口径:运行中的 GUI 客户端(codearts/qoder/minimax/zcode)
+   * 先关后写再拉起,字段同名同义;codex/opencode 是 CLI,脚本不给这些字段 ⇒ 全 false。
+   */
+  const clientProduct = typeof parsed.clientProduct === 'string' ? parsed.clientProduct : ''
+  const clientWasRunning = parsed.clientWasRunning === true
+  const clientClosed = parsed.clientClosed === true
+  const clientForced = parsed.clientForced === true
+  const clientRestarted = parsed.clientRestarted === true
+  const clientLaunchError =
+    typeof parsed.clientLaunchError === 'string' ? parsed.clientLaunchError : ''
+  const notes: string[] = Array.isArray(parsed.notes)
+    ? parsed.notes.filter((n): n is string => typeof n === 'string')
+    : []
+  if (clientClosed) {
+    notes.push(
+      clientRestarted
+        ? `写入前已${clientForced ? '强制' : '优雅'}关闭并重新打开 ${clientProduct} 客户端(运行中的客户端会用内存态覆写登录态,故必须先关后写)`
+        : `写入前已关闭 ${clientProduct} 客户端,但未能自动重新拉起,请手动打开客户端`,
+    )
+  }
   return {
     ok: true,
     providerCode,
@@ -463,12 +484,16 @@ async function loginViaScript(
     replacedUid: typeof parsed.replacedUid === 'string' ? parsed.replacedUid : null,
     targetFile,
     backupFile: typeof parsed.backupFile === 'string' ? parsed.backupFile : '',
-    notes: Array.isArray(parsed.notes)
-      ? parsed.notes.filter((n): n is string => typeof n === 'string')
-      : [],
+    notes,
     tokenNearExpiry: isNearExpiry(row, Date.now()),
     refreshed: false,
     restartHint: typeof parsed.restartHint === 'string' ? parsed.restartHint : '重启客户端后生效',
+    clientProduct,
+    clientWasRunning,
+    clientClosed,
+    clientForced,
+    clientRestarted,
+    clientLaunchError,
   }
 }
 
