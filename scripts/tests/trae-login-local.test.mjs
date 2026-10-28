@@ -18,6 +18,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { __test__ as L } from '../trae-login-local.mjs'
+import { __test__ as C } from '../lib/trae-client-process.mjs'
 import { __test__ as T } from '../lib/trae-auth-extract.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
@@ -40,6 +41,9 @@ const PAYLOAD = {
   refreshExpiresAt: '2027-04-25T00:00:00.000Z',
   sessionTemplate: TEMPLATE,
 }
+
+/** 空进程面:单测绝不真探测 tasklist(慢且会受本机在跑的真人客户端影响) */
+const noProc = () => ({ unknown: false, running: new Set(), pidsByProduct: {} })
 
 test('① 入参面:缺证/缺模板/模板错配一律拒绝(未判定不写)', () => {
   assert.throws(() => L.normalizePayload(null), (e) => e.code === 'payload-shape')
@@ -110,7 +114,7 @@ test('③ 写盘面:信封能解回、备份逐字节等、旁键与设备信封
       devicePubPem: 'PEM-PUB',
       targetStorage: file,
     })
-    const result = L.applyLogin(T, payload)
+    const result = L.applyLogin(T, payload, { probe: noProc() })
 
     assert.equal(result.ok, true)
     assert.equal(result.storageFile, path.resolve(file))
@@ -132,7 +136,7 @@ test('③ 写盘面:信封能解回、备份逐字节等、旁键与设备信封
     assert.equal(JSON.stringify(result).includes(PAYLOAD.refreshToken), false)
 
     // 二次写:设备信封已在 ⇒ 只报 present,不重写(本机现役材料优先)
-    const again = L.applyLogin(T, payload)
+    const again = L.applyLogin(T, payload, { probe: noProc() })
     assert.equal(again.deviceEnvelopePresent, true)
     assert.equal(again.deviceEnvelopeWritten, false)
     assert.equal(again.replacedUid, UID)
@@ -142,7 +146,7 @@ test('③ 写盘面:信封能解回、备份逐字节等、旁键与设备信封
       JSON.stringify({ privateKeyPEM: 'LOCAL-PRIV', publicKeyPEM: 'LOCAL-PUB' }),
     )
     fs.writeFileSync(file, JSON.stringify(store))
-    L.applyLogin(T, payload)
+    L.applyLogin(T, payload, { probe: noProc() })
     const after = JSON.parse(fs.readFileSync(file, 'utf8'))
     const kept = JSON.parse(T.decryptEnvelope(after[`iCubeAuthInfo://icube-dc:${DEVICE_ID}`]))
     assert.equal(kept.privateKeyPEM, 'LOCAL-PRIV', '本机现役设备信封不得被池内材料顶掉')
@@ -161,13 +165,13 @@ test('④ 落点面:显式路径优先且不存在即拒;坏 JSON/非对象顶�
     const bad = path.join(scratch, 'bad.json')
     fs.writeFileSync(bad, '{not json')
     assert.throws(
-      () => L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, targetStorage: bad })),
+      () => L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, targetStorage: bad }), { probe: noProc() }),
       (e) => e.code === 'storage-shape',
     )
     const arr = path.join(scratch, 'arr.json')
     fs.writeFileSync(arr, '[]')
     assert.throws(
-      () => L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, targetStorage: arr })),
+      () => L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, targetStorage: arr }), { probe: noProc() }),
       (e) => e.code === 'storage-shape',
     )
   } finally {
@@ -181,5 +185,217 @@ test('⑤ 参数面:必须 --stdin(凭证走管道不落盘),未知参数点名'
   assert.match(L.parseArgs([]).error ?? '', /--stdin/)
   assert.equal(L.parseArgs(['--help']).help, true)
   assert.match(L.parseArgs(['--stdin', '--bogus']).error ?? '', /未知参数/)
+})
+
+/**
+ * ⑥/⑦ 覆盖 2026-10-28 实测根因:客户端在跑时写盘必被它退出时的内存态覆写。
+ * 关停/拉起一律注入假实现 —— **单测绝不真动本机客户端**(用户正在用)。
+ */
+const storeFile = (scratch, product) => {
+  const file = path.join(scratch, product, 'User', 'globalStorage', 'storage.json')
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(
+    file,
+    JSON.stringify({
+      theme: 'vs-dark',
+      [L.SESSION_KEY]: T.encryptEnvelope(JSON.stringify({ userId: '340221726063980' })),
+    }),
+  )
+  return file
+}
+
+test('⑥ 进程面:在跑则先优雅关闭→写→自检→自动拉起;关不掉/探测失败一律不写', () => {
+  const scratch = mkScratch('trae-login-local-proc')
+  try {
+    const file = storeFile(scratch, 'Trae CN')
+    const running = () => ({
+      unknown: false,
+      running: new Set(['Trae CN']),
+      pidsByProduct: { 'Trae CN': [4242] },
+    })
+
+    // 服务端调用(restartClient)但探测不了 ⇒ 拒绝写入,原文件不动
+    const beforeProbe = fs.readFileSync(file, 'utf8')
+    assert.throws(
+      () =>
+        L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, restartClient: true, targetStorage: file }), {
+          probe: { unknown: true, running: new Set(), pidsByProduct: {} },
+        }),
+      (e) => e.code === 'process-probe-failed',
+    )
+    assert.equal(fs.readFileSync(file, 'utf8'), beforeProbe, '探测失败时绝不能盲写')
+
+    // 手工 CLI(无 restartClient)遇到在跑的目标 ⇒ 明确拒绝并指路,不悄悄写一遍
+    assert.throws(
+      () =>
+        L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, targetStorage: file }), { probe: running() }),
+      (e) => e.code === 'target-locked',
+    )
+    assert.equal(fs.readFileSync(file, 'utf8'), beforeProbe)
+    assert.equal(L.normalizePayload(PAYLOAD).restartClient, false, '缺省不得动进程')
+
+    // 连强制结束都没退掉(进程被别的驱动挂住)⇒ 不写,如实报错(此时写必被覆写)
+    assert.throws(
+      () =>
+        L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, restartClient: true, targetStorage: file }), {
+          probe: running(),
+          resolveExe: () => 'C:/fake/Trae CN.exe',
+          closeProduct: () => ({ wasRunning: true, closed: false, pids: [4242], forced: true }),
+          launchProduct: () => assert.fail('没关成就不能拉起'),
+        }),
+      (e) => e.code === 'target-locked' && /强制/.test(e.message),
+    )
+    assert.equal(fs.readFileSync(file, 'utf8'), beforeProbe)
+
+    // 正路:关停 → 写入 → 自检 → 拉起;顺序与参数都要锁
+    const calls = []
+    const result = L.applyLogin(
+      T,
+      L.normalizePayload({ ...PAYLOAD, restartClient: true, targetStorage: file }),
+      {
+        probe: running(),
+        resolveExe: () => 'C:/fake/Trae CN.exe',
+        closeProduct: (product, o) => {
+          calls.push(['close', product, o.pids])
+          return { wasRunning: true, closed: true, pids: o.pids }
+        },
+        launchProduct: (exe) => {
+          calls.push(['launch', exe])
+          return { launched: true, error: '' }
+        },
+      },
+    )
+    assert.deepEqual(calls, [
+      ['close', 'Trae CN', [4242]],
+      ['launch', 'C:/fake/Trae CN.exe'],
+    ])
+    assert.equal(result.clientProduct, 'Trae CN')
+    assert.equal(result.clientWasRunning, true)
+    assert.equal(result.clientClosed, true)
+    assert.equal(result.clientRestarted, true)
+    assert.match(result.restartHint, /重新打开/)
+    const written = JSON.parse(T.decryptEnvelope(JSON.parse(fs.readFileSync(file, 'utf8'))[L.SESSION_KEY]))
+    assert.equal(written.userId, UID, '落盘的必须是目标号')
+    assert.equal(written.token, PAYLOAD.token)
+
+    // 拉起失败也要落盘成功并如实回报(让用户手动开,而不是报"写入失败")
+    const manual = L.applyLogin(
+      T,
+      L.normalizePayload({ ...PAYLOAD, restartClient: true, targetStorage: file }),
+      {
+        probe: running(),
+        resolveExe: () => 'C:/fake/Trae CN.exe',
+        closeProduct: () => ({ wasRunning: true, closed: true, pids: [4242] }),
+        launchProduct: () => ({ launched: false, error: '拒绝访问' }),
+      },
+    )
+    assert.equal(manual.ok, true)
+    assert.equal(manual.clientRestarted, false)
+    assert.equal(manual.clientLaunchError, '拒绝访问')
+    assert.match(manual.restartHint, /手动打开/)
+
+    // 托盘常驻只能强杀时:落盘照旧,但回报必须点名"强制"(用户才知道自己的未保存内容可能丢了)
+    const forced = L.applyLogin(
+      T,
+      L.normalizePayload({ ...PAYLOAD, restartClient: true, targetStorage: file }),
+      {
+        probe: running(),
+        resolveExe: () => 'C:/fake/Trae CN.exe',
+        closeProduct: () => ({ wasRunning: true, closed: true, pids: [4242], forced: true }),
+        launchProduct: () => ({ launched: true, error: '' }),
+      },
+    )
+    assert.equal(forced.clientClosed, true)
+    assert.equal(forced.clientForced, true)
+    assert.equal(forced.clientRestarted, true)
+    assert.match(forced.restartHint, /强制关闭/)
+    assert.equal(manual.clientForced, false, '优雅关闭不得误报强制')
+
+    // 写入失败也要把用户客户端拉回来(finally),否则用户会以为客户端"被关掉了"
+    const badFile = path.join(scratch, 'Trae', 'User', 'globalStorage', 'storage.json')
+    fs.mkdirSync(path.dirname(badFile), { recursive: true })
+    fs.writeFileSync(badFile, '{broken')
+    let relaunched = false
+    assert.throws(
+      () =>
+        L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, restartClient: true, targetStorage: badFile }), {
+          probe: { unknown: false, running: new Set(['Trae']), pidsByProduct: { Trae: [7] } },
+          resolveExe: () => 'C:/fake/Trae.exe',
+          closeProduct: () => ({ wasRunning: true, closed: true, pids: [7] }),
+          launchProduct: () => {
+            relaunched = true
+            return { launched: true, error: '' }
+          },
+        }),
+      (e) => e.code === 'storage-shape',
+    )
+    assert.equal(relaunched, true, '写失败也必须重新拉起客户端')
+
+    // 客户端没在跑 ⇒ 不关不拉,直接写
+    const idle = L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, restartClient: true, targetStorage: file }), {
+      probe: noProc(),
+      closeProduct: () => assert.fail('没在跑就不能关'),
+      launchProduct: () => assert.fail('没在跑就不该拉起'),
+    })
+    assert.equal(idle.clientWasRunning, false)
+    assert.equal(idle.clientClosed, false)
+    assert.match(idle.restartHint, /直接打开/)
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('⑦ 落点面:多份客户端同时安装时优先正在运行的那份,其次有登录态的,最后按 mtime', () => {
+  const scratch = mkScratch('trae-login-local-pick')
+  try {
+    const cn = storeFile(scratch, 'Trae CN') // 最新但无信封
+    const solo = storeFile(scratch, 'TRAE SOLO CN') // 较旧,有信封
+    const plain = storeFile(scratch, 'Trae') // 最旧,有信封
+    fs.writeFileSync(cn, JSON.stringify({ theme: 'x' }))
+    const now = Date.now() / 1000
+    fs.utimesSync(cn, now, now)
+    fs.utimesSync(solo, now - 3600, now - 3600)
+    fs.utimesSync(plain, now - 7200, now - 7200)
+    const extract = { traeUserDataDirs: () => [plain, solo, cn].map((f) => path.dirname(path.dirname(path.dirname(f)))) }
+
+    // 都没在跑:有登录态的优先,同档取最新 ⇒ TRAE SOLO CN
+    assert.equal(L.locateStorage(extract, '', { runningProducts: new Set() }).file, solo)
+    // 正在用的是最旧且无信封的那份 ⇒ 就写它(旧实现按产品名次序会写错)
+    assert.equal(L.locateStorage(extract, '', { runningProducts: new Set(['Trae']) }).file, plain)
+    assert.equal(L.locateStorage(extract, '', { runningProducts: new Set(['Trae CN']) }).file, cn)
+    // 显式指定永远优先且标记 explicit
+    const explicit = L.locateStorage(extract, cn, { runningProducts: new Set(['Trae']) })
+    assert.equal(explicit.file, path.resolve(cn))
+    assert.equal(explicit.explicit, true)
+    assert.equal(explicit.product, 'Trae CN')
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('⑧ 进程库面:产品名映射、探测不到=未知、不存在的产品=没在跑、拉不起如实回报', () => {
+  assert.equal(C.productOfDir('trae cn'), 'Trae CN')
+  assert.equal(C.productOfDir('TRAE SOLO CN'), 'TRAE SOLO CN')
+  assert.equal(C.productOfDir('Trae'), 'Trae')
+  assert.equal(C.productOfDir('Cursor'), '', '不认识的数据目录不得当成 Trae')
+
+  // 关掉总开关:不 fork tasklist,直接当"没在跑"(诊断用,调用方会因此收到 target-locked)
+  assert.deepEqual(C.listProductPids('Trae CN', { IHUI_TRAE_PROCESS_CONTROL: '0' }), [])
+
+  // 真探测一个几乎不可能存在的产品名:tasklist 的 INFO 行不得被误解析成 pid,
+  // 且"没在跑"时 closeProduct 必须直接闭合并标记 wasRunning=false(不白等 15 秒)
+  const none = C.listProductPids('IHUI-No-Such-Client')
+  if (none !== null) {
+    assert.deepEqual(none, [], '不存在的进程不得解析出 pid')
+    const t0 = Date.now()
+    const closed = C.closeProduct('IHUI-No-Such-Client', { waitMs: 5000 })
+    assert.equal(closed.wasRunning, false)
+    assert.equal(closed.closed, true)
+    assert.ok(Date.now() - t0 < 4000, '没在跑就必须立即返回,不得空轮询')
+  }
+
+  assert.equal(C.launchProduct('').launched, false)
+  assert.equal(C.launchProduct('C:/nope/NoSuch.exe').launched, false)
+  assert.match(C.launchProduct('C:/nope/NoSuch.exe').error, /路径/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

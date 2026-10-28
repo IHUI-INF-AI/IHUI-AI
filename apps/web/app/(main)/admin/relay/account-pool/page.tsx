@@ -678,6 +678,12 @@ export default function AdminRelayAccountPoolPage() {
         tokenNearExpiry: boolean
         refreshed: boolean
         restartHint: string
+        clientProduct?: string
+        clientWasRunning?: boolean
+        clientClosed?: boolean
+        clientForced?: boolean
+        clientRestarted?: boolean
+        clientLaunchError?: string
       }>(`/api/admin/relay/accounts/${id}/login-local`, { method: 'POST' })
       if (!r.success) throw new Error(r.error)
       return r.data
@@ -685,9 +691,16 @@ export default function AdminRelayAccountPoolPage() {
     onSuccess: (d) => {
       const label = LOCAL_LOGIN_LABEL[d.providerCode as ProviderCode] ?? d.providerCode
       const replaced = d.replacedUid ? `,已替换原登录 ${d.replacedUid}` : ''
+      const clientName = d.clientProduct || label
+      const clientNote = d.clientWasRunning
+        ? d.clientRestarted
+          ? `\n写前已${d.clientForced ? '强制' : '自动'}关闭 ${clientName} 并重新打开(运行中的客户端会用内存态覆写登录态)`
+          : `\n写前已关闭 ${clientName},但未能自动重新打开${d.clientLaunchError ? `(${d.clientLaunchError})` : ''}:请手动打开客户端`
+        : ''
       toast.success(`已把 uid=${d.uid} 写进本机 ${label}${replaced};${d.restartHint}`, {
         description:
           `落点:${d.targetFile}\n备份:${d.backupFile || '(原文件不存在,本次为新建)'}` +
+          clientNote +
           (d.notes.length > 0 ? `\n${d.notes.join('\n')}` : '') +
           (d.tokenNearExpiry
             ? '\n这枚票已临期:客户端启动后会自行续期' +
@@ -1585,7 +1598,10 @@ export default function AdminRelayAccountPoolPage() {
                                         onClick={() => {
                                           void confirm({
                                             title: `把「${k.name}」登录到本机 ${label}?`,
-                                            description: `会替换本机当前 ${label} 登录态(写入前自动备份原文件)。写入后需重启 ${label} 才生效。`,
+                                            description:
+                                              provider === 'trae'
+                                                ? `会替换本机当前 ${label} 登录态(写入前自动备份原文件)。写入前会自动关闭 ${label} 并在写入完成后重新打开 —— 客户端运行中直接写会被它退出时的内存态覆盖,所以必须先关后写。请先保存手头未保存的文件。`
+                                                : `会替换本机当前 ${label} 登录态(写入前自动备份原文件)。写入后需重启 ${label} 才生效。`,
                                             confirmText: '写入并替换',
                                           }).then((ok) => {
                                             if (ok) loginLocalMut.mutate(k.id)
