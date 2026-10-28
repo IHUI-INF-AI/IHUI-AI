@@ -95,6 +95,17 @@ test('V2 非法 verdict 档不入台账(declare 不进台账,它是代码不是�
   assert.ok(!V.VERDICT_KINDS.includes('declare'))
 })
 
+test('V2b generated 档合法(已造页但数据钩子待补 —— 必须能记账,否则覆盖率替功能缺口背书)', () => {
+  assert.ok(V.VERDICT_KINDS.includes('generated'), 'generated 档必须被接受')
+  const { rows, bad } = V.parseVerdictRows(JSON.stringify({ shared: SPEC, verdict: 'generated', evidence: 'e' }))
+  assert.equal(rows.length, 1)
+  assert.equal(bad.length, 0)
+})
+
+test('V2c 四档口径齐(missing/generated/not-applicable + declare 不在列)', () => {
+  assert.deepEqual([...V.VERDICT_KINDS].sort(), ['generated', 'missing', 'not-applicable'])
+})
+
 test('V3 归并:同屏以本批为准,新增计数只算新键', () => {
   const existing = [{ shared: SPEC, verdict: 'missing', evidence: 'old' }]
   const batch = [

@@ -1807,6 +1807,23 @@
     "useCount": "使用 {count}",
     "rating": "評価 {score}"
   },
+  "agents": {
+    "categories": {
+      "recommend": "おすすめ",
+      "office": "オフィス",
+      "writing": "執筆",
+      "coding": "プログラミング",
+      "education": "教育",
+      "life": "暮らし"
+    },
+    "keywords": {
+      "office": "オフィス,会議,メール,excel,word,ppt,文書,表計算",
+      "writing": "執筆,コピー,記事,創作,小説,コンテンツ,文章,ライティング",
+      "coding": "コード,プログラミング,プログラム,開発,bug,関数,フロントエンド,バックエンド,python,javascript",
+      "education": "学習,教える,授業,知識,試験,問題,教育,解説,解答",
+      "life": "暮らし,健康,グルメ,旅行,スポーツ,買い物,日常"
+    }
+  },
   "aiAssistant": {
     "title": "AI アシスタント",
     "subtitle": "スマートアシスタントを選んで会話を始めましょう",

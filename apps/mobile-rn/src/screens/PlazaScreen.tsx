@@ -65,7 +65,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { navigateDrawerTab } from '../navigation/tab-utils'
 import { rpx } from '../utils/rpx'
-import { Search, User, FolderOpen, X } from 'lucide-react-native'
+import { Search, User, LayoutGrid, X } from 'lucide-react-native'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 
 import { rnRadius, rnRadiusFor, rnType, rnCssLight } from '@ihui/design-tokens'
@@ -457,8 +457,10 @@ export function PlazaScreen() {
           onBack={() => navigation.goBack()}
           rightActions={[
             {
-              icon: FolderOpen,
-              label: t('plaza.index.navCategory'),
+              // 2026-10-28 用户定:FolderOpen「分类」换 LayoutGrid 纯图标去文字(位置不动,
+              // 仍在右侧操作区首位,紧邻身份钮),a11yLabel 保语义
+              icon: LayoutGrid,
+              a11yLabel: t('plaza.index.navCategory'),
               // 对齐原项目 navigation-bars showFenLei → 赛道筛选弹层(ScrollTitle + Tab)
               onPress: () => setCategoryVisible(true),
             },
@@ -528,7 +530,7 @@ export function PlazaScreen() {
         onNavigateExtra={handleNavigateExtra}
       />
       {/* 需求赛道筛选(对齐原项目 plaza/index.vue 顶栏分类按钮 → categorySaidao 赛道弹层):
-       *  改走统一 CategoryDropdown —— 顶栏 FolderOpen 受控开合,选中即刷新列表(语义未变) */}
+       *  改走统一 CategoryDropdown —— 顶栏分类钮(LayoutGrid,2026-10-28 去 FolderOpen)受控开合,选中即刷新列表(语义未变) */}
       <CategoryDropdown
         items={trackCategoryItems}
         selectedId={selectedCategory}

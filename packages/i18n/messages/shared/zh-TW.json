@@ -1807,6 +1807,23 @@
     "useCount": "使用 {count}",
     "rating": "評分 {score}"
   },
+  "agents": {
+    "categories": {
+      "recommend": "推薦",
+      "office": "辦公",
+      "writing": "寫作",
+      "coding": "程式",
+      "education": "教育",
+      "life": "生活"
+    },
+    "keywords": {
+      "office": "辦公,會議,郵件,excel,word,ppt,文件,表格",
+      "writing": "寫,文案,文章,創作,小說,內容,寫作,文字",
+      "coding": "程式碼,程式,開發,bug,函式,前端,後端,python,javascript",
+      "education": "學,教,課,知識,考試,題,教育,講解,題解",
+      "life": "生活,健康,美食,旅遊,運動,購物,日常"
+    }
+  },
   "aiAssistant": {
     "title": "AI 助手",
     "subtitle": "選擇智能助手,開啟高效對話",

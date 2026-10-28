@@ -1807,6 +1807,23 @@
     "useCount": "사용 {count}",
     "rating": "평점 {score}"
   },
+  "agents": {
+    "categories": {
+      "recommend": "추천",
+      "office": "사무",
+      "writing": "글쓰기",
+      "coding": "코딩",
+      "education": "교육",
+      "life": "생활"
+    },
+    "keywords": {
+      "office": "사무,회의,메일,excel,word,ppt,문서,표",
+      "writing": "글쓰기,카피,글,창작,소설,콘텐츠,작문,텍스트",
+      "coding": "코드,코딩,프로그램,개발,bug,함수,프론트엔드,백엔드,python,javascript",
+      "education": "학습,가르치기,수업,지식,시험,문제,교육,해설,풀이",
+      "life": "생활,건강,맛집,여행,운동,쇼핑,일상"
+    }
+  },
   "aiAssistant": {
     "title": "AI 어시스턴트",
     "subtitle": "스마트 어시스턴트를 선택하여 대화를 시작하세요",

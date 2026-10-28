@@ -192,17 +192,36 @@ test('④ 本腿绝不落库:区间内(剥注释后)无 git add / 无提交出�
   }
 })
 
-test('⑤ 超时档必须 ≥ 一轮完整扫描:低于 5 分钟每次都把孩子杀掉(装了等于没装,§0.9)', () => {
-  // 剥注释是必须的:本腿 options 里就地写了取证注释,注释里的括号会把 [^)] 型正则截断。
-  const leg = norm(stripLineComments(HOOK_RAW.slice(legStartIndex(HOOK_RAW))))
-  const m = /'post-commit-cross-end-autoreg'.{0,400}?timeout: (\d+)/.exec(leg)
-  assert.ok(m, `本腿 runLogged 没写出 timeout:${leg.slice(0, 200)}`)
-  const ms = Number(m[1])
-  // 2026-10-25 两枚现读样本:预演档单跑 268,269ms / 266,862ms(同一台面,间隔约 5 分钟)。
-  // 数字现读、换机必重测:上限必须显著高于单轮耗时,否则每次都在 1/2 进度处被杀 ⇒ 零产出。
+test('⑤ 后台派发档:父侧不得同步等待(execSync/runLogged 零命中)+ detached 派发 + 在飞上限 ≥ 节流窗口', () => {
+  // 2026-10-25 改版:本腿从 runLogged/execSync 同步等子扫描,改成 detached 后台派发
+  // (旧同步档 480000ms 掐死孩子,且等待期间全程持 post-commit 第 0 段 git 写锁 ⇒
+  //  别人 acquire --timeout 180000 超时、自动推送腿不跑)。
+  // ⇒ 旧的「timeout 档 ≥300000ms」锁随同步形态一起作废(钩子正文里已明写这层),
+  //  本条改锁**新形态**:父侧不等待(不持锁)、子侧 detached、上一枚在飞有上限兜底。
+  // 判的是"形态"不是"运行时行为" —— 运行时物证在 .ihui-agent/state/cross-end-autoreg.json。
+  // 子侧派发器里的 spawnSync 是**子侧**行为,不算父侧同步等待 ⇒ 先把该数据区抠掉。
+  const legN = elideWrapper(legNormOf(HOOK_RAW))
+  for (const forbidden of [/execSync/, /runLogged/]) {
+    assert.ok(
+      !forbidden.test(legN),
+      `本腿出现 ${forbidden} —— 父侧同步等待 = 全程持 git 写锁等一轮分钟级扫描(2026-10-25 事故:480s 掐死孩子 + 别人 acquire 超时)`,
+    )
+  }
+  assert.ok(/detached: true/.test(legN), '本腿必须 detached 派发(不 detached = 父退出时孩子被一起带走)')
+  // 在飞上限必须 ≥ 节流窗口:否则窗口到点时上一枚还在跑,叠扫描没有防线
+  const capM = /const CROSS_END_AUTOREG_RUNNING_CAP_MS = (\d+) \* 60 \* 1000/.exec(HOOK)
+  const winM = /const CROSS_END_AUTOREG_WINDOW_MS = (\d+) \* 60 \* 1000/.exec(HOOK)
+  assert.ok(capM && winM, '缺在飞上限或节流窗口常量')
   assert.ok(
-    ms >= 300000,
-    `timeout=${ms}ms 装不下实测约 4.5 分钟的一轮扫描(现读两枚样本 268s/267s)`,
+    Number(capM[1]) >= Number(winM[1]),
+    `在飞上限 ${Number(capM[1])}min 必须 ≥ 节流窗口 ${Number(winM[1])}min(否则窗口到点时上一枚还在跑)`,
+  )
+  // 成对反控(防本锁空转):把 detached 摘掉 ⇒ 本锁必须立刻读出缺项
+  const noDetached = HOOK_RAW.replace(/detached: true/g, 'detached: false')
+  assert.ok(noDetached !== HOOK_RAW, '摘不到 detached 锚点 ⇒ 反控失去比对对象')
+  assert.ok(
+    !/detached: true/.test(elideWrapper(legNormOf(noDetached))),
+    '摘掉 detached 后本锁仍绿 ⇒ 本锁是永绿的装饰',
   )
 })
 

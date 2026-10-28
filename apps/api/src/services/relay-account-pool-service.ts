@@ -247,7 +247,8 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
     uid,
     expiresAt: parseFlexibleExpiry(a['expiresAt']) ?? extractTokenExpiry(token),
     refreshExpiresAt: parseFlexibleExpiry(a['refreshTokenExpiresAt']),
-    name: cstr(a['name']) || cstr(a['nickname']) || cstr(a['phone']) || null,
+    // O66:phone 优先于 nickname(全平台统一手机号兜底位)
+    name: cstr(a['name']) || cstr(a['phone']) || cstr(a['nickname']) || null,
     cosy: Object.keys(cosy).length > 0 ? cosy : null,
   }
 }
@@ -282,7 +283,9 @@ export async function importAccounts(
   for (let i = 0; i < accounts.length; i++) {
     const acc = accounts[i] ?? {}
     const accName = typeof acc.name === 'string' && acc.name ? acc.name : ''
-    let displayName = accName || `#${i + 1}`
+    // O66:phone 是全平台统一展示名兜底位(仅次于显式 name,先于平台特化映射)
+    const accPhone = cstr((acc as Record<string, unknown>)['phone'])
+    let displayName = accName || accPhone || `#${i + 1}`
     try {
       // 非 JWT 平台映射分支:CodeArts(2026-10-22)STS 凭据包 / Qoder(2026-10-23)
       // opaque token 会话。两种格式的 uid/expiresAt 都在映射层显式解析,
@@ -295,7 +298,7 @@ export async function importAccounts(
             : null
       // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
       const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
-      if (!accName && mapped?.name) displayName = mapped.name
+      if (!accName && !accPhone && mapped?.name) displayName = mapped.name
       if ((providerCode === 'codearts' || providerCode === 'qoder') && !mapped) {
         result.failed++
         result.items.push({
