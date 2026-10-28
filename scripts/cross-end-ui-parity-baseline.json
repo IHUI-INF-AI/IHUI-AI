@@ -83,7 +83,25 @@
   "waivers": {
     "SectionHeader": {
       "reason": "新配对族(2026-10-27 落地,2026-10-28 按现读改写理由;旧理由写\"几何 onlyMiniapp 恰为该 2 档\"与现读矛盾)。两端几何同取 @ihui/shared/ui/section-header-spec:RN 腿 packages/app/src/components/SectionHeader.tsx 直接消费 TITLE_FONT/SUBTITLE_FONT/SUBTITLE_GAP/MORE_MARGIN_LEFT 四档;余两档 SECTION_HEADER_ARROW_MARGIN_LEFT_PX(2) 与 SECTION_HEADER_MORE_FONT_PX(12) 属「更多」箭头与标签,RN 侧唯一消费点是委托件 packages/app/src/components/MoreLink.tsx(本件不重复持有,重复持有 = 第二份真相)。现读 2026-10-28(全量档 --json):findings[SectionHeader].geometry.onlyMiniapp = [2] —— **一档**,不是两档:ARROW_MARGIN 只在小程序腿被读到;MORE_FONT(12) 在几何面被 RN 的 SUBTITLE_FONT(同为 12)抵消,所以看不见它,但\"看不见\"不等于\"同源\" —— SL 维照旧报这两枚为单侧具名档(只报数不判红),两条读数必须在报告里分开读。2026-10-28 同批收口:「更多」箭头字形尺寸不再各端各写一份,统一由 MORE_FONT 这一档派生(小程序 LineIcon `size={toRpx(SECTION_HEADER_MORE_FONT_PX)}`、RN MoreLink `ICON_SIZE = LABEL_FONT_SIZE`),接线锁 packages/shared/src/ui/__tests__/section-header-wiring.test.ts。不是同元素取不同档,禁止给 SectionHeader 补一份箭头几何。复验:`node scripts/check-cross-end-ui-parity.mjs --json` 取 findings[name=SectionHeader].geometry.onlyMiniapp(应为 [2])与 onlyRn(应为 []);人读面看 \"○ SectionHeader\" 与 \"· SL SectionHeader\" 两行。",
-      "until": "2027-03-27"
+      "until": "2027-03-27",
+      "singleEndTiers": [
+        {
+          "tier": "SECTION_HEADER_ARROW_MARGIN_LEFT_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "「更多」文字与其右侧箭头的间距 2",
+          "reason": "RN 腿不渲染箭头图标(箭头由委托件 MoreLink 与标签一起画),SectionHeader.tsx 里没有这个节点;给 RN 补一条 2 是给不存在的间隔造留白,不是收敛。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "SECTION_HEADER_MORE_FONT_PX",
+          "side": "miniapp",
+          "kind": "cross-file-consumption",
+          "element": "「更多」标签字号 12(箭头字形由它派生)",
+          "reason": "真跨件消费:RN 的取数点在委托件 packages/app/src/components/MoreLink.tsx(ICON_SIZE = LABEL_FONT_SIZE = 本档),不在配对腿 SectionHeader.tsx 内 ⇒ 门 SL 维只读配对文件,把它读成\"仅小程序引用\"。往 SectionHeader.tsx 补引用才是制造第二份真相。",
+          "until": "2027-03-27"
+        }
+      ]
     },
     "CategoryBar": {
       "reason": "两端同档 4,只是写法不同、门只读到一侧:RN 腿 packages/app/src/components/category/CategoryInlineBar.tsx 的 badge.paddingHorizontal 取 rnSpacing.xs(SPACING_STEPS.xs = 4,3d8a7a3355 token 化产物),小程序腿 apps/miniapp-taro/src/components/CategoryBar.css 的 .category-bar__badge 取 `padding: 0 8rpx`(=4px);本门几何维只解数字字面量 / 具名 *_PX 档 / geometry.*,不解析 rnSpacing 档表 ⇒ 只在小程序一侧读到 4。不是同元素取不同档,禁止给 RN 补裸数字(那会把 token 化退回去、并制造第二份真相)。复验:node scripts/check-cross-end-ui-parity.mjs --json 的 findings[CategoryBar].geometry.onlyMiniapp 应为 [4] 且 onlyRn 为空。",
@@ -95,7 +113,49 @@
     },
     "NavBar": {
       "reason": "RN 页头有 subtitle 一支(实测 git grep -c subtitle 于 RN NavBar = 9、小程序 = 0,该端 props 根本没有这一行)→ 2/12/56 随它而来;行高 44 是 RN 自测量、小程序走微信胶囊 menuButton.height+8(平台量);32 是 RN 空侧占位块,小程序用 absolute 悬浮钮居中,无占位元素;4 是 hitSlop 命中扩张通道;13 = 胶囊兜底对象 `{ top: 26, height: 32 }` 的量纲误读(该对象是逻辑 px,经 utils/rpx.ts 的 px() 落成真 CSS px,门按小程序裸数字=rpx 折半读成 13;对面无对应元素,状态栏由 App.tsx SafeAreaView 单点注入)。圆角 RD 4 同属单侧:小程序 ai-home「加入社区群」胶囊的 rnRadius.sm,RN 无该带边框 CTA。更正@2026-10-27:旧文案「px() 通道门读不到」与现读矛盾(门确实读到了这一行,只是量纲读错),已删。",
-      "until": "2027-03-27"
+      "until": "2027-03-27",
+      "singleEndTiers": [
+        {
+          "tier": "NAVBAR_ROW_HEIGHT_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "页头行高 44",
+          "reason": "RN 页头是固定行高档;小程序行高由微信胶囊实测推导(menuButton.height + 8),是平台量而不是一个可补的盒 —— 两端不是同一元素取两档。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "NAVBAR_ROW_HEIGHT_SUBTITLE_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "带副标题时的双行行高 56",
+          "reason": "副标题这一支只存在于 RN(小程序 NavBarProps 现读无 subtitle 字段,全仓传参 0 处);双行行高在小程序端没有可承载的节点。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "NAVBAR_SIDE_PLACEHOLDER_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "空侧占位块宽 32",
+          "reason": "RN 用一块空占位把标题夹在中间;小程序腿居中走 absolute 悬浮钮 + justify-center,结构上没有占位元素,补一个 32 = 往屏上加节点。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "NAVBAR_SUBTITLE_FONT_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "副标题字号 12",
+          "reason": "同 NAVBAR_ROW_HEIGHT_SUBTITLE_PX:副标题支只在 RN,小程序端没有这一行字,不是同一元素取了不同档。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "NAVBAR_SUBTITLE_MARGIN_TOP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "副标题与主标题的间距 2",
+          "reason": "小程序腿没有\"主标题下方再一行\"这层结构,间距无从落点;RN 独有。",
+          "until": "2027-03-27"
+        }
+      ]
     },
     "Carousel": {
       "reason": "小程序独有兜底文案块 + course 叠加层(实测 variant=course 有 1 处真实调用点,非死分支),RN 侧不渲染这两层 → 2/4/8/14/16/20 全属一端多元素,不是同元素取不同值。补记@2026-10-27:2026-10-24 已有裁决(机主 2026-10-23 强制令,选拆对、不选向 RN 移植),但**未落地** —— 现读 pairingRejects 只有 FloatBox 一族、本族 counts 仍为 6,门仍报 ○ Carousel 几何仅小程序档 2/4/8/14/16/20;未落地原因是拆对要删本族四键,而承载票明令只许清偿后下调、不许删条目,故该步归门 128 持有人/主席。裁决与出口逐条写在 packages/shared/src/ui/carousel-spec.ts 头注。",
@@ -103,19 +163,667 @@
     },
     "InputArea": {
       "reason": "O02 票④ 第④格(2026-10-28 现读复核):本族无\"同一元素两端各取一档却本可同值\"的剩余分叉,counts 维持 15(不生造收敛、不给单端补引用凑平)。现读 `node scripts/check-cross-end-ui-parity.mjs --json` 取 findings[name=InputArea].diffCount = 15:几何仅小程序 10 = [5,9,25,30,60,90,106.5,146,192,250]、几何仅 RN 5 = [26,48,72,96,120];radiusCount = 2(仅 RN [2,12]);elementRadiusCount = 0(RE 维两侧无一同名元素,⊘ 行自报零判据)。\\n一份源证据:两端组件的几何档全部经 packages/shared/src/ui/input-area-spec.ts 取数 —— 小程序腿 apps/miniapp-taro/src/components/InputArea.tsx 与 RN 腿 apps/mobile-rn/src/components/InputArea.tsx 各自 import 同一 import 面,端内不再自持跨端可取数的裸数字;RN 端最后一枚几何档 `catChip.maxWidth: 96` 经实测**不收成**:入表即成「仅 RN 引用、小程序无该元素」的单侧档,门 128 的 SL 维当场新增一条单侧判红(2026-10-28 实测 36→37),故按该边界留在端内;本轮曾试收编为 INPUT_AREA_MODEL_CHIP_MAX_WIDTH_PX 又撤回,那枚无人取数的幻影档不在表内,现由 wiring 测试 ⑪「导出面全覆盖」+ ⑫ 三枚变异钉住(⑨ 只测已登记单端档的归属,拦不住入表却无人取数)。\\n15 档三类归属 —— A 一端根本没有该元素(补引用 = 往屏幕上加一个不存在的节点):小程序 30/90(表情面板)、146(fixed 全屏浮层)、192(default 变体 Tailwind h-48,类名档)、RN 26(collapsible 折叠 FAB)/96(模型钮,小程序 ai-home 无该元素);B 同一元素、按已裁决的变体契约取不同档(取任一端会破另一端的版,属产品裁决面):25↔32(RN VOICE_BTN_WIDTH;紧凑条 22 行高 vs 卡片 48 行高)、48↔22(小程序裸 rpx(44))、72↔106.5×60(方盒 vs 16:9 内容盒)、120↔250(卡片内滚 vs ai-home 可放大到全屏);C 同槽位留白、两端各由自身机制决定:5(INLINE_GAP,RN 同位是实底钮 marginLeft 4)、9(SEND_ICON_MARGIN,同上)。\\n机器锁:packages/shared/src/ui/__tests__/input-area-wiring.test.ts ⑨「单端档归属表」钉住这 13 枚具名档(2026-10-28 现读 SINGLE_END_TIERS.length)各自只许在哪一端出现;⑪ 再钉「每一枚导出档都有真消费方」;⑩ 用\"往另一端补引用\"与\"删 owner 端取数点\"两枚变异证明该锁有牙 —— 想靠 import / 补一处取数点让 diffCount 变小,会先被这条用例拦下。\\n更正(2026-09-27 复量):RN 的 `collapsible`/`images` 两支是**用户明令不传**(HomeScreen 注记)的公开能力位,不是遗留死分支;删它等于收回一个被明确保留的能力,须产品裁定。",
-      "until": "2027-03-27"
+      "until": "2027-03-27",
+      "singleEndTiers": [
+        {
+          "tier": "INPUT_AREA_ATTACHMENT_BADGE_FONT_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "附件类型角标(\"文档\"/\"视频\")字号 12",
+          "reason": "RN 同一位置是 <Play> 矢量角标,没有文字节点;补字号无处可落。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_ATTACHMENT_BADGE_LINE_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "附件类型角标行盒 16",
+          "reason": "同 INPUT_AREA_ATTACHMENT_BADGE_FONT_PX:角标文字只在小程序端存在。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_VIDEO_THUMB_W_PX",
+          "side": "miniapp",
+          "kind": "mechanism-variant",
+          "element": "视频缩略内容盒宽 106.5(16:9)",
+          "reason": "素材固有比的内容盒;RN 是 72×72 方形盒(INPUT_AREA_THUMB_PX),两端不是同一个盒子,按值对齐会把 16:9 画面压成方形。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_VIDEO_THUMB_H_PX",
+          "side": "miniapp",
+          "kind": "mechanism-variant",
+          "element": "视频缩略内容盒高 60",
+          "reason": "同 INPUT_AREA_VIDEO_THUMB_W_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX",
+          "side": "miniapp",
+          "kind": "mechanism-variant",
+          "element": "ai-home 输入框自动撑高上限 250",
+          "reason": "变体契约分叉:小程序 ai-home 可从 80rpx 逐层放大到全屏,RN 卡片态超过 120 即内部滚动并切换无上限放大钮 —— compact 取小会把 ai-home 的内容裁走。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_AI_HOME_OVERLAY_TOP_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "全屏放大态浮层顶偏移 60",
+          "reason": "fixed 浮层让开原生导航栏与页面标题的偏移;RN 全屏是解除 maxHeight,不产生 fixed 浮层,没有可对的另一端。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_AI_HOME_OVERLAY_BOTTOM_WITH_PANEL_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "全屏浮层在加号面板展开时的底偏移 146",
+          "reason": "同 INPUT_AREA_AI_HOME_OVERLAY_TOP_PX:该浮层只在小程序端存在。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "发送图标左让位 9",
+          "reason": "裸图标的视觉让位;RN 同位是实底钮的外边距(框内 4 / 框外走 STACK_GAP 8),动作相同但元素不同,不是同一处留白。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_AI_HOME_INLINE_GAP_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "ai-home 行内 10rpx 留白 5",
+          "reason": "表情面板与输入条之间、清空与发送图标之间的留白;RN 没有这两枚节点。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "表情面板高 90",
+          "reason": "RN 契约里没有表情面板(变体分叉),面板高度在小程序端独有。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_AI_HOME_EMOJI_CELL_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "表情面板单格 30",
+          "reason": "同 INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_AI_HOME_EXPAND_GLYPH_PX",
+          "side": "miniapp",
+          "kind": "mechanism-variant",
+          "element": "放大/缩小钮墨迹 24",
+          "reason": "三处三种载体:小程序是位图墨迹 24、RN 框内是 ⤢/⤡ 字符(走 CONTROL_GLYPH 14)、RN 辅助行是 lucide Maximize 18 —— 同槽不同形,取值不可互抄。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_AI_HOME_VOICE_BTN_W_PX",
+          "side": "miniapp",
+          "kind": "mechanism-variant",
+          "element": "ai-home 语音钮盒宽 25",
+          "reason": "小程序是 50×44rpx 的紧凑条(行高由端内 CSS 的 80rpx 定),RN 切换钮盒 32;把命中盒扩到 32 会撑破那一行 —— 取大会破版,故各记各的。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_CONTROL_HIT_SLOP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "贴容器边控件的 hitSlop 6",
+          "reason": "RN 的命中扩张通道(小程序无该属性,命中区由原生控件自证)。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_PARAM_FIELD_PADDING_V_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "参数变量输入行竖向内边距 6",
+          "reason": "小程序端参数变量走 Selecter 弹层,根本没有这一行。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_INPUT_PADDING_TOP_PX",
+          "side": "rn",
+          "kind": "cross-file-consumption",
+          "element": "输入行顶部内边距 10",
+          "reason": "小程序同一处存在但落在 CSS 类臂字符串(textareaPadding),门 SL 维只认具名标识符 ⇒ 读成\"仅 RN 引用\"。是测量边界,不是缺口。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_DOC_NAME_FONT_PX",
+          "side": "rn",
+          "kind": "cross-file-consumption",
+          "element": "附件文件名跑马字级 10",
+          "reason": "小程序同名条的字级同样在 CSS 类臂里,不具名;同一条测量边界。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_INPUT_FONT_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "RN 输入框正文字号 14",
+          "reason": "小程序 ai-home 正文是 18(首页大输入框变体契约),两端变体不同形;而 18 这一档两端共享(RN 框外发送钮字形/删除角标盒),把 18 拉到 14 会连带造出新的单侧档。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_CONTAINER_PADDING_X_PX",
+          "side": "rn",
+          "kind": "cross-file-consumption",
+          "element": "容器横向留白 10",
+          "reason": "小程序 `.input-area` 的 padding 简写串(10rpx 20rpx 20rpx)里含同一处 10,门只解具名档 ⇒ 读成单侧。值本就同档,不需要也不允许再补一条引用。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_CONTAINER_PADDING_V_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "容器纵向留白 8",
+          "reason": "小程序底部留白随 calc(20rpx + env(safe-area-inset-bottom)) 动态决定,RN 由 useSafeAreaInsets 在容器外补偿 —— 上留白不是同一个量,强同值会把键盘避让算进静态档。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_INPUT_PADDING_X_PX",
+          "side": "rn",
+          "kind": "cross-file-consumption",
+          "element": "输入框内左右留白 12",
+          "reason": "小程序按放大/长文三种形态切 textareaPadding 串,不具名也无单一档;测量边界。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_STACK_GAP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "紧凑间距步 8(缩略图行/参数行/转写行)",
+          "reason": "小程序这些位置没有一对一元素(附件条走 imgs-list 类臂、留白是 20rpx/10rpx),补过去等于在没有元素的地方造留白。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_CONTROL_RIGHT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "浮层控件右内缩 8",
+          "reason": "计数浮层/放大钮/折叠态关闭钮都是 RN absolute 浮层;小程序不渲染计数与折叠 FAB,放大钮固定贴 right:0(另一套位置机制)。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_SECONDARY_FONT_PX",
+          "side": "rn",
+          "kind": "cross-file-consumption",
+          "element": "次要文字字号 12(语音提示/时长/参数标题)",
+          "reason": "小程序这些文字在 CSS 类臂,门读不到具名档;测量边界,不是两端不同值。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_GLYPH_LG_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "折叠态 FAB 加号墨迹 26",
+          "reason": "collapsible FAB 只有 RN 实现(小程序首页是原项目常驻输入条),另一端没有该变体。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_VOICE_BTN_WIDTH_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "语音/键盘切换钮盒宽 32",
+          "reason": "小程序同处是 25×22 的紧凑条,扩到 32 会撑破那一行(取大会破版,不是取小贴边)。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_INPUT_MIN_HEIGHT_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "输入行/语音区最小高 48",
+          "reason": "小程序 ai-home 对应位置是高 22 的紧凑条,且 22 这一档两端共享 —— 变体契约分叉。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_SHELL_PADDING_V_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "大输入框外壳上下内边距 6",
+          "reason": "外壳(fieldShell)是 RN 大输入框独有容器,小程序没有这一层壳。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_VOICE_BARS_HEIGHT_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "语音波形容器高 32",
+          "reason": "小程序语音条是 .voice-bar-animation + line1~30 的 CSS 关键帧,每根线高度写死在类里(30 条各一档),没有可与 dp 对齐的单一数字。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_VOICE_BAR_BASE_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "语音波形单条基线高 8",
+          "reason": "同上:波形由 RN Animated 逐条插值,小程序由 CSS keyframes 定高。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_CLOSE_HIT_SLOP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "缩略图删除角标 hitSlop 8",
+          "reason": "RN 命中扩张通道;小程序侧无该属性,补一个 8 无处生效。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "参数变量行最小高 32",
+          "reason": "小程序参数变量走 Selecter 弹层,没有这一行(与 PARAM_FIELD_PADDING_V 同因)。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_THUMB_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "附件缩略图方形盒 72",
+          "reason": "小程序图片走 imgs-list-item-img(heightFix,宽随素材)、视频走 16:9 内容盒 —— 两端不是同一个盒子。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_INPUT_MAX_HEIGHT_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "输入框自动撑高上限 120",
+          "reason": "与小程序 ai-home 的 250(可放大到全屏)是变体契约分叉,取任一端都会破另一端的版。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_LEGACY_SHADOW_OFFSET_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "遗留删除角标文字阴影纵向偏移 1",
+          "reason": "小程序同类角标是实底色块 + 图片资产,没有阴影通道;该样式条目当前无渲染点,随遗留清理一起消失(入表只为端内不留裸数字)。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_LEGACY_GLYPH_LINE_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "遗留删除叉字形行盒 12",
+          "reason": "同 INPUT_AREA_LEGACY_SHADOW_OFFSET_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_COUNTER_BOTTOM_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "计数浮层距底 6",
+          "reason": "小程序不渲染计数器(变体分叉);6 与另一枚已有档同值,门按等价归一划掉,故不单报单侧。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_SHELL_BORDER_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "大输入框外壳描边 1",
+          "reason": "外壳(fieldShell)是 RN 独有容器;小程序无该层,同处是类名 border(1px) 而不是具名档,门按同值归一。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_IN_SHELL_BTN_PX",
+          "side": "rn",
+          "kind": "cross-file-consumption",
+          "element": "框内发送钮/麦克风方盒 32",
+          "reason": "值就是 GEOMETRY_PX.controlBox;小程序 ai-home 同一枚钮经 geometry 的 controlBox 取同档,文本上不引本常数 ⇒ 呈现为单侧引用,不是两端不同值。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_IN_SHELL_EXPAND_RIGHT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "框内放大钮右偏移(派生式 32+4+8)",
+          "reason": "小程序放大钮固定贴 right:0,是另一套位置机制;这一档是 RN 为让开计数浮层才需要的派生式。",
+          "until": "2027-03-27"
+        }
+      ]
     },
     "IntelligentAssistant": {
       "reason": "32 是小程序行内矢量机器人(单侧载体);9/107/110 属 RN 的 robotImage 位图装饰分支 —— 实测该 prop 的调用点只有 apps/mobile-rn/tests/intelligent-assistant.test.tsx 两处,生产四个调用方(AgentScreen/AiAssistantN8n/ChatScreen/HomeScreen)都不传 ⇒ 屏幕上不渲染;16 是避让该装饰的文本缩进;3 是充值胶囊内衬。0.5 是 line-height:1 被折半的读数噪音。\n更正(2026-09-27 复量):`robotImage` 的宿主文件 `apps/mobile-rn/src/components/IntelligentAssistant.tsx` 此刻被并行会话持有(工作树 ` M`)⇒ 本会话未改;该 prop 生产 4 个调用方都不传、只有测试传,是**已导出未取用的装饰面**而非误留死码,清理须等持有方收尾后另判。",
-      "until": "2027-03-27"
+      "until": "2027-03-27",
+      "singleEndTiers": [
+        {
+          "tier": "IA_ROBOT_ICON_INK_PX",
+          "side": "miniapp",
+          "kind": "mechanism-variant",
+          "element": "行内矢量机器人墨迹 32",
+          "reason": "小程序是行内矢量(LineIcon);RN 同位置是 absolute 位图装饰(IA_ROBOT_DECOR_*),媒介与占据方式都不同 —— 不是同一元素取两档。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "IA_ROBOT_DECOR_W_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "位图装饰布局盒宽 107",
+          "reason": "装饰层是 RN 独有 absolute 分支(RN 侧为位图),小程序同行内矢量、不占 absolute 层,没有\"贴卡右上\"这一落点。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "IA_ROBOT_DECOR_H_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "位图装饰布局盒高 110",
+          "reason": "同 IA_ROBOT_DECOR_W_PX:位图装饰的布局盒只存在于 RN 的 absolute 装饰分支,小程序端没有这一层。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "IA_ROBOT_DECOR_RIGHT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "位图装饰贴卡右偏移 9",
+          "reason": "同 IA_ROBOT_DECOR_W_PX;另注:同组的 IA_ROBOT_DECOR_TOP_PX(-8)因门内 spec 档解析只认非负字面量而不进 SL 读数,登记在此以免被当成\"已覆盖\"。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "IA_TEXT_INDENT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "文本块左缩进 16",
+          "reason": "缩进是为了避让 RN 的 absolute 装饰层;小程序装饰是行内矢量、不遮挡,没有避让需求。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "IA_RECHARGE_GAP_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "值行与充值入口的间距 10",
+          "reason": "RN 值行左聚拢,间距靠固定档;小程序 .ia-token-row 用 justify-content: space-between 由容器宽动态决定,是机制量,没有可补的固定档。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "IA_RECHARGE_CAPSULE_PAD_X_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "实底胶囊左右内衬 10",
+          "reason": "小程序同槽是文字链,没有胶囊本体;胶囊本身仍是设计定夺项,给文字链套内衬等于替设计决定\"小程序也长胶囊\"。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "IA_RECHARGE_CAPSULE_PAD_Y_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "实底胶囊上下内衬 3",
+          "reason": "同 IA_RECHARGE_CAPSULE_PAD_X_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "IA_ROBOT_DECOR_TOP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "位图装饰贴顶偏移 -8",
+          "reason": "同 IA_ROBOT_DECOR_W_PX 的装饰层;它是负值档,门内 spec 档解析只认非负字面量 ⇒ 不进 SL 读数 —— 本条目正是给这个漏读补一条机读登记。",
+          "until": "2027-03-27"
+        }
+      ]
     },
     "LoginPopUp": {
       "reason": "RN 是底部弹层:有拖拽条(实测 git grep -c dragbar RN = 2、小程序 = 0)与右上 × 关闭钮(32/18/22/4/8/36 随这两件元素而来),小程序是居中弹窗、关闭走底部文字 + 300 宽上限。差异全在\"一端多元素\",无同元素双值分叉。",
-      "until": "2027-03-27"
+      "until": "2027-03-27",
+      "singleEndTiers": [
+        {
+          "tier": "LOGIN_POPUP_DIALOG_PADDING_TOP_PX",
+          "side": "miniapp",
+          "kind": "mechanism-variant",
+          "element": "居中弹窗卡顶内距 24",
+          "reason": "与 RN SHEET_PADDING_TOP 8 是同一卡顶内距的两种承载取值:小程序居中卡四边均匀,RN 抽屉顶被拖拽条占用;拉平会把拖拽条挤下去或让居中卡贴边。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_DIALOG_MAX_WIDTH_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "居中弹窗卡宽上限 300",
+          "reason": "RN 是整宽底部抽屉(width:100%),结构上没有\"宽度上限\"这一档;补 300 是给没有的元素造档。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_SHEET_PADDING_TOP_PX",
+          "side": "rn",
+          "kind": "mechanism-variant",
+          "element": "抽屉卡顶内距 8",
+          "reason": "同 LOGIN_POPUP_DIALOG_PADDING_TOP_PX:顶距被拖拽条占用,与居中卡的 24 是同一槽位的承载差异。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_DRAG_BAR_WIDTH_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "抽屉把手宽 36",
+          "reason": "拖拽条是 RN 底部抽屉独有节点,小程序居中卡没有把手。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_DRAG_BAR_HEIGHT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "抽屉把手高 4",
+          "reason": "同 LOGIN_POPUP_DRAG_BAR_WIDTH_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "把手与内容间距 12",
+          "reason": "同 LOGIN_POPUP_DRAG_BAR_WIDTH_PX;与分块间距同值但语义独立,不并档。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_TITLE_FONT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "授权卡标题字号 16",
+          "reason": "授权卡标题块是 RN 独有(小程序弹窗无标题),补字号等于加一个标题节点。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "授权卡标题底距 8",
+          "reason": "同 LOGIN_POPUP_TITLE_FONT_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "授权卡描述底距 24",
+          "reason": "授权卡描述块是 RN 独有;小程序弹窗没有描述行,这一处底距在另一端不存在。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_SECONDARY_BUTTON_MARGIN_BOTTOM_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "次按钮与协议行的间距 24",
+          "reason": "小程序端既无次按钮也无协议行,这一处留白在另一端不存在。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_AGREEMENT_FONT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "协议文案字号 12",
+          "reason": "小程序登录协议由微信授权面板承载,这一行整块不存在(补 UI 属另计的产品决策)。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_AGREEMENT_GAP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "勾选框与协议文案间距 4",
+          "reason": "同 LOGIN_POPUP_AGREEMENT_FONT_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_CHECKBOX_SIZE_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "协议勾选框边长 16",
+          "reason": "同 LOGIN_POPUP_AGREEMENT_FONT_PX:勾选框是 RN 独有节点。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_AGREEMENT_MARK_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "勾选内 Check 图标 12",
+          "reason": "同 LOGIN_POPUP_CHECKBOX_SIZE_PX(字形随勾选框存在)。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "右上 × 关闭钮盒 32",
+          "reason": "小程序关闭是底部整宽文字按钮,没有右上角关闭钮(承载形态差异)。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_CLOSE_ICON_FONT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "× 字形字号 18",
+          "reason": "同 LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_CLOSE_ICON_LINE_HEIGHT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "× 字形行盒补偿 22",
+          "reason": "同 LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_CLOSE_INSET_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "× 钮距卡顶/右 8",
+          "reason": "同 LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX(抽屉头部区留白)。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_ICON_BADGE_SIZE_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "资料行首图标徽标 20",
+          "reason": "小程序资料卡行没有前缀徽标(对齐原小程序页版式),RN 的徽标盒在另一端没有落点。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "徽标与输入/文字间距 10",
+          "reason": "同 LOGIN_POPUP_ICON_BADGE_SIZE_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_ICON_GLYPH_FONT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "徽标内 lucide 图标尺寸 12",
+          "reason": "同 LOGIN_POPUP_ICON_BADGE_SIZE_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_NOTE_FONT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "行内 hint/error 字号 12",
+          "reason": "小程序校验失败走 Taro.showToast,没有行内提示块。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_FOOTER_MARGIN_TOP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "保存/登出块顶距 8",
+          "reason": "小程序弹窗没有保存/登出块(保存由父页面承载),这一处顶距在另一端不存在。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_FOOTER_GAP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "保存/登出按钮间距 10",
+          "reason": "同 LOGIN_POPUP_FOOTER_MARGIN_TOP_PX。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "LOGIN_POPUP_NOTE_MARGIN_TOP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "hint/error 行负顶距 -6",
+          "reason": "把行内提示拉近上一行;小程序校验失败走 Taro.showToast,没有行内提示块。它是负值档,门内档解析只认非负字面量 ⇒ 不进 SL;wiring ⑤ 按导出面补登,本条与之同口径。",
+          "until": "2027-03-27"
+        }
+      ]
     },
     "ModelConfigDialog": {
       "reason": "本族 6 档里 5 档实测来自生产不可达分支:variant=aigc / indexa / selecter 三档的传参调用点各为 0(git grep 变体字面量,除组件自身外零命中),RN 另有 AdvancedModelConfigDialog / ModelSelecterDialog 两支同样无调用方 ⇒ 屏幕不渲染;10 是音色下拉触发块内边距,小程序同文件该处是胶囊行,形态不同。\n更正(2026-09-27 复量):这些不是**死码**,而是公开 prop 的未取用分支 —— `variant` 是导出类型 `ModelConfigDialogVariant`,两支内部 Dialog 由它分派,`packages/app/src/components/Selecter.tsx` 是 `selecter.vue` 的移植对端。按 §7 删除三问属\"有承接功能不得删\",**不得当死码清理**;要清必须先由产品裁定废弃该变体面。",
-      "until": "2027-03-27"
+      "until": "2027-03-27",
+      "singleEndTiers": [
+        {
+          "tier": "MODEL_CONFIG_UPLOAD_TILE_PX",
+          "side": "miniapp",
+          "kind": "undecided-fork",
+          "element": "上传图块外盒 37(与 RN 的 80 同槽位)",
+          "reason": "未决结构分叉,不是平台机制差异:37 vs 80 取小会截断 RN 五字标签、取大会把小程序图块放大 2.2 倍,改的是\"标签在块内还是块外\",属设计裁决面。登记在此只为让它机读可见,until 早于同族其余条目以逼出裁决;不得读成已裁定或已收口。",
+          "until": "2027-01-31"
+        },
+        {
+          "tier": "MODEL_CONFIG_SWITCH_THUMB_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "自绘开关拇指方块 18",
+          "reason": "小程序开关是自绘(RN 用平台 <Switch>),RN 侧没有自绘拇指块可对;18 与 RN 的 BLOCK_GLYPH 同值属巧合而非同一元素。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "MODEL_CONFIG_SWITCH_THUMB_TRAVEL_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "自绘开关拇指行程(轨道内宽 − 拇指宽)",
+          "reason": "RN 用平台 <Switch>,没有自绘拇指、也就没有\"行程\"这一档;门不解析派生式常量(32 − 18),故这一枚不在 SL 读数里。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "MODEL_CONFIG_UPLOAD_MARK_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "上传按钮字形内盒 25",
+          "reason": "RN UploadButton 仍用一层 25 内盒;小程序端位图退役后同槽直接按 BLOCK_GLYPH 落字形,不再内套盒 —— 一端有盒一端没盒,不是取值分叉。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "MODEL_CONFIG_RECORD_BUTTON_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "录音按钮方块 64",
+          "reason": "小程序端没有录音界面(克隆音色走 Taro.chooseMessageFile),这个节点在另一端不存在;补 64 等于画一个不存在的按钮。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "MODEL_CONFIG_RECORD_GLYPH_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "录音按钮内字形 24",
+          "reason": "同 MODEL_CONFIG_RECORD_BUTTON_PX:宿主节点只存在于 RN。",
+          "until": "2027-03-27"
+        }
+      ]
     },
     "ModelList": {
       "reason": "RN 有免费/新品/付费/排名徽标与图标圈层(实测 git grep -c Badge:RN 16、小程序 4),其唯一非徽标档 44 是 logo 块高,peer 提交 1294fab218 的登记原文写明\"块高 44 属设计裁决项\";小程序侧 2.5/7.5 是 margin/padding 简写串的真实值(实测 \"5rpx 0\" / \"0 15rpx\"),对应 RN 无同名留白元素。",
@@ -127,7 +835,73 @@
     },
     "VideoPlayer": {
       "reason": "小程序用原生 <Video controls>(实测控件相关引用 3 处),RN 自绘浮层控制条 ⇒ 4/6/8/12/16 全属 RN 自绘 chrome 的档,小程序根本没有这些节点。",
-      "until": "2027-03-27"
+      "until": "2027-03-27",
+      "singleEndTiers": [
+        {
+          "tier": "VP_OVERLAY_PADDING_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "自绘浮层控制条内边距 12",
+          "reason": "小程序走原生 <Video controls>,播放/进度/全屏都是微信 chrome,端上没有自绘控制条;这一档在小程序端无处落点。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "VP_CONTROL_GAP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "自绘控制条元素间距 8",
+          "reason": "同上:自绘控制条整层只存在于 RN(与 web 自绘 chrome 同形)。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "VP_LABEL_FONT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "浮层时间/按钮标签字号 12",
+          "reason": "原生 chrome 里没有这两个自绘文本节点,补字号等于补节点。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "VP_TRACK_HEIGHT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "进度条轨道粗细 4",
+          "reason": "自绘进度条只存在于 RN;小程序进度条是原生控件内部 chrome,没有可喂的盒。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "VP_PROGRESS_ROW_HEIGHT_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "进度条命中行可见高 6",
+          "reason": "同上:命中行是自绘进度条的补差被减数,小程序无自绘进度条。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "VP_STAGE_ASPECT",
+          "side": "rn",
+          "kind": "cross-file-consumption",
+          "element": "舞台宽高比 16:9",
+          "reason": "两端共用同一份单一源,但小程序经 vpStageHeightRpx() 取它的 rpx 投影,文本上不直接引本常数 ⇒ 呈现为单侧引用。门只读 px 档,比例档压根不进 SL,故这是引用形态而不是缺口。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "VP_CONTROL_BUTTON_HIT_SLOP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "文字按钮 hitSlop(上下 10 / 左右 4)",
+          "reason": "RN 的命中扩张通道;小程序命中区由原生控件 chrome 自证,端上没有可写的 hitSlop。门不解析对象型档,故不在 SL 读数里。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "VP_PROGRESS_BAR_HIT_SLOP_PX",
+          "side": "rn",
+          "kind": "element-absent",
+          "element": "进度条 hitSlop(上下 19 / 左右 8)",
+          "reason": "同 VP_CONTROL_BUTTON_HIT_SLOP_PX。",
+          "until": "2027-03-27"
+        }
+      ]
     },
     "AgentRuntimePanel": {
       "reason": "小程序列表容器 minHeight 120px(style={{ minHeight: '120px' }} 实测 :61;另 :126 卡片是 min-h-[120rpx]=60,两处不同元素),RN 无 minHeight(git grep -c minHeight RN = 0)。是单侧滚动约束,不是同元素双值。",
@@ -164,7 +938,7 @@
       "until": "2027-03-30"
     }
   },
-  "ledgerVersion": "2026-10-26 G-16 收口席(S1 守门判据修复席):票面两格 SL 判据缺口现读复裁均已消解 ——(i) 门自 d135b5f412 起按被审面解析 export const X = GEOMETRY_PX.g 与 A_PX = B_PX 纯投影做等价归一(INPUT_AREA_IN_SHELL_BTN_PX 不再被算单侧,镜像 T37-T40/T49-T54 钉住);(ii) 类臂解析维自 3570211ffd 起读被审面全部 miniapp/web css(含 app.css),「唯一无覆盖定义+无条件使用」的声明体并入几何(现读 7 份),读不到的按未判定逐条点名(票面五枚类名现读全部以「多处定义」未判定点名在案),镜像 T42/T45/T46 钉住。两格前提已不成立 ⇒ 按票面规则不再修门,只收台账:d135b5f412 半成品遗留的 LoginPopUp 8→9 / ModelList 6→7 / UserInfoCard 4→3 三处锚点位移,前两族为带有效豁免的惰性记账(verdictOf 从不比较)、第三枚是下降;其余主腿/web 腿六键组由门自身 emitBaseline + anchorRegression 出口机械重锚(上升仅出现在带豁免的族上,经门自带的豁免短路放行,未豁免零上升零消失)。手编清除仅限僵尸死锚点:webCounts 与 webElementRadiusCounts 的 Avatar/CountdownTimer/Tooltip 及 webRadiusCounts.Tooltip —— 这三族现读为「⊘ WD …… 从小程序端入口不可达」(默认档端入口可达性判据把它们剔出 web 配对射程,报告行逐条点名;同类先例 = a36b0a3a34 手编清除同族死锚点),清除值全为 0,非零一枚未动。同时 emitBaseline 按其既有口径撤下本轮本腿零差异的 webWaivers:ConfirmDialog / VoiceInput(若复活按实测重新登记,不得读成已了结)。CategoryBar/DrawerComponent 两枚 aliases 与 FloatBox pairingRejects 逐字带走。取证:.ihui-agent/tmp/s1-gate128/(reanchor.mjs 逐字复刻 main 的 emit 分支、判据零复算;baseline.before.json 为改前台账全件)。上一版:2026-10-19 VerifyCodeModal 三键撤登(随 557fce49c2c 的收口修正):108d1fe6434 录入 counts 3/radiusCounts 0/elementRadiusCounts 0 后,默认档报「台账腐烂」——腐烂判据的 seen 集合只从 findings 推导,而 waivers 分支也只在 findings 内遍历(verdictOf 2838-2843),默认档把小程序腿零引用的孤儿族整体剔出配对射程(端入口不可达),findings 无该族 ⇒ 无论怎么登记 waivers 都算「台账钉着而本轮无记录」。机械结论:默认档不可达的族,counts 三键是「永远不可能被问责的免费额度」,正是该判据要拦的形态;而 waivers 键不在腐烂判据射程、且在 --pair-all 人工档照常生效(findings 含该族 ⇒ waived 记账)。故撤三键、只留 waivers 一条(reason 记明小程序接线/删副本的了结判据,until 2027-03-27)。这不是放宽判据:人工档的问责面(几何/圆角/同名元素三锚点)与本族差异记录一文未少,只是默认档的射程事实(孤儿不可达)不再靠账本掩盖。上一版:2026-10-19 VerifyCodeModal waivers 登记(随 4c0dbc10212 同批):三键入账后默认档报「台账腐烂」——台账钉着 VerifyCodeModal 而默认档实测无该族记录(小程序腿零引用孤儿 ⇒ 端入口不可达被剔,族只活在人工 --pair-all 档)。按判据口径豁免族亦算有记录(它被 waived 记账,不是没扫到),故补 waivers 一条带 reason+until 2027-03-27;语义不是豁免两端差异(几何差已由 counts=3 收纳),是登记「此族暂时只可在人工档问责 + 待小程序接线/删副本决策」。pair-all 档该族 3 处单侧几何随之计入 waived,超锚点判红维持 0。上一版:2026-10-19 VerifyCodeModal 收编共享源(枚 4c0dbc10212,packages/shared/src/ui/verify-code-modal-spec.ts + 两端薄壳):该族此前从未入账 ⇒ 三键齐补 counts 3 / radiusCounts 0 / elementRadiusCounts 0。counts=3 是收敛后仅剩的单侧几何档(仅 RN:1px 隐藏键盘接收器 G-978007、phone 行 marginTop 4、关闭钮 24),按 O81 规则6 承载机制差异保留、RE 维零判据不判红;radiusCounts=0 = 小程序按钮 rounded-md→rounded-sm 后与 RN rnRadiusFor.control 同为 control 档,原 RD 分叉 1 已消。几何差 12→3 的收敛 = 格子 48→36×44(RN 向小程序靠,48×6+8×5=328px 在小程序卡内 303px 会溢出)、卡片 360→320、padding 24→20、标题 18→16、格内字 20→16、按钮隐式高→40 显式,两端同源引用 spec(_PX 档名,门 specTiers 计入档集合)。SL 维 VerifyCodeModal 4 个单侧 spec 档(phone 行/×钮盒/×字形/隐藏 Input)按规则6 只报数不判红,不设锚点。--emit-baseline 整体重锚被 web 腿 anchorRegression 拒落(webCounts 上升),故按门内 :3007 口径「新族先入账再收口」手工登记三键:无 waivers、无豁免、不动其他 13 族任何读数。上一版:2026-10-19 票G-277②(第②格落地席,裸档升进档位集合):**锚点一枚未改** —— counts/radiusCounts/elementRadiusCounts/webCounts/webRadiusCounts/webElementRadiusCounts 全部保持原值,因为改判据前后 HEAD 面逐字段读数相同(全量档 RC=0,报告里唯一变的一行是 RE ModelList 的 unnamed 报名 mp=16→18,它不是锚点维)。真读:配对射程内带裸档的只有 apps/miniapp-taro/src/components/ModelList.tsx:573/:574 两处,折进档集合后 8 早已在该族 mp 侧集合内 ⇒ 不产生新分叉;读数没动却去改锚点就是本仓禁的\"为过门补数字\",故只记这一笔。同时按 import 面**复裁掉立项前提**:上一版(2026-10-11)写\"补认裸档会同时移动 77/150/128 三本账、必须同枚提交各自重锚\",实测不成立 —— 守门 77 不 import radius-tokens(自己的 B 族判据只扫字面量与 rounded-[…]),守门 150 走 lib/radius-roles.mjs 自带提取式且其 1b) 支早已认裸 rounded(同样从档位表取 DEFAULT),两本账不可能被本刀顶动;真会移动的只有本门 128 的 RD/RE 与守门 11 的 radiusPxInLine 消费面(11 无锚点台账:全量档 warn-only、暂存档只看新增行,不会替无关提交造红)。另更正上一条的一处现读数字:web 腿裸档是 **0 处不是 1 处** —— packages/ui-react/src/components/category-bar.tsx 的 HEAD blob 里没有任何裸 rounded(:34 逐字读为 BADGE 常量内的 rounded-md,门 11 档集 [6]),按 bareRoundedOccurrences 现读 count=0;上一条把这一处记成 1 处属登记时点读数,后续以本条为准。落地形态:唯一实现 scripts/lib/radius-tokens.mjs 的 radiusItemsInLine 末尾新增裸档一支(识别式仍复用 BARE_ROUNDED_RE / BARE_RADIUS_VAR_RE 两枚常量,门体零抄第二份正则,由自检 KZ③ 钉住);放末尾是为了保住 radiusAliasMapOf 取 [0] 的既有优先级(前置会把除法/字面量解值挤掉)。成对用例 KY/KZ 共 2 例(121→123,末行 --self-test:123 通过 / 0 失败),阳性对照已做:把该支临时短路后恰好这 2 例翻红(121 通过 / 2 失败)、还原后全绿,证明新增的是裸档那一对正反例而不是凑数。bareRoundedAudit 保留为报名维,语义从\"看不见多少\"改成\"这一族有几处 8 是靠裸档字形认来的\",打印与门内头注同步改写(旧句\"未计进档集合\"已成假话,按 §0.9 不得留)。上一版:2026-10-11 票G-978049(值守席,三格逐格复裁):① web 腿残档 VideoPlayer 由 webWaivers 带理由接管(票面复裁判据之二成立)——**未动任何锚点**:该族 webRadiusCounts 旧读=新读=锚点=1(mp 档集 [8] / web [4,8] / rn [8],舞台档 8 三端已同,残档 4 属 web 自绘控制 chrome),重锚正当性因此不依赖\"只降不升\",而由 --json 前后逐字段等值证明(本轮唯一新增字段是 bareRounded)。② 裸档盲区**未补认**:票面落地判据要求 77/150/128 三本账同一枚提交各自重锚,而 77 的 radius-single-source-baseline.json 与 150 的 radius-role-conformance-baseline.json 不在本票文件清单 ⇒ 硬停手;改把\"看不见多少\"跟着读数印出 —— 唯一实现 `scripts/lib/radius-tokens.mjs` 的 bareRoundedOccurrences(不并进 radiusItemsInLine,所以三本账读数一字未动)+ 门内 bareRoundedAudit(web/main 两腿各报名、不进判据、不进退出码);真仓 HEAD 现读 web 腿 1 处(packages/ui-react/src/components/category-bar.tsx:34 ⇒ 8)、主腿 2 处(apps/miniapp-taro/src/components/ModelList.tsx:573/:574 ⇒ 8),全 HEAD 面出现裸档字形的跟踪文件 459 个 / 993 行(未遮噪口径,给下一票当规模而不是当债务)。③ 复核:web 腿端入口可达性剔除机制在位(SEED_DIRS.web=apps/web/app、@ 别名按 web tsconfig 解析、剔 6 对逐条点名、种子缺席时整维挂起留痕),门内头注那句\"未做端入口可达性剔除\"是③落地前的旧声称,已按现状改写。上一版:2026-10-08 票G-978049③:守门128 web腿加装端入口可达性剔除(双侧判据+逐条点名+可选端挂起语义);僵尸对 Avatar/ConfirmDialog/CountdownTimer(小程序侧文件已死、web活)的 webRadiusCounts 锚点与 webWaivers 豁免随之手编清除;Loading/VoiceInput 两条 web 腿拆对声明撤除改由机制接管。上一版:2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名 ‖ 2026-10-19 销「台账腐烂:VerifyCodeModal」:该族随枚 4c0dbc10212 入账(三键 + 一条 waivers),但小程序腿已从端入口不可达 ⇒ 被默认档配对射程剔除 ⇒ 该族不在 findings 里;而本门判据(verdictOf)只认「仍在 findings 里」或「findings 里且豁免合格」的族为有记录 ⇒ 补 waivers 消不掉本项(那条豁免只在人工 --pair-all 档该族仍在 findings 时才生效)。按门体自带的出路「删掉这些键,或让它重新有读数;不得先放着」⇒ 本枚删掉该族在 counts / radiusCounts / elementRadiusCounts 三键组与 waivers 里的条目(其余 13 族读数一字未动)。**与该族登记自述不冲突**:其 reason 的了结判据是「小程序侧接线注册流或删除孤儿副本,届时按默认档实测重新登记」⇒ 键删掉之后,那条重新登记就是新增而非覆盖;若该族重新可达(端入口接线)或被复活,按默认档实测重新登记三键即可,不得把本条的删除读成「该族已了结」。",
+  "ledgerVersion": "2026-10-26 G-16 收口席(S1 守门判据修复席):票面两格 SL 判据缺口现读复裁均已消解 ——(i) 门自 d135b5f412 起按被审面解析 export const X = GEOMETRY_PX.g 与 A_PX = B_PX 纯投影做等价归一(INPUT_AREA_IN_SHELL_BTN_PX 不再被算单侧,镜像 T37-T40/T49-T54 钉住);(ii) 类臂解析维自 3570211ffd 起读被审面全部 miniapp/web css(含 app.css),「唯一无覆盖定义+无条件使用」的声明体并入几何(现读 7 份),读不到的按未判定逐条点名(票面五枚类名现读全部以「多处定义」未判定点名在案),镜像 T42/T45/T46 钉住。两格前提已不成立 ⇒ 按票面规则不再修门,只收台账:d135b5f412 半成品遗留的 LoginPopUp 8→9 / ModelList 6→7 / UserInfoCard 4→3 三处锚点位移,前两族为带有效豁免的惰性记账(verdictOf 从不比较)、第三枚是下降;其余主腿/web 腿六键组由门自身 emitBaseline + anchorRegression 出口机械重锚(上升仅出现在带豁免的族上,经门自带的豁免短路放行,未豁免零上升零消失)。手编清除仅限僵尸死锚点:webCounts 与 webElementRadiusCounts 的 Avatar/CountdownTimer/Tooltip 及 webRadiusCounts.Tooltip —— 这三族现读为「⊘ WD …… 从小程序端入口不可达」(默认档端入口可达性判据把它们剔出 web 配对射程,报告行逐条点名;同类先例 = a36b0a3a34 手编清除同族死锚点),清除值全为 0,非零一枚未动。同时 emitBaseline 按其既有口径撤下本轮本腿零差异的 webWaivers:ConfirmDialog / VoiceInput(若复活按实测重新登记,不得读成已了结)。CategoryBar/DrawerComponent 两枚 aliases 与 FloatBox pairingRejects 逐字带走。取证:.ihui-agent/tmp/s1-gate128/(reanchor.mjs 逐字复刻 main 的 emit 分支、判据零复算;baseline.before.json 为改前台账全件)。上一版:2026-10-19 VerifyCodeModal 三键撤登(随 557fce49c2c 的收口修正):108d1fe6434 录入 counts 3/radiusCounts 0/elementRadiusCounts 0 后,默认档报「台账腐烂」——腐烂判据的 seen 集合只从 findings 推导,而 waivers 分支也只在 findings 内遍历(verdictOf 2838-2843),默认档把小程序腿零引用的孤儿族整体剔出配对射程(端入口不可达),findings 无该族 ⇒ 无论怎么登记 waivers 都算「台账钉着而本轮无记录」。机械结论:默认档不可达的族,counts 三键是「永远不可能被问责的免费额度」,正是该判据要拦的形态;而 waivers 键不在腐烂判据射程、且在 --pair-all 人工档照常生效(findings 含该族 ⇒ waived 记账)。故撤三键、只留 waivers 一条(reason 记明小程序接线/删副本的了结判据,until 2027-03-27)。这不是放宽判据:人工档的问责面(几何/圆角/同名元素三锚点)与本族差异记录一文未少,只是默认档的射程事实(孤儿不可达)不再靠账本掩盖。上一版:2026-10-19 VerifyCodeModal waivers 登记(随 4c0dbc10212 同批):三键入账后默认档报「台账腐烂」——台账钉着 VerifyCodeModal 而默认档实测无该族记录(小程序腿零引用孤儿 ⇒ 端入口不可达被剔,族只活在人工 --pair-all 档)。按判据口径豁免族亦算有记录(它被 waived 记账,不是没扫到),故补 waivers 一条带 reason+until 2027-03-27;语义不是豁免两端差异(几何差已由 counts=3 收纳),是登记「此族暂时只可在人工档问责 + 待小程序接线/删副本决策」。pair-all 档该族 3 处单侧几何随之计入 waived,超锚点判红维持 0。上一版:2026-10-19 VerifyCodeModal 收编共享源(枚 4c0dbc10212,packages/shared/src/ui/verify-code-modal-spec.ts + 两端薄壳):该族此前从未入账 ⇒ 三键齐补 counts 3 / radiusCounts 0 / elementRadiusCounts 0。counts=3 是收敛后仅剩的单侧几何档(仅 RN:1px 隐藏键盘接收器 G-978007、phone 行 marginTop 4、关闭钮 24),按 O81 规则6 承载机制差异保留、RE 维零判据不判红;radiusCounts=0 = 小程序按钮 rounded-md→rounded-sm 后与 RN rnRadiusFor.control 同为 control 档,原 RD 分叉 1 已消。几何差 12→3 的收敛 = 格子 48→36×44(RN 向小程序靠,48×6+8×5=328px 在小程序卡内 303px 会溢出)、卡片 360→320、padding 24→20、标题 18→16、格内字 20→16、按钮隐式高→40 显式,两端同源引用 spec(_PX 档名,门 specTiers 计入档集合)。SL 维 VerifyCodeModal 4 个单侧 spec 档(phone 行/×钮盒/×字形/隐藏 Input)按规则6 只报数不判红,不设锚点。--emit-baseline 整体重锚被 web 腿 anchorRegression 拒落(webCounts 上升),故按门内 :3007 口径「新族先入账再收口」手工登记三键:无 waivers、无豁免、不动其他 13 族任何读数。上一版:2026-10-19 票G-277②(第②格落地席,裸档升进档位集合):**锚点一枚未改** —— counts/radiusCounts/elementRadiusCounts/webCounts/webRadiusCounts/webElementRadiusCounts 全部保持原值,因为改判据前后 HEAD 面逐字段读数相同(全量档 RC=0,报告里唯一变的一行是 RE ModelList 的 unnamed 报名 mp=16→18,它不是锚点维)。真读:配对射程内带裸档的只有 apps/miniapp-taro/src/components/ModelList.tsx:573/:574 两处,折进档集合后 8 早已在该族 mp 侧集合内 ⇒ 不产生新分叉;读数没动却去改锚点就是本仓禁的\"为过门补数字\",故只记这一笔。同时按 import 面**复裁掉立项前提**:上一版(2026-10-11)写\"补认裸档会同时移动 77/150/128 三本账、必须同枚提交各自重锚\",实测不成立 —— 守门 77 不 import radius-tokens(自己的 B 族判据只扫字面量与 rounded-[…]),守门 150 走 lib/radius-roles.mjs 自带提取式且其 1b) 支早已认裸 rounded(同样从档位表取 DEFAULT),两本账不可能被本刀顶动;真会移动的只有本门 128 的 RD/RE 与守门 11 的 radiusPxInLine 消费面(11 无锚点台账:全量档 warn-only、暂存档只看新增行,不会替无关提交造红)。另更正上一条的一处现读数字:web 腿裸档是 **0 处不是 1 处** —— packages/ui-react/src/components/category-bar.tsx 的 HEAD blob 里没有任何裸 rounded(:34 逐字读为 BADGE 常量内的 rounded-md,门 11 档集 [6]),按 bareRoundedOccurrences 现读 count=0;上一条把这一处记成 1 处属登记时点读数,后续以本条为准。落地形态:唯一实现 scripts/lib/radius-tokens.mjs 的 radiusItemsInLine 末尾新增裸档一支(识别式仍复用 BARE_ROUNDED_RE / BARE_RADIUS_VAR_RE 两枚常量,门体零抄第二份正则,由自检 KZ③ 钉住);放末尾是为了保住 radiusAliasMapOf 取 [0] 的既有优先级(前置会把除法/字面量解值挤掉)。成对用例 KY/KZ 共 2 例(121→123,末行 --self-test:123 通过 / 0 失败),阳性对照已做:把该支临时短路后恰好这 2 例翻红(121 通过 / 2 失败)、还原后全绿,证明新增的是裸档那一对正反例而不是凑数。bareRoundedAudit 保留为报名维,语义从\"看不见多少\"改成\"这一族有几处 8 是靠裸档字形认来的\",打印与门内头注同步改写(旧句\"未计进档集合\"已成假话,按 §0.9 不得留)。上一版:2026-10-11 票G-978049(值守席,三格逐格复裁):① web 腿残档 VideoPlayer 由 webWaivers 带理由接管(票面复裁判据之二成立)——**未动任何锚点**:该族 webRadiusCounts 旧读=新读=锚点=1(mp 档集 [8] / web [4,8] / rn [8],舞台档 8 三端已同,残档 4 属 web 自绘控制 chrome),重锚正当性因此不依赖\"只降不升\",而由 --json 前后逐字段等值证明(本轮唯一新增字段是 bareRounded)。② 裸档盲区**未补认**:票面落地判据要求 77/150/128 三本账同一枚提交各自重锚,而 77 的 radius-single-source-baseline.json 与 150 的 radius-role-conformance-baseline.json 不在本票文件清单 ⇒ 硬停手;改把\"看不见多少\"跟着读数印出 —— 唯一实现 `scripts/lib/radius-tokens.mjs` 的 bareRoundedOccurrences(不并进 radiusItemsInLine,所以三本账读数一字未动)+ 门内 bareRoundedAudit(web/main 两腿各报名、不进判据、不进退出码);真仓 HEAD 现读 web 腿 1 处(packages/ui-react/src/components/category-bar.tsx:34 ⇒ 8)、主腿 2 处(apps/miniapp-taro/src/components/ModelList.tsx:573/:574 ⇒ 8),全 HEAD 面出现裸档字形的跟踪文件 459 个 / 993 行(未遮噪口径,给下一票当规模而不是当债务)。③ 复核:web 腿端入口可达性剔除机制在位(SEED_DIRS.web=apps/web/app、@ 别名按 web tsconfig 解析、剔 6 对逐条点名、种子缺席时整维挂起留痕),门内头注那句\"未做端入口可达性剔除\"是③落地前的旧声称,已按现状改写。上一版:2026-10-08 票G-978049③:守门128 web腿加装端入口可达性剔除(双侧判据+逐条点名+可选端挂起语义);僵尸对 Avatar/ConfirmDialog/CountdownTimer(小程序侧文件已死、web活)的 webRadiusCounts 锚点与 webWaivers 豁免随之手编清除;Loading/VoiceInput 两条 web 腿拆对声明撤除改由机制接管。上一版:2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名 ‖ 2026-10-19 销「台账腐烂:VerifyCodeModal」:该族随枚 4c0dbc10212 入账(三键 + 一条 waivers),但小程序腿已从端入口不可达 ⇒ 被默认档配对射程剔除 ⇒ 该族不在 findings 里;而本门判据(verdictOf)只认「仍在 findings 里」或「findings 里且豁免合格」的族为有记录 ⇒ 补 waivers 消不掉本项(那条豁免只在人工 --pair-all 档该族仍在 findings 时才生效)。按门体自带的出路「删掉这些键,或让它重新有读数;不得先放着」⇒ 本枚删掉该族在 counts / radiusCounts / elementRadiusCounts 三键组与 waivers 里的条目(其余 13 族读数一字未动)。**与该族登记自述不冲突**:其 reason 的了结判据是「小程序侧接线注册流或删除孤儿副本,届时按默认档实测重新登记」⇒ 键删掉之后,那条重新登记就是新增而非覆盖;若该族重新可达(端入口接线)或被复活,按默认档实测重新登记三键即可,不得把本条的删除读成「该族已了结」。 2026-10-28 b24-o02(单侧档裁定入账,不动任何锚点):`waivers.<族>.singleEndTiers` 是**逐档机读裁定** —— 每项 {tier, side, kind, element, reason, until},kind 自解释:element-absent(一端根本没有该元素/该形态)、mechanism-variant(同一元素或槽位按已裁定的承载/变体契约取不同档)、cross-file-consumption(另一端在委托件或类臂里消费同一处,配对腿文件内看不见)、undecided-fork(未决结构分叉,不得读成已收口)。它**只投影裁定,不是豁免通道**:族级 waivers 的整族判定与 counts 一位未动(本批前后逐字段等值);机读消费方 = `packages/shared/src/ui/__tests__/single-end-tier-rulings.test.ts`(逐项验 owner 腿真取数 / 非 owner 腿不取数 / 档名仍从该族 spec 导出 / 覆盖面对账单侧导出档集合)。门 128 的 SL 维只报「这一档只在一端出现」,本表补的是它说不出的一维:那一端是「另一端没有这个元素」还是「本该同值却各写一份」—— 后者一律不登记、留待收敛。",
   "pairingRejects": {
     "FloatBox": {
       "reason": "同名不同物:小程序端是右下角悬浮功能盒(赚米/客服/反馈三按钮,right 20rpx、收起推到 -240rpx),RN 端是顶部悬浮消息提示 toast(TOP_OFFSET 居中、duration 3000ms、4 种 type、多实例由 Toast Portal 堆叠)—— 两端头注逐字读自 HEAD,不是同一个界面元素",

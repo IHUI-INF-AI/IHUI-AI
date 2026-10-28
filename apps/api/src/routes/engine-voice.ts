@@ -102,7 +102,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 组装 multipart(file 字段),经 aiServiceFetch 转发;不手工设 Content-Type,
   // 让 undici fetch 按 FormData 自动生成带 boundary 的头。响应 JSON 原样回传。
   // -------------------------------------------------------------------------
-  server.post('/sessions/:sid/turn', async (request, reply) => {
+  // 2026-10-28 DDoS P2:语音 turn 收 audioBase64,对齐音频上限,显式放开脱离全局 2MiB。
+  server.post('/sessions/:sid/turn', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     const param = sidParamSchema.safeParse(request.params)
     if (!param.success) return reply.status(400).send(error(400, 'sid 必填'))
     const parsed = turnBodySchema.safeParse(request.body)

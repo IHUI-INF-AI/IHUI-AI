@@ -3034,7 +3034,35 @@ try {
     if ($gitCmd) { & git -C $Root checkout -- apps/web/next-env.d.ts 2>$null }
 } catch { /* 还原失败不阻塞部署,下次本地 git checkout 即可 */ }
 Start-Web
-Start-Sleep -Seconds 8
+# ── 切流后就绪等待(2026-10-28/生产席 O68 立:把固定 8s 换成"8801 真就绪再进健康门禁")──
+# 立因(实测:deploy-decisions 台账里 6 枚 pass-entry-broken 全部 dims=api+llm,时间 01:30~09:10):
+#   web 是**停-起**而非蓝绿(见上方 Stop-Web / Start-Web),切流空窗 + Next 冷启动期间 8801 不服务。
+#   公网三维里 web 探的是 https://www.aizhs.top,而该页由 TencentEdgeOne 缓存应答
+#   (实测响应头 eo-cache-status=HIT、age=11506 秒 ⇒ 读的是边缘缓存,**不构成"源站正在服务"的证据**);
+#   api/llm 两维走 /api/*(记忆口径:这些路径恒 MISS、必回源 8801)⇒ 空窗期读到 502 ⇒ 末轮 lastFails 非空。
+#   源站直探此时已 pass(web 进程已起、只是还没到能出页面的程度)⇒ health-gate-verdict 判
+#   entry-broken:不回滚好构建、也不冒绿 —— 行为正确,但它被归因成"隧道/边缘故障",而真实原因是
+#   **我们自己在重启 web**。把它算进入口故障证据,等于每次部署都往台账里留一枚假故障。
+# 边界(为什么这不是"放宽"):只推迟门禁起点,一条判据都不动 —— 等到就绪就照旧门禁;等不到(上限耗尽)
+#   也照旧门禁,由门禁按实测判 fail / entry-broken。§0.10:失效方向是多要一次说明,不是多放一次跳门。
+# 上限可覆写(IHUI_DEPLOY_WEB_READY_SEC,仅接受正整数,否则回落 120),等待期间持续续部署锁心跳。
+$readyBudgetSec = 120
+if ($env:IHUI_DEPLOY_WEB_READY_SEC -and $env:IHUI_DEPLOY_WEB_READY_SEC -match '^[1-9]\d*$') { $readyBudgetSec = [int]$env:IHUI_DEPLOY_WEB_READY_SEC }
+$readyStart = Get-Date
+$webReady = $false
+while (((Get-Date) - $readyStart).TotalSeconds -lt $readyBudgetSec) {
+    $rReady = Invoke-Probe -Url $OriginWeb -Contains '<!DOCTYPE html'
+    if ($rReady.Verdict -eq 'pass') { $webReady = $true; break }
+    Start-Sleep -Seconds 3
+    Update-DeployLockHeartbeat
+}
+$readySec = [int]((Get-Date) - $readyStart).TotalSeconds
+if ($webReady) {
+    Log "OK   源站 8801 已就绪(等待 $readySec 秒,上限 $readyBudgetSec 秒)⇒ 开始健康门禁"
+} else {
+    Log "WARN 源站 8801 等待 $readySec 秒仍未就绪(上限 $readyBudgetSec 秒)⇒ 照旧进入健康门禁:判据不放宽,由门禁按实测判 fail / entry-broken"
+}
+Start-Sleep -Seconds 2
 
 # ── SSH 入口存续(2026-10-21 立;同日更正归因)─────────────────────────────────
 # 现象:带有效服务令牌打 `ssh.aizhs.top` 的 Access 回 502(不带 token 是 302=边缘登录跳转,与后端无关),
