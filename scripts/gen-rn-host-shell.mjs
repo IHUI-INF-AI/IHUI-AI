@@ -69,7 +69,13 @@ const val = (name, fallback = null) => {
 }
 
 function git(args) {
-  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 })
+  return execFileSync('git', args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 1 << 28,
+    // §12g:派生 git 必须显式接管 stdio —— 不写在本机稳定 EBUSY(守门 193)
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 function loadRegistry() {
