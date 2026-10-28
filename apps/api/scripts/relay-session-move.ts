@@ -225,14 +225,24 @@ export interface MoveOp {
   type: 'move' | 'restore' | 'undo' | 'copy'
   conversationId: string | null
   accountId: string | null
-  /** undo 时指向被回退的 op 行号(1 起) */
+  /**
+   * 不可变操作号(2026-10-28 立):= append 当时全序末位 +1,写定后永不因 rotate 变。
+   * 旧数据无此字段 ⇒ 读取时按"归档⊕当前"位置补推(未 rotate 过的库与真实号一致)。
+   */
+  opId?: number
+  /** undo 时指向被回退条目的 opId(不是行号 —— 行号会随归档前移) */
   refOp?: number
   entries: MoveOpFileEntry[]
 }
 
 export function appendOps(opsLogFile: string, op: MoveOp): void {
   mkdirSync(dirname(opsLogFile), { recursive: true })
-  writeFileSync(opsLogFile, `${JSON.stringify(op)}\n`, { flag: 'a' })
+  // 自动盖号:调用点不必各自算,漏盖就等于把号稳定性交给记性
+  const withId: MoveOp =
+    typeof op.opId === 'number' && Number.isInteger(op.opId) && op.opId >= 1
+      ? op
+      : { ...op, opId: maxOpIdOf(opsLogFile) + 1 }
+  writeFileSync(opsLogFile, `${JSON.stringify(withId)}\n`, { flag: 'a' })
 }
 
 export function readOps(opsLogFile: string): MoveOp[] {
@@ -265,8 +275,12 @@ export function listOpsArchives(opsLogFile: string): string[] {
 }
 
 /**
- * 全量操作序列 = 归档文件(按日期升序)⊕ 当前日志。op 号(1 起)按这个次序解释,
- * 与 rotate 前的历史编号一致(每轮 rotate 归档的都是当时最老的条目)。
+ * 全量操作序列 = 归档文件(按日期升序)⊕ 当前日志。op 号按这个次序解释。
+ *
+ * 只收真条目:`readOps` 把 JSON 非对象行(裸 `null`/数字/字符串)也算解析成功(rotate 的
+ * 「读取面不一致 ⇒ 未判定」守门正靠这个口径),但它们没有 opId 可言,也不该占号位 ——
+ * 放进全序视图会让 `ops.find(o => o.opId === n)` 与补号循环在坏行上炸,把三条只读腿
+ * (ops 清单 / undo 寻址 / stats)一起打成崩溃。
  */
 export function readOpsAll(opsLogFile: string): {
   ops: MoveOp[]
@@ -274,11 +288,21 @@ export function readOpsAll(opsLogFile: string): {
   archivedCount: number
 } {
   const archiveFiles = listOpsArchives(opsLogFile)
+  const isEntry = (value: MoveOp): boolean => value !== null && typeof value === 'object'
   const ops: MoveOp[] = []
-  for (const f of archiveFiles) ops.push(...readOps(f))
-  const current = readOps(opsLogFile)
+  for (const f of archiveFiles) ops.push(...readOps(f).filter(isEntry))
+  const current = readOps(opsLogFile).filter(isEntry)
   ops.push(...current)
+  // 旧数据无 opId ⇒ 按"归档⊕当前"位置补推(未 rotate 过的库里位置即真实号)
+  ops.forEach((op, i) => {
+    if (typeof op.opId !== 'number' || !Number.isInteger(op.opId) || op.opId < 1) op.opId = i + 1
+  })
   return { ops, archiveFiles, archivedCount: ops.length - current.length }
+}
+
+/** 当前最大 opId(无号旧数据已按位置补推 ⇒ 结果即全序长度) */
+export function maxOpIdOf(opsLogFile: string): number {
+  return readOpsAll(opsLogFile).ops.reduce((m, o) => Math.max(m, o.opId ?? 0), 0)
 }
 
 export interface MovePlanFile extends MoveOpFileEntry {
@@ -876,14 +900,15 @@ export function planUndo(
   stopDirs: string[] = [],
 ): { op: MoveOp; plan: MovePlan } {
   const { ops, archivedCount } = readOpsAll(opsLogFile)
-  const op = ops[opNum - 1]
+  // 按不可变 opId 定位(不是数组下标):rotate 移走老条目后位置会变,号不会
+  const op = ops.find((o) => o.opId === opNum)
   if (!op)
     throw new Error(
-      `ops 日志无第 ${opNum} 条(现存 ${ops.length} 条${archivedCount > 0 ? `,含归档 ${archivedCount} 条` : ''})`,
+      `ops 日志无 opId #${opNum}(现存 ${ops.length} 条${archivedCount > 0 ? `,含归档 ${archivedCount} 条` : ''};opId 不可变,rotate 不会让号前移)`,
     )
   if (op.type === 'copy') {
     throw new Error(
-      `第 ${opNum} 条是 copy(复制到桶):撤销等于删除副本,本器不删文件(红线:绝不删除)。` +
+      `opId #${opNum} 是 copy(复制到桶):撤销等于删除副本,本器不删文件(红线:绝不删除)。` +
         '如需清理,请人工确认后删除目标侧副本。',
     )
   }
@@ -1121,8 +1146,10 @@ export function main(
       )
       ops.forEach((op, i) => {
         const inArchive = i < archivedCount
+        // 印出的号必须就是 undo --op 认的那个号:readOpsAll 已为旧数据补位置号,故 opId 恒有值
+        const no = op.opId ?? i + 1
         console.log(
-          `  #${i + 1}${inArchive ? '[归档]' : ''} ${op.ts} ${op.type} conv=${op.conversationId ?? '?'} acct=${op.accountId ?? '?'} ` +
+          `  #${no}${inArchive ? '[归档]' : ''} ${op.ts} ${op.type} conv=${op.conversationId ?? '?'} acct=${op.accountId ?? '?'} ` +
             `files=${op.entries.length} bytes=${op.entries.reduce((s, e) => s + e.bytes, 0)}` +
             `${op.refOp !== undefined ? ` refOp=#${op.refOp}` : ''}`,
         )
@@ -1284,7 +1311,7 @@ export function main(
     } else if (cmd === 'undo') {
       const n = Number(getFlag(argv, '--op'))
       if (!Number.isInteger(n) || n < 1) {
-        console.error('undo 需要 --op <n>(ops 日志 1 起行号)')
+        console.error('undo 需要 --op <n>(ops 命令 # 后那个不可变 opId,rotate 不会让它前移)')
         return 2
       }
       const r = planUndo(paths.opsLogFile, n, [
