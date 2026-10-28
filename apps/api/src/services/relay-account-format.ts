@@ -380,11 +380,34 @@ const FOREIGN_EXPIRES_ALIASES = ['expires_at', 'expired_time', 'expiry']
 const FOREIGN_REFRESH_EXPIRES_ALIASES = ['refresh_expires_at', 'refresh_token_expires_at']
 const FOREIGN_DEVICE_ID_ALIASES = ['device_id']
 const FOREIGN_MACHINE_ID_ALIASES = ['machine_id']
+/**
+ * 平台扩展机密键(2026-10-27 立):CodeArts 的 STS AK/SK、DPoP 私钥、PKCE code_verifier、
+ * 整包 loginContext,以及 ZCode 提取器附带的原始 enc:v1: 密文图 —— 这些只许进 secretsEnc,
+ * 绝不透传进 extraMetadata(jsonb 未加密)。键名对齐 mapCodeartsImport 的取值键。
+ */
+const FOREIGN_PLATFORM_SECRET_KEYS = [
+  'securitytoken',
+  'security_token',
+  'cloud_dragon_token',
+  'accessKey',
+  'access_key_id',
+  'secretKey',
+  'secret_access_key',
+  'dpop_private_key',
+  'code_verifier',
+  'loginContext',
+  'rawCredentials',
+  /** WorkBuddy 写回配方键(2026-10-28):只进 secretsEnc,不透传 extraMetadata */
+  'sealedPaths',
+  'edition',
+  'authFile',
+]
 /** 标记键:归一化发生过;同时列入不透传集,免得混进 extraMetadata */
 const FOREIGN_MARKER = 'foreignShape'
 const FOREIGN_META_NOISE = new Set([
   ...IMPORT_CANONICAL_KEYS,
   FOREIGN_MARKER,
+  ...FOREIGN_PLATFORM_SECRET_KEYS,
   ...FOREIGN_TOKEN_ALIASES,
   ...FOREIGN_REFRESH_ALIASES,
   ...FOREIGN_UID_ALIASES,
@@ -572,7 +595,7 @@ export const RELAY_IMPORT_CREDENTIAL_SLOTS: Record<RelayProviderCode, RelayCrede
     },
   ],
   loomy: [{ top: ['value'] }],
-  doubao: [{ top: ['value'] }],
+  doubao: [{ top: ['token', 'value'] }],
   lingma: [{ top: ['token', 'accessToken', 'access_token'] }],
   // GrokBot:形状认得(本机凭证是 sandSealedFile 密封串),但没有明文凭据可导
   grokbot: [{ sealed: { parent: 'credential', keys: ['sandSealedFile', 'data'] } }],
@@ -592,7 +615,7 @@ export const RELAY_IMPORT_SHAPE_REASON: Record<RelayProviderCode, string> = {
   minimax: 'MiniMax 导入缺少 accessToken(mcode auth.json 形状不符)',
   zcode: 'ZCode 导入缺可用凭据(oauth:bigmodel:access_token / zcodejwttoken / project key 全缺)',
   loomy: 'Loomy 导入条目缺 value(会话候选形状不符)',
-  doubao: '豆包导入条目缺 value(cookie 会话族形状不符)',
+  doubao: '豆包导入条目缺 token/value(cookie 会话族形状不符)',
   lingma: '灵码导入 raw 凭证无 token/accessToken/access_token 字段(字段级形状未实证)',
   grokbot: 'GrokBot 本机凭证为 sandSealedFile 密封串,无明文 token 可导入(待解封方案取证)',
 }
@@ -799,14 +822,11 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
     const acc = normalizeForeignAccountShape(row)
     const isCodearts = opts.providerCode === 'codearts'
     const codeartsAccount = isCodearts && isRecord(acc['account']) ? acc['account'] : undefined
-    // 统一名称 = 官方绑定手机号:qoder 预览名 phone 优先(载荷 name 是客户端昵称,不作统一名);
-    // O66(2026-10-28):其余平台导入 JSON 显式带 phone 时同样优先(全平台统一口径;
-    // workbuddy 另有 JWT preferred_username 权威通道在其上,trae 等无权威通道平台靠这一格)
+    // 统一名称 = 官方绑定手机号:qoder 预览名 phone 优先(载荷 name 是客户端昵称,不作统一名)
     const name =
       opts.providerCode === 'qoder'
         ? cstr(acc['phone']) || cstr(acc['nickname']) || cstr(acc['name']) || `#${index + 1}`
-        : cstr(acc['phone']) ||
-          cstr(acc['name']) ||
+        : cstr(acc['name']) ||
           (isCodearts
             ? cstr(codeartsAccount?.['label']) || cstr(acc['user_name']) || `#${index + 1}`
             : `#${index + 1}`)
