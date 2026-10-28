@@ -21,11 +21,30 @@ import net from 'node:net'
 import fs from 'node:fs'
 import path from 'node:path'
 
-const LISTEN_HOST = '127.0.0.1'
-const LISTEN_PORT = Number(process.env.IHUI_API_ROUTER_PORT || 8802)
+// ── 通用化(2026-10-28 生产席:web 蓝绿复用同一份 router,不落第二份反代实现)────────
+// 立因:web 走蓝绿也要一个"常驻监听 + 原子切流"的入口层,而另写一份 router 就是第二个真相源
+// (§0.6:同类实现全仓只许一份,第二份必然漂移)。故把监听面/上游面/端口表全部改成 env 驱动,
+// **缺省值与改造前逐字等价** ⇒ api 侧 8802/127.0.0.1/8842/8843 行为零变化。
+// 为什么 LISTEN_HOST 与 UPSTREAM_HOST 必须分成两个:web 的 8801 必须监听 0.0.0.0
+// (EdgeOne 源站直填本机公网 IP,只绑回环会让回源恒 522,2026-10-28 实测 8/8 轮判 GATE-ENTRY-BROKEN
+//  即此);而两色 web 实例只监听 127.0.0.1,router 到上游仍走回环 ⇒ 上游主机不能跟着监听面改。
+const LISTEN_HOST = process.env.IHUI_BG_ROUTER_HOST || '127.0.0.1'
+const UPSTREAM_HOST = process.env.IHUI_BG_UPSTREAM_HOST || '127.0.0.1'
+const LISTEN_PORT = Number(
+  process.env.IHUI_API_ROUTER_PORT || process.env.IHUI_BG_ROUTER_PORT || 8802,
+)
 const STATE_FILE =
-  process.env.IHUI_API_BG_STATE || 'D:\\DevEnv\\ihui-prod\\deploy\\run\\api-bluegreen.json'
-const DEFAULT_PORTS = { blue: 8842, green: 8843 }
+  process.env.IHUI_API_BG_STATE ||
+  process.env.IHUI_BG_STATE ||
+  'D:\\DevEnv\\ihui-prod\\deploy\\run\\api-bluegreen.json'
+const DEFAULT_PORTS = {
+  blue: Number(process.env.IHUI_BG_PORT_BLUE || 8842),
+  green: Number(process.env.IHUI_BG_PORT_GREEN || 8843),
+}
+// 健康判据也要随被代理的那一个应用走:api 探 /api/health 要 `"status":"ok"`,
+// web 探首页要 `<!DOCTYPE html`。缺省仍是 api 口径 ⇒ 现有 router 实例行为不变。
+const HEALTH_PATH = process.env.IHUI_BG_HEALTH_PATH || '/api/health'
+const HEALTH_MATCH = process.env.IHUI_BG_HEALTH_MATCH || '"status":"ok"'
 
 function log(level, msg, extra = {}) {
   process.stdout.write(
@@ -104,7 +123,7 @@ function proxyHttp(req, res, attempt) {
   }
 
   const upReq = http.request({
-    host: LISTEN_HOST,
+    host: UPSTREAM_HOST,
     port,
     method: req.method,
     path: req.url,
@@ -141,7 +160,7 @@ function proxyHttp(req, res, attempt) {
 // WebSocket：手工做 HTTP Upgrade 透传（不引第三方依赖，避免 pnpm 隔离目录解析问题）
 server.on('upgrade', (req, socket, head) => {
   const port = upstreams()[0]
-  const upSocket = net.connect(port, LISTEN_HOST, () => {
+  const upSocket = net.connect(port, UPSTREAM_HOST, () => {
     const lines = [`${req.method} ${req.url} HTTP/1.1`]
     for (const [k, v] of Object.entries(req.headers)) {
       lines.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
@@ -212,7 +231,7 @@ async function reconcileActiveAtBoot() {
 function probeHealth(port) {
   return new Promise((resolve) => {
     const req = http.get(
-      { host: LISTEN_HOST, port, path: '/api/health', timeout: 2000 },
+      { host: UPSTREAM_HOST, port, path: HEALTH_PATH, timeout: 2000 },
       (res) => {
         let body = ''
         res.setEncoding('utf8')
@@ -220,7 +239,7 @@ function probeHealth(port) {
           body += chunk
           if (body.length > 4096) body = body.slice(0, 4096)
         })
-        res.on('end', () => resolve(res.statusCode === 200 && body.includes('"status":"ok"')))
+        res.on('end', () => resolve(res.statusCode === 200 && body.includes(HEALTH_MATCH)))
       },
     )
     req.on('timeout', () => {

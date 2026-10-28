@@ -539,7 +539,7 @@ def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
             for name in sorted(tables & set(owned)):
                 if name in drizzle_tables:
                     logger.warning(
-                        "[schema_check] %s: 同名建表 DDL 在 sqlite 侧文件 %s,但它由 TS Drizzle 管理 ⇒ 按 Postgres 侧保留校验",
+                        "[schema_check] %s: 同名建表 DDL 在 sqlite 侧文件 %s,但它由 TS Drizzle 管理 => 按 Postgres 侧保留校验",
                         name,
                         owned[name],
                     )
