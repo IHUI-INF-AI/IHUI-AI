@@ -48,15 +48,30 @@ const REFRESH_FAILURE_LIMIT = 3
  * scripts/sync-trae-client-session.mjs 每 10 分钟把客户端新票回灌进池;池内票一旦真的
  * 过期,说明客户端已不在续期,此时兜底刷新不会再顶掉谁。
  * RELAY_TRAE_CLIENT_FIRST_REFRESH=0/false/off 可整体退回 server 策略。
+ * qoder 同一型(2026-10-28):deviceToken/refresh 轮换 refresh_token,回灌腿 =
+ * worker 的 qoder-session-sync;退回开关 RELAY_QODER_CLIENT_FIRST_REFRESH。
  */
 export type RelayRenewalPolicy = 'server' | 'client-first'
+
+/**
+ * 客户端在续期的平台及其退回 server 的开关名(单一真相源)。
+ *
+ * qoder(2026-10-28 纳入):refresh 响应**轮换 refresh_token**(见 qoder-adapter 的
+ * 真机实测形状),池主动续期会当场把本机客户端的票顶废 —— 与 trae 同一型。
+ * 回灌腿 = worker 的 `qoder-session-sync`(每 10 分钟读本机 auth.v1.dat 写回池)。
+ */
+const CLIENT_FIRST_FLAGS: Record<string, string> = {
+  trae: 'RELAY_TRAE_CLIENT_FIRST_REFRESH',
+  qoder: 'RELAY_QODER_CLIENT_FIRST_REFRESH',
+}
 
 export function renewalPolicyOf(
   providerCode: string,
   env: NodeJS.ProcessEnv = process.env,
 ): RelayRenewalPolicy {
-  if (providerCode !== 'trae') return 'server'
-  const flag = (env.RELAY_TRAE_CLIENT_FIRST_REFRESH ?? '').trim().toLowerCase()
+  const flagName = CLIENT_FIRST_FLAGS[providerCode]
+  if (!flagName) return 'server'
+  const flag = (env[flagName] ?? '').trim().toLowerCase()
   if (['0', 'false', 'off'].includes(flag)) return 'server'
   return 'client-first'
 }

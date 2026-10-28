@@ -215,17 +215,23 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
     }
   }
 
-  it('纯函数:trae=client-first;其他平台=server;开关 0/false/off 退回 server', () => {
+  it('纯函数:trae/qoder=client-first;其余平台=server;开关 0/false/off 退回 server', () => {
     expect(renewalPolicyOf('trae')).toBe('client-first')
+    // qoder 2026-10-28 纳入:deviceToken/refresh 轮换 refresh_token,池主动刷会顶号
+    expect(renewalPolicyOf('qoder')).toBe('client-first')
     expect(renewalPolicyOf('workbuddy')).toBe('server')
-    expect(renewalPolicyOf('qoder')).toBe('server')
     expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: '0' })).toBe('server')
     expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: 'false' })).toBe('server')
     expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: 'off' })).toBe('server')
     expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: '1' })).toBe('client-first')
+    expect(renewalPolicyOf('qoder', { RELAY_QODER_CLIENT_FIRST_REFRESH: '0' })).toBe('server')
+    expect(renewalPolicyOf('qoder', { RELAY_QODER_CLIENT_FIRST_REFRESH: 'off' })).toBe('server')
+    expect(renewalPolicyOf('qoder', { RELAY_QODER_CLIENT_FIRST_REFRESH: '1' })).toBe('client-first')
+    // 开关名不得串门:trae 的开关不影响 qoder
+    expect(renewalPolicyOf('qoder', { RELAY_TRAE_CLIENT_FIRST_REFRESH: '0' })).toBe('client-first')
   })
 
-  it('纯函数:trae 票未过期 ⇒ 延迟;已过期 ⇒ 放行;无到期时刻 ⇒ 放行(无法证明客户端在养票,兜底)', () => {
+  it('纯函数:trae/qoder 票未过期 ⇒ 延迟;已过期 ⇒ 放行;无到期时刻 ⇒ 放行(无法证明客户端在养票,兜底)', () => {
     const now = new Date('2026-10-24T12:00:00.000Z')
     expect(
       shouldDeferRefresh(
@@ -243,6 +249,19 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
     expect(
       shouldDeferRefresh(
         { providerCode: 'workbuddy', tokenExpiresAt: new Date(now.getTime() + 60_000) },
+        now,
+      ),
+    ).toBe(false)
+    // qoder 与 trae 同档:票未过期就不许池刷(刷 = 轮换 rt = 顶号)
+    expect(
+      shouldDeferRefresh(
+        { providerCode: 'qoder', tokenExpiresAt: new Date(now.getTime() + 60_000) },
+        now,
+      ),
+    ).toBe(true)
+    expect(
+      shouldDeferRefresh(
+        { providerCode: 'qoder', tokenExpiresAt: new Date(now.getTime() - 60_000) },
         now,
       ),
     ).toBe(false)

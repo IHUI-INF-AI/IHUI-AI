@@ -34,6 +34,7 @@ const CRON_PATTERN = '*/5 * * * *'
 const TRAE_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 每 10 分钟把本机 WorkBuddy 会话模板回灌进号池(周期与 trae 一致) */
 const WORKBUDDY_SYNC_CRON_PATTERN = TRAE_SYNC_CRON_PATTERN
+const QODER_SYNC_CRON_PATTERN = TRAE_SYNC_CRON_PATTERN
 /** 仓根(scripts/sync-trae-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
 const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 
@@ -149,6 +150,60 @@ export async function runWorkbuddySessionSync(): Promise<WorkbuddySyncOutcome> {
   }
 }
 
+interface QoderSyncOutcome {
+  code: number
+  applied: number
+  skipped: number
+  stderr: string
+}
+
+/** 子进程 tsx 直启 apps/api/scripts/relay-qoder-session-sync.ts(取数+落库一体);
+ *  凭据只在子进程内存里,输出面零凭据。 */
+export async function runQoderSessionSync(): Promise<QoderSyncOutcome> {
+  const script = resolvePath(REPO_ROOT, 'apps', 'api', 'scripts', 'relay-qoder-session-sync.ts')
+  const tsx = resolveTsx()
+  if (!tsx) {
+    return {
+      code: 2,
+      applied: 0,
+      skipped: 0,
+      stderr: '未找到 tsx(apps/api/node_modules/tsx);先在仓根 pnpm install',
+    }
+  }
+  // 变量名避开 result:同 runTraeSessionSync 的契约测试防误算口径
+  const proc = await new Promise<{ code: number; out: string; err: string }>((resolvePromise) => {
+    const child = spawn(process.execPath, [tsx, script, '--json'], {
+      cwd: REPO_ROOT,
+      windowsHide: true,
+      // 显式 stdio(§12g);ts 侧自取数无需 stdin,stdout 只回 JSON 汇总
+      timeout: 180_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let out = ''
+    let err = ''
+    child.stdout.on('data', (d: Buffer) => (out += d))
+    child.stderr.on('data', (d: Buffer) => (err += d))
+    child.on('error', (e) => resolvePromise({ code: 2, out, err: e.message }))
+    child.on('exit', (code, signal) => resolvePromise({ code: signal ? 2 : (code ?? 2), out, err }))
+  })
+  let summary: { applied?: number; skipped?: number } = {}
+  for (const line of proc.out.split(/\r?\n/)) {
+    const t = line.trim()
+    if (!t.startsWith('{')) continue
+    try {
+      summary = JSON.parse(t) as { applied?: number; skipped?: number }
+    } catch {
+      /* 不是汇总行,继续找 */
+    }
+  }
+  return {
+    code: proc.code,
+    applied: typeof summary.applied === 'number' ? summary.applied : 0,
+    skipped: typeof summary.skipped === 'number' ? summary.skipped : 0,
+    stderr: proc.err.slice(0, 400),
+  }
+}
+
 export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
   registerAllRelayAdapters()
 
@@ -200,6 +255,19 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
         },
       )
       server.log.info({ pattern: WORKBUDDY_SYNC_CRON_PATTERN }, 'workbuddy-session-sync scheduled')
+      await queue.upsertJobScheduler(
+        'qoder-session-sync-cron',
+        { pattern: QODER_SYNC_CRON_PATTERN },
+        {
+          name: 'qoder-session-sync',
+          data: {},
+          opts: {
+            removeOnComplete: 100,
+            removeOnFail: 500,
+          },
+        },
+      )
+      server.log.info({ pattern: QODER_SYNC_CRON_PATTERN }, 'qoder-session-sync scheduled')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule relay-account-pool sweep')
     }
@@ -245,6 +313,25 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           )
         }
         return wbOutcome
+      }
+      if (job.name === 'qoder-session-sync') {
+        const qdOutcome = await runQoderSessionSync()
+        // 退出码 2 = 未判定(本机无 Qoder 客户端/无 pwsh/池内无行):服务器部署形态
+        // 的常态,记 warn 不记 failure(它不该进 BullMQ 失败重试风暴)
+        if (qdOutcome.code === 2) {
+          server.log.warn({ stderr: qdOutcome.stderr }, 'qoder-session-sync 未判定(未写库)')
+        } else if (qdOutcome.code !== 0) {
+          server.log.error(
+            { code: qdOutcome.code, stderr: qdOutcome.stderr },
+            'qoder-session-sync 落库失败',
+          )
+        } else {
+          server.log.info(
+            { applied: qdOutcome.applied, skipped: qdOutcome.skipped },
+            'qoder-session-sync done',
+          )
+        }
+        return qdOutcome
       }
       if (job.name !== 'sweep') {
         server.log.warn({ jobName: job.name }, 'relay-account-pool: unknown job')
