@@ -7,7 +7,9 @@
  * - 源目录零写入(备份前后源内容逐字节一致,且无任何新路径);
  * - 默认 dry-run,--apply 才拷贝;
  * - 产物逐文件 sha256 与 manifest 对账一致;
- * - 输出零内容回显(消息正文埋雷不出现)。
+ * - 输出零内容回显(消息正文埋雷不出现);
+ * - --gzip 可选压缩档(2026-10-28 增):产物 `<rel>.gz` 且解压后逐字节等值;
+ *   不开压缩时与旧腿零差异(条目不带 encoding 键,manifest 序列化不变)。
  */
 
 import {
@@ -23,6 +25,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { gunzipSync } from 'node:zlib'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   applyBackup,
@@ -181,6 +184,105 @@ describe('applyBackup', () => {
     expect(existsSync(join(dest, 'workspace', 'sess-1', 'state.json'))).toBe(false)
     // 未篡改的兄弟文件已成功保留(可重跑补齐语义)
     expect(existsSync(join(dest, 'ws-a', 'conv.jsonl'))).toBe(true)
+  })
+})
+
+describe('gzip 可选压缩档(opt-in,2026-10-28 立)', () => {
+  it('opts.gzip:条目全带 encoding=gzip;apply 产物为 <rel>.gz,gunzip 后与原文逐字节等值、sha 与 manifest 对账', () => {
+    const fx = makeFixture()
+    cleanup.push(fx.root)
+    const before = {
+      sessions: snapshotDir(fx.sessionsRoot),
+      projects: snapshotDir(fx.projectsRoot),
+    }
+    const dest = join(fx.root, 'dest-gz')
+    const plan = computeBackupPlan(fx.sessionsRoot, fx.projectsRoot, new Date(), dest, {
+      gzip: true,
+    })
+    expect(plan.files.every((f) => f.encoding === 'gzip')).toBe(true)
+
+    const manifest = applyBackup(plan, {
+      sessionsRoot: fx.sessionsRoot,
+      projectsRoot: fx.projectsRoot,
+    })
+
+    // 源零写入(压缩档同样只读源)
+    expect(snapshotDir(fx.sessionsRoot)).toEqual(before.sessions)
+    expect(snapshotDir(fx.projectsRoot)).toEqual(before.projects)
+
+    for (const f of manifest.files) {
+      expect(f.encoding).toBe('gzip')
+      const origAbs = join(dest, ...f.rel.split('/'))
+      const gzAbs = `${origAbs}.gz`
+      // 磁盘只有 .gz,原始名不存在
+      expect(existsSync(gzAbs)).toBe(true)
+      expect(existsSync(origAbs)).toBe(false)
+      // 解压后与原字节逐字节等值;校验基准仍是解压后原文的 sha256
+      const raw = gunzipSync(readFileSync(gzAbs))
+      const srcBuf = readFileSync(relToSourceAbs(f.rel, fx.sessionsRoot, fx.projectsRoot))
+      expect(Buffer.compare(raw, srcBuf)).toBe(0)
+      expect(createHash('sha256').update(raw).digest('hex')).toBe(f.sha256)
+      expect(f.bytes).toBe(srcBuf.length)
+    }
+    // manifest.json 序列化带 encoding 标记;无残留临时文件
+    const mRaw = JSON.parse(readFileSync(join(dest, 'manifest.json'), 'utf8'))
+    expect(mRaw.files.every((e: { encoding?: string }) => e.encoding === 'gzip')).toBe(true)
+    const leftovers = readdirSync(dest, { recursive: true }).filter((n) =>
+      String(n).includes('.copying-'),
+    )
+    expect(leftovers).toEqual([])
+  })
+
+  it('回归:不带 opts 时条目不含 encoding 键,manifest 序列化零新键,磁盘无 .gz(与旧腿逐字节同形)', () => {
+    const fx = makeFixture()
+    cleanup.push(fx.root)
+    const dest = join(fx.root, 'dest-default')
+    const plan = computeBackupPlan(fx.sessionsRoot, fx.projectsRoot, new Date(), dest)
+    expect(plan.files.every((f) => f.encoding === undefined)).toBe(true)
+    applyBackup(plan, { sessionsRoot: fx.sessionsRoot, projectsRoot: fx.projectsRoot })
+    const mRaw = JSON.parse(readFileSync(join(dest, 'manifest.json'), 'utf8'))
+    expect(mRaw.files.every((e: Record<string, unknown>) => !('encoding' in e))).toBe(true)
+    const all = readdirSync(dest, { recursive: true }).map(String)
+    expect(all.some((n) => n.endsWith('.gz'))).toBe(false)
+    // 原始名产物在
+    expect(existsSync(join(dest, 'workspace', 'sess-1', 'transcript.jsonl'))).toBe(true)
+  })
+
+  it('sha 漂移拒绝在压缩档同样生效:漂移文件不写 .gz,兄弟文件保留', () => {
+    const fx = makeFixture()
+    cleanup.push(fx.root)
+    const dest = join(fx.root, 'dest-gz-drift')
+    const plan = computeBackupPlan(fx.sessionsRoot, fx.projectsRoot, new Date(), dest, {
+      gzip: true,
+    })
+    writeFileSync(join(fx.sessionsRoot, 'sess-1', 'state.json'), '{"v":2}')
+    expect(() =>
+      applyBackup(plan, { sessionsRoot: fx.sessionsRoot, projectsRoot: fx.projectsRoot }),
+    ).toThrow(/sha256 漂移/)
+    expect(existsSync(join(dest, 'workspace', 'sess-1', 'state.json.gz'))).toBe(false)
+    expect(existsSync(join(dest, 'ws-a', 'conv.jsonl.gz'))).toBe(true)
+  })
+
+  it('formatPlan 压缩预览:加一行压缩说明,仍零内容回显;未压缩预览不含该行', () => {
+    const fx = makeFixture()
+    cleanup.push(fx.root)
+    const gzPlan = computeBackupPlan(
+      fx.sessionsRoot,
+      fx.projectsRoot,
+      new Date(),
+      join(fx.root, 'd1'),
+      { gzip: true },
+    )
+    const gzText = formatPlan(gzPlan, true)
+    expect(gzText).toContain('gzip')
+    expect(gzText).toContain('(.gz)')
+    expect(gzText).not.toContain(SECRET_SENTINEL)
+    const plainText = formatPlan(
+      computeBackupPlan(fx.sessionsRoot, fx.projectsRoot, new Date(), join(fx.root, 'd2')),
+      true,
+    )
+    expect(plainText).not.toContain('压缩')
+    expect(plainText).not.toContain('(.gz)')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
