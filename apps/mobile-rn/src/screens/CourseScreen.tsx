@@ -12,8 +12,9 @@
  * - 热门课程(PopularCourses 横向卡片,"更多"语义→ CourseDetail)
  * - 全部课程(搜索 + 分页列表)— getCourses
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View } from 'react-native'
+import { BlurTargetView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -97,6 +98,7 @@ export function CourseScreen() {
   const rootNav = navigation.getParent<RootNav>()
   // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
   const insets = useSafeAreaInsets()
+  const tabBarBlurTargetRef = useRef<View>(null)
 
   const [courses, setCourses] = useState<Course[]>([])
   // 热门课程独立数据源:首次加载(无关键词、第一页)时缓存,不随搜索/翻页变化(对齐 learn.vue 热门区)
@@ -185,31 +187,34 @@ export function CourseScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <CourseTabScreen
-        t={t}
-        progress={progress}
-        paths={toCarouselItems(paths)}
-        popularItems={toPopularCourses(initialCourses)}
-        courses={toCourseListItems(courses)}
-        loading={loading}
-        error={error}
-        keyword={keyword}
-        page={page}
-        totalPages={totalPages}
-        onKeywordChange={(v) => {
-          setKeyword(v)
-          setPage(1)
-        }}
-        onPageChange={setPage}
-        onPressCourse={openCourse}
-        onPressCategory={openCategory}
-        onPressPath={openCourse}
-        onPressMoreCourses={openBrowse}
-        contentBottomPadding={tabBarScrollReserve(insets.bottom)}
-        colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
-      />
+      {/* Android 真模糊:背景内容包进 BlurTargetView 供 TabBar 胶囊取样(expo-blur SDK 55+ 必需;iOS/web 即普通 View) */}
+      <BlurTargetView ref={tabBarBlurTargetRef} style={{ flex: 1 }}>
+        <CourseTabScreen
+          t={t}
+          progress={progress}
+          paths={toCarouselItems(paths)}
+          popularItems={toPopularCourses(initialCourses)}
+          courses={toCourseListItems(courses)}
+          loading={loading}
+          error={error}
+          keyword={keyword}
+          page={page}
+          totalPages={totalPages}
+          onKeywordChange={(v) => {
+            setKeyword(v)
+            setPage(1)
+          }}
+          onPageChange={setPage}
+          onPressCourse={openCourse}
+          onPressCategory={openCategory}
+          onPressPath={openCourse}
+          onPressMoreCourses={openBrowse}
+          contentBottomPadding={tabBarScrollReserve(insets.bottom)}
+          colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+        />
+      </BlurTargetView>
       {/* 底部导航(课程非原项目 5 主 Tab,TabBar 常驻无高亮,可切换主 Tab;对齐原内容页导航) */}
-      <TabBar onChange={handleTabChange} />
+      <TabBar onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
     </View>
   )
 }
