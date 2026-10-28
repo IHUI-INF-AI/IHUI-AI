@@ -87,7 +87,8 @@ function str(v: unknown): string {
  * 兼容两种导出格式:
  *  (a) ps1 产物: 顶层 accessToken / uid / phone / nickname / name
  *  (b) 原生会话导出: token(accessToken 别名) + 内联 user{id,name,phone,email,...}
- * name 兜底序:phone > nickname > name > email 前缀 > uid 前 8 位(管理页好认);
+ * name 统一 = 官方绑定手机号(全号,不加平台前缀;2026-10-28 定);
+ * 取不到 phone 才按 nickname > name > email 前缀 > uid 前 8 位 兜底(管理页好认);
  * uid 为空则由服务端走 user.id/哈希兜底;
  * Cosy 设备头族(machineToken/machineCode/machineType/version)原样带上,
  * 服务端落 extraMetadata.cosy,adapter 刷新/健康检查时使用。
@@ -105,7 +106,12 @@ export function buildQoderImportAccount(s: QoderSession): ImportAccountInput | n
   const name = str(raw.name) || (user ? str(user.name) : '')
   const email = user ? str(user.email) : ''
   const acc: Record<string, unknown> = {
-    name: `Qoder · ${phone || nickname || name || (email ? email.split('@')[0] : '') || (uid ? uid.slice(0, 8) : '未知号')}`,
+    name:
+      phone ||
+      nickname ||
+      name ||
+      (email ? email.split('@')[0] : '') ||
+      (uid ? uid.slice(0, 8) : '未知号'),
     token,
   }
   if (uid) acc.uid = uid

@@ -158,7 +158,18 @@ async function apiLoginAndSaveStorageState(
   if (!response) throw new Error('登录请求未发出')
 
   if (!response.ok()) {
-    throw new Error(`登录请求失败: ${response.status()} ${response.statusText}`)
+    // 归因面(2026-10-28,票 D35:同一枚 401 连续三轮被读成三种根因):原来只报
+    // statusText,"seed 落的库"与"这台 API 连的库"不是同一枚(本机 8802 连共享 dev 库、
+    // 隔离库 ihui_e2e 只有私有实例接得到)与服务端真红同形,失败行里没有一个字能指向落点。
+    // 现把请求落点 + 账号 + 后端业务消息带出来;口令永不进消息。行为不变——仍然 throw。
+    const detail = (await response.json().catch(() => null)) as { message?: unknown } | null
+    const apiMessage = typeof detail?.message === 'string' ? ` message=${detail.message}` : ''
+    throw new Error(
+      `登录请求失败: ${response.status()} ${response.statusText}` +
+        `(POST ${baseURL}/api/auth/login,account=${credentials.account}${apiMessage})` +
+        ' ⇒ 先核对"这台 API 连的库"与"seed 落的库"是否同一枚:' +
+        'node scripts/e2e-local-supply.mjs --probe-login --api-url=<该 API 的 origin>',
+    )
   }
 
   const body = (await response.json()) as {

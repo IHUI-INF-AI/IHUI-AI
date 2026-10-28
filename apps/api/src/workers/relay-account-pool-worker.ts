@@ -11,11 +11,15 @@
  * - repeat job `trae-session-sync`:每 10 分钟一轮 —— 把本机 Trae 客户端会话回灌进
  *   号池(客户端为主策略的取数端;Trae 的 ExchangeToken 会轮换 refreshToken,池主动
  *   刷会把本机客户端顶下线,故 trae 号票未过期时池不刷,新票一律从客户端回灌)
+ * - repeat job `workbuddy-session-sync`:每 10 分钟一轮 —— 把本机 WorkBuddy 客户端的
+ *   会话模板(整树 + $wbEncrypted 字段路径 + edition)回灌进号池 secretsEnc,供「登录本机」
+ *   重封写回取用(只动模板三键,不动票;判据在 apps/api/scripts/relay-workbuddy-session-sync.ts)
  *
  * 与 relay-health-check-worker 同模式:server.redisForQueue 连接 + onClose 优雅关闭。
  */
 import type { FastifyInstance } from 'fastify'
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { Queue, Worker } from 'bullmq'
 import { dirname, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,6 +32,8 @@ export const RELAY_ACCOUNT_POOL_QUEUE_NAME = 'relay-account-pool-queue'
 const CRON_PATTERN = '*/5 * * * *'
 /** 每 10 分钟把本机 Trae 客户端会话回灌进号池(客户端为主策略的取数端;判据在 ts 落库脚本里) */
 const TRAE_SYNC_CRON_PATTERN = '*/10 * * * *'
+/** 每 10 分钟把本机 WorkBuddy 会话模板回灌进号池(周期与 trae 一致) */
+const WORKBUDDY_SYNC_CRON_PATTERN = TRAE_SYNC_CRON_PATTERN
 /** 仓根(scripts/sync-trae-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
 const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 
@@ -35,6 +41,13 @@ interface TraeSyncOutcome {
   code: number
   applied: number
   skipped: number
+  stderr: string
+}
+
+interface WorkbuddySyncOutcome {
+  code: number
+  uid: string
+  applied: boolean
   stderr: string
 }
 
@@ -72,6 +85,66 @@ export async function runTraeSessionSync(): Promise<TraeSyncOutcome> {
     code: proc.code,
     applied: summary.applied ?? 0,
     skipped: summary.skipped ?? 0,
+    stderr: proc.err.slice(0, 400),
+  }
+}
+
+/** tsx CLI 落点(候选次序同 scripts/sync-trae-client-session.mjs) */
+function resolveTsx(): string | null {
+  const apiDir = resolvePath(REPO_ROOT, 'apps', 'api')
+  for (const candidate of [
+    resolvePath(apiDir, 'node_modules', 'tsx', 'dist', 'cli.mjs'),
+    resolvePath(REPO_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs'),
+  ]) {
+    if (existsSync(candidate)) return candidate
+  }
+  return null
+}
+
+/** 子进程 tsx 直启 apps/api/scripts/relay-workbuddy-session-sync.ts(取数+落库一体);
+ *  凭据只在子进程内存里,输出面零凭据。 */
+export async function runWorkbuddySessionSync(): Promise<WorkbuddySyncOutcome> {
+  const script = resolvePath(REPO_ROOT, 'apps', 'api', 'scripts', 'relay-workbuddy-session-sync.ts')
+  const tsx = resolveTsx()
+  if (!tsx) {
+    return {
+      code: 2,
+      uid: '',
+      applied: false,
+      stderr: '未找到 tsx(apps/api/node_modules/tsx);先在仓根 pnpm install',
+    }
+  }
+  // 变量名避开 result:同 runTraeSessionSync 的契约测试防误算口径
+  const proc = await new Promise<{ code: number; out: string; err: string }>((resolvePromise) => {
+    const child = spawn(process.execPath, [tsx, script, '--json'], {
+      cwd: REPO_ROOT,
+      windowsHide: true,
+      // 显式 stdio(§12g);ts 侧自取数无需 stdin,stdout 只回 JSON 汇总
+      timeout: 180_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let out = ''
+    let err = ''
+    child.stdout.on('data', (d: Buffer) => (out += d))
+    child.stderr.on('data', (d: Buffer) => (err += d))
+    child.on('error', (e) => resolvePromise({ code: 2, out, err: e.message }))
+    child.on('exit', (code, signal) => resolvePromise({ code: signal ? 2 : (code ?? 2), out, err }))
+  })
+  let summary: { uid?: string; applied?: boolean } = {}
+  // ts 侧 stdout 可能混有 db 连接等噪音行 ⇒ 逐行找可解析的 JSON 汇总(取最后一枚)
+  for (const line of proc.out.split(/\r?\n/)) {
+    const t = line.trim()
+    if (!t.startsWith('{')) continue
+    try {
+      summary = JSON.parse(t) as { uid?: string; applied?: boolean }
+    } catch {
+      /* 不是汇总行,继续找 */
+    }
+  }
+  return {
+    code: proc.code,
+    uid: typeof summary.uid === 'string' ? summary.uid : '',
+    applied: summary.applied === true,
     stderr: proc.err.slice(0, 400),
   }
 }
@@ -114,6 +187,19 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
       )
       server.log.info({ pattern: CRON_PATTERN }, 'relay-account-pool sweep scheduled')
       server.log.info({ pattern: TRAE_SYNC_CRON_PATTERN }, 'trae-session-sync scheduled')
+      await queue.upsertJobScheduler(
+        'workbuddy-session-sync-cron',
+        { pattern: WORKBUDDY_SYNC_CRON_PATTERN },
+        {
+          name: 'workbuddy-session-sync',
+          data: {},
+          opts: {
+            removeOnComplete: 100,
+            removeOnFail: 500,
+          },
+        },
+      )
+      server.log.info({ pattern: WORKBUDDY_SYNC_CRON_PATTERN }, 'workbuddy-session-sync scheduled')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule relay-account-pool sweep')
     }
@@ -140,6 +226,25 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           )
         }
         return outcome
+      }
+      if (job.name === 'workbuddy-session-sync') {
+        const wbOutcome = await runWorkbuddySessionSync()
+        // 退出码 2 = 未判定(本机无 WorkBuddy 客户端/池内无行/无模板):服务器部署形态
+        // 的常态,记 warn 不记 failure(它不该进 BullMQ 失败重试风暴)
+        if (wbOutcome.code === 2) {
+          server.log.warn({ stderr: wbOutcome.stderr }, 'workbuddy-session-sync 未判定(未写库)')
+        } else if (wbOutcome.code !== 0) {
+          server.log.error(
+            { code: wbOutcome.code, stderr: wbOutcome.stderr },
+            'workbuddy-session-sync 落库失败',
+          )
+        } else {
+          server.log.info(
+            { uid: wbOutcome.uid, applied: wbOutcome.applied },
+            'workbuddy-session-sync done',
+          )
+        }
+        return wbOutcome
       }
       if (job.name !== 'sweep') {
         server.log.warn({ jobName: job.name }, 'relay-account-pool: unknown job')

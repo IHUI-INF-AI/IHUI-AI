@@ -70,7 +70,7 @@ import { serializeError } from './error-serialize.js'
  * `./src/*.ts`(实测 `node scripts/check-pkg-installable.mjs packages/types` 有 6 条 blocker),
  * 所以只要这行在,本包的 `dependencies` 就摘不掉 `workspace:` 协议 —— 发出去即 ERR_MODULE_NOT_FOUND。
  * 改成包内常量后,`@ihui/types` 降级为纯类型面(devDependency),tsc 把 `import type` 整条抹掉,
- * dist 里不再有任何 `@ihui/types` 运行时引用;这与 `@ihui/sdk` 的既有形态同形
+ * dist 里不再有任何 `@ihui/types` 运行时引用;这与 `@ihui-ai/sdk` 的既有形态同形
  * (实测 `packages/sdk/dist/*.js` 对 `@ihui/types` 零命中,而它是本仓唯一已通过可安装自检的包)。
  *
  * 为什么这不构成"第二份真相":契约仍然只有 `DeviceFingerprintCollector` 一个来源(上一行按名导入)。
