@@ -5706,6 +5706,15 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '237b',
+    label:
+      '🌐 web↔RN 跨端对账(warn-only,web 新增路由/功能而 RN 缺承载即报 —— 拦「web 有、RN 零承载」漂移回潮;复用 check-web-rn-screen-parity 同一把尺子)',
+    script: 'check-web-rn-parity.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_WEB_RN_PARITY',
+  },
   // --- .ps1 BOM(差值棘轮)(1 项,blocking)---
   {
     id: '251',
