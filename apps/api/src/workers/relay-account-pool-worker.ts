@@ -43,10 +43,7 @@ interface TraeSyncOutcome {
  *  导出:任务中心(runRelayTaskById)与 worker 执行体共用同一份触发逻辑(§0.6)。 */
 export async function runTraeSessionSync(): Promise<TraeSyncOutcome> {
   const script = resolvePath(REPO_ROOT, 'scripts', 'sync-trae-client-session.mjs')
-  // 变量名避开 result:消费面契约测试(relay-account-pool-sweep-result)按 `result.<键>`
-  // 扫本文件对 sweepAccountPool 产出的取值;子进程结果与之同名异物会被误算进消费面
-  // (2026-10-24 实测误报 code/out/err 三键)。
-  const proc = await new Promise<{ code: number; out: string; err: string }>((resolve) => {
+  const result = await new Promise<{ code: number; out: string; err: string }>((resolve) => {
     const child = spawn(process.execPath, [script, '--json'], {
       cwd: REPO_ROOT,
       windowsHide: true,
@@ -64,15 +61,15 @@ export async function runTraeSessionSync(): Promise<TraeSyncOutcome> {
   })
   let summary: { applied?: number; skipped?: number } = {}
   try {
-    summary = JSON.parse(proc.out) as { applied?: number; skipped?: number }
+    summary = JSON.parse(result.out) as { applied?: number; skipped?: number }
   } catch {
     /* 输出不是合法 JSON ⇒ 按零计数 + stderr 透出 */
   }
   return {
-    code: proc.code,
+    code: result.code,
     applied: summary.applied ?? 0,
     skipped: summary.skipped ?? 0,
-    stderr: proc.err.slice(0, 400),
+    stderr: result.err.slice(0, 400),
   }
 }
 

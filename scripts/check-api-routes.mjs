@@ -1587,33 +1587,9 @@ function extractCliShapeCalls(src, file, factory, importInfoByName) {
  * ② `classifyAliasLiteralSite` 判"改写前缀字面量是调用点还是片段"用的是同一个式子。
  * 泛型传输口(`fetchApi<T>(`)必须单独认 —— 本仓绝大多数真调用走本地 wrapper,
  * 少了泛型分支会把它们整族读成片段。
- *
- * ## 动词式传输口(2026-10-25 补,立因 = 一整族调用点在这一门外)
- * 小程序的桥接层把 HTTP 方法转发给 `fetchApi`(`apps/miniapp-taro/src/utils/api-bridge.ts` 的
- * `get/post/put/patch/del` 只是 `unwrapApi(fetchApi(url, opts))` 的薄壳),页面有两种写法:
- * 裸名 `get('/user/profile')` 与命名空间 `import * as api from '@/api'` 后的 `api.get('/x')`。
- * 原式一支都不认 ⇒ **BP 腿对整族不可见**。实测代价不是抽象的:`pages/distribution/order-list`
- * 打 `api.get('/distribution/orders')` 而后端从未注册,该页自建站起每次都是 404,而这道专门
- * 判"前端调用 vs 后端注册"的门连候选都没抽到(它报的是 ✅,而 ✅ 的成因是"看不见")。
- *
- * 收窄(假阳必须挡在抽取层,不能留给归一之后):
- *  - 动词表逐字取桥接层的导出名(`api-bridge.ts` 现读 = get/post/put/patch/del;`delete` 是
- *    保留字,不可能以 `delete(` 形态出现,故不收);
- *  - **零宽前瞻 `(?=['"`]/)`**:首参必须是引号紧邻、以 `/` 起头的字面量。这一条把
- *    `patch('title')`、`store.get(key)`、`params.get('code')` 这类同名不同职的调用全部挡在门外
- *    (2026-10-25 现读:动词式候选 274 条,首参不是路径的同名调用 12 例抽样全被这一条排除);
- *  - 裸名支用后视 `(?<![\w$.])` ⇒ `map.get('/x')`、`obj.post(...)`、`forget('/x')` 不命中;
- *  - 接收者支只认**名字里带 api/client 的接收者**(`api.get`、`apiClient.post`)。现读全仓
- *    「接收者.动词( 后紧跟路径字面量」的接收者名单:miniapp 页面 = `api`(15 处),其余同名命中
- *    落在 `__tests__` 的 `isSafeNavigationTarget.get('/…')` 这类 URLSearchParams 读法上 ——
- *    它们不带 api/client 词根,不收。**不**收 `.get(` 通用形态是有意为之:那条会把
- *    Map/SearchParams 的取值当调用点,造出的是恒红门(§12e),不是判据。
- *
- * 前瞻是**零宽**的:记号本身仍以 `(` 收尾,`extractBareTransportCalls` 走 `token.endsWith('(')`
- * 那条既有通路继续往后读引号与字面量(若把引号吃进记号,该函数会当成"点后接方法名"去找括号桥而整条放弃)。
  */
 const LINE_TRANSPORT_RE =
-  /\bfetchApi(?:<[^<>]*>)?\s*\(|\bfetch(?:<[^<>]*>)?\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\brequest(?:<[^<>]*>)?\s*\(|(?<![\w$.])(?:get|post|put|patch|del)\s*(?:<[^<>()]{0,80}>)?\s*\(\s*(?=['"`]\/)|\b[A-Za-z0-9_$]*(?:api|Api|client|Client)[A-Za-z0-9_$]*\.(?:get|post|put|patch|del)\s*(?:<[^<>()]{0,80}>)?\s*\(\s*(?=['"`]\/)/
+  /\bfetchApi(?:<[^<>]*>)?\s*\(|\bfetch(?:<[^<>]*>)?\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\brequest(?:<[^<>]*>)?\s*\(/
 
 /**
  * ============================================================================

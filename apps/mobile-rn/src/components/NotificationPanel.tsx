@@ -19,7 +19,7 @@ import { useNotificationStore } from '../stores/notification'
 import { formatShortDateTime } from '../utils/date-utils'
 import { Bell, X } from 'lucide-react-native'
 import { useI18n } from '../i18n'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * 通知面板(mobile-rn 端)。
@@ -107,7 +107,7 @@ export default function NotificationPanel() {
                 暂无通知
               </Text>
             }
-            contentContainerStyle={{ padding: 8 }}
+            contentContainerStyle={{ padding: rnSpacing.sm }}
           />
         </TouchableOpacity>
       </TouchableOpacity>
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
-    padding: 12,
+    padding: rnSpacing.md,
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   } as ViewStyle,
   icon: {
     width: 30,
@@ -275,15 +275,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   } as ViewStyle,
-  iconText: { fontSize: 16 } as TextStyle,
+  iconText: { fontSize: rnType.title.size } as TextStyle,
   info: { flex: 1, minWidth: 0 } as ViewStyle,
   title: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
     marginBottom: 2,
   } as TextStyle,
-  time: { fontSize: 12, color: tokens.text.secondary } as TextStyle,
+  time: { fontSize: rnType.label.size, color: tokens.text.secondary } as TextStyle,
   close: {
     width: 24,
     height: 24,
@@ -291,12 +291,12 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
   } as ViewStyle,
-  closeText: { fontSize: 14, color: tokens.text.tertiary } as TextStyle,
-  body: { paddingLeft: 40 } as ViewStyle,
+  closeText: { fontSize: rnType.body.size, color: tokens.text.tertiary } as TextStyle,
+  body: { paddingLeft: rnSpacing['4xl'] } as ViewStyle,
   message: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.medium,
     lineHeight: 20,
   } as TextStyle,

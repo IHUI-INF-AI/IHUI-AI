@@ -33,7 +33,7 @@ import { SectionHeader } from '@ihui/rn-app'
 import { formatRelativeTime } from '@ihui/shared'
 import { Eye, MessageCircle, Share2, ThumbsUp, type LucideIcon } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 export interface KnowledgePlanetItem {
@@ -302,23 +302,23 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
-    marginRight: 8,
+    marginRight: rnSpacing.sm,
   } as ViewStyle,
   // ── Tab 切换(对齐原项目 popular-courses-tab-box) ──
   tabBox: {
     flexDirection: 'row',
     paddingHorizontal: LIST_PADDING,
-    gap: 16,
-    paddingBottom: 8,
+    gap: rnSpacing.lg,
+    paddingBottom: rnSpacing.sm,
   } as ViewStyle,
   tabItem: {
-    paddingVertical: 4,
+    paddingVertical: rnSpacing.xs,
   } as ViewStyle,
   tabItemPressed: {
     opacity: 0.7,
   } as ViewStyle,
   tabText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
   } as TextStyle,
   tabTextActive: {
     color: tokens.brand.DEFAULT,
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   } as ViewStyle,
   contentGap: {
-    marginLeft: 12,
+    marginLeft: rnSpacing.md,
   } as ViewStyle,
   title: {
     fontSize: TITLE_FONT_SIZE,
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: rnSpacing.sm,
     marginTop: 6,
   } as ViewStyle,
   authorBadge: {
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: CARD_PADDING,
-    paddingTop: 8,
+    paddingTop: rnSpacing.sm,
   } as ViewStyle,
   socialLeft: {
     flexDirection: 'row',
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   socialRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: rnSpacing.md,
   } as ViewStyle,
   stat: {
     flexDirection: 'row',
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   emptyWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: rnSpacing['5xl'],
   } as ViewStyle,
   emptyText: {
     fontSize: EMPTY_FONT_SIZE,

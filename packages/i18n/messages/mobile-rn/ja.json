@@ -316,7 +316,11 @@
     "googleNotConfigured": "Googleログイン未設定。.env で EXPO_PUBLIC_GOOGLE_CLIENT_ID を設定してください。",
     "sdkPending": "{name}ログインはWeb版のみ対応。モバイルにはネイティブSDKが未統合です。\n「智汇AI Web権限ログイン」ボタンでブラウザ認証に進めます。",
     "agree": "同意",
-    "agreeTermsTitle": "サービス条項への同意確認"
+    "agreeTermsTitle": "サービス条項への同意確認",
+    "carrierNotConfigured": "通信キャリアワンクリックログインは未設定のためSMSコードログインに切り替えました",
+    "carrierOneClick": "この番号でワンクリックログイン",
+    "carrierLaunching": "キャリア認証を起動中...",
+    "closeCarrier": "キャリアログインを閉じる"
   },
   "loginCountry": {
     "cn": "中国",
@@ -1177,7 +1181,8 @@
     "loadMore": "さらに読み込む",
     "user": "ユーザー",
     "retryShort": "再試行",
-    "known": "了解"
+    "known": "了解",
+    "success": "成功"
   },
   "network": {
     "offline": "ネットワークが切断されました。一部の機能は利用できません",
@@ -4401,7 +4406,45 @@
       "schedule": "スケジュールタスク"
     },
     "knowledgeCards": "ナレッジカード",
-    "knowledgePlanet": "ナレッジプラネット"
+    "knowledgePlanet": "ナレッジプラネット",
+    "news": "ニュース",
+    "learnTopic": "テーマ講座",
+    "kbSearch": "ナレッジ検索",
+    "skillsMarketHome": "スキル広場",
+    "aiGeneration": "AI生成",
+    "videoTasks": "動画タスク",
+    "chatFavorites": "お気に入り対話",
+    "cardFavorites": "名刺お気に入り",
+    "chatSettings": "対話設定",
+    "searchHistory": "検索履歴",
+    "agentPlan": "エージェント計画",
+    "agentPlanProgress": "計画進捗",
+    "myAgents": "マイエージェント",
+    "subagentDetail": "サブエージェント詳細",
+    "subagentDispatch": "新規ディスパッチ",
+    "agentSecurity": "エージェントセキュリティ",
+    "modelRecord": "モデル届出",
+    "examSignUps": "試験申込",
+    "buyConfirm": "購入確認",
+    "distributionWithdrawRecords": "分销出金履歴",
+    "pluginMarket": "プラグインマーケット",
+    "skillsMarket": "スキルマーケット",
+    "memoryManager": "メモリ管理台",
+    "agentRules": "実行ルール",
+    "publishMonitor": "公開モニタリング",
+    "dramaStudio": "短編ドラマ脚本",
+    "myResources": "マイリソース",
+    "mySignUps": "受講登録",
+    "certificateDownload": "証明書ダウンロード",
+    "marginWallet": "保証金ウォレット",
+    "withdrawRecords": "出金履歴",
+    "cloudRuns": "クラウドエージェント実行記録",
+    "mediaTasks": "メディアタスク",
+    "voices": "音声リソース",
+    "webTools": "ウェブツール",
+    "letters": "ダイレクトメッセージ",
+    "invitations": "招待管理",
+    "eduPoints": "教育ポイント"
   },
   "knowledgePlanet": {
     "title": "ナレッジプラネット",
@@ -5755,7 +5798,8 @@
     "rebind": "再紐付け",
     "bind": "紐付け",
     "saveA11y": "情報を保存",
-    "logoutA11y": "ログアウト"
+    "logoutA11y": "ログアウト",
+    "oneLoginFail": "キャリアログイン失敗。手動で番号入力"
   },
   "need": {
     "titleRequired": "タイトルを入力",
@@ -6749,5 +6793,39 @@
     "currentBundle": "現在実行中:{{bundle}}",
     "bundleEmbedded": "内蔵パッケージ",
     "bundleOta": "ホットアップデート"
+  },
+  "setting": {
+    "operationFailed": "操作失敗"
+  },
+  "message": {
+    "deleted": "削除済み"
+  },
+  "legal": {
+    "title": "法律信息",
+    "serviceSpecificTerms": {
+      "title": "個別利用規約",
+      "lastUpdated": "最終更新"
+    },
+    "supportedRegions": {
+      "title": "支持地区",
+      "lastUpdated": "最終更新",
+      "intro": "当社のサービスの提供範囲は、各国・地域の現地の法令により異なる場合があります。詳細は以下の通りです。",
+      "supportedTitle": "対応地域",
+      "restrictedTitle": "制限地域",
+      "restrictedIntro": "以下の地域のユーザーは本サービスの一部または全部をご利用いただけない場合があります。",
+      "paymentTitle": "お支払い方法",
+      "paymentIntro": "対応するお支払い方法は地域によって異なる場合があります。",
+      "languageTitle": "表示言語",
+      "languageIntro": "本サービスは複数の表示言語に対応しており、表示言語はお住まいの地域によって異なる場合があります。"
+    },
+    "terms": {
+      "title": "利用規約",
+      "lastUpdated": "最終更新"
+    },
+    "usagePolicy": {
+      "title": "使用政策",
+      "lastUpdated": "最終更新"
+    },
+    "backToHome": "ホームに戻る"
   }
 }

@@ -445,36 +445,6 @@
       "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-5.md",
       "reason": "对侧 87f9eebffb1(plan-pointer-purge 归并批重落地,票面自证「被删行原文进 .ihui-agent/tmp/ 下的 plan-pointer-purge-* 台账」)有意重入库;本侧删除为 G-926 取消跟踪(988a243cd12,60 枚 tracked-but-ignored 临时件),早于对侧重入库;合并带回=与对侧有意重入库对齐,非抹任何在飞行",
       "reviewBy": "2026-11-30"
-    },
-    {
-      "path": ".ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md",
-      "reason": "本侧删除后,对侧 PROJECT_PLAN 重复登记清偿工作(31e25f5d46b/48c7e2ebffc 族,union-converge 的 plan-pointer-purge 通道)有意把\"改前行原文逐字追加进已入库的归档件\"作为清偿留痕写回该路径——是清偿器物的正当产出面而非误复活;2026-10-24 逐条核对合并两侧后登记。",
-      "reviewBy": "2027-01-24"
-    },
-    {
-      "path": ".ihui-agent/archive/orphan-capabilities-equivalence-2026-09-24.md",
-      "reason": "本侧删除后,对侧 PROJECT_PLAN 重复登记清偿工作(31e25f5d46b/48c7e2ebffc 族,union-converge 的 plan-pointer-purge 通道)有意把\"改前行原文逐字追加进已入库的归档件\"作为清偿留痕写回该路径——是清偿器物的正当产出面而非误复活;2026-10-24 逐条核对合并两侧后登记。",
-      "reviewBy": "2027-01-24"
-    },
-    {
-      "path": ".ihui-agent/archive/plan-pointer-purge-2026-10-14-5.md",
-      "reason": "本侧删除后,对侧 PROJECT_PLAN 重复登记清偿工作(31e25f5d46b/48c7e2ebffc 族,union-converge 的 plan-pointer-purge 通道)有意把\"改前行原文逐字追加进已入库的归档件\"作为清偿留痕写回该路径——是清偿器物的正当产出面而非误复活;2026-10-24 逐条核对合并两侧后登记。",
-      "reviewBy": "2027-01-24"
-    },
-    {
-      "path": ".ihui-agent/archive/session-close-2026-10-14.md",
-      "reason": "本侧删除后,对侧 PROJECT_PLAN 重复登记清偿工作(31e25f5d46b/48c7e2ebffc 族,union-converge 的 plan-pointer-purge 通道)有意把\"改前行原文逐字追加进已入库的归档件\"作为清偿留痕写回该路径——是清偿器物的正当产出面而非误复活;2026-10-24 逐条核对合并两侧后登记。",
-      "reviewBy": "2027-01-24"
-    },
-    {
-      "path": ".ihui-agent/archive/worktree-lag-orphans-2026-10-02.md",
-      "reason": "本侧删除后,对侧 PROJECT_PLAN 重复登记清偿工作(31e25f5d46b/48c7e2ebffc 族,union-converge 的 plan-pointer-purge 通道)有意把\"改前行原文逐字追加进已入库的归档件\"作为清偿留痕写回该路径——是清偿器物的正当产出面而非误复活;2026-10-24 逐条核对合并两侧后登记。",
-      "reviewBy": "2027-01-24"
-    },
-    {
-      "path": ".ihui-agent/archive/flag-value-census-2026-09-28.md",
-      "reason": "本侧删除后,对侧 PROJECT_PLAN 重复登记清偿工作(31e25f5d46b/48c7e2ebffc 族,union-converge 的 plan-pointer-purge 通道)有意把\"改前行原文逐字追加进已入库的归档件\"作为清偿留痕写回该路径——是清偿器物的正当产出面而非误复活;2026-10-24 逐条核对合并两侧后登记。",
-      "reviewBy": "2027-01-24"
     }
   ]
 }

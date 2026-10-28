@@ -561,6 +561,9 @@ importers:
       '@ihui/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@ihui/rn-app':
+        specifier: workspace:*
+        version: link:../../packages/app
       '@ihui/shared':
         specifier: workspace:*
         version: link:../../packages/shared

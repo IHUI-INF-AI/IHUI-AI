@@ -34,8 +34,8 @@ const READMES = [
   { file: 'README.ko.md', lang: 'ko' },
   { file: 'README.ja.md', lang: 'ja' },
 ]
-export const BEGIN = '<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->'
-export const END = '<!-- END RECENT UPDATES -->'
+const BEGIN = '<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->'
+const END = '<!-- END RECENT UPDATES -->'
 const BASELINE = path.join(ROOT, '.doc-autoupdate', 'last-sha')
 const MAX_GROUPS = 15
 

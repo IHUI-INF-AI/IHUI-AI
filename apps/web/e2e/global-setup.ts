@@ -60,15 +60,7 @@ function dbNameOf(dsn: string): string {
 
 export default async function globalSetup(): Promise<void> {
   if (process.env.E2E_SKIP_SEED === '1') {
-    // B67(2026-10-24):teardown 每轮清库(test 用户被删),本分支整体 return 会让
-    // knowledge/notifications 断链、依赖它们的 spec(实测 esc-overlay-stack ①③)在
-    // SKIP 路径下必败 —— 采样矩阵:带 seed 三次 3 passed / SKIP 三次 2 failed 零反例。
-    // 本 warning 不断言、不改行为:SKIP 的语义是「复用已 seed 库」,使用者须自证库内
-    // 种子仍在(或改跑不带 SKIP 的全量路径,幂等 seed 总耗时 ~30s)。
-    console.warn(
-      '[e2e:global-setup] ⚠️ E2E_SKIP_SEED=1:teardown 每轮清库 ⇒ 请自证库内种子(test/e2e_admin/knowledge/notifications)仍在,' +
-        '否则 knowledge/notifications/esc 依赖型 spec 会以缺数据形态失败;安全跑法=去掉本变量走幂等 seed 全量路径(~30s)。',
-    )
+    console.log('[e2e:global-setup] E2E_SKIP_SEED=1,跳过 seed')
     return
   }
 

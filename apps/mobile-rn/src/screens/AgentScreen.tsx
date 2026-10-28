@@ -66,9 +66,10 @@ import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import { type LucideIcon, Bot, Film, FolderOpen, Palette, Search } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
+import { useRefreshOnFocus } from '../hooks'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -322,6 +323,9 @@ export function AgentScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首次挂载由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
 
   /** 顶部轮播(对齐 Uniapp tools/index.vue banner_carousel):
    *  api-client 无 getBanners 端点,从智能体列表派生:取前 5 条有头像的智能体转 CarouselItem
@@ -949,7 +953,7 @@ const styles = StyleSheet.create({
   loadMoreText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
   // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」),
   // 端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。
-  trackOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+  trackOverlay: { flex: 1, backgroundColor: rnCssLight.black50 },
   trackContent: {
     backgroundColor: tokens.surface.card,
     paddingHorizontal: rpx(20),

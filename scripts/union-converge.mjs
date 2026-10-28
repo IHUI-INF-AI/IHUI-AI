@@ -100,6 +100,18 @@
  *       #   另加"必须带原因""不得自取代";证不出去向 ⇒ 照旧判红并带原因。
  *       #   本轮没命中的声明同样判红(不记通过)—— 陈旧的放行清单不许被读成"这轮放过东西"。
  *       #   放行的每一行逐条打印并写进合并提交信息(与守门 83"声明式例外不静默"同一规矩)。
+ *   node scripts/union-converge.mjs --declare-side-loss '<path>=<声明档 JSON>' [--declare-side-loss ...]
+ *       # 逐行声明"对侧某一行是有意的语义取代"(2026-10-25 立,立因见 recordSideLosses 头注):
+ *       #   `--resolve` 喂进去的人工判定内容仍要过"两侧独有行不得减少"这条锁,而当两侧把**同一个
+ *       #   元素**改成互斥写法(实测:对侧把硬编码 '收起' 按 prettier 收成单行 JSX,本侧同元素
+ *       #   已 i18n 化成 t('chat.msg.collapse') 并拆成三行),同时保留两份就是双份标签 = UI 回归 +
+ *       #   端内硬编码中文回潮。这条锁在该型路径上结构上无解,旧的唯二出路都更坏:--take-ours 连对侧
+ *       #   其余 34 行独有内容一起丢,--resolve 永远过不了闸 ⇒ 整枚合并卡死、其余可合路径一起躺后面。
+ *       #   声明档 = `[{line, why}]`(或 `{items:[…]}`):line = 有意少带那一行的**逐字字面**(与
+ *       #   lostAddedLines 报出的等值才算命中),why = 为什么信息没损失(<10 字当场退 2)。
+ *       #   只作用于 `--resolve`/`--union-capped` 这两条**人已判过**的路径,且只挂"丢对侧独有行"那一侧;
+ *       #   自动三方归并那条不用它(没有人工判断,放行就没有凭据)。
+ *       #   未命中的声明进 bad 点名(陈旧/串档不记通过);放行的每一行逐条打印并写进合并提交信息。
  *   node scripts/union-converge.mjs --show-all-bad
  *       # 全列落地闸障碍。缺省只印前 15 条,并在末尾**报出余下几条 + 指向本旗标**(2026-10-20 立:
  *       #   旧写法 `bad.slice(0, 15)` 与标题行的 `bad.length` 不同形,账面"19 处"只列 15 行,
@@ -134,7 +146,6 @@ import { resolveRemoteHead, catBatch } from './lib/face-reader.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
-import { assertNoConflictMarkers } from './lib/conflict-marker-guard.mjs'
 // G-113(2026-10-23):旁路落地不跑钩子 ⇒ 落地后必须自带"复跑受影响判据"(与 object-space-land
 // 头注④同一出口;开工时本器被 G-815913 折叠层在飞持有,那一格如实登记未闭环,本轮补上)。
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
@@ -304,11 +315,6 @@ function modeOf(rev, p, cwd) {
 }
 
 function writeBlob(content, p, cwd) {
-  // 冲突标记闸(2026-10-25,wallboard 实况:11:18 手工收敛把带标记的文件推上主历史,
-  // 当日 13:04 的 union 又按"对侧自身改动"整份照单收下)。本器任何进树内容过这道单源判据:
-  // 成对 <<<<====>>>> ⇒ 直接拒绝,绝不"取一侧顺手入库"。豁免面/判定住 lib/conflict-marker-guard。
-  if (typeof content === 'string' && content.includes('<'.repeat(7)))
-    assertNoConflictMarkers(p, content, { source: 'union-converge' })
   // 根治(2026-09-30):--stdin 通道要求子进程 stdin 真管道,而本会话 Node 建 stdin 管道
   // 会 EBUSY ⇒ 改走临时文件。`--path p` 保留:属性/换行过滤仍按业务路径判定,与
   // `--stdin --path p` 产出同一 blob SHA(2026-09-30 以 CRLF 样本实证等价);scratch 用后即焚。
@@ -1608,6 +1614,21 @@ export function supersedeProof(declared, dropped, m) {
 }
 
 /**
+ * `--declare-side-loss` 声明档一条项的**形状判据**(CLI 与自检共用这一份,§0.6 不许有第二把尺子)。
+ * 返回 null = 合格;返回字符串 = 拒绝执行的理由。
+ * 门槛两条,都不为"少拦"设计:① 要放过的行必须逐字给出(空 line = 放行整条路径的借口);
+ * ② 原因 ≥10 字且必须是定向说明(「就这样」「同意」这类空话放行 = 没有判据,§0.10)。
+ */
+export function sideLossEntryProblem(d) {
+  const line = typeof d?.line === 'string' ? d.line : ''
+  const why = typeof d?.why === 'string' ? d.why.trim() : ''
+  if (line === '') return '没有 line(要放过的行必须逐字给出)'
+  if (why.length < 10)
+    return `原因不足(${why.length} 字,门槛 10):没写清"为什么信息没损失"的放行 = 替人猜`
+  return null
+}
+
+/**
  * 折叠的唯一调用点(2026-10-16 收口):`dedupeByFingerprint` 只在这里被调,产物与台账同轮产出。
  * 返回的 `text` 与 `unionLines(..., { dedupeTasks: true })` 逐字等值(该函数体就是这两步)。
  */
@@ -2047,6 +2068,7 @@ export function buildUnion(
   accepted = null,
   foldKeep = null,
   takeTheirsDocs = null,
+  declaredLoss = null,
 ) {
   const scratch = mkScratch('union-idx')
   const idx = join(scratch, 'index')
@@ -2230,6 +2252,9 @@ export function buildUnion(
     const keptTheirs = []
     const humanResolved = []
     const caps = [] // 因副本指针有意少带的份数:不拦落地,但必须逐条点名(见 recordSideLosses)
+    // 人工逐行声明的少带(--declare-side-loss):销账的每一行都要报名,声明了却没命中的必须点名进 bad。
+    const lossCredits = []
+    const lossStale = []
     // 影子 .js 的两格(见下面循环里那条"刻意例外"):随合并传播掉的删除 / 被拦住没恢复的回归。
     const shadowDeletes = []
     const shadowRestores = []
@@ -2413,12 +2438,26 @@ export function buildUnion(
           violations,
           caps,
         )
+        const lostTheirs = lostAddedLines(baseText, theirsText, oursText, finalText)
         recordSideLosses(
-          lostAddedLines(baseText, theirsText, oursText, finalText),
+          lostTheirs,
           `${p} 人工归并结果丢对侧独有行`,
           violations,
           caps,
+          declaredLoss?.get?.(p) ?? null,
+          lossCredits,
         )
+        /**
+         * 声明未命中 ⇒ 陈旧或串档,不记通过(与 `--fold-keep` 的 stalePicks、`--supersede` 的
+         * 「本轮既未少带也未复活」同一条纪律):配了清单不等于这轮真放过东西。
+         * 只挂在"丢对侧独有行"那一侧 —— 本侧是本票自己的内容,不存在"替本侧声明作废"。
+         */
+        const declForPath = declaredLoss?.get?.(p)
+        if (declForPath?.size) {
+          const flagged = new Set(lostTheirs)
+          for (const [l, d] of declForPath)
+            if (!flagged.has(l)) lossStale.push({ path: p, line: l, why: d.why })
+        }
         continue
       }
       const oid = writeBlob(m.buf, p, cwd)
@@ -2491,6 +2530,9 @@ export function buildUnion(
       humanResolved,
       violations,
       caps,
+      // 人工逐行声明放过的少带 + 声明未命中的陈旧项(两者都必须随报告点名,不得只留其一)。
+      lossCredits,
+      lossStale,
       // 摘除台账拦下的补回候选(G-34/G-43):不拦落地,但随报告逐条点名(与 caps 同一条留痕纪律)。
       ledgerWithheld,
       liveDocs,
@@ -2832,9 +2874,26 @@ export function liveDocPointerCaps(baseText, sideTexts, mergedText) {
 }
 
 /** 把一次"两侧独有行不得减少"断言的产物分流:真丢行进 `violations`(拦落地);
- *  因副本指针有意少带进 `caps`(不拦,但必须逐条点名)。四个调用点必须同形 ⇒ 只许有这一个出口。 */
-function recordSideLosses(lost, label, violations, caps) {
-  for (const l of lost) violations.push(`${label}:${String(l).slice(0, 60)}`)
+ *  因副本指针有意少带进 `caps`(不拦,但必须逐条点名)。四个调用点必须同形 ⇒ 只许有这一个出口。
+ *
+ *  `decl`/`credit`(2026-10-25 补,出口是 CLI 的 `--declare-side-loss`):在 `--resolve` 这条**人已判过**
+ *  的路径上,对侧那一行可能与本侧的改写结构互斥 —— 实测本仓:对侧把硬编码 `'收起'` 原样按 prettier
+ *  收成单行 JSX,本侧同一元素已 i18n 化成 `t('chat.msg.collapse')` 并拆成三行。两侧独有行都留 =
+ *  同一元素两份标签 ⇒ UI 回归 + 门 70(端内硬编码中文)回潮;`lostAddedLines` 只比逐字文本,
+ *  判不出"这是一次有意的语义取代",于是这条锁在这一型路径上**永无解**。旧版只剩两把更坏的刀:
+ *  `--take-ours` 会连对侧其余 34 行独有内容(含新函数与其 import)一起丢,`--resolve` 又永远过不了闸
+ *  ⇒ 整枚合并卡死,其余可合路径一起躺在后面。
+ *  所以缺的不是判据而是**可追责的出口**:逐行给原文 + 逐行给原因才销账;未命中(陈旧/串档)由调用方
+ *  点名并进 bad,一条都不静默(§0.10:失效方向必须是"多要一次定向说明",绝不能是"多放一次跳门")。 */
+function recordSideLosses(lost, label, violations, caps, decl = null, credit = null) {
+  for (const l of lost) {
+    const d = decl?.get?.(l)
+    if (d) {
+      credit?.push({ line: l, why: d.why, label })
+      continue
+    }
+    violations.push(`${label}:${String(l).slice(0, 60)}`)
+  }
   const capped = lost.pointerCapped ?? []
   if (capped.length) caps.push({ label, capped })
 }
@@ -3045,6 +3104,7 @@ export function plan(
   supersede = null,
   foldKeep = null,
   takeTheirsDocs = null,
+  declaredLoss = null,
 ) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
@@ -3090,6 +3150,7 @@ export function plan(
     accepted,
     foldKeep,
     takeTheirsDocs,
+    declaredLoss,
   )
   // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
   //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
@@ -3129,10 +3190,24 @@ export function plan(
       stalePickRows.push(
         `${doc} --fold-keep 声明未命中(${s.reason} ⇒ 陈旧或串档,不记通过):指纹「${s.fp}」`,
       )
+  // 同一纪律的第三格(--declare-side-loss):声明了某行有意少带,而这行本轮并没有被判成丢对侧独有行
+  // ⇒ 要么清单陈旧/串档,要么那一侧的内容已换了写法 —— 两种都不能读成"这轮真放行了什么"。
+  const staleLossRows = (built.lossStale || []).map(
+    (s) =>
+      `${s.path} --declare-side-loss 声明未命中(该行本轮未被判少带 ⇒ 陈旧或串档,不记通过):${String(s.line).slice(0, 60)}`,
+  )
   return {
     base,
     ...built,
-    bad: [...built.violations, ...blocked, ...vu, ...ambiguousRows, ...stalePickRows, ...staleDocPicks],
+    bad: [
+      ...built.violations,
+      ...blocked,
+      ...vu,
+      ...ambiguousRows,
+      ...stalePickRows,
+      ...staleLossRows,
+      ...staleDocPicks,
+    ],
     // 两条路径的"少带份数"合流:两侧同改的丢行分流(built.caps)+ 活文档行 union(vu.pointerCaps)。
     // 只接其中一条 = 台账这一族恰好无人点名,而那正是本票要防的形状。
     caps: [
@@ -3508,6 +3583,47 @@ function selfTest() {
         '--resolve 指向读不到的文件 ⇒ 仍落 needHuman 并点名原因(不静默按本侧落地)',
         qb.needHuman.some((h) => h.path === 'clash.ts' && h.kind === 'resolve-unreadable'),
         JSON.stringify(qb.needHuman.map((h) => [h.path, h.kind])),
+      )
+      /**
+       * `--declare-side-loss` 的成对用例(2026-10-25 立,立因见 recordSideLosses 头注):
+       * 两侧把同一元素改成互斥写法时,`--resolve` 的零损失锁结构上无解,而 `--take-ours` 会连对侧
+       * 其余独有行一起丢 ⇒ 需要一条**逐行、带原因、可追责**的放行出口。三条必须同时成立:
+       *  · 声明命中 ⇒ bad 不再含那一行,且 lossCredits 逐行点名(放行必须留下凭据);
+       *  · 反向锁:没声明仍判红(复用上面 qo,那条已钉住)⇒ 出口不是默认动作;
+       *  · 反向锁:声明了本轮并未被判少带的行 ⇒ 进 bad「声明未命中」,不记通过(§0.3)。
+       */
+      const lossDecl = new Map([['clash.ts', new Map([['THEIRS', { why: '两侧同一元素互斥改写,本侧版为当下状态' }]])]])
+      const qdl = plan(o2, t2, d2, new Set(), new Map([['clash.ts', rfOursOnly]]), new Set(), null, null, null, null, lossDecl)
+      ok(
+        '--declare-side-loss 命中 ⇒ 那一行不再进 bad,且逐行留痕(lossCredits 点名 + 原因)',
+        !qdl.bad.some((b) => b.includes('clash.ts') && /对侧独有行/.test(b)) &&
+          qdl.lossCredits.length === 1 &&
+          qdl.lossCredits[0].line === 'THEIRS' &&
+          qdl.lossCredits[0].why.length >= 10,
+        JSON.stringify([qdl.bad.slice(0, 3), qdl.lossCredits]),
+      )
+      ok(
+        '正向对照:同一枚声明不得把该路径的其他对侧独有行一起放行(只销声明那一行)',
+        show(qdl.tree, 'clean.ts', d2) === 'L1\nl2\nl3\nTHEIRS\nl5',
+        show(qdl.tree, 'clean.ts', d2).replace(/\n/g, '|'),
+      )
+      const staleDecl = new Map([['clash.ts', new Map([['GHOST-LINE', { why: '本轮没有被判少带,属陈旧清单' }]])]])
+      const qds = plan(o2, t2, d2, new Set(), new Map([['clash.ts', rfBoth]]), new Set(), null, null, null, null, staleDecl)
+      ok(
+        '反向锁:声明未命中本轮判红行 ⇒ 进 bad 点名,绝不记成"这轮真放过东西"',
+        qds.bad.some((b) => b.includes('--declare-side-loss 声明未命中') && b.includes('GHOST-LINE')) &&
+          qds.lossCredits.length === 0,
+        JSON.stringify([qds.bad.slice(0, 3), qds.lossCredits]),
+      )
+      ok(
+        '纯函数 声明门槛:缺 line / 原因不足 10 字一律拒绝(空话放行 = 没有判据)',
+        sideLossEntryProblem({ line: '', why: 'x'.repeat(20) }) !== null &&
+          sideLossEntryProblem({ line: 'L', why: '太短' }) !== null &&
+          sideLossEntryProblem({ line: 'L', why: '两侧同一元素互斥改写,信息无损失' }) === null,
+        JSON.stringify([
+          sideLossEntryProblem({ line: '', why: 'x'.repeat(20) }),
+          sideLossEntryProblem({ line: 'L', why: '太短' }),
+        ]),
       )
     } finally {
       rmScratch(d2, { bestEffort: true })
@@ -4943,6 +5059,51 @@ async function main() {
     }
     foldKeep.set(doc, m)
   }
+  // --declare-side-loss <path>=<声明档>(可重复):`--resolve` 那条路径上"对侧某一行被本侧的改写
+  //   结构性取代"的**逐行具名出口**(判据与纪律见 recordSideLosses 头注;立因见本文件 :74 那格)。
+  // 声明档 = JSON `[{line, why}]`(也接受 `{items:[…]}`):
+  //   line = 有意少带的那一行**逐字字面**(与 lostAddedLines 报出的那一条等值才算命中);
+  //   why  = 为什么它已被取代且信息无损失(<10 字的定向说明当场退 2 —— 空话放行等于没判据)。
+  // 未命中的声明进 `bad` 点名(陈旧/串档不记通过);放行的每一行打印并进合并提交信息。
+  const declaredLoss = new Map()
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '--declare-side-loss' || !argv[i + 1]) continue
+    const spec = argv[++i]
+    const eq = spec.indexOf('=')
+    if (eq <= 0) {
+      console.log(`❌ --declare-side-loss 需要 <path>=<声明档 JSON>,得到的是:${spec}`)
+      process.exit(2)
+    }
+    const doc = spec.slice(0, eq)
+    const file = spec.slice(eq + 1)
+    let parsed
+    try {
+      const j = JSON.parse(readFileSync(file, 'utf8'))
+      parsed = Array.isArray(j) ? j : j?.items
+    } catch (e) {
+      console.log(`❌ --declare-side-loss 读不到或解不开声明档 ${doc}=${file}:${e?.message ?? e}`)
+      process.exit(2)
+    }
+    if (!Array.isArray(parsed)) {
+      console.log(`❌ --declare-side-loss 声明档既不是数组也没有 items 字段(${doc}=${file})⇒ 无从判定,拒绝执行`)
+      process.exit(2)
+    }
+    const m = declaredLoss.get(doc) || new Map()
+    for (const [k, d] of parsed.entries()) {
+      const problem = sideLossEntryProblem(d)
+      if (problem) {
+        console.log(`❌ --declare-side-loss ${doc} 第 ${k + 1} 项${problem} ⇒ 拒绝执行`)
+        process.exit(2)
+      }
+      const line = d.line
+      if (m.has(line)) {
+        console.log(`❌ --declare-side-loss ${doc} 第 ${k + 1} 项与前一条同 line(一行两条裁定 ⇒ 歧义,拒绝执行)`)
+        process.exit(2)
+      }
+      m.set(line, { why: d.why.trim() })
+    }
+    declaredLoss.set(doc, m)
+  }
   // --accept-state-growth <维>=<理由>(可重复):并集天然放大的三条量纲(F1 / F4 / F3-rotatedAuto)
   //   的**声明式出口**。它不是"关掉判据" —— 每条都必须带理由,两个读数与理由一起打印,并写进
   //   合并提交信息;维名不认识直接退 2;F5/F6/F9/F9b 与路径零丢失不接受放行(见 planStateRegressions 头注)。
@@ -5011,6 +5172,7 @@ async function main() {
     supersede.size ? supersede : null,
     foldKeep.size ? foldKeep : null,
     takeTheirsDocs.size ? takeTheirsDocs : null,
+    declaredLoss.size ? declaredLoss : null,
   )
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 活文档整份取对侧 ${p.keptTheirsDocs?.length ?? 0} / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 删除随合并传播 ${p.propagatedDeletes?.length ?? 0} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
@@ -5104,6 +5266,19 @@ async function main() {
           `        去向:${JSON.stringify(String(s.kept).slice(0, 60))} | 原因:${s.why}`,
       )
   }
+  // 逐行声明放过的对侧少带必须同样报名 —— 与 --supersede / --fold-keep 一条纪律:放过的每一行
+  // 都要说清是哪一行、为什么,免得"落地了"被读成"两侧内容都在"。
+  const lossCredits = p.lossCredits || []
+  if (lossCredits.length) {
+    console.log(
+      `  · 逐行声明放过的对侧少带 ${lossCredits.length} 行(--declare-side-loss 已声明 + 带原因;逐条如下)`,
+    )
+    for (const s of lossCredits)
+      console.log(
+        `      ${s.label} ← ${JSON.stringify(String(s.line).slice(0, 64))}\n` +
+          `        原因:${s.why}`,
+      )
+  }
   // 显式旗标才把"新增强"折进落地闸(缺省只报数;存量/未判定永远不折,见 --resurrect-block 的用法注)。
   if (resurrectBlock) applyResurrectBlock(p)
   if (p.bad.length) {
@@ -5174,6 +5349,13 @@ async function main() {
     (supCredits.length
       ? `;声明式取代 ${supCredits.length} 行(--supersede 声明 + attestFoldPair 四问通过;逐条见 ${supCredits
           .map((s) => `${s.kind}←${String(s.dropped).slice(0, 24)}`)
+          .join(' / ')})`
+      : '') +
+    // 逐行声明放过的对侧少带必须进提交信息:落地闸只留下"过了",可追责的凭据在信息里(与上两格同纪律)。
+    (lossCredits.length
+      ? `;逐行声明放过的对侧少带 ${lossCredits.length} 行(--declare-side-loss 逐行声明 + 逐条带原因;` +
+        `这一型是两侧把同一元素改成互斥写法,同时保留即双份标签/死代码塞行;逐条见 ${lossCredits
+          .map((s) => String(s.line).trim().slice(0, 24))
           .join(' / ')})`
       : '')
   const sha = git(['commit-tree', p.tree, '-p', t.head, '-p', t.theirs, '-m', msg])
@@ -5323,6 +5505,7 @@ export const __test__ = {
   foldDedupe,
   attestFoldPair,
   supersedeProof,
+  sideLossEntryProblem,
   formatBadReport,
   formatFoldReport,
   ensureTrailingNewline,

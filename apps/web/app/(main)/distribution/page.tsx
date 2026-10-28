@@ -4,7 +4,6 @@
 
 'use client'
 
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -50,7 +49,7 @@ interface InviteeStatsData {
   vipInvitees: number
 }
 
-const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
+const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
 export default function DistributionHomePage() {
   const t = useTranslations('distribution')

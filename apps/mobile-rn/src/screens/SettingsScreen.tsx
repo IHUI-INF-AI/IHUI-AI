@@ -46,6 +46,7 @@ import {
   Globe,
   Bot,
   Megaphone,
+  Activity,
   Info,
   Plug,
   Database,
@@ -131,6 +132,7 @@ export default function SettingsScreen() {
     { key: 'IcpRecord', label: t('menu.icpRecord') },
     { key: 'ModelRecord', label: t('menu.modelRecord') },
     { key: 'Announcement', label: t('announcement.title') },
+    { key: 'Status', label: t('statusPage.title') },
     { key: 'About', label: t('menu.about') },
   ]
 
@@ -164,6 +166,7 @@ export default function SettingsScreen() {
     // API 设置(对齐原项目 pagesA/settings/api-settings.vue:Coze PAT/Base URL 配置)
     { key: 'ApiSettings', label: t('menu.apiSettings'), icon: Plug },
     { key: 'Announcement', label: t('announcement.title'), icon: Megaphone },
+    { key: 'Status', label: t('statusPage.title'), icon: Activity },
     { key: 'About', label: t('menu.about'), icon: Info },
   ]
 

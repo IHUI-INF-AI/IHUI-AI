@@ -4,19 +4,6 @@
 
 export type AnnType = 'info' | 'warning' | 'maintenance' | 'update'
 
-/** 公告投放端(与 packages/database schema/content.ts 的 ANNOUNCEMENT_PLATFORMS 保持一致) */
-export const ANNOUNCEMENT_PLATFORMS = [
-  'web',
-  'miniapp',
-  'desktop',
-  'extension',
-  'rn',
-  'cli',
-  'mobile-cap',
-] as const
-
-export type AnnouncementPlatform = (typeof ANNOUNCEMENT_PLATFORMS)[number]
-
 export interface Announcement {
   id: string
   title: string
@@ -26,8 +13,6 @@ export interface Announcement {
   isPublished: boolean
   publishedAt?: string
   updatedAt?: string
-  /** 投放端(空数组 = 全端通用) */
-  platforms?: AnnouncementPlatform[]
 }
 
 export interface AnnouncementForm {
@@ -36,7 +21,5 @@ export interface AnnouncementForm {
   type: AnnType
   isPinned: boolean
   isPublished: boolean
-  /** 投放端多选(空数组 = 全端通用) */
-  platforms: AnnouncementPlatform[]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

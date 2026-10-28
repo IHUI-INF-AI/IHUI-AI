@@ -10,6 +10,7 @@ import type { AskListScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 问答列表共享屏 — props 注入式跨端组件 */
 export type { AskListScreenProps }
@@ -30,11 +31,7 @@ export function AskListScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading && items.length === 0) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
   }
   if (error && items.length === 0) {
     return (
@@ -60,13 +57,13 @@ export function AskListScreen({
         data={items}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.muted}>{t('askList.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('askList.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => onPressItem(item.id)} style={styles.card}>
+          <PressableCard
+            onPress={() => onPressItem(item.id)}
+            style={styles.card}
+            colorScheme={colorScheme}
+          >
             <Text style={styles.cardTitle} numberOfLines={2}>
               {item.title}
             </Text>
@@ -77,7 +74,7 @@ export function AskListScreen({
                 {t('askList.views', { count: item.views })}
               </Text>
             </View>
-          </TouchableOpacity>
+          </PressableCard>
         )}
       />
     </View>
@@ -94,7 +91,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: 16,
     },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     btn: {
       marginTop: 12,
@@ -106,7 +102,6 @@ function createStyles(tk: AppThemeTokens) {
     header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
     title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     action: { fontSize: 24, color: tk.brand.DEFAULT, fontWeight: '600' },
-    empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,

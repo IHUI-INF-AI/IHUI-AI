@@ -15,9 +15,6 @@
  *   divider 样式键 / 单边描边 / hairlineWidth 取宽
  *
  * 说明:历史写入是 fire-and-forget(addHistory 内 void push),故对持久化断言用 waitFor。
- * 等待口径(2026-10-25 收口,同 e4989cbb9e 先例):每条异步链只等终点一次,前序各步降级为带理由
- * 的同步断言;存活 waitFor 的预算显式写死且合计 < vitest.config 的 testTimeout 10s(RTL 每段默认
- * 预算量的是机器负载:本机并发 200+ 道守门时 fireEvent→首跳实测 1201ms > 默认 1000ms ⇒ 假红)。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -127,27 +124,19 @@ describe('SearchOverlay 三段面板', () => {
     renderOverlay()
     const input = document.querySelector('input')
     expect(input).toBeTruthy()
-    // 静默段本有热门段:value 未变前是纯同步渲染(hasInput=false),不等也成立 ⇒ 同步断
-    expect(document.body.textContent).toContain('热门搜索')
-    // 「设置」在 zh-CN quickSuggestions 里;输入后联想段出现该词行,且历史/热门段整体下线。
-    // 过滤走 useMemo + onChange 的 setValue,React 在 fireEvent 的 act 内同步提交 ⇒ 同步断。
+    // 静默段本有热门段
+    await waitFor(() => expect(document.body.textContent).toContain('热门搜索'))
+    // 「设置」在 zh-CN quickSuggestions 里;输入后联想段出现该词行,且历史/热门段整体下线
     fireEvent.change(input!, { target: { value: '设置' } })
-    expect(
-      document.querySelector('[aria-label="设置"]'),
-      '输入「设置」后联想段没出现该词行(过滤链是假的)',
-    ).toBeTruthy()
-    expect(document.body.textContent).not.toContain('热门搜索')
-    // 唯一一段 waitFor 只等链的终点 = 换成不匹配词后该词行撤走(段内无词条行)。
-    // 立因:原先三段串行 waitFor 各带一份预算,本机并发跑 200+ 道守门时事件循环被同步占死
-    // (2026-10-24 实测 fireEvent→首跳 1201ms > RTL 默认 1000ms)⇒ 假红;收成一段并显式给
-    // 8s 预算,仍低于 vitest.config 的 testTimeout 10s。
+    await waitFor(() => {
+      expect(document.querySelector('[aria-label="设置"]')).toBeTruthy()
+      expect(document.body.textContent).not.toContain('热门搜索')
+    })
+    // 输入不匹配任何联想词 → 联想段空(段内无词条行)
     fireEvent.change(input!, { target: { value: 'zzz-不存在的词' } })
-    await waitFor(
-      () => {
-        expect(document.querySelector('[aria-label="设置"]')).toBeNull()
-      },
-      { timeout: 8_000 },
-    )
+    await waitFor(() => {
+      expect(document.querySelector('[aria-label="设置"]')).toBeNull()
+    })
   })
 })
 
@@ -168,30 +157,22 @@ describe('SearchOverlay 提交与结果', () => {
     fireEvent.change(input, { target: { value: 'React 入门' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 
-    // 链一(搜索)终点 = 弹窗内出结果卡:runSearch 里 `await fetchApi` 之后才 setResults,
-    // 结果卡出现即证明请求已经按 RN 侧的 URL 形态发过 ⇒ 原先"等调用发生"那段降级为同步断言。
-    // 两段预算合计 4s + 5s = 9s,仍低于 vitest.config 的 testTimeout 10s(三段串行时最坏 12s)。
-    await waitFor(() => expect(document.body.textContent).toContain('React 入门课'), {
-      timeout: 4_000,
+    await waitFor(() => {
+      expect(apiMocks.fetchApi).toHaveBeenCalledWith(
+        '/api/search?keyword=' + encodeURIComponent('React 入门'),
+      )
     })
-    expect(apiMocks.fetchApi, '结果卡没经过 /api/search 就是凭空冒出来的').toHaveBeenCalledWith(
-      '/api/search?keyword=' + encodeURIComponent('React 入门'),
-    )
     // 弹窗内直接出结果(不跳全屏搜索页 → 未调用导航)
     expect(navigateMock).not.toHaveBeenCalled()
+    await waitFor(() => expect(document.body.textContent).toContain('React 入门课'))
     expect(document.body.textContent).toContain('从零学 React')
-    // 链二(历史持久化):addHistory 内是 `void push(...)` 的 fire-and-forget,它不在链一的
-    // await 面上 ⇒ 结果卡出现证明不了写盘落地,这一条必须自己等终点(同 web 的 'searchHistory'
-    // key,含 trim 后关键词)。
-    await waitFor(
-      () => {
-        const written = (AsyncStorage as unknown as { __store: Map<string, string> }).__store.get(
-          'searchHistory',
-        )
-        expect(written ?? '').toContain('React 入门')
-      },
-      { timeout: 5_000 },
-    )
+    // 历史持久化(异步 fire-and-forget):同 web 的 'searchHistory' key,含 trim 后关键词
+    await waitFor(() => {
+      const written = (AsyncStorage as unknown as { __store: Map<string, string> }).__store.get(
+        'searchHistory',
+      )
+      expect(written ?? '').toContain('React 入门')
+    })
   })
 
   it('点结果卡(course)→ navigate CourseDetail + 关弹窗', async () => {

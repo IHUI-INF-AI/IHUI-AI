@@ -35,13 +35,13 @@ export default function AnnouncementDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['announcements', id],
-    queryFn: () => api<AnnouncementDetail>(`/api/announcements/${id}?platform=web`).then((d) => d.announcement),
+    queryFn: () => api<AnnouncementDetail>(`/api/announcements/${id}`).then((d) => d.announcement),
   })
 
   // 复用列表缓存，推断上一篇/下一篇
   const { data: list } = useQuery({
     queryKey: ['announcements'],
-    queryFn: () => api<{ list: ListItem[] }>('/api/announcements?platform=web').then((d) => d.list ?? []),
+    queryFn: () => api<{ list: ListItem[] }>('/api/announcements').then((d) => d.list ?? []),
   })
 
   const readMut = useMutation({

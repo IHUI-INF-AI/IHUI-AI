@@ -3203,25 +3203,12 @@ class AgentLoopV2:
         # (self._user_id 由承载层显式入参;缺省 None ⇒ 不接入 ⇒ 与改动前逐字一致)。
         await self._ensure_step_recorder()
         # Hook 引擎: session.start(1-5 起经事件流层发射,失败降级不阻塞)
-        # G-815970 同型补刀(2026-10-24):会话初始化钩子(会逐条执行已注册 hook,
-        # 含重试/超时)此前是裸 await,取消信号要等它跑完才轮得到 _run_loop 入口检查。
-        # 包进 _wait_interruptible 后与压缩/工具同一条取消语义;无取消时原样返回,
-        # 中断只在标志已置位时发生 —— 吞掉 _LoopInterrupted 后交 _run_loop 入口的
-        # 既有 cancelled/paused 分支,对外结果面不变(不新增异常出口)。
-        try:
-            await self._wait_interruptible(
-                self._events.session_start(
-                    session_id=self._session_id or "",
-                    user_id=self._user_id or "",
-                    conversation_id=self._conversation_id or "",
-                    max_iterations=self.max_iterations,
-                )
-            )
-        except _LoopInterrupted:
-            logger.info(
-                "session.start 钩子期间收到中断,交 _run_loop 入口按既有分支收口: session=%s",
-                self._session_id or "",
-            )
+        await self._events.session_start(
+            session_id=self._session_id or "",
+            user_id=self._user_id or "",
+            conversation_id=self._conversation_id or "",
+            max_iterations=self.max_iterations,
+        )
         self._ensure_session_id()
         self._messages = messages
         # 批58(接线):会话启动预热(对标 codex session_startup_prewarm.rs)。
@@ -6266,16 +6253,9 @@ class AgentLoopV2:
             try:
                 from ..core.hook_runtime import HookKind as _HookKind
 
-                # G-815970 同型补刀(2026-10-24):生命周期钩子运行(逐钩子
-                # 超时/重试由 HookRuntime 内部管理)此前是裸 await,取消信号要等
-                # 钩子跑完才生效。包进同一 _wait_interruptible;无取消时原样返回,
-                # 钩子自身超时/异常面不变。_LoopInterrupted 必须直通,不能被下面
-                # "钩子异常降级放行"的 except Exception 吞掉。
-                _hk_outcome = await self._wait_interruptible(
-                    self._hook_runtime.run(
-                        _HookKind.PRE_TOOL_USE,
-                        {"tool_name": tc.name, "tool_call_id": tc.id, "args": tc.args},
-                    )
+                _hk_outcome = await self._hook_runtime.run(
+                    _HookKind.PRE_TOOL_USE,
+                    {"tool_name": tc.name, "tool_call_id": tc.id, "args": tc.args},
                 )
                 if _hk_outcome.denial_reason is not None:
                     return ToolResult(
@@ -6303,9 +6283,6 @@ class AgentLoopV2:
                                 )
                 except Exception as e:  # noqa: BLE001 - 上下文注入失败隔离,不阻塞主链路
                     logger.warning("pre_tool_use 附加上下文注入异常(降级跳过): %s", e)
-            except _LoopInterrupted:
-                # 取消/暂停穿透钩子等待段:不得按"钩子异常降级放行"吞掉。
-                raise
             except Exception as e:  # noqa: BLE001 - 钩子运行时异常隔离,不阻塞主链路
                 logger.warning("pre_tool_use 钩子运行时异常(降级放行): %s", e)
 

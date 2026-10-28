@@ -14,9 +14,9 @@ import { AuthProvider } from './src/context/AuthContext'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import { I18nProvider } from './src/i18n'
 import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
+import { UpdatePromptGate as UpdatePrompt } from './src/components/UpdatePromptGate'
 import { OfflineBanner } from './src/components/OfflineBanner'
 import { DevErrorToast } from './src/components/DevErrorToast'
-import { UpdatePrompt } from './src/components/UpdatePrompt'
 import { RootNavigator } from './src/navigation/RootNavigator'
 import { linking } from './src/navigation/linking'
 import { navigationRef, navigateTo } from './src/navigation/navigation-ref'
@@ -109,9 +109,6 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   AiMain: (t) => t.surface.chrome,
   Agent: (t) => t.surface.chrome,
   Settings: (t) => t.surface.chrome,
-  // CheckinAssistant(2026-10-24 补录):签到助手屏入库时注册了路由、屏内渲染 <NavBar> 却漏登记本表
-  // ⇒ 状态栏 inset 带与导航行两截色(nav-chrome-route-parity 测试当场判红,信号真实)。按表判据补 chrome 档。
-  CheckinAssistant: (t) => t.surface.chrome,
   AiAssistantN8n: (t) => t.surface.chrome,
   Cart: (t) => t.surface.chrome,
   Chat: (t) => t.surface.chrome,
@@ -220,8 +217,8 @@ function AppInner() {
       <OfflineBanner banner={banner} reason={reason} />
       <ThemedNavigation />
       <DevErrorToast />
-      {/* OTA 更新提示(对齐 web PWAUpdatePrompt):expo-updates 静默下载就绪后弹出,
-          [更新]=reloadAsync 立即生效;自身判 __DEV__/web 返回 null */}
+      {/* OTA 更新提示:组件与 lib/ota-update 早已入库,但此前无人渲染 ⇒ 更新检查从不触发(造好没装车)。
+          卡片是 position:absolute 浮层、非更新态返回 null;lib 对 __DEV__ 与 web 有短路,故对开发与 Web 预览零行为。 */}
       <UpdatePrompt />
     </SafeAreaView>
   )

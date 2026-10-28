@@ -6,7 +6,6 @@
  * 签到业务共享工具函数。
  * 统一所有签到路由的奖励计算 + 日期处理逻辑,消除 5 处重复定义。
  */
-import { bizDayKey, shiftBizDayKey } from './biz-day.js'
 
 /** 签到奖励:第1天10分,逐日+5,第7天起50分封顶 */
 export function calcSignInReward(consecutiveDays: number): number {
@@ -14,18 +13,15 @@ export function calcSignInReward(consecutiveDays: number): number {
   return 10 + (consecutiveDays - 1) * 5
 }
 
-/**
- * 今日业务日键 YYYY-MM-DD(Asia/Shanghai)。
- * 这里曾经是 UTC ⇒ 每天上海 00:00–08:00 之间"今天"读成昨天:签到记到前一天、
- * 连续天数断裂、运营大屏的签到格与同屏的新增格互相矛盾(新增按上海日)。
- * 日界算法唯一出口在 utils/biz-day.ts,本函数只做转发(§0.6:同族取值全仓只许一份实现)。
- */
+/** 返回今日日期字符串 YYYY-MM-DD(UTC) */
 export function todayString(): string {
-  return bizDayKey()
+  return new Date().toISOString().slice(0, 10)
 }
 
-/** 业务日键偏移:days 正向后、负向前(与 todayString 同一口径) */
+/** 日期偏移:days 为正向后,为负向前(基于 UTC) */
 export function shiftDate(date: string, days: number): string {
-  return shiftBizDayKey(date, days)
+  const d = new Date(date + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

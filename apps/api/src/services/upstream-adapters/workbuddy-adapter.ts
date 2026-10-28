@@ -232,6 +232,7 @@ async function attemptRefresh(
     realm: WorkBuddyRealm
     identity: WorkBuddyIdentity
     rowUid: string
+    fallbackExpiresAt: Date | null
   },
 ): Promise<TokenRefreshResult> {
   const headers = buildRefreshHeaders({
@@ -265,13 +266,12 @@ async function attemptRefresh(
       ? data['refreshToken'].trim()
       : null
   const expiresIn = typeof data['expiresIn'] === 'number' ? data['expiresIn'] : NaN
-  let expiresAt: Date | null
+  let expiresAt: Date
   if (Number.isFinite(expiresIn) && expiresIn > 0) {
     expiresAt = new Date(Date.now() + expiresIn * 1000)
   } else {
-    // 上游没给到期 ⇒ null(未知)。不沿用旧值:旧值可能已被收敛到过去(上游拒收),
-    // 沿用它会让"换票成功"当场又变成"已过期",也会把编造的未来时刻写回库里。
-    expiresAt = null
+    // 防刷新风暴:缺省/非正 → 沿用旧过期时刻;row 也没有则 now+24h
+    expiresAt = account.fallbackExpiresAt ?? new Date(Date.now() + 24 * 60 * 60 * 1000)
   }
   return { token: accessToken, refreshToken: newRefresh, expiresAt }
 }
@@ -389,6 +389,7 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
             realm,
             identity,
             rowUid: ctx.row.uid,
+            fallbackExpiresAt: ctx.row.tokenExpiresAt,
           })
         } catch (e) {
           lastErr = e instanceof Error ? e : new Error(String(e))

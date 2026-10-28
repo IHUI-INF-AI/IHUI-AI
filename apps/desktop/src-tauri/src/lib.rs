@@ -10,19 +10,9 @@ mod checkin_capture;
 // 2026-10-12 立:WorkBuddy「网页登录自动添加账号」——内嵌 WebView 登录 + cookie jar
 // 读取(含 HttpOnly)+ /console/accounts 登录态验证,普通用户零 token 体验。
 mod checkin_web_login;
-// 2026-10-24 立:独立浏览器窗口自己的收藏 / 历史(裸 webview 拿不到 web 端 store)。
-mod browser_store;
-// 2026-10-25 立:浏览器内存策略的设置项(标签上限 / 空闲休眠阈值),落盘 browser-settings.json。
-mod browser_settings;
-// 2026-10-24 立:Trae「网页登录自动添加账号」——内嵌窗 cookie → GetUserToken 换真 JWT →
-// 解 uid/手机号,前端自动入库(与 WorkBuddy 同型,窗口仍走 embedded_browser)。
-mod checkin_trae_web_login;
 // 2026-10-16 立:项目内嵌浏览器(自绘工具条 + 地址栏 + Chrome UA 的 WebView2 窗口)。
 // 签到网页登录、SSO 兜底窗等"需要在浏览器里走一趟"的场景统一用它,不再外部拉 Chrome。
 mod embedded_browser;
-// 2026-10-24 立:右侧工作区「停靠浏览器」——把原生 webview 铺在工作面板 Tab 内容区
-// (iframe/代理/CDP 都拿不到登录 cookie,只有本机原生 webview 能读)。
-mod embedded_browser_dock;
 // 2026-10-17 立:内嵌浏览器「完整浏览器」能力——书签管理/最近历史/从 Chrome/Edge 导入书签。
 // 数据落 app_data_dir(持久化,区别于内存标签会话);纯函数(Chrome 书签解析/去重/历史)
 // 判据可单测,I/O 走薄 Tauri 命令胶水。
@@ -2240,21 +2230,6 @@ fn get_desktop_prefs(app: tauri::AppHandle) -> DesktopPrefs {
     load_desktop_prefs(&app)
 }
 
-/// 读浏览器内存策略设置(标签上限 / 空闲休眠阈值)。已是归一后的值。
-#[tauri::command]
-fn get_browser_settings() -> browser_settings::BrowserSettings {
-    browser_settings::current()
-}
-
-/// 写浏览器内存策略设置(patch 语义:只覆盖带过来的那几档),立即生效并落盘。
-#[tauri::command]
-fn set_browser_settings(
-    app: tauri::AppHandle,
-    patch: browser_settings::BrowserSettingsPatch,
-) -> Result<browser_settings::BrowserSettings, IpcError> {
-    browser_settings::apply(&app, patch)
-}
-
 /// 写桌面端行为偏好(patch 语义:只覆盖带过来的那几档)。
 #[tauri::command]
 fn set_desktop_prefs(app: tauri::AppHandle, patch: DesktopPrefsPatch) -> DesktopPrefs {
@@ -3470,39 +3445,14 @@ pub fn run() {
                 // 内嵌浏览器窗要遍历它的全部标签 webview。
                 if label == "main" || label == "admin" || label == embedded_browser::BROWSER_WINDOW_LABEL {
                     let app = window.app_handle().clone();
-                    // 标签级冻结(2026-10-24):失焦 ⇒ 所有标签挂起;回前台 ⇒ **只恢复活动标签**,
-                    // 后台标签保持冻结 —— 否则每次回到窗口都把后台标签全体解冻,标签冻结就白做了。
                     for (wl, wv) in app.webviews() {
-                        if wl == label || wl == embedded_browser::BROWSER_WINDOW_LABEL {
-                            embedded_browser::set_memory_low(&wv, !*focused);
-                            embedded_browser::set_suspend(&wv, !*focused);
-                            continue;
-                        }
-                        // 两档标签的 label 都带世代号(空闲休眠重建会换 label),不能从
-                        // label 反解标签 id —— 一律问各自会话"活动的是哪个 webview"。
-                        let active = if wl.starts_with(embedded_browser::TAB_LABEL_PREFIX) {
-                            Some(embedded_browser::is_active_tab_label(&app, &wl))
-                        } else if wl.starts_with(embedded_browser_dock::DOCK_TAB_PREFIX) {
-                            // 停靠标签的 label 带世代号(休眠重建会换 label),
-                            // 只能问停靠档"活动的是哪个 webview"
-                            Some(embedded_browser_dock::is_active_tab_label(&wl))
-                        } else {
-                            None
-                        };
-                        let Some(is_active) = active else { continue };
-                        if *focused && !is_active {
-                            continue;
-                        }
-                        embedded_browser::set_memory_low(&wv, !*focused);
-                        // 正在出声的标签不冻结:原生媒体看 IsDocumentPlayingAudio,
-                        // 纯 WebAudio 看页内探针(2026-10-25)。失焦不等于"没人听"。
-                        if !*focused
-                            && (embedded_browser::label_is_audio_playing(&app, &wl)
-                                || embedded_browser_dock::label_is_audio_playing(&wl))
+                        if wl == label
+                            || wl.starts_with(embedded_browser::TAB_LABEL_PREFIX)
+                            || wl == embedded_browser::BROWSER_WINDOW_LABEL
                         {
-                            continue;
+                            embedded_browser::set_memory_low(&wv, !focused);
+                            embedded_browser::set_suspend(&wv, !focused);
                         }
-                        embedded_browser::set_suspend(&wv, !*focused);
                     }
                 }
             }
@@ -3699,8 +3649,6 @@ pub fn run() {
             // ∧ 迁前值为 false。手动双击启动不带该参数 ⇒ 不迁(默认仍弹窗)。迁移结果落盘,
             // 因此在设置界面里看得见、可改 —— 不藏成只有代码知道的隐式状态。
             let mut startup_prefs = load_desktop_prefs(app.handle());
-            // 浏览器内存策略要在任何浏览器窗口出现之前就位(标签上限、休眠阈值都要读它)
-            browser_settings::init(app.handle());
             let prefs_absent_before = desktop_prefs_path(app.handle()).map(|p| !p.exists()).unwrap_or(false);
             let argv_has_minimized = std::env::args().any(|a| a == "--minimized");
             if should_migrate_launch_minimized(
@@ -3865,28 +3813,6 @@ pub fn run() {
             git_channel_ipc::git_channel_info,
             embedded_browser::embedded_browser_open,
             embedded_browser::embedded_browser_close,
-            embedded_browser_dock::embedded_browser_dock_open,
-            embedded_browser_dock::embedded_browser_dock_bounds,
-            embedded_browser_dock::embedded_browser_dock_close,
-            embedded_browser_dock::embedded_browser_dock_destroy,
-            embedded_browser_dock::embedded_browser_dock_navigate,
-            embedded_browser_dock::embedded_browser_dock_back,
-            embedded_browser_dock::embedded_browser_dock_forward,
-            embedded_browser_dock::embedded_browser_dock_reload,
-            embedded_browser_dock::embedded_browser_dock_stop,
-            embedded_browser_dock::embedded_browser_dock_home,
-            embedded_browser_dock::embedded_browser_dock_pick,
-            embedded_browser_dock::embedded_browser_dock_devtools,
-            embedded_browser_dock::embedded_browser_dock_url,
-            embedded_browser_dock::embedded_browser_dock_new_tab,
-            embedded_browser_dock::embedded_browser_dock_switch_tab,
-            embedded_browser_dock::embedded_browser_dock_close_tab,
-            embedded_browser_dock::embedded_browser_dock_tabs,
-            embedded_browser_dock::embedded_browser_dock_popout,
-            embedded_browser_dock::embedded_browser_dock_store,
-            embedded_browser_dock::embedded_browser_dock_favorite_toggle,
-            embedded_browser_dock::embedded_browser_dock_favorite_remove,
-            embedded_browser_dock::embedded_browser_dock_history_clear,
             embedded_browser::embedded_browser_state,
             embedded_browser::embedded_browser_new_tab,
             embedded_browser::embedded_browser_devtools,
@@ -3929,9 +3855,6 @@ pub fn run() {
             set_tray_always_visible,
             get_desktop_prefs,
             set_desktop_prefs,
-            // 2026-10-25 立:浏览器内存策略设置(标签上限 / 空闲休眠阈值),真值在 browser_settings.rs。
-            get_browser_settings,
-            set_browser_settings,
             resolve_close_choice,
             set_desktop_badge,
             take_pending_deep_links,
@@ -3945,8 +3868,6 @@ pub fn run() {
             // 这里只留 probe(读内嵌窗 cookie jar + 服务端验证,见 checkin_web_login.rs)。
             checkin_web_login::checkin_workbuddy_web_login_probe,
             checkin_web_login::checkin_workbuddy_web_login_probe_cookie,
-            // 2026-10-24 Trae 网页登录:读内嵌窗 cookie jar + GetUserToken 换票+解身份。
-            checkin_trae_web_login::checkin_trae_web_login_probe,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,
@@ -3991,10 +3912,7 @@ pub fn run() {
     operator::operator_decide,
     operator::operator_execute
         ])
-        // 用 build + run(而不是 run(context)):退出时要补一次同步写盘 ——
-        // 历史记录走 500ms 去抖写(见 browser_store::save_soon),窗口关得太快时
-        // 最后一条可能还在队列里。
-        .build(context)
+        .run(context)
         .unwrap_or_else(|e| {
             // 2026-07-22 P0 Round 5 鲁棒性加固:主入口 panic → 写 crash log + exit(1)
             // 原:.expect() 会 panic 导致"应用已停止运行"弹窗,无 crash log 落盘
@@ -4025,11 +3943,6 @@ pub fn run() {
                 None => eprintln!("[crash] IHUI Desktop error (log write failed): {}", log_content),
             }
             std::process::exit(1);
-        })
-        .run(|app, event| {
-            if matches!(event, tauri::RunEvent::Exit) {
-                browser_store::flush(app);
-            }
         });
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

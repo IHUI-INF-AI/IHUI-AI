@@ -55,11 +55,15 @@
   },
   "webCounts": {
     "AgentRuntimePanel": 6,
+    "Avatar": 0,
     "BusinessFormCard": 0,
     "CategoryBar": 0,
+    "ConfirmDialog": 0,
+    "CountdownTimer": 0,
     "EmptyState": 6,
     "ProgressBar": 0,
     "SearchBar": 4,
+    "Tooltip": 0,
     "VideoPlayer": 6
   },
   "webRadiusCounts": {
@@ -69,15 +73,20 @@
     "EmptyState": 1,
     "ProgressBar": 0,
     "SearchBar": 2,
+    "Tooltip": 0,
     "VideoPlayer": 1
   },
   "webElementRadiusCounts": {
     "AgentRuntimePanel": 0,
+    "Avatar": 0,
     "BusinessFormCard": 0,
     "CategoryBar": 0,
+    "ConfirmDialog": 0,
+    "CountdownTimer": 0,
     "EmptyState": 0,
     "ProgressBar": 0,
     "SearchBar": 0,
+    "Tooltip": 0,
     "VideoPlayer": 0
   },
   "waivers": {
@@ -144,6 +153,10 @@
     "ScreenStates": {
       "reason": "单端结构性差异 1 处:小程序 200 = .ihui-state 的 min-height 400rpx,是小屏空态居中下限;RN 端 stateWrap 靠宿主 flex:1 撑满,结构上没有同元素同属性,不属同元素双值,亦不可由任一端消掉(RN 补 min-height 会破坏撑满布局)。其余曾登记的 5 枚几何假分叉(8/12/16/44/92)与 1 枚 RD 假分叉(4)已于 2026-10-24 判据修复当日归零——门采集面新增 toRpx 表达式族识别(lib/radius-tokens.geometryItemsInSrc 单源,几何维与 RD 维共用),现读 findings: onlyMiniapp=[200]、onlyRn=[]、RD 两侧均空;waiver 只留这一枚真差异,不掩盖任何未判格子(解不到的换算式逐枚走 geoUnreadable 点名)。RE 维两侧无一同名元素(StyleSheet 键 ↔ CSS 类名),该维由 ⊘ 行自报零判据,不记同值。",
       "until": "2027-04-24"
+    },
+    "VerifyCodeModal": {
+      "reason": "小程序侧零引用孤儿副本(HEAD blob git grep VerifyCodeModal 除自身零命中)⇒ 端入口不可达被默认档配对射程剔除,该族只活在人工 --pair-all 档;RN 腿为 RegisterScreen 活体。两端已收编共享源 @ihui/shared/ui/verify-code-modal-spec,--pair-all 可见的几何仅 RN 1/24 = 隐藏键盘接收器(HIDDEN_INPUT_PX=1,G-978007)与右上 × 关闭钮盒(CLOSE_BOX_PX=24),均小程序侧不存在的单侧元素(spec 自注单侧档按规则6 登记),RE 维零判据不判红。了结判据:小程序侧接线注册流或删除孤儿副本,届时按默认档实测重新登记。",
+      "until": "2027-03-27"
     }
   },
   "webWaivers": {
@@ -161,6 +174,14 @@
     },
     "VideoPlayer": {
       "reason": "票 G-978049① 的复裁判据之二(带理由接管),不是为消红:舞台档三端已同值 —— 现读 `git show HEAD:apps/web/src/components/media/VideoPlayer.tsx` :122 `overflow-hidden rounded-lg`(=8)、`git show HEAD:apps/miniapp-taro/src/components/VideoPlayer.tsx` :69/:71 rounded-lg、`git show HEAD:apps/mobile-rn/src/components/VideoPlayer.tsx` :222 `borderRadius: rnRadius.lg`;本族 web 腿残档只有 4,来自 7 处自绘控制条 `rounded-sm`(:165/:180/:186/:193/:200/:207/:217),而小程序走原生 `<Video controls>`(同文件 controls 引用 4 处、rounded-sm 0 处)⇒ 结构上没有这些节点,与主腿 `waivers.VideoPlayer` 是同一条理由的两面,不是同一元素取了不同档。档集合实测 mp=[8] / web=[4,8] / rn=[8]。禁止为凑集合给小程序补一层自绘控件(那是拿假节点抵数字)。",
+      "until": "2027-03-30"
+    },
+    "ConfirmDialog": {
+      "reason": "两端盒档同值,只是住在不同文件:web 弹窗壳 = `git show HEAD:packages/ui-react/src/components/dialog.tsx` :98 `min-[640px]:rounded-xl`(panel→xl=12),小程序壳 = apps/miniapp-taro/src/components/ConfirmDialog.tsx:35 `borderRadius: rnRadiusFor.panel`(RADIUS_ROLES 现读 panel→xl=12,同值);按钮档 web 走 <Button> 基座 rounded-sm(packages/ui-react/src/components/button.tsx:30),小程序 :49/:57 自写 rounded-sm,两端同取 control→sm=4。本腿不跟 .tsx 的包 import ⇒ 把\"没读到\"读成\"该侧无档\",即 G-16 登记的 SL 维第二格,扩一跳即抵掉;禁止为凑集合给 web 壳再补一层圆角。",
+      "until": "2027-03-30"
+    },
+    "VoiceInput": {
+      "reason": "两端不是同一个界面元素,不是同元素取了不同档:小程序 apps/miniapp-taro/src/components/VoiceInput.tsx 是**占满一行的录音条**(:98 min-h-12 rounded-lg px-4 py-3;:18 WAVE_BARS 共 7 条;:116 条宽 w-1、间距 mx-[4rpx];动画 animate-pulse 固定高度脉冲),web apps/web/src/components/ai/voice-input.tsx 是**输入框旁的麦克风按钮 + 按钮内 4 条波形 + 状态徽章**(:347 h-8 w-8 rounded-sm;:357-360 [0,1,2,3] 四条、w-0.5、gap-0.5;animation voice-wave 逐条相位差 0.12s;:334 徽章 px-1.5 py-0.5 text-[10px])。条数/条宽/间距/高度包络/动画通道五项全不同形,补任何一端数字都是给不存在的节点描数。跨端同源那部分(小程序↔RN)住在 packages/shared/src/ui/voice-input-spec.ts,其头注列出的分叉项也是这两端,与本腿无关。",
       "until": "2027-03-30"
     }
   },

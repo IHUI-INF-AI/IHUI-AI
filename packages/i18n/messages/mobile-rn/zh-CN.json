@@ -316,7 +316,11 @@
     "googleNotConfigured": "Google 登录未配置,请在 .env 设置 EXPO_PUBLIC_GOOGLE_CLIENT_ID。",
     "sdkPending": "{name} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用\"智汇AI网页授权登录\"按钮跳转网页端授权。",
     "agree": "同意",
-    "agreeTermsTitle": "确认同意服务条款"
+    "agreeTermsTitle": "确认同意服务条款",
+    "carrierNotConfigured": "运营商一键登录未配置,已切换到短信验证码登录",
+    "carrierOneClick": "本机号码一键登录",
+    "carrierLaunching": "正在拉起运营商授权...",
+    "closeCarrier": "关闭运营商登录"
   },
   "loginCountry": {
     "cn": "中国",
@@ -1177,7 +1181,8 @@
     "loadMore": "加载更多",
     "user": "用户",
     "retryShort": "重试",
-    "known": "知道了"
+    "known": "知道了",
+    "success": "成功"
   },
   "network": {
     "offline": "网络已断开,部分功能不可用",
@@ -4445,7 +4450,45 @@
       "schedule": "定时任务"
     },
     "knowledgeCards": "知识卡片",
-    "knowledgePlanet": "知识星球"
+    "knowledgePlanet": "知识星球",
+    "news": "资讯",
+    "learnTopic": "课程专题",
+    "kbSearch": "知识库检索",
+    "skillsMarketHome": "技能广场",
+    "aiGeneration": "AI 生成",
+    "videoTasks": "视频任务",
+    "chatFavorites": "对话收藏",
+    "cardFavorites": "名片收藏",
+    "chatSettings": "对话参数",
+    "searchHistory": "搜索历史",
+    "agentPlan": "智能体计划",
+    "agentPlanProgress": "计划进度",
+    "myAgents": "我的智能体",
+    "subagentDetail": "子智能体详情",
+    "subagentDispatch": "新建派单",
+    "agentSecurity": "智能体安全策略",
+    "modelRecord": "模型备案",
+    "examSignUps": "我的考试报名",
+    "buyConfirm": "课程购买确认",
+    "distributionWithdrawRecords": "分销提现记录",
+    "pluginMarket": "插件市场",
+    "skillsMarket": "技能市场",
+    "memoryManager": "记忆管理台",
+    "agentRules": "运行规则",
+    "publishMonitor": "发布监测",
+    "dramaStudio": "短剧剧本",
+    "myResources": "我的资源",
+    "mySignUps": "我的报名",
+    "certificateDownload": "证书下载",
+    "marginWallet": "保证金钱包",
+    "withdrawRecords": "提现记录",
+    "cloudRuns": "云托管运行记录",
+    "mediaTasks": "媒体任务",
+    "voices": "语音资源",
+    "webTools": "网页工具",
+    "letters": "站内信",
+    "invitations": "邀请管理",
+    "eduPoints": "教育积分"
   },
   "knowledgePlanet": {
     "title": "知识星球",
@@ -5755,7 +5798,8 @@
     "rebind": "重绑",
     "bind": "绑定",
     "saveA11y": "保存信息",
-    "logoutA11y": "登出"
+    "logoutA11y": "登出",
+    "oneLoginFail": "运营商一键登录失败，请手动输入手机号"
   },
   "need": {
     "titleRequired": "请输入需求标题",
@@ -6749,5 +6793,39 @@
     "currentBundle": "当前运行:{{bundle}}",
     "bundleEmbedded": "内置包",
     "bundleOta": "热更"
+  },
+  "setting": {
+    "operationFailed": "操作失败"
+  },
+  "message": {
+    "deleted": "已删除"
+  },
+  "legal": {
+    "title": "法律信息",
+    "serviceSpecificTerms": {
+      "title": "服务特定条款",
+      "lastUpdated": "最近更新"
+    },
+    "supportedRegions": {
+      "title": "支持地区",
+      "lastUpdated": "最近更新",
+      "intro": "我们服务的可用范围会因所在国家/地区的当地法律法规而有所不同，详情如下。",
+      "supportedTitle": "支持的地区",
+      "restrictedTitle": "限制地区",
+      "restrictedIntro": "以下地区的用户可能无法使用本服务的全部或部分功能。",
+      "paymentTitle": "支付方式",
+      "paymentIntro": "不同地区支持的支付方式可能有所不同。",
+      "languageTitle": "界面语言",
+      "languageIntro": "本服务支持多种界面语言，实际展示语言可能因您所在地区而异。"
+    },
+    "terms": {
+      "title": "服务条款",
+      "lastUpdated": "最近更新"
+    },
+    "usagePolicy": {
+      "title": "使用政策",
+      "lastUpdated": "最近更新"
+    },
+    "backToHome": "返回首页"
   }
 }

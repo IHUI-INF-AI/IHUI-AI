@@ -49,9 +49,6 @@ import {
 } from 'node:crypto';
 import { t } from '../i18n/index.js';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
-// L7570 第③格:诊断面的原文出口**只经**本仓唯一脱敏出口(packages/shared/src/utils/redact.ts)。
-// apps/cli 已依赖 @ihui/shared(workspace:*),直接 import,不在端内另写任何脱敏规则。
-import { redactSecrets } from '@ihui/shared/utils/redact';
 // G-709:整文件读-改-写要包在跨进程锁里。锁**复用** mcp-oauth.ts 已有的那一份实现
 // (acquireLock / releaseLock / getRefreshLockPath + mcp-refresh.lock),不新造第二把锁。
 // ⚠️ 这是一条**环形 import**(mcp-oauth.ts 顶部就 import 本文件)。两条由此而来的纪律:
@@ -867,31 +864,6 @@ type PayloadVerdict =
     };
 
 /**
- * L7570 第③格(诊断量代替原文):`JSON.parse` 的 SyntaxError 消息按 V8 短消息策略会把
- * **出错位置附近的原文片段**直接嵌进 message —— 输入短时几乎整份内容都在(实测 Node 24:
- * `JSON.parse('not json at all')` → `Unexpected token 'o', "not json at all" is not valid JSON`)。
- * 若损坏文件本身是"裸 token / 短的含 token 文本",这段原文会经 `McpCredentialStoreError.cause`
- * 离开本模块:crash 链路(`crash-handler.ts` 的 `flattenErrorForReport`)把 cause 逐层序列化
- * 进崩溃上报,调用方 `console.error(err)` 也会把 cause 链打进终端 —— 那正是"凭据原文落诊断"。
- * 处置与上游同型(票面转述:officialMcpCredentials.ts 的凭据诊断只记 JWT 剩余秒数,不记原文):
- * cause 只携带**诊断量**(异常名 + 失败位置数字),原文一律不携带;组装出的诊断文案仍过一遍
- * `redactSecrets`(本仓唯一脱敏出口)兜住未来回归 —— 若有人把 `err.message` 拼回来,
- * JWT/bearer/hex 形态至少在链上被盖。脱敏与遮盖规则不在此处另写(§单一真相源)。
- * 边界:读盘 errno 异常(readCredentialStoreSnapshot 的 unreadable 档)不经本函数 ——
- * OS 错误消息只含路径与 errno 名,不含文件内容;路径本就在 detail/storePath 明示。
- */
-function redactedParseCause(err: unknown): Error {
-  const position = err instanceof Error ? /position (\d+)/.exec(err.message)?.[1] : undefined;
-  const proxy = new Error(
-    redactSecrets(
-      `JSON parse failed${position === undefined ? '' : ` at position ${position}`} (cause carries type/position only; original message withheld)`,
-    ),
-  );
-  proxy.name = err instanceof Error && err.name.length > 0 ? err.name : 'SyntaxError';
-  return proxy;
-}
-
-/**
  * 顶层必须是对象、每个条目也必须**是对象**(G-709 的"形状不合"档)。
  *
  * 刻意只判到"条目是不是对象",不逐字段验类型:字段级损坏(如 accessToken 写成数字)
@@ -905,7 +877,7 @@ function classifyCredentialPayload(text: string): PayloadVerdict {
   try {
     parsed = JSON.parse(text);
   } catch (err) {
-    return { ok: false, reasonCode: 'payload-not-json', detail: 'JSON 解析失败(半截/被截断的内容)', cause: redactedParseCause(err) };
+    return { ok: false, reasonCode: 'payload-not-json', detail: 'JSON 解析失败(半截/被截断的内容)', cause: err };
   }
   if (!isPlainObject(parsed)) return { ok: false, reasonCode: 'payload-not-object', detail: '顶层不是 JSON 对象' };
   const record = parsed as Record<string, unknown>;
@@ -967,7 +939,7 @@ export interface McpCredentialStoreSnapshot {
   reasonCode: string;
   /** 人类可读结论(点名路径与处置方向,不含凭据内容) */
   detail: string;
-  /** 诊断 cause(payload-not-json 档 = 只含异常名与位置数字的脱敏代理,见 `redactedParseCause`;读盘 errno 档 = OS 原异常,消息只含路径不含内容),抛错时挂到新错误的 `cause` 上 */
+  /** 原始异常(JSON SyntaxError / errno),抛错时挂到新错误的 `cause` 上 */
   cause?: unknown;
 }
 

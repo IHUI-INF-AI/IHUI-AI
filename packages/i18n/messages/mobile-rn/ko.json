@@ -316,7 +316,11 @@
     "googleNotConfigured": "Google 로그인 미설정. .env 에 EXPO_PUBLIC_GOOGLE_CLIENT_ID 를 설정하세요.",
     "sdkPending": "{name} 로그인은 웹에서만 가능합니다. 모바일에는 네이티브 SDK가 미통합입니다.\n“智汇AI 웹 인증 로그인” 버튼으로 웹 인증으로 이동할 수 있습니다.",
     "agree": "동의",
-    "agreeTermsTitle": "서비스 약관 동의 확인"
+    "agreeTermsTitle": "서비스 약관 동의 확인",
+    "carrierNotConfigured": "통신사 원클릭 로그인 미설정, 문자 인증 로그인으로 전환했습니다",
+    "carrierOneClick": "이 번호 원클릭 로그인",
+    "carrierLaunching": "통신사 인증 실행 중...",
+    "closeCarrier": "통신사 로그인 닫기"
   },
   "loginCountry": {
     "cn": "중국",
@@ -1177,7 +1181,8 @@
     "loadMore": "더 불러오기",
     "user": "사용자",
     "retryShort": "재시도",
-    "known": "확인"
+    "known": "확인",
+    "success": "성공"
   },
   "network": {
     "offline": "네트워크가 연결되지 않아 일부 기능을 사용할 수 없습니다",
@@ -4401,7 +4406,45 @@
       "schedule": "예약 작업"
     },
     "knowledgeCards": "지식 카드",
-    "knowledgePlanet": "지식 플래닛"
+    "knowledgePlanet": "지식 플래닛",
+    "news": "뉴스",
+    "learnTopic": "주제 강의",
+    "kbSearch": "지식 검색",
+    "skillsMarketHome": "스킬 광장",
+    "aiGeneration": "AI 생성",
+    "videoTasks": "동영상 작업",
+    "chatFavorites": "대화 즐겨찾기",
+    "cardFavorites": "명함 즐겨찾기",
+    "chatSettings": "대화 설정",
+    "searchHistory": "검색 기록",
+    "agentPlan": "에이전트 계획",
+    "agentPlanProgress": "계획 진행",
+    "myAgents": "내 에이전트",
+    "subagentDetail": "서브에이전트 상세",
+    "subagentDispatch": "새 파견",
+    "agentSecurity": "에이전트 보안",
+    "modelRecord": "모델 비안",
+    "examSignUps": "시험 신청",
+    "buyConfirm": "구매 확인",
+    "distributionWithdrawRecords": "分销 출금 기록",
+    "pluginMarket": "플러그인 마켓",
+    "skillsMarket": "스킬 마켓",
+    "memoryManager": "메모리 관리대",
+    "agentRules": "실행 규칙",
+    "publishMonitor": "발행 모니터링",
+    "dramaStudio": "드라마 대본",
+    "myResources": "내 자료",
+    "mySignUps": "내 신청",
+    "certificateDownload": "수료증 다운로드",
+    "marginWallet": "예치금 지갑",
+    "withdrawRecords": "출금 기록",
+    "cloudRuns": "클라우드 에이전트 실행 기록",
+    "mediaTasks": "미디어 작업",
+    "voices": "음성 리소스",
+    "webTools": "웹 도구",
+    "letters": "쪽지",
+    "invitations": "초대 관리",
+    "eduPoints": "교육 포인트"
   },
   "knowledgePlanet": {
     "title": "지식 플래닛",
@@ -5755,7 +5798,8 @@
     "rebind": "재연결",
     "bind": "연결",
     "saveA11y": "정보 저장",
-    "logoutA11y": "로그아웃"
+    "logoutA11y": "로그아웃",
+    "oneLoginFail": "통신사 원클릭 실패, 직접 입력"
   },
   "need": {
     "titleRequired": "제목 입력",
@@ -6749,5 +6793,39 @@
     "currentBundle": "현재 실행 중: {{bundle}}",
     "bundleEmbedded": "내장 패키지",
     "bundleOta": "핫 업데이트"
+  },
+  "setting": {
+    "operationFailed": "작업 실패"
+  },
+  "message": {
+    "deleted": "삭제됨"
+  },
+  "legal": {
+    "title": "법적 정보",
+    "serviceSpecificTerms": {
+      "title": "서비스별 약관",
+      "lastUpdated": "최종 업데이트"
+    },
+    "supportedRegions": {
+      "title": "지원 국가 및 지역",
+      "lastUpdated": "최종 업데이트",
+      "intro": "서비스 이용 가능 범위는 국가 또는 지역의 현지 법규에 따라 다를 수 있습니다. 자세한 내용은 다음과 같습니다.",
+      "supportedTitle": "지원 지역",
+      "restrictedTitle": "제한 지역",
+      "restrictedIntro": "다음 지역의 사용자는 본 서비스의 전부 또는 일부를 이용하지 못할 수 있습니다.",
+      "paymentTitle": "결제 방식",
+      "paymentIntro": "지원하는 결제 방식은 지역에 따라 다를 수 있습니다.",
+      "languageTitle": "인터페이스 언어",
+      "languageIntro": "본 서비스는 여러 인터페이스 언어를 지원하며, 실제 표시 언어는 지역에 따라 다를 수 있습니다."
+    },
+    "terms": {
+      "title": "서비스 약관",
+      "lastUpdated": "최종 업데이트"
+    },
+    "usagePolicy": {
+      "title": "사용 정책",
+      "lastUpdated": "최종 업데이트"
+    },
+    "backToHome": "홈으로"
   }
 }

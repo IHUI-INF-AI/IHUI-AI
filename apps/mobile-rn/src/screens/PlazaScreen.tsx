@@ -68,7 +68,7 @@ import { rpx } from '../utils/rpx'
 import { Search, User, FolderOpen, X } from 'lucide-react-native'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 
-import { rnRadius, rnRadiusFor, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnType, rnCssLight } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
   // 需求赛道筛选弹层样式(圆角守门:仅 8/12)
   categoryMask: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: rnCssLight.black50,
     alignItems: 'center',
     justifyContent: 'center',
     padding: rpx(48),

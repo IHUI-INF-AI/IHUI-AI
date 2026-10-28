@@ -17,9 +17,59 @@
       "miniapp": "pkg-user/account-pool/index"
     },
     {
+      "shared": "packages/app/src/features/activity-detail/ActivityDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ActivityDetailScreen.tsx",
+      "miniapp": "pkg-content/activity-detail-shared/index"
+    },
+    {
       "shared": "packages/app/src/features/activity/ActivityScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ActivityScreen.tsx",
       "miniapp": "pkg-content/activity/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-chat/AgentChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentChatScreen.tsx",
+      "miniapp": "pkg-user/agent-chat/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-create/AgentCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentCreateScreen.tsx",
+      "miniapp": "pkg-user/agent-create/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-detail/AgentDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentDetailScreen.tsx",
+      "miniapp": "pkg-ai/ai/agent-detail"
+    },
+    {
+      "shared": "packages/app/src/features/agent-market/AgentMarketScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentMarketScreen.tsx",
+      "miniapp": "pkg-user/agent-market/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-review-list/AgentReviewListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentReviewListScreen.tsx",
+      "miniapp": "pkg-user/agent-review-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-screen/AgentScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentScreen.tsx",
+      "miniapp": "pkg-ai/ai/agent"
+    },
+    {
+      "shared": "packages/app/src/features/agent-setting/AgentSettingScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentSettingScreen.tsx",
+      "miniapp": "pkg-user/agent-setting/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-stat/AgentStatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentStatScreen.tsx",
+      "miniapp": "pkg-user/agent-stat/index"
+    },
+    {
+      "shared": "packages/app/src/features/agreement/AgreementScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgreementScreen.tsx",
+      "miniapp": "pkg-about/about/agreement/index"
     },
     {
       "shared": "packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx",
@@ -42,6 +92,11 @@
       "miniapp": "pkg-ai/ai-group/index"
     },
     {
+      "shared": "packages/app/src/features/ai-multimodal/AIMultimodalScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AIMultimodalScreen.tsx",
+      "miniapp": "pkg-user/ai-multimodal/index"
+    },
+    {
       "shared": "packages/app/src/features/ai-skill/AiSkillDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AiSkillDetailScreen.tsx",
       "miniapp": "pkg-ai/ai-skill/detail/index"
@@ -50,6 +105,31 @@
       "shared": "packages/app/src/features/ai-skill/AiSkillScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AiSkillScreen.tsx",
       "miniapp": "pkg-ai/ai-skill/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-world/AiWorldCollectionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiWorldFavoritesScreen.tsx",
+      "miniapp": "pkg-user/ai-world-collection/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-world/AiWorldDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiWorldDetailScreen.tsx",
+      "miniapp": "pkg-mirror2/ai-world-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-world/AiWorldEditScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiWorldEditScreen.tsx",
+      "miniapp": "pkg-mirror2/ai-world-edit/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-world/AiWorldScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiWorldScreen.tsx",
+      "miniapp": "pkg-user/ai-world/index"
+    },
+    {
+      "shared": "packages/app/src/features/aigc-cover/AigcCoverScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AigcCoverScreen.tsx",
+      "miniapp": "pkg-user/aigc-cover/index"
     },
     {
       "shared": "packages/app/src/features/aigc-list/AigcListScreen.tsx",
@@ -70,6 +150,21 @@
       "shared": "packages/app/src/features/announcement/AnnouncementScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AnnouncementScreen.tsx",
       "miniapp": "pkg-content/announcement/index"
+    },
+    {
+      "shared": "packages/app/src/features/api-settings/ApiSettingsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ApiSettingsScreen.tsx",
+      "miniapp": "pkg-about/about/api-settings/index"
+    },
+    {
+      "shared": "packages/app/src/features/app-permission/AppPermissionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AppPermissionScreen.tsx",
+      "miniapp": "pkg-about/about/app-permission/index"
+    },
+    {
+      "shared": "packages/app/src/features/app-topup/AppTopupScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AppTopupScreen.tsx",
+      "miniapp": "pkg-shop/wallet/recharge/index"
     },
     {
       "shared": "packages/app/src/features/article-detail/ArticleDetailScreen.tsx",
@@ -97,9 +192,34 @@
       "miniapp": "pages/ask/list"
     },
     {
+      "shared": "packages/app/src/features/assistant/AssistantScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AssistantScreen.tsx",
+      "miniapp": "pkg-user/assistant/index"
+    },
+    {
+      "shared": "packages/app/src/features/automations/AutomationsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AutomationsScreen.tsx",
+      "miniapp": "pkg-user/automations/index"
+    },
+    {
+      "shared": "packages/app/src/features/bank-card/BankCardScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/BankCardScreen.tsx",
+      "miniapp": "pkg-user/bank-card/index"
+    },
+    {
+      "shared": "packages/app/src/features/bookmark/BookmarkScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/BookmarkScreen.tsx",
+      "miniapp": "pkg-user/bookmark/index"
+    },
+    {
       "shared": "packages/app/src/features/business-card/BusinessCardScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/BusinessCardScreen.tsx",
       "miniapp": "pkg-ai/business-card/index"
+    },
+    {
+      "shared": "packages/app/src/features/business-license/BusinessLicenseScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/BusinessLicenseScreen.tsx",
+      "miniapp": "pkg-about/about/business-license/index"
     },
     {
       "shared": "packages/app/src/features/cart/CartScreen.tsx",
@@ -117,9 +237,59 @@
       "miniapp": "pkg-content/category-detail/index"
     },
     {
+      "shared": "packages/app/src/features/cert-apply/CertApplyScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertApplyScreen.tsx",
+      "miniapp": "pkg-user/cert-apply/index"
+    },
+    {
+      "shared": "packages/app/src/features/cert-detail/CertDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertDetailScreen.tsx",
+      "miniapp": "pkg-user/cert-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/cert-list/CertListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertListScreen.tsx",
+      "miniapp": "pkg-user/cert-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/cert-verify/CertVerifyScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertVerifyScreen.tsx",
+      "miniapp": "pkg-user/cert-verify/index"
+    },
+    {
+      "shared": "packages/app/src/features/certificate/CertificateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertListScreen.tsx",
+      "miniapp": "pkg-user/certificate/index"
+    },
+    {
+      "shared": "packages/app/src/features/change-phone/ChangePhoneScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ChangePhoneScreen.tsx",
+      "miniapp": "pkg-user/user/phone"
+    },
+    {
+      "shared": "packages/app/src/features/change-pwd/ChangePwdScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ChangePwdScreen.tsx",
+      "miniapp": "pkg-user/user/password"
+    },
+    {
+      "shared": "packages/app/src/features/chat-room/ChatRoomScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AssistantScreen.tsx",
+      "miniapp": "pkg-ai/agent-dialogue/index"
+    },
+    {
+      "shared": "packages/app/src/features/chat/ChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+      "miniapp": "pkg-ai/ai/chat"
+    },
+    {
       "shared": "packages/app/src/features/check-in/CheckInScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CheckInScreen.tsx",
       "miniapp": "pkg-user/check-in/index"
+    },
+    {
+      "shared": "packages/app/src/features/circle-chat/CircleChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CircleChatScreen.tsx",
+      "miniapp": "pkg-user/circle-chat/index"
     },
     {
       "shared": "packages/app/src/features/circle-create/CircleCreateScreen.tsx",
@@ -132,14 +302,104 @@
       "miniapp": "pages/circle/detail"
     },
     {
+      "shared": "packages/app/src/features/circle-member/CircleMemberScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CircleMemberScreen.tsx",
+      "miniapp": "pkg-user/circle-member/index"
+    },
+    {
+      "shared": "packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ConnectedAccountsScreen.tsx",
+      "miniapp": "pkg-user/connected-accounts/index"
+    },
+    {
+      "shared": "packages/app/src/features/connectors/ConnectorsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ConnectorsScreen.tsx",
+      "miniapp": "pkg-user/connectors/index"
+    },
+    {
+      "shared": "packages/app/src/features/context/ContextScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ContextScreen.tsx",
+      "miniapp": "pkg-user/context/index"
+    },
+    {
+      "shared": "packages/app/src/features/conversation-import/ConversationImportScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ConversationImportScreen.tsx",
+      "miniapp": "pkg-ai/ai/conversation-import"
+    },
+    {
+      "shared": "packages/app/src/features/coupon/CouponScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CouponScreen.tsx",
+      "miniapp": "pages/member/coupon"
+    },
+    {
+      "shared": "packages/app/src/features/course-annex/CourseAnnexScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseAnnexScreen.tsx",
+      "miniapp": "pkg-user/course-annex/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-catalog/CourseCatalogScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseCatalogScreen.tsx",
+      "miniapp": "pkg-mirror/course-catalog/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-chapter/CourseChapterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseChapterScreen.tsx",
+      "miniapp": "pkg-mirror/course-chapter/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-comment/CourseCommentScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseCommentScreen.tsx",
+      "miniapp": "pkg-mirror/course-comment/index"
+    },
+    {
       "shared": "packages/app/src/features/course-detail/CourseDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CourseDetailScreen.tsx",
       "miniapp": "pkg-learn/course/detail"
     },
     {
+      "shared": "packages/app/src/features/course-enroll/CourseEnrollScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseEnrollScreen.tsx",
+      "miniapp": "pkg-mirror/course-enroll/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-filter/CourseFilterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseFilterScreen.tsx",
+      "miniapp": "pkg-mirror/course-filter/index"
+    },
+    {
       "shared": "packages/app/src/features/course-planet/CoursePlanetScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CarteScreen.tsx",
       "miniapp": "pkg-learn/course-planet/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-qa-ask/CourseQAAskScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseQAAskScreen.tsx",
+      "miniapp": "pkg-mirror/course-qa-ask/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-qa-list/CourseQAListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseQAListScreen.tsx",
+      "miniapp": "pkg-mirror/course-qa-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-resource/CourseResourceScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseResourceScreen.tsx",
+      "miniapp": "pkg-mirror/course-resource/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-screen/CourseScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseScreen.tsx",
+      "miniapp": "pkg-mirror/course/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-tab/CourseTabScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseScreen.tsx",
+      "miniapp": "pkg-learn/course/list"
+    },
+    {
+      "shared": "packages/app/src/features/customer-service/CustomerServiceScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CustomerServiceScreen.tsx",
+      "miniapp": "pkg-mirror/customer-service/index"
     },
     {
       "shared": "packages/app/src/features/dev-enter-cover/DevEnterCoverScreen.tsx",
@@ -162,9 +422,44 @@
       "miniapp": "pages/distribution/index"
     },
     {
+      "shared": "packages/app/src/features/earn-commission/EarnCommissionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/EarnCommissionScreen.tsx",
+      "miniapp": "pages/distribution/plan/index"
+    },
+    {
+      "shared": "packages/app/src/features/edu-ai/EduAiHubScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/EduAiHubScreen.tsx",
+      "miniapp": "pkg-mirror2/edu-ai-hub/index"
+    },
+    {
+      "shared": "packages/app/src/features/edu-ai/EduAiVideoComposeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/EduAiVideoComposeScreen.tsx",
+      "miniapp": "pkg-mirror2/edu-ai-video-compose/index"
+    },
+    {
+      "shared": "packages/app/src/features/edu-shop/EduShopScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/EduShopScreen.tsx",
+      "miniapp": "pkg-shop/edu-shop/index"
+    },
+    {
+      "shared": "packages/app/src/features/exam-history/ExamHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentMarketScreen.tsx",
+      "miniapp": "pkg-mirror/exam-history/index"
+    },
+    {
+      "shared": "packages/app/src/features/exam-question/ExamQuestionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ExamQuestionScreen.tsx",
+      "miniapp": "pages/exam/answer"
+    },
+    {
       "shared": "packages/app/src/features/exam-result/ExamResultScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ExamResultScreen.tsx",
       "miniapp": "pages/exam/result"
+    },
+    {
+      "shared": "packages/app/src/features/exam/ExamScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ExamScreen.tsx",
+      "miniapp": "pages/exam/list"
     },
     {
       "shared": "packages/app/src/features/favorite/FavoriteScreen.tsx",
@@ -172,14 +467,109 @@
       "miniapp": "pkg-user/favorites/index"
     },
     {
+      "shared": "packages/app/src/features/favorites/FavoritesScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/FavoritesScreen.tsx",
+      "miniapp": "pkg-mirror/favorites/index"
+    },
+    {
+      "shared": "packages/app/src/features/feedback-detail/FeedbackDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/FeedbackDetailScreen.tsx",
+      "miniapp": "pkg-mirror/feedback-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/feedback/FeedbackHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/FeedbackHistoryScreen.tsx",
+      "miniapp": "pkg-mirror/feedback-history/index"
+    },
+    {
+      "shared": "packages/app/src/features/feedback/FeedbackScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/FeedbackScreen.tsx",
+      "miniapp": "pkg-user/user/feedback"
+    },
+    {
       "shared": "packages/app/src/features/follow/FollowScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/FollowScreen.tsx",
       "miniapp": "pkg-user/following/index"
     },
     {
+      "shared": "packages/app/src/features/help/HelpScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/HelpScreen.tsx",
+      "miniapp": "pkg-about/about/help"
+    },
+    {
+      "shared": "packages/app/src/features/history/HistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentMarketScreen.tsx",
+      "miniapp": "pkg-mirror/history/index"
+    },
+    {
+      "shared": "packages/app/src/features/home/HomeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentScreen.tsx",
+      "miniapp": "pkg-mirror2/home/index"
+    },
+    {
+      "shared": "packages/app/src/features/icp-record/IcpRecordScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/IcpRecordScreen.tsx",
+      "miniapp": "pkg-about/about/icp-record/index"
+    },
+    {
+      "shared": "packages/app/src/features/identity-verify/IdentityVerifyScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/IdentityVerifyScreen.tsx",
+      "miniapp": "pkg-user/user/realname"
+    },
+    {
+      "shared": "packages/app/src/features/image-gen-gallery/ImageGenGalleryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ImageGenGalleryScreen.tsx",
+      "miniapp": "pkg-mirror/image-gen-gallery/index"
+    },
+    {
+      "shared": "packages/app/src/features/image-gen-history/ImageGenHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ImageGenGalleryScreen.tsx",
+      "miniapp": "pkg-mirror/image-gen-history/index"
+    },
+    {
+      "shared": "packages/app/src/features/image-gen-templates/ImageGenTemplatesScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ImageGenTemplatesScreen.tsx",
+      "miniapp": "pkg-mirror/image-gen-templates/index"
+    },
+    {
+      "shared": "packages/app/src/features/income/IncomeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/IncomeScreen.tsx",
+      "miniapp": "pkg-shop/wallet/commission/index"
+    },
+    {
+      "shared": "packages/app/src/features/invite/InviteScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/InviteScreen.tsx",
+      "miniapp": "pkg-mirror/invite/index"
+    },
+    {
+      "shared": "packages/app/src/features/knowledge-base/KnowledgeBaseScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeBaseScreen.tsx",
+      "miniapp": "pkg-mirror/knowledge-base/index"
+    },
+    {
+      "shared": "packages/app/src/features/knowledge-base/KnowledgeCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeCreateScreen.tsx",
+      "miniapp": "pkg-mirror/knowledge-create/index"
+    },
+    {
+      "shared": "packages/app/src/features/knowledge-base/KnowledgeDocScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeDocScreen.tsx",
+      "miniapp": "pkg-mirror/knowledge-doc/index"
+    },
+    {
+      "shared": "packages/app/src/features/knowledge-planet/KnowledgePlanetScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/KnowledgePlanetScreen.tsx",
+      "miniapp": "pkg-user/knowledge-planet/index"
+    },
+    {
       "shared": "packages/app/src/features/learn-develop/LearnDevelopScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/LearnDevelopScreen.tsx",
       "miniapp": "pkg-learn/learn-develop/index"
+    },
+    {
+      "shared": "packages/app/src/features/learn/LearnScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseScreen.tsx",
+      "miniapp": "pkg-learn/learn/index"
     },
     {
       "shared": "packages/app/src/features/lecturer-detail/LecturerDetailScreen.tsx",
@@ -190,6 +580,16 @@
       "shared": "packages/app/src/features/lecturer-list/LecturerListScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/TeacherListScreen.tsx",
       "miniapp": "pkg-learn/teacher/list"
+    },
+    {
+      "shared": "packages/app/src/features/legal-doc/LegalDocsHubScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LegalDocScreen.tsx",
+      "miniapp": "pkg-user/legal-docs-hub/index"
+    },
+    {
+      "shared": "packages/app/src/features/live-chat/LiveChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LiveChatScreen.tsx",
+      "miniapp": "pkg-mirror/live-chat/index"
     },
     {
       "shared": "packages/app/src/features/live-detail/LiveDetailScreen.tsx",
@@ -207,9 +607,74 @@
       "miniapp": "pkg-learn/live/list"
     },
     {
+      "shared": "packages/app/src/features/live-playback-screen/LivePlaybackScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LivePlaybackScreen.tsx",
+      "miniapp": "pkg-mirror/live-playback/index"
+    },
+    {
+      "shared": "packages/app/src/features/live-playback/LivePlaybackListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LivePlaybackListScreen.tsx",
+      "miniapp": "pkg-learn/live/history"
+    },
+    {
+      "shared": "packages/app/src/features/live-preview/LivePreviewScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LivePreviewScreen.tsx",
+      "miniapp": "pkg-mirror/live-preview/index"
+    },
+    {
+      "shared": "packages/app/src/features/live/LiveScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LiveScreen.tsx",
+      "miniapp": "pkg-learn/live/index"
+    },
+    {
+      "shared": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LlmSettingsScreen.tsx",
+      "miniapp": "pkg-user/llm-settings/index"
+    },
+    {
+      "shared": "packages/app/src/features/memory/MemoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MemoryScreen.tsx",
+      "miniapp": "pkg-mirror2/memory/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-center/MessageCenterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageCenterScreen.tsx",
+      "miniapp": "pkg-user/message/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-chat/MessageChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageChatScreen.tsx",
+      "miniapp": "pkg-mirror2/message-chat/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-detail/MessageDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageDetailScreen.tsx",
+      "miniapp": "pkg-mirror/message-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-direct/MessageDirectScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageDirectScreen.tsx",
+      "miniapp": "pkg-mirror/message-direct/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-group/MessageGroupScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageGroupScreen.tsx",
+      "miniapp": "pkg-mirror/message-group/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-system/MessageSystemScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageSystemScreen.tsx",
+      "miniapp": "pkg-mirror/message-system/index"
+    },
+    {
       "shared": "packages/app/src/features/model-edit/ModelEditScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ModelEditScreen.tsx",
       "miniapp": "pkg-ai/dev-enter/model-edit/index"
+    },
+    {
+      "shared": "packages/app/src/features/model-income/ModelIncomeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ModelIncomeScreen.tsx",
+      "miniapp": "pkg-ai/developer/income"
     },
     {
       "shared": "packages/app/src/features/model-plaza/ModelPlazaScreen.tsx",
@@ -217,9 +682,49 @@
       "miniapp": "pkg-ai/model-plaza/index"
     },
     {
+      "shared": "packages/app/src/features/model-record/ModelRecordScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ModelRecordScreen.tsx",
+      "miniapp": "pkg-about/about/model-record/index"
+    },
+    {
+      "shared": "packages/app/src/features/more-course/MoreCourseScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MoreCourseScreen.tsx",
+      "miniapp": "pkg-mirror2/more-course/index"
+    },
+    {
+      "shared": "packages/app/src/features/n8n-model/N8nModelScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/N8nModelScreen.tsx",
+      "miniapp": "pkg-ai/dev-enter/n8n-model/index"
+    },
+    {
+      "shared": "packages/app/src/features/note-create/NoteCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NoteCreateScreen.tsx",
+      "miniapp": "pkg-mirror/note-create/index"
+    },
+    {
+      "shared": "packages/app/src/features/note-detail/NoteDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NoteDetailScreen.tsx",
+      "miniapp": "pkg-mirror/note-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/note-list/NoteListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NoteListScreen.tsx",
+      "miniapp": "pkg-mirror3/note-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/note/NoteScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NoteScreen.tsx",
+      "miniapp": "pkg-mirror3/note/index"
+    },
+    {
       "shared": "packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/NotificationSettingsScreen.tsx",
       "miniapp": "pages/setting/notification"
+    },
+    {
+      "shared": "packages/app/src/features/notification/NotificationListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NotificationListScreen.tsx",
+      "miniapp": "pages/setting/notification-list/index"
     },
     {
       "shared": "packages/app/src/features/order-detail/OrderDetailScreen.tsx",
@@ -227,14 +732,49 @@
       "miniapp": "pkg-shop/order/detail"
     },
     {
+      "shared": "packages/app/src/features/order-log/OrderLogScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/OrderLogScreen.tsx",
+      "miniapp": "pkg-mirror3/order-log/index"
+    },
+    {
       "shared": "packages/app/src/features/order-refund/OrderRefundScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/OrderRefundScreen.tsx",
       "miniapp": "pkg-shop/order/refund"
     },
     {
+      "shared": "packages/app/src/features/order-track/OrderTrackScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/OrderTrackScreen.tsx",
+      "miniapp": "pkg-mirror3/order-track/index"
+    },
+    {
+      "shared": "packages/app/src/features/order/OrderScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/OrderScreen.tsx",
+      "miniapp": "pkg-shop/order/list"
+    },
+    {
       "shared": "packages/app/src/features/pay-result/PayResultScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/PayResultScreen.tsx",
       "miniapp": "pkg-shop/pay/result/index"
+    },
+    {
+      "shared": "packages/app/src/features/payment/PaymentScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CartScreen.tsx",
+      "miniapp": "pkg-mirror3/payment/index"
+    },
+    {
+      "shared": "packages/app/src/features/plan/PlanDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PlanDetailScreen.tsx",
+      "miniapp": "pages/distribution/plan-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/plan/PlanFormScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PlanNewScreen.tsx",
+      "miniapp": "pages/distribution/plan-form/index"
+    },
+    {
+      "shared": "packages/app/src/features/plan/PlanListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PlanScreen.tsx",
+      "miniapp": "pages/distribution/plan-list/index"
     },
     {
       "shared": "packages/app/src/features/plaza-cover/PlazaCoverScreen.tsx",
@@ -247,6 +787,31 @@
       "miniapp": "pages/plaza/index/index"
     },
     {
+      "shared": "packages/app/src/features/point-history/PointHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointHistoryScreen.tsx",
+      "miniapp": "pages/member/integral"
+    },
+    {
+      "shared": "packages/app/src/features/point-rule/PointRuleScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointRuleScreen.tsx",
+      "miniapp": "pkg-mirror3/point-rule/index"
+    },
+    {
+      "shared": "packages/app/src/features/points-mall/PointsMallScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointsMallScreen.tsx",
+      "miniapp": "pkg-mirror3/points-mall/index"
+    },
+    {
+      "shared": "packages/app/src/features/points-record/PointsRecordScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointsRecordScreen.tsx",
+      "miniapp": "pkg-mirror3/points-record/index"
+    },
+    {
+      "shared": "packages/app/src/features/points/PointsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointsScreen.tsx",
+      "miniapp": "pkg-mirror3/points/index"
+    },
+    {
       "shared": "packages/app/src/features/post-create/PostCreateScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/PostCreateScreen.tsx",
       "miniapp": "pkg-content/community/create/index"
@@ -255,6 +820,41 @@
       "shared": "packages/app/src/features/post-detail/PostDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/PostDetailScreen.tsx",
       "miniapp": "pkg-content/plaza/detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/privacy/PrivacyScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PrivacyScreen.tsx",
+      "miniapp": "pkg-about/about/privacy"
+    },
+    {
+      "shared": "packages/app/src/features/profile-edit/ProfileEditScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ProfileEditScreen.tsx",
+      "miniapp": "pkg-mirror3/profile-edit/index"
+    },
+    {
+      "shared": "packages/app/src/features/profile/ProfileScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ProfileScreen.tsx",
+      "miniapp": "pkg-user/user/profile"
+    },
+    {
+      "shared": "packages/app/src/features/promote/PromoteScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PromoteScreen.tsx",
+      "miniapp": "pkg-mirror3/promote/index"
+    },
+    {
+      "shared": "packages/app/src/features/promotion/PromotionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PromotionScreen.tsx",
+      "miniapp": "pkg-mirror3/promotion/index"
+    },
+    {
+      "shared": "packages/app/src/features/publish/PublishScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PublishScreen.tsx",
+      "miniapp": "pkg-mirror/publish/index"
+    },
+    {
+      "shared": "packages/app/src/features/qr-code/QrCodeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/QrCodeScreen.tsx",
+      "miniapp": "pkg-mirror3/qr-code/index"
     },
     {
       "shared": "packages/app/src/features/ranking-detail/RankingDetailScreen.tsx",
@@ -267,9 +867,34 @@
       "miniapp": "pkg-ai/ranking/index"
     },
     {
+      "shared": "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/IdentityVerifyScreen.tsx",
+      "miniapp": "pkg-mirror3/real-name-auth/index"
+    },
+    {
+      "shared": "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RealNameAuthScreen.tsx",
+      "miniapp": "pkg-user/user/realname"
+    },
+    {
       "shared": "packages/app/src/features/recruitment/RecruitmentScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/RecruitmentScreen.tsx",
       "miniapp": "pkg-content/recruitment/index/index"
+    },
+    {
+      "shared": "packages/app/src/features/referrer/ReferrerScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ReferrerScreen.tsx",
+      "miniapp": "pkg-mirror3/referrer/index"
+    },
+    {
+      "shared": "packages/app/src/features/refund-detail/RefundDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RefundDetailScreen.tsx",
+      "miniapp": "pkg-mirror3/refund-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/refund-history/RefundHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RefundHistoryScreen.tsx",
+      "miniapp": "pkg-shop/order/refund-list"
     },
     {
       "shared": "packages/app/src/features/register/RegisterScreen.tsx",
@@ -282,9 +907,24 @@
       "miniapp": "pkg-content/search/index"
     },
     {
+      "shared": "packages/app/src/features/security-settings/SecuritySettingsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SecuritySettingsScreen.tsx",
+      "miniapp": "pkg-mirror3/security-settings/index"
+    },
+    {
+      "shared": "packages/app/src/features/self-media/SelfMediaScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SelfMediaScreen.tsx",
+      "miniapp": "pkg-mirror3/self-media/index"
+    },
+    {
       "shared": "packages/app/src/features/set-need/SetNeedScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/SetNeedScreen.tsx",
       "miniapp": "pkg-content/plaza/set-need/index"
+    },
+    {
+      "shared": "packages/app/src/features/settings-account/SettingsAccountScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SettingsAccountScreen.tsx",
+      "miniapp": "pkg-mirror3/settings-account/index"
     },
     {
       "shared": "packages/app/src/features/settings/SettingsScreen.tsx",
@@ -297,9 +937,59 @@
       "miniapp": "pages/share/index"
     },
     {
+      "shared": "packages/app/src/features/spec/SpecScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SpecScreen.tsx",
+      "miniapp": "pkg-mirror3/spec/index"
+    },
+    {
+      "shared": "packages/app/src/features/square/SquareScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NewsScreen.tsx",
+      "miniapp": "pkg-user/square/index"
+    },
+    {
+      "shared": "packages/app/src/features/status/StatusScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StatusScreen.tsx",
+      "miniapp": "pkg-mirror3/status/index"
+    },
+    {
+      "shared": "packages/app/src/features/student/MyCommentsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MyCommentsScreen.tsx",
+      "miniapp": "pkg-mirror2/my-comments/index"
+    },
+    {
+      "shared": "packages/app/src/features/student/MyLessonsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MyLessonsScreen.tsx",
+      "miniapp": "pkg-mirror2/my-lessons/index"
+    },
+    {
+      "shared": "packages/app/src/features/student/MyResourcesScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MyResourcesScreen.tsx",
+      "miniapp": "pkg-mirror2/my-resources/index"
+    },
+    {
+      "shared": "packages/app/src/features/student/OfflineRecordsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/OfflineRecordsScreen.tsx",
+      "miniapp": "pkg-mirror2/offline-records/index"
+    },
+    {
+      "shared": "packages/app/src/features/student/StudentCenterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StudentCenterScreen.tsx",
+      "miniapp": "pkg-mirror3/student-center/index"
+    },
+    {
+      "shared": "packages/app/src/features/study-index/StudyIndexScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StudyIndexScreen.tsx",
+      "miniapp": "pages/study/index"
+    },
+    {
       "shared": "packages/app/src/features/study-plan/StudyPlanScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/StudyPlanScreen.tsx",
       "miniapp": "pages/study/plan"
+    },
+    {
+      "shared": "packages/app/src/features/study-progress/StudyProgressScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StudyProgressScreen.tsx",
+      "miniapp": "pkg-mirror3/study-progress/index"
     },
     {
       "shared": "packages/app/src/features/study-publish/StudyPublishScreen.tsx",
@@ -312,9 +1002,29 @@
       "miniapp": "pages/study/record"
     },
     {
+      "shared": "packages/app/src/features/sub-package-index/SubPackageIndexScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SubPackageIndexScreen.tsx",
+      "miniapp": "pkg-user/sub-package-index/index"
+    },
+    {
       "shared": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/SubscriptionsScreen.tsx",
       "miniapp": "pkg-user/subscriptions/index"
+    },
+    {
+      "shared": "packages/app/src/features/support/SupportScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SupportScreen.tsx",
+      "miniapp": "pkg-user/support/index"
+    },
+    {
+      "shared": "packages/app/src/features/tags/TagDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TagDetailScreen.tsx",
+      "miniapp": "pkg-user/tag-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/tags/TagsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TagsScreen.tsx",
+      "miniapp": "pkg-user/tags/index"
     },
     {
       "shared": "packages/app/src/features/task-center/TaskCenterScreen.tsx",
@@ -322,9 +1032,34 @@
       "miniapp": "pkg-user/task-center/index"
     },
     {
+      "shared": "packages/app/src/features/team-detail/TeamDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeamDetailScreen.tsx",
+      "miniapp": "pkg-mirror3/team-detail/index"
+    },
+    {
       "shared": "packages/app/src/features/team/TeamScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/TeamScreen.tsx",
       "miniapp": "pages/distribution/company/index"
+    },
+    {
+      "shared": "packages/app/src/features/teams/TeamWorkspaceScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeamWorkspaceScreen.tsx",
+      "miniapp": "pkg-user/team-workspace/index"
+    },
+    {
+      "shared": "packages/app/src/features/teams/TeamsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeamsScreen.tsx",
+      "miniapp": "pkg-user/teams/index"
+    },
+    {
+      "shared": "packages/app/src/features/token-value/TokenValueScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TokenValueScreen.tsx",
+      "miniapp": "pkg-shop/token/balance"
+    },
+    {
+      "shared": "packages/app/src/features/tools/ToolsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ToolsScreen.tsx",
+      "miniapp": "pkg-user/tools/index"
     },
     {
       "shared": "packages/app/src/features/topic-detail/TopicDetailScreen.tsx",
@@ -332,14 +1067,54 @@
       "miniapp": "pkg-content/topic/detail"
     },
     {
+      "shared": "packages/app/src/features/topup-fail/TopupFailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TopupFailScreen.tsx",
+      "miniapp": "pkg-mirror3/topup-fail/index"
+    },
+    {
+      "shared": "packages/app/src/features/topup-success/TopupSuccessScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TopupSuccessScreen.tsx",
+      "miniapp": "pkg-shop/vip/success"
+    },
+    {
+      "shared": "packages/app/src/features/usage-rules/UsageRulesScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/UsageRulesScreen.tsx",
+      "miniapp": "pkg-about/about/usage-rules/index"
+    },
+    {
+      "shared": "packages/app/src/features/usage/UsageScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointsScreen.tsx",
+      "miniapp": "pkg-mirror3/usage/index"
+    },
+    {
       "shared": "packages/app/src/features/user-fans/UserFansScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/UserFansScreen.tsx",
       "miniapp": "pkg-user/fans/index"
     },
     {
+      "shared": "packages/app/src/features/user-public/UserPublicScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/UserPublicScreen.tsx",
+      "miniapp": "pkg-user/user-public/index"
+    },
+    {
+      "shared": "packages/app/src/features/video-player/VideoPlayerScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VideoPlayerScreen.tsx",
+      "miniapp": "pages/study/video-detail/index"
+    },
+    {
       "shared": "packages/app/src/features/vip-benefit/VipBenefitScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/VipBenefitScreen.tsx",
       "miniapp": "pages/member/benefits"
+    },
+    {
+      "shared": "packages/app/src/features/vip-compare/VipCompareScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VipCompareScreen.tsx",
+      "miniapp": "pkg-shop/vip/details"
+    },
+    {
+      "shared": "packages/app/src/features/vip-level/VipLevelScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VipLevelScreen.tsx",
+      "miniapp": "pkg-mirror3/vip-level/index"
     },
     {
       "shared": "packages/app/src/features/vip-trader/VipTraderScreen.tsx",
@@ -357,134 +1132,39 @@
       "miniapp": "pkg-shop/vip/index"
     },
     {
-      "shared": "packages/app/src/features/user-public/UserPublicScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/UserPublicScreen.tsx",
-      "miniapp": "pkg-user/user-public/index"
+      "shared": "packages/app/src/features/wallet/WalletScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WalletScreen.tsx",
+      "miniapp": "pkg-shop/wallet/index"
     },
     {
-      "shared": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/LlmSettingsScreen.tsx",
-      "miniapp": "pkg-user/llm-settings/index"
+      "shared": "packages/app/src/features/withdraw/WithdrawScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WithdrawScreen.tsx",
+      "miniapp": "pages/distribution/withdraw"
     },
     {
-      "shared": "packages/app/src/features/edu-shop/EduShopScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/EduShopScreen.tsx",
-      "miniapp": "pkg-shop/edu-shop/index"
+      "shared": "packages/app/src/features/workflows/WorkflowDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WorkflowDetailScreen.tsx",
+      "miniapp": "pkg-mirror3/workflow-detail/index"
     },
     {
-      "shared": "packages/app/src/features/business-license/BusinessLicenseScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/BusinessLicenseScreen.tsx",
-      "miniapp": "pkg-about/about/business-license/index"
+      "shared": "packages/app/src/features/workflows/WorkflowInstanceDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WorkflowInstanceDetailScreen.tsx",
+      "miniapp": "pkg-mirror3/workflow-instance-detail/index"
     },
     {
-      "shared": "packages/app/src/features/icp-record/IcpRecordScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/IcpRecordScreen.tsx",
-      "miniapp": "pkg-about/about/icp-record/index"
+      "shared": "packages/app/src/features/workflows/WorkflowListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WorkflowDetailScreen.tsx",
+      "miniapp": "pkg-mirror3/workflow-list/index"
     },
     {
-      "shared": "packages/app/src/features/model-record/ModelRecordScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ModelRecordScreen.tsx",
-      "miniapp": "pkg-about/about/model-record/index"
-    },
-    {
-      "shared": "packages/app/src/features/usage-rules/UsageRulesScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/UsageRulesScreen.tsx",
-      "miniapp": "pkg-about/about/usage-rules/index"
-    },
-    {
-      "shared": "packages/app/src/features/app-permission/AppPermissionScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AppPermissionScreen.tsx",
-      "miniapp": "pkg-about/about/app-permission/index"
-    },
-    {
-      "shared": "packages/app/src/features/api-settings/ApiSettingsScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ApiSettingsScreen.tsx",
-      "miniapp": "pkg-about/about/api-settings/index"
-    },
-    {
-      "shared": "packages/app/src/features/coupon/CouponScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/CouponScreen.tsx",
-      "miniapp": "pages/member/coupon"
-    },
-    {
-      "shared": "packages/app/src/features/study-index/StudyIndexScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/StudyIndexScreen.tsx",
-      "miniapp": "pages/study/index"
-    },
-    {
-      "shared": "packages/app/src/features/agreement/AgreementScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AgreementScreen.tsx",
-      "miniapp": "pkg-about/about/agreement/index"
-    },
-    {
-      "shared": "packages/app/src/features/change-phone/ChangePhoneScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ChangePhoneScreen.tsx",
-      "miniapp": "pkg-user/user/phone"
-    },
-    {
-      "shared": "packages/app/src/features/change-pwd/ChangePwdScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ChangePwdScreen.tsx",
-      "miniapp": "pkg-user/user/password"
-    },
-    {
-      "shared": "packages/app/src/features/help/HelpScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/HelpScreen.tsx",
-      "miniapp": "pkg-about/about/help"
-    },
-    {
-      "shared": "packages/app/src/features/point-history/PointHistoryScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/PointHistoryScreen.tsx",
-      "miniapp": "pages/member/integral"
-    },
-    {
-      "shared": "packages/app/src/features/conversation-import/ConversationImportScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ConversationImportScreen.tsx",
-      "miniapp": "pkg-ai/ai/conversation-import"
-    },
-    {
-      "shared": "packages/app/src/features/exam/ExamScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ExamScreen.tsx",
-      "miniapp": "pages/exam/list"
-    },
-    {
-      "shared": "packages/app/src/features/feedback/FeedbackScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/FeedbackScreen.tsx",
-      "miniapp": "pkg-user/user/feedback"
-    },
-    {
-      "shared": "packages/app/src/features/chat/ChatScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ChatScreen.tsx",
-      "miniapp": "pkg-ai/ai/chat"
-    },
-    {
-      "shared": "packages/app/src/features/n8n-model/N8nModelScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/N8nModelScreen.tsx",
-      "miniapp": "pkg-ai/dev-enter/n8n-model/index"
-    },
-    {
-      "shared": "packages/app/src/features/token-value/TokenValueScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/TokenValueScreen.tsx",
-      "miniapp": "pkg-shop/token/balance"
-    },
-    {
-      "shared": "packages/app/src/features/agent-detail/AgentDetailScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AgentDetailScreen.tsx",
-      "miniapp": "pkg-ai/ai/agent-detail"
+      "shared": "packages/app/src/features/workflows/WorkflowsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WorkflowsScreen.tsx",
+      "miniapp": "pkg-mirror3/workflows/index"
     },
     {
       "shared": "packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/WrongQuestionsScreen.tsx",
       "miniapp": "pages/exam/wrong-list/index"
-    },
-    {
-      "shared": "packages/app/src/features/privacy/PrivacyScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/PrivacyScreen.tsx",
-      "miniapp": "pkg-about/about/privacy"
-    },
-    {
-      "shared": "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/RealNameAuthScreen.tsx",
-      "miniapp": "pkg-user/user/realname"
     }
   ]
 }

@@ -316,7 +316,11 @@
     "googleNotConfigured": "Google 登入未配置，請在 .env 設定 EXPO_PUBLIC_GOOGLE_CLIENT_ID。",
     "sdkPending": "{name} 登入請使用網頁端,移動端暫未集成原生 SDK。\n您也可以使用\"智匯AI網頁授權登入\"按鈕跳轉網頁端授權。",
     "agree": "同意",
-    "agreeTermsTitle": "確認同意服務條款"
+    "agreeTermsTitle": "確認同意服務條款",
+    "carrierNotConfigured": "運營商一鍵登入未配置,已切換到短訊驗證碼登入",
+    "carrierOneClick": "本機號碼一鍵登入",
+    "carrierLaunching": "正在拉起運營商授權...",
+    "closeCarrier": "關閉運營商登入"
   },
   "loginCountry": {
     "cn": "中國",
@@ -1177,7 +1181,8 @@
     "loadMore": "載入更多",
     "user": "用戶",
     "retryShort": "重試",
-    "known": "知道了"
+    "known": "知道了",
+    "success": "成功"
   },
   "network": {
     "offline": "網路已中斷,部分功能不可用",
@@ -4401,7 +4406,45 @@
       "schedule": "定時任務"
     },
     "knowledgeCards": "知識卡片",
-    "knowledgePlanet": "知識星球"
+    "knowledgePlanet": "知識星球",
+    "news": "資訊",
+    "learnTopic": "課程專題",
+    "kbSearch": "知識庫檢索",
+    "skillsMarketHome": "技能廣場",
+    "aiGeneration": "AI 生成",
+    "videoTasks": "視頻任務",
+    "chatFavorites": "對話收藏",
+    "cardFavorites": "名片收藏",
+    "chatSettings": "對話參數",
+    "searchHistory": "搜索歷史",
+    "agentPlan": "智能體計劃",
+    "agentPlanProgress": "計劃進度",
+    "myAgents": "我的智能體",
+    "subagentDetail": "子智能體詳情",
+    "subagentDispatch": "新建派單",
+    "agentSecurity": "智能體安全策略",
+    "modelRecord": "模型備案",
+    "examSignUps": "我的考試報名",
+    "buyConfirm": "課程購買確認",
+    "distributionWithdrawRecords": "分銷提現記錄",
+    "pluginMarket": "插件市場",
+    "skillsMarket": "技能市場",
+    "memoryManager": "記憶管理台",
+    "agentRules": "運行規則",
+    "publishMonitor": "發佈監測",
+    "dramaStudio": "短劇劇本",
+    "myResources": "我的資源",
+    "mySignUps": "我的報名",
+    "certificateDownload": "證書下載",
+    "marginWallet": "保證金錢包",
+    "withdrawRecords": "提現記錄",
+    "cloudRuns": "雲託管執行記錄",
+    "mediaTasks": "媒體任務",
+    "voices": "語音資源",
+    "webTools": "網頁工具",
+    "letters": "站內信",
+    "invitations": "邀請管理",
+    "eduPoints": "教育積分"
   },
   "knowledgePlanet": {
     "title": "知識星球",
@@ -5755,7 +5798,8 @@
     "rebind": "重綁",
     "bind": "綁定",
     "saveA11y": "保存資訊",
-    "logoutA11y": "登出"
+    "logoutA11y": "登出",
+    "oneLoginFail": "運營商一鍵登入失敗，請手動輸入手機號"
   },
   "need": {
     "titleRequired": "請輸入需求標題",
@@ -6566,7 +6610,7 @@
   },
   "toolsPage": {
     "title": "工具中心",
-    "subtitle": "瀏覽並使用平臺提供的各類工具",
+    "subtitle": "瀏覽並使用平台提供的各類工具",
     "empty": "暫無工具",
     "categoryAi": "AI 工具",
     "categoryDev": "開發工具",
@@ -6749,5 +6793,39 @@
     "currentBundle": "目前執行:{{bundle}}",
     "bundleEmbedded": "內建套件",
     "bundleOta": "熱更新"
+  },
+  "setting": {
+    "operationFailed": "操作失敗"
+  },
+  "message": {
+    "deleted": "已刪除"
+  },
+  "legal": {
+    "title": "法律信息",
+    "serviceSpecificTerms": {
+      "title": "服務特定條款",
+      "lastUpdated": "最近更新"
+    },
+    "supportedRegions": {
+      "title": "支援的國家與地區",
+      "lastUpdated": "最近更新",
+      "intro": "我們服務的可用範圍會因所在國家/地區的當地法規而有所不同，詳情如下。",
+      "supportedTitle": "支援的地區",
+      "restrictedTitle": "限制地區",
+      "restrictedIntro": "以下地區的使用者可能無法使用本服務的全部或部分功能。",
+      "paymentTitle": "支付方式",
+      "paymentIntro": "不同地區支援的支付方式可能有所不同。",
+      "languageTitle": "介面語言",
+      "languageIntro": "本服務支援多種介面語言，實際顯示語言可能因您所在地區而異。"
+    },
+    "terms": {
+      "title": "服務條款",
+      "lastUpdated": "最近更新"
+    },
+    "usagePolicy": {
+      "title": "使用政策",
+      "lastUpdated": "最近更新"
+    },
+    "backToHome": "返回首頁"
   }
 }

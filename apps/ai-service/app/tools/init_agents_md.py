@@ -250,7 +250,7 @@ def _detect_convention_docs(root: Path) -> list[tuple[str, str]]:
     if docs_dir.is_dir():
         try:
             md_files = sorted(
-                p.name for p in docs_dir.iterdir() if p.is_file() and p.suffix.lower() == ".md"
+                (p.name for p in docs_dir.iterdir() if p.is_file() and p.suffix.lower() == ".md")
             )
         except OSError:
             md_files = []

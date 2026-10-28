@@ -225,7 +225,7 @@ Readiness 检查项:
 - `stub_mode`:stub 模式也算 ready
 - `litellm_available`:真实模式下检查 litellm 是否可导入
 
-### 3.4 llm Router(`routers/llm.py`,9 端点)
+### 3.4 llm Router(`routers/llm.py`,8 端点)
 
 提供 LLM 直接调用、SSE 流式、MoA 多模型聚合、Vision 视觉分析、Embeddings 向量生成。
 

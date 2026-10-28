@@ -14,7 +14,7 @@ import { cn } from '@ihui/design-tokens'
  * - `SheetProps` 同 RN:`open: boolean` / `onOpenChange?: (open: boolean) => void` / `children?: ReactNode` / `side?: 'bottom' | 'top'`(默认 'bottom')。
  * - 遮罩:`absolute inset-0` + `background: var(--color-black-50)`,点击遮罩关闭(等价 RN `bg-black/50` 的 Pressable)。
  * - 面板:`absolute left-0 right-0 bg-card p-6`,`side==='bottom'` 取 `bottom-0 rounded-t-lg`、`side==='top'` 取 `top-0 rounded-b-lg` —— 与 RN 同组类名、同圆角档。
- * - 拖拽手柄:RN 侧 1.5 档细线,本端等值 `h-[12rpx] w-10 rounded bg-border`(双重视图层由 RN 的 hitSlop 简化为单层可见细线)。
+ * - 拖拽手柄:`h-1_5 w-10 rounded bg-border`(`_d` 形态是刻意的，见本文件末行同款说明；语义 = RN 的 1.5 高档)。
  *
  * 与 RN 的分歧(刻意、gate-clean 优先):
  * - RN 用 `Modal` + `Animated` 滑入 + `PanResponder` 下拉关闭;小程序(Taro/微信)无 Animated Modal 拖拽能力,
@@ -67,7 +67,7 @@ export function Sheet({ open, onOpenChange, children, side = 'bottom' }: SheetPr
         style={{ transform: panelTransform, transition: `transform ${ANIM_DURATION}ms ease` }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 拖拽手柄:单层可见细线(对齐 RN 1.5 档细线;本端 h-[12rpx] w-10 rounded bg-border) */}
+        {/* 拖拽手柄:单层可见细线(对齐 RN 1.5 高档 = h-1_5 / w-10 rounded bg-border；`_d` 写法勿改回) */}
         <View className="mb-4 items-center">
           <View className="h-[12rpx] w-10 rounded bg-border" />
         </View>

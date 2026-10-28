@@ -3,16 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, Image, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type {
@@ -27,6 +18,12 @@ import type {
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '../../components/ScreenStates'
 
 export type { TeamMemberStatus, TeamRelation, TeamTab, TeamStats, TeamMember, TeamScreenProps }
 
@@ -76,20 +73,21 @@ export function TeamScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={tk.brand.DEFAULT} />
-        <Text style={styles.emptyText}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error && !stats) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
-          <Text style={styles.retryBtnText}>{t('team.retry')}</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('team.retry')}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -176,17 +174,12 @@ export function TeamScreen({
         contentContainerStyle={styles.listBody}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          <View style={styles.center}>
-            <Text style={styles.emptyText}>{t('team.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('team.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
-          <TouchableOpacity
+          <PressableCard
             style={styles.card}
             onPress={() => onPressMember?.(item.id)}
-            disabled={!onPressMember}
-            activeOpacity={0.7}
+            colorScheme={colorScheme}
           >
             <View style={styles.avatarBox}>
               {item.avatar ? (
@@ -227,7 +220,7 @@ export function TeamScreen({
                 <Text style={styles.statusText}>{t(STATUS_LABELS[item.status])}</Text>
               </View>
             </View>
-          </TouchableOpacity>
+          </PressableCard>
         )}
       />
     </View>
@@ -237,8 +230,6 @@ export function TeamScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: { alignItems: 'center', paddingVertical: 32, justifyContent: 'center' },
-    emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     backBtn: { marginBottom: 8 },
@@ -250,10 +241,8 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
     },
-    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
-    // 读数 20px,最坏「9999」+ 标签「间接邀请」⇒ minWidth 112。
-    statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
-    statItem: { alignItems: 'center', flex: 1, minWidth: 112 },
+    statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    statItem: { alignItems: 'center', flex: 1 },
     statValue: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
     statLabel: { marginTop: 8, fontSize: 10, color: tk.success.deepText, textAlign: 'center' },
     contributionBox: {
@@ -321,15 +310,6 @@ function createStyles(tk: AppThemeTokens) {
     statusActive: { backgroundColor: tk.success.light },
     statusInactive: { backgroundColor: tk.surface.card },
     statusText: { fontSize: 10, color: tk.text.secondary },
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      height: 44,
-      justifyContent: 'center',
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
-    retryBtnText: { color: tk.surface.light, fontSize: 14 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -535,8 +535,20 @@ function attemptUnionConverge(freshRemote, repoRoot) {
     // import 期时 stdout 是空的,只回吐 `Command failed: <argv>` 那一行 message 就等于让下一个人
     // 重新去猜"到底是内容裁决还是通道断了"(本文件下方 alignFailureNote 头注记过同一型)。
   } catch (ue) {
-    return String(ue.stdout || ue.message || '') + stderrTail(ue) + unionExitMark(ue && ue.status)
+    return String(ue.stdout || ue.message || '') + stderrTail(ue) + killNote(ue) + unionExitMark(ue && ue.status)
   }
+}
+
+/**
+ * 孩子没有退出码时,把"是怎么没的"写进转述文本(2026-10-28 实测:落后 730 枚的一次归并撞上
+ * 25 分钟封顶被 SIGTERM 掐死,下游只能报"退出码未取到"—— 于是"没跑完"与"跑完但没写结论"完全同形,
+ * 下一个人只能重来一遍 25 分钟)。只加说明,不动 unionExitMark 的格式(它有形状锁与解析方)。
+ */
+export function killNote(ue) {
+  if (!ue || Number.isInteger(ue.status) || !ue.signal) return ''
+  const cap = Number(process.env.IHUI_UNION_CONVERGE_TIMEOUT_MS || 1500000)
+  return `\n[归并未跑完:孩子被 ${ue.signal} 掐死(上限 ${cap}ms)⇒ 这不是 union-converge 的裁决;` +
+    '要么按 IHUI_UNION_CONVERGE_TIMEOUT_MS 抬高上限,要么先跑只读档 node scripts/union-converge.mjs --theirs <sha> 读它的结论行]'
 }
 
 /** 取子进程 stderr 的首个非空行(崩溃的真正出处),封顶 300 字符防把整截堆栈灌进判定文本。 */

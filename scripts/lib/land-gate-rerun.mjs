@@ -39,7 +39,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { normalizeTriggers, triggersTouch } from './guardian-triggers.mjs'
+import { triggersTouch } from './guardian-triggers.mjs'
 import { catBatch } from './face-reader.mjs'
 import { maskComments, maskCommentsStringsAndRegex } from './code-mask.mjs'
 
@@ -152,6 +152,12 @@ export function extractEntryFields(entryText) {
     mode: q('mode'),
     skipEnv: q('skipEnv'),
     label: q('label'),
+    // 门自己声明"我有锚点档"(支持 --rev/--anchor,按"相对上一枚判新增")。
+    // 复跑档问的问题从来不是"仓库历史上有没有悬空导入",而是"本枚有没有新增"——
+    // 落地**前**那一跑就是带树+锚点的(见 object-space-land runDanglingGate),
+    // 落地**后**这一跑漏了锚点 ⇒ 把存量全算成本枚新增,每次旁路落地都喊一次狼,
+    // 而恒红的复跑臂只会逼人设 IHUI_LAND_SKIP_AFFECTED_GATES=1(§12e 同型)。
+    rerunAnchor: /\brerunAnchor:\s*true\b/.test(text),
     args: arr('args'),
     stagedTriggers: arr('stagedTriggers'),
   }
@@ -160,7 +166,8 @@ export function extractEntryFields(entryText) {
 /**
  * 路径→门映射:落地面触及某门声明的 stagedTriggers ⇒ 该门"受影响"。
  * 无 stagedTriggers 的恒跑门不入列(见头注);info 门不入列(它永不失败,复跑只是噪声)。
- * normalizeTriggers 对空清单**当场抛错**(立因见 guardian-triggers 头注),这里让错误上抛 ——
+ * 触发面清单的归一化与"空清单当场抛错"都发生在共享模块 guardian-triggers 里
+ * (立因见其头注),这里不自己归一、也只让错误上抛 —— 同一份规则抄两遍必然漂移(§0.6)。
  * 注册表里坏一条 stagedTriggers,旁路落地通道也必须看见,不得静默少跑一道门。
  */
 export function selectAffectedGates(paths, entries) {
@@ -472,6 +479,8 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
           continue
         }
         const gateArgs = g.args.filter((a) => a !== '--staged')
+        // 锚点档:审"刚落地的这枚 vs 它的父",而不是拿全仓存量向本枚问责(理由见 extractEntryFields 注)。
+        if (g.rerunAnchor) gateArgs.push('--rev', 'HEAD', '--anchor', 'HEAD^')
         const r = spawnGate(scriptPath, [...gateArgs], root, 300000, env)
         const rec = { kind: 'registry', id: g.id, script: g.script, mode: g.mode }
         if (r.rc === 0) res.ran.push({ ...rec })

@@ -316,7 +316,11 @@
     "googleNotConfigured": "Google login is not configured; set EXPO_PUBLIC_GOOGLE_CLIENT_ID in .env.",
     "sdkPending": "{name} login is only available on the web; the native SDK is not integrated on mobile.\nYou can use the “IHUI AI web authorized login” button to authorize in the browser.",
     "agree": "Agree",
-    "agreeTermsTitle": "Agree to the Terms of Service"
+    "agreeTermsTitle": "Agree to the Terms of Service",
+    "carrierNotConfigured": "Carrier one-click login is not configured; switched to SMS code login",
+    "carrierOneClick": "One-click login with this number",
+    "carrierLaunching": "Launching carrier authorization...",
+    "closeCarrier": "Close carrier login"
   },
   "loginCountry": {
     "cn": "China",
@@ -1177,7 +1181,8 @@
     "loadMore": "Load more",
     "user": "User",
     "retryShort": "Retry",
-    "known": "OK"
+    "known": "OK",
+    "success": "Success"
   },
   "network": {
     "offline": "You're offline. Some features are unavailable.",
@@ -4445,7 +4450,45 @@
       "schedule": "Scheduled Tasks"
     },
     "knowledgeCards": "Knowledge Cards",
-    "knowledgePlanet": "Knowledge Planet"
+    "knowledgePlanet": "Knowledge Planet",
+    "news": "News",
+    "learnTopic": "Topic Lessons",
+    "kbSearch": "Knowledge Search",
+    "skillsMarketHome": "Skills Plaza",
+    "aiGeneration": "AI Generation",
+    "videoTasks": "Video Tasks",
+    "chatFavorites": "Favorite Chats",
+    "cardFavorites": "Card Favorites",
+    "chatSettings": "Chat Settings",
+    "searchHistory": "Search History",
+    "agentPlan": "Agent Plans",
+    "agentPlanProgress": "Plan Progress",
+    "myAgents": "My Agents",
+    "subagentDetail": "Subagent Detail",
+    "subagentDispatch": "New Dispatch",
+    "agentSecurity": "Agent Security",
+    "modelRecord": "Model Filings",
+    "examSignUps": "Exam Registrations",
+    "buyConfirm": "Order Confirm",
+    "distributionWithdrawRecords": "Distribution Withdrawals",
+    "pluginMarket": "Plugin Market",
+    "skillsMarket": "Skills Market",
+    "memoryManager": "Memory Manager",
+    "agentRules": "Agent Rules",
+    "publishMonitor": "Publish Monitor",
+    "dramaStudio": "Drama Scripts",
+    "myResources": "My Resources",
+    "mySignUps": "My Enrollments",
+    "certificateDownload": "Certificate Download",
+    "marginWallet": "Margin Wallet",
+    "withdrawRecords": "Withdrawal Records",
+    "cloudRuns": "Cloud Agent Runs",
+    "mediaTasks": "Media Tasks",
+    "voices": "Voice Assets",
+    "webTools": "Web Tools",
+    "letters": "Direct Messages",
+    "invitations": "Invitations",
+    "eduPoints": "Edu Points"
   },
   "knowledgePlanet": {
     "title": "Knowledge Planet",
@@ -5755,7 +5798,8 @@
     "rebind": "Rebind",
     "bind": "Bind",
     "saveA11y": "Save profile",
-    "logoutA11y": "Sign out"
+    "logoutA11y": "Sign out",
+    "oneLoginFail": "Carrier login failed. Enter phone manually."
   },
   "need": {
     "titleRequired": "Enter demand title",
@@ -6749,5 +6793,39 @@
     "currentBundle": "Currently running: {{bundle}}",
     "bundleEmbedded": "Built-in bundle",
     "bundleOta": "Hot update"
+  },
+  "setting": {
+    "operationFailed": "Operation failed"
+  },
+  "message": {
+    "deleted": "Deleted"
+  },
+  "legal": {
+    "title": "Legal Information",
+    "serviceSpecificTerms": {
+      "title": "Service-Specific Terms",
+      "lastUpdated": "Last updated"
+    },
+    "supportedRegions": {
+      "title": "Supported Regions",
+      "lastUpdated": "Last updated",
+      "intro": "The availability of our services may vary by country or region due to local laws and regulations. Details are as follows.",
+      "supportedTitle": "Supported Regions",
+      "restrictedTitle": "Restricted Regions",
+      "restrictedIntro": "Users in the following regions may be unable to use all or part of our services.",
+      "paymentTitle": "Payment Methods",
+      "paymentIntro": "Supported payment methods may vary by region.",
+      "languageTitle": "Interface Language",
+      "languageIntro": "Our service supports multiple interface languages; the displayed language may vary by your region."
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "lastUpdated": "Last updated"
+    },
+    "usagePolicy": {
+      "title": "Usage Policy",
+      "lastUpdated": "Last updated"
+    },
+    "backToHome": "Back to Home"
   }
 }

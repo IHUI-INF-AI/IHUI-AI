@@ -61,7 +61,7 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       .object({ quantity: z.coerce.number(), remark: z.string().optional().default('') })
       .parse(request.query)
     const userId = request.userId!
-    const balance = (await deductToken(userId, quantity, remark)).balanceAfter
+    const balance = await deductToken(userId, quantity, remark)
     return reply.send(success({ balance }))
   })
 

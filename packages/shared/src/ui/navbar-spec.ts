@@ -65,12 +65,13 @@ import { GEOMETRY_PX } from '@ihui/design-tokens'
 export type GeometryUnit<U extends string | number> = (px: number) => U
 
 /**
- * 标题行高 44:RN 端现档(44 = iOS 标准导航栏高,亦是触控可读的稳档)。
- * 小程序端行高由微信胶囊实测推导(menuButton.height + 8),属平台机制,见 waives 第 1 条。
+ * 标题行高 44:RN 腿档(44 = iOS 标准导航栏高,亦是触控可读的稳档)。
+ * 小程序端行高由微信胶囊实测推导(menuButton.height + 8)且经 px() 落设备 CSS px,与这里的逻辑 px 不是
+ * 同一把尺,属平台机制,见文件末「单腿档清单」第 1 条。
  */
 export const NAVBAR_ROW_HEIGHT_PX = 44
 
-/** 带副标题时的行高 56:RN 端现档;副标题是双行文本,单行档装不下。 */
+/** 带副标题时的行高 56:RN 腿档;副标题是双行文本,单行档装不下(小程序腿没有副标题那一行,见文件末单腿档清单)。 */
 export const NAVBAR_ROW_HEIGHT_SUBTITLE_PX = 56
 
 /** 左右内边距 10:两端现值已同(小程序 ai-home `20rpx` = 10px,RN `paddingHorizontal: 10`),收进一处防分叉。 */

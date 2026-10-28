@@ -22,8 +22,7 @@ export default function MonitoringDashboardPage() {
 
   const { data: services, isLoading } = useQuery({
     queryKey: ['admin', 'monitoring', 'services'],
-    queryFn: () =>
-      apiOrThrow<{ list: ServiceItem[] }>('/api/admin/monitoring/services').then((d) => d.list ?? []),
+    queryFn: () => apiOrThrow<ServiceItem[]>('/api/admin/monitoring/services'),
   })
   const { data: perf } = useQuery({
     queryKey: ['admin', 'monitoring', 'perf'],

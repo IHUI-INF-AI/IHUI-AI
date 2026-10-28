@@ -67,9 +67,6 @@ vi.mock('../src/plugins/require-permission.js', () => ({
 
 vi.mock('../src/utils/ssrf-guard.js', () => ({
   ensureSafeFetchUrl: vi.fn(async (url: string) => url),
-  // 2026-10-24:9d020274 起出站走 safeFetch(SSRF 逐跳复检),整模块 mock 缺这个导出会让
-  // 被测代码拿到 undefined ⇒ TypeError(26 例齐红的那批同根);转发到 stub 的 globalThis.fetch。
-  safeFetch: (url: string, init?: RequestInit) => fetch(url, init),
 }))
 
 vi.mock('../src/services/webhook-relay-notifier.js', () => ({

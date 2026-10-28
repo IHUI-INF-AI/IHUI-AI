@@ -480,9 +480,7 @@ function Invoke-FailNotify {
     # 病因,病因换了照样落进旧槽位、被 4h 重发窗静默压住(票面实测:04:37 那轮压在 1.9h 前的同名槽上,
     # 日志只见 `ALERT 同身份失败告警本轮跳过`)。$Reason 是调用方给的**结构化病因**(稳定类别/报错
     # 指纹),与 $Detail 的分工是同一禁令的两半:漂移明细只进正文,身份至少吃"这是哪一因"。
-    # [2026-10-26 票 G-44] 身份已改档 = **类别 + 归一化病因**(类别枚举见 alert-dedup.ps1 的
-    # Get-AlertCategory):整条文案不再进键,文案里的读数/路径/sha 漂移不再另开槽;
-    # 空 $Reason ⇒ 身份只含类别。键形换了 ⇒ 上线后每族首个告警会重发一次,随后恢复 4h 窗。
+    # 空 $Reason ⇒ Get-AlertIdentitySig 返回与改动前逐字同形的消息身份(存量槽位不失效)。
     $dedupSig = Get-AlertIdentitySig -Message $m -Reason $Reason
     # 切流受阻类先过"持续够一个可发布周期才算停摆"的宽限窗(阈值出处见 $StallAlertGraceMinutes)。
     # 窗内只在日志留一行并写明"还差多久升级",绝不静默丢弃;超窗或判不出都照常往下走并发信。
@@ -648,47 +646,6 @@ function Add-DivergedStreak {
 }
 function Reset-DivergedStreak {
     Remove-Item (Get-DivergedStateFile) -Force -ErrorAction SilentlyContinue
-}
-function Get-DivergenceRemedy {
-    param([string]$RemoteTip)
-    # 只读量三条判据,把"能不能安全对齐"的结论连同**可直接粘贴的**补救一起交给人。
-    # 为什么不自动做:自动对生产签出做强制硬重置等于让机器动 ref,需要独立评审与自己的
-    #   判据链,不在这里顺手装。
-    # 为什么必须做这条:2026-10-24 实测分叉连挡 111 轮 / 7.3 小时才被人手工解掉,期间
-    #   告警一直在寄(15 分钟宽限窗后转正式),但信里只有"需人工收敛",没有"收敛该敲什么"
-    #   —— 于是每一轮都是新会话从零重判一遍。判据是可算的,就该把结论算好放进信里。
-    # 明细只进邮件正文、绝不进签名(见 Fail/Invoke-FailNotify),所以这里可以放心带
-    #   计数与具体 sha —— 它们不会像 $streak 那样把去重身份每轮换一个新的。
-    $lines = @()
-    try {
-        $ahead = (& git -C $Root rev-list --count "$RemoteTip..HEAD" 2>$null | Out-String).Trim()
-        $behind = (& git -C $Root rev-list --count "HEAD..$RemoteTip" 2>$null | Out-String).Trim()
-        $localPaths = @((& git -C $Root diff --name-only "$RemoteTip...HEAD" 2>$null | Out-String) -split "`r?`n" |
-            Where-Object { $_.Trim() })
-        $dirty = @(Get-TrackedDirtyEntry)
-        $lines += "现读:本侧独有 $ahead 枚 / 落后 $behind 枚 / 独有改动涉及 $($localPaths.Count) 个路径 / 未提交被跟踪文件 $($dirty.Count) 个。"
-        # 活文档 = 环自己的 union 合并枚唯一可能带内容差的那一族;其余路径一旦有差,
-        # 说明本侧真的有别处没有的代码,对齐就会丢东西。
-        $nonDoc = @($localPaths | Where-Object { $_ -notmatch '^(PROJECT_PLAN\.md|AGENTS\.md|README([.][A-Za-z-]+)?\.md)$' })
-        if ($nonDoc.Count -gt 0) {
-            $lines += "判定:本侧独有提交含 $($nonDoc.Count) 个**非活文档**路径(前 5:$($nonDoc[0..([Math]::Min(4, $nonDoc.Count-1))] -join ', '))⇒ 禁止对齐到远端,必须人工收敛(逐路径判断哪些是要保的)。"
-            $lines += "补救:cd $Root && node scripts/git-sync-converge.mjs   # §12d 唯一出口,索引层合并、零触碰他人未提交文件"
-        }
-        else {
-            $lines += "判定:本侧独有提交只动活文档(其内容按 §1 是「完成即删/归档退役」被远端摘掉的复活行)⇒ 对齐到远端 tip 不丢代码,可安全解冻。"
-            $lines += "补救(逐条按序敲,顺序错了等于没备份):"
-            $lines += "  1) cd $Root && node scripts/deploy-lock.mjs acquire --mode build   # 记下打印的 token,拿不到就整批不动"
-            $lines += "  2) git tag backup/prod-divergence-$(Get-Date -Format yyyyMMdd) HEAD && git push origin refs/tags/backup/prod-divergence-$(Get-Date -Format yyyyMMdd)   # §22 本地+远端双留"
-            if ($dirty.Count -gt 0) {
-                $lines += "  3) 先把未提交副本留底(它挡住也证明有人在写):$(@($dirty | Select-Object -First 3 | ForEach-Object { $_.Trim() }) -join ' | ')"
-            }
-            $lines += "  4) cd $Root && node scripts/git-sync-converge.mjs   # §12d 唯一出口:索引层收敛到 $RemoteTip,零触碰他人未提交文件"
-            $lines += "  5) node scripts/deploy-lock.mjs release --mode build --token <第 1 步的 token>,然后等下一轮自己构建"
-        }
-        return ($lines -join "`n")
-    } catch {
-        return "补救判据未能算出:$($_.Exception.Message)(未判定 ⇒ 按原流程人工收敛,不得据此对齐)"
-    }
 }
 function Invoke-AutoConverge {
     # 只发起、不等待:收敛一轮可跑几分钟,而外壳 60 秒一趟,同步等待等于把部署轮询钉死。
@@ -2837,8 +2794,7 @@ if ($behind -gt 0) {
             # 寄一封,连续 17 封到人(状态文件 repeatNo 恒 0 即证据)。轮数是运维要看的信息,
             # 已经写在上面那条 BLOCKED-DIVERGED 日志行里,不需要也不应该进签名。
             # (第二半同理:换阈值/换措辞都会造出一个新签名,所以文案保持与计数无关。)
-            Fail "git merge --ff-only 本轮远端 tip 分叉且自动收敛无效:需人工收敛后才能切流(未强推、未动任何在途改动)" `
-                -Detail (Get-DivergenceRemedy -RemoteTip $remoteTip)
+            Fail "git merge --ff-only 本轮远端 tip 分叉且自动收敛无效:需人工收敛后才能切流(未强推、未动任何在途改动)"
         }
         $dirtyPaths = @($stillDirty | ForEach-Object { $_.Substring([Math]::Min(3, $_.Length)).Trim() })
         $mustTouch = @(& git -C $Root diff --name-only HEAD $remoteTip 2>&1 | Out-String) -split "`r?`n" |

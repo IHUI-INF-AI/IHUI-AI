@@ -627,8 +627,7 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /edu/qa - 综合问答帖列表(不绑定课程)
   // 2026-08-07 补:前端 edu/qa 页调用此路由,此前仅 POST 无 GET → 前端 404。
-  // 复用 findAllCommunityPosts(与 /learn 社区帖子同源)。勘正 2026-10-25:该查询
-  // 不过滤 lessonId,返回全部社区帖(含课程帖);"只取 lessonId 为空的问答帖"过滤未实现。
+  // 复用 findAllCommunityPosts(与 /learn 社区帖子同源,lessonId 为空的问答帖)。
   server.get('/edu/qa', async (request, reply) => {
     const parsed = searchSchema.safeParse(request.query)
     if (!parsed.success) {

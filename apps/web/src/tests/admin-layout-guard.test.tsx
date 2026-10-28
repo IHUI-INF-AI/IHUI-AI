@@ -27,9 +27,6 @@ vi.mock('@/hooks/use-auth-bootstrap', () => ({
 }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace, push: vi.fn(), prefetch: vi.fn() }),
-  // admin 布局后接入 usePathname(redirect 拼回跳地址),mock 缺导出 ⇒ 布局 import 期炸(2026-10-24)
-  usePathname: () => '/admin',
-  useSearchParams: () => new URLSearchParams(),
 }))
 
 import AdminLayout from '../../app/(main)/admin/layout'

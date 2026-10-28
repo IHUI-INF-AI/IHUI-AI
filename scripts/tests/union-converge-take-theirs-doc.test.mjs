@@ -207,7 +207,12 @@ test('T-Doc-f 装车锁(源码级):CLI 旗标必须真被解析并传到 plan(),
     'main() 调 plan() 必须把声明集传进去(只解析不传 = 自检绿而生效次数 0)',
   )
   // plan() 必须把它同时喂给 buildUnion(产出面)与 verifyUnion(自证面)—— 两面不同形 = 工具自己锁死
-  assert.match(src, /foldKeep,\s*\n\s*takeTheirsDocs,\s*\n\s*\)/, 'buildUnion 必须收到声明集')
+  // (合并回灌后 buildUnion 尾部还多了一档 declaredLoss,故允许 takeTheirsDocs 之后再跟一行形参)
+  assert.match(
+    src,
+    /foldKeep,\s*\n\s*takeTheirsDocs,\s*\n(\s*declaredLoss[^\n]*\n)?\s*\)/,
+    'buildUnion 必须收到声明集',
+  )
   assert.match(
     src,
     /built\.foldLedgers, supersede, takeTheirsDocs\)/,

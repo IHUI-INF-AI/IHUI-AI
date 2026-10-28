@@ -21,7 +21,7 @@
  *  ④ 不变量:前景所在档在两态**同值**(这才是"固定深底配固定亮字"的形式定义)，
  *     而 surface.light 两态**异值**(所以它是这一型的陷阱档，不得再用作 toast 前景)。
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 
 /**
@@ -30,6 +30,22 @@ import { render } from '@testing-library/react'
  * 而 FloatBox 的淡入淡出两条都会碰。刻意**不改共享替身**(它被 40+ 套件用,加一项就是
  * 给别人的套件换地基),在本文件内做一层"替身的替身":先取同一份实现,只补这两格。
  */
+vi.mock('react-native', async (importOriginal) => {
+  // 走 importOriginal 而不是 `await import('./__mocks__/react-native')`:后者是一条**穿过
+  // resolve.alias 落到仓内 .ts 源**的动态导入,不经 vite 变换层 ⇒ Node 直接吃 TS,在
+  // `export type RnTokens = typeof rnTokens` 那一类位置抛 SyntaxError(本文件第一次落盘时
+  // 整套件 0 用例、头条只写 "1 failed",正是守门 114 要防的收集期失明)。
+  const rn = (await importOriginal()) as unknown as {
+    Animated: { Value: new (v: number) => unknown } & Record<string, unknown>
+    [k: string]: unknown
+  }
+  const ValueProto = rn.Animated.Value.prototype as { stopAnimation?: () => void }
+  if (!ValueProto.stopAnimation) ValueProto.stopAnimation = () => {}
+  return {
+    ...rn,
+    Easing: { out: (fn: unknown) => fn, in: (fn: unknown) => fn, cubic: {}, quad: {} },
+  }
+})
 
 import { FLOAT_BOX_TOAST_SURFACE, FloatBox } from '../src/components/FloatBox'
 import { rnDarkTokens, rnLightTokens } from '@ihui/design-tokens'
