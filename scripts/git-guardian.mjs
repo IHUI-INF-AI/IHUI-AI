@@ -90,6 +90,11 @@ import {
   loadArchiveGcArmConfig,
   parseArchiveGcSummary,
 } from './lib/git-guardian-archive-gc.mjs'
+// G-50 DevEnv 搬迁「探测器找静默窗口自动执行」的调度接线(2026-10-28):器物本体
+// (scripts/devenv-migrate.mjs)与镜像测试早已在,唯独没有派发点 ⇒ 按 §0.9「造好没装车
+// = 没有」票面不成立。窗口三态/待做盘点/apply 判据全部 import 自本体(§0.6 单一真相源),
+// 本文件只挂点:默认只 probe 留痕,真搬须 scripts/data/devenv-migrate-arm.json enabled=true。
+import { devenvMigratePatrol } from './devenv-migrate.mjs'
 
 // 纯判据层(2026-10-21 原样搬出:守门 103 C1 行数上限;实现单源在 lib/git-guardian-pure.mjs)
 import {
@@ -5464,6 +5469,10 @@ function main() {
     // scripts/archive-gc.mjs 并把「保留/待删/未判定」读数写进本守护日志通道(留痕);
     // 开关面 scripts/data/archive-gc-arm.json 默认关,真 --apply 由机主核过读数后按下。同一挂点语义。
     if (!CHECK_ONLY) archiveGcDryRun()
+    // G-50 DevEnv 搬迁静默窗口探测(2026-10-28):票面「探测器找静默窗口自动执行」的调度格。
+    // 与上一层同挂点语义(健康轮次 + !CHECK_ONLY);默认只 probe,真搬由
+    // scripts/data/devenv-migrate-arm.json 显式开档(入库默认关)。30 分钟节流。
+    if (!CHECK_ONLY) devenvMigratePatrol({ logger: log })
     // 活 TEMP 落点回潮哨兵(尺子 = check-temp-landing.mjs)。那份尺子的文件头早就写着"唯一调度器
     // = 本文件的 auditTempLanding()",而那个函数**从来不存在** —— 判据齐全却无人在调度,
     // 失效形态是安静。与 scrubTempFixtures 同格(健康轮次早退之前 + !CHECK_ONLY),节流 24h。
@@ -5581,6 +5590,9 @@ function startDaemon() {
         // G-24 归档回收 dry-run 接线臂:与 main() 单轮路径同一挂点语义,共用
         // .ihui-agent/state/archive-gc-arm-tick.iso 节流戳 ⇒ 双执行体并存只有一边真派生。
         archiveGcDryRun()
+        // G-50 DevEnv 搬迁探测:与 main() 单轮路径同一挂点语义,共用
+        // .ihui-agent/state/devenv-migrate-arm-tick.iso 节流戳 ⇒ 双执行体只有一边真探。
+        devenvMigratePatrol({ logger: log })
         // AI 自进化调度层(第 0 期 / 第 1 期 / 第 3 期②③,2026-10-26 接线;2026-10-26 补装 daemon 腿):
         // 这四个派发现在只挂在 main() 那条**单轮**路径上,而本机实际载体是 nssm 服务跑 `--daemon`
         // ⇒ main() 从不执行,四层器物等于装了个没有车跑的车站(§0.9「造好没装车 = 没有」再犯一次)。
