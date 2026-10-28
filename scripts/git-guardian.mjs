@@ -4531,6 +4531,104 @@ const WEB_RN_DIMS = [
  * 取不到 JSON 或尺子 exit 2(取不到被审面)⇒ 未判定(§0.3),不记绿也不冒红。60 分钟节流 ——
  * 尺子要扫 886 条 web 路由 + 327 屏并派一道子进程,而漂移是慢变量。
  */
+/**
+ * 推送通道存续巡检(2026-10-29 立)。
+ *
+ * 立因(本机实测,不是推测):判据 `scripts/check-push-sync.mjs` 早就认得「diverged / failed
+ * 过期 ⇒ 唯一出路是 git-sync-converge」,但它**只挂在 pre-commit 上**。本仓大量落地走
+ * `object-space-land`(旁路通道不跑钩子),而守护巡检轮此前**零处**消费 push-state ⇒ 这条判据
+ * 在真正会卡住的那条通道上无人调度(§0.9:造好没装车 = 没有)。撞上的现场就是本机 main 与
+ * origin 自 2026-10-26 16:14 分叉、后台推送连续判 failed,两天没有任何一处喊过(健康不写行
+ * ⇒ 失效表现永远是安静的,§12f)。
+ *
+ * 为什么不把判据抄进来:§0.6 单一真相源。check-push-sync 是"顶层即执行"的脚本(没有
+ * isDirectRun 守卫,门 194 射程内),import 它等于跑它 ⇒ 所以按**进程边界**调它,连它自己的
+ * 豁免档(protected-branch / remote-ref-race 的几何判据)一起继承,不在这里造第二份阈值。
+ *
+ * 档位:判机器状态 ⇒ 不进提交链、不进 CI(§12e)。喊人只在"判据当场判阻塞"这一确定态上喊,
+ * 身份 = 腿名(notifyGuardRed 自带窗口去重,§5e-3);rc>1/取不到 ⇒ 未判定只 log,
+ * 既不冒绿也不冒红(§0.3);健康不写行(§5b 惯例)。
+ */
+const PUSH_CHANNEL_INTERVAL_MS = Number(process.env.IHUI_PUSH_CHANNEL_INTERVAL_MS || 10 * 60 * 1000)
+
+export function auditPushChannel(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = PUSH_CHANNEL_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'push-channel-last.json'),
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+    script = join(dirname(fileURLToPath(import.meta.url)), 'check-push-sync.mjs'),
+  } = opts
+  if (!existsSync(script)) {
+    logger('ℹ️ 推送通道巡检:判据不在位(scripts/check-push-sync.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '判据不在位' }
+  }
+  try {
+    const prev = JSON.parse(readFileSync(tickFile, 'utf8'))
+    const last = Date.parse(String(prev.attemptAt ?? '').trim())
+    if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  } catch {
+    /* 没跑过 */
+  }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 推送通道巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 2 * 60 * 1000, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { status: 0, out: String(out ?? ''), err: '' }
+          } catch (e) {
+            return {
+              status: typeof e?.status === 'number' ? e.status : null,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? r.stdout ?? '')
+  const stderr = String(r.err ?? r.stderr ?? '')
+  const lastLine =
+    stdout
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(-1)[0] ?? ''
+  if (r.status === null || r.status === undefined || r.status > 1) {
+    logger(
+      `⚠️ 推送通道巡检:未判定(rc=${r.status ?? 'n/a'})—— ${lastLine.slice(0, 160) || stderr.slice(0, 160) || '无输出'}` +
+        ` ⇒ 本轮没判,不等于"推送通道健康"`,
+    )
+    return { ran: true, ok: false, state: 'undetermined' }
+  }
+  if (r.status === 0) return { ran: true, ok: true, state: 'ok' }
+  logger(`❌ 推送通道巡检:判据当场判阻塞 —— ${lastLine.slice(0, 200)}`)
+  notify(
+    'push-channel',
+    `本地 main 的推送通道不健康(git-guardian 巡检实跑 scripts/check-push-sync.mjs,rc=1)。\n` +
+      `现读结论(判据自己的话,本器不复述判据):\n${stdout.slice(-500)}\n` +
+      `出路:node scripts/git-sync-converge.mjs --rounds 1(索引层合并,零触碰他人未提交文件);` +
+      `本仓规约禁止手工 fetch/merge/push 循环与强推。`,
+    { logger, severity: 'warning' },
+  )
+  return { ran: true, ok: false, state: 'blocked' }
+}
+
 export function auditWebRnParity(opts = {}) {
   const {
     now = Date.now(),
@@ -6872,6 +6970,8 @@ function main() {
     // 每轮自动跑",而实测全仓零引用 —— 与上一格同型(§0.9「造好没装车」= 没有)。AGENTS §44:
     // 只读对账尺子不进提交链,唯一调度器就是本行;自带 60 分钟节流,只在净增那一档到人。
     if (!CHECK_ONLY) auditWebRnParity()
+    // 推送通道存续(2026-10-29 立):判据此前只在 pre-commit,旁路落地通道零调度 ⇒ 停摆两天无人喊。
+    if (!CHECK_ONLY) auditPushChannel()
     // 跨端镜像声明链自愈(2026-10-26 立):修复器只补"登记表已有"的缺口、他席在飞一律拒落,
     // 故可无人值守;30 分钟节流。只写日志不喊人(拒落属常态),真倒退由上一格按维到人。
     if (!CHECK_ONLY) healCrossEndMirror()
