@@ -151,7 +151,7 @@ export function WorkbenchSessionRail({ items, selectedId, onSelect }: WorkbenchS
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         'motion-reduce:transition-none',
                         selected
-                          ? 'border-l-primary bg-primary/10 font-medium text-foreground'
+                          ? 'border-l-brand-accent-deep bg-primary/10 font-medium text-foreground'
                           : 'border-l-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
                       )}
                     >

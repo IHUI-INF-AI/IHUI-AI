@@ -9,6 +9,7 @@ import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { users, userMargins, userVips, agents } from '@ihui/database'
+import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
 
 // =============================================================================
 // Zod schemas
@@ -132,7 +133,7 @@ export const remoteExtendedRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /remote/business-card/upload - 名片上传
   // -------------------------------------------------------------------------
-  server.post('/remote/business-card/upload', async (request, reply) => {
+  server.post('/remote/business-card/upload', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
     await authenticate(request)
     const parsed = businessCardSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -261,7 +262,7 @@ export const remoteExtendedRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /remote/tencent/asr - 腾讯云语音识别
   // -------------------------------------------------------------------------
-  server.post('/remote/tencent/asr', async (request, reply) => {
+  server.post('/remote/tencent/asr', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
     await authenticate(request)
     const parsed = asrSchema.safeParse(request.body)
     if (!parsed.success) {
