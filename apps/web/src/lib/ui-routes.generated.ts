@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 81f5de9fe3096e0edbff10148c0da74cdf5cecb9
-// inputsSha256: 4b07656ad08551b73945935f7883467097b9915f49b73d3d83a26b5026454fcb
+// sourceCommit: f623f8fe3c9bfa9f7762c29a429d1dae911650c9
+// inputsSha256: b8648e74f9a6a17325f1c704800163cd83f762e7ac2775368cfe7a0a168c08f4
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -259,7 +259,7 @@
 // input: apps/web/app/(main)/admin/refund/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/admin/refund/page.tsx a88b2ceb20ccce16959ac58c55ba249296ed681c5481ad03e4f1e463ecdc3d50
 // input: apps/web/app/(main)/admin/relay-param-ops/page.tsx eec9fe4164facc66cce530f01bd6abfa49b667b64a28a6788ecd15662323bd82
-// input: apps/web/app/(main)/admin/relay/account-pool/page.tsx c1d71a23dab9d712986d9c156624fc8a560c074963be431b05a1352d2405e560
+// input: apps/web/app/(main)/admin/relay/account-pool/page.tsx 88bc44a4b5161b812b7bb82b5d110675be14aa6aa6c694857e380b1a27cbde8c
 // input: apps/web/app/(main)/admin/relay/account-proxy/page.tsx 359adcfcde81a0bd3db446643c3dc85bd7a2cf76dcaa4310adf5a2a4a8775307
 // input: apps/web/app/(main)/admin/relay/alert-rules/page.tsx fabfbb96d5db4e2eb4f8c630890e0511ad467e1c5572f02ba08dc150f7bd3785
 // input: apps/web/app/(main)/admin/relay/capacity/page.tsx e764a1fd7100863cdad16da8a5011b5951ca304f6eb4fb5735296e70e1263060
@@ -270,9 +270,9 @@
 // input: apps/web/app/(main)/admin/relay/error-rules/page.tsx 43d14860fa5c1ed8bf049ccc1e226021f9084955efe0abe40ebd114a0cc68f5c
 // input: apps/web/app/(main)/admin/relay/insights/page.tsx 61ddece98567eb326813abbad1dbcaaba89c1674bfa99dcd036d82ca62563dfd
 // input: apps/web/app/(main)/admin/relay/key-pool/page.tsx b0d543dfc47afecbf83d782b7762464efc8eb4fccbede0dcaccf0f2c5ba943c1
-// input: apps/web/app/(main)/admin/relay/key-scheduling/page.tsx 3de0eca139a494b5fd106d8a83b4707f35cfd2503d97359371cc000c65b6ba29
-// input: apps/web/app/(main)/admin/relay/logs/page.tsx 61d35eeeab2acb7e0b0c689c03d8415054fe0674e9124f5f7041d839b075a192
-// input: apps/web/app/(main)/admin/relay/models/page.tsx 04c26b367bd57c0c036a4ad3d0f118276bbd6cb116af2a60f887b0b44a5aeeef
+// input: apps/web/app/(main)/admin/relay/key-scheduling/page.tsx a017b14b107ffaabd6875d9f925f5372982f7917fd36aff45978ff393d9beebd
+// input: apps/web/app/(main)/admin/relay/logs/page.tsx d65bd3efc84a99d01a95981d3987ddb210402006c0c8ffa49ab70fb9a5123ee3
+// input: apps/web/app/(main)/admin/relay/models/page.tsx adfb94cafa416cfbb5ba07acade744d0aa11d932918eed03e7b35dc51abfdcd1
 // input: apps/web/app/(main)/admin/relay/overview/page.tsx 453f04dadeb0c49386215d6be5fba3144f8567c0269f5bce10876ca1311899e7
 // input: apps/web/app/(main)/admin/relay/page.tsx 16a6441584e28e0c12e371ef572fc091d21e5585dabcd4ef760d00d78a37e8c0
 // input: apps/web/app/(main)/admin/relay/peak-pricing/page.tsx 1bf9ff2a6fa41c8f2172ede3a6e889d2d5c36073e289a4ab94e0c5cb716b8f13
@@ -930,7 +930,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 8509c1bc6272c3e141461ae79a70c998d3f8298592eaf936a64bb9be2402b464
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-28T16:43:22.527Z
+// generatedAt: 2026-10-28T17:17:27.563Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
