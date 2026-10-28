@@ -366,6 +366,22 @@ export async function buildServer(): Promise<FastifyInstance> {
   return server
 }
 
+/**
+ * 递归剔除 JSON 里的原型污染键(与 Fastify 默认 secure-json-parse 的过滤同语义)。
+ * 只在下面自定义的 application/json 解析器里使用 —— 该解析器覆盖了 Fastify 默认解析器,
+ * 必须自己守住 __proto__ / constructor / prototype 这三个键。
+ */
+function stripDangerousKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => stripDangerousKeys(item))
+  if (value === null || typeof value !== 'object') return value
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue
+    out[k] = stripDangerousKeys(v)
+  }
+  return out
+}
+
 async function registerPlugins(server: FastifyInstance) {
   // 支付宝异步回调用 application/x-www-form-urlencoded,Fastify 默认只解析 JSON
   // 注册 content type parser,把 form-urlencoded 解析成 key-value 对象
@@ -387,6 +403,29 @@ async function registerPlugins(server: FastifyInstance) {
       }
     },
   )
+  // 2026-10-28 修复:客户端(实测为 RN App)在"无 body 的 POST"上仍带
+  // Content-Type: application/json,空串 body 被 Fastify 默认 JSON 解析器判为
+  // FST_ERR_CTP_EMPTY_JSON_BODY(400)。实测后果:App 的 POST /ws/ticket 拿不到票 →
+  // 再以空 token 连 /ws/notifications → 404 → 每 1~2 秒一轮的重连风暴。
+  // 这里把"空 JSON body"按 {} 处理;合法 JSON 仍严格解析,非法 JSON 仍 400,
+  // 缺字段由各路由 schema 决定(空对象不会绕过任何校验)。
+  // 键名过滤保持与 Fastify 默认 secure-json-parse 同语义,避免 __proto__ 污染面。
+  // 必须先移除 Fastify 内置的同名解析器:Fastify 5 对重复注册直接抛
+  // FST_ERR_CTP_ALREADY_PRESENT(routes/live.ts 的直播回调子作用域也依赖这条,
+  // 那里同样"先 remove 再 add")。
+  server.removeContentTypeParser('application/json')
+  server.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    const raw = typeof body === 'string' ? body : String(body ?? '')
+    if (raw.trim() === '') {
+      done(null, {})
+      return
+    }
+    try {
+      done(null, stripDangerousKeys(JSON.parse(raw)))
+    } catch (err) {
+      done(err as Error)
+    }
+  })
   // 2026-09-18 修复:无 Content-Type 的 POST(前端 fetchApi 无 body 写操作,如
   // POST /auth/qr/generate App 扫码出码)经代理链路到达时被 Fastify 5 判为
   // Unsupported Media Type → 415,面板进入错误态(App 扫码不出码根因)。
