@@ -27,6 +27,7 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -69,7 +70,7 @@ class _CallbackCapture:
                     self.send_response(404)
                     self.end_headers()
 
-            def log_message(self, *args) -> None:  # 静默
+            def log_message(self, *args: Any) -> None:  # 静默
                 pass
 
         return Handler
@@ -142,7 +143,12 @@ async def main() -> int:
     )
     await client.connect()
     tools = await client.list_tools()
-    names = [t.name if hasattr(t, "name") else t.get("name") for t in tools]
+    # 2026-10-28 修:原写 `t.name if hasattr(t, "name") else t.get("name")`。
+    # MCPClient.list_tools() 的返回签名是 **list[MCPClientTool]**,而 MCPClientTool 是带
+    # `name: str` 字段的 @dataclass ⇒ hasattr 恒真、.get 分支不可达,mypy 判 attr-defined
+    # (MCPClientTool has no attribute "get")。永假分支不是"防御",是让类型读者误判
+    # 这里可能有 dict 形态。按真实契约取直:t.name。
+    names = [t.name for t in tools]
     print(f"[5/5] 真网 MCP 全链路成功:initialize+tools/list 共 {len(names)} 个工具")
     print("      工具样例:", names[:8])
 
