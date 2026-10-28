@@ -36,24 +36,34 @@ const REFRESH_AHEAD_MS = 15 * 60 * 1000
 const REFRESH_FAILURE_LIMIT = 3
 
 /**
- * 平台续期归属(2026-10-24 立):'server' = 池负责续期;'client-first' = 客户端负责续期,
- * 池只在 access token **已过期**后兜底刷新。
+ * 平台续期归属(2026-10-24 立,2026-10-28 纳入 Qoder):'server' = 池负责续期;
+ * 'client-first' = 客户端负责续期,池只在 access token **已过期**后兜底刷新。
  *
  * 立因:Trae 的 ExchangeToken 每次都轮换 refreshToken,而本机 Trae 客户端与号池共用
  * 同一枚 rt —— 池先刷,客户端手里的票当场作废(2026-10-24 实测:池 02:20 续期,
  * 02:26 客户端 `[updateUserInfo] {}` 登录态被清)。客户端在跑时它会自己续期,另有
  * scripts/sync-trae-client-session.mjs 每 10 分钟把客户端新票回灌进池;池内票一旦真的
  * 过期,说明客户端已不在续期,此时兜底刷新不会再顶掉谁。
- * RELAY_TRAE_CLIENT_FIRST_REFRESH=0/false/off 可整体退回 server 策略。
+ * Qoder 的 deviceToken/refresh 同样轮换 rt(2026-10-28 实测客户端 22:43 刚轮换过),
+ * 形态与 Trae 一致,故同属 client-first,回灌腿 = scripts/sync-qoder-client-session.mjs。
+ * 关掉回灌腿时 `RELAY_QODER_CLIENT_FIRST_REFRESH=0/false/off` 可退回 server 策略;
+ * Trae 用 `RELAY_TRAE_CLIENT_FIRST_REFRESH`。
  */
 export type RelayRenewalPolicy = 'server' | 'client-first'
+
+/** client-first 族 → 各自的退回开关 env(新增平台在此登记,判据只写一处) */
+const CLIENT_FIRST_FLAG_ENV: Record<string, string> = {
+  trae: 'RELAY_TRAE_CLIENT_FIRST_REFRESH',
+  qoder: 'RELAY_QODER_CLIENT_FIRST_REFRESH',
+}
 
 export function renewalPolicyOf(
   providerCode: string,
   env: NodeJS.ProcessEnv = process.env,
 ): RelayRenewalPolicy {
-  if (providerCode !== 'trae') return 'server'
-  const flag = (env.RELAY_TRAE_CLIENT_FIRST_REFRESH ?? '').trim().toLowerCase()
+  const flagEnv = CLIENT_FIRST_FLAG_ENV[providerCode]
+  if (!flagEnv) return 'server'
+  const flag = (env[flagEnv] ?? '').trim().toLowerCase()
   if (['0', 'false', 'off'].includes(flag)) return 'server'
   return 'client-first'
 }
@@ -307,7 +317,7 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   await runWithConcurrency(expiring, SWEEP_CONCURRENCY, async (row) => {
     if (shouldDeferRefresh(row, now)) {
       // client-first:票还没过期,刷新 = 和本机客户端抢轮换(会把客户端顶下线)。
-      // 客户端新票由 scripts/sync-trae-client-session.mjs 每 10 分钟回灌;
+      // 客户端新票由 scripts/sync-{trae,qoder}-client-session.mjs 每 10 分钟回灌;
       // 票一旦真过期(客户端已不在续期)这里不再拦,池兜底刷。
       out.refreshSkipped++
       return

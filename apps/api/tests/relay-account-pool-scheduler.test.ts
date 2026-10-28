@@ -205,14 +205,18 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
     }
   }
 
-  it('纯函数:trae=client-first;其他平台=server;开关 0/false/off 退回 server', () => {
+  it('纯函数:trae/qoder=client-first;其他平台=server;开关 0/false/off 退回 server', () => {
     expect(renewalPolicyOf('trae')).toBe('client-first')
     expect(renewalPolicyOf('workbuddy')).toBe('server')
-    expect(renewalPolicyOf('qoder')).toBe('server')
+    expect(renewalPolicyOf('qoder')).toBe('client-first')
     expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: '0' })).toBe('server')
     expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: 'false' })).toBe('server')
     expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: 'off' })).toBe('server')
     expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: '1' })).toBe('client-first')
+    // Qoder 独立开关(2026-10-28 纳入 client-first;回灌腿 = sync-qoder-client-session.mjs)
+    expect(renewalPolicyOf('qoder', { RELAY_QODER_CLIENT_FIRST_REFRESH: '0' })).toBe('server')
+    expect(renewalPolicyOf('qoder', { RELAY_QODER_CLIENT_FIRST_REFRESH: 'off' })).toBe('server')
+    expect(renewalPolicyOf('qoder', { RELAY_QODER_CLIENT_FIRST_REFRESH: '1' })).toBe('client-first')
   })
 
   it('纯函数:trae 票未过期 ⇒ 延迟;已过期 ⇒ 放行;无到期时刻 ⇒ 放行(无法证明客户端在养票,兜底)', () => {
