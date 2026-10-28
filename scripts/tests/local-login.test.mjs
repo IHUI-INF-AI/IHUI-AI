@@ -1065,10 +1065,23 @@ test('applyLoomy:追加更高 seq 批次(主键+companions),写后按客户端�
       target: logFile,
       secrets: { sessionTemplate: template, companions: { 'loomy-last-login-phone': '"13900000000"' } },
     })
-    const result = L.applyLoomy(payload, { extract })
+    const result = L.applyLoomy(payload, { extract, clientProbe: () => false })
     assert.equal(result.providerCode, 'loomy')
     assert.equal(result.replacedUid, 'u-old', '写前现值的 userid 必须如实回报')
-    assertBackup(result, logFile, beforeRaw)
+    /**
+     * 备份必须落在**库目录之外**:2026-10-28 实测同目录的 `000004.log.ihui-login-*.bak`
+     * 十几分钟后被客户端自己清掉了 —— 放在库里的备份等于没留。
+     */
+    assert.equal(
+      result.backupFile.startsWith(path.join(scratch, '.ihui-login-backups')),
+      true,
+      `备份必须落在库目录外的 .ihui-login-backups/,实得 ${result.backupFile}`,
+    )
+    assert.equal(
+      fs.readFileSync(result.backupFile).equals(beforeRaw),
+      true,
+      '备份必须逐字节等于写前',
+    )
 
     const after = fs.readFileSync(logFile)
     assert.equal(lv.maxBatchSeq(after), 4n, '新批次 seq = 旧最大 + 1')
@@ -1129,5 +1142,39 @@ test('applyLoomy:落点找不到 ⇒ no-target 点名(活日志缺失/无候选�
     () => L.applyLoomy(payload2, { extract: { loomyCandidateRoamingDirs: () => [] } }),
     (e) => e?.code === 'no-target' && /请先安装并登录/.test(e.message),
   )
+})
+
+// 2026-10-28 实测事故:客户端正在跑对话时,有人直调 applyLoomy(绕过 main 的"先关端")把会话
+// 追加进了活日志 —— 运行中的客户端不会重读该记录,退出时还会用内存态覆掉。不变量必须住在落笔点。
+test('applyLoomy:客户端仍在运行 ⇒ client-running 拒写(文件逐字节不动,不留备份)', () => {
+  const scratch = mkScratch('local-login-loomy-live')
+  try {
+    const logFile = path.join(scratch, '000004.log')
+    const seed = lv.buildBatch(1n, [
+      { key: lv.lsValueKey('loomy-auth-session'), value: lv.encodeStoredValue('{"userid":"u-local","session":"x"}') },
+    ])
+    const before = lv.appendRecords(Buffer.alloc(0), [seed])
+    fs.writeFileSync(logFile, before)
+    const payload = L.normalizePayload({
+      uid: 'u-local',
+      token: 't-new',
+      target: logFile,
+      secrets: { sessionTemplate: { userid: 'u-local' } },
+    })
+    assert.throws(
+      () => L.applyLoomy(payload, { extract, clientProbe: () => true }),
+      (e) => e?.code === 'client-running' && /一键登录/.test(e.message),
+      '在跑必须拒写,并把正当出路(走会先关端的入口)说清楚',
+    )
+    assert.equal(fs.readFileSync(logFile).equals(before), true, '拒写不得动原文件')
+    assert.equal(fs.readdirSync(scratch).filter((f) => f.includes('.ihui-login-')).length, 0, '拒写不得留备份')
+    // 探测未判定 ⇒ 同样拒写(§0.3),且报的是 target-locked 而不是"没在跑"
+    assert.throws(
+      () => L.applyLoomy(payload, { extract, clientProbe: () => null }),
+      (e) => e?.code === 'target-locked',
+    )
+  } finally {
+    rmScratch(scratch)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
