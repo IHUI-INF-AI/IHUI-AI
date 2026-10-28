@@ -15,6 +15,26 @@ export type AutomationScheduleType = 'once' | 'recurring'
 /** 自动化状态:active=启用中;paused=已暂停 */
 export type AutomationStatus = 'active' | 'paused'
 
+/**
+ * G-241(2026-10-26 立)终态成因封闭集 —— 与 user_automations.terminal_reason 取值一致。
+ *
+ * 权威词表住在 packages/database/src/schema/user-automations.ts 的
+ * AUTOMATION_TERMINAL_REASONS(写它的有两处:调度器结算出口 + PATCH 路由)。
+ * 本包为可发布性不依赖 @ihui/database(database 的 exports 指向 TS 源码,
+ * 具名值导入会把本包钉回 workspace-only,同 client.ts 对 @ihui/types 的收口先例),
+ * 故此处是**客户端投影镜像**,防漂移由成对锁钉住:
+ * tests/automations-terminal-reason-parity.test.ts 逐字比对源真相文本与本数组。
+ * null = 无终态(在排或在跑)。
+ */
+export const AUTOMATION_TERMINAL_REASONS = [
+  'manual_pause',
+  'failed_permanent',
+  'failed_retries_exhausted',
+  'completed',
+] as const
+
+export type AutomationTerminalReason = (typeof AUTOMATION_TERMINAL_REASONS)[number]
+
 /** 上次执行结果摘要(服务端 jsonb) */
 export interface AutomationLastResult {
   finishedAt: string
@@ -32,6 +52,12 @@ export interface UserAutomation {
   scheduledAt: string | null
   timezone: string
   status: AutomationStatus
+  /** G-241 终态成因:为什么不排了/跑完的封闭档;null = 无终态(在排或在跑) */
+  terminalReason: AutomationTerminalReason | null
+  /** G-241 执行体认领凭据(行级 CAS 写入,结算时清空);null = 无人认领 */
+  claimToken: string | null
+  /** G-241 认领落租约的时刻;租约必须会过期,判租超龄的执行体可接管 */
+  claimedAt: string | null
   lastRunAt: string | null
   nextRunAt: string | null
   lastResult: AutomationLastResult | null
