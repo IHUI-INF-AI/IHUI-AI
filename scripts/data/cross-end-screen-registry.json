@@ -1150,6 +1150,11 @@
       "shared": "packages/app/src/features/legal-doc/LegalDocsHubScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/LegalDocScreen.tsx",
       "miniapp": "pkg-user/legal-docs-hub/index"
+    },
+    {
+      "shared": "packages/app/src/features/security-audit/SecurityAuditScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SecurityAuditScreen.tsx",
+      "miniapp": "pkg-user/security-audit/index"
     }
   ]
 }
