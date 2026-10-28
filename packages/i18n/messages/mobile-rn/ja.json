@@ -1,4 +1,10 @@
 {
+  "setting": {
+    "operationFailed": "操作失敗"
+  },
+  "message": {
+    "deleted": "削除済み"
+  },
   "workflows": {
     "title": "ワークフロー",
     "empty": "ワークフローはまだありません",

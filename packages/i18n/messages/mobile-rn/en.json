@@ -1,4 +1,10 @@
 {
+  "setting": {
+    "operationFailed": "Operation failed"
+  },
+  "message": {
+    "deleted": "Deleted"
+  },
   "workflows": {
     "title": "Workflows",
     "empty": "No workflows yet",
