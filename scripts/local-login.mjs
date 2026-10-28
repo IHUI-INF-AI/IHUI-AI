@@ -38,7 +38,13 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { clientHomeEnvs } from './lib/client-home.mjs'
-import { closeProduct, launchProduct, listProductPids, resolveProductExe } from './lib/trae-client-process.mjs'
+import {
+  closeProduct,
+  launchProduct,
+  listProcessesByPath,
+  listProductPids,
+  resolveProductExe,
+} from './lib/trae-client-process.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -243,6 +249,30 @@ function writeResult(providerCode, file, backupFile, extra = {}) {
   return { ok: true, providerCode, targetFile: file, backupFile: backupFile ?? '', notes: [], ...extra }
 }
 
+/**
+ * 写后自检(2026-10-28 补):落盘成功 ≠ 客户端下次启动读到的是我们的号。
+ * 可能是行语义写错(SQLite 文本/BLOB)、别名挑错、或落点被仍在退出的客户端回写覆盖。
+ * 故写完立刻按**客户端自己的读法**把凭证读回来比一遍,读不回目标值就以 write-verify 失败,
+ * 绝不冒绿(六平台与 trae 的"写后自检"同口径)。
+ */
+export function assertReadBack(what, verify) {
+  let ok = false
+  try {
+    ok = verify() === true
+  } catch (e) {
+    throw new WriteError(
+      `写后自检失败(${what} 读不回来):${e instanceof Error ? e.message : String(e)}`,
+      'write-verify',
+    )
+  }
+  if (!ok) {
+    throw new WriteError(
+      `写后自检失败(${what} 读回的不是刚写入的凭证,落点可能被其它进程覆写)`,
+      'write-verify',
+    )
+  }
+}
+
 // =============================================================================
 // 客户端进程控制(2026-10-28 与 trae 对齐:运行中 GUI 会在退出时用内存态覆写落点)
 // =============================================================================
@@ -263,6 +293,19 @@ export const CLIENT_IMAGES = Object.freeze({
   qoder: ['Qoder CN', 'Qoder'],
   minimax: ['MiniMax Code', 'MiniMaxCode'],
   zcode: ['ZCode'],
+})
+
+/**
+ * 映像名之外的兜底判据(2026-10-28 补):同一产品的不同发行版/版本,exe 名未必落在上面
+ * 的候选集里(codearts 的实测映像名始终没能证实;Qoder 国内/国际版命名不同)。精确名
+ * 全落空时改按**可执行文件路径**含产品关键字再扫一遍,免得把"正在跑的客户端"误判成
+ * "没装没跑"后盲写 —— 那种写下去必被客户端退出时的内存态覆写,表现就是"点了不好使"。
+ */
+export const CLIENT_PATH_HINTS = Object.freeze({
+  codearts: ['codearts'],
+  qoder: ['qoder'],
+  minimax: ['minimax'],
+  zcode: ['zcode'],
 })
 
 /**
@@ -287,8 +330,31 @@ export function closeClientForWrite(provider, env = process.env) {
       break
     }
   }
-  if (!hit) return { product: '', wasRunning: false, closed: false, forced: false, exePath: '' }
-  const exePath = resolveProductExe(hit.image, env) ?? ''
+  if (!hit) {
+    /**
+     * 精确映像名全落空 ⇒ 按安装路径关键字兜底(见 CLIENT_PATH_HINTS 头注)。
+     * 判"没在跑"的代价是盲写后被客户端覆写,所以宁可多扫一次 CIM。
+     */
+    const scanned = listProcessesByPath(CLIENT_PATH_HINTS[provider] ?? [], env)
+    if (scanned === null) {
+      throw new WriteError(
+        `按安装路径探测 ${PROVIDER_LABEL[provider] ?? provider} 客户端进程失败(未判定)⇒ 拒绝盲写(运行中的客户端会在退出时覆写登录态)`,
+        'target-locked',
+      )
+    }
+    if (scanned.length === 0) {
+      return { product: '', wasRunning: false, closed: false, forced: false, exePath: '' }
+    }
+    // 同一产品可能同时存在多个映像(Electron 主进程 + 更新器/助手):只关主进程那一族,
+    // 并按它的映像名轮询 —— closeProduct 的退出判据就是"该映像名的 pid 面为空"。
+    const main = scanned.find((r) => !/--type=/.test(r.commandLine)) ?? scanned[0]
+    hit = {
+      image: main.image,
+      pids: uniq(scanned.filter((r) => r.image.toLowerCase() === main.image.toLowerCase()).map((r) => r.pid)),
+      exePath: main.exePath,
+    }
+  }
+  const exePath = hit.exePath || resolveProductExe(hit.image, env) || ''
   const closed = closeProduct(hit.image, { env, pids: hit.pids })
   return {
     product: hit.image,
@@ -413,6 +479,7 @@ export function applyCodex(payload, opts = {}) {
 
   const backupFile = backupOf(file)
   atomicWrite(file, `${JSON.stringify(out, null, 2)}\n`)
+  assertReadBack('Codex auth.json', () => asText(readJsonObject(file, 'Codex auth.json').tokens?.access_token) === payload.token)
   return writeResult('codex', file, backupFile, {
     uid: payload.uid,
     replacedUid,
@@ -487,6 +554,12 @@ export function applyOpencode(payload, opts = {}) {
 
   const backupFile = backupOf(file)
   atomicWrite(file, `${JSON.stringify(existing, null, 2)}\n`)
+  assertReadBack(
+    'OpenCode auth.json',
+    () =>
+      asText(readJsonObject(file, 'OpenCode auth.json')?.[providerID]?.[authType === 'api' ? 'key' : 'access']) ===
+      payload.token,
+  )
   return writeResult('opencode', file, backupFile, {
     uid: payload.uid,
     replacedUid,
@@ -557,6 +630,10 @@ export function applyMinimax(payload, opts = {}) {
 
   const backupFile = backupOf(file)
   atomicWrite(file, `${JSON.stringify(doc, null, 2)}\n`)
+  assertReadBack(
+    'MiniMax auth.json',
+    () => asText(readJsonObject(file, 'MiniMax auth.json')?.records?.[recordKey]?.accessToken) === payload.token,
+  )
 
   // 同目录 auth-state.json 的 expiresAtMs 与实际会话同步(存在才改,不发明字段)
   const notes = []
@@ -669,6 +746,14 @@ export function applyZcode(payload, opts = {}) {
   }
   const backupFile = backupOf(file)
   atomicWrite(file, `${JSON.stringify(out, null, 2)}\n`)
+  // 按客户端的读法重解一遍:重封后的 enc:v1: 必须能解回池内票(不是只看文件写没写)
+  assertReadBack('ZCode credentials.json', () => {
+    const reread = readJsonObject(file, 'ZCode credentials.json')
+    const raw = reread[tokenKey]
+    const plain =
+      typeof raw === 'string' && raw.startsWith(ZCODE_ENC_PREFIX) ? extract.zcodeDecryptValue(raw, cipherKey) : raw
+    return asText(plain) === payload.token
+  })
   return writeResult('zcode', file, backupFile, {
     uid: payload.uid,
     replacedUid: null,
@@ -765,7 +850,8 @@ export function applyCodearts(payload, opts = {}) {
     const next = cloneJson(base)
 
     const tokenKeys = ['securitytoken', 'security_token', 'cloud_dragon_token'].filter((k) => k in base)
-    for (const k of tokenKeys.length > 0 ? tokenKeys : ['securitytoken']) next[k] = payload.token
+    const writeKeys = tokenKeys.length > 0 ? tokenKeys : ['securitytoken']
+    for (const k of writeKeys) next[k] = payload.token
     if (asText(payload.secrets.accessKeyId)) next.accessKey = payload.secrets.accessKeyId
     if (asText(payload.secrets.secretAccessKey)) next.secretKey = payload.secrets.secretAccessKey
     if (payload.refreshToken) {
@@ -818,6 +904,13 @@ export function applyCodearts(payload, opts = {}) {
         'target-locked',
       )
     }
+    // 写后自检:按客户端的读法(SQLite 取值 → 解 DPAPI 封套)把秘密行再解一遍
+    assertReadBack('CodeArts state.vscdb', () => {
+      const after = extract.readSecretBlobsFromVscdb(dir).find((b) => b.key === row.key)
+      if (!after) return false
+      const reread = extract.decryptSafeStorageBlob(after.blob, key)
+      return writeKeys.some((k) => asText(reread?.[k]) === payload.token)
+    })
     return writeResult('codearts', dbFile, backupFile, {
       uid: payload.uid,
       replacedUid,
@@ -927,6 +1020,10 @@ export function applyQoder(payload, opts = {}) {
   const nextBlob = encryptSafeStorageBlob(JSON.stringify(next), key)
   const backupFile = backupOf(authFile)
   atomicWrite(authFile, nextBlob)
+  assertReadBack('Qoder auth.v1.dat', () => {
+    const reread = extract.decryptSafeStorageBlob(fs.readFileSync(authFile), key)
+    return asText(asObj(reread)?.[tokenKey]) === payload.token
+  })
   return writeResult('qoder', authFile, backupFile, {
     uid: payload.uid,
     replacedUid,
@@ -1098,6 +1195,8 @@ export const __test__ = {
   backupOf,
   atomicWrite,
   CLIENT_IMAGES,
+  CLIENT_PATH_HINTS,
+  assertReadBack,
   closeClientForWrite,
   assertClientClosed,
   relaunchClient,
