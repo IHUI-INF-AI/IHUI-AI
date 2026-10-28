@@ -1160,6 +1160,11 @@
       "shared": "packages/app/src/features/member-settings/MemberSettingsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/MemberSettingsScreen.tsx",
       "miniapp": "pkg-user/member-settings/index"
+    },
+    {
+      "shared": "packages/app/src/features/member-dashboard/MemberDashboardScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MemberDashboardScreen.tsx",
+      "miniapp": "pkg-user/member-dashboard/index"
     }
   ]
 }
