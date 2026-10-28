@@ -115,6 +115,7 @@ overrides:
   image-size@>=0.6.3 <2.0.3: ^2.0.4
   metro>image-size: ^2.0.4
   '@storybook/nextjs>image-size': ^2.0.4
+  nodemailer@<10.1.4: ^10.2.1
 
 importers:
 
@@ -17670,10 +17671,6 @@ packages:
   nodemailer@10.2.1:
     resolution: {integrity: sha512-ZrDNsPFoDMwefNs7sJwrYiEJ/CG4ClJWDZv05iNJsEBWa8GRDry1QJHTJxsuTAY9eDDKjX4k+q3SxslXJOao7w==}
     engines: {node: '>=20.0.0'}
-
-  nodemailer@9.0.5:
-    resolution: {integrity: sha512-wvjiKvjczmsN7U/8006JOdXubgBk2XFAbioDMbT+sM7cPs0QrhJTa6KBRX7P5REGGkDcLUz/EarWidb8G8C1jQ==}
-    engines: {node: '>=6.0.0'}
 
   normalize-package-data@2.5.0:
     resolution: {integrity: sha512-/5CMN3T0R4XTj4DcGaexo+roZSdSFW/0AOOTROrjxzCG1wrWXEsGbRKevjlIL+ZDE4sZlJr5ED4YW0yqmkK+eA==}
@@ -40876,7 +40873,7 @@ snapshots:
       iconv-lite: 0.7.3
       libmime: 5.4.2
       linkify-it: 5.0.2
-      nodemailer: 9.0.5
+      nodemailer: 10.2.1
       punycode.js: 2.3.1
       tlds: 1.261.0
 
@@ -42718,8 +42715,6 @@ snapshots:
   node-stream-zip@1.16.0: {}
 
   nodemailer@10.2.1: {}
-
-  nodemailer@9.0.5: {}
 
   normalize-package-data@2.5.0:
     dependencies:
@@ -46301,7 +46296,7 @@ snapshots:
   smtp-server@3.19.3:
     dependencies:
       ipv6-normalize: 1.0.1
-      nodemailer: 9.0.5
+      nodemailer: 10.2.1
       punycode.js: 2.3.1
 
   snake-case@3.0.4:

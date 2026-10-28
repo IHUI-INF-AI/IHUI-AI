@@ -310,6 +310,11 @@ overrides:
   image-size@>=0.6.3 <2.0.3: ^2.0.4
   'metro>image-size': ^2.0.4
   '@storybook/nextjs>image-size': ^2.0.4
+  # nodemailer 传递面补防:直接依赖已 ^10.2.1,但 dev 面 mailparser/smtp-server 仍携带
+  # nodemailer@9.0.5(audit --prod 不数 dev,生产不受影响;开发机与 CI 供应链同病要同治)。
+  # mailparser 3.9.15/smtp-server 3.19.3 实测只用 nodemailer 公开 createTransport/parser 面,
+  # 回归由 email 三套件 116 例钉住。
+  nodemailer@<10.1.4: ^10.2.1
   # 刻意不抬(如实留痕,不是漏项):
   #  · deepmerge(GHSA-gcqx-w48m-w2h4,LOW,原型污染 gadget,宿主=@svgr/RN cli 构建链):
   #    advisory 声明的补丁版 4.3.2 在官方 npm registry 尚未发布(现读 latest=4.3.1,
