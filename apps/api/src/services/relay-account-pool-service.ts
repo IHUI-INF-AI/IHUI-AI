@@ -503,7 +503,54 @@ function mapSessionEntryImport(
   }
 }
 
-const mapLoomyImport = (acc: ImportAccountInput) => mapSessionEntryImport('loomy', 'loomy', acc)
+/**
+ * Loomy:捆绑单账号(2026-10-28)。提取器出一条
+ * {source:'local-storage', key:'loomy-auth-session', value:整份会话 JSON, companions:{配套键}},
+ * value = JSON.stringify({phone,maskedPhone,session,userid,loggedInAt}),session 即会话票。
+ * 导入拆票:session→token,剔票模板→secrets.sessionTemplate(「登录本机」按它重建写回值),
+ * companions→secrets.companions(同批写回的配套键);uid 用会话 userid(缺则 autoUid 票)。
+ * 仍兼容旧的逐条目 {source,key,host,value} 形状(value 非 JSON / 无 session 票)⇒ 回落通用映射。
+ */
+function mapLoomyImport(acc: ImportAccountInput): ReturnType<typeof mapSessionEntryImport> {
+  const a = acc as Record<string, unknown>
+  if (cstr(a['key']) === 'loomy-auth-session') {
+    const raw = a['value']
+    if (typeof raw === 'string' && raw) {
+      try {
+        const parsed = JSON.parse(raw) as Record<string, unknown>
+        const session = cstr(parsed['session'])
+        if (session) {
+          const template: Record<string, unknown> = { ...parsed }
+          delete template.session
+          const uidRaw = parsed['userid']
+          const uid =
+            typeof uidRaw === 'string'
+              ? uidRaw.trim()
+              : typeof uidRaw === 'number' && Number.isFinite(uidRaw)
+                ? String(uidRaw)
+                : ''
+          const companions = objField(a, 'companions')
+          return {
+            token: session,
+            refreshToken: null,
+            uid: uid || autoUid(session),
+            name: cstr(parsed['maskedPhone']) || cstr(parsed['phone']) || 'loomy',
+            expiresAt: null,
+            secrets: {
+              entrySource: cstr(a['source']) || null,
+              entryKey: 'loomy-auth-session',
+              sessionTemplate: template,
+              ...(companions ? { companions } : {}),
+            },
+          }
+        }
+      } catch {
+        /* value 不是合法 JSON ⇒ 回落旧条目映射(不猜) */
+      }
+    }
+  }
+  return mapSessionEntryImport('loomy', 'loomy', acc)
+}
 
 /**
  * 豆包:捆绑单账号(2026-10-28)。提取器把整套字节 passport 族 cookie 打成一个账号

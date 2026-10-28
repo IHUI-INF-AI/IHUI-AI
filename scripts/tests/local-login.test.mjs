@@ -27,6 +27,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__ as L } from '../local-login.mjs'
+import * as lv from '../lib/leveldb-log.mjs'
 import { __test__ as Z } from '../lib/zcode-auth-extract.mjs'
 import { __test__ as W } from '../lib/workbuddy-auth-extract.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -586,7 +587,8 @@ test('zcode:派生密钥随 env 家目录走,普通环境与旧算法逐字节�
 
 test('CLI:--provider 必填且限支持集,stdin JSON 回报不含凭据', () => {
   assert.match(L.parseArgs([]).error ?? '', /--provider/)
-  assert.match(L.parseArgs(['--provider', 'loomy', '--stdin']).error ?? '', /不支持/)
+  assert.equal(L.parseArgs(['--provider', 'loomy', '--stdin']).error, null, 'loomy 已装车(2026-10-28),不得再报不支持')
+  assert.match(L.parseArgs(['--provider', 'lingma', '--stdin']).error ?? '', /不支持/)
   assert.match(L.parseArgs(['--provider', 'codex']).error ?? '', /--stdin/)
 
   const scratch = mkScratch('local-login-cli')
@@ -626,7 +628,7 @@ test('CLIENT_IMAGES:GUI 平台先关后写,CLI 两平台不动进程,workbuddy �
   assert.equal(L.CLIENT_IMAGES.codex, undefined, 'codex 是 CLI,不该去杀进程')
   assert.equal(L.CLIENT_IMAGES.opencode, undefined, 'opencode 是 CLI,不该去杀进程')
   assert.equal(L.CLIENT_IMAGES.workbuddy, undefined, 'workbuddy 的字段密钥只在运行中的主进程里,main() 预关会关掉钥源')
-  for (const provider of ['codearts', 'qoder', 'minimax', 'zcode', 'doubao']) {
+  for (const provider of ['codearts', 'qoder', 'minimax', 'zcode', 'doubao', 'loomy']) {
     assert.equal(Array.isArray(L.CLIENT_IMAGES[provider]), true, `${provider} 必须有进程映像候选`)
     assert.equal(L.CLIENT_IMAGES[provider].length > 0, true, `${provider} 候选不得为空`)
   }
@@ -681,7 +683,7 @@ test('进程探测兜底:精确映像名落空时按 exe 路径关键字认客�
   )
   assert.deepEqual(P.matchProcessesByPath(rows, []), [], '没有关键字就不猜')
   assert.deepEqual(P.matchProcessesByPath([{ Name: 'a.exe', ProcessId: 1 }], ['a']), [], '拿不到路径不认')
-  for (const provider of ['codearts', 'qoder', 'minimax', 'zcode', 'doubao']) {
+  for (const provider of ['codearts', 'qoder', 'minimax', 'zcode', 'doubao', 'loomy']) {
     assert.equal((L.CLIENT_PATH_HINTS[provider] ?? []).length > 0, true, `${provider} 必须有路径兜底关键字`)
   }
   assert.equal(L.CLIENT_PATH_HINTS.codex, undefined)
@@ -943,5 +945,169 @@ test(
 test('doubao:池号没有 cookie 捆绑包 ⇒ no-template 点名(不猜不落笔)', () => {
   const payload = L.normalizePayload({ uid: 'auto:x', token: 't', secrets: {} })
   assert.throws(() => L.applyDoubao(payload, { extract }), (e) => e?.code === 'no-template')
+})
+
+// =============================================================================
+// ⑫ Loomy(Chromium DOM Storage leveldb 活日志 WriteBatch 追加;2026-10-28 装车)
+// =============================================================================
+
+test('leveldb-log:WriteBatch 编解码往返 + put/delete 条目格式(判据 write_batch.cc)', () => {
+  const key = lv.lsValueKey('loomy-auth-session')
+  const val = lv.encodeStoredValue('{"session":"t-1"}')
+  const payload = lv.buildBatch(7n, [
+    { key, value: val },
+    { key: Buffer.from('_file://\x00\x01del', 'latin1'), value: null },
+  ])
+  const b = lv.parseBatch(payload)
+  assert.equal(b.seq, 7n)
+  assert.equal(b.count, 2)
+  assert.equal(b.entries[0].type, 1)
+  assert.equal(b.entries[0].key.equals(key), true)
+  assert.equal(b.entries[0].value.equals(val), true)
+  assert.equal(b.entries[1].type, 0)
+  assert.equal(b.entries[1].value, null)
+  // 解不成合法批次 ⇒ null(读不出不猜)
+  assert.equal(lv.parseBatch(Buffer.from([1, 2, 3])), null)
+})
+
+test('leveldb-log:存储值 varint 往返(UTF-8 按字节长;截断 ⇒ null)', () => {
+  const s = '张三138****0000'
+  const enc = lv.encodeStoredValue(s)
+  assert.equal(lv.decodeStoredValue(enc), s)
+  assert.equal(enc[0], Buffer.from(s, 'utf8').length, '长度前缀是字节长,不是字符长')
+  assert.equal(lv.decodeStoredValue(Buffer.alloc(0)), null)
+  assert.equal(lv.decodeStoredValue(enc.subarray(0, enc.length - 2)), null)
+})
+
+test('leveldb-log:块边界零填充 / 跨块拆片重组 / LWW 后写为准 / maxBatchSeq', () => {
+  const k1 = lv.lsValueKey('a')
+  const b1 = lv.buildBatch(1n, [{ key: k1, value: lv.encodeStoredValue('first') }])
+  const b2 = lv.buildBatch(2n, [{ key: k1, value: lv.encodeStoredValue('second') }])
+
+  assert.equal(lv.maxBatchSeq(Buffer.alloc(0)), 0n)
+  assert.equal(lv.latestStoredValue(Buffer.alloc(0), k1), null)
+
+  // 常规追加两条批次:后写为准,LWW 取 seq 更高(键相同,追加序即 seq 序)
+  let log = lv.appendRecords(Buffer.alloc(0), [b1, b2])
+  assert.equal(lv.parseLogRecords(log).length, 2)
+  assert.equal(lv.decodeStoredValue(lv.latestStoredValue(log, k1)), 'second')
+  assert.equal(lv.maxBatchSeq(log), 2n)
+
+  // 块尾不足 7B ⇒ 零填充换块,记录仍可读
+  const pad = Buffer.alloc(lv.BLOCK_SIZE - 5)
+  log = lv.appendRecords(pad, [b1])
+  assert.equal(log.length > lv.BLOCK_SIZE, true)
+  assert.equal(lv.parseLogRecords(log).length, 1)
+  assert.equal(lv.decodeStoredValue(lv.latestStoredValue(log, k1)), 'first')
+
+  // 大记录跨块拆片 ⇒ 重组逐字节一致
+  const big = lv.buildBatch(9n, [{ key: k1, value: Buffer.alloc(40000, 0x41) }])
+  log = lv.appendRecords(Buffer.alloc(0), [big])
+  const recs = lv.parseLogRecords(log)
+  assert.equal(recs.length, 1)
+  assert.equal(recs[0].payload.equals(big), true)
+
+  // delete 条目 ⇒ 键清空
+  const del = lv.buildBatch(10n, [{ key: k1, value: null }])
+  log = lv.appendRecords(log, [del])
+  assert.equal(lv.latestStoredValue(log, k1), null)
+})
+
+test('applyLoomy:追加更高 seq 批次(主键+companions),写后按客户端读法全等,备份逐字节', () => {
+  const scratch = mkScratch('local-login-loomy')
+  try {
+    const dir = path.join(scratch, 'Local Storage', 'leveldb')
+    fs.mkdirSync(dir, { recursive: true })
+    const logFile = path.join(dir, '000004.log')
+    // 本机现值:seq=3 的旧号会话
+    const oldJson = JSON.stringify({
+      phone: '13800000000',
+      maskedPhone: '138****0000',
+      session: 'old-ticket',
+      userid: 'u-old',
+      loggedInAt: '2026-10-01T00:00:00.000Z',
+    })
+    const seed = lv.buildBatch(3n, [
+      { key: lv.lsValueKey('loomy-auth-session'), value: lv.encodeStoredValue(oldJson) },
+    ])
+    const beforeRaw = lv.appendRecords(Buffer.alloc(0), [seed])
+    fs.writeFileSync(logFile, beforeRaw)
+
+    const template = {
+      phone: '13900000000',
+      maskedPhone: '139****0000',
+      userid: 'u-new',
+      loggedInAt: '2026-10-28T00:00:00.000Z',
+    }
+    const payload = L.normalizePayload({
+      uid: 'u-new',
+      token: 'new-ticket',
+      target: logFile,
+      secrets: { sessionTemplate: template, companions: { 'loomy-last-login-phone': '"13900000000"' } },
+    })
+    const result = L.applyLoomy(payload, { extract })
+    assert.equal(result.providerCode, 'loomy')
+    assert.equal(result.replacedUid, 'u-old', '写前现值的 userid 必须如实回报')
+    assertBackup(result, logFile, beforeRaw)
+
+    const after = fs.readFileSync(logFile)
+    assert.equal(lv.maxBatchSeq(after), 4n, '新批次 seq = 旧最大 + 1')
+    const back = JSON.parse(
+      lv.decodeStoredValue(lv.latestStoredValue(after, lv.lsValueKey('loomy-auth-session'))),
+    )
+    assert.equal(back.session, 'new-ticket')
+    assert.equal(back.userid, 'u-new')
+    assert.equal(back.phone, '13900000000', '资料字段来自池内模板')
+    assert.equal(
+      lv.decodeStoredValue(lv.latestStoredValue(after, lv.lsValueKey('loomy-last-login-phone'))),
+      '"13900000000"',
+      'companions 命中键必须同批落',
+    )
+    noPlaintext(result, ['new-ticket'])
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('applyLoomy:模板 userid 错配 ⇒ template-uid-mismatch 拒写(文件不动,不留备份)', () => {
+  const scratch = mkScratch('local-login-loomy-mismatch')
+  try {
+    const logFile = path.join(scratch, '000004.log')
+    const seed = lv.buildBatch(1n, [
+      { key: lv.lsValueKey('loomy-auth-session'), value: lv.encodeStoredValue('{"userid":"u-local","session":"x"}') },
+    ])
+    const before = lv.appendRecords(Buffer.alloc(0), [seed])
+    fs.writeFileSync(logFile, before)
+    const payload = L.normalizePayload({
+      uid: 'u-target',
+      token: 't',
+      target: logFile,
+      secrets: { sessionTemplate: { userid: 'u-other' } },
+    })
+    assert.throws(() => L.applyLoomy(payload, { extract }), (e) => e?.code === 'template-uid-mismatch')
+    assert.equal(fs.readFileSync(logFile).equals(before), true, '拒写不得动原文件')
+    assert.equal(
+      fs.readdirSync(scratch).filter((f) => f.startsWith('000004.log.ihui-login-')).length,
+      0,
+      '拒写不得留备份',
+    )
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('applyLoomy:落点找不到 ⇒ no-target 点名(活日志缺失/无候选目录都不猜)', () => {
+  const payload = L.normalizePayload({
+    uid: 'u',
+    token: 't',
+    target: 'Z:/no/such/ihui-loomy/000009.log',
+    secrets: {},
+  })
+  assert.throws(() => L.applyLoomy(payload, { extract }), (e) => e?.code === 'no-target')
+  const payload2 = L.normalizePayload({ uid: 'u', token: 't', secrets: {} })
+  assert.throws(
+    () => L.applyLoomy(payload2, { extract: { loomyCandidateRoamingDirs: () => [] } }),
+    (e) => e?.code === 'no-target' && /请先安装并登录/.test(e.message),
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
