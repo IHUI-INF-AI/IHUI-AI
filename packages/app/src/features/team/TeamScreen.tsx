@@ -241,8 +241,8 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
     },
-    statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    statItem: { alignItems: 'center', flex: 1 },
+    statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
+    statItem: { alignItems: 'center', flex: 1, minWidth: 64 },
     statValue: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
     statLabel: { marginTop: 8, fontSize: 10, color: tk.success.deepText, textAlign: 'center' },
     contributionBox: {

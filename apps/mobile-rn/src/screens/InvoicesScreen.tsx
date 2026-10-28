@@ -397,7 +397,7 @@ function makeStyles() {
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
     rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    amount: { fontSize: 17, fontWeight: '700', color: tokens.text.primary },
+    amount: { fontSize: 17, fontWeight: '700', color: tokens.text.primary, flexShrink: 0 },
     statusBadge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
