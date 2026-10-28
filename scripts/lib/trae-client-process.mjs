@@ -69,6 +69,88 @@ export function listProductPids(product, env = process.env) {
   return pids
 }
 
+/**
+ * 宿主解释器/终端进程映像名(小写):它们的**可执行文件路径**常落在带产品关键字的目录里
+ * (例如本仓库源码路径含 zcode/qoder 字样),但绝不是客户端本体 —— 按路径兜底时必须排除,
+ * 否则会把用户正在跑的 node/pwsh 脚本当客户端去关。
+ */
+const HOST_PROCESS_IMAGES = new Set([
+  'node.exe',
+  'pwsh.exe',
+  'powershell.exe',
+  'cmd.exe',
+  'conhost.exe',
+  'python.exe',
+  'pythonw.exe',
+  'wsl.exe',
+  'bash.exe',
+  'git.exe',
+  'windowsterminal.exe',
+  'wt.exe',
+])
+
+/** 按路径关键字筛进程(纯函数,单测直打;规则见 listProcessesByPath 头注) */
+export function matchProcessesByPath(rows, hints) {
+  const list = (hints ?? []).map((h) => String(h ?? '').trim().toLowerCase()).filter(Boolean)
+  if (list.length === 0) return []
+  const out = []
+  for (const r of rows ?? []) {
+    const exe = String(r?.ExecutablePath ?? '')
+    if (!exe) continue
+    if (HOST_PROCESS_IMAGES.has(String(r?.Name ?? '').toLowerCase())) continue
+    const lower = exe.toLowerCase()
+    if (!list.some((h) => lower.includes(h))) continue
+    out.push({
+      image: String(r.Name ?? '').replace(/\.exe$/i, ''),
+      pid: Number(r.ProcessId),
+      exePath: exe,
+      commandLine: String(r.CommandLine ?? ''),
+    })
+  }
+  return out
+}
+
+/**
+ * 按「可执行文件路径含产品关键字」枚举进程(2026-10-28 补)。
+ *
+ * 立因:同一产品的不同发行版/版本,映像名未必在已知候选内(codearts 的实测映像名一直
+ * 没能证实、Qoder 国内版/国际版命名不同)。精确映像名全落空时若直接判"没在跑",就会
+ * 在客户端运行时盲写 —— 客户端退出时用内存态覆写落点,表现正是用户反馈的"不好使"。
+ *
+ * 返回 null = 探测失败(未判定),调用方据此拒绝盲写;[] = 确实没在跑。
+ */
+export function listProcessesByPath(hints, env = process.env) {
+  if (!processControlEnabled(env)) return []
+  const list = (hints ?? []).map((h) => String(h ?? '').trim()).filter(Boolean)
+  if (list.length === 0) return []
+  const ps = powershellPath(env)
+  const script = [
+    "$ErrorActionPreference='SilentlyContinue';",
+    '[Console]::OutputEncoding=[Text.Encoding]::UTF8;',
+    'Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath }',
+    ' | Select-Object Name,ProcessId,ExecutablePath,CommandLine',
+    ' | ConvertTo-Json -Compress',
+  ].join('')
+  let out
+  try {
+    out = execFileSync(
+      ps,
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { encoding: 'utf8', windowsHide: true, timeout: 20_000, env },
+    )
+  } catch {
+    return null
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(String(out).trim() || 'null')
+  } catch {
+    return null
+  }
+  const rows = Array.isArray(parsed) ? parsed : parsed ? [parsed] : []
+  return matchProcessesByPath(rows, list)
+}
+
 function powershellPath(env = process.env) {
   const override = String(env.IHUI_PWSH_PATH ?? '').trim()
   if (override && fs.existsSync(override)) return override
