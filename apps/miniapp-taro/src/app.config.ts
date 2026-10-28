@@ -179,6 +179,7 @@ export default defineAppConfig({
         'ai-world-collection/index',
         'square/index',
         'legal-docs-hub/index',
+        'security-audit/index',
       ],
     },
     {
