@@ -4306,6 +4306,9 @@ const CROSS_END_LEGS = new Set([
   // 当场返回 { mailed:false },瞎了也无人喊(§12f「判据失效的表现永远是安静」)。
   'portal-converge',
   'rn-token-pair',
+  // 2026-10-28 立:web→RN 对账腿(尺子 check-web-rn-parity.mjs)。此前不在册 ⇒ 未知腿分支
+  // 当场返回 { mailed:false },这条腿瞎了也无人喊(§12f「判据失效的表现永远是安静」)。
+  'web-rn-parity',
 ])
 const crossEndUndetFile = (leg) =>
   join(WORKTREE, '.ihui-agent', 'state', `cross-end-${leg}-undetermined-first.json`)
@@ -4348,7 +4351,7 @@ export function settleCrossEndLeg(leg, opts = {}) {
  * 本函数只在**子进程返回之后**补 finishedAt/rc ⇒ 裸 attemptAt 从此专表示"派发了但没回来"。
  * 写失败不改变判定(它是读数,不是判据),也不回落另一个面。
  */
-function stampCrossEndDispatch(tickFile, attemptAtMs, r, stdout) {
+function stampCrossEndDispatch(tickFile, attemptAtMs, r, stdout, extra = {}) {
   try {
     writeFileSync(
       tickFile,
@@ -4357,6 +4360,8 @@ function stampCrossEndDispatch(tickFile, attemptAtMs, r, stdout) {
         finishedAt: new Date().toISOString(),
         rc: typeof r?.status === 'number' ? r.status : null,
         tail: String(stdout ?? '').slice(-220),
+        // 2026-10-28:web→RN 腿要把本轮计数快照当下一轮的棘轮基线,写盘格式仍是这一份
+        ...extra,
       }),
       'utf8',
     )
@@ -4499,6 +4504,171 @@ export function auditCrossEndParityDrift(opts = {}) {
       ` · 门 128 判红 ${cur.coverageRed ?? '?'} · 登记表腐烂 ${cur.mapRot ?? '?'})`,
   )
   return { ran: true, ok: true, state: 'ok', cur }
+}
+
+const CROSS_END_WEB_RN_INTERVAL_MS = Number(
+  process.env.IHUI_CROSS_END_WEB_RN_INTERVAL_MS || 60 * 60 * 1000,
+)
+
+/** web→RN 巡检的五个功能维 + 样式维(维名同时是到人身份,不随计数抖动) */
+const WEB_RN_DIMS = [
+  ['unmapped', '未映射(web 有路由、台账零判定)'],
+  ['rot', '登记腐烂(指针指向不存在的屏/键)'],
+  ['contradicted', '渲染推翻(台账判缺而端内实际已渲染)'],
+  ['judgedGap', '判过缺口(确缺 RN 承载)'],
+  ['navGap', '入口级缺口(侧栏入口无承载)'],
+]
+
+/**
+ * web→RN 对账巡检(2026-10-28 立):尺子 `check-web-rn-parity.mjs` 的头注自述「已注册进
+ * guardian-runner.mjs 每轮自动跑」,而实测全仓**零引用**(guardian-runner 与 git-guardian 皆无)
+ * —— 与上一格同一型:判据齐全却无人调度,失效形态是安静(§0.9「造好没装车」= 没有)。
+ * AGENTS §44:只读对账尺子**不进提交链**,唯一调度器 = 本函数(健康轮次 + !CHECK_ONLY)。
+ *
+ * 判据全部读尺子输出(**零复算**):functional 的 unmapped / rot / contradicted / judgedGap
+ * 与 nav.counts.gap,样式维读 style.ok。喊人只在**净增**那一档(§12e 棘轮:存量缺口与本次
+ * 提交无关,每轮恒响只会把通道喊废);上轮快照作为 baseline 住在 tickFile 里,首轮只立基线。
+ * 取不到 JSON 或尺子 exit 2(取不到被审面)⇒ 未判定(§0.3),不记绿也不冒红。60 分钟节流 ——
+ * 尺子要扫 886 条 web 路由 + 327 屏并派一道子进程,而漂移是慢变量。
+ */
+export function auditWebRnParity(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = CROSS_END_WEB_RN_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'web-rn-parity-last.json'),
+    logger = log,
+    runner = null,
+    notify = notifyGuardRed,
+    undetFile = crossEndUndetFile('web-rn-parity'),
+    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-web-rn-parity.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ web→RN 对账巡检:尺子不在位(scripts/check-web-rn-parity.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '尺子不在位' }
+  }
+  let last = NaN
+  let baseline = null
+  try {
+    const prev = JSON.parse(readFileSync(tickFile, 'utf8'))
+    last = Date.parse(String(prev.attemptAt ?? '').trim())
+    if (prev.baseline && typeof prev.baseline === 'object') baseline = prev.baseline
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(
+      `⚠️ web→RN 对账巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+    )
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 5 * 60 * 1000, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // exit 2 = 未判定;结论(若已打到 stdout)整份仍在 out 里。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  // runner 两种契约都收:生产派生(`{ok,out,err,status}`)与镜像测试(`{status,stdout,stderr}`)。
+  const stdout = String(r.out ?? r.stdout ?? '')
+  const stderr = String(r.err ?? r.stderr ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面「结论不可用」那一支 */
+  }
+  const fn = parsed?.functional
+  const st = parsed?.style
+  if (!fn || typeof fn !== 'object' || fn.undetermined === true) {
+    stampCrossEndDispatch(tickFile, now, r, stdout, { baseline })
+    logger(
+      `⚠️ web→RN 对账巡检:尺子结论不可用:未判定 —— ${String(fn?.why ?? '') || stderr.slice(0, 120) || '未取到 JSON'}` +
+        ` ⇒ 本轮没判,不等于"RN 已对齐 web"`,
+    )
+    noteCrossEndUndetermined(
+      'web-rn-parity',
+      `派生 rc=${r.status ?? '?'};stderr 前 120:${stderr.slice(0, 120) || '(空)'}\n` +
+        `这表示**web→RN 对账这一格现在是瞎的**(web 新增路由 / 样式漂移没人量得到),不是"已对齐"。\n` +
+        `出路:node scripts/check-web-rn-parity.mjs(只读复跑,看它实际报什么)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
+    return { ran: true, ok: false, state: 'undetermined' }
+  }
+  const cur = {
+    webRoutes: Number(fn.webRoutes ?? 0),
+    rnScreens: Number(fn.rnScreens ?? 0),
+    aligned: Number(fn.aligned ?? 0),
+    excluded: Number(fn.excluded ?? 0),
+    portal: fn.portalKnown === false ? null : Number(fn.portal ?? 0),
+    unmapped: Number(fn.unmapped ?? 0),
+    rot: Number(fn.rot ?? 0),
+    contradicted: Number(fn.contradicted ?? 0),
+    judgedGap: Number(fn.judgedGap ?? 0),
+    navGap: fn.nav && fn.nav.undetermined !== true ? Number(fn.nav.counts?.gap ?? 0) : null,
+    styleOk: st?.ok === true,
+  }
+  stampCrossEndDispatch(tickFile, now, r, stdout, { baseline: cur })
+  settleCrossEndLeg('web-rn-parity', { logger, file: undetFile })
+  const risen = []
+  if (baseline) {
+    for (const [key, label] of WEB_RN_DIMS) {
+      const a = Number(baseline[key])
+      const b = Number(cur[key])
+      if (Number.isFinite(a) && Number.isFinite(b) && b > a) risen.push({ key, label, a, b })
+    }
+  }
+  const styleRegressed = baseline?.styleOk === true && cur.styleOk === false
+  if (risen.length || styleRegressed) {
+    const dims = [...risen.map((x) => x.key), ...(styleRegressed ? ['token'] : [])]
+    const detail =
+      `web→RN 对账净增 ${dims.length} 维:` +
+      risen.map((x) => `\n· ${x.label}:${x.a} → ${x.b}`).join('') +
+      (styleRegressed ? '\n· 颜色令牌:上轮通过 → 本轮不一致(RN 已脱离 tokens.css)' : '') +
+      `\n\n可执行下一步:① node scripts/check-web-rn-parity.mjs 看功能维逐条与样式维结论;` +
+      `② 新路由零判定 ⇒ 在 scripts/data/web-rn-screen-map.jsonl 补一行(aligned/excluded/gap),` +
+      `或用 node scripts/probe-web-rn-gap.mjs 分诊;` +
+      `③ 颜色不一致 ⇒ node scripts/check-cross-end-tokens.mjs 定位手抄档,` +
+      `再 node scripts/plan-rn-token-pairing.mjs 配对。`
+    logger(`⚠️ web→RN 对账净增:${[...new Set(dims)].join(',')} ⇒ 已按稳定身份到人`)
+    notify('web→RN 对账净增', detail, {
+      severity: 'warning',
+      dedupKey: `web-rn-parity;${[...new Set(dims)].sort().join('+')}`,
+      logger,
+    })
+    return { ran: true, ok: false, state: 'regressed', dims, cur, baseline }
+  }
+  logger(
+    `✅ web→RN 对账:无净增(aligned ${cur.aligned}/${cur.webRoutes} · 未映射 ${cur.unmapped}` +
+      ` · 判过缺口 ${cur.judgedGap} · 登记腐烂 ${cur.rot} · 入口级缺口 ${cur.navGap ?? '?'}` +
+      ` · 令牌 ${cur.styleOk ? '同步' : '不一致(存量)'}${baseline ? '' : ' · 首轮立基线'})`,
+  )
+  return { ran: true, ok: true, state: 'ok', cur, baseline }
 }
 
 const CROSS_END_MIRROR_INTERVAL_MS = Number(
@@ -6627,6 +6797,10 @@ function main() {
     // 判据齐全却无人调度。同一挂点语义(健康轮次早退之前 + !CHECK_ONLY),自带 60 分钟节流;
     // 判机器状态绝不进提交链(§12e),只在 regressed 那一档按稳定身份到人。
     if (!CHECK_ONLY) auditCrossEndParityDrift()
+    // web→RN 对账(2026-10-28 立):尺子 `check-web-rn-parity.mjs` 头注自述"已注册进 guardian-runner
+    // 每轮自动跑",而实测全仓零引用 —— 与上一格同型(§0.9「造好没装车」= 没有)。AGENTS §44:
+    // 只读对账尺子不进提交链,唯一调度器就是本行;自带 60 分钟节流,只在净增那一档到人。
+    if (!CHECK_ONLY) auditWebRnParity()
     // 跨端镜像声明链自愈(2026-10-26 立):修复器只补"登记表已有"的缺口、他席在飞一律拒落,
     // 故可无人值守;30 分钟节流。只写日志不喊人(拒落属常态),真倒退由上一格按维到人。
     if (!CHECK_ONLY) healCrossEndMirror()
