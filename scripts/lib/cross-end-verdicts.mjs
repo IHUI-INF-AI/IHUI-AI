@@ -87,6 +87,7 @@ export function readVerdicts(face = 'head', root = ROOT) {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
       maxBuffer: 16 * 1024 * 1024,
+      windowsHide: true,
     })
     return { text, ...parseVerdictRows(text) }
   } catch {

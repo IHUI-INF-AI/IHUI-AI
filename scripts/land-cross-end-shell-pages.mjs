@@ -66,6 +66,7 @@ const git = (args, input) =>
     maxBuffer: 1 << 28,
     stdio: input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'],
     input,
+    windowsHide: true,
   })
 const headBlob = (rel) => git(['show', `HEAD:${rel}`])
 const hashBytes = (buf) => git(['hash-object', '-w', '--stdin'], Buffer.from(buf, 'utf8')).trim()
@@ -172,6 +173,7 @@ function watermarkBytesOf(name, text, ext = '.tsx') {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
   const bytes = readFileSync(p, 'utf8')
   rmSync(p, { force: true })
@@ -540,6 +542,7 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
       encoding: 'utf8',
       maxBuffer: 1 << 28,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       env: {
         ...process.env,
         LAND_PATHS: built.files.map((f) => f.path).join(';'),

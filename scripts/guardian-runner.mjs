@@ -3460,7 +3460,7 @@ const checks = [
     ]
   },
   {
-    id: '251',
+    id: '257',
     label:
       '🧱 RN 兼容层覆盖面对账(blocking,小程序复用共享屏/RN 壳的"能不能编过"三维 —— 缺一名即整屏运行期炸,而 babel 构建照样绿)',
     script: 'check-rn-compat-coverage.mjs',
@@ -3490,7 +3490,7 @@ const checks = [
     ]
   },
   {
-    id: '252',
+    id: '258',
     label:
       '📦 workspace 包 exports 条件真值对账(blocking,子路径必须对 CJS 解析条件可达 —— 缺 default 就是小程序/CI 构建当场红)',
     script: 'fix-package-exports-conditions.mjs',
@@ -3514,7 +3514,7 @@ const checks = [
     ]
   },
   {
-    id: '253',
+    id: '259',
     label:
       '🧬 scripts 相对具名导入 ↔ 目标模块出口面真值对账(blocking,生产方被削出口那一型的唯一着力点 —— 消费方一字未动而守护当场起不来)',
     script: 'check-mjs-export-resolution.mjs',
@@ -3533,7 +3533,7 @@ const checks = [
     ]
   },
   {
-    id: '254',
+    id: '260',
     label:
       '🎨 RN 令牌表派生面 ↔ tokens.css 对账(blocking;值同步 + 覆盖面块落后都算漂移 —— 源改一处 RN 自动跟上,不跟上就拦在提交口)',
     script: 'sync-rn-tokens.mjs',
@@ -3555,7 +3555,7 @@ const checks = [
     ]
   },
   {
-    id: '256',
+    id: '261',
     label:
       '🌐 门户表↔端内词包不变量(blocking;门户表每个 webViewPortal.* titleKey 必须在两端×五语言十份词包里,且条目指向的 web 路由真存在)',
     script: 'check-web-portal-label-keys.mjs',

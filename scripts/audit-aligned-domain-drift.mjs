@@ -85,6 +85,7 @@ function batchReadFace(face, rels) {
     input,
     maxBuffer: 1 << 28,
     stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
   })
   let pos = 0
   for (const rel of rels) {

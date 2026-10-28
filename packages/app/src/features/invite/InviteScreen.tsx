@@ -146,9 +146,10 @@ function createStyles(tk: AppThemeTokens) {
     codeValue: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
     statsRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       marginTop: 12,
     },
-    statItem: { flex: 1, alignItems: 'center' },
+    statItem: { flex: 1, alignItems: 'center', minWidth: 112 },
     statValue: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
     statLabel: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
     shareBtn: {

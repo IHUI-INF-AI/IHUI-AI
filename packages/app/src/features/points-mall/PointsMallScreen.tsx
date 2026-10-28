@@ -145,6 +145,7 @@ function createStyles(tk: AppThemeTokens) {
     columnWrapper: { justifyContent: 'space-between', marginBottom: 10 },
     card: {
       width: '48%',
+      minWidth: 96,
       padding: 12,
       borderRadius: rnRadius.lg,
       borderWidth: 1,

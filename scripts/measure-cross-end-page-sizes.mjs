@@ -43,6 +43,7 @@ const git = (args, opts = {}) =>
     maxBuffer: 1 << 28,
     stdio: ['pipe', 'pipe', 'pipe'],
     input: opts.input,
+    windowsHide: true,
   })
 
 function headFiles() {
@@ -57,6 +58,7 @@ function readBatchOf(rels) {
     maxBuffer: 1 << 28,
     stdio: ['pipe', 'pipe', 'pipe'],
     input: rels.map((r) => `HEAD:${r}`).join('\n') + '\n',
+    windowsHide: true,
   })
   const map = new Map()
   let off = 0
