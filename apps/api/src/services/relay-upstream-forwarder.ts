@@ -33,6 +33,9 @@ export type { SelectedChannelKey }
 import { selectChannelCandidates, recordChannelResult } from './relay-channel-router.js'
 // 账号池回落(2026-10-22):无渠道候选时尝试第三方 AI IDE 账号池(trae/workbuddy/codearts)
 import { forwardToAccountPool } from './relay-account-forwarder.js'
+// 出网复检(SSRF 硬化,2026-10-28):渠道 base_url 保存时已校验,这里在"请求发出那一刻"再验一次,
+// 防保存后 DNS 改指内网 / 重绑定。档位与 relay-account-forwarder 同源(allowPrivate+allowCustomPort)。
+import { assertRelayEgressSafe } from '../utils/relay-egress-guard.js'
 // 静默回落的可观测面(2026-10-26):计数走业务指标族的唯一出口,provider 归属走号池快照
 // (同一把 isRelayPoolRowSchedulable 尺子,带 5 秒缓存,只在回落这一格里才问一次)
 import { logger } from '../utils/logger.js'
@@ -341,7 +344,11 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
   for (const channel of candidates) {
     const started = startStopwatch()
     try {
-      const resp = await fetch(upstreamEndpointUrl(channel.baseUrl, endpoint), {
+      const targetUrl = upstreamEndpointUrl(channel.baseUrl, endpoint)
+      // 出网复检(SSRF 硬化):不安全的上游地址直接抛错,由下方 catch 走 failover 试下一候选;
+      // 判不出(空串/非法 URL)一律按不安全处理(失效方向多拦一次,绝不静默放行)。
+      await assertRelayEgressSafe(targetUrl)
+      const resp = await fetch(targetUrl, {
         method: 'POST',
         headers: applyUpstreamHeaderPlugins(plugins, {
           'Content-Type': 'application/json',

@@ -18,6 +18,7 @@ import {
   withdrawalSummary,
   availableWithdrawal,
 } from '../../db/commission-queries.js'
+import { requireStepUpForTwoFactorUser } from '../../services/two-factor-step-up-store.js'
 import { parsePagination, parseIdParam } from './_shared.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 
@@ -74,6 +75,12 @@ const withdrawalRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const parsed = withdrawalApplySchema.safeParse(request.body)
       if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+      const userId = request.userId!
+      // 2FA step-up 闸：已开 2FA 的账号，敏感操作前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
+      const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+      if (!stepUp.ok) {
+        return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      }
       const available = await availableWithdrawal(request.userId!)
       if (available < parsed.data.amount) {
         return reply.status(400).send(error(400, '可提现余额不足'))
