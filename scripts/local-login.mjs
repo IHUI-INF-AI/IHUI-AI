@@ -11,13 +11,19 @@
  * 凭证打补丁后写回本机客户端,写前必留同目录备份,失败可人工回滚。
  *
  * 支持矩阵(判据见各适配器头注):
- *   codex    %USERPROFILE%\.codex\auth.json(或 CODEX_HOME)          明文,可重建
- *   opencode %USERPROFILE%\.local\share\opencode\auth.json(或 XDG)   明文,可重建
- *   minimax  ~/.minimax/auth/prod/<region>/mcode-public/auth.json     明文,可重建
- *   zcode    ~/.zcode/v2/credentials.json                              enc:v1: AES-256-GCM,可重封
- *   codearts %APPDATA%\codearts-agent\...\state.vscdb                  DPAPI+AES-GCM,可重封
- *   qoder    %APPDATA%\com.qoder[cn].app.*\auth.v1.dat                DPAPI+AES-GCM,可重封
+ *   codex    %USERPROFILE%\.codex\auth.json(或 CODEX_HOME)          明文,可重建;CLI 现读,不动进程
+ *   opencode ~/.local/share/opencode/auth.json(或 XDG)               明文,可重建;CLI 现读,不动进程
+ *   minimax  ~/.minimax/auth/prod/<region>/mcode-public/auth.json     明文,可重建;GUI 先关后写再拉起
+ *   zcode    ~/.zcode/v2/credentials.json                              enc:v1: AES-256-GCM,可重封;GUI 同上
+ *   codearts %APPDATA%\codearts-agent\...\state.vscdb                  DPAPI+AES-GCM,可重封;GUI 同上
+ *   qoder    %APPDATA%\com.qoder[cn].app.*\auth.v1.dat                DPAPI+AES-GCM,可重封;GUI 同上
  *   其余(workbuddy/loomy/lingua/doubao/grokbot)无法离线重封,由服务层给明确 409 原因。
+ *
+ * 与 trae 的一致性(2026-10-28 补齐):凡"运行中客户端会在退出/续期时回写落点"的平台,
+ * 一律 探测 → 优雅关闭(不退再补一轮,仍不退强杀)→ 写(原子落盘)→ 原样拉起,
+ * 回报 clientWasRunning/clientClosed/clientForced/clientRestarted,与 trae 同字段口径。
+ * CLI 平台(codex/opencode)不去杀进程:它们每次启动现读文件,写了就生效。
+ * 测试/诊断可用 IHUI_LOCAL_LOGIN_PROC_CONTROL=0 关掉进程控制(关掉后运行中写回可能被覆写)。
  *
  * 安全:凭证只经标准输入进本进程,任何输出都不含 token/refreshToken 明文;
  * 写前必留 `<文件>.ihui-login-<时间戳>.bak`;模板账号与目标 uid 不一致时拒绝写入。
@@ -32,6 +38,7 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { clientHomeEnvs } from './lib/client-home.mjs'
+import { closeProduct, launchProduct, listProductPids, resolveProductExe } from './lib/trae-client-process.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -180,20 +187,38 @@ function backupOf(file) {
   return backupFile
 }
 
-/** 原子写:临时文件写完再 rename,避免半截 JSON 被客户端读走 */
+/** 同步等待(不 fork 子进程 —— Atomics.wait 阻塞当前线程即可) */
+function sleepSync(ms) {
+  if (!(ms > 0)) return
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/**
+ * 原子写:临时文件写完再 rename,避免半截 JSON 被客户端读走。
+ * 与 trae-login-local.mjs 同口径(Windows 上目标常被扫描器/索引器/客户端短暂持有 ⇒
+ * rename 偶发 EPERM/EBUSY,退避重试;超过预算才失败,失败时清临时文件、主文件保持原样)。
+ */
 function atomicWrite(file, data) {
   const dir = path.dirname(file)
   const tmp = path.join(dir, `.${path.basename(file)}.ihui-tmp-${process.pid}-${Date.now()}`)
   fs.writeFileSync(tmp, data)
-  try {
-    fs.renameSync(tmp, file)
-  } catch (e) {
+  for (let attempt = 0; ; attempt += 1) {
     try {
-      fs.unlinkSync(tmp)
-    } catch {
-      /* 残留临时文件不影响主文件 */
+      fs.renameSync(tmp, file)
+      return
+    } catch (e) {
+      const transient = ['EPERM', 'EBUSY', 'EACCES', 'EEXIST'].includes(e?.code)
+      if (transient && attempt < 12) {
+        sleepSync(120)
+        continue
+      }
+      try {
+        fs.unlinkSync(tmp)
+      } catch {
+        /* 残留临时文件不影响主文件 */
+      }
+      throw e
     }
-    throw e
   }
 }
 
@@ -216,6 +241,70 @@ function readJsonObject(file, label) {
 
 function writeResult(providerCode, file, backupFile, extra = {}) {
   return { ok: true, providerCode, targetFile: file, backupFile: backupFile ?? '', notes: [], ...extra }
+}
+
+// =============================================================================
+// 客户端进程控制(2026-10-28 与 trae 对齐:运行中 GUI 会在退出时用内存态覆写落点)
+// =============================================================================
+
+/**
+ * 需要「先关客户端再写」的平台 → 进程映像候选名(Windows tasklist 口径,不带 .exe)。
+ *
+ * 判据不是"是不是桌面程序",而是**落点会不会被运行中的客户端整块回写**:
+ *   codearts  state.vscdb 是 SQLite,客户端独占库、退出时整库落盘;
+ *   qoder     auth.v1.dat,适配器注释已点明"运行中客户端退出时可能覆写";
+ *   minimax   auth.json 由 MiniMax Code 桌面端持在内存,退出/token 续期时回写;
+ *   zcode     credentials.json(enc:v1:)同属桌面端整块回写的那一类;
+ *   codex/opencode 是 CLI,每次执行现读 auth.json,写文件不需要动进程(也不该去杀)。
+ * 候选名按"先具体后宽泛"排列(同一平台国内版/国际版映像名不同,取第一个命中的)。
+ */
+export const CLIENT_IMAGES = Object.freeze({
+  codearts: ['CodeArts Agent', 'CodeArts', 'codearts-agent'],
+  qoder: ['Qoder CN', 'Qoder'],
+  minimax: ['MiniMax Code', 'MiniMaxCode'],
+  zcode: ['ZCode'],
+})
+
+/**
+ * 写前探测并关闭客户端。未安装/没在跑 ⇒ 返回 wasRunning=false,由适配器直接写。
+ * 探测失败(tasklist 不可用)⇒ 抛 target-locked:运行中盲写必被覆写,宁可明说也不冒绿。
+ */
+export function closeClientForWrite(provider, env = process.env) {
+  const images = CLIENT_IMAGES[provider]
+  if (!images || process.platform !== 'win32') return null
+  if (String(env.IHUI_LOCAL_LOGIN_PROC_CONTROL ?? '').trim() === '0') return null
+  let hit = null
+  for (const image of images) {
+    const pids = listProductPids(image, env)
+    if (pids === null) {
+      throw new WriteError(
+        `探测 ${image}.exe 进程失败(未判定)⇒ 拒绝盲写(运行中的客户端会在退出时覆写登录态)`,
+        'target-locked',
+      )
+    }
+    if (pids.length > 0) {
+      hit = { image, pids }
+      break
+    }
+  }
+  if (!hit) return { product: '', wasRunning: false, closed: false, forced: false, exePath: '' }
+  const exePath = resolveProductExe(hit.image, env) ?? ''
+  const closed = closeProduct(hit.image, { env, pids: hit.pids })
+  return {
+    product: hit.image,
+    wasRunning: true,
+    closed: closed.closed === true,
+    forced: closed.forced === true,
+    exePath,
+  }
+}
+
+/** 写完后原样拉起(服务身份走 run-as-user.ps1,桌面身份 detached spawn) */
+export function relaunchClient(info, env = process.env) {
+  if (!info?.wasRunning || !info.closed) return { restarted: false, error: '' }
+  const helperPath = path.resolve(HERE, '..', 'apps', 'api', 'scripts', 'run-as-user.ps1')
+  const launched = launchProduct(info.exePath, { product: info.product, helperPath, env })
+  return { restarted: launched.launched === true, error: launched.error || '' }
 }
 
 /**
@@ -869,11 +958,16 @@ function printSummary(result, json) {
     return
   }
   const label = PROVIDER_LABEL[result.providerCode] ?? result.providerCode
+  const clientLine = result.clientWasRunning
+    ? `   客户端: 写前已${result.clientForced ? '强制' : '优雅'}关闭 ${result.clientProduct}` +
+      (result.clientRestarted ? '(已重新打开)\n' : '(未能自动重新打开,请手动启动)\n')
+    : ''
   process.stdout.write(
     `✅ 已把 uid=${result.uid} 的登录态写进本机 ${label}\n` +
       `   落点: ${result.targetFile}\n` +
       (result.backupFile ? `   备份: ${result.backupFile}\n` : '   备份: (原文件不存在,本次为新建)\n') +
       `   替换前登录: ${result.replacedUid ?? '(解析不到或原未登录)'}\n` +
+      clientLine +
       result.notes.map((n) => `   ${n}\n`).join('') +
       `   ${result.restartHint}\n`,
   )
@@ -929,15 +1023,41 @@ export async function main(argv) {
     process.stderr.write(`❌ 提取器加载失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`)
     return 2
   }
+  let client = null
   try {
-    const result = adapter(payload, { extract })
-    printSummary(result, options.json)
-    return 0
+    client = closeClientForWrite(options.provider)
   } catch (e) {
+    const code = e instanceof WriteError ? e.code : 'target-locked'
+    process.stderr.write(`❌ [${code}] ${e instanceof Error ? e.message : String(e)}\n`)
+    return 1
+  }
+  let result
+  try {
+    result = adapter(payload, { extract })
+  } catch (e) {
+    // 写失败也要把刚关掉的客户端拉回来,不能把用户的客户端扔在关闭状态
+    if (client?.wasRunning) relaunchClient(client)
     const code = e instanceof WriteError ? e.code : 'write-failed'
     process.stderr.write(`❌ [${code}] ${e instanceof Error ? e.message : String(e)}\n`)
     return 1
   }
+  if (client?.wasRunning) {
+    const re = relaunchClient(client)
+    result = {
+      ...result,
+      clientProduct: client.product,
+      clientWasRunning: true,
+      clientClosed: client.closed,
+      clientForced: client.forced,
+      clientRestarted: re.restarted,
+      ...(re.error ? { clientLaunchError: re.error } : {}),
+      restartHint: re.restarted
+        ? `已重新打开 ${client.product},登录态即时生效`
+        : `写入前已关闭 ${client.product},但未能自动重新打开:请手动启动客户端`,
+    }
+  }
+  printSummary(result, options.json)
+  return 0
 }
 
 // 只有被当脚本直接跑才执行(测试 import 时不触发,免得吃掉测试进程的 stdin)
@@ -951,6 +1071,9 @@ export const __test__ = {
   assertTemplateUid,
   backupOf,
   atomicWrite,
+  CLIENT_IMAGES,
+  closeClientForWrite,
+  relaunchClient,
   encryptZcodeValue,
   encryptSafeStorageBlob,
   loadExtract,
