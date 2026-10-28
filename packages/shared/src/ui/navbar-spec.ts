@@ -5,8 +5,12 @@
 /**
  * NavBar 顶部导航栏的结构与几何单一源(小程序端与 RN 端共用),形状照 back-chevron-spec。
  *
- * 两端真实实现:apps/miniapp-taro/src/components/NavBar.tsx ↔ apps/mobile-rn/src/components/NavBar.tsx
- * (曾有一枚 packages/app 的 DOM 副本零消费者,2026-10-25 按 §7 删除)。
+ * 两端真实实现:apps/miniapp-taro/src/components/NavBar.tsx ↔ apps/mobile-rn/src/components/NavBar.tsx。
+ * ⚠ 读数纠偏@2026-10-28(现读,不是沿抄旧句):`packages/app/src/components/NavBar.tsx` **仍在 HEAD**
+ * (最后一次入库改动 = 3d8a7a3355,2026-10-25;由 a32453060a 重新加入),旧句"2026-10-25 按 §7 删除"
+ * 与事实不符。它当前**零消费者** —— 全仓无任何 import、`packages/app/src/index.ts` 未导出它 ⇒
+ * 既不在守门 128 的配对腿上,也不是本 spec 的消费方。本票只把它记成"死副本",不把死代码当活账;
+ * 删/留归机主裁决(§7:有等价实现才可删,但它是被"共享层四票收口"后加的,不在本票射程内)。
  *
  * 消费方式只能是子路径 `@ihui/shared/ui/navbar-spec`(禁挂根桶,根桶会把整棵 src/chat 拉进被检程序)。
  * spec 内只存逻辑 px;小程序端换算 `(px) => rpx(px * TARO_RPX_PER_PX)`,RN 端 1:1。
@@ -15,6 +19,45 @@
  *  1. web 端同一元素有既有值 → 取 web;
  *  2. 否则取触控与可读更稳的一档(字号 ≥12、间距取两端较大者);
  *  3. 平台机制不同的数值对齐、通道各端保留 —— 见文件末「单腿档清单」。
+ *
+ * ── O02 票④(第 ④ 格)收口证据:本族"只剩一份源"────────────────────────────
+ * 现读 2026-10-28(`node scripts/check-cross-end-ui-parity.mjs --json`):
+ *   findings[NavBar] = diffCount 7 / radiusCount 1(RD 仅小程序 4,端上实取 4)/ elementRadiusCount 0;
+ *   同名档取值冲突(named)= 0、RE 维同名元素圆角分叉 = 0 族;SL NavBar(5) 仅 RN 引用
+ *   NAVBAR_ROW_HEIGHT_PX / NAVBAR_ROW_HEIGHT_SUBTITLE_PX / NAVBAR_SIDE_PLACEHOLDER_PX /
+ *   NAVBAR_SUBTITLE_FONT_PX / NAVBAR_SUBTITLE_MARGIN_TOP_PX。
+ * 两条腿的**共用**几何档全部经本文件取数,端内不再自持"跨端可共享"的数值 —— 两端 import 点:
+ *   · apps/miniapp-taro/src/components/NavBar.tsx  →  '@ihui/shared/ui/navbar-spec'
+ *   · apps/mobile-rn/src/components/NavBar.tsx     →  '@ihui/shared/ui/navbar-spec'
+ *
+ * 7 档逐条归属 —— **没有一条属于"本可同值却各写一份"**(那一型才是本票要拆的):
+ *
+ *  A 一端根本没有该元素 / 该结构(往另一端补引用 = 往屏幕上加一个不存在的节点):
+ *    仅小程序 13  微信胶囊兜底 `{ top: 26, height: 32 }`;RN 状态栏由 App.tsx SafeAreaView 单点注入,
+ *                 无对应元素。⚠ 13 是门把 26 按"小程序裸数字 = rpx"折半读出的**量纲误读**,真值 26px。
+ *    仅 RN 2      SUBTITLE_MARGIN_TOP  小程序 NavBarProps 无 subtitle 字段(全仓传参 0 处)
+ *    仅 RN 4      RN hitSlop left/right(命中扩张通道;小程序无该属性)
+ *    仅 RN 12     SUBTITLE_FONT        同上,小程序腿没有副标题这个元素
+ *    仅 RN 32     SIDE_PLACEHOLDER     小程序居中走 absolute 悬浮钮 + justify-center,结构上无占位元素
+ *    仅 RN 44     ROW_HEIGHT           小程序行高 = 微信胶囊实测 height + 8(平台量,见 waivers)
+ *    仅 RN 56     ROW_HEIGHT_SUBTITLE  同上
+ *
+ *  B 已裁决的变体契约:本族 **0 枚**(7 档全部落在 A 或下面的 C)。
+ *
+ *  C 同槽位但两端各由自身机制决定(数值必须对齐,通道不合并):
+ *    z-index 1001  小程序 ai-home `z-[1001]` 类名 vs RN STICKY_STYLE `zIndex: 1001`。
+ *                  类名是 Tailwind 任意值,**无法由 TS 常量生成**(动态拼接的类名会被 purge),与
+ *                  input-area-spec 头注第 6 条 `h-48` 同型 ⇒ 档留在端内、不搬进本表;
+ *                  但"两端同值"这件事由 __tests__/navbar-wiring.test.ts 第 ⑨ 条逐端现读比对
+ *                  (改一端不带另一端走 ⇒ 红),不靠散文。
+ *    6 / 8 / 16 / 20 这四枚两端都出现,但**不是同一个槽位**:小程序的 6 是侧钮之间 `gap-[12rpx]`、
+ *                  8 是通知条 `py-[16rpx]`;RN 的 6 是 actionBtn 内水平留白、8 是 hitSlop。
+ *                  同名数值不同槽,不得按"值相同"并成一个档(那是归因过宽,比漏读更贵)。
+ *
+ * ⇒ 结论:本族**无可继续收敛项** —— A 组补引用是造假,C 组的类名通道无法由常量驱动,
+ *   B 组 0 枚。counts 维持 7(diff)/ 1(RD)。逐档归属由
+ *   packages/shared/src/ui/__tests__/navbar-wiring.test.ts 机器钉住:谁往"另一端"补了引用、
+ *   哪一端把取用退成裸数字、哪一端把 z-index 改成另一个数,对应那条用例就红。
  */
 import { GEOMETRY_PX } from '@ihui/design-tokens'
 

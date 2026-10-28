@@ -35,6 +35,60 @@
  */
 
 /**
+ * ── O02 票④(第 ④ 格)收口证据:本族差异档逐条归属(2026-10-28)────────────────
+ * 现读 `node scripts/check-cross-end-ui-parity.mjs`(HEAD 面):
+ *   findings[BottomActionBar] = diffCount 13(几何仅小程序 1 + 几何仅 RN 12)/
+ *   radiusCount 3(仅小程序 8 / 仅 RN 2·16)/ elementRadiusCount 0
+ *   (RE 维零判据:两侧无一同名元素,门已逐条报名)。
+ * 13 + 3 逐条归类后**没有一条属于"两端同值却各写一份"**(那一型才是本票要拆的形态);
+ * 真同值档已在前几票收进本表并由两端同读,故本轮**真收敛 0 处**,counts 维持 13 / 3 / 0。
+ *
+ * ⚠️ 本节 A/B/C 是 O02 票④的**差异档归因口径**,与上文常量的【A 两端同档】/【B 单端档】
+ * 标记不是同一套字母含义:A = 一端根本没有该元素(往另一端补引用 = 往屏幕上加一个不存在的
+ * 节点);B = 同一元素两端各取一档(取任一端会破另一端版,属产品裁决面);C = 同槽位两端
+ * 各由自身机制决定(不是同一个量的两条写法)。**这三类都不收敛。**
+ *
+ * A 一端根本没有该元素(几何 10 枚 + 半径 2 枚;其中 44 同时含 B 面):
+ *   2     imageRemoveBtn.top/right       RN 图片预览行的删除角标;小程序预览行在 InputArea
+ *   3     recordingWave.gap / 波形条宽    RN 录音覆盖层;小程序本组件无录音态
+ *   10    recordingOverlay.gap / input.paddingVertical / 死样式 modelArrow.fontSize
+ *                                       RN 独有行与机制;小程序同行由行衬 0/10/5 表达
+ *   18    旧模式 emoji 字号 / 录音波形高  小程序按钮一律矢量 LineIcon,无 emoji 文字行
+ *   20    旧模式 configEmoji/secondaryEmoji 行高;小程序模型条没有配置钮/辅助行
+ *   24    AddPanel 项图标墨迹            小程序同功能是内联图标卡;配对要到 AddPanel 那一票
+ *   28    MODEL_BAR_HEIGHT + configBtn  小程序模型条无固定高、无配置旋钮
+ *   36    VOICE_BTN_SIZE / SECONDARY_BTN_SIZE(rnGeometry.tapBox)
+ *                                       小程序本文件里没有这两枚命中方块(几何表已是单一源)
+ *   44    ACTION_BUTTON_HEIGHT / ICON_BUTTON_SIZE
+ *                                       旧模式 actions 按钮组仅 RN 有(OrderDetailScreen 真传 actions)
+ *   48    IMAGE_PREVIEW_SIZE             RN 图片预览盒;小程序预览行在 InputArea
+ *   半径 8  小程序图标卡 rnRadius.lg      RN 同一功能走共享 AddPanel(另一枚组件、另一种媒介)
+ *   半径 2  RN 录音波形条 rnRadiusFor.tiny 小程序本组件无录音层
+ *
+ * B 同一元素、两端各取一档(产品裁决面,不收敛;取任一端都会改另一端观感):
+ *   44(输入行最小高)  RN INPUT_MIN_HEIGHT=44 ↔ 小程序 default 变体 py-2 + leading-5(≈36)
+ *   半径 16           RN 输入框/发送钮 rnRadius['2xl']=16 ↔ 小程序同元素 rounded-sm(4)
+ *   注:44 在台账里只计 1 档(值),它同时承载 A(旧模式按钮)与 B(输入行高)两个成因,
+ *   故在事实表里记为 A/B 混合;半径 16 就是 RD 维的"仅 RN 16",与小程序 rounded-sm 同元素。
+ *
+ * C 同槽位、两端各由自身机制决定:
+ *   6(小程序)  chip 纵向内衬 12rpx(=6) ↔ RN 固定高 TOGGLE_CHIP_HEIGHT=32
+ *              (内衬通道 vs 定高通道,两端 chip 落屏高都约 32)
+ *   100(RN)    输入框多行生长上限 INPUT_MAX_HEIGHT;小程序输入框不设上限(自适应)
+ *   200(RN)    模型名单行截断 maxWidth;小程序整行 flex 换行,无截断节点
+ *
+ * 还有一类**不算"各写一份"**:小程序端 `px-3` / `mr-2` / `ml-2` 这类 Tailwind 类名档
+ * (12 / 8 / 8 与 RN 的容器 `paddingHorizontal: 12`、`inputRow.gap: 8` 同值)。class 侧尺寸
+ * 按 geometry 头注走 Tailwind 档位(`h-48` 那条同理),把它们搬进本表等于在类名侧写 px 字面量;
+ * 且两端值集合里 12 / 8 本就不计差异 —— 收编只会新增一档三处引用,不产生"改一端另一端跟随"。
+ *
+ * ⇒ 结论:本族**无可继续收敛项** —— A 组补引用是造假,C 组量纲/机制不同,B 组是产品裁决面。
+ * 逐条归属由 `bottom-action-bar-wiring.test.ts` 的 ⑥–⑨ 机器钉住:spec 档按"两端直引 /
+ * 经 core 投影 / 仅小程序经 core"三分且逐档归属,16 条差异档事实表与台账
+ * counts / radiusCounts 同批对账;谁给单端补引用、或台账与归属表漂开,用例当场红。
+ */
+
+/**
  * 功能切换 chip 行的横向间距(逻辑 px)。
  * 取值依据:收编前两端本就同值(小程序 inline `gap: rpx(16)` = 8px / RN
  * `TOGGLE_CHIP_GAP = 8`),等于 Tailwind spacing-2 档;此处只是把同一个数字从两份变一份。
