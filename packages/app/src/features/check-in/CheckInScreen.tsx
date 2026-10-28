@@ -145,8 +145,8 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
-    statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    statsCol: { flex: 1, alignItems: 'center' },
+    statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
+    statsCol: { flex: 1, alignItems: 'center', minWidth: 72 },
     statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
     statsLabel: { marginTop: 8, fontSize: 11, color: tk.brand.DEFAULT },
     signBtn: {

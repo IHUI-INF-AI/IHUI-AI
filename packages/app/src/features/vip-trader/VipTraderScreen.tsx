@@ -330,7 +330,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     footLeft: { flexDirection: 'row', alignItems: 'baseline' },
     footSymbol: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    footPrice: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    footPrice: { flexShrink: 0, fontSize: 22, fontWeight: '700', color: tk.text.primary },
     footHint: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     buyBtn: {
       paddingHorizontal: 22,

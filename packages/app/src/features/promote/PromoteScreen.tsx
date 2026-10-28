@@ -188,8 +188,8 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
     },
-    statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    statItem: { alignItems: 'center', flex: 1 },
+    statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
+    statItem: { alignItems: 'center', flex: 1, minWidth: 80 },
     statValue: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
     statLabel: {
       marginTop: rnSpacing.sm,
