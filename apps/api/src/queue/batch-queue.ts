@@ -31,7 +31,7 @@ export const BATCH_QUEUE_NAME = 'batch-queue'
 export const BATCH_KEY_PREFIX = 'batch:task:'
 
 /** Redis 输入文件 key 前缀(key = `batch:input:<fileId>`,TTL 30 天) */
-const BATCH_INPUT_KEY_PREFIX = 'batch:input:'
+export const BATCH_INPUT_KEY_PREFIX = 'batch:input:'
 
 export const BATCH_TTL_SECONDS = 30 * 24 * 60 * 60 // 30 天 = 2,592,000 秒
 

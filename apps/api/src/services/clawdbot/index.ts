@@ -7,9 +7,11 @@
  */
 export { convertCardToSimpleFormat } from './card-converter.js'
 export type { CardConversionResult } from './card-converter.js'
+export { logger } from './logger.js'
 export { getClawdbotService } from './clawdbot-service.js'
 export type { ClawdbotService } from './clawdbot-service.js'
 export type { ClawdbotConfig, ClawdbotStatus, ConversationMessage } from './clawdbot-service.js'
+export { getClawdbotGateway } from './gateway.js'
 export type { GatewayConfig, GatewayMessage } from './gateway.js'
 export { getChannelManager } from './channels.js'
 export type { ChannelConfig, ChannelMessage, ChannelType } from './channels.js'
@@ -24,6 +26,7 @@ export type {
   BehaviorPattern,
   CapabilityGap,
 } from './self-evolution.js'
+export { getMessageProcessor } from './message-processor.js'
 export type {
   ProcessedMessage,
   IntentAnalysis,

@@ -75,7 +75,7 @@ async function purgeExpired(
  * 保留期清理入口：滚动删除过期 PII 日志类数据。
  * 每张表独立 try/catch，单表失败不阻塞其余。
  */
-async function runPiiRetentionCleanup(): Promise<
+export async function runPiiRetentionCleanup(): Promise<
   Array<{ target: string; deleted: number; status: 'success' | 'error' }>
 > {
   const jobs: Array<[string, PurgeTable, AnyPgColumn, number]> = [
