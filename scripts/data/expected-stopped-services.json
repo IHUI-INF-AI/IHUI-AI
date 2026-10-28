@@ -1,0 +1,21 @@
+{
+  "$comment": "『停着是设计内』的台账(消费者 = scripts/check-service-binary-paths.mjs 的 applyExpectedStopped)。它要解决的是**假红**而不是放宽判据:一台服务按设计就该停,判据若还把它记成 issue,真红就被这层噪声淹掉 —— 2026-10-28 现读就是这一型(IHUI-API 已退役、IHUI-API-BLUE 是蓝绿冷备,两台天天报 STATE=STOPPED)。三条不可漂的写法:①**只豁免『它停着』这一条**:STATE 非 RUNNING 之外的任何 problem(Application 路径烂了/AppDirectory 没了/端口声明读不到…)一律照旧报红 —— 否则这张表就成了新的消红通道;②**读不到就不豁免**:文件缺失/JSON 坏/蓝绿状态文件读不到,一律按『未登记』处理(方向是多喊一次,不是多静音一次,同 §0.10/§0.7);③**豁免必须会到期**:每条带 reviewBy,过期即失效并重新报红。",
+  "static": [
+    {
+      "name": "IHUI-API",
+      "reason": "2026-10-28 退役:单实例 API(8802)已被蓝绿三件套取代 —— IHUI-API-ROUTER 监听 8802 并转发到 IHUI-API-GREEN(8843)/IHUI-API-BLUE(8842)。本服务注册仍在 SCM 里(Manual/Stopped),既不该被拉起(拉起会与 ROUTER 抢 8802),也不该继续在健康门上刷红。",
+      "supersededBy": ["IHUI-API-ROUTER", "IHUI-API-GREEN", "IHUI-API-BLUE"],
+      "since": "2026-10-28",
+      "reviewBy": "2027-01-01"
+    }
+  ],
+  "blueGreen": {
+    "$comment": "蓝绿冷备:同一时刻只有一个色在服务,另一个色按设计 Stop(见 deploy/win/ihui-api-bluegreen.ps1 第 6 步『停旧色』)。活跃色由状态文件里的 active 决定,活跃色停着 = 真故障,照旧报红。",
+    "stateFile": "D:/DevEnv/ihui-prod/deploy/run/api-bluegreen.json",
+    "defaultActive": "blue",
+    "colors": {
+      "blue": { "service": "IHUI-API-BLUE", "port": 8842 },
+      "green": { "service": "IHUI-API-GREEN", "port": 8843 }
+    }
+  }
+}

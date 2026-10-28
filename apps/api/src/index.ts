@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import fs from 'node:fs'
 import 'dotenv/config'
 import { isProductionGuard } from './config/index.js'
 import type { Worker } from 'bullmq'
@@ -152,6 +153,163 @@ function checkProductionConfig(): void {
   process.exit(1)
 }
 
+// ── 蓝绿实例角色:进程内定时任务只由「当前活跃色」运行(2026-10-28 立)────────────
+// 为什么:部署时新旧两色并存(新色先起、健康后才切流,旧色再排空 20s 才停),两色都跑 cron
+// 会让告警规则评估(5min)/巡逻(60s)/Agent 自动化(60s)/图片 worker(30s)在同一 tick 各跑
+// 一遍 —— 代价是重复告警、重复自动化动作、重复上游生图计费。
+// 判据就是 ihui-api-bluegreen.ps1 原子写的状态文件(router 与部署脚本读的同一份)。
+// 未设 IHUI_API_COLOR 的实例(开发机 / 回滚成单实例)不启用这道门,行为与从前一致。
+const INSTANCE_COLOR = (() => {
+  const raw = (process.env.IHUI_API_COLOR ?? '').trim().toLowerCase()
+  return raw === 'blue' || raw === 'green' ? raw : null
+})()
+const BG_STATE_FILE =
+  process.env.IHUI_API_BG_STATE?.trim() || 'D:\\DevEnv\\ihui-prod\\deploy\\run\\api-bluegreen.json'
+const SCHEDULER_OWNER_POLL_MS = 2_000
+// 切流后旧色还要排空 20s(DrainSec)才停,这段它仍在跑 cron ⇒ 等到它停干净再接手。
+const SCHEDULER_OWNER_GRACE_MS = 30_000
+// 判定不出角色时的上界:到点 fail-open 启动(宁可重复跑一轮,也不让定时任务静默停摆)。
+const SCHEDULER_OWNER_TIMEOUT_MS = Number(
+  process.env.IHUI_API_SCHEDULER_OWNER_TIMEOUT_MS ?? 300_000,
+)
+
+type SchedulerOwnershipVerdict = 'single' | 'active' | 'became-active' | 'timeout' | 'no-state'
+
+/** 读状态文件里的活跃色;文件缺失/损坏一律 null(判定不出)。 */
+function readBgActiveColor(): string | null {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(BG_STATE_FILE, 'utf8')) as { active?: unknown }
+    return parsed.active === 'blue' || parsed.active === 'green' ? parsed.active : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 等到本实例成为活跃色。
+ * - single:未设 IHUI_API_COLOR ⇒ 单实例,立即启动
+ * - active:启动时状态文件已指向本色(开机常态,没有旧色要排空)
+ * - became-active:等到切流完成,并已留出旧色排空时间
+ * - timeout / no-state:判定不出角色 ⇒ 调用方 fail-open 启动
+ */
+async function waitForSchedulerOwnership(log: {
+  info: (obj: Record<string, unknown>, msg: string) => void
+}): Promise<SchedulerOwnershipVerdict> {
+  const color = INSTANCE_COLOR
+  if (!color) return 'single'
+  const first = readBgActiveColor()
+  if (first === color) return 'active'
+  let sawState = first !== null
+  log.info(
+    { color, active: first, state: BG_STATE_FILE },
+    '蓝绿待命:等本色成为活跃色后再启动进程内定时任务',
+  )
+  const deadline = Date.now() + SCHEDULER_OWNER_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    // delay 的定时器带 unref:进程若因其它原因退出,不会被这条轮询吊住
+    await delay(SCHEDULER_OWNER_POLL_MS)
+    const active = readBgActiveColor()
+    if (active) sawState = true
+    if (active === color) {
+      await delay(SCHEDULER_OWNER_GRACE_MS)
+      return 'became-active'
+    }
+  }
+  return sawState ? 'timeout' : 'no-state'
+}
+
+/**
+ * 启动全部进程内定时任务(cron / 轮询 worker / 常驻子进程)。
+ *
+ * 2026-10-28 从 start() 内联块提为模块级函数:启动时机改由 waitForSchedulerOwnership 判定
+ * (蓝绿活跃色独占),内容与顺序逐字保留 —— 这些 stop* 在 shutdown 相位里的顺序与之对应。
+ */
+function startBackgroundSchedulers(): void {
+  // 启动 AI World 数据同步定时任务(每 12 小时一次,默认开启,ENABLE_AI_WORLD_SYNC=false 禁用)
+  if (process.env.ENABLE_AI_WORLD_SYNC !== 'false') {
+    startAiWorldSyncScheduler()
+  }
+
+  // 启动热搜词采集定时任务(每 3 小时一次,默认开启,ENABLE_HOT_WORDS_SYNC=false 禁用)
+  if (process.env.ENABLE_HOT_WORDS_SYNC !== 'false') {
+    startHotWordsScheduler()
+  }
+
+  // 启动门户信源「恢复探测」定时任务(每天 04:30 探测网易/搜狐/36氪等,
+  // 一旦恢复公开 feed 自动入源;默认开启,ENABLE_SOURCE_PROBE=false 禁用)
+  if (process.env.ENABLE_SOURCE_PROBE !== 'false') {
+    startSourceProbeScheduler()
+  }
+
+  // 启动 PII 保留期清理定时任务(每天 03:30 滚动删除过期的 crash/behavior/visit 日志类 PII;
+  // 默认开启,ENABLE_PII_RETENTION=false 禁用)
+  if (process.env.ENABLE_PII_RETENTION !== 'false') {
+    startPiiRetentionScheduler()
+  }
+
+  // 启动 86D 审计证据链保留任务(每天 04:45):默认 dry-run 只报数;改写哈希属高危,
+  // 须显式 AUDIT_EVIDENCE_RETENTION_APPLY=true 才执行清理。ENABLE_AUDIT_EVIDENCE_RETENTION=false 禁用。
+  if (process.env.ENABLE_AUDIT_EVIDENCE_RETENTION !== 'false') {
+    startAuditEvidenceRetentionScheduler()
+  }
+
+  // 启动中转站告警规则评估(每 5 分钟,2026-09-16 立;ENABLE_RELAY_ALERT_EVALUATION=false 禁用)
+  if (process.env.ENABLE_RELAY_ALERT_EVALUATION !== 'false') {
+    startRelayAlertEvaluationScheduler()
+  }
+
+  // 启动数据库备份定时调度(读 backup_settings;备份设置页可改,2026-09-16 立)
+  void startBackupCronScheduler()
+
+  // 启动生产值守进程内定时读方(每 10 分钟:.ihui-agent/state/状态目录的 UNDELIVERED 标记 + :80 CDN 活性;
+  // G-916430③ 机主拍板,ENABLE_OPS_WATCH_READER=false 禁用)
+  if (process.env.ENABLE_OPS_WATCH_READER !== 'false') {
+    startOpsWatchReaderScheduler()
+  }
+
+  // 启动访客链路测速(每 5 分钟访问一次首页与三条对照腿:访问本身就是边缘缓存预热
+  // —— 首页 HIT 0.13s / MISS 实测 4~7s,夜间无人访问时缓存过期后第一个访客要付 7 秒;
+  // 量到的耗时与命中率由 /api/admin/ops-wallboard/overview 直接读。
+  // EDGE_PROBE_INTERVAL_MS 覆盖节奏,ENABLE_EDGE_ACCESS_PROBE=false 禁用,2026-10-19 立)
+  if (process.env.ENABLE_EDGE_ACCESS_PROBE !== 'false') {
+    startEdgeAccessProbe()
+  }
+
+  // 启动异步图片任务 worker(每 30 秒扫描 pending,2026-09-17 立)
+  startImageTaskWorker()
+
+  // 启动 LiteLLM 真网 AI 价表同步(启动 30s 后首跑,之后每 24h 一次,
+  // 默认开启,AI_LITELLM_PRICE_SYNC_ENABLED=false 禁用)
+  if (process.env.AI_LITELLM_PRICE_SYNC_ENABLED !== 'false') {
+    startLiteLLMPriceSyncScheduler()
+  }
+
+  // 启动用户侧 Agent 定时自动化调度器(60s tick,到点执行 active 的自动化任务)
+  startAgentAutomationScheduler()
+
+  // 启动主动巡逻调度器(P3 #40,60s tick,到点执行 active 的巡检任务)
+  startPatrolScheduler()
+
+  // 预热本机 Qoder chat 桥(2026-10-23):chat 真实端点要求 umid 设备签名,只能由
+  // 官方 Agent SDK worker 完成 ⇒ 包成 127.0.0.1 上的 OpenAI 兼容端点常驻。
+  // 后台跑不阻塞就绪;未装 Qoder / QODER_BRIDGE_AUTOSTART=false 时静默跳过,
+  // 首次 chat 仍会懒启动兜底。
+  // QODER_BRIDGE_ENABLED=0 是 chat 总开关(见 qoder-adapter 的 QODER_CHAT_DISABLED),
+  // 此时不必白拉起 Electron 冷启动。
+  if (
+    process.env.QODER_BRIDGE_AUTOSTART !== 'false' &&
+    process.env.QODER_BRIDGE_ENABLED?.trim() !== '0'
+  ) {
+    startQoderBridge()
+  }
+
+  // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
+  // 默认开启,ENABLE_ALGORITHM_RECORD_SYNC=false 禁用)
+  if (process.env.ENABLE_ALGORITHM_RECORD_SYNC !== 'false') {
+    startAlgorithmRecordScheduler()
+  }
+}
+
 async function start() {
   // OpenTelemetry 追踪：在 buildServer 之前初始化，最大化 instrument 覆盖（含启动期代码）
   // 未配置 OTEL_EXPORTER_OTLP_ENDPOINT 且 OTEL_ENABLED!=true 时为 no-op，不阻塞启动
@@ -276,88 +434,23 @@ async function start() {
     process.exit(1)
   }
 
-  // 启动 AI World 数据同步定时任务(每 12 小时一次,默认开启,ENABLE_AI_WORLD_SYNC=false 禁用)
-  if (process.env.ENABLE_AI_WORLD_SYNC !== 'false') {
-    startAiWorldSyncScheduler()
-  }
-
-  // 启动热搜词采集定时任务(每 3 小时一次,默认开启,ENABLE_HOT_WORDS_SYNC=false 禁用)
-  if (process.env.ENABLE_HOT_WORDS_SYNC !== 'false') {
-    startHotWordsScheduler()
-  }
-
-  // 启动门户信源「恢复探测」定时任务(每天 04:30 探测网易/搜狐/36氪等,
-  // 一旦恢复公开 feed 自动入源;默认开启,ENABLE_SOURCE_PROBE=false 禁用)
-  if (process.env.ENABLE_SOURCE_PROBE !== 'false') {
-    startSourceProbeScheduler()
-  }
-
-  // 启动 PII 保留期清理定时任务(每天 03:30 滚动删除过期的 crash/behavior/visit 日志类 PII;
-  // 默认开启,ENABLE_PII_RETENTION=false 禁用)
-  if (process.env.ENABLE_PII_RETENTION !== 'false') {
-    startPiiRetentionScheduler()
-  }
-
-  // 启动 86D 审计证据链保留任务(每天 04:45):默认 dry-run 只报数;改写哈希属高危,
-  // 须显式 AUDIT_EVIDENCE_RETENTION_APPLY=true 才执行清理。ENABLE_AUDIT_EVIDENCE_RETENTION=false 禁用。
-  if (process.env.ENABLE_AUDIT_EVIDENCE_RETENTION !== 'false') {
-    startAuditEvidenceRetentionScheduler()
-  }
-
-  // 启动中转站告警规则评估(每 5 分钟,2026-09-16 立;ENABLE_RELAY_ALERT_EVALUATION=false 禁用)
-  if (process.env.ENABLE_RELAY_ALERT_EVALUATION !== 'false') {
-    startRelayAlertEvaluationScheduler()
-  }
-
-  // 启动数据库备份定时调度(读 backup_settings;备份设置页可改,2026-09-16 立)
-  void startBackupCronScheduler()
-
-  // 启动生产值守进程内定时读方(每 10 分钟:.ihui-agent/state/状态目录的 UNDELIVERED 标记 + :80 CDN 活性;
-  // G-916430③ 机主拍板,ENABLE_OPS_WATCH_READER=false 禁用)
-  if (process.env.ENABLE_OPS_WATCH_READER !== 'false') {
-    startOpsWatchReaderScheduler()
-  }
-
-  // 启动访客链路测速(每 5 分钟访问一次首页与三条对照腿:访问本身就是边缘缓存预热
-  // —— 首页 HIT 0.13s / MISS 实测 4~7s,夜间无人访问时缓存过期后第一个访客要付 7 秒;
-  // 量到的耗时与命中率由 /api/admin/ops-wallboard/overview 直接读。
-  // EDGE_PROBE_INTERVAL_MS 覆盖节奏,ENABLE_EDGE_ACCESS_PROBE=false 禁用,2026-10-19 立)
-  if (process.env.ENABLE_EDGE_ACCESS_PROBE !== 'false') {
-    startEdgeAccessProbe()
-  }
-
-  // 启动异步图片任务 worker(每 30 秒扫描 pending,2026-09-17 立)
-  startImageTaskWorker()
-
-  // 启动 LiteLLM 真网 AI 价表同步(启动 30s 后首跑,之后每 24h 一次,
-  // 默认开启,AI_LITELLM_PRICE_SYNC_ENABLED=false 禁用)
-  if (process.env.AI_LITELLM_PRICE_SYNC_ENABLED !== 'false') {
-    startLiteLLMPriceSyncScheduler()
-  }
-
-  // 启动用户侧 Agent 定时自动化调度器(60s tick,到点执行 active 的自动化任务)
-  startAgentAutomationScheduler()
-
-  // 启动主动巡逻调度器(P3 #40,60s tick,到点执行 active 的巡检任务)
-  startPatrolScheduler()
-
-  // 预热本机 Qoder chat 桥(2026-10-23):chat 真实端点要求 umid 设备签名,只能由
-  // 官方 Agent SDK worker 完成 ⇒ 包成 127.0.0.1 上的 OpenAI 兼容端点常驻。
-  // 后台跑不阻塞就绪;未装 Qoder / QODER_BRIDGE_AUTOSTART=false 时静默跳过,
-  // 首次 chat 仍会懒启动兜底。
-  // QODER_BRIDGE_ENABLED=0 是 chat 总开关(见 qoder-adapter 的 QODER_CHAT_DISABLED),
-  // 此时不必白拉起 Electron 冷启动。
-  if (
-    process.env.QODER_BRIDGE_AUTOSTART !== 'false' &&
-    process.env.QODER_BRIDGE_ENABLED?.trim() !== '0'
-  ) {
-    startQoderBridge()
-  }
-
-  // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
-  // 默认开启,ENABLE_ALGORITHM_RECORD_SYNC=false 禁用)
-  if (process.env.ENABLE_ALGORITHM_RECORD_SYNC !== 'false') {
-    startAlgorithmRecordScheduler()
+  // 进程内定时任务:蓝绿切换期间由活跃色独占(取舍与判据见 waitForSchedulerOwnership 头注)。
+  // 等待发生在 listen 之后 —— 定时任务不参与就绪判定,延迟启动不影响健康门禁。
+  const ownershipVerdict = await waitForSchedulerOwnership(server.log).catch((err: unknown) => {
+    server.log.warn({ err }, '蓝绿角色判定异常 ⇒ 按 fail-open 启动进程内定时任务')
+    return 'no-state' as SchedulerOwnershipVerdict
+  })
+  if (shuttingDown) {
+    // 等角色的过程中已收到 SIGTERM:此刻再起 cron 就没人负责停了
+    server.log.warn({ verdict: ownershipVerdict }, '关停已开始 ⇒ 跳过进程内定时任务启动')
+  } else {
+    if (ownershipVerdict === 'timeout' || ownershipVerdict === 'no-state') {
+      server.log.warn(
+        { verdict: ownershipVerdict, color: INSTANCE_COLOR, state: BG_STATE_FILE },
+        '蓝绿角色判定失败 ⇒ 按 fail-open 启动进程内定时任务(可能与另一色短暂重复执行)',
+      )
+    }
+    startBackgroundSchedulers()
   }
 
   // P1 修复(2026-08-02):改 on 为 once,避免重复触发 shutdown;二次信号走默认强制退出
