@@ -240,7 +240,10 @@ function statusOf(code: string): 400 | 409 | 502 {
     code === 'storage-format-unknown' ||
     code === 'duplicate-accounts' ||
     code === 'target-locked' ||
-    code === 'cipher-key-mismatch'
+    code === 'cipher-key-mismatch' ||
+    // 写后自检读不回目标凭证(2026-10-28):落点可能被仍在退出的客户端覆写,
+    // 退出客户端后重试通常就能过 ⇒ 按冲突(409)给前端,不用"服务端故障"误导用户。
+    code === 'write-verify'
   ) {
     return 409
   }
