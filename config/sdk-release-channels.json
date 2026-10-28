@@ -93,7 +93,7 @@
       "coordinate": "github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go",
       "status": "ready",
       "blocker": null,
-      "unblockAction": "无需解除:本通道不依赖任何第三方凭据 —— 发布动作 = CI 往 origin 推 packages/sdk/go/v<semver> tag,用的就是自带 GITHUB_TOKEN(workflow permissions.contents=write 已覆盖;gate 步对 go 的判据是对 tag 列表接口做一次真实只读调用,失败即判红)。唯一前置是所有通道共享的 sdk-v* 触发 tag,属 owner 动作。proxy.golang.org 收录延迟不计判据(CI 里如实记状态,不写成『已可 go get』)。",
+      "unblockAction": "无需解除:本通道不依赖任何第三方凭据 —— 发布动作 = CI 往 origin 推 packages/sdk/go/v<semver> tag,用的就是自带 GITHUB_TOKEN(workflow permissions.contents=write 已覆盖;gate 步对 go 的判据是对 tag 列表接口做一次真实只读调用,失败即判红)。唯一前置是所有通道共享的 sdk-v* 触发 tag,属 owner 动作。proxy.golang.org 收录延迟不计判据(CI 里如实记状态,不写成『已可 go get』)。**首发发布物已在位**:版本号来源 tag = `packages/sdk/go/v0.1.0`(2026-10-28 `git ls-remote --tags origin` 回读命中 tag 本体 + peeled `^{}` 共 2 条)。",
       "requiredSecrets": [],
       "verifyCommand": "git ls-remote --tags origin \"refs/tags/packages/sdk/go/v*\"",
       "probe": {
@@ -101,8 +101,8 @@
         "remote": "origin",
         "pattern": "refs/tags/packages/sdk/go/v*"
       },
-      "statusVerifiedAt": "2026-09-26",
-      "lastRealProbe": "absent(命令 exit 0、输出为空 = origin 可达且尚无该前缀 tag;实测 2026-09-26)"
+      "statusVerifiedAt": "2026-10-28",
+      "lastRealProbe": "present(git ls-remote --tags origin exit 0,命中 refs/tags/packages/sdk/go/v0.1.0 —— tag 本体 + peeled ^{} 共 2 条;实测 2026-10-28)。版本号来源 tag:packages/sdk/go/v0.1.0。"
     }
   ]
 }
