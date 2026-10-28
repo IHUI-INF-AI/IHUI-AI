@@ -25,6 +25,7 @@ import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Card, CardContent } from '@ihui/ui-react'
 import { StatCard } from '@/components/data'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface TeamCenterData {
   totalInvitees: number
@@ -49,7 +50,7 @@ interface InviteeStatsData {
   vipInvitees: number
 }
 
-const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
+const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
 
 export default function DistributionHomePage() {
   const t = useTranslations('distribution')
