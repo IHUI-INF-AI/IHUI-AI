@@ -26,9 +26,15 @@
 
 export const WAIVER_LEDGER_REL = 'scripts/data/ui-mirror-waivers.json'
 
-/** 台账文本解析:结构不合格 ⇒ ok=false(调用方按「未判定」处理,不冒绿也不冒红)。 */
+/** 台账文本解析。两种"拿不到"必须分开,方向不同:
+ *  - **在被审面上不存在**(`null`)⇒ 零豁免继续判(`ok:true, absent:true`)。
+ *    豁免是"放宽"用的输入,它缺失只会让判定**更严**,不会让判定失效;
+ *    把它读成"未判定"会让所有"门体已同步、台账还在路上"的交错面(多会话并发收敛的常态)
+ *    集体报 exit 2 —— 与提交内容无关的红/黄门,唯一结局是逼人跳门(§12e)。
+ *  - **存在但读不出结构**(坏 JSON / 缺 `waivers` 数组 / 空文本)⇒ `ok:false`,调用方按未判定处理,
+ *    既不记绿也不冒红(§0.3):这份文件明明在,却没人知道里面免了什么。 */
 export function parseWaivers(text) {
-  if (typeof text !== 'string') return { ok: false, waivers: [], error: '取不到台账文本' }
+  if (text === null || text === undefined) return { ok: true, waivers: [], absent: true }
   let parsed
   try {
     parsed = JSON.parse(text)
