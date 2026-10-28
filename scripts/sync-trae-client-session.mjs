@@ -53,6 +53,8 @@ export function buildPayload(extracted) {
     ...(a.machineId ? { machineId: a.machineId } : {}),
     ...(a.deviceKeyPem ? { deviceKeyPem: a.deviceKeyPem } : {}),
     ...(a.devicePubPem ? { devicePubPem: a.devicePubPem } : {}),
+    // 档案快照(2026-10-28):一键切号写回信封的原料,随会话一并回灌(落 secretsEnc 加密档)
+    ...(a.profile ? { profile: a.profile } : {}),
   }))
   return { providerCode: 'trae', accounts, meta: extracted?.meta ?? {} }
 }

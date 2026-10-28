@@ -18,6 +18,8 @@
  * - 客户端到期时刻早于池内 ⇒ 不写(池内更新可能来自兜底续期,旧票不许回写);
  * - 客户端到期时刻更新 / 时刻相同但 token 不同 ⇒ 写;
  * - 客户端没给 refreshToken(web 号)⇒ 保留池内该列不动。
+ * - skip 分支同样会把 profile 档案快照/设备材料种进 secretsEnc(仅档变才写,2026-10-28;
+ *   一键切号写回信封要这两样,票未轮换时不种就永远缺档)。
  *
  * 编排上游 = `scripts/sync-trae-client-session.mjs`(提取本机信封 → stdin 喂进来)。
  * 退出码:0 全部处理完(含 skip)/ 1 有行写入失败 / 2 参数·输入·环境未判定。
@@ -50,6 +52,8 @@ export interface SyncCandidate {
   machineId?: string | null
   deviceKeyPem?: string | null
   devicePubPem?: string | null
+  /** 客户端档案快照(2026-10-28):一键切号写回信封的原料(host/userRegion/tokenReleaseAt/account) */
+  profile?: Record<string, unknown> | null
 }
 
 export interface SyncInputPayload {
@@ -213,7 +217,58 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         clientExpiresAt: parseIso(acc.expiresAt),
         clientRefreshExpiresAt: parseIso(acc.refreshExpiresAt),
       })
+      // 设备材料随票回灌(客户端重新登录换机/换密钥时池侧自愈);缺任一项 → 不动原值。
+      // 2026-10-28:secretsEnc 改为「读出旧档 → 合并 → 写回」——档案快照(profile)与设备密钥
+      // 同住一档,任何一方缺位时不得把另一方抹掉(旧版整档覆盖,profile 会被设备写入清掉)。
+      const deviceId = typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId : null
+      const machineId = typeof acc.machineId === 'string' && acc.machineId ? acc.machineId : null
+      const keyPem =
+        typeof acc.deviceKeyPem === 'string' && acc.deviceKeyPem ? acc.deviceKeyPem : null
+      const pubPem =
+        typeof acc.devicePubPem === 'string' && acc.devicePubPem ? acc.devicePubPem : null
+      const profile =
+        acc.profile && typeof acc.profile === 'object' && !Array.isArray(acc.profile)
+          ? (acc.profile as Record<string, unknown>)
+          : null
+      let secretPatch: Record<string, unknown> | null = null
+      let secretsChanged = false
+      if ((keyPem && pubPem) || profile) {
+        let existing: Record<string, unknown> = {}
+        if (row.secretsEnc) {
+          try {
+            const parsed = JSON.parse(decryptField(row.secretsEnc))
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) existing = parsed
+          } catch {
+            /* 旧密文解不出(密钥轮换/坏档):放弃保留,由本次写入重建 */
+          }
+        }
+        const merged: Record<string, unknown> = { ...existing }
+        if (keyPem && pubPem) {
+          merged.deviceKeyPem = keyPem
+          merged.devicePubPem = pubPem
+        }
+        if (profile) merged.profile = profile
+        secretsChanged = JSON.stringify(merged) !== JSON.stringify(existing)
+        if (secretsChanged) secretPatch = merged
+      }
+      const deviceUpdate = secretPatch
+        ? {
+            secretsEnc: encryptField(JSON.stringify(secretPatch)),
+            ...(deviceId ? { deviceId } : {}),
+            ...(machineId ? { machineId } : {}),
+          }
+        : {}
       if (!final.apply) {
+        // 同票也要种档案(2026-10-28 补):一键切号写回信封要 profile/设备材料,而票未轮换时
+        // decideSync 恒 skip ⇒ 不种就永远缺档。只动 secrets 三列,凭证列/credVersion/健康态不碰。
+        if (secretsChanged && !dryRun) {
+          await db
+            .update(aiRelayAccountPool)
+            .set({ ...deviceUpdate, updatedAt: new Date() })
+            .where(
+              and(eq(aiRelayAccountPool.providerCode, 'trae'), eq(aiRelayAccountPool.uid, uid)),
+            )
+        }
         summary.skipped++
         summary.rows.push({ uid, decision: final.reason, applied: false })
         continue
@@ -223,23 +278,6 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         summary.rows.push({ uid, decision: final.reason, applied: false, error: 'dry-run 未写' })
         continue
       }
-      // 设备材料随票回灌(客户端重新登录换机/换密钥时池侧自愈);缺任一项 → 不动原值
-      const deviceId = typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId : null
-      const machineId = typeof acc.machineId === 'string' && acc.machineId ? acc.machineId : null
-      const keyPem =
-        typeof acc.deviceKeyPem === 'string' && acc.deviceKeyPem ? acc.deviceKeyPem : null
-      const pubPem =
-        typeof acc.devicePubPem === 'string' && acc.devicePubPem ? acc.devicePubPem : null
-      const deviceUpdate =
-        keyPem && pubPem
-          ? {
-              secretsEnc: encryptField(
-                JSON.stringify({ deviceKeyPem: keyPem, devicePubPem: pubPem }),
-              ),
-              ...(deviceId ? { deviceId } : {}),
-              ...(machineId ? { machineId } : {}),
-            }
-          : {}
       await db
         .update(aiRelayAccountPool)
         .set({
