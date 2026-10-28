@@ -4,6 +4,10 @@
 
 export { LineChart } from './LineChart'
 export { BarChart } from './BarChart'
+export { PieChart } from './PieChart'
+export { RadarChart } from './RadarChart'
+export { Heatmap } from './Heatmap'
+export { EChart, type EChartProps } from './EChart'
 export { LearningProgressChart, type LearningProgressChartProps } from './LearningProgressChart'
 export { FinanceTrendChart, type FinanceTrendChartProps } from './FinanceTrendChart'
 export { UserGrowthChart, type UserGrowthChartProps } from './UserGrowthChart'

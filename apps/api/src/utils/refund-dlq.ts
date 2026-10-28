@@ -28,7 +28,7 @@ import type { Redis } from 'ioredis'
 /** 最大重试次数，超过即入 DLQ */
 export const MAX_RETRY = 3
 /** DLQ 7 天后过期 */
-const DLQ_TTL_SEC = 7 * 24 * 3600
+export const DLQ_TTL_SEC = 7 * 24 * 3600
 /** 单次失败 meta 24h 后过期 */
 export const META_TTL_SEC = 24 * 3600
 

@@ -305,7 +305,7 @@ function escapeRegex(s: string): string {
  * - 中文 query 使用 segmentChineseQuery 的 2-gram 分词结果匹配。
  * - 多个 token 用单条正则交替匹配，长 token 优先，避免嵌套 <mark>。
  */
-function highlightText(text: string, query: string): string {
+export function highlightText(text: string, query: string): string {
   if (!text || !query) return text ?? ''
 
   const escaped = escapeHtml(text)

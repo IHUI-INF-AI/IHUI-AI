@@ -52,7 +52,7 @@ async function fetchBytes(url: string): Promise<Buffer> {
 }
 
 /** 从公告页 HTML 提取所有 downloadfile.jsp 附件完整 URL。 */
-function extractDownloadLinks(html: string): string[] {
+export function extractDownloadLinks(html: string): string[] {
   const out = new Set<string>()
   const re = /(?:href|src)=["']([^"']*downloadfile\.jsp\?filepath=[^"']+)["']/g
   let m: RegExpExecArray | null

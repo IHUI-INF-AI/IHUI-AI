@@ -32,7 +32,7 @@ import {
 export type { OAuthRedirectResult }
 
 /** OAuth deep link URI 前缀(完整匹配 ihui://oauth/callback) */
-const OAUTH_DEEPLINK_PREFIX = OAUTH_APP_RETURN_URI
+export const OAUTH_DEEPLINK_PREFIX = OAUTH_APP_RETURN_URI
 
 /** OAuthPlatform 合法值集合(用于运行时类型守卫,避免不安全的字符串断言) */
 const OAUTH_PLATFORMS: ReadonlySet<string> = new Set<OAuthPlatform>([

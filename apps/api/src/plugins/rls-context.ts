@@ -91,7 +91,7 @@ async function applyContextValues(values: {
  * 每请求一次:① 写会话变量;② 对 scoped 机器能力执行"非超级用户"断言。
  * 抛出的 DataScopeViolationError(403)由全局 errorHandler 渲染。
  */
-async function applyRequestContext(request: FastifyRequest): Promise<void> {
+export async function applyRequestContext(request: FastifyRequest): Promise<void> {
   if (!isScopedContextUrl(request.url)) return
   const values = contextValuesOf(request)
   await applyContextValues(values)

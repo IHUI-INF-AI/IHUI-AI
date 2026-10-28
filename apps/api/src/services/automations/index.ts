@@ -32,6 +32,7 @@ export { redactSecrets, makeAuditLogger } from './redact.js'
 export { createFileLedger } from './ledger.js'
 export { createGitHubClient } from './github-client.js'
 export { createStubExecutor, createAgentExecutor } from './executor.js'
+export { createOrchestrator, buildFixGoal, prTitleFor, branchNameFor } from './orchestrator.js'
 
 const TICK_FALLBACK_MS = 300_000
 
