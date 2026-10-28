@@ -402,6 +402,16 @@ declare module '@rn-shells/EduAiVideoComposeScreen' {
   export default Shell
 }
 
+declare module '@rn-shells/EduShopScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 apps/mobile-rn/src/screens/EduShopScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  const Shell: ComponentType<Record<string, unknown>>
+  export const EduShopScreen: ComponentType<Record<string, unknown>>
+  export default Shell
+}
+
 declare module '@rn-shells/ExamHistoryScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 apps/mobile-rn/src/screens/ExamHistoryScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
