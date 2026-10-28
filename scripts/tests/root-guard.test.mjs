@@ -121,3 +121,35 @@ test('④ 清单形状锁与退出码映射', () => {
   assert.equal(rg.exitCodeOf('fail'), 1)
   assert.equal(rg.exitCodeOf('unknown'), 2)
 })
+
+// —— ⑤ 差面判读(2026-10-29 立:两次 40+ 分钟 fail-closed 都不是"有人改规则",
+//    而是清单/工作树/HEAD 三面对不上;旧输出只给两个哈希,读的人只能猜)——
+const H = { exp: 'e'.repeat(64), act: 'a'.repeat(64), other: 'o'.repeat(64) }
+
+test('⑤ 工作树==HEAD 而清单绑别份 ⇒ 点名"清单与已入库内容对不上"', () => {
+  const s = rg.faceDiagnosis({ expected: H.exp, actual: H.act, head: H.act })
+  assert.match(s, /清单与\*\*已入库内容\*\*对不上/)
+  assert.match(s, /同枚提交并推送/)
+})
+
+test('⑤b 清单==HEAD 而工作树不同 ⇒ 点名"滞后的在飞副本"', () => {
+  const s = rg.faceDiagnosis({ expected: H.exp, actual: H.act, head: H.exp })
+  assert.match(s, /只有工作树副本不同/)
+  assert.match(s, /不要\*\*为它再封一次清单/)
+})
+
+test('⑤c 两格判据不得同形(否则等于没判)', () => {
+  const a = rg.faceDiagnosis({ expected: H.exp, actual: H.act, head: H.act })
+  const b = rg.faceDiagnosis({ expected: H.exp, actual: H.act, head: H.exp })
+  assert.notEqual(a, b)
+})
+
+test('⑤d HEAD 取不到 ⇒ 显式未判定,不冒充处置建议', () => {
+  for (const head of [null, undefined])
+    assert.match(rg.faceDiagnosis({ expected: H.exp, actual: H.act, head }), /未判定/)
+})
+
+test('⑤e 三面互不相同 ⇒ 交人工,不选边', () => {
+  const s = rg.faceDiagnosis({ expected: H.exp, actual: H.act, head: H.other })
+  assert.match(s, /三面互不相同/)
+})
