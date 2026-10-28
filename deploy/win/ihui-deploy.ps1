@@ -1460,6 +1460,25 @@ function Start-CleanBuildAsyncDelete {
         }
     }
     if ($renamed) { Log "[CLEAN-BUILD] 净面已改名 ⇒ 后台异步删除(收尾不阻塞):$trash" }
+    else {
+        # 2026-10-28 补:只喊 `in use` 无法派单 —— 按"谁是持有者"排障要么靠 handle.exe(本机没装
+        # Sysinternals),要么靠 openfiles(需先开 maintain objects list)。这里用改名本身当探针:
+        # 逐个子项试改名并立刻改回,首个失败的那一棵就是被占用的子树;全部都能改 ⇒ 占用在根
+        # 目录本身(典型是一个进程的 CWD 指着它)。探针只在收尾失败时跑,不进正常路径。
+        $lockedChild = $null
+        foreach ($ch in @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue)) {
+            $probeName = $ch.Name + '.locked-probe'
+            try {
+                Rename-Item -LiteralPath $ch.FullName -NewName $probeName -ErrorAction Stop
+                Rename-Item -LiteralPath (Join-Path $Path $probeName) -NewName $ch.Name -ErrorAction Stop
+            } catch { $lockedChild = $ch.FullName; break }
+        }
+        if ($lockedChild) {
+            Log "[CLEAN-BUILD] 改名不可用,首个被占用的子项(派单锚点):$lockedChild"
+        } else {
+            Log "[CLEAN-BUILD] 改名不可用,但逐子项探测均能改名 ⇒ 占用点在根目录本身(有进程 CWD 指着它)"
+        }
+    }
     # $PSScriptRoot 兜底:本文件由部署环以 -File 启动时它等于 deploy\win;若哪天被 -Command
     # 内联或 dot-source 调用,它是空串,Join-Path 会抛"不能绑定到 Path"——
     # 那时退回 $Root\deploy\win(本脚本在生产/开发仓里的固定位置)。
