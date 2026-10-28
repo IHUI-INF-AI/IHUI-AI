@@ -1383,6 +1383,23 @@
     "empty": "No favorites",
     "deleteTitle": "Delete favorite"
   },
+  "favorite": {
+    "title": "My Favorites",
+    "empty": "No favorites yet",
+    "tab_all": "All",
+    "tab_course": "Courses",
+    "tab_live": "Live",
+    "tab_post": "Posts",
+    "tab_aigc": "AI Works",
+    "tab_news": "News",
+    "total": "Saved",
+    "items_unit": "items",
+    "collected_at": "Saved on",
+    "cancel": "Remove favorite",
+    "loading_more": "Load more",
+    "no_more": "No more items",
+    "go_discover": "Discover"
+  },
   "checkIn": {
     "title": "Daily Check-in",
     "subtitle": "Check in daily to earn points",

@@ -1383,6 +1383,23 @@
     "empty": "暂无收藏",
     "deleteTitle": "删除收藏"
   },
+  "favorite": {
+    "title": "我的收藏",
+    "empty": "暂无收藏",
+    "tab_all": "全部",
+    "tab_course": "课程",
+    "tab_live": "直播",
+    "tab_post": "帖子",
+    "tab_aigc": "AI作品",
+    "tab_news": "资讯",
+    "total": "已收藏",
+    "items_unit": "项",
+    "collected_at": "收藏于",
+    "cancel": "取消收藏",
+    "loading_more": "加载更多",
+    "no_more": "没有更多了",
+    "go_discover": "去发现"
+  },
   "checkIn": {
     "title": "每日签到",
     "subtitle": "坚持签到赢积分",

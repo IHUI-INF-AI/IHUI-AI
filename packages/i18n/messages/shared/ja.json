@@ -1383,6 +1383,23 @@
     "empty": "お気に入りがありません",
     "deleteTitle": "お気に入り削除"
   },
+  "favorite": {
+    "title": "お気に入り",
+    "empty": "お気に入りはありません",
+    "tab_all": "すべて",
+    "tab_course": "コース",
+    "tab_live": "ライブ",
+    "tab_post": "投稿",
+    "tab_aigc": "AI作品",
+    "tab_news": "ニュース",
+    "total": "保存済み",
+    "items_unit": "件",
+    "collected_at": "追加日",
+    "cancel": "お気に入り解除",
+    "loading_more": "さらに読み込む",
+    "no_more": "以上です",
+    "go_discover": "発見する"
+  },
   "checkIn": {
     "title": "毎日チェックイン",
     "subtitle": "毎日チェックインしてポイント獲得",
