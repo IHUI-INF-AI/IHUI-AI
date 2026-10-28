@@ -178,4 +178,32 @@ test('M15 具名薄封装:定义体的字面量端点与壳重合 ⇒ 销账;动
   assert.deepEqual([...conv.apiSymbolEndpoints(mod).get('f')], ['/a'])
   assert.deepEqual([...conv.apiSymbolEndpoints(mod).get('g')], ['/b'])
 })
+
+test('M16 客户端分页:本地可见量递增 ⇒ 不算要下一页;真数据翻页(page:)或没触底钩子都不放行', () => {
+  // 正例 = model-plaza 现读形态:一次取回(仅 pageSize),触底只调本地可见条数
+  const modelPlaza = [
+    "const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)",
+    'const visibleList = filteredList.slice(0, visibleCount)',
+    'useReachBottom(() => { if (hasMore) setVisibleCount((c) => c + PAGE_SIZE) })',
+    'const resp = await fetchModels({ pageSize: 100 })',
+  ].join('\n')
+  assert.equal(conv.clientSidePaging(modelPlaza), true)
+  // 反面:带 page 参数 = 真向后端要下一页,共享屏的列表承担不了数据分页
+  assert.equal(
+    conv.clientSidePaging(`${modelPlaza}\nfetchModels({ page: nextPage, pageSize: 20 })`),
+    false,
+  )
+  // 反面:没有触底钩子 ⇒ 这条判断根本不该销账
+  assert.equal(conv.clientSidePaging('const x = list.slice(0, 10)'), false)
+  // 反面:只在注释里提过 useReachBottom(注释不是实现,与 S19 同型)
+  assert.equal(
+    conv.clientSidePaging('// 对齐 useReachBottom\nconst x = list.slice(0, 10)'),
+    false,
+  )
+  // 反面:可见量不做切片(没有 slice(0,…))⇒ 形态不成立,保守拒
+  assert.equal(
+    conv.clientSidePaging('useReachBottom(() => setVisibleCount((c) => c + 10))'),
+    false,
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
