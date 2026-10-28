@@ -5,7 +5,7 @@
 import { useMemo } from 'react'
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Download, Wand2 } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { SkillMarketEntryView, SkillMarketListScreenProps } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -267,7 +267,7 @@ function createStyles(tk: AppThemeTokens) {
       flexShrink: 0,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.brandAccent.light,
     },
     countText: {
@@ -320,7 +320,7 @@ function createStyles(tk: AppThemeTokens) {
     tagChip: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -396,7 +396,7 @@ function createStyles(tk: AppThemeTokens) {
     tagPill: {
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.muted,
     },
     tagPillText: {

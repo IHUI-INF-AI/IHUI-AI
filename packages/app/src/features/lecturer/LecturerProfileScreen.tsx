@@ -14,7 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { Eye, PlayCircle } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { LecturerProfileScreenProps, LiveLecturerChannelItem } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -308,7 +308,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 4,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.danger.DEFAULT,
     },
     liveDot: {

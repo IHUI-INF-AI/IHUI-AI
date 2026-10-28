@@ -14,7 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { ClipboardList, Clock, Upload } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { CourseHomeworkItem, CourseHomeworkScreenProps } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -333,7 +333,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.muted,
     },
     badgeDone: {

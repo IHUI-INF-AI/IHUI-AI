@@ -16,7 +16,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { Search } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type {
   KnowledgeBaseCategoryItem,
   KnowledgeBaseListItem,
@@ -369,7 +369,7 @@ function createStyles(tk: AppThemeTokens) {
       flexShrink: 0,
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: 1,
-      borderRadius: rnRadius.xs,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.muted,
       fontSize: rnType.caption.size,
       color: tk.text.secondary,
