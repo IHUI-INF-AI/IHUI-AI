@@ -12,7 +12,7 @@
  * 设计(对标 + 超越码道):
  * - 模型→平台反查:join ai_model_config(_models),providerCode ∈ RELAY_PROVIDERS 且启用;60s 进程缓存
  * - 选号:priority asc → 有效权重 desc → lastUsedAt asc(未用优先),跳过冷却中的号;上限 3 号 failover
- *   (O67 起策略钮与打分住 relay-pool-policy.ts 单源:weighted_random / 闲置加权 / 临期优先 /
+ *   (O93 起策略钮与打分住 relay-pool-policy.ts 单源:weighted_random / 闲置加权 / 临期优先 /
  *   积分地板 / 跨域互兜,默认档保持上述既有顺序;过滤排空一律回落未过滤集并留标签)
  * - 会话亲和:affinityKey(apiKeyId)+model → 同账号,30 分钟 TTL(Trae 多轮上下文连续性靠它;
  *   30–60 分钟是社区风控实践中"同会话不致跨号漂移"的下限)
@@ -31,7 +31,7 @@
  *   · 请求级错误(参数非法/超长/审核)不罚号(直接透传失败,不计数不冷却)
  * - 账号级并发上限(2026-10-22):同一账号在途请求默认 ≤3,超出则 failover 到下一候选
  *   (上游对单账号并发极敏感;这是与"每账号独立代理出口"配套的第二道指纹护栏)
- * - 全局在途并发闸(O67,对标 pool.max_in_flight_global):钮值住 relay-pool-policy,
+ * - 全局在途并发闸(O93,对标 pool.max_in_flight_global):钮值住 relay-pool-policy,
  *   计数住 relay-account-shared-state(Redis INCR/DECR + TTL 安全网、内存兜底);
  *   达上限像冷却一样跳过该候选,绝不排队久等(关闭档零 Redis 往返)
  * - 出口代理:行.proxyUrl → undici ProxyAgent(按 URL 缓存连接池,每号独立出口 IP 降风控)
@@ -1529,7 +1529,7 @@ export async function forwardToAccountPool(
         lastError = `账号 ${row.name} 并发已达上限(${ACCOUNT_MAX_INFLIGHT})`
         continue
       }
-      // 全局在途闸(O67,pool.max_in_flight_global 对标):达上限像冷却一样跳过该候选,
+      // 全局在途闸(O93,pool.max_in_flight_global 对标):达上限像冷却一样跳过该候选,
       // 不排队久等;关闭档(maxInFlightGlobal<=0)零 Redis 往返。全候选都被闸挡下 ⇒
       // 本请求以带标签的失败结论回绝(调用方回退 ai-service,不是硬中断)。
       let globalHandle: GlobalInflightHandle | null = null
@@ -1685,7 +1685,7 @@ export const __test__ = {
   kindForStreamInterrupt,
   // ── 出网复检(档位判据住在 utils/relay-egress-guard.ts,此处只暴露接线入口)──
   poolFetch,
-  // ── 选号(O67):策略管线接线入口(policy 与 rng 注入 ⇒ 用例无需碰 env/时钟)──
+  // ── 选号(O93):策略管线接线入口(policy 与 rng 注入 ⇒ 用例无需碰 env/时钟)──
   selectAccountCandidates,
   readRelayPoolPolicy,
 }
