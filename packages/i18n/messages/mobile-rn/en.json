@@ -4363,6 +4363,21 @@
       "draft": "Draft"
     }
   },
+  "eduDashboard": {
+    "title": "Edu Dashboard",
+    "studyHours": "Study hours",
+    "totalCourses": "Courses",
+    "completedCourses": "Completed",
+    "inProgressCourses": "In progress",
+    "avgProgress": "Avg progress",
+    "totalExams": "Exams",
+    "passedExams": "Passed",
+    "totalCerts": "Certificates",
+    "recentCourses": "Recent learning",
+    "noCourses": "No learning records",
+    "progress": "Progress",
+    "loadFailed": "Failed to load"
+  },
   "webViewPortal": {
     "news": "News",
     "learnTopic": "Topic Lessons",

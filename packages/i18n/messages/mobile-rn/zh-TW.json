@@ -4319,6 +4319,21 @@
       "draft": "草稿"
     }
   },
+  "eduDashboard": {
+    "title": "教育看板",
+    "studyHours": "學習時長",
+    "totalCourses": "課程總數",
+    "completedCourses": "已完成",
+    "inProgressCourses": "進行中",
+    "avgProgress": "平均進度",
+    "totalExams": "考試次數",
+    "passedExams": "通過",
+    "totalCerts": "證書數",
+    "recentCourses": "最近學習",
+    "noCourses": "暫無學習記錄",
+    "progress": "進度",
+    "loadFailed": "載入失敗"
+  },
   "webViewPortal": {
     "news": "資訊",
     "learnTopic": "課程專題",
