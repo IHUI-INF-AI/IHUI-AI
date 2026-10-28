@@ -5812,6 +5812,31 @@ const checks = [
       '',
     ].join('\n'),
   },
+  {
+    id: '257',
+    label:
+      '🛡️ DDoS 守卫接线对账(摘线即红;四道闸的注册锚点在不在,口径见 scripts/check-ddos-guard-wiring.mjs)',
+    script: 'check-ddos-guard-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DDOS_GUARD_WIRING',
+    stagedTriggers: [
+      'apps/api/src/server.ts',
+      'apps/api/src/plugins/',
+      'apps/ai-service/app/main.py',
+      'apps/ai-service/app/sio/handlers.py',
+      'apps/ai-service/app/core/',
+      'scripts/check-ddos-guard-wiring.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 抗 DDoS 的某道闸被摘了(注册行没了 / 实现文件被删)。typecheck 与单测对这一型完全同形',
+      '     (都能跑、都不报错),所以只能由本门拦:node scripts/check-ddos-guard-wiring.mjs 逐条点名缺哪根线。',
+      '     修法是把注册行原样接回 —— 不是改锚点清单来消红(那等于把防线判没了)。',
+      '     应急放行 HUSKY_SKIP_DDOS_GUARD_WIRING=1(须在提交信息写明撤的是哪道闸、为什么)。',
+      '',
+    ].join('\n'),
+  },
 
   // --- info (1 项) ---
   {

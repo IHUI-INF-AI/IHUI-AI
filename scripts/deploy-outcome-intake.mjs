@@ -42,6 +42,7 @@ import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { deployDecisionsFace } from './lib/deploy-decisions-face.mjs'
 import { identityOf, loadContract, validateSignal } from './lib/incident-cluster.mjs'
 import { redactAlertDetail } from './lib/secret-shape-redact.mjs'
 
@@ -414,7 +415,23 @@ function main(argv) {
     console.error(`未判定:${e?.message ?? e}`)
     return 2
   }
-  const inPath = resolve(args.input ?? DEFAULT_IN)
+  // 取材面走唯一出口(2026-10-28 立):--in 显式给了仍优先;否则按「生产 checkout 优先、
+  // 回落主仓」选面 —— 部署环写的是 `<DevEnv>/ihui-prod/.ihui-agent/` 那本账,主仓副本只是
+  // 影子(实测主仓 2 行 vs 生产 85 行);钉死主仓会把"链没跑过"读错来源(立因见 lib 头注)。
+  let inPath
+  if (args.input) {
+    inPath = resolve(args.input)
+  } else {
+    const face = deployDecisionsFace()
+    if (!face.found) {
+      console.error(
+        `未判定:两候选台账都不在(${face.candidates.map((c) => c.path).join(' , ')}),不拿不存在的面当空集`,
+      )
+      return 2
+    }
+    inPath = resolve(face.path)
+    if (process.env.IHUI_DEPLOY_DECISIONS_DEBUG === '1') console.log(`DEPLOY-INTAKE face=${face.kind} ${face.path}`)
+  }
   const outPath = resolve(args.out ?? DEFAULT_OUT)
 
   let text

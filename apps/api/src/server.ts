@@ -77,7 +77,7 @@ import { createFailSafeRateLimitStore } from './plugins/rate-limit-failsafe-stor
 // 2026-10-28 DDoS 加固:WebSocket 守卫(单 IP 连接/握手上限 + 心跳保活)
 import { wsGuard, wsClientIp, wsHandshakeGate } from './plugins/ws-guard.js'
 // 2026-10-28 DDoS 加固:HTTP 单 IP 并发连接守卫(防慢速连接耗尽 FD)
-import { httpConnGuard } from './plugins/http-conn-guard.js'
+import { httpConnGuard, resolveMaxConnections } from './plugins/http-conn-guard.js'
 import apiVersioningPlugin from './plugins/api-versioning.js'
 import compressionPlugin from './plugins/compression.js'
 import apiLoggerExtendedPlugin from './plugins/api-logger-extended.js'
@@ -246,6 +246,10 @@ export async function buildServer(): Promise<FastifyInstance> {
     server.server.headersTimeout = 20_000
     server.server.keepAliveTimeout = 15_000
     server.server.requestTimeout = 300_000
+    // 全局活跃连接硬顶：per-IP 闸管不住「上万个 IP 各开几条」这一型，这一档管的是
+    // 单实例 FD/内存被耗尽的最后一格。0 可由 IHUI_HTTP_MAX_CONNECTIONS 明确关掉，
+    // 取值算式与"为什么宁可取宽"见 resolveMaxConnections 头注。
+    server.server.maxConnections = resolveMaxConnections(process.env.IHUI_HTTP_MAX_CONNECTIONS)
   }
 
   await registerPlugins(server)

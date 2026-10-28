@@ -97,13 +97,33 @@ vi.mock('../src/services/relay-model-catalog.js', () => ({
   resolveModelAlias: (p: string, m: string) => mockResolveAlias(p, m),
 }))
 
-// undici 打桩:代理路径(poolFetch 有 proxy 时走 undiciFetch)不发真实网络
+// undici 打桩：自 2026-10-28 起 poolFetch 两条分支都走 undiciFetch（直连挂连接期守卫的 Agent），
+// 而本文件两种桩法并存 —— 有的用例配 mockUndiciFetch（代理路径），有的用 vi.stubGlobal('fetch')
+// （早期的直连桩）。这里做委托：本用例配过 undici 桩就用它，否则转交给当时的 global fetch 桩，
+// 于是两种写法都不必逐用例重写。生产出口不因桩面妥协（守卫要真装在连接上才有意义）。
 const mockUndiciFetch = vi.fn()
 vi.mock('undici', () => ({
   ProxyAgent: class {
     close(): void {}
   },
-  fetch: (...args: unknown[]) => mockUndiciFetch(...args),
+  // 直连出口的 dispatcher（utils/relay-egress-guard.ts）；本文件只测转发语义，桩成空壳。
+  Agent: class {
+    constructor(_opts?: unknown) {}
+    close(): void {}
+  },
+  fetch: (...args: unknown[]) => {
+    if (mockUndiciFetch.getMockImplementation?.()) return mockUndiciFetch(...args)
+    return (globalThis.fetch as (...a: unknown[]) => unknown)(...args)
+  },
+}))
+
+/**
+ * 出网复检（utils/relay-egress-guard.ts）会在发请求前问一次 DNS。
+ * 本文件的 https://upstream.test 是假域名，桩成公网 IP 才能让用例继续测"转发逻辑"本身；
+ * 真实 DNS 失败在生产等价于 fetch 自己失败，语义没有变化。
+ */
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn(async () => [{ address: '203.0.113.10', family: 4 }]),
 }))
 
 import { forwardToAccountPool, __test__ as F } from '../src/services/relay-account-forwarder.js'

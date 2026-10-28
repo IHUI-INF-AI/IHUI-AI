@@ -208,6 +208,10 @@ $ApiHealth  = "$PublicWeb/api/health"
 # 不带 Host 探到的是另一条代码路径,那第二条腿就是假的。
 $OriginWeb  = 'http://127.0.0.1:8801'
 $OriginApi  = 'http://127.0.0.1:8802/api/health'
+# 本轮起点时刻(2026-10-28 加):给 api-listener-freshness.ps1 当锚点用 —— 健康 200 只证明
+# "有人在答",证明不了"答的是本轮起来的进程"(当天实测:服务重启的新子进程因端口被旧孤儿
+# 占住而退出,8843 仍由 15:34 的旧 node 应答,而账面记的是部署成功)。
+$ScriptStartIso = (Get-Date).ToString('o')
 # ai-service 健康端点(2026-09-14 ai-service 重启步骤引入;直连本机端口,无 JWT)。
 # 2026-10-19 起它同时充当健康门禁 **llm 维的源站直探腿**(见 Test-HealthGate):公网 llm 那路
 # ($PublicWeb/api/llm/providers/health,带深度预检)经 Cloudflare 常被挡成 perpetual-unknown,
@@ -3005,7 +3009,11 @@ try {
         # 而 Build-Web 连败 throw 已带"末次报错指纹"(同因每轮同串、换因换串),正是结构化病因。
         # 「未切流」出口同样进决策台账(O65 第 2 期):目标 sha 取不到就如实留空(台账会记成未判定),
         # 记录本身不参与 Fail 的告警身份,明细漂移不会改变"这是同一类失败"的判定(§5e-1)。
-        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason '构建失败,未切流,保持当前在线版本')
+        # 台账侧同一条病因必须也带上(G-21 只补了告警侧):现读 .ihui-agent/deploy-decisions.jsonl 里
+        # 14 枚 build-fail 的 reason 全是同一句固定措辞 ⇒ 事后没人能从台账知道"哪一次为什么挂",
+        # 而散文日志只活 ~6 小时。$_ 与告警侧取的是同一份 throw 原文(不另拼一路、不重排两流),
+        # 由 deploy-decision.mjs 的 normalizeReason 统一折叠空白并截 400;它不参与告警身份计算 ⇒ 不改 4h 去重。
+        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason "构建失败,未切流,保持当前在线版本:$_")
         Fail "构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)" -Detail "原始报错:$_" -Reason "$_"
     }
 
@@ -3269,6 +3277,35 @@ if (-not (Test-HealthGate)) {
         } catch { Log "WARN  api 重启异常: $_" }
     } else {
         Log "未找到 api 服务(候选:IHUI-API/ihui-api/svc-api),跳过重启(tsx watch 形态自动重载)"
+    }
+
+    # ── api 实听者身份自证(2026-10-28 立,当天实测的假成功逼出来的)──────────
+    # 上面两条分支判的都是"探不探得到 200"。而当天:服务"重启"起来的新子进程因为端口被
+    # 15:34 那个旧孤儿占着而直接退出(EADDRINUSE),旧 node 继续应答 200 ⇒ 部署记的是成功,
+    # 生产的 API 跑的仍是旧代码,而我差点把"8843=200 / 8802=200"当成新代码已上岗的证据。
+    # 健康度证明不了身份,所以这一步必须问"应答的那个进程是本轮起来的吗"——三态各有结论:
+    # fresh 放行、stale 报 ALERT 并给精确出路、量不到只报未判定(§0.3 两头都不许冒充结论)。
+    $freshPs = Join-Path $PSScriptRoot 'api-listener-freshness.ps1'
+    if (Test-Path -LiteralPath $freshPs) {
+        $frTxt = ''
+        try {
+            $frPs = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+            if (-not (Test-Path -LiteralPath $frPs)) { $frPs = 'powershell.exe' }
+            $frRaw = & $frPs -NoProfile -ExecutionPolicy Bypass -File $freshPs -Ports '8842;8843' -SinceIso $ScriptStartIso 2>&1
+            $frTxt = ('' + (($frRaw | Where-Object { $_ -match 'FRESHNESS\|' } | Select-Object -First 1)))
+        } catch { $frTxt = 'FRESHNESS|state=undetermined|port=8842,8843|pids=|reason=invoke-failed' }
+        if ($frTxt -notmatch 'FRESHNESS\|') { $frTxt = 'FRESHNESS|state=undetermined|port=8842,8843|pids=|reason=no-contract-line' }
+        $frBody = ($frTxt -replace '^FRESHNESS\|', '')
+        if ($frTxt -match 'state=fresh') {
+            Ok "api 实听者已是本轮新进程($frBody)"
+        } elseif ($frTxt -match 'state=stale') {
+            Log "ALERT STALE-API-LISTENER 健康 200 但应答进程早于本轮起点 ⇒ 新代码未上岗($frBody)"
+            Log '  出路:按上面 pids **精确** Stop-Process 旧树(禁止按映像名批杀,会连带杀掉部署环),再 Start-Service,然后复跑 deploy/win/api-listener-freshness.ps1'
+        } else {
+            Log "WARN  api 实听者身份未判定 ⇒ 既不记绿也不冒红($frBody)"
+        }
+    } else {
+        Log "WARN  缺 deploy/win/api-listener-freshness.ps1 ⇒ 本轮无法自证 api 实听者身份(只探到 200 不等于新代码在答)"
     }
 
     # ── 重启 ai-service(2026-09-14 加):uvicorn 源码直跑,pull 后需重载才能吃到
