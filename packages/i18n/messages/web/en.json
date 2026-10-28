@@ -9588,6 +9588,9 @@
     "title": "AI Career Guidance"
   },
   "aiChat": {
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
+    "delete": "Delete",
     "bindIssue": "Bind issue",
     "actions": {
       "archive": "Archive",
@@ -11233,6 +11236,8 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
     "workbenchSessions": "Sessions",
     "feedbackLike": "Helpful",
     "feedbackDislike": "Not helpful",

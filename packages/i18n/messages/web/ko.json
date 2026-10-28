@@ -9588,6 +9588,9 @@
     "title": "AI 진로 지도"
   },
   "aiChat": {
+    "favorite": "즐겨찾기 추가",
+    "unfavorite": "즐겨찾기 해제",
+    "delete": "삭제",
     "bindIssue": "이슈 연결",
     "actions": {
       "archive": "보관",
@@ -11233,6 +11236,8 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "favorite": "즐겨찾기 추가",
+    "unfavorite": "즐겨찾기 해제",
     "workbenchSessions": "세션",
     "feedbackLike": "도움이 됨",
     "feedbackDislike": "도움이 안 됨",
