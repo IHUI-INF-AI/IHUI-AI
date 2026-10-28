@@ -28748,4 +28748,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 ## 2026-10-27 第三方 OAuth 通用回调同意闸(登记@2026-10-27/oauth-consent)
 
-
+- [ ]（进行中@2026-10-28/主会话） （未取号:G/O 族号池已满,live-doc-edit 当场 pool-exhausted 拒发,照 2026-10-27 既有形态行内注明）**边缘缓存键不含 Origin,而源站按 Origin 回显 ACAO ⇒ 我方两个合法客户端在边缘互相踩踏**:2026-10-28 现读 www.aizhs.top/api/carousels —— 先以 `Origin: http://tauri.localhost` 发三请求(均 MISS,回显 `access-control-allow-origin: http://tauri.localhost`),再以 `Origin: https://www.aizhs.top` 发三请求全部 **HIT(Age 4/6/8)且带的那枚 ACAO 仍是 http://tauri.localhost**;源站确发 `Vary: Origin, Accept-Encoding` 但 EdgeOne 免费版把它当同一份缓存 ⇒ 桌面端先访问过的 60s(+swr)窗口内,Web 端浏览器会因 ACAO 不匹配拒收该响应(功能失败,非越权)。修法方向(最小足迹):对 `apps/api/src/utils/public-edge-cache.ts` 那批公开只读 GET 把 ACAO 固定为 `*` 并撤 `Access-Control-Allow-Credentials`——前端现读零 `withCredentials` 消费,不依赖跨源凭据;落点 server.ts:414 CORS 回调与 public-edge-cache.ts 两面今晨现读均不在飞。
