@@ -51,7 +51,8 @@ docker compose -f deploy/relay-standalone/docker-compose.yml ps
 docker compose -f deploy/relay-standalone/docker-compose.yml logs -f api
 curl -s http://localhost:7864/healthz          # 门自身探活,不需要 key
 curl -s -H "X-Relay-Key: $KEY" http://localhost:7864/api/health
-curl -s -H "X-Relay-Key: $KEY" http://localhost:7864/v1/models   # 对外出口探活
+# 对外出口探活:两把 key 都要带(只过入口门会被 api 侧要 developer api key,仍返 401)
+curl -s -H "X-Relay-Key: $KEY" -H "Authorization: Bearer $DEV_KEY" http://localhost:7864/v1/models
 ```
 
 ## 客户出口用法(OpenAI / Gemini 兼容)
