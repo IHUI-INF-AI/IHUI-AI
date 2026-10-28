@@ -67,7 +67,10 @@ import { logger } from './utils/logger.js'
 import { runShutdownPhases, type ShutdownPhase } from './utils/shutdown-phases.js'
 
 const PORT = Number(process.env.PORT ?? 8802)
-const HOST = process.env.HOST ?? '0.0.0.0'
+// 2026-10-28 安全加固:默认只监听回环地址,杜绝源站 8802 被公网直击
+// (Cloudflare/EO 隧道与 web→api 反代均走 127.0.0.1,无需 0.0.0.0 暴露)。
+// 需要跨机访问时在 .env 显式写 HOST=0.0.0.0 才放开。
+const HOST = process.env.HOST ?? '127.0.0.1'
 
 // ── 关停相位超时档位(取值依据,2026-09-27 有序相可靠性票)──────────────────
 // SYNC_STOP_MS=1s:以下 stop* 全部是 clearInterval / cron.stop 级别的同步收尾,

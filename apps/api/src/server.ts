@@ -223,6 +223,18 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   server.setErrorHandler(errorHandler)
 
+  // 2026-10-28 安全加固:slowloris / 慢速 HTTP 拒绝服务防护。
+  // headersTimeout:客户端必须在 20s 内发完请求头,否则断开(防慢头攻击);
+  // keepAliveTimeout:空闲 keep-alive 连接 15s 后回收(防连接池耗尽)。
+  // 二者都只作用于「握手/空闲」阶段,不影响已建立的 SSE/流式响应
+  // (流式在发完 200 头后立即持续写 body,headersTimeout 不再计时)。
+  // 注意:刻意**不**设 requestTimeout —— 它会按总时长掐断仍处于打开状态的
+  // AI 聊天长连接,盲设会斩断流式输出。
+  if (server.server) {
+    server.server.headersTimeout = 20_000
+    server.server.keepAliveTimeout = 15_000
+  }
+
   await registerPlugins(server)
 
   // 2026-07-24 国安级零信任策略:对 /api/admin/* 及敏感业务路由自动注入网络分段配置
