@@ -687,14 +687,15 @@ export function planQoderUndo(
   paths: QoderPaths,
 ): { op: MoveOp; plan: MovePlan } {
   const { ops, archivedCount } = readOpsAll(opsLogFile)
-  const op = ops[opNum - 1]
+  // 按不可变 opId 定位(与 WorkBuddy 搬移腿同尺):rotate 移走老条目后位置会变,号不会
+  const op = ops.find((o) => o.opId === opNum)
   if (!op)
     throw new Error(
-      `ops 日志无第 ${opNum} 条(现存 ${ops.length} 条${archivedCount > 0 ? `,含归档 ${archivedCount} 条` : ''})`,
+      `ops 日志无 opId #${opNum}(现存 ${ops.length} 条${archivedCount > 0 ? `,含归档 ${archivedCount} 条` : ''};opId 不可变,rotate 不会让号前移)`,
     )
   if (op.type === 'copy') {
     throw new Error(
-      `第 ${opNum} 条是 copy(复制到桶):撤销等于删除副本,本器不删文件(红线:绝不删除)。` +
+      `opId #${opNum} 是 copy(复制到桶):撤销等于删除副本,本器不删文件(红线:绝不删除)。` +
         '如需清理,请人工确认后删除目标侧副本。',
     )
   }
@@ -1025,8 +1026,10 @@ export function main(
           (archiveFiles.length > 0 ? `;归档件 ${archiveFiles.length} 份` : ''),
       )
       ops.forEach((op, i) => {
+        // 印出的号必须就是 undo --op 认的那个号(readOpsAll 已为旧数据补位置号)
+        const no = op.opId ?? i + 1
         console.log(
-          `  #${i + 1}${i < archivedCount ? '[归档]' : ''} ${op.ts} ${op.type} conv=${op.conversationId ?? '?'} acct=${op.accountId ?? '?'} ` +
+          `  #${no}${i < archivedCount ? '[归档]' : ''} ${op.ts} ${op.type} conv=${op.conversationId ?? '?'} acct=${op.accountId ?? '?'} ` +
             `files=${op.entries.length} bytes=${op.entries.reduce((s, e) => s + e.bytes, 0)}` +
             `${op.refOp !== undefined ? ` refOp=#${op.refOp}` : ''}`,
         )
@@ -1143,7 +1146,7 @@ export function main(
     } else if (cmd === 'undo') {
       const n = Number(getFlag(argv, '--op'))
       if (!Number.isInteger(n) || n < 1) {
-        console.error('undo 需要 --op <n>(ops 日志 1 起行号)')
+        console.error('undo 需要 --op <n>(ops 命令 # 后那个不可变 opId,rotate 不会让它前移)')
         return 2
       }
       const r = planQoderUndo(paths.opsLogFile, n, paths)
