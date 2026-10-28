@@ -48,6 +48,10 @@ function getSessionId(): string {
   }
 }
 
+/** 图标按钮 aria-label 的最长采信长度:超过它的是"把整份清单塞进 aria-label"的那类
+ * (如直达面板 trigger 的 Intl.ListFormat 全量项),截断后仍是长串噪声,宁可不采信。 */
+const ARIA_LABEL_MAX = 80
+
 /** 从事件冒泡路径找最近的可追踪目标 */
 function findTrackable(el: Element | null): { label: string; category?: string } | null {
   let node: Element | null = el
@@ -60,9 +64,14 @@ function findTrackable(el: Element | null): { label: string; category?: string }
         category: node.getAttribute?.('data-analytics-category') ?? undefined,
       }
     }
-    const text = node.textContent?.trim().slice(0, 50)
-    if (text && (node.tagName === 'BUTTON' || node.tagName === 'A')) {
-      return { label: text }
+    if (node.tagName === 'BUTTON' || node.tagName === 'A') {
+      const text = node.textContent?.trim().slice(0, 50)
+      if (text) return { label: text }
+      // 2026-10-27 覆盖缺口收口:纯图标按钮(无文本)此前结构性不可见 ——
+      // clickTop 里"用了哪些功能"对它们恒盲。守门 18 要求这类按钮一律带
+      // aria-label,它是图标按钮唯一的可读名,取来当点击标签(有长度上限,见上)。
+      const aria = node.getAttribute?.('aria-label')?.trim()
+      if (aria && aria.length <= ARIA_LABEL_MAX) return { label: aria }
     }
     node = node.parentElement
     depth++

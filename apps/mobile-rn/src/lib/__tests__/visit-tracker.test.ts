@@ -28,6 +28,7 @@ import {
   __resetScreenViewThrottleForTest,
   reportScreenView,
   screenViewPath,
+  settleScreenTime,
   SCREEN_VIEW_DEBOUNCE_MS,
 } from '../visit-tracker'
 
@@ -115,6 +116,54 @@ describe('reportScreenView', () => {
     h.recordVisitLog.mockImplementationOnce(() => Promise.reject(new Error('offline')))
     expect(() => reportScreenView('Home', 40_000)).not.toThrow()
     await Promise.resolve()
+  })
+})
+
+describe('settleScreenTime(退后台收口)', () => {
+  it('退后台结算当前屏停留:page_time 带当前屏路径与整秒数,并清空在屏状态', () => {
+    reportScreenView('Home', 0)
+    expect(settleScreenTime(30_000)).toBe(true)
+    expect(h.recordAnalyticsEvents).toHaveBeenCalledTimes(1)
+    const events = h.recordAnalyticsEvents.mock.calls[0]![0] as Array<{
+      name: string
+      label?: string
+      value?: number
+    }>
+    expect(events[0]!.name).toBe('page_time')
+    expect(events[0]!.label).toBe('/rn/Home')
+    expect(events[0]!.value).toBe(30)
+
+    // 清空后再次结算是 no-op(不重复报)
+    expect(settleScreenTime(31_000)).toBe(false)
+    expect(h.recordAnalyticsEvents).toHaveBeenCalledTimes(1)
+  })
+
+  it('没有在屏记录时是 no-op(启动即退后台不造空 label 事件)', () => {
+    expect(settleScreenTime(1_000)).toBe(false)
+    expect(h.recordAnalyticsEvents).not.toHaveBeenCalled()
+  })
+
+  it('亚秒级停留不报(与换屏结算同一判据),但状态仍被清掉', () => {
+    reportScreenView('Home', 0)
+    expect(settleScreenTime(400)).toBe(false)
+    expect(h.recordAnalyticsEvents).not.toHaveBeenCalled()
+    // 状态已清:再次 settle 不报
+    expect(settleScreenTime(60_000)).toBe(false)
+  })
+
+  it('收口后回前台,下一次换屏照常重新进屏并结算', () => {
+    reportScreenView('Home', 0)
+    settleScreenTime(10_000)
+    expect(reportScreenView('Chat', 20_000)).toBe(true)
+    // Home 已在后台收口里结算过(第 1 次调用);收口后在屏为空 ⇒ 这次换屏不再结算,
+    // 唯一一次 page_time 就是那次收口(label=/rn/Home)。
+    expect(h.recordAnalyticsEvents).toHaveBeenCalledTimes(1)
+    const events = h.recordAnalyticsEvents.mock.calls[0]![0] as Array<{ label?: string }>
+    expect(events[0]!.label).toBe('/rn/Home')
+    // 再换屏 ⇒ Chat 段照常结算,收口不影响后续停留
+    reportScreenView('Home', 50_000)
+    const events2 = h.recordAnalyticsEvents.mock.calls[1]![0] as Array<{ label?: string }>
+    expect(events2[0]!.label).toBe('/rn/Chat')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
