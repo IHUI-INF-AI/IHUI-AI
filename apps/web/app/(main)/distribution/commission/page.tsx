@@ -24,6 +24,7 @@ import {
 } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface CommissionSummaryData {
   totalAmount: number
@@ -66,7 +67,7 @@ const TYPE_KEY: Record<number, string> = {
   2: 'commissionType2',
 }
 
-const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
+const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
 
 export default function MyCommissionPage() {
   const t = useTranslations('distribution')

@@ -12,6 +12,7 @@ import { getRefundList } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import { formatPrice } from '@ihui/shared/utils/format'
 import './refund-list.css'
 
 type RefundStatus = 'refunding' | 'refunded' | 'rejected'
@@ -36,8 +37,6 @@ interface TimelineStep {
 }
 
 const PAGE_SIZE = 10
-
-const toYuan = (cents: number) => ((cents || 0) / 100).toFixed(2)
 
 const normalizeStatus = (raw?: unknown, refundRaw?: unknown): RefundStatus => {
   const s = String(refundRaw ?? raw ?? '').toLowerCase()
@@ -200,7 +199,7 @@ export default function RefundList() {
                     {/* 对齐 RN SharedRefundHistoryScreen 卡片:头行金额(danger 32rpx/600)+状态,
                         标题 28rpx/500,原因 28rpx secondary,底行订单号/时间 22rpx tertiary */}
                     <View className="refund-card-head">
-                      <Text className="refund-amount">¥{toYuan(item.amount)}</Text>
+                      <Text className="refund-amount">¥{formatPrice(item.amount)}</Text>
                       <Text className={`refund-status refund-status-${item.status}`}>
                         {statusText(item.status)}
                       </Text>

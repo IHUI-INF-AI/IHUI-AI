@@ -34,8 +34,9 @@ import { useAuthStore } from '@/stores/auth'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
+import { formatPrice } from '@ihui/shared/utils/format'
 
-const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
+const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
 
 async function apiOverview(): Promise<CommissionOverview> {
   const r = await getOverview()

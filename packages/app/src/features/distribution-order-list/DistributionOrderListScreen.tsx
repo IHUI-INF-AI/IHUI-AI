@@ -18,6 +18,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { DistributionOrderListScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { formatPrice } from '@ihui/shared/utils'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -52,10 +53,6 @@ function statusColor(status: string, tk: AppThemeTokens): string {
   if (status === '1' || status === 'refunded') return tk.danger.DEFAULT
   if (status === '2' || status === 'settled' || status === 'finished') return tk.success.DEFAULT
   return tk.text.tertiary
-}
-
-function formatYuan(cents: number): string {
-  return (cents / 100).toFixed(2)
 }
 
 export function DistributionOrderListScreen({
@@ -96,14 +93,14 @@ export function DistributionOrderListScreen({
       <Text style={styles.buyerText}>{'买家:' + item.userNickname}</Text>
       <View style={styles.orderFooter}>
         <View style={styles.footerLeft}>
-          <Text style={styles.amountText}>{'¥' + formatYuan(item.orderAmount)}</Text>
+          <Text style={styles.amountText}>{'¥' + formatPrice(item.orderAmount)}</Text>
           <View style={styles.rateTag}>
             <Text style={styles.rateText}>{'佣金 ' + item.rate + '%'}</Text>
           </View>
         </View>
         <View style={styles.footerRight}>
           <Text style={styles.commissionLabel}>本单佣金</Text>
-          <Text style={styles.commissionValue}>{'¥' + formatYuan(item.commissionAmount)}</Text>
+          <Text style={styles.commissionValue}>{'¥' + formatPrice(item.commissionAmount)}</Text>
         </View>
       </View>
       <Text style={styles.timeText}>{'下单时间:' + item.createdAt}</Text>

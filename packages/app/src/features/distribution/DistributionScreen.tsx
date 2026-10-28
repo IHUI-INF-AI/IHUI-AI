@@ -8,15 +8,11 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { DistributionProduct, DistributionInfo, DistributionScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { formatPrice } from '@ihui/shared/utils'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 export type { DistributionProduct, DistributionInfo, DistributionScreenProps }
-
-/** 后端金额以「分」存储,换算为元(两位小数) */
-function yuan(cents: number): string {
-  return Number.isFinite(cents) ? (cents / 100).toFixed(2) : '0.00'
-}
 
 /**
  * 分销共享屏 — props 注入式跨端组件
@@ -92,16 +88,16 @@ export function DistributionScreen({
       <View style={styles.earningsCard}>
         <View style={styles.earningsRow}>
           <View style={styles.earningsItem}>
-            <Text style={styles.earningsValue}>{yuan(info.totalCommission)}</Text>
+            <Text style={styles.earningsValue}>{formatPrice(info.totalCommission)}</Text>
             <Text style={styles.earningsLabel}>{t('distribution.totalEarnings')}</Text>
           </View>
           <View style={styles.earningsItem}>
-            <Text style={styles.earningsValue}>{yuan(info.withdrawnCommission)}</Text>
+            <Text style={styles.earningsValue}>{formatPrice(info.withdrawnCommission)}</Text>
             <Text style={styles.earningsLabel}>{t('distribution.withdrawn')}</Text>
           </View>
           <View style={styles.earningsItem}>
             <Text style={[styles.earningsValue, styles.pendingValue]}>
-              {yuan(info.pendingCommission)}
+              {formatPrice(info.pendingCommission)}
             </Text>
             <Text style={styles.earningsLabel}>{t('distribution.pending')}</Text>
           </View>
@@ -116,7 +112,7 @@ export function DistributionScreen({
           </Text>
         </TouchableOpacity>
         <Text style={styles.withdrawHint}>
-          {t('distribution.withdrawMin', { amount: yuan(info.withdrawMin ?? 0) })}
+          {t('distribution.withdrawMin', { amount: formatPrice(info.withdrawMin ?? 0) })}
         </Text>
       </View>
 

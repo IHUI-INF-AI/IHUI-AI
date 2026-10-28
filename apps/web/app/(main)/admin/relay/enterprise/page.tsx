@@ -18,6 +18,7 @@ import { fetchApi } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { apiFailureToError } from '@ihui/shared/utils'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface Profile {
   id: string
@@ -71,7 +72,7 @@ interface ListResp<T> {
   total: number
 }
 
-const yuan = (c: number) => `¥${(c / 100).toFixed(2)}`
+const yuan = (c: number) => `¥${formatPrice(c)}`
 
 const TABS = [
   { key: 'profiles', label: '企业认证' },

@@ -22,6 +22,7 @@ import {
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface Settlement {
   id: string
@@ -70,7 +71,7 @@ async function safeFetch<T>(url: string, fallback: T): Promise<T> {
   }
 }
 
-const fmtYuan = (n: number) => `¥${(n / 100).toFixed(2)}`
+const fmtYuan = (n: number) => `¥${formatPrice(n)}`
 
 export default function AdminDistributionSettlementsPage() {
   const locale = useLocale()
