@@ -300,7 +300,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
   // Webhook 原始请求体捕获(验签需要 raw body,与 tbox.ts 同模式)
   // 仅在本插件作用域内覆盖默认 JSON parser,其他路由不受影响
   // ==========================================================================
-  // 必须先摘掉继承自根作用域的 json parser(见 server.ts registerPlugins),否则 add 抛 ALREADY_PRESENT
+  // 根实例已有自定义 application/json(server.ts)⇒ 先 remove 再 add,否则抛 ALREADY_PRESENT。
   server.removeContentTypeParser('application/json')
   server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
     try {
