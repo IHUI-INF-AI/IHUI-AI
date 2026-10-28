@@ -27,6 +27,7 @@
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -150,7 +151,7 @@ export function activeUnlocks(rawText, now = Date.now()) {
  * 逐条判定。返回 { verdict: 'pass'|'fail'|'unknown', targets:[{id,state,detail}] }。
  * 单条目标读不到 ⇒ 整轮 unknown(取不到不判过)。
  */
-export function checkAll({ manifest, readFile, root, unlocks = [], now = Date.now() } = {}) {
+export function checkAll({ manifest, readFile, root, unlocks = [] } = {}) {
   const targets = []
   let sawUnknown = false
   for (const t of manifest.targets) {
@@ -189,6 +190,48 @@ export function checkAll({ manifest, readFile, root, unlocks = [], now = Date.no
 
 export function exitCodeOf(verdict) {
   return verdict === 'pass' ? EXIT_OK : verdict === 'fail' ? EXIT_DRIFT : EXIT_UNKNOWN
+}
+
+/**
+ * 判红时把"到底哪一面对不上"也量出来(纯函数,不碰 git ⇒ 可被测试直接喂三面哈希)。
+ *
+ * 立因(2026-10-29 实测):部署环连着 40 多分钟 fail-closed,而每一次红都不是"有人改了规则",
+ * 是清单 ↔ 工作树 ↔ HEAD 三面里某一面对不上(一次是他席在另一枚签出里 --seal 过,一次是
+ * `chore(auto)` 收编把规则文件写回旧版)。旧输出只给 expected/actual 两个哈希,读的人只能猜,
+ * 猜错就多封一次清单 —— 而多封一次清单恰恰是下一次对不上的成因。
+ */
+export function faceDiagnosis({ expected, actual, head }) {
+  if (head === null || head === undefined)
+    return 'HEAD 面取不到 ⇒ 差面未判定,不据此给处置建议(§0.3)'
+  const headIsExpected = head === expected
+  const headIsActual = head === actual
+  if (headIsActual && !headIsExpected)
+    return (
+      '工作树 == HEAD 面,而清单绑的是另一份内容 ⇒ 这不是"有人改了规则",是清单与**已入库内容**对不上' +
+      '(典型成因:在另一枚签出/另一时刻 --seal 过,或合并/收编把规则文件写回旧版)。' +
+      '处置:复核 HEAD 面那份改动 → 重新 --seal → **把清单与规则文件同枚提交并推送**;`git checkout -- <path>` 还原工作树不解决问题。'
+    )
+  if (headIsExpected && !headIsActual)
+    return (
+      '清单 == HEAD 面,只有工作树副本不同 ⇒ 盘上那份是滞后的在飞副本或未入库改动。' +
+      '处置:先确认它是不是你要交的那份 —— 是就提交,不是就 `git checkout -- <path>`,**不要**为它再封一次清单。'
+    )
+  return 'HEAD / 工作树 / 清单 三面互不相同 ⇒ 需人工逐面复核(本器不猜哪面是权威)'
+}
+
+/** 读 HEAD 面上该目标的哈希(section 模式沿用同一条 extractSection 尺)。取不到 ⇒ null,不冒充。 */
+function headHashOf(target) {
+  try {
+    const raw = execFileSync('git', ['show', `HEAD:${target.path}`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    return sha256Of(target.mode === 'section' ? extractSection(raw) : raw)
+  } catch {
+    return null
+  }
 }
 
 function readOrDie(path, label) {
@@ -402,7 +445,7 @@ function main(argv) {
       unlocks = []
     }
   }
-  const res = checkAll({ manifest, unlocks, now })
+  const res = checkAll({ manifest, unlocks })
   if (has('--json')) {
     console.log(JSON.stringify({ verdict: res.verdict, targets: res.targets }, null, 2))
   } else {
@@ -412,6 +455,13 @@ function main(argv) {
     console.error(
       '❌ 根护栏判红:规则文件被改动且无有效人工解锁 ⇒ 部署环 fail-closed 拒绝推进。人工复核后:node scripts/root-guard.mjs --seal --reason "..."',
     )
+    for (const t of res.targets) {
+      if (t.state !== 'fail') continue
+      const target = manifest.targets.find((x) => x.id === t.id)
+      console.error(
+        `   差面判读[${t.id}]:${faceDiagnosis({ expected: t.expected, actual: t.actual, head: target ? headHashOf(target) : null })}`,
+      )
+    }
   } else if (res.verdict === 'unknown') {
     console.error('❌ 根护栏未判定:清单/目标取不到 ⇒ 按 fail-closed 处置(不冒充通过)')
   }
@@ -427,6 +477,7 @@ export const __test__ = {
   activeUnlocks,
   checkAll,
   exitCodeOf,
+  faceDiagnosis,
   seal,
   unlock,
 }
