@@ -49,8 +49,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 // 门 193:显式 stdio 是本机 Windows EBUSY 的唯一防线,三通道一律给(简写键位形态亦被守门认)。
 const STDIO = ['ignore', 'pipe', 'pipe']
-// 单件器物的上限:门 128 在 8MB 台账 + 全仓 grep 下实测 40~90s,给足 5 分钟。
+// 单件器物的默认上限。门 128 在 8MB 台账 + 全仓 grep 下实测 40~90s,给 5 分钟。
 const STAGE_TIMEOUT_MS = 300_000
+/**
+ * 造页/壳落地两件的上限必须高于默认值 —— 它们要逐屏读源码、判三腿、算分包预算,
+ * 实测 107s 起步、机器一忙就到 300s(2026-10-28 19:5x 那轮 `land-shells` 恰好撞 300s 线,
+ * 被记成"未判定"而它本身是能跑完的)。超时误判会把可用阶段说成未判定,与 §0.3 同性质。
+ */
+const STAGE_TIMEOUT_LONG_MS = 900_000
 
 /**
  * 红灯能否被写回抹平 —— 只有「漂移态」可以。
@@ -141,6 +147,7 @@ export const STAGES = [
     args: ['--all'],
     applyArgs: ['--all', '--apply'],
     tier: 'gen',
+    timeout: STAGE_TIMEOUT_LONG_MS,
     wt: false,
   },
   {
@@ -151,6 +158,7 @@ export const STAGES = [
     args: [],
     applyArgs: ['--apply'],
     tier: 'gen',
+    timeout: STAGE_TIMEOUT_LONG_MS,
     wt: false,
   },
   {
@@ -271,7 +279,7 @@ function runStage(stage, opts) {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: STDIO,
-    timeout: STAGE_TIMEOUT_MS,
+    timeout: stage.timeout ?? STAGE_TIMEOUT_MS,
     windowsHide: true,
   })
   const status = statusOf(res.status)
