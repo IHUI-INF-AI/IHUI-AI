@@ -12,8 +12,10 @@
  *  ③ 小程序壳接线 —— 三个核心子件在壳里、五件原语在壳里、壳不再持有被收走的端内数字;
  *  ④ RN 壳接线 —— 控件走核心、StyleSheet 不再写方块边长、字形仍由 lucide 注入;
  *  ⑤ 「只剩一份源」—— 两端壳都从 `@ihui/shared/ui` 取同一枚核心,端内不再各有一份卡盒/行衬定义。
- *  ⑥–⑨ O02 票④ 收口归属(2026-10-28):spec 档三分且逐档归属(两端直引 / 经 core 投影 /
- *     仅小程序经 core)、16 条差异档事实表与台账 counts 同批对账、单端档归属不许被"补引用凑平"。
+ *  ⑥–⑧ O02 票④ 收口归属(2026-10-28):spec 档三分且逐档归属(两端直引 / 经 core 投影 /
+ *     仅小程序经 core)、16 条差异档事实表与台账 counts 同批对账、单端档归属不许被"补引用凑平";
+ *     ⑧ 两端落屏 px **现算**相等 —— 档名还在、单位或倍数折错(小程序把档名裸用成 rpx、
+ *     RN 别名写成 `×2`)时 ⑥ 与门 128 都不红,只能靠算式求值发现。
  *     判据口径与逐档归因见 `bottom-action-bar-spec.ts` 头注「O02 票④ 收口证据」。
  *
  * 每条判据都是**源码级**(readFileSync + 剥注释):两端壳不在本包的被检程序里,
@@ -51,6 +53,8 @@ import {
   BOTTOM_ACTION_BAR_INLINE_ROW_PAD_X_PX,
   BOTTOM_ACTION_BAR_SEND_GLYPH_PX,
 } from '../bottom-action-bar-spec'
+// ⑧ 的符号表:档值一律**现读**自导出面,手抄一份会在新增档后静默过期(两倍误差也能过的空转尺子)。
+import * as bottomActionBarSpec from '../bottom-action-bar-spec'
 
 /** 仓库根按 `pnpm-workspace.yaml` 往上找,不写死相对层数(与 back-chevron-wiring 同因)。 */
 function repoRoot(): string {
@@ -945,6 +949,361 @@ describe('⑦ 差异档事实表与台账同批对账(13 几何 + 3 半径)', ()
         'mobile-rn': dirtyRn,
       }).length,
       '出处改值后判据仍绿 ⇒ 事实表只认端名、不认那一行还在不在',
+    ).toBeGreaterThan(0)
+  })
+})
+
+/* ─────────── ⑧ 两端落屏 px 现算相等(算式求值,不认字面名)─────────── */
+
+/**
+ * ⑥ 与门 128 都只认"档名还在不在两端":一端把 `toUnit(TIER)` 写成 `rpx(TIER)`
+ * (小程序端按 rpx 解释 ⇒ 落屏只有一半)、或把 `TIER * 2` 塞进别名,档名仍在一处,
+ * typecheck、⑥⑦ 与门 128 全绿,而屏幕上一端已经翻倍/减半 —— 这正是本票要拆的
+ * "两端同值各写一份"的反面:档名同源而**落屏值分叉**,读数是看不出来的。
+ * 本组把两端的取数算式各自折算成**逻辑 px** 再比,量纲错、倍数错当场红。
+ *
+ * 求值口径(与 InputArea 镜像测试同一把尺子):
+ *  - `toUnit(x)` = x px(rpx(px × 2) 在 750 设计宽下渲染回 x px;RN 端恒等);
+ *  - `rpx(n)`    = n / RPX_PER_PX px;
+ *  - 裸数值/档名 = 该数值 px;
+ *  - 含顶层 `+`/`-` 的算式 = 派生值(如 `lineHeight = 字号 + 4`),不计作该档的落屏取数;
+ *  - 认不出的标识符 ⇒ **不可求值**(不猜值、不静默放行)。
+ * 小程序端额外要求档名经 `toUnit(…)` 或经 core 的 `boxPx=`/`glyphPx=` —— 裸用会按 rpx 解释。
+ */
+
+/** spec 导出面里所有 `_PX` 数字档 —— ⑧ 的符号表与"档值"唯一真相(现读,不手抄)。 */
+function specTierValues(): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const [k, v] of Object.entries(bottomActionBarSpec as Record<string, unknown>)) {
+    if (/^BOTTOM_ACTION_BAR_[A-Z0-9_]+_PX$/.test(k) && typeof v === 'number') out.set(k, v)
+  }
+  return out
+}
+
+const TIER_VALUES = specTierValues()
+
+/**
+ * 小程序端 rpx 与逻辑 px 的换算系数 —— **现读**不写死:
+ * 前提是小程序壳仍写着 `const toUnit = (px) => rpx(px * TARO_RPX_PER_PX)`,
+ * 系数取自 design-tokens 的 `TARO_RPX_PER_PX`;任一处失效 ⇒ 抛错(宁红不静默按 2 折算)。
+ */
+function taroRpxPerPx(): number {
+  const mini = stripComments(TARO_SRC)
+  if (!/const\s+toUnit\s*=\s*\(px:\s*number\)\s*=>\s*rpx\(px\s*\*\s*TARO_RPX_PER_PX\)/.test(mini)) {
+    throw new Error('小程序端 toUnit 不再是 rpx(px * TARO_RPX_PER_PX)⇒ 本测试的换算前提已失效')
+  }
+  const geo = readFileSync(join(ROOT, 'packages/design-tokens/src/geometry.js'), 'utf8')
+  const hit = geo.match(/\bTARO_RPX_PER_PX\s*=\s*(\d+(?:\.\d+)?)/)
+  if (!hit) throw new Error('geometry.js 读不到 TARO_RPX_PER_PX ⇒ 本测试的换算前提已失效')
+  return Number(hit[1])
+}
+
+const RPX_PER_PX = taroRpxPerPx()
+
+type PxTok = { k: 'num'; v: number } | { k: 'id'; v: string } | { k: 'op'; v: string }
+
+function pxTokens(text: string): PxTok[] {
+  const out: PxTok[] = []
+  const re = /\d+(?:\.\d+)?|[A-Za-z_$][\w$]*|[()+\-*/]/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    const t = m[0]
+    if (/^\d/.test(t)) out.push({ k: 'num', v: Number(t) })
+    else if (/^[A-Za-z_$]/.test(t)) out.push({ k: 'id', v: t })
+    else out.push({ k: 'op', v: t })
+  }
+  return out
+}
+
+interface PxScope {
+  readonly tiers: ReadonlyMap<string, number>
+  /** 该端 `const NAME = <expr>` 表(别名链求值用) */
+  readonly aliases: ReadonlyMap<string, string>
+  readonly rpxPerPx: number
+  readonly depth: number
+}
+
+/** 算式 → 逻辑 px;不可求值 ⇒ null。别名递归求值,深度上限 8(防环)。 */
+function evalPx(text: string, scope: PxScope): number | null {
+  const toks = pxTokens(text)
+  if (toks.length === 0) return null
+  let i = 0
+  const peek = (): PxTok | undefined => toks[i]
+
+  const factor = (): number | null => {
+    const t = peek()
+    if (t === undefined) return null
+    if (t.k === 'num') {
+      i += 1
+      return t.v
+    }
+    if (t.k === 'op' && t.v === '-') {
+      i += 1
+      const v = factor()
+      return v === null ? null : -v
+    }
+    if (t.k === 'op' && t.v === '(') {
+      i += 1
+      const v = expr()
+      const close = peek()
+      if (v === null || close === undefined || close.k !== 'op' || close.v !== ')') return null
+      i += 1
+      return v
+    }
+    if (t.k !== 'id') return null
+    i += 1
+    const next = peek()
+    if (next !== undefined && next.k === 'op' && next.v === '(') {
+      i += 1
+      const arg = expr()
+      const close = peek()
+      if (arg === null || close === undefined || close.k !== 'op' || close.v !== ')') return null
+      i += 1
+      if (t.v === 'toUnit') return arg
+      if (t.v === 'rpx') return arg / scope.rpxPerPx
+      return null
+    }
+    const tier = scope.tiers.get(t.v)
+    if (tier !== undefined) return tier
+    const alias = scope.aliases.get(t.v)
+    if (alias === undefined || scope.depth > 8) return null
+    return evalPx(alias, { ...scope, depth: scope.depth + 1 })
+  }
+
+  const term = (): number | null => {
+    let left = factor()
+    if (left === null) return null
+    for (;;) {
+      const t = peek()
+      if (t === undefined || t.k !== 'op' || (t.v !== '*' && t.v !== '/')) return left
+      i += 1
+      const right = factor()
+      if (right === null) return null
+      if (t.v === '*') left *= right
+      else {
+        if (right === 0) return null
+        left /= right
+      }
+    }
+  }
+
+  const expr = (): number | null => {
+    let left = term()
+    if (left === null) return null
+    for (;;) {
+      const t = peek()
+      if (t === undefined || t.k !== 'op' || (t.v !== '+' && t.v !== '-')) return left
+      i += 1
+      const right = term()
+      if (right === null) return null
+      left = t.v === '+' ? left + right : left - right
+    }
+  }
+
+  const v = expr()
+  return v !== null && i === toks.length ? v : null
+}
+
+/** 该端 `const NAME = <expr>` 表(`expr` 到行尾/分号为止;只收全大写常量名)。 */
+function constAliases(src: string): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const m of src.matchAll(/const\s+([A-Z][A-Z0-9_]*)\s*=\s*([^\n;]+)/g)) {
+    out.set(m[1] as string, (m[2] ?? '').trim())
+  }
+  return out
+}
+
+/** 直接/间接引用该档的 const 名(别名链闭包;档名本身不在内)。 */
+function aliasClosure(tier: string, aliases: ReadonlyMap<string, string>): string[] {
+  const names = new Set<string>()
+  let grew = true
+  while (grew) {
+    grew = false
+    for (const [name, text] of aliases) {
+      if (names.has(name)) continue
+      if ([tier, ...names].some((n) => new RegExp(`\\b${n}\\b`).test(text))) {
+        names.add(name)
+        grew = true
+      }
+    }
+  }
+  return [...names]
+}
+
+const PX_WINDOW_CHAR = /[A-Za-z0-9_$.+\-*/()\s]/
+
+interface PxSite {
+  line: number
+  /** 该取数点所在的完整算式片段(含 `toUnit(…)` / `rpx(…)` / `× 2` 之类改写) */
+  text: string
+  /** 算式片段之前的 24 个字符(判"是否经 core 的 boxPx=/glyphPx= 注入") */
+  before: string
+}
+
+/** 窗口法定位取数点:以档名/别名为锚,向左右吞掉算术片段。 */
+function pxSitesOf(src: string, name: string): PxSite[] {
+  const out: PxSite[] = []
+  const re = new RegExp(`\\b${name}\\b`, 'g')
+  let m: RegExpExecArray | null
+  while ((m = re.exec(src)) !== null) {
+    let s = m.index
+    while (s > 0 && PX_WINDOW_CHAR.test(src.charAt(s - 1))) s -= 1
+    let e = m.index + m[0].length
+    while (e < src.length && PX_WINDOW_CHAR.test(src.charAt(e))) e += 1
+    out.push({
+      line: src.slice(0, m.index).split('\n').length,
+      text: src.slice(s, e).trim(),
+      before: src.slice(Math.max(0, s - 24), s),
+    })
+  }
+  return out
+}
+
+/** 顶层 `+`/`-` ⇒ 派生算式(字号 + 4 之类的行高),不是该档的落屏取数。 */
+function isDerivedSum(text: string): boolean {
+  let depth = 0
+  for (let idx = 0; idx < text.length; idx += 1) {
+    const c = text.charAt(idx)
+    if (c === '(') depth += 1
+    else if (c === ')') depth -= 1
+    else if ((c === '+' || c === '-') && depth === 0 && idx > 0) return true
+  }
+  return false
+}
+
+interface PxTaking {
+  px: number
+  line: number
+  text: string
+  via: 'direct' | 'alias'
+  /** 小程序端:经 `toUnit(…)` 或经 core 的 `boxPx=`/`glyphPx=`(RN 端无此概念,恒 true) */
+  wrapped: boolean
+}
+
+function pxTakeingsOf(src: string, tier: string, scope: PxScope): PxTaking[] {
+  const out: PxTaking[] = []
+  const collect = (sites: ReadonlyArray<PxSite>, via: 'direct' | 'alias'): void => {
+    for (const site of sites) {
+      if (isDerivedSum(site.text)) continue
+      const px = evalPx(site.text, scope)
+      if (px === null) continue
+      out.push({
+        px,
+        line: site.line,
+        text: site.text,
+        via,
+        wrapped:
+          via === 'alias' ||
+          /toUnit\s*\(/.test(site.text) ||
+          /(?:boxPx|glyphPx)\s*=\s*\{?\s*$/.test(site.before.trimEnd()),
+      })
+    }
+  }
+  collect(pxSitesOf(src, tier), 'direct')
+  for (const name of aliasClosure(tier, scope.aliases)) collect(pxSitesOf(src, name), 'alias')
+  return out
+}
+
+function pxScopeFor(src: string): PxScope {
+  return {
+    tiers: TIER_VALUES,
+    aliases: constAliases(prepared(src)),
+    rpxPerPx: RPX_PER_PX,
+    depth: 0,
+  }
+}
+
+/** 返回问题清单(空 = 两端对每条两端直引档的落屏逻辑 px 一致且等于 spec 现值)。 */
+function pxParityProblems(opts: {
+  tiers: ReadonlyArray<string>
+  miniSrc: string
+  rnSrc: string
+}): string[] {
+  const out: string[] = []
+  // 取数点必须扫**判定面**(剥注释 → 去 import):否则头注里点名的档、import 清单里的档名
+  // 都会被当成取数点(实测:import 行被读成"裸用档名")。
+  const miniSrc = prepared(opts.miniSrc)
+  const rnSrc = prepared(opts.rnSrc)
+  const miniScope = pxScopeFor(opts.miniSrc)
+  const rnScope = pxScopeFor(opts.rnSrc)
+  for (const tier of opts.tiers) {
+    const want = TIER_VALUES.get(tier)
+    if (want === undefined) {
+      out.push(`${tier} 已不在 spec 导出面(档被删/改名)⇒ 两端 px 对账无从取真值`)
+      continue
+    }
+    const mini = pxTakeingsOf(miniSrc, tier, miniScope)
+    const rn = pxTakeingsOf(rnSrc, tier, rnScope)
+    if (mini.length === 0) out.push(`小程序腿没有任何可求值取数点引用 ${tier} ⇒ 两端同值档少了一半`)
+    if (rn.length === 0) out.push(`RN 腿没有任何可求值取数点引用 ${tier} ⇒ 两端同值档少了一半`)
+    for (const t of mini) {
+      if (t.px !== want) {
+        out.push(`小程序 ${tier} 落屏 ${t.px}px ≠ spec ${want}px(第 ${t.line} 行「${t.text}」)`)
+      } else if (!t.wrapped) {
+        out.push(
+          `小程序 ${tier} 裸用档名(未 toUnit / 未经 core 的 boxPx|glyphPx)⇒ 端上按 rpx 解释为 ${want / RPX_PER_PX}px(第 ${t.line} 行「${t.text}」)`,
+        )
+      }
+    }
+    for (const t of rn) {
+      if (t.px !== want) {
+        out.push(`RN ${tier} 落屏 ${t.px}px ≠ spec ${want}px(第 ${t.line} 行「${t.text}」)`)
+      }
+    }
+  }
+  return out
+}
+
+/** ⑧ 的射程 = 归属表里"两端直引"的那一组(单端档/经 core 投影档没有两条腿可比)。 */
+const BOTH_LEG_TIERS = SPEC_TIER_SCOPES.filter((row) => row.scope === 'both-legs').map(
+  (row) => row.tier,
+)
+
+describe('⑧ 两端落屏 px 现算相等(算式求值,不认字面名)', () => {
+  it('现态:两端直引档在两端折成同一个逻辑 px,且等于 spec 现值', () => {
+    expect(
+      BOTH_LEG_TIERS.length,
+      '归属表里没有"两端直引"档 ⇒ ⑧ 射程为空(空转尺子)',
+    ).toBeGreaterThan(0)
+    expect(
+      pxParityProblems({ tiers: BOTH_LEG_TIERS, miniSrc: TARO_SRC, rnSrc: RN_SRC }),
+      '两端对同一枚档的落屏逻辑 px 不一致(量纲/倍数/档错位)',
+    ).toEqual([])
+  })
+
+  it('本锁有牙:小程序端把 toUnit 换成 rpx(档名还在,单位折错)⇒ 判据必须红', () => {
+    const dirtyMini = TARO_SRC.replace(
+      'fontSize: toUnit(BOTTOM_ACTION_BAR_CHIP_FONT_PX)',
+      'fontSize: rpx(BOTTOM_ACTION_BAR_CHIP_FONT_PX)',
+    )
+    expect(dirtyMini).not.toBe(TARO_SRC)
+    expect(
+      pxParityProblems({ tiers: BOTH_LEG_TIERS, miniSrc: dirtyMini, rnSrc: RN_SRC }).length,
+      '一端落屏减半而判据仍绿 ⇒ 它只认档名在不在,不认换算',
+    ).toBeGreaterThan(0)
+  })
+
+  it('本锁有牙:小程序端裸用档名(忘 toUnit)⇒ 判据必须红', () => {
+    const dirtyMini = TARO_SRC.replace(
+      'fontSize: toUnit(BOTTOM_ACTION_BAR_CHIP_FONT_PX)',
+      'fontSize: BOTTOM_ACTION_BAR_CHIP_FONT_PX',
+    )
+    expect(dirtyMini).not.toBe(TARO_SRC)
+    expect(
+      pxParityProblems({ tiers: BOTH_LEG_TIERS, miniSrc: dirtyMini, rnSrc: RN_SRC }).length,
+      '档名裸用后落屏按 rpx 解释为一半,判据仍绿 ⇒ 单价量纲无人判',
+    ).toBeGreaterThan(0)
+  })
+
+  it('本锁有牙:RN 端把别名放大(TIER * 2)⇒ 判据必须红', () => {
+    const dirtyRn = RN_SRC.replace(
+      'const TOGGLE_CHIP_FONT_SIZE = BOTTOM_ACTION_BAR_CHIP_FONT_PX',
+      'const TOGGLE_CHIP_FONT_SIZE = BOTTOM_ACTION_BAR_CHIP_FONT_PX * 2',
+    )
+    expect(dirtyRn).not.toBe(RN_SRC)
+    expect(
+      pxParityProblems({ tiers: BOTH_LEG_TIERS, miniSrc: TARO_SRC, rnSrc: dirtyRn }).length,
+      '一端放大一倍而判据仍绿 ⇒ 算式求值没跟上别名',
     ).toBeGreaterThan(0)
   })
 })
