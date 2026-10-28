@@ -55,6 +55,10 @@ export const END_UI_FACILITIES = new Set([
   '@/components/LineIcon',
   '@/components/ScreenStates',
   '@/components/ScreenStates.taro',
+  // 带聚焦描边的输入框/多行输入(头注自述"直接替换 <Input",纯 UI 封装、零业务):
+  // 它只说明"页面渲染了输入控件",不说明页面有独有行为 —— 壳承载页由共享屏自带的输入组件承担。
+  // 页面表单字段是否与共享屏一致仍需人判,所以它只是"不算私有能力",不等于"可转"。
+  '@/components/FocusField',
   'useI18n',
   'useTheme',
   'useTt',
