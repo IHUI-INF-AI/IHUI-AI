@@ -139,6 +139,12 @@ export const HARDCODED_TEXT_LIMIT = 100
 /** 小程序词包(壳承载后文案的唯一来源) —— 与页面按同一面读。 */
 export const MESSAGES_REL = 'packages/i18n/messages/miniapp-taro/zh-CN.json'
 
+/** 端内 API 客户端(具名薄封装的定义面) —— 端点对账要读它,与页面按同一面读。 */
+export const API_MODULE_RELS = [
+  'apps/miniapp-taro/src/api/index.ts',
+  'apps/miniapp-taro/src/api/social.ts',
+]
+
 /**
  * 小程序运行时把这张 **shared 包**并进来(`@ihui/i18n/loader#mergeMessages`,现读 81 枚消费键里
  * 40 枚只住在 shared)⇒ 正文作用域必须按合并后的键集算,只查端包会把能渲染的文案凭空判成缺口。
@@ -363,19 +369,29 @@ const GENERIC_FETCHERS = new Set(['get', 'post', 'put', 'del', 'patch'])
  *   ② 每个端点归一后都能在壳的 fetchApi 端点集里找到。
  * 端点重合才有资格说"数据由壳承担";不重合就是真差异(现读 64 页里绝大多数属后者)。
  */
-export function apiEndpointsCovered(pageText, shellText) {
+export function apiEndpointsCovered(pageText, shellText, apiModuleText = '') {
   const page = maskComments(String(pageText ?? ''))
-  const calls = [
+  const direct = [
     ...page.matchAll(/\b(?:get|post|put|del|patch)\s*(?:<[^>]*>)?\s*\(\s*[`'"]([^`'"]+)/g),
   ].map((m) => normEndpoint(m[1]))
-  if (calls.length === 0) return false
+  const symbols = []
   for (const m of page.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]@\/api[^'"]*['"]/g)) {
     for (const piece of m[1].split(',')) {
       const n = piece.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim()
-      if (!n) continue
-      if (GENERIC_FETCHERS.has(n)) continue
-      if (/^[A-Z]/.test(n)) continue // 类型导入(如 Course/News)
-      return false
+      if (!n || GENERIC_FETCHERS.has(n) || /^[A-Z]/.test(n)) continue
+      symbols.push(n)
+    }
+  }
+  if (direct.length === 0 && symbols.length === 0) return false
+  const endpoints = new Set(direct)
+  if (symbols.length > 0) {
+    // 具名薄封装(`getAskList = (p) => get('/asks', p)`)也必须能把端点解析出来;
+    // 只要有一枚解析不出(别名转发 / 动态拼接 / 读不到 api 模块)⇒ 整页不销账。
+    const table = apiSymbolEndpoints(apiModuleText)
+    for (const s of symbols) {
+      const eps = table.get(s)
+      if (!eps) return false
+      for (const e of eps) endpoints.add(e)
     }
   }
   const shell = maskComments(String(shellText ?? ''))
@@ -385,7 +401,45 @@ export function apiEndpointsCovered(pageText, shellText) {
       ...shell.matchAll(/fetchApi\s*\(\s*\{[^}]*url:\s*['"`]([^'"`]+)/g),
     ].map((m) => normEndpoint(m[1])),
   )
-  return calls.every((p) => sp.has(p))
+  return [...endpoints].every((p) => sp.has(p))
+}
+
+/**
+ * `@/api` 模块的「符号 → 端点集」表(2026-10-29 立)。
+ *
+ * 为什么需要:上面的判据原先只认页面**直接**调通用请求器的形态,而仓内页面普遍写
+ * `getAskList(...)` 这类具名薄封装 ⇒ 一律被判"具名业务函数 ⇒ 端点解析不出 ⇒ 不销账",
+ * 于是 50 余页的 @/api 阻塞里混着大量"端点其实与壳完全重合"的假账。
+ * 这里把具名符号的定义体读出来,只取其中**字面量**端点;动态段(`${…}`)、别名转发、
+ * 读不到正文的符号一律**不进表** ⇒ 调用方按"解析不出"保守拒(误拒只是不动手)。
+ */
+export function apiSymbolEndpoints(apiModuleText) {
+  const text = maskComments(String(apiModuleText ?? ''))
+  const out = new Map()
+  // 边界必须按**所有**顶层 export 切:只按 const/function 切会把中间的 `export type` /
+  // `export interface` 吞进前一个符号的定义体,进而把下一个符号的端点也算进来 ——
+  // 那会让解析结果既不确定又偏向多算(多算虽只导致更严,但"同一个符号每次读出不同端点"不可接受)。
+  const marks = [...text.matchAll(/^export\s/gm)].map((m) => m.index)
+  for (let i = 0; i < marks.length; i++) {
+    const start = marks[i]
+    const end = i + 1 < marks.length ? marks[i + 1] : text.length
+    const body = text.slice(start, end)
+    const head = /^export\s+(?:async\s+)?(?:const|function)\s+([A-Za-z_$][\w$]*)/.exec(body)
+    if (!head) continue
+    const eps = new Set()
+    let dynamic = false
+    for (const m of body.matchAll(
+      /\b(?:get|post|put|del|patch)\s*(?:<[\s\S]{0,160}?>)?\s*\(\s*([`'"])([^`'"]+)\1/g,
+    )) {
+      if (m[2].includes('${')) {
+        dynamic = true
+        break
+      }
+      eps.add(normEndpoint(m[2]))
+    }
+    if (!dynamic && eps.size > 0) out.set(head[1], eps)
+  }
+  return out
 }
 
 /**
@@ -593,6 +647,7 @@ export function judgeConversion({
   shellName = null,
   routeMap = null,
   messagesText = '',
+  apiModuleText = '',
 }) {
   const name = String(spec || '')
     .split('/')
@@ -677,7 +732,7 @@ export function judgeConversion({
   // switchTab 只做 navigateBack 的失败回落 ⇒ RN 端没有这一态,壳的 goBack 已覆盖
   if (backFallbackOnly(pageText)) pageTokens.delete('Taro.switchTab')
   // 页面直接打的端点全部被壳覆盖 ⇒ 数据由壳承担(端点不重合的一律不销账)
-  if (apiEndpointsCovered(pageText, shellText))
+  if (apiEndpointsCovered(pageText, shellText, apiModuleText))
     for (const tok of ['@/api', '@/api/index', '@/api/social']) pageTokens.delete(tok)
   const extras = pageOnlyCapabilities({
     pageTokens,
@@ -726,6 +781,8 @@ export function plan({ face = 'head' } = {}) {
   // 正文作用域按**合并后的词包**算(端包 ⊕ shared 包):小程序运行时走 mergeMessages,现读
   // 21 枚拒转页的 81 个消费键里 40 个只住在 shared —— 只查端包会把屏幕上确实渲染得出的字凭空判成缺口。
   const messageDocsBatch = batchReadTexts(face, [MESSAGES_REL, SHARED_MESSAGES_REL])
+  const apiDocsBatch = batchReadTexts(face, API_MODULE_RELS)
+  const apiModuleText = API_MODULE_RELS.map((r) => apiDocsBatch.get(r) ?? '').join('\n')
   const messagesText = [
     messageDocsBatch.get(MESSAGES_REL) ?? '',
     messageDocsBatch.get(SHARED_MESSAGES_REL) ?? '',
@@ -755,6 +812,7 @@ export function plan({ face = 'head' } = {}) {
         shellName: carrier?.name ?? null,
         routeMap,
         messagesText,
+        apiModuleText,
       }),
       route: r.route,
       shell: carrier?.name ?? null,
@@ -977,7 +1035,24 @@ function main(argv) {
       ),
       apiEndpointsCovered("import { get } from '@/api'\nget('/agents/list')", "fetchApi('/api/agents')"),
       apiEndpointsCovered("import { getX } from '@/api'\nget('/x')", "fetchApi('/api/x')"),
-    ], [true, false, false])
+      // 具名薄封装(2026-10-29):定义体里的字面量端点与壳重合 ⇒ 数据由壳承担,不再是私有能力
+      apiEndpointsCovered(
+        "import { getAskList } from '@/api'\ngetAskList()",
+        "fetchApi('/api/asks')",
+        "export const getAskList = (p) => get('/asks', p)",
+      ),
+      // 反面:动态段解析不出 ⇒ 保守拒;别名转发(定义体里没有请求器)同样拒
+      apiEndpointsCovered(
+        "import { g } from '@/api'\ng()",
+        "fetchApi('/api/x')",
+        'export const g = (id) => get(`/x/${id}`)',
+      ),
+      apiEndpointsCovered(
+        "import { a } from '@/api'\na()",
+        "fetchApi('/api/x')",
+        'export const a = _a',
+      ),
+    ], [true, false, false, true, false, false])
     // S19 注释不是实现(2026-10-28 现读缺陷):壳里一句 `// 对齐小程序 useDidShow` 曾被读成
     // "壳已承担回屏刷新" ⇒ 页面真钩子被销账,自动落地会静默丢行为(假销账比误拒危险)。
     // 反向对照同时留:壳真接了 useFocusEffect + 自己取数时仍须销账,否则这条锁只是把判据遮成另一种瞎。
@@ -1137,6 +1212,7 @@ export const __test__ = {
   needsAuthGate,
   backFallbackOnly,
   apiEndpointsCovered,
+  apiSymbolEndpoints,
   normEndpoint,
   ROOT,
 }
