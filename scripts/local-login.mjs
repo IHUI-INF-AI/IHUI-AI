@@ -772,11 +772,23 @@ export function applyCodearts(payload, opts = {}) {
 
     const nextBlob = encryptSafeStorageBlob(JSON.stringify(next), key)
     const dbFile = path.join(dir, 'User', 'globalStorage', 'state.vscdb')
-    const backupFile = backupOf(dbFile)
+    let backupFile = null
     try {
       const { DatabaseSync } = require('node:sqlite')
       const db = new DatabaseSync(dbFile)
       try {
+        /**
+         * 2026-10-28:先关客户端再写的前提是"库已静止",但客户端被强杀时没机会 checkpoint,
+         * 会残留 state.vscdb-wal(最近事务只在 WAL 里)。此时直接 copyFile 备份只拷到主库,
+         * 回滚会丢事务;且客户端重启后 WAL 重放的旧行可能盖掉我们刚写的值。
+         * 故写前先把 WAL 并回主库(非 WAL 模式是无副作用的空操作),再备份、再更新。
+         */
+        try {
+          db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+        } catch {
+          /* 非 WAL 模式 / 没有 WAL 可合并 */
+        }
+        backupFile = backupOf(dbFile)
         // readSecretBlobsFromVscdb 统一回 Buffer;原行是文本 JSON 还是 BLOB 由现场值形态判定
         const current = db.prepare('SELECT value FROM ItemTable WHERE key = ?').get(row.key)
         const useText = typeof current?.value === 'string'
