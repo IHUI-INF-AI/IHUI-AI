@@ -248,7 +248,13 @@ overrides:
   moment@<2.31.0: ^2.31.0
   seroval@<1.6.2: ^1.6.2
   shell-quote@<1.11.0: ^1.11.0
-  '@tiptap/core@<3.30.5': ^3.30.5
+  # tiptap 3.x 全族(extension-*/react/starter-kit)对 core、pm 的 peerDependencies 是
+  # **精确版本**(如 "3.30.4"),不是 ^ 范围。原规则写 '@tiptap/core@<3.30.5': ^3.30.5,
+  # 只兜住下界、任其自解析,于是同一 importer 里 core 裂出 3.31.3 与 3.32.0 两份,
+  # 两份 Editor 类型互不赋值 ⇒ TiptapToolbar.tsx 十余处 toggleBold/toggleItalic 报 TS2339
+  # (CI lint-typecheck-test 的 Build 步)。core/pm 必须与全族钉同一版,锁单一版本。
+  '@tiptap/core@<3.32.0': 3.32.0
+  '@tiptap/pm@<3.32.0': 3.32.0
   # 既有规则只覆盖 0.8.x,0.9.x 这条线单独抬
   '@xmldom/xmldom@>=0.9.0 <0.9.12': ^0.9.12
   compression@<1.8.2: ^1.8.2
@@ -256,6 +262,11 @@ overrides:
   js-yaml@>=3.0.0 <3.15.2: ^3.15.2
   js-yaml@>=4.0.0 <4.3.2: ^4.3.2
   prosemirror-view@<1.42.3: ^1.42.3
+  # @tiptap/pm@3.32.0 精确依赖 prosemirror-transform@1.12.4,而其余 prosemirror-*
+  # 包按自身 ^ 范围仍解析到 1.12.0,两份并存。prosemirror 运行时靠 instanceof 判别
+  # Step/Transform 子类,跨份实例会让 step 应用与历史回放出错(不是类型问题,tsc 看不见)。
+  # 同 minor 内 patch 收敛到 pm 要的那版。
+  prosemirror-transform@<1.12.4: 1.12.4
   source-map-js@<1.2.2: ^1.2.2
   colord@<2.9.4: ^2.9.4
   # 既有 dompurify 规则止于 3.4.13,此处续到 3.4.17
