@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import * as shareService from '../services/api-key-share-service.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 
 // =============================================================================
 // Zod schemas
@@ -63,6 +64,22 @@ const apiKeySharesRoutes: FastifyPluginAsync = async (server) => {
     const bodyParsed = createShareBodySchema.safeParse(request.body)
     if (!bodyParsed.success) {
       return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // 2FA step-up(2026-10-29):创建分享会一次性返回 shareToken(等同密钥 secret,拿到即可调用该 Key),
+    // 属「出凭据」——与签发/再导出同族。闸必须在 createShare 之前,否则 token 已生成。
+    const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!stepUp.ok) {
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            stepUp.code === 'STEP_UP_REQUIRED'
+              ? '创建 API Key 分享需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前验证码（有效窗 5 分钟）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            stepUp.code,
+          ),
+        )
     }
     const result = await shareService.createShare({
       sourceApiKeyId: idParsed.data.id,
