@@ -239,6 +239,15 @@ export interface RelayUpstreamAdapter {
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
   ): Promise<TokenRefreshResult | null>
+  /**
+   * 刷新能力声明(2026-10-27 立,保活收敛用):`refreshToken` 方法存在 ≠ 真能刷新。
+   * - 省略/true:适配器确有已实证续期端点 ⇒ 调度器可对它做临期刷新与空闲保活;
+   * - false:方法有(或没有)但**恒无法续期**(如 doubao/loomy 的恒 null 空壳 stub,
+   *   或 codex/opencode/minimax/zcode/lingma/grokbot 等无公开续期协议者)。
+   *   这类平台账号**不得**进保活窗口、也不得被 refreshOne 判成"刷新失败"→ 自动摘除。
+   * 判据:调度器统一用 `isRefreshableProviderCode()`(方法存在 且 本字段不为 false)。
+   */
+  refreshTokenSupported?: boolean
   /** 轻量健康检查(不得消耗大量配额;失败返回 ok:false + 原因;三态语义见 HealthCheckResult) */
   checkHealth(ctx: AdapterAccountContext, opts?: AdapterCallOptions): Promise<HealthCheckResult>
   /** 上游模型列表(可空:平台无此端点时健康检查退化为最小 chat 探测) */
@@ -312,6 +321,29 @@ export function registerRelayAdapter(adapter: RelayUpstreamAdapter): void {
 export function getRelayAdapter(providerCode: string): RelayUpstreamAdapter | null {
   if (!isRelayProviderCode(providerCode)) return null
   return registry.get(providerCode) ?? null
+}
+
+/**
+ * 平台是否真能续期(2026-10-27 立,保活收敛用)。
+ * 判据 = 适配器**确有** `refreshToken` 方法 且 未显式声明 `refreshTokenSupported: false`。
+ * - codearts/qoder/trae/workbuddy:方法存在且无 false 标记 ⇒ true;
+ * - doubao/loomy:方法存在但显式 false(恒 null 空壳)⇒ false;
+ * - codex/opencode/minimax/zcode/lingma/grokbot:方法不存在 ⇒ false。
+ * 新平台接入只要没有 false 标记、且方法真实存在即自动生效,无需改调度器硬编码名单。
+ */
+export function isRefreshableProviderCode(providerCode: string): boolean {
+  const a = getRelayAdapter(providerCode)
+  if (!a) return false
+  return typeof a.refreshToken === 'function' && a.refreshTokenSupported !== false
+}
+
+/** 全部可续期平台码(供保活窗口 WHERE 直接 IN 过滤) */
+export function getRefreshableProviderCodes(): string[] {
+  const out: string[] = []
+  for (const [code, a] of registry) {
+    if (typeof a.refreshToken === 'function' && a.refreshTokenSupported !== false) out.push(code)
+  }
+  return out
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

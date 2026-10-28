@@ -10,7 +10,7 @@
 
 | 场景 | 推荐 SDK | 原因 |
 |------|---------|------|
-| Node.js / 浏览器 / Deno / Bun | `@ihui/sdk`(TypeScript) | 原生 ESM,零依赖,完整类型 |
+| Node.js / 浏览器 / Deno / Bun | `@ihui-ai/sdk`(TypeScript) | 原生 ESM,零依赖,完整类型 |
 | Python 同步脚本 / 传统 Web | `ihui-ai`(同步) | 纯 stdlib,无异步复杂度 |
 | Python 高并发 / FastAPI | `ihui-ai`(asyncio) | 协程友好,可与 `asyncio.gather` 并发 |
 | Shell 脚本 / 快速调试 | cURL | 无需安装,即开即用 |

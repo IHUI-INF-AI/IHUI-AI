@@ -112,7 +112,6 @@ export { CertApplyScreen } from './features/cert-apply/CertApplyScreen'
 export { SettingsAccountScreen } from './features/settings-account/SettingsAccountScreen'
 export { LiveListScreen } from './features/live-list/LiveListScreen'
 export { CouponScreen } from './features/coupon/CouponScreen'
-export { FollowingScreen } from './features/following/FollowingScreen'
 export { RankingScreen } from './features/ranking/RankingScreen'
 export { PointsMallScreen } from './features/points-mall/PointsMallScreen'
 export { ExamScreen } from './features/exam/ExamScreen'
@@ -126,7 +125,6 @@ export { AgentMarketScreen } from './features/agent-market/AgentMarketScreen'
 export { AgentReviewListScreen } from './features/agent-review-list/AgentReviewListScreen'
 export { LiveScreen } from './features/live/LiveScreen'
 export { ActivityScreen } from './features/activity/ActivityScreen'
-export { FavoritesScreen } from './features/favorites/FavoritesScreen'
 export { CheckInScreen } from './features/check-in/CheckInScreen'
 /** 批次 15:消息/记录/关系类(私聊/群聊/系统/详情/积分/学习/收益/邀请/关注/收藏) */
 export { MessageDirectScreen } from './features/message-direct/MessageDirectScreen'
@@ -138,6 +136,9 @@ export { StudyRecordScreen } from './features/study-record/StudyRecordScreen'
 export { IncomeScreen } from './features/income/IncomeScreen'
 export { InviteScreen } from './features/invite/InviteScreen'
 export { FollowScreen } from './features/follow/FollowScreen'
+// 2026-10-28 跨端重复屏合并:following/FollowingScreen 与 favorites/FavoritesScreen 已删,
+// 上面两枚(FollowScreen / FavoriteScreen)是它们的超集(同端点、同意图、多 tab 筛选)。
+// 旧屏没有独立交互,不得再加回第二份渲染真相源(门 237 一页两声明即假精度)。
 export { FavoriteScreen } from './features/favorite/FavoriteScreen'
 /** 批次 18(2026-07-29):模型/AIGC 屏(模型广场/n8n 模型管理/模型编辑/AIGC 作品列表) */
 export { ModelPlazaScreen } from './features/model-plaza/ModelPlazaScreen'

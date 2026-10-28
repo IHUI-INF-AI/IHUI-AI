@@ -29,7 +29,7 @@ from typing import Any
 # 压缩事件列表函数位于 routers 层(进程内存储),延迟导入避免循环依赖。
 from ..routers.context_compaction import list_compaction_events
 from .agent_checkpoint import get_agent_checkpoint_manager
-from .agent_step_recorder import agent_step_recorder
+from .agent_step_recorder import EVIDENCE_FIELDS, agent_step_recorder
 from .cost_ledger import cost_ledger
 from .injection_event_recorder import list_injection_events
 
@@ -107,6 +107,11 @@ def _step_event(step: dict[str, Any]) -> dict[str, Any]:
             "diff": step.get("diff"),
             "test": step.get("test"),
             "rollback": step.get("rollback"),
+            # B04 证据回指四要素(2026-10-28 立):录制行此前把账行编号/权限决策/
+            # 操作者写进了 step,但时间线聚合只透传 decision/reason —— 前端拿到的
+            # 每条 step 都指不回 tool_invocation_ledger 那一行,"可追溯"断在消费端。
+            # 键名仍取 recorder 的 EVIDENCE_FIELDS(单一真源,不在这里重抄第二份)。
+            **{name: str(step.get(name) or "") for name in EVIDENCE_FIELDS},
         },
         "ref_id": f"step-{int(step.get('step_index', 0))}",
         "raw": step,

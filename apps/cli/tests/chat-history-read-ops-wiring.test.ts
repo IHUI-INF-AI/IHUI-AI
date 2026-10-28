@@ -716,10 +716,8 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
 
       // ② 用例超时必须以截止时间为基数再加垫,不许写死绝对值:写死的绝对值和截止时间各自被
       //    改一次就会翻成"超时 < 截止时间" ⇒ 真挂死时先落 vitest 那句无信息的超时,判据绕开本文件。
-      const addend = Number(
-        /const WIRING_TIMEOUT_MS = ENTRY_DEADLINE_MS \+ ([\d_]+)/.exec(code)?.[1]?.replace(/_/g, '') ??
-          Number.NaN,
-      )
+      const addendPattern = /const WIRING_TIMEOUT_MS = ENTRY_DEADLINE_MS \+ ([\d_]+)/
+      const addend = Number(addendPattern.exec(code)?.[1]?.replace(/_/g, '') ?? Number.NaN)
       expect(Number.isFinite(addend)).toBe(true)
       // 垫至少 10s:保证"点名到原因的失败"永远先于 vitest 的泛化超时落地。
       expect(addend).toBeGreaterThanOrEqual(10_000)

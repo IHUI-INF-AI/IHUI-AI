@@ -7,7 +7,7 @@ name: Release SDK
 # 5 语言 SDK 统一发布 CI(参考 release-cli.yml 模式)
 # 触发:push tag sdk-v* 或 workflow_dispatch 手动触发(含 dry-run 选项)
 #   标签前缀与 cli-v* / desktop-v* 对齐;裸 v* 会与仓库其他发版标签互相误触发,故不用。
-# 发布:npm(@ihui/sdk)+ PyPI(ihui-ai)+ Maven Central(com.ihui:ihui-ai-java)+ Go module(github.com/.../sdk/go)
+# 发布:npm(@ihui-ai/sdk)+ PyPI(ihui-ai)+ Maven Central(com.ihui:ihui-ai-java)+ Go module(github.com/.../sdk/go)
 #       + NuGet(Ihui.AI)
 # 鉴权(*):见下方逐通道登记 —— npm / PyPI / Maven 当前均以长期 token 鉴权
 #   (OIDC trusted publishing 未接线:npm 因不启用 2FA 永久不登记,见 AGENTS.md §0 第 11 条;
@@ -300,7 +300,7 @@ jobs:
           }
           echo "- 结论:凭据硬闸通过" >> "$GITHUB_STEP_SUMMARY"
 
-  # ---------- Job 1: npm @ihui/sdk 发布 ----------
+  # ---------- Job 1: npm @ihui-ai/sdk 发布 ----------
   npm-publish:
     name: Publish to npm
     needs: [extract, gate]
@@ -338,10 +338,10 @@ jobs:
         run: pnpm --filter @ihui/types build
 
       - name: Typecheck
-        run: pnpm --filter @ihui/sdk typecheck
+        run: pnpm --filter @ihui-ai/sdk typecheck
 
       - name: Build SDK (tsc → dist/)
-        run: pnpm --filter @ihui/sdk build
+        run: pnpm --filter @ihui-ai/sdk build
 
       - name: Set publish version
         working-directory: packages/sdk
@@ -415,16 +415,16 @@ jobs:
           # registry 传播有延迟,故轮询而非单次 sleep —— 超时仍是判红,不降级为警告。
           PUBLISHED=""
           for i in $(seq 1 12); do
-            PUBLISHED="$(npm view @ihui/sdk version --registry=https://registry.npmjs.org/ 2>/dev/null || echo '')"
+            PUBLISHED="$(npm view @ihui-ai/sdk version --registry=https://registry.npmjs.org/ 2>/dev/null || echo '')"
             [ "$PUBLISHED" = "$VERSION" ] && break
             echo "  …第 $i 次回读=$PUBLISHED,10s 后重试"
             sleep 10
           done
           echo "registry 回读 version=$PUBLISHED (期望 $VERSION)"
-          [ "$PUBLISHED" = "$VERSION" ] || { echo "❌ 发布后回读失败:npm registry 查不到 @ihui/sdk@$VERSION"; exit 1; }
+          [ "$PUBLISHED" = "$VERSION" ] || { echo "❌ 发布后回读失败:npm registry 查不到 @ihui-ai/sdk@$VERSION"; exit 1; }
           # proof 非空 = 已用 registry 回读证实;release-summary 据此判定,缺 proof 即判红
-          echo "proof=@ihui/sdk@$VERSION (registry 回读确认)" >> "$GITHUB_OUTPUT"
-          echo "✅ @ihui/sdk@$VERSION 已在 npm registry 可见"
+          echo "proof=@ihui-ai/sdk@$VERSION (registry 回读确认)" >> "$GITHUB_OUTPUT"
+          echo "✅ @ihui-ai/sdk@$VERSION 已在 npm registry 可见"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
 
@@ -433,7 +433,7 @@ jobs:
         working-directory: packages/sdk
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
-          echo "🔍 Dry-run: validate @ihui/sdk@$VERSION publish config..."
+          echo "🔍 Dry-run: validate @ihui-ai/sdk@$VERSION publish config..."
           npm publish --dry-run --access public
           echo "✅ Dry-run passed — package would publish to npm registry"
 
@@ -441,8 +441,8 @@ jobs:
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
           echo "### npm SDK 发布" >> $GITHUB_STEP_SUMMARY
-          echo "- 包名: \`@ihui/sdk@$VERSION\`" >> $GITHUB_STEP_SUMMARY
-          echo "- 安装: \`npm install @ihui/sdk\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 包名: \`@ihui-ai/sdk@$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 安装: \`npm install @ihui-ai/sdk\`" >> $GITHUB_STEP_SUMMARY
 
   # ---------- Job 2: PyPI ihui-ai 发布 ----------
   pypi-publish:
@@ -1017,7 +1017,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status | 包名 / 坐标 |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|-------------|" >> $GITHUB_STEP_SUMMARY
-          echo "| npm \`@ihui/sdk\` | ${{ needs.npm-publish.result }} | @ihui/sdk@$VERSION |" >> $GITHUB_STEP_SUMMARY
+          echo "| npm \`@ihui-ai/sdk\` | ${{ needs.npm-publish.result }} | @ihui-ai/sdk@$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| PyPI \`ihui-ai\` | ${{ needs.pypi-publish.result }} | ihui-ai==$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| Maven Central | ${{ needs.maven-publish.result }} | com.ihui:ihui-ai-java:$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| NuGet | ${{ needs.nuget-publish.result }} | Ihui.AI@$VERSION |" >> $GITHUB_STEP_SUMMARY
@@ -1026,7 +1026,7 @@ jobs:
           echo "### 5 语言安装命令" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "# TypeScript / JavaScript" >> $GITHUB_STEP_SUMMARY
-          echo "npm install @ihui/sdk" >> $GITHUB_STEP_SUMMARY
+          echo "npm install @ihui-ai/sdk" >> $GITHUB_STEP_SUMMARY
           echo "# Python" >> $GITHUB_STEP_SUMMARY
           echo "pip install ihui-ai" >> $GITHUB_STEP_SUMMARY
           echo "# Java (Maven)" >> $GITHUB_STEP_SUMMARY

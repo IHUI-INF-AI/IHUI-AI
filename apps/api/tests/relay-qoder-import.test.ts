@@ -66,7 +66,9 @@ describe('Qoder 导入映射', () => {
   it('显式 uid + ISO expiresAt 原样落库(真机 auth.v1.dat 形态)', async () => {
     const r = await importAccounts('qoder', [
       {
-        name: 'Qoder · 15330637579',
+        name: 'nick8855347730',
+        phone: '15330637579',
+        nickname: 'nick8855347730',
         token: 'dt-lHpaPB9p7cSvTrsA1FEAoaci',
         refreshToken: 'drt-7nB5JVVDDBFezao2OEdPvaey',
         uid: '01a16367-b9e2-7ac3-9943-8974fb16ca2d',
@@ -80,6 +82,8 @@ describe('Qoder 导入映射', () => {
     expect(r.items[0]!.uid).toBe('01a16367-b9e2-7ac3-9943-8974fb16ca2d')
     const row = lastInsert()
     expect(row['providerCode']).toBe('qoder')
+    // 统一名称 = 官方绑定手机号:载荷里的昵称/显示名不得盖掉 phone(2026-10-28 定)
+    expect(row['name']).toBe('15330637579')
     expect(row['uid']).toBe('01a16367-b9e2-7ac3-9943-8974fb16ca2d')
     expect((row['tokenExpiresAt'] as Date).toISOString()).toBe('2026-11-21T11:38:26.000Z')
     expect((row['refreshExpiresAt'] as Date).toISOString()).toBe('2027-10-17T11:38:26.000Z')
@@ -189,10 +193,14 @@ describe('Qoder 导入映射', () => {
     expect(mockInsertValues).not.toHaveBeenCalled()
   })
 
-  it('name 缺省按 nickname → phone 兜底', async () => {
+  it('name 缺省按 phone → nickname 兜底;同给时 phone 胜(O66:手机号优先)', async () => {
     await importAccounts('qoder', [{ token: 'dt-n', uid: 'u-n', nickname: 'nick6870552894' }])
     expect(lastInsert()['name']).toBe('nick6870552894')
     await importAccounts('qoder', [{ token: 'dt-p', uid: 'u-p', phone: '15330637579' }])
+    expect(lastInsert()['name']).toBe('15330637579')
+    await importAccounts('qoder', [
+      { token: 'dt-b', uid: 'u-b', nickname: 'nick6870552894', phone: '15330637579' },
+    ])
     expect(lastInsert()['name']).toBe('15330637579')
   })
 })
@@ -261,7 +269,7 @@ describe('relay-import-qoder 纯函数', () => {
       expect(a.deviceId).toBe('dev1')
       expect(a.machineToken).toBe('mt1')
       // name 兜底:phone 优先于 nickname/name
-      expect(a.name).toBe('Qoder · 15330637579')
+      expect(a.name).toBe('15330637579')
     })
     it('原生导出(token 别名 + 内联 user{id,name,phone})正确提取', () => {
       const a = buildQoderImportAccount({
@@ -272,24 +280,27 @@ describe('relay-import-qoder 纯函数', () => {
       })!
       expect(a.token).toBe('a2')
       expect(a.uid).toBe('u2')
-      expect(a.name).toBe('Qoder · 15330637579')
+      expect(a.name).toBe('15330637579')
       expect(a.email).toBe('x@y.com')
     })
     it('缺 token/accessToken → null(被过滤,不入池)', () => {
       expect(buildQoderImportAccount({ uid: 'u', name: 'x' })).toBeNull()
       expect(buildQoderImportAccount({} as never)).toBeNull()
     })
-    it('name 兜底链:phone>nickname>name>email前缀>uid前8>未知号', () => {
-      expect(buildQoderImportAccount({ token: 't', phone: '138' })!.name).toBe('Qoder · 138')
-      expect(buildQoderImportAccount({ token: 't', nickname: 'nn' })!.name).toBe('Qoder · nn')
-      expect(buildQoderImportAccount({ token: 't', name: 'nm' })!.name).toBe('Qoder · nm')
+    it('name 统一取手机号(无平台前缀),取不到才走兜底链', () => {
+      expect(buildQoderImportAccount({ token: 't', phone: '138' })!.name).toBe('138')
+      expect(buildQoderImportAccount({ token: 't', phone: '138', nickname: 'nn' })!.name).toBe(
+        '138',
+      )
+      expect(buildQoderImportAccount({ token: 't', nickname: 'nn' })!.name).toBe('nn')
+      expect(buildQoderImportAccount({ token: 't', name: 'nm' })!.name).toBe('nm')
       expect(buildQoderImportAccount({ token: 't', user: { email: 'abc@x.com' } })!.name).toBe(
-        'Qoder · abc',
+        'abc',
       )
       expect(buildQoderImportAccount({ token: 't', uid: '0123456789abcdef' })!.name).toBe(
-        'Qoder · 01234567',
+        '01234567',
       )
-      expect(buildQoderImportAccount({ token: 't' })!.name).toBe('Qoder · 未知号')
+      expect(buildQoderImportAccount({ token: 't' })!.name).toBe('未知号')
     })
   })
 

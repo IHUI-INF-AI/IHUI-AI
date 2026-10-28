@@ -1154,7 +1154,7 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
 }
 
 // ---------- action=org_create ----------
-// 建 npm organization `ihui`(使 @ihui/sdk 等 scoped 包可发布)。
+// 建 npm organization `ihui`(使 @ihui-ai/sdk 等 scoped 包可发布)。
 // org 只有网页入口 https://www.npmjs.com/org/create ⇒ 复用 npmWebLogin 登录后填表。
 // 成功判定用两步独立证据,绝不靠猜:
 //   (a) 网页落地文案/URL(/org/ihui 或 created 类文案);
