@@ -239,7 +239,20 @@ export function resolveBlobs(repoRoot, specs) {
  * 语义与旧出口一致:非 Undetermined 的派生失败折成空清单(浅历史同形,由调用方按"没抓到"处理),
  * Undetermined(读不到:超时/坏 ref)**照旧上抛** —— "没有祖先提交"与"这次没读到"是两件事。
  */
-export function ancestorWindow(repoRoot, path) {
+/**
+ * 2026-10-27 补:本门的 `Undetermined` 此前只带 git 动词与错误文本,**不带路径** ——
+ * 守门 84 并发档判红时输出里只有一句 `git log 失败: …` 加一段堆栈,拿到的人既定位不到是哪个
+ * 文件、也复核不了"是真取不到还是并发下的一过性失败"(§0.3「未判定必须点名」的同一条要求)。
+ * 只加路径前缀,不改任何判定语义(仍然上抛,仍然由调用方落未判定)。
+ */
+function undeterminedFor(path, e, what) {
+  const msg = `路径 ${path} 的${what}取材失败: ${String(e?.message ?? e)}`
+  const err = new Undetermined(msg)
+  if (typeof e?.status === 'number') err.status = e.status
+  return err
+}
+
+export function ancestorWindow(repoRoot, path, { deep = false } = {}) {
   const window = windowFor(path)
   // 巡检档(G-806 ③):一次"逐路径祖先取材" = 一次 git log。meter 只在 audit 运行期非空,
   // 外部消费者(object-space-land / check-baseline-freshness)的直接调用不记到门的账上。
@@ -263,7 +276,7 @@ export function ancestorWindow(repoRoot, path) {
     // 本门原先无界 —— 那正是守门 80 拦的那一型)。既然引入了"可能超时",就绝不能把它折成
     // `[]`:"没有祖先提交"与"这次没读到"是两件事,后者会被判成"没有回写"= 把红洗成绿。
     // 真·无历史(`git log` 对无匹配路径)是 exit 0 + 空输出,不走这条。
-    if (e instanceof Undetermined) throw e
+    if (e instanceof Undetermined) throw undeterminedFor(path, e, '祖先提交清单')
     return { shas: [], truncated: false, window }
   }
   const truncated = shas.length > window
@@ -271,6 +284,37 @@ export function ancestorWindow(repoRoot, path) {
     costMeter.ancestorCommits += truncated ? window : shas.length
     // 截断报名的收集口:同一路径经 R1 与 R1r 两条通道各取一次,按路径只记一次(Map)。
     if (truncated) costMeter.truncated.set(path, window)
+  }
+  if (truncated && deep) {
+    /**
+     * **深档(2026-10-25)**:窗口用尽 ⇒ 回落到全历史,把"没判"变成"判过"。
+     *
+     * 立因是当天一次实测:`check-stale-revert` 报"127 个文件无历史回写",但其中 8 个路径
+     * (README×4 / PROJECT_PLAN / layout / ui-routes.generated / last-sha)的祖先清单被窗口
+     * 上限截断 ⇒ 它们的"无回写"其实是**没判**,而这几本正是最容易被旧副本回写的大文件。
+     *
+     * 只在 `deep` 调用点开启(判据明确**只比 blob oid** 的那几处:classifyWorktree / analyze /
+     * analyzeMerge / heal 的 blobInAncestry)。读祖先**正文**的调用点(object-space-land 的
+     * ancestorCommits → catBatch、heal 的整块通道)必须保持窗口 —— 对 PROJECT_PLAN(现读 9,465 枚
+     * 祖先提交)全历史读正文是 GB 级 I/O,那不是判得更准,是把落地器拖死。
+     * 成本实测:PROJECT_PLAN 全历史 `git log --format=%H` 0.73s、README 0.3s 量级。
+     *
+     * 取不到 ⇒ 保持 truncated=true(仍是"未判定"),绝不把失败读成"判过"。
+     */
+    if (costMeter) costMeter.gitLog++
+    try {
+      const all = git(['-C', repoRoot, 'log', '--format=%H', 'HEAD', '--', path])
+        .split('\n')
+        .filter(Boolean)
+      if (costMeter) {
+        costMeter.ancestorCommits += Math.max(0, all.length - window)
+        costMeter.truncated.delete(path)
+      }
+      return { shas: all, truncated: false, window }
+    } catch (e) {
+      if (e instanceof Undetermined) throw undeterminedFor(path, e, '祖先提交清单(深档全历史)')
+      // 全历史取不到(超时/坏 ref):维持窗口态与 truncated 标记,由调用方按"未判定"处理。
+    }
   }
   return { shas: truncated ? shas.slice(0, window) : shas, truncated, window }
 }
@@ -1038,11 +1082,14 @@ function renderResurrect(rr) {
 /** 结论行:有未判定/未覆盖/窗口不足时**必须带着它**,否则账面读起来像"全部判过且干净"。
  *  `r1WindowLoss` 是 G-806 ② 的那一维:R1 侧"窗口用尽而没命中"的路径数 —— 它既不是红也不许被读成绿。
  *  `r1WatermarkPass` 是 G-926 的那一维:整 blob 命中祖先、但按水印补回档放行的路径数 —— 它是**判过**的,
- *  只是结论是"放行";不写进结论行的话,一次带横幅补回的提交在账面上与"什么都没发生"同形。 */
-function verdictLine(modifiedCount, rr, r1WindowLoss = 0, r1WatermarkPass = 0) {
+ *  只是结论是"放行";不写进结论行的话,一次带横幅补回的提交在账面上与"什么都没发生"同形。
+ *  `r1WorktreeStock` 是 G-417② 的那一维:全量档工作树副本等于历史 blob 的路径数 —— 只报数不拦
+ *  (机器状态,提交链由 --staged 面负责),但结论行必须带着它,不得读成"无历史版本回写"。 */
+function verdictLine(modifiedCount, rr, r1WindowLoss = 0, r1WatermarkPass = 0, r1WorktreeStock = 0) {
   const tail = []
   if (r1WindowLoss) tail.push(`${r1WindowLoss} 处窗口不足未判定(R1)`)
   if (r1WatermarkPass) tail.push(`${r1WatermarkPass} 处水印补回型放行(R1,见上)`)
+  if (r1WorktreeStock) tail.push(`${r1WorktreeStock} 处工作树副本等于历史版本只报数(全量档)`)
   if (rr?.undetermined.length) tail.push(`${rr.undetermined.length} 处未判定`)
   if (rr?.uncovered.length) tail.push(`${rr.uncovered.length} 处未覆盖`)
   if (rr?.stock.length) tail.push(`${rr.stock.length} 处复活只报数(存量)`)
@@ -1346,8 +1393,28 @@ function auditInner(repoRoot, { staged }) {
     for (const [p, w] of costMeter.truncated) lines.push(`   - ${p}: 窗口 ${w} 枚用尽`)
   }
   if (deleted.length) lines.push(...deleteWarn(deleted))
-  if (!failed) lines.push(verdictLine(modified.length, rr, windowLoss.length, watermarkPass.length))
-  return { code: failed ? 1 : 0, lines }
+  if (!failed)
+    lines.push(
+      verdictLine(
+        modified.length,
+        rr,
+        windowLoss.length,
+        watermarkPass.length,
+        staged ? 0 : violations.length,
+      ),
+    )
+  // 2026-10-27 补:此前"有路径没判成"(`undetermined`)整轮仍返回 code 0 —— 结论行虽带着
+  // "N 处未判定"的尾注,但**退出码是绿的**,调用方(含批量执行器)按退出码记账 ⇒ 把"没判"
+  // 记成了"判过且通过",正是 §0.3 明令禁止的那一型。未判定档现在落 exit 2(既不记绿也不冒红,
+  // 与真判红的 exit 1 分开),并已在上面逐条点名路径。
+  const undeterminedCount = rr?.undetermined?.length ?? 0
+  if (!failed && undeterminedCount > 0) {
+    lines.push(
+      `❓ [未判定] ${undeterminedCount} 个路径没有取得结论 ⇒ 本门本次不出具合格证(exit 2,` +
+        `不是"检查过且干净",也不是判红),上面已逐条点名`,
+    )
+  }
+  return { code: failed ? 1 : undeterminedCount > 0 ? 2 : 0, lines }
 }
 
 /**
@@ -1893,6 +1960,15 @@ if (isDirectRun) {
       if (code) process.exit(code)
     })
     .catch((e) => {
+      // 2026-10-27 补:git 取材一过性失败(`Undetermined`)此前与真崩溃同形 —— 一律 `❌` 开头
+      // + 整段堆栈 ⇒ 汇总里读起来与"判据判红"无别,而它其实是**没判**(§0.3)。现在分两态说:
+      // 未判定档只报原因(已由 `undeterminedFor` 带上路径),不冒充红;真崩溃仍带堆栈以便排查。
+      if (e instanceof Undetermined) {
+        console.error(
+          `❓ [未判定·不记绿也不冒红] 反回退守门本次未取得结论 ⇒ exit 2:${String(e?.message ?? e)}`,
+        )
+        process.exit(2)
+      }
       console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
       process.exit(2)
     })

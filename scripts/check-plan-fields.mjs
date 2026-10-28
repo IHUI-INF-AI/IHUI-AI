@@ -65,7 +65,15 @@ import {
   resolveSidecar,
 } from './lib/plan-field-line.mjs'
 import { fieldsFor } from './lib/plan-fields.mjs'
-import { claimMarkOf, compositeKeyOf, locateSidecarHeader, parseTaskRows, titleOf } from './lib/plan-task-index.mjs'
+import {
+  bucketFromFields,
+  claimMarkOf,
+  compositeKeyOf,
+  locateSidecarHeader,
+  parseTaskRows,
+  titleOf,
+} from './lib/plan-task-index.mjs'
+import { adoptMovesOf } from './plan-fields-extract.mjs'
 import { readFieldsFace, readPlan } from './plan-tasks.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -113,6 +121,28 @@ export function conflictGroupsOf(records) {
 export const sideSig = (g) => JSON.stringify([g.key, g.readings])
 
 /**
+ * 侧车记录的**已禁形态**读数(2026-10-26 票②):台账两桶机主禁令(待拍板 F11 / 等条件 F12)
+ * 在侧车里的投影就是 `bucketFromFields`(单源,§0.6)落在被禁桶;`blocking` 文本带"拍板"残留
+ * 是第三型 —— 桶判据看不见它(owner 在场时桶读 owned-elsewhere),但它渲染出的标头永远挂着
+ * 一句"等人拍板"。返回原因数组(空 = 未命中);不静默修数据,改判唯一出口 = `--reclassify`。
+ */
+export function rotReasonsOf(rec) {
+  if (!rec || typeof rec !== 'object') return []
+  const reasons = []
+  const b = bucketFromFields(rec)
+  if (b === 'waiting-human') reasons.push('waiting-human(待拍板桶,F11 禁)')
+  else if (b === 'waiting-env') reasons.push('waiting-env(等条件桶,F12 禁)')
+  if (String(rec.blocking ?? '').includes('拍板')) reasons.push('blocking 带拍板残留')
+  return reasons
+}
+
+/** 腐烂记录的跨面身份:键 + 原因(棘轮按它比"本次新增",与 A3 的 sideSig 同一形状)。 */
+export const rotSigOf = (rec) => {
+  const reasons = rotReasonsOf(rec)
+  return reasons.length ? JSON.stringify([rec.key, reasons]) : null
+}
+
+/**
  * 三维判定(A1/A2/A3)+ 三个只报数维(dup/conflict/blind)。纯函数:输入是已取好的行与已读好的
  * 侧车(最新映射 + 全记录 + 基准矛盾签名集),不碰 git ——
  * 这样 `--self-test` 与镜像测试能用同一份实现跑构造面,而不是另抄一套判据(§22c)。
@@ -120,7 +150,14 @@ export const sideSig = (g) => JSON.stringify([g.key, g.readings])
  */
 export function judge(
   rows,
-  { baseRowTexts = null, map = new Map(), allRecords = [], baseSideSignatures = null } = {},
+  {
+    baseRowTexts = null,
+    map = new Map(),
+    allRecords = [],
+    baseSideSignatures = null,
+    baseRotSignatures = null,
+    identity = (s) => s,
+  } = {},
 ) {
   const { conflicts, dup } = conflictGroupsOf(allRecords)
   const conflictKeys = new Map(conflicts.map((g) => [g.key, g]))
@@ -139,6 +176,20 @@ export function judge(
   const midformList = []
   const blindList = []
   let stock = 0
+  // 孤儿键归并维(2026-10-26 票①"新旧标识符双向差 ∧ ANC 标题锚点"):改号器只换台账行号、
+  // 不搬侧车键,抽取器又按新号补写 ⇒ 同一件事两把键,旧号键成孤儿。判据单源 import
+  // `plan-fields-extract` 的 `adoptMovesOf`(§0.6,搬支自带守恒闸),本门不写第二把键匹配:
+  //  · 搬支(目标键空)—— 新号键**认领**旧号键的侧车字段;被认领的行不再是"缺交代"
+  //    (它的结构化归属已在侧车、只是键还挂在旧号上),判它缺交代就是给合法的改号提交记恒红(§12e);
+  //  · 退场支(新号键已被抽取器按新号补写且语义逐字覆盖旧键)—— 旧键退场,不产生第二份。
+  // 两支都从 orphan 分流进 `adopt`(只报数;升档前置 = 存量归零,§12e)。
+  const adoptRes = adoptMovesOf(allRecords, rows, map)
+  const adoptKeys = new Map()
+  for (const m of adoptRes.moves) adoptKeys.set(m.fromKey, `搬 → ${m.toKey}`)
+  for (const m of adoptRes.retires) adoptKeys.set(m.fromKey, `退场(新号键 ${m.toKey} 已有记录且语义覆盖旧键)`)
+  const adoptTargets = new Set(adoptRes.moves.map((m) => m.toKey))
+  const adoptList = [...adoptKeys].map(([k, disp]) => `  ${k}  ${disp}`)
+  for (const s of adoptRes.skipped) adoptList.push(`  ⚠ ${s.key}  不可归并:${s.why}`)
   // 孤儿记录(规格 §1):侧车记录在台账里找不到对应行 ⇒ **只报数、不判红**。
   // 行键一律走单源 `fieldsFor`(含无主键行的 `T:<sha1>` 兜底键),不在本门另拼一份键;
   // 兜底键本来就会在行被重写时换人,所以"孤儿"是这套设计的已知形态,不是违规。
@@ -148,6 +199,7 @@ export function judge(
   for (const rec of allRecords ?? []) {
     if (!rec || typeof rec.key !== 'string' || rec.key === '') continue
     if (rowKeys.has(rec.key)) continue
+    if (adoptKeys.has(rec.key)) continue // 已被新号键认领(搬/退场)⇒ 分流进 adopt,不再计孤儿
     orphanKeys.set(rec.key, (orphanKeys.get(rec.key) ?? 0) + 1)
   }
   let orphan = 0
@@ -156,12 +208,33 @@ export function judge(
     orphan += n
     orphanList.push(`  ${key}  ${n} 条侧车记录在台账里找不到对应行`)
   }
+  // 已禁形态腐烂点名(2026-10-26 票②):命中 ⇒ 列腐烂、逐条点名,**不静默修数据**。
+  // 差值棘轮:基准侧车面(HEAD)已有的签名只报数,本次新增的签名拦红(与 A3 同形状,§12e);
+  // 全量档没有基准 ⇒ rotn=NA 不参与 verdict(§0.3)。改判唯一出口 = plan-fields-extract --reclassify。
+  const rotList = []
+  const rotSigs = []
+  const rotSeen = new Set()
+  for (const rec of allRecords ?? []) {
+    if (!rec || typeof rec.key !== 'string' || rec.key === '') continue
+    if (rotSeen.has(rec.key)) continue
+    rotSeen.add(rec.key)
+    const reasons = rotReasonsOf(rec)
+    if (!reasons.length) continue
+    rotList.push(`  ${rec.key}  ${reasons.join(' ∧ ')}(改判出口:plan-fields-extract --reclassify)`)
+    rotSigs.push(JSON.stringify([rec.key, reasons]))
+  }
+  let rotNew = 0
+  if (baseRotSignatures !== null)
+    for (const s of rotSigs) if (!baseRotSignatures.has(s)) rotNew++
   for (const r of rows.filter(isOpenRow)) {
     const line = r.raw
     const key = compositeKeyOf(line)
     const rec = key ? (map.get(key) ?? null) : null
     if (!rec && !hasLease(line)) {
-      if (baseRowTexts && !baseRowTexts.has(line))
+      if (adoptTargets.has(key)) {
+        // 新号键能认领旧号键的侧车字段(搬支在册)⇒ 不算"缺交代":结构化归属已在侧车,
+        // 只是键还挂在旧号上。迁移出口:node scripts/plan-fields-extract.mjs --apply。
+      } else if (baseRowTexts && !baseRowTexts.has(identity(line)))
         a1List.push(`  L${r.line}  ${key ?? '(无主键)'}  ${titleOf(line) ?? clip(line)}`)
       else stock++
     }
@@ -197,6 +270,10 @@ export function judge(
     midform: midformList.length,
     stock,
     orphan,
+    adopt: adoptKeys.size,
+    adoptSkipped: adoptRes.skipped.length,
+    rot: rotList.length,
+    rotNew,
     hasBase: !!baseRowTexts,
     hasBaseSide: baseSideSignatures !== null,
     a1List,
@@ -206,6 +283,8 @@ export function judge(
     conflictList,
     blindList,
     orphanList,
+    adoptList,
+    rotList,
   }
 }
 
@@ -236,6 +315,7 @@ export function readFaces(root = ROOT, face = 'head') {
   if (side.undetermined) return { ok: false, why: `侧车面取不到:${side.why ?? '(未点名原因)'}` }
   let base = null
   let baseSideSigs = null
+  let baseRotSigs = null
   if (face !== 'head') {
     try {
       base = new Set(
@@ -261,6 +341,7 @@ export function readFaces(root = ROOT, face = 'head') {
     map: side.map,
     allRecords: [...side.map.values(), ...(side.orphans ?? [])],
     baseSideSignatures: baseSideSigs,
+    baseRotSignatures: baseRotSigs,
     malformedSide: side.malformed ?? 0,
   }
 }
@@ -269,14 +350,18 @@ export function verdict(v, face) {
   const a1Text = v.hasBase ? String(v.a1) : 'NA'
   const a3Text = v.hasBaseSide ? String(v.a3) : 'NA'
   // midform(语义同、形态未收敛)只报数:它不是归属说错,判红就是与提交内容无关的恒红门(§12e)。
-  const red = v.a2 > 0 || (v.hasBase && v.a1 > 0) || (v.hasBaseSide && v.a3 > 0)
+  // rot 走差值棘轮:基准侧车面已有的已禁形态签名只报数(存量清偿前置),本次新增才拦红(§12e)。
+  const rotText = v.hasBaseSide ? String(v.rotNew) : 'NA'
+  const red =
+    v.a2 > 0 || (v.hasBase && v.a1 > 0) || (v.hasBaseSide && v.a3 > 0) || (v.hasBaseSide && v.rotNew > 0)
   const state = red ? 'red' : v.stock > 0 ? 'warn' : 'clean'
   return {
     state,
     code: red ? 1 : 0,
     line:
       `PLAN-FIELDS-RESULT state=${state} a1=${a1Text} a2=${v.a2} a3=${a3Text} dup=${v.dup} ` +
-      `conflict=${v.conflict} blind=${v.blind} midform=${v.midform} orphan=${v.orphan} stock=${v.stock} face=${face}`,
+      `conflict=${v.conflict} blind=${v.blind} midform=${v.midform} orphan=${v.orphan} ` +
+      `adopt=${v.adopt} rot=${v.rot} rotn=${rotText} stock=${v.stock} face=${face}`,
   }
 }
 
@@ -285,7 +370,7 @@ function run({ root = ROOT, face = 'head' } = {}) {
   if (!f.ok) {
     console.log(`⚠️ 未判定 —— ${f.why}`)
     console.log(
-      `PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA conflict=NA blind=NA orphan=NA stock=NA face=${face}`,
+      `PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA conflict=NA blind=NA midform=NA orphan=NA adopt=NA rot=NA rotn=NA stock=NA face=${face}`,
     )
     return 2
   }
@@ -294,10 +379,11 @@ function run({ root = ROOT, face = 'head' } = {}) {
     map: f.map,
     allRecords: f.allRecords,
     baseSideSignatures: f.baseSideSignatures,
+    baseRotSignatures: f.baseRotSignatures,
   })
   console.log(
     `判定面:${LABEL[face]} ⊕ 同轮侧车 ${f.map.size} 条记录(侧车畸形行 ${f.malformedSide} 条,畸形行不参与判定但必须报名)` +
-      (v.hasBase ? '' : ' —— 全量档没有"本次新增"这一维 ⇒ A1=NA/A3=NA,不得读成 0'),
+      (v.hasBase ? '' : ' —— 全量档没有"本次新增"这一维 ⇒ A1=NA/A3=NA/rotn=NA,不得读成 0'),
   )
   console.log(
     `A1 新增行缺交代 ${v.hasBase ? v.a1 : 'NA'} 枚 / A2 标头不一致 ${v.a2} 枚 / ` +
@@ -305,7 +391,9 @@ function run({ root = ROOT, face = 'head' } = {}) {
       `同键同读数 dup ${v.dup} 组 / 全量矛盾 ${v.conflict} 组 / A2 盲区点名 ${v.blind} 枚 / ` +
       `中间态 ${v.midform} 枚(语义同、形态未收敛;点名不判红) / ` +
       `孤儿记录 ${v.orphan} 条(只报数,不判红) / ` +
-      `存量缺侧车记录 ${v.stock} 枚(dup/conflict/blind/midform/orphan/存量只报数)`,
+      `孤儿键归并 ${v.adopt} 条(搬+退场;另有不可归并 ${v.adoptSkipped} 条逐条点名) / ` +
+      `已禁形态腐烂 ${v.rot} 条(点名不静默修;本次新增 ${v.hasBaseSide ? v.rotNew : 'NA'} 条) / ` +
+      `存量缺侧车记录 ${v.stock} 枚(dup/conflict/blind/midform/orphan/adopt/rot/存量只报数)`,
   )
   for (const l of v.a1List.slice(0, 20)) console.log(`  · A1 ${l}`)
   if (v.a1List.length > 20) console.log(`  · A1 …另 ${v.a1List.length - 20} 枚同型未逐条打印`)
@@ -325,6 +413,12 @@ function run({ root = ROOT, face = 'head' } = {}) {
   for (const l of (v.orphanList ?? []).slice(0, 20)) console.log(`  · 孤儿 ${l}`)
   if ((v.orphanList ?? []).length > 20)
     console.log(`  · 孤儿 …另 ${v.orphanList.length - 20} 条同型未逐条打印`)
+  for (const l of (v.adoptList ?? []).slice(0, 20)) console.log(`  · 归并 ${l}`)
+  if ((v.adoptList ?? []).length > 20)
+    console.log(`  · 归并 …另 ${v.adoptList.length - 20} 条同型未逐条打印`)
+  for (const l of (v.rotList ?? []).slice(0, 20)) console.log(`  · 腐烂 ${l}`)
+  if ((v.rotList ?? []).length > 20)
+    console.log(`  · 腐烂 …另 ${v.rotList.length - 20} 条同型未逐条打印`)
   if (v.stock > 0)
     console.log(
       `   存量 ${v.stock} 枚 = P1 的迁移分母,结清出口:node scripts/plan-fields-extract.mjs --apply(只搬说辞,不改一行台账文本)`,
@@ -489,7 +583,7 @@ function main() {
   if (argv.includes('--staged') && argv.includes('--worktree')) {
     console.log('❌ 用法错 —— --staged 与 --worktree 不得同用(两个判定面互斥,§0.4)')
     console.log(
-      'PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA conflict=NA blind=NA stock=NA face=none',
+      'PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA conflict=NA blind=NA midform=NA orphan=NA adopt=NA rot=NA rotn=NA stock=NA face=none',
     )
     return 2
   }

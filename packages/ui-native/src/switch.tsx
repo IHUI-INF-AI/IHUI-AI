@@ -76,7 +76,7 @@ export function Switch({
       disabled={disabled}
       onPress={() => onCheckedChange?.(!checked)}
       className={cn(
-        'flex-row items-center border-foreground',
+        'flex-row items-center border-foreground', // border-ink-exempt: 对齐 web Neo-Brutalist 开关墨线描边 —— web 同用 foreground 描边,硬投影同取 foreground,明暗自适应
         TRACK_W_CLASS[w],
         TRACK_H_CLASS[h],
         TRACK_RADIUS_CLASS[SWITCH_TRACK_RADIUS_TIER],

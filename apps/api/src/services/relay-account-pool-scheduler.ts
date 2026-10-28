@@ -3,9 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 账号池调度服务(2026-10-22 立):token 临期刷新 + 健康巡检 + 熔断自愈。
+ * 账号池调度服务(2026-10-22 立):token 临期刷新 + 健康巡检 + 熔断自愈 + 空闲保活。
  *
- * 由 relay-account-pool-worker(BullMQ,每 5 分钟)驱动,单轮三件事:
+ * 由 relay-account-pool-worker(BullMQ,每 5 分钟)驱动,单轮四件事:
+ * 0. keepaliveIdle:距上次使用超过窗口(默认 7 天)的号主动续一次票 —— 上游会清理
+ *    闲置的 refresh 会话(实测 invalid_grant/12153),被动等临期等于等着整池猝死。
+ *    对标 workbuddy-switch 桌面端的「每日保活」,差别在:① 这里是服务端集中做,
+ *    不依赖任何人开着 GUI;② client-first 平台让位本机客户端(见 shouldDeferRefresh),
+ *    不会把本机手里的票顶废。env RELAY_ACCOUNT_KEEPALIVE_DAYS 调窗口,0/off/false 整档关。
  * 1. refreshExpiring:access token 距过期 < 15 分钟且有 refreshToken → 调适配器刷新回写
  *    (对标 trae-cn-proxy-rs 的 15 分钟临期检测 + ExchangeToken 续期)
  * 2. sweepUnknown:healthStatus=unknown 的账号 → 适配器 checkHealth 定级 healthy/down
@@ -24,11 +29,9 @@ import { encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
+import { pickProxyForAccount } from './relay-proxy-pool.js'
 import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
-import {
-  retryPendingCheckinSyncs,
-  type RetryPendingResult,
-} from './relay-account-pool-checkin-sync.js'
+import { retryPendingCheckinSyncs } from './relay-account-pool-checkin-sync.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
@@ -44,15 +47,22 @@ const REFRESH_FAILURE_LIMIT = 3
  * 02:26 客户端 `[updateUserInfo] {}` 登录态被清)。客户端在跑时它会自己续期,另有
  * scripts/sync-trae-client-session.mjs 每 10 分钟把客户端新票回灌进池;池内票一旦真的
  * 过期,说明客户端已不在续期,此时兜底刷新不会再顶掉谁。
+ * RELAY_TRAE_CLIENT_FIRST_REFRESH=0/false/off 可整体退回 server 策略。
+ * qoder 同一型(2026-10-28):deviceToken/refresh 轮换 refresh_token,回灌腿 =
+ * worker 的 qoder-session-sync;退回开关 RELAY_QODER_CLIENT_FIRST_REFRESH。
  * Qoder 的 deviceToken/refresh 同样轮换 rt(2026-10-28 实测客户端 22:43 刚轮换过),
  * 形态与 Trae 一致,故同属 client-first,回灌腿 = scripts/sync-qoder-client-session.mjs。
- * 关掉回灌腿时 `RELAY_QODER_CLIENT_FIRST_REFRESH=0/false/off` 可退回 server 策略;
- * Trae 用 `RELAY_TRAE_CLIENT_FIRST_REFRESH`。
  */
 export type RelayRenewalPolicy = 'server' | 'client-first'
 
-/** client-first 族 → 各自的退回开关 env(新增平台在此登记,判据只写一处) */
-const CLIENT_FIRST_FLAG_ENV: Record<string, string> = {
+/**
+ * 客户端在续期的平台及其退回 server 的开关名(单一真相源;新增平台在此登记,判据只写一处)。
+ *
+ * qoder(2026-10-28 纳入):refresh 响应**轮换 refresh_token**(见 qoder-adapter 的
+ * 真机实测形状),池主动续期会当场把本机客户端的票顶废 —— 与 trae 同一型。
+ * 回灌腿 = worker 的 `qoder-session-sync`(每 10 分钟读本机 auth.v1.dat 写回池)。
+ */
+const CLIENT_FIRST_FLAGS: Record<string, string> = {
   trae: 'RELAY_TRAE_CLIENT_FIRST_REFRESH',
   qoder: 'RELAY_QODER_CLIENT_FIRST_REFRESH',
 }
@@ -61,9 +71,9 @@ export function renewalPolicyOf(
   providerCode: string,
   env: NodeJS.ProcessEnv = process.env,
 ): RelayRenewalPolicy {
-  const flagEnv = CLIENT_FIRST_FLAG_ENV[providerCode]
-  if (!flagEnv) return 'server'
-  const flag = (env[flagEnv] ?? '').trim().toLowerCase()
+  const flagName = CLIENT_FIRST_FLAGS[providerCode]
+  if (!flagName) return 'server'
+  const flag = (env[flagName] ?? '').trim().toLowerCase()
   if (['0', 'false', 'off'].includes(flag)) return 'server'
   return 'client-first'
 }
@@ -93,6 +103,59 @@ const SWEEP_LOCK_TTL_MS = 10 * 60 * 1000
  */
 const UNKNOWN_RECHECK_MS = 30 * 60 * 1000
 
+// ── 空闲保活(2026-10-26 立,对标 workbuddy-switch 桌面端「每日保活」)──────────────
+/** 默认窗口:距上次使用 ≥ 7 天即主动续票(上游清理闲置 refresh 会话前的安全边际) */
+export const KEEPALIVE_DEFAULT_DAYS = 7
+/** 单轮空闲保活上限(临期档之后执行,共用分布式锁;防刷新风暴打爆上游) */
+export const KEEPALIVE_MAX_PER_SWEEP = 20
+
+/**
+ * 空闲保活窗口(天):`RELAY_ACCOUNT_KEEPALIVE_DAYS`
+ * - 未设 → 默认 7 天;`0`/`off`/`false`/`disabled` → 整档关闭(返回 null);
+ * - 非法值回落默认(失效方向是「照默认保活」,不是「静默关掉保活」)。
+ */
+export function keepaliveIdleDays(env: NodeJS.ProcessEnv = process.env): number | null {
+  const raw = (env.RELAY_ACCOUNT_KEEPALIVE_DAYS ?? '').trim().toLowerCase()
+  if (raw === '') return KEEPALIVE_DEFAULT_DAYS
+  if (['0', 'off', 'false', 'disabled', 'disable'].includes(raw)) return null
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : KEEPALIVE_DEFAULT_DAYS
+}
+
+/**
+ * 空闲时钟(单源):上次被转发使用 与 上次成功刷新 取较新者;两者都没发生过则取入库时刻。
+ *
+ * 为什么必须并入 lastRefreshAt:若只看 lastUsedAt,一次保活刷新不会让账号退出空闲集
+ * ⇒ 每 5 分钟一轮的 sweep 会把同一批闲置号反复续票,自己造出刷新风暴。刷新会写
+ * lastRefreshAt → 时钟被拨回,天然获得一个完整窗口的静默期。
+ */
+export function accountIdleClock() {
+  return sql`greatest(coalesce(${aiRelayAccountPool.lastUsedAt}, ${aiRelayAccountPool.createdAt}), coalesce(${aiRelayAccountPool.lastRefreshAt}, ${aiRelayAccountPool.createdAt}))`
+}
+
+/**
+ * 空闲保活的 where(导出供镜像测试锁形状):启用 + 未摘除 + 未判死 + 能自救续票,
+ * 且空闲时钟早于窗口。不要求 tokenExpiresAt —— 临期档管「将过期」,这一档专管「闲置」;
+ * 两档都汇进 refreshOne 的同一把失败计数,不各写一份摘除口径。
+ *
+ * 为什么窗口边界要显式绑 ISO 串 + `::timestamptz`(2026-10-28 生产实测):
+ * `lt(column, Date)` 由列类型的 mapToDriverValue 把 Date 转成驱动能吃的形式,可这里左边是
+ * 裸 `sql` 片段(`accountIdleClock()`),没有列可推断 ⇒ drizzle 把 Date 原样丢给 postgres.js,
+ * 后者只收款 string/Buffer/ArrayBuffer,直接抛 `ERR_INVALID_ARG_TYPE: Received an instance
+ * of Date`。症状不是「查错行」而是**整个 sweep 在步骤 1.5 抛死**:job 每 5 分钟失败一次,
+ * 后面的 unknown 定级 / down 恢复 / 签到对账全部不再执行 —— 保活档自己把巡检打死。
+ * 绑定形态改成字符串 + 显式转换后,值仍是同一个时刻,驱动也不再挑类型。
+ */
+export function keepaliveIdleWhere(cutoff: Date) {
+  return and(
+    eq(aiRelayAccountPool.isEnabled, true),
+    eq(aiRelayAccountPool.tempUnschedulable, false),
+    ne(aiRelayAccountPool.healthStatus, 'down'),
+    recredentialableCondition(),
+    lt(accountIdleClock(), sql`${cutoff.toISOString()}::timestamptz`),
+  )
+}
+
 /**
  * 健康结果 → 持久化状态(唯一口径:巡检 / 管理面 / 导入 CLI 共用)。
  * indeterminate 保留 unknown,严禁写 down —— 「取不到」不等于「凭据失效」。
@@ -109,27 +172,18 @@ export interface AccountPoolSweepResult {
   refreshed: number
   refreshFailed: number
   refreshSkipped: number
+  /**
+   * 空闲保活命中的候选账号数(2026-10-26 立,对标 workbuddy-switch 每日保活)。
+   * 成功/失败另计进 refreshed/refreshFailed;本键只答「这一轮有多少号被闲置窗口捞出续票」。
+   */
+  keepalive: number
   healthChecked: number
   healthRecovered: number
-  /** O64 对账收敛器结果(undefined = 未执行/被跳过;号池↔签到断链自愈) */
-  checkinReconcile?: {
-    ok: boolean
-    error: string | null
-    pushed: number
-    pushFailed: number
-    disabled: number
-    disableFailed: number
-    stateCalibrated: number
-    stateFailed: number
-    flushed: number
-    flushFailed: number
-    orphanNoPoolId: number
-    outOfScope: number
-    truncated: number
-  }
-  /** O64 断链待推重推结果(undefined = 未执行/被跳过;reconcile 仅按"缺/版本落后"补推,
-   *  读不到 pending 标记,覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending) */
-  checkinRetry?: RetryPendingResult
+  // O64 checkinReconcile/checkinRetry 两键不得进产出面(2026-10-24 定案 099b843,由
+  // apps/api/tests/relay-account-pool-sweep-result.test.ts 三例钉住):①两条分支必须同键集,
+  // 跳过分支无对账可发;②产出面只允许标量,对象键消费面不解码。要加回来的合法顺序 =
+  // 消费面(worker)先写真读取 → 产出面同批加键 → 白名单同批登记,三者缺一即红。
+  // 调用接线保留(价值在真跑),明细走调度日志。
   /** true = 分布式锁被其他实例持有,本轮整体跳过(多实例不重复 sweep) */
   skipped: boolean
 }
@@ -204,16 +258,43 @@ export function downRecoveryWhere() {
   )
 }
 
+/** 本轮巡检出口选取台账:proxied=走代理(账号级或池),direct=直连(无可用代理) */
+export interface EgressProxyTally {
+  proxied: number
+  direct: number
+}
+
+/**
+ * 与转发链路同一口径取出口:账号级 proxyUrl 优先,否则池内按最久未用轮换。
+ * 取不到代理时 pickProxyForAccount 返回 null,调用方回退直连。
+ */
+async function resolveEgressProxy(
+  row: AiRelayAccountPool,
+  tally?: EgressProxyTally,
+): Promise<string | null> {
+  const proxyUrl = await pickProxyForAccount({ id: row.id, proxyUrl: row.proxyUrl })
+  if (tally) {
+    if (proxyUrl) tally.proxied++
+    else tally.direct++
+  }
+  return proxyUrl
+}
+
 /**
  * 刷新单账号;成功回写凭证,失败累计摘除。返回 true = 刷新成功。
  * 导出给管理面「按需查余额」共用同一把出口(回写/解摘/失败累计的口径只有一份)。
+ * tally 只用于本轮巡检的观测(代理/直连计数),不影响产出。
  */
-export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
+export async function refreshOne(
+  row: AiRelayAccountPool,
+  tally?: EgressProxyTally,
+): Promise<boolean> {
   const adapter = getRelayAdapter(row.providerCode)
   if (!adapter?.refreshToken) return false
   const credentials = decryptAccountCredentials(row)
   try {
-    const result = await adapter.refreshToken(ctxOf(row, credentials), { proxyUrl: row.proxyUrl })
+    const proxyUrl = await resolveEgressProxy(row, tally)
+    const result = await adapter.refreshToken(ctxOf(row, credentials), { proxyUrl })
     if (!result) return false
     const now = new Date()
     await db
@@ -281,6 +362,7 @@ export async function sweepAccountPool(): Promise<AccountPoolSweepResult> {
       refreshed: 0,
       refreshFailed: 0,
       refreshSkipped: 0,
+      keepalive: 0,
       healthChecked: 0,
       healthRecovered: 0,
       skipped: true,
@@ -298,12 +380,15 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     refreshed: 0,
     refreshFailed: 0,
     refreshSkipped: 0,
+    keepalive: 0,
     healthChecked: 0,
     healthRecovered: 0,
     skipped: false,
   }
   const now = new Date()
   const deadline = new Date(now.getTime() + REFRESH_AHEAD_MS)
+  // 出口选取台账(仅日志观测;不新增 sweep 产出键,保持全标量契约)
+  const egress: EgressProxyTally = { proxied: 0, direct: 0 }
 
   // ── 0. 台账保留期清理(24h 节流;每 5 分钟一轮 sweep 但不会每轮 delete) ──
   await maybePurgeUsageLedger()
@@ -327,9 +412,43 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
       out.refreshSkipped++
       return
     }
-    if (await refreshOne(row)) out.refreshed++
+    if (await refreshOne(row, egress)) out.refreshed++
     else out.refreshFailed++
   })
+
+  // ── 1.5 空闲保活(2026-10-26 立,对标 workbuddy-switch「每日保活」)──
+  // 上游会清理闲置的 refresh 会话(撞过 invalid_grant 才发现),临期档只救「快过期」的,
+  // 救不了「长期没人用」的。这里把「闲置」单独成档:超窗就先续一把,续票失败同走
+  // refreshOne 的累计与摘除,不给第二份口径。分布式锁与临期档同轮,不会多实例抢刷。
+  const keepaliveDays = keepaliveIdleDays()
+  if (keepaliveDays !== null) {
+    const idleCutoff = new Date(now.getTime() - keepaliveDays * 24 * 60 * 60 * 1000)
+    const idles = await dbRead
+      .select()
+      .from(aiRelayAccountPool)
+      .where(keepaliveIdleWhere(idleCutoff))
+      .limit(KEEPALIVE_MAX_PER_SWEEP)
+    out.keepalive = idles.length
+    if (idles.length > 0) {
+      logger.info('[relay-account-pool] 空闲保活轮开始', {
+        candidates: idles.length,
+        idleDays: keepaliveDays,
+      })
+    }
+    await runWithConcurrency(idles, SWEEP_CONCURRENCY, async (row) => {
+      if (shouldDeferRefresh(row, now)) {
+        out.refreshSkipped++
+        return
+      }
+      const adapter = getRelayAdapter(row.providerCode)
+      if (!adapter?.refreshToken) {
+        out.refreshSkipped++
+        return
+      }
+      if (await refreshOne(row, egress)) out.refreshed++
+      else out.refreshFailed++
+    })
+  }
 
   // ── 2. unknown 健康定级(并发上限 SWEEP_CONCURRENCY;未判定结果按退避复检) ──
   const recheckBefore = new Date(Date.now() - UNKNOWN_RECHECK_MS)
@@ -362,8 +481,9 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
       return
     }
     try {
+      const proxyUrl = await resolveEgressProxy(row, egress)
       const outcome = await adapter.checkHealth(ctxOf(row, decryptAccountCredentials(row)), {
-        proxyUrl: row.proxyUrl,
+        proxyUrl,
       })
       out.healthChecked++
       const now = new Date()
@@ -392,12 +512,16 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     if (shouldDeferRefresh(row, now)) continue // 同上:票未过期不抢客户端的轮换权
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) continue
-    if (await refreshOne(row)) out.healthRecovered++
+    if (await refreshOne(row, egress)) out.healthRecovered++
   }
 
   // ── 4. O64 号池↔签到对账收敛(断链自愈;失败不中断 sweep,下轮继续) ──
   try {
-    out.checkinReconcile = await reconcileCheckinSync()
+    const reconciled = await reconcileCheckinSync()
+    logger.info(
+      '[relay-account-pool] O64 对账收敛完成',
+      reconciled as unknown as Record<string, unknown>,
+    )
   } catch (e) {
     logger.warn('[relay-account-pool] 对账收敛器异常(不影响巡检)', {
       error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
@@ -408,10 +532,21 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   //    reconcile(步骤4)仅按"缺/版本落后"补推、读不到 extraMetadata.checkinSync.pending,
   //    覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending。两者同在分布式锁内、幂等、互不冲突。
   try {
-    out.checkinRetry = await retryPendingCheckinSyncs()
+    const retried = await retryPendingCheckinSyncs()
+    logger.info(
+      '[relay-account-pool] O64 断链待推重推完成',
+      retried as unknown as Record<string, unknown>,
+    )
   } catch (e) {
     logger.warn('[relay-account-pool] 待推重推异常(不影响巡检)', {
       error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
+  }
+
+  if (egress.proxied + egress.direct > 0) {
+    logger.info('[relay-account-pool] 本轮出口选取', {
+      proxied: egress.proxied,
+      direct: egress.direct,
     })
   }
 

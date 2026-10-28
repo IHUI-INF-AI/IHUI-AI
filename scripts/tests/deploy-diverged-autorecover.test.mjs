@@ -113,7 +113,12 @@ function assertFfRaceGuards(src) {
   const ban = (re, why) => {
     if (re.test(code)) fails.push(why)
   }
-  need(/\$remoteTipRaw\s*=\s*\(& git rev-parse FETCH_HEAD/, 'R1 没把当次 FETCH_HEAD 定格成显式 sha')
+  // `(?:-C \$Root )?` = 2026-10-26 起允许"git 调用钉住生产签出那一本仓"(取源面读错仓库那一族,
+  // 由 scripts/tests/deploy-repo-pinning.test.mjs 独立守):形状可选,但"必须定格成显式 sha"这条不变。
+  need(
+    /\$remoteTipRaw\s*=\s*\(& git (?:-C \$Root )?rev-parse FETCH_HEAD/,
+    'R1 没把当次 FETCH_HEAD 定格成显式 sha',
+  )
   need(
     /remoteTipRaw\s*-notmatch\s*'\^\[0-9a-f\]\{40\}\$'/,
     'R1 定格后没做 40 位十六进制形状校验(取不到必须 fail-closed)',
@@ -123,7 +128,7 @@ function assertFfRaceGuards(src) {
     'R1 远端对象不在本地时没有定向补取/判无法判定这一步',
   )
   need(/rev-list --count "HEAD\.\.\$remoteTip"/, 'R2 behind 仍在读共享的 FETCH_HEAD')
-  need(/git merge --ff-only \$remoteTip/, 'R2 merge 的目标不是本轮定格的 sha')
+  need(/git (?:-C \$Root )?merge --ff-only \$remoteTip/, 'R2 merge 的目标不是本轮定格的 sha')
   need(
     /diff --name-only HEAD \$remoteTip/,
     'R2 挡路路径清单算的是另一个面(与 merge 不同面 ⇒ 点名会错)',
@@ -169,7 +174,7 @@ test('R-OLD 变异:整段退回"处处读 FETCH_HEAD、无复核"必须翻红', 
 
 test('R-NOANC 变异:只删复核那一刀必须翻红(不是靠前面几刀连带)', () => {
   const noAnc = SRC.replace(
-    /& git merge-base --is-ancestor \$remoteTip HEAD/,
+    /& git (?:-C \$Root )?merge-base --is-ancestor \$remoteTip HEAD/,
     '& git noop-ancestor-check',
   )
   assert.notEqual(noAnc, SRC, '夹具没生效(定位不到复核调用)')

@@ -9,11 +9,19 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 两把尺同判(T-D3h)的另一侧:旁路合并落地的自愈出口 —— 判据一律 import,不得复制(§22c)。
+import { postMergeLedgerSync } from '../lib/post-merge-ledger-sync.mjs'
+// 摘除台账的路径清单也只认这一份(测试里再抄一遍就会和复洁器漂开 —— §0.6/§22c)。
+import {
+  titleFpOf,
+  declaredRows,
+  LEDGERS as SCRUB_LEDGERS,
+} from '../scrub-declared-removals.mjs'
 // 源脚本今日两种导出形态都成立:HEAD 仍导出 __test__,并行会话在制版已改成逐个具名导出。
 // 取 `__test__ ?? 模块命名空间`,同一批符号在此后两种形态下都能拿到 —— 断言强度一条不降,
 // 也让"删掉镜像测试"失去唯一理由(测试不会因源侧重命名而失效)。
@@ -91,7 +99,29 @@ function tempPlanRepo(planText) {
   writeFileSync(join(dir, 'PROJECT_PLAN.md'), planText, 'utf8')
   git(dir, 'add', 'PROJECT_PLAN.md', ...files)
   git(dir, 'commit', '-m', 'init plan')
+  seedDeclaredLedgers(dir)
   return dir
+}
+
+/**
+ * 摘除台账落点(路径唯一真值取 `scrub-declared-removals.LEDGERS`,测试里不抄第二份清单 —— §22c)。
+ *
+ * 为什么每个端到端夹具都要先写这两本**空账**:门 71 的回捞侧自 2026-10-27 起按三态走
+ * (票「fail-open:台账取不到被折成空集继续回捞」)—— 两本账都不在位 = **未判定** ⇒ 本轮零回捞 + rc 2。
+ * 既有那些"真丢一行 ⇒ 必须捞回来"的端到端用例测的是回捞本体,夹具若不带账,测到的就全是新闸门,
+ * 正向牙的覆盖会被静默清空。空账 = "这本账在位、只是还没有任何摘除声明"⇒ 判定成立、回捞照旧。
+ */
+function seedDeclaredLedgers(dir, rows = []) {
+  for (const rel of SCRUB_LEDGERS) {
+    const abs = join(dir, rel)
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(
+      abs,
+      rows.map((r) => JSON.stringify({ ...r })).join('\n') + (rows.length ? '\n' : ''),
+      'utf8',
+    )
+  }
+  return SCRUB_LEDGERS.map((rel) => join(dir, rel))
 }
 
 const runGate = (dir, args) =>
@@ -127,6 +157,13 @@ test('§22c 装车证明:判据符号必须来自源文件导出(__test__ 或具
     // 归并名额维(2026-10-24 立):同编号少一行而 marker 仍在 ⇒ 名额差值判据与声明解析
     'foldedSlots',
     'parseMergeFoldDeclaration',
+    // 「已收拢」第三形态(2026-10-24 立):漂移注释判活的唯一实现 —— 镜像测试一律 import,
+    // 不得在测试里再抄一份归一式(§22c)。缺一个符号 ⇒ 本条红,而不是整族用例静默空转。
+    'collectedTitleKey',
+    'driftCollectedCorpus',
+    'collectedInDriftComment',
+    'missingFrom',
+    'healLegs',
   ])
     assert.equal(typeof G[fn], 'function', `源导出缺判据 ${fn}(§22c 锚点漂移,或该判据被整块删掉)`)
 })
@@ -310,7 +347,9 @@ test('反向回归锁:归档豁免不得退回「按磁盘判」,且必须绑当
   )
   assert.match(
     rc,
-    /missingFrom\([\s\S]{0,160}?,\s*archive\)/,
+    // `archive` 必须是第三个位参(紧跟两份输入);允许它后面再挂参数 —— 2026-10-24 第三形态
+    // 给 missingFrom 加了 collectedSink,写死"以 `)` 收口"会让这道锁在一次正当加参里空转。
+    /missingFrom\([\s\S]{0,160}?,\s*archive[),]/,
     '全量/人工档(历史面)同样必须吃到绑好面的 archive —— 新判据最容易做丢的就是这一路',
   )
 })
@@ -1224,6 +1263,244 @@ test('形状锁(漂移注释):漂移副本/重复副本 两族进豁免语料;�
   )
 })
 
+// ── 第三形态补牙(2026-10-24,票「line-loss 的『已收拢』判据缺第三形态:漂移注释」)──────────
+// 上面那组 2026-10-22 的夹具只钉得住"注释正文与原行**逐字**相等"这一形;真仓 HEAD 面 80 枚漂移
+// 注释里普遍不是那一形(前导装饰被洗断 / 尾部挂着原行没有的进展注记 / 加粗族的编号写成句中
+// 「原编号 G-x」),于是收拢行每轮被判缺、每轮被 --heal 捞回开放态 ⇒ 同题组回潮。
+// 下面这组钉的是**生产形**:阳性对照必须认"在册",反例必须照旧判缺,摘掉判据必须当场翻红。
+const D3_HOLDER =
+  '- [ ] G-880320 同组持有行 —— 收拢后每组只保留这一行当前状态,正文足够长以越过登记行长度门槛。'
+const D3_CB =
+  '- [ ] G-880321 **第三形态夹具甲 —— 生产面漂移注释的正文会把前导装饰洗断还会挂上原行没有的注记。** —— 尾段。'
+const D3_BOLD =
+  '- **G-880322 第三形态夹具乙 —— 加粗族编号在注释里写成句中形态老口径逐字断链。** —— 尾段。'
+const D3_TRUE =
+  '- [ ] G-880323 第三形态夹具丙 —— 真丢对照:面上没有任何承接,必须照旧判缺并被回捞,不许为消红读成找到了。'
+const D3_NOTE_CB =
+  '<!-- 重复副本(第三形态夹具甲系列,正主 L9): 进行中） G-880321 **第三形态夹具甲 —— 生产面漂移注释的正文会把前导装饰洗断还会挂上原行没有的注记。** —— 尾段。 〔PROGRESS@2026-10-24 探针席: 追加了一段原行没有的进展注记〕 -->'
+const D3_NOTE_BOLD =
+  '<!-- 漂移副本(同题多号收拢@2026-10-24/夹具): **第三形态夹具乙 —— 加粗族编号在注释里写成句中形态老口径逐字断链。** —— 尾段。 (原编号 G-880322) -->'
+const D3_BASE = [D3_CB, D3_BOLD, D3_TRUE].join('\n')
+const D3_COLLECTED = [D3_HOLDER, D3_NOTE_CB, D3_NOTE_BOLD].join('\n')
+
+test('T-D3a 阳性对照:生产形漂移注释(装饰洗断 + 额外注记 + 句中编号)⇒ 判「已收拢」,只剩真丢那条判缺', () => {
+  const sink = []
+  const lost = G.lostMarkers(D3_BASE, D3_COLLECTED, new Set(), sink)
+  assert.deepEqual(
+    lost.map((x) => x.id),
+    ['G-880323'],
+    `丢失清单必须只剩无承接的那条,实测 ${JSON.stringify(lost.map((x) => x.marker))}`,
+  )
+  assert.equal(sink.length, 2, `「已收拢」必须逐条登记(不是静默放行),实测 ${JSON.stringify(sink.map((s) => s.marker))}`)
+  assert.ok(
+    sink.every((s) => typeof s.comment === 'string' && s.comment.length > 20),
+    '每枚收拢必须带着承它那条评论的正文,否则报告无法复核',
+  )
+})
+
+test('T-D3b 反向锁:注释在位但题面被换 / 同号不同题 / 已归档族 ⇒ 三条照旧判缺(注释不是万能豁免证)', () => {
+  const sameIdOtherTitle = [
+    D3_HOLDER,
+    '<!-- 漂移副本(同题多号收拢@2026-10-24/夹具): **G-880321 完全不相干的另一件事,题面一个字都对不上。** —— 尾段。 -->',
+  ].join('\n')
+  assert.equal(G.lostMarkers(D3_CB, sameIdOtherTitle).length, 1, '同号不同题必须照旧判缺')
+  assert.equal(
+    G.lostMarkers(
+      D3_TRUE,
+      '<!-- 漂移副本(同题多号收拢@2026-10-24/夹具): **与此探针毫无关系的一段话,题面完全不同不得豁免。** -->',
+    ).length,
+    1,
+    '注释在位而正文被换必须照旧判缺',
+  )
+  assert.equal(
+    G.lostMarkers(
+      D3_CB,
+      [D3_HOLDER, '<!-- 已归档(2026-10-24:G-880321 正文截断,完整内容在 .ihui-agent/archive/PROJECT_PLAN_x.md -->'].join('\n'),
+    ).length,
+    1,
+    '已归档一族刻意不进第三形态射程(完整原文归 archivedCopy 承接)',
+  )
+})
+
+test('T-D3c 不判不豁免:题面短到无法判定 ⇒ unjudged=true 且照旧判缺(§0.3 没判绝不写成判过)', () => {
+  const shortLine = '- [ ] G-880325 短句甲'
+  const cm = G.collectedInDriftComment(
+    { line: shortLine, id: 'G-880325' },
+    G.driftCollectedCorpus('<!-- 漂移副本(同题多号收拢@2026-10-24/夹具): G-880325 短句甲 -->'),
+  )
+  assert.equal(cm.matched, false, '短题面不得被豁免')
+  assert.equal(cm.unjudged, true, '必须如实报"未判定",而不是"判过了没找到"')
+  assert.equal(G.collectedTitleKey(shortLine), '', '题面键必须为空(实字不足下限)')
+})
+
+test('T-D3d 归一式只看题面:装饰/编号/强调记号怎么变都不换身份,正文首句一变就换身份', () => {
+  const bare = G.collectedTitleKey(D3_CB)
+  const decorated = G.collectedTitleKey(
+    '- [ ] ✅(2026-10-24) （进行中@2026-10-24/探针席） G-880399 **第三形态夹具甲 —— 生产面漂移注释的正文会把前导装饰洗断还会挂上原行没有的注记。** —— 尾段。',
+  )
+  assert.equal(bare, decorated, '同一件事换号/换状态装饰 ⇒ 题面键必须不变(否则正当改写被判丢)')
+  assert.ok(bare.length > 0 && bare.length <= G.COLLECTED_TITLE_SPAN, `键长必须落在 1..${G.COLLECTED_TITLE_SPAN},实测 ${bare.length}`)
+  const reworded = G.collectedTitleKey(
+    '- [ ] G-880321 **第三形态夹具甲被改写了头一句 —— 生产面漂移注释的正文会把前导装饰洗断。** —— 尾段。',
+  )
+  assert.notEqual(reworded, bare, '正文首句被改 ⇒ 必须换身份(否则豁免面就成了白名单)')
+})
+
+test('T-D3e 两把尺同判:检测通道(missingFrom)与回捞通道(healContent)在同批夹具上读同一谓词', () => {
+  const entries = G.registeredLines(D3_BASE).map((e) => ({ ...e, prev: D3_HOLDER }))
+  const seen = new Map(entries.map((e) => [e.marker, e]))
+  const sink = []
+  const missing = G.missingFrom(seen, D3_COLLECTED, () => null, new Set(), sink)
+  assert.equal(missing.length, 1, `检测侧只该报真丢那条,实测 ${missing.map((m) => m.marker)}`)
+  assert.equal(sink.length, 2, '检测侧的收拢读数必须与丢失读数分开')
+  const before = `${D3_COLLECTED}\n`
+  const healed = G.healContent(before, entries)
+  const added = healed.out.split(/\r?\n/).filter((l) => !before.split(/\r?\n/).includes(l))
+  assert.equal(healed.inserted, 1, '回捞侧只能插真丢那一条')
+  assert.equal(healed.skippedCollected, 2, '两条收拢行必须由同一个谓词认出并刹车')
+  assert.deepEqual(added.filter((l) => /G-88032[12]/.test(l)), [], '已收拢的行一条都不许被插回开放态')
+  assert.ok(added.some((l) => /G-880323/.test(l)), '真丢那条必须真的捞回来')
+})
+
+test('T-D3f 形状锁:第三形态的谓词只许一份实现 —— 检测/回捞/报名都走它,注释族字面量只许一处', () => {
+  const src = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+  const body = (name) => {
+    const at = src.indexOf(`function ${name}(`)
+    if (at < 0) return ''
+    const tail = src.slice(at)
+    const stop = tail.slice(1).search(/\n(?:export )?function [A-Za-z]/)
+    return stop < 0 ? tail : tail.slice(0, stop + 1)
+  }
+  assert.ok(body('resolveRegistrationLoss').includes('collectedInDriftComment('), '检测通道必须调第三形态谓词')
+  assert.ok(body('healContent').includes('collectedInDriftComment('), '回捞通道必须调**同一个**谓词,不得另写一份')
+  assert.ok(body('driftCollectedCorpus').includes('DRIFT_COMMENT_RE'), '注释面只能由那条固定形状喂,不得散读任意注释')
+  assert.ok(body('collectedInDriftComment').includes('collectedTitleKey('), '题面键只许一份实现(判定与报名各算一遍必然漂开)')
+  assert.equal(
+    (src.match(/漂移副本\|重复副本/g) || []).length,
+    1,
+    '注释族的字面量只许出现在 DRIFT_COMMENT_RE 那一处(抄第二份必然漏掉一族)',
+  )
+})
+
+test('T-D3g 端到端(摘掉即翻红):临时真仓里把收拢行落到漂移注释 ⇒ --heal 不回捞;抹掉注释 ⇒ 照旧回捞', () => {
+  // 回捞规模安全闸按"缺失/基线"比值拦(默认 0.4):夹具必须带足在册行把分母撑到正常量,
+  // 否则测的就是那道闸而不是本票的形态闸(拦下来时 heal 一字不写,反向对照会变成假失败)。
+  const FILLER = Array.from(
+    { length: 24 },
+    (_, i) =>
+      `- [ ] G-880${(400 + i).toString()} 无关在册行第 ${i + 1} 枚 —— 只为把回捞规模闸的分母撑到正常量,正文足够长以越过登记行长度门槛。`,
+  ).join('\n')
+  const dir = mkScratch('ihui-gate71-drift-')
+  const files = copyGateClosure(dir)
+  const commitAll = (msg) => {
+    git(dir, 'add', 'PROJECT_PLAN.md', ...files)
+    git(dir, '-c', 'user.email=t@t.local', '-c', 'user.name=t', '-c', 'core.hooksPath=', 'commit', '-m', msg)
+  }
+  try {
+    git(dir, 'init', '-b', 'main')
+    git(dir, 'config', 'user.email', 't@t.local')
+    git(dir, 'config', 'user.name', 't')
+    git(dir, 'config', 'commit.gpgsign', 'false')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# 计划\n\n${D3_HOLDER}\n${FILLER}\n${D3_BASE}\n`, 'utf8')
+    commitAll('v1 三条登记行在册')
+    // 空摘除台账在位 ⇒ 闸门是"判定得成"(见 seedDeclaredLedgers 头注):本例测的是收拢形态这一格,
+    // 不带账就会被 2026-10-27 那枚回捞侧闸门先拦下,反向对照(抹掉注释⇒照旧回捞)会假失败。
+    seedDeclaredLedgers(dir)
+    // 甲/乙 被守门 194 收拢成漂移注释,丙 被整行抹掉 —— 这就是票面那台"每轮回捞"的现场
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# 计划\n\n${D3_HOLDER}\n${FILLER}\n${D3_COLLECTED}\n`, 'utf8')
+    commitAll('v2 同题多号收拢 + 一条真丢')
+    const healed = runGate(dir, ['--heal'])
+    const out = `${healed.stdout}\n${healed.stderr}`
+    assert.equal(healed.status, 0, `--heal 必须跑成,实测 rc=${healed.status}\n${out}`)
+    assert.match(healed.stdout, /\[已收拢\/工作树\] 2 条/, `收拢读数必须报名(不报名=把没判写成判过),实测:\n${out}`)
+    assert.doesNotMatch(out, /规模安全闸/, `夹具不该撞规模闸:实测\n${out}`)
+    const after = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.match(after, /G-880323/, '真丢那条必须被捞回工作区')
+    assert.deepEqual(
+      after.split(/\r?\n/).filter((l) => /^\s*[-*]{1,2}\s*(?:\*\*)?G-88032[12]/.test(l)),
+      [],
+      `已收拢的两条不得被捞回开放态(捞回=同题组回潮),实测:\n${after.split(/\r?\n/).filter((l) => /G-88032[12]/.test(l)).join('\n')}`,
+    )
+    // 反向对照:抹掉两枚承接注释(其余一字不动)⇒ 同两行必须立刻翻成"判缺并回捞"
+    writeFileSync(
+      join(dir, 'PROJECT_PLAN.md'),
+      `# 计划\n\n${D3_HOLDER}\n${FILLER}\n- [ ] G-880330 与探针无关的一行 —— 用来让反向对照的面上确有别的登记行,正文足够长以越过门槛。\n`,
+      'utf8',
+    )
+    commitAll('v3 抹掉承接注释(反向对照)')
+    const red = runGate(dir, ['--heal'])
+    const redOut = `${red.stdout}\n${red.stderr}`
+    assert.match(red.stdout, /\[点名\/工作树\][^\n]*G-88032[12]/, `抹掉注释后必须重新点名收拢行(牙还在),实测:\n${redOut}`)
+    assert.doesNotMatch(red.stdout, /\[已收拢\/工作树\]/, '注释不在就不许报"已收拢"')
+    const after2 = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.match(after2, /G-880321/, '反向对照里这两行必须真的被插回(不是只点名)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+const D3_FILLER = Array.from(
+  { length: 24 },
+  (_, i) =>
+    `- [ ] G-880${(500 + i).toString()} 无关在册行第 ${i + 1} 枚 —— 只为把回捞规模闸的分母撑到正常量,正文足够长以越过登记行长度门槛。`,
+).join('\n')
+
+test('T-D3h 两把尺同判(跨文件):lib/post-merge-ledger-sync 派生的 --heal 与 in-process healLegs 在同批夹具上必须同读数', () => {
+  const dir = mkScratch('ihui-gate71-drift-pm-')
+  const files = copyGateClosure(dir)
+  const commitAll = (msg) => {
+    git(dir, 'add', 'PROJECT_PLAN.md', ...files)
+    git(dir, '-c', 'user.email=t@t.local', '-c', 'user.name=t', '-c', 'core.hooksPath=', 'commit', '-m', msg)
+  }
+  try {
+    git(dir, 'init', '-b', 'main')
+    git(dir, 'config', 'user.email', 't@t.local')
+    git(dir, 'config', 'user.name', 't')
+    git(dir, 'config', 'commit.gpgsign', 'false')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# 计划\n\n${D3_HOLDER}\n${D3_FILLER}\n${D3_BASE}\n`, 'utf8')
+    commitAll('v1 在册')
+    // 同 T-D3g:空摘除台账在位 ⇒ 回捞侧闸门判定得成,否则派生通道拿到的是 rc 2 的"未判定",
+    // `post-merge-ledger-sync` 那一侧连一行读数都回读不到(两把尺同判就变成"一把尺被闸门外")。
+    seedDeclaredLedgers(dir)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# 计划\n\n${D3_HOLDER}\n${D3_FILLER}\n${D3_COLLECTED}\n`, 'utf8')
+    commitAll('v2 收拢两枚 + 真丢一枚')
+
+    // 尺一:in-process 的同一把尺(missingFrom / healLegs)
+    const seen = G.historyMarkers(20, dir)
+    const diskFace = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    const headFace = git(dir, 'show', 'HEAD:PROJECT_PLAN.md')
+    const legs = G.healLegs(seen, { disk: diskFace, head: headFace, index: headFace })
+    // 身份取"门自己打印的那串 marker"(点名行就是它的逐字切片)—— 用 id 会把加粗族(id=null)
+    // 和编号写在句中那一族并成 null,两把尺比的就不是同一个东西了。
+    const inProcCollected = legs.collected.disk.map((x) => String(x.marker).slice(0, 24))
+    const inProcMissing = legs.disk.map((x) => String(x.marker).slice(0, 24))
+
+    // 尺二:旁路落地器那条通道(**真派生**,不是 mock spawn),回读的是门自己打到 stdout 的读数
+    const heard = []
+    const pm = postMergeLedgerSync({ root: dir, log: (s) => heard.push(s) })
+    assert.equal(pm.ran, true, `自愈腿必须真的派生成,实测 ok/ran = ${JSON.stringify([pm.ok, pm.ran])}`)
+    const said = pm.lines.join('\n')
+    assert.match(said, /\[已收拢\/工作树\] 2 条/, `派生通道必须报出同一份收拢读数,实测:\n${said}`)
+    assert.match(said, /\[点名\/工作树\][^\n]*G-880323/, `派生通道必须照旧点名真丢那条,实测:\n${said}`)
+    assert.equal(
+      inProcCollected.length,
+      2,
+      `in-process 那一侧也只能认出同样的两枚,实测 ${JSON.stringify(inProcCollected)}`,
+    )
+    assert.deepEqual(
+      inProcMissing,
+      ['G-880323 第三形态夹具丙 —'],
+      `in-process 的丢失集必须只剩真丢那一条,实测 ${JSON.stringify(inProcMissing)}`,
+    )
+    for (const m of inProcCollected)
+      assert.ok(said.includes(m), `两把尺的「已收拢」必须逐枚同判:门内认出的 ${JSON.stringify(m)} 不在派生通道的点名行里\n${said}`)
+    for (const m of inProcMissing)
+      assert.ok(said.includes(m), `两把尺的「仍判缺」必须逐枚同判:门内点名的 ${JSON.stringify(m)} 不在派生通道的读数里\n${said}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // G-307 票一③(2026-10-11 移植):两层自动自愈的**互咬熔断**。
 // 回捞层补回的未勾形态被归并器立刻翻勾、再翻勾又被回捞层读成丢行 ⇒ 近 7 天实测
@@ -1641,6 +1918,93 @@ test('端到端 --staged 阳性对照:吞掉唯一登记行照旧判红(新维�
   }
 })
 
+test('已结清短留痕:窗口外不再把已翻勾的票复插成未勾(G-61 型)', () => {
+  const base = '- [ ] **G-61. 一条足够长的测试登记行正文内容 abcdefghijklmnop**'
+  const entries = G.registeredLines(base)
+  const marker = entries[0].marker
+  assert.equal(
+    G.resolveRegistrationLoss(entries, '- [ ] G-999 别的票', new Set(), null).length,
+    1,
+    '未给 retired ⇒ 仍判丢(旧行为,防恒免)',
+  )
+  assert.equal(
+    G.resolveRegistrationLoss(entries, '- [ ] G-999 别的票', new Set(), null, new Set([marker])).length,
+    0,
+    'retired 命中 ⇒ 不判丢/不回捞',
+  )
+})
+
+test('已结清短留痕:落盘/去重/TTL 三态', () => {
+  const dir = mkScratch('retired-ledger-')
+  try {
+    assert.equal(G.retiredMarkerSet(dir).size, 0, '无台账 ⇒ 空集,不得当"全已结清"')
+    assert.equal(G.recordRetiredMarkers(new Set(['G-61 一条已翻勾的票']), dir), 1)
+    assert.equal(G.recordRetiredMarkers(new Set(['G-61 一条已翻勾的票']), dir), 0, '同 marker 不重复写')
+    const set = G.retiredMarkerSet(dir)
+    assert.equal(set.size, 1)
+    assert.ok(set.has('G-61 一条已翻勾的票'))
+    // TTL:把台账里的 at 改成 31 天前 ⇒ 该条不再生效
+    const abs = join(dir, G.RETIRED_LEDGER_REL)
+    const old = new Date(Date.now() - 31 * 24 * 3600 * 1000).toISOString()
+    writeFileSync(abs, `${JSON.stringify({ at: old, marker: 'G-61 一条已翻勾的票' })}\n`, 'utf8')
+    assert.equal(G.retiredMarkerSet(dir).size, 0, '过期条目必须失效(短留痕不是永久档案)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端:翻勾提交被旧基线抹出谱后,短留痕阻止复插(无留痕则旧实现复插)', () => {
+  const OPEN = '- [ ] **G-610. 一条足够长的测试登记行正文内容 abcdefghijklmnop**'
+  const CLOSED = '- [x] ✅(2026-10-25) **G-610. 一条足够长的测试登记行正文内容 abcdefghijklmnop**'
+  const OTHERS = Array.from(
+    { length: 5 },
+    (_, i) => `- [ ] **G-${900 + i}. 另一条足够长的登记行内容 ${'xyz'.repeat(4)}${i}**`,
+  ).join('\n')
+  const dir = tempPlanRepo(`${OPEN}\n${OTHERS}`)
+  try {
+    const a = git(dir, 'rev-parse', 'HEAD').trim()
+    // 翻勾提交 B(随后会被旧基线挤出当前祖先链)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `${CLOSED}\n${OTHERS}\n`, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-m', 'flip G-610')
+    // 并发旧基线 C:从 A 起一条不含该行的提交 ⇒ B 不在当前祖先链;窗口只剩 A 的开放形态
+    git(dir, 'reset', '--hard', a)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `${OTHERS}\n`, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-m', 'old baseline erase')
+    const marker = G.registrationOf(OPEN).marker
+    assert.ok(marker, '夹具行必须能被登记尺认出')
+    const ledger = join(dir, G.RETIRED_LEDGER_REL)
+    mkdirSync(dirname(ledger), { recursive: true })
+    // 阳性对照:无留痕 ⇒ 旧实现必须复插
+    writeFileSync(ledger, '', 'utf8')
+    const r1 = runGateEnv(dir, ['--heal'], { IHUI_PLAN_LOSS_HISTORY_DEPTH: '10' })
+    const after1 = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.match(after1, /G-610/, `无留痕时旧实现必须复插(阳性对照);stdout=${r1.stdout}${r1.stderr}`)
+    // 复位后写留痕 ⇒ 不得复插
+    git(dir, 'checkout', '--', 'PROJECT_PLAN.md')
+    writeFileSync(ledger, `${JSON.stringify({ at: new Date().toISOString(), marker })}\n`, 'utf8')
+    const r2 = runGateEnv(dir, ['--heal'], { IHUI_PLAN_LOSS_HISTORY_DEPTH: '10' })
+    const after2 = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.doesNotMatch(after2, /G-610/, `有留痕时不得复插;stdout=${r2.stdout}${r2.stderr}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('题面前缀维:f11-purge 声明的同题行让号/改号后不被判丢(旧实现必红)', () => {
+  const base = '- [ ] **G-63. 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证**'
+  const declared = { set: new Set(), dropTitleFps: new Set([titleFpOf(base)]) }
+  // 无反例对照:只给空集 ⇒ 仍判丢(证明不是"凡 f11 主题都免")
+  assert.equal(G.lostMarkers(`${base}\n`, '- [ ] G-999 别的票\n', new Set()).length, 1)
+  assert.equal(
+    G.lostMarkers(`${base}\n`, '- [ ] G-999 别的票\n', { set: new Set(), dropTitleFps: new Set() }).length,
+    1,
+  )
+  // 正向:题面前缀相同(号不同)⇒ 免丢
+  assert.equal(G.lostMarkers(`${base}\n`, '- [ ] G-999 别的票\n', declared).length, 0)
+})
+
 test('端到端 全量档:同编号名额由 2 掉到 1 的历史存量不得判红(§12e 防恒红)', () => {
   // 名额维刻意**只挂提交链**:旁路落地(live-doc-edit/union-converge/自愈)不跑钩子,
   // 而它们正是历史上把同号多行折成一份的主要生产者 ⇒ 挂到全量档就是与人无关的恒红门。
@@ -1658,4 +2022,373 @@ test('端到端 全量档:同编号名额由 2 掉到 1 的历史存量不得判
   } finally {
     rmScratch(dir)
   }
+})
+
+// ── G-948(2026-10-26/27):活文档整文件回写又吞掉他席已入库登记行 ─────────────────────────
+// 票面现场:一席按滞后副本整文件回写,把同一题面的多行写成少数几行 ⇒ 旧判据报"无登记行丢失"。
+// 两处成因,逐条钉死:
+//  ① 侧车标头 `〔归:…〕` / 租约 + 粗体头的行拿不到行首编号 ⇒ 该行在防丢面、名额、复合主键三处隐身;
+//  ② `historyMarkers` 按 marker 去重 + 判活用 Set ⇒ "这一族还剩一行"就判活(15 → 11 也报绿)。
+// 判据一律 import 源脚本(§22c),夹具与源自测同形但**不复制任何实现**。
+const G948_ROW =
+  '- [ ] 〔归:web 聊天附件链〕 G-863 **附件容量 20→50,前端上传链三处改造,涉及组件与接口两层**'
+const G948_LEASE = '- [ ]（进行中@2026-10-26/g948） 〔归:x〕 **G-241 自动化"结算状态机"**'
+const G948_FILLER = '- **G-9001 无关登记行**:这一条与名额判据无关,只是让文档不像空壳,长度也够。'
+const G948_TWO = ['# 计划', '', G948_ROW, G948_ROW, G948_FILLER, ''].join('\n')
+const G948_ONE = ['# 计划', '', G948_ROW, G948_FILLER, ''].join('\n')
+/** 历史面条目 = `historyMarkers()` 的形状(带 `openCount` 名额);夹具不得自造第二份判据 */
+function g948Seen(openCount, row = G948_ROW) {
+  const reg = G.registrationOf(row)
+  return new Map([
+    [reg.marker, { line: row, marker: reg.marker, id: reg.id, shape: reg.shape, sha: 's', prev: null, openCount }],
+  ])
+}
+
+test('G-948 装车证明:侧车标头 / 租约+粗体头的行必须拿到行首编号(看不见 ⇒ 三处同时隐身)', () => {
+  const a = G.registrationOf(G948_ROW)
+  const b = G.registrationOf(G948_LEASE)
+  assert.equal(a?.id, 'G-863')
+  assert.equal(a?.shape, 'checkbox')
+  assert.equal(b?.id, 'G-241')
+  assert.equal(b?.shape, 'checkbox')
+  assert.equal(G.headIdOf(G948_ROW), 'G-863')
+  assert.equal(G.headIdOf(G948_LEASE), 'G-241')
+})
+
+test('G-948 历史面名额:同题两行写成一行 ⇒ 点名(旧集合判活在同一现场判"还活着")', () => {
+  // 旧谓词的读数(不是装饰):被审面 `[ ] G-863` 那一族仍在行首占着名额 ⇒ 集合口径判活
+  const slots = G.registrationSlots(G948_ONE)
+  assert.ok(slots.get('checkbox\u0000G-863')?.count > 0, '前提:同编号在被审面仍有登记点')
+  const missing = G.missingFrom(g948Seen(2), G948_ONE, () => null, new Set(), null, new Set())
+  assert.equal(missing.length, 1)
+  assert.equal(missing[0].marker, 'G-863')
+  assert.equal(missing[0].multiSlot, true, '同题缺口只许点名,绝不进自动回捞')
+})
+
+test('G-948 反向锁:两行都在 / 名额本就 1(别人新加了一行)⇒ 一条都不报', () => {
+  assert.deepEqual(G.missingFrom(g948Seen(2), G948_TWO, () => null, new Set(), null, new Set()), [])
+  assert.deepEqual(G.missingFrom(g948Seen(1), G948_TWO, () => null, new Set(), null, new Set()), [])
+  assert.deepEqual(G.missingFrom(g948Seen(1), G948_ONE, () => null, new Set(), null, new Set()), [])
+})
+
+test('G-948 回捞侧:名额缺口只点名、一个字节都不写', () => {
+  const missing = G.missingFrom(g948Seen(2), G948_ONE, () => null, new Set(), null, new Set())
+  const healed = G.healContent(G948_ONE, missing)
+  assert.equal(healed.inserted, 0)
+  assert.equal(healed.appended, 0)
+  assert.equal(healed.out, G948_ONE)
+})
+
+test('G-948 两条腿各管一格:提交链归 foldedSlots、历史面归 multiset,不得互相顶名额', () => {
+  assert.deepEqual(G.lostMarkers(G948_TWO, G948_ONE), [], '提交链不得与名额维双计债')
+  const folded = G.foldedSlots(G948_TWO, G948_ONE)
+  assert.equal(folded.length, 1)
+  assert.equal(folded[0].id, 'G-863')
+  assert.deepEqual([folded[0].from, folded[0].to], [2, 1])
+})
+
+test('G-948 声明豁免:台账在册(本侧 0 份)⇒ 判"在册"、不回捞;台账空 ⇒ 照旧判缺', () => {
+  const declared = new Set([G948_ROW])
+  assert.deepEqual(G.missingFrom(g948Seen(2), G948_ONE, () => null, declared, null, new Set()), [])
+  assert.equal(G.missingFrom(g948Seen(2), G948_ONE, () => null, new Set(), null, new Set()).length, 1)
+})
+
+test('端到端 G-948(①整文件回写真吞行):--staged 吞掉同题第二行 ⇒ exit 1;补回 ⇒ exit 0', () => {
+  const dir = tempPlanRepo(G948_TWO)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), G948_ONE, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const r = runGate(dir, ['--staged'])
+    assert.equal(r.status, 1, `同题两行被写成一行必须判红,实测 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(r.stderr, /G-863/)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), G948_TWO, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const ok = runGate(dir, ['--staged'])
+    assert.equal(ok.status, 0, `补回后应 exit 0,实测 ${ok.status}\n${ok.stdout}${ok.stderr}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端 G-948(②只有工作树滞后):HEAD 无缺 ⇒ 全量档不得红,差值只作旁证', () => {
+  const dir = tempPlanRepo(G948_TWO)
+  try {
+    // 工作树按滞后副本整文件回写(只剩一行),但一次也没 add/commit
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), G948_ONE, 'utf8')
+    const r = runGate(dir, [])
+    assert.equal(r.status, 0, `HEAD 面没丢行时不得判红,实测 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(r.stdout, /无登记行丢失/)
+    // 同一现场走人工逃生舱(--worktree 才按磁盘判):判据**看见**这条缺口(点名 + 只报数),
+    // 但不进退出码 —— 证明差的只是取材面,且"存量缺口"在任何档位都不许变成恒红。
+    const wt = runGate(dir, ['--worktree'])
+    assert.equal(wt.status, 0, `存量名额缺口不得判红(§12e),实测 ${wt.status}\n${wt.stdout}${wt.stderr}`)
+    assert.match(wt.stderr, /G-863/)
+    assert.match(wt.stderr, /只报数/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端 G-948(③被审面取不到):HEAD 里没有方案文档 ⇒ exit 2 未判定,不得冒绿也不得冒红', () => {
+  const dir = mkScratch('planloss-noplan-')
+  try {
+    copyGateClosure(dir)
+    git(dir, 'init', '-q', '-b', 'main')
+    writeFileSync(join(dir, 'README.md'), '# 空壳仓\n', 'utf8')
+    git(dir, 'add', 'README.md')
+    git(dir, 'commit', '-m', 'no plan')
+    const r = runGate(dir, [])
+    assert.equal(r.status, 2, `取不到被审面必须 exit 2,实测 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(`${r.stdout}\n${r.stderr}`, /无法判定/)
+    assert.doesNotMatch(`${r.stdout}${r.stderr}`, /无登记行丢失/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端 G-948(④全量档看见但不判红):历史面名额缺口只报数,--strict 才判红', () => {
+  const dir = tempPlanRepo(G948_TWO)
+  try {
+    // 第二枚提交 = 按滞后副本整文件回写(旁路落地不跑钩子 ⇒ 提交链那一档结构上看不见)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), G948_ONE, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-m', 'stale whole-file rewrite without hook')
+    const def = runGateEnv(dir, [], { IHUI_PLAN_LINE_LOSS_HISTORY_DEPTH: '20' })
+    assert.equal(def.status, 0, `存量缺口不得判红(§12e),实测 ${def.status}\n${def.stdout}${def.stderr}`)
+    assert.match(def.stdout, /同编号仍占名额只报数 1/, '看见了必须报数,静默省略等于把没判写成判过了')
+    const strict = runGateEnv(dir, ['--strict'], { IHUI_PLAN_LINE_LOSS_HISTORY_DEPTH: '20' })
+    assert.equal(strict.status, 1, `--strict 必须问责,实测 ${strict.status}\n${strict.stdout}${strict.stderr}`)
+    assert.match(strict.stderr, /G-863/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 摘除台账闸门(2026-10-27 立,执行席 mp-g71)——门 71 的 fail-open 改判 fail-closed
+// 票面:台账取不到时被折成空集继续回捞 ⇒ 把 `strip-*` 正当摘掉的行逐字节插回台账 ⇒ "摘了又回来"。
+// 四向夹具:①台账在场且逐字命中 ⇒ 在册、不回捞;②台账在场而那行从未申报 ⇒ 判缺并捞回(正向牙);
+// ③**台账取不到 ⇒ 本轮零回捞 + 未判定退出码**(本票新增的牙);④摘掉③那支 ⇒ ③的夹具必须翻红。
+// ──────────────────────────────────────────────────────────────────────────────
+
+const GATE_DECLARED =
+  '- [ ] G-880900 台账闸门夹具行(被 f12-purge 正当摘除):回捞器不得把它逐字节插回台账,正文写得足够长以越过登记行最短长度门槛。'
+const GATE_LOST =
+  '- [ ] G-880901 台账闸门夹具行(从未申报摘除的真丢行):任何一轮都必须判缺并捞回,正文同样写得足够长以越过门槛。'
+const GATE_KEEP =
+  '- [ ] G-880902 台账闸门夹具的在册邻居行 —— 让被审面不只剩一行,正文同样写得足够长以越过登记行门槛。'
+// 回捞规模安全闸按"缺失/基线"比值拦(默认 40%):夹具不带足在册行,②④测到的就是那道闸而不是
+// 本票的闸门(同 T-D3g 头注那条纪律 —— 闸拦下时 heal 一字不写,反向对照会变成假失败)。
+const GATE_FILLER = Array.from(
+  { length: 24 },
+  (_, i) =>
+    `- [ ] G-88${(1090 + i).toString()} 台账闸门夹具的无关在册行第 ${i + 1} 枚 —— 只为把回捞规模闸的分母撑到正常量,正文足够长以越过登记行长度门槛。`,
+).join('\n')
+const GATE_V1 = `# 计划\n\n${GATE_KEEP}\n${GATE_FILLER}\n${GATE_LOST}\n${GATE_DECLARED}\n`
+// 滞后副本整文件回写:两行都没了(一行有留痕、一行没有),机器只看内容时**完全同形**。
+const GATE_V2 = `# 计划\n\n${GATE_KEEP}\n${GATE_FILLER}\n`
+
+/**
+ * 回捞夹具仓:v1 三行在册 → v2 把两行一起抹掉(HEAD 面上两行都缺)。
+ * `ledgerEntries` = 摘除台账留痕条目(字段逐字同 `strip-banned-buckets` 的 rowBefore 口径);
+ * `seed=false` ⇒ 两本账一本都不写(= 复现"台账取不到")。
+ */
+function gateRescueRepo({ seed = true, ledgerEntries = [] } = {}) {
+  const dir = mkScratch('ihui-gate71-ledger-')
+  const files = copyGateClosure(dir)
+  const commitAll = (msg) => {
+    git(dir, 'add', 'PROJECT_PLAN.md', ...files)
+    git(dir, '-c', 'user.email=t@t.local', '-c', 'user.name=t', '-c', 'core.hooksPath=', 'commit', '-q', '-m', msg)
+  }
+  git(dir, 'init', '-q', '-b', 'main')
+  git(dir, 'config', 'user.email', 't@t.local')
+  git(dir, 'config', 'user.name', 't')
+  git(dir, 'config', 'commit.gpgsign', 'false')
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), GATE_V1, 'utf8')
+  commitAll('v1 三枚登记行在册')
+  if (seed) seedDeclaredLedgers(dir, ledgerEntries)
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), GATE_V2, 'utf8')
+  commitAll('v2 两行同批消失(一枚有留痕、一枚没有)')
+  return dir
+}
+
+test('台账闸门读数(单源三态):两本账都不在位=未判定 / 空账在位=判定成立 / 整本解不开=未判定', () => {
+  const dir = mkScratch('ihui-gate71-gate-read-')
+  try {
+    // 未判定档:一本都不写 ⇒ filesSeen=0,且必须逐本点名缺的是哪两本账
+    const blind = G.declaredLedgerGate(dir, SCRUB_LEDGERS)
+    assert.equal(blind.undetermined, true, '两本台账都不在位必须落未判定(旧口径在这里折成空集继续回捞)')
+    assert.equal(blind.filesSeen, 0)
+    assert.deepEqual(
+      [...blind.missing].sort(),
+      [...SCRUB_LEDGERS].sort(),
+      `未判定必须逐本点名缺的是哪本账,实得 ${JSON.stringify(blind.missing)}`,
+    )
+    assert.match(blind.why, /plan-row-drop\.jsonl/, '原因行必须带得出账名,不许只说"读不到"')
+    // 反向对照:在位的空账 = "这本账读到了,只是还没有任何摘除声明" ⇒ 判定成立
+    mkdirSync(dirname(join(dir, SCRUB_LEDGERS[1])), { recursive: true })
+    writeFileSync(join(dir, SCRUB_LEDGERS[1]), '', 'utf8')
+    const ok = G.declaredLedgerGate(dir, SCRUB_LEDGERS)
+    assert.equal(ok.undetermined, false, `空账在位是**判定得成**(不是取不到),实得 why=${ok.why}`)
+    assert.equal(ok.filesSeen, 1)
+    // 正向对照:一条可用声明 ⇒ 判定成立且声明集非空(集本体来自单源 declaredRows)
+    writeFileSync(
+      join(dir, SCRUB_LEDGERS[1]),
+      `${JSON.stringify({ at: '2026-10-27T00:00:00.000Z', seat: 'fixture', file: 'PROJECT_PLAN.md', kind: 'f12-purge', rowBefore: GATE_DECLARED })}\n`,
+      'utf8',
+    )
+    const seeded = G.declaredLedgerGate(dir, SCRUB_LEDGERS)
+    assert.equal(seeded.undetermined, false)
+    assert.equal(seeded.declared.set.has(GATE_DECLARED), true, '声明集必须出自单源解析,不得门内另造一份')
+    // 整本损坏(账在位而一行都解不开)⇒ 同样未判定,不得折成"没人申报过"
+    writeFileSync(join(dir, SCRUB_LEDGERS[1]), '{这不是合法 JSON\n', 'utf8')
+    const rotten = G.declaredLedgerGate(dir, SCRUB_LEDGERS)
+    assert.equal(rotten.undetermined, true, '台账在位却全行解不开 ⇒ 未判定(旧口径在这里同样折成空集)')
+    assert.match(rotten.why, /全解不开/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('四向夹具①(逐字命中):台账在场且该行申报过 ⇒ 判"在册"、判缺只报没申报那枚、捞回的也只有它', () => {
+  const dir = gateRescueRepo({
+    ledgerEntries: [
+      {
+        at: '2026-10-27T00:00:00.000Z',
+        seat: 'f12-banned-bucket-sweep',
+        file: 'PROJECT_PLAN.md',
+        kind: 'f12-purge',
+        rowBefore: GATE_DECLARED,
+      },
+    ],
+  })
+  try {
+    const head = git(dir, 'show', 'HEAD:PROJECT_PLAN.md')
+    const seen = G.historyMarkers(5, dir)
+    const declared = declaredRows(dir, SCRUB_LEDGERS)
+    assert.equal(declared.set.has(GATE_DECLARED), true, '夹具台账必须逐字命中(否则测的不是在册档)')
+    const lost = G.missingFrom(seen, head, undefined, declared)
+    assert.deepEqual(
+      lost.map((x) => x.id).sort(),
+      ['G-880901'],
+      `在册那一枚不得判缺、未申报那一枚必须判缺 —— 实得 ${JSON.stringify(lost.map((x) => x.id))}`,
+    )
+    const healed = G.healContent(head, lost)
+    assert.equal(healed.inserted + healed.appended, 1, '正向牙:没申报的那枚照旧插回,在册那枚不插')
+    assert.ok(!healed.out.includes('G-880900'), '已声明摘除的行一个字节都不许回来')
+    const r = runGate(dir, ['--heal'])
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.equal(r.status, 0, `台账在位 ⇒ 回捞照常,实得 rc=${r.status}\n${out}`)
+    assert.match(r.stdout, /G-880901/, '判缺读数必须照旧报名')
+    assert.doesNotMatch(r.stdout, /G-880900/, '在册档不得把已声明摘除的行点成缺失')
+    assert.doesNotMatch(out, /台账闸门未判定/, '台账在位时不得冒喊未判定(那是另一种失真)')
+    const after = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.match(after, /G-880901/, '真丢那行必须被插回工作区')
+    assert.doesNotMatch(after, /G-880900/, '工作区也不得出现已声明摘除的行')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('四向夹具②(正向牙不许被削弱):台账在位而两行都从未申报 ⇒ 判缺 2 枚并照常全部捞回', () => {
+  const dir = gateRescueRepo({
+    ledgerEntries: [
+      {
+        at: '2026-10-27T00:00:00.000Z',
+        seat: 'fixture',
+        file: 'PROJECT_PLAN.md',
+        kind: 'stale-closed-sweep',
+        rowBefore:
+          '- [x] ✅(2026-10-26) G-880950 与本夹具无关的已结清留痕 —— 只用来把台账撑成"在位且可读"这一形。',
+      },
+    ],
+  })
+  try {
+    const head = git(dir, 'show', 'HEAD:PROJECT_PLAN.md')
+    const seen = G.historyMarkers(5, dir)
+    const lost = G.missingFrom(seen, head, undefined, declaredRows(dir, SCRUB_LEDGERS))
+    assert.equal(
+      lost.length,
+      2,
+      `两行都没申报过 ⇒ 必须都判缺(闸门不是放宽判缺的那一支),实得 ${lost.length}`,
+    )
+    const r = runGate(dir, ['--heal'])
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.equal(r.status, 0, `台账在位 ⇒ 判出的缺口照常回捞,实得 rc=${r.status}\n${out}`)
+    assert.doesNotMatch(out, /台账闸门未判定/)
+    const after = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.match(after, /G-880900/, '未申报的那一枚被捞回 = 判缺这一侧的牙还在')
+    assert.match(after, /G-880901/, '另一枚同样被捞回')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('四向夹具③(本票新增的牙):台账取不到 ⇒ 本轮零回捞 + 未判定 rc 2 + 点名缺的是哪本账', () => {
+  const dir = gateRescueRepo({ seed: false })
+  try {
+    const before = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    const headBefore = git(dir, 'rev-parse', 'HEAD').trim()
+    assert.equal(
+      G.declaredLedgerGate(dir, SCRUB_LEDGERS).undetermined,
+      true,
+      '夹具现场必须先量出"台账取不到",否则测不到闸门',
+    )
+    const r = runGate(dir, ['--heal'])
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.match(out, /台账闸门未判定 ⇒ 本轮零回捞/, `必须显式喊出未判定 + 零回捞,实得:\n${out}`)
+    assert.match(out, /不回捞 ≠ 没丢/, '未判定必须与"判过"分开落字(§0.3)')
+    assert.match(out, /plan-row-drop\.jsonl/, '必须点名缺的是哪一本账')
+    assert.match(out, /stale-claim-strip\.jsonl/, '两本账逐一报名')
+    assert.equal(r.status, 2, `未判定不得冒成 0(那等于把"没判"写成"判过"),实得 rc=${r.status}\n${out}`)
+    assert.equal(
+      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'),
+      before,
+      '本轮零回捞 = 工作区一个字节都不许被插回(旧口径在此逐字节回捞了 G-880900)',
+    )
+    assert.equal(git(dir, 'rev-parse', 'HEAD').trim(), headBefore, '未判定这一档更不许偷偷建恢复提交')
+    // 覆盖面红线:判缺读数**不得因闸门未判定而被削减**,三档点名照旧报出
+    assert.match(r.stdout, /\[分档\]/, '三档读数必须照旧打印')
+    assert.match(r.stdout, /缺 2 条/, `判缺枚数一条不减,实得:\n${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('四向夹具④(变异自证):摘掉③那一支 ⇒ ③的夹具当场翻红(行被逐字节插回、rc 归 0)', () => {
+  const dir = gateRescueRepo({ seed: false })
+  const scriptAbs = join(dir, 'scripts', 'check-plan-line-loss.mjs')
+  try {
+    const src = readFileSync(scriptAbs, 'utf8')
+    // 变异锚 = heal() 里消费闸门决议那一句;锚不在位 = 闸门被整支摘掉 ⇒ 本例必须红(变异自证不作假)
+    const anchor = 'if (gate.undetermined && !rescue.rescue) {'
+    assert.ok(src.includes(anchor), '变异锚不在位(回捞侧闸门被改写或摘线)⇒ ④的变异自证失效,必须红')
+    writeFileSync(scriptAbs, src.replace(anchor, 'if (false && gate.undetermined && !rescue.rescue) {'), 'utf8')
+    const r = runGate(dir, ['--heal'])
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.doesNotMatch(out, /台账闸门未判定 ⇒ 本轮零回捞/, '摘掉那支后未判定档必须不再拦(证明③靠的就是这支)')
+    assert.equal(r.status, 0, `摘掉那支 ⇒ 回到旧 fail-open 行为(rc 0),实得 ${r.status}\n${out}`)
+    assert.match(
+      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'),
+      /G-880900/,
+      '摘掉那支 ⇒ 已声明摘除的行被逐字节插回(这正是③要拦的现场);若这里没插回,说明③的夹具不由这支闸门决定',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('单源形状锁:闸门只 import 复洁器那一份解析,门内不得长出第二份 jsonl 解析或桶正则(§0.6/门 191)', () => {
+  const src = readFileSync(join(REPO, 'scripts', 'check-plan-line-loss.mjs'), 'utf8')
+  assert.match(
+    src,
+    /import\s*\{[^}]*declaredRows[^}]*LEDGERS[^}]*\}\s*from\s*'\.\/scrub-declared-removals\.mjs'/,
+    '台账清单与解析必须同取自 scrub-declared-removals(第二份清单必然漂移)',
+  )
+  const start = src.indexOf('export function declaredLedgerGate')
+  assert.ok(start > 0, '闸门本体必须在位')
+  const body = src.slice(start, start + 3000)
+  assert.match(body, /declaredRows\(/, '闸门必须直接调用单源解析,而不是自己读 jsonl')
+  assert.doesNotMatch(body, /JSON\.parse/, '闸门内不得另长一份 jsonl 解析器(§22c)')
+  assert.doesNotMatch(body, /等条件|等环境|待拍板/, '闸门内不得长出桶正则(定罪尺只有一把)')
 })

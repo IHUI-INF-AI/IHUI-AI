@@ -29,7 +29,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 │  共享层(14 包跨端复用,packages/*)                       │
 │  @ihui/auth @ihui/api-client @ihui/types @ihui/database │
 │  @ihui/ui-react @ihui/ui-native @ihui/design-tokens     │
-│  @ihui/context-compaction @ihui/sdk                     │
+│  @ihui/context-compaction @ihui-ai/sdk                     │
 │  @ihui/shared @ihui/rn-app                                  │
 │  @ihui/eslint-config @ihui/tsconfig                     │
 ├─────────────────────────────────────────────────────────┤
@@ -145,15 +145,15 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | `@ihui/ui-native` | React Native 组件库(avatar/badge/button/card/dialog/input/loading/switch/tabs/vip-badge,10 组件) | mobile-rn |
 | `@ihui/design-tokens` | 跨端基础原语(cn + HSL/HEX tokens + CSS 变量) | web / extension / mobile-rn |
 | `@ihui/context-compaction` | 上下文压缩(88% 阈值自动压缩) | cli / api / ai-service |
-| `@ihui/sdk` | 多语言 SDK(TS/Go/Python/Java/.NET) | 外部集成 |
-| `@ihui/shared` | 8端共享业务逻辑(auth/sso + memory + notifications + plan + workflows 等) | 全端 |
+| `@ihui-ai/sdk` | 多语言 SDK(TS/Go/Python/Java/.NET) | 外部集成 |
+| `@ihui/shared` | 9端共享业务逻辑(auth/sso + memory + notifications + plan + workflows 等) | 全端 |
 | `@ihui/rn-app` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + tokens) | mobile-rn / web |
 | `@ihui/eslint-config` | base/next/react ESLint 配置 | 全端 |
 | `@ihui/tsconfig` | base/nextjs/node/react-library TSConfig | 全端 |
 
 > **desktop 不在上表任何一行的消费端里**(2026-09-29 按 `apps/desktop/package.json` 实测改正:devDependencies 仅 `@tauri-apps/cli` + `rimraf`,无 `typecheck` script)。桌面端 = Tauri 薄壳 + 直连线上站点,这些共享包由**线上站点加载的 `apps/web` 前端**消费,桌面端经站点**间接使用、不直接依赖**;上表标"全端"的行(`@ihui/types` / `@ihui/shared` / `@ihui/eslint-config` / `@ihui/tsconfig`)同此理解。旧条目把 desktop 列进 `api-client`/`ui-react`/`design-tokens`/`auth` 四行,与 §2.5 和该 package.json 矛盾,已删。
 
-> `@ihui/sdk` 还提供 Go / Python / Java / .NET 多语言 SDK,供外部系统接入,见 `packages/sdk/` 各子目录。
+> `@ihui-ai/sdk` 还提供 Go / Python / Java / .NET 多语言 SDK,供外部系统接入,见 `packages/sdk/` 各子目录。
 
 ---
 

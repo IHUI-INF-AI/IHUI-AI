@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Circle } from 'lucide-react-native'
 
 import { useEffect, useMemo, useRef } from 'react'
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native'
@@ -108,8 +109,12 @@ export function ScreenSkeleton({
 /* ────────────────────────── 2. 空状态 ────────────────────────── */
 
 export interface EmptyStateProps {
-  /** 顶部字符图标(纯文本,免三方图标依赖,两端一致) */
-  glyph?: string
+  /**
+   * 顶部真图标(ReactNode,建议 lucide-react-native 组件)。
+   * 只接受图标节点,不再接受字符串 —— 关闭「字符当图标」通道(AGENTS §4:图标一律图标库)。
+   * 不传则用默认中性图标(圆圈)。
+   */
+  icon?: React.ReactNode
   title: string
   desc?: string
   actionLabel?: string
@@ -119,7 +124,7 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({
-  glyph = '◍',
+  icon,
   title,
   desc,
   actionLabel,
@@ -132,7 +137,7 @@ export function EmptyState({
   return (
     <View style={styles.stateWrap} testID={testID}>
       <View style={styles.stateGlyphCircle}>
-        <Text style={styles.stateGlyph}>{glyph}</Text>
+        {icon ?? <Circle size={26} color={tk.text.tertiary} />}
       </View>
       <Text style={styles.stateTitle}>{title}</Text>
       {desc ? <Text style={styles.stateDesc}>{desc}</Text> : null}

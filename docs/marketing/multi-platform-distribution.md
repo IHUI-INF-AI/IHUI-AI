@@ -211,8 +211,8 @@ IHUI-AI 是一个 8 端同源(web/api/ai-service/cli/desktop/extension/mobile/mi
 核心:packages/ 目录下 7 个共享包(types / sdk / api-client / design-tokens / ui-react / ui-native / auth),8 个 apps/ 各自实现端特定逻辑。
 
 ```ts
-// 8 端共用同一个 SDK
-import { IhuiClient } from '@ihui/sdk';
+// 9 端共用同一个 SDK
+import { IhuiClient } from '@ihui-ai/sdk';
 
 const client = new IhuiClient({ apiKey: process.env.IHUI_API_KEY });
 

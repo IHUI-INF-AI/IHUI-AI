@@ -286,7 +286,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 **4 语言 SDK 包管理器发布**(2026-07-28 立,`packages/sdk/` 5 语言实现 + `.github/workflows/release-sdk.yml`):
 
-- **npm**:`@ihui/sdk`(TypeScript / Node.js,108 端点,零运行时依赖)— `npm install @ihui/sdk`
+- **npm**:`@ihui-ai/sdk`(TypeScript / Node.js,109 端点,零运行时依赖)— `npm install @ihui-ai/sdk`
 - **PyPI**:`ihui-ai`(Python,sync + asyncio 双客户端,零依赖 stdlib)— `pip install ihui-ai`
 - **Maven Central**:`com.ihui:ihui-ai-java`(Java 11+,OkHttp + Jackson + SLF4J)— Maven 坐标见 docs/SDK.md
 - **Go module**:`github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go`(零依赖,context.Context)— `go get .../sdk/go/sdk@vX.Y.Z`
@@ -334,7 +334,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 88 守门脚本 + 56+10 pre-commit 项 + post-commit 自动 push + drizzle-kit push 模式 + 9 PowerShell 启动
 - 企业级安全(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
 - 542 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
-- **5 语言 SDK 完整封装 + 4 语言包管理器发布 CI**(npm `@ihui/sdk` + PyPI `ihui-ai` + Maven `com.ihui:ihui-ai-java` + Go module,OIDC trusted publishing + tag 自动发布)
+- **5 语言 SDK 完整封装 + 4 语言包管理器发布 CI**(npm `@ihui-ai/sdk` + PyPI `ihui-ai` + Maven `com.ihui:ihui-ai-java` + Go module,OIDC trusted publishing + tag 自动发布)
 
 ### 最近更新(2026-07-31)
 

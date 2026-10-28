@@ -9,9 +9,12 @@
 #       清单 = ihui_dev + keycloak(2026-09-28 起;为何是这两个、为何不含测试库,见下方 $backupDatabases 注释)
 # 清理:本地与云侧同窗轮转(最近 7 天);识别式只认 ihui*/keycloak* 的 .dump/.sql.gz,
 #       所以同目录里的 pg_hba 现场存档与 backup.log 不会被顺手带走
-# 用法(手动): powershell -ExecutionPolicy Bypass -File deploy\prod-bundle\pg-backup.ps1
-# 调度:由 nssm 服务 IHUI-PG-BACKUP 常驻跑同级 pg-backup-scheduler.ps1 —— **不是** Windows 任务计划程序
-#       (实测 schtasks 全量列表里没有备份任务);调度器启动即备份一次,之后每天 03:00 一轮。
+# 用法(手动): pwsh.exe -NoProfile -ExecutionPolicy Bypass -File deploy\win\ihui-pg-backup.ps1
+#       (§27:deploy/** 的 .ps1 不吃 #requires 声明,调用侧必须显式 pwsh —— 本行就是调用侧登记)
+# 调度:由 Windows 计划任务 \IHUI-PG-BACKUP(SYSTEM;触发器=开机 + 每日 03:00,多实例策略=IgnoreNew)
+#       常驻运行同级 ihui-pg-backup-scheduler.ps1 —— 调度器启动即备份一次,之后每天 03:00 一轮,
+#       失败轮 30 分钟重试最多 4 次。历史形态为 nssm 服务 IHUI-PG-BACKUP;2026-10-27 本机实测
+#       nssm.exe、同名服务与同名计划任务条目全部不在(换机后未复注册),现以计划任务载体复注册。
 # =============================================================================
 
 # ── 失败必须到人:邮件是唯一通道(AGENTS.md §5e)─────────────────────────────
@@ -70,6 +73,9 @@ $ProjectRoot = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
 # 本机两档算出的结果与收口前的字面值逐字符相同(D:\DevEnv),行为零漂移;
 # 换卷/挪盘时改一处机器级 env 即可,不必再动本脚本与影子副本两处。
 $DevEnvRoot = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $ProjectRoot) + '\DevEnv' }
+# PG 工具历史落点:供下方「PG 工具定位」候选序第 ④ 档取用(2026-10-28 合并归位:本行随
+# 该块一同在位,块内 `if ($legacyPgBinDir)` 才不会因变量缺失把这一档静默丢掉)。
+$legacyPgBinDir = Join-Path $DevEnvRoot 'runtimes\pgsql\bin'
 $psql = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\psql.exe'
 $pgDump = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\pg_dump.exe'
 $backupDir = Join-Path $DevEnvRoot 'backups\pg'
@@ -84,7 +90,8 @@ $cloudDir = "D:\BaiduSyncdisk\IHUI-PG-BACKUP"
 if ($env:IHUI_BACKUP_CLOUD_DIR) { $cloudDir = $env:IHUI_BACKUP_CLOUD_DIR }
 
 function Resolve-NodeExe {
-    # 本脚本由 nssm 服务 IHUI-PG-BACKUP 以 LocalSystem 身份跑,而**机器级 PATH 里那串 node 目录是死的**
+    # 本脚本由计划任务 IHUI-PG-BACKUP 以 SYSTEM 身份跑(2026-10-27 复注册实测;历史形态为 nssm 服务,
+    # 同为 LocalSystem),而**机器级 PATH 里那串 node 目录是死的**
     # (实测 HKLM\...\Environment\Path 含 `D:\nodejs\`,而该目录不存在;node 真身在用户级 PATH 的
     # `D:\DevEnv\runtimes\node\node.exe`,服务身份读不到 ⇒ 只靠 Get-Command 会在自动轮次里静默落空,
     # 表现为"手动跑用专用角色、服务跑退回应用账号")。候选与 ihui-deploy.ps1:120 / ihui-monitor.ps1:108
@@ -207,14 +214,15 @@ function Send-FailureAlert {
     $lines = @()
     # 报"实际被执行的那一份":生产跑的是 deploy/prod-bundle/pg-backup.ps1(被 gitignore 的影子副本),
     # 写死入库源路径会让人去改一份根本不执行的文件。
-    $lines += "来源: $PSCommandPath(服务 IHUI-PG-BACKUP)"
+    $lines += "来源: $PSCommandPath(计划任务 IHUI-PG-BACKUP)"
     $lines += "时刻: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss zzz'))"
     $lines += "结论: $Reason"
     if ($Details -and $Details.Count -gt 0) {
         $lines += '明细:'
         foreach ($d in $Details) { $lines += "  - $d" }
     }
-    $lines += '下一步: 看日志 D:\DevEnv\logs\pg-backup-scheduler.log;审计节拍跑 node scripts/pg-backup-cadence-audit.mjs'
+    # 日志落点不写死盘符(2026-10-27 实测:本机 DevEnv 根 = 仓根所在盘派生位,D:\ 字面量是旧机残留)
+    $lines += "下一步: 看日志 $DevEnvRoot\logs\pg-backup-scheduler.log;审计节拍跑 node scripts/pg-backup-cadence-audit.mjs"
     $body = $lines -join "`n"
     if (Invoke-BrandAlertMail -Subject $AlertTitle -BodyText $body) {
         if ($AlertDryRun) {
@@ -333,6 +341,95 @@ if (-not $dbPw) {
     }
 }
 $env:PGPASSWORD = $dbPw
+
+# ── PG 工具定位(2026-10-25 立,治"备份链静默零产物")────────────────────────────
+# 实测现场(现读,不是假想):G:\DevEnv\runtimes\pgsql\ 整个目录不存在 ⇒ 旧写法写死的
+# `$DevEnvRoot\runtimes\pgsql\bin\pg_dump.exe` 每轮必抛 "The term … is not recognized",
+# 被上方 trap 接住 exit 1,而 G:\DevEnv\backups\pg 长期 0 份。本机真正的 PG 二进制在
+# $env:ProgramFiles\PostgreSQL\18\bin(与运行中的 postgresql-x64-18 服务配对,psql/pg_dump 18.6)。
+# 候选序(高→低),只认磁盘上真有 pg_dump.exe 的那一个:
+#   ① $env:ProgramFiles\PostgreSQL\<版本>\bin(按版本降序;17/18 并存取 18)
+#   ② $env:IHUI_PG_BIN_DIR           显式覆盖(换机/换盘只改机器级 env,不再改脚本与影子副本)
+#   ③ 运行中 PostgreSQL 服务 ImagePath 反查 …\bin\pg_ctl.exe(与服务器版本天然配对,最不易错)
+#   ④ $DevEnvRoot\runtimes\pgsql\bin 历史落点(向后兼容:该目录若回来,行为回到旧样)
+#   ⑤ PATH 上的 pg_dump.exe
+# 2026-10-27 改序(① 与 ④ 对调;原序是 env→历史落点→服务→发行版→PATH),立因不是洁癖:
+#   换机后这两档会**同路径重现**而不是二选一 —— 仓根回到 G:,于是 $DevEnvRoot = G:\DevEnv,
+#   而旧机那套运行时也正落在 G:\DevEnv\runtimes\pgsql。旧序下只要有人把旧客户端目录搬回来,
+#   历史落点就排在发行版之前被选中;pg_dump 主版本低于服务器(18.6)时 dump 必失败,
+#   而它的报错形态与"口令/权限错"同形 ⇒ 排障方向被带偏。发行版探测 = 现读机器事实,排第一;
+#   env 覆盖留在第二档:既不夺人的显式指定权,也不再让一个"路径碰巧存在"压过机器现状。
+# 全落空 ⇒ **exit 2「未判定」**(§0.3),不再是 exit 1 的"备份失败":取不到工具链 = 本轮判不了,
+#   不等于判出"备份坏了"。两者在日志/告警里必须形态不同,否则接手的人会先去查库而不是查工具链。
+function Resolve-PgBinCandidateDirs {
+    $dirs = New-Object System.Collections.Generic.List[string]
+    # ① 发行版安装位。不写 C 盘字面量(§26 同一条纪律;check-c-drive-paths 也扫 .ps1),根从环境变量派生
+    # ⚠ 必须先 Test-Path 再 Join-Path:ProgramFiles 指向一个不存在的驱动器时 Join-Path 会抛
+    # "Cannot find drive",而本文件 EAP=Stop ⇒ 它会被顶部 trap 接成"脚本自身异常 exit 1",
+    # 形态与"pg_dump 失败"同形。候选档取不到只该**跳过这一档**(2026-10-27 负控实测)。
+    $pfRoot = if ($env:ProgramFiles -and (Test-Path -LiteralPath $env:ProgramFiles)) { Join-Path $env:ProgramFiles 'PostgreSQL' } else { $null }
+    if ($pfRoot -and (Test-Path -LiteralPath $pfRoot)) {
+        $installs = @(Get-ChildItem -LiteralPath $pfRoot -Directory -ErrorAction SilentlyContinue |
+            Sort-Object { [int]($_.Name -replace '\D', '') } -Descending)
+        foreach ($d in $installs) { $dirs.Add((Join-Path $d.FullName 'bin')) }
+    }
+    # ② 显式覆盖
+    if ($env:IHUI_PG_BIN_DIR) { $dirs.Add($env:IHUI_PG_BIN_DIR) }
+    # ③ 运行中服务反查(与服务器版本天然配对)
+    try {
+        $svcs = @(Get-CimInstance Win32_Service -ErrorAction SilentlyContinue |
+            Where-Object { $_.PathName -and $_.PathName -match '(?i)postgres' -and $_.State -eq 'Running' } |
+            Sort-Object Name -Descending)
+        foreach ($s in $svcs) {
+            $m = [regex]::Match($s.PathName, '^"?([^"]+?)[\\/]bin[\\/]pg_ctl\.exe', 'IgnoreCase')
+            if ($m.Success) { $dirs.Add((Join-Path $m.Groups[1].Value 'bin')) }
+        }
+    } catch {
+        Write-Host "[WARN] 从服务反查 PG bin 失败(跳过该候选): $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    # ④ 历史落点(旧机运行时;排在发行版与服务反查之后,见上方改序说明)
+    if ($legacyPgBinDir) { $dirs.Add($legacyPgBinDir) }
+    # ⑤ PATH
+    $cmd = Get-Command pg_dump.exe -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source) { $dirs.Add((Split-Path -Parent $cmd.Source)) }
+    return @($dirs | Where-Object { $_ } | Select-Object -Unique)
+}
+
+$pgBinDir = $null
+$pgCandidates = @(Resolve-PgBinCandidateDirs)
+foreach ($d in $pgCandidates) {
+    if (Test-Path -LiteralPath (Join-Path $d 'pg_dump.exe')) { $pgBinDir = $d; break }
+}
+if (-not $pgBinDir) {
+    $tried = if ($pgCandidates.Count -gt 0) { $pgCandidates -join ' | ' } else { '(无候选)' }
+    Write-Host '[UNDETERMINED] 找不到 pg_dump.exe:本轮未判定(不是「备份失败」,是工具链取不到)' -ForegroundColor Red
+    Write-Host "        已尝试: $tried" -ForegroundColor Yellow
+    Write-Host "        出路:①设 IHUI_PG_BIN_DIR=<含 pg_dump.exe 的 bin 目录>;②安装 PostgreSQL client(需机主同意)" -ForegroundColor Yellow
+    Send-FailureAlert -Reason '未判定:找不到 pg_dump.exe,本轮未跑任何导出(备份链断在备份工具缺失)' -Details @(
+        "已尝试目录: $tried",
+        '定性:不是口令/权限/库未就绪,也不是 pg_dump 判出的失败 —— 是本轮判不了(§0.3),退出码 2 与备份失败(1)不同形',
+        '本机 PG 发行版可经 Win32_Service 的 postgresql-* 服务 ImagePath 反查其 bin 目录',
+        '出路:①设 IHUI_PG_BIN_DIR;②安装 PostgreSQL client(需机主同意)'
+    )
+    exit 2
+}
+$pgDump = Join-Path $pgBinDir 'pg_dump.exe'
+$psql = Join-Path $pgBinDir 'psql.exe'
+$pgDumpVersion = ''
+$prevPgEap = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    $pgDumpVersion = ((& $pgDump --version 2>&1 | Out-String).Trim())
+} catch {
+    $pgDumpVersion = "(版本探测失败: $($_.Exception.Message))"
+} finally {
+    $ErrorActionPreference = $prevPgEap
+}
+Write-Host "[INFO] PG 工具: $pgDumpVersion @ $pgBinDir" -ForegroundColor Gray
+if (-not (Test-Path -LiteralPath $psql)) {
+    # 就绪门与逐库复核都要 psql;缺它不会让导出失败,但必须让人知道这两层被测面变薄了
+    Write-Host "[WARN] 同目录缺 psql.exe:$psql ⇒ 就绪门与逐库复核将跳过(导出本身不依赖 psql)" -ForegroundColor Yellow
+}
 
 if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Force -Path $backupDir | Out-Null }
 

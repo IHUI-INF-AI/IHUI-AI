@@ -15,6 +15,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
+import { BlurTargetView } from 'expo-blur'
 import { appAlert } from '../components/BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Clipboard from '@react-native-clipboard/clipboard'
@@ -190,6 +191,7 @@ export function AgentScreen() {
   // 返回顶部按钮(对齐 Uniapp toodown-wrapper)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const contentScrollRef = useRef<ScrollView>(null)
+  const tabBarBlurTargetRef = useRef<View>(null)
   // FloatBox toast 提示
   const [toast, setToast] = useState<{ visible: boolean; type: FloatBoxType; message: string }>({
     visible: false,
@@ -649,189 +651,202 @@ export function AgentScreen() {
 
   return (
     <View style={styles.shell}>
-      <NavChrome>
-        <NavBar
-          title={t('agentScreen.title')}
-          // 分类钮(2026-10-28 用户定):FolderOpen「分类」换 LayoutGrid 纯图标去文字,
-          // 并从左侧移到右侧操作区(左侧只留导航菜单,右侧并列搜索,左导航/右操作)
-          leftActions={[
-            { icon: PanelLeftRounded, a11yLabel: t('home.navMenu'), onPress: handleMenuPress },
-          ]}
-          rightActions={[
-            {
-              icon: LayoutGrid,
-              a11yLabel: t('plaza.index.navCategory'),
-              onPress: handleCategoryPress,
-            },
-            { icon: Search, a11yLabel: t('common.search'), onPress: handleSearchPress },
-          ]}
-        />
-      </NavChrome>
-      <ScrollView
-        ref={contentScrollRef}
-        style={styles.contentScroll}
-        contentContainerStyle={{ paddingBottom: tabBarScrollReserve(insets.bottom) }}
-        onScroll={handleContentScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true)
-              void load()
-            }}
+      {/* Android 真模糊:背景内容包进 BlurTargetView 供 TabBar 胶囊取样(expo-blur SDK 55+ 必需;iOS/web 即普通 View) */}
+      <BlurTargetView ref={tabBarBlurTargetRef} style={{ flex: 1 }}>
+        <NavChrome>
+          <NavBar
+            title={t('agentScreen.title')}
+            // 分类钮(2026-10-28 用户定):FolderOpen「分类」换 LayoutGrid 纯图标去文字,
+            // 并从左侧移到右侧操作区(左侧只留导航菜单,右侧并列搜索,左导航/右操作)
+            leftActions={[
+              { icon: PanelLeftRounded, a11yLabel: t('home.navMenu'), onPress: handleMenuPress },
+            ]}
+            rightActions={[
+              {
+                icon: LayoutGrid,
+                a11yLabel: t('plaza.index.navCategory'),
+                onPress: handleCategoryPress,
+              },
+              { icon: Search, a11yLabel: t('common.search'), onPress: handleSearchPress },
+            ]}
           />
-        }
-      >
-        {banners.length > 0 ? (
-          <View style={styles.carouselWrap}>
-            <Carousel
-              banner={banners}
-              onItemPress={(item) => {
-                // 点击轮播跳转对应智能体对话(banner 派生自智能体列表,link 为智能体 id;
-                // 对齐 Uniapp banner_carousel @item-click → ai_assistant)
-                if (!token) {
-                  appAlert(t('common.hint'), t('profile.userCard.loginRequired'), [
-                    { text: t('common.cancel'), style: 'cancel' },
-                    { text: t('common.login'), onPress: () => navigation.navigate('Login') },
-                  ])
-                  return
-                }
-                navigation.navigate('AiAssistantN8n', {
-                  agentId: item.link,
-                  title: item.title,
-                })
-              }}
-            />
-          </View>
-        ) : null}
-        {/* 搜索框已改弹窗形态(2026-10-15 与 web 端一致):原页内展开的 SearchInput(showSearchBox)
-            已删,顶栏搜索按钮统一开文件尾 <SearchOverlay /> */}
-        {recentAgents.length > 0 ? (
-          <RecentAgents items={recentAgents} onItemClick={(item) => handleItemClick(item.id)} />
-        ) : null}
-        {/* IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue:小方欢迎卡 + 剩余智汇值 + 充值) */}
-        <View style={styles.sectionWrap}>
-          <IntelligentAssistant tokenQuantity={tokenQuantity} onRecharge={handleRechargePress} />
-        </View>
-        {/* MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue:标题 + 我的AI员工入口 + 横滑卡片) */}
-        <View style={styles.sectionWrap}>
-          <MyAgents
-            items={myAgents}
-            onItemClick={handleMyAgentPress}
-            onTeamPress={handleTeamPress}
-          />
-        </View>
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            style={[styles.tab, viewMode === 'shared' && styles.tabActive]}
-            onPress={() => setViewMode('shared')}
-            activeOpacity={0.8}
-          >
-            <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
-              智能体
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, viewMode === 'local' && styles.tabActive]}
-            onPress={() => setViewMode('local')}
-            activeOpacity={0.8}
-          >
-            <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
-              模型选择
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.viewport}>
-          {viewMode === 'shared' ? (
-            <SharedAgentScreen
-              t={t}
-              colorScheme={resolvedTheme}
-              items={items.slice(0, visibleCount)}
-              loading={loading}
+        </NavChrome>
+        <ScrollView
+          ref={contentScrollRef}
+          style={styles.contentScroll}
+          contentContainerStyle={{ paddingBottom: tabBarScrollReserve(insets.bottom) }}
+          onScroll={handleContentScroll}
+          scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl
               refreshing={refreshing}
-              error={error}
               onRefresh={() => {
                 setRefreshing(true)
                 void load()
               }}
-              onPressItem={(id) => handleItemClick(id)}
-              onBack={() => navigation.goBack()}
-              nestedInScrollView
             />
-          ) : (
-            <>
-              <ModelList
-                groups={modelGroups}
-                selectionMode="single"
-                selectedIds={selectedModelIds}
-                onSelectChange={setSelectedModelIds}
+          }
+        >
+          {banners.length > 0 ? (
+            <View style={styles.carouselWrap}>
+              <Carousel
+                banner={banners}
+                onItemPress={(item) => {
+                  // 点击轮播跳转对应智能体对话(banner 派生自智能体列表,link 为智能体 id;
+                  // 对齐 Uniapp banner_carousel @item-click → ai_assistant)
+                  if (!token) {
+                    appAlert(t('common.hint'), t('profile.userCard.loginRequired'), [
+                      { text: t('common.cancel'), style: 'cancel' },
+                      { text: t('common.login'), onPress: () => navigation.navigate('Login') },
+                    ])
+                    return
+                  }
+                  navigation.navigate('AiAssistantN8n', {
+                    agentId: item.link,
+                    title: item.title,
+                  })
+                }}
               />
-              {/* 已选模型操作条(对齐 Uniapp 模型选择后进入对话;消费 selectedModelIds,避免死状态) */}
-              {selectedModelIds.length > 0 ? (
-                <View style={styles.modelSelectionBar}>
-                  <Text style={styles.modelSelectionText} numberOfLines={1}>
-                    已选模型:{selectedModelName}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.modelStartBtn}
-                    activeOpacity={0.8}
-                    onPress={handleStartModelChat}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('aiAssistant.startChat')}
-                  >
-                    <Text style={styles.modelStartBtnText}>{t('aiAssistant.startChat')}</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
-            </>
-          )}
-        </View>
-        {viewMode === 'shared' && items.length > visibleCount ? (
-          <TouchableOpacity
-            style={styles.loadMoreBtn}
-            activeOpacity={0.8}
-            onPress={() => setVisibleCount((n) => n + AGENT_PAGE_STEP)}
-            accessibilityRole="button"
-            accessibilityLabel={t('resources.loadMore')}
-          >
-            <Text style={styles.loadMoreText}>{t('resources.loadMore')}</Text>
-          </TouchableOpacity>
+            </View>
+          ) : null}
+          {/* 搜索框已改弹窗形态(2026-10-15 与 web 端一致):原页内展开的 SearchInput(showSearchBox)
+            已删,顶栏搜索按钮统一开文件尾 <SearchOverlay /> */}
+          {recentAgents.length > 0 ? (
+            <RecentAgents items={recentAgents} onItemClick={(item) => handleItemClick(item.id)} />
+          ) : null}
+          {/* IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue:小方欢迎卡 + 剩余智汇值 + 充值) */}
+          <View style={styles.sectionWrap}>
+            <IntelligentAssistant tokenQuantity={tokenQuantity} onRecharge={handleRechargePress} />
+          </View>
+          {/* MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue:标题 + 我的AI员工入口 + 横滑卡片) */}
+          <View style={styles.sectionWrap}>
+            <MyAgents
+              items={myAgents}
+              onItemClick={handleMyAgentPress}
+              onTeamPress={handleTeamPress}
+            />
+          </View>
+          <View style={styles.tabBar}>
+            <TouchableOpacity
+              style={[styles.tab, viewMode === 'shared' && styles.tabActive]}
+              onPress={() => setViewMode('shared')}
+              activeOpacity={0.8}
+            >
+              <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
+                智能体
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, viewMode === 'local' && styles.tabActive]}
+              onPress={() => setViewMode('local')}
+              activeOpacity={0.8}
+            >
+              <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
+                模型选择
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.viewport}>
+            {viewMode === 'shared' ? (
+              <SharedAgentScreen
+                t={t}
+                colorScheme={resolvedTheme}
+                items={items.slice(0, visibleCount)}
+                loading={loading}
+                refreshing={refreshing}
+                error={error}
+                onRefresh={() => {
+                  setRefreshing(true)
+                  void load()
+                }}
+                onPressItem={(id) => handleItemClick(id)}
+                onBack={() => navigation.goBack()}
+                nestedInScrollView
+              />
+            ) : (
+              <>
+                <ModelList
+                  groups={modelGroups}
+                  selectionMode="single"
+                  selectedIds={selectedModelIds}
+                  onSelectChange={setSelectedModelIds}
+                />
+                {/* 已选模型操作条(对齐 Uniapp 模型选择后进入对话;消费 selectedModelIds,避免死状态) */}
+                {selectedModelIds.length > 0 ? (
+                  <View style={styles.modelSelectionBar}>
+                    <Text style={styles.modelSelectionText} numberOfLines={1}>
+                      已选模型:{selectedModelName}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.modelStartBtn}
+                      activeOpacity={0.8}
+                      onPress={handleStartModelChat}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('aiAssistant.startChat')}
+                    >
+                      <Text style={styles.modelStartBtnText}>{t('aiAssistant.startChat')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </>
+            )}
+          </View>
+          {viewMode === 'shared' && items.length > visibleCount ? (
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              activeOpacity={0.8}
+              onPress={() => setVisibleCount((n) => n + AGENT_PAGE_STEP)}
+              accessibilityRole="button"
+              accessibilityLabel={t('resources.loadMore')}
+            >
+              <Text style={styles.loadMoreText}>{t('resources.loadMore')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </ScrollView>
+        {showBackToTop ? (
+          <ScrollJumpButton
+            direction="top"
+            onPress={handleBackToTop}
+            label={t('common.backToTop')}
+            colorScheme={resolvedTheme}
+            style={{
+              position: 'absolute',
+              right: scrollJumpInsetPx(),
+              bottom: scrollJumpInsetPx(),
+            }}
+          />
         ) : null}
-      </ScrollView>
-      {showBackToTop ? (
-        <ScrollJumpButton
-          direction="top"
-          onPress={handleBackToTop}
-          label={t('common.backToTop')}
-          colorScheme={resolvedTheme}
-          style={{ position: 'absolute', right: scrollJumpInsetPx(), bottom: scrollJumpInsetPx() }}
+        <FloatBox
+          visible={toast.visible}
+          type={toast.type}
+          message={toast.message}
+          onHide={handleToastHide}
         />
-      ) : null}
-      <FloatBox
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        onHide={handleToastHide}
-      />
-      {/* 悬浮栏(赚米/客服/反馈)由 App.tsx 的 GlobalFloatBox 单点渲染;
+        {/* 悬浮栏(赚米/客服/反馈)由 App.tsx 的 GlobalFloatBox 单点渲染;
           此处曾另挂一份,两份同屏叠出双栏,且这份的「反馈」错跳 Settings。 */}
-      <Drawer
-        visible={drawerVisible}
-        onClose={closeDrawer}
-        user={drawerUser}
-        conversations={drawerConversations}
-        onNavigate={handleDrawerNavigate}
-        onNavigateCompany={handleDrawerNavigateCompany}
-        onClaimFree={handleDrawerClaimFree}
-        onCreateNewChat={handleDrawerCreateNewChat}
-        onSelectConversation={handleDrawerSelectConversation}
-        onDeleteConversation={handleDrawerDeleteConversation}
-        onOpenSettings={handleDrawerOpenSettings}
-        onOpenMessages={handleDrawerOpenMessages}
-        onGoHome={handleDrawerGoHome}
-        onNavigateExtra={handleNavigateExtra}
-      />
+        <Drawer
+          visible={drawerVisible}
+          onClose={closeDrawer}
+          user={drawerUser}
+          conversations={drawerConversations}
+          onNavigate={handleDrawerNavigate}
+          onNavigateCompany={handleDrawerNavigateCompany}
+          onClaimFree={handleDrawerClaimFree}
+          onCreateNewChat={handleDrawerCreateNewChat}
+          onSelectConversation={handleDrawerSelectConversation}
+          onDeleteConversation={handleDrawerDeleteConversation}
+          onOpenSettings={handleDrawerOpenSettings}
+          onOpenMessages={handleDrawerOpenMessages}
+          onGoHome={handleDrawerGoHome}
+          onNavigateExtra={handleNavigateExtra}
+        />
+        {/* 搜索弹窗(2026-10-15 与 web 端一致:顶栏搜索钮开此弹层,遮罩 + 三段面板,
+         *  弹窗内直接出结果,与 HomeScreen 共用同一 SearchOverlay 形态) */}
+        <SearchOverlay
+          visible={searchOverlayVisible}
+          onClose={() => setSearchOverlayVisible(false)}
+        />
+      </BlurTargetView>
       <Modal
         visible={tagWrapVisible}
         transparent
@@ -865,14 +880,8 @@ export function AgentScreen() {
           </View>
         </View>
       </Modal>
-      {/* 搜索弹窗(2026-10-15 与 web 端一致:顶栏搜索钮开此弹层,遮罩 + 三段面板,
-       *  弹窗内直接出结果,与 HomeScreen 共用同一 SearchOverlay 形态) */}
-      <SearchOverlay
-        visible={searchOverlayVisible}
-        onClose={() => setSearchOverlayVisible(false)}
-      />
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
-      <TabBar activeTab="aiShop" onChange={handleTabChange} />
+      <TabBar activeTab="aiShop" onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
     </View>
   )
 }

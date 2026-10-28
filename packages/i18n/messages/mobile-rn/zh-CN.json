@@ -11,6 +11,12 @@
     "loadFailed": "工作流加载失败"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "手动暂停",
+      "failedPermanent": "永久失败",
+      "failedRetriesExhausted": "重试次数已用尽",
+      "completed": "已完成"
+    },
     "title": "自动化",
     "empty": "暂无自动化任务",
     "loadFailed": "自动化加载失败",
@@ -123,7 +129,6 @@
     "modelSck": "知识库",
     "matAll": "全部",
     "matText": "文本",
-    "myCreation": "我的创作",
     "inputPlaceholder": "请输入您的问题，或长按说话",
     "modelSelectTitle": "模型选择",
     "modelSelectSearchCount": "搜索到 {count} 个模型",
@@ -255,9 +260,7 @@
     "pubVideo": "发布视频",
     "pubGroup": "发布课程合集",
     "closePreview": "关闭预览",
-    "recentUsed": "最近使用",
-    "closeDrawer": "关闭抽屉",
-    "shareBoardTitle": "智汇AI社区 - {name}"
+    "recentUsed": "最近使用"
   },
   "plaza": {
     "index": {
@@ -294,8 +297,7 @@
       "n4t": "4. 隐私保护 ",
       "n4b": "开发者应当严格保护用户隐私,不得泄露、出售或非法使用用户个人信息。",
       "n5t": "5. 技术标准 ",
-      "n5b": "开发者应当提供符合行业标准的技术服务,确保技术方案的可行性和可靠性。",
-      "searchNeedDesc": "搜索需求或描述"
+      "n5b": "开发者应当提供符合行业标准的技术服务,确保技术方案的可行性和可靠性。"
     }
   },
   "login": {
@@ -309,10 +311,6 @@
     "ssoCancelled": "用户取消授权",
     "ssoNoCode": "SSO 回跳未包含 code",
     "ssoTokenFail": "SSO 换取 token 失败",
-    "carrierNotConfigured": "运营商一键登录未配置,已切换到短信验证码登录",
-    "carrierOneClick": "本机号码一键登录",
-    "carrierLaunching": "正在拉起运营商授权...",
-    "closeCarrier": "关闭运营商登录",
     "wechatH5Hint": "微信登录请在原生 App 中使用(需安装微信 App)。\n您可以使用\"智汇AI网页授权登录\"按钮跳转网页端授权。",
     "goWeb": "前往网页端",
     "wechatNotInstalled": "未安装微信 App,请先安装微信",
@@ -554,8 +552,7 @@
     "myOrders": "我的订单",
     "editProfile": "编辑资料",
     "notLoggedIn": "未登录",
-    "clickRetry": "点击重试",
-    "benefitTraderAll": "享受平台全部权益"
+    "clickRetry": "点击重试"
   },
   "payResult": {
     "title": "支付结果",
@@ -640,6 +637,22 @@
     "runtimeInputPlaceholder": "输入消息发送给智能体",
     "runtimeStop": "停止",
     "runtimeSend": "发送"
+  },
+  "quickNotes": {
+    "menuEntry": "快捷笔记",
+    "title": "快捷笔记",
+    "new": "新建笔记",
+    "edit": "编辑",
+    "search": "搜索笔记",
+    "insert": "插入对话",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "archived": "已归档",
+    "showArchived": "显示已归档",
+    "empty": "暂无笔记",
+    "titlePlaceholder": "标题",
+    "contentPlaceholder": "正文",
+    "groupPlaceholder": "分组(可选)"
   },
   "chat": {
     "assetCatText": "文本",
@@ -794,6 +807,7 @@
         "retry": "重试",
         "saveAudioOnly": "仅保存音频",
         "insertToInput": "插入对话",
+        "cancel": "取消录音",
         "dismiss": "关闭"
       },
       "searchPlaceholder": "搜索笔记内容",
@@ -924,6 +938,7 @@
     "themeChanged": "主题已切换",
     "checkUpdateTitle": "检查更新",
     "checkUpdateLatest": "当前已是最新版本",
+    "checkUpdateUnsupported": "当前环境不支持应用内更新",
     "changePhoneMissingUser": "用户信息缺失,无法更换手机号",
     "logoutConfirm": "确认退出当前账号?",
     "appPermission": "应用权限",
@@ -1065,14 +1080,6 @@
     "sectionSettings": "设置",
     "subscriptions": "我的订阅",
     "settings": "设置",
-    "catImage": "图片",
-    "catVideo": "视频",
-    "catCopy": "文案",
-    "catAgent": "智能体",
-    "catRpa": "RPA",
-    "catCode": "编程",
-    "catMusic": "音乐",
-    "catOther": "其他",
     "catCopyShort": "文案"
   },
   "drawer": {
@@ -1193,18 +1200,7 @@
     "chat": {
       "title": "进入对话",
       "message": "即将与「{name}」开始对话"
-    },
-    "catLearning": "学习",
-    "mainAll": "全部",
-    "mainWriting": "写作",
-    "mainCoding": "编程",
-    "mainOffice": "办公",
-    "mainLearning": "学习",
-    "catDouyin": "抖音運營",
-    "catPrivate": "私域運營",
-    "catContent": "內容創作",
-    "catData": "數據分析",
-    "catAll2": "全部"
+    }
   },
   "aiAssistantN8n": {
     "title": "AI 助手",
@@ -1360,13 +1356,7 @@
     "kindAutoContext": "自动检索上下文"
   },
   "developer": {
-    "becomeDeveloper": "成为开发者",
-    "title": "开发者入口",
-    "subtitle": "发布智能体,获取收益",
-    "selectService": "请选择所需要的服务",
-    "processing": "处理中...",
-    "openNow": "一键开通",
-    "agreementHint": "开通即表示同意《开发者服务协议》"
+    "becomeDeveloper": "成为开发者"
   },
   "liveHost": {
     "error": {
@@ -1401,8 +1391,7 @@
     "streamKey": "推流密钥",
     "streamTitle": "直播标题",
     "streamTitlePlaceholder": "请输入直播标题",
-    "title": "主播中心",
-    "productLoading": "加载中..."
+    "title": "主播中心"
   },
   "modelEdit": {
     "error": {
@@ -1458,8 +1447,7 @@
     "operationFailed": "操作失败，请稍后重试",
     "title": "n8n 模型",
     "vendorName": "n8n 工作流",
-    "listView": "列表视图",
-    "groupBrowse": "分组浏览"
+    "listView": "列表视图"
   },
   "modelPlaza": {
     "officialBadge": "智",
@@ -1482,8 +1470,7 @@
     "selectProviderLabel": "选择供应商",
     "title": "模型广场",
     "groupBrowse": "分组浏览",
-    "workflowTab": "工作流",
-    "listView": "列表视图"
+    "workflowTab": "工作流"
   },
   "tokenValue": {
     "recharge": {
@@ -1634,14 +1621,7 @@
     "ctaDesc": "注册即得 1000 积分,全模型免费试用,无需信用卡。",
     "ctaPrimary": "免费注册",
     "ctaSecondary": "查看文档",
-    "complianceTitle": "法律与合规信息",
-    "title": "关于",
-    "appName": "应用名称",
-    "version": "版本",
-    "description": "应用介绍",
-    "officialSite": "官方网站",
-    "contactEmail": "联系邮箱",
-    "license": "开源许可"
+    "complianceTitle": "法律与合规信息"
   },
   "activityDetail": {
     "title": "活动详情",
@@ -1921,10 +1901,7 @@
     "sales": "已售 {count} 件",
     "loadFailed": "加载分销失败",
     "withdrawFailed": "提现失败",
-    "withdrawSuccess": "提现成功",
-    "unsettled": "待结算",
-    "refunded": "退单",
-    "unknown": "未知"
+    "withdrawSuccess": "提现成功"
   },
   "earnCommission": {
     "title": "分佣计划",
@@ -3317,27 +3294,10 @@
   },
   "studyIndex": {
     "title": "AI 视频",
-    "catAll": "全部",
     "catDouyin": "抖音运营",
     "catPrivate": "私域运营",
     "catContent": "内容创作",
     "catData": "数据分析",
-    "tipMarquee": "智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享",
-    "myCollection": "我的合集",
-    "searchPh": "搜索视频",
-    "loadMoreHint": "加载更多...",
-    "noMoreText": "没有更多了",
-    "emptyVideos": "暂无学习视频",
-    "emptyModels": "暂无模型",
-    "paidCollection": "推荐课程合集",
-    "latestCourses": "最新课程",
-    "viewMoreModels": "查看更多模型",
-    "viewMoreCourses": "查看更多课程",
-    "tagPaid": "付费",
-    "tagFree": "免费",
-    "publishVidBtn": "发布视频",
-    "authorFallback": "智汇社区-官方",
-    "receiveFreeTitle": "领取免费资料",
     "receiveFreeBody": "链接已复制到剪贴板,可在浏览器粘贴打开"
   },
   "studyProgress": {
@@ -3512,23 +3472,7 @@
     "price": "价格",
     "rating": "评分",
     "startChat": "开始对话",
-    "uses": "使用次数",
-    "catAll": "All",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Data",
-    "catWriting": "Writing",
-    "catCoding": "Coding",
-    "catOffice": "Office",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "uses": "使用次数"
   },
   "agentMarket": {
     "empty": "暂无智能体",
@@ -3787,9 +3731,7 @@
     "yourAnswer": "你的答案"
   },
   "favorites": {
-    "deleteTitle": "确认删除",
     "empty": "暂无收藏",
-    "loadFailed": "加载失败",
     "title": "我的收藏"
   },
   "feedback": {
@@ -4689,10 +4631,7 @@
       "empty": "暂无帖子,快来发布第一条吧",
       "loadingMore": "加载中…",
       "noMore": "没有更多了",
-      "anonymous": "匿名用户",
-      "justNow": "刚刚",
-      "minutesAgo": "{n} 分钟前",
-      "hoursAgo": "{n} 小时前"
+      "anonymous": "匿名用户"
     }
   },
   "circle": {
@@ -5439,15 +5378,7 @@
     "addTitle": "添加账号",
     "adding": "添加中…",
     "deleteConfirm": "确认删除 {name}？",
-    "summary": "共 {total} 个账号 · 已启用 {enabled}",
-    "add": "添加账号",
-    "provider": "平台",
-    "name": "名称",
-    "cancel": "取消",
-    "loading": "加载中…",
-    "confirmDelete": "确认删除",
-    "addSuccess": "账号已添加",
-    "loginRequired": "登录后管理你的个人号池"
+    "summary": "共 {total} 个账号 · 已启用 {enabled}"
   },
   "checkinAssistant": {
     "title": "签到助手",
@@ -5525,10 +5456,6 @@
     "favoritesCount": "收藏",
     "joined": "加入于"
   },
-  "courseSwiper": {
-    "tabHotIntro": "爆款入门课程",
-    "tabHotPick": "爆款精选课程"
-  },
   "llmSettings": {
     "title": "模型服务商",
     "empty": "还没有配置服务商",
@@ -5558,12 +5485,6 @@
   },
   "pay": {
     "alipayNotOpen": "支付宝支付暂未开通，请选择微信支付"
-  },
-  "popularCourses": {
-    "tabHotIntro": "爆款入门",
-    "tabHotPick": "爆款精选",
-    "lessonsCount": "· {n} 课时",
-    "enrolled": "{n} 人在学"
   },
   "modelConfig": {
     "framesUnit": "{n} 帧",
@@ -5718,15 +5639,7 @@
     "updated": "更新时间"
   },
   "voice": {
-    "cam": "相机",
-    "album": "相册",
-    "file": "文件",
-    "closeImgMenu": "关闭图片菜单",
-    "addImage": "添加图片",
     "holdToTalk": "按住说话",
-    "clearResult": "清除结果",
-    "releaseEnd": " 松开结束",
-    "transcribing": "转写中…",
     "realStart": "开始实时语音",
     "realConnecting": "连接中...",
     "realLive": "实时语音进行中",
@@ -5766,7 +5679,6 @@
     "shareMoments": "朋友圈",
     "needAlbum": "需要相册权限才能选择名片图片",
     "uploadFail": "名片图片上传失败",
-    "okTitle": "成功",
     "updated": "名片已更新",
     "submitFail": "名片提交失败",
     "customFail": "名片定制失败，请重试"
@@ -5865,7 +5777,6 @@
     "trader": "操盘手",
     "normal": "普通用户",
     "closeA11y": "关闭登录弹窗",
-    "oneLoginFail": "运营商一键登录失败，请手动输入手机号",
     "nickRequired": "请输入昵称",
     "nickTooLong": "昵称过长，不能超过 8 个字符",
     "phoneInvalid": "请输入正确的手机号码",
@@ -5952,7 +5863,6 @@
     "modelA11y": "模型：{name}",
     "modelConfig": "模型配置",
     "voiceInput": "语音输入",
-    "feature2": "功能",
     "source": "来源",
     "enlarge": "放大",
     "agentAssist": "智能体辅"
@@ -6001,15 +5911,12 @@
     "customA11y": "AI 定制服务"
   },
   "confirm": {
-    "defaultCancel": "取消",
-    "defaultOk": "确认",
     "payFmt": "立即支付 ¥{v}"
   },
   "sr": {
     "closeA11y": "点击关闭",
     "firstBonus": "首次分享成功，获得 {n} 智汇值奖励",
     "inviteNote": "邀请好友加入智汇AI社区，注册成功后双方均可再获智汇值",
-    "claimA11y": "领取 {n} 智汇值",
     "rewardUnit": " 智汇值",
     "footnote": "智汇值可用于兑换模型算力、会员权益等",
     "claimBtn": "领取 {n} 智汇值"
@@ -6079,15 +5986,6 @@
     "teacher": "教师",
     "time": "时段",
     "classroom": "教室",
-    "weekday": {
-      "mon": "周一",
-      "tue": "周二",
-      "wed": "周三",
-      "thu": "周四",
-      "fri": "周五",
-      "sat": "周六",
-      "sun": "周日"
-    },
     "title2": "校园课表"
   },
   "eduChildAttendance": {
@@ -6225,7 +6123,6 @@
   "tagsPage": {
     "title": "标签中心",
     "subtitle": "浏览所有标签",
-    "loading": "加载中...",
     "empty": "暂无标签",
     "popular": "热门标签",
     "usageCount": "{count} 次使用",
@@ -6275,9 +6172,7 @@
     "makeAdmin": "设为管理员",
     "makeMember": "设为成员",
     "removeMember": "移除成员",
-    "inviteMember": "邀请新成员",
     "inviteMemberDesc": "通过手机号或邮箱邀请新成员加入团队",
-    "invitee": "被邀请人",
     "inviteePlaceholder": "请输入手机号或邮箱",
     "inviteeRequired": "请输入被邀请人",
     "sendInvite": "发送邀请",
@@ -6289,7 +6184,6 @@
     "roleOwner": "拥有者",
     "roleAdmin": "管理员",
     "roleMember": "成员",
-    "editTeam": "编辑团队信息",
     "editTeamDesc": "修改团队名称与描述",
     "save": "保存",
     "dangerZone": "危险操作",
@@ -6768,6 +6662,127 @@
     "pickFailed": "文件选择失败",
     "tooLarge": "文件超过 10MB 限制",
     "uploadFailed": "文件上传失败"
+  },
+  "scanLogin": {
+    "menuTitle": "扫一扫",
+    "title": "扫一扫登录",
+    "hint": "将电脑上的二维码放入框内",
+    "submitting": "正在确认…",
+    "permissionHint": "需要相机权限才能扫码",
+    "deniedHint": "相机权限已被拒绝，请在系统设置中开启后重试",
+    "grant": "允许使用相机",
+    "openSettings": "去设置开启",
+    "invalidCode": "请扫本站登录二维码",
+    "success": "已确认登录",
+    "failed": "确认失败，请重试",
+    "needLogin": "请先登录后再扫码"
+  },
+  "circlePostPage": {
+    "title": "圈子",
+    "back": "返回",
+    "cardTitle": "发帖",
+    "selectCircle": "选择圈子",
+    "titleLabel": "标题",
+    "titlePlaceholder": "请输入帖子标题",
+    "contentLabel": "内容",
+    "contentPlaceholder": "请输入帖子内容",
+    "images": "图片",
+    "submit": "提交",
+    "cancel": "取消",
+    "errorCircleRequired": "请选择圈子",
+    "errorTitleContentRequired": "标题和内容不能为空",
+    "uploadFailed": "上传失败",
+    "error": "加载失败"
+  },
+  "invitationsPage": {
+    "title": "邀请有奖",
+    "subtitle": "邀请好友，双方均可获得奖励",
+    "generate": "生成邀请码",
+    "myCodes": "我的邀请码",
+    "invitees": "已邀请用户",
+    "loading": "加载中...",
+    "emptyCodes": "暂无邀请码，点击右上角生成",
+    "emptyInvitees": "暂无已邀请用户",
+    "user": "用户",
+    "registeredAt": "注册时间",
+    "reward": "奖励",
+    "rewardValue": "邀请人 +{inviter} / 被邀请人 +{invitee} 积分",
+    "expiresAt": "过期时间",
+    "copy": "复制",
+    "copied": "已复制",
+    "statusUnused": "有效",
+    "statusUsed": "已使用",
+    "statusExpired": "已过期",
+    "back": "返回",
+    "loginRequired": "请先登录",
+    "error": "加载失败"
+  },
+  "lettersPage": {
+    "title": "私信",
+    "subtitle": "与平台用户一对一的私密沟通",
+    "searchPlaceholder": "搜索联系人...",
+    "loading": "加载中...",
+    "empty": "暂无会话",
+    "error": "加载失败",
+    "you": "我",
+    "send": "发送",
+    "sendPlaceholder": "输入消息内容...",
+    "delete": "删除",
+    "deleteConfirm": "确定删除这条私信？",
+    "confirm": "确认",
+    "cancel": "取消",
+    "back": "返回",
+    "loginRequired": "请先登录"
+  },
+  "newsCategoryPage": {
+    "backToList": "返回资讯",
+    "subtitle": "了解最新动态",
+    "notFound": "资讯不存在",
+    "empty": "暂无资讯",
+    "pinned": "置顶",
+    "publishedAt": "发布于 {date}",
+    "viewCount": "{count} 阅读",
+    "total": "共 {total} 篇",
+    "prev": "上一页",
+    "next": "下一页",
+    "loading": "加载中...",
+    "error": "加载失败"
+  },
+  "searchHistoryPage": {
+    "title": "搜索历史",
+    "subtitle": "最近的搜索记录",
+    "clearAll": "清空",
+    "loading": "加载中...",
+    "empty": "暂无搜索历史",
+    "resultCount": "共 {count} 条",
+    "back": "返回",
+    "loginRequired": "请先登录",
+    "error": "加载失败"
+  },
+  "signUpPage": {
+    "title": "我的报名",
+    "loading": "加载中...",
+    "empty": "目前还没有数据",
+    "statusDraft": "待审核",
+    "statusPublished": "已确认",
+    "statusRejected": "已拒绝",
+    "statusCompleted": "已完成"
+  },
+  "appUpdate": {
+    "title": "有新版本可用",
+    "action": "更新",
+    "close": "关闭",
+    "ready": "更新已就绪",
+    "installing": "正在重启…",
+    "error": "更新失败",
+    "errorDesc": "请检查网络后重试",
+    "downloading": "正在下载更新…",
+    "currentBundle": "当前运行:{{bundle}}",
+    "bundleEmbedded": "内置包",
+    "bundleOta": "热更",
+    "readyBody": "更新已下载完成，点「更新」立即生效",
+    "installingHint": "应用会自动重启，通常只需几秒",
+    "restartNow": "立即重启"
   },
   "legal": {
     "title": "法律信息",

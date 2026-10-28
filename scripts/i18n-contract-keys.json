@@ -13,6 +13,48 @@
     "不得登记 desktop:该端无 JS 扫描面,声明永远不会被读到。"
   ],
   "targets": {
+    "mobile-rn": {
+      "byok.step1Title": {
+        "reason": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171 用 t(`byok.step${wizardStep + 1}Title`) 动态拼接,wizardStep∈{0,1,2,3} ⇒ 产出 byok.step1Title..step4Title;静态扫描看不见整串字面量,但属真实渲染键(BYOK 向导步骤标题),删之即让第 1 步标题空白。与 miniapp-taro / cli 端同型动态拼接盲区。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step2Title": {
+        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step2Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step3Title": {
+        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step3Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step4Title": {
+        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step4Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      }
+    },
     "web": {
       "eduCertificates.certificateNo": {
         "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
@@ -140,6 +182,46 @@
             "contains": "subagent 三帧聚合进 aiCards.subagentTasks"
           }
         ]
+      },
+      "byok.step1Title": {
+        "reason": "llm-settings/index.tsx:195 用 t(`byok.step${step + 1}Title`) 动态拼接,step∈{0,1,2,3} 故产出 byok.step1Title..step4Title;静态扫描看不见整串字面量,但属真实渲染键,删之即让 BYOK 向导第 1 步标题变空白。与 cli 端 undo* 同型动态拼接盲区。",
+        "evidence": [
+          {
+            "file": "apps/miniapp-taro/src/pkg-user/llm-settings/index.tsx",
+            "line": 195,
+            "contains": "byok.step${step + 1}Title"
+          }
+        ]
+      },
+      "byok.step2Title": {
+        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step2Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "apps/miniapp-taro/src/pkg-user/llm-settings/index.tsx",
+            "line": 195,
+            "contains": "byok.step${step + 1}Title"
+          }
+        ]
+      },
+      "byok.step3Title": {
+        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step3Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "apps/miniapp-taro/src/pkg-user/llm-settings/index.tsx",
+            "line": 195,
+            "contains": "byok.step${step + 1}Title"
+          }
+        ]
+      },
+      "byok.step4Title": {
+        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step4Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "apps/miniapp-taro/src/pkg-user/llm-settings/index.tsx",
+            "line": 195,
+            "contains": "byok.step${step + 1}Title"
+          }
+        ]
       }
     },
     "cli": {
@@ -198,8 +280,8 @@
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 72,
-            "contains": "if (input.undoneSteps === 0) return 'undoUnavailable';"
+            "line": 109,
+            "contains": "if (input.attemptedSteps === 0) return 'undoUnavailable';"
           }
         ]
       },
@@ -240,6 +322,101 @@
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
             "line": 69,
             "contains": "if (input.verdict === 'unknown') return 'undoFailedUnverifiable';"
+          }
+        ]
+      },
+      "cliEntry.undoFailed": {
+        "reason": "selectUndoClaimKey 在 :110 按 undoneSteps===0 返回 'undoFailed',再由 :137 的 t(UNDO_CLAIM_KEY_PREFIX + key) 拼出整串渲染;本端零字面引用是拼接的必然结果,非孤儿。该态说「有快照但一条也没撤成」,摘键即把全失败读成成功。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 137,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 110,
+            "contains": "if (input.undoneSteps === 0) return 'undoFailed';"
+          }
+        ]
+      },
+      "cliEntry.undoDone": {
+        "reason": "renderUndoSucceededLines 在 :181 用 t(UNDO_CLAIM_KEY_PREFIX + 'undoDone', { undoneSteps, remaining }) 渲染成功改动清单;零字面引用是拼接结果,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 181,
+            "contains": "t(UNDO_CLAIM_KEY_PREFIX + 'undoDone'"
+          }
+        ]
+      },
+      "cliEntry.undoFailedFilesTitle": {
+        "reason": "UNDO_FAILURE_LIST_KEYS(:154) 含该叶名,renderUndoFailureLines 在 :219 用 t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFilesTitle', ...) 渲染失败清单标题;零字面引用是拼接结果,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 154,
+            "contains": "'undoFailedFilesTitle'"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 219,
+            "contains": "t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFilesTitle'"
+          }
+        ]
+      },
+      "cliEntry.undoFailedFileLine": {
+        "reason": "UNDO_FAILURE_LIST_KEYS(:155) 含该叶名,renderUndoFailureLines 在 :226 用 t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFileLine', ...) 渲染逐条「文件—原因」;零字面引用是拼接结果,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 155,
+            "contains": "'undoFailedFileLine'"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 226,
+            "contains": "t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFileLine'"
+          }
+        ]
+      },
+      "cliEntry.undoFailedFilesMore": {
+        "reason": "UNDO_FAILURE_LIST_KEYS(:156) 含该叶名,renderUndoFailureLines 在 :234 用 t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFilesMore', ...) 渲染截断尾句;零字面引用是拼接结果,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 156,
+            "contains": "'undoFailedFilesMore'"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 234,
+            "contains": "t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFilesMore'"
           }
         ]
       }
