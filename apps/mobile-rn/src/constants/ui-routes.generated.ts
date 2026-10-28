@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 5c8373e37828285abd79a122f3ddbfb90497a25a
-// inputsSha256: 51c117c344953a81ad17902b7831d9ebc1167e17d9ffbee35597de8259ff4445
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx e536705bb37bc46129001e7317154afe33da1a49304fc7e315188c62887f7af5
+// sourceCommit: 8eb003c1542c92bfc98e1b6a3ac0a7644043de3a
+// inputsSha256: 360382db501fab1c255a171f6815a442d869d4e00b7475167d7efa63b2496ab3
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx eab937464cec7361c24cb4698747d82e1cbef11585df64886bf280f22e83f580
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-28T06:18:33.347Z
+// generatedAt: 2026-10-28T07:20:47.592Z
 // IHUI-GEN-PIN-END
 
 
@@ -29,7 +29,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 306 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 308 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -65,6 +65,8 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'SecuritySettings', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'SecurityAudit', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'MemberSettings', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'MemberDashboard', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'MyAgents', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'SecurityCenter', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ApiKeys', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'DataRights', tab: false, requiresParams: false, requiredParams: [] },
