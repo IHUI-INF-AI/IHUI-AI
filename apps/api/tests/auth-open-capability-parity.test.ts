@@ -90,16 +90,29 @@ async function settle(request: FastifyRequest): Promise<Record<string, unknown>>
   }
 }
 
+// 场景 token 裸串 → uuid 形态主体(生产人 JWT 的 userId 恒为 users.id 的 uuid;
+// authenticate 的 2026-10-28 形状闸只放行 uuid 主体去查状态)。
+const SUBJECT_UUIDS: Record<string, string> = {
+  ok: '00000000-0000-4000-8000-000000000f00',
+  unknown: '00000000-0000-4000-8000-000000000f01',
+  banned: '00000000-0000-4000-8000-000000000f02',
+  gone: '00000000-0000-4000-8000-000000000f03',
+}
+
 const SCENARIOS: Record<string, Parameters<typeof makeRequest>[0]> = {
-  '无凭据': {},
+  无凭据: {},
   'Bearer 验签失败': { authorization: 'Bearer garbage' },
   'challenge token 拒绝': { authorization: 'Bearer challenge.jwt' },
-  '用户不存在': { authorization: 'Bearer unknown.user' },
-  '账号已封禁': { authorization: 'Bearer banned.user' },
-  '账号已注销': { authorization: 'Bearer gone.user' },
+  用户不存在: { authorization: 'Bearer unknown.user' },
+  账号已封禁: { authorization: 'Bearer banned.user' },
+  账号已注销: { authorization: 'Bearer gone.user' },
   '正常 access token': { authorization: 'Bearer ok.user' },
   'cookie 兜底 + 状态变更缺 CSRF 头': { method: 'POST', cookieToken: 'ok.user' },
-  'cookie 兜底 + CSRF 头齐备': { method: 'POST', cookieToken: 'ok.user', xRequestedWith: 'XMLHttpRequest' },
+  'cookie 兜底 + CSRF 头齐备': {
+    method: 'POST',
+    cookieToken: 'ok.user',
+    xRequestedWith: 'XMLHttpRequest',
+  },
   'cookie 兜底 GET': { cookieToken: 'ok.user' },
 }
 
@@ -109,18 +122,25 @@ beforeEach(() => {
     // 复刻 jose 的真形态:验签失败带 ERR_JWS_SIGNATURE_VERIFICATION_FAILED。
     // 无身份标识的异常在新口径下是"没验成"(502),不是"验了但无效"(401)。
     if (token === 'garbage') {
-      throw Object.assign(new Error('bad signature'), { code: 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED' })
+      throw Object.assign(new Error('bad signature'), {
+        code: 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED',
+      })
     }
-    return { userId: token.replace(/\.user$/, ''), phone: '', familyId: 'f1', roleId: 0 }
+    // 2026-10-28:authenticate 新增 uuid 形状闸(非法主体零查询归位 401)。
+    // 本文件锁的是"合法主体下各失败分支语义与既有实现一致",主体一律用 uuid 形态
+    // 喂给状态查询分支;裸串主体的新 401 语义由 tests/auth-jwt-uuid-subject.test.ts 钉。
+    const raw = token.replace(/\.user$/, '')
+    const userId = SUBJECT_UUIDS[raw] ?? raw
+    return { userId, phone: '', familyId: 'f1', roleId: 0 }
   })
   decodeJwt.mockImplementation((token: string) => ({
     type: token.startsWith('challenge') ? 'challenge' : 'access',
   }))
   // 用户状态按 userId 判定:未知 → undefined,封禁 → 0,注销 → 3,其余正常
   getUserStatus.mockImplementation(async (id: string) => {
-    if (id === 'unknown') return undefined
-    if (id === 'banned') return 0
-    if (id === 'gone') return 3
+    if (id === SUBJECT_UUIDS.unknown) return undefined
+    if (id === SUBJECT_UUIDS.banned) return 0
+    if (id === SUBJECT_UUIDS.gone) return 3
     return 1
   })
 })
@@ -157,7 +177,9 @@ describe('authenticate() 纯 JWT 行为逐字节不变', () => {
       }
       // 成功路径:userId / jwtPayload 均取自 JWT payload,且不带开放标记
       expect(result.ok).toBe(true)
-      expect(result.userId).toBe(token!.replace('.user', ''))
+      expect(result.userId).toBe(
+        SUBJECT_UUIDS[token!.replace('.user', '')] ?? token!.replace('.user', ''),
+      )
       expect(result.jwtPayload).toBeDefined()
       expect(result.openCapability).toBeUndefined()
     })
@@ -166,7 +188,10 @@ describe('authenticate() 纯 JWT 行为逐字节不变', () => {
   it('人凭据在场时,即使另带 API Key 也仍按 JWT 链路走(不触机器分支)', async () => {
     const request = makeRequest({ authorization: 'Bearer ok.user' })
     const withKey = makeRequest({ authorization: 'Bearer ok.user' })
-    withKey.apiKey = { id: 'k1', userId: 'owner-9' } as unknown as FastifyRequest['apiKey']
+    withKey.apiKey = {
+      id: 'k1',
+      userId: '00000000-0000-4000-8000-000000000e09',
+    } as unknown as FastifyRequest['apiKey']
     expect(await settle(withKey)).toEqual(await settle(request))
   })
 })
@@ -175,13 +200,17 @@ describe('authenticate() 的开放能力分支仅在显式打标时生效', () =
   it('带标记:直接按机器归属人放行,不再验 JWT、不再查用户状态', async () => {
     const request = makeRequest({
       openCapability: { key: 'v1-tools-directory', scope: 'tools:read', dataClass: 'compute' },
-      apiKeyUserId: 'owner-7',
+      apiKeyUserId: '00000000-0000-4000-8000-000000000e07',
     })
     const result = await settle(request)
     expect(result).toMatchObject({
       ok: true,
-      payload: { userId: 'owner-7', roleId: 0, familyId: 'open-capability:v1-tools-directory' },
-      userId: 'owner-7',
+      payload: {
+        userId: '00000000-0000-4000-8000-000000000e07',
+        roleId: 0,
+        familyId: 'open-capability:v1-tools-directory',
+      },
+      userId: '00000000-0000-4000-8000-000000000e07',
     })
     // 刻意不写 jwtPayload:避免 O4 buildPrincipal 把机器调用误判成人调用
     expect(request.jwtPayload).toBeUndefined()
@@ -254,19 +283,25 @@ describe('O13b 机器凭据提权闸 — roleId>=1 判定对 API Key 恒关闭',
   }
 
   it('B.1 归属人是管理员:open-capability 分支返回 roleId 恒 0,且不查 DB/JWT', async () => {
-    // 归属人 user id 命名为 admin-owner:即便其 users.roleId >= 1,本分支也无任何代码
+    // 归属人 user id 命名为 00000000-0000-4000-8000-000000000e0a:即便其 users.roleId >= 1,本分支也无任何代码
     // 路径把它读进 payload —— getUserStatus/verifyAccessToken 均未被调用即为证明。
-    const request = makeRequest({ openCapability: OPEN_MARK, apiKeyUserId: 'admin-owner' })
+    const request = makeRequest({
+      openCapability: OPEN_MARK,
+      apiKeyUserId: '00000000-0000-4000-8000-000000000e0a',
+    })
     const payload = await authenticate(request)
     expect(payload.roleId).toBe(0)
-    expect(payload.userId).toBe('admin-owner')
+    expect(payload.userId).toBe('00000000-0000-4000-8000-000000000e0a')
     expect(request.jwtPayload).toBeUndefined()
     expect(verifyAccessToken).not.toHaveBeenCalled()
     expect(getUserStatus).not.toHaveBeenCalled()
   })
 
   it('B.2a requireAdmin + 能力标记的 API Key(归属人管理员)⇒ 403,不得 200', async () => {
-    const request = makeRequest({ openCapability: OPEN_MARK, apiKeyUserId: 'admin-owner' })
+    const request = makeRequest({
+      openCapability: OPEN_MARK,
+      apiKeyUserId: '00000000-0000-4000-8000-000000000e0a',
+    })
     const { reply, sent } = captureReply()
     await requireAdmin(request, reply)
     expect(sent.status).toBe(403)
@@ -275,7 +310,10 @@ describe('O13b 机器凭据提权闸 — roleId>=1 判定对 API Key 恒关闭',
 
   it('B.2b requireAdmin + 纯 API Key(admin 路由真实形态,无标记无 JWT)⇒ 401', async () => {
     const request = makeRequest({})
-    request.apiKey = { id: 'k9', userId: 'admin-owner' } as unknown as FastifyRequest['apiKey']
+    request.apiKey = {
+      id: 'k9',
+      userId: '00000000-0000-4000-8000-000000000e0a',
+    } as unknown as FastifyRequest['apiKey']
     const { reply, sent } = captureReply()
     await requireAdmin(request, reply)
     expect(sent.status).toBe(401)
@@ -283,10 +321,15 @@ describe('O13b 机器凭据提权闸 — roleId>=1 判定对 API Key 恒关闭',
 
   it('B.2c requireAnyPermission 机器分支:无管理员通配豁免,必须落 RBAC 归属人校验', async () => {
     mockCheckAnyPermission.mockResolvedValue(false)
-    const request = makeRequest({ openCapability: OPEN_MARK, apiKeyUserId: 'admin-owner' })
+    const request = makeRequest({
+      openCapability: OPEN_MARK,
+      apiKeyUserId: '00000000-0000-4000-8000-000000000e0a',
+    })
     const { reply, sent } = captureReply()
     await requireAnyPermission(['edu:manage'])(request, reply)
-    expect(mockCheckAnyPermission).toHaveBeenCalledWith('admin-owner', ['edu:manage'])
+    expect(mockCheckAnyPermission).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000e0a', [
+      'edu:manage',
+    ])
     expect(sent.status).toBe(403)
   })
 
@@ -295,7 +338,7 @@ describe('O13b 机器凭据提权闸 — roleId>=1 判定对 API Key 恒关闭',
     const request = makeRequest({})
     request.apiKey = {
       id: 'k1',
-      userId: 'owner-1',
+      userId: '00000000-0000-4000-8000-000000000e01',
       permissions: ['*'],
     } as unknown as FastifyRequest['apiKey']
     const { reply, sent } = captureReply()

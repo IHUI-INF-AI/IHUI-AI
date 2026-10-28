@@ -19,7 +19,9 @@ const listEmailRecipientsMock = vi.hoisted(() => vi.fn())
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'mock-admin-id', roleId: 1 }),
+  verifyAccessToken: vi
+    .fn()
+    .mockResolvedValue({ userId: '00000000-0000-4000-8000-000000000ad1', roleId: 1 }),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),
@@ -92,7 +94,10 @@ describe('admin-maintenance-notice routes', () => {
     sendEmailMock.mockResolvedValue({ sent: true, stub: false, provider: 'smtp' })
     listEmailRecipientsMock.mockReset()
     listEmailRecipientsMock.mockResolvedValue(makeRecipients(5))
-    vi.mocked(verifyAccessToken).mockResolvedValue({ userId: 'mock-admin-id', roleId: 1 })
+    vi.mocked(verifyAccessToken).mockResolvedValue({
+      userId: '00000000-0000-4000-8000-000000000ad1',
+      roleId: 1,
+    })
   })
 
   describe('鉴权面(非 admin 拿不到 200)', () => {
@@ -107,7 +112,10 @@ describe('admin-maintenance-notice routes', () => {
     })
 
     it('普通用户(roleId=0)→ 403 且不发送', async () => {
-      vi.mocked(verifyAccessToken).mockResolvedValue({ userId: 'mock-user-id', roleId: 0 })
+      vi.mocked(verifyAccessToken).mockResolvedValue({
+        userId: '00000000-0000-4000-8000-000000000fee',
+        roleId: 0,
+      })
       const res = await server.inject({
         method: 'POST',
         url: '/api/admin/maintenance-notice/email',

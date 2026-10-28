@@ -6,11 +6,16 @@
  *
  * 背景:`@fastify/rate-limit` 未传 store 时落 LocalStore(进程内存),多副本部署下
  * 额度按副本数放大(登录 5/min 实际 = 5×N),且进程重启即清零。server.ts 现改为
- * 传 Redis 连接 + `skipOnError: true`。本文件守三件事:
+ * 传 Redis 连接承载计数。本文件守三件事:
  *   1) 两个**独立** Fastify 实例共享同一个 Redis 计数 ⇒ 配额不被副本数放大;
- *   2) Redis 报错时按 fail-open 放行(与 distributed-rate-limit.ts 登记判据一致),
- *      绝不能变成 500 —— 限流是可用性设施,Redis 抖动不该让全站挂掉;
+ *   2) 插件层在 `skipOnError: true` 时 Redis 报错按 fail-open 放行,绝不能变成 500
+ *      —— 这一格写的是**插件**行为基线,用于解释"为什么 server.ts 需要更强的方案";
  *   3) 接线锁:server.ts 不得退回"无 store 的本地限流"。
+ *
+ * 2026-10-28 二次 redesign(安全审计 P1 后续):server.ts 不再用 `redis:` + skipOnError:true
+ * 的 fail-open 形态,改为 `store: createFailSafeRateLimitStore(rateLimitRedis, 'ihui:rl:')`
+ * + `skipOnError: false` —— Redis 故障回退进程内保守计数(不 fail-open 打穿限流,也不硬 500)。
+ * 故第 2 条只描述插件层基线,接线锁按新形态判(见下方「接线锁」段注释)。
  *
  * 这里用内存假 Redis 模拟**服务端**行为(计数 + 过期),不是复制插件内的 Lua 判据;
  * 判据(窗口/上限/是否放行)仍由 @fastify/rate-limit 与 RedisStore 自己算。
@@ -126,13 +131,25 @@ describe('Redis 故障时 fail-open(与 distributed-rate-limit 同判据)', () =
 
 describe('接线锁:server.ts 不得退回进程内限流', () => {
   const src = readFileSync(new URL('../src/server.ts', import.meta.url), 'utf8')
+  /** register(rateLimit, { … }) 的参数块本身 —— 判据只看这一块,避免全文件的近似匹配。 */
+  const wiring = /register\(rateLimit,\s*\{([\s\S]*?)\n\s*\}\)/.exec(src)?.[1] ?? ''
 
-  it('全局限流必须传 redis store', () => {
-    expect(src).toMatch(/register\(rateLimit,\s*\{[\s\S]*?redis:\s*rateLimitRedis/)
+  it('全局限流必须由 Redis 连接支撑(2026-10-28 起经失稳安全存储包裹)', () => {
+    // 旧形态 `redis: rateLimitRedis` 已被 redesign 取代:限流存储换成
+    // createFailSafeRateLimitStore(rateLimitRedis, 'ihui:rl:') —— Redis 正常时走分布式
+    // 原子计数,Redis 抖动时回退进程内保守计数(既不 fail-open 打穿限流,也不硬 500)。
+    // 判据要求两半都在:包装器 + Redis 连接;不传 store 就是退回 LocalStore,
+    // 额度按副本数放大、重启即清零 —— 那才是本锁要拦的方向。
+    expect(wiring).toMatch(/store:\s*createFailSafeRateLimitStore\(\s*rateLimitRedis/)
+    // 命名空间与 distributedRateLimit 的 `ihui:ratelimit` 区分开(两套限流不互相污染计数)
+    expect(wiring).toMatch(/nameSpace:\s*'ihui:rl:'/)
   })
 
   it('必须显式声明 skipOnError(默认 false 会让 Redis 抖动变成 500)', () => {
-    expect(src).toMatch(/skipOnError:\s*true/)
+    // redesign 后语义与旧判据相反:存储层自己做本地兜底,故 server.ts 显式钉 false ——
+    // 连兜底都意外抛错时按 fail-closed 处理,绝不静默放行(这里的隐患已从"默认 false"
+    // 变成"抄成 true 会打穿限流")。判据因此要求**显式写死**,而不是要求它为 true。
+    expect(wiring).toMatch(/skipOnError:\s*false/)
   })
 
   it('限流专用连接必须复用 createRedisClient 单源,并自己负责关闭', () => {

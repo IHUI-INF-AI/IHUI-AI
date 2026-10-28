@@ -712,14 +712,16 @@ describe('relay-usage-ledger', () => {
       expect(res.statusCode).toBe(404)
     })
 
-    it('JWT 无 userId → 400(绝不写 claimedBy=null)', async () => {
+    it('JWT 无 userId → 401 且零写(2026-10-28 形状闸后:鉴权层即拒,绝不到 claimedBy=null 写入)', async () => {
       mockVerifyAccessToken.mockResolvedValue({ userId: undefined, roleId: 1 })
       const res = await server.inject({
         method: 'POST',
         url: `/api/admin/relay/accounts/${claimId}/claim`,
         headers: { authorization: ADMIN_TOKEN },
       })
-      expect(res.statusCode).toBe(400)
+      // 原断言 400(handler 防御)已被 authenticate 的 uuid 形状闸前置吸收:
+      // 非 uuid/缺失主体在发出状态查询 SQL 之前即归位 401,写侧更不可能被触达。
+      expect(res.statusCode).toBe(401)
       expect(sinks.update.value).toBeUndefined()
     })
 
@@ -781,14 +783,14 @@ describe('relay-usage-ledger', () => {
       expect(res.json().data.claimStatus).toBe('unclaimed')
     })
 
-    it('释放时 JWT 无 userId → 400', async () => {
+    it('释放时 JWT 无 userId → 401(形状闸前置,同 claim 用例口径)', async () => {
       mockVerifyAccessToken.mockResolvedValue({ userId: '', roleId: 1 })
       const res = await server.inject({
         method: 'POST',
         url: `/api/admin/relay/accounts/${claimId}/release`,
         headers: { authorization: ADMIN_TOKEN },
       })
-      expect(res.statusCode).toBe(400)
+      expect(res.statusCode).toBe(401)
     })
 
     it('未登录 401', async () => {

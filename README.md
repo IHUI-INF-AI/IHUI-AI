@@ -17062,3 +17062,6 @@ A: Yes. ~14839+ tests / 3213 test files / 67 e2e spec / 4561 API 路由 / 608 �
 | **会话库备份** | `pnpm relay:sessions:backup --apply` | 源只读,快照到 `~/.wb-switch/backups/sessions/<ts>/` 并带逐文件 sha256 manifest;默认 dry-run |
 | **会话归属台账** | `pnpm relay:session-links rebuild --auto --apply` | 从登录态快照库自动推账号时间线段(最早快照前的存量默认未归属,`--trust-earliest` 才归);`assign` / `unassign` 人工标注 |
 | **本机账号一键切换** | `pnpm relay:switch-account` / `pnpm relay:ide-switch --ide <平台>` | WorkBuddy 登录态按快照切换(切换前自动备份当前态);trae / trae-solo / qoder 三 profile |
+  <strong>8 端全覆盖</strong> · <strong>118 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
+对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4538 API 路由 · 25 个 WebSocket 端点 ·
+| 凭据                | `Authorization: Bearer ihui_xxx`(+ `X-Api-Secret` 双因子)                                                                                                                                         | 用户自助签发:`POST /api/developer/api-keys`;可按 scope/IP/模型/时段收紧                                                                                                                                                                                                                               |

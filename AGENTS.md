@@ -402,3 +402,4 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **R4 漏点名补记 ⑧(2026-10-28)**:`check-asset-path-health.mjs`(只读巡检,判机器状态故不进提交链 §12e;派发面 = `scripts/git-guardian.mjs` 的 `auditAssetPathHealth` 每 6h;`--json`/`--self-test`;断链或证书错 exit 1,取不到输入 exit 2 未判定):受管 `.env` 引用的绝对路径可达性 + 证书到期,判据委托 `cert-expiry-check.mjs` 单源。
 - **R4 漏点名补记 ⑨**:`check-live-doc-merge-recall.mjs`(只读、不进提交链 §12e;接线 `.husky/post-merge`):普通 merge 带回已结清行的探测,判据 import `liveDocExpectedCounts` 零复算;自检 4/4、镜像 6/6;无跳过变量。
 - **R4 点名补记(2026-10-28)**:`check-live-doc-merge-recall.mjs` 普通 merge 落点后探活文档回捞;判据 import `liveDocExpectedCounts` 零复算;接 `.husky/post-merge`;自检 4 例/镜像 6 例。 + `check-ddos-guard-wiring.mjs`(257)
+- **R4 漏点名补记 ⑨**:`check-live-doc-merge-recall.mjs`(merge 后探活文档回捞,只读不进提交链,接 `.husky/post-merge`;判据 import `liveDocExpectedCounts` 零复算,自检4/镜像6,无跳过变量) + `check-ddos-guard-wiring.mjs`(257)。

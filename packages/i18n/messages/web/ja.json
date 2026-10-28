@@ -9588,6 +9588,9 @@
     "title": "AI キャリア指導"
   },
   "aiChat": {
+    "favorite": "ブックマークに追加",
+    "unfavorite": "ブックマークを解除",
+    "delete": "削除",
     "bindIssue": "Issueを紐付け",
     "actions": {
       "archive": "アーカイブ",
@@ -9788,6 +9791,7 @@
       "title": "PowerShell ターミナル"
     },
     "thisMonth": "今月",
+    "earlier": "それ以前",
     "thisWeek": "今週",
     "title": "aiチャット",
     "toast": {
@@ -11232,8 +11236,16 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "favorite": "ブックマークに追加",
+    "unfavorite": "ブックマークを解除",
+    "workbenchSessions": "セッション",
     "feedbackLike": "参考になった",
     "feedbackDislike": "参考にならなかった",
+    "workbenchHeroTitle": "AI 対話ワークベンチ",
+    "workbenchHeroHint": "ここで入力して新しい会話を開始するか、左側のセッションを選んで続行できます。",
+    "workbenchSplit": "ペインを分割",
+    "workbenchDropHere": "左側から会話をここにドラッグ",
+    "workbenchQuickStart": "クイック操作",
     "truncation": {
       "maxLengthNotice": "この回答は最大出力長に達したため切り詰められており、内容が完全ではありません。「続けて」と送信すると生成を再開できます。"
     },

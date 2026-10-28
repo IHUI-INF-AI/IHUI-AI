@@ -60,10 +60,8 @@ vi.mock('../src/config/index.js', async (importOriginal) => {
   }
 })
 
-const {
-  checkInternalServiceToken,
-  hasInternalServiceToken,
-} = await import('../src/plugins/internal-service-token')
+const { checkInternalServiceToken, hasInternalServiceToken } =
+  await import('../src/plugins/internal-service-token')
 const {
   INTERNAL_TICKET_AUDIENCE,
   INTERNAL_TICKET_HEADER,
@@ -164,8 +162,14 @@ afterEach(() => {
 // ── 0. 形状:签出来的票必须带那三道用途标记 ────────────────────────────────
 describe('票的 claim 形状', () => {
   it('带 aud=内部专用档、type=内部票、jti、exp、sub', async () => {
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', ttlSeconds: 60 })
-    const { payload } = await (await import('jose')).jwtVerify(t, new TextEncoder().encode(TEST_JWT_SECRET))
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      ttlSeconds: 60,
+    })
+    const { payload } = await (
+      await import('jose')
+    ).jwtVerify(t, new TextEncoder().encode(TEST_JWT_SECRET))
     expect(payload.aud).toBe(INTERNAL_TICKET_AUDIENCE)
     expect(payload.type).toBe(INTERNAL_TICKET_TYPE)
     expect(payload.sub).toBe(USER_ID)
@@ -175,8 +179,14 @@ describe('票的 claim 形状', () => {
   })
 
   it('TTL 由验票侧封顶:传 99999 也只会签成 300s', async () => {
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', ttlSeconds: 99999 })
-    const { payload } = await (await import('jose')).jwtVerify(t, new TextEncoder().encode(TEST_JWT_SECRET))
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      ttlSeconds: 99999,
+    })
+    const { payload } = await (
+      await import('jose')
+    ).jwtVerify(t, new TextEncoder().encode(TEST_JWT_SECRET))
     expect(payload.exp! - payload.iat!).toBeLessThanOrEqual(300)
   })
 })
@@ -192,7 +202,11 @@ describe('正向通道', () => {
   })
 
   it('中间件级:带票请求经 checkInternalServiceToken 拿到 200', async () => {
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', jti: 'jti-mw-1' })
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-mw-1',
+    })
     const res = await run({ ticket: t, scope: 'ai-callback', redis: fakeRedis().client })
     expect(res).toMatchObject({ ok: true, status: 200 })
   })
@@ -208,7 +222,11 @@ describe('正向通道', () => {
 describe('一次性', () => {
   it('同一 jti 连用两次 ⇒ 第二次 replayed', async () => {
     const s = memoryStore()
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', jti: 'jti-replay' })
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-replay',
+    })
     expect((await verifyInternalServiceTicket(t, { store: s.store })).ok).toBe(true)
     const second = await verifyInternalServiceTicket(t, { store: s.store })
     expect(second).toEqual({ ok: false, reason: 'replayed' })
@@ -218,7 +236,9 @@ describe('一次性', () => {
     const fake = fakeRedis()
     const store = createRedisReplayStore(fake.client)
     await store.consume('a-very-secret-jti-value', 60)
-    expect([...fake.map.keys()]).toEqual([`${JTI_KEY_PREFIX}${fingerprintTicketId('a-very-secret-jti-value')}`])
+    expect([...fake.map.keys()]).toEqual([
+      `${JTI_KEY_PREFIX}${fingerprintTicketId('a-very-secret-jti-value')}`,
+    ])
     expect([...fake.map.keys()].join()).not.toContain('a-very-secret-jti')
     // SET 必须是 NX + EX(否则"一次一密"不是原子的)
     expect(fake.calls[0]!.args).toEqual(['EX', 60, 'NX'])
@@ -226,11 +246,21 @@ describe('一次性', () => {
 
   it('判序:scope 不匹配时**不得**把票烧掉(否则配置错误伪装成重放攻击)', async () => {
     const s = memoryStore()
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', jti: 'jti-order' })
-    const bad = await verifyInternalServiceTicket(t, { store: s.store, expectedScope: 'codebase-index' })
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-order',
+    })
+    const bad = await verifyInternalServiceTicket(t, {
+      store: s.store,
+      expectedScope: 'codebase-index',
+    })
     expect(bad).toEqual({ ok: false, reason: 'scope_mismatch' })
     expect(s.log).toHaveLength(0) // 一次都没 consume
-    const good = await verifyInternalServiceTicket(t, { store: s.store, expectedScope: 'ai-callback' })
+    const good = await verifyInternalServiceTicket(t, {
+      store: s.store,
+      expectedScope: 'ai-callback',
+    })
     expect(good.ok).toBe(true) // 票还在,合法调用方重试仍能过
   })
 })
@@ -239,8 +269,14 @@ describe('一次性', () => {
 describe('时效', () => {
   it('exp 过了 ⇒ expired(用未来时刻喂,不靠 sleep)', async () => {
     const s = memoryStore()
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', jti: 'jti-exp' })
-    const { payload } = await (await import('jose')).jwtVerify(t, new TextEncoder().encode(TEST_JWT_SECRET))
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-exp',
+    })
+    const { payload } = await (
+      await import('jose')
+    ).jwtVerify(t, new TextEncoder().encode(TEST_JWT_SECRET))
     const future = (payload.exp ?? 0) + 5
     expect(await verifyInternalServiceTicket(t, { store: s.store, nowSeconds: future })).toEqual({
       ok: false,
@@ -253,7 +289,11 @@ describe('时效', () => {
     // 一张 1970 年就过期的票会先被它判成 ERR_JWT_EXPIRED ⇒ 永远轮不到 too_long_lived 那一档。
     // 这一格要验的是"跨度",前提是票本身**当下有效**。
     const now = Math.floor(Date.now() / 1000)
-    const t = await new SignJWT({ type: INTERNAL_TICKET_TYPE, scope: 'ai-callback', jti: 'jti-long' })
+    const t = await new SignJWT({
+      type: INTERNAL_TICKET_TYPE,
+      scope: 'ai-callback',
+      jti: 'jti-long',
+    })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(USER_ID)
       .setAudience(INTERNAL_TICKET_AUDIENCE)
@@ -261,7 +301,11 @@ describe('时效', () => {
       .setExpirationTime(now + 3600)
       .sign(new TextEncoder().encode(TEST_JWT_SECRET))
     expect(
-      await verifyInternalServiceTicket(t, { store: memoryStore().store, nowSeconds: now + 1, maxTtlSeconds: 300 }),
+      await verifyInternalServiceTicket(t, {
+        store: memoryStore().store,
+        nowSeconds: now + 1,
+        maxTtlSeconds: 300,
+      }),
     ).toEqual({ ok: false, reason: 'too_long_lived' })
   })
 })
@@ -312,8 +356,17 @@ describe('跨用途', () => {
   })
 
   it('替 A 签的票不能拿去当 B 用 ⇒ 中间件层 401', async () => {
-    const t = await mintInternalServiceTicket({ userId: OTHER_USER_ID, scope: 'ai-callback', jti: 'jti-subject' })
-    const res = await run({ ticket: t, userId: USER_ID, scope: 'ai-callback', redis: fakeRedis().client })
+    const t = await mintInternalServiceTicket({
+      userId: OTHER_USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-subject',
+    })
+    const res = await run({
+      ticket: t,
+      userId: USER_ID,
+      scope: 'ai-callback',
+      redis: fakeRedis().client,
+    })
     expect(res.status).toBe(401)
     expect(res.ok).toBe(false)
   })
@@ -332,7 +385,11 @@ describe('跨用途', () => {
 // ── 5. 共享状态不可用 = fail-closed(本票拍板的决定)────────────────────
 describe('登记表不可用', () => {
   it('store 为 null ⇒ replay_store_unavailable,不记通过', async () => {
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', jti: 'jti-nostore' })
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-nostore',
+    })
     expect(await verifyInternalServiceTicket(t, { store: null })).toEqual({
       ok: false,
       reason: 'replay_store_unavailable',
@@ -340,15 +397,25 @@ describe('登记表不可用', () => {
   })
 
   it('Redis 抛错 ⇒ 同样拒票(fail-closed)', async () => {
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', jti: 'jti-throw' })
-    expect(await verifyInternalServiceTicket(t, { store: memoryStore({ throwOnConsume: true }).store })).toEqual({
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-throw',
+    })
+    expect(
+      await verifyInternalServiceTicket(t, { store: memoryStore({ throwOnConsume: true }).store }),
+    ).toEqual({
       ok: false,
       reason: 'replay_store_unavailable',
     })
   })
 
   it('中间件级:实例未注册 redis 插件时带票请求拿 401,而不是"跳过检查放行"', async () => {
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', jti: 'jti-nodecorator' })
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-nodecorator',
+    })
     const res = await run({ ticket: t, scope: 'ai-callback' }) // 无 redis
     expect(res.status).toBe(401)
   })
@@ -407,7 +474,11 @@ describe('变异取证', () => {
       const r = await s.store.consume(jti, 60)
       return r
     })
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', jti: 'jti-mut-a' })
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-mut-a',
+    })
     await verifyInternalServiceTicket(t, { store: { consume: spy } })
     expect(spy).toHaveBeenCalledTimes(1)
     expect(spy).toHaveBeenCalledWith('jti-mut-a', expect.any(Number))
@@ -418,10 +489,19 @@ describe('变异取证', () => {
    * 摘掉判据后它会返回 ok:true,本条即红。断言的是**结论本身**,不是"有没有调用 Date.now"。
    */
   it('B 过期票在判据被摘掉时会变绿 —— 所以现在必须变红', async () => {
-    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback', jti: 'jti-mut-b' })
-    const { payload } = await (await import('jose')).jwtVerify(t, new TextEncoder().encode(TEST_JWT_SECRET))
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-mut-b',
+    })
+    const { payload } = await (
+      await import('jose')
+    ).jwtVerify(t, new TextEncoder().encode(TEST_JWT_SECRET))
     const expiredNow = (payload.exp ?? 0) + 1
-    const verdict = await verifyInternalServiceTicket(t, { store: memoryStore().store, nowSeconds: expiredNow })
+    const verdict = await verifyInternalServiceTicket(t, {
+      store: memoryStore().store,
+      nowSeconds: expiredNow,
+    })
     expect(verdict.ok).toBe(false)
     if (!verdict.ok) expect(verdict.reason).toBe('expired')
     // 反向对照:同一枚票在有效期内必须 ok(否则 B 只是"永远红"的断言,同样无牙)
@@ -431,8 +511,10 @@ describe('变异取证', () => {
 
 // ── 8. 源码形状锁:防"改了行为但把出口摘了"──────────────────────────────
 describe('源码形状锁', () => {
-  const tokenSrc = () => readFileSync(resolve(__dirname, '../src/plugins/internal-service-token.ts'), 'utf8')
-  const ticketSrc = () => readFileSync(resolve(__dirname, '../src/plugins/internal-service-ticket.ts'), 'utf8')
+  const tokenSrc = () =>
+    readFileSync(resolve(__dirname, '../src/plugins/internal-service-token.ts'), 'utf8')
+  const ticketSrc = () =>
+    readFileSync(resolve(__dirname, '../src/plugins/internal-service-ticket.ts'), 'utf8')
 
   it('明文密钥比较形态不得回来(第三十八批锁,继续生效)', () => {
     expect(tokenSrc()).not.toMatch(/token\s*!==\s*config\.AI_CALLBACK_SECRET/)
@@ -457,7 +539,10 @@ describe('源码形状锁', () => {
       if (ch === '{') depth += 1
       else if (ch === '}') {
         depth -= 1
-        if (depth === 0) { end = i; break }
+        if (depth === 0) {
+          end = i
+          break
+        }
       }
     }
     expect(end).toBeGreaterThan(ifIdx)
