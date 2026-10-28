@@ -52,6 +52,53 @@
  */
 
 /**
+ * ── O02 票④(第 ④ 格)收口证据:本族差异档逐条归属(2026-10-28 现读)────────────────
+ * 读数(`node scripts/check-cross-end-ui-parity.mjs --json`,face=head,HEAD 977d324b22):
+ *   findings[ModelList] = diffCount 7(几何仅小程序 2.5/4/7.5/10/16/80 · 几何仅 RN 44)/
+ *   radiusCount 1(RD 仅小程序 2,端上实取 2/6/8)/ elementRadiusCount 0。
+ *   SL 面:本族 15 枚导出档**两端都在引**(门 128 的 SL 逐族清单里没有本族 = 零单侧引用)。
+ *   RE 维零判据:两侧无一同名元素(仅 RN 具名 freeBadge / iconWrap / newBadge / paidBadge /
+ *   rankBadge;小程序同槽是 inline `rnRadius.*`)⇒ elementRadiusCount 0 是"这一维没判",
+ *   不是"圆角已一致"。
+ *
+ * ⚠️ 本节 A/B/C 是 O02 票④的**差异档归因口径**(A 一端根本没有该元素/该结构;B 同一元素两端
+ * 各取一档;C 同槽位两端各由自身机制决定),与上文「仅一端存在」的说法同向但**不是同一套字母
+ * 含义**。三类都不收敛。
+ *
+ * 8 枚差异档(几何 7 + RD 1)逐条 —— **A 5 / B 2 / A/B 混合 1 / C 0**:
+ *  A 一端根本没有该元素/该结构:
+ *    仅小程序 2.5   popup 骨架屏行 `margin: '5rpx 0'`;RN 无 loading prop、无骨架屏实现
+ *    仅小程序 4     list 变体外层容器 `py-1`;RN 无该外层容器(SectionList + listBody 只有底衬)。
+ *                  同一端两变体留白不齐已由文件头登记「另计一票」,本票不动
+ *    仅小程序 7.5   骨架屏行与分类标题锚点行的 `'0 15rpx'`(后者 `display: none`);RN 两者都没有
+ *    仅小程序 80    骨架条宽 `rpx(160)`;同 2.5,RN 侧不渲染
+ *    RD 仅小程序 2  骨架条圆角 `rnRadius.xs`;同 2.5,RN 侧不渲染(端上实取 2/6/8,6 与 8 两端都有)
+ *  A/B 混合(同一个值承载两个成因,按值只计 1 档 —— 与 BottomActionBar 的 44 同型):
+ *    仅小程序 10    ①`rpx(20)` 首字母 ← **B**:RN 同一元素 `iconEmoji` 取 `rnType.heading.size`(20),
+ *                  即"logo 块内字形"两端 10 vs 20(文件头已登记的行盒裁决项);
+ *                  ②`rpx(20)` 用途分类标注 ← A(RN 该行渲染 description,内容不同、非同一元素);
+ *                  ③`py-[20rpx]` list 变体行纵向内衬、④`h-[20rpx]` 骨架条高 ← A(RN 无该变体/骨架)
+ *  B 同一元素两端各取一档(取任一端都会破另一端版;产品裁决面):
+ *    仅小程序 16    popup 选中态外盒 `rpx(32)` ↔ RN `MODEL_LIST_CHECK_BOX_PX`(20,半径取一半的正圆)
+ *                   —— 文件头「外盒尺寸与圆角仍是行盒分叉」那一条
+ *    仅 RN 44       `iconWrap.height` ↔ 小程序 logo 块 20×20(80rpx 行高内)—— 同上,行盒/logo 块裁决项;
+ *                   RN 行高由 SectionList 自增高、小程序行盒在 `pages/index/index.css` 的 `.ai-chu-row`,
+ *                   收同一档必然改一端整行高度
+ *  C 同槽位两端各由自身机制决定:**0 枚**。
+ *
+ * ⇒ 真收敛 **0 处**:15 枚导出档两端都在引本表(改锚即两端跟随),剩余 8 枚另一端没有该元素或
+ *   取值属裁决面。counts 维持 7 / 1,**不为消差异给单端补数字或补引用**。
+ *
+ * 端内未具名档刻意**不入表**:RN 的 `rnSpacing.*` / `rnType.*` 是符号档(门 128 读不到数值),
+ *   小程序的 15rpx/5rpx/20rpx/32rpx/160rpx 属骨架屏与上文裁决项 —— 单端档入表即新增一条 SL 单侧
+ *   引用当场判红(同 LoginPopUp `.login-input` 那一型),故只在本清单登记、留在端内。
+ *
+ * 逐条归属由 `packages/shared/src/ui/__tests__/model-list-wiring.test.ts` 机器钉住:
+ * 15 枚导出档两端直引 + 两端落屏 px 现算 + 端内块级反向锁 + 7 几何/1 半径事实表与台账
+ * counts·radiusCounts 同批对账 + 幻影档/补引用凑平/出处改值三条变异自证。
+ */
+
+/**
  * 空态「暂无模型」文字字号(逻辑 px)。
  * 取值依据:收编前小程序 popup 变体(`text-[length:24rpx]` = 12px,与 RN 弹出选择器同角色)
  * 与 RN `emptyText.fontSize = 12` 同值,等于 Tailwind text-xs 档;
