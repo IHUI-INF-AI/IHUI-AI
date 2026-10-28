@@ -34,6 +34,9 @@ export interface HistoryMessageRecord {
   /** 票64(2026-10-18):服务端盖章的消息级标记时刻(ISO 字符串;null/缺席 = 未标记) */
   pinnedAt?: string | null
   bookmarkedAt?: string | null
+  /** 2026-10-28 立:服务端盖章的消息评级票(like/dislike)。
+   *  null = 明确无票;缺席 = 该读面未接(老服务端),渲染上同为未表态但不可回写。 */
+  rating?: 'like' | 'dislike' | null
   /** 票64(2026-10-18):版本族坐标,与 wire 序列化(api routes/chat.ts serializeMessage)同形。
    *  parentMessageId 非空 = 本行是某版本族(regenerate/edit)的成员;族根自身该字段为 null。
    *  注意与 W16 live 本地链(parentMessageId=前一条)同字段不同义 —— 判族只认
@@ -361,6 +364,11 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     // 这个函数按名取值,不在清单上的字段会被静默丢掉,刷新后标记"看起来没存住"。
     pinnedAt: row.pinnedAt ?? null,
     bookmarkedAt: row.bookmarkedAt ?? null,
+    // 2026-10-28 立):消息评级读回 —— 与 pinnedAt 同一把尺:逐字段列在 hydrate 里,
+    // 不列的字段会被静默丢掉,于是"刷新后点赞就没了"(本格原本就是这个症状)。
+    // `?? null` 而非 `|| null`:三值已收敛到 like/dislike/null,空串不可能出现,
+    // 但用 ?? 才不会把将来可能的假值误折成"无票"。
+    rating: row.rating ?? null,
     // 票64(2026-10-18 立):版本族坐标读回 —— 不挂这两个字段,读投影
     // (lib/message-version-family.ts)对历史行判不出族,regenerate/edit 的
     // 多版本会在消息列表里全部渲染("点一次编辑出两个气泡"的根因)。
