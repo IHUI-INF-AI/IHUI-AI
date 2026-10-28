@@ -5728,6 +5728,12 @@ function main() {
     if (!CHECK_ONLY) auditOpsPatrol()
     // lint-staged stdio 三针盯针:与上一行同挂点语义(判机器状态 ⇒ 不进提交链,§12e),45 分钟节流。
     if (!CHECK_ONLY) auditLintStagedPins()
+    // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
+    // .ihui-agent/state/feedback-loop-closure-tick.ts 节流戳 ⇒ 双执行体并存只有先到那一个真跑,
+    // 不会翻倍发信)。为什么必须挂在 tick 而不是只挂 main():startDaemon 是内存常驻的
+    // setTimeout 链,不重读本文件;只挂 main() 一次性路径的话,常驻守护**永远跑不到**这一格,
+    // 闭环就退回"器件在、没人看"。挂上后本改动需重启守护进程才生效(常驻不重读)。
+    auditFeedbackLoopClosure()
     // 巡检**自己**也要有人看(2026-10-17 立):上面那行派发它,而它一旦停摆,账面没有任何一格会红
     // —— 它判的是"别的任务没在跑", "它自己没在跑"没有任何判据。挂点与上面各层同格(健康轮次
     // 早退之前 + !CHECK_ONLY),读它每轮落的 ops-patrol-last.json,超 3 期未更新即就地起跳一轮。
