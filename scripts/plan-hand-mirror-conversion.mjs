@@ -59,6 +59,9 @@ export const END_UI_FACILITIES = new Set([
   // 它只说明"页面渲染了输入控件",不说明页面有独有行为 —— 壳承载页由共享屏自带的输入组件承担。
   // 页面表单字段是否与共享屏一致仍需人判,所以它只是"不算私有能力",不等于"可转"。
   '@/components/FocusField',
+  // 搜索框:props 只有 value/placeholder/onInput/onSearch/onClear(受控,零取数、零业务),
+  // 与 FocusField 同类 —— 只说明页面有搜索入口,壳承载页由共享屏自带的搜索件承担。
+  '@/components/SearchBar',
   'useI18n',
   'useTheme',
   'useTt',
@@ -520,7 +523,10 @@ export function judgeConversion({
   if (clipboardCovered(shellText)) pageTokens.delete('Taro.setClipboardData')
   if (themeCovered(shellText)) for (const tok of ['@/lib/theme', 'useAppTheme']) pageTokens.delete(tok)
   if (backCovered(shellText)) pageTokens.delete('Taro.navigateBack')
-  if (routeParamsCovered(pageText, shellText)) pageTokens.delete('Taro.getCurrentInstance')
+  if (routeParamsCovered(pageText, shellText)) {
+    // useRouter() 也是"读 query"的写法(等价 getCurrentInstance().router),壳侧由 route.params 承担
+    for (const tok of ['Taro.getCurrentInstance', 'useRouter']) pageTokens.delete(tok)
+  }
   // 鉴权就绪:生成页会包 AuthReadyGate(通用外罩),页面的钩子由它承担
   const authGate = needsAuthGate(pageText)
   if (authGate)
