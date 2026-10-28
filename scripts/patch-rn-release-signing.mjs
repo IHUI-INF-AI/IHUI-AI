@@ -261,3 +261,33 @@ if (changed) {
 } else {
   console.log('[patch] 无需改动, build.gradle 已含全部 release 签名配置')
 }
+
+// ---------- gradle.properties 内存档(2026-10-29 实测) ----------
+// 这个文件同样是 prebuild 生成物,模板给的是 `-Xmx2048m -XX:MaxMetaspaceSize=512m`。
+// 本仓 40+ 原生模块 + KSP + lintVitalAnalyzeRelease 一起跑时,512m 元空间不够:
+// 实测 `e: [ksp] java.lang.OutOfMemoryError: Metaspace` 直接把 daemon 打死,
+// 外层只看到 "Gradle build daemon disappeared unexpectedly"(不点名 OOM,极易被读成随机崩溃)。
+// 只抬高、不降低:已经比目标大的值原样保留(别的机器/别的模板给的更大档是合法的)。
+const GRADLE_PROPS = join(ROOT, 'apps', 'mobile-rn', 'android', 'gradle.properties')
+const NEED_XMX = 4096
+const NEED_META = 2048
+
+if (!existsSync(GRADLE_PROPS)) {
+  console.error(`[patch] [FAIL] gradle.properties 不存在: ${GRADLE_PROPS} (prebuild 未完成?)`)
+  process.exit(1)
+}
+const propsText = readFileSync(GRADLE_PROPS, 'utf8')
+const jvmLine = /^org\.gradle\.jvmargs=.*$/m
+const curLine = propsText.match(jvmLine)?.[0] ?? ''
+const curXmx = Number(curLine.match(/-Xmx(\d+)m/)?.[1] ?? 0)
+const curMeta = Number(curLine.match(/-XX:MaxMetaspaceSize=(\d+)m/)?.[1] ?? 0)
+if (curXmx >= NEED_XMX && curMeta >= NEED_META) {
+  console.log(`[patch] [skip] gradle.properties 内存档 (${curLine || '缺省'})`)
+} else {
+  const want = `org.gradle.jvmargs=-Xmx${NEED_XMX}m -XX:MaxMetaspaceSize=${NEED_META}m`
+  const next = jvmLine.test(propsText)
+    ? propsText.replace(jvmLine, want)
+    : `${propsText.trimEnd()}\n${want}\n`
+  writeFileSync(GRADLE_PROPS, next, 'utf8')
+  console.log(`[patch] [ok]   gradle.properties 内存档 ${curLine || '(缺行)'} -> ${want}`)
+}
