@@ -616,4 +616,32 @@ test('CLI:--provider 必填且限支持集,stdin JSON 回报不含凭据', () =>
     rmScratch(scratch)
   }
 })
+
+// =============================================================================
+// ⑨ 客户端进程控制面(2026-10-28 与 trae 对齐:运行中 GUI 会覆写落点)
+// =============================================================================
+
+test('CLIENT_IMAGES:GUI 四平台先关后写,CLI 两平台不动进程', () => {
+  assert.equal(L.CLIENT_IMAGES.codex, undefined, 'codex 是 CLI,不该去杀进程')
+  assert.equal(L.CLIENT_IMAGES.opencode, undefined, 'opencode 是 CLI,不该去杀进程')
+  for (const provider of ['codearts', 'qoder', 'minimax', 'zcode']) {
+    assert.equal(Array.isArray(L.CLIENT_IMAGES[provider]), true, `${provider} 必须有进程映像候选`)
+    assert.equal(L.CLIENT_IMAGES[provider].length > 0, true, `${provider} 候选不得为空`)
+  }
+  // 不支持进程控制的平台:探测面直接 null(由适配器原样写)
+  assert.equal(L.closeClientForWrite('codex'), null)
+  assert.equal(L.closeClientForWrite('opencode'), null)
+})
+
+test('进程控制开关与拉起:关掉时不探测;没关过就不拉起(不误启用户没开的客户端)', () => {
+  assert.equal(L.closeClientForWrite('qoder', { IHUI_LOCAL_LOGIN_PROC_CONTROL: '0' }), null)
+  const idle = { restarted: false, error: '' }
+  assert.deepEqual(L.relaunchClient(null), idle)
+  assert.deepEqual(L.relaunchClient({ wasRunning: false }), idle)
+  assert.deepEqual(
+    L.relaunchClient({ wasRunning: true, closed: false, product: 'Qoder CN', exePath: '' }),
+    idle,
+    '没关闭成功就不该拉起(否则等于给用户多开一个实例)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

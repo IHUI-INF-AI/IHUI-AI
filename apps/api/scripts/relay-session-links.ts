@@ -9,7 +9,14 @@
  *   pnpm relay:session-links rebuild --since <ISO> --account <id> [--label <名>] [--apply]
  *   pnpm relay:session-links rebuild --auto [--snapshot-dir <dir>] [--auth-file <p>] [--apply]
  *   pnpm relay:session-links assign  --conversation <id> --account <id> [--apply]
+ *   pnpm relay:session-links assign-batch --file <清单路径> --account <id> [--apply]
  *   pnpm relay:session-links unassign --conversation <id> [--apply]
+ *
+ * assign-batch(⑦第七刀·人工清单批量 assign,2026-10-28 立):
+ * 清单每行一个 conversationId(忽略空行与 `#` 注释),`--account` 支持唯一前缀。
+ * **它是"人给清单、机器照标",不是机器猜**:逐条 id 必须逐字节来自文件,且必须能在
+ * 台账链接集或物理盘点里被验证存在,验证不过一律跳过并点名(绝不写入、绝不阻断其余);
+ * 写入的 linkedBy 恒为 manual(这是人的动作),账单一律不新增账号、不触碰清单外的行。
  *
  * 方案 A 语义(docs/RELAY_SESSION_MIGRATION_DESIGN.md §5/§6 定案):
  * - 以切换时刻 since 分桶:会话创建时刻 > since ⇒ 归该账号;≤ since 及时刻不可判 ⇒
@@ -40,6 +47,7 @@ import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { maskPhone, resolveAuthFileCandidates } from './relay-account-switch.js'
 import { acquireSessionLock, SESSION_LINKS_LOCK_NAME } from './relay-session-lock.js'
+import { resolveAccountId } from './relay-session-move.js'
 
 /** 台账与被盘点的会话库根(默认本机真实面;测试注入临时目录) */
 export interface SessionLinksPaths {
@@ -521,6 +529,95 @@ export function planAssign(
   }
 }
 
+/**
+ * assign-batch 清单解析:每行一个 conversationId;忽略空行与 `#` 注释行;
+ * 按首次出现顺序去重(同一 id 写两遍不是两条工作)。判据只认逐字节行内容,
+ * 不做任何"看起来像 id"的猜测或补全。
+ */
+export function parseConversationIdList(text: string): string[] {
+  const seen = new Set<string>()
+  const ids: string[] = []
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (line === '' || line.startsWith('#')) continue
+    if (seen.has(line)) continue
+    seen.add(line)
+    ids.push(line)
+  }
+  return ids
+}
+
+/** 读人工清单文件(不存在/不可读 ⇒ 抛错,由调用侧落 exit 2,绝不回落成"空清单=没事干") */
+export function readConversationIdList(file: string): string[] {
+  if (!existsSync(file)) throw new Error(`清单文件不存在: ${file}`)
+  let text: string
+  try {
+    text = readFileSync(file, 'utf8')
+  } catch (err) {
+    throw new Error(`清单文件不可读(${file}): ${(err as Error).message}`)
+  }
+  return parseConversationIdList(text)
+}
+
+export interface BatchAssignPlan extends LinksPlan {
+  action: 'assign'
+  /** 逐条跳过原因(点名到 id;不阻断其余) */
+  skipped: string[]
+  /** 清单有效行数(去重后) */
+  listedCount: number
+}
+
+/**
+ * assign-batch 计划(纯函数,不写盘)。
+ * 安全点(方案 A 红线·绝不机器猜):
+ * - 账号必须已在台账(accounts 原样带出,一个都不新增),前缀不唯一/不存在由
+ *   `resolveAccountId` 抛错拒绝对整个批次动手;
+ * - 逐条校验会话可验证存在(台账链接集 ∪ 物理盘点集),验证不过 ⇒ 跳过并点名,
+ *   **不写入任何一条凭空的归属**;
+ * - 写入的 linkedBy 恒为 'manual'(这是人的清单动作,不是机器推断);
+ * - 清单外的台账行一律原样保留,既不清空也不改 linkedBy。
+ */
+export function planAssignBatch(
+  ledger: SessionLinksLedger,
+  rawAccountId: string,
+  conversationIds: string[],
+  existingConversations: ReadonlySet<string>,
+  now = new Date(),
+): BatchAssignPlan {
+  if (!rawAccountId) throw new Error('缺少 --account <id>')
+  if (conversationIds.length === 0) throw new Error('清单为空(没有有效的 conversationId 行)')
+  const accountId = resolveAccountId(ledger, rawAccountId)
+  const links = { ...ledger.links }
+  const changes: string[] = []
+  const skipped: string[] = []
+  const notes: string[] = []
+  const nowIso = now.toISOString()
+  for (const conv of conversationIds) {
+    const inLedger = conv in ledger.links
+    const onDisk = existingConversations.has(conv)
+    if (!inLedger && !onDisk) {
+      skipped.push(
+        `${conv}: 台账无此会话记录且物理盘点不到 ⇒ 拒绝写入(不凭空 assign;先 rebuild 盘点或核对清单)`,
+      )
+      continue
+    }
+    if (inLedger && !onDisk)
+      notes.push(`${conv}: 台账有记录但本次盘点未命中(按人工清单照标,请复核该会话是否已删)`)
+    const prev = ledger.links[conv]
+    const beforeDesc = prev ? `${prev.accountId ?? '未归属'}(${prev.linkedBy})` : '无记录'
+    changes.push(`${conv}: ${beforeDesc} → ${accountId}(manual)`)
+    links[conv] = { accountId, linkedAt: nowIso, linkedBy: 'manual' }
+  }
+  return {
+    action: 'assign',
+    next: { version: 1, accounts: ledger.accounts, links },
+    changes,
+    warnings: [...skipped.map((s) => `跳过 ${s}`), ...notes],
+    skipped,
+    listedCount: conversationIds.length,
+  }
+}
+
 /** unassign:显式标 null(linkedBy=manual,是人工动作而非"未知") */
 export function planUnassign(
   ledger: SessionLinksLedger,
@@ -588,7 +685,7 @@ export function main(
     if (cmd === undefined || cmd === 'list') {
       console.log(formatLedgerList(loadLedger(paths.ledgerFile), paths))
       console.log(
-        '\n写操作用法: rebuild(--auto 自动推导 / --since+--account 手工)/ assign / unassign(默认 dry-run,加 --apply 才写台账)',
+        '\n写操作用法: rebuild(--auto 自动推导 / --since+--account 手工)/ assign / assign-batch(--file 人工清单)/ unassign(默认 dry-run,加 --apply 才写台账)',
       )
       return 0
     }
@@ -668,6 +765,30 @@ export function main(
         return 2
       }
       plan = planAssign(ledger, conv, account)
+    } else if (cmd === 'assign-batch') {
+      const file = getFlag(argv, '--file')
+      const account = getFlag(argv, '--account')
+      if (!file || !account) {
+        console.error(
+          'assign-batch 需要 --file <清单路径> --account <id>(清单每行一个 conversationId)',
+        )
+        return 2
+      }
+      // 清单读不到 / 账号不在台账(含前缀不唯一)/ 空清单 ⇒ 整批拒绝,退出码 2,不写任何路径
+      let batch: BatchAssignPlan
+      try {
+        const ids = readConversationIdList(file)
+        const scan = scanConversationIds(paths.sessionsRoot, paths.projectsRoot)
+        batch = planAssignBatch(ledger, account, ids, new Set(scan.conversations))
+      } catch (err) {
+        console.error(`assign-batch 拒绝执行: ${(err as Error).message}`)
+        return 2
+      }
+      plan = batch
+      console.log(
+        `清单: ${file}(有效 ${batch.listedCount} 行,逐条来自文件,机器不做任何推断;` +
+          `命中 ${batch.changes.length} 条,跳过 ${batch.skipped.length} 条)`,
+      )
     } else if (cmd === 'unassign') {
       const conv = getFlag(argv, '--conversation')
       if (!conv) {
@@ -676,7 +797,9 @@ export function main(
       }
       plan = planUnassign(ledger, conv)
     } else {
-      console.error(`未知子命令: ${String(cmd)}(可用: list / rebuild / assign / unassign)`)
+      console.error(
+        `未知子命令: ${String(cmd)}(可用: list / rebuild / assign / assign-batch / unassign)`,
+      )
       return 2
     }
     const head = [
