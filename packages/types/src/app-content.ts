@@ -261,6 +261,8 @@ export interface AskListScreenProps {
   refreshing: boolean
   error: string
   onRefresh: () => void
+  /** 上拉触底加载下一页(注入式,由平台层提供 loadMore 实现) */
+  onLoadMore?: () => void
   onPressItem: (id: string) => void
   onCreate: () => void
   onBack: () => void
