@@ -4631,6 +4631,28 @@
     "showActivity": "公开我的动态",
     "allowInvites": "允许被邀请"
   },
+  "memberDashboard": {
+    "title": "会员中心",
+    "level": "会员等级",
+    "points": "我的积分",
+    "coupons": "优惠券",
+    "orders": "我的订单",
+    "expireAt": "会员有效期至 {date}",
+    "noExpire": "暂无有效期信息",
+    "renew": "立即续费",
+    "recentOrders": "最近订单",
+    "viewAll": "查看全部",
+    "noOrders": "暂无订单",
+    "loadFailed": "加载失败",
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "shipped": "已发货",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "refunded": "已退款"
+    }
+  },
   "webViewPortal": {
     "news": "资讯",
     "learnTopic": "课程专题",
