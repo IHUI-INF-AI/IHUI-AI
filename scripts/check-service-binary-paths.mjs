@@ -109,6 +109,10 @@ export const ENUM_TAIL = '#IHUI-SVC-END'
  *  禁 `process.cwd()` —— 共享工作区里 cwd 不可靠。该文件只由人工/快照生成器写,本门**只读**。 */
 export const BASELINE_REL = 'scripts/data/service-definitions.json'
 export const SERVICE_BASELINE_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'service-definitions.json')
+/** 『停着是设计内』台账(2026-10-28 新增)。它要治的是**假红**而不是放宽判据 —— 见该文件头注与
+ *  `applyExpectedStopped` 的三条约束(只豁免"它停着"、读不到就不豁免、豁免带 reviewBy 会到期)。 */
+export const EXPECTED_STOPPED_REL = 'scripts/data/expected-stopped-services.json'
+export const EXPECTED_STOPPED_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'expected-stopped-services.json')
 const PS_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_ENUM_TIMEOUT_MS) || 120_000
 const NSSM_TIMEOUT_MS = 5_000
 const TCP_TIMEOUT_MS = 1_500
@@ -981,6 +985,114 @@ export function judgeService(rec) {
   else if (blind.length > 0) level = managed.kind === 'measured' && managed.value === false ? 'skipped' : 'unattested'
   else level = 'ok'
   return { level, problems, blind, hardBlind }
+}
+
+/**
+ * 『停着是设计内』台账的读取面(2026-10-28)。读不到任何一项 ⇒ 返回空清单(**不豁免任何人**):
+ * 台账缺失 / JSON 坏 / 蓝绿状态文件读不到,一律按"未登记"处理 —— 方向是多喊一次,不是多静音
+ * 一次(§0.10/§0.7 同一条:豁免必须会到期、失效必须朝"更响"倒)。
+ *
+ * 两类来源:
+ *  ① `static`:人工裁定的退役/长期停用服务(必须带 reviewBy,过期即失效);
+ *  ② `blueGreen`:按设计非活跃色就该 Stop(读实时状态文件定活跃色;**活跃色停着是真故障,绝不豁免**)。
+ */
+export function loadExpectedStopped({ readText = readFileSync, exists = existsSync, nowMs = Date.now() } = {}) {
+  const out = { names: new Map(), notes: [] }
+  let raw
+  try {
+    if (!exists(EXPECTED_STOPPED_PATH)) {
+      out.notes.push(`台账不在位(${EXPECTED_STOPPED_REL})⇒ 本轮不豁免任何服务`)
+      return out
+    }
+    raw = JSON.parse(String(readText(EXPECTED_STOPPED_PATH, 'utf8')))
+  } catch (e) {
+    out.notes.push(`台账读不出/不可解析(${EXPECTED_STOPPED_REL}):${e?.message ?? e} ⇒ 本轮不豁免任何服务`)
+    return out
+  }
+  for (const it of Array.isArray(raw?.static) ? raw.static : []) {
+    const name = typeof it?.name === 'string' ? it.name.trim() : ''
+    if (!name) {
+      out.notes.push('静态清单里有一条缺 name ⇒ 已跳过(该条不构成豁免)')
+      continue
+    }
+    const due = Date.parse(String(it?.reviewBy ?? ''))
+    if (!Number.isFinite(due) || due <= nowMs) {
+      out.notes.push(`${name}:reviewBy 缺失或已过期(${it?.reviewBy ?? '空'})⇒ 豁免失效,按未登记处理`)
+      continue
+    }
+    out.names.set(name.toLowerCase(), {
+      source: 'static',
+      reason: String(it?.reason ?? '').trim(),
+      reviewBy: String(it.reviewBy),
+    })
+  }
+  const bg = raw?.blueGreen
+  if (bg && typeof bg === 'object') {
+    const stateFile = typeof bg.stateFile === 'string' ? bg.stateFile.trim() : ''
+    let active = null
+    if (stateFile && exists(stateFile)) {
+      try {
+        const s = JSON.parse(String(readText(stateFile, 'utf8')))
+        active = s?.active === 'blue' || s?.active === 'green' ? s.active : null
+        if (!active) out.notes.push(`蓝绿状态文件的 active 不是 blue/green(${stateFile})⇒ 退回默认色`)
+      } catch (e) {
+        out.notes.push(`蓝绿状态文件不可解析(${stateFile}):${e?.message ?? e} ⇒ 退回默认色`)
+      }
+    } else if (stateFile) {
+      out.notes.push(`蓝绿状态文件不在位(${stateFile})⇒ 退回默认色`)
+    }
+    if (!active) active = bg.defaultActive === 'green' ? 'green' : 'blue'
+    const colors = bg.colors && typeof bg.colors === 'object' ? bg.colors : {}
+    for (const [color, spec] of Object.entries(colors)) {
+      const svc = typeof spec?.service === 'string' ? spec.service.trim() : ''
+      if (!svc || color === active) continue // 活跃色停着 = 真故障,必须照旧报红
+      out.names.set(svc.toLowerCase(), {
+        source: 'blue-green',
+        reason: `蓝绿冷备(${color}):状态文件记的活跃色是 ${active};按 ihui-api-bluegreen.ps1 第 6 步『停旧色』,非活跃色本就该 Stop`,
+        reviewBy: null,
+      })
+    }
+    out.activeColor = active
+  }
+  return out
+}
+
+/**
+ * 把『停着是设计内』的服务从 issue 降为 skipped(纯函数,构造面可测)。
+ *
+ * **只豁免"它停着"这一条**:STATE 量到非 RUNNING 之外的任何 problem(Application 路径不是可用文件 /
+ * AppDirectory 没了 / 端口声明读不到 / 运行时代码断链 …)一律保持 issue —— 否则这张表就成了新的消红
+ * 通道(与 `skipped` 曾被当通道那一型同型,见 collectDotSourceLayer 头注)。STATE 量不到时同理不豁免:
+ * "量不到"不是"停着"。
+ */
+export function applyExpectedStopped(rows, expected) {
+  const applied = []
+  const kept = []
+  const names = expected?.names instanceof Map ? expected.names : new Map()
+  const ONLY_STOPPED = (p) => /^STATE=/.test(p) || /^监听无应答/.test(p)
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const hit = names.get(String(row?.name ?? '').toLowerCase())
+    if (!hit) continue
+    if (row.level !== 'issue') continue
+    const problems = Array.isArray(row.problems) ? row.problems : []
+    const stateValue = row.rec?.state?.kind === 'measured' ? row.rec.state.value : null
+    const onlyStopped = stateValue !== null && stateValue !== 'RUNNING' && problems.every(ONLY_STOPPED)
+    if (!onlyStopped) {
+      const rest = problems.filter((p) => !ONLY_STOPPED(p))
+      kept.push({
+        name: row.name,
+        why:
+          stateValue === null
+            ? '登记为预期停止,但 STATE 这一维量不到(未判定不等于"停着")⇒ 不豁免'
+            : `登记为预期停止,但还量到"停着"以外的坏:${rest.join(' | ')}`,
+      })
+      continue
+    }
+    applied.push({ name: row.name, source: hit.source, reason: hit.reason })
+    row.level = 'skipped'
+    row.expectedStopped = { source: hit.source, reason: hit.reason, reviewBy: hit.reviewBy ?? null }
+  }
+  return { applied, kept, notes: Array.isArray(expected?.notes) ? expected.notes : [] }
 }
 
 /**
@@ -1946,6 +2058,11 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps } 
   // 的对账面,不是"这台机有没有问题"的判据 —— 基准缺失/解不出记未判定,既不判红也不记绿(§0.3)。
   meta.baseline = readAndCompareBaseline({ stateRows, services: meta.services, deps })
 
+  // 『停着是设计内』豁免(2026-10-28):把退役服务(IHUI-API)与蓝绿冷备(非活跃色)的 STATE=STOPPED
+  // 从 issue 降为 skipped。**只降"它停着"这一条** —— 其余 problem 照旧报红,见 applyExpectedStopped 头注。
+  // 必须在 computeExitCode 之前:exit 2 的判据是 `judged = level !== 'skipped'`,顺序反了豁免就不进退出码。
+  meta.expectedStopped = applyExpectedStopped(meta.services, loadExpectedStopped())
+
   return finish(meta, computeExitCode(meta.services, meta.channels, { strict: opts.strict }), opts)
 }
 
@@ -1989,6 +2106,8 @@ function finish(meta, exitCode, opts) {
     issue: count('issue'),
     unattested: count('unattested'),
     skipped: count('skipped'),
+    // 其中有多少是『停着是设计内』豁免出来的(不等于"坏了被静音",报告里必须能分开数)
+    expectedStopped: svcs.filter((s) => s.expectedStopped).length,
     // 运行时代码新鲜度分桶(2026-10-25 票面验收:每服务落哪一档必须现读可见,不得只藏在逐条问题行里)
     runtimeBuckets: {
       fresh: svcs.filter((s) => rtIs(s, 'fresh')).length,
@@ -2094,8 +2213,14 @@ export function renderText(meta) {
       )
     }
     L.push(
-      `结论:入审 ${t.services} 个 —— 量到问题 ${t.issue} / 未出具合格证(有维量不到)${t.unattested} / 全维健康 ${t.ok} / 非 nssm 托管跳过 ${t.skipped};各维未判定 STATE=${t.dimUnmeasured.state} Application=${t.dimUnmeasured.application} 端口声明=${t.dimUnmeasured.ports} 监听观察=${t.dimUnmeasured.observed} 应答=${t.dimUnmeasured.probe} 托管性=${t.dimUnmeasured.nssmManaged}`,
+      `结论:入审 ${t.services} 个 —— 量到问题 ${t.issue} / 未出具合格证(有维量不到)${t.unattested} / 全维健康 ${t.ok} / 非 nssm 托管跳过 ${t.skipped}(其中『停着是设计内』${t.expectedStopped});各维未判定 STATE=${t.dimUnmeasured.state} Application=${t.dimUnmeasured.application} 端口声明=${t.dimUnmeasured.ports} 监听观察=${t.dimUnmeasured.observed} 应答=${t.dimUnmeasured.probe} 托管性=${t.dimUnmeasured.nssmManaged}`,
     )
+    const es = meta.expectedStopped
+    if (es && (es.applied?.length || es.kept?.length || es.notes?.length)) {
+      if (es.applied?.length) L.push(`  ➖ 『停着是设计内』已豁免 ${es.applied.length} 台(只豁免"它停着"这一条,其余问题照旧报红):${es.applied.map((x) => `${x.name}(${x.source})`).join(', ')}`)
+      for (const k of es.kept ?? []) L.push(`  ⚠️ ${k.name} 未获豁免 —— ${k.why}`)
+      for (const n of es.notes ?? []) L.push(`  · 台账:${n}`)
+    }
     if (t.issue > 0) L.push('  ⚠️ 存在量到的问题 —— 这正是 RSSHub 那 3 天的形态:服务在、路径没了、无人喊。逐条见上;修复属机器状态动作,由持有人执行,本工具不动任何服务。')
     else if (t.services === 0 || t.services === t.skipped) L.push('判定:未判定 —— 这台机上没有任何对象被完整量到三判据,**不记为通过**。')
     else if (t.unattested > 0) L.push('判定:无量到的问题,但有服务存在未判定维(上面逐条点名)—— 不得把这行读成"全健康"。')
@@ -2672,7 +2797,12 @@ function selfTest(opts) {
       )
       fixtureNote = `\n  (真夹具 3 条已跑;落点 ${dir})`
     } finally {
-      rmScratch(dir)
+      // bestEffort(2026-10-28):清理失败**不得改写判据结论**。立因是现读实测 —— 宿主
+      // `node-safe-delete-shim.cjs` 把 rmSync 转成 trash 操作,而本机 trash 会失败
+      // (`Error during a trash operation: Some operations were aborted`),于是 finally 抛错被
+      // 外层 catch 接住 ⇒ 整段 F1/F2/F3 的结果被吞掉、只剩一条 F0 "夹具建不起来",读起来像
+      // 判据坏了。判据的红要留在断言里,不该由"临时目录删不掉"决定(同 union-converge 的处方)。
+      rmScratch(dir, { bestEffort: true })
     }
   } catch (e) {
     ok('F0 真夹具建得起来(建不起来就是判据失效,必须喊出来)', false)

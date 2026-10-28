@@ -3239,7 +3239,7 @@ export function healUnresponsiveServices(opts = {}) {
         // 名字里不许带计数(型③,同元运维巡检那一格):原先每轮拉起/失败台数一变就是新身份,
         // 4 小时窗口形同虚设。计数进正文,身份里只留档位与服务名集合。
         '服务自愈动作',
-        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
+        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
         // 2026-10-04 复核补(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):原传 alertName 被
         // notifyGuardRed 静默丢弃 ⇒ 改传 dedupKey(真正被消费的字段),身份取「哪些服务」集合、有序无关。
         { dedupKey: `service-heal;svcs=${[...acted, ...failed].map((x) => x.name).sort().join('+') || 'fail'};acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}` },
