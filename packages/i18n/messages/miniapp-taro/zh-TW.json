@@ -6530,5 +6530,38 @@
       "lastUpdated": "最近更新"
     },
     "backToHome": "返回首頁"
+  },
+  "agentEdit": {
+    "entry": "編輯",
+    "title": "編輯智能體",
+    "subtitle": "修改智能體信息",
+    "fieldName": "名稱",
+    "fieldDescription": "描述",
+    "fieldAvatar": "頭像",
+    "fieldCover": "封面圖",
+    "fieldCategory": "分類",
+    "fieldStatus": "狀態",
+    "fieldPrice": "價格",
+    "fieldSort": "排序",
+    "fieldIsFree": "免費",
+    "fieldRemark": "備注",
+    "namePlaceholder": "請輸入智能體名稱",
+    "descPlaceholder": "請輸入描述(選填)",
+    "avatarPlaceholder": "請輸入頭像 URL",
+    "coverPlaceholder": "請輸入封面圖 URL",
+    "categoryPlaceholder": "請選擇分類",
+    "remarkPlaceholder": "請輸入備注(選填)",
+    "select": "選擇",
+    "categoryPickerTitle": "選擇分類",
+    "saving": "儲存中...",
+    "loadFailed": "載入智能體詳情失敗",
+    "saveFailed": "更新失敗",
+    "nameRequired": "名稱不能為空",
+    "statusPending": "待審核",
+    "statusPublished": "已發布",
+    "statusRejected": "已拒絕",
+    "statusOffline": "已下線",
+    "freeOn": "免費",
+    "freeOff": "收費"
   }
 }

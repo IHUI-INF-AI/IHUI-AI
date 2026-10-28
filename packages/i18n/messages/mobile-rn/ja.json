@@ -6768,5 +6768,38 @@
       "lastUpdated": "最終更新"
     },
     "backToHome": "ホームに戻る"
+  },
+  "agentEdit": {
+    "entry": "編集",
+    "title": "エージェント編集",
+    "subtitle": "エージェント情報を修正",
+    "fieldName": "名称",
+    "fieldDescription": "説明",
+    "fieldAvatar": "アバター",
+    "fieldCover": "カバー画像",
+    "fieldCategory": "カテゴリ",
+    "fieldStatus": "ステータス",
+    "fieldPrice": "価格",
+    "fieldSort": "並び順",
+    "fieldIsFree": "無料",
+    "fieldRemark": "備考",
+    "namePlaceholder": "エージェント名を入力してください",
+    "descPlaceholder": "説明を入力してください（任意）",
+    "avatarPlaceholder": "アバターURLを入力してください",
+    "coverPlaceholder": "カバー画像URLを入力してください",
+    "categoryPlaceholder": "カテゴリを選択してください",
+    "remarkPlaceholder": "備考を入力してください（任意）",
+    "select": "選択",
+    "categoryPickerTitle": "カテゴリを選択",
+    "saving": "保存中...",
+    "loadFailed": "エージェント詳細の読み込みに失敗しました",
+    "saveFailed": "更新に失敗しました",
+    "nameRequired": "名称を入力してください",
+    "statusPending": "審査中",
+    "statusPublished": "公開済み",
+    "statusRejected": "却下済み",
+    "statusOffline": "オフライン",
+    "freeOn": "無料",
+    "freeOff": "有料"
   }
 }
