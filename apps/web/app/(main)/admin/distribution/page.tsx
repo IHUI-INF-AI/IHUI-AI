@@ -24,6 +24,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface Overview {
   totalCommission?: number
@@ -44,7 +45,7 @@ async function safeFetch<T>(url: string, fallback: T): Promise<T> {
   }
 }
 
-const fmtYuan = (n: number) => `¥${(n / 100).toFixed(2)}`
+const fmtYuan = (n: number) => `¥${formatPrice(n)}`
 
 export default function AdminDistributionPage() {
   const ovQ = useQuery({

@@ -25,6 +25,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface WithdrawalItem {
   id: string
@@ -64,7 +65,7 @@ const METHOD_KEY: Record<string, string> = {
   bank: 'methodBank',
 }
 
-const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
+const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
 
 export default function WithdrawRecordsPage() {
   const t = useTranslations('distribution')

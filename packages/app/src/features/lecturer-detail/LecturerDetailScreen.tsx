@@ -26,6 +26,7 @@ import type {
 } from '../../types'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { formatPrice } from '@ihui/shared/utils'
 
 /** 讲师详情共享屏 — props 注入式跨端组件 */
 export type {
@@ -226,7 +227,7 @@ export function LecturerDetailScreen({
                       </Text>
                       <View style={styles.courseMetaRow}>
                         {typeof c.price === 'number' && c.price > 0 ? (
-                          <Text style={styles.coursePrice}>¥{fenToYuan(c.price)}</Text>
+                          <Text style={styles.coursePrice}>¥{formatPrice(c.price)}</Text>
                         ) : (
                           <Text style={styles.courseFree}>{t('common.free')}</Text>
                         )}
@@ -362,13 +363,7 @@ function Header({
   )
 }
 
-// ── 工具(对齐 miniapp formatPrice/formatStudents) ──
-
-/** 分转元(对齐 miniapp formatPrice) */
-function fenToYuan(cents?: number): string {
-  if (typeof cents !== 'number') return ''
-  return (cents / 100).toFixed(2)
-}
+// ── 工具(金额走 @ihui/shared/utils formatPrice 唯一出口;此处仅人数格式化,对齐 miniapp formatStudents) ──
 
 /** 人数格式化:>=1万 → x.xw;>=1000 → x.xk(对齐 miniapp formatStudents) */
 function formatStudents(n?: number): string {
