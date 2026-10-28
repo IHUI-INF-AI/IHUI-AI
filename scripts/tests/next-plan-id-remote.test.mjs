@@ -395,6 +395,57 @@ test('T10 发不出号的两种成因必须分开念(结论与判据同形,2026-
 })
 
 /**
+ * T10b —— 拒发成因必须有**三档**(2026-10-29 立,补 T10 只分两档那一格)。
+ *
+ * 立因:gb22(2026-10-28)在 lib 立了第三档 `SCAN_FACE_FULL`,并把第一出口(live-doc-edit)按
+ * `EXHAUST_STAGE` 分档接上;本器拒发那一步仍只交 `describePoolExhaustion(leaseView)`(两档),
+ * 于是"占用面让得出候选、候选却被全文件扫描面 ⊕ 工作树副本 ⊕ 远端号集灭掉"这一型在本器念成
+ * "未判定"——而它恰是 2026-10-29 现读 O 族的日常形态(旧口径可发 44+ 枚,全被扫描顶掉)。
+ * 归因念错就是把运维引向"归档腾号"这条实测 Δ=0 的无效出路(§0.8/§12f)。
+ *  ⇒ ① 拒发行必须走 lib 的三档总渲染 `describeExhaustion(exhaustion)`;
+ *    ② stage 取值只许 import 单源(`EXHAUST_STAGE.*`),不得在本器自写字面量;
+ *    ③ 两枚新读数 narrowFreeList / killedByScan 必须由 lib 的同一份 poolFreeList/poolBlocked 给,
+ *       本器不得再写一条"什么算空闲"的正则(§0.6);
+ *    ④ 分配语义不得被这次归因改动碰到:租约游标仍不得自赋段容量/池上限(与 T10 同锁),
+ *       且 `--next-only` 的 stdout 仍恒一行号(下面真跑一条只读冒烟)。
+ */
+test('T10b 拒发成因三档必须齐(SCAN_FACE_FULL 不得在本器念成未判定)', () => {
+  const CODE = maskComments(TOOL_SRC)
+  assert.match(
+    CODE,
+    /describeExhaustion\(exhaustion\)/,
+    '拒绝发号行必须走 lib 的三档总渲染(两档渲染器留在分歧警示行,不是拒发行)',
+  )
+  assert.match(CODE, /EXHAUST_STAGE\.scanFilter/, '灭窗型必须落到 scan-filter 档(出路=换字母族)')
+  assert.match(CODE, /EXHAUST_STAGE\.leaseWindow/, '游标本体拒发仍落 lease-window 档(两型不并桶)')
+  assert.match(CODE, /SCAN_FACE_EXHAUST_REASON/, '报告里的成因自述必须点名第三档(§0.9 判据要可见)')
+  assert.doesNotMatch(
+    CODE,
+    /stage:\s*'scan-filter'/,
+    'stage 取值不得在本器自写字面量(单源 = lib 的 EXHAUST_STAGE,抄一份必漂,§22c)',
+  )
+  assert.match(CODE, /narrowFreeList/, '占用面口径可发数必须现场量(分得开"池满"与"灭窗")')
+  assert.match(CODE, /killedByScan/, '被扫描/远端面顶掉的枚数必须现场量(成因的证据)')
+  assert.match(CODE, /const narrowFreeList = poolFreeList\(\{/, '可发数走 lib 那一份 poolFreeList(不另起尺子)')
+  assert.doesNotMatch(
+    CODE,
+    /leaseCursor\(\{[^}]*segmentSize/,
+    '归因改造不得顺手动分配语义(段容量仍不许自赋,与 T10 同锁)',
+  )
+  // ④ 端到端只读冒烟:归因改动后 --next-only 的 stdout 契约仍是"恒一行号"。
+  const r = spawnSync(process.execPath, [CLI, '--next-only', '--source', 'HEAD'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 300_000,
+  })
+  assert.equal(r.status, 0, `只读发号冒烟必须 exit 0,实得 rc=${r.status}\n${r.stderr}`)
+  const out = String(r.stdout).trim().split(/\r?\n/)
+  assert.equal(out.length, 1, `--next-only 的 stdout 恒一行,实得 ${out.length} 行:\n${r.stdout}`)
+  assert.match(out[0], /^O\d+$/, `stdout 必须只有一枚 O 族号,实得:${out[0]}`)
+})
+
+/**
  * T11 —— G-35(2026-10-25)「远端那一维不能只交 max」夹具级正证。
  *
  * 病型:本地面占 1..4 与 10(lowMax=10),远端台账登记了 G-05 而那一行本地还没并进来
