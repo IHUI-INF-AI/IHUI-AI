@@ -6748,6 +6748,9 @@
     "downloading": "アップデートをダウンロード中…",
     "currentBundle": "現在実行中:{{bundle}}",
     "bundleEmbedded": "内蔵パッケージ",
-    "bundleOta": "ホットアップデート"
+    "bundleOta": "ホットアップデート",
+    "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。",
+    "installingHint": "アプリは自動的に再起動します（通常は数秒）。",
+    "restartNow": "今すぐ再起動"
   }
 }

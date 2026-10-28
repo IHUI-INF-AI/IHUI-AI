@@ -141,8 +141,22 @@ function cstr(v: unknown): string {
 function mapTraeImport(acc: ImportAccountInput): { secrets: Record<string, unknown> } | null {
   const keyPem = cstr(acc['deviceKeyPem'])
   const pubPem = cstr(acc['devicePubPem'])
-  if (!keyPem || !pubPem) return null
-  return { secrets: { deviceKeyPem: keyPem, devicePubPem: pubPem } }
+  const secrets: Record<string, unknown> = {}
+  if (keyPem && pubPem) {
+    secrets.deviceKeyPem = keyPem
+    secrets.devicePubPem = pubPem
+  }
+  // 会话模板三键与 WorkBuddy 同一条通道(2026-10-28):提取器/回灌带来模板与信封路径,
+  // 「登录本机」按它重封。载荷带就落,不带就不产出键(交给列合并回填既有值,不抹)。
+  const template = objField(acc, 'sessionTemplate')
+  if (template) secrets.sessionTemplate = template
+  const sealedPaths = Array.isArray(acc['sealedPaths'])
+    ? acc['sealedPaths'].filter((p): p is string => typeof p === 'string' && p !== '')
+    : []
+  if (sealedPaths.length > 0) secrets.sealedPaths = sealedPaths
+  const edition = cstr(acc['edition'])
+  if (edition) secrets.edition = edition
+  return Object.keys(secrets).length > 0 ? { secrets } : null
 }
 
 /** DPoP 私钥既可能是 JWK 对象也可能是 JSON 字符串,统一解析为对象 */
@@ -490,7 +504,58 @@ function mapSessionEntryImport(
 }
 
 const mapLoomyImport = (acc: ImportAccountInput) => mapSessionEntryImport('loomy', 'loomy', acc)
-const mapDoubaoImport = (acc: ImportAccountInput) => mapSessionEntryImport('doubao', 'doubao', acc)
+
+/**
+ * 豆包:捆绑单账号(2026-10-28)。提取器把整套字节 passport 族 cookie 打成一个账号
+ * ({token=主票, uid=整包指纹, cookies[]}),cookies 数组由通用路径落 cookiesEnc
+ * (doubao-adapter 转发的就是整包)。仍兼容旧的逐 cookie {source,key,host,value} 条目
+ * 形状(历史导入),原样走 mapSessionEntryImport。
+ */
+function mapDoubaoImport(acc: ImportAccountInput): ReturnType<typeof mapSessionEntryImport> {
+  const a = acc as Record<string, unknown>
+  if (Array.isArray(a['cookies']) && a['cookies'].length > 0) {
+    const token = cstr(a['token'])
+    if (!token) return null
+    return {
+      token,
+      refreshToken: null,
+      uid: cstr(a['uid']) || autoUid(token),
+      name: cstr(a['name']) || null,
+      expiresAt: null,
+      secrets: {},
+    }
+  }
+  return mapSessionEntryImport('doubao', 'doubao', acc)
+}
+
+/**
+ * WorkBuddy:JWT 票 + 「登录本机」写回配方(2026-10-28)。
+ * sessionTemplate(解密树剔凭证)/ sealedPaths(信封路径清单,写回端重封依据)/
+ * edition / authFile 全进 secretsEnc;uid 用会话 account.uid(提取器已证 = 令牌 sub)。
+ */
+function mapWorkbuddyImport(acc: ImportAccountInput): ReturnType<typeof mapCodexImport> {
+  const a = acc as Record<string, unknown>
+  const token = cstr(a['token'])
+  if (!token) return null
+  const template = objField(a, 'sessionTemplate')
+  const sealed = Array.isArray(a['sealedPaths'])
+    ? a['sealedPaths'].filter((p): p is string => typeof p === 'string' && p.startsWith('$'))
+    : null
+  return {
+    token,
+    refreshToken: cstr(a['refreshToken']) || null,
+    uid: cstr(a['uid']) || autoUid(token),
+    name: cstr(a['name']) || null,
+    // 到期时刻交 extractTokenExpiry(JWT exp)兜底,映射层不猜
+    expiresAt: null,
+    secrets: {
+      sessionTemplate: template ?? null,
+      sealedPaths: sealed && sealed.length > 0 ? sealed : null,
+      edition: cstr(a['edition']) || null,
+      authFile: cstr(a['authFile']) || null,
+    },
+  }
+}
 
 /** 灵码:raw 凭证记录(字段级形状未实证,token 按常见键名探测,取不到如实 null) */
 function mapLingmaImport(acc: ImportAccountInput): {
@@ -583,27 +648,29 @@ export async function importAccounts(
       // loomy/doubao/lingma/grokbot)。各格式的 uid/expiresAt 都在映射层显式解析,
       // 不透传则退化为哈希 uid + 无过期时刻。
       const mapped =
-        providerCode === 'codearts'
-          ? mapCodeartsImport(acc)
-          : providerCode === 'qoder'
-            ? mapQoderImport(acc)
-            : providerCode === 'codex'
-              ? mapCodexImport(acc)
-              : providerCode === 'opencode'
-                ? mapOpencodeImport(acc)
-                : providerCode === 'minimax'
-                  ? mapMinimaxImport(acc)
-                  : providerCode === 'zcode'
-                    ? mapZcodeImport(acc)
-                    : providerCode === 'loomy'
-                      ? mapLoomyImport(acc)
-                      : providerCode === 'doubao'
-                        ? mapDoubaoImport(acc)
-                        : providerCode === 'lingma'
-                          ? mapLingmaImport(acc)
-                          : providerCode === 'grokbot'
-                            ? mapGrokbotImport(acc)
-                            : null
+        providerCode === 'workbuddy'
+          ? mapWorkbuddyImport(acc)
+          : providerCode === 'codearts'
+            ? mapCodeartsImport(acc)
+            : providerCode === 'qoder'
+              ? mapQoderImport(acc)
+              : providerCode === 'codex'
+                ? mapCodexImport(acc)
+                : providerCode === 'opencode'
+                  ? mapOpencodeImport(acc)
+                  : providerCode === 'minimax'
+                    ? mapMinimaxImport(acc)
+                    : providerCode === 'zcode'
+                      ? mapZcodeImport(acc)
+                      : providerCode === 'loomy'
+                        ? mapLoomyImport(acc)
+                        : providerCode === 'doubao'
+                          ? mapDoubaoImport(acc)
+                          : providerCode === 'lingma'
+                            ? mapLingmaImport(acc)
+                            : providerCode === 'grokbot'
+                              ? mapGrokbotImport(acc)
+                              : null
       // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
       const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
       // 号池统一名称 = 官方绑定手机号:qoder 映射出的 name 即 phone,具备权威性,
@@ -756,22 +823,22 @@ export async function importAccounts(
           : traeSecrets
             ? traeSecrets.secrets
             : null
-      // 模板三键保留(2026-10-28,HEAD mergeSecrets 对这三键语义的最小恢复):secretsEnc 同时装
-      // 凭据图与会话模板三键(sessionTemplate/sealedPaths/edition —— worker cron 每 10 分钟经
-      // relay-workbuddy-session-sync 回灌,「登录本机」relay-local-login 唯一消费面)。导入载荷
-      // 通常只带凭证 ⇒ 整列覆盖会把三键抹掉。判据:以既有为底,仅当本批 secrets 图显式提供
-      // 非空值才覆盖这三键;本批不带任何 secrets ⇒ 该列不动(等价 HEAD 的 undefined 语义)。
+      // secretsEnc 单列合并(2026-10-28 定稿):该列同时装凭据图、会话模板三键
+      // (sessionTemplate/sealedPaths/edition)与设备材料(trae 的 deviceKeyPem/devicePubPem)。
+      // 三类生产者各自只带自己那几键 ⇒ 整列覆盖会互相踩踏(带模板的导入抹掉设备材料,
+      // 带设备材料的导入抹掉模板)。判据:**以既有为底**,本批显式给出非空值才覆盖;
+      // 本批不带任何 secrets ⇒ 该列不动(undefined)。只保留三键是旧口径,设备材料
+      // 会被抹 —— 契约测试 tests/relay-account-import-preserve-refresh.test.ts 已钉死。
       let secretsEncOut: string | null | undefined
       if (incomingSecrets) {
         const merged: Record<string, unknown> = { ...incomingSecrets }
         if (existingSecrets) {
-          for (const k of ['sessionTemplate', 'sealedPaths', 'edition'] as const) {
+          for (const [k, keep] of Object.entries(existingSecrets)) {
             const cur = merged[k]
             const provided =
               cur !== null &&
               cur !== undefined &&
               !(typeof cur === 'object' && !Array.isArray(cur) && Object.keys(cur).length === 0)
-            const keep = existingSecrets[k]
             if (!provided && keep !== null && keep !== undefined) merged[k] = keep
           }
         }
