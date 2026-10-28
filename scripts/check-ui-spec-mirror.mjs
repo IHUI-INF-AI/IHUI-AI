@@ -317,6 +317,17 @@ export function selfTest() {
     ).state,
     'broken',
   ])
+  // 台账「不存在」与「存在但读不出」必须分向:前者更严、照常判;后者未判定。
+  // 立因(2026-10-29 实测):多会话收敛期门体先同步、台账还在路上,按"取不到输入"判 exit 2
+  // 会让一道与提交内容无关的门把整条链钉黄 —— §12e 禁止的正是这一型。
+  cases.push(['台账不存在 ⇒ 零豁免可继续判', parseWaivers(null).ok ? 'ok' : 'err', 'ok'])
+  cases.push([
+    '台账不存在 ⇒ 带 absent 标记(打印用)',
+    parseWaivers(null).absent ? 'absent' : 'x',
+    'absent',
+  ])
+  cases.push(['台账坏 JSON ⇒ 判不了(未判定)', parseWaivers('{waivers').ok ? 'ok' : 'err', 'err'])
+  cases.push(['台账空文本 ⇒ 判不了(未判定)', parseWaivers('').ok ? 'ok' : 'err', 'err'])
 
   let failed = 0
   for (const [name, actual, expected] of cases) {
@@ -358,6 +369,10 @@ function main(argv) {
     )
     return 2
   }
+  // 台账在被审面上**不存在**不是"判不了":豁免只用来放宽,缺它只会更严 ⇒ 照常判,但把这句话出声,
+  // 免得日后有人拿"这里宽了/紧了"去猜是哪一面带的台账(多会话收敛期,门体与台账常分两批到)。
+  if (parseWaivers(readFaceTexts(face, [WAIVER_LEDGER_REL]).get(WAIVER_LEDGER_REL)).absent)
+    console.log(`ℹ️ ${WAIVER_LEDGER_REL} 在 ${face} 面不存在 ⇒ 按零豁免判定(不会因此放过任何一条断链)`)
   const broken = rows.filter((r) => r.state === 'broken')
   const outOfScope = rows.filter((r) => r.state === 'out-of-scope')
   const noSpec = rows.filter((r) => r.state === 'no-spec')
