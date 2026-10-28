@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   checkForUpdateAsync: vi.fn(),
   fetchUpdateAsync: vi.fn(),
   reloadAsync: vi.fn(),
+  restart: vi.fn(),
   addUpdatesStateChangeListener: vi.fn(
     (_listener: (e: { context: Record<string, unknown> }) => void) => ({ remove: vi.fn() }),
   ),
@@ -30,6 +31,14 @@ vi.mock('expo-updates', () => ({
   isEmbeddedLaunch: true,
   updateId: null,
   addUpdatesStateChangeListener: h.addUpdatesStateChangeListener,
+}))
+
+/**
+ * 原生真重启必须打桩(2026-10-28):release 走 ProcessPhoenix 杀进程,
+ * 测试环境里没有这枚原生模块,不打桩就只能测到"模块缺失"分支。
+ */
+vi.mock('react-native-restart', () => ({
+  default: { restart: h.restart },
 }))
 
 /**
@@ -149,43 +158,42 @@ describe('OTA 状态机:提示的一次性关闭与复位', () => {
 describe('OTA 状态机:重启生效', () => {
   beforeEach(() => {
     h.reloadAsync.mockReset()
+    h.restart.mockReset()
   })
 
-  it('apply ⇒ 调 reloadAsync,成功返回 true', async () => {
-    h.reloadAsync.mockResolvedValue(undefined)
+  it('apply ⇒ 调原生真重启 RNRestart.restart,成功返回 true', async () => {
     const mod = await freshModule()
     await expect(mod.applyOtaUpdate()).resolves.toBe(true)
-    expect(h.reloadAsync).toHaveBeenCalledTimes(1)
+    expect(h.restart).toHaveBeenCalledWith('ota-apply')
   })
 
-  it('reload 失败 ⇒ 回到 ready(卡片继续在,可再点一次重试)并返回 false', async () => {
+  it('**绝不**调 reloadAsync(2026-10-28:它就是灰屏卡死的来源)', async () => {
+    const mod = await freshModule()
+    await mod.applyOtaUpdate()
+    expect(h.reloadAsync).not.toHaveBeenCalled()
+  })
+
+  it('原生重启抛错 ⇒ 回到 ready(卡片继续在,可再点一次重试)并返回 false', async () => {
     // 2026-10-27 修的真 bug:原来失败落 error 态,而提示卡只在 ready 渲染
     // ⇒ 卡片直接消失,用户既看不到原因也没有重试入口,只能等下次冷启动。
-    h.reloadAsync.mockRejectedValue(new Error('native channel broken'))
+    h.restart.mockImplementation(() => {
+      throw new Error('native module missing')
+    })
     const mod = await freshModule()
     await expect(mod.applyOtaUpdate()).resolves.toBe(false)
     expect(mod.otaSnapshot().state).toBe('ready')
-    expect(mod.otaSnapshot().lastError).toContain('native channel broken')
+    expect(mod.otaSnapshot().lastError).toContain('native module missing')
   })
 
-  it('reloadAsync 永不 resolve ⇒ 看门狗超时落回 ready(「正在重启」遮罩不许永久钉住)', async () => {
-    // 机主实拍「点完更新直接调到灰屏页,一直不动」:真重启时进程被替换、定时器走不到;
-    // 但原生通道挂死 / 新包装载卡住时 reloadAsync 可能一直悬着 —— 没有看门狗就会把
-    // installing 的整幅遮罩永久留在屏幕上(比原来那块无反馈灰屏更糟)。
-    vi.useFakeTimers()
-    try {
-      h.reloadAsync.mockImplementation(() => new Promise<void>(() => {}))
-      const mod = await freshModule()
-      const applying = mod.applyOtaUpdate()
-      await vi.advanceTimersByTimeAsync(0)
-      expect(mod.otaSnapshot().state).toBe('installing')
-      await vi.advanceTimersByTimeAsync(15000)
-      await expect(applying).resolves.toBe(false)
-      expect(mod.otaSnapshot().state).toBe('ready')
-      expect(mod.otaSnapshot().lastError).toContain('看门狗')
-    } finally {
-      vi.useRealTimers()
-    }
+  it('重启前先把状态推到 installing(重启页要来得及画出来)', async () => {
+    const mod = await freshModule()
+    // 只在 native 调用里读状态:调用之后进程就没了,这时读到的必须已经是 installing
+    let seen: string | null = null
+    h.restart.mockImplementation(() => {
+      seen = mod.otaSnapshot().state
+    })
+    await mod.applyOtaUpdate()
+    expect(seen).toBe('installing')
   })
 })
 

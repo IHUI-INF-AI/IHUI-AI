@@ -71,6 +71,12 @@ const RN_ONLY_KEYS = [
   'currentBundle',
   'bundleEmbedded',
   'bundleOta',
+  // 2026-10-28 机主「怎么还能提示用户去刷新页面」:RN 不能复用 web 的 body
+  // (web 是 PWA 刷新页面,RN 是点按钮重启进程),就绪态改用自己的 readyBody;
+  // 重启迟迟不回来时的兜底按钮与说明同理只在 RN 出现。
+  'readyBody',
+  'installingHint',
+  'restartNow',
 ] as const
 
 /**

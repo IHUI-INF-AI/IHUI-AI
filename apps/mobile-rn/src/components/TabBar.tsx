@@ -11,7 +11,7 @@
  * 手势区收进面板内 —— 删掉原先图标行下面独立的白色透明带。
  * 平台特有:依赖 react-native Image require + SafeAreaView,不适合共享层。
  */
-import { useCallback } from 'react'
+import { useCallback, type RefObject } from 'react'
 import { Image, Platform, Pressable, Text, View } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -51,6 +51,12 @@ export interface TabBarProps {
   onChange: (tab: TabBarKey) => void
   /** 覆盖默认标签(i18n 注入);未提供则用 TABS 内置默认值 */
   labels?: Partial<Record<TabBarKey, string>>
+  /**
+   * Android 真模糊必需(expo-blur SDK 55+):把胶囊背后的页面内容包进 BlurTargetView,
+   * 其 ref 从此传入。缺省时 Android 退 0.88 磨砂实底兜底(不出五稿那种实心白块);
+   * iOS/web 忽略此 prop(iOS UIVisualEffectView 无需 target,web 走 backdropFilter)。
+   */
+  blurTarget?: RefObject<View | null>
 }
 
 const TABS: readonly TabBarItemConfig[] = [
@@ -87,7 +93,7 @@ const TABS: readonly TabBarItemConfig[] = [
   },
 ] as const
 
-export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
+export default function TabBar({ activeTab, onChange, labels, blurTarget }: TabBarProps) {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const insets = useSafeAreaInsets()
@@ -99,30 +105,36 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
   // 恢复悬浮胶囊几何,材质仍用磨砂实底)
   const floatGap = Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4)
 
+  // Android 真模糊开关:拿到各屏 BlurTargetView 的 ref 才渲染 BlurView(dimezis),
+  // 否则整层不渲染,由容器 0.88 磨砂实底兜底 —— 半吊子 BlurView 正是五稿实心白块的来源。
+  const androidBlur = Platform.OS === 'android' && !!blurTarget
+
   return (
     <View style={[tabBarStyleSheet.wrapper, { marginBottom: floatGap }]}>
       {/* 悬浮玻璃胶囊:图标行 + 底部留距(悬浮)组成同一块磨砂玻璃。
-          真背景模糊两端都渲染(2026-10-27 五稿):expo-blur 在 Android 默认 blurMethod='none'
-          (纯 tint 零模糊)——0.0.8 三稿据此误判「dimezis 模糊不生效」退成 0.88 磨砂实底,
-          实机机主反馈「底下的字看得很清楚,没玻璃感」后定位真因 = 少传 blurMethod;
-          Android 显式传 dimezisBlurView(SDK 31+ 走 RenderEffect),iOS 用默认 UIVisualEffectView。
-          容器底色压到 0.5:模糊层负责质感,万一某机型模糊层不渲染,0.5 半透明仍可读(不退回实底)。 */}
+          七稿(Android 真模糊补全,2026-10-28):六稿查明五稿白块真因 = expo-blur SDK 55+
+          的 Android dimezis 模糊必须配 blurTarget(缺 target 即禁用模糊并退实心 LIGHT tint
+          白块)。各屏已把胶囊背后的内容包进 BlurTargetView 并把 ref 传进来 ⇒ Android 上真
+          模糊,容器底色调回 0.5 半透(模糊层负责质感);若某屏漏传 target,Android 仍走
+          0.88 磨砂实底兜底,绝不再出实心白。iOS 用 UIVisualEffectView(无需 target)不变;
+          web 走 backdropFilter 不变。 */}
       <View
         style={[
           tabBarStyleSheet.container,
           Platform.OS === 'android' && {
             backgroundColor: withAlpha(
               resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,
-              0.5,
+              androidBlur ? 0.5 : 0.88,
             ),
           },
         ]}
       >
-        {Platform.OS !== 'web' ? (
+        {Platform.OS === 'ios' || androidBlur ? (
           <BlurView
             intensity={resolvedTheme === 'dark' ? 40 : 48}
             tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
-            blurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
+            blurMethod={androidBlur ? 'dimezisBlurView' : undefined}
+            blurTarget={blurTarget}
             style={tabBarStyleSheet.blurFill}
           />
         ) : null}

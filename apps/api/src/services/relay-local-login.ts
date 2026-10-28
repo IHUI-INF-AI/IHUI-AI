@@ -13,8 +13,7 @@
  * 分工(§0.6 单一真相源):
  * - 本服务 = 取行、平台裁决、票据策略、spawn、错误映射(不复制模板形状/凭证剔除规则);
  * - scripts/trae-login-local.mjs = Trae storage.json 重封 byteCrypto 信封 + 备份 + 原子写;
- * - scripts/local-login.mjs = codex/opencode/minimax/zcode/codearts/qoder 六平台写回;
- * - scripts/workbuddy-login-local.mjs = WorkBuddy 会话文件字段级 $wbEncrypted 重封 + 先关后写再拉起。
+ * - scripts/local-login.mjs = codex/opencode/minimax/zcode/codearts/qoder/workbuddy/doubao 八平台写回。
  *
  * 票据策略(trae 之外一律不刷新):Trae 保留「临期先兜底刷新一次」的既有生产口径;
  * 其它平台写池内当前票 —— 主动刷新会轮换 refreshToken,若本机正用着同一个号就会
@@ -39,7 +38,6 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = process.env.IHUI_REPO_ROOT?.trim() || resolve(HERE, '..', '..', '..', '..')
 const TRAE_SCRIPT = resolve(REPO_ROOT, 'scripts', 'trae-login-local.mjs')
 const LOCAL_SCRIPT = resolve(REPO_ROOT, 'scripts', 'local-login.mjs')
-const WORKBUDDY_SCRIPT = resolve(REPO_ROOT, 'scripts', 'workbuddy-login-local.mjs')
 /** 服务身份下换桌面用户执行的 helper(CodeArts/Qoder 的用户级 DPAPI 只能以该用户身份解) */
 const RUN_AS_USER_SCRIPT = resolve(REPO_ROOT, 'apps', 'api', 'scripts', 'run-as-user.ps1')
 const SPAWN_TIMEOUT_MS = 150_000
@@ -52,12 +50,11 @@ const EXPIRY_GUARD_MS = 60_000
  */
 export const LOCAL_LOGIN_UNSUPPORTED_REASONS: Partial<Record<RelayProviderCode, string>> = {
   loomy: '本机登录态是 Electron leveldb 且被客户端独占,离线无法重建',
-  doubao: '登录态是 Chrome Cookies 库(被浏览器独占),离线无法重封',
   lingma: '字段级登录态形状尚未实证(本机未安装),没有可验证的写回配方',
   grokbot: '本机凭证是 sandSealedFile 密封串,没有明文 token 可重建',
 }
 
-/** 由 scripts/local-login.mjs 接管写回的六平台 */
+/** 由 scripts/local-login.mjs 接管写回的八平台 */
 const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
   'codex',
   'opencode',
@@ -65,6 +62,8 @@ const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
   'zcode',
   'codearts',
   'qoder',
+  'workbuddy',
+  'doubao',
 ])
 
 /**
@@ -72,8 +71,14 @@ const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
  * IHUI-API 以 LocalSystem 运行时既解不开(SYSTEM 主密钥不同)、落点又指向 systemprofile。
  * 走 apps/api/scripts/run-as-user.ps1(WTSQueryUserToken → CreateProcessAsUser);
  * 非服务身份时该脚本原样直跑,行为与直接 spawn 等价。
+ * workbuddy 的 inspector 取钥与豆包的 DPAPI 取钥同样只在桌面用户身份下成立。
  */
-const RUN_AS_USER_PROVIDERS: ReadonlySet<string> = new Set(['codearts', 'qoder'])
+const RUN_AS_USER_PROVIDERS: ReadonlySet<string> = new Set([
+  'codearts',
+  'qoder',
+  'workbuddy',
+  'doubao',
+])
 
 /**
  * 选 PowerShell 解释器:优先 pwsh 7(本机实测 powershell.exe 可能被替换成
@@ -430,7 +435,7 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
   }
 }
 
-/** 六平台:写池内当前票,不主动刷新(刷新会轮换 refreshToken ⇒ 可能顶掉正在用的本机客户端) */
+/** 八平台:写池内当前票,不主动刷新(刷新会轮换 refreshToken ⇒ 可能顶掉正在用的本机客户端) */
 async function loginViaScript(
   row: AiRelayAccountPool,
   providerCode: RelayProviderCode,
@@ -443,6 +448,8 @@ async function loginViaScript(
     expiresAt: row.tokenExpiresAt?.toISOString(),
     refreshExpiresAt: row.refreshExpiresAt?.toISOString(),
     secrets: creds.secrets,
+    // 豆包捆绑账号的整套 cookie(其它平台为空数组,适配器忽略)
+    cookies: creds.cookies,
   }
 
   let outcome
@@ -469,7 +476,7 @@ async function loginViaScript(
     throw new LocalLoginError('写回脚本未回报落点(未判定)', 'bad-output', 502)
   }
   /**
-   * 六平台自 2026-10-28 起与 trae 同口径:运行中的 GUI 客户端(codearts/qoder/minimax/zcode)
+   * 八平台自 2026-10-28 起与 trae 同口径:运行中的 GUI 客户端(codearts/qoder/minimax/zcode/workbuddy/doubao)
    * 先关后写再拉起,字段同名同义;codex/opencode 是 CLI,脚本不给这些字段 ⇒ 全 false。
    */
   const clientProduct = typeof parsed.clientProduct === 'string' ? parsed.clientProduct : ''
@@ -510,117 +517,14 @@ async function loginViaScript(
 }
 
 /**
- * WorkBuddy:写池内当前票,不主动刷新(刷新会轮换 refreshToken ⇒ 可能顶掉正在用的本机客户端)。
+ * WorkBuddy / 豆包与 codex 等一样走 `scripts/local-login.mjs`(八平台一份实现,§0.6 单一真相源)。
  *
- * 会话文件是明文 JSON + 字段级 $wbEncrypted 信封(AES-256-GCM),密钥从运行中的主进程
- * (9229 inspector)现取、跨重启稳定 ⇒ 写回可行。本服务只出 payload(解密整树模板 +
- * 密封字段路径 + 池内凭证),重封/备份/先关后写再拉起全部由 scripts/workbuddy-login-local.mjs 执行。
- * 模板/密封路径来自导入或本机回灌(apps/api/scripts/relay-workbuddy-session-sync.ts)。
+ * 2026-10-28 归并收口:此前这里有一条 WorkBuddy 专属通道,spawn 的是
+ * `scripts/workbuddy-login-local.mjs` —— 该脚本在任何一次提交里都不存在(全 ref 扫过、盘上也没有),
+ * 调用必得 spawn ENOENT;而 `scripts/local-login.mjs` + `scripts/lib/workbuddy-auth-extract.mjs`
+ * 已实现同一套流程(inspector 取钥 → 先关端 → 按池内 sessionTemplate/sealedPaths 重封 → 拉起),
+ * 故摘掉专属通道,平台分流统一由 LOCAL_SCRIPT_PROVIDERS 决定。
  */
-async function loginWorkbuddyLocal(row: AiRelayAccountPool): Promise<LocalLoginResult> {
-  const creds = decryptAccountCredentials(row)
-  const storedTemplate = creds.secrets.sessionTemplate
-  const template =
-    storedTemplate && typeof storedTemplate === 'object' && !Array.isArray(storedTemplate)
-      ? (storedTemplate as Record<string, unknown>)
-      : null
-  const storedPaths = creds.secrets.sealedPaths
-  const sealedPaths = Array.isArray(storedPaths)
-    ? storedPaths.filter((p): p is string => typeof p === 'string' && p !== '')
-    : []
-  const notes: string[] = []
-  if (!template || Object.keys(template).length === 0 || sealedPaths.length === 0) {
-    throw new LocalLoginError(
-      '该号没有会话模板:请先在本机登录该 WorkBuddy 号,等会话同步(或手动跑 apps/api/scripts/relay-workbuddy-session-sync.ts)后再切',
-      'no-template',
-      409,
-    )
-  }
-  const edition =
-    typeof creds.secrets.edition === 'string' && creds.secrets.edition.trim()
-      ? creds.secrets.edition.trim()
-      : ''
-  if (!edition) notes.push('池内未记录 edition,已按国内版 workbuddy 写回')
-  if (!creds.refreshToken) {
-    throw new LocalLoginError(
-      '池内该号没有 refreshToken,写回后到期将无法续期,拒绝切号',
-      'refresh-missing',
-      409,
-    )
-  }
-  const nearExpiry = isNearExpiry(row, Date.now())
-  if (nearExpiry) notes.push('写入的是临期/过期票,客户端启动后会自行续期')
-
-  const payload = {
-    uid: row.uid,
-    edition: edition || 'workbuddy',
-    sessionTemplate: template,
-    sealedPaths,
-    credentials: { accessToken: creds.token, refreshToken: creds.refreshToken },
-    expiry: {
-      expiresAt: row.tokenExpiresAt ? row.tokenExpiresAt.toISOString() : null,
-      refreshExpiresAt: row.refreshExpiresAt ? row.refreshExpiresAt.toISOString() : null,
-    },
-    /** 客户端在跑时它的内存态会在退出时覆写会话文件,写回端必须先关后写再拉起 */
-    restartClient: true,
-  }
-
-  let outcome
-  try {
-    /**
-     * 必须走桌面用户身份:会话文件在 %LOCALAPPDATA%\CodeBuddyExtension 下,IHUI-API 以
-     * LocalSystem 服务运行时该变量指向 systemprofile ⇒ 路径全错;inspector 取密钥也在用户
-     * 会话里才稳。非服务身份时 run-as-user.ps1 原样直跑,行为与直接 spawn 等价(同 codearts/qoder)。
-     */
-    outcome = await runScript(WORKBUDDY_SCRIPT, ['--stdin', '--json'], payload, { asUser: true })
-  } catch (e) {
-    if (e instanceof LocalLoginError) throw e
-    const message = e instanceof Error ? e.message : String(e)
-    throw new LocalLoginError(`启动写回脚本失败:${message}`, 'spawn-failed', 500)
-  }
-  if (outcome.code !== 0) {
-    const { code, message } = parseScriptError(outcome.stderr)
-    throw new LocalLoginError(message, code, statusOf(code))
-  }
-
-  const parsed = parseOutput(outcome.stdout)
-  const targetFile = typeof parsed.targetFile === 'string' ? parsed.targetFile : ''
-  if (!targetFile) {
-    throw new LocalLoginError('写回脚本未回报落点(未判定)', 'bad-output', 502)
-  }
-  const clientWasRunning = parsed.clientWasRunning === true
-  const clientClosed = parsed.clientClosed === true
-  const clientForced = parsed.clientForced === true
-  const clientRestarted = parsed.clientRestarted === true
-  const clientLaunchError =
-    typeof parsed.clientLaunchError === 'string' ? parsed.clientLaunchError : ''
-  if (clientClosed) {
-    notes.push(
-      clientRestarted
-        ? `写入前已${clientForced ? '强制' : '优雅'}关闭并重新打开 WorkBuddy 客户端(运行中的客户端会用内存态覆写登录态,故必须先关后写)`
-        : `写入前已关闭 WorkBuddy 客户端,但未能自动重新拉起,请手动打开客户端`,
-    )
-  }
-  return {
-    ok: true,
-    providerCode: 'workbuddy',
-    uid: typeof parsed.uid === 'string' ? parsed.uid : row.uid,
-    replacedUid: typeof parsed.replacedUid === 'string' ? parsed.replacedUid : null,
-    targetFile,
-    backupFile: typeof parsed.backupFile === 'string' ? parsed.backupFile : '',
-    notes,
-    tokenNearExpiry: nearExpiry,
-    refreshed: false,
-    restartHint:
-      typeof parsed.restartHint === 'string' ? parsed.restartHint : '重启 WorkBuddy 后生效',
-    clientProduct: 'WorkBuddy',
-    clientWasRunning,
-    clientClosed,
-    clientForced,
-    clientRestarted,
-    clientLaunchError,
-  }
-}
 
 /**
  * 把号池账号写进本机客户端登录态。
@@ -631,7 +535,6 @@ async function loginWorkbuddyLocal(row: AiRelayAccountPool): Promise<LocalLoginR
 export async function loginAccountLocal(row: AiRelayAccountPool): Promise<LocalLoginResult> {
   const providerCode = row.providerCode as RelayProviderCode
   if (providerCode === 'trae') return loginTraeLocal(row)
-  if (providerCode === 'workbuddy') return loginWorkbuddyLocal(row)
   const unsupported = LOCAL_LOGIN_UNSUPPORTED_REASONS[providerCode]
   if (unsupported) {
     throw new LocalLoginError(
