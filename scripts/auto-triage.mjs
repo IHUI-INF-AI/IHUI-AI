@@ -33,10 +33,23 @@
  * 聚类:新增「错误签名归一」层(数字/UUID/URL 查询串/时间戳归零后再哈希),同桶 24h 窗
  * 计数达到 clustering.minOccurrences(默认 2)才够格派单;去重键仍复用 fingerprintOf。
  *
- * 用法:node scripts/auto-triage.mjs --once [--dry-run] | --status | --self-test | --help
+ * 用法:node scripts/auto-triage.mjs --once [--dry-run] | --status | --families | --self-test | --help
  *  dry-run 只打印将要登记/观察的行,不写 PROJECT_PLAN.md,也不写分诊台账。
+ *  --families 只读:把每一枚在册字母族喂给**唯一分配判据**现跑一遍,报"哪一族真发得出号"。
  *  参数闸:未知旗标/位置参数/缺动作旗标 ⇒ 当场 exit 2 打用法(2026-10-28 立:`--help` 曾直接
  *  落真分诊轮并往观测账追写行 —— 歧义调用只许"多要一次定向说明",绝不"多跑一次真轮")。
+ *
+ * 取号族现读(2026-10-29 立,结清 L28694「写入台账」最后一格):
+ *  病根不是号池的算术,而是**族字母被烘成常量** —— 登记行写死 `{{NEXT_ID:G}}`,而 G 族对本席
+ *  现读恒回 `pool-exhausted:G / stage=scan-filter`(真成因 SCAN_FACE_FULL:占用面让得出窗、
+ *  窗内候选却被台账⊕归档件的引用面全灭)。归因层 2026-10-28 已补齐(枚 a130903b43),缺的是**出路**:
+ *  仓库既有裁量口径 = 换字母族或开新字母(削 G-14 引用面不是出路,散点归档实测 Δ=0)。
+ *  ⇒ 本器不再自定族:每次登记前按现读挑一族**真发得出号**的字母族,挑族用的判据就是第一发号出口
+ *  那一份(`live-doc-edit.resolveIdTokens`,纯函数、零写盘),本器一个取号判据都不复制(§0.6)。
+ *  候选族的字母表同样不抄第二份 —— 由编号族表唯一真相源 `check-plan-line-loss.TASK_ID_PATTERN`
+ *  现解析(族表认不出的字母对取号器与主键判据同时隐身,故族表永远是上游)。
+ *  探针不含远端那一维 ⇒ 它只是排序器,不是担保:真落地仍由 live-doc-edit 每轮 CAS 现算;
+ *  被拒且属 `pool-exhausted` ⇒ 按现读可发族的次名重试(≤3 次),其余失败原因不重试(重试也不会变)。
  */
 import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs'
@@ -48,6 +61,11 @@ import { locatePsqlClient, psqlLocateMissText } from './lib/psql-client-locate.m
 import { guardDbDsn } from './lib/db-probe-client.mjs'
 // 登记行守卫(与 dep-advisory-radar 共用同一份):hex 串在台账行里会被守门 117 当短 sha 拒落。
 import { sanitizeHexRuns } from './lib/triage-doc-line.mjs'
+// 挑族用的判据 = 第一发号出口那一份(本器只调用、不复制;详见文件头"取号族现读"段)。
+import { resolveIdTokens } from './live-doc-edit.mjs'
+import { collectIdFace } from './lib/plan-id-face.mjs'
+import { machineIdentity, describeExhaustion } from './lib/plan-id-lease.mjs'
+import { TASK_ID_PATTERN } from './check-plan-line-loss.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const CONFIG_JSON = join(ROOT, 'scripts', 'data', 'auto-triage-config.json')
@@ -62,6 +80,16 @@ const API_LOGS_DEFAULT_LIMIT = 500
 const FEEDBACKS_DEFAULT_LIMIT = 200
 const CLUSTER_WINDOW_HOURS_DEFAULT = 24
 const CLUSTER_MIN_OCCURRENCES_DEFAULT = 2
+/** 登记目标文档(与 live-doc-edit 的缺省同一枚,不另开一条面)。 */
+const PLAN_DOC = 'PROJECT_PLAN.md'
+/**
+ * 挑族探针的行标题。必须**永远不会**与真登记同题(resolveIdTokens 内含守门 194 同题查重,
+ * 探针撞上既有行会被读成 duplicate-title ⇒ 把"这族其实能发"误报成"这族不行"),
+ * 也必须不会被当成一条真登记抄进台账 ⇒ 带 PROBE 字样。探针零写盘,标题不进台账。
+ */
+const PROBE_TITLE = '[auto-triage 取号族探针·不落台账] 现读哪一族发得出号'
+/** 一族被拒后最多再试几枚可发族(spawn 一次 live-doc-edit 就是几分钟级,不设无限重试)。 */
+const FAMILY_FALLBACK_MAX_SPAWNS = 3
 
 export class TriageShapeError extends Error {}
 
@@ -657,23 +685,194 @@ export function planTriageActions({
 }
 
 /**
+ * 候选族的字母表:由编号族表唯一真相源 `TASK_ID_PATTERN` 现解析,本器不抄第二份族表(§0.6)。
+ * 每个备选项取**起始字母串**(G-\d+ → G、WP-?\d+ → WP、守门\s*\d+ → 无起始字母 ⇒ 天然出局),
+ * 顺序 = 族表自身顺序(G 居首 ⇒ 与 2026-10-26 接线时的行为逐字同序,族表永远是上游)。
+ * 输入坏/为空 ⇒ 空数组(调用方落未判定,不猜族)。
+ */
+export function idFamilyLetters(pattern = TASK_ID_PATTERN) {
+  const out = []
+  for (const alt of String(pattern ?? '').split('|')) {
+    const m = /^[A-Za-z]+/.exec(alt)
+    if (!m) continue
+    const fam = m[0].toUpperCase()
+    if (!out.includes(fam)) out.push(fam)
+  }
+  return out
+}
+
+/**
+ * 单族只读探针:把一行带令牌的登记行交给**唯一分配判据** `resolveIdTokens`,读它当场给的结论。
+ * 本器不在此判"什么算一个号 / 哪个号空闲" —— 那些判据一概住在 live-doc-edit + lib 那一份里,
+ * 这里只搬运读数(ok / reason / exhaustion),并在族表不认这台机时如实落 undetermined。
+ * 返回 { family, ok, label?, status, reason?, exhaustion?, why? }:
+ *  - ok ⇒ status='issuable',label = 探针行现算出的编号形状(取自 resolveIdTokens 改写后的行首,
+ *    本器不做任何号算术);
+ *  - `pool-exhausted:<族>` ⇒ status='exhausted',exhaustion 读数原样交出(成因句由 lib 渲染);
+ *  - `no-such-family:<族>` ⇒ status='no-rows'(该族在底稿一条登记行都没有 ⇒ 首行须手填开族,非本器职权);
+ *  - 其余 reason / 抛异常 ⇒ status='rejected' 或 'undetermined',绝不冒充"能发"。
+ */
+export function probeIdFamily(
+  family,
+  { faceText, worktreeText = null, machineId, resolve = resolveIdTokens } = {},
+) {
+  const row = `- [ ] {{NEXT_ID:${family}}} ${PROBE_TITLE}`
+  let r
+  try {
+    r = resolve([row], faceText, null, { machineId, worktreeText })
+  } catch (e) {
+    return {
+      family,
+      ok: false,
+      status: 'undetermined',
+      why: `探针异常:${String(e?.message ?? e).slice(0, 160)}`,
+    }
+  }
+  if (!r || typeof r !== 'object')
+    return { family, ok: false, status: 'undetermined', why: '探针返回形状未知' }
+  if (r.ok) {
+    const label = String(r.lines?.[0] ?? '')
+      .replace(/^\s*-\s*\[[ x]\]\s*/, '')
+      .split(/\s/)[0]
+    return { family, ok: true, status: 'issuable', label: label || null }
+  }
+  const reason = String(r.reason ?? '')
+  const status = reason.startsWith('pool-exhausted')
+    ? 'exhausted'
+    : reason.startsWith('no-such-family')
+      ? 'no-rows'
+      : 'rejected'
+  return { family, ok: false, status, reason, exhaustion: r.exhaustion ?? null, why: reason }
+}
+
+/**
+ * 按现读挑一族真发得出号的字母族(排序 = 族表顺序,首个探针点头即用,其余仍全部探完 ⇒
+ * `--families` 与登记失败后的次名重试都读同一张表,不必再探一遍)。
+ * 底稿取不到 ⇒ { ok:false, undetermined:true } 并点名原因(§0.3:没判绝不写成判过);
+ * 全部探完无一族可发 ⇒ { ok:false } 带逐族成因(lib 渲染,本器不拼句子)。
+ */
+export function pickIdFamily({
+  faceText,
+  worktreeText = null,
+  machineId,
+  families = idFamilyLetters(),
+  resolve = resolveIdTokens,
+} = {}) {
+  if (typeof faceText !== 'string' || !faceText.trim())
+    return {
+      ok: false,
+      undetermined: true,
+      why: '取号底稿面读不到 ⇒ 族未判定(不猜哪一族有空)',
+      readings: [],
+      faceNotes: [],
+    }
+  if (!Array.isArray(families) || families.length === 0)
+    return {
+      ok: false,
+      undetermined: true,
+      why: `编号族表现解析出 0 枚字母族(TASK_ID_PATTERN 形状坏了 ⇒ 族表本身要先修)`,
+      readings: [],
+      faceNotes: [],
+    }
+  const readings = families.map((f) => probeIdFamily(f, { faceText, worktreeText, machineId, resolve }))
+  const first = readings.find((r) => r.ok)
+  return {
+    ok: Boolean(first),
+    undetermined: false,
+    family: first?.family ?? null,
+    token: first ? `{{NEXT_ID:${first.family}}}` : null,
+    label: first?.label ?? null,
+    readings,
+    faceNotes: [],
+    why: first
+      ? null
+      : `无一族现读可发号(${readings
+          .map((r) => `${r.family}:${r.status}${r.exhaustion?.stage ? `/${r.exhaustion.stage}` : ''}`)
+          .join(' ')})`,
+  }
+}
+
+/**
+ * 从台账现读取号面并挑族(IO 只在这一层:宽面取材走 lib/plan-id-face 那一份、机器标识走 lib 那一份)。
+ * `face` 供测试注入(夹具级正控只需一段台账文本,不碰真仓);工作树副本读不到 ⇒ 少一维并出声
+ * (与 live-doc-edit / next-plan-id 同一档:新增维度缺席不得把入口堵得比改前更死)。
+ */
+export function pickRegistrationFamily({
+  root = ROOT,
+  doc = PLAN_DOC,
+  source = 'HEAD',
+  face = null,
+  resolve = resolveIdTokens,
+  machineId = machineIdentity(root),
+  collect = collectIdFace,
+  readFile = (p) => readFileSync(p, 'utf8'),
+} = {}) {
+  let faceText = null
+  let worktreeText = null
+  const notes = []
+  if (typeof face?.faceText === 'string') {
+    faceText = face.faceText
+    if (typeof face.worktreeText === 'string') worktreeText = face.worktreeText
+  } else {
+    let cf
+    try {
+      cf = collect({ root, source, doc })
+    } catch (e) {
+      return {
+        ok: false,
+        undetermined: true,
+        why: `占用面取材异常:${String(e?.message ?? e).slice(0, 160)}`,
+        readings: [],
+        faceNotes: [],
+      }
+    }
+    if (!cf?.ok || (cf.undetermined ?? []).length > 0)
+      return {
+        ok: false,
+        undetermined: true,
+        why: `占用面判不出(${(cf?.undetermined ?? []).join(';') || '面不完整'})⇒ 不猜族`,
+        readings: [],
+        faceNotes: (cf?.notes ?? []).slice(),
+      }
+    faceText = cf.text
+    try {
+      worktreeText = readFile(join(root, doc))
+    } catch (e) {
+      notes.push(
+        `工作树副本 ${doc} 读不到(${String(e?.message ?? e).split(/\r?\n/)[0].slice(0, 120)})⇒ 探针少这一维`,
+      )
+    }
+  }
+  const picked = pickIdFamily({ faceText, worktreeText, machineId, resolve })
+  return { ...picked, faceNotes: [...notes, ...picked.faceNotes] }
+}
+
+/**
  * 登记:构造块文件走 live-doc-edit 子进程(唯一登记入口;它自带取号面/CAS/幂等判据)。
  * 登记行带新鲜日期交代(三选一之一);同题查重由「标题逐字」承担(守门 203),指纹只进台账。
- * 取号**一律**写 `{{NEXT_ID:G}}` 令牌(由 live-doc-edit 在每次 CAS 尝试里按当下 HEAD 现算),
- * 本器不自己拼号 —— 手填/自算号在并发仓里必然撞号(§1 登记铁律,2026-10-26 接线时补齐)。
+ * 取号写 `{{NEXT_ID:族}}` 令牌,**族字母由 pickRegistrationFamily 现读给出**(2026-10-29 起):
+ * 本器仍不自己拼号 —— 号由 live-doc-edit 在每次 CAS 尝试里按当下 HEAD 现算,本器只挑字母族。
+ * `family` 缺省 'G' 只为一件事:既有镜像测试与外部调用方对"没给族"的行为逐字不变。
  * 指纹**只留台账**(同源 24h 去重),不写进登记行:实测 12 位十六进制指纹会被守门 117(短 sha)
  * 判住、整块拒落 —— 身份不进文档,明细走台账/提交信息(§1 证据指针纪律)。
+ * 〔更正@2026-10-29,上一条写死的「{{NEXT_ID:G}}」是**常量**不是族表,只作改判留痕读〕:2026-10-26
+ * 接线当日 G 族对本席可发,四天后它就被 G-14 引用面灭窗(stage=scan-filter),于是产线从"能登记"
+ * 退化成"每天写一条 register-failed"(现读分诊台账 375 行:observed 252 / register-failed 123 /
+ * **registered 0**)。族字母写死 = 把"哪天这一族满"烘进代码(§0.9 判据要在真跑那一刻才成立)。
+ * ⇒ 族字母改由 `pickRegistrationFamily()` 现读:候选字母来自族表唯一真相源,能不能发由第一发号
+ *   出口那一份判据当场给,本器仍**一个号都不自算**(手填/自算号在并发仓必撞号,§1 登记铁律不变)。
  */
 export function registerToPlan(
-  { source, fingerprint, title, evidence },
+  { source, fingerprint, title, evidence, family = 'G' },
   spawn = (...a) => spawnSync(...a),
 ) {
+  const fam = /^[A-Za-z]+$/.test(String(family ?? '')) ? String(family) : 'G'
   mkdirSync(TMP_DIR, { recursive: true })
   const blockFile = join(TMP_DIR, `reg-${fingerprint}.md`)
   const day = new Date().toISOString().slice(0, 10)
   const block = [
     sanitizeHexRuns(
-      `- [ ] {{NEXT_ID:G}} [auto-triage] ${title}(登记@${day}/auto-triage;来源:${source} 哨兵;证据:${evidence})`,
+      `- [ ] {{NEXT_ID:${fam}}} [auto-triage] ${title}(登记@${day}/auto-triage;来源:${source} 哨兵;证据:${evidence})`,
     ),
   ].join('\n')
   writeFileSync(blockFile, block, 'utf8')
@@ -699,10 +898,48 @@ export function registerToPlan(
   if (r.status !== 0 && !okOut) {
     return {
       ok: false,
+      family: fam,
       why: `live-doc-edit rc=${r.status}:${String(r.stderr ?? r.stdout ?? '').slice(-160)}`,
     }
   }
-  return { ok: true }
+  return { ok: true, family: fam }
+}
+
+/**
+ * 按现读可发族依次登记(出路那一格,2026-10-29):
+ *  - 挑族结果不可发 ⇒ 一 spawn 都不发(未判定/pool 全灭都不许拿真登记去试错);
+ *  - 首族被拒且属 `pool-exhausted`(探针与真落地之间 HEAD 会动)⇒ 次名族重试,≤3 枚;
+ *  - 其余失败原因(同题查重 / 门禁红 / 面取不到)⇒ 不重试:重试不会变,只会把台账淹了。
+ * 返回 { ok, family?, tried:[{family, ok, why}], why? },调用方只负责把读数写进分诊台账。
+ */
+export function registerWithFamilyFallback(
+  { source, fingerprint, title, evidence },
+  pick,
+  spawn = (...a) => spawnSync(...a),
+  { maxSpawns = FAMILY_FALLBACK_MAX_SPAWNS } = {},
+) {
+  if (!pick?.ok)
+    return {
+      ok: false,
+      why: pick?.why ?? '取号族未判定 ⇒ 不发起任何登记',
+      undetermined: pick?.undetermined === true,
+      tried: [],
+    }
+  const candidates = (pick.readings ?? []).filter((r) => r.ok).map((r) => r.family)
+  const list = candidates.length ? candidates : [pick.family]
+  const tried = []
+  for (const family of list.slice(0, Math.max(1, maxSpawns))) {
+    const reg = registerToPlan({ source, fingerprint, title, evidence, family }, spawn)
+    tried.push({ family, ok: reg.ok, why: reg.why ?? null })
+    if (reg.ok) return { ok: true, family, tried }
+    if (!/pool-exhausted/.test(String(reg.why ?? '')))
+      return { ok: false, why: reg.why, tried }
+  }
+  return {
+    ok: false,
+    why: `现读可发族依次重试仍被拒(${tried.map((t) => t.family).join('/')}):${tried[tried.length - 1]?.why ?? ''}`,
+    tried,
+  }
 }
 
 async function runOnce({ dryRun = false } = {}) {
@@ -876,25 +1113,41 @@ async function runOnce({ dryRun = false } = {}) {
       continue
     }
     // f.action === 'register'
+    // 取号族每次现读:上一枚登记会把 HEAD 推进,族的水位随之内变 —— 烘在轮首就等于又写死一次。
+    const pick = pickRegistrationFamily()
     if (dryRun) {
-      console.log(`  ✅ dry-run:将登记「${f.title}」`)
+      const how = pick.ok
+        ? `族 ${pick.family}(探针现算首号 ${pick.label ?? '未量到'})`
+        : `无一族可发号 ⇒ 真跑会落 register-failed(${pick.why})`
+      console.log(`  ✅ dry-run:将登记「${f.title}」⇒ ${how}`)
+      for (const n of pick.faceNotes ?? []) console.log(`     ℹ ${n}`)
+      if (!pick.ok) process.exitCode = pick.undetermined ? 2 : 1
       // 与真跑同口径占配额:否则 dry-run 会把第 4 条也报成"将登记",与实跑配额不符
       continue
     }
-    const reg = registerToPlan({
-      source: f.source,
-      fingerprint: f.fp,
-      title: f.title,
-      evidence: f.evidence,
-    })
+    const reg = registerWithFamilyFallback(
+      { source: f.source, fingerprint: f.fp, title: f.title, evidence: f.evidence },
+      pick,
+    )
     if (!reg.ok) {
-      console.error(`  ❌ 登记未判定:${reg.why}`)
+      const cause = reg.tried?.[0]?.why ?? reg.why ?? ''
+      console.error(`  ❌ 登记未判定:${cause}`)
       appendLedger({
         mode: 'once',
         action: 'register-failed',
         source: f.source,
         fingerprint: f.fp,
-        why: reg.why,
+        why: cause,
+        // 2026-10-29:拒发的**真成因**必须进台账,否则下一轮读到的还是"池已满"这句假话。
+        // 成因句只住 lib 一份(describeExhaustion 按 stage 分档),本器不拼句子(§0.6)。
+        exhaustions: (pick.readings ?? [])
+          .filter((r) => r.exhaustion)
+          .map((r) => ({ family: r.family, stage: r.exhaustion.stage ?? null })),
+        causeNote:
+          (pick.readings ?? [])
+            .filter((r) => r.exhaustion)
+            .map((r) => `${r.family}:${describeExhaustion(r.exhaustion)}`)
+            .join(' | ') || null,
       })
       process.exitCode = 2
       continue
@@ -905,8 +1158,10 @@ async function runOnce({ dryRun = false } = {}) {
       source: f.source,
       fingerprint: f.fp,
       why: f.evidence,
+      family: reg.family,
+      familiesTried: (reg.tried ?? []).map((t) => t.family),
     })
-    console.log(`  ✅ 已登记:${f.title}`)
+    console.log(`  ✅ 已登记(族 ${reg.family},本轮试过的族:${(reg.tried ?? []).map((t) => t.family).join('/')}):${f.title}`)
   }
 }
 
@@ -1262,6 +1517,126 @@ async function selfTest() {
       )
     })(),
   )
+  // T11 取号族现读(2026-10-29 立,L28694 最后一格):挑族必须只认唯一分配判据,且失效方向是"不发号"
+  ok(
+    'T11a 候选族字母表由 TASK_ID_PATTERN 现解析(G 居首、无"守门"、全是字母)',
+    (() => {
+      const fs = idFamilyLetters()
+      return (
+        fs[0] === 'G' &&
+        fs.includes('D') &&
+        fs.includes('O') &&
+        fs.every((f) => /^[A-Za-z]+$/.test(f)) &&
+        !fs.some((f) => /守门/.test(f)) &&
+        // 族表加一枚字母,本器下一轮就多一枚候选(没有第二份清单可漂)
+        idFamilyLetters('G-\\d+|Z\\d+|守门\\s*\\d+').join(',') === 'G,Z'
+      )
+    })(),
+  )
+  ok(
+    'T11b 首族被扫描灭窗 ⇒ 按现读换到下一枚可发族(令牌由探针给,本器不拼号)',
+    (() => {
+      const fake = (lines) =>
+        lines[0].includes('{{NEXT_ID:G}}')
+          ? { ok: false, reason: 'pool-exhausted:G', exhaustion: { stage: 'scan-filter', family: 'G' } }
+          : { ok: true, lines: [lines[0].replace('{{NEXT_ID:D}}', 'D-7')] }
+      const p = pickIdFamily({
+        faceText: '- [ ] D1 既有行\n- [ ] G1 既有行\n- [ ] O1 既有行',
+        families: ['G', 'D', 'O'],
+        machineId: 'seatA',
+        resolve: fake,
+      })
+      return (
+        p.ok === true &&
+        p.family === 'D' &&
+        p.token === '{{NEXT_ID:D}}' &&
+        p.label === 'D-7' &&
+        p.readings[0].status === 'exhausted' &&
+        p.readings[1].ok === true
+      )
+    })(),
+  )
+  ok(
+    'T11c 无一族可发 ⇒ ok:false 且一 spawn 都不发(绝不拿真登记去试错)',
+    (() => {
+      const p = pickIdFamily({
+        faceText: '- [ ] G1 既有行',
+        families: ['G'],
+        resolve: () => ({ ok: false, reason: 'pool-exhausted:G' }),
+      })
+      let spawns = 0
+      const r = registerWithFamilyFallback(
+        { source: 's', fingerprint: 'fp', title: 't', evidence: 'e' },
+        p,
+        () => {
+          spawns++
+          return { status: 0, stdout: '回读', stderr: '' }
+        },
+      )
+      return r.ok === false && spawns === 0 && /无一族现读可发号/.test(r.why)
+    })(),
+  )
+  ok(
+    'T11d 底稿面取不到 ⇒ 未判定(不猜族),不得回落"就用 G"',
+    pickRegistrationFamily({ face: { faceText: '' } }).undetermined === true,
+  )
+  ok(
+    'T11e 首族被 live-doc-edit 拒(pool-exhausted)⇒ 次名族重试并成功;非该因绝不重试',
+    (() => {
+      const p = pickIdFamily({
+        faceText: '- [ ] D1 既有行\n- [ ] O1 既有行',
+        families: ['D', 'O'],
+        resolve: (lines) => ({ ok: true, lines: [lines[0].replace(/{{NEXT_ID:[A-Z]+}}/, 'X1')] }),
+      })
+      let n = 0
+      const r = registerWithFamilyFallback(
+        { source: 's', fingerprint: 'fp1', title: 't', evidence: 'e' },
+        p,
+        () => {
+          n++
+          return n === 1
+            ? { status: 2, stdout: '', stderr: '❌ 拒绝发号(pool-exhausted:D)' }
+            : { status: 0, stdout: '✅ 回读:本块每一条非空行都在 HEAD 里', stderr: '' }
+        },
+      )
+      let m = 0
+      const r2 = registerWithFamilyFallback(
+        { source: 's', fingerprint: 'fp2', title: 't', evidence: 'e' },
+        p,
+        () => {
+          m++
+          return { status: 2, stdout: '', stderr: 'duplicate-title' }
+        },
+      )
+      return r.ok === true && n === 2 && r2.ok === false && m === 1
+    })(),
+  )
+  ok(
+    'T11f registerToPlan:没给族逐字仍是 {{NEXT_ID:G}}(既有镜像锁),给了族就按现读写',
+    (() => {
+      const seen = []
+      const spy = (_c, _a, opts) => {
+        seen.push(readFileSync(opts.env.LIVE_BLOCK_FILE, 'utf8'))
+        return { status: 0, stdout: '✅ 回读', stderr: '' }
+      }
+      registerToPlan({ source: 's', fingerprint: 'fpa', title: '甲', evidence: 'e' }, spy)
+      registerToPlan({ source: 's', fingerprint: 'fpb', title: '乙', evidence: 'e', family: 'D' }, spy)
+      return (
+        /^- \[ \] \{\{NEXT_ID:G\}\} \[auto-triage\] 甲/.test(seen[0]) &&
+        /^- \[ \] \{\{NEXT_ID:D\}\} \[auto-triage\] 乙/.test(seen[1]) &&
+        !/^- \[ \] [A-Z]+-?\d+/.test(seen[1])
+      )
+    })(),
+  )
+  ok(
+    'T11g 探针行标题带 PROBE 字样且不含真登记语义 ⇒ 永远不会被当一条登记抄走',
+    PROBE_TITLE.includes('不落台账') && !/^\s*- \[/.test(PROBE_TITLE),
+  )
+  ok('T11h --families 合法动作旗标且与 --once 互斥', (() => {
+    const a = parseArgs(['--families'])
+    const b = parseArgs(['--families', '--once'])
+    return a.errors.length === 0 && a.families === true && b.errors.some((e) => /互斥/.test(e))
+  })())
   if (failed > 0) {
     console.error(`self-test: ${failed} 例红`)
     process.exitCode = 1
@@ -1294,6 +1669,51 @@ function printStatus() {
     )
 }
 
+/**
+ * `--families`(只读,2026-10-29 立):把编号族表的每一枚字母族喂给唯一分配判据现跑一遍,
+ * 打印"哪一族今天真发得出号 / 那一族为什么发不出(成因句由 lib 渲染)"。
+ * 立因:L28694 的最后一格卡了 4 天(分诊台账 375 行里 registered=0),而排障时**没有任何一条
+ * 命令**能读出各族水位 —— 只能手搓 import 探针(本席本轮就是那么量的)。运维旋钮必须器物化,
+ * 否则下一次"发不出号"还是只能靠猜(§0.8:文档不许写跑不通的出路)。
+ * 退出码:有一族可发 ⇒ 0;全族被拒(真判出的结论)⇒ 1;底稿面取不到 ⇒ 2 并显式未判定(§0.3)。
+ */
+function printFamilies() {
+  const pick = pickRegistrationFamily()
+  console.log(
+    `取号族现读(判据 = live-doc-edit.resolveIdTokens 探针,底稿 = git show HEAD:${PLAN_DOC} ⊕ 归档件 ⊕ 工作树副本;` +
+      `不含远端那一维 ⇒ 排序器不是担保,真落地仍由 live-doc-edit 每轮 CAS 现算)`,
+  )
+  console.log(`字母族表(唯一真相源 check-plan-line-loss.TASK_ID_PATTERN)= ${idFamilyLetters().join('/')}`)
+  for (const n of pick.faceNotes ?? []) console.log(`ℹ ${n}`)
+  for (const r of pick.readings ?? []) {
+    if (r.ok) {
+      console.log(`  ✅ ${r.family.padEnd(3)} 可发 ⇒ 探针现算首号 ${r.label ?? '未量到'}`)
+      continue
+    }
+    const head = `  ❌ ${r.family.padEnd(3)} ${r.status}(${r.reason ?? r.why ?? '未判定'})`
+    console.log(
+      r.exhaustion
+        ? `${head}\n      成因:${describeExhaustion(r.exhaustion)}`
+        : head,
+    )
+  }
+  if (pick.ok) {
+    console.log(`✅ 分诊登记本轮将使用族 ${pick.family}:令牌 ${pick.token}(首号 ${pick.label})`)
+    return
+  }
+  if (pick.undetermined) {
+    console.log(`❌ 未判定:${pick.why} ⇒ 一 spawn 都不发起,不落任何"未取号"形态`)
+    process.exitCode = 2
+    return
+  }
+  console.log(`❌ ${pick.why}`)
+  console.log(
+    '   ⇒ 出路不在本器:按 2026-10-24 拍板"族满开新字母族、永不升位数"——新字母须先登记进族表唯一真相源,' +
+      '再以手填声明位入台账开第一行,之后 {{NEXT_ID:新族}} 令牌恢复可发(取号器对手填行逐字保留)。',
+  )
+  process.exitCode = 1
+}
+
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 // ── CLI 参数闸(2026-10-28 立)──────────────────────────────────────────────
@@ -1304,16 +1724,25 @@ const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process
 // 失效方向必须是「多要一次定向说明」,绝不能是「多跑一次真轮」(AGENTS.md §0.10/§0.8)。
 // 形态照抄同族 `scripts/triage-discovery.mjs` 的 parseArgs(KNOWN_FLAGS 闭集 + errors 收集 +
 // 用法 + exit 2),不另发明第二套参数解析。
-const KNOWN_FLAGS = new Set(['--once', '--dry-run', '--status', '--self-test', '--help', '-h'])
+const KNOWN_FLAGS = new Set([
+  '--once',
+  '--dry-run',
+  '--status',
+  '--families',
+  '--self-test',
+  '--help',
+  '-h',
+])
 /** 动作旗标:互斥且必给其一(`--dry-run` 只是 `--once` 的修饰档,不算动作)。 */
-const ACTION_FLAGS = new Set(['--once', '--status', '--self-test', '--help', '-h'])
+const ACTION_FLAGS = new Set(['--once', '--status', '--families', '--self-test', '--help', '-h'])
 
 export function usageText() {
   return [
-    '用法:node scripts/auto-triage.mjs --once [--dry-run] | --status | --self-test | --help',
+    '用法:node scripts/auto-triage.mjs --once [--dry-run] | --status | --families | --self-test | --help',
     '  --once       真跑一轮分诊(写分诊观测账,必要时经 live-doc-edit 唯一入口登记 PROJECT_PLAN.md)',
     '  --dry-run    预演:只打印将要登记/观察的行,不写 PROJECT_PLAN.md、不写分诊台账(只能与 --once 同给)',
     '  --status     只读:打印分诊配置与观测台账最近 5 条',
+    '  --families   只读:现读每一枚字母族能否发号(挑族判据 = live-doc-edit 那一份,零写盘)',
     '  --self-test  只读:跑本器自测',
     '  --help / -h  只读:打印本用法',
     '纪律:未知旗标 / 位置参数 / 缺动作旗标 / 多个动作旗标同给 ⇒ 当场拒绝(exit 2),',
@@ -1341,7 +1770,7 @@ export function parseArgs(argv = []) {
     if (actions.length === 0) {
       errors.push(
         tokens.length === 0
-          ? '缺少动作旗标:显式给 --once / --status / --self-test / --help 之一(--once 是写观测账的真轮,先跑 --once --dry-run 预演)'
+          ? '缺少动作旗标:显式给 --once / --status / --families / --self-test / --help 之一(--once 是写观测账的真轮,先跑 --once --dry-run 预演)'
           : `缺少动作旗标:只给了修饰旗标 ${tokens.join(' ')},显式点名要跑哪一档`,
       )
     } else if (actions.length > 1) {
@@ -1356,6 +1785,7 @@ export function parseArgs(argv = []) {
     once: actions.includes('--once'),
     dryRun: tokens.includes('--dry-run'),
     status: actions.includes('--status'),
+    families: actions.includes('--families'),
     selfTest: actions.includes('--self-test'),
     help: actions.includes('--help') || actions.includes('-h'),
   }
@@ -1375,6 +1805,7 @@ export async function main(args = []) {
     return
   }
   if (argv.selfTest) return selfTest()
+  if (argv.families) return printFamilies()
   if (argv.status) return printStatus()
   return runOnce({ dryRun: argv.dryRun })
 }
@@ -1414,6 +1845,14 @@ export const __test__ = {
   recentlyRegistered,
   planTriageActions,
   registerToPlan,
+  idFamilyLetters,
+  probeIdFamily,
+  pickIdFamily,
+  pickRegistrationFamily,
+  registerWithFamilyFallback,
+  PROBE_TITLE,
+  PLAN_DOC,
+  FAMILY_FALLBACK_MAX_SPAWNS,
   sanitizeHexRuns,
   CONFIG_JSON,
   TRIAGE_LEDGER,

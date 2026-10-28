@@ -46,6 +46,14 @@
  *   `describePoolExhaustion` 一处渲染(本器不另拼句子,§0.6);本器报告还把"第二出口按最小空闲可发"
  *   与"第一出口的租约窗尺子挡住"这一对相反读数一起打出来(两出口口径不同,不得混成"池已满")。
  *   **2026-10-23 当次分配语义一字未动**(段容量/池上限/取号算法全沿用),改的只有结论的可读文本与机读字段。
+ * 〔更正@2026-10-29,把上一条的"两型"补成三型;上一条只作改判留痕读〕:gb22(2026-10-28)在 lib 里立了
+ *   第三档 `SCAN_FACE_FULL`(占用面让得出候选、候选却被**全文件扫描面 ⊕ 工作树副本 ⊕ 远端已用号集**
+ *   灭掉),第一出口已按 stage 分档,本器拒发那一步却仍只交 `describePoolExhaustion`(两档)⇒ 这一型在
+ *   本器念成"未判定",出路照旧被念成"归档腾号"(实测 Δ=0 的无效路)。现在本器拒发时按
+ *   `EXHAUST_STAGE` 三档交出 `exhaustion` 读数、成因句仍由 lib 的 `describeExhaustion` 一处渲染
+ *   (本器不拼句子,§0.6);为量这一档另读两枚现成读数 `narrowFreeList`(占用面口径可发)与
+ *   `killedByScan`(被扫描/远端面顶掉)—— 都走 lib 同一份 `poolFreeList`/`poolBlocked`,零复制判据。
+ *   **分配语义仍一字未动**:建议号、段容量、池上限、算法全沿用。
  * `--check` 的重号对账按**归一化后的条目标题 key**(含系列小后缀)判,退出码语义不变(有真重号仍 exit 1)。
  * 〔2026-10-25 补:那一句里的"真重号"自 G-927/G-955 起只指**登记行声明位同号多行**,且只指
  *   **新增**那一档 —— 标题口径两档(孪生副本 / 系列小节)只报数;登记行重号按 §0.5 差值棘轮
@@ -120,7 +128,10 @@ import { readRemoteIdBasis, idBasisGate } from './live-doc-edit.mjs'
 // 2026-10-23:结论渲染与租约窗读数也走那一份 —— 本器不拼"池已满"的句子,也不另数空闲位。
 import {
   POOL_EXHAUST_REASON,
+  EXHAUST_STAGE,
+  SCAN_FACE_EXHAUST_REASON,
   describePoolExhaustion,
+  describeExhaustion,
   leaseCursor,
   parseLeases,
   smallestFreeId,
@@ -128,6 +139,7 @@ import {
   poolBlocked,
   remoteIdNumsOf,
   LEASE_POOL_MAX,
+  LEASE_SEGMENT_SIZE,
 } from './lib/plan-id-lease.mjs'
 // 重号判据(G-927,2026-10-21):**登记行的编号声明位**同号多行才判红;历史小节标题同 id 只报数不判红。
 // 尺同住这一份 lib(它内部用 plan-task-index 的 parseTaskRows),本器不另写"什么算一条登记行"。
@@ -494,7 +506,10 @@ if (skippedByRemote.length)
     `ℹ 远端已用号集顶掉 ${skippedByRemote.length} 个旧口径"空闲"号(对面仍占着而本地面上已让空/未并,点名):` +
       skippedByRemote.map((n) => `O${n}`).join(', '),
   )
-const { lowMax: poolLowMax } = poolBlocked({ usedNumbers: liveUsed, baseMax: remoteWide })
+const { lowMax: poolLowMax, blocked: liveBlocked } = poolBlocked({
+  usedNumbers: liveUsed,
+  baseMax: remoteWide,
+})
 // ── 租约窗读数(2026-10-23 立,只读不改分配)────────────────────────────────────────────
 // "发不出号"有两种完全不同的成因,旧措辞把它们一律念成"号池已满 ⇒ 先归档腾号":
 //  ① POOL_FULL = 池内一个空闲号都没有(这一型让位才真能腾出号);
@@ -508,12 +523,37 @@ const leaseView = leaseCursor({
   family: FAMILY,
   baseMax: remoteWide,
 })
+// 2026-10-29 归因第三档的两枚读数(**只读,分配语义一个都没动**):
+//  narrowFreeList = 旧占用口径(条目标题 ∪ 登记行 ∪ 远端 max 避让)让出的可发号;
+//  killedByScan   = 其中被"全文件扫描面 ⊕ 工作树副本 ⊕ 远端已用号集"(liveUsed)顶掉的那几枚。
+//  两把尺都住在 lib(poolFreeList / poolBlocked 同一份,与上面 poolLowMax 共用同一次读数),
+//  本器不数第二遍(§0.6)。
+const narrowFreeList = poolFreeList({ usedNumbers: poolUsed, baseMax: remoteWide })
+const killedByScan = narrowFreeList.filter((n) => liveBlocked.has(n))
 if (next === null) {
-  console.error(`❌ ${FAMILY} 族:${describePoolExhaustion(leaseView)}`)
+  // 〔2026-10-29 补第三档〕旧写法在这里只交 `describePoolExhaustion(leaseView)`(两档),于是
+  // "占用面让得出闲号、候选却被全文件扫描面 + 远端号集整个顶掉"这一型在本器拒发时被念成
+  // "未判定"(游标给了 claim ⇒ 没有 reason)——而它恰恰是本轮现读的真形:占用面口径还能让出
+  // narrowFreeList 那些号,全文件扫描却把它们一个个灭掉。三成因的出路互不相同(§0.3/§12f),
+  // 念错就是把运维引向"归档腾号"那条实测 Δ=0 的无效路(§0.8)。取值仍只交读数,成因句住 lib。
+  const exhaustion =
+    leaseView.mode === 'pool-exhausted' || narrowFreeList.length === 0
+      ? { stage: EXHAUST_STAGE.leaseWindow, family: FAMILY, cursor: leaseView }
+      : {
+          stage: EXHAUST_STAGE.scanFilter,
+          family: FAMILY,
+          // 本器按"池内最小空闲"发号,不经过租约窗 ⇒ 窗这一维确实没量到,交 null 不编造。
+          window: null,
+          candidates: narrowFreeList.length,
+          scanHitCount: killedByScan.length,
+          poolMax: LEASE_POOL_MAX,
+        }
+  console.error(`❌ ${FAMILY} 族:${describeExhaustion(exhaustion)}`)
   console.error(
-    `   机读: reason=${leaseView.reason ?? 'UNDETERMINED'} freeInPool=${leaseView.freeInPool ?? '未量到'}` +
-      ` largestRun=${leaseView.largestRun ?? '未量到'} segmentSize=${leaseView.segmentSize}` +
-      ` poolMax=${leaseView.poolMax}`,
+    `   机读: stage=${exhaustion.stage} reason=${leaseView.reason ?? 'UNDETERMINED'}` +
+      ` freeInPool=${leaseView.freeInPool ?? '未量到'} largestRun=${leaseView.largestRun ?? '未量到'}` +
+      ` segmentSize=${leaseView.segmentSize ?? LEASE_SEGMENT_SIZE} poolMax=${leaseView.poolMax ?? LEASE_POOL_MAX}` +
+      ` 占用面口径可发=${narrowFreeList.length} / 其中被全文件扫描与远端号集顶掉=${killedByScan.length}`,
   )
   process.exit(1)
 }
@@ -557,9 +597,10 @@ console.log(
 )
 console.log(
   `  取号口径:池式 1..${LEASE_POOL_MAX}(2026-10-14 硬上限)⇒ 池内空闲 ${freeList.length} 号;` +
-    `拒绝发号按成因分档(机读 reason 单源 lib/plan-id-lease.mjs):` +
+    `拒绝发号按成因分档(机读单源 lib/plan-id-lease.mjs,2026-10-28 起三档):` +
     `${POOL_EXHAUST_REASON.poolFull}=池内一个空闲号都没有 / ` +
-    `${POOL_EXHAUST_REASON.noContiguousWindow}=仍有空闲号却无连续租约窗` +
+    `${POOL_EXHAUST_REASON.noContiguousWindow}=仍有空闲号却无连续租约窗 / ` +
+    `${SCAN_FACE_EXHAUST_REASON}=占用面让出的候选被全文件扫描面与远端号集灭掉(出路=换字母族,散点归档对这一型实测 Δ=0)` +
     `(绝不发 >${LEASE_POOL_MAX} 的号;>${LEASE_POOL_MAX} 的归档大号不占池)`,
 )
 console.log(
