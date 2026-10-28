@@ -5,7 +5,13 @@
 import type { ExportColumn } from '@/lib/export-utils'
 import type { CozeForm } from './types'
 
-export const COZE_STATUS: Record<number, string> = { 0: '未使用', 1: '使用中', 2: '已过期' }
+// 状态/导出列标签表:值为 admin.developer.* 全路径键名(与 DeveloperKeyDialog.PERMISSION_LABELS 同形态,
+// 死键扫描器看得见引用),渲染处用 useTranslations() 取词。真相唯一来源:zh-CN.json admin.developer.*。
+const COZE_STATUS_KEYS: Record<number, string> = {
+  0: 'admin.developer.statusUnused',
+  1: 'admin.developer.statusInUse',
+  2: 'admin.developer.statusExpired',
+}
 
 export const COZE_STATUS_CLASS: Record<number, string> = {
   0: 'bg-muted text-muted-foreground',
@@ -28,15 +34,24 @@ export const COZE_PAGE_SIZE = 10
 export const textareaClass =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
-export const COZE_EXPORT_COLUMNS: ExportColumn[] = [
-  { key: 'id', title: 'ID' },
-  { key: 'cozeId', title: 'Coze ID' },
-  { key: 'signAccount', title: '签权账号' },
-  { key: 'signNickname', title: '签权昵称' },
-  { key: 'platform', title: '平台' },
-  { key: 'address', title: '地址' },
-  { key: 'status', title: '状态', formatter: (v) => COZE_STATUS[Number(v)] ?? String(v) },
-  { key: 'creator', title: '创建人' },
-  { key: 'createdAt', title: '创建时间' },
-]
+export function buildCozeExportColumns(t: (key: string) => string): ExportColumn[] {
+  return [
+    { key: 'id', title: 'ID' },
+    { key: 'cozeId', title: 'Coze ID' },
+    { key: 'signAccount', title: t('admin.developer.colSignAccount') },
+    { key: 'signNickname', title: t('admin.developer.colSignNickname') },
+    { key: 'platform', title: t('admin.developer.colPlatform') },
+    { key: 'address', title: t('admin.developer.colAddress') },
+    {
+      key: 'status',
+      title: t('admin.developer.colStatus'),
+      formatter: (v) => {
+        const statusKey = COZE_STATUS_KEYS[Number(v)]
+        return statusKey ? t(statusKey) : String(v)
+      },
+    },
+    { key: 'creator', title: t('admin.developer.colCreator') },
+    { key: 'createdAt', title: t('admin.developer.colCreatedAt') },
+  ]
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
