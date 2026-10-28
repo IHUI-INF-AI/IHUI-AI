@@ -6748,6 +6748,9 @@
     "downloading": "正在下載更新…",
     "currentBundle": "目前執行:{{bundle}}",
     "bundleEmbedded": "內建套件",
-    "bundleOta": "熱更新"
+    "bundleOta": "熱更新",
+    "readyBody": "更新已下載完成，點「更新」立即生效",
+    "installingHint": "應用程式會自動重新啟動，通常只需幾秒",
+    "restartNow": "立即重新啟動"
   }
 }
