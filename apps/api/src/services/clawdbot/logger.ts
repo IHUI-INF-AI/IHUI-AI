@@ -4,13 +4,24 @@
 
 /**
  * Clawdbot 共享日志器
+ *
+ * 2026-10-28:开发档判定改从 `config` 对象取,不再具名 import `isDevelopmentRuntime`。
+ * 本文件在**模块加载期**求值(顶层 pino(...)),而全仓几十个测试都手写
+ * `vi.mock('../src/config/index.js', () => ({ config: {...} }))` 的全量 mock ——
+ * 具名 import 一个 mock 里没有的键会当场抛 "No isDevelopmentRuntime export is defined
+ * on the mock",报错点还落在 import 链深处(本次实际表现:ai-chain-contract 等 5 个
+ * 文件级 0 test 失败,真因是 repo-wiki-context → 这里)。从对象取属性则缺键即 undefined,
+ * 语义上等价于"非 development 档"(不启 pino-pretty),与 plugins/csrf.ts、
+ * services/email-service.ts 已确立的写法一致(同一坑,同一修法)。
  */
 import { pino, type Logger } from 'pino'
-import { isDevelopmentRuntime } from '../../config/index.js'
+import { config } from '../../config/index.js'
+
+const isDevRuntime = config.isDevelopmentRuntime ?? config.NODE_ENV === 'development'
 
 const logger: Logger = pino({
   level: process.env.LOG_LEVEL ?? 'info',
-  transport: isDevelopmentRuntime ? { target: 'pino-pretty' } : undefined,
+  transport: isDevRuntime ? { target: 'pino-pretty' } : undefined,
 })
 
 export { logger }
