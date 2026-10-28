@@ -178,6 +178,77 @@ export { AiAssistantScreen } from './features/ai-assistant/AiAssistantScreen'
 export { AiCareerScreen } from './features/ai-career/AiCareerScreen'
 export { AI_CAREER_QUESTIONS, AI_CAREER_REQUIRED_FIELDS } from './features/ai-career/questions'
 export { AIMultimodalScreen } from './features/ai-multimodal/AIMultimodalScreen'
+/**
+ * 跨端补屏批(2026-10-28):web→RN 功能缺口 10 条 + 小程序镜像待造的共享屏。
+ * 每一屏都是「web 已上线、RN 零承载」的那一类(台账见 scripts/data/web-rn-parity* 与
+ * check-web-rn-parity.mjs 的 gapRows);RN 宿主只取数/导航,渲染全在共享屏(AGENTS §3)。
+ */
+export { AiWorkspaceProjectScreen } from './features/ai-workspace/AiWorkspaceProjectScreen'
+export type {
+  AiWorkspaceConvertResult,
+  AiWorkspaceFile,
+  AiWorkspaceMember,
+  AiWorkspaceProject,
+  AiWorkspaceProjectScreenProps,
+  AiWorkspaceTask,
+} from './features/ai-workspace/AiWorkspaceProjectScreen'
+export { CourseHomeworkScreen } from './features/learn-homework/CourseHomeworkScreen'
+export type {
+  CourseHomeworkItem,
+  CourseHomeworkScreenProps,
+} from './features/learn-homework/CourseHomeworkScreen'
+export { EduGradeTrendScreen } from './features/edu-grade-trend/EduGradeTrendScreen'
+export type {
+  EduGradeTrendEntry,
+  EduGradeTrendScreenProps,
+  EduGradeWeaknessItem,
+} from './features/edu-grade-trend/EduGradeTrendScreen'
+export { EduTeacherStudyPlanScreen } from './features/edu-teacher-study-plan/EduTeacherStudyPlanScreen'
+export type {
+  EduTeacherClass,
+  EduTeacherPlanForm,
+  EduTeacherPlanItem,
+  EduTeacherStudyPlan,
+  EduTeacherStudyPlanScreenProps,
+  EduTeacherTerm,
+} from './features/edu-teacher-study-plan/EduTeacherStudyPlanScreen'
+export { KnowledgeEntryReadingScreen } from './features/knowledge-base/KnowledgeEntryReadingScreen'
+export type {
+  KnowledgeEntryArticle,
+  KnowledgeEntryNavItem,
+  KnowledgeEntryReadingScreenProps,
+  KnowledgeEntryTocItem,
+} from './features/knowledge-base/KnowledgeEntryReadingScreen'
+export { KnowledgeBaseListScreen } from './features/knowledge-base/KnowledgeBaseListScreen'
+export type {
+  KnowledgeBaseCategoryItem,
+  KnowledgeBaseListItem,
+  KnowledgeBaseListScreenProps,
+} from './features/knowledge-base/KnowledgeBaseListScreen'
+export { LiveLecturerListScreen } from './features/lecturer/LecturerListScreen'
+export type {
+  LiveLecturerListItem,
+  LiveLecturerListScreenProps,
+} from './features/lecturer/LecturerListScreen'
+export { LecturerProfileScreen } from './features/lecturer/LecturerProfileScreen'
+export type {
+  LecturerProfileScreenProps,
+  LiveLecturerChannelItem,
+} from './features/lecturer/LecturerProfileScreen'
+export { NewsArticleScreen } from './features/news/NewsArticleScreen'
+export type { NewsArticleItem, NewsArticleScreenProps } from './features/news/NewsArticleScreen'
+export { NewsCategoryScreen } from './features/news/NewsCategoryScreen'
+export type {
+  NewsCategoryArticle,
+  NewsCategoryScreenProps,
+} from './features/news/NewsCategoryScreen'
+export { SkillMarketDetailScreen } from './features/skills-market/SkillMarketDetailScreen'
+export type {
+  SkillMarketDetailScreenProps,
+  SkillMarketEntryView,
+} from './features/skills-market/SkillMarketDetailScreen'
+export { SkillMarketListScreen } from './features/skills-market/SkillMarketListScreen'
+export type { SkillMarketListScreenProps } from './features/skills-market/SkillMarketListScreen'
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
 export { ExamHistoryScreen } from './features/exam-history/ExamHistoryScreen'
 export { ExamResultScreen } from './features/exam-result/ExamResultScreen'
