@@ -240,6 +240,10 @@ export const MENU_SECTIONS: MenuSection[] = [
     ],
   },
   {
+    titleKey: 'menu.sectionAi',
+    items: [{ key: 'MyAgents', labelKey: 'myAgentsPage.title', icon: Bot, viaParent: true }],
+  },
+  {
     titleKey: 'menu.sectionSocial',
     items: [
       { key: 'Favorites', labelKey: 'menu.favorites', icon: Star },

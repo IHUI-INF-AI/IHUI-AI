@@ -4653,6 +4653,18 @@
       "refunded": "Refunded"
     }
   },
+  "myAgentsPage": {
+    "title": "My Agents",
+    "empty": "No agents yet",
+    "loadFailed": "Failed to load",
+    "free": "Free",
+    "status": {
+      "pending": "Under review",
+      "published": "Live",
+      "rejected": "Rejected",
+      "draft": "Draft"
+    }
+  },
   "webViewPortal": {
     "news": "News",
     "learnTopic": "Topic Lessons",

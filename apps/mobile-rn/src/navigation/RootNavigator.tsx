@@ -46,6 +46,7 @@ import { SecuritySettingsScreen } from '../screens/SecuritySettingsScreen'
 import { SecurityAuditScreen } from '../screens/SecurityAuditScreen'
 import { MemberSettingsScreen } from '../screens/MemberSettingsScreen'
 import { MemberDashboardScreen } from '../screens/MemberDashboardScreen'
+import { MyAgentsScreen } from '../screens/MyAgentsScreen'
 import SecurityCenterScreen from '../screens/SecurityCenterScreen'
 import ApiKeysScreen from '../screens/ApiKeysScreen'
 import DataRightsScreen from '../screens/DataRightsScreen'
@@ -438,6 +439,7 @@ export type RootStackParamList = {
   SecurityAudit: undefined
   MemberSettings: undefined
   MemberDashboard: undefined
+  MyAgents: undefined
   SecurityCenter: undefined
   ApiKeys: undefined
   DataRights: undefined
@@ -938,6 +940,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="SecurityAudit" component={SecurityAuditScreen} />
             <RootStack.Screen name="MemberSettings" component={MemberSettingsScreen} />
             <RootStack.Screen name="MemberDashboard" component={MemberDashboardScreen} />
+            <RootStack.Screen name="MyAgents" component={MyAgentsScreen} />
             <RootStack.Screen name="SecurityCenter" component={SecurityCenterScreen} />
             <RootStack.Screen name="ApiKeys" component={ApiKeysScreen} />
             <RootStack.Screen name="DataRights" component={DataRightsScreen} />
