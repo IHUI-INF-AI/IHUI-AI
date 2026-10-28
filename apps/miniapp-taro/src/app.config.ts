@@ -180,6 +180,7 @@ export default defineAppConfig({
         'square/index',
         'legal-docs-hub/index',
         'security-audit/index',
+        'member-settings/index',
       ],
     },
     {
