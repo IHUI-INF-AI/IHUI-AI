@@ -6737,6 +6737,29 @@ async def post_session_goal(
 
     existing = store.get_thread_goal_state(thread_id) or {}
     now = time.time()
+    if action == "resume":
+        # 控制帧 `resume_goal` 的**共用实现**(2026-10-28 立)。本端点的 resume 分支与
+        # 帧面入口(`POST /llm/sessions/{id}/goal/resume`)共用同一份服务 ⇒ 状态机、
+        # 归属判定、广播三件事只有一份实现,改一处即可(否则两处必然漂移)。
+        # 端点侧沿用旧口径:被拒就同形回包(不把差额明细透给端点调用方,那条路要的是
+        # "退回纯本地态");差额明细(reason)在帧面入口才可见。
+        from ..services.goal_resume import resume_goal
+
+        resumed = resume_goal(
+            session_id,
+            caller_uid,
+            elapsed_ms=body.get("elapsed_ms"),
+            token_usage=body.get("token_usage"),
+        )
+        if not resumed.get("accepted"):
+            return _rejected()
+        return {
+            "ok": True,
+            "accepted": True,
+            "status": "active",
+            "sessionId": session_id,
+            "threadId": str(resumed.get("threadId") or thread_id),
+        }
     if action == "clear":
         new_state = None
         status = "cleared"
@@ -6791,6 +6814,74 @@ async def post_session_goal(
         "sessionId": session_id,
         "threadId": thread_id,
     }
+
+
+@router.post("/llm/sessions/{session_id}/goal/resume", response_model=None)
+async def post_session_goal_resume(
+    request: Request,
+    session_id: str,
+    body: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """控制帧 `resume_goal`(2026-10-28 立):把会话目标从「被暂停」恢复到 active。
+
+    ## 为什么是「一条独立入口」而不是只有 `action:"resume"`
+
+    D141 正本(§1.1 目标族)把 `resume_goal` 判成**真缺**,否证命令是
+    `git grep -inE "resumeGoal|resume_goal|恢复目标|continueGoal"` → 0 命中。
+    但 D152 那条 `POST /llm/sessions/{id}/goal` 的 `action` 集合里本来就有
+    `"resume"`(2026-09-29 立)—— 也就是说**能力早在,缺的是「以帧名命名的显式
+    入口」**:宿主/agent 不能指名调这一帧,只能猜 `action` 字符串。竞品原帧即
+    `request({type:"resume_goal"})`(D202 §2 表 B 的三字面量并集),
+    判据是「宿主显式调用 + 必须回报结果」。
+
+    所以本端点补的正是那一格,并且**必须回报结果**:只回一句「已恢复」等于把
+    静默失败包装成成功态 —— 目标压根没设、目标已结束、状态本来就 active,
+    三种情形长得一模一样。
+
+    ## 实现复用(不造第二份)
+
+    落点是 `services/goal_resume.py` 的 `resume_goal()`;上头那条 `action:"resume"`
+    分支**改为调同一份实现** ⇒ 状态机、归属判定、广播三件事只有一份实现,
+    改一处即可(两处实现必然漂移,AGENTS §22c 同族)。
+
+    ## 归属口径(AGENTS §5「认证不等于授权」)
+
+      1. principal **只取令牌主体**(`_resolve_owner_uuid` 读 request.state.user_id,
+         由 JWT 中间件注入),body 里自报的 userId **一律不读**;
+      2. 「没这条会话」与「不是你的」**同形回包**(HTTP 200 + ok:false/accepted:false),
+         端点因此不可能被当成存在性预言机;两种情形**都不写库、都不发帧**;
+      3. 未鉴权通道(principal 为 None)对**写面**一律拒绝。
+
+    ## 回包形状
+
+      - `{"ok": true, "accepted": true, "resumed": true, "status": "active", ...}`
+        —— 真的从可恢复档迁到了 active;
+      - `{"ok": true, "accepted": false, "resumed": false, "status": <当前档>,
+        "reason": "no_goal"|"terminal"|"already_active"|"not_resumable"|"no_objective"}`
+        —— **有结论但没恢复**。reason 只在「归属闸门已过」时出现:这属于调用方
+        自己那条会话的确定答案,不是可枚举的存在性信息;
+      - `{"ok": false, "accepted": false, "resumed": false, "sessionId": ...}`
+        —— 同形拒绝(不存在 / 非属主 / 未鉴权),**不带任何差异字段**。
+
+    Args:
+        request: 承载层已注入 `request.state.user_id`(JWT 中间件)。
+        session_id: 会话 id(conversationId),即路径里的 `{session_id}`。
+        body: 可选 `{elapsed_ms?, token_usage?}` —— 与端点 `action:"resume"` 同族;
+            形状不合法一律忽略并沿用既有值。
+
+    Returns:
+        上文三种形状之一。
+    """
+    from ..services.goal_resume import resume_goal
+
+    caller_uid = _resolve_owner_uuid(request)
+    payload = body if isinstance(body, dict) else {}
+    return resume_goal(
+        session_id,
+        caller_uid,
+        elapsed_ms=payload.get("elapsed_ms"),
+        token_usage=payload.get("token_usage"),
+    )
 
 
 @router.post("/llm/complete/stream/{session_id}/steer", response_model=None)

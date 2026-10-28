@@ -10703,6 +10703,11 @@
     "noAssessment": "暫無評估記錄"
   },
   "goalCard": {
+    "resumeServerOk": "目標已恢復",
+    "resumeAlreadyActive": "目標已在進行中,無需恢復",
+    "resumeTerminal": "目標已結束,無法恢復",
+    "resumeNoGoal": "此工作階段沒有可恢復的目標",
+    "resumeFailed": "恢復失敗:{message}",
     "editAriaLabel": "編輯目標",
     "editSave": "儲存",
     "editCancel": "取消",

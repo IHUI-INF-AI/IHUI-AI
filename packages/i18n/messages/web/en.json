@@ -10703,6 +10703,11 @@
     "noAssessment": "No assessments yet"
   },
   "goalCard": {
+    "resumeServerOk": "Goal resumed",
+    "resumeAlreadyActive": "Goal is already active, nothing to resume",
+    "resumeTerminal": "Goal is completed and cannot be resumed",
+    "resumeNoGoal": "No resumable goal in this session",
+    "resumeFailed": "Resume failed: {message}",
     "editAriaLabel": "Edit goal",
     "editSave": "Save",
     "editCancel": "Cancel",
