@@ -193,7 +193,7 @@ export function defaultSwitchPaths(home = homedir()): SwitchPaths {
   return { authFile, backupsDir: join(home, '.wb-switch', 'backups') }
 }
 
-/** 枚举快照库 + 当前文件,按 mtime 新→旧;快照命名 workbuddy-desktop.<ts>.info */
+/** 枚举快照库 + 当前文件,新→旧;快照命名 workbuddy-desktop.<ISO ts>.info ⇒ 按名字倒序即时间倒序 */
 export function listSwitchTargets(paths: SwitchPaths): {
   current: SwitchTarget | null
   targets: SwitchTarget[]
@@ -212,7 +212,10 @@ export function listSwitchTargets(paths: SwitchPaths): {
       if (t) targets.push(t)
     }
   }
-  targets.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt))
+  // 排序键取名字而不是 mtime:名字里就是权威时刻,而 mtime 在批量落盘(备份一瞬间写多份、
+  // 或从别处复制过来)时会打平 ⇒ 旧口径的 mtime 排序对同刻文件退化成 readdir 顺序,
+  // 列表"新→旧"看着对、实际随文件系统变化(契约见 tests/relay-account-switch.test.ts)。
+  targets.sort((a, b) => b.name.localeCompare(a.name))
   return { current, targets }
 }
 
