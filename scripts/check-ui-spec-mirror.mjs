@@ -55,6 +55,12 @@ import {
   readWorktreeFile,
   selectFace,
 } from './lib/face-reader.mjs'
+import {
+  parseWaivers,
+  todayIso,
+  waiverVerdict,
+  WAIVER_LEDGER_REL,
+} from './lib/ui-mirror-waivers.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RN_DIR = 'packages/ui-native/src'
@@ -112,6 +118,24 @@ export function judgePair({ exportNames, rnSrc, mpSrc }) {
   return { state: 'broken', onlyRn, onlyMp }
 }
 
+/**
+ * 对判定结果执行**具名豁免**(判序单源 = `lib/ui-mirror-waivers.mjs`,与 gen-ui-mirror 同一把尺)。
+ * 只作用在「RN 消费而小程序没消费」这一侧 —— 小程序多的名字没有豁免通道(那是本端自造的第二份真相)。
+ * 三种结局:全免 ⇒ linked(带 waived 计数);到期/清单腐烂 ⇒ 仍是 broken 并把原因写进 notes;
+ * 部分免 ⇒ broken 只点剩余名。
+ */
+export function waiveRow(pair, verdict, waivers, today = todayIso()) {
+  if (verdict.state !== 'broken') return { ...verdict, waived: [], notes: [] }
+  const v = waiverVerdict(pair, verdict.onlyRn, waivers, today)
+  const remaining = verdict.onlyRn.filter((name) => !v.used.includes(name))
+  const notes = []
+  if (v.expired.length) notes.push(`豁免已到期: ${v.expired.join(', ')}`)
+  if (v.rot.length) notes.push(`豁免清单腐烂: ${v.rot.join(', ')}`)
+  if (!notes.length && remaining.length === 0 && verdict.onlyMp.length === 0)
+    return { state: 'linked', onlyRn: [], onlyMp: [], waived: v.used, notes: [] }
+  return { state: 'broken', onlyRn: remaining, onlyMp: verdict.onlyMp, waived: v.used, notes }
+}
+
 function faceRev(face, rel) {
   if (face === 'staged') return `:${rel}`
   return `HEAD:${rel}`
@@ -153,34 +177,56 @@ export function collectPairs(face) {
 
 export function audit(face) {
   const pairs = collectPairs(face)
-  // 三类输入同面同轮(§0.4:清单与内容同面同轮):RN 壳、spec、小程序壳,一份都不从别的面取。
+  // 三类输入同面同轮(§0.4:清单与内容同面同轮):RN 壳、spec、小程序壳,加上**豁免台账**,
+  // 一份都不从别的面取 —— 判 HEAD 时读磁盘台账,就是「HEAD 缺豁免、盘上已补好」那型假绿的成因。
   const texts = readFaceTexts(face, [
     ...new Set([
       ...pairs.map((p) => p.rnRel),
       ...pairs.map((p) => p.specRel),
       ...pairs.map((p) => p.mpRel),
+      WAIVER_LEDGER_REL,
     ]),
   ])
+  const ledger = parseWaivers(texts.get(WAIVER_LEDGER_REL))
   const rows = []
+  if (!ledger.ok)
+    rows.push({
+      base: WAIVER_LEDGER_REL,
+      state: 'ledger-error',
+      onlyRn: [],
+      onlyMp: [],
+      waived: [],
+      notes: [ledger.error],
+    })
+  const waivers = ledger.ok ? ledger.waivers : []
   for (const pair of pairs) {
     const specSrc = texts.get(pair.specRel)
     const mpSrc = texts.get(pair.mpRel)
     const rnSrc = texts.get(pair.rnRel)
     if (specSrc === null || rnSrc === null) {
-      rows.push({ ...pair, state: 'no-spec', onlyRn: [], onlyMp: [] })
+      rows.push({ ...pair, state: 'no-spec', onlyRn: [], onlyMp: [], waived: [], notes: [] })
       continue
     }
     if (mpSrc === null) {
-      rows.push({ ...pair, state: 'no-miniapp-file', onlyRn: [], onlyMp: [] })
+      rows.push({
+        ...pair,
+        state: 'no-miniapp-file',
+        onlyRn: [],
+        onlyMp: [],
+        waived: [],
+        notes: [],
+      })
       continue
     }
     const exportNames = exportNamesOf(specSrc)
     if (exportNames.size === 0) {
-      rows.push({ ...pair, state: 'no-spec', onlyRn: [], onlyMp: [] })
+      rows.push({ ...pair, state: 'no-spec', onlyRn: [], onlyMp: [], waived: [], notes: [] })
       continue
     }
-    const verdict = judgePair({ exportNames, rnSrc, mpSrc })
-    rows.push({ ...pair, ...verdict })
+    rows.push({
+      ...pair,
+      ...waiveRow(pair.base, judgePair({ exportNames, rnSrc, mpSrc }), waivers),
+    })
   }
   return rows
 }
@@ -226,6 +272,52 @@ export function selfTest() {
   cases.push(['kebab→Pascal', pascalOf('bottom-action-bar'), 'BottomActionBar'])
   cases.push(['导出面现场解析', [...exportNamesOf(spec)].sort().join(','), 'A_PX,B_TIER,CTier'])
 
+  // 具名豁免族(判序 import lib 单源,本面不写第二份)
+  const rnOnly = judgePair({ exportNames: exportNamesOf(spec), rnSrc: 'A_PX B_TIER', mpSrc: '' })
+  const goodWaiver = [
+    {
+      pair: 'demo',
+      names: ['A_PX', 'B_TIER'],
+      reason: '本端承载不允许照抄这一消费形,理由已在台账里写清',
+      reviewBy: '2099-01-01',
+    },
+  ]
+  const waived = waiveRow('demo', rnOnly, goodWaiver, '2026-10-28')
+  cases.push(['未过期豁免全中 ⇒ linked', waived.state, 'linked'])
+  cases.push(['豁免名逐条可查(不静默)', waived.waived.join(','), 'A_PX,B_TIER'])
+  cases.push([
+    '到期豁免回队列 ⇒ 仍 broken',
+    waiveRow('demo', rnOnly, goodWaiver, '2099-06-01').state,
+    'broken',
+  ])
+  cases.push([
+    '被审面不再命中 ⇒ 清单腐烂仍 broken',
+    waiveRow(
+      'demo',
+      judgePair({ exportNames: exportNamesOf(spec), rnSrc: 'A_PX B_TIER', mpSrc: 'A_PX' }),
+      goodWaiver,
+      '2026-10-28',
+    ).state,
+    'broken',
+  ])
+  cases.push([
+    '小程序独有侧没有豁免通道',
+    waiveRow(
+      'demo',
+      judgePair({ exportNames: exportNamesOf(spec), rnSrc: 'A_PX', mpSrc: 'B_TIER' }),
+      [
+        {
+          pair: 'demo',
+          names: ['B_TIER'],
+          reason: '试图给本端自造的第二份真相开免',
+          reviewBy: '2099-01-01',
+        },
+      ],
+      '2026-10-28',
+    ).state,
+    'broken',
+  ])
+
   let failed = 0
   for (const [name, actual, expected] of cases) {
     if (actual !== expected) {
@@ -259,6 +351,13 @@ function main(argv) {
   }
 
   const rows = audit(face)
+  const ledgerError = rows.find((r) => r.state === 'ledger-error')
+  if (ledgerError) {
+    console.error(
+      `🟡 未判定:${WAIVER_LEDGER_REL} 在 ${face} 面解析不了 —— ${ledgerError.notes.join('; ')}`,
+    )
+    return 2
+  }
   const broken = rows.filter((r) => r.state === 'broken')
   const outOfScope = rows.filter((r) => r.state === 'out-of-scope')
   const noSpec = rows.filter((r) => r.state === 'no-spec')
@@ -277,11 +376,14 @@ function main(argv) {
             : row.state === 'no-miniapp-file'
               ? '·'
               : '⏭'
+      const waivedNote = row.waived?.length ? ` · 已验豁免 ${row.waived.length} 名` : ''
       const detail =
         row.state === 'broken'
-          ? `RN 独有:[${row.onlyRn.join(', ')}] 小程序独有:[${row.onlyMp.join(', ')}]`
+          ? `RN 独有:[${row.onlyRn.join(', ')}] 小程序独有:[${row.onlyMp.join(', ')}]${
+              row.notes?.length ? ` —— ${row.notes.join('; ')}` : ''
+            }`
           : row.state === 'linked'
-            ? '两端消费面一致'
+            ? `两端消费面一致${waivedNote}`
             : row.state === 'no-spec'
               ? '无 spec 契约(不在射程)'
               : '小程序无同名壳(不在射程)'
