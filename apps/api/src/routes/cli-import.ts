@@ -283,7 +283,8 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // 2. POST /cli-import/parse-file — multipart 上传文件,服务端解析
   // -------------------------------------------------------------------------
-  server.post('/cli-import/parse-file', async (request, reply) => {
+  // 2026-10-28 DDoS P2:配置文件上限 5MB,全局收到 2MiB 后需显式放开(handler 内再精确闸)。
+  server.post('/cli-import/parse-file', { bodyLimit: 6 * 1024 * 1024 }, async (request, reply) => {
     const userId = request.userId!
     const parts = request.parts()
     let source: CliConfigSource | undefined
