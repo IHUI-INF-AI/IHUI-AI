@@ -3211,6 +3211,9 @@
       "level_low": "安全等級偏低"
     },
     "twoFactor": {
+      "regenRecovery": "重新產生恢復碼",
+      "recoveryTitle": "恢復碼",
+      "recoveryConfirm": "重新產生後舊恢復碼立即失效,確定繼續?",
       "title": "兩步驗證",
       "enabled": "已啟用",
       "disabled": "未啟用",
