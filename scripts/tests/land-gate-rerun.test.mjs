@@ -30,13 +30,9 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const TOOL = join(HERE, '..', 'object-space-land.mjs')
 const UNION_TOOL = join(HERE, '..', 'union-converge.mjs')
 const GIT = resolveGitBin() || 'git'
-const runOpts = {
-  encoding: 'utf8',
-  windowsHide: true,
-  timeout: 60_000,
-  maxBuffer: 64 << 20,
-  stdio: ['ignore', 'pipe', 'pipe'],
-}
+// §12g:派生 git 必须显式接管 stdio。守门 193 只认「调用点 options 字面量里有 `stdio` 属性名」,
+// 而 `{ ...runOpts }` 这种 spread 在它眼里等于没写 stdio ⇒ HEAD 面原样判红(2026-10-28 实测)。
+// 所以 options 一律写在调用点(取值用仓内标准形:本调用不喂 stdin ⇒ ignore/pipe/pipe)。
 const runGit = (dir, args) =>
   execFileSync(
     GIT,
@@ -53,7 +49,13 @@ const runGit = (dir, args) =>
       dir,
       ...args,
     ],
-    { ...runOpts },
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60_000,
+      maxBuffer: 64 << 20,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
 
 function makeRepo(t) {
