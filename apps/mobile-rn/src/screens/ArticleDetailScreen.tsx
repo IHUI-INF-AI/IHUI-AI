@@ -38,6 +38,7 @@ import {
   type ArticleDetailItem,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
@@ -74,6 +75,8 @@ export function ArticleDetailScreen() {
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [commentError, setCommentError] = useState('')
 
+    const [reloadKey, setReloadKey] = useState(0)
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
@@ -92,7 +95,10 @@ export function ArticleDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):bump reloadKey 让上面的 effect 重跑
+  useRefreshOnFocus(() => setReloadKey((k) => k + 1))
 
   /** 点赞切换(对齐 handleLike:本地 toggle,UI 即时反馈) */
   const handleLike = useCallback((): void => {
