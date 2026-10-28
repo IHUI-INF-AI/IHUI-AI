@@ -41,6 +41,7 @@ import {
   type Timbre,
   type UsageStat,
 } from './_shared.js'
+import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 const hunyuan3dSubmitBody = z.object({
   Prompt: z.string().optional(),
@@ -667,6 +668,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/timbre/clone',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '音色克隆',
         description: '代理调用指定厂商的 voice/clone 接口克隆音色,并写入音色库',
@@ -744,6 +746,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
   server.put(
     '/timbre/:timbreId',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '更新音色',
         description: '按 timbreId 更新当前用户音色的名称、音频地址或状态',
@@ -770,6 +773,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/watermark/image',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '图片水印',
         description: '代理调用 Dashscope 图片合成接口为图片添加水印',
@@ -802,6 +806,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/watermark/video',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '视频水印',
         description: '代理调用 Dashscope 视频合成接口为视频添加水印并创建异步任务',

@@ -102,6 +102,7 @@ import {
 } from '../utils/file-type-validator.js'
 import { deriveModelCapabilities } from './v1-shared.js'
 import { isUuidString } from '../utils/uuid.js'
+import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -2276,6 +2277,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/files',
     {
+      // multipart 文件上传:吃全局 2MiB 会被静默 413,显式放开到单文件 100MiB 形态
+      bodyLimit: FILE_UPLOAD_BODY_LIMIT,
       schema: {
         description: '上传文件(multipart/form-data,落盘 + files 表持久化)',
         tags: ['Files'],

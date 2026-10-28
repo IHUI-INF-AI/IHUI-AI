@@ -39,6 +39,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 
 import { config } from '../config/index.js'
+import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 import { authenticate } from '../plugins/auth.js'
 import { error, success } from '../utils/response.js'
 
@@ -412,7 +413,8 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
 
   // ===== 文件上传(multipart) =====
 
-  server.post('/publish/upload', async (request, reply) => {
+  // 上传转发到 ai-service:multipart 整包,吃全局 2MiB 会被静默 413
+  server.post('/publish/upload', { bodyLimit: FILE_UPLOAD_BODY_LIMIT }, async (request, reply) => {
     // 2026-08-06 修复:userId 一律以 JWT 解析的 request.userId 为准,
     // 忽略 query.user_id,防止伪造上传归属(IDOR)。
     const userId = (request as FastifyRequest & { userId?: string }).userId
