@@ -13,7 +13,7 @@
  * 分工(§0.6 单一真相源):
  * - 本服务 = 取行、平台裁决、票据策略、spawn、错误映射(不复制模板形状/凭证剔除规则);
  * - scripts/trae-login-local.mjs = Trae storage.json 重封 byteCrypto 信封 + 备份 + 原子写;
- * - scripts/local-login.mjs = codex/opencode/minimax/zcode/codearts/qoder/workbuddy/doubao 八平台写回。
+ * - scripts/local-login.mjs = codex/opencode/minimax/zcode/codearts/qoder 六平台写回。
  *
  * 票据策略(trae 之外一律不刷新):Trae 保留「临期先兜底刷新一次」的既有生产口径;
  * 其它平台写池内当前票 —— 主动刷新会轮换 refreshToken,若本机正用着同一个号就会
@@ -49,12 +49,14 @@ const EXPIRY_GUARD_MS = 60_000
  * 这些平台仍可正常入池/转发/保活,只是不能一键写回本机客户端。
  */
 export const LOCAL_LOGIN_UNSUPPORTED_REASONS: Partial<Record<RelayProviderCode, string>> = {
+  workbuddy: '加密密钥只在本机运行中的主进程内(9229 inspector),离线无法重封本机登录态',
   loomy: '本机登录态是 Electron leveldb 且被客户端独占,离线无法重建',
+  doubao: '登录态是 Chrome Cookies 库(被浏览器独占),离线无法重封',
   lingma: '字段级登录态形状尚未实证(本机未安装),没有可验证的写回配方',
   grokbot: '本机凭证是 sandSealedFile 密封串,没有明文 token 可重建',
 }
 
-/** 由 scripts/local-login.mjs 接管写回的八平台 */
+/** 由 scripts/local-login.mjs 接管写回的六平台 */
 const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
   'codex',
   'opencode',
@@ -62,8 +64,6 @@ const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
   'zcode',
   'codearts',
   'qoder',
-  'workbuddy',
-  'doubao',
 ])
 
 /**
@@ -71,14 +71,8 @@ const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
  * IHUI-API 以 LocalSystem 运行时既解不开(SYSTEM 主密钥不同)、落点又指向 systemprofile。
  * 走 apps/api/scripts/run-as-user.ps1(WTSQueryUserToken → CreateProcessAsUser);
  * 非服务身份时该脚本原样直跑,行为与直接 spawn 等价。
- * workbuddy 的 inspector 取钥与豆包的 DPAPI 取钥同样只在桌面用户身份下成立。
  */
-const RUN_AS_USER_PROVIDERS: ReadonlySet<string> = new Set([
-  'codearts',
-  'qoder',
-  'workbuddy',
-  'doubao',
-])
+const RUN_AS_USER_PROVIDERS: ReadonlySet<string> = new Set(['codearts', 'qoder'])
 
 /**
  * 选 PowerShell 解释器:优先 pwsh 7(本机实测 powershell.exe 可能被替换成
@@ -427,7 +421,7 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
   }
 }
 
-/** 八平台:写池内当前票,不主动刷新(刷新会轮换 refreshToken ⇒ 可能顶掉正在用的本机客户端) */
+/** 六平台:写池内当前票,不主动刷新(刷新会轮换 refreshToken ⇒ 可能顶掉正在用的本机客户端) */
 async function loginViaScript(
   row: AiRelayAccountPool,
   providerCode: RelayProviderCode,
@@ -440,8 +434,6 @@ async function loginViaScript(
     expiresAt: row.tokenExpiresAt?.toISOString(),
     refreshExpiresAt: row.refreshExpiresAt?.toISOString(),
     secrets: creds.secrets,
-    // 豆包捆绑账号的整套 cookie(其它平台为空数组,适配器忽略)
-    cookies: creds.cookies,
   }
 
   let outcome
@@ -468,7 +460,7 @@ async function loginViaScript(
     throw new LocalLoginError('写回脚本未回报落点(未判定)', 'bad-output', 502)
   }
   /**
-   * 八平台自 2026-10-28 起与 trae 同口径:运行中的 GUI 客户端(codearts/qoder/minimax/zcode/workbuddy/doubao)
+   * 六平台自 2026-10-28 起与 trae 同口径:运行中的 GUI 客户端(codearts/qoder/minimax/zcode)
    * 先关后写再拉起,字段同名同义;codex/opencode 是 CLI,脚本不给这些字段 ⇒ 全 false。
    */
   const clientProduct = typeof parsed.clientProduct === 'string' ? parsed.clientProduct : ''

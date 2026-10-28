@@ -28,7 +28,6 @@ import { fileURLToPath } from 'node:url'
 
 import { __test__ as L } from '../local-login.mjs'
 import { __test__ as Z } from '../lib/zcode-auth-extract.mjs'
-import { __test__ as W } from '../lib/workbuddy-auth-extract.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const require = createRequire(import.meta.url)
@@ -622,11 +621,10 @@ test('CLI:--provider 必填且限支持集,stdin JSON 回报不含凭据', () =>
 // ⑨ 客户端进程控制面(2026-10-28 与 trae 对齐:运行中 GUI 会覆写落点)
 // =============================================================================
 
-test('CLIENT_IMAGES:GUI 平台先关后写,CLI 两平台不动进程,workbuddy 由适配器自控(钥源不能被预关)', () => {
+test('CLIENT_IMAGES:GUI 四平台先关后写,CLI 两平台不动进程', () => {
   assert.equal(L.CLIENT_IMAGES.codex, undefined, 'codex 是 CLI,不该去杀进程')
   assert.equal(L.CLIENT_IMAGES.opencode, undefined, 'opencode 是 CLI,不该去杀进程')
-  assert.equal(L.CLIENT_IMAGES.workbuddy, undefined, 'workbuddy 的字段密钥只在运行中的主进程里,main() 预关会关掉钥源')
-  for (const provider of ['codearts', 'qoder', 'minimax', 'zcode', 'doubao']) {
+  for (const provider of ['codearts', 'qoder', 'minimax', 'zcode']) {
     assert.equal(Array.isArray(L.CLIENT_IMAGES[provider]), true, `${provider} 必须有进程映像候选`)
     assert.equal(L.CLIENT_IMAGES[provider].length > 0, true, `${provider} 候选不得为空`)
   }
@@ -681,7 +679,7 @@ test('进程探测兜底:精确映像名落空时按 exe 路径关键字认客�
   )
   assert.deepEqual(P.matchProcessesByPath(rows, []), [], '没有关键字就不猜')
   assert.deepEqual(P.matchProcessesByPath([{ Name: 'a.exe', ProcessId: 1 }], ['a']), [], '拿不到路径不认')
-  for (const provider of ['codearts', 'qoder', 'minimax', 'zcode', 'doubao']) {
+  for (const provider of ['codearts', 'qoder', 'minimax', 'zcode']) {
     assert.equal((L.CLIENT_PATH_HINTS[provider] ?? []).length > 0, true, `${provider} 必须有路径兜底关键字`)
   }
   assert.equal(L.CLIENT_PATH_HINTS.codex, undefined)
@@ -716,232 +714,5 @@ test('关不掉就拒写:进程仍在跑/关断未判定一律 target-locked,关
     (e) => e?.code === 'target-locked' && /仍在运行/.test(e.message),
     '关不掉还继续写,退出时必被客户端内存态覆写 ⇒ 必须拒写而不是冒绿',
   )
-})
-
-// =============================================================================
-// ⑩ WorkBuddy($wbEncrypted 字段信封重封;进程控制走假 extract + 关断开关)
-// =============================================================================
-
-const WB_SECRET = 'wb-test-bootstrap-secret'
-
-/** 造一份带信封的本机会话文件(与真机同形:资料/凭证都是 $wbEncrypted) */
-function wbRawTree({ uid, at, rt, nickname }) {
-  const { key, keyId } = W.deriveAtRestKey(WB_SECRET)
-  return {
-    tree: {
-      account: { uid, nickname: W.sealField(nickname, key, keyId), type: 'oath' },
-      auth: {
-        accessToken: W.sealField(at, key, keyId),
-        refreshToken: W.sealField(rt, key, keyId),
-        expiresIn: 7200,
-        tokenType: 'Bearer',
-        domain: 'codebuddy.cn',
-        lastRefreshTime: '2026-10-01T00:00:00.000Z',
-        expiresAt: '2026-10-01T02:00:00.000Z',
-      },
-      accounts: [{ uid, nickname: W.sealField(nickname, key, keyId) }],
-      allAccounts: [],
-    },
-    key,
-    keyId,
-  }
-}
-
-function wbFakeExtract(mains) {
-  return {
-    ...extract,
-    listWorkbuddyMainProcesses: () => mains,
-    readAtRestBootstrap: async () => ({ atRestSecretKey: WB_SECRET }),
-  }
-}
-
-const WB_ENV_OFF = { IHUI_LOCAL_LOGIN_PROC_CONTROL: '0' }
-
-test('workbuddy:同账号净零 ⇒ 整树原样搬,只重封凭证族,资料信封逐字节保留', async () => {
-  const scratch = mkScratch('local-login-wb')
-  try {
-    const file = path.join(scratch, 'workbuddy-desktop.info')
-    const { tree, key, keyId } = wbRawTree({ uid: 'wb-uid', at: 'old-at', rt: 'old-rt', nickname: '张三' })
-    const beforeRaw = `${JSON.stringify(tree)}\n`
-    fs.writeFileSync(file, beforeRaw)
-    const sealedPaths = W.collectSealedPaths(tree)
-    const payload = L.normalizePayload({
-      uid: 'wb-uid',
-      token: 'new-at',
-      refreshToken: 'new-rt',
-      expiresAt: '2026-12-01T00:00:00.000Z',
-      target: file,
-      secrets: { edition: 'workbuddy', authFile: file, sealedPaths },
-    })
-    const result = await L.applyWorkbuddy(payload, { extract: wbFakeExtract([{ pid: 4321, userDataDir: 'C:\\Users\\t\\.workbuddy\\app' }]), env: WB_ENV_OFF })
-    const reread = W.decryptSessionTree(readJson(file), key, keyId)
-    assert.equal(reread.auth.accessToken, 'new-at')
-    assert.equal(reread.auth.refreshToken, 'new-rt')
-    assert.equal(reread.auth.expiresAt, '2026-12-01T00:00:00.000Z')
-    assert.equal(reread.account.nickname, '张三', '同账号资料信封必须原样保留')
-    assert.equal(reread.accounts[0].nickname, '张三')
-    assert.equal(reread.account.uid, 'wb-uid')
-    // 非凭证信封逐字节不变(净零:没理由动的别动)
-    const afterRaw = readJson(file)
-    assert.equal(JSON.stringify(afterRaw.account.nickname), JSON.stringify(tree.account.nickname))
-    assert.equal(result.replacedUid, 'wb-uid')
-    noPlaintext(result, ['new-at', 'new-rt'])
-    assert.equal(fs.readFileSync(result.backupFile).equals(Buffer.from(beforeRaw, 'utf8')), true)
-  } finally {
-    rmScratch(scratch)
-  }
-})
-
-test('workbuddy:本机是别人号 ⇒ 用池内模板重建树并按 sealedPaths 重封资料信封', async () => {
-  const scratch = mkScratch('local-login-wb-tpl')
-  try {
-    const file = path.join(scratch, 'workbuddy-desktop.info')
-    const other = wbRawTree({ uid: 'other-uid', at: 'other-at', rt: 'other-rt', nickname: '别人' })
-    fs.writeFileSync(file, JSON.stringify(other.tree))
-    const mine = wbRawTree({ uid: 'wb-uid', at: 'tpl-at', rt: 'tpl-rt', nickname: '我' })
-    const template = W.buildWorkbuddyTemplate(W.decryptSessionTree(mine.tree, mine.key, mine.keyId))
-    assert.equal(template.auth.accessToken, undefined, '模板必须剔净凭证')
-    const payload = L.normalizePayload({
-      uid: 'wb-uid',
-      token: 'new-at',
-      refreshToken: 'new-rt',
-      target: file,
-      secrets: {
-        edition: 'workbuddy',
-        authFile: file,
-        sealedPaths: W.collectSealedPaths(mine.tree),
-        sessionTemplate: template,
-      },
-    })
-    const result = await L.applyWorkbuddy(payload, { extract: wbFakeExtract([{ pid: 4321, userDataDir: 'C:\\Users\\t\\.workbuddy\\app' }]), env: WB_ENV_OFF })
-    const reread = W.decryptSessionTree(readJson(file), mine.key, mine.keyId)
-    assert.equal(reread.auth.accessToken, 'new-at')
-    assert.equal(reread.account.uid, 'wb-uid', '整树必须换成目标号,别人资料一条不带')
-    assert.equal(reread.account.nickname, '我')
-    assert.equal(reread.accounts[0].nickname, '我')
-    assert.equal(reread.account.type, 'oath', '模板里的明文旁键保留')
-    // 重封后的资料字段在盘上仍是信封形态(客户端只认信封)
-    assert.equal(readJson(file).account.nickname.$wbEncrypted, 1)
-    assert.equal(result.replacedUid, 'other-uid')
-    noPlaintext(result, ['new-at', 'new-rt'])
-  } finally {
-    rmScratch(scratch)
-  }
-})
-
-test('workbuddy:本机别人号 + 池内无模板 ⇒ no-template 拒写(绝不拿别人的树冒绿)', async () => {
-  const scratch = mkScratch('local-login-wb-none')
-  try {
-    const file = path.join(scratch, 'workbuddy-desktop.info')
-    const other = wbRawTree({ uid: 'other-uid', at: 'a', rt: 'r', nickname: '别人' })
-    fs.writeFileSync(file, JSON.stringify(other.tree))
-    const payload = L.normalizePayload({
-      uid: 'wb-uid',
-      token: 'new-at',
-      target: file,
-      secrets: { edition: 'workbuddy', authFile: file },
-    })
-    await assert.rejects(
-      () => L.applyWorkbuddy(payload, { extract: wbFakeExtract([{ pid: 4321, userDataDir: 'C:\\Users\\t\\.workbuddy\\app' }]), env: WB_ENV_OFF }),
-      (e) => e?.code === 'no-template',
-    )
-    assert.equal(fs.readFileSync(file, 'utf8'), JSON.stringify(other.tree), '拒写不得动原文件')
-  } finally {
-    rmScratch(scratch)
-  }
-})
-
-test('workbuddy:没有运行中的主进程 ⇒ no-target 点名(取不到钥不猜)', async () => {
-  const payload = L.normalizePayload({ uid: 'u', token: 't', secrets: { edition: 'workbuddy' } })
-  await assert.rejects(
-    () => L.applyWorkbuddy(payload, { extract: wbFakeExtract([]), env: WB_ENV_OFF }),
-    (e) => e?.code === 'no-target' && /主进程/.test(e.message),
-  )
-})
-
-// =============================================================================
-// ⑪ 豆包(Chromium Cookies 库 v10 重封;DPAPI 仅 Windows)
-// =============================================================================
-
-const DOUBAO_COLS =
-  'creation_utc, host_key, top_frame_site_key, name, value, encrypted_value, path, expires_utc,' +
-  ' is_secure, is_httponly, last_access_utc, has_expires, is_persistent, priority, samesite,' +
-  ' source_scheme, source_port, last_update_utc, source_type, has_cross_site_ancestor'
-
-test(
-  'doubao:已有行 UPDATE + 缺行 INSERT(镜像 ttwid 默认值),v10 重封可按豆包读法解回',
-  { skip: IS_WINDOWS ? false : 'DPAPI 仅 Windows 可用' },
-  () => {
-    const scratch = mkScratch('local-login-doubao')
-    try {
-      const udata = path.join(scratch, 'User Data')
-      fs.mkdirSync(path.join(udata, 'Default', 'Network'), { recursive: true })
-      const aesKey = crypto.randomBytes(32)
-      if (!writeLocalState(udata, aesKey)) return
-      const dbFile = path.join(udata, 'Default', 'Network', 'Cookies')
-      const { DatabaseSync } = require('node:sqlite')
-      const db = new DatabaseSync(dbFile)
-      db.exec(
-        `CREATE TABLE cookies (creation_utc INTEGER NOT NULL UNIQUE PRIMARY KEY, host_key TEXT NOT NULL,` +
-          ` top_frame_site_key TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL,` +
-          ` encrypted_value BLOB NOT NULL, path TEXT NOT NULL, expires_utc INTEGER NOT NULL,` +
-          ` is_secure INTEGER NOT NULL, is_httponly INTEGER NOT NULL, last_access_utc INTEGER NOT NULL,` +
-          ` has_expires INTEGER NOT NULL, is_persistent INTEGER NOT NULL, priority INTEGER NOT NULL,` +
-          ` samesite INTEGER NOT NULL, source_scheme INTEGER NOT NULL, source_port INTEGER NOT NULL,` +
-          ` last_update_utc INTEGER NOT NULL, source_type INTEGER NOT NULL, has_cross_site_ancestor INTEGER NOT NULL)`,
-      )
-      // 现役 ttwid 行(旧值 v10 封),sessionid 缺行 ⇒ 覆盖 UPDATE 路径 + 新建 INSERT 路径
-      db.prepare(
-        `INSERT INTO cookies (${DOUBAO_COLS}) VALUES (1,'.doubao.com','','ttwid','',?,'/',0,1,1,2,0,1,1,0,2,443,2,1,0)`,
-      ).run(L.encryptSafeStorageBlob(extract.wrapDoubaoAppPrefix('old-ttwid'), aesKey))
-      db.exec("INSERT INTO cookies (creation_utc, host_key, top_frame_site_key, name, value, encrypted_value, path, expires_utc, is_secure, is_httponly, last_access_utc, has_expires, is_persistent, priority, samesite, source_scheme, source_port, last_update_utc, source_type, has_cross_site_ancestor) VALUES (9,'.example.com','','keep','',x'00','/',0,0,0,0,0,0,0,0,0,80,0,0,0)")
-      db.close()
-
-      const beforeRaw = fs.readFileSync(dbFile)
-      const payload = L.normalizePayload({
-        uid: 'auto:bundle',
-        token: 'new-sess',
-        target: udata,
-        cookies: [
-          { source: 'cookies', key: 'ttwid', host: '.doubao.com', value: 'new-ttwid' },
-          { source: 'cookies', key: 'sessionid', host: '.doubao.com', value: 'new-sess' },
-        ],
-        secrets: {},
-      })
-      const result = L.applyDoubao(payload, { extract })
-      const ro = new DatabaseSync(dbFile, { readOnly: true })
-      try {
-        const open = (v) => extract.stripDoubaoAppPrefix(extract.decryptOsCryptString(Buffer.from(v), aesKey, { rawBuffer: true }))
-        // 只选小列:creation_utc/last_update_utc 是 Chromium epoch 微秒,SELECT * 会触发
-        // node:sqlite 大整数 RangeError(读回大数需 CAST 或 setReadBigInts,断言用不到)
-        const small = 'name, host_key, value, encrypted_value, path, is_secure, samesite, source_port'
-        const t = ro.prepare(`SELECT ${small} FROM cookies WHERE name='ttwid'`).get()
-        assert.equal(t.value, '', '写回后 value 列必须清空(真值只在 encrypted_value)')
-        assert.equal(open(t.encrypted_value), 'new-ttwid')
-        const s = ro.prepare(`SELECT ${small} FROM cookies WHERE name='sessionid'`).get()
-        assert.equal(s.host_key, '.doubao.com')
-        assert.equal(open(s.encrypted_value), 'new-sess')
-        assert.equal(s.path, '/')
-        assert.equal(s.is_secure, 1)
-        assert.equal(s.samesite, 0)
-        assert.equal(s.source_port, 443)
-        const keep = ro.prepare(`SELECT ${small} FROM cookies WHERE name='keep'`).get()
-        assert.equal(keep.value, '', '无关行不得动')
-        assert.equal(Buffer.from(keep.encrypted_value).equals(Buffer.from([0])), true)
-      } finally {
-        ro.close()
-      }
-      assert.equal(result.targetFile, dbFile)
-      assert.equal(fs.readFileSync(result.backupFile).equals(beforeRaw), true, '备份必须逐字节等于写前')
-      noPlaintext(result, ['new-ttwid', 'new-sess'])
-    } finally {
-      rmScratch(scratch)
-    }
-  },
-)
-
-test('doubao:池号没有 cookie 捆绑包 ⇒ no-template 点名(不猜不落笔)', () => {
-  const payload = L.normalizePayload({ uid: 'auto:x', token: 't', secrets: {} })
-  assert.throws(() => L.applyDoubao(payload, { extract }), (e) => e?.code === 'no-template')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
