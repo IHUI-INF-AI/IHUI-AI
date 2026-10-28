@@ -140,6 +140,12 @@ export const HARDCODED_TEXT_LIMIT = 100
 export const MESSAGES_REL = 'packages/i18n/messages/miniapp-taro/zh-CN.json'
 
 /**
+ * 小程序运行时把这张 **shared 包**并进来(`@ihui/i18n/loader#mergeMessages`,现读 81 枚消费键里
+ * 40 枚只住在 shared)⇒ 正文作用域必须按合并后的键集算,只查端包会把能渲染的文案凭空判成缺口。
+ */
+export const SHARED_MESSAGES_REL = 'packages/i18n/messages/shared/zh-CN.json'
+
+/**
  * 页面字符串里**不在词包中**的中文字符数。判据用意:转壳后文案全部来自词包,
  * 若页面的中文片段在词包里找不到 ⇒ 那一段会消失(正文丢失),这才是真阻塞;
  * 而"加载失败/暂无数据/确定"这类兜底文案在词包里都有 ⇒ 删掉不丢东西(实测 98 页里 95 页 ≤50 字、中位数 0)。
@@ -152,6 +158,71 @@ export function hardcodedCjkNotInMessages(text, messagesText) {
     const body = String(lit.body ?? '')
     if (!/[\u4e00-\u9fff]/.test(body)) continue
     if (hay.includes(body.trim())) continue
+    miss += (body.match(/[\u4e00-\u9fff]/g) || []).length
+  }
+  return miss
+}
+
+/**
+ * 共享屏消费的词包键集(转壳后页面上能出现的文案,只可能来自这些键的值)。
+ * 键形态:`t('a.b')` / `tt('a.b', …)` 直调,以及成组登记的点分串。只认「小写字母开头 +
+ * 至少一个点 + 段内 [a-z0-9_]」——路由名、相对路径、包名都不落进这个形状。
+ */
+export function screenConsumedKeys(sharedText) {
+  const src = maskComments(String(sharedText ?? ''))
+  const keys = new Set()
+  for (const m of src.matchAll(/'([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+)'/g)) keys.add(m[1])
+  return keys
+}
+
+/** 词包文档归一成数组:读不到的空包不进射程(不算解析失败)。 */
+export function messagesDocs(messagesText) {
+  return (Array.isArray(messagesText) ? messagesText : [messagesText])
+    .map((s) => String(s ?? ''))
+    .filter((s) => s.trim().length > 0)
+}
+
+/** 按精确键名从**合并后的多份词包**取解码后的值(端包 ⊕ shared 包);任一份解析不了 ⇒ null,不猜。 */
+export function messagesValuesByKeys(messagesText, keys) {
+  const docs = messagesDocs(messagesText)
+  if (!docs.length) return null
+  const out = []
+  for (const doc of docs) {
+    let parsed = null
+    try {
+      parsed = JSON.parse(doc)
+    } catch {
+      return null
+    }
+    if (!parsed || typeof parsed !== 'object') return null
+    const walk = (o, p) => {
+      for (const [k, v] of Object.entries(o)) {
+        const key = `${p}${p ? '.' : ''}${k}`
+        if (v && typeof v === 'object') walk(v, key)
+        else if (keys.has(key)) out.push(String(v))
+      }
+    }
+    walk(parsed, '')
+  }
+  return out.join('\n')
+}
+
+const stripSpace = (s) => String(s).replace(/\s+/g, '')
+
+/**
+ * 页面字符串里**该共享屏渲染不出来**的中文字符数(作用域 = 它消费的键的值)。
+ * 为什么要作用域:整张词包当 haystack 时,一句文案只要在**别的键**下出现过就销账,而转壳后
+ * 那个键根本不会被渲染 ⇒ 页面正文静默消失、门却读成绿(现读 80 枚手写页里 38 页命中这一型)。
+ * 两侧都去空白:词包值里的转义/换行与页面字面量不同形,原样比会凭空算成缺口(实测 125 字)。
+ */
+export function cjkNotRenderedOnScreen(text, screenHay) {
+  const src = maskComments(String(text ?? ''))
+  const hay = stripSpace(String(screenHay ?? ''))
+  let miss = 0
+  for (const lit of scanLiterals(src).strings) {
+    const body = String(lit.body ?? '')
+    if (!/[\u4e00-\u9fff]/.test(body)) continue
+    if (hay.includes(stripSpace(body))) continue
     miss += (body.match(/[\u4e00-\u9fff]/g) || []).length
   }
   return miss
@@ -212,9 +283,11 @@ export function lifecycleOnlyDataRefresh(text) {
   return blocks.every((b) => /^(?:void\s+)?[A-Za-z_$][\w$]*\s*\(\s*\)\s*;?$/.test(b.body.trim()))
 }
 
-/** 壳自己取数(api-client 的 fetchApi/request,或具名取数函数) —— 与刷新判据合用。 */
+/** 壳自己取数(api-client 或端内 api 层的 fetchApi/request/具名取数函数) —— 与刷新判据合用。 */
 export function shellFetchesData(shellText) {
   const s = String(shellText ?? '')
+  // 端内 api 层(../api/social 等)也是真取数:现读 SubscriptionsScreen 就从 '../api/social' 取
+  if (/from\s*['"]\.\.\/api\//.test(s)) return true
   if (!/@ihui\/api-client/.test(s)) return false
   if (/fetchApi|request\s*\(/.test(s)) return true
   // 具名取数函数:必须 **import 过且出现 ≥2 次**(import 行 + 使用点) 才算真取数。
@@ -516,13 +589,20 @@ export function judgeConversion({
       why: `壳 ${name} 未消费共享屏(不带 @ihui/rn-app 取用该符号)`,
     }
   const pageTokens = capabilityTokens(pageText)
-  // 硬编码正文闸:转壳后正文来自共享屏词包 ⇒ **词包里没有的**中文片段会消失(不是"未还原",是丢内容)
-  const missingCjk = hardcodedCjkNotInMessages(pageText, messagesText)
+  // 硬编码正文闸:转壳后正文来自共享屏消费的键 ⇒ **那些键的值里没有的**中文片段会消失
+  // (不是"未还原",是丢内容)。没有共享屏可比时(取不到 sharedText/键集为空/词包坏了)
+  // 退回整包文本口径 —— 退回面是"判不出作用域",不是把作用域判据遮掉。
+  const consumedKeys = sharedText ? screenConsumedKeys(sharedText) : new Set()
+  const screenHay = consumedKeys.size > 0 ? messagesValuesByKeys(messagesText, consumedKeys) : null
+  const missingCjk =
+    screenHay === null
+      ? hardcodedCjkNotInMessages(pageText, messagesDocs(messagesText).join('\n'))
+      : cjkNotRenderedOnScreen(pageText, screenHay)
   if (missingCjk > HARDCODED_TEXT_LIMIT)
     return {
       spec,
       kind: 'page-only-capability',
-      why: `这一页带着共享屏/壳没有的能力:硬编码正文 ${missingCjk} 字不在词包(转壳会丢内容)`,
+      why: `这一页带着共享屏/壳没有的能力:硬编码正文 ${missingCjk} 字不在该屏消费的键下(转壳会丢内容)`,
     }
   // "只设导航标题"的生命周期钩子可以由壳承载页原样保留(见 titleOnlyLifecycle),不计私有能力
   if (titleOnlyLifecycle(pageText))
@@ -607,7 +687,13 @@ export function plan({ face = 'head' } = {}) {
   const sharedTexts = batchReadTexts(face, specs)
   // 路由映射与词包按同一面读(缺表/缺词包 ⇒ 判不出 ⇒ 保守:不销账、正文全算缺失)
   const routeMap = routeMapFrom(batchReadTexts(face, [ROUTE_MAP_REL]).get(ROUTE_MAP_REL) ?? '')
-  const messagesText = batchReadTexts(face, [MESSAGES_REL]).get(MESSAGES_REL) ?? ''
+  // 正文作用域按**合并后的词包**算(端包 ⊕ shared 包):小程序运行时走 mergeMessages,现读
+  // 21 枚拒转页的 81 个消费键里 40 个只住在 shared —— 只查端包会把屏幕上确实渲染得出的字凭空判成缺口。
+  const messageDocsBatch = batchReadTexts(face, [MESSAGES_REL, SHARED_MESSAGES_REL])
+  const messagesText = [
+    messageDocsBatch.get(MESSAGES_REL) ?? '',
+    messageDocsBatch.get(SHARED_MESSAGES_REL) ?? '',
+  ]
   // 承载壳候选口径 = lib 单源(pickCarrierShell):同名优先、异名兜底(NewsScreen 渲染 SquareScreen
   // 这类平台薄壳是仓内既有形态)。旧实现只认同名壳 ⇒ 会把"壳叫别的名"的页误判成 no-shell。
   const rnTexts = new Map(
@@ -881,6 +967,37 @@ function main(argv) {
       [s14HasDidShow(S14_SHELL_COMMENT), s14HasDidShow(S14_SHELL_REAL)],
       [true, false],
     )
+    // S20(2026-10-28 现读缺陷):正文闸原来拿**整张词包文本**当 haystack ⇒ 一句文案只要在
+    // 任何一个不相干键下出现过就销账,而转壳后渲染的是共享屏自己消费的那些键 —— 不相干键的值
+    // 永远不会出现在屏幕上,页面那段正文就此消失,门却读成绿(HEAD 面 80 枚手写页里 38 枚命中)。
+    const S20_PAGE = `const body = '${'隐'.repeat(150)}'`
+    const S20_PACK = `{"demo":{"body":"${'其'.repeat(150)}"},"other":{"note":"${'隐'.repeat(150)}"}}`
+    const s20Judge = (key) =>
+      judgeConversion({
+        spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+        pageText: S20_PAGE,
+        shellText: `import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){return null}`,
+        sharedText: `export function DemoScreen(){ return t('${key}') }`,
+        messagesText: S20_PACK,
+      })
+    P(
+      'S20 正文只在**别的键**下出现过 ⇒ 按该屏消费的键拒;同一段就在消费的键下 ⇒ 放行',
+      [s20Judge('demo.body').kind, s20Judge('other.note').kind],
+      ['page-only-capability', 'convertible'],
+    )
+    // S21:小程序运行时把 shared 包 mergeMessages 并进端包 ⇒ 消费键住在哪一份都算"渲染得出";
+    // 只查端包这一型会凭空造缺口(现读实测 81 枚消费键里 40 枚只在 shared 里)。
+    P(
+      'S21 消费键在**合并进来的另一份词包**里 ⇒ 放行(只查端包会假拒)',
+      judgeConversion({
+        spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+        pageText: S20_PAGE,
+        shellText: `import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){return null}`,
+        sharedText: `export function DemoScreen(){ return t('demo.body') }`,
+        messagesText: ['{"other":{"note":"x"}}', `{"demo":{"body":"${'隐'.repeat(150)}"}}`],
+      }).kind,
+      'convertible',
+    )
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
@@ -945,6 +1062,10 @@ export const __test__ = {
   titleOnlyLifecycle,
   hardcodedCjkCount,
   hardcodedCjkNotInMessages,
+  screenConsumedKeys,
+  messagesDocs,
+  messagesValuesByKeys,
+  cjkNotRenderedOnScreen,
   routeMapFrom,
   coveredNavigation,
   pullDownCovered,
