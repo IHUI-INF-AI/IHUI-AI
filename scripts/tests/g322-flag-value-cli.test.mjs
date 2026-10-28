@@ -9,7 +9,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
@@ -628,7 +628,7 @@ test('G-322 第十八批:派单/巡检/审计四站的数值与枚举型旗标�
   assertBadFlag(S('check-declared-shortcuts.mjs'), '--probe', '组合键(如 Mod+K)')
 })
 
-test('G-322 第十八批:烘焙/归档两站的落点与节流旗标漏值各自大声拒绝', () => {
+test('G-322 第十八批:烘焙/归档两站的落点与节流旗标漏值各自大声拒绝', (t) => {
   // --latest-json 是**输入面**:旧写法漏值报"缺 --latest-json"(读起来像用户没打),
   // 而 `--latest-json --out` 把旗标当路径 ⇒ 下一句"latest.json 不存在:--out"仍是被吞的 token 冒充路径。
   assertBadFlag(S('bake-desktop-latest.mjs'), '--latest-json', '文件路径', { eat: '--out' })
@@ -650,6 +650,15 @@ test('G-322 第十八批:烘焙/归档两站的落点与节流旗标漏值各自
   // --days 折回 0 = **关掉年龄节流**(把"我要按年龄节流"写成"全部可搬");--plan-face 折回默认面 =
   // 把"我指定了另一面"写成"我问的就是这个面"。归档器会写盘,故三支全部带 --dry-run 前置,
   // 且显式清空 HUSKY_SKIP_ARCHIVE(那条应急开关排在用法校验之前,留着会让探针 rc=0)。
+  // 2026-10-29 加存在守卫(口径照 scripts/tests/watermark-reseat.test.mjs 的 T2):归档器已随
+  // 2026-10-16「完成即删 / 存档机制退役」到期,它一删,这三条臂要探的**进程本体**就不在了 ——
+  // 那时要记的不是"旗标判据变弱"(判据已原样迁入户 scripts/lib/plan-block-partition.mjs),
+  // 而是 spawn 的对象消失。故按既有口径如实 skip,不冒充判定;归档器在位时这几臂逐条实跑,覆盖一条不少。
+  const ARCHIVER = S('archive-completed-tasks.mjs')
+  if (!existsSync(ARCHIVER)) {
+    t.skip('archive-completed-tasks.mjs 已退役删除 ⇒ 归档臂主体不在,不冒充判定')
+    return
+  }
   const env = { ...process.env, HUSKY_SKIP_ARCHIVE: '' }
   assertBadFlag(S('archive-completed-tasks.mjs'), '--days', '天数(非负整数)', { pre: ['--dry-run'], env })
   assertBadFlag(S('archive-completed-tasks.mjs'), '--plan-face', '面名(head|worktree)', { pre: ['--dry-run'], eat: '--auto-commit', env })
