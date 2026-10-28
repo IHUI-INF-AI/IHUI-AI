@@ -822,14 +822,17 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
     const acc = normalizeForeignAccountShape(row)
     const isCodearts = opts.providerCode === 'codearts'
     const codeartsAccount = isCodearts && isRecord(acc['account']) ? acc['account'] : undefined
-    // 统一名称 = 官方绑定手机号:qoder 预览名 phone 优先(载荷 name 是客户端昵称,不作统一名)
+    // 统一名称 = 官方绑定手机号(O66):qoder 的 nickname、trae/workbuddy 的 name 都是
+    // 客户端昵称/第三方导出件里的脱敏串,不作统一名;载荷给了 phone 就以 phone 为准。
     const name =
       opts.providerCode === 'qoder'
         ? cstr(acc['phone']) || cstr(acc['nickname']) || cstr(acc['name']) || `#${index + 1}`
-        : cstr(acc['name']) ||
-          (isCodearts
-            ? cstr(codeartsAccount?.['label']) || cstr(acc['user_name']) || `#${index + 1}`
-            : `#${index + 1}`)
+        : opts.providerCode === 'trae' || opts.providerCode === 'workbuddy'
+          ? cstr(acc['phone']) || cstr(acc['name']) || `#${index + 1}`
+          : cstr(acc['name']) ||
+            (isCodearts
+              ? cstr(codeartsAccount?.['label']) || cstr(acc['user_name']) || `#${index + 1}`
+              : `#${index + 1}`)
 
     // ── 凭证必填面(形状判据单源:recognizeImportShape)──
     // 12 平台原生形状(tokens.access_token / auth.key / accessToken / value /

@@ -141,8 +141,22 @@ function cstr(v: unknown): string {
 function mapTraeImport(acc: ImportAccountInput): { secrets: Record<string, unknown> } | null {
   const keyPem = cstr(acc['deviceKeyPem'])
   const pubPem = cstr(acc['devicePubPem'])
-  if (!keyPem || !pubPem) return null
-  return { secrets: { deviceKeyPem: keyPem, devicePubPem: pubPem } }
+  const secrets: Record<string, unknown> = {}
+  if (keyPem && pubPem) {
+    secrets.deviceKeyPem = keyPem
+    secrets.devicePubPem = pubPem
+  }
+  // 会话模板三键与 WorkBuddy 同一条通道(2026-10-28):提取器/回灌带来模板与信封路径,
+  // 「登录本机」按它重封。载荷带就落,不带就不产出键(交给列合并回填既有值,不抹)。
+  const template = objField(acc, 'sessionTemplate')
+  if (template) secrets.sessionTemplate = template
+  const sealedPaths = Array.isArray(acc['sealedPaths'])
+    ? acc['sealedPaths'].filter((p): p is string => typeof p === 'string' && p !== '')
+    : []
+  if (sealedPaths.length > 0) secrets.sealedPaths = sealedPaths
+  const edition = cstr(acc['edition'])
+  if (edition) secrets.edition = edition
+  return Object.keys(secrets).length > 0 ? { secrets } : null
 }
 
 /** DPoP 私钥既可能是 JWK 对象也可能是 JSON 字符串,统一解析为对象 */
@@ -809,22 +823,22 @@ export async function importAccounts(
           : traeSecrets
             ? traeSecrets.secrets
             : null
-      // 模板三键保留(2026-10-28,HEAD mergeSecrets 对这三键语义的最小恢复):secretsEnc 同时装
-      // 凭据图与会话模板三键(sessionTemplate/sealedPaths/edition —— worker cron 每 10 分钟经
-      // relay-workbuddy-session-sync 回灌,「登录本机」relay-local-login 唯一消费面)。导入载荷
-      // 通常只带凭证 ⇒ 整列覆盖会把三键抹掉。判据:以既有为底,仅当本批 secrets 图显式提供
-      // 非空值才覆盖这三键;本批不带任何 secrets ⇒ 该列不动(等价 HEAD 的 undefined 语义)。
+      // secretsEnc 单列合并(2026-10-28 定稿):该列同时装凭据图、会话模板三键
+      // (sessionTemplate/sealedPaths/edition)与设备材料(trae 的 deviceKeyPem/devicePubPem)。
+      // 三类生产者各自只带自己那几键 ⇒ 整列覆盖会互相踩踏(带模板的导入抹掉设备材料,
+      // 带设备材料的导入抹掉模板)。判据:**以既有为底**,本批显式给出非空值才覆盖;
+      // 本批不带任何 secrets ⇒ 该列不动(undefined)。只保留三键是旧口径,设备材料
+      // 会被抹 —— 契约测试 tests/relay-account-import-preserve-refresh.test.ts 已钉死。
       let secretsEncOut: string | null | undefined
       if (incomingSecrets) {
         const merged: Record<string, unknown> = { ...incomingSecrets }
         if (existingSecrets) {
-          for (const k of ['sessionTemplate', 'sealedPaths', 'edition'] as const) {
+          for (const [k, keep] of Object.entries(existingSecrets)) {
             const cur = merged[k]
             const provided =
               cur !== null &&
               cur !== undefined &&
               !(typeof cur === 'object' && !Array.isArray(cur) && Object.keys(cur).length === 0)
-            const keep = existingSecrets[k]
             if (!provided && keep !== null && keep !== undefined) merged[k] = keep
           }
         }
