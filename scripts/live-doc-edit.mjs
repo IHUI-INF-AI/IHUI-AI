@@ -635,6 +635,8 @@ export function overClaimIdReadings(family, pool, scanReport) {
 export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const machineId =
     typeof opts?.machineId === 'string' && opts.machineId.trim() ? opts.machineId.trim() : null
+  // 池宽可由调用方钉住(测试夹具用):缺省/非法 ⇒ 走 lib 的 LEASE_POOL_MAX 单源,生产行为不变。
+  const poolMax = Number.isInteger(opts?.poolMax) && opts.poolMax > 0 ? opts.poolMax : undefined
   const families = idTokenFamilies(lines)
   // G-313 ①:手填号检测(仅插入档;opts.manualCheck 由 main 传入,整行改写档不开)。
   const manualCand = opts.manualCheck ? manualIdDemandOf(lines) : []
@@ -737,7 +739,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     // 只是**多留一份引用**,decideLease 的调用与取值一字未动(分配判据是 G-14/G-916936 的牙)。
     let curRef = null
     if (machineId) {
-      const cur = decideLease({ baseContent, family: f, used, baseMax: chosenMax, machineId })
+      const cur = decideLease({ baseContent, family: f, used, baseMax: chosenMax, machineId, poolMax })
       curRef = cur
       if (cur.mode === 'in-lease') {
         const segUsed = new Set(
@@ -775,7 +777,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       }
     } else {
       freeList = []
-      for (const n of poolFreeList({ usedNumbers: usedNums, baseMax: chosenMax }))
+      for (const n of poolFreeList({ usedNumbers: usedNums, baseMax: chosenMax, poolMax }))
         if (keepIfFree(n)) freeList.push(n)
     }
     if (!freeList.length) {
