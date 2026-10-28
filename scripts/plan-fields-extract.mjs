@@ -51,6 +51,14 @@
  *  ② 键形态合法 —— 号段非空 ∧ `#` 后题面 ≥4 字(与 `compositeKeyOf` 同档),`T:` 兜底键不合法;
  *  ③ 该键**最近一次** `updatedBy` 不是本器的自写面(见 `SELF_WRITER_STAMPS`)。
  * 任一不成立 ⇒ 该键**一条都不退**并逐条点名原因;失效方向恒为"多留一条并点名",绝不是"多删一条"。
+ *
+ * 两条前置衍生出的死锁与唯一出口(`--retire-intent`,2026-10-27 补):③ 让"本器自己写过的记录"终身
+ * 不退,① 里"题面出现在别的行正文里"那一族同理 —— 两族都**没有值可改**,而 `--reclassify` 是按
+ * `sigOf`(语义字段签名)判"改没改"的:下一版与现版签名相同就 `continue` 跳过,`updatedBy` 因此
+ * 永远换不成人给的交代 ⇒ 改判通道造不出那次改写,这两族结构上被钉死。故新增声明档
+ * `--retire-intent <json>`:逐条声明 `key` + `why`(≥10 字,与 `--reclassify` 同一把尺子)+
+ * `declaredAt`,题面族还要 `hitRefs` 把**每一枚**命中行点名(见 `validateRetireIntents`)。
+ * 声明不会绕过任何别的判据:它只在这两族上放行,其余前置照旧逐条判。
  * 零丢失:退场前把被退物理行**逐字**写进既有那本账 `.ihui-agent/state/plan-row-drop.jsonl`
  * (同型条目,`kind=sidecar-orphan-retire`,不新建第二本账格式)—— 取不到那本账 ⇒ 整批不退并 exit 2。
  * **留痕排在摘行之前**:AGENTS §1 那条"留痕必须排在落地成功之后"的立因是"先写后落会把面上还在的
@@ -778,15 +786,121 @@ export function parsePhysicalLines(lines = []) {
   return out
 }
 
+/** 声明 why 的最短长度:与 `applyReclassify` 同一把尺子(少于 10 字 = 没说明,等于替人猜)。 */
+const MIN_DECLARED_WHY = 10
+/** hitRefs 每条的最短长度:台账题面普遍 ≥20 字,再短的 ref 会同时覆盖到别的行。 */
+const MIN_HIT_REF = 20
+
+/**
+ * 退场声明档的唯一判据(纯函数,零 IO;`--retire-intent` 档只做 I/O 与打印)。
+ *
+ * 为什么要有这一档:见文件头「两条前置衍生出的死锁」—— 自写面记录与"题面挂在别的行正文里"这两族
+ * 没有可改的语义值,`--reclassify` 按 `sigOf` 相同即跳过,等于没有出口。声明档就是 AGENTS §0.10
+ * 要的那"多一次定向说明":逐条 key + why(≥10 字,与 `applyReclassify` 同一把尺子)+ declaredAt。
+ *
+ * 两档失效方向刻意分开:
+ *  · **整批拒**(`error`)只给"声明本身不成话"用(key 不在册 / 理由太短 / 时刻不可解析 / 可选字段
+ *    类型错 / 同键重复声明)——它说明这份声明档不可信,半批应用等于挑着信;
+ *  · **逐项跳过**(`skipped`)给"这一枚声明过期了"用(早于记录最后一次改写 / recordSig 对不上)——
+ *    其余声明仍然有效,但被跳过的那枚绝不放行(陈旧声明不记通过)。
+ *
+ * `nowIso` 与 `applyReclassify` 同形(签名对位,调用方可注入时钟):本档判据只比"记录自带的
+ * updatedAt"与"声明自带的 declaredAt"两枚时刻 —— 把"当下"放进判据会让同一份声明在两次运行里
+ * 判出不同结论,而这正是"判据失效得安静"的形状。故第三个参数刻意不用,`_` 前缀即 lint 在册标记。
+ */
+export function validateRetireIntents(items, records, _nowIso = new Date().toISOString()) {
+  const reject = (error) => ({ intents: new Map(), error, skipped: [] })
+  if (!Array.isArray(items) || items.length === 0)
+    return reject('声明档必须是非空数组 [{key, why, declaredAt, declaredBy?, recordSig?, hitRefs?}]')
+  // 同键多份物理行:哪条算"当下记录"必须与 retirePlanOf 同序(严格更新才换、并列取先出现),
+  // 否则两处读出的 updatedAt 可以不同 ⇒ 同一份声明在一边已陈旧、在另一边还新鲜。
+  const latest = new Map()
+  for (const rec of records ?? []) {
+    const k = String(rec?.key ?? '')
+    if (k === '') continue
+    const cur = latest.get(k)
+    if (!cur || Date.parse(String(rec.updatedAt ?? '')) > Date.parse(String(cur.updatedAt ?? '')))
+      latest.set(k, rec)
+  }
+  const intents = new Map()
+  const skipped = []
+  const seen = new Set()
+  for (const [i, it] of items.entries()) {
+    const n = i + 1
+    if (!it || typeof it !== 'object' || Array.isArray(it)) return reject(`第 ${n} 项不是对象`)
+    if (typeof it.key !== 'string' || it.key === '')
+      return reject(`第 ${n} 项缺 key 或 key 不是非空字符串`)
+    if (seen.has(it.key)) return reject(`第 ${n} 项 key 重复声明(${it.key})—— 同一键只能有一份交代`)
+    seen.add(it.key)
+    if (typeof it.why !== 'string' || it.why.trim().length < MIN_DECLARED_WHY)
+      return reject(`第 ${n} 项 why 少于 ${MIN_DECLARED_WHY} 字(不说明理由的退场等于替人猜)`)
+    if (typeof it.declaredAt !== 'string' || Number.isNaN(Date.parse(it.declaredAt)))
+      return reject(
+        `第 ${n} 项 declaredAt 不可解析(判不出声明时刻就无法判它是否陈旧):${JSON.stringify(it.declaredAt)}`,
+      )
+    if (it.declaredBy !== undefined && typeof it.declaredBy !== 'string')
+      return reject(`第 ${n} 项 declaredBy 必须是字符串,实际 ${JSON.stringify(it.declaredBy)}`)
+    if (it.recordSig !== undefined && typeof it.recordSig !== 'string')
+      return reject(`第 ${n} 项 recordSig 必须是字符串,实际 ${JSON.stringify(it.recordSig)}`)
+    if (
+      it.hitRefs !== undefined &&
+      (!Array.isArray(it.hitRefs) ||
+        it.hitRefs.some((r) => typeof r !== 'string' || r.trim().length < MIN_HIT_REF))
+    )
+      return reject(
+        `第 ${n} 项 hitRefs 必须是字符串数组且每条 ≥${MIN_HIT_REF} 字(太短的 ref 覆盖不到具体行)`,
+      )
+    const rec = latest.get(it.key)
+    if (!rec) return reject(`第 ${n} 项 key 不在侧车面(陈旧声明不记通过):${it.key}`)
+    if (Date.parse(String(rec.updatedAt ?? '')) > Date.parse(it.declaredAt)) {
+      skipped.push({
+        key: it.key,
+        why: `声明早于记录最后一次改写(updatedAt=${String(rec.updatedAt ?? '')}),陈旧声明不记通过`,
+      })
+      continue
+    }
+    if (it.recordSig !== undefined && it.recordSig !== sigOf(rec)) {
+      skipped.push({ key: it.key, why: '声明里的 recordSig 与当下记录不符' })
+      continue
+    }
+    intents.set(it.key, {
+      key: it.key,
+      why: it.why.trim(),
+      declaredAt: it.declaredAt,
+      declaredBy: typeof it.declaredBy === 'string' ? it.declaredBy : '',
+      hitRefs: Array.isArray(it.hitRefs) ? [...it.hitRefs] : [],
+    })
+  }
+  return { intents, error: null, skipped }
+}
+
+/**
+ * 命中行覆盖判定:每条 ref 必须是**一条尚未被认领的命中行**原文前缀,且每一枚命中行都被某条 ref
+ * 覆盖。按前缀而非子串:ref 要能唯一定位"就是这一行",子串会让一段公共措辞冒充行身份。
+ * 多条 ref 必须各认领一行(重复 ref 认领不到第二行 ⇒ 不放行):多余 ref 说明声明面与台账面
+ * 对不上,那是另一种"拿不准",按失效方向多留一条。
+ */
+function hitRefsCover(hits, refs) {
+  const used = new Set()
+  for (const ref of Array.isArray(refs) ? refs : []) {
+    const i = hits.findIndex((h, idx) => !used.has(idx) && h.raw.startsWith(ref))
+    if (i < 0) return false
+    used.add(i)
+  }
+  return used.size === hits.length
+}
+
 /**
  * 退场判据(纯函数,零 IO、零 git):物理行条目 + 台账行 + 被审面侧车映射 ⇒ 可退/留下/畸形。
  * `faceIds` 缺省 null = 不做盘上↔面同形核验(单测直接构造条目时用);实跑档必传。
+ * `retireIntents` = `validateRetireIntents` 准入的 Map(缺省 null = 没有声明档):它只对两族
+ * "没有值可改"的记录放行,其余前置一条都不绕过。
  */
 export function retirePlanOf(
   entries,
   rows,
   sideMap,
-  { selfStamps = SELF_WRITER_STAMPS, faceIds = null } = {},
+  { selfStamps = SELF_WRITER_STAMPS, faceIds = null, retireIntents = null } = {},
 ) {
   const adopt = adoptMovesOf(
     (entries ?? []).filter((e) => e?.rec).map((e) => e.rec),
@@ -813,7 +927,9 @@ export function retirePlanOf(
   for (const r of rows ?? []) {
     const raw = String(r?.raw ?? '')
     if (raw === '') continue
-    compactRows.push(raw.replace(/\s+/g, ''))
+    // 同时留原文与压缩形:命中判定按压缩形(空白差异不算另一行),而 hitRefs 要按**原文前缀**
+    // 核对(声明里点名的是人看到的那一行,压缩形会吃掉排版,人写不出那样的 ref)。
+    compactRows.push({ raw, compact: raw.replace(/\s+/g, '') })
     rowKeys.add(fieldsFor({ line: raw, map: null }).key)
     const k = compositeKeyOf(raw)
     if (!k) continue
@@ -902,19 +1018,28 @@ export function retirePlanOf(
       continue
     }
     const compactAnchor = titleKeyOf(anchor)
-    if (compactRows.some((t) => t.includes(compactAnchor))) {
+    // 声明档只在这两族上生效(见文件头「两条前置衍生出的死锁」):先取,后面的判据按需问它。
+    const intent = retireIntents?.get(key) ?? null
+    const hitRows = compactRows.filter((t) => t.compact.includes(compactAnchor))
+    if (hitRows.length > 0 && !hitRefsCover(hitRows, intent?.hitRefs)) {
       held.push({
         key,
-        why: '题面原样出现在某条登记行正文里(该行编号位可能被租约/标头挤掉 ⇒ 复合主键解析不出)⇒ 不退',
+        why:
+          '题面原样出现在某条登记行正文里(该行编号位可能被租约/标头挤掉 ⇒ 复合主键解析不出)⇒ 不退' +
+          (intent
+            ? `;hitRefs 未覆盖全部命中行(${hitRows.length} 条命中/${(intent.hitRefs ?? []).length} 条 ref)`
+            : ';出路 = --retire-intent 声明档逐条点名命中行'),
         lines: g.lines,
       })
       continue
     }
     const by = String(g.latest?.updatedBy ?? '')
-    if (selfStamps.has(by)) {
+    if (selfStamps.has(by) && !intent) {
       held.push({
         key,
-        why: `最近一次 updatedBy=${by}(本器自写面)⇒ 本轮不退;出路 = --reclassify 逐条带 why 声明后下一轮进射程`,
+        why:
+          `最近一次 updatedBy=${by}(本器自写面)⇒ 本轮不退;出路 = --reclassify 逐条带 why 声明后下一轮进射程` +
+          ';记录没有可改值时 --reclassify 会跳过(sigOf 相同即跳过)⇒ 这一族的出口是 --retire-intent 声明档',
         lines: g.lines,
       })
       continue
@@ -930,7 +1055,7 @@ export function retirePlanOf(
         continue
       }
     }
-    retire.push({ key, updatedBy: by, lines: g.lines })
+    retire.push({ key, updatedBy: by, lines: g.lines, ...(intent ? { intent } : {}) })
   }
 
   const total = (entries ?? []).length
@@ -1024,6 +1149,13 @@ export function applyRetireRecords(
         note: RETIRE_DROP_NOTE,
       }
       if (baseline) entry.baseline = baseline
+      // 声明档退场必须可追责:凭据就是"谁在什么时刻凭什么退的"。没有 intent 时**一个键都不加**
+      // (旧账逐字节不变) —— 同一本账里混两种形状,复对时分不清"没声明"与"声明丢了"。
+      if (r.intent) {
+        entry.declaredWhy = r.intent.why
+        entry.declaredAt = r.intent.declaredAt
+        entry.declaredBy = r.intent.declaredBy ?? ''
+      }
       entries.push(entry)
     }
 
@@ -1310,6 +1442,76 @@ function selfTest() {
   } finally {
     rmScratch(dir)
   }
+  // 退场声明档(2026-10-27):两族"没有值可改而被钉死"的记录各一对正反例。全部走真函数
+  // (`retirePlanOf` / `validateRetireIntents`)—— 造 mock 锁住的只是测试自己的假设。
+  const selfRows = [{ line: 1, state: 'open', raw: '- [ ] G-91 别的活票 —— 归属:某人' }]
+  const selfRec = {
+    key: 'G-90#退场声明档演练',
+    waiting: 'none',
+    updatedAt: '2026-10-20T00:00:00.000Z',
+    updatedBy: 'plan-fields-extract',
+  }
+  const selfEntry = { raw: JSON.stringify(selfRec), rec: selfRec, why: '' }
+  const selfMap = new Map([[selfRec.key, selfRec]])
+  const okIntent = {
+    key: selfRec.key,
+    why: '题面在台账面已彻底消失,逐条声明退场(自写面记录的定向说明)',
+    declaredAt: '2026-10-21T00:00:00.000Z',
+    declaredBy: 'self-test',
+  }
+  const v17 = validateRetireIntents([okIntent], [selfRec])
+  const p17 = retirePlanOf([selfEntry], selfRows, selfMap, { retireIntents: v17.intents })
+  ok(
+    'S17 自写面记录 + 合法声明 ⇒ 可退(旧档在这一族恒 0,声明是唯一出口)',
+    v17.error === null && p17.retireKeys === 1 && p17.retire[0]?.intent?.why === okIntent.why,
+  )
+  const p18 = retirePlanOf([selfEntry], selfRows, selfMap)
+  ok(
+    'S18 同一记录不给声明 ⇒ 仍不退(自写面护栏原样保留)',
+    p18.retireKeys === 0 && p18.held.some((h) => h.key === selfRec.key),
+  )
+  const v19 = validateRetireIntents(
+    [{ ...okIntent, declaredAt: '2026-10-19T00:00:00.000Z' }],
+    [selfRec],
+  )
+  const p19 = retirePlanOf([selfEntry], selfRows, selfMap, { retireIntents: v19.intents })
+  ok(
+    'S19 声明早于记录 updatedAt ⇒ 进 skipped(陈旧不记通过)且该键不可退',
+    v19.error === null &&
+      v19.skipped.length === 1 &&
+      v19.skipped[0].key === selfRec.key &&
+      p19.retireKeys === 0,
+  )
+  const hitRowA = '- [ ] （进行中@2026-10-20/某席）退场声明档锚点演练 归属:甲'
+  const hitRowB = '- [ ] （进行中@2026-10-20/另席）退场声明档锚点演练 归属:乙'
+  const hitRec = {
+    key: 'G-92#退场声明档锚点演练',
+    waiting: 'none',
+    updatedAt: '2026-10-20T00:00:00.000Z',
+    updatedBy: 'plan-fields-extract',
+  }
+  const hitRows = [selfRows[0], { line: 2, state: 'open', raw: hitRowA }, { line: 3, state: 'open', raw: hitRowB }]
+  const hitMap = new Map([[hitRec.key, hitRec]])
+  const hitEntry = { raw: JSON.stringify(hitRec), rec: hitRec, why: '' }
+  const hitBase = {
+    key: hitRec.key,
+    why: '题面只挂在那两条无主键行的正文里,逐条点名后再退',
+    declaredAt: '2026-10-21T00:00:00.000Z',
+  }
+  const v20a = validateRetireIntents([{ ...hitBase, hitRefs: [hitRowA] }], [hitRec])
+  const v20b = validateRetireIntents([{ ...hitBase, hitRefs: [hitRowA, hitRowB] }], [hitRec])
+  const p20a = retirePlanOf([hitEntry], hitRows, hitMap, { retireIntents: v20a.intents })
+  const p20b = retirePlanOf([hitEntry], hitRows, hitMap, { retireIntents: v20b.intents })
+  ok(
+    'S20 题面挂在别的行正文里:hitRefs 未覆盖全部命中行 ⇒ 不可退;覆盖全部 ⇒ 可退',
+    v20a.error === null &&
+      v20b.error === null &&
+      p20a.retireKeys === 0 &&
+      /hitRefs 未覆盖全部命中行\(2 条命中\/1 条 ref\)/.test(
+        p20a.held.find((h) => h.key === hitRec.key)?.why ?? '',
+      ) &&
+      p20b.retireKeys === 1,
+  )
   let fails = 0
   for (const [name, pass] of checks) {
     if (!pass) fails++
@@ -1356,6 +1558,11 @@ function main() {
   const argv = process.argv.slice(2)
   const has = (f) => argv.includes(f)
   if (has('--self-test')) return selfTest()
+  // 退场声明是 `--retire-orphans` 的前置,单独给等于让声明悬空(它到底对哪一档生效说不清)⇒ 用法错。
+  if (has('--retire-intent') && !has('--retire-orphans')) {
+    console.log('❌ 用法错 —— --retire-intent 只能与 --retire-orphans 同用')
+    return 2
+  }
   // 同键去重(整份重写)是独立档:不和抽取的三种模式混判(它既不读台账面,也不搬说辞)。
   if (has('--dedupe')) {
     const apply = has('--apply')
@@ -1453,14 +1660,45 @@ function main() {
       return 2
     }
     const entries = parsePhysicalLines(existingLines(ROOT))
+    // 声明档(2026-10-27):给"自写面"与"题面挂在别的行正文里"这两族一条定向说明通道。
+    // 读不到/解析不了 ⇒ 未判定(不猜"大概是空的");有一条不合格 ⇒ 整批拒(不做部分应用)。
+    let retireIntents = null
+    const intentAt = argv.indexOf('--retire-intent')
+    if (intentAt >= 0) {
+      const file = argv[intentAt + 1]
+      if (!file || file.startsWith('--')) {
+        console.log('⚠️ 未判定 —— 声明档读不到/解析不了(未给路径)')
+        console.log('RETIRE-RESULT state=undetermined retireKeys=0 retireLines=0 heldKeys=0 intents=0')
+        return 2
+      }
+      let items
+      try {
+        items = JSON.parse(readFileSync(file, 'utf8'))
+      } catch (e) {
+        console.log(
+          `⚠️ 未判定 —— 声明档读不到/解析不了(${file}):${String(e?.message ?? e).split('\n')[0]}`,
+        )
+        console.log('RETIRE-RESULT state=undetermined retireKeys=0 retireLines=0 heldKeys=0 intents=0')
+        return 2
+      }
+      const v = validateRetireIntents(items, entries.map((e) => e.rec).filter(Boolean))
+      if (v.error) {
+        console.log(`❌ 声明档不合格 —— ${v.error}`)
+        console.log('RETIRE-RESULT state=refused retireKeys=0 retireLines=0 heldKeys=0 intents=0')
+        return 2
+      }
+      for (const s of v.skipped) console.log(`  ⏸ ${s.key}: ${s.why}`)
+      retireIntents = v.intents
+    }
+    const intentCount = retireIntents ? retireIntents.size : 0
     const faceIds = new Set(Array.from(side.map.values()).map(faceIdentityOf))
-    const rp = retirePlanOf(entries, rows, side.map, { faceIds })
+    const rp = retirePlanOf(entries, rows, side.map, { faceIds, retireIntents })
     for (const m of rp.malformed ?? []) console.log(`  ⚠️ 畸形行原样保留:${m.why}`)
     for (const h of rp.held) console.log(`  ⏸ ${h.key}: ${h.why}`)
     for (const r of rp.retire)
       console.log(`  ⟳ 可退 ${r.key}(最近写手 ${r.updatedBy || '(缺)'},${r.lines.length} 行)`)
     console.log(
-      `RETIRE-RESULT state=${rp.conserved ? (rp.retireKeys ? 'ready' : 'clean') : 'refused'} retireKeys=${rp.retireKeys} retireLines=${rp.retireLines} heldKeys=${rp.heldKeys} entries=${rp.total} kept=${rp.keptLines}`,
+      `RETIRE-RESULT state=${rp.conserved ? (rp.retireKeys ? 'ready' : 'clean') : 'refused'} retireKeys=${rp.retireKeys} retireLines=${rp.retireLines} heldKeys=${rp.heldKeys} entries=${rp.total} kept=${rp.keptLines} intents=${intentCount}`,
     )
     if (!rp.conserved) return 2
     if (!has('--apply')) {
@@ -1560,6 +1798,7 @@ export const __test__ = {
   applyAdoptMoves,
   parsePhysicalLines,
   retirePlanOf,
+  validateRetireIntents,
   applyRetireRecords,
   faceIdentityOf,
   RETIRE_SEAT,
