@@ -843,34 +843,30 @@ function main(argv) {
       apiEndpointsCovered("import { get } from '@/api'\nget('/agents/list')", "fetchApi('/api/agents')"),
       apiEndpointsCovered("import { getX } from '@/api'\nget('/x')", "fetchApi('/api/x')"),
     ], [true, false, false])
-    // S14 注释不是实现(2026-10-28 现读缺陷):壳里一句 `// 对齐小程序 useDidShow` 曾被读成
+    // S19 注释不是实现(2026-10-28 现读缺陷):壳里一句 `// 对齐小程序 useDidShow` 曾被读成
     // "壳已承担回屏刷新" ⇒ 页面真钩子被销账,自动落地会静默丢行为(假销账比误拒危险)。
-    // 同时留反向对照:壳里**真调用**时仍须销账,否则这条锁只是把判据遮成另一种瞎。
-    const s14Page =
+    // 反向对照同时留:壳真接了 useFocusEffect + 自己取数时仍须销账,否则这条锁只是把判据遮成另一种瞎。
+    // 夹具必须过得了更靠前的腿:壳要 export 同名符号(否则先被"出口形态不合"判 undetermined,
+    // 断言就变成在测另一件事 —— 上一版正是栽在这里,读数全 true 却什么都没证)。
+    const S14_PAGE =
       "import Taro, { useDidShow } from '@tarojs/taro'\nuseDidShow(() => load())\nexport default function P() { return null }"
-    const s14Judge = (shellText) =>
-      judgeConversion({
+    const S14_SHELL_COMMENT =
+      "import { FooScreen as Shared } from '@ihui/rn-app'\n// 对齐小程序 useDidShow\nexport function FooScreen() { return <Shared /> }"
+    const S14_SHELL_REAL =
+      "import { FooScreen as Shared } from '@ihui/rn-app'\nimport { fetchApi } from '@ihui/api-client'\nuseFocusEffect(() => fetchApi('/api/foo'))\nexport function FooScreen() { return <Shared /> }"
+    const s14HasDidShow = (shellText) => {
+      const r = judgeConversion({
         spec: 'packages/app/src/features/foo/FooScreen.tsx',
-        pageText: s14Page,
+        pageText: S14_PAGE,
         shellText,
         sharedText: 'export function FooScreen() { return null }',
       })
-    const s14Has = (r) => (String(r.why) + String(r.kind)).includes('useDidShow')
+      return (String(r.why) + String(r.kind)).includes('useDidShow')
+    }
     P(
-      'S14 壳侧能力只出现在注释里 ⇒ 不销账;壳里真接了回屏重取层 ⇒ 销账',
-      s14Has(
-        // 反例:壳里只有注释提到 useDidShow(现读 VipScreen.tsx:263 那型)
-        s14Judge(
-          "import { FooScreen } from '@ihui/rn-app'\n// 对齐小程序 useDidShow\nexport function FooHost() { return <FooScreen /> }",
-        ),
-      ) === true &&
-        s14Has(
-          // 正例:壳真用 useFocusEffect + 自己取数 ⇒ 与页面的 useDidShow(() => load()) 同一件事
-          s14Judge(
-            "import { FooScreen } from '@ihui/rn-app'\nimport { fetchApi } from '@ihui/api-client'\nuseFocusEffect(() => fetchApi('/api/foo'))\nexport function FooHost() { return <FooScreen /> }",
-          ),
-        ) === false,
-      '',
+      'S19 壳侧能力只出现在注释里 ⇒ 不销账;壳里真接了回屏重取层 ⇒ 销账',
+      [s14HasDidShow(S14_SHELL_COMMENT), s14HasDidShow(S14_SHELL_REAL)],
+      [true, false],
     )
     for (const c of cases)
       console.log(
