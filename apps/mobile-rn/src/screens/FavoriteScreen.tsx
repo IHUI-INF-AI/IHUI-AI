@@ -10,7 +10,7 @@ import { getFavorites } from '@ihui/api-client'
 import { FavoriteScreen as SharedFavoriteScreen } from '@ihui/rn-app'
 import type { FavoriteFilterTab, FavoriteItemRow } from '@ihui/types'
 import { deleteFavorite } from '../api/social'
-import { usePaginatedList } from '../hooks'
+import { usePaginatedList, useRefreshOnFocus } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -83,6 +83,8 @@ export function FavoriteScreen() {
 
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
     usePaginatedList<FavoriteItemRow>(fetcher, PAGE_SIZE)
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):走分页 hook 的 refresh,重置分页并重载
+  useRefreshOnFocus(refresh)
 
   const onSelectTab = (next: FavoriteFilterTab) => {
     if (next === tab) return
