@@ -110,4 +110,26 @@ test('K5 装车锁:造页器 form=shell 真在落页前问这条尺(判据与拒
   // 只读别名表不够:读不到 config 必须落「未判定」,不得当成"没有缺口"
   assert.match(src.slice(at - 700, at), /kind: 'undetermined'/, '别名表取不到时必须未判定,不能记绿')
 })
+
+test('K6 星号导出不得炸闭包尺(2026-10-28 实测打崩磁盘面整条链)', () => {
+  // 现场成因:`export * from './auth'` 的 node.exportClause 是 undefined,旧实现把它直接喂给
+  // ts.isNamedExports ⇒ TypeError,而这条尺是 `pnpm gen:i18n` / `build:weapp` 磁盘面的必经路径。
+  const star = C.specifiersOf("export * from './auth'\nexport * from './pay'\n")
+  assert.equal(star.length, 2, '两条星号导出都要出现在图里(不能一炸就整文件丢)')
+  assert.ok(
+    star.every((r) => r.kind === 'export' && Array.isArray(r.names) && r.names.length === 0),
+    JSON.stringify(star),
+  )
+  // 混合形态:星号 + 具名同时存在时,具名成员仍要收上来(修 bug 不许把腿削平)
+  const mixed = C.specifiersOf("export * from './a'\nexport { B, C as D } from './b'\n")
+  assert.deepEqual(
+    mixed.find((r) => r.spec === './b')?.names,
+    ['B', 'C'],
+    JSON.stringify(mixed),
+  )
+  // 真文件正控:仓库里那枚触发崩溃的文件必须解析得过
+  const real = readFileSync(resolve(import.meta.dirname, '..', '..', 'apps/miniapp-taro/src/platform/index.ts'), 'utf8')
+  assert.ok(real.includes('export * from'), '现场文件形态已变 ⇒ 本例的正控要跟着重写,不要静默放过')
+  assert.ok(C.specifiersOf(real).length > 0, '真文件解析不出任何出口 ⇒ 尺子又瞎了')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
