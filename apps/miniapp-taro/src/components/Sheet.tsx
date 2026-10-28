@@ -1,26 +1,33 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { View } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
+import {
+  SHEET_ANIM_DURATION_MS,
+  SHEET_CONTENT_GAP_PX,
+  SHEET_PADDING_PX,
+  SHEET_RADIUS_TIER,
+} from '@ihui/shared/ui/sheet-spec'
 
 /**
  * 底部/顶部抽屉(Sheet)—— 与 `packages/ui-native/src/sheet.tsx` 逐契约对齐(「一模一样」契约)。
  *
- * 对齐点(API / 结构 / 视觉):
- * - `SheetProps` 同 RN:`open: boolean` / `onOpenChange?: (open: boolean) => void` / `children?: ReactNode` / `side?: 'bottom' | 'top'`(默认 'bottom')。
- * - 遮罩:`absolute inset-0` + `background: var(--color-black-50)`,点击遮罩关闭(等价 RN `bg-black/50` 的 Pressable)。
- * - 面板:`absolute left-0 right-0 bg-card p-6`,`side==='bottom'` 取 `bottom-0 rounded-t-lg`、`side==='top'` 取 `top-0 rounded-b-lg` —— 与 RN 同组类名、同圆角档。
- * - 拖拽手柄:RN 侧 1.5 档细线,本端等值 `h-[12rpx] w-10 rounded bg-border`(双重视图层由 RN 的 hitSlop 简化为单层可见细线)。
+ * **取值档一律取自 `@ihui/shared/ui/sheet-spec`**(与 web 壳、RN 壳同源);映射表由
+ * `scripts/gen-ui-mirror.mjs` 与 RN 壳逐条对账。RN 原 `p-6`(24)按 spec 规则2 收敛到 12,
+ * 本端此前手写的 `p-6` 同批归位 —— 两端抽屉内边距自此同一个档。
  *
- * 与 RN 的分歧(刻意、gate-clean 优先):
- * - RN 用 `Modal` + `Animated` 滑入 + `PanResponder` 下拉关闭;小程序(Taro/微信)无 Animated Modal 拖拽能力,
- *   改用 CSS `transform: translateY()` + `transition` 模拟滑入/滑出(无下拉手势关闭,保留点遮罩关闭)。等价行为、可编译、零平台私有依赖。
- * - RN 关闭走 `setTimeout(ANIM_DURATION)` 后卸载 Modal;本端同源:open=false 时先播退出动画再 `return null` 卸载。
+ * 平台承载差异(规则6,逐条登记):
+ * - RN 用 `Modal` + `Animated` 滑入 + `PanResponder` 下拉关闭;小程序(Taro/微信)无该通道,
+ *   改用 CSS `transform: translateY()` + `transition` 模拟滑入/滑出(无下拉手势关闭,保留点遮罩关闭);
+ * - 关闭时序同源:open=false 先播退出动画,动画结束再 `return null` 卸载(等价 RN setTimeout 卸载);
+ * - 拖拽手柄命中区:RN 用 hitSlop,本端不设(无手势通道)。
  */
+const RADIUS_CLASS: Record<typeof SHEET_RADIUS_TIER, { top: string; bottom: string }> = {
+  xl: { top: 'rounded-t-xl', bottom: 'rounded-b-xl' },
+}
+const PADDING_CLASS: Record<number, string> = { 12: 'p-3' }
+const CONTENT_GAP_CLASS: Record<number, string> = { 12: 'gap-3' }
+
 export interface SheetProps {
   open: boolean
   onOpenChange?: (open: boolean) => void
@@ -28,7 +35,7 @@ export interface SheetProps {
   side?: 'bottom' | 'top'
 }
 
-const ANIM_DURATION = 300
+const ANIM_DURATION = SHEET_ANIM_DURATION_MS
 const OVERLAY_Z = 1000
 
 export function Sheet({ open, onOpenChange, children, side = 'bottom' }: SheetProps) {
@@ -61,13 +68,18 @@ export function Sheet({ open, onOpenChange, children, side = 'bottom' }: SheetPr
       <View className="absolute inset-0" style={{ background: 'var(--color-black-50)' }} />
       <View
         className={cn(
-          'absolute left-0 right-0 bg-card p-6',
-          isBottom ? 'bottom-0 rounded-t-lg' : 'top-0 rounded-b-lg',
+          'absolute left-0 right-0 bg-card flex-col',
+          CONTENT_GAP_CLASS[SHEET_CONTENT_GAP_PX],
+          PADDING_CLASS[SHEET_PADDING_PX],
+          'shadow-lg',
+          isBottom
+            ? `bottom-0 ${RADIUS_CLASS[SHEET_RADIUS_TIER].top}`
+            : `top-0 ${RADIUS_CLASS[SHEET_RADIUS_TIER].bottom}`,
         )}
         style={{ transform: panelTransform, transition: `transform ${ANIM_DURATION}ms ease` }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 拖拽手柄:单层可见细线(对齐 RN 1.5 档细线;本端 h-[12rpx] w-10 rounded bg-border) */}
+        {/* 拖拽手柄:12rpx = RN h-1.5(6pt);`[12rpx]` 写法勿改回 rpx 裸值 */}
         <View className="mb-4 items-center">
           <View className="h-[12rpx] w-10 rounded bg-border" />
         </View>
@@ -78,4 +90,3 @@ export function Sheet({ open, onOpenChange, children, side = 'bottom' }: SheetPr
 }
 
 export default Sheet
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
