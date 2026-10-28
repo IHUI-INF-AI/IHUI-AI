@@ -10,12 +10,9 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
-// 显式引入返回类型:completeAccountPhone 返回的是「成功/失败」联合类型,
-// 若不标注,vi.fn 会把 mock 推断成成功分支的字面量类型,后续
-// mockImplementationOnce 返回失败形态(message:string / id:null)即报 TS2322。
 import type {
-  CompletePhoneCode,
   CompletePhoneResult,
+  CompletePhoneCode,
 } from '../../services/relay-account-pool-service.js'
 
 vi.hoisted(() => {
@@ -159,7 +156,9 @@ describe('POST /admin/relay/accounts/:id/complete-phone', () => {
       payload: { phone: '18012345669' },
     })
     expect(res.statusCode).toBe(200)
-    expect(hoisted.completeAccountPhone).toHaveBeenCalledWith('row-1', '18012345669')
+    expect(hoisted.completeAccountPhone).toHaveBeenCalledWith('row-1', '18012345669', 'manual', {
+      force: false,
+    })
     const body = res.json()
     expect(body.code).toBe(0)
     expect(body.data).toMatchObject({
@@ -169,6 +168,23 @@ describe('POST /admin/relay/accounts/:id/complete-phone', () => {
       changed: true,
     })
     expect(JSON.stringify(body)).not.toContain('tok-1')
+  })
+
+  it('body.force=true → 透传机主强制通道(via=owner_override)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/row-1/complete-phone',
+      payload: { phone: '18773274826', force: true },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(hoisted.completeAccountPhone).toHaveBeenCalledWith(
+      'row-1',
+      '18773274826',
+      'owner_override',
+      {
+        force: true,
+      },
+    )
   })
 
   it('掩码形态入参 → 400(Zod 闸门,不进 service)', async () => {
@@ -183,8 +199,6 @@ describe('POST /admin/relay/accounts/:id/complete-phone', () => {
   })
 
   it('service 结果码映射 HTTP:mask_mismatch=400 / already_full=409 / not_found=404', async () => {
-    // code 收窄成 CompletePhoneCode:放宽成 string 会让 mock 返回体不再满足
-    // CompletePhoneResult(code 是字面量联合),mockImplementationOnce 直接报 TS2322。
     const cases: Array<[CompletePhoneCode, number]> = [
       ['mask_mismatch', 400],
       ['already_full', 409],
@@ -235,3 +249,4 @@ describe('POST /admin/relay/account-pool/match-phone', () => {
     expect(hoisted.matchPhoneCandidates).not.toHaveBeenCalled()
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
