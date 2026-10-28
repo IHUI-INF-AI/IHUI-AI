@@ -354,7 +354,6 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **元运维巡检轮** `check-ops-patrol.mjs`:看守者本身还活着吗(P1-P6:副本漂移/规则不热加载/时钟失步/无上限/心跳无人判/引用不存在指标)。**服务存续双探测**:`check-service-binary-paths.mjs`(warn,STATE/nssm Application 存在/端口应答,nssm stdout 是 UTF-16)、`check-public-path-probe.mjs`(outage 与常态分序列,取证经 `run-evidence.mjs` 封缄,truncated 不成合格证)。
 - **跳门留痕**:钩子失败归因是量出来的(`scripts/lib/commit-gate-attribution.mjs`:逐道复跑、点名本次文件 ⇒ 必修;批没跑完 ⇒ safe-commit 自跑一遍再归因;汇总块必须先过"轮次绑定"锁——之前那次 staged 清单回显必须完整包含本次声明集)。跳门次数唯一真值 = `.ihui-agent/state/safe-commit-attestation.jsonl`。**agent 不得假设"钩子红了就能跳"**。
 
-> 2026-10-25 重复登记副本清偿批(守门 207 体积):速查区回潮摘要副本/索引族重复/同目历史指针,族内一律保留正文现行版(速查版更新者按独有门名与 pre-rebase/三态/侧车 P1 标记择保),被删行逐字在 `.ihui-agent/archive/AGENTS_trim-2026-10-25.md`;§0–§29 规则条款一条未减。
 
 ## 关键参考文档
 
@@ -396,13 +395,10 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **R4 漏点名补记 ④(2026-10-27)**:两枚只读尺子、均不进提交链(§12e)——`scripts/dispatch-board.mjs`(`check:dispatch-board`:派单口径单入口 + 切席 + 空转归因,磁盘容量是第 0 步前置判据)· `scripts/check-lint-staged-stdio-pin.mjs`(`check:lint-staged-pin`:只读盯 `patch-lint-staged-stdio.mjs` 三针是否还在 `node_modules`,判据住被 spawn 的脚本、本器零复制);判据/自检/镜像例数与退役口径逐字底稿 = `.ihui-agent/archive/AGENTS_trim-2026-10-28.md`。
 - **R4 漏点名补记 ⑤(2026-10-27)**:`check-gate-triggers.mjs`(253,blocking,射程 `scripts/`,跳过 `HUSKY_SKIP_GATE_TRIGGERS=1`)判「注册表登记门没声明 `stagedTriggers` 射程」——同一份缺省在提交通道读成「任何提交都跑」(§15d)、在落地通道被 `selectAffectedGates` 读成「永不复跑」,两通道反义 ⇒「落地后 N 臂全绿」可以是盲绿;差值棘轮锚点 = HEAD^(缺省判 HEAD 面不是索引),摘射程亦红,存量只报数;`land-gate-rerun.mjs` 同批补 `countUntriggered`。判据全文与 2026-10-27 实证(门 193 缺射程,一笔落地往 `check-ps1-bom.mjs` 写进两处裸派生 git、落地器仍报 19 臂全绿)逐字底稿 = `.ihui-agent/archive/AGENTS_trim-2026-10-28.md`。
 - **R4 漏点名补记 ⑦(2026-10-27,守门 89 R4 清偿)**:`check-cross-end-spec-coverage.mjs`(256,blocking,args=`--ratchet`,射程 `packages/shared/src/ui/`、`packages/ui-react/src/components/`、`packages/ui-native/src/`、`apps/web/src/components/data/`、`scripts/check-cross-end-spec-coverage.mjs`、`scripts/data/cross-end-spec-baseline.json`,跳过 `HUSKY_SKIP_CROSS_END_SPEC_COVERAGE=1`):跨端视觉原子 spec 覆盖率棘轮 —— 阶段1/2 把 card/input/badge/tabs/dialog/tooltip/vip-badge/switch/sheet/avatar 双端消费 spec,阶段3 把「覆盖率不退化」接进提交链与 CI(同 `sheet-flex-contract` 独立 job);口径见脚本头注与 `cross-end-spec-baseline.json`(11 项含 button,collapsible 为 EXEMPT 不计分母)。退化(某原子 spec 在却某端不再消费)才红,涨不拦。
-<!-- 2026-10-27 守门 207 体积清偿批二/批三:14 行同族重复副本与失效历史指针(批二)＋3 行失效指针与空壳条目(批三,原 L374/L388/L401)整区逐字迁出件,分别见 `.ihui-agent/archive/AGENTS_trim-2026-10-27b.md` 与 `AGENTS_trim-2026-10-27.md`;§0–§29 规则条款一条未减。 -->
-<!-- 2026-10-28 守门 207 体积清偿批:重复登记副本短版(R4 补记②③④⑤⑥⑦ 六枚短版 + §1 五条长文的短版副本 + 批注指针注释的同文副本)、失效原文(旧 §24「须用户确认」整节、游离在代码块外的裸 filter 片段、§6 单端 typecheck 旧形态)整区逐字迁 `.ihui-agent/archive/AGENTS_trim-2026-10-28.md`,原位置只留指针注记;R4②④⑤⑥ 四份超长守门登记压成指针行(全文同在该件,门名/档位/射程/跳过变量留在指针行点名,守门 89 R4 义务不受影响);同族更全的现行版一律留在本文,§0–§29 规则条款一条未减;§24 编号由两份并成一份(决策口径版留在 §24 位)。 -->
+<!-- 守门 207 体积清偿留痕(2026-10-25/27/28 三批):被迁出的重复登记副本、失效历史指针与空壳条目整区逐字存于 `.ihui-agent/archive/AGENTS_trim-2026-10-25.md`、`AGENTS_trim-2026-10-27.md`、`AGENTS_trim-2026-10-27b.md`、`AGENTS_trim-2026-10-28.md`;本文件只留指针,§0–§29 规则条款一条未减。 -->
 - **R4 漏点名补记 ⑥(2026-10-27)**:`check-ruff-python.mjs`(254,blocking,射程 `apps/ai-service/`,跳过 `HUSKY_SKIP_RUFF=1`):Python lint 由「只挂 CI」接进提交链(旁路落地与 `chore(auto)` 收编不跑钩子,欠账能在 HEAD 面静默积累);判定面照门 35 同口径(HEAD/索引/磁盘 ⇒ 先经 `face-reader` 取材 + `scratch-dir` 物化),pin 唯一源 `apps/ai-service/pyproject.toml`;uvx 缺失/pin 坏/面取不到 ⇒ exit 2 未判定且优先于红;自检与镜像例数、接线锁逐字底稿 = `.ihui-agent/archive/AGENTS_trim-2026-10-28.md`。
 - **短信通道只读哨兵** `check-sms-channel-health.mjs`(2026-10-27 立,判机器状态不进提交链):吃本地投递审计表判短信通道健康(欠费停机型,如 OUT_OF_SERVICE 悬而无人喊),不碰云端接口、不引新凭据;判据/自检/派发面见门体头注。
 - **R4 漏点名补记 ⑧(2026-10-28)**:`check-asset-path-health.mjs`(只读巡检,判机器状态故不进提交链 §12e;派发面 = `scripts/git-guardian.mjs` 的 `auditAssetPathHealth` 每 6h;`--json`/`--self-test`;断链或证书错 exit 1,取不到输入 exit 2 未判定):受管 `.env` 引用的绝对路径可达性 + 证书到期,判据委托 `cert-expiry-check.mjs` 单源。
-- **R4 漏点名补记 ⑨**:`check-live-doc-merge-recall.mjs`(merge 后探活文档回捞,只读不进提交链,接 `.husky/post-merge`;判据 import `liveDocExpectedCounts` 零复算,自检4/镜像6,无跳过变量) + `check-ddos-guard-wiring.mjs`(257)。
-- **R4 漏点名补记 ⑨**:`check-live-doc-merge-recall.mjs`(只读、不进提交链 §12e;接线 `.husky/post-merge`):普通 merge 带回已结清行的探测,判据 import `liveDocExpectedCounts` 零复算;自检 4/4、镜像 6/6;无跳过变量。
-- **R4 点名补记(2026-10-28)**:`check-live-doc-merge-recall.mjs` 普通 merge 落点后探活文档回捞;判据 import `liveDocExpectedCounts` 零复算;接 `.husky/post-merge`;自检 4 例/镜像 6 例。 + `check-ddos-guard-wiring.mjs`(257)
+- **R4 漏点名补记 ⑨**:`check-live-doc-merge-recall.mjs`(只读、不进提交链 §12e;接 `.husky/post-merge`):普通 merge 带回已结清行的探测,判据 import `liveDocExpectedCounts` 零复算;自检 4/4、镜像 6/6;无跳过变量。 + `check-ddos-guard-wiring.mjs`(257)
 
 
