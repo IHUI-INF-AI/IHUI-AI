@@ -187,13 +187,13 @@ export function readRelayPoolPolicy(env: EnvLike = process.env): RelayPoolPolicy
 // =============================================================================
 
 /** 钮值类型(与 RelayPoolPolicy 的取值域一致,禁 any) */
-export type RelayPoolKnobValue = number | boolean | RelayPoolStrategy
+type RelayPoolKnobValue = number | boolean | RelayPoolStrategy
 
 /** 钮的种类(决定走哪一把 env 解析尺) */
-export type RelayPoolKnobKind = 'number' | 'boolean' | 'strategy'
+type RelayPoolKnobKind = 'number' | 'boolean' | 'strategy'
 
 /** 登记表条目:env 钮名/策略键名/种类/一句话语义(面板 tooltip 单源) */
-export interface RelayPoolKnobSpec {
+interface RelayPoolKnobSpec {
   name: keyof RelayPoolPolicy
   envKey: string
   kind: RelayPoolKnobKind

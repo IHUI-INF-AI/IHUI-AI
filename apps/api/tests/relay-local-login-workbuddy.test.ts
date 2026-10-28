@@ -206,7 +206,15 @@ describe('统一脚本派发契约', () => {
     await loginAccountLocal(row)
     const payload = JSON.parse(spawnState.payloadText)
     expect(Object.keys(payload).sort()).toEqual(
-      ['cookies', 'expiresAt', 'refreshExpiresAt', 'refreshToken', 'secrets', 'token', 'uid'].sort(),
+      [
+        'cookies',
+        'expiresAt',
+        'refreshExpiresAt',
+        'refreshToken',
+        'secrets',
+        'token',
+        'uid',
+      ].sort(),
     )
     expect(payload.uid).toBe('wb-uid-1')
     expect(payload.token).toBe('ACCESS-TOKEN')

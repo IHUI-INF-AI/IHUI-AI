@@ -62,6 +62,7 @@
  * 用法:
  *   node scripts/next-plan-id.mjs                # 打印下一个可用号 + 现有号分布
  *   node scripts/next-plan-id.mjs --next-only     # 只打印一个号(供脚本串用)
+ *   node scripts/next-plan-id.mjs --family Z      # 按指定字母族发号(缺省 O;族满/无窗时换族)
  *   node scripts/next-plan-id.mjs --source origin/main
  *   node scripts/next-plan-id.mjs --check        # 有**新增**登记行重号即 exit 1(不打印建议号;存量与标题口径只报数)
  *
@@ -114,6 +115,24 @@
  * `remoteIdNumsOf`(投影只此一份)把 `remote.ids[族]` 并进实时占用面;远端与本地同号集时
  * 本行是恒等并(建议号与改动前逐字同形),只有远端多出本地看不见的号才顺延,顺延的号逐枚点名
  * (`skippedByRemote`,与 G-14 扫描点名同一对照臂、去重不重复报)。`--check` 不发号 ⇒ 本档不作用。
+ *
+ * 第七条(2026-10-30,票 Z-1:号池饱和的**合法出路 = 换字母族**,既不是扩池也不是放宽扫描面):
+ * 2026-10-24 拍板"一个字母就是一个系列,族满开新字母族、永不升位数",而在此之前本器里躺着一条
+ * `const FAMILY = 'O'` —— 族满 / 无连续租约窗时,票面上写着"开新字母族",器物却结构上发不出新族号
+ * (只剩手填具名号一条路,而那条路不过 keepIfFree、不参与 G-14 撞号扫描与租约)。现在 `--family <字母>`
+ * 把族变成第一等参数:
+ *  - 缺省 `O`:`FAMILY` 的取值、建议号、占用面、租约、远端基准、结论行**逐字同改前**(镜像 T4/T8c/T10b
+ *    断言的 `^O\d+$` 契约因此不变);
+ *  - 族名必须**单字母**(大小写归一):多字母会让 usedIdsOfPrefix / scanFamilyIds / headingNum
+ *    三处的族前缀算术各自解成不同东西;
+ *  - 给了旗标却没值 / 值不是单字母 ⇒ exit 2(G-322 纪律:给了旗标就要有值,绝不静默退回默认族);
+ *  - 标题判据 `HEADING` 的**字面量形状仍只有一份**(镜像 T5/T6 从源码原样抽它),族只换捕获组里的
+ *    那个字母;换不动就抛错,绝不静默退回 O 族(那会把新族的 max 读成 0);
+ *  - 发出去的号用**该族自己的书写形状**(`usedIdsOfPrefix` 的 template,与第一发号出口同一个来源):
+ *    新族首行常只活在工作树副本(如未提交的 `Z-1`),故面序 = HEAD 宽面 > 工作树副本 > 族名裸拼。
+ *  `--check` 的族射程随之变成 `--family` 指定的那一族(缺省仍是 O);跨族对账仍归守门 203。
+ * ⚠️ 族表前置(不在本器射程内):新字母族要能被主键/防丢/撞号判据看见,还须登记进编号族表唯一真相源
+ * `check-plan-line-loss.mjs` 的 `TASK_ID_PATTERN` —— 本器只负责把号发得出来,族表不登记则该族对下游隐身。
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -170,8 +189,22 @@ const HEADING = /^#{2,3}[ \t]+(O\d+(?:[ \t]{0,}(?:附[①-⑳0-9]+(?:[ \t]{0,}�
 const headingKey = (raw) => raw.replace(/[ \t]+/g, '')
 /** 从 key 取数字段(key 现在可能带系列后缀,"剥掉首字母再转数"那一族旧写法一律作废,遇 `O62附⑥` 得 NaN) */
 const headingNum = (key) => Number(/^O(\d+)/.exec(key)[1])
-/** 只把 `O<number>` 的数字段取出来(族名与连字符两种书写都由 usedIdsOfPrefix 认) */
-const FAMILY = 'O'
+/** 缺省族 = 本仓台账的主号段。`--family` 未给时 `FAMILY` 就取它 ⇒ 行为与改前逐字同形。 */
+const DEFAULT_FAMILY = 'O'
+
+/**
+ * 族感知的标题判据(第七条,2026-10-30):形状**只有一份** —— 就是上面那颗 `HEADING` 字面量
+ * (镜像 T5/T6 从源码里原样抽它),这里只把捕获组里的"族名字母"换成目标族。
+ * 换不动(形状里找不到 `(族名\d+` 这个锚点)⇒ **抛错**:静默退回 O 族会把新族的 max 读成 0,
+ * 而"max 读成 0"在池式下就是"从 1 起发"—— 撞车正病,且事后不可判。
+ */
+const FAMILY_SLOT_RE = /\(([A-Za-z])\\d\+/
+function headingReFor(family) {
+  const src = HEADING.source
+  if (!FAMILY_SLOT_RE.test(src))
+    throw new Error(`HEADING 形状里找不到「(族名\\d+」锚点 ⇒ 无族可换(不得静默退回 ${DEFAULT_FAMILY} 族)`)
+  return new RegExp(src.replace(FAMILY_SLOT_RE, `(${family}\\d+`), HEADING.flags)
+}
 
 /**
  * 「同题已在册」查重(2026-10-24,第五条):把每一行喂给守门 194 的指纹判据,
@@ -222,15 +255,44 @@ if (keywordFlag.error) {
   console.error(`❌ ${keywordFlag.error}`)
   process.exit(2)
 }
+// 第七条(2026-10-30,票 Z-1):族是第一等参数 —— 号池按族独立,族满 / 无连续租约窗的**合法出路**
+// 就是换字母族(2026-10-24 拍板"一个字母就是一个系列,族满开新字母族、永不升位数"),而改前
+// FAMILY 硬编码成 'O',新族号只能手填。
+// 取值三态:不给 ⇒ 缺省 O(逐字同改前);给了没值 ⇒ exit 2(G-322:给了旗标就要有值);值不是单字母
+// ⇒ exit 2(多字母会让 usedIdsOfPrefix / scanFamilyIds / headingNum 的族前缀算术各自解成不同东西)。
+const familyFlag = requireFlagValue(argv, '--family', { noun: '单字母族名(如 Z)' })
+if (familyFlag.error) {
+  console.error(`❌ ${familyFlag.error}`)
+  process.exit(2)
+}
+if (familyFlag.value !== null && !/^[A-Za-z]$/.test(familyFlag.value)) {
+  console.error(
+    `❌ --family 需要一个单字母族名(大小写归一),实得 ${JSON.stringify(familyFlag.value)}` +
+      '(多字母会让族前缀算术各自解成不同东西)⇒ 拒绝发号',
+  )
+  process.exit(2)
+}
+/** 本轮发号的族(大写单字母;缺省 O ⇒ 与改前逐字同形) */
+const FAMILY = (familyFlag.value ?? DEFAULT_FAMILY).toUpperCase()
+/** 标题判据的族实例(形状只有一份,换族见 headingReFor) */
+const HEADING_RE = headingReFor(FAMILY)
+/**
+ * 数字段提取(族感知):算术**只有一份** —— 复用上面 `headingNum` 那颗 `^O(\d+)`:族名是单字母,
+ * 把 key 的首字母换回 `O` 交同一份算术(`Z12附⑥ → O12附⑥ → 12`)。
+ * 不另写一条 `^Z(\d+)`(§22c:两处算同一件事必漂移,而镜像 T6 只锁得住其中一份)。
+ */
+const headingNumOf = (key) => headingNum(`${DEFAULT_FAMILY}${String(key).slice(FAMILY.length)}`)
 
 if (flags.has('--help') || flags.has('-h')) {
   console.log(
     [
-      '用法: node scripts/next-plan-id.mjs [--next-only] [--check] [--source <rev>] [--title <标题>] [--keyword <词>]',
+      '用法: node scripts/next-plan-id.mjs [--next-only] [--check] [--source <rev>] [--family <字母>] [--title <标题>] [--keyword <词>]',
       '  默认从 `git show HEAD:PROJECT_PLAN.md` 取权威条目号(不看工作树副本 —— 理由见文件头)。',
       '  占用面 = 台账 ⊕ .ihui-agent/archive/PROJECT_PLAN*.md(归档器搬走的那一侧也算已占用)。',
       '  发号路径另含远端那一维(与 live-doc-edit 同一把尺):远端 tip 对象经一次有界自补救 fetch',
       '  仍读不到 ⇒ 拒绝发号;离线 ⇒ 警告着按本地宽面发号;--source 显式指面 / --check 不发号 ⇒ 不问远端。',
+      '  --family <字母>:按指定字母族发号(单字母,缺省 O)。族满 / 无连续租约窗时用它换族 ——',
+      '  这是 2026-10-24 拍板"族满开新字母族、永不升位数"的取号侧出口;新族须先登记进编号族表。',
       '  --title / --keyword:发号前对目标文件现读正文(工作树副本 ⊕ HEAD 宽面)按同题指纹查重,',
       '  命中 ⇒ 当场拒绝发号并点名既有行与既有号(改用既有号或换标题后再取)。',
     ].join('\n'),
@@ -239,7 +301,7 @@ if (flags.has('--help') || flags.has('-h')) {
 }
 
 for (const f of flags) {
-  if (!['--next-only', '--check', '--source', '--title', '--keyword'].includes(f)) {
+  if (!['--next-only', '--check', '--source', '--family', '--title', '--keyword'].includes(f)) {
     console.error(`✗ 未知参数 ${f}(拒绝把它当编号继续跑;可用项见 --help)`)
     process.exit(2)
   }
@@ -266,7 +328,7 @@ const seen = []
 // 不是把病治了。两档都**只报数不判红**(G-927 分档不变:历史叙述区的块级重复不得决定能不能登记新活;
 // 折叠本身归活文档归并线的既有出口,不由取号器替人裁)。
 const headingLines = new Map()
-for (const m of text.matchAll(HEADING)) {
+for (const m of text.matchAll(HEADING_RE)) {
   const key = headingKey(m[1])
   seen.push(key)
   const ls = text.lastIndexOf('\n', m.index) + 1
@@ -278,7 +340,7 @@ for (const m of text.matchAll(HEADING)) {
 }
 const count = new Map()
 for (const id of seen) count.set(id, (count.get(id) || 0) + 1)
-const nums = [...count.keys()].map(headingNum)
+const nums = [...count.keys()].map(headingNumOf)
 // 标题口径的重号分组:G-927 起**只作读数**,不再参与判红(判红走 lib/plan-id-duplicates.mjs 那一档)。
 const dups = [...count.entries()].filter(([, n]) => n > 1).sort((a, b) => a[0].localeCompare(b[0]))
 /** 含逐字孪生副本的组(组内某一条整行出现 ≥2 次);其余为纯系列小节(标题互异)。 */
@@ -344,15 +406,17 @@ if (flags.has('--check')) {
       ` —— 含逐字孪生副本 ${twinDups.length} 组(${twinDups.join(' ') || '无'};该折,归活文档归并线既有折叠出口处置)` +
       ` / 纯系列小节 ${seriesDups.length} 组(${seriesDups.join(' ') || '无'};正当复用)—— 两档只报数不判红`
     : ''
+  // 标题口径的 max 在空族上是空集(Math.max() = -Infinity)⇒ 必须落"无",不得把 -Infinity 印成人能读的号。
+  const ledgerHeadingMax = nums.length ? `${FAMILY}${Math.max(...nums)}` : '无'
   console.log(
-    `✅ ${SOURCE} 无新增登记行重号(声明位 ${dup.rowDecls} 处 / 标题口径 ${count.size} 个号,最大 O${Math.max(...nums)})` +
+    `✅ ${SOURCE} 无新增登记行重号(声明位 ${dup.rowDecls} 处 / 标题口径 ${count.size} 个号,最大 ${ledgerHeadingMax})` +
       `${legacyNote}${clearedNote}${headingNote}`,
   )
-  // 族射程必须自报:本器 `const FAMILY = 'O'`,上面那句只审 **O 族**登记行。2026-10-24 实测踩到 ——
+  // 族射程必须自报:本器只审 `FAMILY` 那一族(--family 指定,缺省 O)的登记行。2026-10-24 实测踩到 ——
   // 台账里 G-35 的结清注记与本席别席的注记都拿"`--check` 绿"当**全族无重号**的凭据用了(族错配:
   // 结论碰巧对,凭据不成立)。跨族口径的唯一尺子是守门 203 与 `plan-tasks.mjs --gate` 的 F9 撞号维。
   console.log(
-    `   ℹ️ 本读数只审 **${FAMILY} 族**(本器发号器就是单族的);要按全台账问"同号多行",用 node scripts/check-plan-task-duplicates.mjs 或 node scripts/plan-tasks.mjs --gate`,
+    `   ℹ️ 本读数只审 **${FAMILY} 族**(--family 指定,缺省 ${DEFAULT_FAMILY};单轮只审一族);要按全台账问"同号多行",用 node scripts/check-plan-task-duplicates.mjs 或 node scripts/plan-tasks.mjs --gate`,
   )
   process.exit(0)
 }
@@ -362,9 +426,9 @@ if (flags.has('--check')) {
 //  ② 登记行口径 —— 交给 usedIdsOfPrefix 那一份判据(台账里 `O` 族多数写在 `- [ ] O13 …` 这种
 //     行首形态上,只看标题会漏;而归档器搬走的正是这些行)。
 // 取两者较大 ⇒ 本器**只会给出比改动前更大或相等的号**,不存在"改完反而开始撞车"。
-// 两个都判不出(该面一条 O 记录都没有)时保持既有算术:Math.max() 空集 = -Infinity。
+// 两个都判不出(该面一条该族记录都没有)时保持既有算术:Math.max() 空集 = -Infinity。
 const headingMaxWide = Math.max(
-  ...[...wideText.matchAll(HEADING)].map((m) => headingNum(headingKey(m[1]))),
+  ...[...wideText.matchAll(HEADING_RE)].map((m) => headingNumOf(headingKey(m[1]))),
 )
 const rowUsedWide = usedIdsOfPrefix(wideText, FAMILY)
 const maxLedger = Math.max(...nums)
@@ -425,6 +489,15 @@ try {
   )
 }
 const scanWork = scanFamilyIds(worktreeText, FAMILY)
+// ── 号的**书写形状**(第七条,2026-10-30)────────────────────────────────────────────
+// 发出去的号必须用该族自己的形状(与第一发号出口同一个来源:`usedIdsOfPrefix` 的 template)——
+// 印成 `Z2` 而该族行写的是 `Z-1`,就是给使用者一个判据认不出来的号(那是本仓记过的原病)。
+// 面序:HEAD 宽面(台账 ⊕ 归档件)> 工作树副本(新族首行常只活在这一侧,如未提交的 `Z-1`)
+// > 族名裸拼。缺省族 O 现读 template = `O%d` ⇒ 与改前逐字同形。
+const familyTemplate =
+  rowUsedWide?.template ?? usedIdsOfPrefix(worktreeText, FAMILY)?.template ?? `${FAMILY}%d`
+/** 号 → 该族的书写形状(`O%d` → `O69`,`Z-%d` → `Z-2`) */
+const labelOf = (n) => familyTemplate.replace('%d', String(n))
 // ── 发号前对目标文件现读正文查同题(第五条,2026-10-24)────────────────────────────────
 // 上一档查的是**号**:并发那批正文手填号的登记,并入前在哪个面都不存在 ⇒ 号发出去,撞号在
 // 并集落地那一刻才发生。这里补"同一件事已经在册"那一半:给了 --title / --keyword 就按同题指纹
@@ -492,7 +565,7 @@ const skippedByScan =
 if (skippedByScan.length)
   console.error(
     `ℹ G-14 全文件扫描顶掉 ${skippedByScan.length} 个旧口径"空闲"号(实为已占,点名):` +
-      skippedByScan.map((n) => `O${n}`).join(', '),
+      skippedByScan.map(labelOf).join(', '),
   )
 // G-454 ② 对齐(G-35):远端号集顶掉的号同样点名(同一对照臂,但剔除已被扫描点过名的,不重复报)。
 const skippedByRemote =
@@ -504,7 +577,7 @@ const skippedByRemote =
 if (skippedByRemote.length)
   console.error(
     `ℹ 远端已用号集顶掉 ${skippedByRemote.length} 个旧口径"空闲"号(对面仍占着而本地面上已让空/未并,点名):` +
-      skippedByRemote.map((n) => `O${n}`).join(', '),
+      skippedByRemote.map(labelOf).join(', '),
   )
 const { lowMax: poolLowMax, blocked: liveBlocked } = poolBlocked({
   usedNumbers: liveUsed,
@@ -562,38 +635,40 @@ if (next === null) {
 if (leaseView.mode === 'pool-exhausted')
   console.error(
     `⚠️ ${FAMILY} 族租约窗尺子:${describePoolExhaustion(leaseView)}` +
-      ` —— 本器按池内最小空闲仍可发 O${next}` +
+      ` —— 本器按池内最小空闲仍可发 ${labelOf(next)}` +
       `(两出口口径不同:"无连续租约窗"不等于"池内无闲号",两型出路也不相同)`,
   )
 const freeList = poolFreeList({ usedNumbers: liveUsed, baseMax: remoteWide })
 
-// 两面(标题口径 + 登记行口径)与两文件(台账 + 归档件)都读不到任何 O 记录 ⇒ maxWide = -Infinity。
-// 池式下这不影响发号(真空池 ⇒ 从 O1 起),但必须喊出来:整族在用却"面全空"通常意味着
+// 两面(标题口径 + 登记行口径)与两文件(台账 + 归档件)都读不到任何该族记录 ⇒ maxWide = -Infinity。
+// 池式下这不影响发号(按"池内最小空闲"起发),但必须喊出来:整族在用却"面全空"通常意味着
 // 族名写错或面读窄了 —— 把可疑当正常,比停在这里难查得多。
 if (!Number.isFinite(maxWide))
   console.error(
-    `⚠️ ${SOURCE} 的占用面(台账 ⊕ ${face.archiveFiles.length} 份归档件)里一条 O 记录都没有 ⇒ ` +
-      `池式口径将按真空池从 O1 起发;若该族实际在用,先查这份面为什么是空的(整族归档/族名写错),` +
-      `不要按它登记。`,
+    `⚠️ ${SOURCE} 的占用面(台账 ⊕ ${face.archiveFiles.length} 份归档件)里一条 ${FAMILY} 族登记记录都没有 ⇒ ` +
+      `池式口径仍按"池内最小空闲"发号(全文件扫描面与远端号集照旧挡已占号);若该族实际在用,` +
+      `先查这份面为什么是空的(整族归档 / 族名拼错 / 登记行被异形写法挡在判定层外),不要按它登记。`,
   )
 
 if (flags.has('--next-only')) {
-  console.log(`O${next}`)
+  console.log(labelOf(next))
   process.exit(0)
 }
 
-const fmt = (n) => (Number.isFinite(n) ? `O${n}` : '无(该面一条 O 记录都没有)')
+const fmt = (n) => (Number.isFinite(n) ? labelOf(n) : `无(该面一条 ${FAMILY} 族记录都没有)`)
 console.log(
   `权威口径 = git show ${SOURCE}:${PLAN_PATH} ⊕ ${face.archiveFiles.length} 份归档件(台账条目标题 ${seen.length} 行 / 去重 ${count.size} 个号)`,
 )
-console.log(`已占用的最大号 = ${fmt(maxWide)}   下一个号 = O${next}(池内最小空闲)`)
+// 族射程自报:缺省族(O)不打印,保证改前 stdout 逐字不变;显式换族时立刻点名,免得把 Z 族读数当成 O 族。
+if (FAMILY !== DEFAULT_FAMILY) console.log(`族 = ${FAMILY}(书写形状 ${familyTemplate};缺省族 = ${DEFAULT_FAMILY})`)
+console.log(`已占用的最大号 = ${fmt(maxWide)}   下一个号 = ${labelOf(next)}(池内最小空闲)`)
 console.log(
   `  G-14 实时占用面:全文件扫描 HEAD 宽面 ${scanHead.size} 号 ⊕ 工作树副本 ${scanWork.size} 号` +
     ` ⊕ 远端已用号集 ${remoteIdNums.length} 号(G-454② 对齐,票 G-35)⇒ ` +
     `池内占用 ${liveUsed.filter((n) => n >= 1 && n <= LEASE_POOL_MAX).length} 号(旧口径 ${poolUsed.length});` +
     `本轮顶掉 ${skippedByScan.length + skippedByRemote.length} 个旧口径假空闲号` +
-    `${skippedByScan.length ? `(扫描:${skippedByScan.map((n) => `O${n}`).join(', ')})` : ''}` +
-    `${skippedByRemote.length ? `(远端:${skippedByRemote.map((n) => `O${n}`).join(', ')})` : ''}`,
+    `${skippedByScan.length ? `(扫描:${skippedByScan.map(labelOf).join(', ')})` : ''}` +
+    `${skippedByRemote.length ? `(远端:${skippedByRemote.map(labelOf).join(', ')})` : ''}`,
 )
 console.log(
   `  取号口径:池式 1..${LEASE_POOL_MAX}(2026-10-14 硬上限)⇒ 池内空闲 ${freeList.length} 号;` +
@@ -623,7 +698,7 @@ if (freeList.length)
   console.log(
     `(池内空闲 ${freeList.length} 个,如实报:${freeList
       .slice(0, 12)
-      .map((n) => `O${n}`)
+      .map(labelOf)
       .join(', ')}${freeList.length > 12 ? ' …' : ''})`,
   )
 // G-927:发号路径的重号读数与 `--check` 用**同一个判据**(lib/plan-id-duplicates.mjs 一份)。
