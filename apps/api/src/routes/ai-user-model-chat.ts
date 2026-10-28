@@ -12,6 +12,7 @@ import { success, error } from '../utils/response.js'
 import { zhsAiUserModelChatConfig, zhsAiUserModelChatHistory } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { maskKey } from './v1-shared.js'
+import { safeFetch, assertSafeFetchUrl } from '../utils/ssrf-guard.js'
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
@@ -96,6 +97,58 @@ const chatSchemaFrontend = z.union([
     })),
 ])
 
+/**
+ * BYOK 出站唯一出口(2026-10-28 安全加固)。
+ *
+ * 原实现三处各自裸调 fetch,endpoint 由**用户填的** baseUrl 拼出:
+ * 任意登录用户把 baseUrl 存成 `http://127.0.0.1:8802` 或 `http://169.254.169.254`
+ * 即可让服务端替他发请求;更糟的是错误分支把上游响应体(errText)拼进 Error.message,
+ * 再经 /chat 的 502 `模型调用失败: ...` 回显给调用方 ⇒ 内网响应可被半盲读取。
+ *
+ * 现统一走 ssrf-guard 的 safeFetch:协议白名单 + 端口白名单 + DNS 解析后逐 IP 复检
+ * (防 rebinding)+ 逐跳重定向复检。判据全部复用 `utils/ssrf-guard.ts`,本文件不复制
+ * 任何 IP 段/端口常量(AGENTS.md §0.6 单一真相源)。若要放宽端口,必须改 ssrf-guard
+ * 单一出口并走定向说明,不得在此处就地加白名单。
+ *
+ * `export` 仅为测试可达(SSRF 回归锁),路由内部不对外暴露。
+ */
+export async function fetchUpstream(endpoint: string, init: RequestInit): Promise<Response> {
+  const res = await safeFetch(endpoint, init)
+  if (!res.ok) {
+    // 只回状态码,绝不回显上游 body:body 可能是内网页面/云元数据原文。
+    // 上游原文截断后挂在 err.upstreamBody 上,仅供服务端日志取证,不进 message。
+    const upstreamBody = await res.text().catch(() => '')
+    throw Object.assign(new Error(`上游模型服务返回 HTTP ${res.status}`), {
+      statusCode: 502,
+      upstreamBody: upstreamBody.slice(0, 500),
+    })
+  }
+  return res
+}
+
+/**
+ * 把 ssrf-guard 的英文 reason 翻成能直接给用户看的中文。
+ * 只做措辞映射,不改判据 —— 是否放行仍由 assertSafeFetchUrl 决定。
+ */
+function describeSsrfRejection(reason: string): string {
+  if (reason.includes('Port')) return 'baseUrl 仅支持标准端口(80 / 443)'
+  if (reason.includes('Protocol')) return 'baseUrl 仅支持 http / https 协议'
+  if (reason.includes('DNS')) return 'baseUrl 域名解析失败,请检查域名拼写'
+  return 'baseUrl 指向内网或保留地址,不被允许'
+}
+
+/**
+ * 写入侧预检:用户保存 baseUrl 时就拒掉内网地址,不让脏配置进库。
+ *
+ * 注意这**不能**替代 fetchUpstream 里的校验 —— 保存时解析一次、调用时再解析一次,
+ * 中间 DNS 可以被改成内网(rebinding),调用侧那道才是真正的闸。
+ */
+async function rejectUnsafeBaseUrl(baseUrl: string | undefined): Promise<string | null> {
+  if (!baseUrl) return null
+  const verdict = await assertSafeFetchUrl(baseUrl)
+  return verdict.safe ? null : describeSsrfRejection(verdict.reason ?? '')
+}
+
 interface LLMCallParams {
   vendor: string
   modelId: string
@@ -106,7 +159,8 @@ interface LLMCallParams {
   maxTokens?: number
 }
 
-async function callLLM(params: LLMCallParams): Promise<{
+// `export` 仅为测试可达(SSRF 回归锁),路由内部不对外暴露。
+export async function callLLM(params: LLMCallParams): Promise<{
   content: string
   usage: { promptTokens: number; completionTokens: number; totalTokens: number }
 }> {
@@ -151,11 +205,11 @@ async function callLLM(params: LLMCallParams): Promise<{
     const userMessages = messages.filter((m) => m.role !== 'system')
     body.messages = userMessages.map((m) => ({ role: m.role, content: m.content }))
 
-    const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) })
-    if (!resp.ok) {
-      const errText = await resp.text()
-      throw new Error(`Anthropic API ${resp.status}: ${errText}`)
-    }
+    const resp = await fetchUpstream(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    })
     const data = (await resp.json()) as Record<string, unknown>
     const contentBlocks = (data.content as { text?: string }[]) ?? []
     const content = contentBlocks.map((b) => b.text ?? '').join('')
@@ -187,11 +241,11 @@ async function callLLM(params: LLMCallParams): Promise<{
     if (systemMsg)
       (body as Record<string, unknown>).systemInstruction = { parts: [{ text: systemMsg.content }] }
 
-    const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) })
-    if (!resp.ok) {
-      const errText = await resp.text()
-      throw new Error(`Google AI API ${resp.status}: ${errText}`)
-    }
+    const resp = await fetchUpstream(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    })
     const data = (await resp.json()) as Record<string, unknown>
     const candidates = (data.candidates as { content?: { parts?: { text?: string }[] } }[]) ?? []
     const content = candidates
@@ -221,11 +275,11 @@ async function callLLM(params: LLMCallParams): Promise<{
   if (temperature !== undefined) body.temperature = temperature
   if (maxTokens !== undefined) body.max_tokens = maxTokens
 
-  const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) })
-  if (!resp.ok) {
-    const errText = await resp.text()
-    throw new Error(`LLM API ${resp.status}: ${errText}`)
-  }
+  const resp = await fetchUpstream(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  })
   const data = (await resp.json()) as Record<string, unknown>
   const choices = (data.choices as { message?: { content?: string } }[]) ?? []
   const content = choices[0]?.message?.content ?? ''
@@ -281,6 +335,11 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const userId = request.userId!
+    // 2026-10-28 安全加固:保存即拒内网 baseUrl。调用侧 fetchUpstream 仍会再校验一次
+    // (保存时解析一次、调用时再解析一次,DNS 可在中间被改成内网),这里只是让用户在
+    // 保存那一刻就拿到明确提示,而不是等到聊天时才 502。
+    const baseUrlRejection = await rejectUnsafeBaseUrl(parsed.data.baseUrl)
+    if (baseUrlRejection) return reply.status(400).send(error(400, baseUrlRejection))
     const [config] = await db
       .insert(zhsAiUserModelChatConfig)
       .values({
@@ -318,7 +377,12 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
     const updateData: Record<string, unknown> = {}
     if (body.data.name !== undefined) updateData.name = body.data.name
     if (body.data.modelId !== undefined) updateData.modelId = body.data.modelId
-    if (body.data.baseUrl !== undefined) updateData.baseUrl = body.data.baseUrl
+    if (body.data.baseUrl !== undefined) {
+      // 同 POST /configs 的保存侧预检(调用侧仍有第二道闸,见 fetchUpstream 头注)
+      const baseUrlRejection = await rejectUnsafeBaseUrl(body.data.baseUrl)
+      if (baseUrlRejection) return reply.status(400).send(error(400, baseUrlRejection))
+      updateData.baseUrl = body.data.baseUrl
+    }
     if (body.data.apiKey !== undefined) updateData.apiKey = body.data.apiKey
     if (body.data.temperature !== undefined) updateData.temperature = body.data.temperature
     if (body.data.maxTokens !== undefined) updateData.maxTokens = body.data.maxTokens
@@ -370,80 +434,84 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
     '/chat',
     { preHandler: [server.distributedRateLimit.preHandler('ai-chat-tenant')] },
     async (request, reply) => {
-    const parsed = chatSchemaFrontend.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const data = parsed.data
-    const [config] = await db
-      .select()
-      .from(zhsAiUserModelChatConfig)
-      .where(eq(zhsAiUserModelChatConfig.id, data.configId))
-      .limit(1)
-    if (!config) return reply.status(404).send(error(404, '模型配置不存在'))
-    if (config.userId !== request.userId)
-      return reply.status(403).send(error(403, '无权使用该配置'))
-    if (!config.enabled) return reply.status(400).send(error(400, '该模型配置已禁用'))
+      const parsed = chatSchemaFrontend.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const data = parsed.data
+      const [config] = await db
+        .select()
+        .from(zhsAiUserModelChatConfig)
+        .where(eq(zhsAiUserModelChatConfig.id, data.configId))
+        .limit(1)
+      if (!config) return reply.status(404).send(error(404, '模型配置不存在'))
+      if (config.userId !== request.userId)
+        return reply.status(403).send(error(403, '无权使用该配置'))
+      if (!config.enabled) return reply.status(400).send(error(400, '该模型配置已禁用'))
 
-    let replyContent: string
-    let usage: { promptTokens: number; completionTokens: number; totalTokens: number }
+      let replyContent: string
+      let usage: { promptTokens: number; completionTokens: number; totalTokens: number }
 
-    try {
-      const llmResult = await callLLM({
-        vendor: config.vendor,
-        modelId: config.modelId,
-        baseUrl: config.baseUrl,
-        apiKey: config.apiKey,
-        messages: data.messages,
-        temperature: data.temperature ?? config.temperature ?? undefined,
-        maxTokens: data.maxTokens ?? config.maxTokens ?? undefined,
-      })
-      replyContent = llmResult.content
-      usage = llmResult.usage
-    } catch (e) {
-      request.log.error({ err: e, vendor: config.vendor, model: config.modelId }, 'LLM 调用失败')
-      return reply.status(502).send(error(502, `模型调用失败: ${toUserFriendlyMessage(e)}`))
-    }
+      try {
+        const llmResult = await callLLM({
+          vendor: config.vendor,
+          modelId: config.modelId,
+          baseUrl: config.baseUrl,
+          apiKey: config.apiKey,
+          messages: data.messages,
+          temperature: data.temperature ?? config.temperature ?? undefined,
+          maxTokens: data.maxTokens ?? config.maxTokens ?? undefined,
+        })
+        replyContent = llmResult.content
+        usage = llmResult.usage
+      } catch (e) {
+        request.log.error({ err: e, vendor: config.vendor, model: config.modelId }, 'LLM 调用失败')
+        return reply.status(502).send(error(502, `模型调用失败: ${toUserFriendlyMessage(e)}`))
+      }
 
-    const now = new Date()
-    const [history] = await db
-      .insert(zhsAiUserModelChatHistory)
-      .values({
+      const now = new Date()
+      const [history] = await db
+        .insert(zhsAiUserModelChatHistory)
+        .values({
+          userId: request.userId!,
+          configId: data.configId,
+          model: config.modelId,
+          content: replyContent,
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          totalTokens: usage.totalTokens,
+        })
+        .returning({
+          id: zhsAiUserModelChatHistory.id,
+          createdAt: zhsAiUserModelChatHistory.createdAt,
+        })
+
+      recordAiCost({
         userId: request.userId!,
-        configId: data.configId,
         model: config.modelId,
-        content: replyContent,
+        provider: config.vendor,
         promptTokens: usage.promptTokens,
         completionTokens: usage.completionTokens,
         totalTokens: usage.totalTokens,
-      })
-      .returning({
-        id: zhsAiUserModelChatHistory.id,
-        createdAt: zhsAiUserModelChatHistory.createdAt,
+        requestType: 'user-model-chat',
+      }).catch((err) => {
+        request.log.warn(
+          { err, vendor: config.vendor, model: config.modelId },
+          'recordAiCost failed',
+        )
       })
 
-    recordAiCost({
-      userId: request.userId!,
-      model: config.modelId,
-      provider: config.vendor,
-      promptTokens: usage.promptTokens,
-      completionTokens: usage.completionTokens,
-      totalTokens: usage.totalTokens,
-      requestType: 'user-model-chat',
-    }).catch((err) => {
-      request.log.warn({ err, vendor: config.vendor, model: config.modelId }, 'recordAiCost failed')
-    })
-
-    return reply.send(
-      success({
-        configId: config.id,
-        model: config.modelId,
-        content: replyContent,
-        usage,
-        createdAt: history?.createdAt ?? now,
-      }),
-    )
-  })
+      return reply.send(
+        success({
+          configId: config.id,
+          model: config.modelId,
+          content: replyContent,
+          usage,
+          createdAt: history?.createdAt ?? now,
+        }),
+      )
+    },
+  )
 
   server.get('/history', async (request, reply) => {
     const parsed = paginationQuery.safeParse(request.query)

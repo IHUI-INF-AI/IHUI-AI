@@ -28,6 +28,7 @@ import { downloadsRoutes } from './routes/downloads.js'
 import { crashReportsRoutes } from './routes/crash-reports.js'
 
 import { setFastify } from './utils/logger.js'
+import { wildcardContentTypeParser, applyUploadsStaticHardening } from './utils/static-hardening.js'
 import { isAppError } from './errors/index.js'
 import { config, isDevelopmentRuntime } from './config/index.js'
 import authPlugin from './plugins/auth.js'
@@ -45,7 +46,7 @@ import responseSanitizerPlugin from './plugins/response-sanitizer.js'
 import logSanitizerPlugin from './plugins/log-sanitizer.js'
 import { metricsPlugin } from './plugins/metrics.js'
 import { tracePlugin } from './plugins/trace.js'
-import { redis } from './plugins/redis.js'
+import { redis, createRedisClient } from './plugins/redis.js'
 import { sseRegistry } from './plugins/sse-registry.js'
 import { queue } from './plugins/queue.js'
 import { scheduler } from './plugins/scheduler.js'
@@ -237,6 +238,21 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   await registerPlugins(server)
 
+  // 2026-10-28 安全加固:/uploads/public 静态目录的兜底 CSP。
+  //
+  // 为什么只挂这个前缀、不全局开 helmet 的 CSP:
+  //   · API 的响应绝大多数是 JSON,CSP 对它们没有任何作用;
+  //   · 唯一的 HTML 面是 /docs,而 swagger-ui 自带 `staticCSP`(路由级),
+  //     若在 helmet 里全局设 `default-src 'none'`,onSend 阶段会把 swagger-ui
+  //     自己设的头覆盖掉 ⇒ 文档页白屏。踩这个坑不值得。
+  //   · 真正需要兜底的是静态文件:上传白名单已排除 svg/html,但 PDF 仍可在浏览器
+  //     里被直接打开(PDF 阅读器有沙箱,但历史上有绕过)。`sandbox` 指令把这类
+  //     文档放进空源沙箱,脚本与表单一律禁掉;图片不受影响。
+  server.addHook('onSend', async (request, reply, payload) => {
+    applyUploadsStaticHardening(request, reply)
+    return payload
+  })
+
   // 2026-07-24 国安级零信任策略:对 /api/admin/* 及敏感业务路由自动注入网络分段配置
   // 设计原则:
   // - DRY:不逐个路由文件修改,用 onRoute hook 统一注入
@@ -249,7 +265,16 @@ export async function buildServer(): Promise<FastifyInstance> {
   //     但启用网络分段策略,strict 模式下 unknown IP 会被拒绝
   //   * 公开路由(health/landing/public/oss/metrics):不注入,保持可达
   // - 降级:MTLS_CLIENT_CERT_REQUIRED=true 时强制 mTLS,false 时仅可选验证
-  const mtlsRequired = process.env.MTLS_CLIENT_CERT_REQUIRED === 'true'
+  // 2026-10-28:改走 config 单一出口(原为裸读 process.env,违反 config 头注的守门语义)。
+  // 默认仍为 false —— 改默认值是部署决策(强制客户端证书会让现有 admin 客户端全部握手失败),
+  // 不由代码单方面收紧;这里只补一条启动告警,让"没开"这件事在日志里可见。
+  const mtlsRequired = config.MTLS_CLIENT_CERT_REQUIRED === 'true'
+  if (config.isProductionGuard && !mtlsRequired) {
+    server.log.warn(
+      'MTLS_CLIENT_CERT_REQUIRED=false: /api/admin/* 目前只靠网络分段 + JWT 两层,' +
+        '未启用双向证书。生产建议开启(需先给运维侧客户端分发证书,否则 admin 全部握手失败)。',
+    )
+  }
 
   // 敏感业务路由前缀(需网络分段保护,但允许公网访问;strict 模式下 unknown IP 拒绝)
   const SENSITIVE_BUSINESS_PREFIXES = [
@@ -409,13 +434,10 @@ async function registerPlugins(server: FastifyInstance) {
   // 再以空 token 连 /ws/notifications → 404 → 每 1~2 秒一轮的重连风暴。
   // 这里把"空 JSON body"按 {} 处理;合法 JSON 仍严格解析,非法 JSON 仍 400,
   // 缺字段由各路由 schema 决定(空对象不会绕过任何校验)。
-  // 键名过滤是"静默剔除",比 Fastify 默认档(onProtoPoisoning/onConstructorPoisoning = 'error',
-  // 即命中就 400)更宽 —— 这是本改动的既有取向,不是与默认同语义。
-  // 装载后果必须知道:子作用域继承到的是**这一份自定义** parser(buildContentTypeParser 拷贝
-  // customParsers),而 Fastify 5 对同名重复注册直接抛 FST_ERR_CTP_ALREADY_PRESENT ⇒ 根作用域占住
-  // application/json 之后,任何子作用域想挂自己的 json parser 都必须先 remove 再 add,否则整进程
-  // 启动即崩(2026-10-28 实测:dev-stack api 由此反复重启失败)。现存 7 处验签子作用域逐条这样写,
-  // 由 tests/content-type-parser-scope.test.ts 按文件现读钉住,不接受口头保证。
+  // 键名过滤保持与 Fastify 默认 secure-json-parse 同语义,避免 __proto__ 污染面。
+  // 必须先移除 Fastify 内置的同名解析器:Fastify 5 对重复注册直接抛
+  // FST_ERR_CTP_ALREADY_PRESENT(routes/live.ts 的直播回调子作用域也依赖这条,
+  // 那里同样"先 remove 再 add")。
   server.removeContentTypeParser('application/json')
   server.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
     const raw = typeof body === 'string' ? body : String(body ?? '')
@@ -432,15 +454,22 @@ async function registerPlugins(server: FastifyInstance) {
   // 2026-09-18 修复:无 Content-Type 的 POST(前端 fetchApi 无 body 写操作,如
   // POST /auth/qr/generate App 扫码出码)经代理链路到达时被 Fastify 5 判为
   // Unsupported Media Type → 415,面板进入错误态(App 扫码不出码根因)。
-  // 注册通配解析器兜底:未匹配任何已注册 Content-Type 的请求体按空 body 处理,
-  // handler 不依赖 body 时正常执行。application/json、text/plain、
-  // form-urlencoded 及各路由自定义 parser 均精确匹配优先,不受影响。
+  // 注册通配解析器兜底:未匹配任何已注册 Content-Type 的请求。
+  //
+  // 2026-10-28 安全审计修正:原实现把**任何**未知 Content-Type 的请求体都换成
+  // `Buffer.alloc(0)` 静默吞掉。后果不是漏洞而是"静默丢数据":第三方 webhook 用
+  // `text/plain` / `text/xml` 推过来(微信支付 v2 就是 XML),body 被吞成空、
+  // handler 按空处理、照样回 200 ⇒ 发送方以为送达,实际什么都没发生,且没有任何日志。
+  // 现在的口径:
+  //   · body 为空(含无 body 的 POST 与空串) ⇒ 仍按空 body 放行 —— RN App 的
+  //     "无 body 写操作"依赖这条,不能动;
+  //   · body 非空 ⇒ 显式 415,让调用方立刻看见"你用的 Content-Type 我们不认",
+  //     而不是以为成功。要支持某种格式,正确做法是在路由侧注册精确解析器,
+  //     不是在通配里猜。
   server.addContentTypeParser(
     '*',
     { parseAs: 'buffer', bodyLimit: 64 * 1024 },
-    (_req, _body, done) => {
-      done(null, Buffer.alloc(0))
-    },
+    wildcardContentTypeParser,
   )
 
   // OpenTelemetry 追踪（最先注册，最大化 instrument 覆盖；OTEL_ENABLED=false 时自动跳过）
@@ -519,17 +548,47 @@ async function registerPlugins(server: FastifyInstance) {
   // process.env.NODE_ENV 违反 config 头注的守门语义 —— "生产"由 ZCODE_RUNTIME_ENV/
   // NODE_ENV 声明表解析,不是字符串比较)
   const isDev = !config.isProductionGuard
+  // 2026-10-28 修复(安全审计 P1):限流计数必须是**跨实例共享**的。
+  // 原实现未传 store ⇒ @fastify/rate-limit 落到 LocalStore(进程内存),后果有两个:
+  //   ① 多副本部署时额度按副本数放大(登录 5/min 实际 = 5×N),爆破成本被摊薄;
+  //   ② 进程重启即清零,攻击者可配合重启发难。
+  // 现改为 Redis 单源计数。三个决定各有理由,别顺手改:
+  //   · 用**独立连接**(createRedisClient)而不是 server.redis —— rateLimit 必须在路由
+  //     注册前构造 store,而 redis 插件注册在它之后;把 redis 插件整体上移会改变
+  //     onClose 执行顺序,连带影响队列/调度的优雅关闭(见 createRedisClient 头注)。
+  //   · `skipOnError: true` = **Redis 不可用时放行(fail-open)**,与既有
+  //     `distributed-rate-limit.ts` 头注登记的判据一致。这不是"放松":限流是可用性
+  //     设施,Redis 抖动时若 fail-closed 会把全站变成 429/500,可用性损失远大于
+  //     限流失效;且 Redis 故障本身已有 redis client error 日志与告警面兜底。
+  //     **禁止**把它改成 fail-closed 而不先改 distributed-rate-limit 同一判据。
+  //   · nameSpace 与 distributedRateLimit 的 `ihui:ratelimit` 区分开,便于运维按前缀
+  //     分别观测/清理,避免两套限流互相污染计数。
+  const rateLimitRedis = createRedisClient((err) => {
+    server.log.error({ err }, 'rate-limit redis client error')
+  })
+  server.addHook('onClose', async () => {
+    try {
+      await rateLimitRedis.quit()
+    } catch {
+      /* 关闭期断开失败不影响退出 */
+    }
+  })
   await server.register(rateLimit, {
     max: isDev ? 1000 : 100,
     timeWindow: '1 minute',
+    redis: rateLimitRedis,
+    nameSpace: 'ihui:rl:',
+    skipOnError: true,
   })
   await server.register(underPressure, { maxEventLoopDelay: 1000 })
   // Swagger / OpenAPI 文档(2026-07-28 P0-4a 品牌化)
   // - 开发环境:默认开放(/docs 路由 + 自定义品牌页)
   // - 生产环境:SWAGGER_ENABLED=true 才挂载(默认 false,避免未授权 schema 泄露)
-  // - 可选 API Key 鉴权:SWAGGER_API_KEY 配置后,访问 /docs 需带 X-API-Key header
-  //   留空 = /docs 公开(仅推荐开发环境)
-  //   /docs-json(spec JSON)始终公开,方便 CI / 自动化工具拉取
+  // - 可选 API Key 鉴权:SWAGGER_API_KEY 配置后,/docs 与 /docs/json、/docs/yaml
+  //   全部需要 X-API-Key header(2026-10-28 收紧:spec 端点不再豁免 —— 它含全部端点/
+  //   参数/枚举,公开它等于把 key 保护架空;仓内导出器走进程内 server.swagger(),
+  //   不受影响)。留空 = 全公开(仅推荐开发环境)
+  //   swagger-ui 静态资源(/docs/static/*)始终公开,无业务信息
   const swaggerEnabled = config.SWAGGER_ENABLED || !config.isProductionGuard
   if (swaggerEnabled) {
     await server.register(swagger, {
