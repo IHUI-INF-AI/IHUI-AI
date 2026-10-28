@@ -212,4 +212,138 @@ test('⑬ 接线锁(§0.9 造好没装车 = 没有):CLI 必须有 --retire-orpha
   assert.equal(typeof ex.RETIRE_SEAT, 'string')
   assert.equal(typeof ex.RETIRE_DROP_KIND, 'string')
 })
+
+// ⑭ 族 A(本器自写面)+ 合法声明 ⇒ 可退:旧档在这一族恒 0,声明档是唯一出口,why 必须原样带出
+test('⑭ 自写面记录 + 合法 intent ⇒ 可退,且 why 原样带出', () => {
+  const r = rec('G-93#自写面退场演练题面', { updatedBy: 'plan-fields-extract' })
+  const why = '题面在台账面已彻底消失,逐条声明退场(自写面记录的定向说明)'
+  const v = ex.validateRetireIntents(
+    [{ key: r.key, why, declaredAt: '2026-10-02T00:00:00.000Z', declaredBy: 'seat-x' }],
+    [r],
+  )
+  assert.equal(v.error, null)
+  const rows = [row('- [ ] **G-99 完全不相干的另一件事**')]
+  const rp = ex.retirePlanOf(entriesOf(r), rows, new Map(), { retireIntents: v.intents })
+  assert.equal(rp.retireKeys, 1)
+  assert.equal(rp.retire[0].intent.why, why, '声明原话必须逐字带出,不得被改写')
+})
+
+// ⑮ 同一记录不给声明 ⇒ 仍 held:这条锁的是旧护栏本身(防止有人后来把它删掉)
+test('⑮ 同一自写面记录不给 intent ⇒ 仍 held(旧护栏不动)', () => {
+  const r = rec('G-93#自写面退场演练题面', { updatedBy: 'plan-fields-extract' })
+  const rp = ex.retirePlanOf(entriesOf(r), [], new Map())
+  assert.equal(rp.retireKeys, 0)
+  const h = rp.held.find((x) => x.key === r.key)
+  assert.ok(h, '自写面记录必须出现在 held 里(护栏还在)')
+  assert.match(h.why, /本器自写面/)
+})
+
+// ⑯ 声明早于记录最后一次改写 ⇒ 逐项跳过(陈旧不记通过),退场计划收到的 intents 为空 ⇒ 仍 held
+test('⑯ 声明早于 updatedAt ⇒ skipped 且 intents 为空 ⇒ 仍 held', () => {
+  const r = rec('G-94#陈旧声明演练题面', { updatedBy: 'plan-fields-extract' })
+  const item = {
+    key: r.key,
+    why: '陈旧声明演练用理由(早于记录最后一次改写)',
+    declaredAt: '2026-09-30T00:00:00.000Z',
+  }
+  const v = ex.validateRetireIntents([item], [r])
+  assert.equal(v.error, null)
+  assert.equal(v.skipped.length, 1)
+  assert.equal(v.skipped[0].key, r.key)
+  assert.equal(v.intents.size, 0)
+  const rp = ex.retirePlanOf(entriesOf(r), [], new Map(), { retireIntents: v.intents })
+  assert.equal(rp.retireKeys, 0)
+  assert.ok(rp.held.some((x) => x.key === r.key))
+})
+
+// ⑰ 声明的 key 不在侧车 ⇒ 整批拒:半批应用等于挑着信,声明面整体不可信
+test('⑰ 声明的 key 不在侧车 ⇒ error 非空且一条都不放行', () => {
+  const r = rec('G-95#在册记录题面')
+  const item = {
+    key: 'G-96#侧车面上根本没有这个键',
+    why: '该键在侧车面上不存在,属于陈旧声明',
+    declaredAt: '2026-10-02T00:00:00.000Z',
+  }
+  const v = ex.validateRetireIntents([item], [r])
+  assert.ok(v.error, '整批拒必须给 error')
+  assert.equal(v.intents.size, 0)
+  assert.match(v.error, /不在侧车面/)
+})
+
+// ⑱ why 去空白后不足 10 字 ⇒ 整批拒:不说明理由的退场等于替人猜
+test('⑱ why 少于 10 字 ⇒ error 非空(整批拒)', () => {
+  const r = rec('G-97#理由过短演练题面')
+  const v = ex.validateRetireIntents(
+    [{ key: r.key, why: '太短了', declaredAt: '2026-10-02T00:00:00.000Z' }],
+    [r],
+  )
+  assert.ok(v.error)
+  assert.equal(v.intents.size, 0)
+  assert.match(v.error, /why/)
+})
+
+// ⑲ 族 B(题面挂在别的登记行正文里):hitRefs 必须覆盖每一枚命中行 —— 少一条就不放行
+test('⑲ 题面挂在别的行正文里:hitRefs 必须覆盖每一枚命中行', () => {
+  // 编号位被租约括注挤掉 ⇒ 这两行 compositeKeyOf 恒 null(与用例⑤同一型)
+  const pA = '- [ ] （进行中@2026-10-25/甲席）退场声明档锚点演练'
+  const pB = '- [ ] （进行中@2026-10-25/乙席）退场声明档锚点演练'
+  const rows = [row(`${pA} —— 第一处正文,归属:甲`), row(`${pB} —— 第二处正文,归属:乙`)]
+  const r = rec('G-92#退场声明档锚点演练')
+  const side = new Map([[r.key, r]])
+  const entries = entriesOf(r)
+  const item = {
+    key: r.key,
+    why: '题面只挂在那两条无主键行的正文里,逐条点名后再退',
+    declaredAt: '2026-10-21T00:00:00.000Z',
+  }
+  // 完全不给声明档 ⇒ 旧护栏原样生效
+  assert.equal(ex.retirePlanOf(entries, rows, side).retireKeys, 0)
+  // 给了声明但一条 ref 都不给 ⇒ 仍 held,原因里点名"未覆盖全部命中行"
+  const v0 = ex.validateRetireIntents([item], [r])
+  const p0 = ex.retirePlanOf(entries, rows, side, { retireIntents: v0.intents })
+  assert.equal(v0.error, null)
+  assert.equal(p0.retireKeys, 0)
+  assert.match(p0.held[0].why, /未覆盖全部命中行\(2 条命中\/0 条 ref\)/)
+  // 只点名部分命中行 ⇒ 仍 held
+  const v1 = ex.validateRetireIntents([{ ...item, hitRefs: [pA] }], [r])
+  const p1 = ex.retirePlanOf(entries, rows, side, { retireIntents: v1.intents })
+  assert.equal(p1.retireKeys, 0)
+  assert.match(p1.held[0].why, /未覆盖全部命中行/)
+  // 每一枚命中行都被点名 ⇒ 可退(ref 各认领一行,不重复)
+  const v2 = ex.validateRetireIntents([{ ...item, hitRefs: [pA, pB] }], [r])
+  const p2 = ex.retirePlanOf(entries, rows, side, { retireIntents: v2.intents })
+  assert.equal(p2.retireKeys, 1)
+  assert.equal(p2.retire[0].intent.hitRefs.length, 2)
+})
+
+// ⑳ 声明档不绕过既有前置:台账面仍有同号行 ⇒ 有 intent 也 held(编号是强身份)
+test('⑳ 有 intent 但台账面仍有同号行 ⇒ held(声明档绕不过既有前置)', () => {
+  const r = rec('G-50#旧版题面', { updatedBy: 'plan-fields-extract' })
+  const item = {
+    key: r.key,
+    why: '题面已在台账消失,声明退场后由同号行的归属承接',
+    declaredAt: '2026-10-02T00:00:00.000Z',
+  }
+  const v = ex.validateRetireIntents([item], [r])
+  assert.equal(v.error, null)
+  assert.equal(v.intents.size, 1)
+  const rows = [row('- [ ] **G-50 改写后的全新题面** —— 说明')]
+  const rp = ex.retirePlanOf(entriesOf(r), rows, new Map(), { retireIntents: v.intents })
+  assert.equal(rp.retireKeys, 0)
+  assert.match(rp.held[0].why, /同号行/)
+})
+
+// ㉑ 同一键声明两份 ⇒ 整批拒:声明面自相矛盾时,写哪一份都是替人裁决
+test('㉑ 同键重复声明 ⇒ error 非空(同一键只能有一份交代)', () => {
+  const r = rec('G-98#重复声明演练题面')
+  const item = {
+    key: r.key,
+    why: '同一键写两份交代说明声明面自相矛盾',
+    declaredAt: '2026-10-02T00:00:00.000Z',
+  }
+  const v = ex.validateRetireIntents([item, { ...item }], [r])
+  assert.ok(v.error)
+  assert.equal(v.intents.size, 0)
+  assert.match(v.error, /重复声明/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
