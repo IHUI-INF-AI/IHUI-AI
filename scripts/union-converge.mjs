@@ -221,7 +221,93 @@ function git(args, cwd = ROOT, input) {
   }).trim()
 }
 
+// ── 取数层批量缓存(2026-10-29 立)───────────────────────────────────────────
+// 立因:buildUnion 对**每个差异路径**调 blobOf/show/modeOf,每次都是一枚 git 进程。
+// 分叉到千级时(base→theirs 实测 1642 路径)⇒ 3000+ 次 spawn ⇒ 20 分钟跑不到结论,
+// 上层 git-sync-converge 只能报"未判定"(2026-10-29 实测:多个会话各跑 20~60 分钟无产出)。
+// 对象与树条目在单轮合并内不可变 ⇒ 一次 `ls-tree -r` 装载整棵树 + 按 oid 缓存文本。
+// 语义保持:装载失败/该 rev 解析不出 ⇒ 返回 undefined 让调用方回退原实现,绝不猜。
+const TREE_ENTRIES = new Map() // `${cwd}\0${sha}\0${path}` -> { mode, oid }
+const TREE_LOADED = new Set() // `${cwd}\0${sha}`
+const REV_SHA = new Map() // `${cwd}\0${rev}` -> sha|null
+const BLOB_TEXT = new Map() // `${cwd}\0${oid}` -> text
+const BLOB_TEXT_LIMIT = 256 * 1024 * 1024
+let blobTextBytes = 0
+
+/** 多次调用/测试夹具之间清空,避免不同 cwd 或不同 rev 互相串味。 */
+export function resetUnionCaches() {
+  TREE_ENTRIES.clear()
+  TREE_LOADED.clear()
+  REV_SHA.clear()
+  BLOB_TEXT.clear()
+  blobTextBytes = 0
+}
+
+function revSha(rev, cwd) {
+  const key = `${cwd}\u0000${rev}`
+  if (REV_SHA.has(key)) return REV_SHA.get(key)
+  let sha = null
+  try {
+    sha = git(['rev-parse', '--verify', '--quiet', `${rev}^{commit}`], cwd)
+  } catch {
+    sha = null
+  }
+  REV_SHA.set(key, sha)
+  return sha
+}
+
+function ensureTree(sha, cwd) {
+  const key = `${cwd}\u0000${sha}`
+  if (TREE_LOADED.has(key)) return true
+  try {
+    // -z:路径不做引号转义,中文/空格路径按原样回读(与 core.quotepath=false 同方向)
+    const out = gitBuf(['ls-tree', '-r', '-z', sha], cwd).toString('utf8')
+    for (const rec of out.split('\0')) {
+      if (!rec) continue
+      const tab = rec.indexOf('\t')
+      if (tab < 0) continue
+      const [mode, , oid] = rec.slice(0, tab).split(' ')
+      TREE_ENTRIES.set(`${cwd}\u0000${sha}\u0000${rec.slice(tab + 1)}`, { mode, oid })
+    }
+    TREE_LOADED.add(key)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 树条目:undefined = 未判定(回退原实现);null = 该路径确实不在树里。 */
+function treeEntry(rev, p, cwd) {
+  const sha = revSha(rev, cwd)
+  if (!sha) return undefined
+  if (!ensureTree(sha, cwd)) return undefined
+  return TREE_ENTRIES.get(`${cwd}\u0000${sha}\u0000${p}`) ?? null
+}
+
+function readBlobTextCached(oid, cwd) {
+  const key = `${cwd}\u0000${oid}`
+  if (BLOB_TEXT.has(key)) return BLOB_TEXT.get(key)
+  try {
+    const t = gitBuf(['cat-file', 'blob', oid], cwd).toString('utf8')
+    // 只缓存中小文件:超大文件(uv.lock/打包产物)缓存收益低而内存代价高
+    if (t.length <= 4 * 1024 * 1024 && blobTextBytes + t.length <= BLOB_TEXT_LIMIT) {
+      BLOB_TEXT.set(key, t)
+      blobTextBytes += t.length
+    }
+    return t
+  } catch {
+    return null
+  }
+}
+
 function show(rev, p, cwd) {
+  const e = treeEntry(rev, p, cwd)
+  if (e !== undefined) {
+    if (e === null) return ''
+    // 与 git() 同口径 trim;读不到内容(非"空文件")时回退,不把取不到读成空
+    const t = readBlobTextCached(e.oid, cwd)
+    if (t !== null) return t.trim()
+  }
   try {
     return git(['show', `${rev}:${p}`], cwd)
   } catch {
@@ -230,6 +316,8 @@ function show(rev, p, cwd) {
 }
 
 function blobOf(rev, p, cwd) {
+  const e = treeEntry(rev, p, cwd)
+  if (e !== undefined) return e === null ? null : e.oid
   try {
     // 必须带 --verify --quiet:裸 rev-parse 对解析不了的参数(<rev>:<path> 路径不存在时)
     // 会**原样回显且退出码 0**(2026-10-07 实测抓到:远端树没有 PageClient.tsx,
@@ -242,6 +330,14 @@ function blobOf(rev, p, cwd) {
 }
 
 function listPaths(rev, cwd) {
+  const sha = revSha(rev, cwd)
+  if (sha && ensureTree(sha, cwd)) {
+    const prefix = `${cwd}\u0000${sha}\u0000`
+    const out = []
+    // Map 插入顺序 = ls-tree 的树序遍历,与旧实现的输出次序一致
+    for (const k of TREE_ENTRIES.keys()) if (k.startsWith(prefix)) out.push(k.slice(prefix.length))
+    return out
+  }
   return git(['ls-tree', '-r', '--name-only', rev], cwd).split('\n').filter(Boolean)
 }
 
@@ -270,11 +366,8 @@ function gitBuf(args, cwd = ROOT) {
 }
 
 function blobText(oid, cwd) {
-  try {
-    return gitBuf(['cat-file', 'blob', oid], cwd).toString('utf8')
-  } catch {
-    return ''
-  }
+  const t = readBlobTextCached(oid, cwd)
+  return t === null ? '' : t
 }
 
 /**
@@ -296,6 +389,8 @@ export function generatedArtifactMarker(texts) {
 
 /** 树里该路径的 mode(100644/100755/120000/160000);取不到返回 ''(交人工,不猜)。 */
 function modeOf(rev, p, cwd) {
+  const e = treeEntry(rev, p, cwd)
+  if (e !== undefined) return e?.mode ?? ''
   try {
     return git(['ls-tree', rev, '--', p], cwd).match(/^(\d{6})\s/)?.[1] ?? ''
   } catch {
@@ -3153,6 +3248,8 @@ export function plan(
 }
 
 function selfTest() {
+  // 取数层缓存按 (cwd, sha) 分区,夹具之间本已隔离;显式清一次防同 cwd 下的陈旧 rev 解析
+  resetUnionCaches()
   const dir = mkScratch('ihui-union-')
   const run = (...a) => git(a, dir)
   // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
@@ -4810,6 +4907,7 @@ function selfTest() {
 }
 
 async function main() {
+  resetUnionCaches()
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
   const apply = argv.includes('--apply')
