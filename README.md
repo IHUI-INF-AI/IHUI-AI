@@ -51,7 +51,6 @@
   <sub>
     <a href="README.md">简体中文</a> · <a href="README.en.md">英文</a> · <a href="README.ko.md">韩文</a> · <a href="README.ja.md">日文</a>
     &nbsp;&nbsp;|&nbsp;&nbsp;
-    <strong>国内镜像</strong> · <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> · <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
   </sub>
 </p>
 
@@ -129,7 +128,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 291 | `guardianGates` |
 | — blocking | 266 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 16889 | `trackedFiles` |
+| 跟踪文件 | 16884 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-28。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -463,8 +462,6 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
 </p>
 <p align="center">
   <strong>国内镜像</strong> ·
-  <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> ·
-  <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
   <br/>
   <sub>国内用户克隆/下载更快，与 GitHub 自动同步</sub>
 </p>
