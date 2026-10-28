@@ -28,10 +28,12 @@ export const RELAY_ACCOUNT_POOL_QUEUE_NAME = 'relay-account-pool-queue'
 const CRON_PATTERN = '*/5 * * * *'
 /** 每 10 分钟把本机 Trae 客户端会话回灌进号池(客户端为主策略的取数端;判据在 ts 落库脚本里) */
 const TRAE_SYNC_CRON_PATTERN = '*/10 * * * *'
-/** 仓根(scripts/sync-trae-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
+/** 每 10 分钟把本机 Qoder 登录态回灌进号池(同族:refreshToken 轮换由客户端主导,池只跟随) */
+const QODER_SYNC_CRON_PATTERN = '*/10 * * * *'
+/** 仓根(scripts/sync-*-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
 const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 
-interface TraeSyncOutcome {
+interface ClientSyncOutcome {
   code: number
   applied: number
   skipped: number
@@ -39,8 +41,8 @@ interface TraeSyncOutcome {
 }
 
 /** 子进程跑回灌编排器;凭据只在父子进程管道里流动,输出面已由脚本脱敏 */
-async function runTraeSessionSync(): Promise<TraeSyncOutcome> {
-  const script = resolvePath(REPO_ROOT, 'scripts', 'sync-trae-client-session.mjs')
+async function runClientSessionSync(scriptName: string): Promise<ClientSyncOutcome> {
+  const script = resolvePath(REPO_ROOT, 'scripts', scriptName)
   const result = await new Promise<{ code: number; out: string; err: string }>((resolve) => {
     const child = spawn(process.execPath, [script, '--json'], {
       cwd: REPO_ROOT,
@@ -107,8 +109,21 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           },
         },
       )
+      await queue.upsertJobScheduler(
+        'qoder-session-sync-cron',
+        { pattern: QODER_SYNC_CRON_PATTERN },
+        {
+          name: 'qoder-session-sync',
+          data: {},
+          opts: {
+            removeOnComplete: 100,
+            removeOnFail: 500,
+          },
+        },
+      )
       server.log.info({ pattern: CRON_PATTERN }, 'relay-account-pool sweep scheduled')
       server.log.info({ pattern: TRAE_SYNC_CRON_PATTERN }, 'trae-session-sync scheduled')
+      server.log.info({ pattern: QODER_SYNC_CRON_PATTERN }, 'qoder-session-sync scheduled')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule relay-account-pool sweep')
     }
@@ -117,21 +132,21 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
   const worker = new Worker(
     RELAY_ACCOUNT_POOL_QUEUE_NAME,
     async (job) => {
-      if (job.name === 'trae-session-sync') {
-        const outcome = await runTraeSessionSync()
-        // 退出码 2 = 未判定(本机无 Trae 客户端/信封解不开/tsx 缺失):服务器部署形态
+      if (job.name === 'trae-session-sync' || job.name === 'qoder-session-sync') {
+        const isQoder = job.name === 'qoder-session-sync'
+        const outcome = await runClientSessionSync(
+          isQoder ? 'sync-qoder-client-session.mjs' : 'sync-trae-client-session.mjs',
+        )
+        // 退出码 2 = 未判定(本机无对应客户端/解密失败/tsx 缺失):服务器部署形态
         // 的常态,记 warn 不记 failure(它不该进 BullMQ 失败重试风暴)
         if (outcome.code === 2) {
-          server.log.warn({ stderr: outcome.stderr }, 'trae-session-sync 未判定(未写库)')
+          server.log.warn({ stderr: outcome.stderr }, `${job.name} 未判定(未写库)`)
         } else if (outcome.code !== 0) {
-          server.log.error(
-            { code: outcome.code, stderr: outcome.stderr },
-            'trae-session-sync 落库失败',
-          )
+          server.log.error({ code: outcome.code, stderr: outcome.stderr }, `${job.name} 落库失败`)
         } else {
           server.log.info(
             { applied: outcome.applied, skipped: outcome.skipped },
-            'trae-session-sync done',
+            `${job.name} done`,
           )
         }
         return outcome
