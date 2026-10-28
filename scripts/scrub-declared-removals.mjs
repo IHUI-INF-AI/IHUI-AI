@@ -91,7 +91,10 @@ import { archiveDropCaps, selectMovedOutForDisposition } from './lib/live-doc-ar
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 // 顶层 export 供 `union-converge` 的复合主键维(G-34/G-43, 2026-10-25)复用同一份文件清单——
 // 台账路径若有两份,第二份必然漂移(§0.6);既有 `__test__.LEDGERS` 指向同一数组,语义不变。
-export const LEDGERS = ['.ihui-agent/state/stale-claim-strip.jsonl', '.ihui-agent/state/plan-row-drop.jsonl']
+export const LEDGERS = [
+  '.ihui-agent/state/stale-claim-strip.jsonl',
+  '.ihui-agent/state/plan-row-drop.jsonl',
+]
 
 /** 勾选态取自单源解析器(非登记行 ⇒ null;本器不判"什么算复选框行")。 */
 export function rowStateOf(line) {
@@ -362,13 +365,17 @@ function main(argv, root = ROOT) {
   const disp = dispositionArg(argv)
   const file = docArg(argv)
   if (!file) {
-    console.error('❌ 用法:scrub-declared-removals.mjs <仓库相对文档> [--dry-run] [--archive-disposition <处置前快照>]')
+    console.error(
+      '❌ 用法:scrub-declared-removals.mjs <仓库相对文档> [--dry-run] [--archive-disposition <处置前快照>]',
+    )
     return 2
   }
   const d = declaredRows(root)
   const { set: declared, closed, malformed, closedDeclared, keyIndex } = d
   if (declared.size === 0 && !disp) {
-    console.log(`SCRUB-RESULT state=undetermined why=摘除声明台账为空或不可解(malformed=${malformed}) ⇒ 不动文档`)
+    console.log(
+      `SCRUB-RESULT state=undetermined why=摘除声明台账为空或不可解(malformed=${malformed}) ⇒ 不动文档`,
+    )
     return 2
   }
   let headText
@@ -397,19 +404,52 @@ function main(argv, root = ROOT) {
       dispositionText = null
     }
     if (typeof dispositionText !== 'string' || dispositionText.trim() === '') {
-      console.log(`SCRUB-RESULT state=undetermined why=取不到处置侧文本(${disp})⇒ 维五不生效、四维也不动文档`)
+      console.log(
+        `SCRUB-RESULT state=undetermined why=取不到处置侧文本(${disp})⇒ 维五不生效、四维也不动文档`,
+      )
       return 2
     }
     // faceFiles 传 null:磁盘归档目录已由 lib 并进来(在飞窗口的凭据恰恰只在盘上);
     // 调用方另有某一面的清单时可以传进来,lib 只做并集,不改变判据。
-    const movedOut = selectMovedOutForDisposition(root, file, null, dispositionText)
-    if (!movedOut.ok) {
+    let movedOut = selectMovedOutForDisposition(root, file, null, dispositionText)
+    // 旁路落地型补的一格(2026-10-29 实测:AGENTS 的 R4⑨ 第三次被同一条收编通道带回,门 207 顶红全仓)。
+    // 这一型下 `dispositionText`(归并前的工作树快照)恰恰逐字含着被处置的那几行,gb22 的两步判据**同时**失效:
+    //   ① `selectMovedOutForDisposition` 把同族件算成 overlap=1 的整篇复制件 ⇒ ok=false,凭据根本取不到;
+    //   ② 即便取到,`archiveDropCaps(副本)` 的"处置侧 0 份"也永假。
+    // 所以必须**连取材一起换面**,只换扣减用的文本救不回来(探针实测:副本面 overlap=1 判复制件 ⇒ 0/0;
+    // 以 HEAD 面重算则 ok=true trimmed=2,且 XCONTROL 那一型不在归档批次里 ⇒ 绝不会被误命中)。
+    // HEAD 面 0 份 = 该行的消失已是**入库事实**,凭据形状与维一的 ②(`!head.has(l)`)同形,不是放宽的那一型。
+    // 原面取到"对本文档真能扣"的集合就完全不重算(gb22 既有现场逐字节不变);
+    // `state=undetermined` 那道出口因此挪到两面都试过之后 —— 两面都不成立仍照旧 exit 2 且一个字不改文档。
+    const docText = readFileSync(abs, 'utf8')
+    const docLines = new Set(String(docText).split('\n'))
+    // 触发条件不是"caps 为空",而是"caps 咬不动本文档任何一行"。
+    // 实测踩坑:同目录里另一份无关批次件(上一轮清偿的旧批)会给出一个对本文件毫无作用的元素,
+    // 按 size===0 判就等于"原面已生效"⇒ 换面永不发生、本维照旧零扣(读数 caps=1 archive=0)。
+    // 这里与 `scrub()` 第 265 行的 `caps.has(l)` 用同一把整行逐字尺,不另写形状(§0.6)。
+    const bites = (s) => [...s].some((l) => docLines.has(l))
+    caps = movedOut.ok ? archiveDropCaps(dispositionText, movedOut) : new Set()
+    if (!bites(caps)) {
+      const headTextForCaps = gitRaw(['show', `HEAD:${file}`], root)
+      if (typeof headTextForCaps === 'string' && headTextForCaps.trim() !== '') {
+        const movedOutHead = selectMovedOutForDisposition(root, file, null, headTextForCaps)
+        if (movedOutHead.ok) {
+          const capsHead = archiveDropCaps(headTextForCaps, movedOutHead)
+          // 替换而非并入:能走到这里说明原面那个集合对本文档一行都扣不动,留着它不会少扣任何有效行;
+          // 而并入会让"副本面"的无关元素继续混在凭据读数里,把 archiveBatch 报成一个没人能核的数。
+          if (bites(capsHead)) {
+            caps = capsHead
+            movedOut = movedOutHead
+          }
+        }
+      }
+    }
+    if (!movedOut.ok && caps.size === 0) {
       console.log(
         `SCRUB-RESULT state=undetermined why=归档批次凭据未取得(${movedOut.reason})⇒ 维五一条不扣、整轮不动文档`,
       )
       return 2
     }
-    caps = archiveDropCaps(dispositionText, movedOut)
     credNote = `archiveRequested=1 archiveBatch=${movedOut.trimmed.size}行 archiveFrom=${movedOut.used.map((u) => u.path.split('/').pop()).join('+')}`
   }
   const r = scrub(readFileSync(abs, 'utf8'), headText, d, caps)
@@ -421,10 +461,13 @@ function main(argv, root = ROOT) {
   )
   for (const item of r.dropped.slice(0, 6)) {
     const b = viaBucket(r.via.get(item))
-    console.log(`  · 剔除[${b === 'archive' ? '归档批次' : b === 'body' ? '正文' : '逐字'}]:${item.trim().slice(0, 78)}`)
+    console.log(
+      `  · 剔除[${b === 'archive' ? '归档批次' : b === 'body' ? '正文' : '逐字'}]:${item.trim().slice(0, 78)}`,
+    )
   }
   if (r.dropped.length > 6) console.log(`  · 另有 ${r.dropped.length - 6} 行同批`)
-  for (const h of r.held.slice(0, 6)) console.log(`  · 让路:${h.why} —— ${h.line.trim().slice(0, 60)}`)
+  for (const h of r.held.slice(0, 6))
+    console.log(`  · 让路:${h.why} —— ${h.line.trim().slice(0, 60)}`)
   if (r.held.length > 6) console.log(`  · 另有 ${r.held.length - 6} 行让路(逐条已计入 held=)`)
   if (r.dropped.length === 0) return 0
   if (argv.includes('--dry-run')) {
@@ -474,22 +517,66 @@ function selfTest() {
   const headLiveRow = '- [ ] G-905 复洁维二的靶行:别人本轮在册的另一版'
   const openLedgerRow = '- [ ]（进行中@2026-10-18/甲） G-905 复洁维二的靶行:判据已重写'
   const dd = buildDeclared([closedRow])
-  t('维二:台账=已勾 ∧ 盘上=未勾 ∧ 正文前缀 ∧ HEAD 无此键 ⇒ 剔', scrub(`${head}\n${staleRow}`, head, dd).dropped.length === 1)
-  t('维二只吃"勾选态相反"这一形:台账也是未勾(维一逐字又不命中)⇒ 不剔', scrub(`${head}\n${staleRow}`, head, buildDeclared([openLedgerRow])).dropped.length === 0)
-  t('维二:HEAD 面仍有同主键行 ⇒ 绝不剔并点名', scrub(`${head}\n${staleRow}`, `${head}\n${headLiveRow}`, dd).held.length === 1)
-  t('维二:同主键而正文已漂开(非前缀)⇒ 不剔并点名', scrub(`${head}\n${rewrittenRow}`, head, dd).held.length === 1)
-  t('维二输入为空(Set 调用形)⇒ 一条也不按正文剔(旧口径零放宽)', scrub(`${head}\n${staleRow}`, head, new Set([closedRow])).dropped.length === 0)
+  t(
+    '维二:台账=已勾 ∧ 盘上=未勾 ∧ 正文前缀 ∧ HEAD 无此键 ⇒ 剔',
+    scrub(`${head}\n${staleRow}`, head, dd).dropped.length === 1,
+  )
+  t(
+    '维二只吃"勾选态相反"这一形:台账也是未勾(维一逐字又不命中)⇒ 不剔',
+    scrub(`${head}\n${staleRow}`, head, buildDeclared([openLedgerRow])).dropped.length === 0,
+  )
+  t(
+    '维二:HEAD 面仍有同主键行 ⇒ 绝不剔并点名',
+    scrub(`${head}\n${staleRow}`, `${head}\n${headLiveRow}`, dd).held.length === 1,
+  )
+  t(
+    '维二:同主键而正文已漂开(非前缀)⇒ 不剔并点名',
+    scrub(`${head}\n${rewrittenRow}`, head, dd).held.length === 1,
+  )
+  t(
+    '维二输入为空(Set 调用形)⇒ 一条也不按正文剔(旧口径零放宽)',
+    scrub(`${head}\n${staleRow}`, head, new Set([closedRow])).dropped.length === 0,
+  )
   // —— 维五(归档批次维,2026-10-28;票 gb22):正控 + 三条反控,全部走生产 `scrub`,不在这里复算判据 ——
-  const movedProse = '- **清偿批**:这一整行已按 §1 逐字移入 `.ihui-agent/archive/AGENTS_trim-测试.md`'
+  const movedProse =
+    '- **清偿批**:这一整行已按 §1 逐字移入 `.ihui-agent/archive/AGENTS_trim-测试.md`'
   const keptProse = '- 本侧仍在册的一行正文,维五不得连坐'
   const freshProse = '- 别人本轮真新增的一行正文,不在任何归档批次里'
   const caps5 = new Set([movedProse])
-  t('维五:逐字在移出批次 ∧ 处置侧 0 份 ∧ 非登记行 ⇒ 剔(事故那一格的靶行)', scrub(`${head}\n${keptProse}\n${movedProse}`, `${head}\n${keptProse}\n${movedProse}`, new Set([row]), caps5).dropped.length === 1)
-  t('维五反控一:不传 caps(旧三维调用形)⇒ 一行不剔,既有口径零放宽', scrub(`${head}\n${movedProse}`, head, new Set([row])).dropped.length === 0)
-  t('维五反控二:登记行形(`- [ ]`/`- [x]`)即便在 caps 里也不由维五剔 —— 台账一族语义不动(红线)', scrub(`${head}\n${row}`, head, new Set(), new Set([row])).dropped.length === 0)
-  t('维五反控三:正向对照 —— 不在归档批次里的行(别人真新增)一字不动', scrub(`${head}\n${freshProse}`, head, new Set(), caps5).text.includes('别人本轮真新增'))
-  t('维五分桶:archive 自成一桶,verbatim/body 桶的归属逐字不变', viaBucket('archive') === 'archive' && viaBucket('title') === 'verbatim' && viaBucket('body:甲') === 'body')
-  t('维五参数解析:`--archive-disposition` 的值不得被当成文档名;旗标不在位时下标 0 仍是文档名', docArg(['AGENTS.md', '--archive-disposition', 'x/y.txt']) === 'AGENTS.md' && dispositionArg(['AGENTS.md', '--archive-disposition', 'x/y.txt']) === 'x/y.txt' && docArg(['PROJECT_PLAN.md', '--dry-run']) === 'PROJECT_PLAN.md' && docArg(['--dry-run', 'README.md']) === 'README.md')
+  t(
+    '维五:逐字在移出批次 ∧ 处置侧 0 份 ∧ 非登记行 ⇒ 剔(事故那一格的靶行)',
+    scrub(
+      `${head}\n${keptProse}\n${movedProse}`,
+      `${head}\n${keptProse}\n${movedProse}`,
+      new Set([row]),
+      caps5,
+    ).dropped.length === 1,
+  )
+  t(
+    '维五反控一:不传 caps(旧三维调用形)⇒ 一行不剔,既有口径零放宽',
+    scrub(`${head}\n${movedProse}`, head, new Set([row])).dropped.length === 0,
+  )
+  t(
+    '维五反控二:登记行形(`- [ ]`/`- [x]`)即便在 caps 里也不由维五剔 —— 台账一族语义不动(红线)',
+    scrub(`${head}\n${row}`, head, new Set(), new Set([row])).dropped.length === 0,
+  )
+  t(
+    '维五反控三:正向对照 —— 不在归档批次里的行(别人真新增)一字不动',
+    scrub(`${head}\n${freshProse}`, head, new Set(), caps5).text.includes('别人本轮真新增'),
+  )
+  t(
+    '维五分桶:archive 自成一桶,verbatim/body 桶的归属逐字不变',
+    viaBucket('archive') === 'archive' &&
+      viaBucket('title') === 'verbatim' &&
+      viaBucket('body:甲') === 'body',
+  )
+  t(
+    '维五参数解析:`--archive-disposition` 的值不得被当成文档名;旗标不在位时下标 0 仍是文档名',
+    docArg(['AGENTS.md', '--archive-disposition', 'x/y.txt']) === 'AGENTS.md' &&
+      dispositionArg(['AGENTS.md', '--archive-disposition', 'x/y.txt']) === 'x/y.txt' &&
+      docArg(['PROJECT_PLAN.md', '--dry-run']) === 'PROJECT_PLAN.md' &&
+      docArg(['--dry-run', 'README.md']) === 'README.md',
+  )
   console.log(`--self-test: ${pass}/${pass + fail} 通过`)
   return fail
 }
