@@ -422,16 +422,20 @@ export function authGateCoversDidShow(pageText) {
  * 提示等价:页面 showToast 引用的 i18n key **全部**在壳正文里出现,且壳自己有提示出口
  * (appAlert / Toast) ⇒ 页面那几处 toast 是重复;壳的提示文案就是同一批词条。
  * 任一 key 在壳里找不到 ⇒ 壳没有这条提示,转壳会丢用户反馈 ⇒ 不销账(现读 67 页里只有 6 页满足)。
+ * `sharedText`(共享屏正文,2026-10-28 并入):共享屏 t('coupon.useHint') 这类键**住在共享层**而壳只是
+ * 装载它 ⇒ 只看壳文面会把"壳确实会原样显示这条提示"误判成"壳没有该提示"。判据并入共享屏面后,
+ * 提示出口(appAlert/Toast)仍必须住在**壳**里(出口是端上接线,共享屏没有这个职责)。
  */
-export function toastCovered(pageText, shellText) {
+export function toastCovered(pageText, shellText, sharedText = '') {
   const src = maskComments(String(pageText ?? ''))
   const shell = String(shellText ?? '')
+  const hay = `${shell}\n${sharedText ? maskComments(String(sharedText)) : ''}`
   const keys = new Set()
   for (const call of toastCallSpans(src))
     for (const k of call.text.matchAll(/\btt?\s*\(\s*'([A-Za-z0-9_.]+)'/g)) keys.add(k[1])
   if (keys.size === 0) return false
   if (!/appAlert|\bToast\b|toast\.(show|info|success)/.test(shell)) return false
-  return [...keys].every((k) => shell.includes(k))
+  return [...keys].every((k) => hay.includes(k))
 }
 
 /**
@@ -477,16 +481,17 @@ export function catchRanges(src) {
  * 实测 edu-shop 一页里既有 catch 内的 common.loadFailed、又有成功分支的 eduShop.orderCreated,
  * 前者由壳的错误态承担、后者壳里有同词条 —— 分开判会导致两条件都不成立,整页被误留。
  */
-export function toastFullyCovered(pageText, shellText) {
+export function toastFullyCovered(pageText, shellText, sharedText = '') {
   const src = maskComments(String(pageText ?? ''))
   const shell = String(shellText ?? '')
+  const hay = `${shell}\n${sharedText ? maskComments(String(sharedText)) : ''}`
   const hasOutlet = /appAlert|\bToast\b|toast\.(show|info|success)/.test(shell)
   const calls = toastCallSpans(src)
   if (calls.length === 0) return false
   const ranges = catchRanges(src)
   for (const call of calls) {
     const keys = [...call.text.matchAll(/\btt?\s*\(\s*'([A-Za-z0-9_.]+)'/g)].map((m) => m[1])
-    if (keys.length > 0 && keys.every((k) => shell.includes(k))) continue
+    if (keys.length > 0 && keys.every((k) => hay.includes(k))) continue
     const inCatch = ranges.some(([a, b]) => call.start >= a && call.start <= b)
     if (hasOutlet && inCatch) continue
     return false
@@ -643,9 +648,13 @@ export function judgeConversion({
     for (const tok of ['useAuthReadyGate', '@/hooks/use-auth-ready-gate']) pageTokens.delete(tok)
   // 带鉴权钩子的页,其 useDidShow 若只做 waitUntilReady(...) ⇒ 由 AuthReadyGate 承担"就绪后再渲染"
   if (authGateCoversDidShow(pageText)) for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
-  // 提示:逐条判(同词条在壳里 或 在 catch 内且壳有错误出口) ⇒ 全部通过才销账
-  if (toastFullyCovered(pageText, shellText)) pageTokens.delete('Taro.showToast')
-  else if (!toastCovered(pageText, shellText) && toastOnlyInCatch(pageText) && /appAlert|\bToast\b/.test(String(shellText ?? '')))
+  // 提示:逐条判(同词条在壳/共享屏文面里 或 在 catch 内且壳有错误出口) ⇒ 全部通过才销账
+  if (toastFullyCovered(pageText, shellText, sharedText)) pageTokens.delete('Taro.showToast')
+  else if (
+    !toastCovered(pageText, shellText, sharedText) &&
+    toastOnlyInCatch(pageText) &&
+    /appAlert|\bToast\b/.test(String(shellText ?? ''))
+  )
     pageTokens.delete('Taro.showToast')
   // switchTab 只做 navigateBack 的失败回落 ⇒ RN 端没有这一态,壳的 goBack 已覆盖
   if (backFallbackOnly(pageText)) pageTokens.delete('Taro.switchTab')
@@ -970,6 +979,20 @@ function main(argv) {
     P(
       'S19 壳侧能力只出现在注释里 ⇒ 不销账;壳里真接了回屏重取层 ⇒ 销账',
       [s14HasDidShow(S14_SHELL_COMMENT), s14HasDidShow(S14_SHELL_REAL)],
+      [true, false],
+    )
+    // S22(2026-10-28,member/coupon 迁壳立因):页面 toast 的词条住在**共享屏**(t('coupon.useHint'))
+    // 而壳只是装载共享屏 ⇒ 旧尺只查壳文面,把"壳会原样显示这条提示"误判成"壳没有"。并入 sharedText 后
+    // 必须认;对照:提示既不在壳也不在共享屏 ⇒ 照旧不销(放宽只针对住所在,不针对缺能力)。
+    const S22_PAGE = `Taro.showToast({ title: tt('coupon.useHint', '请前往商品页使用'), icon: 'none' })`
+    const S22_SHELL = `import { CouponScreen as Shared } from '@ihui/rn-app'\nappAlert('x')\nexport function CouponScreen(){ return <Shared t={t} /> }`
+    const s22 = (shared) => toastFullyCovered(S22_PAGE, S22_SHELL, shared)
+    P(
+      'S22 提示词条住在共享屏正文 ⇒ 算壳覆盖(带对照:两处都没有则照旧不销)',
+      [
+        s22(`export function CouponScreen(){ if(x) appAlert(t('coupon.useHint')) }`),
+        s22('export function CouponScreen(){ return null }'),
+      ],
       [true, false],
     )
     // S20(2026-10-28 现读缺陷):正文闸原来拿**整张词包文本**当 haystack ⇒ 一句文案只要在
