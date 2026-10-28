@@ -96,7 +96,7 @@
 | --- | --- | --- |
 | `list_plugins` | 等价(形态) | `apps/api/src/routes/admin/relay-plugins.ts:15,75` `listPlugins`(中继插件管理域;管理面非会话帧) |
 | `reload_plugins` | **真缺** | 否证(2026-10-01 二轮):`git grep -inE "reloadPlugins\|reload_plugins\|热重载.*插件" -- apps/cli/src apps/api/src apps/ai-service/app apps/web/src packages/*/src` → 0 命中 |
-| `reload_skills` | **真缺** | 否证(2026-10-01 三轮):`git grep -inE "reload\|refresh\|重载\|刷新" -- apps/ai-service/app/routers/ai_skills.py` → 0 命中(skill 面只有调度与统计,无运行时重载口)。**D202 防翻案注记**:`services/skills.py:777` 有 `reload_auto`(mtime 驱动增量重载,引擎自扫描、非宿主可调口)——自动重载≠宿主可调控制帧,真缺维持 |
+| `reload_skills` | **已落地(2026-10-28)** | 原判"真缺"(2026-10-01 三轮否证:skill 面只有调度与统计,无运行时重载口);**D202 防翻案注记**(`services/skills.py:777` 的 `reload_auto` 是 mtime 驱动增量重载、引擎自扫描、**对宿主零回报** —— 自动重载≠宿主可调控制帧)。本票补的正是那一格,并按竞品原帧语义(`requireCliCapability("reload_skills_v1")` + `request({type:"reload_skills"})`,即"宿主显式调用 + 必须回报结果")落地:`apps/ai-service/app/routers/ai_skills.py` `POST /ai-skills/reload`(帧名即 `reload_skills`)+ `apps/ai-service/app/services/skills.py` `SkillRegistry.reload(force=)`(回报差额 added/removed/changed/unchanged)+ `apps/api/src/routes/ai-skills-proxy.ts` `POST /api/ai-skills/reload` + `packages/api-client/src/endpoints/ai-skills.ts` `reloadAiSkills()` + `apps/web/src/components/chat/skill-library.tsx` 技能库「重载技能」入口(差额可见/失败给原因)。**force 默认 true**:用户手改 SKILL.md 后 mtime 可能不变(同秒连写/编辑器保留 mtime),只认增量会把"改了没生效"报成"没有变化" —— 这正是原防翻案注记点名的失效方向 |
 | `flush_memory` | 等价(部分) | `apps/api/src/routes/v1-knowledge-tools.ts:299` `saveMemorySchema`(记忆写入口,REST 非 SSE 帧) |
 | `refresh_memory` | **真缺** | 否证(2026-10-01 二轮):`git grep -inE "refreshMemory\|refresh_memory\|记忆刷新" -- apps/cli/src apps/api/src apps/ai-service/app apps/web/src packages/*/src` → 1 处(`app/services/agent_longterm_memory.py:278`,内部 `refresh updated_at`,非运行时刷新帧) |
 | `flush_skill_evolution` / `skill_evolution_should_review` | 等价 | `apps/ai-service/app/core/capability_matrix.py:233-234` `skill_evolution`(+`SKILL_EVOLUTION_ENABLED`);`app/main.py:389` L3 自进化调度器 |
@@ -116,13 +116,13 @@
 | `seed_read_state` | 等价(部分) | 已读/未读态由会话已读管理承载;无 seed 帧 |
 | `initialize` | 等价 | 引擎启动握手 + capability 声明(`agent_engine.py:2440`) |
 
-## 2 真缺汇总(在账 3 项,全部附否证;刻意档 1 项;`add_directories` 已于 2026-10-02 由票 D201 落地销缺,行保留作去向记录)
+## 2 真缺汇总(在账 2 项,全部附否证;刻意档 1 项;`add_directories` 已于 2026-10-02 由票 D201 落地销缺、`reload_skills` 已于 2026-10-28 落地销缺,两行保留作去向记录)
 
 | 帧 | 一句话差距 | 依赖/去向 |
 | --- | --- | --- |
 | `resume_goal` | 已清/已完成目标无恢复口 | 并入 D152 目标族产品化时一并拍板 |
 | `add_directories` | 多根工作区(会话中途追加目录),Codex/Qoder/Trae 三家都有 | **已落地(2026-10-02,票 D201)**:thread.settings additionalDirectories 控制帧 + 会话级路径校验覆盖层 + 控制端点,见 §1.5 该行;残余(CLI/web/索引面)见该行注记 |
-| `reload_plugins` / `reload_skills` | 插件/技能无运行时热重载口 | 并入插件面/技能面产品化 |
+| `reload_plugins` / `reload_skills` | 插件/技能无运行时热重载口 | **技能面已落地(2026-10-28)**:`reload_skills` 帧(宿主显式调用 + 回报差额 + force 默认 true)见 §1.7 该行,残余 = 插件面 `reload_plugins` 仍真缺(并入插件面产品化) |
 | `refresh_memory` | 记忆无运行时刷新帧(仅内部 updated_at) | 并入长期记忆产品化 |
 | `mcp_clear_auth` | MCP 凭据无运行时清除口(**刻意**,AGENTS §5 口径) | 如需补齐先过 §24 拍板,不得顺手开 |
 
