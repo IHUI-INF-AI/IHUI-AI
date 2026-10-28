@@ -87,6 +87,14 @@ vi.mock('../src/services/relay-model-catalog.js', () => ({
   resolveModelAlias: async () => null,
 }))
 
+/**
+ * 出网复检（utils/relay-egress-guard.ts）会在发请求前问一次 DNS；
+ * 本文件的 https://upstream.test/v 是假域名，桩成公网 IP 才能继续测"流式记账"本身。
+ */
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn(async () => [{ address: '203.0.113.10', family: 4 }]),
+}))
+
 /** 冷却落账探针:记「谁、冷却到几毫秒、写入时刻」,据此量真实退避时长 */
 const cooldownWrites: Array<{ id: string; untilMs: number; atMs: number }> = []
 vi.mock('../src/services/relay-account-shared-state.js', async (importOriginal) => {
