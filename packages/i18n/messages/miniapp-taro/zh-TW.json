@@ -4653,6 +4653,18 @@
       "refunded": "已退款"
     }
   },
+  "myAgentsPage": {
+    "title": "我的智能體",
+    "empty": "還沒有智能體",
+    "loadFailed": "載入失敗",
+    "free": "免費",
+    "status": {
+      "pending": "審核中",
+      "published": "已上線",
+      "rejected": "已駁回",
+      "draft": "草稿"
+    }
+  },
   "webViewPortal": {
     "news": "資訊",
     "learnTopic": "課程專題",

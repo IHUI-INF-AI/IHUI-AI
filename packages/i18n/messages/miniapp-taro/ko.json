@@ -4653,6 +4653,18 @@
       "refunded": "환불됨"
     }
   },
+  "myAgentsPage": {
+    "title": "내 에이전트",
+    "empty": "에이전트가 없습니다",
+    "loadFailed": "불러오기 실패",
+    "free": "무료",
+    "status": {
+      "pending": "검토 중",
+      "published": "공개됨",
+      "rejected": "반려됨",
+      "draft": "초안"
+    }
+  },
   "webViewPortal": {
     "news": "뉴스",
     "learnTopic": "주제 강의",

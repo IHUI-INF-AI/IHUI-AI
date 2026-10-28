@@ -1032,6 +1032,7 @@
     "certList": "証明書一覧",
     "certApply": "講師認証",
     "certVerify": "証明書検証",
+    "sectionAi": "AIエージェント",
     "sectionSocial": "ソーシャル",
     "favorites": "マイお気に入り",
     "follow": "フォローとフォロワー",
@@ -4301,6 +4302,18 @@
       "completed": "完了",
       "cancelled": "キャンセル",
       "refunded": "返金済み"
+    }
+  },
+  "myAgentsPage": {
+    "title": "マイエージェント",
+    "empty": "エージェントはまだありません",
+    "loadFailed": "読み込み失敗",
+    "free": "無料",
+    "status": {
+      "pending": "審査中",
+      "published": "公開中",
+      "rejected": "却下",
+      "draft": "下書き"
     }
   },
   "webViewPortal": {

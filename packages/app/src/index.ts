@@ -32,6 +32,8 @@ export type {
   MemberDashboardScreenProps,
   MemberOrderRow,
 } from './features/member-dashboard/MemberDashboardScreen'
+export { MyAgentsScreen } from './features/my-agents/MyAgentsScreen'
+export type { MyAgentRow, MyAgentsScreenProps } from './features/my-agents/MyAgentsScreen'
 export { FeedbackScreen } from './features/feedback/FeedbackScreen'
 export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen'
 export { FeedbackDetailScreen } from './features/feedback-detail/FeedbackDetailScreen'

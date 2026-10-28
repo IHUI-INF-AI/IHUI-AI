@@ -1032,6 +1032,7 @@
     "certList": "证书列表",
     "certApply": "讲师认证",
     "certVerify": "证书验真",
+    "sectionAi": "AI 智能体",
     "sectionSocial": "社交",
     "favorites": "我的收藏",
     "follow": "关注与粉丝",
@@ -4345,6 +4346,18 @@
       "completed": "已完成",
       "cancelled": "已取消",
       "refunded": "已退款"
+    }
+  },
+  "myAgentsPage": {
+    "title": "我的智能体",
+    "empty": "还没有智能体",
+    "loadFailed": "加载失败",
+    "free": "免费",
+    "status": {
+      "pending": "审核中",
+      "published": "已上线",
+      "rejected": "已驳回",
+      "draft": "草稿"
     }
   },
   "webViewPortal": {

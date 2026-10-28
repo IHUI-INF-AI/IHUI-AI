@@ -4653,6 +4653,18 @@
       "refunded": "返金済み"
     }
   },
+  "myAgentsPage": {
+    "title": "マイエージェント",
+    "empty": "エージェントはまだありません",
+    "loadFailed": "読み込み失敗",
+    "free": "無料",
+    "status": {
+      "pending": "審査中",
+      "published": "公開中",
+      "rejected": "却下",
+      "draft": "下書き"
+    }
+  },
   "webViewPortal": {
     "news": "ニュース",
     "learnTopic": "テーマ講座",
