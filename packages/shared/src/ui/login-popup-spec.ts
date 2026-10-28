@@ -25,6 +25,78 @@
  * 规则6 平台承载机制差异 → 允许不同形,注明理由。判不准的宁可保留并写明未决。
  */
 
+// ── O02 票④(第 ④ 格)收口证据:本族"只剩一份源"────────────────────────────
+// 现读 2026-10-28(`node scripts/check-cross-end-ui-parity.mjs --json`,face=head):
+//   findings[LoginPopUp] = diffCount 9 / radiusCount 0 / elementRadiusCount 0;
+//   同名档取值冲突、RE 维同名元素均为 0(RE 维本族零判据:两侧无一同名元素)。
+// 两条腿的几何档**全部**经本文件取数,端内不再自持"跨端可共享"的数值 —— 两端 import 点:
+//   · apps/miniapp-taro/src/components/LoginPopUp.tsx → '@ihui/shared/ui/login-popup-spec'
+//   · apps/mobile-rn/src/components/LoginPopUp.tsx   → '@ihui/shared/ui/login-popup-spec'
+//
+// 9 枚几何差档的来源(值折叠,不是 9 枚档名):仅小程序 40 / 300;仅 RN 4 / 8 / 18 / 20 / 22 / 32 / 36。
+// 其中 40 是**未具名类臂档**:小程序 app.css 的 `.login-input { height: 80rpx }`(=40,密码登录
+// 退路表单的输入行),不是 spec 导出档;其余 8 枚由下面 25 枚单端具名档折叠而来(8 这个值由
+// SHEET_PADDING_TOP / TITLE_MARGIN_BOTTOM / CLOSE_INSET / FOOTER_MARGIN_TOP 四枚共享)。
+//
+// 25 枚单端档逐条归属 —— 本族是 dialog(小程序)↔ sheet(RN)两承载,绝大多数是 A 类。
+// **没有一条属于"两端同值却各写一份"**:两端共用的 14 枚已全部只读本表(见下),
+// 其余档另一端根本没有该元素/该形态 ⇒ 收编 = 往屏幕上加一个不存在的节点。
+//
+//  A 一端根本没有该元素/该形态(23 枚):
+//    仅小程序 300  DIALOG_MAX_WIDTH          居中卡宽度上限;RN 抽屉整宽,无"宽度上限"这一档
+//    仅 RN 36      DRAG_BAR_WIDTH            抽屉把手
+//    仅 RN 4       DRAG_BAR_HEIGHT           抽屉把手
+//    仅 RN 12      DRAG_BAR_MARGIN_BOTTOM    把手与内容间距(与 SECTION_GAP 同值但语义独立)
+//    仅 RN 16      TITLE_FONT                授权卡标题;小程序弹窗无标题
+//    仅 RN 8       TITLE_MARGIN_BOTTOM       同上
+//    仅 RN 24      DESC_MARGIN_BOTTOM        授权卡描述;小程序弹窗无描述
+//    仅 RN 24      SECONDARY_BUTTON_MARGIN_BOTTOM 授权卡次按钮与协议行之间;小程序无该两元素
+//    仅 RN 12      AGREEMENT_FONT            协议行;小程序走微信授权面板
+//    仅 RN 4       AGREEMENT_GAP             勾选框与文案间距
+//    仅 RN 16      CHECKBOX_SIZE             协议勾选框
+//    仅 RN 12      AGREEMENT_MARK            勾选内 lucide Check 的 size
+//    仅 RN 32      CLOSE_BUTTON_SIZE         右上 ×;小程序关闭是底部整宽文字按钮
+//    仅 RN 18      CLOSE_ICON_FONT           × 字形字号
+//    仅 RN 22      CLOSE_ICON_LINE_HEIGHT    × 字形行盒补偿
+//    仅 RN 8       CLOSE_INSET               × 距卡顶/右
+//    仅 RN 20      ICON_BADGE_SIZE           资料行首徽标;小程序资料卡行无前缀徽标
+//    仅 RN 10      ICON_BADGE_MARGIN_RIGHT   同上
+//    仅 RN 12      ICON_GLYPH_FONT           徽标内 lucide 图标尺寸
+//    仅 RN 12      NOTE_FONT                 行内 hint/error;小程序校验失败走 Taro.showToast
+//    仅 RN -6      NOTE_MARGIN_TOP           同上(负值档,门 SL 现读漏报的那一枚)
+//    仅 RN 8       FOOTER_MARGIN_TOP         保存/登出块;小程序由父页面承载
+//    仅 RN 10      FOOTER_GAP                保存/登出按钮间距
+//
+//  B 同一元素、两端按**已裁决的承载契约**取不同档(2 枚,取任一端会破另一端版;产品裁决面):
+//    小程序 24     DIALOG_PADDING_TOP        居中卡四边均匀
+//    RN 8          SHEET_PADDING_TOP         抽屉顶被拖拽条占用
+//    两枚是**同一卡顶内距**的两种取值,不是"一端有档一端没写";拉平(8↔24)会把拖拽条挤下去
+//    或让居中卡顶部贴边 ⇒ 本表不单方面定档。wiring 测试 ⑫ 钉住"两者必须不同值"。
+//
+//  C 同槽位两端各由自身机制决定 —— 本族**没有 C 类具名档**。圆角(小程序 rounded-* /
+//    RN rnRadius.*)按守门 77 单源不进本表;遮罩色(小程序 CSS var / RN tokens+withAlpha)
+//    是颜色面,不是几何档。两者都不在本票射程,不得据此新报单侧。
+//
+// ⚠️ 门读数的边界(2026-10-28 实测):门内 spec 档解析只认非负字面量,`NOTE_MARGIN_TOP_PX`
+//   的 -6 不进 tiers ⇒ 不在 SL 读数里。门现读 SL LoginPopUp(24)= 仅小程序 2 + 仅 RN 22,
+//   而 spec 导出面的单端档实为 **25**。本文件与 wiring 按导出面登记 25,不照抄门的漏读;
+//   门要不要补负值档解析另计(本票不改门,禁改)。
+//
+// 端内未具名档(门读得出、**不得**收进本表的那一型):
+//   小程序 40 `.login-input` 高 80rpx(密码登录退路表单;RN 无账号密码表单,属 A 类)。
+//   单端档入表会让门 128 的 SL 维新增一条单侧判红(InputArea 的 `catChip.maxWidth: 96` 同型),
+//   故留在端内 + 本清单登记,wiring 测试 ⑬/⑭ 钉住"不入表、只在小程序、出处仍在"。
+//
+// 不属本票几何判据射程、但两端确有视觉差异的两枚(颜色/描边面,不在此单方面定档):
+//   ① 资料卡头像描边:小程序 `border` 类 1px vs RN `AVATAR_BORDER_WIDTH = 3`(端内常量);
+//   ② 主按钮/提示色:小程序 `--color-primary` / `text-muted-foreground` vs RN `brand.cta` /
+//      `brand.DEFAULT`(CTA 同源与提示色是否统一属颜色面裁决,同槽位但非本表几何档)。
+//
+// ⇒ 结论:本族**无可继续收敛项** —— A 组补引用是造假,B 组是承载/产品裁决面,C 组不存在。
+//   counts 维持 9。逐档归属由 packages/shared/src/ui/__tests__/login-popup-wiring.test.ts
+//   机器钉住(15 例:共用档两端落屏现算 / 块级第二份真相 / 单端 25 枚归属 / 幻影档 /
+//   未具名 40 / B 类机制对);谁往"另一端"补了引用,那条用例就红。
+
 // ===== 两端共用档(小程序资料卡 × RN 资料编辑卡) =====
 
 /**
