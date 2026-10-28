@@ -189,10 +189,14 @@ describe('Qoder 导入映射', () => {
     expect(mockInsertValues).not.toHaveBeenCalled()
   })
 
-  it('name 缺省按 nickname → phone 兜底', async () => {
+  it('name 缺省按 phone → nickname 兜底(O66:手机号优先)', async () => {
     await importAccounts('qoder', [{ token: 'dt-n', uid: 'u-n', nickname: 'nick6870552894' }])
     expect(lastInsert()['name']).toBe('nick6870552894')
     await importAccounts('qoder', [{ token: 'dt-p', uid: 'u-p', phone: '15330637579' }])
+    expect(lastInsert()['name']).toBe('15330637579')
+    await importAccounts('qoder', [
+      { token: 'dt-b', uid: 'u-b', nickname: 'nick6870552894', phone: '15330637579' },
+    ])
     expect(lastInsert()['name']).toBe('15330637579')
   })
 })
