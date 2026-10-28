@@ -53,6 +53,8 @@ interface BufferedLog {
   ip?: string
   userAgent?: string
   error?: string
+  // 契约(2026-10-28):created_at = 本行**请求完成时刻**,不是 flush 时刻 —— PG 的 now() 在同一 INSERT 内恒等,批量写会把整批拉平成同一毫秒,而下游(自动发现器按 24h 同签名计数/最近样本时刻)全靠 created_at 开窗。
+  createdAt: Date
 }
 
 /** 记录范围前缀:站内会话 API + 对外开放面网关(与 nginx 被限流的前缀一一对应)。 */
@@ -169,6 +171,8 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
     const method = request.method.toUpperCase()
     const statusCode = reply.statusCode
+    // 事件时间必须在这里取:缓冲区最快也要等到 flush 才落库,而落库那刻的 now() 会被整批共享。
+    const finishedAt = new Date()
 
     // 采样：2xx 按采样率，4xx/5xx 全量
     if (statusCode < 400) {
@@ -191,6 +195,7 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       ip: request.ip,
       userAgent: userAgent ? userAgent.slice(0, 512) : undefined,
       error,
+      createdAt: finishedAt,
     })
 
     // 开放面的失败请求(401/403/429 等安全事件)带完整归因打一条 stdout 日志。

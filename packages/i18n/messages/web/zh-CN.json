@@ -9588,6 +9588,9 @@
     "title": "AI 生涯指导"
   },
   "aiChat": {
+    "favorite": "添加收藏",
+    "unfavorite": "取消收藏",
+    "delete": "删除",
     "bindIssue": "绑定 Issue",
     "actions": {
       "archive": "归档",
@@ -9788,6 +9791,7 @@
       "title": "PowerShell 终端"
     },
     "thisMonth": "本月",
+    "earlier": "更早",
     "thisWeek": "本周",
     "title": "AI任务",
     "toast": {
@@ -11232,8 +11236,16 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "favorite": "添加收藏",
+    "unfavorite": "取消收藏",
+    "workbenchSessions": "会话",
     "feedbackLike": "有帮助",
     "feedbackDislike": "没帮助",
+    "workbenchHeroTitle": "AI 对话工作台",
+    "workbenchHeroHint": "在下方直接输入即可开新会话，或从左侧选择会话继续任务。",
+    "workbenchSplit": "拆分窗格",
+    "workbenchDropHere": "从左侧把会话拖到这里",
+    "workbenchQuickStart": "快捷动作",
     "truncation": {
       "maxLengthNotice": "本条回答在达到最大输出长度时被截断，内容不完整；发送“继续”可接着生成。"
     },

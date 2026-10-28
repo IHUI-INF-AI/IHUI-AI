@@ -64,7 +64,7 @@ const PERM_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
 
 function mockAdminAuth(): void {
   vi.mocked(verifyAccessToken).mockResolvedValue({
-    userId: 'mock-admin-id',
+    userId: '00000000-0000-4000-8000-000000000ad1',
     phone: '13800000000',
     familyId: '11111111-1111-4111-8111-111111111111',
     roleId: 1,
@@ -102,7 +102,7 @@ describe('Admin Role Permissions — 角色权限点配置(2026-08-30)', () => {
 
   it('非管理员(roleId=0)返回 403', async () => {
     vi.mocked(verifyAccessToken).mockResolvedValue({
-      userId: 'mock-user-id',
+      userId: '00000000-0000-4000-8000-000000000fee',
       phone: '13800000000',
       familyId: '11111111-1111-4111-8111-111111111111',
       roleId: 0,

@@ -468,9 +468,15 @@ describe('④ 反向锁(判据失效的表现永远是安静,这三格只能用�
   it('App.tsx 的状态栏避让单点必须在位,且带色只有一处取用点(守门 97 S1)', () => {
     const src = codeFace(sourceOf('app'))
     expect(/<SafeAreaView\s+edges=\{\['top'\]\}/.test(src)).toBe(true)
-    // 底色判定只出现在 rootBackground 那一行:整份文件的代码面里 backgroundColor 只被用它一次
-    const painted = src.match(/backgroundColor:/g)?.length ?? 0
-    expect(painted).toBe(1)
+    // 底色判定只出现在 rootBackground 那一行。2026-10-28 起代码面里多了一处**同色**取用:
+    // 启动兜底屏 BootScreen(字体未就绪不再 return null 的灰屏修复)直接取 tokens.surface.bg ——
+    // 它不参与路由底色判定,取的就是本文件的默认档原值,不构成"第二个色源"。
+    // 判据因此从「出现次数 == 1」改为「取值面白名单」:rootBackground 恰好一次,
+    // 其余一律只准 tokens.surface.bg;出现第三种写法(gray.black / routeBgEntry / 字面色)
+    // 才是真分叉 ⇒ 判红。(只数次数会被"同色兜底屏"误判,也会漏掉"两处都写 rootBackground")
+    const painted = [...src.matchAll(/backgroundColor:\s*([^,\n}]+)/g)].map((m) => m[1]!.trim())
+    expect(painted.filter((v) => v === 'rootBackground')).toHaveLength(1)
+    expect(painted.every((v) => v === 'rootBackground' || v === 'tokens.surface.bg')).toBe(true)
     expect(/rootBackground[\s\S]{0,160}gray\.black[\s\S]{0,160}surface\.bg/.test(src)).toBe(true)
   })
 

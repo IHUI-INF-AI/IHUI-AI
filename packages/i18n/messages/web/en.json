@@ -9588,6 +9588,9 @@
     "title": "AI Career Guidance"
   },
   "aiChat": {
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
+    "delete": "Delete",
     "bindIssue": "Bind issue",
     "actions": {
       "archive": "Archive",
@@ -9788,6 +9791,7 @@
       "title": "PowerShell Terminal"
     },
     "thisMonth": "This Month",
+    "earlier": "Earlier",
     "thisWeek": "This Week",
     "title": "AIChat",
     "toast": {
@@ -11232,8 +11236,16 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
+    "workbenchSessions": "Sessions",
     "feedbackLike": "Helpful",
     "feedbackDislike": "Not helpful",
+    "workbenchHeroTitle": "AI Chat Workbench",
+    "workbenchHeroHint": "Type below to start a new conversation right here, or pick a session on the left to continue.",
+    "workbenchSplit": "Split panes",
+    "workbenchDropHere": "Drag a conversation here from the left",
+    "workbenchQuickStart": "Quick actions",
     "truncation": {
       "maxLengthNotice": "This reply was cut off at the maximum output length and is incomplete; send \"continue\" to keep generating."
     },
