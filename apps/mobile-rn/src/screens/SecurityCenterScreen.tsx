@@ -103,6 +103,7 @@ export default function SecurityCenterScreen() {
   const [twoFactor, setTwoFactor] = useState<TwoFactorStatus | null>(null)
   const [twoFactorLoading, setTwoFactorLoading] = useState(true)
   const [setup, setSetup] = useState<TwoFactorSetup | null>(null)
+  const [recoveryBusy, setRecoveryBusy] = useState(false)
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
   const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
@@ -235,6 +236,46 @@ export default function SecurityCenterScreen() {
     })()
   }
 
+  /** 重新生成恢复码(明文只返回一次):后端 POST /api/mfa/recovery-codes ⇒ { recoveryCodes: string[] } */
+  const onRegenRecoveryCodes = () => {
+    appAlert(
+      t('securityCenter.twoFactor.recoveryTitle'),
+      t('securityCenter.twoFactor.recoveryConfirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setRecoveryBusy(true)
+              try {
+                const res = await fetchApi<{ recoveryCodes: string[] }>('/api/mfa/recovery-codes', {
+                  method: 'POST',
+                })
+                if (!res.success) {
+                  appAlert(
+                    t('common.error'),
+                    res.error || t('securityCenter.twoFactor.disableFailed'),
+                  )
+                  return
+                }
+                appAlert(
+                  t('securityCenter.twoFactor.recoveryTitle'),
+                  (res.data?.recoveryCodes ?? []).join(String.fromCharCode(10)),
+                )
+              } catch {
+                appAlert(t('common.error'), t('securityCenter.twoFactor.disableFailed'))
+              } finally {
+                setRecoveryBusy(false)
+              }
+            })()
+          },
+        },
+      ],
+    )
+  }
+
   const onRevoke = (session: AuthorizationSession) => {
     appAlert(t('securityCenter.sessions.revokeTitle'), t('securityCenter.sessions.revokeConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -332,6 +373,14 @@ export default function SecurityCenterScreen() {
                 </Text>
               ) : null}
               <Text style={styles.muted}>{t('securityCenter.twoFactor.disableHint')}</Text>
+
+              <TouchableOpacity
+                style={[styles.button, recoveryBusy && styles.buttonDisabled]}
+                disabled={recoveryBusy}
+                onPress={onRegenRecoveryCodes}
+              >
+                <Text style={styles.buttonText}>{t('securityCenter.twoFactor.regenRecovery')}</Text>
+              </TouchableOpacity>
               <TextField
                 colorScheme={resolvedTheme}
                 value={password}

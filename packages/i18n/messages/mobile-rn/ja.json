@@ -3211,6 +3211,9 @@
       "level_low": "低い"
     },
     "twoFactor": {
+      "regenRecovery": "リカバリーコードを再生成",
+      "recoveryTitle": "リカバリーコード",
+      "recoveryConfirm": "再生成すると旧コードは即時無効になります。続行しますか?",
       "title": "二段階認証",
       "enabled": "有効",
       "disabled": "未設定",

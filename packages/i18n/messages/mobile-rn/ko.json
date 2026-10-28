@@ -3211,6 +3211,9 @@
       "level_low": "낮음"
     },
     "twoFactor": {
+      "regenRecovery": "복구 코드 재생성",
+      "recoveryTitle": "복구 코드",
+      "recoveryConfirm": "재생성하면 기존 복구 코드는 즉시 무효가 됩니다. 계속할까요?",
       "title": "2단계 인증",
       "enabled": "사용 중",
       "disabled": "사용 안 함",
