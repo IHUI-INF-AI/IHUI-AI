@@ -409,10 +409,13 @@ async function registerPlugins(server: FastifyInstance) {
   // 再以空 token 连 /ws/notifications → 404 → 每 1~2 秒一轮的重连风暴。
   // 这里把"空 JSON body"按 {} 处理;合法 JSON 仍严格解析,非法 JSON 仍 400,
   // 缺字段由各路由 schema 决定(空对象不会绕过任何校验)。
-  // 键名过滤保持与 Fastify 默认 secure-json-parse 同语义,避免 __proto__ 污染面。
-  // 必须先移除 Fastify 内置的同名解析器:Fastify 5 对重复注册直接抛
-  // FST_ERR_CTP_ALREADY_PRESENT(routes/live.ts 的直播回调子作用域也依赖这条,
-  // 那里同样"先 remove 再 add")。
+  // 键名过滤是"静默剔除",比 Fastify 默认档(onProtoPoisoning/onConstructorPoisoning = 'error',
+  // 即命中就 400)更宽 —— 这是本改动的既有取向,不是与默认同语义。
+  // 装载后果必须知道:子作用域继承到的是**这一份自定义** parser(buildContentTypeParser 拷贝
+  // customParsers),而 Fastify 5 对同名重复注册直接抛 FST_ERR_CTP_ALREADY_PRESENT ⇒ 根作用域占住
+  // application/json 之后,任何子作用域想挂自己的 json parser 都必须先 remove 再 add,否则整进程
+  // 启动即崩(2026-10-28 实测:dev-stack api 由此反复重启失败)。现存 7 处验签子作用域逐条这样写,
+  // 由 tests/content-type-parser-scope.test.ts 按文件现读钉住,不接受口头保证。
   server.removeContentTypeParser('application/json')
   server.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
     const raw = typeof body === 'string' ? body : String(body ?? '')
