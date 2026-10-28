@@ -23,6 +23,45 @@ import {
   type MermaidRenderDecision,
 } from '@/components/ai/mermaid-render-budget'
 
+/**
+ * 2026-10-29 流式观感档⑨:模块级「已成功的消毒后 SVG」台账。
+ * 立因:① markdown-stream 的 stable/active 切分(P3 #35)会把写完的 mermaid 块跨
+ * ReactMarkdown 双树迁居晋升——重挂载实例读不到旧实例的 renderedKeyRef(组件级),
+ * 首帧只能"渲染中"占位、再付一次主线程全量布局,图闪一拍;② 本组件是 web 端唯一
+ * mermaid 渲染点(markdown-stream / MarkdownViewer / vision-analysis / mcp-resource-viewer
+ * 四入口共用),切页返回列表重挂、同图多实例并发,付的都是同一份布局。把"渲染成功过"
+ * 的事实从实例级抬到模块级:命中 ⇒ 首帧同步取图;在飞 ⇒ 同键合流只付一次。
+ * 卫生:只入消毒后的成功结果(错误不固化);LRU 上限 12 条;病态尺寸(>512 万字符)
+ * 不入账(一条占满 1/12 会把全家挤光);键含主题,明暗图绝不互串。
+ */
+const MERMAID_SVG_CACHE_MAX = 12
+const MERMAID_SVG_CACHE_MAX_CHARS = 5_120_000
+const mermaidSvgCache = new Map<string, string>()
+const mermaidInflight = new Map<string, Promise<string>>()
+
+function mermaidCacheKey(theme: string | undefined, code: string): string {
+  return `${theme ?? 'none'}\u0000${code}`
+}
+
+/** 命中即 touch(delete+set 挪 FIFO 队尾),上限处只挤最久未读的头一条。 */
+function readMermaidSvgCache(key: string): string | null {
+  const hit = mermaidSvgCache.get(key)
+  if (hit === undefined) return null
+  mermaidSvgCache.delete(key)
+  mermaidSvgCache.set(key, hit)
+  return hit
+}
+
+function noteMermaidSvgCache(key: string, svg: string): void {
+  if (svg.length > MERMAID_SVG_CACHE_MAX_CHARS) return
+  mermaidSvgCache.delete(key)
+  mermaidSvgCache.set(key, svg)
+  if (mermaidSvgCache.size > MERMAID_SVG_CACHE_MAX) {
+    const oldest = mermaidSvgCache.keys().next().value
+    if (oldest !== undefined) mermaidSvgCache.delete(oldest)
+  }
+}
+
 interface MermaidDiagramProps {
   code: string
   className?: string
@@ -83,7 +122,9 @@ class MermaidErrorBoundary extends React.Component<
  * - **渲染预算**:源码规模超三维上限或页面不可见时**根本不进入 render**,降级为
  *   `<pre>` 源码 + 一条走 i18n 的提示(判据见 `@/components/ai/mermaid-render-budget`)。
  *   这一道是前置的,因为下面的 ErrorBoundary 抓得到抛错、抓不到挂死。
- * - 渲染失败时显示错误降级块 + 源码,不影响外层页面
+ * - 渲染失败时显示错误降级块 + 源码
+ * - **档⑨ 模块级 SVG 台账**:同主题同内容的"已成功渲染"跨实例移交 —— 晋升重挂/
+ *   多入口共用同一图时首帧同步取图、并发同键只付一次布局(卫生规则见台账定义处),不影响外层页面
  * - SVG 容器 overflow-auto,长图表可横向滚动;D196 起右上角悬浮缩放工具条
  *   (transform 缩放,scrollable overflow 随之扩展,横/纵滚动可达全部内容)
  *
@@ -94,7 +135,11 @@ class MermaidErrorBoundary extends React.Component<
 function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
   const t = useTranslations('a11y')
   const { resolvedTheme } = useTheme()
-  const [svg, setSvg] = React.useState<string | null>(null)
+  // 档⑨:台账键(主题+内容);晋升/重挂实例同主题同内容 ⇒ 初帧经台账同步取图。
+  // resolvedTheme 未定位的首帧归 'none' —— 不误配明暗任何一图,theme 落定后由
+  // effect 补读台账(仍是同步 setSvg,零 render 调用,零布局)。
+  const cacheKey = mermaidCacheKey(resolvedTheme, code)
+  const [svg, setSvg] = React.useState<string | null>(() => readMermaidSvgCache(cacheKey))
   const [error, setError] = React.useState<Error | null>(null)
   const pageVisible = usePageVisible()
 
@@ -115,50 +160,78 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
 
   // 已成功的 code+主题组合不再重复 render:否则"切走标签页 → 切回来"会为一张
   // 已经画好的图再付一次全量布局(可见性开关是为了省工,不是为了造工)。
-  const renderedKeyRef = React.useRef<string | null>(null)
+  // 档⑨:初帧台账命中 ⇒ 初始即"已渲染",ref 初值同步跟上,effect 直接短路。
+  const renderedKeyRef = React.useRef<string | null>(svg !== null ? cacheKey : null)
 
   React.useEffect(() => {
     if (!shouldRender) return
-    const key = `${resolvedTheme}\u0000${code}`
+    const key = cacheKey
     if (renderedKeyRef.current === key) return
+
+    // 档⑨:台账命中(theme 晚到帧的补读也在这一支)⇒ 同步交图,一次 async render 都不发起
+    const cached = readMermaidSvgCache(key)
+    if (cached !== null) {
+      renderedKeyRef.current = key
+      setSvg(cached)
+      return
+    }
 
     let cancelled = false
 
-    async function run(): Promise<void> {
+    void (async () => {
       try {
-        // dynamic import,避免 SSR 报错 & 影响首屏 bundle size
-        const mermaidModule = await import('mermaid')
-        const mermaid = mermaidModule.default
-        await mermaid.initialize({
-          startOnLoad: false,
-          theme: resolvedTheme === 'dark' ? 'dark' : 'default',
-          // 2026-07-21 安全审计加固:securityLevel 改为 'strict' 阻止 Mermaid 代码内嵌 HTML/事件
-          // 旧值 'loose' 允许 click/callback 等 HTML 事件 + 自定义 HTML 标签,可能被 XSS 利用
-          // 严格模式:仅渲染 SVG,无 HTML 事件,无 script 标签
-          securityLevel: 'strict',
-        })
-        const result = await mermaid.render(id, code)
-        if (cancelled) return
-        // DOMPurify 消毒 SVG,防止 XSS(mermaid securityLevel: 'strict' 已阻断 HTML 事件,此处二次防御)
-        const DOMPurifyModule = await import('dompurify')
-        const DOMPurify = DOMPurifyModule.default
-        const clean = DOMPurify.sanitize(result.svg, { USE_PROFILES: { svg: true } })
+        // 档⑨并发合流:同键已有在飞任务 ⇒ 搭上同一份结果,不为同一张图付第二次主线程布局。
+        // 发起者负责:成功入台账(不管自己活没活着,给"被晋升重挂顶掉"的原实例留结果)、
+        // inflight 清账(只清还是自己那条)。
+        let task = mermaidInflight.get(key)
+        if (task === undefined) {
+          const owned = (async (): Promise<string> => {
+            // dynamic import,避免 SSR 报错 & 影响首屏 bundle size
+            const mermaidModule = await import('mermaid')
+            const mermaid = mermaidModule.default
+            await mermaid.initialize({
+              startOnLoad: false,
+              theme: resolvedTheme === 'dark' ? 'dark' : 'default',
+              // 2026-07-21 安全审计加固:securityLevel 改为 'strict' 阻止 Mermaid 代码内嵌 HTML/事件
+              // 旧值 'loose' 允许 click/callback 等 HTML 事件 + 自定义 HTML 标签,可能被 XSS 利用
+              // 严格模式:仅渲染 SVG,无 HTML 事件,无 script 标签
+              securityLevel: 'strict',
+            })
+            const result = await mermaid.render(id, code)
+            // DOMPurify 消毒 SVG,防止 XSS(mermaid securityLevel: 'strict' 已阻断 HTML 事件,此处二次防御)
+            const DOMPurifyModule = await import('dompurify')
+            const DOMPurify = DOMPurifyModule.default
+            return DOMPurify.sanitize(result.svg, { USE_PROFILES: { svg: true } })
+          })()
+          task = owned
+          mermaidInflight.set(key, owned)
+          // 成功入台账、随后清 inflight —— 必须挂在同一支已 catch 的链上:
+          // `owned.finally` 另起一支的话,leader 失败时该支以原 reject 收尾,
+          // void 接不住 ⇒ unhandled rejection(2026-10-29 现测,首跑即红被这格逮住)
+          void owned
+            .then((clean) => noteMermaidSvgCache(key, clean))
+            .catch(() => {})
+            .finally(() => {
+              if (mermaidInflight.get(key) === owned) mermaidInflight.delete(key)
+            })
+        }
+        const clean = await task
         if (cancelled) return
         renderedKeyRef.current = key
         setSvg(clean)
         setError(null)
       } catch (err) {
         if (cancelled) return
+        // 失败只进本实例错误态,绝不入台账(⑨头注卫生)
         setError(err instanceof Error ? err : new Error(String(err)))
         setSvg(null)
       }
-    }
+    })()
 
-    void run()
     return () => {
       cancelled = true
     }
-  }, [shouldRender, code, resolvedTheme, id])
+  }, [shouldRender, code, resolvedTheme, id, cacheKey])
 
   // ── D196 缩放 + D198 复制为图片(全部 hook 置于下方条件 return 之前,rules-of-hooks)──
   const [zoom, setZoom] = React.useState(1)
@@ -367,6 +440,21 @@ export function MermaidDiagram(props: MermaidDiagramProps): React.ReactElement {
       <MermaidDiagramInner {...props} />
     </MermaidErrorBoundary>
   )
+}
+
+/**
+ * 测试隔离出口(§22c:测试 import 生产出口,不复制判据):模块台账跨用例存活,
+ * 单测件必须能清空它 —— 否则"先渲染成功"一例会把后写的"render 只调一次"类断言
+ * 短路成假绿。LRU 上限/并发合流的正反面另有专例钉死。
+ */
+export const __test__ = {
+  clearMermaidRenderCache: (): void => {
+    mermaidSvgCache.clear()
+    mermaidInflight.clear()
+  },
+  mermaidCacheKey,
+  readMermaidSvgCache,
+  noteMermaidSvgCache,
 }
 
 export default MermaidDiagram
