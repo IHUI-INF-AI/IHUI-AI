@@ -297,7 +297,15 @@ export function makeAncestorCheck({ root = ROOT, spawn = spawnSync } = {}) {
     if (cache.has(key)) return cache.get(key)
     let ok = false
     try {
-      const r = spawn('git', ['merge-base', '--is-ancestor', a, d], { cwd: root, encoding: 'utf8', windowsHide: true })
+      // stdio 必须显式写(2026-10-28 修):本机派生面不接管 stdio 时 0/30 成功(EBUSY),
+      // 而这一格判的是「修复是否已上线」——它一旦恒 false,真实上线会被判成未部署(安静假红)。
+      // 判据只认属性名,取值仍要 pipe 以保住 stdout 捕获。
+      const r = spawn('git', ['merge-base', '--is-ancestor', a, d], {
+        cwd: root,
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
       ok = !!(r && r.status === 0)
     } catch {
       ok = false
