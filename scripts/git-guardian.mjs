@@ -2742,9 +2742,12 @@ function envDriftDetail(parsed, kindLabel) {
  *
  * 立因(现读):2026-10 起公网链路改为 EdgeOne **源站直填家宽公网 IPv4**(取代 Cloudflare Tunnel
  * 跨境回源,实测回源 ttfb 10~45s → 0.28~0.34s)。该地址是动态的 —— 一变即全公网 5xx,而此前
- * 全仓无任何尺子看守。本机无 EO API 凭据 ⇒ 只能"量到 + 到人",信里给人工出口(EO 控制台改
- * 源站那一格);期望值住台账 scripts/data/eo-origin-expectation.json,判据住
- * scripts/check-egress-ip-drift.mjs(与 auditEnvDrift 同构:判机器状态 ⇒ 绝不进提交链 §12e,
+ * 全仓无任何尺子看守。2026-10-21 立时写"本机无 EO API 凭据 ⇒ 只能量到 + 到人";**2026-10-28
+ * 实测证伪**:生产 api 的 `.env` 里 TENCENT_SMS_* 能签名通过 teo.tencentcloudapi.com 且能
+ * ModifyAccelerationDomain(同值回写 200 OK)⇒ 漂移先走 `scripts/repair-eo-origin.mjs` 自愈,
+ * 自愈不成才到人(信里仍给人工出口,EO 控制台改源站那一格);期望值不再只靠人工台账,而是
+ * 由 `refreshEoLiveLedger()` 把 EO 现配投影成运行时台账喂给判据,仓内台账仅作回落。
+ * 判据仍住 `scripts/check-egress-ip-drift.mjs`(判机器状态 ⇒ 绝不进提交链 §12e,
  * 唯一调度器 = 本守护)。
  *
  * 三态分流(与尺子退出码同形,互不顶掉):
@@ -2761,13 +2764,78 @@ const EGRESS_UNDET_FILE = join(WORKTREE, '.ihui-agent', 'state', 'egress-ip-drif
 const EGRESS_DRIFT_FILE = join(WORKTREE, '.ihui-agent', 'state', 'egress-ip-drift-first.json')
 const EGRESS_UNDET_HORIZON_MS = Number(process.env.IHUI_EGRESS_UNDET_HORIZON_MS || 30 * 60 * 1000)
 
+/**
+ * 自愈腿(2026-10-28 立):EO 源站"可活读、可改写"之后,漂移不再只能到人。
+ *
+ * 前提变更如实登记:2026-10-21 立巡检时写的"本机无 EO API 凭据",2026-10-28 实测证伪 ——
+ * 生产 api 的 `.env` 里 TENCENT_SMS_* 能签名通过 teo.tencentcloudapi.com,
+ * 且 ModifyAccelerationDomain 同值回写 200 OK。于是期望值从"人工登记的台账"升级为
+ * **EO 现配的投影**(运行时台账,写在 .ihui-agent/state/,不进仓),漂移则直接改回。
+ * 唯一器物 = scripts/repair-eo-origin.mjs;本文件只负责派生与解析,判定留在那个脚本里。
+ * 任何缺失/失败都返回可判对象并**回落**旧路(台账巡检 + 到人),自愈绝不把巡检本身拖死。
+ */
+const EGRESS_LIVE_LEDGER_FILE = join(WORKTREE, '.ihui-agent', 'state', 'eo-origin-live-ledger.json')
+
+/** 把 EO 现配写成运行时台账。true = 成功(调用方据此换 --ledger);false = 回落仓内台账。 */
+function refreshEoLiveLedger() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'repair-eo-origin.mjs')
+  if (!existsSync(script)) return false
+  try {
+    const stdout = String(
+      execFileSync(process.execPath, [script, '--print-ledger'], {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000,
+        maxBuffer: 1 << 20,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }) || '',
+    )
+    const doc = JSON.parse(stdout)
+    if (!doc || !Array.isArray(doc.rows)) return false
+    mkdirSync(dirname(EGRESS_LIVE_LEDGER_FILE), { recursive: true })
+    writeFileSync(EGRESS_LIVE_LEDGER_FILE, JSON.stringify(doc), 'utf8')
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 派生自愈器唯一出口:--apply 漂移即改并从公网入口验证(失败回滚),解析它的结论行。 */
+function runEoRepair() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'repair-eo-origin.mjs')
+  if (!existsSync(script)) return { missing: true }
+  const args = [script, '--apply', '--json']
+  try {
+    const stdout = String(
+      execFileSync(process.execPath, args, {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 300000, // 改源站 + 等 EO 部署 + 公网入口验证(默认 180s)的上限 + 富余
+        maxBuffer: 1 << 20,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }) || '',
+    )
+    return { missing: false, ...JSON.parse(stdout) }
+  } catch (e) {
+    let parsed = null
+    try { parsed = JSON.parse(String(e.stdout || '')) } catch { parsed = null }
+    return { missing: false, state: (parsed && parsed.state) || 'failed', reason: (parsed && parsed.reason) || 'repair-crashed', ...(parsed || {}) }
+  }
+}
+
 /** 派生那把尺子的唯一出口:只读、带超时、不带控制台窗(§5b / 守门 52·80)。 */
 function runEgressProbe() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-egress-ip-drift.mjs')
   if (!existsSync(script)) return { missing: true, code: 2, stdout: '' }
+  // 2026-10-28:期望改由 EO 现配投影(运行时可读),活读失败才回落仓内台账(旧行为)。
+  const live = refreshEoLiveLedger()
+  const args = [script, '--check', '--json']
+  if (live) args.push('--ledger', EGRESS_LIVE_LEDGER_FILE)
   try {
     const stdout = String(
-      execFileSync(process.execPath, [script, '--check', '--json'], {
+      execFileSync(process.execPath, args, {
         cwd: WORKTREE,
         encoding: 'utf8',
         windowsHide: true,
@@ -2794,7 +2862,7 @@ export function egressAlertDetail(parsed, kindLabel) {
     else if (v.state === 'registered') lines.push(`[登记不判] ${v.face} —— ${v.reason}`)
   }
   return (
-    `${kindLabel}:EdgeOne 源站直填的是**家宽动态公网 IPv4**,漂了不自动修(本机无 EO API 凭据,实测),这封信就是那格眼睛。\n` +
+    `${kindLabel}:EdgeOne 源站直填的是**家宽动态公网 IPv4**;自愈腿已先尝试改源站,未成功才发这封信(失败形状见下行),现在需要人工接手。\n` +
     `${lines.join('\n')}\n` +
     '手动复核:node scripts/check-egress-ip-drift.mjs(结论行 PROBE-RESULT 恒纯 ASCII;curl 复现须 --noproxy \'*\' 强制 IPv4)。'
   )
@@ -2839,17 +2907,37 @@ export function auditEgressIpDrift(opts = {}) {
     return { state: 'unreadable', code: probe.code }
   }
   if (parsed.state === 'drift') {
+    // 2026-10-28:先自愈,自愈不成才喊人。镜像测试注入 run 时默认不跑真自愈(无 heal 注入 ⇒ null),
+    // 旧用例行为不变;生产两条路径都不注入 ⇒ runEoRepair 生效。
+    const healFn = Object.prototype.hasOwnProperty.call(opts, 'heal') ? opts.heal : Object.prototype.hasOwnProperty.call(opts, 'run') ? null : runEoRepair
+    const heal = healFn ? healFn() : null
+    if (heal && !heal.missing && (heal.state === 'repaired' || heal.state === 'ok')) {
+      let probeOk = heal.state === 'ok'
+      if (heal.state === 'repaired') {
+        const again = run()
+        try { probeOk = JSON.parse(again.stdout).state === 'ok' } catch { probeOk = false }
+      }
+      clearUndeterminedStreak(driftFile)
+      clearUndeterminedStreak(undetFile)
+      logger(
+        heal.state === 'repaired'
+          ? `✅ 公网出口 IP 漂移已自愈:EO 源站 ${heal.oldOrigin || parsed.expectedSet || '?'} → ${heal.origin}(出口 ${parsed.currentIp}),公网入口已验证${probeOk ? '' : ';运行时台账下轮重读'}`
+          : `✅ 公网出口 IP 巡检:EO 现配 == 现测出口(${parsed.currentIp}),链路正常(仓内台账过期不影响判定)`,
+      )
+      return { state: 'self-healed', healed: heal.state, wan: parsed.currentIp }
+    }
     const faces = (parsed.verdicts || []).filter((v) => v.state === 'drift').map((v) => v.face).sort().join('+') || 'na'
     // 起始形状钉 face 集合(同 deploy-stall 型②):事件中途又漂一枚面会进正文,但不另开身份刷屏
     const { firstMs, heldMs } = noteUndeterminedStreak(driftFile, now, { faces })
     const held = alertHeldTier(firstMs, now)
     logger(`❌ 公网出口 IP 与 EdgeOne 源站期望不一致(drift):${faces}(已持续 ${Math.round(heldMs / 60000)} 分钟,持续档=${held.tier})`)
-    notify('公网出口 IP 与 EdgeOne 源站期望不一致(全公网链路正在或即将 5xx)', `${egressAlertDetail(parsed, '漂移')}\n已持续 ${Math.round(heldMs / 60000)} 分钟;持续档=${held.tier}(跨 6h/24h/72h 档即新身份重报)。`, {
+    const healNote = heal && !heal.missing && heal.state ? `\n自愈未完成:${heal.state}${heal.reason ? `(${heal.reason})` : ''}${heal.rolledBack === false ? ' [回滚也失败]' : ''}` : ''
+    notify('公网出口 IP 与 EdgeOne 源站期望不一致(全公网链路正在或即将 5xx)', `${egressAlertDetail(parsed, '漂移')}${healNote}\n已持续 ${Math.round(heldMs / 60000)} 分钟;持续档=${held.tier}(跨 6h/24h/72h 档即新身份重报)。`, {
       severity: 'critical',
       dedupKey: `egress-drift;faces=${faces};tier=${held.tier}`,
     })
     clearUndeterminedStreak(undetFile)
-    return { state: 'drift', faces, tier: held.tier }
+    return { state: 'drift', faces, tier: held.tier, heal: heal && !heal.missing ? heal.state : 'skipped' }
   }
   if (parsed.state === 'unjudged') {
     logger('❓ 出口 IP 巡检未判定(探测源交叉不足或台账不可读/过期),不记为通过')
