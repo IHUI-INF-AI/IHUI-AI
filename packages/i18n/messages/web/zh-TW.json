@@ -11232,6 +11232,8 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "feedbackLike": "有幫助",
+    "feedbackDislike": "沒幫助",
     "truncation": {
       "maxLengthNotice": "本條回答在達到最大輸出長度時被截斷，內容不完整；傳送「繼續」可接著生成。"
     },
@@ -12234,6 +12236,7 @@
       "feedbackRecorded": "已記錄反饋,感謝支持",
       "feedbackSaved": "已記錄回饋",
       "feedbackFailed": "回饋提交失敗",
+      "dislikeThanks": "已記錄 —— 可透過回饋卡補充原因",
       "messageDeleted": "已刪除消息",
       "operationFailed": "操作失敗",
       "regenerating": "正在重新生成…",
