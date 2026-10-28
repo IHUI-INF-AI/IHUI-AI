@@ -287,8 +287,6 @@ export function lifecycleOnlyDataRefresh(text) {
 export function shellFetchesData(shellText) {
   const s = String(shellText ?? '')
   // 端内 api 层(../api/social 等)也是真取数:现读 SubscriptionsScreen 就从 '../api/social' 取
-  if (/froms*['"]../api//.test(s)) return true
-  // 端内 api 层(../api/social 等)也是真取数:现读 SubscriptionsScreen 就从 '../api/social' 取
   if (/from\s*['"]\.\.\/api\//.test(s)) return true
   if (!/@ihui\/api-client/.test(s)) return false
   if (/fetchApi|request\s*\(/.test(s)) return true
