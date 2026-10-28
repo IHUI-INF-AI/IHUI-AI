@@ -141,7 +141,7 @@ async function isValidRssFeed(url: string, minBytes: number): Promise<boolean> {
 }
 
 /** 探测全部候选源,恢复的自动入源。返回本次结果明细。 */
-export async function probePortalSources(): Promise<
+async function probePortalSources(): Promise<
   Array<{
     sourceCode: string
     status: 'added' | 'exists' | 'not-recovered' | 'error'

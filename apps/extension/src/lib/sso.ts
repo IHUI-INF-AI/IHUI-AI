@@ -55,7 +55,7 @@ const SSO_CLIENT_ID = SSO_CLIENT_IDS.EXTENSION
  * 开发环境 extension-id 可能每次加载不同(除非固定 key);
  * 生产环境 extension-id 固定(由 Chrome Web Store 分配)。
  */
-export function getSsoRedirectUrl(): string {
+function getSsoRedirectUrl(): string {
   if (typeof chrome === 'undefined' || !chrome.identity?.getRedirectURL) {
     throw new Error('chrome.identity API 不可用,请在 manifest 添加 identity 权限')
   }

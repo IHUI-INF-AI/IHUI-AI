@@ -163,7 +163,7 @@ export function calculateMonthlyPeriodsForMonth(year: number, month: number): Pe
  * @param input 结算记录入参
  * @returns 创建的结算记录
  */
-export async function createSettlementRecord(
+async function createSettlementRecord(
   input: CreateSettlementRecordInput,
 ): Promise<AgentSettlement> {
   const rows = await db

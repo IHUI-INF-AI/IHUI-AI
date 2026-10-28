@@ -142,7 +142,7 @@ async function fetchBaiduHot(): Promise<number> {
 }
 
 /** 采集入口:三个源并行抓取,单个失败不阻塞其余 */
-export async function syncHotWords(): Promise<
+async function syncHotWords(): Promise<
   Array<{ source: string; count: number; status: 'success' | 'error' }>
 > {
   const jobs: Array<[string, () => Promise<number>]> = [

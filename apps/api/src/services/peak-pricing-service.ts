@@ -143,7 +143,7 @@ async function loadEnabledRules(): Promise<RelayPeakPricingRule[]> {
 }
 
 /** 清空缓存(管理端写操作后调用,保证改完即生效)。 */
-export function invalidatePeakPricingCache(): void {
+function invalidatePeakPricingCache(): void {
   cache = null
 }
 
