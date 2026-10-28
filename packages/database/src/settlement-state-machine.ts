@@ -105,8 +105,10 @@ export function computeNextRunAt(attempt: number, now: Date, opts?: BackoffOptio
 export function deriveSettlementStatus(
   row: Pick<UserAutomation, 'claimToken' | 'attempt' | 'terminalReason'>,
 ): SettlementState {
-  if (row.terminalReason != null && row.terminalReason !== '') return 'terminal'
-  if (row.claimToken != null && row.claimToken !== '') return 'processing'
+  // 空串与 null/undefined 同视为"无值":(x ?? '') !== '' 与 x != null && x !== '' 等价,
+  // 但不用 != 以免触 eqeqeq(本包 lint 面要求 ===/!==)。
+  if ((row.terminalReason ?? '') !== '') return 'terminal'
+  if ((row.claimToken ?? '') !== '') return 'processing'
   if (typeof row.attempt === 'number' && row.attempt > 0) return 'backing_off'
   return 'pending_claim'
 }

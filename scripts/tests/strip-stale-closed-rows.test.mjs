@@ -20,8 +20,10 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 const P_OPEN_A = '- [ ] G-7001 探针甲:这条登记行用来验证清扫器与守门七十一问的是同一把尺子'
 const P_OPEN_B = '- [ ] G-7002 探针乙:这一行始终未勾,用来让保护集在夹具面上不为空以便判定'
 const P_OPEN_C = '- [ ] G-7003 探针丙:第三枚提交只改这一行,好让翻勾那枚不是 HEAD 自身'
-const CLOSED_A_PAIRED = '- [x] ✅(2026-10-20/甲) G-7001 探针甲:这条登记行用来验证清扫器与守门七十一问的是同一把尺子'
-const CLOSED_A_DRIFT = '- [x] ✅(2026-10-20/甲) G-7001 探针甲【翻勾时正文被改写过】于是历史里的开放形态没了凭据'
+const CLOSED_A_PAIRED =
+  '- [x] ✅(2026-10-20/甲) G-7001 探针甲:这条登记行用来验证清扫器与守门七十一问的是同一把尺子'
+const CLOSED_A_DRIFT =
+  '- [x] ✅(2026-10-20/甲) G-7001 探针甲【翻勾时正文被改写过】于是历史里的开放形态没了凭据'
 
 function g(dir, args) {
   return execFileSync('git', ['-C', dir, ...args], {
@@ -119,7 +121,11 @@ test('M3 反证:摘除动作本身不引点名时才会摘 —— 尺子换成�
   try {
     const { head, stale } = staleRowsOf(dir)
     const hollow = S.partitionStaleByProtection(head, stale, () => [])
-    assert.equal(hollow.ok && hollow.strippable.length, 1, '尺子恒空 ⇒ 全判可摘(所以尺子必须真接上)')
+    assert.equal(
+      hollow.ok && hollow.strippable.length,
+      1,
+      '尺子恒空 ⇒ 全判可摘(所以尺子必须真接上)',
+    )
     const wired = S.partitionStaleByProtection(
       head,
       stale,
@@ -164,11 +170,19 @@ test('M5 保护集枚举为 0 ⇒ 判死不记绿(§0.3),不得据"空保护集"
     writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), ['# 计划', P_OPEN_A, ''].join('\n'), 'utf8')
     g(dir, ['add', 'PROJECT_PLAN.md'])
     g(dir, ['commit', '-q', '-m', '登记'])
-    writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), ['# 计划', CLOSED_A_PAIRED, ''].join('\n'), 'utf8')
+    writeFileSync(
+      path.join(dir, 'PROJECT_PLAN.md'),
+      ['# 计划', CLOSED_A_PAIRED, ''].join('\n'),
+      'utf8',
+    )
     g(dir, ['add', 'PROJECT_PLAN.md'])
     g(dir, ['commit', '-q', '-m', '配平翻勾'])
     const ruler = S.buildLineLossRuler({ root: dir, archived: () => null })
-    assert.equal(ruler.ok, false, `保护集应为 0 而尺子必须拒绝,实得:ok=${ruler.ok} seen=${ruler.seen?.size}`)
+    assert.equal(
+      ruler.ok,
+      false,
+      `保护集应为 0 而尺子必须拒绝,实得:ok=${ruler.ok} seen=${ruler.seen?.size}`,
+    )
     assert.match(ruler.why, /枚举为 0/, `原因必须点名是"空保护集"这一型,实得:${ruler.why}`)
     // 反证:尺子拒绝时,主流程拿不到 lossesOf ⇒ 摘除档结构上不可能"默默放行"
     assert.equal(typeof ruler.lossesOf, 'undefined', '尺子不可用就不该带出 lossesOf')
@@ -182,23 +196,34 @@ test('M6 单源纪律:清扫器 import 门 71 的出口,自己不复算配平状
   const src = readFileSync(new URL('../strip-stale-closed-rows.mjs', import.meta.url), 'utf8')
   const clause = src.match(/import\s*\{([^}]*)\}\s*from\s*'\.\/check-plan-line-loss\.mjs'/)
   assert.ok(clause, "必须存在从 './check-plan-line-loss.mjs' 的 import(尺子借门 71)")
-  const names = clause[1].split(',').map((s) => s.trim()).filter(Boolean)
+  const names = clause[1]
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
   for (const n of ['historyMarkers', 'missingFrom', 'closedRegistrationOf', 'lastHistoryWindow'])
     assert.ok(names.includes(n), `import 里必须含门 71 出口 ${n},实得:${names.join('/')}`)
   for (const stolen of ['countsPerCommit', 'unexplained', 'flips +=', 'retired.add'])
     assert.ok(!src.includes(stolen), `出现 "${stolen}" = 在本器里抄了第二份历史状态机`)
   // 出口确实还在门 71 上(被抽走 ⇒ 上面那条 import 当场炸,而这条先点名是哪一格)
   const g71 = await import('../check-plan-line-loss.mjs')
-  for (const n of ['historyMarkers', 'missingFrom', 'closedRegistrationOf', 'lastHistoryWindow', 'historyDepth'])
-    assert.equal(typeof g71[n], 'function', `守门 71 缺少可复用出口 ${n} ⇒ 本档停手并上报,不得私抄判据`)
+  for (const n of [
+    'historyMarkers',
+    'missingFrom',
+    'closedRegistrationOf',
+    'lastHistoryWindow',
+    'historyDepth',
+  ])
+    assert.equal(
+      typeof g71[n],
+      'function',
+      `守门 71 缺少可复用出口 ${n} ⇒ 本档停手并上报,不得私抄判据`,
+    )
 })
 
 test('M7 归因不全 ⇒ 整批不落(解释不了的红必须多要一次定向说明,§0.10)', () => {
   const head = ['# 计划', P_OPEN_B, CLOSED_A_PAIRED].join('\n')
-  const part = S.partitionStaleByProtection(
-    head,
-    [{ line: 3, raw: CLOSED_A_PAIRED }],
-    (text) => (text === head ? [] : [{ marker: 'G-7999 没人摘过的编号', id: 'G-7999' }]),
+  const part = S.partitionStaleByProtection(head, [{ line: 3, raw: CLOSED_A_PAIRED }], (text) =>
+    text === head ? [] : [{ marker: 'G-7999 没人摘过的编号', id: 'G-7999' }],
   )
   assert.equal(part.ok, false)
   assert.equal(part.unattributed.length, 1)
@@ -210,7 +235,9 @@ test('M8 机读结论行:state 与三个计数恒在场(守护日志按它分三
   const line = S.emitResult('stripped', { stale: 3, held: 1, stripped: 2 })
   assert.match(line, /^SWEEP-RESULT state=stripped stale=3 held=1 stripped=2$/)
   for (const st of ['clean', 'preflight', 'stripped', 'all-held', 'refused', 'undetermined'])
-    assert.ok(S.emitResult(st, { stale: 0, held: 0, stripped: 0 }).startsWith(`SWEEP-RESULT state=${st} `))
+    assert.ok(
+      S.emitResult(st, { stale: 0, held: 0, stripped: 0 }).startsWith(`SWEEP-RESULT state=${st} `),
+    )
 })
 
 test('M10 形状锁:主流程必须在任何落地动作之前先问尺子(顺序即纪律)', async () => {
@@ -218,31 +245,83 @@ test('M10 形状锁:主流程必须在任何落地动作之前先问尺子(顺�
   const src = readFileSync(new URL('../strip-stale-closed-rows.mjs', import.meta.url), 'utf8')
   const main = src.slice(src.indexOf('function main()'))
   const asked = main.indexOf('buildLineLossRuler()')
-  const landed = main.indexOf("spawnSync(process.execPath, [path.join(ROOT, 'scripts/object-space-land.mjs')]")
+  const landed = main.indexOf(
+    "spawnSync(process.execPath, [path.join(ROOT, 'scripts/object-space-land.mjs')]",
+  )
   assert.ok(asked >= 0, '主流程必须真的调用尺子(只在纯函数里备着 = 没接线)')
   assert.ok(landed >= 0, '落地通道仍必须是 object-space-land(不得自己写工作树)')
   assert.ok(asked < landed, `问尺子(${asked})必须排在落地(${landed})之前`)
-  assert.ok(main.indexOf('process.exit(2)') < main.indexOf('buildLineLossRuler()') + 900, '尺子不可用那一档必须就近落 exit 2,不得跑到后面')
+  assert.ok(
+    main.indexOf('process.exit(2)') < main.indexOf('buildLineLossRuler()') + 900,
+    '尺子不可用那一档必须就近落 exit 2,不得跑到后面',
+  )
   // 每一档出口都带机读结论行:clean/stripped/all-held/refused/undetermined/preflight
   for (const st of ['clean', 'stripped', 'all-held', 'refused', 'undetermined', 'preflight'])
-    assert.ok(main.includes(`emitResult('${st}'`), `主流程缺 state=${st} 的结论行 ⇒ 守护日志会读成未判定`)
+    assert.ok(
+      main.includes(`emitResult('${st}'`),
+      `主流程缺 state=${st} 的结论行 ⇒ 守护日志会读成未判定`,
+    )
+})
+
+test('D1 面漂移判据三态:两面同 ⇒ ok;不同 ⇒ 判出漂移;任一取不到 ⇒ undetermined(不读成"没漂移")', () => {
+  assert.deepEqual(S.faceDriftVerdict('# 计划\n- [ ] G-1 甲\n', '# 计划\n- [ ] G-1 甲\n'), {
+    ok: true,
+  })
+  const drift = S.faceDriftVerdict('# 计划\n- [ ] G-1 甲\n', '# 计划\n- [x] G-1 甲\n')
+  assert.equal(drift.ok, false)
+  assert.equal(drift.undetermined, undefined, '取得到而不同 = 判出漂移,不是未判定')
+  for (const [a, b] of [
+    [null, 'x'],
+    ['x', null],
+    [undefined, undefined],
+  ])
+    assert.equal(S.faceDriftVerdict(a, b).undetermined, true, '任一取不到一律未判定')
+})
+
+test('D2 形状锁(2026-10-28 枚 1d73ea96161a):面漂移守卫必须排在 object-space-land 之前,底稿按 sha 固定读', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../strip-stale-closed-rows.mjs', import.meta.url), 'utf8')
+  const main = src.slice(src.indexOf('function main()'))
+  const guard = main.indexOf('faceDriftVerdict(headText')
+  const landed = main.indexOf(
+    "spawnSync(process.execPath, [path.join(ROOT, 'scripts/object-space-land.mjs')]",
+  )
+  assert.ok(guard >= 0, '主流程必须真的调用面漂移守卫(只在纯函数里备着 = 没接线)')
+  assert.ok(landed >= 0 && guard < landed, `守卫(${guard})必须排在落地(${landed})之前`)
+  assert.ok(
+    /const headShaAtRead = shaOf\('HEAD'\)/.test(main),
+    '底稿必须按 sha 固定读,不得按符号 HEAD 连读两面',
+  )
+  assert.ok(
+    main.includes('blobOf(`${headShaAtRead}:${FILE}`)'),
+    '底稿面必须由读时的 sha 取,不得再问一次符号 HEAD',
+  )
 })
 
 test('M9 身份出口同形:被跳过的已勾行,门 71 自己认得它的 marker/id(否则归因臂是空的)', () => {
   for (const row of [CLOSED_A_PAIRED, CLOSED_A_DRIFT]) {
     const reg = closedRegistrationOf(row)
-    assert.ok(reg && reg.marker && reg.id === 'G-7001', `closedRegistrationOf 必须给出身份,实得:${JSON.stringify(reg)}`)
+    assert.ok(
+      reg && reg.marker && reg.id === 'G-7001',
+      `closedRegistrationOf 必须给出身份,实得:${JSON.stringify(reg)}`,
+    )
   }
   assert.equal(closedRegistrationOf(P_OPEN_A), null, '未勾行不属于"已勾形态"这一档')
 })
 
 test('M12 H3 复量自洽(G-928/G-960 型,2026-10-22 根治):同号未勾+同主键两枚滞留已勾拷贝 ⇒ 一次全检出、摘后复量==跳过集', () => {
   const DUP_OPEN = '- [ ] G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性'
-  const DUP_R1 = '- [x] ✅(2026-10-20/甲) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性'
-  const DUP_R2 = '- [x] ✅(2026-10-20/乙) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性〔第二枚拷贝〕'
+  const DUP_R1 =
+    '- [x] ✅(2026-10-20/甲) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性'
+  const DUP_R2 =
+    '- [x] ✅(2026-10-20/乙) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性〔第二枚拷贝〕'
   const face = [DUP_OPEN, DUP_R1, DUP_R2].join('\n')
   const v = staleClosedVerdict(face, face)
-  assert.equal(v.stale.length, 2, `两枚滞留拷贝须一次全检出(判据只报首枚就会摘完冒出"新"滞留、H3 恒拒),实得 ${v.stale.length}`)
+  assert.equal(
+    v.stale.length,
+    2,
+    `两枚滞留拷贝须一次全检出(判据只报首枚就会摘完冒出"新"滞留、H3 恒拒),实得 ${v.stale.length}`,
+  )
   const part = S.partitionStaleByProtection(face, v.stale, () => [])
   assert.equal(part.ok, true, `应判可摘,实得 why=${part.why}`)
   assert.equal(part.strippable.length, 2)
@@ -251,13 +330,27 @@ test('M12 H3 复量自洽(G-928/G-960 型,2026-10-22 根治):同号未勾+同主
   // main 里 H3 的同一算式:摘后复量滞留集必须**恰好等于**跳过集(逐字),不得多出没人负责的一条
   const after = staleClosedVerdict(part.text, face)
   assert.equal(after.undetermined, false)
-  assert.equal(after.stale.length, part.held.length, `H3 复量:摘后滞留数(${after.stale.length})必须==跳过数(${part.held.length})`)
   assert.equal(
-    after.stale.map((r) => r.raw).sort().join('\n'),
-    [...part.held].map((h) => h.row.raw).sort().join('\n'),
+    after.stale.length,
+    part.held.length,
+    `H3 复量:摘后滞留数(${after.stale.length})必须==跳过数(${part.held.length})`,
+  )
+  assert.equal(
+    after.stale
+      .map((r) => r.raw)
+      .sort()
+      .join('\n'),
+    [...part.held]
+      .map((h) => h.row.raw)
+      .sort()
+      .join('\n'),
     'H3 复量:摘后滞留集必须==跳过集(逐字)',
   )
-  assert.equal(S.sweepOutcome(part, { apply: true }).state, 'stripped', '两枚全摘后应落 stripped 档而非 H3 拒')
+  assert.equal(
+    S.sweepOutcome(part, { apply: true }).state,
+    'stripped',
+    '两枚全摘后应落 stripped 档而非 H3 拒',
+  )
   // H1 侧证:同号未勾行在摘后面上逐字节原样
   assert.ok(part.text.includes(DUP_OPEN), '未勾行必须原样保留(未勾副本不遮蔽已勾拷贝,也不被误摘)')
 })
@@ -286,10 +379,21 @@ test('N1 判红证据抽取:取 ❌ 头行与逐条明细,剥 ANSI,不把进度�
 
 test('N2 归因成立:落地前后同一臂判红且证据逐行未增 ⇒ 归为存量红(不豁免、不改判据)', () => {
   const line = '❌ 基线棘轮:F4 同一件事多条待办(副本行) 由基线 0 涨到 1'
-  const arm = { kind: 'registry', id: '130', script: 'plan-tasks.mjs', mode: 'blocking', out: `报数行\n${line}\n` }
+  const arm = {
+    kind: 'registry',
+    id: '130',
+    script: 'plan-tasks.mjs',
+    mode: 'blocking',
+    out: `报数行\n${line}\n`,
+  }
   const r = S.attributePreexistingRed({
     pre: { verdict: 1, failed: [arm], ran: [], undetermined: [] },
-    post: { verdict: 1, failed: [{ ...arm, out: `另一个报数行\n${line}\n` }], ran: [], undetermined: [] },
+    post: {
+      verdict: 1,
+      failed: [{ ...arm, out: `另一个报数行\n${line}\n` }],
+      ran: [],
+      undetermined: [],
+    },
   })
   assert.equal(r.ok, true, `应归为存量红,实得 why=${r.why}`)
   assert.equal(r.preexisting.length, 1)
@@ -298,7 +402,13 @@ test('N2 归因成立:落地前后同一臂判红且证据逐行未增 ⇒ 归�
 })
 
 test('N3 归因失败:落地前该臂没判红 ⇒ 必是本枚带来的红(照旧 refused)', () => {
-  const arm = { kind: 'registry', id: '130', script: 'plan-tasks.mjs', mode: 'blocking', out: '❌ 新红\n' }
+  const arm = {
+    kind: 'registry',
+    id: '130',
+    script: 'plan-tasks.mjs',
+    mode: 'blocking',
+    out: '❌ 新红\n',
+  }
   const r = S.attributePreexistingRed({
     pre: { verdict: 0, failed: [], ran: [], undetermined: [] },
     post: { verdict: 1, failed: [arm], ran: [], undetermined: [] },
@@ -318,7 +428,12 @@ test('N3 归因失败:落地前该臂没判红 ⇒ 必是本枚带来的红(照�
 test('N4 归因失败:同名臂出现落地前没有的证据行 ⇒ 不许按存量红放行', () => {
   const base = { kind: 'registry', id: '71', script: 'check-plan-line-loss.mjs', mode: 'blocking' }
   const r = S.attributePreexistingRed({
-    pre: { verdict: 1, failed: [{ ...base, out: '❌ 71 条登记行不在\n     - 甲行\n' }], ran: [], undetermined: [] },
+    pre: {
+      verdict: 1,
+      failed: [{ ...base, out: '❌ 71 条登记行不在\n     - 甲行\n' }],
+      ran: [],
+      undetermined: [],
+    },
     post: {
       verdict: 1,
       failed: [{ ...base, out: '❌ 71 条登记行不在\n     - 甲行\n     - 新丢的乙行\n' }],
@@ -333,10 +448,21 @@ test('N4 归因失败:同名臂出现落地前没有的证据行 ⇒ 不许按�
 })
 
 test('N5 归因失败:任一面 verdict=2(无法判定)不按存量红放行 —— 未判定不等于通过(§0.3)', () => {
-  const arm = { kind: 'registry', id: '130', script: 'plan-tasks.mjs', mode: 'blocking', out: '❌ 红\n' }
+  const arm = {
+    kind: 'registry',
+    id: '130',
+    script: 'plan-tasks.mjs',
+    mode: 'blocking',
+    out: '❌ 红\n',
+  }
   const r = S.attributePreexistingRed({
     pre: { verdict: 1, failed: [arm], ran: [], undetermined: [] },
-    post: { verdict: 2, failed: [arm], ran: [], undetermined: [{ kind: 'registry', id: '9', rc: 2 }] },
+    post: {
+      verdict: 2,
+      failed: [arm],
+      ran: [],
+      undetermined: [{ kind: 'registry', id: '9', rc: 2 }],
+    },
   })
   assert.equal(r.ok, false)
   assert.equal(r.preVerdict, 1)
@@ -370,7 +496,10 @@ test('N6 顺序锁(2026-10-24 立):落地器 exit≠0 时,留痕与推送腿必�
   const ledgerIdx = main.indexOf('appendDropLedger(')
   const pushIdx = main.indexOf("'scripts/git-push-guard.mjs'")
   const attrIdx = main.indexOf('attributePreexistingRed(')
-  assert.ok(landIdx >= 0 && ledgerIdx > landIdx, '留痕段必须排在落地之后(凭据 = HEAD 推进,不是退出码)')
+  assert.ok(
+    landIdx >= 0 && ledgerIdx > landIdx,
+    '留痕段必须排在落地之后(凭据 = HEAD 推进,不是退出码)',
+  )
   assert.ok(pushIdx > ledgerIdx, '推送腿必须排在留痕之后(先有凭据再推)')
   assert.ok(attrIdx > pushIdx, '归因必须排在推送腿之后 ⇒ 任何一条退出路径都先跑过留痕/推送')
   const gap = main.slice(landIdx, ledgerIdx)
@@ -395,9 +524,16 @@ test('M11 H3 基线口径:摘完后"刚翻勾的宽现行"不得被读成滞留(
     // 被审面上另有一条"本枚刚翻勾"的已勾行(HEAD^ 里它还是未勾)⇒ 属门 229 的宽限档,不是滞留
     const flippedC = P_OPEN_C.replace('- [ ] ', '- [x] ✅(2026-10-20/丙) ')
     const face = head.replace(P_OPEN_C, flippedC)
-    const stripped = face.split('\n').filter((l) => l !== CLOSED_A_PAIRED).join('\n')
+    const stripped = face
+      .split('\n')
+      .filter((l) => l !== CLOSED_A_PAIRED)
+      .join('\n')
     const vsParent = staleClosedVerdict(stripped, parent)
-    assert.equal(vsParent.stale.length, 0, `基线取 HEAD^ 时刚翻勾的宽现行不该被点名,实得 ${JSON.stringify(vsParent.stale)}`)
+    assert.equal(
+      vsParent.stale.length,
+      0,
+      `基线取 HEAD^ 时刚翻勾的宽现行不该被点名,实得 ${JSON.stringify(vsParent.stale)}`,
+    )
     // 反证:若把基线换成摘除前的那份(= 被审面自己),宽现行会被咬成滞留 ⇒ 正是这条口径要防的假红
     const vsSelf = staleClosedVerdict(stripped, face)
     assert.ok(vsSelf.stale.length > 0, '取错基线(拿被审面自己当基线)必然把每一行已勾都读成滞留')
@@ -443,7 +579,11 @@ test('D1 档① 正向对照:仅行尾符/末空行差异 ⇒ 差集不再冒出
   } finally {
     rmScratch(dir, { bestEffort: true })
   }
-  assert.equal(rec.state, 'recovered', `行尾差异不得再拦补账,实得 state=${rec.state} why=${rec.why}`)
+  assert.equal(
+    rec.state,
+    'recovered',
+    `行尾差异不得再拦补账,实得 state=${rec.state} why=${rec.why}`,
+  )
   assert.equal(rec.written, 1)
   assert.equal(rec.undetermined.length, 0)
 })
@@ -464,11 +604,7 @@ test('D2 档② 正向对照:未勾行换形存续(问a)/有台账或归档凭�
 test('D3 红线反证:已勾行被摘且未勾行**真被吞**(无留痕/无归档/同题不在面上)⇒ 照旧 undetermined 且零写入', () => {
   const landed = '# 台账\n- [ ] G-8888 无关题:与夹具票既不同题也不同号\n'
   const diff = S.removedRowsBetween(D_HEAD, landed)
-  assert.deepEqual(
-    diff.unexpected,
-    [D_OPEN],
-    '档②不吞判据输入:未勾行仍在差集里,只是要再过两问',
-  )
+  assert.deepEqual(diff.unexpected, [D_OPEN], '档②不吞判据输入:未勾行仍在差集里,只是要再过两问')
   const dir = mkScratch('strip-closed-d3-')
   let rec = null
   try {
