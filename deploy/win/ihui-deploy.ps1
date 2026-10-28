@@ -3009,7 +3009,11 @@ try {
         # 而 Build-Web 连败 throw 已带"末次报错指纹"(同因每轮同串、换因换串),正是结构化病因。
         # 「未切流」出口同样进决策台账(O65 第 2 期):目标 sha 取不到就如实留空(台账会记成未判定),
         # 记录本身不参与 Fail 的告警身份,明细漂移不会改变"这是同一类失败"的判定(§5e-1)。
-        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason '构建失败,未切流,保持当前在线版本')
+        # 台账侧同一条病因必须也带上(G-21 只补了告警侧):现读 .ihui-agent/deploy-decisions.jsonl 里
+        # 14 枚 build-fail 的 reason 全是同一句固定措辞 ⇒ 事后没人能从台账知道"哪一次为什么挂",
+        # 而散文日志只活 ~6 小时。$_ 与告警侧取的是同一份 throw 原文(不另拼一路、不重排两流),
+        # 由 deploy-decision.mjs 的 normalizeReason 统一折叠空白并截 400;它不参与告警身份计算 ⇒ 不改 4h 去重。
+        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason "构建失败,未切流,保持当前在线版本:$_")
         Fail "构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)" -Detail "原始报错:$_" -Reason "$_"
     }
 
