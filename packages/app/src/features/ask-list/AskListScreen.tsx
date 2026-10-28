@@ -22,6 +22,7 @@ export function AskListScreen({
   refreshing,
   error,
   onRefresh,
+  onLoadMore,
   onPressItem,
   onCreate,
   onBack,
@@ -57,6 +58,8 @@ export function AskListScreen({
         data={items}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.3}
         ListEmptyComponent={<EmptyState title={t('askList.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
           <PressableCard
