@@ -10,6 +10,8 @@
  * 每项能力成对写:正向(改值即偏离默认并被点名)+ 反向(脏值回落默认、空白视为未设置)。
  */
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import {
   __test__ as P,
   type RelayPoolKnobView,
@@ -194,4 +196,43 @@ describe('零 IO / 可注入(视图不得自己摸全局)', () => {
     expect(P.relayPoolPolicyView.length).toBe(0)
   })
 })
+
+// 立因锁(本票的原始缺陷就是这一格):八枚钮此前只活在代码里,受管模板零命中 ⇒
+// 换机/排障无从发现。这里把"钮必须在 .env.example 可被发现"钉成机器判据:
+// 新增钮忘了登记模板 ⇒ 本用例直接红,而不是等下次排障时才发现"钮无人知晓"。
+describe('受管模板可发现性(env 钮必须在 apps/api/.env.example 登记)', () => {
+  const templatePath = fileURLToPath(new URL('../../../apps/api/.env.example', import.meta.url))
+  let template = ''
+  try {
+    template = readFileSync(templatePath, 'utf8')
+  } catch {
+    template = ''
+  }
+
+  it('模板读得到(读不到 = 未判定,不得当成通过)', () => {
+    expect(template.length).toBeGreaterThan(0)
+  })
+
+  it('八枚钮名逐枚在模板里成行登记(注释形态或显式赋值都算命中)', () => {
+    const lines = template.split(/\r?\n/)
+    for (const envKey of Object.values(P.RELAY_POOL_ENV_KEYS)) {
+      expect(lines.some((l) => new RegExp(`^\\s*#?\\s*${envKey}\\s*=`).test(l))).toBe(true)
+    }
+  })
+
+  it('默认档纪律:模板里若有非注释赋值,其值必须等于默认值(照抄 .env 不得改行为)', () => {
+    const lines = template.split(/\r?\n/)
+    for (const knob of P.relayPoolPolicyView({}).knobs) {
+      const live = lines.find((l) => new RegExp(`^${knob.envKey}\\s*=`).test(l))
+      if (!live) continue // 全注释形态 ⇒ 走默认档,合法
+      const value = live.slice(live.indexOf('=') + 1).trim()
+      expect(value).toBe(String(knob.defaultValue))
+    }
+  })
+
+  it('模板写明"改完需重启进程生效"(env 是进程级,不许留成热载的口头预期)', () => {
+    expect(/重启\s*apps\/api\s*进程|重启 api 进程/.test(template)).toBe(true)
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
