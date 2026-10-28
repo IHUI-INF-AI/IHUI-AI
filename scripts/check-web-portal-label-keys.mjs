@@ -39,6 +39,18 @@ const PACKS = X.TARGETS.flatMap((t) => X.LANGS.map((l) => `packages/i18n/message
 
 const titleKeysOf = (portalText) =>
   [...String(portalText).matchAll(/titleKey: '([^']+)'/g)].map((m) => m[1])
+const staticPathsOf = (portalText) => [
+  ...new Set([...String(portalText).matchAll(/path: '(\/[^']+)'/g)].map((m) => m[1])),
+]
+
+/**
+ * W3:门户静态条目的目的地是否存在 —— 纯函数,存在性由调用方按**被审面**注入。
+ * 立因:门户是 WebView 入口清单,条目指向不存在的 web 路由时用户点开即 404;写入口
+ * (add-web-portal-entries)只在"经它写"时断言过,手改门户表可绕过它。
+ */
+function phantomPortalPaths(portalText, hasPage) {
+  return staticPathsOf(portalText).filter((p) => !hasPage(p))
+}
 
 /** 纯判据:喂十份文本,判 W1(缺键)与 W2(孤儿计数)。任何一份取不到/解不开 ⇒ undetermined。 */
 function judge(portalText, packTexts) {
@@ -132,6 +144,17 @@ function run(argv) {
     )
     return 1
   }
+  // W3:门户条目指向的 web 路由必须在同一被审面上真存在(否则用户点开是 404)
+  const phantom = phantomPortalPaths(
+    portal,
+    (p) => cov.faceRead(face, `apps/web/app/(main)${p}/page.tsx`) !== null,
+  )
+  if (phantom.length) {
+    console.log(`❌ W3 ${phantom.length} 条门户条目指向不存在的 web 路由(被审面=${face}):`)
+    for (const p of phantom.slice(0, 20)) console.log(`  · ${p}`)
+    console.log('  出路:补该 web 页,或从门户表摘掉这条(摘时要同时确认十份词包里对应标签的去留)。')
+    return 1
+  }
   console.log('✅ 门户表每个 titleKey 在十份词包(两端×五语言)全部存在')
   return 0
 }
@@ -169,6 +192,12 @@ function selfTest() {
         .orphan === 1,
   )
   ok('S8 词包清单 = 两端×五语言且无重复', PACKS.length === 10 && new Set(PACKS).size === 10)
+  ok(
+    'S9 W3 阳性对照:条目指向不存在的路由 ⇒ 点名',
+    phantomPortalPaths(`path: '/exists',\npath: '/gone'`, (p) => p === '/exists').join() ===
+      '/gone',
+  )
+  ok('S10 W3 全在 ⇒ 空集', phantomPortalPaths(`path: '/exists'`, () => true).length === 0)
   for (const c of cases) console.log(`${c.c ? '✅' : '❌'} ${c.n}`)
   const bad = cases.filter((c) => !c.c).length
   console.log(
@@ -181,5 +210,5 @@ const argv = process.argv.slice(2)
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) process.exit(argv.includes('--self-test') ? selfTest() : run(argv))
 
-export const __test__ = { judge, titleKeysOf, PACKS }
+export const __test__ = { judge, titleKeysOf, staticPathsOf, phantomPortalPaths, PACKS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

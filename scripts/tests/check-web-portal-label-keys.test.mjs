@@ -66,6 +66,22 @@ test('M8 词包清单 = 两端 × 五语言,十份且不重复', () => {
       assert.ok(G.PACKS.includes(`packages/i18n/messages/${t}/${l}.json`), `${t}/${l} 不在清单`)
 })
 
+test('M10 W3 阳性对照:门户条目指向不存在的 web 路由 ⇒ 逐条点名(用户点开就是 404)', () => {
+  const table = `path: '/rules',\n  path: '/gone-page'`
+  assert.deepEqual(
+    G.phantomPortalPaths(table, (p) => p === '/rules'),
+    ['/gone-page'],
+  )
+})
+
+test('M11 W3 反向对照:全部存在 ⇒ 空集(不制造假红)', () => {
+  assert.deepEqual(
+    G.phantomPortalPaths(`path: '/rules'`, () => true),
+    [],
+  )
+  assert.deepEqual(G.staticPathsOf(`path: '/a'\npath: '/a'\npath: '/b'`), ['/a', '/b'])
+})
+
 test('M9 装车形状:§22d 直执行守卫在位、判据只在源脚本一份(import 本文件不得触发主流程)', () => {
   const src = readFileSync(new URL('../check-web-portal-label-keys.mjs', import.meta.url), 'utf8')
   assert.match(
