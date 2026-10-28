@@ -487,13 +487,18 @@ async function buildRepo(tag) {
     mkdirSync(dirname(abs), { recursive: true })
     writeFileSync(abs, content)
   }
-  // R1–R5 与 R6/R7 现在**同一判定面**(2026-09-25 收口前 R1–R5 读磁盘),所以两边输入都得在位
+  // R1–R5 与 R6/R7 现在**同一判定面**(2026-09-25 收口前 R1–R5 读磁盘),所以两边输入都得在位。
+  // 2026-10-28 补:非色档三张 TS 表也是判定输入(R9–R11 判 tokens.css 受管块与它们同源),
+  // 夹具缺了它们 ⇒ 门按设计判「未判定 exit 2」,而本用例要证的是"换面换结论",不是"缺源怎么办"。
   for (const rel of [
     'packages/design-tokens/src/tailwind-alpha-plugin.js',
     'packages/design-tokens/src/tailwind-preset.js',
     'packages/design-tokens/src/radius.js',
     'packages/design-tokens/src/styles/tokens.css',
     'packages/design-tokens/src/rn-tokens.ts',
+    'packages/design-tokens/src/spacing.ts',
+    'packages/design-tokens/src/typography.ts',
+    'packages/design-tokens/src/elevation.ts',
   ]) {
     let content = readFileSync(join(ROOT, rel), 'utf8')
     if (rel.endsWith('tailwind-alpha-plugin.js'))
