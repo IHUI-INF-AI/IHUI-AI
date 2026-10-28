@@ -7268,13 +7268,13 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 ## 2026-10-28 四端 ui-routes 自述钉追平已入库输入(登记@2026-10-28/ui-gen)
 - [ ] 〔归:机主生产机面｜等:—〕O67 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=10080min count=1 first=2026-10-25T13:45:54.324Z last=2026-10-25T13:45:54.324Z route=/deploy/build-fail sample="deploy_outcome action=build-fail sha=[hex:40] d…"）〔归机主依据@2026-10-28/gb23:face 修复后现读两候选仍皆无 —— G:\IHUI-AI\.DevEnv\ 只有 Temp/backups/cache/tools 无 ihui-prod,主仓 .ihui-agent/deploy-decisions.jsonl 也不在;生产账本只住生产机,此处取不到(证据 sha 已被 intake 折成 [hex:40] 占位,原值只能回生产账本取)〕
-
-
-
-
-
-
-
 - [ ] O66 **号池账号命名统一为手机号优先(所有平台导入兜底链补 phone)** —— 2026-10-28 立(机主令「名称应该都统一为手机号 所有平台都是」;当日 dev 库已把本机登录号 3cde9010-… 的 name 订正为 19390097993,签到侧 checkin_accounts id=111 同名实证,手机号权威来源在签到侧)。落点四件:① `apps/api/src/services/relay-account-format.ts` 预检 name 链改 name→phone→平台特化→#序号(trae/workbuddy 补 phone 兜底,qoder 的 phone 提到 nickname 之前);② `apps/api/src/services/relay-account-pool-service.ts` importAccounts 的 displayName 与 mapQoderImport 优先级同步(phone 先于 nickname,入库唯一真源对齐);③ `docs/RELAY_ACCOUNT_IMPORT_FORMAT.md` §2 通用字段表补 phone 行、§3.1 Qoder 描述同步;④ 测试锁优先级(qoder nickname+phone→phone、显式 name 不被覆盖、trae/workbuddy 无 name 有 phone→phone)。取舍:用户态 account-pool.ts 的 name 必填不动(个人池起名属用户自由,不属运营池规范;显式 name 恒最优先,phone 只是缺省兜底位)。 （进行中@2026-10-28/WorkBuddy）
+
+
+
+
+
+
+
 - [ ]〔归:台账器物面｜等:—〕 O68 **侧车归属改判无出口**:`scripts/data/plan-fields.jsonl` 的 `O02#跨端UI单一源` 记录仍是 2026-10-25 的 `waiting:none`,而行内标头已改归机主真机面 ⇒ v2 尺以侧车为准,派单反复把 O02 列成"现在可做"。现读唯一写侧车的出口 `plan-fields-extract.mjs --apply` 自带"桶零变化"守恒闸(防搬说辞改判定),仓内已无 reclassify 工具 ⇒ 需一条**声明式改判出口**(逐条给 before/after 桶 + why,复用 dispositionOfV2 复算,禁批量)。〔登记@2026-10-29:派单现读 12 行剔 10 仍出单 O02 为凭〕
 - [ ]〔归:机主号池裁决面｜等:—〕 Z-1  **取号池已饱和:三族令牌全灭,新票登记不进** —— 现读占用面(台账 HEAD 面 ⊕ 47 份归档件 = 7083 万字符)命中 **G 99/99、O 90/99、D 99/99**;O 族剩的 9 枚(O68/O70/O72/O94~O99)虽未被命中,但**最长连续游程 6 < 段容量 10** ⇒ 令牌取不出。本席登记线上 WS 缺陷票时实测三连灭:O 族报游程不足、D 族报池内空闲 0、G 族候选窗 58~67 九枚被扫描关逐枚点名剔除,最终靠**具名 G-48**才落地。真因:扫描关把**正文引用与归档占位注释**算成占号(命中处逐条可验:「〔同题原号 G-70〕」41 处、「新增差距 G-49~G-73」130 处、「G-77 授权卡标题」173 处),而 §1 又要求证据指针一律用「编号+标题原文」当内容锚点 ⇒ **越按规矩写引用,号池越窄**,两条规矩结构性互搏。出路三选一:①扩池(池式硬上限 2026-10-14 立、2026-10-24 降至两位数,属既有拍板);②引用不算占号(改扫描面 = 动防撞号防线,须带反证用例并保留"归档占位注释"那一维);③允许开新字母族 —— 本条即用 **Z-1 具名首号**验证该路可行(具名不经 keepIfFree,只过撞号与同题查重),落地后 Z 族即可正常发令牌。
