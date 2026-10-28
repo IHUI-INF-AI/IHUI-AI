@@ -18,6 +18,7 @@ import {
   Newspaper,
   Pencil,
   Plus,
+  RefreshCw,
   Sparkles,
   Trash2,
   Wand2,
@@ -46,8 +47,10 @@ import {
 import {
   type AiSkillMeta,
   type AiSkillInvokeResponse,
+  type AiSkillsReloadResult,
   invokeAiSkill,
   listAiSkills,
+  reloadAiSkills,
 } from '@ihui/api-client/endpoints/ai-skills'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -135,6 +138,10 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
   const [invokingSkill, setInvokingSkill] = React.useState<AiSkillMeta | null>(null)
   const [invokeResult, setInvokeResult] = React.useState<AiSkillInvokeResponse | null>(null)
   const [invokeError, setInvokeError] = React.useState<string | null>(null)
+  // 2026-10-28 新增:控制帧 `reload_skills` 的前端侧状态(运行时热重载 SKILL.md)
+  const [reloading, setReloading] = React.useState(false)
+  const [reloadResult, setReloadResult] = React.useState<AiSkillsReloadResult | null>(null)
+  const [reloadError, setReloadError] = React.useState<string | null>(null)
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
@@ -206,6 +213,40 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
       setAiSkillsLoading(false)
     }
   }, [t])
+
+  /**
+   * 控制帧 `reload_skills` —— 运行时热重载磁盘上的 SKILL.md。
+   *
+   * 与"刷新列表"(loadAiSkills)不是一回事:刷新只重取元数据;本帧让服务端**重读
+   * SKILL.md 文件**并回报差额。用户手改 SKILL.md 后不重启服务就生效,靠的就是这里。
+   *
+   * 三条纪律(与竞品 `reload_skills` 帧的"宿主显式调用 + 回报结果"语义对齐):
+   * ① 差额必须可见 —— 只弹"已重载"而不给新增/移除/更新名单,等于把一次静默失败
+   *    包装成成功态,用户无从判断改动到底生效没有。
+   * ② 失败必须给原因 —— 不吞异常,错误文案要能区分"没权限/没登录"与"服务不可用"。
+   * ③ 重载后刷新列表 —— 否则新技能在场但列表仍是旧的。
+   */
+  const handleReloadSkills = React.useCallback(async () => {
+    if (reloading) return
+    setReloading(true)
+    setReloadError(null)
+    setReloadResult(null)
+    try {
+      const res = await reloadAiSkills({ force: true })
+      if (res.success && res.data) {
+        setReloadResult(res.data)
+        // 重载后重取列表:新技能/移除的技能要立刻反映到 UI 上
+        void loadAiSkills()
+      } else {
+        // 失败必须给**原因**(ApiResult 失败分支带 error 载荷),不能只说"失败了"
+        setReloadError(res.error || t('reloadSkillsFailed'))
+      }
+    } catch (e) {
+      setReloadError(e instanceof Error && e.message ? e.message : t('reloadSkillsFailed'))
+    } finally {
+      setReloading(false)
+    }
+  }, [reloading, t, loadAiSkills])
 
   React.useEffect(() => {
     if (activeTab === 'ai-skills' || activeTab === 'all') {
@@ -377,20 +418,90 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
             <ArrowRight className="h-3 w-3" aria-hidden />
           </Link>
         </div>
-        {isAuthenticated && (
+        <div className="flex items-center gap-0.5">
+          {/* 控制帧 `reload_skills`:运行时热重载磁盘上的 SKILL.md(用户改完不必重启服务) */}
           <button
             type="button"
-            onClick={() => {
-              setEditing(null)
-              setCreating(true)
-            }}
-            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            onClick={() => void handleReloadSkills()}
+            disabled={reloading}
+            title={t('reloadSkillsHint')}
+            aria-label={t('reloadSkills')}
+            data-testid="skill-library-reload"
+            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Plus className="h-3 w-3" />
-            <span>{t('create')}</span>
+            {reloading ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            <span>{reloading ? t('reloadSkillsRunning') : t('reloadSkills')}</span>
           </button>
-        )}
+          {isAuthenticated && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(null)
+                setCreating(true)
+              }}
+              className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <Plus className="h-3 w-3" />
+              <span>{t('create')}</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* 重载结果:差额必须可见(新增/移除/更新各名单),只报"已重载"等于把静默失败包装成成功 */}
+      {reloadError && (
+        <div
+          role="alert"
+          data-testid="skill-library-reload-error"
+          className="rounded-md bg-destructive/10 px-2 py-1 text-[11px] text-destructive"
+        >
+          {t('reloadSkillsFailed')}: {reloadError}
+        </div>
+      )}
+      {reloadResult && (
+        <div
+          data-testid="skill-library-reload-result"
+          className="rounded-md bg-muted/50 px-2 py-1.5 text-[11px] text-muted-foreground"
+        >
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="font-medium text-foreground">{t('reloadSkillsSuccess')}</span>
+            <span>{t('reloadSkillsTotal', { count: reloadResult.total })}</span>
+            <span>{t('reloadSkillsAuto', { count: reloadResult.auto })}</span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+            <span>
+              {t('reloadSkillsAdded')}: {reloadResult.added.length}
+            </span>
+            <span>
+              {t('reloadSkillsRemoved')}: {reloadResult.removed.length}
+            </span>
+            <span>
+              {t('reloadSkillsChanged')}: {reloadResult.changed.length}
+            </span>
+            <span>
+              {t('reloadSkillsUnchanged')}: {reloadResult.unchanged}
+            </span>
+          </div>
+          {reloadResult.added.length === 0 &&
+            reloadResult.removed.length === 0 &&
+            reloadResult.changed.length === 0 && (
+              <div className="mt-0.5">{t('reloadSkillsNoChange')}</div>
+            )}
+          {reloadResult.added.length > 0 && (
+            <div className="mt-0.5 break-all">+ {reloadResult.added.join(', ')}</div>
+          )}
+          {reloadResult.changed.length > 0 && (
+            <div className="mt-0.5 break-all">~ {reloadResult.changed.join(', ')}</div>
+          )}
+          {reloadResult.removed.length > 0 && (
+            <div className="mt-0.5 break-all">− {reloadResult.removed.join(', ')}</div>
+          )}
+        </div>
+      )}
 
       {/* Tab 栏 */}
       <div className="flex items-center gap-0.5 overflow-x-auto rounded-md bg-muted/50 p-0.5">
