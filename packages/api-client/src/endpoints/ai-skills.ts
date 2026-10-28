@@ -97,6 +97,35 @@ export function invokeAiSkill(skillId: string, req: AiSkillInvokeRequest) {
   })
 }
 
+/**
+ * 运行时热重载 auto 来源的技能(控制帧 `reload_skills`)。
+ *
+ * 与"列表刷新"不是一回事:列表刷新只重取元数据,本调用会让服务端**重读磁盘上的
+ * SKILL.md**并回报差额。前端必须把这个差额显示出来 —— 只说"已重载"而不给
+ * 新增/移除/更新,用户无从判断改动到底有没有生效。
+ */
+export interface AiSkillsReloadResult {
+  /** 全量技能数(builtin + ai-top + auto) */
+  total: number
+  /** auto 来源技能数 */
+  auto: number
+  added: string[]
+  removed: string[]
+  changed: string[]
+  unchanged: number
+  /** 本次重载时刻(unix 秒);null=尚未成功重载过 */
+  lastReload: number | null
+  forced: boolean
+  sourceDirs: string[]
+}
+
+export function reloadAiSkills(options?: { force?: boolean }) {
+  return fetchApi<AiSkillsReloadResult>('/api/ai-skills/reload', {
+    method: 'POST',
+    body: JSON.stringify({ force: options?.force ?? true }),
+  })
+}
+
 // ===== Phase 3: Stats (2026-08-11 新增) =====
 
 export interface PerSkillStats {
