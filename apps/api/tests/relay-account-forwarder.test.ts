@@ -97,6 +97,15 @@ vi.mock('undici', () => ({
   fetch: (...args: unknown[]) => mockUndiciFetch(...args),
 }))
 
+/**
+ * 出网复检（utils/relay-egress-guard.ts）会在发请求前问一次 DNS。
+ * 本文件的 https://upstream.test 是假域名，桩成公网 IP 才能让用例继续测"转发逻辑"本身；
+ * 真实 DNS 失败在生产等价于 fetch 自己失败，语义没有变化。
+ */
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn(async () => [{ address: '203.0.113.10', family: 4 }]),
+}))
+
 import { forwardToAccountPool, __test__ as F } from '../src/services/relay-account-forwarder.js'
 import { classifyUpstreamFailure as classifyTraeFailure } from '../src/services/upstream-adapters/trae-adapter.js'
 import {

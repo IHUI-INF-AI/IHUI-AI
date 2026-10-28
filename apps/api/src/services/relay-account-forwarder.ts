@@ -66,6 +66,7 @@ import {
   snapshotRelayStreamInterrupts,
 } from '../plugins/business-metrics.js'
 import { logger } from '../utils/logger.js'
+import { assertRelayEgressSafe } from '../utils/relay-egress-guard.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
 import { accountSchedulableCondition } from './relay-account-pool-scheduler.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
@@ -77,12 +78,7 @@ import {
   setSessionAffinity,
 } from './relay-account-shared-state.js'
 import { recordAccountUsage } from './relay-account-usage.js'
-import {
-  pickProxyForAccount,
-  reportProxyFailure,
-  reportProxySuccess,
-  resolveAccountProxyUrl,
-} from './relay-proxy-pool.js'
+import { pickProxyForAccount, reportProxyFailure, reportProxySuccess } from './relay-proxy-pool.js'
 import { resolveModelAlias } from './relay-model-catalog.js'
 import {
   applyStopToCompletion,
@@ -228,16 +224,33 @@ function getProxyAgent(proxyUrl: string): ProxyAgent {
   return agent
 }
 
-/** 账号级 fetch:有 proxyUrl 走 undici ProxyAgent,否则全局直连 */
+/**
+ * 账号级 fetch:有 proxyUrl 走 undici ProxyAgent,否则全局直连；**两条分支都先过出网复检**。
+ *
+ * 已知残余（写破，不装看不见）:复检的是"发请求前"这一次解析,而连接用的是 fetch 内部
+ * 再解析的结果 —— 一条 TTL=0 的 A 记录仍能做到"校验时公网、连接时内网"（DNS rebinding）。
+ * 真防它要把连接期钩子（undici Agent 的 connect.lookup）装上,但那会把"直连出口"从内置
+ * fetch 换成包 undici —— 实测这会让多个以 vi.stubGlobal('fetch') 打桩的 relay 用例改走
+ * 真实网络（2026-10-28 试过并回退）。下一步的正解是给这些用例换成显式 fetch 注入,
+ * 而不是把守卫退回成首跳不查。
+ */
 function poolFetch(proxyUrl: string | null | undefined): typeof fetch {
-  if (!proxyUrl) return globalThis.fetch.bind(globalThis)
+  if (!proxyUrl) {
+    const f: typeof fetch = async (input, init) => {
+      await assertRelayEgressSafe(input)
+      return globalThis.fetch(input, init)
+    }
+    return f
+  }
   const agent = getProxyAgent(proxyUrl)
-  const f: typeof fetch = (input, init) =>
+  const f: typeof fetch = async (input, init) => {
+    await assertRelayEgressSafe(input)
     // undici 的 RequestInit 是全局 RequestInit 的超集(dispatcher 为附加可选字段)
-    undiciFetch(input as string, {
+    return undiciFetch(input as string, {
       ...(init ?? {}),
       dispatcher: agent,
-    }) as unknown as Promise<Response>
+    }) as unknown as Response
+  }
   return f
 }
 
@@ -687,10 +700,7 @@ async function doRefreshRowInPlace(
   const startedAt = new Date()
   try {
     const credentials = decryptAccountCredentials(row)
-    const result = await adapter.refreshToken!(
-      { row, credentials },
-      { proxyUrl: resolveAccountProxyUrl(row.proxyUrl) },
-    )
+    const result = await adapter.refreshToken!({ row, credentials }, { proxyUrl: row.proxyUrl })
     if (!result) return null
     const tokenEnc = encryptField(result.token)
     const refreshTokenEnc =
@@ -1253,11 +1263,7 @@ async function attemptWithAccount(
             const retry = await adapter.executeChat(
               { row: refreshed, credentials: decryptAccountCredentials(refreshed) },
               normReq,
-              {
-                signal: retryTimed.signal,
-                proxyUrl: resolveAccountProxyUrl(refreshed.proxyUrl),
-                fetchImpl: doFetch,
-              },
+              { signal: retryTimed.signal, proxyUrl: refreshed.proxyUrl, fetchImpl: doFetch },
             )
             if (retry.stream) {
               const retryTerminal = newStreamTerminal()
@@ -1639,5 +1645,7 @@ export const __test__ = {
   newStreamTerminal,
   judgeStreamOutcome,
   kindForStreamInterrupt,
+  // ── 出网复检(档位判据住在 utils/relay-egress-guard.ts,此处只暴露接线入口)──
+  poolFetch,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
