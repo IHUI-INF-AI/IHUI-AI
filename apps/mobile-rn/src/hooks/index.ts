@@ -14,6 +14,7 @@
  * 注意:use-auth 不 re-export(mobile-rn 用本地 AuthContext + SSO deep link)。
  * 业务 hook(use-agents / use-articles / use-chat / use-social-list)供 Screen 主动改用。
  */
+export { useDebounce, useDebouncedCallback } from '@ihui/shared/hooks/use-debounce'
 
 export { useCountdown } from '@ihui/shared/hooks/use-countdown'
 

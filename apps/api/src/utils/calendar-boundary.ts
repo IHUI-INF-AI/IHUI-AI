@@ -178,7 +178,7 @@ export function yearBoundary(v: DateInput): YearBoundary {
 }
 
 /** 自然季度边界。 */
-function quarterStart(v: DateInput): Date {
+export function quarterStart(v: DateInput): Date {
   const d = toDate(v)
   const quarter = Math.floor(d.getUTCMonth() / 3)
   const startMonth = quarter * 3

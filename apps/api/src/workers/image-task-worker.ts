@@ -31,7 +31,7 @@ let scheduledTask: ScheduledTask | null = null
 let running = false
 
 /** 单次扫描:取 pending 任务,逐个调上游生图并推进状态。 */
-async function processImageTasks(): Promise<{
+export async function processImageTasks(): Promise<{
   processed: number
   ok: number
   failed: number
