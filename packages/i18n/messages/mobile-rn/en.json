@@ -6748,6 +6748,9 @@
     "downloading": "Downloading update…",
     "currentBundle": "Currently running: {{bundle}}",
     "bundleEmbedded": "Built-in bundle",
-    "bundleOta": "Hot update"
+    "bundleOta": "Hot update",
+    "readyBody": "Update downloaded. Tap Update to apply it now.",
+    "installingHint": "The app restarts automatically — usually within seconds.",
+    "restartNow": "Restart now"
   }
 }

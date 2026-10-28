@@ -3,11 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * OTA 更新提示卡(2026-10-27 立,与 web 端同一版式)。
+ * OTA 更新提示卡(2026-10-27 立,2026-10-28 三稿)。
  *
- * 视觉单一真相源 = web 的 components/common/UpdateNoticeCard.tsx:
- *   RefreshCw 图标(brand) + 「有新版本可用」+「刷新页面以获取最新版本」+ [更新] cta + 关闭 X。
- * 文案单一真相源 = packages/i18n 的 appUpdate 命名空间(与 web 逐字同值,有结构锁测试钉住)。
+ * 视觉沿用 web 的 components/common/UpdateNoticeCard.tsx(图标 + 标题 + 正文 + 主钮 + 关闭),
+ * 但**文案不再复用 web 的 body** —— web 是 PWA「刷新页面」,RN 是点按钮重启进程,
+ * 让手机用户去"下拉刷新"是纯误导(机主 2026-10-28 当场否决)。RN 就绪态用自有的
+ * appUpdate.readyBody,五语言独立维护;共用键的逐字一致性仍由 i18n 结构锁钉住。
  *
  * 职责边界:本组件**只负责呈现**,检查/下载/重启全在 lib/ota-update.ts 的状态机里
  * (设置页的「检查更新」调的是同一个入口,所以那边查到的更新这里立刻能看到卡片)。
@@ -25,7 +26,7 @@ import {
   applyOtaUpdate,
   checkOtaUpdate,
   dismissOtaPrompt,
-  runningBundle,
+  forceRestart,
   shouldAutoRecheck,
   useOtaUpdate,
 } from '../lib/ota-update'
@@ -60,10 +61,22 @@ export function UpdatePrompt(): React.JSX.Element | null {
   // 点击后到 reload 之间必须先让遮罩真正画出来(2026-10-27 机主「点完更新直接跳到灰屏页」):
   // reloadAsync 会当场拆掉当前 JS 面,不等这一拍用户看到的就是"点完就消失",而不是"正在更新"。
   const [starting, setStarting] = React.useState(false)
+  // 重启迟迟不回来(2026-10-28 机主「点了更新依旧灰屏 卡死 没任何反应」):10 秒还没
+  // 落回 ready 就亮出「立即重启」原生兜底。reloadAsync 正常时进程早已重启,这枚按钮不会出现。
+  const [slow, setSlow] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!starting) {
+      setSlow(false)
+      return
+    }
+    const timer = setTimeout(() => setSlow(true), 10000)
+    return () => clearTimeout(timer)
+  }, [starting])
 
   const handleUpdate = React.useCallback(async () => {
     setStarting(true)
-    await new Promise<void>((resolve) => setTimeout(resolve, 600))
+    await new Promise<void>((resolve) => setTimeout(resolve, 400))
     const ok = await applyOtaUpdate()
     // 失败不静默:卡片已回到 ready(可再点一次重试),但必须如实告诉用户刚才没成功
     if (!ok) {
@@ -79,9 +92,11 @@ export function UpdatePrompt(): React.JSX.Element | null {
   const downloading = state === 'downloading'
   if ((state !== 'ready' && !applying && !downloading) || dismissed) return null
 
-  // 重启窗口(2026-10-27 机主实拍「点完更新直接调到灰屏页,一直不动」):
-  // 进程重启前有一段空白,没有任何反馈 ⇒ 被当成卡死。改成整幅「正在重启…」遮罩,
-  // 点下去必须有反应,直到新包接管(常驻上限见 ota-update 的 reload 看门狗)。
+  // 重启窗口(2026-10-28 机主「点了更新依旧灰屏 卡死 没任何反应」):
+  // 旧稿把整屏压成 overlay.loading(半透明灰),JS 一被拆掉就只剩一块灰,读作卡死。
+  // 现在两层保障:
+  //   ① 底色改成**不透明**的 surface.bg —— 任何时刻都不是"灰屏",而是与应用同色的重启页;
+  //   ② 10 秒还没重启就亮出「立即重启」原生兜底(见 slow),给用户一条明确的出路。
   if (applying) {
     return (
       <View
@@ -90,28 +105,32 @@ export function UpdatePrompt(): React.JSX.Element | null {
         accessibilityLabel={t('appUpdate.installing')}
       >
         <View style={styles.applyingCard}>
-          <ActivityIndicator color={tokens.brandAccent.deep} />
+          <ActivityIndicator size="large" color={tokens.brandAccent.deep} />
           <Text style={styles.applyingText}>{t('appUpdate.installing')}</Text>
+          <Text style={styles.applyingHint}>{t('appUpdate.installingHint')}</Text>
+          {slow ? (
+            <Pressable
+              onPress={forceRestart}
+              style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={t('appUpdate.restartNow')}
+            >
+              <Text style={styles.actionText}>{t('appUpdate.restartNow')}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     )
   }
 
-  // 当前跑的是哪个包(内置/热更 + 短 id):更新前后各看一眼,「生效没生效」不再靠猜
-  const rb = runningBundle()
-  const bundleLabel =
-    rb.kind === 'ota' && rb.id
-      ? `${t('appUpdate.bundleOta')} ${rb.id.slice(0, 8)}`
-      : t('appUpdate.bundleEmbedded')
-
   /**
-   * 版式(2026-10-27 二稿,机主反馈「更新两个字看不清、跟背景色一样、太难看了」):
-   * 旧稿把图标/文字/按钮平铺成一行,按钮只靠 brand.cta 裸色块区分,卡片与页面又同是 surface 档
-   * ⇒ 在浅色页上整块糊成一片。新稿给出明确层级:
-   *   ① 图标收进强调档圆角底(视觉锚点)  ② 标题/正文分行,字号拉开
-   *   ③ 按钮独立成行、加高加宽 + 描边 + 投影(可点区域 ≥ 32dp)  ④ 包身份收进浅底胶囊
-   *   ⑤ 关闭钮做成独立圆角块(命中区不再只是一个 18px 的 X)
-   * 配色仍全部取 token:品牌实底只出现在主钮(`brand.cta` ↔ `brand.ctaForeground` 成对)。
+   * 版式(2026-10-28 三稿):
+   * 机主连续否决了「就两个字那么难看」「更新两个字颜色没适配明暗主题」「凭什么提示用户去刷新页面」。
+   * 三稿的取舍:
+   *   ① 就绪态正文换成 RN 自己的 readyBody —— **不提刷新页面**,只说点按钮立即生效;
+   *   ② 主钮改成整行大按钮(高 44dp、居中文字、品牌实底 + 成对前景),
+   *      不再是一个缩在右下角的小色块 —— 明暗两套 token 下都是同档对比度;
+   *   ③ 去掉「当前运行:内置包/热更」这枚技术胶囊 —— 用户不关心包身份,那是设置页的诊断信息。
    */
   return (
     <View style={styles.card} accessibilityRole="alert" accessibilityLabel={t('appUpdate.title')}>
@@ -122,7 +141,7 @@ export function UpdatePrompt(): React.JSX.Element | null {
         <View style={styles.titleWrap}>
           <Text style={styles.title}>{t('appUpdate.title')}</Text>
           <Text style={styles.body}>
-            {downloading ? `${t('appUpdate.downloading')} ${progress}%` : t('appUpdate.body')}
+            {downloading ? `${t('appUpdate.downloading')} ${progress}%` : t('appUpdate.readyBody')}
           </Text>
         </View>
         <Pressable
@@ -139,24 +158,16 @@ export function UpdatePrompt(): React.JSX.Element | null {
         <View style={styles.track}>
           <View style={[styles.trackBar, { width: `${progress}%` }]} />
         </View>
-      ) : null}
-      <View style={styles.footer}>
-        <View style={styles.bundlePill}>
-          <Text style={styles.bundleTag} numberOfLines={1}>
-            {t('appUpdate.currentBundle', { bundle: bundleLabel })}
-          </Text>
-        </View>
-        {downloading ? null : (
-          <Pressable
-            onPress={() => void handleUpdate()}
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
-            accessibilityRole="button"
-            accessibilityLabel={t('appUpdate.action')}
-          >
-            <Text style={styles.actionText}>{t('appUpdate.action')}</Text>
-          </Pressable>
-        )}
-      </View>
+      ) : (
+        <Pressable
+          onPress={() => void handleUpdate()}
+          style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+          accessibilityRole="button"
+          accessibilityLabel={t('appUpdate.action')}
+        >
+          <Text style={styles.actionText}>{t('appUpdate.action')}</Text>
+        </Pressable>
+      )}
     </View>
   )
 }
@@ -204,21 +215,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,
   },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: rnSpacing.sm,
-  },
-  // 包身份胶囊:浅底 + 正文字档,不再用 tertiary 小字直接压在卡面上(旧稿最淡的一行)
-  bundlePill: {
-    flexShrink: 1,
-    paddingHorizontal: rnSpacing.sm,
-    paddingVertical: rnSpacing.xs,
-    borderRadius: rnRadius.md,
-    backgroundColor: tokens.surface.muted,
-  },
-  bundleTag: { color: tokens.text.secondary, fontSize: 11 },
   // 下载读条:细轨道 + 强调档实底,宽度随 store.downloadProgress(0-100)走
   track: {
     height: 4,
@@ -233,27 +229,22 @@ const styles = StyleSheet.create({
     // student-styles.progressFill 同一写法,品牌实底留给真正的操作钮(actionBtn)。
     backgroundColor: tokens.brandAccent.deep,
   },
-  // 主钮:品牌实底 + 同档前景(亮=黑底白字,暗=白底黑字),加高到 32dp 并补描边 + 投影
+  // 主钮(2026-10-28 三稿):整行大按钮。高 44dp、文字居中、品牌实底 + **成对**前景
+  // (亮=黑底白字,暗=白底黑字),两套主题下对比度都锁死,不再出现"两个字糊在背景里"。
   actionBtn: {
-    flexShrink: 0,
-    minWidth: 76,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: rnSpacing.lg,
-    paddingVertical: rnSpacing.sm,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
   },
   actionBtnPressed: { opacity: 0.85 },
-  actionText: { color: tokens.brand.ctaForeground, fontSize: 13, fontWeight: '600' },
-  // 重启遮罩:盖满窗口,中途不再出现"无内容的灰屏"
+  actionText: { color: tokens.brand.ctaForeground, fontSize: 15, fontWeight: '600' },
+  // 重启页(2026-10-28):**不透明**底色。旧稿的 overlay.loading 是半透明灰,
+  // 一旦 JS 面被拆掉,底下没有内容,整屏就是一块灰 —— 用户读作"卡死"。
   applyingOverlay: {
     position: 'absolute',
     top: 0,
@@ -262,14 +253,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: tokens.overlay.loading,
+    backgroundColor: tokens.surface.bg,
   },
   applyingCard: {
-    flexDirection: 'row',
+    width: '84%',
     alignItems: 'center',
     gap: rnSpacing.md,
     paddingHorizontal: rnSpacing.xl,
-    paddingVertical: rnSpacing.md,
+    paddingVertical: rnSpacing.xl,
     borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
@@ -280,6 +271,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  applyingText: { color: tokens.text.primary, fontSize: 14, fontWeight: '500' },
+  applyingText: { color: tokens.text.primary, fontSize: 16, fontWeight: '600' },
+  applyingHint: { color: tokens.text.secondary, fontSize: 13, textAlign: 'center' },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
