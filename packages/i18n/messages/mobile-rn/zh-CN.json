@@ -4309,6 +4309,22 @@
       "other": "其他"
     }
   },
+  "memberSettings": {
+    "title": "会员偏好",
+    "notification": "通知偏好",
+    "privacy": "隐私偏好",
+    "saving": "保存中",
+    "hint": "开关即保存,失败会自动回滚",
+    "loadFailed": "加载失败",
+    "saveFailed": "保存失败",
+    "orderUpdates": "订单动态",
+    "promotions": "促销活动",
+    "points": "积分变动",
+    "newsletter": "资讯订阅",
+    "showProfile": "公开我的资料",
+    "showActivity": "公开我的动态",
+    "allowInvites": "允许被邀请"
+  },
   "webViewPortal": {
     "news": "资讯",
     "learnTopic": "课程专题",

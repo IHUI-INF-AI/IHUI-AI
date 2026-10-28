@@ -4615,6 +4615,22 @@
       "other": "其他"
     }
   },
+  "memberSettings": {
+    "title": "會員偏好",
+    "notification": "通知偏好",
+    "privacy": "隱私偏好",
+    "saving": "儲存中",
+    "hint": "開關即儲存,失敗會自動回滾",
+    "loadFailed": "載入失敗",
+    "saveFailed": "儲存失敗",
+    "orderUpdates": "訂單動態",
+    "promotions": "促銷活動",
+    "points": "積分變動",
+    "newsletter": "資訊訂閱",
+    "showProfile": "公開我的資料",
+    "showActivity": "公開我的動態",
+    "allowInvites": "允許被邀請"
+  },
   "webViewPortal": {
     "news": "資訊",
     "learnTopic": "課程專題",
