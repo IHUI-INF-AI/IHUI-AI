@@ -4,55 +4,26 @@
 
 // 镜像 packages/app/src/features/lecturer/LecturerListScreen.tsx
 
-import { useI18n } from '@/i18n'
-import { View, Text, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+/**
+ * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
+ *   渲染 = packages/app/src/features/lecturer/LecturerListScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
+ *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/LecturerListScreen.tsx 本体,
+ *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
+ * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ */
 import ThemeRoot from '@/components/ThemeRoot'
+import { LecturerListScreen as LecturerListScreenShell } from '@rn-shells/LecturerListScreen'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useI18n } from '@/i18n'
 
-// 由 scripts/gen-miniapp-mirror.mjs 依首例 aa4c418bff1a 形制生成:文案骨架镜像自共享屏的 i18n 键,
-// 值逐语取自 mobile-rn 词包(零新译)。交互与数据钩子(列表/请求/跳转)需按共享屏人工补齐 ——
-// 本稿先钉死「镜像声明 + 路由在册 + 词包同键」的声明链,页面级还原度由后续人工轮提升。
-const PAIR_KEYS: readonly (readonly [string, string])[] = []
-const SINGLE_KEYS: readonly string[] = ['lecturer.search', 'lecturer.empty', 'lecturer.viewDetail']
-
-export default function LecturerList() {
+export default function LecturerListPage() {
   const { t } = useI18n()
   useDidShow(() => {
     Taro.setNavigationBarTitle({ title: t('lecturer.title') })
   })
-
   return (
     <ThemeRoot>
-      <ScrollView className="h-screen bg-background" scrollY>
-        <View className="px-[28rpx] pt-[28rpx] pb-[64rpx] flex flex-col gap-[24rpx]">
-          <View className="bg-card rounded-lg border border-border p-[28rpx]">
-            <Text className="block text-[length:36rpx] font-semibold text-foreground leading-[44rpx] mb-[12rpx]">
-              {t('lecturer.title')}
-            </Text>
-            <Text className="block text-[length:28rpx] text-muted-foreground leading-[40rpx]">
-              {t('lecturer.subtitle')}
-            </Text>
-          </View>
-
-          {PAIR_KEYS.map(([titleKey, bodyKey]) => (
-            <View key={titleKey} className="bg-card rounded-lg border border-border p-[28rpx]">
-              <Text className="block text-[length:36rpx] font-semibold text-foreground leading-[44rpx] mb-[24rpx]">
-                {t(titleKey)}
-              </Text>
-              <Text className="block text-[length:28rpx] text-muted-foreground leading-[44rpx] text-justify">
-                {t(bodyKey)}
-              </Text>
-            </View>
-          ))}
-          {SINGLE_KEYS.map((bodyKey) => (
-            <View key={bodyKey} className="bg-card rounded-lg border border-border p-[28rpx]">
-              <Text className="block text-[length:28rpx] text-muted-foreground leading-[44rpx] text-justify">
-                {t(bodyKey)}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+      <LecturerListScreenShell />
     </ThemeRoot>
   )
 }
