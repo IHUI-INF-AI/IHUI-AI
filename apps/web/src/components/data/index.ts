@@ -5,7 +5,6 @@
 export { DataTable, type Column } from './DataTable'
 export { StatCard } from './StatCard'
 export { Badge } from './Badge'
-export { Tag } from './Tag'
 export { Avatar } from './Avatar'
 export { VipBadge } from './VipBadge'
 export { Timeline, type TimelineItem } from './Timeline'

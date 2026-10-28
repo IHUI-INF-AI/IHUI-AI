@@ -54,7 +54,7 @@ const BCRYPT_PREFIX_RE = /^\$2[abxy]\$/
  * 判断哈希是否为 bcrypt(老密码)。
  * argon2id 哈希以 $argon2id$ 开头,bcrypt 以 $2a$/$2b$ 开头。
  */
-export function isBcryptHash(hash: string): boolean {
+function isBcryptHash(hash: string): boolean {
   return BCRYPT_PREFIX_RE.test(hash)
 }
 
