@@ -240,6 +240,7 @@ Windows 一键启动(9 个启动脚本)、环境变量逐项说明、REST/WebSoc
 | 凭据轮换                       | [`docs/CREDENTIAL_ROTATION_RUNBOOK.md`](./docs/CREDENTIAL_ROTATION_RUNBOOK.md) |
 | CI 工作流清单与触发条件        | [`.github/workflows/`](./.github/workflows) + 本页生成块的工作流计数           |
 | 部署/构建全局锁(禁止并发构建)  | [`AGENTS.md` §12 部署/构建全局锁](./AGENTS.md)                                 |
+| 号池网关单机档(一条命令 + API key 门) | [`deploy/relay-standalone/`](./deploy/relay-standalone/)                |
 
 详细部署叙述(端口管理规则、生产部署 10 项硬性门禁、IaC 决策)在
 [`readme-06-security-observability-gates`](./docs/engineering/readme-06-security-observability-gates.md)。
