@@ -14,7 +14,7 @@ import {
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
-import { usePaginatedList } from '../hooks'
+import { usePaginatedList, useRefreshOnFocus } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -74,6 +74,8 @@ export function CouponScreen() {
     fetcher,
     PAGE_SIZE,
   )
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):走分页 hook 的 refresh
+  useRefreshOnFocus(refresh)
 
   const onSelectTab = (tab: CouponStatus) => {
     const next = tab as CouponTab
