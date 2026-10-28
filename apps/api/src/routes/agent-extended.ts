@@ -19,6 +19,7 @@ import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { requireActiveUser } from '../plugins/auth.js'
 import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 import { calculateAgentPermission } from '../services/agent-service.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { getConversationHistory } from '../services/context-manager-service.js'
 import { generateOrderNumber } from '../utils/crypto-random.js'
 import { isUuidString } from '../utils/uuid.js'
@@ -699,9 +700,27 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
   server.post('/withdrawal/create', async (request, reply) => {
     const body = withdrawalCreateSchema.parse(request.body)
+    const userId = request.userId!
     // P0 安全修复:禁止为其他用户创建提现申请(IDOR)
-    if (body.userId !== request.userId) {
+    if (body.userId !== userId) {
       return reply.code(403).send({ code: 403, message: '无权为其他用户创建提现申请', data: null })
+    }
+    // 2FA step-up(2026-10-29):提现申请是资金流出动作,与 finance/wallet/withdrawal-routes 同族
+    // (上一轮的表驱动覆盖漏了这一处)。已开 2FA 的账号须有窗内二次验证;未开 2FA 的账号逐字不变;
+    // 判不出账号状态一律拒,不默认放行。
+    const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!stepUp.ok) {
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            stepUp.code === 'STEP_UP_REQUIRED'
+              ? '提现申请需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前验证码（有效窗 5 分钟）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            stepUp.code,
+          ),
+        )
     }
     const [row] = await db
       .insert(zhsAgentWithdrawalDetail)
