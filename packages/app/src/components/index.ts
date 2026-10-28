@@ -40,7 +40,6 @@ export type { CategoryItem, ColorSchemeName } from './category/types'
 // 共享层 210 个 Screen 此前骨架屏 1/210、空态 1/210、错误态无重试、卡片无按压反馈,
 // 这四件是两端观感最粗糙的共性缺口,故收口一份、两端同源(小程序侧镜像见
 // apps/miniapp-taro/src/components/ScreenStates.taro.tsx)。
-export { ScreenSkeleton, EmptyState, ErrorState, PressableCard } from './ScreenStates'
 export type {
   ScreenSkeletonProps,
   EmptyStateProps,

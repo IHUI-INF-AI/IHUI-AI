@@ -11,7 +11,6 @@
  */
 
 export { evaluateArgv, evaluateCommand, isAlwaysConfirmCommand, isAutoApprovableCommand, normalizeProgram } from './evaluate.js';
-export { isFileRedirectTarget, tokenizeCommand } from './tokenizer.js';
 export type { ArgToken, TokenIssue, TokenIssueKind, TokenizeResult, TokenizedSegment } from './tokenizer.js';
 export { SYNTAX_TABLE } from './syntax-table.js';
 export type { CommandAssessment, CommandEffect, CommandFinding, CommandSpec, OperandGuard, OptionArity, OptionSpec, SubcommandSpec, SyntaxVerdict } from './types.js';
