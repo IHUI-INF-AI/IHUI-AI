@@ -77,7 +77,11 @@ export const SECTION_HEADER_SUBTITLE_GAP_PX = 8
 /** 「更多」入口与左侧内容区的间距 8:两端现值已同(小程序 `ml-2` / 适配层 marginLeft 8)。 */
 export const SECTION_HEADER_MORE_MARGIN_LEFT_PX = 8
 
-/** 文字与箭头图标间距 2:两端现值已同(小程序 `4rpx` = 2 / 适配层 `toRpx(2)`);取更稳的一档不再放大。 */
+/**
+ * 文字与箭头图标间距 2:小程序 `4rpx` = 2、适配层 `toRpx(2)` 同值。
+ * **小程序腿单侧**:RN 腿不渲染箭头图标(「更多」是纯文字 + 图标由 MoreLink 自带),故 RN 不消费本档 ——
+ * 属结构差异,不是分叉;门 128 的 SL 维报「仅小程序引用」是准确的。
+ */
 export const SECTION_HEADER_ARROW_MARGIN_LEFT_PX = 2
 
 /**
