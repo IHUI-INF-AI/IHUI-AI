@@ -41,7 +41,7 @@ import {
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { readOps, type MoveOp } from './relay-session-move.js'
+import { readOps, readOpsAll, type MoveOp } from './relay-session-move.js'
 import { readRestoreOps } from './relay-session-restore.js'
 import { acquireSessionLock } from './relay-session-lock.js'
 
@@ -186,7 +186,7 @@ export interface SessionOpsStats {
   opsLogFile: string
   opsLogPresent: boolean
   opsLogBytes: number
-  /** 总条数(可解析条目数,等于 ops 行号上界) */
+  /** 主日志可解析条目数(opId 是全局号,可大于本数 —— 条目已在归档件里) */
   total: number
   badLines: number
   byType: Record<string, number>
@@ -198,7 +198,7 @@ export interface SessionOpsStats {
   undoRecords: number
   /** 被 undo 记录引用过的 op 号(去重升序) */
   undoRefOpNums: number[]
-  /** 引用指向不存在行(轮转/手工编辑后的悬空引用) */
+  /** 引用指向全序(归档⊕当前)里没有的 opId(手工裁行/归档件被清理后的悬空引用) */
   danglingRefOpNums: number[]
   backupsSessionsDir: string
   snapshotsPresent: boolean
@@ -312,6 +312,13 @@ export function collectStats(paths: OpsPaths): SessionOpsStats {
     else if (ms > latest.ms) latest = { ms, ts: tsText }
   }
   const total = scan.entries.length
+  // 号空间 = 全序(归档⊕当前)的 opId 集,不是主日志条数:引用的条目被 rotate 移进归档件后
+  // 号依然有效(本器按 opId 寻址);拿条数当上界会把合法引用念成悬空,与 undo/rotate 两把尺。
+  const knownOpIds = new Set<number>(
+    readOpsAll(paths.opsLogFile)
+      .ops.map((o) => o.opId)
+      .filter((n): n is number => typeof n === 'number'),
+  )
   const undoRefOpNums = [...refs].sort((a, b) => a - b)
   const snapshotStats = collectSnapshotStats(paths.backupsSessionsDir)
   return {
@@ -326,7 +333,7 @@ export function collectStats(paths: OpsPaths): SessionOpsStats {
     unparsableTs,
     undoRecords,
     undoRefOpNums,
-    danglingRefOpNums: undoRefOpNums.filter((n) => n > total),
+    danglingRefOpNums: undoRefOpNums.filter((n) => !knownOpIds.has(n)),
     backupsSessionsDir: paths.backupsSessionsDir,
     snapshotsPresent: snapshotStats.present,
     snapshots: snapshotStats.snapshots,
@@ -402,7 +409,7 @@ export interface RotatePlan {
   present: boolean
   /** 原文件物理非空行数(条数守恒的基数) */
   totalLines: number
-  /** 可解析条目数(= ops 行号上界) */
+  /** 主日志可解析条目数(opId 是全局号,可大于本数) */
   totalOps: number
   badLines: number
   /** 阈值时刻(ts 严格早于它才可归档) */
@@ -433,22 +440,22 @@ export function planRotate(opsLogFile: string, opts: RotatePlanOptions): RotateP
   if (canonicalCount !== scan.entries.length) {
     throw new UndeterminedInputError(
       `操作日志读取面不一致(解析对象 ${scan.entries.length} 条 / readOps ${canonicalCount} 条:` +
-        '含 JSON 非对象行,或两次读取之间被追加),op 号无法与 undo 行号对齐 ⇒ 未判定,拒绝轮转',
+        '含 JSON 非对象行,或两次读取之间被追加),主日志条目无法与全序 opId 逐条对齐 ⇒ 未判定,拒绝轮转',
     )
   }
+  // 主日志条目按序对齐到带 opId 的全序视图(readOpsAll 已给旧数据补位置号)
+  const all = readOpsAll(opsLogFile)
+  const currentWithId = all.ops.slice(all.archivedCount)
   const refs = new Set<number>()
   const undoRecordOpNums: number[] = []
+  // undo 记录可能已在归档件里(引用载体永不归档,但保险起见全序扫 refs)
+  for (const op of all.ops) {
+    if (op.type === 'undo' && typeof op.refOp === 'number' && op.refOp >= 1) refs.add(op.refOp)
+  }
   scan.entries.forEach((entry, index) => {
-    const opNo = index + 1
+    const opNo = currentWithId[index]?.opId ?? index + 1
     if (entry.op.type === 'undo') {
       undoRecordOpNums.push(opNo)
-      if (
-        typeof entry.op.refOp === 'number' &&
-        Number.isInteger(entry.op.refOp) &&
-        entry.op.refOp >= 1
-      ) {
-        refs.add(entry.op.refOp)
-      }
     }
   })
   const cutoffMs = opts.now.getTime() - opts.keepDays * DAY_MS
@@ -457,8 +464,16 @@ export function planRotate(opsLogFile: string, opts: RotatePlanOptions): RotateP
   const protectedOpNums: number[] = []
   const unjudgedOpNums: number[] = []
   const archiveLineIndexes = new Set<number>()
+  // 落盘固化:rotate 时给每条可解析条目写死不可变 opId —— 旧库(无 opId)一次 rotate 后即升级,
+  // 之后 undo 引用不再随归档件挤占位置而漂移。坏行/非对象行不固化(原样保留)。
+  const solidByLineIndex = new Map<number, string>()
   scan.entries.forEach((entry, index) => {
-    const opNo = index + 1
+    const opId = currentWithId[index]?.opId ?? index + 1
+    solidByLineIndex.set(entry.lineIndex, JSON.stringify({ ...entry.op, opId }))
+  })
+  scan.entries.forEach((entry, index) => {
+    const opNo = currentWithId[index]?.opId ?? index + 1
+    const solid = solidByLineIndex.get(entry.lineIndex) ?? entry.raw
     const tsText = typeof entry.op.ts === 'string' ? entry.op.ts : ''
     const ms = tsText === '' ? Number.NaN : Date.parse(tsText)
     if (!Number.isFinite(ms)) {
@@ -473,10 +488,12 @@ export function planRotate(opsLogFile: string, opts: RotatePlanOptions): RotateP
       return
     }
     archiveLineIndexes.add(entry.lineIndex)
-    archiveLines.push(entry.raw)
+    archiveLines.push(solid)
     archiveOpNums.push(opNo)
   })
-  const keepLines = scan.lines.filter((_, index) => !archiveLineIndexes.has(index))
+  const keepLines = scan.lines
+    .map((raw, i) => solidByLineIndex.get(i) ?? raw)
+    .filter((_, index) => !archiveLineIndexes.has(index))
   const baseName = basename(opsLogFile).replace(/\.jsonl$/i, '')
   const utcDay = opts.now.toISOString().slice(0, 10)
   return {
@@ -531,7 +548,10 @@ export function formatRotatePlan(plan: RotatePlan, apply: boolean): string {
   lines.push(
     `剩余: ${plan.keepLines.length} 行(解析条 ${plan.keepOps} 条 + 坏行 ${plan.badLines} 行)`,
   )
-  lines.push('注意: 归档会移除行,剩余条目的 op 号(1 起行号)随之前移;rotate 后请重跑 ops 取新号。')
+  lines.push(
+    '注意: 每条的 opId 已随本次轮转固化写盘且不可变 ⇒ 剩余条目的号不因归档而前移;' +
+      'undo --op 用的号 rotate 前后同一个(旧库无 opId 时按「归档⊕当前」位置补推并写定)。',
+  )
   return lines.join('\n')
 }
 
@@ -714,7 +734,7 @@ const USAGE = `用法:
 说明:
   - rotate 默认 dry-run;--apply 先写临时名并校验条数守恒,再原子改名。
   - 被 undo 记录(MoveOp.refOp)引用的条目永不归档;undo 记录本身也不归档(引用载体)。
-  - 归档会移除行,剩余条目的 op 号(1 起行号)随之前移 —— rotate 后请重跑 ops 取新号。
+  - 每条的 opId 在 rotate 时固化写盘且此后不变 —— 剩余条目的号不随归档前移,undo --op 的号 rotate 前后同一个。
   - prune-snapshots 刻意只读:--apply 也不删除任何目录(快照是回退能力的载体)。
 退出码: 0 成功 / 1 执行失败 / 2 参数错或输入不可判定`
 
