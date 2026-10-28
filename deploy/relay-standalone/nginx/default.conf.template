@@ -1,0 +1,87 @@
+# relay-standalone 入口门(O70)
+#
+# 唯一对外监听 7864(对标对面 7864/panel 的形态)。门 = RELAY_STANDALONE_KEY:
+#   - 请求头 X-Relay-Key: <key>
+#   - Cookie relay_key=<key>(浏览器首次带 ?key=<key> 访问时由下面 Set-Cookie 种下)
+#   - 查询串 ?key=<key>(种 cookie 用)
+# 三者任一命中即放行;否则 401。db/redis/api/web 都不发布端口,绕过门没有第二条路。
+#
+# 本文件由 nginx 官方镜像的 entrypoint 做 envsubst(只替换已定义环境变量形态),
+# ${RELAY_STANDALONE_KEY} 会被替换成实际 key;$http_* / $cookie_* / $arg_* 保持原样。
+
+map $http_x_relay_key $relay_ok_header {
+  default 0;
+  "${RELAY_STANDALONE_KEY}" 1;
+}
+
+map $cookie_relay_key $relay_ok_cookie {
+  default 0;
+  "${RELAY_STANDALONE_KEY}" 1;
+}
+
+map $arg_key $relay_ok_query {
+  default 0;
+  "${RELAY_STANDALONE_KEY}" 1;
+}
+
+map "$relay_ok_header$relay_ok_cookie$relay_ok_query" $relay_allowed {
+  default 0;
+  "~1" 1;
+}
+
+server {
+  listen 7864;
+  server_name _;
+  client_max_body_size 16m;
+
+  # 容器与人工探活口:不放行任何业务面
+  location = /healthz {
+    access_log off;
+    add_header Content-Type text/plain always;
+    return 200 "ok\n";
+  }
+
+  # 面板(Next.js)
+  location / {
+    if ($arg_key) {
+      add_header Set-Cookie "relay_key=$arg_key; Path=/; HttpOnly; SameSite=Lax" always;
+    }
+    if ($relay_allowed = 0) {
+      add_header Content-Type application/json always;
+      return 401 '{"code":401,"message":"relay key required"}';
+    }
+
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "";
+    proxy_pass http://web:8801;
+  }
+
+  # API(含账号池 /v1 转发与 SSE 流式)
+  location /api/ {
+    if ($arg_key) {
+      add_header Set-Cookie "relay_key=$arg_key; Path=/; HttpOnly; SameSite=Lax" always;
+    }
+    if ($relay_allowed = 0) {
+      add_header Content-Type application/json always;
+      return 401 '{"code":401,"message":"relay key required"}';
+    }
+
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Connection "";
+    # SSE / 长回答:不缓冲、不提前断开
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    proxy_pass http://api:8802;
+  }
+}

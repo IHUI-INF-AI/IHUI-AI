@@ -133,8 +133,11 @@ import {
   clearAccountCooldown,
   getAccountsInCooldown,
   getSessionAffinity,
+  setAccountCooldown,
   setSessionAffinity,
+  tryAcquireGlobalInflight,
 } from '../src/services/relay-account-shared-state.js'
+import { __test__ as POLICY } from '../src/services/relay-pool-policy.js'
 import { registerRelayAdapter } from '../src/services/relay-upstream-adapters.js'
 import type {
   AdapterAccountContext,
@@ -994,6 +997,190 @@ describe('mergeToolCallDelta', () => {
     expect(slot.name).toBe('get_time')
     expect(slot.id).toBe('call_1')
     expect(slot.args).toBe('{}')
+  })
+})
+
+// =============================================================================
+// O93 号池选号策略接线(六能力 × 正/反成对;判据单源 = relay-pool-policy __test__)
+// 夹具策略一律从 DEFAULT_RELAY_POOL_POLICY 展开再改钮,不在测试里抄第二份默认值
+// =============================================================================
+
+/** 种子随机源(耗尽后恒 0):weighted_random 复现性靠注入,不碰 Math.random */
+function seqRng(values: number[]): () => number {
+  let i = 0
+  return () => {
+    const v = i < values.length ? values[i] : 0
+    i += 1
+    return v ?? 0
+  }
+}
+
+describe('O93 选号策略(selectAccountCandidates 接线)', () => {
+  it('② 闲置加权:从未用过的低权号压过刚用过的高权号;perHour=0 摘掉即还原 weight desc', async () => {
+    const freshHigh = accountRow('sel-fresh-high', { weight: 5, lastUsedAt: new Date() })
+    const idleLow = accountRow('sel-idle-low', { weight: 1 })
+    accountRows = [freshHigh, idleLow]
+    const base = { ...POLICY.DEFAULT_RELAY_POOL_POLICY }
+    const on = await F.selectAccountCandidates(baseReq('sel-idle-on'), 'sel-idle-on', ['trae'], {
+      policy: base,
+    })
+    expect((on.rows[0] as { id: string }).id).toBe((idleLow as { id: string }).id)
+    const off = await F.selectAccountCandidates(baseReq('sel-idle-off'), 'sel-idle-off', ['trae'], {
+      policy: { ...base, idleWeightPerHour: 0 },
+    })
+    expect((off.rows[0] as { id: string }).id).toBe((freshHigh as { id: string }).id)
+  })
+
+  it('③ 临期优先:flag 开 ⇒ 窗口内将到期的低权号排前;flag 关 ⇒ 高权号在前', async () => {
+    const soon = accountRow('sel-exp-soon', {
+      weight: 1,
+      tokenExpiresAt: new Date(Date.now() + 3_600_000),
+    })
+    const later = accountRow('sel-exp-later', {
+      weight: 9,
+      tokenExpiresAt: new Date(Date.now() + 720 * 3_600_000),
+    })
+    accountRows = [later, soon]
+    const base = { ...POLICY.DEFAULT_RELAY_POOL_POLICY }
+    const on = await F.selectAccountCandidates(baseReq('sel-exp-on'), 'sel-exp-on', ['trae'], {
+      policy: { ...base, preferExpiring: true },
+    })
+    expect((on.rows[0] as { id: string }).id).toBe((soon as { id: string }).id)
+    const off = await F.selectAccountCandidates(baseReq('sel-exp-off'), 'sel-exp-off', ['trae'], {
+      policy: base,
+    })
+    expect((off.rows[0] as { id: string }).id).toBe((later as { id: string }).id)
+  })
+
+  it('① weighted_random:种子 rng 决定首抽(0.9×总权落在低权区间 ⇒ 低权先);deterministic 档不消费 rng', async () => {
+    const heavy = accountRow('sel-w-heavy', { weight: 3 })
+    const light = accountRow('sel-w-light', { weight: 1 })
+    accountRows = [heavy, light]
+    const base = { ...POLICY.DEFAULT_RELAY_POOL_POLICY }
+    // 有效权 = 3+5 与 1+5(两号均未用过 ⇒ 同触顶加分);总 14
+    const rand = await F.selectAccountCandidates(baseReq('sel-w-rand'), 'sel-w-rand', ['trae'], {
+      policy: { ...base, strategy: 'weighted_random' as const },
+      rng: seqRng([0.9]),
+    })
+    expect(rand.rows.map((r: { id: string }) => r.id)).toEqual([
+      (light as { id: string }).id,
+      (heavy as { id: string }).id,
+    ])
+    const det = await F.selectAccountCandidates(baseReq('sel-w-det'), 'sel-w-det', ['trae'], {
+      policy: base,
+      rng: seqRng([0.9]),
+    })
+    expect(det.rows.map((r: { id: string }) => r.id)).toEqual([
+      (heavy as { id: string }).id,
+      (light as { id: string }).id,
+    ])
+  })
+
+  it('④ 积分地板:低分号被滤;全池低于地板 ⇒ 永不排空 ⇒ 回落全池 + credit_floor_fallback 标签', async () => {
+    const low = accountRow('sel-cf-low', { extraMetadata: { creditRemaining: 1 } })
+    const high = accountRow('sel-cf-high', { extraMetadata: { creditRemaining: 100 } })
+    accountRows = [low, high]
+    const base = { ...POLICY.DEFAULT_RELAY_POOL_POLICY }
+    const filtered = await F.selectAccountCandidates(
+      baseReq('sel-cf-part'),
+      'sel-cf-part',
+      ['trae'],
+      { policy: { ...base, creditFloor: 50 } },
+    )
+    expect(filtered.rows.map((r: { id: string }) => r.id)).toEqual([(high as { id: string }).id])
+    expect(filtered.fallbacks).toEqual([])
+    accountRows = [low]
+    const emptied = await F.selectAccountCandidates(baseReq('sel-cf-all'), 'sel-cf-all', ['trae'], {
+      policy: { ...base, creditFloor: 50 },
+    })
+    expect(emptied.rows.length).toBe(1)
+    expect(emptied.fallbacks).toEqual(['credit_floor_fallback'])
+    const paired = await F.selectAccountCandidates(baseReq('sel-cf-off'), 'sel-cf-off', ['trae'], {
+      policy: base,
+    })
+    expect(paired.rows.length).toBe(1)
+    expect(paired.fallbacks).toEqual([])
+  })
+
+  it('⑥ 跨域互兜:亲和号所在域优先;该域候选全被冷却 ⇒ 回落全域 + cross_domain_fallback;flag 关不滤', async () => {
+    const wbGlobal = accountRow('sel-xd-global', {
+      providerCode: 'workbuddy',
+      extraMetadata: { domain: 'workbuddy.ai' },
+    })
+    const wbCn = accountRow('sel-xd-cn', {
+      providerCode: 'workbuddy',
+      extraMetadata: { domain: 'workbuddy.cn' },
+    })
+    accountRows = [wbGlobal, wbCn]
+    const base = { ...POLICY.DEFAULT_RELAY_POOL_POLICY }
+    const affModel = 'sel-xd-aff'
+    await setSessionAffinity(`key-1|${affModel}`, (wbGlobal as { id: string }).id, 60_000)
+    const narrowed = await F.selectAccountCandidates(baseReq(affModel), affModel, ['workbuddy'], {
+      policy: { ...base, crossDomainFallback: true },
+    })
+    expect(narrowed.rows.map((r: { id: string }) => r.id)).toEqual([
+      (wbGlobal as { id: string }).id,
+    ])
+    expect(narrowed.fallbacks).toEqual([])
+    // 亲和号进冷却 ⇒ 请求域内零候选 ⇒ 回落全域(永不排空)
+    await setAccountCooldown((wbGlobal as { id: string }).id, Date.now() + 60_000)
+    const fellBack = await F.selectAccountCandidates(baseReq(affModel), affModel, ['workbuddy'], {
+      policy: { ...base, crossDomainFallback: true },
+    })
+    expect(fellBack.rows.map((r: { id: string }) => r.id)).toEqual([(wbCn as { id: string }).id])
+    expect(fellBack.fallbacks).toEqual(['cross_domain_fallback'])
+    // 反向:flag 关 ⇒ 不做域过滤、也不打标签
+    const off = await F.selectAccountCandidates(baseReq(affModel), affModel, ['workbuddy'], {
+      policy: base,
+    })
+    expect(off.rows.map((r: { id: string }) => r.id)).toEqual([(wbCn as { id: string }).id])
+    expect(off.fallbacks).toEqual([])
+  })
+})
+
+describe('O93 全局在途并发闸(maxInFlightGlobal)', () => {
+  it('闸本体:占满即回绝、归还即可再占、release 幂等(内存兜底档)', async () => {
+    expect(sharedState.backend()).toBe('memory')
+    const h = await tryAcquireGlobalInflight(1)
+    expect(h && h.backend).toBe('memory')
+    expect(sharedState.globalInflightMemory()).toBe(1)
+    expect(await tryAcquireGlobalInflight(1)).toBeNull()
+    if (h) {
+      await h.release()
+      await h.release() // 幂等:不得多减(否则会虚假放大额度)
+    }
+    expect(sharedState.globalInflightMemory()).toBe(0)
+    const again = await tryAcquireGlobalInflight(1)
+    expect(again).not.toBeNull()
+    if (again) await again.release()
+    expect(sharedState.globalInflightMemory()).toBe(0)
+  })
+
+  it('正向(满坑被跳过)与反向(放坑即成功):env=1 的转发请求在坑位被占时以带标签失败回绝', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-global-gate')]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({ id: 'cm-g', object: 'chat.completion', choices: [] }, { status: 200 }),
+      ),
+    )
+    vi.stubEnv('IHUI_RELAY_POOL_MAX_IN_FLIGHT_GLOBAL', '1')
+    try {
+      const held = await tryAcquireGlobalInflight(1)
+      expect(held).not.toBeNull()
+      const req = { ...baseReq('global-gate-model-1'), stream: false }
+      const blocked = await forwardToAccountPool(req, 'global-gate-model-1')
+      expect(blocked && !blocked.ok).toBe(true)
+      if (blocked && !blocked.ok) expect(blocked.reason).toContain('全局并发已达上限')
+      if (held) await held.release()
+      const passed = await forwardToAccountPool(req, 'global-gate-model-1')
+      expect(passed && passed.ok).toBe(true)
+      await vi.waitFor(() => expect(sharedState.globalInflightMemory()).toBe(0))
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

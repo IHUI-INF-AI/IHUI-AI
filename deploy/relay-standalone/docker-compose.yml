@@ -1,0 +1,176 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# relay-standalone:一条命令起本机号池网关档(O70,2026-10-28 立)
+#
+# 对标 workbuddy2api-panel 的「双击 exe + 7864/panel + api_key 门」。我方网关依赖
+# PostgreSQL + Redis,单 exe 拓扑不成立;这里的最小可用拓扑 = db + redis + migrate +
+# api + worker + web + gateway,对外只暴露 gateway 一个端口(默认 7864)。
+#
+# 与根 docker-compose.yml 的差异(刻意收窄):
+#   - 不含 ai-service / monitoring / jaeger(账号池转发不需要;签到与任务自动化需要
+#     ai-service,另行接入 —— README 已写明,不假装包含)
+#   - db / redis / api / worker / web 一律不发布端口,只有 gateway 出网
+#   - 管理入口用 RELAY_STANDALONE_KEY 门(nginx 层),不依赖 SSO/roleId
+#
+# 用法:docker compose -f deploy/relay-standalone/docker-compose.yml up -d
+name: ihui-relay-standalone
+
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-ihui}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 未配置:复制 .env.example 为 .env 并填写}
+      POSTGRES_DB: ${DB_NAME:-ihui}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - standalone-net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-ihui}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--requirepass', '${REDIS_PASSWORD:?REDIS_PASSWORD 未配置}']
+    volumes:
+      - redisdata:/data
+    networks:
+      - standalone-net
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$REDIS_PASSWORD" ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.migrate
+    image: ihui-migrate:latest
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - standalone-net
+    restart: 'no'
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.api
+    image: ihui-api:latest
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=8802
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      # 单机档同源访问:面板与 API 都经 gateway 7864 进来
+      - CORS_ORIGIN=${RELAY_STANDALONE_ORIGIN:-http://localhost:7864}
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置(≥32 字符)}
+      - JWT_EXPIRES_IN=7d
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置(32 字符随机)}
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置(32 字符随机)}
+      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://ai-service:8803}
+      - ENABLE_WORKER=false
+      - OTEL_ENABLED=false
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - standalone-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8802/api/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # BullMQ worker:号池巡检/用量结算等后台作业(api 容器内关掉 worker,单独一进程)
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.api
+    image: ihui-api:latest
+    restart: unless-stopped
+    command: ['node', 'apps/api/dist/worker-entry.js']
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置(≥32 字符)}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置(32 字符随机)}
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置(32 字符随机)}
+      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://ai-service:8803}
+      - OTEL_ENABLED=false
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - standalone-net
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.web
+    image: ihui-web:latest
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://api:8802
+      - NEXT_TELEMETRY_DISABLED=1
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置(≥32 字符)}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置(32 字符随机)}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - standalone-net
+
+  gateway:
+    image: nginx:alpine
+    restart: unless-stopped
+    environment:
+      - RELAY_STANDALONE_KEY=${RELAY_STANDALONE_KEY:?RELAY_STANDALONE_KEY 未配置:至少 32 字符的随机串,入口门唯一凭据}
+    volumes:
+      # 官方镜像会把 templates/*.template 先 envsubst 再落到 conf.d/
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      - '${RELAY_STANDALONE_PORT:-7864}:7864'
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    networks:
+      - standalone-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:7864/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  standalone-net:
+    driver: bridge
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

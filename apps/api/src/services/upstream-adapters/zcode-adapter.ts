@@ -28,7 +28,7 @@
  *   scripts/lib/zcode-auth-extract.mjs(实弹闭环)。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
-import { randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
@@ -74,13 +74,51 @@ function planJwt(ctx: AdapterAccountContext): string {
   return typeof jwt === 'string' && jwt.trim() !== '' ? jwt.trim() : ctx.credentials.token
 }
 
+/**
+ * X-Device-Mid 账号级稳定标识(O72 整改@2026-10-28)。
+ *
+ * 原实现每请求 `randomUUID()` ⇒ 同一号池账号每次调用都向上游出示一台"全新设备",
+ * 这本身就是风控异常触发器(真实客户端的设备 mid 是装机期固定值)。取值序:
+ *  1) row.deviceId —— 导入时随账号带的真实客户端设备 id(明文列,非机密),优先原样透传;
+ *  2) 无存储材料时由账号自身内部标识确定性派生(row.id,退化 row.uid):
+ *     sha256 域分隔摘要 → 格式化为 UUID 8-4-4-4-12(版本位 4、variant 位 8..b,
+ *     形态与真 UUID 一致)。row.id 是服务端内部 uuid,上游从未取得
+ *     ⇒ 派生值对上游不可反推、也绝不落任何机密;两档都满足"跨请求稳定、账号间互异"。
+ */
+interface DeviceMidRow {
+  id?: string | null
+  uid?: string | null
+  deviceId?: string | null
+}
+
+function uuidFromSeed(seed: string): string {
+  const h = createHash('sha256').update(`zcode-mid:v1:${seed}`).digest('hex').slice(0, 32)
+  // variant nibble 必须落 8..b(高两位=10):保留低两位,置 0x8
+  const variant = (((Number.parseInt(h.slice(16, 17), 16) & 0x3) | 0x8) >>> 0).toString(16)
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`
+}
+
+export function zcodeDeviceMid(row: DeviceMidRow): string {
+  const stored = typeof row.deviceId === 'string' ? row.deviceId.trim() : ''
+  if (stored) return stored
+  const seed =
+    typeof row.id === 'string' && row.id
+      ? row.id
+      : typeof row.uid === 'string' && row.uid
+        ? row.uid
+        : ''
+  if (!seed)
+    throw new Error('ZCode X-Device-Mid 未判定:账号行既无 deviceId 存储材料也无 id/uid 可派生')
+  return uuidFromSeed(seed)
+}
+
 /** zcode-plan 请求头(实弹实证:缺 X-Device-Mid/X-ZCode-App-Version ⇒ 400 parameter error) */
-function planHeaders(jwt: string): Record<string, string> {
+function planHeaders(jwt: string, deviceMid: string): Record<string, string> {
   return {
     accept: 'application/json',
     authorization: `Bearer ${jwt}`,
     'user-agent': `ZCode/${PLAN_APP_VERSION}`,
-    'X-Device-Mid': randomUUID(),
+    'X-Device-Mid': deviceMid,
     'X-ZCode-App-Version': PLAN_APP_VERSION,
     'X-Platform': 'windows-x64',
     'X-Client-Language': 'zh-CN',
@@ -308,7 +346,7 @@ async function getQuota(
     const url = `${PLAN_BASE}${PLAN_BALANCE_PATH}?app_version=${PLAN_APP_VERSION}`
     const res = await resolveFetchImpl(opts ?? {})(url, {
       method: 'GET',
-      headers: planHeaders(planJwt(ctx)),
+      headers: planHeaders(planJwt(ctx), zcodeDeviceMid(ctx.row)),
     })
     const text = await res.text().catch(() => '')
     if (!res.ok) {
@@ -375,7 +413,7 @@ async function checkHealth(
     const url = `${PLAN_BASE}${PLAN_BALANCE_PATH}?app_version=${PLAN_APP_VERSION}`
     const res = await resolveFetchImpl(opts ?? {})(url, {
       method: 'GET',
-      headers: planHeaders(planJwt(ctx)),
+      headers: planHeaders(planJwt(ctx), zcodeDeviceMid(ctx.row)),
     })
     if (!res.ok) {
       const text = await res.text().catch(() => '')
@@ -430,4 +468,7 @@ export const zcodeAdapter: RelayUpstreamAdapter = {
   isAuthFailure,
   classifyUpstreamFailure,
 }
+
+// §22c 镜像测试唯一出口:派生逻辑只有上面这一份实现,测试直用,不得复制判据。
+export const __test__ = { zcodeDeviceMid, uuidFromSeed }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

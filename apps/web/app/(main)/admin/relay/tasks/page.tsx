@@ -14,12 +14,33 @@
  */
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2, Play, RefreshCw } from 'lucide-react'
+import { Loader2, Play, RefreshCw, Zap } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
-import { Button } from '@ihui/ui-react'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+} from '@ihui/ui-react'
+import {
+  WORKBUDDY_TASK_KINDS,
+  fetchWorkbuddyAccounts,
+  fetchWorkbuddyTasks,
+  runWorkbuddyTask,
+  type WorkbuddyTaskKind,
+  type WorkbuddyTaskRunView,
+} from '@/lib/relay-task-center'
 
 interface RelayTask {
   id: string
@@ -182,6 +203,248 @@ export default function RelayTasksPage() {
           </table>
         </div>
       )}
+
+      <WorkbuddyAutomation />
     </div>
+  )
+}
+
+/**
+ * WorkBuddy 任务自动化(O68,2026-10-29 立):账号下拉 + 任务清单观测 + 按 kind 手动触发。
+ * 定案不变(观测面+手动触发,无新调度器);触发默认预览(干跑开关常开),正式执行需显式关断。
+ * unjudged 显式渲染为「未判定」徽章,绝不与"无任务/0 增量"混同;失败(reason/HTTP 错误)标红。
+ */
+function WorkbuddyAutomation() {
+  const t = useTranslations('admin.relayTasks')
+  // kind → 文案(逐键显式,不拿模板串过 typed next-intl)
+  const kindLabel = React.useCallback(
+    (kind: WorkbuddyTaskKind): string =>
+      kind === 'growth'
+        ? t('wbKindGrowth')
+        : kind === 'travel'
+          ? t('wbKindTravel')
+          : kind === 'activity'
+            ? t('wbKindActivity')
+            : t('wbKindBlackcat'),
+    [t],
+  )
+  const qc = useQueryClient()
+  const [accountId, setAccountId] = React.useState('')
+  const [dryRun, setDryRun] = React.useState(true)
+  const [lastRun, setLastRun] = React.useState<WorkbuddyTaskRunView | null>(null)
+
+  const accounts = useQuery({
+    queryKey: ['relay-workbuddy-accounts'],
+    queryFn: fetchWorkbuddyAccounts,
+    staleTime: 60_000,
+  })
+  React.useEffect(() => {
+    if (!accountId && accounts.data && accounts.data.length > 0) {
+      setAccountId(accounts.data[0]!.id)
+    }
+  }, [accountId, accounts.data])
+
+  const tasks = useQuery({
+    queryKey: ['relay-workbuddy-tasks', accountId],
+    queryFn: () => fetchWorkbuddyTasks(accountId),
+    enabled: Boolean(accountId),
+  })
+
+  const runMut = useMutation({
+    mutationFn: (kind: WorkbuddyTaskKind) => runWorkbuddyTask(accountId, kind, dryRun),
+    onSuccess: (r) => {
+      setLastRun(r)
+      if (r.ok && !r.unjudged) toast.success(t('wbRunOk'))
+      else if (!r.unjudged) toast.error(`${t('wbRunFailed')}:${r.reason ?? ''}`)
+      void qc.invalidateQueries({ queryKey: ['relay-workbuddy-tasks', accountId] })
+    },
+    onError: (e: Error) => toast.error(`${t('wbRunFailed')}:${e.message}`),
+  })
+
+  const view = tasks.data
+  const taskRows = view?.tasks ?? []
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{t('wbTitle')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-muted-foreground text-sm">{t('wbAccount')}</span>
+          <Select value={accountId} onValueChange={setAccountId} disabled={accounts.isPending}>
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder={t('wbAccountEmpty')} />
+            </SelectTrigger>
+            <SelectContent>
+              {(accounts.data ?? []).map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <label className="flex items-center gap-2 text-sm">
+            <Switch checked={dryRun} onCheckedChange={(v) => setDryRun(v === true)} />
+            {t('wbDryRun')}
+          </label>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void tasks.refetch()}
+            disabled={!accountId || tasks.isFetching}
+          >
+            {tasks.isFetching ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            {t('wbRefresh')}
+          </Button>
+        </div>
+
+        {/* 清单三态:未判定(琥珀)/失败读取(红)/判过(绿底数据,空表如实说空) */}
+        {!accountId ? (
+          <p className="text-muted-foreground text-sm">{t('wbNoAccount')}</p>
+        ) : tasks.isPending ? (
+          <p className="text-muted-foreground flex items-center gap-2 text-sm">
+            <Loader2 className="size-4 animate-spin" />
+            {t('wbLoading')}
+          </p>
+        ) : tasks.isError ? (
+          <p className="text-sm text-red-600">
+            {t('wbReadFailed')}:{tasks.error.message}
+          </p>
+        ) : view?.unjudged ? (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-amber-500/15 px-1 text-[10px] font-semibold leading-none text-amber-600 tabular-nums">
+              {t('wbUnjudged')}
+            </span>
+            <span className="text-muted-foreground text-xs">{view.reason ?? ''}</span>
+          </div>
+        ) : taskRows.length === 0 ? (
+          <p className="text-muted-foreground text-sm">{t('wbNoTasks')}</p>
+        ) : (
+          <div className="rounded-lg border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted-foreground border-b text-left">
+                  <th className="px-3 py-2 font-medium">{t('wbColTask')}</th>
+                  <th className="px-3 py-2 font-medium">{t('wbColProgress')}</th>
+                  <th className="px-3 py-2 font-medium">{t('wbColStatus')}</th>
+                  <th className="px-3 py-2 font-medium">{t('wbColReward')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {taskRows.map((tk) => (
+                  <tr key={tk.taskCode} className="border-b last:border-b-0">
+                    <td className="px-3 py-2">
+                      <span className="font-medium">{tk.title}</span>
+                      <span className="text-muted-foreground ml-2 text-xs">{tk.taskCode}</span>
+                    </td>
+                    <td className="px-3 py-2 tabular-nums">
+                      {tk.progress !== null && tk.target !== null
+                        ? `${tk.progress}/${tk.target}`
+                        : t('wbUnjudged')}
+                    </td>
+                    <td className="text-muted-foreground px-3 py-2 text-xs">
+                      {[tk.status, tk.acceptStatus].filter(Boolean).join(' · ') || '—'}
+                    </td>
+                    <td className="px-3 py-2 text-xs tabular-nums">
+                      <span
+                        className={
+                          tk.rewardCredit !== null && tk.rewardCredit > 0
+                            ? 'text-emerald-600'
+                            : undefined
+                        }
+                      >
+                        {tk.rewardCredit !== null ? `+${tk.rewardCredit}` : t('wbUnjudged')}
+                      </span>
+                      {tk.rewardEnergy !== null && (
+                        <span className="text-muted-foreground ml-2 inline-flex items-center gap-0.5">
+                          <Zap className="size-3" />
+                          {tk.rewardEnergy}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 按 kind 手动触发 + 最近一次结果 */}
+        <div className="flex flex-wrap items-center gap-2">
+          {WORKBUDDY_TASK_KINDS.map((kind) => (
+            <Button
+              key={kind}
+              size="sm"
+              variant="outline"
+              disabled={!accountId || runMut.isPending}
+              onClick={() => runMut.mutate(kind)}
+            >
+              {runMut.isPending && runMut.variables === kind ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Play className="size-4" />
+              )}
+              {kindLabel(kind)}
+            </Button>
+          ))}
+        </div>
+        <div className="text-sm">
+          {!lastRun ? (
+            <span className="text-muted-foreground">{t('wbNeverRun')}</span>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground">{kindLabel(lastRun.kind)}:</span>
+              {lastRun.unjudged ? (
+                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-amber-500/15 px-1 text-[10px] font-semibold leading-none text-amber-600 tabular-nums">
+                  {t('wbUnjudged')}
+                </span>
+              ) : lastRun.ok ? (
+                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-emerald-500/15 px-1 text-[10px] font-semibold leading-none text-emerald-600 tabular-nums">
+                  {t('wbRunOk')}
+                </span>
+              ) : (
+                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-red-500/15 px-1 text-[10px] font-semibold leading-none text-red-600 tabular-nums">
+                  {t('wbRunFailed')}
+                </span>
+              )}
+              <span className="text-muted-foreground text-xs">
+                {t('wbAccepted')} {lastRun.accepted.length} · {t('wbClaimed')}{' '}
+                {lastRun.claimed.length}
+              </span>
+              <span className="text-xs tabular-nums">
+                {t('wbCreditDelta')}:{' '}
+                <span
+                  className={
+                    lastRun.creditDelta === null
+                      ? 'text-amber-600'
+                      : lastRun.creditDelta >= 0
+                        ? 'text-emerald-600'
+                        : 'text-red-600'
+                  }
+                >
+                  {lastRun.creditDelta === null ? t('wbUnjudged') : lastRun.creditDelta}
+                </span>
+              </span>
+              <span className="text-xs tabular-nums">
+                {t('wbEnergyDelta')}:{' '}
+                <span
+                  className={lastRun.energyDelta === null ? 'text-amber-600' : 'text-emerald-600'}
+                >
+                  {lastRun.energyDelta === null ? t('wbUnjudged') : lastRun.energyDelta}
+                </span>
+              </span>
+              {lastRun.reason && (
+                <span className="text-muted-foreground text-xs">{lastRun.reason}</span>
+              )}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
