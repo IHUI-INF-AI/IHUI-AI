@@ -376,7 +376,8 @@
       "following": "Following",
       "imSoon": "Private messaging coming soon",
       "notFound": "Instructor not found",
-      "rating": "Rating"
+      "rating": "Rating",
+      "viewCourses": "View all courses"
     }
   },
   "live": {
@@ -1783,7 +1784,10 @@
     "loadFailed": "Failed to load",
     "minSpend": "Min spend {amount}",
     "title": "Coupons",
-    "validUntil": "Valid until"
+    "validUntil": "Valid until",
+    "use": "Use now",
+    "useHint": "Please use it on the product page",
+    "couponCenter": "Coupon Center"
   },
   "courseAnnex": {
     "title": "Course Attachments",
