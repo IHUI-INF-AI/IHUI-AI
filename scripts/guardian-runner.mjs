@@ -3429,6 +3429,23 @@ const checks = [
     ]
   },
   {
+    id: '256',
+    label:
+      '🌐 门户表↔端内词包不变量(blocking;门户表每个 webViewPortal.* titleKey 必须在两端×五语言十份词包里,且条目指向的 web 路由真存在)',
+    script: 'check-web-portal-label-keys.mjs',
+    args: [],
+    mode: 'blocking',
+    // 2026-10-28 立:存量现读 0(140 titleKey × 10 份词包 W1=0、W2=0、W3 116 条 path 全在位)⇒ 绝对零容忍,
+    // 不是差值棘轮(§12e 升 blocking 前置=存量归零已满足)。缺任意一份词包时端上按约定回落中文 fallbackLabel,
+    // 界面不报错、只是变成中文 —— 既有 i18n 门只判词包↔词包对齐,不知道门户表引用了哪些键,结构上判不到。
+    skipEnv: 'HUSKY_SKIP_PORTAL_LABEL_KEYS',
+    stagedTriggers: ['packages/shared/src/constants/web-portal.ts', 'packages/i18n/messages/'],
+    onFailHint: [
+      '  💡 修复出口:node scripts/add-web-portal-entries.mjs --routes-file <清单> --apply',
+      '     手工补词包也行,但必须两端×五语言十份齐补;W3 红=条目指向的 web 路由不在被审面(点开即 404)。',
+    ],
+  },
+  {
     id: '255',
     label:
       '🎨 端内写死源档色值拦新增(blocking;只按本枚改动的文件计数 —— 源里已有档却写回字面量,下一枚提交就拦在这里)',
