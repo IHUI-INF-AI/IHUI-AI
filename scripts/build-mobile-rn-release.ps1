@@ -14,7 +14,9 @@
     2.5 后端基址对账:烤进包的 API/WEB/WS 基址必须是显式的;含回环地址而没给 -AllowLocalBackend 即拒绝构建
     3. gradlew assembleRelease(前台执行——后台任务会被环境 ~2min 终结)
     3.5 从产出的 APK 里读回 assets/index.android.bundle,确认三个基址真在里面、且无回环残留
-    4. apksigner 验签 + 产物报告
+    4. apksigner 验签
+    5. 发布到固定下载地址(-NoPublish 可跳过):node scripts/publish-mobile-apk.mjs
+       覆盖 COS 上的 ihui-ai-latest.apk ⇒ 用户链接恒定,不必跟着版本号换地址
 
   签名凭据设计(不入库):
     - keystore: C:/Users/Administrator/.android/ihui-release.keystore(仓库外)
@@ -65,6 +67,13 @@
 .PARAMETER AllowLocalBackend
   显式允许产出连回环地址(localhost/127.0.0.1/10.0.2.2)的包,配 `adb reverse` 用。
   **不给这个旗就不许产出连回环的包** —— 缺省直接拒绝构建,而不是等人装到手机上才发现全不通。
+.PARAMETER NoPublish
+  只出包、不发布到公网固定地址(2026-10-29 立的第 5 步默认开启)。
+  默认动作:构建+回读+验签全过后,调 `node scripts/publish-mobile-apk.mjs` 把本次 APK 覆盖到
+  腾讯云 COS 桶,对外固定地址恒为 `https://dl.aizhs.top/ihui-ai-latest.apk`(用户不用换链接),
+  同时留一份带版本号的副本。latest 对象带 `Cache-Control: no-cache` ⇒ Cloudflare 每次回源校验
+  (实测 cf-cache-status=REVALIDATED),不会出现"发新包但用户还在下旧包"。
+  发布失败=整条链失败(exit 非 0),不许"包好了但没发出去"读成成功。
 #>
 param(
   [int]$VersionCode = 0,
@@ -72,6 +81,7 @@ param(
   [switch]$FullAbi,
   [switch]$SkipVerify,
   [switch]$ShowVersionCode,
+  [switch]$NoPublish,
   [string]$ApiBaseUrl = '',
   [string]$WebBaseUrl = '',
   [string]$WsBaseUrl = '',
@@ -336,14 +346,14 @@ if ($ShowVersionCode) {
   return
 }
 
-Write-Host "`n===== [1/4] 幂等注入 release 签名配置 =====" -ForegroundColor Cyan
+Write-Host "`n===== [1/5] 幂等注入 release 签名配置 =====" -ForegroundColor Cyan
 Push-Location $RepoRoot
 try {
   node scripts/patch-rn-release-signing.mjs
   if ($LASTEXITCODE -ne 0) { throw 'patch-rn-release-signing.mjs 失败' }
 } finally { Pop-Location }
 
-Write-Host "`n===== [2/4] 前置检查: keystore + 签名凭据 =====" -ForegroundColor Cyan
+Write-Host "`n===== [2/5] 前置检查: keystore + 签名凭据 =====" -ForegroundColor Cyan
 $Keystore = "$env:USERPROFILE\.android\ihui-release.keystore"
 $GradleProps = "$env:USERPROFILE\.gradle\gradle.properties"
 $hasKs = Test-Path $Keystore
@@ -368,7 +378,7 @@ if ($AbiDecision.Drift) {
   Write-Host "  ABI 依据: $($AbiDecision.Note)" -ForegroundColor DarkGray
 }
 
-Write-Host "`n===== [2.5/4] 后端基址对账(烤进包里的那个) =====" -ForegroundColor Cyan
+Write-Host "`n===== [2.5/5] 后端基址对账(烤进包里的那个) =====" -ForegroundColor Cyan
 $Backend = Resolve-BakedBackend
 Write-Host "  API = $($Backend.Api)   (来源:$($Backend.ApiSrc))" -ForegroundColor Gray
 Write-Host "  WEB = $($Backend.Web)   (来源:$($Backend.WebSrc))" -ForegroundColor Gray
@@ -427,7 +437,7 @@ $env:EXPO_PUBLIC_WEB_URL = $Backend.Web
 $env:EXPO_PUBLIC_WS_BASE_URL = $Backend.Ws
 if ($AllowLocalBackend) { Write-Warning 'AllowLocalBackend:本次包的基址含回环地址,只能在配了 adb reverse 的机器上验证' }
 
-Write-Host "`n===== [3/4] gradlew assembleRelease (versionCode=$VersionCode) =====" -ForegroundColor Cyan
+Write-Host "`n===== [3/5] gradlew assembleRelease (versionCode=$VersionCode) =====" -ForegroundColor Cyan
 Write-Host "  ABI: $($abiArg -replace '^.*=','')"
 if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo prebuild)" }
 
@@ -468,7 +478,7 @@ if ($missingAbis.Count -gt 0) {
   throw "APK 缺目标 ABI:$($missingAbis -join ', ') —— 构建成功但装不上对应真机。不要看 BUILD SUCCESSFUL 就交付。"
 }
 
-Write-Host "`n===== [3.5/4] 从包里回读烤进去的后端(不信任「我传了 env」) =====" -ForegroundColor Cyan
+Write-Host "`n===== [3.5/5] 从包里回读烤进去的后端(不信任「我传了 env」) =====" -ForegroundColor Cyan
 $bundle = Get-BundleText -ApkPath $Apk
 Write-Host "  bundle 字节:$($bundle.Length)(Latin1 计数,用于字符串包含判定)" -ForegroundColor Gray
 $miss = @()
@@ -488,7 +498,7 @@ if (-not $AllowLocalBackend) {
 }
 Write-Host "  回读一致:API/WEB/WS 三个基址都真在包里,且无回环残留 ✓" -ForegroundColor Green
 
-Write-Host "`n===== [4/4] 验签 + 报告 =====" -ForegroundColor Cyan
+Write-Host "`n===== [4/5] 验签 + 报告 =====" -ForegroundColor Cyan
 if (-not $SkipVerify) {
   $BuildTools = Get-ChildItem "$env:ANDROID_HOME\build-tools" -Directory -ErrorAction SilentlyContinue |
     Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
@@ -499,10 +509,24 @@ if (-not $SkipVerify) {
   } else { Write-Warning "apksigner 未找到: $ApkSigner (跳过验签)" }
 }
 
+Write-Host "`n===== [5/5] 发布到固定下载地址 =====" -ForegroundColor Cyan
+$VersionName = (Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version
+$PublishUrl = 'https://dl.aizhs.top/ihui-ai-latest.apk'
+if ($NoPublish) {
+  Write-Warning 'NoPublish: 本次只出包,未发布到公网(固定地址仍是上一版)'
+} else {
+  Push-Location $RepoRoot
+  try {
+    node scripts/publish-mobile-apk.mjs --apk $Apk --version $VersionName --version-code $VersionCode
+    if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk.mjs 失败 (exit=$LASTEXITCODE) —— 包已构建但未发布,不许当成成功" }
+  } finally { Pop-Location }
+}
+
 Write-Host "`n========== BUILD RELEASE DONE ==========" -ForegroundColor Green
 Write-Host "  APK:      $Apk"
 Write-Host "  大小:     ${SizeMB} MB"
-Write-Host "  version:  $((Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version) (code=$VersionCode)"
+Write-Host "  version:  $VersionName (code=$VersionCode)"
+if (-not $NoPublish) { Write-Host "  下载地址: $PublishUrl" -ForegroundColor Green }
 Write-Host "  安装测试: adb install -r `"$Apk`""
 Write-Host "========================================"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
