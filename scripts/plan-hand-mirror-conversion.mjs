@@ -166,12 +166,17 @@ export function hardcodedCjkNotInMessages(text, messagesText) {
 /**
  * 共享屏消费的词包键集(转壳后页面上能出现的文案,只可能来自这些键的值)。
  * 键形态:`t('a.b')` / `tt('a.b', …)` 直调,以及成组登记的点分串。只认「小写字母开头 +
- * 至少一个点 + 段内 [a-z0-9_]」——路由名、相对路径、包名都不落进这个形状。
+ * 至少一个点 + 段内允许驼峰」——路由名、相对路径、包名都不落进这个形状。
+ *
+ * 驼峰必须认(2026-10-28 修):命名空间普遍是 `notificationSettings` / `vipBenefit` /
+ * `liveHost` / `modelEdit` 这一型,旧正则的段内只许 `[a-z0-9_]` ⇒ 这些键一个都取不到,
+ * 屏幕文案面塌成 `common.*`(实测 HelpScreen 只剩 12 字符)。后果不是误拒了事:
+ * 页面正常的正文被算成"该屏渲染不出" ⇒ 40 余页的正文缺口虚高、整批拒转。
  */
 export function screenConsumedKeys(sharedText) {
   const src = maskComments(String(sharedText ?? ''))
   const keys = new Set()
-  for (const m of src.matchAll(/'([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+)'/g)) keys.add(m[1])
+  for (const m of src.matchAll(/'([a-z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)'/g)) keys.add(m[1])
   return keys
 }
 
