@@ -2483,9 +2483,8 @@ if (isDirectRun) {
 
 // 2026-10-29 判据迁移的**兼容面**:三个符号连同 `--days` 取值位已迁入户
 // scripts/lib/plan-block-partition.mjs,这里 import 后再原样 re-export —— 既有的
-// `import { … } from './archive-completed-tasks.mjs'` 面(含本文件自己的 `__test__` 与
-// check-project-plan-archive.test.mjs 那一处)一字不动。归档器本身被删后,这些形状不存在了,
-// 新 import 面直接指向 lib;目前保留是因为删除发生在另一枚。
+// "从本文件取这三个判据"的 import 面(含本文件自己的 `__test__` 那一处)一字不动。
+// 归档器本身被删后这些形状就不存在了,新 import 面直接指向 lib;目前保留是因为删除发生在另一枚。
 export {
   PLAN_REL,
   allMode,
