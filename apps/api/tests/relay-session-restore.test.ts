@@ -8,7 +8,9 @@
  * - 漂移目标未 --force 整批拒绝(零写入),--force 才覆盖;
  * - 旧格式 manifest(缺 sha256)直接报错退出;
  * - 中途失败不留 .restoring- 残留;
- * - 输出零内容回显(消息正文埋雷不出现)。
+ * - 输出零内容回显(消息正文埋雷不出现);
+ * - gzip 压缩档(2026-10-28 增):按条目 encoding 分流解压恢复,旧 manifest 向后兼容,
+ *   混合 manifest 正确分流,压缩条目同样临时名+校验+原子改名。
  */
 
 import {
@@ -24,6 +26,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { gunzipSync, gzipSync } from 'node:zlib'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   applyRestore,
@@ -347,6 +350,161 @@ describe('main CLI(注入缝)', () => {
     expect(code).not.toBe(0)
     expect(errors.join('\n')).toContain('sha256')
     expect(existsSync(fx.srcSessions)).toBe(false)
+  })
+})
+
+/**
+ * gzip 压缩快照夹具:gzRels 内的条目磁盘写 `<rel>.gz`(gzipSync),
+ * manifest 条目带 encoding:'gzip',bytes/sha256 仍为【解压后原文】基准;
+ * 其余条目与备份腿未压缩形态逐字节同形。
+ */
+function makeGzipFixture(gzRels: string[]): Fixture {
+  const root = mkdtempSync(join(tmpdir(), 'wb-restore-gz-test-'))
+  const snapDir = join(root, 'snap')
+  const srcSessions = join(root, 'src', 'sessions')
+  const srcProjects = join(root, 'src', 'projects')
+  const contents = new Map<string, string>([
+    ['workspace/sess-1/state.json', '{"v":1}'],
+    ['workspace/sess-1/transcript.jsonl', `${SECRET_SENTINEL}\nline2\n`.repeat(8)],
+    ['ws-a/conv.jsonl', 'hello\n'],
+  ])
+  const gzSet = new Set(gzRels)
+  const files: BackupFileEntry[] = []
+  for (const [rel, content] of contents) {
+    const abs = relToSnapAbs(rel, snapDir)
+    mkdirSync(join(abs, '..'), { recursive: true })
+    const compressed = gzSet.has(rel)
+    const diskAbs = compressed ? `${abs}.gz` : abs
+    writeFileSync(diskAbs, compressed ? gzipSync(Buffer.from(content)) : Buffer.from(content))
+    files.push({
+      rel,
+      bytes: Buffer.byteLength(content),
+      mtimeMs: statSync(diskAbs).mtimeMs,
+      sha256: shaOf(content),
+      ...(compressed ? { encoding: 'gzip' as const } : {}),
+    })
+  }
+  writeFileSync(
+    join(snapDir, 'manifest.json'),
+    JSON.stringify(
+      {
+        createdAt: new Date().toISOString(),
+        source: { sessionsRoot: srcSessions, projectsRoot: srcProjects },
+        files,
+      },
+      null,
+      2,
+    ),
+  )
+  return { root, snapDir, srcSessions, srcProjects, contents }
+}
+
+describe('gzip 压缩快照(恢复腿按条目标记分流)', () => {
+  it('全压缩快照:解压后按原文 sha 对账,落原始名/原始字节,目标无 .gz、无临时残留', () => {
+    const fx = makeGzipFixture([
+      'workspace/sess-1/state.json',
+      'workspace/sess-1/transcript.jsonl',
+      'ws-a/conv.jsonl',
+    ])
+    cleanup.push(fx.root)
+    const plan = planOf(fx)
+    expect(plan.manifest.files.every((f) => f.encoding === 'gzip')).toBe(true)
+    const stats = applyRestore(plan)
+    expect(stats.restored).toBe(3)
+    for (const [rel, content] of fx.contents) {
+      const abs = rel.startsWith('workspace/')
+        ? join(fx.srcSessions, ...rel.slice('workspace/'.length).split('/'))
+        : join(fx.srcProjects, ...rel.split('/'))
+      expect(existsSync(abs)).toBe(true)
+      expect(existsSync(`${abs}.gz`)).toBe(false) // 目标恒为原始名
+      expect(readFileSync(abs, 'utf8')).toBe(content) // 原始字节逐字节等值
+      expect(shaOf(readFileSync(abs))).toBe(shaOf(content))
+    }
+    const leftovers = [...relsUnder(fx.srcSessions), ...relsUnder(fx.srcProjects)].filter((n) =>
+      n.includes('.restoring-'),
+    )
+    expect(leftovers).toEqual([])
+  })
+
+  it('混合 manifest(部分压缩部分不):逐条目正确分流,落地全部为原文', () => {
+    const fx = makeGzipFixture(['workspace/sess-1/transcript.jsonl'])
+    cleanup.push(fx.root)
+    const plan = planOf(fx)
+    const byRel = new Map(plan.manifest.files.map((f) => [f.rel, f]))
+    expect(byRel.get('workspace/sess-1/transcript.jsonl')!.encoding).toBe('gzip')
+    expect(byRel.get('workspace/sess-1/state.json')!.encoding).toBeUndefined()
+    expect(byRel.get('ws-a/conv.jsonl')!.encoding).toBeUndefined()
+    const stats = applyRestore(plan)
+    expect(stats.restored).toBe(3)
+    for (const [rel, content] of fx.contents) {
+      const abs = rel.startsWith('workspace/')
+        ? join(fx.srcSessions, ...rel.slice('workspace/'.length).split('/'))
+        : join(fx.srcProjects, ...rel.split('/'))
+      expect(readFileSync(abs, 'utf8')).toBe(content)
+    }
+  })
+
+  it('损坏的 .gz → 校验不过整批报错,该条目零落地,无 .restoring- 残留', () => {
+    const fx = makeGzipFixture(['workspace/sess-1/state.json'])
+    cleanup.push(fx.root)
+    // 篡改压缩产物:合法 gzip 但解压内容 ≠ 原文(模拟磁盘损坏/半写)
+    const gzAbs = join(fx.snapDir, 'workspace', 'sess-1', 'state.json.gz')
+    writeFileSync(gzAbs, gzipSync(Buffer.from('{"v":9}')))
+    expect(() => applyRestore(planOf(fx))).toThrow(/恢复未完成/)
+    expect(existsSync(join(fx.srcSessions, 'sess-1', 'state.json'))).toBe(false)
+    const leftovers = [...relsUnder(fx.srcSessions), ...relsUnder(fx.srcProjects)].filter((n) =>
+      n.includes('.restoring-'),
+    )
+    expect(leftovers).toEqual([])
+  })
+
+  it('loadManifest:encoding 未知值拒绝(宁拒不错做);缺 encoding(旧 manifest)兼容通过', () => {
+    const fx = makeGzipFixture(['ws-a/conv.jsonl'])
+    cleanup.push(fx.root)
+    expect(loadManifest(fx.snapDir).files.find((f) => f.rel === 'ws-a/conv.jsonl')!.encoding).toBe(
+      'gzip',
+    )
+    // 旧 manifest(条目完全不带 encoding 键)→ 通过且 encoding 为 undefined
+    expect(
+      loadManifest(fx.snapDir).files.find((f) => f.rel === 'workspace/sess-1/state.json')!.encoding,
+    ).toBeUndefined()
+
+    const badEnc = join(fx.root, 'snap-badenc')
+    mkdirSync(badEnc, { recursive: true })
+    writeFileSync(
+      join(badEnc, 'manifest.json'),
+      JSON.stringify({
+        createdAt: new Date().toISOString(),
+        source: { sessionsRoot: fx.srcSessions, projectsRoot: fx.srcProjects },
+        files: [
+          {
+            rel: 'a.json',
+            bytes: 1,
+            mtimeMs: 0,
+            sha256: shaOf('x'),
+            encoding: 'bzip2',
+          },
+        ],
+      }),
+    )
+    expect(() => loadManifest(badEnc)).toThrow(/encoding/)
+  })
+
+  it('压缩条目 × 漂移拒绝:目标存在且 sha 不一致,未 --force 整批拒绝;--force 覆盖为原文', () => {
+    const fx = makeGzipFixture(['workspace/sess-1/state.json'])
+    cleanup.push(fx.root)
+    mkdirSync(join(fx.srcSessions, 'sess-1'), { recursive: true })
+    writeFileSync(join(fx.srcSessions, 'sess-1', 'state.json'), 'DRIFTED\n')
+    const plan = planOf(fx)
+    expect(() => applyRestore(plan)).toThrow(/整批拒绝/)
+    expect(readFileSync(join(fx.srcSessions, 'sess-1', 'state.json'), 'utf8')).toBe('DRIFTED\n')
+    const stats = applyRestore(plan, { force: true })
+    expect(stats.restored).toBe(3)
+    expect(readFileSync(join(fx.srcSessions, 'sess-1', 'state.json'), 'utf8')).toBe('{"v":1}')
+    // 自证解压通道:夹具磁盘确实是 gzip
+    expect(
+      gunzipSync(readFileSync(join(fx.snapDir, 'workspace', 'sess-1', 'state.json.gz'))).toString(),
+    ).toBe('{"v":1}')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
