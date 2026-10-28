@@ -181,6 +181,7 @@ export default defineAppConfig({
         'legal-docs-hub/index',
         'security-audit/index',
         'member-settings/index',
+        'member-dashboard/index',
       ],
     },
     {
