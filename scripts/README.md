@@ -166,7 +166,7 @@ Git 协作守门、CLI 验证、运维工具、证书管理、API 工具、基�
 | typecheck-full.mjs  | 全量 TypeScript 类型检查(清除 .tsbuildinfo 增量缓存)       | —                 | `pnpm typecheck:full`          |
 | verify-ui.mjs       | UI 视觉回归守门(Playwright)                                | —                 | 支持 `--spec` `--check-server` |
 
-### 运维/部署工具(5 个)
+### 运维/部署工具(7 个)
 
 | 脚本名                   | 用途                                                               | pre-commit 项 | 备注                                |
 | ------------------------ | ------------------------------------------------------------------ | ------------- | ----------------------------------- |
@@ -175,6 +175,8 @@ Git 协作守门、CLI 验证、运维工具、证书管理、API 工具、基�
 | grant-ihui-superuser.mjs | 给 ihui 数据库用户授予 SUPERUSER                                   | —             | 幂等                                |
 | test-llm-connection.mjs  | 验证 AI service LLM 接入是否可用(/health + 模型调用)               | —             | 默认 AI_URL=http://localhost:8803   |
 | video-ops.mjs            | 视频下载(yt-dlp)与 OSS 上传工具                                    | —             | 等价自历史项目 PowerShell 脚本      |
+| heal-unresponsive-services.mjs | 不响应服务自愈动作器(默认只读;`--apply` 才重启)。判据只取 `check-service-binary-paths.mjs --json`,连续 N 轮才动 + 冷却 + 窗口上限防重启风暴 | — | 台账 `scripts/data/service-auto-restart.json`。`expected-stopped` 档(退役服务 / 蓝绿冷备)由门裁定、动作器**绝不**拉起 |
+| scrub-temp-fixtures.mjs  | TEMP / scratch 夹具残留清扫(默认只报;`--apply` 才删)               | —             | 7 天账龄闸 + 名字围栏 + 绝不穿重解析点;24h 档由 `git-guardian` 调度。扫描根取 `scratch-dir.mjs` 的 `scratchRoot()`(G-158 后落点在仓内 `.DevEnv/Temp`) |
 
 ### 证书管理(4 个)
 

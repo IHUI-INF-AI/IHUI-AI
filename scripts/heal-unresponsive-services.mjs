@@ -132,6 +132,15 @@ const pos = (v, d) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) :
 export function verdictOf(name, gate) {
   if (!gate || typeof gate !== 'object') return { verdict: 'undetermined', why: '门的报告里没有这台服务' }
   const rec = gate.rec || {}
+  // 门已裁定『停着是设计内』(2026-10-28):退役服务与蓝绿冷备。这一档**不是故障**,动作器不得拉起它 ——
+  // 拉起蓝绿冷备 = 让它用旧代码接走 router 的兜底流量(版本不一致的隐性事故);拉起退役的 IHUI-API
+  // = 与 IHUI-API-ROUTER 抢 8802。判据只在门那一侧(`scripts/data/expected-stopped-services.json`),
+  // 本文件**不**读状态文件、不认服务名硬编码 —— 两处各判一次必然漂移(§0.6)。
+  if (gate.expectedStopped)
+    return {
+      verdict: 'expected-stopped',
+      why: `门已裁定停着是设计内(${gate.expectedStopped.source}):${gate.expectedStopped.reason ?? ''}`,
+    }
   const state = rec.state
   if (!state || state.kind !== 'measured') return { verdict: 'undetermined', why: '服务态量不到' }
   if (state.value !== 'RUNNING') return { verdict: 'down', why: `STATE=${state.value}` }
@@ -161,6 +170,18 @@ export function decideRound({ config, state, verdicts, nowMs, apply = false }) {
     const p = prev[name] || { strikes: 0, lastRestartMs: null }
     const keep = (strikes) => {
       next.services[name] = { strikes, lastRestartMs: p.lastRestartMs ?? null, lastVerdict: v.verdict }
+    }
+    // 『停着是设计内』必须在"在册 / 不在册"之前判(2026-10-28):退役的 IHUI-API 已从 services
+    // 台账移除,若先走 `!entry` 那一格,门刚裁定的 expected-stopped 会被静默吞掉 —— 报告里少一行,
+    // 而"这台被判成设计内"与"这台压根没被看见"在读数上完全同形(本仓最贵的假绿正是这一型)。
+    if (v.verdict === 'expected-stopped') {
+      actions.push({
+        name,
+        kind: 'expected-stopped',
+        why: v.why + (entry ? '' : '(台账未登记该服务:门已裁定设计内停止,动作器不碰)'),
+      })
+      keep(p.strikes ?? 0)
+      continue
     }
     if (!entry) {
       // 白名单外**不重启**,但"坏了就必须对人"(2026-10-21 补)。原先这一格对 answering 也推一行,
@@ -430,6 +451,9 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps, n
     cooldown: act('cooldown'),
     capped: act('window-capped'),
     undetermined: act('undetermined'),
+    // 门裁定"停着是设计内"的台数(退役服务 / 蓝绿冷备)。它是**单独一档**而不是并进 answering:
+    // "按设计该停"与"量到它健康"是两件事,合并会让蓝绿冷备看起来像在服务。
+    expectedStopped: act('expected-stopped'),
     // 名单外**且真坏了**的台数,再按台账形态折三档 —— 台账烂没烂必须是量得到的数(§5e-3),
     // 不能只写在散文 reason 里等人自己去读。
     offlist: act('not-in-list'),
@@ -440,7 +464,7 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps, n
   }
   const body = [...actions.map((a) => `· ${a.name} ${a.kind} — ${a.why}`), ...results.map((r) => `✔ ${r.name} ${r.kind} — ${r.why}`)].join('\n')
   const line =
-    `动作器完 ${new Date(now()).toISOString()} | ${opts.apply ? 'APPLY' : '只读'} | 在册 ${counts.checked} 台:应答 ${counts.answering} / 计划 ${counts.planned} / 已重启 ${counts.restarted} / 失败 ${counts.failed} / 观察 ${counts.watch} / 冷却 ${counts.cooldown} / 窗口封顶 ${counts.capped} / 未判定 ${counts.undetermined} / 名单外故障 ${counts.offlist}(未登记 ${counts.offlistUnregistered} / 豁免到期 ${counts.offlistAckExpired})/ 名单外健康 ${counts.offlistAnswering} / 名单外未判定 ${counts.offlistUndetermined}`
+    `动作器完 ${new Date(now()).toISOString()} | ${opts.apply ? 'APPLY' : '只读'} | 在册 ${counts.checked} 台:应答 ${counts.answering} / 设计内停止 ${counts.expectedStopped} / 计划 ${counts.planned} / 已重启 ${counts.restarted} / 失败 ${counts.failed} / 观察 ${counts.watch} / 冷却 ${counts.cooldown} / 窗口封顶 ${counts.capped} / 未判定 ${counts.undetermined} / 名单外故障 ${counts.offlist}(未登记 ${counts.offlistUnregistered} / 豁免到期 ${counts.offlistAckExpired})/ 名单外健康 ${counts.offlistAnswering} / 名单外未判定 ${counts.offlistUndetermined}`
   const exit = counts.failed > 0 || counts.restarted > 0 ? 1 : 0
   if (opts.json) {
     return { json: JSON.stringify({ at: new Date(now()).toISOString(), apply: opts.apply, counts, actions, results }, null, 2), exit, text: line }
