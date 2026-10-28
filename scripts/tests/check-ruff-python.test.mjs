@@ -28,6 +28,8 @@ const {
   planStaged,
   stagedPythonChanges,
   resolveUvx,
+  isEgressFailure,
+  runRuff,
   probeUvx,
   judgeFace,
 } = ruffTest
@@ -267,5 +269,67 @@ test('stagedPythonChanges:索引面 .py 改动可枚举,提交后为空', () => 
     commitAll(dir, 'fixture: next')
     assert.deepEqual(stagedPythonChanges(dir), [])
   })
+})
+
+// ─── 12. 出网退路(2026-10-28 本机实测:uvx 走 Windows 系统代理,节点挂时对 pypi 报
+// `tls handshake eof` rc=2,而 ruff==<pin> 已在 uv 本地缓存里 ⇒ "这条腿没通"不等于"判不了") ───
+const NET_FAIL = {
+  status: 2,
+  stdout: '',
+  stderr: 'error: Failed to fetch: `https://pypi.org/simple/ruff/`\n  Caused by: tls handshake eof',
+  error: null,
+  signal: null,
+}
+const ok = (status, text) => ({ status, stdout: text, stderr: '', error: null, signal: null })
+
+/** 假 spawn:记下每条腿的实参,返回按"腿"预置的结果。真工具不出场,判据形状照样锁得住。 */
+function fakeSpawn(table) {
+  const calls = []
+  const fn = (exe, args) => {
+    const leg = args.includes('--offline') ? 'offline' : 'online'
+    calls.push({ leg, args })
+    return table[leg] ?? { ...NET_FAIL, stderr: 'fixture: 该腿未预置' }
+  }
+  fn.calls = calls
+  return fn
+}
+
+test('isEgressFailure 只认传输层形状:rc0/rc1 都是结论、配置坏 rc2 不算网络、ENOENT 不算网络', () => {
+  assert.equal(isEgressFailure(NET_FAIL), true)
+  assert.equal(isEgressFailure(ok(0, 'All checks passed!')), false)
+  assert.equal(isEgressFailure(ok(1, 'F401 [*] `os` imported but unused')), false)
+  assert.equal(isEgressFailure({ ...NET_FAIL, stderr: "error: invalid rule name 'E999'" }), false)
+  assert.equal(isEgressFailure({ status: null, error: { code: 'ENOENT' } }), false)
+})
+
+test('出网腿失败 ⇒ 同一 pin 补跑 --offline,缓存腿的结论就是判定(绿/红两向都照收)', () => {
+  const green = fakeSpawn({ online: NET_FAIL, offline: ok(0, 'All checks passed!') })
+  const r = runRuff({ dir: 'fixture', uvx: 'uvx', spec: 'ruff==9.9.9', spawn: green })
+  assert.equal(r.status, 0)
+  assert.equal(r.egress.used, true)
+  assert.deepEqual(green.calls.map((c) => c.leg), ['online', 'offline'])
+  assert.deepEqual(green.calls[1].args.slice(0, 2), ['--offline', 'ruff==9.9.9'])
+  assert.equal(exitCodeFor(classifyRuffOutcome(r)), 0)
+
+  const red = fakeSpawn({ online: NET_FAIL, offline: ok(1, 'F401 [*] `os` imported but unused') })
+  const r2 = runRuff({ dir: 'fixture', uvx: 'uvx', spec: 'ruff==9.9.9', spawn: red })
+  assert.equal(exitCodeFor(classifyRuffOutcome(r2)), 1)
+  assert.equal(r2.egress.used, true)
+})
+
+test('反向锁:两腿都不通仍 exit 2;非网络形状的 rc=2 一律不补跑第二腿', () => {
+  const both = fakeSpawn({
+    online: NET_FAIL,
+    offline: { ...NET_FAIL, stderr: 'error: `ruff==9.9.9` is not cached' },
+  })
+  const r = runRuff({ dir: 'fixture', uvx: 'uvx', spec: 'ruff==9.9.9', spawn: both })
+  assert.equal(exitCodeFor(classifyRuffOutcome(r)), 2)
+  assert.equal(r.egress.used, false)
+  assert.equal(both.calls.length, 2)
+
+  const cfg = fakeSpawn({ online: { ...ok(2, ''), stderr: "error: invalid rule name 'E999'" } })
+  const r2 = runRuff({ dir: 'fixture', uvx: 'uvx', spec: 'ruff==9.9.9', spawn: cfg })
+  assert.equal(cfg.calls.length, 1) // 摘掉形状判断(对任何 rc=2 都补跑)⇒ 本条必翻红
+  assert.equal(r2.egress, undefined)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
