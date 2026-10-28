@@ -11,7 +11,7 @@ import {
   type SubscriptionsItem,
 } from '@ihui/rn-app'
 import { cancelSubscription, getSubscriptions } from '../api/social'
-import { usePaginatedList } from '../hooks'
+import { usePaginatedList, useRefreshOnFocus } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -76,6 +76,8 @@ export function SubscriptionsScreen() {
       ),
       PAGE_SIZE,
     )
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):走分页 hook 的 refresh,重置分页并重载
+  useRefreshOnFocus(refresh)
 
   // 取消订阅确认弹窗:uni.showModal → RN Alert(取消/取消订阅·destructive)
   const onCancel = (item: SubscriptionsItem) => {
