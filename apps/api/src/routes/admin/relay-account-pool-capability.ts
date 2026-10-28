@@ -35,8 +35,8 @@ import {
 } from '../../services/relay-upstream-adapters.js'
 import { registerAllRelayAdapters } from '../../services/upstream-adapters/index.js'
 
-/** 单平台能力位读数 */
-export interface RenewalCapabilityItem {
+/** 单平台能力位读数(模块内形状;对外只经 JSON 响应,不留无人消费的导出) */
+interface RenewalCapabilityItem {
   providerCode: string
   /** 适配器是否已注册到上游适配器注册表(false ⇒ 能力位无从判定,读面必须显示「未判定」) */
   adapterRegistered: boolean

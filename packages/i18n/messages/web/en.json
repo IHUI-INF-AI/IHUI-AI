@@ -687,6 +687,20 @@
     }
   },
   "admin": {
+    "relayPoolPolicy": {
+        "title": "Relay pool selection policy (global defaults)",
+        "refresh": "Refresh",
+        "loading": "Loading policy…",
+        "loadFailed": "Failed to load",
+        "badgeAllDefault": "All defaults",
+        "badgeDeviated": "{n} deviated",
+        "badgeInvalid": "{n} fell back from invalid env",
+        "badgeRegistryBroken": "Registry incomplete",
+        "readOnlyHint": "Read-only: edit .env and restart apps/api",
+        "defaultIs": "default {v}",
+        "invalidFellBack": "invalid value fell back",
+        "registryDiff": "Unregistered knobs: {missing}; orphan entries: {orphan}"
+    },
     "relayTasks": {
         "wbTitle": "WorkBuddy task automation",
         "wbAccount": "Account",
