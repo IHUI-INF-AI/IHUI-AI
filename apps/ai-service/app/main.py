@@ -37,6 +37,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from app import __version__
 from app.api.v1.router import api_v1_router
 from app.core.config import settings
+from app.core.conn_guard import WsConnGuardMiddleware, ws_conn_gate
 from app.core.jwt_auth import JWTAuthMiddleware
 from app.core.schema_check import check_schema, log_report
 from app.middleware.audit import setup_audit_middleware
@@ -1374,7 +1375,15 @@ register_handlers(sio)
 
 # 根 ASGI app: /socket.io/* → sio,其余 → fastapi_app(中间件栈保留)
 # 兼容历史 coze_zhs_py 客户端通过 Socket.IO 协议连接新 ai-service。
-app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
+#
+# 2026-10-28 DDoS 加固:fastapi_app 外面包一层按 IP 的 WebSocket 闸门。
+# 包在这一层而不是逐个 handler 改,是因为现成的限流中间件(input_sanitizer)只管 HTTP,
+# /api/engine/ws 与 /api/browser/ws 都不在其射程内;而 Socket.IO 走 sio 自己的 ASGI 分支,
+# 由 app/sio/handlers.py 的 connect 里接同一个 IpConnGate(见 sio_conn_gate)。
+app = socketio.ASGIApp(
+    sio,
+    other_asgi_app=WsConnGuardMiddleware(fastapi_app, ws_conn_gate, label="ws"),
+)
 
 
 if __name__ == "__main__":
