@@ -45,6 +45,8 @@ const SESSION_KEY = 'iCubeAuthInfo://icube.cloudide'
 const DEVICE_KEY_PREFIX = 'iCubeAuthInfo://icube-dc:'
 /** 写回时必须由池内权威值覆盖的字段(模板里已剔除,这里再剔一次防手改模板带旧值) */
 const CREDENTIAL_KEYS = ['token', 'refreshToken', 'expiredAt', 'refreshExpiredAt']
+/** 明文客户端(国际版)里属于"这只客户端连哪个后端"的字段:写回时保留落盘值,不从池内模板带过去 */
+const CLIENT_GENERATION_KEYS = ['host', 'region', 'aiRegion', 'userRegion']
 
 export class WriteError extends Error {
   constructor(message, code = 'write-failed') {
@@ -219,6 +221,38 @@ export function buildUserInfo(payload) {
   return userInfo
 }
 
+/**
+ * 会话值的存储格式(2026-10-28 实测两代客户端并存,必须按落盘格式写):
+ * - 'envelope':byteCrypto 信封(6B 魔数 + 随机 sessionKey + AES) —— Trae CN / TRAE SOLO CN;
+ * - 'plaintext':整段 JSON 字符串,字段与 buildUserInfo 同名 —— Trae 国际版(1.0.23314);
+ * - 'absent':该键还不存在(这台客户端从没登录过);
+ * - 'unknown':既不是 JSON 也不是本机可解的信封 ⇒ 客户端换了加密格式,**必须拒写**:
+ *   写进去客户端读不懂,表现就是"点了没反应、重开还是旧号"。
+ */
+export function detectSessionFormat(store, extract) {
+  const raw = store?.[SESSION_KEY]
+  if (typeof raw !== 'string' || !raw.trim()) return 'absent'
+  if (raw.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return 'plaintext'
+    } catch {
+      /* 不是 JSON ⇒ 继续按信封判 */
+    }
+  }
+  try {
+    extract.decryptEnvelope(raw)
+    return 'envelope'
+  } catch {
+    return 'unknown'
+  }
+}
+
+/** 键还不存在时按产品代际推格式(国际版 Trae 存明文,CN/SOLO 存信封 —— 今日实测两代并存) */
+export function initialSessionFormat(product) {
+  return product === 'Trae' ? 'plaintext' : 'envelope'
+}
+
 /** 同步等待(不 fork 子进程 —— 旧实现每轮 fork 一个 node,长轮询能起上千个) */
 function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
@@ -316,19 +350,40 @@ export function applyLogin(extract, payload, opts = {}) {
       throw new WriteError(`storage.json 顶层不是对象:${target.file}`, 'storage-shape')
     }
 
-    // 现役 uid 只用于回报与回滚提示;解不开(首次使用/密钥轮换)不阻塞写入
-    let replacedUid = null
-    if (typeof store[SESSION_KEY] === 'string') {
-      try {
-        const prev = JSON.parse(extract.decryptEnvelope(store[SESSION_KEY]))
-        replacedUid = prev?.userId === undefined || prev?.userId === null ? null : String(prev.userId)
-      } catch {
-        replacedUid = null
-      }
+    const detected = detectSessionFormat(store, extract)
+    if (detected === 'unknown') {
+      throw new WriteError(
+        `${target.file} 里的登录态既不是明文 JSON、也不是本机可解的信封(该客户端换了加密格式)⇒ 未写入;请先在这个客户端里手动登录一次,再点「登录本机」`,
+        'storage-format-unknown',
+      )
     }
+    const sessionFormat = detected === 'absent' ? initialSessionFormat(product) : detected
+    const decodeSession = (value) =>
+      sessionFormat === 'plaintext' ? value : extract.decryptEnvelope(value)
+
+    // 现役会话只用于回报替换前 uid + 明文库的代际字段保留;解不开(首次使用/密钥轮换)不阻塞写入
+    let prevSession = null
+    try {
+      prevSession = JSON.parse(decodeSession(store[SESSION_KEY]))
+    } catch {
+      prevSession = null
+    }
+    const replacedUid =
+      prevSession?.userId === undefined || prevSession?.userId === null
+        ? null
+        : String(prevSession.userId)
 
     const userInfo = buildUserInfo(payload)
-    const envelope = extract.encryptEnvelope(JSON.stringify(userInfo))
+    if (sessionFormat === 'plaintext') {
+      // host/region 属于"这只客户端连哪个后端",不属于账号;保留落盘值,防跨代际把 CN 号指到国际后端
+      for (const key of CLIENT_GENERATION_KEYS) {
+        if (prevSession && prevSession[key] !== undefined) userInfo[key] = prevSession[key]
+      }
+    }
+    const encodedSession =
+      sessionFormat === 'plaintext'
+        ? JSON.stringify(userInfo)
+        : extract.encryptEnvelope(JSON.stringify(userInfo))
 
     // 设备信封:只在池内该号确有设备材料、且本机尚无该 deviceId 时补写(绝不覆盖本机现役)
     const deviceKeyId = /^\d{6,}$/.test(payload.deviceId) ? payload.deviceId : ''
@@ -338,9 +393,12 @@ export function applyLogin(extract, payload, opts = {}) {
     if (deviceKey && typeof store[deviceKey] === 'string') {
       deviceEnvelopePresent = true
     } else if (deviceKey && payload.deviceKeyPem && payload.devicePubPem) {
-      store[deviceKey] = extract.encryptEnvelope(
-        JSON.stringify({ privateKeyPEM: payload.deviceKeyPem, publicKeyPEM: payload.devicePubPem }),
-      )
+      const deviceJson = JSON.stringify({
+        privateKeyPEM: payload.deviceKeyPem,
+        publicKeyPEM: payload.devicePubPem,
+      })
+      // 设备档跟会话档同一代际:明文客户端的设备档也是明文(实测国际版整库无信封)
+      store[deviceKey] = sessionFormat === 'plaintext' ? deviceJson : extract.encryptEnvelope(deviceJson)
       deviceEnvelopeWritten = true
     }
 
@@ -348,20 +406,20 @@ export function applyLogin(extract, payload, opts = {}) {
     const backupFile = `${target.file}.ihui-login-${stamp}.bak`
     fs.copyFileSync(target.file, backupFile)
 
-    store[SESSION_KEY] = envelope
+    store[SESSION_KEY] = encodedSession
     atomicWrite(target.file, JSON.stringify(store))
 
     // 写后自检:从落盘文件解回,uid 必须就是目标(防止写入被并发覆写/信封写坏)
     let readBackUid = ''
     try {
       const after = JSON.parse(fs.readFileSync(target.file, 'utf8'))
-      readBackUid = String(JSON.parse(extract.decryptEnvelope(after[SESSION_KEY]))?.userId ?? '')
+      readBackUid = String(JSON.parse(decodeSession(after[SESSION_KEY]))?.userId ?? '')
     } catch {
       readBackUid = ''
     }
     if (readBackUid !== payload.uid) {
       throw new WriteError(
-        `写后自检失败:落盘信封解出的 userId(${readBackUid || '空'})≠ 目标 ${payload.uid}`,
+        `写后自检失败:落盘登录态解出的 userId(${readBackUid || '空'})≠ 目标 ${payload.uid}`,
         'verify-failed',
       )
     }
@@ -370,6 +428,7 @@ export function applyLogin(extract, payload, opts = {}) {
       ok: true,
       storageFile: target.file,
       storageExplicit: target.explicit,
+      storageFormat: sessionFormat,
       backupFile,
       replacedUid,
       uid: payload.uid,
@@ -493,6 +552,8 @@ export const __test__ = {
   locateStorage,
   applyLogin,
   detectRunningProducts,
+  detectSessionFormat,
+  initialSessionFormat,
   WriteError,
   SESSION_KEY,
 }

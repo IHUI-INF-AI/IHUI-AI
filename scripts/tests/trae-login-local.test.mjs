@@ -11,6 +11,11 @@
  *   ③ 写盘面:真写信封能解回、备份逐字节等于写前、原子写不丢旁键
  *   ④ 设备面:池内有材料且本机没有同 deviceId 才补写,绝不覆盖本机现役
  *   ⑤ 输出面:回报里不带任何凭据明文
+ * 2026-10-28 追加(实测两条真根因):
+ *   ⑥ 进程面:客户端在跑 ⇒ 先关后写再拉起;探测不了/关不掉/强杀都没退一律不写
+ *   ⑦ 落点面:多装时优先正在运行的那份(旧实现按产品名固定次序,写进了没在用的那份)
+ *   ⑧ 进程库面:产品名映射、tasklist INFO 行不误解析、没在跑立即返回、拉不起如实回报
+ *   ⑨ 格式面:明文客户端按明文写、换了加密格式拒写、空键按产品代际推(写错格式=客户端读不懂)
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -368,6 +373,76 @@ test('⑦ 落点面:多份客户端同时安装时优先正在运行的那份,�
     assert.equal(explicit.file, path.resolve(cn))
     assert.equal(explicit.explicit, true)
     assert.equal(explicit.product, 'Trae CN')
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('⑨ 格式面:明文客户端的库按明文写、换了加密格式的库拒写、空键按产品代际推', () => {
+  const scratch = mkScratch('trae-login-local-format')
+  try {
+    // 明文档(实测 Trae 国际版 1.0.23314:iCubeAuthInfo://icube.cloudide 就是整段 JSON)
+    const plainFile = path.join(scratch, 'Trae', 'User', 'globalStorage', 'storage.json')
+    fs.mkdirSync(path.dirname(plainFile), { recursive: true })
+    const plainSession = {
+      token: 'old-plain-token',
+      refreshToken: 'old-plain-refresh',
+      expiredAt: '2020-01-01T00:00:00.000Z',
+      userId: '7498387516015051794',
+      host: 'https://api.trae.ai',
+      region: 'us',
+      account: { username: 'plain-user', email: 'plain@example.invalid', scope: 'marscode' },
+    }
+    fs.writeFileSync(
+      plainFile,
+      JSON.stringify({ theme: 'vs-dark', [L.SESSION_KEY]: JSON.stringify(plainSession) }),
+    )
+    const plainPayload = L.normalizePayload({
+      ...PAYLOAD,
+      deviceId: DEVICE_ID,
+      deviceKeyPem: 'PLAIN-PRIV',
+      devicePubPem: 'PLAIN-PUB',
+      targetStorage: plainFile,
+    })
+    const plain = L.applyLogin(T, plainPayload, { probe: noProc() })
+    assert.equal(plain.storageFormat, 'plaintext', '明文库绝不能被塞进信封(客户端读不懂 ⇒ 还是旧号)')
+    assert.equal(plain.replacedUid, '7498387516015051794')
+    const plainStore = JSON.parse(fs.readFileSync(plainFile, 'utf8'))
+    assert.equal(typeof plainStore[L.SESSION_KEY], 'string')
+    const written = JSON.parse(plainStore[L.SESSION_KEY])
+    assert.equal(written.userId, UID)
+    assert.equal(written.token, PAYLOAD.token)
+    assert.equal(written.host, 'https://api.trae.ai', '模板里的 host/region 等平台档必须原样保留')
+    assert.equal(written.region, 'us')
+    assert.deepEqual(written.account, TEMPLATE.account)
+    const devPlain = JSON.parse(plainStore[`iCubeAuthInfo://icube-dc:${DEVICE_ID}`])
+    assert.equal(devPlain.privateKeyPEM, 'PLAIN-PRIV', '明文库的设备档也得是明文')
+
+    // 换了加密格式(信封魔数对不上):必须点名拒写,原文件不动
+    const weirdFile = path.join(scratch, 'Trae CN', 'User', 'globalStorage', 'storage.json')
+    fs.mkdirSync(path.dirname(weirdFile), { recursive: true })
+    fs.writeFileSync(weirdFile, JSON.stringify({ [L.SESSION_KEY]: 'b6891e9dec89ffff00aabbcc' }))
+    const beforeWeird = fs.readFileSync(weirdFile, 'utf8')
+    assert.throws(
+      () =>
+        L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, targetStorage: weirdFile }), {
+          probe: noProc(),
+        }),
+      (e) => e.code === 'storage-format-unknown',
+    )
+    assert.equal(fs.readFileSync(weirdFile, 'utf8'), beforeWeird, '格式不认识就绝不能写')
+
+    // 键还不存在(全新客户端):国际版 Trae 走明文,CN/SOLO 走信封
+    const freshFile = path.join(scratch, 'Trae', 'User', 'globalStorage', 'fresh.json')
+    fs.writeFileSync(freshFile, JSON.stringify({ theme: 'x' }))
+    const fresh = L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, targetStorage: freshFile }), {
+      probe: noProc(),
+    })
+    assert.equal(fresh.storageFormat, 'plaintext')
+    assert.equal(fresh.replacedUid, null)
+    assert.equal(JSON.parse(fs.readFileSync(freshFile, 'utf8'))[L.SESSION_KEY].startsWith('{'), true)
+    assert.equal(L.initialSessionFormat('Trae CN'), 'envelope')
+    assert.equal(L.initialSessionFormat('Trae'), 'plaintext')
   } finally {
     rmScratch(scratch)
   }
