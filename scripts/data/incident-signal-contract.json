@@ -1,10 +1,10 @@
 {
   "schema": "incident-signal",
-  "version": 2,
+  "version": 3,
   "status": "draft",
   "reviewBy": "2027-01-31",
   "format": "jsonl",
-  "description": "需求/异常自动发现器的只读取数契约 v2。生产方(api_logs 导出 / Grafana 告警导出 / 用户反馈导出 / scripts/deploy-outcome-intake.mjs 的部署结果映射)按本契约逐行写 JSONL;消费方 scripts/triage-incidents.mjs 离线归类、scripts/deploy-feedback.mjs 聚类后登记可派单台账行,两者共用 scripts/lib/incident-cluster.mjs 的身份/聚类判据。v1→v2 只新增 source=deploy_outcome 这一个生产者(部署失败/回滚回流为新事故信号),字段面与身份键未变。本契约不含任何连接凭据,归类器不连库、不调 Grafana。",
+  "description": "需求/异常自动发现器的只读取数契约 v2。生产方(scripts/monitor-signal-intake.mjs 的 api_logs/Grafana 告警/用户反馈三源映射、scripts/deploy-outcome-intake.mjs 的部署结果映射)按本契约逐行写 JSONL;消费方 scripts/triage-incidents.mjs 离线归类、scripts/deploy-feedback.mjs 聚类后登记可派单台账行,两者共用 scripts/lib/incident-cluster.mjs 的身份/聚类判据。v1→v2 只新增 source=deploy_outcome 这一个生产者(部署失败/回滚回流为新事故信号),字段面与身份键未变。本契约不含任何连接凭据,归类器不连库、不调 Grafana。",
   "required": ["at", "source", "kind", "severity", "message"],
   "optional": ["traceId", "route"],
   "fields": {
@@ -50,7 +50,11 @@
   },
   "dispatch": {
     "minSeverity": "warn",
-    "note": "簇内最高档低于该档 ⇒ 只算观察类,不生成可派单候选(§1 台账只记真工作:没人能据此动手)。"
+    "minCount": 3,
+    "minCountBySource": {
+      "deploy_outcome": 1
+    },
+    "note": "簇内最高档低于该档 ⇒ 只算观察类,不生成可派单候选(§1 台账只记真工作:没人能据此动手)。minCount = 一簇达到多少条样本才够格建单(默认 3:单次异常不足以证明是持续缺陷);minCountBySource = 按 source 覆盖该门槛(部署结果源单次失败即真事故 ⇒ 1)。门槛表只此一份,消费方不得自持第二份。"
   },
   "owners": {
     "api_logs": "后端(api)",
@@ -64,9 +68,9 @@
     "note": "稳定语义身份:同一缺陷换时间、换 traceId、换实例、换计数都必须落同一键;不同缺陷不得并桶。"
   },
   "producers": {
-    "api_logs": "待后续席位接:packages/database 的 api_logs 只读导出为 JSONL(本器不连库)",
-    "grafana_alert": "待后续席位接:Alertmanager GET /api/v2/alerts 的 alertname/labels 映射为本契约行(本器不调 Grafana)",
-    "user_feedback": "待后续席位接:feedbacks 既有导出落盘的 JSONL",
+    "api_logs": "scripts/monitor-signal-intake.mjs:经 scripts/auto-triage.mjs 的 readApiLogs 取数面(只读导出/真库只读 SELECT),按 statusCode 判档(>=500⇒error,4xx⇒warn)、`METHOD path` 作 route,映射为本契约行(本器即生产者;不 spawn、不写台账)",
+    "grafana_alert": "scripts/monitor-signal-intake.mjs:经 scripts/auto-triage.mjs 的 readGrafanaAlerts 取数面(Alertmanager GET /api/v2/alerts),按 labels 尾部 severity 判档、alertname 作 route,映射为本契约行(本器即生产者;不联网写库)",
+    "user_feedback": "scripts/monitor-signal-intake.mjs:经 scripts/auto-triage.mjs 的 readUserFeedback 取数面(既有导出 JSONL),固定 warn 档、route 留空(退 msg 归一身份),映射为本契约行(本器即生产者;不 spawn、不写台账)",
     "deploy_outcome": "scripts/deploy-outcome-intake.mjs:把 .ihui-agent/deploy-decisions.jsonl 的失败型 action 映射为本契约行(本器即生产者;不联网、不读库、不 spawn)"
   }
 }
