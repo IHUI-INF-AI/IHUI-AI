@@ -146,13 +146,11 @@ const LOCAL_LOGIN_LABEL: Partial<Record<ProviderCode, string>> = {
 }
 
 /**
- * 「登录本机」不支持矩阵(2026-10-27 全平台):与 API 的
- * LOCAL_LOGIN_UNSUPPORTED_REASONS 同口径 —— 支持平台可点,不支持平台 disabled 并在
- * tooltip 点名原因,不做假入口(判据见各平台提取器头注)。
+ * 「登录本机」不支持矩阵(2026-10-28 与 API 同步:loomy/doubao 已落地写回配方):
+ * 与 API 的 LOCAL_LOGIN_UNSUPPORTED_REASONS 同口径 —— 支持平台可点,不支持平台 disabled
+ * 并在 tooltip 点名原因,不做假入口(判据见各平台提取器头注)。
  */
 const LOCAL_LOGIN_UNSUPPORTED: Partial<Record<ProviderCode, string>> = {
-  loomy: '本机登录态是 Electron leveldb 且被客户端独占,离线无法重建',
-  doubao: '登录态是 Chrome Cookies 库(被浏览器独占),离线无法重封',
   lingma: '字段级登录态形状尚未实证(本机未安装),没有可验证的写回配方',
   grokbot: '本机凭证是 sandSealedFile 密封串,没有明文 token 可重建',
 }
@@ -171,6 +169,8 @@ const LOCAL_LOGIN_RESTARTS_CLIENT: ReadonlySet<ProviderCode> = new Set<ProviderC
   'qoder',
   'minimax',
   'zcode',
+  'doubao',
+  'loomy',
 ])
 // 24h 用量摘要。后端契约字段均为 number,但后端尚未合并时可能整体缺失,
 // 故全部可选并做容错渲染(缺字段显示 "-",不阻塞 typecheck)。
