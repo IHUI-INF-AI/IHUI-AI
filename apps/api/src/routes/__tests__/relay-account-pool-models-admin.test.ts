@@ -65,6 +65,24 @@ vi.mock('../../services/relay-account-pool-service.js', () => ({
     cookies: [],
     secrets: {},
   })),
+  // 手机号补全端点(2026-10-28)新增的两个 service 导出:mock 必须一并补齐,
+  // 否则本套件 collection 期就报「does not provide an export named」。
+  completeAccountPhone: vi.fn(async () => ({
+    code: 'ok',
+    message: null,
+    id: 'row-1',
+    oldName: null,
+    name: null,
+    changed: false,
+    checkinSync: { pushed: 0, pending: false, error: null },
+  })),
+  matchPhoneCandidates: vi.fn(async () => ({
+    scannedMasked: 0,
+    matched: [],
+    ambiguous: [],
+    unmatched: [],
+    rejected: [],
+  })),
 }))
 vi.mock('../../services/relay-account-pool-scheduler.js', () => ({
   sweepAccountPool: vi.fn(async () => ({})),
