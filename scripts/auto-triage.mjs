@@ -33,8 +33,10 @@
  * 聚类:新增「错误签名归一」层(数字/UUID/URL 查询串/时间戳归零后再哈希),同桶 24h 窗
  * 计数达到 clustering.minOccurrences(默认 2)才够格派单;去重键仍复用 fingerprintOf。
  *
- * 用法:node scripts/auto-triage.mjs --once [--dry-run] | --status | --self-test
+ * 用法:node scripts/auto-triage.mjs --once [--dry-run] | --status | --self-test | --help
  *  dry-run 只打印将要登记/观察的行,不写 PROJECT_PLAN.md,也不写分诊台账。
+ *  参数闸:未知旗标/位置参数/缺动作旗标 ⇒ 当场 exit 2 打用法(2026-10-28 立:`--help` 曾直接
+ *  落真分诊轮并往观测账追写行 —— 歧义调用只许"多要一次定向说明",绝不"多跑一次真轮")。
  */
 import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs'
@@ -1207,6 +1209,59 @@ async function selfTest() {
     { action: 'quota-deferred', ts: new Date().toISOString() },
   ]
   ok('T5 配额只数 registered(当日)', registeredToday(todayRows, new Date()) === 1)
+  // T6 参数闸(2026-10-28 立):失效方向必须是"多要一次定向说明",绝不能是"多跑一次真轮"
+  ok(
+    'T6a --help 合法且落用法档',
+    parseArgs(['--help']).errors.length === 0 && parseArgs(['--help']).help === true,
+  )
+  ok(
+    'T6b -h 与 --help 同形',
+    parseArgs(['-h']).errors.length === 0 && parseArgs(['-h']).help === true,
+  )
+  ok(
+    'T6c 未知旗标当场拒(不回落真轮)',
+    parseArgs(['--warp']).errors.some((e) => /未知旗标 --warp/.test(e)),
+  )
+  ok(
+    'T6d 位置参数当场拒',
+    parseArgs(['D:/somewhere']).errors.some((e) => /位置参数/.test(e)),
+  )
+  ok(
+    'T6e 零参数当场拒(缺动作旗标)',
+    parseArgs([]).errors.some((e) => /缺少动作旗标/.test(e)),
+  )
+  ok(
+    'T6f --dry-run 单给当场拒',
+    parseArgs(['--dry-run']).errors.some((e) => /必须与 --once 同给/.test(e)),
+  )
+  ok(
+    'T6g --once --dry-run 合法(只读预演档)',
+    parseArgs(['--once', '--dry-run']).errors.length === 0 &&
+      parseArgs(['--once', '--dry-run']).dryRun === true,
+  )
+  ok(
+    'T6h 动作旗标互斥:--once --status 拒',
+    parseArgs(['--once', '--status']).errors.some((e) => /互斥/.test(e)),
+  )
+  ok(
+    'T6i 闭集对账:KNOWN_FLAGS 每枚都在用法档里点名',
+    [...KNOWN_FLAGS].every((f) => usageText().includes(f)),
+  )
+  ok(
+    'T6j 入口形状锁:参数闸排在 runOnce 之前',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const body = src.slice(src.indexOf('export async function main'))
+      const gate = body.indexOf('parseArgs(')
+      const round = body.indexOf('runOnce(')
+      return (
+        gate >= 0 &&
+        round > gate &&
+        body.includes('args.errors.length > 0') &&
+        /未执行任何分诊轮/.test(body)
+      )
+    })(),
+  )
   if (failed > 0) {
     console.error(`self-test: ${failed} 例红`)
     process.exitCode = 1
@@ -1241,23 +1296,104 @@ function printStatus() {
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
+// ── CLI 参数闸(2026-10-28 立)──────────────────────────────────────────────
+// 病理(实测复现):入口原是 `if includes('--self-test') / if includes('--status') / else
+// runOnce(...)`,任何未被点名的旗标(取证命令 `--help`、零参数、位置参数)**都不报错、不落用法档,
+// 而是当场落进真分诊轮** —— 每次净往 .ihui-agent/state/auto-triage-ledger.jsonl 追写观测行
+// (夹具仓实测 0 → 1 行),真跑那一步还会 spawn live-doc-edit 去登记 PROJECT_PLAN.md。
+// 失效方向必须是「多要一次定向说明」,绝不能是「多跑一次真轮」(AGENTS.md §0.10/§0.8)。
+// 形态照抄同族 `scripts/triage-discovery.mjs` 的 parseArgs(KNOWN_FLAGS 闭集 + errors 收集 +
+// 用法 + exit 2),不另发明第二套参数解析。
+const KNOWN_FLAGS = new Set(['--once', '--dry-run', '--status', '--self-test', '--help', '-h'])
+/** 动作旗标:互斥且必给其一(`--dry-run` 只是 `--once` 的修饰档,不算动作)。 */
+const ACTION_FLAGS = new Set(['--once', '--status', '--self-test', '--help', '-h'])
+
+export function usageText() {
+  return [
+    '用法:node scripts/auto-triage.mjs --once [--dry-run] | --status | --self-test | --help',
+    '  --once       真跑一轮分诊(写分诊观测账,必要时经 live-doc-edit 唯一入口登记 PROJECT_PLAN.md)',
+    '  --dry-run    预演:只打印将要登记/观察的行,不写 PROJECT_PLAN.md、不写分诊台账(只能与 --once 同给)',
+    '  --status     只读:打印分诊配置与观测台账最近 5 条',
+    '  --self-test  只读:跑本器自测',
+    '  --help / -h  只读:打印本用法',
+    '纪律:未知旗标 / 位置参数 / 缺动作旗标 / 多个动作旗标同给 ⇒ 当场拒绝(exit 2),',
+    '      绝不回落成"那就跑一轮"。人工排障先跑 --once --dry-run 看将要写什么。',
+  ].join('\n')
+}
+
+/** CLI 参数解析:纯函数、零 IO;任何歧义落 errors,由调用方据此拒绝执行。 */
+export function parseArgs(argv = []) {
+  const errors = []
+  const tokens = Array.isArray(argv) ? argv : []
+  for (const t of tokens) {
+    if (typeof t !== 'string') {
+      errors.push(`参数必须是字符串,实得 ${JSON.stringify(t) ?? String(t)}`)
+      continue
+    }
+    if (t.startsWith('-')) {
+      if (!KNOWN_FLAGS.has(t)) errors.push(`未知旗标 ${t}`)
+      continue
+    }
+    errors.push(`未知参数 ${JSON.stringify(t)}(本器不接受位置参数)`)
+  }
+  const actions = tokens.filter((t) => ACTION_FLAGS.has(t))
+  if (errors.length === 0) {
+    if (actions.length === 0) {
+      errors.push(
+        tokens.length === 0
+          ? '缺少动作旗标:显式给 --once / --status / --self-test / --help 之一(--once 是写观测账的真轮,先跑 --once --dry-run 预演)'
+          : `缺少动作旗标:只给了修饰旗标 ${tokens.join(' ')},显式点名要跑哪一档`,
+      )
+    } else if (actions.length > 1) {
+      errors.push(`动作旗标互斥,实得 ${actions.join(' ')}`)
+    }
+    if (tokens.includes('--dry-run') && !actions.includes('--once')) {
+      errors.push('--dry-run 只是 --once 的修饰档,必须与 --once 同给(单给不预演任何档)')
+    }
+  }
+  return {
+    errors,
+    once: actions.includes('--once'),
+    dryRun: tokens.includes('--dry-run'),
+    status: actions.includes('--status'),
+    selfTest: actions.includes('--self-test'),
+    help: actions.includes('--help') || actions.includes('-h'),
+  }
+}
+
+export async function main(args = []) {
+  const argv = parseArgs(args)
+  if (argv.errors.length > 0) {
+    for (const e of argv.errors) console.error(`❌ ${e}`)
+    console.error(usageText())
+    console.error('未判定:参数错误,未执行任何分诊轮、未写分诊台账、未登记 PROJECT_PLAN')
+    process.exitCode = 2
+    return
+  }
+  if (argv.help) {
+    console.log(usageText())
+    return
+  }
+  if (argv.selfTest) return selfTest()
+  if (argv.status) return printStatus()
+  return runOnce({ dryRun: argv.dryRun })
+}
+
 if (isDirectRun) {
-  const args = process.argv.slice(2)
-  main(args).catch((e) => {
+  main(process.argv.slice(2)).catch((e) => {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
     process.exit(2)
   })
 }
 
-async function main(args) {
-  if (args.includes('--self-test')) return selfTest()
-  if (args.includes('--status')) return printStatus()
-  return runOnce({ dryRun: args.includes('--dry-run') })
-}
-
 export const __test__ = {
   loadConfig,
   TriageShapeError,
+  KNOWN_FLAGS,
+  ACTION_FLAGS,
+  parseArgs,
+  usageText,
+  main,
   clusteringOf,
   fingerprintOf,
   normalizeSignature,
