@@ -285,4 +285,29 @@ test('⑫ 部署决策台账随线上 oracle 面解析,不钉死主仓;--state-d
   const flat = mod.resolvePaths({ root, stateDir: root })
   assert.equal(flat.decisions, join(root, SOURCE_FILES.decisions))
 })
+
+// ⑬ 观察维不得压死主裁决:canary-unproven 的语义是「金丝雀这维没拿到证据」(判据原文:不判过也不判坏),
+// 它一旦把同轮的 pass 覆盖掉,LLM 探针长期拿不到答案时已确认的切流会被永久判成未判定。
+test('⑬ 观察维(canary-unproven)不压死同 sha 主裁决;没有主裁决时仍判未判定', () => {
+  const withPrimary = bypassBox({
+    decisions: [
+      { ts: at(4), action: 'pass', sha: DEPLOY_SHA, reason: '健康门禁三项全绿后切流' },
+      { ts: at(5), action: 'canary-unproven', sha: DEPLOY_SHA, reason: 'llm-origin:未知占比 100%' },
+    ],
+  })
+  const r = buildStatus({ stateDir: withPrimary, now: NOW, commits: 5, git: BYPASS_GIT, isAncestor: () => true, ticketNoPatterns: PATTERNS })
+  const one = r.incidents.find((i) => i.identity === 'bypass-1')
+  assert.equal(one.stages.verified, 'yes', '同 sha 有 pass 时不得被观察维压成未判定')
+  assert.equal(one.status, 'verified')
+  assert.ok(one.why.includes('属观察维'), `why 未点明观察维:${one.why}`)
+
+  // 反证:只有观察维、没有任何主裁决 ⇒ 不许判过
+  const onlyObservation = bypassBox({
+    decisions: [{ ts: at(4), action: 'canary-unproven', sha: DEPLOY_SHA, reason: '未知占比超阈' }],
+  })
+  const r2 = buildStatus({ stateDir: onlyObservation, now: NOW, commits: 5, git: BYPASS_GIT, isAncestor: () => true, ticketNoPatterns: PATTERNS })
+  const two = r2.incidents.find((i) => i.identity === 'bypass-1')
+  assert.equal(two.stages.verified, 'undetermined')
+  assert.equal(two.status, 'undetermined')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

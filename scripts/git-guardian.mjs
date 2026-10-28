@@ -27,6 +27,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
 import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
+import { runIpAttributionTrustAudit } from './lib/ip-attribution-trust-audit.mjs'
 import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { isInteractiveUserHome } from './check-home-junctions.mjs'
@@ -4519,6 +4520,168 @@ const ASSET_PATH_LAST = join(WORKTREE, '.ihui-agent', 'state', 'asset-path-last.
 const ASSET_PATH_INTERVAL_MS = Number(process.env.IHUI_ASSET_PATH_INTERVAL_MS || 6 * 60 * 60 * 1000)
 const ASSET_PATH_TIMEOUT_MS = Number(process.env.IHUI_ASSET_PATH_TIMEOUT_MS || 120_000)
 
+// 反馈闭环断点巡检(2026-10-28 立):闭环器件此前**没有任何自动调用者** ⇒ 链断了没人喊。
+const FEEDBACK_CLOSURE_INTERVAL_MS = Number(process.env.IHUI_FEEDBACK_CLOSURE_INTERVAL_MS || 30 * 60 * 1000)
+const FEEDBACK_CLOSURE_TIMEOUT_MS = Number(process.env.IHUI_FEEDBACK_CLOSURE_TIMEOUT_MS || 120_000)
+const FEEDBACK_CLOSURE_WINDOW_MS = Number(process.env.IHUI_FEEDBACK_CLOSURE_WINDOW_MS || 48 * 60 * 60 * 1000)
+const FEEDBACK_CLOSURE_TICK = join(WORKTREE, '.ihui-agent', 'state', 'feedback-loop-closure-tick.ts')
+const FEEDBACK_CLOSURE_LAST = join(WORKTREE, '.ihui-agent', 'state', 'feedback-loop-closure-last.json')
+
+/**
+ * IP 归属判定信任面哨兵(2026-10-28 立)。尺子 = scripts/check-ip-attribution-trust.mjs,
+ * 判据/节流/到人住 lib/ip-attribution-trust-audit.mjs;判机器状态 ⇒ **不进提交链**(§12e)。
+ * 立因 = 实测 request.ip 完全由 `X-Forwarded-For` 最左值决定(只要 socket 对端命中
+ * TRUSTED_PROXIES),而今天不成立只因为"CDN 出口 IP 恰好不在表里"—— 谁按常规做法把出口 IP
+ * 填进表，admin 分段/信誉封禁/限流键就同时可伪造。本层把"巧合"变成有人看守的状态。
+ */
+export function auditIpAttributionTrust(opts = {}) {
+  return runIpAttributionTrustAudit({
+    logger: log,
+    notify: (title, detail, notifyOpts) => notifyGuardRed(title, detail, notifyOpts),
+    ...opts,
+  })
+}
+
+/**
+ * 反馈闭环断点巡检(2026-10-28 立)。
+ *
+ * 立因:闭环器件(感知→建单→派单→修复→部署→裁决)已能串通,但**没有任何自动调用者** ——
+ * feedback-loop-status 只是手工工具,链断了没人喊。仓内既有教训的原话是「判据失效的表现
+ * 永远是安静」:器件在、台账在,就是没人看。
+ *
+ * 尺子 = `scripts/feedback-loop-status.mjs --commits 300 --json`(**单一判据,本函数零复算**:
+ * 不自己拼台账、不自己判阶段,只读它给的 stages/status/evidence)。
+ *
+ * 判据(只喊真卡点,不当噪声源):
+ *   · 每条事故取**第一个未达成段**(断点段);建单都没落地 ⇒ 断点就是 ticketed;
+ *   · 给 48 小时处置窗口:窗口内只写日志 —— 新故障本就该先给人时间,不是一冒头就喊;
+ *   · 超过窗口仍卡着 ⇒ 喊人(身份 = 事故 identity + 断点段;notifyGuardRed 自带窗口去重);
+ *   · 全部达成 ⇒ 绿,只在日志留一行;
+ *   · 尺子取不到结论 / 上游源缺失 ⇒ **未判定**,只写日志不喊人(不拿「判不了」当「出事了」)。
+ */
+export function auditFeedbackLoopClosure(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = FEEDBACK_CLOSURE_INTERVAL_MS,
+    windowMs = FEEDBACK_CLOSURE_WINDOW_MS,
+    tickFile = FEEDBACK_CLOSURE_TICK,
+    lastFile = FEEDBACK_CLOSURE_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'feedback-loop-status.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 反馈闭环巡检:尺子脚本不在位(scripts/feedback-loop-status.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+  } catch {
+    /* 刻度写不掉不影响判据本身 */
+  }
+  const call =
+    typeof runner === 'function'
+      ? runner()
+      : (() => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--commits', '300', '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+              timeout: FEEDBACK_CLOSURE_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 23,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+            })
+            return { status: 0, stdout: String(out || ''), stderr: '' }
+          } catch (e) {
+            return {
+              status: typeof e.status === 'number' ? e.status : 2,
+              stdout: String(e.stdout || ''),
+              stderr: String(e.stderr || e.message || ''),
+            }
+          }
+        })()
+  const jsonLine = String(call.stdout || '')
+    .split(/\r?\n/)
+    .find((l) => l.trim().startsWith('{'))
+  let parsed = null
+  try {
+    parsed = jsonLine ? JSON.parse(jsonLine) : null
+  } catch {
+    parsed = null
+  }
+  if (!parsed || !Array.isArray(parsed.incidents)) {
+    logger(
+      `⚠️ 反馈闭环巡检未产出结论(未判定,不记为已探测):rc=${call.status} ${(
+        [call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)'
+      )
+        .split(/\r?\n/)[0]
+        .slice(0, 140)}`,
+    )
+    return { ran: true, judged: false, why: '结论不可解析' }
+  }
+  const ORDER = ['perceived', 'ticketed', 'dispatched', 'fixed', 'deployed', 'verified']
+  const DONE = new Set(['yes', 'bypassed', 'skip', 'not-requested'])
+  const stuck = []
+  for (const inc of parsed.incidents) {
+    if (!inc || typeof inc !== 'object') continue
+    if (inc.status === 'verified' || inc.status === 'rolled_back') continue
+    const stages = inc.stages || {}
+    const at = inc.evidence?.feedbackAt || inc.evidence?.signalAt || ''
+    const t = Date.parse(at)
+    if (!Number.isFinite(t) || !(now - t > windowMs)) continue // 处置窗口内:先给人时间
+    const stage = ORDER.find((k) => !DONE.has(String(stages[k] ?? ''))) || '(未达成)'
+    stuck.push({ identity: String(inc.identity || '(无身份)'), stage, why: String(inc.why || '').slice(0, 160) })
+  }
+  const summary = parsed.summary || {}
+  try {
+    mkdirSync(dirname(lastFile), { recursive: true })
+    writeFileSync(
+      lastFile,
+      JSON.stringify(
+        {
+          at: new Date(now).toISOString(),
+          incidents: summary.incidents ?? null,
+          closed: summary.closed ?? null,
+          open: summary.open ?? null,
+          undetermined: summary.undetermined ?? null,
+          stuck,
+        },
+        null,
+        1,
+      ),
+      'utf8',
+    )
+  } catch {
+    /* 状态件写不掉只影响可见性,不影响告警本身 */
+  }
+  if (stuck.length === 0) {
+    logger(
+      `✅ 反馈闭环巡检:${summary.incidents ?? 0} 条事故无超窗卡点(closed=${summary.closed ?? 0} open=${summary.open ?? 0} undetermined=${summary.undetermined ?? 0})`,
+    )
+    return { ran: true, red: 0, stuck: [] }
+  }
+  const hours = Math.round(windowMs / 3600_000)
+  const keys = stuck.map((s) => `${s.identity}@${s.stage}`)
+  notify(
+    `反馈闭环卡住超 ${hours}h:${stuck.length} 条`,
+    `以下事故在处置窗口(${hours} 小时)之后仍卡在同一段,链路没有推进:\n` +
+      stuck.map((s) => `· ${s.identity} ⇒ ${s.why || `断在 ${s.stage}`}`).join('\n'),
+    { severity: 'warning', now },
+  )
+  logger(`⚠️ 反馈闭环巡检:${stuck.length} 条超窗卡点(${keys.slice(0, 3).join(' / ')}${keys.length > 3 ? ' …' : ''})`)
+  return { ran: true, red: stuck.length, stuck }
+}
+
 export function auditAssetPathHealth(opts = {}) {
   const {
     now = Date.now(),
@@ -5630,6 +5793,13 @@ function main() {
     // 资产路径可达性 + 证书到期(2026-10-28 立,尺子 = scripts/check-asset-path-health.mjs):立因 =
     // 生产 .env 四条支付宝证书路径写在已不存在的 F: 盘上,SDK 静默读不到证书,全仓零门喊过。6h 节流。
     if (!CHECK_ONLY) auditAssetPathHealth()
+    // 反馈闭环断点(2026-10-28 立,尺子 = scripts/feedback-loop-status.mjs):闭环器件此前零自动
+    // 调用者,链断了没人喊。30 分钟节流;超 48 小时处置窗口仍卡同一段才喊,窗口内只写日志。
+    // 判机器状态 ⇒ 不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。
+    if (!CHECK_ONLY) auditFeedbackLoopClosure()
+    // IP 归属信任面(尺子 = check-ip-attribution-trust.mjs;判定/节流/到人住 lib)。
+    // 60min 节流;未判定只写日志不喊人,红档按"状态翻转"寄一封(同一身份连续多轮压住不重复寄)。
+    if (!CHECK_ONLY) auditIpAttributionTrust()
     // 「完成即删」兜底清扫已提前到 healWorktreeTracked 之后(2026-10-22 调度加固,见该处注释):
     // 挂在这一长串探测之后实测整轮到不了,清扫心跳会长期停摆。
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
