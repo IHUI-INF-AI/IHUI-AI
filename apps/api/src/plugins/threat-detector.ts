@@ -25,6 +25,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply 
 import fp from 'fastify-plugin'
 import type { Redis } from 'ioredis'
 import { getIpReputationService, isPrivateIp } from '../services/ip-reputation.js'
+import { notifyThreatBlock, notifyThreatWatch } from '../services/threat-ops-alert.js'
 import { isBlockExemptPath } from '../utils/block-exempt-paths.js'
 import { logger } from '../utils/logger.js'
 
@@ -174,6 +175,21 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
         badEvents: badEventsCount,
       })
 
+      // 封禁必须到人:此前只写日志,机主只能主动读 /security 才知情。
+      // 失败不阻塞封禁主流程,但告警自身的失败要响(§5e)。
+      void notifyThreatBlock(redis, {
+        ip,
+        score: rep.score,
+        durationLabel,
+        reasons: rep.reasons,
+        badEvents: badEventsCount,
+        recentBlocks: [...recentBlocks],
+      }).catch((e) => {
+        logger.warn('threat-detector: block alert dispatch failed', {
+          err: e instanceof Error ? e.message : String(e),
+        })
+      })
+
       reply
         .status(403)
         .header('X-Block-Reason', 'high-threat-score')
@@ -195,6 +211,18 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
         score: rep.score,
         reasons: rep.reasons,
         path,
+      })
+
+      void notifyThreatWatch(redis, {
+        ip,
+        score: rep.score,
+        reasons: rep.reasons,
+        path,
+        watchedCount: watchedIps.size,
+      }).catch((e) => {
+        logger.warn('threat-detector: watch alert dispatch failed', {
+          err: e instanceof Error ? e.message : String(e),
+        })
       })
     } else {
       // 评分降低后从监控列表移除

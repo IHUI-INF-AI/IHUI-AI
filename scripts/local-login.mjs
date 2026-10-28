@@ -404,6 +404,70 @@ export function assertClientClosed(info) {
   )
 }
 
+/**
+ * leveldb 目录里的"多余文件"会被客户端自己的回收清掉(2026-10-28 实测:写前留的
+ * `000004.log.ihui-login-*.bak` 十几分钟后就不在了 —— 备份等于没留)。所以 loomy 的写前留底
+ * 落在**库目录之外**的同用户数据目录 `<userData>\.ihui-login-backups\`,名字照旧带原文件名与时刻。
+ */
+function backupLeveldbOutsideDb(logFile) {
+  if (!fs.existsSync(logFile)) return null
+  const userData = path.resolve(path.dirname(logFile), '..', '..')
+  const bakRoot = path.join(userData, '.ihui-login-backups')
+  fs.mkdirSync(bakRoot, { recursive: true })
+  const backupFile = path.join(bakRoot, `${path.basename(logFile)}.ihui-login-${stamp()}.bak`)
+  fs.copyFileSync(logFile, backupFile)
+  return backupFile
+}
+
+/**
+ * 写在**落笔点**的存续闸(2026-10-28 立)。`main()` 已按"先关端再写"走,但适配器是导出的,
+ * 任何直调 applyXxx 的路径(脚本、探针、人工排查)都会绕过那道关端 —— 而运行中的客户端
+ * 既不读我们追加的记录,又会在退出时用内存态把它覆掉。本机实测踩过一次:Loomy 正在跑对话,
+ * 有人(本会话)直调 applyLoomy 写进去了,记录序号落在客户端自己的序号区间里。
+ * 所以这条不变量必须住在落笔那一刻,不能只住在 CLI 流程里(AGENTS §0.9)。
+ * 探测不到 ⇒ 未判定,同样拒写(§0.3:宁可多要一次定向说明,不冒绿)。
+ */
+export function assertNoLiveClient(provider, opts = {}) {
+  const probe = opts.clientProbe ?? defaultClientProbe
+  let running
+  try {
+    running = probe(provider, opts.env ?? process.env)
+  } catch (e) {
+    throw new WriteError(
+      `探测 ${PROVIDER_LABEL[provider] ?? provider} 客户端是否在跑失败(${e instanceof Error ? e.message : String(e)})⇒ 未判定,拒绝盲写`,
+      'target-locked',
+    )
+  }
+  if (running === null || running === undefined) {
+    throw new WriteError(
+      `探测 ${PROVIDER_LABEL[provider] ?? provider} 客户端是否在跑取不到结论 ⇒ 未判定,拒绝盲写`,
+      'target-locked',
+    )
+  }
+  if (running === true) {
+    throw new WriteError(
+      `${PROVIDER_LABEL[provider] ?? provider} 客户端正在运行 ⇒ 拒绝写入:它不会重读我们追加的记录,退出时还会用内存态覆掉。` +
+        '请走后台「一键登录」(会先关端再写),或先手动退出客户端',
+      'client-running',
+    )
+  }
+}
+
+/** 默认探测:精确映像名 + 安装路径兜底(与 closeClientForWrite 同一批出口,不另写一份判据) */
+function defaultClientProbe(provider, env = process.env) {
+  // 与 closeClientForWrite 同档:非 Windows / 显式关掉进程管控 ⇒ 这台机没有可探的客户端进程面
+  if (!CLIENT_IMAGES[provider] || process.platform !== 'win32') return false
+  if (String(env.IHUI_LOCAL_LOGIN_PROC_CONTROL ?? '').trim() === '0') return false
+  for (const image of CLIENT_IMAGES[provider] ?? []) {
+    const pids = listProductPids(image, env)
+    if (pids === null) return null
+    if (pids.length > 0) return true
+  }
+  const scanned = listProcessesByPath(CLIENT_PATH_HINTS[provider] ?? [], env)
+  if (scanned === null) return null
+  return scanned.length > 0
+}
+
 /** 写完后原样拉起(服务身份走 run-as-user.ps1,桌面身份 detached spawn) */
 export function relaunchClient(info, env = process.env) {
   if (!info?.wasRunning || !info.closed) return { restarted: false, error: '' }
@@ -1494,7 +1558,9 @@ export function applyLoomy(payload, opts = {}) {
   const nextSeq = lv.maxBatchSeq(beforeBuf) + 1n
   const batch = lv.buildBatch(nextSeq, entries)
 
-  const backupFile = backupOf(logFile)
+  assertNoLiveClient('loomy', opts)
+
+  const backupFile = backupLeveldbOutsideDb(logFile)
   atomicWrite(logFile, lv.appendRecords(beforeBuf, [batch]))
 
   // 写后自检:按客户端读法(重放日志、后写为准、varint 精确解码)取回,必须逐键全等
