@@ -3250,6 +3250,32 @@ if (-not (Test-HealthGate)) {
         Where-Object { $null -ne (Get-Service -Name $_ -ErrorAction SilentlyContinue) } |
         Select-Object -First 1
 
+    # ── 嵌套解释器选型(2026-10-28 根治)────────────────────────────────────────
+    # 病灶(当日实测):本机 `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` 报
+    # $PSHOME 即该目录,而该目录下的 `Modules` 与 `C:\Program Files\WindowsPowerShell\Modules`
+    # 均**不存在**(整目录被移除)。5.1 引擎还能跑纯 .NET,但 Get-Command/Test-Path/Get-Service
+    # 一个都加载不出来 ⇒ `& powershell.exe -File <脚本>` 100% 失败。代价极安静:
+    #   · 蓝绿切换每轮 rc≠0 → 只落一行 WARN(线上无损)⇒ **api 从未随部署重载**,旧代码一直在答;
+    #   · 实听者自证恒为 reason=no-contract-line ⇒ 身份永远"未判定",假成功没人抓。
+    # 修法不是给 5.1 补模块(系统面,且随时可能被再次清理),而是**只挑真正带 cmdlet 的解释器**:
+    # pwsh 7 自带 $PSHOME\Modules;powershell.exe 仅作末位兜底,且必须过 Get-Command 探针。
+    # 想复现判据:pwsh.exe -NoProfile -Command 'if (Get-Command Test-Path -EA SilentlyContinue) {"CMDLETS-OK"}'
+    function Resolve-DeployInterpreter {
+        $cands = @(
+            (Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'),
+            'C:\Program Files\PowerShell\7\pwsh.exe',
+            (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')
+        ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -Unique
+        foreach ($c in $cands) {
+            try {
+                $probe = & $c -NoProfile -NonInteractive -Command 'if (Get-Command Test-Path -ErrorAction SilentlyContinue) { "CMDLETS-OK" } else { "CMDLETS-MISSING" }' 2>&1
+                if (('' + $probe) -match 'CMDLETS-OK') { return $c }
+                Log "WARN  解释器无 cmdlet,跳过:$c"
+            } catch { Log "WARN  解释器探针异常($c):$_" }
+        }
+        return $null
+    }
+
     # ── 蓝绿零停机切换(2026-10-28 立)──────────────────────────────────────────
     # 原写法 `sc.exe stop → sleep 4 → sc start → sleep 6` 会让 8802 断监听 20~30 秒,
     # Next.js 代理拿到 ECONNREFUSED,用户看到纯文本 "Internal Server Error"(登录直接失败,
@@ -3257,17 +3283,22 @@ if (-not (Test-HealthGate)) {
     # 8802 的路由层(as 1 秒热切换)→ 排空 20s → 停旧色。8802 全程有监听。
     # 失败语义:目标色起不来就**不切流**,旧色继续服务,本步 WARN 但不判部署失败
     # (线上无损);只有蓝绿服务不在位(单实例回滚形态)才退回旧的原地重启。
-    $bgScript = Join-Path $PSScriptRoot 'ihui-api-bluegreen.ps1'
-    $bgReady = (Test-Path -LiteralPath $bgScript) -and
+    # 2026-10-28 22:5x 换执行面(Node 版,根因级):Resolve-DeployInterpreter 只能解决「子进程没有
+    # cmdlet」,解决不了第二层 —— ihui-api-bluegreen.ps1 里的 sc.exe 被本机程序黑名单封死
+    # (启动即 PROGRAM BLOCKED BY SECURITY POLICY),任何 shell 都绕不过。两条叠加的后果是
+    # 蓝绿每轮 rc≠0 而只落 WARN ⇒ **api 从未随部署重载**(22:48 实测:web 已部署新 HEAD,
+    # api 仍是 12:43 的进程)。Node 不受 PowerShell 策略约束,服务控制改走 nssm(实测可用);
+    # 切换器逻辑与原 .ps1 逐条对齐(状态自愈/起目标色/健康门禁/原子切流/排空/停旧色)。
+    $bgScript = Join-Path $PSScriptRoot 'ihui-api-bluegreen.mjs'
+    $bgNode = Resolve-NodeExe
+    $bgReady = (Test-Path -LiteralPath $bgScript) -and ($null -ne $bgNode) -and
         ($null -ne (Get-Service -Name 'IHUI-API-BLUE' -ErrorAction SilentlyContinue)) -and
         ($null -ne (Get-Service -Name 'IHUI-API-GREEN' -ErrorAction SilentlyContinue))
     if ($bgReady) {
         Log '蓝绿切换 api:起另一色 → 健康门禁 → 原子切流 → 排空 20s → 停旧色'
         $bgRc = 1
         try {
-            $bgPs = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-            if (-not (Test-Path -LiteralPath $bgPs)) { $bgPs = 'powershell.exe' }
-            $bgOut = & $bgPs -NoProfile -ExecutionPolicy Bypass -File $bgScript -Target auto 2>&1
+            $bgOut = & $bgNode $bgScript --target auto 2>&1
             $bgRc = $LASTEXITCODE
             foreach ($line in @($bgOut)) { Log "  [bg] $line" }
         } catch {
@@ -3317,8 +3348,8 @@ if (-not (Test-HealthGate)) {
     if (Test-Path -LiteralPath $freshPs) {
         $frTxt = ''
         try {
-            $frPs = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-            if (-not (Test-Path -LiteralPath $frPs)) { $frPs = 'powershell.exe' }
+            $frPs = Resolve-DeployInterpreter
+            if (-not $frPs) { throw '找不到带 cmdlet 的解释器(见 Resolve-DeployInterpreter)' }
             $frRaw = & $frPs -NoProfile -ExecutionPolicy Bypass -File $freshPs -Ports '8842;8843' -SinceIso $ScriptStartIso 2>&1
             $frTxt = ('' + (($frRaw | Where-Object { $_ -match 'FRESHNESS\|' } | Select-Object -First 1)))
         } catch { $frTxt = 'FRESHNESS|state=undetermined|port=8842,8843|pids=|reason=invoke-failed' }
