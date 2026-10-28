@@ -57,7 +57,8 @@ const envSchema = z.object({
   // 取值合法性在那里按声明表闭集判,声明表外的值不认 → 落 fail-safe 兜底档)。
   ZCODE_RUNTIME_ENV: z.string().optional(),
   PORT: z.coerce.number().default(8802),
-  HOST: z.string().default('0.0.0.0'),
+  // 2026-10-28 安全加固:默认回环监听(详见 index.ts HOST 说明)。
+  HOST: z.string().default('127.0.0.1'),
   LOG_LEVEL: z.string().default('info'),
   // 2026-09-02 默认追加 Tauri 桌面端 origin(comma 分隔白名单);即便部署未设 env,
   // server.ts 也会固定放行,此处仅保证本地/测试默认配置一致可查。
