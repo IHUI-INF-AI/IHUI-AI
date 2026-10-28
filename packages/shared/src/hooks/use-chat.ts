@@ -113,6 +113,13 @@ export interface ChatMessage {
    *  null/undefined = 未标记;live 新增消息不带(尚未落库),历史回放与水合后才有值。 */
   pinnedAt?: string | null
   bookmarkedAt?: string | null
+  /** 消息评级(2026-10-28 立):服务端盖章下发的 like/dislike 票。
+   *  读面三处统一给(GET /messages 的 offset 与 keyset 两条路径、GET /history、
+   *  PATCH /messages/:id/flags 响应体 —— 最后一条不是读面也得给,否则客户端拿它
+   *  替换本地消息时会把已有的票洗成 null)。
+   *  `null` = 明确无票(可投);**缺失** = 该读面未接或老服务端。渲染上两者同样按
+   *  未表态显示,但只有 `null` 是事实,缺失是未知 —— 不得据缺失回写服务端。 */
+  rating?: 'like' | 'dislike' | null
   /** 推理过程文本(reasoning model 输出) */
   reasoning?: string
   /** 工具调用列表(SSE tool-call 事件累加) */
