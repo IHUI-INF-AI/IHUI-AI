@@ -550,7 +550,7 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 
 | SDK | 仓库 | 发布命令(tag 触发后的实际步骤) | 审核 | 当前可发布性 |
 | --- | --- | --- | --- | --- |
-| TS | npm | `pnpm --filter @ihui-ai/sdk build` → `npm publish --access public --provenance`(OIDC 失败自动回退 `NPM_TOKEN`) | 即时 | ⚠️ 产物已可安装,缺 `NPM_TOKEN` |
+| TS | npm | `pnpm --filter @ihui-ai/sdk build` → `npm publish --access public --provenance`(OIDC 失败自动回退 `secrets.NPM_PUBLISH_TOKEN`;job 内部环境变量名仍写作 `NPM_TOKEN`,由 `NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}` 那一行赋值) | 即时 | ⚠️ 产物已可安装、凭据已就位;**卡在没有 npm org**(`@ihui-ai` 不存在:registry `-/v1/org/ihui-ai` 现读 404,对照 `ihui-cli` 200)⇒ 出路 = `gh workflow run npm-bootstrap.yml -f action=org_create`(邮箱 OTP 由机主提供),**不是**再配一枚 secret |
 | Python | PyPI | 复制根 `LICENSE`/`NOTICE` → `python -m build` → `twine check` → `twine upload` | 即时 | ⚠️ 产物已可安装,缺 `PYPI_TOKEN` |
 | Go | GitHub(无中心仓库) | 打 `sdk/v<VERSION>` 子 tag 并推送,proxy.golang.org 自动抓取 | 即时 | ⚠️ 依赖 workflow 有 `git push` 权限 |
 | Java | Maven Central | `mvn -B clean deploy` | Sonatype 审核(首次约 2 小时) | ❌ `pom.xml` 缺 `<licenses>` / `<developers>` / `<scm>` / `<url>`,无 sources/javadoc jar、无 GPG 签名插件,`MAVEN_USERNAME` / `MAVEN_TOKEN` 也未配置 |
@@ -628,7 +628,7 @@ node scripts/cert-expiry-check.mjs
 | Secret | 被谁引用 | 配置状态(2026-10-19 实测 `gh secret list`) |
 | --- | --- | --- |
 | `NPM_PUBLISH_TOKEN` | `release-cli.yml` npm job；`npm-bootstrap.yml` publish job | ✅ **已配置**(granular token + Bypass 2FA,2027-01-17 到期) |
-| `NPM_TOKEN` | 仅 `release-sdk.yml` npm job(`release-cli.yml` 用 `NPM_PUBLISH_TOKEN`) | ❌ 未配置(SDK 通道专用) |
+| `NPM_TOKEN` | **没有任何 workflow 引用 `secrets.NPM_TOKEN`** —— `release-sdk.yml` 的 npm job 只是把 `secrets.NPM_PUBLISH_TOKEN` 映射成同名**环境变量** `NPM_TOKEN`(见该文件 `NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}` 那一行) | — 无需配置;2026-10-28 实测 `gh secret list` 无此键(此前登记的"SDK 通道专用 `NPM_TOKEN`"从未存在,照它配一枚也不会被任何 job 读到) |
 | `PYPI_TOKEN` | `release-sdk.yml` pypi job(`TWINE_PASSWORD`) | ❌ 未配置 |
 | `MAVEN_USERNAME` / `MAVEN_TOKEN` | `release-sdk.yml` maven job(`~/.m2/settings.xml`) | ❌ 未配置 |
 | `NUGET_API_KEY` | `release-sdk.yml` nuget job(`dotnet nuget push --api-key`) | ❌ 未配置 |
