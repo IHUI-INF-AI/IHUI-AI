@@ -441,4 +441,30 @@ describe('声明式改判(2026-10-25):判据修正后侧车旧桶必须能被逐
     assert.equal(r.error, undefined)
     assert.equal(r.changes.length, 0)
   })
+  it('新入已禁桶 ⇒ 整批拒(票 O68 补洞:--reclassify 旧腿不得成为 F11/F12 后门;判据单源 rotReasonsOf)', () => {
+    // 现读复现(2026-10-29):同份声明在旧腿曾报 changed=1、在桶维出口报 state=refused ——
+    // 守卫落进两条腿共用的 applyReclassify 后,两条腿必须同判拒(本用例即接线锁)。
+    const clean = [
+      { key: 'G-3#干净行改判演练', waiting: 'none', blocking: '', updatedAt: '2026-10-24T00:00:00.000Z', updatedBy: 'x' },
+    ]
+    assert.match(
+      X.applyReclassify(clean, [{ key: 'G-3#干净行改判演练', waiting: 'env', blocking: '等条件', why: '把可做行改挂等条件桶——F12 禁令射程必须整批拒' }]).error,
+      /已禁形态/,
+    )
+    assert.match(
+      X.applyReclassify(clean, [{ key: 'G-3#干净行改判演练', waiting: 'human', why: '把可做行改挂待拍板桶——F11 禁令射程同样必须整批拒' }]).error,
+      /已禁形态/,
+    )
+    assert.match(
+      X.applyReclassify(clean, [{ key: 'G-3#干净行改判演练', waiting: 'none', blocking: '等主席拍板', why: 'blocking 拍板残留是禁形态第三支,同样整批拒' }]).error,
+      /已禁形态/,
+    )
+  })
+  it('从已禁桶改出来 ⇒ 放行(改判正是那族唯一出路,守卫只拦"新引入")', () => {
+    const r = X.applyReclassify(recs, [
+      { key: 'G-2#USDTTRC20ADDRESS仍空', waiting: 'none', why: '等条件禁令清偿批:决策已定,摘掉禁桶牌改回可做' },
+    ])
+    assert.equal(r.error, undefined)
+    assert.equal(r.changes.length, 1)
+  })
 })

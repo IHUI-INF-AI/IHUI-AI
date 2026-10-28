@@ -1376,6 +1376,26 @@ function selfTest() {
   const s9 = applyReclassify([s8base], [{ key: 'G-8 甲', owner: 42, why: '非字符串 owner 必须整批拒' }])
   ok('S9 非字符串 owner ⇒ error(不落半批)', !!s9.error)
 
+  // 禁桶守卫(票 O68 补洞,2026-10-29):旧腿 --reclassify 此前不判"改判落进被禁的桶",
+  // 现读复现同份声明两条腿对照(旧腿 changed=1 / 桶维出口 state=refused)⇒ 守卫住进共用判据。
+  const s10base = { key: 'G-8 甲', waiting: 'none', blocking: '', updatedAt: '2026-10-24T00:00:00.000Z' }
+  const s10 = applyReclassify([s10base], [
+    { key: 'G-8 甲', waiting: 'env', blocking: '等上游镜像源同步', why: '把干净记录改判进等条件桶——F12 禁令射程必须整批拒' },
+  ])
+  ok('S10 新入等条件桶(waiting=env)⇒ 整批拒(旧腿不再是 F12 后门)', /已禁形态/.test(s10.error ?? ''))
+  const s11 = applyReclassify([s10base], [
+    { key: 'G-8 甲', waiting: 'human', why: '把干净记录改判进待拍板桶——F11 禁令射程同样必须整批拒' },
+  ])
+  ok('S11 新入待拍板桶(waiting=human)⇒ 整批拒(F11 同型)', /已禁形态/.test(s11.error ?? ''))
+  const s12 = applyReclassify([s10base], [
+    { key: 'G-8 甲', waiting: 'none', blocking: '等主席拍板', why: 'blocking 带拍板残留同样是禁形态,必须整批拒' },
+  ])
+  ok('S12 blocking 拍板残留(禁形态第三支)⇒ 同样整批拒', /已禁形态/.test(s12.error ?? ''))
+  const s13 = applyReclassify([s10base], [
+    { key: 'G-8 甲', owner: '门 130 持有人', waiting: 'none', why: '把可做行改归他席持有人——合法改判不得被守卫误伤' },
+  ])
+  ok('S13 合法改判(owned-elsewhere 方向)原样放行(守卫不误伤)', !s13.error && s13.changes.length === 1)
+
   // 孤儿键归并(2026-10-26):改号器留下的旧号键由新号键认领 —— 搬/退场/守恒闸/禁令/歧义各一臂。
   const newRow = '- [ ] G-70 备份链重建 —— 归属:备份链持有人'
   const newRowKey = compositeKeyOf(newRow)
@@ -1522,9 +1542,20 @@ function selfTest() {
 }
 
 /**
- * 纯函数:声明式改判的**唯一判据**(main 的 `--reclassify` 档只做 I/O 与打印)。
+ * 纯函数:声明式改判的**唯一判据**(main 的 `--reclassify` 档与 `plan-fields-reclassify.mjs` 桶维出口
+ * 都走这一份;§0.6 不写第二把尺子)。
  * 逐条校验 key 在面 / why ≥10 字 / waiting 合法;与现状同形 ⇒ 跳过(不制造"改过"的假账);
  * 任一不合格 ⇒ 整批 `{error}`(不做部分应用)。
+ *
+ * 禁桶守卫(票 O68 补洞,2026-10-29 立):`--reclassify` 这一条**旧腿**此前只判值域,不判
+ * "这一改把记录落进被禁的桶"——现读复现(同份声明两条腿对照):
+ *   `node scripts/plan-fields-extract.mjs --reclassify decl-banned2.json` ⇒ `changed=1`(旧腿会接受)
+ *   `node scripts/plan-fields-reclassify.mjs --decl decl-banned2.json`   ⇒ `state=refused` exit 2
+ * 桶维出口自带 `rotReasonsOf` 闸,而旧腿没有 ⇒ 它就是绕过守门 130 F11/F12 与
+ * `strip-banned-buckets` 的后门(写进去的 waiting-env/human 侧车投影会被下一轮兜底清扫摘掉,
+ * 期间派单面读到禁桶形态)。守卫必须住在**两条腿共用的这一份判据**里,而不是补在调用侧
+ * (调用侧各补一遍 = 第二把尺子,必漂)。方向纪律与桶维出口同:**只拦本次新引入**
+ * (before 已在禁桶的正是"改出来"的那族唯一出路,放行)。
  */
 export function applyReclassify(records, items, nowIso = new Date().toISOString()) {
   const byKey = new Map((records ?? []).map((r) => [r.key, r]))
@@ -1547,6 +1578,15 @@ export function applyReclassify(records, items, nowIso = new Date().toISOString(
     // 同一条纪律:逐条声明、带 why、陈旧不记通过。
     if (it.owner !== undefined) next.owner = String(it.owner).trim()
     if (sigOf(next) === sigOf(rec)) continue
+    // 禁桶守卫(见函数头注):改判后**新落**已禁形态(待拍板 F11 / 等条件 F12 / blocking 拍板残留)
+    // ⇒ 整批不落;before 已在禁桶的放行(从禁桶改出来是本族唯一出路)。判据单源 rotReasonsOf。
+    const rotAfter = rotReasonsOf(next)
+    if (rotAfter.length > 0 && rotReasonsOf(rec).length === 0)
+      return {
+        error:
+          `第 ${k + 1} 项改判目标是已禁形态(待拍板 F11 / 等条件 F12 的机主禁令射程)⇒ 整批不落:` +
+          `${it.key}:改判后落 ${rotAfter.join(' ∧ ')}(从禁桶改出来仍放行)`,
+      }
     next.updatedAt = nowIso
     next.updatedBy = 'plan-fields-reclassify'
     changes.push({ key: it.key, from: sigOf(rec), to: sigOf(next), why: it.why, rec: next })
