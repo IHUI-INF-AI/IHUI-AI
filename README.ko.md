@@ -2219,6 +2219,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-29**
+- 🔧 기타:更正提交——重删退役归档器四件(上一枚 ba51496b4bf 落地后被收编器从工作树写回) (d47ff00d63)
+
+**2026-10-29**
 - 🔧 기타:删除退役归档器四件 + 修正 AGENTS.md 归档读数(「完成即删」收口第二枚) (ba51496b4b)
 
 **2026-10-29**
@@ -2293,9 +2296,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-10-28**
 - 🔧 기타:守护: 反馈闭环巡检挂进 tick(此前只挂 main,常驻守护永不到达) (c79806a4ad)
-
-**2026-10-29**
-- 🐞 수정:摘掉 HEAD 面的悬空 import —— guardian 此前在净检出根本 import 不起来 (27215f15ce)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
