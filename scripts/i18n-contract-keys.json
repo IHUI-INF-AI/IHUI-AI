@@ -220,8 +220,8 @@
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 72,
-            "contains": "if (input.undoneSteps === 0) return 'undoUnavailable';"
+            "line": 109,
+            "contains": "if (input.attemptedSteps === 0) return 'undoUnavailable';"
           }
         ]
       },

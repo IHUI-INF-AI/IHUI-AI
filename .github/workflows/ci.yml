@@ -441,6 +441,40 @@ jobs:
           asyncio.run(main())
           "
 
+      - name: Create keepalive tables (raw conn + self-verify)
+        working-directory: apps/ai-service
+        # 账号保活两表同为 ai-service 运行时懒建表:幂等 CREATE TABLE IF NOT EXISTS 内聚在
+        # app/services/keepalive/store.py 的 ensure_tables_conn(),由 lifespan fail-open 调用
+        # ⇒ **不在 drizzle 迁移里**。CI 建表步骤此前没建它们,schema_check 在 main tip 上
+        # 恒报 keepalive_account_state / keepalive_events exists=False(2026-10-28 实测)。
+        # 形态照抄上一档 checkin(踩过的坑相同):裸连接建表(共享池跨 loop 回收在 CI 多连
+        # asyncio.run 下出现过步骤退出 0 但表未落库的静默失配)+ 当步自验,缺表即红。
+        # 注意:本块 python/SQL 内禁用美元符(bash 双引号会吞 $param)。
+        # 自验钉的是「DDL 声明的每一张表都可见」这一不变量,**禁用张数断言** —— 写死张数
+        # 会把"合法多一张"的干净 HEAD 判红(checkin 档 run 38009440233 教训);
+        # 期望集合从 store.py 自己的 DDL 源码里派生 ⇒ 增删 DDL 自动跟随;
+        # 派生为空按「判据失明」判红,绝不记通过。
+        run: |
+          python -c "
+          import asyncio, inspect, re, asyncpg
+          import app.services.keepalive.store as ks
+          from app.core.config import settings
+          expected = sorted(set(re.findall(r'CREATE TABLE IF NOT EXISTS\s+([a-z_]+)', inspect.getsource(ks))))
+          assert expected, 'keepalive DDL 派生为空 ⇒ 判据失明,不得记通过'
+          async def main():
+              conn = await asyncpg.connect(dsn=settings.database_url)
+              try:
+                  await ks.ensure_tables_conn(conn)
+                  rows = await conn.fetch('SELECT table_name FROM information_schema.tables')
+                  have = set(r[0] for r in rows)
+                  missing = [t for t in expected if t not in have]
+                  print('[ci] keepalive DDL 声明', len(expected), '张,落库可见', len(expected) - len(missing), '张')
+                  assert not missing, 'keepalive tables missing: %s (DDL 声明 %s 张)' % (missing, len(expected))
+              finally:
+                  await conn.close()
+          asyncio.run(main())
+          "
+
       - name: Run ai-service schema_check against test DB
         working-directory: apps/ai-service
         run: |
