@@ -178,6 +178,9 @@ function probeRequestHeaders(ctx: AdapterAccountContext): Record<string, string>
 export const doubaoAdapter: RelayUpstreamAdapter = {
   // 主会话集成点:需把 'doubao' 加入 relay-account-format.ts 的 RELAY_PROVIDERS(本文件不改共享文件)
   providerCode: 'doubao' as RelayProviderCode,
+  // 刷新能力:恒 null 空壳 ⇒ 声明为不可续期(见 relay-upstream-adapters.isRefreshableProviderCode)。
+  // 否则保活窗口/临期档会把"刷新失败"记到它头上,连续 3 次误判自动摘除好号。
+  refreshTokenSupported: false,
 
   /**
    * chat 请求构造(推断层):OpenAI 同构 body 透传,Cookie 头鉴权,accept 按 stream 二分。

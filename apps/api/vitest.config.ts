@@ -17,6 +17,7 @@ export default defineConfig({
       'src/jobs/__tests__/**/*.test.ts',
       'src/plugins/__tests__/**/*.test.ts',
       'src/utils/__tests__/**/*.test.ts',
+      'src/db/__tests__/**/*.test.ts',
     ],
     // 排除真实 DB 集成测试(用 vitest.real.config.ts 单独跑)
     // 2026-10-03(G-1018201)'**/.ihui-agent/**':.ihui-agent/tmp/ 里存着他人留下的 HEAD

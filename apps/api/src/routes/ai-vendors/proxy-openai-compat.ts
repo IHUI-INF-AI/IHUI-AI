@@ -196,6 +196,17 @@ function vendorTag(vendor: string): string[] {
   return ['AI', 'OpenAI兼容', VENDOR_NAME_MAP[vendor] ?? vendor]
 }
 
+// 2026-10-28: 老 hunyuan-* 模型已于 2026-06-22 停服,HUNYUAN_API_KEY 换成 TokenHub 密钥。
+// 目录/定价仍沿用旧模型名,统一映射到 TokenHub 上实测可用的 hy3(hy4-preview 仍「已停止」)。
+const HUNYUAN_MODEL_ALIAS: Record<string, string> = {
+  'hunyuan-lite': 'hy3',
+  'hunyuan-standard': 'hy3',
+  'hunyuan-pro': 'hy3',
+  'hunyuan-turbo': 'hy3',
+  'hunyuan-turbos-latest': 'hy3',
+  'hunyuan-hy3': 'hy3',
+}
+
 export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
   for (const cap of OPENAI_COMPAT_VENDORS) {
     const vendor = cap.vendor
@@ -216,9 +227,14 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
         async (request, reply) => {
           const body = chatBody.parse(request.body ?? {})
           if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
+          const outgoingModel =
+            vendor === 'hunyuan' && body.model
+              ? (HUNYUAN_MODEL_ALIAS[body.model] ?? body.model)
+              : body.model
+          const outgoing = outgoingModel === body.model ? body : { ...body, model: outgoingModel }
           const data = await callVendor(vendor, `${baseUrl}/chat/completions`, reply, {
             method: 'POST',
-            body: JSON.stringify(body),
+            body: JSON.stringify(outgoing),
           })
           if (data === null) return
           recordUsage(request.userId!, vendor)
@@ -351,7 +367,9 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
         const errData = await resp.json().catch(() => ({}))
         return reply
           .status(502)
-          .send(error(502, `OpenAI 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`))
+          .send(
+            error(502, `OpenAI 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`),
+          )
       }
       const format = body.response_format ?? 'mp3'
       const buf = Buffer.from(await resp.arrayBuffer())
@@ -394,7 +412,11 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!file) return reply.status(400).send(error(400, '缺少音频文件(字段名 file)'))
       const buffer = await file.toBuffer()
       const form = new FormData()
-      form.append('file', new Blob([new Uint8Array(buffer)], { type: file.mimetype }), file.filename)
+      form.append(
+        'file',
+        new Blob([new Uint8Array(buffer)], { type: file.mimetype }),
+        file.filename,
+      )
       form.append('model', body.model ?? 'whisper-1')
       if (body.language) form.append('language', body.language)
       if (body.prompt) form.append('prompt', body.prompt)
@@ -417,7 +439,10 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
           return reply
             .status(502)
             .send(
-              error(502, `OpenAI 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`),
+              error(
+                502,
+                `OpenAI 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`,
+              ),
             )
         }
         const ct = resp.headers.get('content-type') ?? ''

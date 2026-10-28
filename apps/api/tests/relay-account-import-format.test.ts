@@ -17,9 +17,11 @@ import {
   foreignPassthroughMetadata,
   normalizeForeignAccountShape,
   parseJwtClaims,
+  recognizeImportShape,
   toImportRequestBody,
   validateAccountExport,
   webkitEpochToUnixMs,
+  type RelayProviderCode,
 } from '../src/services/relay-account-format.js'
 
 const NOW = new Date('2026-10-23T00:00:00.000Z')
@@ -412,6 +414,96 @@ describe('validateAccountExport 吃外来备份形状', () => {
     )
     expect(report.ok).toBe(true)
     expect(report.accounts[0].uid).toBe('501')
+  })
+})
+
+/**
+ * 导入形状闸门(2026-10-27 立):Web 拖拽导入与 CLI 导入共用同一份判据。
+ *
+ * 缺口:路由 Zod 曾硬性要求顶层 `token` ⇒ 12 平台里 10 个平台的原生提取器载荷
+ * (codex 的 tokens.access_token / opencode 的 auth.key / minimax 的 accessToken …)
+ * 在路由层就被挡掉,Web 拖拽导入全线不可用;而 CLI 直调 importAccounts 不过 Zod ⇒
+ * CLI 能导、Web 不能导,两套口径割裂。
+ *
+ * 修复口径:形状判据单源在 recognizeImportShape(键位表 RELAY_IMPORT_CREDENTIAL_SLOTS),
+ * Web 路由闸门 / CLI 预检 / 服务端落库三处共用 ⇒ 口径不可能再分叉。这里锁的就是那一份。
+ */
+describe('导入形状闸门 recognizeImportShape:Web 路由 / CLI 预检 / 服务端落库同源', () => {
+  /** 12 平台代表性原生形状(与路由契约测试同一份键位认知) */
+  const NATIVE: Array<[RelayProviderCode, Record<string, unknown>]> = [
+    ['trae', { token: 'trae-native' }],
+    ['workbuddy', { token: 'wb-native' }],
+    ['codearts', { securitytoken: 'sts', accessKey: 'ak', secretKey: 'sk' }],
+    ['qoder', { token: 'dt-opaque' }],
+    ['codex', { tokens: { access_token: 'codex-at' } }],
+    ['opencode', { auth: { type: 'api', key: 'oc-key' } }],
+    ['minimax', { accessToken: 'mm-at' }],
+    ['zcode', { 'oauth:bigmodel:access_token': 'zc-at' }],
+    ['loomy', { source: 's', key: 'k', host: 'h', value: 'loomy-v' }],
+    ['doubao', { source: 's', key: 'k', host: 'h', value: 'doubao-v' }],
+    ['lingma', { token: 'lingma-native' }],
+    ['grokbot', { credential: { sandSealedFile: 1, data: 'sealed' } }],
+  ]
+
+  it('11 个平台的原生形状:认得 + 认得出明文凭据(只报键名,不回显值)', () => {
+    for (const [providerCode, row] of NATIVE) {
+      if (providerCode === 'grokbot') continue
+      const v = recognizeImportShape(providerCode, row)
+      expect(v.recognized, providerCode).toBe(true)
+      expect(v.importable, providerCode).toBe(true)
+      expect(v.reason, providerCode).toBeNull()
+      expect(v.credentialKeys.length, providerCode).toBeGreaterThan(0)
+    }
+  })
+
+  it('GrokBot:形状认得(密封串)但没有明文凭据 —— 形状与可导性是两件事', () => {
+    const v = recognizeImportShape('grokbot', { credential: { sandSealedFile: 1, data: 'sealed' } })
+    expect(v.recognized).toBe(true)
+    expect(v.importable).toBe(false)
+    expect(v.credential).toBeNull()
+    expect(v.reason).toContain('密封')
+  })
+
+  it('垃圾形状:认不出 + 点名缺哪个键(绝不静默放过)', () => {
+    expect(recognizeImportShape('trae', {}).recognized).toBe(false)
+    expect(recognizeImportShape('trae', { foo: 'bar' }).recognized).toBe(false)
+    expect(recognizeImportShape('codex', { tokens: {} }).reason).toContain('tokens.access_token')
+    expect(recognizeImportShape('codearts', { securitytoken: 'sts' }).reason).toContain('accessKey')
+    expect(recognizeImportShape('opencode', { auth: { type: 'api' } }).reason).toContain('key')
+  })
+
+  it('口径统一:CLI 预检说能导的,形状闸门必须也认得(不许分叉)', () => {
+    for (const [providerCode, row] of NATIVE) {
+      const report = validateAccountExport({ accounts: [row] }, { providerCode, now: NOW })
+      const shape = recognizeImportShape(providerCode, row)
+      if (providerCode === 'grokbot') {
+        // 唯一"形状对但导不进去"的平台:预检与落库都必须如实点名,不静默放过
+        expect(report.ok, providerCode).toBe(false)
+        expect(report.accounts[0]?.issues.map((i) => i.code)).toContain('grokbot-sealed')
+        continue
+      }
+      expect(
+        report.ok,
+        `${providerCode} 预检未通过:${JSON.stringify(report.accounts[0]?.issues ?? [])}`,
+      ).toBe(true)
+      expect(shape.importable, providerCode).toBe(true)
+    }
+  })
+
+  it('外来别名形状(access_token)两处口径一致:预检通过 + 闸门认得', () => {
+    const row = { access_token: jwt({ sub: 'u-1', exp: FUTURE }) }
+    expect(
+      validateAccountExport({ accounts: [row] }, { providerCode: 'workbuddy', now: NOW }).ok,
+    ).toBe(true)
+    expect(recognizeImportShape('workbuddy', row).importable).toBe(true)
+  })
+
+  it('形状与平台不匹配(codex 载荷拖进 trae)→ 预检与闸门都判不通过', () => {
+    const row = { tokens: { access_token: 'codex-at' } }
+    expect(validateAccountExport({ accounts: [row] }, { providerCode: 'trae', now: NOW }).ok).toBe(
+      false,
+    )
+    expect(recognizeImportShape('trae', row).recognized).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

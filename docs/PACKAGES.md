@@ -21,7 +21,7 @@
 | TS 配置 | `@ihui/tsconfig` 统一基础配置,composite 项目引用 |
 | Lint 配置 | `@ihui/eslint-config` 统一 ESLint 规则 |
 
-**包数量说明**:文件系统实际 12 个 TS 包。`@ihui/sdk` 另含 4 语言 SDK 实现(Python/Go/Java/.NET),按"包"计 1 个,按"SDK 实现"计 5 个(TS + 4 语言)。
+**包数量说明**:文件系统实际 12 个 TS 包。`@ihui-ai/sdk` 另含 4 语言 SDK 实现(Python/Go/Java/.NET),按"包"计 1 个,按"SDK 实现"计 5 个(TS + 4 语言)。
 
 ---
 
@@ -39,7 +39,7 @@
 | `@ihui/tsconfig` | `packages/tsconfig/` | TSConfig 共享配置 | `base`/`nextjs`/`node`/`react-library` | - |
 | `@ihui/api-client` | `packages/api-client/` | API 客户端:48 endpoint 文件 + client + circuit-breaker + ws-client | `client`/`api-error`/`utils`/`endpoints/*`(48 文件)/`circuit-breaker`/`ws-client`/`model-context-capacity` | 3 测试文件 |
 | `@ihui/context-compaction` | `packages/context-compaction/` | 上下文压缩(对话历史 token 优化) | `index` | - |
-| `@ihui/sdk` | `packages/sdk/` | TS SDK + 4 语言 SDK(Python/Go/Java/.NET) | TS:`agents`/`ai`/`audio`/`files`/`generation`/`images`/`knowledge`/`memory`/`messages`/`streaming`/`threed`/`tools`/`user`/`videos` | - |
+| `@ihui-ai/sdk` | `packages/sdk/` | TS SDK + 4 语言 SDK(Python/Go/Java/.NET) | TS:`agents`/`ai`/`audio`/`files`/`generation`/`images`/`knowledge`/`memory`/`messages`/`streaming`/`threed`/`tools`/`user`/`videos` | - |
 | `@ihui/shared` | `packages/shared/` | 9端共享业务逻辑:auth/sso + context + memory + notifications + plan + skills + spec + subagents + tasks + utils + validation + workflows | `auth`/`context`/`memory`/`notifications`/`plan`/`skills`/`spec`/`subagents`/`tasks`/`utils`/`validation`/`workflows`/`design` | - |
 | `@ihui/rn-app` | `packages/app/` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + theme/tokens re-export) | `index`/`theme/tokens`/`types`/`features/*` | - |
 
@@ -192,7 +192,7 @@ packages/api-client/src/endpoints/
 └── category.ts
 ```
 
-### @ihui/sdk 多语言 SDK 结构
+### @ihui-ai/sdk 多语言 SDK 结构
 
 | 语言 | 路径 | 模块数 | 说明 |
 |------|------|--------|------|
@@ -216,7 +216,7 @@ packages/api-client/src/endpoints/
         ┌──────────┬───────┼────────┬────────────┐
         │          │       │        │            │
         ▼          ▼       ▼        ▼            ▼
-  @ihui/auth  @ihui/database  @ihui/api-client  @ihui/sdk
+  @ihui/auth  @ihui/database  @ihui/api-client  @ihui-ai/sdk
         │          │       │        │            │
         │          │       │        │            │
         │          │       │        │            │
@@ -265,7 +265,7 @@ packages/api-client/src/endpoints/
 | `@ihui/tsconfig` | (无) | packages/* + apps/* |
 | `@ihui/api-client` | types | apps/web, apps/cli |
 | `@ihui/context-compaction` | (无) | apps/cli, apps/api(ai-service 为 Python 等价实现) |
-| `@ihui/sdk` | types, tsconfig | 外部用户(TS SDK) |
+| `@ihui-ai/sdk` | types, tsconfig | 外部用户(TS SDK) |
 
 ---
 
@@ -319,7 +319,7 @@ export async function login(req: LoginRequest): Promise<LoginResponse> {
 
 ```typescript
 // apps/cli/src/commands/agent.ts
-import { IhuiClient } from '@ihui/sdk'
+import { IhuiClient } from '@ihui-ai/sdk'
 import { createApiClient } from '@ihui/api-client/client'
 
 const client = new IhuiClient({
@@ -553,7 +553,7 @@ pnpm --filter @ihui/new-package build
 | `@ihui/ui-react` | `tsc` | `packages/ui-react/dist/` |
 | `@ihui/design-tokens` | `tsc` | `packages/design-tokens/dist/` |
 | `@ihui/api-client` | `tsc` | `packages/api-client/dist/` |
-| `@ihui/sdk` | `tsc -p tsconfig.json` | `packages/sdk/dist/` |
+| `@ihui-ai/sdk` | `tsc -p tsconfig.json` | `packages/sdk/dist/` |
 | `@ihui/context-compaction` | `tsc` | `packages/context-compaction/dist/` |
 
 ### check-stale-dist.mjs 守门
@@ -616,6 +616,6 @@ pnpm changeset publish
 - `@ihui/ui-react`:shadcn/ui 组件(可复用)
 - `@ihui/design-tokens`:cn + tokens(通用)
 - `@ihui/api-client`:API 客户端(可配置 baseURL)
-- `@ihui/sdk`:多语言 SDK(面向外部用户)
+- `@ihui-ai/sdk`:多语言 SDK(面向外部用户)
 - `@ihui/context-compaction`:上下文压缩(通用)
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

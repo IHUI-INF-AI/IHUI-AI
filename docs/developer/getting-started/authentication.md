@@ -197,10 +197,10 @@ curl -X POST http://localhost:8802/v1/chat/completions \
   -d '{"model":"gpt-4","messages":[{"role":"user","content":"你好"}]}'
 ```
 
-### TypeScript(@ihui/sdk)
+### TypeScript(@ihui-ai/sdk)
 
 ```typescript
-import { createClient } from '@ihui/sdk'
+import { createClient } from '@ihui-ai/sdk'
 
 const client = createClient({
   apiKey: 'ihui_xxx',
