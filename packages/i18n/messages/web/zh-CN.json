@@ -10703,6 +10703,11 @@
     "noAssessment": "暂无评估记录"
   },
   "goalCard": {
+    "resumeServerOk": "目标已恢复",
+    "resumeAlreadyActive": "目标已在进行中,无需恢复",
+    "resumeTerminal": "目标已结束,无法恢复",
+    "resumeNoGoal": "该会话没有可恢复的目标",
+    "resumeFailed": "恢复失败:{message}",
     "editAriaLabel": "编辑目标",
     "editSave": "保存",
     "editCancel": "取消",
