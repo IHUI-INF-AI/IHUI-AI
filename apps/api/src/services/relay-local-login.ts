@@ -40,7 +40,7 @@ const TRAE_SCRIPT = resolve(REPO_ROOT, 'scripts', 'trae-login-local.mjs')
 const LOCAL_SCRIPT = resolve(REPO_ROOT, 'scripts', 'local-login.mjs')
 /** 服务身份下换桌面用户执行的 helper(CodeArts/Qoder 的用户级 DPAPI 只能以该用户身份解) */
 const RUN_AS_USER_SCRIPT = resolve(REPO_ROOT, 'apps', 'api', 'scripts', 'run-as-user.ps1')
-const SPAWN_TIMEOUT_MS = 30_000
+const SPAWN_TIMEOUT_MS = 90_000
 /** 票剩余寿命低于此值就视为"临期":trae 写回后客户端必然立刻轮换,与池内旧票打架 */
 const EXPIRY_GUARD_MS = 60_000
 
@@ -133,6 +133,14 @@ export interface LocalLoginResult {
   /** Trae 专属:设备证明信封是否在场/是否写回 */
   deviceEnvelopePresent?: boolean
   deviceEnvelopeWritten?: boolean
+  /** Trae 专属:写回时该产品是否在跑、是否被优雅关闭、是否已自动重新拉起 */
+  clientProduct?: string
+  clientWasRunning?: boolean
+  clientClosed?: boolean
+  /** 客户端托盘常驻/关不掉时是否走了强制结束(用户已在确认框授权替换登录态) */
+  clientForced?: boolean
+  clientRestarted?: boolean
+  clientLaunchError?: string
 }
 
 function runScript(
@@ -346,6 +354,12 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
       typeof creds.secrets.deviceKeyPem === 'string' ? creds.secrets.deviceKeyPem : undefined,
     devicePubPem:
       typeof creds.secrets.devicePubPem === 'string' ? creds.secrets.devicePubPem : undefined,
+    /**
+     * 必传:客户端在跑时它的内存态会在退出时覆写 storage.json,写回端必须先优雅关闭
+     * 客户端、写盘、自检、再重新拉起(见 scripts/lib/trae-client-process.mjs 头注)。
+     * 不传 ⇒ 写回端遇到运行中的客户端直接 409,绝不盲写。
+     */
+    restartClient: true,
   }
 
   let outcome
@@ -366,6 +380,20 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
   if (!targetFile) {
     throw new LocalLoginError('写回脚本未回报落点(未判定)', 'bad-output', 502)
   }
+  const clientProduct = typeof parsed.clientProduct === 'string' ? parsed.clientProduct : ''
+  const clientWasRunning = parsed.clientWasRunning === true
+  const clientClosed = parsed.clientClosed === true
+  const clientForced = parsed.clientForced === true
+  const clientRestarted = parsed.clientRestarted === true
+  const clientLaunchError =
+    typeof parsed.clientLaunchError === 'string' ? parsed.clientLaunchError : ''
+  if (clientClosed) {
+    notes.push(
+      clientRestarted
+        ? `写入前已${clientForced ? '强制' : '优雅'}关闭并重新打开 ${clientProduct || 'Trae'} 客户端(运行中的客户端会用内存态覆写登录态,故必须先关后写)`
+        : `写入前已关闭 ${clientProduct || 'Trae'} 客户端,但未能自动重新拉起,请手动打开客户端`,
+    )
+  }
   return {
     ok: true,
     providerCode: 'trae',
@@ -380,6 +408,12 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
       typeof parsed.restartHint === 'string' ? parsed.restartHint : '重启 Trae CN 客户端后生效',
     deviceEnvelopePresent: parsed.deviceEnvelopePresent === true,
     deviceEnvelopeWritten: parsed.deviceEnvelopeWritten === true,
+    clientProduct,
+    clientWasRunning,
+    clientClosed,
+    clientForced,
+    clientRestarted,
+    clientLaunchError,
   }
 }
 
