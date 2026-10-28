@@ -3,39 +3,35 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * /.well-known/apple-app-site-association —— iOS / 微信 Universal Link 校验端点。
+ * Apple App Site Association(AASA)— iOS / 微信 Universal Link 校验文件(api 侧宿主)。
  *
- * **这个文件曾经不存在,但 routes/index.ts:519 已经在 import 它。**
- * 成因(2026-10-28 查实):cd348dc320c「chore(auto): 收编停留≥3分钟的未提交改动」
- * 把 index.ts 里的 `appleAppSiteAssociationRoutes` 引用收进了版本库,而实现文件
- * 当时只是工作树里的未跟踪文件,没有被一起收编,随后又被清理掉 ⇒
- * 版本库进入"引用存在、模块不存在"状态。这与 6fb5624be51 修过的
- * relay-switch-admin 是同一个故障模式,只是那次是挂载、这次是 import。
+ * 为什么 api 也要提供一份(G-100,2026-10-28):
+ *  - 公网 file.aizhs.top 由 Cloudflare 隧道转发到本机 api(127.0.0.1:8802),
+ *    而 AASA 此前只由 web(8801)提供 ⇒ 该域回源 404,iOS 无法校验 Universal Link。
+ *  - 内容与 web 侧同一来源:@ihui/shared/constants/apple-app-site-association
+ *    (形状 / 序列化 / 响应头 / env 键名全在该文件,本文件只做「读 env → 组装 → 发送」)。
  *
- * 影响面:api 用 ESM 静态 import 加载 routes/index.ts,模块缺失会让 **整个 API
- * 启动崩溃**(不只是这个端点 404),而 prod 目录当时停在旧 HEAD 才没暴露。
- *
- * 实现与 web 侧 apps/web/app/.well-known/apple-app-site-association/route.ts 同源,
- * 共同读 @ihui/shared/constants 的 buildAppleAppSiteAssociation —— 两端吐同一份 AASA。
- *
- * Apple 硬性要求:路径不能带扩展名,Content-Type 必须 application/json。
+ * 注册方式:与 oauth-authorization-server 同档,**不带 prefix** 根路径挂载,
+ * 因为 Apple 只探测 `/.well-known/apple-app-site-association`。
+ * 匿名可读:csrf 白名单已含 `/.well-known/`(apps/api/src/plugins/csrf.ts),
+ * 响应脱敏 PROTOCOL_NO_MASK_PREFIXES 同样命中,故无需额外鉴权声明。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import {
-  APPLE_APP_SITE_ASSOCIATION_CACHE_CONTROL,
-  buildAppleAppSiteAssociation,
-} from '@ihui/shared/constants'
+  APPLE_AASA_CACHE_CONTROL,
+  APPLE_AASA_CONTENT_TYPE,
+  buildAppleAppSiteAssociationBody,
+  readAppleAppIdOptions,
+} from '@ihui/shared/constants/apple-app-site-association'
 
 export const appleAppSiteAssociationRoutes: FastifyPluginAsync = async (server) => {
-  server.get('/.well-known/apple-app-site-association', async (_request, reply) => {
-    // 每次请求现算而不在模块顶层求值:env 可能由 dotenv 在插件注册之后才注入,
-    // 顶层求值会永久钉住首次读到的空 Team ID(fail-visible 占位符)。
-    const aasa = buildAppleAppSiteAssociation(process.env)
-
-    return reply
-      .header('content-type', 'application/json; charset=utf-8')
-      .header('cache-control', APPLE_APP_SITE_ASSOCIATION_CACHE_CONTROL)
-      .send(aasa)
-  })
+  server.get('/.well-known/apple-app-site-association', async (_request, reply) =>
+    reply
+      // 显式 content-type:Apple 要求 application/json;字符串 payload 若交给 Fastify
+      // 默认推断会退成 text/plain,故必须自己钉住(与 web 侧取值逐字一致)。
+      .header('content-type', APPLE_AASA_CONTENT_TYPE)
+      .header('cache-control', APPLE_AASA_CACHE_CONTROL)
+      .send(buildAppleAppSiteAssociationBody(readAppleAppIdOptions(process.env))),
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

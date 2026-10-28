@@ -128,7 +128,6 @@
     "modelSearchPlaceholder": "모델 검색",
     "matAll": "전체",
     "matText": "텍스트",
-    "myCreation": "내 창작",
     "inputPlaceholder": "문제를 입력하거나 길게 눌러 말하세요",
     "addCamera": "카메라",
     "addAlbum": "앨범",
@@ -255,9 +254,7 @@
     "pubVideo": "영상 공개",
     "pubGroup": "컬렉션 공개",
     "closePreview": "미리보기 닫기",
-    "recentUsed": "최근 사용",
-    "closeDrawer": "서랍 닫기",
-    "shareBoardTitle": "IHUI AI 커뮤니티 - {name}"
+    "recentUsed": "최근 사용"
   },
   "plaza": {
     "index": {
@@ -294,8 +291,7 @@
       "n4t": "4. 개인정보 보호 ",
       "n4b": "개발자는 사용자 개인정보를 엄격히 보호하며 유출·판매·부당 사용을 해서는 안 됩니다.",
       "n5t": "5. 기술 표준 ",
-      "n5b": "개발자는 산업 표준에 부합하는 기술 서비스를 제공하여 기술 방안의 실현 가능성과 신뢰성을 확보해야 합니다.",
-      "searchNeedDesc": "수요 또는 설명 검색"
+      "n5b": "개발자는 산업 표준에 부합하는 기술 서비스를 제공하여 기술 방안의 실현 가능성과 신뢰성을 확보해야 합니다."
     }
   },
   "login": {
@@ -549,8 +545,7 @@
     "myOrders": "내 주문",
     "editProfile": "프로필 편집",
     "notLoggedIn": "미로그인",
-    "clickRetry": "탭하여 재시도",
-    "benefitTraderAll": "플랫폼 전체 혜택 포함"
+    "clickRetry": "탭하여 재시도"
   },
   "payResult": {
     "title": "결제 결과",
@@ -1077,14 +1072,6 @@
     "sectionSettings": "설정",
     "subscriptions": "내 구독",
     "settings": "설정",
-    "catImage": "이미지",
-    "catVideo": "영상",
-    "catCopy": "카피",
-    "catAgent": "에이전트",
-    "catRpa": "RPA",
-    "catCode": "코딩",
-    "catMusic": "음악",
-    "catOther": "기타",
     "catCopyShort": "카피"
   },
   "drawer": {
@@ -1204,18 +1191,7 @@
     "chat": {
       "title": "대화 시작",
       "message": "「{name}」와(과) 대화를 시작합니다"
-    },
-    "catDouyin": "더우인 운영",
-    "catPrivate": "프라이빗 운영",
-    "catContent": "콘텐츠 제작",
-    "catData": "데이터 분석",
-    "catLearning": "학습",
-    "mainAll": "전체",
-    "mainWriting": "글쓰기",
-    "mainCoding": "코딩",
-    "mainOffice": "Office",
-    "mainLearning": "학습",
-    "catAll2": "전체"
+    }
   },
   "aiAssistantN8n": {
     "title": "AI 어시스턴트",
@@ -1371,13 +1347,7 @@
     "kindAutoContext": "자동 검색 컨텍스트"
   },
   "developer": {
-    "becomeDeveloper": "개발자 되기",
-    "title": "개발자 포털",
-    "subtitle": "에이전트를 게시하고 수익 창출",
-    "selectService": "서비스 플랜을 선택하세요",
-    "processing": "처리 중...",
-    "openNow": "지금 활성화",
-    "agreementHint": "활성화하면 《개발자 서비스 약관》에 동의한 것으로 간주됩니다"
+    "becomeDeveloper": "개발자 되기"
   },
   "liveHost": {
     "error": {
@@ -1412,8 +1382,7 @@
     "streamKey": "스트림 키",
     "streamTitle": "라이브 제목",
     "streamTitlePlaceholder": "라이브 제목 입력",
-    "title": "라이브 호스트",
-    "productLoading": "불러오는 중..."
+    "title": "라이브 호스트"
   },
   "modelEdit": {
     "error": {
@@ -1469,8 +1438,7 @@
     "operationFailed": "작업에 실패했습니다. 잠시 후 다시 시도해 주세요",
     "title": "n8n 모델",
     "vendorName": "n8n 워크플로",
-    "listView": "목록 보기",
-    "groupBrowse": "그룹 보기"
+    "listView": "목록 보기"
   },
   "modelPlaza": {
     "officialBadge": "IH",
@@ -1493,8 +1461,7 @@
     "selectProviderLabel": "공급사 선택",
     "title": "모델 플라자",
     "groupBrowse": "그룹 보기",
-    "workflowTab": "워크플로",
-    "listView": "목록 보기"
+    "workflowTab": "워크플로"
   },
   "tokenValue": {
     "recharge": {
@@ -1645,14 +1612,7 @@
     "ctaDesc": "가입 즉시 1,000 크레딧 제공, 모든 모델 무료 체험, 신용 카드 불필요.",
     "ctaPrimary": "무료 가입",
     "ctaSecondary": "문서 보기",
-    "complianceTitle": "법률 및 컴플라이언스",
-    "title": "정보",
-    "appName": "앱 이름",
-    "version": "버전",
-    "description": "앱 소개",
-    "officialSite": "공식 웹사이트",
-    "contactEmail": "문의 이메일",
-    "license": "오픈소스 라이선스"
+    "complianceTitle": "법률 및 컴플라이언스"
   },
   "activityDetail": {
     "title": "활동 상세",
@@ -1929,10 +1889,7 @@
     "sales": "{count}개 판매됨",
     "loadFailed": "유통 불러오기 실패",
     "withdrawFailed": "출금 실패",
-    "withdrawSuccess": "출금 완료",
-    "unsettled": "정산 대기",
-    "refunded": "환불됨",
-    "unknown": "알 수 없음"
+    "withdrawSuccess": "출금 완료"
   },
   "earnCommission": {
     "title": "커미션 플랜",
@@ -3322,27 +3279,10 @@
   },
   "studyIndex": {
     "title": "AI 비디오",
-    "catAll": "전체",
     "catDouyin": "더우인 운영",
     "catPrivate": "프라이빗 운영",
     "catContent": "콘텐츠 제작",
     "catData": "데이터 분석",
-    "tipMarquee": "智汇AI 클라우드 교육/숏폼 — AI 관련 비디오 업로드·공유 환영",
-    "myCollection": "내 컬렉션",
-    "searchPh": "비디오 검색",
-    "loadMoreHint": "더 불러오는 중...",
-    "noMoreText": "더 이상 없습니다",
-    "emptyVideos": "학습 비디오가 없습니다",
-    "emptyModels": "모델 없음",
-    "paidCollection": "추천 강의 컬렉션",
-    "latestCourses": "최신 강의",
-    "viewMoreModels": "모델 더 보기",
-    "viewMoreCourses": "강의 더 보기",
-    "tagPaid": "유료",
-    "tagFree": "무료",
-    "publishVidBtn": "비디오 게시",
-    "authorFallback": "智汇 커뮤니티·공식",
-    "receiveFreeTitle": "무료 자료 받기",
     "receiveFreeBody": "링크가 클립보드에 복사되었습니다. 브라우저에서 붙여넣어 여세요"
   },
   "studyProgress": {
@@ -3517,23 +3457,7 @@
     "price": "가격",
     "rating": "평점",
     "startChat": "대화 시작",
-    "uses": "사용 횟수",
-    "catAll": "All",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Data",
-    "catWriting": "Writing",
-    "catCoding": "Coding",
-    "catOffice": "Office",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "uses": "사용 횟수"
   },
   "agentMarket": {
     "empty": "에이전트가 없습니다",
@@ -3792,9 +3716,7 @@
     "yourAnswer": "내 답안"
   },
   "favorites": {
-    "deleteTitle": "삭제 확인",
     "empty": "즐겨찾기가 없습니다",
-    "loadFailed": "불러오기 실패",
     "title": "내 즐겨찾기"
   },
   "feedback": {
@@ -4524,10 +4446,7 @@
       "empty": "게시글이 없습니다. 첫 글을 작성해 보세요",
       "loadingMore": "로딩 중…",
       "noMore": "더 이상 없습니다",
-      "anonymous": "익명 사용자",
-      "justNow": "방금 전",
-      "minutesAgo": "{n}분 전",
-      "hoursAgo": "{n}시간 전"
+      "anonymous": "익명 사용자"
     }
   },
   "circle": {
@@ -5318,15 +5237,7 @@
     "addTitle": "계정 추가",
     "adding": "추가 중…",
     "deleteConfirm": "{name}을(를) 삭제할까요?",
-    "summary": "계정 {total}개 · 활성 {enabled}",
-    "add": "계정 추가",
-    "provider": "플랫폼",
-    "name": "이름",
-    "cancel": "취소",
-    "loading": "불러오는 중…",
-    "confirmDelete": "삭제 확인",
-    "addSuccess": "계정이 추가되었습니다",
-    "loginRequired": "로그인 후 계정 풀을 관리하세요"
+    "summary": "계정 {total}개 · 활성 {enabled}"
   },
   "checkinAssistant": {
     "title": "체크인 도우미",
@@ -5404,10 +5315,6 @@
     "favoritesCount": "즐겨찾기",
     "joined": "가입일"
   },
-  "courseSwiper": {
-    "tabHotIntro": "인기 입문 강의",
-    "tabHotPick": "인기 추천 강의"
-  },
   "llmSettings": {
     "title": "모델 공급자",
     "empty": "구성된 공급자 없음",
@@ -5437,12 +5344,6 @@
   },
   "pay": {
     "alipayNotOpen": "알리페이는 일시 미지원, 위챗 페이를 사용하세요"
-  },
-  "popularCourses": {
-    "tabHotIntro": "인기 입문",
-    "tabHotPick": "인기 추천",
-    "lessonsCount": "· {n}강의",
-    "enrolled": "{n}명 학습 중"
   },
   "modelConfig": {
     "framesUnit": "{n}프레임",
@@ -5597,15 +5498,7 @@
     "updated": "업데이트"
   },
   "voice": {
-    "cam": "카메라",
-    "album": "앨범",
-    "file": "파일",
-    "closeImgMenu": "이미지 메뉴 닫기",
-    "addImage": "이미지 추가",
     "holdToTalk": "길게 눌러 말하기",
-    "clearResult": "결과 지우기",
-    "releaseEnd": " 놓으면 종료",
-    "transcribing": " 변환 중…",
     "realStart": "실시간 음성 시작",
     "realConnecting": "연결 중...",
     "realLive": "통화 중",
@@ -5645,7 +5538,6 @@
     "shareMoments": "모멘트",
     "needAlbum": "앨범 권한 필요",
     "uploadFail": "이미지 업로드 실패",
-    "okTitle": "성공",
     "updated": "명함 업데이트됨",
     "submitFail": "제출 실패",
     "customFail": "명함 제작 실패, 재시도"
@@ -5814,7 +5706,6 @@
     "modelA11y": "모델: {name}",
     "modelConfig": "모델 설정",
     "voiceInput": "음성 입력",
-    "feature2": "기능",
     "source": "출처",
     "enlarge": "확대",
     "agentAssist": "Agent 보조"
@@ -5863,15 +5754,12 @@
     "customA11y": "AI 맞춤"
   },
   "confirm": {
-    "defaultCancel": "취소",
-    "defaultOk": "확인",
     "payFmt": "지금 결제 ¥{v}"
   },
   "sr": {
     "closeA11y": "탭하여 닫기",
     "firstBonus": "첫 공유 보상 {n}",
     "inviteNote": "초대 시 양쪽 적립",
-    "claimA11y": "{n} 수령",
     "rewardUnit": " 포인트",
     "footnote": "포인트는 연산력·멤버십 특전 교환 가능",
     "claimBtn": "{n} 수령"
@@ -5941,15 +5829,6 @@
     "teacher": "담당",
     "time": "시간",
     "classroom": "교실",
-    "weekday": {
-      "mon": "월",
-      "tue": "화",
-      "wed": "수",
-      "thu": "목",
-      "fri": "금",
-      "sat": "토",
-      "sun": "일"
-    },
     "title2": "학교 시간표"
   },
   "eduChildAttendance": {
@@ -6087,7 +5966,6 @@
   "tagsPage": {
     "title": "태그",
     "subtitle": "모든 태그 보기",
-    "loading": "로딩 중...",
     "empty": "태그가 없습니다",
     "popular": "인기 태그",
     "usageCount": "{count}회 사용",
@@ -6137,9 +6015,7 @@
     "makeAdmin": "관리자로 설정",
     "makeMember": "멤버로 설정",
     "removeMember": "멤버 제거",
-    "inviteMember": "새 멤버 초대",
     "inviteMemberDesc": "전화번호 또는 이메일로 새 멤버를 팀에 초대",
-    "invitee": "초대 대상",
     "inviteePlaceholder": "전화번호 또는 이메일을 입력하세요",
     "inviteeRequired": "초대 대상을 입력하세요",
     "sendInvite": "초대 보내기",
@@ -6151,7 +6027,6 @@
     "roleOwner": "소유자",
     "roleAdmin": "관리자",
     "roleMember": "멤버",
-    "editTeam": "팀 정보 편집",
     "editTeamDesc": "팀 이름과 설명을 수정",
     "save": "저장",
     "dangerZone": "위험 구역",
@@ -6738,7 +6613,6 @@
   },
   "appUpdate": {
     "title": "새 버전이 있습니다",
-    "body": "페이지를 새로고침하여 최신 버전을 받으세요",
     "action": "업데이트",
     "close": "닫기",
     "ready": "업데이트 준비 완료",
