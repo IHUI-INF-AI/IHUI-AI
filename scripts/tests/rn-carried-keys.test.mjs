@@ -25,7 +25,7 @@ import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { extractTKeys, pickByPath, subsetMissing, flattenKeys, decodePackB64, extractStringConst, carriedKeysFromRepo } from '../lib/rn-carried-keys.mjs'
+import { extractTKeys, pickByPath, subsetMissing, flattenKeys, decodePackB64, extractStringConst, carriedKeysFromRepo, normalizeRepoRel } from '../lib/rn-carried-keys.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 test('K1 取键:带参/带插值都算,模板串与变量键不算', () => {
@@ -113,5 +113,29 @@ test('K7 取不到特性屏根不得炸(增强层缺席不阻断,交由门判缺
   })
   assert.equal(r.featureFiles, 0)
   assert.deepEqual([...r.keys], [])
+})
+
+test('K8 闭包路径必须归一:互相相对导入的真实环不得让同一文件以无限多种拼法重入', () => {
+  // 立因(2026-10-28 实测):端内 `stores/login-intent.ts` 与 `utils/*` 互相相对导入,
+  // 拼接式路径每绕环一圈就多一层 `../utils/../stores/`,seen 永不命中 ⇒ gen:i18n 跑 8 分钟
+  // CPU / 1.6 GB RSS 仍不收敛,build:weapp 卡死在首个前置。本锁钉"环必须收敛 + 名字必须规范"。
+  const FILES = {
+    'apps/miniapp-taro/src/pages/x/index.tsx': "import { XScreen } from '@rn-shells/XScreen'\nexport default XScreen",
+    'apps/mobile-rn/src/screens/XScreen.tsx': "import { A } from '@ihui/rn-app'\nexport const XScreen = A",
+    'packages/app/src/index.ts': "export { A } from './features/x/a'",
+    'packages/app/src/features/x/a.ts': "import '../x/b'\nexport const A = t('x.a')",
+    'packages/app/src/features/x/b.ts': "import '../x/a'\nexport const B = t('x.b')",
+  }
+  const read = (rel) => FILES[rel] ?? null
+  const r = carriedKeysFromRepo({
+    readFile: read,
+    readBatch: (rels) => new Map(rels.map((x) => [x, read(x)])),
+    listFiles: (prefix) => Object.keys(FILES).filter((p) => p.startsWith(prefix)),
+  })
+  for (const rel of r.files) assert.equal(rel, normalizeRepoRel(rel), `闭包文件名未归一:${rel}`)
+  assert.equal(r.files.length, 4, `闭包只该有 4 枚真实文件(承载页+壳+环里两枚),实测 ${r.files.length}`)
+  assert.equal(r.keys.has('x.a') && r.keys.has('x.b'), true, '环两头的键都要取到')
+  assert.equal(normalizeRepoRel('apps/../x'), 'x', '向上再向下折回仓内是合法路径')
+  assert.equal(normalizeRepoRel('../../etc/passwd'), null, '越出仓库根的路径不得进图')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
