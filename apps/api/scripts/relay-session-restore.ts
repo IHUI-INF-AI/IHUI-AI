@@ -33,7 +33,9 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { homedir } from 'node:os'
 import { join, relative, sep } from 'node:path'
+import { acquireSessionLock, SESSION_STORE_LOCK_NAME } from './relay-session-lock.js'
 import {
   relToSourceAbs,
   type BackupFileEntry,
@@ -702,10 +704,22 @@ function parseArgs(argv: string[]): {
   }
 }
 
-export function main(argv: string[] = process.argv.slice(2), paths?: RestorePaths): number {
+export function main(
+  argv: string[] = process.argv.slice(2),
+  paths?: RestorePaths,
+  lockHome = homedir(),
+): number {
   const args = parseArgs(argv)
   const snapshotDir = args.snapshot ?? paths?.snapshotDir
+  // 恢复写全库、搬移读写单会话:共用同一把会话库锁(只读的 --list-ops / dry-run 不取)
+  let lock: { release: () => void } | null = null
   try {
+    if (args.apply) {
+      lock = acquireSessionLock(
+        join(lockHome, '.wb-switch', 'relay', SESSION_STORE_LOCK_NAME),
+        'session-restore',
+      )
+    }
     // --list-ops:列历史操作(只需定位 restore-ops,不读 manifest 不动目标)
     if (args.listOps) {
       const opsRoot = paths?.opsRoot ?? (snapshotDir ? join(snapshotDir, 'restore-ops') : undefined)
@@ -751,6 +765,8 @@ export function main(argv: string[] = process.argv.slice(2), paths?: RestorePath
   } catch (err) {
     console.error(`会话恢复失败: ${(err as Error).message}`)
     return 1
+  } finally {
+    lock?.release()
   }
 }
 
