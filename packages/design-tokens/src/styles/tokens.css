@@ -348,6 +348,59 @@
    *
    * 配套 Tailwind utility: `[&>span]:translate-y-[var(--text-vcenter-offset)]` */
   --text-vcenter-offset: 0.3px;
+
+  /* css-tokens:managed:begin */
+  /* 间距档(源:spacing.ts 的 SPACING_STEPS)→ p-md / gap-md / m-md / size-md */
+  --spacing-none: 0px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+  --spacing-3xl: 32px;
+  --spacing-4xl: 40px;
+  --spacing-5xl: 48px;
+  --spacing-6xl: 64px;
+  /* 字号三连档(源:typography.ts 的 TYPE_STEPS + FONT_WEIGHTS)→ text-body / font-medium */
+  --text-caption: 11px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 400;
+  --text-label: 12px;
+  --text-label--line-height: 16px;
+  --text-label--font-weight: 400;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body--font-weight: 400;
+  --text-strong: 15px;
+  --text-strong--line-height: 22px;
+  --text-strong--font-weight: 500;
+  --text-title: 16px;
+  --text-title--line-height: 24px;
+  --text-title--font-weight: 600;
+  --text-subtitle: 18px;
+  --text-subtitle--line-height: 26px;
+  --text-subtitle--font-weight: 600;
+  --text-heading: 20px;
+  --text-heading--line-height: 28px;
+  --text-heading--font-weight: 700;
+  --text-display: 24px;
+  --text-display--line-height: 32px;
+  --text-display--font-weight: 700;
+  --text-display-lg: 30px;
+  --text-display-lg--line-height: 38px;
+  --text-display-lg--font-weight: 700;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  /* 阴影档(源:elevation.ts 的 ELEVATION_CSS)→ shadow-elevation-md */
+  --shadow-elevation-none: none;
+  --shadow-elevation-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-elevation-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-elevation-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-elevation-xl: 0 8px 24px rgba(0, 0, 0, 0.16);
+  /* css-tokens:managed:end */
 }
 
 /* ============ Tailwind v3 端 alpha 通道三元组(2026-09-25 立) ============
