@@ -10,6 +10,13 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+// 显式引入返回类型:completeAccountPhone 返回的是「成功/失败」联合类型,
+// 若不标注,vi.fn 会把 mock 推断成成功分支的字面量类型,后续
+// mockImplementationOnce 返回失败形态(message:string / id:null)即报 TS2322。
+import type {
+  CompletePhoneCode,
+  CompletePhoneResult,
+} from '../../services/relay-account-pool-service.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -17,7 +24,7 @@ vi.hoisted(() => {
 })
 
 const hoisted = vi.hoisted(() => ({
-  completeAccountPhone: vi.fn(async () => ({
+  completeAccountPhone: vi.fn(async (): Promise<CompletePhoneResult> => ({
     code: 'ok',
     message: null,
     id: 'row-1',
@@ -176,7 +183,9 @@ describe('POST /admin/relay/accounts/:id/complete-phone', () => {
   })
 
   it('service 结果码映射 HTTP:mask_mismatch=400 / already_full=409 / not_found=404', async () => {
-    const cases: Array<[string, number]> = [
+    // code 收窄成 CompletePhoneCode:放宽成 string 会让 mock 返回体不再满足
+    // CompletePhoneResult(code 是字面量联合),mockImplementationOnce 直接报 TS2322。
+    const cases: Array<[CompletePhoneCode, number]> = [
       ['mask_mismatch', 400],
       ['already_full', 409],
       ['not_found', 404],
