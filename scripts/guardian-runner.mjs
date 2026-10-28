@@ -5832,14 +5832,13 @@ const checks = [
   {
     id: '258',
     label:
-      '🛡️ DDoS 守卫接线对账(摘线即红;四道闸的注册锚点在不在,口径见 scripts/check-ddos-guard-wiring.mjs)',
+      '🛡️ DDoS 守卫接线对账(摘线即红;四道闸的注册锚点在不在 + 终结型钩子形态会不会冻住下游链,口径见 scripts/check-ddos-guard-wiring.mjs)',
     script: 'check-ddos-guard-wiring.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DDOS_GUARD_WIRING',
     stagedTriggers: [
-      'apps/api/src/server.ts',
-      'apps/api/src/plugins/',
+      'apps/api/src/',
       'apps/ai-service/app/main.py',
       'apps/ai-service/app/sio/handlers.py',
       'apps/ai-service/app/core/',
@@ -5847,14 +5846,50 @@ const checks = [
     ],
     onFailHint: [
       '',
-      '  💡 抗 DDoS 的某道闸被摘了(注册行没了 / 实现文件被删)。typecheck 与单测对这一型完全同形',
-      '     (都能跑、都不报错),所以只能由本门拦:node scripts/check-ddos-guard-wiring.mjs 逐条点名缺哪根线。',
-      '     修法是把注册行原样接回 —— 不是改锚点清单来消红(那等于把防线判没了)。',
+      '  💡 两种静默失效,本门都按"装了没生效"判,不看它跑没跑:',
+      '     W2 某道闸的注册行没了(合并手抖/重构顺手清理)⇒ typecheck 与单测与摘线前逐字同形;',
+      '     W4 终结型钩子(onResponse/onRequestAbort/onTimeout)是同步形态 ⇒ Fastify 的串行 runner',
+      '        永不推进,该钩子之后的整条链静默停摆(请求照常 200、一行日志不留)—— 2026-10-28 线上',
+      '        即此型,指标分族/审计落库/日志落库被一起按住约 6 小时,而 20 例单测全绿。',
+      '     修法是把注册行原样接回 / 把钩子改成 async(或显式调用 next),不是改锚点清单消红。',
       '     应急放行 HUSKY_SKIP_DDOS_GUARD_WIRING=1(须在提交信息写明撤的是哪道闸、为什么)。',
       '',
     ].join('\n'),
   },
 
+  {
+    id: '259',
+    label:
+      '🪞 RN 壳 ↔ 小程序壳 spec 接线对账(blocking;同名配对组件两端消费面必须相等 —— 一端接了 spec、另一端手写数字,就是「改 spec 一端不跟随」的根因)',
+    script: 'check-ui-spec-mirror.mjs',
+    args: [],
+    mode: 'blocking',
+    // 2026-10-28 立:升 blocking 的前置 = 存量归零 —— 被审面现读「射程对 16 · ✅已接线 9 · 🔴断链 0」(§12e)。
+    // 本门只判**接线**(常量名有没有被消费);取值漂移(同档位两端映成不同类名)归 scripts/gen-ui-mirror.mjs
+    // —— 那枚是写盘派生器、恒读工作树,结构上判不了入库面,故不入提交链(接成门就是恒红门)。
+    // 本端承载物理上不允许照抄 RN 消费形的例外(典型:weapp-tailwind 只扫 ./src/**,类名表搬进 spec 产不出规则)
+    // 走 scripts/data/ui-mirror-waivers.json 具名台账,**两把尺读同一本**(§0.6 零复算;判序 lib/ui-mirror-waivers.mjs)。
+    skipEnv: 'HUSKY_SKIP_UI_SPEC_MIRROR',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/components/',
+      'packages/ui-native/src/',
+      'packages/shared/src/ui/',
+      'scripts/check-ui-spec-mirror.mjs',
+      'scripts/lib/ui-mirror-waivers.mjs',
+      'scripts/data/ui-mirror-waivers.json',
+    ],
+    onFailHint: [
+      '',
+      '  💡 断链 = 改 spec 时 RN 会跟、小程序不会跟 ⇒ spec 单源在这条链上退化成两份真相。',
+      '     修法:按 RN 壳把「档 → 本端承载类」映射镜像进小程序壳 ——',
+      '     node scripts/gen-ui-mirror.mjs --apply 落绑定块(只动 import 与映射声明,结构体仍按本端承载手写),',
+      '     再 node scripts/gen-ui-mirror.mjs 复量到「🔴漂移 0」。',
+      '     本端确实不可能照抄消费形 ⇒ 在 scripts/data/ui-mirror-waivers.json 逐条写 names + reason(≥10 字)',
+      '     + reviewBy(会到期);改判据、加白名单或删标记都不算出路(§0.7 验过才免且会到期)。',
+      '     应急放行 HUSKY_SKIP_UI_SPEC_MIRROR=1(须在提交信息写明断的是哪一对、为什么)。',
+      '',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
