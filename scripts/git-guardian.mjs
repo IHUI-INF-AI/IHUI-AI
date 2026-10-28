@@ -4512,6 +4512,109 @@ export function auditSmsChannelHealth(opts = {}) {
   }
 }
 
+/** 资产路径可达性 + 证书到期的**常驻**派发点(尺子 = `scripts/check-asset-path-health.mjs`,2026-10-28 立) */
+const ASSET_PATH_TICK = join(WORKTREE, '.ihui-agent', 'state', 'asset-path-tick.ts')
+const ASSET_PATH_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'asset-path-first.json')
+const ASSET_PATH_LAST = join(WORKTREE, '.ihui-agent', 'state', 'asset-path-last.json')
+const ASSET_PATH_INTERVAL_MS = Number(process.env.IHUI_ASSET_PATH_INTERVAL_MS || 6 * 60 * 60 * 1000)
+const ASSET_PATH_TIMEOUT_MS = Number(process.env.IHUI_ASSET_PATH_TIMEOUT_MS || 120_000)
+
+export function auditAssetPathHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = ASSET_PATH_INTERVAL_MS,
+    tickFile = ASSET_PATH_TICK,
+    firstFile = ASSET_PATH_FIRST,
+    lastFile = ASSET_PATH_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-asset-path-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 资产路径健康:尺子脚本不在位(scripts/check-asset-path-health.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: ASSET_PATH_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || typeof parsed.verdict !== 'string') {
+      logger(`⚠️ 资产路径健康未产出结论(未判定,不记为已探测):rc=${call.status} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`)
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性,不影响告警本身 */
+    }
+    const missing = Array.isArray(parsed?.env?.missing) ? parsed.env.missing : []
+    const certErr = Number(parsed?.certs?.error || 0)
+    const certWarn = Number(parsed?.certs?.warning || 0)
+    if (parsed.verdict === 'breach') {
+      // 身份按"断链数 + 证书错误数 + 持续档"折叠:具体路径会随整改位移,写进身份就是风暴
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      const lines = missing.slice(0, 12).map((m) => `· ${m.file}:${m.line} ${m.key} -> ${m.path}`)
+      if (missing.length > 12) lines.push(`· …另 ${missing.length - 12} 条(计数已含)`)
+      notify(
+        `生产资产断链:${missing.length} 条路径不可达 / 证书错误 ${certErr}`,
+        `断链清单(.env 指向的文件/目录在当前主机不在位):\n${lines.join('\n') || '(无)'}\n证书:ok=${parsed?.certs?.ok ?? 'n/a'} warn=${certWarn} err=${certErr}\n尺子:scripts/check-asset-path-health.mjs(只读,不打印值,证书到期委托 cert-expiry-check.mjs)\n取证:node scripts/check-asset-path-health.mjs --json(或读 .ihui-agent/state/asset-path-last.json)\n出路:按清单把键值改到真实位置(盘符迁移/同步盘换盘最常见),改完复跑上面那条命令;运行时改了 .env 需重启对应服务才生效。`,
+        { severity: 'warning', dedupKey: `verdict=breach;missing=${alertCountTier(missing.length)};certErr=${alertCountTier(certErr)};held=${held.tier}` },
+      )
+      logger(`❌ 资产路径断链 ${missing.length} 条 / 证书错误 ${certErr}(已按身份去重发信)`)
+      return { ran: true, judged: true, breaches: 1, missing: missing.length, certErr }
+    }
+    if (parsed.verdict === 'warn') {
+      logger(`⚠️ 资产路径健康报数(不判红):${String(parsed.why || `证书临近到期 ${certWarn} 张`).slice(0, 180)}`)
+      clearUndeterminedStreak(firstFile)
+      return { ran: true, judged: true, breaches: 0, warns: 1 }
+    }
+    if (parsed.verdict === 'unjudged') {
+      // 未判定既不续命也不清零(§0.3);取不到输入不等于坏
+      logger(`ℹ️ 资产路径健康:未判定 —— ${String(parsed.why || '(无原因)').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    clearUndeterminedStreak(firstFile)
+    logger(`✅ 资产路径健康:${parsed?.env?.scanned?.length ?? 0} 份 env 全部可达,证书 ok=${parsed?.certs?.ok ?? 'n/a'}`)
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger('⚠️ 资产路径健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+
 /** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
@@ -5524,6 +5627,9 @@ function main() {
     // 短信通道健康(2026-10-27 立,尺子 = scripts/check-sms-channel-health.mjs):判机器状态 ⇒
     // 不进提交链(§12e)。立因 = 当天阿里云欠费停机一整天、用户拿不到登录验证码,而全仓零门喊过。
     if (!CHECK_ONLY) auditSmsChannelHealth()
+    // 资产路径可达性 + 证书到期(2026-10-28 立,尺子 = scripts/check-asset-path-health.mjs):立因 =
+    // 生产 .env 四条支付宝证书路径写在已不存在的 F: 盘上,SDK 静默读不到证书,全仓零门喊过。6h 节流。
+    if (!CHECK_ONLY) auditAssetPathHealth()
     // 「完成即删」兜底清扫已提前到 healWorktreeTracked 之后(2026-10-22 调度加固,见该处注释):
     // 挂在这一长串探测之后实测整轮到不了,清扫心跳会长期停摆。
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
