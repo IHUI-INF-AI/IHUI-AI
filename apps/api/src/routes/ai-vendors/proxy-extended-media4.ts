@@ -28,6 +28,7 @@ import {
   taskIdParam,
   type FastifyPluginAsync,
 } from './_shared.js'
+import { MEDIA_BASE64_BODY_LIMIT, MEDIA_FILE_UPLOAD_BODY_LIMIT } from '../../config/body-limits.js'
 
 // ============ AssemblyAI 官方转写参数(audio_url/speech_model/language_code 等) ============
 const assemblyaiBody = z.object({
@@ -92,6 +93,7 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
   server.post(
     '/assemblyai/transcribe',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'AssemblyAI 语音转写',
@@ -168,6 +170,7 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
   server.post(
     '/elevenlabs/transcribe',
     {
+      bodyLimit: MEDIA_FILE_UPLOAD_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'ElevenLabs 语音转文本(Scribe)',

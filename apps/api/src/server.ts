@@ -32,6 +32,7 @@ import { setFastify } from './utils/logger.js'
 import { wildcardContentTypeParser, applyUploadsStaticHardening } from './utils/static-hardening.js'
 import { isAppError } from './errors/index.js'
 import { config, isDevelopmentRuntime } from './config/index.js'
+import { GLOBAL_JSON_BODY_LIMIT } from './config/body-limits.js'
 import authPlugin from './plugins/auth.js'
 // O4 数据作用域闸:统一调用主体(principal)必须在 rls-context 之前注册 ——
 // 它挂的 onRequest 钩子用 AsyncLocalStorage.run(store, () => next()) 包住后续整条
@@ -215,10 +216,10 @@ export async function buildServer(): Promise<FastifyInstance> {
     // 约束对象:一切经 Fastify 内存解析的请求体,含 multipart 的"整包"大小
     // (multipart 单文件另由 @fastify/multipart 的 100MiB fileSize 限制,见下方注册处)。
     // 目的:把普通 JSON/urlencoded 接口的内存耗尽面从 10MiB 压到 2MiB。
-    // 上传/大体积路由已在各自 server.post 选项里显式放开到业务上限(files/workspace/
-    // ai-audio/member/v1-knowledge-tools/knowledge-rag/conversation-import 等),故收紧
-    // 全局不会误伤任何上传接口。
-    bodyLimit: 2 * 1024 * 1024,
+    // 值来自 config/body-limits.ts(单一真相源);凡请求体天然携带二进制媒体的路由
+    // (multipart 上传 / base64 图片音频 / 协议透传)必须在那里取常量显式放开,
+    // 否则会被本值静默 413 —— 判据与静态守卫见 tests/body-limit-regression.test.ts。
+    bodyLimit: GLOBAL_JSON_BODY_LIMIT,
     // 2026-09-18 P0:插件注册超时(默认 10s)必须放宽。adminMissingRoutes 内部动态 import
     // 十余个子路由,注册耗时随 import 图增长;超过 avvio 默认 10s 时抛
     // AVV_ERR_PLUGIN_EXEC_TIMEOUT —— **进程不退出**(仅 unhandled rejection)但也永不

@@ -240,7 +240,6 @@ Windows 一键启动(9 个启动脚本)、环境变量逐项说明、REST/WebSoc
 | 凭据轮换                       | [`docs/CREDENTIAL_ROTATION_RUNBOOK.md`](./docs/CREDENTIAL_ROTATION_RUNBOOK.md) |
 | CI 工作流清单与触发条件        | [`.github/workflows/`](./.github/workflows) + 本页生成块的工作流计数           |
 | 部署/构建全局锁(禁止并发构建)  | [`AGENTS.md` §12 部署/构建全局锁](./AGENTS.md)                                 |
-| 号池网关单机档(一条命令 + API key 门) | [`deploy/relay-standalone/`](./deploy/relay-standalone/)                |
 
 详细部署叙述(端口管理规则、生产部署 10 项硬性门禁、IaC 决策)在
 [`readme-06-security-observability-gates`](./docs/engineering/readme-06-security-observability-gates.md)。
@@ -17067,3 +17066,4 @@ A: Yes. ~14839+ tests / 3213 test files / 67 e2e spec / 4561 API 路由 / 608 �
   <strong>8 端全覆盖</strong> · <strong>99 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**611 张表 · 4538 API 路由 · 25 个 WebSocket 端点 ·
 | 凭据                | `Authorization: Bearer ihui_xxx`(+ `X-Api-Secret` 双因子)                                                                                                                                         | 用户自助签发:`POST /api/developer/api-keys`(已开 2FA 的账号须先调 `POST /api/auth/2fa/step-up` 验一次,窗 5 分钟);可按 scope/IP/模型/时段收紧                                                                                                                                                                                                                               |
+| 号池网关单机档(一条命令 + API key 门) | [`deploy/relay-standalone/`](./deploy/relay-standalone/)                |
