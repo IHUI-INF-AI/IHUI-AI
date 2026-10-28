@@ -69,7 +69,6 @@ import { closeDockedBrowser } from '@/lib/tauri-bridge'
 import {
   RELAY_WEB_LOGIN,
   RELAY_WEB_LOGIN_PROVIDERS,
-  normalizeTraeProbe,
   relayWebLoginAccountToImport,
   type RelayWebLoginProvider,
 } from '@/lib/relay-web-login'
@@ -502,7 +501,7 @@ export default function AdminRelayAccountPoolPage() {
   )
   const [importOpen, setImportOpen] = React.useState(false)
   // 一键重登(2026-10-27 第 3 格):进行中的账号 id + 阶段;null = 空闲。
-  // 能力登记在 @/lib/relay-web-login(单一源);trae 有实证链,其余明示未判定。
+  // 能力登记在 @/lib/relay-web-login(单一源);trae/workbuddy 有实证链,其余明示未判定。
   const [relogin, setRelogin] = React.useState<{
     id: string
     phase: 'waiting' | 'importing'
@@ -1130,16 +1129,18 @@ export default function AdminRelayAccountPoolPage() {
   // 轮询探测(2.5s):ok ⇒ 关登录 Tab + 走导入通道覆盖凭证(preserveMissingRefresh 保住
   // 库内旧 refreshToken —— 重登只换得到 access,不保留就把能自续的号抹成待重登死号);
   // 见过窗口之后又没了 = 用户关窗 ⇒ 复位;waiting/error 继续等,6.5min 超时兜底。
+  // 平台与载荷形状都由注册表条目给出(cap.providerCode / cap.probe 已在注册表内归一),
+  // 页内不硬编码任何 provider。
   React.useEffect(() => {
     if (!relogin || relogin.phase !== 'waiting') return
     const row = list.find((k) => k.id === relogin.id)
     const cap = row ? relayWebLoginCap(row.providerCode) : null
-    if (!cap || cap.kind !== 'ipc-trae') return
+    if (!cap || cap.kind === 'none') return
     let stopped = false
     const poll = async () => {
       if (stopped) return
       try {
-        const probe = normalizeTraeProbe(await cap.probe())
+        const probe = await cap.probe()
         if (stopped) return
         if (probe.status === 'waiting' && !probe.windowGone) reloginDockSeenRef.current = true
         if (probe.status === 'ok') {
@@ -1147,7 +1148,7 @@ export default function AdminRelayAccountPoolPage() {
           endReloginDock()
           setRelogin({ id: relogin.id, phase: 'importing' })
           importMut.mutate({
-            providerCode: 'trae',
+            providerCode: cap.providerCode,
             accounts: [relayWebLoginAccountToImport(probe.account)],
             preserveMissingRefresh: true,
           })
@@ -1773,7 +1774,7 @@ export default function AdminRelayAccountPoolPage() {
                               <Tooltip
                                 content={
                                   relCap
-                                    ? relCap.kind === 'ipc-trae'
+                                    ? relCap.kind !== 'none'
                                       ? '一键重登:停靠浏览器打开登录页,换新票自动覆盖凭证(保留原 refreshToken)'
                                       : relCap.reason
                                     : '该平台未登记网页重登链(出路见告警话术:导入账号 JSON)'

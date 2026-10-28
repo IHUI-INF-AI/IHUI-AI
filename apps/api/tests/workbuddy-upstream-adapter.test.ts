@@ -166,7 +166,7 @@ describe('workbuddyAdapter.buildChatRequest', () => {
     expect(a2.headers['X-Conversation-Message-ID']).not.toBe(
       b1.headers['X-Conversation-Message-ID'],
     )
-    expect(deriveStableId('machine', 'x')).toHaveLength(36)
+    expect(deriveStableId('machine', { uid: 'x', storedMachineId: 'm' })).toHaveLength(36)
   })
 
   it('body:强制 stream:true,maxTokens→max_tokens,temperature 透传', () => {

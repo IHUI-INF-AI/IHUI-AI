@@ -25,6 +25,7 @@
  * 安全红线:凭证/token 一律不进日志与抛错 message。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import { config } from '../../config/index.js'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
@@ -67,7 +68,9 @@ import {
   resolveIdentity,
   resolveRealm,
   resourceErrorMessage,
+  workBuddyIdDeploymentSalt,
   type UpstreamFailureKind,
+  type WorkBuddyIdSeed,
   type WorkBuddyIdentity,
   type WorkBuddyLoginState,
   type WorkBuddyRealm,
@@ -77,6 +80,32 @@ import {
 /** listModels 进程内缓存:按 realm 分 key,TTL 1h(模型目录变化慢,健康检查不重复打上游) */
 const MODELS_CACHE_TTL_MS = 60 * 60 * 1000
 const modelsCache = new Map<WorkBuddyRealm, { ids: string[]; at: number }>()
+
+// =============================================================================
+// 稳定身份派生种子(O72 整改@2026-10-28,判据全部在 workbuddy-protocol.deriveStableId)
+// =============================================================================
+
+/** 部署级机密盐(进程内一次算定;账号有存储设备材料时该档根本不参与派生) */
+let cachedIdDeploymentSalt: string | null = null
+function idDeploymentSalt(): string {
+  if (cachedIdDeploymentSalt === null) {
+    // 取 config 的必填密钥做域分隔;盐只在本地参与哈希,绝不出现在任何请求头/日志
+    const secret =
+      String(config.CREDENTIALS_ENCRYPTION_KEY ?? '') || String(config.JWT_SECRET ?? '')
+    cachedIdDeploymentSalt = secret ? workBuddyIdDeploymentSalt(secret) : ''
+  }
+  return cachedIdDeploymentSalt
+}
+
+/** 由账号行组装 stable-id 种子:存储材料(machineId>deviceId)优先,部署盐兜底 */
+function idSeedFor(row: AdapterAccountContext['row']): WorkBuddyIdSeed {
+  return {
+    uid: row.uid,
+    storedMachineId: row.machineId,
+    storedDeviceId: row.deviceId,
+    deploymentSalt: idDeploymentSalt(),
+  }
+}
 
 // =============================================================================
 // fetch 解析(测试缝 > 账号级代理 > 全局直连;与 trae-adapter 同款)
@@ -231,7 +260,7 @@ async function attemptRefresh(
   account: {
     realm: WorkBuddyRealm
     identity: WorkBuddyIdentity
-    rowUid: string
+    idSeed: WorkBuddyIdSeed
   },
 ): Promise<TokenRefreshResult> {
   const headers = buildRefreshHeaders({
@@ -240,8 +269,8 @@ async function attemptRefresh(
     uid: account.identity.uid,
     enterpriseId: account.identity.enterpriseId,
     domain: account.identity.domain,
-    machineId: deriveStableId('machine', account.rowUid),
-    sessionId: deriveStableId('session', account.rowUid),
+    machineId: deriveStableId('machine', account.idSeed),
+    sessionId: deriveStableId('session', account.idSeed),
     conversationRequestId: deriveConversationRequestId(),
     messageRequestId: randomHex32(),
   })
@@ -283,14 +312,15 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
     const { realm, identity, login } = resolveAccount(ctx)
     const conversationRequestId = deriveConversationRequestId(req.conversationId)
     const messageRequestId = randomHex32()
+    const idSeed = idSeedFor(ctx.row)
     const headers = buildChatHeaders({
       realm,
       accessToken: login.accessToken,
       uid: identity.uid,
       enterpriseId: identity.enterpriseId,
       domain: identity.domain,
-      machineId: deriveStableId('machine', ctx.row.uid),
-      sessionId: deriveStableId('session', ctx.row.uid),
+      machineId: deriveStableId('machine', idSeed),
+      sessionId: deriveStableId('session', idSeed),
       conversationRequestId,
       messageRequestId,
     })
@@ -388,7 +418,7 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
           return await attemptRefresh(fetchImpl, `${chatBaseUrl(realm)}${path}`, refreshToken, {
             realm,
             identity,
-            rowUid: ctx.row.uid,
+            idSeed: idSeedFor(ctx.row),
           })
         } catch (e) {
           lastErr = e instanceof Error ? e : new Error(String(e))

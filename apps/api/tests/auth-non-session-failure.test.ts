@@ -103,7 +103,12 @@ describe('鉴权面:"没验成 / 没查成"不得冒充会话死亡', () => {
   })
 
   it('④ 验签通过后查状态失败 ⇒ 502 + ACCOUNT_STATE_CHECK_FAILED,原文不进 message', async () => {
-    verifyAccessToken.mockResolvedValue({ userId: 'u-1', phone: '', familyId: 'f', roleId: 0 })
+    verifyAccessToken.mockResolvedValue({
+      userId: '00000000-0000-4000-8000-0000000000d1',
+      phone: '',
+      familyId: 'f',
+      roleId: 0,
+    })
     getUserStatus.mockRejectedValue(new Error('relation "users" does not exist'))
     const req = fakeRequest()
     const err = (await authenticate(req).catch((e: unknown) => e)) as Thrown
@@ -114,19 +119,28 @@ describe('鉴权面:"没验成 / 没查成"不得冒充会话死亡', () => {
   })
 
   it('④b 同一条路径的正常成功仍返回 payload(收紧没有把成功路径改掉)', async () => {
-    verifyAccessToken.mockResolvedValue({ userId: 'u-1', phone: '', familyId: 'f', roleId: 0 })
+    verifyAccessToken.mockResolvedValue({
+      userId: '00000000-0000-4000-8000-0000000000d1',
+      phone: '',
+      familyId: 'f',
+      roleId: 0,
+    })
     getUserStatus.mockResolvedValue(1)
-    await expect(authenticate(fakeRequest())).resolves.toMatchObject({ userId: 'u-1' })
+    await expect(authenticate(fakeRequest())).resolves.toMatchObject({
+      userId: '00000000-0000-4000-8000-0000000000d1',
+    })
   })
 
   it('⑤ requireActiveUser:注销仍 401 / 查失败 502 / 正常放行', async () => {
     getUserStatus.mockResolvedValue(3)
-    const e1 = (await requireActiveUser(fakeRequest('u-1')).catch((e: unknown) => e)) as Thrown
+    const e1 = (await requireActiveUser(fakeRequest('00000000-0000-4000-8000-0000000000d1')).catch(
+      (e: unknown) => e,
+    )) as Thrown
     expect(e1.statusCode).toBe(401)
     expect(e1.message).toBe('账号已注销')
 
     getUserStatus.mockRejectedValue(new Error('too many connections'))
-    const req = fakeRequest('u-1')
+    const req = fakeRequest('00000000-0000-4000-8000-0000000000d1')
     const e2 = (await requireActiveUser(req).catch((e: unknown) => e)) as Thrown
     expect(e2.statusCode).toBe(502)
     expect(e2.errorCode).toBe('ACCOUNT_STATE_CHECK_FAILED')
@@ -134,7 +148,9 @@ describe('鉴权面:"没验成 / 没查成"不得冒充会话死亡', () => {
     expect(logged(req)).toHaveBeenCalled()
 
     getUserStatus.mockResolvedValue(1)
-    await expect(requireActiveUser(fakeRequest('u-1'))).resolves.toBeUndefined()
+    await expect(
+      requireActiveUser(fakeRequest('00000000-0000-4000-8000-0000000000d1')),
+    ).resolves.toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -309,6 +309,23 @@ class Settings(BaseSettings):
     model_sync_interval_s: int = 21600
     # 并发拉取数(同时拉取的 provider 数量),默认 5
     model_sync_concurrency: int = 5
+
+    # WorkBuddy 任务赚积分自动化族(O68,2026-10-29 立)——四族 growth/travel/activity/blackcat。
+    # 证据级别 = 竞品二进制字符串取证,**未真机验证**:枚举值域与部分组合(claim 路径、
+    # 活动上报路径、travel 出发触发态)未取证 ⇒ 默认关、默认 dry-run,配置缺项时引擎
+    # 返回 unjudged(§0.3 取不到 ⇒ 未判定,不冒绿不猜零)。判据实现唯一源
+    # = app/services/workbuddy_tasks.py。
+    workbuddy_tasks_enabled: bool = False  # 调度节拍总开关(默认 off)
+    workbuddy_tasks_live_run: bool = False  # 调度轮是否真写(领任务/出发/领取);false=只 dry-run
+    workbuddy_tasks_sweep_minutes: int = 180  # 任务巡检间隔(分钟)
+    workbuddy_tasks_accept_statuses: str = "0"  # accept_status ∈ 此集(逗号分隔)⇒ 待领取任务(枚举映射系推断)
+    workbuddy_tasks_claim_path: str = ""  # 领奖励路径(二进制只见 body 形未见路径;留空=拒绝执行)
+    workbuddy_tasks_activity_path: str = ""  # 活动遥测上报路径(未取证;留空=run_activity 未判定)
+    workbuddy_tasks_activity_hosts: str = ""  # JSON {"default":"https://...","<event_code>":"https://..."} 路径↔主机绑定推断,人工可覆盖
+    workbuddy_tasks_travel_depart_states: str = ""  # travel.state ∈ 此集才出发(态值域未取证;留空=不出发)
+    workbuddy_tasks_blackcat_window: str = "23:00-08:00"  # 黑猫窗口(Asia/Shanghai,跨零点)
+    workbuddy_tasks_blackcat_model: str = ""  # 黑猫窗口内需跑闲聊的具体模型(未配置=未判定)
+    workbuddy_tasks_blackcat_count: int = 3  # 每夜补全次数 N
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:

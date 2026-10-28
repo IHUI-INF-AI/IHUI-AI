@@ -85,7 +85,7 @@ const AUTH_HEADERS = { authorization: 'Bearer mock-token' }
 
 const PAPER_ID = '11111111-1111-4111-8111-111111111111'
 const RECORD_ID = '33333333-3333-4333-9333-333333333333'
-const USER_ID = 'mock-user-id'
+const USER_ID = '00000000-0000-4000-8000-000000000fee'
 
 function mockAuth(roleId = 0): void {
   vi.mocked(verifyAccessToken).mockResolvedValue({

@@ -273,7 +273,9 @@ vi.mock('../src/db/index.js', async () => {
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'mock-user-id', roleId: 1 }),
+  verifyAccessToken: vi
+    .fn()
+    .mockResolvedValue({ userId: '00000000-0000-4000-8000-000000000fee', roleId: 1 }),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 vi.mock('../src/utils/ai-service-fetch.js', () => ({
@@ -310,7 +312,7 @@ function makeRow(over: Partial<Row> = {}): Row {
   const id = over.id ?? nextId()
   return {
     id,
-    userId: 'mock-user-id',
+    userId: '00000000-0000-4000-8000-000000000fee',
     name: '测试自动化',
     prompt: '跑一下',
     scheduleType: 'once',
