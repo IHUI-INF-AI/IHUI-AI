@@ -16,6 +16,7 @@
  *   A1 对每条 `aligned` 且 `rn` 指针落在 apps/mobile-rn 的行,分别抽两端代码里的 `/api/...` 字面量
  *      (RN 侧另认 fetchApi(`/x`) 这类裸路径,运行期由 normalizeUrl 补 /api)。
  *   A2 取各自**首段**(/api/<seg>)集合;交集为空 ⇒ 记"可疑域错配",逐条点名。
+ *      行内已有 `domainAudit`(手核结论:verdict/reason/at)⇒ 不重复点名,单列"已核"待复核时效。
  *      任一侧抽不到端点 ⇒ 记"判不出"(不并进可疑,也不当通过)。
  *   A3 整面读不到(台账或指针文件)⇒ exit 2 未判定(§0.3),不回落另一个面(§0.4)。
  *
@@ -140,25 +141,35 @@ function run(argv) {
   }
   const suspects = []
   const undecidable = []
+  const audited = []
   let scanned = 0
   for (const row of rows) {
     const r = classifyRow(row, webSrc(row.web), texts.get(row.rn) ?? null)
     if (r.kind === 'skip') continue
     scanned += 1
     if (r.kind === 'suspect')
-      suspects.push({ webPath: row.web, rnPath: row.rn, webSegs: r.web, rnSegs: r.rn })
+      // 手核结论写在行内 domainAudit(verdict+reason+at)⇒ 不再重复点名,单列"已核"由人复核时效
+      if (row.domainAudit?.verdict)
+        audited.push({
+          webPath: row.web,
+          verdict: row.domainAudit.verdict,
+          at: row.domainAudit.at ?? '',
+        })
+      else suspects.push({ webPath: row.web, rnPath: row.rn, webSegs: r.web, rnSegs: r.rn })
     else if (r.kind === 'undecidable')
       undecidable.push({ webPath: row.web, rnPath: row.rn, why: r.why })
   }
   if (argv.includes('--json')) {
-    console.log(JSON.stringify({ face, scanned, suspects, undecidable }))
+    console.log(JSON.stringify({ face, scanned, suspects, undecidable, audited }))
   } else {
     console.log(
-      `[aligned-domain-drift] 面=${face} 可判 aligned 行 ${scanned} · 可疑域错配 ${suspects.length} · 判不出 ${undecidable.length}`,
+      `[aligned-domain-drift] 面=${face} 可判 aligned 行 ${scanned} · 可疑域错配 ${suspects.length} · 已核 ${audited.length} · 判不出 ${undecidable.length}`,
     )
     for (const s of suspects)
       console.log(`  ⚠ ${s.webPath} → ${s.rnPath} | web[${s.webSegs}] vs rn[${s.rnSegs}]`)
     for (const u of undecidable.slice(0, 10)) console.log(`  · 判不出 ${u.webPath}(${u.why})`)
+    for (const au of audited)
+      console.log(`  ✓ 已核 ${au.webPath}(${au.verdict}${au.at ? ` @${au.at}` : ''})`)
     if (undecidable.length > 10) console.log(`  … 另有 ${undecidable.length - 10} 条判不出`)
     console.log(
       '  ⓘ 这是队列不是裁决:改判要逐条附证据(参照 news 那次的 /api/news/* vs /api/articles/*)。',
