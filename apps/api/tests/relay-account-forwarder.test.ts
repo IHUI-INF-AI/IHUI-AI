@@ -65,6 +65,8 @@ vi.mock('../src/utils/crypto.js', () => ({
 // 命令即刻失败即刻降级,绝不与并行套件共享真实 Redis 的 relay:pool:* 键)
 vi.mock('../src/config/index.js', () => ({
   config: { REDIS_URL: 'redis://127.0.0.1:1/0' },
+  // 同上:config 出口的守卫开关必须一并打桩,否则整文件收集期失败(静默不跑)。
+  isProductionGuard: false,
 }))
 
 // 台账/代理池/模型目录三服务打桩:转发主链路整合点(埋点/取代理/别名)的断言面,
@@ -81,9 +83,6 @@ vi.mock('../src/services/relay-proxy-pool.js', () => ({
   pickProxyForAccount: (account: { id: string; proxyUrl: string | null }) => mockPickProxy(account),
   reportProxyFailure: (u: string) => mockReportProxyFailure(u),
   reportProxySuccess: (u: string) => mockReportProxySuccess(u),
-  // 本套件只测转发编排,账号级代理密文/明文在此按直通处理
-  resolveAccountProxyUrl: (u: string | null) => u,
-  encryptAccountProxyUrl: (u: string | null) => u,
 }))
 vi.mock('../src/services/relay-model-catalog.js', () => ({
   resolveModelAlias: (p: string, m: string) => mockResolveAlias(p, m),
