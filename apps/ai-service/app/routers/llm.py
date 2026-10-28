@@ -6741,8 +6741,6 @@ async def post_session_goal(
         # 控制帧 `resume_goal` 的**共用实现**(2026-10-28 立)。本端点的 resume 分支与
         # 帧面入口(`POST /llm/sessions/{id}/goal/resume`)共用同一份服务 ⇒ 状态机、
         # 归属判定、广播三件事只有一份实现,改一处即可(否则两处必然漂移)。
-        # 端点侧沿用旧口径:被拒就同形回包(不把差额明细透给端点调用方,那条路要的是
-        # "退回纯本地态");差额明细(reason)在帧面入口才可见。
         from ..services.goal_resume import resume_goal
 
         resumed = resume_goal(
@@ -6751,15 +6749,17 @@ async def post_session_goal(
             elapsed_ms=body.get("elapsed_ms"),
             token_usage=body.get("token_usage"),
         )
-        if not resumed.get("accepted"):
+        # 不存在 / 非属主 / 未鉴权:这些情形 resume_goal 回 ok:False 且无 reason,
+        # 必须同形拒绝、不得泄漏归属差异(存在性预言机禁令,AGENTS §5)。
+        if not resumed.get("ok"):
             return _rejected()
-        return {
-            "ok": True,
-            "accepted": True,
-            "status": "active",
-            "sessionId": session_id,
-            "threadId": str(resumed.get("threadId") or thread_id),
-        }
+        # 其余情形透传实际 accepted / reason:already_active / terminal / no_goal /
+        # goal_state_malformed / conflict 不是「失败」,而是这一条会话的确定答案;
+        # 端点调用方据此退回纯本地态,把它们压成 ok:false 会谎报「恢复失败」并丢掉 reason。
+        out = dict(resumed)
+        if "threadId" not in out:
+            out["threadId"] = thread_id
+        return out
     if action == "clear":
         new_state = None
         status = "cleared"
@@ -6876,12 +6876,29 @@ async def post_session_goal_resume(
 
     caller_uid = _resolve_owner_uuid(request)
     payload = body if isinstance(body, dict) else {}
-    return resume_goal(
-        session_id,
-        caller_uid,
-        elapsed_ms=payload.get("elapsed_ms"),
-        token_usage=payload.get("token_usage"),
-    )
+    try:
+        # resume_goal 是同步函数、内部有 DB 读写;包进线程执行器避免阻塞事件循环
+        # (同仓 run_in_executor 写法),并兜住任何 DB / 属性异常,绝不让其抛栈成 500。
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: resume_goal(
+                session_id,
+                caller_uid,
+                elapsed_ms=payload.get("elapsed_ms"),
+                token_usage=payload.get("token_usage"),
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001 - 入口层兜底:异常转确定回包,不抛 500
+        logger.exception("resume_goal 帧面入口异常(session=%s):%s", session_id, exc)
+        return {
+            "ok": False,
+            "accepted": False,
+            "resumed": False,
+            "error": str(exc),
+            "sessionId": session_id,
+        }
+    return result
 
 
 @router.post("/llm/complete/stream/{session_id}/steer", response_model=None)

@@ -1089,8 +1089,13 @@ class SessionStore:
             return cur.rowcount > 0
 
     def set_thread_goal_state(
-        self, thread_id: str, state: dict[str, Any] | None
-    ) -> dict[str, Any] | None:
+        self,
+        thread_id: str,
+        state: dict[str, Any] | None,
+        *,
+        expected_status: str | None = None,
+        expected_objective: str | None = None,
+    ) -> dict[str, Any] | None | str:
         """D152(2026-09-29 立):写 / 清 服务端那份 goal 主副本。
 
         这是 `goalState` 的**唯一合法写入口**,刻意不经 `update_thread_metadata`
@@ -1099,11 +1104,20 @@ class SessionStore:
         直写 metadata 的读-改-写在同一把锁 + 同一个事务里完成,只碰 `goalState`
         这一个键,其余键逐字不动(所以它不会顺带冲掉身份键或配置段)。
 
+        `expected_status` / `expected_objective`(可选)实现 **CAS(compare-and-swap)**:
+        调用方把「我读到的那份状态」带进来,本次写只在库中当前 goalState 与之相符时
+        才落盘 —— 否则回 `"conflict"`(字符串哨兵,与 None 严格区分),杜绝「读-判-写」
+        之间的并发 clear/set/done 把本应只覆盖某一档的写盖到别人改过的状态上。
+        两参数都省略(默认 None)时退化为无条件覆盖(向后兼容既有 set/pause/clear 调用方)。
+
         Args:
             state: 已收窄的 goal 状态对象;None = 清除(clear 动作)。
+            expected_status: CAS 期望值(当前 `goalState.status`);不符 ⇒ `"conflict"`。
+            expected_objective: CAS 期望值(当前 `goalState.objective`);不符 ⇒ `"conflict"`。
 
         Returns:
-            更新后的完整 metadata;线程不存在返回 None(调用方据此回"没这条会话")。
+            更新后的完整 metadata(写成功);线程不存在返回 None(调用方据此回"没这条会话");
+            CAS 不符返回字符串哨兵 `"conflict"`(调用方据此回 `reason:"conflict"`)。
         """
         with self._lock, self._tx() as conn:
             row = conn.execute(
@@ -1112,6 +1126,22 @@ class SessionStore:
             if row is None:
                 return None
             current = _json_dict(_row_str(row, "metadata"))
+            # CAS:调用方要求与某个来源状态一致 —— 把「读-判-写」原子化在同一把锁内,
+            # 竞态下若状态已被并发改写则整趟回退,交由调用方决定重试或回报 conflict。
+            if expected_status is not None or expected_objective is not None:
+                present = normalize_goal_state(current.get("goalState"))
+                if present is None:
+                    return "conflict"
+                if (
+                    expected_status is not None
+                    and present.get("status") != expected_status
+                ):
+                    return "conflict"
+                if (
+                    expected_objective is not None
+                    and present.get("objective") != expected_objective
+                ):
+                    return "conflict"
             new_meta = dict(current)
             if state is None:
                 new_meta.pop("goalState", None)
