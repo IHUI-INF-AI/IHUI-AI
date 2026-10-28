@@ -39,7 +39,10 @@ export function specifiersOf(text, lang = ts.ScriptKind.TSX) {
     const cl = node.importClause
     if (cl?.name) names.push(cl.name.text)
     if (cl?.namedBindings?.elements) for (const e of cl.namedBindings.elements) names.push((e.propertyName ?? e.name).text)
-    if (ts.isExportDeclaration(node) && ts.isNamedExports(node.exportClause)) {
+    // 星号导出(`export * from './auth'`)没有 exportClause ⇒ 直接把它喂给 isNamedExports 会炸
+    // (`Cannot read properties of undefined (reading 'kind')`,2026-10-28 实测打崩磁盘面整条链:
+    //  `pnpm gen:i18n` 与 `build:weapp` 都走磁盘面)。先判在位再问形态。
+    if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
       for (const e of node.exportClause.elements) names.push(e.propertyName?.text ?? e.name.text)
     }
     out.push({ spec, names, kind: ts.isExportDeclaration(node) ? 'export' : 'import' })
