@@ -63,9 +63,14 @@
  */
 import { existsSync, lstatSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, parse, resolve } from 'node:path'
+import { dirname, join, parse, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { devEnvRoot } from './seal-c-root-stray.mjs'
+// scratch 落点的**唯一真相源**。本文件此前自己再推一遍 devEnv ⇒ G-158 把落点搬进仓内
+// (`<repoRoot>/.DevEnv/Temp/ihui-scratch`)之后,这里仍在扫旧仓外 `D:\DevEnv` —— 仓内
+// 240MB / 115 条夹具残留从来没人扫到,而汇总里表现为"候选 0",读起来跟"已清干净"一模一样
+// (本仓最贵的假绿正是这一型)。§0.6:同一件事只留一处实现。
+import { scratchRoot } from './lib/scratch-dir.mjs'
 
 const OUR_PREFIXES = ['ihui-', 'IHUI-', 'next-backup-', 'probe-']
 /** 整目录不碰:名字命中即跳过(按 toLowerCase 比对,大小写不敏感) */
@@ -198,6 +203,7 @@ export function defaultRoots({
   tmp = tmpdir(),
   devEnv,
   deriveDevEnv = devEnvRoot,
+  deriveScratchRoot = scratchRoot,
   exists = existsSync,
   platform = process.platform,
 } = {}) {
@@ -212,11 +218,23 @@ export function defaultRoots({
   push(tmp)
   let dev = devEnv
   if (dev === undefined) {
+    // 先问 scratch-dir 的唯一真相源(2026-10-28):scratchRoot() = `<DevEnv>/Temp/ihui-scratch`,
+    // 取两级父目录就是 DevEnv 根 —— 下面 push(join(dev,'Temp')) 正落在真落点上。
+    // 旧写法只问 devEnvRoot()(seal-c-root-stray),它在 G-158 搬家后仍指仓外 `D:\DevEnv`
+    // ⇒ 仓内 `<repo>/.DevEnv/Temp` 整枝不在扫描面里。兜底保留:scratchRoot 推导失败时退回旧源。
     try {
-      dev = deriveDevEnv()
+      const sr = deriveScratchRoot()
+      if (sr) dev = dirname(dirname(resolve(sr)))
     } catch (e) {
-      dev = null
-      undetermined.push(`devEnvRoot() 推导失败:${String(e?.message ?? e).replace(/\s+/g, ' ').slice(0, 120)}`)
+      undetermined.push(`scratchRoot() 推导失败:${String(e?.message ?? e).replace(/\s+/g, ' ').slice(0, 120)}`)
+    }
+    if (!dev) {
+      try {
+        dev = deriveDevEnv()
+      } catch (e) {
+        dev = null
+        undetermined.push(`devEnvRoot() 推导失败:${String(e?.message ?? e).replace(/\s+/g, ' ').slice(0, 120)}`)
+      }
     }
   }
   if (dev) {
