@@ -1889,6 +1889,222 @@ export function decideWithSelfRunBatch({
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  commit-msg 阶段的复跑:钩子在批量检查**之后**才跑,它的红此前完全不在归因射程内
+//  (2026-10-29 立;实测事故 = safe-commit-attestation 里 ts=2026-10-28T17:09:31.397Z 那条)
+//
+//  现场:三端改动、message 的 scope 写成 analytics,`.husky/commit-msg` 里的
+//  `scripts/check-commit-scope-consistency.mjs` 判 R3(≥3 个 apps 子目录 + scope 不在其中)
+//  并以 exit 1 阻断提交。safe-commit 复跑的是 `guardian-runner --staged`(pre-commit 批),
+//  31 道全绿 ⇒ 自跑分支把它升级成 `not-ours`、理由写成"红不在守门批(在批外那一步)",
+//  随后用 --no-verify 把一道**判得完全正确**的门跳掉。失效方向正好反了(§0.10):
+//  本该"多要一次定向说明",实际是"多放一次跳门"。
+//
+//  为什么"批全绿"证明不了这一阶段:pre-commit 与 commit-msg 是 git 的两个独立钩子,
+//  前者绿只说明前者的门绿;后者判的是"本次 message scope ⇄ 本次暂存集"这种**只可能属于
+//  本枚提交**的东西。所以判据是:逐条复跑 `.husky/commit-msg` 自己调用的那些检查,
+//  任一 blocking 检查以非零退出码复现 ⇒ 归因 = ours,禁止 --no-verify,并把脚本名与
+//  它点名的内容原样回显给人。
+//
+//  三条硬边界:
+//   ① 清单不另建 —— 从钩子**文本**里现读它调用了哪些 scripts/*.mjs、哪一条带 `|| true`
+//      (shell 语义:该步失败不阻断提交)。抄一张"commit-msg 阶段有哪些检查"的清单必然
+//      与钩子漂移(§0.6 单一真相源),而那正是本仓最常见的腐烂型。
+//   ② 取不到输入(钩子读不到 / 解析出 0 条 / 复跑出口缺失 / 复跑跑不动)⇒ 「未判定」,
+//      **绝不**折算成 not-ours —— 那是把"没判"写成"判过了"(§0.3)。
+//   ③ 只对 blocking 检查定责:`|| true` 的那几条即使红了也从没阻断过提交,把它判 mine
+//      等于替钩子改语义(style 验证门确实是 warn 档;要它拦人先改钩子,不是在归因层加戏)。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** commit-msg 阶段"未判定"档的名字(可机读,与 gate-self-undetermined 不得并桶) */
+export const COMMIT_MSG_UNDETERMINED_NAME = 'commit-msg-未判定'
+
+/** 钩子里被调用的检查脚本形态:`scripts/<name>.mjs`(含经 hook-run-hidden.vbs 包装那一层)。 */
+const COMMIT_MSG_CHECK_RE = /scripts\/[A-Za-z0-9._-]+\.mjs/g
+
+/**
+ * 从钩子文本里现读"它实际调用了哪些检查、哪一条是 blocking"。
+ *
+ * 为什么读文本而不是建清单:钩子是唯一的真相源;清单抄一份就必然出现"钩子新加了一道、
+ * 归因层看不见"的静默缺口(失效方向是安静,§12f)。注释行不算调用 —— 只在注释里出现的
+ * 路径是给人看的说明,不是复跑对象。
+ * @returns {{script:string, blocking:boolean}[]} script 为 `scripts/` 之后的文件名
+ */
+export function parseCommitMsgStageChecks(hookText) {
+  const clean = stripAnsi(hookText || '')
+  const checks = []
+  const seen = new Set()
+  for (const raw of clean.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    for (const m of line.matchAll(COMMIT_MSG_CHECK_RE)) {
+      const script = m[0].slice('scripts/'.length)
+      if (seen.has(script)) continue
+      seen.add(script)
+      // `|| true` 只在这一处出现时必须落在**同一行、该脚本之后**:Git Bash 的 `||` 串
+      // 逐命令生效,别处的 `|| true` 与本脚本的退出码无关。
+      const after = line.slice((m.index ?? 0) + m[0].length)
+      checks.push({ script, blocking: !/\|\|\s*true\b/.test(after) })
+    }
+  }
+  return checks
+}
+
+/** 复跑结果里给人看的原文摘录(原样,只剥 ANSI 与空行;超长截断并如实报总行数) */
+function excerptOf(output, max = 12) {
+  const lines = stripAnsi(output || '')
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+$/, ''))
+    .filter((l) => l.trim())
+  return { picked: lines.slice(0, max), total: lines.length, truncated: lines.length > max }
+}
+
+/** 逐条派生复跑;出口抛异常/返回怪形状一律折成"跑不动",绝不折成绿。 */
+function rerunCommitMsgChecks(checks, runCheck) {
+  const results = []
+  for (const c of checks) {
+    let r = null
+    try {
+      r = runCheck(c.script)
+    } catch (e) {
+      r = { ran: false, status: null, output: '', why: `复跑抛异常:${e?.message ?? e}` }
+    }
+    if (!r || typeof r !== 'object')
+      r = { ran: false, status: null, output: '', why: '复跑出口未返回结果' }
+    results.push({
+      ...c,
+      ran: r.ran === true,
+      status: r.status ?? null,
+      output: String(r.output ?? ''),
+      why: r.why ?? null,
+    })
+  }
+  return results
+}
+
+/**
+ * 把 commit-msg 阶段的复跑接进归因结论。
+ *
+ * @param verdict   前面几层(classifyHookFailure / decideWithSelfRunBatch)在钩子那一轮上的结论
+ * @param hookText  `.husky/commit-msg` 的**文本**(调用方读:本模块不碰 fs/git,保持纯判定)
+ * @param hookAbsent 钩子文件确实不存在 ⇒ 该阶段不存在(与"读不到"是两件事,不得混桶)
+ * @param hookWhy   读不到钩子的原因(给了它就该落未判定,不得当作"没有这个阶段")
+ * @param runCheck  (script) => {ran, status, output, why} —— 非纯的那一半由调用方提供;
+ *                  参数只有脚本名:commit-msg 钩子拿到的 `<commit-msg-file>` 由调用方补齐
+ * @returns 原 verdict 的**副本**,外加 `commitMsgStage`:
+ *          { state: 'skipped'|'absent'|'green'|'red'|'undetermined', checks, why? }
+ *          kind 只会在两种情况下被改写:blocking 检查复现红 ⇒ `mine`;复跑未判定 ⇒
+ *          `undetermined-red`(且带 undeterminedName),其余一律逐字段保留 —— 既有
+ *          批外/存量/非本票那一整套归因不在本层重算。
+ */
+export function decideWithCommitMsgStage({
+  verdict,
+  hookText = null,
+  hookAbsent = false,
+  hookWhy = null,
+  runCheck = null,
+}) {
+  const base =
+    verdict && typeof verdict === 'object' ? verdict : { kind: 'unattributed', detail: [] }
+  // 已判 mine ⇒ 出口是"拒绝跳门、exit 1",复跑只会多花几分钟而不改结论
+  // (与 needsBatchSelfRun 对 mine 的处置同一条理由)。
+  if (base.kind === 'mine')
+    return { ...base, commitMsgStage: { state: 'skipped', checks: [], why: '已判 mine,无需复跑' } }
+  const undetermined = (why, checks = []) => ({
+    ...base,
+    kind: 'undetermined-red',
+    undeterminedName: COMMIT_MSG_UNDETERMINED_NAME,
+    commitMsgStage: { state: 'undetermined', checks, why },
+    detail: [
+      ...(base.detail ?? []),
+      `commit-msg 阶段复跑未判定:${why}`,
+      '归因层不拿"没判到"冒充"与本次无关"(§0.3):该阶段有没有红没人量到 ⇒ 两个方向都不许下结论',
+      '下一步:按上面点名的原因人工复跑 commit-msg 阶段的那几条检查(它们只吃 commit message 与暂存集)',
+    ],
+    reason: `commit-msg 阶段复跑未判定(${why})—— 该阶段有没有红没人量到,既不是本枚的红、也不得写成"与本次无关"`,
+  })
+  if (hookAbsent)
+    return {
+      ...base,
+      commitMsgStage: { state: 'absent', checks: [], why: '.husky/commit-msg 不存在' },
+      detail: [
+        ...(base.detail ?? []),
+        '本仓没有 .husky/commit-msg 钩子 ⇒ commit-msg 阶段不存在,无检查可复跑',
+      ],
+    }
+  if (hookWhy) return undetermined(`读不到 .husky/commit-msg:${hookWhy}`)
+  if (!hookText) return undetermined('调用方没有提供 .husky/commit-msg 的文本')
+  const checks = parseCommitMsgStageChecks(hookText)
+  // 枚举到 0 条 = 钩子形态变了(或读错了文件)。此时"没有红"不是量出来的,不能算绿。
+  if (checks.length === 0)
+    return undetermined('从 .husky/commit-msg 里解析出 0 条 scripts/*.mjs 调用(钩子形态变了?)')
+  if (typeof runCheck !== 'function') return undetermined('未注入 commit-msg 阶段的复跑出口')
+  const results = rerunCommitMsgChecks(checks, runCheck)
+  if (results.length !== checks.length)
+    return undetermined(`复跑结果与检查条数不符(${results.length}/${checks.length})`, checks)
+  // 跑不动 ≠ 绿:blocking 检查任何一条没给出退出码,这一阶段就没有"复跑为绿"的证据。
+  const unjudged = results.filter((r) => r.blocking && (!r.ran || r.status === null))
+  if (unjudged.length)
+    return undetermined(
+      `blocking 检查复跑跑不动(${unjudged.map((r) => `${r.script}:${r.why || 'status 取不到'}`).join(' , ')})`,
+      checks,
+    )
+  const red = results.filter((r) => r.blocking && r.status !== 0)
+  const warnOnly = results.filter((r) => !r.blocking && r.status !== 0)
+  const digest = results.map((r) => `${r.script}=${r.status}`).join(' , ')
+  if (red.length > 0) {
+    // 钩子把 blocking 检查的退出码原样 `exit` 出去(.husky/commit-msg 末行即 `exit $_scope_rc`),
+    // 所以"复跑非零"就是"钩子那一轮以同一个码退出"的量到形态 —— 不再猜它是不是别人的红:
+    // 这一步判的内容(message scope ⇄ 暂存集)结构上只可能属于本枚提交。
+    return {
+      ...base,
+      kind: 'mine',
+      ranFullBatch: base.ranFullBatch === true,
+      commitMsgStage: {
+        state: 'red',
+        checks: results.map((r) => ({ script: r.script, blocking: r.blocking, status: r.status })),
+      },
+      detail: [
+        ...(base.detail ?? []),
+        `commit-msg 阶段复跑:${red.map((r) => `${r.script}(exit ${r.status})`).join(' , ')} —— 非零退出码复现`,
+        ...red.flatMap((r) => {
+          const ex = excerptOf(r.output)
+          return ex.picked
+            .map((l) => `  ${r.script}| ${l}`)
+            .concat(
+              ex.truncated
+                ? [`  ${r.script}| …(共 ${ex.total} 行,以上为前 ${ex.picked.length} 行)`]
+                : [],
+            )
+        }),
+        '这一步判的是本次这枚提交自己(message scope ⇄ 本次暂存集),不是别人挂在共享索引里的内容 ⇒ 归本次的红',
+        ...warnOnly.map(
+          (r) =>
+            `${r.script} 在钩子里是 \`|| true\`(warn 档),复跑 exit ${r.status} 不阻断提交,不据此定责`,
+        ),
+      ],
+      reason:
+        `commit-msg 阶段的检查 ${red.map((r) => `scripts/${r.script}(exit ${r.status})`).join(' , ')} 复现同一退出码,` +
+        '它点名的是本次 message scope 与本次暂存集不匹配 —— 这是本任务自己的红,改完再提,禁止 --no-verify',
+    }
+  }
+  return {
+    ...base,
+    commitMsgStage: {
+      state: 'green',
+      checks: results.map((r) => ({ script: r.script, blocking: r.blocking, status: r.status })),
+    },
+    detail: [
+      ...(base.detail ?? []),
+      `commit-msg 阶段复跑为绿(${digest || '无检查'})—— 该阶段的检查没有一行拦住本枚提交`,
+      ...warnOnly.map(
+        (r) =>
+          `${r.script} 复跑 exit ${r.status},但钩子里带 \`|| true\`(warn 档)⇒ 不阻断提交,只如实报数`,
+      ),
+    ],
+  }
+}
+
 // ------------------------------------------------------------------ 自检
 
 const SUMMARY = `
@@ -2919,6 +3135,9 @@ export const __test__ = {
   blockedBeforeBatch,
   needsBatchSelfRun,
   decideWithSelfRunBatch,
+  parseCommitMsgStageChecks,
+  decideWithCommitMsgStage,
+  COMMIT_MSG_UNDETERMINED_NAME,
   SUMMARY,
   FAIL_29,
   MY_FILES,

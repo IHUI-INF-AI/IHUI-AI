@@ -136,15 +136,24 @@ function staleCopyProbes(p) {
   }
 }
 
-/** 只审"索引与 HEAD 同形"的候选(别人显式暂存过的改动 = 明确意图,不在本守卫射程)。 */
-function dropStaleCopies(stale, changes) {
-  const unstaged = new Set(changes.filter((c) => c.xy[0] === ' ').map((c) => c.path))
-  const guarded = stale.filter((p) => unstaged.has(p))
-  if (!guarded.length) return { kept: stale, skipped: [] }
-  const { skipped } = partitionStaleCopies(guarded, {
-    worktree: (p) => staleCopyProbes(p).worktree(),
-    head: (p) => staleCopyProbes(p).head(),
-    ancestors: (p) => staleCopyProbes(p).ancestors(),
+/**
+ * 审**全部**候选路径(2026-10-29 取消「已暂存 = 明确意图」那条豁免)。
+ *
+ * 立因(现读事故,不是推测):b44ab834609(00:36:57)把 a3facca58f3(00:32:48,早 4 分钟)
+ * 刚入库的 relay 守卫②整份写回旧版。当时那三个路径被别席暂存过 ⇒ 落进旧豁免 ⇒ 守卫
+ * 一次都没问。而本器落地走 safe-commit,它 Step1 `git reset HEAD` 清索引、Step2
+ * `git add -A <声明集>` ⇒ **真正入库的是工作树字节**,与"谁暂存过"毫无关系。
+ * 所以"已暂存"既不能证明工作树内容是新的,也不能证明提交出去的就是那份暂存。
+ *
+ * `changes` 参数保留(调用方仍在传,且它是本器其它判据的输入),但不再参与豁免决策。
+ * 失效方向仍是"少收编一次":判成滞后就跳过并逐条点名,人想显式提交随时可以(§0.10)。
+ */
+function dropStaleCopies(stale, changes, probeFactory = staleCopyProbes) {
+  if (!stale.length) return { kept: stale, skipped: [] }
+  const { skipped } = partitionStaleCopies([...stale], {
+    worktree: (p) => probeFactory(p).worktree(),
+    head: (p) => probeFactory(p).head(),
+    ancestors: (p) => probeFactory(p).ancestors(),
   })
   return { kept: stale.filter((p) => !skipped.includes(p)), skipped }
 }
@@ -525,8 +534,10 @@ function main() {
         // 归并档结构性看不见);归档单调性只管 ✅ 标题复活,不管勾选态。
         // 两型回退源都在本闸射程内(根因与取证见 scripts/lib/ledger-closed-rows.mjs 头注):
         // ① 混合体(旧副本⊕本地小改)——整份文本不等于任何祖先 blob,dropStaleCopies 结构上判不了;
-        // ② 整份旧 blob 覆盖——dropStaleCopies 能拦,但它只审未暂存文件、只回溯最近 6 枚提交,
-        //    而本闸按**盘上文本 vs HEAD blob** 判勾选态,不受"是否已暂存/副本多老"影响。
+        // ② 整份旧 blob 覆盖——dropStaleCopies 能拦(2026-10-29 起它审**全部**候选:旧的那条
+        //    "已暂存=明确意图"豁免正是 b44ab834609 回退守卫②的入口,而落地走 safe-commit 的
+        //    `git add -A`,提交的是工作树字节,与谁暂存过无关),但它仍只回溯该路径最近 6 枚提交,
+        //    而本闸按**盘上文本 vs HEAD blob** 判勾选态,不受"副本多老"影响。
         // 位置刻意选在**归并+复洁之后、safe-commit 之前**的最后一档:①候选文本此刻就是即将入库
         // 的那一份(复洁只剔 HEAD 面已不存在的行,动不到本闸的主键面);②放到归并之前会把"归并
         // 本来能补回的行"误判成回退;③与归档单调性同层,任何一道红都在同一处回滚 + 退出候选。
@@ -636,5 +647,6 @@ export const __test__ = {
   snapshotLedger,
   rollbackLedger,
   partitionStaleCopies,
+  dropStaleCopies,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
