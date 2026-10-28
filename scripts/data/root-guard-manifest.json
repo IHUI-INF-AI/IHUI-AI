@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-28T13:55:54.380Z",
+  "sealedAt": "2026-10-28T16:36:27.490Z",
   "sealedBy": "root-guard --seal",
-  "reason": "2026-10-28/生产席:复核 19:08/19:26 两笔 runner 改动 —— 19:26 把 19:08 刚装的 257(web↔RN 跨端对账)原地顶替成 DDoS 门,原门静默消失(check-web-rn-parity.mjs 仍在库但 runner 零引用=造好没装车)。已恢复 257=web↔RN(warn)、DDoS 转 258(blocking),两门脚本现跑 rc=0(check-web-rn-parity/info 报告形态、check-ddos-guard-wiring 4实现/10锚点全在位),node --check 通过、门号 242 枚零重复。开发仓与生产仓 md5=ee98f5db8a80e49ecbc012938fa5bb2e 一致。",
+  "reason": "2026-10-29/生产席:复核 a02c39768b5(00:00:21「守门 259 装车」)对 scripts/guardian-runner.mjs 的唯一改动 —— 纯新增 259 注册块(check-ui-spec-mirror.mjs,RN 壳↔小程序壳 spec 接线对账,blocking,带 skipEnv/stagedTriggers/onFailHint),diff 内无其他目标改动;被引用三件(scripts/check-ui-spec-mirror.mjs、lib/ui-mirror-waivers.mjs、data/ui-mirror-waivers.json)均存在,门号 259 全表唯一(1 处),node --check 通过。判据/铁律段两目标未变(PASS)。部署环 00:35:47 因该笔未重封而 fail-closed,重封后恢复。",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "d23e3e57bdcf51b9808648b66cf39303a23c9e563702f2af27f818089e7d4486"
+      "sha256": "40d32dd23cd82941630c09e9927dbf59322006a4e6eb4e30ead4becd137c0e30"
     },
     {
       "id": "judgement-libs",

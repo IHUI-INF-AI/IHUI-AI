@@ -200,7 +200,11 @@ describe('接线锁·敏感端点全覆盖（2026-10-28：闸必须住在花钱/
   // 每行：文件、应有闸数、逐个闸"之后必须先经过"的落库/出凭据动作。
   // 闸被挪到动作之后、或被整段删掉（count 变化），这里都会红。
   const CASES: Array<{ file: string; gates: number; sinks: string[] }> = [
-    { file: '../src/routes/developer.ts', gates: 2, sinks: ['apiKeysService.createKey', 'withdrawBodySchema'] },
+    {
+      file: '../src/routes/developer.ts',
+      gates: 2,
+      sinks: ['apiKeysService.createKey', 'withdrawBodySchema'],
+    },
     { file: '../src/routes/finance.ts', gates: 1, sinks: ['evaluateRisk'] },
     { file: '../src/routes/distribution.ts', gates: 1, sinks: ['insert(withdrawalFlows)'] },
     { file: '../src/routes/user/withdrawal-routes.ts', gates: 1, sinks: ['availableWithdrawal'] },
@@ -208,6 +212,13 @@ describe('接线锁·敏感端点全覆盖（2026-10-28：闸必须住在花钱/
     { file: '../src/routes/payment-gateway.ts', gates: 2, sinks: ['getBalance', 'getBalance'] },
     { file: '../src/routes/developer-relay.ts', gates: 1, sinks: ['rotateSecret'] },
     { file: '../src/routes/agents.ts', gates: 1, sinks: ['findOAuthAppByClientId'] },
+    // 2026-10-29 补齐两处同族漏接：提现申请（agent 分佣提现）与创建分享（一次性回 shareToken = 出凭据）
+    {
+      file: '../src/routes/agent-extended.ts',
+      gates: 1,
+      sinks: ['insert(zhsAgentWithdrawalDetail)'],
+    },
+    { file: '../src/routes/api-key-shares.ts', gates: 1, sinks: ['shareService.createShare'] },
   ]
 
   const gatePositions = (src: string): number[] => {

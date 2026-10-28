@@ -127,7 +127,12 @@ const httpConnGuardPlugin: FastifyPluginAsync = async (server) => {
     attachSlotReleaseOnClose(reply, ip, request.id)
   })
 
-  const release = (request: FastifyRequest) => {
+  // ⚠️ 只能是 async：Fastify 5.12.3 的 hookRunnerGenerator 拿 iterator 返回值时，
+  // 既不是 thenable、处理器又没调用 next ⇒ 它永不推进 ⇒ 本钩子之后的整条链静默停摆
+  // （请求照旧 200，日志一行不留）。本插件排在 server.ts 全部 onResponse 消费者之前，
+  // 同步形态一 stall 就打死 metrics 的 by_status/响应时间、business_api_call_total、
+  // api_logs 落库与审计/trace —— 2026-10-28 18:52 换流后线上正是这个态。
+  const release = async (request: FastifyRequest) => {
     const ip = request.ip
     if (!ip) return
     releaseSlot(ip, request.id)
