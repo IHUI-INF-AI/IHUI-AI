@@ -191,8 +191,8 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    earningsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    earningsItem: { alignItems: 'center', flex: 1 },
+    earningsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
+    earningsItem: { alignItems: 'center', flex: 1, minWidth: 88 },
     earningsValue: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     pendingValue: { color: tk.success.DEFAULT },
     earningsLabel: {
