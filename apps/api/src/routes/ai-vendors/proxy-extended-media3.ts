@@ -33,6 +33,7 @@ import {
   type FastifyPluginAsync,
 } from './_shared.js'
 import { ensurePointsBalance, chargePointsForCall } from './proxy-llm.js'
+import { MEDIA_BASE64_BODY_LIMIT, MEDIA_FILE_UPLOAD_BODY_LIMIT } from '../../config/body-limits.js'
 
 // ============ Leonardo 官方参数(prompt/modelId/negative_prompt/init_image 等) ============
 const leonardoBody = z.object({
@@ -193,6 +194,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
   server.post(
     '/leonardo/generate',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Leonardo AI 文生/图生图',
@@ -381,6 +383,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
   server.post(
     '/deepgram/transcribe',
     {
+      bodyLimit: MEDIA_FILE_UPLOAD_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Deepgram 语音转文本(Nova STT)',
@@ -575,6 +578,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
   server.post(
     '/azure/chat',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Azure OpenAI 对话补全',
         description:
@@ -686,6 +690,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
   server.post(
     '/azure/transcriptions',
     {
+      bodyLimit: MEDIA_FILE_UPLOAD_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Azure OpenAI 语音转文本(Whisper)',
@@ -795,6 +800,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
   server.post(
     '/stability/video',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Stability 图生视频(Stable Video Diffusion)',
