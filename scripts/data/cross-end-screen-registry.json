@@ -1180,6 +1180,66 @@
       "shared": "packages/app/src/features/agent-edit/AgentEditScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AgentEditScreen.tsx",
       "miniapp": "pkg-user/agent-edit/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-workspace/AiWorkspaceProjectScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiWorkspaceProjectScreen.tsx",
+      "miniapp": "pkg-user/ai-workspace-project/index"
+    },
+    {
+      "shared": "packages/app/src/features/edu-grade-trend/EduGradeTrendScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/EduGradeTrendScreen.tsx",
+      "miniapp": "pkg-user/edu-grade-trend/index"
+    },
+    {
+      "shared": "packages/app/src/features/edu-teacher-study-plan/EduTeacherStudyPlanScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/EduTeacherStudyPlanScreen.tsx",
+      "miniapp": "pkg-user/edu-teacher-study-plan/index"
+    },
+    {
+      "shared": "packages/app/src/features/learn-homework/CourseHomeworkScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseHomeworkScreen.tsx",
+      "miniapp": "pkg-user/course-homework/index"
+    },
+    {
+      "shared": "packages/app/src/features/lecturer/LecturerListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LecturerListScreen.tsx",
+      "miniapp": "pkg-user/lecturer-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/lecturer/LecturerProfileScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LecturerProfileScreen.tsx",
+      "miniapp": "pkg-user/lecturer-profile/index"
+    },
+    {
+      "shared": "packages/app/src/features/news/NewsArticleScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NewsArticleScreen.tsx",
+      "miniapp": "pkg-content/news-article/index"
+    },
+    {
+      "shared": "packages/app/src/features/news/NewsCategoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NewsCategoryScreen.tsx",
+      "miniapp": "pkg-content/news-category/index"
+    },
+    {
+      "shared": "packages/app/src/features/skills-market/SkillMarketDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SkillMarketDetailScreen.tsx",
+      "miniapp": "pkg-user/skill-market-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/skills-market/SkillMarketListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SkillMarketListScreen.tsx",
+      "miniapp": "pkg-user/skill-market-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/knowledge-base/KnowledgeEntryReadingScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeEntryReadingScreen.tsx",
+      "miniapp": "pkg-mirror/knowledge-entry-reading/index"
+    },
+    {
+      "shared": "packages/app/src/features/knowledge-base/KnowledgeBaseListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeBaseListScreen.tsx",
+      "miniapp": "pkg-mirror/knowledge-base-list/index"
     }
   ]
 }

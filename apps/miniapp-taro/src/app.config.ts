@@ -185,6 +185,14 @@ export default defineAppConfig({
         'my-agents/index',
         'edu-dashboard/index',
         'agent-edit/index',
+        'ai-workspace-project/index',
+        'edu-grade-trend/index',
+        'edu-teacher-study-plan/index',
+        'course-homework/index',
+        'lecturer-list/index',
+        'lecturer-profile/index',
+        'skill-market-detail/index',
+        'skill-market-list/index',
       ],
     },
     {
@@ -207,6 +215,8 @@ export default defineAppConfig({
         'plaza/set-need/index',
         'community/create/index',
         'activity-detail-shared/index',
+        'news-article/index',
+        'news-category/index',
       ],
     },
     {
@@ -275,7 +285,16 @@ export default defineAppConfig({
       pages: ['index', 'benefits', 'integral', 'coupon', 'coupon-list'],
     },
     {
-      root: 'pages/setting', pages: ['index', 'notification', 'cache', 'language', 'theme', 'privacy', 'notification-list/index'],
+      root: 'pages/setting',
+      pages: [
+        'index',
+        'notification',
+        'cache',
+        'language',
+        'theme',
+        'privacy',
+        'notification-list/index',
+      ],
     },
     // 2026-09-26 主包余量治理:以下三个 root 与页面目录同名,**路由串与迁移前逐字相同**。
     // 判据依据:这些页既不是入口页也不在 tabBar.list 里(主包必须保留的只有那两类)。
@@ -328,6 +347,8 @@ export default defineAppConfig({
         'note-detail/index',
         'favorites/index',
         'publish/index',
+        'knowledge-entry-reading/index',
+        'knowledge-base-list/index',
       ],
     },
     {
