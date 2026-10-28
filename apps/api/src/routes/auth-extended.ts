@@ -68,6 +68,8 @@ import {
   getLockRemainingMs,
   ACCOUNT_LOCKOUT_CONFIG,
 } from '../services/account-lockout.js'
+import { STEP_UP_WINDOW_SEC, recordTwoFactorStepUp } from '../services/two-factor-step-up-store.js'
+import { transparentlyUpgradePasswordHash } from '../services/login-hash-upgrade.js'
 import {
   findUserByPhone,
   findUserByEmail,
@@ -863,6 +865,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
       await clearLoginFailures(username, ip)
+      // 2026-10-28 普查发现：本入口此前只 verify 不升级哈希，与 /auth/login 不一致
+      // （弱哈希账户若经此路登录就永远升不上 argon2id）。补同一出口调用，三入口行为齐平。
+      await transparentlyUpgradePasswordHash({
+        userId: String(user.id),
+        password,
+        currentHash: user.passwordHash,
+        log: request.log,
+      })
       // 2FA 一致性(2026-10-27 修旁路):用户名+密码登录同样必须过 TOTP,
       // 否则攻击者拿到密码后走此路即可完全绕过两步验证(P0)。
       if (user.twoFactorEnabled) {
@@ -3534,6 +3544,53 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           backupCodes,
         }),
       )
+    },
+  )
+
+  // POST /auth/2fa/step-up — 敏感动作前置的二次验证。
+  // 与 /auth/2fa/verify 的区别:那一枚是"开启 2FA"的入伙校验(会改库置 twoFactorEnabled);
+  // 这一枚**只验不写开关**,给提现这类高敏动作当第二因子用。校验出口仍复用本文件的
+  // decryptTwoFactorSecret + verifyTotp,新鲜度记账住在 two-factor-step-up-store.ts(单源)。
+  server.post(
+    '/auth/2fa/step-up',
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: '敏感操作二次验证（TOTP，仅记账）',
+        tags: ['auth', '2fa'],
+        body: {
+          type: 'object',
+          required: ['code'],
+          properties: { code: { type: 'string', pattern: '^[0-9]{6}$', description: '6 位 TOTP' } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = z
+        .object({ code: z.string().regex(/^[0-9]{6}$/, '验证码必须为 6 位数字') })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '验证码必须为 6 位数字'))
+      }
+      const userId = request.userId!
+      const user = await findUserById(userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+        return reply.status(400).send(error(400, '该账号未启用 2FA，无需二次验证'))
+      }
+      const secret = decryptTwoFactorSecret(user.twoFactorSecret)
+      if (!secret) {
+        return reply.status(500).send(error(500, '密钥解密失败，请重新 setup'))
+      }
+      if (!verifyTotp(parsed.data.code, secret)) {
+        await recordSecurityEvent(request, 'two_factor_step_up_failed')
+        return reply.status(401).send(error(401, '验证码错误或已过期'))
+      }
+      await recordTwoFactorStepUp(userId, request.server.redis)
+      await recordSecurityEvent(request, 'two_factor_step_up')
+      return reply.send(success({ verified: true, windowSec: STEP_UP_WINDOW_SEC }))
     },
   )
 
