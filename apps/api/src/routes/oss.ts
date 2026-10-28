@@ -355,6 +355,8 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
   server.register(async (sub) => {
     // OSS 回调可能以 application/x-www-form-urlencoded 或 application/json 发送
     // 验签需要原始 body 字符串,所以 parser 返回 string 而非解析后的对象
+    // 必须先摘掉继承自根作用域的 json parser(见 server.ts registerPlugins),否则 add 抛 ALREADY_PRESENT
+    sub.removeContentTypeParser('application/json')
     sub.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) =>
       done(null, body),
     )
