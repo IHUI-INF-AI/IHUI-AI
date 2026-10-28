@@ -192,4 +192,57 @@ describe('接线锁（闸必须住在写库之前，且 step-up 端点不许顺�
     expect(storeSrc).not.toMatch(/from '\.\.\/utils\/crypto\.js'/)
   })
 })
+
+describe('接线锁·敏感端点全覆盖（2026-10-28：闸必须住在花钱/出凭据之前）', () => {
+  const read = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'utf8')
+  const GATE = 'requireStepUpForTwoFactorUser({ userId'
+
+  // 每行：文件、应有闸数、逐个闸"之后必须先经过"的落库/出凭据动作。
+  // 闸被挪到动作之后、或被整段删掉（count 变化），这里都会红。
+  const CASES: Array<{ file: string; gates: number; sinks: string[] }> = [
+    { file: '../src/routes/developer.ts', gates: 2, sinks: ['apiKeysService.createKey', 'withdrawBodySchema'] },
+    { file: '../src/routes/finance.ts', gates: 1, sinks: ['evaluateRisk'] },
+    { file: '../src/routes/distribution.ts', gates: 1, sinks: ['insert(withdrawalFlows)'] },
+    { file: '../src/routes/user/withdrawal-routes.ts', gates: 1, sinks: ['availableWithdrawal'] },
+    { file: '../src/routes/wallet.ts', gates: 1, sinks: ['applyWithdrawal'] },
+    { file: '../src/routes/payment-gateway.ts', gates: 2, sinks: ['getBalance', 'getBalance'] },
+    { file: '../src/routes/developer-relay.ts', gates: 1, sinks: ['rotateSecret'] },
+    { file: '../src/routes/agents.ts', gates: 1, sinks: ['findOAuthAppByClientId'] },
+  ]
+
+  const gatePositions = (src: string): number[] => {
+    const out: number[] = []
+    for (let i = src.indexOf(GATE); i >= 0; i = src.indexOf(GATE, i + 1)) out.push(i)
+    return out
+  }
+
+  for (const c of CASES) {
+    it(`${c.file}：${c.gates} 处闸，且每处都先于落库/出凭据`, () => {
+      const src = read(c.file)
+      const gates = gatePositions(src)
+      expect(gates.length).toBe(c.gates)
+      c.sinks.forEach((sink, idx) => {
+        const from = gates[idx]!
+        const at = src.indexOf(sink, from)
+        expect(at).toBeGreaterThan(from)
+        const next = gates[idx + 1]
+        if (next !== undefined) expect(at).toBeLessThan(next)
+      })
+    })
+  }
+
+  it('拒绝形态是 401 + STEP_UP_REQUIRED（前端据此拉二次验证面板），文案直接给出下一步端点', () => {
+    const src = read('../src/routes/finance.ts')
+    const g = src.indexOf(GATE)
+    expect(g).toBeGreaterThan(0)
+    const head = src.slice(g, g + 400)
+    expect(head).toContain("stepUp.code === 'STEP_UP_REQUIRED'")
+    expect(head).toContain('status(401)')
+    expect(head).toContain('/auth/2fa/step-up')
+  })
+
+  it('裁定记录：oauth-keys/rotate 是非用户会话态的系统密钥轮转，不接用户闸（接了只会是假安全）', () => {
+    expect(read('../src/routes/oauth-keys.ts')).not.toContain(GATE)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

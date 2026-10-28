@@ -211,7 +211,14 @@ export async function buildServer(): Promise<FastifyInstance> {
           .map((s) => s.trim())
           .filter(Boolean)
       : false,
-    bodyLimit: 1048576 * 10,
+    // 2026-10-28 DDoS P2 收敛:全局请求体上限从 10MiB 收到 2MiB。
+    // 约束对象:一切经 Fastify 内存解析的请求体,含 multipart 的"整包"大小
+    // (multipart 单文件另由 @fastify/multipart 的 100MiB fileSize 限制,见下方注册处)。
+    // 目的:把普通 JSON/urlencoded 接口的内存耗尽面从 10MiB 压到 2MiB。
+    // 上传/大体积路由已在各自 server.post 选项里显式放开到业务上限(files/workspace/
+    // ai-audio/member/v1-knowledge-tools/knowledge-rag/conversation-import 等),故收紧
+    // 全局不会误伤任何上传接口。
+    bodyLimit: 2 * 1024 * 1024,
     // 2026-09-18 P0:插件注册超时(默认 10s)必须放宽。adminMissingRoutes 内部动态 import
     // 十余个子路由,注册耗时随 import 图增长;超过 avvio 默认 10s 时抛
     // AVV_ERR_PLUGIN_EXEC_TIMEOUT —— **进程不退出**(仅 unhandled rejection)但也永不
