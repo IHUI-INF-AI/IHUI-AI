@@ -56,6 +56,8 @@ const LIVE_DOC_EDIT = join(ROOT, 'scripts', 'live-doc-edit.mjs')
 const TMP_DIR = join(ROOT, '.ihui-agent', 'tmp', 'auto-triage')
 const APP_ENV = join(ROOT, 'apps', 'api', '.env')
 const API_LOGS_DEFAULT_LIMIT = 500
+/** user-feedback 只读查询默认行上限(与 api_logs 同档纪律:超夹回落默认)。 */
+const FEEDBACKS_DEFAULT_LIMIT = 200
 const CLUSTER_WINDOW_HOURS_DEFAULT = 24
 const CLUSTER_MIN_OCCURRENCES_DEFAULT = 2
 
@@ -77,7 +79,8 @@ export function loadConfig(readFile = (p) => readFileSync(p, 'utf8')) {
   }
   const KNOWN = ['mail-failure', 'index-unmerged', 'api-logs', 'grafana-alerts', 'user-feedback']
   for (const s of g.sources) {
-    if (!KNOWN.includes(s)) throw new TriageShapeError(`形状坏:未知来源「${s}」(白名单闭集:${KNOWN.join('/')})`)
+    if (!KNOWN.includes(s))
+      throw new TriageShapeError(`形状坏:未知来源「${s}」(白名单闭集:${KNOWN.join('/')})`)
   }
   if (g.clustering !== undefined) {
     if (!g.clustering || typeof g.clustering !== 'object' || Array.isArray(g.clustering)) {
@@ -96,10 +99,18 @@ export function loadConfig(readFile = (p) => readFileSync(p, 'utf8')) {
   if (g.apiLogs !== undefined && (typeof g.apiLogs !== 'object' || Array.isArray(g.apiLogs))) {
     throw new TriageShapeError('形状坏:apiLogs 必须是对象')
   }
-  if (g.apiLogs?.rowLimit !== undefined && (!Number.isInteger(g.apiLogs.rowLimit) || g.apiLogs.rowLimit <= 0)) {
+  if (
+    g.apiLogs?.rowLimit !== undefined &&
+    (!Number.isInteger(g.apiLogs.rowLimit) || g.apiLogs.rowLimit <= 0)
+  ) {
     throw new TriageShapeError('形状坏:apiLogs.rowLimit 必须是正整数')
   }
-  if (g.apiLogs?.minStatus !== undefined && (!Number.isInteger(g.apiLogs.minStatus) || g.apiLogs.minStatus < 400 || g.apiLogs.minStatus > 599)) {
+  if (
+    g.apiLogs?.minStatus !== undefined &&
+    (!Number.isInteger(g.apiLogs.minStatus) ||
+      g.apiLogs.minStatus < 400 ||
+      g.apiLogs.minStatus > 599)
+  ) {
     throw new TriageShapeError('形状坏:apiLogs.minStatus 必须是 400..599 的整数')
   }
   for (const k of ['grafanaAlerts', 'userFeedback']) {
@@ -121,7 +132,10 @@ export function clusteringOf(cfg) {
 
 /** 发现指纹:同源去重的键(与日期无关,靠台账 24h 窗判新旧) */
 export function fingerprintOf(source, objectText) {
-  return createHash('sha256').update(`${source}|${String(objectText)}`).digest('hex').slice(0, 12)
+  return createHash('sha256')
+    .update(`${source}|${String(objectText)}`)
+    .digest('hex')
+    .slice(0, 12)
 }
 
 /**
@@ -133,7 +147,10 @@ export function normalizeSignature(text, maxLen = 240) {
   let s = String(text ?? '')
   s = s.replace(/https?:\/\/[^\s"'<>`]+/gi, ':url')
   s = s.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, ':uuid')
-  s = s.replace(/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g, ':ts')
+  s = s.replace(
+    /\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g,
+    ':ts',
+  )
   s = s.replace(/\b[0-9a-f]{16,}\b/gi, ':hash')
   s = s.replace(/\?[^\s#]*/g, '?')
   s = s.replace(/\d+/g, ':n')
@@ -146,7 +163,13 @@ export function normalizeSignature(text, maxLen = 240) {
  * records: [{ at, objectText, label?, evidence? }];at 不可解或落在窗外 ⇒ 不计(不猜)。
  * 返回按 count 降序的桶:register(count >= minOccurrences) / observe。
  */
-export function clusterRecords({ source, records, windowHours = CLUSTER_WINDOW_HOURS_DEFAULT, minOccurrences = CLUSTER_MIN_OCCURRENCES_DEFAULT, now = Date.now() }) {
+export function clusterRecords({
+  source,
+  records,
+  windowHours = CLUSTER_WINDOW_HOURS_DEFAULT,
+  minOccurrences = CLUSTER_MIN_OCCURRENCES_DEFAULT,
+  now = Date.now(),
+}) {
   const windowMs = windowHours * 3600_000
   const buckets = new Map()
   for (const r of records ?? []) {
@@ -175,7 +198,11 @@ export function clusterRecords({ source, records, windowHours = CLUSTER_WINDOW_H
     buckets.set(fingerprint, cur)
   }
   return [...buckets.values()]
-    .map((b) => ({ ...b, lastAt: b.lastAt === null ? null : new Date(b.lastAt).toISOString(), disposition: b.count >= minOccurrences ? 'register' : 'observe' }))
+    .map((b) => ({
+      ...b,
+      lastAt: b.lastAt === null ? null : new Date(b.lastAt).toISOString(),
+      disposition: b.count >= minOccurrences ? 'register' : 'observe',
+    }))
     .sort((a, b) => b.count - a.count || String(a.signature).localeCompare(String(b.signature)))
 }
 
@@ -269,10 +296,18 @@ export function apiLogRowsFromObjects(rows, minStatus = 500) {
  *  - 无夹具 ⇒ 真库只读 SELECT,连接器复用现役 psql 定位 + DSN 解析 + 只读断言 + 回环/8810 守卫。
  * 取不到任何一面 ⇒ 未判定(§0.3)。
  */
-export function readApiLogs({ jsonlPath = '', limit = API_LOGS_DEFAULT_LIMIT, minStatus = 500, readFile = (p) => readFileSync(p, 'utf8') } = {}) {
+export function readApiLogs({
+  jsonlPath = '',
+  limit = API_LOGS_DEFAULT_LIMIT,
+  minStatus = 500,
+  readFile = (p) => readFileSync(p, 'utf8'),
+} = {}) {
   if (jsonlPath) {
     try {
-      return { status: 'ok', records: apiLogRowsFromObjects(readJsonlRows(jsonlPath, readFile), minStatus) }
+      return {
+        status: 'ok',
+        records: apiLogRowsFromObjects(readJsonlRows(jsonlPath, readFile), minStatus),
+      }
     } catch (e) {
       return { status: 'undetermined', why: `api_logs 夹具读不到(${jsonlPath}):${e?.message ?? e}` }
     }
@@ -290,7 +325,12 @@ export function readApiLogs({ jsonlPath = '', limit = API_LOGS_DEFAULT_LIMIT, mi
     return { status: 'undetermined', why: `api_logs 只读查询不可发:${e?.message ?? e}` }
   }
   if (r.status !== 0) {
-    return { status: 'undetermined', why: `api_logs 只读查询失败:${String(r.stderr || r.lost || `exit ${r.status}`).trim().slice(0, 160)}` }
+    return {
+      status: 'undetermined',
+      why: `api_logs 只读查询失败:${String(r.stderr || r.lost || `exit ${r.status}`)
+        .trim()
+        .slice(0, 160)}`,
+    }
   }
   return { status: 'ok', records: parseApiLogRows(r.stdout) }
 }
@@ -337,10 +377,19 @@ async function fetchJsonDefault(url) {
  * grafana-alerts 适配器:Alertmanager GET /api/v2/alerts?active=true&silenced=false。
  * 无 URL / 连不上 / 非 JSON ⇒ 未判定(不把读不到当"无告警")。测试注入 fetchJson,不发网络。
  */
-export async function readGrafanaAlerts({ url = '', fetchJson = fetchJsonDefault, now = Date.now() } = {}) {
-  const base = String(url ?? '').trim().replace(/\/+$/, '')
+export async function readGrafanaAlerts({
+  url = '',
+  fetchJson = fetchJsonDefault,
+  now = Date.now(),
+} = {}) {
+  const base = String(url ?? '')
+    .trim()
+    .replace(/\/+$/, '')
   if (!base) {
-    return { status: 'undetermined', why: '无 Grafana/Alertmanager 读取地址(grafanaAlerts.url 与 ALERTMANAGER_URL 皆空),不猜本机默认口' }
+    return {
+      status: 'undetermined',
+      why: '无 Grafana/Alertmanager 读取地址(grafanaAlerts.url 与 ALERTMANAGER_URL 皆空),不猜本机默认口',
+    }
   }
   let data
   try {
@@ -356,9 +405,88 @@ export async function readGrafanaAlerts({ url = '', fetchJson = fetchJsonDefault
  * user-feedback 适配器:feedbacks 表只有 API 路由,scripts 层无既有消费面 ⇒
  * 只吃既有导出面落盘的 JSONL(不新开路由/不迁移)。导出件缺失 ⇒ 未判定并点名。
  */
-export function readUserFeedback({ jsonlPath = '', readFile = (p) => readFileSync(p, 'utf8') } = {}) {
+/**
+ * 反馈只读 SQL(单语句,过 psqlSpawn 的只读断言;禁分号)。
+ * 刻意不取 user_id / contact / admin_reply —— 本器把候选写进共享台账,隐私列一律不出库。
+ */
+export function buildFeedbacksSql(limit = FEEDBACKS_DEFAULT_LIMIT) {
+  const n = Number.isInteger(limit) && limit > 0 && limit <= 2000 ? limit : FEEDBACKS_DEFAULT_LIMIT
+  return [
+    'SELECT type,',
+    "replace(replace(coalesce(title, ''), E'\\n', ' '), '|', '/'),",
+    "replace(replace(coalesce(content, ''), E'\\n', ' '), '|', '/'),",
+    'status,',
+    'created_at::text',
+    'FROM feedbacks',
+    "WHERE status NOT IN ('resolved', 'closed')",
+    "AND type IN ('bug', 'feature', 'improvement', 'other')",
+    'ORDER BY created_at DESC',
+    `LIMIT ${n}`,
+  ].join(' ')
+}
+
+/** psql raw 行(`|` 分隔)→ 聚类记录;与 JSONL 夹具同形,两条通道产出的记录不可区分。 */
+export function parseFeedbackRows(stdout) {
+  const actionable = new Set(['bug', 'feature', 'improvement', 'other'])
+  const out = []
+  for (const line of String(stdout ?? '')
+    .split(/\r?\n/)
+    .filter(Boolean)) {
+    const [type, title = '', content = '', status = 'pending', at] = line.split('|')
+    if (!actionable.has(type)) continue
+    if (status === 'resolved' || status === 'closed') continue
+    if (!title && !content) continue
+    out.push({
+      at,
+      label: `${type}:${title || content}`.slice(0, 100),
+      objectText: `${type}|${title}|${content}`,
+      evidence: `type=${type} status=${status} title=${title}${content ? ` content=${content.slice(0, 120)}` : ''}`,
+    })
+  }
+  return out
+}
+
+/**
+ * user-feedback 默认取数通道:与 api_logs 走**同一条**出口(locatePsqlClient + resolveDsn +
+ * guardDbDsn 的回环/8810 守卫 + psqlSpawn 只读断言),不另起第二份连接实现(§0.6)。
+ * 取不到一律 status:'undetermined' 并点名原因 —— 绝不把"读不到"写成"没有反馈"。
+ */
+export function feedbackRowsByQuery(limit = FEEDBACKS_DEFAULT_LIMIT) {
+  const located = locatePsqlClient()
+  if (!located.psql)
+    return {
+      status: 'undetermined',
+      why: `user-feedback 直连取数不可发:${psqlLocateMissText(located.tried)}`,
+    }
+  const dsnRes = resolveDsn({ envText: readAppEnvText() })
+  if (!dsnRes.ok) return { status: 'undetermined', why: dsnRes.why }
+  const guarded = guardDbDsn(dsnRes.dsn)
+  if (!guarded.ok) return { status: 'undetermined', why: guarded.why }
+  let r
+  try {
+    r = psqlSpawn(located.psql, guarded.dsn, buildFeedbacksSql(limit))
+  } catch (e) {
+    return { status: 'undetermined', why: `user-feedback 只读查询不可发:${e?.message ?? e}` }
+  }
+  if (r.status !== 0) {
+    return {
+      status: 'undetermined',
+      why: `user-feedback 只读查询失败:${String(r.stderr || r.lost || `exit ${r.status}`)
+        .trim()
+        .slice(0, 160)}`,
+    }
+  }
+  return { status: 'ok', records: parseFeedbackRows(r.stdout) }
+}
+
+export function readUserFeedback({
+  jsonlPath = '',
+  limit = FEEDBACKS_DEFAULT_LIMIT,
+  readFile = (p) => readFileSync(p, 'utf8'),
+  query = feedbackRowsByQuery,
+} = {}) {
   if (!jsonlPath) {
-    return { status: 'undetermined', why: '无既有消费面导出件:feedbacks 表只有 API 路由(GET /feedbacks、GET /admin/feedbacks),本器不新开路由' }
+    return query(limit)
   }
   let rows
   try {
@@ -420,9 +548,15 @@ export function readIndexUnmerged(spawn = (...a) => spawnSync(...a)) {
     timeout: 60_000,
     encoding: 'utf8',
   })
-  if (r.error || r.status !== 0) return { status: 'undetermined', why: `哨兵跑不出(rc=${r.status ?? '?'})` }
+  if (r.error || r.status !== 0)
+    return { status: 'undetermined', why: `哨兵跑不出(rc=${r.status ?? '?'})` }
   try {
-    const j = JSON.parse(String(r.stdout ?? '').trim().split(/\r?\n/).pop())
+    const j = JSON.parse(
+      String(r.stdout ?? '')
+        .trim()
+        .split(/\r?\n/)
+        .pop(),
+    )
     // 判据:有未合并条目且龄龄到阈(哨兵自己判 staleMin,分诊器只消费它的机读结论)
     if (j.overall === 'undetermined') return { status: 'undetermined', why: String(j.detail ?? '') }
     const stale = Number(j.count) > 0 && Number(j.ageMin) >= Number(j.staleMin)
@@ -459,7 +593,8 @@ function appendLedger(entry) {
 
 /** 今日已登记数(本器台账现读,配额判据;两面都按本地日切,不用 UTC 串直接比本地串) */
 export function registeredToday(ledger, now = new Date()) {
-  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const ymd = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const key = ymd(now)
   return ledger.filter((e) => {
     if (e.action !== 'registered') return false
@@ -470,7 +605,10 @@ export function registeredToday(ledger, now = new Date()) {
 
 /** 24h 窗同指纹去重 */
 export function recentlyRegistered(ledger, fp, now = Date.now()) {
-  return ledger.some((e) => e.action === 'registered' && e.fingerprint === fp && now - Date.parse(e.ts) < 24 * 3600_000)
+  return ledger.some(
+    (e) =>
+      e.action === 'registered' && e.fingerprint === fp && now - Date.parse(e.ts) < 24 * 3600_000,
+  )
 }
 
 /**
@@ -489,7 +627,12 @@ export function recentlyRegistered(ledger, fp, now = Date.now()) {
  *  - actions[].action ∈ 'register' | 'observed' | 'quota-deferred' | 'skip-dedupe'
  *  - quotaUsed: 若全部 register 真落库后的当日已登记数(供执行侧对账;dry-run 同口径占额)
  */
-export function planTriageActions({ findings = [], ledger = [], dailyQuota = 0, now = Date.now() } = {}) {
+export function planTriageActions({
+  findings = [],
+  ledger = [],
+  dailyQuota = 0,
+  now = Date.now(),
+} = {}) {
   let quotaUsed = registeredToday(ledger, new Date(now))
   const actions = []
   for (const f of findings) {
@@ -519,7 +662,10 @@ export function planTriageActions({ findings = [], ledger = [], dailyQuota = 0, 
  * 指纹**只留台账**(同源 24h 去重),不写进登记行:实测 12 位十六进制指纹会被守门 117(短 sha)
  * 判住、整块拒落 —— 身份不进文档,明细走台账/提交信息(§1 证据指针纪律)。
  */
-export function registerToPlan({ source, fingerprint, title, evidence }, spawn = (...a) => spawnSync(...a)) {
+export function registerToPlan(
+  { source, fingerprint, title, evidence },
+  spawn = (...a) => spawnSync(...a),
+) {
   mkdirSync(TMP_DIR, { recursive: true })
   const blockFile = join(TMP_DIR, `reg-${fingerprint}.md`)
   const day = new Date().toISOString().slice(0, 10)
@@ -549,7 +695,10 @@ export function registerToPlan({ source, fingerprint, title, evidence }, spawn =
   }
   const okOut = /回读|已在位/.test(String(r.stdout ?? ''))
   if (r.status !== 0 && !okOut) {
-    return { ok: false, why: `live-doc-edit rc=${r.status}:${String(r.stderr ?? r.stdout ?? '').slice(-160)}` }
+    return {
+      ok: false,
+      why: `live-doc-edit rc=${r.status}:${String(r.stderr ?? r.stdout ?? '').slice(-160)}`,
+    }
   }
   return { ok: true }
 }
@@ -568,7 +717,9 @@ async function runOnce({ dryRun = false } = {}) {
     return
   }
   const ledger = readTriageLedger()
-  console.log(`分诊轮:今日已登记 ${registeredToday(ledger)}/${cfg.dailyRegistrationQuota},台账 ${ledger.length} 行`)
+  console.log(
+    `分诊轮:今日已登记 ${registeredToday(ledger)}/${cfg.dailyRegistrationQuota},台账 ${ledger.length} 行`,
+  )
   const findings = []
   // 来源一:邮件投递连败
   if (cfg.sources.includes('mail-failure')) {
@@ -576,11 +727,25 @@ async function runOnce({ dryRun = false } = {}) {
     if (m.status === 'undetermined') {
       console.log(`  ℹ mail-failure:未判定(${m.why})`)
     } else if (m.failed24h >= 6) {
-      console.log(`  ⚠ mail-failure:24h failed=${m.failed24h} ≥6 ⇒ 观察类(升级量级,交既有到人链,不重复登记)`)
-      findings.push({ source: 'mail-failure', disposition: 'observe', fp: fingerprintOf('mail-failure', 'burst'), title: '', evidence: `24h failed=${m.failed24h}` })
+      console.log(
+        `  ⚠ mail-failure:24h failed=${m.failed24h} ≥6 ⇒ 观察类(升级量级,交既有到人链,不重复登记)`,
+      )
+      findings.push({
+        source: 'mail-failure',
+        disposition: 'observe',
+        fp: fingerprintOf('mail-failure', 'burst'),
+        title: '',
+        evidence: `24h failed=${m.failed24h}`,
+      })
     } else if (m.failed24h >= 2) {
       console.log(`  → mail-failure:24h failed=${m.failed24h} ∈[2,6) ⇒ 可派单(邮件通道排查)`)
-      findings.push({ source: 'mail-failure', disposition: 'register', fp: fingerprintOf('mail-failure', 'channel'), title: '邮件投递通道故障排查(24h 内连续失败 ≥2 封,查 SMTP 出口/进程/配额)', evidence: `failed=${m.failed24h}${m.lastWhy ? ` why=${m.lastWhy}` : ''}` })
+      findings.push({
+        source: 'mail-failure',
+        disposition: 'register',
+        fp: fingerprintOf('mail-failure', 'channel'),
+        title: '邮件投递通道故障排查(24h 内连续失败 ≥2 封,查 SMTP 出口/进程/配额)',
+        evidence: `failed=${m.failed24h}${m.lastWhy ? ` why=${m.lastWhy}` : ''}`,
+      })
     } else {
       console.log(`  ✅ mail-failure:24h failed=${m.failed24h} ⇒ 无发现`)
     }
@@ -592,7 +757,13 @@ async function runOnce({ dryRun = false } = {}) {
       console.log(`  ℹ index-unmerged:未判定(${i.why})`)
     } else if (i.stale) {
       console.log(`  ⚠ index-unmerged:count=${i.count} age=${i.ageMin}min ⇒ 观察类(既有到人链)`)
-      findings.push({ source: 'index-unmerged', disposition: 'observe', fp: fingerprintOf('index-unmerged', 'stale'), title: '', evidence: `count=${i.count} age=${i.ageMin}` })
+      findings.push({
+        source: 'index-unmerged',
+        disposition: 'observe',
+        fp: fingerprintOf('index-unmerged', 'stale'),
+        title: '',
+        evidence: `count=${i.count} age=${i.ageMin}`,
+      })
     } else {
       console.log(`  ✅ index-unmerged:无滞留 ⇒ 无发现`)
     }
@@ -611,7 +782,9 @@ async function runOnce({ dryRun = false } = {}) {
       const buckets = clusterRecords({ source: 'api-logs', records: a.records, ...cluster })
       if (buckets.length === 0) console.log('  ✅ api-logs:24h 窗内无 5xx/error 签名 ⇒ 无发现')
       for (const b of buckets) {
-        console.log(`  ${b.disposition === 'register' ? '→' : '⚠'} api-logs:同签名 ${b.count} 次 ${b.label} ⇒ ${b.disposition === 'register' ? '可派单' : '观察类(单次不够格)'}`)
+        console.log(
+          `  ${b.disposition === 'register' ? '→' : '⚠'} api-logs:同签名 ${b.count} 次 ${b.label} ⇒ ${b.disposition === 'register' ? '可派单' : '观察类(单次不够格)'}`,
+        )
         findings.push({
           source: 'api-logs',
           disposition: b.disposition,
@@ -631,7 +804,9 @@ async function runOnce({ dryRun = false } = {}) {
       const buckets = clusterRecords({ source: 'grafana-alerts', records: g.records, ...cluster })
       if (buckets.length === 0) console.log('  ✅ grafana-alerts:无活跃告警 ⇒ 无发现')
       for (const b of buckets) {
-        console.log(`  ${b.disposition === 'register' ? '→' : '⚠'} grafana-alerts:同签名 ${b.count} 个活跃实例 ${b.label} ⇒ ${b.disposition === 'register' ? '可派单' : '观察类(单实例,已有到人链)'}`)
+        console.log(
+          `  ${b.disposition === 'register' ? '→' : '⚠'} grafana-alerts:同签名 ${b.count} 个活跃实例 ${b.label} ⇒ ${b.disposition === 'register' ? '可派单' : '观察类(单实例,已有到人链)'}`,
+        )
         findings.push({
           source: 'grafana-alerts',
           disposition: b.disposition,
@@ -651,7 +826,9 @@ async function runOnce({ dryRun = false } = {}) {
       const buckets = clusterRecords({ source: 'user-feedback', records: u.records, ...cluster })
       if (buckets.length === 0) console.log('  ✅ user-feedback:导出件无未结反馈 ⇒ 无发现')
       for (const b of buckets) {
-        console.log(`  ${b.disposition === 'register' ? '→' : '⚠'} user-feedback:同签名 ${b.count} 条 ${b.label} ⇒ ${b.disposition === 'register' ? '可派单' : '观察类(单条不够格)'}`)
+        console.log(
+          `  ${b.disposition === 'register' ? '→' : '⚠'} user-feedback:同签名 ${b.count} 条 ${b.label} ⇒ ${b.disposition === 'register' ? '可派单' : '观察类(单条不够格)'}`,
+        )
         findings.push({
           source: 'user-feedback',
           disposition: b.disposition,
@@ -671,7 +848,13 @@ async function runOnce({ dryRun = false } = {}) {
         console.log(`  · dry-run:观察类不登记(${f.source} ${f.evidence})`)
         continue
       }
-      appendLedger({ mode: 'once', action: 'observed', source: f.source, fingerprint: f.fp, why: f.evidence })
+      appendLedger({
+        mode: 'once',
+        action: 'observed',
+        source: f.source,
+        fingerprint: f.fp,
+        why: f.evidence,
+      })
       continue
     }
     if (f.action === 'skip-dedupe') {
@@ -681,7 +864,13 @@ async function runOnce({ dryRun = false } = {}) {
     if (f.action === 'quota-deferred') {
       console.log(`  ⏸ 每日登记配额已满 ⇒ ${f.source} 留台账待明日`)
       if (dryRun) continue
-      appendLedger({ mode: 'once', action: 'quota-deferred', source: f.source, fingerprint: f.fp, why: f.evidence })
+      appendLedger({
+        mode: 'once',
+        action: 'quota-deferred',
+        source: f.source,
+        fingerprint: f.fp,
+        why: f.evidence,
+      })
       continue
     }
     // f.action === 'register'
@@ -690,14 +879,31 @@ async function runOnce({ dryRun = false } = {}) {
       // 与真跑同口径占配额:否则 dry-run 会把第 4 条也报成"将登记",与实跑配额不符
       continue
     }
-    const reg = registerToPlan({ source: f.source, fingerprint: f.fp, title: f.title, evidence: f.evidence })
+    const reg = registerToPlan({
+      source: f.source,
+      fingerprint: f.fp,
+      title: f.title,
+      evidence: f.evidence,
+    })
     if (!reg.ok) {
       console.error(`  ❌ 登记未判定:${reg.why}`)
-      appendLedger({ mode: 'once', action: 'register-failed', source: f.source, fingerprint: f.fp, why: reg.why })
+      appendLedger({
+        mode: 'once',
+        action: 'register-failed',
+        source: f.source,
+        fingerprint: f.fp,
+        why: reg.why,
+      })
       process.exitCode = 2
       continue
     }
-    appendLedger({ mode: 'once', action: 'registered', source: f.source, fingerprint: f.fp, why: f.evidence })
+    appendLedger({
+      mode: 'once',
+      action: 'registered',
+      source: f.source,
+      fingerprint: f.fp,
+      why: f.evidence,
+    })
     console.log(`  ✅ 已登记:${f.title}`)
   }
 }
@@ -712,68 +918,283 @@ async function selfTest() {
     }
   }
   console.log('self-test:')
-  ok('T1a 形状锁:合法配置过', (() => { try { return loadConfig(() => JSON.stringify({ enabled: false, dailyRegistrationQuota: 3, sources: ['mail-failure'] })).enabled === false } catch { return false } })())
-  ok('T1b 形状锁:未知来源拒', (() => { try { loadConfig(() => JSON.stringify({ enabled: true, dailyRegistrationQuota: 3, sources: ['everything'] })); return false } catch (e) { return e instanceof TriageShapeError } })())
-  ok('T1c 形状锁:配额 0 拒', (() => { try { loadConfig(() => JSON.stringify({ enabled: true, dailyRegistrationQuota: 0, sources: ['mail-failure'] })); return false } catch { return true } })())
-  ok('T1d 形状锁:新来源白名单过 / minOccurrences<2 拒', (() => {
-    try {
-      loadConfig(() => JSON.stringify({ enabled: true, dailyRegistrationQuota: 3, sources: ['api-logs', 'grafana-alerts', 'user-feedback'], clustering: { windowHours: 24, minOccurrences: 2 } }))
-    } catch {
-      return false
-    }
-    try {
-      loadConfig(() => JSON.stringify({ enabled: true, dailyRegistrationQuota: 3, sources: ['mail-failure'], clustering: { minOccurrences: 1 } }))
-      return false
-    } catch {
-      return true
-    }
-  })())
-  ok('T2a mail 台账缺 ⇒ 未判定(不记绿)', readMailFailures(() => { throw new Error('x') }).status === 'undetermined')
+  ok(
+    'T1a 形状锁:合法配置过',
+    (() => {
+      try {
+        return (
+          loadConfig(() =>
+            JSON.stringify({
+              enabled: false,
+              dailyRegistrationQuota: 3,
+              sources: ['mail-failure'],
+            }),
+          ).enabled === false
+        )
+      } catch {
+        return false
+      }
+    })(),
+  )
+  ok(
+    'T1b 形状锁:未知来源拒',
+    (() => {
+      try {
+        loadConfig(() =>
+          JSON.stringify({ enabled: true, dailyRegistrationQuota: 3, sources: ['everything'] }),
+        )
+        return false
+      } catch (e) {
+        return e instanceof TriageShapeError
+      }
+    })(),
+  )
+  ok(
+    'T1c 形状锁:配额 0 拒',
+    (() => {
+      try {
+        loadConfig(() =>
+          JSON.stringify({ enabled: true, dailyRegistrationQuota: 0, sources: ['mail-failure'] }),
+        )
+        return false
+      } catch {
+        return true
+      }
+    })(),
+  )
+  ok(
+    'T1d 形状锁:新来源白名单过 / minOccurrences<2 拒',
+    (() => {
+      try {
+        loadConfig(() =>
+          JSON.stringify({
+            enabled: true,
+            dailyRegistrationQuota: 3,
+            sources: ['api-logs', 'grafana-alerts', 'user-feedback'],
+            clustering: { windowHours: 24, minOccurrences: 2 },
+          }),
+        )
+      } catch {
+        return false
+      }
+      try {
+        loadConfig(() =>
+          JSON.stringify({
+            enabled: true,
+            dailyRegistrationQuota: 3,
+            sources: ['mail-failure'],
+            clustering: { minOccurrences: 1 },
+          }),
+        )
+        return false
+      } catch {
+        return true
+      }
+    })(),
+  )
+  ok(
+    'T2a mail 台账缺 ⇒ 未判定(不记绿)',
+    readMailFailures(() => {
+      throw new Error('x')
+    }).status === 'undetermined',
+  )
   const now = Date.now()
   const rows = [
-    JSON.stringify({ at: new Date(now - 3600_000).toISOString(), disposition: 'failed', why: 'conn refused' }),
-    JSON.stringify({ at: new Date(now - 7200_000).toISOString(), disposition: 'failed', why: 'timeout' }),
+    JSON.stringify({
+      at: new Date(now - 3600_000).toISOString(),
+      disposition: 'failed',
+      why: 'conn refused',
+    }),
+    JSON.stringify({
+      at: new Date(now - 7200_000).toISOString(),
+      disposition: 'failed',
+      why: 'timeout',
+    }),
     JSON.stringify({ at: new Date(now - 25 * 3600_000).toISOString(), disposition: 'failed' }),
     JSON.stringify({ at: new Date(now - 3600_000).toISOString(), disposition: 'delivered' }),
   ]
   const mail = readMailFailures(() => rows.join('\n'), now)
   ok('T2b 24h 窗计数(旧窗/成功不计)', mail.status === 'ok' && mail.failed24h === 2)
   ok('T2c 阈值分档:2 ⇒ register', mail.failed24h >= 2 && mail.failed24h < 6)
-  ok('T3 指纹稳定且区分源', fingerprintOf('a', 'x') === fingerprintOf('a', 'x') && fingerprintOf('a', 'x') !== fingerprintOf('b', 'x'))
-  ok('T6a 签名归一:UUID/数字/URL 查询串/时间戳归零', (() => {
-    const a = normalizeSignature('GET /api/u/550e8400-e29b-41d4-a716-446655440000?t=123 err at 2026-10-25T10:00:00Z code=42')
-    const b = normalizeSignature('GET /api/u/123e4567-e89b-12d3-a456-426614174000?t=999 err at 2026-10-24T09:11:22Z code=7')
-    return a === b && a.includes(':uuid') && a.includes(':ts')
-  })())
-  ok('T6b 签名归一:不同缺陷不并桶', normalizeSignature('boom timeout') !== normalizeSignature('boom conn refused'))
-  ok('T7a 聚类:同桶 ≥2 可派单 / 单次观察', (() => {
-    const recs = [
-      { at: new Date(now - 3600_000).toISOString(), objectText: 'GET /api/a/1 500 boom', label: 'GET /api/a/:n 500', evidence: 'e1' },
-      { at: new Date(now - 7200_000).toISOString(), objectText: 'GET /api/a/2 500 boom', label: 'GET /api/a/:n 500', evidence: 'e2' },
-      { at: new Date(now - 3 * 3600_000).toISOString(), objectText: 'GET /api/b/9 500 timeout', label: 'GET /api/b/:n 500', evidence: 'e3' },
-    ]
-    const buckets = clusterRecords({ source: 'api-logs', records: recs, windowHours: 24, minOccurrences: 2, now })
-    const a = buckets.find((b) => b.signature.includes('/api/a/'))
-    const b = buckets.find((b) => b.signature.includes('/api/b/'))
-    return buckets.length === 2 && a?.count === 2 && a.disposition === 'register' && b?.count === 1 && b.disposition === 'observe'
-  })())
-  ok('T7b 聚类:24h 窗外不计', (() => {
-    const buckets = clusterRecords({ source: 'api-logs', records: [{ at: new Date(now - 30 * 3600_000).toISOString(), objectText: 'GET /api/old/1 500 boom' }], windowHours: 24, minOccurrences: 2, now })
-    return buckets.length === 0
-  })())
+  ok(
+    'T3 指纹稳定且区分源',
+    fingerprintOf('a', 'x') === fingerprintOf('a', 'x') &&
+      fingerprintOf('a', 'x') !== fingerprintOf('b', 'x'),
+  )
+  ok(
+    'T6a 签名归一:UUID/数字/URL 查询串/时间戳归零',
+    (() => {
+      const a = normalizeSignature(
+        'GET /api/u/550e8400-e29b-41d4-a716-446655440000?t=123 err at 2026-10-25T10:00:00Z code=42',
+      )
+      const b = normalizeSignature(
+        'GET /api/u/123e4567-e89b-12d3-a456-426614174000?t=999 err at 2026-10-24T09:11:22Z code=7',
+      )
+      return a === b && a.includes(':uuid') && a.includes(':ts')
+    })(),
+  )
+  ok(
+    'T6b 签名归一:不同缺陷不并桶',
+    normalizeSignature('boom timeout') !== normalizeSignature('boom conn refused'),
+  )
+  ok(
+    'T7a 聚类:同桶 ≥2 可派单 / 单次观察',
+    (() => {
+      const recs = [
+        {
+          at: new Date(now - 3600_000).toISOString(),
+          objectText: 'GET /api/a/1 500 boom',
+          label: 'GET /api/a/:n 500',
+          evidence: 'e1',
+        },
+        {
+          at: new Date(now - 7200_000).toISOString(),
+          objectText: 'GET /api/a/2 500 boom',
+          label: 'GET /api/a/:n 500',
+          evidence: 'e2',
+        },
+        {
+          at: new Date(now - 3 * 3600_000).toISOString(),
+          objectText: 'GET /api/b/9 500 timeout',
+          label: 'GET /api/b/:n 500',
+          evidence: 'e3',
+        },
+      ]
+      const buckets = clusterRecords({
+        source: 'api-logs',
+        records: recs,
+        windowHours: 24,
+        minOccurrences: 2,
+        now,
+      })
+      const a = buckets.find((b) => b.signature.includes('/api/a/'))
+      const b = buckets.find((b) => b.signature.includes('/api/b/'))
+      return (
+        buckets.length === 2 &&
+        a?.count === 2 &&
+        a.disposition === 'register' &&
+        b?.count === 1 &&
+        b.disposition === 'observe'
+      )
+    })(),
+  )
+  ok(
+    'T7b 聚类:24h 窗外不计',
+    (() => {
+      const buckets = clusterRecords({
+        source: 'api-logs',
+        records: [
+          {
+            at: new Date(now - 30 * 3600_000).toISOString(),
+            objectText: 'GET /api/old/1 500 boom',
+          },
+        ],
+        windowHours: 24,
+        minOccurrences: 2,
+        now,
+      })
+      return buckets.length === 0
+    })(),
+  )
   const gNoUrl = await readGrafanaAlerts({ url: '' })
-  ok('T8 grafana-alerts 无 URL ⇒ 未判定', gNoUrl.status === 'undetermined' && /读取地址/.test(gNoUrl.why))
-  ok('T8b grafana-alerts 夹具:同 alertname 两实例聚成一桶', (() => {
-    const at = new Date(now - 3600_000).toISOString()
-    const recs = grafanaAlertRecords([
-      { labels: { alertname: 'ApiDown', severity: 'critical', instance: 'a:1' }, annotations: { summary: 'API 宕机' }, startsAt: at, status: { state: 'active' } },
-      { labels: { alertname: 'ApiDown', severity: 'critical', instance: 'b:2' }, annotations: { summary: 'API 宕机' }, startsAt: at, status: { state: 'active' } },
-    ], now)
-    const buckets = clusterRecords({ source: 'grafana-alerts', records: recs, windowHours: 24, minOccurrences: 2, now })
-    return buckets.length === 1 && buckets[0].count === 2 && buckets[0].disposition === 'register'
-  })())
-  ok('T9 user-feedback 无导出件 ⇒ 未判定(点名无既有消费面)', readUserFeedback({ jsonlPath: '' }).status === 'undetermined' && /无既有消费面/.test(readUserFeedback({ jsonlPath: '' }).why))
-  ok('T10 api-logs 夹具缺失 ⇒ 未判定', readApiLogs({ jsonlPath: join(TMP_DIR, 'missing-fixture.jsonl') }).status === 'undetermined')
+  ok(
+    'T8 grafana-alerts 无 URL ⇒ 未判定',
+    gNoUrl.status === 'undetermined' && /读取地址/.test(gNoUrl.why),
+  )
+  ok(
+    'T8b grafana-alerts 夹具:同 alertname 两实例聚成一桶',
+    (() => {
+      const at = new Date(now - 3600_000).toISOString()
+      const recs = grafanaAlertRecords(
+        [
+          {
+            labels: { alertname: 'ApiDown', severity: 'critical', instance: 'a:1' },
+            annotations: { summary: 'API 宕机' },
+            startsAt: at,
+            status: { state: 'active' },
+          },
+          {
+            labels: { alertname: 'ApiDown', severity: 'critical', instance: 'b:2' },
+            annotations: { summary: 'API 宕机' },
+            startsAt: at,
+            status: { state: 'active' },
+          },
+        ],
+        now,
+      )
+      const buckets = clusterRecords({
+        source: 'grafana-alerts',
+        records: recs,
+        windowHours: 24,
+        minOccurrences: 2,
+        now,
+      })
+      return buckets.length === 1 && buckets[0].count === 2 && buckets[0].disposition === 'register'
+    })(),
+  )
+  ok(
+    'T9 user-feedback 无导出件 ⇒ 转直连取数;两通道都取不到才未判定并点名',
+    (() => {
+      const und = readUserFeedback({
+        query: () => ({ status: 'undetermined', why: 'psql 不可用(自检夹具)' }),
+      })
+      const got = readUserFeedback({
+        query: () => ({
+          status: 'ok',
+          records: [
+            {
+              at: 'x',
+              label: 'bug:导出按钮坏了',
+              objectText: 'bug|导出按钮坏了|',
+              evidence: 'type=bug',
+            },
+          ],
+        }),
+      })
+      return (
+        und.status === 'undetermined' &&
+        /psql 不可用/.test(und.why) &&
+        got.status === 'ok' &&
+        got.records.length === 1
+      )
+    })(),
+  )
+  ok(
+    'T9b feedbacks SQL 单语句只读、夹住上限且不导出隐私列',
+    (() => {
+      const sql = buildFeedbacksSql(50)
+      return (
+        /^SELECT /.test(sql) &&
+        !sql.includes(';') &&
+        !/user_id|contact|admin_reply/i.test(sql) &&
+        /LIMIT 50$/.test(sql) &&
+        /NOT IN \('resolved', 'closed'\)/.test(sql) &&
+        /LIMIT 200$/.test(buildFeedbacksSql(99999))
+      )
+    })(),
+  )
+  ok(
+    'T9c parseFeedbackRows 与 JSONL 夹具同形,非可派单型/已结档/空文案一律剔掉',
+    (() => {
+      const rows = parseFeedbackRows(
+        [
+          'bug|登录失败|点了没反应|pending|2026-10-28 00:00:00',
+          'spam|x|y|pending|z',
+          'bug|已解决|c|resolved|w',
+          'other|||pending|v',
+        ].join('\n'),
+      )
+      return (
+        rows.length === 1 &&
+        rows[0].label === 'bug:登录失败' &&
+        rows[0].at === '2026-10-28 00:00:00'
+      )
+    })(),
+  )
+  ok(
+    'T10 api-logs 夹具缺失 ⇒ 未判定',
+    readApiLogs({ jsonlPath: join(TMP_DIR, 'missing-fixture.jsonl') }).status === 'undetermined',
+  )
   const ledger = [
     { action: 'registered', ts: new Date(now - 3600_000).toISOString(), fingerprint: 'fp1' },
     { action: 'registered', ts: new Date(now - 25 * 3600_000).toISOString(), fingerprint: 'fp2' },
@@ -805,10 +1226,17 @@ function printStatus() {
   }
   const ledger = readTriageLedger()
   const cluster = clusteringOf(cfg)
-  console.log(`分诊配置:enabled=${cfg.enabled} 来源(${cfg.sources.length})=${cfg.sources.join('/')} 每日登记配额 ${cfg.dailyRegistrationQuota} 今日已用 ${registeredToday(ledger)}`)
-  console.log(`聚类档:窗口 ${cluster.windowHours}h / 同桶下限 ${cluster.minOccurrences} 次(错误签名归一后指纹去重)`)
+  console.log(
+    `分诊配置:enabled=${cfg.enabled} 来源(${cfg.sources.length})=${cfg.sources.join('/')} 每日登记配额 ${cfg.dailyRegistrationQuota} 今日已用 ${registeredToday(ledger)}`,
+  )
+  console.log(
+    `聚类档:窗口 ${cluster.windowHours}h / 同桶下限 ${cluster.minOccurrences} 次(错误签名归一后指纹去重)`,
+  )
   console.log(`台账最近 5 条:`)
-  for (const e of ledger.slice(-5)) console.log(`  ${e.ts} ${e.mode}/${e.action}${e.source ? ` src=${e.source}` : ''}${e.why ? ` :: ${e.why}` : ''}`)
+  for (const e of ledger.slice(-5))
+    console.log(
+      `  ${e.ts} ${e.mode}/${e.action}${e.source ? ` src=${e.source}` : ''}${e.why ? ` :: ${e.why}` : ''}`,
+    )
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -855,5 +1283,9 @@ export const __test__ = {
   TRIAGE_LEDGER,
   MAIL_LEDGER,
   API_LOGS_DEFAULT_LIMIT,
+  FEEDBACKS_DEFAULT_LIMIT,
+  buildFeedbacksSql,
+  parseFeedbackRows,
+  feedbackRowsByQuery,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
