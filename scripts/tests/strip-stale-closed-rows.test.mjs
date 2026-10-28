@@ -644,8 +644,8 @@ test('D4 单源锁:档②三面判据(指纹/主键/台账凭据)import 既有�
   const src = readFileSync(new URL('../strip-stale-closed-rows.mjs', import.meta.url), 'utf8')
   assert.match(
     src,
-    /import\s*\{\s*extractTaskFingerprint\s*\}\s*from\s*'\.\/check-plan-task-duplicates\.mjs'/,
-    '题面指纹必须 import 守门 203 的 extractTaskFingerprint',
+    /import\s*\{\s*extractTaskFingerprint\s*,\s*bulletTitleKey\s*\}\s*from\s*'\.\/check-plan-task-duplicates\.mjs'/,
+    '题面指纹与正文粗体题面必须 import 守门 203 的同源实现',
   )
   assert.match(
     src,
@@ -688,5 +688,79 @@ test('H1-EOF 尾部未勾票:正确行号下逐字节存活;行号偏移吃它 �
     assert.equal(bad.ok, false, `偏移行号 ${JSON.stringify(drop)} 必须整批不落`)
     assert.equal(bad.text, undefined, '不落时不得产出结果文本(否则调用方可能照写)')
   }
+})
+
+// ── 档③ 正文粗体题面通道(2026-10-28 立;实测 319a35025fc7 卡死清扫器的真因)──────────
+// 事故面:正文条目 `- **⑦会话搬家——定案:先取证,不施工(2026-10-27)**:…` 在同枚提交里被
+// 同题 244 字版替换(粗体逐字相同),而 extractTaskFingerprint 只认 `- [ ]`/`- [x]` ⇒
+// 非登记行算不出指纹 ⇒ 判成「真丢失」⇒ 回捞腿整轮 undetermined ⇒ 完成即删清扫停摆一整天。
+const E_BULLET_OLD =
+  '- **⑦会话搬家——定案:先取证,不施工(2026-10-27)**:侦察结论——本机登录态文件与仓内协议层/credits 取证均零会话端点证据,故本轮只登记不动手;取证面见 commit message。'
+const E_BULLET_NEW =
+  '- **⑦会话搬家——定案:先取证,不施工(2026-10-27)**:侦察结论同上(正文改短,题面未动)。'
+const E_BULLET_OTHER = '- **⑧一键网页重登(2026-10-27 续)**:与⑦无关的另一件事。'
+
+function debtGitForFaces(parentFace, landedFace) {
+  return (args) => {
+    if (args[0] === 'log') return `${D_COMMIT}\u001f${D_PARENT}\u001f${S.sweepCommitSubject(2, 0)}\n`
+    const spec = String(args[2] ?? '')
+    if (spec === `${D_PARENT}:PROJECT_PLAN.md`) return parentFace
+    if (spec === `${D_COMMIT}:PROJECT_PLAN.md`) return landedFace
+    throw new Error(`夹具没有这一面:${spec}`)
+  }
+}
+
+test('E1 档③ 正向:正文条目同题改短(粗体逐字相同)⇒ 记已付,回捞腿 recovered 并补账', () => {
+  const parentFace = [D_OPEN, E_BULLET_OLD, D_R1, D_R2].join('\n') + '\n'
+  const landedFace = [D_OPEN, E_BULLET_NEW].join('\n') + '\n'
+  const diff = S.removedRowsBetween(parentFace, landedFace)
+  assert.deepEqual(diff.unexpected, [E_BULLET_OLD], '夹具成立性:该条目必须真落进「非已勾行」桶')
+  const adj = S.adjudicateUnexpectedOpenRows([E_BULLET_OLD], {
+    landedText: landedFace,
+    headText: null,
+    ledgerPool: null,
+    archivePool: null,
+  })
+  assert.equal(adj.lost.length, 0, '同题粗体仍在落地面 ⇒ 是就地改写,不是丢失')
+  assert.match(adj.paid[0].via, /正文粗体题面/, '必须点名由哪一条通道接住')
+
+  const dir = mkScratch('strip-closed-e1-')
+  let rec = null
+  try {
+    rec = S.reconcileDropLedgerDebt({ root: dir, gitRun: debtGitForFaces(parentFace, landedFace) })
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+  assert.equal(rec.state, 'recovered', `同题改短不得再拦补账,实得 state=${rec.state} why=${rec.why}`)
+  assert.equal(rec.written, 2, '两枚已勾行的留痕必须补齐')
+  assert.equal(rec.undetermined.length, 0)
+})
+
+test('E2 档③ 反证:正文条目真被吞(面上无同题粗体)⇒ 照旧 undetermined 且零写入', () => {
+  const parentFace = [D_OPEN, E_BULLET_OLD, D_R1].join('\n') + '\n'
+  const landedFace = [D_OPEN, E_BULLET_OTHER].join('\n') + '\n'
+  const dir = mkScratch('strip-closed-e2-')
+  let rec = null
+  try {
+    rec = S.reconcileDropLedgerDebt({ root: dir, gitRun: debtGitForFaces(parentFace, landedFace) })
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+  assert.equal(rec.state, 'undetermined', `真丢失必须仍判得出来,实得 state=${rec.state}`)
+  assert.equal(rec.written, 0, '§0.10:前提破了就一条不写')
+  assert.match(rec.undetermined[0].why, /非登记行 1/)
+})
+
+test('E3 档③ 门槛:粗体过短不参与匹配;登记行一律走指纹(不在本通道另立一套)', async () => {
+  const { bulletTitleKey } = await import('../check-plan-task-duplicates.mjs')
+  assert.equal(bulletTitleKey('- **补充**:过短的粗体不当题面'), null, '权重 < 16 必须返回 null')
+  assert.equal(bulletTitleKey(D_OPEN), null, '登记行不归本通道')
+  assert.equal(bulletTitleKey('- 无粗体的普通条目:也不归本通道'), null)
+  assert.ok(bulletTitleKey(E_BULLET_OLD), '正常题面必须算得出键')
+  assert.equal(
+    bulletTitleKey(E_BULLET_OLD),
+    bulletTitleKey(E_BULLET_NEW),
+    '同题新旧两版必须算出同一个键(否则改了日期/标点就失效)',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
