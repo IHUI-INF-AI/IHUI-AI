@@ -1062,7 +1062,7 @@ function failPhone(code: Exclude<CompletePhoneCode, 'ok'>, message: string): Com
 async function applyPhoneCompletion(
   row: AiRelayAccountPool,
   phone: string,
-  via: 'manual' | 'match',
+  via: 'manual' | 'match' | 'owner_override',
 ): Promise<CompletePhoneResult> {
   const oldName = row.name ?? ''
   const maskShape = detectPhoneMask(oldName)
@@ -1141,11 +1141,15 @@ async function applyPhoneCompletion(
  * 单账号人工补全手机号。
  * 校验链:全号形态 → 行存在 → 掩码归位吻合(现名是掩码时)→ 现名已是全号则拒绝换号。
  * 现名是昵称/占位(非掩码非全号)允许直接落成全号 —— 统一命名规约本就要求全号。
+ * opts.force=true 只放开掩码吻合闸门(机主换绑场景:掩码是旧绑定号,新全号对不上);
+ * already_full/幂等分支不受 force 影响(现名已是全号仍须重导入,防误覆盖活号)。
+ * force 调用应配 via='owner_override',归档的 phoneMask.via 留运维痕迹。
  */
 export async function completeAccountPhone(
   accountId: string,
   phone: string,
-  via: 'manual' | 'match' = 'manual',
+  via: 'manual' | 'match' | 'owner_override' = 'manual',
+  opts?: { force?: boolean },
 ): Promise<CompletePhoneResult> {
   const p = phone.trim()
   if (!isFullPhone(p)) {
@@ -1162,10 +1166,10 @@ export async function completeAccountPhone(
   if (!row) return failPhone('not_found', '账号不存在')
   const oldName = row.name ?? ''
   const maskShape = detectPhoneMask(oldName)
-  if (maskShape && !phoneMatchesMask(p, maskShape)) {
+  if (!opts?.force && maskShape && !phoneMatchesMask(p, maskShape)) {
     return failPhone(
       'mask_mismatch',
-      `与池内掩码 ${maskShape.mask} 前3后2不吻合,拒绝归位(防止张冠李戴)`,
+      `与池内掩码 ${maskShape.mask} 前3后2不吻合,拒绝归位(防止张冠李戴);确属机主换绑可带 force=true 强制`,
     )
   }
   if (!maskShape && isFullPhone(oldName)) {

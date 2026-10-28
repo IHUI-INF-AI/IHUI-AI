@@ -159,7 +159,9 @@ describe('POST /admin/relay/accounts/:id/complete-phone', () => {
       payload: { phone: '18012345669' },
     })
     expect(res.statusCode).toBe(200)
-    expect(hoisted.completeAccountPhone).toHaveBeenCalledWith('row-1', '18012345669')
+    expect(hoisted.completeAccountPhone).toHaveBeenCalledWith('row-1', '18012345669', 'manual', {
+      force: false,
+    })
     const body = res.json()
     expect(body.code).toBe(0)
     expect(body.data).toMatchObject({
@@ -169,6 +171,23 @@ describe('POST /admin/relay/accounts/:id/complete-phone', () => {
       changed: true,
     })
     expect(JSON.stringify(body)).not.toContain('tok-1')
+  })
+
+  it('body.force=true → 透传机主强制通道(via=owner_override)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/row-1/complete-phone',
+      payload: { phone: '18773274826', force: true },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(hoisted.completeAccountPhone).toHaveBeenCalledWith(
+      'row-1',
+      '18773274826',
+      'owner_override',
+      {
+        force: true,
+      },
+    )
   })
 
   it('掩码形态入参 → 400(Zod 闸门,不进 service)', async () => {
