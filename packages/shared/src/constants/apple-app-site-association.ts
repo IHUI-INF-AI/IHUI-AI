@@ -46,21 +46,43 @@ export const APPLE_UNIVERSAL_LINK_COMPONENTS: Array<Record<string, string>> = [
   { '/': '/*' },
 ]
 
+/** Apple 硬性要求:该路径的 Content-Type 必须为 application/json */
+export const APPLE_AASA_CONTENT_TYPE = 'application/json; charset=utf-8'
+/** 缓存语义两端必须一致,否则同一份内容在两个入口的有效期不同 */
+export const APPLE_AASA_CACHE_CONTROL =
+  'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400'
+
+export interface AppleAppIdOptions {
+  /** `<TeamID>.<BundleID>`,未配 Team ID 时用占位符 */
+  appId: string
+  /** 真实 Team ID;未配置为 null(调用方据此判断是否处于占位态) */
+  teamId: string | null
+  bundleId: string
+}
+
 /**
- * 构建 AASA。纯函数,便于两端复用与单测。
+ * 读取并归一化 Team ID / Bundle ID,拼出 appID。
+ * 纯函数:调用方把 process.env 传进来,便于单测与两端共用。
  */
-export function buildAppleAppSiteAssociation(
+export function readAppleAppIdOptions(
   env: AppleAppSiteAssociationEnv = {},
-): AppleAppSiteAssociation {
+): AppleAppIdOptions {
   const teamId = (env.APPLE_TEAM_ID ?? env.NEXT_PUBLIC_APPLE_TEAM_ID ?? '').trim()
   const bundleId = (env.NEXT_PUBLIC_APPLE_APP_BUNDLE_ID ?? DEFAULT_APPLE_APP_BUNDLE_ID).trim()
   const appId = teamId ? `${teamId}.${bundleId}` : `${PLACEHOLDER_APPLE_TEAM_ID}.${bundleId}`
 
+  return { appId, teamId: teamId || null, bundleId }
+}
+
+/** 纯组装:AASA JSON 的形状只在这里定义一次 */
+export function buildAppleAppSiteAssociationBody(
+  options: AppleAppIdOptions,
+): AppleAppSiteAssociation {
   return {
     applinks: {
       details: [
         {
-          appIDs: [appId],
+          appIDs: [options.appId],
           components: APPLE_UNIVERSAL_LINK_COMPONENTS,
         },
       ],
@@ -68,7 +90,16 @@ export function buildAppleAppSiteAssociation(
   }
 }
 
-/** 缓存头与 web route handler 保持一致,避免两端缓存语义漂开 */
-export const APPLE_APP_SITE_ASSOCIATION_CACHE_CONTROL =
-  'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400'
+/**
+ * 一步到位的便捷入口(api 侧用)。刻意只是上面两步的组合,
+ * 不再复制一遍取源逻辑 —— §0.6 单一真相源。
+ */
+export function buildAppleAppSiteAssociation(
+  env: AppleAppSiteAssociationEnv = {},
+): AppleAppSiteAssociation {
+  return buildAppleAppSiteAssociationBody(readAppleAppIdOptions(env))
+}
+
+/** 向后兼容别名:api 路由早期用的是这个名字,保留以免两处各写一份字符串 */
+export const APPLE_APP_SITE_ASSOCIATION_CACHE_CONTROL = APPLE_AASA_CACHE_CONTROL
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
