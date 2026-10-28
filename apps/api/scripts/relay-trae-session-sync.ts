@@ -37,6 +37,15 @@ const { and, eq, sql } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { encryptField, decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
+// 判据 2026-10-28 提取到 src/services(§0.6:trae/qoder 两条回灌腿共用一份)
+const decision = await import('../src/services/relay-session-sync-decision.js')
+export const decideSync = decision.decideSync
+export const parseIso = decision.parseIso
+export type {
+  DecideInput,
+  SyncDecision,
+  SyncReason,
+} from '../src/services/relay-session-sync-decision.js'
 
 export interface SyncCandidate {
   uid: string
@@ -60,65 +69,6 @@ export interface SyncInputPayload {
   meta?: Record<string, unknown>
 }
 
-export interface DecideInput {
-  poolToken: string | null
-  poolTokenExpiresAt: Date | null
-  poolRefreshExpiresAt: Date | null
-  clientToken: string
-  clientRefreshToken: string | null
-  clientExpiresAt: Date | null
-  clientRefreshExpiresAt: Date | null
-}
-
-export type SyncReason = 'same-token' | 'pool-newer' | 'client-newer' | 'client-rotated' | 'apply'
-
-export interface SyncDecision {
-  apply: boolean
-  reason: SyncReason
-  next: {
-    token: string
-    /** null = 客户端没给 refreshToken,池内该列保持不动 */
-    refreshToken: string | null
-    tokenExpiresAt: Date | null
-    refreshExpiresAt: Date | null
-  }
-}
-
-/** 单一判据源:决定客户端票是否应写进池(详见文件头)。 */
-export function decideSync(input: DecideInput): SyncDecision {
-  const clientMs = input.clientExpiresAt?.getTime() ?? null
-  const poolMs = input.poolTokenExpiresAt?.getTime() ?? null
-  const next = {
-    token: input.clientToken,
-    refreshToken: input.clientRefreshToken,
-    tokenExpiresAt: input.clientExpiresAt ?? input.poolTokenExpiresAt,
-    refreshExpiresAt: input.clientRefreshExpiresAt ?? input.poolRefreshExpiresAt,
-  }
-  if (input.clientToken === input.poolToken) {
-    return { apply: false, reason: 'same-token', next }
-  }
-  if (clientMs !== null && poolMs !== null && clientMs < poolMs) {
-    // 池内更新:可能来自"票已过期后的兜底续期",客户端旧票绝不允许回写覆盖
-    return {
-      apply: false,
-      reason: 'pool-newer',
-      next: {
-        ...next,
-        token: input.poolToken ?? input.clientToken,
-        tokenExpiresAt: input.poolTokenExpiresAt,
-        refreshExpiresAt: input.poolRefreshExpiresAt,
-      },
-    }
-  }
-  const reason: SyncReason =
-    clientMs !== null && poolMs !== null && clientMs > poolMs
-      ? 'client-newer'
-      : clientMs !== null && poolMs !== null
-        ? 'client-rotated'
-        : 'apply'
-  return { apply: true, reason, next }
-}
-
 interface RowOutcome {
   uid: string
   decision: SyncReason
@@ -136,12 +86,6 @@ export interface SyncSummary {
   missing: number
   failed: number
   rows: RowOutcome[]
-}
-
-export function parseIso(value: string | null | undefined): Date | null {
-  if (value === null || value === undefined || value === '') return null
-  const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? null : d
 }
 
 async function readStdin(): Promise<string> {
