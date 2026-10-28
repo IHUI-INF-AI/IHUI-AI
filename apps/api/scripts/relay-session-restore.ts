@@ -100,7 +100,7 @@ export function loadManifest(snapshotDir: string): BackupManifest {
     const enc = (f as { encoding?: unknown }).encoding
     if (enc !== undefined && enc !== 'gzip') {
       throw new Error(
-        `manifest 条目压缩标记 encoding=${JSON.stringify(enc)} 未知: ${f.rel}(仅认 'gzip',宁拒不错做)`,
+        `manifest 条目压缩标记 encoding=${JSON.stringify(enc).slice(0, 40)} 未知: ${f.rel}(仅认 'gzip',宁拒不错做)`,
       )
     }
   }
