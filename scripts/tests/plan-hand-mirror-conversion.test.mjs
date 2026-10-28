@@ -206,4 +206,26 @@ test('M16 客户端分页:本地可见量递增 ⇒ 不算要下一页;真数据
     false,
   )
 })
+
+test('M17 跨端通用能力按类别销账:壳侧确有该类实现才销,平台独占能力永在表外', () => {
+  const pageTokens = () => new Set(['@/api', 'Taro.navigateTo', 'Taro.showToast', 'useShareAppMessage'])
+  const shell =
+    "import { fetchApi } from '@ihui/api-client'\nnavigation.navigate('X')\nappAlert('保存失败')"
+  const t1 = pageTokens()
+  assert.deepEqual(conv.shellCapabilityCovered(t1, shell), ['取数', '导航', '用户提示'])
+  // 平台独占(小程序分享)不在表里:壳再会导航也销不掉它 —— 转壳就是真丢功能
+  assert.deepEqual([...t1], ['useShareAppMessage'])
+  // 反面:壳只有 onPress 回调(跳转外包给宿主,宿主是否真接了这一跳没人证明)⇒ 导航不销
+  const t2 = pageTokens()
+  conv.shellCapabilityCovered(t2, 'onPressItem={() => {}}')
+  assert.ok(t2.has('Taro.navigateTo'))
+  // 反面:只在注释里提过取数 ⇒ 不销(注释不是实现,与 S19 同型)
+  const t3 = pageTokens()
+  conv.shellCapabilityCovered(t3, '// 壳用 @ihui/api-client 取数')
+  assert.ok(t3.has('@/api'))
+  // 反面:空壳 ⇒ 一族都不销,一个 token 都不许少
+  const t4 = pageTokens()
+  assert.deepEqual(conv.shellCapabilityCovered(t4, ''), [])
+  assert.equal(t4.size, 4)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

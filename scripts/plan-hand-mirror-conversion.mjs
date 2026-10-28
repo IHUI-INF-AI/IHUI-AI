@@ -419,6 +419,50 @@ export function apiEndpointsCovered(pageText, shellText, apiModuleText = '') {
 }
 
 /**
+ * 跨端通用能力 → 壳侧等价实现(2026-10-29 立)。
+ *
+ * 为什么按"能力类别"而不是"同一目标"对账:转壳后小程序渲染的是 **RN 壳本体**
+ * (`@rn-shells/<X>` → `apps/mobile-rn/src/screens/<X>.tsx`,见 gen-miniapp-mirror 的生成页头),
+ * 页面那一整份实现被替换 —— 页面里的 `get('/llm/models')` 不是"被丢掉",而是由 RN 壳的
+ * `getAiModels('/ai/models')` 承接。现读 46 页卡 @/api、26 页卡 navigateTo,逐页核对两端
+ * 目标发现绝大多数属"各写一份、目标不同"(如退款列表页跳 OrderDetail 而壳跳 RefundDetail);
+ * 按"同一目标"判会把它们全判成私有能力,而目标恰恰是让小程序跟随 RN。
+ *
+ * 判据仍要求**壳侧有该类能力的实现证据**(空壳不销);平台独占能力故意不进本表 ——
+ * 小程序分享/选图/选文件/音频/屏幕捕获/震动/设置页在 RN 端没有等价物,转壳就是真丢功能。
+ */
+export const SHELL_CAPABILITY_RULES = [
+  {
+    what: '取数',
+    tokens: ['@/api', '@/api/index', '@/api/social'],
+    shellEvidence: (s) => /from\s+['"]@ihui\/api-client['"]/.test(s) || /fetchApi\s*\(/.test(s),
+  },
+  {
+    what: '导航',
+    tokens: ['Taro.navigateTo', 'Taro.redirectTo', 'Taro.switchTab', 'Taro.reLaunch'],
+    shellEvidence: (s) => /navigation\.(?:navigate|push|replace)\s*\(|router\.(?:push|replace)\s*\(/.test(s),
+  },
+  {
+    what: '用户提示',
+    tokens: ['Taro.showToast'],
+    shellEvidence: (s) => /appAlert\s*\(|Alert\.alert\s*\(|setError\s*\(|errorText/.test(s),
+  },
+]
+
+/** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。 */
+export function shellCapabilityCovered(pageTokens, shellText) {
+  const s = maskComments(String(shellText ?? ''))
+  const cleared = []
+  for (const rule of SHELL_CAPABILITY_RULES) {
+    if (!rule.tokens.some((t) => pageTokens.has(t))) continue
+    if (!rule.shellEvidence(s)) continue
+    for (const t of rule.tokens) pageTokens.delete(t)
+    cleared.push(rule.what)
+  }
+  return cleared
+}
+
+/**
  * `@/api` 模块的「符号 → 端点集」表(2026-10-29 立)。
  *
  * 为什么需要:上面的判据原先只认页面**直接**调通用请求器的形态,而仓内页面普遍写
@@ -750,6 +794,8 @@ export function judgeConversion({
   // 页面直接打的端点全部被壳覆盖 ⇒ 数据由壳承担(端点不重合的一律不销账)
   if (apiEndpointsCovered(pageText, shellText, apiModuleText))
     for (const tok of ['@/api', '@/api/index', '@/api/social']) pageTokens.delete(tok)
+  // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)
+  shellCapabilityCovered(pageTokens, shellText)
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -1230,6 +1276,8 @@ export const __test__ = {
   backFallbackOnly,
   apiEndpointsCovered,
   apiSymbolEndpoints,
+  shellCapabilityCovered,
+  SHELL_CAPABILITY_RULES,
   normEndpoint,
   ROOT,
 }
