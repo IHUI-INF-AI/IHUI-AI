@@ -29,24 +29,36 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 // 被测判据的唯一来源 = 生产文件本身(§22c:不得在测试里再抄一份"什么算登记行/什么算复制件")。
 import { __test__ as scrubTool } from '../scrub-declared-removals.mjs'
-import { archiveDropCaps, selectMovedOut, selectMovedOutForDisposition } from '../lib/live-doc-archive-drops.mjs'
+import {
+  archiveDropCaps,
+  selectMovedOut,
+  selectMovedOutForDisposition,
+} from '../lib/live-doc-archive-drops.mjs'
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GIT = 'git'
 
 const KEEP_A = '- 甲:文档里一直在册的一行正文,长度足够避开短行过滤,任何一维都不该碰到它'
 const KEEP_B = '- 乙:另一行一直在册的正文,同样够长,用来证明维五不会连坐整篇文档'
-const MOVED_1 = '- **迁出丙**(1):这一整行在清偿那一刻被逐字搬进 archive 的迁出批次,文档里只留指针注记'
+const MOVED_1 =
+  '- **迁出丙**(1):这一整行在清偿那一刻被逐字搬进 archive 的迁出批次,文档里只留指针注记'
 const MOVED_2 = '- **迁出丁**(2):第二行迁出正文,搬走之后原位换成一行短指针,长度也避开短行过滤'
 const XCONTROL =
   '- XCONTROL 别人本轮真新增的一行正文:不在任何归档批次里,归并必须照样补回、修后必须照样留着'
-const OLD_BATCH_LINE = '- 旧批(2026-10-20):上一轮清偿搬走的正文,长度足够,本轮与它无关只证明同族件在位'
+const OLD_BATCH_LINE =
+  '- 旧批(2026-10-20):上一轮清偿搬走的正文,长度足够,本轮与它无关只证明同族件在位'
 
 /**
  * 造一个三方现场:HEAD = 未压版(含两行迁出正文 + 一行别人真新增),工作树 = 压好版,
  * 迁出批次**只在盘上、不在 HEAD 面**(§1 两步走的在飞窗口,实测 11:40 写 → 11:54 入库)。
  */
-function seed({ withHeadBatch = true, batchOnDisk = true, snapshotOnly = false, noArchiveDir = false } = {}) {
+function seed({
+  withHeadBatch = true,
+  batchOnDisk = true,
+  snapshotOnly = false,
+  noArchiveDir = false,
+  bypassLanding = false,
+} = {}) {
   const dir = mkScratch('gb22-revive-')
   const g = (...a) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
@@ -69,23 +81,55 @@ function seed({ withHeadBatch = true, batchOnDisk = true, snapshotOnly = false, 
   if (!noArchiveDir) {
     if (snapshotOnly) {
       // 同族件里只有一份"整篇复制件"(它含处置侧大部分正文行)⇒ 不构成移出批次
-      write('.ihui-agent/archive/AGENTS_full-pre-compact-夹具.md', [KEEP_A, KEEP_B, MOVED_1].join('\n'))
+      write(
+        '.ihui-agent/archive/AGENTS_full-pre-compact-夹具.md',
+        [KEEP_A, KEEP_B, MOVED_1].join('\n'),
+      )
     } else if (withHeadBatch) {
       write('.ihui-agent/archive/AGENTS_trim-夹具旧批.md', OLD_BATCH_LINE)
     }
   }
   write('AGENTS.md', [KEEP_A, KEEP_B, MOVED_1, MOVED_2, XCONTROL].join('\n'))
   write('.gitignore', '.ihui-agent/tmp/\n')
+  // bypassLanding(2026-10-29 补):旁路落地现场 —— 消重走对象空间已落 HEAD,HEAD 是压好版,
+  // 而工作树仍是那份未消的滞后副本。既有 8 例走的都是 gb22 那一型(HEAD 未压/工作树已压),
+  // 这里只在 option 为真时改写落盘面,原路径逐字节不动。
+  if (bypassLanding) {
+    write(
+      'AGENTS.md',
+      [KEEP_A, KEEP_B, '> 迁出批次逐字见 `.ihui-agent/archive/AGENTS_trim-夹具批次.md`'].join(
+        '\n',
+      ) + '\n',
+    )
+  }
   g('add', '-A')
-  g('commit', '-qm', 'seed: HEAD = 未压版(迁出行 + XCONTROL)')
+  g(
+    'commit',
+    '-qm',
+    bypassLanding
+      ? 'seed: HEAD = 压好版(旁路落地已入库)'
+      : 'seed: HEAD = 未压版(迁出行 + XCONTROL)',
+  )
   // 摘除台账夹具:一枚不在任何文档里的登记行 ⇒ "台账非空"前置成立,四维照常跑,红/绿只由维五决定
-  write('.ihui-agent/state/stale-claim-strip.jsonl', JSON.stringify({ rowBefore: '- [ ] G-99999 夹具占位行:不在任何文档里', kind: 'fixture' }) + '\n')
-  const compressed = [KEEP_A, KEEP_B, '> 迁出批次逐字见 `.ihui-agent/archive/AGENTS_trim-夹具批次.md`'].join('\n') + '\n'
+  write(
+    '.ihui-agent/state/stale-claim-strip.jsonl',
+    JSON.stringify({ rowBefore: '- [ ] G-99999 夹具占位行:不在任何文档里', kind: 'fixture' }) +
+      '\n',
+  )
+  const compressed =
+    [KEEP_A, KEEP_B, '> 迁出批次逐字见 `.ihui-agent/archive/AGENTS_trim-夹具批次.md`'].join('\n') +
+    '\n'
   write('AGENTS.md', compressed)
   if (batchOnDisk && !snapshotOnly && !noArchiveDir) {
     write('.ihui-agent/archive/AGENTS_trim-夹具批次.md', [MOVED_1, MOVED_2].join('\n') + '\n')
   }
   write('.ihui-agent/tmp/disposition.txt', compressed)
+  if (bypassLanding) {
+    // 滞后工作树 = 未压版;收编器交给复洁器的"处置侧快照"正是这份脏副本 ⇒ 单看它 0 份不成立
+    const lagging = [KEEP_A, KEEP_B, MOVED_1, MOVED_2, XCONTROL].join('\n') + '\n'
+    write('AGENTS.md', lagging)
+    write('.ihui-agent/tmp/disposition.txt', lagging)
+  }
   const run = (script, args) => {
     try {
       return {
@@ -114,11 +158,16 @@ test('① 正控:在飞窗口里 merge-live-doc --apply 确实把迁出行原样
     const m = run('merge-live-doc.mjs', ['--file', 'AGENTS.md', '--apply'])
     assert.equal(m.code, 0, `归并退出码 ${m.code}\n${m.out}`)
     const after = doc()
-    assert.ok(after.includes(MOVED_1) && after.includes(MOVED_2), '正控失效:迁出行没被插回,本夹具证明不了任何事')
+    assert.ok(
+      after.includes(MOVED_1) && after.includes(MOVED_2),
+      '正控失效:迁出行没被插回,本夹具证明不了任何事',
+    )
     assert.ok(after.includes(XCONTROL), '别人真新增的行必须照样补回')
     assert.ok(after.length > compressed.length, '插回后必须变长')
     // 备份件 = 归并那一刻的盘上正文(2026-10-28 现场的 `.ihui-agent/tmp/AGENTS.md.<stamp>.pre-merge.bak`)
-    const baks = readdirSync(join(dir, '.ihui-agent/tmp')).filter((f) => f.endsWith('.pre-merge.bak'))
+    const baks = readdirSync(join(dir, '.ihui-agent/tmp')).filter((f) =>
+      f.endsWith('.pre-merge.bak'),
+    )
     assert.equal(baks.length, 1, `应恰有一枚归并备份件,实得 ${baks.length}`)
     assert.equal(
       readFileSync(join(dir, '.ihui-agent/tmp', baks[0]), 'utf8'),
@@ -131,19 +180,33 @@ test('① 正控:在飞窗口里 merge-live-doc --apply 确实把迁出行原样
 })
 
 test('② 修控:带 --archive-disposition 的复洁把插回的迁出行放回原样,正向对照仍保留', () => {
-  const { dir, run, doc, compressed } = seed()
+  const { dir, run, doc } = seed()
   try {
     run('merge-live-doc.mjs', ['--file', 'AGENTS.md', '--apply'])
-    const s = run('scrub-declared-removals.mjs', ['AGENTS.md', '--archive-disposition', '.ihui-agent/tmp/disposition.txt'])
+    const s = run('scrub-declared-removals.mjs', [
+      'AGENTS.md',
+      '--archive-disposition',
+      '.ihui-agent/tmp/disposition.txt',
+    ])
     const line = (s.out.match(/SCRUB-RESULT.*/) || [''])[0]
     assert.match(line, /state=dropped/)
     assert.match(line, /archive=2/, `维五应恰剔 2 行,实得:\n${s.out}`)
     assert.match(line, /verbatim=0 body=0/, '既有四维的桶不得被本维喂数')
     const after = doc()
-    assert.ok(!after.includes(MOVED_1) && !after.includes(MOVED_2), '迁出行必须回到"已被处置"的形态')
+    assert.ok(
+      !after.includes(MOVED_1) && !after.includes(MOVED_2),
+      '迁出行必须回到"已被处置"的形态',
+    )
     assert.ok(after.includes(KEEP_A) && after.includes(KEEP_B), '在册正文一行不许少')
-    assert.ok(after.includes(XCONTROL), '正向对照:别人本轮真新增的行必须照样留着(否则等于把归并关了)')
-    const again = run('scrub-declared-removals.mjs', ['AGENTS.md', '--archive-disposition', '.ihui-agent/tmp/disposition.txt'])
+    assert.ok(
+      after.includes(XCONTROL),
+      '正向对照:别人本轮真新增的行必须照样留着(否则等于把归并关了)',
+    )
+    const again = run('scrub-declared-removals.mjs', [
+      'AGENTS.md',
+      '--archive-disposition',
+      '.ihui-agent/tmp/disposition.txt',
+    ])
     assert.match(again.out, /state=clean dropped=0/, '幂等:同一把尺子复判不得再剔')
     assert.ok(doc().includes(XCONTROL), '第二轮也不许吃掉正向对照')
   } finally {
@@ -163,7 +226,10 @@ test('③ 反控:不传旗 ⇒ 既有四维行为逐字不变(实测现场那句
       '未启用本维时读数必须显式声明"没请求过"(不得留一个空档让人误读成"归档维判过了")',
     )
     const after = doc()
-    assert.ok(after.includes(MOVED_1) && after.includes(MOVED_2), '不传旗时迁出行照旧留着 —— 这就是 2026-10-28 现场')
+    assert.ok(
+      after.includes(MOVED_1) && after.includes(MOVED_2),
+      '不传旗时迁出行照旧留着 —— 这就是 2026-10-28 现场',
+    )
   } finally {
     rmScratch(dir)
   }
@@ -174,7 +240,11 @@ test('④ 失效方向:处置侧文本取不到 ⇒ exit 2 未判定,文档一�
   try {
     run('merge-live-doc.mjs', ['--file', 'AGENTS.md', '--apply'])
     const before = doc()
-    const s = run('scrub-declared-removals.mjs', ['AGENTS.md', '--archive-disposition', '.ihui-agent/tmp/没有这个文件.txt'])
+    const s = run('scrub-declared-removals.mjs', [
+      'AGENTS.md',
+      '--archive-disposition',
+      '.ihui-agent/tmp/没有这个文件.txt',
+    ])
     assert.equal(s.code, 2, `应落未判定,实得 ${s.code}\n${s.out}`)
     assert.match(s.out, /state=undetermined.*处置侧文本/s)
     assert.equal(doc(), before, '未判定不得动文档(失效方向恒为多留一份)')
@@ -188,7 +258,11 @@ test('⑤ 失效方向:同族归档件 0 份 ⇒ 凭据未取得,exit 2 且不�
   try {
     run('merge-live-doc.mjs', ['--file', 'AGENTS.md', '--apply'])
     const before = doc()
-    const s = run('scrub-declared-removals.mjs', ['AGENTS.md', '--archive-disposition', '.ihui-agent/tmp/disposition.txt'])
+    const s = run('scrub-declared-removals.mjs', [
+      'AGENTS.md',
+      '--archive-disposition',
+      '.ihui-agent/tmp/disposition.txt',
+    ])
     assert.equal(s.code, 2)
     assert.match(s.out, /state=undetermined.*凭据未取得/s)
     assert.equal(doc(), before, '取不到凭据时一条不扣')
@@ -201,7 +275,11 @@ test('⑥ 失效方向:同族件是整篇复制件 ⇒ 不作移出批次凭据(
   const { dir, run, doc } = seed({ snapshotOnly: true })
   try {
     run('merge-live-doc.mjs', ['--file', 'AGENTS.md', '--apply'])
-    const s = run('scrub-declared-removals.mjs', ['AGENTS.md', '--archive-disposition', '.ihui-agent/tmp/disposition.txt'])
+    const s = run('scrub-declared-removals.mjs', [
+      'AGENTS.md',
+      '--archive-disposition',
+      '.ihui-agent/tmp/disposition.txt',
+    ])
     assert.equal(s.code, 2, `复制件不得当凭据用,实得 rc=${s.code}\n${s.out}`)
     assert.match(s.out, /整篇复制件|凭据未取得/)
     assert.ok(doc().includes(MOVED_1), '复制件档不构成凭据 ⇒ 迁出行留着交人工,绝不静默吞')
@@ -221,7 +299,11 @@ test('⑦ 红线:登记行形(`- [ ]`/`- [x]`)绝不由维五剔;四维口径一
   assert.equal(p.via.get(ledgerRow), 'verbatim')
   // 参数解析回归锁:`--archive-disposition` 不在位时,`indexOf` 返回 -1,把下标 0 的文档名一起排除
   // 过一次 —— 症状是整器走"用法错误"分支只 console.error,stdout 空,红语却报"没打印 HEAD 面"。
-  assert.equal(scrubTool.docArg(['PROJECT_PLAN.md', '--dry-run']), 'PROJECT_PLAN.md', '无该旗标时下标 0 必须是文档名')
+  assert.equal(
+    scrubTool.docArg(['PROJECT_PLAN.md', '--dry-run']),
+    'PROJECT_PLAN.md',
+    '无该旗标时下标 0 必须是文档名',
+  )
   assert.equal(
     scrubTool.docArg(['AGENTS.md', '--archive-disposition', 'x/y.txt']),
     'AGENTS.md',
@@ -235,7 +317,16 @@ test('⑦ 红线:登记行形(`- [ ]`/`- [x]`)绝不由维五剔;四维口径一
 test('⑧ 同族表由 lib 单源决定:PROJECT_PLAN_* 里的行不构成 AGENTS 迁出行的凭据', () => {
   const caps = archiveDropCaps(
     KEEP_A,
-    selectMovedOut('AGENTS.md', [{ path: '.ihui-agent/archive/PROJECT_PLAN_2026-09-28.md', text: [MOVED_1, MOVED_2].join('\n') }], KEEP_A),
+    selectMovedOut(
+      'AGENTS.md',
+      [
+        {
+          path: '.ihui-agent/archive/PROJECT_PLAN_2026-09-28.md',
+          text: [MOVED_1, MOVED_2].join('\n'),
+        },
+      ],
+      KEEP_A,
+    ),
   )
   assert.equal(caps.size, 0, '异族归档件不得进凭据集(判据 = lib 那一份 archiveOwnerFor)')
 })
@@ -252,7 +343,11 @@ test('⑨ 接线锁:auto-commit-quiet 必须传处置侧快照并读 archive= �
   has('const ar = /archive=(\\d+)/', '必须现读复洁器回带的 archive= 读数')
   has('活文档让路(${f})', 'archive>0 必须让路,不得当成绿灯收编')
   const lib = readFileSync(join(REPO, 'scripts', 'lib', 'live-doc-archive-drops.mjs'), 'utf8')
-  assert.match(lib, /export function selectMovedOutForDisposition\(/, '处置侧取材出口必须在 lib(§0.6 单源)')
+  assert.match(
+    lib,
+    /export function selectMovedOutForDisposition\(/,
+    '处置侧取材出口必须在 lib(§0.6 单源)',
+  )
   assert.match(
     lib,
     /return selectMovedOut\(docRel, \[\.\.\.byPath\.values\(\)\], dispositionText\)/,
@@ -267,7 +362,10 @@ test('⑨ 接线锁:auto-commit-quiet 必须传处置侧快照并读 archive= �
   // 维五排在 `head.has(l)` 短路之前 —— 事故当时 HEAD 面就是那份未压版,排在后面结构上永远走不到
   const beforeHeadShortCircuit = scr.indexOf('if (caps.size > 0 && caps.has(l) && !isLedgerRow(l))')
   const headShort = scr.indexOf('if (head.has(l)) {')
-  assert.ok(beforeHeadShortCircuit > 0 && headShort > 0 && beforeHeadShortCircuit < headShort, '维五必须在 HEAD 短路之前')
+  assert.ok(
+    beforeHeadShortCircuit > 0 && headShort > 0 && beforeHeadShortCircuit < headShort,
+    '维五必须在 HEAD 短路之前',
+  )
 })
 
 test('⑩ 纯函数面:caps 只在"逐字命中 ∧ 处置侧 0 份 ∧ 非登记行"三条同时成立时才剔', () => {
@@ -303,6 +401,59 @@ test('⑩ 纯函数面:caps 只在"逐字命中 ∧ 处置侧 0 份 ∧ 非登�
     assert.ok(archiveDropCaps(disposition, noDisk).has(MOVED_2))
   } finally {
     rmScratch(root)
+  }
+})
+
+test('⑪ 旁路落地型:HEAD 已消而工作树滞后 ⇒ 迁出行照样被剔,而 HEAD 0 份的普通新增行一行不许动(2026-10-29 补)', () => {
+  const { dir, run, doc } = seed({ bypassLanding: true })
+  try {
+    const head = execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-C', dir, 'show', 'HEAD:AGENTS.md'],
+      {
+        encoding: 'utf8',
+        maxBuffer: 1 << 28,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      },
+    )
+    assert.ok(
+      !head.includes(MOVED_1) && !head.includes(MOVED_2),
+      '夹具前提:HEAD 面必须已无迁出行(消重已由旁路落地入库)',
+    )
+    const before = doc()
+    assert.ok(
+      before.includes(MOVED_1) && before.includes(MOVED_2),
+      '夹具前提:滞后工作树必须逐字含着那两行(否则本例没有现场)',
+    )
+    // 处置侧快照就是那份脏副本 ⇒ gb22 原判据的"处置侧 0 份"结构上不成立,本例测的正是并入 HEAD 那一格
+    const s = run('scrub-declared-removals.mjs', [
+      'AGENTS.md',
+      '--archive-disposition',
+      '.ihui-agent/tmp/disposition.txt',
+    ])
+    const line = (s.out.match(/SCRUB-RESULT.*/) || [''])[0]
+    assert.match(line, /state=dropped/, '旁路落地现场必须判成 dropped,实得:' + s.out)
+    assert.match(line, /archive=2/, '维五应恰剔 2 行,实得:' + s.out)
+    assert.match(line, /verbatim=0 body=0/, '既有四维的桶不得被本维喂数')
+    const after = doc()
+    assert.ok(
+      !after.includes(MOVED_1) && !after.includes(MOVED_2),
+      'HEAD 已消的两行不得再从滞后副本收编回去',
+    )
+    assert.ok(after.includes(KEEP_A) && after.includes(KEEP_B), '在册正文一行不许少')
+    // 反控:这一条钉死"并入 HEAD"没有把本维变成毁行器 —— XCONTROL 同样不在 HEAD 面,
+    // 但它不在任何归档批次里(别人真新增的工作),所以必须照样留着。
+    assert.ok(after.includes(XCONTROL), '反控:HEAD 0 份但不在归档批次里的行绝不得被剔')
+    const again = run('scrub-declared-removals.mjs', [
+      'AGENTS.md',
+      '--archive-disposition',
+      '.ihui-agent/tmp/disposition.txt',
+    ])
+    assert.match(again.out, /state=clean dropped=0/, '幂等:同一把尺子复判不得再剔')
+    assert.ok(again.out.includes(XCONTROL) || doc().includes(XCONTROL), '第二轮也不许吃掉正向对照')
+  } finally {
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
