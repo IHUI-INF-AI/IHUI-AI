@@ -16,7 +16,11 @@
  *                无同票行时,若 --commits 给出了「subject 含票号」的提交 ⇒ 判 bypassed(旁路),
  *                如实标明「未走派单环」并继续评估后续阶段(不猜、不按时间相近硬凑;无提交为证仍判 no)
  *   fixed      → 提交 subject 含票号(仅 --commits 给了才跑 git;默认不跑)
- *   deployed   → 晚于派单时刻的 deploy-decisions 行(有修复 sha 时必须同 sha)
+ *   deployed   → 晚于派单/旁路修复时刻的 deploy-decisions 行;对齐修复提交时接受两种证据:
+ *                「同 sha」或「部署 sha 包含该修复提交」(merge-base --is-ancestor) —— 后者才是常态
+ *                (部署的是修复之后推进的 HEAD)。决策台账路径走 lib/deploy-decisions-face.mjs 的
+ *                线上 oracle 面(生产 checkout 优先 → 回落主仓),**不钉死主仓**:部署环跑在生产
+ *                checkout,其决策落那一侧,钉死主仓会让 deployed 永远看不见真部署。
  *   verified   → 最新部署裁决 action=pass/canary-pass
  *   rolled_back→ 最新部署裁决 action=rollback/manual-rollback/canary-rollback
  *
@@ -52,6 +56,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { extractTicketNo, loadSourcesConfig, normalizeAt, SOURCES_PATH } from './audit-decision-chain.mjs'
+import { deployDecisionsFace } from './lib/deploy-decisions-face.mjs'
 import { identityOf } from './lib/incident-cluster.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -169,11 +174,22 @@ export function resolvePaths({ root = ROOT, stateDir = null } = {}) {
       decisions: join(d, SOURCE_FILES.decisions),
     }
   }
+  // 部署决策台账按「线上 oracle 面」解析,不钉死主仓:部署环(nssm IHUI-DEPLOYLOOP)跑的是
+  // 生产 checkout,决策行落在那一侧(实测 2026-10-28 22:48:主仓 3 行 vs 生产 88 行,含当轮
+  // pass sha=75b5ffdc897),钉死主仓会让 deployed 阶段永远看不见真部署、把已闭环的事故报成未部署。
+  // 复用 lib/deploy-decisions-face.mjs 的唯一出口(生产优先 → 回落主仓),不在此另立第二套候选。
+  let decisions = join(root, '.ihui-agent', SOURCE_FILES.decisions)
+  try {
+    const face = deployDecisionsFace({ repoRoot: root })
+    if (face.found && face.path) decisions = face.path
+  } catch {
+    /* 面解析异常 ⇒ 保持主仓候选;readJsonl 会判 missing/error 并在报告里点名路径,读错面可见 */
+  }
   return {
     signals: join(root, '.ihui-agent', 'state', SOURCE_FILES.signals),
     feedback: join(root, '.ihui-agent', 'state', SOURCE_FILES.feedback),
     dispatch: join(root, '.ihui-agent', 'state', SOURCE_FILES.dispatch),
-    decisions: join(root, '.ihui-agent', SOURCE_FILES.decisions),
+    decisions,
   }
 }
 
