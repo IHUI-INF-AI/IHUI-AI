@@ -184,6 +184,7 @@ export default defineAppConfig({
         'member-dashboard/index',
         'my-agents/index',
         'edu-dashboard/index',
+        'agent-edit/index',
       ],
     },
     {
