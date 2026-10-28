@@ -114,6 +114,8 @@
     "check:popover-trigger-data-state": "node scripts/check-popover-trigger-data-state.mjs",
     "check:rn-parity": "node scripts/check-mobile-rn-style-parity.mjs",
     "check:cross-end-tokens": "node scripts/check-cross-end-tokens.mjs",
+    "tokens:css": "node scripts/sync-css-tokens.mjs",
+    "check:tokens-css": "node scripts/sync-css-tokens.mjs --check",
     "check:adapter-parity": "node scripts/check-adapter-style-parity.mjs",
     "check:auth-refresh-singleton": "node scripts/check-auth-refresh-singleton.mjs",
     "check:killer-parity-ends": "node scripts/check-killer-parity-ends.mjs",

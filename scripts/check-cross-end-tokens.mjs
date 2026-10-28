@@ -27,7 +27,7 @@
  *   node scripts/check-cross-end-tokens.mjs --quiet   # errors only
  *   node scripts/check-cross-end-tokens.mjs --self-test  # 三条判据的正反例取证
  *
- * 除"已声明映射逐位对账"外,还有若干条**反自立门户 / 反手抄**判据(现行清单 = R2…R8,以代码为准,
+ * 除"已声明映射逐位对账"外,还有若干条**反自立门户 / 反手抄**判据(现行清单 = R2…R11,以代码为准,
  * 不在注释里数条数 —— 数一次就会过期一次):
  *   R2 品牌键覆盖 —— rn-tokens 的 `brand` 命名空间里每个键,必须要么被某条已声明映射覆盖,
  *      要么在 RN_ONLY_BRAND_KEYS 里写明"web 无对应变量"的理由;豁免项若已不存在同样算红(防清单腐烂)。
@@ -47,6 +47,11 @@
  *      的档已经由 scripts/sync-rn-tokens.mjs 派生到端上,共享 RN 代码(packages/app/src)里再写一份
  *      同值 `#hex` 字面量就是第二真相。禁用值集合是**由两份源算出来的**,不是手工清单;存量按 HEAD 棘轮
  *      只报数,本次新引入的那一枚才判红。
+ *   R9/R10/R11 非色档同源(2026-10-28 补,见文件下方 R9 段说明)—— 间距(SPACING_STEPS)/ 字号含字重
+ *      (TYPE_STEPS + FONT_WEIGHTS)/ 阴影(ELEVATION_CSS)三族,在 tokens.css 里由
+ *      scripts/sync-css-tokens.mjs 的受管块承载。本组判受管块与 TS 源**逐值同源**:
+ *      缺档 / 值漂移 / 源删了档而 CSS 还留着,三个方向都判红。期望值与读取实现全部 import 自生成器,
+ *      门里不出现第二份档位推导(否则就是本门自己要防的那种缺陷)。
  *
  * 为什么补 R4/R5:本门此前只核 13 条**手工登记的**映射,于是"8/8 in sync"与"基础档整片没人管"同时为真
  * —— AGENTS 第四十二批未闭环③点名的正是这个盲区。补登记式映射会把盲区换成一份必然过期的清单
@@ -95,6 +100,21 @@ import {
   readWorktreeFile,
   selectFace,
 } from './lib/face-reader.mjs'
+
+// R9–R11(间距/字号/阴影 ↔ TS 源)的**取源路径、期望值推导、受管块标记与读取**全部 import 自
+// 生成器 scripts/sync-css-tokens.mjs。理由与 R6 import 插件登记表同一条:判据若自己再抄一遍
+// 档位名推导("该写什么")或值格式化,生成器与门就会从不同形那一刻开始分叉 —— 那是假绿的标准形状。
+import {
+  ELEVATION_REL as CSS_ELEVATION_REL,
+  MANAGED_BEGIN,
+  MANAGED_END,
+  SPACING_REL as CSS_SPACING_REL,
+  TYPOGRAPHY_REL as CSS_TYPOGRAPHY_REL,
+  UndeterminedSource,
+  diffManaged,
+  expectedEntries,
+  readManagedVars,
+} from './sync-css-tokens.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 // **相对路径**(取材层按 `<rev>:<rel>` 取 blob);磁盘读只在 `--worktree` 档发生,见 readFaceText
@@ -1945,6 +1965,143 @@ export async function runR8({ face, quiet }) {
   return { failures, counts }
 }
 
+// ─── R9/R10/R11:间距 / 字号(含字重) / 阴影 档 ↔ 唯一 TS 源(2026-10-28)───
+/**
+ * 判的是「tokens.css 的受管块还跟 TS 档位表同源吗」—— 即 AGENTS §4「端内不要第二份真相」在
+ * **非色档**那一半。此前本门只核颜色(R1/R2/R4/R5)与端内色值回潮(R8):
+ * 间距/字号/阴影在 TS 侧各有一张表、在 CSS 侧一个字都没有(web 走 Tailwind 默认档),
+ * 于是"改一个 md=12"只有 RN 与小程序跟着变、web 一动不动,而本门一路绿灯。
+ * 2026-10-28 起 web 侧由 scripts/sync-css-tokens.mjs 受管块承载这三族,本组判据盯它的新鲜度。
+ *
+ * 为什么是**同一份实现**而不是各写一遍:`expectedEntries` / `readManagedVars` / `MANAGED_*`
+ * 全部 import 自生成器。守门自己再抄一遍档位名推导或值格式化,两处必然漂移 ——
+ * 那正是本票要消灭的缺陷形状(生成器写 A、门判 B,门绿而文件错)。
+ *
+ * 三条独立编号(R9 间距 / R10 字号 / R11 阴影)而不是合并成一条:红的时候人一眼看出是哪一族、
+ * 该跑哪个命令,不用在 47 个变量里自己找。
+ *
+ * 取材面:TS 源与 tokens.css **取同一个面**(head/staged/worktree),与 R6 同口径 ——
+ * 否则"表读磁盘、判据读 HEAD"会让刚补行的并行会话产假红,反之产假绿。
+ */
+export const CSS_TOKEN_FAMILY_RULES = [
+  {
+    id: 'R9',
+    family: 'spacing',
+    label: '间距档',
+    src: 'spacing.ts 的 SPACING_STEPS',
+    prefix: '--spacing-*',
+    startsWith: ['--spacing-'],
+  },
+  {
+    id: 'R10',
+    family: 'type',
+    label: '字号/行高/字重档',
+    src: 'typography.ts 的 TYPE_STEPS + FONT_WEIGHTS',
+    prefix: '--text-* / --font-weight-*',
+    startsWith: ['--text-', '--font-weight-'],
+  },
+  {
+    id: 'R11',
+    family: 'shadow',
+    label: '阴影档',
+    src: 'elevation.ts 的 ELEVATION_CSS',
+    prefix: '--shadow-elevation-*',
+    startsWith: ['--shadow-elevation-'],
+  },
+]
+
+export async function runR9toR11({ face, quiet }) {
+  const [spacingTxt, typographyTxt, elevationTxt] = readFaceText(face, [
+    CSS_SPACING_REL,
+    CSS_TYPOGRAPHY_REL,
+    CSS_ELEVATION_REL,
+  ])
+  let entries
+  try {
+    entries = expectedEntries({ spacing: spacingTxt, typography: typographyTxt, elevation: elevationTxt })
+  } catch (e) {
+    if (e instanceof UndeterminedSource)
+      throw new UndeterminedError(`R9–R11 的期望值算不出来(${e.message})⇒ 三族档位无从对账`)
+    throw e
+  }
+  if (entries.length === 0) throw new UndeterminedError('R9–R11 的期望档位取到 0 条(判据失明)')
+
+  const { css } = readTokenSources(face)
+  const managed = readManagedVars(css)
+  if (managed.error) throw new UndeterminedError(`tokens.css 的受管块坏掉(${managed.error})`)
+
+  // 一次算全量差分,再按族归属。
+  // 「多档」必须相对**全量期望集**判,否则每族都会把别族的档看成自己的多余档 —— 首版正是此错:
+  // 47 档报出 94 处「多」,判据自己把自己判红,红点满天飞而真问题被淹掉。
+  const diff = diffManaged(managed.vars, entries)
+  const ownedBy = (name) => CSS_TOKEN_FAMILY_RULES.find((r) => r.startsWith.some((p) => name.startsWith(p)))
+
+  const failures = []
+  const unowned = diff.extra.filter((n) => !ownedBy(n))
+  const counts = {
+    total: entries.length,
+    checked: entries.length - diff.missing.length,
+    missing: diff.missing.length,
+    mismatched: diff.mismatched.length,
+    extra: diff.extra.length,
+    present: managed.present,
+  }
+
+  for (const rule of CSS_TOKEN_FAMILY_RULES) {
+    const mine = entries.filter((e) => e.family === rule.family)
+    const missing = diff.missing.filter((e) => e.family === rule.family)
+    const mismatched = diff.mismatched.filter((e) => e.family === rule.family)
+    const extra = diff.extra.filter((n) => ownedBy(n) === rule)
+    if (missing.length === 0 && mismatched.length === 0 && extra.length === 0) continue
+
+    if (!managed.present) {
+      failures.push({
+        tag: `${rule.id} ${rule.label}受管块缺失`,
+        detail:
+          `tokens.css 里找不到 \`${MANAGED_BEGIN}\`…\`${MANAGED_END}\` ⇒ web 侧 ${mine.length} 档` +
+          `(${rule.prefix})整体失踪,而源(${rule.src})仍定义着它们。跑 node scripts/sync-css-tokens.mjs --write 落地。`,
+      })
+      continue
+    }
+    for (const e of missing.slice(0, 6))
+      failures.push({
+        tag: `${rule.id} ${rule.label}缺档 ${e.name}`,
+        detail: `源(${rule.src})有这一档=${e.value},受管块里没有。跑 node scripts/sync-css-tokens.mjs --write。`,
+      })
+    for (const e of mismatched.slice(0, 6))
+      failures.push({
+        tag: `${rule.id} ${rule.label}值漂移 ${e.name}`,
+        detail: `受管块写的是 ${e.actual},源(${rule.src})是 ${e.value} —— 有人手改了受管块(它是派生态)。改 TS 后跑 --write。`,
+      })
+    for (const name of extra.slice(0, 6))
+      failures.push({
+        tag: `${rule.id} ${rule.label}多档 ${name}`,
+        detail: `受管块里有、源(${rule.src})已无此档 —— 源删了档而 CSS 没跟上,反方向漂移同样让两端分叉。`,
+      })
+    const more = missing.length + mismatched.length + extra.length
+    if (more > 18)
+      failures.push({ tag: `${rule.id} ${rule.label}`, detail: `…另有 ${more - 18} 处(每类只列前 18 条)` })
+  }
+
+  for (const name of unowned.slice(0, 6))
+    failures.push({
+      tag: `R9–R11 受管块多余档 ${name}`,
+      detail:
+        `受管块里这一档不属三族任何一族(--spacing- / --text- / --font-weight- / --shadow-elevation-)—— ` +
+        `手写进受管区的内容下次 --write 会静默消失,请挪到受管块之外。`,
+    })
+  if (unowned.length > 6)
+    failures.push({ tag: 'R9–R11 受管块多余档', detail: `…另有 ${unowned.length - 6} 处` })
+
+  if (!quiet)
+    console.log(
+      `  · R9–R11:受管块 ${counts.checked}/${counts.total} 档与 TS 源逐值同源` +
+        `(间距/字号+字重/阴影,缺 ${counts.missing} / 漂移 ${counts.mismatched} / 多 ${counts.extra}` +
+        `${counts.present ? '' : ',受管块缺失'},口径 ${face})`,
+    )
+  return { failures, counts }
+}
+
 export async function runR6({ face, quiet }) {  const reg = readAlphaRegistry(face)
   const plugin = await loadAlphaPlugin()
   const tiers = flattenColorTiers(reg.colors)
@@ -2212,6 +2369,10 @@ async function cli() {
   const r8 = await runR8({ face, quiet })
   failures.push(...r8.failures)
 
+  // ── R9–R11:间距 / 字号(含字重) / 阴影 ↔ 唯一 TS 源(tokens.css 受管块的新鲜度) ──
+  const r911 = await runR9toR11({ face, quiet })
+  failures.push(...r911.failures)
+
   if (failures.length === 0) {
     if (!quiet)
       console.log(
@@ -2220,7 +2381,8 @@ async function cli() {
           `品牌键全部已声明(${[...allowedKeys].join('/')}) + 无悬空 brand 引用 + ` +
           `R6 alpha 用量 ${r6.counts.checked} 处全部已登记且真产出(${r6.counts.files} 文件,口径 ${FACE_TXT[face]}) + ` +
           `R7 裸 rpx 长度 ${r7.counts.checked} 处(已全部改为 [length:] 形态) + ` +
-          `R8 手抄色值 ${r8.counts.fresh} 处新增(${r8.counts.checked} 处同值字面量,存量 ${r8.counts.inherited} 按棘轮放过)`,
+          `R8 手抄色值 ${r8.counts.fresh} 处新增(${r8.counts.checked} 处同值字面量,存量 ${r8.counts.inherited} 按棘轮放过) + ` +
+          `R9–R11 受管块 ${r911.counts.checked}/${r911.counts.total} 档与 TS 源同源`,
       )
     process.exit(0)
   }
@@ -2233,7 +2395,8 @@ async function cli() {
     '  值不一致 = 两端有一侧改了没同步,请人工决策对齐方向;R2/R3 = 品牌色不得在端内自立一档(AGENTS §4 跨端同源);' +
       'R6 = 新写/新登记的 /alpha 形态必须两边对上(AGENTS §4「新增颜色档必须同时进这个插件」的唯一判据);' +
       'R7 = 裸 rpx 长度必须加显式 type 前缀(覆盖面 = text/border + border 八方向 + 裸 divide + ring + outline;divide-x/y、w/p/gap 与一切 px/rem 形态本就落对属性,不得拦)。' +
-      'R8 = 已由 tokens.css 派生进 RN 令牌表的色值不得在共享 RN 组件里再写一份字面量(禁用集是派生出来的,不是手工清单;存量走 HEAD 棘轮,只拦本次新引入)。',
+      'R8 = 已由 tokens.css 派生进 RN 令牌表的色值不得在共享 RN 组件里再写一份字面量(禁用集是派生出来的,不是手工清单;存量走 HEAD 棘轮,只拦本次新引入)。' +
+      'R9/R10/R11 = tokens.css 的 css-tokens 受管块必须逐值与 TS 源同源(间距 SPACING_STEPS / 字号 TYPE_STEPS+FONT_WEIGHTS / 阴影 ELEVATION_CSS);它是派生态,改值只能改 TS 再跑 node scripts/sync-css-tokens.mjs --write。',
   )
   process.exit(1)
 }
