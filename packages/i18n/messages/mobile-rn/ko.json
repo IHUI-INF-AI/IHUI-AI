@@ -4265,6 +4265,22 @@
       "other": "기타"
     }
   },
+  "memberSettings": {
+    "title": "회원 설정",
+    "notification": "알림 설정",
+    "privacy": "개인정보",
+    "saving": "저장 중",
+    "hint": "토글 즉시 저장되며 실패 시 자동 복구됩니다",
+    "loadFailed": "불러오기 실패",
+    "saveFailed": "저장 실패",
+    "orderUpdates": "주문 업데이트",
+    "promotions": "프로모션",
+    "points": "포인트 변동",
+    "newsletter": "뉴스레터",
+    "showProfile": "프로필 공개",
+    "showActivity": "활동 공개",
+    "allowInvites": "초대 허용"
+  },
   "webViewPortal": {
     "news": "뉴스",
     "learnTopic": "주제 강의",

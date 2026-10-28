@@ -4309,6 +4309,22 @@
       "other": "Other"
     }
   },
+  "memberSettings": {
+    "title": "Member Preferences",
+    "notification": "Notifications",
+    "privacy": "Privacy",
+    "saving": "Saving",
+    "hint": "Toggles save instantly; failures roll back.",
+    "loadFailed": "Failed to load",
+    "saveFailed": "Failed to save",
+    "orderUpdates": "Order updates",
+    "promotions": "Promotions",
+    "points": "Points changes",
+    "newsletter": "Newsletter",
+    "showProfile": "Public profile",
+    "showActivity": "Public activity",
+    "allowInvites": "Allow invitations"
+  },
   "webViewPortal": {
     "news": "News",
     "learnTopic": "Topic Lessons",
