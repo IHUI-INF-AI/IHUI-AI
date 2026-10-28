@@ -22,6 +22,14 @@ vi.mock('../src/plugins/auth.js', () => ({
   checkAuth: vi.fn(),
 }))
 
+// ---------- 2FA step-up mock(2026-10-29 补)----------
+// 提现/转账路由 2026-10-28 起加了二次验证闸(已开 2FA 须持窗内凭据,否则 401)。
+// 本文件判的是下单/回调/反查,与闸无关 ⇒ 默认放行;闸自身的判据见
+// tests/two-factor-step-up.test.ts 与 tests/payment.test.ts 里的反向用例。
+vi.mock('../src/services/two-factor-step-up-store.js', () => ({
+  requireStepUpForTwoFactorUser: vi.fn(async () => ({ ok: true })),
+}))
+
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
