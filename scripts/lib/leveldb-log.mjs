@@ -12,12 +12,18 @@
  * 格式(leveldb-1.20 db/format.cc 口径,Chromium 内嵌同源):
  *   - 块 32768B;记录 = 头 7B(CRC32C-masked u32LE + 长度 u16LE + 类型 u8) + 载荷;
  *   - 类型 1=full 2=first 3=middle 4=last;跨块拆片,块尾不足 7B 零填充跳到块首;
- *   - CRC = mask(CRC32C([type字节] + 载荷)),mask = ((c>>15)|(c<<17)) + 0xa282ead3;
+ *   - CRC = mask(CRC32C([type字节] + 载荷)),mask = ((c>>15)|(c<<17)) + **0xa282ead8**
+ *     (2026-10-28 按 leveldb-1.20 `util/crc32c.h:24` 改正;旧实现写成 0xa282ead3 差 5 ⇒
+ *      本机 74 条真实日志记录**全部**校验不过(解析出 0 条),而我们自己写出的记录真客户端同样会拒收 ——
+ *      自证自读两遍全绿、对真机全错)
  *   - WriteBatch 载荷 = seq u64LE + count u32LE + 每条目 [type][varint klen][key][varint vlen][value]
  *     (type 0x01=put 0x00=delete 只有 [varint klen][key];两段长度前缀**各自紧贴**其字节,
  *     判据单源 leveldb-1.20 write_batch.cc Iterate/GetLengthPrefixedSlice)。
  *   - DOM Storage 键 = `_file://` + \0 + \1 + 键名(提取器 anchor 实证);
- *     存储值 = varint(字节长) + utf8。元数据键 `_file://\0\0`(origin 总大小)不动。
+ *     存储值 = **0x01 + utf8**(2026-10-28 用真实 LevelDB 实现读本机库改正:47 条真键逐条核过 ——
+ *     `loomy:thinking-level` = 01 68 69 67 68("high")、`theme-mode` = 01 6C 69 67 68 74("light"),
+ *     首位恒为 **0x01 类型标记**,后接原文;此前按"varint 长度前缀"实现,自证自读全绿而对真客户端是坏的)。
+ *     元数据键 `META:file://` / `METAACCESS:file://` / `VERSION` 不动。
  *
  * 纯函数、零 IO、零凭据:解析全部按"读不出就如实丢"(坏头跳块、截断批次 parseBatch=null),
  * 与 §0.3「取不到输入不猜」一致。
@@ -47,8 +53,11 @@ export function crc32c(buf) {
   return (c ^ 0xffffffff) >>> 0
 }
 
+/** 掩码常数唯一真值 = leveldb-1.20 util/crc32c.h 的 kMaskDelta(0xa282ead8,不是 …d3) */
+export const CRC_MASK_DELTA = 0xa282ead8
+
 export function maskCrc(c) {
-  return ((((c >>> 15) | (c << 17)) + 0xa282ead3) >>> 0)
+  return ((((c >>> 15) | (c << 17)) + CRC_MASK_DELTA) >>> 0)
 }
 
 // ── varint(LEB128,无符号)───────────────────────────────────────────────────────
@@ -88,21 +97,20 @@ export function lsValueKey(name) {
   return Buffer.concat([LS_ANCHOR, Buffer.from(String(name), 'latin1')])
 }
 
-/** 存储值 = varint(字节长) + utf8 */
+/**
+ * 存储值 = 0x01 类型标记 + utf8 原文(Chromium DOM Storage 实测编码,见文件头注)。
+ * 首字节就是标记本身,**不带长度**:老实现按 varint 长度前缀写,与本机 47 条真键全不一致。
+ */
+export const STORED_VALUE_TAG = 0x01
+
 export function encodeStoredValue(str) {
-  const s = String(str)
-  const utf = Buffer.from(s, 'utf8')
-  return Buffer.concat([varintEnc(utf.length), utf])
+  return Buffer.concat([Buffer.from([STORED_VALUE_TAG]), Buffer.from(String(str), 'utf8')])
 }
 
 export function decodeStoredValue(buf) {
   if (!Buffer.isBuffer(buf) || buf.length === 0) return null
-  const len = decodeVarint(buf, 0)
-  if (!len) return null
-  const start = len.next
-  const n = Number(len.value)
-  if (!Number.isSafeInteger(n) || start + n > buf.length) return null
-  return buf.subarray(start, start + n).toString('utf8')
+  if (buf[0] !== STORED_VALUE_TAG) return null // 未知类型标记 ⇒ 未判定,不猜内容
+  return buf.subarray(1).toString('utf8')
 }
 
 // ── 物理记录:解析(块边界/分片/坏头按"读不出"跳块)────────────────────────────
@@ -278,4 +286,181 @@ export function maxBatchSeq(buf) {
     if (b && b.seq > max) max = b.seq
   }
   return max
+}
+
+// ── sstable(.ldb)读取:压缩块 ⇒ 只扫日志会"看不见已登录态"(2026-10-28 实测)─────────
+/**
+ * 立因是现读的缺陷,不是补全:本机 Loomy 库 47 条键里 `loomy-auth-session` 确实在(167 字节),
+ * 但它在 `000005.ldb` 的**压缩块**里 —— 明文逐字节扫 .ldb 也搜不到键名 ⇒ 提取器报
+ * 「命中 0 条候选键 / 未登录」,而客户端明明登录着。故必须按 sst 格式读:footer → index block
+ * → data blocks(块尾 5 字节 trailer:1 类型 + 4 CRC;类型 1 = snappy)。
+ * 内部键尾部 8 字节 = (seq << 8) | type(type 1=put 0=delete),读出来的用户键要去掉这 8 字节。
+ */
+export function snappyDecompress(src) {
+  const head = decodeVarint(src, 0)
+  if (!head) throw new Error('snappy: 长度头读不出')
+  const out = Buffer.alloc(Number(head.value))
+  let pos = head.next
+  let op = 0
+  while (pos < src.length) {
+    const tag = src[pos++]
+    const t = tag & 0x03
+    if (t === 0) {
+      let len = tag >>> 2
+      if (len < 60) len += 1
+      else {
+        const extra = len - 59
+        len = 0
+        for (let i = 0; i < extra; i++) len |= src[pos++] << (8 * i)
+        len += 1
+      }
+      src.copy(out, op, pos, pos + len)
+      pos += len
+      op += len
+      continue
+    }
+    let len
+    let offset
+    if (t === 1) {
+      len = ((tag >>> 2) & 0x07) + 4
+      offset = ((tag >>> 5) << 8) | src[pos++]
+    } else if (t === 2) {
+      len = (tag >>> 2) + 1
+      offset = src[pos] | (src[pos + 1] << 8)
+      pos += 2
+    } else {
+      len = (tag >>> 2) + 1
+      offset = src.readUInt32LE(pos)
+      pos += 4
+    }
+    if (offset <= 0 || offset > op) throw new Error(`snappy: 回溯偏移越界(${offset})`)
+    for (let i = 0; i < len; i++, op++) out[op] = out[op - offset]
+  }
+  if (op !== out.length) throw new Error('snappy: 解出长度与头不符')
+  return out
+}
+
+const SST_MAGIC = 0xdb4775248b80fb57n
+
+function readBlockHandle(buf, pos) {
+  const off = decodeVarint(buf, pos)
+  if (!off) throw new Error('sst: block handle 偏移读不出')
+  const size = decodeVarint(buf, off.next)
+  if (!size) throw new Error('sst: block handle 长度读不出')
+  return { offset: Number(off.value), size: Number(size.value), next: size.next }
+}
+
+function readBlock(buf, { offset, size }) {
+  if (offset < 0 || size < 0 || offset + size + 5 > buf.length) throw new Error('sst: 块越界')
+  const type = buf[offset + size]
+  const raw = buf.subarray(offset, offset + size)
+  if (type === 0) return raw
+  if (type === 1) return snappyDecompress(raw)
+  throw new Error(`sst: 不支持的块压缩类型 ${type}`)
+}
+
+/** 块内条目:varint(共享前缀长)+varint(独有长)+varint(值长)+键差+值;尾部是重启点数组 */
+function parseBlockEntries(block) {
+  if (block.length < 4) return []
+  const restarts = block.readUInt32LE(block.length - 4)
+  const limit = block.length - 4 - restarts * 4
+  if (limit < 0) throw new Error('sst: 重启点数组越界')
+  const out = []
+  let pos = 0
+  let key = Buffer.alloc(0)
+  while (pos < limit) {
+    const shared = decodeVarint(block, pos)
+    if (!shared) throw new Error('sst: 共享前缀长读不出')
+    const nonShared = decodeVarint(block, shared.next)
+    if (!nonShared) throw new Error('sst: 独有长读不出')
+    const vlen = decodeVarint(block, nonShared.next)
+    if (!vlen) throw new Error('sst: 值长读不出')
+    const s = Number(shared.value)
+    const n = Number(nonShared.value)
+    const v = Number(vlen.value)
+    pos = vlen.next
+    if (s > key.length || pos + n + v > block.length) throw new Error('sst: 条目越界')
+    key = Buffer.concat([key.subarray(0, s), block.subarray(pos, pos + n)])
+    pos += n
+    out.push({ key, value: block.subarray(pos, pos + v) })
+    pos += v
+  }
+  return out
+}
+
+/** 读一份 .ldb:返回内部键条目 [{key(带 8 字节尾), value}] */
+export function readSstable(buf) {
+  if (buf.length < 48) throw new Error('sst: 文件过短')
+  const footer = buf.subarray(buf.length - 48)
+  if (footer.readBigUInt64LE(40) !== SST_MAGIC) throw new Error('sst: 魔数不符')
+  // footer = metaindex handle + index handle + 填充 + 魔数;两条 handle 顺序固定
+  const meta = readBlockHandle(footer, 0)
+  const index = readBlockHandle(footer, meta.next)
+  const out = []
+  for (const { value } of parseBlockEntries(readBlock(buf, index))) {
+    const h = readBlockHandle(value, 0)
+    out.push(...parseBlockEntries(readBlock(buf, h)))
+  }
+  return out
+}
+
+/**
+ * 读整个 LevelDB 目录的**用户键 ⇒ 值**(后写为准):sst 与 log 按文件号升序叠加,
+ * 内部键的 8 字节尾解出 (seq, type),type 0 = 删除。
+ * 任何一份文件读不出 ⇒ 只跳过该文件并在 skipped 点名(不猜内容);全读不出 ⇒ 返回空 Map,
+ * 由调用方判"未判定"。
+ */
+export function readLevelDbEntries(dir, fsMod, pathMod) {
+  const out = new Map()
+  /** 每键当前生效的 seq:sst 块里同键多版本按 seq **降序**排列(内部键序 = 用户键升序,seq 降序),
+   *  按块序叠加时后到的旧版本会覆盖新版本 ⇒ 必须比 seq,不能只比先后(2026-10-28 实测:
+   *  不比 seq 时 4 个已删键复活、2 个键读成更长的旧值)。 */
+  const seqOf = new Map()
+  const put = (key, seq, type, value) => {
+    const prev = seqOf.get(key)
+    if (prev !== undefined && seq < prev) return
+    if (prev === seq) return
+    seqOf.set(key, seq)
+    if (type === 0) out.delete(key)
+    else out.set(key, value)
+  }
+  const skipped = []
+  const files = fsMod
+    .readdirSync(dir)
+    .filter((f) => /^\d+\.(ldb|log)$/.test(f))
+    .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
+  for (const f of files) {
+    const full = pathMod.join(dir, f)
+    if (f.endsWith('.ldb')) {
+      let entries
+      try {
+        entries = readSstable(fsMod.readFileSync(full))
+      } catch (e) {
+        skipped.push(`${f}: ${e instanceof Error ? e.message : String(e)}`)
+        continue
+      }
+      for (const { key, value } of entries) {
+        if (key.length <= 8) continue
+        const trailer = key.readBigUInt64LE(key.length - 8)
+        put(key.subarray(0, key.length - 8).toString('latin1'), trailer >> 8n, Number(trailer & 0xffn), value)
+      }
+      continue
+    }
+    let buf
+    try {
+      buf = fsMod.readFileSync(full)
+    } catch (e) {
+      skipped.push(`${f}: ${e instanceof Error ? e.message : String(e)}`)
+      continue
+    }
+    for (const rec of parseLogRecords(buf)) {
+      const batch = parseBatch(rec.payload)
+      if (!batch) continue
+      // 批次里的 seq 逐条递增(leveldb write_batch.cc:seq + i),删除同样占一个序号
+      batch.entries.forEach((e, i) => {
+        put(e.key.toString('latin1'), batch.seq + BigInt(i), e.type, e.value)
+      })
+    }
+  }
+  return { entries: out, skipped }
 }

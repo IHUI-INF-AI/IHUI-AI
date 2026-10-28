@@ -113,9 +113,17 @@ function looksLikeHtmlLoginPage(bodyText: string): boolean {
 
 function isAuthFailure(statusCode: number, bodyText: string): boolean {
   if (statusCode === 401 || statusCode === 403) return true
+  /**
+   * 404/405 = **端点不存在**,正文是 SPA 兜底页,不是鉴权结论(§0.3 取不到 ≠ 失效)。
+   * 2026-10-28 实测:Loomy 的 quota 端点是推断的,真实站对未知路径回 404 + 整站 HTML,
+   * 该 HTML 的导航里必然带「登录」二字 ⇒ 旧判据把好号判成 authFailed ⇒ 入池当场 health=down,
+   * 调度器据此不下发任务(号池里多出一枚"看起来坏了"的好号)。
+   */
+  if (statusCode === 404 || statusCode === 405) return false
   const lower = bodyText.toLowerCase()
   if (AUTH_BODY_MARKERS.some((m) => lower.includes(m))) return true
-  return looksLikeHtmlLoginPage(bodyText)
+  // HTML 登录墙只在"服务端正常应答"时才成立;错误码下的正文一律不作鉴权证据
+  return statusCode >= 200 && statusCode < 400 && looksLikeHtmlLoginPage(bodyText)
 }
 
 /** Loomy 上游错误(带 HTTP 状态码;消息截断防泄漏) */
