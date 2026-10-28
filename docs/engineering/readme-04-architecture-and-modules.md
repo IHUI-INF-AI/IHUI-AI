@@ -160,6 +160,18 @@
 - **i18n 5 语言补全**:`apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` 扩展 settings namespace(notifPush/changePassword/pwd*/logoutConfirm 等 23 key)+ 新增 about/menu namespace(11 key)
 - **验证**:packages/app typecheck ✅ / mobile-rn typecheck(本任务文件 0 错)/ web typecheck(本任务文件 0 错)/ SharedDemoScreen RN 集成验证 / shared-demo web 集成验证
 
+### Web 收编试点(react-native-web,2026-10-28 立)
+
+> 上一节提到的 `/shared-demo` 验证页现已不在仓内(web 侧共享屏承载一度断线)。2026-10-28 重新接回,这次承载的是 `packages/app` 的**真实 RN 源码**,不是镜像页或复刻组件。
+
+- **承载方式**:`apps/web/next.config.ts` 两腿同批别名 `react-native` → `react-native-web`、`lucide-react-native` → `lucide-react`(`turbopack.resolveAlias` 与 `webpack.alias`),并把 `react-native-web`、`@ihui/rn-app` 纳入 `transpilePackages`;`apps/web` 依赖 `react-native-web@0.21.2`。
+- **入口**:`packages/app/src/pilot.ts`(`@ihui/rn-app/pilot`)只列试点屏 —— 从包根 `@ihui/rn-app` 导入会把 249 屏的编译闭包整棵拉进 web 路由。
+- **试点页**:`apps/web/app/(pilot)/shared-pilot/page.tsx`,渲染 ICP 备案 / 公告详情 / 用户协议三屏;词表取 `packages/i18n/messages/mobile-rn/zh-CN.json`,平台侧只注入 `t` / `onBack` / `colorScheme`。
+- **验证**:8820 隔离端口起 dev,Playwright 逐屏点击切换并截图,文本断言含 ICP 备案号、公告正文、协议条款;`eslint` 0、`prettier --check` 0。
+- **机制锁**:`scripts/tests/web-shared-screen-pilot.test.mjs`(4 例:两腿别名齐备 / 依赖与 transpilePackages / `./pilot` 出口三条件 / 试点页不得从包根导入)。
+- **收编纪律**:收编面扩大时只在 `pilot.ts` 追加导出;web 生产页暂保持 Next.js 实现,逐域收编后再切。
+
+
 ### 统一分类栏(CategoryInlineBar / CategoryDropdown / CategoryBar,2026-09-23 立,09-24 三端收口)
 
 > 用户反馈"所有的菜单栏分类栏没有设计好 / 不统一"。RN 侧同类控件原本有 7 种各写各的实现(等宽分段、圆角胶囊 chip、11px 小字、`brand.DEFAULT` 底配 `surface.light` 字、`brandAccent.DEFAULT` 填充等),同一语义在十几个屏上长十几种样。现收敛为**三端各自的单一组件**,文案/图标一律由调用方 `items` 注入(组件内零中文常量,§19 不破)。
