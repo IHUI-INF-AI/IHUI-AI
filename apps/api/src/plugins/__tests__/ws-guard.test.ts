@@ -3,6 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeEach } from 'vitest'
+import { readdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { IncomingMessage } from 'node:http'
 import { __test__ } from '../ws-guard.js'
 
@@ -78,6 +81,37 @@ describe('wsHandshakeGate', () => {
     expect(wsHandshakeGate('9.9.9.10').ok).toBe(false)
     setLiveConnections('9.9.9.10', MAX_CONN_PER_IP - 1)
     expect(wsHandshakeGate('9.9.9.10').ok).toBe(true)
+  })
+})
+
+describe('覆盖面自证', () => {
+  /**
+   * 本仓所有 WS 端点都挂在 @fastify/websocket 的**单一** websocketServer 实例上，
+   * 所以 wsGuard 的 wss.on('connection') 天然覆盖全部路由(实测现读：零第二套实例)。
+   * 一旦有人自己 new WebSocketServer 或用 noServer 手工接管 upgrade，那些连接就绕开
+   * 握手频率与单 IP 并发上限 —— 而 typecheck、lint、运行时都不报错，正是"防线静默失效"那一型。
+   * 排除 __tests__ 目录：本文件与门体夹具逐字含该 pattern，自扫自己就是恒红(同守门 158 的取舍)。
+   */
+  it('apps/api/src 内不得出现第二套 WebSocketServer 实例', () => {
+    const srcRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+    const walk = (dir: string): string[] => {
+      const files: string[] = []
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, entry.name)
+        if (entry.isDirectory()) {
+          if (entry.name !== 'node_modules' && entry.name !== '__tests__') files.push(...walk(p))
+        } else if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
+          files.push(p)
+        }
+      }
+      return files
+    }
+    const hits: string[] = []
+    for (const f of walk(srcRoot)) {
+      const text = readFileSync(f, 'utf8')
+      if (/new\s+(WebSocketServer|WebSocket\.Server)\b/.test(text)) hits.push(f)
+    }
+    expect(hits).toEqual([])
   })
 })
 
