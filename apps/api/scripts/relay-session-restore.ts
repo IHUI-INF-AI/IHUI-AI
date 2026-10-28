@@ -12,6 +12,10 @@
  *   原子 rename 覆盖 → 全量对账收工,不留半写状态;
  * - 宁可拒做不静默覆盖:目标存在且 sha 不一致且未显式 --force → 整批拒绝(零写入);
  *   manifest 缺失或条目缺 sha256 字段(旧格式快照)→ 直接报错退出;
+ * - 可选压缩(2026-10-28 立,与备份腿 --gzip 配套):条目带 `encoding: "gzip"` 时
+ *   磁盘快照为 `<rel>.gz`,恢复先 gunzip 再按原文 sha256 对账,写回目标仍是原始名/原始字节;
+ *   **无标记条目(含全部旧 manifest)逐字节走未压缩旧路径,向后完全兼容**;
+ *   encoding 为未知值 → 拒绝(宁不做不错做);
  * - 目标根下快照外多余文件一律不动(本工具不是删除工具),只在输出提示计数;
  * - 动前留底+逐条记账(2026-10-27 增,逐条可撤,与搬移腿 move_ops.jsonl 同风格):
  *   apply 对真会写(缺失/force 覆盖)的目标文件,凡覆盖已存在者先拷动前内容到
@@ -35,6 +39,7 @@ import {
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, relative, sep } from 'node:path'
+import { gunzipSync } from 'node:zlib'
 import { acquireSessionLock, SESSION_STORE_LOCK_NAME } from './relay-session-lock.js'
 import {
   relToSourceAbs,
@@ -52,8 +57,18 @@ function relToSnapshotAbs(rel: string, snapshotDir: string): string {
 }
 
 /**
+ * 条目 → 快照侧磁盘绝对路径:压缩条目(encoding:"gzip")带 `.gz` 后缀,
+ * 未压缩条目(含全部旧 manifest)与旧腿逐字节同形。
+ */
+function snapshotPathOf(entry: BackupFileEntry, snapshotDir: string): string {
+  const rel = entry.encoding === 'gzip' ? `${entry.rel}.gz` : entry.rel
+  return relToSnapshotAbs(rel, snapshotDir)
+}
+
+/**
  * 加载并校验快照 manifest(旧格式不认)。
  * 缺文件/解析失败/条目缺 rel·bytes·sha256 任一字段 → 抛错(宁可拒做)。
+ * 可选 encoding 字段:缺省 = 未压缩(旧 manifest 完全兼容);仅认 'gzip',未知值拒绝。
  */
 export function loadManifest(snapshotDir: string): BackupManifest {
   const manifestPath = join(snapshotDir, 'manifest.json')
@@ -81,6 +96,12 @@ export function loadManifest(snapshotDir: string): BackupManifest {
     ) {
       const relHint = f && typeof f.rel === 'string' ? f.rel : '(无法解析条目)'
       throw new Error(`manifest 条目缺 sha256(或字段不完整): ${relHint}(旧格式快照不认,拒绝恢复)`)
+    }
+    const enc = (f as { encoding?: unknown }).encoding
+    if (enc !== undefined && enc !== 'gzip') {
+      throw new Error(
+        `manifest 条目压缩标记 encoding=${JSON.stringify(enc)} 未知: ${f.rel}(仅认 'gzip',宁拒不错做)`,
+      )
     }
   }
   return m as BackupManifest
@@ -230,7 +251,8 @@ export interface RestoreStats {
  * - 漂移文件存在且未 --force → 整批拒绝(零写入,宁可拒做不静默覆盖);
  * - 动前留底:目标已存在(即将被覆盖)先拷动前内容到 `<opsRoot>/<opId>/before/<rel>`,
  *   留底不过关即拒写该文件(宁可不写,不丢动前内容);
- * - 逐文件:读快照 → 写 `<目标>.restoring-<ts>` 临时名 → sha256 校验 → 原子 rename;
+ * - 逐文件:读快照(压缩条目读 `<rel>.gz` 并 gunzip,校验基准仍是原文 sha256)→
+ *   写 `<目标>.restoring-<ts>` 临时名 → sha256 校验 → 原子 rename(目标恒为原始名/原始字节);
  *   任一步失败即清掉临时残留,记账失败继续下一个(可重跑补齐);
  * - 逐条记账:成功落地文件零内容记入 `<opsRoot>/ops.jsonl` + restore-run 汇总
  *   (写循环后即记:整批中途失败时,已落地部分仍可按日志逐条回退);
@@ -267,7 +289,8 @@ export function applyRestore(plan: RestorePlan, opts?: RestoreApplyOpts): Restor
     const tmpAbs = `${destAbs}.restoring-${ts}`
     let before: { exists: boolean; sha256: string | null } = { exists: false, sha256: null }
     try {
-      const buf = readFileSync(relToSnapshotAbs(entry.rel, plan.snapshotDir))
+      let buf = readFileSync(snapshotPathOf(entry, plan.snapshotDir))
+      if (entry.encoding === 'gzip') buf = gunzipSync(buf)
       if (sha256Of(buf) !== entry.sha256) {
         failures.push(`${entry.rel}: 快照侧内容与 manifest 不一致(sha256 漂移)`)
         continue
