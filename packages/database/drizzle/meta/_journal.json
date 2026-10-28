@@ -2415,28 +2415,28 @@
     },
     {
       "version": "7",
-      "idx": 351,
+      "idx": 348,
       "when": 1793064599000,
       "tag": "20261027085959_default_avatar_admin_pre348",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 348,
+      "idx": 349,
       "when": 1793064600000,
       "tag": "20261027090000_default_user_avatar",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 349,
+      "idx": 350,
       "when": 1793065500000,
       "tag": "20261027091500_default_avatar_www",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 350,
+      "idx": 351,
       "when": 1793075400000,
       "tag": "20261027120000_automation_settlement_state_machine",
       "breakpoints": true
