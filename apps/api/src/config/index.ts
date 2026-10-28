@@ -243,6 +243,19 @@ const envSchema = z.object({
   //   TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
   // 留空 = 不信任任何代理(直接用 socket remoteAddress,安全但反向代理场景 IP 全部一样)
   // 开发环境默认信任 127.0.0.1(本地起 nginx/cloudflared 时可识别真实 IP)
+  //
+  // ⚠️ 往本表里加 CDN / cloudflared 出口 IP 之前，先读这段（2026-10-28 实测三态，不是推测）：
+  //   fastify 的数组形态在 socket 对端命中本表时，**取 X-Forwarded-For 最左值**当 request.ip，
+  //   而那是客户端可整写的字段。实测：
+  //     ① 本机回环直连 GET /api/admin/stats ⇒ 401（过分段，仍要鉴权）
+  //     ② 同上再加 `X-Forwarded-For: 8.8.8.8` ⇒ 403 —— 证明 request.ip 完全由该头决定
+  //     ③ 公网经 EdgeOne ⇒ 403，且加 `X-Forwarded-For: 127.0.0.1` 也无效
+  //   ③ 成立的原因**只是**"EdgeOne/CF 的出口 IP 恰好不在本表里"。一旦有人按常见做法把代理
+  //   出口 IP 填进来，admin 的网络分段（allowExternal:false）、IP 信誉封禁、限流键会同时
+  //   退化成"攻击者填 127.0.0.1 即以内网身份通行"。
+  //   正确前置 = 先把权威客户端 IP 改成只认边缘设置的 `cf-connecting-ip`（客户端自带的那条
+  //   会被边缘覆盖，不可伪造），再考虑扩本表。现状由只读尺子
+  //   scripts/check-ip-attribution-trust.mjs 看守（判机器状态，不进提交链 §12e）。
   TRUSTED_PROXIES: z.string().default('127.0.0.1,::1'),
 
   // Swagger / OpenAPI 文档(2026-07-21 安全审计第十轮加固 + 2026-07-28 P0-4a 品牌化)

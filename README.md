@@ -106,11 +106,11 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 608 | `dbTables` |
-| schema 文件 | 235 | `dbSchemaFiles` |
-| API 路由 | 4564 | `apiRoutes` |
-| 路由文件 | 630 | `apiRouteFiles` |
-| AI 服务路由 | 603 | `aiServiceRoutes` |
+| 数据库表 | 611 | `dbTables` |
+| schema 文件 | 236 | `dbSchemaFiles` |
+| API 路由 | 4586 | `apiRoutes` |
+| 路由文件 | 641 | `apiRouteFiles` |
+| AI 服务路由 | 604 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 99 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -121,15 +121,15 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3363 | `testFiles` |
-| CI 工作流 | 49 | `ciWorkflows` |
+| 测试文件 | 3483 | `testFiles` |
+| CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 286 | `guardianGates` |
-| — blocking | 261 | `guardianBlocking` |
-| — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 16696 | `trackedFiles` |
+| 工程守门 | 291 | `guardianGates` |
+| — blocking | 265 | `guardianBlocking` |
+| — warn | 28 | `guardianWarn` |
+| 跟踪文件 | 17019 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-26。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-28。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
@@ -5551,7 +5551,70 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
-**2026-10-27**
+**2026-10-28**
+- 🐞 修复:把 api 蓝绿切换脚本与 router 入库——此前从主仓发起的部署每次都要断流 20~30 秒 (00adfa0036a)
+- 📚 文档:G-20 改判注记(认账)—— 模板 10 枚实为全部过审生效(0=通过生效,上一注记自造反序码表判反);真死点=签名 2 枚 rejected(ReviewReply API 面空,控制台看)+ auto 档不含 tencent ⇒ 切换时序:签名生效后 SMS_PROVIDER=tencent,现切会掐验证码。机主动作面收敛为报签名 (be50d7db08b)
+- 🐞 修复:造页/壳落地两阶段给足上限 —— 超时误判会把能跑完的阶段说成「未判定」 (908d5a2199f)
+- 🐞 修复:小程序 token 写回把排版当漂移 —— 拆掉恒红与「每次提交都在制造格式债」 (ee30b624814)
+- 🚀 新功能/改进:跨端自动同步编排器 —— web→RN→小程序 12 阶段唯一入口 (2d697d6cd4d)
+- 📚 文档:登记号池对标 workbuddy2api-panel 五票(选号策略/任务自动化/授权链接扩容/单机形态/指纹收点) (a44df1d0f5f)
+- 🔧 工程/其他:收编滞留的渲染层平滑度守门,并修掉它压在全仓 push 门上的 2 处类型错误 (be3e20b55df)
+- 📚 文档:更正上一枚对阿里云签名切换的错误结论并回退口径——验证码 DELIVERED 是兜底替发的,不能当新签名可用 (27ad89634e7)
+- 📚 文档:门 44 补「封口链接」档 —— 指向 D:/DevEnv/{Temp,Logs} 的 junction 放行、实体目录仍红 (d4bfe49d627)
+- 📚 文档:§1 完成口径跟上「结清即删」默认,并压回体积预算 (5ee5523cbeb)
+- 🔧 工程/其他:给语音笔记「分组输入框」的圆角补运行时回归锁(门 150 静态判据的运行面) (8b8ee29187e)
+- 📚 文档:§1 完成口径跟上「结清即删」默认(整行删除;回退 LIVE_KEEP_CLOSED_ROW=1) (40c89ce1cdf)
+- 📚 文档:「须真机人验」行的取证指针由 10 位短 sha 改内容锚点(§1 证据指针禁令:短 sha 腐烂率 30.2%,要么全量 40 位要么内容锚点)——改为「/api/admin/api-logs 显式放行公网可达」那枚提交的标题原文;归属桶/勾选态/判据句逐字未动 (c54ef3c321f)
+- 🐞 修复:补上 reaction 三键的 web 五语 —— 上一枚把组件落了,词包却还在他席暂存区 (93fb8726916)
+- 🔧 工程/其他:收编滞留 18 小时的 relay-switch 暂存半成品,并修掉它压在全仓 push 门上的 2 处类型错误 (739a31b94f7)
+- 📚 文档:补 R4 漏点名 ⑨ —— check-live-doc-merge-recall 已接 .husky/post-merge,文档面须可见(门 89 R4) (8bd204a0d69)
+- 🚀 新功能/改进:reaction 收成三态闭环 —— 读回落地 + 「再点一次撤销」 (50c8bce8277)
+- 🐞 修复:收口 Test 步 13 个失败文件 —— 2 处真缺陷(短信回调 CSRF 豁免被自动收编误删、频控 reset 两面不同语义) + 8 处判据/契约未跟上新实现 (0fd3f2ac2ac)
+- 📚 文档:「须真机人验」行两处过期陈述改判据实测——重启免登录/15min 静默续期两格已留记录(装机版受控 kill+重启 16:07→16:09 仍已登录;16:23 启动→空闲 18min→16:41 点管理导航不弹登录),④ nginx 全量代理四路探针均 401 结构化回码(非 404/502)结清;原写"三项人工记录仍 0 条 ⇒ 未满足"与现读不符,已改。本行仅剩 WebView SSO 一格,且写明 agent 侧不可造该条件(登出机主会话属破坏性动作)——归属桶与判据句逐字未动 (fded8029a35)
+
+**2026-10-28**
+- 📚 文档:闭环票对账注记 —— 登记→派单环两格断点已补(枚 e1228822159 面切换+680e9d3370d 票号环),断点语义从"票号不可解析"改口为"未派单";尾环待一次端到端真实绿再结清 (dabd2552f41)
+- 🔧 工程/其他:OSV 批量升级有已知漏洞的 PyPI 包 (b2464e5899f)
+- 🐞 修复:nodemailer 传递面收敛与根 legacy overrides 节同步 (7d1f2cc2a8a)
+
+**2026-10-28**
+- 🐞 修复:nodemailer 传递面收敛与根 legacy overrides 节同步 (7d1f2cc2a8a)
+
+**2026-10-28**
+- 🐞 修复:安全审计第二刀 npm 侧 overrides 批次 + nodemailer ^10.2.1 (b088f0aa301)
+- 🐞 修复:P0-5 高危动作白名单补执行侧兜底门禁 (c2e35dc36a1)
+
+**2026-10-28**
+- 🐞 修复:验签层增加通知 app_id 与本机 ALIPAY_APP_ID 强比对 (8da9f9cd284)
+
+**2026-10-28**
+- 🔧 工程/其他:结清 HEAD 面缺失的溯源水印 —— check-web-rn-parity.mjs 的载荷在一次 prettier 重排里被吃掉 (c99dd151ed2)
+- 📚 文档:登记 API Key 的 step-up 前置 + 对齐门 173 点名的两处数字 (c3fa1d0381b)
+
+**2026-10-28**
+- 🚀 新功能/改进:连接期出网守卫 + API Key 挂 step-up + 三登录入口哈希升级对齐 (3fee82d0bc7)
+
+**2026-10-28**
+- 🔧 工程/其他:给 wsGuard 补覆盖面自证——全仓只许有一套 WebSocketServer (3b303c4d1d6)
+
+**2026-10-28**
+- 🐞 修复:两处 SSE 的断连清理挂错信号源——要么流刚建立就变哑、要么每次访问累积一个泄漏 (be8c2574f42)
+- 🔧 工程/其他:收编滞留 18 小时的 relay-switch 暂存半成品,并修掉它压在全仓 push 门上的 2 处类型错误 (48e0a9f69a0)
+- 🐞 修复:收口 Test 步 13 个失败文件 —— 2 处真缺陷(短信回调 CSRF 豁免被自动收编误删、频控 reset 两面不同语义) + 8 处判据/契约未跟上新实现 (9ec6ad819d8)
+
+**2026-10-28**
+- 🚀 新功能/改进:2FA step-up —— 资金流出动作补第二因子(会话被窃后提现不再只靠令牌) (4c8efc7c632)
+- 🚀 新功能/改进:装门 257 看守四道抗 DDoS 闸会不会被静默摘掉(点名落 AGENTS 余量) (b2f5cceaf6d)
+- 🔧 工程/其他:check-web-rn-parity 过 prettier 格式化(纯换行重排,水印与逻辑零变更) (c7296c7f6f5)
+- 🐞 修复:SSRF 守卫补两处既存绕过 + relay 出网复检住进发请求那一刻 (3ec2cca7b46)
+- 🚀 新功能/改进:新增 web↔RN 跨端对账门(仅报告)并注册进 guardian (777923eb0c5)
+
+**2026-10-28**
+- 🚀 新功能/改进:装门 257 看守四道抗 DDoS 闸会不会被静默摘掉(点名落 AGENTS 余量) (b2f5cceaf6d)
+- 🔧 工程/其他:check-web-rn-parity 过 prettier 格式化(纯换行重排,水印与逻辑零变更) (c7296c7f6f5)
+- 🐞 修复:SSRF 守卫补两处既存绕过 + relay 出网复检住进发请求那一刻 (3ec2cca7b46)
+- 🚀 新功能/改进:新增 web↔RN 跨端对账门(仅报告)并注册进 guardian (777923eb0c5)
+
 - 🐞 修复:Trae 落点候选加跨 profile 兜底扫描——非登录用户 shell 下裸跑 --from trae 即命中本机真会话(2026-10-26 实测首跑栽于沙箱 %APPDATA%,靠手工 IHUI_TRAE_DIR 救回);候选次序=显式覆盖>当前用户>他人 profile,IHUI_TRAE_SCAN_USERS=0 可关;镜像测试 13 例全绿+裸跑 dry-run 打穿为证 (cba1c89415)
 - 📚 文档:README.en 生成块与散文六处数字按现算重钉 —— 门 173 见我改过它,从此对它全判 (0dbf4375a6)
 - 📚 文档:自进化 7 枚由主席逐条现读复核后结清——金丝雀三器物在 HEAD、自治决策/经验提炼/决策链三条腿提交均为 HEAD 祖先、需求发现器三源适配器提交为祖先、反馈闭环器件在 HEAD、E2E 缺口门已接 runner id 250 (ecf125780a)
@@ -5578,182 +5641,16 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:新守门 check-ps1-bom.mjs 接进提交链 (6e8f4bd2a4)
 - 🐞 修复:工作空间页短内容撑满卡片剩余高度，消除项目区下方大片空白 (aec2acdf90)
 
-**2026-10-26**
-- 🐞 修复:并集收敛按复合主键认"已处置权"——本侧已结清的行不再被滞后副本回捞成 open 原形态 (937fafb78e)
-- 📚 文档:守门 89 R4 清偿 —— 四枚只读尺子/自检器点名入速查区(gate-rot/plan-truncated-rows/web-rn-screen-parity/miniapp-mirror-fidelity),接线面与退役口径一并写清 (d09bf0a749)
-- 🚀 新功能/改进:状态查询口同款 9074 自愈——与签到口共用 _rotate_device (b3fadcd296)
-- 🐞 修复:数据大屏前后端字段对齐(修白屏) + 接入页面访问/来源埋点数据 (968b13a99f)
-- 🐞 修复:门 234 A2 收口——投影等式三档化(中间态点名不判红)+ 抽取器同键冲突闸 (6d72f0164c)
-- 🚀 新功能/改进:AI 自进化调度层四件器物接线装车 + 登记出口补取号令牌/短 sha 守卫(O65 第 0/1/3 期) (1f1f9508a7)
-- 🔧 工程/其他:G-54 第4轮 —— 裸 git 基线 49→45(紧贴现读,不留余量;4 枚入库 cca944cc6a) (62f7d34699)
-- 🐞 修复:补齐权限双轴本机记忆模块(HEAD 缺文件致 web 构建红) + 大屏使用数据面板渲染测试 (cbf3aa4329)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (59145cf2f0)
-- 🐞 修复:探针取证面从单文件改为页面族 —— 修 71 条空壳的假阴性 (7c8d5b9e82)
-- 🐞 修复:流式/AI 服务/raw 通道 401 自动续期 + RN/小程序主动续期 (831baf7200)
-- 🚀 新功能/改进:三端 ui-routes/离线包重钉 + chat-sync terminal/resync 契约 + gate-grow 候选器 + G-965 P2 投影器增强 (fa9d1ad423)
-- 🔧 工程/其他:侧车 enrich 1 条(G-63 补 blocking),抽取器 --apply 现读 changed=1 bucketsDrift=0、回读 129 条 —— 由 seat-sidecar2 的 --check 点名的唯一一条待办,主席执行;门 234 复跑 state=warn(midform 3→0 / a2=0 / conflict=0 / blind=0),孤儿 80 条只报数 (6b942ede52)
-- 🔧 工程/其他:拆除 31 枚已退役零引用残影(deploy/cf-preferred-ip 2026-10-22 整链退役、qoder 探针退役、plugins-data 已下沉 packages/shared、零引用测试收口) (f80b0bb34e)
-- 🔧 工程/其他:中间态标头归一(门 234 midform 3→0) —— 三条机主面行(G-957 / G-329 / G-1182551)的行内标头带 ｜等:— 属未渲染完的中间态(语义已等价:parseHeader 读回 waiting=none、dispositionOf 同判),按 §1「标头是投影」归一成 renderHeader 产物形态;只动这三行标头,正文与归属语义逐字不变,三维守恒由 live-doc-edit 当场断言(上一版误带第四行被守恒拒落,已剔除) (f1439785cb)
-- ♻️ 重构:audit-decision-log 两处裸 git 派生改走 face-reader.gitBinary()(G-54:棘轮新增拦截即修,行为逐字不变) (1c0938e1d3)
+**2026-10-28**
+- 🔧 工程/其他:生产端第二轮落账 —— 摘除票①(完成即删削尾:出路三件当日已落地 4d55e0fd7bf/92f0d8d88e5/反向夹具) + 金丝雀票复核(生产 checkout 账 22 枚金丝雀真跑过:17 pass/4 rollback/1 unproven;载体已装;wiring 9 格 wired) + 闭环票复核(intake 取值面接生产 checkout 后首枚 O67 实落账;取号池死锁复现待人裁) + G-23 交接页挂载 + G-20 报备复核注记 (f5e6819dc7d)
 
-- 🔧 工程/其他:结清三端 ui-routes/离线包重钉(五钉 HEAD 面全 matched) + O6511 候选器交付与真源结构发现 + B02 terminal/resync 契约第二刀 + G-965 P2 投影器增强 (394e7717f6)
-- 🔧 工程/其他:重钉 web/taro ui-routes 自述钉(随 bi-dashboard 与 taro app/auth 输入变更重算,G-816040 四端现读全 matched) (09a79ced04)
-- 🚀 新功能/改进:新增 catBatchTypes 原语(G-54)并让 audit-decision-log 的提交存在性取材走层 —— 清型 C 自拼 batch 债务,判据语义不变 (894943173e)
-- 📚 文档:结清 G-927(镜像棘轮:裸 git 派生的生产文件只减不增) —— 现读差集 0 枚(判据 headDerivationScan,对基线提交 14a04f013f 逐枚求差)。经过:上席已迁 1 枚(strip-banned-buckets,字节 4,705,595 EQUAL)、第四批 10 枚由 0ff78d7fda 整批迁完(本席复核逐枚裸派生 0 处)、本席再迁 2 枚镜像测试读真仓的裸 execFileSync(对照 512B/1088/53/346/261B 全 EQUAL),棘轮读数 71→70→49→46。逐枚复跑:6 绿(biz-day/guarded-write/identity/live-doc/readout/token-literal),2 红在射程外(ai-task 9/10 的 llm.py 裸 create_task、money 2/3 的 DeveloperConversationsScreen centsToYuan,系门 247/248 存量债,迁移前后同判),10 枚 --self-test 全绿,21 项新旧通道同 blob 对照 17 EQUAL + 4 项仅 core.quotepath 转义差异。如实登记剩余:① 现读 46 vs 基线 45 的 +1 是 scripts/audit-decision-log.mjs(7de326e39b,自进化票,晚于降档 1 分钟入库,型 A 1 处 + 型 C 自拼 batch 1 处)—— 不属本票射程,由该票席位迁移后回调基线;② HEAD 面 45 枚存量债(G-998191 族)按只减不增口径继续逐票收 (90a27b1e8a)
-- 🚀 新功能/改进:页面排行每行同时给 PV/UV(多少次/多少人) (95ca2af0fb)
-- 🚀 新功能/改进:页面访问埋点接入(React Navigation 切屏上报 visit_logs) (7cf9b2e8ad)
-- 🐞 修复:WS 换票与小程序 SSE 接入 401 续期 (dba8f63d4f)
+**2026-10-28**
+- 🐞 修复:部署链补「api 实听者身份」自证 —— 健康 200 证明不了新代码在答(2026-10-28 当天实测的假成功) 现场:部署把生产签出 ff 到新提交、web 换流、/api/health 与 router 都回 200,但监听 8843 的仍是 15:34 那个旧孤儿 node —— 服务"重启"起来的新子进程因端口被占(EADDRINUSE)当场退出,账面却记成部署成功,API 侧修复在生产上根本没上岗(§12f:判据失效的表现永远是安静)。 做法:新增只读尺子 deploy/win/api-listener-freshness.ps1(三态 fresh/stale/undetermined,ASCII 契约行,exit 3 给调用侧当红灯),ihui-deploy.ps1 在两条 api 重启分支之后统一问一次"应答的进程是本轮起来的吗":fresh 记 Ok、stale 报 ALERT STALE-API-LISTENER 并给精确出路(按 pids 逐个 Stop-Process,**禁止按映像名批杀**)、量不到只报未判定(§0.3 两头都不许冒充结论)。 两把尺子写的时候就各带反向对照,过程中真抓到两个坑:① 参数用 [int[]] 接 "8842,8843" 被 .NET 按千分位折成 88428843 ⇒ 两色谁都量不到、整把尺子静默 no-listener(F6 钉死);② PowerShell 变量名大小写不敏感,局部 $ports 覆盖参数 $Ports ⇒ split 在空列表上跑 ⇒ 同样静默 no-listener,而 F3/F5 照样"绿"(F8 形状锁钉死);③ 锚点不带时区标记会被按本地时区解,UTC+8 机上静默差 8 小时,该判 stale 判成 fresh ⇒ 缺时区一律不判定并给反向对照(F4b)。镜像 9 例全过,夹具自开临时监听端口,不碰生产端口与服务。 (8cf02551215)
+- 🚀 新功能/改进:给 Python 侧也挂总量上界(uvicorn --limit-concurrency 3000) (1f264af5e93)
 
-- 🔧 工程/其他:收敛后重派 6 枚派生件(三端 ui-routes + i18n 离线包与清单) (170b1ba6de)
-- 🐞 修复:工作空间页短内容撑满卡片剩余高度，消除项目区下方大片空白 (253418c2de)
-- 🐞 修复:补齐收敛并入的 3 枚缺载荷文件(CI verify 面回潮清偿) (9e0f5aedb0)
-- 🐞 修复:补齐 deploy 三枚缺载荷文件(门 47 全量档/CI 红清偿) (67f3a74541)
-- 📚 文档:守门 207 体积红二次清偿——合并把已清副本 union 回来了(100886→94975 B) (0f85b56149)
-- 🐞 修复:还原被本席上一枚提交覆盖的别席逐字迁出条目(同名归档件撞车) (3be29eb3ec)
-- 🚀 新功能/改进:海外登录隐藏手机号入口并主推 Google，Google OAuth 出站走白名单代理 (0451b10e78)
-
-**2026-10-26**
-- 📚 文档:两枚结清——分叉票按当场复量关闭(origin=ALREADY、本地与远端 0/0、push-state done,合并枚已入祖先链);A01 按行内自带销账注记关闭检查框 (1e67311179)
-- 📚 文档:结清一枚无编号僵尸行(双重执行/两次 LLM 与两遍工具副作用)——修复形态在 HEAD 三个调用点齐备(orchestration:277/team_orchestration:211/agent_orchestrator:1510 均为 handoff = await take_loop_v2_handoff(...) 后 if handoff is not None 早退),二次复核席判 PASS 后主席独立复跑符号面复核 (4f7cd644f9)
-- 🚀 新功能/改进:海外登录隐藏手机号入口并主推 Google，Google OAuth 出站走白名单代理 (b2ff1bf93b)
-- 🐞 修复:两枚 PowerShell 脚本补 UTF-8 BOM——治 PowerShell 5.1 把中文串读成乱码导致对侧 runId 镜像测试 T2 在 main 恒红(§27 要求 .ps1 带 BOM;内容零改动,只加三字节前缀。上一笔被收敛对齐冲掉盘上修复,本笔重落) (f10838b8f7)
-
-**2026-10-26**
-- 📚 文档:12 枚僵尸票批量结清——前提在 HEAD 逐条不成立:桌面 ANR 残行 55 字、G-195 三个入口脚本全在 HEAD、take_loop_v2_handoff 生产面 18 处已装车、O87g 精确挂载图已装车(本轮另补 compositeDelta 报数)、三枚归并副本指向行已归档、G-8 为副本套娃 31 层的一次性快照、G-242 残行且属禁用的等条件形态、G-948 被吞行已回补、G-66 为单点读数加等条件形态、cloudflared 运行副本与入库源逐字节等值 (9be4bfd2bb)
-
-**2026-10-26**
-- 🔧 工程/其他:fix(scripts)+test(deploy): 两批判据补强——① 门 8 组合前缀 compositeDelta 报数(票面第 4 格少判组合必须报名,此前无机器断言;现读少判 877654 条,只报数不判红,兜底档返回 null)② 人跑健康清单补 cdn 80 端口三态(原本只查 8801/8802/8803/8810/8811;取不到记 null 且仅未判定 exit 2),附两枚镜像各含摘掉即翻红用例 (0b0f033dec)
-- 🐞 修复:补齐部署窗口线三枚新文件的溯源水印 (c4da901e2a)
-- 📚 文档:AGENTS.md 重复登记副本清偿批的逐字迁出件(先入库立凭据) (7d5e7474e5)
-- 📚 文档:三枚已结清未翻勾行由主席复验后翻勾——G-706 证据件三枚在 HEAD 且夹具 11/11 通过、G-42 架构策略表相对 HEAD diff 0 行、G-56 索引 D 前缀 0 条;原行内"不翻勾/不动勾"注记经当场复验解除,按完成即删口径处置 (5e5b788612)
-- 📚 文档:§21 补登「账号保活中心」——两条保活线收成一份状态,6 条 /api/keepalive/* 从 in-doc-window 清零 (094dd7f730)
-- 📚 文档:号池 workbuddy-switch 三件套活文档补账——PROJECT_PLAN 加 2026-10-26 本批节(三件判据/成对对照端/验绿末行/端范围平台独占豁免/推送分叉如实登记仅别两席两 ps1 真冲突与这两枚无关);README 号池表 3 处(账号池调度巡检扩为四档含空闲保活、新增号池导入格式自适应、号体检速查 CLI) —— 以权威 HEAD 基面叠加我的新增,自检 HEAD 逐行零丢失(唯一差异=该表行按'一编号一行当前状态'就地改写,旧①②③文本原样保留在新版内),活文档归并走 object-space-land 带行级复活守卫 (49e67301c1)
-- 📚 文档:归档件说明头补改号映射句(G-39⇒G-36 新号形态) (6ffbbff6b9)
-- 🔧 工程/其他:union 合并落地后按合并树重派 8 枚派生件 (66e547dcb7)
-- 📚 文档:G-39→G-36 改号留痕归档件(守门 71 出路②凭据) (62c1800e06)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (892b2349c2)
-- 🐞 修复:部署窗口显式化 —— 部署期间只暂存部署相关告警,成功后留 15 分钟 settle,失败/回滚立即放行 (370d9f26c7)
-- 🐞 修复:聊天流程 taintEgressGate 全端同步 + 两处存量 build 红清偿 (100038acb4)
-- 🐞 修复:全量 pytest 清零——生产两处真修复 + 测试判据去假红 (56ac086fab)
-
-**2026-10-26**
-- 🐞 修复:部署面按「取对侧(已声明+可复核)」导入 origin 的部署窗口线 + 两处归并与两处修红 (c02b88bc63)
-- 📚 文档:G-5 结清——超龄认领牌存量现读归零(代摘器干跑 SWEEP-RESULT state=clean stale=0 held=40 stripped=0 @22:51),且 2026-10-25 机主令已禁止等条件桶 ⇒ 原"等持有人处置"的出路由器物 strip-stale-claim-marks 接手,本行无剩余动作 (ebf8f7d516)
-- 🐞 修复:门41 认「退役远端的残留跟踪引用」为一档(orphan)—— gitee 远端 2026-10-23 摘配后 packed-refs 里 4 条 refs/remotes/gitee/* 掉出 mirror 档、又不属 origin 的 stale 档,被判成超窗旁支,而本门给的四条出路对它全部不成立(A 删的是别的 remote / B 对远程跟踪引用无效 / D 只 prune origin)⇒ 无解恒红挂每次提交(§12e/§12f);判据改为按 git remote 现配清单分档,configuredRemotes 取不到时一律不判 orphan(失效方向仍是多拦),T21 端到端锁正例 + 自检四例反向对照;同批门150 三族圆角归位(KeepaliveCenterPanel panel→rounded-xl / control→rounded-sm,quick-notes archivedDot tiny→rnRadius.xs),工作树面复跑判红 0 族 (bf63f8c40b)
-- 📚 文档:G-397 双席同题对账入当前行—s6 席 deploy-lock 负向与本席 git-lock 迟到finish 验收互补,合跑6/6绿,auto 已收编 (bca2ffaeb7)
-- 🐞 修复:G-1182551 终验闭合二落——03:00 轮转档案当日 4 行 strict-UTF8+CJK 正常(mojibake=0)non-UTF8=0 成立;一次 CAS 被合批洗回 open 已如实注记 (93ff2c73dc)
-
-**2026-10-26**
-- 🔧 工程/其他:合并落地后重生成 web ui-routes 钉(union-converge 对生成物留下的本侧副本须立即重跑生成器,门 105 现读 web 行 stale⇒heal 后待入库;miniapp 端他席在飞 taro-ws-ticket.ts 由 heal 档正确拒写不背书) (c411929340)
-- 🐞 修复:G-1200041 按 2026-10-25 机主令出等条件桶——两格真卡点归机主控制台/运维动作面,存在句改归属句(事实未动),清合并回潮的 F12 基线违例 (3c6956763c)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9ae2dd7013)
-- 🐞 修复:健康 ping 与同步同用出网判据(专用代理表→SYNC_PROXY_URL→直连)——huggingface 直连被封经代理可达却被误判 DOWN,系 LlmProviderUnhealthy 误报根因;钉测含变异自证 (ce76fff2c1)
-
-**2026-10-26**
-- ♻️ 重构:侧栏/历史页会话菜单按钮层级重构——导出7格式与压缩2档位收进二级子菜单,一线16项收敛为9项(48项菜单测试/typecheck/prettier现读绿,i18n五语言补键parity OK) (09b5462b8f)
-- 🐞 修复:推送腿兜底两处收尾 —— ① 探针取根改用脚本自身位置 EGRESS_ROOT,不再引用尚未赋值的 repoRoot(实测:兜底自己崩在判据之前,Cannot access 'repoRoot' before initialization,比没兜底更坏) ② 两条腿都不通时把诊断写进 push-state reason,读数不再退化成'退出码 128 且无可辨认特征'(AGENTS §5e-3 量得到/§12f 失效不许安静),并给出单次绕过的可跑通道 --no-proxy ③ withDirectArgs 保住 git.exe 与尾随空格形态。回归 git-push-guard.test 32 例 + push-attempt-triage 自跑全绿 (5999fa708e)
-
-**2026-10-26**
-- 🐞 修复:把'代理腿死'的出路做成真跑得通的通道(AGENTS §0.8) —— converge 加 --no-proxy、face-reader 加 isForceDirect 与 opts.forceDirect(第一趟就直连,不再先烧一次代理超时),alreadyDirect 认 forceDirect 不叠第二趟;两腿都不通时 push-state reason 点名两腿与各自动作;兜底探针取根不再碰未赋值的 repoRoot;直连实测新形态 'Connection was reset' 补进传输特征串。接线锁 scripts/tests/git-egress-fallback.test.mjs 16 例(含 HTTP 403 / not-a-git-repository 两条成对反证);face-reader.test 35 例同跑 51/51 全绿 (362addb4d8)
-- 🐞 修复:git-lock 落 G-397 租约凭据四档释放(单一删除出口承镜像反向锁⑤)并接 CLI --token;fix(ui): edu-ai tabActiveText 配对补全消费点(门83 R3) (b0f575b666)
-- 📚 文档:登记 O 族派单面同尺票 v2 接线(结清注记,第二步摘行) (4dc4effa68)
-- 🐞 修复:mypy 归零——_version_sort_key 恢复完整泛型注解(收口上一枚带入的裸 tuple),parent_child_chunking 删多余 import-not-found ignore(本venv已装 tiktoken,unused-ignore 判红) (f28c7ace34)
-- 📚 文档:G-241 与 O87g 记进展不翻勾——认领 CAS+终态封闭集已入库(journal 345,applied 回环 dev),门8 提取式第①步 ⊇ 自证主席复跑(4357→4648/回归 0/未判定点名 62→170);两行各自写明剩余格,不开假账 (fb54ff62f0)
-- 🚀 新功能/改进:窗控 overlay 深浅判定拆出纯函数 classify_topbar_luminances+10 组单测,新增几何/深浅真机自证日志(note_chrome_state,节流三闸);本机无 MSVC 链接器未编译验证,以门为准 (654ade932e)
-- 🐞 修复:派单口径分桶切到 v2 尺与 --dispatchable 过滤面同尺(票 G-1182552) (2f0830e8ee)
-- 🚀 新功能/改进:cf-preferred-ip 优选 IP 守护脚本落库(PROJECT_PLAN 已登记该交付物,此前仅存生产机未入库;.env 本体仍由 gitignore 屏蔽) (bf805b6551)
-- 🚀 新功能/改进:模型同步按 provider 指定出网代理(SYNC_PROXY_URL_<PROVIDER> 环境变量驱动,缺省回退全局);收口 httpx proxy= 三处测试替身欠账 (b30f56aa66)
-- 🐞 修复:ai-world 收藏前景键改 favBtnActiveText 与底键同前缀(门83 R3 兄弟对);chore(miniapp): llm-settings 空态补 key-round 图标,ui-routes 派生产物随源同步 (d184010664)
-- 🚀 新功能/改进:[cross-domain] safe-commit 两处停摆根治 + intentional-delete 摘净国内代码镜像残留 + 根目录 .screenshots/ 入忽略层 —— ① 本进程取不到 user.email 时按 lib/bypass-git.mjs 的 REPO_GIT_IDENTITY_ARGS 唯一出口补署名(问不到当作有身份,绝不伪造作者);② 裸 exit 128 不再冒充索引锁争用(本机实测:身份缺失被当锁连烧 10 轮守门链 ≈100 分钟),确定性致命因有专档且不退 --no-verify;③ 删 mirror-to-cn.yml + scripts/setup-mirror-repos.mjs(机主 2026-10-23 弃用令被并发 union 带回,gitee 残留远端同批已摘;桌面端 Gitee 附件分发与 release-desktop.yml 不受影响);④ .screenshots/ 入忽略层 ⇒ 守门 44 从"归属无从判定 exit 2"落到只告警层,不删并发席位现场。接线锁 scripts/tests/safe-commit-failure-triage.test.mjs 5 例 + git-egress-fallback.test.mjs 14 例;回归 face-reader 35 / safe-commit 20 / git-push-guard 32 全绿 (2f9def0ddd)
-- 🔧 工程/其他:RAG_PARENT_CHILD_ENABLED 登记能力矩阵(开关类,默认关;放量判据=金标集真实库 on/off 对照) (63cf7dbfd3)
-- 🐞 修复:cross-publish-v2ex 用法文案漂移(参数→值)对齐单源措辞,g322 第二十批探针 29/29 转绿 (f0b3e47c3c)
-- 🐞 修复:补 stepfun 除名最后两处漏网(入站显式档 + 用户可见面板) (9d01bc93a8)
-- 🐞 修复:部署脚本 git 调用一律钉 -C $Root(取源/定 tip/算 behind/快进不再读错仓库) (85eeb326a7)
-- 🔧 工程/其他:三端 ui-routes 派生产物重生成(大屏「会话质量/访问来源/页面流转」三块面板改动 ⇒ 自述钉 inputsSha256 须同步;派生产物由生成器产出,不得手改) (e3138d8057)
-- 🚀 新功能/改进:大屏新增「访问来源」与「页面流转」两格(流量从哪来 + 人往哪走) (bc28df94c1)
-- 🐞 修复:清零 shared/api 两包 lint 错误 (f78f79461f)
-- 🚀 新功能/改进:KB 检索金标集入库(264 条问答 + schema 校验常驻尺子) (0451cb1e18)
-- 🚀 新功能/改进:检索指标模块(Recall/Precision/MRR/nDCG/HitRate/ContextPrecision) (a7701fa00e)
-- 🚀 新功能/改进:父子块 small-to-big 摄取/检索接线(RAG_PARENT_CHILD_ENABLED 默认关) (9e7923d0fd)
-- 🔧 工程/其他:守门44白名单登记 .screenshots(只登记、不搬不删,归属并行会话产物) (308d4c57d7)
-- 🐞 修复:永久退役厂商(stepfun)在同步/可用性/面板/调用/清单五面统一除名 (535dfe6d92)
-- 🔧 工程/其他:三端 ui-routes 派生产物重生成(墙板页面改动 + 并发侧 bi-dashboard 变更 ⇒ 自述钉 inputsSha256 须同步;派生产物由生成器产出,不得手改) (7694177548)
-- 🚀 新功能/改进:大屏新增会话质量腿(会话数/单页会话占比/人均浏览页数/会话深度分档/落地页TOP) (9d6fbb62ee)
-- 🐞 修复:修「网络异常 × 401 续期」预算互挤 + 补 fetchText 续期契约;RN 替身补转发;api 三例存量红收口 (40f18df5fe)
-- 🐞 修复:LlmProviderUnhealthy 文案去「补 key」出路措辞 + 接线锁文案层射程扩到全部 LLM 告警规则 (af69efdde8)
-- 🔧 工程/其他:三端 ui-routes 派生产物重生成(墙板页面改动 + 合并带入的路由源变更 ⇒ 自述钉 inputsSha256 须同步;派生产物由生成器产出,不得手改) (f43a72e73f)
-- 📚 文档:G-1200041 压行至 388 字(≤400 合规),主键与归属桶逐字不动 (11c70b4ac4)
-- 📚 文档:G-1200041 登记 sso.aizhs.top 502 剩余两格(归:机主控制台面);本机 Keycloak 已对齐 8850 (e4a65ab104)
-- 🐞 修复:三条通道的 401 续期收口 —— SSE 双闸收敛为一道 / WS 换票 401 语义下沉 / 小程序通知 WS 票据化 (de1a3c2902)
-- 🐞 修复:页面路径归一单源 + 授权凭据落库防线;大屏排行补端前缀与占比 (0c50f20838)
-
-**2026-10-26**
-- 📚 文档:E2E 自动补测记进展——缺口发现门接 runner 250(warn 档),存量缺口 4009 只报数,准入硬拦未开,守住未勾 (9a0ee76ccf)
-- 🔧 工程/其他:B02 记进展 —— terminal 帧三处接线收口(切片 1 6a316c8559;切片 2 生产端/载体/读 rev 4 文件由自动收编 b2c8197479 / 073bd769f8 入库,主席已核实并复跑 typecheck+5 例);契约 §7 第 4 项已改 ✅(c304de6373);本行仍不勾,残留 SSE 不广播 created/patched ⇒ rev=0 由端侧 gap resync 自愈、taro store 在飞、v2 切换待 created/patched 一并 (82c2534d04)
-- 🐞 修复:triage-incidents 的归一签名改引 auto-triage 唯一定义(门 98 悬空导入清零;--self-test 13/13) (ef0e037ffb)
-- 🚀 新功能/改进:跨端 UI 契约下沉(二期)— 8 族 spec 单一源 + 两端薄壳接线 + 源码级契约测试 (b766fd234a)
-- 🚀 新功能/改进:跨设备委派审批 —— 消费端补落(web 审批卡 + i18n 五语言) (7a1330d4c8)
-
-**2026-10-26**
-- 📚 文档:terminal 帧三处接线收口 —— §7 第 4 项由 🟡 改 ✅ (c304de6373)
-- 🐞 修复:补 windowsHide + 还原 next-env.d.ts 规范引用(门 52/50 HEAD 存量红) (61bdc87fe0)
-- 📚 文档:D-07 记进展——根因在 llm.py 等待段 finally 当场 pop;落票面第二档(有界 TTL 账本+三闸+具名拒绝,零 wire 变化、单文件可 revert),代码已由 chore(auto) 收编进 07b4403797,pytest 两遍 125/125、mypy 0 错、ruff 通过;残余"端上可见"一格需跨端载荷键 ⇒ 保持未勾 (721b1df040)
-- 🔧 工程/其他:认领 L28812 端到端反馈闭环(goal-loop 席) (1e339afc6a)
-- 🚀 新功能/改进:补 status 公开状态页 web->RN 共享屏样板(全链路打通) (9986d2b676)
-- 🔧 工程/其他:守门8参数段82条逐条定性结清(席37自摘本席租约)——①判据错52(param 档合并 + 入桶 continue 排在消费位之前 + 3 条基址常量声明行) ②合法7(无登记位,写进必被 AJ3 判清单腐烂红) ③真缺陷23(主根因 /api/admin/:id 吞五条列表);全量档面=head 门 RC=0、读数未降、零消音;残余四组真工作随本行摘除由续座按现读重登 (b3dfce9a61)
-- 🔧 工程/其他:G-965 P2 进展注记(标头投影+强制档两项目标达成,A2=0;剩余缺口按分因口径点名) (1e933d35d4)
-- 🔧 工程/其他:G-395 结清并自摘本席租约——升档留痕臂+三值封闭 reason+层名单一真相源落地,apps/cli 209/209、typecheck 8/8、水印 4/4(枚 cfec8fda86);残余两格(tools/subagent.ts 未传 reasoningEffort、上游形状非本轮交付物)另立不塞回本行 (24d6458df6)
-- 🔧 工程/其他:门 250 接线留痕(AGENTS 点名 + 门体如实接线 + 根护栏按新 runner 重封存) (587764f561)
-
-**2026-10-26**
-- 🚀 新功能/改进:G-965 无记录行分因出口(五档,判据全问既有单源)+ 同号旧键点名;不再只报总数 (45b03a543d)
-- 🚀 新功能/改进:E2E 自动补测·缺口发现门接进提交链(warn 档观察) (4d3c0f0b11)
-
-**2026-10-26**
-- 🚀 新功能/改进:缺口发现尺子入库(新模块无对应测试的增量判据+射程清单;判据层生成物自述只认文件头) (c3905ac75e)
-- 🚀 新功能/改进:子代理档位链补"升档也留痕"臂 + 出处标签三面一致(G-395) (cfec8fda86)
-- 🔧 工程/其他:再重钉 ui-routes 产物(wallboard 输入随 67c9d0dac7 变;union 合并后复量) (3b5a4b34d7)
-- 🔧 工程/其他:守门8参数段82条逐条定性 挂牌认领(并发席37)——派单面 --exclude-inflight 从此让出该枚,防两席领同票 (d6fa9a290a)
-- 🐞 修复:端内埋点改走共享 api-client 的 recordVisitLog(解守门 184 直连红) (67c9d0dac7)
-- 🔧 工程/其他:G-1142551 复量注记(门 105 G5 档:web 已重钉 matched,taro 被在飞删除阻塞 ⇒ 不翻勾) (1087a36315)
-- 📚 文档:第 3 期·进化回流同题收敛为唯一保留行(删 2 条无注记副本/1 条未勾副本)+ 装车证据注记 (744a6d2087)
-- 🔧 工程/其他:重钉 ui-routes 产物自述钉(bi-dashboard/wallboard 输入在别席提交 95ca2af/0c0c764 后变) (2110ae45c9)
-- 🔧 工程/其他:D-07 与 端到端反馈闭环 两枚挂牌认领(并发席35/席36)——§24 修订后由 agent 代裁执行;--exclude-inflight 从此把两枚让给本席,防两席领同票 (5b7ceeceed)
-- 🐞 修复:G-965 投影器物两处加固 —— 无侧车记录≠记录为空(不再摘真实归属标头)、owner 括号失配不投影 (6a2c360fcc)
-- 🐞 修复:陈旧 refresh 副本按错误码分流,不再误清凭据 (aefd7d5e0b)
-- 🚀 新功能/改进:新增各端使用量面板(web/RN/小程序按路径前缀分桶) (ed04dfa525)
-
-**2026-10-26**
-- 🔧 工程/其他:再重钉 ui-routes 产物(wallboard 输入随 67c9d0dac7 变;union 合并后复量) (3b5a4b34d7)
-- 🔧 工程/其他:守门8参数段82条逐条定性 挂牌认领(并发席37)——派单面 --exclude-inflight 从此让出该枚,防两席领同票 (d6fa9a290a)
-- 🐞 修复:端内埋点改走共享 api-client 的 recordVisitLog(解守门 184 直连红) (67c9d0dac7)
-- 🔧 工程/其他:G-1142551 复量注记(门 105 G5 档:web 已重钉 matched,taro 被在飞删除阻塞 ⇒ 不翻勾) (1087a36315)
-- 📚 文档:第 3 期·进化回流同题收敛为唯一保留行(删 2 条无注记副本/1 条未勾副本)+ 装车证据注记 (744a6d2087)
-- 🔧 工程/其他:重钉 ui-routes 产物自述钉(bi-dashboard/wallboard 输入在别席提交 95ca2af/0c0c764 后变) (2110ae45c9)
-- 🔧 工程/其他:D-07 与 端到端反馈闭环 两枚挂牌认领(并发席35/席36)——§24 修订后由 agent 代裁执行;--exclude-inflight 从此把两枚让给本席,防两席领同票 (5b7ceeceed)
-- 🐞 修复:G-965 投影器物两处加固 —— 无侧车记录≠记录为空(不再摘真实归属标头)、owner 括号失配不投影 (6a2c360fcc)
-- 🐞 修复:陈旧 refresh 副本按错误码分流,不再误清凭据 (aefd7d5e0b)
-- 🚀 新功能/改进:新增各端使用量面板(web/RN/小程序按路径前缀分桶) (ed04dfa525)
-
-**2026-10-26**
-- 🚀 新功能/改进:message:terminal 终态帧贯通契约层→api-client→web store 投影(票71 切片 1/3,B02) (6a316c8559)
-- 🔧 工程/其他:G-395 挂牌认领(无牌→进行中@2026-10-25/goal-并发席34)——已派子席动 apps/cli/src/subagents 落点,按 §1 认领即租约,防两席领同一张票 (fbd9d7b83d)
-- 🔧 工程/其他:G-965 P2 投影器物加固落地(无记录≠记录为空、owner 括号失配不投影) + 第 3 批 1 条行内标头投影 (d11323e96f)
-- 🚀 新功能/改进:设备证明密钥对补全跨服务过桥链路——生产 Trae 号可自续(此前结构性刷不动) (bacf2d4173)
-- 📚 文档:需求/异常自动发现器记进展(三源+调度已交付,余数据源素材面) (1386e45a48)
-- 📚 文档:结清第 3 期·进化回流(两条同题副本一并翻勾) —— 席位提交 1f1f9508a7(10 文件 +1069/−18)已入 HEAD;主席自审:五套 59 例 pass 0 fail、四器件 self-test 全绿、git-guardian --check RC=0、受判据 19 臂全绿、水印 10/10。逐格处置:② 守门判据腐烂自检 = check-gate-rot 增差值档(--ratchet/--baseline/--write-baseline),guardian 6h 只喊新增,现读 284+22 项、存量腐烂 1 条(git-lock 路径已登记);③ 依赖升级自动票 = dep-advisory-radar 接 ticketWhitelist,guardian 24h --register,pnpm audit 257 条(35 critical/93 high)、80 可修、已出 3 票;④ token 双闸 = 前席已接并复跑放行;① 自动沉淀 AGENTS.md = 按 §24 代裁不做(门 207 预算 96,000 字节、现读 94,050,余量 1,950;把最高约束文档交给自动写入不可控),落选理由在此留档。两条无编号同题副本同时翻勾(昨次折并后被并集回捞,属 union 无编号行维的已知残余);剩余面:②符号级未覆盖(只判路径存在)、依赖票会派进 AI 会话、EOF 登记无幂等锚点 (59d2499138)
-- 🐞 修复:补 lesson 候选稿合法性尺子,清 HEAD 门 98 悬空导入 (eea073ccd2)
-- 🐞 修复:折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families) (7eb5bc4174)
-- 🚀 新功能/改进:页面访问埋点接入(页面栈轮询上报 visit_logs,免改页面壳) (0c0c764393)
-- 📚 文档:结清金丝雀发布票(观察窗+自动回滚已落地) (10dc45a19c)
-- 🔧 工程/其他:裸 git 派生基线 45→41(G-927 那族在飞迁移入库后按现读收紧) (ca701c4923)
-- 🔧 工程/其他:两张趋势图并排,压缩数据大屏纵向长度 (e30405a000)
-- 🔧 工程/其他:G-965 P2 首批 10 条行内标头投影落账(归属散文→标头,等价搬移) + 投影落地注记 (3ad96dca5a)
-- 🚀 新功能/改进:数据大屏新增近 7 日访问趋势(PV/UV 逐日)+ 页面渲染测试 (11fee56c8a)
-- 📚 文档:G-24 记进展——回收器已落地(archive-gc 双上限+10代地板,镜像 11/11)但调度未接(HEAD 面仅本体与测试两处命中,git-guardian 无调用点);按 §0.9 保持未勾,残余=接线一格 (0e37914c0b)
-- 🐞 修复:用户 id 失效(外键违约)时降级匿名重插,不再丢整条访问 (d365f2fe82)
-- ♻️ 重构:G-54 第 5 轮 4 门 git 派生收口 face-reader (af6b584786)
-- 🔧 工程/其他:恢复被并发合并清理误删的访问面分桶测试(内容与原件 sha 一致) (06338cf4a5)
+**2026-10-28**
+- 📚 文档:结清「普通 git merge 绕开 union 判据把结清行按旧形态带回」—— 探测器与 R4 点名两半都已在 HEAD (fb0089d0c02)
+- 🐞 修复:并发守卫补上流式归还通道(它自己正在漏槽)，并装全局连接硬顶 (84e34bb03bf)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
@@ -17052,6 +16949,168 @@ A: Yes. ~14839+ tests / 3213 test files / 67 e2e spec / 4561 API 路由 / 608 �
 | **账号池管理页 admin**      | `/admin/relay/account-pool`                                   | 页面源文件 `apps/web/app/(main)/admin/relay/account-pool/page.tsx`:单页三栏(账号池 / 代理池 / 模型目录),账号列表 + 平台与健康度筛选 + 分页 + 导入对话框 + 启停 + 真实探活 + 按需查余额 + 认领释放 + 手动巡检 + 单账号用量抽屉                                                                                                                                                                                                                                                                                                                     |
 - **登录方式优先级按访客来源 IP 的地区判**(2026-10-27,web 主站 + 桌面壳同一份产物):国内 IP ⇒ 扫码登录 tab 排第一 + 微信整行主推大按钮;海外 IP ⇒ 邮箱验证码第一、手机号不开放 + Google 主推、GitHub 紧随图标网格首位。判据产出侧唯一出口 `apps/api/src/services/login-region.ts`(Cloudflare 边缘国家头 → GeoLite2/ip-api 兜底 → 判不出显式返回未判定),排序侧唯一出口 `packages/ui-react/src/components/login-form/region-policy.ts`(IP 判不出才回落界面语言)。地区经 `GET /api/auth/oauth-status` 的 `loginRegion` 字段下发,该端点同时显式 `Cache-Control: no-store` —— 实测这条响应此前默认 `max-age=14400` 且边缘可缓存,不关掉就会把首个访客的地区发给后面所有人。**该字段只影响呈现顺序,不参与任何鉴权/限流/风控判定**(国家头可被客户端自带伪造)。
 **2026-10-26**
+- 🚀 新功能/改进:message:terminal 终态帧贯通契约层→api-client→web store 投影(票71 切片 1/3,B02) (6a316c8559)
+- 🔧 工程/其他:G-395 挂牌认领(无牌→进行中@2026-10-25/goal-并发席34)——已派子席动 apps/cli/src/subagents 落点,按 §1 认领即租约,防两席领同一张票 (fbd9d7b83d)
+- 🔧 工程/其他:G-965 P2 投影器物加固落地(无记录≠记录为空、owner 括号失配不投影) + 第 3 批 1 条行内标头投影 (d11323e96f)
+- 🚀 新功能/改进:设备证明密钥对补全跨服务过桥链路——生产 Trae 号可自续(此前结构性刷不动) (bacf2d4173)
+- 📚 文档:需求/异常自动发现器记进展(三源+调度已交付,余数据源素材面) (1386e45a48)
+- 📚 文档:结清第 3 期·进化回流(两条同题副本一并翻勾) —— 席位提交 1f1f9508a7(10 文件 +1069/−18)已入 HEAD;主席自审:五套 59 例 pass 0 fail、四器件 self-test 全绿、git-guardian --check RC=0、受判据 19 臂全绿、水印 10/10。逐格处置:② 守门判据腐烂自检 = check-gate-rot 增差值档(--ratchet/--baseline/--write-baseline),guardian 6h 只喊新增,现读 284+22 项、存量腐烂 1 条(git-lock 路径已登记);③ 依赖升级自动票 = dep-advisory-radar 接 ticketWhitelist,guardian 24h --register,pnpm audit 257 条(35 critical/93 high)、80 可修、已出 3 票;④ token 双闸 = 前席已接并复跑放行;① 自动沉淀 AGENTS.md = 按 §24 代裁不做(门 207 预算 96,000 字节、现读 94,050,余量 1,950;把最高约束文档交给自动写入不可控),落选理由在此留档。两条无编号同题副本同时翻勾(昨次折并后被并集回捞,属 union 无编号行维的已知残余);剩余面:②符号级未覆盖(只判路径存在)、依赖票会派进 AI 会话、EOF 登记无幂等锚点 (59d2499138)
+- 🐞 修复:补 lesson 候选稿合法性尺子,清 HEAD 门 98 悬空导入 (eea073ccd2)
+- 🐞 修复:折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families) (7eb5bc4174)
+- 🚀 新功能/改进:页面访问埋点接入(页面栈轮询上报 visit_logs,免改页面壳) (0c0c764393)
+- 📚 文档:结清金丝雀发布票(观察窗+自动回滚已落地) (10dc45a19c)
+- 🔧 工程/其他:裸 git 派生基线 45→41(G-927 那族在飞迁移入库后按现读收紧) (ca701c4923)
+- 🔧 工程/其他:两张趋势图并排,压缩数据大屏纵向长度 (e30405a000)
+- 🔧 工程/其他:G-965 P2 首批 10 条行内标头投影落账(归属散文→标头,等价搬移) + 投影落地注记 (3ad96dca5a)
+- 🚀 新功能/改进:数据大屏新增近 7 日访问趋势(PV/UV 逐日)+ 页面渲染测试 (11fee56c8a)
+- 📚 文档:G-24 记进展——回收器已落地(archive-gc 双上限+10代地板,镜像 11/11)但调度未接(HEAD 面仅本体与测试两处命中,git-guardian 无调用点);按 §0.9 保持未勾,残余=接线一格 (0e37914c0b)
+- 🐞 修复:用户 id 失效(外键违约)时降级匿名重插,不再丢整条访问 (d365f2fe82)
+- ♻️ 重构:G-54 第 5 轮 4 门 git 派生收口 face-reader (af6b584786)
+- 🔧 工程/其他:恢复被并发合并清理误删的访问面分桶测试(内容与原件 sha 一致) (06338cf4a5)
+- 🔧 工程/其他:再重钉 ui-routes 产物(wallboard 输入随 67c9d0dac7 变;union 合并后复量) (3b5a4b34d7)
+- 🔧 工程/其他:守门8参数段82条逐条定性 挂牌认领(并发席37)——派单面 --exclude-inflight 从此让出该枚,防两席领同票 (d6fa9a290a)
+- 🐞 修复:端内埋点改走共享 api-client 的 recordVisitLog(解守门 184 直连红) (67c9d0dac7)
+- 🔧 工程/其他:G-1142551 复量注记(门 105 G5 档:web 已重钉 matched,taro 被在飞删除阻塞 ⇒ 不翻勾) (1087a36315)
+- 📚 文档:第 3 期·进化回流同题收敛为唯一保留行(删 2 条无注记副本/1 条未勾副本)+ 装车证据注记 (744a6d2087)
+- 🔧 工程/其他:重钉 ui-routes 产物自述钉(bi-dashboard/wallboard 输入在别席提交 95ca2af/0c0c764 后变) (2110ae45c9)
+- 🔧 工程/其他:D-07 与 端到端反馈闭环 两枚挂牌认领(并发席35/席36)——§24 修订后由 agent 代裁执行;--exclude-inflight 从此把两枚让给本席,防两席领同票 (5b7ceeceed)
+- 🐞 修复:G-965 投影器物两处加固 —— 无侧车记录≠记录为空(不再摘真实归属标头)、owner 括号失配不投影 (6a2c360fcc)
+- 🐞 修复:陈旧 refresh 副本按错误码分流,不再误清凭据 (aefd7d5e0b)
+- 🚀 新功能/改进:新增各端使用量面板(web/RN/小程序按路径前缀分桶) (ed04dfa525)
+
+- 🚀 新功能/改进:缺口发现尺子入库(新模块无对应测试的增量判据+射程清单;判据层生成物自述只认文件头) (c3905ac75e)
+- 🚀 新功能/改进:子代理档位链补"升档也留痕"臂 + 出处标签三面一致(G-395) (cfec8fda86)
+- 🔧 工程/其他:再重钉 ui-routes 产物(wallboard 输入随 67c9d0dac7 变;union 合并后复量) (3b5a4b34d7)
+- 🔧 工程/其他:守门8参数段82条逐条定性 挂牌认领(并发席37)——派单面 --exclude-inflight 从此让出该枚,防两席领同票 (d6fa9a290a)
+- 🐞 修复:端内埋点改走共享 api-client 的 recordVisitLog(解守门 184 直连红) (67c9d0dac7)
+- 🔧 工程/其他:G-1142551 复量注记(门 105 G5 档:web 已重钉 matched,taro 被在飞删除阻塞 ⇒ 不翻勾) (1087a36315)
+- 📚 文档:第 3 期·进化回流同题收敛为唯一保留行(删 2 条无注记副本/1 条未勾副本)+ 装车证据注记 (744a6d2087)
+- 🔧 工程/其他:重钉 ui-routes 产物自述钉(bi-dashboard/wallboard 输入在别席提交 95ca2af/0c0c764 后变) (2110ae45c9)
+- 🔧 工程/其他:D-07 与 端到端反馈闭环 两枚挂牌认领(并发席35/席36)——§24 修订后由 agent 代裁执行;--exclude-inflight 从此把两枚让给本席,防两席领同票 (5b7ceeceed)
+- 🐞 修复:G-965 投影器物两处加固 —— 无侧车记录≠记录为空(不再摘真实归属标头)、owner 括号失配不投影 (6a2c360fcc)
+- 🐞 修复:陈旧 refresh 副本按错误码分流,不再误清凭据 (aefd7d5e0b)
+- 🚀 新功能/改进:新增各端使用量面板(web/RN/小程序按路径前缀分桶) (ed04dfa525)
+
+- 🚀 新功能/改进:G-965 无记录行分因出口(五档,判据全问既有单源)+ 同号旧键点名;不再只报总数 (45b03a543d)
+- 🚀 新功能/改进:E2E 自动补测·缺口发现门接进提交链(warn 档观察) (4d3c0f0b11)
+
+- 📚 文档:terminal 帧三处接线收口 —— §7 第 4 项由 🟡 改 ✅ (c304de6373)
+- 🐞 修复:补 windowsHide + 还原 next-env.d.ts 规范引用(门 52/50 HEAD 存量红) (61bdc87fe0)
+- 📚 文档:D-07 记进展——根因在 llm.py 等待段 finally 当场 pop;落票面第二档(有界 TTL 账本+三闸+具名拒绝,零 wire 变化、单文件可 revert),代码已由 chore(auto) 收编进 07b4403797,pytest 两遍 125/125、mypy 0 错、ruff 通过;残余"端上可见"一格需跨端载荷键 ⇒ 保持未勾 (721b1df040)
+- 🔧 工程/其他:认领 L28812 端到端反馈闭环(goal-loop 席) (1e339afc6a)
+- 🚀 新功能/改进:补 status 公开状态页 web->RN 共享屏样板(全链路打通) (9986d2b676)
+- 🔧 工程/其他:守门8参数段82条逐条定性结清(席37自摘本席租约)——①判据错52(param 档合并 + 入桶 continue 排在消费位之前 + 3 条基址常量声明行) ②合法7(无登记位,写进必被 AJ3 判清单腐烂红) ③真缺陷23(主根因 /api/admin/:id 吞五条列表);全量档面=head 门 RC=0、读数未降、零消音;残余四组真工作随本行摘除由续座按现读重登 (b3dfce9a61)
+- 🔧 工程/其他:G-965 P2 进展注记(标头投影+强制档两项目标达成,A2=0;剩余缺口按分因口径点名) (1e933d35d4)
+- 🔧 工程/其他:G-395 结清并自摘本席租约——升档留痕臂+三值封闭 reason+层名单一真相源落地,apps/cli 209/209、typecheck 8/8、水印 4/4(枚 cfec8fda86);残余两格(tools/subagent.ts 未传 reasoningEffort、上游形状非本轮交付物)另立不塞回本行 (24d6458df6)
+- 🔧 工程/其他:门 250 接线留痕(AGENTS 点名 + 门体如实接线 + 根护栏按新 runner 重封存) (587764f561)
+
+- 📚 文档:E2E 自动补测记进展——缺口发现门接 runner 250(warn 档),存量缺口 4009 只报数,准入硬拦未开,守住未勾 (9a0ee76ccf)
+- 🔧 工程/其他:B02 记进展 —— terminal 帧三处接线收口(切片 1 6a316c8559;切片 2 生产端/载体/读 rev 4 文件由自动收编 b2c8197479 / 073bd769f8 入库,主席已核实并复跑 typecheck+5 例);契约 §7 第 4 项已改 ✅(c304de6373);本行仍不勾,残留 SSE 不广播 created/patched ⇒ rev=0 由端侧 gap resync 自愈、taro store 在飞、v2 切换待 created/patched 一并 (82c2534d04)
+- 🐞 修复:triage-incidents 的归一签名改引 auto-triage 唯一定义(门 98 悬空导入清零;--self-test 13/13) (ef0e037ffb)
+- 🚀 新功能/改进:跨端 UI 契约下沉(二期)— 8 族 spec 单一源 + 两端薄壳接线 + 源码级契约测试 (b766fd234a)
+- 🚀 新功能/改进:跨设备委派审批 —— 消费端补落(web 审批卡 + i18n 五语言) (7a1330d4c8)
+
+- 🐞 修复:把'代理腿死'的出路做成真跑得通的通道(AGENTS §0.8) —— converge 加 --no-proxy、face-reader 加 isForceDirect 与 opts.forceDirect(第一趟就直连,不再先烧一次代理超时),alreadyDirect 认 forceDirect 不叠第二趟;两腿都不通时 push-state reason 点名两腿与各自动作;兜底探针取根不再碰未赋值的 repoRoot;直连实测新形态 'Connection was reset' 补进传输特征串。接线锁 scripts/tests/git-egress-fallback.test.mjs 16 例(含 HTTP 403 / not-a-git-repository 两条成对反证);face-reader.test 35 例同跑 51/51 全绿 (362addb4d8)
+- 🐞 修复:git-lock 落 G-397 租约凭据四档释放(单一删除出口承镜像反向锁⑤)并接 CLI --token;fix(ui): edu-ai tabActiveText 配对补全消费点(门83 R3) (b0f575b666)
+- 📚 文档:登记 O 族派单面同尺票 v2 接线(结清注记,第二步摘行) (4dc4effa68)
+- 🐞 修复:mypy 归零——_version_sort_key 恢复完整泛型注解(收口上一枚带入的裸 tuple),parent_child_chunking 删多余 import-not-found ignore(本venv已装 tiktoken,unused-ignore 判红) (f28c7ace34)
+- 📚 文档:G-241 与 O87g 记进展不翻勾——认领 CAS+终态封闭集已入库(journal 345,applied 回环 dev),门8 提取式第①步 ⊇ 自证主席复跑(4357→4648/回归 0/未判定点名 62→170);两行各自写明剩余格,不开假账 (fb54ff62f0)
+- 🚀 新功能/改进:窗控 overlay 深浅判定拆出纯函数 classify_topbar_luminances+10 组单测,新增几何/深浅真机自证日志(note_chrome_state,节流三闸);本机无 MSVC 链接器未编译验证,以门为准 (654ade932e)
+- 🐞 修复:派单口径分桶切到 v2 尺与 --dispatchable 过滤面同尺(票 G-1182552) (2f0830e8ee)
+- 🚀 新功能/改进:cf-preferred-ip 优选 IP 守护脚本落库(PROJECT_PLAN 已登记该交付物,此前仅存生产机未入库;.env 本体仍由 gitignore 屏蔽) (bf805b6551)
+- 🚀 新功能/改进:模型同步按 provider 指定出网代理(SYNC_PROXY_URL_<PROVIDER> 环境变量驱动,缺省回退全局);收口 httpx proxy= 三处测试替身欠账 (b30f56aa66)
+- 🐞 修复:ai-world 收藏前景键改 favBtnActiveText 与底键同前缀(门83 R3 兄弟对);chore(miniapp): llm-settings 空态补 key-round 图标,ui-routes 派生产物随源同步 (d184010664)
+- 🚀 新功能/改进:[cross-domain] safe-commit 两处停摆根治 + intentional-delete 摘净国内代码镜像残留 + 根目录 .screenshots/ 入忽略层 —— ① 本进程取不到 user.email 时按 lib/bypass-git.mjs 的 REPO_GIT_IDENTITY_ARGS 唯一出口补署名(问不到当作有身份,绝不伪造作者);② 裸 exit 128 不再冒充索引锁争用(本机实测:身份缺失被当锁连烧 10 轮守门链 ≈100 分钟),确定性致命因有专档且不退 --no-verify;③ 删 mirror-to-cn.yml + scripts/setup-mirror-repos.mjs(机主 2026-10-23 弃用令被并发 union 带回,gitee 残留远端同批已摘;桌面端 Gitee 附件分发与 release-desktop.yml 不受影响);④ .screenshots/ 入忽略层 ⇒ 守门 44 从"归属无从判定 exit 2"落到只告警层,不删并发席位现场。接线锁 scripts/tests/safe-commit-failure-triage.test.mjs 5 例 + git-egress-fallback.test.mjs 14 例;回归 face-reader 35 / safe-commit 20 / git-push-guard 32 全绿 (2f9def0ddd)
+- 🔧 工程/其他:RAG_PARENT_CHILD_ENABLED 登记能力矩阵(开关类,默认关;放量判据=金标集真实库 on/off 对照) (63cf7dbfd3)
+- 🐞 修复:cross-publish-v2ex 用法文案漂移(参数→值)对齐单源措辞,g322 第二十批探针 29/29 转绿 (f0b3e47c3c)
+- 🐞 修复:补 stepfun 除名最后两处漏网(入站显式档 + 用户可见面板) (9d01bc93a8)
+- 🐞 修复:部署脚本 git 调用一律钉 -C $Root(取源/定 tip/算 behind/快进不再读错仓库) (85eeb326a7)
+- 🔧 工程/其他:三端 ui-routes 派生产物重生成(大屏「会话质量/访问来源/页面流转」三块面板改动 ⇒ 自述钉 inputsSha256 须同步;派生产物由生成器产出,不得手改) (e3138d8057)
+- 🚀 新功能/改进:大屏新增「访问来源」与「页面流转」两格(流量从哪来 + 人往哪走) (bc28df94c1)
+- 🐞 修复:清零 shared/api 两包 lint 错误 (f78f79461f)
+- 🚀 新功能/改进:KB 检索金标集入库(264 条问答 + schema 校验常驻尺子) (0451cb1e18)
+- 🚀 新功能/改进:检索指标模块(Recall/Precision/MRR/nDCG/HitRate/ContextPrecision) (a7701fa00e)
+- 🚀 新功能/改进:父子块 small-to-big 摄取/检索接线(RAG_PARENT_CHILD_ENABLED 默认关) (9e7923d0fd)
+- 🔧 工程/其他:守门44白名单登记 .screenshots(只登记、不搬不删,归属并行会话产物) (308d4c57d7)
+- 🐞 修复:永久退役厂商(stepfun)在同步/可用性/面板/调用/清单五面统一除名 (535dfe6d92)
+- 🔧 工程/其他:三端 ui-routes 派生产物重生成(墙板页面改动 + 并发侧 bi-dashboard 变更 ⇒ 自述钉 inputsSha256 须同步;派生产物由生成器产出,不得手改) (7694177548)
+- 🚀 新功能/改进:大屏新增会话质量腿(会话数/单页会话占比/人均浏览页数/会话深度分档/落地页TOP) (9d6fbb62ee)
+- 🐞 修复:修「网络异常 × 401 续期」预算互挤 + 补 fetchText 续期契约;RN 替身补转发;api 三例存量红收口 (40f18df5fe)
+- 🐞 修复:LlmProviderUnhealthy 文案去「补 key」出路措辞 + 接线锁文案层射程扩到全部 LLM 告警规则 (af69efdde8)
+- 🔧 工程/其他:三端 ui-routes 派生产物重生成(墙板页面改动 + 合并带入的路由源变更 ⇒ 自述钉 inputsSha256 须同步;派生产物由生成器产出,不得手改) (f43a72e73f)
+- 📚 文档:G-1200041 压行至 388 字(≤400 合规),主键与归属桶逐字不动 (11c70b4ac4)
+- 📚 文档:G-1200041 登记 sso.aizhs.top 502 剩余两格(归:机主控制台面);本机 Keycloak 已对齐 8850 (e4a65ab104)
+- 🐞 修复:三条通道的 401 续期收口 —— SSE 双闸收敛为一道 / WS 换票 401 语义下沉 / 小程序通知 WS 票据化 (de1a3c2902)
+- 🐞 修复:页面路径归一单源 + 授权凭据落库防线;大屏排行补端前缀与占比 (0c50f20838)
+
+- ♻️ 重构:侧栏/历史页会话菜单按钮层级重构——导出7格式与压缩2档位收进二级子菜单,一线16项收敛为9项(48项菜单测试/typecheck/prettier现读绿,i18n五语言补键parity OK) (09b5462b8f)
+- 🐞 修复:推送腿兜底两处收尾 —— ① 探针取根改用脚本自身位置 EGRESS_ROOT,不再引用尚未赋值的 repoRoot(实测:兜底自己崩在判据之前,Cannot access 'repoRoot' before initialization,比没兜底更坏) ② 两条腿都不通时把诊断写进 push-state reason,读数不再退化成'退出码 128 且无可辨认特征'(AGENTS §5e-3 量得到/§12f 失效不许安静),并给出单次绕过的可跑通道 --no-proxy ③ withDirectArgs 保住 git.exe 与尾随空格形态。回归 git-push-guard.test 32 例 + push-attempt-triage 自跑全绿 (5999fa708e)
+
+- 🔧 工程/其他:合并落地后重生成 web ui-routes 钉(union-converge 对生成物留下的本侧副本须立即重跑生成器,门 105 现读 web 行 stale⇒heal 后待入库;miniapp 端他席在飞 taro-ws-ticket.ts 由 heal 档正确拒写不背书) (c411929340)
+- 🐞 修复:G-1200041 按 2026-10-25 机主令出等条件桶——两格真卡点归机主控制台/运维动作面,存在句改归属句(事实未动),清合并回潮的 F12 基线违例 (3c6956763c)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9ae2dd7013)
+- 🐞 修复:健康 ping 与同步同用出网判据(专用代理表→SYNC_PROXY_URL→直连)——huggingface 直连被封经代理可达却被误判 DOWN,系 LlmProviderUnhealthy 误报根因;钉测含变异自证 (ce76fff2c1)
+
+- 🐞 修复:部署面按「取对侧(已声明+可复核)」导入 origin 的部署窗口线 + 两处归并与两处修红 (c02b88bc63)
+- 📚 文档:G-5 结清——超龄认领牌存量现读归零(代摘器干跑 SWEEP-RESULT state=clean stale=0 held=40 stripped=0 @22:51),且 2026-10-25 机主令已禁止等条件桶 ⇒ 原"等持有人处置"的出路由器物 strip-stale-claim-marks 接手,本行无剩余动作 (ebf8f7d516)
+- 🐞 修复:门41 认「退役远端的残留跟踪引用」为一档(orphan)—— gitee 远端 2026-10-23 摘配后 packed-refs 里 4 条 refs/remotes/gitee/* 掉出 mirror 档、又不属 origin 的 stale 档,被判成超窗旁支,而本门给的四条出路对它全部不成立(A 删的是别的 remote / B 对远程跟踪引用无效 / D 只 prune origin)⇒ 无解恒红挂每次提交(§12e/§12f);判据改为按 git remote 现配清单分档,configuredRemotes 取不到时一律不判 orphan(失效方向仍是多拦),T21 端到端锁正例 + 自检四例反向对照;同批门150 三族圆角归位(KeepaliveCenterPanel panel→rounded-xl / control→rounded-sm,quick-notes archivedDot tiny→rnRadius.xs),工作树面复跑判红 0 族 (bf63f8c40b)
+- 📚 文档:G-397 双席同题对账入当前行—s6 席 deploy-lock 负向与本席 git-lock 迟到finish 验收互补,合跑6/6绿,auto 已收编 (bca2ffaeb7)
+- 🐞 修复:G-1182551 终验闭合二落——03:00 轮转档案当日 4 行 strict-UTF8+CJK 正常(mojibake=0)non-UTF8=0 成立;一次 CAS 被合批洗回 open 已如实注记 (93ff2c73dc)
+
+- 🔧 工程/其他:fix(scripts)+test(deploy): 两批判据补强——① 门 8 组合前缀 compositeDelta 报数(票面第 4 格少判组合必须报名,此前无机器断言;现读少判 877654 条,只报数不判红,兜底档返回 null)② 人跑健康清单补 cdn 80 端口三态(原本只查 8801/8802/8803/8810/8811;取不到记 null 且仅未判定 exit 2),附两枚镜像各含摘掉即翻红用例 (0b0f033dec)
+- 🐞 修复:补齐部署窗口线三枚新文件的溯源水印 (c4da901e2a)
+- 📚 文档:AGENTS.md 重复登记副本清偿批的逐字迁出件(先入库立凭据) (7d5e7474e5)
+- 📚 文档:三枚已结清未翻勾行由主席复验后翻勾——G-706 证据件三枚在 HEAD 且夹具 11/11 通过、G-42 架构策略表相对 HEAD diff 0 行、G-56 索引 D 前缀 0 条;原行内"不翻勾/不动勾"注记经当场复验解除,按完成即删口径处置 (5e5b788612)
+- 📚 文档:§21 补登「账号保活中心」——两条保活线收成一份状态,6 条 /api/keepalive/* 从 in-doc-window 清零 (094dd7f730)
+- 📚 文档:号池 workbuddy-switch 三件套活文档补账——PROJECT_PLAN 加 2026-10-26 本批节(三件判据/成对对照端/验绿末行/端范围平台独占豁免/推送分叉如实登记仅别两席两 ps1 真冲突与这两枚无关);README 号池表 3 处(账号池调度巡检扩为四档含空闲保活、新增号池导入格式自适应、号体检速查 CLI) —— 以权威 HEAD 基面叠加我的新增,自检 HEAD 逐行零丢失(唯一差异=该表行按'一编号一行当前状态'就地改写,旧①②③文本原样保留在新版内),活文档归并走 object-space-land 带行级复活守卫 (49e67301c1)
+- 📚 文档:归档件说明头补改号映射句(G-39⇒G-36 新号形态) (6ffbbff6b9)
+- 🔧 工程/其他:union 合并落地后按合并树重派 8 枚派生件 (66e547dcb7)
+- 📚 文档:G-39→G-36 改号留痕归档件(守门 71 出路②凭据) (62c1800e06)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (892b2349c2)
+- 🐞 修复:部署窗口显式化 —— 部署期间只暂存部署相关告警,成功后留 15 分钟 settle,失败/回滚立即放行 (370d9f26c7)
+- 🐞 修复:聊天流程 taintEgressGate 全端同步 + 两处存量 build 红清偿 (100038acb4)
+- 🐞 修复:全量 pytest 清零——生产两处真修复 + 测试判据去假红 (56ac086fab)
+
+- 📚 文档:12 枚僵尸票批量结清——前提在 HEAD 逐条不成立:桌面 ANR 残行 55 字、G-195 三个入口脚本全在 HEAD、take_loop_v2_handoff 生产面 18 处已装车、O87g 精确挂载图已装车(本轮另补 compositeDelta 报数)、三枚归并副本指向行已归档、G-8 为副本套娃 31 层的一次性快照、G-242 残行且属禁用的等条件形态、G-948 被吞行已回补、G-66 为单点读数加等条件形态、cloudflared 运行副本与入库源逐字节等值 (9be4bfd2bb)
+
+- 📚 文档:两枚结清——分叉票按当场复量关闭(origin=ALREADY、本地与远端 0/0、push-state done,合并枚已入祖先链);A01 按行内自带销账注记关闭检查框 (1e67311179)
+- 📚 文档:结清一枚无编号僵尸行(双重执行/两次 LLM 与两遍工具副作用)——修复形态在 HEAD 三个调用点齐备(orchestration:277/team_orchestration:211/agent_orchestrator:1510 均为 handoff = await take_loop_v2_handoff(...) 后 if handoff is not None 早退),二次复核席判 PASS 后主席独立复跑符号面复核 (4f7cd644f9)
+- 🚀 新功能/改进:海外登录隐藏手机号入口并主推 Google，Google OAuth 出站走白名单代理 (b2ff1bf93b)
+- 🐞 修复:两枚 PowerShell 脚本补 UTF-8 BOM——治 PowerShell 5.1 把中文串读成乱码导致对侧 runId 镜像测试 T2 在 main 恒红(§27 要求 .ps1 带 BOM;内容零改动,只加三字节前缀。上一笔被收敛对齐冲掉盘上修复,本笔重落) (f10838b8f7)
+
+- 🔧 工程/其他:收敛后重派 6 枚派生件(三端 ui-routes + i18n 离线包与清单) (170b1ba6de)
+- 🐞 修复:工作空间页短内容撑满卡片剩余高度，消除项目区下方大片空白 (253418c2de)
+- 🐞 修复:补齐收敛并入的 3 枚缺载荷文件(CI verify 面回潮清偿) (9e0f5aedb0)
+- 🐞 修复:补齐 deploy 三枚缺载荷文件(门 47 全量档/CI 红清偿) (67f3a74541)
+- 📚 文档:守门 207 体积红二次清偿——合并把已清副本 union 回来了(100886→94975 B) (0f85b56149)
+- 🐞 修复:还原被本席上一枚提交覆盖的别席逐字迁出条目(同名归档件撞车) (3be29eb3ec)
+- 🚀 新功能/改进:海外登录隐藏手机号入口并主推 Google，Google OAuth 出站走白名单代理 (0451b10e78)
+
+- 🔧 工程/其他:结清三端 ui-routes/离线包重钉(五钉 HEAD 面全 matched) + O6511 候选器交付与真源结构发现 + B02 terminal/resync 契约第二刀 + G-965 P2 投影器增强 (394e7717f6)
+- 🔧 工程/其他:重钉 web/taro ui-routes 自述钉(随 bi-dashboard 与 taro app/auth 输入变更重算,G-816040 四端现读全 matched) (09a79ced04)
+- 🚀 新功能/改进:新增 catBatchTypes 原语(G-54)并让 audit-decision-log 的提交存在性取材走层 —— 清型 C 自拼 batch 债务,判据语义不变 (894943173e)
+- 📚 文档:结清 G-927(镜像棘轮:裸 git 派生的生产文件只减不增) —— 现读差集 0 枚(判据 headDerivationScan,对基线提交 14a04f013f 逐枚求差)。经过:上席已迁 1 枚(strip-banned-buckets,字节 4,705,595 EQUAL)、第四批 10 枚由 0ff78d7fda 整批迁完(本席复核逐枚裸派生 0 处)、本席再迁 2 枚镜像测试读真仓的裸 execFileSync(对照 512B/1088/53/346/261B 全 EQUAL),棘轮读数 71→70→49→46。逐枚复跑:6 绿(biz-day/guarded-write/identity/live-doc/readout/token-literal),2 红在射程外(ai-task 9/10 的 llm.py 裸 create_task、money 2/3 的 DeveloperConversationsScreen centsToYuan,系门 247/248 存量债,迁移前后同判),10 枚 --self-test 全绿,21 项新旧通道同 blob 对照 17 EQUAL + 4 项仅 core.quotepath 转义差异。如实登记剩余:① 现读 46 vs 基线 45 的 +1 是 scripts/audit-decision-log.mjs(7de326e39b,自进化票,晚于降档 1 分钟入库,型 A 1 处 + 型 C 自拼 batch 1 处)—— 不属本票射程,由该票席位迁移后回调基线;② HEAD 面 45 枚存量债(G-998191 族)按只减不增口径继续逐票收 (90a27b1e8a)
+- 🚀 新功能/改进:页面排行每行同时给 PV/UV(多少次/多少人) (95ca2af0fb)
+- 🚀 新功能/改进:页面访问埋点接入(React Navigation 切屏上报 visit_logs) (7cf9b2e8ad)
+- 🐞 修复:WS 换票与小程序 SSE 接入 401 续期 (dba8f63d4f)
+
+- 🐞 修复:并集收敛按复合主键认"已处置权"——本侧已结清的行不再被滞后副本回捞成 open 原形态 (937fafb78e)
+- 📚 文档:守门 89 R4 清偿 —— 四枚只读尺子/自检器点名入速查区(gate-rot/plan-truncated-rows/web-rn-screen-parity/miniapp-mirror-fidelity),接线面与退役口径一并写清 (d09bf0a749)
+- 🚀 新功能/改进:状态查询口同款 9074 自愈——与签到口共用 _rotate_device (b3fadcd296)
+- 🐞 修复:数据大屏前后端字段对齐(修白屏) + 接入页面访问/来源埋点数据 (968b13a99f)
+- 🐞 修复:门 234 A2 收口——投影等式三档化(中间态点名不判红)+ 抽取器同键冲突闸 (6d72f0164c)
+- 🚀 新功能/改进:AI 自进化调度层四件器物接线装车 + 登记出口补取号令牌/短 sha 守卫(O65 第 0/1/3 期) (1f1f9508a7)
+- 🔧 工程/其他:G-54 第4轮 —— 裸 git 基线 49→45(紧贴现读,不留余量;4 枚入库 cca944cc6a) (62f7d34699)
+- 🐞 修复:补齐权限双轴本机记忆模块(HEAD 缺文件致 web 构建红) + 大屏使用数据面板渲染测试 (cbf3aa4329)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (59145cf2f0)
+- 🐞 修复:探针取证面从单文件改为页面族 —— 修 71 条空壳的假阴性 (7c8d5b9e82)
+- 🐞 修复:流式/AI 服务/raw 通道 401 自动续期 + RN/小程序主动续期 (831baf7200)
+- 🚀 新功能/改进:三端 ui-routes/离线包重钉 + chat-sync terminal/resync 契约 + gate-grow 候选器 + G-965 P2 投影器增强 (fa9d1ad423)
+- 🔧 工程/其他:侧车 enrich 1 条(G-63 补 blocking),抽取器 --apply 现读 changed=1 bucketsDrift=0、回读 129 条 —— 由 seat-sidecar2 的 --check 点名的唯一一条待办,主席执行;门 234 复跑 state=warn(midform 3→0 / a2=0 / conflict=0 / blind=0),孤儿 80 条只报数 (6b942ede52)
+- 🔧 工程/其他:拆除 31 枚已退役零引用残影(deploy/cf-preferred-ip 2026-10-22 整链退役、qoder 探针退役、plugins-data 已下沉 packages/shared、零引用测试收口) (f80b0bb34e)
+- 🔧 工程/其他:中间态标头归一(门 234 midform 3→0) —— 三条机主面行(G-957 / G-329 / G-1182551)的行内标头带 ｜等:— 属未渲染完的中间态(语义已等价:parseHeader 读回 waiting=none、dispositionOf 同判),按 §1「标头是投影」归一成 renderHeader 产物形态;只动这三行标头,正文与归属语义逐字不变,三维守恒由 live-doc-edit 当场断言(上一版误带第四行被守恒拒落,已剔除) (f1439785cb)
+- ♻️ 重构:audit-decision-log 两处裸 git 派生改走 face-reader.gitBinary()(G-54:棘轮新增拦截即修,行为逐字不变) (1c0938e1d3)
+
 | API 路由 | 4562 | `apiRoutes` |
 | 测试文件 | 3334 | `testFiles` |
 | 跟踪文件 | 16615 | `trackedFiles` |
@@ -17062,8 +17121,4 @@ A: Yes. ~14839+ tests / 3213 test files / 67 e2e spec / 4561 API 路由 / 608 �
 | **会话库备份** | `pnpm relay:sessions:backup --apply` | 源只读,快照到 `~/.wb-switch/backups/sessions/<ts>/` 并带逐文件 sha256 manifest;默认 dry-run |
 | **会话归属台账** | `pnpm relay:session-links rebuild --auto --apply` | 从登录态快照库自动推账号时间线段(最早快照前的存量默认未归属,`--trust-earliest` 才归);`assign` / `unassign` 人工标注 |
 | **本机账号一键切换** | `pnpm relay:switch-account` / `pnpm relay:ide-switch --ide <平台>` | WorkBuddy 登录态按快照切换(切换前自动备份当前态);trae / trae-solo / qoder 三 profile |
-- UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-web-rn-parity.mjs`(web↔RN 跨端对账,warn;自检 `node scripts/check-web-rn-parity.mjs`;跳过 `HUSKY_SKIP_WEB_RN_PARITY`)
-  <strong>8 端全覆盖</strong> · <strong>99 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
-对外关键数字声明(与本页生成块同源,均现算):**611 张表 · 4538 API 路由 · 25 个 WebSocket 端点 ·
-| 凭据                | `Authorization: Bearer ihui_xxx`(+ `X-Api-Secret` 双因子)                                                                                                                                         | 用户自助签发:`POST /api/developer/api-keys`(已开 2FA 的账号须先调 `POST /api/auth/2fa/step-up` 验一次,窗 5 分钟);可按 scope/IP/模型/时段收紧                                                                                                                                                                                                                               |
-| 号池网关单机档(一条命令 + API key 门) | [`deploy/relay-standalone/`](./deploy/relay-standalone/)                |
+

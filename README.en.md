@@ -59,19 +59,19 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **608 tables · 4564 API routes ·
-25 WebSocket endpoints · 99 catalogued LLMs · 38 platforms auto-publishing · 3362 test files ·
-286 engineering gates · 49 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+Headline claims (same source as the table below, all live-computed): **606 tables · 4562 API routes ·
+25 WebSocket endpoints · 101 catalogued LLMs · 38 platforms auto-publishing · 3163 test files ·
+273 engineering gates · 50 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 608 | `dbTables` |
-| schema 文件 | 235 | `dbSchemaFiles` |
-| API 路由 | 4564 | `apiRoutes` |
-| 路由文件 | 630 | `apiRouteFiles` |
-| AI 服务路由 | 603 | `aiServiceRoutes` |
+| 数据库表 | 611 | `dbTables` |
+| schema 文件 | 236 | `dbSchemaFiles` |
+| API 路由 | 4586 | `apiRoutes` |
+| 路由文件 | 641 | `apiRouteFiles` |
+| AI 服务路由 | 604 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 99 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -82,15 +82,15 @@ Headline claims (same source as the table below, all live-computed): **608 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3362 | `testFiles` |
-| CI 工作流 | 49 | `ciWorkflows` |
+| 测试文件 | 3483 | `testFiles` |
+| CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 286 | `guardianGates` |
-| — blocking | 261 | `guardianBlocking` |
-| — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 16681 | `trackedFiles` |
+| 工程守门 | 291 | `guardianGates` |
+| — blocking | 265 | `guardianBlocking` |
+| — warn | 28 | `guardianWarn` |
+| 跟踪文件 | 17019 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-26。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-28。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
@@ -99,115 +99,84 @@ Headline claims (same source as the table below, all live-computed): **608 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
-**2026-10-26**
-- 📚 Docs:12 枚僵尸票批量结清——前提在 HEAD 逐条不成立:桌面 ANR 残行 55 字、G-195 三个入口脚本全在 HEAD、take_loop_v2_handoff 生产面 18 处已装车、O87g 精确挂载图已装车(本轮另补 compositeDelta 报数)、三枚归并副本指向行已归档、G-8 为副本套娃 31 层的一次性快照、G-242 残行且属禁用的等条件形态、G-948 被吞行已回补、G-66 为单点读数加等条件形态、cloudflared 运行副本与入库源逐字节等值 (9be4bfd2bb)
+**2026-10-28**
+- 🐞 Fix:把 api 蓝绿切换脚本与 router 入库——此前从主仓发起的部署每次都要断流 20~30 秒 (00adfa0036a)
+- 📚 Docs:G-20 改判注记(认账)—— 模板 10 枚实为全部过审生效(0=通过生效,上一注记自造反序码表判反);真死点=签名 2 枚 rejected(ReviewReply API 面空,控制台看)+ auto 档不含 tencent ⇒ 切换时序:签名生效后 SMS_PROVIDER=tencent,现切会掐验证码。机主动作面收敛为报签名 (be50d7db08b)
+- 🐞 Fix:造页/壳落地两阶段给足上限 —— 超时误判会把能跑完的阶段说成「未判定」 (908d5a2199f)
+- 🐞 Fix:小程序 token 写回把排版当漂移 —— 拆掉恒红与「每次提交都在制造格式债」 (ee30b624814)
+- 🚀 Feature/Improvement:跨端自动同步编排器 —— web→RN→小程序 12 阶段唯一入口 (2d697d6cd4d)
+- 📚 Docs:登记号池对标 workbuddy2api-panel 五票(选号策略/任务自动化/授权链接扩容/单机形态/指纹收点) (a44df1d0f5f)
+- 🔧 Chore/Other:收编滞留的渲染层平滑度守门,并修掉它压在全仓 push 门上的 2 处类型错误 (be3e20b55df)
+- 📚 Docs:更正上一枚对阿里云签名切换的错误结论并回退口径——验证码 DELIVERED 是兜底替发的,不能当新签名可用 (27ad89634e7)
+- 📚 Docs:门 44 补「封口链接」档 —— 指向 D:/DevEnv/{Temp,Logs} 的 junction 放行、实体目录仍红 (d4bfe49d627)
+- 📚 Docs:§1 完成口径跟上「结清即删」默认,并压回体积预算 (5ee5523cbeb)
+- 🔧 Chore/Other:给语音笔记「分组输入框」的圆角补运行时回归锁(门 150 静态判据的运行面) (8b8ee29187e)
+- 📚 Docs:§1 完成口径跟上「结清即删」默认(整行删除;回退 LIVE_KEEP_CLOSED_ROW=1) (40c89ce1cdf)
+- 📚 Docs:「须真机人验」行的取证指针由 10 位短 sha 改内容锚点(§1 证据指针禁令:短 sha 腐烂率 30.2%,要么全量 40 位要么内容锚点)——改为「/api/admin/api-logs 显式放行公网可达」那枚提交的标题原文;归属桶/勾选态/判据句逐字未动 (c54ef3c321f)
+- 🐞 Fix:补上 reaction 三键的 web 五语 —— 上一枚把组件落了,词包却还在他席暂存区 (93fb8726916)
+- 🔧 Chore/Other:收编滞留 18 小时的 relay-switch 暂存半成品,并修掉它压在全仓 push 门上的 2 处类型错误 (739a31b94f7)
+- 📚 Docs:补 R4 漏点名 ⑨ —— check-live-doc-merge-recall 已接 .husky/post-merge,文档面须可见(门 89 R4) (8bd204a0d69)
+- 🚀 Feature/Improvement:reaction 收成三态闭环 —— 读回落地 + 「再点一次撤销」 (50c8bce8277)
+- 🐞 Fix:收口 Test 步 13 个失败文件 —— 2 处真缺陷(短信回调 CSRF 豁免被自动收编误删、频控 reset 两面不同语义) + 8 处判据/契约未跟上新实现 (0fd3f2ac2ac)
+- 📚 Docs:「须真机人验」行两处过期陈述改判据实测——重启免登录/15min 静默续期两格已留记录(装机版受控 kill+重启 16:07→16:09 仍已登录;16:23 启动→空闲 18min→16:41 点管理导航不弹登录),④ nginx 全量代理四路探针均 401 结构化回码(非 404/502)结清;原写"三项人工记录仍 0 条 ⇒ 未满足"与现读不符,已改。本行仅剩 WebView SSO 一格,且写明 agent 侧不可造该条件(登出机主会话属破坏性动作)——归属桶与判据句逐字未动 (fded8029a35)
 
-**2026-10-26**
-- 🔧 Chore/Other:fix(scripts)+test(deploy): 两批判据补强——① 门 8 组合前缀 compositeDelta 报数(票面第 4 格少判组合必须报名,此前无机器断言;现读少判 877654 条,只报数不判红,兜底档返回 null)② 人跑健康清单补 cdn 80 端口三态(原本只查 8801/8802/8803/8810/8811;取不到记 null 且仅未判定 exit 2),附两枚镜像各含摘掉即翻红用例 (0b0f033dec)
-- 🐞 Fix:补齐部署窗口线三枚新文件的溯源水印 (c4da901e2a)
-- 📚 Docs:AGENTS.md 重复登记副本清偿批的逐字迁出件(先入库立凭据) (7d5e7474e5)
-- 📚 Docs:三枚已结清未翻勾行由主席复验后翻勾——G-706 证据件三枚在 HEAD 且夹具 11/11 通过、G-42 架构策略表相对 HEAD diff 0 行、G-56 索引 D 前缀 0 条;原行内"不翻勾/不动勾"注记经当场复验解除,按完成即删口径处置 (5e5b788612)
-- 📚 Docs:§21 补登「账号保活中心」——两条保活线收成一份状态,6 条 /api/keepalive/* 从 in-doc-window 清零 (094dd7f730)
-- 📚 Docs:号池 workbuddy-switch 三件套活文档补账——PROJECT_PLAN 加 2026-10-26 本批节(三件判据/成对对照端/验绿末行/端范围平台独占豁免/推送分叉如实登记仅别两席两 ps1 真冲突与这两枚无关);README 号池表 3 处(账号池调度巡检扩为四档含空闲保活、新增号池导入格式自适应、号体检速查 CLI) —— 以权威 HEAD 基面叠加我的新增,自检 HEAD 逐行零丢失(唯一差异=该表行按'一编号一行当前状态'就地改写,旧①②③文本原样保留在新版内),活文档归并走 object-space-land 带行级复活守卫 (49e67301c1)
-- 📚 Docs:归档件说明头补改号映射句(G-39⇒G-36 新号形态) (6ffbbff6b9)
-- 🔧 Chore/Other:union 合并落地后按合并树重派 8 枚派生件 (66e547dcb7)
-- 📚 Docs:G-39→G-36 改号留痕归档件(守门 71 出路②凭据) (62c1800e06)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (892b2349c2)
-- 🐞 Fix:部署窗口显式化 —— 部署期间只暂存部署相关告警,成功后留 15 分钟 settle,失败/回滚立即放行 (370d9f26c7)
-- 🐞 Fix:聊天流程 taintEgressGate 全端同步 + 两处存量 build 红清偿 (100038acb4)
-- 🐞 Fix:全量 pytest 清零——生产两处真修复 + 测试判据去假红 (56ac086fab)
+**2026-10-28**
+- 📚 Docs:闭环票对账注记 —— 登记→派单环两格断点已补(枚 e1228822159 面切换+680e9d3370d 票号环),断点语义从"票号不可解析"改口为"未派单";尾环待一次端到端真实绿再结清 (dabd2552f41)
+- 🔧 Chore/Other:OSV 批量升级有已知漏洞的 PyPI 包 (b2464e5899f)
+- 🐞 Fix:nodemailer 传递面收敛与根 legacy overrides 节同步 (7d1f2cc2a8a)
 
-**2026-10-26**
-- 🐞 Fix:部署面按「取对侧(已声明+可复核)」导入 origin 的部署窗口线 + 两处归并与两处修红 (c02b88bc63)
-- 📚 Docs:G-5 结清——超龄认领牌存量现读归零(代摘器干跑 SWEEP-RESULT state=clean stale=0 held=40 stripped=0 @22:51),且 2026-10-25 机主令已禁止等条件桶 ⇒ 原"等持有人处置"的出路由器物 strip-stale-claim-marks 接手,本行无剩余动作 (ebf8f7d516)
-- 🐞 Fix:门41 认「退役远端的残留跟踪引用」为一档(orphan)—— gitee 远端 2026-10-23 摘配后 packed-refs 里 4 条 refs/remotes/gitee/* 掉出 mirror 档、又不属 origin 的 stale 档,被判成超窗旁支,而本门给的四条出路对它全部不成立(A 删的是别的 remote / B 对远程跟踪引用无效 / D 只 prune origin)⇒ 无解恒红挂每次提交(§12e/§12f);判据改为按 git remote 现配清单分档,configuredRemotes 取不到时一律不判 orphan(失效方向仍是多拦),T21 端到端锁正例 + 自检四例反向对照;同批门150 三族圆角归位(KeepaliveCenterPanel panel→rounded-xl / control→rounded-sm,quick-notes archivedDot tiny→rnRadius.xs),工作树面复跑判红 0 族 (bf63f8c40b)
-- 📚 Docs:G-397 双席同题对账入当前行—s6 席 deploy-lock 负向与本席 git-lock 迟到finish 验收互补,合跑6/6绿,auto 已收编 (bca2ffaeb7)
-- 🐞 Fix:G-1182551 终验闭合二落——03:00 轮转档案当日 4 行 strict-UTF8+CJK 正常(mojibake=0)non-UTF8=0 成立;一次 CAS 被合批洗回 open 已如实注记 (93ff2c73dc)
+**2026-10-28**
+- 🐞 Fix:nodemailer 传递面收敛与根 legacy overrides 节同步 (7d1f2cc2a8a)
 
-**2026-10-26**
-- 📚 Docs:号池三件套补登记——package.json 的 relay:inspect 入口 + docs 增 §2.1 外来格式自适应/§5.7 归一单源/§9 号体检CLI六态/§10 空闲保活时钟;两张活文档归并不在本笔 (a4ef5e2bf0)
-- 🐞 Fix:G-397 结清——验收实验双臂实跑过(git-lock-lease-token.test),机主令接管僵尸票 (2355619e6f)
-- 🚀 Feature/Improvement:号池对标 workbuddy-switch 三件套——①外来格式自适应导入(别名搬运+秒/毫秒量纲归一,立修 expires_at 被当秒折成 5138 年永不失明) / ②空闲保活档(greatest(last_used,last_refresh) 防闲置 invalid_grant,client-first 让位本机,env RELAY_ACCOUNT_KEEPALIVE_DAYS) / ③号体检速查 CLI relay:inspect(六态结论+下一步,零DB零上游不回显凭据) -- AGENTS §21 docs/README 同步(本批仅 docs;两张活文档归并不在本笔);测试 typecheck8/8+vitest69+格式棘轮+水印verify,端范围 api/worker/CLI 平台独占豁免见 PLAN (79d39e8365)
-- 🚀 Feature/Improvement:账号保活中心统一两条保活线 + 密钥路径锚定治静默失效第8例 (f541169ba4)
-- 🐞 Fix:结清翻勾 3 枚僵尸票(G-22/G-34/git-guardian前提腐烂)——机主令接管;结清事实由 b8r1/b10r1/b13r1 注记+引用枚落定,本批翻勾并盖接管戳,正文逐字守恒 (eb3a7b66da)
-- 🚀 Feature/Improvement:check-task-claims 补超龄认领牌现读枚数口——判据一律 import 挂牌单源零复算,新读数只做附加不改既有各档形态;同枚按其自注重新设计 T20 夹具(真仓叙述形态已合法归零,阳性对照改由真行合成,尺子的牙不变)(执行席 claims-cl1 交回;主席复跑镜像测试廿五例全绿) (9db07eae77)
-- 🐞 Fix:G-1182551 结清——机主令接管僵尸票(持牌 g2-alltasks 近48h零活动),ssh 隧道处置(deploy 10-21 实证档)+生产日志 strict-UTF8 终验全绿 (398c711c3b)
-- 🐞 Fix:监控侧告警去重身份改走单源出口——不再整条文本自拼身份,证据锁进 harness 与镜像测试;抖动门现读零新增(执行席 monitor-identity 交回;主席复跑镜像测试十九例全绿与守门 224 现读) (b9162299c8)
-- 🐞 Fix:守门115 认跨文件转发豁免并钉依据链——hub adapter 的转发点名校验出口与两处调用点,演示路径真缺口保留点名不一起消掉;同枚修复该文件工作树副本的 JSDoc 断头(语法坏件会让整门解析失败)(执行席 gate115-forward 交回,主席补齐注释开头并复跑读数:命中一候选三,转发豁免一带依据链) (56497242c4)
-- 🔧 Chore/Other:给四枚零测试共享工具补真用例——base64、number-format、token-estimate、dangerous-command-detector(执行席 shared-utils-tests 交回;主席复跑 vitest 五十三例 GREEN 且 shared 包 typecheck 过) (552bb5d058)
-- 📚 Docs:四枚二次复跑 PASS 结清——G-397 锁租约认 token(反向验收四例含迟到 finish 不改控制文件)、G-53 lint-staged 三态分档三针已打补丁、G-63 safe-commit 发令数组无 pathspec 且 env-blocked 四条十五天零复发、G-863 附件容量写前 CAS 与跨批用例均在 HEAD(执行席 zombie-recheck-B 换角度独立复跑,主席按其现读末行摘行) (bc0c7ceb69)
+**2026-10-28**
+- 🐞 Fix:安全审计第二刀 npm 侧 overrides 批次 + nodemailer ^10.2.1 (b088f0aa301)
+- 🐞 Fix:P0-5 高危动作白名单补执行侧兜底门禁 (c2e35dc36a1)
 
-**2026-10-26**
-- 🚀 Feature/Improvement:号池对标 workbuddy-switch 三件套——①外来格式自适应导入(别名搬运+秒/毫秒量纲归一,立修 expires_at 被当秒折成 5138 年永不失明) / ②空闲保活档(greatest(last_used,last_refresh) 防闲置 invalid_grant,client-first 让位本机,env RELAY_ACCOUNT_KEEPALIVE_DAYS) / ③号体检速查 CLI relay:inspect(六态结论+下一步,零DB零上游不回显凭据) -- AGENTS §21 docs/README 同步(本批仅 docs;两张活文档归并不在本笔);测试 typecheck8/8+vitest69+格式棘轮+水印verify,端范围 api/worker/CLI 平台独占豁免见 PLAN (79d39e8365)
-- 🚀 Feature/Improvement:账号保活中心统一两条保活线 + 密钥路径锚定治静默失效第8例 (f541169ba4)
-- 🐞 Fix:结清翻勾 3 枚僵尸票(G-22/G-34/git-guardian前提腐烂)——机主令接管;结清事实由 b8r1/b10r1/b13r1 注记+引用枚落定,本批翻勾并盖接管戳,正文逐字守恒 (eb3a7b66da)
-- 🚀 Feature/Improvement:check-task-claims 补超龄认领牌现读枚数口——判据一律 import 挂牌单源零复算,新读数只做附加不改既有各档形态;同枚按其自注重新设计 T20 夹具(真仓叙述形态已合法归零,阳性对照改由真行合成,尺子的牙不变)(执行席 claims-cl1 交回;主席复跑镜像测试廿五例全绿) (9db07eae77)
-- 🐞 Fix:G-1182551 结清——机主令接管僵尸票(持牌 g2-alltasks 近48h零活动),ssh 隧道处置(deploy 10-21 实证档)+生产日志 strict-UTF8 终验全绿 (398c711c3b)
-- 🐞 Fix:监控侧告警去重身份改走单源出口——不再整条文本自拼身份,证据锁进 harness 与镜像测试;抖动门现读零新增(执行席 monitor-identity 交回;主席复跑镜像测试十九例全绿与守门 224 现读) (b9162299c8)
-- 🐞 Fix:守门115 认跨文件转发豁免并钉依据链——hub adapter 的转发点名校验出口与两处调用点,演示路径真缺口保留点名不一起消掉;同枚修复该文件工作树副本的 JSDoc 断头(语法坏件会让整门解析失败)(执行席 gate115-forward 交回,主席补齐注释开头并复跑读数:命中一候选三,转发豁免一带依据链) (56497242c4)
-- 🔧 Chore/Other:给四枚零测试共享工具补真用例——base64、number-format、token-estimate、dangerous-command-detector(执行席 shared-utils-tests 交回;主席复跑 vitest 五十三例 GREEN 且 shared 包 typecheck 过) (552bb5d058)
-- 📚 Docs:四枚二次复跑 PASS 结清——G-397 锁租约认 token(反向验收四例含迟到 finish 不改控制文件)、G-53 lint-staged 三态分档三针已打补丁、G-63 safe-commit 发令数组无 pathspec 且 env-blocked 四条十五天零复发、G-863 附件容量写前 CAS 与跨批用例均在 HEAD(执行席 zombie-recheck-B 换角度独立复跑,主席按其现读末行摘行) (bc0c7ceb69)
+**2026-10-28**
+- 🐞 Fix:验签层增加通知 app_id 与本机 ALIPAY_APP_ID 强比对 (8da9f9cd284)
 
-**2026-10-26**
-- 🚀 Feature/Improvement:票面 G-941 写账侧最后两格——计划链构造点带主链别、koubo 工作流复用引擎唯一出口入账(链别在出口处本文件零字面量);自证抓出两处真错(增量基线逐条相加断言、账本路径自算致零副作用断言恒真)已由该席改正(执行席 api-plan-chain 交回;主席复跑该族 pytest 册十六例 GREEN) (39b7c18110)
-- 📚 Docs:G-1200042 挂牌认领——本席按票面把 Knip 残余债切两席裁决(5 枚零引用文件 / 23 枚零消费导出),§7 三问逐枚答完才动手;基线收紧一格按 §12e 留 owner,不在本票射程 (dfa48b8d67)
-- 🔧 Chore/Other:菜单层级 e2e 补历史页 /chat/history 同型用例——一线≤7/导出子菜单2项/压缩子菜单2项,main#main 作用域消歧侧栏同名 testid;run9 4 passed (3fc3f73066)
-- 📚 Docs:登记票 G-1200042 Knip 棘轮残余债(5 枚零引用文件 + 23 枚零消费导出的接线或删除裁决),判词与复算材料落 .ihui-agent/tmp/s27-knip;本票可派单,不阻塞 CI 现绿面 (47853a52d8)
-- 📚 Docs:Knip 棘轮收口与 RN 文字快捷笔记切片两条行级注记落账(证据在枚 8ab7f67b86/31a2b3cb45 提交信息;D03 行只记事实与未裁关系,不翻勾不代裁) (d469a45e5b)
-- 📚 Docs:修我刚写坏的那行兜底口径(反引号被转义成反斜杠 + 短语重复一遍) (67b79c811b)
-- 📚 Docs:G-44 结清摘牌——去重身份已含病因维且抖动读数归一(枚 714efaa19196b077947206f4ee62213f81586600 入库),席 g44-alertdedup 双对照取证:异病因异键成立、轮次/条数/时刻/sha 漂移同键;票面行号 257 已腐烂(现读调用侧 459 与 486)。残余一格(监控侧自拼身份未走单源)另派他席,不在本票射程 (bf25ef478d)
+**2026-10-28**
+- 🔧 Chore/Other:结清 HEAD 面缺失的溯源水印 —— check-web-rn-parity.mjs 的载荷在一次 prettier 重排里被吃掉 (c99dd151ed2)
+- 📚 Docs:登记 API Key 的 step-up 前置 + 对齐门 173 点名的两处数字 (c3fa1d0381b)
 
-**2026-10-26**
-- 🔧 Chore/Other:菜单层级 e2e 补历史页 /chat/history 同型用例——一线≤7/导出子菜单2项/压缩子菜单2项,main#main 作用域消歧侧栏同名 testid;run9 4 passed (3fc3f73066)
-- 📚 Docs:登记票 G-1200042 Knip 棘轮残余债(5 枚零引用文件 + 23 枚零消费导出的接线或删除裁决),判词与复算材料落 .ihui-agent/tmp/s27-knip;本票可派单,不阻塞 CI 现绿面 (47853a52d8)
-- 📚 Docs:Knip 棘轮收口与 RN 文字快捷笔记切片两条行级注记落账(证据在枚 8ab7f67b86/31a2b3cb45 提交信息;D03 行只记事实与未裁关系,不翻勾不代裁) (d469a45e5b)
-- 📚 Docs:修我刚写坏的那行兜底口径(反引号被转义成反斜杠 + 短语重复一遍) (67b79c811b)
-- 📚 Docs:G-44 结清摘牌——去重身份已含病因维且抖动读数归一(枚 714efaa19196b077947206f4ee62213f81586600 入库),席 g44-alertdedup 双对照取证:异病因异键成立、轮次/条数/时刻/sha 漂移同键;票面行号 257 已腐烂(现读调用侧 459 与 486)。残余一格(监控侧自拼身份未走单源)另派他席,不在本票射程 (bf25ef478d)
+**2026-10-28**
+- 🚀 Feature/Improvement:连接期出网守卫 + API Key 挂 step-up + 三登录入口哈希升级对齐 (3fee82d0bc7)
 
-**2026-10-26**
-- 🚀 Feature/Improvement:票面 G-941 写账侧补 workflow 生产者并把 chain 缺省收成必填语义——工作流不再静默落未判定桶,漏传当场点名;bench 与越权用例补传主链别(执行席 g941c-workflow 交回;主席复跑该族 pytest 册六十二例 GREEN,被删的 data/cost_ledger.json 经现读属 gitignored 残留) (7faee0fb1b)
-- 🔧 Chore/Other:守门98 镜像 D4 计数行的假牙改形态锁——只报数维不再把一次性读数钉成下限,补两条变异自证(摘行必红、读数归零不红),pass 由廿五增到廿六(执行席 gate98-softcount 交回;上一枚因并发清索引落成空提交,本枚重试) (e65492b6e2)
-- 📚 Docs:git 出网兜底口径对齐实现 —— 换腿双向(代理↔直连)、网络形状含挂死零回显、方向由 plan.useDirectArgs 单点给 (b1b1fd08a7)
-- 🐞 Fix:把换腿兜底补成对称的两臂,并治好它自己的两处失真 —— ① 旧判据只兜"代理→直连"单向:显式绕过(--no-proxy)后若只剩代理腿能用,仍把"我有腿"判成"无法判定远端位置"(rc=2;当天 09:20 实测 Failed to connect to github.com:443 + 200s 挂死各一次)。现按 usedDirect/alreadyDirect 双向换腿,方向由 plan.useDirectArgs 单点给出(写死任一方向=只兜一条腿的偏判) ② 挂死到超时既无退出码也无回显,旧判据 `status!==128` 直接不兜 ⇒ 又成安静失效(§12f);新增 isTransportEgress 统一口径(128+传输回显 ∨ 挂死/零回显) ③ 无腿可换那一支也留痕,且先过动词表(实测曾把 for-each-ref 的本地失败记成 both-failed 往账本造脏行,该 1 行已清) ④ 用例 25 例(对称两臂+挂死+服务器裁决四型不得换腿+源码形状锁),face-reader 35 / git-push-guard 32 / safe-commit-triage 5 合跑 97/97 (f23d935e54)
-- 🐞 Fix:免鉴权目录空 key 不再发 "Bearer " —— 占位 key 判未配置后 huggingface 以空 key 出网,默认分支仍无条件拼 Bearer ⇒ httpx LocalProtocolError Illegal header value,本该 200 的 router /v1/models 变失败又把 health 打成0;三处 Bearer 分支配 api_key 守卫空则不设 header,并加回归用例钉住(无 key ⇒ 无 Authorization);pytest 224 全绿 (f52f4580c7)
-- 🐞 Fix:占位 key=未配置⇒未配凭据厂商不进人告警(机主定案)——实测 ai_model_config 三家密文解出 sk-placeholder-… 变体,精确匹配的 _PLACEHOLDER_KEYS 拦不住⇒github_models/cloudflare_workers_ai 被拉进同步连败3次永久禁用、huggingface 直连被墙 ConnectError,三家 gauge 钉死0⇒LlmProviderUnhealthy 长期 firing;新增 _is_placeholder_key(空/白名单/含placeholder 大小写不敏感)收敛在选取层:占位 key 厂商不进同步也不进启动恢复(无序列⇒告警自愈),免鉴权放行时不带占位 key 出网;huggingface 标 keyless_model_list(router /v1/models 无key 200 实测)换域后照常同步转健康;pytest 5 例新增+233 例全绿,变异自证(摘判据⇒2例咬红) (352731df85)
+**2026-10-28**
+- 🔧 Chore/Other:给 wsGuard 补覆盖面自证——全仓只许有一套 WebSocketServer (3b303c4d1d6)
 
-**2026-10-26**
-- 🔧 Chore/Other:侧栏会话菜单层级 e2e 冒烟 spec 入库——真浏览器验证一线10项/导出子菜单7项/压缩子菜单2项/MD导出真下载/Issue白话提示上屏(run7 3 passed);随重构补装回归防线 (7db240fbd0)
+**2026-10-28**
+- 🐞 Fix:两处 SSE 的断连清理挂错信号源——要么流刚建立就变哑、要么每次访问累积一个泄漏 (be8c2574f42)
+- 🔧 Chore/Other:收编滞留 18 小时的 relay-switch 暂存半成品,并修掉它压在全仓 push 门上的 2 处类型错误 (48e0a9f69a0)
+- 🐞 Fix:收口 Test 步 13 个失败文件 —— 2 处真缺陷(短信回调 CSRF 豁免被自动收编误删、频控 reset 两面不同语义) + 8 处判据/契约未跟上新实现 (9ec6ad819d8)
 
-**2026-10-26**
-- 🐞 Fix:还原收编器抢先入库的过窄状态——零使用符号不得被去 export 背景:收编器在 8ab7f67b86 把我席在树的 Knip 第二轮收窄整片提交,而那一刻我尚未跑完 全量 typecheck 的修复轮,HEAD 因此带着 tsc 立刻点名的错误(未用局部量/未用类型)。 判据:去 export 只对「本文件内确有使用」的符号成立;若该符号在本文件内也零使用且 全仓零消费方,去掉 export 会让它变成 tsc 眼里的死局部量。这类不得由我单方面删除 (§7 三问无人背书),故一律还原为原导出形态。 还原面 48 文件:api 服务层 __reset*ForTest 与账本条目类型、miniapp-taro 的 canvasToTempFilePath/rpxToPx/imagesToBase64/writeFileFromBase64/useChatSyncMessages/ stopTokenAutoRefresh/readFileAsBase64 别名腿、mobile-rn token 与 web useAIWebSocket、 shared hands 契约两枚、topic-detail 样式类型等。 验证:turbo typecheck 全量 32/32 任务 0 错误(还原后现跑);knip 复量待干净检出。 (31a2b3cb45)
-- 🔧 Chore/Other:守门98 镜像 D4 计数行的假牙改形态锁——只报数维不再把一次性读数钉成下限,补两条变异自证(摘行必红、读数归零不红),pass 由廿五增到廿六(执行席 gate98-softcount 交回,主席复跑同条命令绿) (3a1c07ed0a)
-- 📚 Docs:两枚结清——G-17 schema_check 认借来的连接(席 g17-schemacheck,主席复跑 pytest 五十九例 GREEN,枚 8ab7f67b86 入库);G-39 判为守门98 D6 同题重复登记(门体早于批基线在 HEAD,席 g39-shadow-js 现读 self-test 四十例全绿、真仓 RC=0,按僵尸票摘行通道结清) (b49b38ec62)
+**2026-10-28**
+- 🚀 Feature/Improvement:2FA step-up —— 资金流出动作补第二因子(会话被窃后提现不再只靠令牌) (4c8efc7c632)
+- 🚀 Feature/Improvement:装门 257 看守四道抗 DDoS 闸会不会被静默摘掉(点名落 AGENTS 余量) (b2f5cceaf6d)
+- 🔧 Chore/Other:check-web-rn-parity 过 prettier 格式化(纯换行重排,水印与逻辑零变更) (c7296c7f6f5)
+- 🐞 Fix:SSRF 守卫补两处既存绕过 + relay 出网复检住进发请求那一刻 (3ec2cca7b46)
+- 🚀 Feature/Improvement:新增 web↔RN 跨端对账门(仅报告)并注册进 guardian (777923eb0c5)
 
-**2026-10-26**
-- 🚀 Feature/Improvement:票面 G-941 第二读面补链维——用量基线来源键按链别分桶,未判定桶独立可见不并入主链(执行席 g941b-usage 交回;主席独立复跑该族 pytest 廿七例 GREEN) (1727fb92d3)
-- 🐞 Fix:折叠 web 五语词包的同行逐字重复键——门 2 / 2e-dupns 由红转绿(全仓提交链解堵) (bec5acc3e8)
-- 🚀 Feature/Improvement:绑定Issue对话框加普通用户用法提示——副标题改白话说明(bindIssueHint)、搜索按钮长句改短动词键(searchIssueAction),五语言同批补键parity 19260 OK;对话框测试12/12、web typecheck全绿;顺带prettier对齐该文件存量格式欠账 (edaa348b22)
+**2026-10-28**
+- 🔧 Chore/Other:生产端第二轮落账 —— 摘除票①(完成即删削尾:出路三件当日已落地 4d55e0fd7bf/92f0d8d88e5/反向夹具) + 金丝雀票复核(生产 checkout 账 22 枚金丝雀真跑过:17 pass/4 rollback/1 unproven;载体已装;wiring 9 格 wired) + 闭环票复核(intake 取值面接生产 checkout 后首枚 O67 实落账;取号池死锁复现待人裁) + G-23 交接页挂载 + G-20 报备复核注记 (f5e6819dc7d)
 
-**2026-10-26**
-- 🐞 Fix:退化留痕账本自身学会老化,并把我上一轮探针注进真账的假历史单独清掉(chore) —— ① pruneEgressLedger(30 天窗,行首 ISO 切分刻意写成 slice(0,tab):写成 slice(0,slice(0,i)) 会把字符串当长度传进去恒 NaN,老化形同虚设——这一格由用例 ⑤ 钉住) ② 被裁条数写进账本自己的 cad=prune marker,共享层不打 stdout/stderr(否则污染几百把尺子的逐字基线) ③ 注入口 isForceDirect/pruneEgressLedger/KEEP_DAYS/noteEgressDegradation 进 __test__ 供镜像测试消费 ④ 新增 ③e/③f(绕过通道 env→第一趟直连→不叠第二趟 三段接线锁)与 ⑤/⑤a/⑤b/⑤c(端到端真写盘,夹具落 mkScratch 不碰真账);另把真账里 verb=probe｜依据=夹具 那 1 行删除(我自己造的假历史,其余 105 行一字未动) —— 用例 21/21 全绿 (939f7ff30e)
-- 🐞 Fix:离线语言包随 G-957 新键重生成——门 105 由红转绿 (d1b79b8411)
-- 🔧 Chore/Other:G-1102638 批1 同主键副本行物理归并 — 删 2 行(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕;幸存者规则与F4同向;落账注记行保留待批2;复跑auditPlan对账F1=0/F9不增;逐行留痕 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-26.md) (125a0d4a3c)
-- 🐞 Fix:plan-copy-row-purge 开④d「枚回执」档——行号型指针(`副本指针（编号 L6880）`+行内枚 sha)有了可验出路 (7160346576)
-- 🐞 Fix:收口 union 回潮的 4 道门——① 门2b web zh-TW 4 处简体残留再修(前臺/後臺/分佈/任一臺,与 2c2699be79 同批形);② 门83 R3/R8:filterChipTextActive/tabTextActive 改名仓内 Text 后缀惯例(filterChipActiveText/tabActiveText)使兄弟配对成立,archivedDotOn 指示点与两处 progressFill 走 brandAccent.deep(stepDotOn 先例);③ 门94:MODEL_RETIRED 收编 error-catalog(resourceNotFound 档)+ 五语言词包;④ 门105:小程序 ui-routes 重生成(输入 use-ui-control-bridge/taro-ws-ticket 已在 HEAD 漂移)。quick-notes-styles.ts 的 archivedDotOn 修在笔记席位在飞副本上,随其落地 (e216dca2f6)
-- 🚀 Feature/Improvement:G-957 小程序网页授权回传腿闭合(代码侧)——① web 中转页 /sso/login 新增 miniapp-bridge.ts:微信 JS-SDK jweixin-1.6.0 CDN 注入 + wx.miniProgram.postMessage 回传 sso_code(载荷契约 ihui-sso-code 与小程序接收侧逐字同源,SDK 失败超时 8s reject 如实提示绝不静默,交接成功留完成卡不跳转防丢 bindmessage 整批投递时机);② auth-sso.ts 深链 scheme 白名单默认补 ihui-miniapp(过 isSafeRedirectUri 的合法形态,AGENTS §9 契约);③ miniapp sso.ts 导出 SSO_REDIRECT_URI + LoginPopUp 增 onWebAuthLogin 传入才渲染格 + user 页接线(收弹窗再跳 webview 页);④ 五语言:miniapp-taro login.webAuthLogin + web miniappHandoff 三键;⑤ 测试:web 桥 12 例本席绿+主席独立复跑 12/12;剩余人工窗=小程序后台业务域名白名单+真机投递时机验证 (20fce9cea8)
-- 🚀 Feature/Improvement:G-40 A/E 双格闭合——command-acks 写侧端点 + ack 事实存活判据——① POST /api/command-acks(authenticated 零公开面,owner_key 由令牌主体拼出,Zod 入参,PG 事实先行+KV 镜像后写不共事务,KV 失败不回滚 PG、如实 kv_mirrored:false,复合主键 onConflictDoNothing 幂等:同指纹 replayed/processing 409/异指纹 KEY_REUSED);② services/command-ack-facts.ts 纯判据四档死因硬错 + GET /alive/:parent/:cmd 查询面;③ 新测 18 例全内存零真库,本席两遍 + 主席独立复跑均 18/18 绿;④ turbo typecheck api+web 11/11 任务 0 错误(删除批 27 枚已还原后现跑);⑤ index.ts 仅 import+注册两行接线 (865aad52cb)
-- 🐞 Fix:huggingface 入口换域 api-inference→router.huggingface.co——旧域被网络封锁(直连超时+代理TLS reset 实测),官方推理入口已迁;registry/种子/web 中继清单三处同步,生产 DB ai_model_config 行已另行 UPDATE 到位 (b4b1c6a3ab)
+**2026-10-28**
+- 🐞 Fix:部署链补「api 实听者身份」自证 —— 健康 200 证明不了新代码在答(2026-10-28 当天实测的假成功) 现场:部署把生产签出 ff 到新提交、web 换流、/api/health 与 router 都回 200,但监听 8843 的仍是 15:34 那个旧孤儿 node —— 服务"重启"起来的新子进程因端口被占(EADDRINUSE)当场退出,账面却记成部署成功,API 侧修复在生产上根本没上岗(§12f:判据失效的表现永远是安静)。 做法:新增只读尺子 deploy/win/api-listener-freshness.ps1(三态 fresh/stale/undetermined,ASCII 契约行,exit 3 给调用侧当红灯),ihui-deploy.ps1 在两条 api 重启分支之后统一问一次"应答的进程是本轮起来的吗":fresh 记 Ok、stale 报 ALERT STALE-API-LISTENER 并给精确出路(按 pids 逐个 Stop-Process,**禁止按映像名批杀**)、量不到只报未判定(§0.3 两头都不许冒充结论)。 两把尺子写的时候就各带反向对照,过程中真抓到两个坑:① 参数用 [int[]] 接 "8842,8843" 被 .NET 按千分位折成 88428843 ⇒ 两色谁都量不到、整把尺子静默 no-listener(F6 钉死);② PowerShell 变量名大小写不敏感,局部 $ports 覆盖参数 $Ports ⇒ split 在空列表上跑 ⇒ 同样静默 no-listener,而 F3/F5 照样"绿"(F8 形状锁钉死);③ 锚点不带时区标记会被按本地时区解,UTC+8 机上静默差 8 小时,该判 stale 判成 fresh ⇒ 缺时区一律不判定并给反向对照(F4b)。镜像 9 例全过,夹具自开临时监听端口,不碰生产端口与服务。 (8cf02551215)
+- 🚀 Feature/Improvement:给 Python 侧也挂总量上界(uvicorn --limit-concurrency 3000) (1f264af5e93)
 
-**2026-10-26**
-- 📚 Docs:门207体积清偿——R4漏点名补记②三份漂移副本删二留一(保留最全版含CI问责腿与analytics点名),被删两版逐字归档 AGENTS_trim-2026-10-26,规则条款零删减;有意重写整份文档故按门84 出路带 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (e7fbe3b0f3)
-- 📚 Docs:G-172 记进展不翻勾——CI 红因两条判清(水印门 5 枚随删除腿自愈;Knip 棘轮四类清单交主席),票面本机无 gh 前提腐烂(gh 2.96.0 在位) (082d85ee02)
+**2026-10-28**
+- 📚 Docs:结清「普通 git merge 绕开 union 判据把结清行按旧形态带回」—— 探测器与 R4 点名两半都已在 HEAD (fb0089d0c02)
+- 🐞 Fix:并发守卫补上流式归还通道(它自己正在漏槽)，并装全局连接硬顶 (84e34bb03bf)
 
-**2026-10-26**
-- 🔧 Chore/Other:合并落地后重生成 web ui-routes 钉(union-converge 对生成物留下的本侧副本须立即重跑生成器,门 105 现读 web 行 stale⇒heal 后待入库;miniapp 端他席在飞 taro-ws-ticket.ts 由 heal 档正确拒写不背书) (c411929340)
-- 🐞 Fix:G-1200041 按 2026-10-25 机主令出等条件桶——两格真卡点归机主控制台/运维动作面,存在句改归属句(事实未动),清合并回潮的 F12 基线违例 (3c6956763c)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9ae2dd7013)
-- 🐞 Fix:健康 ping 与同步同用出网判据(专用代理表→SYNC_PROXY_URL→直连)——huggingface 直连被封经代理可达却被误判 DOWN,系 LlmProviderUnhealthy 误报根因;钉测含变异自证 (ce76fff2c1)
+**2026-10-28**
+- 📚 Docs:给 18:30 落库的活文档回捞探测器补 R4 点名 —— 否则门 89 当场把全链拦住 (8f6f7611b66)
+- 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a9cb59ed41e)
 
-**2026-10-26**
-- ♻️ Refactor:侧栏/历史页会话菜单按钮层级重构——导出7格式与压缩2档位收进二级子菜单,一线16项收敛为9项(48项菜单测试/typecheck/prettier现读绿,i18n五语言补键parity OK) (09b5462b8f)
-- 🐞 Fix:推送腿兜底两处收尾 —— ① 探针取根改用脚本自身位置 EGRESS_ROOT,不再引用尚未赋值的 repoRoot(实测:兜底自己崩在判据之前,Cannot access 'repoRoot' before initialization,比没兜底更坏) ② 两条腿都不通时把诊断写进 push-state reason,读数不再退化成'退出码 128 且无可辨认特征'(AGENTS §5e-3 量得到/§12f 失效不许安静),并给出单次绕过的可跑通道 --no-proxy ③ withDirectArgs 保住 git.exe 与尾随空格形态。回归 git-push-guard.test 32 例 + push-attempt-triage 自跑全绿 (5999fa708e)
+**2026-10-28**
+- 🐞 Fix:让人机验证「不在岗」这件事在运行期留痕(方向不改) (9d6c6df64b0)
+- 🚀 Feature/Improvement:结清即删改为默认 —— 根治「已勾行滞留反复出现」 (2ad7ed6a546)
+- 🚀 Feature/Improvement:结清「普通 git merge 合并活文档会绕开 union 判据」——回捞探测腿已落地并接线 (f1d3706f2f4)
+- 🚀 Feature/Improvement:普通 git merge 合并活文档的回捞探测器(post-merge 接线,判据复用 liveDocExpectedCounts) (632919a87cf)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
@@ -271,25 +240,6 @@ The sidebar collapses many first-level menu items into **per-domain entries**; e
 - **What they do**: `/goods/select` supplies the cart's product paging read; `/sign-ups` merges course sign-ups and exam sign-ups into one "my sign-ups" list; `/auth/wechat/mini/one-tap-login` is a newly opened endpoint — previously `/mini/login` answered new users with `{needPhone:true, openId}` and issued no token, while `/mini/phone` required an existing session and returned no token either, so that chain was structurally impossible (proof case: `apps/api/src/routes/__tests__/wechat-mini-one-tap-login.test.ts`).
 - **How to use**: all three are registered in `apps/api/src/routes/index.ts` (`goods.ts` under `prefix:'/api'`, `sign-ups.ts` under `prefix:'/api/sign-ups'`, the login leg under the auth prefix). Inputs are Zod-validated; one-tap login accepts `{ loginCode, phoneCode }` as a `strictObject`, so unknown keys answer 400.
 - **End**: backend `apps/api`; consumers are listed in the table column above (web / mobile-rn / mini-program).
-
-### Account keepalive centre (added 2026-10-26 — two unrelated liveness loops merged into one answer)
-
-Publish-line cookie probing (`services/publish/cookie_refresh_daemon.py`) and AI-platform check-in credentials (`services/checkin_scheduler.py`) used to keep separate switches, separate counters and separate ways of saying "it failed", so the system had **no single answer** to "are these accounts still alive?". The centre (`apps/ai-service/app/services/keepalive/`, HTTP layer in `apps/ai-service/app/routers/keepalive.py`) folds cookie probing, credential (api_key / oauth) expiry detection and check-in JWT health (reads `exp` only, never re-signs) into one schedule, two tables, one health vocabulary and one alert outlet.
-
-| Endpoint | Method | What it answers |
-| -------- | ------ | --------------- |
-| `/api/keepalive/status` | GET | Self-check: whether it is really on (reason, scheduler liveness, last round, probe list) — never infer it from config |
-| `/api/keepalive/overview` | GET | Health roll-up: four buckets, per-source split, needs-attention, expiring soon, 7-day success rate, effective config |
-| `/api/keepalive/accounts` | GET | Per-account detail, filterable by `?source=` and `?health=` |
-| `/api/keepalive/events` | GET | Probe log, filterable by `?ref=` and `?only_failures=true`; `limit` defaults to 50, caps at 500 |
-| `/api/keepalive/stats` | GET | Per-source ok / failed / total / rate over `?days=` (1..90, default 7) |
-| `/api/keepalive/run` | POST | Trigger one round in the background and return immediately; `?ref=<source>:<id>` for a single account, `?force=true` to ignore back-off |
-
-- **Health buckets** are computed in exactly one place (`policy.health_of`): `critical` when the last failure was `expired`, the expiry has passed, or consecutive failures reach `ALERT_AFTER_FAILURES`; `warning` while there are consecutive failures, inside the expiry-warning window, or only failures have ever been seen; `healthy` otherwise; `unknown` when neither success nor failure has been recorded. Clients must not recompute them.
-- **Failure vocabulary**: `ok` / `expired` / `network` / `error` / `unsupported` / `skipped`, normalised by one entry point (`classify_message`). A ciphertext that will not decrypt (`InvalidTag`, key mismatch) is always `expired` — retrying it a thousand times cannot help, only re-recording the credential can. `unsupported` (nothing to keep alive) counts as neither success nor failure and never lands in `failed`, so it cannot drown real red. Back-off is `base × 2^(n-1)` capped at `RETRY_CAP_SECONDS`, retried at most `RETRY_MAX` times; success clears the counter, the warning stamp and the alert stamp together.
-- **Alert outlet**: the site-wide `notifications` table, **one aggregated notification per owner per round** (19 accounts expiring at once must not send 19 messages — users then mute it and never see the real one); non-uuid owners such as `probe-user` are dropped and counted, because one bad owner aborts the whole batch insert; a missing table is reported as a warning rather than pretended delivered. `KEEPALIVE_ALERT_WEBHOOK` adds an extra leg. The whole path is fail-open — a failed notification never interrupts keepalive.
-- **Switches**: `KEEPALIVE_ENABLED`, inherited from `COOKIE_REFRESH_ENABLED` / `CHECKIN_CRON_ENABLED` when unset; `resolve_config()` re-reads every round, so an `.env` change takes effect on the next round without a restart. Related defaults: `INTERVAL_HOURS`=6, `RETRY_MAX`=3, `RETRY_BASE_SECONDS`=300, `RETRY_CAP_SECONDS`=21600, `ALERT_AFTER_FAILURES`=3, `ALERT_REPEAT_HOURS`=24, `EXPIRE_WARN_DAYS`=3, `ALERT_INAPP`=true, `PROBE_CONCURRENCY`=4, `EVENT_RETENTION_DAYS`=90.
-- **Bounds**: it judges credential liveness only — publishing still belongs to the publish scheduler and daily check-in to `checkin_scheduler`, otherwise one account gets hit by two writers at once. Front end: `apps/web/src/components/publish/KeepaliveCenterPanel.tsx` on `/publish/accounts`; client wrappers in `packages/api-client/src/endpoints/keepalive.ts`.
 
 ## 🚀 Quick start
 

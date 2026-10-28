@@ -2171,27 +2171,6 @@ IHUI-AI はひとつの製品ではなく、**オープンソースインフラ*
 
 ---
 
-## アカウント・キープアライブ・センター(2026-10-26 追加 — 無関係だった二本の生存確認を一つの答えに)
-
-公開ラインの Cookie 探活(`services/publish/cookie_refresh_daemon.py`)と AI プラットフォームのチェックイン資格情報(`services/checkin_scheduler.py`)は、これまで別々のスイッチ・別々の集計・別々の失敗表現を持っていたため、「このアカウントはまだ生きているのか」に対して**システム全体で一つの答えがありませんでした**。本センター(`apps/ai-service/app/services/keepalive/`、HTTP 層は `apps/ai-service/app/routers/keepalive.py`)は、Cookie 探活・資格情報(api_key / oauth)の失効検出・チェックイン JWT の健全性(`exp` を読むだけで再署名はしない)を、一つのスケジュール、二つのテーブル、一つの健康度語彙、一つのアラート出口にまとめます。
-
-| エンドポイント | メソッド | 何に答えるか |
-| -------------- | -------- | ------------ |
-| `/api/keepalive/status` | GET | 自己診断:本当に有効か(理由・スケジューラの生存・前回の要約・探針一覧)。設定を読んで推測しない |
-| `/api/keepalive/overview` | GET | 健康度の総覧:四段階の件数・来源別・要対応・期限間近・直近 7 日の成功率・有効な設定 |
-| `/api/keepalive/accounts` | GET | アカウント別明細。`?source=` と `?health=` で絞り込み可 |
-| `/api/keepalive/events` | GET | 探活の履歴。`?ref=` と `?only_failures=true` で絞り込み可。`limit` は既定 50、上限 500 |
-| `/api/keepalive/stats` | GET | `?days=`(1..90、既定 7)の来源別 ok / 失敗 / 合計 / 成功率 |
-| `/api/keepalive/run` | POST | 1 ラウンドをバックグラウンドで起動して即返す。`?ref=<source>:<id>` で単一アカウント、`?force=true` でバックオフを無視 |
-
-- **健康度の四段階**は一箇所(`policy.health_of`)だけで判定します。直近の失敗が `expired`、期限切れ、連続失敗が `ALERT_AFTER_FAILURES` 以上なら `critical`。連続失敗あり、期限警告ウィンドウ内、失敗しか観測していないなら `warning`。それ以外は `healthy`。成功も失敗も未記録なら `unknown`。**クライアント側で再計算してはいけません**。
-- **失敗の語彙**:`ok` / `expired` / `network` / `error` / `unsupported` / `skipped` の六種で、正規化は一つの入口(`classify_message`)だけ。復号できない暗号文(`InvalidTag`、鍵不一致)は必ず `expired` — 何度再試行しても同じ誤りで、録り直ししか救いません。`unsupported`(そもそも生存確認が不要)は成功にも失敗にも数えず `failed` に入れません。そうしないと「本来不要なもの」が本当の赤を覆い隠します。バックオフは `base × 2^(n-1)` を `RETRY_CAP_SECONDS` で頭打ち、再試行は `RETRY_MAX` 回まで。成功したら連続失敗・警告印・アラート印をまとめて消します。
-- **アラート出口**:サイト全体の `notifications` テーブル。**1 ラウンドにつき所有者ごとに 1 件へ集約**(19 件同時に期限切れでも 19 通は送らない — 送ると通知を切られて本当の異常が見えなくなる)。`probe-user` のような非 uuid の所有者は捨てて計数します(1 件の不正 owner でバッチ INSERT 全体が落ちるため)。テーブルが無い場合は warning を出して飛ばし、届いたふりはしません。`KEEPALIVE_ALERT_WEBHOOK` で追加送信も可。全体は fail-open で、通知の失敗がキープアライブを止めることはありません。
-- **スイッチ**:`KEEPALIVE_ENABLED`。未設定時は `COOKIE_REFRESH_ENABLED` / `CHECKIN_CRON_ENABLED` から継承。`resolve_config()` は毎ラウンド再解決するので、`.env` の変更は再起動なしで次ラウンドから効きます。主な既定値:`INTERVAL_HOURS`=6、`RETRY_MAX`=3、`RETRY_BASE_SECONDS`=300、`RETRY_CAP_SECONDS`=21600、`ALERT_AFTER_FAILURES`=3、`ALERT_REPEAT_HOURS`=24、`EXPIRE_WARN_DAYS`=3、`ALERT_INAPP`=true、`PROBE_CONCURRENCY`=4、`EVENT_RETENTION_DAYS`=90。
-- **境界**:判定するのは資格情報の生存だけ。投稿は公開スケジューラ、日次チェックインは `checkin_scheduler` の担当のままです(代行すると同一アカウントに二つの書き手が同時に触れます)。フロントは `apps/web/src/components/publish/KeepaliveCenterPanel.tsx`(`/publish/accounts`)、クライアント側のラッパーは `packages/api-client/src/endpoints/keepalive.ts`。
-
----
-
 ## License
 
 [Apache License 2.0](LICENSE) — 自由な使用、改変、配布、商用利用が可能で、伝染性はありません。
@@ -2219,188 +2198,83 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-28**
-- 📚 ドキュメント:门 44 补「封口链接」档 —— 指向 D:/DevEnv/{Temp,Logs} 的 junction 放行、实体目录仍红 (d4bfe49d62)
-- 📚 ドキュメント:§1 完成口径跟上「结清即删」默认,并压回体积预算 (5ee5523cbe)
-- 🔧 その他:给语音笔记「分组输入框」的圆角补运行时回归锁(门 150 静态判据的运行面) (8b8ee29187)
-- 📚 ドキュメント:§1 完成口径跟上「结清即删」默认(整行删除;回退 LIVE_KEEP_CLOSED_ROW=1) (40c89ce1cd)
-- 📚 ドキュメント:「须真机人验」行的取证指针由 10 位短 sha 改内容锚点(§1 证据指针禁令:短 sha 腐烂率 30.2%,要么全量 40 位要么内容锚点)——改为「/api/admin/api-logs 显式放行公网可达」那枚提交的标题原文;归属桶/勾选态/判据句逐字未动 (c54ef3c321)
-- 🐞 修正:补上 reaction 三键的 web 五语 —— 上一枚把组件落了,词包却还在他席暂存区 (93fb872691)
-- 🔧 その他:收编滞留 18 小时的 relay-switch 暂存半成品,并修掉它压在全仓 push 门上的 2 处类型错误 (739a31b94f)
-- 📚 ドキュメント:补 R4 漏点名 ⑨ —— check-live-doc-merge-recall 已接 .husky/post-merge,文档面须可见(门 89 R4) (8bd204a0d6)
-- 🚀 機能/改善:reaction 收成三态闭环 —— 读回落地 + 「再点一次撤销」 (50c8bce827)
-- 🐞 修正:收口 Test 步 13 个失败文件 —— 2 处真缺陷(短信回调 CSRF 豁免被自动收编误删、频控 reset 两面不同语义) + 8 处判据/契约未跟上新实现 (0fd3f2ac2a)
-- 📚 ドキュメント:「须真机人验」行两处过期陈述改判据实测——重启免登录/15min 静默续期两格已留记录(装机版受控 kill+重启 16:07→16:09 仍已登录;16:23 启动→空闲 18min→16:41 点管理导航不弹登录),④ nginx 全量代理四路探针均 401 结构化回码(非 404/502)结清;原写"三项人工记录仍 0 条 ⇒ 未满足"与现读不符,已改。本行仅剩 WebView SSO 一格,且写明 agent 侧不可造该条件(登出机主会话属破坏性动作)——归属桶与判据句逐字未动 (fded8029a3)
-- 🐞 修正:长连接补上按 IP 计量,并改掉「新连接挤掉老实用户」的容量语义 (5a56793edd)
-- 🐞 修正:门 254 ruff 给出网腿失败补一条本地缓存退路 —— 把「这条腿没通」与「判不了」分开 (eb86dc7528)
+- 🐞 修正:把 api 蓝绿切换脚本与 router 入库——此前从主仓发起的部署每次都要断流 20~30 秒 (00adfa0036a)
+- 📚 ドキュメント:G-20 改判注记(认账)—— 模板 10 枚实为全部过审生效(0=通过生效,上一注记自造反序码表判反);真死点=签名 2 枚 rejected(ReviewReply API 面空,控制台看)+ auto 档不含 tencent ⇒ 切换时序:签名生效后 SMS_PROVIDER=tencent,现切会掐验证码。机主动作面收敛为报签名 (be50d7db08b)
+- 🐞 修正:造页/壳落地两阶段给足上限 —— 超时误判会把能跑完的阶段说成「未判定」 (908d5a2199f)
+- 🐞 修正:小程序 token 写回把排版当漂移 —— 拆掉恒红与「每次提交都在制造格式债」 (ee30b624814)
+- 🚀 機能/改善:跨端自动同步编排器 —— web→RN→小程序 12 阶段唯一入口 (2d697d6cd4d)
+- 📚 ドキュメント:登记号池对标 workbuddy2api-panel 五票(选号策略/任务自动化/授权链接扩容/单机形态/指纹收点) (a44df1d0f5f)
+- 🔧 その他:收编滞留的渲染层平滑度守门,并修掉它压在全仓 push 门上的 2 处类型错误 (be3e20b55df)
+- 📚 ドキュメント:更正上一枚对阿里云签名切换的错误结论并回退口径——验证码 DELIVERED 是兜底替发的,不能当新签名可用 (27ad89634e7)
+- 📚 ドキュメント:门 44 补「封口链接」档 —— 指向 D:/DevEnv/{Temp,Logs} 的 junction 放行、实体目录仍红 (d4bfe49d627)
+- 📚 ドキュメント:§1 完成口径跟上「结清即删」默认,并压回体积预算 (5ee5523cbeb)
+- 🔧 その他:给语音笔记「分组输入框」的圆角补运行时回归锁(门 150 静态判据的运行面) (8b8ee29187e)
+- 📚 ドキュメント:§1 完成口径跟上「结清即删」默认(整行删除;回退 LIVE_KEEP_CLOSED_ROW=1) (40c89ce1cdf)
+- 📚 ドキュメント:「须真机人验」行的取证指针由 10 位短 sha 改内容锚点(§1 证据指针禁令:短 sha 腐烂率 30.2%,要么全量 40 位要么内容锚点)——改为「/api/admin/api-logs 显式放行公网可达」那枚提交的标题原文;归属桶/勾选态/判据句逐字未动 (c54ef3c321f)
+- 🐞 修正:补上 reaction 三键的 web 五语 —— 上一枚把组件落了,词包却还在他席暂存区 (93fb8726916)
+- 🔧 その他:收编滞留 18 小时的 relay-switch 暂存半成品,并修掉它压在全仓 push 门上的 2 处类型错误 (739a31b94f7)
+- 📚 ドキュメント:补 R4 漏点名 ⑨ —— check-live-doc-merge-recall 已接 .husky/post-merge,文档面须可见(门 89 R4) (8bd204a0d69)
+- 🚀 機能/改善:reaction 收成三态闭环 —— 读回落地 + 「再点一次撤销」 (50c8bce8277)
+- 🐞 修正:收口 Test 步 13 个失败文件 —— 2 处真缺陷(短信回调 CSRF 豁免被自动收编误删、频控 reset 两面不同语义) + 8 处判据/契约未跟上新实现 (0fd3f2ac2ac)
+- 📚 ドキュメント:「须真机人验」行两处过期陈述改判据实测——重启免登录/15min 静默续期两格已留记录(装机版受控 kill+重启 16:07→16:09 仍已登录;16:23 启动→空闲 18min→16:41 点管理导航不弹登录),④ nginx 全量代理四路探针均 401 结构化回码(非 404/502)结清;原写"三项人工记录仍 0 条 ⇒ 未满足"与现读不符,已改。本行仅剩 WebView SSO 一格,且写明 agent 侧不可造该条件(登出机主会话属破坏性动作)——归属桶与判据句逐字未动 (fded8029a35)
 
 **2026-10-28**
-- 🚀 機能/改善:结清即删改为默认 —— 根治「已勾行滞留反复出现」 (2ad7ed6a54)
-- 🚀 機能/改善:结清「普通 git merge 合并活文档会绕开 union 判据」——回捞探测腿已落地并接线 (f1d3706f2f)
-- 🚀 機能/改善:普通 git merge 合并活文档的回捞探测器(post-merge 接线,判据复用 liveDocExpectedCounts) (632919a87c)
-- 🐞 修正:运行时威胁事件接管理员告警 —— 补"检测到了但没人知道"那一格 (16eb460634)
-- 🐞 修正:loomy 写回端补两条真机不变量(客户端存续闸 + 备份落库目录外)—— 本会话实测踩到的两个洞。① 直调 applyLoomy 会绕过 main() 的"先关端":本机 Loomy 当时正在跑对话,记录照样追加进活日志了,而运行中的客户端既不重读该记录、退出时还会用内存态覆掉 ⇒ 不变量必须住在落笔那一刻(AGENTS §0.9),新增 assertNoLiveClient(provider,opts):默认探测复用 closeClientForWrite 同一批出口(精确映像名 + 安装路径兜底),在跑 ⇒ client-running 拒写、探测未判定 ⇒ target-locked 拒写(§0.3),并给出正当出路(走会先关端的入口);非 win32 / IHUI_LOCAL_LOGIN_PROC_CONTROL=0 与既有档位同义(无可探面)。服务层 statusOf 把 client-running 归 409(改环境后重试,不是服务端故障)。② 备份:原实现把写前留底放在 leveldb 目录里(`000004.log.ihui-login-*.bak`),本机实测十几分钟后被客户端清掉 —— 放在库里的备份等于没留;改落 `<userData>\.ihui-login-backups\`(仍在用户数据目录内,但不在库目录内),用例改钉"备份不得在库目录内 + 逐字节等于写前"。③ 顺带更正头注:origin 元数据键实名是 META:file:// / METAACCESS:file:// / VERSION,原注写的 `_file://\0\0` 在真库里不存在。真机验证:默认探测在本机如实拦住直调([client-running] Loomy 客户端正在运行);写回端 32/32、loomy 适配器+写回目标 27/27、tsc --noEmit 0 错(注:此刻 pnpm 被别席在 pnpm-workspace.yaml 新增的第二个 webpack: 键打断,同一段两个值 5.91.0 与 ^5.104.1,属安全补丁口径冲突,未替裁)。 (81344a06a8)
-- 🐞 修正:把 DDoS 纵深防御真正接上——限流不再 fail-open、WS/连接纳入计量 (edde556d06)
-- 🐞 修正:小程序离线语言包追平新增键 —— 四语言包各少 ai.pane.queueOps.sendNow / sendNowAria (0e1caec88d)
-- 🐞 修正:loomy 写回配方三处真实缺陷(值编码 / CRC 常数 / 压缩块读取)—— 全部由真实 LevelDB 实现对账发现,"自证自读"的绿不算绿。① 值编码:Chromium DOM Storage 值是 **0x01 + utf8 原文**,不是 varint 长度前缀(本机真库 47 条键逐条核过:thinking-level="high"→0168696768、theme-mode="light"→016c69676874);旧写法客户端根本读不出,我们的读回是自己的幻觉。② CRC 掩码常数:leveldb-1.20 util/crc32c.h 是 **0xa282ead8**,旧写 0xa282ead3 差 5 ⇒ 本机 74 条真实日志记录**全部**校验失败(解析出 0 条),而我们写出的记录真客户端必拒收。③ 会话常驻 sstable 压缩块:明文逐字节扫 .ldb 连键名都搜不到 ⇒ 提取器把**已登录**的本机判成"未登录"(实测 2026-10-23 起就登录着,uid 261023222726664932),新增 sst 读取(snappy 解压 + 块条目 + 内部键 seq 收敛),与 classic-level 逐键对账 47/47 全等。④ 适配器:404/405 的 SPA 兜底页正文含「登录」被读成鉴权失败 ⇒ 入池当场 health=down;改为端点不存在(404/405)不作鉴权结论,HTML 登录墙只在 2xx/3xx 才认(反证用例钉住 200 仍判 true)。真机 E2E(真库非副本):--from loomy 入池 1 号(199****5160,health=unknown 未判定);一键登录写回走服务层同一入口 loginAccountLocal ⇒ 追加 seq=613 批次(主键+两配套键)并留备份;写后 classic-level 读回会话正确、47 键零丢失、除会话键(键序重排、语义一致)外零改动。验证:local-login 31/31、清扫器镜像 30/30、loomy 适配器+写回目标 27/27;api tsc 唯一红在 server.ts 一处(他席在飞改动,与本批无关)。 (ba0cf1ee49)
-- 🐞 修正:清三处 HEAD 存量红 —— next-env 还原规范引用 / ui-routes 钉追平 / 删零引用死文件 (c5d33a155b)
-- 🐞 修正:补回被 369ed6424d7b 清扫轮吞掉的 ⑫号池扩容八平台装车 正文条目(零丢失回填:该枚同批删 5 枚已勾行 + 1 条未勾行(同题仍在面,判据已接住) + 本条正文,而本条无替代形态、HEAD 与归档件均无逐字凭据 ⇒ 判为真丢失;内容为零映射八平台的提取器落点清单,代码侧提取器仍在但文档面独此一份。恢复方式:以 HEAD 为底只插这一行,逐字取自 369ed^ 原文,不碰工作树他席在飞改动。 (7cc29fb94a)
+- 📚 ドキュメント:闭环票对账注记 —— 登记→派单环两格断点已补(枚 e1228822159 面切换+680e9d3370d 票号环),断点语义从"票号不可解析"改口为"未派单";尾环待一次端到端真实绿再结清 (dabd2552f41)
+- 🔧 その他:OSV 批量升级有已知漏洞的 PyPI 包 (b2464e5899f)
+- 🐞 修正:nodemailer 传递面收敛与根 legacy overrides 节同步 (7d1f2cc2a8a)
 
 **2026-10-28**
-- 🐞 修正:门 44 认「封口链接」—— 治外部驱动往仓根写目录导致全仓提交被迫 --no-verify (8e945c82f5)
-- 🚀 機能/改善:消息赞/踩补上读面与撤销 —— 治"点了赞,重开对话就没了" (77ca51882d)
+- 🐞 修正:nodemailer 传递面收敛与根 legacy overrides 节同步 (7d1f2cc2a8a)
 
 **2026-10-28**
-- 🚀 機能/改善:结清即删档 —— 把「翻勾 + 摘除」两次提交压成一次的能力 (40a2693c1f)
-- 🔧 その他:顶时 60 抬到 75 —— 量的不是用例红,而是红被 cancelled 吞掉。一手证据:run 40631427897/40634584194 两枚 #1-#17 全绿而第 18 步 Run Playwright E2E tests 结论=cancelled,job 起止均约 61m 恰撞 60min 顶;同族 40651484526 未被砍完,末行 31 failed/664 passed(46.3m)、整 job 54m;2026-10-26 最后六枚 success 实测 21-39m ⇒ 60min 只够全绿那一档,一旦有用例红,CI 档 retries=2 让红用例跑满 3 次尝试,墙钟越过 60m,红在哪这份唯一证据就没了(AGENTS 0.3 取不到判定不得写成判过)。75=最长完整实测 54m 加约 21m 余量;仓 public,ubuntu-latest 分钟数不受配额限。 (efc7072c24)
-- 🔧 その他:摘除 aboutPageSections.ts —— 补完 AboutScreen 注释里已自称完成的那笔删除(intentional-delete: 端内分段数据表已由共享真相源接管) (738b956180)
-- 🐞 修正:/api/admin/api-logs 显式放行公网可达 —— 管理台「操作日志」页在公网/装机端恒 403 的同类缺口 (eea82bd07c)
-- 🐞 修正:appUpdate 键集判据跟上 RN 去 body 的改法 —— body 归 web 独占,RN 侧由 readyBody 承担 (64bed59dcc)
-- 📚 ドキュメント:登记阿里云短信签名切换与验证码兜底档的运维事实 (6ac8960ab7)
-- 🐞 修正:结清 B67「GET /api/memory 500 聚类」——根因是非 uuid 主体在鉴权层炸在 uuid 列上,已由 UUID 形状闸修掉并有路由级回归 (f2d2926642)
-- 📚 ドキュメント:登记「普通 git merge 绕开 union 判据回捞已结清行」票 (1857a4e418)
-- 📚 ドキュメント:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (6040c375cf)
-- 🐞 修正:门 193 存量红再归零 —— land-gate-rerun 的 runGit 恢复 options 字面 stdio 属性名 (0b8f0f3674)
-- 🔧 その他:docs(release)+secrets: 把 npm 发布出路改成实测事实,并补 org 名解析的镜像锁(票 L28576 续)。本席亲量:registry -/v1/org/ihui=404、-/v1/org/ihui-ai=404、ihui-cli=200、@ihui-ai/sdk=404,gh secret list 无 NPM_TOKEN ⇒ 旧文两条(SDK 专用 NPM_TOKEN 尚未配置 / npm 账号 ihui-ai 已建成)都是跑不通的出路(AGENTS 0.8),改成凭据已就位+真卡点是没有 org+出路 npm-bootstrap.yml action=org_create;新镜像 npm-bootstrap-org-scope.test.mjs 5/5 绿(前一枚只落了代码与文档,锁没进仓=半装)。 (b77f4ba442)
-- 🐞 修正:重排 _journal.json 的 4 处 idx,恢复"idx 与数组位置一一对应" (f84bac8752)
-- 🚀 機能/改善:队列交互条新增「插到队首」快捷钮(Qoder sendNow 形态自研对标) (9274a06148)
-- 📚 ドキュメント:更正 SDK 发布出路 —— 仓内登记的 NPM_TOKEN 从未存在(release-sdk.yml 只把 secrets.NPM_PUBLISH_TOKEN 映射成同名环境变量),照旧文再配一枚也不会被任何 job 读到;真卡点是没有 npm org(现读 -/v1/org/ihui-ai 404,对照 ihui-cli 200),出路是 npm-bootstrap.yml action=org_create(票 L28576,AGENTS 0.8 文档不得写跑不通的出路)。 (7fed177cb0)
-- 🐞 修正:补齐 security 批次 8 枚新增文件的溯源载荷 (805c5d7b59)
-- 🐞 修正:恢复被合并回捞的结清票(未勾形态入留痕,堵下一次回捞) (b091ad0c2d)
-- 🔧 その他:pnpm dedupe 收敛 smol-toml 双版本(解门 7 依赖碎片化恒红) (cb20cce278)
-- 🚀 機能/改善:loomy 一键登录本机写回配方装车 —— 九平台与 trae 同口径(先关端→备份→原子写→按客户端读法自检→拉起)。leveldb 独占只是客户端运行时的假象:关端后 .log 即待重放日志,追加更高 seq 的 WriteBatch 就是客户端自己的读法(后写为准);新增零依赖纯函数 scripts/lib/leveldb-log.mjs(CRC32C/mask/块边界拆片/varint/WriteBatch 各自成对夹具,摘掉任一即翻红)。提取器改捆绑单账号(主键 loomy-auth-session raw 直通 + companions),服务端拆票 token=session、剔票模板进 secrets.sessionTemplate、uid 取会话 userid(缺则 autoUid);applyLoomy 写主键+配套键同批,origin 元数据键不动(净零等长写回,跨账号漂移由客户端下次 setItem 自修,如实进 notes);服务层摘出 UNSUPPORTED.loomy 并登记 LOCAL_SCRIPT_PROVIDERS/RUN_AS_USER,前端不支持矩阵与重启清单同步。同文件带走 workbuddy/doubao 收口剩余 hunk:SPAWN_TIMEOUT 150s→90s,以及已无任何抛出点的环境/模板类 code 出 409 清单(死码清理,实测全仓 0 命中)。验证:local-login 30/30、relay-loomy-adapter+script-targets 26/26、api 与 web turbo typecheck 各 8/8 绿;prod 已外科热更并验活。 (d3f02332bd)
+- 🐞 修正:安全审计第二刀 npm 侧 overrides 批次 + nodemailer ^10.2.1 (b088f0aa301)
+- 🐞 修正:P0-5 高危动作白名单补执行侧兜底门禁 (c2e35dc36a1)
 
 **2026-10-28**
-- ⚡ パフォーマンス:清扫轮去掉两批无信息量的门复跑 —— 端到端 323s → 约 80s (6de0e6a54d)
+- 🐞 修正:验签层增加通知 app_id 与本机 ALIPAY_APP_ID 强比对 (8da9f9cd284)
 
 **2026-10-28**
-- ⚡ パフォーマンス:受影响门复跑并发化 —— 一批 104.8s→70.2s,stale-copy 单臂 101s→29.5s (9749b1885e)
-- 🐞 修正:删掉零引用的孤儿数据表 aboutPageSections.ts(解门 39 的 HEAD 面 1 条恒红) (c1d1ab03da)
-- 🐞 修正:清掉两道 apps/ 面 blocking 红(门 150 角色档 6 处 + 门 35 mypy 单点) (3bcbcfd6b0)
-- 🔧 その他:多项攻击面加固 + 修复 lock 清单↔锁对账 (ec1bd08af9)
-- 🐞 修正:清掉 CI Lint 步两处未使用导入与一处 import() 类型注解 (ad112d90ec)
-- 🐞 修正:解封被两道 `**/*` 射程门堵死的提交链(门 77 覆盖面归类 + 门 181 两处错误文案有界化) (f89cd8e611)
-- 🐞 修正:七个插件作用域补 removeContentTypeParser —— 根实例已注册自定义 application/json(server.ts 空体容错 parser),Fastify 5 子作用域创建时复制父级 Map ⇒ 直接 add 抛 FST_ERR_CTP_ALREADY_PRESENT,prod 重启即崩、公网 API 502(实测经 live→im-gateway 逐个暴露);live 直播回调验签与 github webhook HMAC 需 parseAs:string 保留原始字节,故按 server.ts 既有约定"先 remove 再 add" (c79cd16216)
-- 📚 ドキュメント:四端 ui-routes 自述钉追平登记(落地枚 64e0f12050 / 收敛合并 46d814ef30) (dc3844a0c3)
-- 🐞 修正:根作用域替换 application/json 后,7 处验签子作用域改为先 remove 再 add —— 根治启动即崩 FST_ERR_CTP_ALREADY_PRESENT (591dc72128)
-- 🐞 修正:结算状态机判空改 ?? '' 等价写法,去掉 eqeqeq 违规 (0ef39e084d)
-- 🐞 修正:@ihui/types 补声明 zod 依赖 —— 源内三处 import 'zod' 但 package.json 从未声明,dist 被宿主按路径导入即 ERR_MODULE_NOT_FOUND(实测触发 git-guardian 通知与邮件探针双红);锁文件同步携上在飞的 @tiptap/core 精确钉 3.30.5,否则 frozen-lockfile 与 workspace 声明不一致 (7b1a55e3bd)
+- 🔧 その他:结清 HEAD 面缺失的溯源水印 —— check-web-rn-parity.mjs 的载荷在一次 prettier 重排里被吃掉 (c99dd151ed2)
+- 📚 ドキュメント:登记 API Key 的 step-up 前置 + 对齐门 173 点名的两处数字 (c3fa1d0381b)
 
 **2026-10-28**
-- 🐞 修正:清扫器补底稿面漂移守卫 —— 治旧底稿整面覆盖新父面 (92f0d8d88e)
-- 🐞 修正:恢复被兜底轮面漂移事故(枚 1d73ea96161a42603a8a811a523a918c8445583b)回退的两行 (adc90c24e9)
-- 🔧 その他:补「尾部未勾行必须存活」反向夹具(清扫器 H1-EOF 档) (b047b93561)
-- 🐞 修正:tiptap 全族收敛到 3.32.0,core/pm/transform 锁单一版本 (62a9b9c140)
-- 📚 ドキュメント:O02④ 四族逐档归因头注入面(Carousel / ModelConfigDialog / ModelList / VideoPlayer) (06d008315c)
-- 🔧 その他:ui-routes 自述钉跟上已入库输入(web/rn/taro 三端重生成)+ rn 生成器修掉钉后两连空行 (64e0f12050)
-- 📚 ドキュメント:撤销收敛器落地闸死锁票(现象随对侧收敛消失,我记过的三条根因全部自证伪) (da26b4adc7)
-- 📚 ドキュメント:G-100 与桌面装机两行补现读进展——file 域 AASA 已公网生效(单源 web+api 双消费)、HKCU 深链前置已修 (1e9288780b)
-- 🔧 その他:AASA 判据锁复入账——枚 4cd8e130cd 合并曾吞掉本件(远端留引用方与路由、缺测试),头注写明三块同批不得单侧丢弃 (a64970cc18)
-- 📚 ドキュメント:L28701 i18n 死 key 三端清账勾选收官(落地枚 94ff7a3fa6) (a36ac35ac9)
-- 🔧 その他:修好依赖审计「扫了等于没扫」+ 新增 SAST/审计阻断 workflow (f2f1ceb34f)
-- 🚀 機能/改善:手机号补全加机主换绑强制通道(force + owner_override) (e1566cebd4)
-- 🔧 その他:死 key 审计三端清账(miniapp-taro 115 / mobile-rn 123 / cli 10 契约面收口) (94ff7a3fa6)
-- 🐞 修正:抬升上线面依赖补丁版本 + 两处预存类型错误 (0f12c2deaf)
-- 🚀 機能/改善:手机号补全加机主换绑强制通道(force + owner_override) (b33f7ded44)
-- 🐞 修正:补回被 auto 收编半边带进来的 AASA 实现件 —— HEAD 引用存在、模块缺失,全站构建因此失败(生产冻在 c21f93d) (c37034a84e)
-- 📚 ドキュメント:重写收敛死锁票整行(上一枚 ca64d8e906 把标识符当命令替换啃成空格,现读补回;整行不用反引号) (46bce0319e)
-- 📚 ドキュメント:把收敛死锁票从报错签名升级为代码级定位(两判不同形;takeTheirsDocs 未被未存活行一判认账;污染假设证伪并留反证) (ca64d8e906)
-- 📚 ドキュメント:登记 git-sync-converge 落地闸死锁票(10575 处不过 / 需人工 0 项,自证面疑似取错 blob) (b415bd10a5)
-- 📚 ドキュメント:O66 号池账号命名统一手机号优先-收口标记完成(2026-10-28/WorkBuddy) (b9a84b9ea0)
-- 🐞 修正:清掉 relay 家族存量红 —— 两处悬空模块引用、两处过期 mock、一处不确定排序、三处停在旧设计的契约 (1eb37b2da0)
+- 🚀 機能/改善:连接期出网守卫 + API Key 挂 step-up + 三登录入口哈希升级对齐 (3fee82d0bc7)
 
 **2026-10-28**
-- 🐞 修正:AASA 单一源三件补齐入库(引用方已进 origin 而模块缺失,干净检出必红) (0cb2aafe12)
-- 🐞 修正:relay 会话腿两枚测试文件补溯源水印载荷 —— 同票收口 CI Provenance watermark check (1d3b35244e)
-- 📚 ドキュメント:结清兜底轮削尾缺陷票(枚 4d55e0fd7b 已落 H0b)+ 更正 i18n 清账票的出路 (8edfc48106)
-- 🐞 修正:危险门拒因取词命名空间修对 —— 此前用户看到的"为什么拒"是裸键名 (3de41a3e9a)
-- 🐞 修正:三枚 relay 会话腿文件补溯源水印载荷 —— CI Provenance watermark check 未覆盖 3 个 (ae4a8b2279)
-- 🐞 修正:归并收口 —— 摘掉引用不存在脚本的 WorkBuddy 专属通道(改由 local-login.mjs 八平台一份实现),补齐 secretsEnc 单列合并与手机号统一名契约 (813fdbf356)
-- 🐞 修正:归并后回灌本侧增量 —— 对侧重构(recognizeImportShape 单源/槽位表)为准,重放 WorkBuddy 写回配方键、豆包捆绑形状、平台机密键不透传与八平台登录本机 (1ec68b8dae)
-- 🔧 その他:补 check:zcode-matrix 问责口(器头注声称的出路此前在 package.json 里不存在) (67078fc26e)
-- 🚀 機能/改善:号池统一名称收口——非 qoder 平台导入兜底链补 phone(O66) (579e8efb5b)
-- 🐞 修正:兜底清扫器加 H0b 行号失配守卫 —— 治「摘已勾行连吃邻行」的吞票型 (4d55e0fd7b)
-- 🔧 その他:补金丝雀灰度分流镜像测试并摘掉 lint 禁用的 @ts-nocheck(解开收编轮三轮死循环) (e39d011d1d)
-- 🐞 修正:更新卡三稿 + 真冷启动 + 启动兜底屏;打包脚本补 WS 维度 (2b3f0f6249)
-- 🐞 修正:补 NEXT_PUBLIC_WS_BASE_URL 并在部署交换前断言它真被内联 (d1773dec55)
-- 🐞 修正:补齐回潮根治的判据侧——归档清单认处置侧面 + 复洁器维五(调用侧已被 13:09 收编轮先行吃进 HEAD) (730f25dc65)
-- 🐞 修正:/admin/statistics 首屏必崩 —— data! 只是编译期断言,首帧 data 为 undefined 时 d.overview 抛 TypeError 被 admin 错误边界接住 (7b5f65c5ec)
-- 🐞 修正:底栏胶囊 Android 实心白块根治 + 真模糊全链路落地(七稿) (98dc6b8859)
-- 🚀 機能/改善:一键登录本机补齐 WorkBuddy/豆包两平台写回配方(全平台一致) (0c84454e0d)
-- 🐞 修正:落仓 server.ts 在飞修复 —— 空 JSON body 按 {} 处理 + 原型污染键过滤(取生产签出与主工作区两版之超集,零删除) (a2efc9a714)
+- 🔧 その他:给 wsGuard 补覆盖面自证——全仓只许有一套 WebSocketServer (3b303c4d1d6)
 
 **2026-10-28**
-- 🐞 修正:取号归因层落 lib——新增第三成因 SCAN_FACE_FULL 与 EXHAUST_STAGE,渲染单源 describeExhaustion(本枚只落 lib 层,调用侧另枚) (a130903b43)
-- 📚 ドキュメント:复登记 i18n 死 key 清账票(被 c32fae1fb9 削尾吞掉一次)+ 登记兜底轮削尾缺陷票 (4344b09204)
-- 🚀 機能/改善:号池掩码手机号补全成品化(service 补全/批量归位 + admin 双端点 + 管理页入口,credVersion bump 打通签到副本传播) (b9933cdb97)
-- 📚 ドキュメント:登记 i18n 死 key CI 腿清账票(三端 247 枚存量现读,连红 8 次无人在册) (40cb23f19c)
+- 🐞 修正:两处 SSE 的断连清理挂错信号源——要么流刚建立就变哑、要么每次访问累积一个泄漏 (be8c2574f42)
+- 🔧 その他:收编滞留 18 小时的 relay-switch 暂存半成品,并修掉它压在全仓 push 门上的 2 处类型错误 (48e0a9f69a0)
+- 🐞 修正:收口 Test 步 13 个失败文件 —— 2 处真缺陷(短信回调 CSRF 豁免被自动收编误删、频控 reset 两面不同语义) + 8 处判据/契约未跟上新实现 (9ec6ad819d8)
 
 **2026-10-28**
-- 🔧 その他:非本仓交付物目录入 ignore —— 消掉根目录整洁守门的恒未判定 (595927e89b)
-- 🐞 修正:auto-triage 未知旗标不再直跑真分诊轮(闭集参数闸,失效方向改为要一次定向说明) (90981bad2b)
-- 🐞 修正:main 三处红门根因修复 —— i18n 契约依据漂移 / keepalive 运行期表未建 / 真实库两例 (977d324b22)
-- 🐞 修正:开发者后台 Coze 表 8 行硬编码中文接五语词包(键名同 DeveloperKeyDialog 形态) (89c0fb156f)
-- 🚀 機能/改善:O02④ 余下四族逐档归因收口 —— 0 处真收敛,四把族内收敛尺子 58 例 (e8009d1599)
-- 📚 ドキュメント:登记 O66 号池账号命名统一手机号优先(进行中@2026-10-28/WorkBuddy) (c21f93d72d)
-- 📚 ドキュメント:O02 ④ 定论(60/61 为已裁定的结构差异;两跳投影已修;更正上一版对 InputArea 的误归因) (4595a36125)
-- 📚 ドキュメント:结清会话 ops 不可变 opId 票(枚 1132d27c4af7409645549a8abd8cfadbe2505125 已装车,复跑 17/17 绿) (94ad3bd1c7)
-- 🔧 その他:消掉已入库的存量类型错 workspace-fs-bridge-boundary.test.ts:110 TS2532 (4dbaacb46e)
-- 🐞 修正:自愈通知正文补『设计内停止』档 (663c73ea0b)
-- 🐞 修正:服务健康证恢复 + 蓝绿三件套纳入自愈 + 夹具回收补洞 (489f946604)
-- 🐞 修正:生产签出在飞改动落进仓 —— 蓝绿定时任务归属 + 部署/监控腿三方归并(monitor 取现基线,拒陈旧副本) (b3864b80b7)
+- 🚀 機能/改善:2FA step-up —— 资金流出动作补第二因子(会话被窃后提现不再只靠令牌) (4c8efc7c632)
+- 🚀 機能/改善:装门 257 看守四道抗 DDoS 闸会不会被静默摘掉(点名落 AGENTS 余量) (b2f5cceaf6d)
+- 🔧 その他:check-web-rn-parity 过 prettier 格式化(纯换行重排,水印与逻辑零变更) (c7296c7f6f5)
+- 🐞 修正:SSRF 守卫补两处既存绕过 + relay 出网复检住进发请求那一刻 (3ec2cca7b46)
+- 🚀 機能/改善:新增 web↔RN 跨端对账门(仅报告)并注册进 guardian (777923eb0c5)
 
 **2026-10-28**
-- 🚀 機能/改善:会话 ops 不可变 opId 三处消费面同源收口(⑦第五波,收编死席半成品) (1132d27c4a)
-- 📚 ドキュメント:补点名 check-asset-path-health.mjs(守门 89 R4 缺口清偿) (3d02a7c452)
-- 🚀 機能/改善:O02④ InputArea 族收口(收编死席遗留件)——15 档逐条归属 + 族内收敛尺子 12 例 (e122e55628)
-- 📚 ドキュメント:守门207 体积清偿落账 HEAD 面 105115→95336(预算 96000) (0360fecc88)
-- 📚 ドキュメント:更正 SectionHeader 箭头间距档的归属注记 —— RN 腿不渲染箭头,该档是小程序单侧(结构差异,非分叉) (0af2c6f88c)
-- 📚 ドキュメント:D16 go 通道翻账——发布物已在位,按对账器要求的形态注明版本号来源 tag (75cc9a8ea6)
-- 🚀 機能/改善:口令门认 getter 等价形 / e2e seed 定向隔离库 / 发现器反馈源器物化 (22220d907f)
-- 🐞 修正:日志清理任务复活 + 资产路径可达性巡检腿 (5a08775244)
-- 🐞 修正:run-as-user -NoWait 不再继承调用方 std 句柄(真机 E2E 实证假阴性) (c76cf0ab04)
-- 📚 ドキュメント:结清边缘缓存串味票(枚 20e45eebd23 已入库,11 例绿含端到端)并摘本席租约 (513bec7402)
-- 🐞 修正:跨源响应不进共享边缘缓存 —— 实测 EdgeOne 免费版缓存键不含 Origin,会把上一位访客的 ACAO 喂给本站(同源/无 Origin 臂照旧吃缓存) (20e45eebd2)
-- 🐞 修正:SL 维加「两跳投影」—— 经共享 core 组件消费的档不再被误报成单侧(只抵消、不造账) (95ba00bd9b)
-- 🐞 修正:登录本机补「路径兜底探测 + 写后自检」 (f78b697b9e)
-- 📚 ドキュメント:O02 ④ 的真实构成(61 枚单侧档分三类:已裁定结构差异/尺子盲区/真待收敛),不是机械并源清单 (b66bb98c33)
-- 🐞 修正:EO 源站漂移改自愈 —— 活读现配 + 改源站 + 公网入口验证 + 失败回滚 (7bb1bb7f39)
-- 🔧 その他:净面收尾改名失败时改用逐子项改名探针 —— 只喊 in use 无法派单,用改名本身点名被占子树(全部子项可改则指向根目录被某进程 CWD 指着) (ec08433b0e)
-- 🔧 その他:源站纵深防御 — API 收回到环 + slowloris 防护 (43df39d894)
+- 🔧 その他:生产端第二轮落账 —— 摘除票①(完成即删削尾:出路三件当日已落地 4d55e0fd7bf/92f0d8d88e5/反向夹具) + 金丝雀票复核(生产 checkout 账 22 枚金丝雀真跑过:17 pass/4 rollback/1 unproven;载体已装;wiring 9 格 wired) + 闭环票复核(intake 取值面接生产 checkout 后首枚 O67 实落账;取号池死锁复现待人裁) + G-23 交接页挂载 + G-20 报备复核注记 (f5e6819dc7d)
 
 **2026-10-28**
-- 🐞 修正:Qoder 会话全集补孤儿会话目录并按 uuid 形态排除结构目录 (6d5638a483)
-- 📚 ドキュメント:结清 G-866 边缘缓存两格与 G-1200041 sso 502(三连 200 实测),Origin 缓存键缺陷另立一行 (1a6488f2cb)
-- 📚 ドキュメント:立票——边缘缓存键不含 Origin 而源站按 Origin 回显 ACAO,实测 tauri 建的缓存喂给 www 源(Age 4/6/8 全 HIT) (7f7eaa16da)
-- 🐞 修正:登录本机关不掉客户端就拒写 + 前端超时放宽到 60s (48ed5955c0)
-- 🐞 修正:codearts 写前先 checkpoint WAL —— 备份才完整、重启不会被旧行重放盖掉 (0528a35769)
-- 📚 ドキュメント:核验 L28697(E2E 判据层完备)与 L6817(O02/RN 三处保留点) (6ce0ff0917)
-- 📚 ドキュメント:⑦第四波六席收口登记 + ops 号漂移待办 + 误落枚自记 (84a29ae366)
-- 🚀 機能/改善:灰度分流装车 —— 档位状态持久化 + gray/stage 真起真停(24 例绿),接线判据锁死;fix(e2e-supply): --check 不再回显 DSN 口令段(此前只判 /PASSWORD/,URL 内嵌口令整串外泄,5 例镜像锁) (b9470f9d94)
-- 📚 ドキュメント:补 Qoder 会话搬家命令行 (f2ee4aadcb)
-- 📚 ドキュメント:补备份压缩/批量assign/切账号联动换桶三处新旗子 (2b60d81ca2)
-- 🚀 機能/改善:六平台登录本机与 trae 对齐(先关客户端再写、写完自动拉起) (36dd766677)
-- 🚀 機能/改善:模型密钥回填映射 5→38 条 —— 覆盖盘上已有 33 家厂商素材,另修键名行被整体当值的回填缺陷 (ba1c39cb7f)
-- 📚 ドキュメント:Trae/Qoder 入口两份取证落地 + 更正上轮 IDE 取证两处过期结论 (57abe458b4)
-- 📚 ドキュメント:G-02 判据①的页面级真会话取证达成(agent-teams 对 /api/subagents/all 200)+ 两处解锁修复的本机枚 (e73871a09e)
-- 🐞 修正:号池空闲保活窗口改绑 ISO 串 —— sweep 每5分钟抛死 ERR_INVALID_ARG_TYPE (fc19aecfb0)
+- 🐞 修正:部署链补「api 实听者身份」自证 —— 健康 200 证明不了新代码在答(2026-10-28 当天实测的假成功) 现场:部署把生产签出 ff 到新提交、web 换流、/api/health 与 router 都回 200,但监听 8843 的仍是 15:34 那个旧孤儿 node —— 服务"重启"起来的新子进程因端口被占(EADDRINUSE)当场退出,账面却记成部署成功,API 侧修复在生产上根本没上岗(§12f:判据失效的表现永远是安静)。 做法:新增只读尺子 deploy/win/api-listener-freshness.ps1(三态 fresh/stale/undetermined,ASCII 契约行,exit 3 给调用侧当红灯),ihui-deploy.ps1 在两条 api 重启分支之后统一问一次"应答的进程是本轮起来的吗":fresh 记 Ok、stale 报 ALERT STALE-API-LISTENER 并给精确出路(按 pids 逐个 Stop-Process,**禁止按映像名批杀**)、量不到只报未判定(§0.3 两头都不许冒充结论)。 两把尺子写的时候就各带反向对照,过程中真抓到两个坑:① 参数用 [int[]] 接 "8842,8843" 被 .NET 按千分位折成 88428843 ⇒ 两色谁都量不到、整把尺子静默 no-listener(F6 钉死);② PowerShell 变量名大小写不敏感,局部 $ports 覆盖参数 $Ports ⇒ split 在空列表上跑 ⇒ 同样静默 no-listener,而 F3/F5 照样"绿"(F8 形状锁钉死);③ 锚点不带时区标记会被按本地时区解,UTC+8 机上静默差 8 小时,该判 stale 判成 fresh ⇒ 缺时区一律不判定并给反向对照(F4b)。镜像 9 例全过,夹具自开临时监听端口,不碰生产端口与服务。 (8cf02551215)
+- 🚀 機能/改善:给 Python 侧也挂总量上界(uvicorn --limit-concurrency 3000) (1f264af5e93)
 
 **2026-10-28**
-- 📚 ドキュメント:Trae/Qoder 入口两份取证落地 + 更正上轮 IDE 取证的两处过期结论 (f5816c6cb1)
-- 🚀 機能/改善:Qoder 会话搬家腿 relay:qoder-sessions —— 同构复用 WorkBuddy 五腿原语 (1890edf674)
+- 📚 ドキュメント:结清「普通 git merge 绕开 union 判据把结清行按旧形态带回」—— 探测器与 R4 点名两半都已在 HEAD (fb0089d0c02)
+- 🐞 修正:并发守卫补上流式归还通道(它自己正在漏槽)，并装全局连接硬顶 (84e34bb03bf)
 
 **2026-10-28**
-- 🔧 その他:G-329 补全屏 TUI 真 TTY 取证通道 —— node-pty 夹具三格实测,滚轮上报缺失如实记档 (74632661b1)
-- 🔧 その他:test (a98678f09d)
-- 🐞 修正:门193 唯一存量违规归零 —— land-gate-rerun 的 runGit 把 stdio 写进 options 字面量(判据只认属性名,spread 看不见),并摘掉前提已不成立的过期豁免条目(文件未被删除、reviewBy 次日到期即判红,把全队 push 卡住) (6340d81eb5)
-- 🐞 修正:净面回收链三处根因收口 —— 构建后不还原 CWD 致改名恒 in use、Keep 计数判据使旧 .trash-* 永不清理、atomic-build 把首次落位误报成 dist 被占用 (4686178467)
-- 🔧 その他:清掉远端已删的那枚已勾行(完成即删) + 采用对侧自进化行当前形态 (041160ef4a)
-- 📚 ドキュメント:补 G-329 ② 线上暴露面现读取证(consistent/违规 0;宿主无 nginx 该格以仓内判据替代) (ef79013db9)
-- 📚 ドキュメント:结清 G-50 DevEnv 搬迁(本机无 G 盘,§26 落点即 D:\DevEnv,前提腐烂) (45ccac0195)
-- 🐞 修正:明文客户端被塞进加密信封 ⇒ 重开还是旧号 — 按落盘格式写回并拒写未知格式 (c7145fc339)
+- 📚 ドキュメント:给 18:30 落库的活文档回捞探测器补 R4 点名 —— 否则门 89 当场把全链拦住 (8f6f7611b66)
+- 📚 ドキュメント:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a9cb59ed41e)
 
 **2026-10-28**
-- 🔧 その他:接管认领 5 个可派单任务(对象空间提交,加租约牌 ihui-lead) (38e95c702e)
-- 📚 ドキュメント:G-50 探测器装车补口 + 裁决 origin 翻勾枚(本驻机为 G: 前提不成立),保持未勾并列剩两格 (0f7e81b273)
+- 🐞 修正:让人机验证「不在岗」这件事在运行期留痕(方向不改) (9d6c6df64b0)
+- 🚀 機能/改善:结清即删改为默认 —— 根治「已勾行滞留反复出现」 (2ad7ed6a546)
+- 🚀 機能/改善:结清「普通 git merge 合并活文档会绕开 union 判据」——回捞探测腿已落地并接线 (f1d3706f2f4)
+- 🚀 機能/改善:普通 git merge 合并活文档的回捞探测器(post-merge 接线,判据复用 liveDocExpectedCounts) (632919a87cf)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

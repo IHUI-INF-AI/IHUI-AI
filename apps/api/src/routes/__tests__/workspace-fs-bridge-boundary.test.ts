@@ -108,8 +108,8 @@ describe('fsBridge 的 read/grep/browse 边界', () => {
     const list = fsBridge.browse()
     expect(list.length).toBe(1)
     const first = list[0]
-    if (!first) throw new Error('browse() 未返回条目 —— 断言无从谈起')
-    expect(first.path).toBe(assertWithinRegisteredRoots(PKG_ROOT))
+    expect(first).toBeDefined()
+    expect(first!.path).toBe(assertWithinRegisteredRoots(PKG_ROOT))
     for (const e of list) {
       expect(e.path).not.toMatch(/^[A-Za-z]:\\$/)
     }

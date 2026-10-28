@@ -1,6 +1,5 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 单会话搬移腿测试(⑦第二刀·搬移面)。fixture 全注入临时目录,绝不碰真实会话库,断言:
@@ -185,7 +184,7 @@ describe('move 全链:dry-run → --apply → undo/restore', () => {
       stateShaBefore,
     )
 
-    expect(main(['move', '--conversation', CONV, '--apply'], paths, [])).toBe(0)
+    expect(main(['move', '--conversation', CONV, '--apply'], paths)).toBe(0)
     // 原位消失(目录也收空)
     expect(existsSync(join(paths.sessionsRoot, CONV))).toBe(false)
     expect(existsSync(join(paths.projectsRoot, 'ws-a', `${CONV}.jsonl`))).toBe(false)
@@ -225,8 +224,8 @@ describe('move 全链:dry-run → --apply → undo/restore', () => {
     const jsonlPath = join(paths.projectsRoot, 'ws-a', `${CONV}.jsonl`)
     const stateShaBefore = sha256Of(readFileSync(statePath))
 
-    expect(main(['move', '--conversation', CONV, '--apply'], paths, [])).toBe(0)
-    expect(main(['undo', '--op', '1', '--apply'], paths, [])).toBe(0)
+    expect(main(['move', '--conversation', CONV, '--apply'], paths)).toBe(0)
+    expect(main(['undo', '--op', '1', '--apply'], paths)).toBe(0)
 
     expect(existsSync(statePath)).toBe(true)
     expect(existsSync(jsonlPath)).toBe(true)
@@ -261,10 +260,10 @@ describe('move 全链:dry-run → --apply → undo/restore', () => {
     seedConversation(paths)
     seedSnapshot(paths)
     seedLedger(paths, ACCT)
-    expect(main(['move', '--conversation', CONV, '--apply'], paths, [])).toBe(0)
+    expect(main(['move', '--conversation', CONV, '--apply'], paths)).toBe(0)
     // 删掉台账文件也行:桶结构自带归属(唯一持有者);ops 日志在另一个文件,不受影响
     rmSync(paths.ledgerFile, { force: true })
-    expect(main(['restore', '--conversation', CONV, '--apply'], paths, [])).toBe(0)
+    expect(main(['restore', '--conversation', CONV, '--apply'], paths)).toBe(0)
     expect(existsSync(join(paths.sessionsRoot, CONV, 'state.json'))).toBe(true)
     expect(existsSync(join(paths.projectsRoot, 'ws-a', `${CONV}.jsonl`))).toBe(true)
     expect(existsSync(join(paths.bucketsRoot, ACCT, 'workspace', 'sessions', CONV))).toBe(false)
@@ -296,4 +295,3 @@ describe('零内容纪律', () => {
     expect(readOps(paths.opsLogFile)).toHaveLength(1)
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
