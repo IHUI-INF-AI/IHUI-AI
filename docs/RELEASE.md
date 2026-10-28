@@ -8,7 +8,7 @@
 
 > IHUI-AI 跨 14 平台发布:web/api/ai-service Docker 镜像 + desktop GitHub Release 自动发布 + extension Chrome Web Store + mobile-rn EAS + miniapp-taro 微信审核 + cli(npm + 6 二进制 + winget/scoop/homebrew/snap 4 manifest)+ sdk(npm / PyPI / Maven / Go / NuGet 5 语言通道),由 Git tag 触发 GitHub Actions 自动构建,蓝绿部署上线。
 >
-> ⚠️ **"配了流程" ≠ "已发布"**。截至 2026-10-19,`ihui-cli@1.0.0` 已上 npm(registry 回读 200,`npm i ihui-cli` 实测可用);`@ihui/*`、`ihui-ai`(PyPI)仍未发布。CLI 发布走 `secrets.NPM_PUBLISH_TOKEN`(granular token + Bypass 2FA;OIDC 仅作前向兼容尝试,失败自动回退),**不启用 2FA、不登记 Trusted Publisher**;SDK 侧(以及 PyPI / Maven / NuGet)的凭据仍未配置。逐条证据见下节[发布状态(实测)](#发布状态实测-2026-10-19逐条带命令回读)。
+> ⚠️ **"配了流程" ≠ "已发布"**。截至 2026-10-19,`ihui-cli@1.0.0` 已上 npm(registry 回读 200,`npm i ihui-cli` 实测可用);`@ihui-ai/sdk`(2026-10-28 现读 registry 404)、`ihui-ai`(PyPI)仍未发布。CLI 发布走 `secrets.NPM_PUBLISH_TOKEN`(granular token + Bypass 2FA;OIDC 仅作前向兼容尝试,失败自动回退),**不启用 2FA、不登记 Trusted Publisher**;**SDK 的 npm 腿凭据已就位**(`release-sdk.yml` 把 `secrets.NPM_PUBLISH_TOKEN` 映射成 job 内环境变量 `NPM_TOKEN`,仓内不存在也不需要 `secrets.NPM_TOKEN`),真卡点是**没有 npm org**(2026-10-28 现读 `-/v1/org/ihui` 与 `-/v1/org/ihui-ai` 均 404,org 名唯一真相源=通道台账 `npm.coordinate`,由 `resolveNpmOrgScope()` 解析),出路 = `npm-bootstrap.yml -f action=org_create`;PyPI / Maven / NuGet 的凭据仍未配置。逐条证据见下节[发布状态(实测)](#发布状态实测-2026-10-19逐条带命令回读)。
 
 ---
 
