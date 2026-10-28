@@ -86,4 +86,36 @@ test('P6 反向对照:声明值里的 :where( 不当规则处理,也不因此误
   assert.ok(out.includes('/* 说明::where() 由 weapp 编译器不认 */'), '注释原文必须逐字保留')
   assert.ok(out.includes('a {\n  color: red;\n}'), '块外内容一行不碰')
 })
+
+test('P7 排版不是漂移:已折行的等价段必须原样返回(prettier 与生成器打架的回归锁)', () => {
+  // 2026-10-28 实测:生成器投影出**单行**选择器,prettier 把同一段折成四行 ⇒ 按字节比永远不等,
+  // `--check` 恒红、每次自动写回都把文件改回单行 ⇒ 与格式门互相打架。判据必须按值,不按排版。
+  const once = project(baseCss)
+  const oneLine = "input[type='checkbox'], input[type='radio'], input[type='range'], progress {"
+  assert.ok(once.includes(oneLine), '前提:生成器当前输的是单行形态(否则本判据在射空靶)')
+  const folded = once.replace(
+    oneLine,
+    "input[type='checkbox'],\ninput[type='radio'],\ninput[type='range'],\nprogress {",
+  )
+  assert.notEqual(folded, once, '前提:夹具确实改成了折行形态')
+  assert.equal(
+    S.mergeAppCssBase(shell(folded), baseCss),
+    shell(folded),
+    '折行只是排版,内容等价 ⇒ 必须原样返回,一个字节都不许重写',
+  )
+})
+
+test('P8 真改动仍必须写回(归一只放过排版,不得放过取值)', () => {
+  // 反向锁的反向:把声明值真改掉,归一面必须判出差异并整段写回 —— 否则 P7 就成了"永远不写"的假绿。
+  const once = project(baseCss)
+  const tampered = once.replace('accent-color: var(--color-primary)', 'accent-color: #ff0000')
+  assert.notEqual(tampered, once, '前提:夹具确实改了取值')
+  const merged = S.mergeAppCssBase(shell(tampered), baseCss)
+  assert.equal(normalize(merged), normalize(shell(once)), '取值不同 ⇒ 必须写回源的真值')
+})
+
+/** 只给 P8 做"写回结果为何等于源投影"的对齐,不参与判据(判据在 S.mergeAppCssBase 里)。 */
+function normalize(text) {
+  return String(text).replace(/\s+/g, ' ').trim()
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
