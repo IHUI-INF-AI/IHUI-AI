@@ -687,6 +687,20 @@
     }
   },
   "admin": {
+    "relayPoolPolicy": {
+        "title": "풀 선택 정책(전역 기본값)",
+        "refresh": "새로고침",
+        "loading": "정책을 불러오는 중…",
+        "loadFailed": "불러오기 실패",
+        "badgeAllDefault": "모두 기본값",
+        "badgeDeviated": "기본값에서 {n}개 다름",
+        "badgeInvalid": "잘못된 값 폴백 {n}개",
+        "badgeRegistryBroken": "등록표 불완전",
+        "readOnlyHint": "읽기 전용: .env 수정 후 apps/api 재시작",
+        "defaultIs": "기본 {v}",
+        "invalidFellBack": "잘못된 값이 기본으로 복귀",
+        "registryDiff": "미등록 노브:{missing}; 고립 등록:{orphan}"
+    },
     "relayTasks": {
         "wbTitle": "WorkBuddy 작업 자동화",
         "wbAccount": "계정",
