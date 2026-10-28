@@ -2465,7 +2465,7 @@ class AgentLoopV2:
         if not _chain_arg:
             if chain is None:
                 logger.warning(
-                    "AgentLoopV2 构造未传 chain ⇒ 本次 run(session=%s)的用量落「%s」桶,"
+                    "AgentLoopV2 构造未传 chain => 本次 run(session=%s)的用量落「%s」桶,"
                     "不计入主链;补传 CHAIN_MAIN/CHAIN_SUBAGENT/CHAIN_WORKFLOW 之一即出桶"
                     "(G-941 写账侧)",
                     self._session_id,
