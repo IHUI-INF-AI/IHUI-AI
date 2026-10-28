@@ -31,6 +31,7 @@ import {
   type ConfirmPurchaseProduct,
 } from '../components/ConfirmPurchasePopUp'
 import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
@@ -78,6 +79,9 @@ export function CartScreen() {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首屏由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
 
   const onQuantityChange = (id: string, delta: number) => {
     setItems((prev) =>
