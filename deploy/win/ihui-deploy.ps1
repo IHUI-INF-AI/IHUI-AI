@@ -2090,7 +2090,8 @@ function Invoke-Diagnose {
 
     # ── [3] 服务与进程启动时间(判断"重启过但代码没换") ──
     DiagLog "── [3] NSSM 服务 ──"
-    foreach ($svc in @('IHUI-WEB','IHUI-API','IHUI-AI-SERVICE','IHUI-DEPLOYLOOP')) {
+    # 2026-10-28 蓝绿:8802 归 ROUTER,干活的是 BLUE/GREEN;旧 IHUI-API 留作回滚形态(停止态属预期)。
+    foreach ($svc in @('IHUI-WEB','IHUI-API-ROUTER','IHUI-API-BLUE','IHUI-API-GREEN','IHUI-API','IHUI-AI-SERVICE','IHUI-DEPLOYLOOP')) {
         $s = Get-Service -Name $svc -ErrorAction SilentlyContinue
         if ($s) { DiagLog ("  {0} : {1}" -f $svc, $s.Status) } else { DiagLog ("  {0} : 不存在" -f $svc) }
     }
@@ -3164,8 +3165,43 @@ if (-not (Test-HealthGate)) {
     $apiName = @('IHUI-API','ihui-api','svc-api','IHUI-API-SVC') |
         Where-Object { $null -ne (Get-Service -Name $_ -ErrorAction SilentlyContinue) } |
         Select-Object -First 1
-    if ($apiName) {
-        Log "重启 api 服务($apiName)使后端新代码生效"
+
+    # ── 蓝绿零停机切换(2026-10-28 立)──────────────────────────────────────────
+    # 原写法 `sc.exe stop → sleep 4 → sc start → sleep 6` 会让 8802 断监听 20~30 秒,
+    # Next.js 代理拿到 ECONNREFUSED,用户看到纯文本 "Internal Server Error"(登录直接失败,
+    # 10-28 当天实测两轮)。现改为:起另一色(8842/8843)→ 健康门禁 → 原子写状态文件让
+    # 8802 的路由层(as 1 秒热切换)→ 排空 20s → 停旧色。8802 全程有监听。
+    # 失败语义:目标色起不来就**不切流**,旧色继续服务,本步 WARN 但不判部署失败
+    # (线上无损);只有蓝绿服务不在位(单实例回滚形态)才退回旧的原地重启。
+    $bgScript = Join-Path $PSScriptRoot 'ihui-api-bluegreen.ps1'
+    $bgReady = (Test-Path -LiteralPath $bgScript) -and
+        ($null -ne (Get-Service -Name 'IHUI-API-BLUE' -ErrorAction SilentlyContinue)) -and
+        ($null -ne (Get-Service -Name 'IHUI-API-GREEN' -ErrorAction SilentlyContinue))
+    if ($bgReady) {
+        Log '蓝绿切换 api:起另一色 → 健康门禁 → 原子切流 → 排空 20s → 停旧色'
+        $bgRc = 1
+        try {
+            $bgPs = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+            if (-not (Test-Path -LiteralPath $bgPs)) { $bgPs = 'powershell.exe' }
+            $bgOut = & $bgPs -NoProfile -ExecutionPolicy Bypass -File $bgScript -Target auto 2>&1
+            $bgRc = $LASTEXITCODE
+            foreach ($line in @($bgOut)) { Log "  [bg] $line" }
+        } catch {
+            Log "WARN  蓝绿切换脚本异常: $_"
+        }
+        if ($bgRc -eq 0) {
+            $apiOk = $false
+            for ($i = 1; $i -le 5; $i++) {
+                if (Test-Http -url $OriginApi -contains '"status":"ok"') { $apiOk = $true; break }
+                Start-Sleep -Seconds 3
+            }
+            if ($apiOk) { Ok 'api 蓝绿切换完成且健康(切换期间 8802 未断监听)' }
+            else { Log "WARN  蓝绿切换返回 0 但源站健康未通过,需人工核查 IHUI-API-BLUE/GREEN" }
+        } else {
+            Log "WARN  api 蓝绿切换失败 rc=$bgRc:目标色未就绪 ⇒ 未切流,旧色仍在服务(线上无损);详见 D:\DevEnv\logs\api-bluegreen.log"
+        }
+    } elseif ($apiName) {
+        Log "未启用蓝绿(缺 IHUI-API-BLUE/GREEN 或 $bgScript),退回原地重启 api 服务($apiName)"
         try {
             sc.exe stop $apiName | Out-Null
             Start-Sleep -Seconds 4
