@@ -799,11 +799,14 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
     const acc = normalizeForeignAccountShape(row)
     const isCodearts = opts.providerCode === 'codearts'
     const codeartsAccount = isCodearts && isRecord(acc['account']) ? acc['account'] : undefined
-    // 统一名称 = 官方绑定手机号:qoder 预览名 phone 优先(载荷 name 是客户端昵称,不作统一名)
+    // 统一名称 = 官方绑定手机号:qoder 预览名 phone 优先(载荷 name 是客户端昵称,不作统一名);
+    // O66(2026-10-28):其余平台导入 JSON 显式带 phone 时同样优先(全平台统一口径;
+    // workbuddy 另有 JWT preferred_username 权威通道在其上,trae 等无权威通道平台靠这一格)
     const name =
       opts.providerCode === 'qoder'
         ? cstr(acc['phone']) || cstr(acc['nickname']) || cstr(acc['name']) || `#${index + 1}`
-        : cstr(acc['name']) ||
+        : cstr(acc['phone']) ||
+          cstr(acc['name']) ||
           (isCodearts
             ? cstr(codeartsAccount?.['label']) || cstr(acc['user_name']) || `#${index + 1}`
             : `#${index + 1}`)
