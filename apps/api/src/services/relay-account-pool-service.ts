@@ -561,7 +561,10 @@ export async function importAccounts(
     // 我方原生形状(token 在场)原样通过。
     const acc = normalizeForeignAccountShape(accounts[i] ?? {}) as ImportAccountInput
     const accName = typeof acc.name === 'string' && acc.name ? acc.name : ''
-    let displayName = accName || `#${i + 1}`
+    // O66:导入 JSON 显式 phone 是全平台统一名兜底位(qoder 走映射 name、workbuddy 走
+    // JWT preferred_username 通道,两者都在后面压过它;trae 等无权威通道平台靠这一格)
+    const accPhone = cstr((acc as Record<string, unknown>)['phone'])
+    let displayName = accPhone || accName || `#${i + 1}`
     try {
       // 形状闸门(单源判据 relay-account-format.recognizeImportShape):只有本仓认得的
       // 平台形状才放行;认不出就整条拒掉并点名缺哪个键 —— 绝不静默丢弃,也绝不把
@@ -608,7 +611,7 @@ export async function importAccounts(
       const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
       // 号池统一名称 = 官方绑定手机号:qoder 映射出的 name 即 phone,具备权威性,
       // 压过载荷自带的 name(捕获件里它是客户端昵称,不能当统一名;2026-10-28 定)
-      if (mapped?.name && (!accName || providerCode === 'qoder')) displayName = mapped.name
+      if (mapped?.name && ((!accName && !accPhone) || providerCode === 'qoder')) displayName = mapped.name
       // 入口归一化:从 JSON 整段复制的粘贴值会带包裹引号,上游按前缀校验 ⇒ 一个多余字符
       // 就令号池自刷新与每日签到同时失败(dev 实测 `"drt-…` 那枚,详见 normalizeCredentialValue 头注)
       const token = normalizeCredentialValue(mapped ? mapped.token : acc.token) ?? ''
