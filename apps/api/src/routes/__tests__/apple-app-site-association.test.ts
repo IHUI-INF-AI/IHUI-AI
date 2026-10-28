@@ -9,6 +9,10 @@
  *  1. 200 + Content-Type + appIDs 具体值(线上团队号 TKF3V7GG6T)+ components 两条路径;
  *  2. 响应体与共享源 buildAppleAppSiteAssociationBody 逐字节一致(单一真相源,禁止 api 另抄 JSON);
  *  3. 未配置 Team ID 时回退占位符 TEAMID(与 web 侧既有行为一致,防抽源改变边缘语义)。
+ *
+ * 本件与 packages/shared/src/constants/apple-app-site-association.ts、
+ * apps/api/src/routes/apple-app-site-association.ts 是同一交付的三块:枚 4cd8e130cd 的合并曾把本件吞掉
+ * (远端留下引用方与路由、缺判据锁),所以任何收敛都不得把本件当作"可丢的一侧"。
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
