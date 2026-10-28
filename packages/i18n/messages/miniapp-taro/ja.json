@@ -4665,6 +4665,21 @@
       "draft": "下書き"
     }
   },
+  "eduDashboard": {
+    "title": "教育ダッシュボード",
+    "studyHours": "学習時間",
+    "totalCourses": "コース数",
+    "completedCourses": "完了",
+    "inProgressCourses": "進行中",
+    "avgProgress": "平均進捗",
+    "totalExams": "受験回数",
+    "passedExams": "合格",
+    "totalCerts": "証明書",
+    "recentCourses": "最近の学習",
+    "noCourses": "学習記録なし",
+    "progress": "進捗",
+    "loadFailed": "読み込み失敗"
+  },
   "webViewPortal": {
     "news": "ニュース",
     "learnTopic": "テーマ講座",

@@ -4665,6 +4665,21 @@
       "draft": "초안"
     }
   },
+  "eduDashboard": {
+    "title": "교육 대시보드",
+    "studyHours": "학습 시간",
+    "totalCourses": "과정 수",
+    "completedCourses": "완료",
+    "inProgressCourses": "진행 중",
+    "avgProgress": "평균 진도",
+    "totalExams": "시험 횟수",
+    "passedExams": "합격",
+    "totalCerts": "자격증",
+    "recentCourses": "최근 학습",
+    "noCourses": "학습 기록 없음",
+    "progress": "진도",
+    "loadFailed": "불러오기 실패"
+  },
   "webViewPortal": {
     "news": "뉴스",
     "learnTopic": "주제 강의",
