@@ -207,6 +207,7 @@
     "relay:session-move": "pnpm --filter @ihui/api relay:session-move",
     "relay:session-export": "pnpm --filter @ihui/api relay:session-export",
     "relay:session-ops": "pnpm --filter @ihui/api relay:session-ops",
+    "relay:qoder-sessions": "pnpm --filter @ihui/api relay:qoder-sessions",
     "relay:qoder-models": "pnpm --filter @ihui/api relay:qoder-models"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
