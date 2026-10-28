@@ -103,6 +103,8 @@ export default function SettingsScreen() {
     // 安全设置 / 身份认证(孤儿路由修复:原注册无入口,补挂设置菜单)
     { key: 'SecurityCenter', label: t('securityCenter.title') },
     { key: 'SecuritySettings', label: t('securitySettings.title') },
+    // 会员偏好(通知/隐私七开关):后端 /api/settings/notifications|privacy
+    { key: 'MemberSettings', label: t('memberSettings.title') },
     { key: 'ApiKeys', label: t('apiKeys.title') },
     // 签到助手 / 个人号池(2026-10-23 立):与 Web /checkin 同一后端,移动端可管理
     { key: 'CheckinAssistant', label: t('checkinAssistant.title') },

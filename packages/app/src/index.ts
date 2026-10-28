@@ -21,6 +21,11 @@ export type {
   SecurityAuditScreenProps,
   SecurityAuditType,
 } from './features/security-audit/SecurityAuditScreen'
+export { MemberSettingsScreen } from './features/member-settings/MemberSettingsScreen'
+export type {
+  MemberPrefs,
+  MemberSettingsScreenProps,
+} from './features/member-settings/MemberSettingsScreen'
 export { FeedbackScreen } from './features/feedback/FeedbackScreen'
 export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen'
 export { FeedbackDetailScreen } from './features/feedback-detail/FeedbackDetailScreen'

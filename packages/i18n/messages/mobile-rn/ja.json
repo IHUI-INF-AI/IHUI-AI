@@ -4265,6 +4265,22 @@
       "other": "その他"
     }
   },
+  "memberSettings": {
+    "title": "会員設定",
+    "notification": "通知設定",
+    "privacy": "プライバシー",
+    "saving": "保存中",
+    "hint": "切り替えると即保存。失敗時は自動で戻ります",
+    "loadFailed": "読み込み失敗",
+    "saveFailed": "保存失敗",
+    "orderUpdates": "注文の更新",
+    "promotions": "キャンペーン",
+    "points": "ポイント変動",
+    "newsletter": "ニュースレター",
+    "showProfile": "プロフィール公開",
+    "showActivity": "アクティビティ公開",
+    "allowInvites": "招待を許可"
+  },
   "webViewPortal": {
     "news": "ニュース",
     "learnTopic": "テーマ講座",
