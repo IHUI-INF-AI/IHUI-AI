@@ -90,7 +90,12 @@ $deployLockDir = Join-Path $Root '.deploy.lock'                    # 部署并�
 # "D:\IHUI-AI\.trae-cn\tmp\next-build-node22\logs" —— 该目录在本机从不存在,于是
 # Get-LastBuildTime 恒返回 $null,"最近构建于…"这条诊断分支**一直是死的**(不是偶尔不准)。
 $buildLogDir = EnvOr 'IHUI_MONITOR_BUILD_LOG_DIR' (Join-Path $Root '.ihui-agent/tmp/next-build-node22/logs')
-$webSvcName     = "IHUI-WEB"; $apiSvcName = "IHUI-API"; $aiSvcName = "IHUI-AI-SERVICE"
+# 2026-10-28 web 蓝绿:8801 的监听者是 IHUI-WEB-ROUTER,真正出页面的是 BLUE(8851)/GREEN(8852)。
+# $webSvcName 由「IHUI-WEB」改为 router —— 旧名是已退役的单实例(见 service-auto-restart.json
+# 的 excluded 条目)。这里的名字只用于诊断文案与重启检测取 StartTime,端口判据本身走 Test-PortL,
+# 所以改名的收益是"报出来的服务名与实际监听者一致",不是修判据。
+$webSvcName     = "IHUI-WEB-ROUTER"; $apiSvcName = "IHUI-API"; $aiSvcName = "IHUI-AI-SERVICE"
+$webColorSvcNames = @("IHUI-WEB-BLUE", "IHUI-WEB-GREEN")
 # 2026-10-28 蓝绿:`api(8802)` 的监听者是 IHUI-API-ROUTER,真正干活的是 BLUE(8842)/GREEN(8843)。
 # $apiSvcName 保留为**旧单实例回滚形态**的名字:蓝绿在位时它在 SERVICE_DEMAND_START 下是停止态,
 # 属预期,不能拿来判"API 挂了"。
@@ -536,7 +541,7 @@ function Get-Diagnosis {
   $youngest = $null
   # 2026-10-28 蓝绿:被重启的是 router 与 BLUE/GREEN,旧 IHUI-API 只在回滚形态下才起。
   # 已停止态的服务取不到 StartTime 会被 continue 跳过,不会误压告警。
-  foreach ($sn in (@($webSvcName, $apiRouterSvcName, $aiSvcName, $apiSvcName) + $apiColorSvcNames)) {
+  foreach ($sn in (@($webSvcName, $apiRouterSvcName, $aiSvcName, $apiSvcName) + $apiColorSvcNames + $webColorSvcNames)) {
     $st = Get-ServiceProcessStartTime -ServiceName $sn
     if ($null -eq $st) { continue }
     $age = [math]::Round(((Get-Date) - $st).TotalMinutes, 1)

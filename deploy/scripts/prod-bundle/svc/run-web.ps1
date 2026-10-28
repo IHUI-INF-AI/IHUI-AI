@@ -42,8 +42,21 @@ $Root = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
 
 Set-Location (Join-Path $Root 'apps\web')
 
-# 首次启动(或代码变更后)执行生产构建;.next 已存在且非空则跳过,直接 start
-if (-not (Test-Path ".next\BUILD_ID")) {
+# ── 蓝绿槽位(2026-10-28 生产席立)──────────────────────────────────────────────
+# web 原是单实例停-起,切流空窗 + Next 冷启动期间 8801 无人服务 ⇒ 公网 /api/* 502
+# (详见 ihui-deploy.ps1「切流后就绪等待」段的实测归因)。根治办法是双实例蓝绿:
+# IHUI-WEB-BLUE(:8851,.next-blue) / IHUI-WEB-GREEN(:8852,.next-green),由 IHUI-WEB-ROUTER
+# 常驻 8801 原子切流。三个变量因此必须能被服务级 env 覆盖,而**缺省值与改造前逐字等价**
+# (8801 / 0.0.0.0 / .next)⇒ 现有 IHUI-WEB 单实例行为零变化,蓝绿上线失败也能原路退回。
+# distDir 之所以能随实例走:apps/web/next.config.ts 里 `distDir = process.env.IHUI_BUILD_DIST
+# || staticDistDir`,构建与启动读的是同一个开关 ⇒ 脚本判 BUILD_ID 必须也用 $webDist,
+# 否则会出现"判 .next 有产物、实际起的是 .next-blue 空目录"这种自相矛盾的形态。
+$webPort = if ($env:IHUI_WEB_PORT) { [int]$env:IHUI_WEB_PORT } else { 8801 }
+$webHost = if ($env:IHUI_WEB_HOST) { $env:IHUI_WEB_HOST } else { '0.0.0.0' }
+$webDist = if ($env:IHUI_BUILD_DIST) { $env:IHUI_BUILD_DIST } else { '.next' }
+
+# 首次启动(或代码变更后)执行生产构建;构建目录已存在且非空则跳过,直接 start
+if (-not (Test-Path "$webDist\BUILD_ID")) {
     Write-Host "[IHUI-WEB] 生产构建中(next build)..."
     & "D:\DevEnv\tools\npm-global\pnpm.cmd" build
     if ($LASTEXITCODE -ne 0) {
@@ -64,5 +77,5 @@ if (-not (Test-Path ".next\BUILD_ID")) {
 # 而只绑 127.0.0.1 让 EdgeOne 回源恒 522 —— 2026-10-28 01:30 部署环 8/8 轮 api/llm fail、
 # 判 GATE-ENTRY-BROKEN 并每轮刷 WARN 即此。8802 早已监听 0.0.0.0(防火墙 8801/8802/8803 同一条规则放行),
 # 故这里补成同一口径,不是新增暴露面;Cloudflare 隧道仍走 127.0.0.1:8801,不受影响。
-& "D:\DevEnv\runtimes\node\node.exe" node_modules/next/dist/bin/next start -H 0.0.0.0 -p 8801
+& "D:\DevEnv\runtimes\node\node.exe" node_modules/next/dist/bin/next start -H $webHost -p $webPort
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
