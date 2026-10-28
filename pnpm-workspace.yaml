@@ -248,7 +248,11 @@ overrides:
   moment@<2.31.0: ^2.31.0
   seroval@<1.6.2: ^1.6.2
   shell-quote@<1.11.0: ^1.11.0
-  '@tiptap/core@<3.30.5': ^3.30.5
+  # 精确钉 3.30.5(不用 ^):web 的 @tiptap/extension-* / react / starter-kit 全部精确钉在
+  # 3.30.4,core 若漂到 3.31/3.32 会因 ChainedCommands 命令声明随配套扩展版本变化而
+  # 丢失 toggleStrike/toggleHeading/toggleBold 等类型(实测 web tsc 报 11 条)。
+  # 3.30.5 是 GHSA-j95f-988m-3j2f 的修复版,与 3.30.4 扩展同 minor 兼容。
+  '@tiptap/core@<3.30.5': 3.30.5
   # 既有规则只覆盖 0.8.x,0.9.x 这条线单独抬
   '@xmldom/xmldom@>=0.9.0 <0.9.12': ^0.9.12
   compression@<1.8.2: ^1.8.2
