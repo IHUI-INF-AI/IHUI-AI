@@ -1175,6 +1175,11 @@
       "shared": "packages/app/src/features/edu-dashboard/EduDashboardScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/EduDashboardScreen.tsx",
       "miniapp": "pkg-user/edu-dashboard/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-edit/AgentEditScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentEditScreen.tsx",
+      "miniapp": "pkg-user/agent-edit/index"
     }
   ]
 }
