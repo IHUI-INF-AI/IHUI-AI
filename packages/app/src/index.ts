@@ -15,6 +15,12 @@ export type {
 } from './features/status/StatusScreen'
 export { ProfileScreen } from './features/profile/ProfileScreen'
 export { SettingsScreen } from './features/settings/SettingsScreen'
+export { SecurityAuditScreen, auditTypeOf } from './features/security-audit/SecurityAuditScreen'
+export type {
+  SecurityAuditItem,
+  SecurityAuditScreenProps,
+  SecurityAuditType,
+} from './features/security-audit/SecurityAuditScreen'
 export { FeedbackScreen } from './features/feedback/FeedbackScreen'
 export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen'
 export { FeedbackDetailScreen } from './features/feedback-detail/FeedbackDetailScreen'

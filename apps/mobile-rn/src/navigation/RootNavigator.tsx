@@ -43,6 +43,7 @@ import { BankCardScreen } from '../screens/BankCardScreen'
 import { RealNameAuthScreen } from '../screens/RealNameAuthScreen'
 import { IdentityVerifyScreen } from '../screens/IdentityVerifyScreen'
 import { SecuritySettingsScreen } from '../screens/SecuritySettingsScreen'
+import { SecurityAuditScreen } from '../screens/SecurityAuditScreen'
 import SecurityCenterScreen from '../screens/SecurityCenterScreen'
 import ApiKeysScreen from '../screens/ApiKeysScreen'
 import DataRightsScreen from '../screens/DataRightsScreen'
@@ -432,6 +433,7 @@ export type RootStackParamList = {
   RealNameAuth: undefined
   IdentityVerify: undefined
   SecuritySettings: undefined
+  SecurityAudit: undefined
   SecurityCenter: undefined
   ApiKeys: undefined
   DataRights: undefined
@@ -929,6 +931,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="RealNameAuth" component={RealNameAuthScreen} />
             <RootStack.Screen name="IdentityVerify" component={IdentityVerifyScreen} />
             <RootStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
+            <RootStack.Screen name="SecurityAudit" component={SecurityAuditScreen} />
             <RootStack.Screen name="SecurityCenter" component={SecurityCenterScreen} />
             <RootStack.Screen name="ApiKeys" component={ApiKeysScreen} />
             <RootStack.Screen name="DataRights" component={DataRightsScreen} />

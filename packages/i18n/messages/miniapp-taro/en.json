@@ -4604,6 +4604,17 @@
   "VoiceInput": {
     "p1": "Failed to start recording"
   },
+  "securityAudit": {
+    "title": "Security Audit",
+    "empty": "No audit records",
+    "loadFailed": "Failed to load",
+    "type": {
+      "login": "Login",
+      "permission": "Permission",
+      "sensitive": "Sensitive",
+      "other": "Other"
+    }
+  },
   "webViewPortal": {
     "news": "News",
     "learnTopic": "Topic Lessons",
