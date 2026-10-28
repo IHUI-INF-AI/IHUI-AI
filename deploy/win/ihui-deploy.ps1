@@ -1742,6 +1742,41 @@ function Test-CleanBuildEnvInlined {
     return @('absent', "$($vals.Count) 个 NEXT_PUBLIC_* 候选值在 $($js.Count) 个 js 里**逐字一个都没有**")
 }
 
+function Test-RequiredKeyInlined {
+    <#
+      判"某个**必需**的 NEXT_PUBLIC_* 键到底有没有被烘进产物",返回三态(与上面那道探针同语义):
+        'ok'           —— env 里有非空值,且该值在 .next-*/static 的 js 里逐字命中
+        'absent'       —— env 里没有这个键,或产物里找不到它 ⇒ 拒绝交换
+        'undetermined' —— 取不到 env / 取不到产物 js / 扫不动 ⇒ 不拦本轮,但要喊出来
+      为什么需要(2026-10-28 现网实测):上面那道探针只要求"至少一个候选命中",于是
+      `NEXT_PUBLIC_WS_BASE_URL` 从 .env.production 里整个缺席时它是绿的 —— 浏览器端 WS 回落到
+      同源 www 臂,而那条臂实测承载不了握手(换票 200 / 握手 404),每个开着的页面每 30 秒一轮
+      换票重连,通知通道整条不通,页面看起来却完全正常,构建/健康检查/门禁全都不红。
+      "至少一个命中"管不住"某一个特定的键缺席",所以必需键要单独问一次。
+    #>
+    param([string]$ArtifactDir, [string]$EnvFile, [string]$Key)
+    try {
+        if (-not (Test-Path -LiteralPath $EnvFile)) { return @('undetermined', "env 不在位:$EnvFile") }
+        $val = ''
+        foreach ($line in @(Get-Content -LiteralPath $EnvFile -Encoding UTF8 -ErrorAction Stop)) {
+            if ($line -match ('^\s*' + [regex]::Escape($Key) + '\s*=\s*(.*)$')) {
+                $val = $Matches[1].Trim().Trim('"').Trim("'")
+                break
+            }
+        }
+        if (-not $val) { return @('absent', "$Key 在 $EnvFile 里没有非空值 ⇒ 这一维根本不会被烘进产物") }
+        $staticRoot = Join-Path $ArtifactDir 'static'
+        $scanRoot = if (Test-Path -LiteralPath $staticRoot) { $staticRoot } else { $ArtifactDir }
+        $js = @(Get-ChildItem -LiteralPath $scanRoot -Recurse -Filter *.js -File -ErrorAction Stop)
+        if ($js.Count -eq 0) { return @('undetermined', "产物里没量到可扫的 js($scanRoot)") }
+        $paths = @($js | ForEach-Object { $_.FullName })
+        if (Select-String -LiteralPath $paths -SimpleMatch -Pattern $val -Quiet -ErrorAction Stop) {
+            return @('ok', "$Key 命中产物 js(值 $val)")
+        }
+        return @('absent', "$Key=$val 在 $($js.Count) 个 js 里逐字找不到 ⇒ 构建没把这个键烘进去")
+    } catch { return @('undetermined', "扫描派生失败:$($_.Exception.Message)") }
+}
+
 function Build-Web {
     param(
         [string]$DistDir = 'staging',
@@ -1896,6 +1931,19 @@ function Build-Web {
             $ok = ($exitCode -eq 0) -and (Test-Path "$bwd\.next-$DistDir\BUILD_ID")
             Update-DeployLockHeartbeat      # try 结束再续一次:上一行之后还要跑 Tail 读日志与判定
             if ($ok) {
+                # 必需键单独问一次(判据与三态见 Test-RequiredKeyInlined 头注):上面那道探针是
+                # "至少一个 NEXT_PUBLIC_* 命中",管不住"某一个特定的键缺席"。WS 基址缺席的失效
+                # 形态是最安静的一种 —— 页面照常打开、换票照常 200,只有通知通道整条不通,
+                # 所以它必须在交换之前被判死,而不是留给"用户说收不到通知"才发现。
+                $wsProbe = Test-RequiredKeyInlined -ArtifactDir "$bwd\.next-$DistDir" -EnvFile (Join-Path $bwd '.env.production') -Key 'NEXT_PUBLIC_WS_BASE_URL'
+                if ($wsProbe[0] -eq 'absent') {
+                    throw "产物缺必需键内联值($($wsProbe[1]))⇒ 拒绝交换:浏览器端 WS 会回落同源 www 臂,而该臂实测握手 404(换票 200/握手 404,通知整条不通)。修法:在 .env.production 写 NEXT_PUBLIC_WS_BASE_URL=https://api.aizhs.top 后重建"
+                }
+                if ($wsProbe[0] -eq 'undetermined') {
+                    Log "[CLEAN-BUILD] WARN 必需键 NEXT_PUBLIC_WS_BASE_URL 内联未判定 —— $($wsProbe[1])(本轮照旧交换,但这一维今天没被看过)"
+                } else {
+                    Log "[CLEAN-BUILD] 必需键内联核对:ok —— $($wsProbe[1])"
+                }
                 # 净面构建 ⇒ 产物必须搬回 $WebDir 才能走既有 `.rollback → 交换 → 重启` 链。
                 # 刻意用"清空目标再整目录复制"而不是就地构建:交换链、回滚点、`IHUI_BUILD_SHA`
                 # 写入、健康门禁全部保持原样,本票只换"源码从哪来"这一维。
