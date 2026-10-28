@@ -47,6 +47,15 @@ export interface AcquireOptions {
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000
 
+/**
+ * 会话库共享锁名(2026-10-28 立):备份(读全库)、恢复(写全库)、搬移/复制/换桶(读写单会话)
+ * 争的是**同一个**文件树,必须互斥。台账只写 session_links.json,与文件树不冲突,
+ * 仍用各自的 session-links.lock。
+ */
+export const SESSION_STORE_LOCK_NAME = 'session-store.lock'
+/** 台账锁名(只保护 session_links.json 的整写) */
+export const SESSION_LINKS_LOCK_NAME = 'session-links.lock'
+
 /** pid 存活判定:ESRCH=不在;EPERM=在但无权限(按活处理);其它异常按活处理(失效方向保守) */
 export function defaultIsAlive(pid: number): boolean {
   if (!Number.isInteger(pid) || pid <= 0) return false

@@ -311,6 +311,7 @@ describe('main CLI(注入缝)', () => {
         destProjects,
       ],
       paths,
+      fx.root,
     )
     console.log = origLog
     expect(code).toBe(0)
@@ -341,7 +342,7 @@ describe('main CLI(注入缝)', () => {
     const errors: string[] = []
     const origErr = console.error
     console.error = (s: string) => errors.push(s)
-    const code = main(['--snapshot', oldFormat, '--apply'])
+    const code = main(['--snapshot', oldFormat, '--apply'], undefined, fx.root)
     console.error = origErr
     expect(code).not.toBe(0)
     expect(errors.join('\n')).toContain('sha256')
