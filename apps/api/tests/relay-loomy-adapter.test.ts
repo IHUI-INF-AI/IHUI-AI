@@ -30,7 +30,13 @@ const require = createRequire(import.meta.url)
 const loomyExtract = require('../../../scripts/lib/loomy-auth-extract.mjs') as {
   extractLoomyAccounts: (opts?: { roamingDir?: string; shellBin?: string }) => Promise<{
     providerCode: string
-    accounts: Array<{ source: string; key: string; value: string; host?: string }>
+    accounts: Array<{
+      source: string
+      key: string
+      value: string
+      host?: string
+      companions?: Record<string, string>
+    }>
     meta: Record<string, unknown>
   }>
   __test__: {
@@ -39,6 +45,7 @@ const loomyExtract = require('../../../scripts/lib/loomy-auth-extract.mjs') as {
     scanLocalStorageEntries: (dir: string) => { entries: unknown[]; skips: string[] }
     summarizeEntry: (e: unknown) => Record<string, unknown>
     pickImportableEntries: (entries: unknown[]) => { valid: unknown[]; skipped: number }
+    probeDeviceCredentialVault: (dir: string) => unknown[]
   }
 }
 
@@ -63,12 +70,12 @@ describe('loomy 提取器:目录缺失 ⇒ NO_SESSION(§0.3 未判定)', () => {
       .extractLoomyAccounts({ roamingDir: 'Z:/no/such/ihui-loomy-e2e' })
       .catch((e: NodeJS.ErrnoException) => e)
     expect((err as { code?: string }).code).toBe('LOOMY_NO_SESSION')
-    expect(String(err.message)).toMatch(/未找到 Loomy 数据目录/)
+    expect(String((err as { message?: unknown }).message)).toMatch(/未找到 Loomy 数据目录/)
   })
 })
 
-describe('loomy 提取器:目录在盘 ⇒ 形状(临时目录伪造 leveldb)', () => {
-  it('命中 login-phone / loomy-session 键 → raw 直通,meta 零凭证明文', async () => {
+describe('loomy 提取器:目录在盘 ⇒ 形状(临时目录伪造 leveldb;捆绑单账号 2026-10-28)', () => {
+  it('主键不命中 ⇒ LOOMY_NO_SESSION(候选键命中也不出号,不冒绿)', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-loomy-test-'))
     const ldbDir = path.join(dir, 'Local Storage', 'leveldb')
     fs.mkdirSync(ldbDir, { recursive: true })
@@ -94,30 +101,20 @@ describe('loomy 提取器:目录在盘 ⇒ 形状(临时目录伪造 leveldb)', 
     ])
     fs.writeFileSync(path.join(ldbDir, '000003.log'), Buffer.concat([rec1, rec2, rec3]))
 
-    const out = await loomyExtract.extractLoomyAccounts({ roamingDir: dir })
-    expect(out.providerCode).toBe('loomy')
-    const keys = out.accounts.map((a) => a.key).sort()
-    expect(keys).toEqual(['login-phone', 'loomy-session', 'session_token'])
-    const session = out.accounts.find((a) => a.key === 'loomy-session')
-    expect(session?.value).toBe('{"token":"tok-loomy-test-123"}') // raw 直通,零映射
-    const phone = out.accounts.find((a) => a.key === 'login-phone')
-    expect(phone?.value).toBe('13800000000')
+    const err = await loomyExtract
+      .extractLoomyAccounts({ roamingDir: dir })
+      .catch((e: NodeJS.ErrnoException) => e)
+    expect((err as { code?: string }).code).toBe('LOOMY_NO_SESSION')
+    expect(String((err as { message?: unknown }).message)).toMatch(/主键 loomy-auth-session 未出现/)
 
-    // meta 零泄漏:值明文不进 meta,只打 sha256 前 12 位指纹/长度
-    const flat = JSON.stringify(out.meta)
-    expect(flat).not.toContain('tok-loomy-test-123')
-    expect(flat).not.toContain('13800000000')
-    expect(flat).not.toContain('tok-longer-key-999')
-    const sessions = out.meta['sessions'] as Array<Record<string, unknown>>
-    expect(sessions).toHaveLength(3)
-    for (const s of sessions) {
-      expect(String(s['valueFingerprint'])).toMatch(/^[0-9a-f]{12}$/)
-      expect(typeof s['valueLength']).toBe('number')
-    }
+    // 键前缀守卫仍在:短键 session 没把 session_token 吞掉(取证面直读)
+    const scan = loomyExtract.__test__.scanLocalStorageEntries(dir)
+    const scannedKeys = (scan.entries as Array<{ key: string }>).map((e) => e.key).sort()
+    expect(scannedKeys).toEqual(['login-phone', 'loomy-session', 'session_token'])
     fs.rmSync(dir, { recursive: true, force: true })
   })
 
-  it('源码实证键 loomy-auth-session 命中 → {phone,session,userid} JSON raw 直通', async () => {
+  it('源码实证键 loomy-auth-session 命中 → 捆绑单账号 {value raw 直通, companions}', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-loomy-src-evid-'))
     const ldbDir = path.join(dir, 'Local Storage', 'leveldb')
     fs.mkdirSync(ldbDir, { recursive: true })
@@ -136,11 +133,26 @@ describe('loomy 提取器:目录在盘 ⇒ 形状(临时目录伪造 leveldb)', 
       Buffer.from(sessionJson),
       Buffer.from([0x01]),
     ])
-    fs.writeFileSync(path.join(ldbDir, '000003.log'), rec)
+    const recPhone = Buffer.concat([
+      anchor,
+      Buffer.from('loomy-last-login-phone'),
+      Buffer.from('"13800000000"'),
+      Buffer.from([0x02]),
+    ])
+    fs.writeFileSync(path.join(ldbDir, '000003.log'), Buffer.concat([rec, recPhone]))
 
     const out = await loomyExtract.extractLoomyAccounts({ roamingDir: dir })
-    const session = out.accounts.find((a) => a.key === 'loomy-auth-session')
-    expect(session?.value).toBe(sessionJson) // raw 直通,零映射
+    expect(out.accounts).toHaveLength(1)
+    const bundled = out.accounts[0] as unknown as {
+      source: string
+      key: string
+      value: string
+      companions: Record<string, string>
+    }
+    expect(bundled.source).toBe('local-storage')
+    expect(bundled.key).toBe('loomy-auth-session')
+    expect(bundled.value).toBe(sessionJson) // raw 直通,零映射
+    expect(bundled.companions['loomy-last-login-phone']).toBe('"13800000000"')
     // 源码实证键排在候选清单首位
     const keysProbed = out.meta['keysProbed'] as string[]
     expect(keysProbed[0]).toBe('loomy-auth-session')
