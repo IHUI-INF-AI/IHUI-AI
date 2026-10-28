@@ -28698,7 +28698,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 <!-- 结清摘除@2026-10-26/goal-c 完成即删:O66 派单面与过滤面同尺 v2 接线已落地(枚 2f0830e8eefbdb884c4c5e19ae86c64090a32ab7,正文见 git show --stat 该枚),登记行不留活账 -->
 
 ## 2026-10-26 号池对标 workbuddy-switch 三件套(代码+测试已验绿并本地提交;待 monitor/deploy 那两席收敛后随链 FF 上 origin)
-- [ ] （未取号:G 族号池已满,登记@2026-10-28,定位@2026-10-28）**union-converge 活文档两判不同形致落地闸死锁(10575 处 / 需人工 0 项,exit 1)**:本轮  已声明取对侧,而  只在路径维认这张表、未存活行那一判(约 L2640-2700)仍按本侧独有行必须存活追讨 ⇒ 两侧各自成立、合起来锁死;与 L994/L2656 头注期望重数必须与产物面同形同一族。被点名行经现读确属本档(编号纪元 6 处/ 1 处),跨文件污染假设已证伪。出路 = 让该判也认 takeTheirsDocs 并逐条**报名不静默**(不得改成默认放行=丢别人的行);改前须与正持有此器的一席对表( 12:56)。
+- [ ] （未取号:G 族池满,登记@2026-10-28,重写@2026-10-28）**union-converge 活文档两判不同形 ⇒ 落地闸死锁(报 10575 处不过 / 需人工 0 项 / exit 1)**:本轮已声明 take-theirs-doc 取对侧整份,而 verifyUnion 只在路径维认这张让位表,「未存活行」一判(约 L2640-2700)仍追讨"本侧独有行必须存活"⇒ 两侧各自成立、合起来锁死(同文件 L994/L2656 头注的"期望重数须与产物面同形"同一族缺口)。反证已做:被点名行现读确属本档,"跨文件污染"假设证伪。出路 = 让该判也认让位表并逐条报名不静默(不得改成默认放行 = 丢别人的行);动手前与持有此器的一席对表(其目录 .ihui-agent/tmp/converge-deadlock/ 12:56 起在)。
 
 > 机主令:把这工具的能力做进本仓且「更强更实用更便捷更傻瓜」。先摸底:仓库早有成熟号池(`ai_relay_key_pool` + 第三方 IDE 账号池,含 AES-GCM 字段级凭证/临期刷新/健康定级/熔断/用量台账/代理池/签到双向同步/前端页),但对标本工具查出三处真缺口——逐个补:会话搬家与官方积分额度日历两票挂在下(不盲做)。
 - **①外来格式自适应(判据单源)**:`apps/api/src/services/relay-account-format.ts` 的 `normalizeForeignAccountShape` 认 workbuddy-switch 等第三方导出(`access_token`/`refresh_token`/毫秒 `expires_at`/`uid`/`nickname`),**搬运归一在进校验之前**、canonical 值优先、别名只补空缺;`expireEpochToMs`(1e11 分界)立修真实缺陷——裸数字一律当秒 ⇒ 毫秒票被折成公元 5138 年"永不过期",临期/保活/到期摘除对它集体失明;显式到期只采信早于 JWT exp(保守取早绝不冒充长效);陌生键经 `foreignPassthroughMetadata` 落 extraMetadata,兑现 `docs/RELAY_ACCOUNT_IMPORT_FORMAT.md` §2「其他字段原样透传」(先前服务端没真做)。取证 `apps/api/tests/relay-account-import-format.test.ts`。
