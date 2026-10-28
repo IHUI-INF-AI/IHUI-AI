@@ -273,13 +273,22 @@ describe('ANSI 帧与行差量', () => {
     expect(payload.split('\x1b[2K')).toHaveLength(3) // 两行各一次清 + 末尾空段
   })
 
-  it('enter / leave 序列成对:alt-screen 与光标开关各自一进一出', () => {
+  it('enter / leave 序列成对:alt-screen、光标、鼠标上报三族开关各自一进一出', () => {
     const enter = enterSequence()
     const leave = leaveSequence()
     expect(enter).toContain('\x1b[?1049h')
     expect(enter).toContain('\x1b[?25l')
     expect(leave).toContain('\x1b[?25h')
     expect(leave).toContain('\x1b[?1049l')
+    // 鼠标上报的关闭只能在**写侧**逐字节断言:ConPTY 会把 leaveSequence 的 `?1000l?1006l`
+    // 连同重复的 `?25h` 一起折叠掉(真 PTY 读端实测 4/4 轮次只剩 `?25h?1049l`),
+    // 所以真终端那一组(tui-fullscreen-pty.test.ts)只断言可达的开启串,关掉的账记在这里。
+    expect(enter).toContain('\x1b[?1000h')
+    expect(enter).toContain('\x1b[?1006h')
+    expect(leave).toContain('\x1b[?1000l')
+    expect(leave).toContain('\x1b[?1006l')
+    // 关掉鼠标必须排在离开 alt-screen 之前:顺序反了,滚轮会先污染 shell 再还原。
+    expect(leave.indexOf('\x1b[?1006l')).toBeLessThan(leave.indexOf('\x1b[?1049l'))
   })
 })
 
