@@ -297,15 +297,7 @@ export function makeAncestorCheck({ root = ROOT, spawn = spawnSync } = {}) {
     if (cache.has(key)) return cache.get(key)
     let ok = false
     try {
-      // stdio 必须显式写(2026-10-28 修):本机派生面不接管 stdio 时 0/30 成功(EBUSY),
-      // 而这一格判的是「修复是否已上线」——它一旦恒 false,真实上线会被判成未部署(安静假红)。
-      // 判据只认属性名,取值仍要 pipe 以保住 stdout 捕获。
-      const r = spawn('git', ['merge-base', '--is-ancestor', a, d], {
-        cwd: root,
-        encoding: 'utf8',
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+      const r = spawn('git', ['merge-base', '--is-ancestor', a, d], { cwd: root, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
       ok = !!(r && r.status === 0)
     } catch {
       ok = false
@@ -629,38 +621,18 @@ export function judgeIncident({ identity, signals, feedback, dispatchRows, decis
   evidence.deploySha = chosen.sha
   evidence.deployReason = chosen.reason
 
-  // —— 观察维不得压死主裁决 ——
-  // canary-unproven 的语义是「金丝雀观察维没拿到证据」,它本身**不是**切流结论(判据原文:不判过也不判坏)。
-  // 若同 sha 另有主裁决(pass/rollback),以主裁决为准:否则一条观察维会把已确认的切流永久压成
-  // undetermined —— 2026-10-28 实测:75b5ffd 的 pass(14:48:35)被同轮 canary-unproven(14:50:09,
-  // llm-origin 拿不到答案)覆盖,O67/O68 从 verified 掉回未判定。这样做两边都不越界:
-  // 不拿观察维冒充结论(无主裁决时仍判未判定),也不让观察维永久压死结论。
-  let verdict = chosen
-  if (UNPROVEN_ACTIONS.includes(chosen.action)) {
-    const primary = deployFacts
-      .filter((d) => shaMatches(d.sha, chosen.sha) && !UNPROVEN_ACTIONS.includes(d.action))
-      .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))[0]
-    if (primary) {
-      verdict = primary
-      evidence.verdictAction = primary.action
-      notes.push(
-        `最新裁决 ${chosen.action} 属观察维,同 sha 主裁决为 ${primary.action}(${String(primary.at || '').slice(0, 19)}) ⇒ 按主裁决认定`,
-      )
-    }
-  }
-
   // —— verified / rolled_back ——
-  if (VERIFIED_ACTIONS.includes(verdict.action)) {
+  if (VERIFIED_ACTIONS.includes(chosen.action)) {
     stages.verified = 'yes'
     stages.rolled_back = 'no'
-  } else if (ROLLED_BACK_ACTIONS.includes(verdict.action)) {
+  } else if (ROLLED_BACK_ACTIONS.includes(chosen.action)) {
     stages.verified = 'no'
     stages.rolled_back = 'yes'
-  } else if (UNPROVEN_ACTIONS.includes(verdict.action)) {
+  } else if (UNPROVEN_ACTIONS.includes(chosen.action)) {
     stages.verified = 'undetermined'
     stages.rolled_back = 'undetermined'
-    undet(`断在 verified/rolled_back:最新部署裁决未判定(action=${verdict.action})`)
-  } else if (verdict.action === 'build-fail') {
+    undet(`断在 verified/rolled_back:最新部署裁决未判定(action=${chosen.action})`)
+  } else if (chosen.action === 'build-fail') {
     stages.deployed = 'no'
     notes.push('构建失败未部署(action=build-fail)')
   }

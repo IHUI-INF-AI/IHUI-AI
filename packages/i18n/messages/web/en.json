@@ -12182,6 +12182,15 @@
       "reloadSkillsTotal": "{count} skills in total",
       "reloadSkillsNoChange": "No content changes in this reload",
       "reloadSkillsAuto": "{count} from auto sources",
+      "reloadPlugins": "Reload plugin surface",
+      "reloadPluginsHint": "Rescan the plugin surface and feed the latest command list back to the host",
+      "reloadPluginsRunning": "Reloading…",
+      "reloadPluginsSuccess": "Plugin surface reloaded",
+      "reloadPluginsFailed": "Plugin surface reload failed",
+      "reloadPluginsCommandCount": "{count} commands",
+      "reloadPluginsSkillCount": "{count} skills",
+      "reloadPluginsCommandList": "Latest command list",
+      "reloadPluginsNoCommand": "No commands available right now",
       "save": "Save",
       "saving": "Saving…",
       "scenario": "Scenario",
@@ -15053,7 +15062,18 @@
       "toolFailures": "Tool Failures",
       "trigger": "Trigger",
       "triggerError": "Trigger failed",
-      "triggerSuccess": "Triggered successfully"
+      "triggerSuccess": "Triggered successfully",
+      "refresh": "Rescan memory source",
+      "refreshSuccess": "Memory source rescanned",
+      "refreshReadFailed": "Memory source read failed (previous memory kept)",
+      "refreshFailed": "Memory source rescan failed",
+      "refreshTotal": "{before} before → {after} after rescan",
+      "refreshLoadState": "Read state",
+      "refreshAdded": "Added",
+      "refreshRemoved": "Removed",
+      "refreshChanged": "Changed",
+      "refreshUnchanged": "Unchanged",
+      "refreshNoChange": "No content changes in this rescan"
     },
     "orch": {
       "dashboard": "Dashboard",
@@ -18428,7 +18448,12 @@
     "dashboardSuccessRate": "Success rate",
     "dashboardAvgLatency": "Avg latency",
     "dashboardNoData": "No data",
-    "dashboardLatency": "{value}s"
+    "dashboardLatency": "{value}s",
+    "clearAuth": "Revoke authorization",
+    "clearAuthHint": "Revoke the OAuth credential you granted to this server (this one only)",
+    "clearAuthSuccess": "Authorization for {name} revoked",
+    "clearAuthNoOauth": "{name} does not use the OAuth channel, nothing to revoke",
+    "clearAuthFailed": "Failed to revoke authorization for {name}"
   },
   "member": {
     "feedback": {

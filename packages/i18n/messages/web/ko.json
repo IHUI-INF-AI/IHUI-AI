@@ -12182,6 +12182,15 @@
       "reloadSkillsTotal": "총 {count}개 스킬",
       "reloadSkillsNoChange": "이번 재로드에서 내용 변경이 없습니다",
       "reloadSkillsAuto": "auto 소스 {count}개",
+      "reloadPlugins": "플러그인 면 다시 불러오기",
+      "reloadPluginsHint": "플러그인 면을 다시 스캔하고 최신 명령 목록을 호스트에 반영합니다",
+      "reloadPluginsRunning": "불러오는 중…",
+      "reloadPluginsSuccess": "플러그인 면을 다시 불러왔습니다",
+      "reloadPluginsFailed": "플러그인 면을 다시 불러오지 못했습니다",
+      "reloadPluginsCommandCount": "명령 {count}개",
+      "reloadPluginsSkillCount": "스킬 {count}개",
+      "reloadPluginsCommandList": "최신 명령 목록",
+      "reloadPluginsNoCommand": "현재 사용할 수 있는 명령이 없습니다",
       "save": "저장",
       "saving": "저장 중…",
       "scenario": "시나리오",
@@ -15056,7 +15065,18 @@
       "toolFailures": "도구 실패",
       "trigger": "수동 트리거",
       "triggerError": "트리거 실패",
-      "triggerSuccess": "트리거 성공"
+      "triggerSuccess": "트리거 성공",
+      "refresh": "기억 소스 다시 스캔",
+      "refreshSuccess": "기억 소스를 다시 스캔했습니다",
+      "refreshReadFailed": "기억 소스 읽기에 실패했습니다(재스캔 전 기억은 유지됩니다)",
+      "refreshFailed": "기억 소스 재스캔에 실패했습니다",
+      "refreshTotal": "재스캔 전 {before}개 → 재스캔 후 {after}개",
+      "refreshLoadState": "읽기 상태",
+      "refreshAdded": "추가",
+      "refreshRemoved": "삭제",
+      "refreshChanged": "변경",
+      "refreshUnchanged": "변경 없음",
+      "refreshNoChange": "이번 재스캔에서 내용 변경이 없습니다"
     },
     "orch": {
       "dashboard": "대시보드",
@@ -18431,7 +18451,12 @@
     "dashboardSuccessRate": "성공률",
     "dashboardAvgLatency": "평균 지연",
     "dashboardNoData": "데이터 없음",
-    "dashboardLatency": "{value}초"
+    "dashboardLatency": "{value}초",
+    "clearAuth": "인증 취소",
+    "clearAuthHint": "이 서버에 부여한 OAuth 자격 증명을 취소합니다(이 서버만)",
+    "clearAuthSuccess": "{name}의 인증을 취소했습니다",
+    "clearAuthNoOauth": "{name}은(는) OAuth 채널을 사용하지 않아 취소할 인증이 없습니다",
+    "clearAuthFailed": "{name}의 인증 취소에 실패했습니다"
   },
   "member": {
     "feedback": {

@@ -293,9 +293,18 @@ async function spawnBrowser(port: number): Promise<void> {
   ];
   if (headless) baseArgs.push('--headless=new', '--hide-scrollbars', '--window-size=1440,900');
 
+  // 就绪等待默认 30s/腿(2026-10-28 由 15s 调大)。依据是 CI 一手读数:ubuntu runner 上
+  // `浏览器已拉起但 CDP 端口 9222 未就绪(15s 超时)` —— 两腿各 15s,首启建 profile 本身就吃掉
+  // 十几秒,于是结论永远落在"没等完就先放弃"的窗口里。这里只让基础设施的时间,判据一位未动:
+  // 到点仍按未就绪报错,并把子进程退出与 stderr 尾行一起带出(见 launch/throw)。
+  const waitMs = Number(process.env.IHUI_BROWSER_CDP_WAIT_MS ?? 30_000);
+  let launchFailure: string | null = null;
+  let lastExit: string | null = null;
+  let stderrTail = '';
+
   const waitCdpReady = async (): Promise<boolean> => {
-    // 轮询等待 CDP 就绪(最多 15s)
-    for (let i = 0; i < 30; i++) {
+    const deadline = Date.now() + waitMs;
+    while (Date.now() < deadline) {
       if (await isCdpAlive(port, '127.0.0.1')) return true;
       await new Promise((r) => setTimeout(r, 500));
     }
@@ -303,10 +312,28 @@ async function spawnBrowser(port: number): Promise<void> {
   };
 
   const launch = (extraArgs: string[]): void => {
-    spawnedChild = spawn(executable, [...baseArgs, ...extraArgs], { stdio: 'ignore', detached: false });
-    spawnedChild.on('error', () => {
+    launchFailure = null;
+    lastExit = null;
+    stderrTail = '';
+    const child = spawn(executable, [...baseArgs, ...extraArgs], {
+      // stdio 原为 'ignore':Chrome 的启动失败原因只写 stderr,吞掉以后"端口没起来"就成了
+      // 一句没有任何一手线索可查的裸断言(§12f:判据失效的表现永远是安静)。stderr 改 pipe,
+      // stdout 仍丢——本工具从不读它,留着只会撞 §12g 那条"丢了又去读"的反面判据。
+      stdio: ['ignore', 'ignore', 'pipe'],
+      windowsHide: true,
+      detached: false,
+    });
+    child.stderr?.on('data', (chunk: Buffer) => {
+      stderrTail = (stderrTail + chunk.toString('utf8')).slice(-1200);
+    });
+    child.on('error', (e) => {
+      launchFailure = e.message;
       spawnedChild = undefined;
     });
+    child.on('exit', (code, signal) => {
+      lastExit = `code=${code ?? 'null'} signal=${signal ?? 'null'}`;
+    });
+    spawnedChild = child;
     spawnedPort = port;
   };
 
@@ -335,7 +362,14 @@ async function spawnBrowser(port: number): Promise<void> {
     if (await waitCdpReady()) return;
   }
 
-  throw new Error(`浏览器已拉起但 CDP 端口 ${port} 未就绪(15s 超时)`);
+  throw new Error(
+    `浏览器已拉起但 CDP 端口 ${port} 未就绪(${Math.round(waitMs / 1000)}s 超时)` +
+      ` · platform=${process.platform}` +
+      ` · exe=${executable}` +
+      (launchFailure ? ` · spawn 错误=${launchFailure}` : ' · spawn 未报错') +
+      ` · ${lastExit ? `子进程已退出 ${lastExit}` : '子进程仍在场'}` +
+      (stderrTail ? ` · stderr 尾:${stderrTail.slice(-600)}` : ' · stderr 空'),
+  );
 }
 
 /** 取一个 page 目标的 ws 调试地址(无 page 则新建)。 */
