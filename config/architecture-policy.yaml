@@ -784,4 +784,16 @@ exceptions:
     file: scripts/guardian-runner.mjs
     until: 2026-11-10
     reason: 拆分前置=把门注册表(含 152 门射程声明)抽 scripts/lib/gate-registry.mjs;到期末拆则红上加重
+  # 2026-10-29 登记 EX-C1-3(packages/api-client managed:true ⇒ C1 例外通道合法,同 EX-C1-1/2 口径):
+  #   HEAD 面实测 6006 行 > 上限 6000,只越 6 行;越限来源是枚 55d5726383 补 resume_goal 控制帧
+  #   (GoalResumeReason/SessionGoalResumeResult/MyGoal* 一族落在同一文件)。此刻不动刀的原因与
+  #   EX-C1-1/2 同型:该文件是 @ihui/api-client 的唯一公开入口(public_entrypoints 钉 './client'),
+  #   且 goal 族正在多笔在飞链上,同批改写必撞车。到期日刻意与 11-10 那两条错开(到期同日会
+  #   在同一天集中引爆,巡检临期点名看不到先后)。
+  - id: EX-C1-3
+    rule: 'file-lines'
+    module: 'packages/api-client'
+    file: 'packages/api-client/src/client.ts'
+    until: 2026-11-14
+    reason: 拆分前置=把 SSE 错误格式化块(SSEErrorInfo/FormattedSSEError/getSSEErrorInfo/formatSSEError)抽 packages/api-client/src/sse-error.ts,client.ts 以 re-export 保公开面逐名等值(照 EX-C2-1 清偿先例的拆法);到期末拆 ⇒ C1 红上加重,由 X2 到期对账追,不得再挂第二条例外续期
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
