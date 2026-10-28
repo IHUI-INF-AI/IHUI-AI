@@ -33,7 +33,8 @@
  *   整目录被 gitignore,结构上不可能成为一条受版本控制的出路)。拿它的人会以为自己有出路,
  *   实际什么都执行不了,并把门报的红读成「我的处置失败了」。
  */
-import { execSync } from 'node:child_process'
+import { execFile, execSync } from 'node:child_process'
+import { cpus } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch } from './lib/face-reader.mjs'
@@ -44,7 +45,12 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const shSafe = (cmd) => {
   try {
     // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-    return execSync(cmd, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, windowsHide: true }).trim()
+    return execSync(cmd, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
+      windowsHide: true,
+    }).trim()
   } catch {
     return ''
   }
@@ -52,6 +58,73 @@ const shSafe = (cmd) => {
 
 /** 基线提交:main 分支与 origin/main 的分叉点 */
 const BASE = shSafe('git merge-base HEAD origin/main') || 'HEAD'
+
+/**
+ * 每个 staged M 文件的 `git log --all --find-object` 是**全 ref 历史搜索**:本仓现读 26,072 个 ref
+ * (其中 26,047 个是备份/lost-commit tag)⇒ 单文件约 1.1s。2026-10-28 实测:40 个 M 文件串行 44s;
+ * 在落地复跑通道里(暂存区挂着所有在飞席位的文件)单臂 101s,成为整批受影响门的墙钟下限。
+ *
+ * 并发只改"等谁":每个文件仍跑同一条命令、同一套条件与同一顺序回填,判据一字未动。
+ * `HUSKY_STALE_COPY_CONCURRENCY` 可覆盖(测试/低配机);给 1 = 逐文件串行,语义与改前同形。
+ */
+const CONCURRENCY = (() => {
+  const raw = Number(process.env.HUSKY_STALE_COPY_CONCURRENCY)
+  if (Number.isFinite(raw) && raw >= 1) return Math.min(32, Math.floor(raw))
+  return Math.max(2, Math.min(8, (cpus?.() ?? []).length - 2 || 2))
+})()
+
+/** 异步 git(只读):取 stdout,失败/超时一律空串 —— 与原 shSafe 的失败语义同形。 */
+function gitOut(args) {
+  return new Promise((settle) => {
+    execFile(
+      'git',
+      args,
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 180000,
+        maxBuffer: 256 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+      (err, stdout) => settle(err ? '' : String(stdout ?? '').trim()),
+    )
+  })
+}
+
+/** 异步 git(只判退出码):0 = 命中;取不到(超时/异常)落 1 = 非祖先,与原 `&& echo yes` 的失败态同形。 */
+function gitRc(args) {
+  return new Promise((settle) => {
+    execFile(
+      'git',
+      args,
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 180000,
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+      (err) => settle(typeof err?.code === 'number' ? err.code : err ? 1 : 0),
+    )
+  })
+}
+
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length)
+  let next = 0
+  async function drain() {
+    for (;;) {
+      const i = next
+      next += 1
+      if (i >= items.length) return
+      out[i] = await fn(items[i], i)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, drain))
+  return out
+}
 
 /** 红旗路径(删除即拦):数据库迁移 / 测试 / 守门脚本 / 守门共享库 */
 const RED_FLAG_DELETE = [
@@ -102,7 +175,12 @@ export function checkExitsResolvable({ lines, has, undetermined = '' } = {}) {
   const candidates = printedPathCandidates(lines)
   if (undetermined) return { kind: 'undetermined', candidates, missing: [], why: undetermined }
   if (typeof has !== 'function')
-    return { kind: 'undetermined', candidates, missing: [], why: '未注入被审面读取器,无从验证出路是否存在' }
+    return {
+      kind: 'undetermined',
+      candidates,
+      missing: [],
+      why: '未注入被审面读取器,无从验证出路是否存在',
+    }
   const missing = candidates.filter((p) => !has(p))
   return { kind: missing.length ? 'fail' : 'pass', candidates, missing, why: '' }
 }
@@ -134,17 +212,26 @@ export function selfTest(root = ROOT) {
 
   // ① 正例:本票立项的那一型 + scripts/ 型
   const dead = ['.ihui-agent/tmp/detect-stale2.mjs', 'scripts/nope.mjs']
-  const got = printedPathCandidates(['详细检测法:.ihui-agent/tmp/detect-stale2.mjs', 'node scripts/nope.mjs'])
+  const got = printedPathCandidates([
+    '详细检测法:.ihui-agent/tmp/detect-stale2.mjs',
+    'node scripts/nope.mjs',
+  ])
   ok = t('S1 两型出路路径都被抓到', got.length === 2 && dead.every((p) => got.includes(p))) && ok
 
   // ② 正例(有牙):面里没有 ⇒ 必须 fail 并点名
   const fakeHas = (p) => p === 'scripts/nope.mjs'
   const r2 = checkExitsResolvable({ lines: dead, has: fakeHas })
-  ok = t('S2 面里取不到 ⇒ fail 且点名死路径', r2.kind === 'fail' && r2.missing.length === 1 && r2.missing[0] === dead[0]) && ok
+  ok =
+    t(
+      'S2 面里取不到 ⇒ fail 且点名死路径',
+      r2.kind === 'fail' && r2.missing.length === 1 && r2.missing[0] === dead[0],
+    ) && ok
 
   // ②b 反例:两条都在面上 ⇒ pass(同一条判据不得恒红)
   const r2b = checkExitsResolvable({ lines: dead, has: () => true })
-  ok = t('S2b 全部可兑现 ⇒ pass 且 missing 为空', r2b.kind === 'pass' && r2b.missing.length === 0) && ok
+  ok =
+    t('S2b 全部可兑现 ⇒ pass 且 missing 为空', r2b.kind === 'pass' && r2b.missing.length === 0) &&
+    ok
 
   // ④ 反例:占位符 / 裸目录名不是出路;真文件才是(只判一边 = 允许判据被摘空)
   const r4 = printedPathCandidates([
@@ -152,10 +239,11 @@ export function selfTest(root = ROOT) {
     '目录:scripts/ 下有门体',
     '问责:node scripts/run-script-tests.mjs --stale',
   ])
-  ok = t(
-    'S4 只收带扩展名的真出路、不收占位与裸目录名(候选=' + JSON.stringify(r4) + ')',
-    r4.length === 1 && r4[0] === 'scripts/run-script-tests.mjs',
-  ) && ok
+  ok =
+    t(
+      'S4 只收带扩展名的真出路、不收占位与裸目录名(候选=' + JSON.stringify(r4) + ')',
+      r4.length === 1 && r4[0] === 'scripts/run-script-tests.mjs',
+    ) && ok
 
   // ③ 真面:本门打印的出路必须现读现判,且不得因"零候选"蒙过
   const hints = repairHintLines()
@@ -164,13 +252,19 @@ export function selfTest(root = ROOT) {
   try {
     verdict = checkExitsResolvable({ lines: hints, has: headFaceHas(root, real) })
   } catch (e) {
-    verdict = { kind: 'undetermined', candidates: real, missing: [], why: `被审面取不到:${e && e.message}` }
+    verdict = {
+      kind: 'undetermined',
+      candidates: real,
+      missing: [],
+      why: `被审面取不到:${e && e.message}`,
+    }
   }
   ok = t('S3 出路候选非空(判据不靠空集合蒙绿)', real.length >= 1) && ok
-  ok = t(
-    `S5 真面结论=${verdict.kind}${verdict.missing.length ? ' 死路径:' + verdict.missing.join(', ') : ''}${verdict.why ? ' 原因:' + verdict.why : ''}`,
-    verdict.kind === 'pass' && !verdict.missing.length,
-  ) && ok
+  ok =
+    t(
+      `S5 真面结论=${verdict.kind}${verdict.missing.length ? ' 死路径:' + verdict.missing.join(', ') : ''}${verdict.why ? ' 原因:' + verdict.why : ''}`,
+      verdict.kind === 'pass' && !verdict.missing.length,
+    ) && ok
 
   // ⑥ 出路文本里不得再出现死指针,也不得指向 gitignore 的临时目录(那里只存在于一台机器)
   const hintText = hints.join('\n')
@@ -187,7 +281,7 @@ export function selfTest(root = ROOT) {
   return ok && failed === 0 ? 0 : 1
 }
 
-function main() {
+async function main() {
   // HUSKY_SKIP_STALE_COPY=1 紧急跳过 —— 头注/guardian-runner 30c 注释均立规的文档化逃生口。
   // 2026-09-22 实测:该变量此前只在帮助文本里、代码未实现,merge 场景被自己的逃生口卡死
   // (merge staged 的 blob 本就等于 origin/main 已审查 tip 的内容,属守门对 BASE 口径的误报)。
@@ -212,32 +306,35 @@ function main() {
   const blocked = []
   const checked = { deleted: [], stale: [] }
 
-  for (const e of entries) {
+  // 逐文件判定(判据与改前逐字同形),只把三个 git 调用换成异步、按 CONCURRENCY 并发;
+  // 结果按 entries 原顺序回填 ⇒ blocked / checked.stale 的内容与顺序都不变。
+  const judged = await mapLimit(entries, CONCURRENCY, async (e) => {
     const path = e.path.replace(/\\/g, '/')
     // D = 工作区删除(staged 删除在 porcelain 里是 'D ')
     const isDeleted = e.x === 'D' || e.y === 'D'
-    if (isDeleted && RED_FLAG_DELETE.some((r) => r.test(path))) {
-      blocked.push({ path, kind: '删除红旗文件(迁移/测试/守门脚本)' })
-      continue
-    }
-    if (e.y === 'M' || e.x === 'M') {
-      // 已修改文件:blob 级陈旧副本检测(blob 在基线祖先中出现过)
-      const blob = shSafe(`git rev-parse :${JSON.stringify(path)}`)
-      if (!blob) continue
-      const hits = shSafe(
-        `git log --all --format=%H --find-object=${blob} -- "${path}"`,
-      )
-        .split('\n')
-        .filter(Boolean)
-      const real = hits.filter((h) => h !== BASE)
-      if (real.length === 0) continue // 新内容
-      const oldest = real[real.length - 1]
-      const isAncestor = shSafe(`git merge-base --is-ancestor ${oldest} ${BASE} && echo yes`)
-      if (isAncestor === 'yes' && real.length > 1) {
-        blocked.push({ path, kind: '陈旧副本(blob=基线祖先历史版本)' })
-        checked.stale.push(path)
-      }
-    }
+    if (isDeleted && RED_FLAG_DELETE.some((r) => r.test(path)))
+      return { blocked: { path, kind: '删除红旗文件(迁移/测试/守门脚本)' } }
+    if (e.y !== 'M' && e.x !== 'M') return null
+    // 已修改文件:blob 级陈旧副本检测(blob 在基线祖先中出现过)
+    const blob = await gitOut(['rev-parse', `:${path}`])
+    if (!blob) return null
+    const hits = (
+      await gitOut(['log', '--all', '--format=%H', `--find-object=${blob}`, '--', path])
+    )
+      .split('\n')
+      .filter(Boolean)
+    const real = hits.filter((h) => h !== BASE)
+    if (real.length === 0) return null // 新内容
+    const oldest = real[real.length - 1]
+    const rc = await gitRc(['merge-base', '--is-ancestor', oldest, BASE])
+    if (rc === 0 && real.length > 1)
+      return { blocked: { path, kind: '陈旧副本(blob=基线祖先历史版本)' }, stale: path }
+    return null
+  })
+  for (const j of judged) {
+    if (!j) continue
+    if (j.blocked) blocked.push(j.blocked)
+    if (j.stale) checked.stale.push(j.stale)
   }
 
   if (blocked.length > 0) {
@@ -276,7 +373,7 @@ const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process
 if (isDirectRun) {
   const runCli = async () => {
     if (process.argv.includes('--self-test')) process.exit(selfTest())
-    main()
+    await main()
   }
   runCli().catch((e) => {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
