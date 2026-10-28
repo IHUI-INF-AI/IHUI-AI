@@ -63,7 +63,10 @@ function functionalParity() {
   const webRoutes = parity.collectWebRoutes(FACE)
   const rnScreens = parity.collectRnScreens(FACE)
   if (webRoutes.length === 0 || rnScreens.length === 0) {
-    return { undetermined: true, why: `取不到被审面(web 路由 ${webRoutes.length} / RN 屏 ${rnScreens.length})` }
+    return {
+      undetermined: true,
+      why: `取不到被审面(web 路由 ${webRoutes.length} / RN 屏 ${rnScreens.length})`,
+    }
   }
   const map = parity.loadMap()
   const ev = parity.evaluateMap(webRoutes, map, rnScreens, FACE)
@@ -71,8 +74,15 @@ function functionalParity() {
   // evaluateNav/collectNavEntries,新版已移除)。有则用同一把尺子;无则如实标「跳过」,绝不冒充通过。
   const navEval =
     typeof parity.evaluateNav === 'function' && typeof parity.collectNavEntries === 'function'
-      ? parity.evaluateNav(parity.collectNavEntries(FACE), ev, webRoutes.map((r) => r.route))
-      : { undetermined: true, why: '当前 check-web-rn-screen-parity 未导出 evaluateNav/collectNavEntries ⇒ 入口级对账跳过(不冒充通过)' }
+      ? parity.evaluateNav(
+          parity.collectNavEntries(FACE),
+          ev,
+          webRoutes.map((r) => r.route),
+        )
+      : {
+          undetermined: true,
+          why: '当前 check-web-rn-screen-parity 未导出 evaluateNav/collectNavEntries ⇒ 入口级对账跳过(不冒充通过)',
+        }
   return {
     undetermined: false,
     face: FACE,
@@ -104,7 +114,11 @@ function styleParity() {
       maxBuffer: 16 * 1024 * 1024,
     })
     // --quiet 仅在有色值不一致时打印;走到这说明 exit 0 ⇒ 三端颜色令牌同步且通过
-    return { ok: true, detail: out.trim() || 'RN↔tokens.css 三端颜色令牌对账通过(exit 0)', mismatches: 0 }
+    return {
+      ok: true,
+      detail: out.trim() || 'RN↔tokens.css 三端颜色令牌对账通过(exit 0)',
+      mismatches: 0,
+    }
   } catch (e) {
     const code = typeof e.status === 'number' ? e.status : 1
     const stderr = (e.stderr || '').toString().trim()
@@ -167,7 +181,9 @@ function run() {
   log(`  🔴 gap       : ${fn.judgedGap}  (判过确缺:RN 该内容域零承载)`)
   log(`  🔴 unmapped  : ${fn.unmapped}  (web 有、台账零判定的漂移缺口 —— 自动门要拦的就是它)`)
   if (fn.nav && !fn.nav.undetermined) {
-    log(`  🧭 入口级缺口: ${fn.nav.counts?.gap ?? 0} 条 / 入口未登记: ${fn.nav.counts?.unrecorded ?? 0} 条`)
+    log(
+      `  🧭 入口级缺口: ${fn.nav.counts?.gap ?? 0} 条 / 入口未登记: ${fn.nav.counts?.unrecorded ?? 0} 条`,
+    )
   }
   if (fn.rot.length) {
     log(`  ⚠️  登记腐烂  : ${fn.rot.length} 条(指向不存在的屏 / web 键不在路由集 / 豁免缺理由)`)
