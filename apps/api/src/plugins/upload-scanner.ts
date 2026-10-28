@@ -10,6 +10,7 @@ import type {
   preHandlerHookHandler,
 } from 'fastify'
 import fp from 'fastify-plugin'
+import { ALLOWED_EXTENSIONS } from '../utils/file-type-validator.js'
 
 /**
  * 上传内容安全扫描。
@@ -53,36 +54,16 @@ const DANGEROUS_SIGNATURES: ReadonlyArray<Buffer> = [
   Buffer.from([0x7f, 0x45, 0x4c, 0x46]), // ELF
 ]
 
-const DEFAULT_ALLOWED_EXTS = new Set([
-  'jpg',
-  'jpeg',
-  'png',
-  'gif',
-  'webp',
-  'bmp',
-  'pdf',
-  'docx',
-  'xlsx',
-  'pptx',
-  'txt',
-  // 2026-09-08:anydoc 解析引擎接入后开放的文档格式
-  // (doc/xls/ppt 为 OLE2 二进制,odt/epub 为 ZIP 容器,rtf/csv 为文本,
-  //  均无 MAGIC_SIGNATURES 条目 → 跳过魔数校验,危险特征检测仍然生效)
-  'doc',
-  'xls',
-  'ppt',
-  'csv',
-  'odt',
-  'rtf',
-  'epub',
-  'mp3',
-  'wav',
-  'ogg',
-  'm4a',
-  'mp4',
-  'webm',
-  'mov',
-])
+/**
+ * 默认允许的扩展名集合 —— 唯一真源在 `utils/file-type-validator.ts` 的 `EXT_MIME_MAP`。
+ *
+ * 2026-10-28(AGENTS.md §0.6 同类判据只许一份):此处曾自维护一份 25 项列表,
+ * 与 validator 的 22 项列表长期漂移(bmp/ogg/mp4/webm/mov 只在此处,
+ * zip/aac 只在彼处)。现在直接由 `ALLOWED_EXTENSIONS` 派生,两边物理上不可能再分叉。
+ * 注意:`MAGIC_SIGNATURES` / `DANGEROUS_SIGNATURES` 是另一套判据(按本插件
+ * "签名存在则严格校验、无签名则放行"的语义设计),不参与此处派生。
+ */
+export const DEFAULT_ALLOWED_EXTS: ReadonlySet<string> = new Set(ALLOWED_EXTENSIONS)
 
 const DEFAULT_MAX_SIZE = 50 * 1024 * 1024 // 50MB
 
