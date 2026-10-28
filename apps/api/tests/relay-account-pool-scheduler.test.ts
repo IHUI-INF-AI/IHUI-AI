@@ -601,6 +601,28 @@ describe('空闲保活:窗口 env 与 WHERE 形状', () => {
     expect(params.length).toBeGreaterThan(0)
   })
 
+  /**
+   * 窗口边界必须是驱动能吃的类型(2026-10-28 生产实测补)。
+   *
+   * 上一版 WHERE 用 `lt(accountIdleClock(), cutoff)` —— 左边是裸 sql 片段,没有列可推断,
+   * drizzle 不会替 Date 做 mapToDriverValue,postgres.js 收到 Date 当场抛
+   * `ERR_INVALID_ARG_TYPE: Received an instance of Date`,整个 sweep 从步骤 1.5 开始每 5 分钟
+   * 抛死(后面的定级/恢复/对账全不执行)。
+   *
+   * 为什么之前没红:上面的 render 用 `String(p)` 收窄过 params,Date → 字符串,缺陷被抹平。
+   * 所以这条断言**取原始 params**(不经 String),锁死「不得出现 Date 实例 + 边界是 ISO 串 +
+   * 带显式 ::timestamptz 转换」。没有它,这类错只在生产运行时现形,单测永远绿。
+   */
+  it('窗口边界绑定驱动可吃的类型(原始 params 不得含 Date 实例)', async () => {
+    const m = await import('../src/services/relay-account-pool-scheduler.js')
+    const frag = m.keepaliveIdleWhere(new Date('2026-10-26T00:00:00Z'))
+    const q = new PgDialect().sqlToQuery(frag as never)
+    const raw = q.params as unknown[]
+    expect(raw.some((p) => p instanceof Date)).toBe(false)
+    expect(raw).toContain('2026-10-26T00:00:00.000Z')
+    expect(q.sql.toLowerCase()).toContain('::timestamptz')
+  })
+
   it('闲置时钟必须同吃 last_used_at 与 last_refresh_at(只看使用 = 每轮重刷同一批号的续票风暴)', async () => {
     const m = await import('../src/services/relay-account-pool-scheduler.js')
     const { text } = render(m.accountIdleClock())
