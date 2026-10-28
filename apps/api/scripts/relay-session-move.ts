@@ -41,12 +41,12 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname, join, relative, sep } from 'node:path'
+import { basename, dirname, join, relative, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { computeBackupPlan, type BackupManifest } from './relay-session-backup.js'
 import { loadLedger, readAccountMeta, type SessionLinksLedger } from './relay-session-links.js'
 import { resolveAuthFileCandidates } from './relay-account-switch.js'
-import { acquireSessionLock } from './relay-session-lock.js'
+import { acquireSessionLock, SESSION_STORE_LOCK_NAME } from './relay-session-lock.js'
 
 /** 搬移器全部路径面(默认本机真实面;测试注入临时目录,绝不碰真实会话库) */
 export interface MovePaths {
@@ -247,6 +247,38 @@ export function readOps(opsLogFile: string): MoveOp[] {
     }
   }
   return out
+}
+
+/**
+ * 历史归档文件(rotate 产物)按日期升序。2026-10-28 立:
+ * `rotate` 会把老条目移出主日志 ⇒ 主日志行号前移,而用户手里记的是 rotate 前的号。
+ * 号要能跨归档继续解析,否则 `undo --op <旧号>` 会撤到别的操作上。
+ */
+export function listOpsArchives(opsLogFile: string): string[] {
+  const dir = dirname(opsLogFile)
+  if (!existsSync(dir)) return []
+  const base = basename(opsLogFile).replace(/\.jsonl$/, '')
+  return readdirSync(dir)
+    .filter((n) => n.startsWith(`${base}.archive-`) && n.endsWith('.jsonl'))
+    .sort()
+    .map((n) => join(dir, n))
+}
+
+/**
+ * 全量操作序列 = 归档文件(按日期升序)⊕ 当前日志。op 号(1 起)按这个次序解释,
+ * 与 rotate 前的历史编号一致(每轮 rotate 归档的都是当时最老的条目)。
+ */
+export function readOpsAll(opsLogFile: string): {
+  ops: MoveOp[]
+  archiveFiles: string[]
+  archivedCount: number
+} {
+  const archiveFiles = listOpsArchives(opsLogFile)
+  const ops: MoveOp[] = []
+  for (const f of archiveFiles) ops.push(...readOps(f))
+  const current = readOps(opsLogFile)
+  ops.push(...current)
+  return { ops, archiveFiles, archivedCount: ops.length - current.length }
 }
 
 export interface MovePlanFile extends MoveOpFileEntry {
@@ -843,9 +875,12 @@ export function planUndo(
   opNum: number,
   stopDirs: string[] = [],
 ): { op: MoveOp; plan: MovePlan } {
-  const ops = readOps(opsLogFile)
+  const { ops, archivedCount } = readOpsAll(opsLogFile)
   const op = ops[opNum - 1]
-  if (!op) throw new Error(`ops 日志无第 ${opNum} 条(现存 ${ops.length} 条)`)
+  if (!op)
+    throw new Error(
+      `ops 日志无第 ${opNum} 条(现存 ${ops.length} 条${archivedCount > 0 ? `,含归档 ${archivedCount} 条` : ''})`,
+    )
   if (op.type === 'copy') {
     throw new Error(
       `第 ${opNum} 条是 copy(复制到桶):撤销等于删除副本,本器不删文件(红线:绝不删除)。` +
@@ -974,18 +1009,31 @@ function getFlag(argv: string[], name: string): string | undefined {
 }
 
 /**
- * 客户端存续探测(2026-10-27 增):WorkBuddy 运行时会话文件可能被占用或正在写,
- * 搬移会半写/让客户端内存态与磁盘不一致。只读探测,绝不杀进程;探测失败按空返回
- * (不误拦非 Windows 环境,但 --apply 仍会因文件被占用而整批报错留现场)。
+ * 客户端存续探测(2026-10-28 增镜像名可配置):WorkBuddy 运行时会话文件可能被占用或正在写,
+ * 搬移会半写/让客户端内存态与磁盘不一致。只读探测,绝不杀进程。
+ *
+ * 镜像名来源次序:显式入参 > env `IHUI_RELAY_CLIENT_IMAGE`(逗号分隔)> `WorkBuddy.exe`。
+ * Qoder / Trae 搬家时把各自的进程名传进来即可复用同一道闸(失效方向:名字写错 = 探测不到 =
+ * 闸失效,故名字进 env 时必须在文档/命令里点名,不靠猜)。
  */
-export function detectWorkbuddyProcesses(): string[] {
+export function detectClientProcesses(imageNames?: string[]): string[] {
+  const envNames = (process.env['IHUI_RELAY_CLIENT_IMAGE'] ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const names = imageNames ?? (envNames.length > 0 ? envNames : ['WorkBuddy.exe'])
+  const wanted = new Set(names.map((n) => n.toLowerCase()))
   if (process.platform !== 'win32') {
     try {
-      const out = execFileSync('pgrep', ['-fl', '[Ww]ork[Bb]uddy'], {
-        stdio: ['ignore', 'pipe', 'ignore'],
-        windowsHide: true,
-        encoding: 'utf8',
-      })
+      const out = execFileSync(
+        'pgrep',
+        ['-fl', names.map((n) => `[${n[0]}]${n.slice(1)}`).join('|')],
+        {
+          stdio: ['ignore', 'pipe', 'ignore'],
+          windowsHide: true,
+          encoding: 'utf8',
+        },
+      )
       return out
         .split('\n')
         .map((s) => s.trim())
@@ -995,18 +1043,26 @@ export function detectWorkbuddyProcesses(): string[] {
     }
   }
   try {
-    const out = execFileSync(
-      'tasklist',
-      ['/FI', 'IMAGENAME eq WorkBuddy.exe', '/FO', 'CSV', '/NH'],
-      { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true, encoding: 'utf8' },
-    )
+    const out = execFileSync('tasklist', ['/FO', 'CSV', '/NH'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+      encoding: 'utf8',
+    })
     return out
       .split('\n')
       .map((s) => s.trim())
-      .filter((s) => /^"WorkBuddy\.exe"/i.test(s))
+      .filter((line) => {
+        const m = /^"([^"]+)"/.exec(line)
+        return m ? wanted.has(m[1]!.toLowerCase()) : false
+      })
   } catch {
     return []
   }
+}
+
+/** 向后兼容别名(WorkBuddy 默认镜像名) */
+export function detectWorkbuddyProcesses(): string[] {
+  return detectClientProcesses(['WorkBuddy.exe'])
 }
 
 export function main(
@@ -1018,7 +1074,7 @@ export function main(
   const apply = argv.includes('--apply')
   const cmd = argv[0]
   const guardClient = (): number | null => {
-    const procs = runningProcsOverride ?? detectWorkbuddyProcesses()
+    const procs = runningProcsOverride ?? detectClientProcesses()
     if (procs.length === 0) return null
     const reason = getFlag(argv, '--force-running-reason')?.trim()
     if (reason !== undefined && reason.length >= 10) {
@@ -1035,7 +1091,7 @@ export function main(
     )
     return 2
   }
-  const lockPath = join(dirname(paths.opsLogFile), 'session-move.lock')
+  const lockPath = join(dirname(paths.opsLogFile), SESSION_STORE_LOCK_NAME)
   let lock: { release: () => void } | null = null
   try {
     if (apply && cmd !== undefined && cmd !== 'ops' && cmd !== 'help') {
@@ -1058,11 +1114,15 @@ export function main(
       return 0
     }
     if (cmd === 'ops') {
-      const ops = readOps(paths.opsLogFile)
-      console.log(`操作日志: ${paths.opsLogFile}(${ops.length} 条)`)
+      const { ops, archivedCount, archiveFiles } = readOpsAll(paths.opsLogFile)
+      console.log(
+        `操作日志: ${paths.opsLogFile}(当前 ${ops.length - archivedCount} 条 + 归档 ${archivedCount} 条 = ${ops.length} 条)` +
+          (archiveFiles.length > 0 ? `;归档件 ${archiveFiles.length} 份` : ''),
+      )
       ops.forEach((op, i) => {
+        const inArchive = i < archivedCount
         console.log(
-          `  #${i + 1} ${op.ts} ${op.type} conv=${op.conversationId ?? '?'} acct=${op.accountId ?? '?'} ` +
+          `  #${i + 1}${inArchive ? '[归档]' : ''} ${op.ts} ${op.type} conv=${op.conversationId ?? '?'} acct=${op.accountId ?? '?'} ` +
             `files=${op.entries.length} bytes=${op.entries.reduce((s, e) => s + e.bytes, 0)}` +
             `${op.refOp !== undefined ? ` refOp=#${op.refOp}` : ''}`,
         )

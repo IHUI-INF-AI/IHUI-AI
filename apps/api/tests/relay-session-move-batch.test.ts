@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  detectClientProcesses,
   main,
   planBatchMove,
   readOps,
@@ -170,6 +171,23 @@ describe('planBatchMove:只取该账号的会话', () => {
 
     seedLedger(fx.paths, { [C1]: { accountId: ACCT, linkedBy: 'manual' } })
     expect(() => planBatchMove(ACCT, fx.paths, new Date())).toThrow(/当日会话库快照缺失/)
+  })
+})
+
+describe('detectClientProcesses:镜像名可配(Qoder/Trae 搬家复用同一道闸)', () => {
+  it('当前进程名能探到;不存在的镜像名返回空;env 可覆盖默认', () => {
+    if (process.platform === 'win32') {
+      expect(detectClientProcesses(['node.exe']).length).toBeGreaterThan(0)
+      expect(detectClientProcesses(['definitely-not-running-xyz.exe'])).toEqual([])
+      vi.stubEnv('IHUI_RELAY_CLIENT_IMAGE', 'node.exe')
+      try {
+        expect(detectClientProcesses().length).toBeGreaterThan(0)
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    } else {
+      expect(Array.isArray(detectClientProcesses(['node']))).toBe(true)
+    }
   })
 })
 
