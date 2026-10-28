@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import type { IncomingMessage } from 'node:http'
 import Fastify, {
   type FastifyInstance,
   type FastifyError,
@@ -13,7 +14,7 @@ import cookie from '@fastify/cookie'
 import helmet from '@fastify/helmet'
 import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
-import rateLimit from '@fastify/rate-limit'
+import rateLimit, { type FastifyRateLimitStoreCtor } from '@fastify/rate-limit'
 import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
 import underPressure from '@fastify/under-pressure'
@@ -46,7 +47,7 @@ import responseSanitizerPlugin from './plugins/response-sanitizer.js'
 import logSanitizerPlugin from './plugins/log-sanitizer.js'
 import { metricsPlugin } from './plugins/metrics.js'
 import { tracePlugin } from './plugins/trace.js'
-import { redis, createRedisClient } from './plugins/redis.js'
+import { redis, createRedisClient, FAST_FAIL_REDIS_OPTIONS } from './plugins/redis.js'
 import { sseRegistry } from './plugins/sse-registry.js'
 import { queue } from './plugins/queue.js'
 import { scheduler } from './plugins/scheduler.js'
@@ -71,6 +72,12 @@ import otelPlugin from './plugins/otel.js'
 import businessMetricsPlugin from './plugins/business-metrics.js'
 import xssProtectionPlugin from './plugins/xss-protection.js'
 import sqliGuardPlugin from './plugins/sqli-guard.js'
+// 2026-10-28 DDoS 加固:失稳安全限流存储(Redis 故障→本地保守兜底,而非 fail-open 放行)
+import { createFailSafeRateLimitStore } from './plugins/rate-limit-failsafe-store.js'
+// 2026-10-28 DDoS 加固:WebSocket 守卫(单 IP 连接/握手上限 + 心跳保活)
+import { wsGuard, wsClientIp, wsHandshakeGate } from './plugins/ws-guard.js'
+// 2026-10-28 DDoS 加固:HTTP 单 IP 并发连接守卫(防慢速连接耗尽 FD)
+import { httpConnGuard } from './plugins/http-conn-guard.js'
 import apiVersioningPlugin from './plugins/api-versioning.js'
 import compressionPlugin from './plugins/compression.js'
 import apiLoggerExtendedPlugin from './plugins/api-logger-extended.js'
@@ -227,13 +234,18 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 2026-10-28 安全加固:slowloris / 慢速 HTTP 拒绝服务防护。
   // headersTimeout:客户端必须在 20s 内发完请求头,否则断开(防慢头攻击);
   // keepAliveTimeout:空闲 keep-alive 连接 15s 后回收(防连接池耗尽)。
-  // 二者都只作用于「握手/空闲」阶段,不影响已建立的 SSE/流式响应
-  // (流式在发完 200 头后立即持续写 body,headersTimeout 不再计时)。
-  // 注意:刻意**不**设 requestTimeout —— 它会按总时长掐断仍处于打开状态的
-  // AI 聊天长连接,盲设会斩断流式输出。
+  // 二者都只作用于「握手/空闲」阶段,不影响已建立的 SSE/流式响应。
+  //
+  // requestTimeout 量的是「**接收**整个请求」的耗时(Node 语义:请求体收完即停止计时),
+  // 与响应时长无关 —— 早期这里写着「设了会掐断 AI 流式长连接」是错的,故一并更正。
+  // 取值 300s 与 Node 默认一致,显式写出是为了不隐式依赖上游默认值(改了没人知道);
+  // **不取更小**:multipart 上限 100MB,慢上行(2Mbps)合法上传就要 ~400s,
+  // 掐短是误伤真实用户。慢速 body 攻击的真闸在别处:headersTimeout 挡慢头,
+  // httpConnGuard 按 IP 限并发槽(慢连接每个占一格),requestTimeout 只作兜底。
   if (server.server) {
     server.server.headersTimeout = 20_000
     server.server.keepAliveTimeout = 15_000
+    server.server.requestTimeout = 300_000
   }
 
   await registerPlugins(server)
@@ -556,16 +568,23 @@ async function registerPlugins(server: FastifyInstance) {
   //   · 用**独立连接**(createRedisClient)而不是 server.redis —— rateLimit 必须在路由
   //     注册前构造 store,而 redis 插件注册在它之后;把 redis 插件整体上移会改变
   //     onClose 执行顺序,连带影响队列/调度的优雅关闭(见 createRedisClient 头注)。
-  //   · `skipOnError: true` = **Redis 不可用时放行(fail-open)**,与既有
-  //     `distributed-rate-limit.ts` 头注登记的判据一致。这不是"放松":限流是可用性
-  //     设施,Redis 抖动时若 fail-closed 会把全站变成 429/500,可用性损失远大于
-  //     限流失效;且 Redis 故障本身已有 redis client error 日志与告警面兜底。
-  //     **禁止**把它改成 fail-closed 而不先改 distributed-rate-limit 同一判据。
-  //   · nameSpace 与 distributedRateLimit 的 `ihui:ratelimit` 区分开,便于运维按前缀
+  //   · 限流存储用**失稳安全存储**(createFailSafeRateLimitStore)包裹 Redis:
+  //     Redis 正常时走分布式计数(与内置 RedisStore 等价的原子 Lua);Redis 抖动/不可用时
+  //     **不**放行(fail-open 会打穿限流、放大 DDoS),也**不**把全站打成 429/500
+  //     (硬 fail-closed 牺牲可用性),而是回退到**进程内保守计数**(本地 LRU),
+  //     在故障窗口内仍保留基本限流。这与 distributed-rate-limit 的"Redis 故障→本地
+  //     token bucket"判据同源同思路(原 fail-open 判据已弃用)。
+  //     nameSpace 与 distributedRateLimit 的 `ihui:ratelimit` 区分开,便于运维按前缀
   //     分别观测/清理,避免两套限流互相污染计数。
-  const rateLimitRedis = createRedisClient((err) => {
-    server.log.error({ err }, 'rate-limit redis client error')
-  })
+  const rateLimitRedis = createRedisClient(
+    (err) => {
+      server.log.error({ err }, 'rate-limit redis client error')
+    },
+    // 覆盖基础参数的 `maxRetriesPerRequest: null`(BullMQ 要求,但对限流是致命的):
+    // 那一档让命令永不失败、排队等重连,请求会挂死在限流这一步,本地兜底结构上走不到。
+    // 详见 FAST_FAIL_REDIS_OPTIONS 头注。
+    FAST_FAIL_REDIS_OPTIONS,
+  )
   server.addHook('onClose', async () => {
     try {
       await rateLimitRedis.quit()
@@ -576,11 +595,20 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(rateLimit, {
     max: isDev ? 1000 : 100,
     timeWindow: '1 minute',
-    redis: rateLimitRedis,
+    // 失稳安全存储:Redis 故障 → 进程内保守兜底计数,而非 fail-open 放行
+    store: createFailSafeRateLimitStore(
+      rateLimitRedis,
+      'ihui:rl:',
+    ) as unknown as FastifyRateLimitStoreCtor,
     nameSpace: 'ihui:rl:',
-    skipOnError: true,
+    // skipOnError 交由存储自身处理:存储层已对 Redis 故障做本地兜底;即便兜底也意外抛错,
+    // 这里保持 false 按 fail-closed 处理,绝不静默放行。
+    skipOnError: false,
   })
   await server.register(underPressure, { maxEventLoopDelay: 1000 })
+  // 2026-10-28 DDoS 加固:HTTP 单 IP 并发连接守卫(防慢速连接耗尽 FD),
+  // 与下方 requestTimeout(慢速请求体)形成互补两道闸;部署无关,两端等效。
+  await server.register(httpConnGuard)
   // Swagger / OpenAPI 文档(2026-07-28 P0-4a 品牌化)
   // - 开发环境:默认开放(/docs 路由 + 自定义品牌页)
   // - 生产环境:SWAGGER_ENABLED=true 才挂载(默认 false,避免未授权 schema 泄露)
@@ -706,10 +734,18 @@ async function registerPlugins(server: FastifyInstance) {
     options: {
       // verifyClient callback:next(res: boolean, code?, reason?) — res=true 允许,res=false 拒绝
       verifyClient: (
-        info: { origin: string },
+        info: { origin: string; req: IncomingMessage },
         next: (res: boolean, code?: number, reason?: string) => void,
       ) => {
         const origin = (info.origin ?? '').toLowerCase()
+        // 2026-10-28 DDoS 加固:WebSocket 握手闸门(单 IP 握手频率 + 单 IP 并发上限)。
+        // 在 Origin 校验之前先挡握手洪水/连接耗尽,失败直接拒绝,不进入后续逻辑。
+        const wsIp = wsClientIp(info.req)
+        const gate = wsHandshakeGate(wsIp)
+        if (!gate.ok) {
+          next(false, gate.code ?? 429, gate.reason ?? 'rate limited')
+          return
+        }
         // 缺失 Origin(非浏览器/curl/服务端客户端):允许,依赖 JWT wsAuth
         // 2026-10-27 与 CORS 同步收紧:chrome-extension:// 不再整体放行(任何已安装
         // 扩展都能产生该 Origin)。精确白名单 = IHUI_EXTENSION_IDS;未配置保持旧行为
@@ -734,6 +770,9 @@ async function registerPlugins(server: FastifyInstance) {
       },
     },
   })
+  // 2026-10-28 DDoS 加固:WebSocket 守卫(单 IP 连接/握手上限 + 心跳保活)。
+  // 必须在 websocket 插件之后注册,才能拿到 server.websocketServer 挂载 connection 监听。
+  await server.register(wsGuard)
   await server.register(wsNotifications)
   // WebSocket AI 能力:agent_stream / tts_stream / realtime_pcm(1:1 流式连接)
   await server.register(wsAi)
