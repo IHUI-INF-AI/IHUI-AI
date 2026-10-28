@@ -8,12 +8,12 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 81f5de9fe3096e0edbff10148c0da74cdf5cecb9
-// inputsSha256: 9e64b0931a4d78bc9c93b3c134b800f107dcf1e5128f25ec6252f9469837d056
+// sourceCommit: 6156f64209098a69a64a75befb6f004a54687482
+// inputsSha256: a173057346f0b0861ebb2e0814033a2d7bb859d222af03ff2c3a9017e42f4605
 // input: apps/miniapp-taro/src/api/index.ts a61404dc934cb7c14c3cc62c8c106d16ce880d810c531cec5d20484160ac213f
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
 // input: apps/miniapp-taro/src/app.config.ts 3fd036241513fb0378e22e25204fd70c2299c67d1e0199fc1ee54bc25c46f059
-// input: apps/miniapp-taro/src/app.tsx e0b0feff8f2c5092b9bcb916cc9dc173002f9e7b71b21bb0132f207a04e79668
+// input: apps/miniapp-taro/src/app.tsx 856b0a2cfb0188a28fbc833362d68b9b6da86eda5bdde30c15f9f48de99c0b91
 // input: apps/miniapp-taro/src/components/AgentListPanel.tsx 1e9ba13abe25ef1f475d28393dc0df9812a4b3df620bff14e19cf2942914c051
 // input: apps/miniapp-taro/src/components/AgentRuntimePanel.tsx dccf5486d145e8f00d80c4e8067ef929229234d2122b8f2e625f9dc48c6872d6
 // input: apps/miniapp-taro/src/components/AuthButton.tsx b4fc11d7a75586d44215c33415d9b4cc73b7c4b8cb6d6884f04f20489ef45fc2
@@ -518,12 +518,12 @@
 // input: apps/miniapp-taro/src/utils/taro-ws-ticket.ts b9021002cf558a571d0dd56ed76ad026915d82858adbfcadf0390138aaa8f260
 // input: apps/miniapp-taro/src/utils/time.ts 5820ab3f85a0f00db5a08dd15b12ce9b70480ed9a29817a823515b0516bfff47
 // input: apps/miniapp-taro/src/utils/upload-image.ts 084bd5bf25cbd7cc994d6dc76dd0bc16860cbe2d86ec289db310884e73129c4e
-// input: apps/miniapp-taro/src/utils/visit-tracker.ts 8afacbbc8e28be8ee8fddeb270037c8dab169aa57fc26ad713764e923b64de98
+// input: apps/miniapp-taro/src/utils/visit-tracker.ts 4e697e43cc43753d79fd5d883ddfadea19ad34dbc591cb2e644cd39ac561f759
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts f3405919e3d130c52be0c105153f70c9bfad426ceb8e081adf65badc15580e5a
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 389 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=52(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-28T16:43:28.927Z
+// generatedAt: 2026-10-28T17:28:54.387Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
