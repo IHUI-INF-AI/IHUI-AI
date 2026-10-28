@@ -8,13 +8,14 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 1a79b8b732ba2d9ee787192f533c6abf7f796784
-// inputsSha256: 89a13f0a781753ea26f48e28cfeceeb81b98d56ce93d96138a837304abb8fd6e
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx dfc396d010f942838cc5c770a10cd4ca1006a39408b3e2def8250f4487e0ab5f
+// sourceCommit: 600705e7eee6f2df591b90b6ba3d2f994519fd51
+// inputsSha256: 328ca5fdb08d36967b9d6b3ddc5f10118714fe971cf68f8f16b176c03792a3d2
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 17a6eeea39bcaecb7cb589213df273d1bfd247002ff47414a1e409992017d3cc
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-28T14:54:08.158Z
+// generatedAt: 2026-10-28T18:36:54.284Z
 // IHUI-GEN-PIN-END
+
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
 export interface RnUiRouteEntry {
