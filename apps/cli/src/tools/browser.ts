@@ -284,24 +284,57 @@ async function spawnBrowser(port: number): Promise<void> {
   }
   const userDataDir = path.join(os.tmpdir(), `ihui-cli-browser-${port}`);
   const headless = process.env.IHUI_BROWSER_HEADLESS !== 'false';
-  const args = [
+  const baseArgs = [
     `--remote-debugging-port=${port}`,
     `--user-data-dir=${userDataDir}`,
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-features=Translate',
   ];
-  if (headless) args.push('--headless=new', '--hide-scrollbars', '--window-size=1440,900');
-  spawnedChild = spawn(executable, args, { stdio: 'ignore', detached: false });
-  spawnedChild.on('error', () => {
-    spawnedChild = undefined;
-  });
-  spawnedPort = port;
-  // 轮询等待 CDP 就绪(最多 15s)
-  for (let i = 0; i < 30; i++) {
-    if (await isCdpAlive(port, '127.0.0.1')) return;
+  if (headless) baseArgs.push('--headless=new', '--hide-scrollbars', '--window-size=1440,900');
+
+  const waitCdpReady = async (): Promise<boolean> => {
+    // 轮询等待 CDP 就绪(最多 15s)
+    for (let i = 0; i < 30; i++) {
+      if (await isCdpAlive(port, '127.0.0.1')) return true;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    return false;
+  };
+
+  const launch = (extraArgs: string[]): void => {
+    spawnedChild = spawn(executable, [...baseArgs, ...extraArgs], { stdio: 'ignore', detached: false });
+    spawnedChild.on('error', () => {
+      spawnedChild = undefined;
+    });
+    spawnedPort = port;
+  };
+
+  const stopSpawned = (): void => {
+    if (spawnedChild) {
+      try {
+        spawnedChild.kill();
+      } catch {
+        // 忽略
+      }
+      spawnedChild = undefined;
+    }
+  };
+
+  // 第一腿:默认参数。Ubuntu 24.04+/26 的 AppArmor 限制无特权 userns,Chrome 沙箱起不来
+  // (进程活着但渲染器起不来,CDP 永不就绪)—— GitHub ubuntu-latest 2026-10-19 迁 26 后实证。
+  launch([]);
+  if (await waitCdpReady()) return;
+
+  // 第二腿:仅 Linux,补 --no-sandbox 再试一次(容器/CI 的常态形态)。仍失败才真报错。
+  if (process.platform === 'linux') {
+    stopSpawned();
+    // 给旧进程一点退出时间,避免 user-data-dir 的 SingletonLock 被残留进程占着
     await new Promise((r) => setTimeout(r, 500));
+    launch(['--no-sandbox', '--disable-setuid-sandbox']);
+    if (await waitCdpReady()) return;
   }
+
   throw new Error(`浏览器已拉起但 CDP 端口 ${port} 未就绪(15s 超时)`);
 }
 
