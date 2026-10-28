@@ -2,25 +2,42 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""WorkBuddy「做任务赚积分」自动化族客户端(台账票 O68,2026-10-29 立)。
+"""WorkBuddy「做任务赚积分」自动化族客户端(号池对标批 O68;结清枚
+20276cb1d9f91acd5d53d35c2f6e03c6d92edd9c,该行已按「完成即删」摘除 —— 台账上此刻同号的
+deploy-feedback 条目与本模块无关,不要据此推断本族的状态)。
 
-**证据级别声明(先读)**:本模块的路径、字段名、请求体形态取证自竞品未strip的 Go
-二进制(wb2api.exe)内嵌字符串(struct tag 逐字),并**未**拿到上游真机 200 验证。
-任何人不得把本文件读成"接口已核实可用"。以下三处是取证面与执行面之间的已知缺口,
-全部按 AGENTS §0.3 的口径处理(取不到 ⇒ 未判定 unjudged=true,不冒绿、不猜零):
+**证据级别声明(2026-10-28 读侧实弹后改写;先读)**:本模块初版的路径与字段名取证自
+竞品未 strip 的 Go 二进制(wb2api.exe)内嵌字符串。当天用号池在册的 workbuddy 账号
+(ai_relay_account_pool 两枚 healthy,token 未过期)对上游发**只读**请求,取证结论是:
 
-1. 枚举值域未取证 —— `status` / `accept_status` / travel `state` 的取值集合二进制
-   只给了字段名,没给值域。待领取任务判定走**可配置集**(settings.
-   workbuddy_tasks_accept_statuses,默认 "0" 系 0/1 标志位推断);travel 出发触发态
-   默认空集 ⇒ 默认不出发,只报状态。
-2. claim(领任务奖励)路径未取证 —— 二进制给了两型 body(accept ⇒
-   {"task_codes":[...]} 已取证;claim ⇒ {"task_code":"<code>"} 已取证),但 claim 的
-   **路径**没有登记。settings.workbuddy_tasks_claim_path 留空 ⇒ 拒绝执行并写明原因
-   (宁可不做,不猜 URL)。
-3. activity 族不是单一端点 —— 取证面只有事件码清单与三个候选主机(copilot.tencent.com
-   / www.workbuddy.cn / www.workbuddy.ai),**路径↔主机绑定是推断**,必须经
-   WORKBUDDY_TASKS_ACTIVITY_HOSTS(JSON)人工覆盖;上报路径本身未取证,
-   WORKBUDDY_TASKS_ACTIVITY_PATH 留空 ⇒ run_activity 返回未判定。
+- **读侧已真机验证,且方法必须是 GET**:`/activity/growth/{tasks,streak,heatmap,
+  lottery/summary,buddy/info,buddy/travel/status}` 在 `https://copilot.tencent.com` 与
+  `https://www.workbuddy.cn` 两域 GET ⇒ HTTP 200 + `code:0`;**同路径 POST ⇒ 404**。
+  对照 `/activity/growth/nope-control-9d3` GET ⇒ 404「404 page not found」⇒ 这儿的 404
+  是"路由不存在"的可靠标记,不是网关兜底。初版按二进制惯例把读侧全写成 POST ⇒ 整族
+  永远 404 ⇒ 面板永远"未判定",这是本模块最大的一处纠错。
+- **字段表以真机形态为准,不是二进制**:真形态任务行是
+  `{task_id,code,title,description,icon_url,level_name,status,url}` —— 二进制给的那族
+  `task_code/task_desc/progress/limit_num/accept_status/reward_credit/reward_energy/
+  valid_to` 在真响应里**不存在**。旧解析器把"字段缺失"当"读懂失败"(reward 缺省还按 0 记),
+  现按真形态取 code/title/status,读不到的字段一律 None(§0.3 不拿 0 冒充没量到)。
+  streak 真形态是嵌套对象(`streak{days,next_tier,…}` + `makeup_cards{balance,max}` +
+  `redemption_status{tiers[]}`),旧实现按顶层平铺取 ⇒ 恒 None,已修。
+  travel/status 真形态 `{state,daily_limit_reached,duration_hours,reward_credit,…}`,
+  旧判据要求的 `status/remain/energy/credit` 四件套不存在 ⇒ 恒未判定,已修。
+- **写侧:路由在、body 字段名未判定**:`tasks/accept`、`redeem`、`lottery/draw`、
+  `buddy/travel/depart` 对空体与 `{"code":…}`/`{"task_code":…}`/`{"codes":[…]}` 一律
+  400「invalid request」(= 已进入参数校验,但没有一种形态被认出字段);
+  `makeup-cards/use` 的 400 直接点名 `invalid target_date format`;
+  `buddy/travel/claim` 空体 ⇒ 403「no unclaimed travel」(= 可达、鉴权过、业务态无可领);
+  `buddy/firstuid` 在两 CN 域 404(二进制取证的那条路径在本域不成立)。
+  ⇒ accept 走 **WORKBUDDY_TASKS_ACCEPT_FIELD** 显式配置,留空即拒绝执行并点名四种试过的
+  形态都 400 —— 宁可不做,不猜字段名。
+
+仍未取证的两格(保持默认关):claim(领任务奖励)**路径**未见,
+`WORKBUDDY_TASKS_CLAIM_PATH` 留空 ⇒ 拒绝执行;activity 族只有事件码清单与三个候选主机,
+**路径↔主机绑定**未证 ⇒ `WORKBUDDY_TASKS_ACTIVITY_PATH` 留空 ⇒ run_activity 未判定。
+`www.workbuddy.ai` 对本 token 全域 401(连对照路径也 401)⇒ 国际域需另一套凭据,未验证。
 
 blackcat 族无专属端点(取证结论):它是本地节律规则 —— 23:00–08:00(Asia/Shanghai,
 跨零点)窗口内对指定模型跑 N 次聊天补全以满足任务,窗口外跳过并报原因。补全面由
@@ -155,11 +172,22 @@ async def _post_once(
     *,
     timeout: float,
     http: httpx.AsyncClient,
+    method: str = "POST",
 ) -> tuple[int, Any]:
-    """单发 POST。返回 (status, parsed|None);0=超时 -1=网络异常(payload=描述)。"""
+    """单发。返回 (status, parsed|None);0=超时 -1=网络异常(payload=描述)。
+
+    读侧必须是 GET —— 2026-10-28 真机实测:`/activity/growth/{tasks,streak,heatmap,
+    lottery/summary,buddy/info,buddy/travel/status}` 在 WB_BASE 与 WB_WEB_BASE 两域
+    GET ⇒ HTTP 200 + `code:0`,而同路径 POST ⇒ 404(对照乱路径 GET ⇒ 404
+    "404 page not found",⇒ 404 是"路由不存在"的可靠标记,不是网关兜底)。
+    GET 不带请求体。
+    """
     await checkin_outbound_gate.before_request("workbuddy")
     try:
-        resp = await http.post(url, json=body, headers=headers, timeout=timeout)
+        if method == "GET":
+            resp = await http.get(url, headers=headers, timeout=timeout)
+        else:
+            resp = await http.post(url, json=body, headers=headers, timeout=timeout)
     except httpx.TimeoutException:
         return 0, None
     except Exception as e:  # noqa: BLE001 — 与 _wb_post 同口径:异常文本上抛不炸栈
@@ -181,8 +209,9 @@ async def _wb_request(
     timeout: float = DEFAULT_TIMEOUT,
     client: httpx.AsyncClient | None = None,
     absolute_url: str | None = None,
+    method: str = "POST",
 ) -> tuple[int, Any, str]:
-    """POST 一个任务族端点,返回 (http_status, payload, mode),mode ∈ {"token","web","url"}。
+    """打一个任务族端点,返回 (http_status, payload, mode),mode ∈ {"token","web","url"}。
 
     分流规则与 checkin_workbuddy._post_with_fallback 逐字一致:
     - login_type=web 或无 Bearer ⇒ Cookie 直打 WB_WEB_BASE(/v2 前缀);
@@ -213,7 +242,9 @@ async def _wb_request(
 
     if absolute_url is not None:
         headers = _web_headers() if (web_cookie and workbuddy_is_web_mode(device_map)) else _token_headers()
-        status, payload = await _post_once(absolute_url, headers, body, timeout=timeout, http=http)
+        status, payload = await _post_once(
+            absolute_url, headers, body, timeout=timeout, http=http, method=method
+        )
         return status, payload, "url"
 
     if workbuddy_is_web_mode(device_map) or not token:
@@ -223,11 +254,17 @@ async def _wb_request(
             body,
             timeout=timeout,
             http=http,
+            method=method,
         )
         return status, payload, "web"
 
     status, payload = await _post_once(
-        WB_BASE.rstrip("/") + path, _token_headers(), body, timeout=timeout, http=http
+        WB_BASE.rstrip("/") + path,
+        _token_headers(),
+        body,
+        timeout=timeout,
+        http=http,
+        method=method,
     )
     if status in (401, 403) and web_cookie:
         status2, payload2 = await _post_once(
@@ -236,6 +273,7 @@ async def _wb_request(
             body,
             timeout=timeout,
             http=http,
+            method=method,
         )
         if status2 not in (0, -1):
             return status2, payload2, "web"
@@ -266,26 +304,25 @@ def _failure_reason(status: int, payload: Any, mode: str) -> str | None:
 def parse_task_row(raw: Any) -> tuple[dict[str, Any] | None, bool]:
     """单行解析。返回 (合同行|None, 是否读懂)。
 
-    读懂判据:task_code/task_desc/progress/limit_num/status/accept_status 全部可取。
-    reward_credit/reward_energy **缺字段按 0**(任务无奖励是合法形态,非"读不懂");
-    字段在但形态坏(非整数)⇒ 读不懂。valid_to 允许 str 或 null。
+    判据按 2026-10-28 真机 GET 实测形态(非竞品二进制字段表):
+    `{"tasks":[{"task_id":1,"code":"first_chat","title":"完成一次对话",
+      "description":"…","icon_url":"","level_name":"养虾尝试","status":"available","url":""}]}`
+    —— 读懂 = `code`(兼容旧取证名 task_code)与 title(兼容 task_desc/description)
+    与 status 三者齐。真形态**根本没有** progress/target/accept_status/reward_*/valid_to
+    这五族字段 ⇒ 一律 None,不拿 0 冒充"没量到"(§0.3);旧实现"缺字段按 0"会把
+    "上游没给奖励字段"说成"奖励为 0",是假账。
     """
     if not isinstance(raw, dict):
         return None, False
-    code = _as_str(raw.get("task_code"))
-    title = _as_str(raw.get("task_desc"))
-    progress = _as_int(raw.get("progress"))
-    target = _as_int(raw.get("limit_num"))
+    code = _as_str(raw.get("code")) or _as_str(raw.get("task_code"))
+    title = _as_str(raw.get("title")) or _as_str(raw.get("task_desc")) or _as_str(
+        raw.get("description")
+    )
     status = _as_str(raw.get("status"))
-    accept_status = _as_str(raw.get("accept_status"))
-    if None in (code, title, progress, target, status, accept_status):
+    if code is None or title is None or status is None:
         return None, False
-    reward_credit = _as_int(raw.get("reward_credit")) if "reward_credit" in raw else 0
-    reward_energy = _as_int(raw.get("reward_energy")) if "reward_energy" in raw else 0
-    if reward_credit is None or reward_energy is None:
-        return None, False
-    valid_to_raw = raw.get("valid_to")
-    valid_to = valid_to_raw if isinstance(valid_to_raw, str) else None
+    progress = _as_int(raw.get("progress"))
+    target = _as_int(raw.get("limit_num")) or _as_int(raw.get("target"))
     return (
         {
             "task_code": code,
@@ -293,10 +330,12 @@ def parse_task_row(raw: Any) -> tuple[dict[str, Any] | None, bool]:
             "progress": progress,
             "target": target,
             "status": status,
-            "accept_status": accept_status,
-            "reward_credit": reward_credit,
-            "reward_energy": reward_energy,
-            "valid_to": valid_to,
+            "accept_status": _as_str(raw.get("accept_status")),
+            "reward_credit": _as_int(raw.get("reward_credit")),
+            "reward_energy": _as_int(raw.get("reward_energy")),
+            "valid_to": (
+                raw.get("valid_to") if isinstance(raw.get("valid_to"), str) else None
+            ),
         },
         True,
     )
@@ -360,9 +399,9 @@ async def list_growth_tasks(
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """GET 语义(实际按上游家族惯例 POST 空体)拉取 growth 任务列表 ⇒ 列表面合同。"""
+    """拉取 growth 任务列表(GET 只读)⇒ 列表面合同。"""
     status, payload, _mode = await _wb_request(
-        PATH_GROWTH_TASKS, jwt, device_map, {}, client=client, timeout=timeout
+        PATH_GROWTH_TASKS, jwt, device_map, {}, client=client, timeout=timeout, method="GET"
     )
     fail = _failure_reason(status, payload, _mode)
     if fail is not None:
@@ -395,21 +434,38 @@ async def fetch_growth_streak(
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> dict[str, Any] | None:
-    """连签状态只读探针(streak/days/tier/next_tier/makeup_cells/reward_buddy/cells/
-    banners/tiers 取证字段;任一读不到 ⇒ 返回 None,不编造)。"""
+    """连签状态只读探针(GET)。任一必读不到 ⇒ None,不编造。
+
+    2026-10-28 真机实测形态(旧实现按顶层 streak/days/tier 平铺取,而真形态是嵌套对象,
+    于是永远返回 None —— 这条就是那个 bug 的修正):
+    `{"streak":{"days":2,"month_total_days":2,"next_tier":"7d","next_tier_remaining":5,
+      "makeup_dates":[]},"makeup_cards":{"balance":0,"max":4},
+      "redemption_status":{"tiers":[{"tier":"7d","days":7,"credit":0,"energy":2,
+      "cards":1,"chances":1},…],"tier_7d_status":"locked",…},
+      "timezone":"Asia/Shanghai","launch_date":"2026-06-17"}`
+    """
     status, payload, _mode = await _wb_request(
-        PATH_GROWTH_STREAK, jwt, device_map, {}, client=client, timeout=timeout
+        PATH_GROWTH_STREAK, jwt, device_map, {}, client=client, timeout=timeout, method="GET"
     )
     if _failure_reason(status, payload, _mode) is not None:
         return None
     code, data = _envelope(payload)
     if code != _CODE_OK or not isinstance(data, dict):
         return None
+    streak = data.get("streak")
+    if not isinstance(streak, dict):
+        return None
     out: dict[str, Any] = {}
-    for key in ("streak", "days", "tier"):
-        val = data.get(key)
-        if isinstance(val, (int, str)) and not isinstance(val, bool):
-            out[key] = val
+    for key in ("days", "month_total_days", "next_tier_remaining"):
+        out[key] = _as_int(streak.get(key))
+    out["next_tier"] = _as_str(streak.get("next_tier"))
+    cards = data.get("makeup_cards")
+    if isinstance(cards, dict):
+        out["makeup_card_balance"] = _as_int(cards.get("balance"))
+        out["makeup_card_max"] = _as_int(cards.get("max"))
+    tiers = data.get("redemption_status")
+    if isinstance(tiers, dict) and isinstance(tiers.get("tiers"), list):
+        out["tiers"] = len(tiers["tiers"])
     return out or None
 
 
@@ -439,19 +495,29 @@ def _status_set(spec: str) -> frozenset[str]:
 
 
 def classify_growth_tasks(tasks: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
-    """纯函数分类。返回 (待 accept 的 task_code, 可 claim 的 task_code)。
+    """纯函数分类。返回 (待 accept 的 code, 可 claim 的 code)。
 
-    - accept:accept_status ∈ WORKBUDDY_TASKS_ACCEPT_STATUSES(默认 "0",0/1 标志位**推断**);
-    - claim:progress ≥ target 且 target > 0(数值判据,不依赖未取证的状态枚举)。
+    判据按 2026-10-28 真机形态重定:列表行只有 `status`(实测值 `available`),
+    旧判据(`accept_status == "0"` / `progress >= target`)在真数据上**恒不成立** ⇒
+    整族永远 0 项,看起来像"没任务可做",实际是尺子读不到字段。
+    - claim:仅当某行真带了 progress/target 且达标(上游后续补字段即自动生效);
+    - accept:status ∈ WORKBUDDY_TASKS_ACTIONABLE_STATUSES(默认 `available`)。
     """
-    accept_set = _status_set(settings.workbuddy_tasks_accept_statuses)
+    action_set = _status_set(settings.workbuddy_tasks_actionable_statuses)
     to_accept: list[str] = []
     to_claim: list[str] = []
     for t in tasks:
-        if str(t["accept_status"]) in accept_set:
-            to_accept.append(str(t["task_code"]))
-        elif t["target"] > 0 and t["progress"] >= t["target"]:
+        progress, target = t.get("progress"), t.get("target")
+        if (
+            isinstance(progress, int)
+            and isinstance(target, int)
+            and not isinstance(progress, bool)
+            and target > 0
+            and progress >= target
+        ):
             to_claim.append(str(t["task_code"]))
+        elif str(t.get("status") or "") in action_set:
+            to_accept.append(str(t["task_code"]))
     return to_accept, to_claim
 
 
@@ -503,28 +569,38 @@ async def _run_growth_inner(
     claimed: list[str] = []
     reasons: list[str] = []
     unjudged = False
+    accept_field = (settings.workbuddy_tasks_accept_field or "").strip()
     if to_accept:
-        status, payload, mode = await _wb_request(
-            PATH_GROWTH_TASKS_ACCEPT,
-            jwt,
-            device_map,
-            {"task_codes": to_accept},
-            client=client,
-            timeout=timeout,
-        )
-        fail = _failure_reason(status, payload, mode)
-        if fail is not None:
-            reasons.append(f"accept {fail}")
-            unjudged = status in (0, -1) or not isinstance(payload, dict)
+        if not accept_field:
+            reasons.append(
+                f"accept {len(to_accept)} 项未执行:请求体字段名未判定 —— 2026-10-28 真机对 "
+                '`{}` / `{"code":…}` / `{"task_code":…}` / `{"codes":[…]}` 四种形态一律 '
+                '400 "invalid request"(路由在、鉴权过,只是 body 不对);'
+                "配 WORKBUDDY_TASKS_ACCEPT_FIELD 后才发(§0.3 拒绝猜字段)"
+            )
+            unjudged = True
         else:
-            code, _data = _envelope(payload)
-            if code is None:
-                reasons.append("accept 信封不可解析")
-                unjudged = True
-            elif code == _CODE_OK:
-                accepted = list(to_accept)
+            status, payload, mode = await _wb_request(
+                PATH_GROWTH_TASKS_ACCEPT,
+                jwt,
+                device_map,
+                {accept_field: to_accept},
+                client=client,
+                timeout=timeout,
+            )
+            fail = _failure_reason(status, payload, mode)
+            if fail is not None:
+                reasons.append(f"accept {fail}")
+                unjudged = status in (0, -1) or not isinstance(payload, dict)
             else:
-                reasons.append(f"accept 上游 code={code}")
+                code, _data = _envelope(payload)
+                if code is None:
+                    reasons.append("accept 信封不可解析")
+                    unjudged = True
+                elif code == _CODE_OK:
+                    accepted = list(to_accept)
+                else:
+                    reasons.append(f"accept 上游 code={code}")
     claim_path = (settings.workbuddy_tasks_claim_path or "").strip()
     if to_claim:
         if not claim_path:
@@ -555,8 +631,8 @@ async def _run_growth_inner(
                 else:
                     reasons.append(f"claim {code_item} 上游 code={code}")
     streak = await fetch_growth_streak(jwt, device_map, client=client, timeout=timeout)
-    if isinstance(streak, dict) and "streak" in streak:
-        reasons.append(f"streak={streak['streak']}")
+    if isinstance(streak, dict) and streak.get("days") is not None:
+        reasons.append(f"streak_days={streak['days']}")
     after = await _measure_balance(jwt, device_map, client, timeout)
     credit_delta = after - before if before is not None and after is not None else None
     if credit_delta is None and not reasons:
@@ -579,20 +655,25 @@ async def _run_growth_inner(
 
 
 def parse_travel_state(data: Any) -> dict[str, Any] | None:
-    """TravelState(state/status/remain/energy/credit)解析;整读不懂 ⇒ None。"""
+    """TravelState 解析;读不懂 ⇒ None。
+
+    2026-10-28 真机 GET `/activity/growth/buddy/travel/status` 实测形态(旧判据要求的
+    `status/remain/energy/credit` 四件套真形态里并不存在 ⇒ 永远 None、永远未判定):
+    `{"state":"idle","buddy_id":0,"record_id":0,"location":null,"depart_at":0,
+      "arrive_at":0,"server_now":1793201004,"letter":null,"use_deeplink":"",
+      "daily_limit_reached":true,"duration_hours":0,"reward_credit":0}`
+    必读只有 `state`(字符串);其余按需取,**缺的能量字段留 None 不冒充 0**。
+    """
     if not isinstance(data, dict):
         return None
-    out: dict[str, Any] = {}
-    for key in ("state", "status"):
-        val = _as_str(data.get(key))
-        if val is None:
-            return None
-        out[key] = val
-    for key in ("remain", "energy", "credit"):
-        ival = _as_int(data.get(key))
-        if ival is None:
-            return None
-        out[key] = ival
+    state = _as_str(data.get("state"))
+    if state is None:
+        return None
+    out: dict[str, Any] = {"state": state}
+    for key in ("buddy_id", "record_id", "depart_at", "arrive_at", "duration_hours", "reward_credit"):
+        out[key] = _as_int(data.get(key))
+    limit = data.get("daily_limit_reached")
+    out["daily_limit_reached"] = limit if isinstance(limit, bool) else None
     return out
 
 
@@ -621,7 +702,7 @@ async def _run_travel_inner(
     timeout: float,
 ) -> dict[str, Any]:
     status, payload, mode = await _wb_request(
-        PATH_TRAVEL_STATUS, jwt, device_map, {}, client=client, timeout=timeout
+        PATH_TRAVEL_STATUS, jwt, device_map, {}, client=client, timeout=timeout, method="GET"
     )
     fail = _failure_reason(status, payload, mode)
     if fail is not None:
@@ -634,19 +715,20 @@ async def _run_travel_inner(
     state = parse_travel_state(data)
     if state is None:
         return _run_result(
-            "travel", ok=False, reason="TravelState 形态读不懂(state/status/remain/energy/credit 缺项)", unjudged=True
+            "travel", ok=False, reason="TravelState 形态读不懂(真形态必读字段 state 取不到)", unjudged=True
         )
-    pending_credit = state["credit"]
-    pending_energy = state["energy"]
+    pending_credit = state["reward_credit"]
+    # 真形态里没有 energy 字段(2026-10-28 实测)⇒ 一律 None,不拿 0 冒充"没有体力奖励"。
+    pending_energy: int | None = None
     if dry_run:
         return _run_result(
             "travel",
             ok=True,
             reason=(
-                f"dry-run:state={state['state']} status={state['status']} "
-                f"待发 credit={pending_credit} energy={pending_energy},零写侧调用"
+                f"dry-run:state={state['state']} 待发 credit={pending_credit} "
+                f"energy=未取证 daily_limit_reached={state['daily_limit_reached']},零写侧调用"
             ),
-            unjudged=False,
+            unjudged=pending_credit is None,
         )
     reasons: list[str] = []
     claimed: list[str] = []
@@ -654,7 +736,12 @@ async def _run_travel_inner(
     unjudged = False
     credit_delta: int | None = None
     energy_delta: int | None = None
-    if pending_credit > 0 or pending_energy > 0:
+    if pending_credit is None:
+        reasons.append(
+            "travel/claim 未执行:真形态 reward_credit 读不到 ⇒ 判不出有无待发奖励(§0.3 不猜)"
+        )
+        unjudged = True
+    elif pending_credit > 0:
         c_status, c_payload, c_mode = await _wb_request(
             PATH_TRAVEL_CLAIM, jwt, device_map, {}, client=client, timeout=timeout
         )
