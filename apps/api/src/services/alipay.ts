@@ -213,6 +213,12 @@ function signParams(params: Record<string, string>): string {
 /** 验证支付宝回调签名(证书模式从证书提取公钥,公钥模式用 ALIPAY_PUBLIC_KEY)
  *  P0 修复(2026-09-18):公钥未配置时一律 fail-closed——原实现在非 production 环境
  *  直接放行(伪造 notify 即可免费完成任意订单),现改为拒绝并要求先完成支付宝配置。
+ *  P0 修复(2026-10-28 安全审计):必须核对通知 app_id == 本方 ALIPAY_APP_ID ——
+ *  支付宝平台公钥全商户共用,验签只证明"支付宝签过",不证明"发给本应用"。不比对
+ *  app_id 时,攻击者可在自己的商户账户下支付一笔真实的 0.01 元、把 out_trade_no 填成
+ *  本方订单号,拿到一份验签绝对通过的通知打到本端伪造完成订单(官方文档要求的
+ *  "验 app_id"即防跨商户重放)。fail-closed:本方 appid 未配置、或通知缺 app_id、
+ *  或不一致,一律 false。
  */
 export function verifyNotify(params: Record<string, string>): boolean {
   const pub = getAlipayPublicKey()
@@ -222,6 +228,8 @@ export function verifyNotify(params: Record<string, string>): boolean {
   const sign = params.sign
   const signType = params.sign_type
   if (!sign || signType !== 'RSA2') return false
+  const ownAppId = env.ALIPAY_APP_ID ?? ''
+  if (!ownAppId || !params.app_id || params.app_id !== ownAppId) return false
   const { sign: _s, sign_type: _st, ...rest } = params
   const signContent = buildSignContent(rest)
   const verify = createVerify('RSA-SHA256')
