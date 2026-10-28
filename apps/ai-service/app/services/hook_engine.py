@@ -872,6 +872,28 @@ class HookEngine:
         config = action.get("config", {}) or {}
         start = time.time()
 
+        # P0-5 执行侧兜底(2026-10-28 安全审计立):创建门禁(routers/hooks.py)只拦新实体,
+        # 2026-08-05 策略生效前入库的 script/webhook 存量、以及绕过创建接口直改 Redis 的记录,
+        # 此前在 HOOK_ALLOWED_ACTIONS 为空时仍会照常执行 —— 判据仍走 _action_allowed 单源
+        # (§0.6),失效方向是"拒绝并记失败日志"(静默放行与假装成功都不许)。
+        # 早退不入 DLQ:白名单拒绝是终态裁决,DLQ 重处理回到这里仍会被拒,重试无意义。
+        if action_type in HIGH_RISK_ACTIONS and not _action_allowed(action_type):
+            logger.warning(
+                "[hook_engine] 高危动作执行被白名单拒绝: hook_id=%s type=%s (HOOK_ALLOWED_ACTIONS 未含该项)",
+                hook.get("id"),
+                action_type,
+            )
+            return self._make_log(
+                hook_id=hook["id"],
+                event=event,
+                success=False,
+                duration=0,
+                result=None,
+                error=f"高危动作 {action_type} 未获执行授权:需服务端 HOOK_ALLOWED_ACTIONS 白名单显式放行(2026-08-05 P0-5 策略,执行侧兜底)",
+                input_payload=context,
+                replay=replay,
+            )
+
         # 解析重试配置
         retry_count = self._resolve_retry_count(action_type, config)
         retry_delay = self._resolve_retry_delay(config)
