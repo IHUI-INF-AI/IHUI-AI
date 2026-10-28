@@ -5,6 +5,7 @@
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { AppIcon } from '@ihui/types'
 import {
+  Award,
   Receipt,
   Undo2,
   CreditCard,
@@ -165,6 +166,7 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'StudyRecord', labelKey: 'menu.studyRecord', icon: BookOpen, viaParent: true },
       { key: 'StudyPlan', labelKey: 'menu.studyPlan', icon: CalendarCheck, viaParent: true },
       { key: 'StudyProgress', labelKey: 'menu.studyProgress', icon: TrendingUp, viaParent: true },
+      { key: 'EduDashboard', labelKey: 'eduDashboard.title', icon: Award, viaParent: true },
       { key: 'AIMultimodal', labelKey: 'menu.aiMultimodal', icon: Palette, viaParent: true },
       { key: 'KnowledgeBase', labelKey: 'menu.knowledgeBase', icon: BookOpen, viaParent: true },
       // M4.1(2026-08-26):RAG 知识库增强(搜索/切片)

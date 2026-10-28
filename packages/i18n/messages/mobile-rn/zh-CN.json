@@ -4363,6 +4363,21 @@
       "draft": "草稿"
     }
   },
+  "eduDashboard": {
+    "title": "教育看板",
+    "studyHours": "学习时长",
+    "totalCourses": "课程总数",
+    "completedCourses": "已完成",
+    "inProgressCourses": "进行中",
+    "avgProgress": "平均进度",
+    "totalExams": "考试次数",
+    "passedExams": "通过",
+    "totalCerts": "证书数",
+    "recentCourses": "最近学习",
+    "noCourses": "暂无学习记录",
+    "progress": "进度",
+    "loadFailed": "加载失败"
+  },
   "webViewPortal": {
     "news": "资讯",
     "learnTopic": "课程专题",

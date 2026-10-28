@@ -34,6 +34,12 @@ export type {
 } from './features/member-dashboard/MemberDashboardScreen'
 export { MyAgentsScreen } from './features/my-agents/MyAgentsScreen'
 export type { MyAgentRow, MyAgentsScreenProps } from './features/my-agents/MyAgentsScreen'
+export { EduDashboardScreen } from './features/edu-dashboard/EduDashboardScreen'
+export type {
+  EduDashboardData,
+  EduDashboardScreenProps,
+  EduRecentCourse,
+} from './features/edu-dashboard/EduDashboardScreen'
 export { FeedbackScreen } from './features/feedback/FeedbackScreen'
 export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen'
 export { FeedbackDetailScreen } from './features/feedback-detail/FeedbackDetailScreen'
