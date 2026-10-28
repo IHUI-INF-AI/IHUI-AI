@@ -330,6 +330,20 @@ export function reachBottomCovered(shellText) {
 }
 
 /**
+ * 客户端分页(2026-10-29):页面的 useReachBottom 只调整**本地可见条数**,不是向后端要下一页。
+ * 实测 model-plaza:数据一次取 `getAiModels({ pageSize: 100 })`,触底只是
+ * `setVisibleCount(c => c + PAGE_SIZE)` 再 `filteredList.slice(0, visibleCount)`。
+ * 这类页转壳后由共享屏自己的列表承担呈现,显示量不减少 ⇒ 不算私有能力。
+ * 判据严格:页面请求里只要出现 `page:` 参数,就按数据翻页处理,照旧不销账。
+ */
+export function clientSidePaging(pageText) {
+  const src = maskComments(String(pageText ?? ''))
+  if (!/useReachBottom\s*\(/.test(src)) return false
+  if (/\bpage\s*:/.test(src)) return false
+  return /setVisible(?:Count)?\s*\(/.test(src) && /\.slice\(\s*0\s*,/.test(src)
+}
+
+/**
  * 确认弹窗:壳用 RN 的 Alert.alert(现读 10 个屏),与小程序的 Taro.showModal 是同一件事。
  * 另认 `appAlert(title, msg, [{ onPress }])` 形态 —— 带选项的 appAlert 就是确认弹窗
  * (现读 AiSkillScreen 注释即「RN 端 Alert(name/description + 取消/查看详情)」,实现为 appAlert + onPress)。
@@ -707,6 +721,8 @@ export function judgeConversion({
   if (shellRefreshesOnFocus(shellText) && shellFetchesData(shellText))
     for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
   if (reachBottomCovered(shellText)) pageTokens.delete('useReachBottom')
+  // 客户端分页(本地可见量递增)由共享屏自己的列表承担,不是向后端要下一页
+  if (clientSidePaging(pageText)) pageTokens.delete('useReachBottom')
   if (modalCovered(shellText)) pageTokens.delete('Taro.showModal')
   if (clipboardCovered(shellText)) pageTokens.delete('Taro.setClipboardData')
   if (themeCovered(shellText)) for (const tok of ['@/lib/theme', 'useAppTheme']) pageTokens.delete(tok)
@@ -1198,6 +1214,7 @@ export const __test__ = {
   shellFetchesData,
   shellRefreshesOnFocus,
   reachBottomCovered,
+  clientSidePaging,
   modalCovered,
   clipboardCovered,
   themeCovered,
