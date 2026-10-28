@@ -29,6 +29,7 @@ import {
   requireAuth,
 } from './_shared.js'
 import { ensurePointsBalance, chargePointsForCall } from './proxy-llm.js'
+import { MEDIA_FILE_UPLOAD_BODY_LIMIT, MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 /** 各厂商能力矩阵(接通上游真实存在的端点,避免死端点) */
 const OPENAI_COMPAT_VENDORS = [
@@ -217,6 +218,9 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
       server.post(
         `/${vendor}/chat`,
         {
+          // OpenAI 协议全参数透传:第三方客户端(Cursor/Cline/OpenWebUI)会内联
+          // base64 图片走多模态,吃全局 2MiB 会被静默 413
+          bodyLimit: MEDIA_BASE64_BODY_LIMIT,
           schema: buildSchema({
             summary: `${VENDOR_NAME_MAP[vendor]} 对话补全`,
             description: `代理调用 ${baseUrl}/chat/completions(OpenAI 协议全参数透传)`,
@@ -394,6 +398,8 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/openai/transcriptions',
     {
+      // multipart 直传音频(Whisper):吃全局 2MiB 会被静默 413,显式放开到单文件 25MiB 形态
+      bodyLimit: MEDIA_FILE_UPLOAD_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'OpenAI 语音转文本(STT)',

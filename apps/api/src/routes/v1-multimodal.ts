@@ -63,6 +63,7 @@ import { UPSTREAM_AUTH_FAILED_MESSAGE, mapUpstreamOutbound } from '../errors/ups
 import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 import { recordCall, refundTaskCall } from '../services/relay-billing-service.js'
 import { forwardToChannel, type SelectedChannelKey } from '../services/relay-upstream-forwarder.js'
+import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
 
 // =============================================================================
 // 常量
@@ -740,6 +741,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/audio/transcriptions',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: {
         description: 'ASR 语音识别',
         tags: ['Multimodal'],
@@ -797,6 +799,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/audio/chat',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: {
         description: '语音对话',
         tags: ['Multimodal'],
@@ -920,6 +923,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/audio/speakers',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: {
         description: '声纹注册',
         tags: ['Multimodal'],
@@ -971,6 +975,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/audio/speakers/compare',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: {
         description: '声纹比对',
         tags: ['Multimodal'],
@@ -1292,6 +1297,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/images/edits',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: {
         description: '图片编辑(按 vendor 路由)',
         tags: ['Multimodal'],
@@ -1344,6 +1350,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/images/inpaint',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: {
         description: '图片修复',
         tags: ['Multimodal'],
@@ -1392,6 +1399,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/images/style-transfer',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: {
         description: '风格迁移',
         tags: ['Multimodal'],
@@ -1533,6 +1541,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/videos/generations',
     {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: {
         description: '视频生成(按 vendor 路由,异步返回 taskId)',
         tags: ['Multimodal'],
