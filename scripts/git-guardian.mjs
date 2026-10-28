@@ -4615,6 +4615,121 @@ export function auditAssetPathHealth(opts = {}) {
 }
 
 
+/**
+ * AASA(apple-app-site-association)公网健康的**常驻**派发点(尺子 = `scripts/check-aasa-public-health.mjs`,
+ * 2026-10-29 立)。立因:这台尺子造出来时没人按时跑它 —— 只接了 `pnpm check:aasa-health` 一个手工入口,
+ * 而它判的是"公网两腿能不能取到与单源同构的 AASA",属机主面之外唯一可自动守的那半格
+ * (UniversalLink 控制台填写那一半仍归机主)。按 §12e 它是只读尺子,刻意不进提交链,唯一调度器就是这里。
+ *
+ * 三态语义照抄资产路径那台:breach 发信、warn 只报数、unjudged 既不续命也不清零(§0.3)、ok 清零。
+ * 身份按"breach 条数档"折叠:`alertCountTier` 管计数,具体靶名会随整改位移,写进身份就是风暴(守门 224)。
+ */
+const AASA_TICK = join(WORKTREE, '.ihui-agent', 'state', 'aasa-health-tick.ts')
+const AASA_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'aasa-health-first.json')
+const AASA_LAST = join(WORKTREE, '.ihui-agent', 'state', 'aasa-health-last.json')
+const AASA_INTERVAL_MS = Number(process.env.IHUI_AASA_INTERVAL_MS || 6 * 60 * 60 * 1000)
+const AASA_TIMEOUT_MS = Number(process.env.IHUI_AASA_TIMEOUT_MS || 120_000)
+
+export function auditAasaPublicHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = AASA_INTERVAL_MS,
+    tickFile = AASA_TICK,
+    firstFile = AASA_FIRST,
+    lastFile = AASA_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-aasa-public-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ AASA 公网健康:尺子脚本不在位(scripts/check-aasa-public-health.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: AASA_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || typeof parsed.verdict !== 'string') {
+      logger(
+        `⚠️ AASA 公网健康未产出结论(未判定,不记为已探测):rc=${call.status} ` +
+          `${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(0, 200)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性,不影响告警本身 */
+    }
+    const breach = Array.isArray(parsed?.breach) ? parsed.breach : []
+    if (parsed.verdict === 'breach') {
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      notify(
+        `AASA 公网健康 breach:${breach.length} 维不达标`,
+        `不达标维(逐条来自尺子 JSON 的 breach 数组):\n${breach.slice(0, 10).map((b) => `· ${b}`).join('\n') || '(无)'}`,
+        {
+          severity: 'warning',
+          dedupKey: `verdict=breach;breach=${alertCountTier(breach.length)};held=${held.tier}`,
+        },
+      )
+      logger(`❌ AASA 公网健康 breach ${breach.length} 维(已按身份去重发信)`)
+      return { ran: true, judged: true, breaches: breach.length }
+    }
+    if (parsed.verdict === 'warn') {
+      logger(`⚠️ AASA 公网健康报数(不判红):${String(parsed.why || '有机主面待办').slice(0, 180)}`)
+      clearUndeterminedStreak(firstFile)
+      return { ran: true, judged: true, breaches: 0, warns: 1 }
+    }
+    if (parsed.verdict === 'unjudged') {
+      // 未判定既不续命也不清零(§0.3);取不到输入不等于坏,更不等于好
+      logger(`ℹ️ AASA 公网健康:未判定 —— ${String(parsed.why || '(无原因)').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    clearUndeterminedStreak(firstFile)
+    logger(`✅ AASA 公网健康:${Array.isArray(parsed?.legs) ? parsed.legs.length : 0} 腿可达且与单源同构`)
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger('⚠️ AASA 公网健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 /** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
@@ -5630,6 +5745,9 @@ function main() {
     // 资产路径可达性 + 证书到期(2026-10-28 立,尺子 = scripts/check-asset-path-health.mjs):立因 =
     // 生产 .env 四条支付宝证书路径写在已不存在的 F: 盘上,SDK 静默读不到证书,全仓零门喊过。6h 节流。
     if (!CHECK_ONLY) auditAssetPathHealth()
+    // AASA 公网健康(2026-10-29 立):这台尺子造出来时只接了手工入口 `pnpm check:aasa-health`,
+    // 没人按时跑它 —— 而它守的是"AASA 两腿公网可达且与单源同构",属机主面之外唯一能自动守的半格。
+    if (!CHECK_ONLY) auditAasaPublicHealth()
     // 「完成即删」兜底清扫已提前到 healWorktreeTracked 之后(2026-10-22 调度加固,见该处注释):
     // 挂在这一长串探测之后实测整轮到不了,清扫心跳会长期停摆。
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
@@ -5778,12 +5896,6 @@ function startDaemon() {
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
         auditOpsPatrol()
         auditLintStagedPins()
-        // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
-        // .ihui-agent/state/feedback-loop-closure-tick.ts 节流戳 ⇒ 双执行体并存只有先到那一个真跑,
-        // 不会翻倍发信)。为什么必须挂在 tick 而不是只挂 main():startDaemon 是内存常驻的
-        // setTimeout 链,不重读本文件;只挂 main() 一次性路径的话,常驻守护**永远跑不到**这一格,
-        // 闭环就退回"器件在、没人看"。挂上后本改动需重启守护进程才生效(常驻不重读)。
-        auditFeedbackLoopClosure()
         // 同一挂点语义:与 main() 单轮路径共用 .ihui-agent/state/service-heal-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会把同一台服务重启两遍。
         healUnresponsiveServices()
