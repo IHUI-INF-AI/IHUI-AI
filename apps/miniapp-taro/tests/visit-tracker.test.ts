@@ -36,6 +36,7 @@ import {
   currentPageRoute,
   pageViewPath,
   reportPageView,
+  settlePageTime,
   startPageViewTracking,
   stopPageViewTracking,
   MP_VISIT_DEBOUNCE_MS,
@@ -156,6 +157,50 @@ describe('startPageViewTracking', () => {
     vi.advanceTimersByTime(2000)
     expect(callCount()).toBe(2)
     stopPageViewTracking()
+  })
+})
+
+describe('settlePageTime(退后台收口)', () => {
+  it('退后台结算当前页停留:page_time 带当前页路径与整秒数,并清空在页状态', () => {
+    reportPageView('pages/index/index', 0)
+    expect(settlePageTime(30_000)).toBe(true)
+    expect(h.api.recordAnalyticsEvents).toHaveBeenCalledTimes(1)
+    const events = h.api.recordAnalyticsEvents.mock.calls[0]![0] as Array<{
+      name: string
+      label?: string
+      value?: number
+    }>
+    expect(events[0]!.name).toBe('page_time')
+    expect(events[0]!.label).toBe('/mp/pages/index/index')
+    expect(events[0]!.value).toBe(30)
+
+    // 清空后再次结算是 no-op(不重复报)
+    expect(settlePageTime(31_000)).toBe(false)
+    expect(h.api.recordAnalyticsEvents).toHaveBeenCalledTimes(1)
+  })
+
+  it('没有在页记录时是 no-op(启动即退后台不造空 label 事件)', () => {
+    expect(settlePageTime(1_000)).toBe(false)
+    expect(h.api.recordAnalyticsEvents).not.toHaveBeenCalled()
+  })
+
+  it('亚秒级停留不报(与换页结算同一判据),但状态仍被清掉', () => {
+    reportPageView('pages/index/index', 0)
+    expect(settlePageTime(300)).toBe(false)
+    expect(h.api.recordAnalyticsEvents).not.toHaveBeenCalled()
+    expect(settlePageTime(60_000)).toBe(false)
+  })
+
+  it('收口后回前台,轮询照常重新进页并结算', () => {
+    reportPageView('pages/index/index', 0)
+    settlePageTime(10_000)
+    expect(reportPageView('pages/chat/index', 20_000)).toBe(true)
+    // 首页已在收口里结算过;这次换页时在页为空 ⇒ 不新增 page_time
+    expect(h.api.recordAnalyticsEvents).toHaveBeenCalledTimes(1)
+    // 再换页 ⇒ 正常结算 chat 段
+    reportPageView('pages/me/index', 50_000)
+    const events2 = h.api.recordAnalyticsEvents.mock.calls[1]![0] as Array<{ label?: string }>
+    expect(events2[0]!.label).toBe('/mp/pages/chat/index')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
