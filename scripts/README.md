@@ -176,13 +176,14 @@ Git 协作守门、CLI 验证、运维工具、证书管理、API 工具、基�
 | test-llm-connection.mjs  | 验证 AI service LLM 接入是否可用(/health + 模型调用)               | —             | 默认 AI_URL=http://localhost:8803   |
 | video-ops.mjs            | 视频下载(yt-dlp)与 OSS 上传工具                                    | —             | 等价自历史项目 PowerShell 脚本      |
 
-### 证书管理(3 个)
+### 证书管理(4 个)
 
-| 脚本名                         | 用途                                                   | pre-commit 项 | 备注                |
-| ------------------------------ | ------------------------------------------------------ | ------------- | ------------------- |
-| fetch-wechat-platform-cert.mjs | 微信支付 V3 平台证书拉取(写入 cert/platform_cert.pem)  | —             | 用于验签回调        |
-| cert-renew-watchdog.mjs        | 平台证书续签 Watchdog(周期拉取,有变化才写入)           | —             | 建议 cron:每月 1 次 |
-| cert-expiry-check.mjs          | 证书过期检查(提前 30 天告警 + 私钥格式 + 证书私钥匹配) | —             | 已过期 exit 1       |
+| 脚本名                         | 用途                                                                                             | pre-commit 项 | 备注                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------ | ------------- | ------------------------------------------- |
+| fetch-wechat-platform-cert.mjs | 微信支付 V3 平台证书拉取(写入 cert/platform_cert.pem)                                            | —             | 用于验签回调                                |
+| cert-renew-watchdog.mjs        | 平台证书续签 Watchdog(周期拉取,有变化才写入)                                                     | —             | 建议 cron:每月 1 次                         |
+| cert-expiry-check.mjs          | 证书过期检查(提前 30 天告警 + 私钥格式 + 证书私钥匹配)                                            | —             | 已过期 exit 1                               |
+| check-asset-path-health.mjs    | 受管 `.env` 引用的绝对路径可达性 + 证书到期(委托 cert-expiry-check,单一判据)                     | —             | `git-guardian` 每 6h 派发(`auditAssetPathHealth`) |
 
 ### 其他工具(1 个)
 

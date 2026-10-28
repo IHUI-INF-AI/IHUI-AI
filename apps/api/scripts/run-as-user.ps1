@@ -343,24 +343,31 @@ public static class IHUIUserProcess
             if (!CreateEnvironmentBlock(out env, primary, false))
                 throw new Win32Exception(Marshal.GetLastWin32Error(), "CreateEnvironmentBlock 失败");
 
-            IntPtr hIn = GetStdHandle(STD_INPUT_HANDLE);
-            IntPtr hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-            IntPtr hErr = GetStdHandle(STD_ERROR_HANDLE);
-            if (hIn != IntPtr.Zero) SetHandleInformation(hIn, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
-            if (hOut != IntPtr.Zero) SetHandleInformation(hOut, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
-            if (hErr != IntPtr.Zero) SetHandleInformation(hErr, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
-
             STARTUPINFO si = new STARTUPINFO();
             si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
-            si.dwFlags = STARTF_USESTDHANDLES;
             si.lpDesktop = "winsta0\\default";
-            si.hStdInput = hIn;
-            si.hStdOutput = hOut;
-            si.hStdError = hErr;
+            // 2026-10-28 真机实证修正:-NoWait(拉起长驻 GUI,如登录本机后的客户端)时
+            // **绝不继承**调用方 std 句柄 —— 子进程会持有 execFileSync 的管道写端,调用方
+            // 等 EOF 直到超时(ETIMEDOUT),把"拉起成功"误报成"未能重新拉起"(实测:窗口
+            // 已在用户会话打开,API 却报失败)。只有等待子进程输出的路径才需要句柄回传。
+            bool inherit = !noWait;
+            if (inherit)
+            {
+                IntPtr hIn = GetStdHandle(STD_INPUT_HANDLE);
+                IntPtr hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+                IntPtr hErr = GetStdHandle(STD_ERROR_HANDLE);
+                if (hIn != IntPtr.Zero) SetHandleInformation(hIn, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+                if (hOut != IntPtr.Zero) SetHandleInformation(hOut, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+                if (hErr != IntPtr.Zero) SetHandleInformation(hErr, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+                si.dwFlags = STARTF_USESTDHANDLES;
+                si.hStdInput = hIn;
+                si.hStdOutput = hOut;
+                si.hStdError = hErr;
+            }
 
             PROCESS_INFORMATION pi;
             uint flags = CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW;
-            bool started = CreateProcessAsUserW(primary, exe, cmdLine, IntPtr.Zero, IntPtr.Zero, true, flags, env, cwd, ref si, out pi);
+            bool started = CreateProcessAsUserW(primary, exe, cmdLine, IntPtr.Zero, IntPtr.Zero, inherit, flags, env, cwd, ref si, out pi);
             if (!started)
             {
                 int firstError = Marshal.GetLastWin32Error();
