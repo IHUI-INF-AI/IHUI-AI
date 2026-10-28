@@ -10,22 +10,6 @@ export { MarkdownViewer } from './MarkdownViewer'
 export { CodeViewer } from './CodeViewer'
 export { FilePreview } from './FilePreview'
 export type { ImagePreviewItem } from './FilePreview'
-export {
-  ArtifactTurnBadge,
-  ArtifactKindBadge,
-  ArtifactTurnNav,
-  artifactKindOf,
-  collectArtifactTurns,
-  assistantTurnOf,
-  artifactTurnIndex,
-  jumpToMessageOrigin,
-  emitFocusArtifact,
-  tryFocusArtifactFromLink,
-  useArtifactTurnNav,
-  useFocusArtifactScroll,
-  SCROLL_TO_MESSAGE_EVENT,
-  FOCUS_ARTIFACT_EVENT,
-} from './artifact-turn-badge'
 export type {
   ArtifactKind,
   TurnArtifact,
