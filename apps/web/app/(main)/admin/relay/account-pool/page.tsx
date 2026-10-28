@@ -153,6 +153,18 @@ const LOCAL_LOGIN_UNSUPPORTED: Partial<Record<ProviderCode, string>> = {
   grokbot: '本机凭证是 sandSealedFile 密封串,没有明文 token 可重建',
 }
 
+/**
+ * 写前「先关客户端、写完自动拉起」的平台(2026-10-28 与 scripts/local-login.mjs 的
+ * CLIENT_IMAGES + trae 同口径):落点会被运行中的 GUI 用内存态覆写,不先关就是假绿。
+ * codex/opencode 是 CLI,每次启动现读 auth.json,写了即生效,不需要碰进程。
+ */
+const LOCAL_LOGIN_RESTARTS_CLIENT: ReadonlySet<ProviderCode> = new Set<ProviderCode>([
+  'trae',
+  'codearts',
+  'qoder',
+  'minimax',
+  'zcode',
+])
 // 24h 用量摘要。后端契约字段均为 number,但后端尚未合并时可能整体缺失,
 // 故全部可选并做容错渲染(缺字段显示 "-",不阻塞 typecheck)。
 interface UsageSummary {
@@ -1581,12 +1593,15 @@ export default function AdminRelayAccountPoolPage() {
                                 const provider = k.providerCode as ProviderCode
                                 const unsupported = LOCAL_LOGIN_UNSUPPORTED[provider]
                                 const label = LOCAL_LOGIN_LABEL[provider] ?? k.providerCode
+                                const willRestart = LOCAL_LOGIN_RESTARTS_CLIENT.has(provider)
                                 return (
                                   <Tooltip
                                     content={
                                       unsupported
                                         ? `登录本机不可用:${unsupported}`
-                                        : `登录本机:把该号写进本机 ${label} 客户端登录态(写前自动备份原文件,可回滚)`
+                                        : `登录本机:把该号写进本机 ${label} 客户端登录态(写前自动备份原文件,可回滚)${
+                                            willRestart ? ';写前自动关闭客户端、写完自动重新打开' : ';CLI 下次启动即生效'
+                                          }`
                                     }
                                   >
                                     <span className="inline-flex">
@@ -1598,10 +1613,9 @@ export default function AdminRelayAccountPoolPage() {
                                         onClick={() => {
                                           void confirm({
                                             title: `把「${k.name}」登录到本机 ${label}?`,
-                                            description:
-                                              provider === 'trae'
-                                                ? `会替换本机当前 ${label} 登录态(写入前自动备份原文件)。写入前会自动关闭 ${label} 并在写入完成后重新打开 —— 客户端运行中直接写会被它退出时的内存态覆盖,所以必须先关后写。请先保存手头未保存的文件。`
-                                                : `会替换本机当前 ${label} 登录态(写入前自动备份原文件)。写入后需重启 ${label} 才生效。`,
+                                            description: willRestart
+                                              ? `会替换本机当前 ${label} 登录态(写入前自动备份原文件)。写入前会自动关闭 ${label} 并在写入完成后重新打开 —— 客户端运行中直接写会被它退出时的内存态覆盖,所以必须先关后写。请先保存手头未保存的文件。`
+                                              : `会替换本机当前 ${label} 登录态(写入前自动备份原文件)。CLI 每次启动现读登录态,写完即生效,无需重启。`,
                                             confirmText: '写入并替换',
                                           }).then((ok) => {
                                             if (ok) loginLocalMut.mutate(k.id)
