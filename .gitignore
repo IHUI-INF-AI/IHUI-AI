@@ -613,3 +613,6 @@ apps/web/.next-wbcheck/
 deploy/win/.alert-quiet-ledger.jsonl
 # 含 Cloudflare API 令牌的运行配置（其 .example 模板才入库，勿将真 .env 提交）
 deploy/cf-preferred-ip.env
+
+# 非本仓交付物(别的项目的 PDF/HTML 产物)误落在仓根;§28 让被忽略的一级条目进只告警层,免得每席位提交都撞应急档
+/deliverables/
