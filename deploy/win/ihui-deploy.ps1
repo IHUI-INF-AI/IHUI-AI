@@ -3150,17 +3150,77 @@ if ($webBg) {
     Log "OK    web 蓝绿切换完成且健康(切换期间 8801 未断监听)"
 
     # ── router 在位保障(首次从单实例迁入蓝绿时才需要动作)───────────────────────
-    # 此刻状态文件已指向**已健康的目标色**,所以先把 router 顶上 8801、再停单实例 IHUI-WEB
-    # 是安全的:router 一起来就指到能出页面的实例。反过来(先停 web 再起 router)会留出空窗。
+    # 原注释"先起 router 顶上 8801 再停单实例是安全的"前提是错的:Windows 端口不能被两进程
+    # 同时 bind,而此刻 8801 还被单实例 IHUI-WEB 占着。实测后果 = router bind 失败→退出→
+    # nssm 按 AppExit=Restart 节流→服务停在 Paused/StartPending,而代码却继续停掉唯一在服务的
+    # IHUI-WEB ⇒ 8801 无人应答、整站下线。故顺序改成:验目标色健康 → 停单实例释放 8801 →
+    # 起 router → **有界轮询证明 router 真应答 8801**,才允许保留单实例已停;轮询不成立当场回滚。
+    function Get-RouterLogTail {
+        # 失败点名真因:从 nssm 现取 router 的 stdout/stderr 落点尾部若干行(不硬编码文件名);
+        # 取不到落点/读不到内容一律显式写"取不到日志",不静默。
+        $tails = @()
+        foreach ($key in 'AppStderr', 'AppStdout') {
+            $p = ''
+            try { $p = (& nssm get 'IHUI-WEB-ROUTER' $key 2>$null | Out-String).Trim() } catch {}
+            if (-not $p -or -not (Test-Path -LiteralPath $p)) { $tails += "$key=取不到日志"; continue }
+            try { $tails += ("$key=" + ((Get-Content -LiteralPath $p -Tail 20 -ErrorAction Stop | Out-String)).Trim()) }
+            catch { $tails += "$key=取不到日志($($_.Exception.Message))" }
+        }
+        return ($tails -join ' || ')
+    }
+
     $routerSvc = Get-Service -Name 'IHUI-WEB-ROUTER' -ErrorAction SilentlyContinue
     if ($routerSvc -and $routerSvc.Status -eq 'Running') {
-        Log "OK    web router 已在位(8801)"
-    } else {
-        Log "首次迁入蓝绿:起 IHUI-WEB-ROUTER 接管 8801 → 再停单实例 IHUI-WEB"
-        Start-Service -Name 'IHUI-WEB-ROUTER' -ErrorAction Stop
-        # 单实例必须改成手动:否则机器重启后它会与 router 抢 8801,蓝绿形同虚设且现象极难归因。
-        try { Set-Service -Name 'IHUI-WEB' -StartupType Manual -ErrorAction Stop; Log "OK    IHUI-WEB 启动类型已改为 Manual(避免重启后与 router 抢 8801)" } catch { Log "WARN  IHUI-WEB 启动类型改 Manual 失败:$_" }
-        try { Stop-Web } catch { Log "WARN  停止 IHUI-WEB 失败(router 已接管 8801,不影响服务):$_" }
+        # 幂等:仅当 router Running 且 8801 实测健康才算"已在位";Paused/StartPending/Stopped
+        # 或名义 Running 却不应答,都不得当作已在位。
+        $hit = Invoke-Probe -Url 'http://127.0.0.1:8801/' -Contains '<!DOCTYPE html'
+        if ($hit.Verdict -eq 'pass') {
+            Log "OK    web router 已在位(8801 实测健康)"
+        } else {
+            Log "WARN  IHUI-WEB-ROUTER 名义 Running 但 8801 未应答($($hit.Reason))⇒ 按未在位处理"
+            $routerSvc = $null
+        }
+    }
+    if (-not $routerSvc) {
+        # 迁入前先证目标色自身健康:router 起来就指到它,目标色不健康时绝不能停单实例。
+        $tgtProbe = Invoke-Probe -Url "http://127.0.0.1:$($WebBgPorts[$webTarget])/" -Contains '<!DOCTYPE html'
+        if ($tgtProbe.Verdict -ne 'pass') {
+            Log "WARN  目标色 $webTarget(:$($WebBgPorts[$webTarget])) 未通过健康探测($($tgtProbe.Reason))⇒ 不迁入 router,保持单实例 IHUI-WEB 服务 8801"
+        } else {
+            Log "首次迁入蓝绿:停单实例释放 8801 → 起 IHUI-WEB-ROUTER → 轮询证明 8801 真应答"
+            $gapStart = Get-Date
+            # 停单实例腾出 8801(腾不出来则 router 一定 bind 失败,由下方轮询兜住并回滚)。
+            try { Stop-Web } catch { Log "WARN  停止 IHUI-WEB 异常(继续尝试起 router,以 8801 实测为准):$_" }
+            try { Start-Service -Name 'IHUI-WEB-ROUTER' -ErrorAction Stop } catch { Log "WARN  Start-Service IHUI-WEB-ROUTER 抛错,改由轮询判定:$_" }
+            # 有界轮询(与下方"切流后就绪等待"同写法:while + Invoke-Probe + break + 心跳续锁)。
+            $routerBudgetSec = 60
+            $routerOk = $false
+            while (((Get-Date) - $gapStart).TotalSeconds -lt $routerBudgetSec) {
+                $rRouter = Invoke-Probe -Url 'http://127.0.0.1:8801/' -Contains '<!DOCTYPE html'
+                if ($rRouter.Verdict -eq 'pass') { $routerOk = $true; break }
+                Start-Sleep -Seconds 2
+                Update-DeployLockHeartbeat
+            }
+            $gapSec = [int]((Get-Date) - $gapStart).TotalSeconds
+            if ($routerOk) {
+                # router 已实测接管 8801 ⇒ 单实例才允许停用。不改 Manual,机器重启后单实例会与 router 抢 8801。
+                try { Set-Service -Name 'IHUI-WEB' -StartupType Manual -ErrorAction Stop; Log "OK    IHUI-WEB 启动类型已改为 Manual(避免重启后与 router 抢 8801)" } catch { Log "WARN  IHUI-WEB 启动类型改 Manual 失败:$_" }
+                Log "OK    web router 已接管 8801(迁入空窗 $gapSec 秒,上限 $routerBudgetSec 秒)"
+            } else {
+                # 轮询不成立 ⇒ router 没真在监听。当场回滚:还原 Automatic、把单实例拉回恢复 8801,
+                # 绝不留"router 没起来 + 单实例被停"的中间态;回滚后再量一次 8801 是否真的活过来。
+                try { Set-Service -Name 'IHUI-WEB' -StartupType Automatic -ErrorAction SilentlyContinue } catch {}
+                try { Start-Service -Name 'IHUI-WEB' -ErrorAction Stop } catch { Log "WARN  回滚拉回 IHUI-WEB 抛错:$_" }
+                $rbkOk = $false
+                for ($i = 1; $i -le 10; $i++) {
+                    if ((Invoke-Probe -Url 'http://127.0.0.1:8801/' -Contains '<!DOCTYPE html').Verdict -eq 'pass') { $rbkOk = $true; break }
+                    Start-Sleep -Seconds 2
+                    Update-DeployLockHeartbeat
+                }
+                $rbkTxt = if ($rbkOk) { '已恢复服务' } else { '仍可能不可服务,需人工介入' }
+                Fail "web router 迁入失败:轮询 $gapSec 秒 8801 未应答;已回滚单实例 IHUI-WEB($rbkTxt)" -Detail ("router 日志尾部: " + (Get-RouterLogTail)) -Reason "web-router not-listening"
+            }
+        }
     }
 } else {
     Log "WARN  IHUI_DEPLOY_WEB_BG 已关闭 ⇒ 走旧的停-起路径(8801 会有切流空窗)"
