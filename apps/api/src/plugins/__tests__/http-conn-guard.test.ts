@@ -4,8 +4,6 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { EventEmitter } from 'node:events'
-import { readFileSync, readdirSync } from 'node:fs'
-import { join, relative } from 'node:path'
 import Fastify from 'fastify'
 import { httpConnGuard, __test__ } from '../http-conn-guard.js'
 
@@ -217,67 +215,8 @@ describe('onResponse 链存续 —— 本插件不得冻住下游钩子', () => 
     await app.close()
   })
 
-  it('静态锁:src 下终结型钩子(onResponse/onRequestAbort/onTimeout)一律不得是同步形态', () => {
-    const SRC = join(__dirname, '..', '..')
-    const TERMINAL = ['onResponse', 'onRequestAbort', 'onTimeout']
-    const files: string[] = []
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        if (e.name === '__tests__' || e.name === 'node_modules') continue
-        const p = join(dir, e.name)
-        if (e.isDirectory()) walk(p)
-        else if (e.name.endsWith('.ts') && !e.name.endsWith('.test.ts')) files.push(p)
-      }
-    }
-    walk(SRC)
-
-    // 具名处理器可能定义在别的文件(_audit-hook.ts 那一类),先建全局定义表再判形态
-    const defs = new Map<string, string>()
-    for (const f of files) {
-      for (const l of readFileSync(f, 'utf-8').split('\n')) {
-        const m = l.match(/(?:const|let|var|function)\s+([A-Za-z_$][\w$]*)\b/)
-        if (m?.[1] && !defs.has(m[1])) defs.set(m[1], l)
-      }
-    }
-
-    const reHook = new RegExp(`addHook\\(\\s*'(?:${TERMINAL.join('|')})'\\s*,\\s*`)
-    const reAsyncInline = new RegExp(`addHook\\(\\s*'(?:${TERMINAL.join('|')})'\\s*,\\s*async\\b`)
-    const reSyncInline = new RegExp(
-      `addHook\\(\\s*'(?:${TERMINAL.join('|')})'\\s*,\\s*(?:\\(|function\\b)`,
-    )
-    const reNamed = new RegExp(
-      `addHook\\(\\s*'(?:${TERMINAL.join('|')})'\\s*,\\s*([A-Za-z_$][\\w$]*)\\s*[,)]`,
-    )
-
-    const bad: string[] = []
-    for (const f of files) {
-      const lines = readFileSync(f, 'utf-8').split('\n')
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i] ?? ''
-        if (!reHook.test(line)) continue
-        if (reAsyncInline.test(line)) continue
-        const short = relative(SRC, f).replace(/\\/g, '/')
-        if (reSyncInline.test(line)) {
-          // 内联同步:只有显式接 next 才算合法(callback 式)
-          const body = lines.slice(i, i + 25).join('\n')
-          if (!/\bnext\s*\(/.test(body)) bad.push(`${short}:${i + 1} 内联同步且不调 next`)
-          continue
-        }
-        const name = line.match(reNamed)?.[1]
-        if (!name) {
-          bad.push(`${short}:${i + 1} 处理器形态无法判定(判据不得放过看不见的形态)`)
-          continue
-        }
-        const def = defs.get(name)
-        if (def === undefined) {
-          bad.push(`${short}:${i + 1} 具名处理器 ${name} 在 src 内找不到定义,无法证明它是 async`)
-          continue
-        }
-        if (!/\basync\b/.test(def)) bad.push(`${short}:${i + 1} 具名处理器 ${name} 是同步形态`)
-      }
-    }
-
-    expect(bad, `以下终结型钩子会把其下游整条链静默冻住:\n${bad.join('\n')}`).toEqual([])
-  })
+  // 形态判据(全 src 扫描)不在这里复算 —— 它住在守门 258 scripts/check-ddos-guard-wiring.mjs 的
+  // W4(§0.6 单一真相源;那一档每次提交都跑,本文件只在 CI/手动 vitest 跑)。
+  // 上面两条行为锁留在这里,因为它们必须有真 Fastify 实例才成立。
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
