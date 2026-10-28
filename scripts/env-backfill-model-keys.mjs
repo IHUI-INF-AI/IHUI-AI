@@ -686,17 +686,16 @@ async function main() {
       report.push(`${entry.key}: 跳过(${reason})`)
       continue
     }
-    const re = new RegExp(`^${entry.key}=(.*)$`, 'm')
-    const m = out.match(re)
-    if (!m) {
-      report.push(`${entry.key}: 跳过(.env 无此键,如需新增请手动添加)`)
+    const r = fillEmptyKeyLine({ out, key: entry.key, value: pick })
+    if (!r.ok) {
+      report.push(
+        r.why === 'no-such-key'
+          ? `${entry.key}: 跳过(.env 无此键,如需新增请手动添加)`
+          : `${entry.key}: 跳过(已有值,不覆盖)`,
+      )
       continue
     }
-    if (m[1].trim() !== '') {
-      report.push(`${entry.key}: 跳过(已有值,不覆盖)`)
-      continue
-    }
-    out = out.replace(re, `${entry.key}=${pick}`)
+    out = r.out
     report.push(`${entry.key}: 已回填 ${describe(pick)}`)
   }
 
@@ -734,5 +733,23 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { writeEnvWithReadBack, parseArgs, describe, tokens }
+/**
+ * 把 `KEY=` 那一行的空值填上候选值(全仓唯一替换出口,2026-10-28 立)。
+ *
+ * 抽成函数不是为了整洁,是因为这一条**必须能被真跑到**:replacement 若写成模板字符串
+ * (`out.replace(re, \`${key}=${value}\`)`),replacement 里的 `$&` / `` $` `` / `$'` / `$n`
+ * 会被当成替换模式解释 —— 而第三方 API token 含 `$` 是正常形态。咬中就是**静默写坏密钥**:
+ * 落盘值≠候选值,下一行照打"已回填",要等下次 ai-service 静默降级才暴露,而 §5d 的判读口径
+ * 是"只有鉴通过才算有效"。返回函数形式即不解释任何 `$` 模式。
+ * 只填空值、绝不覆盖既有值(与巡检档同一口径)。
+ */
+export function fillEmptyKeyLine({ out, key, value }) {
+  const re = new RegExp(`^${key}=(.*)$`, 'm')
+  const m = out.match(re)
+  if (!m) return { ok: false, why: 'no-such-key', out }
+  if (m[1].trim() !== '') return { ok: false, why: 'already-set', out }
+  return { ok: true, why: '', out: out.replace(re, () => `${key}=${value}`) }
+}
+
+export const __test__ = { writeEnvWithReadBack, parseArgs, describe, tokens, fillEmptyKeyLine }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
