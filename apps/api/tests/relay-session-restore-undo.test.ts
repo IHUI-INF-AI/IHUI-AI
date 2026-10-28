@@ -8,7 +8,8 @@
  * - ops.jsonl 记账完整(逐文件 restore 条 + restore-run 汇总)且零内容回显;
  * - undo 后覆盖场景逐字节还原、新增场景删到不存在;
  * - undo 对被第三方改过的文件整批拒绝(零写入,宁拒不静默覆盖);
- * - --list-ops 列历史;undo 默认 dry-run 零写入。
+ * - --list-ops 列历史;undo 默认 dry-run 零写入;
+ * - gzip 压缩条目(2026-10-28 增):留底/记账/还原全部按原文,undo 腿无需感知压缩。
  */
 
 import {
@@ -24,6 +25,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { gzipSync } from 'node:zlib'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   applyRestore,
@@ -381,6 +383,118 @@ describe('--list-ops 与 undo dry-run', () => {
         n.includes('.undoing-'),
       ),
     ).toEqual([])
+  })
+})
+
+/**
+ * gzip 压缩快照夹具(全条目压缩):磁盘 `<rel>.gz`,manifest 条目带 encoding:'gzip',
+ * bytes/sha256 仍为解压后原文基准 —— 与备份腿 --gzip 产物同形。
+ */
+function makeGzipFixture(): Fixture {
+  const root = mkdtempSync(join(tmpdir(), 'wb-restore-undo-gz-test-'))
+  const snapDir = join(root, 'snap')
+  const srcSessions = join(root, 'src', 'sessions')
+  const srcProjects = join(root, 'src', 'projects')
+  const contents = new Map<string, string>([
+    ['workspace/sess-1/state.json', '{"v":1}'],
+    ['workspace/sess-1/transcript.jsonl', `${SECRET_SENTINEL}\nline2\n`],
+    ['ws-a/conv.jsonl', 'hello\n'],
+  ])
+  const files: BackupFileEntry[] = []
+  for (const [rel, content] of contents) {
+    const abs = relToSnapAbs(rel, snapDir)
+    mkdirSync(join(abs, '..'), { recursive: true })
+    writeFileSync(`${abs}.gz`, gzipSync(Buffer.from(content)))
+    files.push({
+      rel,
+      bytes: Buffer.byteLength(content),
+      mtimeMs: statSync(`${abs}.gz`).mtimeMs,
+      sha256: shaOf(content),
+      encoding: 'gzip',
+    })
+  }
+  writeFileSync(
+    join(snapDir, 'manifest.json'),
+    JSON.stringify(
+      {
+        createdAt: new Date().toISOString(),
+        source: { sessionsRoot: srcSessions, projectsRoot: srcProjects },
+        files,
+      },
+      null,
+      2,
+    ),
+  )
+  return { root, snapDir, srcSessions, srcProjects, contents }
+}
+
+describe('gzip 压缩条目 × 逐条可撤', () => {
+  it('压缩快照 force 覆盖 + undo:留底/落地/还原全部按原文逐字节,undo 腿无需感知压缩', () => {
+    const fx = makeGzipFixture()
+    cleanup.push(fx.root)
+    seedDrifted(fx)
+    const stats = applyRestore(planOf(fx), { force: true })
+    expect(stats.restored).toBe(3)
+    // 落地为原始名/原始字节(目标侧永远未压缩)
+    expect(readFileSync(join(fx.srcSessions, 'sess-1', 'transcript.jsonl'), 'utf8')).toBe(
+      fx.contents.get('workspace/sess-1/transcript.jsonl'),
+    )
+    expect(relsUnder(fx.srcSessions).some((n) => n.endsWith('.gz'))).toBe(false)
+
+    // 记账与留底按原文 sha(压缩只是磁盘存储形态,校验基准不变)
+    const opsRoot = opsRootOf(fx)
+    const fileOps = readRestoreOps(opsRoot).filter((o) => o.type === 'restore')
+    const tOp = fileOps.find((o) => o.file === 'workspace/sess-1/transcript.jsonl')
+    expect(tOp?.before).toEqual({ exists: true, sha256: shaOf(DRIFTED) })
+    expect(tOp?.afterSha).toBe(shaOf(fx.contents.get('workspace/sess-1/transcript.jsonl')!))
+    const beforeAbs = join(
+      opsRoot,
+      lastOpId(fx),
+      'before',
+      'workspace',
+      'sess-1',
+      'transcript.jsonl',
+    )
+    expect(readFileSync(beforeAbs, 'utf8')).toBe(DRIFTED)
+
+    // undo --apply:覆盖文件逐字节还原动前,新增文件删到不存在
+    const code = main(
+      ['--snapshot', fx.snapDir, '--undo', lastOpId(fx), '--apply'],
+      { snapshotDir: fx.snapDir },
+      fx.root,
+    )
+    expect(code).toBe(0)
+    expect(readFileSync(join(fx.srcSessions, 'sess-1', 'transcript.jsonl'), 'utf8')).toBe(DRIFTED)
+    expect(existsSync(join(fx.srcSessions, 'sess-1', 'state.json'))).toBe(false)
+    expect(existsSync(join(fx.srcProjects, 'ws-a', 'conv.jsonl'))).toBe(false)
+    const leftovers = [...relsUnder(fx.srcSessions), ...relsUnder(fx.srcProjects)].filter((n) =>
+      n.includes('.undoing-'),
+    )
+    expect(leftovers).toEqual([])
+  })
+
+  it('压缩快照 undo dry-run 零写入(计划阶段不解盘内容,只比 sha)', () => {
+    const fx = makeGzipFixture()
+    cleanup.push(fx.root)
+    applyRestore(planOf(fx))
+    const opId = lastOpId(fx)
+    const lines: string[] = []
+    const origLog = console.log
+    console.log = (s: string) => lines.push(s)
+    const code = main(
+      ['--snapshot', fx.snapDir, '--undo', opId],
+      { snapshotDir: fx.snapDir },
+      fx.root,
+    )
+    console.log = origLog
+    expect(code).toBe(0)
+    expect(lines.join('\n')).toContain('dry-run')
+    expect(lines.join('\n')).not.toContain(SECRET_SENTINEL)
+    // apply 落地文件原样、无 undo 记账
+    expect(readFileSync(join(fx.srcSessions, 'sess-1', 'transcript.jsonl'), 'utf8')).toBe(
+      fx.contents.get('workspace/sess-1/transcript.jsonl'),
+    )
+    expect(readRestoreOps(opsRootOf(fx)).filter((o) => o.type === 'undo')).toHaveLength(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
