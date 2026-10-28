@@ -198,6 +198,19 @@ function main() {
     }
     const after = git(['rev-parse', 'HEAD']).trim()
     landed = { pages: batch.length, ok: after !== before, headBefore: before.slice(0, 12), headAfter: after.slice(0, 12), err }
+    // 落 HEAD 失败 ⇒ 把本批工作树副本退回 HEAD。
+    // 不退回就自锁:本器为了落地先把生成的正文写进工作树,land 若没推进 HEAD(超时 / CAS 冲突 /
+    // 陈旧守卫),那份正文就留在盘上;下一轮 planUpgrades 看到「工作树副本相对 HEAD 有改动」⇒
+    // 判「他席在飞」held,一页都落不了 —— 而改的人正是自己。实测 2026-10-28 15:53 一轮失败后,
+    // 12 枚可落地页在盘上挂了两小时无人能动。写盘前已用 worktreeClean 证过干净,退回 HEAD
+    // 就是把盘恢复成写之前那一份,不会盖别人的现场。
+    if (!landed.ok) {
+      try {
+        git(['checkout', 'HEAD', '--', ...batch.map((x) => x.pageRel)])
+      } catch (e) {
+        landed.rollbackErr = String(e?.stderr ?? e?.message ?? e).slice(0, 300)
+      }
+    }
     if (landed.ok) {
       try {
         execFileSync(process.execPath, [join(ROOT, 'scripts', 'gen-rn-shell-types.mjs'), '--head', '--write'], {
