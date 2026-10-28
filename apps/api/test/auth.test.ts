@@ -163,6 +163,7 @@ vi.mock('../src/config/index.js', () => ({
 import { authRoutes } from '../src/routes/auth.js'
 import { __test__ as codeStoreTest, putCodeEntry } from '../src/utils/code-store.js'
 import { resetSendQuotaForTests } from '../src/utils/code-echo-guard.js'
+import { __test__ as windowCounterTest } from '../src/utils/window-counter.js'
 import { config } from '../src/config/index.js'
 
 /** G-876:register 只认 register 场景发出的短信码;夹具按发送端同口径备一枚。 */
@@ -312,9 +313,14 @@ describe('auth routes', () => {
     })
 
     it('G-192:同一手机号+IP 超出取码配额返回 429 + Retry-After', async () => {
-      // 每次换 codeStore 的 60 秒重发键,只让频控这一层生效
+      // 每次换 codeStore 的 60 秒重发键,只让频控这一层生效。
+      // 2026-10-28:10-27 给投递侧补了号码三档硬顶(sms:rl:,60s 档"同一号码一次"),
+      // 它排在「手机号+IP 配额」(echo:q:)之前 ⇒ 只清 code-store 的话第二帧就被
+      // 60s 档挡成 429,量到的根本不是本用例要量的那一层。投递侧 IP/设备档
+      // (sms:guard:)同理会跨帧累积,一并清干净。
       for (let i = 0; i < 5; i += 1) {
         await codeStoreTest.reset()
+        await windowCounterTest.reset(['sms:rl:', 'sms:guard:'])
         const ok = await app.inject({
           method: 'POST',
           url: '/api/auth/send-code',
@@ -323,6 +329,7 @@ describe('auth routes', () => {
         expect(ok.statusCode).toBe(200)
       }
       await codeStoreTest.reset()
+      await windowCounterTest.reset(['sms:rl:', 'sms:guard:'])
       const blocked = await app.inject({
         method: 'POST',
         url: '/api/auth/send-code',

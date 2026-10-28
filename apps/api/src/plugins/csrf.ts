@@ -178,6 +178,17 @@ const PUBLIC_PREFIXES = [
   // 生产实测(2026-09-26,公网 https://aizhs.top/api/github-app/webhook)POST 被 403
   // `CSRF 令牌缺失或无效` 拦在签名层之前,安装事件/PR 回调全进不来。
   '/api/github-app/webhook',
+  // 短信厂商回调(路由 2026-10-26 立,2026-10-28 补豁免)。腾讯服务器到服务器投递,
+  // 永远不带 CSRF token;防线是路由自身的 SMS_CALLBACK_TOKEN / SMS_CALLBACK_IP_ALLOWLIST
+  // (fail-closed:两道都没配回 503,不是放行 —— 见 routes/sms-callback.ts 安全边界)。
+  // 与上面 GitHub App 完全同型:不豁免 ⇒ 请求被 CSRF 403 拦在 token 校验之前,而腾讯把
+  // 4xx 当"永久失败"丢弃且不重试 ⇒ 送达回执与上行退订永久丢失,且日志里看起来像
+  // "短信发了没回执"而不是"回调被拦"。**刻意写三条精确整路径而不是 /api/sms/callback/
+  // 前缀**(纪律同上条):前缀会把该族未来路由一起放过,反向锁见 tests/csrf.test.ts 的
+  // "未登记兄弟仍被 CSRF 拦"那条。
+  '/api/sms/callback/tencent',
+  '/api/sms/callback/tencent/status',
+  '/api/sms/callback/tencent/reply',
   // 崩溃上报(2026-08-12 立,匿名可上报,崩溃时未必持有 token;
   // 风险低:仅写 crash_reports 表一条记录,无敏感操作;全局限流防滥用)
   '/api/crash-reports',
