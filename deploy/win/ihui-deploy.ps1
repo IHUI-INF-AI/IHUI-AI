@@ -1216,8 +1216,28 @@ function New-BackupDir { if (-not (Test-Path $BackupDir)) { New-Item -ItemType D
 # 新判据:marker 只记录「最后一次成功部署」的 HEAD,marker != HEAD 即陈旧 → 重建。
 #       任何新提交(含仅改 deploy 脚本的提交)都触发一次重建;next build 仅 ~2.5 分钟,
 #       用确定性换精细度,不再做文件级 diff。失败轮一律不写 marker(见 Set-BuildCooldown)。
+function Get-WebActiveBuildDir {
+    <#
+      当前真正在服务的那一份构建目录(2026-10-28 蓝绿立)。
+      单实例时代产物恒在 .next;蓝绿后随活跃色在 .next-blue / .next-green 之间摆动,
+      而「构建新鲜度」标记必须落在**活跃色**那份里 —— 否则判据去读一份永不再更新的
+      .next,marker 恒缺失 ⇒ Get-BuildStale 每轮 return $true ⇒ 每轮强制整包重建。
+      失效方向刻意保守:状态文件读不出 / 该目录不存在 ⇒ 退回 .next(单实例形态),不猜。
+    #>
+    $stateFile = Join-Path $Root 'deploy\run\web-bluegreen.json'
+    if (Test-Path -LiteralPath $stateFile) {
+        try {
+            $j = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
+            if ($j.active -eq 'green' -or $j.active -eq 'blue') {
+                $d = Join-Path $WebDir ".next-$($j.active)"
+                if (Test-Path -LiteralPath $d) { return $d }
+            }
+        } catch { }
+    }
+    return (Join-Path $WebDir '.next')
+}
 function Get-BuildStale {
-    $marker = "$WebDir\.next\IHUI_BUILD_SHA"
+    $marker = Join-Path (Get-WebActiveBuildDir) 'IHUI_BUILD_SHA'
     if (-not (Test-Path $marker)) { return $true }                     # 无标记 → 无法证明新鲜 → 重建
     $built = (Get-Content $marker -Raw -ErrorAction SilentlyContinue).Trim()
     if ($built -notmatch '^[0-9a-f]{7,40}$') { return $true }
@@ -1228,7 +1248,8 @@ function Get-BuildStale {
     return ($built -ne $head)
 }
 function Set-BuildMarker {
-    $dirNext = "$WebDir\.next"
+    # 标记必须写进「当前活跃色」的构建目录(与 Get-BuildStale 同一把尺子),见 Get-WebActiveBuildDir。
+    $dirNext = Get-WebActiveBuildDir
     if (-not (Test-Path $dirNext)) { return }
     $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
     if ($sha -match '^[0-9a-f]{7,40}$') { Set-Content -Path "$dirNext\IHUI_BUILD_SHA" -Value $sha -NoNewline -ErrorAction SilentlyContinue }
@@ -2017,6 +2038,41 @@ function Restart-Web {
 function Do-Rollback {
     Log "开始回滚:恢复上次 web 构建产物"
     Update-DeployLockHeartbeat        # 整盘 Copy-Item .rollback → .next 要几分钟,回滚期间同样在持有锁
+
+    # ── 蓝绿回滚(2026-10-28 立):旧色构建一直在 ⇒ 改 router 指向即可,不必整盘替换 ──
+    # 单实例时代回滚 = Copy-Item .rollback → .next(整盘数分钟)+ 停-起(期间 8801 无人监听)。
+    # 蓝绿下切流只改 router 指向、旧色 dist 原样保留 ⇒ 回滚就是把指向改回去:秒级,且
+    # 8801 全程有人监听。只有旧色也不可用(首次迁移当轮 / 目录被清)才退回整盘恢复路径。
+    $bgStateFile = Join-Path $Root 'deploy\run\web-bluegreen.json'
+    if (Test-Path -LiteralPath $bgStateFile) {
+        try {
+            $bgj = Get-Content -LiteralPath $bgStateFile -Raw | ConvertFrom-Json
+            if ($bgj.active -eq 'green' -or $bgj.active -eq 'blue') {
+                $oldColor = if ($bgj.active -eq 'blue') { 'green' } else { 'blue' }
+                $oldPort = if ($oldColor -eq 'blue') { 8851 } else { 8852 }
+                $oldDir = Join-Path $WebDir ".next-$oldColor"
+                if (Test-Path "$oldDir\BUILD_ID") {
+                    Log "蓝绿回滚:活跃=$($bgj.active) ⇒ 切回旧色 $oldColor(:$oldPort)"
+                    $rbBg = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'deploy\win\ihui-api-bluegreen.ps1') `
+                        -Target $oldColor -SvcBlue 'IHUI-WEB-BLUE' -SvcGreen 'IHUI-WEB-GREEN' `
+                        -PortBlue 8851 -PortGreen 8852 -HealthPath '/' -HealthMatch '<!DOCTYPE html' `
+                        -StateFile $bgStateFile -LogFile 'D:\DevEnv\logs\web-bluegreen.log' 2>&1
+                    $rbBg | ForEach-Object { Log "  [bg-rollback] $_" }
+                    if ($LASTEXITCODE -eq 0) {
+                        Ok "回滚完成(蓝绿:已切回旧色 $oldColor,8801 未断监听)"
+                        if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+                            try { Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'rolledback' -Reason "蓝绿回滚:切回旧色 $oldColor" | Out-Null } catch { Log "WARN  回滚窗口收口失败(不影响回滚结果):$_" }
+                        }
+                        return
+                    }
+                    Log "WARN  蓝绿回滚未成功(rc=$LASTEXITCODE)⇒ 退回整盘 .rollback 恢复路径"
+                } else {
+                    Log "旧色 $oldColor 构建目录不可用 ⇒ 退回整盘 .rollback 恢复路径"
+                }
+            }
+        } catch { Log "WARN  蓝绿回滚判定失败($($_.Exception.Message))⇒ 退回整盘 .rollback 恢复路径" }
+    }
+
     $rb = "$WebDir\.rollback"
     if (-not (Test-Path "$rb\BUILD_ID")) { Fail "无可用 .rollback 构建,无法回滚" }
     Stop-Web
@@ -2970,7 +3026,9 @@ if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
     Update-IhuiDeployWindowPhase -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'build' -ExpectedMinutes 60 | Out-Null
 }
 Log "备份当前 web 构建 → .rollback"
-$curNext = "$WebDir\.next"
+# 蓝绿后「在服务的那一份」随活跃色摆动 ⇒ 备份源必须是活跃色目录,不能写死 .next
+# (写死就会把一份早已下线的旧构建当成回滚点,回滚后线上反而倒退)。
+$curNext = Get-WebActiveBuildDir
 if (Test-Path "$curNext\BUILD_ID") {
     $rb = "$WebDir\.rollback"
     Remove-Item $rb -Recurse -Force -ErrorAction SilentlyContinue
@@ -3017,23 +3075,108 @@ try {
         Fail "构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)" -Detail "原始报错:$_" -Reason "$_"
     }
 
-# 3) 秒级交换:停 web → 用新构建替换 .next → 起 web
-Log "交换 staging → 线上(.next),重启 web"
+# 3) 切流:web 蓝绿交换(2026-10-28 生产席立;根治 O68「切流空窗」)
+# ── 为什么必须改,而就绪等待不算根治 ────────────────────────────────────────────
+#   web 原是单实例停-起(Stop-Web → 换 .next → Start-Web):停掉那一刻起 8801 就没有监听者,
+#   直到 Next 冷启动完成(实测数十秒)。公网三维里 api/llm 走 /api/* —— 这些路径在 EdgeOne
+#   恒 MISS、必回源 8801 ⇒ 空窗期读到 502;而 web 维探的是 www 首页,被边缘缓存应答
+#   (实测 eo-cache-status=HIT、age 恒 11506s),读不出源站已停 ⇒ 于是判 entry-broken。
+#   上面那段「就绪等待」只是把**门禁起点**推迟到真就绪,空窗本身一秒没少 ⇒ 止血,不是根治。
+# ── 根治形态 ──────────────────────────────────────────────────────────────────
+#   双实例 IHUI-WEB-BLUE(:8851,.next-blue)/ IHUI-WEB-GREEN(:8852,.next-green),
+#   由常驻的 IHUI-WEB-ROUTER 占住 8801 做原子切流。新构建只落到**空闲色**的 dist 目录,
+#   该色起来并通过健康判定之后 router 才改指向 ⇒ 8801 全程有人监听,空窗归零。
+#   旧色的 dist 目录不动 ⇒ 回滚就是"把 router 指回旧色",不必整包替换 .next。
+# ── 回退开关 ──────────────────────────────────────────────────────────────────
+#   IHUI_DEPLOY_WEB_BG=0|false|off ⇒ 走回旧的单实例停-起路径(蓝绿出问题时的原路退回)。
+Log "切流:web 蓝绿交换"
 if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
     Update-IhuiDeployWindowPhase -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'swap' -ExpectedMinutes 60 | Out-Null
 }
-Stop-Web
-Remove-Item "$WebDir\.next" -Recurse -Force -ErrorAction SilentlyContinue
-Move-Item "$WebDir\.next-staging" "$WebDir\.next"
+
+$webBg = $true
+if ($env:IHUI_DEPLOY_WEB_BG -and $env:IHUI_DEPLOY_WEB_BG -match '^(?i:0|false|off)$') { $webBg = $false }
+
+$WebBgStateFile = Join-Path $Root 'deploy\run\web-bluegreen.json'
+$WebBgLogFile   = 'D:\DevEnv\logs\web-bluegreen.log'
+$WebBgPorts     = @{ blue = 8851; green = 8852 }
+
+if ($webBg) {
+    # 活跃色以状态文件为准(与 router / bluegreen 脚本同一份、同一口径);文件缺失或损坏
+    # ⇒ 按 blue 处理,与 router 的 DEFAULT 一致 —— 不猜、不另立一套默认值。
+    $webActive = 'blue'
+    if (Test-Path -LiteralPath $WebBgStateFile) {
+        try {
+            $bgSt = Get-Content -LiteralPath $WebBgStateFile -Raw | ConvertFrom-Json
+            if ($bgSt.active -eq 'green') { $webActive = 'green' }
+        } catch {
+            Log "WARN  web 蓝绿状态文件读不出($($_.Exception.Message))⇒ 按 blue 处理"
+        }
+    }
+    $webOther = if ($webActive -eq 'blue') { 'green' } else { 'blue' }
+    # 与 ihui-api-bluegreen.ps1 的「状态自愈」同构:活跃色已不可服务而另一色健康 ⇒ 本次目标
+    # 就定为活跃色(把唯一在服务的实例换掉是自伤)。两处算法必须同形,否则会出现
+    # "我把新构建放到 A 目录、脚本却去起 B 实例"这种对不上号的形态。
+    $activeProbe = Invoke-Probe -Url "http://127.0.0.1:$($WebBgPorts[$webActive])/" -Contains '<!DOCTYPE html'
+    $otherProbe  = Invoke-Probe -Url "http://127.0.0.1:$($WebBgPorts[$webOther])/" -Contains '<!DOCTYPE html'
+    if ($activeProbe.Verdict -ne 'pass' -and $otherProbe.Verdict -eq 'pass') {
+        $webTarget = $webActive
+        Log "WARN  web 活跃色 $webActive(:$(($WebBgPorts[$webActive]))) 不可服务而另一色健康 ⇒ 本次目标定为 $webTarget(与 bluegreen 自愈同形)"
+    } else {
+        $webTarget = $webOther
+    }
+    $webTargetDist = ".next-$webTarget"
+    Log "web 蓝绿:活跃=$webActive(:$(($WebBgPorts[$webActive]))) 目标=$webTarget(:$(($WebBgPorts[$webTarget])) dist=$webTargetDist)"
+
+    # 新构建落到目标色目录(旧色目录保留 ⇒ 回滚 = 切回旧色)
+    Remove-Item "$WebDir\$webTargetDist" -Recurse -Force -ErrorAction SilentlyContinue
+    Move-Item "$WebDir\.next-staging" "$WebDir\$webTargetDist"
+
+    # 起目标色 → 健康 → 原子切流 → 排空 → 停旧色(复用同一份编排器,不另写一份)
+    $bgPs1 = Join-Path $Root 'deploy\win\ihui-api-bluegreen.ps1'
+    $bgOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $bgPs1 `
+        -Target $webTarget `
+        -SvcBlue 'IHUI-WEB-BLUE' -SvcGreen 'IHUI-WEB-GREEN' `
+        -PortBlue 8851 -PortGreen 8852 `
+        -HealthPath '/' -HealthMatch '<!DOCTYPE html' `
+        -StateFile $WebBgStateFile -LogFile $WebBgLogFile 2>&1
+    $bgRc = $LASTEXITCODE
+    $bgOut | ForEach-Object { Log "  [bg] $_" }
+    if ($bgRc -ne 0) {
+        # 目标色起不来 ⇒ 状态文件未改、旧色/单实例仍在服务 ⇒ 线上无损,按失败收口
+        [void](Write-DeployDecision -Action 'swap-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason "web 蓝绿切换失败,未切流,保持当前在线版本")
+        Fail "web 蓝绿切换失败 ⇒ 未切流,旧实例仍在服务(线上无损)" -Detail ($bgOut -join '; ') -Reason "web-bluegreen rc=$bgRc"
+    }
+    Log "OK    web 蓝绿切换完成且健康(切换期间 8801 未断监听)"
+
+    # ── router 在位保障(首次从单实例迁入蓝绿时才需要动作)───────────────────────
+    # 此刻状态文件已指向**已健康的目标色**,所以先把 router 顶上 8801、再停单实例 IHUI-WEB
+    # 是安全的:router 一起来就指到能出页面的实例。反过来(先停 web 再起 router)会留出空窗。
+    $routerSvc = Get-Service -Name 'IHUI-WEB-ROUTER' -ErrorAction SilentlyContinue
+    if ($routerSvc -and $routerSvc.Status -eq 'Running') {
+        Log "OK    web router 已在位(8801)"
+    } else {
+        Log "首次迁入蓝绿:起 IHUI-WEB-ROUTER 接管 8801 → 再停单实例 IHUI-WEB"
+        Start-Service -Name 'IHUI-WEB-ROUTER' -ErrorAction Stop
+        # 单实例必须改成手动:否则机器重启后它会与 router 抢 8801,蓝绿形同虚设且现象极难归因。
+        try { Set-Service -Name 'IHUI-WEB' -StartupType Manual -ErrorAction Stop; Log "OK    IHUI-WEB 启动类型已改为 Manual(避免重启后与 router 抢 8801)" } catch { Log "WARN  IHUI-WEB 启动类型改 Manual 失败:$_" }
+        try { Stop-Web } catch { Log "WARN  停止 IHUI-WEB 失败(router 已接管 8801,不影响服务):$_" }
+    }
+} else {
+    Log "WARN  IHUI_DEPLOY_WEB_BG 已关闭 ⇒ 走旧的停-起路径(8801 会有切流空窗)"
+    Stop-Web
+    Remove-Item "$WebDir\.next" -Recurse -Force -ErrorAction SilentlyContinue
+    Move-Item "$WebDir\.next-staging" "$WebDir\.next"
+    Start-Web
+}
 # 2026-09-15 修复:next build 在 IHUI_BUILD_DIST 覆盖 distDir 时会把被跟踪的
-#   next-env.d.ts 改写为引用 .next-staging/types/...,但上方只移动 .next 目录、
+#   next-env.d.ts 改写为引用 .next-staging/types/...,但上方只移动构建目录、
 #   不还原该文件 → 残留污染源码树(违反 AGENTS.md「.next-* 变体永不提交」铁律)。
 #   交换完成后立即还原为已提交版本;git 不可用时静默跳过(不阻塞部署)。
 try {
     $gitCmd = Get-Command git -ErrorAction SilentlyContinue
     if ($gitCmd) { & git -C $Root checkout -- apps/web/next-env.d.ts 2>$null }
 } catch { /* 还原失败不阻塞部署,下次本地 git checkout 即可 */ }
-Start-Web
 # ── 切流后就绪等待(2026-10-28/生产席 O68 立:把固定 8s 换成"8801 真就绪再进健康门禁")──
 # 立因(实测:deploy-decisions 台账里 6 枚 pass-entry-broken 全部 dims=api+llm,时间 01:30~09:10):
 #   web 是**停-起**而非蓝绿(见上方 Stop-Web / Start-Web),切流空窗 + Next 冷启动期间 8801 不服务。
