@@ -6,10 +6,12 @@
  * 账号池选号策略单一真相源(2026-10-29 立,台账票 O93,对标竞品
  * workbuddy2api-panel 的 `pool.*` 配置块)。
  *
- * 纯判据层,零 IO:不碰数据库、不碰 Redis、不打日志、不发网络。唯一消费方 =
- * relay-account-forwarder.ts(选号管线 + 全局并发闸取钮值);镜像测试
- * (tests/relay-pool-policy.test.ts)经 `__test__` 直接用本实现钉死判据
- * (§22c 禁复制第二份判据/常量,§0.6 单一真相源)。
+ * 纯判据层,零 IO:不碰数据库、不碰 Redis、不打日志、不发网络。消费方两处 =
+ * relay-account-forwarder.ts(选号管线 + 全局并发闸取钮值)、admin 只读端点
+ * GET /api/admin/relay/pool-policy(经 relayPoolPolicyView 把八枚钮的生效档/默认档
+ * 摊给运维看;只读,不提供写钮)。镜像测试
+ * (tests/relay-pool-policy.test.ts + tests/relay-pool-policy-view.test.ts)经
+ * `__test__` 直接用本实现钉死判据(§22c 禁复制第二份判据/常量,§0.6 单一真相源)。
  *
  * 六项能力(默认值全部保持既有行为语义,旋钮经 env 显式开启):
  * 1. strategy: 'deterministic'(默认,priority asc → 有效权重 desc → 最久未用 asc,
@@ -94,25 +96,54 @@ export const RELAY_POOL_ENV_KEYS = {
 
 type EnvLike = Record<string, string | undefined>
 
-function numEnv(raw: string | undefined, def: number): number {
-  if (raw === undefined || raw.trim() === '') return def
+/**
+ * env 解析结果:`invalid` = 该钮在 env 里写了**非空但代码认不出**的值,已回落默认。
+ * 只有一条判序(§0.6):numEnv/boolEnv/strategyEnv 与只读视图都取这里的 value,
+ * 绝不允许"读的那套认、看的那套不认"。
+ */
+interface KnobResolution<T> {
+  value: T
+  invalid: boolean
+}
+
+function resolveNumEnv(raw: string | undefined, def: number): KnobResolution<number> {
+  if (raw === undefined || raw.trim() === '') return { value: def, invalid: false }
   const n = Number(raw)
   // 非有限/负数 = 脏值 ⇒ 回落默认(0 是合法值,含义为"关闭")
-  if (!Number.isFinite(n) || n < 0) return def
-  return n
+  if (!Number.isFinite(n) || n < 0) return { value: def, invalid: true }
+  return { value: n, invalid: false }
+}
+
+function resolveBoolEnv(raw: string | undefined, def: boolean): KnobResolution<boolean> {
+  if (raw === undefined || raw.trim() === '') return { value: def, invalid: false }
+  const t = raw.trim().toLowerCase()
+  if (t === '1' || t === 'true' || t === 'yes' || t === 'on') return { value: true, invalid: false }
+  if (t === '0' || t === 'false' || t === 'no' || t === 'off') {
+    return { value: false, invalid: false }
+  }
+  return { value: def, invalid: true }
+}
+
+function resolveStrategyEnv(
+  raw: string | undefined,
+  def: RelayPoolStrategy,
+): KnobResolution<RelayPoolStrategy> {
+  const t = (raw ?? '').trim().toLowerCase()
+  if (t === '') return { value: def, invalid: false }
+  if (t === 'weighted_random' || t === 'deterministic') return { value: t, invalid: false }
+  return { value: def, invalid: true }
+}
+
+function numEnv(raw: string | undefined, def: number): number {
+  return resolveNumEnv(raw, def).value
 }
 
 function boolEnv(raw: string | undefined, def: boolean): boolean {
-  if (raw === undefined || raw.trim() === '') return def
-  const t = raw.trim().toLowerCase()
-  if (t === '1' || t === 'true' || t === 'yes' || t === 'on') return true
-  if (t === '0' || t === 'false' || t === 'no' || t === 'off') return false
-  return def
+  return resolveBoolEnv(raw, def).value
 }
 
 function strategyEnv(raw: string | undefined, def: RelayPoolStrategy): RelayPoolStrategy {
-  const t = (raw ?? '').trim().toLowerCase()
-  return t === 'weighted_random' || t === 'deterministic' ? t : def
+  return resolveStrategyEnv(raw, def).value
 }
 
 /** 读 env 装配策略(纯函数:env 作参数注入,不摸全局 ⇒ 测试无需 stubEnv) */
@@ -147,6 +178,181 @@ export function readRelayPoolPolicy(env: EnvLike = process.env): RelayPoolPolicy
       env[RELAY_POOL_ENV_KEYS.crossDomainFallback],
       DEFAULT_RELAY_POOL_POLICY.crossDomainFallback,
     ),
+  }
+}
+
+// =============================================================================
+// 只读视图(面板/排障用;立因@2026-10-29:这八枚钮此前只活在代码里,
+// .env.example 零命中 ⇒ 换机/排障无从发现,运维在面板上也看不到当前生效档位)
+// =============================================================================
+
+/** 钮值类型(与 RelayPoolPolicy 的取值域一致,禁 any) */
+export type RelayPoolKnobValue = number | boolean | RelayPoolStrategy
+
+/** 钮的种类(决定走哪一把 env 解析尺) */
+export type RelayPoolKnobKind = 'number' | 'boolean' | 'strategy'
+
+/** 登记表条目:env 钮名/策略键名/种类/一句话语义(面板 tooltip 单源) */
+export interface RelayPoolKnobSpec {
+  name: keyof RelayPoolPolicy
+  envKey: string
+  kind: RelayPoolKnobKind
+  description: string
+}
+
+/**
+ * 八枚钮的登记表。**新增钮必须同笔在这里登记**,否则 relayPoolPolicyView 的
+ * registryComplete 翻 false(relay-pool-policy-view.test.ts 钉住"登记表键集 ==
+ * DEFAULT_RELAY_POOL_POLICY 键集 == RELAY_POOL_ENV_KEYS 值集"三方对账)——
+ * 这一格是"钮只活在代码里、面板看不见"这个失效方向的封口。
+ */
+export const RELAY_POOL_KNOB_SPECS: readonly RelayPoolKnobSpec[] = [
+  {
+    name: 'strategy',
+    envKey: RELAY_POOL_ENV_KEYS.strategy,
+    kind: 'strategy',
+    description:
+      '选号策略:deterministic(默认,priority asc → 有效权重 desc → 最久未用 asc)/ weighted_random(按有效权重无放回抽样)',
+  },
+  {
+    name: 'idleWeightPerHour',
+    envKey: RELAY_POOL_ENV_KEYS.idleWeightPerHour,
+    kind: 'number',
+    description: '闲置加权:每闲置 1 小时加的分(<=0 = 关闭加权)',
+  },
+  {
+    name: 'idleWeightMax',
+    envKey: RELAY_POOL_ENV_KEYS.idleWeightMax,
+    kind: 'number',
+    description: '闲置加权封顶分(闲置再久也不无限抬分)',
+  },
+  {
+    name: 'preferExpiring',
+    envKey: RELAY_POOL_ENV_KEYS.preferExpiring,
+    kind: 'boolean',
+    description: '同优先级内让「窗口内将到期」的号排前(临期票先消耗,降低整池集体过期断档)',
+  },
+  {
+    name: 'expiringSoonMs',
+    envKey: RELAY_POOL_ENV_KEYS.expiringSoonMs,
+    kind: 'number',
+    description: '「临期」窗口(毫秒,默认 168 小时 = 604800000)',
+  },
+  {
+    name: 'creditFloor',
+    envKey: RELAY_POOL_ENV_KEYS.creditFloor,
+    kind: 'number',
+    description: '积分地板(<=0 = 关闭过滤;读不到积分信息的号一律保留,滤空即回落全集)',
+  },
+  {
+    name: 'maxInFlightGlobal',
+    envKey: RELAY_POOL_ENV_KEYS.maxInFlightGlobal,
+    kind: 'number',
+    description: '全局在途并发上限钮值(<=0 = 关闭闸;闸本体住 relay-account-shared-state)',
+  },
+  {
+    name: 'crossDomainFallback',
+    envKey: RELAY_POOL_ENV_KEYS.crossDomainFallback,
+    kind: 'boolean',
+    description: '跨域互兜(仅对有域概念的 workbuddy 行生效;过滤清空即回落全域并记标签)',
+  },
+]
+
+/** 单枚钮的可展示面 */
+export interface RelayPoolKnobView {
+  /** 策略字段名(camelCase,与 RelayPoolPolicy 的键逐字同源) */
+  name: keyof RelayPoolPolicy
+  /** env 钮名(与 RELAY_POOL_ENV_KEYS 的值逐字同源) */
+  envKey: string
+  kind: RelayPoolKnobKind
+  /** 当前生效值 = readRelayPoolPolicy 读出的那一档(与消费方同一把尺,零复算) */
+  effective: RelayPoolKnobValue
+  /** 默认档值(DEFAULT_RELAY_POOL_POLICY 单源) */
+  defaultValue: RelayPoolKnobValue
+  /** 生效值 ≠ 默认值(即"这枚钮被 env 改过且被代码认出") */
+  differsFromDefault: boolean
+  /** env 原文:undefined = 环境里没这个键;空白串 = 设了空值 ⇒ 两种都算走默认档 */
+  rawEnv: string | undefined
+  /** rawEnv 非空但代码认不出 ⇒ 已回落默认并在此点名(§0.3:脏值绝不冒充合法档) */
+  invalidEnv: boolean
+  /** 一句话语义(面板/日志直接展示,不在调用方另写一份) */
+  description: string
+}
+
+/** 八枚钮 + 对账结论的整档视图 */
+export interface RelayPoolPolicyView {
+  /** 按 RELAY_POOL_KNOB_SPECS 顺序逐枚展开 */
+  knobs: RelayPoolKnobView[]
+  /** 生效策略整档(与 readRelayPoolPolicy(env) 逐键等值) */
+  policy: RelayPoolPolicy
+  /** 登记表键集 ⇄ 策略键集 ⇄ env 钮名集三方对账结论 */
+  registryComplete: boolean
+  /** 策略里有、登记表没登记 ⇒ 面板读不到的钮(必须显式点名,不得当成"没有这一钮") */
+  missingKnobs: string[]
+  /** 登记表里有、策略里没有的钮名(没有默认档可比 ⇒ 不进 knobs) */
+  orphanKnobs: string[]
+  /** 偏离默认档的钮数 */
+  deviatedKnobs: number
+  /** env 写了脏值而回落默认的钮数(>0 ⇒ 有人在 .env 里写了代码认不出的形态) */
+  invalidEnvKnobs: number
+  /** true = 生效档与 DEFAULT_RELAY_POOL_POLICY 逐键等值(既有确定性选号行为,未开任何新能力) */
+  allDefault: boolean
+}
+
+function resolveKnobEnv(
+  kind: RelayPoolKnobKind,
+  raw: string | undefined,
+  def: RelayPoolKnobValue,
+): KnobResolution<RelayPoolKnobValue> {
+  if (kind === 'number') return resolveNumEnv(raw, def as number)
+  if (kind === 'boolean') return resolveBoolEnv(raw, def as boolean)
+  return resolveStrategyEnv(raw, def as RelayPoolStrategy)
+}
+
+/**
+ * 把八枚钮输出成可展示结构(纯函数、零 IO:env 作参数注入,默认 process.env;
+ * 不摸时钟、不摸数据库、不发网络)。
+ * effective 一律取 readRelayPoolPolicy 的结果(消费方真正读到的那一档),invalid
+ * 一律取同一批 resolve* 原语 ⇒ 视图与选号行为结构上不可能分叉。
+ */
+export function relayPoolPolicyView(env: EnvLike = process.env): RelayPoolPolicyView {
+  const policy = readRelayPoolPolicy(env)
+  const policyKeys = Object.keys(DEFAULT_RELAY_POOL_POLICY) as (keyof RelayPoolPolicy)[]
+  const specNames = new Set<string>(RELAY_POOL_KNOB_SPECS.map((s) => s.name))
+  const missingKnobs = policyKeys.filter((k) => !specNames.has(k))
+  const orphanKnobs = RELAY_POOL_KNOB_SPECS.map((s) => s.name).filter(
+    (k) => !policyKeys.includes(k),
+  )
+  const knobs: RelayPoolKnobView[] = []
+  for (const spec of RELAY_POOL_KNOB_SPECS) {
+    if (!policyKeys.includes(spec.name)) continue
+    const raw = env[spec.envKey]
+    const def = DEFAULT_RELAY_POOL_POLICY[spec.name]
+    const res = resolveKnobEnv(spec.kind, raw, def)
+    const effective = policy[spec.name]
+    knobs.push({
+      name: spec.name,
+      envKey: spec.envKey,
+      kind: spec.kind,
+      effective,
+      defaultValue: def,
+      differsFromDefault: effective !== def,
+      rawEnv: raw,
+      invalidEnv: res.invalid,
+      description: spec.description,
+    })
+  }
+  const deviatedKnobs = knobs.filter((k) => k.differsFromDefault).length
+  const invalidEnvKnobs = knobs.filter((k) => k.invalidEnv).length
+  return {
+    knobs,
+    policy,
+    registryComplete: missingKnobs.length === 0 && orphanKnobs.length === 0,
+    missingKnobs,
+    orphanKnobs,
+    deviatedKnobs,
+    invalidEnvKnobs,
+    allDefault: deviatedKnobs === 0,
   }
 }
 
@@ -424,8 +630,10 @@ export function selectPoolOrdered<T extends PoolCandidateRow>(
 export const __test__ = {
   DEFAULT_RELAY_POOL_POLICY,
   RELAY_POOL_ENV_KEYS,
+  RELAY_POOL_KNOB_SPECS,
   HOUR_MS,
   readRelayPoolPolicy,
+  relayPoolPolicyView,
   creditOfRow,
   domainKeyOfRow,
   idleHoursOf,
