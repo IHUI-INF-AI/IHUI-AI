@@ -15,6 +15,8 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
 import { logger } from '@/utils/logger'
+import { getRefreshToken, getToken, getUserInfo } from '@/utils/auth'
+import { useUserStore } from '@/stores/user'
 import { consumeSsoCode, extractSsoCodeFromWebviewMessages } from '@/utils/sso'
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -92,6 +94,21 @@ export default function WebviewIndex() {
     void consumeSsoCode(code, () => t('login.loginSuccess'))
       .then((ok) => {
         if (ok) {
+          // 登录完成 = storage + store 双写(与 utils/wechat-login、utils/miniapp-login 同一惯例)。
+          // consumeSsoCode 只落 storage,而 app 级的通知 WS(UserBroadcastHandler →
+          // useUserBroadcastSync)只订阅 useUserStore.token —— 缺这一步时"登录成功但通知通道
+          // 到冷启动前都不建连",与网页授权拿回登录态的目标不符。这里复用既有 store API
+          // (setAuth),不新造状态;判据与取票仍在 utils/sso 的同一出口,本页只做落地同步。
+          const token = getToken()
+          const user = getUserInfo()
+          if (token && user) {
+            try {
+              useUserStore.getState().setAuth(token, user, getRefreshToken())
+            } catch (err: unknown) {
+              // store 同步失败不得阻断登录态落地(磁盘上的 token 仍有效),只留诊断
+              logger.warn('webview', 'sso 登录态同步 store 失败', String(err))
+            }
+          }
           setTimeout(() => reLaunch({ url: '/pages/index/index' }), 600)
         } else {
           // 换票失败(code 过期/网络异常):如实提示,并释放防重锁允许用户回 H5 重试

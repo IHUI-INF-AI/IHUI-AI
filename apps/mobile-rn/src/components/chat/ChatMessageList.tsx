@@ -37,7 +37,12 @@ import { VoiceBubble } from '../../components/VoiceBubble'
 import { parseMessageContent } from '../../utils/message-parse'
 import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import {
+  applyAssistantExecutionFrame,
+  applyPlanUpdate,
+  applyToolCallEvent,
+  applyToolDelta,
   subagentReplayRow,
+  type AssistantExecutionFrame,
   type AssistantExecutionViz,
   type MessageCitation,
   type MessageInjection,
@@ -58,6 +63,39 @@ import { SelectionAnnotationBar } from './SelectionAnnotationBar'
 import { ActionAnchorChip, extractActionAnchors, type ActionAnchor } from './action-anchor'
 import { type FloatBoxType } from '../../components/FloatBox'
 import type { MessageRating } from '@ihui/api-client'
+
+/**
+ * D135(承 G-46):消息列表执行帧的唯一折叠出口。
+ *
+ * tool-call / tool-delta / plan-update 三族沿用各自 reducer(与
+ * `applyAssistantExecutionFrame` 逐字等值,不是第二份折叠规则);terminal 两族委托同一 seam。
+ * 主屏在 ChatScreen 里折、N8n 屏经本函数折 —— 两屏读到的都是同一 `AssistantExecutionViz`
+ * 形状,宿主不再各自直名 reducer。
+ */
+export function foldMessageExecutionFrame(
+  viz: AssistantExecutionViz | undefined,
+  frame: AssistantExecutionFrame,
+  nowMs: number = Date.now(),
+): AssistantExecutionViz {
+  switch (frame.kind) {
+    case 'tool-call':
+      return { ...viz, toolCalls: applyToolCallEvent(viz?.toolCalls, frame.event, nowMs) }
+    case 'tool-delta':
+      return { ...viz, toolCalls: applyToolDelta(viz?.toolCalls, frame.event) }
+    case 'plan-update': {
+      const reduced = applyPlanUpdate(frame.event)
+      return {
+        ...viz,
+        planSteps: reduced.steps,
+        // plan 为权威快照:载荷没给 explanation 就连旧值一并清掉,不沿用
+        planExplanation: reduced.explanation,
+      }
+    }
+    case 'terminal-start':
+    case 'terminal-end':
+      return applyAssistantExecutionFrame(viz, frame, nowMs)
+  }
+}
 
 /**
  * 带推理过程(thinking)的 AI 消息(对齐 Uniapp ai_index2.vue thinking-process)。
