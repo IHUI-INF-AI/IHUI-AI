@@ -25,13 +25,22 @@ param(
     [int]$HealthTimeoutSec = 120,
     [int]$DrainSec = 20,
     [string]$StateFile = 'D:\DevEnv\ihui-prod\deploy\run\api-bluegreen.json',
-    [string]$LogFile = 'D:\DevEnv\logs\api-bluegreen.log'
+    [string]$LogFile = 'D:\DevEnv\logs\api-bluegreen.log',
+    # ── 通用化参数(2026-10-28 生产席:web 蓝绿复用同一份编排,不落第二份实现)────────
+    # §0.6:同类实现全仓只许一份。缺省值与改造前逐字等价 ⇒ api 侧行为零变化。
+    # 文件名仍带 api 是历史沿革(创建时只服务 api),器物本体已与具体应用解耦。
+    [string]$SvcBlue = 'IHUI-API-BLUE',
+    [string]$SvcGreen = 'IHUI-API-GREEN',
+    [int]$PortBlue = 8842,
+    [int]$PortGreen = 8843,
+    [string]$HealthPath = '/api/health',
+    [string]$HealthMatch = '"status":"ok"'
 )
 
 $ErrorActionPreference = 'Stop'
 
-$Services = @{ blue = 'IHUI-API-BLUE'; green = 'IHUI-API-GREEN' }
-$Ports = @{ blue = 8842; green = 8843 }
+$Services = @{ blue = $SvcBlue; green = $SvcGreen }
+$Ports = @{ blue = $PortBlue; green = $PortGreen }
 
 function Write-BgLog {
     param([string]$Message, [string]$Level = 'INFO')
@@ -75,8 +84,10 @@ function Write-BgStateAtomic {
 function Test-ApiHealth {
     param([int]$Port)
     try {
-        $r = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/api/health" -UseBasicParsing -TimeoutSec 3
-        return ($r.StatusCode -eq 200 -and $r.Content -match '"status":"ok"')
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:$Port$HealthPath" -UseBasicParsing -TimeoutSec 3
+        # -match 走正则,而判定串含引号/点号等元字符 ⇒ 用 [regex]::Escape 逐字匹配,
+        # 避免把 `"status":"ok"` 里的 `.` 当通配符、把 web 的 `<!DOCTYPE html` 判成别的形态。
+        return ($r.StatusCode -eq 200 -and $r.Content -match [regex]::Escape($HealthMatch))
     } catch {
         return $false
     }
