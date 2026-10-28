@@ -1047,6 +1047,9 @@ importers:
       '@ihui/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@ihui/rn-app':
+        specifier: workspace:*
+        version: link:../../packages/app
       '@ihui/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -1200,6 +1203,9 @@ importers:
       react-markdown:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
+      react-native-web:
+        specifier: 0.21.2
+        version: 0.21.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react-syntax-highlighter:
         specifier: ^16.1.1
         version: 16.1.1(react@19.2.8)
