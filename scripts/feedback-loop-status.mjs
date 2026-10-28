@@ -297,7 +297,7 @@ export function makeAncestorCheck({ root = ROOT, spawn = spawnSync } = {}) {
     if (cache.has(key)) return cache.get(key)
     let ok = false
     try {
-      const r = spawn('git', ['merge-base', '--is-ancestor', a, d], { cwd: root, encoding: 'utf8', windowsHide: true })
+      const r = spawn('git', ['merge-base', '--is-ancestor', a, d], { cwd: root, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
       ok = !!(r && r.status === 0)
     } catch {
       ok = false
