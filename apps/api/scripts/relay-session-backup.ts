@@ -24,6 +24,7 @@ import {
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, relative, sep } from 'node:path'
+import { acquireSessionLock, SESSION_STORE_LOCK_NAME } from './relay-session-lock.js'
 
 /** 快照清单内单文件条目(零内容,只元数据) */
 export interface BackupFileEntry {
@@ -210,11 +211,19 @@ function computePlanForCli(now: Date, destArg?: string): BackupPlan {
   )
 }
 
-export function main(argv: string[] = process.argv.slice(2)): number {
+export function main(argv: string[] = process.argv.slice(2), lockHome = homedir()): number {
   const apply = argv.includes('--apply')
   const destIdx = argv.indexOf('--dest')
   const destArg = destIdx >= 0 ? argv[destIdx + 1] : undefined
+  // 备份读全库、搬移写全库:共用同一把会话库锁,防读到别人搬了一半的状态(2026-10-28)
+  let lock: { release: () => void } | null = null
   try {
+    if (apply) {
+      lock = acquireSessionLock(
+        join(lockHome, '.wb-switch', 'relay', SESSION_STORE_LOCK_NAME),
+        'session-backup',
+      )
+    }
     const plan = computePlanForCli(new Date(), destArg)
     if (!apply) {
       console.log(formatPlan(plan, true))
@@ -232,6 +241,8 @@ export function main(argv: string[] = process.argv.slice(2)): number {
   } catch (err) {
     console.error(`会话备份失败: ${(err as Error).message}`)
     return 1
+  } finally {
+    lock?.release()
   }
 }
 

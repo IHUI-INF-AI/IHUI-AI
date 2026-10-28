@@ -15,7 +15,11 @@ import { dirname, join } from 'node:path'
 
 import { main as moveMain, type MovePaths } from '../scripts/relay-session-move.js'
 import { main as linksMain } from '../scripts/relay-session-links.js'
-import { acquireSessionLock } from '../scripts/relay-session-lock.js'
+import {
+  acquireSessionLock,
+  SESSION_LINKS_LOCK_NAME,
+  SESSION_STORE_LOCK_NAME,
+} from '../scripts/relay-session-lock.js'
 
 const ACCT = 'acct-aaaa-1111'
 const CONV = 'c1111111-2222-4333-8444-555566667777'
@@ -78,7 +82,7 @@ describe('main 的 --apply 必须真的持锁(装车证明)', () => {
   it('move --apply:外部持锁 ⇒ exit 1 且零改动;释放后同一命令成功', () => {
     const fx = makeFixture()
     seed(fx.paths)
-    const lockPath = join(dirname(fx.paths.opsLogFile), 'session-move.lock')
+    const lockPath = join(dirname(fx.paths.opsLogFile), SESSION_STORE_LOCK_NAME)
     const hold = acquireSessionLock(lockPath, 'other-session')
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
@@ -102,7 +106,7 @@ describe('main 的 --apply 必须真的持锁(装车证明)', () => {
   it('links rebuild --apply:外部持锁 ⇒ exit 1 且台账未写;dry-run 不取锁可正常预览', () => {
     const fx = makeFixture()
     seed(fx.paths)
-    const lockPath = join(dirname(fx.paths.ledgerFile), 'session-links.lock')
+    const lockPath = join(dirname(fx.paths.ledgerFile), SESSION_LINKS_LOCK_NAME)
     const hold = acquireSessionLock(lockPath, 'other-session')
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {

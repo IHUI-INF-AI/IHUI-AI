@@ -164,7 +164,9 @@ describe('apply 动前留底+记账', () => {
     const tOp = fileOps.find((o) => o.file === 'workspace/sess-1/transcript.jsonl')
     expect(tOp?.before).toEqual({ exists: true, sha256: shaOf(DRIFTED) })
     expect(tOp?.afterSha).toBe(shaOf(fx.contents.get('workspace/sess-1/transcript.jsonl')!))
-    expect(tOp?.bytes).toBe(Buffer.byteLength(fx.contents.get('workspace/sess-1/transcript.jsonl')!))
+    expect(tOp?.bytes).toBe(
+      Buffer.byteLength(fx.contents.get('workspace/sess-1/transcript.jsonl')!),
+    )
     const sOp = fileOps.find((o) => o.file === 'workspace/sess-1/state.json')
     expect(sOp?.before).toEqual({ exists: false, sha256: null })
     const cOp = fileOps.find((o) => o.file === 'ws-a/conv.jsonl')
@@ -198,9 +200,13 @@ describe('undo --op <opId>(--apply 才动)', () => {
     applyRestore(planOf(fx), { force: true })
     const opId = lastOpId(fx)
 
-    const code = main(['--snapshot', fx.snapDir, '--undo', opId, '--apply'], {
-      snapshotDir: fx.snapDir,
-    })
+    const code = main(
+      ['--snapshot', fx.snapDir, '--undo', opId, '--apply'],
+      {
+        snapshotDir: fx.snapDir,
+      },
+      fx.root,
+    )
     expect(code).toBe(0)
 
     // 覆盖文件逐字节还原到动前内容
@@ -231,9 +237,13 @@ describe('undo --op <opId>(--apply 才动)', () => {
     cleanup.push(fx.root)
     applyRestore(planOf(fx))
     const opId = lastOpId(fx)
-    const code = main(['--snapshot', fx.snapDir, '--undo', opId, '--apply'], {
-      snapshotDir: fx.snapDir,
-    })
+    const code = main(
+      ['--snapshot', fx.snapDir, '--undo', opId, '--apply'],
+      {
+        snapshotDir: fx.snapDir,
+      },
+      fx.root,
+    )
     expect(code).toBe(0)
     expect(relsUnder(fx.srcSessions)).toEqual([])
     expect(relsUnder(fx.srcProjects)).toEqual([])
@@ -248,17 +258,21 @@ describe('undo --op <opId>(--apply 才动)', () => {
     // 第三方在 undo 前改动了 apply 刚写入的 transcript
     writeFileSync(join(fx.srcSessions, 'sess-1', 'transcript.jsonl'), 'TAMPERED-BY-THIRD-PARTY\n')
 
-    expect(() =>
-      planUndoRestore(opId, opsRootOf(fx), fx.srcSessions, fx.srcProjects),
-    ).toThrow(/拒绝/)
+    expect(() => planUndoRestore(opId, opsRootOf(fx), fx.srcSessions, fx.srcProjects)).toThrow(
+      /拒绝/,
+    )
 
     // CLI 路径同样拒绝(dry-run 与 --apply 都进计划,计划即抛错)
     const errors: string[] = []
     const origErr = console.error
     console.error = (s: string) => errors.push(s)
-    const code = main(['--snapshot', fx.snapDir, '--undo', opId, '--apply'], {
-      snapshotDir: fx.snapDir,
-    })
+    const code = main(
+      ['--snapshot', fx.snapDir, '--undo', opId, '--apply'],
+      {
+        snapshotDir: fx.snapDir,
+      },
+      fx.root,
+    )
     console.error = origErr
     expect(code).not.toBe(0)
     expect(errors.join('\n')).toContain('第三方改动')
@@ -279,16 +293,24 @@ describe('undo --op <opId>(--apply 才动)', () => {
     cleanup.push(fx.root)
     applyRestore(planOf(fx))
     const opId = lastOpId(fx)
-    const first = main(['--snapshot', fx.snapDir, '--undo', opId, '--apply'], {
-      snapshotDir: fx.snapDir,
-    })
+    const first = main(
+      ['--snapshot', fx.snapDir, '--undo', opId, '--apply'],
+      {
+        snapshotDir: fx.snapDir,
+      },
+      fx.root,
+    )
     expect(first).toBe(0)
     const errors: string[] = []
     const origErr = console.error
     console.error = (s: string) => errors.push(s)
-    const second = main(['--snapshot', fx.snapDir, '--undo', opId, '--apply'], {
-      snapshotDir: fx.snapDir,
-    })
+    const second = main(
+      ['--snapshot', fx.snapDir, '--undo', opId, '--apply'],
+      {
+        snapshotDir: fx.snapDir,
+      },
+      fx.root,
+    )
     console.error = origErr
     expect(second).not.toBe(0)
     expect(errors.join('\n')).toContain('重复回退')
@@ -300,9 +322,13 @@ describe('undo --op <opId>(--apply 才动)', () => {
     const errors: string[] = []
     const origErr = console.error
     console.error = (s: string) => errors.push(s)
-    const code = main(['--snapshot', fx.snapDir, '--undo', '20991231T000000000Z'], {
-      snapshotDir: fx.snapDir,
-    })
+    const code = main(
+      ['--snapshot', fx.snapDir, '--undo', '20991231T000000000Z'],
+      {
+        snapshotDir: fx.snapDir,
+      },
+      fx.root,
+    )
     console.error = origErr
     expect(code).not.toBe(0)
     expect(errors.join('\n')).toContain('无 op=')
@@ -320,7 +346,11 @@ describe('--list-ops 与 undo dry-run', () => {
     const lines: string[] = []
     const origLog = console.log
     console.log = (s: string) => lines.push(s)
-    const codeList = main(['--snapshot', fx.snapDir, '--list-ops'], { snapshotDir: fx.snapDir })
+    const codeList = main(
+      ['--snapshot', fx.snapDir, '--list-ops'],
+      { snapshotDir: fx.snapDir },
+      fx.root,
+    )
     expect(codeList).toBe(0)
     const listText = lines.join('\n')
     expect(listText).toContain(opId)
@@ -330,7 +360,11 @@ describe('--list-ops 与 undo dry-run', () => {
 
     // undo dry-run:列计划,零写入
     lines.length = 0
-    const codeDry = main(['--snapshot', fx.snapDir, '--undo', opId], { snapshotDir: fx.snapDir })
+    const codeDry = main(
+      ['--snapshot', fx.snapDir, '--undo', opId],
+      { snapshotDir: fx.snapDir },
+      fx.root,
+    )
     console.log = origLog
     expect(codeDry).toBe(0)
     expect(lines.join('\n')).toContain('dry-run')
