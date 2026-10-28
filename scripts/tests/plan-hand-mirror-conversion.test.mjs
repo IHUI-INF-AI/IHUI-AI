@@ -96,4 +96,32 @@ test('M10 switchTab 回落:只作 navigateBack 的 catch 回落不算私有;独�
   )
   assert.equal(conv.backFallbackOnly("Taro.switchTab({ url: '/pages/x' })"), false)
 })
+
+test('M11 屏幕消费键:驼峰命名空间必须认(notificationSettings.*),路由/包名不得混入', () => {
+  const screen = `
+    const a = t('notificationSettings.title'), b = t('liveHost.streamKey'), c = t('modelEdit.salePaid')
+    const d = t('common.back')
+    import x from '@ihui/rn-app'
+    const url = '/pages/setting/notification'
+    const cls = 'flex-row items-center'`
+  const keys = conv.screenConsumedKeys(screen)
+  assert.equal(keys.has('notificationSettings.title'), true)
+  assert.equal(keys.has('liveHost.streamKey'), true)
+  assert.equal(keys.has('modelEdit.salePaid'), true)
+  assert.equal(keys.has('common.back'), true)
+  assert.equal(keys.has('/pages/setting/notification'), false)
+  assert.equal(keys.has('@ihui/rn-app'), false)
+  assert.equal(keys.size, 4)
+})
+
+test('M12 正文闸的作用域:同一句话在别的键下不算该屏渲染得出(驼峰键也要按作用域算)', () => {
+  const page = `const a = '通知分类'`
+  const messages = '{"notificationSettings":{"title":"通知设置"},"other":{"x":"通知分类"}}'
+  // 该屏只消费 notificationSettings.* ⇒ 页面的"通知分类"渲染不出来
+  const screenHay = conv.messagesValuesByKeys(messages, conv.screenConsumedKeys(`t('notificationSettings.title')`))
+  assert.equal(conv.cjkNotRenderedOnScreen(page, screenHay), '通知分类'.length)
+  // 该屏确实消费了 other.x ⇒ 销账
+  const okHay = conv.messagesValuesByKeys(messages, conv.screenConsumedKeys(`t('other.x')`))
+  assert.equal(conv.cjkNotRenderedOnScreen(page, okHay), 0)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
