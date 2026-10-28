@@ -3283,17 +3283,22 @@ if (-not (Test-HealthGate)) {
     # 8802 的路由层(as 1 秒热切换)→ 排空 20s → 停旧色。8802 全程有监听。
     # 失败语义:目标色起不来就**不切流**,旧色继续服务,本步 WARN 但不判部署失败
     # (线上无损);只有蓝绿服务不在位(单实例回滚形态)才退回旧的原地重启。
-    $bgScript = Join-Path $PSScriptRoot 'ihui-api-bluegreen.ps1'
-    $bgReady = (Test-Path -LiteralPath $bgScript) -and
+    # 2026-10-28 22:5x 换执行面(Node 版,根因级):Resolve-DeployInterpreter 只能解决「子进程没有
+    # cmdlet」,解决不了第二层 —— ihui-api-bluegreen.ps1 里的 sc.exe 被本机程序黑名单封死
+    # (启动即 PROGRAM BLOCKED BY SECURITY POLICY),任何 shell 都绕不过。两条叠加的后果是
+    # 蓝绿每轮 rc≠0 而只落 WARN ⇒ **api 从未随部署重载**(22:48 实测:web 已部署新 HEAD,
+    # api 仍是 12:43 的进程)。Node 不受 PowerShell 策略约束,服务控制改走 nssm(实测可用);
+    # 切换器逻辑与原 .ps1 逐条对齐(状态自愈/起目标色/健康门禁/原子切流/排空/停旧色)。
+    $bgScript = Join-Path $PSScriptRoot 'ihui-api-bluegreen.mjs'
+    $bgNode = Resolve-NodeExe
+    $bgReady = (Test-Path -LiteralPath $bgScript) -and ($null -ne $bgNode) -and
         ($null -ne (Get-Service -Name 'IHUI-API-BLUE' -ErrorAction SilentlyContinue)) -and
         ($null -ne (Get-Service -Name 'IHUI-API-GREEN' -ErrorAction SilentlyContinue))
     if ($bgReady) {
         Log '蓝绿切换 api:起另一色 → 健康门禁 → 原子切流 → 排空 20s → 停旧色'
         $bgRc = 1
         try {
-            $bgPs = Resolve-DeployInterpreter
-            if (-not $bgPs) { throw '找不到带 cmdlet 的解释器(见 Resolve-DeployInterpreter)' }
-            $bgOut = & $bgPs -NoProfile -ExecutionPolicy Bypass -File $bgScript -Target auto 2>&1
+            $bgOut = & $bgNode $bgScript --target auto 2>&1
             $bgRc = $LASTEXITCODE
             foreach ($line in @($bgOut)) { Log "  [bg] $line" }
         } catch {
