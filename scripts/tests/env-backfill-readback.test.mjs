@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/* eslint-disable no-console -- 测试脚本需要输出诊断信息 */
+ 
 /**
  * env-backfill-readback.test.mjs — "写入确认 ≠ 生效确认"回归(2026-09-26 票,离线)
  *
@@ -27,7 +27,7 @@ import { __test__ } from '../env-backfill-model-keys.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const CLI = join(ROOT, 'scripts', 'env-backfill-model-keys.mjs')
-const { writeEnvWithReadBack } = __test__
+const { writeEnvWithReadBack, fillEmptyKeyLine } = __test__
 
 const SECRET = 'STEPFUN_FAKE_KEY_0123456789_abcdefghij'
 
@@ -115,14 +115,27 @@ function makeOfflineFixture(dir) {
 
 function runCli(args) {
   // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-  return spawnSync(process.execPath, [CLI, ...args], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 60000 })
+  return spawnSync(process.execPath, [CLI, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+  })
 }
 
 test('CLI e2e(可写盘):回填成功 ⇒ 打"回填完成(读回比对一致)"+ 重启生效提示,盘上真值到位', () => {
   const dir = mkScratch('env-backfill-e2e-ok')
   try {
     const { keyDir, envPath, backupDir } = makeOfflineFixture(dir)
-    const res = runCli(['--apply', '--key-dir', keyDir, '--env', envPath, '--backup-dir', backupDir])
+    const res = runCli([
+      '--apply',
+      '--key-dir',
+      keyDir,
+      '--env',
+      envPath,
+      '--backup-dir',
+      backupDir,
+    ])
     assert.equal(res.status, 0, `CLI 应成功:stdout=${res.stdout}\nstderr=${res.stderr}`)
     assert.match(res.stdout, /回填完成\(读回比对一致\)/)
     assert.match(res.stdout, /重启.*才生效/, '完成文案必须带"须重启服务才生效"一句(§5e)')
@@ -138,7 +151,15 @@ test('CLI e2e(只读盘):写失败 ⇒ 不得出现"回填完成",退出码 1,�
   const { keyDir, envPath, backupDir } = makeOfflineFixture(dir)
   try {
     chmodSync(envPath, 0o444)
-    const res = runCli(['--apply', '--key-dir', keyDir, '--env', envPath, '--backup-dir', backupDir])
+    const res = runCli([
+      '--apply',
+      '--key-dir',
+      keyDir,
+      '--env',
+      envPath,
+      '--backup-dir',
+      backupDir,
+    ])
     assert.equal(res.status, 1, `写未生效必须以非 0 收口,实得 ${res.status}`)
     assert.ok(!res.stdout.includes('回填完成'), '写盘失败时"回填完成"四个字不得出现')
     assert.match(res.stdout, /写入未生效/)
@@ -165,10 +186,67 @@ test('源码级锁:"回填完成"在**输出代码行**里只出现一次,旧的
     .split(/\r?\n/)
     .filter((l) => /console\.(log|error)\(/.test(l) && l.includes('回填完成'))
   assert.equal(emitLines.length, 1, '"回填完成"只允许一条 console 产出路径(多条 = 多一条冒充口)')
-  assert.match(emitLines[0], /wb\.attempted \? '✅ 回填完成\(读回比对一致\)'/, '唯一产出点必须是读回比对一致的那个分支')
-  assert.match(codeOnly, /if \(wb\.attempted && \(wb\.writeErr \|\| wb\.mismatch\)\)/, '完成/失败分流必须挂读回结果上')
-  assert.doesNotMatch(codeOnly, /if \(out !== envText\) writeFileSync\(ENV, out\)/, '旧的"裸写不比对"形态不得回来(剥注释后的代码面)')
-  assert.doesNotMatch(codeOnly, /\? '✅ 回填完成' :/, '旧的无条件完成文案不得回来(剥注释后的代码面)')
+  assert.match(
+    emitLines[0],
+    /wb\.attempted \? '✅ 回填完成\(读回比对一致\)'/,
+    '唯一产出点必须是读回比对一致的那个分支',
+  )
+  assert.match(
+    codeOnly,
+    /if \(wb\.attempted && \(wb\.writeErr \|\| wb\.mismatch\)\)/,
+    '完成/失败分流必须挂读回结果上',
+  )
+  assert.doesNotMatch(
+    codeOnly,
+    /if \(out !== envText\) writeFileSync\(ENV, out\)/,
+    '旧的"裸写不比对"形态不得回来(剥注释后的代码面)',
+  )
+  assert.doesNotMatch(
+    codeOnly,
+    /\? '✅ 回填完成' :/,
+    '旧的无条件完成文案不得回来(剥注释后的代码面)',
+  )
   assert.match(codeOnly, /isDirectRun/, '§22d 入口守卫必须在位(import 不触发 CLI)')
+})
+
+// ─── 回填替换的 `$` 模式锁(2026-10-28 立,由并行取证席现场点名) ────────────────
+// 第三方 API token 含 `$` 是正常形态,而 replacement **字符串**里的 `$&` / `` $` `` / `$'` / `$n`
+// 会被 String.replace 当成替换模式解释 ⇒ 落盘值≠候选值,而下一行照打"已回填"。
+// 这类损坏是安静的:要等下次 ai-service 静默降级才暴露,而 §5d 的判读口径只认"鉴通过"。
+test('含 $ 的 token 必须逐字节落盘(成对反向夹具:模板串写法必被咬)', () => {
+  const out0 = 'A=1\nFOO=\nB=2\n'
+  const tricky = 'sk-$&abc'
+  const r = fillEmptyKeyLine({ out: out0, key: 'FOO', value: tricky })
+  assert.equal(r.ok, true, '空键应判可填')
+  assert.ok(r.out.includes(`FOO=${tricky}`), `实得 ${JSON.stringify(r.out)}`)
+  // 同一输入走"字符串 replacement"必须写出**不同**(坏)的结果 —— 否则这条锁测不出任何东西,
+  // 修复摘掉也照样绿(§0.9:判据必须在真跑它的那一刻才成立)。
+  const broken = out0.replace(/^FOO=(.*)$/m, `FOO=${tricky}`)
+  assert.notEqual(broken, r.out, '夹具失效:两种写法结果相同 ⇒ 这条锁没有牙')
+})
+
+test('已有值不覆盖 / 无此键不动(跳过口径不得被替换重构改坏)', () => {
+  const set = fillEmptyKeyLine({ out: 'FOO=keepme\n', key: 'FOO', value: 'sk-$&x' })
+  assert.equal(set.ok, false)
+  assert.equal(set.why, 'already-set')
+  assert.equal(set.out, 'FOO=keepme\n', '不覆盖 ⇒ 一个字节都不许动')
+  const absent = fillEmptyKeyLine({ out: 'A=1\n', key: 'FOO', value: 'v' })
+  assert.equal(absent.why, 'no-such-key')
+  assert.equal(absent.out, 'A=1\n', '无此键 ⇒ 不新增、不改动')
+})
+
+test('形状锁:replacement 必须是函数形式,旧的模板串形态不得回来', () => {
+  const src = readFileSync(CLI, 'utf8')
+  // 反向锁打在剥注释后的代码面上:源注释里逐字引用了旧写法作说明,全文判会把说明本身当回归。
+  const codeOnly = src
+    .split(/\r?\n/)
+    .filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*'))
+    .join('\n')
+  assert.match(codeOnly, /out\.replace\(re, \(\) =>/, '必须走函数式 replacement')
+  assert.doesNotMatch(
+    codeOnly,
+    /out\.replace\(re, `\$\{entry\.key\}/,
+    '模板串 replacement 不得回来',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
