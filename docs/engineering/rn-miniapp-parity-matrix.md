@@ -11,8 +11,8 @@
 > 候选列只是名字 token 线索(不判定),落地时须按该屏实际字段/接口核实。
 
 - 判定面: **HEAD blob**
-- 共享屏(真相源): **243**
-- 已被小程序显式镜像: **232**
+- 共享屏(真相源): **246**
+- 已被小程序显式镜像: **235**
 - 缺口合计: **11**(其中已判定 11 / 未判定 0)
 - 判定台账: **105** 行 — 路径与口径单源 `scripts/lib/cross-end-verdicts.mjs`
 - 台账三档: **缺页待造 0** / **已造页待补数据钩子 94** / **不承载 11**
@@ -24,7 +24,7 @@
 |---|---|---|---|---|---|
 | 1 | `agent-review-detail/AgentReviewDetailScreen` | AgentDetailScreen / AgentReviewListScreen | pkg-ai/ai/agent-detail / pkg-user/agent-review-list/index | 🚫 不承载(已判定) | 全仓零渲染消费:RN 侧只有 AgentReviewListScreen(列表,渲染共享屏 agent-review-list),无详情入口、无 <AgentReviewDetailScreen,web 侧 apps/web/app/(main) 下无 agents/*/reviews 一类的详情路由,包内也只有类型再导出 ⇒ 镜像它会产出无数据腿的重复页,判不承载;本屏候选下线(零消费)。 |
 | 2 | `console-table/ConsoleTableScreen` | — | — | 🚫 不承载(已判定) | packages/app/src/features/console-table/ConsoleTableScreen.tsx:21-25 注释明写「通用控制台列表屏 —— 61 条控制台类页面(models/developer 网关族)的规模化杠杆」,是列配置驱动的通用 UI 杠杆而非一个具体页面;其 RN 消费方为 20 个 edu/developer 薄壳(如 apps/mobile-rn/src/screens/EduGradesScreen.tsx),小程序对应页 apps/miniapp-taro/src/pkg-user/edu-mgmt-grades/index.tsx:5 已各自对齐其 RN 薄壳,不存在也不该造一个「控制台表」页。 |
-| 3 | `dashboard/DashboardScreen` | ★DashboardScreen | — | 🚫 不承载(已判定) | packages/app/src/features/dashboard/DashboardScreen.tsx:24 是全注入式指标看板(items/renderLoading/renderEmpty 全靠平台注入),RN 壳 apps/mobile-rn/src/screens/DashboardScreen.tsx:60 的数据源是 /api/admin/error-dashboard/stats 管理端错误看板;小程序 app.config.ts 无 admin 页,不由小程序承载,判 not-applicable。 |
+| 3 | `dashboard/DashboardScreen` | ★DashboardScreen / ★MemberDashboardScreen | pkg-user/member-dashboard/index | 🚫 不承载(已判定) | packages/app/src/features/dashboard/DashboardScreen.tsx:24 是全注入式指标看板(items/renderLoading/renderEmpty 全靠平台注入),RN 壳 apps/mobile-rn/src/screens/DashboardScreen.tsx:60 的数据源是 /api/admin/error-dashboard/stats 管理端错误看板;小程序 app.config.ts 无 admin 页,不由小程序承载,判 not-applicable。 |
 | 4 | `domain-hub/DomainHubScreen` | ★DomainHubScreen / EduAiHubScreen | pkg-user/legal-docs-hub/index / pkg-mirror2/edu-ai-hub/index | 🚫 不承载(已判定) | packages/app/src/features/domain-hub/DomainHubScreen.tsx:16 头注自述跨端共享域入口二级屏(G-921),条目全靠平台注入(DomainHubItem key/label/icon),RN 壳 apps/mobile-rn/src/screens/DomainHubScreen.tsx:19 是 P3 侧边栏收敛用的域入口;小程序 app.config.ts:260-303 只有 5 tab+分包、无侧边栏形态,判通用导航组件屏 not-applicable。 |
 | 5 | `finance/FinanceScreen` | ★EduFinanceScreen | pkg-user/edu-mgmt-finance/index | 🚫 不承载(已判定) | 全仓零渲染消费:apps/mobile-rn/src/screens 无任何屏渲染 <FinanceScreen(全量扫 0 命中;RN 的 EduFinanceScreen 用 ConsoleTableScreen),web 的财务页 apps/web/app/(main)/edu/edu-management/finance/page.tsx 对应 EduFinanceScreen(缴费记录)而非本屏四卡汇总,小程序仅 pkg-user/edu-mgmt-finance 注释里提到对齐目标 ⇒ 镜像它会产出无数据腿的重复页,判不承载;本屏候选下线(零消费)。 |
 | 6 | `following/FollowingScreen` | — | pkg-user/following/index | 🚫 不承载(已判定) | RN 端关注列表由 follow/FollowScreen 承载:apps/mobile-rn/src/screens/FollowScreen.tsx 渲染 <FollowScreen>(含关注/粉丝 Tab、取消关注),小程序 pkg-user/following 亦已镜像 follow/FollowScreen;本屏在 RN 端零渲染方(全量扫 <FollowingScreen 0 命中)⇒ 镜像它会产出无数据腿的重复页,判不承载。web /following 与 FollowScreen 的等价性另记 web→RN 台账 gap(键空间 following.* vs follow.*)。 |
