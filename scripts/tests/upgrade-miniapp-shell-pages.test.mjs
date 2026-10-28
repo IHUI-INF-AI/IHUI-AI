@@ -95,3 +95,19 @@ test('U8 自动落地消息的枚数与批一致(不许"声称 N 枚而只落 M"
     assert.match(landMessage(batch), new RegExp(`自动把 ${n} 枚`))
   }
 })
+
+test('U9 落 HEAD 失败必须把本批工作树退回 HEAD(否则自己制造的 held 会永久卡死)', () => {
+  // 器物为落地先把生成的正文写进工作树,land 若没推进 HEAD,那份正文就留在盘上;
+  // 下一轮 planUpgrades 看到「工作树副本相对 HEAD 有改动」⇒ 判「他席在飞」held ——
+  // 而改的人正是自己。实测 2026-10-28 15:53 后 12 枚可落地页挂了两小时无人能动。
+  const src = readFileSync(UPGRADER, 'utf8')
+  const i = src.indexOf('if (!landed.ok) {')
+  assert.ok(i > 0, '必须有「落地失败」分支')
+  const block = src.slice(i, i + 700)
+  assert.match(block, /git\(\['checkout', 'HEAD', '--'/, '失败分支里必须 checkout HEAD 回退本批路径')
+  assert.match(block, /batch\.map\(\(x\) => x\.pageRel\)/, '回退必须限定本批路径,不得整树回退')
+  assert.ok(
+    block.indexOf("git(['checkout', 'HEAD', '--'") < block.indexOf('if (landed.ok)'),
+    '回退必须排在成功分支之前(失败即退,不能等下一轮)',
+  )
+})
