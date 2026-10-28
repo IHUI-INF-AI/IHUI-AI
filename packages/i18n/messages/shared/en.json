@@ -1437,6 +1437,7 @@
     "validUntil": "Valid until"
   },
   "ranking": {
+    "anonymous": "Anonymous",
     "title": "Ranking",
     "loadFailed": "Failed to load ranking",
     "empty": "No ranking data",
