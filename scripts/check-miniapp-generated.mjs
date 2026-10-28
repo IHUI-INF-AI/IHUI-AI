@@ -418,7 +418,7 @@ function readPinInputs(reader) {
  * 为什么 absent 不判红:HEAD 面上现存那份产物还没有钉,当场 blocking 就是一台
  * 与任何提交都无关的恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门(§12e 同型)。
  */
-function checkBundlePin({ reader, bundleText, push, undetermined, face }) {
+function checkBundlePin({ reader, bundleText, push, undetermined, face, blocking = true }) {
   const pin = parsePin(bundleText)
   if (!pin.present) {
     undetermined.pinState = 'absent'
@@ -444,7 +444,7 @@ function checkBundlePin({ reader, bundleText, push, undetermined, face }) {
   push(
     'G5',
     'missing',
-    true,
+    blocking,
     I18N_BUNDLE,
     `产物自述钉的 inputsSha256=${pin.digest.slice(0, 12)}… 与 ${face}面现算=${computed.digest.slice(0, 12)}… 不等 ⇒ 离线包陈旧(键集合可能一模一样而值是旧的)。不一致的输入:${named}`,
   )
@@ -1007,7 +1007,10 @@ function runCheck({ face, root, strict, group }) {
     const bundleText = reader.read(I18N_BUNDLE)
     const bundle = decodeBundle(bundleText)
     // G5 自述钉先于逐键对账:钉不等 = 整包按旧输入生成,此时 B2/B3 的"少哪些键"是在拿旧账判新账。
-    checkBundlePin({ reader, bundleText, push, undetermined, face })
+    // 离线包这一维在提交链只拦"本次提交自己动了词包/产物"的那些场合(见 packAccountability 头注)。
+    const packOwn = packAccountability({ face, root, reader })
+    undetermined.packAccountability = packOwn
+    checkBundlePin({ reader, bundleText, push, undetermined, face, blocking: packOwn.blocking })
 
     for (const locale of REMOTE_LOCALES) {
       const src = readSourceLeaves(reader, locale)
@@ -1015,7 +1018,7 @@ function runCheck({ face, root, strict, group }) {
       if (src === null) continue
       counts.bundleLocales += 1
       if (art === null) {
-        push('B1', 'missing', true, I18N_BUNDLE, `${locale}:源里有 ${Object.keys(src).length} 个键,离线包整块没有该语言`)
+        push('B1', 'missing', packOwn.blocking, I18N_BUNDLE, `${locale}:源里有 ${Object.keys(src).length} 个键,离线包整块没有该语言`)
         continue
       }
       const missing = Object.keys(src).filter((k) => !(k in art))
@@ -1023,10 +1026,10 @@ function runCheck({ face, root, strict, group }) {
       const orphans = Object.keys(art).filter((k) => !(k in src) && !(carriedKeys && carriedKeys.has(k)))
       const wrongValue = Object.keys(src).filter((k) => k in art && !sameLeafValue(src[k], art[k]))
       if (missing.length) {
-        push('B2', 'missing', true, I18N_BUNDLE, `${locale}:包比源少 ${missing.length} 个键,如 ${missing.slice(0, 3).join(', ')}`)
+        push('B2', 'missing', packOwn.blocking, I18N_BUNDLE, `${locale}:包比源少 ${missing.length} 个键,如 ${missing.slice(0, 3).join(', ')}`)
       }
       if (wrongValue.length) {
-        push('B2', 'missing', true, I18N_BUNDLE, `${locale}:包与源同键但取值不一致 ${wrongValue.length} 个,如 ${wrongValue.slice(0, 3).join(', ')}`)
+        push('B2', 'missing', packOwn.blocking, I18N_BUNDLE, `${locale}:包与源同键但取值不一致 ${wrongValue.length} 个,如 ${wrongValue.slice(0, 3).join(', ')}`)
       }
       if (orphans.length) {
         push('B3', 'orphan', strict, I18N_BUNDLE, `${locale}:包里有 ${orphans.length} 个源已无的键,如 ${orphans.slice(0, 3).join(', ')}`)
@@ -1437,6 +1440,55 @@ function healUiRoutes({ face, root, log = (s) => console.log(s) }) {
   return { rows, code, healed, refused }
 }
 
+/**
+ * 离线包这一维在提交链里只拦"**这一枚提交自己动了词包或产物**"的场合(§12e 差值棘轮同一条口径)。
+ *
+ * 立因(2026-10-27 实测):离线包一次重生成是分钟级(闭包尺要扫 990 枚可达文件),
+ * 而本仓的词包由旁路落地链路(造页闭环腿)持续推进 —— 那条通道不跑钩子,所以"该重跑生成器"这件事
+ * 从来没有一次提交为它负责过;结果 G5/B2 的红挂在**下一枚毫不相干**的提交上,
+ * 而那枚提交的结构位置决定了它无论做什么都修不好(生成器比提交慢,且并发改动一直在追) ——
+ * 与提交内容无关的恒红门,唯一结局是逼人 --no-verify 连带废掉链上全部守门。
+ *
+ * 定级因此按"谁改的词包谁负责"分面:
+ *   · `--staged`(提交链):本次 staged 未碰到任一输入或产物 ⇒ warn(只报数点名,红由守护腿收敛);
+ *     碰过 ⇒ 照旧 blocking(你就是那个把包弄旧的人,必须同轮 `pnpm gen:i18n` 或被本门拦下);
+ *   · 全量档 / CI / 守护:恒 blocking —— CI 上是"交付前必须新"的问责,守护上是"腿有没有干活"的观测。
+ * 判据本身一字未改(同一条钉、同一把哈希),只改**为谁亮红**。
+ *
+ * @returns {{blocking:boolean, reason:string}}
+ */
+export function packAccountability({ face, root, reader }) {
+  if (face !== 'staged') return { blocking: true, reason: `${FACE_LABEL[face]} 档恒 blocking(CI/守护问责面)` }
+  const rels = new Set([...bundleInputRels(REMOTE_LOCALES, (rel) => reader.has(rel)), I18N_BUNDLE, ...GENERATOR_INPUT_HINTS])
+  let staged = []
+  try {
+    staged = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMRD'], root)
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  } catch (e) {
+    // 取不到暂存清单 ⇒ 不猜"没碰":保守按 blocking(失效方向必须是"多拦一次",不是"多放一次",§0.10)
+    return { blocking: true, reason: `暂存清单取不到(${String(e?.message ?? e).slice(0, 60)})⇒ 保守照拦` }
+  }
+  const hit = staged.filter((p) => rels.has(p))
+  return hit.length > 0
+    ? { blocking: true, reason: `本次提交动了离线包的输入/产物:${hit.slice(0, 3).join(', ')}` }
+    : { blocking: false, reason: '本次提交未动词包也未动产物 ⇒ 陈旧由守护检出档腿收敛,不拦无关提交(§12e)' }
+}
+
+/** 产物自己的落点(7 份)+ 生成器本身:动了它们同样要为包的陈旧负责 */
+const GENERATOR_INPUT_HINTS = [
+  'scripts/gen-i18n-compressed.mjs',
+  'scripts/lib/i18n-bundle-inputs.mjs',
+  'scripts/lib/rn-carried-keys.mjs',
+  'apps/miniapp-taro/src/i18n/generated/remote-locale-manifest.gen.ts',
+  'apps/miniapp-taro/src/i18n/generated/zh-cn-pack.gen.ts',
+  'apps/miniapp-taro/src/assets/remote-locales/en.b64.txt',
+  'apps/miniapp-taro/src/assets/remote-locales/ja.b64.txt',
+  'apps/miniapp-taro/src/assets/remote-locales/ko.b64.txt',
+  'apps/miniapp-taro/src/assets/remote-locales/zh-TW.b64.txt',
+]
+
 /* ─────────────────────────── 输出 ─────────────────────────── */
 
 function formatReport(result, face, opts) {
@@ -1472,6 +1524,12 @@ function formatReport(result, face, opts) {
     lines.push('     ⚠️ 未判定 ≠ 通过:产物没记自己从哪份输入生成,陈旧与否无从现算。')
   } else {
     lines.push(`  📌 离线包自述钉(G-680):${result.undetermined.pinState} —— ${result.undetermined.pinDetail}`)
+    // 定级依据必须与结论同屏:同一句"包陈旧",在提交链里可能是 warn(本次没动词包,红由守护腿收敛),
+    // 在 CI/守护档是 blocking(交付前必须新)。不写出为谁亮红,读日志的人就没法判断该不该拦这一枚。
+    if (result.undetermined.packAccountability) {
+      const pa = result.undetermined.packAccountability
+      lines.push(`  📌 离线包红向谁亮:${pa.blocking ? 'blocking' : 'warn'} —— ${pa.reason}`)
+    }
   }
   for (const s of result.undetermined.uiRoutesPins) {
     lines.push(`  📌 四端 ui-routes 自述钉(G-816040) ${s.rel}: ${s.state} —— ${s.detail}`)
@@ -2116,6 +2174,8 @@ export const __test__ = {
   readCarriedLeafKeys,
   readPinInputs,
   checkBundlePin,
+  // 离线包红的定级依据(提交链只拦"本次自己动了词包"的那一枚)
+  packAccountability,
   // 输入清单规则的唯一出口(镜像测试按它造夹具,不许在测试里再抄一遍路径 —— §22c)
   bundleInputRels,
   baseSourceRel,

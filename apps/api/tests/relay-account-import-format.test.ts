@@ -143,6 +143,32 @@ describe('validateAccountExport', () => {
     expect(bad.issues[0]?.code).toBe('top-level-shape')
   })
 
+  it('name 缺省时 phone 是全平台统一兜底位(O66:trae/workbuddy 也认 phone)', () => {
+    for (const provider of ['trae', 'workbuddy'] as const) {
+      const r = validateAccountExport(
+        { accounts: [account({ name: undefined, phone: '15330637579' })] },
+        { providerCode: provider, now: NOW },
+      )
+      expect(r.ok).toBe(true)
+      expect(r.accounts[0]!.name).toBe('15330637579')
+    }
+  })
+
+  it('显式 name 恒最优先;qoder 同给 nickname+phone 时 phone 胜(O66)', () => {
+    const r = validateAccountExport(
+      {
+        accounts: [
+          account({ name: 'nm', phone: '15330637579' }),
+          account({ name: undefined, nickname: 'nn', phone: '15330637579' }),
+        ],
+      },
+      { providerCode: 'qoder', now: NOW },
+    )
+    expect(r.ok).toBe(true)
+    expect(r.accounts[0]!.name).toBe('nm')
+    expect(r.accounts[1]!.name).toBe('15330637579')
+  })
+
   it('trae/workbuddy 缺 token → error;enabled 非布尔 → error', () => {
     const report = validateAccountExport(
       {

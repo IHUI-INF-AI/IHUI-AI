@@ -820,4 +820,84 @@ test('T26 修复后:门自己的写回出口重生成 + 入库 ⇒ HEAD 档 rc=0
     rmScratch(dir)
   }
 })
+
+/* ─────────── T27–T29 离线包红的"向谁亮"定级(§12e:不拦无关提交) ─────────── */
+
+/** 造一枚"词包已入库、离线包钉没跟"的真 git 仓(本仓最常见的现场:旁路落地改了词包不跑钩子) */
+function makeStalePackRepo(dir) {
+  git(dir, ['init', '-q', '-b', 'main'])
+  pinFixture(dir, {})
+  git(dir, ['add', '-A'])
+  git(dir, ['commit', '-q', '-m', 'pack pinned'])
+  // 别席把一条译文改了并入库(旁路落地不跑钩子 ⇒ 没人重跑生成器)
+  put(dir, `${gate.MESSAGE_ROOT}/shared/ja.json`, JSON.stringify({ greeting: 'LATER-EDIT' }))
+  git(dir, ['add', '-A'])
+  git(dir, ['commit', '-q', '-m', 'ja 文案变了,包没重跑'])
+  return dir
+}
+
+test('T27 提交链(--staged)且本次没动词包 ⇒ 离线包陈旧只报数不拦(恒红门会把全部守门陪葬)', () => {
+  const dir = makeStalePackRepo(mkScratch('cmg-pack-unrelated'))
+  try {
+    const r = runGuard(['--root', dir, '--staged', '--group', 'i18n'])
+    assert.equal(r.code, 0, `无关提交不该被离线包陈旧拦住,实际 ${r.code}:${r.out || r.err}`)
+    assert.match(r.out, /\[G5\]/, `陈旧这件事仍必须被点名(不许悄悄不报):${r.out}`)
+    assert.match(r.out, /离线包红向谁亮:warn/, `必须写出"这一枚为什么只 warn":${r.out}`)
+    assert.match(r.out, /未动词包/, `理由要点名"本次提交没动词包":${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T28 同一枚仓,把词包本身 staged 进来 ⇒ 立刻恢复 blocking(谁把包弄旧谁负责)', () => {
+  const dir = makeStalePackRepo(mkScratch('cmg-pack-culprit'))
+  try {
+    put(dir, `${gate.MESSAGE_ROOT}/miniapp-taro/en.json`, JSON.stringify({ local: 'en-only-v2' }))
+    git(dir, ['add', '--', `${gate.MESSAGE_ROOT}/miniapp-taro/en.json`])
+    const r = runGuard(['--root', dir, '--staged', '--group', 'i18n'])
+    assert.equal(r.code, 1, `动了词包就必须同轮重跑生成器,实际 ${r.code}:${r.out || r.err}`)
+    assert.match(r.out, /\[G5\]/, `红点必须是 G5:${r.out}`)
+    assert.match(r.out, /离线包红向谁亮:blocking/, `${r.out}`)
+    assert.match(r.out, /本次提交动了离线包的输入/, `必须点名"动了输入"这一事实:${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T29 全量档(CI/守护面)恒 blocking,但红必须有出口 —— 按当前输入重钉一次即转绿', () => {
+  const dir = makeStalePackRepo(mkScratch('cmg-pack-ci'))
+  try {
+    const r = runGuard(['--root', dir, '--group', 'i18n'])
+    assert.equal(r.code, 1, `CI/守护档上陈旧必须红(交付前必须新),实际 ${r.code}:${r.out || r.err}`)
+    assert.match(r.out, /离线包红向谁亮:blocking/, `${r.out}`)
+    assert.match(r.out, /\[G5\]/, '红点必须报出 G5')
+    // 阳性对照:把包按**当前输入**整份重钉(钉 + 载荷一起,等同 `pnpm gen:i18n` 干的事)⇒ 同一档必须转绿。
+    // 只改钉不改载荷是不够的 —— 那正是 B2"同键不同值"要抓的形态,而这一步要的正是"红必须有出口"。
+    const rd = gate.makeReader('worktree', dir)
+    const inputs = gate.readPinInputs(rd)
+    const fresh = PIN.renderPin({
+      generator: GEN_REL,
+      sourceCommit: 'cafebabe',
+      inputs,
+      generatedAt: '2026-01-01T00:00:00.000Z',
+    }).join('\n')
+    const b64For = (obj) => Buffer.from(gzipSync(Buffer.from(JSON.stringify(obj), 'utf8'))).toString('base64')
+    const byRel = new Map(inputs.map((i) => [i.rel, i.text]))
+    const data = gate.REMOTE_LOCALES.map((l) => {
+      const merged = gate.mergeMessages(
+        JSON.parse(byRel.get(gate.baseSourceRel(l)) ?? '{}'),
+        JSON.parse(byRel.get(gate.overrideSourceRel(l)) ?? '{}'),
+      )
+      return `  ${l}: '${b64For(merged)}',`
+    }).join('\n')
+    writeFileSync(join(dir, gate.I18N_BUNDLE), `// GENERATED\n${fresh}\nexport const REMOTE_LOCALE_B64 = {\n${data}\n}\n`, 'utf8')
+    git(dir, ['add', '-A'])
+    git(dir, ['commit', '-q', '-m', '把包按当前输入重钉(含载荷)'])
+    const green = runGuard(['--root', dir, '--group', 'i18n'])
+    assert.equal(green.code, 0, `重钉后必须绿(否则本门就是没有出口的恒红门):${green.out || green.err}`)
+    assert.match(green.out, /自述钉\(G-680\):matched/, `必须真判到 matched:${green.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

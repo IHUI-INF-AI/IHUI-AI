@@ -41,6 +41,8 @@ import { fileURLToPath } from 'node:url'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { hasMirrorMarker, insertMirrorMarker } from './lib/cross-end-mirror-write.mjs'
 import { insertConfigPage, parseMiniappRoutes } from './gen-miniapp-mirror.mjs'
+// 判定台账(单源 lib):本器物顺带把「已造页但台账仍写缺页」这一族对平(§0.6 路径与口径单源)。
+import { readVerdicts, writeVerdictRows } from './lib/cross-end-verdicts.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const R = (...p) => join(ROOT, ...p)
@@ -54,6 +56,7 @@ const applyMode = argv.includes('--apply')
 const selfTestMode = argv.includes('--self-test')
 const worktreeMode = argv.includes('--worktree')
 const FACE = worktreeMode ? 'worktree' : 'head'
+const TODAY = new Date().toISOString().slice(0, 10)
 
 /** 读工作树副本;取不到 = null(该面没有这份件)。 */
 function safeRead(rel) {
@@ -172,6 +175,10 @@ const mpByRoute = new Map(mp.map((p) => [p.route, p]))
 const sharedSpecs = new Set(shared.map((s) => s.spec))
 const rnFiles = new Set(rn.map((r) => r.file))
 
+// 「已镜像」的集合(门 128 同一把尺子)—— 判定台账的 missing→generated 改档靠它。
+const mirroredSpecs = new Set()
+for (const p of mp) for (const s of cov.mirroredSpecs(p)) mirroredSpecs.add(s)
+
 const cfgText = cov.faceRead(FACE, MP_CONFIG)
 if (cfgText === null) {
   console.error(`❌ 未判定:取不到被审面的 ${MP_CONFIG}`)
@@ -251,6 +258,25 @@ for (const e of entries) {
   findings.push({ kind: 'marker-missing', shared: sharedSpec, route, file })
 }
 
+// ---------- 台账改档:missing → generated ----------
+// 为什么归本器物管:它是**台账 → 代码**的对账器,而这一族正是"台账说该造页、代码里页已经在了"
+// (页被生成器造出、但台账没跟上)。不在这儿改,就没人改 —— 台账会一直说"缺页",
+// 缺口账本会把已造页继续列成待造(重复派单),而且**覆盖率会替功能缺口背书**。
+// 判据:该屏在当前面已被小程序页显式镜像(门 128 同一把尺子 cov.mirroredSpecs)。
+const ledgerRows = readVerdicts(FACE, ROOT)
+const verdictPatches = []
+for (const row of ledgerRows.rows) {
+  if (row.verdict !== 'missing') continue
+  if (!mirroredSpecs.has(row.shared)) continue
+  verdictPatches.push({
+    shared: row.shared,
+    verdict: 'generated',
+    evidence: `已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补`,
+    at: TODAY,
+    source: 'repair-cross-end-mirror',
+  })
+}
+
 // ---------- 落地 ----------
 const applied = []
 const refused = []
@@ -298,6 +324,16 @@ if (applyMode) {
     writeFileSync(R(f.file), r.text)
     applied.push({ ...f, how: `插入标记行 ${r.line}` })
   }
+  // 台账改档(missing → generated):判据=该屏在当前面已被小程序页显式镜像。
+  // 写盘归单源 lib writeVerdictRows(§0.6);写不进去不冒充成功(结论行点名)。
+  if (verdictPatches.length > 0) {
+    try {
+      const wr = writeVerdictRows(ROOT, verdictPatches)
+      applied.push({ kind: 'verdict-patch', shared: `${verdictPatches.length} 条台账行`, how: `missing → generated(台账改档,total=${wr.total},added=${wr.added})` })
+    } catch (e) {
+      refused.push({ kind: 'verdict-patch', shared: `${verdictPatches.length} 条台账行`, why: `台账写盘失败:${e && e.message ? e.message : e}` })
+    }
+  }
 }
 
 const summary = {
@@ -307,6 +343,7 @@ const summary = {
   byKind: findings.reduce((acc, f) => ({ ...acc, [f.kind]: (acc[f.kind] || 0) + 1 }), {}),
   applied: applied.length,
   refused: refused.length,
+  verdictPatches: verdictPatches.length,
 }
 if (jsonMode) {
   console.log(JSON.stringify({ summary, findings, applied, refused }, null, 1))
@@ -314,7 +351,7 @@ if (jsonMode) {
 }
 
 console.log(`\n台账→代码 对账(判定面 ${FACE === 'head' ? 'HEAD blob' : '工作树(人工)'})`)
-console.log(`登记表条目 ${summary.registryEntries} / 需处理 ${summary.findings}`)
+console.log(`登记表条目 ${summary.registryEntries} / 需处理 ${summary.findings} / 台账改档候选 ${summary.verdictPatches}`)
 for (const [k, v] of Object.entries(summary.byKind)) console.log(`  ${k}: ${v}`)
 if (findings.length === 0) console.log('\n✅ 台账与代码完全对齐,无需修复')
 else {

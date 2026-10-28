@@ -1807,6 +1807,23 @@
     "useCount": "使用 {count}",
     "rating": "评分 {score}"
   },
+  "agents": {
+    "categories": {
+      "recommend": "推荐",
+      "office": "办公",
+      "writing": "写作",
+      "coding": "编程",
+      "education": "教育",
+      "life": "生活"
+    },
+    "keywords": {
+      "office": "办公,会议,邮件,excel,word,ppt,文档,表格,office",
+      "writing": "写,文案,文章,创作,小说,内容,写作,文字",
+      "coding": "代码,编程,程序,开发,bug,函数,前端,后端,python,javascript,code",
+      "education": "学,教,课,知识,考试,题,教育,讲解,题解",
+      "life": "生活,健康,美食,旅游,运动,购物,日常"
+    }
+  },
   "aiAssistant": {
     "title": "AI 助手",
     "subtitle": "选择智能助手,开启高效对话",

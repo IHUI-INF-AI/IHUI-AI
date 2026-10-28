@@ -21,16 +21,16 @@ export const MENU_DEFAULT_COLUMNS = 4
  * 图块边长 40:小程序 `w-10 h-10` = 40、RN `icon.width` = 40 两端同档;
  * RN 的 `height: 44` 是手抄漂移(守门 128 立项点名的正是这一型),现按 40 方档收口。
  */
-export const MENU_TILE_PX = 40
+const MENU_TILE_PX = 40
 
 /** 标签字号 12:两端现值已同(小程序 `text-xs` / RN `fontSize: 12`)。 */
 export const MENU_LABEL_FONT_PX = 12
 
 /** 图块与标签之间 8:小程序 `gap-2` = 8、RN `marginTop: 8` —— 同一个空间两种机制,数字收一处。 */
-export const MENU_LABEL_GAP_PX = 8
+const MENU_LABEL_GAP_PX = 8
 
 /** 单格上下留白 8:小程序 `py-2` = 8 vs RN `paddingVertical: 10` —— 取紧凑档(AGENTS.md §4 compact)。 */
-export const MENU_ITEM_PADDING_Y_PX = 8
+const MENU_ITEM_PADDING_Y_PX = 8
 
 /**
  * 网格容器整块上下留白 8:此前 RN `paddingVertical: 8` 是端内独有一档、小程序网格容器无整块留白。

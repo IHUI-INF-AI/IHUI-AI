@@ -13,7 +13,7 @@
  * 这不是判据错,是两侧词表没对上;修法必须是**一处适配**,而不是让每个裁决者去猜落地器的词。
  *
  * 本器只做三件事,不重判任何一格:
- *   ① web 档词表归一:mirrored → aligned、not-applicable → excluded、missing → gap(保持缺口);
+ *   ① web 档词表归一:mirrored → aligned、not-applicable → excluded、missing → gap(判过确缺);
  *      未知值 ⇒ 当场 refused(§0.10:失效方向是多要一次定向说明,不是静默放过);
  *   ② miniapp 档原样透传(declare/missing/not-applicable 落地器已认);
  *   ③ 归一后的清单写到临时文件,再调 `auto-register-cross-end.mjs --proposals=<tmp>`;
@@ -41,7 +41,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
 const TMP_DIR = join(ROOT, '.ihui-agent', 'tmp', 'cross-end-verdicts')
 
-/** 词表归一唯一表(web 档)。值 = 落地器认的词;null = 保持缺口(不落地)。 */
+/** 词表归一唯一表(web 档)。值 = 落地器认的词。 */
 export const WEB_VERDICT_ALIASES = Object.freeze({
   aligned: 'aligned',
   mirrored: 'aligned',
@@ -63,7 +63,7 @@ export function normalizeVerdictItem(item) {
     const mapped = WEB_VERDICT_ALIASES[verdict]
     if (mapped === undefined) return { ok: false, why: `web 档未知 verdict=${verdict}(词表未登记)` }
     if (mapped === 'aligned' && !item.rn) return { ok: false, why: `verdict=${verdict} 但缺 rn(屏路径)` }
-    if (mapped === 'excluded' && String(item.evidence ?? item.reason ?? '').trim().length < 10)
+    if ((mapped === 'excluded' || mapped === 'gap') && String(item.evidence ?? item.note ?? item.reason ?? '').trim().length < 10)
       return { ok: false, why: `verdict=${verdict} 但证据少于 10 字` }
     return { ok: true, kind: 'web', item: { ...item, verdict: mapped }, from: verdict, to: mapped }
   }
@@ -87,7 +87,10 @@ export function normalizeAll(list) {
     }
     bump(`${r.from}→${r.to}`)
     if (r.kind === 'web' && r.to === 'gap') {
-      out.keptGap.push({ web: r.item.web, why: String(r.item.evidence ?? '').slice(0, 80) })
+      // gap 也委托落地器写 map(status=gap):不落盘 ⇒ 判过的缺口下轮又退回 unmapped,
+      // 「判过」与「没人判」结构上分不开(§0.3 的对称另一半)。
+      out.keptGap.push({ web: r.item.web, why: String(r.item.evidence ?? r.item.note ?? '').slice(0, 80) })
+      out.web.push(r.item)
       continue
     }
     out[r.kind].push(r.item)
@@ -195,7 +198,7 @@ async function main() {
   } else {
     console.log(`裁决件 ${report.files} 份 / ${report.items} 条`)
     for (const [k, v] of Object.entries(report.counts)) console.log(`  ${k}: ${v}`)
-    console.log(`  保持缺口(missing): ${report.keptGap}`)
+    console.log(`  其中 gap(判过确缺): ${report.keptGap}`)
     console.log(`  拒收: ${report.refused.length}`)
     for (const r of report.refused) console.log(`    ✗ ${r.item} — ${r.why}`)
     console.log(`  委托落地器: web ${report.delegated.web} / miniapp ${report.delegated.miniapp}` +

@@ -1807,6 +1807,23 @@
     "useCount": "Used {count}",
     "rating": "Rating {score}"
   },
+  "agents": {
+    "categories": {
+      "recommend": "Recommended",
+      "office": "Office",
+      "writing": "Writing",
+      "coding": "Coding",
+      "education": "Education",
+      "life": "Lifestyle"
+    },
+    "keywords": {
+      "office": "office,meeting,email,excel,word,ppt,document,spreadsheet",
+      "writing": "writing,copy,article,creation,novel,content,text,blog",
+      "coding": "code,coding,program,development,bug,function,frontend,backend,python,javascript",
+      "education": "learn,teach,lesson,knowledge,exam,quiz,education,explain,solution",
+      "life": "life,health,food,travel,sport,shopping,daily"
+    }
+  },
   "aiAssistant": {
     "title": "AI Assistant",
     "subtitle": "Choose a smart assistant to start a conversation",

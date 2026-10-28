@@ -43,7 +43,10 @@ const RANGE_ITEMS: readonly { key: RangeKey; labelKey: string }[] = [
 /** 各范围的天数(a=全部不设限) */
 const RANGE_DAYS: Record<RangeKey, number> = { w: 7, m: 30, y: 365, a: Number.POSITIVE_INFINITY }
 
-function formatToken(n: number, t: (k: string, v?: Record<string, string | number>) => string): string {
+function formatToken(
+  n: number,
+  t: (k: string, v?: Record<string, string | number>) => string,
+): string {
   if (Math.abs(n) >= 100000000) return t('tokenValue.unitYi', { v: (n / 100000000).toFixed(2) })
   if (Math.abs(n) >= 10000) return t('tokenValue.unitWan', { v: (n / 10000).toFixed(1) })
   return `${n}`
