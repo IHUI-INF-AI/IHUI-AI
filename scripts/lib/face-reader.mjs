@@ -268,7 +268,24 @@ export function catBatchTypes(root, oids) {
 export function gitErrText(e) {
   const raw = e?.stderr ?? e?.stdout ?? e?.message ?? String(e)
   const text = String(typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf8')).trim()
-  return text.split(/\r?\n/)[0] || '(git 无输出)'
+  const first = text.split(/\r?\n/)[0]
+  if (first) return first
+  // 空正文 ≠「git 没说话」。超时(SIGTERM)、资源耗尽(ENOMEM/ENOBUFS)时原因住在
+  // signal/code/errno 上,而 stderr 是**空字符串**(不是 nullish,`??` 不会回退)——
+  // 旧写法把这一类一律折成「(git 无输出)」,2026-10-28 实测它在守护日志里堆了 145 条,
+  // 把「派生 git 慢到超时」这条可整改的真因洗成了噪声。
+  // 只在**没有正常退出码**时补元信息:status 有值说明 git 正常退出,那句话确实是"没输出",
+  // 而 `check-staged-deletions` / `check-glyph-arrow-icon` 的零命中断言逐字依赖它。
+  if (typeof e?.status === 'number') return '(git 无输出)'
+  const meta = [
+    e?.signal && `signal=${e.signal}`,
+    e?.code && `code=${e.code}`,
+    e?.errno && `errno=${e.errno}`,
+    e?.message && `message=${String(e.message).split('\n')[0].slice(0, 160)}`,
+  ]
+    .filter(Boolean)
+    .join(' ')
+  return meta ? `(git 无输出;${meta})` : '(git 无输出)'
 }
 
 /**
