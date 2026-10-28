@@ -1,5 +1,5 @@
 {
-  "$comment": "『停着是设计内』的台账(消费者 = scripts/check-service-binary-paths.mjs 的 applyExpectedStopped)。它要解决的是**假红**而不是放宽判据:一台服务按设计就该停,判据若还把它记成 issue,真红就被这层噪声淹掉 —— 2026-10-28 现读就是这一型(IHUI-API 已退役、IHUI-API-BLUE 是蓝绿冷备,两台天天报 STATE=STOPPED)。三条不可漂的写法:①**只豁免『它停着』这一条**:STATE 非 RUNNING 之外的任何 problem(Application 路径烂了/AppDirectory 没了/端口声明读不到…)一律照旧报红 —— 否则这张表就成了新的消红通道;②**读不到就不豁免**:文件缺失/JSON 坏/蓝绿状态文件读不到,一律按『未登记』处理(方向是多喊一次,不是多静音一次,同 §0.10/§0.7);③**豁免必须会到期**:每条带 reviewBy,过期即失效并重新报红。",
+  "$comment": "『停着是设计内』的台账(消费者 = scripts/check-service-binary-paths.mjs 的 applyExpectedStopped)。它要解决的是**假红**而不是放宽判据:一台服务按设计就该停,判据若还把它记成 issue,真红就被这层噪声淹掉 —— 2026-10-28 现读就是这一型(IHUI-API 已退役、IHUI-API-BLUE 是蓝绿冷备,两台天天报 STATE=STOPPED)。四条不可漂的写法:①**只豁免『它停着』这一条,而且只认 STATE 的 stopped 档**:PAUSED(挂起)不是停着 —— nssm 的 AppExit=Restart 在应用反复退出时进入节流,服务落到 Paused、Start-Service 回 Unexpected status SERVICE_PAUSED,那是『配置坏了/应用起不来』的真故障,本表任何条目都免不到它(档位尺 = check-service-binary-paths.mjs 的 stateBandOf);STATE 之外的任何 problem(Application 路径烂了/AppDirectory 没了/端口声明读不到…)一律照旧报红 —— 否则这张表就成了新的消红通道;②**读不到就不豁免**:台账缺失/JSON 坏/某一族的状态文件读不到 ⇒ 该族本轮一条豁免都不给(方向是多喊一次,不是多静音一次,同 §0.10/§0.7),**绝不退『默认色』去猜活跃色是谁**;③**豁免必须会到期**:每条/每族带 reviewBy,过期即失效并重新报红;④**判据里不写死任何一族的服务名/端口/路径**:蓝绿一族按 blueGreen.families 数组登记,新增一族只在这里追加一条(§0.6 单一真相源;实现侧的族归一出口 = blueGreenFamiliesOf,还兼容 2026-10-28 的旧单族形,免得别的机的台账副本没跟上就把 api 冷备刷成天天假红 = §12e)。",
   "static": [
     {
       "name": "IHUI-API",
@@ -7,15 +7,38 @@
       "supersededBy": ["IHUI-API-ROUTER", "IHUI-API-GREEN", "IHUI-API-BLUE"],
       "since": "2026-10-28",
       "reviewBy": "2027-01-01"
+    },
+    {
+      "name": "IHUI-WEB",
+      "reason": "2026-10-29 03:31 迁入蓝绿后退役:单实例 web(8801)已被 web 蓝绿三件套取代 —— 现读 IHUI-WEB-ROUTER Running 且实测接管 0.0.0.0:8801、IHUI-WEB 由 deploy/win/ihui-deploy.ps1 的『首次迁入蓝绿』段停掉并改 Manual(注释原话:不改 Manual 则机器重启后单实例会与 router 抢 8801)。它既不该被拉起(拉起就与 router 抢 8801,把刚切好的流抢回去 —— 而 scripts/data/service-auto-restart.json 的 services 台账里 IHUI-WEB 仍在册,靠这条豁免才拦得住动作器),也不该继续在健康门上刷红 —— 与上面 IHUI-API 那一族同型。回滚能力仍在:router 不在位时部署环会把它拉回兜底,那时它自己会变回 RUNNING,而本条豁免对 RUNNING 一律不生效(见 applyExpectedStopped 只认 stopped 档)。",
+      "supersededBy": ["IHUI-WEB-ROUTER", "IHUI-WEB-GREEN", "IHUI-WEB-BLUE"],
+      "since": "2026-10-29",
+      "reviewBy": "2027-01-01"
     }
   ],
   "blueGreen": {
-    "$comment": "蓝绿冷备:同一时刻只有一个色在服务,另一个色按设计 Stop(见 deploy/win/ihui-api-bluegreen.ps1 第 6 步『停旧色』)。活跃色由状态文件里的 active 决定,活跃色停着 = 真故障,照旧报红。",
-    "stateFile": "D:/DevEnv/ihui-prod/deploy/run/api-bluegreen.json",
-    "defaultActive": "blue",
-    "colors": {
-      "blue": { "service": "IHUI-API-BLUE", "port": 8842 },
-      "green": { "service": "IHUI-API-GREEN", "port": 8843 }
-    }
+    "$comment": "蓝绿冷备:同一时刻只有一个色在服务,另一个色按设计 Stop(各族 cutoverStep 指的『停旧色』步;两族都由 deploy/win/ihui-api-bluegreen.mjs 这份通用切换器落地,它第 6 步停旧色、第 0 步按状态文件自愈)。活跃色由该族 stateFile 里的 active 决定;活跃色停着 = 真故障,照旧报红。stateFile 取不到 ⇒ 该族未判定,本族一枚豁免都不给(2026-10-29 现读:web 迁入前 deploy/run/web-bluegreen.json 不在位 ⇒ web 族当轮就应以『未判定』出现在报告里,而不是被读成『活跃色是 blue』)。两族的 router(IHUI-API-ROUTER/IHUI-WEB-ROUTER)不在本表射程:它是唯一入口,停着/挂起都是真故障,不得登记成设计内停止,也不得因『冷备该停』被顺手免掉。",
+    "families": [
+      {
+        "family": "api",
+        "stateFile": "D:/DevEnv/ihui-prod/deploy/run/api-bluegreen.json",
+        "cutoverStep": "deploy/win/ihui-api-bluegreen.ps1 第 6 步『停旧色』(经 deploy/win/ihui-api-bluegreen.mjs)",
+        "reviewBy": "2027-01-01",
+        "colors": {
+          "blue": { "service": "IHUI-API-BLUE", "port": 8842 },
+          "green": { "service": "IHUI-API-GREEN", "port": 8843 }
+        }
+      },
+      {
+        "family": "web",
+        "stateFile": "D:/DevEnv/ihui-prod/deploy/run/web-bluegreen.json",
+        "cutoverStep": "deploy/win/ihui-deploy.ps1 的 web 蓝绿段经 deploy/win/ihui-api-bluegreen.mjs 第 6 步『停旧色』",
+        "reviewBy": "2027-01-01",
+        "colors": {
+          "blue": { "service": "IHUI-WEB-BLUE", "port": 8851 },
+          "green": { "service": "IHUI-WEB-GREEN", "port": 8852 }
+        }
+      }
+    ]
   }
 }
