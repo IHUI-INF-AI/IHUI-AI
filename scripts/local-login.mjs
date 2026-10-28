@@ -20,7 +20,8 @@
  *   workbuddy %LOCALAPPDATA%\CodeBuddyExtension\...\auth\workbuddy-desktop[-ai].info
  *            $wbEncrypted 字段信封,密钥取自运行中主进程 inspector;取钥→关端→重封→拉起
  *   doubao   %LOCALAPPDATA%\Doubao\User Data\Default\Network\Cookies  Chromium os_crypt v10,可重封;GUI 同上
- *   其余(loomy/lingma/grokbot)无法离线重封,由服务层给明确 409 原因。
+ *   loomy    %APPDATA%\Loomy\Local Storage\leveldb\<活日志>.log       Chromium DOM Storage WriteBatch 追加(后写为准);GUI 同上
+ *   其余(lingma/grokbot)无法离线重封,由服务层给明确 409 原因。
  *
  * 与 trae 的一致性(2026-10-28 补齐):凡"运行中客户端会在退出/续期时回写落点"的平台,
  * 一律 探测 → 优雅关闭(不退再补一轮,仍不退强杀)→ 写(原子落盘)→ 原样拉起,
@@ -41,6 +42,7 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { clientHomeEnvs } from './lib/client-home.mjs'
+import * as lv from './lib/leveldb-log.mjs'
 import {
   closeProduct,
   launchProduct,
@@ -86,6 +88,7 @@ export const SUPPORTED_PROVIDERS = Object.freeze([
   'qoder',
   'workbuddy',
   'doubao',
+  'loomy',
 ])
 
 const PROVIDER_LABEL = Object.freeze({
@@ -97,6 +100,7 @@ const PROVIDER_LABEL = Object.freeze({
   qoder: 'Qoder',
   workbuddy: 'WorkBuddy',
   doubao: '豆包',
+  loomy: 'Loomy',
 })
 
 function asText(v) {
@@ -295,6 +299,7 @@ export function assertReadBack(what, verify) {
  *   qoder     auth.v1.dat,适配器注释已点明"运行中客户端退出时可能覆写";
  *   minimax   auth.json 由 MiniMax Code 桌面端持在内存,退出/token 续期时回写;
  *   zcode     credentials.json(enc:v1:)同属桌面端整块回写的那一类;
+ *   loomy     Local Storage leveldb 活日志由 Electron 客户端持在内存,退出/续期时落盘;
  *   codex/opencode 是 CLI,每次执行现读 auth.json,写文件不需要动进程(也不该去杀)。
  * 候选名按"先具体后宽泛"排列(同一平台国内版/国际版映像名不同,取第一个命中的)。
  */
@@ -304,6 +309,7 @@ export const CLIENT_IMAGES = Object.freeze({
   minimax: ['MiniMax Code', 'MiniMaxCode'],
   zcode: ['ZCode'],
   doubao: ['Doubao'],
+  loomy: ['Loomy'],
 })
 
 /**
@@ -325,6 +331,7 @@ export const CLIENT_PATH_HINTS = Object.freeze({
   minimax: ['minimax'],
   zcode: ['zcode'],
   doubao: ['doubao'],
+  loomy: ['loomy'],
 })
 
 /**
@@ -1372,6 +1379,135 @@ export function applyDoubao(payload, opts = {}) {
 }
 
 // =============================================================================
+// Loomy — %APPDATA%\Loomy\Local Storage\leveldb\<活日志>.log(Chromium DOM Storage)
+// =============================================================================
+
+/**
+ * 写回配方(2026-10-28 装车;键与会话形状为 asar 源码级实证,日志格式判据单源
+ * scripts/lib/leveldb-log.mjs):
+ * Loomy 登录会话 = localStorage 键 loomy-auth-session,值 =
+ * JSON.stringify({phone, maskedPhone, session, userid, loggedInAt})(session 即会话票)。
+ * DOM Storage 落点是 LevelDB 日志:客户端关闭时 .log 会被打开方重放进 memtable,
+ * 同键**更高 seq 的 WriteBatch 后写为准** ⇒ 追加一条新批次就是客户端自己的读法,
+ * 不需要 SQLite/独占/加密。运行中的客户端把整块会话持在内存、退出时回写 ⇒
+ * 先关后写再拉起(走 CLIENT_IMAGES.loomy,main() 统一处理)。
+ * 写回值 = 池内 secrets.sessionTemplate(导入时剔票的整份资料)+ 池内权威 token 重建
+ * (键序不必与原始一致,客户端按 JSON 解析;净零判据 = 解析后字段集/值一致)。
+ * 配套键 loomy-last-login-phone / loomy-user-identity 同批写入(secrets.companions)。
+ * 元数据键 `_file://\0\0`(origin 总大小)不动:净零等长写回无碍;跨账号字节数漂移
+ * 由客户端下次 setItem 自修(如实进 notes)。设备凭证(safeStorage 加密的
+ * shared-session-sync\device-credential.json)不在写回范围:客户端下次同步自会重建。
+ */
+
+/** leveldb 目录里最高号的 .log(活日志;数字前缀比较,与 LevelDB file-number 语义一致) */
+function newestLeveldbLog(dir) {
+  if (!fs.existsSync(dir)) return ''
+  const logs = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.log'))
+    .map((f) => ({ f, n: parseInt(f, 10) }))
+    .filter((x) => Number.isFinite(x.n))
+    .sort((a, b) => a.n - b.n)
+  return logs.length ? path.join(dir, logs[logs.length - 1].f) : ''
+}
+
+/** 模板 userid 与目标 uid 对不上 ⇒ 拒写(与 assertTemplateUid 同判据,loomy 键名为 userid) */
+function assertLoomyTemplateUid(template, uid) {
+  const raw = template?.userid
+  const found =
+    typeof raw === 'string' ? raw.trim() : typeof raw === 'number' && Number.isFinite(raw) ? String(raw) : ''
+  if (found && !String(uid).startsWith('auto:') && found !== String(uid)) {
+    throw new WriteError(
+      `会话模板的账号(${found})与目标 uid(${uid})不一致 ⇒ 拒绝写入(模板与账号错配)`,
+      'template-uid-mismatch',
+    )
+  }
+  return found || null
+}
+
+export function applyLoomy(payload, opts = {}) {
+  const extract = opts.extract
+  const template = asObj(payload.secrets.sessionTemplate) ?? {}
+  assertLoomyTemplateUid(template, payload.uid)
+  const value = JSON.stringify({ ...template, session: payload.token })
+
+  let logFile = ''
+  if (payload.target) {
+    logFile = path.resolve(payload.target)
+  } else {
+    for (const env of clientEnvs(opts)) {
+      for (const dir of extract.loomyCandidateRoamingDirs(env) ?? []) {
+        logFile = newestLeveldbLog(path.join(dir, 'Local Storage', 'leveldb'))
+        if (logFile) break
+      }
+      if (logFile) break
+    }
+  }
+  if (!logFile) {
+    throw new WriteError(
+      '本机没找到 Loomy 的 Local Storage 活日志(%APPDATA%\\Loomy\\Local Storage\\leveldb\\<n>.log)' +
+        ' ⇒ 请先安装并登录 Loomy 客户端',
+      'no-target',
+    )
+  }
+  if (!fs.existsSync(logFile)) {
+    throw new WriteError(`Loomy 活日志不存在:${logFile}`, 'no-target')
+  }
+
+  const keyBuf = lv.lsValueKey('loomy-auth-session')
+  const beforeBuf = fs.readFileSync(logFile)
+  // 写前现值(净零判据 + replacedUid 如实回报)
+  const prevPlain = lv.decodeStoredValue(lv.latestStoredValue(beforeBuf, keyBuf))
+  let replacedUid = null
+  if (prevPlain) {
+    try {
+      const prev = JSON.parse(prevPlain)
+      const raw = prev?.userid
+      replacedUid =
+        typeof raw === 'string' ? raw.trim() : typeof raw === 'number' && Number.isFinite(raw) ? String(raw) : null
+    } catch {
+      /* 现值不是合法 JSON ⇒ 只说明写前形状异常,不阻塞写 */
+    }
+  }
+
+  // 批次条目:主键 + 配套键(companions 命中才同批落)
+  const writes = [{ name: 'loomy-auth-session', plain: value }]
+  const companions = asObj(payload.secrets.companions) ?? {}
+  for (const name of ['loomy-last-login-phone', 'loomy-user-identity']) {
+    const v = asText(companions[name])
+    if (v) writes.push({ name, plain: v })
+  }
+  const entries = writes.map((w) => ({ key: lv.lsValueKey(w.name), value: lv.encodeStoredValue(w.plain) }))
+  const nextSeq = lv.maxBatchSeq(beforeBuf) + 1n
+  const batch = lv.buildBatch(nextSeq, entries)
+
+  const backupFile = backupOf(logFile)
+  atomicWrite(logFile, lv.appendRecords(beforeBuf, [batch]))
+
+  // 写后自检:按客户端读法(重放日志、后写为准、varint 精确解码)取回,必须逐键全等
+  assertReadBack('Loomy Local Storage', () => {
+    const after = fs.readFileSync(logFile)
+    for (const w of writes) {
+      const got = lv.decodeStoredValue(lv.latestStoredValue(after, lv.lsValueKey(w.name)))
+      if (got !== w.plain) return false
+    }
+    const back = JSON.parse(lv.decodeStoredValue(lv.latestStoredValue(after, keyBuf)) ?? 'null')
+    return back !== null && back.session === payload.token
+  })
+
+  return writeResult('loomy', logFile, backupFile, {
+    uid: payload.uid,
+    replacedUid,
+    notes: [
+      `已向活日志追加 WriteBatch(seq=${nextSeq},条目=${writes.map((w) => w.name).join(', ')})`,
+      'origin 元数据键(_file://\\0\\0)未动:净零等长写回无碍;跨账号字节数漂移由客户端下次 setItem 自修',
+      '设备凭证(safeStorage 加密 shared-session-sync\\device-credential.json)不在写回范围:客户端下次同步自会重建',
+    ],
+    restartHint: '重启 Loomy 客户端后生效(运行中的客户端会把内存态回写 leveldb,故必须先关后写)',
+  })
+}
+
+// =============================================================================
 // CLI
 // =============================================================================
 
@@ -1384,10 +1520,11 @@ export const ADAPTERS = Object.freeze({
   qoder: applyQoder,
   workbuddy: applyWorkbuddy,
   doubao: applyDoubao,
+  loomy: applyLoomy,
 })
 
 async function loadExtract() {
-  const [codex, opencode, minimax, zcode, codearts, workbuddy, doubao] = await Promise.all([
+  const [codex, opencode, minimax, zcode, codearts, workbuddy, doubao, loomy] = await Promise.all([
     import(pathToFileURL(path.join(HERE, 'lib', 'codex-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'opencode-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'minimax-auth-extract.mjs')).href),
@@ -1395,6 +1532,7 @@ async function loadExtract() {
     import(pathToFileURL(path.join(HERE, 'lib', 'codearts-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'workbuddy-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'doubao-auth-extract.mjs')).href),
+    import(pathToFileURL(path.join(HERE, 'lib', 'loomy-auth-extract.mjs')).href),
   ])
   return {
     resolveCodexHome: codex.resolveCodexHome,
@@ -1422,6 +1560,7 @@ async function loadExtract() {
     wrapDoubaoAppPrefix: doubao.wrapDoubaoAppPrefix,
     stripDoubaoAppPrefix: doubao.stripDoubaoAppPrefix,
     decryptOsCryptString: doubao.decryptOsCryptString,
+    loomyCandidateRoamingDirs: (env) => loomy.candidateRoamingDirs(env),
   }
 }
 
@@ -1568,6 +1707,7 @@ export const __test__ = {
   applyQoder,
   applyWorkbuddy,
   applyDoubao,
+  applyLoomy,
   WriteError,
   CREDENTIAL_KEYS,
 }

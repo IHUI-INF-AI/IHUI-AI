@@ -13,7 +13,7 @@
  * 分工(§0.6 单一真相源):
  * - 本服务 = 取行、平台裁决、票据策略、spawn、错误映射(不复制模板形状/凭证剔除规则);
  * - scripts/trae-login-local.mjs = Trae storage.json 重封 byteCrypto 信封 + 备份 + 原子写;
- * - scripts/local-login.mjs = codex/opencode/minimax/zcode/codearts/qoder/workbuddy/doubao 八平台写回。
+ * - scripts/local-login.mjs = codex/opencode/minimax/zcode/codearts/qoder/workbuddy/doubao/loomy 九平台写回。
  *
  * 票据策略(trae 之外一律不刷新):Trae 保留「临期先兜底刷新一次」的既有生产口径;
  * 其它平台写池内当前票 —— 主动刷新会轮换 refreshToken,若本机正用着同一个号就会
@@ -40,7 +40,7 @@ const TRAE_SCRIPT = resolve(REPO_ROOT, 'scripts', 'trae-login-local.mjs')
 const LOCAL_SCRIPT = resolve(REPO_ROOT, 'scripts', 'local-login.mjs')
 /** 服务身份下换桌面用户执行的 helper(CodeArts/Qoder 的用户级 DPAPI 只能以该用户身份解) */
 const RUN_AS_USER_SCRIPT = resolve(REPO_ROOT, 'apps', 'api', 'scripts', 'run-as-user.ps1')
-const SPAWN_TIMEOUT_MS = 150_000
+const SPAWN_TIMEOUT_MS = 90_000
 /** 票剩余寿命低于此值就视为"临期":trae 写回后客户端必然立刻轮换,与池内旧票打架 */
 const EXPIRY_GUARD_MS = 60_000
 
@@ -49,12 +49,11 @@ const EXPIRY_GUARD_MS = 60_000
  * 这些平台仍可正常入池/转发/保活,只是不能一键写回本机客户端。
  */
 export const LOCAL_LOGIN_UNSUPPORTED_REASONS: Partial<Record<RelayProviderCode, string>> = {
-  loomy: '本机登录态是 Electron leveldb 且被客户端独占,离线无法重建',
   lingma: '字段级登录态形状尚未实证(本机未安装),没有可验证的写回配方',
   grokbot: '本机凭证是 sandSealedFile 密封串,没有明文 token 可重建',
 }
 
-/** 由 scripts/local-login.mjs 接管写回的八平台 */
+/** 由 scripts/local-login.mjs 接管写回的九平台 */
 const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
   'codex',
   'opencode',
@@ -64,6 +63,7 @@ const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
   'qoder',
   'workbuddy',
   'doubao',
+  'loomy',
 ])
 
 /**
@@ -72,12 +72,14 @@ const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
  * 走 apps/api/scripts/run-as-user.ps1(WTSQueryUserToken → CreateProcessAsUser);
  * 非服务身份时该脚本原样直跑,行为与直接 spawn 等价。
  * workbuddy 的 inspector 取钥与豆包的 DPAPI 取钥同样只在桌面用户身份下成立。
+ * loomy 的 leveldb 落点、进程关闭与重拉起都属桌面用户会话,同样走 helper。
  */
 const RUN_AS_USER_PROVIDERS: ReadonlySet<string> = new Set([
   'codearts',
   'qoder',
   'workbuddy',
   'doubao',
+  'loomy',
 ])
 
 /**
@@ -247,14 +249,6 @@ function statusOf(code: string): 400 | 409 | 502 {
     code === 'duplicate-accounts' ||
     code === 'target-locked' ||
     code === 'cipher-key-mismatch' ||
-    // WorkBuddy 写回端环境/模板类冲突(2026-10-28):本机没在跑/进程歧义/版本错配/
-    // 会话文件缺失/模板或密封路径形状不对 ⇒ 都是"改环境后重试"的 409,不是服务端故障。
-    code === 'not-running' ||
-    code === 'ambiguous-process' ||
-    code === 'edition-mismatch' ||
-    code === 'auth-file-missing' ||
-    code === 'template-shape' ||
-    code === 'no-sealed-paths' ||
     // 写后自检读不回目标凭证(2026-10-28):落点可能被仍在退出的客户端覆写,
     // 退出客户端后重试通常就能过 ⇒ 按冲突(409)给前端,不用"服务端故障"误导用户。
     code === 'write-verify'
@@ -435,7 +429,7 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
   }
 }
 
-/** 八平台:写池内当前票,不主动刷新(刷新会轮换 refreshToken ⇒ 可能顶掉正在用的本机客户端) */
+/** 九平台:写池内当前票,不主动刷新(刷新会轮换 refreshToken ⇒ 可能顶掉正在用的本机客户端) */
 async function loginViaScript(
   row: AiRelayAccountPool,
   providerCode: RelayProviderCode,
@@ -476,7 +470,7 @@ async function loginViaScript(
     throw new LocalLoginError('写回脚本未回报落点(未判定)', 'bad-output', 502)
   }
   /**
-   * 八平台自 2026-10-28 起与 trae 同口径:运行中的 GUI 客户端(codearts/qoder/minimax/zcode/workbuddy/doubao)
+   * 九平台自 2026-10-28 起与 trae 同口径:运行中的 GUI 客户端(codearts/qoder/minimax/zcode/workbuddy/doubao/loomy)
    * 先关后写再拉起,字段同名同义;codex/opencode 是 CLI,脚本不给这些字段 ⇒ 全 false。
    */
   const clientProduct = typeof parsed.clientProduct === 'string' ? parsed.clientProduct : ''
@@ -515,16 +509,6 @@ async function loginViaScript(
     clientLaunchError,
   }
 }
-
-/**
- * WorkBuddy / 豆包与 codex 等一样走 `scripts/local-login.mjs`(八平台一份实现,§0.6 单一真相源)。
- *
- * 2026-10-28 归并收口:此前这里有一条 WorkBuddy 专属通道,spawn 的是
- * `scripts/workbuddy-login-local.mjs` —— 该脚本在任何一次提交里都不存在(全 ref 扫过、盘上也没有),
- * 调用必得 spawn ENOENT;而 `scripts/local-login.mjs` + `scripts/lib/workbuddy-auth-extract.mjs`
- * 已实现同一套流程(inspector 取钥 → 先关端 → 按池内 sessionTemplate/sealedPaths 重封 → 拉起),
- * 故摘掉专属通道,平台分流统一由 LOCAL_SCRIPT_PROVIDERS 决定。
- */
 
 /**
  * 把号池账号写进本机客户端登录态。
