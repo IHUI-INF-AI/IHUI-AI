@@ -670,6 +670,9 @@ export function judgeConversion({
     return {
       spec,
       kind: 'page-only-capability',
+      // extras 不截断:why 只留前 8 条给人读,而"只卡某一族"的经济账必须看到全集
+      // (按 why 切 freq 表会把第 9 条起的阻塞漏掉 ⇒ 解锁上界被高估)。
+      extras,
       why: `这一页带着共享屏/壳没有的能力:${extras.slice(0, 8).join(', ')}`,
     }
   const body = gen.buildShellPage({
@@ -686,6 +689,7 @@ export function judgeConversion({
     spec,
     kind: 'convertible',
     why: '',
+    extras: [],
     shellLines: lines,
     pageLines: String(pageText).split('\n').length,
   }

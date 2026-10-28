@@ -4983,6 +4983,9 @@ function runLegChild(scriptFile, args, timeoutMs, cwd = WORKTREE) {
     return { status: 0, stdout: String(out ?? ''), stderr: '' }
   } catch (e) {
     return {
+      // signal 是"被杀"的唯一凭据:超时 SIGTERM 时 e.status 为 null 且 stdout 为空,
+      // 与"跑完了但没打结论行"在日志里长得一模一样 —— 前者要修上限,后者要修器物。
+      signal: e?.signal ?? null,
       status: typeof e?.status === 'number' ? e.status : null,
       stdout: String(e?.stdout ?? ''),
       stderr: String(e?.stderr ?? e?.message ?? ''),
@@ -5151,7 +5154,7 @@ export function healStaleMiniappDist(opts = {}) {
   logger(
     `ℹ️ 小程序产物新鲜度:state=${res.state}${res.c0 ? ` c0=${res.c0}` : ''}${
       res.after ? ` after=${res.after}` : ''
-    }${res.buildMs != null ? ` 构建=${Math.round(res.buildMs / 1000)}s` : ''}${
+    }${res.buildMs !== null && res.buildMs !== undefined ? ` 构建=${Math.round(res.buildMs / 1000)}s` : ''}${
       res.why ? ` —— ${String(res.why).slice(0, 140)}` : ''
     }`,
   )
@@ -5189,8 +5192,16 @@ export function sweepHandMirrorUpgrades(opts = {}) {
   if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
   const r =
     typeof runner === 'function'
-      ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
-      : runLegChild(script, ['--land', '--json', '--cap=2'], 15 * 60 * 1000)
+      ? { status: 0, stdout: String(runner() ?? ''), stderr: '', signal: null }
+      : runLegChild(
+          script,
+          ['--land', '--json', '--cap=2'],
+          // 2026-10-28:15 分钟被顶穿。现读一趟完整落地(写页 → 对象空间落地 → 按新 HEAD 重生成
+          // 壳声明件 → 声明件再落一批)实测 17 分钟以上 —— 超时 SIGTERM 后 e.status=null 且 stdout
+          // 空,与"跑完了没打结论行"同形,于是 16:31/17:06 两轮都记成「结论行解析不出」而真因是上限。
+          // 抬到 30 分钟并留 env 旋钮(与 sweepCrossEndShellPages 同档)。
+          Number(process.env.IHUI_HAND_UPGRADE_TIMEOUT_MS || 30 * 60 * 1000),
+        )
   let res = null
   try {
     const lastLine = String(r.stdout ?? '')
@@ -5203,10 +5214,11 @@ export function sweepHandMirrorUpgrades(opts = {}) {
     /* 下面统一按"未判定"报 */
   }
   if (!res || typeof res !== 'object') {
+    const why = r.signal ? `子进程被 ${r.signal} 杀掉(多为超时)` : '子进程已退出但末行不是结论 JSON'
     logger(
-      `ℹ️ 手写页升级:结论行解析不出(status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
+      `ℹ️ 手写页升级:结论行解析不出(${why},status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
     )
-    return { ran: true, ok: false, why: '结论解析失败', status: r.status }
+    return { ran: true, ok: false, why: '结论解析失败', status: r.status, signal: r.signal }
   }
   const landedN = res.landed?.ok ? res.landed.pages : 0
   logger(
