@@ -68,6 +68,8 @@ logs-*-restart*.txt
 # 构建产物
 # ============================================================================
 dist/
+# design-tokens 等的构建中临时目录(dist.__building__<pid>):构建完成会 rename 成 dist,中断则残留半成品
+dist.__building__*/
 # SEA 单文件二进制产物(96MB 级,严禁入库;构建:pnpm --filter ihui-cli build:sea)
 apps/cli/dist-sea/
 # npm 发布包产物(单文件 bundle + 语言包;构建:pnpm --filter ihui-cli build:npm,发布:cd apps/cli && npm publish npm-dist)
