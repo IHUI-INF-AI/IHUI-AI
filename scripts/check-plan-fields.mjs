@@ -468,9 +468,11 @@ function run({ root = ROOT, face = 'head' } = {}) {
   for (const l of (v.rotList ?? []).slice(0, 20)) console.log(`  · 腐烂 ${l}`)
   if ((v.rotList ?? []).length > 20)
     console.log(`  · 腐烂 …另 ${v.rotList.length - 20} 条同型未逐条打印`)
+  // 2026-10-28 改准:这枚数**不是** --apply 能清的面。抽取器按规矩"抽不出可搬的值 ⇒ 不造记录"
+  // ⇒ 对这批行 --apply 恒 changed=0,照旧提示"结清出口 --apply"会让人以为跑过了(实测)。
   if (v.stock > 0)
     console.log(
-      `   存量 ${v.stock} 枚 = P1 的迁移分母,结清出口:node scripts/plan-fields-extract.mjs --apply(只搬说辞,不改一行台账文本)`,
+      `   存量 ${v.stock} 枚 = 靠散文判的行(抽取器抽不出可搬的值,按规矩一条记录都不造)⇒ node scripts/plan-fields-extract.mjs --apply 对它们无效(changed=0,跑了也清不掉)。出路二选一:①用 live-doc-edit 在该行正文补「归属:…/在等:…」让抽取器可搬 ②确无可搬说辞的按 plan-fields-extract 头注的声明档处置(--reclassify 只改已有记录、--retire-orphans 只退孤儿键,手改 jsonl 不算通道)`,
     )
   const r = verdict(v, face)
   console.log(r.line)
