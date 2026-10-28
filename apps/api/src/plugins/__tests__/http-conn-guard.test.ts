@@ -4,7 +4,10 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { EventEmitter } from 'node:events'
-import { __test__ } from '../http-conn-guard.js'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join, relative } from 'node:path'
+import Fastify from 'fastify'
+import { httpConnGuard, __test__ } from '../http-conn-guard.js'
 
 const {
   tryAcquireSlot,
@@ -158,6 +161,123 @@ describe('resolveMaxConnections', () => {
   it('默认值可显式覆盖(供不同部署形态复用同一判据)', () => {
     expect(resolveMaxConnections(undefined, 1000)).toBe(1000)
     expect(resolveMaxConnections('bad', 1000)).toBe(1000)
+  })
+})
+
+/**
+ * onResponse 链存续(2026-10-29 立)。
+ *
+ * 上面各例全是纯函数判据 —— 它们全绿的同时,线上整条 onResponse 链已被本插件冻死约 6 小时:
+ * metrics 的 by_status/by_method/by_route 与响应时间桶、business_api_call_total、api_logs 落库
+ * 全部为零样本,而 active_connections 恒等于 requests_total(只加不减)。
+ * 成因形态:Fastify 5.12.3 lib/hooks.js 的 hookRunnerGenerator 只在"返回值是 thenable"
+ * 或"处理器自己调用 next"时才推进链;同步箭头函数两者都不满足 ⇒ 永不推进,
+ * 而请求照常返回 200、一行日志都不留。本插件注册位(server.ts:623)排在全部 onResponse
+ * 消费者之前,所以它一 stall 就把下游 11 个钩子一起按住。
+ * 因此存续性必须按"真 Fastify 实例 + 真注册顺序"判,纯函数判据看不见这一格。
+ */
+describe('onResponse 链存续 —— 本插件不得冻住下游钩子', () => {
+  it('真插件挂在下游 onResponse 之前,下游仍必须被调用,且槽同时归还', async () => {
+    const app = Fastify()
+    const seen: string[] = []
+    await app.register(httpConnGuard)
+    // 镜像生产顺序:conn-guard(623) → metrics/api-logger/business-metrics(817/821/824)
+    app.addHook('onResponse', async () => {
+      seen.push('downstream')
+    })
+    app.get('/probe', async () => ({ ok: 1 }))
+    await app.ready()
+
+    const res = await app.inject({ method: 'GET', url: '/probe' })
+    expect(res.statusCode).toBe(200)
+    expect(seen, '下游 onResponse 没跑 ⇒ 链被本插件冻住').toEqual(['downstream'])
+    expect(activeIpCount()).toBe(0)
+
+    await app.close()
+  })
+
+  it('变异自证:同步形态确实会冻住同一条链(把 release 的 async 摘掉即回到坏态)', async () => {
+    const app = Fastify()
+    const seen: string[] = []
+    // 与修法唯一差别 = async 这个词;它必须能单独决定下游跑不跑,否则上面那条锁是假的
+    app.addHook('onResponse', (request) => {
+      void request
+      seen.push('sync-first')
+    })
+    app.addHook('onResponse', async () => {
+      seen.push('downstream')
+    })
+    app.get('/probe', async () => ({ ok: 1 }))
+    await app.ready()
+
+    const res = await app.inject({ method: 'GET', url: '/probe' })
+    expect(res.statusCode).toBe(200) // 请求不报错 —— 所以这个失效型才是静默的
+    expect(seen).toEqual(['sync-first'])
+
+    await app.close()
+  })
+
+  it('静态锁:src 下终结型钩子(onResponse/onRequestAbort/onTimeout)一律不得是同步形态', () => {
+    const SRC = join(__dirname, '..', '..')
+    const TERMINAL = ['onResponse', 'onRequestAbort', 'onTimeout']
+    const files: string[] = []
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === '__tests__' || e.name === 'node_modules') continue
+        const p = join(dir, e.name)
+        if (e.isDirectory()) walk(p)
+        else if (e.name.endsWith('.ts') && !e.name.endsWith('.test.ts')) files.push(p)
+      }
+    }
+    walk(SRC)
+
+    // 具名处理器可能定义在别的文件(_audit-hook.ts 那一类),先建全局定义表再判形态
+    const defs = new Map<string, string>()
+    for (const f of files) {
+      for (const l of readFileSync(f, 'utf-8').split('\n')) {
+        const m = l.match(/(?:const|let|var|function)\s+([A-Za-z_$][\w$]*)\b/)
+        if (m?.[1] && !defs.has(m[1])) defs.set(m[1], l)
+      }
+    }
+
+    const reHook = new RegExp(`addHook\\(\\s*'(?:${TERMINAL.join('|')})'\\s*,\\s*`)
+    const reAsyncInline = new RegExp(`addHook\\(\\s*'(?:${TERMINAL.join('|')})'\\s*,\\s*async\\b`)
+    const reSyncInline = new RegExp(
+      `addHook\\(\\s*'(?:${TERMINAL.join('|')})'\\s*,\\s*(?:\\(|function\\b)`,
+    )
+    const reNamed = new RegExp(
+      `addHook\\(\\s*'(?:${TERMINAL.join('|')})'\\s*,\\s*([A-Za-z_$][\\w$]*)\\s*[,)]`,
+    )
+
+    const bad: string[] = []
+    for (const f of files) {
+      const lines = readFileSync(f, 'utf-8').split('\n')
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i] ?? ''
+        if (!reHook.test(line)) continue
+        if (reAsyncInline.test(line)) continue
+        const short = relative(SRC, f).replace(/\\/g, '/')
+        if (reSyncInline.test(line)) {
+          // 内联同步:只有显式接 next 才算合法(callback 式)
+          const body = lines.slice(i, i + 25).join('\n')
+          if (!/\bnext\s*\(/.test(body)) bad.push(`${short}:${i + 1} 内联同步且不调 next`)
+          continue
+        }
+        const name = line.match(reNamed)?.[1]
+        if (!name) {
+          bad.push(`${short}:${i + 1} 处理器形态无法判定(判据不得放过看不见的形态)`)
+          continue
+        }
+        const def = defs.get(name)
+        if (def === undefined) {
+          bad.push(`${short}:${i + 1} 具名处理器 ${name} 在 src 内找不到定义,无法证明它是 async`)
+          continue
+        }
+        if (!/\basync\b/.test(def)) bad.push(`${short}:${i + 1} 具名处理器 ${name} 是同步形态`)
+      }
+    }
+
+    expect(bad, `以下终结型钩子会把其下游整条链静默冻住:\n${bad.join('\n')}`).toEqual([])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
