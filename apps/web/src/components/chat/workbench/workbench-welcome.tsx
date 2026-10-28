@@ -102,7 +102,7 @@ export function WorkbenchWelcome({ onPrefill }: WorkbenchWelcomeProps) {
               draggable={false}
               onClick={() => onPrefill(c.text)}
               className={cn(
-                'group flex items-start gap-2.5 rounded-lg border border-border/60 bg-card/40 px-3 py-2.5 text-left',
+                'group flex items-start gap-2.5 rounded-sm border border-border/60 bg-card/40 px-3 py-2.5 text-left',
                 'transition-colors hover:border-primary/40 hover:bg-accent/60',
                 'motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               )}
