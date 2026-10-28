@@ -76,7 +76,7 @@ export default function SharedPilotPage() {
             type="button"
             onClick={select(tab.key)}
             aria-pressed={active === tab.key}
-            className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+            className={`rounded-sm border px-3 py-1.5 text-sm transition-colors ${
               active === tab.key
                 ? 'border-primary/40 bg-muted text-foreground'
                 : 'border-border text-muted-foreground hover:bg-muted/60'

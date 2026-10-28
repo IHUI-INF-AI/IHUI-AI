@@ -16,7 +16,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type {
   EduTeacherClass,
   EduTeacherPlanForm,
@@ -954,7 +954,7 @@ function createStyles(tk: AppThemeTokens) {
       flexShrink: 0,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
     },
     badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
     metaRow: {
@@ -967,7 +967,7 @@ function createStyles(tk: AppThemeTokens) {
     metaChip: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: rnType.caption.size,
@@ -1040,7 +1040,7 @@ function createStyles(tk: AppThemeTokens) {
       minHeight: 32,
       justifyContent: 'center',
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -1097,8 +1097,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     modalPanel: {
       backgroundColor: tk.surface.card,
-      borderTopLeftRadius: rnRadius['2xl'],
-      borderTopRightRadius: rnRadius['2xl'],
+      borderTopLeftRadius: rnRadiusFor.panel,
+      borderTopRightRadius: rnRadiusFor.panel,
       paddingHorizontal: rnSpacing.lg,
       paddingTop: rnSpacing.lg,
       paddingBottom: rnSpacing.xl,
@@ -1119,8 +1119,8 @@ function createStyles(tk: AppThemeTokens) {
     formPanel: {
       maxHeight: '88%',
       backgroundColor: tk.surface.card,
-      borderTopLeftRadius: rnRadius['2xl'],
-      borderTopRightRadius: rnRadius['2xl'],
+      borderTopLeftRadius: rnRadiusFor.panel,
+      borderTopRightRadius: rnRadiusFor.panel,
       paddingHorizontal: rnSpacing.lg,
       paddingTop: rnSpacing.lg,
       paddingBottom: rnSpacing.xl,

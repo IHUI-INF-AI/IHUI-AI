@@ -13,7 +13,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { Bookmark, Calendar, Eye, Heart, MessageSquare } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { NewsArticleItem, NewsArticleScreenProps } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -321,7 +321,7 @@ function createStyles(tk: AppThemeTokens) {
     tagChip: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.light,
     },
     tagText: {

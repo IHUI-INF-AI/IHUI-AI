@@ -371,8 +371,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     modalPanel: {
       backgroundColor: tk.surface.card,
-      borderTopLeftRadius: rnRadius['2xl'],
-      borderTopRightRadius: rnRadius['2xl'],
+      borderTopLeftRadius: rnRadius.xl,
+      borderTopRightRadius: rnRadius.xl,
       paddingHorizontal: rnSpacing.lg,
       paddingTop: rnSpacing.lg,
       paddingBottom: rnSpacing.xl,
