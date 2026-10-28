@@ -12182,6 +12182,15 @@
       "reloadSkillsTotal": "合計 {count} 件のスキル",
       "reloadSkillsNoChange": "今回の再読み込みで内容の変更はありません",
       "reloadSkillsAuto": "auto ソース {count} 件",
+      "reloadPlugins": "プラグイン面を再読み込み",
+      "reloadPluginsHint": "プラグイン面を再スキャンし、最新コマンド一覧をホストへ差し戻します",
+      "reloadPluginsRunning": "再読み込み中…",
+      "reloadPluginsSuccess": "プラグイン面を再読み込みしました",
+      "reloadPluginsFailed": "プラグイン面の再読み込みに失敗しました",
+      "reloadPluginsCommandCount": "コマンド {count} 件",
+      "reloadPluginsSkillCount": "スキル {count} 件",
+      "reloadPluginsCommandList": "最新コマンド一覧",
+      "reloadPluginsNoCommand": "現在利用可能なコマンドはありません",
       "save": "保存",
       "saving": "保存中…",
       "scenario": "シナリオ",
@@ -15056,7 +15065,18 @@
       "toolFailures": "ツール失敗",
       "trigger": "手動トリガー",
       "triggerError": "トリガー失敗",
-      "triggerSuccess": "トリガー成功"
+      "triggerSuccess": "トリガー成功",
+      "refresh": "記憶ソースを再スキャン",
+      "refreshSuccess": "記憶ソースを再スキャンしました",
+      "refreshReadFailed": "記憶ソースの読み取りに失敗しました（再スキャン前の記憶は保持されます）",
+      "refreshFailed": "記憶ソースの再スキャンに失敗しました",
+      "refreshTotal": "再スキャン前 {before} 件 → 再スキャン後 {after} 件",
+      "refreshLoadState": "読み取り状態",
+      "refreshAdded": "追加",
+      "refreshRemoved": "削除",
+      "refreshChanged": "更新",
+      "refreshUnchanged": "変更なし",
+      "refreshNoChange": "今回の再スキャンで内容の変更はありません"
     },
     "orch": {
       "dashboard": "ダッシュボード",
@@ -18431,7 +18451,12 @@
     "dashboardSuccessRate": "成功率",
     "dashboardAvgLatency": "平均レイテンシ",
     "dashboardNoData": "データなし",
-    "dashboardLatency": "{value}秒"
+    "dashboardLatency": "{value}秒",
+    "clearAuth": "認可を取り消す",
+    "clearAuthHint": "この Server に付与した OAuth 認証情報を取り消します(この 1 台のみ)",
+    "clearAuthSuccess": "{name} の認可を取り消しました",
+    "clearAuthNoOauth": "{name} は OAuth チャネルを使用していないため、取り消す認可はありません",
+    "clearAuthFailed": "{name} の認可取り消しに失敗しました"
   },
   "member": {
     "feedback": {

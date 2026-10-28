@@ -7,13 +7,14 @@
 import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, Brain, Clock, Loader2, Zap } from 'lucide-react'
+import { Activity, Brain, Clock, Loader2, RefreshCw, Zap } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
 import { formatShortDateTime } from '@/lib/date-utils'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
+import { type RefreshMemoryResult, refreshMemory } from '@ihui/api-client/endpoints/control-frames'
 
 type LessonType = 'failure_pattern' | 'improvement_tip' | 'best_practice'
 type RunStatus = 'running' | 'success' | 'failed' | 'skipped'
@@ -135,6 +136,33 @@ export default function MetaLearnerPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meta-learner'] }),
   })
 
+  /**
+   * 控制帧 `refresh_memory` —— 强制重扫持久化记忆源。
+   *
+   * 与同页「手动触发」(trigger)的分工:trigger 跑一次**学习**;refresh 只是
+   * **重读**记忆源并把差额算出来 —— 用户在服务端外面改了记忆文件,这一帧决定
+   * agent 什么时候才看得到。
+   *
+   * 两条纪律:
+   * ① **读失败 ≠ 空**:refreshed=false 时必须把 error 载荷显示出来,并保留刷新前
+   *    的总数 —— 把「读不到」报成「没有记忆」是这一族最典型的谎报。
+   * ② 差额必须可见:added/removed/changed 三个名单列出来,否则用户无从判断
+   *    「改了到底生效没有」。
+   */
+  const refreshMutation = useMutation({
+    mutationFn: async (): Promise<RefreshMemoryResult> => {
+      const res = await refreshMemory()
+      if (!res.success || !res.data) {
+        throw new Error(res.error || t('refreshFailed'))
+      }
+      return res.data
+    },
+    onSuccess: () => {
+      // 重扫后元知识条数可能变了 —— 状态面板与列表都要跟着刷新
+      void queryClient.invalidateQueries({ queryKey: ['meta-learner'] })
+    },
+  })
+
   const lessons = lessonsQuery.data?.lessons ?? []
   const history = historyQuery.data?.history ?? []
   const status = statusQuery.data
@@ -150,14 +178,30 @@ export default function MetaLearnerPage() {
           </h1>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Button onClick={() => triggerMutation.mutate()} disabled={triggerMutation.isPending}>
-          {triggerMutation.isPending ? (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          ) : (
-            <Zap className="mr-1.5 h-4 w-4" />
-          )}
-          {t('trigger')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 控制帧 `refresh_memory`:强制重扫持久化记忆源(与「手动触发」分工:那个跑学习,这个只重读) */}
+          <Button
+            variant="outline"
+            onClick={() => refreshMutation.mutate()}
+            disabled={refreshMutation.isPending}
+            data-testid="meta-learner-refresh"
+          >
+            {refreshMutation.isPending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-1.5 h-4 w-4" />
+            )}
+            {t('refresh')}
+          </Button>
+          <Button onClick={() => triggerMutation.mutate()} disabled={triggerMutation.isPending}>
+            {triggerMutation.isPending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Zap className="mr-1.5 h-4 w-4" />
+            )}
+            {t('trigger')}
+          </Button>
+        </div>
       </header>
 
       {triggerMutation.isSuccess && <Alert variant="success" title={t('triggerSuccess')} />}
@@ -166,6 +210,76 @@ export default function MetaLearnerPage() {
           variant="danger"
           title={t('triggerError')}
           description={(triggerMutation.error as Error).message}
+        />
+      )}
+
+      {/* 控制帧 `refresh_memory` 的回执:差额必须可见;读失败必须给原因(读不到 ≠ 空) */}
+      {refreshMutation.isSuccess && refreshMutation.data && (
+        <div
+          data-testid="meta-learner-refresh-result"
+          className="space-y-2 rounded-lg border bg-card px-3 py-2.5 text-xs"
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="font-medium text-foreground">
+              {refreshMutation.data.refreshed ? t('refreshSuccess') : t('refreshReadFailed')}
+            </span>
+            <span className="text-muted-foreground">
+              {t('refreshTotal', {
+                before: refreshMutation.data.before,
+                after: refreshMutation.data.totalLessons,
+              })}
+            </span>
+            <span className="text-muted-foreground">
+              {t('refreshLoadState')}: {refreshMutation.data.loadState}
+            </span>
+          </div>
+          {!refreshMutation.data.refreshed && refreshMutation.data.error && (
+            <p data-testid="meta-learner-refresh-error" className="text-destructive">
+              {refreshMutation.data.error}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
+            <span>
+              {t('refreshAdded')}: {refreshMutation.data.added.length}
+            </span>
+            <span>
+              {t('refreshRemoved')}: {refreshMutation.data.removed.length}
+            </span>
+            <span>
+              {t('refreshChanged')}: {refreshMutation.data.changed.length}
+            </span>
+            <span>
+              {t('refreshUnchanged')}: {refreshMutation.data.unchanged}
+            </span>
+          </div>
+          {refreshMutation.data.added.length > 0 && (
+            <p className="break-all text-muted-foreground">
+              + {refreshMutation.data.added.join(', ')}
+            </p>
+          )}
+          {refreshMutation.data.changed.length > 0 && (
+            <p className="break-all text-muted-foreground">
+              ~ {refreshMutation.data.changed.join(', ')}
+            </p>
+          )}
+          {refreshMutation.data.removed.length > 0 && (
+            <p className="break-all text-muted-foreground">
+              − {refreshMutation.data.removed.join(', ')}
+            </p>
+          )}
+          {refreshMutation.data.refreshed &&
+            refreshMutation.data.added.length === 0 &&
+            refreshMutation.data.removed.length === 0 &&
+            refreshMutation.data.changed.length === 0 && (
+              <p className="text-muted-foreground">{t('refreshNoChange')}</p>
+            )}
+        </div>
+      )}
+      {refreshMutation.isError && (
+        <Alert
+          variant="danger"
+          title={t('refreshFailed')}
+          description={(refreshMutation.error as Error).message}
         />
       )}
 

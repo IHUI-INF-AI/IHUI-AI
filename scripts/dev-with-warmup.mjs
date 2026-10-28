@@ -116,6 +116,30 @@ const CACHE_HYGIENE_SCRIPT = path.join(REPO_ROOT, 'scripts', 'clean-turbopack-ca
 
 const log = (...m) => console.log(`[dev-warmup ${new Date().toISOString().slice(11, 19)}]`, ...m)
 
+// 隔离档成套提示(2026-10-28 加):端口与构建目录只解决"不撞他席构建",不解决
+// "这套 web 打到哪台 API、哪枚库" —— 第三件是 IHUI_API_PROXY_TARGET。缺它的表现是
+// e2e 登录打到默认 8802 那台共享 API/共享库(2026-10-25 实测 fixtures 登录 401 即此型:
+// ihui_e2e 两账号俱全,而 8802 连 ihui 只有 test_e2e),而端口/构建两面全绿、失败无法归因。
+// 只告警不改默认、不阻断:默认档(8801/.next)行为与文案完全不变。
+if (PORT !== 8801 || DIST_DIR !== '.next') {
+  const proxyTarget = process.env.IHUI_API_PROXY_TARGET
+  // 第四件(2026-10-28 实测):浏览器侧 API 基址由 NEXT_PUBLIC_API_BASE_URL 决定
+  // (apps/web/.env.local 默认 http://localhost:8802),它**绕过** next.config 的 rewrites
+  // ⇒ 只设 IHUI_API_PROXY_TARGET 时,隔离 web 的页面仍直连 8802 那台共享 API / 共享库
+  // (trace 实测:隔离 8877 起的页面里 /api/chat/conversations 打到 8802)。
+  // 隔离档未显式给该键时默认指向本席端口(BASE,走自己的反代);显式给则尊重原值。
+  if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
+    process.env.NEXT_PUBLIC_API_BASE_URL = BASE
+    log(`隔离档浏览器 API 基址:${BASE}(NEXT_PUBLIC_API_BASE_URL;.env.local 的 8802 会绕过反代)`)
+  }
+  log(
+    proxyTarget
+      ? `隔离档反代:${proxyTarget}(IHUI_API_PROXY_TARGET)`
+      : '⚠️ 隔离档未设 IHUI_API_PROXY_TARGET ⇒ 反代仍指默认 http://127.0.0.1:8802(共享 API/共享库);' +
+          'e2e 要接隔离库必须一并设它(IHUI_DEV_PORT/IHUI_BUILD_DIST/IHUI_API_PROXY_TARGET 三件成套)',
+  )
+}
+
 // 0) 拿到 dev 锁 **再** 起 next dev。
 //    为什么由本进程持有,而不是继续留在 apps/web 的 predev:
 //    predev 是一条**与 dev server 分离**的 npm 生命周期脚本 —— 它自己的 shell 在 predev
@@ -328,7 +352,10 @@ function runDevStack() {
   const m = out.match(/\{[\s\S]*\}/)
   if (!m) {
     const tailOut = `${out}\n${r.stderr ?? ''}`.trim().slice(-2000)
-    return { ok: false, error: `dev-stack 输出无法解析(退出码 ${r.status}):\n${tailOut || '(无输出)'}` }
+    return {
+      ok: false,
+      error: `dev-stack 输出无法解析(退出码 ${r.status}):\n${tailOut || '(无输出)'}`,
+    }
   }
   let parsed
   try {
@@ -445,7 +472,11 @@ function startBackendWatchdog() {
       const run = runDevStack()
       if (!run.results) {
         const key = `!${(run.error ?? '').slice(0, 80)}`
-        if (!lastAttempt || lastAttempt.key !== key || Date.now() - lastAttempt.ts >= WATCHDOG_COOLDOWN_MS) {
+        if (
+          !lastAttempt ||
+          lastAttempt.key !== key ||
+          Date.now() - lastAttempt.ts >= WATCHDOG_COOLDOWN_MS
+        ) {
           lastAttempt = { key, ts: Date.now() }
           log(`❌ 看守:dev-stack 执行失败:${run.error}`)
         }
@@ -455,7 +486,9 @@ function startBackendWatchdog() {
       // 本轮发生了实际重拉(探活发现 down ⇒ dev-stack 就地拉起并等到 up):
       // 不打这行,一次成功的救援就是无声的 —— 排查者只能靠进程列表反推
       // "它刚才到底掉没掉"。这行就是拍板要的「自动重拉 + 日志提示」里的提示。
-      const revived = run.results.filter((r) => r.status === 'up' && r.action && r.action !== 'none')
+      const revived = run.results.filter(
+        (r) => r.status === 'up' && r.action && r.action !== 'none',
+      )
       if (revived.length) {
         log(
           `🔁 看守:发现 ${revived.map((r) => `${r.name}(:${r.port})`).join(' ')} 掉线,` +
@@ -483,7 +516,9 @@ function startBackendWatchdog() {
       )
       renderBackendResults(run.results)
       if (downRequired.length) {
-        log(`  ❌ 必需项仍 down:${downRequired.map((r) => r.name).join(', ')}(日志 .tmp-sync/dev-stack-*.log)`)
+        log(
+          `  ❌ 必需项仍 down:${downRequired.map((r) => r.name).join(', ')}(日志 .tmp-sync/dev-stack-*.log)`,
+        )
       }
     } catch (e) {
       log(`❌ 看守异常:${e?.message ?? e}`)
@@ -545,9 +580,7 @@ async function waitReady() {
 if (!TURBOPACK || PURGE) {
   // 预热只在默认 `dev` 档跑 —— `--purge` 那两档(dev:clean / dev:stable)改动前就是"裸起服务、
   // 不预热",它们是拿来对照观感 / 排查编译的逃生档,顺手加预热会改变被测对象本身。
-  log(
-    `跳过预热(${PURGE ? '--purge 档改动前就不预热' : '--no-turbopack 档'});要预热请用 pnpm dev`,
-  )
+  log(`跳过预热(${PURGE ? '--purge 档改动前就不预热' : '--no-turbopack 档'});要预热请用 pnpm dev`)
 } else if (!(await waitReady())) {
   log(`跳过预热:${BASE} 在 180s 内未就绪`)
 } else {
