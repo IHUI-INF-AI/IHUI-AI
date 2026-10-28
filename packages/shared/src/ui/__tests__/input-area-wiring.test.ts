@@ -21,6 +21,10 @@
  *     裸字面量 ⇒ 那一处尺寸有两个来源(改一端不带另一端走)。块级限定是**归因受控**的关键:
  *     全端扫裸数字会把别的元素(别的档、别的机制)误伤 —— 那是"归因过宽"。
  *  ④ **本锁有牙**:用"改坏的源码"回喂同一把尺子,断言它必须红 —— 缺这一半就是一条空转的尺子。
+ *  ⑤ **导出面全覆盖(2026-10-28 补,⑪/⑫)**:① 只测登记的共用档、⑨ 只测登记的单端档,
+ *     于是"spec 导出一枚、两条腿都不取数"的**幻影档**不在任何射程内,而账面注释/台账却可能
+ *     已经宣称"收成进表了"。这一维钉的就是"每一枚导出档必须有真消费方(腿取数点或点名的
+ *     投影消费方)",并用三枚变异反向自证(凭空加一枚 / 摘掉唯一消费腿 / 投影方删引用)。
  *
  * 判据一律是**源码级** readFileSync + 剥注释:两端组件文件不在本包的被检程序里,
  * import 它们会把 RN / Taro 的编译约束带进 shared 的 tsc(与 input-area-glyph-wiring 同口径)。
@@ -80,6 +84,160 @@ const CROSS_END_TIERS = [
   'INPUT_AREA_THUMB_GLYPH_PX',
   'INPUT_AREA_VOICE_BTN_GAP_PX',
 ] as const
+
+/**
+ * 单端档归属表 —— 本族"两端不一样"的那 13 枚具名档各自只许在哪一端出现(O02 票④ 第 ④ 格,
+ * 枚数 2026-10-28 现读;旧笔"14 枚"是把未入表的幻影档 96 一起数了进去)。
+ *
+ * 为什么要一张**机器钉住的账**,而不是一段散文:
+ *  - 守门 128 的 diffCount 只报"这一档只在一端出现",它**说不出**那是"另一端根本没有这个元素"
+ *    还是"本该同值却各写一份"。前者是事实,后者是缺陷 —— 两者读数一模一样。
+ *  - 这张表把判词写死:谁往"另一端"补一个取数点(典型动机 = 让 diffCount 变小),这里就红。
+ *    那正是本票明令禁止的「给单端补数字凑平」。
+ *  - 反过来,若某端把真实取数点删了(元素被误删/退化回裸数字),`owner` 那侧的 >0 断言会红。
+ *
+ * 三类归属(与 input-area-spec 头注 O02 段逐条对应):
+ *   A 一端根本没有该元素;
+ *   B 同一元素、两端按已裁决的变体契约取不同档(取任一端会破另一端的版,属产品裁决面);
+ *   C 同槽位留白,两端各由自身机制决定。
+ * 小程序 default 变体的表情面板 `h-48`(192)不在此表:它是 Tailwind 类名档,不是 spec 具名档。
+ */
+const SINGLE_END_TIERS: ReadonlyArray<{ tier: string; owner: LegName; why: string }> = [
+  // ── A 一端根本没有该元素 ──
+  { tier: 'INPUT_AREA_AI_HOME_EMOJI_CELL_PX', owner: 'miniapp-taro', why: 'A RN 无表情面板' },
+  { tier: 'INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX', owner: 'miniapp-taro', why: 'A RN 无表情面板' },
+  {
+    tier: 'INPUT_AREA_AI_HOME_OVERLAY_BOTTOM_WITH_PANEL_PX',
+    owner: 'miniapp-taro',
+    why: 'A RN 放大即解除 maxHeight,无 fixed 浮层',
+  },
+  {
+    tier: 'INPUT_AREA_GLYPH_LG_PX',
+    owner: 'mobile-rn',
+    why: 'A collapsible 折叠 FAB 仅 RN 有(小程序无该变体)',
+  },
+  // 注:`catChip.maxWidth: 96`(模型钮截断上限)属同一类(A,仅 RN 有该元素),但它**刻意不入 spec**,
+  // 所以不在本表 —— 单端档入表会让守门 128 的 SL 维新增一条单侧判红(2026-10-28 实测 36→37)。
+  // 本表的每一枚都必须是 spec 导出档,那一条边界由 ⑨ 的 TIER_VALUES 断言守着。
+  // ── B 同一元素 / 已裁决的变体契约(两端各取一档,不互相靠拢) ──
+  {
+    tier: 'INPUT_AREA_AI_HOME_VOICE_BTN_W_PX',
+    owner: 'miniapp-taro',
+    why: 'B 紧凑条 22 行高 vs RN 卡片 VOICE_BTN_WIDTH 32',
+  },
+  {
+    tier: 'INPUT_AREA_INPUT_MIN_HEIGHT_PX',
+    owner: 'mobile-rn',
+    why: 'B 卡片输入行最小高 48 vs 小程序同元素 22 的紧凑条',
+  },
+  {
+    tier: 'INPUT_AREA_THUMB_PX',
+    owner: 'mobile-rn',
+    why: 'B 方盒 72 vs 小程序 106.5×60 的 16:9 内容盒',
+  },
+  {
+    tier: 'INPUT_AREA_VIDEO_THUMB_W_PX',
+    owner: 'miniapp-taro',
+    why: 'B 16:9 内容盒(素材固有比)vs RN 方盒 THUMB_PX',
+  },
+  {
+    tier: 'INPUT_AREA_VIDEO_THUMB_H_PX',
+    owner: 'miniapp-taro',
+    why: 'B 同上:16:9 内容盒高度',
+  },
+  {
+    tier: 'INPUT_AREA_INPUT_MAX_HEIGHT_PX',
+    owner: 'mobile-rn',
+    why: 'B 卡片内滚 120 vs ai-home 可放大到全屏 250',
+  },
+  {
+    tier: 'INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX',
+    owner: 'miniapp-taro',
+    why: 'B 同上:ai-home 可视区上限 250',
+  },
+  // ── C 同槽位留白,两端各由自身机制决定 ──
+  {
+    tier: 'INPUT_AREA_AI_HOME_INLINE_GAP_PX',
+    owner: 'miniapp-taro',
+    why: 'C 表情格内衬/图标间距;RN 该槽位是实底钮 marginLeft 4',
+  },
+  {
+    tier: 'INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX',
+    owner: 'miniapp-taro',
+    why: 'C 占位条裸图标让位;RN 同位是实底钮 marginLeft 4',
+  },
+]
+
+/**
+ * 投影档清单 —— **不在两条腿上取数、却被本仓其他生产件消费**的档(O02 票④ 补,2026-10-28)。
+ *
+ * 为什么需要这第三张表:① 只测 `CROSS_END_TIERS`(两端共用)、⑨ 只测 `SINGLE_END_TIERS`
+ * (单端档归属),于是"从 spec 导出、却没有任何一处真取数"的档**不在任何一张表的射程里** ——
+ * 它既不红 ①(不在清单),也不红 ⑨(不在清单),typecheck 也不管(导出不代表有人用)。
+ * 2026-10-28 实测到这一格真的漏进过一枚:`INPUT_AREA_MODEL_CHIP_MAX_WIDTH_PX = 96` ——
+ * spec 头注与门 128 台账的豁免文案都写着"RN 端 maxWidth: 96 本轮收成该档",
+ * 而 `apps/mobile-rn/src/components/InputArea.tsx` 里仍是裸 `maxWidth: 96`,一条腿都没引它。
+ * ⇒ "造好没装车 = 没有"(AGENTS §0.9),而账面却在宣称已装车(§0.3「没判不写成判过」的同型)。
+ *
+ * 判据口径:每枚导出档必须有真消费方 —— 两条腿之一的**取数点**(import 不算,见 `prepare`),
+ * 或本表点名的投影消费方(现读该文件确认档名仍在被用)。两头都没有 ⇒ 幻影档,红。
+ * 登记本表的唯一正当理由是"它确实被别的件消费",不是"想让它过关"—— 本表里的每一枚
+ * 都由 ⑫ 的变异三反向钉住:消费方一旦删掉引用,这一档当场变幻影 ⇒ 红。
+ */
+const PROJECTION_TIERS: ReadonlyArray<{ tier: string; consumer: string; why: string }> = [
+  {
+    tier: 'INPUT_AREA_SHELL_HEIGHT_PX',
+    consumer: 'packages/shared/src/ui/tab-bar-spec.ts',
+    why: '底部胶囊按输入框外壳静态高取数(2026-10-20 用户定稿「菜单栏的高宽应该跟 AI 输入框一致」)',
+  },
+]
+
+/**
+ * 幻影档判据:返回问题清单(空 = 每一枚导出档都有真消费方)。
+ * `read` 只是为 ⑫ 的变异三留的注入点(默认现读磁盘),判据本身零复制 ——
+ * 取数点口径与 ①/⑨ 完全同一条(都用 `usagesOf` 打在 `prepare` 之后的源码上)。
+ */
+function phantomTierProblems(opts: {
+  legSrcs: Record<LegName, string>
+  specExports: string[]
+  projections?: ReadonlyArray<{ tier: string; consumer: string; why: string }>
+  read?: (rel: string) => string
+}): string[] {
+  const { legSrcs, specExports } = opts
+  const projections = opts.projections ?? PROJECTION_TIERS
+  const read =
+    opts.read ?? ((rel: string): string => stripComments(readFileSync(join(ROOT, rel), 'utf8')))
+  const projected = new Map(projections.map((p) => [p.tier, p]))
+  const problems: string[] = []
+  for (const tier of specExports) {
+    const legs = (Object.keys(legSrcs) as LegName[]).filter(
+      (leg) => usagesOf(legSrcs[leg], tier).length > 0,
+    )
+    if (legs.length > 0) continue
+    const proj = projected.get(tier)
+    if (!proj) {
+      problems.push(
+        `${tier} 从 spec 导出却没有任何消费方(两条腿都无取数点、也未登记投影)⇒ 幻影档:` +
+          `接上真实取数点,或把档删掉;只在注释/台账里宣称"已收成"不算装车`,
+      )
+      continue
+    }
+    let consumerSrc = ''
+    try {
+      consumerSrc = read(proj.consumer)
+    } catch {
+      problems.push(
+        `${tier} 登记的投影消费方读不到:${proj.consumer} ⇒ 未判定,不得记成"已接线"(§0.3)`,
+      )
+      continue
+    }
+    if (!new RegExp(`\\b${tier}\\b`).test(consumerSrc))
+      problems.push(
+        `${tier} 的投影消费方 ${proj.consumer} 已不再引用它 ⇒ 跨件投影断线,该档退化成幻影档(${proj.why})`,
+      )
+  }
+  return problems
+}
 
 /**
  * 几何槽位白名单 —— 只有这些属性名上的裸字面量算"尺寸真相"。
@@ -649,6 +807,23 @@ function tiersUsedByBoth(miniSrc: string, rnSrc: string): string[] {
   return out.sort()
 }
 
+/** 单端档归属判据:返回问题清单(空 = 每枚档只在登记的那一端有取数点)。 */
+function singleEndProblems(srcs: Record<LegName, string>): string[] {
+  const problems: string[] = []
+  for (const { tier, owner, why } of SINGLE_END_TIERS) {
+    if (!TIER_VALUES.has(tier)) {
+      problems.push(`${tier} 已不在 spec 导出面(档被删/改名)⇒ 归属表过期;${why}`)
+      continue
+    }
+    const other: LegName = owner === 'miniapp-taro' ? 'mobile-rn' : 'miniapp-taro'
+    if (usagesOf(srcs[owner], tier).length === 0)
+      problems.push(`${owner} 不再消费 ${tier} ⇒ 真实取数点丢了(${why})`)
+    if (usagesOf(srcs[other], tier).length > 0)
+      problems.push(`${other} 也引用了 ${tier} ⇒ 给单端补引用凑平,不是收敛(${why})`)
+  }
+  return problems
+}
+
 describe('InputArea 跨端档位一致性(O02 票④)', () => {
   it('① 登记面与现状对账:清单仍从 spec 导出、两端都真引用、现状共用档全部登记', () => {
     for (const tier of CROSS_END_TIERS) {
@@ -762,6 +937,96 @@ describe('InputArea 跨端档位一致性(O02 票④)', () => {
     expect(
       problems.length,
       '一端整枚档退出引用后取值一致性判据仍绿 ⇒ 判据只认"名字在不在"',
+    ).toBeGreaterThan(0)
+  })
+
+  it('⑨ 单端档归属表:每枚只在登记的那一端有取数点(另一端补引用 = 凑平,必须红)', () => {
+    expect(SINGLE_END_TIERS.length, '归属表空了 ⇒ 这条尺子没在测任何东西').toBeGreaterThan(10)
+    expect(
+      singleEndProblems(LEG_SRC),
+      '单端档归属被破坏(要么真实取数点丢了,要么有人往另一端补引用凑平)',
+    ).toEqual([])
+  })
+
+  it('⑩ 本锁有牙:两端各做一次变异 ⇒ ⑨ 必须红', () => {
+    // 变异一:往"另一端"补一个取数点 —— 本票明令禁止的"给单端补数字凑平"。
+    const tier = 'INPUT_AREA_AI_HOME_EMOJI_CELL_PX'
+    const padded: Record<LegName, string> = {
+      ...LEG_SRC,
+      'mobile-rn': `${LEG_SRC['mobile-rn']}\nconst __probe = { width: ${tier} }\n`,
+    }
+    expect(padded['mobile-rn']).not.toBe(LEG_SRC['mobile-rn'])
+    expect(
+      singleEndProblems(padded).length,
+      '另一端补引用后归属判据仍绿 ⇒ 锁拦不住"凑平"',
+    ).toBeGreaterThan(0)
+
+    // 变异二:把 owner 那一端的真实取数点删掉(元素被误删 / 退化回裸数字)。
+    const rnTier = 'INPUT_AREA_GLYPH_LG_PX'
+    const stripped: Record<LegName, string> = {
+      ...LEG_SRC,
+      'mobile-rn': LEG_SRC['mobile-rn'].replaceAll(rnTier, '__gone__'),
+    }
+    expect(stripped['mobile-rn']).not.toBe(LEG_SRC['mobile-rn'])
+    expect(
+      singleEndProblems(stripped).length,
+      'owner 端取数点被删后归属判据仍绿 ⇒ 锁只认"另一侧没有",不认"这一侧还在不在"',
+    ).toBeGreaterThan(0)
+  })
+
+  it('⑪ 导出面全覆盖:每一枚 spec 档都有真消费方(幻影档 = 造好没装车 ⇒ 红)', () => {
+    const exports = [...TIER_VALUES.keys()]
+    expect(exports.length, 'spec 导出面读空 ⇒ 本用例在测一个不存在的东西').toBeGreaterThan(20)
+    expect(
+      phantomTierProblems({ legSrcs: LEG_SRC, specExports: exports }),
+      '存在无消费方的导出档(见 phantomTierProblems 头注:AGENTS §0.9 造好没装车 = 没有)',
+    ).toEqual([])
+    // 反向:投影清单里登记的每一枚必须仍从 spec 导出(清单腐烂 ⇒ 红,守门 108 同型)
+    for (const p of PROJECTION_TIERS)
+      expect(
+        exports.includes(p.tier),
+        `${p.tier} 已不在 spec 导出面 ⇒ PROJECTION_TIERS 过期,请同步清单`,
+      ).toBe(true)
+  })
+
+  it('⑫ 本锁有牙:三枚变异各打一次 ⇒ ⑪ 必须红', () => {
+    const exports = [...TIER_VALUES.keys()]
+
+    // 变异一(本轮真实发生过的形态):凭空新增一枚"从 spec 导出、两条腿都不取数"的档。
+    // 2026-10-28 实测:`INPUT_AREA_MODEL_CHIP_MAX_WIDTH_PX = 96` 就是这么进去的 ——
+    // spec 头注与台账 waiver 同时宣称"RN 端已收成该档",而 RN 腿里仍写裸 `maxWidth: 96`,
+    // ①-⑩ 全都绿(① 只测 CROSS_END_TIERS、⑨ 只测归属表里登记的档,幻影档不在任何一张表上)。
+    // 变异体用**永远不会被真消费方接上**的合成档名,免得某天 96 真被合法收编时这条前提变假红。
+    const phantom = 'INPUT_AREA___PROBE_PHANTOM_PX'
+    expect(
+      phantomTierProblems({ legSrcs: LEG_SRC, specExports: [...exports, phantom] }).length,
+      '凭空加一枚无人引用的档后幻影判据仍绿 ⇒ 导出面没人对账',
+    ).toBeGreaterThan(0)
+
+    // 变异二:摘掉**唯一**消费腿的取数点 ⇒ 该档退出真实使用(§12f:失效的表现永远是安静)。
+    const onlyRnTier = 'INPUT_AREA_THUMB_PX'
+    const stripped: Record<LegName, string> = {
+      ...LEG_SRC,
+      'mobile-rn': LEG_SRC['mobile-rn'].replaceAll(onlyRnTier, '__gone__'),
+    }
+    expect(usagesOf(stripped['mobile-rn'], onlyRnTier).length).toEqual(0)
+    expect(
+      phantomTierProblems({ legSrcs: stripped, specExports: exports }).length,
+      '摘掉某一端消费(此处是唯一消费方)后幻影判据仍绿 ⇒ 它其实只看了 import 面',
+    ).toBeGreaterThan(0)
+
+    // 变异三:投影档的消费方把它删了 ⇒ 该档同样退化成幻影。
+    const proj = PROJECTION_TIERS[0]
+    if (!proj) throw new Error('PROJECTION_TIERS 为空 ⇒ 这一枚变异没有对象,判据无从验证')
+    const clean = stripComments(readFileSync(join(ROOT, proj.consumer), 'utf8'))
+    expect(clean).toContain(proj.tier)
+    expect(
+      phantomTierProblems({
+        legSrcs: LEG_SRC,
+        specExports: exports,
+        read: (rel) => (rel === proj.consumer ? clean.replaceAll(proj.tier, '__gone__') : ''),
+      }).length,
+      '投影消费方删掉引用后判据仍绿 ⇒ 跨件投影断线没人喊',
     ).toBeGreaterThan(0)
   })
 })
