@@ -2017,10 +2017,14 @@
     "developer": {
       "cancel": "キャンセル",
       "colActions": "操作",
+      "colAddress": "アドレス",
       "colCozeId": "Ｃｏｚｅ ＩＤ",
+      "colCreatedAt": "作成日時",
+      "colCreator": "作成者",
       "colNickname": "ニックネーム",
       "colPlatform": "プラットフォーム",
       "colSignAccount": "アカウント",
+      "colSignNickname": "ニックネーム",
       "colStatus": "ステータス",
       "cozeCreate": "アカウント",
       "cozeCreateTitle": "Coze アカウントを",
@@ -2046,8 +2050,8 @@
       "save": "保存",
       "statusAriaLabel": "ステータス",
       "statusExpired": "期限切れ",
-      "statusInUse": "せる",
-      "statusUnused": "せる",
+      "statusInUse": "使用中",
+      "statusUnused": "未使用",
       "total": "{total}"
     },
     "developerLink": {
