@@ -1254,7 +1254,7 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
   // multipart/form-data 字段：file（必填，Excel 二进制）
   // 表头支持英文键名（与 CSV 一致）或中文别名（详见 HEADER_ALIASES）
   // 返回 { imported, failed, errors: ImportResultItem[] }
-  server.post('/members/import/excel', { schema: { response: R } }, async (request, reply) => {
+  server.post('/members/import/excel', { bodyLimit: MEMBER_IMPORT_MAX_BYTES + 1024 * 1024, schema: { response: R } }, async (request, reply) => {
     if (!request.isMultipart()) {
       return reply.status(400).send(error(400, '请求必须是 multipart/form-data'))
     }
@@ -1317,7 +1317,7 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
   // 根据文件扩展名自动选择解析方式：.csv → 文本解析;.xlsx/.xls → XLSX 解析
   // 表头支持英文键名（与 CSV 一致）或中文别名（详见 HEADER_ALIASES）
   // 返回 { imported, failed, errors: ImportResultItem[] }
-  server.post('/members/batch-import', { schema: { response: R } }, async (request, reply) => {
+  server.post('/members/batch-import', { bodyLimit: MEMBER_IMPORT_MAX_BYTES + 1024 * 1024, schema: { response: R } }, async (request, reply) => {
     if (!request.isMultipart()) {
       return reply.status(400).send(error(400, '请求必须是 multipart/form-data'))
     }

@@ -234,7 +234,8 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   //   title: 可选,默认用 filename 去扩展名
   //   collectionName: 可选,默认 'default'
   // 鉴权:登录用户 (authenticate 失败 → 401)
-  server.post('/upload', async (req, reply) => {
+  // 2026-10-28 DDoS P2:文档上传上限 20MB(对齐路由注释),显式放开脱离全局 2MiB。
+  server.post('/upload', { bodyLimit: 21 * 1024 * 1024 }, async (req, reply) => {
     // 1) 鉴权
     let authUser: string | undefined
     try {
