@@ -2041,6 +2041,7 @@ IHUI-AI/
 | **会话归属台账** | `pnpm relay:session-links rebuild --auto --apply` | 从登录态快照库自动推账号时间线段(最早快照前的存量默认未归属,`--trust-earliest` 才归);`assign` / `unassign` 人工标注 ;`assign-batch --file <清单>` 人工清单批量标归属(逐条校验,绝不机器猜) |
 | **会话搬移 / 复制 / 换桶** | `pnpm relay:session-move <子命令>` | 子命令 `move`(单会话 / 按账号批量) `copy`(复制到桶,源保留) `swap`(切账号换桶) `restore` `undo` `ops`;逐条 ops 记账可撤;`--apply` 前探测客户端存续 |
 | **本机账号一键切换** | `pnpm relay:switch-account` / `pnpm relay:ide-switch --ide <平台>` | WorkBuddy 登录态按快照切换(切换前自动备份当前态);trae / trae-solo / qoder 三 profile ;`--with-sessions` 切账号时联动换桶(换桶失败回滚 auth) |
+| **Qoder 会话搬家** | `pnpm relay:qoder-sessions <子命令>` | 盘点/备份/台账/搬移/复制/undo/ops;与 WorkBuddy 同构复用五腿原语,存续闸镜像名 `Qoder CN.exe`(env `IHUI_RELAY_QODER_IMAGE` 可覆盖);写面 `--apply` 默认拒客户端在跑 |
 | **账号代理管理页 admin**    | `/admin/relay/account-proxy`                                  | 页面源文件 `apps/web/app/(main)/admin/relay/account-proxy/page.tsx`:账号级出口代理(每账号独享、私密)的独立管理入口 —— 列表(账号/平台/启用/健康/脱敏代理/最近使用) + 搜索 name/uid + 平台与代理状态筛选(全部 / 已配置 / 直连,库侧 `hasProxy` 过滤) + 设置·更换·清除(清除带二次确认,清后回落共享代理池或直连);地址按 `encryptField` AES-256-GCM 密文落库,响应面只回 `proxyUrlMasked` 脱敏值,输入框默认密码型、仅本次输入可临时显隐;保存只提交 proxyUrl 单字段,不连带覆盖名称/权重;生效顺序 账号代理 > 共享代理池 > 直连(聊天、换票、巡检走同一条出口) |
 **计费模型**:
 - 上游定价(`aiPricing.inputTokenPrice` / `outputTokenPrice`,分/千 token)× 中转站倍率(`aiModelConfigModels.relayPriceMultiplier`,1.0=原价,1.2=加价 20%)= 中转站成本(分)
