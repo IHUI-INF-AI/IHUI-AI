@@ -241,6 +241,7 @@ export type {
 export { AgentStatScreen } from './features/agent-stat/AgentStatScreen'
 export { AgentSettingScreen } from './features/agent-setting/AgentSettingScreen'
 export { AgentCreateScreen } from './features/agent-create/AgentCreateScreen'
+export { AgentEditScreen } from './features/agent-edit/AgentEditScreen'
 export { AgentChatScreen } from './features/agent-chat/AgentChatScreen'
 export { CourseScreen } from './features/course-screen/CourseScreen'
 export { CourseTabScreen } from './features/course-tab/CourseTabScreen'
@@ -665,6 +666,9 @@ export type {
   AgentSettingData,
   AgentSettingScreenProps,
   AgentCreateScreenProps,
+  AgentEditForm,
+  AgentEditCategory,
+  AgentEditScreenProps,
   AgentChatMessage,
   AgentChatScreenProps,
   CourseScreenItem,

@@ -6768,5 +6768,38 @@
       "lastUpdated": "Last updated"
     },
     "backToHome": "Back to Home"
+  },
+  "agentEdit": {
+    "entry": "Edit",
+    "title": "Edit Agent",
+    "subtitle": "Modify agent information",
+    "fieldName": "Name",
+    "fieldDescription": "Description",
+    "fieldAvatar": "Avatar",
+    "fieldCover": "Cover image",
+    "fieldCategory": "Category",
+    "fieldStatus": "Status",
+    "fieldPrice": "Price",
+    "fieldSort": "Sort",
+    "fieldIsFree": "Free",
+    "fieldRemark": "Remark",
+    "namePlaceholder": "Enter agent name",
+    "descPlaceholder": "Enter description (optional)",
+    "avatarPlaceholder": "Enter avatar URL",
+    "coverPlaceholder": "Enter cover image URL",
+    "categoryPlaceholder": "Select category",
+    "remarkPlaceholder": "Enter remark (optional)",
+    "select": "Select",
+    "categoryPickerTitle": "Select Category",
+    "saving": "Saving...",
+    "loadFailed": "Failed to load agent details",
+    "saveFailed": "Update failed",
+    "nameRequired": "Name is required",
+    "statusPending": "Pending",
+    "statusPublished": "Published",
+    "statusRejected": "Rejected",
+    "statusOffline": "Offline",
+    "freeOn": "Free",
+    "freeOff": "Paid"
   }
 }

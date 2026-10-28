@@ -22,6 +22,7 @@ export function AgentDetailScreen({
   error,
   onBack,
   onStartChat,
+  onEdit,
   colorScheme = 'light',
 }: AgentDetailScreenProps) {
   const tk = getTokens(colorScheme)
@@ -45,8 +46,16 @@ export function AgentDetailScreen({
     <ScrollView style={styles.container}>
       <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <View style={styles.head}>
-        <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.category}>{item.category}</Text>
+        <View style={styles.headMain}>
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.category}>{item.category}</Text>
+        </View>
+        {/* 编辑入口 — 对齐 web 详情页头右侧的编辑键(PageClient.tsx:193-198)，宿主未接线时不渲染 */}
+        {onEdit ? (
+          <TouchableOpacity style={styles.editBtn} onPress={onEdit} accessibilityRole="button">
+            <Text style={styles.editBtnText}>{t('agentEdit.entry')}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>{t('agentDetail.description')}</Text>
@@ -82,7 +91,29 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingBottom: rnSpacing['3xl'],
     },
-    head: { marginTop: rnSpacing.sm, marginBottom: rnSpacing.md },
+    head: {
+      marginTop: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: rnSpacing.sm,
+    },
+    /* space-between 行内的可点读数必须先被压缩 ⇒ 锁 flexShrink:0，否则名称完整、编辑键被挤扁 */
+    headMain: { flex: 1, flexShrink: 1 },
+    editBtn: {
+      flexShrink: 0,
+      minHeight: 32,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.medium,
+      backgroundColor: tk.surface.light,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    editBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
     name: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
     category: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
     card: {

@@ -6768,5 +6768,38 @@
       "lastUpdated": "最近更新"
     },
     "backToHome": "返回首页"
+  },
+  "agentEdit": {
+    "entry": "编辑",
+    "title": "编辑智能体",
+    "subtitle": "修改智能体信息",
+    "fieldName": "名称",
+    "fieldDescription": "描述",
+    "fieldAvatar": "头像",
+    "fieldCover": "封面图",
+    "fieldCategory": "分类",
+    "fieldStatus": "状态",
+    "fieldPrice": "价格",
+    "fieldSort": "排序",
+    "fieldIsFree": "免费",
+    "fieldRemark": "备注",
+    "namePlaceholder": "请输入智能体名称",
+    "descPlaceholder": "请输入描述(选填)",
+    "avatarPlaceholder": "请输入头像 URL",
+    "coverPlaceholder": "请输入封面图 URL",
+    "categoryPlaceholder": "请选择分类",
+    "remarkPlaceholder": "请输入备注(选填)",
+    "select": "选择",
+    "categoryPickerTitle": "选择分类",
+    "saving": "保存中...",
+    "loadFailed": "加载智能体详情失败",
+    "saveFailed": "更新失败",
+    "nameRequired": "名称不能为空",
+    "statusPending": "待审核",
+    "statusPublished": "已发布",
+    "statusRejected": "已拒绝",
+    "statusOffline": "已下线",
+    "freeOn": "免费",
+    "freeOff": "收费"
   }
 }
