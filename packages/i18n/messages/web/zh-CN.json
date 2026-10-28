@@ -687,6 +687,20 @@
     }
   },
   "admin": {
+    "relayPoolPolicy": {
+        "title": "号池选号策略档(全局默认)",
+        "refresh": "刷新",
+        "loading": "读取策略档…",
+        "loadFailed": "读取失败",
+        "badgeAllDefault": "全部默认档",
+        "badgeDeviated": "偏离默认 {n} 枚",
+        "badgeInvalid": "脏值回落 {n} 枚",
+        "badgeRegistryBroken": "登记表不完整",
+        "readOnlyHint": "只读:改钮写 .env 后重启 apps/api 生效",
+        "defaultIs": "默认 {v}",
+        "invalidFellBack": "脏值已回落默认",
+        "registryDiff": "未登记钮:{missing};孤立登记:{orphan}"
+    },
     "relayTasks": {
         "wbTitle": "WorkBuddy 任务自动化",
         "wbAccount": "账号",

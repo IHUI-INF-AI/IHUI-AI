@@ -687,6 +687,20 @@
     }
   },
   "admin": {
+    "relayPoolPolicy": {
+        "title": "プール選定ポリシー(グローバル既定値)",
+        "refresh": "更新",
+        "loading": "ポリシーを読み込み中…",
+        "loadFailed": "読み込み失敗",
+        "badgeAllDefault": "すべて既定値",
+        "badgeDeviated": "{n} 件が既定値と異なる",
+        "badgeInvalid": "{n} 件が不正値のためフォールバック",
+        "badgeRegistryBroken": "登録表が不完全",
+        "readOnlyHint": "読み取り専用: .env を編集して apps/api を再起動",
+        "defaultIs": "既定 {v}",
+        "invalidFellBack": "不正値は既定に回落",
+        "registryDiff": "未登録ノブ:{missing} / 孤立登録:{orphan}"
+    },
     "relayTasks": {
         "wbTitle": "WorkBuddy タスク自動化",
         "wbAccount": "アカウント",
