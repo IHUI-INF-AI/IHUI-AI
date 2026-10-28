@@ -39,6 +39,9 @@
  *            unjudged 显式透传,不拿空列表冒充"判过")
  * 29. POST   /admin/relay/accounts/:id/task-run — WorkBuddy 任务手动触发(O68,kind=growth/
  *            travel/activity/blackcat,dryRun 预览;429/404 原样透传,转发纪律同 23 立即签到)
+ * 30. GET    /admin/relay/pool-policy      — 号池选号策略只读面(O93):八枚 IHUI_RELAY_POOL_*
+ *            钮的「env 名 / 当前生效值 / 默认值 / 是否偏离默认」整档视图。只读、mutable:false
+ *            (钮住在进程级 env,改完必须重启 api 进程;面板刻意不提供写入 —— 不做假旋钮)
  *
  * 加密:token/refreshToken/cookies/账号级 proxyUrl 走 encryptField(AES-256-GCM),
  * 响应面永不回传密文/明文(代理只回脱敏值)。
@@ -111,6 +114,8 @@ import {
 } from '../../services/relay-model-catalog.js'
 import { loginAccountLocal, LocalLoginError } from '../../services/relay-local-login.js'
 import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
+// 号池选号策略单一真相源:本端点只取其只读视图出口(不在路由层复算 env 解析,§0.6)
+import { relayPoolPolicyView } from '../../services/relay-pool-policy.js'
 
 /**
  * 导入载荷的**结构**闸门(2026-10-27 立)。
@@ -1686,6 +1691,31 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       }
       request.log.error(e)
       return reply.status(500).send(error(500, '写入本机登录态失败'))
+    }
+  })
+
+  // ===== 30. GET /admin/relay/pool-policy — 号池选号策略只读面(O93) =====
+  // 立因:八枚 IHUI_RELAY_POOL_* 钮此前只活在代码里(改前实测 .env.example 零命中),
+  // 换机/排障无从发现,运维在面板上也看不到"当前生效档位到底是哪一档"。
+  // 判据零复算:整档视图来自 relayPoolPolicyView()(现读 process.env,与 forwarder
+  // 每请求现读走同一批 env 解析原语);路由不自己解析任何钮值(§0.6)。
+  // 鉴权形态与本文件其余 29 条逐字相同 = 插件级 preHandler=requireAdmin,其内部按
+  // `includeInternalChannel:false` 只认人用 JWT(内部服务令牌打不开 admin 面),不新造通道。
+  // mutable:false 是设计而非缺陷:钮住在进程级 env,运行时改不动;写端点只会造出
+  // "面板能点但改不动"的假旋钮(§0.9:判据必须真生效)。改档出路 = .env → 重启 api 进程。
+  server.get('/admin/relay/pool-policy', async (request, reply) => {
+    try {
+      const view = relayPoolPolicyView()
+      return reply.send(
+        success({
+          ...view,
+          mutable: false,
+          hint: '八枚钮的生效值来自 api 进程启动后读到的 IHUI_RELAY_POOL_*(见 apps/api/.env.example 与仓根 .env.example 的同名分节)。改档请写进 .env 后重启 apps/api 进程生效 —— env 是进程级读取,非热加载;本端点刻意只提供读面,不提供写入。',
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '选号策略读取失败'))
     }
   })
 }
