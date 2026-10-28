@@ -18,6 +18,19 @@
  *   3. 精确回填:只写「值为空」的键,已有值一律跳过,**绝不覆盖**
  *   4. 自动备份:apply 前把 .env 整体复制到备份目录,失败可一键还原
  *
+ * 受管面 ≠ 本机生效面(2026-10-28 实测钉清,别再按"填了根 .env 就算配好"办事):
+ *   本器默认目标是**仓库根 .env**,而根 .env 在本机没有任何常驻进程读它 —— 读它的只有部署腿
+ *   (`scripts/pre-deploy.mjs` 的生产必填清单、docs/RELEASE.md 的 `docker run --env-file .env`)。
+ *   本机运行面上,apps/api 与 apps/ai-service 都是 `cd` 进各自目录再启动(nssm 服务路径与
+ *   dev-stack 的 cwd 同形),dotenv / pydantic-settings 只读 **cwd 下**的 .env ⇒ 生效面是
+ *   `apps/api/.env` 与 `apps/ai-service/.env`,web 端另有 `.env.local`。
+ *   所以"往根 .env 填完就以为服务能用"是错的:那 7 枚已填值的键在本机服务面上同样不生效。
+ *   要填本机生效面必须显式带面:`--env apps/api/.env`(本器已支持,无需改代码)。
+ *   另:巡检档 `--verify` 只报**源侧**候选,不判目标面有没有这一行;"(.env 无此键,如需新增请手动
+ *   添加)"这条跳过只出现在 apply 档 —— 即目标面缺键时 verify 读数看起来一切正常、apply 却一枚不填。
+ *   本仓台账里那张"归机主凭据交付面"的票写的是**按需**填写(原文「只在做对应功能时才需填」),
+ *   所以批量把几十枚键一次填满并不符合票面意图,补哪一枚由对应功能开工时决定。
+ *
  * 安全约定(硬性):
  *   - 任何输出都不打印完整 key,只打印 `前6位***后2位 (len=N)` 用于人工核对
  *   - `.env` 已被 .gitignore 忽略(见 .gitignore 第 98 行的 env 忽略规则),回填后不会入库
@@ -686,17 +699,16 @@ async function main() {
       report.push(`${entry.key}: 跳过(${reason})`)
       continue
     }
-    const re = new RegExp(`^${entry.key}=(.*)$`, 'm')
-    const m = out.match(re)
-    if (!m) {
-      report.push(`${entry.key}: 跳过(.env 无此键,如需新增请手动添加)`)
+    const r = fillEmptyKeyLine({ out, key: entry.key, value: pick })
+    if (!r.ok) {
+      report.push(
+        r.why === 'no-such-key'
+          ? `${entry.key}: 跳过(.env 无此键,如需新增请手动添加)`
+          : `${entry.key}: 跳过(已有值,不覆盖)`,
+      )
       continue
     }
-    if (m[1].trim() !== '') {
-      report.push(`${entry.key}: 跳过(已有值,不覆盖)`)
-      continue
-    }
-    out = out.replace(re, `${entry.key}=${pick}`)
+    out = r.out
     report.push(`${entry.key}: 已回填 ${describe(pick)}`)
   }
 
@@ -734,5 +746,23 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { writeEnvWithReadBack, parseArgs, describe, tokens }
+/**
+ * 把 `KEY=` 那一行的空值填上候选值(全仓唯一替换出口,2026-10-28 立)。
+ *
+ * 抽成函数不是为了整洁,是因为这一条**必须能被真跑到**:replacement 若写成模板字符串
+ * (`out.replace(re, \`${key}=${value}\`)`),replacement 里的 `$&` / `` $` `` / `$'` / `$n`
+ * 会被当成替换模式解释 —— 而第三方 API token 含 `$` 是正常形态。咬中就是**静默写坏密钥**:
+ * 落盘值≠候选值,下一行照打"已回填",要等下次 ai-service 静默降级才暴露,而 §5d 的判读口径
+ * 是"只有鉴通过才算有效"。返回函数形式即不解释任何 `$` 模式。
+ * 只填空值、绝不覆盖既有值(与巡检档同一口径)。
+ */
+export function fillEmptyKeyLine({ out, key, value }) {
+  const re = new RegExp(`^${key}=(.*)$`, 'm')
+  const m = out.match(re)
+  if (!m) return { ok: false, why: 'no-such-key', out }
+  if (m[1].trim() !== '') return { ok: false, why: 'already-set', out }
+  return { ok: true, why: '', out: out.replace(re, () => `${key}=${value}`) }
+}
+
+export const __test__ = { writeEnvWithReadBack, parseArgs, describe, tokens, fillEmptyKeyLine }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
