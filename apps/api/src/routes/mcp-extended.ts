@@ -404,7 +404,10 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(data))
     } catch (e) {
       request.log.error(e)
-      return reply.status(503).send(error(503, '插件面重载服务暂不可用'))
+      // 与上面 `!resp.ok` 同为「上游这一格失败」,必须给同一个状态码:调用方拿两种码
+      // 无从区分也用不上,只会让排障多一层杂音。同族 meta-learner 代理的外层 catch
+      // 亦为 502,这里跟着对齐,不另立一套。
+      return reply.status(502).send(error(502, '插件面重载服务暂不可用'))
     }
   })
 
@@ -444,7 +447,10 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(payload))
     } catch (e) {
       request.log.error(e)
-      return reply.status(503).send(error(503, '清除 MCP 凭据服务暂不可用'))
+      // 同族已从 503 收敛到 502:这一格是「连不上 ai-service」,与上面上游非 2xx 同属
+      // 代理层失败,给同一个码更好排障(上面的 !resp.ok 会如实透出 403/404,那些才是
+      // 「鉴权/归属」的结论,不能被这一格盖掉)。
+      return reply.status(502).send(error(502, '清除 MCP 凭据服务暂不可用'))
     }
   })
 }
