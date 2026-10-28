@@ -25,8 +25,31 @@ import {
   statSync,
 } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import {
+  appendOps,
+  applyTransfers,
+  defaultMovePaths,
+  detectClientProcesses,
+  planSwap,
+  type MovePaths,
+  type MovePlan,
+  type SwapPlan,
+} from './relay-session-move.js'
+import { acquireSessionLock, SESSION_STORE_LOCK_NAME } from './relay-session-lock.js'
+
+/**
+ * `--with-sessions` 联动换桶的可注入依赖(测试全部注入临时目录,绝不碰真实登录态/会话库)。
+ * - movePaths:会话搬家路径面(缺省 defaultMovePaths 真实面)
+ * - now:换桶计划时刻(当日快照核对用它)
+ * - runningProcs:客户端进程清单(缺省 detectClientProcesses 真实探测)
+ */
+export interface SwitchMainDeps {
+  movePaths?: MovePaths
+  now?: Date
+  runningProcs?: string[]
+}
 
 export interface SwitchPaths {
   /** 当前生效的桌面端 auth 文件 */
@@ -70,6 +93,8 @@ export interface SwitchPlan {
   backupPath: string
   /** 原子写目的地(= authFile) */
   authFile: string
+  /** 目标账号 uid(= --with-sessions 联动换桶的目标;取不到留空) */
+  targetAccountId?: string
   warnings: string[]
 }
 
@@ -221,6 +246,7 @@ export function planSwitch(paths: SwitchPaths, targetName: string, now = new Dat
     targetPath: target.path,
     backupPath: join(paths.backupsDir, `workbuddy-desktop.${stamp}Z.pre-switch.info`),
     authFile: paths.authFile,
+    ...(target.accountId ? { targetAccountId: target.accountId } : {}),
     warnings,
   }
 }
@@ -257,6 +283,156 @@ export function applySwitch(plan: SwitchPlan): SwitchApplyResult {
   }
 }
 
+/**
+ * 用 pre-switch 快照回滚 auth(原子写:临时名 → 改名 → sha 对账)。
+ * 返回是否真的回到切换前内容;回滚失败必须让调用方如实报,绝不静默留半态。
+ */
+export function rollbackAuth(plan: SwitchPlan): { ok: boolean; sha12?: string; error?: string } {
+  try {
+    if (!existsSync(plan.backupPath))
+      return { ok: false, error: `pre-switch 快照不存在,无法回滚: ${plan.backupPath}` }
+    const expected = sha256(plan.backupPath)
+    const tmp = `${plan.authFile}.rollback-${Date.now()}.tmp`
+    copyFileSync(plan.backupPath, tmp)
+    renameSync(tmp, plan.authFile)
+    if (sha256(plan.authFile) !== expected)
+      return { ok: false, error: '回滚写后校验失败:authFile sha256 与 pre-switch 快照不一致' }
+    return { ok: true, sha12: expected.slice(0, 12) }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+export interface LinkedSwapResult {
+  /**
+   * - swapped:auth 已切 + 会话已换桶(ops 已记)
+   * - skipped-same-account:目标=当前同账号,无需换桶(auth 保留切换结果)
+   * - no-target-uid:目标快照缺 uid,无从换桶(auth 保留切换结果,已显式报)
+   * - rolled-back:换桶失败/被闸挡下,auth 已用 pre-switch 回滚
+   * - rollback-failed:换桶失败且回滚也失败(最严重,必须人工介入)
+   */
+  status: 'swapped' | 'skipped-same-account' | 'no-target-uid' | 'rolled-back' | 'rollback-failed'
+  message: string
+  swap?: SwapPlan
+}
+
+/**
+ * `--with-sessions` 联动换桶(仅在 auth 切换成功后调用)。
+ * 顺序与语义:
+ *  - auth 已切到目标;pre-switch 快照(= 切换前的旧登录态)在 plan.backupPath;
+ *  - 把该快照作为 planSwap 的 authFileOverride 传入 ⇒ planSwap 仍以「旧账号」为 currentAccountId,
+ *    「新账号」为 target:旧账号活库会话搬进旧账号桶(outbound),新账号桶会话搬回活库(inbound);
+ *  - 写面经 acquireSessionLock 串行 + 客户端存续闸;任一环节失败 ⇒ rollbackAuth 回滚 auth。
+ * 纯逻辑,不打印;由 main 决定文案与退出码。
+ */
+export function runLinkedSessionSwap(
+  plan: SwitchPlan,
+  deps: { movePaths: MovePaths; now: Date; runningProcs: string[] },
+): LinkedSwapResult {
+  const targetUid = plan.targetAccountId
+  if (!targetUid) {
+    return {
+      status: 'no-target-uid',
+      message:
+        '目标快照缺 uid,无法联动换桶;auth 已切换,会话面未动(可手动 relay:session-move swap --to <账号>)',
+    }
+  }
+  // 同账号短路:pre-switch 快照的 uid == 目标 uid ⇒ 会话本就归属同一账号,无需换桶
+  const oldUid = describeAuthFile(plan.backupPath, 'pre-switch', null)?.accountId ?? null
+  if (oldUid !== null && oldUid === targetUid) {
+    return {
+      status: 'skipped-same-account',
+      message: `目标与当前同账号(${targetUid.slice(0, 8)}),会话无需换桶`,
+    }
+  }
+  // 客户端存续闸:切 auth 前无法预知,这里若发现客户端在跑 ⇒ 放弃换桶并回滚 auth
+  if (deps.runningProcs.length > 0) {
+    const rb = rollbackAuth(plan)
+    const base = `客户端仍在运行(${deps.runningProcs.length} 个进程),已放弃换桶`
+    return rb.ok
+      ? { status: 'rolled-back', message: `${base},auth 已回滚到切换前 sha=${rb.sha12}` }
+      : {
+          status: 'rollback-failed',
+          message: `${base},但 auth 回滚失败,需人工恢复 ${plan.backupPath}: ${rb.error}`,
+        }
+  }
+
+  const lockPath = join(dirname(deps.movePaths.opsLogFile), SESSION_STORE_LOCK_NAME)
+  let lock: { release: () => void }
+  try {
+    lock = acquireSessionLock(lockPath, 'switch-account --with-sessions')
+  } catch (e) {
+    const rb = rollbackAuth(plan)
+    const base = `会话库锁争用,换桶未开始(${(e as Error).message})`
+    return rb.ok
+      ? { status: 'rolled-back', message: `${base},auth 已回滚到切换前 sha=${rb.sha12}` }
+      : {
+          status: 'rollback-failed',
+          message: `${base},且 auth 回滚失败,需人工恢复 ${plan.backupPath}: ${rb.error}`,
+        }
+  }
+
+  try {
+    let swapPlan: SwapPlan
+    try {
+      // authFileOverride = pre-switch 快照 ⇒ planSwap 读到的是「旧账号」,与新账号形成换桶对
+      swapPlan = planSwap(targetUid, deps.movePaths, deps.now, plan.backupPath)
+    } catch (e) {
+      const rb = rollbackAuth(plan)
+      const base = `换桶计划失败(${(e as Error).message})`
+      return rb.ok
+        ? { status: 'rolled-back', message: `${base},auth 已回滚到切换前 sha=${rb.sha12}` }
+        : {
+            status: 'rollback-failed',
+            message: `${base},且 auth 回滚失败,需人工恢复 ${plan.backupPath}: ${rb.error}`,
+          }
+    }
+    const failed: string[] = []
+    const applyOne = (p: MovePlan, type: 'move' | 'restore'): void => {
+      try {
+        const r = applyTransfers(p)
+        appendOps(deps.movePaths.opsLogFile, {
+          ts: deps.now.toISOString(),
+          type,
+          conversationId: p.conversationId,
+          accountId: p.accountId,
+          entries: r.moved,
+        })
+      } catch (err) {
+        failed.push(`${p.conversationId}(${type}): ${(err as Error).message}`)
+      }
+    }
+    for (const p of swapPlan.outbound) applyOne(p, 'move')
+    for (const p of swapPlan.inbound) applyOne(p, 'restore')
+
+    if (failed.length > 0) {
+      const rb = rollbackAuth(plan)
+      const base = `换桶 ${failed.length} 个失败(已落地部分按 ops 逐条可撤): ${failed.join(' | ')}`
+      return rb.ok
+        ? {
+            status: 'rolled-back',
+            message: `${base},auth 已回滚到切换前 sha=${rb.sha12}`,
+            swap: swapPlan,
+          }
+        : {
+            status: 'rollback-failed',
+            message: `${base},且 auth 回滚失败,需人工恢复 ${plan.backupPath}: ${rb.error}`,
+            swap: swapPlan,
+          }
+    }
+    return {
+      status: 'swapped',
+      swap: swapPlan,
+      message:
+        `会话已联动换桶: 换出 ${swapPlan.outbound.length} / 换入 ${swapPlan.inbound.length}` +
+        `(共 ${swapPlan.outbound.length + swapPlan.inbound.length} 个会话、${swapPlan.totalFiles} 个文件)` +
+        (swapPlan.skipped.length > 0 ? `;跳过 ${swapPlan.skipped.length} 个` : ''),
+    }
+  } finally {
+    lock.release()
+  }
+}
+
 /** 输出脱敏守卫:整篇输出不允许出现 token 原文(测试埋雷用同一函数) */
 export function assertNoSecretLeak(lines: string[], secrets: string[]): void {
   for (const line of lines) {
@@ -275,10 +451,16 @@ export function fmtTarget(t: SwitchTarget): string {
   return `${t.name}  ${t.nickname ?? '(无昵称)'}${phone}  domain=${t.domain ?? '?'}  令牌过期=${exp}${t.expired ? '(已过期)' : ''}  形态=${t.tokenShape}  sha=${t.sha12}${flag}`
 }
 
-export function main(argv: string[], pathsOverride?: SwitchPaths): number {
+export function main(
+  argv: string[],
+  pathsOverride?: SwitchPaths,
+  deps: SwitchMainDeps = {},
+): number {
   const paths = pathsOverride ?? defaultSwitchPaths()
   const toIdx = argv.indexOf('--to')
   const apply = argv.includes('--apply')
+  // --with-sessions 仅与 --apply 同时生效;不带 --apply 时只是预告,绝不写盘
+  const withSessions = argv.includes('--with-sessions')
   const lines: string[] = []
   if (toIdx === -1) {
     const { current, targets } = listSwitchTargets(paths)
@@ -308,6 +490,9 @@ export function main(argv: string[], pathsOverride?: SwitchPaths): number {
     ...plan.warnings.map((w) => `  ⚠ ${w}`),
   )
   if (!apply) {
+    if (withSessions) {
+      lines.push('(联动换桶: 加 --apply 后 auth 切换成功即自动换会话桶;换桶失败回滚 auth)')
+    }
     lines.push('(dry-run,未写盘;确认后加 --apply)')
     console.log(lines.join('\n'))
     return 0
@@ -317,10 +502,31 @@ export function main(argv: string[], pathsOverride?: SwitchPaths): number {
     console.error(`切换失败: ${out.error}`)
     return 1
   }
-  lines.push(
-    `✅ 已切换: 现生效 sha=${out.newSha12};旧登录态备份于 ${out.backupPath};请重启 WorkBuddy 桌面端`,
-  )
-  console.log(lines.join('\n'))
+  const switchedLine = `✅ 已切换: 现生效 sha=${out.newSha12};旧登录态备份于 ${out.backupPath};请重启 WorkBuddy 桌面端`
+  if (!withSessions) {
+    console.log([...lines, switchedLine].join('\n'))
+    return 0
+  }
+  // --with-sessions:auth 已切 ⇒ 联动换桶(失败回滚 auth)
+  const swapDeps = {
+    movePaths: deps.movePaths ?? defaultMovePaths(),
+    now: deps.now ?? new Date(),
+    runningProcs: deps.runningProcs ?? detectClientProcesses(),
+  }
+  const res = runLinkedSessionSwap(plan, swapDeps)
+  if (res.status === 'rolled-back' || res.status === 'rollback-failed') {
+    // auth 已回滚(或回滚失败)⇒ 不再声明"已切换";dry-run 那行的会话面从未动过
+    console.error(`⚠ 会话联动: ${res.message}`)
+    console.log(lines.join('\n'))
+    return 1
+  }
+  const tail =
+    res.status === 'swapped'
+      ? `✅ 会话联动: ${res.message}`
+      : res.status === 'skipped-same-account'
+        ? `ℹ 会话联动: ${res.message}`
+        : `⚠ 会话联动: ${res.message}`
+  console.log([...lines, switchedLine, tail].join('\n'))
   return 0
 }
 
