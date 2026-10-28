@@ -23,13 +23,14 @@ from __future__ import annotations
 
 import ast
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 LOG_LEVELS = {"debug", "info", "warning", "error", "critical", "exception", "log"}
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def iter_log_format_strings(tree: ast.AST):
+def iter_log_format_strings(tree: ast.AST) -> Iterator[tuple[int, str]]:
     """产出 (行号, 格式串)。只认 logger.<level>(...) / logging.<level>(...) 的第一实参。"""
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
