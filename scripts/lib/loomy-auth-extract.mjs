@@ -25,8 +25,10 @@
  *     device-credential-vault.js):Electron safeStorage(v10 DPAPI 同构)加密后存
  *     `<userData>\shared-session-sync\[environments\<scopeKey>\]device-credential.json`,
  *     字段 {version, scope_key, encrypted(base64), device_id, app_id, status} ——
- *     本机 2026-10-27 现读:该目录不存在 + localStorage 无 loomy-auth-session 键
- *     ⇒ **未登录态**,两路径探测照常走,登录后即可提取;
+ *     〔更正@2026-10-28〕上一版按"明文扫 .log/.ldb 找不到键名"判本机**未登录**,是错的:
+ *     真实库 47 条键里 `loomy-auth-session` 确实在(uid 261023222726664932 / 199****5160),
+ *     它在 `000005.ldb` 的 **snappy 压缩块**里 —— 明文逐字节扫连键名都搜不到。现改走
+ *     `leveldb-log.readLevelDbEntries`(sst 块解析 + seq 收敛)补齐,压缩块里的会话也能出号;
  *   - 结论:提取器按「源码实证键 + Electron 通用候选键」双路径探测
  *     (Local Storage leveldb + Cookies + device-credential.json 探测注记),
  *     取不到 ⇒ LOOMY_NO_SESSION(未判定,不冒绿)。
@@ -57,6 +59,8 @@ const require = createRequire(import.meta.url)
 
 /** DPAPI/v10 解密单一源:直接复用 codearts 提取器已实证的实现(§0.6,不抄第二份解密器) */
 import { readAesKeyFromLocalState } from './codearts-auth-extract.mjs'
+/** LevelDB 读取单一源(日志 + sstable 压缩块 + Chromium 值编码);本模块不另写解析器 */
+import { readLevelDbEntries, lsValueKey, decodeStoredValue } from './leveldb-log.mjs'
 
 /**
  * Local Storage 候选键名探测清单(只筛「取哪把钥匙」,不做字段映射,§0.6):
@@ -236,6 +240,24 @@ export function scanLocalStorageEntries(dir) {
         i += pat.length
       }
     }
+  }
+  /**
+   * 压缩块兜底(2026-10-28 实测):sst 的数据块是 snappy 压缩的,明文逐字节扫**连键名都搜不到** ——
+   * 本机 000005.ldb 里明明有 loomy-auth-session(167 字节),上面那圈扫描却命中 0 条,
+   * 提取器于是报"未登录"。这里用 leveldb-log 的单源读取器按块解出来补齐/覆盖:
+   * 读取器能给出客户端读法下的最新值(seq 收敛),比字节扫描更权威。
+   */
+  try {
+    const db = readLevelDbEntries(ldbDir, fs, path)
+    for (const key of LOCAL_STORAGE_KEY_CANDIDATES) {
+      const raw = db.entries.get(lsValueKey(key).toString('latin1'))
+      if (!raw) continue
+      const decoded = decodeStoredValue(raw)
+      const value = finalizeValue(decoded ?? '')
+      if (value) byKey.set(key, { source: 'local-storage', key, value, file: '(leveldb 块解析)' })
+    }
+  } catch {
+    /* 读取器整面取不到 ⇒ 保留字节扫描结论,不升级成"未登录"以外的结论 */
   }
   const entries = [...byKey.values()]
   return {
