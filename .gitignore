@@ -99,6 +99,11 @@ __pycache__/
 .next.bak-*/
 dist.old-*/
 deploy/win/deploy-loop.log.*
+# 2026-10-28 api 蓝绿入库同批补:蓝绿活跃色的**运行时状态文件**落点(router 与
+# ihui-api-bluegreen.ps1 共用同一份物理文件,fs.watchFile 1s 热切读它)。
+# 它是本机运行态、不是配置:入库会让每次切流都产生一条无意义 diff,并与
+# apps/api/src/index.ts / ihui-deploy.ps1 里的同一路径默认值争"谁是真相源"。
+deploy/run/
 # 2026-10-22 同一轮补的第二批(生产 ff 后 status 从 11 → 8,剩的是这两族):
 #   ① `*.bak-*`:热修前的源码现场备份(实测 model_availability.py.bak-balancefix-20261021 /
 #      model_catalog.py.bak-freeflagship-20261021)。既有规则只盖 `.env.bak-*`(第 519/520 行),

@@ -256,4 +256,39 @@ describe('连接期守卫（真防 DNS rebinding 的那一层）', () => {
     expect(opts.connect?.lookup).toBe(relayGuardedLookup)
   })
 })
+
+describe('接线锁·上游转发器（forwardToChannel 出网前复检，2026-10-28）', () => {
+  const src = readFileSync(
+    fileURLToPath(new URL('../src/services/relay-upstream-forwarder.ts', import.meta.url)),
+    'utf8',
+  )
+  // 取 forwardToChannel 函数体作夹具：顶层闭括号在行首，函数内嵌套块的括号都带缩进
+  const start = src.indexOf('export async function forwardToChannel')
+  const body = start >= 0 ? src.slice(start, src.indexOf('\n}\n', start)) : ''
+
+  it('取到的是 forwardToChannel 函数体本身（防空串假绿）', () => {
+    expect(body).toContain('export async function forwardToChannel')
+    expect(body).toContain('for (const channel of candidates)')
+  })
+
+  it('闸只有一处，且复检的就是真正要发出去的那条 URL', () => {
+    expect((body.match(/await assertRelayEgressSafe\(targetUrl\)/g) ?? []).length).toBe(1)
+    expect(body.indexOf('assertRelayEgressSafe')).toBeLessThan(body.indexOf('fetch(targetUrl'))
+  })
+
+  it('闸与 fetch 同在候选的 try 块内：不安全目标抛错由 catch 走 failover，整轮循环不被打断', () => {
+    const gate = body.indexOf('assertRelayEgressSafe')
+    // 取"最近的外层"那一对：闸之前最近一个 try，闸之后第一个 catch
+    expect(body.lastIndexOf('try {', gate)).toBeGreaterThan(0)
+    const caught = body.indexOf('} catch', gate)
+    expect(caught).toBeGreaterThan(gate)
+    // catch 体内走 failover（含客户端断开时 break 的专例外），而不是把整轮循环抛出去
+    expect(body.slice(caught, caught + 600)).toContain('continue')
+  })
+
+  it('判据不在本文件另起一份（与账号池回落同源，档位一致）', () => {
+    expect(src).not.toContain('isPrivateOrReservedIp')
+    expect(src).toContain("from '../utils/relay-egress-guard.js'")
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

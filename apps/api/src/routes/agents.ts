@@ -39,6 +39,7 @@ import {
   updateAgent,
   deleteAgent,
 } from '../services/agent-service.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import {
   findCategoryList,
   findCategoryById,
@@ -1510,6 +1511,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // POST /oauth-apps/:clientId/regenerate-secret - 重新生成密钥
   server.post('/oauth-apps/:clientId/regenerate-secret', async (request, reply) => {
     const { clientId } = clientIdParam.parse(request.params)
+    const userId = request.userId!
+    // 2FA step-up 闸：已开 2FA 的账号，重新生成 OAuth 密钥前须有窗内二次验证
+    const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!stepUp.ok) {
+      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+    }
     const existing = await findOAuthAppByClientId(clientId)
     if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
     if (existing.ownerUuid !== request.userId) {
