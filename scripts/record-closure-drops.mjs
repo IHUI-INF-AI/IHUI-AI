@@ -73,7 +73,7 @@ export const NOTE =
  */
 export const MAX_AUTO_CATCH = 20
 
-/** 批量上限判据(纯函数、零 IO)。`max` 非正整数 ⇒ 用法错,不得静默回落缺省。 */
+/** 上限判据(纯函数、零 IO)。`max` 非正整数 ⇒ 用法错,不得静默回落缺省。 */
 export function judgeBatchLimit({ candidates, max = MAX_AUTO_CATCH } = {}) {
   const n = Number(candidates)
   const cap = Number(max)
@@ -126,7 +126,22 @@ function readFace(sha, doc, root) {
   return git(['show', `${sha}:${doc}`], { root, raw: true, allowFail: true })
 }
 
-/** 对一枚提交补留痕;返回 {rc, verdict, rows, res} —— rc 2 一律零入账。 */
+/**
+ * merge 落点一律拒绝补凭据(纯函数、零 IO)。
+ * 立因是本席预扫近 30 枚时量出来的:候选里混着一枚 `Merge origin/main …` —— 它"消失"的那行登记行
+ * 不是谁结清的,而是**合并没带回对侧内容**,正是守门 100(新增丢失)/168(删除复活)与
+ * union-converge 要救的那一型。给这种枚记留痕 = 宣布"本侧已正当处置" ⇒ 门 71 从此不再回捞,
+ * 等于拿本器把真丢失洗成已处置。批量上限挡不住它(合并只吞一枚登记行时候选=1,远在 20 以内)。
+ * 所以按**父数**判,不按候选数判:父数 ≥2 ⇒ 结构性拒绝,零入账。
+ */
+export function isMergeCommit(parentCount) {
+  return Number.isFinite(parentCount) && parentCount >= 2
+}
+
+/**
+ * 对一枚提交补留痕;返回 {rc, verdict, rows, res} —— rc 2 一律零入账。
+ * merge 落点与超上限两种都在这里显式拒绝,不写盘、不记绿。
+ */
 export function catchUpForCommit({
   sha,
   doc = LEDGER_DOC,
@@ -141,6 +156,20 @@ export function catchUpForCommit({
   if (!full) return { rc: 2, verdict: 'undetermined', why: `提交 ${sha} 解析不到 ⇒ 未判定` }
   const headSha = git(['rev-parse', '--verify', 'HEAD'], { root, allowFail: true })
   if (!headSha) return { rc: 2, verdict: 'undetermined', why: 'HEAD 取不到 ⇒ 未判定' }
+  // merge 落点先拒(排在读大文件之前:既省 IO,也让"结构性不该补"这一档不因取面失败而被读成未判定)。
+  const lineage = git(['rev-list', '--parents', '-1', full], { root, allowFail: true })
+  if (lineage === null)
+    return { rc: 2, verdict: 'undetermined', why: '父数问不到 ⇒ 未判定(零入账)' }
+  const parentCount = lineage.trim().split(/\s+/).length - 1
+  if (isMergeCommit(parentCount))
+    return {
+      rc: 2,
+      verdict: 'merge-commit',
+      rows: [],
+      why:
+        `该枚有 ${parentCount} 个父(merge 落点)⇒ 拒绝补凭据:合并没带回对侧内容不是结清,` +
+        '而是守门 100/168 与 union-converge 要救的那一型;记了留痕就等于把真丢失洗成"已处置"。',
+    }
   const parentText = readFace(`${full}^`, doc, root)
   const headText = readFace(full, doc, root)
   if (typeof headText !== 'string')
@@ -296,6 +325,16 @@ export function selfTestCases() {
         judgeBatchLimit({ candidates: 1, max: 0 }).misuse === true &&
         judgeBatchLimit({ candidates: 1, max: 2.5 }).misuse === true,
     },
+    {
+      name: '⑪ merge 落点判据:两父即拒(合并吞行不是结清),单父/根/问不到都不拒判',
+      run: () =>
+        isMergeCommit(2) === true &&
+        isMergeCommit(3) === true &&
+        isMergeCommit(1) === false &&
+        isMergeCommit(0) === false &&
+        isMergeCommit(null) === false &&
+        isMergeCommit(undefined) === false,
+    },
   ]
 }
 
@@ -404,6 +443,7 @@ export const __test__ = {
   droppedOpenRowsOf,
   catchUpForCommit,
   judgeBatchLimit,
+  isMergeCommit,
   selfTestCases,
   MAX_AUTO_CATCH,
   SEAT,
