@@ -645,6 +645,64 @@ test('进程控制开关与拉起:关掉时不探测;没关过就不拉起(不�
   )
 })
 
+test('进程探测兜底:精确映像名落空时按 exe 路径关键字认客户端,宿主解释器不算', async () => {
+  const P = await import('../lib/trae-client-process.mjs')
+  const rows = [
+    {
+      Name: 'CodeArtsAgent.exe',
+      ProcessId: 11,
+      ExecutablePath: 'C:\\Users\\u\\AppData\\Local\\Programs\\Huawei\\CodeArts-Agent\\CodeArtsAgent.exe',
+      CommandLine: '"C:\\Users\\u\\AppData\\Local\\Programs\\Huawei\\CodeArts-Agent\\CodeArtsAgent.exe"',
+    },
+    {
+      Name: 'CodeArtsAgent.exe',
+      ProcessId: 12,
+      ExecutablePath: 'C:\\Users\\u\\AppData\\Local\\Programs\\Huawei\\CodeArts-Agent\\CodeArtsAgent.exe',
+      CommandLine: '"…\\CodeArtsAgent.exe" --type=renderer',
+    },
+    // 宿主解释器:路径里带产品关键字(node scripts/codearts-*.mjs),但绝不是客户端本体
+    { Name: 'node.exe', ProcessId: 13, ExecutablePath: 'D:\\IHUI-AI\\scripts\\codearts-writer.mjs', CommandLine: 'node …' },
+    { Name: 'chrome.exe', ProcessId: 14, ExecutablePath: 'C:\\Program Files\\Google\\Chrome\\chrome.exe', CommandLine: '' },
+  ]
+  const hit = P.matchProcessesByPath(rows, ['codearts'])
+  assert.deepEqual(
+    hit.map((h) => h.pid),
+    [11, 12],
+    '同一映像名的全部进程都要算(主进程 + 渲染子进程),否则关一半等于没关',
+  )
+  assert.equal(hit[0].image, 'CodeArtsAgent', 'image 去 .exe,供 tasklist 轮询与拉起复核')
+  assert.equal(
+    P.matchProcessesByPath([{ Name: 'QoDer CN.exe', ProcessId: 1, ExecutablePath: 'C:\\x\\QoDer CN.exe' }], ['qoder'])
+      .length,
+    1,
+    '关键字匹配必须大小写不敏感',
+  )
+  assert.deepEqual(P.matchProcessesByPath(rows, []), [], '没有关键字就不猜')
+  assert.deepEqual(P.matchProcessesByPath([{ Name: 'a.exe', ProcessId: 1 }], ['a']), [], '拿不到路径不认')
+  for (const provider of ['codearts', 'qoder', 'minimax', 'zcode']) {
+    assert.equal((L.CLIENT_PATH_HINTS[provider] ?? []).length > 0, true, `${provider} 必须有路径兜底关键字`)
+  }
+  assert.equal(L.CLIENT_PATH_HINTS.codex, undefined)
+  assert.equal(L.CLIENT_PATH_HINTS.opencode, undefined)
+})
+
+test('写后自检:读回值必须等于刚写入的凭证,读不回/抛错一律 write-verify', () => {
+  assert.doesNotThrow(() => L.assertReadBack('x', () => true))
+  assert.throws(
+    () => L.assertReadBack('x', () => false),
+    (e) => e?.code === 'write-verify' && /覆写/.test(e.message),
+    '落点被别的进程改回去还报成功,就是用户说的"点了不好使"',
+  )
+  assert.throws(
+    () =>
+      L.assertReadBack('x', () => {
+        throw new Error('database is locked')
+      }),
+    (e) => e?.code === 'write-verify' && /读不回来/.test(e.message) && /database is locked/.test(e.message),
+    '读不回来(库被占)不得当作成功',
+  )
+})
+
 test('关不掉就拒写:进程仍在跑/关断未判定一律 target-locked,关干净了才放行', () => {
   assert.doesNotThrow(() => L.assertClientClosed(null))
   assert.doesNotThrow(() => L.assertClientClosed({ wasRunning: false, closed: false }))
