@@ -365,6 +365,10 @@ const FOREIGN_PLATFORM_SECRET_KEYS = [
   'code_verifier',
   'loginContext',
   'rawCredentials',
+  /** WorkBuddy 写回配方键(2026-10-28):只进 secretsEnc,不透传 extraMetadata */
+  'sealedPaths',
+  'edition',
+  'authFile',
 ]
 /** 标记键:归一化发生过;同时列入不透传集,免得混进 extraMetadata */
 const FOREIGN_MARKER = 'foreignShape'
@@ -624,10 +628,26 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
           ),
         )
       }
-    } else if (opts.providerCode === 'loomy' || opts.providerCode === 'doubao') {
+    } else if (opts.providerCode === 'loomy') {
       token = cstr(acc['value'])
       if (!token) {
         issues.push(issue('error', 'session-entry-credentials', '会话条目缺 value(形状不符)'))
+      }
+    } else if (opts.providerCode === 'doubao') {
+      // 豆包捆绑单账号(2026-10-28 立,与服务端 mapDoubaoImport 同判据):
+      // cookies[] 非空 ⇒ 主票 token 必需;否则回落旧 session-entry 的 value 形状。
+      if (Array.isArray(acc['cookies']) && acc['cookies'].length > 0) {
+        token = cstr(acc['token'])
+        if (!token) {
+          issues.push(
+            issue('error', 'doubao-bundle-credentials', '豆包捆绑账号缺主票 token(cookies 已在)'),
+          )
+        }
+      } else {
+        token = cstr(acc['value'])
+        if (!token) {
+          issues.push(issue('error', 'session-entry-credentials', '会话条目缺 value(形状不符)'))
+        }
       }
     } else if (opts.providerCode === 'grokbot') {
       issues.push(

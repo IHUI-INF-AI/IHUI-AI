@@ -630,7 +630,58 @@ function mapSessionEntryImport(
 }
 
 const mapLoomyImport = (acc: ImportAccountInput) => mapSessionEntryImport('loomy', acc)
-const mapDoubaoImport = (acc: ImportAccountInput) => mapSessionEntryImport('doubao', acc)
+
+/**
+ * 豆包:捆绑单账号(2026-10-28)。提取器把整套字节 passport 族 cookie 打成一个账号
+ * ({token=主票, uid=整包指纹, cookies[]}),cookies 数组由通用路径落 cookiesEnc
+ * (doubao-adapter 转发的就是整包)。仍兼容旧的逐 cookie {source,key,host,value} 条目
+ * 形状(历史导入),原样走 mapSessionEntryImport。
+ */
+function mapDoubaoImport(acc: ImportAccountInput): ReturnType<typeof mapSessionEntryImport> {
+  const a = acc as Record<string, unknown>
+  if (Array.isArray(a['cookies']) && a['cookies'].length > 0) {
+    const token = cstr(a['token'])
+    if (!token) return null
+    return {
+      token,
+      refreshToken: null,
+      uid: cstr(a['uid']) || autoUid(token),
+      name: cstr(a['name']) || null,
+      expiresAt: null,
+      secrets: {},
+    }
+  }
+  return mapSessionEntryImport('doubao', acc)
+}
+
+/**
+ * WorkBuddy:JWT 票 + 「登录本机」写回配方(2026-10-28)。
+ * sessionTemplate(解密树剔凭证)/ sealedPaths(信封路径清单,写回端重封依据)/
+ * edition / authFile 全进 secretsEnc;uid 用会话 account.uid(提取器已证 = 令牌 sub)。
+ */
+function mapWorkbuddyImport(acc: ImportAccountInput): ReturnType<typeof mapCodexImport> {
+  const a = acc as Record<string, unknown>
+  const token = cstr(a['token'])
+  if (!token) return null
+  const template = objField(a, 'sessionTemplate')
+  const sealed = Array.isArray(a['sealedPaths'])
+    ? a['sealedPaths'].filter((p): p is string => typeof p === 'string' && p.startsWith('$'))
+    : null
+  return {
+    token,
+    refreshToken: cstr(a['refreshToken']) || null,
+    uid: cstr(a['uid']) || autoUid(token),
+    name: cstr(a['name']) || null,
+    // 到期时刻交 extractTokenExpiry(JWT exp)兜底,映射层不猜
+    expiresAt: null,
+    secrets: {
+      sessionTemplate: template ?? null,
+      sealedPaths: sealed && sealed.length > 0 ? sealed : null,
+      edition: cstr(a['edition']) || null,
+      authFile: cstr(a['authFile']) || null,
+    },
+  }
+}
 
 /** 灵码:raw 凭证记录(字段级形状未实证,token 按常见键名探测,取不到如实 null) */
 function mapLingmaImport(acc: ImportAccountInput): {
@@ -707,27 +758,29 @@ export async function importAccounts(
       // loomy/doubao/lingma/grokbot)。各格式的 uid/expiresAt 都在映射层显式解析,
       // 不透传则退化为哈希 uid + 无过期时刻。
       const mapped =
-        providerCode === 'codearts'
-          ? mapCodeartsImport(acc)
-          : providerCode === 'qoder'
-            ? mapQoderImport(acc)
-            : providerCode === 'codex'
-              ? mapCodexImport(acc)
-              : providerCode === 'opencode'
-                ? mapOpencodeImport(acc)
-                : providerCode === 'minimax'
-                  ? mapMinimaxImport(acc)
-                  : providerCode === 'zcode'
-                    ? mapZcodeImport(acc)
-                    : providerCode === 'loomy'
-                      ? mapLoomyImport(acc)
-                      : providerCode === 'doubao'
-                        ? mapDoubaoImport(acc)
-                        : providerCode === 'lingma'
-                          ? mapLingmaImport(acc)
-                          : providerCode === 'grokbot'
-                            ? mapGrokbotImport(acc)
-                            : null
+        providerCode === 'workbuddy'
+          ? mapWorkbuddyImport(acc)
+          : providerCode === 'codearts'
+            ? mapCodeartsImport(acc)
+            : providerCode === 'qoder'
+              ? mapQoderImport(acc)
+              : providerCode === 'codex'
+                ? mapCodexImport(acc)
+                : providerCode === 'opencode'
+                  ? mapOpencodeImport(acc)
+                  : providerCode === 'minimax'
+                    ? mapMinimaxImport(acc)
+                    : providerCode === 'zcode'
+                      ? mapZcodeImport(acc)
+                      : providerCode === 'loomy'
+                        ? mapLoomyImport(acc)
+                        : providerCode === 'doubao'
+                          ? mapDoubaoImport(acc)
+                          : providerCode === 'lingma'
+                            ? mapLingmaImport(acc)
+                            : providerCode === 'grokbot'
+                              ? mapGrokbotImport(acc)
+                              : null
       if (!accName && mapped?.name) displayName = mapped.name
       const missingReason = mapped ? null : (MAPPED_PROVIDER_MISSING_REASONS[providerCode] ?? null)
       if (missingReason && providerCode !== 'trae' && providerCode !== 'workbuddy') {
