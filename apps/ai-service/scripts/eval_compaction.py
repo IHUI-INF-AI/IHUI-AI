@@ -966,8 +966,13 @@ def main(argv: list[str] | None = None) -> int:
         llm_pipeline_error = asyncio.run(check_llm_pipeline_callable())
         if errors or llm_pipeline_error:
             print("[eval_compaction] dry-run 校验失败:", file=sys.stderr)
-            for e in errors:
-                print(f"  - {e}", file=sys.stderr)
+            # 2026-10-28 修:循环变量原名 e,与同函数上方的 `except EvalConfigError as e:`
+            # 重名 ⇒ mypy strict 判 "Assignment to variable e outside except: block" +
+            # "Trying to read deleted variable e"(except 变量在块尾会被 del)。
+            # 运行时其实不炸(for 会重新绑定),但这是实打实的坏味道:同一个名字在这段里
+            # 先后指代两样东西。改为自解释的 msg —— 消遮蔽而不是加 ignore。
+            for msg in errors:
+                print(f"  - {msg}", file=sys.stderr)
             if llm_pipeline_error:
                 print(f"  - [LLM 档可调用性] {llm_pipeline_error}", file=sys.stderr)
             return 1
