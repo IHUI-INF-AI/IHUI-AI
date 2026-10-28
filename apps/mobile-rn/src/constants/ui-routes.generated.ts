@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 7da265ab7ad441957adcde1a5a7267157855a3d6
-// inputsSha256: 59e30413dcc564e8243def6ca86c79455c55b81fa4a2f6b2853b4164689c60ae
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 4a36f65149b57e41e404687cb6a843c17e4d8c46af09c1c0d0a8f220fbebcc19
+// sourceCommit: 1a79b8b732ba2d9ee787192f533c6abf7f796784
+// inputsSha256: 89a13f0a781753ea26f48e28cfeceeb81b98d56ce93d96138a837304abb8fd6e
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx dfc396d010f942838cc5c770a10cd4ca1006a39408b3e2def8250f4487e0ab5f
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-28T10:30:09.574Z
+// generatedAt: 2026-10-28T14:54:08.158Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 310 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 322 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -118,6 +118,18 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'KnowledgeBaseEdit', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'MemoryNew', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'VoiceStt', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AiWorkspaceProject', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'CourseHomework', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'EduGradeTrend', tab: false, requiresParams: true, requiredParams: ['studentId'] },
+  { name: 'EduTeacherStudyPlan', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'KnowledgeEntryReading', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'KnowledgeBaseList', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'LecturerList', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'LecturerProfile', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'NewsArticle', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'NewsCategory', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'SkillMarketDetail', tab: false, requiresParams: true, requiredParams: ['name'] },
+  { name: 'SkillMarketList', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ArticleEdit', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ArticleHot', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AskEdit', tab: false, requiresParams: false, requiredParams: [] },

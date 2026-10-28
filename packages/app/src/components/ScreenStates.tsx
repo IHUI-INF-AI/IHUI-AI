@@ -137,7 +137,7 @@ export function EmptyState({
       <Text style={styles.stateTitle}>{title}</Text>
       {desc ? <Text style={styles.stateDesc}>{desc}</Text> : null}
       {actionLabel && onAction ? (
-        <Pressable style={styles.stateBtn} onPress={onAction}>
+        <Pressable style={styles.stateBtn} onPress={onAction} accessibilityRole="button">
           <Text style={styles.stateBtnText}>{actionLabel}</Text>
         </Pressable>
       ) : null}
@@ -171,7 +171,7 @@ export function ErrorState({
       </View>
       <Text style={styles.stateTitle}>{message}</Text>
       {onRetry ? (
-        <Pressable style={styles.stateBtn} onPress={onRetry}>
+        <Pressable style={styles.stateBtn} onPress={onRetry} accessibilityRole="button">
           <Text style={styles.stateBtnText}>{retryLabel}</Text>
         </Pressable>
       ) : null}
@@ -218,6 +218,7 @@ export function PressableCard({
         onPressOut={pressOut}
         onPress={onPress}
         testID={testID}
+        accessibilityRole="button"
         style={[styles.pressCard, style]}
       >
         {children}

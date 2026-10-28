@@ -84,7 +84,13 @@ export type AskListQuery = {
 export type NewsListQuery = {
   page?: number
   pageSize?: number
+  /** 旧键:后端 `articlesQuerySchema`(apps/api/src/routes/news.ts)不认,发了会被丢 */
   category?: string
+  /**
+   * 分类筛选的真实键名(后端 `articlesQuerySchema` 认这个)。
+   * 2026-10-28 补:此前只声明了 `category`,`buildQs` 按原样拼键 ⇒ 想按分类筛只能绕过本封装。
+   */
+  categoryId?: string
   keyword?: string
 }
 
@@ -221,8 +227,13 @@ export async function getNews(query: NewsListQuery = {}): Promise<ApiResult<Page
   return fetchApi<PageData<News>>(`/news/articles${buildQs(query)}`)
 }
 
-export async function getNewsById(id: string): Promise<ApiResult<News>> {
-  return fetchApi<News>(`/news/articles/${encodeURIComponent(id)}`)
+/**
+ * 详情回包是 `{ article }`(apps/api/src/routes/news.ts:361 的 `success({ article: row })`),
+ * 不是裸 `News` —— 2026-10-28 改判:旧声明 `ApiResult<News>` 会让调用方直接读 `data.title`
+ * 恒 undefined。当时全仓零消费者,故按后端实回改正;新调用方请按 `data.article` 取。
+ */
+export async function getNewsById(id: string): Promise<ApiResult<{ article: News }>> {
+  return fetchApi<{ article: News }>(`/news/articles/${encodeURIComponent(id)}`)
 }
 
 /** 批量查询资源点赞数 */

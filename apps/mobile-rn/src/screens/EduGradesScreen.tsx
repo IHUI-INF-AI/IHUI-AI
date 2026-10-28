@@ -9,7 +9,7 @@
  *  - GET /api/edu-ai-management/exam-score?termId= ⇒ { list: EduExamScore[] }
  * 首版承载「当前学期成绩列表」;录分/统计/排行/趋势排后续轮。
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { fetchApi } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
@@ -38,6 +38,8 @@ export function EduGradesScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()
   const [rows, setRows] = useState<ConsoleRowView[]>([])
+  /** 控制台行 id → 学生 uuid(趋势屏参数);见 load 内的写入注释 */
+  const studentIdByRowId = useRef(new Map<string, string>())
   const [termName, setTermName] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -61,17 +63,22 @@ export function EduGradesScreen() {
       )
       if (!res.success) throw new Error(res.error || 'load failed')
       setRows(
-        (res.data?.list ?? []).map((s) => ({
-          id: s.id,
-          cells: {
-            student: s.studentId,
-            subject: s.subject,
-            exam: s.examName,
-            score: `${String(s.score)}/${String(s.totalScore)}`,
-            date: s.examDate?.slice(0, 10) ?? '',
-          },
-          badgeTone: s.totalScore > 0 && s.score / s.totalScore >= 0.6 ? 'ok' : 'warn',
-        })),
+        (res.data?.list ?? []).map((s) => {
+          // 趋势屏要的是 `edu_exam_score.student_id`(uuid),而控制台行只留展示格 ⇒
+          // 在这里留一份 id→studentId 的对应,点击行时按主键回取,不从展示格反推。
+          studentIdByRowId.current.set(s.id, s.studentId)
+          return {
+            id: s.id,
+            cells: {
+              student: s.studentId,
+              subject: s.subject,
+              exam: s.examName,
+              score: `${String(s.score)}/${String(s.totalScore)}`,
+              date: s.examDate?.slice(0, 10) ?? '',
+            },
+            badgeTone: s.totalScore > 0 && s.score / s.totalScore >= 0.6 ? 'ok' : 'warn',
+          }
+        }),
       )
     } catch (e) {
       setError(e instanceof Error ? e.message : 'load failed')
@@ -104,6 +111,11 @@ export function EduGradesScreen() {
       error={error}
       onRetry={() => void load()}
       onRefresh={() => void load()}
+      onRowPress={(row) => {
+        // 成绩趋势(web /edu/edu-management/grades/trend/[studentId];2026-10-28 起有原生屏)
+        const studentId = studentIdByRowId.current.get(row.id)
+        if (studentId) navigation.navigate('EduGradeTrend', { studentId })
+      }}
     />
   )
 }
