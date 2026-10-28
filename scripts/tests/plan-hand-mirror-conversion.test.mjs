@@ -151,4 +151,31 @@ test('M14 壳侧反馈出口含整屏错误态:ErrorState 与 appAlert 同等看
   )
   assert.equal(conv.toastFullyCovered(page, 'return <View />'), false, '壳连错误态都没有 ⇒ 不销账')
 })
+
+test('M15 具名薄封装:定义体的字面量端点与壳重合 ⇒ 销账;动态段 / 别名转发 ⇒ 保守拒', () => {
+  const page = "import { getAskList } from '@/api'\ngetAskList()"
+  assert.equal(
+    conv.apiEndpointsCovered(page, "fetchApi('/api/asks')", "export const getAskList = (p) => get('/asks', p)"),
+    true,
+  )
+  assert.equal(
+    conv.apiEndpointsCovered(page, "fetchApi('/api/asks')", ''),
+    false,
+    '读不到 api 模块 ⇒ 一律不销账',
+  )
+  assert.equal(
+    conv.apiEndpointsCovered("import { g } from '@/api'\ng()", "fetchApi('/api/x')", 'export const g = (id) => get(`/x/${id}`)'),
+    false,
+    '动态段解析不出 ⇒ 不销账',
+  )
+  assert.equal(
+    conv.apiEndpointsCovered("import { a } from '@/api'\na()", "fetchApi('/api/x')", 'export const a = _a'),
+    false,
+    '别名转发(定义体里没有请求器)⇒ 不销账',
+  )
+  // 边界:夹在中间的 export type 不得把下一个符号的端点算进前一个
+  const mod = "export const f = () => get('/a')\nexport type T = { x: 1 }\nexport const g = () => get('/b')"
+  assert.deepEqual([...conv.apiSymbolEndpoints(mod).get('f')], ['/a'])
+  assert.deepEqual([...conv.apiSymbolEndpoints(mod).get('g')], ['/b'])
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
