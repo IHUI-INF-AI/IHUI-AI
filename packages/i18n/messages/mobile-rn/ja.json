@@ -4281,6 +4281,28 @@
     "showActivity": "アクティビティ公開",
     "allowInvites": "招待を許可"
   },
+  "memberDashboard": {
+    "title": "会員センター",
+    "level": "会員ランク",
+    "points": "マイポイント",
+    "coupons": "クーポン",
+    "orders": "注文履歴",
+    "expireAt": "有効期限 {date}",
+    "noExpire": "有効期限の情報がありません",
+    "renew": "今すぐ更新",
+    "recentOrders": "最近の注文",
+    "viewAll": "すべて見る",
+    "noOrders": "注文はありません",
+    "loadFailed": "読み込み失敗",
+    "status": {
+      "pending": "支払待ち",
+      "paid": "支払済み",
+      "shipped": "発送済み",
+      "completed": "完了",
+      "cancelled": "キャンセル",
+      "refunded": "返金済み"
+    }
+  },
   "webViewPortal": {
     "news": "ニュース",
     "learnTopic": "テーマ講座",

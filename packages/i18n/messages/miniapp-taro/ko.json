@@ -4631,6 +4631,28 @@
     "showActivity": "활동 공개",
     "allowInvites": "초대 허용"
   },
+  "memberDashboard": {
+    "title": "회원 센터",
+    "level": "회원 등급",
+    "points": "내 포인트",
+    "coupons": "쿠폰",
+    "orders": "내 주문",
+    "expireAt": "유효기간 {date}",
+    "noExpire": "유효기간 정보 없음",
+    "renew": "지금 갱신",
+    "recentOrders": "최근 주문",
+    "viewAll": "전체 보기",
+    "noOrders": "주문 없음",
+    "loadFailed": "불러오기 실패",
+    "status": {
+      "pending": "결제 대기",
+      "paid": "결제 완료",
+      "shipped": "배송 중",
+      "completed": "완료",
+      "cancelled": "취소됨",
+      "refunded": "환불됨"
+    }
+  },
   "webViewPortal": {
     "news": "뉴스",
     "learnTopic": "주제 강의",
