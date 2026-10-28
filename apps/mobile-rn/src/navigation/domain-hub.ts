@@ -173,6 +173,21 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         target: { type: 'route', name: 'TeacherList' },
       },
       {
+        // web /lecturers(直播讲师域) —— 2026-10-28 起有原生屏(端点 /api/live/lecturers)。
+        // 与上一条 TeacherList(教师域 /teacher/list)不是同一物,两条都要留。
+        labelKey: 'lecturer.title',
+        Icon: Presentation,
+        route: 'LecturerList',
+        target: { type: 'route', name: 'LecturerList' },
+      },
+      {
+        // web /edu/edu-management/study-plan(教师侧学习计划编排,此前 RN 零承载)
+        labelKey: 'eduTeacherStudyPlan.title',
+        Icon: ClipboardList,
+        route: 'EduTeacherStudyPlan',
+        target: { type: 'route', name: 'EduTeacherStudyPlan' },
+      },
+      {
         // web /edu/progress(学习进度)
         labelKey: 'studyProgress.title',
         Icon: TrendingUp,
@@ -269,6 +284,14 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         Icon: Mail,
         route: 'MessageDirect',
         target: { type: 'route', name: 'MessageDirect' },
+      },
+      {
+        // web /skills-market(自进化技能市场,GET /api/skills/market)—— 2026-10-28 起有原生屏。
+        // ⚠️ 与抽屉「AI」组的 AiSkill(/api/ai-skills)是另一个域,不复用。
+        labelKey: 'skillsMarket.title',
+        Icon: Star,
+        route: 'SkillMarketList',
+        target: { type: 'route', name: 'SkillMarketList' },
       },
     ],
   },

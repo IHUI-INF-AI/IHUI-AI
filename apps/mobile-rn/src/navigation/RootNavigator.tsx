@@ -99,6 +99,22 @@ import LearnReviewScreen from '../screens/LearnReviewScreen'
 import KnowledgeBaseEditScreen from '../screens/KnowledgeBaseEditScreen'
 import MemoryNewScreen from '../screens/MemoryNewScreen'
 import VoiceSttScreen from '../screens/VoiceSttScreen'
+/**
+ * 跨端补屏批(2026-10-28):web→RN 功能缺口的承载屏。
+ * 一律具名导入(这批宿主里两枚同时给了 default,具名是两边都成立的唯一写法)。
+ */
+import { AiWorkspaceProjectScreen } from '../screens/AiWorkspaceProjectScreen'
+import { CourseHomeworkScreen } from '../screens/CourseHomeworkScreen'
+import { EduGradeTrendScreen } from '../screens/EduGradeTrendScreen'
+import { EduTeacherStudyPlanScreen } from '../screens/EduTeacherStudyPlanScreen'
+import { KnowledgeEntryReadingScreen } from '../screens/KnowledgeEntryReadingScreen'
+import { KnowledgeBaseListScreen } from '../screens/KnowledgeBaseListScreen'
+import { LecturerListScreen } from '../screens/LecturerListScreen'
+import { LecturerProfileScreen } from '../screens/LecturerProfileScreen'
+import { NewsArticleScreen } from '../screens/NewsArticleScreen'
+import { NewsCategoryScreen } from '../screens/NewsCategoryScreen'
+import { SkillMarketDetailScreen } from '../screens/SkillMarketDetailScreen'
+import { SkillMarketListScreen } from '../screens/SkillMarketListScreen'
 import ArticleEditScreen from '../screens/ArticleEditScreen'
 import ArticleHotScreen from '../screens/ArticleHotScreen'
 import AskEditScreen from '../screens/AskEditScreen'
@@ -678,6 +694,22 @@ export type RootStackParamList = {
   KnowledgeDoc: { id: number; title: string }
   AiSkill: undefined
   AiSkillDetail: { id: string; name: string }
+  /**
+   * 跨端补屏批(2026-10-28)—— web 已有、RN 此前零承载的 10 条功能缺口。
+   * 参数形状由宿主 `route.params` 的取用处反推(见各宿主头注),不猜。
+   */
+  AiWorkspaceProject: { id: string }
+  CourseHomework: { id: string }
+  EduGradeTrend: { studentId: string }
+  EduTeacherStudyPlan: undefined
+  KnowledgeEntryReading: { id: string }
+  KnowledgeBaseList: undefined
+  LecturerList: undefined
+  LecturerProfile: { id: string }
+  NewsArticle: { id: string }
+  NewsCategory: { id: string }
+  SkillMarketDetail: { name: string }
+  SkillMarketList: undefined
   // M3 并行批次(2026-08-26)
   Memory: undefined
   AiWorld: undefined
@@ -1003,6 +1035,22 @@ function RootNavigatorInner() {
             <RootStack.Screen name="KnowledgeBaseEdit" component={KnowledgeBaseEditScreen} />
             <RootStack.Screen name="MemoryNew" component={MemoryNewScreen} />
             <RootStack.Screen name="VoiceStt" component={VoiceSttScreen} />
+            {/* 跨端补屏批(2026-10-28):web→RN 功能缺口承载屏 */}
+            <RootStack.Screen name="AiWorkspaceProject" component={AiWorkspaceProjectScreen} />
+            <RootStack.Screen name="CourseHomework" component={CourseHomeworkScreen} />
+            <RootStack.Screen name="EduGradeTrend" component={EduGradeTrendScreen} />
+            <RootStack.Screen name="EduTeacherStudyPlan" component={EduTeacherStudyPlanScreen} />
+            <RootStack.Screen
+              name="KnowledgeEntryReading"
+              component={KnowledgeEntryReadingScreen}
+            />
+            <RootStack.Screen name="KnowledgeBaseList" component={KnowledgeBaseListScreen} />
+            <RootStack.Screen name="LecturerList" component={LecturerListScreen} />
+            <RootStack.Screen name="LecturerProfile" component={LecturerProfileScreen} />
+            <RootStack.Screen name="NewsArticle" component={NewsArticleScreen} />
+            <RootStack.Screen name="NewsCategory" component={NewsCategoryScreen} />
+            <RootStack.Screen name="SkillMarketDetail" component={SkillMarketDetailScreen} />
+            <RootStack.Screen name="SkillMarketList" component={SkillMarketListScreen} />
             <RootStack.Screen name="ArticleEdit" component={ArticleEditScreen} />
             <RootStack.Screen name="ArticleHot" component={ArticleHotScreen} />
             <RootStack.Screen name="AskEdit" component={AskEditScreen} />

@@ -20,6 +20,9 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { ChevronRight } from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
 import {
@@ -42,6 +45,7 @@ import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PAGE_SIZE = 50
 /** 切到这一档会跳过审批门,必须在确认弹窗里把后果说清楚 */
@@ -53,6 +57,7 @@ export function WorkspaceScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
 
   const [tab, setTab] = useState<TabKey>('projects')
 
@@ -427,17 +432,29 @@ export function WorkspaceScreen() {
                       </Text>
                     </View>
                   </View>
-                  {item.description ? (
-                    <Text className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-                      {item.description}
-                    </Text>
-                  ) : null}
-                  <Text className="mt-1 text-xs text-neutral-500">
-                    {t('workspace.files', { count: item.fileCount })} ·{' '}
-                    {t('workspace.members', {
-                      count: item.memberCount,
-                    })}
-                  </Text>
+                  {/* 项目详情入口(web /workspace/[id];2026-10-28 起有原生屏)。整段信息区可点,
+                      删除按钮留在此区之外 —— 两个可点区域互不嵌套,避免误删。 */}
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('AiWorkspaceProject', { id: item.id })}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.name}
+                    className="mt-2 flex-row items-center justify-between gap-2"
+                  >
+                    <View className="flex-1">
+                      {item.description ? (
+                        <Text className="text-xs text-neutral-600 dark:text-neutral-400">
+                          {item.description}
+                        </Text>
+                      ) : null}
+                      <Text className="mt-1 text-xs text-neutral-500">
+                        {t('workspace.files', { count: item.fileCount })} ·{' '}
+                        {t('workspace.members', {
+                          count: item.memberCount,
+                        })}
+                      </Text>
+                    </View>
+                    <ChevronRight size={16} color={tokens.text.tertiary} strokeWidth={2} />
+                  </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => onDeleteProject(item)}
                     className="mt-3 self-start rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
