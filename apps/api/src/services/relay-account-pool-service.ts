@@ -153,10 +153,23 @@ function cstr(v: unknown): string {
  * 不参与映射(避免与 opaque token 平台的分支语义混淆)。
  */
 function mapTraeImport(acc: ImportAccountInput): { secrets: Record<string, unknown> } | null {
+  const secrets: Record<string, unknown> = {}
   const keyPem = cstr(acc['deviceKeyPem'])
   const pubPem = cstr(acc['devicePubPem'])
-  if (!keyPem || !pubPem) return null
-  return { secrets: { deviceKeyPem: keyPem, devicePubPem: pubPem } }
+  if (keyPem && pubPem) {
+    secrets.deviceKeyPem = keyPem
+    secrets.devicePubPem = pubPem
+  }
+  // 模板三键同批收进来(2026-10-29 补):只认"两个 PEM 都在"会让"本批只带新模板"这条
+  // 整列不写 —— 新模板于是被静默丢弃(没有报错、号池里仍是旧模板)。三键与设备材料
+  // 互不相斥:给了就带,不给由后面的合并步骤从既有列保留。
+  for (const k of ['sessionTemplate', 'sealedPaths', 'edition'] as const) {
+    const v = acc[k]
+    if (v === null || v === undefined) continue
+    if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) continue
+    secrets[k] = v
+  }
+  return Object.keys(secrets).length > 0 ? { secrets } : null
 }
 
 /** DPoP 私钥既可能是 JWK 对象也可能是 JSON 字符串,统一解析为对象 */
@@ -818,17 +831,14 @@ export async function importAccounts(
       // 非空值才覆盖这三键;本批不带任何 secrets ⇒ 该列不动(等价 HEAD 的 undefined 语义)。
       let secretsEncOut: string | null | undefined
       if (incomingSecrets) {
-        const merged: Record<string, unknown> = { ...incomingSecrets }
-        if (existingSecrets) {
-          for (const k of ['sessionTemplate', 'sealedPaths', 'edition'] as const) {
-            const cur = merged[k]
-            const provided =
-              cur !== null &&
-              cur !== undefined &&
-              !(typeof cur === 'object' && !Array.isArray(cur) && Object.keys(cur).length === 0)
-            const keep = existingSecrets[k]
-            if (!provided && keep !== null && keep !== undefined) merged[k] = keep
-          }
+        // 以既有为底(2026-10-29 修):原写法是"只以本批为底 + 回填三键",于是本批带模板时
+        // 会把既有的设备材料二键整对抹掉 —— 换票链当场失去签名材料。既有为底 + 本批非空才
+        // 覆盖,既保住"本批带什么就写什么",也保住"本批没带的材料不被清空"。
+        const merged: Record<string, unknown> = { ...existingSecrets }
+        for (const [k, v] of Object.entries(incomingSecrets)) {
+          if (v === null || v === undefined) continue
+          if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) continue
+          merged[k] = v
         }
         secretsEncOut = encryptField(JSON.stringify(merged))
       } else if (existingSecrets) {
