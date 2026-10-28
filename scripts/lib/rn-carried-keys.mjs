@@ -60,7 +60,8 @@ export function buildBarrelMap(readFile, barrelRel = 'packages/app/src/index.ts'
   const stars = []
   const src = ts.createSourceFile('barrel', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
   const resolveSpec = (fromDir, spec) => {
-    const base = fromDir + '/' + spec
+    const base = normalizeRepoRel(fromDir + '/' + spec)
+    if (!base) return null
     for (const e of TS_EXTS) if (readFile(base + e) !== null && readFile(base + e) !== undefined) return base + e
     for (const e of TS_EXTS) if (readFile(base + '/index' + e) !== null && readFile(base + '/index' + e) !== undefined) return base + '/index' + e
     return null
@@ -130,9 +131,39 @@ export function carriedKeys({ carriers, readFile: readFileRaw = null, readBatch:
   return { keys, files: [...walk.files], unresolved: walk.unresolved, walk }
 }
 
+/**
+ * 仓库相对路径归一(`.` / `..` 折叠、反斜杠折 `/`)。闭包探路的**必需前置**(2026-10-28 立)。
+ *
+ * 立因(实测):闭包里有真实环(`apps/miniapp-taro/src/stores/login-intent.ts` 与 `utils/*`
+ * 互相相对导入),而此前 `toRel` 只是字符串拼接(`dir + '/' + spec`),**从不折叠** `..` ——
+ * 每绕环一圈就多拼一层:`…/stores/../utils/../stores/../utils/…`。字符串越长越不像同一个文件,
+ * `walkClosure` 的 `seen` 去重就永远不命中,同几个真实文件被无限次当"新文件"重读重解析
+ * (实测 8 分钟 CPU、1.6 GB RSS 仍未收敛:`pnpm build:weapp` 卡死在首个前置 `gen:i18n`)。
+ * 归一后同一个真实文件只有一个规范名,环在 `seen` 上正常收敛。
+ *
+ * 越出仓库根(`..` 在根上再往上一级)⇒ null:载体清单里没有这种路径,放它进图等于给
+ * "闭包外的世界"开一条读盘口子 —— 而闭包尺本来只该算仓内文件。
+ */
+export function normalizeRepoRel(rel) {
+  if (!rel) return null
+  const out = []
+  for (const seg of String(rel).replace(/\\/g, '/').split('/')) {
+    if (!seg || seg === '.') continue
+    if (seg === '..') {
+      if (out.length === 0) return null
+      out.pop()
+      continue
+    }
+    out.push(seg)
+  }
+  return out.length > 0 ? out.join('/') : null
+}
+
 /** 带扩展名的说明符(如 `../../package.json`)先按字面试,再走扩展名探测。 */
 export function makeResolver(readFile, tsExts = TS_EXTS) {
-  return (base) => {
+  return (baseRaw) => {
+    const base = normalizeRepoRel(baseRaw)
+    if (!base) return null
     if (readFile(base) !== null && readFile(base) !== undefined) return base
     for (const e of tsExts) if (readFile(base + e) !== null && readFile(base + e) !== undefined) return base + e
     for (const e of tsExts) if (readFile(base + '/index' + e) !== null && readFile(base + '/index' + e) !== undefined) return base + '/index' + e
@@ -146,7 +177,9 @@ export function makeResolver(readFile, tsExts = TS_EXTS) {
  * 门慢到没人跑就等于没装(§0.9)。
  */
 export function makeBatchResolver(readBatch, tsExts = TS_EXTS) {
-  return (base) => {
+  return (baseRaw) => {
+    const base = normalizeRepoRel(baseRaw)
+    if (!base) return null
     const cands = [base, ...tsExts.map((e) => base + e), ...tsExts.map((e) => `${base}/index${e}`)]
     let got
     try {
