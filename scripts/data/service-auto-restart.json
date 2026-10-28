@@ -27,9 +27,21 @@
       "reviewBy": "2027-01-01"
     },
     {
-      "name": "IHUI-WEB",
-      "reason": "网站(8801)。同上,用户直接可见。",
-      "owner": "机主(2026-10-01 三层重启方案拍板)",
+      "name": "IHUI-WEB-ROUTER",
+      "reason": "web 蓝绿入口(8801,2026-10-28 立)。它停着 = EdgeOne 回源打到空端口 ⇒ 全站 522/502。与 API-ROUTER 同型:无状态、只读 deploy/run/web-bluegreen.json,重启代价约 1s 进程拉起。",
+      "owner": "机主(2026-10-28 web 蓝绿落地配套)",
+      "reviewBy": "2027-01-01"
+    },
+    {
+      "name": "IHUI-WEB-GREEN",
+      "reason": "web 蓝绿配色 green(8852,.next-green)。与 IHUI-API-GREEN 同口径:活跃色停着 = 站点挂 ⇒ 该重启;冷备停着是设计内 ⇒ 门已豁免、动作器不碰。",
+      "owner": "机主(2026-10-28 web 蓝绿落地配套)",
+      "reviewBy": "2027-01-01"
+    },
+    {
+      "name": "IHUI-WEB-BLUE",
+      "reason": "web 蓝绿配色 blue(8851,.next-blue)。同上。",
+      "owner": "机主(2026-10-28 web 蓝绿落地配套)",
       "reviewBy": "2027-01-01"
     },
     {
@@ -64,6 +76,12 @@
     }
   ],
   "excluded": [
+    {
+      "name": "IHUI-WEB",
+      "reason": "2026-10-28 起退役:web 已迁蓝绿,8801 由 IHUI-WEB-ROUTER 常驻,两色实例在 8851/8852。**重启它会与 router 抢 8801** ⇒ 不是「没用」而是「有害」(抢到就全站不可达,抢不到就是一次无意义拉起)。已置 Manual 启动类型;本条是第二道保险:即便有别的器物按名拉起,动作器也不碰它。",
+      "owner": "机主(2026-10-28 web 蓝绿落地配套)",
+      "reviewBy": "2027-01-01"
+    },
     {
       "name": "IHUI-PG",
       "reason": "数据库。一次 checkpoint/短暂停就能被判『不应答』,而重启 PG = 全站读写中断 + 恢复期长。风险与判据强度不成比例,交人。",
