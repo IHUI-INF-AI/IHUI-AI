@@ -30,7 +30,8 @@
  * 22. POST   /admin/relay/account-pool/checkin-status — 批量点查签到状态(O64,≤20)
  * 23. POST   /admin/relay/accounts/:id/checkin-run — 立即签到(O64,转发 ai-service,429 透传)
  * 24. POST   /admin/relay/accounts/:id/models — 按需点查可用模型清单(富契约优先,无实证通路 400)
- * 25. POST   /admin/relay/accounts/:id/complete-phone — 人工补全手机号(掩码归位,前3后2吻合校验)
+ * 25. POST   /admin/relay/accounts/:id/complete-phone — 人工补全手机号(掩码归位,前3后2吻合校验;
+ *            body.force=true 为机主换绑强制通道,via=owner_override)
  * 26. POST   /admin/relay/account-pool/match-phone — 批量候选全号自动归位(双向唯一命中才改名)
  * 27. POST   /admin/relay/accounts/:id/login-local — 把该号写进本机客户端登录态(支持 trae + 六平台,
  *            文件级备份+原子写;其余平台 409 并点名无法离线重封的原因)
@@ -277,6 +278,11 @@ const completePhoneBodySchema = z.object({
     .string()
     .trim()
     .regex(CN_PHONE_ZOD_RE, '手机号必须是 11 位大陆全号(1[3-9] 开头),掩码形态请走 match-phone'),
+  /**
+   * 机主强制覆盖(2026-10-28 补):掩码是旧绑定号、新全号前3后2对不上的换绑场景,
+   * 带 force=true 放开掩码吻合闸门(via 落 owner_override 留痕)。already_full 不受影响。
+   */
+  force: z.boolean().optional(),
 })
 const matchPhoneBodySchema = z.object({
   phones: z.array(z.string().trim().min(1)).min(1).max(200),
@@ -1388,8 +1394,9 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
 
   // ===== 25. POST /admin/relay/accounts/:id/complete-phone — 人工补全手机号 =====
   // 号池统一名 = 官方绑定手机号全号(2026-10-28 规约)。掩码名账号(如 Trae 的
-  // 180******69)由机主提供全号后在此归位:前3后2不吻合一律 400 拒收,现名已是
-  // 全号且不一致 409。改名联动 cred_version 前进 + 签到副本传播(判据单源 service)。
+  // 180******69)由机主提供全号后在此归位:前3后2不吻合默认 400 拒收(带 force=true
+  // 走机主换绑强制通道,via=owner_override),现名已是全号且不一致 409(force 也不放开)。
+  // 改名联动 cred_version 前进 + 签到副本传播(判据单源 service)。
   server.post('/admin/relay/accounts/:id/complete-phone', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
@@ -1397,7 +1404,13 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
     try {
-      const r = await completeAccountPhone(p.data.id, b.data.phone)
+      const force = b.data.force === true
+      const r = await completeAccountPhone(
+        p.data.id,
+        b.data.phone,
+        force ? 'owner_override' : 'manual',
+        { force },
+      )
       if (r.code === 'not_found')
         return reply.status(404).send(error(404, r.message ?? '账号不存在'))
       if (r.code === 'invalid_phone' || r.code === 'mask_mismatch') {
