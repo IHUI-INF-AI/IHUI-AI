@@ -11,6 +11,11 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./pilot": {
+      "types": "./src/pilot.ts",
+      "import": "./src/pilot.ts",
+      "default": "./src/pilot.ts"
     }
   },
   "scripts": {
