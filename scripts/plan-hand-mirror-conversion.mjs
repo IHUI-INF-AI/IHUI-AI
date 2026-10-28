@@ -212,10 +212,13 @@ export function lifecycleOnlyDataRefresh(text) {
   return blocks.every((b) => /^(?:void\s+)?[A-Za-z_$][\w$]*\s*\(\s*\)\s*;?$/.test(b.body.trim()))
 }
 
-/** 壳自己取数(有 api-client 调用) —— 与 lifecycleOnlyDataRefresh 合起来才认"刷新由壳承担"。 */
+/** 壳自己取数(api-client 的 fetchApi/request,或具名取数函数如 getFavorites) —— 与刷新判据合用。 */
 export function shellFetchesData(shellText) {
   const s = String(shellText ?? '')
-  return /@ihui\/api-client/.test(s) && /fetchApi|request\s*\(/.test(s)
+  if (!/@ihui\/api-client/.test(s)) return false
+  // 具名取数函数也算:现读 FavoriteScreen/FollowScreen/SubscriptionsScreen 走 `getFavorites` 这类
+  // api-client 导出,旧实现只认 fetchApi/request ⇒ 三壳明明接了回屏重取却被判"没取数"。
+  return /fetchApi|request\s*\(|\bget[A-Z][A-Za-z0-9]*\s*\(/.test(s)
 }
 
 /**
