@@ -104,6 +104,8 @@ const nextConfig: NextConfig = {
     '@ihui/shared',
     '@ihui/api-client',
     '@ihui/i18n',
+    '@ihui/rn-app',
+    'react-native-web',
     '@tauri-apps/api',
     '@tauri-apps/plugin-dialog',
   ],
@@ -116,11 +118,18 @@ const nextConfig: NextConfig = {
     ...(process.env.IHUI_TURBOPACK_ROOT ? { root: process.env.IHUI_TURBOPACK_ROOT } : {}),
     resolveAlias: {
       'next-intl/config': './src/i18n/request.ts',
+      // web 收编试点:共享屏(React Native 源码)在 web 侧经 react-native-web 承载,
+      // lucide-react-native 与 lucide-react 同名导出同构,换成纯 DOM 实现。
+      'react-native': 'react-native-web',
+      'lucide-react-native': 'lucide-react',
     },
     resolveExtensions: ['.js', '.jsx', '.ts', '.tsx', '.json', '.mjs'],
   },
   webpack: (config) => {
     config.resolve.alias = config.resolve.alias || {}
+    // webpack 构建腿与 turbopack 同一套试点别名(keep in sync)。
+    config.resolve.alias['react-native$'] = 'react-native-web'
+    config.resolve.alias['lucide-react-native$'] = 'lucide-react'
     // 2026-08-28 构建排障:Next.js 16 对 .well-known 路由的构建产物中使用了 require,
     // 但项目是 ESM 模块("type": "module"),导致 "require is not defined"。
     // 将 .well-known 路由排除在 webpack 构建外,由 Next.js 运行时处理。
