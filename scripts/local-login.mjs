@@ -299,6 +299,19 @@ export function closeClientForWrite(provider, env = process.env) {
   }
 }
 
+/**
+ * 关不掉就不能写(2026-10-28 补):closeProduct 的 forced 轮也可能因权限/托盘常驻
+ * 而没退干净,此时写下去必然被客户端退出时的内存态覆写 —— 宁可报错让用户手动退出,
+ * 也不冒绿。closed 为 false 同时覆盖"探测未知"(tasklist 抖动)这一档,一律 fail-closed。
+ */
+export function assertClientClosed(info) {
+  if (!info?.wasRunning || info.closed) return
+  throw new WriteError(
+    `已尝试关闭 ${info.product} 但进程仍在运行(或关断结果未判定)⇒ 拒绝写入:运行中的客户端会用内存态覆写登录态。请手动退出 ${info.product} 后重试`,
+    'target-locked',
+  )
+}
+
 /** 写完后原样拉起(服务身份走 run-as-user.ps1,桌面身份 detached spawn) */
 export function relaunchClient(info, env = process.env) {
   if (!info?.wasRunning || !info.closed) return { restarted: false, error: '' }
@@ -772,11 +785,23 @@ export function applyCodearts(payload, opts = {}) {
 
     const nextBlob = encryptSafeStorageBlob(JSON.stringify(next), key)
     const dbFile = path.join(dir, 'User', 'globalStorage', 'state.vscdb')
-    const backupFile = backupOf(dbFile)
+    let backupFile = null
     try {
       const { DatabaseSync } = require('node:sqlite')
       const db = new DatabaseSync(dbFile)
       try {
+        /**
+         * 2026-10-28:先关客户端再写的前提是"库已静止",但客户端被强杀时没机会 checkpoint,
+         * 会残留 state.vscdb-wal(最近事务只在 WAL 里)。此时直接 copyFile 备份只拷到主库,
+         * 回滚会丢事务;且客户端重启后 WAL 重放的旧行可能盖掉我们刚写的值。
+         * 故写前先把 WAL 并回主库(非 WAL 模式是无副作用的空操作),再备份、再更新。
+         */
+        try {
+          db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+        } catch {
+          /* 非 WAL 模式 / 没有 WAL 可合并 */
+        }
+        backupFile = backupOf(dbFile)
         // readSecretBlobsFromVscdb 统一回 Buffer;原行是文本 JSON 还是 BLOB 由现场值形态判定
         const current = db.prepare('SELECT value FROM ItemTable WHERE key = ?').get(row.key)
         const useText = typeof current?.value === 'string'
@@ -1026,6 +1051,7 @@ export async function main(argv) {
   let client = null
   try {
     client = closeClientForWrite(options.provider)
+    assertClientClosed(client)
   } catch (e) {
     const code = e instanceof WriteError ? e.code : 'target-locked'
     process.stderr.write(`❌ [${code}] ${e instanceof Error ? e.message : String(e)}\n`)
@@ -1073,6 +1099,7 @@ export const __test__ = {
   atomicWrite,
   CLIENT_IMAGES,
   closeClientForWrite,
+  assertClientClosed,
   relaunchClient,
   encryptZcodeValue,
   encryptSafeStorageBlob,
