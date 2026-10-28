@@ -4604,6 +4604,17 @@
   "VoiceInput": {
     "p1": "録音を開始できませんでした"
   },
+  "securityAudit": {
+    "title": "セキュリティ監査",
+    "empty": "監査記録なし",
+    "loadFailed": "読み込み失敗",
+    "type": {
+      "login": "ログイン",
+      "permission": "権限",
+      "sensitive": "機密",
+      "other": "その他"
+    }
+  },
   "webViewPortal": {
     "news": "ニュース",
     "learnTopic": "テーマ講座",

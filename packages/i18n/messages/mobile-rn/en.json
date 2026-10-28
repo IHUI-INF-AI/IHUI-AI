@@ -4298,6 +4298,17 @@
     "loginRequired": "Sign in to use AI chat and all tools (MCP store, connectors, skill panel, etc.)",
     "loginButton": "Sign in"
   },
+  "securityAudit": {
+    "title": "Security Audit",
+    "empty": "No audit records",
+    "loadFailed": "Failed to load",
+    "type": {
+      "login": "Login",
+      "permission": "Permission",
+      "sensitive": "Sensitive",
+      "other": "Other"
+    }
+  },
   "webViewPortal": {
     "news": "News",
     "learnTopic": "Topic Lessons",

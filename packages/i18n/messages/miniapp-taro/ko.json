@@ -4604,6 +4604,17 @@
   "VoiceInput": {
     "p1": "녹음을 시작하지 못했습니다"
   },
+  "securityAudit": {
+    "title": "보안 감사",
+    "empty": "감사 기록 없음",
+    "loadFailed": "불러오기 실패",
+    "type": {
+      "login": "로그인",
+      "permission": "권한",
+      "sensitive": "민감",
+      "other": "기타"
+    }
+  },
   "webViewPortal": {
     "news": "뉴스",
     "learnTopic": "주제 강의",
