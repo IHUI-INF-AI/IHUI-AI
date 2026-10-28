@@ -1437,6 +1437,7 @@
     "validUntil": "유효 기한"
   },
   "ranking": {
+    "anonymous": "익명 사용자",
     "title": "랭킹",
     "loadFailed": "랭킹 로드 실패",
     "empty": "랭킹 데이터 없음",

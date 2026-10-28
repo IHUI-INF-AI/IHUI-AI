@@ -1437,6 +1437,7 @@
     "validUntil": "有効期限"
   },
   "ranking": {
+    "anonymous": "匿名ユーザー",
     "title": "ランキング",
     "loadFailed": "ランキングの読み込みに失敗",
     "empty": "ランキングデータがありません",
