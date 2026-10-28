@@ -1321,7 +1321,7 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
   // `tests/im-gateway-webhook-authz.test.ts` 那条"parser 必须保留"的源锁会因为
   // lint-staged 的 prettier 重排而红(它钉的是换行后的字面形状)。一处显式类型,同时买
   // 「类型诚实」与「格式化稳定」两件事。
-  // 必须先摘掉继承自根作用域的 json parser(见 server.ts registerPlugins),否则 add 抛 ALREADY_PRESENT
+  // 根实例已有自定义 application/json(server.ts)⇒ 先 remove 再 add,否则抛 ALREADY_PRESENT。
   server.removeContentTypeParser('application/json')
   server.addContentTypeParser(
     'application/json',
