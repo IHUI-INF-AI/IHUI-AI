@@ -149,9 +149,10 @@ class TencentHunyuanProvider(BaseProvider):
         **kwargs: Any,
     ) -> dict[str, Any]:
         if self._openai_delegate is not None:
-            return await self._openai_delegate.complete(
+            delegated: dict[str, Any] = await self._openai_delegate.complete(
                 messages, _TOKENHUB_MODEL_ALIAS.get(model, model), tools=tools, **kwargs
             )
+            return delegated
         try:
             import litellm
         except ImportError:
