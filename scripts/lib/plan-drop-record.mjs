@@ -74,11 +74,27 @@ export function rowFormOf(line) {
  */
 export function flipPairsOf(pairs) {
   const flips = []
+  const drops = []
   const other = []
   const seen = new Set()
+  const seenDrop = new Set()
   for (const p of Array.isArray(pairs) ? pairs : []) {
     const before = typeof p?.before === 'string' ? p.before : ''
     const after = typeof p?.after === 'string' ? p.after : ''
+    // 删除档(2026-10-28 立,治"滞留反复出现"):显式 `drop: true` ∧ after 为 null ⇒ 该行
+    // **结清即删**,面上不会再出现已勾形态,所以只把未勾形态入账。三项缺一(尤其缺 drop 标记)
+    // 一律不认 —— 否则"after 字段拼错成 null"就会被读成删行。
+    // 门 71 的 declaredExempt 按整行逐字认账 ⇒ 有这条 before 就够它判"不是丢失"。
+    if (before !== '' && p?.drop === true && (p?.after === null || p?.after === undefined)) {
+      if (rowFormOf(before) !== 'open') {
+        other.push({ before, after: '', from: rowFormOf(before), to: 'drop' })
+        continue
+      }
+      if (seenDrop.has(before)) continue
+      seenDrop.add(before)
+      drops.push({ before })
+      continue
+    }
     if (before === '' || after === '') continue
     const from = rowFormOf(before)
     const to = rowFormOf(after)
@@ -89,16 +105,18 @@ export function flipPairsOf(pairs) {
       flips.push({ before, after })
     } else other.push({ before, after, from, to })
   }
-  return { flips, other }
+  return { flips, drops, other }
 }
 
-/** 一对结清形态要入账的两条:未勾整行 + 已勾整行(顺序固定,便于逐条对账)。 */
-export function rowsToRecordOf(flips) {
+/** 一对结清形态要入账的两条:未勾整行 + 已勾整行(顺序固定,便于逐条对账);删除档只有未勾一条。 */
+export function rowsToRecordOf(flips, drops = []) {
   const rows = []
   for (const f of Array.isArray(flips) ? flips : []) {
     rows.push({ rowBefore: f.before, form: 'open' })
     rows.push({ rowBefore: f.after, form: 'closed' })
   }
+  for (const d of Array.isArray(drops) ? drops : [])
+    rows.push({ rowBefore: d.before, form: 'open' })
   return rows
 }
 
@@ -109,7 +127,8 @@ export function rowsToRecordOf(flips) {
  * 那会让唯一合法写盘入口在一条坏行上永久停摆)。
  */
 export function ledgerRowSet(text) {
-  if (typeof text !== 'string') return { ok: false, set: new Set(), malformed: 0, why: '台账内容不成文本' }
+  if (typeof text !== 'string')
+    return { ok: false, set: new Set(), malformed: 0, why: '台账内容不成文本' }
   const set = new Set()
   let malformed = 0
   for (const raw of text.split('\n')) {
@@ -135,6 +154,7 @@ export function ledgerRowSet(text) {
  */
 export function planDropEntries({
   flips,
+  drops = [],
   ledgerText = '',
   at,
   seat = DROP_SEAT_DEFAULT,
@@ -142,7 +162,7 @@ export function planDropEntries({
   commit = '',
   note = DROP_NOTE,
 } = {}) {
-  const rows = rowsToRecordOf(flips)
+  const rows = rowsToRecordOf(flips, drops)
   const have = ledgerRowSet(ledgerText)
   const entries = []
   const skipped = []
@@ -183,10 +203,15 @@ export function judgeLandingAdvanced({ landed, parent, head, ancestor } = {}) {
   const l = String(landed ?? '')
   const p = String(parent ?? '')
   const h = String(head ?? '')
-  if (!SHA40_RE.test(l)) return { state: 'undetermined', why: `落地 sha 不成 40 位形态(${l || '(空)'})` }
+  if (!SHA40_RE.test(l))
+    return { state: 'undetermined', why: `落地 sha 不成 40 位形态(${l || '(空)'})` }
   if (!SHA40_RE.test(h)) return { state: 'undetermined', why: '当前 HEAD 取不到(不成 40 位形态)' }
   if (l === p) return { state: 'not-advanced', why: '落地 sha 与父提交相同 ⇒ HEAD 未被本器推进' }
-  if (ancestor === false) return { state: 'not-advanced', why: `落地 sha ${l.slice(0, 11)} 不在 HEAD(${h.slice(0, 11)}) 的祖先链上` }
+  if (ancestor === false)
+    return {
+      state: 'not-advanced',
+      why: `落地 sha ${l.slice(0, 11)} 不在 HEAD(${h.slice(0, 11)}) 的祖先链上`,
+    }
   if (ancestor === null || ancestor === undefined)
     return { state: 'undetermined', why: '祖先关系问不到(git 侧未判定)' }
   return { state: 'advanced', why: `HEAD 已推进:${h.slice(0, 11)} 含落地 ${l.slice(0, 11)}` }
@@ -229,11 +254,20 @@ export function recordFlipDrops({
   const append = io.append ?? ((p, s) => appendFileSync(p, s, 'utf8'))
   const mkdir = io.mkdir ?? ((p) => mkdirSync(p, { recursive: true }))
   const lines = []
-  const { flips, other } = flipPairsOf(pairs)
-  const base = { ok: true, unjudged: false, written: 0, skipped: [], flips, entries: [], file: ledgerRel, lines }
+  const { flips, drops, other } = flipPairsOf(pairs)
+  const base = {
+    ok: true,
+    unjudged: false,
+    written: 0,
+    skipped: [],
+    flips,
+    entries: [],
+    file: ledgerRel,
+    lines,
+  }
 
   // ③ 只在这条形状上写:没有结清形态 ⇒ 零入账(不读台账、不看 HEAD,一个字节都不写)。
-  if (flips.length === 0) {
+  if (flips.length === 0 && drops.length === 0) {
     lines.push({
       level: 'info',
       text:
@@ -277,7 +311,16 @@ export function recordFlipDrops({
   }
 
   // ④ 幂等:逐字已在账 ⇒ 不重复追加。
-  const planned = planDropEntries({ flips, ledgerText: text, at, seat, file: doc, commit: landed, note })
+  const planned = planDropEntries({
+    flips,
+    drops,
+    ledgerText: text,
+    at,
+    seat,
+    file: doc,
+    commit: landed,
+    note,
+  })
   const out = { ...base, skipped: planned.skipped, entries: planned.entries }
   if (planned.entries.length === 0) {
     lines.push({
@@ -298,7 +341,13 @@ export function recordFlipDrops({
         `❌ 结清留痕未判定:台账写不进(${abs}):${String(e?.message ?? e).slice(0, 160)}` +
         ` ⇒ ${planned.entries.length} 条结清形态未入账(内容已落地 ${String(landed).slice(0, 11)},本留痕腿未完成)`,
     })
-    return { ...base, ok: false, unjudged: true, entries: planned.entries, skipped: planned.skipped }
+    return {
+      ...base,
+      ok: false,
+      unjudged: true,
+      entries: planned.entries,
+      skipped: planned.skipped,
+    }
   }
 
   lines.push({
@@ -320,54 +369,164 @@ export function selfTestCases() {
   const openRow = '- [ ] G-1 **标题**:说明。'
   const closedRow = '- [x] ✅(2026-10-26) G-1 **标题**:说明。'
   const noteRow = '- [ ] G-1 **标题**:说明。〔追加注记〕'
-  const failIo = { append: () => { throw new Error('EACCES: 夹具模拟台账不可写') } }
+  const failIo = {
+    append: () => {
+      throw new Error('EACCES: 夹具模拟台账不可写')
+    },
+  }
   const cases = []
-  cases.push(mk('P1 形态判定:未勾=open/已勾=closed/非登记行=other', (() => {
-    return rowFormOf(openRow) === 'open' && rowFormOf(closedRow) === 'closed' &&
-      rowFormOf('| 表格 | 行 |') === 'other' && rowFormOf('散文 - [ ] 行内') === 'other'
-  })()))
-  cases.push(mk('P2 结清形态挑取:未勾→已勾命中,纯注记/翻回未勾不入账', (() => {
-    const r = flipPairsOf([
-      { before: openRow, after: closedRow },
-      { before: openRow, after: noteRow },
-      { before: closedRow, after: openRow },
-    ])
-    return r.flips.length === 1 && r.other.length === 2
-  })()))
-  cases.push(mk('P3 两形态各入账一次:未勾整行 + 已勾整行逐字等值', (() => {
-    const rows = rowsToRecordOf([{ before: openRow, after: closedRow }])
-    return rows.length === 2 && rows[0].rowBefore === openRow && rows[0].form === 'open' &&
-      rows[1].rowBefore === closedRow && rows[1].form === 'closed'
-  })()))
-  cases.push(mk('P4 幂等:同形态已在账 ⇒ 零新增(逐字命中,不重复追加)', (() => {
-    const text = JSON.stringify({ at: 'x', seat: 's', file: 'f', kind: DROP_KIND, rowBefore: openRow }) + '\n' +
-      JSON.stringify({ at: 'x', seat: 's', file: 'f', kind: DROP_KIND, rowBefore: closedRow }) + '\n'
-    const r = planDropEntries({ flips: [{ before: openRow, after: closedRow }], ledgerText: text, at: 't', file: 'f' })
-    return r.entries.length === 0 && r.skipped.length === 2
-  })()))
-  cases.push(mk('P5 凭据三态:HEAD 未推进/取不到 ⇒ not-advanced 与 undetermined', (() => {
-    const a = judgeLandingAdvanced({ landed: 'a'.repeat(40), parent: 'b'.repeat(40), head: 'a'.repeat(40), ancestor: true })
-    const b = judgeLandingAdvanced({ landed: 'a'.repeat(40), parent: 'b'.repeat(40), head: 'b'.repeat(40), ancestor: false })
-    const c = judgeLandingAdvanced({ landed: 'a'.repeat(40), parent: 'b'.repeat(40), head: '', ancestor: true })
-    const d = judgeLandingAdvanced({ landed: 'a'.repeat(40), parent: 'b'.repeat(40), head: 'c'.repeat(40), ancestor: null })
-    return a.state === 'advanced' && b.state === 'not-advanced' && c.state === 'undetermined' && d.state === 'undetermined'
-  })()))
-  cases.push(mk('P6 台账写不进 ⇒ 未判定(不静默跳过)', (() => {
-    const r = recordFlipDrops({
-      root: '.', doc: 'PROJECT_PLAN.md', pairs: [{ before: openRow, after: closedRow }],
-      landed: 'a'.repeat(40), parent: 'b'.repeat(40), head: 'c'.repeat(40), ancestor: true,
-      io: { read: () => { const e = new Error('ENOENT'); e.code = 'ENOENT'; throw e }, append: failIo.append, mkdir: () => {} },
-    })
-    return r.ok === false && r.unjudged === true && r.written === 0 && r.lines.some((l) => l.level === 'error')
-  })()))
-  cases.push(mk('P7 台账读不到(非 ENOENT)⇒ 未判定,零入账', (() => {
-    const r = recordFlipDrops({
-      root: '.', doc: 'PROJECT_PLAN.md', pairs: [{ before: openRow, after: closedRow }],
-      landed: 'a'.repeat(40), parent: 'b'.repeat(40), head: 'c'.repeat(40), ancestor: true,
-      io: { read: () => { throw new Error('EISDIR') }, append: () => {}, mkdir: () => {} },
-    })
-    return r.ok === false && r.unjudged === true && r.written === 0
-  })()))
+  cases.push(
+    mk(
+      'P1 形态判定:未勾=open/已勾=closed/非登记行=other',
+      (() => {
+        return (
+          rowFormOf(openRow) === 'open' &&
+          rowFormOf(closedRow) === 'closed' &&
+          rowFormOf('| 表格 | 行 |') === 'other' &&
+          rowFormOf('散文 - [ ] 行内') === 'other'
+        )
+      })(),
+    ),
+  )
+  cases.push(
+    mk(
+      'P2 结清形态挑取:未勾→已勾命中,纯注记/翻回未勾不入账',
+      (() => {
+        const r = flipPairsOf([
+          { before: openRow, after: closedRow },
+          { before: openRow, after: noteRow },
+          { before: closedRow, after: openRow },
+        ])
+        return r.flips.length === 1 && r.other.length === 2
+      })(),
+    ),
+  )
+  cases.push(
+    mk(
+      'P3 两形态各入账一次:未勾整行 + 已勾整行逐字等值',
+      (() => {
+        const rows = rowsToRecordOf([{ before: openRow, after: closedRow }])
+        return (
+          rows.length === 2 &&
+          rows[0].rowBefore === openRow &&
+          rows[0].form === 'open' &&
+          rows[1].rowBefore === closedRow &&
+          rows[1].form === 'closed'
+        )
+      })(),
+    ),
+  )
+  cases.push(
+    mk(
+      'P4 幂等:同形态已在账 ⇒ 零新增(逐字命中,不重复追加)',
+      (() => {
+        const text =
+          JSON.stringify({ at: 'x', seat: 's', file: 'f', kind: DROP_KIND, rowBefore: openRow }) +
+          '\n' +
+          JSON.stringify({ at: 'x', seat: 's', file: 'f', kind: DROP_KIND, rowBefore: closedRow }) +
+          '\n'
+        const r = planDropEntries({
+          flips: [{ before: openRow, after: closedRow }],
+          ledgerText: text,
+          at: 't',
+          file: 'f',
+        })
+        return r.entries.length === 0 && r.skipped.length === 2
+      })(),
+    ),
+  )
+  cases.push(
+    mk(
+      'P5 凭据三态:HEAD 未推进/取不到 ⇒ not-advanced 与 undetermined',
+      (() => {
+        const a = judgeLandingAdvanced({
+          landed: 'a'.repeat(40),
+          parent: 'b'.repeat(40),
+          head: 'a'.repeat(40),
+          ancestor: true,
+        })
+        const b = judgeLandingAdvanced({
+          landed: 'a'.repeat(40),
+          parent: 'b'.repeat(40),
+          head: 'b'.repeat(40),
+          ancestor: false,
+        })
+        const c = judgeLandingAdvanced({
+          landed: 'a'.repeat(40),
+          parent: 'b'.repeat(40),
+          head: '',
+          ancestor: true,
+        })
+        const d = judgeLandingAdvanced({
+          landed: 'a'.repeat(40),
+          parent: 'b'.repeat(40),
+          head: 'c'.repeat(40),
+          ancestor: null,
+        })
+        return (
+          a.state === 'advanced' &&
+          b.state === 'not-advanced' &&
+          c.state === 'undetermined' &&
+          d.state === 'undetermined'
+        )
+      })(),
+    ),
+  )
+  cases.push(
+    mk(
+      'P6 台账写不进 ⇒ 未判定(不静默跳过)',
+      (() => {
+        const r = recordFlipDrops({
+          root: '.',
+          doc: 'PROJECT_PLAN.md',
+          pairs: [{ before: openRow, after: closedRow }],
+          landed: 'a'.repeat(40),
+          parent: 'b'.repeat(40),
+          head: 'c'.repeat(40),
+          ancestor: true,
+          io: {
+            read: () => {
+              const e = new Error('ENOENT')
+              e.code = 'ENOENT'
+              throw e
+            },
+            append: failIo.append,
+            mkdir: () => {},
+          },
+        })
+        return (
+          r.ok === false &&
+          r.unjudged === true &&
+          r.written === 0 &&
+          r.lines.some((l) => l.level === 'error')
+        )
+      })(),
+    ),
+  )
+  cases.push(
+    mk(
+      'P7 台账读不到(非 ENOENT)⇒ 未判定,零入账',
+      (() => {
+        const r = recordFlipDrops({
+          root: '.',
+          doc: 'PROJECT_PLAN.md',
+          pairs: [{ before: openRow, after: closedRow }],
+          landed: 'a'.repeat(40),
+          parent: 'b'.repeat(40),
+          head: 'c'.repeat(40),
+          ancestor: true,
+          io: {
+            read: () => {
+              throw new Error('EISDIR')
+            },
+            append: () => {},
+            mkdir: () => {},
+          },
+        })
+        return r.ok === false && r.unjudged === true && r.written === 0
+      })(),
+    ),
+  )
   return cases
 }
 
