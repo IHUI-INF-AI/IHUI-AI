@@ -2644,7 +2644,9 @@ test('G965-2 端到端·open→open 仅缩短正文、判据不动 ⇒ 放行(ex
   const rep = join(inputs, 'rc2.json')
   writeFileSync(
     rep,
-    JSON.stringify([{ before: '- [ ] G-901 修复登录页在 Safari 下布局错位并补齐回归用例（归属:web 线）', after }]),
+    JSON.stringify([
+      { before: '- [ ] G-901 修复登录页在 Safari 下布局错位并补齐回归用例（归属:web 线）', after },
+    ]),
     'utf8',
   )
   const r = runLive(dir, { replaceFile: rep })
@@ -2668,7 +2670,10 @@ test('G965-3 端到端·open→open 摘掉「（进行中@…）」租约 ⇒ �
   writeFileSync(
     rep,
     JSON.stringify([
-      { before: '- [ ] G-902 （进行中@2026-10-20/张三） 修复上传超时', after: '- [ ] G-902 修复上传超时' },
+      {
+        before: '- [ ] G-902 （进行中@2026-10-20/张三） 修复上传超时',
+        after: '- [ ] G-902 修复上传超时',
+      },
     ]),
     'utf8',
   )
@@ -2739,7 +2744,10 @@ test('G965-6 端到端·批量给未勾行新增完整租约(4 行)⇒ 放行并
   const rep = join(inputs, 'rc6.json')
   const lease = '（进行中@2026-10-26/主会话）'
   const pairs = [
-    { before: '- [ ] G-900 修登录（归属:api 线）', after: `- [ ]${lease} G-900 修登录（归属:api 线）` },
+    {
+      before: '- [ ] G-900 修登录（归属:api 线）',
+      after: `- [ ]${lease} G-900 修登录（归属:api 线）`,
+    },
     {
       before: '- [ ] G-901 修复登录页在 Safari 下布局错位并补齐回归用例（归属:web 线）',
       after: `- [ ]${lease} G-901 修复登录页在 Safari 下布局错位并补齐回归用例（归属:web 线）`,
@@ -2851,10 +2859,18 @@ test('G313-A 端到端·批 B 令牌先落,批 A 手填撞其号(不同题)必�
   const bf = join(inputs, 'b.txt')
   writeFileSync(
     bf,
-    ['- [ ] {{NEXT_ID:G}} B批事一. 正文', '- [ ] {{NEXT_ID:G}} B批事二. 正文', '- [ ] {{NEXT_ID:G}} B批事三. 正文'].join('\n') + '\n',
+    [
+      '- [ ] {{NEXT_ID:G}} B批事一. 正文',
+      '- [ ] {{NEXT_ID:G}} B批事二. 正文',
+      '- [ ] {{NEXT_ID:G}} B批事三. 正文',
+    ].join('\n') + '\n',
   )
   const b = runLive(dir, { blockFile: bf, anchorFile: af })
-  assert.equal(b.status, 0, `批 B 必须落地,rc=${b.status} out=${String(b.stdout + b.stderr).slice(0, 300)}`)
+  assert.equal(
+    b.status,
+    0,
+    `批 B 必须落地,rc=${b.status} out=${String(b.stdout + b.stderr).slice(0, 300)}`,
+  )
   const idsB = assignedIdsFrom(b.stdout, 'G313-A·批B')
   assert.equal(idsB.length, 3, '三枚令牌必须各发一号')
   writeFileSync(bf, `- [ ] ${idsB[0]} A批事一. 晚并入的手填同号不同题\n`)
@@ -2884,7 +2900,11 @@ test('G313-B 端到端·批内手填号撞本批令牌窗口 ⇒ 改判现算,�
     ['- [ ] {{NEXT_ID:G}} C批事一. 正文', '- [ ] G-900801 C批事二. 正文'].join('\n') + '\n',
   )
   const c = runLive(dir, { blockFile: bf, anchorFile: af })
-  assert.equal(c.status, 0, `撞窗口必须改判放行,rc=${c.status} out=${String(c.stdout + c.stderr).slice(0, 300)}`)
+  assert.equal(
+    c.status,
+    0,
+    `撞窗口必须改判放行,rc=${c.status} out=${String(c.stdout + c.stderr).slice(0, 300)}`,
+  )
   const rw = String(c.stdout).match(/手填号改判现算\(G-313①\):G-900801 ⇒ ([A-Z]+-\d+)\(/)
   assert.ok(rw, `必须逐枚打印改判读数(G-900801 ⇒ 现算号):\n${c.stdout}`)
   const to = rw[1]
@@ -2909,7 +2929,11 @@ test('G313-C 端到端·成对反例:不撞的手填号逐字保留、无改判�
   const bf = join(inputs, 'b.txt')
   writeFileSync(bf, '- [ ] G-900850 D批新事. 手填空闲号\n')
   const r = runLive(dir, { blockFile: bf, anchorFile: af })
-  assert.equal(r.status, 0, `不撞的手填号必须放行,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 300)}`)
+  assert.equal(
+    r.status,
+    0,
+    `不撞的手填号必须放行,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 300)}`,
+  )
   assert.doesNotMatch(r.stdout, /手填号改判现算/, '不撞不得开火(成对反例)')
   const face = docAtHead()
   assert.equal(
@@ -3036,7 +3060,10 @@ test('G313-R2 留痕计划:原始落地 c1 与让号 c2 各恰一条、父链首
     '重复必须点名(违反项不是靠肉眼发现)',
   )
   // 反证三:缺 sha ⇒ 该枚不记账但其余照记,且点名。
-  const missing = __test__.planBypassAttestations({ landing: null, heals: [{ sha: C2, parent: C1 }] })
+  const missing = __test__.planBypassAttestations({
+    landing: null,
+    heals: [{ sha: C2, parent: C1 }],
+  })
   assert.equal(missing.entries.length, 1)
   assert.ok(missing.violations.some((v) => /原始落地缺 sha/.test(v)))
   // 记写口抛错 ⇒ 降级成一条失败结果,不向外抛(不改退出码)。
@@ -3112,7 +3139,9 @@ test('T-reclassify 声明式改桶:声明与现算同形才放行,不同形/陈�
   assert.equal(stale.ok, false, '声明未命中 ⇒ 整批判不通过(不许以"无违规项"报绿)')
 
   // 镜像两向:声明只解释归属桶维 ⇒ 租约原样保留照常放行,顺带摘牌/换题仍拒(不是全维总闸)。
-  const declFor = (b) => [{ before: b, from: 'waiting-human', to: 'actionable', why: '机主令要求代裁结清存量' }]
+  const declFor = (b) => [
+    { before: b, from: 'waiting-human', to: 'actionable', why: '机主令要求代裁结清存量' },
+  ]
   const keptLease = '- [ ]（进行中@2026-10-23/甲） **R1** 该口径等机主拍板'
   const kept = __test__.judgeRowRewriteConservation({
     pairs: [{ before: keptLease, after: '- [ ]（进行中@2026-10-23/甲） **R1** 该口径已裁' }],
@@ -3174,15 +3203,28 @@ test('T-reclassify readInputs 校验:桶名/理由长度/from==to/陈旧 before 
         LIVE_ROOT: root,
       })
     }
-    const base = { before: '- [ ] A', from: 'waiting-human', to: 'actionable', why: '理由足够长的定向说明' }
+    const base = {
+      before: '- [ ] A',
+      from: 'waiting-human',
+      to: 'actionable',
+      why: '理由足够长的定向说明',
+    }
     assert.equal(run([base]).error, undefined, '合法声明必须通过')
     assert.match(run([{ ...base, from: 'waiting-某某' }]).error, /不是归属桶名/)
     assert.match(run([{ ...base, why: '太短' }]).error, /少于 10 字/)
     assert.match(run([{ ...base, to: 'waiting-human' }]).error, /无事可做/)
     assert.match(run([{ ...base, before: '- [ ] 不在本轮' }]).error, /陈旧\/串档/)
     assert.match(run([base, base]).error, /重复声明/, '同一行两条改桶去向必须整批拒')
-    assert.match(run([{ ...base, before: '## 段落标题' }]).error, /不是未勾登记行/, '段落不能拿改桶声明')
-    assert.match(run([{ ...base, before: '- [x] A' }]).error, /不是未勾登记行/, '已勾行不能拿改桶声明')
+    assert.match(
+      run([{ ...base, before: '## 段落标题' }]).error,
+      /不是未勾登记行/,
+      '段落不能拿改桶声明',
+    )
+    assert.match(
+      run([{ ...base, before: '- [x] A' }]).error,
+      /不是未勾登记行/,
+      '已勾行不能拿改桶声明',
+    )
 
     const dupPairsFile = join(dir, 'pairs-dup.json')
     writeFileSync(
@@ -3198,15 +3240,53 @@ test('T-reclassify readInputs 校验:桶名/理由长度/from==to/陈旧 before 
       LIVE_REPLACE_FILE: dupPairsFile,
       LIVE_ROOT: root,
     })
-    assert.match(dupPairs.error, /before 重复/, '同一 before 两条 pair 落库必失败,必须在 readInputs 早拒')
+    assert.match(
+      dupPairs.error,
+      /before 重复/,
+      '同一 before 两条 pair 落库必失败,必须在 readInputs 早拒',
+    )
     const noReplace = __test__.readInputs({
       LIVE_DOC: 'PROJECT_PLAN.md',
       LIVE_MSG: 'x',
       LIVE_BUCKET_RECLASSIFY: recFile,
       LIVE_ROOT: root,
     })
-    assert.match(noReplace.error, /只在 LIVE_REPLACE_FILE/, '插入档里的声明无人核验,必须拒绝而不是静默吞掉')
+    assert.match(
+      noReplace.error,
+      /只在 LIVE_REPLACE_FILE/,
+      '插入档里的声明无人核验,必须拒绝而不是静默吞掉',
+    )
   } finally {
     rmScratch(dir, { bestEffort: true })
   }
+})
+
+// ── 删除档(2026-10-28):结清即删,治「已勾行滞留反复出现」 ──
+test('T-DROP1 drop:true ∧ after=null ⇒ 删该行,其余逐字节不变', () => {
+  const lines = ['# 计划', '- [ ] G-1 甲', '- [ ] G-2 乙', '']
+  const r = __test__.applyReplacements(lines, [{ before: '- [ ] G-2 乙', after: null, drop: true }])
+  assert.equal(r.ok, true, '删除档应通过,实得 ' + r.reason)
+  assert.deepEqual(r.next, ['# 计划', '- [ ] G-1 甲', ''])
+  assert.equal(r.dropped, 1)
+})
+
+test('T-DROP2 三条护栏:缺 drop 标记拒 / 多命中拒', () => {
+  const lines = ['# 计划', '- [ ] G-1 甲', '- [ ] G-2 乙']
+  const noFlag = __test__.applyReplacements(lines, [{ before: '- [ ] G-1 甲', after: null }])
+  assert.equal(noFlag.ok, false, '缺 drop 标记必须拒(否则 after 拼错成 null 会被当成删行)')
+  assert.match(String(noFlag.reason), /invalid-after/)
+  const dup = ['# 计划', '- [ ] 同', '- [ ] 同']
+  const multi = __test__.applyReplacements(dup, [
+    { before: '- [ ] 同', after: null, drop: true, all: true },
+  ])
+  assert.equal(multi.ok, false)
+  assert.match(String(multi.reason), /drop-multi-hit/)
+})
+
+test('T-DROP3 留痕:删除档只入未勾一形态(drops 桶),门 71 的 declaredExempt 靠它认账', async () => {
+  const { flipPairsOf, rowsToRecordOf } = await import('../lib/plan-drop-record.mjs')
+  const { flips, drops } = flipPairsOf([{ before: '- [ ] G-9 甲', after: null, drop: true }])
+  assert.equal(flips.length, 0, '删除档不进 flips(面上不会有已勾形态)')
+  assert.equal(drops.length, 1)
+  assert.deepEqual(rowsToRecordOf(flips, drops), [{ rowBefore: '- [ ] G-9 甲', form: 'open' }])
 })

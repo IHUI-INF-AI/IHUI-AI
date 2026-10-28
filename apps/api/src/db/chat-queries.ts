@@ -1954,6 +1954,78 @@ export async function rateChatMessage(
   return { ok: true }
 }
 
+/**
+ * 2026-10-28(读完回):消息评分**批量读回**出口 —— 治"点了赞,重开对话就没了"。
+ *
+ * 背景:rateChatMessage 自 D49① 起就把一票落了库(chat_message_feedbacks),
+ * 可读面一直没有出口,web 侧 👍/👎 只能靠组件本地态回显 ⇒ 刷新、换端、重进会话后
+ * 选中态一律丢失,用户看到的是"这票到底记住没有"。本函数一次 `IN (...)` 取整页,
+ * 不做逐条查询(N+1 会把这个便宜的键读放大成整页往返)。
+ *
+ * 契约:键 = messageId;无票的消息**不写进 Map**,调用方按"未表态"渲染 ——
+ * "从未投"与"投过但行已被撤销"对外语义相同(当前无票),不额外编码第三种状态。
+ * 库里若出现契约外的第三个 rating 值,同样按无票处理,不把它当成新档位透给前端。
+ */
+export async function listMessageFeedbackRatings(
+  userId: string,
+  messageIds: string[],
+): Promise<Map<string, MessageRating>> {
+  const out = new Map<string, MessageRating>()
+  if (messageIds.length === 0) return out
+  const rows = await db
+    .select({ messageId: chatMessageFeedbacks.messageId, rating: chatMessageFeedbacks.rating })
+    .from(chatMessageFeedbacks)
+    .where(
+      and(
+        eq(chatMessageFeedbacks.userId, userId),
+        inArray(chatMessageFeedbacks.messageId, messageIds),
+      ),
+    )
+  for (const row of rows) {
+    if (row.rating === 'like' || row.rating === 'dislike') out.set(row.messageId, row.rating)
+  }
+  return out
+}
+
+/**
+ * 2026-10-28(读完回):撤销一票 —— rateChatMessage 的逆操作。
+ *
+ * 幂等:本来就无行也返回 ok(界面上"再点一次已选中的键"必须安静成功,
+ * 不能因为客户端时序撞了重复请求就报错给用户看)。
+ * 归属校验与 rateChatMessage 同一把尺子(消息存在且会话属主),不区分不存在/无权。
+ *
+ * D64⑤ 问卷附言(D64⑤ 借 chat_messages.metadata.feedbackSurvey 落库)随之一起撤回:
+ * 一票撤回后还留着"为什么点踩 + 附言",就是一条没有任何票可依附的孤儿记录。
+ * 只减这一个键(`- 'feedbackSurvey'`),不动 metadata 里其他键 —— 不做读改写,
+ * 也就不存在覆盖他人并发写入的窗口(与 rateChatMessage 的 `||` 同一取向)。
+ * metadata 为 NULL 时保持 NULL(不趁撤销把列从 NULL 洗成 '{}')。
+ */
+export async function clearChatMessageRating(
+  userId: string,
+  messageId: string,
+): Promise<{ ok: boolean; reason?: 'not-found' }> {
+  const owned = await db
+    .select({ conversationId: chatMessages.conversationId })
+    .from(chatMessages)
+    .innerJoin(chatConversations, eq(chatMessages.conversationId, chatConversations.id))
+    .where(and(eq(chatMessages.id, messageId), eq(chatConversations.userId, userId)))
+    .limit(1)
+  if (!owned[0]) return { ok: false, reason: 'not-found' }
+
+  await db
+    .delete(chatMessageFeedbacks)
+    .where(
+      and(eq(chatMessageFeedbacks.userId, userId), eq(chatMessageFeedbacks.messageId, messageId)),
+    )
+  await db
+    .update(chatMessages)
+    .set({
+      metadata: sql`case when ${chatMessages.metadata} is null then null else ${chatMessages.metadata} - 'feedbackSurvey' end`,
+    })
+    .where(eq(chatMessages.id, messageId))
+  return { ok: true }
+}
+
 export async function findFavoriteConversations(
   userId: string,
   opts: { page: number; pageSize: number },
