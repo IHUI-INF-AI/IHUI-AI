@@ -88,21 +88,27 @@ class Recorder:
     def paths(self) -> list[str]:
         return [url.split("?")[0] for _m, url, _b in self.calls]
 
+    def methods(self) -> list[str]:
+        """读侧必须 GET、写侧必须 POST —— 真机实测 404/200 的分界就在这一个词上。"""
+        return [m for m, _u, _b in self.calls]
+
 
 def task_row(**over: Any) -> dict[str, Any]:
+    """2026-10-28 真机 GET /activity/growth/tasks 的实测行形态。
+
+    二进制取证那份字段表(`task_code/task_desc/progress/limit_num/accept_status/
+    reward_credit/reward_energy/valid_to`)在真响应里**一个都不存在** —— 夹具照真形态写,
+    否则测试会跟着错误的取证面自证(本仓 §0.9:判据必须在真跑它的那一刻才成立)。
+    """
     row: dict[str, Any] = {
-        "task_code": "T1",
-        "task_desc": "每日对话3次",
-        "task_type": "daily",
-        "progress": 0,
-        "limit_num": 3,
-        "status": "0",
-        "accept_status": "0",
-        "reward_credit": 10,
-        "reward_energy": 2,
-        "valid_to": None,
-        "sku_code": "",
-        "jump_url": "",
+        "task_id": 1,
+        "code": "first_chat",
+        "title": "完成一次对话",
+        "description": "使用 WorkBuddy 完成至少一次对话交互",
+        "icon_url": "",
+        "level_name": "养虾尝试",
+        "status": "available",
+        "url": "",
     }
     row.update(over)
     return row
@@ -125,14 +131,19 @@ class TestListContract:
         assert out["ok"] is True
         assert out["kind"] == "list"
         assert out["unjudged"] is False
+        # 读侧方法 = GET。真机实测同路径 POST ⇒ 404,GET ⇒ 200 + code:0。
+        assert rec.methods() == ["GET"]
         row = out["tasks"][0]
         assert set(row) == {
             "task_code", "title", "progress", "target", "status",
             "accept_status", "reward_credit", "reward_energy", "valid_to",
         }
-        assert row["task_code"] == "T1" and row["title"] == "每日对话3次"
-        assert row["progress"] == 0 and row["target"] == 3
-        assert row["reward_credit"] == 10 and row["reward_energy"] == 2
+        assert row["task_code"] == "first_chat" and row["title"] == "完成一次对话"
+        assert row["status"] == "available"
+        # 真形态没给的五族字段 ⇒ None;拿 0 冒充"没量到"是 §0.3 禁的假账。
+        assert row["progress"] is None and row["target"] is None
+        assert row["reward_credit"] is None and row["reward_energy"] is None
+        assert row["valid_to"] is None and row["accept_status"] is None
 
     async def test_unparseable_envelope_is_unjudged_not_green(self):
         rec = Recorder({PATH_GROWTH_TASKS: {"result": "weird-no-code"}})
@@ -148,23 +159,34 @@ class TestListContract:
         assert out["unjudged"] is True and out["ok"] is False
 
     async def test_bad_row_dropped_and_flagged(self):
-        bad = task_row()
-        del bad["task_desc"]  # 必解析字段缺位 ⇒ 该行读不懂,不猜标题
-        rec = Recorder({PATH_GROWTH_TASKS: ok_envelope([task_row(), bad])})
+        no_status = task_row()
+        del no_status["status"]  # 真形态必读三件(code/title/status)之一缺位 ⇒ 该行读不懂
+        rec = Recorder({PATH_GROWTH_TASKS: ok_envelope([task_row(), no_status])})
         async with rec.client() as client:
             out = await wt.list_growth_tasks(TOKEN, {}, client=client)
         assert len(out["tasks"]) == 1
         assert out["unjudged"] is True and out["ok"] is True
 
-    async def test_missing_rewards_default_zero_but_bad_type_unjudged(self):
-        no_rw = task_row()
-        del no_rw["reward_credit"], no_rw["reward_energy"]
-        bad_rw = task_row(reward_credit="ten")
-        rec = Recorder({PATH_GROWTH_TASKS: ok_envelope([no_rw, bad_rw])})
+    async def test_title_falls_back_to_description_and_missing_both_is_unjudged(self):
+        only_desc = task_row()
+        del only_desc["title"]
+        no_name = task_row()
+        del no_name["title"]
+        del no_name["description"]
+        rec = Recorder({PATH_GROWTH_TASKS: ok_envelope([only_desc, no_name])})
         async with rec.client() as client:
             out = await wt.list_growth_tasks(TOKEN, {}, client=client)
-        assert out["tasks"][0]["reward_credit"] == 0  # 缺字段 = 无奖励合法形态
-        assert out["unjudged"] is True  # 字段在而形态坏 = 读不懂
+        assert out["tasks"][0]["title"] == "使用 WorkBuddy 完成至少一次对话交互"
+        assert len(out["tasks"]) == 1 and out["unjudged"] is True
+
+    async def test_absent_reward_fields_are_null_not_zero(self):
+        """真形态不带 reward 字段 ⇒ null。旧口径"缺字段按 0"会把"上游没给"说成"奖励为 0"。"""
+        rec = Recorder({PATH_GROWTH_TASKS: ok_envelope([task_row()])})
+        async with rec.client() as client:
+            out = await wt.list_growth_tasks(TOKEN, {}, client=client)
+        assert out["tasks"][0]["reward_credit"] is None
+        assert out["tasks"][0]["reward_energy"] is None
+        assert out["unjudged"] is False  # code/title/status 齐 ⇒ 这行是"读懂了",只是没奖励字段
 
     async def test_web_mode_uses_v2_web_base_with_cookie(self):
         rec = Recorder({"/v2/activity/growth/tasks": ok_envelope([])})
@@ -210,7 +232,30 @@ class TestRunGrowth:
         assert "/billing/meter/checkin-status" not in paths  # dry-run 连探针都不发
         assert all(PATH_TRAVEL_DEPART not in p and PATH_GROWTH_STREAK not in p for p in rec.paths())
 
-    async def test_accept_live_flow_with_measured_credit_delta(self):
+    async def test_accept_refused_until_field_configured(self):
+        """出厂默认字段名留空 ⇒ 一个 accept 请求都不发,并点名"不猜字段"(§0.3)。"""
+        assert settings.workbuddy_tasks_accept_field == ""
+        rec = Recorder(
+            {
+                PATH_GROWTH_TASKS_ACCEPT: ok_envelope({}),
+                PATH_GROWTH_STREAK: ok_envelope({}),
+                "/billing/meter/checkin-status": ok_envelope({"total_credits": 10}),
+                PATH_GROWTH_TASKS: ok_envelope({"tasks": [task_row()]}),
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_growth(TOKEN, {}, dry_run=False, client=client)
+        assert out["accepted"] == []
+        assert out["unjudged"] is True
+        assert "字段名未判定" in (out["reason"] or "")
+        assert PATH_GROWTH_TASKS_ACCEPT not in " ".join(rec.paths())
+        # 唯一被允许的 POST 是余额探针(读语义、上游用 POST 空体);任务写侧一次都没发。
+        for method, url in zip(rec.methods(), rec.paths(), strict=True):
+            if method == "POST":
+                assert "/billing/meter/checkin-status" in url, f"意外发出写侧 POST:{url}"
+
+    async def test_accept_live_flow_with_measured_credit_delta(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(settings, "workbuddy_tasks_accept_field", "codes")
         balances = iter(
             [ok_envelope({"total_credits": 100}), ok_envelope({"total_credits": 130})]
         )
@@ -222,23 +267,26 @@ class TestRunGrowth:
                 # 注意路由表按插入序前缀匹配:"/activity/growth/tasks" 是 accept 路径的
                 # 前缀,更长的 fragment 必须登记在前。
                 PATH_GROWTH_TASKS_ACCEPT: ok_envelope({}),
-                PATH_GROWTH_STREAK: ok_envelope({"streak": 5, "days": 5, "tier": 1}),
-                PATH_GROWTH_TASKS: ok_envelope({"tasks": [task_row(reward_credit=30)]}),
+                # streak 真形态是嵌套对象(旧实现按顶层平铺取 ⇒ 恒 None)
+                PATH_GROWTH_STREAK: ok_envelope(
+                    {"streak": {"days": 5, "next_tier": "7d"}, "makeup_cards": {"balance": 0, "max": 4}}
+                ),
+                PATH_GROWTH_TASKS: ok_envelope({"tasks": [task_row()]}),
             }
         )
         async with rec.client() as client:
             out = await wt.run_growth(TOKEN, {}, dry_run=False, client=client)
         assert out["ok"] is True
-        assert out["accepted"] == ["T1"]
+        assert out["accepted"] == ["first_chat"]
         assert out["credit_delta"] == 30  # 130-100 实测差量,不是猜的
         assert out["unjudged"] is False
-        assert "streak=5" in (out["reason"] or "")
-        # accept 请求体 = 取证形态 {"task_codes": [...]}
+        assert "streak_days=5" in (out["reason"] or "")
         accept_call = [c for c in rec.calls if PATH_GROWTH_TASKS_ACCEPT in c[1]][0]
-        assert accept_call[2] == {"task_codes": ["T1"]}
+        assert accept_call[0] == "POST"
+        assert accept_call[2] == {"codes": ["first_chat"]}
 
     async def test_claim_refused_without_configured_path(self):
-        done = task_row(accept_status="1", progress=3, limit_num=3, status="2")
+        done = task_row(status="completed", progress=3, limit_num=3)
         rec = Recorder(
             {
                 "/billing/meter/checkin-status": ok_envelope({"total_credits": 10}),
@@ -255,7 +303,7 @@ class TestRunGrowth:
 
     async def test_claim_executes_when_path_configured(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(settings, "workbuddy_tasks_claim_path", "/activity/growth/tasks/claim")
-        done = task_row(accept_status="1", progress=3, limit_num=3, status="2")
+        done = task_row(status="completed", progress=3, limit_num=3)
         rec = Recorder(
             {
                 "/billing/meter/checkin-status": ok_envelope({"total_credits": 10}),
@@ -266,9 +314,9 @@ class TestRunGrowth:
         )
         async with rec.client() as client:
             out = await wt.run_growth(TOKEN, {}, dry_run=False, client=client)
-        assert out["claimed"] == ["T1"]
+        assert out["claimed"] == ["first_chat"]
         claim_body = [c for c in rec.calls if "tasks/claim" in c[1]][0][2]
-        assert claim_body == {"task_code": "T1"}  # 取证 claim 体形
+        assert claim_body == {"task_code": "first_chat"}  # 取证 claim 体形
 
     async def test_unparseable_balance_never_reports_zero(self):
         rec = Recorder(
@@ -290,7 +338,25 @@ class TestRunGrowth:
 
 
 def travel_state(**over: Any) -> dict[str, Any]:
-    st: dict[str, Any] = {"state": "idle", "status": "ready", "remain": 3, "energy": 10, "credit": 5}
+    """真机 GET /activity/growth/buddy/travel/status 的实测形态。
+
+    旧夹具那套 `status/remain/energy/credit` 在真响应里不存在 ⇒ 旧解析恒返回 None,
+    整族永远"未判定"。真形态必读只有 `state`。
+    """
+    st: dict[str, Any] = {
+        "state": "idle",
+        "buddy_id": 0,
+        "record_id": 0,
+        "location": None,
+        "depart_at": 0,
+        "arrive_at": 0,
+        "server_now": 1793201004,
+        "letter": None,
+        "use_deeplink": "",
+        "daily_limit_reached": False,
+        "duration_hours": 0,
+        "reward_credit": 0,
+    }
     st.update(over)
     return st
 
@@ -302,12 +368,14 @@ class TestTravel:
             out = await wt.run_travel(TOKEN, {}, dry_run=True, client=client)
         assert out["ok"] is True and out["kind"] == "travel"
         assert rec.paths() == ["https://copilot.tencent.com" + PATH_TRAVEL_STATUS]
-        assert "待发 credit=5" in (out["reason"] or "")
+        assert rec.methods() == ["GET"]
+        assert "待发 credit=0" in (out["reason"] or "")
+        assert out["unjudged"] is False
 
     async def test_pending_rewards_are_claimed_with_deltas(self):
         rec = Recorder(
             {
-                PATH_TRAVEL_STATUS: ok_envelope(travel_state()),
+                PATH_TRAVEL_STATUS: ok_envelope(travel_state(reward_credit=5)),
                 PATH_TRAVEL_CLAIM: ok_envelope({}),
             }
         )
@@ -315,11 +383,23 @@ class TestTravel:
             out = await wt.run_travel(TOKEN, {}, dry_run=False, client=client)
         assert out["ok"] is True
         assert out["claimed"] == ["travel"]
-        assert out["credit_delta"] == 5 and out["energy_delta"] == 10
+        assert out["credit_delta"] == 5
+        # 真形态不带 energy 字段 ⇒ None,不冒充 0
+        assert out["energy_delta"] is None
+
+    async def test_missing_reward_credit_field_is_unjudged_not_zero(self):
+        no_credit = travel_state()
+        del no_credit["reward_credit"]
+        rec = Recorder({PATH_TRAVEL_STATUS: ok_envelope(no_credit)})
+        async with rec.client() as client:
+            out = await wt.run_travel(TOKEN, {}, dry_run=False, client=client)
+        assert out["claimed"] == [] and out["accepted"] == []
+        assert out["unjudged"] is True
+        assert "判不出有无待发奖励" in (out["reason"] or "")
 
     async def test_depart_requires_configured_trigger_states(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(settings, "workbuddy_tasks_travel_depart_states", "")
-        rec = Recorder({PATH_TRAVEL_STATUS: ok_envelope(travel_state(credit=0, energy=0))})
+        rec = Recorder({PATH_TRAVEL_STATUS: ok_envelope(travel_state())})
         async with rec.client() as client:
             out = await wt.run_travel(TOKEN, {}, dry_run=False, client=client)
         assert out["accepted"] == [] and out["unjudged"] is False
@@ -330,8 +410,8 @@ class TestTravel:
         monkeypatch.setattr(settings, "workbuddy_tasks_travel_depart_states", "idle")
         rec = Recorder(
             {
-                PATH_TRAVEL_STATUS: ok_envelope(travel_state(credit=0, energy=0)),
                 PATH_TRAVEL_DEPART: ok_envelope({}),
+                PATH_TRAVEL_STATUS: ok_envelope(travel_state()),
             }
         )
         async with rec.client() as client:
@@ -343,6 +423,59 @@ class TestTravel:
         async with rec.client() as client:
             out = await wt.run_travel(TOKEN, {}, dry_run=False, client=client)
         assert out["ok"] is False and out["unjudged"] is True
+
+
+# ---------------------------------------------------------------------------
+# 真机形态专项锁(2026-10-28 读侧实弹;判据直用生产实现,§22c 不在测试里复算)
+# ---------------------------------------------------------------------------
+
+
+class TestLiveShapes:
+    async def test_streak_nested_shape_is_parsed(self):
+        rec = Recorder(
+            {
+                PATH_GROWTH_STREAK: ok_envelope(
+                    {
+                        "streak": {
+                            "days": 2,
+                            "month_total_days": 2,
+                            "next_tier": "7d",
+                            "next_tier_remaining": 5,
+                            "makeup_dates": [],
+                        },
+                        "makeup_cards": {"balance": 0, "max": 4},
+                        "redemption_status": {"tiers": [{"tier": "7d", "days": 7}]},
+                        "timezone": "Asia/Shanghai",
+                    }
+                )
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.fetch_growth_streak(TOKEN, {}, client=client)
+        assert rec.methods() == ["GET"]
+        assert out is not None
+        assert out["days"] == 2 and out["next_tier"] == "7d"
+        assert out["makeup_card_max"] == 4 and out["tiers"] == 1
+
+    async def test_streak_flat_binary_shape_is_not_guessed(self):
+        """二进制那份平铺字段表在真域不存在 ⇒ 按嵌套判据读不到就 None,不猜回来。"""
+        rec = Recorder({PATH_GROWTH_STREAK: ok_envelope({"streak": 5, "days": 5, "tier": 1})})
+        async with rec.client() as client:
+            assert await wt.fetch_growth_streak(TOKEN, {}, client=client) is None
+
+    def test_binary_field_names_still_parse_as_fallback(self):
+        row, understood = wt.parse_task_row(
+            {"task_code": "legacy", "task_desc": "旧字段", "status": "0"}
+        )
+        assert understood is True
+        assert row is not None and row["task_code"] == "legacy" and row["title"] == "旧字段"
+
+    def test_real_travel_state_parses_without_inventing_energy(self):
+        st = wt.parse_travel_state(
+            {"state": "idle", "reward_credit": 0, "daily_limit_reached": True, "duration_hours": 0}
+        )
+        assert st is not None and st["state"] == "idle"
+        assert st["reward_credit"] == 0 and st["daily_limit_reached"] is True
 
 
 # ---------------------------------------------------------------------------
