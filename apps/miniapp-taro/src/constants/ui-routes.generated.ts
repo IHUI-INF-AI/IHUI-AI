@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 600705e7eee6f2df591b90b6ba3d2f994519fd51
-// inputsSha256: 016846a622ec13da73c8b229d377b43f71b4e58da32d817f31e0f41bcc5b181c
+// sourceCommit: 8be8bb6af36c35600b786da8842819b8a4ba4a79
+// inputsSha256: a68feb79b15b33740777c5e99f6ea83c1a20456e3d154ec7fea13bb1b6fa11c6
 // input: apps/miniapp-taro/src/api/index.ts 906678d9feb2dabe632a4a45b2a75ace7e081d020944f31357aa249f64c7ab2e
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
 // input: apps/miniapp-taro/src/app.config.ts 5baa3d1c1747a577b5d5be0904aea2b8c3fd5d3084c8f0232cf7276fd2f8cfb2
@@ -155,7 +155,7 @@
 // input: apps/miniapp-taro/src/pages/ask/detail.config.ts 485a301b6cc26b484f6c7f3939065f265fed0425168e36b227c35bb49c0dcd93
 // input: apps/miniapp-taro/src/pages/ask/detail.tsx 3de419cb8291c906aa32e6ae4639b5929f36f8093b3f5186ab4ceb5ca79d2f97
 // input: apps/miniapp-taro/src/pages/ask/list.config.ts 9c44f19d24466e90e80c2e61f3c12589a2e30f6c8f5c7d6e3ef0ee1d430389a5
-// input: apps/miniapp-taro/src/pages/ask/list.tsx b1057ae931b56aef7a1d258d5c48e92d84d54aef46692da99b1ea8988db53d33
+// input: apps/miniapp-taro/src/pages/ask/list.tsx 8f8f1dd42fe353e628128a4364b1164565d6b7bd0b98cde9ce1877efea4fed05
 // input: apps/miniapp-taro/src/pages/circle/create.config.ts 49e399da33dde0f9b488c4eae4da9cfa85198acb9251490f0808704b276b2280
 // input: apps/miniapp-taro/src/pages/circle/create.tsx fbfdb4cba40243a8f2154444a887693060284a4caa047e39da36eecd6e757191
 // input: apps/miniapp-taro/src/pages/circle/detail.config.ts 02a99a996fe88e037152bfe6d517bfbc4297dfba5e99bfcdcc09434000a3ec3d
@@ -682,7 +682,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 546 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=187(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-28T18:36:59.465Z
+// generatedAt: 2026-10-28T19:44:04.195Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
@@ -2221,7 +2221,7 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     title: '问题详情',
     tab: false,
     subPackageRoot: 'pages/ask',
-    requiresParams: true,
+    requiresParams: false,
   },
   {
     path: '/pages/ask/create',
