@@ -430,7 +430,7 @@
 {"web":"chat/favorites","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-27):原在册 gap","at":"2026-10-27"}
 {"web":"agent-plan","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-27):原在册 gap","at":"2026-10-27"}
 {"web":"agent-plan/progress","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-27):原在册 gap","at":"2026-10-27"}
-{"web":"agents/my","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-27):原在册 gap","at":"2026-10-27"}
+{"web":"agents/my","status":"aligned","rn":"apps/mobile-rn/src/screens/MyAgentsScreen.tsx","note":"2026-10-29 补承载:共享屏 packages/app/src/features/my-agents/MyAgentsScreen.tsx + RN 宿主 + 「我的」页新增「AI 智能体」分区入口。数据 GET /api/agents/my → {list,total},行 agentId/name/description/status/price/isFree;价格 formatPrice;typecheck TC_EXIT=0","at":"2026-10-29"}
 {"web":"ai-generation","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-27):原在册 gap","at":"2026-10-27"}
 {"web":"ai-generation/video-tasks","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-27):原在册 gap","at":"2026-10-27"}
 {"web":"business-card/favorites","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-27):原在册 gap","at":"2026-10-27"}
