@@ -212,13 +212,23 @@ export function lifecycleOnlyDataRefresh(text) {
   return blocks.every((b) => /^(?:void\s+)?[A-Za-z_$][\w$]*\s*\(\s*\)\s*;?$/.test(b.body.trim()))
 }
 
-/** 壳自己取数(api-client 的 fetchApi/request,或具名取数函数如 getFavorites) —— 与刷新判据合用。 */
+/** 壳自己取数(api-client 的 fetchApi/request,或具名取数函数) —— 与刷新判据合用。 */
 export function shellFetchesData(shellText) {
   const s = String(shellText ?? '')
   if (!/@ihui\/api-client/.test(s)) return false
-  // 具名取数函数也算:现读 FavoriteScreen/FollowScreen/SubscriptionsScreen 走 `getFavorites` 这类
-  // api-client 导出,旧实现只认 fetchApi/request ⇒ 三壳明明接了回屏重取却被判"没取数"。
-  return /fetchApi|request\s*\(|\bget[A-Z][A-Za-z0-9]*\s*\(/.test(s)
+  if (/fetchApi|request\s*\(/.test(s)) return true
+  // 具名取数函数:必须 **import 过且出现 ≥2 次**(import 行 + 使用点) 才算真取数。
+  // 为什么不认 `get*()` 调用形态:现读 FollowScreen 用 `const apiFn = tab === 'following' ? getFollowing : getFans`
+  // 这种**引用赋值**(没有括号),按调用形态判会漏;而只 import 不使用的一律不算(防假销账)。
+  for (const m of s.matchAll(/import\s*\{([^}]*)\}\s*from\s*'@ihui\/api-client'/g)) {
+    for (const piece of m[1].split(',')) {
+      const name = piece.trim().replace(/^type\s+/, '').split(/\s+as\s+/).pop().trim()
+      if (!/^[A-Za-z_$][\w$]*$/.test(name)) continue
+      const hits = (s.match(new RegExp(`\\b${name}\\b`, 'g')) || []).length
+      if (hits >= 2) return true
+    }
+  }
+  return false
 }
 
 /**
