@@ -145,8 +145,10 @@ function run(argv) {
     const r = classifyRow(row, webSrc(row.web), texts.get(row.rn) ?? null)
     if (r.kind === 'skip') continue
     scanned += 1
-    if (r.kind === 'suspect') suspects.push({ web: row.web, rn: row.rn, ...r })
-    else if (r.kind === 'undecidable') undecidable.push({ web: row.web, rn: row.rn, why: r.why })
+    if (r.kind === 'suspect')
+      suspects.push({ webPath: row.web, rnPath: row.rn, webSegs: r.web, rnSegs: r.rn })
+    else if (r.kind === 'undecidable')
+      undecidable.push({ webPath: row.web, rnPath: row.rn, why: r.why })
   }
   if (argv.includes('--json')) {
     console.log(JSON.stringify({ face, scanned, suspects, undecidable }))
@@ -154,8 +156,9 @@ function run(argv) {
     console.log(
       `[aligned-domain-drift] 面=${face} 可判 aligned 行 ${scanned} · 可疑域错配 ${suspects.length} · 判不出 ${undecidable.length}`,
     )
-    for (const s of suspects) console.log(`  ⚠ ${s.web} → ${s.rn} | web[${s.web}] vs rn[${s.rn}]`)
-    for (const u of undecidable.slice(0, 10)) console.log(`  · 判不出 ${u.web}(${u.why})`)
+    for (const s of suspects)
+      console.log(`  ⚠ ${s.webPath} → ${s.rnPath} | web[${s.webSegs}] vs rn[${s.rnSegs}]`)
+    for (const u of undecidable.slice(0, 10)) console.log(`  · 判不出 ${u.webPath}(${u.why})`)
     if (undecidable.length > 10) console.log(`  … 另有 ${undecidable.length - 10} 条判不出`)
     console.log(
       '  ⓘ 这是队列不是裁决:改判要逐条附证据(参照 news 那次的 /api/news/* vs /api/articles/*)。',
