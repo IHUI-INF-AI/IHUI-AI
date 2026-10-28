@@ -147,7 +147,7 @@ export function WorkbenchSessionRail({ items, selectedId, onSelect }: WorkbenchS
                         setMenuOpenId(item.id)
                       }}
                       className={cn(
-                        'group flex w-full items-center gap-2 rounded-md border-l-2 py-2 pl-2.5 pr-1 text-left text-sm transition-colors',
+                        'group flex w-full items-center gap-2 rounded-sm border-l-2 py-2 pl-2.5 pr-1 text-left text-sm transition-colors',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         'motion-reduce:transition-none',
                         selected
