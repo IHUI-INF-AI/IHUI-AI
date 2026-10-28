@@ -283,6 +283,10 @@ export const OUT_OF_SCOPE = [
   },
   { re: /^docs\//, why: '文档产物 HTML,非应用界面' },
   { re: /(^|\/)scripts\/gen_[^/]*\.(py|mjs)$/, why: '开发期报告生成器产物模板,非应用界面' },
+  {
+    re: /^apps\/api\/scripts\/relay-session-export\.ts$/,
+    why: '会话导出 CLI 生成的自包含 HTML 报表样式(内容产物,同 ai-service 内容渲染分支口径),非端内应用界面;圆角只影响导出件外观,不参与跨端视觉一致性',
+  },
 ]
 
 const RADIUS_TOKEN_RE =

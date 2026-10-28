@@ -16,10 +16,12 @@ import { fileURLToPath } from 'node:url'
 
 import {
   parseGateRegistry,
-  extractEntryFields,
   selectAffectedGates,
+  countUntriggered,
   scanDuplicateDefinitions,
   rerunAffectedGates,
+  gateConcurrency,
+  runGateBatch,
 } from '../lib/land-gate-rerun.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
@@ -28,11 +30,31 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const TOOL = join(HERE, '..', 'object-space-land.mjs')
 const UNION_TOOL = join(HERE, '..', 'union-converge.mjs')
 const GIT = resolveGitBin() || 'git'
-const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
+const runOpts = {
+  encoding: 'utf8',
+  windowsHide: true,
+  timeout: 60_000,
+  maxBuffer: 64 << 20,
+  stdio: ['ignore', 'pipe', 'pipe'],
+}
 const runGit = (dir, args) =>
-  // stdio 显式写在**本调用的 options 字面量**里:门 193 判据只认 options 内出现的属性名,
-  // `...runOpts` 展开虽在运行期带上了 stdio,对判据却是"看不见"(2026-10-28 实测判红)。
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], { ...runOpts, stdio: ['ignore', 'pipe', 'pipe'] })
+  execFileSync(
+    GIT,
+    [
+      '-c',
+      'safe.directory=*',
+      '-c',
+      'user.email=t@e2e.local',
+      '-c',
+      'user.name=e2e',
+      '-c',
+      'core.autocrlf=false',
+      '-C',
+      dir,
+      ...args,
+    ],
+    { ...runOpts },
+  )
 
 function makeRepo(t) {
   const dir = mkScratch('lgr-')
@@ -108,9 +130,21 @@ test('T2 parseGateRegistry:真 guardian-runner 的门 35/207 条目按字段解�
 test('T3 selectAffectedGates:触发前缀/glob 命中入选;恒跑门与 info 门不入列', () => {
   const entries = [
     { id: '35', script: 'check-mypy.mjs', mode: 'blocking', args: [], stagedTriggers: [] },
-    { id: '207', script: 'check-agents-doc-size.mjs', mode: 'blocking', args: [], stagedTriggers: ['AGENTS.md'] },
+    {
+      id: '207',
+      script: 'check-agents-doc-size.mjs',
+      mode: 'blocking',
+      args: [],
+      stagedTriggers: ['AGENTS.md'],
+    },
     { id: '9', script: 'a.mjs', mode: 'warn', args: [], stagedTriggers: ['apps/web/'] },
-    { id: '97', script: 'g.mjs', mode: 'blocking', args: [], stagedTriggers: ['apps/**/status*.tsx'] },
+    {
+      id: '97',
+      script: 'g.mjs',
+      mode: 'blocking',
+      args: [],
+      stagedTriggers: ['apps/**/status*.tsx'],
+    },
     { id: '100', script: 'i.mjs', mode: 'info', args: [], stagedTriggers: ['apps/'] },
   ]
   const sel = (paths) => selectAffectedGates(paths, entries).map((e) => e.id)
@@ -129,7 +163,7 @@ test('T4 scanDuplicateDefinitions:顶层同名命中,嵌套/注释不算,ts 臂�
     'class Box:',
     '    def handle(self):',
     '        pass',
-    "# def handle(: 注释行不算",
+    '# def handle(: 注释行不算',
     'def handle(y):',
     '    return y',
   ].join('\n')
@@ -163,7 +197,9 @@ test('T4 scanDuplicateDefinitions:顶层同名命中,嵌套/注释不算,ts 臂�
     [],
     '字符串/模板串里的同名声明不得算第二份定义',
   )
-  const names = scanDuplicateDefinitions(ts, '.ts').map((x) => x.name).sort()
+  const names = scanDuplicateDefinitions(ts, '.ts')
+    .map((x) => x.name)
+    .sort()
   assert.deepEqual(names, ['fmt', 'tick'])
 
   // TS 函数重载 = 多个无 body 签名 + 单个实现 ⇒ 不是重复族(2026-10-25 tauri-bridge.ts
@@ -288,7 +324,11 @@ test('T8 换仓通道:mypy/tsc/注册表臂点名未跑,verdict 仍 0(不是"跑
 // ── T9 应急出口:跳过必打留痕,不判红也不判绿 ──
 test('T9 IHUI_LAND_SKIP_AFFECTED_GATES=1 ⇒ skipped,verdict=0', (t) => {
   const dir = makeRepo(t)
-  const res = rerunAffectedGates({ root: dir, paths: ['bad.py'], env: { IHUI_LAND_SKIP_AFFECTED_GATES: '1' } })
+  const res = rerunAffectedGates({
+    root: dir,
+    paths: ['bad.py'],
+    env: { IHUI_LAND_SKIP_AFFECTED_GATES: '1' },
+  })
   assert.equal(res.skipped, true)
   assert.equal(res.verdict, 0)
 })
@@ -305,7 +345,14 @@ test('T10 e2e:落地器对 dupdef 失败臂 exit 1,而提交仍在 HEAD(不回�
     LAND_MSG: 'test: 旁路落地一份带同名函数族的文件',
     IHUI_LAND_SKIP_WATERMARK: '1',
   }
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+  const r = spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   const after = runGit(dir, ['rev-parse', 'HEAD']).trim()
   assert.equal(r.status, 1, `期望 exit 1,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
   assert.notEqual(after, before, '落地是既成事实:失败臂不得回滚 HEAD')
@@ -324,7 +371,14 @@ test('T11 e2e:干净落地面 ⇒ exit 0,复跑段在 stdout 出声(失败臂变
     LAND_MSG: 'test: 干净落地',
     IHUI_LAND_SKIP_WATERMARK: '1',
   }
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+  const r = spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(r.status, 0, `期望 exit 0,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
   assert.match(`${r.stdout}`, /✅ 落地后受影响判据复跑/)
 })
@@ -337,6 +391,142 @@ test('T12 形状锁:object-space-land 与 union-converge 两台旁路落地器�
   assert.match(src, /IHUI_LAND_SKIP_AFFECTED_GATES/)
   const uc = readFileSync(UNION_TOOL, 'utf8')
   assert.match(uc, /import \{ rerunAffectedGates \} from '\.\/lib\/land-gate-rerun\.mjs'/)
-  assert.match(uc, /rerunAffectedGates\(\{ root: ROOT, paths: \[\.\.\.new Set\(\[\.\.\.LIVE_DOCS, \.\.\.p\.tookTheirs\]\)\] \}\)/)
+  assert.match(
+    uc,
+    /rerunAffectedGates\(\{ root: ROOT, paths: \[\.\.\.new Set\(\[\.\.\.LIVE_DOCS, \.\.\.p\.tookTheirs\]\)\] \}\)/,
+  )
+})
+
+// ── T13 覆盖面边界(2026-10-27 立):缺射程的判据门必须被**量出来**,而不是从账上消失 ──
+// 立因:同一份 `stagedTriggers` 缺省,提交通道读成"任何提交都跑",本通道读成"永不复跑"
+// ⇒ 落地绿行可以是盲绿(实证:门 193 缺射程 ⇒ 那笔落地报 19 臂全绿,而唯一能咬住它的臂没跑)。
+test('T13 countUntriggered:只数判据门(info 不算),缺射程与其中 blocking 分开,且不改选门', () => {
+  const entries = [
+    { id: '1', script: 'a.mjs', mode: 'blocking', stagedTriggers: ['pkg/'] },
+    { id: '2', script: 'b.mjs', mode: 'blocking' }, // 字段缺省
+    { id: '3', script: 'c.mjs', mode: 'warn', stagedTriggers: [] }, // 空数组(与缺省同义)
+    { id: '4', script: 'd.mjs', mode: 'info' }, // info 门本来就不入列,不数
+  ]
+  const u = countUntriggered(entries)
+  assert.equal(u.judges, 3, '判据门 = 非 info 且带 script 的条目')
+  assert.equal(u.missing, 2)
+  assert.equal(u.blocking, 1)
+  assert.deepEqual(u.ids, ['2', '3'])
+  // 互补不重复:它只量不选 —— 缺射程的门照样不入"受影响门"(否则就是把两件事说成一件)
+  assert.deepEqual(
+    selectAffectedGates(['pkg/x.md'], entries).map((e) => e.id),
+    ['1'],
+  )
+  // 空注册表 / 全声明 ⇒ 0,不抛错(反恒红对照)
+  assert.equal(countUntriggered([]).missing, 0)
+  assert.equal(
+    countUntriggered([{ id: '9', script: 'z.mjs', mode: 'blocking', stagedTriggers: ['**'] }])
+      .missing,
+    0,
+  )
+})
+
+// ── T14 点名必须真打印(回归锁):绿行写「点名 N 条(见上)」,那就必须真有"上" ──
+// 修前实况:notes 只被 push、全仓没有一处 print ⇒ 这句话是自证"已经点过名"的谎(§0.3)。
+test('T14 点名真打印:notes 与"未声明射程"两路都要出现在报告面,且绿行带覆盖面边界', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  writeFileSync(join(dir, 'scripts', 'stub-gate.mjs'), STUB_SRC)
+  const reg = join(dir, 'stub-registry.txt')
+  writeFileSync(
+    reg,
+    `const checks = [
+  { id: '910', label: 'skip', script: 'stub-gate.mjs', args: [], mode: 'blocking', skipEnv: 'STUB_SKIP', stagedTriggers: ['pkg/'] },
+  { id: '911', label: 'no trigger', script: 'stub-gate.mjs', args: [], mode: 'blocking' },
+]\n`,
+  )
+  const logs = []
+  const orig = console.log
+  console.log = (...a) => logs.push(a.map(String).join(' '))
+  let res
+  try {
+    res = rerunAffectedGates({
+      root: dir,
+      paths: ['pkg/x.md'],
+      env: {
+        LAND_GATE_RERUN_REGISTRY: reg,
+        STUB_RC: '0',
+        STUB_SKIP: '1',
+        STUB_MARKER: join(dir, 'm.txt'),
+      },
+    })
+  } finally {
+    console.log = orig
+  }
+  // ① 缺射程被量到(而不是从账上消失)
+  assert.equal(res.untriggered.missing, 1)
+  assert.deepEqual(res.untriggered.ids, ['911'])
+  // ② 每一条 notes 都真的出现在输出面
+  assert.ok(res.notes.length >= 2, `期望至少两条点名,实得 ${res.notes.length}`)
+  const joined = logs.join('\n')
+  for (const n of res.notes) assert.ok(joined.includes(n), `这条点名只进了数组没被打印:${n}`)
+  assert.match(joined, /落地后复跑点名/)
+  // ③ 绿行自带边界:全绿 ≠ 全域通过
+  assert.match(joined, /未声明射程未复跑 1 道\(blocking 1\)/)
+  assert.match(joined, /只覆盖跑过的臂/)
+})
+
+// ── T10 并发池(2026-10-28):多臂真并发、结果按输入下标回填、三态(0/1/2)原样传递 ──
+test('T15 runGateBatch:3 臂并发 ⇒ 墙钟远小于串行和,rc 与输出按输入顺序回填', (t) => {
+  const dir = makeRepo(t)
+  const stub = join(dir, 'sleep-stub.mjs')
+  writeFileSync(
+    stub,
+    [
+      "const [msRaw, rcRaw] = String(process.argv[2] ?? '0:0').split(':')",
+      'await new Promise((r) => setTimeout(r, Number(msRaw)))',
+      "process.stdout.write('stub:' + String(process.argv[2] ?? ''))",
+      'process.exit(Number(rcRaw))',
+      '',
+    ].join('\n'),
+  )
+  const tasks = [0, 1, 2].map((rc) => ({ script: stub, args: [`700:${rc}`], timeoutMs: 30_000 }))
+  const t0 = Date.now()
+  const par = runGateBatch(tasks, { root: dir, concurrency: 3, env: {} })
+  const parMs = Date.now() - t0
+  assert.equal(par.length, 3)
+  assert.deepEqual(
+    par.map((r) => r.rc),
+    [0, 1, 2],
+    'rc 必须按输入下标回填,不得按完成先后',
+  )
+  assert.ok(
+    par[0].out.includes('stub:700:0') && par[2].out.includes('stub:700:2'),
+    '输出必须跟着各自那一臂',
+  )
+  assert.ok(parMs < 1600, `3×700ms 并发应远低于串行 2100ms,实测 ${parMs}ms`)
+  // 反向对照:并发度 1 ⇒ 退回串行(证明上面的快是并发带来的,不是桩太快)
+  const t1 = Date.now()
+  const seq = runGateBatch(tasks, { root: dir, concurrency: 1, env: {} })
+  const seqMs = Date.now() - t1
+  assert.deepEqual(
+    seq.map((r) => r.rc),
+    [0, 1, 2],
+  )
+  assert.ok(seqMs >= 1900, `串行档必须等满三臂,实测 ${seqMs}ms`)
+})
+
+test('T16 gateConcurrency:env 覆盖、上下限、1 = 串行;空任务不付进程开销', () => {
+  assert.equal(gateConcurrency({ IHUI_LAND_GATE_CONCURRENCY: '1' }), 1)
+  assert.equal(gateConcurrency({ IHUI_LAND_GATE_CONCURRENCY: '16' }), 16)
+  assert.equal(gateConcurrency({ IHUI_LAND_GATE_CONCURRENCY: '999' }), 32, '上限封顶,不许把核跑穿')
+  const auto = gateConcurrency({})
+  assert.ok(auto >= 2 && auto <= 8, `缺省必须落在 2..8,实得 ${auto}`)
+  assert.deepEqual(runGateBatch([], { root: process.cwd(), env: {} }), [], '空任务不付任何进程开销')
+})
+
+test('T17 形状锁(2026-10-28):注册表臂必须走 runGateBatch,不得退回逐臂 spawnGate 串行', () => {
+  const src = readFileSync(join(HERE, '..', 'lib', 'land-gate-rerun.mjs'), 'utf8')
+  assert.ok(src.includes('runGateBatch('), '并发入口必须真接线')
+  assert.ok(
+    !/spawnGate\(scriptPath/.test(src),
+    '注册表臂仍逐臂 spawnGate ⇒ 一次串行回归就能把分钟级耗时带回来',
+  )
+  assert.ok(src.includes('const outcomes = runGateBatch('), '结果必须从批量出口取,再按原顺序归类')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
