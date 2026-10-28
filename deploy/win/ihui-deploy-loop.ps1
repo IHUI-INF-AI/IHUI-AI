@@ -550,18 +550,12 @@ function Invoke-PollOnce {
     # 旧实现在这里只有一句 `Get-Process -Id $pidIn` 的存活判断,pid 复用即恒真。
     if (-not (Enter-IhuiLoopLock -Path $LockFile)) { return }
     try {
-        # ---- 1a) 拿到锁才消费 marker(2026-10-28) ----
-        # 顺序不能反:若在拿锁前就删 marker,这一轮恰好抢不到锁时请求就丢了(会话以为已投递,
-        # 实际没人执行)。拿锁成功=本轮确定会走到部署分支,此时删除才是安全的。
-        if ($forceNow) {
-            Remove-Item -LiteralPath $reqFile -Force -ErrorAction SilentlyContinue
-            if (Test-Path -LiteralPath $reqFile) {
-                # SYSTEM 删不掉意味着有人把 marker 锁住或权限被改过 ⇒ 如实喊,仍照常部署本轮
-                Log 'WARN  立即部署请求 marker 删除失败(仍执行本轮强制部署,下一轮会再次看到它)'
-            } else {
-                Log '[loop] 已消费立即部署请求 ⇒ 本轮按 -deployLatest 强制部署(忽略落后与攒批)'
-            }
-        }
+        # ---- 1a) marker 消费点:已后移到前置闸之后,真正的消费见 1c) ----
+        # 旧实现就在此处(拿锁后、前置闸前)删除 marker。2026-10-28 实测吞请求:
+        #   23:37:12 检测到 → 23:37:12 已消费 → 23:37:12 成本熔断 40/40 ⇒ return
+        # 结果 marker 没了、部署没跑、会话侧却看到"已消费"误以为请求已受理。
+        # 删 marker 的充分条件是「本轮**确定**会走到部署」,而 1b) 两道前置闸都可能
+        # return ⇒ 消费必须排在它们都通过之后。此处只留占位说明,不做动作。
         # ---- 1b) 自进化 P0 前置闸(O65 O6501/O6502,2026-10-25 立)----
         # 两道闸都是 fail-closed:取不到判据 ⇒ 本轮不部署,绝不回落成"没改动所以放行"(§0.3)。
         #   ① 根护栏(root-guard --check):守门执行器/判据单一真源/AGENTS 铁律段被改动且无人工解锁 ⇒ 拒推进;
@@ -582,6 +576,7 @@ function Invoke-PollOnce {
         if ($rgRc -ne 0) {
             Log "FAIL  根护栏未通过(rc=$rgRc)⇒ 本轮不部署(fail-closed;人工复核后 node scripts/root-guard.mjs --seal --reason `"...`")"
             foreach ($ln in ($rgOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
+            if ($forceNow) { Log '[loop] 立即部署请求保留在队列(marker 未消费)⇒ 解锁后下一轮自动执行,不会丢' }
             return
         }
         $cbOut = (& $guardNode (Join-Path $Root 'scripts\cost-breaker.mjs') --check --kind deploy 2>&1 | Out-String)
@@ -589,12 +584,27 @@ function Invoke-PollOnce {
         if ($cbRc -eq 3) {
             Log "PAUSE 成本熔断:部署额度已耗尽 ⇒ 本轮停转(软停机,下一轮再看;放量属人工阀 budget-cap-change)"
             foreach ($ln in ($cbOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
+            if ($forceNow) { Log '[loop] 立即部署请求保留在队列(marker 未消费)⇒ 额度滚动恢复后自动执行,不会丢' }
             return
         }
         if ($cbRc -ne 0) {
             Log "FAIL  成本熔断判不了(rc=$cbRc)⇒ 本轮不部署(fail-closed)"
             foreach ($ln in ($cbOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
+            if ($forceNow) { Log '[loop] 立即部署请求保留在队列(marker 未消费)⇒ 判据恢复后自动执行,不会丢' }
             return
+        }
+        # ---- 1c) 两道前置闸全过 ⇒ 本轮确定会部署,此刻才消费 marker ----
+        # 排序理由见 1a):只有走到这里,"删 marker"才不会吞掉用户请求。
+        # 反例(2026-10-28 实测):熔断 40/40 那轮照样消费 ⇒ marker 消失、部署未跑、
+        # 会话侧却读到"已消费"而误判成功 —— 正是本轮要根治的静默假成功。
+        if ($forceNow) {
+            Remove-Item -LiteralPath $reqFile -Force -ErrorAction SilentlyContinue
+            if (Test-Path -LiteralPath $reqFile) {
+                # SYSTEM 删不掉意味着有人把 marker 锁住或权限被改过 ⇒ 如实喊,仍照常部署本轮
+                Log 'WARN  立即部署请求 marker 删除失败(仍执行本轮强制部署,下一轮会再次看到它)'
+            } else {
+                Log '[loop] 已消费立即部署请求 ⇒ 本轮按 -deployLatest 强制部署(忽略落后与攒批)'
+            }
         }
         $roundStart = Get-Date
         # ---- 2) 调真实部署脚本(不带 -deployLatest:落后才部署,behind=0 优雅退出) ----
