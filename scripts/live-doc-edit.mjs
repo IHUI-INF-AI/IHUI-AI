@@ -1134,7 +1134,16 @@ export function judgeResidualIdTokens(entries) {
     return res
   }
   for (const [i, e] of entries.entries()) {
-    const after = typeof e?.after === 'string' ? e.after : typeof e === 'string' ? e : null
+    // 删除档没有 after:它不引入任何新内容 ⇒ 本闸无事可判。按空串处理(等价于"没有新增字面量"),
+    // 而不是判成"取不到判定输入"(那会把一次正当结清拒成 exit 2)。
+    const isDrop = e?.drop === true && (e?.after === null || e?.after === undefined)
+    const after = isDrop
+      ? ''
+      : typeof e?.after === 'string'
+        ? e.after
+        : typeof e === 'string'
+          ? e
+          : null
     if (after === null) {
       res.undetermined.push(`第 ${i + 1} 条取不到 after 字符串 ⇒ 该行未经本闸判定`)
       continue
@@ -1266,11 +1275,12 @@ export function readInputs(env = process.env) {
     // 三条安全依据:①留痕腿把**未勾形态**逐字入账(drops 桶),门 71 的 declaredExempt(逐字命中
     // 即 continue)排在丢失判定之前 ⇒ 不判丢、不被回捞;②回读把删除项从"after 必须在位"里排除并单列点名;
     // ③回退开关 LIVE_KEEP_CLOSED_ROW=1 恢复旧的"写已勾形态"行为。
-    // 默认**不启用**:它会改全仓所有结清行为,前置证据是"真实结清 + 门 71 端到端绿"——本席尚未取到
-    // 那次证据(需要一枚真的结清提交跑完门 71 全量档),所以不拿全仓当试验场。
-    // 显式 `{before, after:null, drop:true}` 的删除档**始终可用**;要让全仓一步到位,置
-    // LIVE_SETTLE_DROP=1(回退同样一行:LIVE_KEEP_CLOSED_ROW=1 优先级更高)。
-    if (process.env.LIVE_SETTLE_DROP === '1' && process.env.LIVE_KEEP_CLOSED_ROW !== '1') {
+    // **默认启用**(2026-10-28 机主令「开启结清即删默认」):open→done 的项一律转删除档。
+    // 依据:①门 71 的 `declaredExempt` 按整行逐字认留痕、且**排在丢失判定之前**(本文件先 continue
+    // 再记 missing)⇒ 有 before 留痕就不判丢、不被回捞;②留痕腿把未勾形态逐字入账(drops 桶);
+    // ③回读把删除项从"after 必须在位"里排除并单列点名。
+    // 回退:LIVE_KEEP_CLOSED_ROW=1 恢复旧的"写已勾形态"两步行为(改坏时一行环境变量就能退)。
+    if (process.env.LIVE_KEEP_CLOSED_ROW !== '1') {
       let converted = 0
       pairs = pairs.map((p) => {
         if (p?.drop === true) return p
@@ -2464,7 +2474,7 @@ async function main() {
   // violation / undetermined 都落 exit 2(与"缺必填 env"同档 —— 这是用法错与判定不能,不是业务拒)。
   {
     const rsEntries = replacements
-      ? replacements.map((p) => ({ before: p.before, after: p.after }))
+      ? replacements.map((p) => ({ before: p.before, after: p.after, drop: p.drop === true }))
       : block.map((l) => ({ before: null, after: l }))
     const rv = judgeResidualIdTokens(rsEntries)
     for (const l of residualIdTokenReport(rv)) {
