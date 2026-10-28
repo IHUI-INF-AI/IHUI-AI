@@ -123,7 +123,6 @@
     "modelSck": "知識庫",
     "matAll": "全部",
     "matText": "文本",
-    "myCreation": "我的創作",
     "inputPlaceholder": "請輸入您的問題，或長按說話",
     "modelSelectTitle": "模型選擇",
     "modelSelectSearchCount": "搜索到 {count} 個模型",
@@ -255,9 +254,7 @@
     "pubVideo": "發布視頻",
     "pubGroup": "發布課程合集",
     "closePreview": "關閉預覽",
-    "recentUsed": "最近使用",
-    "closeDrawer": "關閉抽屜",
-    "shareBoardTitle": "智匯AI社群 - {name}"
+    "recentUsed": "最近使用"
   },
   "plaza": {
     "index": {
@@ -294,8 +291,7 @@
       "n4t": "4. 隱私保護 ",
       "n4b": "開發者應當嚴格保護用戶隱私,不得洩露、出售或非法使用用戶個人資訊。",
       "n5t": "5. 技術標準 ",
-      "n5b": "開發者應當提供符合行業標準的技術服務,確保技術方案的可行性和可靠性。",
-      "searchNeedDesc": "搜索需求或描述"
+      "n5b": "開發者應當提供符合行業標準的技術服務,確保技術方案的可行性和可靠性。"
     }
   },
   "login": {
@@ -549,8 +545,7 @@
     "myOrders": "我的訂單",
     "editProfile": "編輯資料",
     "notLoggedIn": "未登入",
-    "clickRetry": "點擊重試",
-    "benefitTraderAll": "享受平臺全部權益"
+    "clickRetry": "點擊重試"
   },
   "payResult": {
     "title": "支付結果",
@@ -1077,14 +1072,6 @@
     "sectionSettings": "設定",
     "subscriptions": "我的訂閱",
     "settings": "設定",
-    "catImage": "圖片",
-    "catVideo": "視頻",
-    "catCopy": "文案",
-    "catAgent": "智能體",
-    "catRpa": "RPA",
-    "catCode": "編程",
-    "catMusic": "音樂",
-    "catOther": "其他",
     "catCopyShort": "文案"
   },
   "drawer": {
@@ -1204,18 +1191,7 @@
     "chat": {
       "title": "進入對話",
       "message": "即將與「{name}」開始對話"
-    },
-    "catDouyin": "抖音運營",
-    "catPrivate": "私域運營",
-    "catContent": "內容創作",
-    "catData": "數據分析",
-    "catAll2": "全部",
-    "catLearning": "學習",
-    "mainAll": "全部",
-    "mainWriting": "寫作",
-    "mainCoding": "編程",
-    "mainOffice": "辦公",
-    "mainLearning": "學習"
+    }
   },
   "aiAssistantN8n": {
     "title": "AI 助手",
@@ -1371,13 +1347,7 @@
     "kindAutoContext": "自動檢索上下文"
   },
   "developer": {
-    "becomeDeveloper": "成為開發者",
-    "title": "開發者入口",
-    "subtitle": "發布智能體,獲取收益",
-    "selectService": "請選擇所需的服務",
-    "processing": "處理中...",
-    "openNow": "一鍵開通",
-    "agreementHint": "開通即表示同意《開發者服務協議》"
+    "becomeDeveloper": "成為開發者"
   },
   "liveHost": {
     "error": {
@@ -1412,8 +1382,7 @@
     "streamKey": "推流金鑰",
     "streamTitle": "直播標題",
     "streamTitlePlaceholder": "請輸入直播標題",
-    "title": "主播中心",
-    "productLoading": "載入中..."
+    "title": "主播中心"
   },
   "modelEdit": {
     "error": {
@@ -1469,8 +1438,7 @@
     "operationFailed": "操作失敗，請稍後重試",
     "title": "n8n 模型",
     "vendorName": "n8n 工作流",
-    "listView": "列表視圖",
-    "groupBrowse": "分組瀏覽"
+    "listView": "列表視圖"
   },
   "modelPlaza": {
     "officialBadge": "智",
@@ -1493,8 +1461,7 @@
     "selectProviderLabel": "選擇供應商",
     "title": "模型廣場",
     "groupBrowse": "分組瀏覽",
-    "workflowTab": "工作流",
-    "listView": "列表視圖"
+    "workflowTab": "工作流"
   },
   "tokenValue": {
     "recharge": {
@@ -1645,14 +1612,7 @@
     "ctaDesc": "注冊即得 1000 積分,全模型免費試用,無需信用卡。",
     "ctaPrimary": "免費注冊",
     "ctaSecondary": "查看文檔",
-    "complianceTitle": "法律與合規資訊",
-    "title": "關於",
-    "appName": "應用名稱",
-    "version": "版本",
-    "description": "應用介紹",
-    "officialSite": "官方網站",
-    "contactEmail": "聯絡信箱",
-    "license": "開放原始碼授權"
+    "complianceTitle": "法律與合規資訊"
   },
   "activityDetail": {
     "title": "活動詳情",
@@ -1929,10 +1889,7 @@
     "sales": "已售 {count} 件",
     "loadFailed": "載入分銷失敗",
     "withdrawFailed": "提現失敗",
-    "withdrawSuccess": "提現成功",
-    "unsettled": "待結算",
-    "refunded": "退單",
-    "unknown": "未知"
+    "withdrawSuccess": "提現成功"
   },
   "earnCommission": {
     "title": "分傭計畫",
@@ -3322,27 +3279,10 @@
   },
   "studyIndex": {
     "title": "AI 視頻",
-    "catAll": "全部",
     "catDouyin": "抖音運營",
     "catPrivate": "私域運營",
     "catContent": "內容創作",
     "catData": "數據分析",
-    "tipMarquee": "智匯AI 雲教育/短視頻  歡迎所有AI相關視頻上傳分享",
-    "myCollection": "我的合集",
-    "searchPh": "搜索視頻",
-    "loadMoreHint": "加載更多...",
-    "noMoreText": "沒有更多了",
-    "emptyVideos": "暫無學習視頻",
-    "emptyModels": "暫無模型",
-    "paidCollection": "推薦課程合集",
-    "latestCourses": "最新課程",
-    "viewMoreModels": "查看更多模型",
-    "viewMoreCourses": "查看更多課程",
-    "tagPaid": "付費",
-    "tagFree": "免費",
-    "publishVidBtn": "發布視頻",
-    "authorFallback": "智匯社區-官方",
-    "receiveFreeTitle": "領取免費資料",
     "receiveFreeBody": "連結已複製到剪貼板,可在瀏覽器粘貼打開"
   },
   "studyProgress": {
@@ -3517,23 +3457,7 @@
     "price": "價格",
     "rating": "評分",
     "startChat": "開始對話",
-    "uses": "使用次數",
-    "catAll": "All",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Data",
-    "catWriting": "Writing",
-    "catCoding": "Coding",
-    "catOffice": "Office",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "uses": "使用次數"
   },
   "agentMarket": {
     "empty": "暫無智慧體",
@@ -3792,9 +3716,7 @@
     "yourAnswer": "你的答案"
   },
   "favorites": {
-    "deleteTitle": "確認刪除",
     "empty": "暫無收藏",
-    "loadFailed": "載入失敗",
     "title": "我的收藏"
   },
   "feedback": {
@@ -4524,10 +4446,7 @@
       "empty": "暫無帖子,快來發布第一條吧",
       "loadingMore": "載入中…",
       "noMore": "沒有更多了",
-      "anonymous": "匿名用戶",
-      "justNow": "剛剛",
-      "minutesAgo": "{n} 分鐘前",
-      "hoursAgo": "{n} 小時前"
+      "anonymous": "匿名用戶"
     }
   },
   "circle": {
@@ -5318,15 +5237,7 @@
     "addTitle": "新增帳號",
     "adding": "新增中…",
     "deleteConfirm": "確認刪除 {name}？",
-    "summary": "共 {total} 個帳號 · 已啟用 {enabled}",
-    "add": "新增帳號",
-    "provider": "平臺",
-    "name": "名稱",
-    "cancel": "取消",
-    "loading": "載入中…",
-    "confirmDelete": "確認刪除",
-    "addSuccess": "帳號已新增",
-    "loginRequired": "登入後管理你的個人號池"
+    "summary": "共 {total} 個帳號 · 已啟用 {enabled}"
   },
   "checkinAssistant": {
     "title": "簽到助手",
@@ -5404,10 +5315,6 @@
     "favoritesCount": "收藏",
     "joined": "加入於"
   },
-  "courseSwiper": {
-    "tabHotIntro": "爆款入門課程",
-    "tabHotPick": "爆款精選課程"
-  },
   "llmSettings": {
     "title": "模型服務商",
     "empty": "還沒有配置服務商",
@@ -5437,12 +5344,6 @@
   },
   "pay": {
     "alipayNotOpen": "支付寶支付暫未開通,請選擇微信支付"
-  },
-  "popularCourses": {
-    "tabHotIntro": "爆款入門",
-    "tabHotPick": "爆款精選",
-    "lessonsCount": "· {n} 課時",
-    "enrolled": "{n} 人在學"
   },
   "modelConfig": {
     "framesUnit": "{n} 幀",
@@ -5597,15 +5498,7 @@
     "updated": "更新時間"
   },
   "voice": {
-    "cam": "相機",
-    "album": "相簿",
-    "file": "檔案",
-    "closeImgMenu": "關閉圖片選單",
-    "addImage": "新增圖片",
     "holdToTalk": "按住說話",
-    "clearResult": "清除結果",
-    "releaseEnd": " 鬆開結束",
-    "transcribing": "轉寫中…",
     "realStart": "開始即時語音",
     "realConnecting": "連接中...",
     "realLive": "即時語音進行中",
@@ -5645,7 +5538,6 @@
     "shareMoments": "朋友圈",
     "needAlbum": "需要相簿權限才能選擇名片圖片",
     "uploadFail": "名片圖片上傳失敗",
-    "okTitle": "成功",
     "updated": "名片已更新",
     "submitFail": "名片提交失敗",
     "customFail": "名片定製失敗，請重試"
@@ -5814,7 +5706,6 @@
     "modelA11y": "模型：{name}",
     "modelConfig": "模型配置",
     "voiceInput": "語音輸入",
-    "feature2": "功能",
     "source": "來源",
     "enlarge": "放大",
     "agentAssist": "智能體輔"
@@ -5863,15 +5754,12 @@
     "customA11y": "AI 定製服務"
   },
   "confirm": {
-    "defaultCancel": "取消",
-    "defaultOk": "確認",
     "payFmt": "立即支付 ¥{v}"
   },
   "sr": {
     "closeA11y": "點擊關閉",
     "firstBonus": "首次分享成功，獲得 {n} 智匯值獎勵",
     "inviteNote": "邀請好友加入智匯AI社群，註冊成功後雙方均可再獲智匯值",
-    "claimA11y": "領取 {n} 智匯值",
     "rewardUnit": " 智匯值",
     "footnote": "智匯值可用於兌換模型算力、會員權益等",
     "claimBtn": "領取 {n} 智匯值"
@@ -5941,15 +5829,6 @@
     "teacher": "教師",
     "time": "時段",
     "classroom": "教室",
-    "weekday": {
-      "mon": "週一",
-      "tue": "週二",
-      "wed": "週三",
-      "thu": "週四",
-      "fri": "週五",
-      "sat": "週六",
-      "sun": "週日"
-    },
     "title2": "校園課表"
   },
   "eduChildAttendance": {
@@ -6087,7 +5966,6 @@
   "tagsPage": {
     "title": "標簽中心",
     "subtitle": "瀏覽所有標簽",
-    "loading": "加載中...",
     "empty": "暫無標簽",
     "popular": "熱門標簽",
     "usageCount": "{count} 次使用",
@@ -6137,9 +6015,7 @@
     "makeAdmin": "設為管理員",
     "makeMember": "設為成員",
     "removeMember": "移除成員",
-    "inviteMember": "邀請新成員",
     "inviteMemberDesc": "通過手機號或郵箱邀請新成員加入團隊",
-    "invitee": "被邀請人",
     "inviteePlaceholder": "請輸入手機號或郵箱",
     "inviteeRequired": "請輸入被邀請人",
     "sendInvite": "發送邀請",
@@ -6151,7 +6027,6 @@
     "roleOwner": "擁有者",
     "roleAdmin": "管理員",
     "roleMember": "成員",
-    "editTeam": "編輯團隊信息",
     "editTeamDesc": "修改團隊名稱與描述",
     "save": "保存",
     "dangerZone": "危險操作",
@@ -6738,7 +6613,6 @@
   },
   "appUpdate": {
     "title": "有新版本可用",
-    "body": "重新整理頁面以取得最新版本",
     "action": "更新",
     "close": "關閉",
     "ready": "更新已就緒",

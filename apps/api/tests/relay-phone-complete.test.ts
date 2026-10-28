@@ -161,8 +161,30 @@ describe('completeAccountPhone — 单账号人工补全', () => {
     const r = await completeAccountPhone('row-1', '18012345670')
     expect(r.code).toBe('mask_mismatch')
     expect(r.message).toContain('180******69')
+    expect(r.message).toContain('force=true')
     expect(hoisted.updateSets).toHaveLength(0)
     expect(hoisted.pushPoolSync).not.toHaveBeenCalled()
+  })
+
+  it('force=true + owner_override → 掩码不吻合也可落库(机主换绑强制通道)', async () => {
+    hoisted.readRows = [poolRow()]
+    const r = await completeAccountPhone('row-1', '18773274826', 'owner_override', {
+      force: true,
+    })
+    expect(r.code).toBe('ok')
+    expect(r.changed).toBe(true)
+    expect(r.name).toBe('18773274826')
+    expect(hoisted.updateSets[0]!.name).toBe('18773274826')
+    expect(r.checkinSync.pushed).toBe(1)
+  })
+
+  it('force 不越 already_full:现名已是全号且不一致仍拒收', async () => {
+    hoisted.readRows = [poolRow({ name: '18612345678' })]
+    const r = await completeAccountPhone('row-1', '13900000000', 'owner_override', {
+      force: true,
+    })
+    expect(r.code).toBe('already_full')
+    expect(hoisted.updateSets).toHaveLength(0)
   })
 
   it('非全号形态(掩码/短号)入参 → invalid_phone', async () => {
@@ -309,3 +331,4 @@ describe('导入侧掩码待补全标记', () => {
     expect(extra.phoneMask).toBeUndefined()
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
