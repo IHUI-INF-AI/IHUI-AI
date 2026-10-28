@@ -14,6 +14,7 @@ import { AuthProvider } from './src/context/AuthContext'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import { I18nProvider } from './src/i18n'
 import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
+import { UpdatePrompt } from './src/components/UpdatePrompt'
 import { OfflineBanner } from './src/components/OfflineBanner'
 import { DevErrorToast } from './src/components/DevErrorToast'
 import { RootNavigator } from './src/navigation/RootNavigator'
@@ -216,6 +217,9 @@ function AppInner() {
       <OfflineBanner banner={banner} reason={reason} />
       <ThemedNavigation />
       <DevErrorToast />
+      {/* OTA 更新提示:组件与 lib/ota-update 早已入库,但此前无人渲染 ⇒ 更新检查从不触发(造好没装车)。
+          卡片是 position:absolute 浮层、非更新态返回 null;lib 对 __DEV__ 与 web 有短路,故对开发与 Web 预览零行为。 */}
+      <UpdatePrompt />
     </SafeAreaView>
   )
 }
