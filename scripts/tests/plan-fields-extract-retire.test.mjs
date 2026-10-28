@@ -16,7 +16,7 @@
  * ④ 是 CLI 层的接线错,由本文件末尾的源码形状锁钉住(判据层拿不到面)。
  */
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test, { after } from 'node:test'
