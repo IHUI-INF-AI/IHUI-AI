@@ -58,6 +58,7 @@ export function LecturerDetailScreen({
   onOpenCourse,
   onBack,
   colorScheme = 'light',
+  onViewCourses,
 }: LecturerDetailScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -284,21 +285,52 @@ export function LecturerDetailScreen({
         </View>
       </ScrollView>
 
-      {/* 底部动作条:联系讲师(私信/电话选项由 wrapper 的 onContact 决定) */}
+      {/* 底部动作条:联系讲师(私信/电话选项由 wrapper 的 onContact 决定);
+          宿主传 onViewCourses 时同排加「查看全部课程」(小程序 teacher/detail 迁壳的缺口,不传即零变化)。 */}
       <View style={styles.footerBar}>
-        {/* 同上(守门 131):footerBar 是 column(默认 stretch),外层不带布局档也通栏占位,
-            按钮面档(底色/圆角/上下内边距/居中)整档下移到内层 ⇒ 通栏按钮宽度与高度不变。 */}
-        <Pressable
-          onPress={onContact}
-          accessibilityRole="button"
-          accessibilityLabel={t('teacher.detail.contact')}
-        >
-          {({ pressed }) => (
-            <View style={[styles.footerBtn, pressed ? styles.pressed : null]}>
-              <Text style={styles.footerBtnText}>{t('teacher.detail.contact')}</Text>
-            </View>
-          )}
-        </Pressable>
+        {onViewCourses ? (
+          <View style={styles.footerRow}>
+            {/* 同上(守门 131):布局档留在外层 row,按钮面档整档下移到 Pressable 内层 View */}
+            <Pressable
+              onPress={() => onViewCourses(info?.nickname ?? '')}
+              accessibilityRole="button"
+              accessibilityLabel={t('teacher.detail.viewCourses')}
+              style={styles.footerBtnHalf}
+            >
+              {({ pressed }) => (
+                <View style={[styles.ghostBtn, pressed ? styles.pressed : null]}>
+                  <Text style={styles.ghostBtnText}>{t('teacher.detail.viewCourses')}</Text>
+                </View>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={onContact}
+              accessibilityRole="button"
+              accessibilityLabel={t('teacher.detail.contact')}
+              style={styles.footerBtnHalf}
+            >
+              {({ pressed }) => (
+                <View style={[styles.footerBtn, pressed ? styles.pressed : null]}>
+                  <Text style={styles.footerBtnText}>{t('teacher.detail.contact')}</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
+        ) : (
+          /* 同上(守门 131):footerBar 是 column(默认 stretch),外层不带布局档也通栏占位,
+              按钮面档(底色/圆角/上下内边距/居中)整档下移到内层 ⇒ 通栏按钮宽度与高度不变。 */
+          <Pressable
+            onPress={onContact}
+            accessibilityRole="button"
+            accessibilityLabel={t('teacher.detail.contact')}
+          >
+            {({ pressed }) => (
+              <View style={[styles.footerBtn, pressed ? styles.pressed : null]}>
+                <Text style={styles.footerBtnText}>{t('teacher.detail.contact')}</Text>
+              </View>
+            )}
+          </Pressable>
+        )}
       </View>
     </View>
   )
@@ -591,6 +623,28 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.surface.light,
+    },
+    /* 「查看全部课程 + 联系讲师」双按钮排(仅宿主传 onViewCourses 时出现;单按钮路径保持原档) */
+    footerRow: {
+      flexDirection: 'row',
+      gap: rnSpacing.sm, // rpx(16)
+    },
+    footerBtnHalf: {
+      flex: 1,
+    },
+    ghostBtn: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: rnSpacing.md,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.medium,
+      backgroundColor: tk.surface.bg,
+    },
+    ghostBtnText: {
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tk.brandAccent.deep,
     },
   } satisfies Record<string, ViewStyle | TextStyle | ImageStyle>)
 }

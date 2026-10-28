@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CouponItem, CouponScreenProps, CouponStatus } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -39,6 +39,8 @@ export function CouponScreen({
   onRefresh,
   onBack,
   colorScheme = 'light',
+  onUseCoupon,
+  onOpenCouponCenter,
 }: CouponScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -112,14 +114,30 @@ export function CouponScreen({
                 <Text style={styles.validText}>
                   {t('coupon.validUntil')}: {item.validUntil}
                 </Text>
-                <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
-                  <Text style={styles.statusText}>{t(TAB_KEYS[item.status as CouponStatus]!)}</Text>
-                </View>
+                {onUseCoupon && item.status === 'available' ? (
+                  <TouchableOpacity style={styles.useBtn} onPress={() => onUseCoupon(item)}>
+                    <Text style={styles.useBtnText}>{t('coupon.use')}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
+                    <Text style={styles.statusText}>
+                      {t(TAB_KEYS[item.status as CouponStatus]!)}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           )}
         />
       )}
+
+      {/* 底部「领券中心」:宿主传入 onOpenCouponCenter 才渲染(RN 暂无领券列表页 ⇒ 不传即零变化)。
+          absolute + alignSelf center 在 flex 容器内水平居中,不依赖具体屏宽。 */}
+      {onOpenCouponCenter ? (
+        <TouchableOpacity style={styles.couponCenterBtn} onPress={onOpenCouponCenter}>
+          <Text style={styles.couponCenterText}>{t('coupon.couponCenter')}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   )
 }
@@ -179,6 +197,30 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
     },
     statusText: { fontSize: 11, color: tk.surface.light },
+    /* 可用券「立即使用」小按钮(对齐 miniapp member/coupon 端内形态;仅宿主传 onUseCoupon 时出现) */
+    useBtn: {
+      alignSelf: 'flex-start',
+      marginTop: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    useBtnText: { fontSize: 11, color: tk.brand.ctaForeground },
+    /* 底部「领券中心」通栏 CTA(仅宿主传 onOpenCouponCenter 时出现) */
+    couponCenterBtn: {
+      position: 'absolute',
+      bottom: 16,
+      alignSelf: 'center',
+      left: 16,
+      right: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: rnSpacing.md,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    couponCenterText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
