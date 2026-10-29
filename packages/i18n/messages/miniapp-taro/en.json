@@ -5162,11 +5162,11 @@
   },
   "agreementSections": {
     "sectionTerms": "Terms of Service",
-    "sectionTermsBody": "By using this platform, you agree to all terms of this agreement.",
+    "sectionTermsBody": "This agreement is made between you and ZHIHUI AI regarding your use of the platform services. Please read it carefully before use. By using the platform, you agree to all terms of this agreement.",
     "sectionRights": "User Rights",
-    "sectionRightsBody": "You have the right to view, modify, and delete your personal information at any time.",
+    "sectionRightsBody": "You have the right to access services in accordance with the law, manage your personal information, and report non-compliant content.",
     "sectionObligations": "User Obligations",
-    "sectionObligationsBody": "You must not use this platform for illegal or infringing activities."
+    "sectionObligationsBody": "You must comply with applicable laws and regulations, and shall not publish illegal, non-compliant, or harmful content, nor infringe upon the legitimate rights and interests of others."
   },
   "developerConversations": {
     "title": "Relay Conversations",
