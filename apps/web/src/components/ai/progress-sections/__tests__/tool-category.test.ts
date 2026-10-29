@@ -10,7 +10,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   CATEGORY_TABLE,
+  CATEGORY_TABLE_BY_KEY,
+  NEVER_FOLD_TOOLS,
   aggregateCategoryRuns,
+  isNeverFoldTool,
   resolveToolCategory,
   summarizeCategoriesByTool,
   type CategoryKey,
@@ -265,6 +268,98 @@ describe('D58 无顺序聚合(summarizeCategoriesByTool)', () => {
     expect(sum).toHaveLength(1)
     expect(sum[0]?.categoryKey).toBe(agg[0]?.categoryKey)
     expect(sum[0]?.totalCount).toBe(agg[0]?.totalCount)
+  })
+})
+
+/**
+ * 语义例外集(2026-10-29 对标 Qoder 0.4.11)。
+ *
+ * 立因:折叠此前只看三维阈值(字数/工具数/耗时),于是"等你点一下"的确认卡、
+ * 子代理树、独立 UI 块一律被当成"体量大"折掉。此处钉住两件事:
+ *  ① 例外表与判定出口只有一处(`NEVER_FOLD_TOOLS` / `isNeverFoldTool`);
+ *  ② 混合语义 —— 类目内混有例外工具时,整卡 `expandStrategy` 提升为 'expand'。
+ */
+describe('D58 永不折叠例外集(语义维)', () => {
+  // Qoder 三族 10 枚逐字
+  const USER_CONFIRM = ['AskQuestion', 'AskUserQuestion', 'SwitchMode']
+  const SUB_AGENT = ['Agent', 'Task']
+  const STANDALONE_UI = ['ExitPlanMode', 'TaskOutput', 'ImageGen', 'Thinking', 'TaskText']
+
+  it('三族 10 枚全部命中(字面量集合逐枚)', () => {
+    for (const tool of [...USER_CONFIRM, ...SUB_AGENT, ...STANDALONE_UI]) {
+      expect(isNeverFoldTool(tool)).toBe(true)
+      expect(NEVER_FOLD_TOOLS.has(tool)).toBe(true)
+    }
+    expect(NEVER_FOLD_TOOLS.size).toBe(10)
+  })
+
+  it('类目级 neverFold 同样生效:整类用户交互工具都永不折叠', () => {
+    expect(CATEGORY_TABLE_BY_KEY.user_interaction.neverFold).toBe(true)
+    // 蛇形同族(既有 18 类目表里的名字)经类目维命中,不靠字面量表
+    expect(NEVER_FOLD_TOOLS.has('ask_user')).toBe(false)
+    expect(isNeverFoldTool('ask_user')).toBe(true)
+  })
+
+  it('反向对照:未登记工具不得被误判(false 分支必须可达)', () => {
+    for (const tool of ['read_file', 'bash', 'web_search', 'edit_file', 'unknown_x', '']) {
+      expect(isNeverFoldTool(tool)).toBe(false)
+    }
+  })
+
+  it('例外集工具仍归到既有 18 类目(不新增类目、不改 order/countable)', () => {
+    expect(resolveToolCategory('AskUserQuestion')).toBe('user_interaction')
+    expect(resolveToolCategory('SwitchMode')).toBe('user_interaction')
+    expect(resolveToolCategory('Agent')).toBe('task_management')
+    expect(resolveToolCategory('Task')).toBe('task_management')
+    expect(resolveToolCategory('ImageGen')).toBe('image_gen')
+    expect(resolveToolCategory('Thinking')).toBe('thinking')
+    expect(CATEGORY_TABLE).toHaveLength(18)
+  })
+
+  it('混合语义(已定档):类目内混有例外工具 ⇒ 整卡 expandStrategy 提升为 expand', () => {
+    // 选一个类目自身**不是** neverFold 的格子,才能证明"混合"这一维真的在起作用:
+    // image_gen 档位 'auto' 且无类目级 neverFold,只有 run 内出现字面 ImageGen 才提升。
+    const mixed = aggregateCategoryRuns([
+      { toolName: 'image_gen', count: 1 },
+      { toolName: 'ImageGen', count: 1 },
+    ])
+    expect(mixed).toHaveLength(1)
+    expect(mixed[0]?.categoryKey).toBe('image_gen')
+    expect(CATEGORY_TABLE_BY_KEY.image_gen.neverFold).toBeUndefined()
+    expect(mixed[0]?.neverFold).toBe(true)
+    expect(mixed[0]?.expandStrategy).toBe('expand')
+
+    // 类目级 neverFold 那一格同样成立(user_interaction 档位是 'auto',run 层被提升)
+    const whole = aggregateCategoryRuns([
+      { toolName: 'ask_user', count: 1 },
+      { toolName: 'AskUserQuestion', count: 1 },
+    ])
+    expect(whole).toHaveLength(1)
+    expect(whole[0]?.categoryKey).toBe('user_interaction')
+    expect(whole[0]?.neverFold).toBe(true)
+    expect(CATEGORY_TABLE_BY_KEY.user_interaction.expandStrategy).toBe('auto')
+    expect(whole[0]?.expandStrategy).toBe('expand')
+  })
+
+  it('混合语义反向对照:同规格但无例外工具的 run 不提升(档位保持原值)', () => {
+    const runs = aggregateCategoryRuns([
+      { toolName: 'read_file', count: 1 },
+      { toolName: 'edit_file', count: 1 },
+    ])
+    expect(runs.map((r) => r.neverFold)).toEqual([false, false])
+    expect(runs[0]?.expandStrategy).toBe('auto')
+    expect(runs[1]?.expandStrategy).toBe('auto')
+  })
+
+  it('类目表 18 个类的 order/countable/labelKey 未被语义维改动', () => {
+    // neverFold 是新增的正交维,不得改变既有三要素
+    for (const def of CATEGORY_TABLE) {
+      expect(typeof def.labelKey).toBe('string')
+      expect(typeof def.countable).toBe('boolean')
+      expect(typeof def.order).toBe('number')
+    }
+    const orders = CATEGORY_TABLE.map((d) => d.order)
+    expect(orders).toEqual(orders.map((_, i) => i + 1))
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

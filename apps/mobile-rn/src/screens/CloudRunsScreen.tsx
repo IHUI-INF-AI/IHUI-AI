@@ -15,7 +15,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { CloudRunsScreen, type CloudRunItem } from '@ihui/rn-app'
+import { CloudRunsScreen as CloudRunsScreenShared, type CloudRunItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -90,7 +90,7 @@ export function CloudRunsScreen() {
   )
 
   return (
-    <CloudRunsScreen
+    <CloudRunsScreenShared
       t={t}
       colorScheme={resolvedTheme}
       onBack={() => navigation.goBack()}
