@@ -3911,6 +3911,9 @@
     }
   },
   "orderDetail": {
+    "actionFailed": "操作に失敗しました。もう一度お試しください",
+    "cancelConfirmTitle": "この注文をキャンセルしますか？",
+    "refundConfirmTitle": "返金を申請しますか？",
     "amount": "金額",
     "createdAt": "作成日時",
     "loadFailed": "注文詳細の読み込みに失敗",
