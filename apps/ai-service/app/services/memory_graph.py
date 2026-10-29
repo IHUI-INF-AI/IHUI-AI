@@ -24,6 +24,8 @@ from typing import Any
 
 import asyncpg
 
+from ..core.background_tasks import spawn
+
 logger = logging.getLogger(__name__)
 
 # 抽取时取最近记忆条数(控制 prompt 长度与 LLM 成本)
@@ -212,7 +214,8 @@ async def query_graph(owner_uuid: str, query: str) -> dict[str, Any]:
 def fire_and_forget_extract(owner_uuid: str) -> None:
     """记忆写入后的异步抽取入口(fire-and-forget;主流程零感知)。"""
     try:
-        asyncio.get_running_loop()
-        asyncio.create_task(extract_and_store_edges(owner_uuid))
+        asyncio.get_running_loop()  # 先探 loop:避免无 loop 时协程对象已创建未 await
     except RuntimeError:
         logger.warning("memory_graph: 无 running loop,跳过异步抽取")
+        return
+    spawn(extract_and_store_edges(owner_uuid))

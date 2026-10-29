@@ -115,10 +115,20 @@ vi.mock('react-native', () => {
   }
 })
 
-vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ navigate: nav.navigate, goBack: nav.goBack }),
-  useRoute: () => ({ params: { id: nav.routeId } }),
-}))
+vi.mock('@react-navigation/native', async () => {
+  // TopicDetailScreen 经 useRefreshOnFocus 取 useFocusEffect;ESM 下 mock 缺出口 ⇒ 整文件加载即失败。
+  // 语义照端内唯一实现 apps/miniapp-taro/src/rn-compat/navigation.tsx 的 useFocusEffect。
+  const { useEffect } = await import('react')
+  return {
+    useNavigation: () => ({ navigate: nav.navigate, goBack: nav.goBack }),
+    useRoute: () => ({ params: { id: nav.routeId } }),
+    useFocusEffect: (effect: () => void | (() => void)) =>
+      useEffect(() => {
+        const cleanup = effect()
+        return () => cleanup?.()
+      }, [effect]),
+  }
+})
 
 vi.mock('@ihui/api-client', () => ({ fetchApi: (...args: unknown[]) => api.fetchApi(...args) }))
 vi.mock('../src/components/BottomPops', () => ({
