@@ -9,7 +9,8 @@
  *  - 输入只吃 `.ihui-agent/state/incident-signals.jsonl` 里 `source === 'deploy_outcome'` 的行,
  *    按契约 v2 的字段校验;非本源的行走「不是我的面」,不参与聚类也不判坏;
  *  - 聚类/身份一律复用 `scripts/lib/incident-cluster.mjs`:validateSignal / identityOf / clusterSignals,
- *    本器不写第二份"什么算同一缺陷";部署失败单次即真事故 ⇒ minOccurrences 默认 1(不降级成 2);
+ *    本器不写第二份"什么算同一缺陷";「部署失败单次即真事故」这档门槛也不在本器自持,
+ *    一律问契约 `dispatch.minCountBySource.deploy_outcome`(现读 1),消费方不得写第二个数字;
  *  - 达标簇构造「台账登记行」,标题含 action 与稳定 route,证据含 dims/action/时间窗;行宽 ≤400;
  *    行内 7~64 位 hex 一律过 `sanitizeHexRuns`(守门 117 会把短 sha 判住、整块拒落);
  *  - 编号**只写 live-doc-edit 的取号令牌**,不在本器拼号。族前缀现读 `scripts/lib/plan-task-index.mjs`
@@ -35,7 +36,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { requireFlagValue } from './lib/flag-value.mjs'
 import { gitBinary } from './lib/face-reader.mjs'
 import { sanitizeHexRuns } from './lib/triage-doc-line.mjs'
-import { clusterSignals, identityOf, loadContract, validateSignal } from './lib/incident-cluster.mjs'
+import { clusterSignals, identityOf, loadContract, minCountForSource, validateSignal } from './lib/incident-cluster.mjs'
 import { nextTaskIdLabel, usedIdsOfPrefix } from './lib/plan-task-index.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -503,8 +504,11 @@ export function runRound({
   }
 
   let c
+  let gate
   try {
     c = contract ? ensureDeployContract(contract) : loadDeployContract({ readFile })
+    // 门槛只问契约(dispatch.minCountBySource.deploy_outcome):本器不自持「单次=1」的字面量。
+    gate = minCountForSource(DEPLOY_SOURCE, c)
   } catch (e) {
     out.why = e?.message ?? String(e)
     warn(`未判定:${out.why}`)
@@ -538,7 +542,7 @@ export function runRound({
   out.input.invalidRows = invalid.length
 
   log(
-    `分诊轮:输入=${inputPath}(总行 ${out.input.total},deploy_outcome ${deployRows.length},坏行 ${parsed.bad.length},形状坏 ${invalid.length}) 窗口=${minutes}min 单次门槛=1`,
+    `分诊轮:输入=${inputPath}(总行 ${out.input.total},deploy_outcome ${deployRows.length},坏行 ${parsed.bad.length},形状坏 ${invalid.length}) 窗口=${minutes}min 门槛=${gate.minCount}(${gate.basis})`,
   )
   for (const b of parsed.bad) warn(`BAD-LINE line=${b.line} ${b.reason}`)
   for (const b of invalid) warn(`BAD-SIGNAL line=${b.line} ${b.reason}`)
@@ -547,6 +551,14 @@ export function runRound({
     if (deployRows.length === 0 && parsed.bad.length === 0) {
       out.status = 'judged'
       log(`✅ 判定:输入里没有 source=${DEPLOY_SOURCE} 的行 ⇒ 无可派单候选`)
+      // 真异常不因「不是我的面」而隐身:输入里确有信号却都不是本源 ⇒ 点名条数与归属方,
+      // 免得运维在真实事故上读到一句绿的「无可派单候选」就以为闭环无事(§0.3)。
+      const outOfScope = parsed.rows.length - deployRows.length
+      if (outOfScope > 0) {
+        log(
+          `ℹ 非本源 ${outOfScope} 条信号未纳入本器(建单/派单不归 deploy-feedback 面;归 monitor-signal-intake → triage-incidents 那条腿),本器不判其好坏`,
+        )
+      }
       return out
     }
     out.why = `没有一条通过契约校验的 ${DEPLOY_SOURCE} 信号(坏行 ${parsed.bad.length},形状坏 ${invalid.length})`
@@ -559,7 +571,7 @@ export function runRound({
   try {
     clusters = clusterSignals(
       valid.map((x) => x.signal),
-      { minCount: 1, windowMinutes: minutes, contract: c },
+      { windowMinutes: minutes, contract: c },
     )
   } catch (e) {
     out.why = `聚类未判定:${e?.message ?? e}`
@@ -729,6 +741,17 @@ export function statusReport({
     lines.push(`契约: 未判定(${rep.why})`)
   }
 
+  let gate = null
+  if (rep.contract) {
+    try {
+      gate = minCountForSource(DEPLOY_SOURCE, rep.contract)
+    } catch (e) {
+      rep.code = 2
+      rep.why = rep.why ?? `门槛不可判定:${e?.message ?? e}`
+      lines.push(`门槛: 未判定(${e?.message ?? e})`)
+    }
+  }
+
   try {
     const text = readFile(inputPath)
     const parsed = parseSignalRows(text)
@@ -767,7 +790,7 @@ export function statusReport({
     const ts = Date.parse(String(e?.ts ?? ''))
     return e?.result === 'registered' && Number.isFinite(ts) && now.getTime() - ts < DEDUPE_MS
   }).length
-  lines.push(`窗口: ${minutes}min / 单次事故门槛 1 / 同身份去重 ${DEDUPE_MS / 3600_000}h`)
+  lines.push(`窗口: ${minutes}min / 门槛 ${gate ? `${gate.minCount}(${gate.basis})` : '未判定'} / 同身份去重 ${DEDUPE_MS / 3600_000}h`)
   lines.push(`台账: ${ledgerPath} 共 ${ledger.length} 行,24h 内 registered ${dedupeWindow} 条`)
   lines.push('台账最近 5 条:')
   for (const e of ledger.slice(-5)) {
@@ -803,7 +826,7 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
         traceId: { maxLength: 128 },
         route: { maxLength: 300 },
       },
-      dispatch: { minSeverity: 'warn' },
+      dispatch: { minSeverity: 'warn', minCount: 3, minCountBySource: { [DEPLOY_SOURCE]: 1 } },
       owners: { api_logs: '后端', grafana_alert: '运维', user_feedback: '产品', [DEPLOY_SOURCE]: '运维值班' },
     }
     const V1 = { ...V2, version: 1, fields: { ...V2.fields, source: { enum: ['api_logs', 'grafana_alert', 'user_feedback'] } }, owners: { api_logs: '后端', grafana_alert: '运维', user_feedback: '产品' } }
@@ -924,6 +947,37 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
 
     const missing = runRound({ inputPath: join(dir, 'nope.jsonl'), contract: V2, now, ledgerPath: join(dir, 'ledger-d.jsonl'), log: () => {}, warn: () => {} })
     ok('输入缺失 ⇒ exit 2 未判定', missing.code === 2 && missing.status === 'undetermined' && /读不到/.test(missing.why ?? ''))
+
+    // —— 门槛只问契约(2026-10-29 补):契约写 minCountBySource.deploy_outcome=1 才允许单条成单 ——
+    ok(
+      '门槛现读自契约(非字面量)',
+      minCountForSource(DEPLOY_SOURCE, V2).basis === `dispatch.minCountBySource.${DEPLOY_SOURCE}` &&
+        minCountForSource(DEPLOY_SOURCE, V2).minCount === 1,
+    )
+    const tightGate = { ...V2, dispatch: { ...V2.dispatch, minCountBySource: { [DEPLOY_SOURCE]: 2 } } }
+    const singlePath = join(dir, 'single-signal.jsonl')
+    writeFileSync(singlePath, JSON.stringify(signal()) + '\n', 'utf8')
+    const tight = runRound({
+      inputPath: singlePath,
+      contract: tightGate,
+      now,
+      ledgerPath: join(dir, 'ledger-gate.jsonl'),
+      planContent: planText,
+      log: () => {},
+      warn: () => {},
+    })
+    ok('契约把阈值提到 2 ⇒ 单条信号不再派单(不拿旧字面量蒙混)', tight.code === 0 && tight.candidates.length === 0)
+    const noGate = { ...V2, dispatch: { minSeverity: 'warn' } }
+    const noGateRun = runRound({
+      inputPath,
+      contract: noGate,
+      now,
+      ledgerPath: join(dir, 'ledger-nogate.jsonl'),
+      planContent: planText,
+      log: () => {},
+      warn: () => {},
+    })
+    ok('契约缺门槛 ⇒ 未判定(不猜阈值)', noGateRun.code === 2 && /门槛不可判定/.test(noGateRun.why ?? ''))
 
     const ledgerE = join(dir, 'ledger-e.jsonl')
     const status = statusReport({ contract: V2, inputPath, ledgerPath: ledgerE, planContent: planText, now })

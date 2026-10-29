@@ -9,6 +9,9 @@ import {
   deriveStreamTelemetry,
   formatCompactCount,
   formatElapsedShort,
+  pushRateSample,
+  reduceStreamClock,
+  type StreamClock,
   type StreamTelemetryInput,
 } from '../stream-telemetry'
 
@@ -90,6 +93,109 @@ describe('deriveStreamTelemetry', () => {
   })
 })
 
+describe('reduceStreamClock', () => {
+  const idle: StreamClock = {
+    conversationId: 'c1',
+    isStreaming: false,
+    startedAt: null,
+    firstTokenAt: null,
+    endedAt: null,
+    epoch: 0,
+  }
+
+  it('开流同一拍写下 startedAt,无变化时返回同一引用', () => {
+    const next = reduceStreamClock(idle, {
+      conversationId: 'c1',
+      isStreaming: true,
+      chars: 0,
+      now: 1_000,
+    })
+    expect(next.startedAt).toBe(1_000)
+    expect(next.endedAt).toBeNull()
+    expect(next.epoch).toBe(1)
+    expect(
+      reduceStreamClock(next, {
+        conversationId: 'c1',
+        isStreaming: true,
+        chars: 0,
+        now: 1_500,
+      }),
+    ).toBe(next)
+  })
+
+  it('收流同一拍写下 endedAt,不靠后续 tick', () => {
+    const live = reduceStreamClock(idle, {
+      conversationId: 'c1',
+      isStreaming: true,
+      chars: 10,
+      now: 1_000,
+    })
+    const done = reduceStreamClock(live, {
+      conversationId: 'c1',
+      isStreaming: false,
+      chars: 10,
+      now: 1_800,
+    })
+    expect(done.startedAt).toBe(1_000)
+    expect(done.firstTokenAt).toBe(1_000)
+    expect(done.endedAt).toBe(1_800)
+    expect(
+      deriveStreamTelemetry({
+        ...base,
+        isStreaming: false,
+        startedAt: done.startedAt,
+        firstTokenAt: done.firstTokenAt,
+        endedAt: done.endedAt,
+        now: 99_000,
+      }).elapsedMs,
+    ).toBe(800)
+  })
+
+  it('出字那一拍记下首字时刻,之后不再改', () => {
+    const live = reduceStreamClock(idle, {
+      conversationId: 'c1',
+      isStreaming: true,
+      chars: 0,
+      now: 1_000,
+    })
+    const token = reduceStreamClock(live, {
+      conversationId: 'c1',
+      isStreaming: true,
+      chars: 4,
+      now: 1_300,
+    })
+    expect(token.firstTokenAt).toBe(1_300)
+    expect(
+      reduceStreamClock(token, {
+        conversationId: 'c1',
+        isStreaming: true,
+        chars: 20,
+        now: 1_600,
+      }),
+    ).toBe(token)
+  })
+
+  it('切会话清账;新会话已在流则当场重开', () => {
+    const live = reduceStreamClock(idle, {
+      conversationId: 'c1',
+      isStreaming: true,
+      chars: 3,
+      now: 1_000,
+    })
+    const switched = reduceStreamClock(live, {
+      conversationId: 'c2',
+      isStreaming: true,
+      chars: 0,
+      now: 2_000,
+    })
+    expect(switched.conversationId).toBe('c2')
+    expect(switched.startedAt).toBe(2_000)
+    expect(switched.firstTokenAt).toBeNull()
+    expect(switched.endedAt).toBeNull()
+    expect(switched.epoch).toBe(live.epoch + 1)
+  })
+})
+
 describe('applyUsageTruth', () => {
   it('权威值覆盖估算值，负数/零不覆盖', () => {
     const live = deriveStreamTelemetry(base)
@@ -118,6 +224,20 @@ describe('applyUsageTruth', () => {
     expect(merged.ttftMs).toBe(live.ttftMs)
     expect(merged.elapsedMs).toBe(live.elapsedMs)
     expect(merged.tokensPerSec).toBe(live.tokensPerSec)
+  })
+})
+
+describe('pushRateSample（速率火花线）', () => {
+  it('追加并在超上限时裁旧，保留 0 停顿样本', () => {
+    expect(pushRateSample([], 12)).toEqual([12])
+    expect(pushRateSample([10], 0)).toEqual([10, 0])
+    const long = pushRateSample([1, 2, 3], 4, 3)
+    expect(long).toEqual([2, 3, 4])
+  })
+
+  it('非有限值/负值记 0（读数污染不得进趋势）', () => {
+    expect(pushRateSample([], Number.NaN)).toEqual([0])
+    expect(pushRateSample([], -5)).toEqual([0])
   })
 })
 

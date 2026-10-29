@@ -95,6 +95,16 @@ export function WorkbenchShell({ conversationId }: WorkbenchShellProps) {
       return next
     })
   }, [])
+  // 大屏模式对全局壳的可见性:状态写到 html 上,globals.css 据此隐藏全局主导航;
+  // 卸载时必须摘掉,否则离开工作台会把其它路由的侧栏一起藏了。
+  React.useEffect(() => {
+    const root = document.documentElement
+    if (immersive) root.dataset.workbenchImmersive = 'true'
+    else delete root.dataset.workbenchImmersive
+    return () => {
+      delete root.dataset.workbenchImmersive
+    }
+  }, [immersive])
   // 用户显式点了"新会话" ⇒ 本会话内不再自动抢选(② 的一次性开关)
   const [autoSelectSuppressed, setAutoSelectSuppressed] = React.useState(false)
   // 清台信号:每次点"新会话"+1;WorkbenchNewTask 在 >0 的变更时清 pane store 会话指针

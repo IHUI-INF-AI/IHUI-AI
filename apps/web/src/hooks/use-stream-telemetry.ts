@@ -11,6 +11,9 @@ import type { ChatMessage, ChatState } from '@/stores/chat'
 import {
   applyUsageTruth,
   deriveStreamTelemetry,
+  pushRateSample,
+  reduceStreamClock,
+  type StreamClock,
   type StreamTelemetrySnapshot,
 } from '@/lib/stream-telemetry'
 
@@ -23,6 +26,8 @@ export interface StreamTelemetryView extends StreamTelemetrySnapshot {
   tokens: number | null
   toolCount: number
   failedTools: number
+  /** 速率趋势采样(最近 24 拍,含 0 停顿样本;火花线数据源) */
+  rateSamples: number[]
 }
 
 /**
@@ -85,39 +90,41 @@ export function useStreamTelemetry(): StreamTelemetryView {
     return message ? (s.usageByMessageId[message.id]?.durationMs ?? 0) : 0
   })
 
-  const startedAtRef = React.useRef<number | null>(null)
-  const firstTokenAtRef = React.useRef<number | null>(null)
-  const endedAtRef = React.useRef<number | null>(null)
-  const wasStreamingRef = React.useRef(false)
+  const rateSamplesRef = React.useRef<number[]>([])
+  const lastSampleTickRef = React.useRef(0)
+  const [samplesVersion, setSamplesVersion] = React.useState(0)
   const [now, setNow] = React.useState(() => Date.now())
+  // 初始 isStreaming 固定 false:挂载时若已在流,同一次渲染就记成开流沿,不靠 effect 补记。
+  const [clock, setClock] = React.useState<StreamClock>(() => ({
+    conversationId,
+    isStreaming: false,
+    startedAt: null,
+    firstTokenAt: null,
+    endedAt: null,
+    epoch: 0,
+  }))
 
-  // 切会话即清账:读数属于"这一轮",不能把上一条会话的耗时/速率带到下一条。
-  // 必须排在下面的开始跟踪之前 —— 同一 commit 里先复位再按 isStreaming 重新立账。
-  React.useEffect(() => {
-    startedAtRef.current = null
-    firstTokenAtRef.current = null
-    endedAtRef.current = null
-    wasStreamingRef.current = false
-    setNow(Date.now())
-  }, [conversationId])
+  const eventNow = Date.now()
+  const reduced = reduceStreamClock(clock, {
+    conversationId,
+    isStreaming,
+    chars,
+    now: eventNow,
+  })
+  if (reduced !== clock) {
+    setClock(reduced)
+  }
+  // 开流/收流把节拍对齐到写进状态机的那一毫秒,耗时不再停在上一个 500ms tick。
+  if (reduced.startedAt !== clock.startedAt || reduced.endedAt !== clock.endedAt) {
+    setNow(reduced.endedAt ?? reduced.startedAt ?? eventNow)
+  }
 
-  React.useEffect(() => {
-    if (isStreaming && !wasStreamingRef.current) {
-      startedAtRef.current = Date.now()
-      firstTokenAtRef.current = null
-      endedAtRef.current = null
-      setNow(Date.now())
-    } else if (!isStreaming && wasStreamingRef.current) {
-      endedAtRef.current = Date.now()
-    }
-    wasStreamingRef.current = isStreaming
-  }, [isStreaming])
-
-  React.useEffect(() => {
-    if (isStreaming && chars > 0 && startedAtRef.current !== null) {
-      firstTokenAtRef.current ??= Date.now()
-    }
-  }, [isStreaming, chars])
+  const samplesEpochRef = React.useRef(reduced.epoch)
+  if (samplesEpochRef.current !== reduced.epoch) {
+    samplesEpochRef.current = reduced.epoch
+    rateSamplesRef.current = []
+    lastSampleTickRef.current = 0
+  }
 
   React.useEffect(() => {
     if (!isStreaming) return
@@ -128,9 +135,9 @@ export function useStreamTelemetry(): StreamTelemetryView {
   const snapshot = React.useMemo(() => {
     const live = deriveStreamTelemetry({
       isStreaming,
-      startedAt: startedAtRef.current,
-      firstTokenAt: firstTokenAtRef.current,
-      endedAt: endedAtRef.current,
+      startedAt: reduced.startedAt,
+      firstTokenAt: reduced.firstTokenAt,
+      endedAt: reduced.endedAt,
       now,
       chars,
       tokens,
@@ -159,14 +166,34 @@ export function useStreamTelemetry(): StreamTelemetryView {
     hasContent,
     usageTtftMs,
     usageDurationMs,
+    reduced.startedAt,
+    reduced.firstTokenAt,
+    reduced.endedAt,
   ])
+
+  // 速率趋势按**节拍**采样(now 只在 500ms interval 变化),不随每个 delta 入样 ——
+  // 否则火花线会变成"每来一个字一个点",既失真又白渲染。
+  React.useEffect(() => {
+    if (!isStreaming) return
+    if (lastSampleTickRef.current === now) return
+    lastSampleTickRef.current = now
+    rateSamplesRef.current = pushRateSample(rateSamplesRef.current, snapshot.charsPerSec, 24)
+    setSamplesVersion((v) => v + 1)
+  }, [isStreaming, now, snapshot.charsPerSec])
+
+  const rateSamples = React.useMemo(
+    () => rateSamplesRef.current.slice(),
+    // samplesVersion 是本次采样的版本闸;epoch 变了表示已在本次渲染清空采样环
+    [samplesVersion, reduced.epoch],
+  )
 
   return {
     ...snapshot,
-    hasRun: startedAtRef.current !== null,
+    hasRun: reduced.startedAt !== null,
     tokens,
     toolCount,
     failedTools,
+    rateSamples,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

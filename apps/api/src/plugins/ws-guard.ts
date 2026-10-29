@@ -55,19 +55,36 @@ function pruneHandshakeTable(now: number): void {
 }
 
 /**
- * 从原始升级请求里尽力提取客户端 IP。
- * 部署上 WS 前置 CF Tunnel / nginx：优先取 CF-Connecting-IP，其次 X-Forwarded-For 最左跳，
- * 都没有才回退到 socket 远端地址。这是防御纵深用的近似 IP，不用于鉴权。
+ * 从原始升级请求里提取客户端 IP。
+ *
+ * 这里返回的是**限流键**，不是"仅供参考的近似值"：它直接决定 wsHandshakeGate 的
+ * 握手频率桶与 liveByIp 的并发计数，也就是安全边界本身。键一旦能被客户端自由指定，
+ * 单 IP 的 30 次/秒握手上限与 200 条并发上限就等于不存在（攻击者每个请求换一个假 IP，
+ * 每个假 IP 只记 1 条）。
+ *
+ * 因此这里只信边缘层验证过的结论，绝不信客户端自带的头：
+ *  1. cf-connecting-ip —— 本项目生产边缘是腾讯云 EdgeOne，不是 Cloudflare，EdgeOne 永远
+ *     不会写这个头，所以链路上出现的该值 100% 来自客户端伪造，直接不看。
+ *  2. x-forwarded-for 最左跳 —— 最左值就是客户端自己整段写进去的，逐跳追加只是理论约定；
+ *     攻击者每次换一个假 IP 即可把并发与握手两个上限同时打穿。
+ *
+ * 可信来源是 router（deploy/win/ihui-api-router.mjs）：回源鉴权通过时注入
+ * x-ihui-edge-verified: 1 + x-ihui-client-ip: <真实客户端 IP>，未通过时用 TCP 对端地址
+ * 重写 x-ihui-client-ip。因为 API 只监听 127.0.0.1、外部客户端无法直连，只有本机 router
+ * 能建立连接，所以这两个头不会被绕过 router 的第三方伪造。
+ *
+ * 没有边缘层结论（例如本机直连、测试环境）⇒ 回落到不可伪造的 TCP 对端地址。
  */
 export function wsClientIp(req: IncomingMessage): string {
   const h = req.headers
-  const cf = h['cf-connecting-ip']
-  if (typeof cf === 'string' && cf) return cf.trim()
-  const xff = h['x-forwarded-for']
-  if (typeof xff === 'string' && xff) {
-    const first = xff.split(',')[0]?.trim()
-    if (first) return first
+  // 只认边缘层（router）验证后注入的结论。
+  // 为什么不再看 cf-connecting-ip / x-forwarded-for：见函数上方注释。
+  const verified = h['x-ihui-edge-verified']
+  const edgeIp = h['x-ihui-client-ip']
+  if (verified === '1' && typeof edgeIp === 'string' && edgeIp.trim()) {
+    return edgeIp.trim()
   }
+  // 没有边缘层结论 ⇒ 用不可伪造的 TCP 对端。
   return req.socket.remoteAddress ?? 'unknown'
 }
 

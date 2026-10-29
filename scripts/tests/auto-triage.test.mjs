@@ -494,6 +494,9 @@ test('⑨ grafana-alerts:无 URL ⇒ 未判定;注入夹具后同 alertname 多�
   const none = await tr.readGrafanaAlerts({ url: '' })
   assert.equal(none.status, 'undetermined')
   assert.match(none.why, /读取地址/)
+  // 未判定必须指名"去哪填":只说"没有地址"等于把排障甩给人肉猜(2026-10-29 补)
+  assert.match(none.why, /auto-triage-config\.json/)
+  assert.match(none.why, /ALERTMANAGER_URL/)
   const now = Date.now()
   const at = new Date(now - 3600_000).toISOString()
   const alerts = [
@@ -781,6 +784,41 @@ test('㉑ --status 是只读档且与 --once 互斥(读数器不得被当成分�
   assert.deepEqual(tr.parseArgs(['--status']).errors, [])
   assert.ok(tr.parseArgs(['--status', '--once']).errors.some((e) => /互斥/.test(e)))
   assert.ok(tr.usageText().includes('分桶'), '--status 用法档未点名读数面')
+})
+
+// 立因(2026-10-29 现读):auto-triage-ledger.jsonl 全期 observed=261 条,却只有 8 枚指纹
+// (单枚最多重记 52 次);register-failed=124 条只有 3 枚。只报行数会把「8 个缺陷被轮询 5 天」
+// 读成「发现 261 个问题」—— 本票成因被写三遍且互相矛盾就长在这块土壤上。⇒ 读数必须同时给
+// 去重后的大小,行数原样保留(轮次是事实),无指纹的行单列不冒充同一枚。
+test('㉒ 轮次账 ≠ 缺陷账:去重指纹读数与行数并存,无指纹行单列', () => {
+  const nowMs = at(2026, 10, 29, 12).getTime()
+  const iso = (h) => new Date(nowMs - h * 3600_000).toISOString()
+  const s = tr.summarizeTriageLedger(
+    [
+      { ts: iso(0.5), action: 'observed', source: 'api-logs', fingerprint: 'fpA' },
+      { ts: iso(1), action: 'observed', source: 'api-logs', fingerprint: 'fpA' },
+      { ts: iso(1.5), action: 'observed', source: 'api-logs', fingerprint: 'fpA' },
+      { ts: iso(2), action: 'observed', source: 'api-logs', fingerprint: 'fpB' },
+      { ts: iso(2.5), action: 'observed', source: 'api-logs' },
+      { ts: iso(3), action: 'register-failed', source: 'api-logs', fingerprint: 'fpA' },
+      { ts: iso(25), action: 'observed', source: 'api-logs', fingerprint: 'fpOld' },
+    ],
+    { now: nowMs },
+  )
+  assert.equal(s.byAction.observed, 6, '行数必须原样保留(轮次是事实)')
+  assert.equal(s.windowByAction.observed, 5, '窗内行数:25h 前那枚不进窗')
+  assert.equal(s.distinctFingerprints.observed, 3, '全期去重指纹数(含窗外那枚)')
+  assert.equal(s.windowDistinctFingerprints.observed, 2, '窗内去重指纹数不得把窗外那枚算进来')
+  assert.equal(s.distinctFingerprints['register-failed'], 1)
+  assert.equal(s.missingFingerprint, 1, '无指纹行必须单列')
+  const lines = tr.renderLedgerSummary(s)
+  assert.ok(
+    lines.some((l) => /按去重指纹/.test(l) && /observed=3/.test(l)),
+    '读数行未给去重指纹大小',
+  )
+  assert.ok(lines.some((l) => /1 条无指纹/.test(l)), '无指纹行未点名')
+  // 反向锁:去重维不得篡改原行数行(否则"轮次"这一事实被抹掉)
+  assert.ok(lines.some((l) => /全期按处置 .*observed=6/.test(l)))
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
