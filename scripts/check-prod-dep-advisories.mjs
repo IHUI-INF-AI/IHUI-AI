@@ -54,6 +54,8 @@ const POLICY_REL = 'scripts/data/dep-audit-policy.json'
 const CACHE_PATH = join(ROOT, '.ihui-agent', 'state', 'dep-audit-cache.json')
 const DEFAULT_REGISTRY = 'https://registry.npmjs.org'
 const DAY_MS = 24 * 60 * 60 * 1000
+/** waiver 剩余不足这么多天 ⇒ 报 warn(不红):豁免快到期,该排期重验或升级了。 */
+const WAIVER_WARN_DAYS = 30
 
 const SEVERITY_RANK = Object.freeze({ critical: 4, high: 3, moderate: 2, low: 1, info: 0 })
 
@@ -239,10 +241,22 @@ export function evaluateAudit(audit, policy, opts = {}) {
     .filter((w) => byModule.has(w.module) && !byModule.get(w.module).devOnly)
     .map((w) => ({ module: w.module, expiresAt: w.expiresAt, reason: w.reason }))
 
+  // ④ 临期提醒(不红):豁免快到期时必须有人被提醒,否则到期那天门突然红,而那时
+  //    没人记得这枚豁免当初验的是什么 —— 「到期」本身不是错,「到期没人知道」才是。
+  const warnMs = WAIVER_WARN_DAYS * DAY_MS
+  const expiringSoon = [...activeWaivers.values()]
+    .filter((w) => w.expiresTs > now && w.expiresTs - now <= warnMs)
+    .map((w) => ({
+      module: w.module,
+      expiresAt: w.expiresAt,
+      daysLeft: Math.max(0, Math.floor((w.expiresTs - now) / DAY_MS)),
+    }))
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+
   devOnly.sort((a, b) => (SEVERITY_RANK[b.severity] ?? 0) - (SEVERITY_RANK[a.severity] ?? 0) || a.module.localeCompare(b.module))
   red.sort((a, b) => (SEVERITY_RANK[b.severity] ?? 0) - (SEVERITY_RANK[a.severity] ?? 0) || a.module.localeCompare(b.module))
 
-  return { red, waived, devOnly, devOnlyTotal: devOnly.length, prodTotal }
+  return { red, waived, devOnly, devOnlyTotal: devOnly.length, prodTotal, expiringSoon }
 }
 
 /** 政策文件形态自检(提交链档用:只判被改的政策文件本身)。 */
@@ -330,6 +344,14 @@ const fmt = (list) => list.map((x) => `${x.module}[${x.severity}]`).join(', ')
 function main(argv) {
   const json = argv.includes('--json')
   const now = Date.now()
+  // --json 时人类可读行全部走 stderr,stdout 只留一行 JSON。
+  // 混排会让调用方(guardian 派发点)把「脚本正常」读成「结论不可解析」——
+  // 而「结论不可解析」按 §0.3 要记未判定,等于把一次成功的判定写成没判。
+  const say = json ? (...a) => console.error(...a) : (...a) => console.log(...a)
+  const emit = (verdict, payload = {}) => {
+    if (!json) return
+    console.log(JSON.stringify({ verdict, generatedAt: new Date(now).toISOString(), ...payload }))
+  }
 
   if (argv.includes('--self-test')) {
     const failures = selfTest()
@@ -338,7 +360,7 @@ function main(argv) {
       for (const f of failures) console.error(`   · ${f}`)
       return 1
     }
-    console.log('✅ 自检通过(判据方向锁 12 例)')
+    say('✅ 自检通过(判据方向锁 12 例)')
     return 0
   }
 
@@ -346,14 +368,16 @@ function main(argv) {
     const r = refreshCache()
     if (!r.ok) {
       console.error(`⚠️ 刷新失败:${r.error}`)
-      console.log(`结论[undetermined] exit=2 [无法判定] 审计快照刷新失败 —— ${r.error}`)
+      emit('unjudged', { why: `审计快照刷新失败:${r.error}` })
+      say(`结论[undetermined] exit=2 [无法判定] 审计快照刷新失败 —— ${r.error}`)
       return 2
     }
     const c = r.cache.counts ?? {}
-    console.log(
+    emit('clean', { counts: c, fetchedAt: r.cache.fetchedAt, mode: 'refresh' })
+    say(
       `✅ 审计快照已更新:${CACHE_PATH}(critical=${c.critical ?? 0} high=${c.high ?? 0} moderate=${c.moderate ?? 0} low=${c.low ?? 0})`,
     )
-    console.log(`结论[clean] exit=0 快照刷新完成(fetchedAt=${r.cache.fetchedAt})`)
+    say(`结论[clean] exit=0 快照刷新完成(fetchedAt=${r.cache.fetchedAt})`)
     return 0
   }
 
@@ -364,7 +388,8 @@ function main(argv) {
     worktree: argv.includes('--worktree'),
   })
   if (!face) {
-    console.log(`结论[undetermined] exit=2 [无法判定] 取材面旗标冲突 —— ${faceError}`)
+    emit('unjudged', { why: `取材面旗标冲突:${faceError}` })
+    say(`结论[undetermined] exit=2 [无法判定] 取材面旗标冲突 —— ${faceError}`)
     return 2
   }
 
@@ -372,7 +397,9 @@ function main(argv) {
   try {
     policy = readPolicy(face)
   } catch (e) {
-    console.log(`结论[undetermined] exit=2 [无法判定] 政策读不到 —— ${e?.message ?? e}`)
+    const why = `政策读不到(${face} 面):${e?.message ?? e}`
+    emit('unjudged', { why })
+    say(`结论[undetermined] exit=2 [无法判定] ${why}`)
     return 2
   }
 
@@ -380,13 +407,15 @@ function main(argv) {
   if (argv.includes('--staged')) {
     const problems = lintPolicy(policy, now)
     if (problems.length) {
+      emit('red', { mode: 'staged', problems })
       console.error('❌ 依赖豁免政策形态不合格:')
       for (const p of problems) console.error(`   · ${p}`)
       console.error('   修法:waiver 三要素(module/reason/expiresAt)齐全、reason 说明为何不可达、到期前重验。')
-      console.log(`结论[red] exit=1 政策形态问题 ${problems.length} 条(点名:${problems.length} 项)`)
+      say(`结论[red] exit=1 政策形态问题 ${problems.length} 条(点名:${problems.length} 项)`)
       return 1
     }
-    console.log(`结论[clean] exit=0 政策形态合格(waiver ${policy.waivers.length} 枚,均未过期)`)
+    emit('clean', { mode: 'staged', waivers: policy.waivers.length })
+    say(`结论[clean] exit=0 政策形态合格(waiver ${policy.waivers.length} 枚,均未过期)`)
     return 0
   }
 
@@ -402,11 +431,14 @@ function main(argv) {
   const maxAgeMs = policy.maxCacheAgeDays * DAY_MS
   const ageMs = cache ? now - cache.fetchedTs : Infinity
   if (!cache || ageMs > maxAgeMs) {
-    const why = !cache ? `快照缺失${cacheError ? `(${cacheError})` : ''}` : `快照已 ${Math.floor(ageMs / DAY_MS)} 天未更新(上限 ${policy.maxCacheAgeDays} 天)`
+    const why = !cache
+      ? `快照缺失${cacheError ? `(${cacheError})` : ''}`
+      : `快照已 ${Math.floor(ageMs / DAY_MS)} 天未更新(上限 ${policy.maxCacheAgeDays} 天)`
     const r = refreshCache()
     if (!r.ok) {
+      emit('unjudged', { why: `${why};自动刷新失败:${r.error}` })
       console.error(`⚠️ ${why};自动刷新失败:${r.error}`)
-      console.log(
+      say(
         `结论[undetermined] exit=2 [无法判定] ${why}且刷新失败 —— 复现:node scripts/check-prod-dep-advisories.mjs --refresh`,
       )
       return 2
@@ -415,10 +447,16 @@ function main(argv) {
   }
 
   const result = evaluateAudit({ rows: cache.rows }, policy, { now })
+  const verdict = result.red.length ? 'red' : result.expiringSoon.length ? 'warn' : 'clean'
 
-  if (json) {
-    console.log(JSON.stringify({ ...result, cacheFetchedAt: cache.fetchedAt }, null, 2))
-  }
+  emit(verdict, {
+    red: result.red,
+    waived: result.waived,
+    devOnlyTotal: result.devOnlyTotal,
+    devOnlyTop: result.devOnly.slice(0, 10),
+    expiringSoon: result.expiringSoon,
+    cacheFetchedAt: cache.fetchedAt,
+  })
 
   const head =
     `生产 critical/high 未豁免 ${result.red.length} 条` +
@@ -436,20 +474,24 @@ function main(argv) {
       '   修法:升级依赖到修复版;确属不可达的,在 scripts/data/dep-audit-policy.json 加 waiver\n' +
         '   (三要素 module/reason/expiresAt,reason 必须写清「为什么这个漏洞 API 不可达」,不接受「先免了再说」)。',
     )
-    console.log(`结论[red] exit=1 ${head}(点名:${fmt(result.red)})`)
+    say(`结论[red] exit=1 ${head}(点名:${fmt(result.red)})`)
     return 1
   }
 
   if (result.waived.length) {
     for (const w of result.waived) {
-      console.log(`   ⏳ 豁免 ${w.module} → ${w.expiresAt}(到期前必须重验)`)
+      say(`   ⏳ 豁免 ${w.module} → ${w.expiresAt}(到期前必须重验)`)
     }
+  }
+  if (result.expiringSoon.length) {
+    const soon = result.expiringSoon.map((w) => `${w.module}(${w.daysLeft}天)`).join(', ')
+    say(`   ⏰ 临期提醒(不判红,${WAIVER_WARN_DAYS} 天内到期):${soon}`)
   }
   if (result.devOnlyTotal) {
     const top = result.devOnly.slice(0, 5).map((x) => `${x.module}[${x.severity}]`).join(', ')
-    console.log(`   ℹ️ 构建链存量 ${result.devOnlyTotal} 条(威胁模型=构建机投毒,非线上):${top}${result.devOnlyTotal > 5 ? ' …' : ''}`)
+    say(`   ℹ️ 构建链存量 ${result.devOnlyTotal} 条(威胁模型=构建机投毒,非线上):${top}${result.devOnlyTotal > 5 ? ' …' : ''}`)
   }
-  console.log(`结论[clean] exit=0 ${head}(快照 ${cache.fetchedAt.slice(0, 10)})`)
+  say(`结论[clean] exit=0 ${head}(快照 ${cache.fetchedAt.slice(0, 10)})`)
   return 0
 }
 

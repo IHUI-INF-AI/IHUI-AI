@@ -4691,6 +4691,167 @@ export function auditAssetPathHealth(opts = {}) {
   }
 }
 
+/** 生产依赖漏洞巡检的**常驻**派发点(尺子 = `scripts/check-prod-dep-advisories.mjs`,2026-10-29 立) */
+const PROD_DEP_TICK = join(WORKTREE, '.ihui-agent', 'state', 'prod-dep-audit-tick.ts')
+const PROD_DEP_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'prod-dep-audit-first.json')
+const PROD_DEP_LAST = join(WORKTREE, '.ihui-agent', 'state', 'prod-dep-audit-last.json')
+// 6h 一次:新 CVE 的发现延迟上限就是它。快照本身有 30 天宽限,6h 远快于宽限 ⇒
+// 正常路径下不会走到「快照过期才想起刷新」,那条只是兜底。
+const PROD_DEP_INTERVAL_MS = Number(process.env.IHUI_PROD_DEP_INTERVAL_MS || 6 * 60 * 60 * 1000)
+// 实测 `pnpm audit --registry` 6.8s;给 3 分钟余量覆盖网络抖动与首次冷启动。
+const PROD_DEP_TIMEOUT_MS = Number(process.env.IHUI_PROD_DEP_TIMEOUT_MS || 180_000)
+
+/**
+ * 生产依赖漏洞巡检(2026-10-29 立)。
+ *
+ * 立因:守门 260 只在提交链/全量档判,而**提交链不会因为「上游发了新 CVE」而触发** ——
+ * 没有这个派发点,新 CVE 要等到下一个人恰好提交且恰好跑全量档才会被发现,等于没守。
+ *
+ * 判定语义照抄资产路径那条(同族):
+ *   · red ⇒ 发信(critical):生产可达的 critical/high 出现未豁免项;
+ *   · warn ⇒ 发信(warning):豁免临期(30 天内到期)—— 到期本身不是错,「到期没人知道」才是;
+ *   · unjudged ⇒ **只写日志不喊人**(§0.3):网络不通/registry 抽风不是缺陷,喊了就是狼来了;
+ *   · clean ⇒ 清未判定连击。
+ */
+export function auditProdDepAdvisories(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = PROD_DEP_INTERVAL_MS,
+    tickFile = PROD_DEP_TICK,
+    firstFile = PROD_DEP_FIRST,
+    lastFile = PROD_DEP_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-prod-dep-advisories.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 生产依赖审计:尺子脚本不在位(scripts/check-prod-dep-advisories.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: PROD_DEP_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || typeof parsed.verdict !== 'string') {
+      logger(
+        `⚠️ 生产依赖审计未产出结论(未判定,不记为已探测):rc=${call.status} ${(
+          [call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)'
+        )
+          .split(/\r?\n/)[0]
+          .slice(0, 140)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性,不影响告警本身 */
+    }
+
+    if (parsed.verdict === 'red') {
+      const red = Array.isArray(parsed.red) ? parsed.red : []
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      const lines = red
+        .slice(0, 12)
+        .map((r) => `· ${r.module} [${r.severity}] ${r.kind}${r.patched ? ` 修复版:${r.patched}` : ''}`)
+      if (red.length > 12) lines.push(`· …另 ${red.length - 12} 条(计数已含)`)
+      notify(
+        `生产依赖出现未豁免的 critical/high:${red.length} 条`,
+        `生产可达的 critical/high 必须为 0。当前未豁免项:\n${lines.join('\n') || '(无)'}\n\n` +
+          `尺子:scripts/check-prod-dep-advisories.mjs(守门 260)\n` +
+          `取证:node scripts/check-prod-dep-advisories.mjs --json(或读 .ihui-agent/state/prod-dep-audit-last.json)\n` +
+          `出路只有两条:① 升级到修复版;② 确属运行时不可达 ⇒ 在 scripts/data/dep-audit-policy.json 加 waiver\n` +
+          `(三要素 module/reason/expiresAt,reason 必须写清「为什么这个漏洞 API 不可达」,并给硬证据)。`,
+        {
+          severity: 'critical',
+          dedupKey:
+            `verdict=red;n=${alertCountTier(red.length)};` +
+            `mods=${red
+              .slice(0, 3)
+              .map((r) => r.module)
+              .sort()
+              .join(',')};held=${held.tier}`,
+        },
+      )
+      logger(`❌ 生产依赖:未豁免 critical/high ${red.length} 条(已按身份去重发信)`)
+      return { ran: true, judged: true, breaches: red.length }
+    }
+
+    if (parsed.verdict === 'warn') {
+      const soon = Array.isArray(parsed.expiringSoon) ? parsed.expiringSoon : []
+      notify(
+        `依赖豁免临期:${soon.map((s) => `${s.module}(${s.daysLeft}天)`).join(', ') || '若干枚'}`,
+        `以下豁免将在 30 天内到期。到期当天守门 260 会转红,而那时没人记得当初验的是什么:\n` +
+          soon.map((s) => `· ${s.module} → ${s.expiresAt}(剩 ${s.daysLeft} 天)`).join('\n') +
+          `\n\n处置:重新验证「该漏洞 API 仍不可达」并把 expiresAt 顺延,或直接升级依赖到修复版后删掉豁免。\n` +
+          `政策文件:scripts/data/dep-audit-policy.json`,
+        {
+          severity: 'warning',
+          dedupKey: `verdict=warn;soon=${soon
+            .map((s) => s.module)
+            .sort()
+            .join(',')}`,
+        },
+      )
+      logger(`⚠️ 依赖豁免临期 ${soon.length} 枚(不判红,已发提醒)`)
+      clearUndeterminedStreak(firstFile)
+      return { ran: true, judged: true, breaches: 0, warns: 1 }
+    }
+
+    if (parsed.verdict === 'unjudged') {
+      // 未判定既不续命也不清零(§0.3);取不到输入不等于坏,不喊人
+      logger(`ℹ️ 生产依赖审计:未判定 —— ${String(parsed.why || '(无原因)').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '未判定' }
+    }
+
+    clearUndeterminedStreak(firstFile)
+    logger(
+      `✅ 生产依赖:未豁免 0 条,豁免 ${(parsed.waived || []).length} 枚,` +
+        `构建链存量 ${parsed.devOnlyTotal || 0} 条(只报数,不拦)`,
+    )
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger('⚠️ 生产依赖审计派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 export function auditFeedbackLoopClosure(opts = {}) {
   const {
     now = Date.now(),
@@ -5959,6 +6120,11 @@ function main() {
     // AASA 公网健康(2026-10-29 立):这台尺子造出来时只接了手工入口 `pnpm check:aasa-health`,
     // 没人按时跑它 —— 而它守的是"AASA 两腿公网可达且与单源同构",属机主面之外唯一能自动守的半格。
     if (!CHECK_ONLY) auditAasaPublicHealth()
+    // 生产依赖漏洞巡检(2026-10-29 立,尺子 = scripts/check-prod-dep-advisories.mjs,6h 节流):
+    // 立因 = 守门 260 只在提交链/全量档判,而**上游发新 CVE 不会触发提交** —— 没有这个派发点,
+    // 新 CVE 要等下一个人恰好提交且恰好跑全量档才会被发现,等于没守。
+    // red 发信(critical)/ 临期发提醒(warning)/ 未判定只写日志不喊人(§0.3,网络抖动不是缺陷)。
+    if (!CHECK_ONLY) auditProdDepAdvisories()
     // 「完成即删」兜底清扫已提前到 healWorktreeTracked 之后(2026-10-22 调度加固,见该处注释):
     // 挂在这一长串探测之后实测整轮到不了,清扫心跳会长期停摆。
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
