@@ -140,6 +140,9 @@ export const WIRING = Object.freeze([
       'decideUpgradeAdmission(',
       'bgStatusVisibleTo(',
       'server.maxConnections = ',
+      // 第四层(2026-10-29):客户端 IP 归一。摘掉它 ⇒ 上游拿到的"我是谁"重新变成
+      // 客户端自己指定,所有按 IP 的限流/风控/审计同时静默失效(站点照常 200)。
+      'buildForwardHeaders(',
     ],
   },
 ])
