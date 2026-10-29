@@ -250,7 +250,7 @@ export default function ApiSettings() {
               onClick={testConnection}
             >
               {testing === 'testing'
-                ? tt('common.loading', '检测中...')
+                ? tt('common.detecting', '检测中...')
                 : tt('about.apiSettings.test', '测试连接')}
             </Button>
           </View>
