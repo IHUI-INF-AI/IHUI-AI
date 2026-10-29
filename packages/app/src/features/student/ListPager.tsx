@@ -8,15 +8,27 @@
  */
 import { ChevronLeft, ChevronRight } from 'lucide-react-native'
 import { Text, TouchableOpacity, View } from 'react-native'
+import type { TextStyle, ViewStyle } from 'react-native'
 import type { TFunction } from '../../types'
-import type { createStudentStyles } from './student-styles'
+
+/**
+ * 分页条只需要这四档。此前它绑死 `ReturnType<typeof createStudentStyles>`,
+ * 于是别的域的样式表(同四档、不同表)喂不进来 —— 结构类型即可,不必为复用再造一份学生表。
+ */
+export interface ListPagerStyles {
+  pagerRow: ViewStyle
+  pagerBtn: ViewStyle
+  pagerBtnText: TextStyle
+  pagerBtnTextDisabled: TextStyle
+  pageInfo: TextStyle
+}
 
 export interface ListPagerProps {
   t: TFunction
   page: number
   totalPages: number
   onPageChange: (page: number) => void
-  styles: ReturnType<typeof createStudentStyles>
+  styles: ListPagerStyles
 }
 
 export function ListPager({ t, page, totalPages, onPageChange, styles }: ListPagerProps) {

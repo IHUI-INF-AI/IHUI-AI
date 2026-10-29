@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useChatStore } from '@/stores/chat'
+import type { ChatStore } from '@/stores/chat-pane-context'
 import { createAppControlToolSelector } from '@ihui/shared/utils/app-control-intent'
 
 /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
@@ -378,8 +379,13 @@ export const PLUGIN_ID_TO_TOOLS: Record<string, readonly string[]> = {
  * 调用方不携带 agentTools 字段 → 后端直接走流式 astream()(逐 token)输出,恢复打字机效果。
  * 带工具场景仍携带 AGENT_TOOLS + 插件工具,后端 tool loop 已兜底流式,不影响打字机。
  */
-export function mergeAgentTools(): string[] {
-  const { selectedTools: selected, webSearchEnabled } = useChatStore.getState()
+export function mergeAgentTools(
+  // 票60 步序四:工具选择面(selectedTools/webSearchEnabled)按调用方传入的 store
+  // 实例读取(默认单例,零回归)—— 发送链路此前读根单例:窗格输入框(MessageInput
+  // 已窗格寻址)写入的是窗格实例,组装请求时读根单例 ⇒ 窗格里选的工具静默不生效。
+  chatStore: ChatStore = useChatStore,
+): string[] {
+  const { selectedTools: selected, webSearchEnabled } = chatStore.getState()
   // 2026-08-29:未显式启用任何插件工具(普通问答)时不携带工具,返回空数组
   // D22(2026-09-19 立):网页搜索开关打开时,普通问答也携带 web_search 最小工具集
   // (仅 web_search 单工具,不携带全套 AGENT_TOOLS,保住打字机流式效果)
@@ -449,6 +455,8 @@ export const uiControlToolsFor = createAppControlToolSelector({
  * 「文件变更识别白名单」FILE_WRITE_TOOLS 同词不同义,并列出口会让调用侧拿数组去 `.has()`。
  */
 export { fileToolsFor } from '@ihui/shared/chat/file-tool-intent'
+// 媒体族同款:意图判据单一源在共享层(视频是计费工具,多端必须同一把尺子)
+export { videoToolsFor } from '@ihui/shared/chat/media-tool-intent'
 
 export function eduToolsFor(content: string): string[] {
   if (!content) return []

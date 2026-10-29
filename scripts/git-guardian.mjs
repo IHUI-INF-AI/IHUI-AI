@@ -4986,6 +4986,128 @@ export function auditFeedbackLoopClosure(opts = {}) {
 }
 
 /**
+ * 逐字回潮的**常驻**派发点(尺子 = `scripts/check-verbatim-resurrection.mjs`,2026-10-29 立)。
+ * 立因 = 当天入库的一枚对象空间嫁接(`1fe3a2b42d`)把 9 枚"祖先已被显式删除"的路径带回主线,其中
+ * `mirror-to-cn.yml` 与被删那份逐字节相同;而全链没有一道门为此响过 —— 守门 168 的 `auditMerge()`
+ * 要求 ≥2 个父(单父落进它自己的"未判定"档),旁路落地走 commit-tree 结构上不跑钩子,守门 238 的射程
+ * 是 10 个文档不含 workflow 本体。三个盲区叠在一起 = 这型**永远不会被提交链看见**,所以班次只能挂在
+ * 这个"看得见一切面"的常驻进程上(按 §12e 它是只读尺子,刻意不进提交链)。
+ *
+ * 三态:hits>0 发信(身份按条数档折叠,具体靶名进正文不进身份,守门 224)、未判定只写日志不喊人
+ * (§0.3,既不续命也不清零)、零命中才清连击。
+ */
+const VERBATIM_TICK = join(WORKTREE, '.ihui-agent', 'state', 'verbatim-resurrection-tick.ts')
+const VERBATIM_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'verbatim-resurrection-first.json')
+const VERBATIM_LAST = join(WORKTREE, '.ihui-agent', 'state', 'verbatim-resurrection-last.json')
+const VERBATIM_INTERVAL_MS = Number(process.env.IHUI_VERBATIM_INTERVAL_MS || 6 * 60 * 60 * 1000)
+const VERBATIM_WINDOW = Number(process.env.IHUI_VERBATIM_WINDOW || 300)
+const VERBATIM_TIMEOUT_MS = Number(process.env.IHUI_VERBATIM_TIMEOUT_MS || 600_000)
+
+export function auditVerbatimResurrection(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = VERBATIM_INTERVAL_MS,
+    tickFile = VERBATIM_TICK,
+    firstFile = VERBATIM_FIRST,
+    lastFile = VERBATIM_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-verbatim-resurrection.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 逐字回潮巡检:尺子脚本不在位(scripts/check-verbatim-resurrection.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json', '--window', String(VERBATIM_WINDOW)], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: VERBATIM_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || !Array.isArray(parsed.hits) || !Array.isArray(parsed.undetermined)) {
+      logger(
+        `⚠️ 逐字回潮未产出结论(未判定,不记为已探测):rc=${call.status} ` +
+          `${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(0, 200)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性,不影响告警本身 */
+    }
+    const hits = parsed.hits
+    const und = parsed.undetermined
+    if (hits.length > 0) {
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      notify(
+        `逐字回潮:${hits.length} 枚"祖先已声明删除"的路径仍在面上`,
+        `尺子 = scripts/check-verbatim-resurrection.mjs(被审面 ${parsed.ref},窗口 ${parsed.window})。\n` +
+          '每条给出"加回于哪枚 ← 删除于哪枚";逐条读过两侧内容后二选一:\n' +
+          '  ① 就地再摘一次:LAND_REMOVE_PATHS="<路径>" LAND_MSG="chore(retire): …" node scripts/object-space-land.mjs\n' +
+          '  ② 确应保留:在 scripts/data/deletion-survival-allowlist.json 登记 path+reason+reviewBy(会到期)\n' +
+          hits
+            .slice(0, 10)
+            .map((h) => `· ${h.path} —— ${String(h.why || '').slice(0, 60)}(删于 ${(h.deletedBy || '').slice(0, 11)},加回于 ${(h.addedBy || '').slice(0, 11)})`)
+            .join('\n') +
+          (hits.length > 10 ? `\n… 其余 ${hits.length - 10} 条见 ${lastFile}` : ''),
+        {
+          severity: 'warning',
+          dedupKey: `verbatim;hits=${alertCountTier(hits.length)};held=${held.tier}`,
+        },
+      )
+      logger(`❌ 逐字回潮:${hits.length} 条活命中(已按身份去重发信)`)
+      return { ran: true, judged: true, hits: hits.length }
+    }
+    if (und.length > 0) {
+      // 未判定既不续命也不清零(§0.3):取证取不到不是"没有回潮"
+      logger(`ℹ️ 逐字回潮:未判定 ${und.length} 维 —— ${String(und[0] || '').slice(0, 200)}`)
+      return { ran: true, judged: false, undetermined: und.length }
+    }
+    clearUndeterminedStreak(firstFile)
+    logger(`✅ 逐字回潮:零命中(提交 ${parsed.commits} 枚 / 在面候选 ${parsed.candidates} 条 / 台账 ${parsed.allowEntries} 条)`)
+    return { ran: true, judged: true, hits: 0 }
+  } catch (e) {
+    logger('⚠️ 逐字回潮派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/**
  * AASA(apple-app-site-association)公网健康的**常驻**派发点(尺子 = `scripts/check-aasa-public-health.mjs`,
  * 2026-10-29 立)。立因:这台尺子造出来时没人按时跑它 —— 只接了 `pnpm check:aasa-health` 一个手工入口,
  * 而它判的是"公网两腿能不能取到与单源同构的 AASA",属机主面之外唯一可自动守的那半格
@@ -5103,6 +5225,11 @@ export function auditAasaPublicHealth(opts = {}) {
 /** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
+/**
+ * 「环已停写 + 线上落后」的一次定向升级台账(2026-10-29 Y-1)。身份落在**事件**(线上 sha 前缀)上,
+ * 不落在正文上 —— 同一场停摆的静默分钟数每小时都在涨,靠 notify 的内容指纹去重会退化成每窗一封。
+ */
+const DEPLOY_STALL_ESCALATED = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-escalated.json')
 const DEPLOY_STALL_INTERVAL_MS = Number(process.env.IHUI_DEPLOY_STALL_INTERVAL_MS || 15 * 60 * 1000)
 const DEPLOY_STALL_TIMEOUT_MS = Number(process.env.IHUI_DEPLOY_STALL_TIMEOUT_MS || 120_000)
 
@@ -5112,6 +5239,7 @@ export function auditDeployStall(opts = {}) {
     intervalMs = DEPLOY_STALL_INTERVAL_MS,
     tickFile = DEPLOY_STALL_TICK,
     firstFile = DEPLOY_STALL_FIRST,
+    escalatedFile = DEPLOY_STALL_ESCALATED,
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -5165,12 +5293,78 @@ export function auditDeployStall(opts = {}) {
       logger(`ℹ️ 部署停摆:未判定(rc=${call.status},读数不可解析)—— ${String(call.stderr || call.stdout || '(无输出)').split(/[\r\n]+/)[0].slice(0, 140)}`)
       return { ran: true, judged: false, why: '读数不可解析' }
     }
+    // ── 定向升级(2026-10-29 Y-1):"落后 + 环已停写"时,把看不见的那一档升一次到人到得见的通道 ──
+    // 资格完全由尺子给(`p.escalate`,判据在 check-credential-health.mjs 的 judgeStallSilence),
+    // 派发侧不自立第二套判断 —— 这里只做两件派发层该做的事:去重身份、走既有品牌出口(守门 81)。
+    //
+    // 为什么两支(unjudged 与 ok)都要问它:现场 27 分钟静默既可能落 unknown(成功史读不到),
+    // 也可能落**绿**("线上落后但最近 27 分钟刚成功过,不算停摆"——这正是 45 分钟阈值的盲区)。
+    // 只挂 unjudged 就等于换个输入形态又漏一次;真正的护栏是"环自己不再写行"。
+    const escalateSilence = (payload) => {
+      const esc = payload.escalate && payload.escalate.eligible === true ? payload.escalate : null
+      if (!esc) return { escalated: false, why: (payload.escalate && payload.escalate.why) || '尺子未给升级资格' }
+      let escalatedKey = ''
+      try {
+        escalatedKey = String(JSON.parse(readFileSync(escalatedFile, 'utf8')).episodeKey || '')
+      } catch {
+        /* 没升过 */
+      }
+      if (escalatedKey && escalatedKey === esc.episodeKey) {
+        return { escalated: false, deduped: true, why: '同一停摆事件已定向升级过一次' }
+      }
+      const outcome = notify(
+        '部署停摆(环已停写)· 落后 origin/main 但判据看不见',
+        `环本身已经停写 —— 这一次不再留在日志里(读数档位 ${String(payload.level || '?')}):\n${String(payload.why || '')}\n` +
+          `线上 ${String(payload.liveSha || '(无)').slice(0, 12)} ≠ tip ${String(payload.tipSha || '?').slice(0, 12)}(来源 ${payload.tipSource || '未标注'})\n` +
+          `deploy-loop.log 末行写入 ${payload.lastLogWriteIso || '(取不到)'};已静默 ${esc.silenceMin} 分钟 ≥ 派生阈值 ${esc.thresholdMin} 分钟(${esc.why})\n` +
+          `阈值来源:按该日志相邻写入间隔实测分布派生,见读数里的 logGaps / silence 两键(非常数)\n` +
+          `取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
+        { severity: 'critical', dedupKey: `stall-silence;episode=${esc.episodeKey}` },
+      )
+      // 只在这封信**真的有了归宿**(寄出,或窗口内已由同身份寄出)时才落账:
+      // 投递失败必须留给下一轮重试,否则"寄失败"会被记成"已经喊过了"——那正是本票要根治的静默。
+      if (outcome && (outcome.sent || outcome.suppressed)) {
+        try {
+          mkdirSync(dirname(escalatedFile), { recursive: true })
+          writeFileSync(
+            escalatedFile,
+            JSON.stringify({
+              episodeKey: esc.episodeKey,
+              at: new Date(now).toISOString(),
+              silenceMin: esc.silenceMin,
+              thresholdMin: esc.thresholdMin,
+              liveSha: esc.episodeKey.replace(/^silence:/, ''),
+              tipSha: String(payload.tipSha || ''),
+              levelAtEscalation: String(payload.level || ''),
+            }),
+            'utf8',
+          )
+        } catch (e) {
+          logger(`⚠️ 部署停摆:定向升级已寄出但台账写不进(${String((e && e.message) || e).slice(0, 120)})⇒ 下一轮可能重寄一次`)
+        }
+      }
+      logger(
+        outcome && outcome.sent
+          ? `❌ 部署停摆:环已停写(静默 ${esc.silenceMin} 分钟 ≥ ${esc.thresholdMin} 分钟)⇒ 已定向升级到邮件通道`
+          : `⚠️ 部署停摆:定向升级未送达(${(outcome && outcome.why) || '无原因'})⇒ 下一轮重试`,
+      )
+      return { escalated: true, sent: Boolean(outcome && outcome.sent) }
+    }
     if (p.level === 'unjudged') {
-      logger(`ℹ️ 部署停摆:未判定 —— ${String(p.why || '(尺子未给原因)').slice(0, 200)}`)
-      return { ran: true, judged: false, why: '尺子自报未判定' }
+      const esc = escalateSilence(p)
+      if (esc.escalated) return { ran: true, judged: true, ok: false, escalated: true }
+      logger(
+        `ℹ️ 部署停摆:未判定 —— ${String(p.why || '(尺子未给原因)').slice(0, 200)}(定向升级不介入:${String(esc.why).slice(0, 160)})`,
+      )
+      return { ran: true, judged: false, why: esc.deduped ? '同一事件已升级' : '尺子自报未判定' }
     }
     if (p.level === 'ok') {
       clearUndeterminedStreak(firstFile)
+      // 升级台账只在**线上追平 tip**时结清:绿档也可能是"落后但刚成功过"(正是 27 分钟静默那一支),
+      // 那种绿代表环已停写,结清它等于把下一轮的升级资格白送一次,结果就是每轮重寄。
+      if (String(p.liveSha || '').trim() && p.liveSha === p.tipSha) clearUndeterminedStreak(escalatedFile)
+      const esc = escalateSilence(p)
+      if (esc.escalated) return { ran: true, judged: true, ok: false, escalated: true }
       logger(`✅ 部署停摆:绿(线上 ${String(p.liveSha || '(无)').slice(0, 9)},最近成功 ${p.lastSuccessIso || '?'})`)
       return { ran: true, judged: true, ok: true }
     }
@@ -7669,6 +7863,10 @@ function main() {
     // 新 CVE 要等下一个人恰好提交且恰好跑全量档才会被发现,等于没守。
     // red 发信(critical)/ 临期发提醒(warning)/ 未判定只写日志不喊人(§0.3,网络抖动不是缺陷)。
     if (!CHECK_ONLY) auditProdDepAdvisories()
+    // 逐字回潮巡检(2026-10-29 立,尺子 = scripts/check-verbatim-resurrection.mjs,6h 节流):立因 =
+    // 同日的嫁接枚 1fe3a2b42d 把 9 枚已声明删除的路径带回主线,而 168 要 ≥2 个父、旁路落地不跑钩子、
+    // 238 只管文档面 —— 这型在提交链上结构上无人能看见,只能由常驻班次在"一切面"上判。
+    if (!CHECK_ONLY) auditVerbatimResurrection()
     // 「完成即删」兜底清扫已提前到 healWorktreeTracked 之后(2026-10-22 调度加固,见该处注释):
     // 挂在这一长串探测之后实测整轮到不了,清扫心跳会长期停摆。
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。

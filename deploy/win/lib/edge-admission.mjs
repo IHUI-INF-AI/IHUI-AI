@@ -21,6 +21,8 @@
  *   公网来源、回环来源、密钥匹配/缺失/错误三种态都能在同一进程里断言。
  */
 
+import net from 'node:net'
+
 import { decideEdgeGuard } from './edge-origin-guard.mjs'
 import { isLoopbackAddress } from './ip-rate-limit.mjs'
 
@@ -169,5 +171,96 @@ export function bgStatusVisibleTo(remoteAddress) {
 export function resolveRouterMaxConnections(raw) {
   const n = Number(raw)
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 10_000
+}
+
+// ── 客户端 IP 归一(2026-10-29 加固,第四层)─────────────────────────────────
+/**
+ * 治「上游拿到的客户端 IP 由客户端自己指定」。这一层只能由边缘做,因为它是全链路唯一
+ * 同时看得见两样东西的地方:**TCP 对端**(不可伪造)与**回源鉴权结论**(是否来自边缘)。
+ *
+ * 归一口径:
+ *   · 回源鉴权匹配 ⇒ 这条请求确实经 EdgeOne,采信它写进 X-Forwarded-For 的那一段;
+ *   · 其余来源     ⇒ 只认 TCP 对端(直连攻击者伪造什么头都没用)。
+ *
+ * 为什么取 XFF **最右**而不是最左:最左是客户端自己整段写进去的(逐跳追加只是理论约定),
+ * 最右才是最近一跳(EdgeOne)写的那一段。实测 api_logs 两小时窗口里的客户端 IP 是真实公网
+ * 地址(含 IBM Cloud / GitHub 段的扫描源)⇒ EdgeOne 确实在写这个头;覆盖语义下只有一段、
+ * 追加语义下最右是它,两种情形取最右都成立。
+ *
+ * 归一后**删掉其余 IP 类头**:上游没人读它们(实测 apps/api 与 apps/web 零消费点),
+ * 留着只是多一个伪造面。Python 侧 conn_guard 优先读 cf-connecting-ip、其次 XFF ——
+ * 删掉前者后它自然落到归一后的 XFF 上,无需改 Python。
+ */
+export const IP_HEADERS_TO_DROP = Object.freeze([
+  'x-real-ip',
+  'true-client-ip',
+  'x-client-ip',
+  'cf-connecting-ip',
+  'x-original-forwarded-for',
+  'forwarded',
+])
+
+/** 把 `1.2.3.4:5678` / `[::1]:443` / `1.2.3.4` 归一成裸 IP 字面量;认不出返回空串。 */
+export function normalizeIpLiteral(raw) {
+  let v = String(raw ?? '').trim()
+  if (!v) return ''
+  if (v.startsWith('[')) {
+    const end = v.indexOf(']')
+    if (end > 0) v = v.slice(1, end)
+  } else {
+    const withPort = /^(\d{1,3}(?:\.\d{1,3}){3}):\d{1,5}$/.exec(v)
+    if (withPort) v = withPort[1]
+  }
+  return net.isIP(v) ? v : ''
+}
+
+/** 从入站 XFF 里取最近一跳写入的那一段;全认不出 ⇒ 空串。 */
+export function resolveEdgeClientIp(headers) {
+  const raw = headers ? headers['x-forwarded-for'] : undefined
+  const joined = Array.isArray(raw) ? raw.join(',') : typeof raw === 'string' ? raw : ''
+  const parts = joined
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  for (let i = parts.length - 1; i >= 0; i -= 1) {
+    const v = normalizeIpLiteral(parts[i])
+    if (v) return v
+  }
+  return ''
+}
+
+/**
+ * 构造发给上游的请求头。
+ *
+ * `edgeMode === 'off'` 时**原样返回** —— 未装闸就零行为变化,这是本项目对新开关的硬要求
+ * (默认档必须是"什么都不做"),也避免关掉鉴权后上游突然拿不到真实 IP。
+ *
+ * 同时注入两个供 API 侧消费的头:
+ *   · `x-ihui-client-ip`     —— 归一后的客户端 IP(WS 限流键用它);
+ *   · `x-ihui-edge-verified` —— 仅当回源鉴权匹配时置 '1',否则不出现。
+ * 这两个头不可被外部伪造:API 只监听 127.0.0.1,能连进来的只有本机 router。
+ *
+ * @param {object} input
+ * @param {Record<string, unknown>} input.headers     入站请求头
+ * @param {string} input.remoteAddress                TCP 对端(不可伪造)
+ * @param {'off'|'observe'|'enforce'} input.edgeMode  回源鉴权档位
+ * @param {string} input.edgeReason                   decideEdgeGuard 给出的 reason
+ * @returns {Record<string, unknown>}
+ */
+export function buildForwardHeaders({ headers, remoteAddress, edgeMode, edgeReason }) {
+  const out = { ...(headers ?? {}) }
+  if (edgeMode === 'off') return out
+
+  const socketIp = typeof remoteAddress === 'string' && remoteAddress ? remoteAddress : 'unknown'
+  const trusted = edgeReason === 'match'
+  const clientIp = (trusted && resolveEdgeClientIp(headers)) || socketIp
+
+  for (const name of IP_HEADERS_TO_DROP) delete out[name]
+  // 单段而不是链:上游要的是"这个请求的客户端是谁",不是"谁转发过它"。
+  out['x-forwarded-for'] = clientIp
+  out['x-ihui-client-ip'] = clientIp
+  if (trusted) out['x-ihui-edge-verified'] = '1'
+  else delete out['x-ihui-edge-verified']
+  return out
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
