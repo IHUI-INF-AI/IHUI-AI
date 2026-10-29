@@ -11,6 +11,7 @@ import type { ChatMessage, ChatState } from '@/stores/chat'
 import {
   applyUsageTruth,
   deriveStreamTelemetry,
+  pushRateSample,
   type StreamTelemetrySnapshot,
 } from '@/lib/stream-telemetry'
 
@@ -23,6 +24,8 @@ export interface StreamTelemetryView extends StreamTelemetrySnapshot {
   tokens: number | null
   toolCount: number
   failedTools: number
+  /** 速率趋势采样(最近 24 拍,含 0 停顿样本;火花线数据源) */
+  rateSamples: number[]
 }
 
 /**
@@ -89,6 +92,9 @@ export function useStreamTelemetry(): StreamTelemetryView {
   const firstTokenAtRef = React.useRef<number | null>(null)
   const endedAtRef = React.useRef<number | null>(null)
   const wasStreamingRef = React.useRef(false)
+  const rateSamplesRef = React.useRef<number[]>([])
+  const lastSampleTickRef = React.useRef(0)
+  const [samplesVersion, setSamplesVersion] = React.useState(0)
   const [now, setNow] = React.useState(() => Date.now())
 
   // 切会话即清账:读数属于"这一轮",不能把上一条会话的耗时/速率带到下一条。
@@ -98,6 +104,9 @@ export function useStreamTelemetry(): StreamTelemetryView {
     firstTokenAtRef.current = null
     endedAtRef.current = null
     wasStreamingRef.current = false
+    rateSamplesRef.current = []
+    lastSampleTickRef.current = 0
+    setSamplesVersion((v) => v + 1)
     setNow(Date.now())
   }, [conversationId])
 
@@ -106,6 +115,9 @@ export function useStreamTelemetry(): StreamTelemetryView {
       startedAtRef.current = Date.now()
       firstTokenAtRef.current = null
       endedAtRef.current = null
+      rateSamplesRef.current = []
+      lastSampleTickRef.current = 0
+      setSamplesVersion((v) => v + 1)
       setNow(Date.now())
     } else if (!isStreaming && wasStreamingRef.current) {
       endedAtRef.current = Date.now()
@@ -161,12 +173,29 @@ export function useStreamTelemetry(): StreamTelemetryView {
     usageDurationMs,
   ])
 
+  // 速率趋势按**节拍**采样(now 只在 500ms interval 变化),不随每个 delta 入样 ——
+  // 否则火花线会变成"每来一个字一个点",既失真又白渲染。
+  React.useEffect(() => {
+    if (!isStreaming) return
+    if (lastSampleTickRef.current === now) return
+    lastSampleTickRef.current = now
+    rateSamplesRef.current = pushRateSample(rateSamplesRef.current, snapshot.charsPerSec, 24)
+    setSamplesVersion((v) => v + 1)
+  }, [isStreaming, now, snapshot.charsPerSec])
+
+  const rateSamples = React.useMemo(
+    () => rateSamplesRef.current.slice(),
+    // samplesVersion 是本次采样的版本闸:不读它 useMemo 不会失效
+    [samplesVersion],
+  )
+
   return {
     ...snapshot,
     hasRun: startedAtRef.current !== null,
     tokens,
     toolCount,
     failedTools,
+    rateSamples,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

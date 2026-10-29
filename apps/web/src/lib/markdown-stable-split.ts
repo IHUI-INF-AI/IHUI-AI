@@ -20,13 +20,41 @@
  *     (编号从 1 重置,视觉 bug)
  *  3. 内容短于阈值不切——短回答全量解析足够快,双容器无收益
  *  4. 只在**最后一个安全空行**处切一刀(active 保留尽量多,stable 命中率最高)
+ *
+ * 2026-10-30 块级增量渲染:`stable` 这一段此前是"一整块 memo",块内任何一处变化
+ * (切点只追加,但 active 晋升进 stable 时尾部仍在长)都要整段重 parse。现按**全部**
+ * 安全切点(`collectSafeCutPoints`,与单刀同一把尺子)拆成有序块,渲染层每块一个
+ * memo 容器 ⇒ 每帧只重解析最后一块。单刀判据一字未动 —— `splitMarkdownStable`
+ * 继续消费同一份切点表,只取最后一个。
  */
 
 /** 内容短于该值不启用切分(与 MarkdownStream throttle 中档对齐)。 */
 export const MARKDOWN_SPLIT_MIN_LENGTH = 1500
 
+/**
+ * 相邻块**都短于**该值时合并(碎片化阈值)。
+ * 每块各自一次 parse 有固定开销(插件链 + AST 构建);几十字符的小块单独成容器
+ * 比合并后一起解析更慢,也更容易把段间距压没。512 是经验档:正常段落/列表段
+ * 体量,低于它两块合起来仍是一次轻量 parse。
+ */
+export const MARKDOWN_BLOCK_MERGE_THRESHOLD = 512
+
 /** 空行后下一行以这些模式开头时,该空行不是安全切点(列表/缩进延续)。 */
 const LIST_CONTINUATION_RE = /^\s*(?:[-*+]|\d+[.)])\s/
+
+/**
+ * 块级切分的额外安全闸(2026-10-30;只作用于 splitMarkdownBlocks,**不改单刀行为**)。
+ *
+ * 以下两类构造的解析作用域都是**单次 parse**,且都能合法跨任意空行存在
+ * (不在围栏/列表/缩进三条规则射程内):
+ *  - 引用式链接定义 `[label]: url` —— 定义与被引用的 `[text][label]` 被切到不同块,
+ *    引用退化成字面量;
+ *  - `$$` 数学块 —— 块内空行被当切点,公式被切成两半(KaTeX 两侧都解析失败)。
+ *
+ * 错切比慢更糟:命中即整段退回单块(= 升级前的整段 memo 行为),失效方向零劣化。
+ */
+const LINK_REFERENCE_DEFINITION_RE = /^\s{0,3}\[[^\]\n]+\]:/m
+const DISPLAY_MATH_OPEN_RE = /^\s{0,3}\$\$/m
 
 export interface MarkdownSplit {
   /** 冻结前缀(可为空串);渲染层 memo 缓存 */
@@ -36,20 +64,20 @@ export interface MarkdownSplit {
 }
 
 /**
- * 把流式 markdown 文本切分为 [stable, active] 两段。
+ * 收集全文所有安全切点(升序;每值 = 切点后首字符的索引,即下一块起点)。
  *
- * @returns stable 为空串 = 不切分(内容过短/无安全切点),active 为全文。
- *          纯函数无副作用,调用方用 useMemo 包裹。
+ * 判据与 P3 #35 单刀时代逐字一致:
+ *  - 围栏(``` / ~~~,行首缩进 ≤3)内部不切——围栏内空行是代码内容;
+ *  - 切点只落在空行之后,且其后首个非空行**不是**列表标记/缩进延续
+ *    (否则有序列表会被切成两段、编号从 1 重置);
+ *  - 空行后紧跟围栏行属安全(围栏是独立块,围栏前的空行可切)。
+ *
+ * 单一真相源:splitMarkdownStable 取最后一个切点、splitMarkdownBlocks 取全部,
+ * 两者不许各写一份扫描器(§0.6)。
  */
-export function splitMarkdownStable(content: string): MarkdownSplit {
-  if (content.length < MARKDOWN_SPLIT_MIN_LENGTH) {
-    return { stable: '', active: content }
-  }
-
+function collectSafeCutPoints(content: string): number[] {
+  const cuts: number[] = []
   let fenceOpen = false
-  /** 最后一个安全空行之后的首个非空白字符索引(即 active 段起点)。 */
-  let splitStart = -1
-
   const lines = content.split('\n')
   let offset = 0
   /** 上一个空行(行首到行尾)的 [start, end) 信息;遇到"下一行安全"时才落地切点。 */
@@ -63,7 +91,7 @@ export function splitMarkdownStable(content: string): MarkdownSplit {
     if (/^\s{0,3}(```|~~~)/.test(line)) {
       // 落围栏边界:先看这个围栏前的空行是否可作切点(围栏是独立块,前面空行安全)
       if (!fenceOpen && pendingBlank) {
-        splitStart = pendingBlank.end
+        cuts.push(pendingBlank.end)
         pendingBlank = null
       }
       fenceOpen = !fenceOpen
@@ -80,7 +108,7 @@ export function splitMarkdownStable(content: string): MarkdownSplit {
         if (LIST_CONTINUATION_RE.test(line) || /^\s/.test(line)) {
           pendingBlank = null
         } else {
-          splitStart = pendingBlank.end
+          cuts.push(pendingBlank.end)
           pendingBlank = null
         }
       }
@@ -92,8 +120,26 @@ export function splitMarkdownStable(content: string): MarkdownSplit {
     offset = lineEnd + 1
   }
 
+  return cuts
+}
+
+/**
+ * 把流式 markdown 文本切分为 [stable, active] 两段。
+ *
+ * @returns stable 为空串 = 不切分(内容过短/无安全切点),active 为全文。
+ *          纯函数无副作用,调用方用 useMemo 包裹。
+ */
+export function splitMarkdownStable(content: string): MarkdownSplit {
+  if (content.length < MARKDOWN_SPLIT_MIN_LENGTH) {
+    return { stable: '', active: content }
+  }
+
+  const cuts = collectSafeCutPoints(content)
+  // 最后一个安全切点(active 保留尽量多,stable 命中率最高)
+  const splitStart = cuts.length > 0 ? cuts[cuts.length - 1] : undefined
+
   // 无安全切点 → 不切
-  if (splitStart <= 0 || splitStart >= content.length) {
+  if (splitStart === undefined || splitStart <= 0 || splitStart >= content.length) {
     return { stable: '', active: content }
   }
 
@@ -101,4 +147,63 @@ export function splitMarkdownStable(content: string): MarkdownSplit {
     stable: content.slice(0, splitStart),
     active: content.slice(splitStart),
   }
+}
+
+/**
+ * 块级增量切分(2026-10-30 立):按全部安全切点把 content 拆成**有序块**。
+ *
+ * 渲染层对每块各挂一个 memo 容器 ⇒ 流式追加时前缀块字符串不变、memo 命中,
+ * 每帧只重解析最后一块(active 侧另算)。
+ *
+ * 不变量(测试写成断言型):
+ *  - `blocks.join('') === content` 逐字节等值;
+ *  - 除最后一块外每块都以切点处的换行结尾(切点恒在空行之后、围栏之外);
+ *  - 内容短于 `minLength` 或无安全切点 ⇒ `[content]`(不切);
+ *  - 碎片合并:相邻两块都短于 `MARKDOWN_BLOCK_MERGE_THRESHOLD` 时合并
+ *    (贪心从左到右,合并结果参与下一次"是否够长"判断)。
+ *
+ * 纯函数,零副作用;`minLength` 可注入以便测试与上层复用。
+ */
+export function splitMarkdownBlocks(
+  content: string,
+  minLength: number = MARKDOWN_SPLIT_MIN_LENGTH,
+): { blocks: string[] } {
+  if (content.length < minLength) {
+    return { blocks: [content] }
+  }
+
+  const cuts = collectSafeCutPoints(content)
+  if (cuts.length === 0) {
+    return { blocks: [content] }
+  }
+
+  // 跨空行生效的构造(链接定义 / 数学块)被切开即改变语义 ⇒ 整段不切
+  if (LINK_REFERENCE_DEFINITION_RE.test(content) || DISPLAY_MATH_OPEN_RE.test(content)) {
+    return { blocks: [content] }
+  }
+
+  // 先按切点原样切片(拼回必等于 content),再按碎片阈值做相邻合并
+  const raw: string[] = []
+  let start = 0
+  for (const cut of cuts) {
+    raw.push(content.slice(start, cut))
+    start = cut
+  }
+  raw.push(content.slice(start))
+
+  const blocks: string[] = []
+  for (const block of raw) {
+    const prev = blocks[blocks.length - 1]
+    if (
+      prev !== undefined &&
+      prev.length < MARKDOWN_BLOCK_MERGE_THRESHOLD &&
+      block.length < MARKDOWN_BLOCK_MERGE_THRESHOLD
+    ) {
+      blocks[blocks.length - 1] = prev + block
+    } else {
+      blocks.push(block)
+    }
+  }
+
+  return { blocks }
 }

@@ -108,6 +108,15 @@ export function applyUsageTruth(
   return { ...snapshot, ttftMs, elapsedMs, tokensPerSec }
 }
 
+/**
+ * 速率趋势采样环(火花线数据源):保留最近 max 个样本,0 也保留 ——
+ * 停顿是真实读数的一部分,抹掉 0 会把"卡了 3 秒"画成"一直很顺"。
+ */
+export function pushRateSample(samples: readonly number[], value: number, max = 24): number[] {
+  const next = [...samples, Number.isFinite(value) && value > 0 ? value : 0]
+  return next.length > max ? next.slice(next.length - max) : next
+}
+
 /** 紧凑计数:999 / 1.2k / 3.4M(读数不得断行的前提是短) */
 export function formatCompactCount(value: number): string {
   if (!Number.isFinite(value) || value < 0) return ''

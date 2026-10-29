@@ -9,6 +9,7 @@ import {
   deriveStreamTelemetry,
   formatCompactCount,
   formatElapsedShort,
+  pushRateSample,
   type StreamTelemetryInput,
 } from '../stream-telemetry'
 
@@ -118,6 +119,20 @@ describe('applyUsageTruth', () => {
     expect(merged.ttftMs).toBe(live.ttftMs)
     expect(merged.elapsedMs).toBe(live.elapsedMs)
     expect(merged.tokensPerSec).toBe(live.tokensPerSec)
+  })
+})
+
+describe('pushRateSample（速率火花线）', () => {
+  it('追加并在超上限时裁旧，保留 0 停顿样本', () => {
+    expect(pushRateSample([], 12)).toEqual([12])
+    expect(pushRateSample([10], 0)).toEqual([10, 0])
+    const long = pushRateSample([1, 2, 3], 4, 3)
+    expect(long).toEqual([2, 3, 4])
+  })
+
+  it('非有限值/负值记 0（读数污染不得进趋势）', () => {
+    expect(pushRateSample([], Number.NaN)).toEqual([0])
+    expect(pushRateSample([], -5)).toEqual([0])
   })
 })
 
