@@ -1,12 +1,14 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE).
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 """按 IP 的长连接闸门(2026-10-28 DDoS 加固 · Python 侧)。
 
 钉三组判据:
-1. IP 提取优先级:CF-Connecting-IP > X-Forwarded-For 最左 > scope["client"] >
-   WSGI 环境变量 > unknown(空串会把所有取不到 IP 的连接并成一个桶,故必须给哨兵值);
+1. IP 提取优先级:**只信边缘层(router)验证后注入**的 x-ihui-client-ip + x-ihui-edge-verified,
+   绝不读客户端可整写的 cf-connecting-ip / x-forwarded-for / x-real-ip(见 conn_guard 头注);
+   边缘结论缺失时回落 TCP 对端(scope["client"] / WSGI REMOTE_ADDR),再不行给 "unknown"
+   (空串会把所有取不到 IP 的连接并成一个桶,故必须给哨兵值);
 2. IpConnGate:握手频率、按 IP 隔离、并发槽获取/释放、表大小硬顶;
 3. 接线语义:中间件超限时**不调下游**、handler 抛异常也要归还槽;sio connect 把闸门
    排在验签**之前**,全局容量到顶时拒绝新握手而**不踢存量连接** —— 旧实现是
@@ -36,37 +38,64 @@ from app.sio import handlers
 
 def _asgi_scope(
     ip: str = "",
-    cf: str = "",
-    xff: str = "",
+    edge_ip: str = "",
+    edge_verified: bool = False,
     scope_type: str = "websocket",
 ) -> dict[str, Any]:
     headers: list[tuple[bytes, bytes]] = []
-    if cf:
-        headers.append((b"cf-connecting-ip", cf.encode()))
-    if xff:
-        headers.append((b"x-forwarded-for", xff.encode()))
+    if edge_ip:
+        headers.append((b"x-ihui-client-ip", edge_ip.encode()))
+    if edge_verified:
+        headers.append((b"x-ihui-edge-verified", b"1"))
     scope: dict[str, Any] = {"type": scope_type, "headers": headers}
     if ip:
         scope["client"] = (ip, 54321)
     return scope
 
 
-def test_client_ip_prefers_cf_connecting_ip_over_everything() -> None:
-    scope = _asgi_scope(ip="10.0.0.9", cf="1.1.1.1", xff="2.2.2.2, 3.3.3.3")
-    assert client_ip_from_container(scope) == "1.1.1.1"
+def test_client_ip_ignores_client_supplied_cf_connecting_ip() -> None:
+    """伪造的 cf-connecting-ip 必须被忽略,回落到 TCP 对端。
+
+    立因:生产边缘是腾讯云 EdgeOne 而非 Cloudflare,永不写 cf-connecting-ip;
+    任何客户端自带该头都是伪造。旧实现优先采信它 ⇒ 攻击者每个请求换一个假 IP
+    即绕过 per-IP 并发/握手上限。
+    """
+    headers: list[tuple[bytes, bytes]] = [(b"cf-connecting-ip", b"1.1.1.1")]
+    scope = {"type": "websocket", "headers": headers, "client": ("10.0.0.9", 54321)}
+    assert client_ip_from_container(scope) == "10.0.0.9"
 
 
-def test_client_ip_takes_leftmost_xff_hop() -> None:
-    scope = _asgi_scope(ip="10.0.0.9", xff="2.2.2.2, 3.3.3.3")
-    assert client_ip_from_container(scope) == "2.2.2.2"
+def test_client_ip_ignores_x_forwarded_for() -> None:
+    """x-forwarded-for 最左值同样客户端可整写,不得采信。"""
+    headers: list[tuple[bytes, bytes]] = [(b"x-forwarded-for", b"2.2.2.2, 3.3.3.3")]
+    scope = {"type": "websocket", "headers": headers, "client": ("10.0.0.9", 54321)}
+    assert client_ip_from_container(scope) == "10.0.0.9"
+
+
+def test_client_ip_trusts_edge_verified_header() -> None:
+    """带 x-ihui-edge-verified:1 + x-ihui-client-ip ⇒ 取后者(router 注入的真实 IP)。"""
+    scope = _asgi_scope(ip="10.0.0.9", edge_ip="203.0.113.7", edge_verified=True)
+    assert client_ip_from_container(scope) == "203.0.113.7"
+
+
+def test_client_ip_ignores_edge_header_without_verified_marker() -> None:
+    """反向对照:只有 x-ihui-client-ip 而无 verified 标记 ⇒ 不得采信,回落 TCP 对端。
+
+    防的是"攻击者自己带一个 x-ihui-client-ip 骗限流"。标记由 router 经回源鉴权后才
+    注入,客户端无法伪造,故无标记即视为未验证。
+    """
+    headers: list[tuple[bytes, bytes]] = [(b"x-ihui-client-ip", b"203.0.113.7")]
+    scope = {"type": "websocket", "headers": headers, "client": ("10.0.0.9", 54321)}
+    assert client_ip_from_container(scope) == "10.0.0.9"
 
 
 def test_client_ip_falls_back_to_socket_peer() -> None:
     assert client_ip_from_container(_asgi_scope(ip="10.0.0.7")) == "10.0.0.7"
 
 
-def test_client_ip_reads_wsgi_style_environ() -> None:
-    environ = {"HTTP_X_FORWARDED_FOR": "4.4.4.4, 5.5.5.5"}
+def test_client_ip_reads_wsgi_remote_addr() -> None:
+    """WSGI 的 REMOTE_ADDR 是服务器侧 TCP 对端,可信;HTTP_X_FORWARDED_FOR 已不采信。"""
+    environ = {"REMOTE_ADDR": "4.4.4.4"}
     assert client_ip_from_container(environ) == "4.4.4.4"
 
 
@@ -179,7 +208,7 @@ async def test_middleware_holds_the_slot_for_the_life_of_the_connection() -> Non
         await hold.wait()
 
     mw = WsConnGuardMiddleware(inner, gate, label="t")
-    scope = _asgi_scope(cf="9.9.9.9")
+    scope = _asgi_scope(ip="9.9.9.9")
 
     first, send1 = _collector()
     task = asyncio.create_task(mw(scope, _noop_receive, send1))
@@ -206,7 +235,7 @@ async def test_middleware_returns_slot_when_handler_raises() -> None:
 
     mw = WsConnGuardMiddleware(boom, gate, label="t")
     with pytest.raises(RuntimeError):
-        await mw(_asgi_scope(cf="8.8.8.8"), _noop_receive, _collector()[1])
+        await mw(_asgi_scope(ip="8.8.8.8"), _noop_receive, _collector()[1])
     assert gate.live_count("8.8.8.8") == 0
 
 
@@ -218,7 +247,7 @@ async def test_middleware_blocks_handshake_flood() -> None:
         reached["n"] += 1
 
     mw = WsConnGuardMiddleware(inner, gate, label="t")
-    scope = _asgi_scope(cf="6.6.6.6")
+    scope = _asgi_scope(ip="6.6.6.6")
     results = []
     for _ in range(5):
         sent, send = _collector()
@@ -258,7 +287,7 @@ async def test_sio_gate_runs_before_token_verification(
 ) -> None:
     """验签失败会 fallback 到 GET /api/auth/me(出站请求) ⇒ 闸门必须排在它前面。"""
     calls = _accept_all(monkeypatch)
-    scope = _asgi_scope(cf="7.7.7.7")
+    scope = _asgi_scope(ip="7.7.7.7")
     for i in range(6):
         await handlers.connect(f"sid{i}", scope, auth={"token": "t"})
     assert calls["n"] == 3  # 第 4 次握手就被闸门拒掉，不再花一次验签
@@ -269,7 +298,7 @@ async def test_sio_global_cap_refuses_new_handshake_without_evicting_live(
 ) -> None:
     _accept_all(monkeypatch)
     monkeypatch.setattr(handlers, "_MAX_SESSIONS", 2)
-    scope = _asgi_scope(cf="7.7.7.8")
+    scope = _asgi_scope(ip="7.7.7.8")
     assert await handlers.connect("old", scope, auth={"token": "t"}) is True
     assert await handlers.connect("second", scope, auth={"token": "t"}) is True
     assert await handlers.connect("third", scope, auth={"token": "t"}) is False
@@ -283,8 +312,8 @@ async def test_sio_per_ip_connection_cap_is_enforced(
 ) -> None:
     _accept_all(monkeypatch)
     monkeypatch.setattr(handlers, "_MAX_SESSIONS", 100)
-    hot = _asgi_scope(cf="7.7.7.9")
-    other = _asgi_scope(cf="7.7.8.9")
+    hot = _asgi_scope(ip="7.7.7.9")
+    other = _asgi_scope(ip="7.7.8.9")
     assert await handlers.connect("a", hot, auth={"token": "t"}) is True
     assert await handlers.connect("b", hot, auth={"token": "t"}) is True
     assert await handlers.connect("c", hot, auth={"token": "t"}) is False
@@ -296,7 +325,7 @@ async def test_sio_disconnect_returns_the_slot(
 ) -> None:
     _accept_all(monkeypatch)
     monkeypatch.setattr(handlers, "_MAX_SESSIONS", 100)
-    scope = _asgi_scope(cf="7.7.7.10")
+    scope = _asgi_scope(ip="7.7.7.10")
     await handlers.connect("a", scope, auth={"token": "t"})
     assert sio_gate.live_count("7.7.7.10") == 1
     await handlers.disconnect("a")
@@ -313,7 +342,7 @@ async def test_sio_rejected_handshake_leaks_no_slot(
         return None
 
     monkeypatch.setattr(handlers, "_verify_token", deny)
-    scope = _asgi_scope(cf="7.7.7.11")
+    scope = _asgi_scope(ip="7.7.7.11")
     assert await handlers.connect("a", scope, auth={"token": "bad"}) is False
     assert await handlers.connect("b", scope, auth=None) is False
     assert sio_gate.live_count("7.7.7.11") == 0

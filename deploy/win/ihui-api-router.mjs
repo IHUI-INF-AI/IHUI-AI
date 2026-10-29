@@ -30,6 +30,7 @@ import {
   decideUpgradeAdmission,
   resolveRouterMaxConnections,
 } from './lib/edge-admission.mjs'
+import { applySecurityHeaders, resolveSecurityHeaderMode } from './lib/response-security.mjs'
 
 // ── 通用化(2026-10-28 生产席:web 蓝绿复用同一份 router,不落第二份反代实现)────────
 // 立因:web 走蓝绿也要一个"常驻监听 + 原子切流"的入口层,而另写一份 router 就是第二个真相源
@@ -97,6 +98,15 @@ const limiter = RATE_LIMIT.enabled
 // 超顶时 Node 直接关掉新连接,已建立的照常服务。常量提前到此,因为启动日志要报它。
 const MAX_CONNECTIONS = resolveRouterMaxConnections(process.env.IHUI_BG_MAX_CONNECTIONS)
 
+// ── 上游响应安全头(2026-10-29 变更 C)───────────────────────────────────────
+// 真实代码此前零安全响应头。web 由 next.config 自理(且同域 iframe 不能被 frame 头破坏),
+// 故只在「API 上游实例」(监听回环)补,web 实例(监听 0.0.0.0)不加。判定见 lib/response-security.mjs。
+// 用 env IHUI_BG_SECURITY_HEADERS=off 可显式关、=on 显式开(覆盖监听面推断)。
+const ADD_SECURITY_HEADERS = resolveSecurityHeaderMode(
+  process.env.IHUI_BG_SECURITY_HEADERS,
+  LISTEN_HOST,
+)
+
 // ── 回源鉴权(2026-10-29 加固,第二层)───────────────────────────────────────
 // 治「知道源站 IP 就能绕过 EdgeOne 直连」。第一层(防火墙只放行 EdgeOne 回源 IP 段)
 // 必须在 EdgeOne 控制台拿 IP 段才能配,且只对付费套餐开放、3-6 个月变一次 —— 那一层
@@ -150,6 +160,8 @@ log('info', 'router started', {
       : EDGE_SECRET
         ? EDGE_MODE
         : `${EDGE_MODE}(缺 IHUI_EDGE_SECRET ⇒ 实际不拦)`,
+  // 同样报出:运维要能确认「API 响应安全头到底补没补」,以及是否因 web 实例而自动跳过。
+  securityHeaders: ADD_SECURITY_HEADERS ? 'on' : 'off',
 })
 
 // 状态文件变化即热切换；1s 轮询足以让部署脚本「写完即生效」，又不必依赖 fs.watch 的
@@ -176,7 +188,13 @@ function sendJson(res, status, body) {
     return
   }
   const buf = Buffer.from(JSON.stringify(body))
-  res.writeHead(status, { 'content-type': 'application/json', 'content-length': buf.length })
+  res.writeHead(
+    status,
+    applySecurityHeaders(
+      { 'content-type': 'application/json', 'content-length': buf.length },
+      ADD_SECURITY_HEADERS,
+    ),
+  )
   res.end(buf)
 }
 
@@ -275,11 +293,16 @@ function proxyHttp(req, res, attempt, edgeReason = 'off') {
       remoteAddress: req.socket.remoteAddress,
       edgeMode: EDGE_MODE,
       edgeReason,
+      // 本实例只监听回环(127.0.0.1)⇒ 是内部 API 路由,上游只能来自公网路由 8801,
+      // 可把 8801 注入的 verified 标记透传给 API 上游实例(ai-service per-user 限流要用)。
+      // 公网路由 8801(监听 0.0.0.0)传 false:只认自己比对的 secret,绝不信任公网自带该头。
+      trustInboundVerified: LISTEN_HOST === '127.0.0.1',
     }),
   })
 
   upReq.on('response', (upRes) => {
-    res.writeHead(upRes.statusCode || 502, upRes.headers)
+    // 补安全响应头(变更 C):只补上游没设的,不覆盖 api 自身已设的安全头。
+    res.writeHead(upRes.statusCode || 502, applySecurityHeaders(upRes.headers, ADD_SECURITY_HEADERS))
     upRes.pipe(res)
   })
 
@@ -361,6 +384,8 @@ server.on('upgrade', (req, socket, head) => {
     remoteAddress: req.socket.remoteAddress,
     edgeMode: EDGE_MODE,
     edgeReason: admission.edgeReason,
+    // 同 HTTP 分支:内部 API 路由透传 verified,公网路由不信任入站该头。
+    trustInboundVerified: LISTEN_HOST === '127.0.0.1',
   })
   upSocket = net.connect(port, UPSTREAM_HOST, () => {
     const lines = [`${req.method} ${req.url} HTTP/1.1`]
