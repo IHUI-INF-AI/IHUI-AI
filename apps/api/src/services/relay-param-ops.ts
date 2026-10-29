@@ -257,6 +257,9 @@ function setPath(
   if (segs.length === 0) return false
   const seg = segs[0]
   if (seg === undefined) return false
+  // 原型污染防护(2026-10-27):路径段命中 JS 内建危险键一律拒绝,
+  // 否则 __proto__.x 可写入 Object.prototype 影响全进程。
+  if (seg === '__proto__' || seg === 'constructor' || seg === 'prototype') return false
   const rest = segs.slice(1)
 
   if (rest.length === 0) {

@@ -8,6 +8,8 @@ import Fastify, { type FastifyInstance } from 'fastify'
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
+  // debug 路由已收为 requireAdmin:关闭管理员 TOTP 闸的 DB 查询,避免测试依赖 DB
+  process.env.ADMIN_TOTP_MODE ??= 'off'
 })
 
 // mock 鉴权插件:默认注入 userId,允许单测覆盖为 reject 模拟 401
@@ -41,12 +43,16 @@ function makeUpstream(status: number, body: unknown, contentType = 'application/
   } as unknown as Response
 }
 
-/** 默认鉴权通过:注入 userId,与真实 authenticate 行为一致 */
+/** 默认鉴权通过:注入 userId + 管理员 roleId,与真实 requireAdmin 判定一致 */
 function mockAuth(userId = 'test-user-id'): void {
-  vi.mocked(authenticate).mockImplementation(async (request: { userId?: string }) => {
-    request.userId = userId
-    return { userId } as never
-  })
+  vi.mocked(authenticate).mockImplementation(
+    async (request: { userId?: string; jwtPayload?: unknown }) => {
+      request.userId = userId
+      // requireAdmin 只认人用 JWT 的 roleId:>= 1 即管理员
+      request.jwtPayload = { roleId: 1, userId }
+      return { userId } as never
+    },
+  )
 }
 
 describe('Debug API (/api/debug/*) — 代理到 ai-service', () => {
@@ -78,6 +84,25 @@ describe('Debug API (/api/debug/*) — 代理到 ai-service', () => {
       })
       expect(res.statusCode).toBe(401)
       // 鉴权失败时不应调用 aiServiceFetch
+      expect(aiServiceFetch).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('管理员权限(P0 安全加固)', () => {
+    it('普通登录用户(非管理员)被拒绝,返回 403 且不调用 ai-service', async () => {
+      vi.mocked(authenticate).mockImplementation(
+        async (request: { userId?: string; jwtPayload?: unknown }) => {
+          request.userId = 'normal-user'
+          // roleId=0 = 非管理员,requireAdmin 应拒绝
+          request.jwtPayload = { roleId: 0, userId: 'normal-user' }
+          return { userId: 'normal-user' } as never
+        },
+      )
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/debug/sessions',
+      })
+      expect(res.statusCode).toBe(403)
       expect(aiServiceFetch).not.toHaveBeenCalled()
     })
   })

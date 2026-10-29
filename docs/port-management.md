@@ -28,7 +28,9 @@
 | 端口 | 服务 | 端 | 配置文件 | strictPort |
 |------|------|------|----------|------------|
 | 8801 | Web(Next.js) | apps/web | `apps/web/package.json` `-p 8801` | ✅ |
-| 8802 | API(Fastify) | apps/api | `apps/api/.env` `PORT=8802` | ✅ |
+| 8802 | API 入口路由(蓝绿 router,`deploy/win/ihui-api-router.mjs`;按状态文件转 8842/8843) | apps/api | 生产 NSSM 服务 `IHUI-API-ROUTER`(源站唯一入口,开发态由 api 直接占用 8802) | ✅ |
+| 8842 | API 蓝实例(blue) | apps/api | 生产 NSSM 服务 `IHUI-API-BLUE`,`PORT=8842 IHUI_API_COLOR=blue` | ✅ 仅绑 127.0.0.1 |
+| 8843 | API 绿实例(green) | apps/api | 生产 NSSM 服务 `IHUI-API-GREEN`,`PORT=8843 IHUI_API_COLOR=green` | ✅ 仅绑 127.0.0.1 |
 | 8803 | AI Service(FastAPI) | apps/ai-service | `apps/ai-service/.env` `PORT=8803` | ✅ |
 | 8804 | 小程序 Taro H5 | apps/miniapp-taro | `apps/miniapp-taro/config/dev.ts` `port: 8804` | ✅ `strictPort:true` |
 | 8805 | Metro Bundler(RN/App) | apps/mobile-rn | `apps/mobile-rn/package.json` `--port 8805` | ✅ |
@@ -74,9 +76,10 @@
 | 端口 | 服务 | 端 | 配置文件 | strictPort |
 |------|------|------|----------|------------|
 | 8841 | CLI Agent Server(HTTP/WS) | apps/cli | `apps/cli/src/commands/serve.ts:24` `--port 8841` | ✅ |
-| 8840/8842-8849 | (蓝绿部署预留) | — | — | — |
+| 8842/8843 | API 蓝绿双实例(见 2.1:生产由 8802 router 切流) | apps/api | NSSM `IHUI-API-BLUE/GREEN` | ✅ |
+| 8840/8844-8849 | (蓝绿部署预留) | — | — | — |
 
-**预留空槽说明(2026-07-25 立)**:8806-8808/8819/8822-8829/8831-8839/8840/8842-8849 共 18 个空槽为未来 3 年扩展预留,非当前债务。当前实际占用率 15/33 = 45%,符合 monorepo 中型项目预期。(2026-09-21:8809 由「预留」改派为 O17 API 私有验证实例)
+**预留空槽说明(2026-07-25 立)**:8806-8808/8819/8822-8829/8831-8839/8840/8842-8849 共 18 个空槽为未来 3 年扩展预留,非当前债务。当前实际占用率 15/33 = 45%,符合 monorepo 中型项目预期。(2026-09-21:8809 由「预留」改派为 O17 API 私有验证实例;2026-10-28:8842/8843 由 API 蓝绿实例占用,空槽相应减 2)
 
 ### 2.6 e2e 私有 dev 端口(8850-8899 段内认领)
 
@@ -92,32 +95,6 @@
 | 端口 | 服务 | 端 | 配置文件 | strictPort |
 |------|------|------|----------|------------|
 | 8850 | 本地 Keycloak SSO 源站(分域 SSO:sso.aizhs.top 的隧道 ingress 指向它;刻意不用 Keycloak 默认 8543,端口铁律,2026-10-19 立) | — | `scripts/start-cloudflared-tunnel.ps1:21` ingress 注释 + Cloudflare 控制台 tunnel「ihui-local」路由(仓外,切换须三处同步,见该脚本头注) | —(第三方 IdP,非本仓 dev server) |
-
-### 2.8 号池网关单机档对外入口(7864 · §3.2 铁律的显式认领例外)
-
-| 端口 | 服务 | 端 | 配置文件 | 是否 bind |
-|------|------|------|----------|-----------|
-| 7864 | 号池网关单机档(relay-standalone)**唯一对外入口**:nginx gateway 反代面板(web 8801)、站内 API(api 8802 的 `/api/`)与对外出口 `/v1`(OpenAI 兼容)、`/v1beta`(Gemini 协议);入口门 = `RELAY_STANDALONE_KEY`(header `X-Relay-Key` / Cookie `relay_key` / `?key=` 三通道,未命中 401) | apps/api + apps/web(经 nginx gateway 反代,归属来源 `deploy/relay-standalone/`) | `deploy/relay-standalone/docker-compose.yml` `gateway.ports: '${RELAY_STANDALONE_PORT:-7864}:7864'` + `deploy/relay-standalone/nginx/default.conf.template` `listen 7864` | ✅ 起栈即 bind(容器内外同号;宿主侧可经 `RELAY_STANDALONE_PORT` 改映射,改口须同批改 `RELAY_STANDALONE_ORIGIN` 与本行) |
-
-**这是对 §3.2「禁止使用 88xx 范围以外的端口」的显式认领例外,不是绕过该条款**——条款本身一字未改,
-本节只登记这一枚端口及其理由:
-
-1. **端口号本身是对外契约**:对标 `workbuddy2api-panel` 的「7864/panel + api_key 门」形态,客户从
-   竞品迁移时填的 `base_url` 端口号就是这个数字;把它挪进 88xx 等于要求所有客户改配置,
-   而 §3.2 另一条「禁止修改已分配的端口(需团队评审 + 全项目 grep 替换)」管的是我方内部口,
-   管不了第三方客户端里写死的习惯用法。
-2. **它不是 dev/宿主开发映射口**:§2.1/§3.3 的 88xx 体系管的是本仓开发态服务与容器内部监听;
-   该单机档是**部署形态**的一条命令起栈,容器内部仍是 web 8801 / api 8802 / ai-service 8803(全 88xx),
-   只有 gateway 对宿主发布 7864。88xx 段内的类别语义因此没有被侵占。
-   本节认领同时对着 §3.2 的两条:**首条**(禁止使用 88xx 范围以外的端口)与**末条**(禁止在生产
-   docker-compose 中向宿主暴露非 88xx 端口)——这枚口两处都正面撞上,不拆开解释、不挑一条装作没看见。
-3. **认领,不豁免**:7864 登记进 `scripts/dev-port-registry.json` 的 `registered_ports`(与 docs §2
-   双向对账),**没有**进 `scripts/check-port-registry.mjs` 的 `EXEMPT_PORTS` —— 后者是按端口号放行的
-   全仓通行证,谁都能在 7864 上另起服务而不被拦;`registered_ports` 这条认领路径会跟着本表逐条点名
-   (同 §2.6「为什么是认领而不是豁免」口径)。§1 原则 4「全项目 88xx,无豁免」禁的正是这类按号段放行,
-   本节的逐条认领不在原则 4 那一句下面自我豁免,只是把"这一枚口为什么必须留 7864"写在明处交人复核。
-4. **失效条件**:若该档改为挂在统一入口(现有 nginx/traefik 反代)之后、不再自己发布宿主端口,
-   本行与 `registered_ports` 里的 7864 条目必须**同笔删除**,不得留成"已经没人用了还占着例外"。
 
 ---
 
@@ -197,5 +174,5 @@ extension/desktop/mobile-rn/miniapp-taro
 | 2026-07-25 | 修复:Storybook 端口不一致(改 docs 承认 6006 豁免)+ 注册 CLI 8841 + 预留空槽说明 | AI Agent |
 | 2026-08-15 | 全项目无豁免:所有服务(含容器内部)统一 88xx,删除豁免场景 | AI Agent |
 | 2026-10-15 | 单 Metro 铁律:删除 dev-stack metro(8081)服务槽,ps1 同步停启 8081,手机 dev client 经 reverse 8081→8806 复用唯一 Metro(用户明令禁止双实例) | AI Agent |
-| 2026-10-29 | 登记 7864(§2.8):号池网关单机档 `deploy/relay-standalone/` 的唯一对外入口(gateway=nginx 反代 web 8801 / api 8802),按 §3.2 铁律**显式认领**并同笔写进 `scripts/dev-port-registry.json` 的 `registered_ports`(非 EXEMPT_PORTS);同批 gateway 模板补 `/v1`(OpenAI 兼容)与 `/v1beta`(Gemini)两条出口 location | AI Agent |
+| 2026-10-28 | 生产 API 改蓝绿零停机:8802 = `IHUI-API-ROUTER`(按 `api-bluegreen.json` 转 8842/8843),8842 = BLUE / 8843 = GREEN;部署由 `ihui-api-bluegreen.ps1` 切流,不再 `sc stop` 硬重启 | AI Agent |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

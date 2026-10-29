@@ -138,12 +138,17 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
 
 ### 4.6 限流与异常检测
 
-- 限流:`apps/api/src/services/security-service.ts` → `RateLimiter`(Redis 滑动窗口)
+- **入口层(边缘)**:`deploy/win/ihui-api-router.mjs` 的单 IP 令牌桶(默认 500 rps / 1000 burst,
+  超限 429 + Retry-After,回环豁免)。本机生产的入口就是这个 Node 反代,**不是 nginx** ——
+  详见 §10.3 与 §10.5。
+- 应用层限流:`apps/api/src/services/security-service.ts` → `RateLimiter`(Redis 滑动窗口)
   - 每分钟 60 次 / 每小时 1000 次(默认,可按路由覆盖)
   - `@fastify/rate-limit` 插件提供框架级限流
 - IP 黑名单:`isIpBlacklisted()`(Redis set `sec:ip:blacklist`)
 - 异常检测:`recordIpFailure()` 连续失败 10 次自动拉黑 1 小时
 - IP 提取:`X-Forwarded-For` > `X-Real-IP` > `request.ip`(支持反代)
+  - 注:入口限流**刻意不用** XFF 做 key(可伪造),只用 TCP 对端地址;应用层的 XFF 提取
+    用于业务风控,不能当作限流依据。
 
 ### 4.7 凭证加密存储
 
@@ -276,4 +281,164 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
 
 **注意**:`security@aizhs.top` 为占位地址,正式地址以仓库 README 公示为准。在正式地址
 启用前,优先使用 GitHub Security Advisory 渠道。
+
+---
+
+## 10. 安全加固记录（2026-10-29 全量加固）
+
+本次对生产面做了一次实战级加固,聚焦"缩小攻击面、堵住未授权入口"。遵循项目铁律:
+改动后须在 CI/本地把相关测试跑绿再上线。
+
+### 10.1 P0 — DAP 调试代理越权 / RCE 面封禁
+
+- **问题**:`apps/api/src/routes/debug.ts` 把 12 个 DAP 调试端点挂在 `/api/debug/*`,只校验
+  "是否登录",无角色限制;而 `apps/ai-service/app/api/v1/debug.py` 的端点**无任何鉴权、无
+  userId 作用域隔离**。`launch` 能在 ai-service 服务器上启动任意程序、`attach` 能挂任意进程、
+  `eval` 能执行任意表达式、`list_sessions` 跨用户全局可见 —— 任意登录用户即可在服务器上 RCE。
+- **修复**:
+  1. `debug.ts` 入口守卫由 `authenticate`(仅登录)升为 `requireAdmin`(roleId≥1,只认人用 JWT,
+     拒绝 internal service token 提权);
+  2. `server.ts` 的 `onRoute` 钩子给 `/api/debug/` 注入 `network: { allowExternal: false }`,
+     由 `network-segment` 插件在公网 IP 上硬拦 403(`NETWORK_SEGMENT_POLICY` 默认 `strict`);
+  3. 回归测试 `apps/api/src/routes/__tests__/debug.test.ts` 新增"非管理员返回 403"用例钉死。
+- **影响**:前端 IDE 调试面板(普通用户)变为管理员专属。在 ai-service 侧补"按 userId 隔离 +
+  限定 program/cwd 在项目目录内"的根因修复完成前,调试能力不对普通用户开放。
+
+### 10.2 P1 — chrome-extension Origin 收紧为 fail-closed
+
+- **问题**:`server.ts` 的 CORS origin 函数与 WebSocket `verifyClient` 在 `IHUI_EXTENSION_IDS`
+  未配置时,对 `chrome-extension://` 前缀**整体放行**所有已安装扩展(含恶意),仅记日志不拒绝。
+- **修复**:未配置 `IHUI_EXTENSION_IDS` 时**拒绝**(fail-closed);已配置时按精确扩展 ID 放行。
+  两处(CORS + WebSocket)同步修改。需支持自家扩展时,把扩展 ID 逐枚填入 `IHUI_EXTENSION_IDS`
+  (约定填**完整** `chrome-extension://<id>` origin,与代码 `extIds.includes(o)` 比较一致)。
+- **实现收敛(2026-10-29 补充)**:两处 Origin 判定已抽到单一纯函数
+  `apps/api/src/plugins/cors-origin.ts` 的 `evaluateOriginAllowance`,并由新增单测
+  `src/plugins/__tests__/cors-origin.test.ts`(10 用例,含"未配置即拒绝"核心契约)钉死 fail-closed,
+  防止未来有人把 `chrome-extension` 误放回 `extAllowed=true` 静默回退。
+
+### 10.3 ⚠️ 更正 — 本机生产的边缘层**不是 nginx**(2026-10-29 实测)
+
+> 本节原写「nginx 边缘限流已落地确认」,与实测不符,已按真相改写。留原结论会让人以为
+> 边缘有 6 套 zone 在挡 —— 那比没写更危险。
+
+- **实测**(`Get-Service`/`netstat -ano`/`Win32_Service`):本机无 `nginx.exe` 进程、无 docker。
+  8802(API)与 8801(web)均由 `deploy/win/ihui-api-router.mjs`(Node 反代,NSSM 服务
+  `IHUI-API-ROUTER` / `IHUI-WEB-ROUTER`)承载。
+- **因此** `deploy/nginx/conf.d/rate-limit.conf` 的 6 个 zone 与 `00-waf.conf` 在本机生产
+  **从未生效**。它们只在 docker / 独立 nginx 形态下有意义(保留,不删)。
+- **真实边缘防护由 EdgeOne 承担**(腾讯云边缘,含 DDoS 防护与部分 WAF 能力)。
+- **源站暴露是已知权衡**:web 的 8801 必须绑 `0.0.0.0`(EdgeOne 源站直填本机公网 IP,
+  只绑回环会让回源恒 522)⇒ 知道源站 IP 即可绕过 EdgeOne 直连。这是 router 层必须
+  自带限流的原因,见 §10.5。
+
+### 10.4 P2 — 可选边缘 WAF(仅 nginx 形态)
+
+- `deploy/nginx/conf.d/00-waf.conf`(路径遍历 + 已知恶意 UA 粗滤,宁漏勿误伤)。
+- **默认不启用**:只定义 map 变量,需在 server 块内引用 `$waf_block` 才拦截。启用方式见文件头注释。
+- **本机生产不适用**:见 §10.3,本机没有 nginx。
+
+### 10.5 P0 — 入口层限流(真实承载体 = Node router)
+
+- **问题**:§10.3 更正后暴露的真实缺口 —— 入口 router 是纯反代,零限流、零 WAF、零超时收紧。
+  而 web 源站可被直连绕过 EdgeOne,该层是唯一还能拦一手的。
+- **实现**:`deploy/win/lib/ip-rate-limit.mjs`(单 IP 令牌桶),`ihui-api-router.mjs` 接线。
+  - key = **TCP 对端地址**,绝不用 `X-Forwarded-For`(客户端可任意伪造,等于把限流开关交给攻击者);
+  - 默认 **500 rps / 1000 burst**。定位是挡单 IP 扫描/小规模 CC,**不是**抗分布式 DDoS ——
+    那种量级归 EdgeOne,单进程内存计数扛不住也不该扛(把 router 拖死等于替攻击者完成攻击);
+  - 阈值给宽是因为 EdgeOne 回源时所有请求共享出口 IP;
+  - 超限 `429` + `Retry-After`;日志每 IP 10s 节流(防被刷时日志盘先满,那也是一种打垮);
+  - **回环豁免**(`127.0.0.1` / `::1` / `::ffff:127.0.0.1` / `127.*`):内部服务
+    `ai-service → /api/internal/*` 与健康检查都从回环进来,不豁免会让批量内部调用把自己的通道限死;
+  - 应急逃生舱:`IHUI_BG_RATE_LIMIT=off`(要的是「一条命令止血」,不是猜一个够大的数字)。
+- **慢速攻击收口**:`headersTimeout` 60s→**30s**、`requestTimeout` 300s→**120s**
+  (正常请求远达不到;slowloris 喂头/喂体能占 socket 五分钟的问题被堵)。
+- **测试**:`deploy/win/lib/__tests__/ip-rate-limit.test.mjs` 12 条(突发/回补/桶容量硬上限/
+  多 IP 独立/淘汰/配置回落/回环正反例);router 冒烟两向实测 —— 回环 30 请求全 200,
+  局域网 IP 前 10 个 200、后 15 个 429 且日志点名。
+
+### 10.6 P0 根因 — ai-service 调试面收口(默认关闭 + 归属隔离)
+
+- **问题**:§10.1 只封了 api 网关入口,`apps/ai-service/app/api/v1/debug.py` 本身仍无鉴权、
+  无 userId 隔离 —— 直连 8803 即可 launch 任意程序 / eval 任意表达式。
+- **修复**:
+  1. **默认关闭**:`IHUI_DEBUG_ENABLED` 未显式为真时整面 **404**(router 级依赖,12 端点一处生效)。
+     依据是实测**零调用方** —— `apps/web` / `apps/mobile-rn` / `packages` 无任何 `/api/debug`
+     引用,MCP 工具面亦无。不用就关,强于任何入口校验。
+  2. **身份**:12 端点全部 `Depends(require_request_user_id)`,生产缺身份即 401,不依赖网关转发。
+  3. **归属**:`launch`/`attach` 记录 `owner_user_id`,其余端点逐次 `verify_owner` ——
+     拿到他人 `session_id` 不能接管;`list_sessions` 只返回自己的(否则枚举到 id 就等于能接管)。
+- **刻意不做** `program`/`cwd` 路径白名单:`program` 指向仓库内解释器 + `args` 传 `-c` 即等价 RCE,
+  白名单只制造「已防护」的错觉;且 Windows 上 `/tmp` 这类 POSIX 字面量会被解析成盘符相对路径
+  而误伤真实调用方。真要做到「开了也只能调自己的代码」必须连 `args` 一起约束,那是另一个量级。
+- **测试**:`apps/ai-service/tests/test_debug_hardening.py` 30 条 + 既有 82 条,共 112 条绿。
+- **坑位**:归属校验方法原名 `assert_owner` —— `MagicMock` 会把 `assert_*` 属性当断言方法拦截,
+  mock manager 的 36 条用例一次性 `AttributeError`,而真实调用方全绿 ⇒ 只在测试面爆,
+  极易被误判成「测试写错了」而删判据。已改名 `verify_owner` 并在测试里写成显式断言。
+
+### 10.7 P2 — 依赖审计实测结论(2026-10-29)
+
+本机 registry 指向 npmmirror 无 audit 端点,但一次并发任务产出的 `npm audit --json` 快照
+(已归档 `tmp/audit-20261029-1248.json`)给出了可判读的结论:
+
+- 总览:critical 28 / high 49 / moderate 40 / low 10。
+- **critical + high 的绝大多数落在 `apps/miniapp-taro` 的 devDependencies**(Taro/miniprogram-ci
+  构建链:vm2、protobufjs、form-data、decompress、git-clone、lodash.template、json5 …)。
+  威胁模型是**构建机被投毒**,不是线上服务器。
+- **生产运行时唯一的 high**:`apps/api` ← `@opentelemetry/auto-instrumentations-node` ←
+  `instrumentation-host-metrics` ← `systeminformation@5.33.1`(Windows `services()` 命令注入)。
+  **逐行验证判定为不可达**:该 instrumentation 只 `require('systeminformation/lib/network')`
+  调 `networkStats()`,**从不调用 `services()`**,且不接收任何用户可控参数。
+- 处置:**不升级**(patch 版本虽兼容,但本仓多会话并发,动 lockfile 冲突风险高于收益);
+  改为登记判定依据。下次该依赖升级时自然带修复(修复版 >= 5.33.16)。
+- **待补判据**:依赖审计目前无守门。建议后续加「生产依赖 critical/high 必须为 0」的差值棘轮
+  (构建链存量按 §12e 只报数不拦),避免 28 个 critical 躺着无人认领。
+
+---
+
+## 11. 密钥与凭证轮转流程
+
+### 11.1 凭证清单
+
+| 凭证 | 环境变量 / 位置 | 用途 | 轮转影响 |
+|---|---|---|---|
+| JWT 签名密钥 | `JWT_SECRET` | 用户/管理员会话 JWT(HS256) | 轮转后所有现有会话失效,用户需重新登录;建议错峰或双密钥过渡 |
+| 内部服务令牌密钥 | `INTERNAL_SERVICE_SECRET` | api↔ai-service 内部调用鉴权 | 轮转需 api 与 ai-service 同步,否则内部调用 401 |
+| 回调共享密钥 | `AI_CALLBACK_SECRET` | ai-service→api 回调(`X-Internal-Secret`) | 与 `INTERNAL_SERVICE_SECRET` 类似,双端同步 |
+| 凭证加密密钥 | `CREDENTIALS_ENCRYPTION_KEY` | AES-256-GCM 加密第三方 OAuth/支付凭证 | 轮转需先解密再重加密存量,否则凭证不可读 |
+| 微信支付证书 | `cert/`(`*.pem`/`*.p12`,`.gitignore`) | 微信支付 V3 验签/回调 | 由微信侧周期换发,`scripts/cert-renew-watchdog.mjs` 监控续期 |
+| SSL 证书 | nginx `ssl/` | `aizhs.top` HTTPS | Let's Encrypt 自动续期(certbot --nginx) |
+| relay 密钥池 | `ai_relay_key_pool`(DB 表) | 第三方 AI 模型转发凭证 | 池内单条 key 可单独禁用/替换,不影响其他;见 `admin/relay-api-keys` |
+| 第三方 API Key | 阿里云短信/`ALIYUN_*`、微信支付/`WECHAT_*`、支付宝/`ALIPAY_*`、OpenAI/火山等 | 外部服务调用 | 各平台控制台轮换,更新对应 env 后重启相关 worker |
+| 数据库密码 | `DATABASE_URL` | PostgreSQL 连接 | 改密码后需滚动重启 api/ai-service/worker |
+| Redis 密码 | `REDIS_PASSWORD` / `REDIS_URL` | 缓存/限流/会话 | 改密码后需滚动重启所有依赖 Redis 的服务 |
+| 部署 PAT | GitHub `GITHUB_TOKEN`(推送用) | 代码推送 | 按 GitHub 侧轮换,更新本地凭据文件 |
+
+### 11.2 轮转通用原则
+
+1. **fail-closed 优先**:任何密钥缺失/错配,生产应启动中止或拒绝服务,而非降级放行(见
+   `checkProductionConfig`、`security-service` 启动硬约束)。
+2. **双密钥过渡**:会话类密钥(JWT)支持新旧并存窗口,避免全员掉线。
+3. **同步双端**:内部通道密钥(`INTERNAL_SERVICE_SECRET`/`AI_CALLBACK_SECRET`)必须 api 与
+   ai-service 同一次发布内更新,否则内部链路 401 雪崩。
+4. **配置外置**:所有密钥走 env / 密钥管理,禁止硬编码入源码(`scripts/check-safe-parse.mjs`)
+   守门扫描)。
+5. **轮换即审计**:密钥轮换动作本身写入 `audit_logs`,记录操作人与时间。
+
+---
+
+## 12. 后续收尾待办
+
+- ~~ai-service 侧 debug 根因修复~~ **已完成(2026-10-29)**:默认关闭 + 逐端点身份 + 会话归属,
+  见 §10.6。放开普通用户调试能力的前置仍是「连 `args` 一起约束」,未做。
+- ~~依赖漏洞审计~~ **已出结论(2026-10-29)**:生产运行时唯一 high(`systeminformation`)
+  判定不可达,构建链存量另计,见 §10.7。**仍未做的是机读判据**(见下条)。
+- **依赖审计守门(建议 P1)**:加一道「生产依赖 critical/high 必须为 0」的差值棘轮
+  (构建链存量只报数不拦,§12e)。当前 28 个 critical 全靠人读文档,下一个人不会读。
+- **`systeminformation` 升级**:等 `@opentelemetry/*` 自然带上来(>= 5.33.16),或单独开一次
+  lockfile 变更窗口;单独为不可达 CVE 动 lockfile 的冲突风险高于收益(§10.7)。
+- **定期渗透 / 红队**:建议每季度一次,覆盖 API、relay 面、支付回调。
+- **WAF 启用评估**:仅 nginx 形态适用(§10.3/§10.4);本机生产走 EdgeOne,应在 EdgeOne
+  控制台评估其 WAF/限流规则,而不是改仓库里的 nginx 片段。
+- **源站 IP 收敛**:web 8801 必须绑 `0.0.0.0` 是 EdgeOne 回源约束(§10.3)。若能改为
+  EdgeOne 回源固定段 + 防火墙只放行该段,则可消除「知道源站 IP 即绕过边缘」这一整类风险。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
