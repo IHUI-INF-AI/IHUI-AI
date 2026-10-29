@@ -179,6 +179,9 @@ import {
 import { gitCommitPaths } from './lib/git-paths.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
+// 孤儿提交备份腿的单一真相源(2026-10-29 门 30a 根因票):拼名/查重/annotated tag/pack-refs/
+// 留痕/永不抛 全部住 lib,本器只在**弃落出口**调它 —— 判据不在本文件复刻第二份(§0.6)。
+import { backupOrphanCommit } from './lib/orphan-backup.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
@@ -188,6 +191,41 @@ const REPO_ROOT = resolve(HERE, '..')
 // 绝对路径与 PATH 兜底都由取材层那一份实现负责,本层不再自己绑一份裸 git。
 const GIT_BIN = gitBinary()
 const MAX_CAS_ATTEMPTS = 12
+
+/**
+ * 「本轮 commit-tree 造出的 sha 没有成为 ref 的当前值」⇒ 它才是孤儿,按 §29 备份(门 30a 根因腿)。
+ * 判据只问 git 的结论、不自己推:HEAD 所指 ref 的当前值逐字节等于这枚 sha ⇒ 正常落地,一枚 tag 都不打
+ * (给成功落地的那枚打 tag = 把每次落地变成 tag 噪声;30a 认账只看 lost-commit/* 的 sha 直等,
+ * 可达对象本就不算悬空)。取不到 ref 或取不到其当前值(detached / git 问不到)⇒ 按「未成为 ref 值」
+ * 处理、宁多备一枚 —— 这一腿的失效方向必须是"多备份",绝不能是"假装修过"(§0.3)。
+ * 永不抛(承 lib backupOrphanCommit 契约)。`deps` 仅供镜像测试注入假面;生产调用一律只传 (sha, why, root)。
+ */
+function backupIfAbandoned(sha, why, root, deps = {}) {
+  if (!sha) {
+    console.error(`⚠️ backupIfAbandoned:${why} ⇒ 本轮没有可备份的 sha(no-sha)—— 未备份不等于不需要备份(§0.3)`)
+    return { ok: false, ref: null, why: 'no-sha' }
+  }
+  const headOf = deps.headOf ?? defaultRefHeadValue
+  const headNow = headOf(root)
+  if (headNow && String(headNow).trim() === String(sha).trim())
+    return { ok: true, ref: null, why: 'landed' }
+  const { backup = backupOrphanCommit, logger, headOf: _injected, ...passthrough } = deps
+  return backup({
+    sha,
+    kind: 'land',
+    why,
+    root,
+    logger: logger ?? ((m) => (String(m).startsWith('⚠️') ? console.error(m) : console.log(m))),
+    ...passthrough,
+  })
+}
+
+/** casUpdateRef 写的就是 HEAD 指向的 ref(resolveHeadRef 现读);当前值按同一条 ref 问 git,不另立第二条判据。 */
+function defaultRefHeadValue(root) {
+  const ref = resolveHeadRef({ root })
+  if (!ref) return null
+  return git(['rev-parse', '--verify', '--quiet', ref], { root, allowFail: true })
+}
 
 /** 读 env 并判用法;不合法 ⇒ {error, code:2}。 */
 export function parseArgs(env = process.env) {
@@ -2095,6 +2133,9 @@ async function main() {
     // 读报告的人会以为有人绕过了守卫(而这类"账面声称的出路"正是本仓记过多次的失效型)。
     console.log('⚠️ IHUI_LAND_SKIP_WATERMARK=1 ⇒ 本次跳过水印预检(该行输出即留痕)')
   }
+  // 本轮造出却没能成为 ref 值的 sha 才是孤儿 ⇒ 备份只挂在弃落出口上(判据见 backupIfAbandoned)。
+  // lastMadeCommit = 最后一轮 commit-tree 造出的那枚,供「12 次耗尽」出口兜底(与逐轮弃落同枚时幂等零加)。
+  let lastMadeCommit = ''
   for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
     const head = git(['rev-parse', 'HEAD'], { root })
     const clobber = clobberedPaths(paths, base, head, { root })
@@ -2215,7 +2256,23 @@ async function main() {
       console.log('✅ 暖色描边涉事判据(门 231 --rev <tree>):通过,落盘树无输入框暖色描边')
     }
     const commit = made.commit
-    if (casUpdateRef(commit, head, { root })) {
+    lastMadeCommit = commit
+    // casUpdateRef 除了返回 false 还会**抛出**(detached HEAD / G-939 fail-closed / 索引锁异常)——
+    // 那一型同样是"本轮 sha 已造出却没能成为 ref 值",不接住就又是一个无备份孤儿。
+    // 次序是死规矩:先备份,再把原异常**原样**抛出(不吞、不改退出码语义,更绝不因为"要备份"就
+    // 把这轮说成落地成功;备份本身永不抛,见 lib/orphan-backup.mjs)。
+    let casWon = false
+    try {
+      casWon = casUpdateRef(commit, head, { root })
+    } catch (casErr) {
+      backupIfAbandoned(
+        commit,
+        `object-space-land 第 ${attempt} 回 CAS 抛出:${String(casErr?.message ?? casErr).replace(/\s+/g, ' ').slice(0, 80)}`,
+        root,
+      )
+      throw casErr
+    }
+    if (casWon) {
       landed = commit
       parentSha = head
       console.log(
@@ -2224,13 +2281,20 @@ async function main() {
       break
     }
     console.log(`⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重读重试`)
+    // ref 没动而本枚已造出 ⇒ 孤儿就在这一行出生:当场备份(争用越久备得越多,同 sha 幂等零加)。
+    backupIfAbandoned(commit, `object-space-land 第 ${attempt} 回 CAS 未抢到`, root)
   }
   if (landed === '') {
+    // 兜底:末枚多半已在上面逐轮备过(幂等 already:true 零加);取不到 sha 也只会报 no-sha 不冒充绿(§0.3)。
+    backupIfAbandoned(lastMadeCommit, `object-space-land ${MAX_CAS_ATTEMPTS} 回均未抢到 CAS(末枚兜底)`, root)
     console.error(`❌ ${MAX_CAS_ATTEMPTS} 次均未抢到 CAS,主索引未动`)
     process.exit(1)
   }
 
   // ① 提交面回读(G-801):存在性逐路径问 git 的结论 `cat-file -e <commit>:<path>`,三态不并桶。
+  //    (本段与其下 ①b 的四个 exit 1|2 **刻意不接 backupIfAbandoned**:走到这里说明 CAS 已成功、
+  //     ref 已推进且 landed 已进 HEAD 的 reflog ⇒ 结构上产不出守门 30a 数的"不可达孤儿";
+  //     接了只会在"回读前恰好被别席推进"的窗口里给一枚正常落地的提交造 tag 噪声。)
   //    旧写法解析 `git show --name-only` 的输出文本并与声明路径逐字比对 —— git 默认按
   //    core.quotePath 把非 ASCII 路径八进制转写并加引号,中文/带空格路径必然比不中,
   //    把已成功的交付报成"缺路径";假失败会诱使重跑一次已经成功的落地(G-321① 幂等判据要拦的事)。
@@ -2631,6 +2695,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   parseArgs,
+  backupIfAbandoned,
   clobberedPaths,
   lineDelta,
   resurrectAnalysis,
