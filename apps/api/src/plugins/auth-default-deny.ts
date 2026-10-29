@@ -102,9 +102,15 @@ const PUBLIC_PREFIXES: readonly string[] = [
   // 公开市场与公开内容
   '/api/agents',
   '/api/categories',
-  '/api/landing/',
+  '/api/landing',
   '/api/voice/',
   '/api/crash-reports',
+  // 2026-10-29 主动探测(无凭据 GET,只认 200)与 observe 实测补入:
+  // 门户落地页 / 首页内容聚合 / 分类字典缓存。三者都是渲染首页所需,漏了会让首页空屏。
+  '/landing',
+  '/api/feature-center/',
+  '/api/ai-world/',
+  '/api/cache/agent-category-dict/',
 ]
 
 /** 兜底只看这两类前缀之外的路由(其余如 /uploads 静态面根本不进 Fastify 路由表)。 */
@@ -127,15 +133,17 @@ export function isAuthDefaultPublicPath(rawUrl: string): boolean {
 const OBSERVE_LOG_INTERVAL_MS = 60_000
 const lastLoggedAt = new Map<string, number>()
 
-function logObserveHit(method: string, path: string): void {
-  const key = `${method} ${path}`
+function logObserveHit(method: string, path: string, tag: 'observe' | 'enforce-401'): void {
+  const key = `${tag} ${method} ${path}`
   const now = Date.now()
   const prev = lastLoggedAt.get(key)
   if (prev !== undefined && now - prev < OBSERVE_LOG_INTERVAL_MS) return
   lastLoggedAt.set(key, now)
   logger.warn(
-    `[auth-default-deny] ${method} ${path} 无凭据且不在公开名单 —— enforce 档下将 401,请确认是否应列入名单`,
-    { event: 'auth_default_deny_observe', method, path },
+    `[auth-default-deny] ${tag} ${method} ${path} 无凭据且不在公开名单 —— ${
+      tag === 'observe' ? 'enforce 档下将 401,请确认是否应列入名单' : '已 401,若属公开面请补进名单'
+    }`,
+    { event: `auth_default_deny_${tag.replace('-', '_')}`, method, path },
   )
 }
 
@@ -151,9 +159,11 @@ export async function authGuard(request: FastifyRequest, reply: FastifyReply): P
   const path = request.url.split('?')[0] ?? request.url
   if (isAuthDefaultPublicPath(path)) return
   if (mode === 'observe') {
-    logObserveHit(request.method, path)
+    logObserveHit(request.method, path, 'observe')
     return
   }
+  // enforce 档同样留痕:切档后若真有漏列的公开面,日志里能直接看到是哪一条被 401 打断。
+  logObserveHit(request.method, path, 'enforce-401')
   await checkAuth(request, reply)
 }
 
