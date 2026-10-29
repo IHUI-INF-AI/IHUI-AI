@@ -160,9 +160,21 @@ test('真仓两脸(台账面判变窄 / 台账⊕归档件判引用档):宽口�
   // "当下状态当前提"陷阱(§12e 恒红:台账越干净越必红)。正解:台账**一旦有伪组**必须见严格变窄
   // (wide===0 才合法豁免),而"绿在分组只看声明位"这一阳性证明由本文件 ②(CROSS_REF 夹具 wide=1>
   // collisions=0)与下面宽面 `wf.wide > wf.collisions`(归档件真实 270>245)两臂承担 ⇒ 判据与牙齿一律不降。
+  // ⚠ 2026-10-29(b25-gate130):这一臂原写 `wide.length === 0 || wide.length > collisions.length`,
+  // 是把"台账当下恰有伪组"当成了前提 —— 台账一旦被洗净到"每组都是真声明位撞号"(现读 wide=5 =
+  // declared=5),它就成了"台账越干净越必红"的恒红门(§12e,本文件自己下面那段注释担心的同一条病)。
+  // 判据真值是**单调性**:声明位收窄只可能从组里摘题面,绝不可能**造出**组 ⇒ wide ⊇ declared,恒有
+  // wide ≥ declared。而"严格变窄确实发生"这一阳性证明由 ② 的夹具(CROSS_REF wide=1 > collisions=0)
+  // 与下面归档件那一臂(wf.wide > wf.collisions)承担 ⇒ 牙齿一处没降。
   assert.ok(
-    lf.wide.length === 0 || lf.wide.length > lf.collisions.length,
-    `台账面有伪组时宽口径必须严格多于判据面(变窄真实发生);台账洗净时 wide=0 合法。实测 wide=${lf.wide.length} declared=${lf.collisions.length}`,
+    lf.wide.length >= lf.collisions.length,
+    `宽口径必须是判据面的超集(收窄只摘题面、不造组)。实测 wide=${lf.wide.length} declared=${lf.collisions.length}`,
+  )
+  // 配套的反向锁:一个题面都没被摘掉(droppedTitles=0)时组数**必须**相等 ——
+  // 若那时 wide 仍多于 declared,说明两组数不是同一份分组输入算出来的,比"变窄"这件事更严重。
+  assert.ok(
+    lf.droppedTitles !== 0 || lf.wide.length === lf.collisions.length,
+    `droppedTitles=0 时两组数必须相等(证明分组输入同源)。实测 droppedTitles=${lf.droppedTitles} wide=${lf.wide.length} declared=${lf.collisions.length}`,
   )
   assert.equal(findIdCollisions(content).length, lf.wide.length, '投影读数必须与同源那份宽口径等值')
 

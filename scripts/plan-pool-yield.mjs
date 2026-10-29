@@ -30,6 +30,12 @@
  *  ③ 退出后若该号被重新领用必须能反查:台账是 append-only 的 `yield` / `reclaim` 两条事件,
  *    `--trace G-59` 把这条链连同当时的证据锚(归档件路径 + 行号 + 片段)一起打印。
  *
+ * 池上界(2026-10-29 现读钉死,勿再照抄票面):`LEASE_POOL_MAX = 99`(两位数,2026-10-24 拍板,
+ * env 不得覆写)。台账里成批出现的「G 族号池 1..999 现读已满」是**旧口径残留**(999 那枚字面量
+ * 2026-10-15 已从 `plan-id-face.mjs` 删掉,见该文件头注);而"1..99 已满"同样与现读不符 ——
+ * 现读 G 族池内已占 55 / 空闲 44,取号被拒的真成因是 `SCAN_FACE_FULL`(候选全被台账⊕归档面的
+ * 正文引用吃掉),不是池满。三成因的出路互不相同,结论文本必须与 `reason` 同形(§0.3/§12f)。
+ *
  * 用法(默认 --dry-run,只报数不写盘):
  *   node scripts/plan-pool-yield.mjs                       # 现读 G/D 两族,打印让位前后读数
  *   node scripts/plan-pool-yield.mjs --family G,D,O
@@ -73,6 +79,28 @@ export const YIELD_LEDGER_REL = '.ihui-agent/state/plan-pool-yield.jsonl'
  */
 export const YIELD_WINDOW_DAYS = 30
 
+/**
+ * G 族让位账本(2026-10-29 goal-b25/b25-poolG 立):与本器主账本同形态、append-only、同判据,
+ * 只是**按族分文件**落 —— G 族那 26 枚「未取号」票的退出链要能被单独取证/单独回滚,不与 D 族
+ * 那 85 枚混在一本里。两份都是 `activeYields` 的输入,判据仍只有一份:`YIELD_LEDGER_RELS` 是唯一清单。
+ */
+export const YIELD_LEDGER_REL_G = '.ihui-agent/state/plan-pool-yield-g.jsonl'
+export const YIELD_LEDGER_RELS = Object.freeze([YIELD_LEDGER_REL, YIELD_LEDGER_REL_G])
+
+/** 某族的新增事件落哪一本(缺省 = 主账本);只决定去处,不另立判据。 */
+export function yieldLedgerRelOf(family) {
+  return String(family).toUpperCase() === 'G' ? YIELD_LEDGER_REL_G : YIELD_LEDGER_REL
+}
+
+/**
+ * **归档墓碑**形态:`<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G12 … -->`。
+ * 不是新造的口径 —— 归档器(`archive-completed-tasks.mjs`)搬走已完成条目时写的就是这一形状,
+ * 台账里成片存在。它是"这枚号已从活台账搬出、结清日可读"的机器可读记录,故可作为那批
+ * "正文引用无登记位"号的**结清锚**。日期只取墓碑自己的结清日,不取行内其它日期
+ * (行内常带"进展@…"这类更晚日期,拿它当结清日等于把号永远留在窗内)。
+ */
+export const ARCHIVED_TOMBSTONE_RE = /<!--\s*已归档\(\s*(\d{4}-\d{2}-\d{2})\s*\)/
+
 const oneLine = (e) =>
   String(e?.message ?? e)
     .split(/\r?\n/)[0]
@@ -87,6 +115,21 @@ export function familyNumOf(key) {
   const num = Number(m[3])
   if (!Number.isFinite(num)) return null
   return { family: m[1].toUpperCase(), num }
+}
+
+/**
+ * 墓碑正文里**第一个**该族的号 —— "这行记录的是谁"的唯一判法。
+ * 复用 `scanFamilyIdHits`(号形状与命中位置单源),不另写 `族-数字` 正则(§22c)。
+ * 返回 null = 这段文本里没有该族的号(墓碑不带主键 ⇒ 判不出,调用方按"不是这枚号的记录"处理)。
+ */
+function firstFamilyNumAfter(text, from, family) {
+  const h = scanFamilyIdHits(String(text).slice(Math.max(0, from)), family)
+  if (!h) return null
+  let best = null
+  let bestCol = Number.POSITIVE_INFINITY
+  for (const [n, rec] of h)
+    for (const site of rec.sites) if (site.col < bestCol) [bestCol, best] = [site.col, n]
+  return best
 }
 
 /**
@@ -121,16 +164,21 @@ export function segmentFace({ ledgerText, archives = [] }) {
 /**
  * 让位裁决(纯函数,零 IO)。
  *
- * 保留(RETAIN)的六类,任一命中 ⇒ 整枚号不动。**每一类都是"这个号还可能被并发领号冲突"的
+ * 保留(RETAIN)的各类,任一命中 ⇒ 整枚号不动。**每一类都是"这个号还可能被并发领号冲突"的
  * 机器证据**,不是措辞:
  *  - `open-row`        :该号出现在**任何**未勾选行里(在册未勾 ⇒ 事情还没做完,号还在用);
  *  - `live-ledger-row` :该号出现在活台账的**任何**勾选行里(哪怕已勾 ⇒ 同一份活文档里两行同号
  *                        就是 F9 现场,先归档再让位,让位器不替归档器做搬运);
- *  - `archive-open-row`:归档件里的未勾行(归档件也可能带着没做完的条目);
+ *  - `live-ledger-ref` :无声明位,但活台账里**仍有非墓碑引用**(2026-10-29 补:这是**判过了**的
+ *                        结论"号还在被活文档指着",不是"判不出" —— 旧实现把它与 `no-declaration`
+ *                        并桶,于是 G 族 44 枚全落"判不出结清",而其中大半其实一眼可判);
+ *  - `archive-unrecorded`:无声明位、活台账零引用,但归档面里也没有这枚号**本人**的归档墓碑 ⇒
+ *                        真的判不出它何时结清(失败方向 = 不退);
  *  - `lease-row`      :租约行(`〔千段租约〕`)—— 机器记账的段尾主键,永不让位;
- *  - `no-declaration` :全face只有引用、没有任何声明位 ⇒ **判不出结清时间**,不退(失败方向 = 不退);
- *  - `no-settled-date`:有声明位但读不出日期 ⇒ 同上;
+ *  - `no-settled-date`:有锚点(登记位或墓碑)但读不出日期 ⇒ 同上;
  *  - `within-window`  :结清日在窗内 ⇒ 刚结清,不退。
+ *
+ * 归档件里的未勾行不计保留(死快照),但入 `archivedOpenRefs` 报名。
  *
  * @returns {{cutoff:string, windowDays:number, yields:Array, retained:Array, undetermined:Array}}
  */
@@ -196,12 +244,22 @@ export function decideYield({
         if (!m.has(num)) m.set(num, [])
         for (const site of rec.sites) {
           const row = s.rows.get(site.line) ?? null
+          const raw = s.lines[site.line - 1] ?? ''
+          // 归档墓碑:归档器把已完成条目搬走后留在台账/归档件里的
+          // `<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G12 … -->`。它是"这枚号已出活面"的
+          // **机器可读记录**,不是活引用;`ownTombstone` 还要判这行记录的是**这一枚号本人**
+          // (墓碑里常顺带提到别人的号,拿"这行提到我"当结清证据就是把别人的结清算到自己头上)。
+          const tm = ARCHIVED_TOMBSTONE_RE.exec(raw)
+          const recorded = tm ? firstFamilyNumAfter(raw, tm.index + tm[0].length, f) : null
           m.get(num).push({
             where: s.where,
             path: s.path,
             line: site.line,
             state: row ? row.state : null,
             snippet: site.snippet,
+            tombstone: !!tm,
+            tombDate: tm ? tm[1] : null,
+            ownTombstone: recorded === num,
           })
         }
       }
@@ -232,8 +290,25 @@ export function decideYield({
       if (occ.some((o) => o.where === 'ledger' && o.state !== null && o.state !== 'open'))
         reasons.push('live-ledger-row')
       if (ds.some((d) => d.lease)) reasons.push('lease-row')
-      if (ds.length === 0) reasons.push('no-declaration')
-      else {
+      // 结清锚:有登记位 ⇒ 取登记行(既有口径);无登记位 ⇒ 只认**这枚号本人**的归档墓碑
+      // (`<!-- 已归档(D) … G12 … -->`)。后者是 2026-10-29 补的那条可判路径:实测 G 族 1..99
+      // 里有 44 枚在面上**只有正文引用、没有登记位**,旧判据一律落 `no-declaration` ⇒ 逐枚"判不出"
+      // ⇒ G 族可让位恒 0(而其中真有早已归档出活面的号)。这一条不放宽扫描面:它要求
+      // "活台账上**一个非墓碑引用都没有**",比"归档面不扫了"严得多。
+      const tombs = occ.filter((o) => o.ownTombstone)
+      const liveLedgerRefs = occ.filter((o) => o.where === 'ledger' && !o.tombstone)
+      if (ds.length === 0) {
+        // 三态不并桶(§0.3):① 活台账仍引用 ⇒ 判过了,不退(可判,不是"判不出");
+        // ② 活台账零引用、但归档面也没有这枚号自己的墓碑 ⇒ 真判不出 ⇒ 不退且进 undetermined;
+        // ③ 有本人墓碑 ⇒ 按墓碑日期判窗。
+        if (liveLedgerRefs.length) reasons.push('live-ledger-ref')
+        else if (tombs.length === 0) reasons.push('archive-unrecorded')
+        else {
+          if (tombs.some((t) => !t.tombDate)) reasons.push('no-settled-date')
+          if (tombs.some((t) => t.tombDate && String(t.tombDate) >= cutoff))
+            reasons.push('within-window')
+        }
+      } else {
         if (ds.some((d) => !d.settledAt)) reasons.push('no-settled-date')
         // 日对日比较(见上面的量纲注):结清日 >= 截止日 ⇒ 仍在窗内,不让位。
         if (ds.some((d) => d.settledAt && String(d.settledAt) >= cutoff)) reasons.push('within-window')
@@ -244,23 +319,36 @@ export function decideYield({
       const label = ds[0]?.key ? String(ds[0].key).trim() : `${f}-${num}`
       if (reasons.length) {
         retained.push({ family: f, num, label, reasons, evidence: [...ds, ...occ].slice(0, 4) })
-        if (reasons.includes('no-declaration') || reasons.includes('no-settled-date'))
+        if (reasons.includes('archive-unrecorded') || reasons.includes('no-settled-date'))
           undetermined.push({ family: f, num, label, reasons })
         continue
       }
+      // 让位证据:有登记位取登记位;无登记位取本人墓碑(带归档件路径 + 行号 + 结清日)。
+      const anchors = ds.length
+        ? ds.map((d) => ({
+            where: d.where,
+            path: d.path,
+            line: d.line,
+            state: d.state,
+            settledAt: d.settledAt,
+            snippet: d.snippet,
+          }))
+        : tombs.map((t) => ({
+            where: t.where,
+            path: t.path,
+            line: t.line,
+            state: t.state,
+            settledAt: t.tombDate,
+            snippet: t.snippet,
+            tombstone: true,
+          }))
       yields.push({
         family: f,
         num,
         label,
-        settledAt: ds.map((d) => d.settledAt).sort().pop(),
-        declarations: ds.map((d) => ({
-          where: d.where,
-          path: d.path,
-          line: d.line,
-          state: d.state,
-          settledAt: d.settledAt,
-          snippet: d.snippet,
-        })),
+        settledAt: ds.length ? ds.map((d) => d.settledAt).sort().pop() : tombs.map((t) => t.tombDate).sort().pop(),
+        basis: ds.length ? 'declaration' : 'archive-tombstone',
+        declarations: anchors,
         referenceCount: occ.length,
         archivedOpenRefs,
         referenceSites: occ.slice(0, 6).map((o) => ({
@@ -338,6 +426,26 @@ export function readYieldLedger(path) {
 }
 
 /**
+ * 读**整套**让位账本(主本 + G 族本)。顺序即优先级:`YIELD_LEDGER_RELS` 里靠后的文件覆盖靠前的
+ * (按 `activeYields` 的"最后一条事件为准")。任一本在位却读不出 ⇒ 整轮判"未判定"并拒绝裁决
+ * (读成"零让位"会把已让位号又当成占用,方向虽严,但会把账本与裁决长期拉偏)。
+ */
+export function readYieldLedgers(paths = YIELD_LEDGER_RELS) {
+  const list = (Array.isArray(paths) ? paths : [paths]).filter(Boolean)
+  const records = []
+  let badLines = 0
+  let exists = false
+  for (const p of list) {
+    const led = readYieldLedger(p)
+    if (led.unreadable) return { records: [], badLines, exists: true, unreadable: `${p}:${led.unreadable}` }
+    records.push(...led.records)
+    badLines += led.badLines
+    exists = exists || led.exists
+  }
+  return { records, badLines, exists }
+}
+
+/**
  * 由账本推"此刻生效的让位集":每个 (family,num) 以**最后一条事件**为准
  * (`yield` = 退出占用面,`reclaim` = 重新领用 ⇒ 复归占用面)。这是"可回滚"的全部机制:
  * 追加一条 `reclaim` 就把号还给占用面,不需要改历史。
@@ -393,6 +501,9 @@ export function planRecords({ decision, records, now = new Date() } = {}) {
       windowDays: decision.windowDays,
       cutoff: decision.cutoff,
       settledAt: y.settledAt,
+      // 让位路径留痕:`declaration`(有登记位的旧口径)/ `archive-tombstone`(2026-10-29 补的
+      // 无登记位路径)。反查时"这枚号凭什么退"必须一眼看出走的是哪条锚。
+      via: y.basis ?? 'declaration',
       declarations: y.declarations,
       referenceCount: y.referenceCount,
       referenceSites: y.referenceSites,
@@ -460,7 +571,7 @@ export function readFace({ root = REPO_ROOT, source = 'HEAD' } = {}) {
 const USAGE = [
   '用法: node scripts/plan-pool-yield.mjs [--family G,D] [--window-days 30] [--apply] [--trace G-59] [--json]',
   '  缺省 --dry-run:只打印"让位前命中/空闲 → 让位后命中/空闲",一个字节不写。',
-  '  --apply:把本次新裁决的让位落进 .ihui-agent/state/plan-pool-yield.jsonl(幂等,重跑不重写)。',
+  '  --apply:把本次新裁决的让位落进账本(幂等,重跑不重写;G 族落 plan-pool-yield-g.jsonl,其余落 plan-pool-yield.jsonl)。',
   '  --trace <FAM-N>:反查一枚号的让位链(含归档件路径 + 行号 + 片段)。',
 ].join('\n')
 
@@ -509,7 +620,8 @@ function main(argv = process.argv.slice(2)) {
   }
   const root = process.env.LIVE_ROOT ? resolve(process.env.LIVE_ROOT) : REPO_ROOT
   const ledgerPath = resolve(root, YIELD_LEDGER_REL)
-  const led = readYieldLedger(ledgerPath)
+  const ledgerPathG = resolve(root, YIELD_LEDGER_REL_G)
+  const led = readYieldLedgers([ledgerPath, ledgerPathG])
   if (led.unreadable) {
     console.error(`❌ 让位账本读不到(${led.unreadable})⇒ 不裁:账本在位却读不出,读成"零让位"会把已让位号又当成占用`)
     return 1
@@ -523,7 +635,9 @@ function main(argv = process.argv.slice(2)) {
       return 2
     }
     const chain = traceOf(led.records, p.family, p.num)
-    console.log(`让位链 ${p.family}-${p.num}(账本 ${YIELD_LEDGER_REL},共 ${chain.length} 条事件)`)
+    console.log(
+      `让位链 ${p.family}-${p.num}(账本 ${YIELD_LEDGER_RELS.join(' + ')},共 ${chain.length} 条事件)`,
+    )
     if (!chain.length) console.log('  (无记录:这一枚号从未让位过 ⇒ 恒在占用面)')
     for (const r of chain) {
       const ev = r.event === 'yield' ? '让位' : '复归占用面'
@@ -608,13 +722,22 @@ function main(argv = process.argv.slice(2)) {
         (decision.undetermined.length > 12 ? ' …' : ''),
     )
   if (args.apply) {
-    const r = appendYieldRecords(ledgerPath, pending.records)
+    // 按族分本落账(G 族 → `plan-pool-yield-g.jsonl`,其余 → 主本)。去向由 `yieldLedgerRelOf` 一处判,
+    // 判据仍是同一份 `planRecords`;回读必须读**整套**,否则刚落的 G 事件在回读里看不见(假绿)。
+    const byBook = new Map()
+    for (const rec of pending.records) {
+      const rel = yieldLedgerRelOf(rec.family)
+      if (!byBook.has(rel)) byBook.set(rel, [])
+      byBook.get(rel).push(rec)
+    }
     const kinds = pending.records.reduce((m, x) => ((m[x.event] = (m[x.event] ?? 0) + 1), m), {})
+    let added = 0
+    for (const [rel, recs] of byBook) added += appendYieldRecords(resolve(root, rel), recs).added
     console.log(
-      `✅ 已落账 ${r.added} 条(${Object.entries(kinds).map(([k, v]) => `${k}×${v}`).join(' ') || '无新增'};` +
-        `幂等跳过 ${pending.skipped.length} 枚已让位)⇒ ${YIELD_LEDGER_REL}`,
+      `✅ 已落账 ${added} 条(${Object.entries(kinds).map(([k, v]) => `${k}×${v}`).join(' ') || '无新增'};` +
+        `幂等跳过 ${pending.skipped.length} 枚已让位)⇒ ${[...byBook.keys()].join(' + ') || '无新增'}`,
     )
-    const after = readYieldLedger(ledgerPath)
+    const after = readYieldLedgers([ledgerPath, ledgerPathG])
     const nowApplied = activeYields(after.records)
     for (const fam of args.families) {
       const rd = poolReading({ face: f.face.text, family: fam, yielded: nowApplied.get(fam) ?? new Set() })

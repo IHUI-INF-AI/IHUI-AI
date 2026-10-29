@@ -918,6 +918,17 @@ function parseLineEvent(line: string): SSEEvent | null {
     // 工具调用汇总事件(兼容后端 snake_case 字段)
     if (json?.type === 'tool-summary') {
       const numOr = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+      /**
+       * 可缺档:缺失 ⇒ **undefined**,绝不用 0 兜底。
+       *
+       * 新三档(directories / edits / terminalCommands)2026-10-29 才由后端开始发送,
+       * 旧后端 / 回放里的历史帧都不带它们。前端渲染层按 `!== undefined` 判是否渲染,
+       * 并用本地 `deriveToolSummary` 只为**缺的键**补齐(已到达的权威值不覆盖)。
+       * 若这里照 numOr 折成 0,界面会把"后端没发"显示成"没碰目录/没编辑"——那正是
+       * AGENTS §0.3 禁止的「没判写成判过」。
+       */
+      const optNum = (v: unknown): number | undefined =>
+        typeof v === 'number' && Number.isFinite(v) ? v : undefined
       const toolsByCategory = json.toolsByCategory ?? json.tools_by_category
       const totalDurationMs = json.totalDurationMs ?? json.total_duration_ms
       return {
@@ -937,6 +948,11 @@ function parseLineEvent(line: string): SSEEvent | null {
             typeof totalDurationMs === 'number' && Number.isFinite(totalDurationMs)
               ? totalDurationMs
               : undefined,
+          // 新增三档(后端 `_build_tool_summary` 与前端 `deriveToolSummary` 同一份名单/同一目录语义;
+          // 后端 `directories` 的目录算式 = 共享层 `fileDirname`,两侧逐条对齐)
+          directories: optNum(json.directories),
+          edits: optNum(json.edits),
+          terminalCommands: optNum(json.terminalCommands),
         },
       }
     }

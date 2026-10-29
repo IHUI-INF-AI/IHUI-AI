@@ -257,6 +257,15 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         route: 'VoiceStt',
         target: { type: 'route', name: 'VoiceStt' },
       },
+      // PDF 工具台(2026-10-29):对齐 web /tools/pdf 三路由(一屏三入口 hub)。
+      // 该屏自 2026-10-26 就有完整 RN 链路(DocumentPicker→upload→pdf-service→下载),
+      // 但只在 RootNavigator 注册过、**没有任何入口** ⇒ 用户结构上到不了,本轮补上。
+      {
+        labelKey: 'pdfToolsPage.title',
+        Icon: FileText,
+        route: 'PdfToolsHub',
+        target: { type: 'route', name: 'PdfToolsHub' },
+      },
       {
         labelKey: 'groups.title',
         Icon: Users,

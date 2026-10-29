@@ -252,7 +252,11 @@ function collectRn(face = FACE) {
  *  路径清单与正文同笔产出 —— 棘轮锚点侧要按**同一批载体**重算声明,两侧同宽才有牙。 */
 function sidecarCssPaths(hit) {
   if (!hit) return []
-  return [hit.replace(/\.tsx$/, '.css'), hit.replace(/[^/]*$/, 'index.css')]
+  // 只认同 basename 的 .css。旧实现多拼一条「同目录 index.css」: 对 `dir/index.tsx` 与第一条同值,
+  // 对 `dir/foo.tsx` 却把**目录主页面**的样式算了进来 —— pages/member/index.css 头注
+  // 「视觉唯一标准: …vip/VipScreen.tsx」于是被读成 member/* 四页各自的镜像声明,
+  // 镜像还原度报「声明 VipScreen、承载 PointHistoryScreen」假红(实测 4 页)。
+  return [hit.replace(/\.[jt]sx$/, '.css')]
 }
 
 function collectSidecarCss(hit, face = FACE) {
@@ -327,8 +331,10 @@ function collectMiniapp(face = FACE) {
  *   新增形只让「未判定」桶里的项被正面判定,不改任何阈值/档位/豁免语义;严格形旧读数不受影响。
  * ==========================================================================*/
 
-/** 形 1(原有硬路径,口径一字未动) */
-const MARK_RE = /packages\/app\/src\/features\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_]+)Screen/g
+/** 形 1(原有硬路径;2026-10-29 放宽域目录为可多级 —— collectShared 的 `(.+)` 本就能认
+ *  `features/tools/pdf/PdfToolsHubScreen.tsx`,而本条只认一层 ⇒ 同一枚屏"分母进得去、分子认不出",
+ *  页面写对了也永远记成"无声明"。现读全树三层形态只有这 1 枚,放宽不引入新候选。) */
+const MARK_RE = /packages\/app\/src\/features\/((?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+)\/([A-Za-z0-9_]+)Screen/g
 
 /** 形 2:容错路径(组 1=目录段可多级、组 2=可选 Shared 前缀、组 3=屏名主干)。
  *  斜杠两侧允许**至多一个**换行 + 行首缩进(注释折行那一型),不给"跨多行随便拼路径"的口子;

@@ -25,7 +25,7 @@ export type { SkillMarketEntryView, SkillMarketListScreenProps }
  * 2026-10-28 补屏立,承载 web `/skills-market`
  * (apps/web/app/(main)/skills-market/PageClient.tsx)。结构对齐基准端:
  * - 顶栏(返回 / 标题 + 总数徽章)→ 副标题 → 搜索框 + 标签筛选 → 卡片列表 → 分页
- * - 卡片:名称 / 评分(★ + 条数)/ 安装量 / 描述(2 行截断)/ 前 3 个标签 / 作者 / 版本
+ * - 卡片:名称 / 评分(Star 图标 + 条数)/ 安装量 / 描述(2 行截断)/ 前 3 个标签 / 作者 / 版本
  * - web 卡片上的「启用 / 停用 / 一键安装」三个写动作**不搬**:它们要 `/api/skills/enabled`
  *   与 `POST /api/skills/:name/{enable,disable,install}` 三条额外端点,属另一条写链路;
  *   本屏是只读浏览,`onSelect` 交宿主 navigate 到详情屏
@@ -183,7 +183,12 @@ export function SkillMarketListScreen({
             </Text>
             <View style={styles.metaRow}>
               <View style={styles.rating}>
-                <Star size={11} color={tk.warning.DEFAULT} strokeWidth={2} />
+                <Star
+                  size={rnType.caption.size}
+                  color={tk.warning.DEFAULT}
+                  fill={tk.warning.DEFAULT}
+                  strokeWidth={2}
+                />
                 <Text style={styles.ratingValue}>{item.rating.toFixed(1)}</Text>
               </View>
               <Text style={styles.meta}>

@@ -8567,12 +8567,15 @@
       "timelineSubagentToolResultSuccess": "工具返回:{tool} 成功",
       "timelineTabsAriaLabel": "時間線 tab 切換",
       "toolCallsCount": "{n} 次工具調用",
+      "toolSummaryDirectories": "涉及目錄",
       "toolSummaryDuration": "總耗時",
+      "toolSummaryEdits": "編輯次數",
       "toolSummaryFilesModified": "修改檔案",
       "toolSummaryFilesSearched": "搜尋檔案",
       "toolSummaryLinesAdded": "新增行數",
       "toolSummaryLinesDeleted": "刪除行數",
       "toolSummaryStreaming": "統計工具調用中…",
+      "toolSummaryTerminalCommands": "終端命令",
       "toolSummaryTitle": "工具調用匯總",
       "toolSummaryTotalCalls": "總調用",
       "toolSummaryWebSearched": "搜尋網頁",
@@ -11380,6 +11383,7 @@
       "loadFailed": "檢索失敗",
       "noMatch": "無相符結果"
     },
+    "questionCancelledByStop": "任務已停止,未回答的問題已取消",
     "modelSwitchStopped": "已切換到 {model},本輪回答已終止",
     "filePreviewEmpty": "檔案沒有可預覽的資料列",
     "filePreviewTypeMismatch": "檔案內容與 {ext} 格式不符",
@@ -11466,7 +11470,8 @@
       "title": "本輪變更",
       "revert": "恢復到本輪之前",
       "noCheckpoints": "無可用檢查點",
-      "revertConfirm": "即將把對話與檔案恢復到本條 AI 回覆之前。共 {count} 個檔案改動將回退,此操作不可撤銷。",
+      "revertConfirmWithTurns": "即將把對話與檔案恢復到本條 AI 回覆之前:共 {count} 個檔案改動將回退,並同時撤銷從這輪開始受影響的 {turns} 輪修改。任務記錄不會刪除,此操作不可撤銷。",
+      "revertConfirm": "即將把對話與檔案恢復到本條 AI 回覆之前:共 {count} 個檔案改動將回退。任務記錄不會刪除,此操作不可撤銷。",
       "changedFile": "修改檔案",
       "createdFile": "新建檔案",
       "deletedFile": "刪除檔案"
@@ -20258,6 +20263,7 @@
     "captureTraeWebCancelled": "已取消 Trae 網頁登入。重新點「網頁登入」可再試。"
   },
   "nav": {
+    "pdfTools": "PDF 工具",
     "accountPool": "個人號池",
     "checkin": "簽到助手",
     "monitorWallboard": "監控大屏",

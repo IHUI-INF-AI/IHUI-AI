@@ -8567,12 +8567,15 @@
       "timelineSubagentToolResultSuccess": "工具返回:{tool} 成功",
       "timelineTabsAriaLabel": "时间线 tab 切换",
       "toolCallsCount": "{n} 次工具调用",
+      "toolSummaryDirectories": "涉及目录",
       "toolSummaryDuration": "总耗时",
+      "toolSummaryEdits": "编辑次数",
       "toolSummaryFilesModified": "修改文件",
       "toolSummaryFilesSearched": "搜索文件",
       "toolSummaryLinesAdded": "新增行数",
       "toolSummaryLinesDeleted": "删除行数",
       "toolSummaryStreaming": "统计工具调用中…",
+      "toolSummaryTerminalCommands": "终端命令",
       "toolSummaryTitle": "工具调用汇总",
       "toolSummaryTotalCalls": "总调用",
       "toolSummaryWebSearched": "搜索网页",
@@ -11380,6 +11383,7 @@
       "loadFailed": "检索失败",
       "noMatch": "无匹配结果"
     },
+    "questionCancelledByStop": "任务已停止,未回答的问题已取消",
     "modelSwitchStopped": "已切换到 {model},本轮回答已终止",
     "filePreviewEmpty": "文件没有可预览的数据行",
     "filePreviewTypeMismatch": "文件内容与 {ext} 格式不符",
@@ -11466,7 +11470,8 @@
       "title": "本轮变更",
       "revert": "恢复到本轮之前",
       "noCheckpoints": "无可用检查点",
-      "revertConfirm": "即将把对话与文件恢复到本条 AI 回复之前。共 {count} 个文件改动将回退,此操作不可撤销。",
+      "revertConfirmWithTurns": "即将把对话与文件恢复到本条 AI 回复之前:共 {count} 个文件改动将回退,并同时撤销从这轮开始受影响的 {turns} 轮修改。任务记录不会删除,此操作不可撤销。",
+      "revertConfirm": "即将把对话与文件恢复到本条 AI 回复之前:共 {count} 个文件改动将回退。任务记录不会删除,此操作不可撤销。",
       "changedFile": "修改文件",
       "createdFile": "新建文件",
       "deletedFile": "删除文件"
@@ -20287,6 +20292,7 @@
     "loginRequired": "登录后管理你的个人号池"
   },
   "nav": {
+    "pdfTools": "PDF 工具",
     "accountPool": "个人号池",
     "checkin": "签到助手",
     "monitorWallboard": "监控大屏",

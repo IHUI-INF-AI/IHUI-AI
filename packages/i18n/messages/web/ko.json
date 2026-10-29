@@ -8567,12 +8567,15 @@
       "timelineSubagentToolResultSuccess": "도구 결과:{tool} 성공",
       "timelineTabsAriaLabel": "타임라인 탭",
       "toolCallsCount": "{n}회 도구 호출",
+      "toolSummaryDirectories": "대상 디렉터리",
       "toolSummaryDuration": "총 소요 시간",
+      "toolSummaryEdits": "편집 횟수",
       "toolSummaryFilesModified": "수정 파일",
       "toolSummaryFilesSearched": "검색 파일",
       "toolSummaryLinesAdded": "추가된 줄",
       "toolSummaryLinesDeleted": "삭제된 줄",
       "toolSummaryStreaming": "도구 호출 집계 중…",
+      "toolSummaryTerminalCommands": "터미널 명령",
       "toolSummaryTitle": "도구 호출 요약",
       "toolSummaryTotalCalls": "총 호출",
       "toolSummaryWebSearched": "웹 검색",
@@ -11383,6 +11386,7 @@
       "loadFailed": "검색 실패",
       "noMatch": "일치하는 결과 없음"
     },
+    "questionCancelledByStop": "작업이 중지되었으며, 답하지 않은 질문이 취소되었습니다",
     "modelSwitchStopped": "{model}(으)로 전환하여 이번 응답을 중단했습니다",
     "filePreviewEmpty": "미리 볼 수 있는 데이터 행이 없습니다.",
     "filePreviewTypeMismatch": "파일 내용이 {ext} 형식과 일치하지 않습니다.",
@@ -11469,7 +11473,8 @@
       "title": "이 턴의 변경 사항",
       "revert": "이 턴으로 되돌리기",
       "noCheckpoints": "체크포인트 없음",
-      "revertConfirm": "이 AI 답변 이전의 대화와 파일로 복원합니다. {count}개의 파일 변경이 되돌려지며, 이 작업은 되돌릴 수 없습니다.",
+      "revertConfirmWithTurns": "이 AI 답변 이전의 대화와 파일로 복원합니다: {count}개의 파일 변경이 되돌려지고, 이 턴부터 영향을 받는 {turns}개 턴의 변경도 함께 취소됩니다. 작업 기록은 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.",
+      "revertConfirm": "이 AI 답변 이전의 대화와 파일로 복원합니다: {count}개의 파일 변경이 되돌려집니다. 작업 기록은 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.",
       "changedFile": "파일 변경",
       "createdFile": "파일 생성",
       "deletedFile": "파일 삭제"
@@ -20286,6 +20291,7 @@
     "loginRequired": "로그인 후 계정 풀을 관리하세요"
   },
   "nav": {
+    "pdfTools": "PDF 도구",
     "accountPool": "내 계정 풀",
     "checkin": "출석",
     "monitorWallboard": "모니터링 월보",

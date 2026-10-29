@@ -25,7 +25,9 @@
 
 import { create } from 'zustand'
 
-import { normalizeOrgName, ORG_FOLDER_MAX_LENGTH } from '@ihui/shared'
+// 包内必须走相对路径:此前写 '@ihui/shared' 根 barrel ⇒ index.ts → 本文件 → index.ts 的
+// 循环依赖,Metro 每轮都警告 "can result in uninitialized values"。相对导入断开这条环。
+import { normalizeOrgName, ORG_FOLDER_MAX_LENGTH } from '../utils/conversation-org'
 import type { ApiResult } from '@ihui/types'
 import {
   createConversationGroup,
@@ -115,7 +117,8 @@ export function reasonFromFields(
   if (code === 'CONFLICT' || code === 'DUPLICATE' || status === 409) return 'duplicate-name'
   if (typeof status === 'number' && status >= 500) return 'server'
   const lowered = (message ?? '').toLowerCase()
-  if (/failed to fetch|networkerror|econnrefused|fetch failed|timeout/.test(lowered)) return 'offline'
+  if (/failed to fetch|networkerror|econnrefused|fetch failed|timeout/.test(lowered))
+    return 'offline'
   return 'unknown'
 }
 
@@ -123,7 +126,11 @@ export function reasonFromFields(
 export function classifyThrow(e: unknown): OrgFailureReason {
   const msg = e instanceof Error ? e.message : String(e)
   const lowered = msg.toLowerCase()
-  if (/failed to fetch|networkerror|econnrefused|fetch failed|timeout|network request failed/.test(lowered)) {
+  if (
+    /failed to fetch|networkerror|econnrefused|fetch failed|timeout|network request failed/.test(
+      lowered,
+    )
+  ) {
     return 'offline'
   }
   if (/(401)|unauthorized|invalid or expired token/.test(lowered)) return 'unauthorized'

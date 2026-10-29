@@ -35,6 +35,7 @@ import {
   Bot,
   Camera,
   Folder,
+  Library,
   Search,
   History,
   Bookmark,
@@ -71,16 +72,12 @@ import {
   deleteFavorite,
   getActiveCarousels,
   getAllStudyProgress,
-  getAgentDetail,
-  getAgentUseHistory,
   getAgents,
   getCourses,
-  getFavorites,
   getLiveList,
   getMyCreation,
   getMyCreationDetail,
   getShareFirstStatus,
-  getTokenBalance,
   fetchModels,
   resolveFileUrl,
   uploadFileMultipart,
@@ -101,12 +98,9 @@ import {
   type HomeRecommendItem,
 } from '@ihui/rn-app'
 import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
-import type { CarouselItem } from '@ihui/ui-native'
 import type { AiModelData, AppIcon, ChatModelType } from '@ihui/types'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
-import Carousel from '../components/Carousel'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
-import CardWithList, { type CardWithListItem } from '../components/CardWithList'
 import AiModelCard from '../components/AiModelCard'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
 import PopularCourses, { type PopularCourse } from '../components/PopularCourses'
@@ -116,7 +110,7 @@ import { ShareSheet } from '../components/ShareSheet'
 import { SearchOverlay } from '../components/SearchOverlay'
 import { BottomFigure, type BottomFigureItem } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
-// 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
+// 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
@@ -136,12 +130,8 @@ import ModelConfigDialog, {
   type ModelType as ConfigModelType,
 } from '../components/ModelConfigDialog'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
-import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
-// 对齐 Uniapp tools/index(AI应用商店):ai-list 智能体列表
+// 输入区「技能」弹窗的智能体条目契约(商品列表本身由 AI 应用商店页承载)
 import type { AgentShopItem } from '../components/AgentShopList'
-// 对齐 Uniapp tools/index:MyAgents(我的AI APP)+ IntelligentAssistant(智汇值卡)
-import MyAgents, { type MyAgentItem } from '../components/MyAgents'
-import IntelligentAssistant from '../components/IntelligentAssistant'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useNotificationStore } from '../stores/notification'
@@ -582,7 +572,7 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
   ],
 }
 
-// ── 对齐 Uniapp tools/index.vue(AI 应用商店)智能体列表相关 ──
+// ── 智能体条目映射(仅供输入区「技能」弹窗;商品列表由 AI 应用商店页承载) ──
 
 /** Agent → AgentShopItem 映射(2026-10-20 契约根治:主键是 agentId 而非 id,
  *  作者名取 userName(后端无 author 对象);点赞数后端无字段,省略由卡片显示 0 占位) */
@@ -596,21 +586,6 @@ function toAgentShopItem(a: Agent): AgentShopItem {
     collectCount: a.collectCount,
     usageCount: a.usageCount,
     userNickname: a.userName ?? undefined,
-    isVipExclusive: a.isVipExclusive,
-  }
-}
-
-/** AgentShopItem → AiModelData 映射(2026-10-20 商店主列表改用 AiModelCard 渲染多卡;
- *  id 走索引签名携带,回调按 data.id 定位;userType: 会员专享→freevip,其余→freeuse) */
-function toAgentModelData(a: AgentShopItem): AiModelData {
-  return {
-    id: a.id,
-    name: a.name,
-    subname: a.description,
-    icon: a.avatar,
-    tags: a.tags?.slice(0, 3),
-    userType: a.isVipExclusive ? 'freevip' : 'freeuse',
-    authorName: a.userNickname,
   }
 }
 
@@ -874,18 +849,7 @@ export function HomeScreen() {
     level: (user?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
-  /** RecentAgents 最近使用智能体(对齐 Uniapp tools/index RecentAgents)
-   *  api-client 暂无 getAgentUseHistory(/agent/use/history)封装,降级取智能体列表前 5 条占位 */
-  const [recentAgents, setRecentAgents] = useState<RecentAgentItem[]>([])
-
-  /** MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue)
-   *  数据源:与 agentItems 同源(loadAgentList 填充后取前 6 条),点击跳 AiAssistantN8n */
-  const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
-
-  /** IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue;数据源 getTokenBalance) */
-  const [tokenQuantity, setTokenQuantity] = useState(0)
-
-  // ── 对齐 Uniapp tools/index.vue:ai-list 智能体列表 ──
+  // ── 智能体列表(仅供输入区「技能」弹窗选取,首页不再渲染商品列表) ──
   const [agentItems, setAgentItems] = useState<AgentShopItem[]>([])
   // ── toodown 返回顶部(对齐 Uniapp onPageScroll > 阈值显示,RN 端 >600 显示) ──
   const [showBackTop, setShowBackTop] = useState(false)
@@ -1423,57 +1387,6 @@ export function HomeScreen() {
     void maybeTriggerFirstShareReward()
   }, [maybeTriggerFirstShareReward])
 
-  // ── RecentAgents 点击(对齐 Uniapp pitchHandlea → ai_assistant 对话页) ──
-  const handleRecentAgentPress = (item: RecentAgentItem): void => {
-    rootNav?.navigate('AiAssistantN8n', { agentId: item.id, title: item.name })
-  }
-
-  // ── MyAgents 我的AI APP 点击(对齐 Uniapp MyAgents.vue navigateTo → ai_assistant/ai_assistant_n8n) ──
-  const handleMyAgentPress = (item: MyAgentItem): void => {
-    const id = item.agentId ?? item.id
-    if (!id) return
-    rootNav?.navigate('AiAssistantN8n', { agentId: id, title: item.agentName ?? item.name })
-  }
-  /** 我的AI员工(对齐 Uniapp MyAgents.vue goToTeam → /pages/tools/ai_group/index) */
-  const handleTeamPress = (): void => {
-    rootNav?.navigate('AiGroup')
-  }
-  /** 智汇值卡充值(对齐 Uniapp Intelligent-assistant.vue topupClick → /pagesA/top-up/index) */
-  const handleRechargePress = (): void => {
-    if (!user) {
-      rootNav?.navigate('Login')
-      return
-    }
-    rootNav?.navigate('AppTopup')
-  }
-
-  /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
-  const bannerItems: CarouselItem[] = useMemo(
-    () =>
-      // 仅取有封面图的推荐(对齐原 tools Carousel banner_carousel;无 cover 则不渲染空图轮播)
-      recommends
-        .filter((r) => Boolean(r.cover))
-        .slice(0, 5)
-        .map((r) => ({
-          img: r.cover ?? '',
-          title: r.title,
-          link: r.id,
-        })),
-    [recommends],
-  )
-
-  /** CardWithList 推荐课程横向列表(对齐 Uniapp 首页推荐区) */
-  const cardItems: CardWithListItem[] = useMemo(
-    () =>
-      recommends.slice(0, 6).map((r) => ({
-        id: r.id,
-        title: r.title,
-        subtitle: r.instructor,
-        icon: BookOpen,
-      })),
-    [recommends],
-  )
-
   /** KnowledgePlanet 知识星球卡片数据(对齐 Uniapp 首页知识星球入口) */
   const knowledgeItems = useMemo(() => toKnowledgeItems(recommends, t), [recommends, t])
 
@@ -1491,11 +1404,6 @@ export function HomeScreen() {
   // ── AiModelCard 交互接线(2026-10-15:收藏接真后端 / 警告跳反馈页 / 分享用 ShareSheet) ──
   const [assistantFavorited, setAssistantFavorited] = useState(false)
   const [assistantShareVisible, setAssistantShareVisible] = useState(false)
-  /** 分享面板内容(品牌卡缺省固定文案;智能体卡按 data 动态设置,2026-10-20 泛化) */
-  const [cardShareTarget, setCardShareTarget] = useState<{
-    title: string
-    description: string
-  } | null>(null)
 
   // 已登录时同步收藏状态(GET /favorites/check)
   useEffect(() => {
@@ -1563,82 +1471,8 @@ export function HomeScreen() {
 
   /** 分享 → ShareSheet(品牌卡:固定品牌文案) */
   const handleAssistantShare = useCallback(() => {
-    setCardShareTarget(null)
     setAssistantShareVisible(true)
   }, [])
-
-  // ── 商店主列表 AiModelCard 逐卡接线(2026-10-20:数据源 agentItems,收藏接真后端) ──
-
-  /** 智能体卡收藏/取消收藏(resourceType='agent',乐观更新 agentItems,失败回滚) */
-  const handleAgentCardFavorite = useCallback(
-    async (data: AiModelData) => {
-      const agentId = String(data.id ?? '')
-      if (!agentId) return
-      if (!token) {
-        showToast('info', t('home.loginToFavorite'))
-        return
-      }
-      const current = agentItems.find((a) => a.id === agentId)
-      const nextFavorited = !current?.isCollect
-      // 乐观更新
-      setAgentItems((prev) =>
-        prev.map((a) => (a.id === agentId ? { ...a, isCollect: nextFavorited } : a)),
-      )
-      try {
-        const res = nextFavorited
-          ? await addFavorite('agent', agentId)
-          : await deleteFavorite('agent', agentId)
-        if (res.success) {
-          showToast(
-            nextFavorited ? 'success' : 'info',
-            nextFavorited ? t('home.favDone') : t('home.favRemoved'),
-          )
-        } else {
-          // 失败回滚
-          setAgentItems((prev) =>
-            prev.map((a) => (a.id === agentId ? { ...a, isCollect: !nextFavorited } : a)),
-          )
-          showToast('error', res.error || t('home.favFailed'))
-        }
-      } catch {
-        setAgentItems((prev) =>
-          prev.map((a) => (a.id === agentId ? { ...a, isCollect: !nextFavorited } : a)),
-        )
-        showToast('error', t('home.favNetBusy'))
-      }
-    },
-    [token, agentItems, showToast, t],
-  )
-
-  /** 智能体卡点击 → AiAssistantN8n 对话页(对齐 handleSkillAgentPress) */
-  const handleAgentCardPress = useCallback(
-    (data: AiModelData) => {
-      const agentId = String(data.id ?? '')
-      if (!agentId) return
-      rootNav?.navigate('AiAssistantN8n', { agentId, title: data.name })
-    },
-    [rootNav],
-  )
-
-  /** 智能体卡信息:展示该智能体简介 */
-  const handleAgentCardInfo = useCallback(
-    (data: AiModelData) => {
-      showToast('info', String(data.subname || data.name))
-    },
-    [showToast],
-  )
-
-  /** 智能体卡分享 → ShareSheet(标题随卡片) */
-  const handleAgentCardShare = useCallback(
-    (data: AiModelData) => {
-      setCardShareTarget({
-        title: t('home.shareBoardTitle', { name: data.name }),
-        description: String(data.subname || ''),
-      })
-      setAssistantShareVisible(true)
-    },
-    [t],
-  )
 
   /** FunctionBlockColumn 点击路由映射 */
   const onFunctionBlockPress = (id: string) => {
@@ -1690,12 +1524,6 @@ export function HomeScreen() {
 
   useEffect(() => {
     void load()
-    // 智汇值卡余额(对齐 Uniapp Intelligent-assistant.vue 展示用户智汇值;getTokenBalance)
-    void getTokenBalance()
-      .then((res) => {
-        if (res.success) setTokenQuantity(res.data.balance)
-      })
-      .catch(() => undefined)
     // 真实模型列表(fetchModels → /llm/models,与 web ModelSelector fetchSelectorModels 同源;
     // 按 provider 分组;category 透传 —— 弹窗分类 tab 过滤依赖它,缺失按 web normalizeCategory 兜底 chat。
     // description 显示代次档位(厂商名与分组标题重复,无信息量);组内按 latest→standard→legacy 排序)
@@ -1772,67 +1600,16 @@ export function HomeScreen() {
     }
   }, [])
 
-  /** 最近使用智能体(对齐 Uniapp getAgentUseHistory → /agents/use-history;
-   *  返回 botId 列表,并行查详情关联名称/头像;失败降级用 agentItems 前 5 条) */
-  const loadRecentAgents = useCallback(async (fallback: AgentShopItem[] = []): Promise<void> => {
-    try {
-      const res = await getAgentUseHistory({ page: 1, pageSize: 5 })
-      if (res.success && res.data.list.length > 0) {
-        const bots = res.data.list.slice(0, 5)
-        const details = await Promise.all(
-          bots.map((b) =>
-            getAgentDetail(b.botId).then(
-              (d) => (d.success ? d.data : null),
-              () => null,
-            ),
-          ),
-        )
-        const items: RecentAgentItem[] = details
-          .filter((d): d is Agent => d !== null)
-          .map((d) => ({ id: d.agentId, name: d.name, avatar: d.avatar ?? undefined }))
-        if (items.length > 0) {
-          setRecentAgents(items)
-          return
-        }
-      }
-    } catch {
-      // 接口失败走降级
-    }
-    setRecentAgents(fallback.slice(0, 5).map((a) => ({ id: a.id, name: a.name, avatar: a.avatar })))
-  }, [])
-
-  // ── 智能体列表加载(对齐 Uniapp tools/index getAgentList;2026-10-20 用户定:首页不做分类筛选) ──
+  // ── 智能体列表加载(仅供输入区「技能」弹窗;首页不再渲染商品列表,AI 应用商店页承载) ──
   const loadAgentList = useCallback(async (): Promise<void> => {
     const res = await getAgents({
       status: 'published',
       pageSize: 20,
     })
     if (res.success) {
-      const list = (res.data.list ?? []).map(toAgentShopItem)
-      // 收藏态回读(2026-10-20:后端 agents 列表不回传 isFavorited,
-      // 用 GET /favorites 里 resourceType='agent' 的 resourceId 集合回填 isCollect,
-      // 保证刷新后书签高亮与后端一致;回读失败不阻塞列表。
-      // pageSize 上限 100(后端 ajv/Zod 双层 max 100,传 200 直接 400 被吞成全部未收藏))
-      try {
-        const favRes = await getFavorites({ page: 1, pageSize: 100 })
-        if (favRes.success) {
-          const favIds = new Set(
-            (favRes.data.list ?? [])
-              .filter((f) => f.resourceType === 'agent')
-              .map((f) => f.resourceId),
-          )
-          for (const item of list) item.isCollect = favIds.has(item.id)
-        }
-      } catch {
-        // 收藏态回读失败走缺省未收藏
-      }
-      setAgentItems(list)
-      setMyAgents(
-        list.slice(0, 6).map((a) => ({ agentId: a.id, agentName: a.name, avatar: a.avatar })),
-      )
-      void loadRecentAgents(list)
+      setAgentItems((res.data.list ?? []).map(toAgentShopItem))
     }
-  }, [loadRecentAgents])
+  }, [])
 
   useEffect(() => {
     void loadAgentList()
@@ -1845,11 +1622,6 @@ export function HomeScreen() {
     [agentItems],
   )
 
-  /** 商店主列表 AiModelCard 数据(2026-10-20:后端 agents → 多卡渲染,见 MyAgents 后区块) */
-  const agentModelData: AiModelData[] = useMemo(
-    () => agentItems.map(toAgentModelData),
-    [agentItems],
-  )
   /** 技能弹窗智能体点击(对齐 Uniapp handleAgentPitch → ai_assistant 对话页;跳转后关闭弹窗) */
   const handleSkillAgentPress = useCallback(
     (id: string): void => {
@@ -1905,27 +1677,8 @@ export function HomeScreen() {
         <View style={shellStyles.bottomFigureWrap}>
           <BottomFigure items={carouselList.length > 0 ? carouselList : undefined} />
         </View>
-        {/* Carousel banner 轮播(对齐 Uniapp 首页轮播图) */}
-        {bannerItems.length > 0 ? (
-          <View style={shellStyles.carouselWrap}>
-            <Carousel
-              banner={bannerItems}
-              onItemPress={(item) => {
-                if (item.link) navigation.navigate('CourseDetail', { id: item.link })
-              }}
-            />
-          </View>
-        ) : null}
-        {/* CardWithList 推荐课程横向列表(对齐 Uniapp 首页推荐区) */}
-        {cardItems.length > 0 ? (
-          <View style={shellStyles.cardListWrap}>
-            <CardWithList
-              title={t('home.recommendCourses')}
-              items={cardItems}
-              onItemClick={(id) => navigation.navigate('CourseDetail', { id })}
-            />
-          </View>
-        ) : null}
+        {/* 课程封面轮播与横向推荐列表已下线(2026-10-29 机主定:首页不堆同数据源区块):
+         *  同一份 recommends 课程数据只由共享屏「推荐课程」区段渲染一次 */}
         {/* AiModelCard AI 模型卡片(对齐 Uniapp 首页 AI 模型入口;
             2026-10-15 全交互接线:收藏/举报/踩/详情/分享) */}
         <View style={shellStyles.aiModelWrap}>
@@ -1940,46 +1693,8 @@ export function HomeScreen() {
             onSharePress={handleAssistantShare}
           />
         </View>
-        {/* RecentAgents 最近使用智能体(对齐 Uniapp tools/index RecentAgents)
-         *  数据源:无 getAgentUseHistory 接口,降级取智能体列表前 5 条(loadAgentList 内更新);
-         *  点击跳 AiAssistant(对齐 Uniapp pitchHandlea → /pages/tools/ai_assistant) */}
-        {recentAgents.length > 0 ? (
-          <View style={shellStyles.sectionWrap}>
-            <RecentAgents items={recentAgents} onItemClick={handleRecentAgentPress} />
-          </View>
-        ) : null}
-        {/* IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue:小方欢迎卡 + 剩余智汇值 + 充值) */}
-        <View style={shellStyles.sectionWrap}>
-          <IntelligentAssistant tokenQuantity={tokenQuantity} onRecharge={handleRechargePress} />
-        </View>
-        {/* MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue:标题 + 我的AI员工入口 + 横滑卡片)
-         *  数据源:与 ai-list 同源取前 6 条;点击跳 AiAssistantN8n */}
-        <View style={shellStyles.sectionWrap}>
-          <MyAgents
-            items={myAgents}
-            onItemClick={handleMyAgentPress}
-            onTeamPress={handleTeamPress}
-          />
-        </View>
-        {/* 商店主列表(对齐 Uniapp tools/index ai-list 主体;2026-10-20 改用 AiModelCard
-         *  按后端 agents 渲染多卡:点击开聊/收藏接真后端/警告跳反馈/分享随卡) */}
-        {agentModelData.length > 0 ? (
-          <View style={shellStyles.sectionWrap}>
-            {agentModelData.map((d) => (
-              <AiModelCard
-                key={String(d.id)}
-                data={d}
-                favorited={agentItems.find((a) => a.id === d.id)?.isCollect}
-                onPress={handleAgentCardPress}
-                onWarningPress={handleAssistantWarning}
-                onDislikePress={handleAssistantDislike}
-                onFavoritePress={handleAgentCardFavorite}
-                onInfoPress={handleAgentCardInfo}
-                onSharePress={handleAgentCardShare}
-              />
-            ))}
-          </View>
-        ) : null}
+        {/* 最近使用 / 智汇值卡 / 我的AI APP / 智能体商品列表 只在「AI 应用商店」Tab 呈现,
+         *  首页不重复(2026-10-29 机主定) */}
         <SharedHomeScreen
           t={t}
           userNickname={user?.nickname || user?.phone || ''}
@@ -2081,52 +1796,27 @@ export function HomeScreen() {
       {/* ModelTypeBar 模型类型选择栏(原对齐 Uniapp BottomActionBar 8 种 model-type-btn 行 44-97)
        *  2026-10-15 用户重构:外挂选择栏整块移除,8 种分类改经 categories props 收进 InputArea
        *  大输入框内「+」左侧(对齐 web 输入卡底栏两行布局);selectedModel 小标签随分类行内嵌 */}
-      {/* 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮 showMaterialList=true,
-       *  点击打开并加载"全部"tab(getMyCreation('agent') 我的创作数据) */}
-      <TouchableOpacity
-        onPress={handleOpenMaterialList}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={t('common.myCreation')}
-        style={shellStyles.creationEntry}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs }}>
-          <Folder size={13} color={tokens.brand.DEFAULT} />
-          <Text style={shellStyles.creationEntryText}>{t('common.myCreation')}</Text>
-        </View>
-      </TouchableOpacity>
+      {/* 「我的创作」入口与素材卡片行一律不挂在此处:本行之后是绝对定位的 bottomDock,
+          普通流兄弟节点会被 flex:1 的 ScrollView 顶到屏幕最底边,从悬浮胶囊下面露出来
+          (2026-10-27 实机反馈「下面怎么还有个我的创作的嵌套块」)。
+          入口收进 AddPanel 的 heroItem(与 ChatScreen 同形),卡片行进停靠区贴着输入框。
+          2026-10-29:81f08b3533 已做的这组迁移被并发回潮抹回旧形态,此处按原判决重放。 */}
       {/* 语音输入已内嵌 InputArea 大输入框(麦克风长按录音,2026-09-22 用户定稿):
           原独立 VoiceInput「按住说出你的问题」行移除,转文字回填输入框,随提交跳 Chat */}
-      {/* 素材卡片行(对齐 Uniapp material-cards-wrap:点击素材插入输入区上方,每卡右上 × 移除)
-       *  数据源 materialCards 由 handleMaterialPress 写入,横向滚动包裹 */}
-      {materialCards.length > 0 ? (
-        <View style={shellStyles.materialCardsWrap}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={shellStyles.materialCardsRow}>
-              {materialCards.map((card) => (
-                <View key={card.uid} style={shellStyles.materialCardItem}>
-                  <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
-                    {card.title}
-                  </Text>
-                  <Pressable
-                    onPress={() => handleRemoveMaterialCard(card.uid)}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('home.a11yRemoveMat')}
-                  >
-                    <Text style={shellStyles.materialCardClose}>×</Text>
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-      ) : null}
       {/* 输入框「+」底部滑出菜单:统一走共享 AddPanel(图标按钮组:相机/相册/本地文件/微信文件,
           与 BottomActionBar/ChatScreen 同源),上传结果拼入输入框随提交发送 */}
       <AddPanel
         visible={plusPanelVisible}
         onClose={closePlusPanel}
+        // 「我的创作」主入口行(2026-10-27 自页面底部迁入):与 ChatScreen 的
+        // BottomActionBar → AddPanel heroItem 同一形态与同一文案键,不再在屏幕底边另挂一行
+        heroItem={{
+          key: 'my-creation',
+          label: t('common.myCreation'),
+          subtitle: t('common.myCreationSubtitle'),
+          icon: <Library size={24} color={tokens.text.secondary} />,
+          onPress: handleOpenMaterialList,
+        }}
         items={[
           {
             key: 'camera',
@@ -2487,12 +2177,12 @@ export function HomeScreen() {
         onClose={closeRewardDialog}
         secondaryLabel={t('home.shareRewardLater')}
       />
-      {/* AiModelCard 分享面板(2026-10-15 接线;2026-10-20 泛化:智能体卡随卡设置标题/描述) */}
+      {/* AiModelCard 分享面板(2026-10-15 接线;品牌卡固定文案,与导航栏那枚的组件缺省不同键) */}
       <ShareSheet
         visible={assistantShareVisible}
         onClose={() => setAssistantShareVisible(false)}
-        shareTitle={cardShareTarget?.title ?? t('home.shareDefaultTitle')}
-        shareDescription={cardShareTarget?.description ?? t('home.shareDefaultDesc')}
+        shareTitle={t('home.shareDefaultTitle')}
+        shareDescription={t('home.shareDefaultDesc')}
         onNotify={(type, message) => showToast(type, message)}
       />
       {/* 分享面板(导航栏「分享」触发;微信原生分享 + web 复制链接降级,见组件头注释) */}
@@ -2514,6 +2204,33 @@ export function HomeScreen() {
         style={shellStyles.bottomDock}
         onLayout={(e) => setDockHeight(e.nativeEvent.layout.height)}
       >
+        {/* 素材卡片行(对齐 Uniapp material-cards-wrap:每卡右上 × 移除;数据源 materialCards
+         *  由 handleMaterialPress 写入)。2026-10-27 由页面根容器迁入停靠区:它是输入框的附件行,
+         *  挂在 ScrollView 之后会落到屏幕最底边(胶囊下面);停靠区高度经 onLayout 回灌
+         *  ScrollView 预留,内容不会与它叠字。 */}
+        {materialCards.length > 0 ? (
+          <View style={shellStyles.materialCardsWrap}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={shellStyles.materialCardsRow}>
+                {materialCards.map((card) => (
+                  <View key={card.uid} style={shellStyles.materialCardItem}>
+                    <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
+                      {card.title}
+                    </Text>
+                    <Pressable
+                      onPress={() => handleRemoveMaterialCard(card.uid)}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('home.a11yRemoveMat')}
+                    >
+                      <Text style={shellStyles.materialCardClose}>×</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        ) : null}
         {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分)
          *  常驻输入栏(2026-09-22 用户明令去掉折叠 FAB 加号球:collapsible/defaultCollapsed 均不传,
          *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
@@ -2573,14 +2290,6 @@ const shellStyles = {
   // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体底色由外层导航容器提供
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(120) } as const,
-  // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
-  carouselWrap: {
-    marginTop: rpx(18),
-    marginBottom: rpx(16),
-    borderRadius: rnRadius['2xl'],
-    overflow: 'hidden',
-  } as const,
-  cardListWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   aiModelWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   sectionWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   bottomFigureWrap: {
@@ -2593,17 +2302,8 @@ const shellStyles = {
   //  不同脸;端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。 ──
   // ── ModelTypeBar 模型类型选择栏样式已随外挂选择栏移除(2026-10-15 用户重构:
   //  分类收进 InputArea 大输入框,样式随迁至 InputArea.tsx catChip 族) ──
-  // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
-  creationEntry: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(12),
-  } as const,
-  creationEntryText: {
-    fontSize: 13,
-    color: tokens.brand.DEFAULT,
-    fontWeight: '600',
-  } as const,
+  // ── creationEntry 我的创作入口样式已随入口移除(2026-10-27:入口收进 AddPanel heroItem,
+  //  与 ChatScreen 同源;原样式挂在 ScrollView 之后的普通流位置,会落到屏幕最底边) ──
   // ── 素材卡片行(对齐 Uniapp material-cards-wrap:卡片带标题 + 右上 × 移除,compact 风格) ──
   materialCardsWrap: {
     paddingHorizontal: rpx(24),
