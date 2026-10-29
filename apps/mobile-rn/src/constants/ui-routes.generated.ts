@@ -8,14 +8,13 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 600705e7eee6f2df591b90b6ba3d2f994519fd51
-// inputsSha256: 328ca5fdb08d36967b9d6b3ddc5f10118714fe971cf68f8f16b176c03792a3d2
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 17a6eeea39bcaecb7cb589213df273d1bfd247002ff47414a1e409992017d3cc
+// sourceCommit: 0de6e9f4f3de5cb14bef9227594314d16b992ba6
+// inputsSha256: abe9de1a83f64cb7cc1a31a6fa756a3441793a2e0fd4a9816abbd98bed1cc717
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 9d3b6f61a63f260a618bb5a4d9b3006df0458584d0f782be8bf06731a9c72c1a
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-28T18:36:54.284Z
+// generatedAt: 2026-10-29T06:14:51.596Z
 // IHUI-GEN-PIN-END
-
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
 export interface RnUiRouteEntry {
@@ -29,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 322 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 329 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -52,6 +51,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'PointsRecord', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'TaskCenter', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'CheckIn', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ScanLogin', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'CheckinAssistant', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AccountPool', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Ranking', tab: false, requiresParams: false, requiredParams: [] },
@@ -143,6 +143,17 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Agreement', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'About', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Status', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'SignUp', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'CirclePost', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Invitations', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Letters', tab: false, requiresParams: false, requiredParams: [] },
+  {
+    name: 'LetterChat',
+    tab: false,
+    requiresParams: true,
+    requiredParams: ['memberId', 'memberName'],
+  },
+  { name: 'SearchHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AiWorldDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'AiWorldEdit', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'AiWorldFavorites', tab: false, requiresParams: false, requiredParams: [] },
