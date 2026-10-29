@@ -30,6 +30,8 @@ const CRON_PATTERN = '*/5 * * * *'
 const TRAE_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 每 10 分钟把本机 Qoder 登录态回灌进号池(同族:refreshToken 轮换由客户端主导,池只跟随) */
 const QODER_SYNC_CRON_PATTERN = '*/10 * * * *'
+/** 每 10 分钟把本机 WorkBuddy 会话模板回灌进号池(票不回灌,只补「登录本机」的配方三键) */
+const WORKBUDDY_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 仓根(scripts/sync-*-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
 const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 
@@ -72,6 +74,19 @@ async function runClientSessionSync(scriptName: string): Promise<ClientSyncOutco
     stderr: result.err.slice(0, 400),
   }
 }
+
+/**
+ * 任务中心手动触发的出口(2026-10-29 补回,同日补 workbuddy)。
+ * 共用助手重构把这两个按名取用的出口摘掉了,而 relay-task-center.ts 仍按名 import
+ * ⇒ 运行时 `runTraeSessionSync is not a function`,管理面「手动触发」直接 500
+ * (测试 mock 了同名键,所以 mock 面一直是绿的)。
+ */
+export const runTraeSessionSync = (): Promise<ClientSyncOutcome> =>
+  runClientSessionSync('sync-trae-client-session.mjs')
+export const runQoderSessionSync = (): Promise<ClientSyncOutcome> =>
+  runClientSessionSync('sync-qoder-client-session.mjs')
+export const runWorkbuddySessionSync = (): Promise<ClientSyncOutcome> =>
+  runClientSessionSync('sync-workbuddy-client-session.mjs')
 
 export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
   registerAllRelayAdapters()
@@ -121,9 +136,22 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           },
         },
       )
+      await queue.upsertJobScheduler(
+        'workbuddy-session-sync-cron',
+        { pattern: WORKBUDDY_SYNC_CRON_PATTERN },
+        {
+          name: 'workbuddy-session-sync',
+          data: {},
+          opts: {
+            removeOnComplete: 100,
+            removeOnFail: 500,
+          },
+        },
+      )
       server.log.info({ pattern: CRON_PATTERN }, 'relay-account-pool sweep scheduled')
       server.log.info({ pattern: TRAE_SYNC_CRON_PATTERN }, 'trae-session-sync scheduled')
       server.log.info({ pattern: QODER_SYNC_CRON_PATTERN }, 'qoder-session-sync scheduled')
+      server.log.info({ pattern: WORKBUDDY_SYNC_CRON_PATTERN }, 'workbuddy-session-sync scheduled')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule relay-account-pool sweep')
     }
@@ -132,11 +160,17 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
   const worker = new Worker(
     RELAY_ACCOUNT_POOL_QUEUE_NAME,
     async (job) => {
-      if (job.name === 'trae-session-sync' || job.name === 'qoder-session-sync') {
-        const isQoder = job.name === 'qoder-session-sync'
-        const outcome = await runClientSessionSync(
-          isQoder ? 'sync-qoder-client-session.mjs' : 'sync-trae-client-session.mjs',
-        )
+      if (
+        job.name === 'trae-session-sync' ||
+        job.name === 'qoder-session-sync' ||
+        job.name === 'workbuddy-session-sync'
+      ) {
+        // 脚本名单源在三个命名出口里,调度分支与手动触发口走同一条路
+        const outcome = await (job.name === 'qoder-session-sync'
+          ? runQoderSessionSync()
+          : job.name === 'workbuddy-session-sync'
+            ? runWorkbuddySessionSync()
+            : runTraeSessionSync())
         // 退出码 2 = 未判定(本机无对应客户端/解密失败/tsx 缺失):服务器部署形态
         // 的常态,记 warn 不记 failure(它不该进 BullMQ 失败重试风暴)
         if (outcome.code === 2) {
