@@ -137,7 +137,7 @@ export default function TabBar({ activeTab, onChange, labels, blurTarget }: TabB
         >
           {Platform.OS === 'ios' || androidBlur ? (
             <BlurView
-              intensity={resolvedTheme === 'dark' ? 40 : 48}
+              intensity={resolvedTheme === 'dark' ? 68 : 74}
               tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
               blurMethod={androidBlur ? 'dimezisBlurView' : undefined}
               blurTarget={blurTarget}
