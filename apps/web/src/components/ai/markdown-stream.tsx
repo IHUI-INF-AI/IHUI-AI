@@ -42,7 +42,8 @@ import { useCodeBlockPrefsStore } from '@/stores/code-block-prefs'
 import { codeTextToPngBlob } from '@/lib/copy-as-image'
 import { useCodeBlockRun, isRunnableLanguage, type RunResult } from '@/components/ai/code-block-run'
 // P3 #35(2026-09-16 立):流式稳定段/活跃段切分——稳定前缀 memo 缓存跳过 parse
-import { splitMarkdownStable } from '@/lib/markdown-stable-split'
+// 2026-10-30:块级增量——稳定前缀再按安全切点拆块,每块独立 memo,每帧只重解析最后一块
+import { splitMarkdownBlocks, splitMarkdownStable } from '@/lib/markdown-stable-split'
 // V3 #70(2026-09-27 立):PDF/CSV/TSV/office 消息内富预览的唯一入口。
 // 取代此前 P3 #32 的两个分支与 D41 的 office 分支 —— 派发器内部仍复用既有
 // PDFViewer(pdf.js)/ OfficePreview(SUPPORTED_EXTS 唯一支持表),不是第二套实现。
@@ -1308,6 +1309,17 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   //   逐帧高度单调判据;jsdom 侧另钉"用户意志接管"与"carry 优先"两型。
   const { stable, active } = React.useMemo(() => splitMarkdownStable(parseContent), [parseContent])
 
+  // 2026-10-30 块级增量渲染:stable 前缀按全部安全切点拆成有序块,每块一个 StableBlock。
+  // 切点只会向后追加(流式纯追加 ⇒ 已落地切点不移动)⇒ 前缀块 content 字符串恒等,
+  // StableBlock memo 命中、整块跳过 parse;新内容只落在最后一块与 active。
+  // key 用序号:块的"身份"就是它在切点序列里的位置,前缀块内容不会变。
+  // 其余一律不动:active 仍整段渲染(含在写代码块判定)、components 依赖仍只有
+  // collapseLines、throttle 与 parseContent 的虚拟闭合逻辑原样。
+  const renderBlocks = React.useMemo(
+    () => (stable ? splitMarkdownBlocks(stable).blocks : []),
+    [stable],
+  )
+
   return (
     // 2026-08-02:AI 对话正文 14px → 15px(text-[15px]),用户反馈"太大了 小点"
     // 2026-10-28 观感档⑤:流式光标改 CSS ::after 内联尾随(stream-caret-host,定义在
@@ -1319,8 +1331,10 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
     >
       {stable ? (
         <>
-          {/* 稳定前缀:内容冻结,memo 命中时零 parse */}
-          <StableBlock content={stable} components={components} />
+          {/* 稳定前缀:按块冻结,各块 memo 命中时零 parse(每帧只重解析最后一块) */}
+          {renderBlocks.map((block, index) => (
+            <StableBlock key={`block-${index}`} content={block} components={components} />
+          ))}
           <ReactMarkdown
             remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
             rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}

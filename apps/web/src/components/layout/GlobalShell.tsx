@@ -399,6 +399,8 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             fallback={
               <aside
                 aria-hidden
+                // 与真实桌面侧栏同锚点:沉浸模式隐藏时占位也要一起收,否则留下 160px 空洞
+                data-main-sidebar=""
                 data-viewport-collapsed="true"
                 className="relative h-screen shrink-0 bg-background"
                 style={{ width: 'var(--sidebar-width, 160px)' }}

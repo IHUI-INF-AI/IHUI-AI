@@ -57,6 +57,39 @@ function Readout({
   )
 }
 
+/** 速率火花线:最近 24 拍(含 0 停顿样本)。纯 SVG,无渐变、无第三方图表库。 */
+function RateSparkline({ samples }: { samples: number[] }) {
+  if (samples.length < 2) return null
+  const width = 64
+  const height = 16
+  const max = Math.max(...samples, 1)
+  const step = width / (samples.length - 1)
+  const points = samples
+    .map((value, index) => {
+      const x = index * step
+      const y = height - 1 - (Math.max(0, value) / max) * (height - 3)
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="ml-auto h-4 w-16 shrink-0 text-primary/60"
+      aria-hidden
+      data-telemetry-sparkline=""
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 export function StreamTelemetryBar({ className }: { className?: string }) {
   const t = useTranslations('chat')
   const telemetry = useStreamTelemetry()
@@ -119,6 +152,7 @@ export function StreamTelemetryBar({ className }: { className?: string }) {
           testId="failed"
         />
       )}
+      <RateSparkline samples={telemetry.rateSamples} />
     </div>
   )
 }
