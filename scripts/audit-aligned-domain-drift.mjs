@@ -25,10 +25,10 @@
  * Usage:
  *   node scripts/audit-aligned-domain-drift.mjs [--json] [--worktree] [--self-test]
  */
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { catBatch } from './lib/face-reader.mjs'
 
 const ROOT = join(import.meta.dirname, '..')
 const MAP_REL = 'scripts/data/web-rn-screen-map.jsonl'
@@ -79,30 +79,18 @@ function batchReadFace(face, rels) {
     }
     return out
   }
-  const spec = face === 'staged' ? '' : 'HEAD:'
-  const input = rels.map((r) => `${spec}${r}\n`).join('')
-  const buf = execFileSync('git', ['cat-file', '--batch'], {
-    cwd: ROOT,
-    input,
-    maxBuffer: 1 << 28,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  })
-  let pos = 0
+  // 批量取材走共享层:自拼 `cat-file --batch` 要把 stdio[0]=pipe / maxBuffer / 头解析三处
+  // 本仓都真踩过的坑各重写一遍,棘轮测试按文件计数。索引面用 git 的 `:path` 魔数
+  // (原实现写的是空前缀,即把裸路径当对象规格喂进去 —— 取不到只会静默记 null)。
+  const spec = face === 'staged' ? ':' : 'HEAD:'
+  const raw = catBatch(
+    ROOT,
+    rels.map((r) => `${spec}${r}`),
+  )
   for (const rel of rels) {
-    const nl = buf.indexOf(0x0a, pos)
-    if (nl < 0) break
-    const header = buf.subarray(pos, nl).toString('utf8')
-    pos = nl + 1
-    const m = /^[0-9a-f]{40} blob (\d+)$/.exec(header)
-    if (!m) {
-      out.set(rel, null) // "<spec> missing" / ambiguous
-      continue
-    }
-    const size = Number(m[1])
-    out.set(rel, buf.subarray(pos, pos + size).toString('utf8'))
-    pos += size + 1 // 跳过内容后的换行
+    const v = raw.get(`${spec}${rel}`)
+    out.set(rel, typeof v === 'string' ? v : null)
   }
-  for (const rel of rels) if (!out.has(rel)) out.set(rel, null)
   return out
 }
 
