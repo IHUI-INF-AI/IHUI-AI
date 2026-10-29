@@ -21,8 +21,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { encryptEnvelope, traeUserDataDirs } from './trae-auth-extract.mjs'
+// 路径归一的唯一出口(§0.6):本仓"按可执行路径划归属"那把尺住在 desktop-victims.mjs,
+// 这里只复用它的 normalizeWinPath,不在第二处再写一遍分隔符/大小写规矩。
+import { normalizeWinPath } from './desktop-victims.mjs'
 
 /** storage.json 里 IDE 会话凭据键(与 trae-auth-extract 的 pickAuthEnvelopeKeys 同键面) */
 export const AUTH_KEY = 'iCubeAuthInfo://icube.cloudide'
@@ -185,12 +188,118 @@ export function isTraeRunning() {
   }
 }
 
-/** 强杀客户端(含子进程树);调用方负责等落盘静默 */
-export function killTrae() {
-  execFileSync('taskkill', ['/IM', TRAE_PROCESS, '/F', '/T'], {
+/** PowerShell 取数腿宿主(与 scripts/desktop-dev-saas.mjs 那条同形;System32 那份恒在) */
+const PS_BIN = fs.existsSync('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe')
+  ? 'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+  : 'powershell'
+
+/**
+ * 可停实例的归属根 = 本机 Trae 客户端的**安装根**(实测本机存在
+ * `C:/Users/<user>/AppData/Local/Programs/Trae CN`,而 `PROGRAMFILES/Trae CN` 不存在 ⇒ 取存在者)。
+ * 按可执行路径划归属,而不是按映像名:`taskkill /IM <裸文件名>` 只接受裸文件名 ⇒ 会连全机同名进程
+ * 一起杀(§5e-2 删除类动作必须有归属面;本仓为这一型记过误杀事故)。
+ */
+export function traeInstallRoots(env = process.env, exists = fs.existsSync) {
+  const out = []
+  for (const base of [env.LOCALAPPDATA, env.PROGRAMFILES, env['PROGRAMFILES(X86)']]) {
+    if (!base) continue
+    const p = path.join(base, 'Trae CN')
+    if (exists(p)) out.push(path.resolve(p))
+  }
+  return out
+}
+
+/**
+ * 枚举同名实例的 `pid|ExecutablePath`。
+ * 取不到(宿主不可用 / 非 0 退出)⇒ 返回 null,由调用方按"未判定"处理并**一个都不杀**;
+ * 绝不把"问不到"折成"没在跑"或"可以放心杀"(§0.3)。
+ */
+export function listTraeProcessRows(spawn = spawnSync, psBin = PS_BIN) {
+  const script =
+    `Get-CimInstance Win32_Process -Filter "Name='${TRAE_PROCESS}'" | ` +
+    `ForEach-Object { '{0}|{1}' -f $_.ProcessId, $_.ExecutablePath }`
+  const r = spawn(psBin, ['-NoProfile', '-NonInteractive', '-Command', script], {
+    encoding: 'utf8',
     windowsHide: true,
-    stdio: 'ignore',
+    timeout: 40000,
+    stdio: ['ignore', 'pipe', 'pipe'], // §12g:不吃的子进程必须显式 stdio,否则本机 spawnSync EBUSY
   })
+  if (!r || r.status !== 0) return null
+  return String(r.stdout || '')
+}
+
+/**
+ * 归属判定:pid 的 ExecutablePath 必须落在某个安装根**之下**(带分隔符,`…/Trae CN2/…` 只是字符串前缀相似,
+ * 不算)才可停;路径问不到的一律归 foreign 并报名 —— 失效方向刻意是"少停"。
+ */
+export function selectTraeVictims(rawStdout, roots = []) {
+  const normRoots = (roots || []).map((r) => normalizeWinPath(r))
+  const mine = []
+  const foreign = []
+  for (const row of String(rawStdout ?? '').split(/\r?\n/)) {
+    const i = row.indexOf('|')
+    if (i < 0) continue // 表头/空行/被截断的行
+    const pid = row.slice(0, i).trim()
+    const exe = row.slice(i + 1).trim()
+    if (!/^\d+$/.test(pid)) continue
+    if (!exe) {
+      foreign.push(`${pid}(路径问不到)`)
+      continue
+    }
+    const n = normalizeWinPath(exe)
+    if (normRoots.some((r) => n.startsWith(`${r}/`))) mine.push(pid)
+    else foreign.push(`${pid}(${exe})`)
+  }
+  return { mine, foreign }
+}
+
+/**
+ * 强杀客户端(含子进程树);调用方负责等落盘静默。
+ *
+ * 筛不出归属 ⇒ **一个都不杀并抛 SwitchError**,而不是静默继续:客户端还活着就让调用方去写
+ * storage.json,它退出时会用内存态把刚写的覆盖回去 —— 那正是 isTraeRunning 这道闸要防的事,
+ * 所以"杀不动"必须显式失败让人决定,不能悄悄走过去。
+ */
+export function killTrae({
+  rows,
+  roots = traeInstallRoots(),
+  spawn,
+  psBin,
+  killer,
+  logger = () => {},
+} = {}) {
+  const raw = rows === undefined ? listTraeProcessRows(spawn, psBin) : rows
+  if (raw === null) {
+    throw new SwitchError(
+      '枚举 Trae 实例的可执行路径失败(PowerShell 不可用或非 0 退出)⇒ 按规则一个都不杀;请完全退出 Trae 后再切',
+      'TRAE_ENUM_FAILED',
+    )
+  }
+  const { mine, foreign } = selectTraeVictims(raw, roots)
+  if (foreign.length) {
+    logger(`⚠️ ${foreign.length} 个同名实例路径不在已登记安装根之下,按规则不动它们:${foreign.join(' | ')}`)
+  }
+  if (mine.length === 0) {
+    const seen = String(raw)
+      .split(/\r?\n/)
+      .filter((l) => l.includes('|')).length
+    throw new SwitchError(
+      `按可执行路径筛不出可停的 Trae 实例(枚举到 ${seen} 行 / 安装根 ${roots.length} 个 / 非归属 ${foreign.length} 个)` +
+        ' ⇒ 一个都不杀。旧写法是按映像名杀全机同名进程,那会连不属于本工具管理的实例一起带走;' +
+        '现在少停的代价由调用方决定(让人手工退出 Trae,或补 IHUI 侧安装根登记)',
+      'TRAE_NOT_OWNED',
+    )
+  }
+  const kill =
+    killer ||
+    ((pid) =>
+      execFileSync('taskkill', ['/PID', String(pid), '/F', '/T'], {
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+      }))
+  for (const pid of mine) kill(pid)
+  return { killed: mine, foreign }
 }
 
 export const __test__ = {
@@ -201,6 +310,10 @@ export const __test__ = {
   findStorageFile,
   writeStorageAtomic,
   isTraeRunning,
+  traeInstallRoots,
+  listTraeProcessRows,
+  selectTraeVictims,
+  killTrae,
   SwitchError,
   AUTH_KEY,
   DC_KEY_PREFIX,
