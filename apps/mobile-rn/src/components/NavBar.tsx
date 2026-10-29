@@ -62,7 +62,6 @@ export interface NavBarProps {
 
 /// 行高/侧占位/按钮盒/字号不在本文件取数 —— 唯一源是 @ihui/shared/ui/navbar-spec(与小程序端同档);
 /// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等。hitSlop 是 RN 独有命中扩张通道(waiver,数值对齐)。
-const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
 const ACTION_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 } as const
 
 const NAVBAR_PLATFORM: NavBarCorePlatform<ViewStyle, ViewStyle, undefined> = {
