@@ -1280,6 +1280,11 @@
       "shared": "packages/app/src/features/notes/QuickNotesScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/QuickNotesScreen.tsx",
       "miniapp": "pkg-user/quick-notes/index"
+    },
+    {
+      "shared": "packages/app/src/features/cloud-runs/CloudRunsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CloudRunsScreen.tsx",
+      "miniapp": "pkg-user/cloud-runs/index"
     }
   ]
 }
