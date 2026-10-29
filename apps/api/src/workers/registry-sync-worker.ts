@@ -107,6 +107,10 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
       let synced = 0
       let failed = 0
       let skipped = 0
+      // 批量 upsert 抛出的**真实**错误消息。必须落到 sync_log:此前只进 server.log.warn,
+      // 而日志侧跑的是 pino-pretty —— err 字段被折行吃掉,表里只剩"N 个条目 upsert 失败",
+      // 门 47 判红时报得出条数、报不出原因,每轮排查都要重演一次"看不见真因"(§0.3)。
+      let upsertErr = ''
       // d2:聚合 newVersion(取第一个非空) + oldVersion(取第一个版本有变化的)
       let newVersion: string | null = null
       let oldVersion: string | null = null
@@ -143,10 +147,8 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         // 批量失败兜底:全部计为 failed
         failed = items.length
         synced = 0
-        server.log.warn(
-          { err: err instanceof Error ? err.message : String(err) },
-          'registry-sync: 批量 upsert 失败',
-        )
+        upsertErr = err instanceof Error ? err.message : String(err)
+        server.log.warn({ err: upsertErr }, 'registry-sync: 批量 upsert 失败')
       }
 
       // 三态判定 — skipped(空结果)/ fail(全部失败)/ success(有成功)
@@ -160,7 +162,10 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         sourceType: sourceType ?? 'mcp',
         sourceName: source ?? 'all',
         status,
-        errorMessage: failed > 0 ? `${failed} 个条目 upsert 失败` : null,
+        errorMessage:
+          failed > 0
+            ? `${failed} 个条目 upsert 失败${upsertErr ? `: ${upsertErr.slice(0, 300)}` : ''}`
+            : null,
         payloadHash,
         oldVersion,
         newVersion,
