@@ -76,7 +76,13 @@ import {
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
 import { resolveRoundModel } from './model-switch'
-import { eduToolsFor, fileToolsFor, mergeAgentTools, uiControlToolsFor } from './tool-config'
+import {
+  eduToolsFor,
+  fileToolsFor,
+  mergeAgentTools,
+  uiControlToolsFor,
+  videoToolsFor,
+} from './tool-config'
 import {
   clearCompactionPreview,
   createToolCallHandler,
@@ -1341,6 +1347,7 @@ export function createSendMessage(
               ...eduToolsFor(content),
               ...uiControlToolsFor(content),
               ...fileToolsFor(content),
+              ...videoToolsFor(content),
             ]),
           ]
           return agentTools.length > 0 ? { agentTools } : {}

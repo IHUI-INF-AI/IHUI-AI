@@ -33,7 +33,8 @@ from ..core.llm_gateway import get_http_client
 from .base_provider import BaseProvider, ProviderError
 
 _DEFAULT_BASE = "https://api.agnes-ai.cn/v1"
-_DEFAULT_MODEL = "agnes-video-2.5"
+# 免费档是 -flash;非 flash 的 agnes-video-2.5 要账户余额(实测余额 0 时 402)
+_DEFAULT_MODEL = "agnes-video-2.5-flash"
 _DONE = {"completed", "succeeded", "success"}
 _FAILED = {"failed", "cancelled", "canceled", "timeout", "timed_out"}
 
@@ -155,22 +156,26 @@ class AgnesVideoProvider(BaseProvider):
         video_id = str(submitted.get("video_id") or "").strip()
         if not task_id and not video_id:
             raise ProviderError(f"Agnes 视频提交未返回 task_id: {str(submitted)[:200]}", 502)
-        if not video_id and task_id.startswith("video_"):
-            video_id = task_id
+        ref = task_id or video_id
         status = str(submitted.get("status") or "").lower()
         if status in _DONE:
             url = _extract_video_url(submitted)
             if url:
-                return self._result(used, task_id or video_id, url, duration)
+                return self._result(used, ref, url, duration)
 
-        record = await self._poll_until_done(task_id=task_id, video_id=video_id)
+        # 对话场景必须能在排队期先把 task_id 交回去:实测免费档排队可达数分钟,
+        # 同步等完会把工具调用挂死(见 mcp_server._tool_video_generation 的 90s 窗口制)。
+        if kwargs.get("wait") is False:
+            return {**self._result(used, ref, "", duration), "status": status or "queued"}
+
+        record = await self._poll_until_done(ref)
         video_url = _extract_video_url(record)
         if not video_url:
             raise ProviderError(
-                f"Agnes 视频任务 {task_id or video_id} 已完成但缺视频地址: {str(record)[:200]}",
+                f"Agnes 视频任务 {ref} 已完成但缺视频地址: {str(record)[:200]}",
                 502,
             )
-        return self._result(used, task_id or video_id, video_url, duration)
+        return self._result(used, ref, video_url, duration)
 
     @staticmethod
     def _result(model: str, task_id: str, video_url: str, duration: int) -> dict[str, Any]:
@@ -182,13 +187,13 @@ class AgnesVideoProvider(BaseProvider):
             "duration": duration,
         }
 
-    async def _poll_until_done(self, *, task_id: str, video_id: str) -> dict[str, Any]:
+    async def _poll_until_done(self, task_ref: str) -> dict[str, Any]:
         """轮询到终态;failed 抛 502,超时抛 504(与 jimeng `_poll_task` 同语义)。"""
         deadline = time.monotonic() + self.poll_max_wait
         delay = self.poll_interval
         last_status = ""
         while True:
-            record = await self.get_task_status(video_id=video_id, task_id=task_id)
+            record = await self.get_task_status(task_ref)
             last_status = str(record.get("status") or "").lower()
             if last_status in _DONE:
                 return record
@@ -207,15 +212,28 @@ class AgnesVideoProvider(BaseProvider):
             await asyncio.sleep(delay)
             delay = min(delay * 2, 10.0)
 
-    async def get_task_status(self, *, video_id: str = "", task_id: str = "") -> dict[str, Any]:
-        """查询任务状态。优先 video_id 端点(CLI 推荐的现行口径)。"""
-        if video_id:
-            url = f"{self.origin}/agnesapi?video_id={video_id}"
-        elif task_id:
-            url = f"{self.base_url}/videos/{task_id}"
+    async def get_task_status(self, task_ref: str) -> dict[str, Any]:
+        """按 ID 前缀选查询端点,与 agnes-ai-cli 的 buildVideoGetUrl 同判据。
+
+        实测 2026-10-29:提交返回的 task_id / video_id / id 三者同为一个 `task_` 前缀值,
+        此时 `/agnesapi?video_id=` 与 `/v1/videos/{id}` 都能返回该任务,但 CLI 只在
+        非 `task_` 前缀时才走 /agnesapi,这里照抄它,避免两套口径漂移。
+        """
+        ref = (task_ref or "").strip()
+        if not ref:
+            raise ProviderError("Agnes 任务查询缺任务 ID", 400)
+        if ref.startswith("task_"):
+            url = f"{self.base_url}/videos/{ref}"
         else:
-            raise ProviderError("Agnes 任务查询缺 video_id 与 task_id", 400)
-        return await self._request_json("GET", url)
+            url = f"{self.origin}/agnesapi?video_id={ref}"
+        record = await self._request_json("GET", url)
+        # 上游把成片地址放在五个不同位置(见 _extract_video_url);这里归一化出一份
+        # 顶层 video_url,调用方(工具层/worker)不必各自再实现一次提取。
+        if not record.get("video_url"):
+            found = _extract_video_url(record)
+            if found:
+                record["video_url"] = found
+        return record
 
     # ------------------------------------------------------------------
     # HTTP

@@ -413,6 +413,46 @@ def _get_subagent_timeout() -> int:
         return 300
 
 
+# D08②(2026-10-24):agent 间换手消息(完成/受阻/求助)的结构化事件。
+# 票面要求 SSE **复用既有 subagent_* 帧族、禁新帧**,故这里只产出一条消息的**载荷字段**;
+# 帧名仍由 llm.py 的 subagent_progress / subagent_end 承载。字段集:
+#   kind(done|blocked|help) / agent_id / summary / [token_usage] / ts
+# agent_id 由调用层给定(llm.py 持有真正的子代理实例 id);token_usage 仅在真实拿到时写入,
+# 不用 0 冒充"有用量"(与仓内"取不到必须显式缺席"口径一致)。
+_SUBAGENT_HANDOFF_KINDS: Final = ("done", "blocked", "help")
+
+
+def _subagent_handoff_event(
+    kind: str,
+    agent_id: str,
+    summary: str,
+    *,
+    token_usage: dict[str, Any] | None = None,
+    ts: str | None = None,
+) -> dict[str, Any]:
+    """构造一条子 agent 换手消息(纯函数,不写帧、不产生副作用)。"""
+    if kind not in _SUBAGENT_HANDOFF_KINDS:
+        raise ValueError(f"unknown subagent handoff kind: {kind!r}")
+    from datetime import UTC, datetime
+
+    evt: dict[str, Any] = {
+        "kind": kind,
+        "agent_id": agent_id,
+        "summary": str(summary or "")[:200],
+        "ts": ts or datetime.now(UTC).isoformat(),
+    }
+    if token_usage is not None:
+        evt["token_usage"] = token_usage
+    return evt
+
+
+def _subagent_handoff_kind(*, ok: bool, needs_help: bool = False) -> str:
+    """完成/受阻/求助三档的唯一映射:显式求助优先,其次按成败分 done / blocked。"""
+    if needs_help:
+        return "help"
+    return "done" if ok else "blocked"
+
+
 import contextlib
 
 from .skills import skill_registry
@@ -5173,11 +5213,29 @@ async def _tool_dispatch_subagent(
                     )
                 finally:
                     _subagent_depth.reset(_dtok)
+            _par_total = result.get("total", 0)
+            _par_succeeded = result.get("succeeded", 0)
+            _par_failed = result.get("failed", 0)
+            _par_results = result.get("results")
+            _par_needs_help = any(
+                bool(r.get("needs_help") or r.get("needsHelp"))
+                for r in (_par_results if isinstance(_par_results, list) else [])
+                if isinstance(r, dict)
+            )
+            # D08②:完成/受阻/求助换手消息 —— 复用既有 subagent_progress 帧的载荷,不新造帧。
             _emit({
                 "phase": "parallel_done",
-                "total": result.get("total", 0),
-                "succeeded": result.get("succeeded", 0),
-                "failed": result.get("failed", 0),
+                "total": _par_total,
+                "succeeded": _par_succeeded,
+                "failed": _par_failed,
+                **_subagent_handoff_event(
+                    _subagent_handoff_kind(
+                        ok=bool(result.get("ok", False)) and not _par_failed,
+                        needs_help=_par_needs_help,
+                    ),
+                    "",
+                    result.get("message", "") or f"{_par_succeeded}/{_par_total} 成功",
+                ),
             })
             _payload = {
                 "tool": "dispatch_subagent", "mode": "parallel",
@@ -5188,6 +5246,9 @@ async def _tool_dispatch_subagent(
                 "results": result.get("results", []),
                 "message": result.get("message", ""),
             }
+            # D08②:任一份子任务显式求助 ⇒ 结束帧 kind 判为 help(与单模式同口)。
+            if _par_needs_help:
+                _payload["needs_help"] = True
             # 0-6 单子代理输出限额:复用 0-2 截断助手
             return _truncate_tool_output(_payload)
         except Exception as e:
@@ -5227,11 +5288,20 @@ async def _tool_dispatch_subagent(
                 )
             finally:
                 _subagent_depth.reset(_dtok)
+        _single_ok = step_result.status == "completed"
+        _single_needs_help = bool(getattr(step_result, "needs_help", False))
+        # D08②:完成/受阻/求助换手消息 —— 复用既有 subagent_progress 帧的载荷,不新造帧。
         _emit({
             "phase": "single_done",
             "agentName": name,
             "iterations": step_result.iterations,
-            "ok": step_result.status == "completed",
+            "ok": _single_ok,
+            **_subagent_handoff_event(
+                _subagent_handoff_kind(ok=_single_ok, needs_help=_single_needs_help),
+                name,
+                step_result.output if _single_ok else (step_result.error or step_result.output),
+                token_usage=getattr(step_result, "token_usage", None),
+            ),
         })
         _payload = {
             "tool": "dispatch_subagent", "mode": "single",
@@ -5244,6 +5314,9 @@ async def _tool_dispatch_subagent(
             "error": step_result.error,
             "ok": step_result.status == "completed",
         }
+        # D08②:子代理显式求助位 —— 仅在置位时加键,供 subagent_end 帧的 kind 判为 help。
+        if _single_needs_help:
+            _payload["needs_help"] = True
         # D145①:未知名回包补 availableAgents —— 撞"Agent 不存在"后调用方(模型)能
         # 自我纠正,而不是照猜再撞第二次。判据与 invoke 的落空同源(registry.get 为空);
         # 对拿不到 registry 的替身(既有测试的 _FakeOrchestrator)不判也不加键 ——
@@ -6322,6 +6395,50 @@ async def _tool_image_edit(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _agnes_submit_with_retry(
+    inst: Any,
+    prompt: str,
+    model: str,
+    *,
+    duration: int,
+    image: Any = None,
+    size: str | None = None,
+) -> tuple[dict[str, Any] | None, str, bool]:
+    """提交 agnes 视频任务,只在**排队类可重试错误**上退避重放。
+
+    返回 ``(提交结果, 失败原文, 是否排队满)``:成功 ⇒ ``(res, "", False)``。
+
+    为什么要单独成格:免费档(`agnes-video-2.5-flash`)提交被
+    `503 video queue is full` 顶回来的概率比成功还高(2026-10-29 实测同一分钟连撞 6 次)。
+    一次 503 就判「视频功能不可用」是把可恢复的拥堵说成硬故障;反过来同步等到底又会把
+    对话卡住。故只对 503 做有限次退避重放,其余错误(参数错/鉴权错)立刻返回,不浪费窗口。
+    次数与步长可配(`VIDEO_BUSY_RETRIES` / `VIDEO_BUSY_BACKOFF_S`),默认 3 次 × 4/8s ≈ 12s。
+    """
+    try:
+        tries = max(1, int(os.environ.get("VIDEO_BUSY_RETRIES", "3") or 3))
+        base = max(0.0, float(os.environ.get("VIDEO_BUSY_BACKOFF_S", "4") or 4))
+    except ValueError:
+        tries, base = 3, 4.0
+    from ..providers.base_provider import ProviderError
+    last = ""
+    busy = False
+    for attempt in range(tries):
+        try:
+            res = await inst.generate_video(
+                prompt, model, duration=duration, wait=False, image=image, size=size
+            )
+            return res, "", False
+        except ProviderError as e:
+            last = str(e)[:300]
+            busy = int(getattr(e, "status_code", 0) or 0) == 503
+            if not busy or attempt >= tries - 1:
+                return None, last, busy
+            await asyncio.sleep(base * (attempt + 1))
+        except Exception as e:  # noqa: BLE001
+            return None, f"{type(e).__name__}: {e}"[:300], False
+    return None, last, busy
+
+
 async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     """video_generation: 生成视频(统一编排,5 家厂商自动故障转移)。
 
@@ -6358,44 +6475,59 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少 prompt 参数(或传 task_id 查询已有任务)", "errorCode": "MISSING_PARAMS",
             "video_url": None,
         }
-    if provider is not None and provider not in ("kling", "jimeng", "wan", "hunyuan", "token6688"):
+    if provider is not None and provider not in (
+        "agnes", "kling", "jimeng", "wan", "hunyuan", "token6688",
+    ):
         return {
             "tool": "video_generation", "ok": False,
-            "error": f"未知 provider: {provider}(允许 kling/jimeng/wan/hunyuan/token6688)",
+            "error": f"未知 provider: {provider}(允许 agnes/kling/jimeng/wan/hunyuan/token6688)",
             "errorCode": "INVALID_PROVIDER", "video_url": None,
         }
     if not isinstance(duration, int) or duration <= 0:
         duration = 5
 
-    # ---- 查询模式:传 task_id 时查 token6688 任务状态(对话里"视频好了吗")----
+    # ---- 查询模式:传 task_id 时查在途任务(对话里"视频好了吗")----
+    # 厂商按"显式指定 > 已配置凭据的优先级顺序"择一:agnes 与 token6688 的
+    # 查询返回形状不同(前者是上游 record,后者是 {ok,video_url,status,failed}),
+    # 这里只归一化到 status/video_url 两键判读,不各自再写一套分支。
     if _query_task_id:
         from .video_generation import _instantiate as _video_instantiate
-        inst = _video_instantiate("token6688")
-        if inst is None:
+        _q_inst = None
+        _q_provider = ""
+        for _cand in ([provider] if provider else ["agnes", "token6688"]):
+            _cand_inst = _video_instantiate(_cand)
+            if _cand_inst is not None:
+                _q_inst, _q_provider = _cand_inst, _cand
+                break
+        if _q_inst is None:
             return {
                 "tool": "video_generation", "ok": False,
-                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688),无法查询任务",
+                "error": "未配置可查询的视频厂商(agnes / token6688 均无凭据),无法查询任务",
                 "errorCode": "PROVIDER_NOT_CONFIGURED", "video_url": None,
             }
-        st = await inst.get_task_status(_query_task_id)
-        if st.get("ok") and st.get("video_url"):
+        st = await _q_inst.get_task_status(_query_task_id)
+        _q_status = str(st.get("status") or "").lower()
+        _q_url = str(st.get("video_url") or "")
+        _q_done = _q_status in ("completed", "succeeded", "success") or bool(st.get("ok"))
+        _q_failed = bool(st.get("failed")) or _q_status in ("failed", "cancelled", "canceled")
+        if _q_url and _q_done:
             return {
                 "tool": "video_generation", "ok": True, "completed": True,
-                "task_id": _query_task_id, "provider": "token6688",
-                "video_url": st["video_url"], "status": st["status"],
+                "task_id": _query_task_id, "provider": _q_provider,
+                "video_url": _q_url, "status": st.get("status"),
                 "message": "视频已生成完成",
             }
-        if st.get("failed"):
+        if _q_failed:
             return {
                 "tool": "video_generation", "ok": False, "task_id": _query_task_id,
-                "provider": "token6688", "video_url": None, "status": st["status"],
+                "provider": _q_provider, "video_url": None, "status": st.get("status"),
                 "error": st.get("error") or "视频任务失败", "errorCode": "TASK_FAILED",
             }
         return {
             "tool": "video_generation", "ok": True, "completed": False,
-            "task_id": _query_task_id, "provider": "token6688", "video_url": None,
-            "status": st["status"], "progress": st.get("progress"),
-            "message": f"视频仍在生成中(status={st['status']}),请稍后再问一次(带同一 task_id)",
+            "task_id": _query_task_id, "provider": _q_provider, "video_url": None,
+            "status": st.get("status"), "progress": st.get("progress"),
+            "message": f"视频仍在生成中(status={st.get('status')}),请稍后再问一次(带同一 task_id)",
         }
 
     # ---- token6688 专用路径:提交 + 限时轮询,避免长任务(p90 55~75 分钟)卡死对话 ----
@@ -6499,6 +6631,77 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 "video_url": video_url, "duration": result.get("duration", duration),
                 "message": "视频生成完成",
             }
+
+    # ---- agnes 专用路径:提交 + 限时窗口轮询 ----
+    # 免费档(agnes-video-2.5-flash)实测从提交到出片约 6~7 分钟(排队占大头),
+    # 同步等完会把工具调用挂死。与 token6688 同款处置:窗口内完成直接给成片,
+    # 超时把 task_id 交回去,用户稍后追问时只传 task_id 取件。
+    _agnes = _video_instantiate("agnes") if provider in (None, "agnes") else None
+    _submitted: dict[str, Any] | None = None
+    if _agnes is not None:
+        _res_in = str(arguments.get("resolution") or "").strip().upper()
+        _submitted, _agnes_err, _agnes_busy = await _agnes_submit_with_retry(
+            _agnes,
+            prompt,
+            str(arguments.get("model") or ""),
+            duration=duration,
+            image=arguments.get("image"),
+            size=_res_in or None,
+        )
+        if _submitted is None:
+            # 提交侧彻底失败。显式点名 agnes ⇒ 如实回错(排队满要标 retryable,
+            # 让模型转述成"稍后再试"而不是"视频功能坏了");未点名 ⇒ 让位给
+            # 通用链的其他厂商,不把一家拥堵升级成整条链路不可用。
+            if provider == "agnes":
+                return {
+                    "tool": "video_generation", "ok": False, "prompt": prompt,
+                    "provider": "agnes", "video_url": None,
+                    "error": (
+                        f"agnes 免费档排队已满,稍后重试即可({_agnes_err})"
+                        if _agnes_busy
+                        else f"agnes 视频提交失败:{_agnes_err}"
+                    ),
+                    "errorCode": "PROVIDER_BUSY" if _agnes_busy else "PROVIDER_CALL_FAILED",
+                    "retryable": _agnes_busy,
+                }
+            _agnes = None
+    if _agnes is not None and _submitted is not None:
+        _ref = str(_submitted.get("task_id") or "")
+        _url = str(_submitted.get("video_url") or "")
+        _ok_payload = {
+            "tool": "video_generation", "ok": True, "prompt": prompt,
+            "provider": "agnes", "model": _submitted.get("model", ""),
+            "task_id": _ref, "duration": _submitted.get("duration") or duration,
+            "saved_path": None, "file_size_bytes": 0,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+        if _url:
+            return {**_ok_payload, "video_url": _url, "message": "视频已生成(agnes)"}
+        _wait_s = int(os.environ.get("VIDEO_TOOL_WAIT_S", "90") or 90)
+        _deadline = time.monotonic() + max(0, _wait_s)
+        while time.monotonic() < _deadline:
+            await asyncio.sleep(5)
+            try:
+                _rec = await _agnes.get_task_status(_ref)
+            except ProviderError:
+                continue  # 单次查询抖动不代表任务失败,继续等窗口
+            _st = str(_rec.get("status") or "").lower()
+            if _st in ("completed", "succeeded", "success") and _rec.get("video_url"):
+                return {**_ok_payload, "video_url": _rec["video_url"], "message": "视频已生成(agnes)"}
+            if _st in ("failed", "cancelled", "canceled"):
+                return {
+                    "tool": "video_generation", "ok": False, "prompt": prompt,
+                    "provider": "agnes", "task_id": _ref, "video_url": None,
+                    "error": str(_rec.get("error") or f"任务失败(status={_st})")[:300],
+                    "errorCode": "TASK_FAILED",
+                }
+        return {
+            **_ok_payload, "video_url": None, "submitted": True,
+            "message": (
+                f"视频任务已提交(agnes 免费档),实测排队可达数分钟。已等待 {_wait_s}s 未完成——"
+                f"请稍后让我查询进度(我会用 task_id={_ref} 取成片链接)。任务已计费,请勿重复提交。"
+            ),
+        }
 
     from .video_generation import generate_video
 
@@ -9303,16 +9506,17 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="video_generation",
         description=(
-            "生成视频,返回视频 URL。统一编排 5 家厂商并自动故障转移:"
-            "token6688(名创AI 聚合网关,单 key 全模态,默认首选,支持 4~30 秒时长)、"
+            "生成视频,返回视频 URL。统一编排多家厂商并自动故障转移:"
+            "agnes(免费档 agnes-video-2.5-flash,默认首选,支持文生视频/图生视频)、"
+            "token6688(名创AI 聚合网关,单 key 全模态,支持 4~30 秒时长)、"
             "kling(快手可灵,text2video/image2video)、jimeng(字节即梦 Seedance)、"
-            "wan(阿里通义万相)、hunyuan(腾讯混元)。token6688 长任务防卡死:"
-            "先提交并等待 90s 窗口,窗口内完成直接返回成片;超时返回 task_id 与"
-            "取件提示——用户稍后追问时只传 task_id(不传 prompt)即可查询进度/取件。"
+            "wan(阿里通义万相)、hunyuan(腾讯混元)。长任务防卡死:先提交并限时等待"
+            "(agnes 与 token6688 同一个 VIDEO_TOOL_WAIT_S 窗口),窗口内完成直接返回成片;"
+            "超时返回 task_id 与取件提示——用户稍后追问时只传 task_id(不传 prompt)即可查询进度/取件。"
             "支持 image 参数走图生视频、save_path 下载落地(.mp4,工作区白名单,200MB 上限)。"
-            "需 .env 配置 TOKEN6688_API_KEY 或 KLING_*/ARK_*/DASHSCOPE_API_KEY/TENCENT_* "
-            "任一厂商凭据;未配置时返回 PROVIDER_NOT_CONFIGURED,如实告知用户。"
-            "外部 API 调用 + 计费。"
+            "agnes 凭据在 LLM_PROVIDERS.agnes,其余需 TOKEN6688_API_KEY 或 KLING_*/ARK_*/"
+            "DASHSCOPE_API_KEY/TENCENT_* 任一厂商凭据;未配置时返回 PROVIDER_NOT_CONFIGURED,"
+            "如实告知用户。外部 API 调用 + 计费。"
         ),
         input_schema={
             "type": "object",
@@ -9320,7 +9524,7 @@ _TOOLS: list[MCPTool] = [
                 "prompt": {"type": "string", "description": "视频描述(首次提交必填;查询模式可省)"},
                 "provider": {
                     "type": "string",
-                    "enum": ["token6688", "kling", "jimeng", "wan", "hunyuan"],
+                    "enum": ["agnes", "token6688", "kling", "jimeng", "wan", "hunyuan"],
                     "description": "可选,指定厂商;缺省自动按已配置凭据顺序选择"
                 },
                 "model": {
