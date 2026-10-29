@@ -40,7 +40,7 @@ test('② 处理器分支先于 unknown-job 兜底', () => {
 
 test('③ spawn 指向编排脚本且显式 stdio + windowsHide', () => {
   assert.match(WORKER_SRC, /sync-trae-client-session\.mjs/)
-  const spawnBlock = WORKER_SRC.slice(WORKER_SRC.indexOf('function runTraeSessionSync'))
+  const spawnBlock = WORKER_SRC.slice(WORKER_SRC.indexOf('function runClientSessionSync'))
   assert.match(
     spawnBlock,
     /stdio:\s*\['ignore',\s*'pipe',\s*'pipe'\]/,

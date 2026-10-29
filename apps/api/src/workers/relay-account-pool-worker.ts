@@ -73,6 +73,11 @@ async function runClientSessionSync(scriptName: string): Promise<ClientSyncOutco
   }
 }
 
+/** 手动触发与 trae-session-sync 定时 job 同源(进程内直调,不另起第二份 spawn 逻辑) */
+export async function runTraeSessionSync(): Promise<ClientSyncOutcome> {
+  return runClientSessionSync('sync-trae-client-session.mjs')
+}
+
 export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
   registerAllRelayAdapters()
 
