@@ -172,7 +172,10 @@ export function resolveStaticBlockWindow(input: StaticBlockWindowInput): StaticB
   // 上限兜底:先砍 overscan、绝不砍可视区内的块(与 windowing.ts 同一条让位顺序)
   if (end - start + 1 > maxMounted) {
     const coreSpan = coreEnd - coreStart + 1
-    start = coreSpan >= maxMounted ? coreStart : Math.max(0, coreStart - Math.floor((maxMounted - coreSpan) / 2))
+    start =
+      coreSpan >= maxMounted
+        ? coreStart
+        : Math.max(0, coreStart - Math.floor((maxMounted - coreSpan) / 2))
     end = Math.min(last, start + maxMounted - 1)
   }
 
