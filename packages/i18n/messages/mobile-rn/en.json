@@ -129,7 +129,7 @@
     "modelSck": "Knowledge",
     "matAll": "All",
     "matText": "Text",
-    "inputPlaceholder": "Ask a question, or hold to speak",
+    "inputPlaceholder": "Ask anything",
     "modelSelectTitle": "Select Model",
     "modelSelectSearchCount": "{count} models found",
     "modelSelectAgentCount": "{count} agents",
