@@ -65,11 +65,14 @@ export const SWITCH_THUMB_RADIUS_TIER = 'sm'
  * sm 36−3−3−12=18? 取 web 实定值 15(md 19 / lg 23,web 为留 1.5px 双边视觉余量而定)。
  * 两端共用此值驱动位移(web `translate-x-[Npx]` / RN Animated translateX)。
  */
-export const SWITCH_THUMB_TRANSLATE_X_PX: Record<SwitchSizeTier, number> = { sm: 15, md: 19, lg: 23 }
+export const SWITCH_THUMB_TRANSLATE_X_PX: Record<SwitchSizeTier, number> = {
+  sm: 15,
+  md: 19,
+  lg: 23,
+}
 
-// ON 底色 token 名 = `brand-accent`(见上):该值以 Tailwind / nativewind 类名承载,
-// 端内必须写字面量类名才能进扫描面 ⇒ 端内不可能消费 TS 常量,
-// 2026-10-27 撤零消费出口 SWITCH_ON_BG_TOKEN(token 名保留在本段说明里)。
+/** ON 底色 token 名(两端各自映射:web `bg-[var(--color-brand-accent)]` / RN `bg-brand-accent`)。 */
+export const SWITCH_ON_BG_TOKEN = 'brand-accent'
 
 /** 默认尺寸档。 */
 export const SWITCH_DEFAULT_SIZE: SwitchSizeTier = 'md'

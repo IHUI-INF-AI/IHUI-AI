@@ -13,6 +13,7 @@
 
 协议参考: https://microsoft.github.io/debug-adapter-protocol/
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -88,9 +89,7 @@ class DapProtocolReader:
         if content_length is None:
             # b76-08b 票1:header 段完整(已见 \r\n\r\n)却无合法 Content-Length
             # ⇒ 帧边界已不可信,判整条连接关闭,而不是"跳过这一段"继续读。
-            raise DapFrameDesyncError(
-                f"DAP header 无合法 Content-Length: {header!r}"
-            )
+            raise DapFrameDesyncError(f"DAP header 无合法 Content-Length: {header!r}")
         body_start = header_end + 4
         if len(self._buffer) - body_start < content_length:
             return None  # body 尚不完整
@@ -169,9 +168,7 @@ class DapClient:
                 if msg.get("success"):
                     fut.set_result(msg.get("body"))
                 else:
-                    fut.set_exception(
-                        RuntimeError(msg.get("message", "DAP 请求失败"))
-                    )
+                    fut.set_exception(RuntimeError(msg.get("message", "DAP 请求失败")))
         elif msg_type == "event":
             event_name = msg.get("event", "")
             for h in self._event_handlers.get(event_name, []):
@@ -252,12 +249,28 @@ class DapClient:
 # ==================== DebugSession ====================
 
 
+class DebugSessionForbidden(Exception):
+    """session 归属与调用者不一致(HTTP 层应映射为 403)。
+
+    存在理由:P0 根因加固(2026-10-29)。debug 面能在本机 launch 任意程序 / eval 任意表达式,
+    多主体共用同一 manager 单例时,若只靠 session_id 寻址,任何拿到他人 session_id 的调用者
+    都能接管别人的调试会话 ⇒ 等价于跨主体代码执行。归属必须逐次校验。
+    """
+
+    def __init__(self, session_id: str) -> None:
+        self.session_id = session_id
+        super().__init__(f"debug session 归属校验失败: {session_id}")
+
+
 @dataclass
 class DebugSession:
     """单个 debug session 的运行时状态。"""
 
     session_id: str
     language: str  # 'node' | 'python' | 'web'
+    # 归属主体:HTTP 层注入调用者 user_id;None = 进程内可信调用(MCP / expiry_janitor)。
+    # None 语义是「无主」——verify_owner 对无主会话不做归属拦截,但 HTTP 层创建时必然带主。
+    owner_user_id: str | None = None
     process: Any | None = None  # asyncio.subprocess.Process
     status: str = "initializing"  # initializing/running/stopped/terminated
     breakpoints: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
@@ -329,9 +342,7 @@ class DebugSessionManager:
 
     # ---- 内部:创建 adapter 子进程 ----
 
-    async def _spawn_adapter(
-        self, language: str, cwd: str | None = None
-    ) -> Any:
+    async def _spawn_adapter(self, language: str, cwd: str | None = None) -> Any:
         """启动 debug adapter 子进程,返回 asyncio.subprocess.Process。"""
         cmd_args, _ = get_adapter_command(language)
         if not cmd_args:
@@ -397,11 +408,14 @@ class DebugSessionManager:
         cwd: str | None = None,
         env: dict[str, str] | None = None,
         stop_on_entry: bool = False,
+        owner_user_id: str | None = None,
     ) -> str:
         """启动 debug adapter + launch 请求,返回 session_id。"""
         async with self._lock:
             session_id = str(uuid.uuid4())
-            session = DebugSession(session_id=session_id, language=language)
+            session = DebugSession(
+                session_id=session_id, language=language, owner_user_id=owner_user_id
+            )
             self._sessions[session_id] = session
 
         try:
@@ -447,12 +461,18 @@ class DebugSessionManager:
             raise
 
     async def attach(
-        self, language: str, port: int, host: str = "localhost"
+        self,
+        language: str,
+        port: int,
+        host: str = "localhost",
+        owner_user_id: str | None = None,
     ) -> str:
         """attach 到已运行的 debug adapter(远程调试)。"""
         async with self._lock:
             session_id = str(uuid.uuid4())
-            session = DebugSession(session_id=session_id, language=language)
+            session = DebugSession(
+                session_id=session_id, language=language, owner_user_id=owner_user_id
+            )
             self._sessions[session_id] = session
 
         try:
@@ -542,9 +562,7 @@ class DebugSessionManager:
                 return {"reason": "terminated", "threadId": thread_id}
             return {"reason": "timeout", "threadId": thread_id}
 
-    async def step(
-        self, session_id: str, step_type: str = "next"
-    ) -> dict[str, Any]:
+    async def step(self, session_id: str, step_type: str = "next") -> dict[str, Any]:
         """单步执行(next/stepIn/stepOut)。"""
         session = self._get_session(session_id)
         if session.client is None:
@@ -595,9 +613,7 @@ class DebugSessionManager:
         if session.client is None:
             raise RuntimeError("session 未初始化")
         # 1. 获取所有 scopes
-        scopes_body = await session.client.send_request(
-            "scopes", {"frameId": frame_id}
-        )
+        scopes_body = await session.client.send_request("scopes", {"frameId": frame_id})
         scopes = (scopes_body or {}).get("scopes", []) if scopes_body else []
         # 2. 找到匹配的 scope(DAP scope name 可能是 "Locals"/"Globals"/"Closure")
         scope_lower = scope.lower()
@@ -622,9 +638,7 @@ class DebugSessionManager:
         var_ref = target_scope.get("variablesReference", 0)
         if not var_ref:
             return []
-        var_body = await session.client.send_request(
-            "variables", {"variablesReference": var_ref}
-        )
+        var_body = await session.client.send_request("variables", {"variablesReference": var_ref})
         session.touch()
         return (var_body or {}).get("variables", []) if var_body else []
 
@@ -686,13 +700,43 @@ class DebugSessionManager:
             try:
                 await session.client.disconnect()
             except Exception as e:
-                logger.warning("debugger.DebugSessionManager.close session.client.disconnect 失败: %s", e, exc_info=True)
+                logger.warning(
+                    "debugger.DebugSessionManager.close session.client.disconnect 失败: %s",
+                    e,
+                    exc_info=True,
+                )
         session.status = "terminated"
         return True
 
-    async def list_sessions(self) -> list[dict[str, Any]]:
-        """列出所有 session 摘要。"""
-        return [s.to_info() for s in self._sessions.values()]
+    async def list_sessions(self, user_id: str | None = None) -> list[dict[str, Any]]:
+        """列出 session 摘要。
+
+        user_id 非 None 时**只列该主体自己的**会话 —— 否则「列出所有会话」会把别人的
+        session_id 直接发给任何调用者,归属校验就成了摆设(拿到 id 即接管)。
+        None = 进程内可信调用(expiry_janitor / MCP),列全部。
+        """
+        return [
+            s.to_info()
+            for s in self._sessions.values()
+            if user_id is None or s.owner_user_id == user_id
+        ]
+
+    def verify_owner(self, session_id: str, user_id: str | None) -> None:
+        """校验 session 归属:有主且调用者不同 ⇒ DebugSessionForbidden。
+
+        同步方法(纯内存比对,无 await),刻意不加到 launch/attach/continue 等既有方法签名上:
+        ① MCP 内部调用与 expiry_janitor 不传 user_id,签名一变全断;
+        ② 既有测试对 manager 方法做精确参数断言(assert_awaited_once_with),加参即碎。
+
+        user_id 为 None ⇒ 进程内可信调用,跳过归属校验(仍校验 session 存在)。
+        """
+        session = self._sessions.get(session_id)
+        if session is None:
+            raise RuntimeError(f"debug session 不存在: {session_id}")
+        if user_id is None or session.owner_user_id is None:
+            return
+        if session.owner_user_id != user_id:
+            raise DebugSessionForbidden(session_id)
 
     async def cleanup_expired(self) -> int:
         """清理超时 session(30 分钟无活动),返回清理数量。"""
@@ -726,4 +770,6 @@ def get_debug_manager() -> DebugSessionManager:
     if _debug_manager is None:
         _debug_manager = DebugSessionManager()
     return _debug_manager
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

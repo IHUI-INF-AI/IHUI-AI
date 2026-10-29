@@ -9,6 +9,7 @@ import { authenticate } from '../plugins/auth.js'
 import { isSystemAdmin } from './require-permission.js'
 import { error } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
+import { isPrivateIp } from '../services/ip-reputation.js'
 // 号池 provider 的封闭集单一真相源(不在本文件重写一份列表 —— §0.6)
 import { RELAY_PROVIDERS } from '../services/relay-account-format.js'
 import { PROVIDER_HEALTH_STATUSES, type ProviderHealthStatus } from '@ihui/types'
@@ -2150,7 +2151,11 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     },
   )
 
-  server.get('/business-metrics', async (_request, reply: FastifyReply) => {
+  server.get('/business-metrics', async (request, reply: FastifyReply) => {
+    // 2026-10-27 加固:与 /metrics 同口径 —— 仅回环/内网可读(本机 Prometheus 不受影响),公网 403
+    if (!isPrivateIp(request.ip)) {
+      return reply.status(403).send({ code: 403, message: 'Forbidden' })
+    }
     const lines: string[] = []
 
     // 1. 漏斗

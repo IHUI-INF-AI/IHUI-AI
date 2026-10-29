@@ -305,10 +305,21 @@ overrides:
   # 工具链宿主 = metro(RN 构建)与 @storybook/nextjs(web 文档构建)。
   # 2026-10-28 锁内实测:范围选择器 'image-size@>=0.6.3 <2.0.3' 已把 pptxgenjs 链抬到 2.0.4,
   # 但 metro/storybook 声明范围不被该 selector 命中(audit 复跑仍见 1.2.1 / 2.0.2 各 1 线);
-  # 故用父母域写法点名补,less(0.5.5,不在漏洞区间)不受牵连。image-size 2.x 保留
-  # sizeOf(buffer)→{width,height} 默认导出,调用方兼容,由同批 build 验证钉住。
+  # 故用父母域写法点名补,less(0.5.5,不在漏洞区间)不受牵连。
   image-size@>=0.6.3 <2.0.3: ^2.0.4
-  'metro>image-size': ^2.0.4
+  # ⚠️ metro 这一条**必须停在 1.x**,不能跟着抬到 2.0.4(2026-10-28 出包实测证伪了
+  # "调用方兼容"的假设):metro 0.84.4 的 Assets.js 把**文件路径字符串**直接喂给 image-size
+  # (`isImageInput = assetInfo.files[0]`,非 .zip 时就是路径),而 image-size 2.x 移除了
+  # "接受路径"的能力,只认 Buffer/Uint8Array ⇒ 打包期在 bmp 探测里抛
+  # `TypeError: The "list" argument must be an instance of SharedArrayBuffer, ArrayBuffer
+  # or ArrayBufferView`(全部 PNG/JPG 资源都会走到这一步,`createBundleReleaseJsAndAssets` 必挂,
+  # 表现是"APK 构建前一步 JS 打包失败",与资源本身是否损坏无关 —— 实测 kf.png 是合法 98x86 PNG)。
+  # 判据归位:advisory 的**上线面**是 apps/api>pptxgenjs(仍 2.0.4,恶意图片喂进 PPT 生成才打满 CPU);
+  # metro 是构建期工具链、输入恒为本仓受信资源,不构成运行时暴露面 ⇒ 版本服从上游声明 ^1.0.2。
+  # 上游 metro 把入参改成 Buffer(或改依赖 image-size ^2)后可解除本钉版。
+  'metro>image-size': ^1.2.1
+  # storybook 这条路**已实测可留 2.x**:@storybook/nextjs 的 next-image-loader-stub 传的是
+  # webpack raw loader 的 content(Buffer),不是路径 ⇒ 与 2.x 的入参契约一致。
   '@storybook/nextjs>image-size': ^2.0.4
   # nodemailer 传递面补防:直接依赖已 ^10.2.1,但 dev 面 mailparser/smtp-server 仍携带
   # nodemailer@9.0.5(audit --prod 不数 dev,生产不受影响;开发机与 CI 供应链同病要同治)。

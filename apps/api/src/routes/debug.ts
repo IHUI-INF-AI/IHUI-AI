@@ -27,7 +27,12 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 
-import { authenticate } from '../plugins/auth.js'
+// P0 安全加固(2026-10-29):DAP 调试代理能在 ai-service 上 launch 任意程序 / eval 任意表达式 /
+// attach 任意进程 —— 是服务器级 RCE 面。而 ai-service 侧 debug.py 无鉴权、无 userId 作用域隔离,
+// 故本层必须把入口收为「管理员 + 内网」(server.ts 的 onRoute 已给 /api/debug/ 注入
+// network.allowExternal:false)。在 ai-service 侧补「按 userId 隔离 + 限定 program/cwd 在项目目录内」
+// 的根因修复前,绝不对普通用户或公网开放。
+import { requireAdmin } from '../plugins/require-permission.js'
 import { error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
@@ -72,8 +77,10 @@ async function proxyDebug(
 }
 
 export const debugRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('preHandler', async (request: FastifyRequest) => {
-    await authenticate(request)
+  // 仅「管理员」可进入(roleId >= 1,只认人用 JWT,不接受 internal service token 提权)。
+  // 配合 server.ts onRoute 注入的 network.allowExternal:false,公网非管理员一律 403。
+  app.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    await requireAdmin(request, reply)
   })
 
   // 启动调试会话:body {language, program, args?, cwd?, env?} → {sessionId}
