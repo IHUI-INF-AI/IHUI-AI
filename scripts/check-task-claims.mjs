@@ -21,7 +21,8 @@
  *   node scripts/check-task-claims.mjs --unclaimed  # 只列无人认领
  *   node scripts/check-task-claims.mjs --in-progress # 只列进行中(含持有者/年龄列)
  *   node scripts/check-task-claims.mjs --claim-age   # 认领牌年龄**现读读数**(枚数 + 逐条内容锚点;只读数不判红)
- *   node scripts/check-task-claims.mjs --twins     # 列已闭环孪生旧行与"正文骨架相同"的未勾行组(不等同整行逐字节,见 DUP_GROUP_HEADING)
+ *   node scripts/check-task-claims.mjs --twins     # 列已闭环孪生旧行与"正文骨架相同"的未勾行组(不等同整行逐字节,见 DUP_GROUP_HEADING);
+ *                                                  # 对照面(已勾 [x] 行)为空 ⇒ exit 2「未判定」,0 条不得读成已清零(§0.3)
  *   node scripts/check-task-claims.mjs --check-gate [--json]  # 租约判据 CL1/CL2/CL3,违规 exit 1
  *   node scripts/check-task-claims.mjs --self-test # 纯函数夹具自检,不碰真 PROJECT_PLAN
  *   node scripts/check-task-claims.mjs --plan <file>   # 只读注入:改判指定文件(取证/多租约场景用,**磁盘直读**)
@@ -96,6 +97,7 @@ import {
   insideCodeSpan,
   isValidIsoDate,
   keyOfRow,
+  parseTaskRows,
   titleOf,
 } from './lib/plan-task-index.mjs'
 
@@ -283,6 +285,48 @@ export function buildClaimAgeReadout(content, { nowMs, ttlHours }) {
   }
 }
 
+
+/**
+ * 孪生判据的**对照面**读数(纯函数,零副作用;§0.3「枚举到 0 个候选判死不记绿」)。
+ *
+ * 立因(票 O01 第三型留下的那一格,2026-10-24 复核现读):`--twins` 打印的是"可证 N 条 /
+ * 弱证据 M 条 / 骨架相同 X 组",而它的**对照集**是同文件里的 `- [x]` 行。台账自 2026-10-28 起
+ * 「完成即整行删除」——结清票整行消失,面上再也没有 `[x]` 对照行 ⇒ 对照集结构性为空,
+ * 打印出来的 `0 条` 是**"没得比"**,却与被读成"比过且干净"(HEAD 面现读 `--json` 的
+ * `totals.completed = 0`,同一面上 `--twins` 可证 0 / 弱证据 0 / 组 0)。本仓最高频失效型
+ * (§12f)恰是"判据失效的表现永远是安静":空对照面报 0 与真零在输出上无法区分。
+ *
+ * 判据单源(§0.6):"什么算一条勾选行"只问 `lib/plan-task-index.mjs` 的 `parseTaskRows`
+ * (`CHECKBOX_RE` 是唯一口径),本门自己的三态分类(`scanTasks`)只用来**对账**,不另立一份判断。
+ * 两把尺子量出两个数 ⇒ 同样落"未判定":判据面自身分叉时,任何一个数都不该拿去报绿。
+ *
+ * 三态(§0.3,与 `--claim-age` 同一套:只读数/只报未判定,**不判红**——这里判红就是给
+ * "台账现行的结清口径"造一堵与本次提交无关的恒红门,§12e):
+ *  ① 被审面枚举到 0 条目行 ⇒ 分类器在这一面上是死的;
+ *  ② 已勾行 0 条 ⇒ 对照集为空,孪生这一族**不可判定**(不是"已清零");
+ *  ③ 两把尺子的已勾行数不同 ⇒ 判据面自身分叉。
+ * @returns {{doneRows:number, entryRows:number, localDone:number, undetermined:string[]}}
+ */
+export function buildTwinsFaceReadout(content) {
+  const rows = parseTaskRows(content)
+  const entryRows = rows.length
+  const doneRows = rows.filter((r) => r.state === 'done').length
+  const localDone = scanTasks(content).completed.length
+  const undetermined = []
+  if (entryRows === 0)
+    undetermined.push(
+      '被审面枚举到 0 条目行(未勾 / 进行中 / 已完成三态全空)⇒ 分类器在这一面上是死的,孪生读数不作数',
+    )
+  if (doneRows === 0)
+    undetermined.push(
+      `对照面(已勾 [x] 行)枚举到 ${doneRows} 条 ⇒ 孪生判据没有对照集,"0 条孪生 / 0 组"是"没得比",不是"比过且干净"`,
+    )
+  if (doneRows !== localDone)
+    undetermined.push(
+      `两把尺子量出的已勾行不同(lib parseTaskRows ${doneRows} / 本门 scanTasks ${localDone})⇒ 判据面自身分叉,读数不作数`,
+    )
+  return { doneRows, entryRows, localDone, undetermined }
+}
 
 // `codeSpanRangesOf` / `insideCodeSpan` 的实现已上收到 `lib/plan-task-index.mjs`(§0.6 单源),
 // 本门从那里 import —— 挂牌判据必须先问"这个标记是在挂牌还是在叙述这个形态",
@@ -622,6 +666,7 @@ const USAGE = [
   `      租约年龄阈值亦可经 ${TTL_ENV} 覆盖(默认 ${DEFAULT_TTL_HOURS}h)。全程只读。`,
   '      判定面:默认 HEAD blob;--staged 判索引 blob;--worktree 人工磁盘档;两面旗同给 exit 2。',
   '      --claim-age 是**读数档**(超龄枚数 + 逐条内容锚点,exit 0/2),与判红档 --check-gate 互斥。',
+  '      --twins 是**清单档**:对照面(已勾 [x] 行)为空 ⇒ exit 2「未判定」—— 0 条是"没得比",不得读成已清零(§0.3)。',
 ].join('\n')
 
 /**
@@ -1574,6 +1619,45 @@ function selfTest(realNow = Date.now()) {
     eq(parseArgs(['--check-gate', '--unclaimed']).ok, true, '本次未改动的既有组合不得被顺手拦掉(向后兼容)')
     eq(parseArgs(['--claim-ages']).ok, false, '拼错的开关必须仍走"未知开关"判死')
   })
+  /**
+   * S25(票 O01 第三型补牙):孪生判据的**对照面**为空时必须落"未判定",不得报 0 条冒充已判。
+   * 正反例成对 —— 有 [x] 对照行的夹具绝不许一律喊未判定(判死防线过头会把量到的 0 也吞掉)。
+   */
+  check('S25 空对照面(已勾行 0 条)判未判定;有对照行不喊;两把尺子分叉也判未判定', () => {
+    const noDone = buildTwinsFaceReadout(
+      '- [ ] G-1 未勾的一条活\n- [ ]（进行中@2026-09-25/qa） G-2 挂在途的一条活\n',
+    )
+    eq(noDone.doneRows, 0)
+    eq(noDone.entryRows, 2)
+    eq(noDone.undetermined.length >= 1, true, '对照面 0 条却给出干净读数 ⇒ 把"没得比"写成"比过且干净"')
+    eq(
+      noDone.undetermined.some((u) => u.includes('对照面')),
+      true,
+      '未判定必须点名是对照面为空(原因不点名 = 下一个人只能重新猜)',
+    )
+    const withDone = buildTwinsFaceReadout(
+      '- [ ] G-1 未勾的一条活\n- [x] ✅(2026-09-25) G-9 已闭环的一条活\n',
+    )
+    eq(withDone.doneRows, 1)
+    eq(withDone.undetermined.length, 0, '有对照行却仍喊未判定 ⇒ 判死防线过头,把量到的 0 也吞了')
+    const dead = buildTwinsFaceReadout('这只是散文,没有任何登记行\n')
+    eq(dead.entryRows, 0)
+    eq(
+      dead.undetermined.some((u) => u.includes('0 条目行')),
+      true,
+      '0 条目行必须单独点名"分类器在这一面上是死的"',
+    )
+    // 两把尺子分叉:`* [x]` 是 lib `CHECKBOX_RE` 认的勾选行,而本门三态分类只认 `- [x]`
+    // ⇒ 已勾行两个数不可同时报绿(拿哪一个都可能在数错的那一面上下结论)。
+    const drift = buildTwinsFaceReadout('* [x] G-3 星号子弹的已勾行\n- [ ] G-4 未勾\n')
+    eq(drift.doneRows, 1)
+    eq(drift.localDone, 0)
+    eq(
+      drift.undetermined.some((u) => u.includes('两把尺子')),
+      true,
+      '两把尺子读出两个数却给干净读数 ⇒ 又变成两份真相(§0.6)',
+    )
+  })
   for (const r of results) console.log(r)
   console.log(`--self-test: ${results.length - failures}/${results.length} 通过`)
   return failures
@@ -1690,12 +1774,20 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   }
 
   const twins = findClosedTwins([...unclaimed, ...inProgress], completed)
+  // 对照集(已勾行)读数:三档共用同一份判断,不各算一遍(§0.6)。
+  const twinsFace = buildTwinsFaceReadout(content)
   const { proven: provenTwins, suspect: suspectTwins } = splitTwinsByProof(twins)
   const claimable = subtractProvenTwins(unclaimed, provenTwins)
   const dupGroups = findDuplicateGroups([...unclaimed, ...inProgress])
   const dupExtra = dupGroups.reduce((n, g) => n + g.length - 1, 0)
 
   if (parsed.flags.has('--twins')) {
+    // 对照面读数必须**先**打:下面那两行"可证 N 条/弱证据 M 条"只在对照集非空时才是判断题的答案;
+    // 对照集为空时它们等于"没得比",把 0 读成"已清零"就是本仓最高频的失效型(§12f)。
+    // 已勾行只问 lib 的单源解析器 `parseTaskRows`(由 `buildTwinsFaceReadout` 内接,§0.6)。
+    console.log(
+      `孪生判据的对照面(尺子 = lib/plan-task-index.mjs 的 parseTaskRows):已勾 [x] 行 ${twinsFace.doneRows} 条 · 条目行 ${twinsFace.entryRows} 条`,
+    )
     console.log(
       `已闭环 [x] 行的未勾孪生旧行 —— 可证(骨架被那条 [x] 行逐字包住,或**除主键位置编号外逐字节相同**) ${provenTwins.length} 条 ⇒ 接了就是白干,已从"可认领"扣名额:`,
     )
@@ -1714,7 +1806,16 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
       `\n${DUP_GROUP_HEADING} (${dupGroups.length} 组,多出 ${dupExtra} 条)`,
     )
     for (const g of dupGroups) console.log(`  ${g.map((l) => `L${l}`).join(' = ')}`)
+    // 未判定放在清单之后、判定面之前(与 --claim-age 同序):清单照给(骨架相同组不依赖对照集),
+    // 但"孪生 N 条"这一结论在空对照面上**不成立** ⇒ exit 2 显式未判定,绝不 exit 0 冒充已判。
+    for (const u of twinsFace.undetermined)
+      console.log(`  ❌ **未判定**:${u}(不记绿也不冒红,§0.3)`)
+    if (twinsFace.doneRows === 0)
+      console.log(
+        '     本器不代裁:对照集在**同一面**里为空,要不要给这一族换对照面(带 [x] 行的历史面)或按「完成即整行删除」口径声明退役,归属台账持有人(票 O01);相似度只配报数、不配判红(§1)同一条纪律 —— 拿不准的不判,也不把 0 洗成绿。',
+      )
     console.log(`判定面:${faceLabel}`)
+    process.exitCode = twinsFace.undetermined.length > 0 ? 2 : 0
     return
   }
 
@@ -1730,6 +1831,14 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
           closedTwinsProven: provenTwins,
           closedTwinsSuspect: suspectTwins,
           duplicateGroups: dupGroups,
+          // 对照集读数:机器档必须能区分"比过且零"与"没得比"(§0.3)——
+          // undetermined 非空即"孪生这一族本面不可判定",不得由调用方把 0 读成已清零。
+          twinsFace: {
+            doneRows: twinsFace.doneRows,
+            entryRows: twinsFace.entryRows,
+            localDone: twinsFace.localDone,
+            undetermined: twinsFace.undetermined,
+          },
           totals: {
             unclaimed: unclaimed.length,
             inProgress: inProgress.length,
@@ -1783,8 +1892,16 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   console.log('  PROJECT_PLAN.md 任务认领状态')
   console.log('='.repeat(60))
   console.log()
+  // 默认档也要把"没得比"标出来:那一行括号里的"可证 N 条"在空对照面上不是判断结果,
+  // 派单的人只读这一行 ⇒ 不标注就会被当成"已核过、零副本"(§12f 判据失效的表现永远是安静)。
+  const twinsCaveat =
+    twinsFace.undetermined.length === 0
+      ? ''
+      : twinsFace.doneRows === 0
+        ? `;⚠ 对照面空(已勾 [x] 行 0 条)⇒ 上面那个"可证"枚数**未判定**,不得读成"零副本"(见 --twins)`
+        : `;⚠ 孪生对照面读数不可用(${twinsFace.undetermined[0]})(见 --twins)`
   console.log(
-    `  无人认领:  ${unclaimed.length}(其中 ${unclaimed.length - claimable.length} 条**可证**为已闭环 [x] 行的旧副本(骨架被逐字包住 / 除编号外逐字节相同)⇒ **可认领 ${claimable.length}**;弱相似而两档可证通道都没接上的 ${suspectTwins.length} 条**不扣名额**、仍在清单内(见 --twins);正文骨架相同组 ${dupGroups.length},不等同整行逐字节 —— 见 --twins)`,
+    `  无人认领:  ${unclaimed.length}(其中 ${unclaimed.length - claimable.length} 条**可证**为已闭环 [x] 行的旧副本(骨架被逐字包住 / 除编号外逐字节相同)⇒ **可认领 ${claimable.length}**;弱相似而两档可证通道都没接上的 ${suspectTwins.length} 条**不扣名额**、仍在清单内(见 --twins);正文骨架相同组 ${dupGroups.length},不等同整行逐字节 —— 见 --twins)${twinsCaveat}`,
   )
   console.log(
     `  进行中:    ${inProgress.length}(旧格式无租约 ${leaseCounts.legacy} / 形态不可辨 ${leaseCounts.unknown} / 有持有者无日期 ${leaseCounts.holderNoDate};租约到期判红见 --check-gate)`,
@@ -1845,6 +1962,8 @@ export const __test__ = {
   splitTwinsByProof,
   keyIdStripped,
   subtractProvenTwins,
+  /** S25:孪生判据的对照面读数(空对照面 = 未判定,不是零),镜像测试走同一份实现(§22c)。 */
+  buildTwinsFaceReadout,
   bodyOf,
   parseClaim,
   analyzeLeases,
