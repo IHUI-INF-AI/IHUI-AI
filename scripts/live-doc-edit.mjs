@@ -227,7 +227,15 @@ import {
 import { collectIdFace, scanFamilyIdHits } from './lib/plan-id-face.mjs'
 // Y-2(2026-10-29):让位账本的**读口**只有一份(裁决器里),本器只调它的两个纯函数取号集 ——
 // 不在本器重算"哪些号让得",也不在本器解析 jsonl 语法(两处解析必漂)。
-import { YIELD_LEDGER_REL, activeYields, readYieldLedger } from './plan-pool-yield.mjs'
+import {
+  YIELD_LEDGER_REL,
+  YIELD_LEDGER_REL_G,
+  activeYields,
+  readYieldLedgers,
+} from './plan-pool-yield.mjs'
+
+/** 让位账本的**人读**清单(报告里点名"号凭什么退"时要指得到具体那一本)。 */
+const YIELD_LEDGER_RELS_TEXT = `${YIELD_LEDGER_REL}(D 等族) / ${YIELD_LEDGER_REL_G}(G 族)`
 
 // 结清留痕自动腿(2026-10-26 立):`- [ ]` → `- [x]` 的两形态逐字入 `plan-row-drop.jsonl`。
 // 写口/幂等/凭据判定只有一份实现(住 lib),本器只交事实(落地 sha / 父提交 / 当下 HEAD / 祖先关系)。
@@ -646,10 +654,13 @@ export function overClaimIdReadings(family, pool, scanReport) {
  *  - `path` 只是夹具注入点(让测试零副作用地指向临时账本),不构成降级档。
  */
 export function loadYieldedIdSets({ root = null, path = null } = {}) {
-  const p = path ?? resolve(root ?? REPO_ROOT, YIELD_LEDGER_REL)
+  // 2026-10-29(goal-b25):让位账本按族分本(G 族单本,便于单独取证/回滚)。`path` 给定时仍只读那一本
+  // ——夹具注入点语义不变(测试零副作用);缺省读**整套**(主本在前、G 本在后,后者覆盖前者)。
+  const base = root ?? REPO_ROOT
+  const paths = path ? [path] : [resolve(base, YIELD_LEDGER_REL), resolve(base, YIELD_LEDGER_REL_G)]
   let led
   try {
-    led = readYieldLedger(p)
+    led = readYieldLedgers(paths)
   } catch (e) {
     console.error(
       `⚠️ 让位账本读失败(${String(e?.message ?? e).split(/\r?\n/)[0].slice(0, 120)})⇒ 本轮不让位任何号(比改前更严,不会多发号)`,
@@ -789,7 +800,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       // 不再算占用。**只对账本点名的号生效**,且账本里每一枚都带着"全face每次出现都已结清且早于窗"
       // 的证据 ⇒ 这不是"归档面不扫了"(那等于撤 G-14),而是逐号的、可反查的退出。
       if (yset && yset.has(n)) {
-        yieldNotes.push(`${lbl(n)} 已让位(账本 ${YIELD_LEDGER_REL})⇒ 面引用不计占用;反查 node scripts/plan-pool-yield.mjs --trace ${lbl(n)}`)
+        yieldNotes.push(`${lbl(n)} 已让位(账本 ${YIELD_LEDGER_RELS_TEXT})⇒ 面引用不计占用;反查 node scripts/plan-pool-yield.mjs --trace ${lbl(n)}`)
         return true
       }
       const hit = scanned.get(n)
