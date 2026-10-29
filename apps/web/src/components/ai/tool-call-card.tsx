@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { useAuthStore } from '@/stores/auth'
 import {
   describeToolActivityByStatus,
   describeToolCall,
@@ -49,6 +50,7 @@ import {
   type StreamStatus,
 } from '@/components/chat/stream/stream-ui'
 import { InlineDiffCard } from './inline-diff-card'
+import { ToolDiffJumpButton } from './open-tool-diff'
 // 2026-10-21 首屏瘦身:走**子路径**而不是 @/components/media 的 barrel。
 // barrel 会把 ImageViewer / VideoPlayer / LivePlayer / CodeViewer / MarkdownViewer 一并
 // 拖进本文件所在的那枚 chunk(本文件在营销页的静态链上:根 layout → GlobalShell →
@@ -753,14 +755,15 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
     }
   }, [videoUrl])
 
-  // 跨域直链的 download 属性会被浏览器忽略,用 blob 落盘;CORS 拒绝时回退新窗口打开
+  // 跨域直链的 download 属性会被浏览器忽略,用 blob 落盘。
+  // 2026-10-30 走查实证:直连 fetch 外部 CDN 会被 CORS 拒绝(agnes 源站不带 ACAO)
+  // ⇒ blob 落盘这条路在跨域时不成立,下载按钮点了只退化成新窗口打开。
+  // 改为**先走同源代理** /api/media/download(后端转发并带 Content-Disposition,
+  // 浏览器全程只碰同源,无 CORS 问题);代理不可用(旧后端/未登记产物)时再回退直连。
   const handleDownload = React.useCallback(async () => {
     if (saving) return
     setSaving(true)
-    try {
-      const res = await fetch(videoUrl)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const blob = await res.blob()
+    const saveBlob = (blob: Blob) => {
       const objUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = objUrl
@@ -771,7 +774,28 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
       URL.revokeObjectURL(objUrl)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    }
+    try {
+      // ① 同源代理(主路径)。fetchApi 返回的是信封(ApiResult),取不到二进制,
+      //    故此处用原生 fetch 并自行带 Bearer —— 与 useAuthStore 同源的取法。
+      const { token } = useAuthStore.getState()
+      const res = await fetch(`/api/media/download?url=${encodeURIComponent(videoUrl)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (res.ok) {
+        saveBlob(await res.blob())
+        return
+      }
     } catch {
+      /* 代理不可用,走 ② */
+    }
+    try {
+      // ② 直连兜底(同源产物 / 源站带 CORS 头时才成立)
+      const res = await fetch(videoUrl)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      saveBlob(await res.blob())
+    } catch {
+      // 两条都不通:至少让用户能拿到文件(新窗口由浏览器自行播放/下载)
       window.open(videoUrl, '_blank', 'noopener')
     } finally {
       setSaving(false)
@@ -1164,6 +1188,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
 }: ToolCallCardProps) {
   const [expanded, setExpanded] = React.useState(false)
   const t = useTranslations('ai.toolCall')
+  const tDiff = useTranslations('chat.sessionDiff')
   // 取不到文件路径时的占位由文案层给出(组件不产硬编码文案)
   const unknownFileLabel = t('toolUnknownFile')
   // 工具行禁止直显英文工具码名:映射命中的内置工具显示本地化功能名
@@ -1337,6 +1362,21 @@ export const ToolCallCard = React.memo(function ToolCallCard({
               direction={FILE_WRITE_TOOLS.has(toolName) ? 'write' : 'read'}
             />
           ) : null}
+        </div>
+      ) : null}
+      {showInlineDiff && diffInfo && diffInfo.file_path ? (
+        <div className="pl-1">
+          <ToolDiffJumpButton
+            label={tDiff('title')}
+            source={{
+              filePath: diffInfo.file_path,
+              toolName,
+              oldContent: diffInfo.old_content,
+              newContent: diffInfo.new_content,
+              isNewFile: diffInfo.is_new_file,
+              applyStatus: diffInfo.applyStatus,
+            }}
+          />
         </div>
       ) : null}
       {expanded && (

@@ -844,7 +844,16 @@ const nextConfig: NextConfig = {
           isDev
             ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
             : "connect-src 'self' https: wss: http://ipc.localhost https://ipc.localhost",
-          "media-src 'self' blob:",
+          // 2026-10-30 放行 https:/data:(与上方 img-src 同型取舍,不放行等于功能断):
+          //  - AI 生成的音频/视频直链由厂商 CDN 下发(如 agnes 的 cos-platform-outputs.*),
+          //    域名随供应商接入而变、不可枚举;收窄即「生成的视频在对话框里播不了」;
+          //  - 走查实证:media-src 仅 'self' blob: 时,VideoResultBlock 的 <video> 被 CSP
+          //    拒绝加载(控制台 "Loading media ... violates CSP"),播放器渲染了却无画面,
+          //    全屏/下载/分享全链路落空。
+          //  - blob: 保留:下载按钮走 fetch→ObjectURL 落盘,正是 blob: 源。
+          // 剩余风险(已知并接受):https 媒体可被当作数据外泄信道;正确解法同 img-src
+          // —— 后端媒体代理 + 域名白名单后再收窄,属跨端改造,不在本轮范围。
+          "media-src 'self' blob: data: https:",
           "object-src 'none'",
           "base-uri 'self'",
           // 2026-10-28 补 frame-ancestors:与上面的 X-Frame-Options: SAMEORIGIN 语义对齐。
