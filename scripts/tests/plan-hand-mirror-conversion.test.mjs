@@ -228,4 +228,31 @@ test('M17 跨端通用能力按类别销账:壳侧确有该类实现才销,平�
   assert.deepEqual(conv.shellCapabilityCovered(t4, ''), [])
   assert.equal(t4.size, 4)
 })
+
+test('M18 提示能力认"error 交给共享屏渲染"这一形:共享屏不渲染就不销(本票重构引入过的回归)', () => {
+  const mk = () => new Set(['Taro.showToast'])
+  // 2026-10-29 把 wrapper 重构成 usePaginatedList 后,壳里不再有 setError 字面量,
+  // 错误经 hook 的 error 出口流到共享屏的 ErrorState/errorText —— 只认旧字面量会把
+  // live/history 与 member/integral 两页当场退回"缺提示能力"(实测到的自伤)。
+  const t1 = mk()
+  assert.deepEqual(
+    conv.shellCapabilityCovered(t1, '<Shared error={error} onEndReached={loadMore} />', '<ErrorState message={error} />'),
+    ['用户提示'],
+  )
+  assert.ok(!t1.has('Taro.showToast'))
+  // 反向对照:壳把 error 传下去了,共享屏那一侧却没任何渲染 ⇒ 用户看不见失败 ⇒ 不销
+  const t2 = mk()
+  assert.deepEqual(conv.shellCapabilityCovered(t2, '<Shared error={error} />', 'return <View />'), [])
+  assert.ok(t2.has('Taro.showToast'))
+  // 反向对照:共享屏渲染 error 但壳没把它交下去 ⇒ 同样不销
+  const t3 = mk()
+  assert.deepEqual(conv.shellCapabilityCovered(t3, 'return <Shared />', '<ErrorState message={error} />'), [])
+  assert.ok(t3.has('Taro.showToast'))
+  // 旧形态仍算(不能因为加了新一维就把 setError 那条证据丢掉)
+  const t4 = mk()
+  assert.deepEqual(
+    conv.shellCapabilityCovered(t4, 'const [error, setError] = useState("")\nsetError(t("x.loadFailed"))', ''),
+    ['用户提示'],
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
