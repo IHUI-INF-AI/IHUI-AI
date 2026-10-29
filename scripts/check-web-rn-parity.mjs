@@ -7,10 +7,12 @@
  * check-web-rn-parity.mjs — web↔RN 功能 / 样式 对账门(只读报告器,自动持续)
  *
  * 背景:跨端对齐链 web → RN → 小程序(AGENTS §9)。RN↔小程序 已有门 128(组件配对)/237(页面覆盖)
- * + 共享 feature 层(packages/app/src/features),且已注册进 guardian-runner.mjs 每轮自动跑;
+ * + 共享 feature 层(packages/app/src/features);
  * 而 web→RN 这一上游格原只在 scripts/ 里手动跑(check-web-rn-screen-parity / probe-web-rn-gap),
- * **从未注册进 guardian** ⇒ web 新增路由 / 功能,RN 缺承载时无人自动拦。本门把它变成每轮自动跑的
- * 持续守门,使「RN 自动同步 web 的样式与功能、不得有差」可机检、不回潮。
+ * **从未被任何调度器派发** ⇒ web 新增路由 / 功能,RN 缺承载时无人自动拦。
+ * 自 2026-10-28 起本尺子的唯一调度器 = `scripts/git-guardian.mjs` 的 `auditWebRnParity()` 巡检腿
+ * (健康轮次 + !CHECK_ONLY,60 分钟节流,只在计数净增那一档到人;AGENTS §44:只读对账尺子不进提交链),
+ * 使「RN 自动同步 web 的样式与功能、不得有差」可机检、不回潮。
  *
  * 复用(§0.6 单一真相源,本文件零复算):
  *   · 功能维:check-web-rn-screen-parity.__test__ 的 evaluateMap / evaluateNav / collectWebRoutes /
@@ -112,7 +114,6 @@ function styleParity() {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 16 * 1024 * 1024,
-      windowsHide: true,
     })
     // --quiet 仅在有色值不一致时打印;走到这说明 exit 0 ⇒ 三端颜色令牌同步且通过
     return {
@@ -142,7 +143,7 @@ function tokenBreadth() {
       const r = execFileSync(
         'git',
         ['-C', ROOT, 'grep', '-l', '@ihui/design-tokens', 'HEAD', '--', `${dir}`],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 * 1024 * 1024, windowsHide: true },
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 * 1024 * 1024 },
       )
       out[dir] = r.split('\n').filter(Boolean).length
     } catch {

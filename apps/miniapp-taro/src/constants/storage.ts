@@ -47,7 +47,6 @@ export const VIDEO_HISTORY_KEY = 'ihui_video_history' as const
 // 对话与收藏内容此前只在 chat.tsx 里各写一份字面量,收进本表(§0.6:同一份清单只许一处)
 export const AI_CHAT_HISTORY_KEY = 'ai_chat_history' as const
 export const AI_FAVORITE_MESSAGES_KEY = 'ai_favorite_messages' as const
-
 export const AI_AGENT_TIP_SHOWN_KEY = 'ai_agent_tip_shown' as const
 export const AGENT_DIALOGUE_DATA_KEY = 'ihui-agent-dialogue-data' as const
 
