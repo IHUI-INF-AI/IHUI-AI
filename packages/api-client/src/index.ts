@@ -183,6 +183,15 @@ export type {
 } from './stream-transport.js'
 export { runResumableSSEStream, appendResumeEventIdHeader } from './client.js'
 export type { ResumableSSEStreamOptions } from './client.js'
+// b76-15(2026-10-29 立):seq 维帧水位生产点 —— 从网关 `id: <seq>` 行派生的连续性
+// 判据(载荷级四字段生产端至今不下发,那条腿在真机上恒 undetermined)。
+export {
+  carriesPayloadWatermark,
+  createFrameSeqTracker,
+  type FrameSeqVerdict,
+  type FrameSeqTracker,
+  type FrameWatermarkFacts,
+} from './frame-watermark-producer.js'
 
 // 模型上下文容量映射(跨端共享:web/desktop/extension/mobile-rn/miniapp-taro)
 export {
