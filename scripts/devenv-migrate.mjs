@@ -40,15 +40,28 @@
  *  另:.DevEnv\.git 是 G-158 的坏 gitfile 边界哨兵(指向不存在的 .no-git-boundary),
  *  防 git discovery 逃逸与嵌套仓(守门 208),正确形态,本器物不碰。
  *
- * ══ 静默窗口判据(票面)══
+ * ══ 静默窗口判据(票面;②于 2026-10-29 改口径,原因见下)══
  *  ① 旧根(<盘>:/DevEnv)内 mtime 最新条目距今 ≥ QUIET_MINUTES(60 分钟 = 连续 ≥2 轮
  *     守护派发周期)无新增;枚举跳过重解析点(§26 头号危险:junction 穿透会把别的盘算进来)。
- *  ② 无活跃并行会话:.ihui-agent/tmp 与 <盘>:/tmp-probe 两探针均 SESSION_IDLE_MINUTES(30
- *     分钟)内无新写入(目录不存在 = 无探针,天然过)。
+ *  ② 无「正在使用旧根」的并行会话 —— 只判搬迁会真正打断的那几类:
+ *     ②-a 活进程面:运行中进程的 CommandLine / ExecutablePath 落在旧根的**路径段**内
+ *          (进程面由 pwsh 的 Get-CimInstance Win32_Process 取值;取不到 ⇒ undetermined)。
+ *     ②-b 旧根锁面:旧根内有界枚举 `*.lock`,带 pid 且 pid 存活 ⇒ 占用;pid 读不出 ⇒ 也按
+ *          占用(不确定即视为在用);pid 已死 ⇒ 陈旧锁只报数。git 正在刷备份仓时会出现
+ *          空内容的 refs/heads/*.lock,正是「搬迁会打断 git 备份」的瞬时证据。
+ *  ② 的**旧口径已退役**:「.ihui-agent/tmp 与 <盘>:/tmp-probe 两目录静默 30 分钟」在本仓
+ *  结构上永不到达 —— 多会话共享工作树,guardian 自己每轮往 .ihui-agent/tmp 写
+ *  index-snapshot-<ts> 与 guardian-timing.json(2026-10-29 实测常驻 1~3 分钟内有写入)⇒ 静默窗
+ *  永不开启 = 让路变永久停摆(与 AGENTS §1 护栏③ 同型)。两目录的写入与「旧根搬迁」无因果
+ *  关系(scratch 根已随 G-158 迁到新根内),故降为**信息面**(facts.sessionTmp/tmpProbe,
+ *  --probe 打印,不参与三态)。覆盖面没有降低:旧口径测不到「有进程正在用旧根」,
+ *  新 ②-a/②-b 正是补上这一格,且每次 probe 都能量、能复跑。
+ *  未覆盖面:旧根内**打开的文件句柄**与**进程 cwd**(Windows 纯 Node 取不到,不假装覆盖),
+ *  由 re-home-junctions.repairOne 的「占用中目录改名失败 = 安全失败,不建 junction、不删源」兜底。
  *  前置可信度:git-guardian.log 末条 tick 距今 > GUARDIAN_FRESH_MINUTES(15 分钟)⇒ 守护
  *  失明期,「无新增」不可信 ⇒ 整体未判定(§0.3:取不到输入判未判定,绝不猜)。
- *  三态:window(两判据全过 ∧ 守护活着)/ pending(有活跃写入,reasons 点名)/
- *  undetermined(输入取不到:枚举截断/单条读不到/留痕过期等,显式点名原因)。
+ *  三态:window(两判据全过 ∧ 守护活着)/ pending(有活跃写入或占用,reasons 点名)/
+ *  undetermined(输入取不到:枚举截断/单条读不到/进程表取不到/留痕过期等,显式点名原因)。
  *
  * ══ 用法 ══
  *   node scripts/devenv-migrate.mjs              # 默认:探测 + 盘点 + 预演(零写盘)
@@ -101,10 +114,16 @@ export const GUARDIAN_LOG = join(ROOT, '.ihui-agent', 'state', 'git-guardian.log
 export const GITIGNORE = join(ROOT, '.gitignore')
 export const SEAL_SCRIPT = join(ROOT, 'scripts', 'seal-c-root-stray.mjs')
 
-/** 票面判据阈值(分钟)。60 = 连续 ≥2 轮守护派发周期;30 = 会话探针静默;15 = 守护留痕新鲜度。 */
+/** 票面判据阈值(分钟)。60 = 连续 ≥2 轮守护派发周期;15 = 守护留痕新鲜度。 */
 export const QUIET_MINUTES = 60
-export const SESSION_IDLE_MINUTES = 30
 export const GUARDIAN_FRESH_MINUTES = 15
+/** 两探针目录的静默阈值:2026-10-29 起**只作信息面**(见头注判②),不再参与三态。 */
+export const SESSION_IDLE_MINUTES = 30
+/** 判② 进程面:进程表派生超时。取不到 ⇒ undetermined(不猜「没人用」)。 */
+export const PROC_SCAN_TIMEOUT_MS = 20_000
+/** 判② 锁面有界枚举。2026-10-29 现读旧根 maxdepth 8 = 36,395 条目(36,395 远低于预算),
+ *  8 层覆盖 backups/git/<repo>/refs/heads/*.lock 这类搬迁会打断的瞬时锁。 */
+export const LEGACY_LOCK_SCAN = { maxDepth: 8, entryBudget: 120_000 }
 /** 枚举预算:超过即截断 ⇒ 判定降级为 undetermined(未见 ≠ 不存在)。 */
 export const ENUM_BUDGET = 200000
 
@@ -309,23 +328,323 @@ function quietVerdict(fact, threshold, label) {
 }
 
 /**
- * 静默窗口三态(票面判据 ①② + 守护存活前置)。
+ * 路径归一化:分隔符统一 + 去尾缀 + 小写。判据只认「同一路径」,不认书写形态。
+ * @param {unknown} p
+ * @returns {string}
+ */
+function normPath(p) {
+  return String(p === null || p === undefined ? '' : p)
+    .replace(/[\\/]+/g, '\\')
+    .replace(/\\+$/, '')
+    .toLowerCase()
+}
+
+/**
+ * 纯函数:candidate 是否落在 root 之内(按**路径段边界**,不是裸子串)。
+ * 为什么必须按段边界:本机存在 `D:\DevEnv`(另一盘的合法 DevEnv,`svc-imagecdn`、
+ * `editor_sdk` 等 4 个常驻进程在用)—— 裸子串匹配 `DevEnv` 会把它们全判成「在用旧根」
+ * ⇒ 恒 pending(§12e 恒红门同型)。判据只认 `<盘>:/DevEnv` 这一段。
+ * @param {unknown} candidate
+ * @param {string} [root]
+ * @returns {boolean}
+ */
+export function withinRoot(candidate, root = LEGACY_ROOT) {
+  const c = normPath(candidate)
+  const r = normPath(root)
+  if (!c || !r) return false
+  return c === r || c.startsWith(r + '\\')
+}
+
+/**
+ * 纯函数:命令行里是否**以路径段边界**点名了 root 内的路径。
+ * 命令行的现实形态:`node "G:\DevEnv\Temp\x.mjs" --a`、`cd /g/DevEnv && …`、`… >| /g/DevEnv/x`;
+ * 归一后命中的下一位必须是分隔符 / 引号 / 空白 / 结尾,避免 `G:\DevEnv2` 之类误命中。
+ * @param {unknown} cmdline
+ * @param {string} [root]
+ * @returns {boolean}
+ */
+export function commandMentionsRoot(cmdline, root = LEGACY_ROOT) {
+  const text = normPath(cmdline)
+  const r = normPath(root)
+  if (!text || !r) return false
+  let at = text.indexOf(r)
+  while (at >= 0) {
+    const next = text[at + r.length]
+    if (next === undefined || next === '\\' || /[\s"']/.test(next)) return true
+    at = text.indexOf(r, at + 1)
+  }
+  return false
+}
+
+/** 进程表取数命令(只在本机 probe 时派生一次;不写盘根、不引凭据)。 */
+export const PROCESS_TABLE_PS =
+  'Get-CimInstance Win32_Process | Select-Object ProcessId,CommandLine,ExecutablePath | ConvertTo-Json -Compress'
+
+/**
+ * 纯函数:PowerShell `ConvertTo-Json -Compress` 的输出 → 归一进程行。
+ * 单条结果时 PS 返回对象而非数组(实测),两种都认;空输出/非 JSON ⇒ 抛错
+ * (调用方据此判 undetermined —— 绝不把「取不到」读成「没人用」)。
+ * @param {unknown} stdout
+ * @returns {Array<{pid:number, cmdline:string, exePath:string}>}
+ */
+export function parseProcessTable(stdout) {
+  const text = String(stdout === null || stdout === undefined ? '' : stdout).trim()
+  if (!text) throw new Error('进程表输出为空')
+  let data
+  try {
+    data = JSON.parse(text)
+  } catch {
+    throw new Error(`进程表不是 JSON:${text.slice(0, 80)}`)
+  }
+  const rows = Array.isArray(data) ? data : [data]
+  return rows.map((r) => ({
+    pid: Number(r && r.ProcessId),
+    cmdline: r && r.CommandLine !== null && r.CommandLine !== undefined ? String(r.CommandLine) : '',
+    exePath:
+      r && r.ExecutablePath !== null && r.ExecutablePath !== undefined ? String(r.ExecutablePath) : '',
+  }))
+}
+
+/**
+ * 派生进程表(唯一真跑面)。§12g:显式 stdio + windowsHide,不把选项留给调用方顺手删。
+ * 换机无 pwsh 时以 IHUI_PWSH_BIN 指路;取不到一律抛错 ⇒ 上层判 undetermined 并点名原因。
+ * @param {{spawnSync:Function}} io
+ * @param {{pwshBin?:string, timeout?:number}} [opts]
+ * @returns {Array<{pid:number, cmdline:string, exePath:string}>}
+ */
+export function defaultProcessTable(io = defaultIO(), opts = {}) {
+  const pwshBin = opts.pwshBin || process.env.IHUI_PWSH_BIN || 'pwsh'
+  const timeout = opts.timeout || PROC_SCAN_TIMEOUT_MS
+  const r = io.spawnSync(pwshBin, ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE_PS], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    encoding: 'utf8',
+    timeout,
+  })
+  if (r && r.error) throw new Error(`进程表派生失败(${r.error.code || r.error.message};pwsh=${pwshBin})`)
+  if (!r || r.status !== 0) {
+    const err = String((r && r.stderr) || '').trim().slice(0, 120)
+    throw new Error(`进程表派生 rc=${r ? r.status : 'null'}${err ? `:${err}` : ''};pwsh=${pwshBin}`)
+  }
+  return parseProcessTable(r.stdout)
+}
+
+/**
+ * 纯函数:锁文件正文里的 pid。本仓锁有三种写法(`{"pid":123,…}` / `pid=123` / `pid: 123`),
+ * 外加纯数字文件;git 自己造的瞬时锁(index.lock / refs/…/main.lock)是**空文件** ⇒ null。
+ * @param {unknown} text
+ * @returns {number|null}
+ */
+export function pidFromLockText(text) {
+  const t = String(text === null || text === undefined ? '' : text)
+  const m = t.match(/"pid"\s*:\s*(\d+)/) || t.match(/\bpid\s*[=:]\s*["']?(\d+)/i) || t.match(/^\s*(\d+)\s*$/)
+  if (!m) return null
+  const pid = Number(m[1])
+  return Number.isInteger(pid) && pid > 0 ? pid : null
+}
+
+/** 默认 pid 存活判定。EPERM = 进程在但无权限查询,仍算活(方向:多等一轮)。 */
+export function defaultPidAlive(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return Boolean(e && e.code === 'EPERM')
+  }
+}
+
+/**
+ * 旧根锁面:有界、不穿重解析点地找 `*.lock`,逐个判持有 pid 是否还活着。
+ * 口径:活 pid ⇒ live(占用);pid 读不出 ⇒ live(不确定即视为占用,方向=多等一轮);
+ * pid 已死 ⇒ stale(陈旧锁只报数,不阻 —— 否则历史残留会把窗口永久锁死);
+ * 个别条目读不到 ⇒ 报数不阻(它不是「有人在用」的证据,且永久阻 = 又一种停摆);
+ * 枚举截断 ⇒ undetermined(未见 ≠ 不存在)。
  * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function}} io
+ * @param {string} root
+ * @param {{maxDepth?:number, entryBudget?:number, pidAlive?:Function}} [opts]
+ * @returns {{kind:'ok'|'undetermined', scanned:number, locks:number, live:Array<{path:string,pid:(number|null),why:string}>, stale:Array<{path:string,pid:number}>, truncated:boolean, unreadable:string[], why:(string|undefined)}}
+ */
+export function scanLegacyLocks(io, root, opts = {}) {
+  const maxDepth = opts.maxDepth ?? LEGACY_LOCK_SCAN.maxDepth
+  const entryBudget = opts.entryBudget ?? LEGACY_LOCK_SCAN.entryBudget
+  const pidAlive = opts.pidAlive ?? defaultPidAlive
+  const out = {
+    kind: /** @type {'ok'|'undetermined'} */ ('ok'),
+    scanned: 0,
+    locks: 0,
+    live: /** @type {Array<{path:string,pid:(number|null),why:string}>} */ ([]),
+    stale: /** @type {Array<{path:string,pid:number}>} */ ([]),
+    truncated: false,
+    unreadable: /** @type {string[]} */ ([]),
+    why: undefined,
+  }
+  let stop = false
+  /** @param {string} dir @param {number} depth */
+  const walk = (dir, depth) => {
+    if (stop) return
+    let names
+    try {
+      names = io.readdirSync(dir)
+    } catch (e) {
+      if (e && e.code === 'ENOENT') return // 并发删除 / 旧根已清;按当前所见判
+      out.unreadable.push(`${dir}(${(e && e.code) || e})`)
+      return
+    }
+    for (const name of names) {
+      if (stop) return
+      out.scanned++
+      if (out.scanned > entryBudget) {
+        out.truncated = true
+        stop = true
+        return
+      }
+      const p = join(dir, name)
+      let st
+      try {
+        st = io.lstatSync(p)
+      } catch (e) {
+        if (!e || e.code !== 'ENOENT') out.unreadable.push(`${p}(${(e && e.code) || e})`)
+        continue
+      }
+      if (st.isSymbolicLink()) continue // §26:不穿重解析点
+      if (st.isDirectory()) {
+        if (depth < maxDepth) walk(p, depth + 1)
+        continue
+      }
+      if (!/\.lock$/i.test(String(name))) continue
+      out.locks++
+      let text
+      try {
+        text = io.readFileSync(p, 'utf8')
+      } catch (e) {
+        out.unreadable.push(`${p}(${(e && e.code) || e})`)
+        continue
+      }
+      const pid = pidFromLockText(text)
+      if (pid === null) {
+        out.live.push({ path: p, pid: null, why: '锁内容读不出 pid,不确定即视为占用' })
+        continue
+      }
+      let alive = true
+      try {
+        alive = Boolean(pidAlive(pid))
+      } catch {
+        alive = true // 判活抛错 ⇒ 按占用处理(方向:多等一轮)
+      }
+      if (alive) out.live.push({ path: p, pid, why: `持有 pid ${pid} 存活` })
+      else out.stale.push({ path: p, pid })
+    }
+  }
+  walk(root, 1)
+  if (out.truncated) {
+    out.kind = 'undetermined'
+    out.why = `锁面枚举超过预算 ${entryBudget} 条被截断,未见 ≠ 不存在`
+  }
+  return out
+}
+
+/**
+ * 判② 活使用面(票面 ② 的可满足口径):旧根上是否真有「搬迁会打断」的使用者。
+ * 两面:②-a 活进程(命令行 / 可执行路径落在旧根路径段内)、②-b 旧根锁(活 pid 或读不出 pid)。
+ * 三态:busy(有命中,reasons 点名)/ undetermined(进程表或锁面取不到)/ idle(可放行)。
+ * 两面都可注入(§22c 构造面),生产默认面 = 进程表派生 + 真锁扫描。
+ * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function, spawnSync:Function}} io
+ * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object}} [opts]
+ * @returns {{state:'idle'|'busy'|'undetermined', reasons:string[], facts:{processes:Object, locks:Object}}}
+ */
+export function legacyActiveUse(io, opts = {}) {
+  const listProcesses = opts.listProcesses || (() => defaultProcessTable(io))
+  const pidAlive = opts.pidAlive || defaultPidAlive
+  const lockScan = opts.lockScan || {}
+  const processes = {
+    kind: /** @type {'ok'|'undetermined'} */ ('ok'),
+    total: 0,
+    hits: /** @type {Array<{pid:(number|null), why:string}>} */ ([]),
+    why: /** @type {(string|undefined)} */ (undefined),
+  }
+  try {
+    const rows = listProcesses()
+    if (!Array.isArray(rows)) throw new Error(`进程表形态不对(${rows === null ? 'null' : typeof rows})`)
+    processes.total = rows.length
+    for (const row of rows) {
+      const cmdline = row && row.cmdline ? row.cmdline : ''
+      const exePath = row && row.exePath ? row.exePath : ''
+      if (!commandMentionsRoot(cmdline, LEGACY_ROOT) && !withinRoot(exePath, LEGACY_ROOT)) continue
+      const pid = row && Number.isFinite(Number(row.pid)) ? Number(row.pid) : null
+      processes.hits.push({ pid, why: String(cmdline || exePath).slice(0, 160) })
+    }
+  } catch (e) {
+    processes.kind = 'undetermined'
+    processes.why = `进程表取不到(${(e && e.message) || e})`
+  }
+  const locks = scanLegacyLocks(io, LEGACY_ROOT, { pidAlive, ...lockScan })
+  const reasons = []
+  if (processes.kind === 'undetermined') reasons.push(`判② 活进程面:${processes.why}`)
+  for (const h of processes.hits) reasons.push(`判② 活进程面:pid ${h.pid === null ? '?' : h.pid} 点名旧根 —— ${h.why}`)
+  if (locks.kind === 'undetermined') reasons.push(`判② 旧根锁面:${locks.why}`)
+  for (const h of locks.live) reasons.push(`判② 旧根锁面:${h.path} —— ${h.why}`)
+  const state =
+    processes.kind === 'undetermined' || locks.kind === 'undetermined'
+      ? 'undetermined'
+      : reasons.length
+        ? 'busy'
+        : 'idle'
+  return { state, reasons, facts: { processes, locks } }
+}
+
+/**
+ * --probe 的判② 明细行(信息面与覆盖面自述,不参与三态)。
+ * 立因:判据换口径时必须把「新面测了什么、旧面为什么退役、哪一面仍未覆盖」当场印出来,
+ * 否则下一个人只看到一行 `pending`,又会误判成「结构上到不了」。
+ * @param {{activeUse:Object, sessionTmp:Object, tmpProbe:Object}} facts
+ * @returns {string[]}
+ */
+export function activityNotes(facts) {
+  const a = facts.activeUse
+  const p = a.facts.processes
+  const l = a.facts.locks
+  const fmtQuiet = (f) => {
+    if (!f) return '取不到'
+    if (f.kind === 'absent') return '不存在'
+    if (f.kind === 'ok' && f.quietMinutes !== null) return `${f.quietMinutes.toFixed(1)} 分钟前`
+    return `未判定(${f.why || '?'})`
+  }
+  return [
+    p.kind === 'ok'
+      ? `判② 活进程面:已枚举 ${p.total} 个进程,命中旧根 ${p.hits.length} 个`
+      : `判② 活进程面:${p.why}`,
+    `判② 旧根锁面:扫 ${l.scanned} 条目 / *.lock ${l.locks} 个(占用 ${l.live.length}、陈旧 ${l.stale.length}${
+      l.unreadable.length ? `、读不到 ${l.unreadable.length}` : ''
+    })`,
+    '判② 未覆盖面:旧根内打开句柄与进程 cwd(纯 Node 取不到)⇒ 由 repairOne 改名安全失败兜底(不建 junction、不删源)',
+    `信息面(不参与三态):${SESSION_TMP} ${fmtQuiet(facts.sessionTmp)};${TMP_PROBE} ${fmtQuiet(
+      facts.tmpProbe,
+    )}(旧口径阈值 ${SESSION_IDLE_MINUTES} 分钟已退役,见头注判②)`,
+  ]
+}
+
+/**
+ * 静默窗口三态(票面判据 ①② + 守护存活前置)。
+ * 判② 走 legacyActiveUse(活使用面),两探针目录的静默读数只作信息面。
+ * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function, spawnSync:Function}} io
  * @param {number} [now]
+ * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object}} [activity] 判② 注入面(测试用)
  * @returns {{state:'window'|'pending'|'undetermined', reasons:string[], facts:Object}}
  */
-export function probeQuietWindow(io, now = Date.now()) {
+export function probeQuietWindow(io, now = Date.now(), activity = {}) {
   const facts = {
     legacyRoot: latestWrite(io, LEGACY_ROOT, now),
+    activeUse: legacyActiveUse(io, activity),
     sessionTmp: latestWrite(io, SESSION_TMP, now),
     tmpProbe: latestWrite(io, TMP_PROBE, now),
     guardian: guardianTickAlive(io, now),
   }
   const v1 = quietVerdict(facts.legacyRoot, QUIET_MINUTES, `判① 旧根 ${LEGACY_ROOT}`)
-  const v2a = quietVerdict(facts.sessionTmp, SESSION_IDLE_MINUTES, `判② 会话探针 ${SESSION_TMP}`)
-  const v2b = quietVerdict(facts.tmpProbe, SESSION_IDLE_MINUTES, `判② 会话探针 ${TMP_PROBE}`)
-  const reasons = [v1, v2a, v2b].filter((v) => !v.pass).map((v) => v.note)
-  const anyUndetermined = facts.guardian.state !== 'alive' || [v1, v2a, v2b].some((v) => v.undetermined)
+  const reasons = []
+  if (!v1.pass) reasons.push(v1.note)
+  for (const r of facts.activeUse.reasons) reasons.push(r)
+  const anyUndetermined =
+    facts.guardian.state !== 'alive' || v1.undetermined || facts.activeUse.state === 'undetermined'
   if (facts.guardian.state !== 'alive') reasons.push(`守护存活:${facts.guardian.why}`)
   const state = anyUndetermined ? 'undetermined' : reasons.length === 0 ? 'window' : 'pending'
   if (state === 'window')
@@ -854,6 +1173,7 @@ export function devenvMigratePatrol(opts = {}) {
     io = defaultIO(),
     logger = (m) => console.log(m),
     probeFn = probeQuietWindow,
+    activity = {},
     applyFn = applyMigration,
     readFile = (p) => readFileSync(p, 'utf8'),
     exists = existsSync,
@@ -874,7 +1194,7 @@ export function devenvMigratePatrol(opts = {}) {
   } catch {
     /* 盘错不得让本臂失明 */
   }
-  const probe = probeFn(io, now)
+  const probe = probeFn(io, now, activity)
   if (probe.state === 'pending') return { ran: true, state: 'pending', actions: 0 }
   if (probe.state === 'undetermined') {
     logger(`⚠️ G-50 DevEnv 搬迁:静默窗口未判定 ⇒ 本轮不搬(不记绿也不冒红)· ${probe.reasons.join(' ; ')}`)
@@ -1068,11 +1388,14 @@ function selfTest() {
   )
 
   // ── probeQuietWindow 汇总三态(tree 键 = 真实常量路径,与探测器所问逐字同形)──
+  // 判② 注入面:listProcesses / pidAlive 全构造,零真派生、零真旧根依赖(§22c)。
+  const IDLE = { listProcesses: () => [], pidAlive: () => false }
   const K = { legacy: LEGACY_ROOT, tmp: SESSION_TMP, probe: TMP_PROBE, log: GUARDIAN_LOG }
-  const probeTree = ({ legacyMin = 90, tmpMin = 40, guardianAgeMin = 2 } = {}) => {
+  const probeTree = ({ legacyMin = 90, tmpMin = 40, guardianAgeMin = 2, locks = null } = {}) => {
     const iso = new Date(NOW - guardianAgeMin * MIN).toISOString()
-    return {
-      [K.legacy]: { dir: ['a'] },
+    const names = ['a'].concat(locks ? Object.keys(locks) : [])
+    const tree = {
+      [K.legacy]: { dir: names },
       [`${K.legacy}\\a`]: f(legacyMin),
       [K.tmp]: { dir: ['t'] },
       [`${K.tmp}\\t`]: f(tmpMin),
@@ -1080,18 +1403,80 @@ function selfTest() {
       [`${K.probe}\\p`]: f(120),
       [K.log]: { text: `[${iso}] tick\n` },
     }
+    for (const [name, text] of Object.entries(locks || {})) tree[`${K.legacy}\\${name}`] = { text }
+    return tree
   }
-  push('probe:两判据全过 ∧ 守护活 ⇒ window', probeQuietWindow(fakeIO(probeTree()), NOW).state === 'window')
+  push('probe:两判据全过 ∧ 守护活 ⇒ window', probeQuietWindow(fakeIO(probeTree()), NOW, IDLE).state === 'window')
   push('probe:旧根 59 分钟内有写入 ⇒ pending 且点名判①', (() => {
-    const r = probeQuietWindow(fakeIO(probeTree({ legacyMin: 59 })), NOW)
+    const r = probeQuietWindow(fakeIO(probeTree({ legacyMin: 59 })), NOW, IDLE)
     return r.state === 'pending' && r.reasons.some((s) => s.includes('判①'))
   })())
-  push('probe:tmp 探针 29 分钟前写入 ⇒ pending 且点名判②', (() => {
-    const r = probeQuietWindow(fakeIO(probeTree({ tmpMin: 29 })), NOW)
-    return r.state === 'pending' && r.reasons.some((s) => s.includes('判②'))
+  // 阳性对照 ③(旧口径残留项):两探针目录新鲜写入**不得**再阻 —— 只出现在信息面。
+  push('probe:会话探针目录 1 分钟前写入不再阻塞(旧口径退役),但信息面仍有读数', (() => {
+    const r = probeQuietWindow(fakeIO(probeTree({ tmpMin: 1 })), NOW, IDLE)
+    const note = activityNotes(r.facts).find((s) => s.startsWith('信息面'))
+    return r.state === 'window' && Boolean(note) && /1\.0 分钟前/.test(note)
+  })())
+  // 阳性对照 ①:「有人在用」⇒ 活进程点名旧根 ⇒ pending。
+  push('probe:旧根有活进程(命令行点名旧根)⇒ pending 且点名判② 活进程面', (() => {
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, {
+      listProcesses: () => [
+        { pid: 4242, cmdline: `node "${join(LEGACY_ROOT, 'Temp', 'job.mjs')}"`, exePath: '' },
+        { pid: 11, cmdline: 'node app.js --cwd D:\\DevEnv\\Temp', exePath: 'D:\\DevEnv\\node.exe' },
+      ],
+      pidAlive: () => false,
+    })
+    return (
+      r.state === 'pending' &&
+      r.reasons.some((s) => s.includes('判② 活进程面') && s.includes('4242')) &&
+      !r.reasons.some((s) => s.includes('pid 11 '))
+    )
+  })())
+  // 阳性对照 ②:「有人在用」⇒ 旧根锁带活 pid ⇒ pending;陈旧锁不阻。
+  push('probe:旧根锁 carry 活 pid ⇒ pending;pid 已死 ⇒ 陈旧锁不阻', (() => {
+    const busy = probeQuietWindow(fakeIO(probeTree({ locks: { 'x.lock': '{"pid":4242}' } })), NOW, {
+      listProcesses: () => [],
+      pidAlive: (pid) => pid === 4242,
+    })
+    const stale = probeQuietWindow(fakeIO(probeTree({ locks: { 'y.lock': '{"pid":999999}' } })), NOW, IDLE)
+    const unknown = probeQuietWindow(fakeIO(probeTree({ locks: { 'z.lock': '' } })), NOW, IDLE)
+    return (
+      busy.state === 'pending' &&
+      busy.reasons.some((s) => s.includes('判② 旧根锁面') && s.includes('4242')) &&
+      stale.state === 'window' &&
+      unknown.state === 'pending'
+    )
+  })())
+  push('probe:进程表取不到 ⇒ undetermined(不把"没判"写成"没人用")', (() => {
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, {
+      listProcesses: () => {
+        throw new Error('pwsh 不在')
+      },
+      pidAlive: () => false,
+    })
+    return r.state === 'undetermined' && r.reasons.some((s) => s.includes('进程表取不到'))
   })())
   push('probe:守护留痕过期(40 分钟)⇒ undetermined(不是 window 也不是 pending)', (() => {
-    return probeQuietWindow(fakeIO(probeTree({ guardianAgeMin: 40 })), NOW).state === 'undetermined'
+    return probeQuietWindow(fakeIO(probeTree({ guardianAgeMin: 40 })), NOW, IDLE).state === 'undetermined'
+  })())
+  push('activityNotes:四面自述齐(活进程/旧根锁/未覆盖面/信息面)', (() => {
+    const notes = activityNotes(probeQuietWindow(fakeIO(probeTree()), NOW, IDLE).facts)
+    return (
+      notes.length === 4 &&
+      notes[0].includes('活进程面') &&
+      notes[1].includes('旧根锁面') &&
+      notes[2].includes('未覆盖面') &&
+      notes[3].includes('信息面')
+    )
+  })())
+  push('withinRoot/commandMentionsRoot:按路径段边界,不误伤 D:\\DevEnv', (() => {
+    return (
+      withinRoot('G:\\DevEnv\\Temp\\x', 'G:\\DevEnv') &&
+      commandMentionsRoot('node "G:/DevEnv/Temp/x.mjs"', 'G:\\DevEnv') &&
+      !withinRoot('D:\\DevEnv\\Temp', 'G:\\DevEnv') &&
+      !commandMentionsRoot('node D:\\DevEnv\\x.mjs', 'G:\\DevEnv') &&
+      !commandMentionsRoot('node G:\\DevEnv2\\x.mjs', 'G:\\DevEnv')
+    )
   })())
 
   // ── assessSteps(构造面文本注入 + 真实清单存在性)──
@@ -1117,7 +1502,7 @@ function selfTest() {
   // ── 零写盘行为锁(默认路径函数在记录型 io 上零写族调用)+ apply 前置闸 ──
   push('默认档(probe+assess+plan)零写盘(行为锁:记录型 io 零 write 族调用)', (() => {
     const io2 = fakeIO(probeTree())
-    const r1 = probeQuietWindow(io2, NOW)
+    const r1 = probeQuietWindow(io2, NOW, IDLE)
     const r2 = assessSteps(io2)
     planSteps(r2, r1)
     return io2.writes.length === 0
@@ -1170,6 +1555,7 @@ async function main() {
   console.log(`[G-50 devenv-migrate] 旧根 ${LEGACY_ROOT} → 新根 ${NEW_ROOT}`)
   console.log(`静默窗口:${probe.state}`)
   for (const r of probe.reasons) console.log(`  · ${r}`)
+  for (const n of activityNotes(probe.facts)) console.log(`  ℹ ${n}`)
   if (probeOnly) process.exit(probe.state === 'window' ? 0 : probe.state === 'pending' ? 1 : 2)
   const assessed = assessSteps(io)
   console.log('\n票面六步盘点(现读):')
@@ -1211,6 +1597,16 @@ export const __test__ = {
   planSteps,
   applyMigration,
   defaultIO,
+  // 判② 活使用面(2026-10-29 改口径):镜像测试直接取生产判据,零复制(§22c)。
+  withinRoot,
+  commandMentionsRoot,
+  parseProcessTable,
+  defaultProcessTable,
+  pidFromLockText,
+  defaultPidAlive,
+  scanLegacyLocks,
+  legacyActiveUse,
+  activityNotes,
   // 巡检派发臂(2026-10-28):镜像测试直接取生产判据,零复制(§22c)。
   devenvArmDue,
   loadDevenvMigrateArm,

@@ -685,4 +685,102 @@ test('⑪ 参数闸:未知旗标/位置参数/歧义调用 ⇒ 当场拒绝且�
   }
 })
 
+// ── ⑱⑲「本轮为什么没登记」读得出来:留账闭集 + dry-run 零副作用(2026-10-29 立)──
+// 立因:票面「registered=0」的成因被连写三遍且互相矛盾,根子是 skip-dedupe 只打印不落账
+// (与 quota-deferred 不对称),后手只能手数 jsonl ⇒ 判据必须有器物,不靠叙述。
+const rowAction = (action) => ({ action, source: 'api-logs', fp: 'fp-x', evidence: '同签名 6 次' })
+
+test('⑱ 留账闭集:决策层能产出的每种处置都有确定归宿,skip-dedupe 与 observed/quota-deferred 同表留痕', () => {
+  // 时点构造:now 落在本地 00:30,去重用的 registered 行落在**前一日历日** 23:30 ——
+  // 既满足 24h 同指纹去重,又不被 registeredToday 的本地日切算进当日配额(否则第三条读成 quota-deferred)。
+  const nowMs = at(2026, 10, 29, 0, 30).getTime()
+  const ledger = [{ action: 'registered', fingerprint: 'fp-dup', ts: at(2026, 10, 28, 23, 30).toISOString() }]
+  const findings = [
+    { source: 'api-logs', disposition: 'observe', fp: 'fp-obs', title: '甲', evidence: '单实例' },
+    { source: 'api-logs', disposition: 'register', fp: 'fp-dup', title: '乙', evidence: '已登记过' },
+    { source: 'api-logs', disposition: 'register', fp: 'fp-1', title: '丙', evidence: 'e1' },
+    { source: 'api-logs', disposition: 'register', fp: 'fp-2', title: '丁', evidence: 'e2' },
+  ]
+  const plan = tr.planTriageActions({ findings, ledger, dailyQuota: 1, now: nowMs })
+  assert.deepEqual(
+    plan.actions.map((a) => a.action),
+    ['observed', 'skip-dedupe', 'register', 'quota-deferred'],
+    '决策层处置闭集漂移 ⇒ 下面的留账表不再覆盖全部动作',
+  )
+  // 三种"已判定但未落台账"的处置必须逐字同形留痕(键序与既有观测账一致,appendLedger 只补 ts)
+  for (const action of ['observed', 'skip-dedupe', 'quota-deferred']) {
+    assert.deepEqual(
+      tr.triageLedgerRowOf(rowAction(action)),
+      { mode: 'once', action, source: 'api-logs', fingerprint: 'fp-x', why: '同签名 6 次' },
+      `${action} 未落观测账 ⇒ "本轮 0 登记"又读成因`,
+    )
+  }
+  // register / register-failed 由执行侧专档落账(带 family/exhaustions 字段),本表一律不产
+  assert.equal(tr.triageLedgerRowOf(rowAction('register')), null)
+  assert.equal(tr.triageLedgerRowOf(rowAction('register-failed')), null)
+})
+
+test('⑲ dry-run 零副作用:三种留账处置在预演档一律不落行;入参坏不猜出行', async () => {
+  for (const action of ['observed', 'skip-dedupe', 'quota-deferred']) {
+    assert.equal(tr.triageLedgerRowOf(rowAction(action), { dryRun: true }), null, `${action} 在 dry-run 仍产账行`)
+  }
+  assert.equal(tr.triageLedgerRowOf(null), null)
+  assert.equal(tr.triageLedgerRowOf('observed'), null)
+  assert.equal(tr.triageLedgerRowOf(rowAction('round')), null, '闭集外动作被当成留账处置')
+
+  // 端到端反向锁(§「内部机器调用的豁免必须验过才免」同族纪律):真跑一轮预演档 ⇒ 观测账行数一枚不加。
+  // 2026-10-29 把 skip-dedupe 接进留账闭集时,这条锁的就是"接的是真跑档,dry-run 没跟着漏"。
+  const savedExitCode = process.exitCode
+  const realLog = console.log
+  const realErr = console.error
+  try {
+    console.log = () => {}
+    console.error = () => {}
+    const before = tr.readTriageLedger().length
+    await tr.main(['--once', '--dry-run'])
+    assert.equal(tr.readTriageLedger().length, before, 'dry-run 写了观测账 ⇒ 零副作用档漏写盘')
+  } finally {
+    console.log = realLog
+    console.error = realErr
+    process.exitCode = savedExitCode
+  }
+})
+
+test('⑳ --status 读数器物化:全期与 24h 窗内分开、无 ts 逐条点名、空账面念成 0 条', () => {
+  const nowMs = at(2026, 10, 29, 12).getTime()
+  const iso = (h) => new Date(nowMs - h * 3600_000).toISOString()
+  const s = tr.summarizeTriageLedger(
+    [
+      { ts: iso(0.02), action: 'skip-dedupe', source: 'api-logs' },
+      { ts: iso(23), action: 'observed', source: 'api-logs' },
+      { ts: iso(25), action: 'observed', source: 'mail-failure' },
+      { ts: '读不到的时刻', action: 'registered', source: 'api-logs' },
+      { ts: iso(1), action: 'round', source: 'api-logs' },
+    ],
+    { now: nowMs },
+  )
+  assert.equal(s.total, 5)
+  assert.equal(s.byAction.observed, 2)
+  assert.equal(s.byAction.other, 1, '表外动作必须落 other,不许静默吞')
+  assert.equal(s.windowByAction.observed, 1, '窗外行被算进窗内')
+  assert.equal(s.windowByAction.registered, undefined, '无 ts 的行被当成窗内读数(§0.3)')
+  assert.equal(s.untsRows.count, 1)
+  assert.deepEqual(s.untsRows.actions, ['registered'])
+  assert.equal(s.lastTs, iso(0.02))
+  const lines = tr.renderLedgerSummary(s)
+  assert.ok(lines[0].includes('共 5 条'), '读数行未报 total')
+  assert.ok(lines.some((l) => /无有效 ts/.test(l)), '无 ts 的行未逐条点名')
+  // 空账面:念成"共 0 条"——文件在不在由调用方按 existsSync 分档,本函数不猜
+  const empty = tr.renderLedgerSummary(tr.summarizeTriageLedger([], { now: nowMs }))
+  assert.ok(empty[0].includes('共 0 条'))
+  assert.ok(empty.some((l) => /\(无\)/.test(l)))
+})
+
+test('㉑ --status 是只读档且与 --once 互斥(读数器不得被当成分诊轮跑)', () => {
+  assert.equal(tr.parseArgs(['--status']).status, true)
+  assert.deepEqual(tr.parseArgs(['--status']).errors, [])
+  assert.ok(tr.parseArgs(['--status', '--once']).errors.some((e) => /互斥/.test(e)))
+  assert.ok(tr.usageText().includes('分桶'), '--status 用法档未点名读数面')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

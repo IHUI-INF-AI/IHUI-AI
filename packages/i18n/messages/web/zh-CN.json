@@ -129,6 +129,15 @@
     "creditLowTitle": "智汇值不足",
     "creditLowDesc": "您的智汇值余额小于 {min},无法使用大模型,请前往充值"
   },
+  "wsChannel": {
+    "reconnecting": "实时连接中断,正在进行第 {attempt}/{max} 次重连…",
+    "connectFailed": "实时连接失败,正在重试",
+    "connectError": "实时连接错误",
+    "reconnectExhausted": "实时连接已中断(已重连 {max} 次),内容接收已停止,可手动重试",
+    "degradedNotice": "实时连接不可用,已自动切换到兼容通道继续接收内容",
+    "fallbackUnavailable": "实时连接已中断,且兼容通道不可用,内容接收已停止",
+    "fallbackFailed": "兼容通道也已中断,内容接收已停止,可稍后手动重试"
+  },
   "treeSelect": {
     "placeholder": "请选择",
     "searchPlaceholder": "搜索...",

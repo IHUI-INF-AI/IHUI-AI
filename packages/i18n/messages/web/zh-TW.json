@@ -129,6 +129,15 @@
     "creditLowTitle": "智匯值不足",
     "creditLowDesc": "您的智匯值餘額小於 {min},無法使用大模型,請前往充值"
   },
+  "wsChannel": {
+    "reconnecting": "即時連線中斷,正在進行第 {attempt}/{max} 次重連…",
+    "connectFailed": "即時連線失敗,正在重試",
+    "connectError": "即時連線錯誤",
+    "reconnectExhausted": "即時連線已中斷(已重連 {max} 次),內容接收已停止,可手動重試",
+    "degradedNotice": "即時連線不可用,已自動切換至相容通道繼續接收內容",
+    "fallbackUnavailable": "即時連線已中斷,且相容通道不可用,內容接收已停止",
+    "fallbackFailed": "相容通道亦已中斷,內容接收已停止,可稍後手動重試"
+  },
   "treeSelect": {
     "placeholder": "請選擇",
     "searchPlaceholder": "搜尋...",

@@ -13,7 +13,7 @@
 // SyntaxHighlighter 是 next/dynamic 懒加载(主测件 waitFor 同源教训),每拍后 await 冲刷 chunk。
 import * as React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, act, cleanup } from '@testing-library/react'
+import { render, act, cleanup, fireEvent } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -188,6 +188,39 @@ describe('MarkdownStream 档⑦:围栏晋升 stable 不回塌折叠', () => {
     expect(hlTexts(container).some((t) => t.includes('alpha8 = 8'))).toBe(true)
     expect(hlTexts(container).some((t) => t.includes('beta2 = 2'))).toBe(true)
     expect(expandButton(container)).toBeNull()
+  })
+
+  it('⑧ 在写判定逐块化:写完毕的非尾块当拍升完成外观,在写尾块仍无动作按钮', async () => {
+    vi.useFakeTimers()
+    const { container } = render(<MarkdownStream content={M1} isStreaming />)
+    await tick()
+    // A(js)已闭且非尾 ⇒ 动作区出现(应用按钮一枚);B(py)在写 ⇒ 无动作按钮。
+    // 旧粗判整实例一个位:此拍全局"在写",两处都不应有 → 计数判据直接量出逐块化是否接线。
+    expect(container.querySelectorAll('[data-testid="apply-to-file-button"]').length).toBe(1)
+    // A 完成外观 + ⑦ 携带展开 ⇒ 折叠控件以"收起代码"形态当拍在场(不等整实例翻转)
+    expect(container.querySelector('button[aria-label="收起代码"]')).not.toBeNull()
+    // 尾块 B 在写:全展、无"展开代码"(④ 尾随全展语义不变)
+    expect(expandButton(container)).toBeNull()
+  })
+
+  it('⑩ 折叠钮用户意志接管:carry 在场时首拍即"收起代码"形态,点折叠后当拍翻"展开代码"并收缩显文', async () => {
+    vi.useFakeTimers()
+    // 走完整晋升路径(S1→S3)使 A 块以 preserveExpanded 携带态挂进 stable
+    const { container, rerender } = render(<MarkdownStream content={S1} isStreaming />)
+    await tick()
+    await step(rerender, S2)
+    await step(rerender, S3)
+    // 携带态:按钮标签应为"收起代码"(当前展开),而非旧实现沿变前一拍的"展开代码"
+    expect(container.querySelector('button[aria-label="收起代码"]')).not.toBeNull()
+    expect(expandButton(container)).toBeNull()
+    // 用户主动折叠 ⇒ 当拍翻标签 + 显文收缩到前 5 行(carry 让位于用户意志)
+    fireEvent.click(container.querySelector('button[aria-label="收起代码"]') as Element)
+    expect(expandButton(container)).not.toBeNull()
+    const texts = hlTexts(container)
+    expect(texts.some((t) => t.includes('alpha1 = 1') && !t.includes('alpha8 = 8'))).toBe(true)
+    // 尾段续写不应把用户折叠洗回展开(userToggled 闸)
+    await step(rerender, S4)
+    expect(expandButton(container)).not.toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
