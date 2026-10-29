@@ -1003,8 +1003,8 @@
     "vip": "会員センター",
     "vipBenefit": "会員権益",
     "vipCompare": "会員比較",
-    "coupon": "クーポン",
-    "promotion": "クーポン",
+    "coupon": "マイクーポン",
+    "promotion": "クーポンセンター",
     "sectionPoints": "ポイント",
     "pointsMall": "ポイントモール",
     "pointsRecord": "トークン明細",
@@ -1759,7 +1759,7 @@
     "empty": "クーポンがありません",
     "loadFailed": "読み込みに失敗",
     "minSpend": "{amount} 以上で利用可能",
-    "title": "クーポン",
+    "title": "マイクーポン",
     "validUntil": "有効期限",
     "use": "今すぐ使う",
     "useHint": "商品ページでご利用ください",
@@ -2203,7 +2203,7 @@
     "status_inactive": "非アクティブ"
   },
   "promotion": {
-    "title": "クーポン",
+    "title": "クーポンセンター",
     "empty": "利用可能なクーポンはありません",
     "minSpend": "¥{minSpend} 以上で利用可能",
     "expireDate": "有効期限",
@@ -3156,7 +3156,7 @@
     "status_rejected": "却下されました"
   },
   "distributionCompany": {
-    "title": "販売代理センター",
+    "title": "ディストリビューション実績",
     "refresh": "更新",
     "loadFailed": "データの読み込みに失敗しました",
     "empty": "リワードデータはありません",
