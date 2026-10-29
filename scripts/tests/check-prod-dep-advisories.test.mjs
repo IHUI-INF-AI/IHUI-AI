@@ -224,4 +224,41 @@ test('空树 ⇒ 绿(零漏洞是合法结论,不是未判定)', () => {
   assert.equal(r.red.length, 0)
   assert.equal(r.devOnlyTotal, 0)
   assert.equal(r.prodTotal, 0)
+  assert.deepEqual(r.expiringSoon, [])
+})
+
+// ── 7. 临期提醒(不判红,但必须有人被提醒) ────────────────────────────────
+test('豁免 30 天内到期 ⇒ 进 expiringSoon,但**不红**', () => {
+  // 20 天后到期
+  const soon = new Date(NOW + 20 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const p = { ...basePolicy(), waivers: [waiver('soon', soon)] }
+  const r = evaluateAudit({ rows: [row('soon', 'high')] }, p, { now: NOW })
+  assert.equal(r.red.length, 0, '临期不是错,不得判红')
+  assert.equal(r.expiringSoon.length, 1)
+  assert.equal(r.expiringSoon[0].module, 'soon')
+  assert.equal(r.expiringSoon[0].daysLeft, 20)
+})
+
+test('豁免还很远 ⇒ 不进 expiringSoon(不能天天喊)', () => {
+  const far = new Date(NOW + 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const p = { ...basePolicy(), waivers: [waiver('far', far)] }
+  const r = evaluateAudit({ rows: [row('far', 'high')] }, p, { now: NOW })
+  assert.equal(r.expiringSoon.length, 0)
+})
+
+test('已过期的豁免只进 red,不进 expiringSoon(两处都报 = 重复计数)', () => {
+  const p = { ...basePolicy(), waivers: [waiver('gone', EARLIER)] }
+  const r = evaluateAudit({ rows: [row('gone', 'high')] }, p, { now: NOW })
+  assert.equal(r.red.length, 1)
+  assert.equal(r.expiringSoon.length, 0)
+})
+
+test('expiringSoon 按剩余天数升序(最先到期的排最前)', () => {
+  const d = (n) => new Date(NOW + n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const p = { ...basePolicy(), waivers: [waiver('b', d(25)), waiver('a', d(5))] }
+  const r = evaluateAudit({ rows: [] }, p, { now: NOW })
+  assert.deepEqual(
+    r.expiringSoon.map((x) => x.module),
+    ['a', 'b'],
+  )
 })

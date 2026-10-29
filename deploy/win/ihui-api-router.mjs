@@ -22,6 +22,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { createIpRateLimiter, isLoopbackAddress, resolveRateLimitConfig } from './lib/ip-rate-limit.mjs'
+import { decideEdgeGuard, resolveEdgeGuardMode } from './lib/edge-origin-guard.mjs'
 
 // ── 通用化(2026-10-28 生产席:web 蓝绿复用同一份 router,不落第二份反代实现)────────
 // 立因:web 走蓝绿也要一个"常驻监听 + 原子切流"的入口层,而另写一份 router 就是第二个真相源
@@ -81,6 +82,29 @@ const RATE_LIMIT = resolveRateLimitConfig()
 const limiter = RATE_LIMIT.enabled
   ? createIpRateLimiter({ rps: RATE_LIMIT.rps, burst: RATE_LIMIT.burst })
   : null
+
+// ── 回源鉴权(2026-10-29 加固,第二层)───────────────────────────────────────
+// 治「知道源站 IP 就能绕过 EdgeOne 直连」。第一层(防火墙只放行 EdgeOne 回源 IP 段)
+// 必须在 EdgeOne 控制台拿 IP 段才能配,且只对付费套餐开放、3-6 个月变一次 —— 那一层
+// 代码侧做不了。本层是腾讯云文档 1552/76086 自己建议叠加的「回源鉴权」:控制台
+// 「规则引擎 → 修改 HTTP 回源请求头」注入 X-IHUI-Edge-Secret,源站只放行匹配的请求。
+//
+// 默认 off:线上关键路径上新装一个 403 开关,默认必须是「什么都不做」。
+// 上线第一步必须走 observe(只统计不拦),确认正常流量都带头之后再切 enforce ——
+// 直接 enforce 会把「控制台还没配」变成全站 403,那是自己把自己打瘫。
+const EDGE_MODE = resolveEdgeGuardMode(process.env.IHUI_EDGE_SECRET_MODE)
+const EDGE_SECRET = String(process.env.IHUI_EDGE_SECRET || '').trim()
+const EDGE_GUARD_LOG_INTERVAL_MS = 10_000
+let edgeGuardLogAt = 0
+let edgeGuardDenied = 0
+
+function logEdgeGuard(reason, ip) {
+  const t = Date.now()
+  if (t - edgeGuardLogAt < EDGE_GUARD_LOG_INTERVAL_MS) return
+  edgeGuardLogAt = t
+  log('warn', 'edge guard', { mode: EDGE_MODE, reason, ip, deniedTotal: edgeGuardDenied })
+}
+
 // 日志节流:被刷时每 IP 10s 只记一条,避免攻击本身把日志盘写满(那也是一种打垮)。
 const RATE_LIMIT_LOG_INTERVAL_MS = 10_000
 const rateLimitLogAt = new Map()
@@ -102,6 +126,14 @@ log('info', 'router started', {
   upstream: state[state.active],
   source: state.source,
   rateLimit: RATE_LIMIT.enabled ? `${RATE_LIMIT.rps}rps/${RATE_LIMIT.burst}burst` : 'off',
+  // 必须报出来:运维要能一眼确认「回源鉴权到底开没开」,而不是去翻 env。
+  // 配了 observe/enforce 却没给密钥 ⇒ 实际不拦,这里明说,免得被当成已生效。
+  edgeGuard:
+    EDGE_MODE === 'off'
+      ? 'off'
+      : EDGE_SECRET
+        ? EDGE_MODE
+        : `${EDGE_MODE}(缺 IHUI_EDGE_SECRET ⇒ 实际不拦)`,
 })
 
 // 状态文件变化即热切换；1s 轮询足以让部署脚本「写完即生效」，又不必依赖 fs.watch 的
@@ -137,6 +169,27 @@ const server = http.createServer((req, res) => {
   if (req.url === '/__bg/status') {
     sendJson(res, 200, { ok: true, active: state.active, upstream: state[state.active] })
     return
+  }
+  // 回源鉴权在限流**之前**:直连攻击者不带头 ⇒ 直接 403,不必再为它耗一个限流令牌;
+  // 正常流量经 EdgeOne 带头 ⇒ 通过后再进限流。两道都是「便宜的先做」。
+  if (EDGE_MODE !== 'off') {
+    const ip = req.socket.remoteAddress || ''
+    const verdict = decideEdgeGuard({
+      mode: EDGE_MODE,
+      secret: EDGE_SECRET,
+      loopback: isLoopbackAddress(ip),
+      headers: req.headers,
+    })
+    if (verdict.action === 'observe') {
+      logEdgeGuard(verdict.reason, ip)
+    } else if (verdict.action === 'deny') {
+      edgeGuardDenied += 1
+      logEdgeGuard(verdict.reason, ip)
+      const body = Buffer.from(JSON.stringify({ code: 403, message: 'forbidden' }))
+      res.writeHead(403, { 'content-type': 'application/json', 'content-length': body.length })
+      res.end(body)
+      return
+    }
   }
   if (limiter) {
     // key = TCP 对端地址(不可伪造)。绝不用 X-Forwarded-For:那是客户端可任意改的头,
