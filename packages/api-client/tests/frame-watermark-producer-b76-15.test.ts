@@ -103,9 +103,9 @@ describe('b76-15 seq 维水位生产点', () => {
     expect(
       carriesPayloadWatermark({ subscriptionId: 's', logEpoch: 1, fromSeq: 0, toSeq: 1 }),
     ).toBe(true)
-    expect(carriesPayloadWatermark({ subscription_id: 's', log_epoch: 1, from_seq: 0, to_seq: 1 })).toBe(
-      true,
-    )
+    expect(
+      carriesPayloadWatermark({ subscription_id: 's', log_epoch: 1, from_seq: 0, to_seq: 1 }),
+    ).toBe(true)
     // 三缺一 ⇒ 不算在场(部分字段不是"有一点",是未判定)
     expect(carriesPayloadWatermark({ subscriptionId: 's', logEpoch: 1, fromSeq: 0 })).toBe(false)
     expect(carriesPayloadWatermark(null)).toBe(false)
