@@ -248,7 +248,7 @@ export default function OrderDetailPage() {
           <Button
             variant="outline"
             className="shrink-0 whitespace-nowrap"
-            onClick={() => router.push(`/payment/checkout?order=${order.id}`)}
+            onClick={() => router.push(`/payment/checkout?orderNo=${order.orderNo}`)}
           >
             {t('pay')}
           </Button>
