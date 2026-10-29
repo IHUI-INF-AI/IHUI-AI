@@ -157,6 +157,14 @@ test('CLI 契约:有漂移时 exit 0 且最后一行是 aligned>=1 的 JSON,文�
   const { tmp, g } = makeDrillRepo()
   try {
     writeFileSync(join(tmp, 'a.ts'), 'v1\n') // 写回祖先版本 = 静默回滚的形态
+    // 2026-10-29 必改:mtime 必须**早于** HEAD 那一版的提交时刻,否则这条用例是侥幸通过。
+    // 新增的活工作二审(见 heal-worktree-tracked 的 splitLiveRestorePaths)把"盘上那份晚于
+    // HEAD 那一版被提交"判为在飞编辑/正当恢复 ⇒ 不还原。真幻影漂移的成因是 HEAD 被并发推进后
+    // 工作树落后,盘上那份必然**早于** HEAD 那一版的提交时刻 —— 夹具必须造出这个真实形态。
+    // 不拨的话本条只在"提交与写盘落在同一秒"时通过(秒级精度),跨秒即红,红得与被测行为无关。
+    const ct = Number(g(['-C', tmp, 'log', '-1', '--format=%ct', 'HEAD', '--', 'a.ts']).trim())
+    const stale = new Date((ct - 30) * 1000)
+    utimesSync(join(tmp, 'a.ts'), stale, stale)
     const { status, last } = runAlign(tmp)
     assert.equal(status, 0, `--align-drift 应 exit 0,实得 ${status};stdout 末行=${last}`)
     const r = JSON.parse(last) // 守护正是这样解析的
@@ -170,9 +178,17 @@ test('CLI 契约:有漂移时 exit 0 且最后一行是 aligned>=1 的 JSON,文�
 })
 
 test('活工作保护窗:窗口内的漂移文件不还原,超过窗口后照常对齐', () => {
-  const { tmp } = makeDrillRepo()
+  const { tmp, g } = makeDrillRepo()
   try {
-    writeFileSync(join(tmp, 'a.ts'), 'v1\n') // 刚写下的"回潮"内容 = 在飞编辑的形态
+    writeFileSync(join(tmp, 'a.ts'), 'v1\n') // 回潮内容 = 与祖先版本逐字节相同
+    // 2026-10-29 补:窗内那一档的 mtime 取"提交时刻前 5 秒",而不是"刚写完那一刻"。
+    // 新增的活工作二审(见 heal-worktree-tracked 的 splitLiveRestorePaths)会把"盘上那份
+    // 晚于 HEAD 那一版被提交"判为活工作 —— 而"刚写完"恰好落在它射程里,于是本条 aligned=0
+    // 会由二审造成而非窗口造成,两句断言就都不再各自可归因。拨到提交时刻之前 5 秒后:
+    // 对墙钟窗仍是"刚写过"(now-mtime ≈ 5s ≪ 600s),对二审则是"旧的"(mtime < ct)。
+    const ct = Number(g(['-C', tmp, 'log', '-1', '--format=%ct', 'HEAD', '--', 'a.ts']).trim())
+    const justBefore = new Date((ct - 5) * 1000)
+    utimesSync(join(tmp, 'a.ts'), justBefore, justBefore)
     const r = JSON.parse(runAlign(tmp, { IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC: '600' }).last)
     assert.equal(r.aligned, 0, '窗口内的路径不得被还原')
     assert.deepEqual(r.recentlySkipped, ['a.ts'], '被护栏挡下的路径必须逐条点名')

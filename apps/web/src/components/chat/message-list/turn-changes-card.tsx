@@ -14,6 +14,11 @@ import type { ChatMessage, ToolCall } from '@/stores/chat'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
 import { pickRevertCheckpoint, countAffectedTurns } from '@/components/ai/checkpoint-impact'
+import {
+  judgeCheckpointExpiry,
+  retentionHours,
+  type CheckpointProbeOutcome,
+} from '@/lib/checkpoint-expiry-note'
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
 import {
@@ -90,6 +95,9 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [restoring, setRestoring] = React.useState(false)
   const [hasCheckpoint, setHasCheckpoint] = React.useState<boolean | null>(null)
+  // 2026-10-29:探测结局与"有没有"分开记 —— catch 分支把 hasCheckpoint 置 false 只是
+  // 兜底渲染(入口置灰),不构成"确实没有检查点"的事实;据此判过期会撒谎。
+  const [probeOutcome, setProbeOutcome] = React.useState<CheckpointProbeOutcome>('idle')
   // 撤销涟漪读数:目标 checkpoint 时点之后会一起消失的 round 数(null = 算不出来)
   const [turnCount, setTurnCount] = React.useState<number | null>(null)
 
@@ -98,6 +106,7 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
     let cancelled = false
     if (!conversationId) {
       setHasCheckpoint(false)
+      setProbeOutcome('skipped')
       return
     }
     listCheckpoints(conversationId)
@@ -105,17 +114,36 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
         if (cancelled) return
         const target = pickRevertCheckpoint(res.checkpoints, message.createdAt)
         setHasCheckpoint(target !== null)
+        setProbeOutcome('done')
         setTurnCount(
           target ? countAffectedTurns(chatStore.getState().messages, target.created_at) : null,
         )
       })
       .catch(() => {
-        if (!cancelled) setHasCheckpoint(false)
+        if (!cancelled) {
+          setHasCheckpoint(false)
+          setProbeOutcome('failed')
+        }
       })
     return () => {
       cancelled = true
     }
   }, [conversationId, message.createdAt, chatStore])
+
+  // 2026-10-29:「无可用检查点」必须说清为什么 + 什么还留着。
+  // 判据在 lib 层(纯函数,可单测):检查点 expires_at = created_at + TTL 且不续期 ⇒
+  // 消息距今超过 TTL 时,它之前的检查点**必然**已被保留期清掉(可证,不是"可能")。
+  // 判不准(探测中/探测失败/无会话/未超过 TTL)一律不显示说明,保持既有文案。
+  const expiryVerdict = React.useMemo(
+    () =>
+      judgeCheckpointExpiry({
+        hasCheckpoint,
+        probeOutcome,
+        messageCreatedAtMs: message.createdAt,
+        nowMs: Date.now(),
+      }),
+    [hasCheckpoint, probeOutcome, message.createdAt],
+  )
 
   const handleConfirmRevert = React.useCallback(async () => {
     if (!conversationId) return
@@ -222,6 +250,17 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
                 <RotateCcw className="mr-1 h-3.5 w-3.5" />
                 {hasCheckpoint === false ? t('turnChanges.noCheckpoints') : t('turnChanges.revert')}
               </Button>
+              {/* 2026-10-29:检查点已按保留期清理时,补一句"为什么"+"什么还留着"。
+                  只在判据可证(expiryVerdict === 'expired')时出现;未过期/判不准一律不渲染,
+                  不允许这条说明常驻 —— 常驻等于把原因说给了没事发生的用户。 */}
+              {expiryVerdict === 'expired' && (
+                <p
+                  className="mt-1 text-[11px] leading-snug text-muted-foreground"
+                  data-testid={`turn-expired-note-${message.id}`}
+                >
+                  {t('turnChanges.expiredNote', { hours: retentionHours() })}
+                </p>
+              )}
             </div>
           </div>
         </CollapsibleContent>

@@ -146,3 +146,10 @@ export * from './element-pack-history'
 // G-274 对话投影水位协议(ACK 不构成可用基线 / 迟到重复静默丢弃 / 断档只重订阅不做本地补偿);
 // 此前消费方只能深路径 import chat/projection-watermark,barrel 缺席等于跨端出口没有登记。
 export * from './projection-watermark'
+// 对标 Qoder 借鉴清单第 9 项(准入回执配对 inputId + disposition):乐观上屏的每条消息带一个
+// 稳定 inputId,服务端回执据此把 tentative 抬成 admitted;回执缺席恒为未确认,绝不冒充已收下。
+// **服务端尚未产出该帧** —— 契约声明与接线前置见文件头注,不得读成已接线。
+export * from './send-admission'
+// 对标 Qoder 借鉴清单第 10 项(命名错误码分类处置):errorCode → 可执行下一步 + 能不能重试。
+// 码表仍是 error-catalog.ts 那一份(§0.6 不建第二套),本层只补「动作」这一维。
+export * from './stream-error-disposition'

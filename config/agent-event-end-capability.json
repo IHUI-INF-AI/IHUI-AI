@@ -55,10 +55,11 @@
         "workspace_lock_released"
       ],
       "knownGaps": {
-        "reason": "web/src 无逐名提及的帧:消费面在 packages/api-client 分发器(对账 2 另行点名)或该帧无 Web UI 落点,按 HEAD 存量登记。",
+        "reason": "web/src 无逐名提及的帧:消费面在 packages/api-client 分发器(对账 2 另行点名)或该帧无 Web UI 落点,按 HEAD 存量登记。hook-failed(2026-10-29)属前者:web 侧经 api-client 的 onHookFailure 回调消费(send-message.ts 挂载),web/src 内没有事件名字面量,门 2c 的提及口径扫不到这种形态 —— 真实消费证据在 packages/api-client 解析面,由门 2b 逐 case 点名。与 goal_updated 同一格,不是漏接。",
         "until": "2026-12-31",
         "events": [
           "goal_updated",
+          "hook-failed",
           "memory_context",
           "step_done",
           "step_start",
@@ -105,6 +106,7 @@
         "events": [
           "agent-status",
           "delta",
+          "hook-failed",
           "insights",
           "memory_context",
           "message_send",
@@ -136,12 +138,7 @@
       "label": "App(RN)",
       "reason": "RN 端首版只接少量关键帧(任务状态/收尾),其余帧暂无对应 UI;按 HEAD 自身存量登记棘轮基线,只拦新增漏接与静默摘除。",
       "until": "2026-12-31",
-      "events": [
-        "done",
-        "error",
-        "status",
-        "tool-call-start"
-      ],
+      "events": ["done", "error", "status", "tool-call-start"],
       "knownGaps": {
         "reason": "RN 存量未接(第一轮棘轮基线),逐帧补齐前显式登记,不得静默。",
         "until": "2026-12-31",
@@ -153,6 +150,7 @@
           "delta",
           "fallback",
           "goal_updated",
+          "hook-failed",
           "insights",
           "memory_context",
           "message",
@@ -199,13 +197,7 @@
       "label": "共享屏层",
       "reason": "共享屏层当前只承载少量帧的透传/展示,其余帧在该层无消费点;按 HEAD 存量登记。",
       "until": "2026-12-31",
-      "events": [
-        "error",
-        "message",
-        "question",
-        "session",
-        "status"
-      ],
+      "events": ["error", "message", "question", "session", "status"],
       "knownGaps": {
         "reason": "共享屏层存量未接,按 HEAD 存量登记棘轮基线。",
         "until": "2026-12-31",
@@ -218,6 +210,7 @@
           "done",
           "fallback",
           "goal_updated",
+          "hook-failed",
           "insights",
           "memory_context",
           "message_send",
@@ -284,6 +277,7 @@
           "delta",
           "done",
           "goal_updated",
+          "hook-failed",
           "insights",
           "memory_context",
           "message_send",
@@ -339,6 +333,7 @@
           "error",
           "fallback",
           "goal_updated",
+          "hook-failed",
           "insights",
           "memory_context",
           "message",
@@ -416,6 +411,7 @@
           "compaction",
           "delta",
           "goal_updated",
+          "hook-failed",
           "insights",
           "memory_context",
           "message_send",
