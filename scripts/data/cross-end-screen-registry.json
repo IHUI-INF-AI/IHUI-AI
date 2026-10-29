@@ -1265,6 +1265,16 @@
       "shared": "packages/app/src/features/community/NewsCategoryScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/NewsCategoryScreen.tsx",
       "miniapp": "pkg-mirror/news-category/index"
+    },
+    {
+      "shared": "packages/app/src/features/community/SearchHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SearchHistoryScreen.tsx",
+      "miniapp": "pkg-content/search-history/index"
+    },
+    {
+      "shared": "packages/app/src/features/sign-up/SignUpScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SignUpScreen.tsx",
+      "miniapp": "pkg-user/sign-up/index"
     }
   ]
 }
