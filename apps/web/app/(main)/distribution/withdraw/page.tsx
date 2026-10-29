@@ -4,7 +4,6 @@
 
 'use client'
 
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -17,6 +16,7 @@ import { fetchApi, apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface AvailableData {
   available: number

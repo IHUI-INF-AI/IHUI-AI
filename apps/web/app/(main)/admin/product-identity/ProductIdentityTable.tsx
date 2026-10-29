@@ -60,7 +60,7 @@ export function ProductIdentityTable({ list, isLoading, onEdit, onDelete }: Prop
             list.map((item) => (
               <TableRow key={item.id} className="hover:bg-muted/30">
                 <TableCell className="px-4 py-2.5 font-medium">{item.productName || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5">{item.amount ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5">{item.amount || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-muted-foreground">
                   {item.beginTime || '-'}
                 </TableCell>

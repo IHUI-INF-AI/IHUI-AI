@@ -188,10 +188,8 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
     },
-    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
-    // 读数 22px,最坏「¥99999.99」⇒ minWidth 112。
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
-    statItem: { alignItems: 'center', flex: 1, minWidth: 112 },
+    statItem: { alignItems: 'center', flex: 1, minWidth: 80 },
     statValue: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
     statLabel: {
       marginTop: rnSpacing.sm,

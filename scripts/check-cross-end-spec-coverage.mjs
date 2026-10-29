@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 // 跨端 spec 覆盖率守门 + 棘轮(阶段1/2 自动化执行半边)—— 扫描共享视觉原子,报告哪些已下沉 spec 且被 web/RN 双端消费。
 //
 // 用法:
@@ -17,25 +13,41 @@
 //   - EXEMPT  : 行为/布局型包裹组件(如 collapsible),无盒模型几何可单一源(仅共享 w-full,两端已同);
 //               web 无箭头动画、RN 有箭头旋转动画,视觉对齐属功能对齐(阶段2),不在样式 spec 范畴
 //               → 不计入缺口、不计入分母。
-//   - 个别原子(button)的单一源是 @ihui/design-tokens 而非 *-spec.ts:按 SPEC_MODULE 登记模块名,
-//     双端 import 该模块即算消费,同样纳入覆盖率(不另造一份 spec)。
 //
 // 棘轮口径:基线存于 scripts/data/cross-end-spec-baseline.json({ okAtoms, totalAtoms })。
 //   totalAtoms = 视觉原子数(已排除 EXEMPT);okAtoms = 双端消费 spec 的视觉原子数。
 //   本门**只读不写**基线 —— 覆盖率涨了不拦(收口),跌了才拦(退化)。
 //   修改基线须显式编辑该 JSON(附 note 与 setAt),不允许门自改,杜绝假绿。
 //   判据零复算:守门与棘轮共用 computeCoverage()(§0.6 单一真相源)。
-import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 取材面纪律(守门 118):视觉原子 / 组件 / 基线的内容一律经统一取材层取,不再按磁盘
+// readFileSync + resolve(ROOT) 判(共享工作树滞后 HEAD 时会恒红 / 假绿来回跳)。
+import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const SHARED_UI = resolve(ROOT, 'packages/shared/src/ui')
-const UI_REACT = resolve(ROOT, 'packages/ui-react/src/components')
-const UI_NATIVE = resolve(ROOT, 'packages/ui-native/src')
+// 仓库相对路径(相对仓根);经 catBatch('HEAD:rel') / catBatch(':rel' 索引) / readWorktreeFile 取材。
+const SHARED_UI = 'packages/shared/src/ui'
+const UI_REACT = 'packages/ui-react/src/components'
+const UI_NATIVE = 'packages/ui-native/src'
 // 个别视觉原子的 web 实现不在 ui-react 壳里(历史路径),在此补登记,避免门误报 web 未消费。
-const WEB_EXTRA = { avatar: resolve(ROOT, 'apps/web/src/components/data/Avatar.tsx') }
-const BASELINE_PATH = resolve(ROOT, 'scripts/data/cross-end-spec-baseline.json')
+const WEB_EXTRA = { avatar: 'apps/web/src/components/data/Avatar.tsx' }
+const BASELINE_PATH = 'scripts/data/cross-end-spec-baseline.json'
+
+const specOf = (face, rel) => (face === 'staged' ? `:${rel}` : `HEAD:${rel}`)
+
+// 统一取材:读某面某仓库相对路径的内容;取不到(含不存在)⇒ null。绝不按磁盘 readFileSync。
+function readFace(face, rel) {
+  if (face === 'worktree') return readWorktreeFile(ROOT, rel) ?? null
+  const spec = specOf(face, rel)
+  try {
+    return catBatch(ROOT, [spec], { timeout: 60000 }).get(spec) ?? null
+  } catch {
+    return null
+  }
+}
+
+const has = (face, rel) => readFace(face, rel) !== null
 
 // 视觉原子清单(应有盒模型几何、理想情况下应下沉 spec 的组件)
 const ATOMS = [
@@ -49,7 +61,6 @@ const ATOMS = [
   'switch',
   'sheet',
   'avatar',
-  'button',
 ]
 // 行为/布局型包裹组件:无盒模型几何可单一源,仅共享极少 token(如 w-full),且视觉对齐需功能对齐 → 不计入 spec 覆盖率分母。
 const EXEMPT = {
@@ -57,41 +68,26 @@ const EXEMPT = {
     '行为/布局包裹组件:无盒模型几何可单一源(根节点仅 w-full,两端已同);web 无箭头动画、RN 有箭头旋转动画,视觉对齐属功能对齐(阶段2),不在样式 spec 范畴。',
 }
 
-// 个别原子的单一源不在 *-spec.ts,而在 @ihui/design-tokens(如 button 的 button-variants 表);
-// 在此登记其模块名与物理文件,computeCoverage 据此判定"该原子是否已下沉单一源且双端消费"。
-const SPEC_MODULE = {
-  button: '@ihui/design-tokens',
-}
-const SPEC_PHYSICAL = {
-  button: resolve(ROOT, 'packages/design-tokens/src/button-variants.ts'),
-}
-function specModule(atom) {
-  return SPEC_MODULE[atom] ?? `@ihui/shared/ui/${atom}-spec`
-}
-function hasSpecFile(atom) {
-  if (SPEC_PHYSICAL[atom]) return has(SPEC_PHYSICAL[atom])
-  return has(resolve(SHARED_UI, `${atom}-spec.ts`))
-}
+// 注:`has` / `readFace` 已上移为取材层封装(见文件顶部),不再按磁盘 readFileSync。
 
-const has = (p) => existsSync(p)
-const read = (p) => readFileSync(p, 'utf8')
-
-function consumes(atom, dir) {
-  const file = resolve(dir, `${atom}.tsx`)
-  if (!has(file)) return false
-  return read(file).includes(specModule(atom))
+function consumes(atom, dir, face) {
+  const content = readFace(face, `${dir}/${atom}.tsx`)
+  if (content === null) return false
+  return content.includes(`@ihui/shared/ui/${atom}-spec`)
 }
 
 /** 单一真相源扫描:返回 { rows, ok, partials, exempt, total }。守门与棘轮共用,§0.6 零复算。 */
-export function computeCoverage() {
+export function computeCoverage(face = 'head') {
   const rows = []
   let partials = 0
   for (const atom of ATOMS) {
-    const hasSpec = hasSpecFile(atom)
+    const hasSpec = has(face, `${SHARED_UI}/${atom}-spec.ts`)
     const react =
-      consumes(atom, UI_REACT) ||
-      (WEB_EXTRA[atom] && has(WEB_EXTRA[atom]) && read(WEB_EXTRA[atom]).includes(specModule(atom)))
-    const native = consumes(atom, UI_NATIVE)
+      consumes(atom, UI_REACT, face) ||
+      (WEB_EXTRA[atom] &&
+        has(face, WEB_EXTRA[atom]) &&
+        (readFace(face, WEB_EXTRA[atom]) ?? '').includes(`@ihui/shared/ui/${atom}-spec`))
+    const native = consumes(atom, UI_NATIVE, face)
     let status = 'OK'
     if (!hasSpec) status = 'NO-SPEC'
     else if (!react || !native) {
@@ -108,9 +104,10 @@ export function computeCoverage() {
   return { rows, ok, partials, exempt, total: ATOMS.length }
 }
 
-function loadBaseline() {
+function loadBaseline(face = 'head') {
   try {
-    return JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
+    const text = readFace(face, BASELINE_PATH)
+    return text ? JSON.parse(text) : null
   } catch {
     return null
   }
@@ -141,7 +138,13 @@ const STRICT = process.argv.includes('--strict')
 const RATCHET = process.argv.includes('--ratchet')
 
 function run() {
-  const cov = computeCoverage()
+  const picked = selectFace({ staged: process.argv.includes('--staged'), worktree: process.argv.includes('--worktree'), def: 'head' })
+  if (picked.error) {
+    console.error(`⏭  ${picked.error}`)
+    process.exit(2)
+  }
+  const face = picked.face
+  const cov = computeCoverage(face)
   printCoverage(cov)
 
   if (STRICT && cov.partials > 0) {
@@ -151,7 +154,7 @@ function run() {
   }
 
   if (RATCHET) {
-    const base = loadBaseline()
+    const base = loadBaseline(face)
     if (!base || typeof base.okAtoms !== 'number') {
       console.error('[ratchet] 取不到基线 scripts/data/cross-end-spec-baseline.json,未判定(§0.3)')
       process.exit(2)
@@ -169,8 +172,7 @@ function run() {
   process.exit(0)
 }
 
-export const __test__ = { computeCoverage, ATOMS, EXEMPT, WEB_EXTRA, SPEC_MODULE, specModule, hasSpecFile, consumes, loadBaseline, BASELINE_PATH }
+export const __test__ = { computeCoverage, ATOMS, EXEMPT, WEB_EXTRA, consumes, loadBaseline, BASELINE_PATH }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) run()
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

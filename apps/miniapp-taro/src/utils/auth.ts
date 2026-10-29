@@ -38,9 +38,9 @@ import {
 // 新增导出从包根取会撞 mock;判据/工具模块一律走各自的子路径出口。
 import { createTokenAutoRefresh, type TokenAutoRefreshHandle } from '@ihui/shared/auth/auto-refresh'
 
+// legacy underscore key (read-only for migration); new key uses hyphen via USER_INFO_STORAGE_KEY
 import { ACCOUNT_SCOPED_CONTENT_KEYS } from '@/constants/storage'
 
-// legacy underscore key (read-only for migration); new key uses hyphen via USER_INFO_STORAGE_KEY
 const USER_INFO_KEY_LEGACY = 'ihui_user_info'
 
 /**

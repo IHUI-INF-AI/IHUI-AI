@@ -5,7 +5,7 @@
 """官方 MCP 协议兼容层(streamable HTTP 风格,JSON-RPC 2.0 单入口)。
 
 在**不动内部自研 JSON-RPC 引擎**(mcp_server.py)的前提下,把现有 86 个工具以官方
-MCP 协议暴露给任意 MCP 客户端(Claude Desktop / Cursor / 自研 9 端)。
+MCP 协议暴露给任意 MCP 客户端(Claude Desktop / Cursor / 自研 8 端)。
 
 对齐规范: https://modelcontextprotocol.io/specification
 

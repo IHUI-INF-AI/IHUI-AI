@@ -18,7 +18,7 @@ interface Props {
 }
 
 export function MonitorStatCards({ services, perfCards, t }: Props) {
-  const healthyCount = services.filter((s) => s.status !== 'unhealthy').length
+  const healthyCount = services.filter((s) => s.status === 'healthy').length
   return (
     <>
       <Card>
@@ -37,7 +37,7 @@ export function MonitorStatCards({ services, perfCards, t }: Props) {
           <div className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-2">
             {services.map((s) => {
               const Icon = SERVICE_ICONS[s.name] ?? Server
-              const ok = s.status !== 'unhealthy'
+              const ok = s.status === 'healthy'
               return (
                 <div
                   key={s.name}

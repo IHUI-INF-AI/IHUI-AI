@@ -282,6 +282,19 @@ export function toPoolAccount(userInfo) {
         token,
         ...(refreshToken ? { refreshToken } : {}),
         uid,
+        // 客户端档案快照(2026-10-28 立):一键切号写回信封时要原样重建
+        // host/userRegion/tokenReleaseAt/account(客户端只认这套字段形状);
+        // 落库时并进 secretsEnc(加密档),PII 不进明文列。
+        ...(Object.keys(acct).length > 0
+          ? {
+              profile: {
+                host: typeof userInfo.host === 'string' ? userInfo.host : null,
+                userRegion: typeof userInfo.userRegion === 'string' ? userInfo.userRegion : null,
+                tokenReleaseAt: typeof userInfo.tokenReleaseAt === 'string' ? userInfo.tokenReleaseAt : null,
+                account: acct,
+              },
+            }
+          : {}),
         ...(typeof userInfo.expiredAt === 'string' ? { expiresAt: userInfo.expiredAt } : {}),
         // 2026-10-24: refreshToken 的到期时刻进账号对象(此前只进 meta,导入器丢弃 meta
         // ⇒ 库里 refresh_expires_at 恒 NULL,管理面看不出这枚票还能活多久)

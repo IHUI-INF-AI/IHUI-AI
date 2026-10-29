@@ -1761,13 +1761,16 @@ function runDanglingGate({ root, tree, anchor }) {
     const out = execFileSync(process.execPath, [gate, '--rev', tree, '--anchor', anchor, '--root', root], {
       encoding: 'utf8',
       windowsHide: true,
-      timeout: 120000,
+      timeout: Number(process.env.IHUI_LAND_DANGLING_GATE_TIMEOUT_MS || 10 * 60 * 1000),
       maxBuffer: 64 << 20,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { pass: true, out: String(out) }
   } catch (e) {
     const rc = e.status ?? 9
+    // 没有退出码 ≠ 判红:execFileSync 超时是 SIGTERM 掐死孩子,e.status 直接为空。写进结论是为了让
+    // "预检没跑完"与"预检判你不该落"不再长得一样(2026-10-28 实测:120s 上限对 11,799 文件的树面不够)。
+    const killed = e.status === undefined && e.signal ? ` | 孩子被 ${e.signal} 掐死 ⇒ 预检没跑完,这不是判定` : ''
     const out = String((e.stdout ?? '') + (e.stderr ?? ''))
     if (/已跳过/.test(out))
       return {
@@ -1777,7 +1780,7 @@ function runDanglingGate({ root, tree, anchor }) {
         out,
       }
     if (rc === 1) return { pass: false, why: '涉事判据判红(悬空具名导入/影子 .js),拒绝落盘', out }
-    return { pass: false, undetermined: true, why: `涉事判据未判定(rc=${rc}),拒绝落盘`, out }
+    return { pass: false, undetermined: true, why: `涉事判据未判定(rc=${rc})${killed},拒绝落盘`, out }
   }
 }
 
@@ -1804,13 +1807,16 @@ function runWarmBorderGate({ root, tree, paths }) {
     const out = execFileSync(process.execPath, [gate, '--rev', tree, '--only', paths.join(';'), '--root', root], {
       encoding: 'utf8',
       windowsHide: true,
-      timeout: 180000,
+      timeout: Number(process.env.IHUI_LAND_WARM_GATE_TIMEOUT_MS || 10 * 60 * 1000),
       maxBuffer: 64 << 20,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { pass: true, out: String(out) }
   } catch (e) {
     const rc = e.status ?? 9
+    // 没有退出码 ≠ 判红:execFileSync 超时是 SIGTERM 掐死孩子,e.status 直接为空。写进结论是为了让
+    // "预检没跑完"与"预检判你不该落"不再长得一样(2026-10-28 实测:120s 上限对 11,799 文件的树面不够)。
+    const killed = e.status === undefined && e.signal ? ` | 孩子被 ${e.signal} 掐死 ⇒ 预检没跑完,这不是判定` : ''
     const out = String((e.stdout ?? '') + (e.stderr ?? ''))
     if (rc !== 1 && /跳过/.test(out))
       return {
@@ -1820,7 +1826,7 @@ function runWarmBorderGate({ root, tree, paths }) {
         out,
       }
     if (rc === 1) return { pass: false, why: '暖色描边涉事判据判红(输入框上的暖色描边),拒绝落盘', out }
-    return { pass: false, undetermined: true, why: `暖色描边涉事判据未判定(rc=${rc}),拒绝落盘`, out }
+    return { pass: false, undetermined: true, why: `暖色描边涉事判据未判定(rc=${rc})${killed},拒绝落盘`, out }
   }
 }
 
@@ -2155,8 +2161,11 @@ async function main() {
         for (const line of String(danglingGate.out ?? '').split('\n').slice(-12))
           if (line.trim()) console.error(`   ${line.slice(0, 220)}`)
         console.error(
-          '   出路:把悬空导入修掉后重落。' +
-            '应急跳过 IHUI_LAND_SKIP_DANGLING_GATE=1(会把跳过那行打进输出留痕)',
+          danglingGate.undetermined
+            ? '   出路:这条预检**没判**(孩子进程没拿到退出码,常被掐死或进程槽耗尽),不是"你有悬空导入"。' +
+                '先直接复跑同一棵树上的门体(见上面 rc 与空输出即为证),确认无新增后重落本器即可;' +
+                '真判红(rc=1)才需要修导入。应急 IHUI_LAND_SKIP_DANGLING_GATE=1(会打留痕)。'
+            : '   出路:把悬空导入修掉后重落。应急跳过 IHUI_LAND_SKIP_DANGLING_GATE=1(会把跳过那行打进输出留痕)',
         )
         process.exit(danglingGate.undetermined ? 2 : 1)
       }

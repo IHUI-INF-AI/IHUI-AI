@@ -148,10 +148,9 @@ describe('CompressionDivider — aria-label 完整描述', () => {
 
 // ─── 视觉细节 ─────────────────────────────────────────
 describe('CompressionDivider — 视觉细节', () => {
-  it('左右两侧 1px 横线(border-border/50)各一条,共两条', () => {
+  it('左右两侧 1px 横线(bg-border/50)各一条,共两条', () => {
     const { container } = render(<CompressionDivider compaction={mk()} />)
-    // 2026-10 3cabadf73da 发丝清偿:h-px bg 横线改单边 border-t(视觉等积),选择器随形态
-    const lines = container.querySelectorAll('.flex-1.border-t.border-border\\/50')
+    const lines = container.querySelectorAll('.h-px.flex-1.bg-border\\/50')
     expect(lines.length).toBe(2) // 左 + 右
   })
 

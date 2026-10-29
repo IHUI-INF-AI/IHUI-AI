@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { Fragment, useMemo } from 'react'
 import type { ReactNode } from 'react'
@@ -155,42 +155,42 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       padding: 14,
-      gap: 12,
+      gap: rnSpacing.md,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
     pressed: { opacity: 0.85 },
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    titleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    titleWrap: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     vipBadge: {
       backgroundColor: tk.warning.DEFAULT,
       borderRadius: rnRadius.md,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
     },
-    vipBadgeText: { color: tk.surface.light, fontSize: 14, fontWeight: '700' },
-    title: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    expireWrap: { alignItems: 'flex-end', gap: 4 },
-    daysText: { fontSize: 14, color: tk.warning.DEFAULT, fontWeight: '600' },
-    expireText: { fontSize: 14, color: tk.text.secondary },
+    vipBadgeText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '700' },
+    title: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    expireWrap: { alignItems: 'flex-end', gap: rnSpacing.xs },
+    daysText: { fontSize: rnType.body.size, color: tk.warning.DEFAULT, fontWeight: '600' },
+    expireText: { fontSize: rnType.body.size, color: tk.text.secondary },
     benefitsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     benefitTag: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadius.md,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
     },
     overflowTag: { backgroundColor: 'transparent', borderWidth: 1, borderColor: tk.border.light },
-    benefitText: { fontSize: 11, color: tk.text.secondary },
+    benefitText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     purchaseBtn: {
       alignSelf: 'flex-start',
       backgroundColor: tk.warning.DEFAULT,
       borderRadius: rnRadius.sm,
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
     },
-    purchaseBtnText: { color: tk.surface.light, fontSize: 14, fontWeight: '700' },
-    footer: { marginTop: 8 },
+    purchaseBtnText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '700' },
+    footer: { marginTop: rnSpacing.sm },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

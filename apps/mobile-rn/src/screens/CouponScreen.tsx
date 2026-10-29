@@ -14,7 +14,7 @@ import {
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
-import { usePaginatedList } from '../hooks'
+import { usePaginatedList, useRefreshOnFocus } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -74,15 +74,14 @@ export function CouponScreen() {
     fetcher,
     PAGE_SIZE,
   )
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):走分页 hook 的 refresh
+  useRefreshOnFocus(refresh)
 
   const onSelectTab = (tab: CouponStatus) => {
     const next = tab as CouponTab
     if (next === statusTab) return
-    // 只翻状态:fetcher 的 useCallback 依赖 statusTab ⇒ 身份变化后 usePaginatedList 的
-    // effect 自动重发第 1 页。原先这里的 setTimeout(refresh, 0) 捕获的是**渲染前的旧闭包**
-    // (旧 statusTab 的 fetcher),且宏任务落在 effect 之后 ⇒ 序号更大"后来居上",
-    // 切到"使用中的券"仍可能被旧 tab 的列表覆盖 —— 手动重发这一发本身就是竞态源,摘除。
     setStatusTab(next)
+    setTimeout(refresh, 0)
   }
 
   return (

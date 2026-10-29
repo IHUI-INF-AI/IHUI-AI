@@ -14,6 +14,7 @@ import { CircleDetailScreen as SharedCircleDetailScreen, type CircleDetailItem }
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useRefreshOnFocus } from '../hooks'
 
 interface ApiCircle {
   id: string
@@ -58,6 +59,9 @@ export function CircleDetailScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首次挂载由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
 
   const onJoin = async () => {
     if (!circle || joining) return

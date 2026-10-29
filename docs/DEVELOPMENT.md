@@ -419,9 +419,9 @@ uvicorn app.main:app --reload --port 8803 --log-level debug
 
 ## 8. 多端联动开发注意事项
 
-项目是 9 端 + 13 共享包的 Monorepo。完整的"全端连通"强制规则见 [AGENTS.md §9](../AGENTS.md),本节聚焦开发流程实操。
+项目是 8 端 + 13 共享包的 Monorepo。完整的"全端连通"强制规则见 [AGENTS.md §9](../AGENTS.md),本节聚焦开发流程实操。
 
-### 8.1 九端清单
+### 8.1 端清单
 
 | 端 | 路径 | 技术栈 |
 |---|---|---|
@@ -432,7 +432,6 @@ uvicorn app.main:app --reload --port 8803 --log-level debug
 | extension | `apps/extension` | WXT 浏览器扩展 |
 | mobile-rn | `apps/mobile-rn` | React Native + Expo |
 | miniapp-taro | `apps/miniapp-taro` | Taro 4 + React |
-| mobile-cap | `apps/mobile-cap` | Capacitor 7（复用 `apps/web` 的 `out/` 静态导出打 Android/iOS 原生包） |
 | cli | `apps/cli` | Node.js + Ink TUI |
 
 ### 8.2 共享包

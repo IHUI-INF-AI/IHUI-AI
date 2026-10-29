@@ -25,7 +25,7 @@ import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { formatNumber } from '@/lib/date-utils'
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -223,17 +223,15 @@ function useOrchFetch<T>(url: string | null, intervalMs?: number): FetchState<T>
     }
     let cancelled = false
     const run = async () => {
-      try {
-        const data = await api<T>(url)
-        if (cancelled) return
-        setData(data)
+      const r = await fetchApi<T>(url)
+      if (cancelled) return
+      if (r.success) {
+        setData(r.data)
         setError(null)
-      } catch (e) {
-        if (cancelled) return
-        setError(e instanceof Error ? e.message : String(e))
-      } finally {
-        if (!cancelled) setLoading(false)
+      } else {
+        setError(r.error)
       }
+      setLoading(false)
     }
     void run()
     if (intervalMs && intervalMs > 0) {
@@ -501,16 +499,13 @@ function DecisionsTab() {
   const handleToggle = React.useCallback(
     async (id: string) => {
       setToggling((p) => ({ ...p, [id]: true }))
-      try {
-        await api<{ enabled?: boolean } | null>(
-          `/orchestration/playbooks/${encodeURIComponent(id)}/toggle`,
-          { method: 'POST' },
-        )
+      const r = await fetchApi<{ enabled?: boolean } | null>(
+        `/orchestration/playbooks/${encodeURIComponent(id)}/toggle`,
+        { method: 'POST' },
+      )
+      setToggling((p) => ({ ...p, [id]: false }))
+      if (r.success) {
         playbooksState.refresh()
-      } catch {
-        // 旧行为:失败不刷新
-      } finally {
-        setToggling((p) => ({ ...p, [id]: false }))
       }
     },
     [playbooksState],

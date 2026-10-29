@@ -551,7 +551,7 @@ export function MessageInput({
   // 经 chat store recordQueueSendOutcome 落 D162 终态台账;非队列即答(无 itemId)不落账。
   const answerWithToast = React.useCallback(
     (text: string, queuedItemId?: string) => {
-      void answerSideQuestion(text, t, chatStore)
+      void answerSideQuestion(text, t)
         .then(() => {
           if (queuedItemId && conversationId) {
             chatStore.getState().recordQueueSendOutcome(conversationId, queuedItemId, 'sent')
@@ -985,7 +985,7 @@ export function MessageInput({
     if (!id || compacting || isStreaming) return
     setCompacting(true)
     try {
-      await runManualCompact(id, t, chatStore)
+      await runManualCompact(id, t)
     } finally {
       setCompacting(false)
     }

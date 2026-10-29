@@ -127,6 +127,7 @@ type DrawerNavRouteName =
   | 'Assistant'
   | 'AigcList'
   | 'KnowledgeBase'
+  | 'KnowledgeBaseList'
   | 'KnowledgeRag'
   | 'ChatTools'
   | 'Memory'
@@ -393,7 +394,7 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
             Icon: Gift,
             route: 'Referrer',
             target: { type: 'route', name: 'Referrer' },
-          }
+          },
         ],
       },
       // 智能体(对齐 web /agents):父项进我的智能体列表,子项保留原「智能体市场」入口
@@ -443,17 +444,21 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         target: { type: 'route', name: 'AigcList' },
       },
       // 知识库二级(对齐 web /knowledge-base 的 children:知识库 / RAG)
+      // 2026-10-28 归位:父项与「知识库」子项此前都指向 `KnowledgeBase` 路由(RAG 文档列表,
+      // `/api/knowledge/docs`),而 web `/knowledge-base` 是 `knowledge_base` 表的知识库文章列表
+      // + 详情(/knowledge-base/[id])。文档列表本身仍由本组 `KnowledgeRagManage` 子项承载
+      // (同域同端点,未丢能力)。归属凭据:knowledge-base-routes.ts 的 GET /knowledge-base。
       {
         labelKey: 'menu.knowledgeBase',
         Icon: BookOpen,
-        route: 'KnowledgeBase',
-        target: { type: 'route', name: 'KnowledgeBase' },
+        route: 'KnowledgeBaseList',
+        target: { type: 'route', name: 'KnowledgeBaseList' },
         children: [
           {
             labelKey: 'menu.knowledgeBase',
             Icon: BookOpen,
-            route: 'KnowledgeBase',
-            target: { type: 'route', name: 'KnowledgeBase' },
+            route: 'KnowledgeBaseList',
+            target: { type: 'route', name: 'KnowledgeBaseList' },
           },
           {
             labelKey: 'menu.knowledgeRag',
@@ -1177,9 +1182,7 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
  *
  * 与 web NAV_GROUPS 同序,域入口行位置对应 web 的 eduGroup / contentGroup / tradeGroup。
  */
-type DrawerNavSection =
-  | { kind: 'group'; key: string }
-  | { kind: 'domain'; domain: DomainKey }
+type DrawerNavSection = { kind: 'group'; key: string } | { kind: 'domain'; domain: DomainKey }
 
 export const DRAWER_NAV_SECTIONS: readonly DrawerNavSection[] = [
   { kind: 'group', key: 'hot' },

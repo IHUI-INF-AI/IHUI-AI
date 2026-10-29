@@ -3,13 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { ActivityIndicator, FlatList, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
+import { FlatList, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
 import { ChevronLeft, Star } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseCommentScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 课程评论共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { CourseCommentScreenProps }
@@ -26,12 +27,7 @@ export function CourseCommentScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={tk.brand.DEFAULT} />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
   }
 
   if (error) {
@@ -53,9 +49,7 @@ export function CourseCommentScreen({
         data={items}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.muted}>{t('courseComment.empty')}</Text>
-          </View>
+          <EmptyState title={t('courseComment.empty')} colorScheme={colorScheme} />
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -85,7 +79,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: 16,
     },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     btn: {
       marginTop: 12,

@@ -21,7 +21,7 @@
 import { exchangeSsoCode, extractSsoCode, SSO_CLIENT_IDS } from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
 import { resolveApiBaseUrl } from '@/lib/api-base-url'
-import { destroyDockedBrowser } from '@/lib/tauri-bridge'
+import { closeEmbeddedBrowser } from '@/lib/tauri-bridge'
 import type { AuthUser } from '@ihui/api-client'
 
 const DESKTOP_CLIENT_ID = SSO_CLIENT_IDS.DESKTOP
@@ -43,33 +43,23 @@ let lastProcessedCode: string | null = null
  * 开过内嵌窗"这一件事,不需要端口与前缀;走系统默认浏览器登录的路径不置位 ⇒ 无从关起,
  * 静默跳过。
  */
-let pendingSsoDockedWindow = false
+let pendingSsoEmbeddedWindow = false
 
-/**
- * 记住刚开的 SSO **停靠**浏览器窗(2026-10-24)。
- *
- * 用户规则:「独立窗口只能由停靠浏览器的『切换为独立窗口』按钮打开,除此之外
- * 不能使用独立窗口」。SSO 兜底因此改走工作区停靠浏览器,登录成功后按这个标记
- * 把原生层和面板里的停靠标签一并收起。
- */
-export function rememberSsoDockedWindow(): void {
-  pendingSsoDockedWindow = true
+/** 记住刚开的 SSO 内嵌浏览器窗,供登录成功后关闭(2026-10-16 改内嵌形态)。 */
+export function rememberSsoEmbeddedWindow(): void {
+  pendingSsoEmbeddedWindow = true
 }
 
-/** 关掉记住的 SSO 停靠浏览器;失败(已经被用户关掉)只记一行 warn,不冒泡。 */
-async function closeRememberedSsoWindow(): Promise<void> {
-  if (!pendingSsoDockedWindow) return
+/** 关掉记住的 SSO 内嵌浏览器窗;失败(窗口已经被用户关掉)只记一行 warn,不冒泡。 */
+async function closeRememberedSsoEmbeddedWindow(): Promise<void> {
+  if (!pendingSsoEmbeddedWindow) return
   // 先清账再关:重复派发的 deep-link 走到这里不该再开第二次关窗请求。
-  pendingSsoDockedWindow = false
+  pendingSsoEmbeddedWindow = false
   try {
-    // 用 destroy 而不是 close:close 只隐藏冻结(面板切走时保留会话用),
-    // 登录已经完成,这扇窗要彻底消失。
-    await destroyDockedBrowser()
+    await closeEmbeddedBrowser()
   } catch (e) {
-    console.warn('[embedded-browser] 关闭 SSO 停靠浏览器失败:', e)
+    console.warn('[embedded-browser] 关闭 SSO 登录窗失败:', e)
   }
-  // 原生层已销毁,面板里那个停靠 Tab 也得收掉(否则面板会把页面重新铺回来)
-  window.dispatchEvent(new CustomEvent('ihui:close-docked-browser'))
 }
 
 /**
@@ -85,7 +75,7 @@ export async function handleDesktopDeepLink(url: string): Promise<boolean> {
   // 去重:OS 可能重复派发同一 deep-link,跳过已处理的 sso_code(2026-08-01 P1-1)。
   // 但重复派发同样意味着"浏览器那一侧已经交付过了"——照样把窗收掉(会话已清账,幂等)。
   if (code === lastProcessedCode) {
-    await closeRememberedSsoWindow()
+    await closeRememberedSsoEmbeddedWindow()
     return true
   }
 
@@ -102,8 +92,8 @@ export async function handleDesktopDeepLink(url: string): Promise<boolean> {
   }
   setUser(user)
   lastProcessedCode = code
-  // 登录态已落地,收尾:关掉停靠浏览器 SSO 登录页(失败只 warn,不影响登录结果)。
-  await closeRememberedSsoWindow()
+  // 登录态已落地,收尾:关掉内嵌浏览器 SSO 登录窗(失败只 warn,不影响登录结果)。
+  await closeRememberedSsoEmbeddedWindow()
   return true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

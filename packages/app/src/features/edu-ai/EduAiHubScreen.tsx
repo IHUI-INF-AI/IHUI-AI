@@ -21,11 +21,18 @@ import {
   Users,
   Wrench,
 } from 'lucide-react-native'
-import { Linking, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import {
+  Linking,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import type { TFunction } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
-import { TextField } from '../../components/TextField'
 import { createEduAiStyles, EDU_AI_PALETTE, type EduAiTone } from './edu-ai-styles'
 
 /** 与 web /edu-ai 四目录页同构的四个入口(aigc-tools / certification / courses / policy)。 */
@@ -432,7 +439,7 @@ function FilterChips({
             accessibilityState={{ selected: isActive }}
             onPress={() => onSelect(opt.value)}
           >
-            <Text style={[styles.chipText, isActive ? styles.chipActiveText : null]}>
+            <Text style={[styles.chipText, isActive ? styles.chipTextActive : null]}>
               {t(opt.labelKey)}
             </Text>
           </TouchableOpacity>
@@ -516,8 +523,7 @@ export function EduAiHubScreen({
   const searchBox = (tab: EduAiTab, placeholder: string, value: string) => (
     <View style={styles.searchBox}>
       <Search size={15} color={tk.text.tertiary} strokeWidth={2} />
-      <TextField
-        colorScheme={colorScheme}
+      <TextInput
         style={styles.searchInput}
         value={value}
         onChangeText={(v) => onKeywordChange(tab, v)}
@@ -1338,7 +1344,7 @@ export function EduAiHubScreen({
                 strokeWidth={2}
                 color={active ? tk.brand.ctaForeground : tk.text.secondary}
               />
-              <Text style={[styles.tabText, active ? styles.tabActiveText : null]}>
+              <Text style={[styles.tabText, active ? styles.tabTextActive : null]}>
                 {t(TAB_LABEL_KEYS[kind])}
               </Text>
             </TouchableOpacity>

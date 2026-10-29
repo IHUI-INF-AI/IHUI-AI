@@ -4,7 +4,6 @@
 
 'use client'
 
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -27,6 +26,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface TeamCenterData {
   totalInvitees: number

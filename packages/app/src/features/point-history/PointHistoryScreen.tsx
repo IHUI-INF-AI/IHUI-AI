@@ -1,10 +1,10 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PointHistoryItem, PointHistoryScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -29,6 +29,8 @@ export function PointHistoryScreen({
   error,
   onRefresh,
   onBack,
+  onEndReached,
+  loadingMore = false,
   colorScheme = 'light',
 }: PointHistoryScreenProps) {
   const tk = getTokens(colorScheme)
@@ -52,6 +54,16 @@ export function PointHistoryScreen({
           contentContainerStyle={styles.listBody}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footer}>
+                <ActivityIndicator color={tk.brand.DEFAULT} />
+                <Text style={styles.footerText}>{t('common.loading')}</Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <EmptyState title={t('pointHistory.empty')} colorScheme={colorScheme} />
           }
@@ -92,11 +104,11 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    errorText: { paddingHorizontal: 10, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     listBody: { padding: 14 },
     separator: { height: 8 },
     card: {
@@ -112,22 +124,30 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardAction: {
       flex: 1,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
     },
-    cardPoints: { fontSize: 16, fontWeight: '600' },
+    cardPoints: { fontSize: rnType.title.size, fontWeight: '600' },
     pointsPositive: { color: tk.success.DEFAULT },
     pointsNegative: { color: tk.danger.DEFAULT },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
-    cardMeta: { fontSize: 11, color: tk.text.secondary },
-    cardTime: { fontSize: 11, color: tk.text.tertiary },
+    cardMeta: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    footer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.md,
+    },
+    footerText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

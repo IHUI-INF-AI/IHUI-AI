@@ -22,7 +22,7 @@ import { tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
 import type { PlanStepItem, ToolCallItem } from '../../utils/chat-render-model'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export interface TaskStatusBarProps {
   /** 最后一条带 planSteps 的 assistant 消息的步骤快照(plan_updated 权威整体替换) */
@@ -176,7 +176,7 @@ export function TaskStatusBar({ planSteps, toolCalls, isStreaming }: TaskStatusB
 export default TaskStatusBar
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: 16, marginBottom: 8 },
+  wrap: { paddingHorizontal: rnSpacing.lg, marginBottom: rnSpacing.sm },
   card: {
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -188,17 +188,21 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: rnSpacing.sm,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
   },
-  headline: { flex: 1, fontSize: 12, fontWeight: '500', color: tokens.text.primary },
-  meta: { fontSize: 12, color: tokens.text.secondary, fontVariant: ['tabular-nums'] },
+  headline: { flex: 1, fontSize: rnType.label.size, fontWeight: '500', color: tokens.text.primary },
+  meta: {
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+    fontVariant: ['tabular-nums'],
+  },
   diffAdded: { color: tokens.success.DEFAULT, fontVariant: ['tabular-nums'] },
   diffRemoved: { color: tokens.danger.DEFAULT, fontVariant: ['tabular-nums'] },
-  detail: { paddingHorizontal: 12, paddingBottom: 8, gap: 4 },
+  detail: { paddingHorizontal: rnSpacing.md, paddingBottom: rnSpacing.sm, gap: rnSpacing.xs },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  stepTitle: { flex: 1, fontSize: 12, color: tokens.text.secondary },
+  stepTitle: { flex: 1, fontSize: rnType.label.size, color: tokens.text.secondary },
   stepTitleDone: { color: tokens.text.tertiary },
   stepTitleActive: { color: tokens.text.primary, fontWeight: '500' },
 })

@@ -37,7 +37,7 @@ import {
   FLOAT_BOX_TOAST_TOP_OFFSET_PX,
 } from '@ihui/shared/ui/float-box-spec'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 // toast 上限按应用框架实际宽(430 壳)取(2026-10-15 修溢出):原用视口宽 586×0.8=450,
 // 超长文案时 toast 横跨出 #root 被裁右侧;原生无 #root 回退窗口宽行为不变(与 SearchOverlay 同轨)。
 import { useAppFrameWidth } from './Carousel'
@@ -89,7 +89,7 @@ const MAX_WIDTH_RATIO = 0.8
  * 压在固定黑底上会以另一种方向再犯同一型(AGENTS §4「跨档配对仍计」同一条判序)。
  */
 export const FLOAT_BOX_TOAST_SURFACE = {
-  bg: 'rgba(0,0,0,0.85)',
+  bg: rnCssLight.black85,
   fg: tokens.gray[50],
 } as const
 

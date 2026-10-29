@@ -71,19 +71,29 @@ export function vpStageHeightRpx(): number {
   return Math.round(VP_STAGE_REF_WIDTH_RPX / VP_STAGE_ASPECT)
 }
 
-/** 浮层控制条内边距(逻辑 px)。取值依据:规则 1 —— web 控制条既有值 `p-3` = 12(RN 原 py-2=8 升档)。 */
+/**
+ * 浮层控制条内边距(逻辑 px)。取值依据:规则 1 —— web 控制条既有值 `p-3` = 12(RN 原 py-2=8 升档)。
+ * **RN/web 单侧档**:小程序腿用原生 `<video>`(端内只有 STAGE_STYLE),不自绘控制层,无此内边距。
+ */
 export const VP_OVERLAY_PADDING_PX = 12
 
-/** 控制条内元素间距(逻辑 px)。web `gap-2` = RN `gap-2` = 8,收编前三方已同值;RN 进度行 `mt-2` 一并改吃本常数。 */
+/**
+ * 控制条内元素间距(逻辑 px)。web `gap-2` = RN `gap-2` = 8,收编前三方已同值;RN 进度行 `mt-2` 一并改吃本常数。
+ * **RN/web 单侧档**:同上,小程序腿不自绘控制条。
+ */
 export const VP_CONTROL_GAP_PX = 8
 
 /**
  * 浮层文字字号(逻辑 px)。取值依据:规则 1 —— web 时间/按钮标签既有值 `text-xs` = 12;
  * RN 时间戳与全屏标签原 `text-[10px]` 低于规则 2 的字号下限 12,一并升档。
+ * **RN/web 单侧档**:小程序腿无自绘时间戳/全屏标签。
  */
 export const VP_LABEL_FONT_PX = 12
 
-/** 进度条轨道粗细(逻辑 px)。web `h-1` = RN `h-1` = 4,收编前已同值。 */
+/**
+ * 进度条轨道粗细(逻辑 px)。web `h-1` = RN `h-1` = 4,收编前已同值。
+ * **RN/web 单侧档**:小程序腿用原生视频控件的进度条,无自绘轨道。
+ */
 export const VP_TRACK_HEIGHT_PX = 4
 
 /** 进度条命中行的可见高度(RN 原 `h-1.5` = 6)。只作为命中补差的被减数,小程序无自绘进度条。 */

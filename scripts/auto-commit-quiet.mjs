@@ -430,20 +430,6 @@ function main() {
   if (deleted.length) log(`跳过删除(不自动收编,请人工确认后显式声明):${deleted.join(', ')}`)
   if (stale.length === 0) return
 
-  // 滞后副本守卫(2026-10-25):旁路落地只推进 HEAD+索引、不写工作树 ⇒ 直接按工作树收编
-  // 会把那笔已入库的改动整份写回旧版(实测一枚 auto 提交回退两个已入库修复)。
-  {
-    const { kept, skipped } = dropStaleCopies(stale, changes)
-    if (skipped.length) {
-      log(
-        `跳过滞后副本(工作树==该路径某祖先版本,HEAD 才是新内容;旁路落地未回写工作树):${skipped.join(', ')}`,
-      )
-      stale.length = 0
-      stale.push(...kept)
-    }
-    if (stale.length === 0) return
-  }
-
   // 活文档先归并,再把归并达标的收编(2026-10-22:替代"永不收编"——后者会让改动永久悬挂)。
   if (!DRY) {
     for (const f of [...stale].filter((p) => HUMAN_LEDGER_RE.test(p))) {
@@ -613,8 +599,6 @@ function main() {
         cwd: ROOT,
         encoding: 'utf8',
         maxBuffer: 64 << 20,
-        // §12g:派生必须显式接管 stdio(不吃 stdin ⇒ 首通道 ignore,stdout 要回读 ⇒ 管道)
-        stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
         env: { ...process.env, AGENT_SCOPE: '' },
       },

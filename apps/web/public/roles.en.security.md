@@ -136,7 +136,7 @@ app.use('/v1/agents/:id/chat', firewall.middleware(), chatHandler)
 - **Browser Extension**: WXT (Manifest V3)
 - **Mobile**: React Native (iOS / Android)
 - **CLI**: Node.js + Commander
-- **9-platform coverage**: Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / Capacitor 7 / CLI
+- **8-platform coverage**: Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / CLI
 - **Code Audit**: Semgrep 1.84 + Snyk + CodeQL + self-developed LLM review
 - **Key Management**: HashiCorp Vault 1.16 + AWS Secrets Manager
 - **Vector Retrieval**: pgvector + HNSW index (for PII similarity scan)

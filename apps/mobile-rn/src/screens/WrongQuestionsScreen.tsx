@@ -15,6 +15,7 @@ import {
 import { appAlert } from '../components/BottomPops'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -125,6 +126,10 @@ export default function WrongQuestionsScreen() {
     setPage(1)
     void loadList(1)
   }, [loadList, reloadKey])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):走既有 reloadKey 机制,顺带重置分页
+  const refreshOnFocus = useCallback(() => setReloadKey((k) => k + 1), [])
+  useRefreshOnFocus(refreshOnFocus)
 
   const loadMore = async () => {
     const next = page + 1

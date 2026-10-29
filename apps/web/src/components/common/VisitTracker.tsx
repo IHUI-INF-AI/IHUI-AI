@@ -74,8 +74,7 @@ export function VisitTracker() {
       referer: stripUrlCredentialSegments(document.referrer?.slice(0, 500) ?? '') || undefined,
       sessionId: getSessionId(),
       userId: userId ?? undefined,
-      // 不再自报 visitDate:它是 PV/UV 的分组键,浏览器时钟可任意回填历史某一天。
-      // 业务日由服务端在写入口里定(见 apps/api/src/db/visit-tracking-queries.ts)。
+      visitDate: new Date().toISOString().slice(0, 10),
     })
 
     const send = () => {

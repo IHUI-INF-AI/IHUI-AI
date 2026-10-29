@@ -38,12 +38,13 @@ import {
   type ArticleDetailItem,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { Heart, MessageCircle, Share2 } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -74,6 +75,8 @@ export function ArticleDetailScreen() {
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [commentError, setCommentError] = useState('')
 
+    const [reloadKey, setReloadKey] = useState(0)
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
@@ -92,7 +95,10 @@ export function ArticleDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):bump reloadKey 让上面的 effect 重跑
+  useRefreshOnFocus(() => setReloadKey((k) => k + 1))
 
   /** 点赞切换(对齐 handleLike:本地 toggle,UI 即时反馈) */
   const handleLike = useCallback((): void => {
@@ -298,7 +304,7 @@ const styles = StyleSheet.create({
     gap: rpx(8),
   } as ViewStyle,
   actionIcon: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     color: tokens.text.secondary,
   } as TextStyle,
   actionIconActive: {
@@ -340,34 +346,34 @@ const styles = StyleSheet.create({
     // 固定 chrome 不被压缩:弹窗唯一弹性块 = 评论 FlatList(sheet-flex 契约,
     // 详见 scripts/check-sheet-flex-contract.mjs)
     flexShrink: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: rnSpacing.lg,
     paddingBottom: 10,
   } as ViewStyle,
   commentTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
   } as TextStyle,
   commentClose: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
     lineHeight: 26,
     color: tokens.text.tertiary,
     fontWeight: '300',
   } as TextStyle,
   commentLoading: {
-    marginVertical: 40,
+    marginVertical: rnSpacing['4xl'],
   },
   commentList: {
     // 唯一弹性块:bounded 弹窗(maxHeight 72%)内列表 flex:1 内部滚动,
     // 不以自然高度参与压缩分摊(sheet-flex 契约)
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: rnSpacing.lg,
   } as ViewStyle,
   commentListEmpty: {
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: rnSpacing['4xl'],
   } as ViewStyle,
   commentEmptyText: {
     fontSize: 13,
@@ -400,21 +406,21 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   } as TextStyle,
   commentContent: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     lineHeight: 20,
     color: tokens.text.primary,
     marginTop: 2,
   } as TextStyle,
   commentTime: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
   } as TextStyle,
   commentInputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 10,
-    padding: 12,
+    padding: rnSpacing.md,
   } as ViewStyle,
   commentInput: {
     flex: 1,
@@ -425,8 +431,8 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    fontSize: 14,
+    paddingVertical: rnSpacing.sm,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
   } as TextStyle,
   commentSendBtn: {
@@ -441,7 +447,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   } as ViewStyle,
   commentSendText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as TextStyle,

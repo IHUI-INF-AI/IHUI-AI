@@ -49,12 +49,13 @@ from app.services import (
     checkin_minimax,
     checkin_qoder,
     checkin_store,
-    checkin_user_pool_bridge,
     checkin_workbuddy,
     workbuddy_tasks,
 )
 from app.services import checkin_scheduler as checkin_scheduler_mod
+from app.services import checkin_user_pool_bridge
 from app.services.checkin_engine import client_for, extract_user_id, get_jwt_exp
+from app.services.checkin_engine import extract_user_id, get_jwt_exp
 from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
 
 router = APIRouter(prefix="/api/checkin", tags=["checkin"])

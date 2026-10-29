@@ -25,19 +25,9 @@ import { logger } from '../utils/logger.js'
 export type SupportedErrorStatus = 200 | 400 | 401 | 404 | 502 | 503
 const SUPPORTED: readonly number[] = [200, 400, 401, 404, 502, 503]
 
-/**
- * 值 ∈ SUPPORTED 才收窄为字面量联合(门 94 R4a:G-59 收敛)。
- * 唯一出口 `coerceKnownOr` 的泛型约束是 `T extends string`,而这里是 HTTP 状态码的**数值**联合,
- * 字符串出口接不住 —— 正解是同判据的类型判据:判据在函数签名上(`status is SupportedErrorStatus`),
- * 而不是靠调用点的一句静态断言把越界值伪装成合法档。
- */
-function isSupportedErrorStatus(status: number): status is SupportedErrorStatus {
-  return SUPPORTED.includes(status)
-}
-
 /** 规则里配置的下游状态码若不在网关支持集合内,兜底为 502(避免调用方 TS/运行时报错) */
 function toSupported(status: number): SupportedErrorStatus {
-  return isSupportedErrorStatus(status) ? status : 502
+  return SUPPORTED.includes(status) ? (status as SupportedErrorStatus) : 502
 }
 
 export interface ResolvedErrorPassthrough {

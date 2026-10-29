@@ -1049,6 +1049,26 @@ function main() {
   console.log(`   dist 多出的声明名(tsc 递出的内部类型/残留,方向不算落后,只计数): ${decl.extrasTotal}`)
 
   const allReds = [...stale, ...decl.reds]
+  /**
+   * --json(2026-10-27 立):把"哪些包的 dist 落后于源码、各自的修复命令"以机读档**先**打一行,
+   * 供自愈器(heal-stale-dist.mjs)消费。为什么要门自己出这份档而不是自愈器重算判据:
+   * 同一件事两把尺子必然漂移(§0.6)—— 本门的 D 维组装(src 侧逐文件抽声明 → 聚合 → 与 dist 差集)
+   * 有 re-export / 命名空间穿透 / 注释遮蔽等细节,复制一份就会造出"门说落后、器物说不落后"的假自愈。
+   * 人类可读输出与退出码一律照旧(本行只是多打一份结论,不改变任何判定)。
+   */
+  if (process.argv.includes('--json')) {
+    console.log(
+      JSON.stringify({
+        verdicts: {
+          face,
+          reds: allReds.map((s) => ({ pkg: s.pkg, fix: s.fix, items: s.items ?? null })),
+          stockOnly: decl.stockOnly.map((s) => ({ pkg: s.pkg, fix: s.fix, items: s.items ?? null, total: s.total })),
+          onlyReported: decl.onlyReported.map((s) => ({ pkg: s.pkg, fix: s.fix, total: s.total })),
+          undetermined: undetermined.slice(0, 40),
+        },
+      }),
+    )
+  }
   if (allReds.length > 0) {
     console.log(`\n${C.red}✗${C.reset} 陈旧 (${allReds.length} 项${decl.reds.length ? ',含 D 维' : ''}):`)
     for (const s of allReds) {

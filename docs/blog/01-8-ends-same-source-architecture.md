@@ -360,12 +360,12 @@ $ git commit -m "feat: 添加收藏功能"
 
 ## 关于 IHUI AI
 
-IHUI AI 是一站式 9 端全栈 AI 操作系统,Apache 2.0 开源。
+IHUI AI 是一站式 8 端全栈 AI 操作系统,Apache 2.0 开源。
 
 - 🌐 官网:https://aizhs.top
 - 💻 GitHub:https://github.com/IHUI-INF-AI/IHUI-AI(Star 支持一下 ⭐)
-- 📦 9 端同源:Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 移动 Capacitor(mobile-cap) / 小程序 Taro
-- 🤖 101 模型:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama
+- 📦 8 端同源:Web / API / CLI / Desktop / Extension / Mobile / Miniapp
+- 🤖 176 模型:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama
 - 💰 定价:Free / Pro ¥49/月 / Team ¥199/人/月 / Enterprise ¥2999/月起
 
 **5 分钟 Fork 到上线,替代 ChatGPT Team + Claude Code + Notion AI,月省 $60+。**

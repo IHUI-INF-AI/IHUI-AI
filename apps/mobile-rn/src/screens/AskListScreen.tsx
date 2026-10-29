@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -64,18 +64,43 @@ export function AskListScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const loadingMoreRef = useRef(false)
+
+  /**
+   * 取第 next 页。page=1 替换、>1 追加 —— 小程序端此前用 useReachBottom 自己翻页,
+   * 而这一屏的 RN 侧只取第一页(后端信封带 total ⇒ 能算还有没有下一页)。
+   */
+  const fetchPage = async (next: number) => {
+    const res = await fetchApi<AsksPage>('/api/asks', {
+      params: { page: next, pageSize: ASKS_PAGE_SIZE },
+    })
+    if (res.success) {
+      const rows = (res.data?.list ?? []).map(toAskListItem)
+      setAsks((prev) => (next === 1 ? rows : [...prev, ...rows]))
+      setHasMore(next * ASKS_PAGE_SIZE < (res.data?.total ?? 0))
+      setPage(next)
+    } else if (next === 1) {
+      setError(apiFailureToText(res, t('askList.loadFailed')))
+    }
+    return res
+  }
 
   const load = async (refresh = false) => {
     if (refresh) setRefreshing(true)
     else setLoading(true)
     setError('')
-    const res = await fetchApi<AsksPage>('/api/asks', {
-      params: { page: 1, pageSize: ASKS_PAGE_SIZE },
-    })
-    if (res.success) setAsks((res.data?.list ?? []).map(toAskListItem))
-    else setError(apiFailureToText(res, t('askList.loadFailed')))
+    await fetchPage(1)
     setLoading(false)
     setRefreshing(false)
+  }
+
+  const loadMore = async () => {
+    if (loading || refreshing || loadingMoreRef.current || !hasMore) return
+    loadingMoreRef.current = true
+    await fetchPage(page + 1)
+    loadingMoreRef.current = false
   }
 
   useEffect(() => {
@@ -91,6 +116,7 @@ export function AskListScreen() {
       refreshing={refreshing}
       error={error}
       onRefresh={() => load(true)}
+      onLoadMore={() => void loadMore()}
       onPressItem={(id) => navigation.navigate('AskDetail', { id })}
       onCreate={() => navigation.navigate('AskCreate')}
       onBack={() => navigation.goBack()}

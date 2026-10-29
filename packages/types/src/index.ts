@@ -215,4 +215,17 @@ export * from './image-gen.js'
 //    (守门 103 D3 按那张表判深导入)——该表不在本切片允许清单内,须由其持有者随首个消费方补齐。
 export * from './chat-sync-contract.js'
 export * from './tool-gen.js'
+// 跨端补屏批(2026-10-28):web→RN 功能缺口那 11 屏的受控 props / 条目形状。
+// 形状唯一真相源在此,共享屏(packages/app)、RN 宿主、小程序镜像三处同读;
+// 只经主入口导出(同 exam / search-history 的口径,不新增子路径)。
+export * from './ai-workspace.js'
+export * from './edu-grade-trend.js'
+export * from './edu-teacher-study-plan.js'
+export * from './knowledge-base-reading.js'
+export * from './knowledge-base-list.js'
+export * from './learn-homework.js'
+export * from './lecturer.js'
+export * from './news.js'
+export * from './news-category.js'
+export * from './skills-market.js'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

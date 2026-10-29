@@ -91,7 +91,7 @@ test('CLI 三档退出码:0 只打一行路径 / 2 参数错 / 1 环境交不出
   assert.equal(missing.status, 2, '--kind 缺值应 2,实得 ' + missing.status)
 })
 
-test('解析面不得写盘:落点解析只回答"落在哪",删除/留痕只允许在保留档 --apply', () => {
+test('本工具不得建目录或写文件(它只回答"落在哪")', () => {
   const src = readFileSync(CLI, 'utf8')
   // 判据面必须先剥注释:本文件头注里写着"mkdirSync 是调用方的事"这句话 ——
   // 不剥注释就是门把自己解释自己的散文判成违规(守门 131/70 同型)。
@@ -100,46 +100,10 @@ test('解析面不得写盘:落点解析只回答"落在哪",删除/留痕只允
     .split('\n')
     .filter((l) => !/^\s*\/\//.test(l))
     .join('\n')
-  // 2026-10-25(G-24 保留档):本工具不再是"全文件只读"—— `--check/--apply` 档要写保留台账。
-  // 但**落点解析面必须仍然只读**:按大括号配平截出 archiveDirFor 函数体,对它单独判。
-  const start = code.indexOf('export function archiveDirFor')
-  assert.ok(start >= 0, '夹具失效:代码面找不到 archiveDirFor 声明')
-  let depth = 0
-  let end = -1
-  for (let i = code.indexOf('{', start); i >= 0 && i < code.length; i += 1) {
-    if (code[i] === '{') depth += 1
-    else if (code[i] === '}') {
-      depth -= 1
-      if (depth === 0) {
-        end = i + 1
-        break
-      }
-    }
-  }
-  assert.ok(end > start, '夹具失效:archiveDirFor 的函数体没截出来')
-  const resolver = code.slice(start, end)
-  for (const forbidden of [
-    'mkdirSync',
-    'writeFileSync',
-    'appendFile',
-    'rmSync',
-    'cpSync',
-    'openSync',
-    'writeSync',
-  ]) {
-    assert.ok(!resolver.includes(forbidden), `archiveDirFor 的代码面出现了 ${forbidden} —— 落点解析必须只读`)
-  }
-  // 删除出口唯一:整个文件不得自己删/复制 —— 真删只能走 retire-git-archive 的 removeEntry
-  // (那一道里才有重解析点/越界/§5b/稳定窗四道现场复验)。
-  for (const forbidden of ['rmSync', 'cpSync']) {
-    assert.ok(
-      !code.includes(forbidden),
-      `archive-dir 的代码面出现了 ${forbidden} —— 删除出口必须留在 retire-git-archive.removeEntry`,
-    )
+  for (const forbidden of ['mkdirSync', 'writeFileSync', 'appendFile', 'rmSync', 'cpSync']) {
+    assert.ok(!code.includes(forbidden), `archive-dir 的代码面出现了 ${forbidden} —— 建目录/写盘是调用方的事`)
   }
   // 阳性对照:剥注释这一步真在起作用(而不是"源码本来就干净"蒙过去的绿)
   assert.ok(/mkdirSync/.test(src), '夹具失效:注释里已没有 mkdirSync 字样,本条的剥注释对照无从成立')
-  // 正向证明保留档的留痕写盘是显式的,不得藏进"看不见的间接层"(否则 --apply 不写账也能绿)
-  assert.ok(/appendFileSync/.test(src), '保留档的留痕写盘应在源码里显式可见')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

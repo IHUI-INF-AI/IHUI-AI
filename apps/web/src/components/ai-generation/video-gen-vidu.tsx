@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 
 const DURATIONS = ['4', '8'] as const
@@ -47,11 +47,12 @@ export function VideoGenVidu() {
 
   const mutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await api<{ taskId: string; status: string }>('/api/ai/vidu/generate', {
+      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/vidu/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      return res
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: (data) => {
       setTaskId(data.taskId)
@@ -63,8 +64,9 @@ export function VideoGenVidu() {
   const { data: task } = useQuery({
     queryKey: ['vidu-task', taskId],
     queryFn: async () => {
-      const res = await api<AsyncTask>(`/api/ai/vidu/tasks/${taskId}`)
-      return res
+      const res = await fetchApi<AsyncTask>(`/api/ai/vidu/tasks/${taskId}`)
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     enabled: !!taskId,
     refetchInterval: (query) => {

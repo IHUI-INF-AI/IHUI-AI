@@ -43,6 +43,11 @@ import { BankCardScreen } from '../screens/BankCardScreen'
 import { RealNameAuthScreen } from '../screens/RealNameAuthScreen'
 import { IdentityVerifyScreen } from '../screens/IdentityVerifyScreen'
 import { SecuritySettingsScreen } from '../screens/SecuritySettingsScreen'
+import { SecurityAuditScreen } from '../screens/SecurityAuditScreen'
+import { MemberSettingsScreen } from '../screens/MemberSettingsScreen'
+import { MemberDashboardScreen } from '../screens/MemberDashboardScreen'
+import { MyAgentsScreen } from '../screens/MyAgentsScreen'
+import { EduDashboardScreen } from '../screens/EduDashboardScreen'
 import SecurityCenterScreen from '../screens/SecurityCenterScreen'
 import ApiKeysScreen from '../screens/ApiKeysScreen'
 import DataRightsScreen from '../screens/DataRightsScreen'
@@ -94,6 +99,22 @@ import LearnReviewScreen from '../screens/LearnReviewScreen'
 import KnowledgeBaseEditScreen from '../screens/KnowledgeBaseEditScreen'
 import MemoryNewScreen from '../screens/MemoryNewScreen'
 import VoiceSttScreen from '../screens/VoiceSttScreen'
+/**
+ * 跨端补屏批(2026-10-28):web→RN 功能缺口的承载屏。
+ * 一律具名导入(这批宿主里两枚同时给了 default,具名是两边都成立的唯一写法)。
+ */
+import { AiWorkspaceProjectScreen } from '../screens/AiWorkspaceProjectScreen'
+import { CourseHomeworkScreen } from '../screens/CourseHomeworkScreen'
+import { EduGradeTrendScreen } from '../screens/EduGradeTrendScreen'
+import { EduTeacherStudyPlanScreen } from '../screens/EduTeacherStudyPlanScreen'
+import { KnowledgeEntryReadingScreen } from '../screens/KnowledgeEntryReadingScreen'
+import { KnowledgeBaseListScreen } from '../screens/KnowledgeBaseListScreen'
+import { LecturerListScreen } from '../screens/LecturerListScreen'
+import { LecturerProfileScreen } from '../screens/LecturerProfileScreen'
+import { NewsArticleScreen } from '../screens/NewsArticleScreen'
+import { NewsCategoryScreen } from '../screens/NewsCategoryScreen'
+import { SkillMarketDetailScreen } from '../screens/SkillMarketDetailScreen'
+import { SkillMarketListScreen } from '../screens/SkillMarketListScreen'
 import ArticleEditScreen from '../screens/ArticleEditScreen'
 import ArticleHotScreen from '../screens/ArticleHotScreen'
 import AskEditScreen from '../screens/AskEditScreen'
@@ -111,7 +132,6 @@ import { CirclePostScreen } from '../screens/CirclePostScreen'
 import { InvitationsScreen } from '../screens/InvitationsScreen'
 import { LettersScreen } from '../screens/LettersScreen'
 import { LetterChatScreen } from '../screens/LetterChatScreen'
-import { NewsCategoryScreen } from '../screens/NewsCategoryScreen'
 import { SearchHistoryScreen } from '../screens/SearchHistoryScreen'
 import { AiWorldDetailScreen } from '../screens/AiWorldDetailScreen'
 import { AiWorldEditScreen } from '../screens/AiWorldEditScreen'
@@ -209,6 +229,7 @@ import { AgentDetailScreen } from '../screens/AgentDetailScreen'
 import { AgentChatScreen } from '../screens/AgentChatScreen'
 import { AgentMarketScreen } from '../screens/AgentMarketScreen'
 import { AgentCreateScreen } from '../screens/AgentCreateScreen'
+import { AgentEditScreen } from '../screens/AgentEditScreen'
 import { ArticleDetailScreen } from '../screens/ArticleDetailScreen'
 import { ArticleListScreen } from '../screens/ArticleListScreen'
 import { PostDetailScreen } from '../screens/PostDetailScreen'
@@ -441,6 +462,11 @@ export type RootStackParamList = {
   RealNameAuth: undefined
   IdentityVerify: undefined
   SecuritySettings: undefined
+  SecurityAudit: undefined
+  MemberSettings: undefined
+  MemberDashboard: undefined
+  MyAgents: undefined
+  EduDashboard: undefined
   SecurityCenter: undefined
   ApiKeys: undefined
   DataRights: undefined
@@ -591,6 +617,7 @@ export type RootStackParamList = {
   AgentChat: { agentId: string; name: string }
   AgentMarket: undefined
   AgentCreate: undefined
+  AgentEdit: { id: string }
   ArticleDetail: { id: string }
   ArticleList: undefined
   PostDetail: { id: string }
@@ -682,6 +709,21 @@ export type RootStackParamList = {
   KnowledgeDoc: { id: number; title: string }
   AiSkill: undefined
   AiSkillDetail: { id: string; name: string }
+  /**
+   * 跨端补屏批(2026-10-28)—— web 已有、RN 此前零承载的 10 条功能缺口。
+   * 参数形状由宿主 `route.params` 的取用处反推(见各宿主头注),不猜。
+   */
+  AiWorkspaceProject: { id: string }
+  CourseHomework: { id: string }
+  EduGradeTrend: { studentId: string }
+  EduTeacherStudyPlan: undefined
+  KnowledgeEntryReading: { id: string }
+  KnowledgeBaseList: undefined
+  LecturerList: undefined
+  LecturerProfile: { id: string }
+  NewsArticle: { id: string }
+  SkillMarketDetail: { name: string }
+  SkillMarketList: undefined
   // M3 并行批次(2026-08-26)
   Memory: undefined
   AiWorld: undefined
@@ -950,6 +992,11 @@ function RootNavigatorInner() {
             <RootStack.Screen name="RealNameAuth" component={RealNameAuthScreen} />
             <RootStack.Screen name="IdentityVerify" component={IdentityVerifyScreen} />
             <RootStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
+            <RootStack.Screen name="SecurityAudit" component={SecurityAuditScreen} />
+            <RootStack.Screen name="MemberSettings" component={MemberSettingsScreen} />
+            <RootStack.Screen name="MemberDashboard" component={MemberDashboardScreen} />
+            <RootStack.Screen name="MyAgents" component={MyAgentsScreen} />
+            <RootStack.Screen name="EduDashboard" component={EduDashboardScreen} />
             <RootStack.Screen name="SecurityCenter" component={SecurityCenterScreen} />
             <RootStack.Screen name="ApiKeys" component={ApiKeysScreen} />
             <RootStack.Screen name="DataRights" component={DataRightsScreen} />
@@ -1007,6 +1054,22 @@ function RootNavigatorInner() {
             <RootStack.Screen name="KnowledgeBaseEdit" component={KnowledgeBaseEditScreen} />
             <RootStack.Screen name="MemoryNew" component={MemoryNewScreen} />
             <RootStack.Screen name="VoiceStt" component={VoiceSttScreen} />
+            {/* 跨端补屏批(2026-10-28):web→RN 功能缺口承载屏 */}
+            <RootStack.Screen name="AiWorkspaceProject" component={AiWorkspaceProjectScreen} />
+            <RootStack.Screen name="CourseHomework" component={CourseHomeworkScreen} />
+            <RootStack.Screen name="EduGradeTrend" component={EduGradeTrendScreen} />
+            <RootStack.Screen name="EduTeacherStudyPlan" component={EduTeacherStudyPlanScreen} />
+            <RootStack.Screen
+              name="KnowledgeEntryReading"
+              component={KnowledgeEntryReadingScreen}
+            />
+            <RootStack.Screen name="KnowledgeBaseList" component={KnowledgeBaseListScreen} />
+            <RootStack.Screen name="LecturerList" component={LecturerListScreen} />
+            <RootStack.Screen name="LecturerProfile" component={LecturerProfileScreen} />
+            <RootStack.Screen name="NewsArticle" component={NewsArticleScreen} />
+            <RootStack.Screen name="NewsCategory" component={NewsCategoryScreen} />
+            <RootStack.Screen name="SkillMarketDetail" component={SkillMarketDetailScreen} />
+            <RootStack.Screen name="SkillMarketList" component={SkillMarketListScreen} />
             <RootStack.Screen name="ArticleEdit" component={ArticleEditScreen} />
             <RootStack.Screen name="ArticleHot" component={ArticleHotScreen} />
             <RootStack.Screen name="AskEdit" component={AskEditScreen} />
@@ -1024,7 +1087,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Invitations" component={InvitationsScreen} />
             <RootStack.Screen name="Letters" component={LettersScreen} />
             <RootStack.Screen name="LetterChat" component={LetterChatScreen} />
-            <RootStack.Screen name="NewsCategory" component={NewsCategoryScreen} />
             <RootStack.Screen name="SearchHistory" component={SearchHistoryScreen} />
             <RootStack.Screen name="AiWorldDetail" component={AiWorldDetailScreen} />
             <RootStack.Screen name="AiWorldEdit" component={AiWorldEditScreen} />
@@ -1120,6 +1182,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="AgentChat" component={AgentChatScreen} />
             <RootStack.Screen name="AgentMarket" component={AgentMarketScreen} />
             <RootStack.Screen name="AgentCreate" component={AgentCreateScreen} />
+            <RootStack.Screen name="AgentEdit" component={AgentEditScreen} />
             <RootStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
             <RootStack.Screen name="ArticleList" component={ArticleListScreen} />
             <RootStack.Screen name="PostDetail" component={PostDetailScreen} />

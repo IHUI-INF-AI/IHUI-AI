@@ -15,7 +15,7 @@ import type {
 import { MessageInput } from './MessageInput'
 import { ContextUsagePanel } from './ContextUsagePanel'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 
 export type { ChatScreenMessage, ChatScreenModel, ChatScreenNavItem, ChatScreenProps }
 
@@ -294,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
     bubbleText: { fontSize: rnType.title.size, lineHeight: 22, color: tk.text.primary },
     errorWrap: { paddingHorizontal: rnSpacing.lg, paddingBottom: rnSpacing.sm },
     errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)' },
+    pickerOverlay: { flex: 1, backgroundColor: rnCssLight.black20 },
     pickerSheet: {
       marginTop: 'auto',
       backgroundColor: tk.surface.light,

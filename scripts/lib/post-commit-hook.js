@@ -37,6 +37,7 @@ const {
   readFileSync,
   existsSync,
   openSync,
+  closeSync,
   copyFileSync,
   statSync,
 } = require('fs')
@@ -379,15 +380,122 @@ if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEA
 //   距上次不足 CROSS_END_AUTOREG_WINDOW_MS(现值 30 分钟)直接跳过本腿。
 //   读不到 / 读坏 / 时刻字段形态坏 ⇒ 一律按"该跑"处理:失效方向必须是"多跑一次",
 //   绝不能变成"永不登记"(§0.3、§0.10)。
-// 防递归:IHUI_CROSS_END_AUTOREG_COMMIT=1(本腿不提交;旗子为"将来若接提交"预留,并透给子进程)。
+// 派发形态(2026-10-25 由同步 runLogged 改为分离派发,对齐第 7 段「快档延后守门补跑」范式):
+//   立因 = 同日晚些时候的实测事故:runLogged 走 execSync 同步等子扫描,480000ms 上限到点后
+//   把孩子掐死(留痕 lastResult="failed" + "spawnSync C:\\windows\\system32\\cmd.exe ETIMEDOUT"),
+//   登记动作可能已写完而父层拿不到结论;更糟的是这段等待**全程持有第 0 段的 git 写锁**,
+//   最坏情况别人 post-commit 的 acquire --timeout 180000 超时 ⇒ 别人的自动推送腿不跑。
+//   ⇒ 本腿语义 = 不占锁、不等结论的后台派发:先写状态(lastRunAt + lastResult:"dispatched"
+//   在飞凭据)**再 spawn**(本仓事故型:配额/状态写在阻塞调用之后 ⇒ 计数恒 0、每周期重犯);
+//   父不等孩子,结论只能由子侧留痕 —— 派发器(CROSS_END_AUTOREG_WRAPPER_SRC)跑完器物后
+//   把 lastResult/lastFinishedAt/lastHits 回写状态文件、整段输出追加进日志;父侧 spawn 抛错
+//   (同步 catch 与异步 'error' 两条路)当场写 lastResult:"spawn-failed" 并点名,绝不静默。
+//   在飞上限 CROSS_END_AUTOREG_RUNNING_CAP_MS:后台档没有超时掐孩子,若上一枚 dispatched 尚未
+//   收尾且未超上限 ⇒ 本轮跳过(防叠扫描);超上限/取不到 ⇒ 按"该跑"处理(失效方向仍是多跑)。
+// 防递归:IHUI_CROSS_END_AUTOREG_COMMIT=1(本腿不提交;旗子为"将来若接提交"预留,随 env 透给
+//   派发器、派发器再以 process.env 透给器物,一层不落)。
 // 跳过:HUSKY_SKIP_CROSS_END_AUTOREG=1(应急放行,须留痕)。
-// 非阻塞:失败/超时只进 .ihui-agent/state/hook-logs/post-commit-cross-end-autoreg.log,
+// 非阻塞:派发失败/子侧失败只进状态文件与
+//   .ihui-agent/state/hook-logs/post-commit-cross-end-autoreg.log,
 //   不影响已落地的 commit 与第 3 段自动推送。
 // 结论行用 console.info 而不是 console.log:本文件 eslint 的 no-console 只放 warn/error/info,
 //   新腿不该认领新增告警(§0.2 差值棘轮:只拦本次带进来的;存量告警数以当次实测为准)。
 const CROSS_END_AUTOREG_STATE_FILE = join(ROOT, '.ihui-agent', 'state', 'cross-end-autoreg.json')
 const CROSS_END_AUTOREG_WINDOW_MS = 30 * 60 * 1000
 const CROSS_END_AUTOREG_SCRIPT = 'scripts/auto-register-cross-end.mjs'
+// 台账→代码 对账修复器(2026-10-25 立):与登记器**同腿**派发。
+// 为什么同腿而不是另起一条:两条腿的输入面同源(都读 HEAD 的两张跨端登记表 + 共享屏/小程序页枚举),
+// 拆成两条就多一份节流状态、多一份日志、多一处"忘了派发"的失明面。
+// 为什么必须有它:登记器只管"**新增**声明"(候选来自启发式或子代理提案),而
+// "台账说有、代码侧的标记行/路由行被别的提交削掉了"是**回归** —— 2026-10-25 实测 9 处,
+// 门 128 R1 判红而全仓无器物负责接回去。修复器补这一格(标记行/路由行),不造页、不裁登记。
+// 旗子:IHUI_CROSS_END_REPAIR_COMMIT=1 防递归;HUSKY_SKIP_CROSS_END_REPAIR=1 应急放行。
+const CROSS_END_REPAIR_SCRIPT = 'scripts/repair-cross-end-mirror.mjs'
+// 在飞上限:后台派发没有超时掐孩子这一档,靠它防"上一轮还没收尾就又派一轮"叠扫描。
+// 取值 = 旧同步档上限(480s)的数倍余量;超上限仍是 dispatched ⇒ 视为孩子已死,允许重派。
+const CROSS_END_AUTOREG_RUNNING_CAP_MS = 60 * 60 * 1000
+
+// 子侧派发器(经 `node -e` 以后台身份直跑):跑器物 --apply、捕获全量输出、把结论
+// (lastResult/lastFinishedAt/lastHits/lastExit)回写状态文件,再把输出+结论块追加进日志。
+// 住在本文件而不是器物里 = 器物归别席改、不许叠这条腿的留痕职责;器物输出格式若变,
+// 解析不到就记 null(§0.3:不许用编造的数冒"量到了")。
+const CROSS_END_AUTOREG_WRAPPER_SRC = [
+  'const { spawnSync } = require("child_process")',
+  'const fs = require("fs")',
+  'const [script, stateFile, outLog, repairScript] = process.argv.slice(1)',
+  'const r = spawnSync(process.execPath, [script, "--apply"], {',
+  '  cwd: process.cwd(),',
+  '  windowsHide: true,',
+  '  encoding: "utf8",',
+  '  maxBuffer: 32 * 1024 * 1024,',
+  "  stdio: ['ignore', 'pipe', 'pipe'],",
+  '  env: process.env,',
+  '})',
+  'const out = `${r.stdout || ""}${r.stderr || ""}${r.error ? r.error.message : ""}`',
+  'const ok = !r.error && r.status === 0',
+  // 第二跑:台账→代码 对账修复器(同腿)。它不落库、不提交,只把被削掉的标记行/路由行补回。
+  // 跑不跑得起来都不许改写第一条腿的结论 —— 两腿的结论各自独立回写(§0.3 不许用编造的数冒"量到了")。
+  'const rr = repairScript ? spawnSync(process.execPath, [repairScript, "--apply"], {',
+  '  cwd: process.cwd(),',
+  '  windowsHide: true,',
+  '  encoding: "utf8",',
+  '  maxBuffer: 32 * 1024 * 1024,',
+  "  stdio: ['ignore', 'pipe', 'pipe'],",
+  '  env: process.env,',
+  '}) : { status: null, stdout: "", stderr: "", error: null }',
+  'const rout = `${rr.stdout || ""}${rr.stderr || ""}${rr.error ? rr.error.message : ""}`',
+  'const rok = !rr.error && rr.status === 0',
+  'const num = (re) => { const m = re.exec(out); return m ? Number(m[1]) : null }',
+  'const num2 = (re) => { const m = re.exec(rout); return m ? Number(m[1]) : null }',
+  'const m3 = /已写盘[：:]map \\+(\\d+) \\/ 标记 \\+(\\d+) \\/ registry \\+(\\d+)/.exec(out)',
+  'const hits = {',
+  '  webRn: num(/可自动登记 (\\d+) 条/),',
+  '  miniapp: num(/可自动声明 (\\d+) 条/),',
+  '  appliedMapRows: m3 ? Number(m3[1]) : null,',
+  '  appliedMarkers: m3 ? Number(m3[2]) : null,',
+  '  appliedRegistry: m3 ? Number(m3[3]) : null,',
+  '  notLandedCount: (out.match(/\\[未落\\]/g) || []).length,',
+  '  repairApplied: num2(/已落地 ([0-9]+) 条/),',
+  '  repairRefused: num2(/拒落 ([0-9]+) 条/),',
+  '  repairFindings: num2(/需处理 ([0-9]+)/),',
+  '  repairOk: rok,',
+  '}',
+  'const finishedAt = new Date().toISOString()',
+  'let base = {}',
+  'try {',
+  '  const p = JSON.parse(fs.readFileSync(stateFile, "utf8"))',
+  '  if (p && typeof p === "object" && !Array.isArray(p)) base = p',
+  '} catch { /* 读不到/读坏 ⇒ 从空对象重建(与节流判据同向) */ }',
+  'let stateWritten = false',
+  'try {',
+  '  fs.writeFileSync(',
+  '    stateFile,',
+  '    JSON.stringify(',
+  '      {',
+  '        ...base,',
+  '        lastResult: ok ? "ok" : "failed",',
+  '        lastFinishedAt: finishedAt,',
+  '        lastExit: r.error ? String((r.error && r.error.message) || r.error) : r.status,',
+  '        lastHits: hits,',
+  '      },',
+  '      null,',
+  '      2,',
+  '    ) + "\\n",',
+  '  )',
+  '  stateWritten = true',
+  '} catch { /* 状态写不进 ⇒ 下面的日志块点名 FAILED,不静默 */ }',
+  'const block =',
+  '  `\\n===== ${finishedAt} post-commit-cross-end-autoreg ok=${ok}(detached 派发,子侧留痕) =====\\n` +',
+  '  out +',
+  '  (repairScript ? "\\n----- 台账→代码 对账修复器(同腿第二跑) -----\\n" + rout : "") +',
+  '  `\\n结论回写状态文件=${stateWritten ? "ok" : "FAILED(仅日志留痕)"} lastResult=${ok ? "ok" : "failed"} hits=${JSON.stringify(hits)}\\n`',
+  'try {',
+  '  fs.appendFileSync(outLog, block)',
+  '} catch {',
+  '  try { console.log(block) } catch { /* 两条出路都断才算静默 */ }',
+  '}',
+  'process.exit(0)',
+].join('\n')
 
 /**
  * 纯判据(不碰 IO,供本段调用、也供人单独喂文本复算):状态文件文本 + 现在时刻 → 本腿跑不跑。
@@ -413,6 +521,21 @@ function crossEndThrottleVerdict(stateText, nowMs, windowMs = CROSS_END_AUTOREG_
   const ageMs = nowMs - last
   if (ageMs < 0)
     return { run: true, reason: `lastRunAt 在未来(ageMs=${ageMs})⇒ 时钟跳变,按"该跑"处理` }
+  // 在飞守卫:父侧不持锁、不等待 ⇒ 没有旧同步档的超时兜底;上一轮派发(dispatched)若仍在
+  // CROSS_END_AUTOREG_RUNNING_CAP_MS 内,本轮跳过,防叠扫描。dispatchedAt 取不到/形态坏/在未来
+  // ⇒ 不设防(失效方向仍是"多跑一次",§0.3);已被子侧覆盖成 ok/failed 的正常终态不触发此守卫。
+  const inflightAt =
+    st.lastResult === 'dispatched' && typeof st.dispatchedAt === 'string'
+      ? Date.parse(st.dispatchedAt)
+      : NaN
+  if (Number.isFinite(inflightAt)) {
+    const sinceMs = nowMs - inflightAt
+    if (sinceMs >= 0 && sinceMs < CROSS_END_AUTOREG_RUNNING_CAP_MS)
+      return {
+        run: false,
+        reason: `已有在飞的派发(dispatchedAt 距今 ${Math.floor(sinceMs / 60000)} 分钟 < ${Math.round(CROSS_END_AUTOREG_RUNNING_CAP_MS / 60000)} 分钟在飞上限)⇒ 本轮跳过`,
+      }
+  }
   const minutes = Math.floor(ageMs / 60000)
   const windowMinutes = Math.round(windowMs / 60000)
   if (ageMs >= windowMs)
@@ -470,32 +593,78 @@ if (
       } catch {
         /* 取不到 HEAD ⇒ 记 null,供人判读,不影响本腿 */
       }
-      // 先盖时刻再跑:孩子被 timeout 杀掉、机器断电时窗口仍然成立(下一轮 30 分钟后再来);
-      // 反过来"跑失败就退回窗口"会让一枚慢提交反复触发同一条 5 分钟级重活。
+      // 先写状态再派发(顺序不变式,接线锁③钉它):孩子被断电杀掉时窗口仍然成立(下一轮
+      // 30 分钟后再来);反过来"跑失败就退回窗口"会让一枚慢提交反复触发同一条 5 分钟级重活。
+      // lastResult:"dispatched" 是在飞凭据 —— 父不等结论,只有子侧收尾才覆盖成 ok/failed;
+      // 派发失败由 spawnFailed 当场覆盖成 spawn-failed,状态格永不"无人认领"。
       writeCrossEndAutoregState({
         lastRunAt: new Date().toISOString(),
         headSha: headSha || null,
         windowMs: CROSS_END_AUTOREG_WINDOW_MS,
         verdict: verdict.reason,
+        lastResult: 'dispatched',
+        dispatchedAt: new Date().toISOString(),
       })
-      const ok = runLogged(
-        'post-commit-cross-end-autoreg',
-        `node ${CROSS_END_AUTOREG_SCRIPT} --apply`,
-        {
-          // 上限必须 ≥ 一轮完整扫描:2026-10-25 实测预演档单跑约 4.5 分钟,按任务口径的
-          // 120000 写会**每次都把孩子杀掉**(装了等于没装,§0.9),故取 8 分钟这一档。
-          timeout: 480000,
-          env: { IHUI_CROSS_END_AUTOREG_COMMIT: '1' },
-        },
-      )
-      writeCrossEndAutoregState({
-        lastResult: ok ? 'ok' : 'failed',
-        lastFinishedAt: new Date().toISOString(),
-      })
-      if (!ok) {
+      const outLog = join(LOG_DIR, 'post-commit-cross-end-autoreg.log')
+      const spawnFailed = (where, e) => {
+        // 父侧派发失败 = 这条腿唯一不会自己留痕的死亡形态,必须当场点名(§0.3 不许静默)。
+        writeCrossEndAutoregState({
+          lastResult: 'spawn-failed',
+          lastFinishedAt: new Date().toISOString(),
+          spawnFailedReason: `${where}:${e && e.message ? e.message : String(e)}`,
+        })
+        try {
+          appendFileSync(
+            outLog,
+            `\n===== ${new Date().toISOString()} post-commit-cross-end-autoreg spawn-failed(${where}) =====\n${e && e.stack ? e.stack : String(e)}\n`,
+          )
+        } catch {
+          /* 日志也写不进 ⇒ 至少 console.info 点名仍在 */
+        }
         console.info(
-          '⚠️  跨端登记自动器失败/超时(非阻塞;日志 .ihui-agent/state/hook-logs/post-commit-cross-end-autoreg.log)',
+          `⚠️  跨端登记自动器派发失败(${where}),已记 spawn-failed 于 ${CROSS_END_AUTOREG_STATE_FILE}`,
         )
+      }
+      // 与第 7 段「快档延后守门补跑」同一派发范式:openSync 日志句柄 → spawn(detached +
+      // windowsHide + 显式 stdio 落该句柄) → unref;本腿不再 execSync/runLogged 同步等待,
+      // 不再持第 0 段 git 写锁等一轮分钟级扫描(§12g:派生必须显式 stdio)。
+      let fd = null
+      try {
+        fd = openSync(outLog, 'a')
+        const child = spawn(
+          process.execPath,
+          [
+            '-e',
+            CROSS_END_AUTOREG_WRAPPER_SRC,
+            CROSS_END_AUTOREG_SCRIPT,
+            CROSS_END_AUTOREG_STATE_FILE,
+            outLog,
+            CROSS_END_REPAIR_SCRIPT,
+          ],
+          {
+            cwd: ROOT,
+            detached: true,
+            stdio: ['ignore', fd, fd],
+            windowsHide: true,
+            env: { ...process.env, IHUI_CROSS_END_AUTOREG_COMMIT: '1' },
+          },
+        )
+        child.on('error', (e) => spawnFailed('异步 spawn 失败', e))
+        child.unref()
+        console.info(
+          `⏱  跨端登记自动器已后台派发(不占 git 写锁、不等结论;输出落 ${outLog};结论由子侧回写 ${CROSS_END_AUTOREG_STATE_FILE})`,
+        )
+      } catch (e) {
+        spawnFailed('同步 spawn 抛错', e)
+      } finally {
+        // 句柄在 spawn 时已 Dup 给子进程,父关自己的副本即可(子不受影响)。
+        if (fd !== null) {
+          try {
+            closeSync(fd)
+          } catch {
+            /* 关不掉只是父句柄悬留,进程即退 */
+          }
+        }
       }
     }
   }
