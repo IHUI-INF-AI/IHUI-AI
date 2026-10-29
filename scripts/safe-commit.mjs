@@ -33,7 +33,8 @@
  * 退出码:
  *   0  成功(commit 已落地,post-commit hook 会自动 push)
  *   1  校验失败(意外文件/缺文件/agent scope 越界)
- *   2  环境错误(非 git 仓库/无 origin 等)
+ *   2  环境错误(非 git 仓库/无 origin 等);2026-10-29 起也用于归因**未判定**
+ *      (commit-msg 阶段复跑取不到输入 ⇒ 拒绝按 not-ours 跳门,§0.3)
  */
 import { execFileSync, execSync, spawn, spawnSync } from 'node:child_process'
 import {
@@ -46,11 +47,13 @@ import {
   readFileSync,
   readSync,
   statSync,
+  writeFileSync,
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   classifyHookFailure,
+  decideWithCommitMsgStage,
   decideWithSelfRunBatch,
   needsBatchSelfRun,
   verdictLine,
@@ -1607,26 +1610,129 @@ if (hookFailed && commitResult.status !== 0) {
       return { ran: false, status: null, output: out, why: `被中断或超时(${timeoutMs}ms)` }
     return { ran: true, status: b.status, output: out, why: null }
   }
-  if (needsBatchSelfRun(verdict0))
+  /**
+   * **commit-msg 阶段**的复跑出口(2026-10-29 立,治"批全绿 ⇒ 跳掉 commit-msg 的门")。
+   *
+   * 要修的那一型:pre-commit 批 31 道全绿,而 `.husky/commit-msg` 里的
+   * `check-commit-scope-consistency.mjs` 判 R3 并 exit 1(留痕 ts=2026-10-28T17:09:31.397Z)。
+   * 归因层此前只复跑 pre-commit 批 ⇒ 手里全是绿 ⇒ 升级成 not-ours ⇒ `--no-verify`
+   * 把一道判得完全正确的门跳掉。判据(`decideWithCommitMsgStage`)住在 lib,本闭包只是
+   * 非纯的那一半:读钩子文本、派生检查、把本次 message 喂成它要的那份输入。
+   *
+   * 三条由实测逼出来的细节:
+   *  ① 检查脚本的入参是 `<commit-msg-file>`。**不读 `.git/COMMIT_EDITMSG`** —— 共享工作区里
+   *     它随别人的提交随时改写,读到别人的 message 就是造第二份输入面(本仓最恨的那型);
+   *     这里把本枚最终 message 写进隔离 scratch 再喂,与 git 交给钩子的东西同义。
+   *  ② 读 `.husky/commit-msg` 而不是临时的 wrapped hooksPath:O43② 的包装器是**逐文件转发**,
+   *     检查清单与 .husky 里的那张是同一份;读包装目录会在它被回收后静默变成 0 条。
+   *  ③ 脚本不在位 / 派生失败 / 超时一律落 ran:false(由 lib 判"未判定"),绝不返回一个假绿。
+   *  一条如实登记的局限(与既有 runGate 复跑同一刻、同一索引态):复跑读的是"还原后的共享索引"。
+   *  commit-msg 阶段失败意味着 pre-commit 已经跑过,此刻索引就是本枚要提交的那一份 —— 正对本票;
+   *  而若红在 lint-staged(pre-commit 批前一步),lint-staged 已回滚过它动过的条目,这一跑看到的
+   *  暂存集可能少于声明集 ⇒ 只可能"少看见"、不会误伤别人。不得把它读成"等价于钩子里那一轮"。
+   */
+  let commitMsgScratch = null
+  const disposeCommitMsgScratch = () => {
+    if (!commitMsgScratch) return
+    try {
+      rmScratch(commitMsgScratch)
+    } catch {
+      /* 残留由 §26 的每日 Temp 体检兜;不因此改判据 */
+    }
+    commitMsgScratch = null
+  }
+  const ensureCommitMsgFile = () => {
+    if (commitMsgScratch) return join(commitMsgScratch, 'msg.txt')
+    try {
+      commitMsgScratch = mkScratch('commit-msg-stage-')
+      const file = join(commitMsgScratch, 'msg.txt')
+      writeFileSync(file, finalMessage, 'utf8')
+      process.on('exit', disposeCommitMsgScratch)
+      return file
+    } catch (e) {
+      commitMsgScratch = null
+      log('warn', `commit-msg 阶段复跑需要一份 message 临时件,而 scratch 不可用:${e?.message ?? e}`)
+      return null
+    }
+  }
+  const runCommitMsgCheck = (script) => {
+    const msgFile = ensureCommitMsgFile()
+    if (!msgFile)
+      return { ran: false, status: null, output: '', why: 'message 临时件不可用(scratch 落不下)' }
+    const gatePath = join(repoRoot, 'scripts', script)
+    if (!existsSync(gatePath))
+      return { ran: false, status: null, output: '', why: `检查脚本不在位:${gatePath}` }
+    // 三条硬约束:绝对路径 node + windowsHide(守门 52)+ 数字 timeout(守门 80);
+    // 不用 shell:true —— 它会给每条子命令拉起可见窗口(§5b 弹窗事故同型)。
+    const g = spawnSync(process.execPath, [gatePath, msgFile], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: process.env,
+      windowsHide: true,
+      timeout: Number(process.env.IHUI_SAFE_COMMIT_COMMIT_MSG_TIMEOUT_MS || 120000),
+      maxBuffer: 8 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const out = `${g.stdout || ''}${g.stderr || ''}`
+    if (g.error)
+      return {
+        ran: false,
+        status: null,
+        output: out,
+        why: `派生失败 ${g.error.code || g.error.message}`,
+      }
+    if (g.status === null) return { ran: false, status: null, output: out, why: '被中断或超时' }
+    return { ran: true, status: g.status, output: out, why: null }
+  }
+  /** 钩子文本:不存在 / 读不到 / 读到了 三态分开交给 lib —— 混桶会把"没这个阶段"与"没判到"写成同一句话 */
+  let commitMsgHookText = null
+  let commitMsgHookAbsent = false
+  let commitMsgHookWhy = null
+  try {
+    commitMsgHookText = readFileSync(join(repoRoot, '.husky', 'commit-msg'), 'utf8')
+  } catch (e) {
+    if (e?.code === 'ENOENT') commitMsgHookAbsent = true
+    else commitMsgHookWhy = e?.message ?? String(e)
+  }
+  // commit-msg 阶段先复跑:它最便宜(只吃 message 与暂存集),而且它一旦复现红,
+  // 结论就是 mine —— 此时再去花数分钟自跑守门批只会得出同一个结论。
+  const stageVerdict = decideWithCommitMsgStage({
+    verdict: verdict0,
+    hookText: commitMsgHookText,
+    hookAbsent: commitMsgHookAbsent,
+    hookWhy: commitMsgHookWhy,
+    runCheck: runCommitMsgCheck,
+  })
+  const stageUndetermined = stageVerdict.commitMsgStage?.state === 'undetermined'
+  if (stageUndetermined)
+    log('warn', 'commit-msg 阶段复跑未判定(见下)—— 不再自跑守门批,也不得按 not-ours 跳门')
+  else if (needsBatchSelfRun(stageVerdict))
     log(
       'warn',
       '归因层手里没有门级结论 ⇒ safe-commit 自跑 `node scripts/guardian-runner.mjs --staged` 取证(可能数分钟)',
     )
-  const verdict = decideWithSelfRunBatch({
-    verdict: verdict0,
-    stagedFiles: expectedFiles,
-    runBatch: runBatchSelf,
-    runGate,
-    runGateBaseline,
-    hookText: hookOutput,
-    foreignStaged,
-    readGateSource,
-    // 同一把铰链(守门 70/76/81/102 同型):自跑那一轮读的是**同一个**还原后的共享索引,
-    // 两个新注入口必须与首轮同一份实现/同一份清单原样透传,否则"钩子里判未判定、
-    // 自跑里被钉成本枚引入"就留下第二份口径(票 G-24/G-420①)。
-    runGateForeignFace,
-    myFaceStaged: stagedNow,
-  })
+  const verdictRaw = stageUndetermined
+    ? stageVerdict
+    : decideWithSelfRunBatch({
+        verdict: stageVerdict,
+        stagedFiles: expectedFiles,
+        runBatch: runBatchSelf,
+        runGate,
+        runGateBaseline,
+        hookText: hookOutput,
+        foreignStaged,
+        readGateSource,
+        // 同一把铰链(守门 70/76/81/102 同型):自跑那一轮读的是**同一个**还原后的共享索引,
+        // 两个新注入口必须与首轮同一份实现/同一份清单原样透传,否则"钩子里判未判定、
+        // 自跑里被钉成本枚引入"就留下第二份口径(票 G-24/G-420①)。
+        runGateForeignFace,
+        myFaceStaged: stagedNow,
+      })
+  // decideWithSelfRunBatch 的"自跑全绿"那一支会构造一个**新对象**(把首轮字段挑着搬) ——
+  // commit-msg 阶段的读数不能被它丢掉,否则账面又变回"只复跑过 pre-commit 批"。
+  const verdict = verdictRaw.commitMsgStage
+    ? verdictRaw
+    : { ...verdictRaw, commitMsgStage: stageVerdict.commitMsgStage }
   // 差分取证已经结束 ⇒ 立刻回收隔离工作树(它挂在 `.git/worktrees` 下,这台机的 .git 存续
   // 治理等不起一个长期挂着的 worktree 登记);mine 分支随后 process.exit 也有 process.on('exit') 兜底。
   disposeBaselineTree()
@@ -1683,14 +1789,34 @@ if (hookFailed && commitResult.status !== 0) {
       envStep: verdict.envStep ?? null,
       envFingerprint: verdict.envFingerprint ?? null,
       downgradedFromMine: verdict.downgradedFromMine === true,
+      // commit-msg 阶段复跑的读数(2026-10-29 立)。必须落在**既有记录**里:漏了它,
+      // 事后读账的人会以为这枚只复跑过 pre-commit 批 —— 而 2026-10-28 那次误跳门
+      // 正是因为账面上只有批的读数。逐条脚本与退出码原样记,不折叠成一个布尔。
+      commitMsgStage: verdict.commitMsgStage?.state ?? null,
+      commitMsgChecks: (verdict.commitMsgStage?.checks ?? []).map(
+        (c) => `${c.script}=${c.status ?? 'null'}${c.blocking ? '' : '(warn)'}`,
+      ),
     })}\n`,
   )
+
+  // 未判定(§0.3):commit-msg 阶段到底有没有红没人量到 ⇒ 不能按 not-ours 自动跳门,
+  // 也不许猜成本枚的红。exit 2 = 未判定,把"下一步复跑哪几条"交给上一步打出来的明细。
+  if (verdict.commitMsgStage?.state === 'undetermined') {
+    log('err', `⛔ commit-msg 阶段复跑**未判定**:${verdict.commitMsgStage.why}`)
+    log(
+      'err',
+      '   拒绝按 not-ours 自动走应急跳门 —— 那等于把"没判到这一阶段"写成"它没问题"(§0.3/§0.10);' +
+        '请按上一步的明细人工复跑 .husky/commit-msg 里点名的检查,拿到读数后重跑本命令。',
+    )
+    process.exit(2)
+  }
 
   if (verdict.kind === 'mine') {
     log(
       'err',
       '拒绝 --no-verify:上表已把这道红**定责到本任务** —— 要么是门的结论行点名了本次声明的文件,' +
-        '要么是差分证明"基线面(HEAD)不红、我的面红"。两种都该修完再提;' +
+        '要么是差分证明"基线面(HEAD)不红、我的面红",要么是 commit-msg 阶段的检查(scope/样式等)' +
+        '以同一退出码复现。三种都该修完再提;' +
         '确属误判时请改判据或按 AGENTS §16 显式说明后手工提交',
     )
     process.exit(1)

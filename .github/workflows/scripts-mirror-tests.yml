@@ -31,6 +31,25 @@ name: scripts mirror tests (nightly soak)
 #   环境挂 / 步骤被跳过都会让 run 变红(另有哨兵步兜底)。**只有"测试真跑了但带存量红"才是通报档。**
 # =============================================================================
 on:
+  # 2026-10-29 补 push / pull_request(此前只有 schedule + workflow_dispatch):判据改坏镜像测试
+  # 当场就能抓到,却要等到第二天 nightly 才响 —— 这是 AGENTS §0.9「造好没装车 = 没有」的
+  # "装了一半"形态。带 paths 过滤只在可能影响判据的面变动时触发;这两种事件下**只跑改动面**
+  # (`run-script-tests.mjs --changed`,见下面 mirror 步的 github.event_name 条件),
+  # 120 分钟的**全量**仍只在 schedule/workflow_dispatch 跑。
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/**
+      - packages/**
+      - apps/**
+      - .github/workflows/scripts-mirror-tests.yml
+  pull_request:
+    paths:
+      - scripts/**
+      - packages/**
+      - apps/**
+      - .github/workflows/scripts-mirror-tests.yml
   schedule:
     # 每天 18:20 UTC(北京时间 02:20)—— 避开 build/deploy 高峰的 runner 争用
     - cron: '20 18 * * *'
@@ -112,8 +131,15 @@ jobs:
         # 工具任何一片解析不到 pass/fail 计数就按失败计,不会把"runner 崩了"洗成绿
         # continue-on-error 只贴在这一位:观察期内"存量测试红"不喊红作业(前置见上方 TODO)。
         # "到底有没有跑过"不归它放宽 —— 由下一步哨兵判。
+        #
+        # 2026-10-29 补:加了 push/pull_request 触发之后,这一步**不能再无条件跑全量** ——
+        # 120 分钟的 windows 全量往每次 push 上叠,等于把 nightly 的成本乘以提交次数。
+        # 用现成的 `github.event_name` 条件表达(不新造机制):push/PR ⇒ `--changed --base <基点>`
+        # 只跑改动面对应的测试;schedule/workflow_dispatch ⇒ 原样全量。
+        # 基点:PR 取 base 分支 sha,push 取"推来之前的 main"(github.event.before)。
+        # CI 的检出是干净工作树,不给基点就只能读成"未判定"(工具头注里同一件事)。
         continue-on-error: true
-        run: node scripts/run-script-tests.mjs
+        run: node scripts/run-script-tests.mjs ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && format('--changed --base {0}', github.event.pull_request.base.sha || github.event.before) || '' }}
 
       - name: 哨兵 —— 测试没跑成必须当场判红(跳过不等于通过)
         # AGENTS §0.3「取不到不记绿 / 枚举到 0 判死」在 CI 层的落地。2026-10-15 那夜实况:

@@ -20,8 +20,9 @@
  *   才走代理;
  * - 未命中 host 的流量永远直连——代理挂了也不影响它们(它们本来直连就通),
  *   不会把国内 provider 或整个中继的可用性绑到本地代理软件上;
- * - 全局 dispatcher 一次装配,健康检查器与上游转发器的 fetch 自动生效,
- *   两处调用点零改动(转发器当时正被他席编辑,不能碰)。
+ * - 全局 dispatcher 一次装配,健康检查器等走内置 fetch 的调用点自动生效;
+ *   上游转发器 2026-10-29 起**直连分支自带守卫② dispatcher**(未装配代理时),
+ *   已装配时仍交给本全局 dispatcher —— 届时它会绕开代理腿,不得覆盖。
  *
  * 名单演进(全部实测):
  * - 2026-10-23 首立:api.openai.com / generativelanguage.googleapis.com(直连恒 000);
@@ -36,6 +37,7 @@
  */
 import { Agent, ProxyAgent, setGlobalDispatcher } from 'undici'
 import { logger } from '../utils/logger.js'
+import { relayGuardedLookup } from '../utils/relay-egress-guard.js'
 
 /**
  * 默认被墙 host 名单(2026-10-23 实测直连恒失败确认;新增被墙 host 也可走环境变量
@@ -50,6 +52,11 @@ const DEFAULT_PROXY_HOSTS = [
 ]
 
 let installed = false
+
+/** 代理分流是否已接管出网。调用侧据它决定要不要自带 dispatcher(自带会绕开代理腿)。 */
+export function isRelayOutboundProxyInstalled(): boolean {
+  return installed
+}
 
 /**
  * host 是否命中代理名单(纯函数,供测试与运行时同源复用)。
@@ -73,7 +80,9 @@ export function installRelayOutboundProxy(): void {
   if (hosts.length === 0) return
 
   const proxyAgent = new ProxyAgent(proxyUrl)
-  const directAgent = new Agent()
+  // 直连分支同样挂连接期守卫(2026-10-29):首跳复检与真正建连之间留着 DNS rebinding 窗口,
+  // 未命中名单的 host 走的是本机解析 ⇒ 这一支和"没配代理"时一样需要 connect.lookup 钩子。
+  const directAgent = new Agent({ connect: { lookup: relayGuardedLookup } })
   const needsProxy = (origin: string | URL): boolean => {
     try {
       return hostNeedsProxy(new URL(origin).hostname, hosts)
