@@ -445,6 +445,41 @@
       "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-5.md",
       "reason": "对侧 87f9eebffb1(plan-pointer-purge 归并批重落地,票面自证「被删行原文进 .ihui-agent/tmp/ 下的 plan-pointer-purge-* 台账」)有意重入库;本侧删除为 G-926 取消跟踪(988a243cd12,60 枚 tracked-but-ignored 临时件),早于对侧重入库;合并带回=与对侧有意重入库对齐,非抹任何在飞行",
       "reviewBy": "2026-11-30"
+    },
+    {
+      "path": "apps/api/src/routes/auth-carrier.ts",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/api/src/services/carrier-login.ts",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/api/scripts/verify-carrier.ts",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/plugins/withCarrier.cjs",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/plugins/templates/carrier/android/CarrierOneClickModule.java",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/plugins/templates/carrier/ios/CarrierOneClickTurboModule.swift",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/src/lib/carrier-one-click.ts",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }
