@@ -529,6 +529,129 @@ export function scanRotatedLoopLogs(dir, activeName, isoFrom, { maxFiles = 3, ta
   return out
 }
 
+/**
+ * 相邻写入间隔的**实测分布**(2026-10-29 Y-1 立:静默阈值不得拍)。
+ *
+ * 为什么阈值必须由这一份派生,而不是再写一个常数:2026-10-29 现场 10:09:50→10:30 环整整 27 分钟
+ * 一行未写(生产签出 fetch 停在 10:02:19、无子进程、无锁、服务与 nssm 都 RUNNING),而判据当时把
+ * "日志有新活动"当成唯一的正向信号 ⇒ 静默本身没有读数 ⇒ 只落 unknown,monitor-alerts 当日 0 条。
+ * 要判"静默多久才算停写",唯一的依凭是**这台机自己的写入节律**:常规轮每轮至少一行、完整部署
+ * 期间几乎持续写行。节律随时辰/配置变(现读:`IntervalSeconds` 由 360 改到 60 那次前后,轮间隔 p95
+ * 从 371s 变成 ~62s),任何写死的分钟数都会在两代配置之间偏掉。
+ *
+ * 本函数只做**测量**:日志文本 → 三个量(相邻写入间隔 / 轮次间隔 / 轮内最大静默),不判红。
+ * 判定留给 `deriveSilenceThresholdMin`(阈值派生)与 `judgeStallReadout`(结论)。
+ */
+export function logWriteGapDistribution(logText, { maxLines = 6000, minSamples = 20 } = {}) {
+  const out = {
+    samples: 0,
+    minSamples,
+    lines: 0,
+    spanMin: null,
+    adjacentSec: { p50: null, p90: null, p95: null, p99: null, max: null },
+    roundSec: { n: 0, p50: null, p95: null, max: null },
+    intraRoundSec: { n: 0, p50: null, p95: null, max: null },
+  }
+  const src = Array.isArray(logText) ? logText : String(logText || '').split(/\r?\n/)
+  const rows = []
+  for (const line of src) {
+    if (!line || !String(line).trim()) continue
+    const m = String(line).match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?: ([+-]\d{2}:\d{2}))?\]/)
+    if (!m) continue
+    // 带偏移的与不带偏移的历史段都要能算(2026-09 的段是裸时间);只要**同一份日志里**口径一致,
+    // 相邻差值就成立 —— 该函数不跨文件比较时刻,故不会把两种时区混成一个数。
+    const ms = Date.parse(`${m[1].replace(' ', 'T')}${m[2] || ''}`)
+    if (!Number.isFinite(ms)) continue
+    rows.push({ ms, start: /部署轮询开始/.test(line), end: /部署轮询结束/.test(line) })
+  }
+  const tail = rows.slice(-maxLines)
+  out.lines = tail.length
+  if (tail.length < 2) return out
+  out.spanMin = Math.round(((tail[tail.length - 1].ms - tail[0].ms) / 60000) * 10) / 10
+  const pct = (arr, p) => {
+    if (!arr.length) return null
+    const s = [...arr].sort((a, b) => a - b)
+    return Math.round(s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))] * 10) / 10
+  }
+  const adjacent = []
+  for (let i = 1; i < tail.length; i++) {
+    const g = (tail[i].ms - tail[i - 1].ms) / 1000
+    if (g >= 0) adjacent.push(g)
+  }
+  out.samples = adjacent.length
+  out.adjacentSec = {
+    p50: pct(adjacent, 0.5),
+    p90: pct(adjacent, 0.9),
+    p95: pct(adjacent, 0.95),
+    p99: pct(adjacent, 0.99),
+    max: adjacent.length ? Math.round(Math.max(...adjacent) * 10) / 10 : null,
+  }
+  const startMs = []
+  const intra = []
+  let cur = null
+  for (const r of tail) {
+    if (r.start) {
+      startMs.push(r.ms)
+      cur = [r.ms]
+      continue
+    }
+    if (!cur) continue
+    cur.push(r.ms)
+    if (r.end) {
+      // 轮内最大静默:这一段里"连续最久不写行"的时长 —— 合法静默(子进程构建/门禁阻塞)的上界就在这里。
+      let mx = 0
+      for (let i = 1; i < cur.length; i++) mx = Math.max(mx, (cur[i] - cur[i - 1]) / 1000)
+      intra.push(mx)
+      cur = null
+    }
+  }
+  const rounds = []
+  for (let i = 1; i < startMs.length; i++) {
+    const g = (startMs[i] - startMs[i - 1]) / 1000
+    if (g > 0) rounds.push(g)
+  }
+  out.roundSec = { n: rounds.length, p50: pct(rounds, 0.5), p95: pct(rounds, 0.95), max: rounds.length ? Math.round(Math.max(...rounds) * 10) / 10 : null }
+  out.intraRoundSec = { n: intra.length, p50: pct(intra, 0.5), p95: pct(intra, 0.95), max: intra.length ? Math.round(Math.max(...intra) * 10) / 10 : null }
+  return out
+}
+
+/**
+ * 静默阈值 = **由实测分布派生**,分布是输入件而非常量(2026-10-29 Y-1)。
+ *
+ * 取分位而不取最大值,是因为**最大值正好是故障本身**:现读 2026-09-07→09-14 那份生产日志
+ * (相邻写入间隔 max = 533362s)—— 那不是节律,那是当时停摆 6 天的那一段;拿 max 定阈等于
+ * "用事故给事故定门槛",必然永远判不出。
+ *   · 轮间隔 p95 × 3:留两轮余量(锁等待、日志轮转、桌面争用都只多耗一轮),第三轮仍未写行才可疑;
+ *   · 轮内 p95 × 2:部署环在构建/门禁期间本来就可以长时间不写行(历史实测门禁阻塞 20 分钟),
+ *     这一项保证阈值不落进"合法静默"里;
+ *   · 两者取大,且下限 2×轮间隔(p95 若被抖动压小,阈值不得缩到单轮以内)。
+ * 分布取不到(样本不足)时**不给阈值**:宁可在读数里点名"阈值未派生、需要一次定向说明",
+ * 也不许拿 45 分钟这种常数顶上去 —— 常数在 60s 节律下宽了 15 倍,正是本票那 27 分钟被判不出的原因。
+ */
+export function deriveSilenceThresholdMin(dist, { roundFactor = 3, intraFactor = 2, minRoundSamples = 5 } = {}) {
+  const need = Number(dist && dist.minSamples) || 20
+  const samples = Number(dist && dist.samples) || 0
+  if (samples < need) {
+    return { ok: false, thresholdMin: null, basis: null, why: `阈值未派生:相邻写入间隔样本 ${samples} 个 < ${need} 个(日志过短或整枚不在位)⇒ 需人工给一次分布读数,不用常数顶替` }
+  }
+  const roundP95 = Number(dist.roundSec && dist.roundSec.p95)
+  const roundN = Number(dist.roundSec && dist.roundSec.n) || 0
+  const adjP95 = Number(dist.adjacentSec && dist.adjacentSec.p95)
+  const roundBase = roundN >= minRoundSamples && roundP95 > 0 ? roundP95 : adjP95 > 0 ? adjP95 : 0
+  if (!(roundBase > 0)) {
+    return { ok: false, thresholdMin: null, basis: null, why: `阈值未派生:轮次/相邻间隔 p95 取不到正值(轮次间隔 ${roundN} 个)⇒ 需人工给一次分布读数` }
+  }
+  const intraP95 = Number(dist.intraRoundSec && dist.intraRoundSec.p95) > 0 ? Number(dist.intraRoundSec.p95) : 0
+  const rawSec = Math.max(roundFactor * roundBase, intraFactor * intraP95, 2 * roundBase)
+  const thresholdMin = Math.max(1, Math.ceil(rawSec / 60))
+  return {
+    ok: true,
+    thresholdMin,
+    basis: { roundBaseSec: roundBase, intraBaseSec: intraP95, roundSamples: roundN, adjacentSamples: samples, roundFactor, intraFactor, rawSec },
+    why: `阈值 ${thresholdMin} 分钟 = max(${roundFactor}×轮间隔 p95 ${roundBase}s, ${intraFactor}×轮内静默 p95 ${intraP95}s),由 ${samples} 个相邻写入间隔 / ${roundN} 个轮次间隔派生(非常数)`,
+  }
+}
+
 export function collectStallInputs({
   repo = REPO,
   nowMs = Date.now(),
@@ -623,6 +746,22 @@ export function collectStallInputs({
     inFlight = Number.isFinite(lastAge) && lastAge < inFlightWindowMin && !/轮询结束|部署完成/.test(last)
   }
   const missingInputs = []
+  // ── 静默维(2026-10-29 Y-1)────────────────────────────────────────────────
+  // 现场:环整整 27 分钟一行未写,而判据只把"日志有新活动"当正向信号 ⇒ 静默没有读数。
+  // 这里补三件**只测量**的输入:最后一行写入时刻、静默分钟数、以及由日志自身节律派生的静默阈值。
+  // 分布从内存里那份 `all` 算,不另开文件句柄、不另跑子进程 —— 高频档每 15 分钟一轮,不能加 IO。
+  let lastLogWriteIso = ''
+  for (let k = all.length - 1; k >= 0 && k >= all.length - 50; k--) {
+    const m = String(all[k]).match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?: ([+-]\d{2}:\d{2}))?\]/)
+    if (m) {
+      lastLogWriteIso = `${m[1].replace(' ', 'T')}${m[2] || ''}`
+      break
+    }
+  }
+  const lastWriteMs = Date.parse(lastLogWriteIso)
+  const logSilenceMin = Number.isFinite(lastWriteMs) ? Math.round(((nowMs - lastWriteMs) / 60000) * 10) / 10 : null
+  const logGaps = logWriteGapDistribution(all)
+  const silenceThreshold = deriveSilenceThresholdMin(logGaps)
   // 根不存在(别人那台机没有这个部署形态)⇒ **该维未判定**,不得折成"线上无构建标记"那一红。
   // 根存在而标记读不出,才是真的"线上没有成功构建过"(沿用原有红档语义)。
   if (!prodRootExists) missingInputs.push(`线上根(${prodRoot.replace(/\\/g, '/')} 不存在 ⇒ 本机无此部署形态,线上态无从取证;不等于"没上线",也不等于"已上线")`)
@@ -649,6 +788,13 @@ export function collectStallInputs({
     thresholdMin: stallThresholdMin,
     nowMs,
     missingInputs,
+    // 静默维的三件读数:末行写入时刻、静默分钟、派生阈值。`logGaps` 把分布本身带出去 ——
+    // 复核者不必再登生产机重算,收信人也能看见"这把阈值是从哪几个数派生的"(§0.6 单一真相源)。
+    lastLogWriteIso,
+    logSilenceMin,
+    silenceThresholdMin: silenceThreshold.ok ? silenceThreshold.thresholdMin : null,
+    silenceThreshold,
+    logGaps,
     diag: errs.length ? ` [诊断: ${errs.join(' ; ')}]` : '',
   }
 }
@@ -660,7 +806,9 @@ function deployStallCheck() {
   // 这里只做名字映射,不重算判据。
   const r = judgeStallReadout(i)
   const level = r.level === 'unjudged' ? 'unknown' : r.level
-  return [{ name: '部署停摆(线上构建 vs origin/main)', level, detail: r.why + i.diag }]
+  // 静默读数随明细一起说出去:日级班次 6 小时一趟,收信人至少要能在同一行里看到"环静默了多久"。
+  const silenceNote = r.silence && r.silence.silent ? `;日志已静默 ${r.silence.silenceMin} 分钟 ≥ 派生阈值 ${r.silence.thresholdMin} 分钟` : ''
+  return [{ name: '部署停摆(线上构建 vs origin/main)', level, detail: r.why + silenceNote + i.diag }]
 }
 
 /** 距上一次成功部署的小时数;取不到成功时刻 ⇒ null(不得拍一个 0 上去冒充"没落后") */
@@ -686,20 +834,82 @@ export function stallBehindHours({ lastSuccessIso, nowMs }) {
 export function judgeStallReadout(input = {}) {
   const behindHours = stallBehindHours({ lastSuccessIso: input.lastSuccessIso, nowMs: input.nowMs })
   const missing = Array.isArray(input.missingInputs) ? input.missingInputs.filter(Boolean) : []
+  let level = 'unjudged'
+  let why = ''
   if (missing.length) {
-    return { level: 'unjudged', why: `未判定:取不到输入 ⇒ ${missing.join(' ; ')}(不记绿也不冒红)`, behindHours }
+    why = `未判定:取不到输入 ⇒ ${missing.join(' ; ')}(不记绿也不冒红)`
+  } else {
+    const judged = judgeStall({
+      liveSha: input.liveSha,
+      tipSha: input.tipSha,
+      lastSuccessIso: input.lastSuccessIso,
+      nowMs: input.nowMs,
+      thresholdMin: input.thresholdMin,
+      inFlight: Boolean(input.inFlight),
+    })
+    level = judged.level === 'unknown' ? 'unjudged' : judged.level
+    const srcNote = input.tipSource && String(input.tipSource).includes('当次未确认') ? `(tip 来源:${input.tipSource})` : ''
+    why = judged.why + srcNote
   }
-  const judged = judgeStall({
-    liveSha: input.liveSha,
-    tipSha: input.tipSha,
-    lastSuccessIso: input.lastSuccessIso,
-    nowMs: input.nowMs,
-    thresholdMin: input.thresholdMin,
-    inFlight: Boolean(input.inFlight),
-  })
-  const level = judged.level === 'unknown' ? 'unjudged' : judged.level
-  const srcNote = input.tipSource && String(input.tipSource).includes('当次未确认') ? `(tip 来源:${input.tipSource})` : ''
-  return { level, why: judged.why + srcNote, behindHours }
+  return { level, why, behindHours, ...judgeStallSilence(input, level) }
+}
+
+/**
+ * 静默维的结论 + 「定向升级」资格(2026-10-29 Y-1 立)。
+ *
+ * 为什么必须挂在**读数层**而不是派发层:判定"静默多久算停写"要用到派生阈值与末行写入时刻,
+ * 这两个数只有取材层有;派发层若自己再读一次日志,就是第二份判据(§0.6 必然漂移)。
+ *
+ * 升级资格当且仅当三件同时成立:
+ *   (a) 线上签出**落后** origin/main —— 两条 sha 都读得到且不相等;任一路读不到 ⇒ 落后无从取证 ⇒ 不升级
+ *       (取不到输入不得升成告警,AGENTS §0.3;这也是本机(=非部署机)不会被这封信吵醒的原因);
+ *   (b) 日志静默 ≥ **派生阈值**(不是 45 分钟常数;阈值未派生 ⇒ 不升级,且在 why 里点名"需要一次定向说明");
+ *   (c) 本轮**还没有判出停摆**(`fail` 已由原有通道寄过,这里不重复喊)。
+ *
+ * 为什么 (c) 写的是"不是 fail"而不是"必须是 unjudged"(改这一条时现读到的坑,必须留档):
+ *   票面把现场记成 unknown,但按本文件自己的 45 分钟阈值算,10:09:50→10:30 这 27 分钟落在
+ *   `mins <= thresholdMin` 那一支 ⇒ `judgeStall` **会给出 ok**("线上落后但最近 27 分钟刚成功过,
+ *   不算停摆")。也就是说同一场事故在"取不到成功史"的机器上落 unjudged、在"成功史读得到"的机器上
+ *   落**绿**;只认 unjudged 就等于换个输入形态又漏一次。真正的护栏只能是"环自己不再写行"。
+ *   反向风险由 (a)(b) 各挡一半:已同步不升、静默没到阈值不升 ⇒ 健康轮(每轮 60 秒写一行)永远不升。
+ */
+export function judgeStallSilence(input = {}, level = 'unjudged') {
+  const thrRaw = Number(input.silenceThresholdMin)
+  const thresholdMin = Number.isFinite(thrRaw) && thrRaw > 0 ? thrRaw : null
+  const silRaw = Number(input.logSilenceMin)
+  const silenceMin = Number.isFinite(silRaw) ? silRaw : null
+  const live = String(input.liveSha || '').trim()
+  const tip = String(input.tipSha || '').trim()
+  const behind = Boolean(live && tip && live !== tip)
+  const silent = thresholdMin !== null && silenceMin !== null && silenceMin >= thresholdMin
+  const thresholdWhy = (input.silenceThreshold && input.silenceThreshold.why) || ''
+  const silence = {
+    silenceMin,
+    lastWriteIso: String(input.lastLogWriteIso || ''),
+    thresholdMin,
+    thresholdDerived: thresholdMin !== null,
+    thresholdWhy,
+    silent,
+  }
+  // 身份只取**线上 sha 前缀**:停摆期间线上不会变、origin/main 会一直前进;把 tip 写进身份会让同一场
+  // 停摆每一轮都变成"新故障"(2026-10-18 实测 18 封/天那次就是 tip 进身份导致的)。
+  const eligible = level !== 'fail' && behind && silent
+  let why = ''
+  if (level === 'fail') why = '本档已判出停摆(fail 通道已寄),定向升级不重复喊'
+  else if (!behind) why = `线上与 tip 至少一路取不到或已同步(线上 ${live ? live.slice(0, 9) : '无'} / tip ${tip ? tip.slice(0, 9) : '无'})⇒ 落后无从取证,不升级`
+  else if (thresholdMin === null) why = `静默阈值未派生(${thresholdWhy || '分布取不到'})⇒ 不升级,需人工给一次分布读数`
+  else if (!silent) why = `日志静默 ${silenceMin === null ? '未知' : `${silenceMin} 分钟`} < 派生阈值 ${thresholdMin} 分钟 ⇒ 不算停写`
+  else why = `线上落后(线上 ${live.slice(0, 9)} ≠ tip ${tip.slice(0, 9)}),日志静默 ${silenceMin} 分钟 ≥ 派生阈值 ${thresholdMin} 分钟 ⇒ 定向升级一次`
+  return {
+    silence,
+    escalate: {
+      eligible,
+      episodeKey: eligible ? `silence:${live.slice(0, 9)}` : '',
+      silenceMin,
+      thresholdMin,
+      why,
+    },
+  }
 }
 
 /** 单维档退出码(§22b 约定:0 = 判出结论且为绿,1 = 判出结论且为红,2 = 未判定/脚本自身异常) */
@@ -753,6 +963,14 @@ function stallOnlyMode() {
     behindHours: v.behindHours,
     inFlight: i.inFlight,
     missingInputs: i.missingInputs,
+    // 静默维(2026-10-29 Y-1):末行写入时刻、静默时长、派生阈值与分布本身,以及"能否定向升级"。
+    // 这几键是**只读读数**,写在这里不改变只读档的零写盘/零发信语义(源码锁仍然成立)。
+    lastLogWriteIso: i.lastLogWriteIso,
+    logSilenceMin: i.logSilenceMin,
+    silenceThresholdMin: i.silenceThresholdMin,
+    silence: v.silence,
+    escalate: v.escalate,
+    logGaps: i.logGaps,
     diag: i.diag,
   })
   // 恒为**单行** JSON:派发层按行取,任何别的东西(进度、警告、邮件正文)都不许混进 stdout

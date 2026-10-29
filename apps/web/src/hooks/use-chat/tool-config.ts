@@ -449,6 +449,8 @@ export const uiControlToolsFor = createAppControlToolSelector({
  * 「文件变更识别白名单」FILE_WRITE_TOOLS 同词不同义,并列出口会让调用侧拿数组去 `.has()`。
  */
 export { fileToolsFor } from '@ihui/shared/chat/file-tool-intent'
+// 媒体族同款:意图判据单一源在共享层(视频是计费工具,多端必须同一把尺子)
+export { videoToolsFor } from '@ihui/shared/chat/media-tool-intent'
 
 export function eduToolsFor(content: string): string[] {
   if (!content) return []
