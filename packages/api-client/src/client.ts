@@ -1882,7 +1882,7 @@ export interface StreamChatOptions {
   /**
    * b76-15(2026-10-29 立):帧水位事实的**唯一读取出口**。
    *
- * 为什么必须有:水位判据此前只有写入侧 —— `_frameGapDropped` 带 `_` 前缀登记
+   * 为什么必须有:水位判据此前只有写入侧 —— `_frameGapDropped` 带 `_` 前缀登记
    * "故意未读",而载荷级四字段(`subscriptionId/logEpoch/fromSeq/toSeq`)在生产端
    * 至今没有下发点,于是 `readFrameWatermark` 在真机上恒 `undetermined`、丢帧恒 0。
    * 账面"判过",实际"一次都没判"(AGENTS §0.3)。
@@ -1947,6 +1947,10 @@ export interface StreamChatOptions {
    *  下发本帧,前端据此显示"本轮回答带了哪些注入"(自定义指令 / 工作区记忆 / Repo Wiki /
    *  检索上下文)。此前该帧只被"不喷进正文"地丢弃,等于生产了却没人看。 */
   onInjectionApplied?: (event: InjectionAppliedEvent) => void
+  /** G-87 补链(2026-10-29 立):hook 执行失败帧(hook-failed)。与 onError 的分工见
+   *  HookFailureEvent 头注:这个是"某个 hook 动作没跑成",回答本身通常完好;
+   *  onError 是"这条回答失败"。不注册则不解析(与其余 per-field 同形)。 */
+  onHookFailure?: (event: HookFailureEvent) => void
   /** D39 重试交代(2026-09-22 立):网关要换 key / 退避重试时下发,前端显示"第 N/M 次重试,
    *  Xs 后继续"。没有它,用户在流上看到的只是"卡住"。 */
   onRetryScheduled?: (event: RetryScheduledEvent) => void
@@ -2090,6 +2094,12 @@ export function parseStreamLine(line: string): string | null {
   }
   try {
     const json = JSON.parse(data)
+    // G-87 补链(2026-10-29,实测踩过):`hook-failed` 帧自带 `error` 字符串字段,
+    // 而下面第一条就是 `json.error && typeof === 'string' ⇒ throw`(OpenAI 错误格式)。
+    // 分流必须排在**错误判据之前** —— 否则一个"lint hook 挂了"的帧会被当成本轮回答失败:
+    // 抛 SSEError → runner 重连 → 前端气泡变红,而界面文案与真实原因毫无关系。
+    // (实测症状:带 error 的 hook-failed 帧 100% 触发重连,去掉该字段就正常。)
+    if (json?.type === 'hook-failed') return null
     if (json?.type === 'error' && typeof json?.message === 'string') {
       throw attachErrorMeta(new Error(json.message), json)
     }
@@ -2473,6 +2483,52 @@ export interface RetryScheduledEvent {
 }
 
 /**
+ * G-87 补链(2026-10-29 立):hook 执行失败帧(`event: hook-failed`)的解析后形态。
+ *
+ * **为什么必须有这一格,而不是走既有的 `error` 帧**:`error` 是「这一轮回答失败了」,
+ * 消费面是 `onError` → `setMessageError`(气泡变红、正文不可用);hook 失败是
+ * 「某个用户配置的 hook 动作没跑成」,回答本身通常完好 —— 混到 `error` 里就是让前端
+ * 把"我的 lint hook 挂了"读成"这条回答失败了"。两件事必须两个帧。
+ *
+ * 字段来源 = ai-service `hook_engine._broadcast_hook_failed` 的 wire 载荷(snake_case,
+ * 与 hook 透传帧同族);本类型是 camelCase 视图形态,与其余 per-frame 回调同构。
+ *
+ * ⚠️ **三字段的可取性(如实登记,勿当恒有)**:
+ *   · `command`  —— 只有 `script` 动作才有;其它动作类型整键缺席(webhook 的 url 不外泄);
+ *   · `stderr`   —— 只有脚本**真跑完且非零退出**才有;超时/未配置/被敏感模式拒/
+ *                   子进程起不来这几档都**没有输出可给**,整键缺席;
+ *   · `exitCode` —— 同上;被超时杀掉的进程**没有退出码**(不补 0)。
+ * 缺席 ≠ 空串 ≠ 0:渲染层据此跳过该字段(不画空标签),而 `0` 是"确实以 0 退出"
+ * 这个肯定结论(与"没取到"不可合并)。
+ */
+export interface HookFailureEvent {
+  /** hook 实体 id(`hk-…`) */
+  hookId: string
+  /** hook 名字(用户创建时的 name) */
+  hookName: string
+  /** 触发这次执行的 hook 事件名(如 `tool.before`) */
+  hookEvent: string
+  /** 终态两档:失败 / 超时。取值域与 ai-service 发射面一致(服务端只发这两档) */
+  state: 'failed' | 'timedOut'
+  /** 失败原因(已脱敏,截断) */
+  error: string
+  /** 墙钟耗时(ms,含重试与退避等待) */
+  durationMs: number
+  /** 失败时刻(ISO 字符串,服务端时钟) */
+  failedAt: string
+  /** 动作类型(webhook/script/log/notify);缺席 = 旧帧没报 */
+  actionType?: string
+  /** 命令行(**仅 script 动作**,已脱敏) */
+  command?: string
+  /** 脚本 stderr(**仅真跑完且非零退出**,已脱敏) */
+  stderr?: string
+  /** 脚本退出码(**仅真跑完且非零**) */
+  exitCode?: number
+  /** 挂载到哪条 assistant 消息;缺省时调用方回退当前流式消息 */
+  messageId?: string
+}
+
+/**
  * D77 对话流业务表单请求帧(2026-09-25 立,G-106)。
  *
  * ⚠️ V3 #63 现读结论(2026-09-27):本帧**当前无任何后端生产点** ——
@@ -2748,6 +2804,12 @@ export function parseStreamLineReasoning(line: string): string | null {
   if (data === '[DONE]') return null
   try {
     const json = JSON.parse(data)
+    // G-87 补链(2026-10-29,实测踩过):`hook-failed` 帧自带 `error` 字符串字段,
+    // 而下面第一条就是 `json.error && typeof === 'string' ⇒ throw`(OpenAI 错误格式)。
+    // 分流必须排在**错误判据之前** —— 否则一个"lint hook 挂了"的帧会被当成本轮回答失败:
+    // 抛 SSEError → runner 重连 → 前端气泡变红,而界面文案与真实原因毫无关系。
+    // (实测症状:带 error 的 hook-failed 帧 100% 触发重连,去掉该字段就正常。)
+    if (json?.type === 'hook-failed') return null
     if (json?.type === 'error' && typeof json?.message === 'string') {
       const e = new Error(json.message)
       e.name = 'SSEError'
@@ -3554,7 +3616,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   /**
    * b76-15(2026-10-29 立):帧水位事实的**唯一上报出口**。
    *
- * 立因是现读出来的一格哑账:丢帧计数此前叫 `_frameGapDropped`,带 `_` 前缀,按
+   * 立因是现读出来的一格哑账:丢帧计数此前叫 `_frameGapDropped`,带 `_` 前缀,按
    * lint 允许口径带 `_` 前缀登记"故意未读" —— 计了数,但全仓没有第二个地方读它。
    * 一个只有写入方的计数器等于没有(`AGENTS` §0.10「失效方向必须是多要一次定向
    * 说明」的反面:这里连说明都没有)。现在三条:① 每次丢弃都立刻上报;② 流终态
@@ -3819,6 +3881,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     // D77(2026-09-25 立):业务表单请求帧;帧带 fields/actions 结构化字段,
     // 未注册回调时不解析(与 injection 同口径)。
     const hasFormRequest = typeof opts.onFormRequest === 'function'
+    // G-87 补链(2026-10-29 立):hook 执行失败帧;未注册回调不解析(与其余 per-field 同口径)
+    const hasHookFailure = typeof opts.onHookFailure === 'function'
     // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
     void hasCitations
 
@@ -5031,6 +5095,67 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
 
+    /**
+     * G-87 补链(2026-10-29 立):hook 执行失败帧的解析器。
+     *
+     * 畸形帧一律**不发回调**(与 injection_applied / form_request 同纪律):
+     *   · 缺 `state` 或不在两档内 ⇒ 丢帧(`state` 是六态卡唯一派发依据,猜一个就会把
+     *     "未记录"伪装成"失败",正是判定层点名禁止的那一型);
+     *   · 缺 `hookName` / `hookEvent` ⇒ 丢帧(卡片上没有任何可指认的对象)。
+     *
+     * 三个可选证据字段(`command`/`stderr`/`exitCode`)只在**类型对得上**时透传:
+     * `exitCode` 收窄成 `number` 而不是 `Number(x)` —— `Number(null)` 是 0,会把
+     * "没取到"变成"确实以 0 退出"这个肯定结论。
+     */
+    const tryParseHookFailure = (line: string): void => {
+      if (!hasHookFailure) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'hook-failed') return
+        const state = json.state
+        if (state !== 'failed' && state !== 'timedOut') return
+        const hookName = json.hookName
+        const hookEvent = json.hookEvent
+        if (typeof hookName !== 'string' || hookName === '') return
+        if (typeof hookEvent !== 'string' || hookEvent === '') return
+        const event: HookFailureEvent = {
+          // 服务端 wire 用 snake(hook_id,与其余 hook 透传帧同族);camel 是视图形态。
+          // 两形状都认:只认一种会让真帧的 hookId 恒为空串(实测过)。
+          hookId:
+            typeof json.hookId === 'string'
+              ? json.hookId
+              : typeof json.hook_id === 'string'
+                ? json.hook_id
+                : '',
+          hookName,
+          hookEvent,
+          state,
+          error: typeof json.error === 'string' ? json.error : '',
+          durationMs: typeof json.durationMs === 'number' ? json.durationMs : 0,
+          failedAt: typeof json.failedAt === 'string' ? json.failedAt : '',
+          ...(typeof json.actionType === 'string' && json.actionType !== ''
+            ? { actionType: json.actionType }
+            : {}),
+          ...(typeof json.command === 'string' && json.command !== ''
+            ? { command: json.command }
+            : {}),
+          ...(typeof json.stderr === 'string' && json.stderr !== '' ? { stderr: json.stderr } : {}),
+          ...(typeof json.exitCode === 'number' ? { exitCode: json.exitCode } : {}),
+          ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+        }
+        opts.onHookFailure!(event)
+      } catch {
+        /* 非 JSON 或非 hook-failed 事件忽略 */
+      }
+    }
     const routeLineByType = (line: string): string | null => {
       if (!line || line.startsWith(':')) return null
       if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
@@ -5120,6 +5245,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           // D77(2026-09-25 立):对话流业务表单请求帧
           case 'form_request':
             return 'form_request'
+          // G-87 补链(2026-10-29):hook 执行失败帧。必须显式分流 —— 静默返回 null 与
+          // "没人订阅" 在端上完全同形(本仓最高频的失效形态)。
+          case 'hook-failed':
+            return 'hook_failed'
           default:
             return null
         }
@@ -5192,6 +5321,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseRetryScheduled(line)
       } else if (route === 'form_request') {
         tryParseFormRequest(line)
+        tryParseHookFailure(line)
+      } else if (route === 'hook_failed') {
+        tryParseHookFailure(line)
       } else {
         // fallback:无 type / 未知 type / 注释 / event:/id:/retry: / 非 JSON token 行。
         // 各 tryParse 内部第一道守护(`if (!hasXxx) return` + line 前缀检查)对非匹配行立即 return,
@@ -5223,6 +5355,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseInjection(line)
         tryParseRetryScheduled(line)
         tryParseFormRequest(line)
+        tryParseHookFailure(line)
       }
     }
 

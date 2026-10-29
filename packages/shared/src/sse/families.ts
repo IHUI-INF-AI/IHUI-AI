@@ -122,6 +122,11 @@ export const SSE_FAMILY_CROSS_REFERENCES: {
   // D115(2026-10-23,G-229):review 模式结构化 finding 帧同样只在对话流上有
   // (agent 任务流不产审查结论),如实标 null —— 不编一个看起来像的对应物充数
   'review-finding': null,
+  // G-87 补链(2026-10-29):hook 执行失败帧是**对话流独有**。
+  // agent 任务流上最近的那个是 `error`(hook 总线错误),但两者载荷与消费面都不同:
+  // hook-failed 带六字段证据(hookName/hookEvent/command/stderr/exitCode/durationMs)
+  // 且挂到某条 assistant 消息的 meta;error 是"这条回答失败"。不并,如实标 null。
+  'hook-failed': null,
 }
 // 2026-10-05 更正:上面这行曾被 `d81011c4ec` 删掉,理由是"SSE_EVENTS.PARTIAL_DONE 已从
 // contract.ts 移除 ⇒ SSEEventName 联合里不再有它"。**该前提在当次面上不成立**:
