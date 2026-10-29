@@ -473,7 +473,7 @@ export function relaunchClient(info, env = process.env) {
   if (!info?.wasRunning || !info.closed) return { restarted: false, error: '' }
   const helperPath = path.resolve(HERE, '..', 'apps', 'api', 'scripts', 'run-as-user.ps1')
   const launched = launchProduct(info.exePath, { product: info.product, helperPath, env })
-  return { restarted: launched.launched === true, error: launched.error || '' }
+  return { restarted: launched.launched === true, error: launched.error || '', via: launched.via || '' }
 }
 
 /**
@@ -1242,7 +1242,7 @@ export async function applyWorkbuddy(payload, opts = {}) {
           ? payload.secrets.sealedPaths
           : localSealed
       for (const p of sealedPaths) {
-        if (p === '$.auth.accessToken' || p === '$.auth.refreshToken') continue
+        if (extract.wbCredentialPaths.includes(p)) continue
         const v = extract.getPathByJsonPath(tree, p)
         if (typeof v === 'string') extract.setPathByJsonPath(tree, p, extract.sealField(v, key, keyId))
       }
@@ -1268,11 +1268,13 @@ export async function applyWorkbuddy(payload, opts = {}) {
     // 5) 拉起 + 回报
     let restarted = false
     let launchError = ''
+    let via = ''
     if (client.wasRunning && client.closed) {
       const helperPath = path.resolve(HERE, '..', 'apps', 'api', 'scripts', 'run-as-user.ps1')
       const l = launchProduct(client.exePath, { product: client.product, helperPath, env })
       restarted = l.launched === true
       launchError = l.error || ''
+      via = l.via || ''
     }
     return writeResult('workbuddy', file, backupFile, {
       uid: payload.uid,
@@ -1291,6 +1293,7 @@ export async function applyWorkbuddy(payload, opts = {}) {
       clientClosed: client.closed,
       clientForced: client.forced,
       clientRestarted: restarted,
+      ...(via ? { clientLaunchVia: via } : {}),
       ...(launchError ? { clientLaunchError: launchError } : {}),
     })
   } catch (e) {
@@ -1627,14 +1630,15 @@ async function loadExtract() {
     decryptSafeStorageBlob: codearts.decryptSafeStorageBlob,
     listWorkbuddyMainProcesses: workbuddy.listWorkbuddyMainProcesses,
     readAtRestBootstrap: workbuddy.readAtRestBootstrap,
-    deriveAtRestKey: workbuddy.deriveAtRestKey,
+    deriveAtRestKey: workbuddy.normalizeAtRestKey,
     decryptSessionTree: workbuddy.decryptSessionTree,
-    sealField: workbuddy.sealField,
+    sealField: workbuddy.sealFieldForTest,
     collectSealedPaths: workbuddy.collectSealedPaths,
     getPathByJsonPath: workbuddy.getPathByJsonPath,
     setPathByJsonPath: workbuddy.setPathByJsonPath,
     resolveEdition: workbuddy.resolveEdition,
     workbuddyAuthFilePath: workbuddy.workbuddyAuthFilePath,
+    wbCredentialPaths: workbuddy.WB_CREDENTIAL_PATHS,
     doubaoCandidateUserDataDirs: (env) => doubao.candidateUserDataDirs(env),
     wrapDoubaoAppPrefix: doubao.wrapDoubaoAppPrefix,
     stripDoubaoAppPrefix: doubao.stripDoubaoAppPrefix,
@@ -1748,6 +1752,7 @@ export async function main(argv) {
       clientClosed: client.closed,
       clientForced: client.forced,
       clientRestarted: re.restarted,
+      ...(re.via ? { clientLaunchVia: re.via } : {}),
       ...(re.error ? { clientLaunchError: re.error } : {}),
       restartHint: re.restarted
         ? `已重新打开 ${client.product},登录态即时生效`

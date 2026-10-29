@@ -47,6 +47,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const NSSM =
   process.env.IHUI_NSSM || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'nssm.exe')
@@ -181,29 +182,55 @@ function stopService(name, timeoutMs = 45000) {
  * 健康探测(2026-10-29 参数化):路径与匹配串都来自参数 ⇒ 同一份编排器既能判 api
  * (/api/health 含 "status":"ok")也能判 web(/ 含 <!DOCTYPE html)。
  * 不传 --health-match 时只要求 200(不臆造匹配串)。
+ *
+ * 唯一硬约束:**这条 Promise 必须给出结论**。旧实现读满 4096 字节就 `req.destroy()` 掐流,
+ * 之后 `res` 的 'end' 永不触发 ⇒ Promise 永悬 ⇒ 没有待办句柄时 Node 直接静默 exit 0。
+ * web 首页 HTML 必超 4096 ⇒ 自 03:03 起每一轮 web 换流都在这一步蒸发(状态文件不动、
+ * 无 ERROR 行、rc=0,而全部健康门禁报绿);api 族因为 /api/health 是小 JSON 才侥幸正常。
+ * 现在:只截累加不掐流,并且带一条必然触发的看门狗 —— 失效方向是"判不健康、不切流",
+ * 绝不是"什么都没发生"。
  */
-function probeHealthy(port) {
-  return new Promise((resolve) => {
-    const req = http.get(
-      { host: '127.0.0.1', port, path: args.healthPath, timeout: 3000 },
-      (res) => {
+export function makeProbe({
+  healthPath = '/api/health',
+  healthMatch = '"status":"ok"',
+  timeoutMs = 3000,
+  watchdogMs = 10000,
+  httpImpl = http,
+} = {}) {
+  return (port) =>
+    new Promise((resolve) => {
+      let settled = false
+      let guard = null
+      const finish = (ok) => {
+        if (settled) return
+        settled = true
+        if (guard) clearTimeout(guard)
+        resolve(ok)
+      }
+      guard = setTimeout(() => finish(false), Math.max(timeoutMs + 1000, watchdogMs))
+      const req = httpImpl.get({ host: '127.0.0.1', port, path: healthPath, timeout: timeoutMs }, (res) => {
         let body = ''
+        let capped = false
         res.setEncoding('utf8')
         res.on('data', (c) => {
+          if (capped) return
           body += c
-          if (body.length > 4096) req.destroy()
+          if (body.length > 262144) capped = true
         })
-        res.on('end', () =>
-          resolve(res.statusCode === 200 && (!args.healthMatch || body.includes(args.healthMatch))),
-        )
-      },
-    )
-    req.on('timeout', () => {
-      req.destroy()
-      resolve(false)
+        res.on('end', () => finish(res.statusCode === 200 && (!healthMatch || body.includes(healthMatch))))
+        res.on('aborted', () => finish(false))
+        res.on('error', () => finish(false))
+      })
+      req.on('timeout', () => {
+        req.destroy()
+        finish(false)
+      })
+      req.on('error', () => finish(false))
     })
-    req.on('error', () => resolve(false))
-  })
+}
+
+function probeHealthy(port) {
+  return makeProbe({ healthPath: args.healthPath, healthMatch: args.healthMatch })(port)
 }
 
 async function waitHealthy(port, timeoutMs) {
@@ -315,10 +342,18 @@ async function main() {
   return 0
 }
 
-main()
-  .then((code) => process.exit(code))
-  .catch((e) => {
-    log('ERROR', `切换异常:${e && e.message ? e.message : e}`)
-    process.exit(2)
-  })
+// 双形态入口(AGENTS §22d):顶层直接跑 main() 会让测试 import 时就执行一次真实切换,
+// 所以取不到"我就是被直接调起的那一个"时绝不启动。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      log('ERROR', `切换异常:${e && e.message ? e.message : e}`)
+      process.exit(2)
+    })
+}
+
+export const __test__ = { makeProbe, parseArgs, probeHealthy }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
