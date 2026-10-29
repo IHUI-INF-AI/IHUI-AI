@@ -7,14 +7,33 @@
  * 覆盖 ① 检索参数拼装(q/tag/分页) ② 安装/评分/订阅的动作请求形状
  * ③ 错误抛出(api 返回 success:false 时 throw)。
  * fetchApi 以 vi.mock 打桩,不触真实网络。
+ *
+ * 2026-10-29 修红:打桩层从 `@/lib/api` 下移到 `@ihui/api-client`(根因不是"少补一个导出")。
+ *
+ * 原写法 `vi.mock('@/lib/api', () => ({ fetchApi }))` 是在**整模块替换**,而实现
+ * `skills-market-api.ts` 早已改为 `import { apiOrThrow } from '@/lib/api'` 并调用它;
+ * 替换后的模块面里没有 `apiOrThrow` ⇒ 六例全部在运行期炸 "No apiOrThrow export is
+ * defined on the mock"(typecheck 看不见:vi.mock 工厂返回面不受类型约束)。
+ *
+ * 为什么**不能**简单地在工厂里再补一个 `apiOrThrow` 桩:那样这六例就只能验到
+ * "我调了 apiOrThrow",而 `apiOrThrow` 真正的契约(取 `r.data`、`success:false` 时抛
+ * `Error(r.error)`)会被一并桩掉 —— 最后一例「api 返回 success:false 时抛错」正是页面
+ * 错误态依赖的那条行为,桩掉它等于让该断言空转。
+ *
+ * 下移到 `@ihui/api-client` 后:`@/lib/api` 保持**真实实现**(含 401 弹窗、续期语义),
+ * `apiOrThrow` 内部真实调用本层被替换的 `fetchApi`,于是 6 例断言的 method/body/url
+ * 从 fetchApi 实参取,错误抛出走真实的 apiOrThrow 判据。
+ * `importOriginal` 保留其余导出:api.ts 模块顶层无条件调用 setBaseUrl /
+ * setUnauthorizedHandler / setDeviceFingerprintProvider 等,缺一个就在模块求值期炸。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const fetchApiMock = vi.fn()
 
-vi.mock('@/lib/api', () => ({
-  fetchApi: (...args: unknown[]) => fetchApiMock(...args),
-}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, fetchApi: (...args: unknown[]) => fetchApiMock(...args) }
+})
 
 import {
   fetchSkillsMarket,
