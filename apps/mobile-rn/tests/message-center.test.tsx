@@ -33,9 +33,20 @@ vi.mock('@ihui/api-client', () => ({
   setConversationPinned: apiMocks.setConversationPinned,
 }))
 
-vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ navigate: apiMocks.navigate, goBack: apiMocks.goBack }),
-}))
+vi.mock('@react-navigation/native', async () => {
+  // MessageCenterScreen 经 useRefreshOnFocus(src/hooks/use-refresh-on-focus.ts)取 useFocusEffect;
+  // 缺出口即渲染期抛。语义照端内唯一实现
+  // apps/miniapp-taro/src/rn-compat/navigation.tsx 的 useFocusEffect(useEffect 跑 effect + 卸载调 cleanup)。
+  const { useEffect } = await import('react')
+  return {
+    useNavigation: () => ({ navigate: apiMocks.navigate, goBack: apiMocks.goBack }),
+    useFocusEffect: (effect: () => void | (() => void)) =>
+      useEffect(() => {
+        const cleanup = effect()
+        return () => cleanup?.()
+      }, [effect]),
+  }
+})
 
 vi.mock('../src/i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -123,6 +134,10 @@ vi.mock('react-native', async () => {
     ScrollView: mk('div'),
     Image: mk('img'),
     RefreshControl: () => null,
+    // MessageCenterScreen → src/lib/token.ts → src/lib/config.ts 在模块求值期读 Platform.OS
+    // (APP_USER_AGENT / API_BASE_URL 两处);ESM 下 import 一个 mock 没有的出口不是拿 undefined,
+    // 而是整个模块加载失败 ⇒ 收集期 0 用例。键与共享替身 __mocks__/react-native.ts 的 Platform 同源。
+    Platform: { OS: 'web' as const },
     // BottomPops(经本屏 appAlert 导入拉入)模块求值期读窗口高;
     // 主题单例(active-tokens)求值期读 Appearance.getColorScheme,两者缺一整文件加载即炸。
     Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },

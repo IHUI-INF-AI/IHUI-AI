@@ -42,13 +42,25 @@ vi.mock('@ihui/api-client', () => ({
   fetchApi: apiMocks.fetchApi,
 }))
 
-vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({
-    navigate: apiMocks.navigate,
-    goBack: apiMocks.goBack,
-    getParent: () => ({ navigate: apiMocks.navigate }),
-  }),
-}))
+vi.mock('@react-navigation/native', async () => {
+  // AgentScreen 经 useRefreshOnFocus(src/hooks/use-refresh-on-focus.ts)取 useFocusEffect;
+  // 缺这个出口时 ESM 下整个 mock 加载即失败(不是拿到 undefined)⇒ 6 条用例一条不跑。
+  // 语义照端内唯一实现 apps/miniapp-taro/src/rn-compat/navigation.tsx 的 useFocusEffect:
+  // 用 useEffect 跑 effect、卸载时调 cleanup,不自造第二份语义。
+  const { useEffect } = await import('react')
+  return {
+    useNavigation: () => ({
+      navigate: apiMocks.navigate,
+      goBack: apiMocks.goBack,
+      getParent: () => ({ navigate: apiMocks.navigate }),
+    }),
+    useFocusEffect: (effect: () => void | (() => void)) =>
+      useEffect(() => {
+        const cleanup = effect()
+        return () => cleanup?.()
+      }, [effect]),
+  }
+})
 
 vi.mock('@react-navigation/native-stack', () => ({}))
 
