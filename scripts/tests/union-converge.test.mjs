@@ -308,9 +308,15 @@ test('CAS 失败的悬空提交必须本工具自己 tag 掉(否则把噪声留�
   const src = readFileSync(new URL('../union-converge.mjs', import.meta.url), 'utf8')
   const at = src.indexOf('if (cas.status !== 0)')
   assert.ok(at > 0, '找不到 CAS 失败分支')
-  const branch = src.slice(at, at + 1200)
-  assert.match(branch, /git\(\['tag', tagName, sha/, 'CAS 失败要就地按 §22 打 lost-commit tag')
-  assert.match(branch, /lost-commit\/wip-/, "tag 名必须走本仓既有命名族(lost-commit/wip-<sha>)")
+  const branch = src.slice(at, at + 1400)
+  // 2026-10-29 门 30a 根因票改锚:备份动作已整体并库到 scripts/lib/orphan-backup.mjs
+  // (拼名/查重/annotated tag/pack-refs/留痕只有一份,§0.6),本器只负责在弃落出口调用它。
+  // 所以这把锁改判"调用在不在、档名对不对",而不是在本文件里找 git tag 字面量 ——
+  // 判据搬走时锁跟着搬,不许留在原地装作还在判(那是假绿)。
+  assert.match(branch, /backupOrphanCommit\(\{[\s\S]{0,300}?kind:\s*'uni'/, 'CAS 失败要就地调用备份腿,且带本器档位 uni')
+  assert.match(branch, /orphanBackupRefName\(sha,\s*'uni'\)/, "tag 名必须由 lib 的 §29 命名族生成(lost-commit/wip-uni-<sha7>)")
+  // 反向锁:本器内不得再手拼第二份名字(那是与 converge 那份漂开的旧缺陷本体)
+  assert.doesNotMatch(src, /`lost-commit\/wip-\$\{/, 'union 里又出现手拼 tag 名 ⇒ 第二份实现回潮')
   // tag 失败不得掩盖原始故障:仍要 exit 1 并给出手工命令
   assert.match(branch, /process\.exit\(1\)/, 'CAS 失败必须非零退出')
 })
