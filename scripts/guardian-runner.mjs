@@ -5892,6 +5892,57 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 生产依赖漏洞(1 项,blocking)(2026-10-29 立)---
+  {
+    id: '260',
+    label:
+      '🔐 生产依赖 critical/high 必须为 0(blocking;生产可达未豁免即红 / 构建链存量只报数 / waiver 三要素+到期;数据源=审计快照,不跑网络)',
+    script: 'check-prod-dep-advisories.mjs',
+    args: [],
+    mode: 'blocking',
+    // 立因(机主令「强化所有,黑客一点都攻不进来」的收尾项):2026-10-29 全量审计实测
+    // critical 28 / high 49,而**没有任何机读判据** —— 这 28 个全靠人读 docs/SECURITY.md §10.7,
+    // 下一个人不会读。票族存在而源头空转,与 O65 第 0 期「派单白名单预留依赖族却没人看」同型。
+    //
+    // 两档刻意分开,因为它们的成本与失效方向完全不同:
+    //   · --staged(提交链):只判 scripts/data/dep-audit-policy.json 的形态(waiver 三要素 + 未过期),
+    //     毫秒级、不跑网络。它拦的是「有人写一枚永不到期的豁免」;
+    //   · 全量档:读 .ihui-agent/state/dep-audit-cache.json 判「生产可达 critical/high 是否全被覆盖」,
+    //     快照过期先自动刷新一次(实测 pnpm audit --registry 6.8s),刷新失败 ⇒ exit 2 未判定。
+    //
+    // 为什么不把「生产 critical/high > 0」直接做成提交链的绝对零容忍:存量 3 枚(systeminformation /
+    // image-size / zod)已逐条验证运行时不可达并写成带到期日的 waiver,不是消红通道而是带期限的债;
+    // 判红只发生在「新增了未豁免的生产高危」或「豁免过期没还」这两种**本次可归因**的情形(§12e)。
+    //
+    // 「生产可达」口径 = pnpm audit findings 里存在 dev !== true 的路径。这一维必须与构建链分开:
+    // Taro/Expo 生态把 Metro、@expo/cli 这类构建器放在 dependencies 里 ⇒ 它们在依赖树上「生产可达」,
+    // 但服务器进程根本 require 不到(实测 apps/api、apps/ai-service、apps/web 的 node_modules
+    // 均无 image-size)。混为一谈的门会恒红,恒红门的唯一结局是被 --no-verify 连带废掉(§0.2)。
+    skipEnv: 'HUSKY_SKIP_PROD_DEP_ADVISORIES',
+    stagedTriggers: [
+      'scripts/data/dep-audit-policy.json',
+      'scripts/check-prod-dep-advisories.mjs',
+      'scripts/dep-advisory-radar.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 生产可达的 critical/high 必须为 0。两条出路,只认这两条:',
+      '     ① 升级依赖到 patched 版本(输出里给了修复版范围);',
+      '     ② 确属运行时不可达 ⇒ 在 scripts/data/dep-audit-policy.json 加 waiver,三要素缺一即红:',
+      '        module / reason(≥20 字,写清「为什么这个漏洞 API 不可达」)/ expiresAt(会到期,不是永免)。',
+      '        必须给证据:典型硬证据是「服务器进程的 node_modules 里根本没有这个包」——',
+      '        test -e apps/api/node_modules/<pkg> 三者皆不存在,比任何推理都硬。',
+      '',
+      '     构建链(devOnly)存量只报数、一条不拦 —— 加依赖时没人能选 Taro 的传递依赖,拦了只会逼人跳门。',
+      '',
+      '     复验:node scripts/check-prod-dep-advisories.mjs',
+      '     刷新快照:node scripts/check-prod-dep-advisories.mjs --refresh',
+      '     自检:node scripts/check-prod-dep-advisories.mjs --self-test(12 例方向锁)',
+      '     镜像:node --test scripts/tests/check-prod-dep-advisories.test.mjs(22 例)',
+      '     应急放行:HUSKY_SKIP_PROD_DEP_ADVISORIES=1(须在提交信息写明是哪一枚、为什么这次不能还)',
+      '',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
