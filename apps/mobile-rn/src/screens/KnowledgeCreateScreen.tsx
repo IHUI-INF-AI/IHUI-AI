@@ -14,7 +14,6 @@ import { useState } from 'react'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useAuthStore } from '../stores/auth-store'
 import { ingestKnowledgeText } from '@ihui/api-client'
 import { KnowledgeCreateScreen as SharedKnowledgeCreateScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -27,7 +26,6 @@ export function KnowledgeCreateScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const user = useAuthStore((s) => s.user)
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -39,7 +37,7 @@ export function KnowledgeCreateScreen() {
     }
     setSubmitting(true)
     try {
-      await ingestKnowledgeText({ ownerUuid: user?.id ?? '', title: title.trim(), text: text })
+      await ingestKnowledgeText({ title: title.trim(), text })
       appAlert(t('knowledgeCreate.successTitle'), t('knowledgeCreate.successMessage'), [
         { text: t('common.confirm'), onPress: () => navigation.goBack() },
       ])

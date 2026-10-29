@@ -112,7 +112,7 @@ export default function KnowledgeRagManagePage() {
     mutationFn: (docIds: number[]) =>
       apiOrThrow<BatchDeleteResult>('/api/knowledge/docs/batch-delete', {
         method: 'POST',
-        body: JSON.stringify({ docIds, ownerUuid: '' }),
+        body: JSON.stringify({ docIds }),
       }),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })

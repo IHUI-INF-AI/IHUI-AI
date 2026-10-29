@@ -36,7 +36,7 @@ export interface KnowledgeDocListItem {
  */
 export interface KnowledgeBaseScreenProps {
   t: TFunction
-  /** 文档列表(ownerUuid=当前用户,wrapper 已拉取) */
+  /** 文档列表(归属由后端按登录凭据过滤,wrapper 已拉取) */
   docs: KnowledgeDocListItem[]
   /** 首屏加载中(整屏 loading) */
   loading: boolean

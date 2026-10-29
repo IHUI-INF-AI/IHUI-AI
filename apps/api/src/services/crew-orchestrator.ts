@@ -289,7 +289,7 @@ class CrewOrchestrator {
 
         let prompt = this.buildPrompt(plan.role, cfg, plan, context)
         if (plan.role === 'researcher') {
-          const ragContext = await this.getRagContext(session.inputMessage, config)
+          const ragContext = await this.getRagContext(session.inputMessage, config, session.userId)
           if (ragContext) prompt += `\n\n知识库参考信息:\n${ragContext}`
         }
 
@@ -424,15 +424,18 @@ class CrewOrchestrator {
     return prompt
   }
 
-  /** 获取 RAG 上下文(不限定 owner,查询全局知识库) */
-  private async getRagContext(query: string, config: SessionConfig): Promise<string> {
+  /** 获取 RAG 上下文(只检索本会话所属用户的知识库) */
+  private async getRagContext(
+    query: string,
+    config: SessionConfig,
+    userId: string,
+  ): Promise<string> {
     try {
       return await knowledgeRagService.getRagContext({
         query,
         collectionName: config.collectionName ?? 'default',
         topK: 5,
-        // 不限定 owner,检索全局知识库(含 system 种子文档)
-        ownerUuid: '',
+        ownerUuid: userId,
       })
     } catch {
       return ''
@@ -601,7 +604,7 @@ class CrewOrchestrator {
 
       let prompt = this.buildPrompt(plan.role, cfg, plan, context)
       if (plan.role === 'researcher') {
-        const ragContext = await this.getRagContext(inputMessage, config)
+        const ragContext = await this.getRagContext(inputMessage, config, userId)
         if (ragContext) prompt += `\n\n知识库参考信息:\n${ragContext}`
       }
 
