@@ -103,6 +103,7 @@ function readHeadFace(dirs) {
     encoding: 'utf8',
     maxBuffer: 1 << 26,
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
   return stdout
     .trim()
@@ -115,6 +116,7 @@ function readHeadFace(dirs) {
         encoding: 'utf8',
         maxBuffer: 1 << 26,
         stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
       }),
     }))
 }
@@ -201,6 +203,7 @@ function headBlob(rel) {
     encoding: 'utf8',
     maxBuffer: 1 << 26,
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
 }
 
@@ -309,6 +312,7 @@ function injectWatermark(relPath) {
       cwd: ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
   } catch (error) {
     console.error(`❌ 水印注入失败(${relPath}):${String(error?.message ?? error).slice(0, 140)}`)

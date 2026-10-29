@@ -58,6 +58,7 @@ const git = (args) =>
     encoding: 'utf8',
     maxBuffer: 1 << 28,
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
 
 /** 面读取器:枚举走 ls-tree/ls-files,正文一律批量 catBatch(逐枚取会顶穿超时,门 251 实测)。 */
@@ -72,6 +73,7 @@ function makeReader(face) {
       encoding: 'utf8',
       maxBuffer: 1 << 28,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return out.split('\n').filter((p) => p.endsWith('.mjs'))
   }
@@ -410,6 +412,7 @@ function runFace() {
         encoding: 'utf8',
         maxBuffer: 1 << 28,
         stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
       })
         .split('\n')
         .filter((p) => p.endsWith('.mjs'))

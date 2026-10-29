@@ -79,6 +79,7 @@ function git(args) {
     maxBuffer: 1 << 28,
     // §12g:派生 git 必须显式接管 stdio —— 不写在本机稳定 EBUSY(守门 193)
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
 }
 
