@@ -188,11 +188,6 @@
     },
     {
       "shared": "packages/app/src/features/lecturer-list/LecturerListScreen.tsx",
-      "rn": null,
-      "miniapp": "pkg-learn/teacher/list"
-    },
-    {
-      "shared": "packages/app/src/features/lecturer-list/LecturerListScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/TeacherListScreen.tsx",
       "miniapp": "pkg-learn/teacher/list"
     },
@@ -712,11 +707,6 @@
       "miniapp": "pkg-mirror/course-resource/index"
     },
     {
-      "shared": "packages/app/src/features/course-screen/CourseScreen.tsx",
-      "rn": null,
-      "miniapp": "pkg-mirror/course/index"
-    },
-    {
       "shared": "packages/app/src/features/customer-service/CustomerServiceScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CustomerServiceScreen.tsx",
       "miniapp": "pkg-mirror/customer-service/index"
@@ -1097,11 +1087,6 @@
       "miniapp": "pkg-user/ai-world/index"
     },
     {
-      "shared": "packages/app/src/features/assistant/AssistantScreen.tsx",
-      "rn": null,
-      "miniapp": "pkg-user/assistant/index"
-    },
-    {
       "shared": "packages/app/src/features/connectors/ConnectorsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ConnectorsScreen.tsx",
       "miniapp": "pkg-user/connectors/index"
@@ -1265,11 +1250,6 @@
       "shared": "packages/app/src/features/community/LettersScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/LettersScreen.tsx",
       "miniapp": "pkg-content/letters/index"
-    },
-    {
-      "shared": "packages/app/src/features/community/NewsCategoryScreen.tsx",
-      "rn": null,
-      "miniapp": "pkg-mirror/news-category/index"
     },
     {
       "shared": "packages/app/src/features/community/SearchHistoryScreen.tsx",
