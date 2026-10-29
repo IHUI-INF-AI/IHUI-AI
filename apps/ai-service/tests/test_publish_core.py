@@ -60,7 +60,7 @@ from app.services.publish.content_parser import (
 )
 from app.services.publish.credentials_crypto import (
     _get_key,
-    _load_key,
+    _load_keys,
     decrypt,
     encrypt,
     generate_key_b64,
@@ -803,14 +803,14 @@ class TestLoadKey:
         """环境变量设为合法 base64(32 字节)→ 返回该密钥。"""
         valid_key = generate_key_b64()
         monkeypatch.setenv("PUBLISH_CREDENTIALS_KEY", valid_key)
-        key = _load_key()
+        key = _load_keys()[0]
         assert key == base64.b64decode(valid_key, validate=True)
         assert len(key) == 32
 
     def test_invalid_env_falls_back_to_ephemeral(self, monkeypatch):
         """环境变量非法 base64 → 降级到临时密钥。"""
         monkeypatch.setenv("PUBLISH_CREDENTIALS_KEY", "!!!invalid-base64!!!")
-        key = _load_key()
+        key = _load_keys()[0]
         assert isinstance(key, bytes)
         assert len(key) == 32  # 仍是 32 字节临时密钥
 
@@ -818,14 +818,14 @@ class TestLoadKey:
         """环境变量解码后非 32 字节 → 降级到临时密钥。"""
         short_key = base64.b64encode(b"0" * 16).decode("ascii")
         monkeypatch.setenv("PUBLISH_CREDENTIALS_KEY", short_key)
-        key = _load_key()
+        key = _load_keys()[0]
         assert isinstance(key, bytes)
         assert len(key) == 32
 
     def test_missing_env_falls_back_to_ephemeral(self, monkeypatch):
         """环境变量未设置 → 降级到临时密钥。"""
         monkeypatch.delenv("PUBLISH_CREDENTIALS_KEY", raising=False)
-        key = _load_key()
+        key = _load_keys()[0]
         assert isinstance(key, bytes)
         assert len(key) == 32
 
@@ -921,9 +921,16 @@ class TestDecryptErrors:
         with pytest.raises(ValueError, match="cipher blob too short"):
             decrypt(short_blob)
 
-    def test_wrong_key_raises(self, monkeypatch):
-        """用不同密钥解密 → GCM tag 校验失败,抛异常。"""
+    def test_wrong_key_raises(self, monkeypatch, tmp_path):
+        """用不同密钥解密 → GCM tag 校验失败,抛异常(无解密环时的契约:InvalidTag)。"""
         import app.services.publish.credentials_crypto as crypto_mod
+
+        # 隔离密钥面:不动真实密钥文件,也不让旧位置密钥混进解密环。
+        # 否则"环里多一把钥"会把失败路径从 InvalidTag 变成 ValueError(见
+        # credentials_crypto.decrypt 的双契约说明),这个用例就测不到单钥行为了。
+        monkeypatch.setattr(crypto_mod, "_KEY_FILE", str(tmp_path / "credentials_key"))
+        monkeypatch.setattr(crypto_mod, "_LEGACY_KEY_FILES", ())
+        monkeypatch.setattr(crypto_mod, "_LEGACY_KEYS", [])
 
         # 用 key A 加密
         key_a = generate_key_b64()

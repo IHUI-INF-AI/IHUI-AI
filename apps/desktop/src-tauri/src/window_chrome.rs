@@ -179,6 +179,12 @@ struct OverlayState {
     /// `dark_bg` 是不是**网页显式上报**来的。false 时绘制端改用顶栏像素实测
     /// (见 `sample_topbar_dark`)—— 线上旧 bundle 不会上报,不实测就永远看不见暗色。
     theme_reported: bool,
+    /// 几何自证是否已打过(每枚 overlay / 每次最大化态翻转各一次,别把日志刷满)。
+    geom_logged: bool,
+    /// 上一次打过自证日志时的最大化态(翻转就要再打一次,最大化那一档正是出过事的形态)。
+    zoom_logged: bool,
+    /// 上一次打深浅自证日志的键:dark*2 + 来源档(0=上报 1=实测 2=回落 slot),-1=没打过。
+    dark_log_key: i32,
 }
 
 #[cfg(target_os = "windows")]
@@ -252,8 +258,65 @@ const THEME_PROBE_MS: u32 = 1_000;
 const THEME_PROBE_TIMER: usize = 0x4948_5448; // 'IHTH'
 
 #[cfg(target_os = "windows")]
+#[derive(Clone, Copy)]
+struct ThemePick {
+    dark: bool,
+    /// 判定来源(只用于自证日志与单测断言,不参与配色)。
+    source: &'static str,
+    /// 实测档时的顶栏亮度中位数(上报/回落档没有这个数)。
+    median: Option<u64>,
+}
+
+/// 深浅来源标识(自证日志与单测共用同一批字面量,避免各处手写飘掉)。
+#[cfg(target_os = "windows")]
+const THEME_SRC_REPORTED: &str = "网页上报";
+#[cfg(target_os = "windows")]
+const THEME_SRC_SAMPLED: &str = "顶栏像素实测";
+#[cfg(target_os = "windows")]
+const THEME_SRC_SLOT: &str = "回落slot";
+
+/// 一摞顶栏亮度 → 深/浅判定。**纯函数**(不碰 GDI),故可单测。
+///
+/// 三态(§0.3):中位数 < `BAND_DARK`(80)⇒ 深;> `BAND_LIGHT`(175)⇒ 浅;
+/// 落在模糊带 ⇒ `None` **不判** —— 判不准时宁可沿用上一档,也不要画出一个"看不清"的档。
+/// 用**中位数**而不是均值:那一横条上除了顶栏底色还有网页自己的图标笔画
+/// (白底上几笔深色就能把均值拖过阈值,深底同理反向),中位数对少量离群点免疫。
+/// 返回 `(判定, 中位数)`;空输入 ⇒ `None`。
+#[cfg(target_os = "windows")]
+fn classify_topbar_luminances(mut lums: Vec<u64>) -> Option<(bool, u64)> {
+    if lums.is_empty() {
+        return None;
+    }
+    lums.sort_unstable();
+    let median = lums[lums.len() / 2];
+    if median < BAND_DARK_LUMINANCE {
+        Some((true, median))
+    } else if median > BAND_LIGHT_LUMINANCE {
+        Some((false, median))
+    } else {
+        None
+    }
+}
+
+/// 模糊带:中位数低于此值判深、高于此值判浅,中间一律不判。
+/// 80/175 是按网页顶栏两种底色(暗档 `--color-shell-panel` = `hsl(220 12% 5%)` ≈ 13、
+/// 亮档 = `#fff` = 255)各留一倍以上余量取的,不是凑整数。
+#[cfg(target_os = "windows")]
+const BAND_DARK_LUMINANCE: u64 = 80;
+#[cfg(target_os = "windows")]
+const BAND_LIGHT_LUMINANCE: u64 = 175;
+
+/// 采样上限与让开自绘钮左缘的距离(逻辑像素)。
+#[cfg(target_os = "windows")]
+const PROBE_MAX_SAMPLES: usize = 8;
+#[cfg(target_os = "windows")]
+const PROBE_AVOID_BTN_PX: i32 = 6;
+#[cfg(target_os = "windows")]
+const PROBE_STEP_PX: i32 = 2;
+
+#[cfg(target_os = "windows")]
 impl OverlayState {
-    /// 这一帧该用哪一档深浅。**取数只此一出口**,绘制路径不许再各自问一遍。
+    /// 这一帧该用哪一档深浅,以及**为什么**。**取数只此一出口**,绘制路径不许再各自问一遍。
     ///
     /// 三档次序(2026-10-26 定):
     ///  1. **网页显式上报**(`set_caption_button_theme`)⇒ 直接用,网页是权威面;
@@ -266,34 +329,116 @@ impl OverlayState {
     ///     GetPixel 读的是**已经合成到屏幕上的像素**,不新增任何 IPC 面。
     ///  3. 实测也判不出(钮还没定位/采样全失败/亮度落在模糊带)⇒ 回落 slot 那档,
     ///     不猜第三值(§0.3)。
-    fn dark_now(&self, dc: HDC, overlay: HWND) -> bool {
+    fn dark_pick(&self, dc: HDC, overlay: HWND) -> ThemePick {
         if self.theme_reported {
-            return self.dark_bg;
+            return ThemePick {
+                dark: self.dark_bg,
+                source: THEME_SRC_REPORTED,
+                median: None,
+            };
         }
         // SAFETY: 调用方(render_overlay)已持有屏幕 DC,且 overlay/owner 均为本模块创建的存活句柄。
-        unsafe { sample_topbar_dark(dc, overlay, self.owner).unwrap_or(self.dark_bg) }
-    }
-
-    /// 深浅 → 配色档:两档成对,禁止在绘制循环里挑字面量。
-    fn palette(&self, dc: HDC, overlay: HWND) -> Palette {
-        if self.dark_now(dc, overlay) {
-            Palette::dark()
-        } else {
-            Palette::light()
+        match unsafe { sample_topbar_dark(dc, overlay, self.owner) } {
+            Some((dark, median)) => ThemePick {
+                dark,
+                source: THEME_SRC_SAMPLED,
+                median: Some(median),
+            },
+            None => ThemePick {
+                dark: self.dark_bg,
+                source: THEME_SRC_SLOT,
+                median: None,
+            },
         }
     }
+
+/// 深浅 → 配色档:两档成对,禁止在绘制循环里挑字面量。
+/// 返回 `(配色档, 判定)`——判定只供自证日志,配色取值只有 Palette 两档。
+fn palette(&self, dc: HDC, overlay: HWND) -> (Palette, ThemePick) {
+    let pick = self.dark_pick(dc, overlay);
+    let p = if pick.dark {
+        Palette::dark()
+    } else {
+        Palette::light()
+    };
+    (p, pick)
 }
 
-/// 实测顶栏底色是深是浅:在**自绘钮左侧**的顶栏带内取若干屏幕像素,按**中位数**判。
+/// 把"这一帧实际用到的档与几何"打进日志(真机自证)。
 ///
-/// 为什么是中位数而不是均值:那一横条上除了顶栏底色还有网页自己的图标笔画
-/// (白底上几笔深色就能把均值拖过阈值,深底同理反向),中位数对少量离群点免疫。
-/// 三态(§0.3):中位数 < 80 ⇒ 深;> 175 ⇒ 浅;落在 80..=175 的模糊带(半深、渐变、
-/// 图标密集)⇒ `None` **不判** —— 判不准时宁可沿用上一档,也不要画出一个"看不清"的档。
-/// 采样左移让开钮缘 6 物理像素(别把自己画的像素算进样本),最多 8 点、步长 2 逻辑像素,
-/// 越过客户区左缘即停;`CLR_INVALID`(全 F)= 采样失败,停止本轮。
+/// 为什么要程序自己报数:沙箱/自动化里 GetPixel 与截图拿到的合成像素本就不可信
+/// (本文件头注记过"窗口在位、参数全对、屏幕一个像素都没有"那一型),所以
+/// "右缘对不对 / 暗色有没有生效"必须由跑在用户机器上的这个进程自己说出来,
+/// 而不是靠外部量的二手读数。
+///
+/// 节流:几何行只在**第一次**与**最大化态翻转**时打;深浅行只在**档位或来源变化**时打
+/// ⇒ 一秒一次的实测不会把日志刷满(§5e 告警面的同款教训)。
+/// 取不到输入就**不记已打过**(下次还得再试)—— 不拿"没判成"冒充"判过了"(§0.3)。
+fn note_chrome_state(&mut self, overlay: HWND) {
+    let owner = self.owner;
+    let zoomed = unsafe { IsZoomed(owner).as_bool() };
+    if !self.geom_logged || self.zoom_logged != zoomed {
+        let bounds = unsafe { client_bounds(owner) };
+        let mut o = RECT::default();
+        let got_rect = unsafe { GetWindowRect(overlay, &mut o).is_ok() };
+        if let (Some((client_left, client_top, client_right)), true) = (bounds, got_rect) {
+            let m = metrics_for(owner);
+            log::info!(
+                "[window-chrome] 几何自证 最大化={} dpi={} 客户区 x={}..{} 顶边={} | overlay x={}..{} 顶边={} 宽={} | 右缘间距={} 顶边间距={} | 期望(右缘=顶边)={} 期望宽={} | 让开钮缘={} 采样上限={}",
+                zoomed,
+                unsafe { GetDpiForWindow(owner) },
+                client_left,
+                client_right,
+                client_top,
+                o.left,
+                o.right,
+                o.top,
+                o.right - o.left,
+                client_right - o.right,
+                o.top - client_top,
+                m.edge_gap,
+                m.total_w,
+                PROBE_AVOID_BTN_PX,
+                PROBE_MAX_SAMPLES
+            );
+            self.geom_logged = true;
+            self.zoom_logged = zoomed;
+        }
+    }
+
+    let dc = unsafe { GetDC(None) };
+    if dc.is_invalid() {
+        return; // 取不到屏幕 DC ⇒ 深浅判不了,不记 key(下次还要再试)
+    }
+    let pick = self.dark_pick(dc, overlay);
+    let _ = unsafe { ReleaseDC(None, dc) };
+    let key = (pick.dark as i32) * 2
+        + match pick.source {
+            THEME_SRC_REPORTED => 0,
+            THEME_SRC_SAMPLED => 1,
+            _ => 2,
+        };
+    if key != self.dark_log_key {
+        log::info!(
+            "[window-chrome] 深浅自证 档位={} 来源={} 顶栏亮度中位={:?} slot兜底档={}",
+            if pick.dark { "暗(白字)" } else { "浅(深字)" },
+            pick.source,
+            pick.median,
+            if self.dark_bg { "暗" } else { "浅" }
+        );
+        self.dark_log_key = key;
+    }
+}
+}
+
+/// 采样 + 判定:在**自绘钮左侧**的顶栏带内取若干屏幕亮度,交给纯函数
+/// `classify_topbar_luminances` 出三态结论(采样在这里,GDI 之外无逻辑,便于单测)。
+///
+/// 采样左移让开钮缘 `PROBE_AVOID_BTN_PX`(别把自己画的像素算进样本),最多
+/// `PROBE_MAX_SAMPLES` 点、步长 `PROBE_STEP_PX` 逻辑像素,越过客户区左缘即停;
+/// `CLR_INVALID`(全 F)= 采样失败,停止本轮。取不到 overlay/客户区 ⇒ `None`(不判)。
 #[cfg(target_os = "windows")]
-unsafe fn sample_topbar_dark(dc: HDC, overlay: HWND, owner: HWND) -> Option<bool> {
+unsafe fn sample_topbar_dark(dc: HDC, overlay: HWND, owner: HWND) -> Option<(bool, u64)> {
     let mut o = RECT::default();
     if GetWindowRect(overlay, &mut o).is_err() {
         return None;
@@ -301,10 +446,10 @@ unsafe fn sample_topbar_dark(dc: HDC, overlay: HWND, owner: HWND) -> Option<bool
     let (client_left, _client_top, _client_right) = client_bounds(owner)?;
     let dpi = GetDpiForWindow(owner).max(96);
     let y = o.top + (o.bottom - o.top) / 2;
-    let step = scale(2, dpi).max(1);
-    let mut x = o.left - scale(6, dpi);
-    let mut lums: Vec<u64> = Vec::with_capacity(8);
-    while x > client_left && lums.len() < 8 {
+    let step = scale(PROBE_STEP_PX, dpi).max(1);
+    let mut x = o.left - scale(PROBE_AVOID_BTN_PX, dpi);
+    let mut lums: Vec<u64> = Vec::with_capacity(PROBE_MAX_SAMPLES);
+    while x > client_left && lums.len() < PROBE_MAX_SAMPLES {
         let c = GetPixel(dc, x, y);
         if c.0 == u32::MAX {
             break;
@@ -315,18 +460,7 @@ unsafe fn sample_topbar_dark(dc: HDC, overlay: HWND, owner: HWND) -> Option<bool
         lums.push((r * 299 + g * 587 + b * 114) / 1000);
         x -= step;
     }
-    if lums.is_empty() {
-        return None;
-    }
-    lums.sort_unstable();
-    let median = lums[lums.len() / 2];
-    if median < 80 {
-        Some(true)
-    } else if median > 175 {
-        Some(false)
-    } else {
-        None
-    }
+    classify_topbar_luminances(lums)
 }
 
 // 自定义消息(WM_APP+1):主题(深浅)变更,通知 overlay 重绘。
@@ -721,6 +855,10 @@ unsafe fn create_overlay(owner: HWND, dark_bg: bool, theme_reported: bool) -> Op
         tracking: false,
         dark_bg,
         theme_reported,
+        // 自证日志的三把节流闸:初值一律"没打过",第一帧必然报一次数。
+        geom_logged: false,
+        zoom_logged: false,
+        dark_log_key: -1,
     });
     SetWindowLongPtrW(overlay, GWLP_USERDATA, Box::into_raw(state) as isize);
     // 还没收到网页上报 ⇒ 挂上实测节拍(上报一到在 WM_THEME_CHANGED 里当场摘表)。
@@ -797,6 +935,8 @@ unsafe fn sync_overlay(overlay: HWND, resize: bool) {
         flags,
     );
     let _ = pos_result;
+    // 自证(真机自己报数,内部节流):右缘对齐这类事不该只靠外部量 —— SetWindowPos 之后现取一次实际矩形。
+    state.note_chrome_state(overlay);
     render_overlay(overlay);
 }
 
@@ -896,8 +1036,9 @@ unsafe fn render_overlay(overlay: HWND) {
 
             let active = GetForegroundWindow() == owner;
             let maximized = IsZoomed(owner).as_bool();
-            // 配色档在**循环外**取一次:深浅判定要不要读屏幕像素,不该按钮数重复采样。
-            let p = state.palette(screen_dc, overlay);
+            // 配色档与判定在**循环外**取一次:深浅判定要不要读屏幕像素,不该按按钮数重复采样。
+            // 自证日志(几何/深浅来源)不在这里打 —— 那需要可变借用,统一交 `note_chrome_state`。
+            let (p, _pick) = state.palette(screen_dc, overlay);
 
             for i in 0..3i32 {
                 // 钮间留 gap(HTML gap-0.5 = 2px),三钮 + 两道缝 = 容器总宽 112。
@@ -1322,6 +1463,123 @@ pub fn refresh_native_caption_buttons<W>(_window: &W) {}
 
 #[cfg(not(target_os = "windows"))]
 pub fn refresh_on_maximize_toggle<W>(_window: &W) {}
+
+/// 深浅判定与配色档的单测(2026-10-26 立)。
+///
+/// 为什么在这儿测而不是在外面截图测:沙箱/自动化里 GetPixel 与屏幕合成本就不可信
+/// (本文件头注记过"窗口在位、参数全对、屏幕一个像素都没有"那一型),而"三态判定"
+/// 与"两档成对"是**纯数值**问题——拆成 `classify_topbar_luminances` 后任何机器都能判;
+/// 真机上的观感则由 `note_chrome_state` 的自证日志留数。两边合起来才算证完。
+#[cfg(all(test, target_os = "windows"))]
+mod theme_classify_tests {
+    use super::*;
+
+    /// 1. 暗档顶栏(`dark:bg-shell-panel` = hsl(220 12% 5%) ≈ 亮度 13)必须判深。
+    #[test]
+    fn dark_topbar_is_judged_dark() {
+        let got = classify_topbar_luminances(vec![13, 13, 13, 13, 13]);
+        assert_eq!(got, Some((true, 13)), "暗档顶栏必须判成深底,实际 {got:?}");
+    }
+
+    /// 2. 亮档顶栏(#fff = 255)必须判浅。
+    #[test]
+    fn light_topbar_is_judged_light() {
+        let got = classify_topbar_luminances(vec![255, 255, 255]);
+        assert_eq!(got, Some((false, 255)), "亮档顶栏必须判成浅底,实际 {got:?}");
+    }
+
+    /// 3. 阳性对照:图标笔画(少数极暗点)不得翻转判定 ——
+    ///    这正是"用中位数不用均值"的全部价值:均值会被拖过阈值,中位数不会。
+    #[test]
+    fn icon_strokes_do_not_flip_the_call() {
+        // 5 个白底点 + 3 笔深色图标笔画:均值 = 123(会被误判成"不判"甚至深),中位数 = 244
+        let lums = vec![244u64, 250, 248, 252, 246, 18, 22, 30];
+        let got = classify_topbar_luminances(lums.clone());
+        assert_eq!(got.map(|x| x.0), Some(false), "白底被笔画翻成深档: {got:?}");
+        let mean = lums.iter().sum::<u64>() / lums.len() as u64;
+        assert!(
+            mean < BAND_LIGHT_LUMINANCE,
+            "夹具必须真的让均值落进模糊带(否则本例没在防什么):mean={mean}"
+        );
+    }
+
+    /// 4. 深底同理:几笔浅色像素不得把暗档翻成浅档。
+    #[test]
+    fn light_strokes_do_not_flip_dark() {
+        let got = classify_topbar_luminances(vec![12u64, 13, 13, 20, 13, 230, 240, 250]);
+        assert_eq!(got.map(|x| x.0), Some(true), "暗档被浅色笔画翻成浅档: {got:?}");
+    }
+
+    /// 5. 模糊带(半深、渐变、图标密集)一律**不判** —— 判不准时沿用上一档,
+    ///    不画出一个"看不清"的档(§0.3:取不到输入不得冒判)。
+    #[test]
+    fn ambiguous_band_is_not_judged() {
+        for v in [BAND_DARK_LUMINANCE, 120, BAND_LIGHT_LUMINANCE] {
+            assert_eq!(
+                classify_topbar_luminances(vec![v, v, v]),
+                None,
+                "亮度 {v} 落在模糊带内必须不判"
+            );
+        }
+    }
+
+    /// 6. 空样本 ⇒ 不判(采样全失败时不得给结论)。
+    #[test]
+    fn empty_samples_are_not_judged() {
+        assert_eq!(classify_topbar_luminances(vec![]), None);
+    }
+
+    /// 7. 带外沿必须真的在带外:深/浅两档的可用区间非空,
+    ///    且边界值本身归"不判"(阈值写成 <= / >= 就是回归)。
+    #[test]
+    fn band_edges_are_exclusive() {
+        assert_eq!(
+            classify_topbar_luminances(vec![BAND_DARK_LUMINANCE - 1]).map(|x| x.0),
+            Some(true)
+        );
+        assert_eq!(
+            classify_topbar_luminances(vec![BAND_LIGHT_LUMINANCE + 1]).map(|x| x.0),
+            Some(false)
+        );
+    }
+
+    /// 8. 配色必须**成对**存在且浅深互异:缺一档 = 那个主题没有配色(本票的原始缺陷),
+    ///    同值 = 两档其实是同一张脸(用户仍然"看不清")。
+    #[test]
+    fn palette_pairs_are_distinct_per_role() {
+        let l = Palette::light();
+        let d = Palette::dark();
+        assert_ne!(l.hover, d.hover, "浅深 hover 同值 ⇒ 暗档等于没适配");
+        assert_ne!(l.pressed, d.pressed, "浅深 press 同值 ⇒ 暗档等于没适配");
+        assert_ne!(l.glyph_active, d.glyph_active, "浅深字形同值 ⇒ 暗档等于没适配");
+        assert_ne!(l.glyph_inactive, d.glyph_inactive);
+        assert_ne!(l.hit_invisible, d.hit_invisible);
+        // close 档网页侧不分深浅(red-600 / red-700),两档必须**同值**(异值就是又漂出第二套规格)
+        assert_eq!(l.close_hover, d.close_hover);
+        assert_eq!(l.close_pressed, d.close_pressed);
+        assert_eq!(l.glyph_on_accent, d.glyph_on_accent);
+    }
+
+    /// 9. 暗档 hover 必须真的比暗档底色亮、但又不是纯白块
+    ///    (旧实现半透明白叠深底只有 #2E2E2E,肉眼看不出 hover;
+    ///     而 GDI+ 不预乘那一型又曾整块发白 —— 两头都不许踩)。
+    #[test]
+    fn dark_hover_is_visible_but_not_a_white_block() {
+        let d = Palette::dark();
+        let hover_r = (d.hover & 0xFF) as u8;
+        assert!(hover_r > 0x2F, "暗档 hover 太暗就等于没 hover:{:#X}", d.hover);
+        assert!(hover_r < 0x80, "暗档 hover 过亮会盖住网页顶栏:{:#X}", d.hover);
+        assert_eq!(d.hover, 0xFF_3D_3D_3D_u32, "暗档 hover 必须等于网页 --color-accent 暗档实值");
+    }
+
+    /// 浅档 hover 同一条:等于网页 `--color-accent` 亮档 #E0E0E0,且字形色不撞 hover 底色。
+    #[test]
+    fn light_hover_matches_web_token() {
+        let l = Palette::light();
+        assert_eq!(l.hover, 0xFF_E0E0E0_u32);
+        assert_ne!(l.glyph_active, l.hover, "字形色不得等于 hover 底色");
+    }
+}
 
 /// 注入网页侧 CSS:隐藏 HTML 窗控按钮(与原生按钮重叠)。
 ///

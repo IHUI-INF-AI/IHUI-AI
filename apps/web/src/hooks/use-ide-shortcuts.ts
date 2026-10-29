@@ -19,7 +19,7 @@ export function useIDEShortcuts() {
       const isInputFocused =
         target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
 
-      const key = e.key.toLowerCase()
+      const key = (e.key ?? '').toLowerCase() // WebView2 偶发 key 为 undefined(IME/合成事件)
       const store = useIDEWorkspace.getState()
 
       // Ctrl+Shift+* — 始终响应(视图切换)

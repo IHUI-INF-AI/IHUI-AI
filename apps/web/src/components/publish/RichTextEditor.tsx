@@ -199,7 +199,7 @@ export function RichTextEditor({
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (!e.ctrlKey && !e.metaKey) return
-      const k = e.key.toLowerCase()
+      const k = (e.key ?? '').toLowerCase() // WebView2 偶发 key 为 undefined(IME/合成事件)
       // 本编辑器自有的 chord 必须截断冒泡:React 根容器监听早于 window,
       // 不截断则同一次按键还会再命中 use-global-shortcuts 的全局注册表
       // (Ctrl+1/2/3 = 切对话模式,Ctrl+K = 命令面板),造成"一次按键两件事"。

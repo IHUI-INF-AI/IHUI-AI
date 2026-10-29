@@ -46,6 +46,8 @@ import {
   getAuditExportPublicKeyInfoForKid,
   verifySignedAuditExport,
 } from '../services/siem-exporter.js'
+import { buildSignedToolInvocationLedgerExport } from '../services/tool-invocation-ledger-export.js'
+import { TOOL_INVOCATION_LEDGER_OUTCOMES } from '../services/tool-invocation-ledger-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -62,6 +64,25 @@ const signedExportQuerySchema = z.object({
   startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   format: z.enum(['json', 'cef', 'leef']).optional().default('json'),
+  limit: z.coerce.number().int().min(1).max(50000).optional().default(10000),
+})
+
+/**
+ * 86(B04)明细账导出的查询维度:userId/toolName/sessionId/outcome + createdAt 窗口。
+ * 与 `/signed`(审计链导出)同一鉴权口径:这里是**过滤维度**,不是权限面 ——
+ * 能不能读由上方 `requireAdmin` preHandler 单独判(头注"身份口径"段)。
+ */
+const toolLedgerSignedExportQuerySchema = z.object({
+  userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
+  toolName: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(80).optional()),
+  sessionId: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(128).optional()),
+  outcome: z
+    .string()
+    .optional()
+    .transform(emptyToUndefined)
+    .pipe(z.enum(TOOL_INVOCATION_LEDGER_OUTCOMES).optional()),
+  startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   limit: z.coerce.number().int().min(1).max(50000).optional().default(10000),
 })
 
@@ -104,7 +125,9 @@ function readKidQuery(query: unknown): { present: false } | { present: true; kid
 async function sendPublicKey(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
   const wanted = readKidQuery(request.query)
   if (wanted.present && wanted.kid === '') {
-    return reply.status(400).send(error(400, 'kid 参数为空:要么不带(取当前签名公钥),要么带信封里记的那个 kid'))
+    return reply
+      .status(400)
+      .send(error(400, 'kid 参数为空:要么不带(取当前签名公钥),要么带信封里记的那个 kid'))
   }
   try {
     if (!wanted.present) return reply.send(success(getAuditExportPublicKeyInfo()))
@@ -114,7 +137,12 @@ async function sendPublicKey(request: FastifyRequest, reply: FastifyReply): Prom
       // 拿错材料去验,然后把"验不过"当成"证据被改过"(处置动作完全相反)。
       return reply
         .status(404)
-        .send(error(404, `未登记的密钥 kid=${hit.keyId}:请把它作为 retired 登记进 services/audit-export-key-registry.ts,旧信封才能验`))
+        .send(
+          error(
+            404,
+            `未登记的密钥 kid=${hit.keyId}:请把它作为 retired 登记进 services/audit-export-key-registry.ts,旧信封才能验`,
+          ),
+        )
     }
     return reply.send(
       success({
@@ -216,6 +244,75 @@ export const auditEvidenceExportRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // GET /tool-invocations/signed - 86(B04)明细账(tool_invocation_ledger)签名导出
+  server.get(
+    '/tool-invocations/signed',
+    {
+      schema: {
+        summary:
+          '生成带 RSA-SHA256 签名的工具调用明细账导出信封(86 证据级可追溯执行流水;收件方仅需公钥即可离线验签)',
+        tags: ['audit-evidence-export'],
+        querystring: {
+          type: 'object',
+          // 只声明类型不声明校验约束的理由同 `/signed`(ajv 先拒把 400 掩盖成 500)。
+          properties: {
+            userId: {
+              type: 'string',
+              description: '按操作者 ID 过滤(UUID,服务端 Zod 校验;仅作查询维度)',
+            },
+            toolName: { type: 'string', description: '按工具名过滤(服务端 Zod 校验)' },
+            sessionId: { type: 'string', description: '按会话 ID 过滤(服务端 Zod 校验)' },
+            outcome: {
+              type: 'string',
+              description: '按结果档过滤(success/failure/lost/unknown;服务端 Zod 校验)',
+            },
+            startDate: { type: 'string', description: '账行 createdAt 窗口起点(ISO)' },
+            endDate: { type: 'string', description: '账行 createdAt 窗口终点(ISO)' },
+            limit: { type: 'integer', description: '导出行数上限,默认 10000,最大 50000' },
+          },
+        },
+        response: buildResponseSchema(400, 401, 403, 500, 503),
+      },
+    },
+    async (request, reply) => {
+      const parsed = toolLedgerSignedExportQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { userId, toolName, sessionId, outcome, startDate, endDate, limit } = parsed.data
+
+      let envelope: Awaited<ReturnType<typeof buildSignedToolInvocationLedgerExport>>
+      try {
+        envelope = await buildSignedToolInvocationLedgerExport(
+          { userId, toolName, sessionId, outcome, startDate, endDate },
+          limit,
+        )
+      } catch (e) {
+        if (e instanceof AuditExportSignatureError) {
+          request.log.error({ reason: e.reason }, '明细账签名导出不可用')
+          return signatureUnavailable(reply, e)
+        }
+        request.log.error({ err: e }, '明细账签名导出失败')
+        return reply.status(500).send(error(500, '签名导出失败'))
+      }
+
+      // 出口自证:同 `/signed`,发出去之前先用公钥验一遍自己刚产出的信封
+      // (私钥/公钥不配对、序列化口径漂移都在这里现形,不等到收件方验不过)。
+      const selfCheck = verifySignedAuditExport(envelope)
+      if (!selfCheck.ok) {
+        request.log.error(
+          { reason: selfCheck.reason, status: selfCheck.status },
+          '明细账签名导出自检未通过',
+        )
+        return reply
+          .status(500)
+          .send(error(500, `签名导出自检未通过:${selfCheck.reason ?? '未知原因'}`))
+      }
+
+      return reply.send(success(envelope))
+    },
+  )
+
   // GET /public-key - 公钥发布(收件方取验签材料;响应里不存在私钥的任何形态)
   server.get(
     '/public-key',
@@ -247,8 +344,8 @@ export const auditEvidenceExportRoutes: FastifyPluginAsync = async (server) => {
 
 /**
  * 匿名面的逐路由限流档 —— 复用仓内既有机制 `@fastify/rate-limit`(全局注册见
- * `server.ts`,逐路由 override 的既有形态见 `routes/auth-carrier.ts` /
- * `routes/auth-extended.ts`),**不自写内存计数器**。
+ * `server.ts`,逐路由 override 的既有形态见 `routes/auth-extended.ts`),
+ * **不自写内存计数器**。
  *
  * 30/min/IP 的依据:验签公钥是给外部审计方在交付核验时取用的,不是热路径轮询对象;
  * 全局档(生产 100/min/IP)对一个匿名只读端点仍然偏宽。导出这个常量是为了测试能

@@ -5,6 +5,9 @@ logs/
 tmp/
 # 浏览器自动化测试临时产物(截图 + ad-hoc 验证脚本,防回潮)
 browser_test_output/
+# 同一族的另一个落点:自动化会话在仓库根就地建的截图暂存目录(2026-10-26 现读:并发席位 16:33 在用,
+# 内仅 .tmp;登记进忽略层 = 守门 44 从"归属无从判定(exit 2)"落到只告警层,不删他人现场)
+.screenshots/
 # curl 导出的 Netscape cookie 文件(临时)
 cookies.txt
 apps/web/out/
@@ -65,6 +68,8 @@ logs-*-restart*.txt
 # 构建产物
 # ============================================================================
 dist/
+# design-tokens 等的构建中临时目录(dist.__building__<pid>):构建完成会 rename 成 dist,中断则残留半成品
+dist.__building__*/
 # SEA 单文件二进制产物(96MB 级,严禁入库;构建:pnpm --filter ihui-cli build:sea)
 apps/cli/dist-sea/
 # npm 发布包产物(单文件 bundle + 语言包;构建:pnpm --filter ihui-cli build:npm,发布:cd apps/cli && npm publish npm-dist)
@@ -94,6 +99,11 @@ __pycache__/
 .next.bak-*/
 dist.old-*/
 deploy/win/deploy-loop.log.*
+# 2026-10-28 api 蓝绿入库同批补:蓝绿活跃色的**运行时状态文件**落点(router 与
+# ihui-api-bluegreen.ps1 共用同一份物理文件,fs.watchFile 1s 热切读它)。
+# 它是本机运行态、不是配置:入库会让每次切流都产生一条无意义 diff,并与
+# apps/api/src/index.ts / ihui-deploy.ps1 里的同一路径默认值争"谁是真相源"。
+deploy/run/
 # 2026-10-22 同一轮补的第二批(生产 ff 后 status 从 11 → 8,剩的是这两族):
 #   ① `*.bak-*`:热修前的源码现场备份(实测 model_availability.py.bak-balancefix-20261021 /
 #      model_catalog.py.bak-freeflagship-20261021)。既有规则只盖 `.env.bak-*`(第 519/520 行),
@@ -607,3 +617,6 @@ apps/web/.next-wbcheck/
 deploy/win/.alert-quiet-ledger.jsonl
 # 含 Cloudflare API 令牌的运行配置（其 .example 模板才入库，勿将真 .env 提交）
 deploy/cf-preferred-ip.env
+
+# 非本仓交付物(别的项目的 PDF/HTML 产物)误落在仓根;§28 让被忽略的一级条目进只告警层,免得每席位提交都撞应急档
+/deliverables/

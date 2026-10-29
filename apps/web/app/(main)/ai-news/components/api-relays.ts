@@ -117,7 +117,7 @@ export const COMPANY_RELAYS: ApiRelay[] = [
     type: 'company',
     url: 'https://huggingface.co/inference-api',
     docsUrl: 'https://huggingface.co/docs/api-inference',
-    baseUrl: 'https://api-inference.huggingface.co/v1',
+    baseUrl: 'https://router.huggingface.co/v1', // 2026-10-26 换域:api-inference 已被封锁不可达(实测)
     vendors: ['Meta', 'Mistral', 'BAAI', 'Qwen'],
     features: '全球最大模型托管平台,免费 Inference API,支持 30 万+ 开源模型',
     billing: '免费额度有限,超出后按请求计费,Pro 账户更高配额',

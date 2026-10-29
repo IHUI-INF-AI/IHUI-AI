@@ -23,8 +23,8 @@ import { execFileSync } from 'node:child_process'
 
 const INSPECTOR_PORT = 9229
 const INSPECTOR_BASE = `http://127.0.0.1:${INSPECTOR_PORT}`
-const AUTH_DIR = path.join(os.homedir(), 'AppData', 'Local', 'CodeBuddyExtension', 'Data', 'Public', 'auth')
-const AUTH_FILE_BY_EDITION = {
+export const AUTH_DIR = path.join(os.homedir(), 'AppData', 'Local', 'CodeBuddyExtension', 'Data', 'Public', 'auth')
+export const AUTH_FILE_BY_EDITION = {
   workbuddy: 'workbuddy-desktop.info',
   'workbuddy-ai': 'workbuddy-desktop-ai.info',
 }
@@ -126,7 +126,7 @@ export function resolveEdition(userDataDir) {
   return null
 }
 
-function normalizeAtRestKey(atRestSecretKey) {
+export function normalizeAtRestKey(atRestSecretKey) {
   const key = crypto.createHash('sha256').update(String(atRestSecretKey), 'utf8').digest()
   const keyId = crypto.createHash('sha256').update(key).digest('hex').slice(0, 16)
   return { key, keyId }
@@ -199,6 +199,44 @@ export function decryptSessionTree(node, key, keyId) {
   const out = Array.isArray(node) ? [] : {}
   for (const [k, v] of Object.entries(node)) out[k] = decryptSessionTree(v, key, keyId)
   return out
+}
+
+/** 必须作为凭证剔除/重封的两个路径(写回端与提取端共用,单源) */
+export const WB_CREDENTIAL_PATHS = Object.freeze(['auth.accessToken', 'auth.refreshToken'])
+
+/**
+ * 收集原始树里 $wbEncrypted===1 节点的路径(2026-10-28 立,本机实测密封面稳定)。
+ * 路径格式:点分 + 数组下标方括号,如 `auth.accessToken`、`accounts[0].nickname`。
+ */
+export function collectSealedPaths(node, prefix = '', out = []) {
+  if (!node || typeof node !== 'object') return out
+  if (node.$wbEncrypted === 1) {
+    if (prefix) out.push(prefix)
+    return out
+  }
+  if (Array.isArray(node)) {
+    for (let i = 0; i < node.length; i += 1) collectSealedPaths(node[i], `${prefix}[${i}]`, out)
+    return out
+  }
+  for (const [k, v] of Object.entries(node)) {
+    collectSealedPaths(v, prefix ? `${prefix}.${k}` : k, out)
+  }
+  return out
+}
+
+/**
+ * 解密树 → 会话模板:深拷贝后仅剔除 auth.accessToken / auth.refreshToken 两个键。
+ * 其余全部保留(nickname/phoneNumber 的明文值也留着 —— 入池后随 secretsEnc 加密存储)。
+ * 非对象入参返回 null。
+ */
+export function buildSessionTemplate(decryptedTree) {
+  if (!decryptedTree || typeof decryptedTree !== 'object' || Array.isArray(decryptedTree)) return null
+  const clone = JSON.parse(JSON.stringify(decryptedTree))
+  if (clone.auth && typeof clone.auth === 'object' && !Array.isArray(clone.auth)) {
+    delete clone.auth.accessToken
+    delete clone.auth.refreshToken
+  }
+  return clone
 }
 
 async function waitForInspector(pid, timeoutMs = 8000) {
@@ -376,8 +414,10 @@ export async function extractWorkbuddyAccount({ now = () => Date.now() } = {}) {
   const bootstrap = await readAtRestBootstrap(pid)
   const { key, keyId } = normalizeAtRestKey(bootstrap.atRestSecretKey)
   let session
+  let rawSealedPaths
   try {
     const raw = JSON.parse(fs.readFileSync(authFile, 'utf8'))
+    rawSealedPaths = collectSealedPaths(raw)
     session = decryptSessionTree(raw, key, keyId)
   } finally {
     key.fill(0)
@@ -402,11 +442,15 @@ export async function extractWorkbuddyAccount({ now = () => Date.now() } = {}) {
   }
 
   const nickname = typeof account.nickname === 'string' ? account.nickname : ''
+  // 号池统一名称 = 官方绑定手机号(2026-10-28 立):Keycloak JWT 的 preferred_username
+  // 即注册手机号全号;昵称/脱敏值不得当统一名。只对 11 位全号形态生效。
+  const pref = claims.preferred_username
+  const phone = typeof pref === 'string' && /^1[3-9]\d{9}$/.test(pref) ? pref : ''
   return {
     providerCode: 'workbuddy',
     accounts: [
       {
-        name: nickname || `workbuddy-${String(account.uid).slice(0, 8)}`,
+        name: phone || nickname || `workbuddy-${String(account.uid).slice(0, 8)}`,
         token,
         refreshToken,
         enabled: true,
@@ -416,12 +460,21 @@ export async function extractWorkbuddyAccount({ now = () => Date.now() } = {}) {
       edition,
       pid,
       uid: String(account.uid),
-      name: nickname,
+      name: phone || nickname,
+      phone: phone || null,
       authFile,
       tokenExpiresAt: expiresAt ? expiresAt.toISOString() : null,
       tokenFingerprint: fingerprintOf(token),
       accessTokenLength: token.length,
       refreshTokenLength: refreshToken.length,
+      /**
+       * 会话模板(2026-10-28 立,「一键切号」写回端用):解密树剔掉两个凭证键。
+       * 只进 meta,**绝不进 accounts[]** —— 号池导入路由会把 accounts 里的未知键明文透传进
+       * extraMetadata,模板(含 nickname/phoneNumber 资料)必须走 secretsEnc 加密面。
+       */
+      sessionTemplate: buildSessionTemplate(session),
+      sealedPaths: [...new Set([...rawSealedPaths, ...WB_CREDENTIAL_PATHS])],
+      templateUid: String(account.uid),
     },
   }
 }
@@ -437,5 +490,10 @@ export const __test__ = {
   decodeJwtClaims,
   fingerprintOf,
   resolveMainProcessesFromRows,
+  collectSealedPaths,
+  buildSessionTemplate,
+  WB_CREDENTIAL_PATHS,
+  AUTH_DIR,
+  AUTH_FILE_BY_EDITION,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

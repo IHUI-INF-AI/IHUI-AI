@@ -21,15 +21,28 @@
 //   · 只在这两项同时成立时复原被跟踪文件:索引==HEAD(不是别人暂存的活) ∧ 盘上≠HEAD;
 //   · 未跟踪副本只在"上游 tip 已跟踪同名路径"时才让位(否则那是别人在飞的源码,一律 HANDS-OFF);
 //   · 默认 dry-run,`--apply` 才写;合并进行中整轮让路。
+//
+// 产出形态(2026-10-29 改,治"部署日志洪水"):生产实测每轮 83050 行逐文件 JSON 对象把
+// deploy-loop.log 的 FAIL/OK/切流结论全淹了(11~13 分钟轮转一次、跨 5 个文件找一行结论)。
+//   · 默认只打**单行**读数:mode/总计/blocked/耗时 一行 + 每个 tier×action 桶计数一行 +
+//     明细落盘指针一行 + **非无害条目**(不动…/失败…)逐条点名(上限 ALERT_LINE_CAP 条,
+//     超限写"另有 N 条未列出,逐条见 <JSONL>");
+//   · `--verbose` 保留旧"逐文件多行 JSON 对象"全量 stdout(取证/调试用);
+//   · 两种形态都把逐条明细整批落盘为机读 JSONL(IHUI_DEPLOY_GENERATED_DETAIL 可改落点,
+//     缺省 .ihui-agent/state/deploy-generated-yield.jsonl,每轮覆盖);
+//   · 退出码语义一字未动:0=正常跑完(含 blocked/fatal,与旧版一致)、2=用法错或顶层异常。
 import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REGISTRY = join(ROOT, 'scripts', 'data', 'deploy-generated-paths.json')
 const BACKUP_ROOT = process.env.IHUI_DEPLOY_GENERATED_BACKUP || 'D:\\DevEnv\\backups\\deploy-generated'
+const DETAIL_FILE = process.env.IHUI_DEPLOY_GENERATED_DETAIL || join(ROOT, '.ihui-agent', 'state', 'deploy-generated-yield.jsonl')
+export const ALERT_LINE_CAP = 50
 
 const git = (args, cwd, allowFail = false) => {
   try {
@@ -175,23 +188,127 @@ export function applyGeneratedYield(repoRoot, plan) {
   return { done }
 }
 
-function main() {
+// ── 产出层(2026-10-29):默认聚合、逐条明细落 JSONL、--verbose 保留旧全量 stdout ──
+// 判定"非无害"的唯一实现:HANDS-OFF / 盘上已无此文件 / 备份后…(让位或复原,执行结果另由
+// APPLY 桶与"失败…"行兜底) / 已备份并… 都是噪音或已成功;其余(不动…/失败…)必须逐条点名。
+// 测试 import 本函数,禁止复制第二份(§22c)。
+export function isNonHarmlessOutcome(text) {
+  const s = String(text ?? '')
+  if (s.startsWith('HANDS-OFF')) return false
+  if (s.startsWith('盘上已无此文件')) return false
+  if (s.startsWith('备份后')) return false
+  if (s.startsWith('已备份并移除')) return false
+  if (s.startsWith('已备份并复原到 HEAD')) return false
+  return true
+}
+
+// 读数不得断行:任何进 stdout 的字段先折掉换行(错误消息可能自带 \n)
+export function oneLineReading(s) {
+  return String(s ?? '').replace(/\r?\n/g, ' ').trim()
+}
+
+const applyOutcomeBucket = (r) => (String(r).startsWith('失败') ? '失败(未动盘)' : String(r))
+
+export function collectDetailRows({ mode, repo, plan, applied, at }) {
+  if (plan.fatal) return []
+  const rows = []
+  for (const a of plan.actions || []) rows.push({ at, mode, repo, kind: 'action', ...a })
+  for (const d of (applied && applied.done) || []) rows.push({ at, mode, repo, kind: 'applied', ...d })
+  return rows
+}
+
+export function buildSummaryLines({ mode, repo, plan, applied, elapsedMs, detailFile, alertCap = ALERT_LINE_CAP }) {
+  const detailRows = collectDetailRows({ mode, repo, plan, applied, at: new Date().toISOString() })
+  if (plan.fatal) {
+    return { lines: [`GEN-YIELD mode=${mode} repo=${repo} FATAL ${oneLineReading(plan.fatal)}`], detailRows }
+  }
+  const actions = plan.actions || []
+  const done = (applied && applied.done) || []
+  const buckets = new Map()
+  for (const a of actions) {
+    const k = `PLAN|${a.tier}|${oneLineReading(a.action)}`
+    buckets.set(k, (buckets.get(k) || 0) + 1)
+  }
+  for (const d of done) {
+    const k = `APPLY|${oneLineReading(applyOutcomeBucket(d.result))}`
+    buckets.set(k, (buckets.get(k) || 0) + 1)
+  }
+  const alerts = []
+  for (const a of actions) if (isNonHarmlessOutcome(a.action)) alerts.push({ rel: a.rel, source: 'plan', outcome: oneLineReading(a.action) })
+  for (const d of done) if (isNonHarmlessOutcome(d.result)) alerts.push({ rel: d.rel, source: 'apply', outcome: oneLineReading(d.result) })
+
+  const lines = []
+  lines.push(`GEN-YIELD mode=${mode} repo=${repo} actions=${actions.length} applied=${done.length} alerts=${alerts.length} blocked=${plan.blocked ? 'true' : 'false'} elapsed=${elapsedMs}ms`)
+  for (const [k, c] of [...buckets.entries()].sort((x, y) => y[1] - x[1])) lines.push(`GEN-YIELD-TIER bucket=${k} count=${c}`)
+  lines.push(`GEN-YIELD-DETAIL file=${detailFile} rows=${detailRows.length}`)
+  const shown = alerts.slice(0, alertCap)
+  shown.forEach((al, i) => lines.push(`GEN-YIELD-ALERT #${i + 1} src=${al.source} rel=${al.rel} outcome=${al.outcome}`))
+  if (alerts.length > shown.length) {
+    lines.push(`GEN-YIELD-ALERT-TAIL 另有 ${alerts.length - shown.length} 条未列出，逐条见 ${detailFile}`)
+  }
+  return { lines, detailRows }
+}
+
+// 旧 stdout 形态原样保留(--verbose 专用):逐文件多行 JSON 对象
+export function renderVerboseDump(obj) {
+  return JSON.stringify(obj, null, 1)
+}
+
+export function writeDetailLedger(file, rows) {
+  try {
+    mkdirSync(dirname(file), { recursive: true })
+    writeFileSync(file, rows.map((r) => JSON.stringify(r)).join('\n') + (rows.length ? '\n' : ''), 'utf8')
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: oneLineReading(String(e?.message ?? e).slice(0, 160)) }
+  }
+}
+
+async function main() {
   const apply = process.argv.includes('--apply')
-  const repo = process.argv.includes('--repo') ? process.argv[process.argv.indexOf('--repo') + 1] : ROOT
+  const verbose = process.argv.includes('--verbose')
+  const repoFlag = requireFlagValue(process.argv, '--repo', { noun: '路径', fallback: ROOT })
+  if (repoFlag.error) {
+    console.error(`❌ 用法错:${repoFlag.error}`)
+    process.exit(2)
+  }
+  const repo = repoFlag.value
+  const startedAt = Date.now()
   const plan = planGeneratedYield(repo, readFileSync(REGISTRY, 'utf8'))
-  console.log(JSON.stringify({ mode: apply ? 'APPLY' : 'DRY-RUN', repo, ...plan }, null, 1))
-  if (apply && !plan.fatal) console.log(JSON.stringify({ applied: applyGeneratedYield(repo, plan) }, null, 1))
+  const applied = apply && !plan.fatal ? applyGeneratedYield(repo, plan) : null
+  const mode = apply ? 'APPLY' : 'DRY-RUN'
+  const summary = buildSummaryLines({ mode, repo, plan, applied, elapsedMs: Date.now() - startedAt, detailFile: DETAIL_FILE })
+  const write = writeDetailLedger(DETAIL_FILE, summary.detailRows)
+  if (verbose) {
+    console.log(renderVerboseDump({ mode, repo, ...plan }))
+    if (applied) console.log(renderVerboseDump({ applied }))
+    if (!write.ok) console.error(`❌ 明细落盘失败:${write.error}`)
+    return
+  }
+  for (const line of summary.lines) console.log(line)
+  if (!write.ok) {
+    console.log(`GEN-YIELD-DETAIL-FAIL 落盘失败:${write.error} ⇒ 上方“另有 N 条未列出”指向的文件本轮未更新`)
+  }
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
-  try {
-    main()
-  } catch (e) {
+  main().catch((e) => {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
     process.exit(2)
-  }
+  })
 }
 
-export const __test__ = { planGeneratedYield, applyGeneratedYield }
+export const __test__ = {
+  planGeneratedYield,
+  applyGeneratedYield,
+  isNonHarmlessOutcome,
+  oneLineReading,
+  collectDetailRows,
+  buildSummaryLines,
+  renderVerboseDump,
+  writeDetailLedger,
+  ALERT_LINE_CAP,
+  DETAIL_FILE,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

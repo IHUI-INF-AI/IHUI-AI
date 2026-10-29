@@ -5,6 +5,9 @@
 export { MoreLink } from './MoreLink'
 export type { MoreLinkProps } from './MoreLink'
 
+export { SectionHeader } from './SectionHeader'
+export type { SectionHeaderProps } from './SectionHeader'
+
 export { BackChevron } from './BackChevron'
 export type { BackChevronProps } from './BackChevron'
 
@@ -38,5 +41,10 @@ export type { CategoryItem, ColorSchemeName } from './category/types'
 // 这四件是两端观感最粗糙的共性缺口,故收口一份、两端同源(小程序侧镜像见
 // apps/miniapp-taro/src/components/ScreenStates.taro.tsx)。
 export { ScreenSkeleton, EmptyState, ErrorState, PressableCard } from './ScreenStates'
-export type { ScreenSkeletonProps, EmptyStateProps, ErrorStateProps, PressableCardProps } from './ScreenStates'
+export type {
+  ScreenSkeletonProps,
+  EmptyStateProps,
+  ErrorStateProps,
+  PressableCardProps,
+} from './ScreenStates'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

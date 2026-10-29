@@ -11,25 +11,14 @@ import {
   type ComponentType,
   type ReactNode,
 } from 'react'
-import {
-  ActivityIndicator,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { CommonActions, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
 import { SvgXml, type SvgProps } from 'react-native-svg'
-import { WebView } from 'react-native-webview'
 import {
   loginByAccount,
-  loginByCarrierOneClick,
   loginByEmailCode,
   loginBySms,
   loginByWechat,
@@ -41,34 +30,18 @@ import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
-import {
-  OAUTH_BRAND_COLORS,
-  withAlpha,
-  rnRadius,
-  rnRadiusFor,
-  rnSpacing,
-  rnType,
-} from '@ihui/design-tokens'
+import { OAUTH_BRAND_COLORS, withAlpha, rnRadius, rnRadiusFor, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { isSessionLoggedOut } from '../lib/token'
 import { shouldAttemptAutoLogin } from '../lib/auto-login-policy'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { orderThirdPartyOptionsByRegion, useLoginRegionPlan } from '../hooks/use-login-region-plan'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
 import { isWechatAvailable, isWechatInstalled, sendWechatAuth } from '../lib/wechat'
-import {
-  CARRIER_ERROR,
-  CarrierOneClickError,
-  carrierLogin,
-  getCarrierChannel,
-  getCarrierWebUrl,
-  getRecentPhone,
-  isCarrierAvailable,
-  resolveCarrierWebResult,
-} from '../lib/carrier-one-click'
 import {
   loginByAlipayRedirect,
   loginByDingtalkRedirect,
@@ -309,7 +282,9 @@ function isBindPhoneRequired(msg?: string | null): boolean {
 type LoginNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>
 
 // 协议二次确认弹窗记录的待执行登录方式(对齐历史 login.vue pendingLoginType)
-type PendingLoginAction = 'email' | 'phone' | 'password' | 'carrier'
+// 第三方登录也走同一弹窗:未同意时记录平台,「同意」后自动续登(断点由 performThirdPartyLogin 承接)
+type PendingLoginAction =
+  'email' | 'phone' | 'password' | { kind: 'thirdParty'; platform: ThirdPartyPlatform }
 
 export function LoginScreen() {
   const { t, locale } = useI18n()
@@ -347,9 +322,18 @@ export function LoginScreen() {
 
   // 第三方登录方式:按平台 + locale 动态生成
   // 国内安卓:微信/飞书/钉钉/企微(4);国内 iOS:苹果为主 + 微信/飞书/钉钉/企微(5);国际版:Google/GitHub(2)
+  // 票 L28754:成员集仍由本端按平台能力决定,但**谁排第一不再由端内原序说了算** ——
+  // 优先序来自共享判据 planLoginRegion(后端按访客 IP 判的 loginRegion,判不出才落界面语言),
+  // 与 web 主站/桌面壳/浏览器扩展同一份表与同一个排序执行器(§0.6,端内禁止另写一份)。
+  // 只改顺序、不改成员(本票射程;tab 顺序与整行主推大按钮两格未接,见交付报告 C 段)。
+  const loginRegionPlan = useLoginRegionPlan(locale)
   const thirdPartyOptions = useMemo(
-    () => buildThirdPartyOptions(locale, resolvedTheme, t),
-    [locale, resolvedTheme, t],
+    () =>
+      orderThirdPartyOptionsByRegion(
+        buildThirdPartyOptions(locale, resolvedTheme, t),
+        loginRegionPlan,
+      ),
+    [locale, resolvedTheme, t, loginRegionPlan],
   )
 
   // ===== 历史账号记录(各 tab 登录成功后写入;供账号/邮箱/手机号输入框历史下拉展示) =====
@@ -472,13 +456,6 @@ export function LoginScreen() {
   // 区号选择(对齐 uniapp login phoneHead/nationShow;默认中国 +86)
   const [phoneHead, setPhoneHead] = useState('+86')
   const [nationShow, setNationShow] = useState(false)
-
-  // ===== 运营商一键登录(phone tab"本机号码一键登录"入口) =====
-  const [carrierLoading, setCarrierLoading] = useState(false)
-  // WebView/H5 通道:非 null 时渲染 H5 一键登录 WebView 弹层(getCarrierWebUrl() 地址)
-  const [carrierWebUrl, setCarrierWebUrl] = useState<string | null>(null)
-  // 是否已配置任一运营商通道(同步判断,未配置则不渲染一键登录按钮,走免费自动回填降级)
-  const carrierAvailable = useMemo(() => isCarrierAvailable(), [])
 
   // ===== 协议同意 state =====
   const [agreed, setAgreed] = useState(false)
@@ -637,96 +614,16 @@ export function LoginScreen() {
 
   // ===== 手机号 tab 自动回填最近登录手机号(对齐 web 端) =====
   // onTabChange 经 SharedLoginScreen 每次 activeTab 变化(含初始 defaultTab=phone)回调;
-  // 字段为空时用 getRecentPhone() 免费自动回填,失败降级后同样回填。
+  // 字段为空时用最近一次登录历史免费自动回填。
   const handleTabChange = useCallback(
     (tab: LoginTab) => {
       if (tab === 'phone' && !phone) {
-        const recent = getRecentPhone()
-        if (recent) setPhone(recent)
+        const recent = credentialStorage.loadLoginHistory()?.[0]
+        if (recent && /^\d{7,11}$/.test(recent)) setPhone(recent)
       }
     },
     [phone],
   )
-
-  // ===== 运营商一键登录回调 =====
-  // 点击"本机号码一键登录" → carrierLogin(原生 turbo 模块 / WebView H5)→ 拿 phone + accessToken
-  // → loginByCarrierOneClick({ accessToken, operator }) 换 JWT → 写 auth store + 回跳;
-  // 失败/未配置 → 降级切换到短信验证码登录并自动回填最近手机号。
-  const performCarrierOneClickLogin = useCallback(async () => {
-    setCarrierLoading(true)
-    form.clearError()
-    // WebView/H5 通道:先渲染 H5 一键登录 WebView 弹层,onMessage 通过 resolveCarrierWebResult 喂回结果
-    if (getCarrierChannel() === 'web') {
-      const url = getCarrierWebUrl()
-      if (url) setCarrierWebUrl(url)
-    }
-    try {
-      const res = await carrierLogin()
-      const apiRes = await loginByCarrierOneClick({
-        accessToken: res.accessToken ?? '',
-        operator: res.operator ?? 'flashverify',
-      })
-      if (apiRes.success && apiRes.data.accessToken) {
-        fullUserRef.current = apiRes.data.user
-        await rnAuthStore.getState().setAuth({
-          token: apiRes.data.accessToken,
-          refreshToken: apiRes.data.refreshToken,
-          user: apiRes.data.user,
-        })
-        navigateAfterLogin()
-        if (res.phone) persistLoginHistory(res.phone)
-      } else {
-        form.setError(apiFailureToText(apiRes, t('auth.loginFailed')))
-      }
-    } catch (err) {
-      if (err instanceof CarrierOneClickError) {
-        if (err.code === CARRIER_ERROR.NOT_CONFIGURED) {
-          // 未配置 → 降级切换"短信验证码登录",自动回填最近手机号
-          const recent = getRecentPhone()
-          if (recent) setPhone(recent)
-          showToast('info', t('login.carrierNotConfigured'))
-        } else {
-          form.setError(err.message)
-        }
-      } else {
-        form.setError(t('auth.loginFailed'))
-      }
-    } finally {
-      setCarrierLoading(false)
-      setCarrierWebUrl(null)
-    }
-  }, [form, navigateAfterLogin, persistLoginHistory, showToast, t])
-
-  // 协议检查包装(点按钮先过协议;未勾选弹二次确认,'carrier' 动作待「同意」后续登)
-  const handleCarrierOneClickLogin = useCallback(() => {
-    if (!checkAgreement('carrier')) return
-    void performCarrierOneClickLogin()
-  }, [checkAgreement, performCarrierOneClickLogin])
-
-  // "本机号码一键登录"按钮节点(wrapper 注入 SharedLoginScreen phone tab 置顶首选 CTA)。
-  // 颜色严格取自 AppThemeTokens(getTokens),禁止硬编码;未配置则不注入节点(hidden)。
-  const carrierEntryNode = useMemo(() => {
-    const tk = getTokens(resolvedTheme)
-    // 底色与文字取品牌 CTA 成对档(brand.cta / brand.ctaForeground,明暗同值 #4A7A96 / #FFFFFF),
-    // 对齐主登录按钮;这一档刻意不随主题反转,所以前景不再手算黑白三元式。
-    const onCarrierColor = tk.brand.ctaForeground
-    return (
-      <TouchableOpacity
-        style={[styles.carrierOneKeyBtn, { backgroundColor: tk.brand.cta }]}
-        onPress={handleCarrierOneClickLogin}
-        disabled={carrierLoading}
-        activeOpacity={0.8}
-        accessibilityRole="button"
-        accessibilityLabel={t('login.carrierOneClick')}
-      >
-        {carrierLoading ? <ActivityIndicator size="small" color={onCarrierColor} /> : null}
-        <Text style={[styles.carrierOneKeyText, { color: onCarrierColor }]}>
-          {carrierLoading ? t('login.carrierLaunching') : t('login.carrierOneClick')}
-        </Text>
-      </TouchableOpacity>
-    )
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 主题切换时重建即可,无需随 delegate 全量重建
-  }, [carrierLoading, resolvedTheme])
 
   const handleLoginByPhoneCode = useCallback(() => {
     if (!checkAgreement('phone')) return
@@ -749,25 +646,6 @@ export function LoginScreen() {
     setAgreementModalVisible(false)
     setPendingLoginAction(null)
   }, [])
-
-  // 点「同意」:自动勾选协议 + 关闭弹窗 + 继续执行被拦截的登录(对齐历史 confirmAgreement)
-  const confirmAgreement = useCallback(() => {
-    setAgreed(true)
-    setAgreementError('')
-    setAgreementModalVisible(false)
-    const action = pendingLoginAction
-    setPendingLoginAction(null)
-    if (action === 'email') void performEmailLogin()
-    else if (action === 'phone') void performPhoneLogin()
-    else if (action === 'password') void performPasswordLogin()
-    else if (action === 'carrier') void performCarrierOneClickLogin()
-  }, [
-    pendingLoginAction,
-    performEmailLogin,
-    performPhoneLogin,
-    performPasswordLogin,
-    performCarrierOneClickLogin,
-  ])
 
   // 弹窗内「服务条款 / 隐私政策」链接:关闭弹窗后跳转对应页面(对齐历史 openAgreement)
   const openAgreementFromModal = useCallback(() => {
@@ -818,7 +696,8 @@ export function LoginScreen() {
   // 苹果:iOS 优先 expo-apple-authentication 原生 SDK,Android 走 web OAuth 跳转(apple.ts)
   // Google:Android/iOS 优先 @react-native-google-signin/google-signin,fallback 到 web OAuth(google.ts)
   // 飞书/钉钉/企微/支付宝/GitHub:无原生 RN SDK,走 OAuth 浏览器跳转(oauth-redirect.ts)
-  const handleThirdPartyLogin = useCallback(
+  // 实际执行(不含协议检查,供协议弹窗「同意」后直接续登;授权会话的同意记录在 lib 层落)
+  const performThirdPartyLogin = useCallback(
     async (platform: ThirdPartyPlatform) => {
       const option = thirdPartyOptions.find((o) => o.platform === platform)
       if (!option || !option.enabled || option.forceDisabled) {
@@ -1009,6 +888,38 @@ export function LoginScreen() {
     [t, form, thirdPartyOptions, applyOAuthResult, showToast, navigateAfterLogin, navigation],
   )
 
+  // 第三方按钮统一入口:先过前端协议同意闸(未同意 → 记录平台并弹窗,确认后自动续登)。
+  // 微信原生 loginByWechat 也在此闸内 —— 票面要求 RN 第三方按钮不得绕过 agreed。
+  const handleThirdPartyLogin = useCallback(
+    (platform: ThirdPartyPlatform) => {
+      if (!checkAgreement({ kind: 'thirdParty', platform })) return
+      void performThirdPartyLogin(platform)
+    },
+    [checkAgreement, performThirdPartyLogin],
+  )
+
+  // ===== 协议二次确认弹窗回调(对齐历史 login.vue confirmAgreement/closeAgreementModal) =====
+  // 点「同意」:自动勾选协议 + 关闭弹窗 + 继续执行被拦截的登录(对齐历史 confirmAgreement)
+  // 第三方档调用不含闸的 performThirdPartyLogin —— agreed 的 setState 尚未落盘,
+  // 再走一次 handleThirdPartyLogin 会被同一闸拦下。
+  const confirmAgreement = useCallback(() => {
+    setAgreed(true)
+    setAgreementError('')
+    setAgreementModalVisible(false)
+    const action = pendingLoginAction
+    setPendingLoginAction(null)
+    if (action === 'email') void performEmailLogin()
+    else if (action === 'phone') void performPhoneLogin()
+    else if (action === 'password') void performPasswordLogin()
+    else if (action && typeof action === 'object') void performThirdPartyLogin(action.platform)
+  }, [
+    pendingLoginAction,
+    performEmailLogin,
+    performPhoneLogin,
+    performPasswordLogin,
+    performThirdPartyLogin,
+  ])
+
   // ===== 协议同意回调 =====
   const handleAgreedChange = useCallback((next: boolean) => {
     setAgreed(next)
@@ -1108,8 +1019,6 @@ export function LoginScreen() {
           onPhoneCodeChange={(v) => setPhoneCode(v.replace(/\D/g, '').slice(0, 6))}
           onSendPhoneCode={handleSendPhoneCode}
           onLoginByPhoneCode={handleLoginByPhoneCode}
-          // 运营商一键登录入口(仅已配置通道时渲染;未配置隐藏,走免费自动回填降级)
-          carrierOneClickEntry={carrierAvailable ? carrierEntryNode : undefined}
           // 第三方登录区(按平台 + locale 动态生成)
           thirdPartyOptions={thirdPartyOptions}
           onThirdPartyLogin={handleThirdPartyLogin}
@@ -1134,39 +1043,6 @@ export function LoginScreen() {
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}
         />
       </View>
-      {/* WebView/H5 运营商一键登录弹层(仅 web 通道配置时打开;onMessage 把结果喂回 carrierLogin) */}
-      <Modal
-        visible={carrierWebUrl !== null}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setCarrierWebUrl(null)}
-      >
-        <View style={styles.carrierWebOverlay}>
-          <View style={styles.carrierWebTopBar}>
-            <TouchableOpacity
-              onPress={() => setCarrierWebUrl(null)}
-              hitSlop={8}
-              accessibilityLabel={t('login.closeCarrier')}
-            >
-              <Text
-                style={[styles.carrierWebClose, { color: getTokens(resolvedTheme).text.secondary }]}
-              >
-                ×
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {carrierWebUrl ? (
-            <WebView
-              source={{ uri: carrierWebUrl }}
-              style={styles.carrierWeb}
-              onMessage={(e) => {
-                resolveCarrierWebResult(e.nativeEvent.data)
-                setCarrierWebUrl(null)
-              }}
-            />
-          ) : null}
-        </View>
-      </Modal>
       {/* 协议二次确认弹窗(对齐历史 login-app/login.vue showAgreementModal):
           未勾选协议点登录时弹出,「同意」自动勾选协议并继续被拦截的登录 */}
       <Modal
@@ -1247,46 +1123,6 @@ const styles = StyleSheet.create({
     fontSize: rnType.caption.size,
     fontWeight: '600',
     color: tokens.brandAccent.foreground,
-  },
-  // ===== 运营商一键登录按钮(布局;颜色在组件内按主题取 AppThemeTokens) =====
-  // 规格对齐主登录按钮 loginBtn(高 40),作为 phone tab 置顶首选 CTA;圆角按角色表 control→sm(4)
-  carrierOneKeyBtn: {
-    height: 40,
-    borderRadius: rnRadius.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: rnSpacing.sm,
-  },
-  carrierOneKeyText: {
-    fontSize: rnType.strong.size,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  // ===== WebView/H5 一键登录弹层 =====
-  carrierWebOverlay: {
-    flex: 1,
-    backgroundColor: withAlpha(tokens.gray.black, 0.4),
-    justifyContent: 'flex-end',
-  },
-  carrierWebTopBar: {
-    height: 44,
-    backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius['2xl'],
-    borderTopRightRadius: rnRadius['2xl'],
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    paddingHorizontal: rnSpacing.lg,
-  },
-  carrierWebClose: {
-    fontSize: 26,
-    lineHeight: 30,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  carrierWeb: {
-    flex: 1,
-    backgroundColor: withAlpha(tokens.surface.light, 0.9),
   },
   // 协议二次确认弹窗(对齐历史 login.vue .agreement-modal:白卡 580rpx / 圆角 24rpx,
   // 取消白底描边、同意黑底白字,按钮高 88rpx、间距 8rpx)

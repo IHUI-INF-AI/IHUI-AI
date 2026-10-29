@@ -1,3 +1,12 @@
 #!/bin/sh
 command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'post-merge' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
 git lfs post-merge "$@"
+
+# 活文档合并回捞探测(2026-10-28):普通 git merge 会绕开 union 判据,把已结清的登记行
+# 按结清前的 `- [ ]` 旧形态带回 HEAD 与 origin/main(实测枚 34e6c5e72c)。
+# 只警告不阻塞:post-merge 的退出码不影响 merge 结果,这里要的只是"当场有人看得见"。
+if command -v node >/dev/null 2>&1 && [ -f scripts/check-live-doc-merge-recall.mjs ]; then
+  node scripts/check-live-doc-merge-recall.mjs --last 1 ||
+    printf '%s\n' "[post-merge] ⚠️ 活文档可能有已结清行被合并带回,见上方点名" >&2
+fi
+

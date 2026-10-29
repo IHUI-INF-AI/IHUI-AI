@@ -19,11 +19,44 @@
  * (seed 失败时 E2E 以 graceful skip 模式运行,不会阻塞测试报告生成)。
  */
 import { execSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+/**
+ * 本机 e2e 供给面里的 E2E_DATABASE_URL(gitignored,由
+ * `scripts/e2e-local-supply.mjs --provision-admin` 维护)。
+ *
+ * 只取这一键、不做任何库名判定(判定唯一真相源仍是 seed 脚本):显式
+ * process.env.E2E_DATABASE_URL 优先;未设时才用它把 seed 定向到隔离库
+ * (本机默认 DSN 指向的 ihui/ihui_dev 是各席共用的开发库,seed 写进去是跨会话副作用)。
+ * 文件不存在 / 读不到 / 无此键 ⇒ 返回 undefined,完全沿用原默认行为(不猜)。
+ */
+function readLocalE2eDatabaseUrl(): string | undefined {
+  try {
+    const file = path.join(__dirname, '.env.e2e.local')
+    if (!existsSync(file)) return undefined
+    for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+      const m = /^\s*E2E_DATABASE_URL\s*=\s*(.+?)\s*$/.exec(line)
+      if (m) return m[1]
+    }
+  } catch {
+    /* 读不到 = 不改默认 */
+  }
+  return undefined
+}
+
+/** 只报库名(DSN 的口令段永不回显) */
+function dbNameOf(dsn: string): string {
+  try {
+    return new URL(dsn).pathname.replace(/^\//, '') || '<empty>'
+  } catch {
+    return '<unparsable>'
+  }
+}
 
 export default async function globalSetup(): Promise<void> {
   if (process.env.E2E_SKIP_SEED === '1') {
@@ -32,12 +65,15 @@ export default async function globalSetup(): Promise<void> {
   }
 
   const repoRoot = path.resolve(__dirname, '../../..')
-  // E2E_DATABASE_URL ⇒ seed 一律写隔离库;未设则沿用 seed 脚本自身 dotenv 兜底(默认行为不变)。
+  // E2E_DATABASE_URL ⇒ seed 一律写隔离库;未设且本机供给面也没有 ⇒ 沿用 seed 脚本自身
+  // dotenv 兜底(默认行为不变)。来源优先级:process.env > e2e/.env.e2e.local。
   const seedEnv: NodeJS.ProcessEnv = { ...process.env }
-  if (process.env.E2E_DATABASE_URL) {
-    seedEnv.DATABASE_URL = process.env.E2E_DATABASE_URL
+  const e2eDatabaseUrl = process.env.E2E_DATABASE_URL || readLocalE2eDatabaseUrl()
+  if (e2eDatabaseUrl) {
+    seedEnv.DATABASE_URL = e2eDatabaseUrl
+    const from = process.env.E2E_DATABASE_URL ? 'process.env' : 'e2e/.env.e2e.local'
     console.log(
-      '[e2e:global-setup] E2E_DATABASE_URL 已设置 ⇒ seed 定向隔离库(不写 apps/api/.env 默认库)',
+      `[e2e:global-setup] seed 目标库=${dbNameOf(e2eDatabaseUrl)}(来源:${from})⇒ 不写 apps/api/.env 默认库`,
     )
   }
   console.log('[e2e:global-setup] 开始 seed test@aizhs.top 用户...')

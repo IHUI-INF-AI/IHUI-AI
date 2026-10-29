@@ -388,6 +388,86 @@ export function describePoolExhaustion(cur = {}) {
   )
 }
 
+/**
+ * 第三类拒发的机读成因(2026-10-28 gb22 实测立)。⚠️ 它**不是** `leaseCursor` 交出的 reason
+ * (`POOL_EXHAUST_REASON` 那两值仍只归游标管):游标的口径是"占用面 blocked ⊕ 租约保留位",
+ * 而实测 G 族当次游标给的是 `mode:'claim'`(池内租约保留位 0 段、baseMax 抬高 0 枚),真正把
+ * freeList 清空的住**调用侧** G-14 全文件扫描那一层(池内 98/99 枚在台账⊕归档面有引用,
+ * 三关全干净的仅 1 枚)。旧出口把这一型照样念成"号池已满 ⇒ 归档腾号"——那是**已被量证伪的
+ * 无效出路**(归档不动引用面,散点让位 Δ=0),污染了台账行(2026-10-28「未取号」枚)与告警。
+ * 三成因不得并桶(§0.3/§12f):POOL_FULL=占用面真满;NO_CONTIGUOUS_LEASE_WINDOW=占用面有闲号
+ * 却无连续窗(租约保留位/散点占用切碎);SCAN_FACE_FULL=前两关让出的候选又被引用面全灭。
+ * 失效方向恒为"多要一次定向说明",绝不因新增这一档而多发一枚号。
+ */
+export const SCAN_FACE_EXHAUST_REASON = 'SCAN_FACE_FULL'
+
+/**
+ * 发号拒绝的**归因层级**(机读字段 `exhaustion.stage` 的取值,单源在此;调用方与镜像测试
+ * 都 import 它,不得在别处再写 stage 字面量 —— §0.6/§22c)。
+ *  - `lease-window`:游标本体给不出窗(前两成因那一型,读数在 `cursor`,由 `describePoolExhaustion` 渲染);
+ *  - `scan-filter`:游标给了窗/清单,候选却被调用侧 G-14 扫描面全部命中;
+ *  - `over-claim`:本批令牌数超过了池内可领清单长度(拆块分次落那一型)。
+ */
+export const EXHAUST_STAGE = Object.freeze({
+  leaseWindow: 'lease-window',
+  scanFilter: 'scan-filter',
+  overClaim: 'over-claim',
+})
+
+/**
+ * `scan-filter` 那一型结论的**唯一人类可读行**(2026-10-28 立,与 `describePoolExhaustion` 同层
+ * 同纪律:逐字段取用,本函数一个判据都不重算)。缺哪个读数就点名"未量到",绝不冒称量过(§0.3)。
+ * 出路措辞必须与实测同形(§0.8:文档不许写跑不通的出路):散点归档对这一型 Δ=0(引用不离开
+ * 归档面),真正出路是按 2026-10-24 拍板"族满开新字母族、永不升位数"。
+ */
+export function describeScanFaceExhaustion(ex = {}) {
+  const poolMax = Number.isFinite(ex.poolMax) ? ex.poolMax : LEASE_POOL_MAX
+  const segmentSize = Number.isFinite(ex.segmentSize) ? ex.segmentSize : LEASE_SEGMENT_SIZE
+  const candidates = Number.isFinite(ex.candidates) ? `${ex.candidates} 枚` : '未量到'
+  const hits = Number.isFinite(ex.scanHitCount)
+    ? `${ex.scanHitCount} 枚`
+    : Array.isArray(ex.scanHits)
+      ? `${ex.scanHits.length} 枚`
+      : '未量到'
+  const win =
+    Array.isArray(ex.window) && ex.window.length === 2
+      ? `候选窗 ${ex.window[0]}..${ex.window[1]}`
+      : '候选窗未量到(无游标/池内清单档)'
+  return (
+    `占用面口径让位后仍进了扫描关:${win},本轮候选 ${candidates},其中 ${hits}命中 G-14 全文件扫描面` +
+    `(台账/归档件里**任何一次出现**都算,含正文引用与归档占位)⇒ 真正可发为 0,拒绝发号。` +
+    `真成因 reason=${SCAN_FACE_EXHAUST_REASON}(段容量 ${segmentSize}/池 1..${poolMax}):` +
+    `这不是 POOL_FULL(占用面没满),也不是 NO_CONTIGUOUS_LEASE_WINDOW(游标让出了窗)——` +
+    `散点归档对这一型是无效出路(引用不离开归档面,实测 Δ=0);要动的是换号域:` +
+    `按 2026-10-24 拍板"族满开新字母族、永不升位数"——改用未吃紧的字母族,或把新字母按现读证据` +
+    `登记进编号族表唯一真相源(check-plan-line-loss.mjs 的 TASK_ID_PATTERN)——族表认不出的字母` +
+    `对取号器与主键判据同时隐身,族表先行是硬前提;新族首行以手填声明位入台账` +
+    `(取号器对手填行逐字保留),之后 {{NEXT_ID:新族}} 令牌恢复可发。绝不发 >${poolMax} 的号,绝不放宽扫描面。`
+  )
+}
+
+/**
+ * `pool-exhausted` 拒绝的**总渲染出口**(2026-10-28 立):调用方只交 `exhaustion` 读数对象,
+ * 归因句子全住 lib(出口再各拼一句就是第二份口径,正是把 ③ 念成"池已满"的成因)。
+ * stage 缺失/未知 ⇒ 显式"未判定",绝不回落旧措辞"号池已满 ⇒ 归档腾号"(§0.3/§12e 同型)。
+ */
+export function describeExhaustion(ex = {}) {
+  const stage = String(ex?.stage ?? '')
+  if (stage === EXHAUST_STAGE.leaseWindow) return describePoolExhaustion(ex.cursor ?? {})
+  if (stage === EXHAUST_STAGE.scanFilter) return describeScanFaceExhaustion(ex)
+  if (stage === EXHAUST_STAGE.overClaim) {
+    const freeTotal = Number.isFinite(ex.freeTotal) ? `${ex.freeTotal} 枚` : '未量到'
+    return (
+      `池内可领清单(${freeTotal})在本批令牌/改判的领取中领空 ⇒ 拒绝发号` +
+      `(成因=本批需求超过池水位,出路=把登记拆成多块分次落,或开新字母族;绝不发池外的号)`
+    )
+  }
+  return (
+    `拒绝发号,但归因未判定(取号器没交出 exhaustion.stage 读数)⇒ 不得按旧句` +
+    `「号池已满 ⇒ 归档腾号」处置:那三种成因的出路互不相同,先补一次定向说明再动(§0.3)。`
+  )
+}
+
 /** resolveIdTokens 的族级胶水:解析 + 判定一次给全(调用方只传 usedIdsOfPrefix 的结果)。 */
 export function decideLease({
   baseContent,

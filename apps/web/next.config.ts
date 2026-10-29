@@ -767,6 +767,20 @@ const nextConfig: NextConfig = {
   // 注意:output:'export' 模式下 headers() 不生效(静态文件由 CDN/nginx 托管);
   // 改为 standalone 模式或 nginx 配置这些头时生效。保留配置供后续切换。
   async headers() {
+    // 2026-10-28:扫码登录 SDK 的 6 个脚本源抽成常量 —— script-src 现在要按 dev/prod
+    // 分叉(生产摘 unsafe-eval),内联一长串域名会让两个分支各维护一份,迟早写歪。
+    const scriptSrcHosts = [
+      // res.wx.qq.com:微信 WxLogin.js
+      // wwcdn.weixin.qq.com:企业微信 wwLogin-1.2.7.js
+      // g.alicdn.com:钉钉 h5-dingtalk-login 0.21.0
+      // lf-package-cn.feishucdn.com:飞书 LarkSSOSDKWebQRCode-1.0.3.js
+      'https://res.wx.qq.com',
+      'https://wwcdn.weixin.qq.com',
+      'https://g.alicdn.com',
+      'https://lf-package-cn.feishucdn.com',
+      'https://cdn.jsdelivr.net',
+      'https://challenges.cloudflare.com',
+    ].join(' ')
     const securityHeaders = [
       { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
       // 2026-08-02 fix:WorkPanel 内置浏览器需 iframe 嵌入同源页面(发布/设置等),
@@ -787,13 +801,36 @@ const nextConfig: NextConfig = {
         key: 'Content-Security-Policy',
         value: [
           "default-src 'self'",
-          // 2026-07-25 修复扫码登录 SDK 加载失败:补全 4 家厂商 CDN 域名白名单
-          // - res.wx.qq.com:微信 WxLogin.js
-          // - wwcdn.weixin.qq.com:企业微信 wwLogin-1.2.7.js
-          // - g.alicdn.com:钉钉 h5-dingtalk-login 0.21.0
-          // - lf-package-cn.feishucdn.com:飞书 LarkSSOSDKWebQRCode-1.0.3.js
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.wx.qq.com https://wwcdn.weixin.qq.com https://g.alicdn.com https://lf-package-cn.feishucdn.com https://cdn.jsdelivr.net https://challenges.cloudflare.com",
+          // 2026-07-25 修复扫码登录 SDK 加载失败:补全厂商 CDN 白名单(清单见 scriptSrcHosts)。
+          //
+          // 2026-10-28 安全加固:生产摘掉 'unsafe-eval',dev 保留。依据是仓内实证,不是推测:
+          //  ① 源码零依赖:apps/web/src + app 全量 grep `new Function|eval(` 无命中。
+          //  ② 生产产物零依赖:静态导出产物 out/_next/static/chunks 全量 grep,唯一命中是
+          //     katex 的 LaTeX 命令表正则字面量(/eval(?:cmd)?|…/),不是可执行 eval。
+          //  ③ 第三方库逐个定性(命中的都是误匹配或死分支):
+          //     - pdfjs:命中是 `new FunctionBasedShading` 类名,非 Function 构造;
+          //     - echarts:new Function 只在 JSON 全局缺失时兜底解析 geoJSON,浏览器必走 JSON.parse;
+          //     - jszip:new Function 仅在调用方传字符串回调时触发,本仓不传;
+          //     - three:命中是 FunctionNode/FunctionCall,非构造调用。
+          //  ④ 唯一真实 eval 依赖是 Monaco(AMD loader 的 eval 探测 + worker 内 eval 求值),
+          //     已用 Playwright 实测:无 unsafe-eval 的 CSP 下 /vs/loader.js 正常加载、
+          //     TS language worker 正常建连并返回诊断、控制台零 CSP 违规 → 走 importScripts 回退,不白屏。
+          //  ⑤ dev 必须保留:Next dev 的 HMR/React Refresh 与 eval-based source map 依赖 eval,
+          //     摘掉会本地起不来(与上面 isDev 分叉 connect-src 同一先例)。
+          // 'unsafe-inline' 保持:Next 的 inline bootstrap script 需要,上 nonce 属大改(见报告遗留项)。
+          isDev
+            ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${scriptSrcHosts}`
+            : `script-src 'self' 'unsafe-inline' ${scriptSrcHosts}`,
           "style-src 'self' 'unsafe-inline'",
+          // 2026-10-28 评估后**保留** https: 通配,不按 next.config 的 images.remotePatterns 收窄。
+          // 取舍依据(收窄会直接打断功能,不是理论风险):
+          //  - src/components/ai/markdown-stream.tsx:751 明写「AI 返回的图片 URL 可能是任意来源,
+          //    不走 next/image 优化」—— 聊天/文章正文里的图来自模型输出,域名不可枚举;
+          //  - 用户头像/封面由后端存 URL(Avatar 走 next/image,但 unoptimized:true 直出 <img src>),
+          //    第三方 OAuth 头像域名同样不可枚举。
+          // 收窄到 remotePatterns 那 7 个域名 = AI 回答里的图全裂、部分用户头像裂。
+          // 剩余风险(已知并接受):https 图片可被当作数据外泄信道(把数据拼进 img src)。
+          // 正确解法是后端图片代理 + 域名白名单后再收窄,属跨端改造,不在本轮范围。
           "img-src 'self' data: blob: https:",
           "font-src 'self' data:",
           // connect-src:开发模式才放行本机(localhost/127.0.0.1),供直连 dev 的 8802/8803/8801
@@ -802,11 +839,19 @@ const nextConfig: NextConfig = {
           // 2026-10-13 修复:Tauri 2.11 桌面端 IPC 走 http(s)://ipc.localhost 自定义协议,
           // 必须显式放行,否则被 CSP 拦截后 Tauri 只能 fallback 到 postMessage(功能退化+控制台红)。
           // ipc.localhost 仅 Tauri WebView 内可达,普通浏览器永不请求,对 web 无副作用。
+          // 2026-10-27 收紧:生产摘 ws:(明文 WebSocket 外联;线上全部走 wss,ws:// 在
+          // https 页面属混合内容本就会被拦 —— 与 frame-src 的 http: 同型死配置)。
           isDev
             ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
-            : "connect-src 'self' https: wss: ws: http://ipc.localhost https://ipc.localhost",
+            : "connect-src 'self' https: wss: http://ipc.localhost https://ipc.localhost",
           "media-src 'self' blob:",
           "object-src 'none'",
+          "base-uri 'self'",
+          // 2026-10-28 补 frame-ancestors:与上面的 X-Frame-Options: SAMEORIGIN 语义对齐。
+          // 必须是 'self' 而非 'none' —— WorkPanel 内置浏览器用 iframe 嵌同源页面
+          // (发布/设置等),'none' 会连自己都嵌不了(2026-08-02 那次 DENY 踩过同样的坑)。
+          // 现代浏览器优先看 frame-ancestors,X-Frame-Options 仅作老浏览器兜底。
+          "frame-ancestors 'self'",
           // 2026-07-25 修复扫码登录 iframe 拦截:SDK 内部创建 iframe 渲染二维码
           // - open.weixin.qq.com:微信扫码确认 iframe
           // - open.work.weixin.qq.com:企业微信 qrConnect iframe
@@ -814,9 +859,10 @@ const nextConfig: NextConfig = {
           // - passport.feishu.cn:飞书 QR iframe
           // - self:Next.js dev HMR / React DevTools 需要
           // 2026-08-02 fix:WorkPanel 内置浏览器允许用户打开任意网址,
-          // frame-src 放开 https:/http: 使可嵌入的外部站点能正常 iframe 展示。
-          "frame-src 'self' https: http: https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn https://challenges.cloudflare.com",
-          "base-uri 'self'",
+          // frame-src 放开 https: 使可嵌入的外部站点能正常 iframe 展示。
+          // 2026-10-27 收紧:摘 http: —— https 页面嵌 http iframe 本就被浏览器
+          // 混合内容策略拦截,这是死配置;留着只会让审计每次都多问一遍。
+          "frame-src 'self' https: https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn https://challenges.cloudflare.com",
           "form-action 'self'",
         ].join('; '),
       },

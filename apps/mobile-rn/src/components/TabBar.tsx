@@ -7,15 +7,18 @@
  * 对齐历史项目 customTabBar/index.vue 5 主 Tab 结构与 static/tabbar/ 图标:
  *   - AI应用商店 (tabbar_1) / 广场 (tabbar_2) / 智汇AI (tabbar_3) /
  *     动态 (tabbar_4) / 我的 (tabbar_5)
- * 悬浮胶囊风(对齐 Telegram/钉钉 App 底部导航) — 圆角胶囊脱离屏幕边缘,
- * 左右留边 + 投影,底部按 safe-area 悬浮避开手势区。
+ * 液态玻璃停靠栏(2026-10-27 用户定稿):玻璃面板从图标行延伸到屏幕底边,
+ * 手势区收进面板内 —— 删掉原先图标行下面独立的白色透明带。
  * 平台特有:依赖 react-native Image require + SafeAreaView,不适合共享层。
  */
-import { useCallback } from 'react'
-import { Image, Pressable, Text, View } from 'react-native'
+import { useCallback, type RefObject } from 'react'
+import { Image, Platform, Pressable, Text, View } from 'react-native'
+import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { tokens } from '../theme/active-tokens'
+import { withAlpha } from '@ihui/design-tokens'
+import { useTheme } from '../context/ThemeContext'
 import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
 // 底栏图标的取源方式(2026-10-21 定档,刻意保留,不是遗留绕行):
 // 这族曾在 release 包里长期空白,当时的根因是 @react-native/assets-registry 被装成两份
@@ -48,6 +51,12 @@ export interface TabBarProps {
   onChange: (tab: TabBarKey) => void
   /** 覆盖默认标签(i18n 注入);未提供则用 TABS 内置默认值 */
   labels?: Partial<Record<TabBarKey, string>>
+  /**
+   * Android 真模糊必需(expo-blur SDK 55+):把胶囊背后的页面内容包进 BlurTargetView,
+   * 其 ref 从此传入。缺省时 Android 退 0.88 磨砂实底兜底(不出五稿那种实心白块);
+   * iOS/web 忽略此 prop(iOS UIVisualEffectView 无需 target,web 走 backdropFilter)。
+   */
+  blurTarget?: RefObject<View | null>
 }
 
 const TABS: readonly TabBarItemConfig[] = [
@@ -84,21 +93,54 @@ const TABS: readonly TabBarItemConfig[] = [
   },
 ] as const
 
-export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
+export default function TabBar({ activeTab, onChange, labels, blurTarget }: TabBarProps) {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const insets = useSafeAreaInsets()
 
   const handlePress = useCallback((key: TabBarKey) => () => onChange(key), [onChange])
 
+  // 悬浮间距:有效 safe-area 一半 + 小间距,不足则用最小间距兜底(2026-10-27 四稿恢复:
+  // 0.0.8 的「直落底边」几何被机主否决——菜单栏沉底、底部距离消失、面板底部多出一段空嵌套块;
+  // 恢复悬浮胶囊几何,材质仍用磨砂实底)
+  const floatGap = Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4)
+
+  // Android 真模糊开关:拿到各屏 BlurTargetView 的 ref 才渲染 BlurView(dimezis),
+  // 否则整层不渲染,由容器 0.88 磨砂实底兜底 —— 半吊子 BlurView 正是五稿实心白块的来源。
+  const androidBlur = Platform.OS === 'android' && !!blurTarget
+
   return (
-    <View
-      style={[
-        tabBarStyleSheet.wrapper,
-        // 悬浮高度:有效 safe-area 一半 + 小间距,不足则用最小间距兜底(对齐 Telegram 手势区避让)
-        { marginBottom: Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4) },
-      ]}
-    >
-      <View style={tabBarStyleSheet.container}>
+    <View style={[tabBarStyleSheet.wrapper, { marginBottom: floatGap }]}>
+      {/* 悬浮玻璃胶囊:图标行 + 底部留距(悬浮)组成同一块磨砂玻璃。
+          七稿(Android 真模糊补全,2026-10-28):六稿查明五稿白块真因 = expo-blur SDK 55+
+          的 Android dimezis 模糊必须配 blurTarget(缺 target 即禁用模糊并退实心 LIGHT tint
+          白块)。各屏已把胶囊背后的内容包进 BlurTargetView 并把 ref 传进来 ⇒ Android 上真
+          模糊,容器底色调回 0.5 半透(模糊层负责质感);若某屏漏传 target,Android 仍走
+          0.88 磨砂实底兜底,绝不再出实心白。iOS 用 UIVisualEffectView(无需 target)不变;
+          web 走 backdropFilter 不变。 */}
+      <View
+        style={[
+          tabBarStyleSheet.container,
+          Platform.OS === 'android' && {
+            backgroundColor: withAlpha(
+              resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,
+              androidBlur ? 0.5 : 0.88,
+            ),
+          },
+        ]}
+      >
+        {Platform.OS === 'ios' || androidBlur ? (
+          <BlurView
+            intensity={resolvedTheme === 'dark' ? 40 : 48}
+            tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
+            blurMethod={androidBlur ? 'dimezisBlurView' : undefined}
+            blurTarget={blurTarget}
+            style={tabBarStyleSheet.blurFill}
+          />
+        ) : null}
+        {resolvedTheme !== 'dark' ? (
+          <View style={tabBarStyleSheet.rimLight} pointerEvents="none" />
+        ) : null}
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab
           return (

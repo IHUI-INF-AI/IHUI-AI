@@ -6,6 +6,7 @@ import { eq, or, isNull, and, gt } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { users, refreshTokens, type User, type RefreshToken } from '@ihui/database'
+import { DEFAULT_USER_AVATAR_URL } from '@ihui/shared'
 // ihui_auth_token_revoked_total:queries 层不持有 fastify 实例,走模块级桥接函数打点
 import { recordAuthTokenRevoked } from '../plugins/business-metrics.js'
 
@@ -143,7 +144,7 @@ export async function createUser(data: CreateUserInput): Promise<User> {
       email: data.email,
       passwordHash: data.passwordHash,
       nickname: data.nickname,
-      avatar: data.avatar,
+      avatar: data.avatar?.trim() || DEFAULT_USER_AVATAR_URL,
       familyId: data.familyId,
       roleId: data.roleId ?? 0,
       status: data.status ?? 1,

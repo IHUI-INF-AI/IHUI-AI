@@ -29,7 +29,7 @@ export const SCREEN_VIEW_DEBOUNCE_MS = 3000
  * 停留上报的最小秒数(按整秒四舍五入后):低于 1 秒的"停留"基本都是导航动画/重渲染抖动,
  * 报上去会把均值拉向 0(数据大屏「页面停留时长 TOP」取的是平均值)。
  */
-export const MIN_SCREEN_TIME_SEC = 1
+const MIN_SCREEN_TIME_SEC = 1
 
 let lastPath = ''
 let lastAt = 0
@@ -50,6 +50,34 @@ export function screenViewPath(screenName: string | null | undefined): string | 
   const name = (screenName ?? '').trim()
   if (!name) return null
   return `/rn/${name}`.slice(0, 500)
+}
+
+/**
+ * 结算当前屏停留并清空在屏状态(退后台/杀进程前的收口,AppState 变 background 时调)。
+ *
+ * 立因(2026-10-27):此前停留只在**换屏**时结算 —— 用户直接退到后台或杀掉 app 时,
+ * 最后一屏的停留永远丢(每个会话的末页在 page_time 里结构性缺席,数据大屏
+ * 「页面停留」对末页恒盲)。判据与换屏结算同一条(≥1 秒才报),没有在屏记录时是 no-op。
+ * 返回是否真的发出了上报(供测试断言);回前台后下一次 reportScreenView 会重新进屏。
+ */
+export function settleScreenTime(now: number = Date.now()): boolean {
+  if (!enterScreen) return false
+  const screen = enterScreen
+  const seconds = Math.round((now - enterAt) / 1000)
+  enterScreen = ''
+  enterAt = 0
+  if (seconds < MIN_SCREEN_TIME_SEC) return false
+  void recordAnalyticsEvents([
+    {
+      name: 'page_time',
+      category: 'user_engagement',
+      label: screen,
+      value: seconds,
+    },
+  ]).catch(() => {
+    /* 埋点失败静默 */
+  })
+  return true
 }
 
 /**

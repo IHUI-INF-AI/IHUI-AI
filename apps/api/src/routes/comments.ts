@@ -156,6 +156,37 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // GET /comments/mine - 我的评论(顶级 + 回复,按时间倒序)
+  // 主体取自令牌(§5 认证不等于授权):这条面不接受客户端自报 authorId,
+  // 否则它就成了"看任意用户评论"的公开口子。web /user/comment 与 /comments 两页都打它。
+  server.get(
+    '/comments/mine',
+    {
+      schema: {
+        summary: '我的评论列表',
+        tags: ['comments'],
+        querystring: {
+          type: 'object',
+          properties: { ...paginationQuerySchema },
+        },
+        response: buildResponseSchema(401),
+      },
+    },
+    async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>
+      const page = Math.max(1, Math.floor(Number(q.page) || 1))
+      const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+      const { list, total } = await findComments({
+        authorId: request.userId!,
+        currentUserId: request.userId,
+        anyDepth: true,
+        page,
+        pageSize,
+      })
+      return reply.send(success({ list, total, page, pageSize }))
+    },
+  )
+
   // POST /comments - 创建评论
   server.post(
     '/comments',

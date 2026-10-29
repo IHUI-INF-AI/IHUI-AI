@@ -135,14 +135,72 @@ export function judge(input) {
   return findings
 }
 
-/** e2e 夹具:管理员口令必须是 requireEnv,且不得出现 ?? 字面量回落。 */
+/**
+ * 口令取值面的唯一合法来源:环境变量。三种写法等价(求值时机不同,禁令不变):
+ *   password: requireEnv('E2E_ADMIN_PASSWORD')
+ *   password: process.env.E2E_ADMIN_PASSWORD / process.env['E2E_ADMIN_PASSWORD']
+ *   get password(): string { ... return requireEnv('E2E_ADMIN_PASSWORD') ... }
+ */
+const ENV_ADMIN_PASSWORD_RE =
+  /(?:requireEnv\(\s*(['"])E2E_ADMIN_PASSWORD\1\s*\)|process\.env\.E2E_ADMIN_PASSWORD\b|process\.env\[\s*(['"])E2E_ADMIN_PASSWORD\2\s*\])/
+
+/** 从 `{` 处按花括号配平取体:getter 体内可能有嵌套花括号,非贪婪正则会把片段截成半截 ⇒ 漏判。 */
+function braceBody(text, openIndex) {
+  let depth = 0
+  for (let i = openIndex; i < text.length; i++) {
+    if (text[i] === '{') depth++
+    else if (text[i] === '}') {
+      depth--
+      if (depth === 0) return text.slice(openIndex + 1, i)
+    }
+  }
+  return text.slice(openIndex + 1)
+}
+
+/**
+ * 枚举 ADMIN_USER 段内 password 的取值表达式:对象属性写法与 getter 写法都收。
+ * getter 取体内每个 return 表达式(取值面就是 return 的值),无 return 时退化为整段体。
+ * 返回空数组 = 判据锚点漂了(由 judgeFixture 判红)。
+ */
+export function passwordExprs(adminBlock) {
+  const out = []
+  for (const m of adminBlock.matchAll(/\bget\s+password\s*\(\s*\)[^{]*\{/g)) {
+    const body = braceBody(adminBlock, m.index + m[0].length - 1)
+    // 每个 return 都判:先 `if (x) return '字面量'` 再 `return env` 这种半截合规也必须红。
+    const returns = [...body.matchAll(/\breturn\s+([^\n;]*)/g)].map((r) => r[1])
+    out.push(...(returns.length ? returns : [body]))
+  }
+  for (const m of adminBlock.matchAll(/(?:^|[\s,{])password\s*:\s*([^\n]*)/g)) {
+    out.push(m[1])
+  }
+  return out
+}
+
+/** e2e 夹具:管理员口令只允许从环境变量取,且不得出现 ?? / || 字面量回落或字面量掺入。 */
 export function judgeFixture(text) {
   if (text === null) return [`${HARDENED_FIXTURE} 取不到 ⇒ 无法判定管理员口令是否只从环境变量读取`]
   const findings = []
   const adminBlock = /const ADMIN_USER = \{[\s\S]*?\n\}/.exec(text)?.[0] ?? ''
   if (!adminBlock) findings.push(`${HARDENED_FIXTURE} 找不到 ADMIN_USER 定义(判据锚点漂了)`)
-  if (!/password:\s*requireEnv\('E2E_ADMIN_PASSWORD'\)/.test(adminBlock)) {
-    findings.push(`${HARDENED_FIXTURE} 的 ADMIN_USER.password 未走 requireEnv('E2E_ADMIN_PASSWORD')`)
+  const exprs = adminBlock ? passwordExprs(adminBlock) : []
+  if (adminBlock && exprs.length === 0) {
+    findings.push(`${HARDENED_FIXTURE} 的 ADMIN_USER 取不到 password 取值面(属性/getter 两种写法都未命中)`)
+  }
+  for (const expr of exprs) {
+    if (!ENV_ADMIN_PASSWORD_RE.test(expr)) {
+      findings.push(
+        `${HARDENED_FIXTURE} 的 ADMIN_USER.password 未走 requireEnv('E2E_ADMIN_PASSWORD')(也不是 process.env.E2E_ADMIN_PASSWORD)`,
+      )
+    }
+    // 兜底一律视为禁令破口:合规形态只需要 env 读取,任何 ?? / || 都是"缺值时有第二个来源"。
+    if (/\?\?|\|\|/.test(expr)) {
+      findings.push(`${HARDENED_FIXTURE} 给 E2E_ADMIN_PASSWORD 留了默认值回落(?? / || ...)`)
+    }
+    // 去掉合法 env 读取后仍残留引号 ⇒ 口令取值面掺了字面量(含 "env ?? 'xxx'" 这种)。
+    const bare = expr.replace(new RegExp(ENV_ADMIN_PASSWORD_RE.source, 'g'), '').replace(/E2E_ADMIN_PASSWORD/g, '')
+    if (/['"`]/.test(bare)) {
+      findings.push(`${HARDENED_FIXTURE} 的 ADMIN_USER.password 掺入字面量(字符串常量)`)
+    }
   }
   if (/E2E_ADMIN_PASSWORD\s*\?\?/.test(text)) {
     findings.push(`${HARDENED_FIXTURE} 给 E2E_ADMIN_PASSWORD 留了默认值回落(?? ...)`)
@@ -264,6 +322,31 @@ export function selfTest() {
     judge({ ...okBase, fixtureText: "const ADMIN_USER = {\n  password: process.env.E2E_ADMIN_PASSWORD ?? '" + literal + "',\n}" }),
     1,
   ])
+  // getter 惰性求值:只挪求值时机,禁令不变 ⇒ 必须判绿;getter 内留字面量兜底 ⇒ 必须判红。
+  cases.push([
+    'fixture getter clean',
+    judge({
+      ...okBase,
+      fixtureText: "const ADMIN_USER = {\n  get password(): string {\n    return requireEnv('E2E_ADMIN_PASSWORD')\n  },\n}",
+    }),
+    0,
+  ])
+  cases.push([
+    'fixture getter literal fallback',
+    judge({
+      ...okBase,
+      fixtureText:
+        "const ADMIN_USER = {\n  get password(): string {\n    return requireEnv('E2E_ADMIN_PASSWORD') ?? '" +
+        literal +
+        "'\n  },\n}",
+    }),
+    1,
+  ])
+  cases.push([
+    'fixture process.env only',
+    judge({ ...okBase, fixtureText: 'const ADMIN_USER = {\n  password: process.env.E2E_ADMIN_PASSWORD,\n}' }),
+    0,
+  ])
   cases.push([
     'seed literal',
     judge({ ...okBase, seedText: "const e2eAdminPassword = '" + literal + "'" }),
@@ -290,6 +373,7 @@ export const __test__ = {
   judge,
   judgeFixture,
   judgeSeed,
+  passwordExprs,
   extractBcryptHashes,
   PLAINTEXT_HISTORY_ALLOWANCE,
   HISTORICAL_MIGRATIONS,

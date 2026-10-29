@@ -66,7 +66,16 @@ import { auditMerge, classifyCandidate, readAllowlist } from './check-merge-dele
 // 账面只剩一截 Node 堆栈 —— 既不归因(看不出断在谁的依赖上)也不降级(连与台账闸门无关的
 // 快路径一起陪着死)。改成异步装载后,装载失败只会让**第①把尺子**落"未判定"并点名原因。
 import { probe, ratchetViolations, narrowF9Face } from './plan-tasks.mjs'
-import { auditPlan } from './lib/plan-task-index.mjs'
+import {
+  auditPlan,
+  dispositionOfV2,
+  waitingHumanSelfVerdict,
+  waitingEnvVerdict,
+} from './lib/plan-task-index.mjs'
+// 侧车(结构化归属表态)的唯一装载出口。定罪面必须与过滤面同一把尺(§0.6):
+// `auditPlan(content, { fields })` 里那一把 `dispositionOfV2` 就是派单面/门 130/兜底清扫器
+// (`strip-banned-buckets.mjs`)共用的那一把;少传 fields ⇒ 静默回落散文尺,读出的桶就不是同一个桶。
+import { loadFields, FIELDS_REL } from './lib/plan-fields.mjs'
 
 /** 装载状态:mod 为 null 时 error 必为非空一句话 ⇒ 调用方不得把它读成"闸门通过"。 */
 const unionGate = { mod: null, error: '' }
@@ -555,6 +564,14 @@ function stderrTail(ue) {
 export const STATE_GATE_UNDETERMINED = '[台账闸门未判定]'
 
 /**
+ * 仅对侧(origin 面)引文型违禁桶命中的普通点名行前缀 —— **刻意不共用** `STATE_GATE_UNDETERMINED`
+ * 前缀:该行在本地 HEAD 面 0 命中,本地改不到(`live-doc-edit` 的 REPLACE 要求 before 在被审面
+ * 命中 ⇒ 那行本地永远改不掉),挂未判定前缀会被主流程当硬拒 ⇒ 全仓推送死锁(2026-10-27 实测)。
+ * 点名不拒推:随合并进本地后由台账侧车/清扫器通道处置。
+ */
+export const REMOTE_ONLY_BAN_NOTE = '[台账点名·仅对侧]'
+
+/**
  * ── union 结论的转述层(2026-09-29 立)────────────────────────────────
  * 立因是本文件自己实测到的措辞谎:merge-tree 冲突分支过去打印
  *   ❌ 合并冲突,且 union-converge 亦判需人工(见上)。
@@ -824,6 +841,64 @@ export function describeUnionRelay(input, opts = {}) {
 }
 
 /**
+ * 合并面的**违禁桶判定面**(2026-10-27 立,根治"定罪面与过滤面两把尺",§0.6)。
+ *
+ * 判据只有一份:`auditPlan(content, { fields })` 里的 `dispositionOfV2` 就是派单出口
+ * (`plan-tasks --open --dispatchable`)、门 130 F11/F12、兜底清扫器 `strip-banned-buckets.mjs`
+ * 共用的那一把尺 —— 侧车命中以侧车为准,没命中才回落散文。**少传 fields 就是另一把尺**,
+ * 而两把尺之差不是风格问题,是同一行被读成两个桶。
+ *
+ * 散文回落那一档再加一道**引述护栏**:`dispositionOf` 对"等人拍板"是两把尺取或
+ * (`waitingHumanDirectVerdict` 措辞族,只过护栏① + `waitingHumanSelfVerdict`,带四道语法辖域护栏),
+ * 于是行内**引用**禁令词的句子(实测 H01:`批四注记里我列进「等拍板」的…已收回`)会被 direct 尺
+ * 命中、而带引号护栏的那把尺给出 `undetermined`(= 落在引号里、机器判不了是自指还是转述)。
+ * 定罪面改用**带护栏的那把尺**复核,只认它明确说的这一种话:
+ *  - `undetermined` ⇒ 判不准 ⇒ 落未判定并大声点名(既不定罪也不当干净,§0.3);
+ *  - 其余(`self` / `null` / `negated`)⇒ **维持定罪**。`null` 只是"第二把尺没说话",
+ *    措辞族那一把的裸命中照样算 —— 把 null 也降档等于放宽覆盖面(真等行 `需要用户拍板` 会漏放,
+ *    那是比假红更坏的方向,任务书明令禁止)。
+ * 侧车命中的行**不问**这道尺:结构化表态就是它的依据(与 lib 头注那两条恒定豁免同口径)。
+ *
+ * @param mergedText 合并面的 PROJECT_PLAN.md 全文
+ * @param fields 合并面侧车的装载结果(`loadFields` 产物;不得是 undetermined)
+ * @param localText 本地 HEAD 面的 PROJECT_PLAN.md 全文(调用方以被审 local rev 的 blob 现取;
+ *        取不到输入传 null/undefined ⇒ 一律按"在本地"处理,维持既有硬拒 —— §0.3,失效方向
+ *        绝不许是"读不到就放行")。逐行问「该行在不在本地 HEAD 面」是死锁收口的唯一核心判据:
+ *        只在 origin 面的行本地改不到,硬拒它 = 焊死全仓推送(2026-10-27 实测)。
+ * @returns `{face, undetermined}` —— face 的 F11/F12 名单与读数同步收窄
+ *          (名单与 counts 不同形会让 `f11Ratchet` 落 `blind`,那一格本身就是不记绿);
+ *          undetermined 条目带 `inLocal`(raw 是否逐字出现在本地 HEAD 面),调用方按它分流硬拒/点名。
+ */
+export function mergedLedgerFace(mergedText, fields, localText) {
+  const a = auditPlan(mergedText, { fields })
+  const undetermined = []
+  // 本地 HEAD 面的行集合:一次 O(n) 构建,逐行 O(1) **整行等值**比对。不用 `includes` 子串匹配:
+  // 子串会把"本地另一行恰好包含这段文字"误读成本行在本地,把纯对侧行错打成 inLocal=true,
+  // 死锁只修一半;而 `raw` 来自 parseTaskRows 的逐行切分(不含换行),与行集合天然同形。
+  const localLines = typeof localText === 'string' ? new Set(localText.split(/\r?\n/)) : null
+  const inLocalOf = (raw) => (localLines ? localLines.has(raw) : true)
+  const withGuard = (rows, guarded, bucket) =>
+    rows.filter((r) => {
+      const d = dispositionOfV2({ line: r.raw, fields })
+      if (d.source !== 'prose') return true
+      const v = guarded(r.raw)
+      if (v !== 'undetermined') return true
+      undetermined.push({ bucket, verdict: v, raw: r.raw, inLocal: inLocalOf(r.raw) })
+      return false
+    })
+  a.waitingHumanRows = withGuard(a.waitingHumanRows ?? [], waitingHumanSelfVerdict, 'F11')
+  a.counts.waitingHuman = a.waitingHumanRows.length
+  a.waitingEnvRows = withGuard(a.waitingEnvRows ?? [], waitingEnvVerdict, 'F12')
+  a.counts.waitingEnv = a.waitingEnvRows.length
+  return { face: narrowF9Face(a, mergedText), undetermined }
+}
+
+/** 点名一行的截断出口(证据文本只给人看的形状,不充当判据;行号一律不印,§1)。 */
+function clipRow(raw) {
+  return String(raw).replace(/\s+/g, ' ').trim().slice(0, 60)
+}
+
+/**
  * 合并树里 `PROJECT_PLAN.md` 的任务状态是否被放大。两把尺子各钉一种真实形状:
  *  ① **相对两侧的上限**(union-converge 的 `planStateRegressions`):合并自己造出更多分叉;
  *  ② **相对入库基线**(`scripts/plan-task-state-baseline.json`,随门 130 一起入库的那份):
@@ -832,15 +907,31 @@ export function describeUnionRelay(input, opts = {}) {
  *     远端一份陈旧计划文档带着那 8 块进来,merge-tree 判"无冲突",而 max(两侧)=8 不报。
  * 基线一律从**合并树**取(与被审内容同一时刻同一面,不读磁盘也不读工作树);
  * 合并树里没有计划文档 ⇒ 这一维在该面上没有语义,返回 [] 而不是记绿。
+ * 结构化侧车(`scripts/data/plan-fields.jsonl`)同样取**合并树**那一份(§0.4 同面同轮):
+ * 取不到 ⇒ F11/F12 两维落未判定并点名,**绝不回落成"无侧车的散文面"** —— 那把尺不是过滤面的尺,
+ * 2026-10-27 就是用它把全仓推送焊死的(合并面 `G-395…` 侧车已改判 owned-elsewhere、散文面仍读成
+ * waiting-human ⇒ 一条根本不存在的"放大"拦下所有会话的推送 = §12e 恒红门)。
  */
 export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) {
   const REL = 'PROJECT_PLAN.md'
   const BASE_REL = 'scripts/plan-task-state-baseline.json'
+  // git 的 rev 规格只认正斜杠:`FIELDS_REL` 由 path.join 造,本机是 `scripts\data\…`,
+  // 照原样送会恒判"取不到"(同 plan-tasks.mjs 的 fieldsSpecRel,§12f:出路必须真跑得通)。
+  const FIELDS_GIT_REL = FIELDS_REL.split('\\').join('/')
   const blobOf = (rev, rel) => {
     try {
       return git(['show', `${rev}:${rel}`], { cwd: repoRoot, maxBuffer: 1 << 26 })
     } catch {
       return ''
+    }
+  }
+  // 侧车那一路必须把"该面上没有这个 blob"与"blob 在、内容为空"分开:前者 = 未判定,
+  // 后者 = 零条记录(loadFields 的三态就是这么分的,本器不得把两者揉成一团)。
+  const blobOrNull = (rev, rel) => {
+    try {
+      return git(['show', `${rev}:${rel}`], { cwd: repoRoot, maxBuffer: 1 << 26 })
+    } catch {
+      return null
     }
   }
   const merged = blobOf(mergedTree, REL)
@@ -865,9 +956,60 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
   // 声明位档,但 `probe()` 里还带着宽口径 `wide` 的组数读数,拿它比只含声明位键的基线 ⇒
   // 现读 129 vs 112 这类"量纲不同"的红会在**每一次有台账变化的合并**上拦住自动收敛
   // (lib 头注写的触发条件已被 G-460 落锚踩响)。收口 = 同一份 narrowF9Face,不在本器另算一遍。
-  // F11 臂(2026-10-23 强制令)需要判定面本身 ⇒ 面必须作第三参传进去(散文尺读数,merged 侧车不在手)。
-  const mf = narrowF9Face(auditPlan(merged), merged)
+  // F11/F12 两臂(2026-10-23/2026-10-25 强制令)需要判定面本身 ⇒ 面作第三参传进去;而这一面
+  // 必须与过滤面**同一把尺** = v2(侧车 ⊕ 散文),所以侧车也从合并树一起取(2026-10-27 收口:
+  // 原先这里是"散文尺读数,merged 侧车不在手",于是定罪面与过滤面是两把尺 —— 见 mergedLedgerFace 头注)。
+  const fields = loadFields(repoRoot, blobOrNull(mergedTree, FIELDS_GIT_REL))
+  if (fields.undetermined) {
+    // 侧车不在手 ⇒ 手上只剩散文那一把尺。这里**不**拿它给合并结果定罪(它不是过滤面的尺),
+    // 也**不**读成干净:把 F11/F12 两维从本轮判定里摘出、大声落未判定,其余维度照旧硬判。
+    // 基线里根本没有 F11/F12 这两个键时(旧形状基线),这两维本来就"缺项不判" ⇒ 不制造
+    // 一条无人能处置的未判定行(缺项不判是 ratchetViolations 既有善意,不是本器放宽)。
+    const banless = { ...base }
+    delete banless.F11
+    delete banless.F12
+    const proseFace = narrowF9Face(auditPlan(merged), merged)
+    out.push(...ratchetViolations(banless, probe(proseFace), proseFace))
+    if (Object.hasOwn(base, 'F11') || Object.hasOwn(base, 'F12'))
+      out.unshift(
+        `${STATE_GATE_UNDETERMINED} 合并面取不到结构化侧车 ${FIELDS_GIT_REL}(${fields.why})` +
+          ' ⇒ F11/F12 两维**未判定**:定罪面与过滤面必须是同一把尺(§0.6),本器不用无侧车的散文面定罪,' +
+          '也不把"没判"读成干净。出路:让侧车与台账同面入库' +
+          '(node scripts/plan-fields-extract.mjs --apply),或确认该面确实带着一份 plan-fields.jsonl,' +
+          '再重跑本器。',
+      )
+    return out
+  }
+  // 本地 HEAD 面的台账文本:逐行问「该行在不在本地」的唯一取材面。用 blobOrNull 而不是 blobOf:
+  // 取不到本地面(git 失败/rev 坏)时宁可保守维持既有硬拒(§0.10:失效方向是多要一次定向说明,
+  // 不是跳门),绝不能把"读不到"读成"0 命中"静默放行;真正的"本地面无此行"由行集合精确判定。
+  const localPlan = blobOrNull(local, REL)
+  const { face: mf, undetermined: undecidedRows } = mergedLedgerFace(merged, fields, localPlan)
   out.push(...ratchetViolations(base, probe(mf), mf))
+  // 判不准的行必须**报名**(§0.3),并按「该行在不在本地 HEAD 面」分流(2026-10-27 推送死锁收口):
+  //  - 在本地 ⇒ live-doc-edit 的 REPLACE 改得到 ⇒ 维持既有硬拒:本地改完再推;
+  //  - 只在 origin 面 ⇒ 本地永远改不到(REPLACE 要求 before 在被审面命中),硬拒 = 焊死全仓推送。
+  //    降为普通点名行(REMOTE_ONLY_BAN_NOTE 前缀,主流程的未判定硬拒不认它):逐行点名
+  //    bucket+截断行,不冒 STATE_GATE_UNDETERMINED,交台账侧车/清扫器通道处置。
+  if (undecidedRows.length) {
+    const inLocalRows = undecidedRows.filter((r) => r.inLocal)
+    const remoteOnlyRows = undecidedRows.filter((r) => !r.inLocal)
+    if (inLocalRows.length) {
+      out.unshift(
+        `${STATE_GATE_UNDETERMINED} 有 ${inLocalRows.length} 行的违禁桶命中只出自**无引号护栏的措辞族尺**,` +
+          '而带语法辖域护栏的 self 尺判"引号内、判不了是自指还是转述"(叙述引文这一型)⇒ 本器不给它定罪,' +
+          '也不当成干净(该行在本地 HEAD 面,本地改得到,改完再推):' +
+          inLocalRows.map((r) => `${r.bucket}[${r.verdict}]=${clipRow(r.raw)}`).join(' / '),
+      )
+    }
+    if (remoteOnlyRows.length) {
+      out.push(
+        `${REMOTE_ONLY_BAN_NOTE} ${remoteOnlyRows.length} 行引文型违禁桶命中只在 origin 面的台账行(本地 HEAD 面 0 命中)——` +
+          '非本次收敛带来的,本地处置不了;随合并进本地后由台账侧车/清扫器通道处置:' +
+          remoteOnlyRows.map((r) => `${r.bucket}[${r.verdict}]=${clipRow(r.raw)}`).join(' / '),
+      )
+    }
+  }
   return out
 }
 
@@ -1238,6 +1380,11 @@ function selfTest() {
         '{"F1":0,"F2":0,"F3":0,"F4":0,"F6":0,"F5":0}\n',
         'utf8',
       )
+      // 侧车必须同批进夹具面(2026-10-27):合并面的 F11/F12 判定只认 v2 尺,而 v2 尺要先拿到
+      // 侧车这份输入。**空文件 = 零条记录**(与"取不到 ⇒ 未判定"是两态,loadFields 分得开),
+      // 这里要的是"面在、零条记录"那一态 —— 缺了它,PS-2 会被判成"侧车未判定"而不是"没有放大"。
+      mkdirSync(resolve(repo, 'scripts/data'), { recursive: true })
+      writeFileSync(resolve(repo, 'scripts/data/plan-fields.jsonl'), '', 'utf8')
       tgit(repo, ['add', '-A'])
       tgit(repo, ['commit', '-qm', 'ps debt'])
       const sha = tgit(repo, ['rev-parse', 'HEAD'])
@@ -1583,6 +1730,15 @@ function main() {
   const branch = getOpt('--branch', 'main')
   const maxRounds = Number(getOpt('--rounds', 3))
   const dryRun = argv.includes('--dry-run')
+  // `--no-proxy`(2026-10-26 立):显式临时绕开仓库配的代理。
+  // 立因:当天给的出路"手打 `git -c http.proxy= …`"在本器上**跑不通**(本器自己派生 git,不吃调用方的 argv),
+  // 违反 AGENTS §0.8「文档不得写跑不通的出路」。旗标只置 env(`IHUI_GIT_NO_PROXY=1`),
+  // 由唯一取材层 `lib/face-reader.mjs` 的 `isForceDirect()` 认 —— 本器零判定复算(§0.6),
+  // 且不写任何持久配置、不碰代理客户端。
+  if (argv.includes('--no-proxy')) {
+    process.env.IHUI_GIT_NO_PROXY = '1'
+    log(C.dim, '  ℹ️ --no-proxy:本轮所有 git 网络命令走直连(临时绕过,不改 git 配置、不动代理客户端)')
+  }
 
   const repoRoot = git(['rev-parse', '--show-toplevel'], { allowFail: true })
   if (!repoRoot) {
@@ -1886,8 +2042,12 @@ function main() {
       const regressions = mergedPlanStateRegressions(tree, freshLocal, freshRemote, repoRoot)
       // 闸门尺子自己没跑成 ⇒ 这不是"内容放大"，也不得读成"没有放大"。单列一支、给出口，
       // 不要顺着下面的"放大"文案把人引去手工选边(G-815406)。
-      if (regressions.length > 0 && regressions[0].startsWith(STATE_GATE_UNDETERMINED)) {
-        log(C.red, `❌ ${regressions[0]}`)
+      // 2026-10-27:判据改成**逐条扫**而不是只看第 0 条 —— 侧车取不到 / 引文判不准这两型都可能是
+      // 第 N 条(第①把尺子先报过别的内容),只看首条就会把"没判"当成"判了放大",
+      // 随后派生 union-converge --apply 去解一个并不存在的冲突(§0.3 / §12f)。
+      const gateUndetermined = regressions.filter((r) => r.startsWith(STATE_GATE_UNDETERMINED))
+      if (gateUndetermined.length > 0) {
+        for (const r of gateUndetermined) log(C.red, `❌ ${r}`)
         process.exit(1)
       }
       if (regressions.length > 0) {
@@ -2219,7 +2379,12 @@ export const __test__ = {
   capText,
   describeUnionRelay,
   STATE_GATE_UNDETERMINED,
+  REMOTE_ONLY_BAN_NOTE,
   mergedPlanStateRegressions,
+  // 2026-10-27:合并面违禁桶的判定面(单源尺 + 引述护栏)与它的点名出口一并导出 ——
+  // 镜像测试按 §22c 直接喂构造面复用同一份判据,不得在测试里再抄一把尺。
+  mergedLedgerFace,
+  clipRow,
 }
 
 const isDirectRun =

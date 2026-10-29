@@ -22,6 +22,26 @@
  *      - 【归并】族:同复合主键组(`keyOfRow` 编号+标题逐字等值)内存在**幸存者**
  *        (open ∧ 无副本标记 ∧ 无租约 ∧ 异行)—— 组内不删空;
  *      - 行首指针族:自述指向编号 N(`副本指针(编号 N)`),新面仍存在编号 N 的 open 行 —— 指向不悬空;
+ *      - 行首指针族·**归档已勾主行档**(2026-10-24,本票):新面没有编号 N 的 open 行时,再查**归档件**
+ *        (`.ihui-agent/archive/PROJECT_PLAN*.md`,与取号占用面同一取材层 `lib/plan-id-face.mjs`,
+ *        不自造第二套归档读取)。该编号在归档里**全部已勾**且至少一条给得出复合主键
+ *        (`compositeKeyOf` = 编号 + 题面前 24 字,逐字)⇒ 陈旧悬空指针,可删(receiver=archive);
+ *        归档里**仍有未勾主行** ⇒ 不可删并逐条点名(仍有未完成工作,删指针=丢唯一活登记);
+ *        归档里找不到该编号 / 归档面没取全 ⇒ 与补档前逐字同形(不可删)。
+ *      - 行首指针族·**枚回执档 ④d**(2026-10-26 立,goal-c 席现读实证):归档面也查不到的指针分两型,
+ *        不得混为一谈 ——
+ *        **行号+枚 sha 型**(`副本指针(编号 L6880)` 且行内自带 `(枚 <shaToken>)`):它指向的不是登记编号
+ *        而是**创建时刻台账快照里的行号**。这型是 ④c 结构性打不到的(dry-run 实测 L28641 `archive-absent`
+ *        永久滞留),而它的"主行已结清"在 git 对象库里逐字可验:
+ *          前提(a) 指向 token 是行号形态(`/^L\d+$/`,刻意的:行号只对当时那枚成立,这正是枚凭据存在的理由);
+ *          (b) 行内枚 token 解析得到 ledger 正文的快照(取不到/快照行不是 `- [x]` ⇒ 判不出=不可删);
+ *          (c) 本行自述与同标题登记重复 ⇒ 正文里的**同族编号 token** 才是真正要核验的账:
+ *              现行 checkbox 登记面上该编号**没有任何本批之外的 open 正主**(副本行本身按自述不算正主,
+ *              与派单出口 `isClaimExcludedPointer` 同一把尺);且 token 在现行面上的**每一处**出现要么落在
+ *              本批将被删的副本行内、要么是 `<!--` 注释墓碑 ∧ 含结清标记(✅/已归档——归档器注释化先例,
+ *              结清证据就写在墓碑行内)⇒ 判"接收方=创建枚快照 ∧ 账已注释化结清",可删(receiver=commit)。
+ *        任一前提不成立一律维持不可删(失效方向恒为拒删;本行不进删除集,幂等出口照旧)。
+ *        **裸行号型(无枚 token)照旧不可删** —— 没有可解析的快照,行号无凭据 = 判不出。
  *   ⑤ 行所属主键组不在 F9 撞号声明组(撞号组的"同主键"语义被污染,归撞号链管,G-312);
  *   ⑥ 不在 F1 forkOpenLines(与 auditPlan 同口径;现读 0 组,保险档)。
  *
@@ -87,9 +107,15 @@ import {
   MERGE_NOTE_RE,
   parseTaskRows,
   compositeKeyOf,
+  titleOf,
+  keyOfRow,
+  keyInWindow,
+  KEY_MAX_OFFSET,
   findForks,
   f9Faces,
 } from './lib/plan-task-index.mjs'
+// ④c 归档档:归档件的枚举/取正文**只走这一层**(与取号占用面、归档器同一条取材面)。
+import { ID_FACE_TRANSPORT } from './lib/plan-id-face.mjs'
 import {
   alignSharedIndex,
   attestBypassCommit,
@@ -113,11 +139,322 @@ export function pointedIdOf(raw) {
   return m ? m[1].trim() : null
 }
 
+/**
+ * ④d 枚回执:指针行自述的创建时刻枚 token(`(枚 290a26bc1)`/`枚 abc1234def…`,7-40 位十六进制,
+ * 取**行内第一个**)。判据只信 sha 不信行号本身 —— 行号只对当时那枚成立,枚凭据就是它的解析坐标。
+ */
+export function receiptTokenOf(raw) {
+  const m = /枚\s*([0-9a-f]{7,40})/.exec(String(raw))
+  return m ? m[1] : null
+}
+
+/**
+ * ④d 行首登记面索引(纯函数):现行台账逐行的"是否复选框行 + 缩进去向"。
+ * `lineRows[i] === null` = 该行不是登记行(注释/散文/空)——注释化墓碑就住在这一档,
+ * 墓碑行内的 `✅`/`已归档` 是归档器结清契约的可见证据。
+ */
+export function buildLedgerFaceIndex(content) {
+  const rows = parseTaskRows(String(content ?? ''))
+  const lineRows = new Map()
+  const lines = String(content ?? '').split(/\r?\n/)
+  const openByKey = new Map()
+  for (const r of rows) {
+    lineRows.set(r.line, r)
+    if (r.state === 'open' && r.key) {
+      if (!openByKey.has(r.key)) openByKey.set(r.key, [])
+      openByKey.get(r.key).push(r)
+    }
+  }
+  return { ok: rows.length > 0 || lineRows.size === 0, lines, lineRows, openByKey, rows }
+}
+
 const hasCopyMark = (raw) => isClaimExcludedPointer(raw)
 // MERGE_NOTE_RE 字面量带 g 标志(lib :1092 归并注记计数同源)⇒ 直接 .test() 会共享 lastIndex,
 // 连续调用呈"一次真一次假"的交替漂移 —— 批1判据②用它做排除、批2用它做选择,都吃这一口。
 // 每次现拼无 g 正则(仅 source,无状态);面级计数处(new RegExp(source,'g') match)本就无状态。
 const hasSettledNote = (raw) => new RegExp(MERGE_NOTE_RE.source).test(raw)
+
+/**
+ * 编号账:编号 → open 行(④ 判定唯一实现;main 的 dry-run 报告与 `selectCopyRowsToPurge` 共用一份,
+ * 避免"同一件事两处各判")。
+ */
+export function indexOpenRowsById(rows) {
+  const openById = new Map()
+  for (const r of rows) {
+    if (r.state !== 'open') continue
+    if (!r.key) continue
+    if (!openById.has(r.key)) openById.set(r.key, [])
+    openById.get(r.key).push(r)
+  }
+  return openById
+}
+
+/** 行内 ✅(YYYY-MM-DD) 结清日期提取(归档行自带盖然日期;无 ⇒ null,不许猜)。 */
+export function settledDateOf(rowText) {
+  const m = /✅\((\d{4}-\d{2}-\d{2})\)/.exec(String(rowText ?? ''))
+  return m ? m[1] : null
+}
+
+/**
+ * 归档面索引(纯函数,self-test 直测):吃 `[{ path, text }]`,交出台账归档件里的登记行。
+ * 取材面由调用方按 `lib/plan-id-face.mjs` 的同一形状(`.ihui-agent/archive/PROJECT_PLAN*.md`)枚举,
+ * 本函数**不自己找文件、不自己读盘** —— 归档读取全仓只有那一份。
+ * 每行附 `title`/`composite`:`compositeKeyOf`(编号 + 题面前 24 字)唯一实现,供 ④c 逐字比对。
+ * done 行另附 `settledDate`(行内 ✅(日期) 逐字提取)—— ④c-陈旧快照档的时间序判据只认它,
+ * 文件头"归档(YYYY-MM-DD)"不作数(ARCHIVE.md 头是 2026-07-22 建档日,里面住着 10 月的结清行)。
+ * `ok=false` 表示有归档件没读到正文 —— 判不出 ≠ 零份,调用方必须据此拒删。
+ */
+export function buildArchiveIndex(files) {
+  const rows = []
+  const byKey = new Map()
+  const undetermined = []
+  for (const f of Array.isArray(files) ? files : []) {
+    if (!f || typeof f.text !== 'string') {
+      undetermined.push(`${f?.path ?? '<未知归档件>'} 没读到正文`)
+      continue
+    }
+    for (const r of parseTaskRows(f.text)) {
+      const rec = {
+        path: f.path,
+        line: r.line,
+        state: r.state,
+        key: r.key,
+        raw: r.raw,
+        title: titleOf(r.raw),
+        composite: compositeKeyOf(r.raw),
+        settledDate: r.state === 'done' ? settledDateOf(r.raw) : null,
+        // 归档里的"主行"(非副本自述行)—— 点名时优先指向它,别拿同族的另一枚指针当替身
+        main: !isClaimExcludedPointer(r.raw),
+      }
+      rows.push(rec)
+      if (!rec.key) continue
+      if (!byKey.has(rec.key)) byKey.set(rec.key, [])
+      byKey.get(rec.key).push(rec)
+    }
+  }
+  return { ok: undetermined.length === 0, rows, byKey, undetermined }
+}
+
+/** 括注里的「编号·题面提示」形态(如 `4·观察期`);无提示 ⇒ 只按编号逐字对上。 */
+function splitPointedId(pointed) {
+  const m = /^(.+?)[·・](.+)$/.exec(pointed)
+  if (!m) return { id: pointed, titleHint: null }
+  return { id: m[1].trim(), titleHint: m[2].trim() }
+}
+
+/**
+ * ④d 枚回执判定(纯函数,唯一实现)。前提逐条,任一不成立 ⇒ 交回原 archive-absent(拒删):
+ *  (a) 指向 token 为行号形态 `L<数字>`;
+ *  (b) 行内枚 token 经 `resolveSnapshot` 解析得到台账快照(取不到=判不出);
+ *  (c) 快照该行是真复选框行 ∧ state=done(快照行号会漂,只有"当时确实是它"才作数);
+ *  (d) 账上 token(行内 `keyOfRow` 同族编号):现行登记面**无本批之外的 open 正主**
+ *      —— 自述副本行不成正主,与派单出口同一把尺;
+ *  (e) 现行面该 token 的**每一处文字出现**要么落在本批删除行内,要么是 `<!--` 注释墓碑 ∧ 结清标记
+ *      (✅/已归档)—— "正文逐字留在下方"的自述若已过期,证据就是那枚注释化墓碑。
+ */
+export function commitReceiptVerdict(row, pointed, opts2, noPointerCheck = false) {
+  if (!opts2?.resolveSnapshot || !opts2?.ledgerFace) return null
+  if (!noPointerCheck && !/^L\d+$/.test(pointed)) return null
+  const token = receiptTokenOf(row.raw)
+  if (!token) return null
+  const snapshot = opts2.resolveSnapshot(token)
+  if (typeof snapshot !== 'string' || snapshot === '') {
+    return { verdict: 'archive-absent', pointed, detail: [`枚 ${token} 快照取不到(判不出)`] }
+  }
+  // 行号取材:指针行用括注 `（编号 L…）`;④b 自述副本行(没有括注形态)退到"同标题登记 LNNNN"字样 ——
+  // 两档都是**逐字**的行号 token,不是相似度(取不到 ⇒ null ⇒ 拒删)。
+  const pointedLineMatch = pointed ? Number(pointed.slice(1)) : Number((/同标题登记\s+L(\d+)/.exec(String(row.raw))?.[1] ?? Number.NaN))
+  if (!Number.isFinite(pointedLineMatch) || pointedLineMatch <= 0) return null
+  const snapLine = pointedLineMatch
+  const snapRows = parseTaskRows(snapshot)
+  const snapRow = snapRows.find((r) => r.line === snapLine)
+  if (!snapRow) {
+    return { verdict: 'archive-absent', pointed, detail: [`快照 ${token.slice(0, 10)} 的 L${snapLine} 不是登记行`] }
+  }
+  if (snapRow.state !== 'done') {
+    return { verdict: 'archive-absent', pointed, detail: [`快照 ${token.slice(0, 10)}:L${snapLine} 仍未勾(活登记)`] }
+  }
+  const family = opts2.ledgerFace
+  // 账上编号取材四档:L28641 形态的指针行 `keyOfRow` 交 null(编号写在创建时刻措辞的 48 字窗之后),
+  // 且 `titleOf` 把副本措辞里的冒号当题面分界(题面只剩"副本指针")⇒ 正尺都给不出账上号。
+  // A2 档剥掉行首**副本措辞**后走加宽窗(72 字 = KEY_MAX_OFFSET×1.5,实测真行 51 字入窗),
+  // 仍用同一个 `keyInWindow` 出口(§0.6 不抄第二份编号正则);窗口内**唯一命中**才算账上编号,
+  // ≥2 个不同 token 一律判不出(宁可不删)。这一维只核验"账结清与否",不参与发号/键空间。
+  const stripLeadCopyPhrase = (s) =>
+    String(s).replace(
+      /^\s*(?:[-*+]\s*\[[ xX]\]\s*)?(?:副本指针\s*[（(][^）)]{0,40}[）)]\s*)?(?:重复登记副本\s*[:：]\s*|副本指针\s*[:：]\s*)?/,
+      '',
+    )
+  const w72 = (s) => keyInWindow(String(s ?? '').slice(0, Math.round(KEY_MAX_OFFSET * 1.5)))
+  // A4 档:指针行自述"与**同标题登记** L6880 重复"——它的账上编号就写在自己第一段加粗题面里
+  // (`**G-351〔旧号〕. …**`)。取首段 `**…**` 内容过同一个 `keyInWindow`(仍是逐字窗扫描),
+  // 段内唯一命中才算;取不出/段里没有号 ⇒ null(拒删)。这是最贴自述语义的一档,排在加宽窗之前。
+  const boldLead = /\*\*([^*\n]{4,160})\*\*/.exec(String(row.raw))
+  const boldKey = boldLead ? keyInWindow(boldLead[1]) : null
+  const wide = w72(stripLeadCopyPhrase(row.raw))
+  const ambiguous = wide !== null && w72(row.raw) !== null && w72(row.raw) !== wide
+  const accountKey = keyOfRow(row.raw) ?? keyInWindow(titleOf(row.raw) ?? '') ?? boldKey ?? (ambiguous ? null : wide)
+  if (accountKey) {
+    // (d) "open 正主"必须排除两类:本批删除行 ∧ **自述副本行**(L28641 族自己就是 `- [ ]` 行,
+    // 不排除的话两副本互相当对方的正主 ⇒ 永久互锁拒删;正主与否的尺 = 派单出口同一把 isClaimExcludedPointer)
+    const openOthers = (family.openByKey.get(accountKey) ?? []).filter(
+      (x) => x.line !== row.line && !opts2.deletedRowLines?.has(x.line) && !hasCopyMark(x.raw),
+    )
+    if (openOthers.length) {
+      return {
+        verdict: 'archive-absent',
+        pointed,
+        detail: [`${accountKey} 在现行面仍有本批之外的 open 正主(L${openOthers[0].line})`],
+      }
+    }
+  }
+  // (e) 结清证据的采集(只计数,不拦截):
+  //  - `<!--` 注释 ∧ 结清标记(✅/已归档)⇒ 结清墓碑,计数(归档器注释化先例,行内自带结清字面);
+  //  - `- [x]` done 登记行 ⇒ 另一种结清证据,计数;
+  //  - **其余出现一律不计、不拦** —— (d) 已经用登记面(复选框 open ∧ 非自述副本)拦住唯一危险型
+  //    ("活着的正主");正文引用(L6285 复盘清单)与非结清注释(L6386 族,归并器 G-310 的防误回捞锚)
+  //    都不改变账的状态,拿它们拒删 = 把判据装成失明(门 71"不对正文引用判活"同纪律)。
+  //    注释**无**结清标记同样不拦:它们是副本锚不是结清凭据 —— 凭据要求由下方 tombstones.length≥1 单独把关。
+  const tombstones = []
+  // 刻意无 g 标志:逐行 .test() 若带 g 会共享 lastIndex,呈"一次真一次假"的交替漂移(本文件 MERGE_NOTE_RE 头注同条纪律)
+  const re = accountKey ? new RegExp(`(?<![A-Za-z0-9])${accountKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) : null
+  if (re) {
+    const lines = family.lines
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i]
+      if (!l || !re.test(l)) continue
+      const lineNo = i + 1
+      if (lineNo === row.line || opts2.deletedRowLines?.has(lineNo)) continue
+      if (/^\s*<!--/.test(l)) {
+        if (/[✅]|已归档/.test(l)) tombstones.push({ line: lineNo, kind: 'tombstone' })
+        continue
+      }
+      const rr = family.lineRows.get(lineNo)
+      if (!rr) continue // 非登记行(散文/清单引用):不计、不拦
+      if (rr.state === 'done') {
+        tombstones.push({ line: lineNo, kind: 'done-checkbox' })
+        continue
+      }
+      // open 且非副本的正主已在 (d) 拒过;自述副本行不计
+    }
+  }
+  if (accountKey && !tombstones.length) {
+    // 结清证据必须**当场至少找到一条**(墓碑或 done 勾选行)——只有"没找到活的"不等于"找到了结清的"
+    return { verdict: 'archive-absent', pointed, detail: [`现行面没有 ${accountKey} 的可点名称结清凭据(墓碑/done 行 ≥1)`] }
+  }
+  if (!accountKey) {
+    // 无账上编号可核(keyOfRow/titleOf/加粗题/宽窗四档都给不出)⇒ 只有快照 (b)(c) 不够 —— 拒删
+    return { verdict: 'archive-absent', pointed, detail: ['行内取不出可核验的账上编号'] }
+  }
+  return {
+    verdict: 'commit-receipt',
+    pointed,
+    token,
+    snapshotLine: snapLine,
+    snapshotState: snapRow.state,
+    accountKey: accountKey ?? null,
+    tombstones,
+  }
+}
+
+/**
+ * ④ 行首指针族的"接收方"判定(纯函数,唯一实现;select 与 dry-run 报告共用)。
+ * verdict:
+ *  - `ledger-open`       新面仍有编号 open 行 ⇒ 指向不悬空(原语义,可删);
+ *  - `archive-done`      新面缺席,归档面该编号主行**全部已勾** ⇒ 陈旧悬空指针(可删,receiver=archive);
+ *  - `commit-receipt`    归档面缺席 ∧ 行号+枚 token 型指针 ∧ 快照行已勾 ∧ 账上 token 无 open 正主
+ *                        且现行面出现处全为本批副本/注释墓碑结清 ⇒ 可删(receiver=commit,④d);
+ *  - `archive-live`      归档面该编号仍有**未勾**主行 ⇒ 不可删(删指针=丢唯一活登记);
+ *  - `archive-absent`    归档面找不到该编号 ⇒ 不可删(与补档前逐字同形);
+ *  - `archive-undetermined` 归档面没取全 ⇒ 不可删(判不出 ≠ 零份);
+ *  - `no-pointer`        本行不是行首指针族。
+ * 编号比对:编号段**逐字等值**(`keyOfRow` 口径),不许前缀/模糊;带「编号·题面」的括注再把题面
+ * 提示逐字前缀对上。归档行按 `compositeKeyOf` 分族,凡有未勾族即拒删(哪怕勾族也有)。
+ * ④d 需 `opts2 = { resolveSnapshot, ledgerFace, deletedRowLines }`(缺任 ⇒ 一律不启用,
+ * 逐字退回 ④c 原判定;判不出恒落"不可删",失效方向只许拒删)。
+ */
+export function pointerTargetVerdict(row, openById, archiveIndex, opts2 = null, ledgerFaceArg = null) {
+  if (!COPY_POINTER_ROW_RE.test(row.raw)) return { verdict: 'no-pointer', pointed: null }
+  const pointed = pointedIdOf(row.raw)
+  if (!pointed) return { verdict: 'no-pointer', pointed: null }
+  const targets = (openById.get(pointed) ?? []).filter((x) => x.line !== row.line)
+  if (targets.length) return { verdict: 'ledger-open', pointed, survivorLine: targets[0].line }
+  if (!archiveIndex) return { verdict: 'archive-undetermined', pointed, detail: ['归档面未取'] }
+  if (!archiveIndex.ok) {
+    return { verdict: 'archive-undetermined', pointed, detail: archiveIndex.undetermined ?? [] }
+  }
+  const { id, titleHint } = splitPointedId(pointed)
+  const scope = archiveIndex.byKey.get(id) ?? []
+  let hits = titleHint ? scope.filter((x) => typeof x.title === 'string' && x.title.startsWith(titleHint)) : scope
+  if (!hits.length && !titleHint) {
+    // 二档:编号取不出时(`P1-①` 这类带圈字的号,`keyOfRow` 交 null),按"题面以该编号逐字起头"认主行 ——
+    // 仍是逐字前缀,不是相似度。
+    hits = archiveIndex.rows.filter((x) => typeof x.title === 'string' && x.title.startsWith(pointed))
+  }
+  if (!hits.length) {
+    // ── ④d 枚回执档:归档面缺席,但指针是「行号+枚 sha」型 ⇒ 接收方可以在 git 快照里逐字验 ──
+    const v4d = commitReceiptVerdict(row, pointed, opts2)
+    if (v4d) return v4d
+    return { verdict: 'archive-absent', pointed }
+  }
+  const live = hits.filter((x) => x.state !== 'done')
+  // ── ④c-陈旧快照档(2026-10-26/patrol4,票 patrol4 接管批):archive-live 的"活证据"若全部住在
+  // **历史改号镜像快照**(RENENUMBER/YIELD 系列——按设计存"当时账面",不是现在的账),按
+  // "现行面为王 + 结清时间序 + 唯一锚不拆"三重闸降级。全条件,任一不满足原样 archive-live 拒删:
+  //   (a) ledgerFace 必传入(判不出=不降);
+  //   (b) 台账现行面**没有指向该事项的未勾登记行**(任何 open 行含该编号 ⇒ 指针是唯一活锚,不拆);
+  //   (c) hits 含 ≥1 done 行且**每条 open 证据**都有行内 ✅(YYYY-MM-DD) 可解析(拿不到 ⇒ 判不出不降);
+  //   (d) done 的最新结清日期 **晚于** 每条 open 证据所在快照文件的文件名日期(化石必须比对得开;
+  //       相等或更早 ⇒ 拒——P1-① 实测:快照 10-14 而最后结清 10-10 ⇒ 拒,防"结清后重开被快照假降")。
+  // 立因:旧尺把 46 份归档件当同权平面,REN 化石里的旧 open 让陈旧指针永远摘不掉(实测 L6291 族)。
+  if (live.length) {
+    const face = ledgerFaceArg ?? opts2?.ledgerFace ?? null
+    const archDone = hits.filter((x) => x.state === 'done')
+    let downgrade = false
+    if (face && archDone.length) {
+      // 活锚 = 台账面上**别人**指着该编号的未勾行(指针行自身不算——它正是本次要裁决的对象)
+      const faceHasAnchor = face.rows.some((r) => r.state === 'open' && r.line !== row.line && String(r.raw ?? '').includes(pointed))
+      const openFileDates = live.map((x) => (/(\d{4}-\d{2}-\d{2})/.exec(x.path ?? '') ?? [])[0] ?? '')
+      const openLatest = openFileDates.filter(Boolean).sort().pop() ?? ''
+      const doneDs = archDone.map((x) => x.settledDate).filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+      // 台账面上的结清凭据也算一路(归档退役后,最终结清住在 `<!-- 已归档(…:✅(YYYY-MM-DD…) -->`
+      // 注记行里;只取**含该编号**的行的行内日期,不拿无关日期凑数)
+      const ledgerDs = []
+      for (const r of face.rows) {
+        if (!String(r.raw ?? '').includes(pointed)) continue
+        const m = /✅\((\d{4}-\d{2}-\d{2})\)/.exec(String(r.raw ?? ''))
+        if (m) ledgerDs.push(m[1])
+      }
+      for (const l of face.lines) {
+        if (!String(l).includes(pointed)) continue
+        const m = /✅\((\d{4}-\d{2}-\d{2})\)/.exec(String(l))
+        if (m) ledgerDs.push(m[1])
+      }
+      const allDs = [...doneDs, ...ledgerDs].sort()
+      const latestDone = allDs.pop() ?? ''
+      const everyOpenHasDoneDate = allDs.length > 0
+      downgrade = !faceHasAnchor && everyOpenHasDoneDate && !!openLatest && !!latestDone && latestDone > openLatest
+    }
+    if (downgrade) {
+      hits = archDone
+    } else {
+      return {
+        verdict: 'archive-live',
+        pointed,
+        detail: [...live].sort((a, b) => Number(b.main) - Number(a.main)),
+      }
+    }
+  }
+  const done = archiveIndex.byKey.has(id) ? hits.filter((x) => x.composite && x.state === 'done') : hits.filter((x) => x.state === 'done')
+  if (!done.length) return { verdict: 'archive-absent', pointed, detail: hits }
+  return {
+    verdict: 'archive-done',
+    pointed,
+    receiverPath: done[0].path,
+    receiverLine: done[0].line,
+    composites: [...new Set(done.map((x) => x.composite))],
+  }
+}
 
 /**
  * 删除判定(纯函数,self-test 直测):给定全行集合,返回删除行索引集合与逐行理由。
@@ -132,11 +469,27 @@ const hasSettledNote = (raw) => new RegExp(MERGE_NOTE_RE.source).test(raw)
  *    claim 缺失放行,claim 在但行号 ∈ staleLeaseLines(租约门 analyzeLeases 判的过期集)放行,
  *    租约在飞(claim 在但不在过期集)一律保留。staleLeaseLines 由 main 传入(纯函数不派生);
  *    includeSettled 与 expiredLease 互斥,同传即抛(①与②的取舍方向相反,混档=判据自相矛盾)。
+ *
+ * `opts.archiveIndex`(④c 归档档,`buildArchiveIndex` 的产物):新面缺席时据此判"陈旧悬空指针"
+ * 还是"仍有未勾主行";不传/`ok=false` 一律按"判不出"拒删。
+ * `opts.rejectLog`(可选数组):被 ④ 判"不可删"的行就地记一笔 `{row, pointed, verdict, detail}`,
+ * 供 dry-run 逐条点名 —— 判据只在这里走一次,报告不许另立第二套 ④ 复算。
  */
 export function selectCopyRowsToPurge(rows, opts = {}) {
   const includeSettled = Boolean(opts.includeSettled)
   const expiredLease = Boolean(opts.expiredLease)
   if (includeSettled && expiredLease) throw new Error('批2(--include-settled)与批3(--expired-lease)两档互斥,拒')
+  const archiveIndex = opts.archiveIndex ?? null
+  // ④d 的"本批副本行"范围:按自述标记现算(行级判据,与 select 同把尺,不依赖删除时序)
+  const receipt = opts.receipt
+    ? {
+        ...opts.receipt,
+        // 本批副本集与删除集**同形**(①∧②):批2 对象(带落账注记)不得被当成"已排除的正主"而放掉④d
+        deletedRowLines: new Set(
+          rows.filter((r) => r.state === 'open' && hasCopyMark(r.raw) && !hasSettledNote(r.raw)).map((r) => r.line),
+        ),
+      }
+    : null
   const openRows = rows.filter((r) => r.state === 'open')
   // 组账:复合主键 → open 行(幸存者判定用)
   const byKey = new Map()
@@ -147,13 +500,7 @@ export function selectCopyRowsToPurge(rows, opts = {}) {
     byKey.get(k).push(r)
   }
   // 编号账:编号 → open 行(行首指针族的"指向不悬空"判定用)
-  const openById = new Map()
-  for (const r of openRows) {
-    const id = r.key
-    if (!id) continue
-    if (!openById.has(id)) openById.set(id, [])
-    openById.get(id).push(r)
-  }
+  const openById = indexOpenRowsById(rows)
   const deletes = []
   for (const r of rows) {
     if (r.state !== 'open') continue // 只动未勾行(勾行归归档器)
@@ -166,35 +513,89 @@ export function selectCopyRowsToPurge(rows, opts = {}) {
     if (r.claim && !(expiredLease && opts.staleLeaseLines?.has(r.line))) continue // ③(批3收窄:claim 在但已过期 ⇒ 放行;租约在飞 ⇒ 保留)
     const pointed = COPY_POINTER_ROW_RE.test(r.raw) ? pointedIdOf(r.raw) : null
     if (pointed) {
-      // ④a 行首指针族:指向编号仍有 open 行(非本行)
-      const targets = (openById.get(pointed) ?? []).filter((x) => x.line !== r.line)
-      if (!targets.length) continue
-      deletes.push({
-        row: r,
-        family: includeSettled ? 'pointer-note' : expiredLease ? 'pointer-lease' : 'pointer-row',
-        key: pointed,
-        survivorLine: targets[0].line,
-      })
+      // ④a 行首指针族:接收方在**新面**,缺席时再查归档面(④c),归档面也缺席时问枚回执(④d,见 pointerTargetVerdict)
+      // ledgerFace 显式第五参:④c-陈旧快照档要"现行面为王"判定,不靠 receipt 通道携带(无 sha 行 receipt 可为 null)
+      const v = pointerTargetVerdict(r, openById, archiveIndex, receipt, receipt?.ledgerFace ?? opts.ledgerFace ?? null)
+      if (v.verdict === 'ledger-open') {
+        deletes.push({
+          row: r,
+          family: includeSettled ? 'pointer-note' : expiredLease ? 'pointer-lease' : 'pointer-row',
+          key: pointed,
+          survivorLine: v.survivorLine,
+          receiver: 'ledger',
+        })
+      } else if (v.verdict === 'archive-done') {
+        deletes.push({
+          row: r,
+          family: includeSettled ? 'pointer-note' : expiredLease ? 'pointer-lease' : 'pointer-row',
+          key: pointed,
+          survivorLine: v.receiverLine,
+          receiver: 'archive',
+          receiverPath: v.receiverPath,
+          composites: v.composites,
+        })
+      } else if (v.verdict === 'commit-receipt') {
+        deletes.push({
+          row: r,
+          family: includeSettled ? 'pointer-note' : expiredLease ? 'pointer-lease' : 'pointer-row',
+          key: pointed,
+          survivorLine: v.snapshotLine,
+          receiver: 'commit',
+          token: v.token,
+          accountKey: v.accountKey,
+          tombstones: v.tombstones,
+        })
+      } else {
+        if (Array.isArray(opts.rejectLog)) {
+          opts.rejectLog.push({ row: r, pointed, verdict: v.verdict, detail: v.detail ?? [] })
+        }
+        continue
+      }
     } else {
       // ④b 【归并】族:同复合主键组内存在幸存者。批3语义收窄:幸存者允许持**已过期**租约
       // (主行本体留在账面不代摘,租约清账归持有者;登记信息不丢 ⇒ 接收方成立);
       // 在飞租约幸存者仍挡(宁可漏删不可误删)。批1/批2 expiredLease=false ⇒ 逐字原判。
       const k = r.key ?? compositeKeyOf(r.raw)
-      if (!k) continue
       const group = byKey.get(k) ?? []
-      const survivor = group.find(
-        (x) =>
-          x.line !== r.line &&
-          !hasCopyMark(x.raw) &&
-          !hasSettledNote(x.raw) &&
-          (!x.claim || (expiredLease && opts.staleLeaseLines?.has(x.line))),
-      )
-      if (!survivor) continue
+      const survivor = k
+        ? group.find(
+            (x) =>
+              x.line !== r.line &&
+              !hasCopyMark(x.raw) &&
+              !hasSettledNote(x.raw) &&
+              (!x.claim || (expiredLease && opts.staleLeaseLines?.has(x.line))),
+          )
+        : null
+      if (!survivor) {
+        // ④b-rc(2026-10-26,④d 同一条证据链):组内无幸存者(或键取不出)时,若本行**自带枚 sha**,
+        // 仍可用"快照已勾 + 账上编号无 open 正主 + 现面结清凭据"作接收方(L28744 型:keyOfRow 与
+        // compositeKeyOf 都被行首"重复登记副本:"措辞挡死,但首段加粗题面里的 G-351 可核)。
+        // 键一致纪律:k 给得出时必须与回执账上编号**逐字相等**(防拿着 A 号的回执删 B 号的行);
+        // k 取不出时以回执的 accountKey 为准(它自己过了四档取材+d/e 核验)。前提不齐 ⇒ 照旧整组保留。
+        // 本行带有效租约 ⇒ 不代裁(与③同口径;批1 下 claim 行根本进不到这里)
+        if (r.claim && !(expiredLease && opts.staleLeaseLines?.has(r.line))) continue
+        const rc = receipt ? commitReceiptVerdict({ line: r.line, raw: r.raw }, null, receipt, true) : null
+        if (rc && rc.verdict === 'commit-receipt' && rc.accountKey && (k === null || k === rc.accountKey)) {
+          deletes.push({
+            row: r,
+            family: includeSettled ? 'settled-note' : expiredLease ? 'merge-lease' : 'merge-note',
+            key: k ?? rc.accountKey,
+            survivorLine: rc.snapshotLine,
+            receiver: 'commit',
+            token: rc.token,
+            accountKey: rc.accountKey,
+            tombstones: rc.tombstones,
+          })
+          continue
+        }
+        continue
+      }
       deletes.push({
         row: r,
         family: includeSettled ? 'settled-note' : expiredLease ? 'merge-lease' : 'merge-note',
         key: k,
         survivorLine: survivor.line,
+        receiver: 'ledger',
       })
     }
   }
@@ -347,6 +748,214 @@ function selfTest() {
     { staleLeaseLines: new Set([1]) },
   )
   ok(d.length === 0, '批1档:幸存者持租约(哪怕行号在过期集)仍不作数 —— 收窄只在批3档生效')
+  // —— ④c 归档已勾主行档(2026-10-24):新面缺席时按归档面判"陈旧悬空指针"还是"仍有未勾主行" ——
+  // 夹具只喂 `[{path, text}]` 进 buildArchiveIndex,取材面(目录枚举/取正文)归 lib/plan-id-face.mjs,
+  // 判据侧不自己读盘 —— 与 self-test 纯函数、不碰工作区 git 面的既有约定同向。
+  const ARCH_DONE = ['# 归档件', '- [x] ✅(2026-09-27) 62. 会话搜索栏挂载 + 侧栏批量选择', ''].join('\n')
+  const ARCH_OPEN = ['# 归档件', '- [ ] 4. 观察期:连续 3 次 main push e2e 稳定绿后收官。', ''].join('\n')
+  const archOf = (text) => buildArchiveIndex([{ path: '.ihui-agent/archive/PROJECT_PLAN_x.md', text }])
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本,只加指针不动勾选;当前状态见 62 那条。')], {
+    archiveIndex: archOf(ARCH_DONE),
+  })
+  ok(
+    d.length === 1 && d[0].receiver === 'archive' && d[0].key === '62' && d[0].family === 'pointer-row' && d[0].survivorLine === 2,
+    '④c A型:新面缺席 ∧ 归档主行已勾 ⇒ 陈旧悬空指针可删(receiver=archive)',
+  )
+  ok(d[0]?.composites?.[0] === '62#会话搜索栏挂载+侧栏批量选择', '④c A型:点名用复合主键(编号+题面前 24 字逐字)')
+  let rej = []
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 4·观察期)：同主键第二份未勾选副本,只加指针不动勾选。')], {
+    archiveIndex: archOf(ARCH_OPEN),
+    rejectLog: rej,
+  })
+  ok(d.length === 0 && rej.length === 1 && rej[0].verdict === 'archive-live', '④c B型:归档主行未勾 ⇒ 不可删并点名(archive-live)')
+  rej = []
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本。')], {
+    archiveIndex: archOf('# 归档件\n'),
+    rejectLog: rej,
+  })
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-absent', '④c 归档缺席 ⇒ 维持补档前判定(不可删,archive-absent)')
+  rej = []
+  const brokenFace = buildArchiveIndex([{ path: '.ihui-agent/archive/PROJECT_PLAN_x.md' }])
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本。')], { archiveIndex: brokenFace, rejectLog: rej })
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-undetermined', '④c 归档面没取全 ⇒ 判不出≠零份,拒删')
+  // —— ④c-陈旧快照档(2026-10-26/patrol4):REN 化石里的旧 open 不得永挡陈旧指针 ——
+  const REN_ARCH = [
+    '# REN(2026-10-14 改号全量镜像)',
+    '- [ ] **P1-① 扩共享层首批**:当时账面未勾(化石)。',
+    '- [x] ✅(2026-10-09) **P1-① 扩共享层首批 —— 前提已否证,剩余 4 件**。',
+    '',
+  ].join('\n')
+  const ARCH_DONE09 = ['# a', '- [x] ✅(2026-10-11) **P1-① 扩共享层首批** 结清。', ''].join('\n')
+  const multiArch = (texts) => buildArchiveIndex(texts.map((t, i) => ({ path: i === 0 ? 'PROJECT_PLAN_RENUMBER_2026-10-14.md' : `PROJECT_PLAN_X${i}.md`, text: t })))
+  const FACE_NO_ANCHOR = { rows: [], lines: ['<!-- 已归档(2026-10-15:✅(2026-10-15) **P1-① 扩共享层首批** -->'], ok: true }
+  const PTR_P1 = '- [ ] 副本指针(编号 P1-①):折叠自旧形态行,状态见 O92 那条。'
+  d = selectCopyRowsToPurge([mk(1, PTR_P1)], {
+    archiveIndex: multiArch([REN_ARCH, ARCH_DONE09]),
+    ledgerFace: FACE_NO_ANCHOR,
+  })
+  ok(
+    d.length === 1 && d[0].receiver === 'archive' && d[0].key === 'P1-①',
+    '④c-陈旧快照:台账无活锚 + 结清日期(10-15)晚于化石(10-14) ⇒ 降级 archive-done 可删',
+  )
+  d = selectCopyRowsToPurge([mk(1, PTR_P1)], {
+    archiveIndex: multiArch([REN_ARCH, ARCH_DONE09]),
+    ledgerFace: { rows: [{ line: 9, state: 'open', raw: '- [ ] **P1-① 扩共享层首批** 台账活主行', key: null }], lines: ['- [ ] **P1-① 扩共享层首批** 台账活主行'], ok: true },
+  })
+  ok(d.length === 0, '④c-陈旧快照反例:台账面仍有活锚(别人未勾行含该编号)⇒ 指针是唯一锚邻证,拒拆(archive-live)')
+  const FACE_NO_DATE = { rows: [], lines: [], ok: true }
+  d = selectCopyRowsToPurge([mk(1, PTR_P1)], {
+    archiveIndex: multiArch([REN_ARCH.replace('2026-10-11', '2026-09-01'), ARCH_DONE09.replace('2026-10-11', '2026-09-01')]),
+    ledgerFace: FACE_NO_DATE,
+  })
+  ok(d.length === 0, '④c-陈旧快照反例:最新结清(09-01)早于化石(10-14)⇒ 拒降,防"结清后重开"被假降')
+  d = selectCopyRowsToPurge([mk(1, PTR_P1)], { archiveIndex: multiArch([REN_ARCH, ARCH_DONE09]), ledgerFace: null })
+  ok(d.length === 0, '④c-陈旧快照反例:不传 ledgerFace ⇒ 判不出,逐字退回 archive-live 拒删')
+  rej = []
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 P1-①)：同主键第二份未勾选副本。')], {
+    archiveIndex: archOf('# 归档件\n- [ ] P1-①扩共享层首批:等容器运行时。\n'),
+    rejectLog: rej,
+  })
+  ok(
+    d.length === 0 && rej[0]?.verdict === 'archive-live',
+    '④c 编号取不出(key=null)时按题面逐字前缀认主行,未勾 ⇒ 拒删',
+  )
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 P1-②)：同主键第二份未勾选副本。')], {
+    archiveIndex: archOf('# 归档件\n- [ ] P1-①扩共享层首批:等容器运行时。\n'),
+  })
+  ok(d.length === 0, '④c 题面前缀不算模糊匹配(`P1-②` 不得被 `P1-①` 主行顶替)')
+  // —— ④d 枚回执档(2026-10-26 立,goal-c 席现读实证:L28641 行号型指针被 ④c 结构性挡死)——
+  // 夹具全走纯函数入参(快照经 resolveSnapshot 注入,判据不碰真 git 面 —— 与 ④c 不读盘同一条纪律)。
+  // 行号用小号(L1/L2)钉同一形状:快照第 1 行不是登记行(拒删臂),第 2 行是已勾主行(可删臂)。
+  const SNAP_LEDGER =
+    '# 快照\n- **散文头无复选框**\n- [x] ✅(2026-09-24) **污染守门补上"内容归因"第二维并同步文档**:细节。\n' +
+    // ④b-rc 臂用真语料(指向 L6880):补一段空行把 done 主行垫到第 6880 行(6876 个空行)
+    '\n'.repeat(6876) +
+    '- [x] ✅(2026-09-24) **污染守门补上第二维并同步文档**(6880 号位)。\n'
+  const snapOk = (token) => (/^[0-9a-f]{7,40}$/.test(token) ? SNAP_LEDGER : null)
+  const RECEIPT_ROW_1 =
+    '- [ ] 副本指针（编号 L6880）重复登记副本:本行与同标题登记 L6880(枚 290a26bc1)重复。 **G-351〔旧号〕. 分叉合并丢掉的东西**:① 丢的实现。'
+  const RECEIPT_ROW_2 =
+    '- [ ] 重复登记副本:本行与同标题登记 L6880(枚 290a26bc1)重复。本行不进派单口径,活账以主行为准。 **G-351〔旧号〕. 分叉合并丢掉的东西**:① 丢的实现。'
+  const LEDGER_TOMB = [
+    '- [ ] 副本指针（编号 L6880）重复登记副本:见 G-351 那条。本行不进派单口径,活账以主行为准。',
+    '- [ ] 重复登记副本:见 G-351 那条。本行不进派单口径,活账以主行为准。',
+    '<!-- 已归档(2026-10-15:✅(2026-10-15) **G-351. 分叉合并丢掉的东西** 完整内容在 archive -->',
+    '- [ ] **G-999 甲题** 无关活行。',
+    '',
+  ].join('\n')
+  const faceT = buildLedgerFaceIndex(LEDGER_TOMB)
+  const rcOpt = (resolve) => ({ resolveSnapshot: resolve, ledgerFace: faceT })
+  // D 型正例:行号+枚 token 指针 ∧ 快照已勾(SNAP 的 L3=done 行) ∧ 账上 G-351 只有自述副本+结清墓碑 ⇒ 指针行可删
+  d = selectCopyRowsToPurge(
+    [mk(1, RECEIPT_ROW_1.replace('L6880', 'L3')), mk(2, RECEIPT_ROW_2), mk(3, LEDGER_TOMB.split('\n')[2]), mk(4, '- [ ] **G-999 甲题** 无关活行。', { key: 'G-999' })],
+    { archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空归档件\n' }]), receipt: rcOpt(snapOk) },
+  )
+  ok(
+    d.length === 2 && d[0].receiver === 'commit' && d[0].token === '290a26bc1' && d[0].accountKey === 'G-351' && d[0].survivorLine === 3,
+    '④d D型:行号+枚 token 指针 ∧ 快照 done ∧ 账已结清 ⇒ 可删(两自述副本同批都收 —— pointer-row + merge-note,与真面 L28641/L28744 形状一致)',
+  )
+  ok(
+    d.length === 2 && d.every((x) => x.tombstones.length === 1 && x.tombstones[0].line === 3),
+    '④d D型:结清墓碑逐处点名(证据进留痕,不只给布尔)',
+  )
+  // 反例组:每一臂都必须退回 archive-absent(拒删),失效方向恒为"少删"
+  d = selectCopyRowsToPurge(
+    [mk(1, RECEIPT_ROW_1.replace('L6880', 'L1'))],
+    { archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]), rejectLog: (rej = []), receipt: rcOpt(snapOk) },
+  )
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-absent', '④d 反例:快照该行不是登记行 ⇒ 判不出,拒删')
+  d = selectCopyRowsToPurge(
+    [mk(1, RECEIPT_ROW_1.replace('L6880', 'L2'))],
+    { archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]), rejectLog: (rej = []), receipt: rcOpt(() => '# 快照\n- [ ] **62. 未勾** y。\n') },
+  )
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-absent', '④d 反例:快照行未勾 ⇒ 活登记,拒删')
+  d = selectCopyRowsToPurge(
+    [mk(1, '- [ ] 副本指针(编号 62)：与 L6880 无关也无关(枚 290a26bc1)。')],
+    { archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]), rejectLog: (rej = []), receipt: rcOpt(snapOk) },
+  )
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-absent', '④d 反例:指向不是行号形态(裸 62)⇒ 本档不启用,逐字退回 ④c')
+  const LEDGER_LIVE = [
+    '- [ ] 副本指针（编号 L6880）重复登记副本:见 G-351 那条。',
+    '- [ ] **G-351 甲题** 主行还挂着未勾。',
+    '',
+  ].join('\n')
+  d = selectCopyRowsToPurge([mk(1, RECEIPT_ROW_1.replace('L6880', 'L2'))], {
+    archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]),
+    rejectLog: (rej = []),
+    receipt: { resolveSnapshot: snapOk, ledgerFace: buildLedgerFaceIndex(LEDGER_LIVE) },
+  })
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-absent', '④d 反例:账上编号仍有 open 正主 ⇒ 拒删')
+  const LEDGER_NOSTOP = [
+    '- [ ] 副本指针（编号 L6880）重复登记副本:见 G-351 那条。本行不进派单口径,活账以主行为准。',
+    '<!-- 重复副本锚(归并器防误回捞措辞),没有 ✅/已归档 -->',
+    '  - 复盘清单里提了一嘴 `G-351` 的散文引用行。',
+    '',
+  ].join('\n')
+  d = selectCopyRowsToPurge([mk(1, RECEIPT_ROW_1.replace('L6880', 'L3'))], {
+    archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]),
+    rejectLog: (rej = []),
+    receipt: { resolveSnapshot: snapOk, ledgerFace: buildLedgerFaceIndex(LEDGER_NOSTOP) },
+  })
+  ok(
+    d.length === 0 && rej[0]?.verdict === 'archive-absent' && String(rej[0]?.detail?.[0] ?? '').includes('结清凭据'),
+    '④d 反例:全文找不到任何结清凭据(墓碑≥1)⇒ 拒删(没找到活的≠找到结清的)',
+  )
+  const LEDGER_MIX = [
+    '- [ ] 副本指针（编号 L6880）重复登记副本:见 G-351 那条。本行不进派单口径,活账以主行为准。',
+    '<!-- 无结清标的副本锚不拦路 -->',
+    '  - 散文引用 `G-351` 不拦路。',
+    '<!-- 已归档(✅(2026-10-15) **G-351. 甲** 完整内容在 archive -->',
+    '',
+  ].join('\n')
+  d = selectCopyRowsToPurge([mk(1, RECEIPT_ROW_1.replace('L6880', 'L3'))], {
+    archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]),
+    receipt: { resolveSnapshot: snapOk, ledgerFace: buildLedgerFaceIndex(LEDGER_MIX) },
+  })
+  ok(
+    d.length === 1 && d[0].tombstones.length === 1 && d[0].tombstones[0].line === 4,
+    '④d 正例:非结清注释/散文引用不拦,凭据只要 ≥1 条真墓碑(点名到那条)',
+  )
+  // ④b-rc:自述副本行 keyOfRow/compositeKeyOf 双双交 null(与真行 L28744 同形:行首措辞挡正尺,
+  // 加粗题面在 48 字窗外),但首段加粗里的账上编号可核 ⇒ 枚回执接得住。夹具用真语料逐字。
+  const REAL_28744 =
+    '- [ ] 重复登记副本:本行与同标题登记 L6880(枚 290a26bc1)重复,并发归档/回捞把它复制到了不同编号下(编号一律不改、不删行、正文逐字留在下方)。本行不进派单口径,活账以主行为准。 **G-351〔旧号〕. 分叉合并这次"丢掉的东西"与"互相矛盾的两行文档",按归属交接,不由合并代裁**:① **丢的实现** —— `scripts/check-service-binary-paths.mjs` 与它的测试是同一票在两条分支各写一份(add/add),合并取的是 origin 那份(唯一理由:合并后的 guardian-runner 注册的是它,而只有它读 `HUSKY_SKIP_SERVICE_BINARY_PATHS`;留本侧就等于给提交链挂一条"文档写了但跑不通的出路"),本侧多出的三样探测随本次合并**没了**:服务 STATE 的 〔压缩@2026-10-22〕〔同题原号 G-337〔旧号〕〕〔同题原号 G-337〕〔进展@2026-10-25/取证席:本行为重复登记副本,不进派单口径;活账以 L6880 为准,不删行、编号不改〕'
+  d = selectCopyRowsToPurge([mk(1, REAL_28744), mk(2, LEDGER_TOMB.split('\n')[2])], {
+    archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]),
+    receipt: { resolveSnapshot: snapOk, ledgerFace: faceT },
+  })
+  ok(
+    d.length === 1 && d[0].row.line === 1 && d[0].receiver === 'commit' && d[0].family === 'merge-note' && d[0].accountKey === 'G-351',
+    '④b-rc:无幸存者的自述副本行凭"枚回执+结清凭据"可删(receiver=commit,merge-note 族)',
+  )
+  d = selectCopyRowsToPurge(
+    [mk(1, REAL_28744.replace(/L6880/g, 'L1')), mk(2, LEDGER_TOMB.split('\n')[2])],
+    { archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]), receipt: { resolveSnapshot: snapOk, ledgerFace: faceT } },
+  )
+  ok(d.length === 0, '④b-rc 反例:枚快照该行不是登记行 ⇒ 证据不齐,拒删(逐字原判)')
+  const LEDGER_PLAIN = [
+    '- [ ] 副本指针（编号 L6880）重复登记副本:见 G-351 那条。',
+    '<!-- 没结清的普通注释提了一嘴 **G-351** 但没有 ✅/已归档 -->',
+    '',
+  ].join('\n')
+  d = selectCopyRowsToPurge([mk(1, RECEIPT_ROW_1.replace('L6880', 'L2'))], {
+    archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]),
+    rejectLog: (rej = []),
+    receipt: { resolveSnapshot: snapOk, ledgerFace: buildLedgerFaceIndex(LEDGER_PLAIN) },
+  })
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-absent', '④d 反例:token 出现在非结清注释 ⇒ 存疑,拒删')
+  d = selectCopyRowsToPurge([mk(1, RECEIPT_ROW_1.replace('L6880', 'L2')), mk(2, RECEIPT_ROW_2)], {
+    archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]),
+    rejectLog: (rej = []),
+    receipt: rcOpt(() => null),
+  })
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-absent', '④d 反例:枚快照取不到 ⇒ 判不出,拒删')
+  // 通道关着(未注入 receipt)⇒ 旧判定逐字不变(与 ④c 补档时的形状锁同一条)
+  d = selectCopyRowsToPurge(
+    [mk(1, RECEIPT_ROW_1.replace('L6880', 'L2')), mk(2, RECEIPT_ROW_2)],
+    { archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]) },
+  )
+  ok(d.length === 0, '④d 不注入回执通道 ⇒ 行为逐字退回补档前(不可删)')
+  ok(receiptTokenOf('- [ ] x(枚 abc1234def)。') === 'abc1234def' && receiptTokenOf('无枚') === null, '枚 token 提取器:有/无两形各钉')
   let threwBatchClash = false
   try {
     selectCopyRowsToPurge([mk(1, '- [ ] G-65 x')], { includeSettled: true, expiredLease: true })
@@ -407,7 +1016,55 @@ function main() {
     staleLeaseLines = new Set(lease.stale.map((v) => v.line))
     staleLeaseTotal = lease.stale.length
   }
-  const candidates = selectCopyRowsToPurge(rows, { includeSettled, expiredLease, staleLeaseLines }).filter((d) => {
+  // ④c 归档已勾主行档:只有"新面上没有接收方"的指针行才需要归档面(常态下省掉整目录扫描)。
+  // 归档件的枚举/取正文只走 lib/plan-id-face.mjs(归档器与取号占用面同一条取材),本器不自造第二套。
+  const openById = indexOpenRowsById(rows)
+  const pointerRows = rows.filter((r) => r.state === 'open' && COPY_POINTER_ROW_RE.test(r.raw) && pointedIdOf(r.raw))
+  const orphanPointers = pointerRows.filter(
+    (r) => !(openById.get(pointedIdOf(r.raw)) ?? []).some((x) => x.line !== r.line),
+  )
+  let archiveIndex = null
+  if (orphanPointers.length) {
+    const listed = ID_FACE_TRANSPORT.listArchives({ root: ROOT, source: 'HEAD' })
+    const archiveFiles = []
+    for (const p of listed.paths) {
+      try {
+        archiveFiles.push({ path: p, text: ID_FACE_TRANSPORT.show({ root: ROOT, source: 'HEAD', path: p }) })
+      } catch {
+        archiveFiles.push({ path: p }) // 没读到正文 ⇒ buildArchiveIndex 记 undetermined ⇒ ④c 一律拒删
+      }
+    }
+    archiveIndex = buildArchiveIndex(archiveFiles)
+    console.log(
+      `归档面:HEAD 的 PROJECT_PLAN*.md ${listed.paths.length} 份 / 登记行 ${archiveIndex.rows.length} 行` +
+        (archiveIndex.ok ? '' : `(⚠️ ${archiveIndex.undetermined.length} 份没读到正文 ⇒ ④c 判不出,拒删)`),
+    )
+  }
+  // ④d 枚回执通道:惰性 —— 只有"归档面也缺席"的行才会真去解析枚快照(纯判据不预派生)。
+  const ledgerFace = orphanPointers.length ? buildLedgerFaceIndex(content) : null
+  const snapshotCache = new Map()
+  const resolveSnapshot = (token) => {
+    if (snapshotCache.has(token)) return snapshotCache.get(token)
+    const spec = `${token}:${LEDGER}`
+    let text = null
+    try {
+      text = catBatch(ROOT, [spec]).get(spec) ?? null
+    } catch {
+      text = null
+    }
+    snapshotCache.set(token, text)
+    return text
+  }
+  const rejectLog = []
+  const candidates = selectCopyRowsToPurge(rows, {
+    includeSettled,
+    expiredLease,
+    staleLeaseLines,
+    archiveIndex,
+    rejectLog,
+    ledgerFace,
+    receipt: orphanPointers.length ? { resolveSnapshot, ledgerFace } : null,
+  }).filter((d) => {
     if (forkOpenLines.has(d.row.line)) return false // ⑥
     // ⑤ 撞号组"同主键"语义被污染,只辖同键组判定(④b);行首指针族(family 前缀 pointer-*)走指向判定不查 F9
     if (!d.family.startsWith('pointer') && f9Keys.has(d.key)) return false
@@ -418,8 +1075,44 @@ function main() {
   const before = { openRows: rows.filter((r) => r.state === 'open').length }
   console.log(`判定面:HEAD(${headRef}) 未勾 ${before.openRows} 行 [${batchLabel}]`)
   console.log(`候选删除 ${candidates.length} 行(${candidates.map((d) => d.family).filter((f, i, a) => a.indexOf(f) === i).join(' / ') || '无'})`)
-  for (const d of candidates.slice(0, 12))
-    console.log(`  L${d.row.line} [${d.family}] → 幸存/指向 L${d.survivorLine} ${d.row.raw.slice(0, 80)}`)
+  const archivedCandidates = candidates.filter((d) => d.receiver === 'archive')
+  if (archivedCandidates.length) {
+    console.log(
+      `④c 陈旧悬空指针可删 ${archivedCandidates.length} 行(编号:${[...new Set(archivedCandidates.map((d) => d.key))].join('/')};` +
+        `新面缺席,接收方在归档面)`,
+    )
+  }
+  const receiptCandidates = candidates.filter((d) => d.receiver === 'commit')
+  if (receiptCandidates.length) {
+    console.log(
+      `④d 枚回执可删 ${receiptCandidates.length} 行(行号型指针 ∧ 快照行已勾 ∧ 账上编号无 open 正主 ∧ 出现处全为副本/结清墓碑):` +
+        [...new Set(receiptCandidates.map((d) => `${d.key}→枚${(d.token ?? '').slice(0, 10)}${d.accountKey ? `/${d.accountKey}` : ''}`))].join('; '),
+    )
+  }
+  // ④ 判"不可删"的指针行逐条点名(判据只在 select 里走一次,此处只读同一份 rejectLog)
+  const rejectedPointers = rejectLog.filter((x) => !forkOpenLines.has(x.row.line))
+  if (rejectedPointers.length) {
+    const why = {
+      'archive-live': '归档件里该编号的主行仍未勾(留着唯一活登记)',
+      'archive-absent': '归档面找不到该编号的登记行(维持不可删)',
+      'archive-undetermined': '归档面没取全,判不出 ⇒ 拒删',
+    }
+    console.log(`④ 维持不可删的指针行 ${rejectedPointers.length} 行:`)
+    for (const x of rejectedPointers) {
+      const hit = x.detail?.[0]
+      const at = hit ? ` ⇒ ${String(hit.path).split('/').pop()}:L${hit.line}「${hit.title ?? ''}」` : ''
+      console.log(`  L${x.row.line} (编号 ${x.pointed}) ${why[x.verdict] ?? x.verdict}${at} ${x.row.raw.slice(0, 60)}`)
+    }
+  }
+  for (const d of candidates.slice(0, 12)) {
+    const to =
+      d.receiver === 'archive'
+        ? `归档 ${String(d.receiverPath).split('/').pop()}:L${d.survivorLine}`
+        : d.receiver === 'commit'
+          ? `枚 ${String(d.token).slice(0, 10)} 快照:L${d.survivorLine}${d.accountKey ? ` + ${d.accountKey} 账已结清(墓碑 ${(d.tombstones ?? []).length} 处)` : ''}`
+          : `幸存/指向 L${d.survivorLine}`
+    console.log(`  L${d.row.line} [${d.family}] → ${to} ${d.row.raw.slice(0, 80)}`)
+  }
   if (candidates.length > 12) console.log(`  … 其余 ${candidates.length - 12} 行见留痕 md`)
   if (expiredLease) {
     const withClaim = candidates.filter((d) => d.row.claim).length
@@ -456,11 +1149,14 @@ function main() {
   const after = parseTaskRows(newContent)
   const afterForks = findForks(newContent)
   const afterF1 = afterForks.forks.length
-  const afterDupPointer = after.filter((r) => r.state === 'open' && DUP_POINTER_RE.test(r.raw)).length
+  // dupPointerRows 必须与 ① 同判据(「本行自述副本」= isClaimExcludedPointer,不是单看【归并】字面):
+  // 行首指针族(`副本指针(编号 N)`)删行时,旧写法 before/after 双 0 ⇒ 闸门形同摆设(2026-10-24 实证)。
+  const countCopyMarks = (rs) => rs.filter((r) => r.state === 'open' && isClaimExcludedPointer(r.raw)).length
+  const afterDupPointer = countCopyMarks(after)
   const afterMergeNotes = (newContent.match(new RegExp(MERGE_NOTE_RE.source, 'g')) ?? []).length
   const beforeMergeNotes = (content.match(new RegExp(MERGE_NOTE_RE.source, 'g')) ?? []).length
   const afterF9 = f9Faces(newContent).collisions.length
-  const beforeDupPointer = rows.filter((r) => r.state === 'open' && DUP_POINTER_RE.test(r.raw)).length
+  const beforeDupPointer = countCopyMarks(rows)
   const violations = []
   if (afterF1 !== 0) violations.push(`F1 分叉 ${afterF1} 组(必须 0)`)
   if (includeSettled) {
@@ -474,6 +1170,7 @@ function main() {
       violations.push(
         `mergeNotes 降幅 ${beforeMergeNotes - afterMergeNotes} ≠ 被删行行级注记和 ${perRowDeleted}(横跨注记口径差或误删 ⇒ 交人看面)`,
       )
+    // 批2:注记行删除严格减注记;自述副本全集只需"没增"(批2删的是注记行,不能拿它当指针族的下降账)
     if (afterDupPointer > beforeDupPointer)
       violations.push(`dupPointerRows ${beforeDupPointer}→${afterDupPointer}(不得增加)`)
   } else {
@@ -487,17 +1184,72 @@ function main() {
   console.log(`复跑对账:F1=0 / mergeNotes ${beforeMergeNotes}→${afterMergeNotes} / dupPointerRows ${beforeDupPointer}→${afterDupPointer} / F9 ${f9.collisions.length}→${afterF9}`)
 
   // 安全阀 3:门71模拟 —— 被删行的**主键编号**(merge-note 族 = keyOfRow 的编号)或**指向编号**
-  // (pointer-row 族,④a 已判,此处对删除后再复核)在新面仍存在登记行(keyOfRow 同源重扫)。
+  // (pointer-row 族,④ 已判,此处对删除后再复核)在新面仍存在登记行(keyOfRow 同源重扫)。
   // 刻意不对正文里的引用编号判活 —— 那是别人票的号,不是本行的键(dry-run 实证:G-23 等括注
   // 引用会被误报悬空)。
+  // ④c 档的接收方在**归档面** ⇒ 新面缺席是预期的,改按归档面判活(同一取材),绝不许两边皆空;
+  // 且按**复合主键**粒度判:同编号下"已勾族"在而"未勾族"也在 ⇒ 未勾族是另一件事的活登记,
+  // 不构成本行的接收方(删族之后同键仍挂 open 不算数)。
   const newKeys = new Set(after.filter((r) => r.key).map((r) => r.key))
+  const archiveOpenByKey = new Map()
+  for (const rec of archiveIndex?.rows ?? []) {
+    if (!rec.key) continue
+    if (!archiveOpenByKey.has(rec.key)) archiveOpenByKey.set(rec.key, new Set())
+    if (rec.state !== 'done' && rec.composite) archiveOpenByKey.get(rec.key).add(rec.composite)
+  }
   const newFaceMissing = []
   for (const d of candidates) {
     const id = d.family.startsWith('pointer') ? d.key : d.row.key
-    if (id && !newKeys.has(id)) newFaceMissing.push(`L${d.row.line} ${id}`)
+    if (!id) continue
+    if (d.receiver === 'archive') {
+      const scope = archiveIndex?.byKey.get(id) ?? []
+      // 无 key 族(P1-① 这类圈字号)byKey 恒空 ⇒ 判活口径与 ④c 同步退到"题面逐字起头且 done"档
+      const doneRows = scope.filter((x) => x.state === 'done' && x.composite)
+      const noKeyFamily = !archiveIndex?.byKey.has(id)
+      const titleDone = noKeyFamily ? (archiveIndex?.rows ?? []).filter((x) => x.state === 'done' && typeof x.title === 'string' && x.title.startsWith(id)) : []
+      const doneComposites = new Set([...doneRows, ...titleDone].filter((x) => x.composite).map((x) => x.composite))
+      if (!doneComposites.size && !titleDone.length) {
+        newFaceMissing.push(`L${d.row.line} ${id}(归档面也没有已勾主行 ⇒ 接收方两处皆空)`)
+        continue
+      }
+      for (const c of d.composites ?? []) {
+        if (archiveOpenByKey.get(id)?.has(c)) newFaceMissing.push(`L${d.row.line} ${id}「${c}」同族仍挂 open`)
+      }
+      continue
+    }
+    if (d.receiver === 'commit') {
+      // ④d 判活不复用"新面编号仍在"(那恰是本档要豁免的一格),改为**复算回执**:
+      // 快照行仍 done ∧ 账上 token 在现行面无本批之外的 open 正主 ∧ 每处出现仍是副本/结清墓碑。
+      // 任何一环在落地这一刻不成立 ⇒ 记入 newFaceMissing 拒落(判据复算走同一批纯函数出口,零第二份)。
+      const snap = resolveSnapshot(d.token)
+      const snapL = parseTaskRows(typeof snap === 'string' ? snap : '').find((r) => r.line === d.survivorLine)
+      if (!snap || snapL?.state !== 'done') {
+        newFaceMissing.push(`L${d.row.line} ${id}(回执复算:枚 ${String(d.token).slice(0, 10)} 快照取不到或行 ${d.survivorLine} 不再是已勾)`)
+        continue
+      }
+      if (d.accountKey && ledgerFace?.openByKey.get(d.accountKey)?.some((x) => !hasCopyMark(x.raw) && !delSet.has(x.line))) {
+        newFaceMissing.push(`L${d.row.line} ${id}(回执复算:${d.accountKey} 仍存本批之外的 open 正主)`)
+        continue
+      }
+      const badSite = (d.tombstones ?? []).find(
+        (s) =>
+          s.kind === 'tombstone'
+            ? !/^\s*<!--/.test(String(ledgerFace?.lines?.[s.line - 1] ?? ''))
+            : ledgerFace?.lineRows.get(s.line)?.state !== 'done',
+      )
+      if (badSite) {
+        newFaceMissing.push(`L${d.row.line} ${id}(回执复算:token 出现处 L${badSite.line} 复验不是结清凭据)`)
+        continue
+      }
+      continue
+    }
+    if (!newKeys.has(id)) newFaceMissing.push(`L${d.row.line} ${id}`)
   }
   if (newFaceMissing.length) throw new Error(`门71模拟红(编号判活悬空)⇒ 拒绝落地:${newFaceMissing.slice(0, 10).join(';')}`)
-  console.log('门71模拟:被删行主键编号在新面全部判活')
+  console.log(
+    '门71模拟:被删行主键编号在新面全部判活' +
+      (archivedCandidates.length ? `(其中 ${archivedCandidates.length} 行接收方在归档面,按复合主键同族已勾判活)` : ''),
+  )
 
   if (!apply) {
     console.log(`⚠️  --dry-run,未落地。真跑:node scripts/plan-copy-row-purge.mjs --apply`)
@@ -515,8 +1267,11 @@ function main() {
   const section = candidates
     .map(
       (d) =>
-        `- L${d.row.line} [${d.family}] → 幸存/指向 L${d.survivorLine} (head ${headRef.slice(0, 11)})\n` +
-        d.row.raw,
+        `- L${d.row.line} [${d.family}] → ${
+          d.receiver === 'archive'
+            ? `归档 ${String(d.receiverPath).split('/').pop()}:L${d.survivorLine}`
+            : `幸存/指向 L${d.survivorLine}`
+        } (head ${headRef.slice(0, 11)})\n` + d.row.raw,
     )
     .join('\n')
   const header = existing

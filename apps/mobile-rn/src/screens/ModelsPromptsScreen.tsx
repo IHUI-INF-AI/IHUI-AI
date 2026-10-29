@@ -22,7 +22,7 @@ interface PromptSummary {
   created_at: string
 }
 
-export function ModelsPromptsScreen() {
+function ModelsPromptsScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

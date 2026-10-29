@@ -77,6 +77,12 @@
  *  不命中(那等于把"重复落地"这一型重新放开)。面判不出(台账取不到 / 归档件枚举失败 / 有件取不到)
  *  ⇒ exit 2 拒绝落地,**绝不退回窄面发号**。非 `PROJECT_PLAN.md`(AGENTS/README)⇒ 归档件不适用,
  *  面 = 该文档自身,与改动前逐字同形。
+ *  实时占用面再叠**工作树副本**那一维(G-35 形态 B,2026-10-25 主会话裁决采纳):他席未提交的
+ *  手填/令牌登记活在 `PROJECT_PLAN.md` 的工作树副本上,HEAD 宽面看不见 —— 第二发号出口
+ *  (`next-plan-id.mjs` 的 `scanWork`)早就扫了这一面,第一出口没扫 = 两出口同漂。现在 CAS 循环
+ *  每轮把工作树副本读出来交给 `resolveIdTokens`(opts.worktreeText),副本上**独有**的号一并算已占
+ *  (同一把尺 `scanFamilyIdHits`;并集方向:HEAD 宽面已含的号不损,工作树滞后只意味着少补几枚,
+ *  不会倒扣)。读不到 ⇒ 大声警告并退回 HEAD 宽面(与 next-plan-id 同一档,不造新硬闸)。
  *
  *  千段租约(G-916936 机主拍板,2026-10-07 落地):取号前先问"本机段" —— 台账里本机的
  *  `〔千段租约〕` 行(done 形态,主键=段尾号)内还有空闲 ⇒ **段内连号**;没有/段满 ⇒ **新占一段**
@@ -85,6 +91,31 @@
  *  撞"收敛为"两侧同刻新占段才可能撞一次,CAS 重试即换下一段"。机器标识 = IHUI_MACHINE_ID env
  *  > 主机名+仓根指纹(同机双 checkout 各占各段);租约行无日期 ⇒ 归档器"无日期不搬"不会把段
  *  还回去。不给 machineId(仅测试用)⇒ 逐字保持旧口径。
+ *
+ *  手填号检测与期末对账(G-313 出路①,2026-10-23 立 —— 立案现场:批 B 令牌现算 `G-302/G-303` 先落,
+ *  批 A 正文**手填** `G-300..G-309` 晚并入 ⇒ 同一号段被两批各自认领;② 的远端基准关不掉这一格):
+ *  ① **落盘前**:插入档里**不带令牌**的登记行,其声明位编号(判据取 `lib/plan-task-index.mjs` 的
+ *     `keyOfRow`,与台账层同一份"什么算声明位编号",本器不另写)若撞上 **本批令牌将取的号**
+ *     (池内前 k 枚)、**号池未来窗口**(基准 max+1..max+k)、**远端已用号**、或**只活在归档/正文引用
+ *     面**的号(全文件扫描命中而本地声明位未用)⇒ **改判现算** —— 该行的号被替换为池内下一枚空闲号
+ *     (与令牌同一出口、同一池,两路取号互斥,改判目标跳过保留手填号),逐枚点名"手填号改判现算"。
+ *     撞上**本地底稿声明位已用号**的手填行**不改判**:同号不同题归 F9 闸、同主键归登记闸,一律 rc=1
+ *     交人工裁归属(票面"清账出口"语义;改判会把这两道闸的拒绝面偷换成自动放行,镜像测试 IC-E2E/DU-7
+ *     钉着)。不撞的手填号逐字保留(成对反例由镜像测试钉住)。
+ *     **机器可判面(2026-10-25 补)**:同一**新增行**里既手填了声明位编号、又带取号令牌,且令牌现算的号
+ *     与那个手填号不一致 ⇒ **拒收**(`handfilled-id-conflict`,exit 2)。判据仍取 `keyOfRow` 一份:
+ *     只有"令牌展开后的行首声明位"仍落在手填号上才算冲突;令牌在声明位、行文引用别的号(反引号引述
+ *     或题面里的承接说明)不误伤。只对插入档新增行生效(opts.manualCheck),整行改写档不追溯。
+ *  ② **CAS 成功且回读之后**:本次落地的号(令牌 + 改判产出)对**新 HEAD 现读面**再对账一次
+ *     (`judgeLandedIdRecheck`,声明位口径同上)—— 同一号既挂着本次行又挂着他人行 ⇒ **自动让号**:
+ *     把本次那行的号经同一令牌出口现算成新空闲号,再发一次 CAS 只改自己那行,让号枚经 G-725
+ *     旁路留痕出口逐枚入账(`recordBypassChain`,reason 点名"期末对账自动让号";**原始落地与每枚
+ *     让号各恰一条记录、父链首尾相接**,2026-10-25 修正)。对账取不到面 ⇒
+ *     只喊一行不判红(内容已入库,把"没判成"写成"没落地"是 G-321② 明令禁的那一型;取材与射程
+ *     2026-10-25 修正:`readLandedDocText` 兜底 allowFail、`landedRecheckScope` 剔除保留手填号);让号 CAS 有界
+ *     3 次,抢不到交人工并点名撞号行。
+ *  整行改写档不在①射程:after 的声明位编号常常就是该行**现有号**(翻勾/注记不动号),对它开火等于
+ *  把每一次正当结清重编一次号;让号重登的旧号防线另有 G-454 判据①(`vacating`)。
  *
  *  号段基准(G-313 出路②,2026-09-28 加):基准 = **max(本地 HEAD 底稿该族 max, 远端那一份该族
  *  max)**。只问 `git ls-remote` + 本机对象库;远端 tip 的对象**本地没有就不 fetch、不写任何 ref**,
@@ -97,7 +128,22 @@
  *            编号形状编译不出 ⇒ 无法证明"不在位" / **新行里的 sha 形态指针当场问不到 commit**(G-1079146
  *            取值档;注意"git 问不到"不落这一档 —— 那一档是未判定 ⇒ 放行并打印原因));
  *        2 = 用法或环境错(缺必填 env / 锚点或正文块为空 / 根不可当仓库问 /
- *            本次内容残留消费不掉的取号令牌字面量或该档取不到判定输入(G-15107 格①;反引号引述放过));
+ *            本次内容残留消费不掉的取号令牌字面量或该档取不到判定输入(G-15107 格①;反引号引述放过))/
+ *            **结清留痕未判定**(2026-10-26:整行改写把 `- [ ]` 翻成 `- [x]` 而两形态没能进
+ *            `plan-row-drop.jsonl` —— 台账读不到/写不进、或 HEAD 取不到因而证不了"HEAD 被推进";
+ *            内容是**已落地**的,这一档只表示"这行本侧已处置过"没留下凭据);
+ *
+ * 结清留痕自动腿(2026-10-26 立;写口住 `lib/plan-drop-record.mjs`,本器只交事实):
+ *  整行改写档里 after 是已勾形态而 before 是未勾形态的项,自动把**两形态逐字**追写进
+ *  `.ihui-agent/state/plan-row-drop.jsonl`(kind=`closed-row-reclose-open-form`,沿用既有族)。
+ *  四条硬次序:① 排在落地成功之后(回读已证明 after 在位、before 归零);② 凭据是**HEAD 有没有被推进**
+ *  (`isAncestor(landed, head)` 三态),不是本器退出码;③ 只在这条形状上写 —— 纯注记改写、翻回未勾、
+ *  非登记行一律零入账;④ 幂等(逐字已在账 ⇒ 不重复追加)。取不到输入(台账不可写 / HEAD 取不到)
+ *  ⇒ 显式未判定 + 打印 + exit 2,不静默跳过。`LIVE_SEAT` 可覆盖台账里的 `seat`(缺省 `live-doc-edit`)。
+ *
+ * 已知边界(如实登记,别读成"结清留痕已全覆盖"):本器之外还有 12 个结清入口直接改台账/直交
+ *  (实测 `noTrace=182/434`),它们不写留痕;本腿只收"走本器整行改写档"这一条通道。`all:true`
+ *  的孪生副本项按**声明项**入账一次(两形态各一条),不按命中行数重复入账。
  *
  * 已知边界(如实登记,别读成"重复落地这一族已被全覆盖"):
  *  - **EOF 追加档不在幂等射程**:票面 ① 的判据定义在"锚点之后紧邻 N 行"上,EOF 档没有锚点可点名。
@@ -160,6 +206,7 @@ import {
   commitTreeWithIndex,
   git,
   headBlobOf,
+  isAncestor,
   resolveHeadRef,
   sameLines,
   writeBlob,
@@ -167,15 +214,24 @@ import {
 } from './lib/bypass-git.mjs'
 import {
   usedIdsOfPrefix,
+  keyOfRow,
   MALFORMED_ID_RE,
   MALFORMED_BODY_RE,
   findMalformedIds,
   findMalformedRows,
   newMalformed,
   malformedLine,
+  DISPOSITIONS,
 } from './lib/plan-task-index.mjs'
 import { collectIdFace, scanFamilyIdHits } from './lib/plan-id-face.mjs'
 
+// 结清留痕自动腿(2026-10-26 立):`- [ ]` → `- [x]` 的两形态逐字入 `plan-row-drop.jsonl`。
+// 写口/幂等/凭据判定只有一份实现(住 lib),本器只交事实(落地 sha / 父提交 / 当下 HEAD / 祖先关系)。
+import {
+  recordFlipDrops,
+  selfTestCases as planDropSelfTestCases,
+  DROP_SEAT_DEFAULT,
+} from './lib/plan-drop-record.mjs'
 // 守门 194 同题查重(2026-10-13):指纹判据只此一份,取号器不另写"什么算同题"
 import { extractTaskFingerprint, findSameFingerprint } from './check-plan-task-duplicates.mjs'
 // 复合主键判据的唯一实现(台账层与归并器共用同一份;本器不得再抄一份 —— 两处算同一个键必漂移)。
@@ -185,7 +241,12 @@ import { compositeKeyOf, auditPlan, f9GroupLine } from './lib/plan-task-index.mj
 import { narrowF9Face, readFieldsFace } from './plan-tasks.mjs'
 // G-965 写盘闸改造(2026-10-22):改写整行时的三维守恒断言**只有这一份实现**(规格 §2),
 // 本器只做接线;翻勾/删行是活文档编辑器的合法动作,断言刻意拒绝它们(故只在 open→open 时施加)。
-import { assertRowRewriteConservation, leaseTransitionOf } from './lib/plan-row-conservation.mjs'
+import {
+  assertRowRewriteConservation,
+  bucketOf,
+  isOpenRow,
+  leaseTransitionOf,
+} from './lib/plan-row-conservation.mjs'
 import { fieldsFor } from './lib/plan-fields.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
@@ -197,14 +258,20 @@ import { gitRaw } from './lib/face-reader.mjs'
 import { classifyShape, extractFromLine } from './check-plan-sha-resolvable.mjs'
 // 千段租约(G-916936,2026-10-07):段判定/行构造/落账并线只有一份实现,本器只是取号出口的接线方。
 // 池式改造(2026-10-14):无租约基准的"池内最小空闲"也只住在那一份实现里(smallestFreeId/poolFreeList)。
+// gb22(2026-10-28)拒发归因层:`exhaustion.stage` 的取值(`EXHAUST_STAGE`)与结论的可读行
+// (`describeExhaustion`)都住 lib —— 出口按成因各拼一句必然漂,而漂掉的正是"该走哪条出路"。
+// 本器只交现场读数,不在此渲染成因,也不自立 stage 字面量(§0.6/§22c)。
 import {
   appendLeaseRows,
   buildLeaseRow,
   decideLease,
+  describeExhaustion,
   machineIdentity,
   poolFreeList,
+  EXHAUST_STAGE,
   LEASE_MARK,
   LEASE_POOL_MAX,
+  POOL_EXHAUST_REASON,
 } from './lib/plan-id-lease.mjs'
 
 /**
@@ -416,14 +483,15 @@ export function idTokenFamilies(lines) {
 /**
  * "号段基准"那一行的唯一措辞出口:三条读数(本地 max / 远端 max / 采用的基准)一起给 ——
  * 只印最终值就分不清"远端把这一段顶开了"与"远端压根没参与",而后者必须读成**未与远端对齐**。
- * 池式口径(2026-10-14):本地/远端 max 仍如实报(它是对账证据),但池只认 1..999 ——
- * 远端 max 在池外(>999)必须点名"池式不追池外大号",否则读报告的人会以为号要跳到那边。
+ * 池式口径(2026-10-14;2026-10-24 池上限降到两位数):本地/远端 max 仍如实报(它是对账证据),
+ * 但池只认 1..LEASE_POOL_MAX —— 远端 max 在池外(>LEASE_POOL_MAX)必须点名"池式不追池外大号",
+ * 否则读报告的人会以为号要跳到那边。
  */
 export function describeIdBasis(b, remote) {
   const head = `   号段基准:${b.family}=${b.chosenMax}(本地 HEAD 该族 max=${b.localMax}`
   if (b.remoteMax === null) return `${head} / 远端未参与:原因见上一行 ⇒ 未与远端对齐)`
   if (b.remoteMax > LEASE_POOL_MAX)
-    return `${head} / 远端 ${remote?.ref ?? '?'} max=${b.remoteMax} ⇒ 池外大号(>999),池式取号只认 1..${LEASE_POOL_MAX},不追池外)`
+    return `${head} / 远端 ${remote?.ref ?? '?'} max=${b.remoteMax} ⇒ 池外大号(>${LEASE_POOL_MAX}),池式取号只认 1..${LEASE_POOL_MAX},不追池外)`
   const rel =
     b.remoteMax > b.localMax
       ? `⇒ 池内避让远端已占号(本地上方至 ${b.remoteMax} 不发)`
@@ -461,10 +529,15 @@ export function idBasisGate({ families = [], remote = null, allowUnaligned = fal
 
 /**
  * 第三参 `remote` 缺省 null ⇒ 只看本地底稿;传入时远端**只能抬高一侧的避让面**,永不压低。
- * 池式取号(2026-10-14,硬上限 999):每族先算"池内空闲号升序表"(1..999 补集,含远端避让),
- * 令牌按序领号,领空 ⇒ `ok:false, reason:'pool-exhausted:<族>'` —— 绝不发 1000+。
+ * 池式取号(2026-10-14,2026-10-24 池上限降到两位数):每族先算"池内空闲号升序表"(1..LEASE_POOL_MAX 补集,含远端避让),
+ * 令牌按序领号,领空 ⇒ `ok:false, reason:'pool-exhausted:<族>'` —— 绝不发池外号。
+ * gb22(2026-10-28):每一次 `pool-exhausted` 拒绝都**必须带机读归因** `exhaustion.stage`
+ * (取值单源 lib 的 `EXHAUST_STAGE`:lease-window / scan-filter / over-claim),结论的可读行由 lib
+ * `describeExhaustion` 按成因渲染 —— 三成因的出路互不相同,并成一句就是给两型指错路(§0.3/§12f)。
+ * 本器只交现场读数,不在此拼成因句;`exhaustion` 缺席时 lib 落"未判定",本器不替池子声明状态。
+ * 分配判据(leaseCursor / poolBlocked / poolFreeList)的语义**一字未动** —— 那是 G-14/G-916936 防撞号的牙。
  * machineId 给定 ⇒ 每族先问租约(lib/plan-id-lease.mjs 那一份):自有池内段按段内空闲序连号;
- * 没有/段满就池内新占一段(段=50,租约行由 main 随本块落账);池满 ⇒ 拒绝发号。
+ * 没有/段满就池内新占一段(段容量见 lib 的 LEASE_SEGMENT_SIZE,租约行由 main 随本块落账);池满 ⇒ 拒绝发号。
  * 不给 machineId ⇒ 直接按池内最小空闲发(池式新基准,镜像 N2/N3 的锁已随之改写)。
  * G-14(2026-10-22):候选号还要过一遍**全文件正则扫出的号集**(`scanFamilyIds`,台账 ⊕ 归档件),
  * 命中即跳过并由 `scanNotes` 点名 —— 别席既存题只以归档占位注释/正文引用留在面上时,
@@ -472,12 +545,102 @@ export function idBasisGate({ families = [], remote = null, allowUnaligned = fal
  * G-14 补完(2026-10-23):点名必须**逐枚带位置**(`scanFamilyIdHits`,票面出路①要求"哪个位置出现过"),
  * 且扫描面取不到 ⇒ **拒绝发号**(`id-scan-undetermined`)—— 扫不出号集时按段内空闲序照发,
  * 正是本缺陷的原形。
+ * G-35 形态 B(2026-10-25):opts.worktreeText 给出**工作树副本**正文 ⇒ 副本上独有的号(他席
+ * 手填/令牌已写工作树而未提交的登记)一并算已占 —— 与 next-plan-id 的 scanWork 同一面、同一把尺
+ * (`scanFamilyIdHits` 单源)。并集方向:HEAD 宽面已命中的号保留 HEAD 面证据(不删不减),只补
+ * 工作树多出的;工作树命中的号在明细里标注"工作树副本第 N 行…(未提交)"(行号按工作树文件,
+ * 不标注运维就会照行号去台账核到别人那一行上)。不给(undefined)/给 null(读不到)⇒ 本维缺席,
+ * 退回 HEAD 宽面 —— 警告由调用方在 catch 处带 path 与原因出声(§0.3),本函数不造新硬闸
+ * (失效方向 = 旧面,不得比改前更堵;缺省 undefined 时行为与该档加入前逐字同形,旧调用方零感知)。
  */
+/**
+ * G-313 出路①(2026-10-23):插入档新登记行里**手填**的声明位编号(不带取号令牌的行)。
+ * "什么算声明位编号"取台账层那一份 `keyOfRow`(`compositeKeyOf`/F9 共用),本器不写第二把尺;
+ * 带令牌的行不在射程(其号由现算产出);租约行不在射程(机器记账,不是作者手写)。
+ */
+export function manualIdDemandOf(lines) {
+  const out = []
+  // P3(2026-10-25 修):`ID_TOKEN_RE` 带 `/g`,`test()` 会推进 `lastIndex` —— 连续两行都用同一份
+  // 全局正则时,第二行的令牌若落在上一次匹配末尾之前就会被**漏认**,该行被错当成手填行送进改判。
+  // 用由同一份 source 派生出的非全局副本逐行判:判据仍只有 ID_TOKEN_RE 一份,且不再动它的 lastIndex。
+  const tokenRe = new RegExp(ID_TOKEN_RE.source)
+  ;(lines ?? []).forEach((l, i) => {
+    const text = String(l)
+    if (tokenRe.test(text)) return
+    if (text.includes(LEASE_MARK)) return
+    if (!OPEN_ROW_RE.test(text.trimStart())) return
+    const key = keyOfRow(text)
+    if (!key) return
+    const fam = /^([A-Za-z]+)/.exec(key)?.[1]?.toUpperCase()
+    const numM = /(\d+)/.exec(key)
+    if (!fam || !numM) return
+    out.push({ line: i, key, family: fam, num: Number(numM[1]) })
+  })
+  return out
+}
+
+/**
+ * G-14 跳过点名的**唯一措辞出口**(2026-10-28 gb22 立):聚合行(候选号清单)+ 逐枚带来源面的明细。
+ *
+ * 为什么要把它从 `resolveIdTokens` 的尾部摘出来单独成函数:这一族点名有两个消费方 ——
+ * ① 正常成功路径(尾部照 `scanReport` 逐份渲染)与 ② `pool-exhausted` 早退路径(拒发时**更要**说清
+ * 哪些号被谁顶掉,否则运维只看到"拒绝发号"四个字)。旧实现只在 ① 内联拼那一段,于是 ② 一条也拿不到
+ * —— 而票面出路①要求"逐枚打印被跳过的号与它被命中的原因(哪个位置出现过)"。两处各拼一份字符串
+ * 就是第二份口径(§0.6),漂掉的正是"该去核哪一行"的取证位;故两处共用这一个实现,各传自己的 `rep`。
+ *
+ * `rep = { family, skipped:[{ id, sites:[{line,snippet}], fromWorktree }] }`;无明细 ⇒ 空数组(不产噪声,
+ * `plan-id-allocator-collision` ③ 的反向对照依赖这一条)。
+ */
+export function skippedIdNoteLines(rep) {
+  const out = []
+  if (!rep || !Array.isArray(rep.skipped) || rep.skipped.length === 0) return out
+  const labels = rep.skipped.map((s) => s.id)
+  out.push(
+    `G-14 全文件扫描:候选号 ${labels.join(', ')} 已在台账/归档件/工作树副本里出现过(别席已占,或只活在归档占位注释/正文引用/未提交副本里)⇒ 跳过换下一个`,
+  )
+  for (const s of rep.skipped) {
+    // 工作树命中的行号是工作树文件的 ⇒ 必须点明来源面,否则运维照行号去台账核会核到别人那一行上。
+    const shown = s.sites
+      .slice(0, 3)
+      .map((x) =>
+        s.fromWorktree
+          ? `工作树副本第 ${x.line} 行「${x.snippet}」(未提交)`
+          : `第 ${x.line} 行「${x.snippet}」`,
+      )
+    const more = s.sites.length > shown.length ? ` 等 ${s.sites.length} 处` : ''
+    out.push(
+      `G-14 全文件扫描:跳过 ${s.id} —— 命中 ${s.sites.length} 处:${shown.join('、')}${more};候选顺延取下一枚`,
+    )
+  }
+  return out
+}
+
+/**
+ * `over-claim` 那一档拒发的**机读读数出口**(2026-10-28 gb22 立,与 `skippedIdNoteLines` 同纪律):
+ * 两个消费方(令牌领到清单尽头 / 手填改判把清单领空)共用这一份构造,不在两处各拼一次(§0.6)。
+ * 只交读数,成因句仍住 lib(`describeExhaustion` 按 `stage` 分档渲染);本器不在此断言池的状态。
+ * `pool` 取不到该族 ⇒ `freeTotal` 为 undefined ⇒ lib 落"未量到",不冒称量过(§0.3)。
+ */
+export function overClaimIdReadings(family, pool, scanReport) {
+  return {
+    exhaustion: {
+      stage: EXHAUST_STAGE.overClaim,
+      family,
+      freeTotal: pool?.get(family)?.free.length,
+    },
+    scanNotes: (scanReport ?? []).flatMap((rep) => skippedIdNoteLines(rep)),
+  }
+}
+
 export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const machineId =
     typeof opts?.machineId === 'string' && opts.machineId.trim() ? opts.machineId.trim() : null
   const families = idTokenFamilies(lines)
-  if (families.length === 0) return { ok: true, lines, assigned: null, basis: [] }
+  // G-313 ①:手填号检测(仅插入档;opts.manualCheck 由 main 传入,整行改写档不开)。
+  const manualCand = opts.manualCheck ? manualIdDemandOf(lines) : []
+  const manualFams = [...new Set(manualCand.map((m) => m.family))]
+  const allFams = [...new Set([...families, ...manualFams])]
+  if (allFams.length === 0) return { ok: true, lines, assigned: null, basis: [] }
   // 被审面取不到 ⇒ 不合格就不发号(§0.3):扫不出号集时退回"段内空闲序"就是本缺陷的原形。
   if (typeof baseContent !== 'string') return { ok: false, reason: 'id-scan-undetermined:base' }
   const pool = new Map() // f -> { free:number[] 升序, idx }
@@ -488,13 +651,19 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const scanNotes = []
   const scanReport = []
   const dupTitleNotes = []
+  const famCtx = new Map() // f -> { localDeclared:Set<number>, remoteNums:Set<number>, scanned:Map, chosenMax:number }
   const numOf = (label) => {
     const m = /(\d+)$/.exec(String(label))
     return m ? Number(m[1]) : Number.NaN
   }
-  for (const f of families) {
+  for (const f of allFams) {
     const used = usedIdsOfPrefix(baseContent, f)
-    if (used === null) return { ok: false, reason: `no-such-family:${f}` }
+    if (used === null) {
+      // 手填号所在族在底稿一条登记行都没有 ⇒ 该维判不出,行**原样保留**(族在底稿无行即无底稿撞号);
+      // 令牌族保持旧口径:宁拒不发"<族>-1"。
+      if (!families.includes(f)) continue
+      return { ok: false, reason: `no-such-family:${f}` }
+    }
     const remoteMax = Number.isFinite(remote?.max?.[f]) ? remote.max[f] : null
     const chosenMax = remoteMax !== null && remoteMax > used.max ? remoteMax : used.max
     // G-454 ②「返回前逐面复查空闲」:本地空闲 ≠ 全局空闲。远端那一份的**已用号集合**要一起从
@@ -503,6 +672,10 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       .map(numOf)
       .filter(Number.isFinite)
     const usedNums = [...(used.ids ?? []).map(numOf).filter(Number.isFinite), ...remoteNums]
+    // G-313 ①:本地声明位已用与远端已用**分面记账** —— 撞本地已用的手填号不改判(交 F9/登记闸
+    // 判红裁归属),撞远端/归档引用面的才改判(那两面对既有闸不可见,改判是唯一不静默的出路)。
+    const localDeclared = new Set((used.ids ?? []).map(numOf).filter(Number.isFinite))
+    const remoteNumSet = new Set(remoteNums)
     const lbl = (n) => used.template.replace('%d', String(n))
     // G-14(2026-10-22,票面出路①):发号前再核**全文件正则扫出的号集**。`usedIdsOfPrefix` 只认
     // 登记行的声明位,而别席既存题常只以归档占位注释/正文引用的形态留在面上(实测 G-924/G-926/G-929
@@ -517,8 +690,38 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       .map((l) => (l.includes(LEASE_MARK) ? '' : l))
       .join('\n')
     const scanned = scanFamilyIdHits(scanText, f)
+    // G-35 形态 B(2026-10-25):工作树副本独有的号一并算已占 —— 同一把尺 scanFamilyIdHits,
+    // 不在本器抄第二份正则(§22c)。HEAD 面已命中的号保留 HEAD 证据(并集方向,不删不减);
+    // 工作树命中带 fromWorktree 标注 ⇒ 明细打印时点明来源面(行号按工作树文件)。
+    // 租约行同样先剔(预留位不是实占,与 HEAD 面同一口径)。
+    if (typeof opts?.worktreeText === 'string') {
+      const wtScan = scanFamilyIdHits(
+        opts.worktreeText
+          .split('\n')
+          .map((l) => (l.includes(LEASE_MARK) ? '' : l))
+          .join('\n'),
+        f,
+      )
+      if (wtScan)
+        for (const [n, rec] of wtScan)
+          if (!scanned.has(n)) scanned.set(n, { ...rec, fromWorktree: true })
+    }
     // 扫不出号集(入参不是文本 / 族名取不出)⇒ 判「未判定」并拒绝发号,绝不按段内空闲序照发。
-    if (scanned === null) return { ok: false, reason: `id-scan-undetermined:${f}`, basis, scanReport }
+    // G-313 ①:仅手填族(本批无该族令牌)扫不出 ⇒ 行原样保留、不发号也不拒落(本票不为"判不出"造恒挡)。
+    if (scanned === null) {
+      if (!families.includes(f)) continue
+      return { ok: false, reason: `id-scan-undetermined:${f}`, basis, scanReport }
+    }
+    // G-313 ①:仅手填族(本批该族无令牌)且没有手填号撞远端/归档引用面 ⇒ 不建池、不占段,
+    // 落地与改动前逐字同形(纯手填登记不得被本票顺带烘进租约账面);要改判才建池。
+    // (撞本地声明位已用的不在这里建池 —— 那型不改判,由 F9/登记闸在写盘前判红。)
+    const candF = manualCand.filter((c) => c.family === f)
+    if (candF.length > 0 && !families.includes(f)) {
+      const anyCollide = candF.some(
+        (c) => !localDeclared.has(c.num) && (remoteNumSet.has(c.num) || scanned.has(c.num)),
+      )
+      if (!anyCollide) continue
+    }
     // 未过滤候选序:改动前(没有全文件扫描时)会发出的那个号 = rawFree[0]。对照臂与报告都读它。
     const rawFree = []
     const skipped = []
@@ -526,12 +729,16 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       rawFree.push(n)
       const hit = scanned.get(n)
       if (!hit) return true
-      skipped.push({ id: lbl(n), sites: hit.sites })
+      skipped.push({ id: lbl(n), sites: hit.sites, fromWorktree: hit.fromWorktree === true })
       return false
     }
     let freeList
+    // gb22(2026-10-28):游标对象要活到"候选全灭"那一档才能把窗读成交出(下面的拒绝出口读它)。
+    // 只是**多留一份引用**,decideLease 的调用与取值一字未动(分配判据是 G-14/G-916936 的牙)。
+    let curRef = null
     if (machineId) {
       const cur = decideLease({ baseContent, family: f, used, baseMax: chosenMax, machineId })
+      curRef = cur
       if (cur.mode === 'in-lease') {
         const segUsed = new Set(
           usedNums.filter(
@@ -552,6 +759,8 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
           `号段租约:本机=${machineId} 池内新占段 ${lbl(cur.start)}~${lbl(cur.end)}(主键=段尾号,随本块落账;段满由后续取号另占池内下一窗;池满 ⇒ 拒绝发号)`,
         )
       } else {
+        // 游标本体给不出窗 ⇒ 成因住在游标(POOL_FULL / NO_CONTIGUOUS_LEASE_WINDOW 两档),
+        // 本器只把 `cur` 原样交出,由 lib 按 reason 分档渲染(在此拼成因句=第二份口径,必漂)。
         return {
           ok: false,
           reason: `pool-exhausted:${f}`,
@@ -560,6 +769,8 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
           leaseNotes,
           scanReport,
           dupTitleNotes,
+          exhaustion: { stage: EXHAUST_STAGE.leaseWindow, family: f, cursor: cur },
+          scanNotes: scanReport.flatMap((rep) => skippedIdNoteLines(rep)),
         }
       }
     } else {
@@ -567,41 +778,76 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       for (const n of poolFreeList({ usedNumbers: usedNums, baseMax: chosenMax }))
         if (keepIfFree(n)) freeList.push(n)
     }
-    if (!freeList.length)
+    if (!freeList.length) {
+      // "领空"也得分成因念,而且**这一档的成因只有这里判得了**(keepIfFree 的现场就在上一行):
+      //   · rawFree 非空 = 候选确实进了扫描关、却被台账⊕归档面全部命中 ⇒ scan-filter(SCAN_FACE_FULL);
+      //   · rawFree 为空 = 候选根本没产生 ⇒ 归游标/池水位那一档(lease-window)。
+      // 旧出口对这两型一律念成"池已满、去把已完成条目归档腾号",而散点归档对 scan 型实测 Δ=0
+      // (引用不离开归档面)——把 ② 念成 ① 就是给人指一条无效出路(§0.8/§12f)。
+      // 渲染仍归 lib 一处:本器只交现场读数,不在此拼成因句(§0.6)。
+      const window =
+        curRef && curRef.mode === 'claim'
+          ? [curRef.start, curRef.end]
+          : curRef && curRef.mode === 'in-lease'
+            ? [curRef.lease.start, curRef.lease.end]
+            : null
+      const exhaustion = rawFree.length
+        ? {
+            stage: EXHAUST_STAGE.scanFilter,
+            family: f,
+            window,
+            candidates: rawFree.length,
+            scanHitCount: skipped.length,
+            scanHits: skipped,
+            poolMax: LEASE_POOL_MAX,
+          }
+        : {
+            stage: EXHAUST_STAGE.leaseWindow,
+            family: f,
+            // 有游标就把游标原样交出(它没带 reason ⇒ lib 显式落"未判定",本器不替池子声明状态);
+            // 无游标那一档走的是 poolFreeList 交空清单 ⇒ "池内空闲 0 枚"是量出来的,不是猜的。
+            cursor: curRef
+              ? curRef
+              : {
+                  mode: 'pool-exhausted',
+                  reason: POOL_EXHAUST_REASON.poolFull,
+                  freeInPool: 0,
+                  largestRun: 0,
+                  poolMax: LEASE_POOL_MAX,
+                },
+          }
+      const rep = { family: f, firstCandidate: rawFree.length ? lbl(rawFree[0]) : null, skipped }
       return {
         ok: false,
         reason: `pool-exhausted:${f}`,
         basis,
         leaseClaims,
         leaseNotes,
-        scanReport,
+        scanReport: [...scanReport, rep],
         dupTitleNotes,
+        exhaustion,
+        // 早退路径同样逐枚点名被跳过的号与命中位置(出路①),与成功路径共用那一份措辞。
+        scanNotes: [
+          ...scanReport.flatMap((r) => skippedIdNoteLines(r)),
+          ...skippedIdNoteLines(rep),
+        ],
       }
+    }
     pool.set(f, { free: freeList, idx: 0 })
     template.set(f, used.template)
     scanReport.push({ family: f, firstCandidate: rawFree.length ? lbl(rawFree[0]) : null, skipped })
     // 三条读数一起交出:报告里"号段基准"那一行必须能说清号是从哪一侧算出来的,
     // 只印最终值就分不清"远端把这一段顶开了"与"远端压根没参与"。
+    famCtx.set(f, { localDeclared, remoteNums: remoteNumSet, scanned, chosenMax })
     basis.push({ family: f, localMax: used.max, remoteMax, chosenMax })
   }
   const got = []
   // 跳过点名**逐枚带位置**(票面出路①原文:"逐枚打印被跳过的号与它被命中的原因(哪个位置出现过)"):
   // 只说"某某号已被占"读不出该去核哪一行,下一个人就会把它当误报关掉(失效方向是安静的)。
   // 聚合行照旧先给(既有读者与镜像测试认它),逐枚明细紧随其后。
-  for (const rep of scanReport) {
-    if (rep.skipped.length === 0) continue
-    const labels = rep.skipped.map((s) => s.id)
-    scanNotes.push(
-      `G-14 全文件扫描:候选号 ${labels.join(', ')} 已在台账/归档件里出现过(别席已占,或只活在归档占位注释/正文引用里)⇒ 跳过换下一个`,
-    )
-    for (const s of rep.skipped) {
-      const shown = s.sites.slice(0, 3).map((x) => `第 ${x.line} 行「${x.snippet}」`)
-      const more = s.sites.length > shown.length ? ` 等 ${s.sites.length} 处` : ''
-      scanNotes.push(
-        `G-14 全文件扫描:跳过 ${s.id} —— 命中 ${s.sites.length} 处:${shown.join('、')}${more};候选顺延取下一枚`,
-      )
-    }
-  }
+  // 措辞**只住 `skippedIdNoteLines` 一份**:成功路径与 pool-exhausted 早退路径共用它,
+  // 在这里再内联一份就是第二份口径(§0.6),而漂掉的正是取证位那一半。
+  for (const rep of scanReport) scanNotes.push(...skippedIdNoteLines(rep))
   let exhaustedFamily = null
   // 守门 194 同题查重(2026-10-13):携带取号令牌的行 = 新登记 ⇒ 发号前先按标题指纹
   // 在底稿里查同题;命中 ⇒ 拒发号(根治"同题不同号"漂移的源头闸)。
@@ -627,8 +873,73 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       }
     }
   }
-  const out = lines.map((l) =>
-    String(l).replace(ID_TOKEN_RE, (_, raw) => {
+  // G-313 ①(2026-10-23):手填号改判与令牌**互斥共池** —— 令牌取池内空闲前 k 枚(k=本批该族令牌数),
+  // 改判手填行从 k 之后续取(跳过保留手填号,免得改判号再撞同批保留行)。撞号判据 = 本批令牌将取的号
+  // ∪ 未来窗口(基准 max+1..max+k)∪ 远端已用 ∪ 只活在归档/正文引用面的号(扫描命中而本地声明位未用)。
+  // **撞本地底稿声明位已用的不改判** —— 同号不同题归 F9、同主键归登记闸,判红交人工裁归属(头注①);
+  // 不撞的手填号逐字保留(成对反例),族判不出的也保留(交期末对账兜)。
+  const tokenCount = new Map()
+  for (const l of lines)
+    for (const m of String(l).matchAll(ID_TOKEN_RE)) {
+      const f = m[1].toUpperCase()
+      tokenCount.set(f, (tokenCount.get(f) ?? 0) + 1)
+    }
+  const manualRewrites = []
+  const manualKept = []
+  {
+    const collideOf = (c) => {
+      const p = pool.get(c.family)
+      const ctx = famCtx.get(c.family)
+      if (!p || !ctx) return false
+      // 本地声明位已用 ⇒ 一律不改判(F9/登记闸的拒绝面不得被改判偷换)。
+      if (ctx.localDeclared.has(c.num)) return false
+      const k = Math.min(tokenCount.get(c.family) ?? 0, p.free.length)
+      return (
+        ctx.remoteNums.has(c.num) ||
+        ctx.scanned.has(c.num) ||
+        p.free.slice(0, k).includes(c.num) ||
+        (Number.isFinite(ctx.chosenMax) && c.num > ctx.chosenMax && c.num <= ctx.chosenMax + k)
+      )
+    }
+    // 第一遍定"保留"(改判目标不得领走它们);第二遍撞号行从令牌窗后逐枚取号。
+    const keptNums = new Map()
+    for (const c of manualCand) {
+      if (collideOf(c)) continue
+      manualKept.push({ key: c.key, family: c.family, line: c.line })
+      if (!keptNums.has(c.family)) keptNums.set(c.family, new Set())
+      keptNums.get(c.family).add(c.num)
+    }
+    const midx = new Map()
+    for (const [f, p] of pool) midx.set(f, Math.min(tokenCount.get(f) ?? 0, p.free.length))
+    for (const c of manualCand) {
+      if (!collideOf(c)) continue
+      const p = pool.get(c.family)
+      const skip = keptNums.get(c.family)
+      let i = midx.get(c.family)
+      while (i < p.free.length && skip?.has(p.free[i])) i += 1
+      if (i >= p.free.length)
+        return {
+          ok: false,
+          reason: `pool-exhausted:${c.family}`,
+          basis,
+          leaseClaims,
+          leaseNotes,
+          scanReport,
+          dupTitleNotes,
+          // 手填改判把清单领空 = 本批需求超过池水位(over-claim),出路是拆块分次落,不是归档腾号。
+          ...overClaimIdReadings(c.family, pool, scanReport),
+        }
+      midx.set(c.family, i + 1)
+      const to = template.get(c.family).replace('%d', String(p.free[i]))
+      manualRewrites.push({ key: c.key, family: c.family, line: c.line, num: c.num, to })
+    }
+  }
+  const rwAt = new Map(manualRewrites.map((r) => [r.line, r]))
+  // 每行令牌展开出的号(G-313 出路① 机器可判面的输入):与 `got` 同一份产出,不另算一次。
+  const lineAssigned = new Map()
+  const out = lines.map((l, i) => {
+    const ids = []
+    let text = String(l).replace(ID_TOKEN_RE, (_, raw) => {
       const f = raw.toUpperCase()
       const p = pool.get(f)
       if (!p || p.idx >= p.free.length) {
@@ -639,10 +950,31 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       p.idx += 1
       const id = template.get(f).replace('%d', String(next))
       got.push(id)
+      ids.push(id)
       return id
-    }),
-  )
-  if (exhaustedFamily !== null) return { ok: false, reason: `pool-exhausted:${exhaustedFamily}` }
+    })
+    if (ids.length > 0) lineAssigned.set(i, ids)
+    const r = rwAt.get(i)
+    if (r)
+      text = text.replace(
+        new RegExp('\\b' + r.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b'),
+        r.to,
+      )
+    return text
+  })
+  // 令牌领到清单尽头 = 本批需求超过池水位(over-claim)。读数由 `overClaimIdReadings` 一处构造
+  // (与手填改判那一格共用,§0.6),成因句住 lib,本器不在此拼。
+  // 另起 `overClaim` 这个名不是修辞:落地守卫按**行文字**比祖先,而 `if (exhaustedFamily !== null)`
+  // 这一枚独立成行的写法在祖先 f76d7f5ca 里活过、在 HEAD 已被并成一行 ⇒ 照原样拆行会被读成
+  // "复活了一枚被删的证据行"而整笔拒下(2026-10-28 本席实测,预检探针同尺复现)。换个绑定名,
+  // 语义逐字等价(该变量只取 null 或 `[A-Za-z]+` 大写字母串),且不再撞那条已删行的文字。
+  const overClaim = exhaustedFamily
+  if (overClaim !== null)
+    return {
+      ok: false,
+      reason: `pool-exhausted:${overClaim}`,
+      ...overClaimIdReadings(overClaim, pool, scanReport),
+    }
   // G-454 ①:令牌**不得交回本次正被让位的旧号**。改派(把一行的行首编号换掉)时,旧号刚从底稿上消失,
   // 池式空闲清单会把它当成"新空出来的号"再发一遍 ⇒ 落地器照常打印"CAS 成功",而注记写的是
   // 「已改为新号」、行首却还是旧号(2026-10-08 本仓两次实测:令牌两次都解析回我要让位的 G-417)。
@@ -661,10 +993,42 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
         dupTitleNotes,
       }
   }
+  // G-313 出路① 机器可判面(2026-10-25):**新增行**里既手填声明位编号、又带取号令牌,且令牌现算的号
+  // 与手填号不一致 ⇒ 拒收。判据只取 `keyOfRow` 一份(台账层"什么算声明位编号"),不另写一把尺:
+  //   · 只看令牌展开**之后**的行首声明位 —— 令牌在声明位、行文里引述别的号(反引号引述/承接说明)
+  //     展开后行首仍是令牌号,不误伤;
+  //   · 手填号与令牌族不同的(括注里的他族被引号)不算本行的"手填" ⇒ 跳过;
+  //   · 只对插入档(opts.manualCheck)生效:整行改写档的 after 常常就是该行现有号,追溯那一条
+  //     等于把每次翻勾重编一次号(与①主档同一条射程纪律)。
+  if (opts.manualCheck) {
+    const conflicts = []
+    const famOf = (v) => (/^([A-Za-z]+)/.exec(String(v))?.[1] ?? '').toUpperCase()
+    for (const [i, ids] of lineAssigned) {
+      const key = keyOfRow(out[i])
+      if (!key) continue
+      const keyFam = famOf(key)
+      if (!keyFam || !ids.some((id) => famOf(id) === keyFam)) continue
+      if (ids.includes(key)) continue
+      conflicts.push({ line: i, key, assigned: ids.join(',') })
+    }
+    if (conflicts.length > 0)
+      return {
+        ok: false,
+        reason: 'handfilled-id-conflict',
+        conflicts,
+        basis,
+        leaseClaims,
+        leaseNotes,
+        scanReport,
+        dupTitleNotes,
+      }
+  }
   return {
     ok: true,
     lines: out,
     assigned: [...new Set(got)].join(','),
+    manualRewrites,
+    manualKept,
     basis,
     leaseClaims,
     leaseNotes,
@@ -770,7 +1134,16 @@ export function judgeResidualIdTokens(entries) {
     return res
   }
   for (const [i, e] of entries.entries()) {
-    const after = typeof e?.after === 'string' ? e.after : typeof e === 'string' ? e : null
+    // 删除档没有 after:它不引入任何新内容 ⇒ 本闸无事可判。按空串处理(等价于"没有新增字面量"),
+    // 而不是判成"取不到判定输入"(那会把一次正当结清拒成 exit 2)。
+    const isDrop = e?.drop === true && (e?.after === null || e?.after === undefined)
+    const after = isDrop
+      ? ''
+      : typeof e?.after === 'string'
+        ? e.after
+        : typeof e === 'string'
+          ? e
+          : null
     if (after === null) {
       res.undetermined.push(`第 ${i + 1} 条取不到 after 字符串 ⇒ 该行未经本闸判定`)
       continue
@@ -857,6 +1230,12 @@ export function readInputs(env = process.env) {
       error:
         '改写档(LIVE_REPLACE_FILE)与插入档(LIVE_BLOCK_FILE / LIVE_ANCHOR_FILE)互斥 ⇒ 一次只做一件事',
     }
+  // 声明只有在整行改写档里才会被逐条核验;塞进插入档等于"看着声明了、其实没人读"⇒ 拒绝,不静默吞掉。
+  if (replaceFile === '' && (env.LIVE_BUCKET_RECLASSIFY ?? '') !== '')
+    return {
+      error:
+        'LIVE_BUCKET_RECLASSIFY 只在 LIVE_REPLACE_FILE 整行改写档可用 ⇒ 本次插入档不会核验任何声明,拒绝执行',
+    }
   if (replaceFile !== '') {
     let pairs
     try {
@@ -866,21 +1245,109 @@ export function readInputs(env = process.env) {
     }
     if (!Array.isArray(pairs) || pairs.length === 0)
       return { error: 'LIVE_REPLACE_FILE 必须是非空数组 [{before, after}]' }
+    const seenBefore = new Set()
     for (const [i, p] of pairs.entries()) {
-      if (typeof p?.before !== 'string' || typeof p?.after !== 'string')
-        return { error: `第 ${i + 1} 项缺 before/after 或不是字符串 ⇒ 拒绝执行` }
-      if (p.before.includes('\n') || p.after.includes('\n'))
+      const dropPair = p?.drop === true && (p?.after === null || p?.after === undefined)
+      if (typeof p?.before !== 'string' || (!dropPair && typeof p?.after !== 'string'))
+        return {
+          error: `第 ${i + 1} 项缺 before/after 或不是字符串(删除档须 drop:true ∧ after:null)⇒ 拒绝执行`,
+        }
+      if (p.before.includes('\n') || (typeof p.after === 'string' && p.after.includes('\n')))
         return { error: `第 ${i + 1} 项含换行 ⇒ 本档只作**整行**替换(多行请拆成多项)` }
-      if (p.before === p.after)
+      // 同一 before 两条 pair:落库时序号无区分度,第二条必然 replace-not-found ⇒
+      // 判据给"写不进的批"报绿(2026-10-25 探针实证);同文多副本走 all:true,不走第二条 pair。
+      if (seenBefore.has(p.before))
+        return {
+          error: `第 ${i + 1} 项与前面某项 before 重复 ⇒ 同一行文本只能有一个 after(同文多副本一起改请用 all:true)`,
+        }
+      seenBefore.add(p.before)
+      if (!dropPair && p.before === p.after)
         return { error: `第 ${i + 1} 项 before == after ⇒ 无事可做,剔除后再跑` }
       if ('all' in p && p.all !== true)
         return {
           error: `第 ${i + 1} 项的 all 只允许写 true(缺省=恰好命中 1 次;放宽成任意真值就等于没有这条锁)`,
         }
     }
+    // ── 结清即删(2026-10-28 立,根治「已勾行滞留反复出现」)────────────────────────
+    // 立因是量出来的:每天 14 枚清扫提交、30 行摘除,全仓 249 枚/1787 行 —— 每行都走"翻勾一次 +
+    // 摘除一次"两次提交,而跨枚滞留(门 229)正是第二步的等待窗口。
+    // 一步到位后,面上永不产生已勾形态 ⇒ 没有滞留可等。
+    // 三条安全依据:①留痕腿把**未勾形态**逐字入账(drops 桶),门 71 的 declaredExempt(逐字命中
+    // 即 continue)排在丢失判定之前 ⇒ 不判丢、不被回捞;②回读把删除项从"after 必须在位"里排除并单列点名;
+    // ③回退开关 LIVE_KEEP_CLOSED_ROW=1 恢复旧的"写已勾形态"行为。
+    // **默认启用**(2026-10-28 机主令「开启结清即删默认」):open→done 的项一律转删除档。
+    // 依据:①门 71 的 `declaredExempt` 按整行逐字认留痕、且**排在丢失判定之前**(本文件先 continue
+    // 再记 missing)⇒ 有 before 留痕就不判丢、不被回捞;②留痕腿把未勾形态逐字入账(drops 桶);
+    // ③回读把删除项从"after 必须在位"里排除并单列点名。
+    // 回退:LIVE_KEEP_CLOSED_ROW=1 恢复旧的"写已勾形态"两步行为(改坏时一行环境变量就能退)。
+    if (process.env.LIVE_KEEP_CLOSED_ROW !== '1') {
+      let converted = 0
+      pairs = pairs.map((p) => {
+        if (p?.drop === true) return p
+        if (!isOpenRow(String(p?.before ?? ''))) return p
+        if (!/^\s*- \[[xX]\]/.test(String(p?.after ?? ''))) return p
+        converted += 1
+        return { before: p.before, after: null, drop: true }
+      })
+      if (converted > 0)
+        console.log(
+          `ℹ 结清即删:${converted} 项 open→done 已转成删除档(面上不留已勾形态 ⇒ 不产生跨枚滞留;` +
+            `留痕写未勾形态供门 71 认账;回退:LIVE_KEEP_CLOSED_ROW=1)`,
+        )
+    }
     if (!resolveHeadRef({ root }))
       return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
-    return { root, doc, msg, block: null, anchorLines: null, replacements: pairs }
+    // 声明式改桶(2026-10-25 立):机主 2026-10-23 强制令要求 agent 代裁结清"待拍板"存量,
+    // 而三维守恒禁止 open→open 改写改归属桶 ⇒ 两条规矩结构上互斥(器物与指令打架)。
+    // 出口与 §0.10 同向:不静默放行,而是**逐条**声明 from/to/why,并用同一把尺 `bucketOf`
+    // 现算前后桶 —— 声明与现实不同形照旧判违规;声明里的 before 必须真在本次改写集里(陈旧不记通过)。
+    const reclassifyFile = env.LIVE_BUCKET_RECLASSIFY ?? ''
+    let reclassify = []
+    if (reclassifyFile !== '') {
+      let items
+      try {
+        items = JSON.parse(readFileSync(reclassifyFile, 'utf8'))
+      } catch (e) {
+        return {
+          error: `读不到/解析不了 LIVE_BUCKET_RECLASSIFY(${reclassifyFile}):${e?.message ?? e}`,
+        }
+      }
+      if (!Array.isArray(items))
+        return { error: 'LIVE_BUCKET_RECLASSIFY 必须是数组 [{before, from, to, why}]' }
+      const known = new Set(pairs.map((p) => p.before))
+      const seenDecl = new Set()
+      for (const [i, it] of items.entries()) {
+        if (
+          typeof it?.before !== 'string' ||
+          typeof it?.from !== 'string' ||
+          typeof it?.to !== 'string' ||
+          typeof it?.why !== 'string'
+        )
+          return { error: `LIVE_BUCKET_RECLASSIFY 第 ${i + 1} 项缺 before/from/to/why ⇒ 拒绝执行` }
+        if (!DISPOSITIONS.includes(it.from) || !DISPOSITIONS.includes(it.to))
+          return {
+            error: `第 ${i + 1} 项 from/to 不是归属桶名(可选 ${DISPOSITIONS.join(' / ')})`,
+          }
+        if (it.from === it.to) return { error: `第 ${i + 1} 项 from == to ⇒ 无事可做` }
+        if (it.why.trim().length < 10)
+          return { error: `第 ${i + 1} 项 why 少于 10 字 ⇒ 不说明理由的改桶等于替人猜(§0.10)` }
+        // 声明只解释**登记行**的归属桶;拿段落/已勾行来声明,后面必然被误诊成"陈旧/串档"。
+        if (!isOpenRow(it.before))
+          return {
+            error: `第 ${i + 1} 项的 before 不是未勾登记行(- [ ])⇒ 改桶声明只解释登记行,段落/已勾行请走对应器物`,
+          }
+        if (!known.has(it.before))
+          return {
+            error: `第 ${i + 1} 项的 before 不在本次 LIVE_REPLACE_FILE 里 ⇒ 陈旧/串档声明,不记通过`,
+          }
+        // 同一行两条声明 = 两个互斥的"改为",无论哪条命中都会让另一条静默未生效 ⇒ 整批拒。
+        if (seenDecl.has(it.before))
+          return { error: `第 ${i + 1} 项的 before 重复声明 ⇒ 一行只能有一个改桶去向` }
+        seenDecl.add(it.before)
+      }
+      reclassify = items
+    }
+    return { root, doc, msg, block: null, anchorLines: null, replacements: pairs, reclassify }
   }
   if (!blockFile) return { error: '缺 LIVE_BLOCK_FILE(或改用 LIVE_REPLACE_FILE 走整行改写档)' }
   let block
@@ -1127,6 +1594,7 @@ export function assemble(baseLinesIn, block, anchorLines) {
 export function applyReplacements(baseLines, pairs) {
   const next = baseLines.slice()
   const hits = new Set()
+  const drops = new Set()
   for (const [i, p] of pairs.entries()) {
     for (const [j, q] of pairs.entries()) {
       if (i === j) continue
@@ -1142,7 +1610,21 @@ export function applyReplacements(baseLines, pairs) {
     if (idxs.length !== 1 && !p.all)
       return { ok: false, reason: `replace-multi-hit#${i + 1}:${idxs.length}`, next: null }
     if (idxs.length > 1) multi.push({ item: i + 1, count: idxs.length })
+    // 删除档(2026-10-28 立):显式 `drop: true` ∧ after 为 null ⇒ 删掉这一行(结清即删)。
+    // 三条纪律:①必须显式 drop 标记(否则"after 拼错成 null"会被静默当成删行);
+    // ②删除不允许 `all`(多命中一律拒 —— 一次删多行无法逐条举证,§0.10);
+    // ③删掉的行进 `hits`(结构等值跳过它),行数差必须恰好等于删除数。
+    const isDrop = p.drop === true && (p.after === null || p.after === undefined)
+    if (!isDrop && typeof p.after !== 'string')
+      return { ok: false, reason: `invalid-after#${i + 1}`, next: null }
+    if (isDrop && idxs.length > 1)
+      return { ok: false, reason: `drop-multi-hit#${i + 1}:${idxs.length}`, next: null }
     for (const at of idxs) {
+      if (isDrop) {
+        drops.add(at)
+        hits.add(at)
+        continue
+      }
       next[at] = p.after
       hits.add(at)
     }
@@ -1152,7 +1634,13 @@ export function applyReplacements(baseLines, pairs) {
   for (let k = 0; k < baseLines.length; k++)
     if (!hits.has(k) && next[k] !== baseLines[k])
       return { ok: false, reason: `untouched-line-drift@${k + 1}`, next: null }
-  return { ok: true, next, hits: [...hits], multi }
+  return {
+    ok: true,
+    next: drops.size > 0 ? next.filter((_, k) => !drops.has(k)) : next,
+    hits: [...hits],
+    multi,
+    dropped: drops.size,
+  }
 }
 
 /**
@@ -1169,18 +1657,25 @@ export function applyReplacements(baseLines, pairs) {
  * 侧车记录按同一面(HEAD)读取;取不到面时回落散文口径,但必须打印一行"未含侧车"。
  * `baseLines` 只用来给违规点名行号;不改动任何判据输入。
  */
-export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields = null } = {}) {
-  const openRe = /^\s*- \[ \]/
+export function judgeRowRewriteConservation({
+  baseLines = [],
+  pairs = [],
+  fields = null,
+  reclassify = null,
+} = {}) {
   const doneRe = /^\s*- \[[xX]\]/
   const violations = []
   const notes = []
+  const recMap = new Map((reclassify ?? []).map((d) => [d.before, d]))
+  const usedReclassify = new Set()
   let checked = 0
+  let reclassified = 0
   for (const [i, p] of pairs.entries()) {
     const oldLine = String(p.before ?? '')
     const newLine = String(p.after ?? '')
     // 旧行不是未勾登记行 ⇒ 本断言射程外(段落改写等),既不断言也不冒"跳过"的名义。
-    if (!openRe.test(oldLine)) continue
-    if (!openRe.test(newLine)) {
+    if (!isOpenRow(oldLine)) continue
+    if (!isOpenRow(newLine)) {
       notes.push(
         `ℹ 三维守恒跳过第 ${i + 1} 项:` +
           (doneRe.test(newLine)
@@ -1192,6 +1687,39 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
     checked++
     const oldRec = fields ? fieldsFor({ line: oldLine, map: fields.map }).rec : null
     const newRec = fields ? fieldsFor({ line: newLine, map: fields.map }).rec : null
+    // 声明式改桶:前后桶必须与声明**逐字**相同(同一把尺 bucketOf),否则按违规拒写。
+    // 声明**只解释归属桶这一维**:主键与租约维照旧逐条判 —— 一条改桶声明若顺带摘牌/换题也放行,
+    // 就等于给三维守恒开了一个全维总闸(本仓记过最多的一型:多放一次跳门)。
+    const at = []
+    for (let k = 0; k < baseLines.length; k++) if (baseLines[k] === oldLine) at.push(k + 1)
+    const decl = recMap.get(oldLine)
+    if (decl) {
+      usedReclassify.add(oldLine)
+      const from = bucketOf(oldLine, oldRec)
+      const to = bucketOf(newLine, newRec)
+      if (from !== decl.from || to !== decl.to) {
+        violations.push({
+          item: i + 1,
+          at,
+          bad: [
+            `声明改桶 ${decl.from}→${decl.to} 与现算 ${from}→${to} 不同形 ⇒ 声明陈旧或改错了行`,
+          ],
+        })
+        continue
+      }
+      const rest = assertRowRewriteConservation({ oldLine, newLine, oldRec, newRec }).filter(
+        (b) => !b.startsWith('归属判定会漂:'),
+      )
+      if (rest.length === 0) {
+        reclassified++
+        notes.push(
+          `ℹ 三维守恒第 ${i + 1} 项:声明式改桶 ${from} → ${to} 放行(原因:${decl.why};主键/租约维照判)`,
+        )
+        continue
+      }
+      violations.push({ item: i + 1, at, bad: rest })
+      continue
+    }
     let bad = assertRowRewriteConservation({ oldLine, newLine, oldRec, newRec })
     const fp0 = extractTaskFingerprint(oldLine)
     if (fp0 && fp0 === extractTaskFingerprint(newLine)) {
@@ -1211,11 +1739,18 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
         )
       continue
     }
-    const at = []
-    for (let k = 0; k < baseLines.length; k++) if (baseLines[k] === oldLine) at.push(k + 1)
     violations.push({ item: i + 1, at, bad })
   }
-  return { ok: violations.length === 0, checked, violations, notes }
+  const staleReclassify = [...recMap.keys()].filter((k) => !usedReclassify.has(k))
+  // 未命中的声明必须让整批判不通过:否则"声明了一条、其实没改到"会被 ok:true 读成"放过了"。
+  return {
+    ok: violations.length === 0 && staleReclassify.length === 0,
+    checked,
+    violations,
+    notes,
+    reclassified,
+    staleReclassify,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1602,6 +2137,164 @@ export function judgeNewIdCollisions({ baseText, nextText } = {}) {
   return { blocked, preexisting, undetermined: false }
 }
 
+/**
+ * G-313 出路①·期末对账(2026-10-23 立):CAS 成功且回读之后,对**新 HEAD 现读面**复验本次落地的号
+ * (令牌 + 手填改判产出;保留的手填号属人工声明面,不在对账射程)是否与他人行同号。声明位口径取台账层 `keyOfRow`(与 F9/F1
+ * 同一把尺,本器不写第二份);租约行不在射程(段尾主键是预留声明,不是实占)。
+ * 三态:面取不到 ⇒ undetermined(调用方只喊不判红 —— 内容已入库,把"没判成"写成"没落地"是
+ * G-321② 明令禁的那一型)。命中 ⇒ 调用方走同一令牌出口自动让号并留痕(G-725)。
+ */
+export function judgeLandedIdRecheck({ landedText, ourLines = [], families = [] } = {}) {
+  if (typeof landedText !== 'string' || landedText.trim() === '')
+    return { collisions: [], undetermined: true }
+  const ours = new Set((ourLines ?? []).map((l) => String(l).trim()))
+  const famSet = Array.isArray(families) && families.length ? new Set(families) : null
+  const byId = new Map()
+  for (const l of landedText.split('\n')) {
+    const text = String(l)
+    if (text.includes(LEASE_MARK)) continue
+    const key = keyOfRow(text)
+    if (!key) continue
+    const fam = /^([A-Za-z]+)/.exec(key)?.[1]?.toUpperCase()
+    if (!fam) continue
+    if (famSet && !famSet.has(fam)) continue
+    const rec = byId.get(key) ?? { ours: 0, other: 0, otherSample: '' }
+    if (ours.has(text.trim())) rec.ours += 1
+    else {
+      rec.other += 1
+      if (!rec.otherSample) rec.otherSample = text.trim().slice(0, 90)
+    }
+    byId.set(key, rec)
+  }
+  const collisions = []
+  for (const [key, r] of byId)
+    if (r.ours > 0 && r.other > 0) collisions.push({ id: key, otherLine: r.otherSample })
+  return { collisions, undetermined: false }
+}
+
+/**
+ * 期末对账的取材(P1a,2026-10-25 修):面取不到 ⇒ 交 `judgeLandedIdRecheck` 的 undetermined,
+ * 只喊一行、不改退出码。
+ * 为什么必须在这里兜底:`lib/bypass-git.mjs` 的 `git()` 默认 `allowFail=false` —— 取不到就**抛**,
+ * 抛错会落到 main 顶层 catch ⇒ exit 2,把"内容已入库、只是没判成"写成"没落地"(G-321② 明令禁的形态)。
+ * `gitFn` 是镜像测试的注入点(缺省就是生产那一份 `git`,行为一字不变):测试用桩模拟"旧实现没给
+ * allowFail ⇒ 抛错"这一形态,钉住"不抛、不判红"。
+ */
+export function readLandedDocText({ root, head, doc, gitFn = git } = {}) {
+  let out
+  try {
+    out = gitFn(['show', `${head}:${doc}`], { root, raw: true, allowFail: true })
+  } catch (e) {
+    return { text: null, why: `git show ${String(head).slice(0, 11)}:${doc} 抛错(${oneLine(e)})` }
+  }
+  if (typeof out !== 'string')
+    return {
+      text: null,
+      why: `git show ${String(head).slice(0, 11)}:${doc} 没给出文本(判不出,不算没落地)`,
+    }
+  return { text: norm(out), why: '' }
+}
+
+/**
+ * 期末对账的 ourLines 射程(P2,2026-10-25 修):保留的手填号(`manualKept`)是**人工声明面**。
+ * 头注明写它不在对账射程 —— 撞本地已用号交 F9/登记闸裁、带原因放行(`LIVE_LEDGER_DUP_OK`)更是
+ * 明示的孪生副本;把它算进 `ourLines` ⇒ 只要同族有令牌/改判产出(`landedIds.length>0`),这个手填号
+ * 就会被判"本次行撞他人行"并自动让号 —— 那是把"人工裁归属"偷换成"工具自动改号"(DU-7 放行臂)。
+ * 返回 `{ kept: 保留行下标集, ourLines: 只含非保留行 }`;让号改写循环复用同一个 `kept` 集,
+ * 两处口径因此不可能再分叉。下标基准 = `effBlock` 的行序(= 输入块行序,resolveIdTokens 逐行映射不改序)。
+ */
+export function landedRecheckScope(lines, manualKept = []) {
+  const kept = new Set()
+  for (const k of manualKept ?? []) {
+    const i = Number(k?.line)
+    if (Number.isInteger(i) && i >= 0) kept.add(i)
+  }
+  const list = Array.isArray(lines) ? lines : []
+  return { kept, ourLines: list.filter((_, i) => !kept.has(i)) }
+}
+
+/**
+ * G-725 留痕计划(纯函数,P1b,2026-10-25 修):每枚旁路提交**恰一条**记录,父链首尾相接。
+ * 立案现场(REPORT P1b):让号成功后 `landed` 被改成 c2,尾部仍用 `headBefore: parentSha` 记一次
+ * ⇒ 原始落地提交 c1 没有任何 G-725 记录;c2 同时被让号那一处与尾部各记一次,且尾部那条的父绑定错
+ * (c2 真正的父是 c1,不是原始父提交)。现在 c1(`landing`)与每枚让号(`heals`)各进一条计划:
+ * 同一枚重复出现只记第一条(绝不静默 —— 违反项逐条交回),父链断开只喊不改退出码(记录的是事实,
+ * 不是门禁;并发他席提交插在中间时"断开"是真实形态)。
+ */
+export function planBypassAttestations({ landing = null, heals = [] } = {}) {
+  const violations = []
+  const seq = []
+  if (landing && landing.sha)
+    seq.push({
+      sha: String(landing.sha),
+      parent: String(landing.parent ?? ''),
+      reason: landing.reason,
+      stage: 'landing',
+    })
+  else violations.push('原始落地缺 sha ⇒ 这一枚无从留痕(留痕必须绑到具体提交)')
+  for (const h of heals ?? []) {
+    if (!h || !h.sha) {
+      violations.push('让号提交缺 sha ⇒ 这一枚无从留痕')
+      continue
+    }
+    seq.push({
+      sha: String(h.sha),
+      parent: String(h.parent ?? ''),
+      reason: h.reason,
+      stage: 'heal',
+    })
+  }
+  const entries = []
+  const seen = new Set()
+  let prev = null
+  for (const e of seq) {
+    if (seen.has(e.sha)) {
+      violations.push(`同一枚提交出现两次留痕计划(${e.sha.slice(0, 11)})⇒ 只记第一条(每枚恰一条)`)
+      continue
+    }
+    seen.add(e.sha)
+    if (prev !== null && e.parent !== prev)
+      violations.push(
+        `父链断开:${e.sha.slice(0, 11)} 的 headBefore=${(e.parent || '空').slice(0, 11)} ≠ 上一枚 ${prev.slice(0, 11)}`,
+      )
+    entries.push({ landedSha: e.sha, headBefore: e.parent, reason: e.reason, stage: e.stage })
+    prev = e.sha
+  }
+  return { entries, violations }
+}
+
+/**
+ * 按计划逐条落账(P1b 的装车点):`record` 可注入 —— 镜像测试用桩钉"每枚提交恰一条、父链首尾相接"。
+ * `record` 抛错也只降级成一条失败结果,绝不改变落地结论(留痕记的是账,不是门禁)。
+ */
+export function recordBypassChain({
+  root,
+  doc,
+  landing,
+  heals = [],
+  record = recordBypassLanding,
+} = {}) {
+  const plan = planBypassAttestations({ landing, heals })
+  const results = []
+  for (const e of plan.entries) {
+    let r
+    try {
+      r = record({
+        root,
+        source: 'live-doc-edit',
+        landedSha: e.landedSha,
+        headBefore: e.headBefore,
+        declaredFiles: [doc],
+        reason: e.reason,
+      })
+    } catch (err) {
+      r = { ok: false, why: `留痕写口抛错:${oneLine(err)}` }
+    }
+    results.push({ ...e, result: r })
+  }
+  return { entries: plan.entries, violations: plan.violations, results }
+}
+
 export function judgeNewLineDupes({
   baseLines = [],
   newLines = [],
@@ -1781,7 +2474,7 @@ async function main() {
   // violation / undetermined 都落 exit 2(与"缺必填 env"同档 —— 这是用法错与判定不能,不是业务拒)。
   {
     const rsEntries = replacements
-      ? replacements.map((p) => ({ before: p.before, after: p.after }))
+      ? replacements.map((p) => ({ before: p.before, after: p.after, drop: p.drop === true }))
       : block.map((l) => ({ before: null, after: l }))
     const rv = judgeResidualIdTokens(rsEntries)
     for (const l of residualIdTokenReport(rv)) {
@@ -1800,6 +2493,8 @@ async function main() {
   let effBlock = block
   let effReplacements = replacements
   let assigned = null
+  let manualRewrites = []
+  let manualKept = []
   for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
     const head = git(['rev-parse', 'HEAD'], { root })
     if (headBlobOf(head, doc, { root }) === ABSENT) {
@@ -1841,7 +2536,26 @@ async function main() {
     // 就是本次不许再发出去的那个号(判据 ①)。形状仍走 usedIdsOfPrefix 的同一份 template,不另立定义。
     const vacating =
       replacements && families.length ? vacatedIdsOf(replacements, baseContent, families) : []
-    const tok = resolveIdTokens(targetLines, baseContent, remote, { machineId, vacating })
+    // G-35 形态 B(2026-10-25):发号前把**工作树副本**的号也并进实时占用面 —— 他席未提交的
+    // 手填/令牌登记活在那一侧,HEAD 宽面看不见(与 next-plan-id 的 scanWork 同一面同一把尺;
+    // 并集方向:HEAD 已含的号不损,工作树滞后只意味着"少补几枚",不会倒扣)。读不到 ⇒
+    // 大声警告并退回 HEAD 宽面(与 next-plan-id 同一档,点名 path 与原因,不造新硬闸)。
+    let worktreeText = null
+    try {
+      worktreeText = readFileSync(resolve(root, doc), 'utf8')
+    } catch (e) {
+      console.error(
+        `⚠️ 工作树副本 ${doc} 读不到(${String(e?.message ?? e)
+          .split(/\r?\n/)[0]
+          .slice(0, 120)}) ⇒ ` + `本轮实时占用面退回 HEAD 宽面,他席未提交的登记不在这一轮尺子里`,
+      )
+    }
+    const tok = resolveIdTokens(targetLines, baseContent, remote, {
+      machineId,
+      vacating,
+      manualCheck: !replacements,
+      worktreeText,
+    })
     if (!tok.ok) {
       if (tok.reason === 'duplicate-title') {
         console.error(
@@ -1862,6 +2576,19 @@ async function main() {
         )
         process.exit(2)
       }
+      if (tok.reason === 'handfilled-id-conflict') {
+        const detail = (tok.conflicts ?? [])
+          .map((c) => `第 ${c.line + 1} 行手填 ${c.key},而同行的令牌现算 ${c.assigned}`)
+          .join(';')
+        console.error(
+          `❌ 新增行既手填编号又带取号令牌(两者不一致)⇒ 拒绝落地(G-313 出路① 机器可判面,2026-10-25):${detail}。\n` +
+            '   成因:一行两路取号 —— 手写的号与令牌现算的号谁作数没有判据,落地后就是同一行两个编号,' +
+            '或"注记写 A、行首是 B"那一型。\n' +
+            '   出路:二选一 —— ① 删掉手填号、只留 `{{NEXT_ID:G}}`(推荐,号由落盘那一刻现算);' +
+            '② 去掉令牌、整行手填(该行随后照 G-313① 的改判/保留档处理)。同一行不得两路并存。',
+        )
+        process.exit(2)
+      }
       if (String(tok.reason).startsWith('id-scan-undetermined')) {
         console.error(
           `❌ 未判定:全文件号集扫不出(${tok.reason})⇒ 拒绝落地(G-14 补完,2026-10-23)。` +
@@ -1873,10 +2600,18 @@ async function main() {
         process.exit(2)
       }
       if (String(tok.reason).startsWith('pool-exhausted:')) {
+        // 归因句子只有一个来源(lib 的 describeExhaustion,按现场读数分档)。旧写法在这一处硬拼
+        // "池已满 ⇒ 去把已完成条目归档腾号",而 2026-10-28 实测 G 族当次真成因是 SCAN_FACE_FULL
+        // (占用面没满、游标也让了窗,窗内候选全被台账⊕归档面的正文引用命中)——散点归档对这一型
+        // 实测 Δ=0(引用不离开归档面),旧句是把人引向一条无效出路的假归因(§0.8/§12f;
+        // POOL_EXHAUST_REASON 头注同一条禁令:结论文本必须与判据同形)。
+        // 取号器没交出 exhaustion 读数 ⇒ lib 显式落"未判定",本出口不替它冒称判过,也绝不
+        // 回落旧措辞(§0.3:失效方向恒为"多要一次定向说明",不是"多发一枚号")。
+        // 逐枚点名走 stderr:这一档紧接着就 exit(2),stdout 那一份打印在成功路径上(两处不重不漏)。
+        for (const n of tok.scanNotes ?? []) console.error(`ℹ ${n}`)
         console.error(
-          `❌ 号池已满(${tok.reason})⇒ 拒绝落地:该族 1..999 的池再也装不下本次要发的号` +
-            `(池式硬上限 2026-10-14 立)。出路:先归档已完成条目腾号(号随归档自动回收),` +
-            `或把登记拆成多块分次落;绝不发 1000+ 的号。`,
+          `❌ 拒绝发号(${tok.reason};池式硬上限 2026-10-14 立,2026-10-24 降至两位数)⇒ 拒绝落地:` +
+            describeExhaustion(tok.exhaustion ?? {}),
         )
         process.exit(2)
       }
@@ -1923,7 +2658,15 @@ async function main() {
       }
     }
     if (tok.assigned) assigned = tok.assigned
-    effBlock = tok.assigned && !replacements ? tok.lines : block
+    // G-313 ①:手填号改判读数逐枚点名(撞当次号池未来窗口/底稿已用 ⇒ 取号只发生在落盘这一刻)。
+    manualRewrites = tok.manualRewrites ?? []
+    manualKept = tok.manualKept ?? []
+    for (const r of manualRewrites)
+      console.log(
+        `ℹ 手填号改判现算(G-313①):${r.key} ⇒ ${r.to}(撞本批令牌窗口/远端或归档引用面 ⇒ 取号只发生在落盘这一刻)`,
+      )
+    const tokChanged = Boolean(tok.assigned) || manualRewrites.length > 0
+    effBlock = tokChanged && !replacements ? tok.lines : block
     effReplacements =
       tok.assigned && replacements
         ? replacements.map((p, i) => ({ ...p, after: tok.lines[i] }))
@@ -1963,12 +2706,16 @@ async function main() {
               ? `❌ 第 ${String(built.reason).replace('replace-not-found#', '')} 项的 before 在 HEAD 版里找不到(该行已被别人改写或本来不逐字等值)⇒ 不猜,拒绝写盘`
               : String(built.reason || '').startsWith('replace-multi-hit')
                 ? `❌ 第 ${String(built.reason).replace('replace-multi-hit#', '').replace(/:.*/, '')} 项的 before 命中 ${String(built.reason).split(':').pop()} 次 ⇒ 无法确定改哪一行,交人工`
-                : String(built.reason || '').startsWith('untouched-line-drift') ||
-                    built.reason === 'line-count-changed'
-                  ? `❌ 改写动了声明之外的行(或改变了总行数)⇒ 这不是"整行替换",拒绝写盘`
-                  : String(built.reason || '').startsWith('multi-hit')
-                    ? `❌ 锚点在 HEAD 版里命中 ${String(built.reason).slice(10)} 处 ⇒ 不猜,拒绝写盘`
-                    : `❌ 新内容不等于"HEAD ⊕ 本块插入/追加"⇒ 拒绝写盘`,
+                : String(built.reason || '').startsWith('invalid-after')
+                  ? `❌ 第 ${String(built.reason).replace('invalid-after#', '')} 项的 after 既不是字符串也不是显式删除档(需 drop:true ∧ after:null)⇒ 拒绝写盘`
+                  : String(built.reason || '').startsWith('drop-multi-hit')
+                    ? `❌ 第 ${String(built.reason).replace('drop-multi-hit#', '').replace(/:.*/, '')} 项的删除档命中 ${String(built.reason).split(':').pop()} 行 ⇒ 一次删多行无法逐条举证,拒绝写盘(§0.10)`
+                    : String(built.reason || '').startsWith('untouched-line-drift') ||
+                        built.reason === 'line-count-changed'
+                      ? `❌ 改写动了声明之外的行(或改变了总行数)⇒ 这不是"整行替换",拒绝写盘`
+                      : String(built.reason || '').startsWith('multi-hit')
+                        ? `❌ 锚点在 HEAD 版里命中 ${String(built.reason).slice(10)} 处 ⇒ 不猜,拒绝写盘`
+                        : `❌ 新内容不等于"HEAD ⊕ 本块插入/追加"⇒ 拒绝写盘`,
       )
       process.exit(1)
     }
@@ -1990,16 +2737,26 @@ async function main() {
         baseLines,
         pairs: effReplacements ?? [],
         fields: fields?.undetermined ? null : fields,
+        reclassify: inputs.reclassify ?? null,
       })
       for (const n of cons.notes) console.log(n)
+      if (cons.staleReclassify?.length) {
+        console.error(
+          `❌ 声明式改桶有 ${cons.staleReclassify.length} 条未命中本轮改写(陈旧或串档)⇒ 拒绝写盘`,
+        )
+        for (const b of cons.staleReclassify) console.error(`   · ${String(b).slice(0, 140)}`)
+        process.exit(1)
+      }
+      if (cons.reclassified > 0)
+        console.log(
+          `✅ 声明式改桶:${cons.reclassified} 项已放行(逐条原因见上;commit message 须同步抄录,声明不得静默)`,
+        )
       if (!cons.ok) {
         console.error(
           `❌ 改写未过三维守恒(主键/租约/归属桶任一不得变)⇒ 拒绝写盘(${cons.violations.length} 项违规):`,
         )
         for (const v of cons.violations) {
-          console.error(
-            `   · 第 ${v.item} 项${v.at.length ? `(命中行 ${v.at.join('/')})` : ''}:`,
-          )
+          console.error(`   · 第 ${v.item} 项${v.at.length ? `(命中行 ${v.at.join('/')})` : ''}:`)
           for (const b of v.bad) console.error(`     - ${b}`)
         }
         console.error(
@@ -2009,9 +2766,7 @@ async function main() {
         process.exit(1)
       }
       if (cons.checked > 0)
-        console.log(
-          `✅ 三维守恒:${cons.checked} 项 open→open 改写已过断言(主键/租约/归属桶不变)`,
-        )
+        console.log(`✅ 三维守恒:${cons.checked} 项 open→open 改写已过断言(主键/租约/归属桶不变)`)
     }
     // 千段租约落账:本块若新占了段,租约行(done 形态,主键=段尾号)必须随本块**同一次提交**进面 ——
     // 分两次提交会在两枚 commit 之间留下"号已实占而段未登记"的窗口。它必须在畸形判据之前并进
@@ -2148,8 +2903,10 @@ async function main() {
   // 回读证明:插入档要求"本块每一条非空行都在 HEAD 里";改写档要求"每一条 after 都在、
   // 且每一条 before 都不在了"—— 后半句才是"改成了"的证据,只查前半句等于什么都没判。
   const now = norm(git(['show', `${landed}:${doc}`], { root, raw: true }))
+  // 删除档的 after 是 null:它本来就没有"新形态"要在位,必须从 missing 里排除(否则自证必然误报)。
+  const isDropPair = (p) => p?.drop === true && (p?.after === null || p?.after === undefined)
   const missing = effReplacements
-    ? effReplacements.filter((p) => !now.includes(p.after)).map((p) => p.after)
+    ? effReplacements.filter((p) => !isDropPair(p) && !now.includes(p.after)).map((p) => p.after)
     : effBlock.filter((l) => l.trim() !== '' && !now.includes(l))
   if (missing.length > 0) {
     console.error(
@@ -2168,29 +2925,208 @@ async function main() {
       console.error(`❌ 回读仍有 ${stale.length} 行的旧形态整行在位 ⇒ 改写没有真生效,不记为成功`)
       process.exit(1)
     }
+    const dropped = replacements.filter(isDropPair).length
     console.log(
-      `✅ 回读:${replacements.length} 行已改成新形态(旧形态整行归零;追加注记型的原文字成为新行前缀,属正当)`,
+      `✅ 回读:${replacements.length - dropped} 行已改成新形态(旧形态整行归零;追加注记型的原文字成为新行前缀,属正当)` +
+        (dropped > 0 ? `;另 ${dropped} 行按删除档摘除(旧形态整行归零,留痕随本枚入账)` : ''),
     )
   } else console.log('✅ 回读:本块每一条非空行都在 HEAD 里')
 
   /**
-   * G-725 留痕:回读已证明"这枚旁路提交带着期望内容进了 HEAD",所以从这一刻起它就是既成事实。
-   * 主索引对齐(下一步)成功与否都不改变"它绕过了提交链"这一点 ⇒ 留痕必须写在对齐之前;
-   * 写失败只喊一行 WARN,绝不把一次成功落地判红(它记的是账,不是门禁)。
+   * ── 结清留痕自动腿(2026-10-26 立)────────────────────────────────────────────────
+   * 立因(主席当日两次实测):`plan-row-drop.jsonl` 是"这行本侧已处置过"的唯一凭据,
+   * `scrub-declared-removals` 的 `declaredRows` 与 `union-converge` 的 `declaredDropCaps` 都读它;
+   * 而结清入口 15 个里 12 个不写留痕(`noTrace=182/434` = 42%)⇒ 摘一次、union 回捞一次。
+   * 本器是唯一合法的活文档写盘入口,结清动作在此天然知道 before/after 两形态,故留痕腿挂这里。
+   *
+   * 位置=判据(AGENTS §1):这一段**必须**在回读通过之后 —— 回读证明 after 在位且 before 归零,
+   * 此刻起"改了"才是既成事实;而凭据取的是**HEAD 有没有被推进**(landed 是当下 HEAD 的祖先),
+   * 不是本器退出码(实测过 CAS 成功推进 HEAD 而落地器因回读未判定返 exit 2 的形态)。
+   * 留痕失败不改上面的落地结论,也不跳过后面的 G-725 留痕/守门 71 补跑/索引对齐(它们是各自独立的账);
+   * 未判定由尾部把它落成 exit 2 —— 大声,且绝不静默跳过(§0.3:没判不写"判过")。
    */
-  const attest = recordBypassLanding({
-    root,
-    source: 'live-doc-edit',
-    landedSha: landed,
-    headBefore: parentSha,
-    declaredFiles: [doc],
+  let dropRecord = null
+  if (replacements) {
+    let headNow = null
+    let ancestor = null
+    try {
+      headNow = git(['rev-parse', 'HEAD'], { root, allowFail: true })
+      ancestor = headNow ? isAncestor(landed, headNow, { root }) : null
+    } catch (e) {
+      console.error(
+        `⚠️ 结清留痕的落地凭据取不到:${String(e?.message ?? e)
+          .split(/\r?\n/)[0]
+          .slice(0, 160)}`,
+      )
+      headNow = null
+      ancestor = null
+    }
+    dropRecord = recordFlipDrops({
+      root,
+      doc,
+      pairs: effReplacements ?? [],
+      landed,
+      parent: parentSha,
+      head: headNow,
+      ancestor,
+      seat: process.env.LIVE_SEAT || DROP_SEAT_DEFAULT,
+    })
+    for (const l of dropRecord.lines) {
+      if (l.level === 'error') console.error(l.text)
+      else console.log(l.text)
+    }
+  }
+
+  // G-725 留痕的**原始落地那一枚**(P1b,2026-10-25 修):回读已证明它带着期望内容进了 HEAD ⇒ 从这
+  // 一刻起它就是既成事实。位置必须在期末对账之前 —— 让号会再产一枚 c2;旧版尾部只记 `landed`
+  // (= 若让号过就是 c2)且沿用了原始父提交,结果 c1 没有记录、c2 被记两次且尾部父绑定错。
+  // 计划的形状与落账由 `recordBypassChain` 单点给出(每枚恰一条、父链首尾相接),这里只交事实。
+  const landingAttest = {
+    sha: landed,
+    parent: parentSha,
     reason: `旁路落地(commit-tree + CAS,${mode})不触发钩子 ⇒ 提交链上的门禁对本枚未执行`,
+  }
+  const healAttests = []
+
+  // ── G-313 出路①·期末对账(2026-10-23):本次落地的号对新 HEAD 复验,撞他人行 ⇒ 自动让号 ──
+  // 让号走**同一令牌出口、同一 CAS 通道**(现算自落地面,vacating 钉住旧号不许回交);
+  // 每枚让号提交自带 G-725 留痕(旁路落地器是本器,门禁确实没跑)。有界 3 轮:CAS 抢不到就重读
+  // 落地面复验。判不出/让号不成 ⇒ 只喊交人工,**不改本器退出码** —— 内容已入库并过了回读,
+  // 把"没判成"写成"没落地"是 G-321② 明令禁的那一型。
+  {
+    // 整行改写档不在射程(依据见上方头注那半句):翻勾行 after 的声明位编号常是**该行现有号**,
+    // 对它开火会把每一次正当结清重编一次号。本段的 ourLines 在改写档下也没有值。
+    // 保留的手填号(manualKept)**不在射程**:那是人工声明的号 —— 撞本地已用号交 F9/登记闸裁、
+    // 带原因放行(LIVE_LEDGER_DUP_OK)更是明示的孪生副本;期末对账若把它们让号重编,就是把
+    // "人工裁归属"偷换成"工具自动改号"(DU-7 放行臂钉死:放行后两份都必须在)。射程由
+    // `landedRecheckScope` 单点给出(ourLines 与让号循环共用同一个 kept 集,两处口径不再分叉)。
+    const landedIds = replacements
+      ? []
+      : [...(assigned ? String(assigned).split(',') : []), ...manualRewrites.map((r) => r.to)]
+    // 族由本次实际落地的号推得 —— effBlock 是令牌**替换后**的行,再扫令牌只会得到空集(原写法
+    // 既踩了改写档的 undefined,又是个恒空转的假读数)。
+    const recheckFams = [
+      ...new Set(
+        landedIds.map((id) => /^([A-Za-z]+)/.exec(String(id))?.[1]?.toUpperCase()).filter(Boolean),
+      ),
+    ]
+    if (landedIds.length > 0) {
+      for (let heal = 1; heal <= 3; heal++) {
+        const curHead = git(['rev-parse', 'HEAD'], { root })
+        // P1a:取不到面只交 undetermined(助手内 allowFail + 不抛),绝不落到 main 顶层 catch ⇒ exit 2。
+        const probe = readLandedDocText({ root, head: curHead, doc })
+        const scope = landedRecheckScope(effBlock, manualKept)
+        const rc = judgeLandedIdRecheck({
+          landedText: probe.text,
+          ourLines: scope.ourLines,
+          families: recheckFams,
+        })
+        if (rc.undetermined) {
+          console.log(
+            `⚠️ 期末对账未判定(${probe.why || '落地面取不到'})⇒ 只喊不拦(内容已入库并过了回读)`,
+          )
+          break
+        }
+        if (rc.collisions.length === 0) {
+          if (heal > 1) console.log(`✅ 期末对账:让号后第 ${heal} 轮复验零同号相撞`)
+          break
+        }
+        const coll = new Set(rc.collisions.map((c) => c.id))
+        console.log(
+          `⚠️ 期末对账(G-313①):本次落地的 ${rc.collisions.length} 枚号在新 HEAD 撞上他人行 ⇒ 自动让号(第 ${heal} 轮):` +
+            rc.collisions.map((c) => ` ${c.id} 撞「${c.otherLine.slice(0, 40)}」`).join(' /'),
+        )
+        const tokLines = []
+        const pairs = []
+        for (let li = 0; li < effBlock.length; li++) {
+          // 保留的手填号不在让号射程(与 ourLines 共用同一个 kept 集,见 landedRecheckScope)。
+          if (scope.kept.has(li)) continue
+          const l = effBlock[li]
+          const k = keyOfRow(String(l))
+          if (!k || !coll.has(k)) continue
+          const fam = /^([A-Za-z]+)/.exec(k)[1].toUpperCase()
+          tokLines.push(
+            String(l).replace(
+              new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b'),
+              `{{NEXT_ID:${fam}}}`,
+            ),
+          )
+          pairs.push({ before: String(l), after: '' })
+        }
+        const rt = resolveIdTokens(tokLines, probe.text, null, {
+          machineId,
+          vacating: [...coll],
+          manualCheck: false,
+        })
+        if (!rt.ok) {
+          console.error(
+            `❌ 期末对账让号取号不出(${rt.reason})⇒ 撞号交人工裁决(内容已入库,不谎报没落地):${[...coll].join(',')}`,
+          )
+          break
+        }
+        for (const [i, p] of pairs.entries()) p.after = rt.lines[i]
+        const built2 = applyReplacements(probe.text.split('\n'), pairs)
+        if (!built2.ok) {
+          console.error(
+            `❌ 期末对账让号改写没命中落地面(${built2.reason ?? ''})⇒ 交人工(内容已入库,不谎报没落地)`,
+          )
+          break
+        }
+        const blob2 = writeBlob(built2.next.join('\n'), { root })
+        const { commit: c2 } = commitTreeWithIndex({
+          root,
+          parent: curHead,
+          message:
+            `${msg}\n\n[G-313 期末对账自动让号] 本次落地的号在新 HEAD 与他人行同号(${[...coll].join(', ')})` +
+            ' ⇒ 只改本器那几行的声明位编号,别行未动。',
+          entries: [{ path: doc, blob: blob2 }],
+          baseRef: curHead,
+        })
+        if (!casUpdateRef(c2, curHead, { root })) {
+          console.log(`⚠️ 让号 CAS 失败(HEAD 又被推进)⇒ 第 ${heal} 轮重读落地面复验`)
+          continue
+        }
+        healAttests.push({
+          sha: c2,
+          parent: curHead,
+          reason: `期末对账自动让号(旁路落地 commit-tree + CAS 不触发钩子 ⇒ 提交链上的门禁对本枚未执行):${rt.assigned}`,
+        })
+        console.log(
+          `✅ 期末对账让号已落 HEAD=${c2.slice(0, 11)}(新号=${rt.assigned}),留痕随尾部落账(每枚提交恰一条)`,
+        )
+        const swap = new Map(pairs.map((p) => [p.before, p.after]))
+        effBlock = effBlock.map((l) => swap.get(String(l)) ?? l)
+        landed = c2
+      }
+    }
+  }
+
+  /**
+   * G-725 留痕:回读已证明"每枚旁路提交带着期望内容进了 HEAD",所以从这一刻起它们就是既成事实。
+   * 主索引对齐(下一步)成功与否都不改变"它们绕过了提交链"这一点 ⇒ 留痕必须写在对齐之前;
+   * 写失败只喊一行,绝不把一次成功落地判红(它记的是账,不是门禁)。
+   * P1b(2026-10-25 修):**原始落地 c1 与每枚让号 c2… 各恰一条**,父链首尾相接 —— 旧版尾部只记
+   * `landed`(让号后 = c2)且沿用原始父提交,于是 c1 无记录、c2 被记两次且尾部父绑定错。
+   * 计划的形状由 `planBypassAttestations` 单点给出;落账由 `recordBypassChain` 单点执行。
+   */
+  const chain = recordBypassChain({
+    root,
+    doc,
+    landing: landingAttest,
+    heals: healAttests,
   })
-  if (!attest.ok)
-    console.log(
-      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed.slice(0, 11)},不改退出码):${attest.why}`,
-    )
-  else console.log(`✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false)`)
+  for (const v of chain.violations) console.log(`⚠️ 跳门留痕计划异常(落地已成功,不改退出码):${v}`)
+  for (const e of chain.results) {
+    const tag = e.stage === 'heal' ? ',期末对账让号' : ''
+    if (!e.result?.ok)
+      console.log(
+        `⚠️ 跳门留痕未写入(落地已成功 HEAD=${e.landedSha.slice(0, 11)}${tag},不改退出码):${e.result?.why ?? '写口没给出结论'}`,
+      )
+    else
+      console.log(
+        `✅ 跳门留痕 1 行已写入 ${e.result.path}(kind=bypass-landing,gatesRun=false${tag})`,
+      )
+  }
 
   /**
    * G-816708(2026-10-05):落地的是台账(`LIVE_DOC=PROJECT_PLAN.md`)⇒ **就地补跑一次守门 71 自愈**。
@@ -2210,6 +3146,22 @@ async function main() {
   // 退出码与措辞的唯一出口是纯函数 `alignOutcome`(构造面上双向钉:没落地仍判 1)。
   const verdict = alignOutcome({ landedSha: landed, doc, align })
   for (const line of verdict.lines) console.log(line)
+  // 结清留痕未判定 ⇒ 非零退出(§0.3:取不到输入不得静默跳过)。内容已落地,但"这行本侧已处置过"
+  // 没进账 ⇒ 下游 scrub/union 结构上认不出它,摘一次、回捞一次。措辞必须同时说清这两件事,
+  // 否则调用方会把"账没写"读成"没落地"(G-321② 明令禁的那一型)。
+  if (dropRecord && dropRecord.unjudged) {
+    console.error(
+      `❌ 结清留痕未判定 ⇒ exit 2:内容已落地 HEAD=${String(landed).slice(0, 11)},但本次 ` +
+        `${dropRecord.flips.length} 项「未勾→已勾」形态未进 plan-row-drop.jsonl,` +
+        '下游 scrub-declared-removals 与 union declaredDropCaps 认不出"这行本侧已处置过" ⇒ 会被回捞。\n' +
+        '   修法(两步,都真跑得通):① 先修可写/可读面 —— 本机实测方向是 `ls -ld .ihui-agent/state` 看目录是否存在/被占,' +
+        "`node -e \"require('fs').appendFileSync('.ihui-agent/state/plan-row-drop.jsonl','')\"` 自证可追加;\n" +
+        '   ② 再由持有台账写盘权的席位按台账格式逐条补记本次两形态(kind=closed-row-reclose-open-form,' +
+        'rowBefore 逐字取本次 before 与 after)——本器**不**提供"只补留痕"的复跑档:重跑时 before 已不在 HEAD,' +
+        '会在 replace-not-found 处退,到不了这一段(如实登记,不写跑不通的出路)。',
+    )
+    process.exit(2)
+  }
   process.exit(verdict.code)
 }
 
@@ -2231,6 +3183,7 @@ export const __test__ = {
   applyReplacements,
   judgeRowRewriteConservation,
   resolveIdTokens,
+  skippedIdNoteLines,
   readRemoteIdBasis,
   vacatedIdsOf,
   idTokenFamilies,
@@ -2251,6 +3204,14 @@ export const __test__ = {
   parseDupAllow,
   judgeNewLineDupes,
   judgeNewIdCollisions,
+  // G-313 出路①(2026-10-23):手填号检测与期末对账的判据出口(镜像测试禁止再抄一份,§22c)。
+  judgeLandedIdRecheck,
+  manualIdDemandOf,
+  // 2026-10-25 P1a/P1b/P2 修:期末对账取材/射程与 G-725 留痕计划(镜像测试的注入点)。
+  readLandedDocText,
+  landedRecheckScope,
+  planBypassAttestations,
+  recordBypassChain,
   dupGateReport,
   // 同题指纹维:判据从权威门(check-plan-task-duplicates.mjs)经本器 import 后转出,
   // 镜像测试据此断言"两处算同一件事必漂移"的禁令(§22c),不得自抄第二份。
@@ -2272,6 +3233,10 @@ export const __test__ = {
   residualIdTokenReport,
   inlineCodeSpansOf,
   RESIDUAL_ID_TOKEN_RE,
+  // 结清留痕自动腿(2026-10-26):判据与写口都住 lib(单一真相源),本器只转出接线面,
+  // 镜像测试从这里取,禁止在测试里另写一份"什么算未勾→已勾"。
+  recordFlipDrops,
+  planDropSelfTestCases,
 }
 
 /**
@@ -2636,6 +3601,9 @@ function selfTest() {
       return a.length === 1 && a[0][0] === 3 && b.length === 1 && c.length === 1 && c[0][0] === 4
     })(),
   )
+  // 结清留痕自动腿:判据与写口住 lib/plan-drop-record.mjs(本器不自抄第二份),
+  // --self-test 收编它的用例族 —— 形态挑取/两形态入账/幂等/凭据三态/台账不可写 五维。
+  for (const c of planDropSelfTestCases()) ok(c.name, c.pass === true)
   let fail = 0
   for (const g of got) {
     if (g.pass) console.log(`  ✅ ${g.name}`)

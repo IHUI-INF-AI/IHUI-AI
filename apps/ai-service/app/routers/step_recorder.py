@@ -13,6 +13,7 @@ tags=["agent-recorder"])` 方式挂载,最终端点路径:
   GET /api/agent-recorder/runs/{run_id}/steps    → 该运行的 step 序列(时间序分页)
   GET /api/agent-recorder/runs/{run_id}/replay   → 全量回放,或 ?step_index=N 单步回看
   GET /api/agent-recorder/runs/{run_id}/metrics  → 总耗时/总 token/总成本/成败统计
+  GET /api/agent-recorder/invocations/{id}/steps → 按账行编号反查录制步骤(B04 证据回指)
 
 存储:复用 agent_step_recorder(进程内 dict + data/step_records.json 文件持久化)。
 认证:与 cloud_runs 一致,复用 get_current_user_id(审计数据仅登录用户可见)。
@@ -60,6 +61,29 @@ async def replay_run(
     logger.info(
         "agent-recorder replay user=%s run=%s step_index=%s",
         user_id, run_id, step_index,
+    )
+    return {"code": 0, "message": "ok", "data": data}
+
+
+@router.get("/invocations/{invocation_id}/steps")
+async def find_steps_by_invocation(
+    invocation_id: str,
+    limit: int = 200,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """按明细账行编号反查录制步骤(B04 证据回指,2026-10-28 立)。
+
+    账行编号是录制面与明细账唯一能对齐的键(循环侧算一次、两处引用)。此前三个端点
+    全按 run_id 寻址,编号写进 `step_records.json` 后没有读路径,"可追溯"缺最后一跳。
+    未命中返回 found=false(空编号同样 false,不扫全表)。
+    """
+    data = agent_step_recorder.get_steps_by_invocation_id(invocation_id, limit=limit)
+    logger.info(
+        "agent-recorder by-invocation user=%s invocation=%s found=%s total=%s",
+        user_id,
+        invocation_id[:64],
+        data["found"],
+        data["total"],
     )
     return {"code": 0, "message": "ok", "data": data}
 

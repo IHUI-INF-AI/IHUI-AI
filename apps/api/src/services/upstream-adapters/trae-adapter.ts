@@ -26,6 +26,7 @@
  *   合法枚举由 model_list 的 `reasoning_effort_config.options` 给出
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import { isProductionGuard } from '../../config/index.js'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
@@ -77,7 +78,7 @@ import { buildCookieHeader } from '../relay-account-format.js'
  * 生产(NODE_ENV=production)一律吃死默认值 —— 环境变量不得把线上流量指走。
  */
 function endpoint(name: string, fallback: string): string {
-  if (process.env.NODE_ENV === 'production') return fallback
+  if (isProductionGuard) return fallback
   const v = process.env[name]?.trim()
   if (!v || !/^https?:\/\//.test(v)) return fallback
   return v.replace(/\/$/, '')
@@ -155,7 +156,9 @@ function buildWebHeaders(jwt: string, accept: 'json' | 'sse'): Record<string, st
 // 鉴权失败错误(转发层据此触发 refreshToken 重试)
 // =============================================================================
 
-/** Trae 上游 401/403 鉴权失败(跨 realm 判定用 name,不依赖 instanceof 唯一途径) */
+/** Trae 上游 401/403 鉴权失败(跨 realm 判定用 name,不依赖 instanceof 唯一途径)
+ * @public 仅测试钉住(判据先行族,G-1200042):生产面暂无消费方,单测直接 import;若日后有生产消费方应删本标注
+ */
 export class TraeAuthFailureError extends Error {
   readonly statusCode: number
   constructor(statusCode: number, detail?: string) {

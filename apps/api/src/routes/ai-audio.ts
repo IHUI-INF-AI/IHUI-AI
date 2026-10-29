@@ -270,7 +270,9 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   // 2. POST /audio/speech — TTS(DashScope CosyVoice)
   // ==========================================================================
-  server.post('/audio/speech', async (request, reply) => {
+  // 2026-10-28 DDoS P2:音频 base64 上限 ~33.3MB(zod MAX_AUDIO_BASE64_LENGTH),显式放开脱离全局 2MiB,
+  // 使 zod 校验先于 Fastify 413 生效。
+  server.post('/audio/speech', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
     const parsed = ttsBody.safeParse(request.body)
     if (!parsed.success || !parsed.data.text) {
@@ -333,7 +335,9 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   // 3. POST /audio/recognize — ASR(DashScope Paraformer / qwen3-asr)
   // ==========================================================================
-  server.post('/audio/recognize', async (request, reply) => {
+  // 2026-10-28 DDoS P2:音频 base64 上限 ~33.3MB(zod MAX_AUDIO_BASE64_LENGTH),显式放开脱离全局 2MiB,
+  // 使 zod 校验先于 Fastify 413 生效。
+  server.post('/audio/recognize', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
     const parsed = asrBody.safeParse(request.body)
     if (!parsed.success || (!parsed.data.audio_url && !parsed.data.audio_base64)) {
@@ -526,7 +530,9 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   // 4. POST /audio/chat — 语音对话(语音/文本输入 → AI 回复)
   // ==========================================================================
-  server.post('/audio/chat', async (request, reply) => {
+  // 2026-10-28 DDoS P2:音频 base64 上限 ~33.3MB(zod MAX_AUDIO_BASE64_LENGTH),显式放开脱离全局 2MiB,
+  // 使 zod 校验先于 Fastify 413 生效。
+  server.post('/audio/chat', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
     const parsed = chatBody.safeParse(request.body)
     const body = parsed.success ? parsed.data : {}
@@ -710,7 +716,9 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   // 6. POST /audio/upload — 上传音频文件做 ASR
   // ==========================================================================
-  server.post('/audio/upload', async (request, reply) => {
+  // 2026-10-28 DDoS P2:音频文件上传上限 25MB(multipart,handler 内 AUDIO_MAX_SIZE 精确闸),
+  // 显式放开脱离全局 2MiB。
+  server.post('/audio/upload', { bodyLimit: 26 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
     const file = await request.file()
     if (!file) {
@@ -795,7 +803,9 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   // 7. POST /speaker/register — 注册声纹
-  server.post('/speaker/register', async (request, reply) => {
+  // 2026-10-28 DDoS P2:音频 base64 上限 ~33.3MB(zod MAX_AUDIO_BASE64_LENGTH),显式放开脱离全局 2MiB,
+  // 使 zod 校验先于 Fastify 413 生效。
+  server.post('/speaker/register', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
     const parsed = cloneBody.safeParse(request.body)
     if (!parsed.success || !parsed.data.voice_id) {
@@ -846,7 +856,9 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 8. POST /speaker/compare — 声纹比对
-  server.post('/speaker/compare', async (request, reply) => {
+  // 2026-10-28 DDoS P2:音频 base64 上限 ~33.3MB(zod MAX_AUDIO_BASE64_LENGTH),显式放开脱离全局 2MiB,
+  // 使 zod 校验先于 Fastify 413 生效。
+  server.post('/speaker/compare', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
     const parsed = cloneBody.safeParse(request.body)
     if (!parsed.success || !parsed.data.voice_id) {

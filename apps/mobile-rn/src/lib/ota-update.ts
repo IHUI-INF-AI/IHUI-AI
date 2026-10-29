@@ -21,6 +21,7 @@
 
 import { Platform } from 'react-native'
 import * as Updates from 'expo-updates'
+import RNRestart from 'react-native-restart'
 import { useSyncExternalStore } from 'react'
 
 export type OtaUpdateState =
@@ -138,45 +139,46 @@ async function runCheck(): Promise<OtaUpdateState> {
 }
 
 /**
- * reloadAsync 看门狗上限(ms)。
- *
- * 为什么需要(2026-10-27 机主实拍「点完更新直接调到灰屏页,一直不动」的第二道保险):
- * 真重启时进程被整份替换,这个定时器根本走不到;只有「reloadAsync 被调了却始终没重启」
- * (原生通道挂死 / 新包装载卡住)才会落回 ready —— 否则 installing 会把 UpdatePrompt 的
- * 「正在重启…」遮罩永久钉在屏幕上,用户除了杀进程没有任何出路(比原来那块无反馈的
- * 灰屏更糟:连"卡在哪一步"都读不出来)。
- */
-const RELOAD_WATCHDOG_MS = 15000
-
-/**
  * 立即重启应用生效(调用前应已 ready)。
  *
- * 失败处理(2026-10-27 修):原来失败后落 error 态,而提示卡只在 ready 渲染 ⇒
- * 卡片直接消失,用户既看不到失败原因、也没有任何重试入口,只能等下次冷启动。
- * 现在失败**回到 ready**:卡片继续在,用户再点一次就是重试;失败原因由调用方弹窗如实告知。
- * 「调了但没重启」同样走失败路径(见 RELOAD_WATCHDOG_MS),不会把 UI 钉在 installing。
- * @returns 是否成功重启(reloadAsync 成功时进程已经重启,返回值实际只在失败路径可观测)。
+ * 2026-10-28 定稿:**只走原生真重启,彻底不走 reloadAsync**。
+ *   - 机主连续两轮实拍「点更新 → 灰屏卡死没反应」,根因是 expo-updates 57 的
+ *     RelaunchProcedure:先显示原生 reloadScreen,再 reactHost.restart();JS 面被拆掉后
+ *     如果新界面没被拉回来,就永远停在那一帧,而 JS 已死 —— 看门狗、兜底按钮全部跟着消失。
+ *     这条路只要存在,就总有概率复现,所以直接删掉,不再"失败再退回"。
+ *   - 改走 react-native-restart(ProcessPhoenix:杀进程 + AlarmManager 拉起)= 一次真冷启动:
+ *     进程重开 → expo-updates 按"最新已下载更新"选包 → 界面一定回来。
+ *     (expo-updates 57 没有客户端崩溃回滚,杀进程不会被判成崩溃而退回旧包。)
+ *   - 真重启是同步调用、当场换进程,不存在"调了却不动"的中间态;万原生模块缺失(理论不可达,
+ *     该模块已随包编进 dex)则回到 ready 让用户再点一次,绝不留一块灰屏。
+ *
+ * @returns 是否已把重启交出去(成功时进程当场被替换,返回值只在失败路径可观测)。
  */
 export async function applyOtaUpdate(): Promise<boolean> {
   patch({ state: 'installing' })
-  // 显式标注类型且不给初始值:避免 TS 控制流把"回调里赋的值"当成不存在(见单测注释同款陷阱)
-  let watchdog: ReturnType<typeof setTimeout> | undefined
   try {
-    await Promise.race([
-      Updates.reloadAsync(),
-      new Promise<never>((_, reject) => {
-        watchdog = setTimeout(
-          () => reject(new Error(`reloadAsync 超过 ${RELOAD_WATCHDOG_MS}ms 未重启(看门狗超时)`)),
-          RELOAD_WATCHDOG_MS,
-        )
-      }),
-    ])
+    RNRestart.restart('ota-apply')
+    // 执行成功时进程当场被换掉,这行之后不会再跑;能返回说明原生模块没动手
     return true
   } catch (e) {
+    console.warn('[ota] 原生真重启不可用:', e)
     patch({ state: 'ready', lastError: e instanceof Error ? e.message : String(e) })
     return false
-  } finally {
-    if (watchdog !== undefined) clearTimeout(watchdog)
+  }
+}
+
+/**
+ * 兜底重启(2026-10-28 机主「点了更新依旧灰屏 卡死 没任何反应」):
+ * `Updates.reloadAsync()` 在个别机型上会"拆了当前 JS 面却没把 Activity 拉起来",
+ * 此时看门狗也随 JS 一起没了,用户对着一块没有出路的遮罩。这里给 UI 一枚
+ * 「立即重启」按钮走原生 `RNRestart`:activity recreate 后 expo-updates 会按最新
+ * 已下载的更新重新启动,与点更新同一个落点。失败只可能发生在原生模块缺失,**不抛**。
+ */
+export function forceRestart(): void {
+  try {
+    RNRestart.restart('ota-fallback')
+  } catch (e) {
+    console.warn('[ota] 原生重启失败:', e)
   }
 }
 

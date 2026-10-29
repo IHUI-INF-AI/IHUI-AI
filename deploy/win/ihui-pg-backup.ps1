@@ -9,9 +9,12 @@
 #       清单 = ihui_dev + keycloak(2026-09-28 起;为何是这两个、为何不含测试库,见下方 $backupDatabases 注释)
 # 清理:本地与云侧同窗轮转(最近 7 天);识别式只认 ihui*/keycloak* 的 .dump/.sql.gz,
 #       所以同目录里的 pg_hba 现场存档与 backup.log 不会被顺手带走
-# 用法(手动): powershell -ExecutionPolicy Bypass -File deploy\prod-bundle\pg-backup.ps1
-# 调度:由 nssm 服务 IHUI-PG-BACKUP 常驻跑同级 pg-backup-scheduler.ps1 —— **不是** Windows 任务计划程序
-#       (实测 schtasks 全量列表里没有备份任务);调度器启动即备份一次,之后每天 03:00 一轮。
+# 用法(手动): pwsh.exe -NoProfile -ExecutionPolicy Bypass -File deploy\win\ihui-pg-backup.ps1
+#       (§27:deploy/** 的 .ps1 不吃 #requires 声明,调用侧必须显式 pwsh —— 本行就是调用侧登记)
+# 调度:由 Windows 计划任务 \IHUI-PG-BACKUP(SYSTEM;触发器=开机 + 每日 03:00,多实例策略=IgnoreNew)
+#       常驻运行同级 ihui-pg-backup-scheduler.ps1 —— 调度器启动即备份一次,之后每天 03:00 一轮,
+#       失败轮 30 分钟重试最多 4 次。历史形态为 nssm 服务 IHUI-PG-BACKUP;2026-10-27 本机实测
+#       nssm.exe、同名服务与同名计划任务条目全部不在(换机后未复注册),现以计划任务载体复注册。
 # =============================================================================
 
 # ── 失败必须到人:邮件是唯一通道(AGENTS.md §5e)─────────────────────────────
@@ -70,8 +73,13 @@ $ProjectRoot = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
 # 本机两档算出的结果与收口前的字面值逐字符相同(D:\DevEnv),行为零漂移;
 # 换卷/挪盘时改一处机器级 env 即可,不必再动本脚本与影子副本两处。
 $DevEnvRoot = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $ProjectRoot) + '\DevEnv' }
-$psql = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\psql.exe'
-$pgDump = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\pg_dump.exe'
+# pg_dump / psql 的落点不再在此写死:真正的候选解析在凭据就绪后执行(见下方「PG 工具定位」块)。
+# 2026-10-25 实测:历史落点 $DevEnvRoot\runtimes\pgsql\ **整个目录不存在**(该运行时原来在
+# D:\DevEnv\runtimes\pgsql,迁盘后没带过来),写死路径 ⇒ 每轮在 & $pgDump 处必抛
+# "is not recognized"、备份目录长期 0 份。此处只登记历史落点,供解析器当第②档候选。
+$legacyPgBinDir = Join-Path $DevEnvRoot 'runtimes\pgsql\bin'
+$psql = $null
+$pgDump = $null
 $backupDir = Join-Path $DevEnvRoot 'backups\pg'
 $retentionDays = 7
 # 云备份同步(2026-08-05 加):复制到百度网盘同步盘 = 云同步腿(G-916939 机主拍板 2026-10-07:
@@ -84,7 +92,8 @@ $cloudDir = "D:\BaiduSyncdisk\IHUI-PG-BACKUP"
 if ($env:IHUI_BACKUP_CLOUD_DIR) { $cloudDir = $env:IHUI_BACKUP_CLOUD_DIR }
 
 function Resolve-NodeExe {
-    # 本脚本由 nssm 服务 IHUI-PG-BACKUP 以 LocalSystem 身份跑,而**机器级 PATH 里那串 node 目录是死的**
+    # 本脚本由计划任务 IHUI-PG-BACKUP 以 SYSTEM 身份跑(2026-10-27 复注册实测;历史形态为 nssm 服务,
+    # 同为 LocalSystem),而**机器级 PATH 里那串 node 目录是死的**
     # (实测 HKLM\...\Environment\Path 含 `D:\nodejs\`,而该目录不存在;node 真身在用户级 PATH 的
     # `D:\DevEnv\runtimes\node\node.exe`,服务身份读不到 ⇒ 只靠 Get-Command 会在自动轮次里静默落空,
     # 表现为"手动跑用专用角色、服务跑退回应用账号")。候选与 ihui-deploy.ps1:120 / ihui-monitor.ps1:108
@@ -207,14 +216,15 @@ function Send-FailureAlert {
     $lines = @()
     # 报"实际被执行的那一份":生产跑的是 deploy/prod-bundle/pg-backup.ps1(被 gitignore 的影子副本),
     # 写死入库源路径会让人去改一份根本不执行的文件。
-    $lines += "来源: $PSCommandPath(服务 IHUI-PG-BACKUP)"
+    $lines += "来源: $PSCommandPath(计划任务 IHUI-PG-BACKUP)"
     $lines += "时刻: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss zzz'))"
     $lines += "结论: $Reason"
     if ($Details -and $Details.Count -gt 0) {
         $lines += '明细:'
         foreach ($d in $Details) { $lines += "  - $d" }
     }
-    $lines += '下一步: 看日志 D:\DevEnv\logs\pg-backup-scheduler.log;审计节拍跑 node scripts/pg-backup-cadence-audit.mjs'
+    # 日志落点不写死盘符(2026-10-27 实测:本机 DevEnv 根 = 仓根所在盘派生位,D:\ 字面量是旧机残留)
+    $lines += "下一步: 看日志 $DevEnvRoot\logs\pg-backup-scheduler.log;审计节拍跑 node scripts/pg-backup-cadence-audit.mjs"
     $body = $lines -join "`n"
     if (Invoke-BrandAlertMail -Subject $AlertTitle -BodyText $body) {
         if ($AlertDryRun) {
@@ -334,6 +344,95 @@ if (-not $dbPw) {
 }
 $env:PGPASSWORD = $dbPw
 
+# ── PG 工具定位(2026-10-25 立,治"备份链静默零产物")────────────────────────────
+# 实测现场(现读,不是假想):G:\DevEnv\runtimes\pgsql\ 整个目录不存在 ⇒ 旧写法写死的
+# `$DevEnvRoot\runtimes\pgsql\bin\pg_dump.exe` 每轮必抛 "The term … is not recognized",
+# 被上方 trap 接住 exit 1,而 G:\DevEnv\backups\pg 长期 0 份。本机真正的 PG 二进制在
+# $env:ProgramFiles\PostgreSQL\18\bin(与运行中的 postgresql-x64-18 服务配对,psql/pg_dump 18.6)。
+# 候选序(高→低),只认磁盘上真有 pg_dump.exe 的那一个:
+#   ① $env:ProgramFiles\PostgreSQL\<版本>\bin(按版本降序;17/18 并存取 18)
+#   ② $env:IHUI_PG_BIN_DIR           显式覆盖(换机/换盘只改机器级 env,不再改脚本与影子副本)
+#   ③ 运行中 PostgreSQL 服务 ImagePath 反查 …\bin\pg_ctl.exe(与服务器版本天然配对,最不易错)
+#   ④ $DevEnvRoot\runtimes\pgsql\bin 历史落点(向后兼容:该目录若回来,行为回到旧样)
+#   ⑤ PATH 上的 pg_dump.exe
+# 2026-10-27 改序(① 与 ④ 对调;原序是 env→历史落点→服务→发行版→PATH),立因不是洁癖:
+#   换机后这两档会**同路径重现**而不是二选一 —— 仓根回到 G:,于是 $DevEnvRoot = G:\DevEnv,
+#   而旧机那套运行时也正落在 G:\DevEnv\runtimes\pgsql。旧序下只要有人把旧客户端目录搬回来,
+#   历史落点就排在发行版之前被选中;pg_dump 主版本低于服务器(18.6)时 dump 必失败,
+#   而它的报错形态与"口令/权限错"同形 ⇒ 排障方向被带偏。发行版探测 = 现读机器事实,排第一;
+#   env 覆盖留在第二档:既不夺人的显式指定权,也不再让一个"路径碰巧存在"压过机器现状。
+# 全落空 ⇒ **exit 2「未判定」**(§0.3),不再是 exit 1 的"备份失败":取不到工具链 = 本轮判不了,
+#   不等于判出"备份坏了"。两者在日志/告警里必须形态不同,否则接手的人会先去查库而不是查工具链。
+function Resolve-PgBinCandidateDirs {
+    $dirs = New-Object System.Collections.Generic.List[string]
+    # ① 发行版安装位。不写 C 盘字面量(§26 同一条纪律;check-c-drive-paths 也扫 .ps1),根从环境变量派生
+    # ⚠ 必须先 Test-Path 再 Join-Path:ProgramFiles 指向一个不存在的驱动器时 Join-Path 会抛
+    # "Cannot find drive",而本文件 EAP=Stop ⇒ 它会被顶部 trap 接成"脚本自身异常 exit 1",
+    # 形态与"pg_dump 失败"同形。候选档取不到只该**跳过这一档**(2026-10-27 负控实测)。
+    $pfRoot = if ($env:ProgramFiles -and (Test-Path -LiteralPath $env:ProgramFiles)) { Join-Path $env:ProgramFiles 'PostgreSQL' } else { $null }
+    if ($pfRoot -and (Test-Path -LiteralPath $pfRoot)) {
+        $installs = @(Get-ChildItem -LiteralPath $pfRoot -Directory -ErrorAction SilentlyContinue |
+            Sort-Object { [int]($_.Name -replace '\D', '') } -Descending)
+        foreach ($d in $installs) { $dirs.Add((Join-Path $d.FullName 'bin')) }
+    }
+    # ② 显式覆盖
+    if ($env:IHUI_PG_BIN_DIR) { $dirs.Add($env:IHUI_PG_BIN_DIR) }
+    # ③ 运行中服务反查(与服务器版本天然配对)
+    try {
+        $svcs = @(Get-CimInstance Win32_Service -ErrorAction SilentlyContinue |
+            Where-Object { $_.PathName -and $_.PathName -match '(?i)postgres' -and $_.State -eq 'Running' } |
+            Sort-Object Name -Descending)
+        foreach ($s in $svcs) {
+            $m = [regex]::Match($s.PathName, '^"?([^"]+?)[\\/]bin[\\/]pg_ctl\.exe', 'IgnoreCase')
+            if ($m.Success) { $dirs.Add((Join-Path $m.Groups[1].Value 'bin')) }
+        }
+    } catch {
+        Write-Host "[WARN] 从服务反查 PG bin 失败(跳过该候选): $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    # ④ 历史落点(旧机运行时;排在发行版与服务反查之后,见上方改序说明)
+    if ($legacyPgBinDir) { $dirs.Add($legacyPgBinDir) }
+    # ⑤ PATH
+    $cmd = Get-Command pg_dump.exe -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source) { $dirs.Add((Split-Path -Parent $cmd.Source)) }
+    return @($dirs | Where-Object { $_ } | Select-Object -Unique)
+}
+
+$pgBinDir = $null
+$pgCandidates = @(Resolve-PgBinCandidateDirs)
+foreach ($d in $pgCandidates) {
+    if (Test-Path -LiteralPath (Join-Path $d 'pg_dump.exe')) { $pgBinDir = $d; break }
+}
+if (-not $pgBinDir) {
+    $tried = if ($pgCandidates.Count -gt 0) { $pgCandidates -join ' | ' } else { '(无候选)' }
+    Write-Host '[UNDETERMINED] 找不到 pg_dump.exe:本轮未判定(不是「备份失败」,是工具链取不到)' -ForegroundColor Red
+    Write-Host "        已尝试: $tried" -ForegroundColor Yellow
+    Write-Host "        出路:①设 IHUI_PG_BIN_DIR=<含 pg_dump.exe 的 bin 目录>;②安装 PostgreSQL client(需机主同意)" -ForegroundColor Yellow
+    Send-FailureAlert -Reason '未判定:找不到 pg_dump.exe,本轮未跑任何导出(备份链断在备份工具缺失)' -Details @(
+        "已尝试目录: $tried",
+        '定性:不是口令/权限/库未就绪,也不是 pg_dump 判出的失败 —— 是本轮判不了(§0.3),退出码 2 与备份失败(1)不同形',
+        '本机 PG 发行版可经 Win32_Service 的 postgresql-* 服务 ImagePath 反查其 bin 目录',
+        '出路:①设 IHUI_PG_BIN_DIR;②安装 PostgreSQL client(需机主同意)'
+    )
+    exit 2
+}
+$pgDump = Join-Path $pgBinDir 'pg_dump.exe'
+$psql = Join-Path $pgBinDir 'psql.exe'
+$pgDumpVersion = ''
+$prevPgEap = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    $pgDumpVersion = ((& $pgDump --version 2>&1 | Out-String).Trim())
+} catch {
+    $pgDumpVersion = "(版本探测失败: $($_.Exception.Message))"
+} finally {
+    $ErrorActionPreference = $prevPgEap
+}
+Write-Host "[INFO] PG 工具: $pgDumpVersion @ $pgBinDir" -ForegroundColor Gray
+if (-not (Test-Path -LiteralPath $psql)) {
+    # 就绪门与逐库复核都要 psql;缺它不会让导出失败,但必须让人知道这两层被测面变薄了
+    Write-Host "[WARN] 同目录缺 psql.exe:$psql ⇒ 就绪门与逐库复核将跳过(导出本身不依赖 psql)" -ForegroundColor Yellow
+}
+
 if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Force -Path $backupDir | Out-Null }
 
 # ── 备份清单:这一行承载"哪些库必须被备份"的决定 ────────────────────────────
@@ -397,6 +496,7 @@ if (-not (Test-Path -LiteralPath $psql)) {
     $readyLastCode = $null
     $readyLastOut = ''
     $readyAttempts = 0
+    $readyAuthFailed = $false   # 认证/授权被拒 ≠ 库还没起来:前者不该退避重试
     # psql 18 已移除 `--connect-timeout` 开关 ⇒ 改用 libpq 环境变量等价替代(见上方注释)。
     $env:PGCONNECT_TIMEOUT = '5'
     while ($true) {
@@ -415,6 +515,13 @@ if (-not (Test-Path -LiteralPath $psql)) {
             $ErrorActionPreference = $prevReadyEap
         }
         if ($readyLastCode -eq 0) { $readyOk = $true; break }
+        if ($readyLastOut -match '(?i)(password authentication failed|authentication failed|role .+ does not exist|no pg_hba\.conf entry)') {
+            # 2026-10-25 实测:密钥目录里的 beifen 口令是旧集群孤儿(PG18 里 pg_roles 查无此角色),
+            # 而本门按"库还在启动"退避了 6 分钟、6 次全是同一个 FATAL,告警还把人指向"查 PG 状态"。
+            # 确定的失败必须当场说准原因,不拿重试盖住(§0.10 失效方向 = 多要一次定向说明)。
+            $readyAuthFailed = $true
+            break
+        }
         $retryNo = $readyAttempts   # 本轮失败对应第几次重试(1..5)
         if ($retryNo -gt $readyWaitSteps.Count) { break }
         $waitSec = $readyWaitSteps[$retryNo - 1]
@@ -422,23 +529,95 @@ if (-not (Test-Path -LiteralPath $psql)) {
         Start-Sleep -Seconds $waitSec
     }
     $readyElapsedSec = [int]((Get-Date) - $readyStart).TotalSeconds
+    # 专用角色档认证失败时的回退(文件头「③ .env 应用账号过渡档」的落地点):
+    # 旧实现只要口令文件存在就走专用角色,而"存在但已失效"的孤儿文件会让整条链永远失败,
+    # 连那段早已写好的过渡档 WARN 都走不到。回退只在**认证失败**这一型上尝试,且只试一次;
+    # "库还没起来"照旧走上面的退避重试,两型不得混。
+    if (-not $readyOk -and $readyAuthFailed -and $dbPwFromDotEnv -and $dbUser -ne $dbUserFromDotEnv) {
+        $failedUser = $dbUser
+        Write-Host "[WARN] 专用角色『$failedUser』认证失败,回退 .env 应用账号『$dbUserFromDotEnv』重探一次(过渡档)" -ForegroundColor Yellow
+        $dbUser = $dbUserFromDotEnv
+        $dbPw = $dbPwFromDotEnv
+        $env:PGPASSWORD = $dbPw
+        $prevReadyEap2 = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $readyLastOut = (& $psql -w -h localhost -p $dbPort -U $dbUser -d $dbName -t -A -c "SELECT 1;" 2>&1 | Out-String).Trim()
+            $readyLastCode = $LASTEXITCODE
+        } catch {
+            $readyLastOut = "psql 探测派生异常: $($_.Exception.Message)"
+            $readyLastCode = -1
+        } finally {
+            $ErrorActionPreference = $prevReadyEap2
+        }
+        if ($readyLastCode -eq 0) {
+            $readyOk = $true
+            Write-Host "[WARN] 用 .env 的应用账号『$dbUser』跑备份(过渡档,非终态):专用角色『$failedUser』认证失败" -ForegroundColor Yellow
+            Write-Host "       升终态:deploy\win\ihui-pg-backup-role.sql(需一次超管会话,由口令持有人本机执行)" -ForegroundColor Yellow
+        }
+    }
     if ($readyOk) {
-        Write-Host "[OK] 就绪门:数据库可用(探测 ${readyAttempts} 次,耗时 ${readyElapsedSec}s,port $dbPort)" -ForegroundColor Green
+        Write-Host "[OK] 就绪门:数据库可用(探测 ${readyAttempts} 次,耗时 ${readyElapsedSec}s,port $dbPort,角色 $dbUser)" -ForegroundColor Green
     } else {
         $readyWaitedMin = [int][math]::Round($readyElapsedSec / 60.0)
-        Write-Host "[ERROR] 就绪门:已等待 PG 就绪约 ${readyWaitedMin} 分钟仍失败(探测 ${readyAttempts} 次,最后一次 exit=$readyLastCode)⇒ 本轮不跑任何导出" -ForegroundColor Red
-        Send-FailureAlert -Reason "已等待 PG 就绪约 ${readyWaitedMin} 分钟仍失败,请人工检查 PG($dbPort) 状态;本轮未跑任何导出" -Details @(
+        $readyReason = if ($readyAuthFailed) {
+            "数据库连接被拒(凭据/授权),不是就绪等待超时;本轮未跑任何导出(最后尝试角色『$dbUser』)"
+        } else {
+            "已等待 PG 就绪约 ${readyWaitedMin} 分钟仍失败,请人工检查 PG($dbPort) 状态;本轮未跑任何导出"
+        }
+        Write-Host "[ERROR] 就绪门失败:$readyReason(探测 ${readyAttempts} 次,最后一次 exit=$readyLastCode)" -ForegroundColor Red
+        $readyDetails = @(
             "psql 最后一次输出: $readyLastOut",
-            "psql 退出码: $readyLastCode | 探测次数: $readyAttempts | 目标: localhost:$dbPort",
-            '定性:这一型不是口令/权限问题 —— 真凭据问题由 pg_dump 与随后的逐库复核点名,两者在日志里形态不同',
-            '出路一:调度器会按 30 分钟重试(最多 4 次),库恢复后自动补上本轮',
-            '出路二:查服务 IHUI-PG 是否在跑、其 postmaster 是否卡在恢复(本门用的端口来自 .env 的 DB_PORT)'
+            "psql 退出码: $readyLastCode | 探测次数: $readyAttempts | 目标: localhost:$dbPort | 角色: $dbUser"
         )
+        if ($readyAuthFailed) {
+            $readyDetails += '定性:认证/授权失败 —— 与「库还在启动」是两种形态,已跳过退避重试'
+            $readyDetails += '出路一:deploy\win\ihui-pg-backup-role.sql 建只读备份角色(需一次超管会话),口令写回 §5d 权威目录'
+            $readyDetails += '出路二:设服务环境块 IHUI_DB_BACKUP_USER / IHUI_DB_BACKUP_PASSWORD'
+            $readyDetails += '出路三:确认 .env 的 DB_USER / DB_PASSWORD 能连(脚本在认证失败时已先回退这一档)'
+        } else {
+            $readyDetails += '定性:这一型不是口令/权限问题 —— 真凭据问题由 pg_dump 与随后的逐库复核点名,两者在日志里形态不同'
+            $readyDetails += '出路一:调度器会按 30 分钟重试(最多 4 次),库恢复后自动补上本轮'
+            $readyDetails += '出路二:查服务 IHUI-PG 是否在跑、其 postmaster 是否卡在恢复(本门用的端口来自 .env 的 DB_PORT)'
+        }
+        Send-FailureAlert -Reason $readyReason -Details $readyDetails
         exit 1
     }
 }
 
+# ── 备份清单的「库存在性」预检(2026-10-25 立)──────────────────────────────────
+# 清单里的库名是跨机共用的决定(本机 2026-09-28 加入 keycloak),但"清单写着"不等于
+# "这个集群有"。实测本机 PG18 只有 ihui/ihui_dev/ihui_e2e/ihui_test/postgres,无 keycloak
+# (它在已停用且 Disabled 的 PG17 数据目录里)⇒ 旧实现把"库不存在"记成"pg_dump keycloak 失败",
+# 每一轮都判整轮失败并寄一封假故障告警。
+# 取不到库清单时**不跳过任何库**(fail-open):"判定不了"不得写成"不存在"(§0.3)。
+$existingDatabases = @()
+if (Test-Path -LiteralPath $psql) {
+    $prevListEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $dbListRaw = & $psql -w -h localhost -p $dbPort -U $dbUser -d $dbName -t -A -c "SELECT datname FROM pg_database WHERE NOT datistemplate;" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $existingDatabases = @($dbListRaw | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+        } else {
+            Write-Host "[WARN] 库清单探测失败(exit=$LASTEXITCODE),本轮不做存在性跳过: $((($dbListRaw | Out-String).Trim()))" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "[WARN] 库清单探测异常,本轮不做存在性跳过: $($_.Exception.Message)" -ForegroundColor Yellow
+    } finally {
+        $ErrorActionPreference = $prevListEap
+    }
+}
+
 foreach ($db in $backupDatabases) {
+    if ($existingDatabases.Count -gt 0 -and ($existingDatabases -notcontains $db)) {
+        # 清单腐烂 ≠ 备份失败:本机根本没有这个库时,dump 必报 "database ... does not exist",
+        # 旧实现把它记成一项失败 ⇒ 每轮整轮判失败、每晚寄一封假故障告警。
+        # ⚠ 变量插值后紧跟冒号会被 PowerShell 读成作用域限定符($db:…)⇒ 库名静默变空,
+        # 故这里把库名与冒号隔开写。
+        Write-Host "[WARN] 跳过库 $db —— 当前集群无此库(备份清单该更新;不是备份失败)" -ForegroundColor Yellow
+        continue
+    }
     $outFile = Join-Path $backupDir "$($db)_$stamp.dump"
     Write-Host "[备份] $db @ localhost:$dbPort(角色 $dbUser)→ $outFile" -ForegroundColor Cyan
     # -Fc = 自定义压缩格式(pg_restore 可直接还原,自带压缩);$dbUser 带 BYPASSRLS,不会漏被 RLS 遮蔽的行
@@ -461,6 +640,11 @@ foreach ($db in $backupDatabases) {
     # 原先这里是 `2>$null` 且不看退出码:psql 失败时 $check 为 $null,而 $null.Trim() 在
     # $ErrorActionPreference=Stop 下抛一句与原因无关的 RuntimeException,把"连不上/口令错"
     # 伪装成"脚本自身出错"。本票要根治的就是这类静默,故此处改为如实报原因。
+    if (-not (Test-Path -LiteralPath $psql)) {
+        # 复核只是"备份角色对这个库读不读得到"的现读;缺 psql 时不得把它记成该库失败
+        Write-Host "  [WARN] 缺 psql.exe,跳过 $db 的复核查询(导出已成功)" -ForegroundColor Yellow
+        continue
+    }
     $check = & $psql -w -h localhost -p $dbPort -U $dbUser -d $db -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';"
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($check)) {
         Write-Host "[ERROR] 复核查询失败: $db(exit=$LASTEXITCODE)—— 角色 $dbUser 可能缺少该库的 CONNECT,见 deploy\win\ihui-pg-backup-role.sql" -ForegroundColor Red

@@ -11,13 +11,17 @@ vi.hoisted(() => {
   process.env.REDIS_URL ??= 'redis://localhost:6379/0'
 })
 
+// 令牌感知:本仓约定 'Bearer admin-token' ⇒ 系统管理员(roleId=1,见 require-permission.ts
+// 的 ADMIN_ROLE_ID=1),其余令牌 ⇒ 普通登录用户(roleId=0)。
+// 2026-10-27 安全加固:证书签发/吊销已收紧为 requireAdmin(此前"登录即可"可给任意 userId
+// 签发/吊销证书),故同一组令牌要能同时扮演"管理员"与"普通用户"两个角色。
 vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: vi.fn().mockResolvedValue({
+  verifyAccessToken: vi.fn().mockImplementation(async (token: string) => ({
     userId: '00000000-0000-4000-8000-000000000001',
     phone: '13800000000',
     familyId: '11111111-1111-4111-8111-111111111111',
-    roleId: 0,
-  }),
+    roleId: token === 'admin-token' ? 1 : 0,
+  })),
 }))
 
 // 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,
@@ -133,6 +137,8 @@ import { isSignedUp, findSignUp, updateProgress } from '../../db/learn-queries.j
 import { updateCertificateStatus } from '../../db/certificate-queries.js'
 
 const AUTH = { authorization: 'Bearer mock-token' }
+// 管理员令牌(与本仓其余测试一致):证书签发/吊销是管理职能,需 roleId>=1。
+const ADMIN_AUTH = { authorization: 'Bearer admin-token' }
 
 describe('Integration Tests (mocked DB)', () => {
   let app: FastifyInstance
@@ -415,12 +421,38 @@ describe('Integration Tests (mocked DB)', () => {
 
     // /resources/:id/download 已在 resource.ts 真实化，完整测试在 resource-download.test.ts（9 个用例）
 
+    // 2026-10-27 安全加固:证书签发/吊销此前"登录即可"(userId 取自 body)⇒ 任何注册用户
+    // 可给任意 userId 签发证书(伪造对外可验证的资质凭证)、吊销他人证书。
+    // 现已收紧为 requireAdmin ⇒ 下列业务用例改用管理员令牌;并新增"普通用户被拒"回归锁。
+    it('POST /certificates/issue → 403(普通用户无权签发)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/certificates/issue',
+        payload: { userId: 'u1', templateId: 't1', title: 'Cert' },
+        headers: AUTH,
+      })
+      expect(res.statusCode).toBe(403)
+      const body = JSON.parse(res.body)
+      expect(body.code).toBe(403)
+    })
+
+    it('POST /certificates/:id/revoke → 403(普通用户无权吊销)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/certificates/c1/revoke',
+        headers: AUTH,
+      })
+      expect(res.statusCode).toBe(403)
+      const body = JSON.parse(res.body)
+      expect(body.code).toBe(403)
+    })
+
     it('POST /certificates/issue → 400(缺少 userId)', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/certificates/issue',
         payload: { templateId: 't1', title: 'Cert' },
-        headers: AUTH,
+        headers: ADMIN_AUTH,
       })
       expect(res.statusCode).toBe(400)
       const body = JSON.parse(res.body)
@@ -432,7 +464,7 @@ describe('Integration Tests (mocked DB)', () => {
         method: 'POST',
         url: '/api/certificates/issue',
         payload: { userId: 'u1', title: 'Cert' },
-        headers: AUTH,
+        headers: ADMIN_AUTH,
       })
       expect(res.statusCode).toBe(400)
       const body = JSON.parse(res.body)
@@ -444,7 +476,7 @@ describe('Integration Tests (mocked DB)', () => {
         method: 'POST',
         url: '/api/certificates/issue',
         payload: { userId: 'u1', templateId: 't1' },
-        headers: AUTH,
+        headers: ADMIN_AUTH,
       })
       expect(res.statusCode).toBe(400)
       const body = JSON.parse(res.body)
@@ -456,7 +488,7 @@ describe('Integration Tests (mocked DB)', () => {
         method: 'POST',
         url: '/api/certificates/issue',
         payload: { userId: 'u1', templateId: 't1', title: 'Cert' },
-        headers: AUTH,
+        headers: ADMIN_AUTH,
       })
       expect(res.statusCode).toBe(201)
       const body = JSON.parse(res.body)
@@ -468,7 +500,7 @@ describe('Integration Tests (mocked DB)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/certificates/c1/revoke',
-        headers: AUTH,
+        headers: ADMIN_AUTH,
       })
       expect(res.statusCode).toBe(404)
       const body = JSON.parse(res.body)
@@ -480,7 +512,7 @@ describe('Integration Tests (mocked DB)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/certificates/c1/revoke',
-        headers: AUTH,
+        headers: ADMIN_AUTH,
       })
       expect(res.statusCode).toBe(200)
       const body = JSON.parse(res.body)

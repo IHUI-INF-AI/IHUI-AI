@@ -223,14 +223,22 @@ export function buildSwaggerApiKeyHook(apiKey: string) {
     // 未配置 = 公开访问(开发模式友好)
     if (!apiKey) return
 
-    // 仅保护 /docs 页面本身,/docs/json(spec 端点)与 swagger-ui 静态资源保持公开,
-    // 方便 CI / 自动化工具(OpenAPI Generator / Postman / SDK 生成器)拉取 schema
-    // - /docs            → HTML 页面(浏览器人工查阅,需鉴权)
-    // - /docs/json       → OpenAPI JSON(自动化工具,公开)
-    // - /docs/static/... → swagger-ui 自带 JS/CSS/字体(公开)
-    // - /docs/swagger-ui-initializer.js 等 → 公开
+    // 2026-10-28 收紧(安全审计):配置了 SWAGGER_API_KEY 时,**spec 端点一并受保护**。
+    //
+    // 旧行为豁免了 `/docs/json`,理由写的是"方便 CI / 自动化工具拉取 schema"。该理由
+    // 在本仓不成立:唯一的 spec 消费方 `apps/api/scripts/export-openapi.ts` 走的是
+    // `buildServer()` → `server.swagger()` **进程内**取文档,不监听端口、不发 HTTP
+    // (见该脚本头注第 1 条);`.github/workflows/` 与 `scripts/` 里也没有任何一处拉
+    // `/docs/json`。而 spec 里含全部端点、参数名、枚举与示例 —— 公开它等于把
+    // SWAGGER_API_KEY 想守的东西放出去,只留一个 HTML 页面在门后,属于"守门守了个门牌"。
+    // 同时旧行为与 `/docs/yaml` 不一致(后者一直要 key),两套口径并存本身就是缺陷。
+    //
+    // 现在只豁免 swagger-ui 自带静态资源(JS/CSS/字体,无业务信息):
+    // - /docs                  → HTML 页面,需鉴权
+    // - /docs/json、/docs/yaml → OpenAPI 文档,需鉴权(自动化工具带 X-API-Key 即可)
+    // - /docs/static/...       → swagger-ui 静态资源,公开
     const path = request.url.split('?')[0] ?? ''
-    if (path === '/docs/json' || path.startsWith('/docs/static/')) {
+    if (path.startsWith('/docs/static/')) {
       return
     }
     // 仅对 /docs 根路径 / /docs 子路径做鉴权;其他路径放行

@@ -20,6 +20,7 @@ import {
   type EduDepartment,
   type User,
 } from '@ihui/database'
+import { DEFAULT_USER_AVATAR_URL } from '@ihui/shared'
 
 /**
  * SHA256 哈希密码(仅用于兼容旧 Java 项目数据验证,新代码必须用 hashPassword)。
@@ -765,7 +766,7 @@ export async function createSystemUser(data: CreateSystemUserInput): Promise<Use
       username: data.username,
       passwordHash: data.passwordHash,
       nickname: data.nickname,
-      avatar: data.avatar,
+      avatar: data.avatar?.trim() || DEFAULT_USER_AVATAR_URL,
       gender: data.gender,
       roleId: data.roleId ?? 0,
       status: data.status ?? 1,

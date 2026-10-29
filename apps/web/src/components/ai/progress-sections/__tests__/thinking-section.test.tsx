@@ -91,8 +91,11 @@ describe('ThinkingSection 分节渲染(P3 #33)', () => {
       />,
     )
     const content = screen.getByTestId('thinking-content')
-    const cursors = content.querySelectorAll('span.animate-pulse')
+    // 2026-10-28 观感档:思考光标与正文终端光标统一 step-end 硬闪节拍(pulse 软呼吸退役);
+    // 本断言语义不变——展开的思考流里"恰好一支在写光标"。
+    const cursors = content.querySelectorAll('span.animate-cursor-blink')
     expect(cursors).toHaveLength(1)
+    expect(content.querySelectorAll('span.animate-pulse')).toHaveLength(0)
   })
 
   it('折叠态不渲染内容区(分节不影响折叠形态)', () => {

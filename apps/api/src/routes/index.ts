@@ -14,6 +14,9 @@ import { fileRoutes } from './files.js'
 import { adminRoutes } from './admin.js'
 import { i18nDashboardRoutes } from './i18n-dashboard.js'
 import { notificationRoutes } from './notifications.js'
+// 短信回调(腾讯云状态回执 + 上行退订)与后台短信管理(2026-10-26)
+import { smsCallbackRoutes } from './sms-callback.js'
+import { adminSmsRoutes } from './admin-sms.js'
 // D43 会话内快捷笔记(第②格,2026-10-18):归属取令牌主体,整棵子树需登录
 import { voiceNoteRoutes } from './voice-notes.js'
 import { billingRoutes } from './billing.js'
@@ -77,7 +80,6 @@ import { financeRoutes } from './finance.js'
 import { authExtendedRoutes } from './auth-extended.js'
 import authPasskeyRoutes from './auth-passkey.js'
 import { authSsoRoutes } from './auth-sso.js'
-import { authCarrierRoutes } from './auth-carrier.js'
 import { vipRoutes, adminVipRoutes } from './vip.js'
 // P0-3a/b 配套:AI 模型定价公开查询(/api/ai-pricing, /api/ai-pricing/stats, /api/ai-pricing/:modelId)
 import aiPricingRoutes from './ai-pricing.js'
@@ -102,6 +104,7 @@ import aiCallbackRoutes from './ai-callback.js'
 import internalUserBroadcastRoutes from './internal-user-broadcast.js'
 import internalRelayAccountPoolCredentialRoutes from './internal-relay-account-pool-credential.js'
 import internalRelayUserPoolRoutes from './internal-relay-user-pool.js'
+import internalToolInvocationLedgerRoutes from './internal-tool-invocation-ledger.js'
 import { adminSysRoutes, menuRoutersRoutes } from './admin-sys.js'
 import { dictPublicRoutes } from './dict.js'
 import { eduPublicRoutes } from './edu-public.js'
@@ -374,6 +377,7 @@ import githubAppRoutes from './github-app.js'
 // 该 router 自带 HMAC 校验,不依赖 cookie 会话 ⇒ 无需 CSRF token(豁免见 plugins/csrf.ts 的同一条精确路径)。
 import githubWebhookRoutes from './github-webhook.js'
 import { createAgentRunRoutes } from './agent-runs.js'
+import { createCommandAckRoutes } from './command-acks.js'
 import { createKvFromRedis } from '../services/run-idempotency.js'
 
 // R81 补建：D 盘 coze_zhs_py 代理类路由
@@ -442,6 +446,7 @@ import agentCreationRoutes from './agent-creation.js'
 import relayModelsRoutes from './admin/relay-models.js'
 import relayKeyPoolRoutes from './admin/relay-key-pool.js'
 import relayAccountPoolRoutes from './admin/relay-account-pool.js'
+import relayAccountPoolCapabilityRoutes from './admin/relay-account-pool-capability.js'
 import relayDiscoveryRoutes from './admin/relay-discovery.js'
 import relayLogsRoutes from './admin/relay-logs.js'
 import adminRelayStatsRoutes from './admin/relay-stats.js'
@@ -511,6 +516,8 @@ import v1Batches from './v1-batches.js'
 import { oauthAuthorizationServerRoutes } from './oauth-authorization-server.js'
 import { oauthRegisterRoutes } from './oauth-register.js'
 import { oauthTokensRoutes } from './oauth-tokens.js'
+// G-100(2026-10-28)Apple AASA:根路径 / .well-known/ 匿名可读(file.aizhs.top 隧道转到本服务)
+import { appleAppSiteAssociationRoutes } from './apple-app-site-association.js'
 // P0-20b 参数覆盖规则管理(2026-08-01 立,admin CRUD + dry-run 预览)
 import adminRelayParamOpsRoutes from './admin/relay-param-ops.js'
 // Relay Webhook 订阅自助管理 + admin 调试面板(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)
@@ -565,6 +572,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminRoutes, { prefix: '/api/admin' })
   server.register(i18nDashboardRoutes, { prefix: '/api/admin' })
   server.register(notificationRoutes, { prefix: '/api' })
+  // 短信回调不走登录态(厂商回调),鉴权由 SMS_CALLBACK_TOKEN / IP 白名单两道闸负责
+  server.register(smsCallbackRoutes, { prefix: '/api/sms/callback' })
+  server.register(adminSmsRoutes, { prefix: '/api/admin/sms' })
   server.register(voiceNoteRoutes, { prefix: '/api/voice-notes' })
   server.register(billingRoutes, { prefix: '/api' })
   server.register(searchRoutes, { prefix: '/api' })
@@ -719,6 +729,8 @@ export function registerRoutes(server: FastifyInstance) {
   // O64:号池凭证回写内网端点(ai-service 签到引擎自刷新 → 号池 CAS 回流)
   server.register(internalRelayAccountPoolCredentialRoutes)
   server.register(internalRelayUserPoolRoutes)
+  // B04:工具调用明细账内部摄入腿(ai-service agent 循环 → tool_invocation_ledger)
+  server.register(internalToolInvocationLedgerRoutes)
 
   // 支付网关：微信/支付宝/基金/对账（R1 补完）
   server.register(paymentGatewayRoutes, { prefix: '/api' })
@@ -738,8 +750,6 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(authPasskeyRoutes, { prefix: '/api' })
   // SSO 统一登录：code 生成/交换/统一登出/token 验证（跨子项目共享登录态）
   server.register(authSsoRoutes, { prefix: '/api/auth' })
-  // 运营商一键登录(闪验 Univerify 聚合):POST /api/auth/login/carrier
-  server.register(authCarrierRoutes, { prefix: '/api/auth' })
   // VIP 会员：等级/购买/我的 + admin（R1 补完）
   server.register(vipRoutes, { prefix: '/api' })
   server.register(adminVipRoutes, { prefix: '/api/admin' })
@@ -1284,6 +1294,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(relayKeyPoolRoutes, { prefix: '/api' })
   // 第三方 AI IDE 账号池 + 反代(2026-10-22 立,对标码道网关)
   server.register(relayAccountPoolRoutes, { prefix: '/api' })
+  // 号池平台续期能力位只读面(2026-10-29 立,面板据此标注"该平台无自动续期通道")
+  server.register(relayAccountPoolCapabilityRoutes, { prefix: '/api' })
   server.register(relayDiscoveryRoutes, { prefix: '/api' })
   server.register(relayLogsRoutes, { prefix: '/api' })
   // P0-7 admin 侧 API Key 安全粒度管理(列表/创建/详情/按租户统计/强制更新,含过期/IP白名单/模型白名单/token上限)
@@ -1384,6 +1396,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(oauthAuthorizationServerRoutes)
   server.register(oauthRegisterRoutes)
   server.register(oauthTokensRoutes)
+  // 根路径挂载:/.well-known/apple-app-site-association(iOS/微信 Universal Link 校验;
+  // 公网 file.aizhs.top 隧道转发到本服务,内容与 web 8801 同源,见 @ihui/shared 常量件)
+  server.register(appleAppSiteAssociationRoutes)
   // P0-20b 参数覆盖规则管理(2026-08-01 立):/api/admin/relay-param-ops(CRUD + dry-run)
   server.register(adminRelayParamOpsRoutes, { prefix: '/api/admin' })
 
@@ -1464,5 +1479,10 @@ export function registerRoutes(server: FastifyInstance) {
       'O10 agent-runs 面未挂载:缺 AGENT_RUN_HANDLE_SECRET / JWT_SECRET,句柄无签名根可取',
     )
   }
+
+  // G-40 A/E:跨会话 ack 事实的写侧端点(POST /api/command-acks + GET /alive/*,全部 authenticated,零公开面)。
+  server.register(createCommandAckRoutes({ kv: createKvFromRedis(server.redis) }), {
+    prefix: '/api/command-acks',
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

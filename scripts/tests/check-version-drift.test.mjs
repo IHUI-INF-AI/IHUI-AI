@@ -21,6 +21,8 @@ function baseline(over = {}) {
       bundle: { windows: { webviewInstallMode: { type: 'embedBootstrapper' } } },
     },
     desktopPkg: { version: '0.1.75' },
+    mobileAppJson: { version: '0.0.8' },
+    mobilePkg: { version: '0.0.8' },
     appConfigJs: 'const v = process.env.IHUI_MOBILE_VERSION || pkg.version',
     rnConfigTs:
       'export const APP_VERSION = process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION || PKG_VERSION',
@@ -44,6 +46,26 @@ describe('A 桌面双写一致', () => {
     const v = findVersionDrift(baseline({ desktopPkg: { version: '0.1.73' } }))
     assert.equal(v.length, 1)
     assert.match(v[0], /桌面版本双写不一致/)
+  })
+})
+
+describe('I 移动端双写一致(A 的移动端同型)', () => {
+  it('app.json 与 apps/mobile-rn/package.json 版本不一致要被抓', () => {
+    // 现实形态(2026-10-27 现读):app.json=0.0.8 而 package.json 还停在 0.0.6 ——
+    // 未注入 IHUI_MOBILE_VERSION 的构建回落成 0.0.6,包里显示的版本号落后两个版本。
+    const v = findVersionDrift(baseline({ mobilePkg: { version: '0.0.6' } }))
+    assert.equal(v.length, 1)
+    assert.match(v[0], /移动端版本双写不一致/)
+  })
+
+  it('两处一致时必须零违规(不许把这一维做成恒红)', () => {
+    assert.deepEqual(findVersionDrift(baseline()), [])
+  })
+
+  it('缺一侧读数时不判(未判定不猜目录,也不冒绿:交给收集面自己报读不到)', () => {
+    // findVersionDrift 的契约是"读到什么判什么";读不到由 collectInputs 侧决定是否 exit 2
+    assert.deepEqual(findVersionDrift(baseline({ mobileAppJson: null })), [])
+    assert.deepEqual(findVersionDrift(baseline({ mobilePkg: null })), [])
   })
 })
 

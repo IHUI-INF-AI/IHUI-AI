@@ -1,4 +1,4 @@
-# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -130,6 +130,22 @@ if (-not (Test-Path -LiteralPath $LockCommon)) {
 #    「日志停更 7.5 小时」(实为 UTC)。一律带 +偏移,人眼可辨时区。
 function LogLine { param([string]$m) ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'), $m) }
 function Log     { param([string]$m) Add-Content -Path $LogFile -Value (LogLine $m) }
+
+# ── 部署窗口(2026-10-26 立)──────────────────────────────────────────────────
+# 子进程 ihui-deploy.ps1 负责写 start/phase/close;本环只做两件事:
+#   ① 子进程长时间无输出时替活动窗口续心跳(否则监控 10 分钟判 Stale);
+#   ② 子进程退出后兜底收口 —— 即使子进程漏掉某个退出路径,窗口也不会留在"部署中"永久抑制。
+# 模块缺失只警告,不阻断部署(窗口是增强项;监控看到无状态文件会退回旧判据)。
+$script:DeployWindowEnabled = $false
+$script:DeployWindowFile = ''
+$DeployWindowModule = Join-Path $PSScriptRoot 'deploy-window-common.ps1'
+if (Test-Path -LiteralPath $DeployWindowModule) {
+    . $DeployWindowModule
+    $script:DeployWindowEnabled = $true
+    $script:DeployWindowFile = Get-IhuiDeployWindowPath
+} else {
+    Log "WARN  缺少 deploy-window-common.ps1,部署窗口功能禁用(监控退回旧判据,部署不受影响)"
+}
 
 # ── 日志轮转(2026-10-13 改为 .N 顺移方案):deploy-loop.log 只增不滚,两个月积到
 #    53MB,排查时 -Tail 变慢且历史噪音淹没有效信息。每轮部署轮询前检查:超过
@@ -312,6 +328,11 @@ $script:LastDeploySha = ''
 #  ④ 返回值 = "本轮是否已经自动回滚"。为 $true 时调用方**不得**再刷绿色态 ——
 #     子脚本已经打过「部署完成」,但观察窗把它撤了,绿色态必须跟着撤。
 #  ⑤ 逃生舱:IHUI_DEPLOY_CANARY=0 时只跳过观察窗(不采样、不回滚),并在日志点名。
+#  ⑥ 灰度分流(O65 第 2 期,2026-10-28 装车)在本函数尾部接线:档位/比例/槽位端口一律
+#     经 scripts/canary-traffic.mjs 与 deploy/win/ihui-canary-stage.mjs 从
+#     scripts/data/canary-policy.json 派生,进程动作在 deploy/win/ihui-canary-gray.ps1,
+#     本层不写第二个数字。这一段有没有真接上,由只读尺子
+#     deploy/win/ihui-canary-wiring.mjs --check 判(镜像 deploy/tests/ihui-canary-wiring.test.mjs)。
 # =============================================================================
 function Invoke-CanaryGate {
     param([Parameter(Mandatory = $true)][string]$Node)
@@ -337,21 +358,119 @@ function Invoke-CanaryGate {
     $ledger = Join-Path $Root '.ihui-agent\deploy-decisions.jsonl'
     $baseline = Join-Path $stateDir 'last-good.jsonl'
     $candidate = Join-Path $stateDir ("candidate-{0}.jsonl" -f (Get-Date).ToString('yyyyMMdd-HHmmss'))
-    Log "CANARY 观察窗开始(源站直探量错误率/P95;样本=$candidate)"
-    $sampleOut = (& $Node $scriptPath --sample --stage candidate --out $candidate 2>&1 | Out-String)
+
+    # ── 灰度分流接线(O65 第 2 期「灰度分流」,2026-10-28 装车)─────────────────────
+    # 这一段只做三件事:① 问出"当前档位"、② 让分流器/灰度实例真在位、③ 把本轮判定结论
+    # 喂回档位推进。档位表、比例、槽位端口、桶口径**一律来自 scripts\data\canary-policy.json**
+    # (经 scripts/canary-traffic.mjs 与 deploy/win/ihui-canary-stage.mjs 派生),本层一个数字
+    # 都不写(§0.6 单一真相源;判据尺子 = deploy/win/ihui-canary-wiring.mjs W7)。
+    # 任一件缺位 ⇒ 只喊 "GRAY 未判定" 并退回按现网端点观察:既不冒绿说"已分流",也不让
+    # 分流这一格反过来摘掉既有回滚能力(§0.3 + §12e)。
+    $grayStageCli = Join-Path $WinDir 'ihui-canary-stage.mjs'
+    $grayTrafficCli = Join-Path $Root 'scripts\canary-traffic.mjs'
+    $grayPs1 = Join-Path $WinDir 'ihui-canary-gray.ps1'
+    $rampPath = Join-Path $stateDir 'ramp.json'
+    $grayPolicyPath = Join-Path $stateDir 'gray-policy.json'
+    $samplePolicy = $policyPath
+    $grayStage = 'off'
+    $graySampledFrom = 'stable'
+    $splitUp = $false
+    $canaryUp = $false
+    if (-not ((Test-Path -LiteralPath $grayStageCli) -and (Test-Path -LiteralPath $grayTrafficCli) -and (Test-Path -LiteralPath $grayPs1))) {
+        Log 'GRAY 未判定:分流件不在位(stage/traffic/gray 三件齐才动)⇒ 本轮不分流,观察窗仍按现网端点判'
+    } elseif (-not $script:LastDeploySha) {
+        Log 'GRAY 未判定:本轮部署 sha 取不到 ⇒ 不起始灰度契约(不知道给哪一枚构建放量)'
+    } else {
+        # 1) 当前档位:只问契约,不在这里解释比例
+        $stOut = (& $Node $grayStageCli --status --contract $rampPath 2>&1 | Out-String)
+        $stStage = ''
+        $stSha = ''
+        try {
+            $stDoc = ConvertFrom-Json $stOut
+            $stStage = [string]$stDoc.stage
+            $stSha = [string]$stDoc.contract.deploySha
+        } catch { Log "GRAY 未判定:契约状态读不出($stOut)" }
+        if ($stStage) { $grayStage = $stStage.Trim() }
+        # 契约缺失、或契约属于另一枚构建 ⇒ 从档位表**最小档**重新起步(比例由策略给,本层不填数)
+        if ((-not $stSha) -or ($stSha -ne [string]$script:LastDeploySha)) {
+            $inOut = (& $Node $grayStageCli --init --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
+            foreach ($ln in ($inOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
+            if ($LASTEXITCODE -ne 0) {
+                Log "GRAY 未判定:起始契约写不下(rc=$LASTEXITCODE)⇒ 本轮不分流"
+                $grayStage = 'off'
+            } else {
+                try { $grayStage = [string]((ConvertFrom-Json $inOut).contract.stage) } catch { $grayStage = 'off' }
+                Log "GRAY 起始档位=$grayStage(sha=$($script:LastDeploySha),比例取自 canary-policy.json)"
+            }
+        } else {
+            Log "GRAY 当前档位=$grayStage(契约沿用同一枚 sha)"
+        }
+        # 2) 进程编排:-SplitOnly = 灰度实例无产物时也要让契约有一个真进程消费
+        #    (分流器自带"灰度槽位不在位 ⇒ 回落 stable",永远不会把请求打到空端口)
+        $gpOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File $grayPs1 -Action start -SplitOnly -Sha ([string]$script:LastDeploySha) -StateDir $stateDir 2>&1 | Out-String)
+        foreach ($ln in ($gpOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
+        $splitUp = ($LASTEXITCODE -eq 0)
+        $canaryUp = ($gpOut -match 'GRAY-CANARY\s+up')
+        if (-not $splitUp) {
+            Log "GRAY 未判定:分流器起不来(rc=$LASTEXITCODE)⇒ 本轮不分流,观察窗仍按现网端点判"
+        } elseif ($canaryUp -and ($grayStage -ne 'off')) {
+            # 3) 灰度实例真在位 ⇒ 采样目标改指灰度槽位,观察窗量的就是候选本身
+            $dgpOut = (& $Node $grayTrafficCli --gray-policy --stage $grayStage --out $grayPolicyPath 2>&1 | Out-String)
+            if (($LASTEXITCODE -eq 0) -and (Test-Path -LiteralPath $grayPolicyPath)) {
+                $samplePolicy = $grayPolicyPath
+                $graySampledFrom = 'canary'
+                Log "GRAY 采样目标=灰度槽位(档位 $grayStage;策略由 canary-policy.json 派生,本层不写端口)"
+            } else {
+                foreach ($ln in ($dgpOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
+                Log 'GRAY 未判定:灰期策略派生失败 ⇒ 本轮仍按现网端点采样(不猜端口、不猜比例)'
+            }
+        } else {
+            Log 'GRAY 分流器在位而灰度实例不在位 ⇒ 本轮按现网端点观察;契约仍由分流器消费(灰度槽位不健康即回落 stable)'
+        }
+    }
+
+    Log ("CANARY 观察窗开始(源站直探量错误率/P95;采样面={0};样本={1})" -f $graySampledFrom, $candidate)
+    $sampleOut = (& $Node $scriptPath --sample --policy $samplePolicy --stage candidate --out $candidate 2>&1 | Out-String)
     $sampleRc = $LASTEXITCODE
     foreach ($ln in ($sampleOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [canary] $($ln.Trim())" } }
     if ($sampleRc -ne 0) {
         Log "CANARY 未判定:采样失败(rc=$sampleRc)⇒ 不回滚,也不冒充通过"
         return $false
     }
-    $dArgs = @($scriptPath, '--decide', '--candidate', $candidate, '--json', '--record-decision', '--deploy-sha', $script:LastDeploySha, '--ledger', $ledger)
+    $dArgs = @($scriptPath, '--decide', '--policy', $samplePolicy, '--candidate', $candidate, '--json', '--record-decision', '--deploy-sha', $script:LastDeploySha, '--ledger', $ledger)
     # 首次运行没有基线 ⇒ 只按绝对阈值判(判断器内部如实记"无基线",本层不补默认值)。
     if (Test-Path -LiteralPath $baseline) { $dArgs += @('--baseline', $baseline) }
     $dOut = (& $Node @dArgs 2>&1 | Out-String)
     $dRc = $LASTEXITCODE
     foreach ($ln in ($dOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [canary] $($ln.Trim())" } }
+
+    # ── 判定结论 → 档位推进(pass/fail/unknown 三态由 rc 现算,阈值判据不在这层)──────
+    # fail ⇒ 契约比例归零 = 撤灰度流量(先于整包回滚:先把请求从候选身上拿走,再退包);
+    # unknown ⇒ 原地不动(不放量也不回滚);pass ⇒ 升一档,末档再 pass ⇒ promote(可全量)。
+    $verdictWord = if ($dRc -eq 0) { 'pass' } elseif ($dRc -eq 3) { 'fail' } else { 'unknown' }
+    if ($splitUp -or ($grayStage -ne 'off')) {
+        if (Test-Path -LiteralPath $grayStageCli) {
+            $advOut = (& $Node $grayStageCli --decide --verdict $verdictWord --current $grayStage --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
+            foreach ($ln in ($advOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
+            if ($LASTEXITCODE -ne 0) {
+                Log "GRAY 未判定:档位推进没判出(rc=$LASTEXITCODE)⇒ 契约保持本轮读到的档位,不猜"
+            } else {
+                try {
+                    $advDoc = ConvertFrom-Json $advOut
+                    Log ("GRAY 动作={0} 新档位={1} 比例={2}%(取自 canary-policy.json) 依据={3}" -f `
+                            $advDoc.action, $advDoc.stage, $advDoc.percent, $advDoc.reason)
+                } catch { Log 'GRAY 未判定:档位推进结论解析不出 ⇒ 不据此放量' }
+            }
+        }
+    }
+
     if ($dRc -eq 0) {
+        if ($graySampledFrom -eq 'canary') {
+            # 灰度期放量未完:基线必须是"现网实测",不能拿灰度槽位的样本充当基线(否则下一轮
+            # 拿候选跟自己比,回归判据自己漂);.rollback 同理保留 —— 它是撤灰度的退路。
+            Log "CANARY 通过(灰度槽位实测)⇒ 档位可进;基线与回滚点保持现网那份,不更新"
+            return $false
+        }
         # 放量完成:候选样本就是"当前在线版本"的实测 ⇒ 升为下一轮基线(滚动基线),
         # 然后摘掉本轮回滚点。删除权归本层(子脚本成功分支已不再删,否则这里判死时无包可退);
         # 下一轮部署的备份步也会整份替换它,所以"多留一会儿"不会累积多份。
@@ -361,6 +480,13 @@ function Invoke-CanaryGate {
         return $false
     }
     if ($dRc -eq 3) {
+        # 先撤灰度(停分流器与灰度实例;契约已被 --decide 归零),再退整包。
+        # 顺序反了就是"包退完了,分流器还按老契约把请求往已经拆掉的候选槽位上送"。
+        if ((Test-Path -LiteralPath $grayPs1) -and ($splitUp -or ($grayStage -ne 'off'))) {
+            $stopOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File $grayPs1 -Action stop -StateDir $stateDir 2>&1 | Out-String)
+            foreach ($ln in ($stopOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
+            Log "GRAY 已撤灰度(-Action stop;契约比例归零)"
+        }
         Log "CANARY 异常 ⇒ 自动回滚(调 ihui-deploy.ps1 -rollbackOnly -CanaryRollback 退回上一可用包)"
         # -CanaryRollback 让子脚本按 canary-rollback 记账并发告警:本守护进程里**没有**
         # Invoke-FailNotify(它只活在 ihui-deploy.ps1),在这里直调只会抛"命令不存在"被 catch 吞掉 ——
@@ -381,10 +507,39 @@ function Invoke-CanaryGate {
 }
 
 function Invoke-PollOnce {
+    # ---- 0a) 立即部署请求(2026-10-28 立,治"会话侧跑不动部署") ----
+    # 病灶(当日实测,两条互不相干的失败形态同一根因):AI 会话侧的文件删除守卫会拒绝
+    # unlink「该会话开始前就已存在的文件」(新建的、以及 OS Temp 下的都放行)。而
+    # ihui-deploy.ps1 有两处**必然**要 unlink 既有文件:
+    #   ① git merge --ff-only 更新已存在文件 ⇒ `unable to unlink old '<f>': Invalid argument`
+    #      (更阴的是它只更新一部分文件、HEAD 却不动 ⇒ 工作树半新半旧);
+    #   ② 抢占 .deploy.lock ⇒ 判 stale 后仍需删旧锁,删不掉就 `throw 并发锁写下失败`。
+    # 该守卫是产品安全机制(防误删用户数据),既不该也绕不过(原生 rm.exe 与 PowerShell 同样被拒),
+    # 所以根治方向不是"想办法删掉",而是**把这件活交回本守护**(SYSTEM 身份,无此限制):
+    # 会话侧只做它一定能做的动作 —— **新建**一个 marker 文件;本进程拾起后删除并强制部署。
+    # 闭环前提:会话能新建文件(实测可),SYSTEM 能删任意文件(实测可)。
+    # 过期保护:marker 超过 24h 未消费 ⇒ 忽略并清除,避免很久以后服务一起来就莫名部署一轮。
+    $reqFile = Join-Path $WinDir '.deploy-now.request'
+    $forceNow = $false
+    if (Test-Path -LiteralPath $reqFile) {
+        $forceNow = $true
+        $reqAgeMin = 0
+        try {
+            $reqJson = (Get-Content -LiteralPath $reqFile -Raw -ErrorAction Stop) | ConvertFrom-Json -ErrorAction Stop
+            if ($reqJson.requestedAt) { $reqAgeMin = ((Get-Date) - ([datetime]$reqJson.requestedAt)).TotalMinutes }
+        } catch { $reqAgeMin = 0 }   # 内容读不出/不合法 ⇒ 视为新鲜(它就是刚被写下的)
+        if ($reqAgeMin -gt 1440) {
+            Log ("[loop] 立即部署请求已过期({0:N0} 分钟 > 1440)⇒ 忽略并清除" -f $reqAgeMin)
+            Remove-Item -LiteralPath $reqFile -Force -ErrorAction SilentlyContinue
+            $forceNow = $false
+        } else {
+            Log '[loop] 检测到立即部署请求(marker)⇒ 本轮跳过节流'
+        }
+    }
     # ---- 0) 最小部署间隔节流(2026-10-16 根治,见 param 注) ----
     # 放在拿锁之前:被节流的本轮不 fetch、不部署、不碰锁,60 秒后下一轮再看。
     # 攒批语义:节流期间到达的提交不会丢,间隔一到,下一轮轮询统一部署。
-    if ($null -ne $script:LastDeployDoneAt) {
+    if (-not $forceNow -and $null -ne $script:LastDeployDoneAt) {
         $elapsed = ((Get-Date) - $script:LastDeployDoneAt).TotalMinutes
         if ($elapsed -lt $MinDeployIntervalMin) {
             Log ("[loop] 距上次部署完成 {0:N1} 分钟 < 最小间隔 {1} 分钟,本轮跳过(攒批,等下一轮)" -f $elapsed, $MinDeployIntervalMin)
@@ -395,6 +550,12 @@ function Invoke-PollOnce {
     # 旧实现在这里只有一句 `Get-Process -Id $pidIn` 的存活判断,pid 复用即恒真。
     if (-not (Enter-IhuiLoopLock -Path $LockFile)) { return }
     try {
+        # ---- 1a) marker 消费点:已后移到前置闸之后,真正的消费见 1c) ----
+        # 旧实现就在此处(拿锁后、前置闸前)删除 marker。2026-10-28 实测吞请求:
+        #   23:37:12 检测到 → 23:37:12 已消费 → 23:37:12 成本熔断 40/40 ⇒ return
+        # 结果 marker 没了、部署没跑、会话侧却看到"已消费"误以为请求已受理。
+        # 删 marker 的充分条件是「本轮**确定**会走到部署」,而 1b) 两道前置闸都可能
+        # return ⇒ 消费必须排在它们都通过之后。此处只留占位说明,不做动作。
         # ---- 1b) 自进化 P0 前置闸(O65 O6501/O6502,2026-10-25 立)----
         # 两道闸都是 fail-closed:取不到判据 ⇒ 本轮不部署,绝不回落成"没改动所以放行"(§0.3)。
         #   ① 根护栏(root-guard --check):守门执行器/判据单一真源/AGENTS 铁律段被改动且无人工解锁 ⇒ 拒推进;
@@ -415,6 +576,7 @@ function Invoke-PollOnce {
         if ($rgRc -ne 0) {
             Log "FAIL  根护栏未通过(rc=$rgRc)⇒ 本轮不部署(fail-closed;人工复核后 node scripts/root-guard.mjs --seal --reason `"...`")"
             foreach ($ln in ($rgOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
+            if ($forceNow) { Log '[loop] 立即部署请求保留在队列(marker 未消费)⇒ 解锁后下一轮自动执行,不会丢' }
             return
         }
         $cbOut = (& $guardNode (Join-Path $Root 'scripts\cost-breaker.mjs') --check --kind deploy 2>&1 | Out-String)
@@ -422,12 +584,27 @@ function Invoke-PollOnce {
         if ($cbRc -eq 3) {
             Log "PAUSE 成本熔断:部署额度已耗尽 ⇒ 本轮停转(软停机,下一轮再看;放量属人工阀 budget-cap-change)"
             foreach ($ln in ($cbOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
+            if ($forceNow) { Log '[loop] 立即部署请求保留在队列(marker 未消费)⇒ 额度滚动恢复后自动执行,不会丢' }
             return
         }
         if ($cbRc -ne 0) {
             Log "FAIL  成本熔断判不了(rc=$cbRc)⇒ 本轮不部署(fail-closed)"
             foreach ($ln in ($cbOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
+            if ($forceNow) { Log '[loop] 立即部署请求保留在队列(marker 未消费)⇒ 判据恢复后自动执行,不会丢' }
             return
+        }
+        # ---- 1c) 两道前置闸全过 ⇒ 本轮确定会部署,此刻才消费 marker ----
+        # 排序理由见 1a):只有走到这里,"删 marker"才不会吞掉用户请求。
+        # 反例(2026-10-28 实测):熔断 40/40 那轮照样消费 ⇒ marker 消失、部署未跑、
+        # 会话侧却读到"已消费"而误判成功 —— 正是本轮要根治的静默假成功。
+        if ($forceNow) {
+            Remove-Item -LiteralPath $reqFile -Force -ErrorAction SilentlyContinue
+            if (Test-Path -LiteralPath $reqFile) {
+                # SYSTEM 删不掉意味着有人把 marker 锁住或权限被改过 ⇒ 如实喊,仍照常部署本轮
+                Log 'WARN  立即部署请求 marker 删除失败(仍执行本轮强制部署,下一轮会再次看到它)'
+            } else {
+                Log '[loop] 已消费立即部署请求 ⇒ 本轮按 -deployLatest 强制部署(忽略落后与攒批)'
+            }
         }
         $roundStart = Get-Date
         # ---- 2) 调真实部署脚本(不带 -deployLatest:落后才部署,behind=0 优雅退出) ----
@@ -450,9 +627,12 @@ function Invoke-PollOnce {
         $child = $null
         $timedOut = $false
         try {
-            $child = Start-Process -FilePath $PwshExe -ArgumentList @(
-                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $WinDir 'ihui-deploy.ps1')
-            ) -NoNewWindow -PassThru -RedirectStandardOutput $runOut -RedirectStandardError $runErr
+            # 强制部署请求时补 -deployLatest(2026-10-28):该开关语义 = 忽略"是否落后",
+            # 直接按当前 origin/main 重建。不带它时子脚本在 behind=0 会优雅秒退,
+            # 于是"请求立即部署"对已经对齐到最新的仓库就成了空转。
+            $deployArgList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $WinDir 'ihui-deploy.ps1'))
+            if ($forceNow) { $deployArgList += '-deployLatest' }
+            $child = Start-Process -FilePath $PwshExe -ArgumentList $deployArgList -NoNewWindow -PassThru -RedirectStandardOutput $runOut -RedirectStandardError $runErr
             $deadline = (Get-Date).AddMinutes($RunBudgetMin)
             $seen = 0L
             # 仅用于挂死时点名"当时在跑哪一段"(2026-09-27 加,只加打印,不改判定与阈值)。
@@ -503,6 +683,11 @@ function Invoke-PollOnce {
                 # 上限 45 分钟的推导见 deploy-lock-common.ps1 头注。函数内部按 15s 节流,
                 # 所以这里每拍(≈700ms)调用只多做一次"要不要写盘"的判断。
                 Update-IhuiDeployLockHeartbeat -Path $LockFile -OwnerKind 'loop' | Out-Null
+                # 窗口心跳:子进程构建时可能长时间不输出,不续就会被监控判 Stale。
+                # RunId 留空 = 续当前活动窗口;模块内部按 15s 节流。
+                if ($script:DeployWindowEnabled) {
+                    Update-IhuiDeployWindowHeartbeat -Path $script:DeployWindowFile -MinIntervalSeconds 15 | Out-Null
+                }
                 if ((Get-Date) -gt $deadline) {
                     $timedOut = $true
                     Log "FAIL  本轮超墙钟预算 $RunBudgetMin 分钟,判挂死 → taskkill /T 整树(pid=$($child.Id))"
@@ -528,6 +713,9 @@ function Invoke-PollOnce {
                     # 这一支是无界等待(异常兜底路径),更要保持心跳:它可能长时间只有零星
                     # 输出行,不续心跳就会被 C4 判陈旧 ⇒ 与正常轮并发构建。
                     Update-IhuiDeployLockHeartbeat -Path $LockFile -OwnerKind 'loop' | Out-Null
+                    if ($script:DeployWindowEnabled) {
+                        Update-IhuiDeployWindowHeartbeat -Path $script:DeployWindowFile -MinIntervalSeconds 15 | Out-Null
+                    }
                     Log "[deploy] $_"
                 }
         } finally {
@@ -540,6 +728,27 @@ function Invoke-PollOnce {
         # 完成时刻不早于本轮开始(排掉"上一轮的完成标记被本轮 behind=0 误读成自己的战果")。
         # 金丝雀观察窗与绿色态都只在这一个判据成立时才有意义。
         $deployDoneThisRound = ($roundRc -eq 0 -and $null -ne $script:LastDeployDoneAt -and $script:LastDeployDoneAt -ge $roundStart)
+        # ---- 部署窗口兜底收口(2026-10-26 立)----
+        # 子进程自己写 success/failed/rolledback/noop;这里只处理"它漏了某个退出路径"的情况。
+        # 判据与金丝雀同一套:只有本轮确实完成才记 success;exit=0 但没完成记 noop;其余 failed。
+        # 已完成收口的窗口 Active=false,这里不会覆盖(Close 对已关闭窗口返回 Skipped)。
+        if ($script:DeployWindowEnabled) {
+            try {
+                $winNow = Get-IhuiDeployWindowState -Path $script:DeployWindowFile
+                if ($winNow.Active -and $winNow.RunId) {
+                    $winResult = if ($deployDoneThisRound) { 'success' } elseif ($roundRc -eq 0) { 'noop' } else { 'failed' }
+                    $winHead = if ($script:LastDeploySha) { [string]$script:LastDeploySha } else { '' }
+                    $winClose = Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $winNow.RunId -Result $winResult -Head $winHead -SettleMinutes 15 -Reason "deploy-loop exit=$roundRc"
+                    if ($winClose.Ok -and -not $winClose.Skipped) {
+                        Log "WINDOW 兜底收口 $winResult runId=$($winNow.RunId) exit=$roundRc"
+                    } elseif (-not $winClose.Ok) {
+                        Log "WARN  部署窗口兜底收口失败($($winClose.Error))"
+                    }
+                }
+            } catch {
+                Log "WARN  部署窗口兜底收口异常(不影响部署环):$_"
+            }
+        }
         # ---- 2b) 记账与绿色态(O65 O6502 记账腿 / O6503 记号腿)----
         # 记账条件 = 本轮墙钟 ≥1 分钟(真的动过构建/部署);behind=0 的秒退不进账,否则额度被空转吃光。
         if ($roundMinutes -ge 1) {

@@ -32,6 +32,7 @@ import {
   extractExt,
   MAX_MULTIPART_UPLOAD_SIZE,
 } from '../utils/file-type-validator.js'
+import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -181,6 +182,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/files/upload/base64',
     {
+      bodyLimit: FILE_UPLOAD_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Base64 上传文件',
         description: '通过 base64 编码上传文件,支持 webp 自动转 png',
@@ -715,6 +717,9 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/files/upload/form',
     {
+      // 2026-10-28 DDoS P2:显式放开到单文件上限+余量,脱离全局 2MiB 默认(否则整包被全局卡死)。
+      // 精确闸仍由 handler 内的 MAX_MULTIPART_UPLOAD_SIZE 执行。
+      bodyLimit: MAX_MULTIPART_UPLOAD_SIZE + 1024 * 1024,
       schema: buildSchema({
         summary: 'Multipart 表单上传文件',
         description: '通过 multipart/form-data 上传文件(单文件限制 100MB)',

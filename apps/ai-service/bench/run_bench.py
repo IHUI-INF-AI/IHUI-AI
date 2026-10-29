@@ -410,6 +410,7 @@ async def _run_task(
     compaction_enabled/context_limit:1-3 对比模式(--compare-compaction)显式
     控制压缩开关与窗口;默认 None 走 AgentLoopV2 既有 env/灰度决策路径。
     """
+    from app.core.token_baseline import CHAIN_MAIN
     from app.services.agent_loop_v2 import AgentLoopV2
 
     if executor == "golden":
@@ -442,6 +443,8 @@ async def _run_task(
             approval_enabled=False,
             compaction_enabled=compaction_enabled,
             compaction_context_limit=compaction_context_limit,
+            # G-941 写账侧:评测跑的是主执行链,链别显式标注(缺省已收成"未判定")。
+            chain=CHAIN_MAIN,
         )
         start = time.time()
         result = await loop.run([{"role": "user", "content": task["instructions"]}])

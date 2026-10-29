@@ -25,6 +25,11 @@ import { ConfirmDialog, Tooltip } from '@/components/feedback'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { AutomationFormDialog } from '@/components/automations/automation-form-dialog'
+import {
+  deriveAutomationTerminalReason,
+  type AutomationTerminalReason,
+  type AutomationTerminalTone,
+} from '@ihui/shared/utils/automation-terminal-reason'
 
 /** 周几代码 → i18n 键(静态映射) */
 const WEEKDAY_LABEL_KEYS = {
@@ -36,6 +41,35 @@ const WEEKDAY_LABEL_KEYS = {
   SA: 'weekdaySa',
   SU: 'weekdaySu',
 } as const
+
+/**
+ * G-241 终态徽章的色调档 → Tailwind 类。
+ * 档名集合(neutral/danger/warning/success)归 @ihui/shared 的判据单源,色值落本端 token
+ * (同 badge-spec 规则 6:色值不下沉,允许两端不同形)。描边一律 border-transparent
+ * —— 描边不得取墨档(AGENTS §4)。
+ */
+const TERMINAL_BADGE_CLASS: Record<AutomationTerminalTone, string> = {
+  neutral: 'border-transparent bg-muted text-muted-foreground hover:bg-muted',
+  danger: 'border-transparent bg-destructive/10 text-destructive hover:bg-destructive/10',
+  warning: 'border-transparent bg-amber-500/15 text-amber-600 hover:bg-amber-500/15',
+  success: 'border-transparent bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/15',
+}
+
+/**
+ * G-241 终态徽章:「这条自动化为什么不再跑了」。
+ * 无终态(null / 取值不在封闭集内)⇒ 整块不渲染,列表保持原状;判据单源在 @ihui/shared,
+ * 本页不各写一套 switch。
+ */
+function TerminalBadge({ reason }: { reason: AutomationTerminalReason | null }) {
+  const t = useTranslations('automations')
+  const terminal = deriveAutomationTerminalReason(reason)
+  if (!terminal) return null
+  return (
+    <Badge className={TERMINAL_BADGE_CLASS[terminal.tone]}>
+      {t(`terminalReason.${terminal.i18nSuffix}`)}
+    </Badge>
+  )
+}
 
 function formatDateTime(value: string | null): string {
   if (!value) return '—'
@@ -201,6 +235,7 @@ export default function AutomationsPage() {
                         {t('status.paused')}
                       </Badge>
                     )}
+                    <TerminalBadge reason={a.terminalReason} />
                     <span className="text-xs text-muted-foreground">{describeSchedule(a)}</span>
                   </div>
                   {a.lastRunAt && (

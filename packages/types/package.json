@@ -82,6 +82,9 @@
     "prepack": "pnpm run build",
     "clean": "rimraf dist .turbo node_modules"
   },
+  "dependencies": {
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@types/react": "^19.0.0",

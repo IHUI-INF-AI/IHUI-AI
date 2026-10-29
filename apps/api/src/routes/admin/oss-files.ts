@@ -16,6 +16,7 @@ import { paginationSchema, registerCrud, fields, idParamSchema } from './_shared
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { isUuidString } from '../../utils/uuid.js'
+import { safeFetch } from '../../utils/ssrf-guard.js'
 const ossFilesRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
   server.get('/oss/files', async (request, reply) => {
@@ -115,7 +116,10 @@ const ossFilesRoutes: FastifyPluginAsync = async (server) => {
       }
       const fileUrl = info.url ?? info.path
       if (!fileUrl) return reply.status(404).send(error(404, '文件 URL 不存在'))
-      const resp = await fetch(fileUrl)
+      // 2026-10-27 SSRF 加固:fileUrl 来自 admin 可写的 systemConfigs —— admin 号一旦失陷,
+      // 配 http://169.254.169.254/... 可借本端读云元数据并 base64 回显。改走统一守卫出口
+      // safeFetch(协议/端口白名单 + DNS 解析逐 IP 复检 + 重定向逐跳复检)。
+      const resp = await safeFetch(fileUrl)
       if (!resp.ok) return reply.status(502).send(error(502, '获取文件内容失败'))
       const buf = Buffer.from(await resp.arrayBuffer())
       const base64 = buf.toString('base64')

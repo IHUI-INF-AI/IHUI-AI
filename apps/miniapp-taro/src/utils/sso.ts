@@ -28,6 +28,16 @@ import { SSO_CODE_STORAGE_KEY, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared/con
 const SSO_CODE_KEY_LEGACY = 'ihui_sso_code'
 const SSO_CLIENT_ID = SSO_CLIENT_IDS.MINIAPP_TARO
 
+/**
+ * 小程序端 SSO 授权回跳形态(AGENTS §9 scheme 契约,2026-10-26 G-957)。
+ * web 中转页(/sso/login)签发后经 wx.miniProgram.postMessage 回传
+ * `{type:'ihui-sso-code', sso_code}`(web 侧出口 apps/web/app/sso/login/miniapp-bridge.ts),
+ * 本端由 pages/webview onMessage 与 app.tsx 启动腿消费 —— custom scheme 在小程序
+ * web-view 里没有 OS 处理器,它只是过服务端 redirectUri 白名单的合法形态
+ * (apps/api auth-sso.ts SSO_ALLOWED_DEEP_LINK_SCHEMES 默认已含 ihui-miniapp)。
+ */
+export const SSO_REDIRECT_URI = 'ihui-miniapp://sso/callback'
+
 // BASE_URL 含 /api 后缀(http://localhost:8801/api),共享核心端点已含 /api 前缀,
 // 此处剥离避免拼接出 /api/api/auth/sso/... 双重前缀。
 const API_ORIGIN = BASE_URL.replace(/\/api$/, '')

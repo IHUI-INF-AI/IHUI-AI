@@ -11,58 +11,36 @@
  * 用 App Router Route Handler 直接提供 AASA(而非 public/ 静态文件),
  * 兼容性更稳(静态文件在某些 Tunnel/边缘场景 Content-Type/缓存行为不一致)。
  *
- * 路由宿主说明(2026-08-27 核查):
- *  - IHUI-AI 的 Cloudflare Tunnel(e675929a)实际 ingress 仅含
- *    aizhs.top / bsm.aizhs.top / api.aizhs.top / ai.aizhs.top,**不含 file.aizhs.top**。
- *  - 公网 file.aizhs.top 当前被 Cloudflare 路由到另一个应用(「写字楼租金管理系统」),
- *    与本项目无关,故其 404 是"指错了 origin",并非本应用代码问题。
- *  - 本 Route Handler 对任意 Host 都返回正确 AASA(local 8801 已验证
- *    Host=file.aizhs.top 也能拿到 200+json)。一旦 file.aizhs.top 的 Cloudflare
- *    DNS/隧道改指本机 8801,无需改代码即可在 file.aizhs.top 上生效。
- *  - 当前已验证:aizhs.top/.well-known/apple-app-site-association 公网 200 + application/json。
+ * 路由宿主说明:
+ *  - 主域 aizhs.top 走进 web(8801),由本 Route Handler 直接提供(公网已验证 200 + application/json)。
+ *  - file.aizhs.top 由 Cloudflare 隧道转发到本机 api(8802),故 AASA 在 api 侧同源再暴露一份:
+ *    apps/api/src/routes/apple-app-site-association.ts(2026-10-28 G-100 补,修该域 404)。
+ *
+ * 内容来源(单一真相源,2026-10-28 G-100 抽源):
+ *  - 文档形状 / 序列化 / 响应头全部来自 @ihui/shared/constants/apple-app-site-association,
+ *    与 api 侧消费同一份,禁止任何一端再抄一份 JSON。
  *
  * Team ID 配置(部署时必填,复用 Apple 登录的 APPLE_TEAM_ID):
- *  - 本 Route Handler 自动读取 process.env.APPLE_TEAM_ID(即下方 Apple 登录同款
- *    Team ID),拼接 iOS Bundle ID 生成 appID = "<TeamID>.<BundleID>"。
+ *  - 自动读取 process.env.APPLE_TEAM_ID(即 Apple 登录同款 Team ID),拼接 iOS Bundle ID
+ *    生成 appID = "<TeamID>.<BundleID>"(两端下一 env 键名,取源逻辑同在上述共享文件)。
  *  - 未配置时回退占位符 TEAMID.ai.ihui.mobile(仅本地/预发验证用,真实 iOS
  *    Universal Link 校验必须填真实 Team ID,否则 iOS 拒绝)。
  *  - iOS Bundle ID 默认 ai.ihui.mobile,可用 NEXT_PUBLIC_APPLE_APP_BUNDLE_ID 覆盖。
  */
+import {
+  APPLE_AASA_CACHE_CONTROL,
+  APPLE_AASA_CONTENT_TYPE,
+  buildAppleAppSiteAssociationBody,
+  readAppleAppIdOptions,
+} from '@ihui/shared/constants/apple-app-site-association'
+
 export const dynamic = 'force-static'
 
-const APPLE_TEAM_ID = (
-  process.env.APPLE_TEAM_ID ??
-  process.env.NEXT_PUBLIC_APPLE_TEAM_ID ??
-  ''
-).trim()
-const APPLE_BUNDLE_ID = (process.env.NEXT_PUBLIC_APPLE_APP_BUNDLE_ID ?? 'ai.ihui.mobile').trim()
-const APP_ID = APPLE_TEAM_ID ? `${APPLE_TEAM_ID}.${APPLE_BUNDLE_ID}` : `TEAMID.${APPLE_BUNDLE_ID}`
-
-const AASA = {
-  applinks: {
-    details: [
-      {
-        appIDs: [APP_ID],
-        components: [
-          // 微信支付回调 UniversalLink 路径
-          {
-            '/': '/wechat/*',
-          },
-          // 兜底:所有路径都可作为 UniversalLink 回调
-          {
-            '/': '/*',
-          },
-        ],
-      },
-    ],
-  },
-}
-
 export function GET() {
-  return new Response(JSON.stringify(AASA, null, 2), {
+  return new Response(buildAppleAppSiteAssociationBody(readAppleAppIdOptions(process.env)), {
     headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
+      'Content-Type': APPLE_AASA_CONTENT_TYPE,
+      'Cache-Control': APPLE_AASA_CACHE_CONTROL,
     },
   })
 }

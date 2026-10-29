@@ -24,6 +24,12 @@
     "noResult": "No run result yet",
     "rrule": "Schedule (RRULE)",
     "timezone": "Timezone",
+    "terminalReason": {
+      "manualPause": "Manually paused",
+      "failedPermanent": "Permanent failure",
+      "failedRetriesExhausted": "Retries exhausted",
+      "completed": "Completed"
+    },
     "schedule": "Schedule"
   },
   "dashboard": {
@@ -756,6 +762,7 @@
         "retry": "Retry",
         "saveAudioOnly": "Save audio only",
         "insertToInput": "Insert into message",
+        "cancel": "Cancel recording",
         "dismiss": "Close"
       },
       "searchPlaceholder": "Search notes",
@@ -946,6 +953,7 @@
     "version": "Version",
     "language": "Language",
     "theme": "Theme",
+    "checkUpdateUnsupported": "In-app updates are not available in this build",
     "logoutConfirmBody": "Sign out of this account?"
   },
   "menu": {
@@ -6794,7 +6802,6 @@
     "usagePolicy": {
       "title": "Usage Policy",
       "lastUpdated": "Last updated"
-    },
     "backToHome": "Back to Home"
   },
   "agentEdit": {
@@ -6963,6 +6970,125 @@
     "unknownLecturer": "Unknown lecturer",
     "viewCount": "{count} views"
   },
+  "quickNotes": {
+    "menuEntry": "Quick notes",
+    "title": "Quick notes",
+    "new": "New note",
+    "search": "Search notes",
+    "insert": "Insert to chat",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archived": "Archived",
+    "showArchived": "Show archived",
+    "empty": "No notes yet",
+    "titlePlaceholder": "Title",
+    "contentPlaceholder": "Body",
+    "groupPlaceholder": "Group (optional)"
+  "scanLogin": {
+    "menuTitle": "Scan",
+    "title": "Scan to sign in",
+    "hint": "Align the QR code on your computer within the frame",
+    "submitting": "Confirming…",
+    "permissionHint": "Camera access is required to scan",
+    "deniedHint": "Camera access was denied. Enable it in system settings, then try again.",
+    "grant": "Allow camera",
+    "openSettings": "Open settings",
+    "invalidCode": "Please scan the sign-in QR code from this site",
+    "success": "Sign-in confirmed",
+    "failed": "Confirmation failed. Please try again.",
+    "needLogin": "Please sign in before scanning"
+  "circlePostPage": {
+    "title": "Circles",
+    "back": "Back",
+    "cardTitle": "New Post",
+    "selectCircle": "Select Circle",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Enter post title",
+    "contentLabel": "Content",
+    "contentPlaceholder": "Enter post content",
+    "images": "Images",
+    "cancel": "Cancel",
+    "errorCircleRequired": "Please select a circle",
+    "errorTitleContentRequired": "Title and content cannot be empty",
+    "error": "Failed to load"
+  "invitationsPage": {
+    "title": "Invitations",
+    "subtitle": "Invite friends and both of you earn rewards",
+    "generate": "Generate Code",
+    "myCodes": "My Codes",
+    "invitees": "Invitees",
+    "loading": "Loading...",
+    "emptyCodes": "No codes yet, generate one above",
+    "emptyInvitees": "No invitees yet",
+    "user": "User",
+    "registeredAt": "Registered",
+    "reward": "Reward",
+    "rewardValue": "Inviter +{inviter} / Invitee +{invitee} points",
+    "expiresAt": "Expires",
+    "copy": "Copy",
+    "copied": "Copied",
+    "statusUnused": "Active",
+    "statusUsed": "Used",
+    "statusExpired": "Expired",
+    "back": "Back",
+    "loginRequired": "Please log in first",
+    "error": "Failed to load"
+  "lettersPage": {
+    "title": "Private Messages",
+    "subtitle": "One-on-one private chat with platform users",
+    "searchPlaceholder": "Search contacts...",
+    "loading": "Loading...",
+    "empty": "No conversations",
+    "error": "Failed to load",
+    "you": "Me",
+    "send": "Send",
+    "sendPlaceholder": "Type a message...",
+    "deleteConfirm": "Delete this message?",
+    "confirm": "Confirm",
+    "back": "Back",
+    "loginRequired": "Please log in first"
+  "newsCategoryPage": {
+    "backToList": "Back to news",
+    "subtitle": "Stay up to date",
+    "empty": "No news",
+    "pinned": "Pinned",
+    "viewCount": "{count} reads",
+    "total": "{total} articles",
+    "prev": "Previous",
+    "next": "Next",
+    "loading": "Loading...",
+    "error": "Failed to load"
+  "searchHistoryPage": {
+    "title": "Search History",
+    "subtitle": "Your recent searches",
+    "clearAll": "Clear All",
+    "loading": "Loading...",
+    "empty": "No search history",
+    "resultCount": "{count} result(s)",
+    "back": "Back",
+    "loginRequired": "Please log in first",
+    "error": "Failed to load"
+  "signUpPage": {
+    "title": "My Sign-ups",
+    "empty": "No data yet",
+    "statusDraft": "Pending Review",
+    "statusPublished": "Confirmed",
+    "statusCompleted": "Completed"
+  "appUpdate": {
+    "title": "New version available",
+    "action": "Update",
+    "close": "Close",
+    "ready": "Update ready",
+    "installing": "Restarting…",
+    "error": "Update failed",
+    "errorDesc": "Check your network and try again",
+    "downloading": "Downloading update…",
+    "currentBundle": "Currently running: {{bundle}}",
+    "bundleEmbedded": "Built-in bundle",
+    "bundleOta": "Hot update",
+    "readyBody": "Update downloaded. Tap Update to apply it now.",
+    "installingHint": "The app restarts automatically — usually within seconds.",
+    "restartNow": "Restart now"
   "skillsMarket": {
     "title": "Skill Market",
     "subtitle": "Browse and install community skills",

@@ -13,6 +13,14 @@ import { traeAdapter } from './trae-adapter.js'
 import { workbuddyAdapter } from './workbuddy-adapter.js'
 import { codeartsAdapter } from './codearts-adapter.js'
 import { qoderAdapter } from './qoder-adapter.js'
+import { codexAdapter } from './codex-adapter.js'
+import { opencodeAdapter } from './opencode-adapter.js'
+import { minimaxAdapter } from './minimax-adapter.js'
+import { zcodeAdapter } from './zcode-adapter.js'
+import { loomyAdapter } from './loomy-adapter.js'
+import { doubaoAdapter } from './doubao-adapter.js'
+import { lingmaAdapter } from './lingma-adapter.js'
+import { grokbotAdapter } from './grokbot-adapter.js'
 
 let registered = false
 
@@ -22,6 +30,14 @@ export function registerAllRelayAdapters(): void {
   registerRelayAdapter(workbuddyAdapter)
   registerRelayAdapter(codeartsAdapter)
   registerRelayAdapter(qoderAdapter)
+  registerRelayAdapter(codexAdapter)
+  registerRelayAdapter(opencodeAdapter)
+  registerRelayAdapter(minimaxAdapter)
+  registerRelayAdapter(zcodeAdapter)
+  registerRelayAdapter(loomyAdapter)
+  registerRelayAdapter(doubaoAdapter)
+  registerRelayAdapter(lingmaAdapter)
+  registerRelayAdapter(grokbotAdapter)
   registered = true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

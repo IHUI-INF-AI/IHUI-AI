@@ -26,6 +26,7 @@ import logging
 import os
 import sys
 import time
+import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -53,6 +54,7 @@ class KouboState(TypedDict, total=False):
     model: str | None
     owner_uuid: str | None
     dry_run: bool
+    run_id: str  # 本次运行的账本归属键(G-941 写账侧;空则按日期兜底)
 
     # 节点产物
     hot_topics: list[dict[str, Any]]  # Phase 0: 热点池
@@ -77,6 +79,22 @@ def _trace(node: str, start: float, end: float, status: str = "ok", **meta: Any)
         "status": status,
         **meta,
     }
+
+
+def _new_run_id(date: str) -> str:
+    """一次 koubo 运行的账本归属键(与 workflow_engine 的 instance_id 同位)。
+
+    存在理由(G-941 写账侧):出口用 `{instance_id}:llm:{seq}` 做 record_id 幂等键,
+    空标识会把整族用量挤成同一条、互相覆盖 ⇒ 必须给得出稳定且唯一的键。
+    """
+    stamp = datetime.now(UTC).strftime("%m%dT%H%M%S")
+    return f"koubo:{date or 'na'}-{stamp}-{uuid.uuid4().hex[:8]}"
+
+
+def _run_id(state: KouboState) -> str:
+    """读取运行标识;缺省按日期兜底,**绝不落空串**(空 = 账面不可归属)。"""
+    rid = str(state.get("run_id") or "").strip()
+    return rid or f"koubo:{state.get('date') or 'na'}"
 
 
 async def _run_koubo_script(script_name: str, args: list[str], timeout_sec: int = 60) -> tuple[int, str, str]:
@@ -138,10 +156,48 @@ WRITE_ARTICLE_PROMPT = (
 class KouboWorkflowService:
     """口播稿 LangGraph workflow 服务(单例)。"""
 
-    def __init__(self) -> None:
+    def __init__(self, *, usage_recorder: Any = None) -> None:
         self._available = False
         self._graph: CompiledStateGraph[KouboState, None, KouboState, KouboState] | None = None
+        # G-941 写账侧(2026-10-26):写账出口宿主注入位。缺省 None ⇒ 复用
+        # workflow_engine 单例里的**同一枚**出口(§0.6 单一真相源:本文件禁止
+        # 出现第二份 cost_ledger 条目构造)。测试传带 tmp 账本的替身即可,
+        # 生产永不注入 —— 缺省不是"不写账"。
+        self._usage_recorder: Any = usage_recorder
         self._init_graph()
+
+    # ===== 写账生产者(G-941 写账侧,2026-10-26 立)=====
+
+    def _recorder(self) -> Any:
+        """取写账出口的宿主:注入优先,否则 workflow_engine 单例(延迟 import 防环)。"""
+        if self._usage_recorder is not None:
+            return self._usage_recorder
+        from .workflow_engine import workflow_engine
+
+        return workflow_engine
+
+    def _record_llm_call(
+        self,
+        state: KouboState,
+        *,
+        step_name: str,
+        resp: Any,
+        started: float,
+    ) -> None:
+        """把一次 koubo 节点 LLM 调用交给 workflow 链的同一枚出口入账。
+
+        本层**只组标识**(运行键 / 节点名 / 属主 / 耗时),不重建账本字段、不写链别
+        字面量:链别取 CHAIN_WORKFLOW、usage 归一、失败降级只 warning 等纪律全在
+        workflow_engine._record_llm_usage 那一处(唯一常量源 core.token_baseline)。
+        异常路径没有响应可测 ⇒ 调用方不会走到这里,宁可少一行也不把"没量到"写成"量到了"。
+        """
+        self._recorder()._record_llm_usage(
+            instance_id=_run_id(state),
+            step_name=f"koubo:{step_name}",
+            resp=resp if isinstance(resp, dict) else {},
+            user_id=state.get("owner_uuid"),
+            duration_ms=(time.perf_counter() - started) * 1000,
+        )
 
     def _init_graph(self) -> None:
         try:
@@ -191,6 +247,7 @@ class KouboWorkflowService:
         # LLM 结构化热点(基于 topic_pool 输出 + 用户 topic_hint)
         user_msg = f"日期:{state['date']}\n选题方向提示:{state.get('topic_hint', '无')}\n参考热点池:\n{out[:2000]}\n请生成 8 个选题 JSON。"
         try:
+            _llm_started = time.perf_counter()
             result = await llm_gateway.complete(
                 [
                     {"role": "system", "content": HOT_SCAN_PROMPT},
@@ -205,6 +262,11 @@ class KouboWorkflowService:
             logger.warning("koubo_workflow._hot_scan_node LLM 调用失败: %s", e, exc_info=True)
             return {**state, "error": f"hot_scan LLM 异常: {e}", "status": "error",
                     "trace": trace + [_trace("hot_scan", t0, time.monotonic(), "error", error=str(e))]}
+        # 调用已返回 ⇒ 无论业务成败都要入账(带 error 的响应由出口标成 error 档,
+        # 位置必须在 error 早退之前,否则"LLM 报错"这一族用量又是一条静默无账路径)
+        self._record_llm_call(
+            state, step_name="hot_scan", resp=result, started=_llm_started
+        )
         if result.get("error"):
             return {**state, "error": result.get("error_message", "hot_scan LLM 失败"),
                     "status": "error",
@@ -258,6 +320,7 @@ class KouboWorkflowService:
                 f"请输出本篇正文。"
             )
             try:
+                _llm_started = time.perf_counter()
                 result = await llm_gateway.complete(
                     [
                         {"role": "system", "content": WRITE_ARTICLE_PROMPT},
@@ -272,6 +335,10 @@ class KouboWorkflowService:
                 logger.warning("koubo_workflow._write_articles_node LLM 写作失败: %s", e, exc_info=True)
                 return {**state, "error": f"第 {i+1} 篇 LLM 异常: {e}", "status": "error",
                         "trace": trace + [_trace("write_articles", t0, time.monotonic(), "error", error=str(e), article=i+1)]}
+            # 每篇一次调用 ⇒ 每条都要落账(位置同上:必须早于 error 早退)
+            self._record_llm_call(
+                state, step_name="write_articles", resp=result, started=_llm_started
+            )
             if result.get("error"):
                 return {**state, "error": f"第 {i+1} 篇 LLM 失败: {result.get('error_message')}",
                         "status": "error",
@@ -357,6 +424,7 @@ class KouboWorkflowService:
             "model": model,
             "owner_uuid": owner_uuid,
             "dry_run": dry_run,
+            "run_id": _new_run_id(date),
             "hot_topics": [],
             "selected_topics": [],
             "articles": [],
@@ -398,6 +466,7 @@ class KouboWorkflowService:
         initial: KouboState = {
             "date": date, "topic_hint": topic, "model": model,
             "owner_uuid": owner_uuid, "dry_run": dry_run,
+            "run_id": _new_run_id(date),
             "hot_topics": [], "selected_topics": [], "articles": [],
             "validated": False, "output_path": "", "error": None,
             "status": "planning", "trace": [],

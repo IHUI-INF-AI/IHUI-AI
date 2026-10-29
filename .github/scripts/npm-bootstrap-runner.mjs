@@ -6,7 +6,7 @@
 //   action=signup         注册 npm 账号(随机密码) → RSA 加密凭据 → artifact
 //   action=verify_token   打开邮箱验证链接(secret) → 登录 → 建 Classic Automation token → 加密 → artifact
 //   action=publish        build:npm → 用 secret token 发布 ihui-cli@x.y.z
-//   action=org_create     网页登录后创建 npm organization `ihui`(双证据判定,详见 runOrgCreate 头注)
+//   action=org_create     网页登录后创建 npm organization(org 名不写字面量,由 npmOrgName() 从通道台账解析;双证据判定,详见 runOrgCreate 头注)
 // 加密:RSA-OAEP(SHA256) 包 AES-256-GCM,公钥来自 secret PUBKEY_PEM(只有李总持私钥)。
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
@@ -1154,13 +1154,30 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
 }
 
 // ---------- action=org_create ----------
-// 建 npm organization `ihui`(使 @ihui/sdk 等 scoped 包可发布)。
+// npm organization 名 —— 唯一真相源 = 通道台账 config/sdk-release-channels.json 的 npm.coordinate。
+// 立因(2026-10-28 现读,票 L28576):本文件的 org_create 原先把 org 名写成字面量 `ihui`,而包 scope
+// 早已是 `@ihui-ai/sdk`(cd348dc320 那笔只改了包名、没改 org)⇒ 引导器会建出一个与包名不同名的 org,
+// scoped 包照样发不出去。AGENTS.md §0.6:同类取值全仓只许一份,第二份必然漂移 —— 这次漂移已实测发生,
+// 故 org 名一律经 `scripts/check-sdk-release-channels.mjs` 的 `resolveNpmOrgScope()` 解析(台账改名,
+// 本文件自动跟着走)。只在 org_create 里动态 import(其余 action 不因此新增依赖);解析不出来即抛
+// ⇒ 本轮显式未判定,绝不回落任何猜测 org(§0.3)。
+let __npmOrgCache = null
+async function npmOrgName() {
+  if (__npmOrgCache) return __npmOrgCache
+  const mod = await import('../../scripts/check-sdk-release-channels.mjs')
+  __npmOrgCache = mod.resolveNpmOrgScope()
+  console.log(`OC_ORG_NAME=${__npmOrgCache} (来源:台账 npm.coordinate)`)
+  return __npmOrgCache
+}
+
+// 建 npm organization(使 @ihui-ai/sdk 等 scoped 包可发布)。
 // org 只有网页入口 https://www.npmjs.com/org/create ⇒ 复用 npmWebLogin 登录后填表。
 // 成功判定用两步独立证据,绝不靠猜:
-//   (a) 网页落地文案/URL(/org/ihui 或 created 类文案);
+//   (a) 网页落地文案/URL(/org/<台账 org 名> 或 created 类文案);
 //   (b) 注册面变化:probeOrg() 三端点从"全部缺失"变为任一存在。
 // 两块证据都立不住 ⇒ 抛 ORGCREATE-UNDETERMINED(run 红),绝不冒报"建好了"(§0.3)。
 async function probeOrg() {
+  const org = await npmOrgName()
   const get = async (url) => {
     try {
       const r = await fetch(url, { signal: AbortSignal.timeout(15000) })
@@ -1170,9 +1187,9 @@ async function probeOrg() {
       return { status: -1, body: 'fetch-error: ' + String(e.message).slice(0, 60) }
     }
   }
-  const v1 = await get('https://registry.npmjs.org/-/v1/org/ihui')
-  const dash = await get('https://registry.npmjs.org/-/org/ihui')
-  const web = await get('https://www.npmjs.com/org/ihui')
+  const v1 = await get(`https://registry.npmjs.org/-/v1/org/${org}`)
+  const dash = await get(`https://registry.npmjs.org/-/org/${org}`)
+  const web = await get(`https://www.npmjs.com/org/${org}`)
   return { v1, dash, web }
 }
 // 存在性判据:registry 两端点任一非 404,或 www 组织页 200 且不是 Not Found 壳
@@ -1180,6 +1197,9 @@ const orgPresent = (p) =>
   p.v1.status !== 404 || p.dash.status !== 404 || (p.web.status === 200 && !/page not found|not found/i.test(p.web.body))
 
 async function runOrgCreate(page, attempt) {
+  const org = await npmOrgName()
+  // 证据 (a) 的落地 URL 判据按台账 org 名现拼(转义后入正则),不再写死任何 org 字面量
+  const orgUrlPattern = new RegExp(`/org/${org.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\?|$|/)`, 'i')
   const before = await probeOrg()
   console.log('ORG_PROBE_BEFORE=' + JSON.stringify(before))
   if (orgPresent(before)) {
@@ -1204,11 +1224,11 @@ async function runOrgCreate(page, attempt) {
   if (/\/login/.test(page.url())) {
     throw new Error('org create redirected to login — session not authenticated; see shots/oc-page-*.png')
   }
-  // 3) 填 org 名称(逐字符拟人输入,同 fillSignup 口径)
+  // 3) 填 org 名称(逐字符拟人输入,同 fillSignup 口径;名字来自台账,见 npmOrgName 头注)
   await typeIntoFirst(
     page,
     ['input[name="name"]', 'input#name', 'form input[type="text"]', 'main input[type="text"]'],
-    'ihui',
+    org,
     'org-name'
   )
   await shot(page, 'oc-name-filled')
@@ -1273,7 +1293,7 @@ async function runOrgCreate(page, attempt) {
     const b = await bodyText()
     await shot(page, `oc-wait-${i}`)
     console.log(`OC_WAIT_${i} url=${page.url()} body=${b.slice(0, 220)}`)
-    if (/has been created|successfully created|organization.{0,40}created|created.{0,40}organization/i.test(b) || /\/org\/ihui(\?|$|\/)/i.test(page.url())) {
+    if (/has been created|successfully created|organization.{0,40}created|created.{0,40}organization/i.test(b) || orgUrlPattern.test(page.url())) {
       webVerdict = 'created'
     } else if (/already taken|already exists|not available|is not valid|Invalid|must be|failed|denied|wrong/i.test(b) && /\/org\/create/i.test(page.url())) {
       // 错误判据仅在仍停留创建页时成立(成功会离开 /org/create),避免把表单帮助文案里的

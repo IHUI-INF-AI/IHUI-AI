@@ -54,7 +54,7 @@ describe('权限决策徽章取词(miniapp-taro 合并视图)', () => {
     }
   })
 
-  it('zh-CN:15 值步骤决策集全部本地化(auto_skip_approval → 自动批准(免审批))', () => {
+  it('zh-CN:全部步骤决策集本地化(auto_skip_approval → 自动批准(免审批))', () => {
     expect(wordFor('auto_skip_approval')).toBe('自动批准(免审批)')
     for (const value of STEP_DECISIONS) {
       const word = wordFor(value)

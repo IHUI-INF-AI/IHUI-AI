@@ -77,10 +77,6 @@ export const WHITELIST_ENTRIES = new Map(
       why: '数据文件:非 screen 组件,导出 ProfileScreen 4 Tab 内容类型定义',
       expires: '2027-06-30',
     },
-    'aboutPageSections.ts': {
-      why: '数据文件:非 screen 组件,导出「关于我们」页分段配置(图标+i18n 键,与 web AboutContent 逐行同物;拆出只为屏回 250 行上限)',
-      expires: '2027-06-30',
-    },
     // ── RN 独占 screen(无跨端需求,深度依赖 RN 特定 API/组件) ──
     'LearnMapScreen.tsx': {
       why: '学习地图屏:ScrollView 节点地图 + 进度环,共享层无同名屏,RN 端独占视觉交互',
@@ -112,6 +108,10 @@ export const WHITELIST_ENTRIES = new Map(
     },
     'ConnectedAccountsScreen.tsx': {
       why: '已连接账户屏:第三方账号绑定/解绑 + 状态徽章,共享层无同名屏,RN 端独占账号管理交互',
+      expires: '2027-06-30',
+    },
+    'ScanLoginScreen.tsx': {
+      why: '扫码登录屏(移动端一半):expo-camera CameraView/useCameraPermissions 相机与条码扫描通道,RN 端独占硬件依赖;PC 端是展示二维码的另一半,票务判据已共用 @ihui/shared parseQrLoginTicket,共享层无同名屏',
       expires: '2027-06-30',
     },
     'DistributionCompanyScreen.tsx': {

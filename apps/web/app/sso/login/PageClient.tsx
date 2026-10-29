@@ -13,6 +13,7 @@ import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { fetchApi } from '@/lib/api'
 import { buildSsoRedirectUrl, SSO_CLIENT_IDS } from '@ihui/shared'
 import { ensureSsoRedirectAllowed, resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
+import { handOffSsoCodeToMiniapp, isWechatMiniProgramHost } from './miniapp-bridge'
 import { protectedPathOf } from '@/lib/protected-paths'
 import { resolvePostLoginLanding } from '@/lib/post-login-landing'
 import { Button } from '@ihui/ui-react'
@@ -90,9 +91,12 @@ export default function SsoLoginPage() {
   const setMode = useLoginDialogStore((s) => s.setMode)
   const [exchanging, setExchanging] = React.useState(false)
   // 2026-10-13(用户拍板:真实浏览器+手动关):自定义协议深链已交回 OS 后,本页停在
-  // "授权中/授权卡"会让用户以为没完成。置位后渲染完成卡("可关闭此页"),并保留手动
-  // 重签按钮(浏览器外部协议弹窗被拒时,用户还能就地再签一次)。
-  const [handedOff, setHandedOff] = React.useState(false)
+  // "授权中/授权卡"会让用户以为没完成。置位后渲染完成卡,并保留手动重签按钮
+  // (浏览器外部协议弹窗被拒时,用户还能就地再签一次)。
+  // 2026-10-26(G-957)加 'miniapp' 形态:微信小程序 web-view 无 OS 深链处理器,
+  // sso_code 经 wx.miniProgram.postMessage 交接 —— 消息在「用户返回小程序」时机才
+  // 投递,完成卡的口径因此是"请返回小程序",不是 desktop 的"可关闭此页"。
+  const [handoffKind, setHandoffKind] = React.useState<'desktop' | 'miniapp' | null>(null)
 
   // SSO 页面 mount 时初始化 mode='login',unmount 时清理 store 避免污染主站 LoginDialog
   // (ForgotPasswordForm 重置成功后会调 store.open('login') 导致 isOpen=true,需在离开 SSO 时重置)
@@ -184,10 +188,23 @@ export default function SsoLoginPage() {
           !target.startsWith('http://') && !target.startsWith('https://') && !target.startsWith('/')
 
         if (isCustomScheme) {
-          window.location.href = finalUrl
-          // 深链已交回 OS(浏览器可能弹"打开智汇AI?"确认框)。此刻起本页的使命完成:
-          // 渲染完成卡告知用户可关闭此页(真实浏览器窗口不可由桌面端代关,用户拍板的方案)。
-          if (isDesktopDeepLink) setHandedOff(true)
+          // 微信小程序 web-view 宿主(G-957,2026-10-26):custom scheme 的
+          // window.location.href 在该宿主没有 OS 深链处理器,必然静默无效;唯一回传
+          // 通道 = wx.miniProgram.postMessage(经 miniapp-bridge 注入微信官方 JS-SDK)。
+          // 交接成功渲染"请返回小程序"完成卡;SDK 失败如实提示(绝不静默当成功)。
+          if (clientId === SSO_CLIENT_IDS.MINIAPP_TARO && isWechatMiniProgramHost()) {
+            try {
+              await handOffSsoCodeToMiniapp(r.data.code)
+              setHandoffKind('miniapp')
+            } catch {
+              toast.error(tSso('miniappHandoffFailed'))
+            }
+          } else {
+            window.location.href = finalUrl
+            // 深链已交回 OS(浏览器可能弹"打开智汇AI?"确认框)。此刻起本页的使命完成:
+            // 渲染完成卡告知用户可关闭此页(真实浏览器窗口不可由桌面端代关,用户拍板的方案)。
+            if (isDesktopDeepLink) setHandoffKind('desktop')
+          }
         } else {
           router.push(finalUrl)
         }
@@ -273,15 +290,15 @@ export default function SsoLoginPage() {
 
   // 已登录分支:授权跳转卡片
   if (token && user) {
-    // 深链已交回 OS:完成卡(告知可关闭此页 + 手动重签出口)
-    if (handedOff) {
+    // 深链/小程序腿已完成交接:完成卡(desktop=可关闭此页;miniapp=请返回小程序)
+    if (handoffKind) {
+      const handoffTitle =
+        handoffKind === 'desktop' ? tSso('desktopHandoffTitle') : tSso('miniappHandoffTitle')
+      const handoffHint =
+        handoffKind === 'desktop' ? tSso('desktopHandoffHint') : tSso('miniappHandoffHint')
       return (
         <AuthShellPage onClose={handleClose}>
-          <AuthShell
-            title={tSso('desktopHandoffTitle')}
-            subtitle={tSso('desktopHandoffHint')}
-            onClose={handleClose}
-          >
+          <AuthShell title={handoffTitle} subtitle={handoffHint} onClose={handleClose}>
             <Button
               size="lg"
               variant="outline"

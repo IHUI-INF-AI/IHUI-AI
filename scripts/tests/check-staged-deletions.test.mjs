@@ -48,8 +48,25 @@ function makeRepo(t) {
   return dir
 }
 
-test('__test__ 必须导出判据所需的全部纯函数(§22c phase B)', () => {
-  for (const k of ['stemOf', 'joinRel', 'moduleCandidates', 'classifySpecifier', 'referencesFor', 'matchAllowlist', 'parseAllowlist', 'auditDeletions'])
+// E3 端到端夹具:一个"测试文件测一个仍然存活的生产模块"的最小仓(事故形态)
+function makeTestRepo(t) {
+  const dir = mkScratch('staged-deletions-e3-')
+  t.after(() => rmScratch(dir))
+  runGit(dir, ['init', '-q'])
+  mkdirSync(join(dir, 'apps/web/src/components'), { recursive: true })
+  mkdirSync(join(dir, 'apps/web/tests'), { recursive: true })
+  writeFileSync(join(dir, 'apps/web/src/components/AnalyticsCapture.tsx'), 'export const track = (n: string) => n\n')
+  writeFileSync(
+    join(dir, 'apps/web/tests/analytics-capture-aria-label.test.tsx'),
+    "import { track } from '../src/components/AnalyticsCapture'\n\ntest('x', () => track('a'))\n",
+  )
+  writeFileSync(join(dir, 'package.json'), '{ "name": "e3" }\n')
+  runGit(dir, ['add', '-A'])
+  runGit(dir, ['commit', '-q', '-m', 'init'])
+  return dir
+}
+
+test('__test__ 必须导出判据所需的全部纯函数(§22c phase B)', () => {  for (const k of ['stemOf', 'joinRel', 'moduleCandidates', 'classifySpecifier', 'referencesFor', 'matchAllowlist', 'parseAllowlist', 'auditDeletions'])
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
 })
 
@@ -211,4 +228,77 @@ test('T12 与 T11 成对:同 stem 没有另一份存活时,字面量引用照旧
     '缺这一判就是替"删除仍被引用的文件"背书',
   )
 })
+
+// ── E3(测试文件删除的意向声明)—— 2026-10-27 补 ───────────────────────────────────
+// 立因:一枚按旧基线写回的提交(`b966cb21676`)静默删掉 4 个测试文件,而门 99 报绿 ——
+// E1 的证据是"索引里还有别的文件 import 它",测试文件结构上不满足这一条。
+const ACC_TEST = 'apps/web/tests/analytics-capture-aria-label.test.tsx'
+const ACC_MOD = 'apps/web/src/components/AnalyticsCapture.tsx'
+const ACC_SRC = "import { track } from '../src/components/AnalyticsCapture'\n\ntest('x', () => track('a'))\n"
+
+test('E3:__test__ 必须导出 E3 的判据原语(§22c phase B)', () => {
+  for (const k of ['isTestPath', 'extractModuleSpecifiers', 'auditTestDeletions', 'mergeE3Results', 'resolveAliasSpec', 'matchAllowlistLive'])
+    assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
+})
+
+test('E3 纯函数:删测试而它测的模块仍在 ⇒ 红;同一夹具只跑 E1/E2 ⇒ 绿(缺口复现)', () => {
+  const files = { [ACC_TEST]: ACC_SRC, [ACC_MOD]: 'export const track = (n: string) => n\n' }
+  const e3 = __test__.auditTestDeletions([ACC_TEST], {
+    livePaths: [ACC_MOD],
+    readBlob: (p) => (p in files ? { text: files[p], from: 'fixture' } : null),
+  })[0]
+  assert.equal(e3.verdict, 'test-red')
+  assert.equal(e3.modules[0].path, ACC_MOD)
+  // 变异自证:摘掉 E3 那几行 == 只跑原判据 ⇒ 同一夹具翻绿(这就是那段缺口)
+  const e1 = __test__.auditDeletions([ACC_TEST], {
+    livePaths: [ACC_MOD],
+    readFile: (p) => (p in files ? files[p] : null),
+    getCandidates: () => [ACC_MOD],
+  })[0]
+  assert.equal(e1.verdict, 'no-reference')
+})
+
+test('E3 端到端:git rm 一个测试而其被测模块仍在 → exit 1,点名模块与三条放过通道', (t) => {
+  const dir = makeTestRepo(t)
+  runGit(dir, ['rm', '-q', ACC_TEST])
+  const r = runGuard(dir)
+  assert.equal(r.status, 1, `期望 exit 1,实际 ${r.status}\n${r.stdout}\n${r.stderr}`)
+  assert.match(r.stdout, /analytics-capture-aria-label\.test\.tsx/)
+  assert.match(r.stdout, /AnalyticsCapture\.tsx/, '必须点名它测的是哪个模块')
+  assert.match(r.stdout, /放过通道/, '必须把三条通道的成立情况写出来')
+  assert.match(r.stdout, /intentional-delete/, '必须给出可执行的下一步')
+})
+
+test('E3 端到端:--message 带 intentional-delete: → exit 0(与上一条成对)', (t) => {
+  const dir = makeTestRepo(t)
+  runGit(dir, ['rm', '-q', ACC_TEST])
+  assert.equal(runGuard(dir).status, 1, '默认档必须先判红')
+  const r = runGuard(dir, ['--message', 'refactor: 删测试\n\nintentional-delete: 场景已迁到 e2e'])
+  assert.equal(r.status, 0, `期望 exit 0,实际 ${r.status}\n${r.stdout}`)
+  assert.match(r.stdout, /test-intent-marker/)
+})
+
+test('E3 端到端:豁免台账命中(未过期)→ exit 0,过期 → exit 1(逾期即失效)', (t) => {
+  const dir = makeTestRepo(t)
+  runGit(dir, ['rm', '-q', ACC_TEST])
+  const okFile = join(dir, 'al-ok.json')
+  writeFileSync(okFile, JSON.stringify({ paths: [{ path: ACC_TEST, reason: '同批删除', ticket: 'T-1', until: '2099-01-01' }] }))
+  assert.equal(runGuard(dir, ['--allowlist', okFile]).status, 0)
+  const expFile = join(dir, 'al-exp.json')
+  writeFileSync(expFile, JSON.stringify({ paths: [{ path: ACC_TEST, reason: '同批删除', until: '2020-01-01' }] }))
+  const r = runGuard(dir, ['--allowlist', expFile])
+  assert.equal(r.status, 1, `过期豁免必须失效,实际 ${r.status}\n${r.stdout}`)
+  assert.match(r.stdout, /逾期即失效/)
+})
+
+test('E3 端到端:改名 ⇒ exit 0;同一笔提交把被测模块也删掉 ⇒ exit 0', (t) => {
+  const dir = makeTestRepo(t)
+  runGit(dir, ['mv', ACC_TEST, 'apps/web/tests/analytics-a11y.test.tsx'])
+  assert.equal(runGuard(dir).status, 0, '重命名是放过通道①')
+  runGit(dir, ['reset', '-q', '--hard', 'HEAD'])
+  runGit(dir, ['rm', '-q', ACC_TEST, ACC_MOD])
+  const r = runGuard(dir)
+  assert.equal(r.status, 0, `源模块自己也被删 ⇒ 题二不成立,实际 ${r.status}\n${r.stdout}`)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

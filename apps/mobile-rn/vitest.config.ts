@@ -81,6 +81,16 @@ export default defineConfig({
       // **收集期即失败**("Test Files 1 failed / Tests no tests",一条断言都没跑;实测撤掉本条别名即此形)。
       // src/lib/device-fingerprint.ts 现按值取它的 modelId(iOS 机型段)⇒ 替身必须存在。
       'expo-device': resolve(__dirname, 'tests/__mocks__/expo-device.ts'),
+      // expo-blur 与 expo-device 同一死法(2026-10-27 补):真包 NativeBlurModule 链式
+      // import 'expo-modules-core' 源码,其 setUpJsLogger.fx.ts 读裸全局 __DEV__、
+      // EventEmitter.ts 读 globalThis.Expo —— jsdom 两样都没有 ⇒ TabBar 引它之后,
+      // agent-screen / plaza-screen 收集期整体加载失败。替身见 tests/__mocks__/expo-blur.ts。
+      'expo-blur': resolve(__dirname, 'tests/__mocks__/expo-blur.ts'),
+      // expo-updates 与 expo-blur 同一批(2026-10-27 补):真包 Updates.ts 模块求值期读
+      // globalThis.Expo.EventEmitter ⇒ App.tsx → ota-update transitively import 它的
+      // app-root-background-focused-route / video-immersive-band 同型收集期失败。
+      // src/lib/__tests__/ota-update.test.ts 的局部 vi.mock 工厂仍优先生效,替身只兜宿主层。
+      'expo-updates': resolve(__dirname, 'tests/__mocks__/expo-updates.ts'),
       // react-native-restart 与本端其它原生包同一死法,但它是 2026-09-24 才加进 active-tokens.ts
       // 的依赖而**没同步本文件** ⇒ 既无 alias 也不在 inline:被外部化后由 Node 解析,其内部
       // require('react-native') 绕过 alias 命中真实 RN 的 Flow 源码 →
@@ -142,6 +152,14 @@ export default defineConfig({
       '@ihui/shared/auth/auto-refresh': resolve(
         __dirname,
         '../../packages/shared/src/auth/auto-refresh.ts',
+      ),
+      // 票 L28754:登录方式优先级判据(唯一实现,2026-10-27 自 @ihui/ui-react 下沉到共享层)。
+      // 同样两件事:必须排在 '@ihui/shared/auth' 父别名之前(否则被吞成 <index.ts>/login-region-policy
+      // ⇒ 收集期 MODULE_NOT_FOUND),且指真实源码 —— 给它写 mock,测的就是 mock,而本票的全部价值
+      // 正是"RN 与 web/扩展吃到同一份『谁排第一』"。
+      '@ihui/shared/auth/login-region-policy': resolve(
+        __dirname,
+        '../../packages/shared/src/auth/login-region-policy.ts',
       ),
       // 票 #27:「记住登录」记录的唯一编解码出口(纯函数,零平台依赖)。同样必须排在
       // '@ihui/shared/auth' 之前 —— 父别名按 startsWith 会把子路径吞成 <index.ts>/remembered-account。

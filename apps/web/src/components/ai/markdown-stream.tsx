@@ -304,6 +304,7 @@ const CodeBlockImpl = function CodeBlock({
   syntaxStyle,
   collapseLines = 5,
   lineNumberStyle,
+  preserveExpanded = false,
   dark = false,
 }: {
   language?: string
@@ -313,6 +314,8 @@ const CodeBlockImpl = function CodeBlock({
   collapseLines?: number
   /** 四竞品对标 V2 #17(2026-09-15):行号样式,undefined = 不显示行号(纯文本/降级路径不传) */
   lineNumberStyle?: React.CSSProperties
+  /** 2026-10-29 流式观感档⑦:stable 晋升跨树 remount 时携带的"保持展开"事实(见 useState 注记) */
+  preserveExpanded?: boolean
   /** D198:复制为图片的底色/前景色取深色或浅色主题(由 ThemedCodeBlock 注入,与语法高亮同生命周期) */
   dark?: boolean
 }): React.ReactElement {
@@ -378,10 +381,13 @@ const CodeBlockImpl = function CodeBlock({
     )
   }, [code, language, isStreaming])
 
-  // 代码块折叠状态:默认折叠超过阈值的代码块
-  const [collapsed, setCollapsed] = React.useState(true)
-  const codeLines = code.split('\n')
-  const shouldCollapse = collapseLines > 0 && codeLines.length > collapseLines
+  // 2026-10-29 流式观感档⑦:折叠初值可被 preserveExpanded 携带 —— stable 晋升跨
+  // ReactMarkdown 双树 remount 时(键不互通,React 树间无法迁移节点)新实例若一律
+  // 折叠,用户看到"围栏块写完瞬间塌回 5 行"=「闭合跳一下」的根子;该 prop 由
+  // MarkdownStream 的实例级登记簿给出该 prop:判序=**先记后判**(闭合与下一栏开栏挤同一拍
+  // 时,该块首拍挂载前一刻刚入簿仍被认可);历史重载被闸死(见 sessionStreamedRef 注记),
+  // 在写尾块不入簿。
+  const [collapsed, setCollapsed] = React.useState(() => !preserveExpanded)
   const preRef = React.useRef<HTMLPreElement>(null)
 
   // 当代码块展开/折叠时，自动滚动到代码块位置
@@ -392,6 +398,28 @@ const CodeBlockImpl = function CodeBlock({
       })
     }
   }, [collapsed])
+
+  /* 2026-10-28 流式观感档③:流式中代码块**尾部跟随全展**(Qoder 式"看着写完"),
+     此前流式只冻前 5 行 = 中段在写、屏幕上纹丝不动,观感断档最大的一处。
+     刚结束(本会话内 流式→完成)的块保持展开不闪折;历史重载(挂载即非流式)维持
+     既有"长块默认折叠"设计 —— 用 wasStreaming ref 只接 in-session 沿变。 */
+  const wasStreamingRef = React.useRef(Boolean(isStreaming))
+  React.useEffect(() => {
+    if (isStreaming) wasStreamingRef.current = true
+    else if (wasStreamingRef.current) {
+      wasStreamingRef.current = false
+      setCollapsed(false)
+    }
+  }, [isStreaming])
+
+  // 2026-10-28 流式观感档②:流式高亮输入走 300ms 防抖值(mermaid/html 预览同源做法)——
+  // batcher 每帧 append,若每帧都让 SyntaxHighlighter 全量重新 tokenize,长代码块必掉帧;
+  // 防抖把高亮重排频率钳到 3.3Hz,字符流本身仍逐帧平滑。完成态(含中止/flush)恒取
+  // 最新 code,防抖快照不可能盖住终值(非流式分支直接用原值)。
+  const hlSource = isStreaming ? debouncedCode : code
+  const codeLines = hlSource.split('\n')
+  const shouldCollapse = collapseLines > 0 && codeLines.length > collapseLines
+  const effectiveCollapsed = isStreaming ? false : collapsed
 
   const lang = (language ?? '').trim().toLowerCase()
   const isPlain = PLAIN_TEXT_LANGS.has(lang)
@@ -522,7 +550,8 @@ const CodeBlockImpl = function CodeBlock({
     </div>
   )
 
-  // 流式中的代码块用 opacity-60 标记(临时闭合位置)
+  // 流式中的代码块不再整块压暗(2026-10-28 档④:此前 opacity-60 "草稿灰"+完成瞬间翻亮,
+  // 观感断档;在写信号已交给硬闪光标与流式指示条,代码本体保持正常色=所见即终稿)。
   // 2026-08-02:对话文字整体放大,代码块 14px → 15px(text-[15px])
   // 2026-08-17 P3:dark 模式代码块统一用更深 zinc-950(与 markdown-stream.test 期望对齐,
   // 原实现用 zinc-900 + 注释"较浅避免同色",但实际测试断言 zinc-950 已通过,改为一致 token)
@@ -533,7 +562,6 @@ const CodeBlockImpl = function CodeBlock({
     wrap ? 'whitespace-pre-wrap break-words' : 'overflow-x-auto',
     'bg-zinc-100 text-zinc-900',
     'dark:bg-zinc-950 dark:text-zinc-100',
-    isStreaming && 'opacity-60',
   )
   // G-842:外层 frame(仿本文件 CodeRunOutput 的「外框 + header 条 + 主体」形态)
   const codeFrameClass = 'overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700'
@@ -562,8 +590,9 @@ const CodeBlockImpl = function CodeBlock({
     </button>
   )
 
-  // 计算折叠后的显示内容
-  const displayCode = collapsed && shouldCollapse ? codeLines.slice(0, 5).join('\n') : code
+  // 计算折叠后的显示内容(流式=尾随全展;折叠判定与高亮输入同源 hlSource)
+  const displayCode =
+    effectiveCollapsed && shouldCollapse ? codeLines.slice(0, 5).join('\n') : hlSource
 
   // 纯文本或无语言:不调 SyntaxHighlighter,避免开销
   if (isPlain) {
@@ -611,21 +640,21 @@ const CodeBlockImpl = function CodeBlock({
               {copyButton}
               {collapseButton}
               <SyntaxHighlighter
-              language={lang}
-              style={syntaxStyle}
-              showLineNumbers={!!lineNumberStyle}
-              lineNumberStyle={lineNumberStyle}
-              // D197:换行偏好传导进高亮器(code 标签 whiteSpace: pre-wrap;与行号并存时行转 flex)
-              wrapLongLines={wrap}
-              customStyle={{
-                margin: 0,
-                padding: 0,
-                background: 'transparent',
-                fontSize: '15px',
-              }}
-            >
-              {displayCode}
-            </SyntaxHighlighter>
+                language={lang}
+                style={syntaxStyle}
+                showLineNumbers={!!lineNumberStyle}
+                lineNumberStyle={lineNumberStyle}
+                // D197:换行偏好传导进高亮器(code 标签 whiteSpace: pre-wrap;与行号并存时行转 flex)
+                wrapLongLines={wrap}
+                customStyle={{
+                  margin: 0,
+                  padding: 0,
+                  background: 'transparent',
+                  fontSize: '15px',
+                }}
+              >
+                {displayCode}
+              </SyntaxHighlighter>
             </pre>
           </CodeOverflowShell>
         </div>
@@ -658,6 +687,8 @@ function ThemedCodeBlock(props: {
   code: string
   isStreaming?: boolean
   collapseLines?: number
+  /** 2026-10-29 流式观感档⑦:stable 晋升跨树 remount 时携"已展开"事实,透传 CodeBlockImpl */
+  preserveExpanded?: boolean
 }) {
   const { resolvedTheme } = useTheme()
   const syntaxStyle = resolvedTheme === 'dark' ? ONE_DARK : ONE_LIGHT
@@ -896,6 +927,46 @@ function hasUnclosedFence(content: string): boolean {
   return matches !== null && matches.length % 2 === 1
 }
 
+/**
+ * 观感档⑦:本实例"已渲染过的完整代码文本"登记簿(跨 stable 晋升 remount 移交展开态)。
+ * 先记后判的出口:重复文本 delete 再 add,挪到 FIFO 队尾(长代码块逐拍入簿时,
+ * 旧前缀先被挤掉、终稿常驻);超上限只淘汰最久未更新的一条头。行首围栏缩进容错
+ * ≤3 空格,与 markdown-stable-split 同一形态。
+ */
+const STREAMED_CODE_TEXTS_MAX = 256
+function noteStreamedCodeText(set: Set<string>, text: string): void {
+  if (!text) return
+  set.delete(text)
+  set.add(text)
+  if (set.size > STREAMED_CODE_TEXTS_MAX) {
+    const oldest = set.values().next().value
+    if (oldest !== undefined) set.delete(oldest)
+  }
+}
+
+/**
+ * 观感档⑦:返回最后一个"开了还没闭"围栏的**开栏行号**(1-based);全闭 ⇒ -1。
+ * 行首 ```/~~~ 计一次翻转(与切分判据同行首形态);供在写尾块识别——只有开栏行
+ * 等于本号的代码块才是正在写的那块,它不入登记簿(中间态前缀不是"完成过"的事实)。
+ * 与 hasUnclosedFence 的计数粗判分工不同、不互证:粗判管虚拟闭合,本函数管簿籍卫生。
+ */
+function lastOpenedFenceLine(content: string): number {
+  const lines = content.split('\n')
+  let open = false
+  let openedAt = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s{0,3}(```|~~~)/.test(lines[i] ?? '')) {
+      if (open) {
+        open = false
+      } else {
+        open = true
+        openedAt = i + 1
+      }
+    }
+  }
+  return open ? openedAt : -1
+}
+
 /** P3 #35:稳定段渲染组件——content 字符串不变时 memo 命中,整段跳过 react-markdown parse。 */
 const StableBlock = React.memo(function StableBlock({
   content,
@@ -916,20 +987,12 @@ const StableBlock = React.memo(function StableBlock({
 })
 
 export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: MarkdownStreamProps) {
-  // 自适应 throttle(leading + trailing)合并解析频率:
-  // - 短内容(<2000 字符)用 50ms 保证跟手感
-  // - 中等内容(2000-5000 字符)用 150ms 平衡
-  // - 长内容(>5000 字符)用 400ms 降低解析频率
-  // 修复"全量 re-parse 锯齿卡顿":固定 200ms 节流后长回答仍每次全量解析 react-markdown,
-  // 改用按长度自适应 + useDeferredValue 让 React 在空闲时更新,避免阻塞主流式渲染
-  const throttleRef = React.useRef<number>(50)
-  React.useEffect(() => {
-    const len = content.length
-    if (len < 2000) throttleRef.current = 50
-    else if (len < 5000) throttleRef.current = 150
-    else throttleRef.current = 400
-  }, [content.length])
-
+  // 流式内容随平滑 batcher 逐帧增长;渲染层只做"同帧合并 + 轻节流",
+  // 不再对长内容降级到 400ms(那会在长回答上重新引入整坨蹦),
+  // 也不再走 useDeferredValue(其注释自承会让流式光标滞后、与正文节拍打架)。
+  // 解析开销由 P3 #35 稳定/活跃切分(前缀 memo 跳过 parse)+ 代码块高亮 300ms 防抖兜底,
+  // 故这里可放心贴近逐帧渲染,长回答也逐字淌、光标与正文同一拍。
+  const THROTTLE_MS = 16
   const [throttledContent, setThrottledContent] = React.useState(content)
   const lastFlushRef = React.useRef<number>(0)
   const trailingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -937,8 +1000,7 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   React.useEffect(() => {
     const now = Date.now()
     const elapsed = now - lastFlushRef.current
-    const throttle = throttleRef.current
-    if (elapsed >= throttle) {
+    if (elapsed >= THROTTLE_MS) {
       lastFlushRef.current = now
       setThrottledContent(content)
       if (trailingTimerRef.current) {
@@ -950,7 +1012,7 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
         lastFlushRef.current = Date.now()
         trailingTimerRef.current = null
         setThrottledContent(content)
-      }, throttle - elapsed)
+      }, THROTTLE_MS - elapsed)
     }
   }, [content])
 
@@ -963,32 +1025,39 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
     }
   }, [])
 
-  // useDeferredValue:让 React 在空闲时才更新 deferredContent,避免阻塞主流式渲染。
-  // 副作用:流式光标动画看起来"滞后",但用户感知是"内容正在生成"而非"光标在跳",可接受
-  const deferredContent = React.useDeferredValue(throttledContent)
-
   // 流式场景:未闭合代码块临时闭合让 react-markdown 能解析
-  // 流式中的代码块用 isStreamingCodeRef 标记,渲染时 opacity-60
+  // 流式中的代码块用 isStreamingCodeRef 标记(档④:不再整块压暗,"在写"信号=尾随光标与
+  // 流式指示条,代码本体保持正常色=所见即终稿)
   const isStreamingCodeRef = React.useRef(false)
+  // 2026-10-29 观感档⑦:先记后判的判序是有意的 —— "本拍刚闭合、下一栏同拍开"时,该块
+  // 首拍(入簿拍)即晋升拍,先判会拿不到携带、代码块空塌一次;先记后判让同一渲染拍内
+  // 的迁居实例也认得出"这文本在本实例出现过"。假阳风险由下面两道闸挡住:
+  // ① sessionStreamedRef —— 从未出现未闭合围栏的历史/单拍整段重载**绝不移交**(默认折叠设计逐字不变);
+  // ② streamingFenceLineRef —— 在写尾块(未闭合开栏行所在块)不入簿,中间态前缀不挤容量。
+  const streamedCodeTextsRef = React.useRef<Set<string>>(new Set())
+  const sessionStreamedRef = React.useRef(false)
+  const streamingFenceLineRef = React.useRef(-1)
   // G-737(2026-09-28 立,吸收上游 ui/ai-elements/message.tsx 的渲染键纪律——
   // "streaming/static 只是解析模式,不应参与渲染器身份;否则流式状态抖动会卸载
   // 整棵 markdown 子树,让已显示的正文重新触发淡入动画"):isStreaming 此前直接进
   // components 的 useMemo deps,它一翻 components 就是新引用 ⇒ StableBlock(默认浅
   // 比较)在内容已冻结时仍 memo 失效、稳定前缀整段重 parse。下载卡/富预览所需的
-  // 读取改走 ref(与本文件既有 isStreamingCodeRef 同型):StableBlock 仅在
-  // isStreaming=true 时挂载(P3 #35 切分门),该路径上 a 组件读到的 ref 恒为 true;
+  // 读取改走 ref(与本文件既有 isStreamingCodeRef 同型):StableBlock 在 stable 非空时
+  // 挂载(P3 #35 切分门,现已跨 isStreaming 翻转保持结构);流式时该路径 a 组件读到的
+  // ref 为 true(整体仍在写),完成翻转时 ref 已随末块闭合转 false ⇒ 代码块自然升级完成态;
   // 非稳定路径每次随父渲染 pass,ref 在渲染前已更新为当前值 ⇒
   // "PDF/CSV 流式中渲染下载卡,完成后升级富预览"(P3 #32)行为逐字不变。
   const isStreamingRef = React.useRef(isStreaming)
   isStreamingRef.current = isStreaming
   const parseContent = React.useMemo(() => {
-    if (hasUnclosedFence(deferredContent)) {
-      isStreamingCodeRef.current = true
-      return deferredContent + '\n```\n'
-    }
-    isStreamingCodeRef.current = false
-    return deferredContent
-  }, [deferredContent])
+    const unclosed = hasUnclosedFence(throttledContent)
+    isStreamingCodeRef.current = unclosed
+    // ⑦ 簿籍侧输入:在写尾块的开栏行号 + "本会话出现过未闭合围栏"闸。
+    // ref 写入对同一 throttledContent 幂等(与上方 G-737 ref 同型),双调用评估无碍。
+    streamingFenceLineRef.current = unclosed ? lastOpenedFenceLine(throttledContent) : -1
+    if (unclosed) sessionStreamedRef.current = true
+    return unclosed ? throttledContent + '\n```\n' : throttledContent
+  }, [throttledContent])
 
   // components memo:无依赖(主题感知在 ThemedCodeBlock 内部 useTheme 处理)
   const components = React.useMemo<Components>(
@@ -1002,12 +1071,22 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
 
         // 块级代码:有 language-xxx 或多行 code → 用 CodeBlock 渲染
         if (lang || codeText.includes('\n')) {
+          const streamingCode = isStreamingCodeRef.current
+          // ⑦:在写尾块不入库(本块块首行 == 未闭合的最后开栏行);先记后判,
+          // 携带 = 本会话见过未闭合围栏 ∧ 文本已入库 ⇒ 晋升新实例不把折叠滚回复位。
+          const nodeLine = props.node?.position?.start?.line ?? -1
+          const isWritingTail =
+            streamingCode && nodeLine > 0 && nodeLine === streamingFenceLineRef.current
+          if (!isWritingTail) noteStreamedCodeText(streamedCodeTextsRef.current, codeText)
           return (
             <ThemedCodeBlock
               language={lang}
               code={codeText}
-              isStreaming={isStreamingCodeRef.current}
+              isStreaming={streamingCode}
               collapseLines={collapseLines}
+              preserveExpanded={
+                sessionStreamedRef.current && streamedCodeTextsRef.current.has(codeText)
+              }
             />
           )
         }
@@ -1158,15 +1237,38 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   // P3 #35(2026-09-16 立):稳定段/活跃段切分。
   // 流式纯追加 → 前缀冻结:splitMarkdownStable 在最后一个安全块边界(围栏外空行、
   // 非列表延续)切一刀;stable 用 memo 缓存跳过 parse,每 tick 只解析 active。
-  // 非流式(完成态)与短内容不切,走既有单 ReactMarkdown 全量路径(零行为差异)。
-  const { stable, active } = React.useMemo(
-    () => (isStreaming ? splitMarkdownStable(parseContent) : { stable: '', active: parseContent }),
-    [parseContent, isStreaming],
-  )
+  // 2026-10-28 观感档⑥:「完成瞬间 active→stable 重排」根因修复——
+  // 原实现 isStreaming=false 时强制不切分(stable=''、active=全文),渲染子节点从
+  // [StableBlock, Active] 塌成 [ReactMarkdown(全文)],React 只能卸载旧子树、重建整棵
+  // ⇒ 用户看到围栏闭合「跳一下」。改为**始终切分**(短内容/无安全切点由 split 内部
+  // 返回 stable='' 兜底),翻转前后 content 不变 ⇒ 子节点结构恒定 ⇒ StableBlock memo
+  // 命中不重渲染、Active 内容亦不变 ⇒ 零重排。代码块变实/运行按钮等「完成态」由
+  // isStreamingCodeRef(粗判,逐块判定未做)驱动,与此翻转无关,无需整体重渲。
+  // 2026-10-29 流式观感档⑦:同区第二刀 —— 上面那格只钉住了「完成翻转」;真身还在
+  // 「流式中途晋升」这格:splitStart 前进把写完的围栏块晋入 stable 前缀时,块要跨
+  // ReactMarkdown 双树迁居。v10 不给块级子节点注入位置键(实测 lib/index.js,只过
+  // URL 属性名),树间无节点迁移、同 index 异 type ⇒ 前缀重排处整列卸载重挂。段落重挂
+  // =原位换字无手感;代码块重挂则折叠 useState 复位、新实例挂载即 collapsed=true
+  // (观感档③ 保持展开沿变设计够不到"重挂载即全新实例")⇒「闭合跳一下」=刚写完的
+  // 代码块瞬间塌回 collapseLines 行。修在渲染层、切分判据零改动:实例级登记簿
+  // noteStreamedCodeText(先记后判;在写尾块与从未见过未闭合围栏的整段重载都不移交),
+  // 晋升新实例凭簿中已有文本领 preserveExpanded 直接展开挂载。历史重载默认折叠设计逐字不变。
+  // splitMarkdownStable / P3 #35 切分规则一字未动 —— 副作用面零外溢。
+  // 已知同族残格(如实交代,本刀不覆盖):① mermaid 图重挂会重走异步渲染闪一拍(缓存
+  // renderedKeyRef 是实例级,晋升重挂同样够不到),要稳需资源级缓存,单列他票;
+  // ② isStreamingCodeRef 粗判在多围栏期间把先完成的块也标"在写",其完成态外观(运行/
+  // 应用按钮)要等本实例下一轮整渲刷新才升级 —— ⑥ 注释"逐块判定"名不副实,已改为粗判并在此钉住。
+  const { stable, active } = React.useMemo(() => splitMarkdownStable(parseContent), [parseContent])
 
   return (
     // 2026-08-02:AI 对话正文 14px → 15px(text-[15px]),用户反馈"太大了 小点"
-    <div className="!m-0 !p-0 !space-y-0 text-[15px]" data-testid="markdown-stream">
+    // 2026-10-28 观感档⑤:流式光标改 CSS ::after 内联尾随(stream-caret-host,定义在
+    // animations.css)——旧 DOM span 挂在容器末尾,块级输出断行让它悬在下一行行首;
+    // 现光标作为最后一个块元素的行内子盒,真·跟在末字符后。DOM 不再渲染 caret 节点。
+    <div
+      className={cn('!m-0 !p-0 !space-y-0 text-[15px]', isStreaming && 'stream-caret-host')}
+      data-testid="markdown-stream"
+    >
       {stable ? (
         <>
           {/* 稳定前缀:内容冻结,memo 命中时零 parse */}
@@ -1187,12 +1289,6 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
         >
           {active}
         </ReactMarkdown>
-      )}
-      {isStreaming && (
-        <span
-          className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-primary align-middle"
-          aria-hidden
-        />
       )}
     </div>
   )

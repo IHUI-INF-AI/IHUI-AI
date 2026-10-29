@@ -11,6 +11,9 @@
 //     一致性**。npm 的自检是在本机工作树上跑的 —— 工作树里 `packages/sdk/LICENSE` 早已被
 //     `prepack` 复制好,所以它永远看不出"仓库根许可证没入库 → CI 干净检出时 prepack 必失败"
 //     这一型;同理它完全不看 python / go / java 三份清单与 CI 声明的坐标是否同名。
+//   - 2026-10-28 补第三维(本席):上面两个入口都**不判 npm 通道的鉴权口径** —— granular token
+//     腿必须在、OIDC/--provenance 失败必须回退。定案出处 AGENTS.md §5f(不启用 2FA、
+//     **永久不登记** Trusted Publisher),判据见文末「npm 通道鉴权口径」两条用例。
 //     这正是本仓守门 72 / 78 反复记过的"本地全绿、出事的是别人"族。
 //
 // 运行:`node --test packages/sdk/tests/publish-ready.test.mjs`
@@ -19,7 +22,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -108,6 +111,46 @@ function headJson(relPath) {
 }
 
 /**
+ * 该路径是否已在索引里(已暂存、可能尚未提交)。
+ * 「下一次提交是否会把这份现场带进 HEAD」的判据只有这一份,不许在别处抄第二遍(§0.6)。
+ * @param {string} relPath 仓库根相对路径(正斜杠)
+ */
+function inIndex(relPath) {
+  try {
+    execFileSync(GIT, ['-c', 'safe.directory=*', 'ls-files', '--error-unmatch', '--', relPath], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 20_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 枚举工作树里 `packages/sdk/src` 下全部 `.ts`(含子目录),返回仓库根相对路径(正斜杠)。
+ * **只用于发现候选** —— 某个源文件到底"发布链拿不拿得到"仍按 HEAD ∪ 索引判;工作树里多出来的
+ * 那一份在干净检出里根本不存在,那正是本文件要抓的一型(见「pack 输入在 HEAD 齐备」用例)。
+ */
+function worktreeSrcFiles() {
+  const out = []
+  const walk = (absDir, relDir) => {
+    for (const ent of readdirSync(absDir, { withFileTypes: true })) {
+      const absChild = resolve(absDir, ent.name)
+      const relChild = `${relDir}/${ent.name}`
+      if (ent.isDirectory()) walk(absChild, relChild)
+      else if (ent.name.endsWith('.ts')) out.push(relChild)
+    }
+  }
+  const srcRoot = resolve(REPO_ROOT, 'packages/sdk/src')
+  if (existsSync(srcRoot)) walk(srcRoot, 'packages/sdk/src')
+  return out.sort()
+}
+
+/**
  * 读一份发布交付文档:默认仍判 HEAD(干净检出),只为「工作树里新建、索引与 HEAD 都还没有」
  * 这一种在飞状态开口 —— 否则新增的 CHANGELOG 在提交前永远被自己的门判红,而发布就绪判据
  * 必须在提交前就能跑通(AGENTS.md §0 第 9 条「判据必须在真跑它的那一刻才成立」)。
@@ -118,19 +161,9 @@ function headJson(relPath) {
 function deliveryDocFile(relPath) {
   const head = headFile(relPath)
   if (head !== null) return head
-  try {
-    execFileSync(GIT, ['-c', 'safe.directory=*', 'ls-files', '--error-unmatch', '--', relPath], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 20_000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    return null
-  } catch {
-    const abs = resolve(REPO_ROOT, relPath)
-    return existsSync(abs) ? readFileSync(abs, 'utf8') : null
-  }
+  if (inIndex(relPath)) return null
+  const abs = resolve(REPO_ROOT, relPath)
+  return existsSync(abs) ? readFileSync(abs, 'utf8') : null
 }
 
 const RELEASE_WORKFLOW = '.github/workflows/release-sdk.yml'
@@ -151,9 +184,9 @@ function withoutYamlComments(text) {
 
 /** 取出 workflow 里 nuget-publish 这个 job 的正文(剥注释后,按 2 空格缩进的 job 键切边界)。 */
 function nugetJobBlock(workflowText) {
-  const body = withoutYamlComments(workflowText)
-  const m = /^ {2}nuget-publish:[\s\S]*?(?=^ {2}[a-z][\w-]*:)/m.exec(body)
-  return m ? m[0] : null
+  // 2026-10-28:切块逻辑收口到 yamlJobBlock(§0.6 单一真相源)—— 同一把尺,job 名参数化,
+  // 剥注释与切边界逐字照旧(等价性由本文件四条 .NET 用例现跑钉住)。
+  return yamlJobBlock(workflowText, 'nuget-publish')
 }
 
 /**
@@ -211,8 +244,8 @@ function assertNetChannelBidirectional(projectFiles, workflowText, channel = '.N
 
 test('npm 清单:发布形态齐备且不外泄内部依赖', () => {
   const pkg = headJson('packages/sdk/package.json')
-  assert.notEqual(pkg.private, true, '@ihui/sdk 仍为 private,任何通道都发不出去')
-  assert.match(String(pkg.name), /^@ihui\/sdk$/, 'npm 包名漂移(CI 的 `npm view` 回读按此名判红)')
+  assert.notEqual(pkg.private, true, '@ihui-ai/sdk 仍为 private,任何通道都发不出去')
+  assert.match(String(pkg.name), /^@ihui-ai\/sdk$/, 'npm 包名漂移(CI 的 `npm view` 回读按此名判红)')
   assert.match(String(pkg.version), /^\d+\.\d+\.\d+/, 'version 必须是合法 semver(tag 解析依赖它)')
 
   // files 白名单:必须同时含编译产物与 Apache-2.0 要求的两份法律文本
@@ -320,6 +353,67 @@ test('prepack 的输入在 HEAD 齐备(仓库根许可证必须入库)', () => {
     assert.notEqual(rootText, null, `仓库根 ${name} 未入库:CI 干净检出时 prepack 必失败`)
     assert.ok(rootText.trim().length > 200, `仓库根 ${name} 内容为空/过短,不是完整法律文本`)
   }
+})
+
+test('pack 输入的其余件在 HEAD 齐备(工程文件 / prepack 脚本 / 全部 src 源文件)', () => {
+  // 上一条只核了仓库根的两份法律文本;prepack 真正吃的输入还有工程文件 tsconfig.json、脚本自身
+  // (`prepack.mjs` 与它 execFile 的 `embed-types.mjs`)以及 `src/**` 全部源文件。
+  // 这几件在**工作树里当然存在**,所以 `check-pkg-installable` 在本机 pack 永远看不出它们没入库
+  // (它 pack 的就是工作树);而 CI 干净检出缺任何一件 = prepack 直接 exit 1,或者更糟 ——
+  // 包照发,但少了一整个模块,本地全绿、出事的是消费者。
+  for (const [rel, why] of [
+    ['packages/sdk/tsconfig.json', 'prepack 的 tsc 找不到工程文件,构建步必红'],
+    [
+      'packages/sdk/scripts/prepack.mjs',
+      'npm publish 的 prepack 钩子本体没入库 ⇒ CI 里根本没有这一步',
+    ],
+    ['packages/sdk/scripts/embed-types.mjs', 'prepack [1b/3] 按路径直接 execFile 它,缺它必红'],
+  ]) {
+    assert.notEqual(headFile(rel), null, `${rel} 未入库:${why}`)
+  }
+
+  const headSrc = headList('packages/sdk/src').filter((p) => p.endsWith('.ts'))
+  assert.ok(headSrc.length > 0, 'HEAD 里 packages/sdk/src 没有任何 .ts —— 发出去的包里没有实现')
+
+  // 方向固定为「工作树有、HEAD 没有」这一侧:那正是"造好了没入库",干净检出拿不到。
+  // 索引里已有(已暂存待提交)不算缺口 —— 下一次提交就会把它带进 HEAD(§0.4 索引面)。
+  const uncommitted = worktreeSrcFiles().filter((p) => !headSrc.includes(p) && !inIndex(p))
+  assert.deepEqual(
+    uncommitted,
+    [],
+    '以下源文件在工作树存在,但既不在 HEAD 也不在索引 —— CI 干净检出时它们不存在,' +
+      `本地 pack 出的包会比仓库少这些模块:\n  - ${uncommitted.join('\n  - ')}`,
+  )
+})
+
+test('装车证明:check:sdk-publish 真指向本文件,且已串入 check:all(读 HEAD 面)', () => {
+  // 本仓反复记过的"造好没装车":门写得再好,没人跑就等于没有(AGENTS.md §0 第 9 条)。
+  // 这条与 `check-pkg-installable` 的分工 —— 那条回答"包能不能装"(工作树 pack),
+  // 这条回答"这道门会不会真被执行"(HEAD 面的接线形状)。两处都是 HEAD 面,故与干净检出同形。
+  const rootPkg = headJson('package.json')
+  const script = String(rootPkg.scripts?.['check:sdk-publish'] ?? '')
+  assert.match(
+    script,
+    /node --test\s+packages\/sdk\/tests\/publish-ready\.test\.mjs/,
+    `根 package.json 的 check:sdk-publish 未指向本文件(现读 "${script}"):改名/改路径即静默失去这道门`,
+  )
+  assert.notEqual(
+    headFile('packages/sdk/tests/publish-ready.test.mjs'),
+    null,
+    '本文件自身未入库 —— check:sdk-publish 在干净检出里会直接 exit 1',
+  )
+  const runner = headFile('scripts/all-checks-runner.mjs')
+  assert.notEqual(runner, null, 'scripts/all-checks-runner.mjs 缺失,check:all 无从串接')
+  assert.ok(
+    runner.includes("'pnpm check:sdk-publish'"),
+    'check:sdk-publish 未串入 check:all(all-checks-runner.mjs 的子步骤清单里没有它)',
+  )
+  // 串进一枚没人执行的清单不算装车:check:all 自身必须仍指向那个编排器。
+  assert.match(
+    String(rootPkg.scripts?.['check:all'] ?? ''),
+    /all-checks-runner/,
+    '根 package.json 的 check:all 未指向 all-checks-runner.mjs —— "串入 check:all"只是一句空话',
+  )
 })
 
 test('包内 LICENSE / NOTICE 按设计不入库(避免法律文本漂移的第二份真相)', () => {
@@ -464,6 +558,31 @@ test('版本与 CHANGELOG 口径一致(发布物不得带着过期变更日志)'
     String(pkg.version),
     `CHANGELOG 最新版本 ${versions[0]} ≠ package.json ${pkg.version} —— 发布列车与变更日志已分叉`,
   )
+})
+
+test('对外承诺随包可读:CHANGELOG 入发布白名单,README 四段自述在位', () => {
+  // 上一条只判"仓库里的 CHANGELOG 与版本同口径",结构上看不见"消费者装到手的包里有没有它" ——
+  // files 白名单漏一个条目,发布物就把变更日志/承诺段整个丢掉(本仓"造好没装车"的发布物形态)。
+  const pkg = headJson('packages/sdk/package.json')
+  assert.ok(
+    (pkg.files ?? []).includes('CHANGELOG.md'),
+    'files 未含 CHANGELOG.md —— 装到手的包看不到变更记录,版本化承诺缺一角',
+  )
+  const readme = headFile('packages/sdk/README.md')
+  assert.notEqual(readme, null, 'packages/sdk/README.md 未入库 —— 对外承诺无处可查')
+  // 每段锚最具体可核的一条:只有标题没有要点 = 空头承诺,同样判红。
+  for (const [needle, why] of [
+    ['## 版本与稳定性', '缺版本策略/稳定性承诺段(SemVer 语义、兼容面、弃用策略无人知晓)'],
+    ['Semantic Versioning', '版本与稳定性段未点名 SemVer'],
+    ['Deprecated', '版本与稳定性段未写弃用策略'],
+    ['## 遥测与隐私', '缺遥测声明 —— 消费者无从知晓 SDK 是否回传数据'],
+    ['零遥测', '遥测段未给出零遥测承诺'],
+    ['### 限流与 429', '缺限流段 —— 429 处理策略未对外说明'],
+    ['retryAfterMs', '限流段未点名 Retry-After 透出面,调用方无法自适应退避'],
+    ['设置 → API Keys', '鉴权段缺 API Key 获取指引(新用户第一公里)'],
+  ]) {
+    assert.ok(readme.includes(needle), `README 缺 "${needle}" —— ${why}`)
+  }
 })
 
 test('PyPI 随包附带 Apache-2.0 声明(与 npm 通道同标准)', () => {
@@ -788,8 +907,8 @@ test('通道就绪性台账:通道集↔CI job 集↔清单坐标三面双向对
 test('通道台账·变异对照:四类假账必须被结构判据点名(判据有牙证明)', () => {
   const jobs = ['npm-publish', 'pypi-publish', 'maven-publish', 'nuget-publish', 'go-publish']
   const coordinates = {
-    npm: '@ihui/sdk',
-    npmUrlNeedle: '@ihui%2Fsdk',
+    npm: '@ihui-ai/sdk',
+    npmUrlNeedle: '@ihui-ai%2Fsdk',
     pypi: 'ihui-ai',
     mavenGroupPath: 'com/ihui',
     mavenArtifact: 'ihui-ai-java',
@@ -804,8 +923,8 @@ test('通道台账·变异对照:四类假账必须被结构判据点名(判据�
         status: 'blocked-by-credential',
         blocker: 'secrets 缺 NPM_TOKEN(gh 实测)',
         unblockAction: '生成 Automation token 并 gh secret set',
-        verifyCommand: 'npm view @ihui/sdk version',
-        probe: { kind: 'http-status', url: 'https://registry.npmjs.org/@ihui%2Fsdk' },
+        verifyCommand: 'npm view @ihui-ai/sdk version',
+        probe: { kind: 'http-status', url: 'https://registry.npmjs.org/@ihui-ai%2Fsdk' },
         ...over.npm,
       },
       {
@@ -969,21 +1088,21 @@ test('@ihui/api-client 摘掉 private 即必须当场过发布前置(workspace �
  * 首版 `publishPreconditionFailures` 把 **devDependencies** 一起扫进"workspace: ⇒ 发出去即装不到"。
  * 那是判据错:发布时 devDependencies 被整个剥掉,workspace 协议写在那里进不了 tarball。
  * 后果可实测且是一台恒红门 —— 本仓每个包都带 workspace 形态的内部 devDeps,而**已经摘了
- * private 的 @ihui/sdk** 正是这个形态;不收窄,则"摘 private"这个动作对所有包都必然红,
+ * private 的 @ihui-ai/sdk** 正是这个形态;不收窄,则"摘 private"这个动作对所有包都必然红,
  * 唯一出路是把供类型面使用的内部依赖删掉(删了就打不到类型)。
  * 载体刻意取自真实入库文件(sdk 清单),而不是自造夹具 —— §22c:镜像只复读实现就是复读机。
  */
-test('廉价前置只看会发布的三个字段:workspace 形态的内部 devDeps 不得判红(真载体 @ihui/sdk)', async () => {
+test('廉价前置只看会发布的三个字段:workspace 形态的内部 devDeps 不得判红(真载体 @ihui-ai/sdk)', async () => {
   const mod = await import(
     new URL('../../../scripts/check-sdk-release-channels.mjs', import.meta.url).href
   )
   const fail = mod.publishPreconditionFailures
   const raw = headFile('packages/sdk/package.json')
-  assert.ok(raw !== null, 'HEAD 里读不到 @ihui/sdk 清单 —— 判不了不是通过')
+  assert.ok(raw !== null, 'HEAD 里读不到 @ihui-ai/sdk 清单 —— 判不了不是通过')
   const sdk = JSON.parse(raw)
   // 前提自证:这份真实清单确实"非 private + 带 workspace devDeps + 版本已定",
   // 否则本条就退化成一句空调用(判据的载体没了还报绿,是本仓反复记过的那一型)。
-  assert.notEqual(sdk.private, true, '@ihui/sdk 应已非 private(本条的前提)')
+  assert.notEqual(sdk.private, true, '@ihui-ai/sdk 应已非 private(本条的前提)')
   assert.match(
     JSON.stringify(sdk.devDependencies ?? {}),
     /workspace:/,
@@ -1005,5 +1124,134 @@ test('廉价前置只看会发布的三个字段:workspace 形态的内部 devDe
   // optionalDependencies 同视(与 check-pkg-installable 判据 5 的字段口径逐字同一组,两把尺子不得各量一段)
   const optionalBad = { version: '1.0.0', optionalDependencies: { '@ihui/types': 'workspace:*' } }
   assert.equal(fail(optionalBad).length, 1, 'optionalDependencies 里的 workspace 也必须判红')
+})
+
+// ───────────── npm 通道鉴权口径(用户定案的机器账) ─────────────
+// 定案(AGENTS.md §5f「npm 发布不启用 2FA」,2026-10-19,永久有效):**不登记 Trusted
+// Publisher**,发布一律靠 granular token(CI 侧 = `secrets.NPM_PUBLISH_TOKEN`);`--provenance`
+// 只是前向兼容尝试,失败必须自动回退 token。
+// 立因:本文件此前 0 处判据碰这一维(实测 `git grep NPM_PUBLISH_TOKEN -- scripts/ packages/sdk/`
+// 代码面 0 命中),于是存在一条静默失效路径 —— 有人把 release-sdk.yml 的回退腿删掉、只留
+// `npm publish --provenance`(看起来更"先进"),npm 通道就此变成"只有登记 trusted publisher
+// 才发得出去";而按定案 publisher 永不登记 ⇒ 通道结构性不可发布,本地门却全绿,因为口径
+// 只写在 YAML 注释里(第 400-401 行)。**注释不构成接线**与本文件 .NET 变异对照 B 同族,
+// 所以这一维必须自带假绿对照。
+// 刻意**不**判 `id-token: write` 的存废 —— 那是前向兼容的合法配置,判它就是把绿门改红。
+
+/**
+ * 按 2 空格缩进的 job 键切出某 job 的正文(剥 YAML 整行注释后)—— 与 nugetJobBlock 同一把尺,
+ * 只是 job 名参数化(不复制第二份切块逻辑,§0.6)。
+ * @param {string} workflowText release-sdk.yml 全文
+ * @param {string} jobKey 形如 npm-publish
+ * @returns {string|null} 该 job 键不存在时 null
+ */
+function yamlJobBlock(workflowText, jobKey) {
+  const body = withoutYamlComments(workflowText)
+  const m = new RegExp(`^ {2}${jobKey}:[\\s\\S]*?(?=^ {2}[a-z][\\w-]*:)`, 'm').exec(body)
+  return m ? m[0] : null
+}
+
+/**
+ * npm 发布鉴权口径的纯判据(输入 = 已剥注释的 job 正文;变异对照因此不碰 git 也不碰磁盘)。
+ * @param {string|null} jobText
+ * @returns {string[]} 错误清单(空 = 合规)
+ */
+function npmPublishAuthFailures(jobText) {
+  if (typeof jobText !== 'string' || !jobText.trim())
+    return ['npm-publish job 正文取不到 —— 鉴权口径判不了,不得当成通过(§0.3 未判定不记绿)']
+
+  const publishes = jobText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => /\bnpm publish\b/.test(l))
+  if (publishes.length === 0)
+    return ['npm-publish job 里没有任何 npm publish 调用 —— 载体丢失,本条不得报绿']
+
+  const errors = []
+  if (!jobText.includes('secrets.NPM_PUBLISH_TOKEN'))
+    errors.push(
+      '未取 secrets.NPM_PUBLISH_TOKEN —— granular token 是本项目唯一的发布鉴权(AGENTS §5f 定案),' +
+        '换成 OIDC 专用凭据即把通道绑到"永久不登记的 trusted publisher"上',
+    )
+  if (!/_authToken=/.test(jobText))
+    errors.push(
+      'token 未写进 npm 配置(缺 //registry.npmjs.org/:_authToken 落盘)—— 引用了 secret 却没接线',
+    )
+
+  // 纯 token 发布腿:既不带 --provenance(那是 OIDC 尝试)也不带 --dry-run(那根本不是发布)。
+  const tokenLeg = publishes.filter((l) => !/--provenance|--dry-run/.test(l))
+  if (tokenLeg.length === 0)
+    errors.push('缺一条不带 --provenance 的 npm publish(纯 token 发布腿)—— 唯一出路只剩 OIDC')
+
+  const provLeg = publishes.filter((l) => /--provenance/.test(l))
+  if (provLeg.length > 0) {
+    if (!/^\s*if\b.*--provenance/m.test(jobText))
+      errors.push(
+        '--provenance 是无条件执行 —— OIDC 失败即 job 红,等于强制要求登记 trusted publisher',
+      )
+    else if (!/^\s*(elif|else)\b/m.test(jobText))
+      errors.push('--provenance 的 if 之后没有 elif/else 分支 —— 回退腿不可达')
+  }
+
+  if (!/::error::/.test(jobText) || !/exit 1/.test(jobText))
+    errors.push(
+      '无凭据时未显式判红(缺 ::error:: 与 exit 1)—— "没配 token 就静默跳过"会把未发布印成绿',
+    )
+  return errors
+}
+
+test('npm 通道鉴权口径:granular token 腿必须与 OIDC 尝试并存(不启用 2FA / 永不登记 trusted publisher 的机器账)', () => {
+  const workflow = headFile(RELEASE_WORKFLOW)
+  assert.notEqual(workflow, null, `${RELEASE_WORKFLOW} 缺失 —— 没有 workflow 就无从判鉴权`)
+  const job = yamlJobBlock(workflow, 'npm-publish')
+  assert.notEqual(job, null, 'HEAD 的 release-sdk.yml 里没有 npm-publish job 键 —— 前提先破')
+  const errors = npmPublishAuthFailures(job)
+  assert.deepEqual(errors, [], `npm 发布鉴权口径不合:\n  - ${errors.join('\n  - ')}`)
+})
+
+test('npm 鉴权口径·变异对照:三种"把通道绑到 trusted publisher"的改法必须判红', () => {
+  const workflow = headFile(RELEASE_WORKFLOW)
+  const job = yamlJobBlock(workflow ?? '', 'npm-publish')
+  // 夹具基线自证:HEAD 真身必须先过,否则下面的红可能是夹具的锅。
+  assert.deepEqual(
+    npmPublishAuthFailures(job),
+    [],
+    '前提不成立:HEAD 本体过不了自己的鉴权判据 —— 先看上一条的点名,别改判据',
+  )
+
+  // ① 只留 OIDC、整条回退腿删掉(最像"改进"的那一改法)。
+  const oidcOnly = [
+    '  npm-publish:',
+    '    needs: [extract, gate]',
+    '    run: |',
+    '      npm publish --access public --provenance',
+    '    env:',
+    '      NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}',
+    '  pypi-publish:',
+  ].join('\n')
+  assert.match(
+    npmPublishAuthFailures(oidcOnly).join('\n'),
+    /纯 token 发布腿/,
+    '① 未点名缺纯 token 腿',
+  )
+
+  // ② granular token 被换成 OIDC 专用凭据(GITHUB_TOKEN)。
+  const noGranular = (job ?? '').replace(/secrets\.NPM_PUBLISH_TOKEN/g, 'secrets.GITHUB_TOKEN')
+  assert.match(
+    npmPublishAuthFailures(noGranular).join('\n'),
+    /NPM_PUBLISH_TOKEN/,
+    '② 未点名"未取 granular token"',
+  )
+
+  // ③ 接线只写在注释里(与本文件 .NET 变异对照 B 同族的假绿型)。
+  const commentOnly = (job ?? '')
+    .split(/\r?\n/)
+    .map((l) => (/^\s*$|^ {2}npm-publish:/.test(l) ? l : l.replace(/^(\s*)/, '$1# ')))
+    .join('\n')
+  assert.notDeepEqual(
+    npmPublishAuthFailures(yamlJobBlock(commentOnly, 'npm-publish')),
+    [],
+    '③ 注释里写全了也算红:剥掉 YAML 注释后 job 正文不得残留任何"看起来接了线"的结论',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

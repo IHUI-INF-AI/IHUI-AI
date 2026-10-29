@@ -118,6 +118,15 @@ describe('csrf — 双提交 Cookie 模式', () => {
     // github-app-webhook.test.ts)。matchesPrefix 是段边界前缀语义:精确命中 +
     // `entry/` 开头的子路径命中;**兄弟路由不连带** —— 用兄弟路径钉死这一点。
     server.post('/api/github-app/webhook', async (_req, reply) => reply.send({ ok: true }))
+    // 短信厂商回调桩(2026-10-27):本测只证 CSRF 层放行到哪三条;token/IP 白名单那两道
+    // 住在真实路由里(fail-closed 回 503),由 tests/sms-compliance.test.ts 覆盖。
+    for (const p of [
+      '/api/sms/callback/tencent',
+      '/api/sms/callback/tencent/status',
+      '/api/sms/callback/tencent/reply',
+    ]) {
+      server.post(p, async (_req, reply) => reply.send({ ok: true }))
+    }
     await server.ready()
   })
 
@@ -304,6 +313,29 @@ describe('csrf — 双提交 Cookie 模式', () => {
       const res = await server.inject({
         method: 'POST',
         url: '/api/github-app/installations',
+        payload: {},
+      })
+      expect(res.statusCode).toBe(403)
+      expect(res.json().message).toContain('CSRF')
+    })
+
+    it('短信回调三条已登记路径逐一豁免(服务器到服务器投递不带 CSRF token)', async () => {
+      for (const url of [
+        '/api/sms/callback/tencent',
+        '/api/sms/callback/tencent/status',
+        '/api/sms/callback/tencent/reply',
+      ]) {
+        const res = await server.inject({ method: 'POST', url, payload: {} })
+        expect(res.statusCode, url).toBe(200)
+      }
+    })
+
+    it('豁免不连带兄弟族:/api/sms/callback/ 下未登记的路径仍被 CSRF 拦(2026-10-27 由前缀改按路径登记)', async () => {
+      // 反例即本档改动前的形态:豁免表里写的是 '/api/sms/callback/' 前缀,这条兄弟路径
+      // 会被一起放过 ⇒ 摘掉改判(退回前缀)本用例当场翻红。
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/sms/callback/tencent-forwarder',
         payload: {},
       })
       expect(res.statusCode).toBe(403)

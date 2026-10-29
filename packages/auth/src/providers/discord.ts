@@ -28,6 +28,8 @@ interface DiscordUser {
   global_name?: string | null
   avatar?: string | null
   email?: string | null
+  /** Discord 邮箱验证位( /users/@me 的 verified 字段) */
+  verified?: boolean | null
   discriminator?: string
 }
 
@@ -124,6 +126,9 @@ export function createDiscordProvider(config: DiscordProviderConfig): OAuthProvi
         openId: user.id,
         nickname: user.global_name ?? user.username,
         email: user.email ?? undefined,
+        // verified = Discord 邮箱验证位。调用方(自动关联已有同邮箱账号)必须以它为准,
+        // 未验证的邮箱声明不构成归属证明。
+        emailVerified: user.verified === true,
         avatar: buildDiscordAvatarUrl(user.id, user.avatar),
       }
     },

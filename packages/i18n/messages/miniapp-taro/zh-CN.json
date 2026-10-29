@@ -150,6 +150,7 @@
     "googleNotConfigured": "Google 登录未配置,请在 .env 设置 EXPO_PUBLIC_GOOGLE_CLIENT_ID。",
     "sdkPending": "{name} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用\"智汇AI网页授权登录\"按钮跳转网页端授权。",
     "agree": "同意",
+    "webAuthLogin": "网页授权登录",
     "agreeTermsTitle": "确认同意服务条款"
   },
   "forgot": {
@@ -6719,6 +6720,12 @@
     "unknownLecturer": "未知讲师",
     "viewCount": "{count} 次观看"
   },
+  "scanLogin": {
+    "menuTitle": "扫一扫",
+    "invalidCode": "请扫本站登录二维码",
+    "success": "已确认登录",
+    "failed": "确认失败，请重试",
+    "needLogin": "请先登录后再扫码"
   "skillsMarket": {
     "noRatings": "暂无评分",
     "detailTitle": "技能详情",

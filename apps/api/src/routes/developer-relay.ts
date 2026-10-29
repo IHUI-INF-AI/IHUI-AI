@@ -30,6 +30,7 @@ import { paginationSchema } from './admin/_shared.js'
 import { rechargeApiKeyFromWallet } from '../services/relay-billing-service.js'
 import { createMapping, listMappings } from '../services/model-mapping-service.js'
 import { redeemCode } from '../services/redemption-code-service.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { idParamSchema } from './admin/_shared.js'
 import {
   createKey,
@@ -264,6 +265,11 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
   server.post('/developer/relay/keys/:id/reset', async (request, reply) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
+    // 2FA step-up 闸：已开 2FA 的账号，轮换并重新下发 secret 前须有窗内二次验证
+    const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!stepUp.ok) {
+      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+    }
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     try {

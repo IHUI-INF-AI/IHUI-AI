@@ -33,6 +33,8 @@
  * `archiveOwnerFor` 表里 ⇒ 一律返回空集 ⇒ 调用方退回 `lost`(宁可多插回一份让人复核,
  * 绝不把真吃掉的正文洗成"已归档")。这与 §0.10「失效方向必须是多要一次定向说明」同一条禁令。
  */
+import { readFileSync, readdirSync } from 'node:fs'
+import { join as pathJoin } from 'node:path'
 import { archiveOwnerFor } from './live-doc-classify.mjs'
 import { parseArchivePlaceholders, placeholderKeyOfTitle } from './ledger-move-aware.mjs'
 import { parseCompletedTaskBlocks } from './plan-task-headings.mjs'
@@ -210,5 +212,73 @@ export function archiveDropCaps(oursText, movedOut) {
   return caps
 }
 
-export const __test__ = { norm }
+/* ══ 处置侧取材出口(2026-10-28 立,票 gb22「活文档被体积清偿压好后又被归并档原样拉回」)══════════
+ *
+ * 立因(2026-10-28 实测,不是推断):`merge-live-doc --apply` 把 11:40 清偿好的 AGENTS.md 从
+ * 95336 字节又顶回 102352(盘上备份件 `.ihui-agent/tmp/AGENTS.md.2026-10-28T03-51-57.pre-merge.bak`)。
+ * 量到两处取材面错位,都在**调用方**,判据本身没错:
+ *   缺陷甲 —— 归档件清单只取 HEAD 面(`git ls-tree -r HEAD`):而 §1 的合法出路是"先把正文整区逐字
+ *            写进 `.ihui-agent/archive/`,再把文档压下来",迁出批次落盘与落库之间有实测量级的一刻半
+ *            窗口(11:40 写 → 11:54 入库)。窗口内该件在盘上、不在 HEAD 面 ⇒ 凭据为 0 ⇒ 判 lost ⇒ 插回。
+ *            实测:事故那一轮同族 HEAD 件 19 份里没有 10-28 批次,30 行差集里 **24 行无凭据**。
+ *   缺陷乙 —— `oursText` 传的是 **HEAD 正文**:那份旧正文按定义逐字含着刚被搬走的行,于是"整篇复制件"
+ *            判别(②)拿旧正文一比 ⇒ 10-28 批次 overlap=**0.515 ≥ SNAPSHOT_OVERLAP(0.5)** ⇒ 被判复制件、
+ *            连补上磁盘清单也救不回来(实测 E 档仍 24 行无凭据)。②问的是"这份归档件是不是本文件的
+ *            复制件",而"复制件"是相对**行使处置权的那一份**而言的 —— 用旧 HEAD 当基准,等于把
+ *            "刚搬走还没入库"这件事本身判成"这就是全文复制"。
+ *
+ * 所以本出口把两件事一次定死:清单 = 调用方那一面 ∪ 磁盘归档目录(逐文件名,不递归、不跟随链接);
+ * 基准正文 = **处置侧文本**(清偿后那份工作树快照)。判据一条都不新写(同族表 / 两条快照判别 /
+ * 通配指针不受理 / MIN_MOVED_LINE 全部仍走 `selectMovedOut`,§0.6 单一真相源)。
+ *
+ * **失效方向恒为"多留一份"**:磁盘目录不在位 / 读不到 ⇒ 只用调用方那一面;某份读不到 ⇒ 该份不构成
+ * 凭据(lib 逐份点名);处置侧文本取不到或为空 ⇒ `selectMovedOut` 返回 `ok:false` 或空集 ⇒ 调用方
+ * 一条都不许扣。绝不允许反向(把别人真加回来的行当成"已归档"吞掉)。
+ */
+
+/** 磁盘上的归档件路径(只列 `ARCHIVE_REL` 直属一层的 `.md`;不递归、不跟随 reparse point)。 */
+function diskArchiveFiles(root) {
+  const out = []
+  try {
+    const dir = pathJoin(root, ARCHIVE_REL)
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      if (!ent.isFile() || !ent.name.endsWith('.md')) continue
+      out.push(`${ARCHIVE_REL}/${ent.name}`)
+    }
+  } catch {
+    return [] // 目录不在位(新克隆 / 隔离夹具)⇒ 一份也不构成凭据,但不否掉调用方那一面
+  }
+  return out
+}
+
+/**
+ * 处置侧凭据装配:`selectMovedOut(文档, 调用方那一面 ∪ 磁盘面, 处置侧正文)`。
+ *
+ * @param {string} root 仓根(由调用方自身位置推导,不 `process.cwd()`,§15)
+ * @param {string} docRel 活文档相对路径(同族判别仍走 `archiveOwnerFor`,本函数不写第二份表)
+ * @param {Array<{path:string,text:string|null}>} faceFiles 调用方已按某个提交/索引面取到的归档件
+ * @param {string} dispositionText 行使处置权的那一份正文(实测 = 归并前的工作树快照)
+ * @returns {ReturnType<typeof selectMovedOut>} 与 `selectMovedOut` 同一形状(ok=false ⇒ 调用方退回原判据)
+ */
+export function selectMovedOutForDisposition(root, docRel, faceFiles, dispositionText) {
+  const byPath = new Map()
+  for (const f of Array.isArray(faceFiles) ? faceFiles : []) {
+    const p = String(f?.path ?? '')
+    if (p) byPath.set(p, { path: p, text: typeof f?.text === 'string' ? f.text : null })
+  }
+  for (const p of diskArchiveFiles(root)) {
+    const cur = byPath.get(p)
+    if (cur && cur.text !== null) continue // 面里已取到正文 ⇒ 不重读磁盘(同面同轮优先)
+    let text = null
+    try {
+      text = readFileSync(pathJoin(root, p), 'utf8')
+    } catch {
+      text = null // 读不到 ⇒ 该份不构成凭据,由 lib 逐份点名,绝不静默当成"没有归档行"
+    }
+    byPath.set(p, { path: p, text })
+  }
+  return selectMovedOut(docRel, [...byPath.values()], dispositionText)
+}
+
+export const __test__ = { norm, diskArchiveFiles }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

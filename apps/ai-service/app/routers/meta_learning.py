@@ -74,6 +74,34 @@ async def trigger_now() -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
 
 
+@router.post("/refresh")
+async def refresh_memory_source() -> dict[str, Any]:
+    """控制帧 `refresh_memory`:强制重扫持久化记忆源(2026-10-28 立)。
+
+    竞品原帧语义(2026-09 取证,docs/benchmark-evidence/2026-09/qoder-control-frames.md
+    第 26 行):`async refreshMemory(){await this.requireSdkMemoryEnabled(),
+    await this.request({type:"refresh_memory"})}` —— 即**宿主显式调用 + 必须回报结果**,
+    不是「后台自己会刷新」的承诺。判据:调用方拿得到刷新前后的差异。
+
+    与 `GET /status`(只读聚合)的分工:status 只报当前内存态;refresh 真的**再打一次
+    持久化源**并把差额算出来(added/removed/changed)。差别不是措辞 —— 差别是
+    「用户在外面改了记忆文件,agent 什么时候才看得到」。
+
+    **读失败 ≠ 空**:重扫失败时返回 `refreshed:false` + error 载荷 + loadState,
+    绝不把「读不到」报成「没有记忆」(G-748 同型口径),且**保留刷新前的内存态**,
+    免得一次瞬时 DB 故障把已缓存的 lessons 冲成空。
+
+    Returns:
+        `{"refreshed": bool, "added": [...], "removed": [...], "changed": [...],
+        "unchanged": int, "before": int, "totalLessons": int, "loadState": str}`
+        失败时 `{"refreshed": false, "error": str, ...}`(HTTP 200,不抛 ——
+        挂在帧处理器上,绝不能向上抛导致调用方拿不到原因)。
+    """
+    from app.services.memory_facade import memory_refresh
+
+    return await memory_refresh()
+
+
 @router.get("/agent-failures")
 async def get_agent_failures(limit: int = 50) -> dict[str, Any]:
     """聚合 Agent 失败与恢复数据(L5-5/L5-6 配套,2026-08-12 立)。

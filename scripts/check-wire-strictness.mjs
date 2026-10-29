@@ -50,7 +50,16 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 // 逐行核对均为「控制面 .strict() 收紧 + 装饰性载荷 .optional().catch(undefined) 降级」的正当形态
 // —— 恰是本门判据倡导的二分正向样本,非 .passthrough()/looseObject 剥离面,无任何未清偿红。
 // 接链守门(2026-09-30)按当次真值吸收,head 树统计 91 = 工作树统计 91,期间零业务改动。
-const BASELINE_TOTAL = 91
+//
+// [2026-10-28 基线吸收 91→93] 增量 2 处全部来自 threat-detector.ts(提交 16eb460634「运行时威胁事件
+// 接管理员告警」),逐行核对为本门判据**管不到**的形态:两处均为 fire-and-forget 告警投递的
+// Promise `.catch((e) => logger.warn(...))`(封禁/监控两条互斥分支各一枚,失败留痕不阻塞主流程,
+// 属 §5e「告警送达判定」要求),既非 zod 的 `.strict()`/`.catch()` 降级算子,也不构成剥离面:
+// 同批核过 z.object 与 .strict 计数自 18d8b710ac 起一处未增(逐文件差实测只有该文件 0→2)。
+// 门内正则对 Promise `.catch(` 无差别计数是本门已知宽口径(现有 93 里另有 28 处同类),本次按
+// 「增量走人审后吸收」处理,不因消红改写调用点写法、不换 .passthrough()/looseObject、不动判据面。
+// 若将来把计数口径收窄到 zod 语境,应同批把基线降到收窄后的真值(实测仅含 zod 导入的文件合计 63)。
+const BASELINE_TOTAL = 93
 
 const SCAN_ROOTS = ['apps/api/src/plugins', 'packages/shared/src']
 const EXTENSIONS = /\.(ts|tsx)$/

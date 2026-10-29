@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
+import { isDevelopmentRuntime } from '../config/index.js'
 import { readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -23,6 +24,7 @@ import {
   orders,
 } from '@ihui/database'
 import { requireAuth } from '../plugins/require-permission.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { createOrder } from '../db/payment-queries.js'
@@ -387,6 +389,23 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // 2FA step-up：已开 2FA 的账号，签发长期凭据前必须有窗内二次验证（会话被窃 ⇒ 拿不到 key）。
+    // 未开 2FA 的账号逐字不变；判不出账号状态一律拒。文案直接给出下一步端点，
+    // 因为这条会被脚本/curl 调用命中，光说"需要验证"没人知道要做什么。
+    const gate = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!gate.ok) {
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            gate.code === 'STEP_UP_REQUIRED'
+              ? '签发 API Key 需要二次验证：请先调用 POST /api/auth/2fa/step-up 提交当前验证码（有效窗 5 分钟）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            gate.code,
+          ),
+        )
+    }
     const { expiresAt, ...quota } = parsed.data
     noteDeprecatedKeyFields(reply, request.body)
     const { apiKey, secret } = await apiKeysService.createKey(userId, {
@@ -474,7 +493,8 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       },
       request.userId ?? null,
     )
-    if (process.env.NODE_ENV === 'development') {
+    // 档位判定走 config 出口(安全分支禁裸读 NODE_ENV,守门语义见 config/index.ts 头注)
+    if (isDevelopmentRuntime) {
       await activateDeveloperSubscription({
         userId,
         pricingId: pricing.id,
@@ -636,48 +656,73 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /withdrawals — 发起提现申请(冻结余额 + 记录 opType=1 负向流水)
-  server.post('/withdrawals', async (request, reply) => {
-    const userId = request.userId!
-    const parsed = withdrawBodySchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { amount } = parsed.data
+  server.post(
+    '/withdrawals',
+    // 资金型端点补限速(2026-10-27):此前零逐路由配额,可与余额检查并行轰炸
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const userId = request.userId!
+      // 2FA step-up 闸：已开 2FA 的账号，敏感操作前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
+      const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+      if (!stepUp.ok) {
+        return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      }
+      const parsed = withdrawBodySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { amount } = parsed.data
 
-    const [margin] = await db
-      .select()
-      .from(userMargins)
-      .where(eq(userMargins.userId, userId))
-      .limit(1)
-    const balance = margin?.tokenQuantity ?? 0
-    const frozen = margin?.frozenQuantity ?? 0
-    const available = balance - frozen
-    if (available < amount) {
-      return reply.status(400).send(error(400, '可用余额不足'))
-    }
-
-    if (margin) {
-      await db
-        .update(userMargins)
-        .set({ frozenQuantity: margin.frozenQuantity + amount, updatedAt: new Date() })
-        .where(eq(userMargins.userId, userId))
-    } else {
-      await db.insert(userMargins).values({ userId, tokenQuantity: 0, frozenQuantity: amount })
-    }
-
-    const [flow] = await db
-      .insert(tokenFlows)
-      .values({
-        userId,
-        opType: 1,
-        quantity: -amount,
-        balanceAfter: balance - amount,
-        remark: '提现申请',
-      })
-      .returning()
-
-    return reply.status(201).send(success({ flow, status: 'pending' }))
-  })
+      // 2026-10-27 原子化:原实现「先读后算再写」且无事务无行锁 —— N 个并行请求全部通过
+      // `available < amount` 检查后各自叠加冻结,同一笔余额被重复冻结/提走;且流水 INSERT 在
+      // 事务外(冻结成功而流水缺失 = 对账黑洞)。对齐 relay-billing-service 的既有样板:
+      // db.transaction + SELECT ... FOR UPDATE 行锁,余额检查、冻结、流水同生共死。
+      try {
+        const flow = await db.transaction(async (tx) => {
+          const [margin] = await tx
+            .select()
+            .from(userMargins)
+            .where(eq(userMargins.userId, userId))
+            .for('update')
+            .limit(1)
+          const balance = margin?.tokenQuantity ?? 0
+          const frozen = margin?.frozenQuantity ?? 0
+          if (balance - frozen < amount) {
+            throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
+          }
+          if (margin) {
+            await tx
+              .update(userMargins)
+              .set({ frozenQuantity: frozen + amount, updatedAt: new Date() })
+              .where(eq(userMargins.userId, userId))
+          } else {
+            await tx
+              .insert(userMargins)
+              .values({ userId, tokenQuantity: 0, frozenQuantity: amount })
+          }
+          const [created] = await tx
+            .insert(tokenFlows)
+            .values({
+              userId,
+              opType: 1,
+              quantity: -amount,
+              balanceAfter: balance - amount,
+              remark: '提现申请',
+            })
+            .returning()
+          return created
+        })
+        return reply.status(201).send(success({ flow, status: 'pending' }))
+      } catch (e) {
+        const statusCode = (e as { statusCode?: number }).statusCode ?? 500
+        if (statusCode < 500) {
+          return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+        }
+        request.log.error(e)
+        return reply.status(500).send(error(500, '发起提现失败'))
+      }
+    },
+  )
 
   // =============================================================================
   // G-962 批 4a(C 组):开发者控制台补面(#54-63、#65、#101;#64 versions 残段移交)

@@ -50,7 +50,7 @@ export interface AnnotationShape {
 }
 
 /** 标注配色(画布值 + 调色板色块 class;色块不用 inline style,保持单一视觉源头) */
-export const ANNOTATION_COLORS = [
+const ANNOTATION_COLORS = [
   { value: '#ef4444', className: 'bg-red-500' },
   { value: '#f59e0b', className: 'bg-amber-500' },
   { value: '#22c55e', className: 'bg-emerald-500' },
@@ -58,7 +58,7 @@ export const ANNOTATION_COLORS = [
   { value: '#111827', className: 'bg-neutral-900' },
 ] as const
 
-export const ANNOTATION_LINE_WIDTHS = [2, 4, 8] as const
+const ANNOTATION_LINE_WIDTHS = [2, 4, 8] as const
 
 const DEFAULT_COLOR = '#ef4444'
 const DEFAULT_LINE_WIDTH = 4

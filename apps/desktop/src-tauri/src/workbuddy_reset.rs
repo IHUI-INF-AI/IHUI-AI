@@ -1117,9 +1117,15 @@ pub async fn workbuddy_reset_plan(
 
 #[tauri::command(async)]
 pub async fn workbuddy_reset_maintenance(
+    app: tauri::AppHandle,
     kill_running: bool,
     on_progress: Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
+    crate::require_native_confirm(
+        &app,
+        "WorkBuddy 维护清理",
+        "将清理本机 WorkBuddy 维护面数据(含运行中进程处理)。确认执行?",
+    )?;
     let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
     sanity_check_root(&root).map_err(|e| IpcError::permission(e))?;
     tauri::async_runtime::spawn_blocking(move || {

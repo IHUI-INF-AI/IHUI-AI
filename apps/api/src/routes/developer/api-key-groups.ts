@@ -35,6 +35,7 @@ import {
   getUserApiKeyInGroup,
   createInvite,
   acceptInvite,
+  isKeyOwnedBy,
   rechargeGroupBalance,
 } from '../../services/api-key-group-service.js'
 
@@ -146,14 +147,13 @@ const developerApiKeyGroupsRoutes: FastifyPluginAsync = async (server) => {
           .orderBy(desc(developerApiKeys.createdAt))
           .limit(1)
         ownerApiKeyId = latestKey?.id
-      } else {
-        // 校验 apiKeyId 属于当前用户
-        const [keyRow] = await dbRead
-          .select({ id: developerApiKeys.id })
-          .from(developerApiKeys)
-          .where(eq(developerApiKeys.id, ownerApiKeyId))
-          .limit(1)
-        if (!keyRow) return reply.status(400).send(error(400, '指定的 API Key 不存在'))
+      } else if (!(await isKeyOwnedBy(ownerApiKeyId, userId))) {
+        // 2026-10-27 越权修正:这一段注释自称「校验 apiKeyId 属于当前用户」,但查询里
+        // 只有 eq(id, ownerApiKeyId) —— 证明的是"这行存在",不是"这行是你的"。任意登录
+        // 用户可把受害者 Key 以 role='owner' 写进自己的组,此后该 Key 的计费/限流/可用
+        // 模型口径全部由攻击者的组决定(relay-billing-service.getKeyGroup)。
+        // 状态码与文案维持"不存在"原样,不新增可用于探测 Key 存续的响应差分。
+        return reply.status(400).send(error(400, '指定的 API Key 不存在'))
       }
 
       if (ownerApiKeyId) {
@@ -177,13 +177,12 @@ const developerApiKeyGroupsRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       const d = parsed.data
-      // 校验 apiKeyId 属于当前用户
-      const [keyRow] = await dbRead
-        .select({ id: developerApiKeys.id })
-        .from(developerApiKeys)
-        .where(eq(developerApiKeys.id, d.apiKeyId))
-        .limit(1)
-      if (!keyRow) return reply.status(400).send(error(400, 'API Key 不存在'))
+      // 2026-10-27 越权修正:同建组那一段,归属判据走 service 单源 isKeyOwnedBy。
+      // 原写法可让攻击者用自己账号的邀请码把他人 Key 拉进组;叠加 acceptInvite 的
+      // onConflictDoNothing + 单组唯一索引 ⇒ 先占位即可让受害者自己的 Key 再也加不进任何组。
+      if (!(await isKeyOwnedBy(d.apiKeyId, userId))) {
+        return reply.status(400).send(error(400, 'API Key 不存在'))
+      }
 
       await acceptInvite(d.inviteCode.toUpperCase(), d.apiKeyId)
       return reply.send(success({ joined: true }))

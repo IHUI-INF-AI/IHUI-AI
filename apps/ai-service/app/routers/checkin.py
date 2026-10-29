@@ -18,6 +18,8 @@ request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)�
 - PATCH  /accounts/{id}/enabled 启用/停用
 - PATCH  /accounts/{id}/name    重命名展示名
 - POST   /accounts/{id}/checkin 手动签到(无视冷却,结果照写 records)
+- GET    /accounts/{id}/tasks   O68 WorkBuddy growth 任务列表(只读)
+- POST   /accounts/{id}/task-run O68 执行任务族(growth/travel/activity/blackcat,dry_run 可选)
 - GET    /records               签到记录倒序分页
 - GET    /credits/history       积分流水(从 records 聚合 credits_delta)
 - GET    /scheduler/status      调度器运行状态(enabled / started / next_run / next_run_qoder)
@@ -35,7 +37,7 @@ from __future__ import annotations
 import json
 import time
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -48,9 +50,11 @@ from app.services import (
     checkin_qoder,
     checkin_store,
     checkin_workbuddy,
+    workbuddy_tasks,
 )
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services import checkin_user_pool_bridge
+from app.services.checkin_engine import client_for, extract_user_id, get_jwt_exp
 from app.services.checkin_engine import extract_user_id, get_jwt_exp
 from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
 
@@ -102,6 +106,13 @@ class UpdateDeviceMapIn(BaseModel):
     """设备态整体替换(Qoder refresh_token / Cosy-* 设备头、TRAE 设备态)。"""
 
     device_map: dict[str, Any]
+
+
+class TaskRunIn(BaseModel):
+    """O68 任务赚积分执行入参(四族固定;dry_run=true ⇒ 零写侧调用)。"""
+
+    kind: Literal["growth", "travel", "activity", "blackcat"]
+    dry_run: bool = False
 
 
 _DEVICE_MAP_MAX_BYTES = 16384
@@ -409,6 +420,74 @@ async def manual_checkin(
     ) as e:
         raise HTTPException(status_code=429, detail=str(e)) from e
     return record
+
+
+async def _wb_tasks_account_or_404(
+    account_id: int, current_user: str
+) -> dict[str, Any]:
+    """任务族入口的属主校验 + 平台闸:非 WorkBuddy 账号给出可判定失败(不是未判定)。"""
+    account = await checkin_store.get_decrypted_jwt(account_id, current_user)
+    if account is None:
+        raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
+    return account
+
+
+@router.get("/accounts/{account_id}/tasks")
+async def list_account_tasks(
+    account_id: int, current_user: str = Depends(require_request_user_id)
+) -> dict[str, Any]:
+    """O68 growth 任务列表(只读)。合同形状固定:
+    {"ok","kind":"list","tasks":[...],"reason","unjudged"};
+    上游形态读不懂 ⇒ unjudged=true(§0.3 不猜零不冒绿)。"""
+    account = await _wb_tasks_account_or_404(account_id, current_user)
+    if account.get("platform") != "workbuddy":
+        return {
+            "ok": False,
+            "kind": "list",
+            "tasks": [],
+            "reason": "任务族表面前仅对 WorkBuddy 账号实现(取证面只在 WorkBuddy 域)",
+            "unjudged": False,
+        }
+    device_map = dict(account.get("device_map") or {})
+    client, owned = client_for(device_map)
+    try:
+        return await workbuddy_tasks.list_growth_tasks(account["jwt"], device_map, client=client)
+    except OutboundPaused as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
+    finally:
+        if owned:
+            await client.aclose()
+
+
+@router.post("/accounts/{account_id}/task-run")
+async def run_account_task(
+    account_id: int,
+    body: TaskRunIn,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """O68 执行一个任务族(growth/travel/activity/blackcat)。
+
+    dry_run=true ⇒ 除只读探针外零写侧调用;上游响应读不懂 ⇒ unjudged=true。
+    属主校验走 get_decrypted_jwt(owner 并入 WHERE,不命中 404)。"""
+    account = await _wb_tasks_account_or_404(account_id, current_user)
+    if account.get("platform") != "workbuddy":
+        return {
+            "ok": False,
+            "kind": body.kind,
+            "accepted": [],
+            "claimed": [],
+            "credit_delta": None,
+            "energy_delta": None,
+            "reason": "任务族表面前仅对 WorkBuddy 账号实现",
+            "unjudged": False,
+        }
+    device_map = dict(account.get("device_map") or {})
+    try:
+        return await workbuddy_tasks.run_family(
+            body.kind, account["jwt"], device_map, dry_run=body.dry_run
+        )
+    except OutboundPaused as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
 
 
 @router.get("/records")

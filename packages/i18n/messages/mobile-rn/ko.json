@@ -24,6 +24,12 @@
     "noResult": "실행 결과가 없습니다",
     "rrule": "일정 (RRULE)",
     "timezone": "시간대",
+    "terminalReason": {
+      "manualPause": "수동 일시정지",
+      "failedPermanent": "영구 실패",
+      "failedRetriesExhausted": "재시도 횟수 초과",
+      "completed": "완료"
+    },
     "schedule": "실행 주기"
   },
   "dashboard": {
@@ -790,6 +796,7 @@
         "retry": "다시 시도",
         "saveAudioOnly": "오디오만 저장",
         "insertToInput": "입력창에 삽입",
+        "cancel": "녹음 취소",
         "dismiss": "닫기"
       },
       "searchPlaceholder": "노트 검색",
@@ -946,6 +953,7 @@
     "version": "버전",
     "language": "언어",
     "theme": "테마",
+    "checkUpdateUnsupported": "이 빌드에서는 앱 내 업데이트를 사용할 수 없습니다",
     "logoutConfirmBody": "이 계정에서 로그아웃하시겠어요?"
   },
   "menu": {
@@ -6794,7 +6802,6 @@
     "usagePolicy": {
       "title": "사용 정책",
       "lastUpdated": "최종 업데이트"
-    },
     "backToHome": "홈으로"
   },
   "agentEdit": {
@@ -6963,6 +6970,127 @@
     "unknownLecturer": "알 수 없는 강사",
     "viewCount": "{count}회 시청"
   },
+  "quickNotes": {
+    "menuEntry": "빠른 메모",
+    "title": "빠른 메모",
+    "new": "새 메모",
+    "search": "메모 검색",
+    "insert": "대화에 삽입",
+    "archive": "보관",
+    "unarchive": "보관 해제",
+    "archived": "보관됨",
+    "showArchived": "보관 항목 표시",
+    "empty": "메모가 없습니다",
+    "titlePlaceholder": "제목",
+    "contentPlaceholder": "본문",
+    "groupPlaceholder": "그룹(선택)"
+  "scanLogin": {
+    "menuTitle": "스캔",
+    "title": "스캔하여 로그인",
+    "hint": "컴퓨터 화면의 QR 코드를 프레임 안에 맞추세요",
+    "submitting": "확인 중…",
+    "permissionHint": "스캔하려면 카메라 권한이 필요합니다",
+    "deniedHint": "카메라 권한이 거부되었습니다. 시스템 설정에서 허용한 후 다시 시도하세요.",
+    "grant": "카메라 허용",
+    "openSettings": "설정 열기",
+    "invalidCode": "이 사이트의 로그인 QR 코드를 스캔하세요",
+    "success": "로그인이 확인되었습니다",
+    "failed": "확인에 실패했습니다. 다시 시도하세요.",
+    "needLogin": "스캔하기 전에 로그인하세요"
+  "circlePostPage": {
+    "title": "커뮤니티",
+    "back": "뒤로",
+    "cardTitle": "새 게시물",
+    "selectCircle": "서클 선택",
+    "titleLabel": "제목",
+    "titlePlaceholder": "게시물 제목을 입력하세요",
+    "contentLabel": "내용",
+    "contentPlaceholder": "게시물 내용을 입력하세요",
+    "images": "이미지",
+    "cancel": "취소",
+    "errorCircleRequired": "서클을 선택해 주세요",
+    "errorTitleContentRequired": "제목과 내용은 필수입니다",
+    "error": "로드 실패"
+  "invitationsPage": {
+    "title": "AI인마음페이스테스트",
+    "subtitle": "포괄적인의개발문서및API참조",
+    "generate": "생성동영상",
+    "myCodes": "내 초대 코드",
+    "invitees": "초대한 사용자",
+    "loading": "로딩 중...",
+    "emptyCodes": "초대 코드가 없습니다. 우측 상단을 클릭하여 생성",
+    "emptyInvitees": "초대한 사용자가 없습니다",
+    "user": "사용자",
+    "registeredAt": "가입시간",
+    "reward": "보상",
+    "rewardValue": "초대자 +{inviter} / 피초대자 +{invitee} 포인트",
+    "expiresAt": "만료일",
+    "copy": "복사",
+    "copied": "복사됨",
+    "statusUnused": "활성",
+    "statusUsed": "사용됨",
+    "statusExpired": "만료됨",
+    "back": "뒤로",
+    "loginRequired": "먼저 로그인하세요",
+    "error": "로드 실패"
+  "lettersPage": {
+    "title": "쪽지",
+    "subtitle": "플랫폼 사용자와 1:1 비공개 대화",
+    "searchPlaceholder": "연락처 검색...",
+    "loading": "로딩 중...",
+    "empty": "대화 없음",
+    "error": "로드 실패",
+    "you": "나",
+    "send": "보내기",
+    "sendPlaceholder": "메시지 입력...",
+    "deleteConfirm": "이 메시지를 삭제할까요?",
+    "confirm": "확인",
+    "back": "뒤로",
+    "loginRequired": "먼저 로그인하세요"
+  "newsCategoryPage": {
+    "backToList": "목록으로 돌아가기",
+    "subtitle": "포괄적인의개발문서및API참조",
+    "notFound": "찾을 수 없음",
+    "empty": "콘텐츠가 없습니다",
+    "pinned": "고정됨",
+    "publishedAt": "{date}에 게시",
+    "viewCount": "{count} 조회",
+    "total": "총 {total}편",
+    "prev": "이전",
+    "next": "다음",
+    "loading": "로딩 중...",
+    "error": "로드 실패"
+  "searchHistoryPage": {
+    "title": "검색 기록",
+    "subtitle": "포괄적인의개발문서및API참조",
+    "clearAll": "기록 모두 지우기",
+    "loading": "불러오는 중...",
+    "empty": "검색 기록 없음",
+    "resultCount": "결과 {count} 건",
+    "back": "뒤로",
+    "loginRequired": "먼저 로그인하세요",
+    "error": "로드 실패"
+  "signUpPage": {
+    "title": "내 신청",
+    "empty": "데이터가 없습니다",
+    "statusDraft": "심사 대기",
+    "statusPublished": "확인됨",
+    "statusCompleted": "완료"
+  "appUpdate": {
+    "title": "새 버전이 있습니다",
+    "action": "업데이트",
+    "close": "닫기",
+    "ready": "업데이트 준비 완료",
+    "installing": "다시 시작하는 중…",
+    "error": "업데이트 실패",
+    "errorDesc": "네트워크를 확인한 후 다시 시도하세요",
+    "downloading": "업데이트 다운로드 중…",
+    "currentBundle": "현재 실행 중: {{bundle}}",
+    "bundleEmbedded": "내장 패키지",
+    "bundleOta": "핫 업데이트",
+    "readyBody": "업데이트 다운로드가 완료되었습니다. 「업데이트」를 누르면 바로 적용됩니다.",
+    "installingHint": "앱이 자동으로 다시 시작되며 보통 몇 초면 됩니다.",
+    "restartNow": "지금 다시 시작"
   "skillsMarket": {
     "title": "스킬 마켓",
     "subtitle": "커뮤니티 스킬 탐색 및 설치",

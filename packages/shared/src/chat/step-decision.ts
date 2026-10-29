@@ -6,7 +6,7 @@
  * 步骤决策(D55 / G-66)词汇表 —— 跨端单一真相源。
  *
  * 数据来源:`apps/ai-service` 的 `_derive_step_decision()`(从结果可见路径推导)与
- * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 19 个字面量。
+ * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 20 个字面量。
  * 本模块只认**全集**,不另建第二套枚举(后端新增字面量时由用例与守门 57 一起逼齐)。
  *
  * 纪律:
@@ -31,6 +31,7 @@ export const STEP_DECISIONS = [
   'auto_skip_approval',
   'bypass_skip_approval',
   'mcp_annotations_require_approval',
+  'taint_egress_gate',
   'approval_policy_always',
   'approval_policy_never',
   'guardian_review_suggested',
@@ -60,6 +61,7 @@ const DECISION_WORD_KEY: Record<StepDecision, string> = {
   auto_skip_approval: 'decision.autoSkipApproval',
   bypass_skip_approval: 'decision.bypassSkipApproval',
   mcp_annotations_require_approval: 'decision.mcpRequiresApproval',
+  taint_egress_gate: 'decision.taintEgressGate',
   approval_policy_always: 'decision.policyRequiresApproval',
   approval_policy_never: 'decision.policySkipsApproval',
   guardian_review_suggested: 'decision.guardianReviewSuggested',
@@ -83,6 +85,9 @@ const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
   auto_skip_approval: 'approved',
   bypass_skip_approval: 'approved',
   mcp_annotations_require_approval: 'needsUser',
+  // 会话级污点闸门把出网工具抬升为需人工审批(agent_loop_v2 在此置 needs_approval=True 后走审批),
+  // 与 mcp_annotations_require_approval 同属"还没跑,在等人点头" ⇒ needsUser
+  taint_egress_gate: 'needsUser',
   approval_policy_always: 'needsUser',
   // 后端 `never` 指的是"永不弹窗"(agent_loop_v2.py 置 needs_approval=False 后照常执行),
   // 不是"永不允许"。曾按字面把它归进 rejected + 「策略禁止执行」,于是界面在工具真的
@@ -137,7 +142,7 @@ export function stateLabel(state: StepDecisionState, t: StepDecisionTranslate): 
 
 /**
  * `/agent-runtime` 通道的 permission 决策矩阵取值(producer 是
- * `apps/ai-service/app/routers/agent_runtime.py::_check_permission`,与上面 19 值**不同源**)。
+ * `apps/ai-service/app/routers/agent_runtime.py::_check_permission`,与上面 20 值**不同源**)。
  * 只登记已核实字面量 —— 审批语境下把 deny 误译成"已放行"会直接误导用户的授权决定。
  */
 const PERMISSION_DECISION_KEY: Readonly<Record<string, string>> = {
@@ -147,7 +152,7 @@ const PERMISSION_DECISION_KEY: Readonly<Record<string, string>> = {
 }
 
 /**
- * 运行时权限决策的**唯一**取词入口(4 端共用):先认 19 值步骤决策集,再认 allow/ask/deny
+ * 运行时权限决策的**唯一**取词入口(4 端共用):先认 20 值步骤决策集,再认 allow/ask/deny
  * 权限矩阵,两条都不中 → 原样返回(不猜语义、不喷键名)。
  */
 export function permissionDecisionWord(value: unknown, t: StepDecisionTranslate): string {

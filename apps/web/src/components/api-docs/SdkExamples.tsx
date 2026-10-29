@@ -170,8 +170,8 @@ const msg = await client.messages.create({
 console.log(msg.content[0].text) {{PROD_NOTE}}`,
       },
       {
-        title: '@ihui/sdk',
-        code: `import { createClient } from "@ihui/sdk"
+        title: '@ihui-ai/sdk',
+        code: `import { createClient } from "@ihui-ai/sdk"
 
 const client = createClient({
   apiKey: "{{API_KEY}}",

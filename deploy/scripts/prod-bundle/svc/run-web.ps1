@@ -1,4 +1,4 @@
-# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -25,27 +25,38 @@ $env:NEXT_PUBLIC_WS_BASE_URL = "https://api.aizhs.top"
 # 仓库根不再写死(2026-10-12):把仓库路径写死进生产启动脚本,换机/换根后 NSSM 起的服务
 # 会指向错误目录、跑错代码。唯一解析实现在 deploy\win\ihui-root-common.ps1;本脚本有两份
 # 落点(入库源 deploy\scripts\prod-bundle\svc 与生产实际执行的 deploy\prod-bundle\svc,
-# 相差 1 级),写死相对深度必有一份算错 ⇒ 自 $PSScriptRoot 逐级向上找 helper,找不到当场
-# throw —— 这是生产启动路径,宁可大声失败也不带着错根继续。
-$ihuiRootCommon = $null
-$ihuiProbe = $PSScriptRoot
-for ($ihuiUp = 0; $ihuiUp -le 12; $ihuiUp++) {
-    $ihuiCandidate = Join-Path $ihuiProbe 'deploy\win\ihui-root-common.ps1'
-    if (Test-Path -LiteralPath $ihuiCandidate) { $ihuiRootCommon = $ihuiCandidate; break }
-    $ihuiParent = Split-Path -Path $ihuiProbe -Parent
-    if ([string]::IsNullOrEmpty($ihuiParent) -or $ihuiParent -eq $ihuiProbe) { break }
-    $ihuiProbe = $ihuiParent
-}
-if (-not $ihuiRootCommon) {
-    throw "run-web.ps1: 自 $PSScriptRoot 向上未找到 deploy\win\ihui-root-common.ps1 —— 解析不出仓库根,拒绝启动服务"
+# 相差 1 级),写死相对深度必有一份算错 ⇒ 原先改成"逐级向上搜索"。
+# 2026-10-28 再改:搜索形态把 $ihuiRootCommon 赋值两次、RHS 是变量拷贝,健康门的 dot-source
+# 维只认**单次赋值的静态形态**(Join-Path / 引号字面量 / 盘符绝对路径)⇒ 该维对
+# IHUI-WEB / IHUI-API / IHUI-AI-SERVICE 永远"读不出实际落点",三台核心服务长期开不出健康证
+# (unattested),真红被假红淹掉。落点本身是确定的:NSSM 的 -File 指向
+# <root>\deploy\prod-bundle\svc\run-web.ps1 ⇒ $PSScriptRoot 上溯 3 级即仓库根。
+# 入库源 deploy\scripts\prod-bundle\svc 多 1 级,但那份只作副本源、从不执行(门 104 只比
+# 字节)⇒ 这里按**执行落点**书写。找不到照样当场 throw,绝不带着错根继续跑。
+$ihuiRootCommon = Join-Path $PSScriptRoot '..\..\..\deploy\win\ihui-root-common.ps1'
+if (-not (Test-Path -LiteralPath $ihuiRootCommon)) {
+    throw "run-web.ps1: 自 $PSScriptRoot 上溯 3 级未命中 deploy\win\ihui-root-common.ps1(实算:$ihuiRootCommon)—— 解析不出仓库根,拒绝启动服务"
 }
 . $ihuiRootCommon
 $Root = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
 
 Set-Location (Join-Path $Root 'apps\web')
 
-# 首次启动(或代码变更后)执行生产构建;.next 已存在且非空则跳过,直接 start
-if (-not (Test-Path ".next\BUILD_ID")) {
+# ── 蓝绿槽位(2026-10-28 生产席立)──────────────────────────────────────────────
+# web 原是单实例停-起,切流空窗 + Next 冷启动期间 8801 无人服务 ⇒ 公网 /api/* 502
+# (详见 ihui-deploy.ps1「切流后就绪等待」段的实测归因)。根治办法是双实例蓝绿:
+# IHUI-WEB-BLUE(:8851,.next-blue) / IHUI-WEB-GREEN(:8852,.next-green),由 IHUI-WEB-ROUTER
+# 常驻 8801 原子切流。三个变量因此必须能被服务级 env 覆盖,而**缺省值与改造前逐字等价**
+# (8801 / 0.0.0.0 / .next)⇒ 现有 IHUI-WEB 单实例行为零变化,蓝绿上线失败也能原路退回。
+# distDir 之所以能随实例走:apps/web/next.config.ts 里 `distDir = process.env.IHUI_BUILD_DIST
+# || staticDistDir`,构建与启动读的是同一个开关 ⇒ 脚本判 BUILD_ID 必须也用 $webDist,
+# 否则会出现"判 .next 有产物、实际起的是 .next-blue 空目录"这种自相矛盾的形态。
+$webPort = if ($env:IHUI_WEB_PORT) { [int]$env:IHUI_WEB_PORT } else { 8801 }
+$webHost = if ($env:IHUI_WEB_HOST) { $env:IHUI_WEB_HOST } else { '0.0.0.0' }
+$webDist = if ($env:IHUI_BUILD_DIST) { $env:IHUI_BUILD_DIST } else { '.next' }
+
+# 首次启动(或代码变更后)执行生产构建;构建目录已存在且非空则跳过,直接 start
+if (-not (Test-Path "$webDist\BUILD_ID")) {
     Write-Host "[IHUI-WEB] 生产构建中(next build)..."
     & "D:\DevEnv\tools\npm-global\pnpm.cmd" build
     if ($LASTEXITCODE -ne 0) {
@@ -61,5 +72,10 @@ if (-not (Test-Path ".next\BUILD_ID")) {
 # "modules directories will be removed...Proceed?" 提示,在 NSSM 无终端环境下卡死),
 # 直接调用 next start 二进制。
 # 2026-08-05 安全加固:-H 127.0.0.1 只监听本机(公网仅经 Cloudflare Tunnel 回源,源站物理不可达)
-& "D:\DevEnv\runtimes\node\node.exe" node_modules/next/dist/bin/next start -H 127.0.0.1 -p 8801
+# 2026-10-28 改判(这一条覆盖上一条):2026-10-21 起 EdgeOne 源站已直填本机公网 IP:8801
+# (scripts/data/eo-origin-expectation.json rows[face=www.aizhs.top],取代 Cloudflare Tunnel 跨境回源),
+# 而只绑 127.0.0.1 让 EdgeOne 回源恒 522 —— 2026-10-28 01:30 部署环 8/8 轮 api/llm fail、
+# 判 GATE-ENTRY-BROKEN 并每轮刷 WARN 即此。8802 早已监听 0.0.0.0(防火墙 8801/8802/8803 同一条规则放行),
+# 故这里补成同一口径,不是新增暴露面;Cloudflare 隧道仍走 127.0.0.1:8801,不受影响。
+& "D:\DevEnv\runtimes\node\node.exe" node_modules/next/dist/bin/next start -H $webHost -p $webPort
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -26,7 +26,7 @@
 | `get_goal` | 等价 | 会话目标状态单帧 `goal_status`(D152,`apps/ai-service/app/core/sse_contract.py:299`;GoalCard 消费,2026-09-30 收口) |
 | `clear_goal` | 等价 | 清除走 `status:'cleared'`,刻意不建第二帧:`apps/ai-service/app/services/agent_events.py:95`;删除目标消息 `apps/api/src/db/chat-queries.ts:1298` |
 | `set_goal_max_turns` | 等价(部分) | 轮次上限=引擎规范默认 `apps/ai-service/app/core/doom_loop.py:48` + 请求级覆盖 `apps/ai-service/app/routers/agents.py:492`(空时兜底 8)。差异:无「按目标持久化 max_turns」格 |
-| `resume_goal` | **真缺** | 否证(2026-10-01 二轮):`git grep -inE "resumeGoal\|resume_goal\|恢复目标\|continueGoal" -- apps/cli/src apps/api/src apps/ai-service/app apps/web/src packages/*/src` → **0 命中** |
+| `resume_goal` | **已落地(2026-10-28)** | 原判"真缺"是**否证方法的漏判**:D152 端点的 `action:"resume"` 早在 2026-09-29 就在(`POST /llm/sessions/{id}/goal`),否证正则没覆盖"同名动作藏在大 action 枚举里",所以第二轮放宽别名仍 0 命中。真缺的是**以帧名命名的显式入口**。本票补齐:`apps/ai-service/app/services/goal_resume.py` `resume_goal()`(**端点与帧面共用一份实现**,杜绝两处漂移)+ `apps/ai-service/app/routers/llm.py` `POST /llm/sessions/{session_id}/goal/resume`(帧面入口;原 `action:"resume"` 分支改为调同一份实现)+ `apps/web/src/components/ai/goal-card.tsx` 目标卡「恢复」按钮(乐观置 active;`ok && !accepted` 按 reason 回滚并给可见原因;`!ok` 同形拒绝退回纯本地态**不弹错**)+ `packages/api-client` `resumeSessionGoal()` + 五语言 `goalCard.resumeServerOk/resumeAlreadyActive/resumeTerminal/resumeNoGoal/resumeFailed`。**六档状态机的可恢复集** = paused / blocked / usageLimited / budgetLimited(`RESUMABLE_GOAL_STATUSES`),done 与 active 分别回 reason `terminal` / `already_active`;写口唯一 = `set_thread_goal_state`,成功后 `publish_goal_update` 广播 `goal_updated`。**归属判定**走 AGENTS §5(`resolve_thread_id_for_conversation` → `get_thread` → `owner_scoped_allows`):未鉴权 / 越权 / 会话不存在一律**同形拒绝**(键集逐字相同、不带任何差异字段),且越权时库没写、帧没发。pytest 钉 `apps/ai-service/tests/test_d141_resume_goal_frame.py`(12 例)+ web `src/components/ai/__tests__/d141-resume-goal-frame.test.tsx`(6 例) |
 
 ### 1.2 模式/权限族
 
@@ -88,17 +88,17 @@
 | `mcp_authenticate` | 等价 | `apps/cli/src/commands/mcp-config.ts:17,50` `MCPAuth` |
 | `mcp_oauth_callback_url` | 等价 | `apps/ai-service/app/services/mcp_client.py:43,83`(`MCPOAuthClient`/`MCPOAuthConfig`) |
 | `mcp_inject_token` | 等价 | `apps/ai-service/app/routers/engine.py:347` `reset_mcp_principal(token)` |
-| `mcp_clear_auth` | **真缺(刻意)** | 否证(2026-10-01):`git grep -inE "clearAuth\|clear_auth\|清除.*凭据" -- apps/ai-service/app apps/api/src apps/cli/src` → 命中的是**不可清除口径**本身:`app/services/agent_engine.py:4414`、`app/routers/engine_voice.py:151`(「可清除的是业务元数据,不是授权凭据」,AGENTS §5 口径)与 web 会话 cookie 工具(`auth.ts:38`,非 MCP)。运行时清除 MCP 凭据口不存在,系安全口径下的刻意设计——补齐前须先过 §24 拍板。D202 补形态说明:竞品把 OAuth 放宿主-CLI 线是因进程分离架构;我方服务端持有形态下「可清除口」仍属 AGENTS §5 禁区 |
+| `mcp_clear_auth` | **已落地(2026-10-28)** | 原判"真缺(刻意)"源于 **AGENTS §5 口径没有拆细**:§5 原文「可清除的是业务元数据,不是授权凭据」禁的是**一键抹掉平台/系统级凭据**,它**没有**禁「用户撤回自己授权给某个第三方站点的 OAuth token」—— 撤回恰是 OAuth 规范的固有动作(RFC 7009 revocation 同族语义)。本票按 §24 自行拍板后落地,边界逐条钉死:① **必须点名** serverName(路径参数),**无"全清"出口**;② 只清**用户自授权**的 access/refresh token 与一次性授权凭据(`_authorization_code`/`_code_verifier`/`_state`),**不碰** client_secret / client_id / 系统令牌 / 其它 server 的凭据;③ 归属沿用外部 server 族的 `can_mutate` 判据(别人 ⇒ 403 **且副作用为零**;部署级谁都动不了;不存在 ⇒ 404);④ 清完即"未授权",后续 `get_token()` 走**新的**授权流程。实现面:`apps/ai-service/app/services/mcp_oauth.py` `MCPOAuthClient.clear_auth()`(内存 token + 持久化文件;删文件失败**不阻断**内存侧但如实点名 `error`)+ `app/services/mcp_client.py` `MCPClient.clear_oauth_auth()`(无 OAuth ⇒ `reason:"no_oauth"` 而非错误;外部注入的 OAuth client ⇒ 只清内存 + `reason:"external_oauth_client"`,不替别人删它还在用的文件)+ `app/routers/mcp.py` `POST /mcp/external/servers/{name}/clear-auth` + `apps/api/src/routes/mcp-extended.ts` 同名代理(403/404 如实透出,不塌成 502)+ `packages/api-client/src/endpoints/control-frames.ts` `clearMcpAuth()` + `apps/web/app/(main)/mcp-store/PageClient.tsx`「撤回授权」按钮(逐台点名;失败给可见原因)。pytest 钉 `apps/ai-service/tests/test_d141_three_control_frames.py`(含越权零副作用、部署级零副作用、serverName 编码) |
 
 ### 1.7 插件/技能/记忆族
 
 | 帧 | 判定 | 证据 / 否证 |
 | --- | --- | --- |
 | `list_plugins` | 等价(形态) | `apps/api/src/routes/admin/relay-plugins.ts:15,75` `listPlugins`(中继插件管理域;管理面非会话帧) |
-| `reload_plugins` | **真缺** | 否证(2026-10-01 二轮):`git grep -inE "reloadPlugins\|reload_plugins\|热重载.*插件" -- apps/cli/src apps/api/src apps/ai-service/app apps/web/src packages/*/src` → 0 命中 |
-| `reload_skills` | **真缺** | 否证(2026-10-01 三轮):`git grep -inE "reload\|refresh\|重载\|刷新" -- apps/ai-service/app/routers/ai_skills.py` → 0 命中(skill 面只有调度与统计,无运行时重载口)。**D202 防翻案注记**:`services/skills.py:777` 有 `reload_auto`(mtime 驱动增量重载,引擎自扫描、非宿主可调口)——自动重载≠宿主可调控制帧,真缺维持 |
+| `reload_plugins` | **已落地(2026-10-28)** | 原判"真缺"(2026-10-01 二轮 0 命中)。先钉**我方插件面的对位物**:本仓「插件」有三形态 —— 插件市场(端内静态目录,无服务端可重扫源)、中继插件(声明式 + DB,无运行时缓存可刷)、**技能(SKILL.md,磁盘源 + 贡献命令能力)**。竞品原帧语义是 `let e=await this.request({type:"reload_plugins"}); return this.replaceLatestCommands(e.commands),e` —— **插件贡献命令 → 回灌最新命令集**,故我方对位物 = 技能贡献的命令集,落点 `slash_command_registry.reload()`:① 先走 `skill_registry.reload(force=)` **复用 `reload_skills` 那一套扫描**(不新造第二套,mtime 增量 vs 全量 force 的取舍与同族一致);② 回灌**重载后的完整命令列表**(内置命令 + 当前技能派生的 `/skill` 视图)= 竞品 `replaceLatestCommands` 的等价物;③ 同时带技能差额 added/removed/changed —— 只回一句"已重载"等于把静默失败包装成成功。出口:`apps/ai-service/app/routers/mcp.py` `POST /mcp/slash-commands/reload`(`force` 默认 true)+ `apps/api/src/routes/mcp-extended.ts` 同名代理(裸 JSON 包 `{code,message,data}`;上游非 2xx / 连不上**统一 502**,不另立 503)+ `packages/api-client/src/endpoints/control-frames.ts` `reloadPlugins()` + `apps/web/src/components/chat/skill-library.tsx` 技能库「重载插件」入口(命令清单 + 技能差额可见)。服务端异常**内部降级**(帧挂在宿主调用链上,向上抛会整条链崩)。pytest 钉 `tests/test_d141_three_control_frames.py`(命令列表非空 + `commandCount` 真长一致 + force 透传 + 差额透传 + 绝不向上抛)+ api 钉 `d141-control-frame-proxies.test.ts`(转发路径不串段) |
+| `reload_skills` | **已落地(2026-10-28)** | 原判"真缺"(2026-10-01 三轮否证:skill 面只有调度与统计,无运行时重载口);**D202 防翻案注记**(`services/skills.py:777` 的 `reload_auto` 是 mtime 驱动增量重载、引擎自扫描、**对宿主零回报** —— 自动重载≠宿主可调控制帧)。本票补的正是那一格,并按竞品原帧语义(`requireCliCapability("reload_skills_v1")` + `request({type:"reload_skills"})`,即"宿主显式调用 + 必须回报结果")落地:`apps/ai-service/app/routers/ai_skills.py` `POST /ai-skills/reload`(帧名即 `reload_skills`)+ `apps/ai-service/app/services/skills.py` `SkillRegistry.reload(force=)`(回报差额 added/removed/changed/unchanged)+ `apps/api/src/routes/ai-skills-proxy.ts` `POST /api/ai-skills/reload` + `packages/api-client/src/endpoints/ai-skills.ts` `reloadAiSkills()` + `apps/web/src/components/chat/skill-library.tsx` 技能库「重载技能」入口(差额可见/失败给原因)。**force 默认 true**:用户手改 SKILL.md 后 mtime 可能不变(同秒连写/编辑器保留 mtime),只认增量会把"改了没生效"报成"没有变化" —— 这正是原防翻案注记点名的失效方向 |
 | `flush_memory` | 等价(部分) | `apps/api/src/routes/v1-knowledge-tools.ts:299` `saveMemorySchema`(记忆写入口,REST 非 SSE 帧) |
-| `refresh_memory` | **真缺** | 否证(2026-10-01 二轮):`git grep -inE "refreshMemory\|refresh_memory\|记忆刷新" -- apps/cli/src apps/api/src apps/ai-service/app apps/web/src packages/*/src` → 1 处(`app/services/agent_longterm_memory.py:278`,内部 `refresh updated_at`,非运行时刷新帧) |
+| `refresh_memory` | **已落地(2026-10-28)** | 原判"真缺"(2026-10-01 二轮:仅 `app/services/agent_longterm_memory.py:278` 内部 `refresh updated_at`,非运行时刷新帧)。**双落点**(宿主侧与管理面都要能显式调,与 `memory.status`/`memory.reset` 同族成面):① `apps/ai-service/app/services/memory_facade.py` `memory_refresh()`(**唯一判定源**)—— **绕过** `_ensure_loaded` 的懒加载短路与退避窗口(那两条是给自动路径用的,显式刷新若也受约束,用户在退避期内拿到的就是"没刷新"的假象),强制 `_try_load_all_lessons()` 重扫并算出 added/removed/changed/unchanged + before/totalLessons;② HTTP `POST /api/admin/meta-learner/refresh`(给管理页 / 宿主);③ 引擎帧 `memory.refresh`(`app/services/agent_engine.py` 分派表新增 `_handle_memory_refresh`,给 agent 宿主)。**读失败 ≠ 空**(G-748 同型口径,不得改回):重扫失败时**保留原内存态**并回 `refreshed:false` + error + `loadState:retry_backoff`,绝不把"读不到"报成"没有记忆"。出口:`apps/api/src/routes/meta-learner.ts` `POST /refresh` 代理(上游裸 JSON 包 `{code,message,data}`;非 2xx 如实透原状态码)+ `packages/api-client/src/endpoints/control-frames.ts` `refreshMemory()` + `apps/web/app/(main)/admin/meta-learner/page.tsx`「重新扫描」按钮(差额可见;失败显示 error)。pytest 钉 `tests/test_d141_three_control_frames.py`(差额计算 / 读失败保留内存态 / 绕过退避 / 不向上抛)+ api 钉 `d141-meta-learner-refresh-proxy.test.ts` |
 | `flush_skill_evolution` / `skill_evolution_should_review` | 等价 | `apps/ai-service/app/core/capability_matrix.py:233-234` `skill_evolution`(+`SKILL_EVOLUTION_ENABLED`);`app/main.py:389` L3 自进化调度器 |
 | `memory_should_generate` | 等价 | `apps/ai-service/app/services/agent_longterm_memory.py`(长期记忆生成链) |
 
@@ -116,15 +116,17 @@
 | `seed_read_state` | 等价(部分) | 已读/未读态由会话已读管理承载;无 seed 帧 |
 | `initialize` | 等价 | 引擎启动握手 + capability 声明(`agent_engine.py:2440`) |
 
-## 2 真缺汇总(在账 3 项,全部附否证;刻意档 1 项;`add_directories` 已于 2026-10-02 由票 D201 落地销缺,行保留作去向记录)
+## 2 真缺汇总(**在账 0 项** —— 2026-10-28 收口;原"刻意档 1 项"已在 §5 拆细后落地)
+
+注的序数对账:上一版表头写"在账 2 项",但表体逐行点数是 3 行(`resume_goal` / `reload_plugins` / `refresh_memory`)—— 表头漏计了一行。本版把四帧一并销缺后账面归零,口径按表体逐行重数(=0),顺带修掉该计数漂移。
 
 | 帧 | 一句话差距 | 依赖/去向 |
 | --- | --- | --- |
-| `resume_goal` | 已清/已完成目标无恢复口 | 并入 D152 目标族产品化时一并拍板 |
+| `resume_goal` | 已清/已暂停目标无恢复口 | **已落地(2026-10-28)**:帧面入口 `POST /llm/sessions/{id}/goal/resume` + 端点与帧面共用一份 `goal_resume.resume_goal()`,见 §1.1 该行(pytest 12 例 + web 6 例) |
 | `add_directories` | 多根工作区(会话中途追加目录),Codex/Qoder/Trae 三家都有 | **已落地(2026-10-02,票 D201)**:thread.settings additionalDirectories 控制帧 + 会话级路径校验覆盖层 + 控制端点,见 §1.5 该行;残余(CLI/web/索引面)见该行注记 |
-| `reload_plugins` / `reload_skills` | 插件/技能无运行时热重载口 | 并入插件面/技能面产品化 |
-| `refresh_memory` | 记忆无运行时刷新帧(仅内部 updated_at) | 并入长期记忆产品化 |
-| `mcp_clear_auth` | MCP 凭据无运行时清除口(**刻意**,AGENTS §5 口径) | 如需补齐先过 §24 拍板,不得顺手开 |
+| `reload_plugins` / `reload_skills` | 插件/技能无运行时热重载口 | **两个都是已落地(2026-10-28)**:`reload_skills` 见 §1.7 该行;`reload_plugins` 同日补 —— 对位物判为"技能贡献的命令集",落点 `slash_command_registry.reload()`(先复用同一套技能重扫,再回灌重载后的**完整命令列表** = 竞品 `replaceLatestCommands` 的等价物),见 §1.7 该行 |
+| `refresh_memory` | 记忆无运行时刷新帧(仅内部 updated_at) | **已落地(2026-10-28)**:`memory_facade.memory_refresh()`(绕过退避 + 回报差额 + 读失败 ≠ 空)+ HTTP `POST /api/admin/meta-learner/refresh` + 引擎帧 `memory.refresh`,见 §1.7 该行 |
+| `mcp_clear_auth` | MCP 凭据无运行时清除口(**刻意**,AGENTS §5 口径) | **已落地(2026-10-28)**:把 §5 拆细为"禁平台级一键清除 / 不禁用户撤回自己的第三方授权"后落地 —— 逐台点名、无全清出口、只清用户自授权 token、沿用 `can_mutate` 归属判定(越权 403 且零副作用),见 §1.6 该行 |
 
 ## 3 排除说明(38 名,非能力帧,不判定)
 

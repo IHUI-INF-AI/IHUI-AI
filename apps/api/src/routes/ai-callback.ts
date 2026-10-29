@@ -8,6 +8,7 @@ import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 // G-165:助手消息权限档盖章(会话 → 工作区 → workspace_permissions,全部服务端自取)
 import { findConversationById } from '../db/chat-queries.js'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { getPermission } from '../db/workspace-permission-queries.js'
 import {
   permissionStamp,
@@ -251,8 +252,11 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         request.log.error('AI_CALLBACK_SECRET 未配置,拒绝所有 AI 回调(fail-closed)')
         return reply.status(401).send(error(401, 'AI callback secret not configured'))
       }
-      const provided = request.headers['x-internal-secret']
-      if (provided !== config.AI_CALLBACK_SECRET) {
+      const rawProvided = request.headers['x-internal-secret']
+      const provided = Array.isArray(rawProvided) ? rawProvided[0] : rawProvided
+      // 常量时间比较(2026-10-27):`===` 逐字节短路,可被计时侧信道逐字节剥出密钥;
+      // 全仓唯一出口是 internal-service-token.ts 的 secretsEqual,此处曾是漏网。
+      if (!provided || !secretsEqual(provided, config.AI_CALLBACK_SECRET)) {
         request.log.warn({ hasHeader: !!provided }, 'ai callback secret mismatch')
         return reply.status(401).send(error(401, 'unauthorized'))
       }

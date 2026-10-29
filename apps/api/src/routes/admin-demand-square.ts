@@ -9,6 +9,7 @@ import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { batchWriteOutcome } from '../utils/batch-outcome.js'
+import { sendNoticeSmsToUser } from '../services/sms-notify.js'
 import { logger } from '../utils/logger.js'
 import { zhsDemandSquare } from '@ihui/database'
 
@@ -144,6 +145,12 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
       })
       .where(eq(zhsDemandSquare.id, paramParsed.data.id))
       .returning()
+    if (body.data.action === 'reject' && updated?.userId) {
+      void sendNoticeSmsToUser(updated.userId, 'content-reject', {
+        bizType: 'moderation',
+        bizId: `demand:${updated.id}`,
+      })
+    }
     return reply.send(success({ demand: updated }))
   })
 
@@ -198,8 +205,19 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
             eq(zhsDemandSquare.status, 'pending'),
           ),
         )
-        .returning({ id: zhsDemandSquare.id })
+        .returning({ id: zhsDemandSquare.id, userId: zhsDemandSquare.userId })
       confirmedIds = updatedRows.map((r) => r.id)
+      // 批量驳回同样逐条通知内容提交者(与单条审核同口径,bizId 绑需求 ID 保证幂等)
+      if (body.data.action === 'reject') {
+        for (const row of updatedRows) {
+          if (row.userId) {
+            void sendNoticeSmsToUser(row.userId, 'content-reject', {
+              bizType: 'moderation',
+              bizId: `demand:${row.id}`,
+            })
+          }
+        }
+      }
     }
 
     const outcome = batchWriteOutcome(body.data.ids, confirmedIds)

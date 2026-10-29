@@ -1,4 +1,4 @@
-# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -76,6 +76,25 @@ try {
 # $WebDir/$ApiDir 等均由 $Root 派生,随动即可,无需逐个改。
 . (Join-Path $PSScriptRoot 'ihui-root-common.ps1')
 $Root       = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
+
+# ── 部署窗口状态(2026-10-26 立)──────────────────────────────────────────────
+# 部署侧显式写、监控侧只读的唯一信号:窗口内及成功后 settle 期抑制部署相关告警,
+# 失败/回滚/心跳失联立即放行。立因与判定表见 deploy-window-common.ps1 头注。
+# 模块缺失时只警告、不阻断部署(窗口是增强项,不能让一次文件缺失把生产发布停掉);
+# 监控侧看到状态文件不存在会自动退回旧启发式判据。
+$script:DeployWindowEnabled = $false
+$script:DeployWindowFile = ''
+$script:DeployWindowRunId = ''
+$script:DeployWindowLastHeartbeat = [datetime]::MinValue
+$DeployWindowModule = Join-Path $PSScriptRoot 'deploy-window-common.ps1'
+if (Test-Path -LiteralPath $DeployWindowModule) {
+    . $DeployWindowModule
+    $script:DeployWindowEnabled = $true
+    $script:DeployWindowFile = Get-IhuiDeployWindowPath
+} else {
+    Write-Output '[WINDOW] WARN 缺少 deploy-window-common.ps1,部署窗口功能禁用(监控退回旧判据,部署不受影响)'
+}
+
 $WebDir     = "$Root\apps\web"
 $ApiDir     = "$Root\apps\api"
 # ── 构建取源码面:干净导出(worktree @ 目标 SHA)而**不再是共享工作树**(2026-09-29 机主拍板)──
@@ -189,6 +208,10 @@ $ApiHealth  = "$PublicWeb/api/health"
 # 不带 Host 探到的是另一条代码路径,那第二条腿就是假的。
 $OriginWeb  = 'http://127.0.0.1:8801'
 $OriginApi  = 'http://127.0.0.1:8802/api/health'
+# 本轮起点时刻(2026-10-28 加):给 api-listener-freshness.ps1 当锚点用 —— 健康 200 只证明
+# "有人在答",证明不了"答的是本轮起来的进程"(当天实测:服务重启的新子进程因端口被旧孤儿
+# 占住而退出,8843 仍由 15:34 的旧 node 应答,而账面记的是部署成功)。
+$ScriptStartIso = (Get-Date).ToString('o')
 # ai-service 健康端点(2026-09-14 ai-service 重启步骤引入;直连本机端口,无 JWT)。
 # 2026-10-19 起它同时充当健康门禁 **llm 维的源站直探腿**(见 Test-HealthGate):公网 llm 那路
 # ($PublicWeb/api/llm/providers/health,带深度预检)经 Cloudflare 常被挡成 perpetual-unknown,
@@ -270,7 +293,15 @@ function Release-DeployLock {
 # ── 日志时间戳带时区(2026-09-21 根治,实测):生产机时钟为 UTC,旧格式 'HH:mm:ss'
 #    裸时间曾导致人工排查时误判「日志停更 7.5 小时」(实为 UTC 02:33=本地 10:33)。
 #    所有日志时间一律带 +偏移,人眼即可分辨时区,杜绝同类误判。
-function Log   { param([string]$m) Write-Host "[$(Get-Date -Format 'HH:mm:ss zzz')] $m" }
+function Log   {
+    param([string]$m)
+    Write-Host "[$(Get-Date -Format 'HH:mm:ss zzz')] $m"
+    # 任何一行日志都顺带续一次部署窗口心跳(模块内部按 15s 节流)。
+    # 这样构建/门禁/重启即使长时间没有专门的心跳调用,窗口也不会被判 Stale。
+    if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+        Update-IhuiDeployWindowHeartbeat -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -MinIntervalSeconds 15 | Out-Null
+    }
+}
 function Ok    { param([string]$m) Log "OK    $m" }
 
 # 去重实现与监控侧共用同一份模块(路径按 $PSScriptRoot 推导,不写死盘符 —— AGENTS 顶部
@@ -531,6 +562,13 @@ function Fail {
     # 旧写法只 Log + exit 1 ⇒ 净面留在盘上,下一轮 add 撞 already registered。
     # **必须在释放锁之前**:放锁后再回收,下一轮可能已经起来并重建了净面,这条会把它删掉。
     try { Invoke-CleanBuildWorktreeSweep } catch {}
+    # 窗口收口同样是"失败必须响"的一半:先关窗(failed),监控下一轮就不再按"部署中"抑制;
+    # 随后才放锁 —— 放锁后新起的一轮会写自己的 runId,旧窗口不得再被这条改成 failed。
+    if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+        try {
+            Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'failed' -Reason $m | Out-Null
+        } catch { Log "WARN  部署窗口收口失败(不影响失败告警):$_" }
+    }
     try { Release-DeployLock } catch {}
     exit 1
 }
@@ -731,12 +769,44 @@ function Test-Http {
     } catch { return $false }
 }
 
+function New-SystemProbeToken {
+    # 探测令牌的系统自签路径(2026-10-27 修 "HEALTH 登录取探测令牌失败(HTTP 401)"):
+    # 旧实现只能"拿 admin 口令换 token",而 admin 口令在 10-26 被机主轮换后,env 块与
+    # 回落文件都停在旧值(两处一致 ⇒ 连 Drift WARN 都不响),于是每轮门禁恒 401、
+    # llm 维只剩 unknown。探测令牌本不该挂在某个人的口令轮换上:它只读一次网关健康,
+    # 身份语义与 apps/api 后台任务同一档。口径逐字对齐
+    # apps/api/src/utils/system-access-token.ts(HS256 / iss=ihui-ai / aud=ihui-ai-users /
+    # sub=system-worker / type=access / 10 分钟)。三处(本函数、该 TS、ai-service
+    # core/jwt_auth.py 的校验)必须同步改动;不同步的失败形态是"门禁静默回到 401",
+    # 而不是任何一条可见报错 —— 判据仍是日志里有没有出现 "HEALTH 已取得探测令牌"。
+    # 失败一律返回 $null,由调用方回落到 admin 登录(旧路径原样保留,不制造新的恒红门)。
+    $envFile = Join-Path $Root 'apps\api\.env'
+    if (-not (Test-Path -LiteralPath $envFile)) { return $null }
+    $secret = $null
+    foreach ($line in Get-Content -LiteralPath $envFile -Encoding utf8) {
+        if ($line -match '^\s*JWT_SECRET\s*=\s*(.+)$') { $secret = $Matches[1].Trim().Trim('"').Trim("'"); break }
+    }
+    if (-not $secret) { return $null }
+    $b64 = { param([byte[]]$bytes) [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_') }
+    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $h = & $b64 ([Text.Encoding]::UTF8.GetBytes('{"alg":"HS256","typ":"JWT"}'))
+    # 载荷用字面量拼接而不是 -f:JSON 的花括号会被 PowerShell 当成格式占位符
+    $payload = '{"userId":"system-worker","roleId":0,"type":"access","iss":"ihui-ai","aud":"ihui-ai-users","sub":"system-worker","iat":' + $now + ',"exp":' + ($now + 600) + '}'
+    $p = & $b64 ([Text.Encoding]::UTF8.GetBytes($payload))
+    $hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($secret))
+    try { $s = & $b64 ($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes("$h.$p"))) } finally { $hmac.Dispose() }
+    return "$h.$p.$s"
+}
+
 function BackendLogin-Token {
-    # 探测 LLM 网关需带 Bearer;用 admin 获取 token(仅作健康探测,不改数据)
-    # 凭据不入仓库:密码经环境变量 IHUI_ADMIN_PASSWORD 注入;
-    # 服务上下文(NSSM/计划任务)拿不到该变量时,回落到生产机本机密钥文件 ——
-    # 否则 p3 恒 False → 门禁 8 轮必失败 → 每次构建成功后又被回滚,api/ai-service 永不重启。
-    # 取值序(env 优先)一字不改;解析与"两处漂移"对照收在 admin-credential.ps1(唯一实现)。
+    # 探测 LLM 网关需带 Bearer。取值序(2026-10-27 起):
+    #   ① 系统自签令牌 —— 只依赖 apps/api/.env 的 JWT_SECRET,与任何人口令轮换解耦;
+    #   ② ①取不到时回落到 admin 登录(旧路径):密码经环境变量 IHUI_ADMIN_PASSWORD 注入,
+    #      服务上下文拿不到该变量时回落生产机本机密钥文件。
+    # ③ 之下的取值序与"两处漂移"对照仍收在 admin-credential.ps1(唯一实现),一字不改。
+    $sysTok = New-SystemProbeToken
+    if ($sysTok) { return $sysTok }
+    Log "HEALTH 系统自签探测令牌取不到(JWT_SECRET 缺失?)→ 回落 admin 登录"
     $cred = Resolve-AdminCredential -EnvValue $env:IHUI_ADMIN_PASSWORD -File $AdminPwdFile
     if ($cred.Drift) {
         Log "WARN  两处 admin 口令不一致(env 块 $($cred.EnvFingerprint) ≠ 回落文件 $($cred.FileFingerprint))—— 取用序 env 优先,陈旧那处会静默地把门禁打成盲的;修法=§5e 事务式把陈旧那处同步,再重启本服务。判它是否已修好:本轮或下一轮应出现 'HEALTH 已取得探测令牌'(坏态是 401)"
@@ -1103,8 +1173,28 @@ function New-BackupDir { if (-not (Test-Path $BackupDir)) { New-Item -ItemType D
 # 新判据:marker 只记录「最后一次成功部署」的 HEAD,marker != HEAD 即陈旧 → 重建。
 #       任何新提交(含仅改 deploy 脚本的提交)都触发一次重建;next build 仅 ~2.5 分钟,
 #       用确定性换精细度,不再做文件级 diff。失败轮一律不写 marker(见 Set-BuildCooldown)。
+function Get-WebActiveBuildDir {
+    <#
+      当前真正在服务的那一份构建目录(2026-10-28 蓝绿立)。
+      单实例时代产物恒在 .next;蓝绿后随活跃色在 .next-blue / .next-green 之间摆动,
+      而「构建新鲜度」标记必须落在**活跃色**那份里 —— 否则判据去读一份永不再更新的
+      .next,marker 恒缺失 ⇒ Get-BuildStale 每轮 return $true ⇒ 每轮强制整包重建。
+      失效方向刻意保守:状态文件读不出 / 该目录不存在 ⇒ 退回 .next(单实例形态),不猜。
+    #>
+    $stateFile = Join-Path $Root 'deploy\run\web-bluegreen.json'
+    if (Test-Path -LiteralPath $stateFile) {
+        try {
+            $j = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
+            if ($j.active -eq 'green' -or $j.active -eq 'blue') {
+                $d = Join-Path $WebDir ".next-$($j.active)"
+                if (Test-Path -LiteralPath $d) { return $d }
+            }
+        } catch { }
+    }
+    return (Join-Path $WebDir '.next')
+}
 function Get-BuildStale {
-    $marker = "$WebDir\.next\IHUI_BUILD_SHA"
+    $marker = Join-Path (Get-WebActiveBuildDir) 'IHUI_BUILD_SHA'
     if (-not (Test-Path $marker)) { return $true }                     # 无标记 → 无法证明新鲜 → 重建
     $built = (Get-Content $marker -Raw -ErrorAction SilentlyContinue).Trim()
     if ($built -notmatch '^[0-9a-f]{7,40}$') { return $true }
@@ -1115,7 +1205,8 @@ function Get-BuildStale {
     return ($built -ne $head)
 }
 function Set-BuildMarker {
-    $dirNext = "$WebDir\.next"
+    # 标记必须写进「当前活跃色」的构建目录(与 Get-BuildStale 同一把尺子),见 Get-WebActiveBuildDir。
+    $dirNext = Get-WebActiveBuildDir
     if (-not (Test-Path $dirNext)) { return }
     $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
     if ($sha -match '^[0-9a-f]{7,40}$') { Set-Content -Path "$dirNext\IHUI_BUILD_SHA" -Value $sha -NoNewline -ErrorAction SilentlyContinue }
@@ -1146,20 +1237,38 @@ function Get-BuildSrcFingerprint {
     return ($parts -join '/')
 }
 function Test-BuildCooldown {
-    # 返回 $true 表示仍在 30 分钟冷却期内(上轮构建/门禁失败后跳过本轮重建)
-    # 判定顺序:①时间窗(原口径,不变) ②源码子树指纹 —— 与失败时记录的 head 现算
-    # 指纹对比,子树已变 ⇒ 放行。指纹任一侧取不到(异常面/浅克隆)时退回纯时间戳口径,
-    # 不把"没判成"当"判过"。
-    try {
-        $st = Get-Content $BuildCooldownFile -Raw -ErrorAction Stop | ConvertFrom-Json
-        $ageMin = ((Get-Date) - [datetime]$st.ts).TotalMinutes
-        if ($ageMin -lt 0 -or $ageMin -ge 30) { return $false }
-        $oldFp = Get-BuildSrcFingerprint ([string]$st.head)
-        $curHead = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    # 三态判定(G-37 格② 执行席 @2026-10-27,在 2026-09-29 指纹口径之上补齐"比对它自己记录的 head"):
+    #   $true  = 仍在 30 分钟冷却期内,本轮跳过重建(上轮构建/门禁失败后);
+    #   $false = 放行;
+    #   $null  = 未判定 —— 记录在位但其 ts/head 读不出、或当前 HEAD/源码子树指纹算不出。
+    #          调用方必须显式处置:既不默认放行(真失败的节流被整条关掉),也不默认压住
+    #          (新提交被旧冷却压住 = 08:24–08:35 白拦 9 轮的事故型)。§0.3:没判不许写成判过。
+    # 判定顺序:①无记录 = 判过的"没冷却"(放行,不是未判定) ②时间窗(原口径不变,30 分钟)
+    # ③比对它自己记录的 head:HEAD 未推进(与记录相等)⇒ 同一枚失败面,冷却照旧生效;
+    #   HEAD 已推进 ⇒ 旧冷却不该继续压住新构建 —— 但本机 HEAD 每 1-2 分钟被并发会话推进一次,
+    #   多为台账/文档提交,故按"源码子树指纹真变才放行"(头部注释与 mjs 镜像测试同口径);
+    #   推进了而指纹算不出 ⇒ 未判定(旧口径在此退回纯时间戳默认压住,本次改掉)。
+    if (-not (Test-Path -LiteralPath $BuildCooldownFile)) { return $false }
+    $raw = $null
+    try { $raw = Get-Content $BuildCooldownFile -Raw -ErrorAction Stop } catch { return $false }
+    $st = $null
+    try { $st = $raw | ConvertFrom-Json -ErrorAction Stop } catch { return $null }
+    if ($null -eq $st) { return $null }
+    $ageMin = $null
+    try { if ([string]$st.ts) { $ageMin = ((Get-Date) - [datetime]([string]$st.ts)).TotalMinutes } } catch { return $null }
+    if ($null -eq $ageMin) { return $null }
+    if ($ageMin -lt 0 -or $ageMin -ge 30) { return $false }
+    $recHead = ([string]$st.head).Trim()
+    $curHead = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    if ($recHead -notmatch '^[0-9a-fA-F]{7,40}$' -or $curHead -notmatch '^[0-9a-fA-F]{7,40}$') { return $null }
+    if ($curHead -ne $recHead) {
+        $oldFp = Get-BuildSrcFingerprint $recHead
         $curFp = Get-BuildSrcFingerprint $curHead
         if ($oldFp -and $curFp -and $curFp -ne $oldFp) { return $false }
-        return $true
-    } catch { return $false }
+        if ($oldFp -and $curFp) { return $true }
+        return $null
+    }
+    return $true
 }
 function Clear-BuildCooldown {
     if (Test-Path $BuildCooldownFile) { Remove-Item $BuildCooldownFile -Force -ErrorAction SilentlyContinue }
@@ -1315,13 +1424,42 @@ function Start-CleanBuildAsyncDelete {
     if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return $true }
     $trashName = '.trash-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
     $trash = Join-Path (Split-Path -Parent $Path) $trashName
-    $renamed = $true
-    try {
-        Rename-Item -LiteralPath $Path -NewName $trashName -ErrorAction Stop
-        Log "[CLEAN-BUILD] 净面已改名 ⇒ 后台异步删除(收尾不阻塞):$trash"
-    } catch {
-        $renamed = $false
-        Log "[CLEAN-BUILD] 改名失败($_)⇒ 原路交后台进程直接删(改名要整树无句柄,删单文件只要该文件无锁,后台删照样不阻塞收尾)"
+    $renamed = $false
+    # 2026-10-28:改名先重试再降级。`because it is in use` 不是"改名这条路不通",而是
+    # 构建刚结束时 node/编译缓存/杀软扫描的句柄还没退干净(实测几乎每轮都撞)——
+    # 等几秒再试通常就成了,而改名成功才能把净面放进回收站(.trash-*)由 Sweep 兜底;
+    # 直接走原路径后台删的话,半途死掉留下的是 `clean-build-wt` 本体,下一轮只能靠
+    # "源码层与目标 SHA 不一致"再推倒重来。重试 ≤3 次、每次 3 秒(收尾持锁期最多多 6 秒),
+    # 全失败仍按原设计交后台进程 -AllowPlain 删,不放宽也不丢弃这条降级路径。
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            Rename-Item -LiteralPath $Path -NewName $trashName -ErrorAction Stop
+            $renamed = $true
+            break
+        } catch {
+            if ($attempt -lt 3) { Start-Sleep -Seconds 3 }
+            else { Log "[CLEAN-BUILD] 改名失败(重试 3 次仍 in use:$_)⇒ 原路交后台进程直接删(改名要整树无句柄,删单文件只要该文件无锁,后台删照样不阻塞收尾)" }
+        }
+    }
+    if ($renamed) { Log "[CLEAN-BUILD] 净面已改名 ⇒ 后台异步删除(收尾不阻塞):$trash" }
+    else {
+        # 2026-10-28 补:只喊 `in use` 无法派单 —— 按"谁是持有者"排障要么靠 handle.exe(本机没装
+        # Sysinternals),要么靠 openfiles(需先开 maintain objects list)。这里用改名本身当探针:
+        # 逐个子项试改名并立刻改回,首个失败的那一棵就是被占用的子树;全部都能改 ⇒ 占用在根
+        # 目录本身(典型是一个进程的 CWD 指着它)。探针只在收尾失败时跑,不进正常路径。
+        $lockedChild = $null
+        foreach ($ch in @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue)) {
+            $probeName = $ch.Name + '.locked-probe'
+            try {
+                Rename-Item -LiteralPath $ch.FullName -NewName $probeName -ErrorAction Stop
+                Rename-Item -LiteralPath (Join-Path $Path $probeName) -NewName $ch.Name -ErrorAction Stop
+            } catch { $lockedChild = $ch.FullName; break }
+        }
+        if ($lockedChild) {
+            Log "[CLEAN-BUILD] 改名不可用,首个被占用的子项(派单锚点):$lockedChild"
+        } else {
+            Log "[CLEAN-BUILD] 改名不可用,但逐子项探测均能改名 ⇒ 占用点在根目录本身(有进程 CWD 指着它)"
+        }
     }
     # $PSScriptRoot 兜底:本文件由部署环以 -File 启动时它等于 deploy\win;若哪天被 -Command
     # 内联或 dot-source 调用,它是空串,Join-Path 会抛"不能绑定到 Path"——
@@ -1358,17 +1496,28 @@ function Start-CleanBuildAsyncDelete {
 function Clear-CleanBuildTrash {
     <#
       清过期的 `.trash-*` 回收站:后台删除进程可能被系统打断/机器重启,不清理会无限堆积。
-      保留最近 $Keep 个(它们大概正在被后台删),更老的直接同步删 —— 启动时删,
-      不在部署关键路径上。调用点在 Get-CleanBuildWebDir 开头。
+      调用点在 Get-CleanBuildWebDir 开头。
+
+      2026-10-28 判据改造(原形是"保留最近 $Keep 个",实测成一格恒不触发的死角):
+      旧形 `$items.Count -le $Keep` 早退,而 Keep=2 —— 盘上恰好长期停着 2 个删不掉的
+      `.trash-*`(10-23、10-26 各一,顶层 56 项完整),于是**每一轮 Count 都等于 2、直接 return**,
+      后面的删除循环一次都没跑过(6 份 loop 日志里"清过期净面回收站"出现 0 次)。
+      判据改成**年龄**:只碰 30 分钟前的回收站(更年轻的大概率正被后台删除器删着,
+      抢它的活只会两边撞锁),无论盘上有几个。删完回读,仍在就 WARN —— 旧形在
+      Remove-DirLongPath 上没有任何反馈,删没删掉都静默。
     #>
-    param([int]$Keep = 2)
+    param([int]$MinAgeMinutes = 30)
     if (-not (Test-Path -LiteralPath $CleanBuildRootDefault)) { return }
+    $cutoff = (Get-Date).AddMinutes(-$MinAgeMinutes)
     $items = @(Get-ChildItem -LiteralPath $CleanBuildRootDefault -Force -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -like '.trash-*' } | Sort-Object LastWriteTime)
-    if ($items.Count -le $Keep) { return }
-    foreach ($d in $items[0..($items.Count - $Keep - 1)]) {
+        Where-Object { $_.Name -like '.trash-*' -and $_.LastWriteTime -lt $cutoff } | Sort-Object LastWriteTime)
+    if ($items.Count -eq 0) { return }
+    foreach ($d in $items) {
         Log ("[clean-recycle] 清过期净面回收站:{0}(最后写入 {1:yyyy-MM-dd HH:mm:ss})" -f $d.Name, $d.LastWriteTime)
         Remove-DirLongPath -Path $d.FullName
+        if (Test-Path -LiteralPath $d.FullName) {
+            Log ("WARN  [clean-recycle] 过期回收站未删净(仍有句柄,后台删除器会继续重试):{0}" -f $d.Name)
+        }
     }
 }
 
@@ -1399,6 +1548,14 @@ function Invoke-CleanBuildWorktreeSweep {
             return
         }
         Log "[CLEAN-BUILD] 收尾:回收净面 $CleanBuildWt"
+        # 防御(2026-10-28):改名要求**整棵树没有任何进程的 CWD**;Build-Web 那侧的还原是
+        # 主修,这里再兜一层 —— 万一别的路径(失败出口/将来的调用点)把 CWD 留在净面里,
+        # 唯一后果就是回收恒失败。只在真落在里面时才动 CWD,不对正常路径产生副作用。
+        $cwdNow = (Get-Location).ProviderPath
+        if ($cwdNow -and $cwdNow.StartsWith($CleanBuildWt, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Log "[CLEAN-BUILD] 收尾:CWD 仍在净面内($cwdNow)⇒ 先退回仓根,否则改名必报 in use"
+            Set-Location -LiteralPath $Root
+        }
         [void](Start-CleanBuildAsyncDelete -Path $CleanBuildWt)
         # 改名成功/失败都不再同步删 ⇒ 路径"还在"只代表后台进程还没删完,不是故障;
         # 真故障形态是 Start-CleanBuildAsyncDelete 里那两条 WARN(删除器不在位/启动失败)。
@@ -1567,6 +1724,41 @@ function Test-CleanBuildEnvInlined {
     return @('absent', "$($vals.Count) 个 NEXT_PUBLIC_* 候选值在 $($js.Count) 个 js 里**逐字一个都没有**")
 }
 
+function Test-RequiredKeyInlined {
+    <#
+      判"某个**必需**的 NEXT_PUBLIC_* 键到底有没有被烘进产物",返回三态(与上面那道探针同语义):
+        'ok'           —— env 里有非空值,且该值在 .next-*/static 的 js 里逐字命中
+        'absent'       —— env 里没有这个键,或产物里找不到它 ⇒ 拒绝交换
+        'undetermined' —— 取不到 env / 取不到产物 js / 扫不动 ⇒ 不拦本轮,但要喊出来
+      为什么需要(2026-10-28 现网实测):上面那道探针只要求"至少一个候选命中",于是
+      `NEXT_PUBLIC_WS_BASE_URL` 从 .env.production 里整个缺席时它是绿的 —— 浏览器端 WS 回落到
+      同源 www 臂,而那条臂实测承载不了握手(换票 200 / 握手 404),每个开着的页面每 30 秒一轮
+      换票重连,通知通道整条不通,页面看起来却完全正常,构建/健康检查/门禁全都不红。
+      "至少一个命中"管不住"某一个特定的键缺席",所以必需键要单独问一次。
+    #>
+    param([string]$ArtifactDir, [string]$EnvFile, [string]$Key)
+    try {
+        if (-not (Test-Path -LiteralPath $EnvFile)) { return @('undetermined', "env 不在位:$EnvFile") }
+        $val = ''
+        foreach ($line in @(Get-Content -LiteralPath $EnvFile -Encoding UTF8 -ErrorAction Stop)) {
+            if ($line -match ('^\s*' + [regex]::Escape($Key) + '\s*=\s*(.*)$')) {
+                $val = $Matches[1].Trim().Trim('"').Trim("'")
+                break
+            }
+        }
+        if (-not $val) { return @('absent', "$Key 在 $EnvFile 里没有非空值 ⇒ 这一维根本不会被烘进产物") }
+        $staticRoot = Join-Path $ArtifactDir 'static'
+        $scanRoot = if (Test-Path -LiteralPath $staticRoot) { $staticRoot } else { $ArtifactDir }
+        $js = @(Get-ChildItem -LiteralPath $scanRoot -Recurse -Filter *.js -File -ErrorAction Stop)
+        if ($js.Count -eq 0) { return @('undetermined', "产物里没量到可扫的 js($scanRoot)") }
+        $paths = @($js | ForEach-Object { $_.FullName })
+        if (Select-String -LiteralPath $paths -SimpleMatch -Pattern $val -Quiet -ErrorAction Stop) {
+            return @('ok', "$Key 命中产物 js(值 $val)")
+        }
+        return @('absent', "$Key=$val 在 $($js.Count) 个 js 里逐字找不到 ⇒ 构建没把这个键烘进去")
+    } catch { return @('undetermined', "扫描派生失败:$($_.Exception.Message)") }
+}
+
 function Build-Web {
     param(
         [string]$DistDir = 'staging',
@@ -1580,6 +1772,14 @@ function Build-Web {
     # 两个构建同时写 .next —— 那正是这把锁存在的理由。上限 45 分钟的推导见
     # deploy-lock-common.ps1 头注;函数内部 15s 节流,放在循环里代价只有一次时间判断。
     Update-DeployLockHeartbeat
+    # 2026-10-28 根治:`Set-Location` 进净面后**从不还原**(本函数旧形只有这一句,finally 只还原
+    # 环境变量),于是整轮结束时部署 pwsh **自身 CWD 仍在净面树内**。Windows 规定"目录树内
+    # 任何进程的当前目录都阻止整棵树改名" ⇒ 收尾 Start-CleanBuildAsyncDelete 的
+    # Rename-Item 恒报 `because it is in use`,重试 3×3s 也无效(不是别人持句柄,是我们自己),
+    # 只能降级成后台按原路径删。取证:01:20/04:00/05:57 三处净面构建 ⇒ 01:32:43/04:12:17/
+    # 06:07:40 三次改名失败,而 02:27 那轮从共享工作树构建(未 Set-Location 进净面)⇒ 改名成功。
+    # 这里记下进入前的 CWD,finally 无条件还原;不影响构建本身(构建仍必须在 $bwd 内跑)。
+    $prevCwd = (Get-Location).ProviderPath
     Set-Location $bwd
     if (-not (Test-Path (Join-Path $bwd 'node_modules\.bin\next.cmd'))) {
         Log "web 依赖缺失,先 pnpm install"
@@ -1713,6 +1913,19 @@ function Build-Web {
             $ok = ($exitCode -eq 0) -and (Test-Path "$bwd\.next-$DistDir\BUILD_ID")
             Update-DeployLockHeartbeat      # try 结束再续一次:上一行之后还要跑 Tail 读日志与判定
             if ($ok) {
+                # 必需键单独问一次(判据与三态见 Test-RequiredKeyInlined 头注):上面那道探针是
+                # "至少一个 NEXT_PUBLIC_* 命中",管不住"某一个特定的键缺席"。WS 基址缺席的失效
+                # 形态是最安静的一种 —— 页面照常打开、换票照常 200,只有通知通道整条不通,
+                # 所以它必须在交换之前被判死,而不是留给"用户说收不到通知"才发现。
+                $wsProbe = Test-RequiredKeyInlined -ArtifactDir "$bwd\.next-$DistDir" -EnvFile (Join-Path $bwd '.env.production') -Key 'NEXT_PUBLIC_WS_BASE_URL'
+                if ($wsProbe[0] -eq 'absent') {
+                    throw "产物缺必需键内联值($($wsProbe[1]))⇒ 拒绝交换:浏览器端 WS 会回落同源 www 臂,而该臂实测握手 404(换票 200/握手 404,通知整条不通)。修法:在 .env.production 写 NEXT_PUBLIC_WS_BASE_URL=https://api.aizhs.top 后重建"
+                }
+                if ($wsProbe[0] -eq 'undetermined') {
+                    Log "[CLEAN-BUILD] WARN 必需键 NEXT_PUBLIC_WS_BASE_URL 内联未判定 —— $($wsProbe[1])(本轮照旧交换,但这一维今天没被看过)"
+                } else {
+                    Log "[CLEAN-BUILD] 必需键内联核对:ok —— $($wsProbe[1])"
+                }
                 # 净面构建 ⇒ 产物必须搬回 $WebDir 才能走既有 `.rollback → 交换 → 重启` 链。
                 # 刻意用"清空目标再整目录复制"而不是就地构建:交换链、回滚点、`IHUI_BUILD_SHA`
                 # 写入、健康门禁全部保持原样,本票只换"源码从哪来"这一维。
@@ -1753,6 +1966,9 @@ function Build-Web {
         }
         throw "next build 连续 $MaxTries 次失败,保持当前在线版本$(if ($lastErrFp) { "(末次报错: $lastErrFp)" } else { "(末轮报错行不可读,exit=$exitCode)" })"
     } finally {
+        # CWD 必须先退出净面再让收尾改名(见函数开头 $prevCwd 的立因);$prevCwd 万一已被
+        # 删(极端情况)退回仓根,不允许在 finally 里抛 —— 那会盖掉真正的构建失败原因。
+        try { Set-Location -LiteralPath $prevCwd } catch { Set-Location -LiteralPath $Root }
         Remove-Item Env:\IHUI_BUILD_DIST -ErrorAction SilentlyContinue
         Remove-Item Env:\NEXT_TELEMETRY_DISABLED -ErrorAction SilentlyContinue
         if ($prevNodeOptions) { $env:NODE_OPTIONS = $prevNodeOptions } else { Remove-Item Env:\NODE_OPTIONS -ErrorAction SilentlyContinue }
@@ -1779,6 +1995,41 @@ function Restart-Web {
 function Do-Rollback {
     Log "开始回滚:恢复上次 web 构建产物"
     Update-DeployLockHeartbeat        # 整盘 Copy-Item .rollback → .next 要几分钟,回滚期间同样在持有锁
+
+    # ── 蓝绿回滚(2026-10-28 立):旧色构建一直在 ⇒ 改 router 指向即可,不必整盘替换 ──
+    # 单实例时代回滚 = Copy-Item .rollback → .next(整盘数分钟)+ 停-起(期间 8801 无人监听)。
+    # 蓝绿下切流只改 router 指向、旧色 dist 原样保留 ⇒ 回滚就是把指向改回去:秒级,且
+    # 8801 全程有人监听。只有旧色也不可用(首次迁移当轮 / 目录被清)才退回整盘恢复路径。
+    $bgStateFile = Join-Path $Root 'deploy\run\web-bluegreen.json'
+    if (Test-Path -LiteralPath $bgStateFile) {
+        try {
+            $bgj = Get-Content -LiteralPath $bgStateFile -Raw | ConvertFrom-Json
+            if ($bgj.active -eq 'green' -or $bgj.active -eq 'blue') {
+                $oldColor = if ($bgj.active -eq 'blue') { 'green' } else { 'blue' }
+                $oldPort = if ($oldColor -eq 'blue') { 8851 } else { 8852 }
+                $oldDir = Join-Path $WebDir ".next-$oldColor"
+                if (Test-Path "$oldDir\BUILD_ID") {
+                    Log "蓝绿回滚:活跃=$($bgj.active) ⇒ 切回旧色 $oldColor(:$oldPort)"
+                    $rbBg = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'deploy\win\ihui-api-bluegreen.ps1') `
+                        -Target $oldColor -SvcBlue 'IHUI-WEB-BLUE' -SvcGreen 'IHUI-WEB-GREEN' `
+                        -PortBlue 8851 -PortGreen 8852 -HealthPath '/' -HealthMatch '<!DOCTYPE html' `
+                        -StateFile $bgStateFile -LogFile 'D:\DevEnv\logs\web-bluegreen.log' 2>&1
+                    $rbBg | ForEach-Object { Log "  [bg-rollback] $_" }
+                    if ($LASTEXITCODE -eq 0) {
+                        Ok "回滚完成(蓝绿:已切回旧色 $oldColor,8801 未断监听)"
+                        if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+                            try { Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'rolledback' -Reason "蓝绿回滚:切回旧色 $oldColor" | Out-Null } catch { Log "WARN  回滚窗口收口失败(不影响回滚结果):$_" }
+                        }
+                        return
+                    }
+                    Log "WARN  蓝绿回滚未成功(rc=$LASTEXITCODE)⇒ 退回整盘 .rollback 恢复路径"
+                } else {
+                    Log "旧色 $oldColor 构建目录不可用 ⇒ 退回整盘 .rollback 恢复路径"
+                }
+            }
+        } catch { Log "WARN  蓝绿回滚判定失败($($_.Exception.Message))⇒ 退回整盘 .rollback 恢复路径" }
+    }
+
     $rb = "$WebDir\.rollback"
     if (-not (Test-Path "$rb\BUILD_ID")) { Fail "无可用 .rollback 构建,无法回滚" }
     Stop-Web
@@ -1787,7 +2038,15 @@ function Do-Rollback {
     Remove-Item $rb -Recurse -Force -ErrorAction SilentlyContinue
     Start-Web
     Start-Sleep -Seconds 8
-    if (Test-HealthGate) { Ok "回滚完成,健康检查通过" } else { Fail "回滚后健康仍异常,需人工介入" }
+    if (Test-HealthGate) {
+        Ok "回滚完成,健康检查通过"
+        # 回滚=本轮未切流:窗口按 rolledback 收口,监控立即放行(不再把回滚后的真实故障当"部署中"压住)。
+        if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+            try {
+                Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'rolledback' -Reason '回滚完成' | Out-Null
+            } catch { Log "WARN  回滚窗口收口失败(不影响回滚结果):$_" }
+        }
+    } else { Fail "回滚后健康仍异常,需人工介入" }
 }
 
 # =============================================================================
@@ -1810,7 +2069,9 @@ function Invoke-Diagnose {
     $script:diagDivergent = $false
 
     function GitText { param([string[]]$a)
-        $o = & git @a 2>&1 | Out-String
+        # 钉 -C $Root:诊断面也必须对着生产签出那一本仓读,不能读当前工作目录那一本
+        # (同样的"读错仓库 ⇒ behind/ahead 归因全错"事故,2026-10-26 实测)。
+        $o = & git -C $Root @a 2>&1 | Out-String
         return $o.Trim()
     }
     function DiagLog { param([string]$m) Write-Host $m }
@@ -1868,7 +2129,7 @@ function Invoke-Diagnose {
             $srcs = @('origin', 'D:/IHUI-AI-git-repo')
             $diagOriginTip = $null
             foreach ($s in $srcs) {
-                $o = & git @gitNet fetch $s main 2>&1 | Out-String
+                $o = & git -C $Root @gitNet fetch $s main 2>&1 | Out-String
                 if ($LASTEXITCODE -eq 0) {
                     DiagLog ("fetch {0} → OK" -f $s)
                     $script:diagFetched = $true
@@ -1894,7 +2155,8 @@ function Invoke-Diagnose {
 
     # ── [3] 服务与进程启动时间(判断"重启过但代码没换") ──
     DiagLog "── [3] NSSM 服务 ──"
-    foreach ($svc in @('IHUI-WEB','IHUI-API','IHUI-AI-SERVICE','IHUI-DEPLOYLOOP')) {
+    # 2026-10-28 蓝绿:8802 归 ROUTER,干活的是 BLUE/GREEN;旧 IHUI-API 留作回滚形态(停止态属预期)。
+    foreach ($svc in @('IHUI-WEB','IHUI-API-ROUTER','IHUI-API-BLUE','IHUI-API-GREEN','IHUI-API','IHUI-AI-SERVICE','IHUI-DEPLOYLOOP')) {
         $s = Get-Service -Name $svc -ErrorAction SilentlyContinue
         if ($s) { DiagLog ("  {0} : {1}" -f $svc, $s.Status) } else { DiagLog ("  {0} : 不存在" -f $svc) }
     }
@@ -1994,10 +2256,11 @@ function Invoke-Diagnose {
     if (Test-Path $cdFile) {
         try {
             $cdSt = Get-Content $cdFile -Raw -ErrorAction Stop | ConvertFrom-Json
-            $cdAge = ((Get-Date) - [datetime]$cdSt.ts).TotalMinutes
-            $cdIn = if ($cdAge -ge 0 -and $cdAge -lt 30) { '是(behind=0 时跳过重试)' } else { '否(已过 30 分钟,下轮自动重试)' }
+            $cdAge = ((Get-Date) - [datetime]([string]$cdSt.ts)).TotalMinutes
+            $cdV = Test-BuildCooldown
+            $cdIn = if ($null -eq $cdV) { '未判定(ts/head 或当前 HEAD/子树指纹读不出 ⇒ 部署轮显式中止,既不默认放行也不默认压住)' } elseif ($cdV) { '是(behind=0 时跳过重试)' } else { '否(窗外或源码子树已变,下轮自动重试)' }
             DiagLog ("  构建失败冷却: 上次失败 {0:N0} 分钟前(head={1}) ⇒ 冷却中:{2}" -f $cdAge, $cdSt.head, $cdIn)
-        } catch { DiagLog ("  构建失败冷却: 状态文件存在但不可读({0})" -f $_.Exception.Message) }
+        } catch { DiagLog ("  构建失败冷却: 状态文件存在但不可读({0}) ⇒ 未判定(部署轮显式中止)" -f $_.Exception.Message) }
     } else { DiagLog "  构建失败冷却: 无(上次部署成功或从未失败)" }
 
     # ── [8] 判读提示 ──
@@ -2463,8 +2726,17 @@ if ($env:IHUI_DEPLOY_LOCAL_SOURCES) {
 }
 
 $fetchSource = $null
+# 取源必须钉在 $Root(2026-10-26 实测事故):旧写法是**当前工作目录相对**的 git 调用,
+# 手工从别处(如主仓 D:\IHUI-AI)起脚本时,fetch 打进了主仓的 origin(SSH 通道),
+# 写的是主仓的 FETCH_HEAD;而 behind 的 HEAD 也是主仓的 HEAD ⇒ behind=0 ⇒
+# ff-only 整段被跳过 ⇒ 生产签出(prod,$Root)根本没被推进 ⇒ 随后按 `$Root` 的 HEAD
+# 构建 ⇒ **静默把旧版本切了流**(实测 2026-10-26 16:21 那轮:日志"部署完成,HEAD=76941775480",
+# 而本轮要上的是 e3138d80576)。这正是本文件段头注"behind>0 才继续"想防的那一型,
+# 却在 CWD≠$Root 时把 behind 算成了另一个仓库的 behind。
+# 处置:本段所有 git 调用一律 `-C $Root`,并把取源仓库打进日志(可一眼看出打到了谁)。
+Log "取源仓库 = $Root"
 Log "fetch origin main ..."
-$r = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('fetch', 'origin', 'main')) -TimeoutSec 25
+$r = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('-C', $Root, 'fetch', 'origin', 'main')) -TimeoutSec 25
 $r.Output.Trim() | Write-Host
 if ($r.ExitCode -eq 0 -and -not $r.TimedOut -and -not ($r.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
     $fetchSource = 'origin'
@@ -2478,7 +2750,7 @@ if (-not $fetchSource) {
             continue
         }
         Log "fetch $local main ..."
-        $lr = Invoke-GitWithTimeout -GitArgs @('fetch', $local, 'main') -TimeoutSec 120
+        $lr = Invoke-GitWithTimeout -GitArgs @('-C', $Root, 'fetch', $local, 'main') -TimeoutSec 120
         $lr.Output.Trim() | Write-Host
         if ($lr.ExitCode -eq 0 -and -not $lr.TimedOut -and -not ($lr.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
             $fetchSource = "local:$local"
@@ -2512,7 +2784,9 @@ Log "本轮取源 = $fetchSource"
 # 与 §5b 那句"origin/main 以 FETCH_HEAD 为准"不冲突:那一局否的是**嵌套跟踪 ref 的残值**,
 # 这一行做的是把"刚 fetch 到的那一枚"从可被别人改写的共享文件里取出来、定格成变量。
 # 下游三处决策(behind / 挡路路径清单 / merge)一律只认这个变量,不再回头看 FETCH_HEAD。
-$remoteTipRaw = (& git rev-parse FETCH_HEAD 2>&1 | Out-String).Trim()
+# 且必须**读 $Root 这一份** FETCH_HEAD(不是当前工作目录那一份):FETCH_HEAD 是**每个仓库各有一份**的
+# 文件,读错仓库就等于读了一枚与生产签出无关的 tip(见上方取源段的事故注)。
+$remoteTipRaw = (& git -C $Root rev-parse FETCH_HEAD 2>&1 | Out-String).Trim()
 if ($remoteTipRaw -notmatch '^[0-9a-f]{40}$') {
     Log "git rev-parse FETCH_HEAD 未给出 40 位十六进制(实得:'$(($remoteTipRaw -split "`n")[0])'),无法判定远端在哪"
     # Fail 文案刻意不含变量:告警按整条文案去重(:230 `$sig = 文案本身`),把 sha/计数写进去
@@ -2522,16 +2796,16 @@ if ($remoteTipRaw -notmatch '^[0-9a-f]{40}$') {
 $remoteTip = $remoteTipRaw
 # 对象必须在当轮真的在本地:并发进程可能把 FETCH_HEAD 换成一枚尚未下载对象的 sha,那样下游
 # rev-list/merge 会以 `Not a valid object name` 崩在调用栈里而不是给出结论(G-209 同一口径)。
-& git cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
+& git -C $Root cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Log "远端 sha $remoteTip 的对象不在本地对象库:定向 fetch 一次后复核"
     # 同样带墙钟:这是唯一一处"按 sha 定向补对象"的网络调用,挂死会重演上面那 18 分钟停更。
-    $rr = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('fetch', 'origin', $remoteTip)) -TimeoutSec 45
+    $rr = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('-C', $Root, 'fetch', 'origin', $remoteTip)) -TimeoutSec 45
     $rr.Output.Trim() | Write-Host
-    & git cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
+    & git -C $Root cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "本轮远端 sha 的对象取不到,无法判定是否落后 ⇒ 本轮不部署、不切流" }
 }
-$behindRaw = (& git @gitNet rev-list --count "HEAD..$remoteTip" 2>&1 | Out-String).Trim()
+$behindRaw = (& git -C $Root @gitNet rev-list --count "HEAD..$remoteTip" 2>&1 | Out-String).Trim()
 if ($behindRaw -notmatch '^\d+$') { Fail "无法计算 behind(本轮远端 sha 无效),本轮不部署" }
 $behind = [int]$behindRaw
 
@@ -2546,8 +2820,14 @@ if ($behind -eq 0 -and -not $deployLatest) {
     # 冷却拦截(2026-09-21 加):上轮构建/门禁失败后 30 分钟内不因「构建新鲜度」反复重试,
     # 防持续失败时每轮 10-20 分钟无效构建;30 分钟后自动重试,根因修复后无需人工干预。
     # behind>0(有新提交)不拦,push→部署及时性优先。
-    if (Test-BuildCooldown) {
-        Log "SKIP  前轮构建/门禁失败后冷却中(30 分钟内),本轮不重建;冷却结束自动重试,根因已修复则无需干预"
+    # G-37 格②(2026-10-27 执行席):判定升为三态 —— 冷却必须比对它自己记录的 head,
+    # 且"记录/HEAD 读不出"既不得默认放行也不得默认压住,未判定一律本轮显式中止。
+    $cdVerdict = Test-BuildCooldown
+    if ($null -eq $cdVerdict) {
+        Fail ("构建冷却未判定:{0} 在位但其 ts/head 读不出、或当前 HEAD/源码子树指纹算不出 —— 既不默认放行重建也不默认按冷却压住本轮(§0.3)。请手查该状态文件与 git rev-parse HEAD 后重试。" -f $BuildCooldownFile)
+    }
+    if ($cdVerdict) {
+        Log "SKIP  前轮构建/门禁失败后冷却中(30 分钟内且 HEAD/源码面未真变),本轮不重建;冷却结束或源码子树变化后自动重试,根因已修复则无需干预"
         Invoke-CleanBuildWorktreeSweep
         Release-DeployLock
         exit 0
@@ -2555,6 +2835,23 @@ if ($behind -eq 0 -and -not $deployLatest) {
     Log "WARN  触发原因=构建新鲜度:源码未落后但 web 构建非当前提交产物 → 强制重建"
 }
 if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到本轮远端 tip=$($remoteTip.Substring(0,10))"; Release-DeployLock; exit 0 }
+
+# ── 部署窗口开始(2026-10-26 立)──────────────────────────────────────────────
+# 位置刻意在 dryrun / behind=0 / 冷却 / 分叉跳过之后:只有走到这里才真的可能停服务、换构建。
+# 窗口状态是监控侧唯一可信的"部署进行中"信号;写失败时禁用本轮窗口(监控退回旧判据),
+# 但绝不阻断部署。ExpectedMinutes=60 对应部署环 45 分钟墙钟预算 + 余量。
+if ($script:DeployWindowEnabled) {
+    $script:DeployWindowRunId = "deploy-$((Get-Date).ToString('yyyyMMdd-HHmmss'))-$PID"
+    $headAtStart = (& git -C $Root rev-parse --short HEAD 2>$null | Out-String).Trim()
+    $winStart = Start-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'merge' -ExpectedMinutes 60 -Head $headAtStart
+    if ($winStart.Ok) {
+        $winNote = if ($winStart.Note) { " | $($winStart.Note)" } else { '' }
+        Log "WINDOW 开始 runId=$($script:DeployWindowRunId) phase=merge expected=60m$winNote"
+    } else {
+        Log "WARN  部署窗口写不出($($winStart.Error)),本轮禁用窗口抑制(监控按旧判据)"
+        $script:DeployWindowRunId = ''
+    }
+}
 
 if ($behind -gt 0) {
     Log "本地落后远端 $behind 个提交,进行 fast-forward merge(本轮钉住的显式 sha)"
@@ -2572,7 +2869,7 @@ if ($behind -gt 0) {
         $dirtyAfter = Get-TrackedDirtyEntry
         Log "ff-only 前置:对齐后剩余 $($dirtyAfter.Count) 个未提交被跟踪文件(本轮对齐掉 $($dirtyBefore.Count - $dirtyAfter.Count) 个)"
     }
-    $mergeOut = (& git merge --ff-only $remoteTip 2>&1 | Out-String)
+    $mergeOut = (& git -C $Root merge --ff-only $remoteTip 2>&1 | Out-String)
     Write-Host $mergeOut
     $ffRecovered = $false
     if ($LASTEXITCODE -ne 0) {
@@ -2593,6 +2890,10 @@ if ($behind -gt 0) {
             Log "BLOCKED-DIVERGED 背景(非成因):工作树另有 $($stillDirty.Count) 个未提交被跟踪文件。"
             if ($streak -lt $DivergedAlertStreak) {
                 Log "SKIP  本轮不切流(自动收敛在途),优雅退出不报警,下一轮外壳复检;未切流、未动线上"
+                # 窗口已开但本轮没动线上 ⇒ 按 noop 收口,避免监控把"跳过的窗口"当部署中抑制。
+                if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+                    try { Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'noop' -Reason 'ff 分叉,自动收敛在途,本轮不切流' | Out-Null } catch {}
+                }
                 try { Release-DeployLock } catch {}
                 exit 0
             }
@@ -2617,7 +2918,7 @@ if ($behind -gt 0) {
             # 但 2026-09-28 它把生产挡了 4.5 小时,而那两个文件里根本没有人在写的东西。
             if (Invoke-LiveDocStaleRecovery -Blockers $blockers) {
                 Log "LIVE-DOC 复原后重试一次 ff-only"
-                $mergeOut = (& git merge --ff-only $remoteTip 2>&1 | Out-String)
+                $mergeOut = (& git -C $Root merge --ff-only $remoteTip 2>&1 | Out-String)
                 Write-Host $mergeOut
                 if ($LASTEXITCODE -eq 0) {
                     $ffRecovered = $true
@@ -2664,21 +2965,26 @@ if ($behind -gt 0) {
     # 备份/重建/切流(那等于用一条写着成功的日志替旧版本背书)。
     # 用 is-ancestor 而不是字符串等值:并发会话在 tip 之上又本地提交一枚时,HEAD 是 tip 的
     # **后代**,那种情况确实包含 tip ⇒ 必须放过,否则会把正常并发误判成故障。
-    & git merge-base --is-ancestor $remoteTip HEAD 2>&1 | Out-Null
+    & git -C $Root merge-base --is-ancestor $remoteTip HEAD 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        Log ("ff 返回成功但 HEAD 未包含本轮远端 tip:期望包含 {0} 实得 HEAD={1};git 原文尾 3 行:" -f $remoteTip, (& git rev-parse HEAD 2>&1 | Out-String).Trim())
+        Log ("ff 返回成功但 HEAD 未包含本轮远端 tip:期望包含 {0} 实得 HEAD={1};git 原文尾 3 行:" -f $remoteTip, (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim())
         @($mergeOut -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 3) | ForEach-Object { Log "  [git] $_" }
         # 文案同样保持与 sha 无关(理由见上面 :230 去重那三条注释):sha 已在 Log 里逐轮点名。
         Fail "git merge --ff-only 未真正推进到本轮远端 tip,不按未推进的提交切流(未动任何在途改动)"
     }
     Reset-DivergedStreak   # 能走到这里 = ff 成功 ⇒ 连续计数归零(否则一次抖动会永久累加到阈值)
-    Ok "merge 完成,HEAD=$(git rev-parse --short HEAD | Out-String)"
+    Ok "merge 完成,HEAD=$(git -C $Root rev-parse --short HEAD | Out-String)"
 }
 
 # 1) 备份当前 web 构建 → .rollback(web 保持在线,只读复制)
 Update-DeployLockHeartbeat   # merge/seed 之后、构建之前的阶段边界(见 :980 那条注释)
+if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+    Update-IhuiDeployWindowPhase -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'build' -ExpectedMinutes 60 | Out-Null
+}
 Log "备份当前 web 构建 → .rollback"
-$curNext = "$WebDir\.next"
+# 蓝绿后「在服务的那一份」随活跃色摆动 ⇒ 备份源必须是活跃色目录,不能写死 .next
+# (写死就会把一份早已下线的旧构建当成回滚点,回滚后线上反而倒退)。
+$curNext = Get-WebActiveBuildDir
 if (Test-Path "$curNext\BUILD_ID") {
     $rb = "$WebDir\.rollback"
     Remove-Item $rb -Recurse -Force -ErrorAction SilentlyContinue
@@ -2717,25 +3023,205 @@ try {
         # 而 Build-Web 连败 throw 已带"末次报错指纹"(同因每轮同串、换因换串),正是结构化病因。
         # 「未切流」出口同样进决策台账(O65 第 2 期):目标 sha 取不到就如实留空(台账会记成未判定),
         # 记录本身不参与 Fail 的告警身份,明细漂移不会改变"这是同一类失败"的判定(§5e-1)。
-        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason '构建失败,未切流,保持当前在线版本')
+        # 台账侧同一条病因必须也带上(G-21 只补了告警侧):现读 .ihui-agent/deploy-decisions.jsonl 里
+        # 14 枚 build-fail 的 reason 全是同一句固定措辞 ⇒ 事后没人能从台账知道"哪一次为什么挂",
+        # 而散文日志只活 ~6 小时。$_ 与告警侧取的是同一份 throw 原文(不另拼一路、不重排两流),
+        # 由 deploy-decision.mjs 的 normalizeReason 统一折叠空白并截 400;它不参与告警身份计算 ⇒ 不改 4h 去重。
+        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason "构建失败,未切流,保持当前在线版本:$_")
         Fail "构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)" -Detail "原始报错:$_" -Reason "$_"
     }
 
-# 3) 秒级交换:停 web → 用新构建替换 .next → 起 web
-Log "交换 staging → 线上(.next),重启 web"
-Stop-Web
-Remove-Item "$WebDir\.next" -Recurse -Force -ErrorAction SilentlyContinue
-Move-Item "$WebDir\.next-staging" "$WebDir\.next"
+# 3) 切流:web 蓝绿交换(2026-10-28 生产席立;根治 O68「切流空窗」)
+# ── 为什么必须改,而就绪等待不算根治 ────────────────────────────────────────────
+#   web 原是单实例停-起(Stop-Web → 换 .next → Start-Web):停掉那一刻起 8801 就没有监听者,
+#   直到 Next 冷启动完成(实测数十秒)。公网三维里 api/llm 走 /api/* —— 这些路径在 EdgeOne
+#   恒 MISS、必回源 8801 ⇒ 空窗期读到 502;而 web 维探的是 www 首页,被边缘缓存应答
+#   (实测 eo-cache-status=HIT、age 恒 11506s),读不出源站已停 ⇒ 于是判 entry-broken。
+#   上面那段「就绪等待」只是把**门禁起点**推迟到真就绪,空窗本身一秒没少 ⇒ 止血,不是根治。
+# ── 根治形态 ──────────────────────────────────────────────────────────────────
+#   双实例 IHUI-WEB-BLUE(:8851,.next-blue)/ IHUI-WEB-GREEN(:8852,.next-green),
+#   由常驻的 IHUI-WEB-ROUTER 占住 8801 做原子切流。新构建只落到**空闲色**的 dist 目录,
+#   该色起来并通过健康判定之后 router 才改指向 ⇒ 8801 全程有人监听,空窗归零。
+#   旧色的 dist 目录不动 ⇒ 回滚就是"把 router 指回旧色",不必整包替换 .next。
+# ── 回退开关 ──────────────────────────────────────────────────────────────────
+#   IHUI_DEPLOY_WEB_BG=0|false|off ⇒ 走回旧的单实例停-起路径(蓝绿出问题时的原路退回)。
+Log "切流:web 蓝绿交换"
+if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+    Update-IhuiDeployWindowPhase -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'swap' -ExpectedMinutes 60 | Out-Null
+}
+
+$webBg = $true
+if ($env:IHUI_DEPLOY_WEB_BG -and $env:IHUI_DEPLOY_WEB_BG -match '^(?i:0|false|off)$') { $webBg = $false }
+
+$WebBgStateFile = Join-Path $Root 'deploy\run\web-bluegreen.json'
+$WebBgLogFile   = 'D:\DevEnv\logs\web-bluegreen.log'
+$WebBgPorts     = @{ blue = 8851; green = 8852 }
+
+if ($webBg) {
+    # 活跃色以状态文件为准(与 router / bluegreen 脚本同一份、同一口径);文件缺失或损坏
+    # ⇒ 按 blue 处理,与 router 的 DEFAULT 一致 —— 不猜、不另立一套默认值。
+    $webActive = 'blue'
+    if (Test-Path -LiteralPath $WebBgStateFile) {
+        try {
+            $bgSt = Get-Content -LiteralPath $WebBgStateFile -Raw | ConvertFrom-Json
+            if ($bgSt.active -eq 'green') { $webActive = 'green' }
+        } catch {
+            Log "WARN  web 蓝绿状态文件读不出($($_.Exception.Message))⇒ 按 blue 处理"
+        }
+    }
+    $webOther = if ($webActive -eq 'blue') { 'green' } else { 'blue' }
+    # 与 ihui-api-bluegreen.ps1 的「状态自愈」同构:活跃色已不可服务而另一色健康 ⇒ 本次目标
+    # 就定为活跃色(把唯一在服务的实例换掉是自伤)。两处算法必须同形,否则会出现
+    # "我把新构建放到 A 目录、脚本却去起 B 实例"这种对不上号的形态。
+    $activeProbe = Invoke-Probe -Url "http://127.0.0.1:$($WebBgPorts[$webActive])/" -Contains '<!DOCTYPE html'
+    $otherProbe  = Invoke-Probe -Url "http://127.0.0.1:$($WebBgPorts[$webOther])/" -Contains '<!DOCTYPE html'
+    if ($activeProbe.Verdict -ne 'pass' -and $otherProbe.Verdict -eq 'pass') {
+        $webTarget = $webActive
+        Log "WARN  web 活跃色 $webActive(:$(($WebBgPorts[$webActive]))) 不可服务而另一色健康 ⇒ 本次目标定为 $webTarget(与 bluegreen 自愈同形)"
+    } else {
+        $webTarget = $webOther
+    }
+    $webTargetDist = ".next-$webTarget"
+    Log "web 蓝绿:活跃=$webActive(:$(($WebBgPorts[$webActive]))) 目标=$webTarget(:$(($WebBgPorts[$webTarget])) dist=$webTargetDist)"
+
+    # 新构建落到目标色目录(旧色目录保留 ⇒ 回滚 = 切回旧色)
+    Remove-Item "$WebDir\$webTargetDist" -Recurse -Force -ErrorAction SilentlyContinue
+    Move-Item "$WebDir\.next-staging" "$WebDir\$webTargetDist"
+
+    # 起目标色 → 健康 → 原子切流 → 排空 → 停旧色(复用同一份编排器,不另写一份)
+    $bgPs1 = Join-Path $Root 'deploy\win\ihui-api-bluegreen.ps1'
+    $bgOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $bgPs1 `
+        -Target $webTarget `
+        -SvcBlue 'IHUI-WEB-BLUE' -SvcGreen 'IHUI-WEB-GREEN' `
+        -PortBlue 8851 -PortGreen 8852 `
+        -HealthPath '/' -HealthMatch '<!DOCTYPE html' `
+        -StateFile $WebBgStateFile -LogFile $WebBgLogFile 2>&1
+    $bgRc = $LASTEXITCODE
+    $bgOut | ForEach-Object { Log "  [bg] $_" }
+    if ($bgRc -ne 0) {
+        # 目标色起不来 ⇒ 状态文件未改、旧色/单实例仍在服务 ⇒ 线上无损,按失败收口
+        [void](Write-DeployDecision -Action 'swap-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason "web 蓝绿切换失败,未切流,保持当前在线版本")
+        Fail "web 蓝绿切换失败 ⇒ 未切流,旧实例仍在服务(线上无损)" -Detail ($bgOut -join '; ') -Reason "web-bluegreen rc=$bgRc"
+    }
+    Log "OK    web 蓝绿切换完成且健康(切换期间 8801 未断监听)"
+
+    # ── router 在位保障(首次从单实例迁入蓝绿时才需要动作)───────────────────────
+    # 原注释"先起 router 顶上 8801 再停单实例是安全的"前提是错的:Windows 端口不能被两进程
+    # 同时 bind,而此刻 8801 还被单实例 IHUI-WEB 占着。实测后果 = router bind 失败→退出→
+    # nssm 按 AppExit=Restart 节流→服务停在 Paused/StartPending,而代码却继续停掉唯一在服务的
+    # IHUI-WEB ⇒ 8801 无人应答、整站下线。故顺序改成:验目标色健康 → 停单实例释放 8801 →
+    # 起 router → **有界轮询证明 router 真应答 8801**,才允许保留单实例已停;轮询不成立当场回滚。
+    function Get-RouterLogTail {
+        # 失败点名真因:从 nssm 现取 router 的 stdout/stderr 落点尾部若干行(不硬编码文件名);
+        # 取不到落点/读不到内容一律显式写"取不到日志",不静默。
+        $tails = @()
+        foreach ($key in 'AppStderr', 'AppStdout') {
+            $p = ''
+            try { $p = (& nssm get 'IHUI-WEB-ROUTER' $key 2>$null | Out-String).Trim() } catch {}
+            if (-not $p -or -not (Test-Path -LiteralPath $p)) { $tails += "$key=取不到日志"; continue }
+            try { $tails += ("$key=" + ((Get-Content -LiteralPath $p -Tail 20 -ErrorAction Stop | Out-String)).Trim()) }
+            catch { $tails += "$key=取不到日志($($_.Exception.Message))" }
+        }
+        return ($tails -join ' || ')
+    }
+
+    $routerSvc = Get-Service -Name 'IHUI-WEB-ROUTER' -ErrorAction SilentlyContinue
+    if ($routerSvc -and $routerSvc.Status -eq 'Running') {
+        # 幂等:仅当 router Running 且 8801 实测健康才算"已在位";Paused/StartPending/Stopped
+        # 或名义 Running 却不应答,都不得当作已在位。
+        $hit = Invoke-Probe -Url 'http://127.0.0.1:8801/' -Contains '<!DOCTYPE html'
+        if ($hit.Verdict -eq 'pass') {
+            Log "OK    web router 已在位(8801 实测健康)"
+        } else {
+            Log "WARN  IHUI-WEB-ROUTER 名义 Running 但 8801 未应答($($hit.Reason))⇒ 按未在位处理"
+            $routerSvc = $null
+        }
+    }
+    if (-not $routerSvc) {
+        # 迁入前先证目标色自身健康:router 起来就指到它,目标色不健康时绝不能停单实例。
+        $tgtProbe = Invoke-Probe -Url "http://127.0.0.1:$($WebBgPorts[$webTarget])/" -Contains '<!DOCTYPE html'
+        if ($tgtProbe.Verdict -ne 'pass') {
+            Log "WARN  目标色 $webTarget(:$($WebBgPorts[$webTarget])) 未通过健康探测($($tgtProbe.Reason))⇒ 不迁入 router,保持单实例 IHUI-WEB 服务 8801"
+        } else {
+            Log "首次迁入蓝绿:停单实例释放 8801 → 起 IHUI-WEB-ROUTER → 轮询证明 8801 真应答"
+            $gapStart = Get-Date
+            # 停单实例腾出 8801(腾不出来则 router 一定 bind 失败,由下方轮询兜住并回滚)。
+            try { Stop-Web } catch { Log "WARN  停止 IHUI-WEB 异常(继续尝试起 router,以 8801 实测为准):$_" }
+            try { Start-Service -Name 'IHUI-WEB-ROUTER' -ErrorAction Stop } catch { Log "WARN  Start-Service IHUI-WEB-ROUTER 抛错,改由轮询判定:$_" }
+            # 有界轮询(与下方"切流后就绪等待"同写法:while + Invoke-Probe + break + 心跳续锁)。
+            $routerBudgetSec = 60
+            $routerOk = $false
+            while (((Get-Date) - $gapStart).TotalSeconds -lt $routerBudgetSec) {
+                $rRouter = Invoke-Probe -Url 'http://127.0.0.1:8801/' -Contains '<!DOCTYPE html'
+                if ($rRouter.Verdict -eq 'pass') { $routerOk = $true; break }
+                Start-Sleep -Seconds 2
+                Update-DeployLockHeartbeat
+            }
+            $gapSec = [int]((Get-Date) - $gapStart).TotalSeconds
+            if ($routerOk) {
+                # router 已实测接管 8801 ⇒ 单实例才允许停用。不改 Manual,机器重启后单实例会与 router 抢 8801。
+                try { Set-Service -Name 'IHUI-WEB' -StartupType Manual -ErrorAction Stop; Log "OK    IHUI-WEB 启动类型已改为 Manual(避免重启后与 router 抢 8801)" } catch { Log "WARN  IHUI-WEB 启动类型改 Manual 失败:$_" }
+                Log "OK    web router 已接管 8801(迁入空窗 $gapSec 秒,上限 $routerBudgetSec 秒)"
+            } else {
+                # 轮询不成立 ⇒ router 没真在监听。当场回滚:还原 Automatic、把单实例拉回恢复 8801,
+                # 绝不留"router 没起来 + 单实例被停"的中间态;回滚后再量一次 8801 是否真的活过来。
+                try { Set-Service -Name 'IHUI-WEB' -StartupType Automatic -ErrorAction SilentlyContinue } catch {}
+                try { Start-Service -Name 'IHUI-WEB' -ErrorAction Stop } catch { Log "WARN  回滚拉回 IHUI-WEB 抛错:$_" }
+                $rbkOk = $false
+                for ($i = 1; $i -le 10; $i++) {
+                    if ((Invoke-Probe -Url 'http://127.0.0.1:8801/' -Contains '<!DOCTYPE html').Verdict -eq 'pass') { $rbkOk = $true; break }
+                    Start-Sleep -Seconds 2
+                    Update-DeployLockHeartbeat
+                }
+                $rbkTxt = if ($rbkOk) { '已恢复服务' } else { '仍可能不可服务,需人工介入' }
+                Fail "web router 迁入失败:轮询 $gapSec 秒 8801 未应答;已回滚单实例 IHUI-WEB($rbkTxt)" -Detail ("router 日志尾部: " + (Get-RouterLogTail)) -Reason "web-router not-listening"
+            }
+        }
+    }
+} else {
+    Log "WARN  IHUI_DEPLOY_WEB_BG 已关闭 ⇒ 走旧的停-起路径(8801 会有切流空窗)"
+    Stop-Web
+    Remove-Item "$WebDir\.next" -Recurse -Force -ErrorAction SilentlyContinue
+    Move-Item "$WebDir\.next-staging" "$WebDir\.next"
+    Start-Web
+}
 # 2026-09-15 修复:next build 在 IHUI_BUILD_DIST 覆盖 distDir 时会把被跟踪的
-#   next-env.d.ts 改写为引用 .next-staging/types/...,但上方只移动 .next 目录、
+#   next-env.d.ts 改写为引用 .next-staging/types/...,但上方只移动构建目录、
 #   不还原该文件 → 残留污染源码树(违反 AGENTS.md「.next-* 变体永不提交」铁律)。
 #   交换完成后立即还原为已提交版本;git 不可用时静默跳过(不阻塞部署)。
 try {
     $gitCmd = Get-Command git -ErrorAction SilentlyContinue
     if ($gitCmd) { & git -C $Root checkout -- apps/web/next-env.d.ts 2>$null }
 } catch { /* 还原失败不阻塞部署,下次本地 git checkout 即可 */ }
-Start-Web
-Start-Sleep -Seconds 8
+# ── 切流后就绪等待(2026-10-28/生产席 O68 立:把固定 8s 换成"8801 真就绪再进健康门禁")──
+# 立因(实测:deploy-decisions 台账里 6 枚 pass-entry-broken 全部 dims=api+llm,时间 01:30~09:10):
+#   web 是**停-起**而非蓝绿(见上方 Stop-Web / Start-Web),切流空窗 + Next 冷启动期间 8801 不服务。
+#   公网三维里 web 探的是 https://www.aizhs.top,而该页由 TencentEdgeOne 缓存应答
+#   (实测响应头 eo-cache-status=HIT、age=11506 秒 ⇒ 读的是边缘缓存,**不构成"源站正在服务"的证据**);
+#   api/llm 两维走 /api/*(记忆口径:这些路径恒 MISS、必回源 8801)⇒ 空窗期读到 502 ⇒ 末轮 lastFails 非空。
+#   源站直探此时已 pass(web 进程已起、只是还没到能出页面的程度)⇒ health-gate-verdict 判
+#   entry-broken:不回滚好构建、也不冒绿 —— 行为正确,但它被归因成"隧道/边缘故障",而真实原因是
+#   **我们自己在重启 web**。把它算进入口故障证据,等于每次部署都往台账里留一枚假故障。
+# 边界(为什么这不是"放宽"):只推迟门禁起点,一条判据都不动 —— 等到就绪就照旧门禁;等不到(上限耗尽)
+#   也照旧门禁,由门禁按实测判 fail / entry-broken。§0.10:失效方向是多要一次说明,不是多放一次跳门。
+# 上限可覆写(IHUI_DEPLOY_WEB_READY_SEC,仅接受正整数,否则回落 120),等待期间持续续部署锁心跳。
+$readyBudgetSec = 120
+if ($env:IHUI_DEPLOY_WEB_READY_SEC -and $env:IHUI_DEPLOY_WEB_READY_SEC -match '^[1-9]\d*$') { $readyBudgetSec = [int]$env:IHUI_DEPLOY_WEB_READY_SEC }
+$readyStart = Get-Date
+$webReady = $false
+while (((Get-Date) - $readyStart).TotalSeconds -lt $readyBudgetSec) {
+    $rReady = Invoke-Probe -Url $OriginWeb -Contains '<!DOCTYPE html'
+    if ($rReady.Verdict -eq 'pass') { $webReady = $true; break }
+    Start-Sleep -Seconds 3
+    Update-DeployLockHeartbeat
+}
+$readySec = [int]((Get-Date) - $readyStart).TotalSeconds
+if ($webReady) {
+    Log "OK   源站 8801 已就绪(等待 $readySec 秒,上限 $readyBudgetSec 秒)⇒ 开始健康门禁"
+} else {
+    Log "WARN 源站 8801 等待 $readySec 秒仍未就绪(上限 $readyBudgetSec 秒)⇒ 照旧进入健康门禁:判据不放宽,由门禁按实测判 fail / entry-broken"
+}
+Start-Sleep -Seconds 2
 
 # ── SSH 入口存续(2026-10-21 立;同日更正归因)─────────────────────────────────
 # 现象:带有效服务令牌打 `ssh.aizhs.top` 的 Access 回 502(不带 token 是 302=边缘登录跳转,与后端无关),
@@ -2817,6 +3303,9 @@ try {
 }
 
 # 4) 健康门禁(web + api + llm)
+if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+    Update-IhuiDeployWindowPhase -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'gate' -ExpectedMinutes 60 | Out-Null
+}
 Log "健康门禁检查"
 if (-not (Test-HealthGate)) {
     if ($force) { Log "force=true,忽略门禁直接切流(违规操作,请确认)" }
@@ -2911,12 +3400,82 @@ if (-not (Test-HealthGate)) {
     # `Copy-Item`)会把整份回滚点替换掉,最多多留一份整包副本。
 
     # ── 重启 api(2026-09-13 加):api 为源码直跑,pull 后需重载才能吃到后端新代码 ──
+    # 阶段标记放在重启之前:api/ai 重启是监控最容易被叫醒的那一段。
+    if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+        Update-IhuiDeployWindowPhase -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'restart' -ExpectedMinutes 60 | Out-Null
+    }
     # 服务名不确定,按候选精确匹配;找不到则跳过(tsx watch 形态会自动重载)
     $apiName = @('IHUI-API','ihui-api','svc-api','IHUI-API-SVC') |
         Where-Object { $null -ne (Get-Service -Name $_ -ErrorAction SilentlyContinue) } |
         Select-Object -First 1
-    if ($apiName) {
-        Log "重启 api 服务($apiName)使后端新代码生效"
+
+    # ── 嵌套解释器选型(2026-10-28 根治)────────────────────────────────────────
+    # 病灶(当日实测):本机 `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` 报
+    # $PSHOME 即该目录,而该目录下的 `Modules` 与 `C:\Program Files\WindowsPowerShell\Modules`
+    # 均**不存在**(整目录被移除)。5.1 引擎还能跑纯 .NET,但 Get-Command/Test-Path/Get-Service
+    # 一个都加载不出来 ⇒ `& powershell.exe -File <脚本>` 100% 失败。代价极安静:
+    #   · 蓝绿切换每轮 rc≠0 → 只落一行 WARN(线上无损)⇒ **api 从未随部署重载**,旧代码一直在答;
+    #   · 实听者自证恒为 reason=no-contract-line ⇒ 身份永远"未判定",假成功没人抓。
+    # 修法不是给 5.1 补模块(系统面,且随时可能被再次清理),而是**只挑真正带 cmdlet 的解释器**:
+    # pwsh 7 自带 $PSHOME\Modules;powershell.exe 仅作末位兜底,且必须过 Get-Command 探针。
+    # 想复现判据:pwsh.exe -NoProfile -Command 'if (Get-Command Test-Path -EA SilentlyContinue) {"CMDLETS-OK"}'
+    function Resolve-DeployInterpreter {
+        $cands = @(
+            (Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'),
+            'C:\Program Files\PowerShell\7\pwsh.exe',
+            (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')
+        ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -Unique
+        foreach ($c in $cands) {
+            try {
+                $probe = & $c -NoProfile -NonInteractive -Command 'if (Get-Command Test-Path -ErrorAction SilentlyContinue) { "CMDLETS-OK" } else { "CMDLETS-MISSING" }' 2>&1
+                if (('' + $probe) -match 'CMDLETS-OK') { return $c }
+                Log "WARN  解释器无 cmdlet,跳过:$c"
+            } catch { Log "WARN  解释器探针异常($c):$_" }
+        }
+        return $null
+    }
+
+    # ── 蓝绿零停机切换(2026-10-28 立)──────────────────────────────────────────
+    # 原写法 `sc.exe stop → sleep 4 → sc start → sleep 6` 会让 8802 断监听 20~30 秒,
+    # Next.js 代理拿到 ECONNREFUSED,用户看到纯文本 "Internal Server Error"(登录直接失败,
+    # 10-28 当天实测两轮)。现改为:起另一色(8842/8843)→ 健康门禁 → 原子写状态文件让
+    # 8802 的路由层(as 1 秒热切换)→ 排空 20s → 停旧色。8802 全程有监听。
+    # 失败语义:目标色起不来就**不切流**,旧色继续服务,本步 WARN 但不判部署失败
+    # (线上无损);只有蓝绿服务不在位(单实例回滚形态)才退回旧的原地重启。
+    # 2026-10-28 22:5x 换执行面(Node 版,根因级):Resolve-DeployInterpreter 只能解决「子进程没有
+    # cmdlet」,解决不了第二层 —— ihui-api-bluegreen.ps1 里的 sc.exe 被本机程序黑名单封死
+    # (启动即 PROGRAM BLOCKED BY SECURITY POLICY),任何 shell 都绕不过。两条叠加的后果是
+    # 蓝绿每轮 rc≠0 而只落 WARN ⇒ **api 从未随部署重载**(22:48 实测:web 已部署新 HEAD,
+    # api 仍是 12:43 的进程)。Node 不受 PowerShell 策略约束,服务控制改走 nssm(实测可用);
+    # 切换器逻辑与原 .ps1 逐条对齐(状态自愈/起目标色/健康门禁/原子切流/排空/停旧色)。
+    $bgScript = Join-Path $PSScriptRoot 'ihui-api-bluegreen.mjs'
+    $bgNode = Resolve-NodeExe
+    $bgReady = (Test-Path -LiteralPath $bgScript) -and ($null -ne $bgNode) -and
+        ($null -ne (Get-Service -Name 'IHUI-API-BLUE' -ErrorAction SilentlyContinue)) -and
+        ($null -ne (Get-Service -Name 'IHUI-API-GREEN' -ErrorAction SilentlyContinue))
+    if ($bgReady) {
+        Log '蓝绿切换 api:起另一色 → 健康门禁 → 原子切流 → 排空 20s → 停旧色'
+        $bgRc = 1
+        try {
+            $bgOut = & $bgNode $bgScript --target auto 2>&1
+            $bgRc = $LASTEXITCODE
+            foreach ($line in @($bgOut)) { Log "  [bg] $line" }
+        } catch {
+            Log "WARN  蓝绿切换脚本异常: $_"
+        }
+        if ($bgRc -eq 0) {
+            $apiOk = $false
+            for ($i = 1; $i -le 5; $i++) {
+                if (Test-Http -url $OriginApi -contains '"status":"ok"') { $apiOk = $true; break }
+                Start-Sleep -Seconds 3
+            }
+            if ($apiOk) { Ok 'api 蓝绿切换完成且健康(切换期间 8802 未断监听)' }
+            else { Log "WARN  蓝绿切换返回 0 但源站健康未通过,需人工核查 IHUI-API-BLUE/GREEN" }
+        } else {
+            Log "WARN  api 蓝绿切换失败 rc=$bgRc:目标色未就绪 ⇒ 未切流,旧色仍在服务(线上无损);详见 D:\DevEnv\logs\api-bluegreen.log"
+        }
+    } elseif ($apiName) {
+        Log "未启用蓝绿(缺 IHUI-API-BLUE/GREEN 或 $bgScript),退回原地重启 api 服务($apiName)"
         try {
             sc.exe stop $apiName | Out-Null
             Start-Sleep -Seconds 4
@@ -2924,7 +3483,11 @@ if (-not (Test-HealthGate)) {
             Start-Sleep -Seconds 6
             $apiOk = $false
             for ($i = 1; $i -le 5; $i++) {
-                if (Test-Http -url $ApiHealth -contains '"status":"ok"') { $apiOk = $true; break }
+                # 2026-10-28 改探源站直连($OriginApi)而不是公网 $ApiHealth:这一步验的是
+                # "服务重启后本地起没起来",而公网 522 属 EdgeOne 入口故障(源站直探正常),
+                # 会让本行误报"需人工核查 IHUI-API"(01:31 实测即此,api 本身一直健康)。
+                # 公网那一维已由健康门禁单独判定(GATE-ENTRY-BROKEN),不在这里重复。
+                if (Test-Http -url $OriginApi -contains '"status":"ok"') { $apiOk = $true; break }
                 Start-Sleep -Seconds 6
             }
             if ($apiOk) { Ok "api 重启完成且健康" }
@@ -2932,6 +3495,35 @@ if (-not (Test-HealthGate)) {
         } catch { Log "WARN  api 重启异常: $_" }
     } else {
         Log "未找到 api 服务(候选:IHUI-API/ihui-api/svc-api),跳过重启(tsx watch 形态自动重载)"
+    }
+
+    # ── api 实听者身份自证(2026-10-28 立,当天实测的假成功逼出来的)──────────
+    # 上面两条分支判的都是"探不探得到 200"。而当天:服务"重启"起来的新子进程因为端口被
+    # 15:34 那个旧孤儿占着而直接退出(EADDRINUSE),旧 node 继续应答 200 ⇒ 部署记的是成功,
+    # 生产的 API 跑的仍是旧代码,而我差点把"8843=200 / 8802=200"当成新代码已上岗的证据。
+    # 健康度证明不了身份,所以这一步必须问"应答的那个进程是本轮起来的吗"——三态各有结论:
+    # fresh 放行、stale 报 ALERT 并给精确出路、量不到只报未判定(§0.3 两头都不许冒充结论)。
+    $freshPs = Join-Path $PSScriptRoot 'api-listener-freshness.ps1'
+    if (Test-Path -LiteralPath $freshPs) {
+        $frTxt = ''
+        try {
+            $frPs = Resolve-DeployInterpreter
+            if (-not $frPs) { throw '找不到带 cmdlet 的解释器(见 Resolve-DeployInterpreter)' }
+            $frRaw = & $frPs -NoProfile -ExecutionPolicy Bypass -File $freshPs -Ports '8842;8843' -SinceIso $ScriptStartIso 2>&1
+            $frTxt = ('' + (($frRaw | Where-Object { $_ -match 'FRESHNESS\|' } | Select-Object -First 1)))
+        } catch { $frTxt = 'FRESHNESS|state=undetermined|port=8842,8843|pids=|reason=invoke-failed' }
+        if ($frTxt -notmatch 'FRESHNESS\|') { $frTxt = 'FRESHNESS|state=undetermined|port=8842,8843|pids=|reason=no-contract-line' }
+        $frBody = ($frTxt -replace '^FRESHNESS\|', '')
+        if ($frTxt -match 'state=fresh') {
+            Ok "api 实听者已是本轮新进程($frBody)"
+        } elseif ($frTxt -match 'state=stale') {
+            Log "ALERT STALE-API-LISTENER 健康 200 但应答进程早于本轮起点 ⇒ 新代码未上岗($frBody)"
+            Log '  出路:按上面 pids **精确** Stop-Process 旧树(禁止按映像名批杀,会连带杀掉部署环),再 Start-Service,然后复跑 deploy/win/api-listener-freshness.ps1'
+        } else {
+            Log "WARN  api 实听者身份未判定 ⇒ 既不记绿也不冒红($frBody)"
+        }
+    } else {
+        Log "WARN  缺 deploy/win/api-listener-freshness.ps1 ⇒ 本轮无法自证 api 实听者身份(只探到 200 不等于新代码在答)"
     }
 
     # ── 重启 ai-service(2026-09-14 加):uvicorn 源码直跑,pull 后需重载才能吃到
@@ -2984,6 +3576,15 @@ Write-Host ""
 $deployDoneSha = (& git -C $Root rev-parse --short HEAD 2>&1 | Out-String).Trim()
 if ($deployDoneSha -notmatch '^[0-9a-f]{7,40}$') { $deployDoneSha = "未判定(实得:$deployDoneSha)" }
 Log "=== 部署完成,HEAD=$deployDoneSha 活跃组=win(8801/8802/8803) ==="
+# 成功收口要写在"部署完成"这一行之后、清偿告警身份之前:监控从这一刻起进入 15 分钟 settle,
+# 期间仍抑制部署相关告警;settle 结束后如果服务真的坏了,下一轮巡检会立即寄信。
+if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+    try {
+        $winClose = Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'success' -Head $deployDoneSha -SettleMinutes 15
+        if ($winClose.Ok) { Log "WINDOW 收口 success settle=15m head=$deployDoneSha" }
+        else { Log "WARN  部署窗口收口未写成($($winClose.Error)) —— 监控下一轮按 Stale/失败放行" }
+    } catch { Log "WARN  部署窗口收口异常(不影响本轮发布):$_" }
+}
 # 成功切流就是"本轮未切流"类告警的**终态**:把这些身份从去重档案里摘掉,下一次再挡按新故障重计。
 # 不清这一格,已恢复的故障会按 4h 周期一直寄下去(2026-10-10 现读同一身份 repeatNo=40,而这期间
 # 日志里有 92 行"部署完成")。档案读不出时只喊"未清偿 + 原因",绝不把"没清成"写成"已清"。

@@ -153,7 +153,15 @@ function main(argv) {
       process.exit(1)
     }
     removeDirSys(TMP)
-    console.log('[atomic-build] 完成：dist 被占用，已用原地覆盖兜底（下次构建自动清理孤儿文件）')
+    // 2026-10-28 消歧:这句原先无条件说"dist 被占用",而净面(一次性导出面)里 packages/*/dist
+    // 不入库 ⇒ hadOldDist=false,压根没有"旧 dist"可换,cp TMP→DIST 是**首次落位**的正常路径。
+    // 每轮 5 条"被占用"实为假警报(取证:干净面 git ls-files packages/*/dist = 0 行、进程表零
+    // 持有者、重试一次都没失败)。真占用只会在 hadOldDist=true 时出现,故按它分流措辞。
+    console.log(
+      hadOldDist
+        ? '[atomic-build] 完成：dist 被占用，已用原地覆盖兜底（下次构建自动清理孤儿文件）'
+        : '[atomic-build] 完成：dist 原本不存在（首次构建），已直接落位',
+    )
   } else {
     console.log('[atomic-build] 完成：新构建已原子换入 dist')
   }

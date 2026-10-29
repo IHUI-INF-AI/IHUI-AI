@@ -41,6 +41,8 @@ import {
   X,
   // V3 #62:侧栏批量选择开关(多选态)
   ListChecks,
+  // 按钮层级重构(2026-10-26):导出/压缩收进二级子菜单,压缩项与历史页 conversation-list 同型用 Shrink
+  Shrink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
@@ -105,6 +107,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  // 按钮层级重构(2026-10-26):Radix 二级子菜单三件套 + 分隔线
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import {
   Dialog,
@@ -1073,98 +1080,120 @@ export function SidebarChatHistory({
                 </>
               )}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleExport(item, 'md')
-              }}
-              disabled={busyId === item.id}
-            >
-              <FileCode className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('actions.exportMd')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleExport(item, 'txt')
-              }}
-              disabled={busyId === item.id}
-            >
-              <FileText className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('actions.exportTxt')}</span>
-            </DropdownMenuItem>
-            {/* D20(G-11):导出 PDF(打印通道,用户侧"另存为 PDF") */}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleExportPdf(item)
-              }}
-              disabled={busyId === item.id}
-              data-testid="conversation-export-pdf"
-            >
-              <FileDown className="mr-2 h-3.5 w-3.5" />
-              <span>{te('exportPdf')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleExportJson(item)
-              }}
-              disabled={busyId === item.id}
-            >
-              <FileJson className="mr-2 h-3.5 w-3.5" />
-              <span>{te('exportJson')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleSnapshot(item)
-              }}
-              disabled={busyId === item.id}
-            >
-              <Camera className="mr-2 h-3.5 w-3.5" />
-              <span>{te('snapshot')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleShareCard(item)
-              }}
-              disabled={busyId === item.id}
-            >
-              <ImageIcon className="mr-2 h-3.5 w-3.5" />
-              <span>{te('exportCard')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleShareLink(item)
-              }}
-              disabled={busyId === item.id}
-            >
-              <Link2 className="mr-2 h-3.5 w-3.5" />
-              <span>{te('share')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleCompress(item, 200000)
-              }}
-              disabled={busyId === item.id}
-            >
-              <Download className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('actions.compressTo200k')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleCompress(item, 1000000)
-              }}
-              disabled={busyId === item.id}
-            >
-              <Download className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('actions.compressTo1m')}</span>
-            </DropdownMenuItem>
+            {/* 按钮层级重构(2026-10-26):原来 9 枚导出/压缩项全部平铺在一线，菜单长达 16 行。
+                现按用户口径收级——导出/分享各格式归入「导出 / 分享会话」二级子菜单，
+                压缩两档归入「压缩会话」二级子菜单；一线只留高频动作。 */}
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger data-testid="conversation-export-submenu">
+                <Download className="mr-2 h-3.5 w-3.5" />
+                <span>{te('label')}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-44">
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExport(item, 'md')
+                  }}
+                  disabled={busyId === item.id}
+                >
+                  <FileCode className="mr-2 h-3.5 w-3.5" />
+                  <span>{tc('actions.exportMd')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExport(item, 'txt')
+                  }}
+                  disabled={busyId === item.id}
+                >
+                  <FileText className="mr-2 h-3.5 w-3.5" />
+                  <span>{tc('actions.exportTxt')}</span>
+                </DropdownMenuItem>
+                {/* D20(G-11):导出 PDF(打印通道,用户侧"另存为 PDF") */}
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExportPdf(item)
+                  }}
+                  disabled={busyId === item.id}
+                  data-testid="conversation-export-pdf"
+                >
+                  <FileDown className="mr-2 h-3.5 w-3.5" />
+                  <span>{te('exportPdf')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExportJson(item)
+                  }}
+                  disabled={busyId === item.id}
+                >
+                  <FileJson className="mr-2 h-3.5 w-3.5" />
+                  <span>{te('exportJson')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleSnapshot(item)
+                  }}
+                  disabled={busyId === item.id}
+                >
+                  <Camera className="mr-2 h-3.5 w-3.5" />
+                  <span>{te('snapshot')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleShareCard(item)
+                  }}
+                  disabled={busyId === item.id}
+                >
+                  <ImageIcon className="mr-2 h-3.5 w-3.5" />
+                  <span>{te('exportCard')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleShareLink(item)
+                  }}
+                  disabled={busyId === item.id}
+                >
+                  <Link2 className="mr-2 h-3.5 w-3.5" />
+                  <span>{te('share')}</span>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger data-testid="conversation-compress-submenu">
+                <Shrink className="mr-2 h-3.5 w-3.5" />
+                <span>{te('compression')}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-44">
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleCompress(item, 200000)
+                  }}
+                  disabled={busyId === item.id}
+                >
+                  <Shrink className="mr-2 h-3.5 w-3.5" />
+                  <span>{tc('actions.compressTo200k')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleCompress(item, 1000000)
+                  }}
+                  disabled={busyId === item.id}
+                >
+                  <Shrink className="mr-2 h-3.5 w-3.5" />
+                  <span>{tc('actions.compressTo1m')}</span>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()

@@ -22,6 +22,8 @@ const MOBILE_MENU_OVERLAY_ID = 'global-shell-mobile-menu'
 import {
   PWAInstallPrompt,
   PWAUpdatePrompt,
+  PwaUpdateWatcher,
+  AppVersionGatePrompt,
   UpdatePrompt,
   NavigationProgress,
   VisitTracker,
@@ -499,6 +501,14 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             2026-10-11 断点 767→639(与侧栏 768→640 同步):640-1023px 窄窗口已恢复 60px 图标条,
             属桌面式布局,PWA 提示按桌面态挂右下角。 */}
         <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 max-[639px]:bottom-auto max-[639px]:left-3 max-[639px]:right-3 max-[639px]:top-14 max-[639px]:w-auto">
+          {/*
+            app-version 闸门渲染端(2026-10-27 接线):普通更新渲染成与 PWA 提示同款的卡片,
+            强更渲染成整屏阻塞弹窗(fixed inset-0,不受本列 w-80 约束)。
+            决策来源 = GlobalHooksProvider 启动时拉的 /api/app-version/check-update。
+          */}
+          <div className="pointer-events-auto">
+            <AppVersionGatePrompt />
+          </div>
           <div className="pointer-events-auto">
             <PWAInstallPrompt />
           </div>
@@ -506,6 +516,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             <PWAUpdatePrompt onUpdate={() => window.location.reload()} />
           </div>
         </div>
+        {/* SW 更新侦测(PWAUpdatePrompt 的派发端):此前只有消费端没有生产者,
+            卡片结构上永远不出现。此处补上生产者,详见 PwaUpdateWatcher 头注。 */}
+        <PwaUpdateWatcher />
         {/*
         工作区人工审计确认弹窗(全局挂载,任意页面触发 FS 工具权限请求时弹出)。
         Dialog 内部通过 usePermissionRequest 订阅 workspace.permission.request WS 事件。

@@ -48,7 +48,9 @@ RN 侧**共享屏层**:`src/features/`(现读 194 个特性目录)装整屏级�
 * 主题透线:`packages/app` 的 theme-driven 组件形参若带 `colorScheme` 默认值,调用方必须在每个
   JSX 渲染点真传参(守门 91 判 missing/literal/spread-unknown)。
 * 页头返回键的唯一实现是 `packages/app/src/components/BackChevron.tsx`(经本包导出);
-  区段头「更多」的唯一 RN 实现是 `components/MoreLink.tsx`。两端不得再自拼第三份(守门 102 S0)。
+  区段头(标题/副标题/更多)的唯一 RN primitive 是 `components/SectionHeader.tsx`(几何只取
+  `@ihui/shared/ui/section-header-spec`,RN 端 1:1),其中「更多」仍委托 `components/MoreLink.tsx`
+  (箭头/字号单源)。两端不得再自拼第三份(守门 102 S0)。
 
 ## 4. 已知缺口 / 未收口的点(现读,非"应该没有")
 

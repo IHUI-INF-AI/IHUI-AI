@@ -34,7 +34,7 @@ import {
 } from '@ihui/shared/utils/visit-url'
 
 /** 来源窗口:与大屏其它腿同一档(24h),同口径才可比。 */
-export const VISIT_SOURCE_WINDOW_HOURS = 24
+const VISIT_SOURCE_WINDOW_HOURS = 24
 
 /** 主机榜取前 N 条。 */
 const SOURCE_HOST_TOP_N = 8
@@ -64,13 +64,13 @@ export function selfHostSuffixes(): string[] {
     .filter((item) => item.length > 0)
 }
 
-export interface VisitSourceBucket {
+interface VisitSourceBucket {
   kind: VisitSourceKind
   /** 该类来源的 PV */
   pv: number
 }
 
-export interface VisitSourceHostRow {
+interface VisitSourceHostRow {
   /** 来源主机(已归并同一主机的不同路径) */
   host: string
   kind: VisitSourceKind
@@ -150,7 +150,7 @@ export function buildVisitSource(
 }
 
 /** 现算一份来源快照;任一 SQL 抛错就整块上抛,由调用方折成 null(渲染「—」),绝不兜成 0。 */
-export async function computeVisitSource(
+async function computeVisitSource(
   hours: number = VISIT_SOURCE_WINDOW_HOURS,
 ): Promise<VisitSourceSnapshot> {
   const rows = await dbRead
@@ -171,7 +171,7 @@ export async function computeVisitSource(
  * 大屏实时档(24h 窗口 + 60 秒 TTL):来源维度不需要 5 秒级新鲜度,
  * 而按 referer 分组要扫 `visit_logs` 全表(无 referer 索引),60 秒足够新。
  */
-export const VISIT_SOURCE_TTL_MS = 60_000
+const VISIT_SOURCE_TTL_MS = 60_000
 
 let liveCache: { atMs: number; value: VisitSourceSnapshot } | null = null
 let liveInflight: Promise<VisitSourceSnapshot> | null = null
@@ -195,9 +195,4 @@ export async function getVisitSourceLiveSnapshot(
   return current
 }
 
-/** 仅测试用:清缓存。 */
-export function __resetVisitSourceCacheForTest(): void {
-  liveCache = null
-  liveInflight = null
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

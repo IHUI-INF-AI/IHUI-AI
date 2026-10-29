@@ -94,7 +94,7 @@
  * 一字未动 —— 把判据放宽/收紧都不解决"判据没在真跑它的那一刻成立",而那属于"为消红削判据"。
  */
 import { execFileSync, spawn } from 'node:child_process'
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -113,7 +113,8 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
 // 摘除台账单源(与 auto-commit 复洁器同一份解析):整行已被声明摘除的行,本门不得判丢、不得回捞。
 // 否则"删副本 → 门 71 判丢 → 自动回捞 → 再删"永不收敛(2026-10-22 实测 G-56 回捞提交 ec4171d119)。
-import { declaredRows } from './scrub-declared-removals.mjs'
+// `LEDGERS` 一并 import:闸门要点名"缺的是哪一本账",清单若在门里再抄一份就会和复洁器的漂移(§0.6)。
+import { declaredRows, titleFpOf, LEDGERS } from './scrub-declared-removals.mjs'
 // G-722:编号形态判据(畸形号 = 族名在编号段出现两次)的**唯一实现**住在活文档编辑器里 ——
 // 判据住在 `scripts/lib/plan-task-index.mjs` 的下沉方案因该文件正被并发会话在飞编辑而未采,
 // 按票面指定的 import 方案接。两处各抄一遍形态正则必然漂移(§22c 同一条纪律),镜像形状锁钉死。
@@ -122,6 +123,7 @@ import {
   newMalformed,
   malformedLine,
   MALFORMED_ID_RE,
+  stripSidecarHeader,
 } from './lib/plan-task-index.mjs'
 
 const GIT_TIMEOUT = 60000
@@ -194,8 +196,14 @@ export const TASK_ID_PATTERN = ID
 const ID_RE = new RegExp(`(${ID})`)
 /** 复选框与其后多层状态装饰(`（进行中）` / `✅(日期)`)一起剥掉,露出真正的内容开头 */
 function checkboxBody(line) {
-  let body = line.replace(/^\s*[-*]\s\[[ xX]\]\s*/, '')
-  if (body === line) return null
+  // G-948(2026-10-26):侧车标头 `〔归:…〕` / `〔归:…｜等:…〕` 是**投影**、不是正文,判定层必须
+  // 与渲染层同一把剥法(单源 = `plan-task-index.stripSidecarHeader`,§0.6)。不剥的实测代价就是
+  // 本票的现场:HEAD 面上 `- [ ] 〔归:web 聊天附件链〕 G-863 **附件容量…**` 这类行在防丢面、
+  // 行首名额、复合主键三处**同时隐身**(现读 101 条未勾复选行里 58 条隐身、其中 29 条带标头),
+  // 于是"按滞后副本整文件回写"吞掉它们时本门报"无登记行丢失"。
+  const src = stripSidecarHeader(line)
+  let body = src.replace(/^\s*[-*]\s\[[ xX]\]\s*/, '')
+  if (body === src) return null
   for (;;) {
     const deco = body.match(/^(?:[✅⏳☑✔✓🕐⚠]?\s*[（(][^）)]*[）)]\s*)+/)
     if (!deco || !deco[0]) break
@@ -208,15 +216,31 @@ function checkboxBody(line) {
 }
 
 /**
+ * 剥完装饰后的正文里,**行首编号**的取法(G-948 第二格):允许编号被 markdown 强调记号
+ * (`**G-241 …`)或反引号/空白垫在前面 —— 旧写法只认 `body[0]` 起手的编号,于是
+ * `- [ ]（进行中@…） 〔归:x〕 **G-241 自动化"结算状态机"**` 这类"租约 + 标头 + 粗体头"三件
+ * 叠写的行拿到了 marker(markerOf 的加粗那一路)却拿不到 id ⇒ 落进 textOnly 档,判活退回
+ * **纯文本搜索**,而这行的题面正被别人的结清注记原样引用 ⇒ 整行被吞、门报绿。
+ * 收紧面:仍要求编号在**剥饰后的正文开头**(不是"行里任何位置有个号"),叙述句照旧不吃。
+ */
+function leadIdOfBody(body) {
+  if (typeof body !== 'string' || !body) return null
+  const lead = body.replace(/^[*\s`]+/, '')
+  const m = lead.match(ID_RE)
+  return m && m.index === 0 && m[1].length >= 3 ? m[1] : null
+}
+
+/**
  * 行首编号(登记行的"身份"):复选任务行裸编号、批次标题行序号,以及加粗头紧跟编号的行。
  * 用途见 `registrationOf` 的注释 —— 单靠"标记字符串还在不在全文里"判丢失会被引用句骗过。
  */
 export function headIdOf(line) {
   const cb = checkboxBody(line)
   if (cb !== null) {
-    const m = cb.match(ID_RE)
-    if (m && m.index === 0 && m[1].length >= 3) return m[1]
-    return null
+    // G-948:这里从"编号必须正好落在剥饰正文的第 0 字"放宽为"允许被 `**` / 反引号垫在前面"
+    // (见 `leadIdOfBody` 头注)。放宽面只在**复选任务行**这一族,且仍要求编号在剥饰后的开头 ——
+    // 叙述句("见 D13"那种)与加粗 bullet 的行为逐字不变。
+    return leadIdOfBody(cb)
   }
   // 任务标题行也受保护(2026-09-23 实测补):并发会话按旧基线整文件回写,把
   // `## O28 门 53 白名单按新判据重算收紧…` 这一**标题**连同它下一条预警 bullet 一起写没了,
@@ -397,14 +421,21 @@ export function registrationSlots(src) {
     const key = `${shape}${SHAPE_ID_SEP}${id}`
     let slot = out.get(key)
     if (!slot) {
-      slot = { count: 0, markers: new Set() }
+      slot = { count: 0, markers: new Set(), markerCounts: new Map() }
       out.set(key, slot)
     }
     // count 记的是**行首名额**:短标题(< MIN_LEN)不成 marker,但它仍占着一个名额 ——
     // 这正是"把 60 字标题正当改写成 30 字"不该判丢的依据,所以 marker 缺席不影响 count。
     slot.count += 1
     const reg = registrationOf(line)
-    if (reg && reg.marker) slot.markers.add(reg.marker)
+    if (reg && reg.marker) {
+      slot.markers.add(reg.marker)
+      // G-948:同一个 marker 占几行也要数得出来。`markers` 是 Set ⇒ 孪生行(逐字同题面)
+      // 在集合里只留一份,于是"基线 15 行、被审面 11 行"这一型在 present 那一步被读成
+      // "15 条全都还活着"(Set 命中即算),名额差值维(foldedSlots)把它交给当次声明,而
+      // 历史面根本拿不到声明 —— 这正是"滞后副本整文件回写"吞掉他席登记行却报绿的机制。
+      slot.markerCounts.set(reg.marker, (slot.markerCounts.get(reg.marker) || 0) + 1)
+    }
   }
   return out
 }
@@ -505,16 +536,106 @@ export function lossFingerprintOf(line) {
   return fp.length >= 8 ? fp : ''
 }
 
-/** 摘除声明集合(模块级缓存:同一进程只读一次;取不到 ⇒ 空集,方向是"照旧判丢"而不是误豁免)。 */
-let _declaredRowsCache = null
-function declaredRowSet() {
-  if (_declaredRowsCache) return _declaredRowsCache
+/**
+ * 摘除台账闸门(2026-10-27 立,执行席 mp-g71)。
+ *
+ * 旧口径(`declaredRowSet()` 把读抛 catch 成空集)是 **fail-open**:台账取不到时"声明过的摘除"
+ * 一律隐形 ⇒ `missingFrom` 把那些行判缺 ⇒ `--heal` 逐字节把它们插回台账 ⇒ "摘了又回来"循环
+ * (复现件 `.ihui-agent/tmp/mp-rescue/repro.mjs` 第⑤步;对照档 `union-converge.declaredFamilyCaps`
+ * 早已有"取不到 ⇒ 不回补"那一档,门 71 没有)。
+ *
+ * 新口径 = 三态,失效方向是**多问一次**而不是多放一次自动写回(§0.10):
+ *  · `undetermined:false` —— 至少一本台账在位且解析正常;
+ *  · `undetermined:true`  —— ① `declaredRows()` 抛错;② 读了但 `filesSeen===0`(两本账都不在位);
+ *    ③ 账在位却一行都解不开(`set` 空 ∧ `malformed>0`,即整本账损坏)。
+ * 两种情形**判定面(判缺)一条不放宽** —— 台账不可见只会让豁免面变窄,判缺照旧、报数照旧;
+ * 收窄的只有**自动回捞**这一侧:本轮零回捞 + 显式点名缺的是哪一本账与原因。
+ *
+ * 模块级缓存:同一进程只读一次(真仓 `plan-row-drop.jsonl` 现读数 MB 级,读两遍是白付的墙钟)。
+ */
+let _declaredGateCache = null
+export function declaredLedgerGate(root = ROOT, files = LEDGERS) {
+  if (_declaredGateCache && _declaredGateCache.root === root && _declaredGateCache.files === files)
+    return _declaredGateCache.gate
+  let d = null
+  let thrown = null
   try {
-    _declaredRowsCache = declaredRows().set
-  } catch {
-    _declaredRowsCache = new Set()
+    d = declaredRows(root, files)
+  } catch (e) {
+    thrown = e
   }
-  return _declaredRowsCache
+  const missing = files.filter((f) => {
+    try {
+      return !existsSync(path.join(root, f))
+    } catch {
+      return true
+    }
+  })
+  let gate
+  if (thrown || !d) {
+    gate = {
+      declared: { set: new Set(), dropTitleFps: new Set(), keyIndex: new Map() },
+      undetermined: true,
+      filesSeen: 0,
+      missing: [...files],
+      why: `摘除台账解析抛错(${String(thrown?.code || thrown?.name || '')} ${String(thrown?.message || thrown).slice(0, 120)})`,
+    }
+  } else if (Number(d.filesSeen) === 0) {
+    gate = {
+      declared: d,
+      undetermined: true,
+      filesSeen: 0,
+      missing,
+      why: `两本摘除台账都不在位(filesSeen=0,缺 ${missing.join(' / ') || '—'})`,
+    }
+  } else if (d.set.size === 0 && Number(d.malformed) > 0) {
+    gate = {
+      declared: d,
+      undetermined: true,
+      filesSeen: Number(d.filesSeen),
+      missing,
+      why: `台账在位(${d.filesSeen}/${files.length},缺 ${missing.join(' / ') || '无'})但 ${d.malformed} 行全解不开 ⇒ 无一条可用声明`,
+    }
+  } else {
+    gate = {
+      declared: d,
+      undetermined: false,
+      filesSeen: Number(d.filesSeen),
+      missing,
+      why: '',
+    }
+  }
+  if (root === ROOT && files === LEDGERS) _declaredGateCache = { root, files, gate }
+  return gate
+}
+
+/** 判定面用的兼容出口:闸门无论是否未判定都返回**这一份**声明集(未判定 ⇒ 空集 ⇒ 判缺从严)。 */
+function declaredRowSet() {
+  return declaredLedgerGate().declared
+}
+
+/**
+ * 回捞决议(纯函数、零 IO,镜像测试直接喂夹具闸门)。
+ * 只有"闸门未判定 ∧ 本轮确有回捞候选"才拒;候选为 0 时本轮本就没有自动动作,
+ * 结论"无缺失"是与台账无关的真判定(空台账只会**多**判缺,不会少判)⇒ 不冒充未判定。
+ */
+export function rescueDecisionFromGate(gate, legs) {
+  const candidates =
+    (legs?.disk?.length ?? 0) + (legs?.head?.length ?? 0) + (legs?.index?.length ?? 0)
+  if (gate?.undetermined && candidates > 0)
+    return {
+      rescue: false,
+      exitCode: 2,
+      candidates,
+      why: gate.why || '未给出原因',
+      missing: Array.isArray(gate.missing) ? gate.missing : [],
+      legs: {
+        disk: legs?.disk?.length ?? 0,
+        head: legs?.head?.length ?? 0,
+        index: legs?.index === null || legs?.index === undefined ? null : legs.index.length,
+      },
+    }
+  return { rescue: true, exitCode: 0, candidates, why: '', missing: [] }
 }
 
 /** 改号行正文归一化:去空白、剥尾部压缩注记、编号统一为占位符(改号本身只动编号)。 */
@@ -527,14 +648,140 @@ const normalizeRenumberBody = (s) =>
     .replace(/\s+/g, '')
     .replace(/[A-Za-z]{1,8}-?\d+/g, '<ID>')
 
-export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()) {
+/**
+ * 「已收拢」的**第三形态**(2026-10-24 立,票「line-loss 的『已收拢』判据缺第三形态:漂移注释
+ * ⇒ 每轮 heal 把收拢行捞回」)。
+ *
+ * 为什么前两形态接不住(现读取证,不是推演):
+ *  ① `archivedCopy` 只认 `.ihui-agent/archive/PROJECT_PLAN_*.md` 与清偿台账 —— 收拢件不在里面;
+ *  ② `pointerExempt`(摘号/改号通道)要求**剥完装饰后的整段正文逐字相等**,且第一道
+ *     `checkboxBody(e.line)` 就把非复选形态(加粗 bullet a 族、标题 c 族)整个排除在外。
+ *     而真仓 HEAD 面 80 枚漂移注释里,正文**逐字等于原行**的只是少数:生产器把行搬进注释时
+ *     会洗断前导装饰(实测 `<!-- 重复副本(…): 进行中） **Esc 无层栈协议**…` —— 原行是
+ *     `- [ ] （进行中@2026-09-26/Esc层栈票,主会话第九批） **Esc …**`,左括号连前缀一起没了),
+ *     注释尾部还常挂 `〔PROGRESS@…〕` 这类原行没有的进展注记 ⇒ 逐字比较必然不等。
+ *  ③ 纪元档的 `liveBodies` 只从 `^\s*[-*]\s` 的 bullet 行取题面 ⇒ **注释行整族不在射程**;
+ *     而 marker 退化到只剩编号时(编号后紧跟 `**` ⇒ `titleMarker` 截出空标题)它走「实字 <6 ⇒ 不判」
+ *     那一支,是"放过去"而不是"认出已收拢" —— 账面上看不出一枚收拢行被认成什么。
+ * 三条合起来的后果 = 收拢行每轮被判缺失 ⇒ `--heal` 把它从历史捞回**开放态** ⇒ 同题组回潮 ⇒
+ * 再收拢 ⇒ 再捞回(同题回潮机器成因的后半块)。
+ *
+ * 判据口径(从严,两条同时成立才算「已收拢」):
+ *  甲 **题面**:该登记行剥掉项目符号/复选框/前导成对装饰/行首编号/强调记号后的题面前
+ *     `COLLECTED_TITLE_SPAN` 字,去空白与记号归一后,**逐字出现在**同一条漂移注释的归一正文里;
+ *     归一后实字不足 `COLLECTED_MIN_JUDGABLE` 字的行**不判**(照旧走原通道,可能仍判缺)——
+ *     宁可多要一次人工归并,也不给"任意短行"发免死牌(§0.10)。
+ *  乙 **编号**:该行有行首编号时,同一条注释里必须也含该编号(编号可写在正文任意位置,
+ *     不必在行首 —— 生产注释普遍写成 `(原编号 G-855…)` / `正主 L7664 G-335` 这种句中形态)。
+ *     编号为 null 的加粗族沿用本门既有口径(它按标记文本判活,本来就没有行首编号),只要甲。
+ * 只有 `DRIFT_COMMENT_RE` 那两族(`漂移副本` / `重复副本`)算收拢件;`已归档(` 一族正文是截断的,
+ * 其完整原文归 `archivedCopy` 承接 —— 与 `mergePointerBodyOf` 头注同一条口径,不新开射程。
+ *
+ * 为什么不放宽成"注释里有编号就算":同号不同题就是本仓反复登记的撞号形态,单靠编号作证等于
+ * 把注释变成万能豁免证(镜像测试 S6 那条反向锁钉着它)。
+ * 为什么不抽到 `scripts/lib/` 另立一份:这把尺子的**全部消费方**(检测侧 `resolveRegistrationLoss`
+ * = lostMarkers/missingFrom/stillRegistered 三通道,回捞侧 `healContent`)本来就在这一个文件里,
+ * 而 `lib/post-merge-ledger-sync.mjs` 结构上不判任何东西 —— 它派生本门 `--heal --commit`。
+ * 判据搬家只会多出一个"编号族表"的第二份拷贝(§0.6 要防的正是这个),故就地实现、就地导出。
+ */
+export const COLLECTED_TITLE_SPAN = 24
+export const COLLECTED_MIN_JUDGABLE = 12
+
+/** 行首编号的剥离式(含批次序号族)。**由 `ID` 族表生成,不得再抄一份字面量**(§0.6)。 */
+const LEADING_HEAD_ID_RE = new RegExp(String.raw`^(?:${ID}|第[0-9一二三四五六七八九十百①-⑳]+批)[.、]?`)
+
+/** 题面对账用的归一:剥注记段、去空白与强调/引用记号、括号与冒号族折掉、转小写。 */
+export function collectedNorm(s) {
+  return String(s ?? '')
+    .replace(/〔[^〕]*〕/g, '')
+    .replace(/【[^】]*】/g, '')
+    .replace(/[`*_~「」『』“”"'’]/g, '')
+    .replace(/[（(）)〔〕\[\]{}]/g, '')
+    .replace(/[:：]/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase()
+}
+
+/**
+ * 登记行 → 题面键(前 `span` 个归一字)。前导装饰与行首编号**反复剥**(两者先后顺序在真仓里
+ * 两种都有:`- [ ] G-63 **题面**` 与 `- **G-855〔旧号〕 题面**`)。
+ * @returns {string} '' = 无法判定(题面实字不足下限),调用方必须照旧判缺
+ */
+export function collectedTitleKey(line, span = COLLECTED_TITLE_SPAN) {
+  let s = String(line ?? '')
+  s = s.replace(/^\s*(?:[-*+]\s+|#{2,6}\s*)/, '')
+  s = s.replace(/^\[[ xX]\]\s*/, '')
+  for (;;) {
+    const before = s
+    s = s.replace(/^\s*(?:[✅⏳☑✔✓🕐⚠]\s*)?[（(][^）)]*[）)]\s*/, '')
+    s = s.replace(/^\s*〔[^〕]*〕\s*/, '')
+    s = s.replace(/^\s*【[^】]*】\s*/, '')
+    s = s.replace(/^\*+/, '')
+    s = s.replace(LEADING_HEAD_ID_RE, '')
+    if (s === before) break
+  }
+  const key = collectedNorm(s).slice(0, span)
+  return key.replace(/[^\p{L}\p{N}]/gu, '').length >= COLLECTED_MIN_JUDGABLE ? key : ''
+}
+
+/** 被审面上的全部漂移注释 → 归一正文语料(每次判定算一次,与内容同面同轮)。 */
+export function driftCollectedCorpus(targetSrc) {
+  const out = []
+  for (const line of String(targetSrc ?? '').split(/\r?\n/)) {
+    const m = line.match(DRIFT_COMMENT_RE)
+    if (m) out.push({ body: m[1], text: collectedNorm(m[1]) })
+  }
+  return out
+}
+
+/**
+ * 单条缺席登记行是否「已收拢在册」(第三形态)。
+ * @returns {{matched:boolean, unjudged:boolean, comment:string|null, key:string}}
+ *  `unjudged:true` = 题面太短无法判 ⇒ **不豁免**(照旧走原有通道),绝不读成"已找到"。
+ */
+export function collectedInDriftComment(entry, corpus) {
+  const no = { matched: false, unjudged: false, comment: null, key: '' }
+  if (!entry || typeof entry.line !== 'string' || !Array.isArray(corpus) || corpus.length === 0) return no
+  const key = collectedTitleKey(entry.line)
+  if (key === '') return { ...no, unjudged: true }
+  // 编号两写法都认:折算后的新号与面上的裸旧号(纪元档下二者必然同时存在,见 missingFrom 的 idAlt)
+  const idKeys = [entry.id, entry.idAlt].filter((x) => typeof x === 'string' && x).map(collectedNorm)
+  for (const c of corpus) {
+    if (!c.text.includes(key)) continue
+    if (idKeys.length && !idKeys.some((k) => c.text.includes(k))) continue
+    return { matched: true, unjudged: false, comment: c.body, key }
+  }
+  return { ...no, unjudged: false, key }
+}
+
+export function resolveRegistrationLoss(
+  entries,
+  targetSrc,
+  declared = new Set(),
+  collectedSink = null,
+  retired = new Set(),
+  opts = {},
+) {
+  /**
+   * `multiset`(G-948,2026-10-26 立,只对**历史面** `missingFrom` 打开):判活按"该 marker 在
+   * 被审面的行首还占几个名额"**逐个消耗**,而不是"这个 marker 在不在行首"。
+   * 打开它的原因就是本票现场:基线里同一题面登记了 15 行、滞后副本回写后只剩 11 行,而
+   * `markers` 是 Set ⇒ 15 条基线条目全部命中"还活着"⇒ 门报绿。
+   * 提交链(`lostMarkers`)**刻意不开**:那一档的行首名额差值已有 `foldedSlots` 负责,并要求
+   * 当次 `IHUI_PLAN_MERGE_FOLD` 声明;两把尺子对同一次删除各自顶一遍名额,是本仓记过的最贵事故型
+   * (见 `foldedSlots` 头注"不在本维重复计债")。
+   */
+  const multiset = opts.multiset === true
+  const declaredSet = declared instanceof Set ? declared : (declared?.set ?? new Set())
+  const dropTitleFps = declared instanceof Set ? new Set() : (declared?.dropTitleFps ?? new Set())
+  const retiredSet = retired instanceof Set ? retired : new Set()
   const groups = new Map()
   const textOnly = []
-  for (const e of entries) {
-    if (!e || !e.marker) continue
+  entries.forEach((e, idx) => {
+    if (!e || !e.marker) return
     if (!e.id) {
-      textOnly.push(e)
-      continue
+      textOnly.push({ e, idx })
+      return
     }
     // 形态优先取条目自带的 shape;调用方(手写夹具 / 历史回捞里的旧记录)没带时**从行自身推**。
     // 这不只是宽容:名额按 (形态,编号) 归组,若把缺 shape 的条目挂到 `undefined` 键上,
@@ -542,8 +789,10 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()
     const shape = e.shape || shapeOfRegistration(e.line || '')
     const key = `${shape}${SHAPE_ID_SEP}${e.id}`
     if (!groups.has(key)) groups.set(key, [])
-    groups.get(key).push({ e, shape })
-  }
+    groups.get(key).push({ e, shape, idx })
+  })
+  // 入账按**条目序号**而不是 marker(G-948):孪生行的 marker 逐字相同,用 marker 集合记账时
+  // "判丢 1 条"会被末段的 filter 放大成"整族 15 条全判丢"⇒ 回捞层一次插回 15 行重复登记。
   const lost = new Set()
   const multiSlot = new Set()
   // 摘号/改号豁免语料(2026-10-22 审计加固):被审面全部合法改写行剥指针段/尾注后的
@@ -569,46 +818,121 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()
     return pointerCorpus.has(normalizeRenumberBody(body))
   }
   // 声明摘除豁免(2026-10-22):整行逐字在摘除台账中 ⇒ 这是被主动删掉的副本/结清行,
-  // 不判丢、不回捞。方向从严:只认整行逐字相等,不做指纹/相似度;台账取不到 ⇒ declared 为空,
-  // 一切照旧(不误免)。与 pointerExempt 并存:两条通道互不替代。
-  const declaredExempt = (e) => typeof e.line === 'string' && declared.has(e.line)
+  // 不判丢、不回捞。方向从严:只认整行逐字相等,不做指纹/相似度。
+  // 〔2026-10-27 改判,执行席 mp-g71〕台账取不到时 declared 仍为空(判缺**照旧从严**、不误免),
+  // 但"照旧"只到判定面为止:自动回捞那一侧从此由 `declaredLedgerGate` + `rescueDecisionFromGate`
+  // 拦成本轮零回捞 + 未判定退出码。旧口径把"看不见声明"当成"没人声明过"继续插行,是 fail-open
+  // (实测:被 f12-purge 正当摘掉的禁令形态行,逐字节插回台账 ⇒ "摘了又回来")。
+  // 与 pointerExempt 并存:两条通道互不替代。
+  const declaredExempt = (e) =>
+    typeof e.line === 'string' &&
+    (declaredSet.has(e.line) || (dropTitleFps.size > 0 && dropTitleFps.has(titleFpOf(e.line))))
+  // 已结清短留痕(2026-10-25):窗口外看不见那次翻勾时,按落盘的 retired 拒绝复插。
+  // 只对"已观察到的翻勾"生效;没观察到的 ≠ 没结清(空集,行为与改前一致)。
+  const retiredExempt = (e) => typeof e.marker === 'string' && retiredSet.has(e.marker)
+  /**
+   * 第三形态(见 `COLLECTED_TITLE_SPAN` 头注):其余通道都判"这行没了"时,再问一次
+   * "它的原文是不是被收拢进漂移注释了"。放在最后一条 = 它只会**减少**误判回捞,
+   * 不可能把原本判绿的事翻成判红(§12e 反恒红门);而 `pointerExempt` 留在它后面作兜底
+   * (题面短到无法判、而整段正文逐字相等的那一型仍由老通道豁免,行为逐字不变)。
+   * sink 只登记"本形态救下来的那些",读数口径 = 本次改动的影响面,不是注释总枚数。
+   */
+  const collectedCorpus = driftCollectedCorpus(targetSrc)
+  const collectedSeenKeys = new Set()
+  const collectedExempt = (e) => {
+    const cm = collectedInDriftComment(e, collectedCorpus)
+    if (cm.matched && collectedSink && !collectedSeenKeys.has(e.marker)) {
+      collectedSeenKeys.add(e.marker)
+      collectedSink.push({ marker: e.marker, id: e.id ?? null, line: e.line, comment: cm.comment })
+    }
+    return cm.matched
+  }
   // textOnly 档同样要豁免:批⑤的四行真实形态(`- [ ] **G-580 …` 粗体头带空格)headIdOf 给 null,
   // 全走 textOnly —— 只豁免带 id 的组循环等于对这批真实事故行不生效(2026-10-09 端到端探针实证)。
-  for (const e of textOnly)
-    if (!targetSrc.includes(e.marker) && !pointerExempt(e) && !declaredExempt(e)) lost.add(e.marker)
+  // G-948:multiset 档给这一族**次数账**(加粗族没有编号,名额只能按 marker 在被审面出现的次数数),
+  // 否则"同一题面的 N 行被写成 N-1 行"在加粗族照旧报绿。数出现次数刻意用了 `indexOf` 逐次推进,
+  // 不用行首解析:历史面这些条目的 marker 有手写夹具/旧记录两种来源,行首解析会把 marker 的形态
+  // 差异读成"没这个人"(自测当场抓到两例),而"全文出现次数"两边同基准。次数只影响"还活着"
+  // 判几次,不放宽任何豁免;次数耗尽的那几份仍逐条过四道豁免。
+  const textUsed = multiset ? new Map() : null
+  const textOccurrences = (marker) => {
+    let n = 0
+    let i = 0
+    for (;;) {
+      const j = targetSrc.indexOf(marker, i)
+      if (j < 0) return n
+      n += 1
+      i = j + Math.max(1, marker.length)
+    }
+  }
+  for (const { e, idx } of textOnly) {
+    if (textUsed) {
+      const used = textUsed.get(e.marker) || 0
+      if (used < textOccurrences(e.marker)) {
+        textUsed.set(e.marker, used + 1)
+        continue
+      }
+    } else if (targetSrc.includes(e.marker)) continue
+    if (declaredExempt(e) || retiredExempt(e) || pointerExempt(e)) continue
+    // 加粗族(题面文本判活)的收拢件若把编号写成 `G-855〔旧号〕` 这类形态,marker 逐字断链
+    // ⇒ 老口径直接判缺(a 族实测);第三形态按题面认它。
+    if (collectedExempt(e)) continue
+    lost.add(idx) // 第三形态放行后仍判缺的那一支:逐枚入账,不得整批静默
+  }
   const slots = registrationSlots(targetSrc)
   for (const [key, group] of groups) {
     const slot = slots.get(key)
     const capacity = slot ? slot.count : 0
     const head = slot ? slot.markers : new Set()
+    // G-948:marker 级**剩余名额**账本(只在 multiset 档用)。每个 marker 在被审面行首占几行,
+    // 基线里同 marker 的条目就最多只能算几行"还活着";多出来的那些条目落进 absent 通道,
+    // 仍逐条过收拢/结清/摘号/声明摘除四道豁免,再被 slack 名额解释 —— 豁免面一律不放宽。
+    const budget = multiset && slot ? new Map(slot.markerCounts) : null
     const absent = []
     let present = 0
-    for (const { e } of group) {
-      if (head.has(e.marker)) present += 1
-      else if (pointerExempt(e)) continue // 合法摘号/改号(全文归一逐字相等)⇒ 不判丢、不点名、不回捞
+    for (const { e, idx } of group) {
+      const alive = budget ? (budget.get(e.marker) || 0) > 0 : head.has(e.marker)
+      if (alive) {
+        if (budget) budget.set(e.marker, budget.get(e.marker) - 1)
+        present += 1
+      } else if (collectedExempt(e)) continue // 已收拢进漂移注释(第三形态)⇒ 不判丢、不回捞
+      else if (retiredExempt(e)) continue // 窗口外已结清(短留痕)⇒ 不判丢、不回捞
+      // 合法摘号/改号(全文归一逐字相等)⇒ 不判丢、不点名、不回捞。
+      // `dupSlot` 复制份**不得**走这一道:它的正文之所以"在面上逐字找得到",恰恰因为孪生的那一份
+      // 还在 —— 拿它当豁免证就是让本维(名额)在"同题多行"这一型上恒绿,而那正是本票的事故型。
+      else if (!e.dupSlot && pointerExempt(e)) continue
       // 已声明摘除**不在这里 continue**:它必须占住 absent 的位置但不消耗 slack,
       // 否则同组后面那条真删行会被 slack 吞掉(2026-10-22 审计实测:台账空报 1、有台账报 0)。
-      else absent.push(declaredExempt(e) ? { ...e, declared: true } : e)
+      else absent.push(declaredExempt(e) ? { ...e, idx, declared: true } : { ...e, idx })
     }
     // 名额优先解释"组内靠前的"缺席条目(它们来自较新的历史版本,更可能是被改写而不是被吞)
     const slack = Math.max(0, capacity - present)
     const undecided = absent.filter((e) => !e.declared)
-    for (const e of undecided.slice(slack)) lost.add(e.marker)
+    for (const e of undecided.slice(slack)) lost.add(e.idx)
     /**
      * `multiSlot` = 判丢时该编号**在目标面仍占着行首名额**(capacity > 0)。
      * 这一类的含义不是"这个任务没人登记了",而是"同一编号原本有几行、现在少了一行" —— 少的那行
      * 可能是被吞,也可能是别人正当改了编号 / 归并后另起一行,**两者在内容上不可区分**。
      * 所以它只许**点名交人工**,绝不允许进自动回捞:真仓现读的两条此类样本(G-300 / G-301)
      * 都是"同编号被两件事共用"的台账撞号,自动插回去就是替台账长出一份重复登记(§1 红线)。
+     * G-948:入账同样按条目序号 —— 孪生行共享 marker 时,marker 级记账会把"只少了一行"
+     * 放大成"整族被判丢并整族点名",读数与事实不符(§0.3)。
      */
-    if (capacity > 0) for (const e of undecided.slice(slack)) multiSlot.add(e.marker)
+    if (capacity > 0) for (const e of undecided.slice(slack)) multiSlot.add(e.idx)
   }
-  // 返回顺序 = 输入顺序:判据语义与旧实现一致,也免得回捞插入顺序被分组打乱
-  return entries
-    // 已声明摘除的条目不得随同 marker 被带进回捞集(同号多行时 lost 是 marker 级集合,
+  // 返回顺序 = 输入顺序:判据语义与旧实现一致,也免得回捞插入顺序被分组打乱。
+  // ⚠️ 这里必须按**原始下标**取账(filter 之后再 map 会把新数组的下标当成条目身份,
+  // 孪生行的 lost / multiSlot 归属会串到别的行上去 —— G-948 实现期实测)。
+  const out = []
+  entries.forEach((e, idx) => {
+    if (!e || !e.marker || !lost.has(idx)) return
+    // 已声明摘除的条目不得随同 marker 被带进回捞集(同号多行时 lost 是条目级集合,
     // 不过滤就会把已声明的行一起插回去 —— 2026-10-22 审计指出的同组吞行面)。
-    .filter((e) => e && e.marker && lost.has(e.marker) && !declaredExempt(e))
-    .map((e) => (multiSlot.has(e.marker) ? { ...e, multiSlot: true } : e))
+    if (declaredExempt(e) || retiredExempt(e)) return
+    // `dupSlot`(历史面按名额展开出来的复制份,G-948)一律折成 `multiSlot`:只点名、绝不回捞。
+    out.push(multiSlot.has(idx) || e.dupSlot ? { ...e, multiSlot: true } : e)
+  })
+  return out
 }
 
 /** 登记行 → 编号标记(找不到返回 null) */
@@ -645,11 +969,11 @@ export function markerOf(line, allowChecked = false) {
     return (star >= 0 ? tail.slice(0, star) : tail).slice(0, 18)
   }
   if (isBullet) {
-    // 复选任务行:编号必须在**内容开头**(剥掉复选框与多层状态装饰之后,见 checkboxBody)。
+    // 复选任务行:编号必须在**内容开头**(剥掉复选框、侧车标头与多层状态装饰之后,见 checkboxBody)。
     const body = checkboxBody(line)
     if (body === null) return null // 不是复选任务行
-    const id = body.match(ID_RE)
-    return id && id.index === 0 && id[1].length >= 3 ? titleMarker(body) : null
+    if (!leadIdOfBody(body)) return null
+    return titleMarker(body.replace(/^[*\s`]+/, ''))
   }
   // 标题行:认开头的批次序号(`### 第十四批(…):…`),以及**以登记编号打头的任务标题**
   // (`## O28 …` / `## D107b …` / `## 守门 79 …`)。后者是 2026-09-23 实测补的一族:并发旧基线
@@ -672,11 +996,11 @@ export function registeredLines(src) {
 // 默认 declared = 空集(**刻意**):lostMarkers 是提交链 `--staged` 档的尺子,不得依赖仓外
 // 的摘除台账 —— 否则一份被读/写到的 gitignored jsonl 就能让任意登记行在提交链上被误免。
 // 本机自愈走 missingFrom(它显式读台账),CI/净检出无台账时照旧判丢(不回捞)。
-export function lostMarkers(baselineSrc, candidateSrc, declared = new Set()) {
+export function lostMarkers(baselineSrc, candidateSrc, declared = new Set(), collectedSink = null) {
   // 判活只有一份实现(见 resolveRegistrationLoss);`multiSlot` 必须随条目一起传出 ——
   // 报告里"只点名不回捞"那句话与回捞侧的刹车都靠它,在这里 map 成新对象把它抹掉,
   // 等于让提交链那一档退化成"照常自动插回"(镜像用例端到端抓出来的正是这一格)。
-  return resolveRegistrationLoss(registeredLines(baselineSrc), candidateSrc, declared).map((e) => ({
+  return resolveRegistrationLoss(registeredLines(baselineSrc), candidateSrc, declared, collectedSink).map((e) => ({
     marker: e.marker,
     line: e.line,
     id: e.id,
@@ -962,7 +1286,7 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
   if (candidate === null) {
     // 暂存区里根本没有该文件 = 本次提交不动计划文档,无需比对(既有语义,保持不变)
     if (face === 'staged')
-      return { ok: true, lost: [], face, prose: null, malformed: { added: [], preexisting: [], red: false } }
+      return { ok: true, lost: [], collected: [], face, prose: null, malformed: { added: [], preexisting: [], red: false } }
     // 其余两面取不到 ⇒ **无法判定**:既不记绿也不冒红。无提交 / 浅克隆 / git 失败都落这一支。
     return {
       undetermined: true,
@@ -973,6 +1297,8 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
   // 归档豁免必须绑**当次判定面 + 当次根**(镜像测试里那条反向锁):staged ⇒ 索引,head/worktree ⇒ HEAD 树
   const archive = archiveExemptFor(face === 'staged', root)
   let lost
+  /** 第三形态「已收拢」的当轮读数(2026-10-24):凭漂移注释认下来的那些行,逐条点名用。 */
+  const collected = []
   let reportOnly = []
   let prose = null
   let malformed
@@ -987,7 +1313,7 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
   let foldDeclaredIds = []
   if (face === 'staged') {
     const baseline = readSpec(`HEAD:${PLAN}`, root)
-    lost = dropArchivedLost(lostMarkers(baseline, candidate), archive)
+    lost = dropArchivedLost(lostMarkers(baseline, candidate, new Set(), collected), archive)
     // 叙述行差值:提交链上是"索引 vs HEAD"(与收口前同一对输入,只报数不判红)
     prose = proseLossReport(baseline, candidate)
     // 编号形态维(G-722):同一对输入(索引 ⊖ HEAD),只判本次新增
@@ -1024,7 +1350,7 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
         reason: `历史面未枚举到任何受保护登记行(无提交 / 浅克隆 / 该仓计划文档不含编号族)—— 空扫不是通过`,
       }
     }
-    const all = missingFrom(seen, candidate, archive)
+    const all = missingFrom(seen, candidate, archive, undefined, collected)
     /**
      * 全量/人工档把 `multiSlot` 那一类**分出来只报数**(2026-09-27):同编号仍有登记点的丢失,
      * 机器无从判断是"被吞"还是"正当改号/归并"——判红就是拿别人欠的、且**必须由人工归并才能清**的账
@@ -1054,6 +1380,7 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
       foldUndeclared.length === 0 &&
       foldUnused.length === 0,
     lost,
+    collected,
     face,
     prose,
     malformed,
@@ -1160,6 +1487,65 @@ export function historyDepth() {
   if (raw === undefined || raw === '') return HISTORY_DEPTH_DEFAULT
   const v = Number(raw)
   return Number.isInteger(v) && v > 0 && v <= HISTORY_DEPTH_MAX ? v : HISTORY_DEPTH_DEFAULT
+}
+
+/**
+ * 已结清短留痕(2026-10-25 立,承 10f2378e 的 G-61 诊断)。
+ *
+ * 病型:`historyMarkers` 的 `retired` 只在**最近 60 枚改动过台账的提交**窗口内可见。
+ * 多会话并发时一分钟能推十几枚,一次翻勾几分钟就掉出射程;窗口里只剩更早的未勾形态 ⇒
+ * 被当成"最新开放形态"复插成未勾,结清态**静默丢失**且无人喊。
+ *
+ * 处置:把每次 heal 在窗口里观察到的 `retired` 落盘(短 TTL 30 天),heal 在窗口外也按它
+ * 拒绝复插。留痕只服务"已勾销"这一个方向,不改变窗口内配平状态机的任何判据。
+ * 取不到/坏行 ⇒ 空集(该维不生效,窗口内行为与改前逐字一致),不把"没读到"读成"没结清"。
+ */
+export const RETIRED_LEDGER_REL = path.join('.ihui-agent', 'state', 'plan-retired.jsonl')
+export const RETIRED_LEDGER_TTL_DAYS = 30
+let LAST_HISTORY_RETIRED = null
+export function lastHistoryRetired() {
+  return LAST_HISTORY_RETIRED
+}
+function retiredLedgerAbs(root) {
+  return path.join(String(root || ROOT), RETIRED_LEDGER_REL)
+}
+export function retiredMarkerSet(root = ROOT) {
+  let text = ''
+  try {
+    text = readFileSync(retiredLedgerAbs(root), 'utf8')
+  } catch {
+    return new Set()
+  }
+  const cutoff = Date.now() - RETIRED_LEDGER_TTL_DAYS * 24 * 3600 * 1000
+  const out = new Set()
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue
+    try {
+      const o = JSON.parse(line)
+      if (typeof o?.marker !== 'string' || !o.marker) continue
+      const t = Date.parse(o.at)
+      if (Number.isFinite(t) && t < cutoff) continue
+      out.add(o.marker)
+    } catch {
+      /* 坏行不改变判据:短留痕是加速器,不是唯一真相 */
+    }
+  }
+  return out
+}
+export function recordRetiredMarkers(markers, root = ROOT) {
+  const list = [...(markers ?? [])].filter((m) => typeof m === 'string' && m)
+  if (!list.length) return 0
+  const have = retiredMarkerSet(root)
+  const add = list.filter((m) => !have.has(m))
+  if (!add.length) return 0
+  try {
+    const abs = retiredLedgerAbs(root)
+    mkdirSync(path.dirname(abs), { recursive: true })
+    appendFileSync(abs, add.map((m) => JSON.stringify({ at: new Date().toISOString(), marker: m })).join('\n') + '\n', 'utf8')
+    return add.length
+  } catch {
+    return 0
+  }
 }
 
 /** 上一次 historyMarkers 实际覆盖到的窗口(供报告"报名");没跑过就是 null,不得伪造。 */
@@ -1284,6 +1670,11 @@ export function historyMarkers(depth = historyDepth(), root = ROOT) {
     let closed = 0
     let unexplained = 0
     let flips = 0
+    // 窗口内**同时开放过的最大行数**(名额)。刻意不用"开放数 + 无凭据减少"的累加式:
+    // 那是**churn 累计量**而不是名额 —— 同一行被吞两次再还原一次,累加式会读出 3,
+    // 于是判活尺要求面上有 3 行(实测:自愈空转夹具当场把 2 条真缺读成 3 条、顶爆规模闸判红)。
+    // 名额要的是"这一族最多同时占过几个行首",回落后再被还原时缺口自然归零。
+    let peak = 0
     for (let i = countsPerCommit.length - 1; i >= 0; i--) {
       const c = countsPerCommit[i].get(marker)
       const nowOpen = c ? c.open : 0
@@ -1296,20 +1687,166 @@ export function historyMarkers(depth = historyDepth(), root = ROOT) {
         unexplained += drop - paired
       }
       open = nowOpen
+      if (nowOpen > peak) peak = nowOpen
       closed = nowClosed
     }
-    if (open > 0 || unexplained > flips) seen.set(marker, entry)
-    else retired.add(marker)
+    if (open > 0 || unexplained > flips) {
+      /**
+       * G-948(2026-10-26):基线条目从此**自带名额**(`openCount`)。
+       * 旧实现每个 marker 只留"最新开放形态的那一行"⇒ 窗口维把多重集压成了集合,于是
+       * 滞后副本整文件回写把同一题面的 15 行写成 11 行时,判据看到的仍是"这条登记还在"。
+       * 名额 = 窗口内**同时开放过的最大行数**(peak):它回答"这一族本来该占几行",
+       * 而"现在占几行"由判活尺在被审面现数(`registrationSlots` 的 `markerCounts`)。
+       * 正当移除(翻勾配平 / 摘除台账 / 归档件 / 漂移注释 / 摘号指针)不进这一笔,四道豁免
+       * 仍在 `resolveRegistrationLoss` 逐条生效 —— 本处只负责把"应有几行"交给判活尺,
+       * 不放宽任何豁免面,也不把 churn 累计量当名额(见上)。
+       */
+      entry.openCount = Math.max(1, peak)
+      seen.set(marker, entry)
+    } else retired.add(marker)
   }
   LAST_HISTORY_WINDOW.retired = retired.size
+  LAST_HISTORY_RETIRED = retired
   return seen
 }
 
+/**
+ * 编号纪元(2026-10-24):被审面自带 `<!-- 编号纪元:YYYY-MM-DD … map=<路径> -->` 时,
+ * 本门的身份尺从"编号字符串逐字"换成"编号按映射折算后的字符串"。
+ *
+ * 为什么必须换:全量重排后**同一任务的编号必然变**,而本门的基线(最近历史里的登记行)拿的是
+ * 旧号 —— 不折算就会把每一条在册行都读成"被别人吞了";后果不止报红:自愈层(`--heal`)会按
+ * 同一把尺子把旧号行**回插**进工作树,于是重排成果被自己的守护链反复回滚(本机 2026-10-24
+ * 实测:重排落盘后 5 分钟内被 heal 整篇还原成旧号混合态,三次)。
+ *
+ * 折算方向与门 211/234 一致:只换"号",正文其余逐字不动 ⇒ 正文改一个字仍判新/判丢。
+ * 无标记 ⇒ `null` ⇒ 与改动前逐字同行为(自测含反向锁)。
+ */
+export function epochMapOf(src) {
+  const m = /<!--\s*编号纪元[:：][^>]*?map=([^\s>)(]+)/.exec(String(src || ''))
+  if (!m) return null
+  try {
+    const doc = JSON.parse(readFileSync(path.resolve(ROOT, m[1]), 'utf8'))
+    const pairs = Object.entries(doc?.map ?? {})
+    return pairs.length ? new Map(pairs) : null
+  } catch {
+    // 映射读不到 ⇒ 不假装能折算(§0.3):照旧按逐字口径判,红也红得明白
+    return null
+  }
+}
+
+const EPOCH_ID_RE = /\b(?:G|WP|V3|D|O|A|B|P|W)-?\d{1,6}\b/g
+
+/**
+ * 抹掉退役标记、把编号按映射折算;正文其余字符一字不动。
+ *
+ * `bareIds` 是**方向**而不是风格:历史面(纪元前的原文)的号全是裸号 ⇒ 必须整体折算;
+ * 被审面(纪元后的正文)里**裸号是新号**,只有紧跟 `〔旧号〕` 的那些才是退役引用 ⇒
+ * 整体折算会把 `G-17` 这种"老号新用"的新号一起改掉,两端立刻对不上(实测 1 枚误报)。
+ */
+export function translateIds(text, map, { bareIds = null } = {}) {
+  if (!map) return String(text ?? '')
+  let s = String(text ?? '')
+  const hasMark = /〔旧号/.test(s)
+  s = s.replace(/((?:G|WP|V3|D|O|A|B|P|W)-?\d{1,6})〔旧号[^〕]*〕/g, (_m, id) => map.get(id) ?? id)
+  // 标记被 18 字截断时可能只剩 `〔旧号…` 或裸 `〔`(没有收口括号)⇒ 连未收口的尾括号一起抹,
+  // 否则折算后两端对不上(实测 5 枚误报全属这一型:标记截断点落在退役标记或注记中间)
+  s = s.replace(/〔旧号[^〕〕]*〕/g, '')
+  s = s.replace(/〔[^〕]*$/g, '')
+  // 裸号只在**整段都没有退役标记**时才整体折算(那段必是纪元前原文);一段里只要出现过
+  // `〔旧号〕`,它的裸号就是新号 —— 整体折算会改掉"老号新用"的新号(实测 1 枚误报)。
+  if (bareIds === true || (bareIds === null && !hasMark))
+    s = s.replace(EPOCH_ID_RE, (t) => map.get(t) ?? t)
+  return s
+}
+
+/**
+ * 题面前缀身份(纪元档专用):抹掉复选框、注记、行内标头、退役标记与所有任务号,再去掉
+ * 标点/加粗/空白,取前 12 字。号与标头怎么变都不影响,**正文首句一变就换身份**。
+ */
+export function bodyKeyOf(text) {
+  return String(text ?? '')
+    .replace(/^\s*[-*]\s*/, '')
+    .replace(/^\[[ xX]\]\s*/, '')
+    .replace(/^\s*（[^）]*）\s*/, '')
+    .replace(/^\s*〔[^〕]*〕\s*/, '')
+    .replace(/〔旧号[^〕]*〕/g, '')
+    // 2026-10-24:族表补 H / I。此前只抹 G|WP|V3|D|O|A|B|P|W —— 编号纪元把 G 族溢出到 H 族
+    // (满 99 后开新字母族,永不升位数),H 号不抹 ⇒ 换号后的行题面前缀以 `H0N…` 开头,
+    // 与历史标记(已抹旧号)前缀对不上 ⇒ 门 71/自愈把**正常改名**读成"整行丢失",按旧号回捞,
+    // 于是同一任务在台账里出现两份(实测 G-38/H04、G-46/H05、G-865/H06 三对,并引出重复登记清偿轮次)。
+    // 抹号表与编号纪元实际使用的族表必须同一份;I 是 D 族满池后的溢出族(暂未用,先备齐)。
+    // 位数上限同日从 4 放到 6:`D42046` 这类六位号在 {1,4} 下只被吃掉前 5 个字(`D4204`),
+    // 余下的末位 `6` 留在题面前缀首位 ⇒ 该行换成 D14 后两面 key 变成 `6断线…` vs `断线…`,
+    // 前缀判活当场判"丢失",自愈再按旧号回插(2026-10-24 实测:换号提交被 3f459f3ba4 回捞还原)。
+    // ID 族表本身(`TASK_ID_PATTERN`)用的是无上限 `\d+`,此处与之对齐,不再自留一个更窄的位数。
+    .replace(/(?:WP|V3|G|D|O|A|B|P|W|H|I)-?\d{1,6}/g, '')
+    .replace(/[*`\s]/g, '')
+    .slice(0, 12)
+}
+
 /** 历史登记行里在 targetSrc 中缺席的那些(归档过的正当移除自动排除) */
-export function missingFrom(seen, targetSrc, archived = archivedCopy, declared = declaredRowSet()) {
-  // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"
-  const lost = resolveRegistrationLoss([...seen.values()], targetSrc, declared)
-  return lost.filter((v) => !(archived(v.marker) || (v.id && archived(v.id))))
+export function missingFrom(seen, targetSrc, archived = archivedCopy, declared = declaredRowSet(), collectedSink = null, retired = retiredMarkerSet()) {
+  // 编号纪元下按映射折算两面(见 epochMapOf 头注);无标记时 map=null ⇒ 逐字旧行为
+  const map = epochMapOf(targetSrc)
+  const back = new Map()
+  const entries = [...seen.values()].map((v) => {
+    if (!map || !v) return v
+    const marker = translateIds(v.marker, map)
+    back.set(marker, v.marker)
+    return {
+      ...v,
+      marker,
+      id: v.id ? (map.get(v.id) ?? v.id) : v.id,
+      // 漂移注释里的编号常写成"裸旧号"(纪元折算只动紧跟 `〔旧号〕` 的那些,见 translateIds 头注),
+      // 于是折算后的 id 与注释面上的号可能一个是新号、一个是旧号 ⇒ 第三形态两号都认,
+      // 认的还是**同一枚编号的两种写法**,不是"任意编号都算"。
+      idAlt: v.id,
+      line: typeof v.line === 'string' ? translateIds(v.line, map) : v.line,
+    }
+  })
+  const target = map ? translateIds(targetSrc, map, { bareIds: false }) : targetSrc
+  // 纪元档按"题面还在不在"判活(2026-10-24):全量重排会把旧号换掉,也允许旧号被新票复用,
+  // 于是"号 + 18 字题面逐字相同"不再是同一任务的判据。这里把两面都抹掉号与标头后按题面前缀比 ——
+  // 换号/标头增删都不影响,**正文真被吞掉仍会点名**。映射折算于是只服务于 message 还原,
+  // 不再决定判活(映射文件每轮重排都会重写,拿它当判活尺子会把历史旧号折算成不存在的号)。
+  const liveBodies = map
+    ? [...target.matchAll(/^\s*[-*]\s[^\n]*/gm)].map((m) => bodyKeyOf(m[0])).filter(Boolean)
+    : null
+  // G-948 第二格补完(2026-10-26):基线条目按 marker 去重 ⇒ 同题面的 N 行在 `seen` 里只剩一份,
+  // 判活那句 `head.has(marker)` 于是"这一族还剩一行"就报绿 —— 这正是本票现场(滞后副本整文件回写
+  // 把同一题面的 15 行写成 11 行、门报"无登记行丢失")。这里按条目自带的名额(`openCount`,
+  // `historyMarkers` 的配平状态机现算)展开成 N 份,再让判活层按**名额逐个消耗**(`multiset`)。
+  // 展开出来的复制份一律 `dupSlot`:它们与另一份逐字同题,机器无从判断是"被吞"还是"正当归并",
+  // 故由判活层统一折成 `multiSlot`(只点名/只报数,绝不回捞) —— 插回去就是替台账长重复登记(§1)。
+  const expanded = []
+  for (const e of entries) {
+    if (!e) continue
+    expanded.push(e)
+    const n = Math.max(1, Number(e.openCount) || 1)
+    for (let i = 1; i < n; i++) expanded.push({ ...e, dupSlot: true })
+  }
+  // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"。
+  // `multiset` 只在这一档打开(历史面);提交链那一档的名额差值归 `foldedSlots` 管,不双计债。
+  const lost = resolveRegistrationLoss(expanded, target, declared, collectedSink, retired, {
+    multiset: true,
+  })
+  // sink 里躺着的是**折算后**的编号;报名必须给读台账的人看面上的原号(与返回集同一口径)。
+  if (collectedSink && map)
+    for (const s of collectedSink) if (back.has(s.marker)) s.marker = back.get(s.marker)
+  // 归档件里存的是**旧号原文** ⇒ 归档通道用折算前的 marker 问,别拿新号去翻旧档
+  return lost
+    .filter((v) => !(archived(back.get(v.marker) ?? v.marker) || (v.id && archived(v.id))))
+    .filter((v) => {
+      if (!liveBodies) return true
+      const mk = bodyKeyOf(v.marker)
+      // 抹号后只剩标点(如 `G-64~G-71` 这种**号段**标记)⇒ 这一枚无法判活:号段在全量重排后
+      // 逐个换成新号并加了 `〔旧号段,见快照〕`,按题面比必然找不到。短边 <6 字一律不判,
+      // 也不把"没判"写成"判过"(§0.3)—— 号段本身可从映射文件核对。
+      if (mk.replace(/[^\p{L}\p{N}]/gu, '').length < 6) return false
+      return !liveBodies.some((k) => k.length >= 6 && (k.startsWith(mk) || mk.startsWith(k)))
+    })
+    .map((v) => (back.has(v.marker) ? { ...v, marker: back.get(v.marker) } : v))
 }
 
 /**
@@ -1330,11 +1867,16 @@ export function missingFrom(seen, targetSrc, archived = archivedCopy, declared =
  * @returns {{disk:Array, head:Array, index:Array|null, indexUndetermined:boolean, allClean:boolean}}
  */
 export function healLegs(seen, { disk, head, index }) {
+  // 第三形态的读数逐档单记(与缺失同轮同面):"这一档里有几条是被收拢进漂移注释认下来的"。
+  const sinkDisk = []
+  const sinkHead = []
+  const sinkIndex = []
   const legs = {
-    disk: missingFrom(seen, disk),
-    head: missingFrom(seen, head),
-    index: index === null ? null : missingFrom(seen, index),
+    disk: missingFrom(seen, disk, undefined, undefined, sinkDisk),
+    head: missingFrom(seen, head, undefined, undefined, sinkHead),
+    index: index === null ? null : missingFrom(seen, index, undefined, undefined, sinkIndex),
     indexUndetermined: index === null,
+    collected: { disk: sinkDisk, head: sinkHead, index: index === null ? null : sinkIndex },
   }
   legs.allClean =
     legs.disk.length === 0 &&
@@ -1392,6 +1934,28 @@ export function healLegRoster(seenSize, legs, loop = null) {
   }
   if (legs.indexUndetermined)
     lines.push('   [点名/索引] 索引面取不到 ⇒ 该档**未判定**(未判定不是"缺 0 条",更不是"无缺失")')
+  /**
+   * 第三形态的报名(2026-10-24):"没判成缺失"必须说清是**凭什么**没判 —— 收拢件的枚数与
+   * 逐条编号上 stdout,否则读数只剩"缺 0 条",而"缺 0 条"既可能是真在册、也可能是被某条例外
+   * 通道吃掉,两者在账面上同形就是本仓最高频的失效型(§12f)。0 枚时不打这一行(渲染逐字不变)。
+   */
+  const col = legs.collected
+  if (col)
+    for (const [label, list] of [
+      ['工作树', col.disk],
+      ['HEAD', col.head],
+      ['索引', col.index],
+    ]) {
+      if (!list || !list.length) continue
+      const shown = list
+        .slice(0, 10)
+        .map((m) => String(m.marker).slice(0, 24))
+        .join(' / ')
+      lines.push(
+        `   [已收拢/${label}] ${list.length} 条登记行的原文只在 PROJECT_PLAN.md 的漂移注释里(编号+题面前 ${COLLECTED_TITLE_SPAN} 字逐字对上)` +
+          ` ⇒ 判"在册",不判缺、不回捞:${shown}${list.length > 10 ? ` …另有 ${list.length - 10} 条` : ''}`,
+      )
+    }
   return lines
 }
 
@@ -1747,7 +2311,23 @@ export function healContent(targetSrc, missing) {
    * `## O61` / `### O61` 现场正是这一条)。守卫换成"这一条登记本身在不在行首"之后,
    * 幂等性照旧成立:插回去的那一行此后就以其原 marker 占着行首 ⇒ 二次调用返回 0 条。
    */
-  const candidates = (missing ?? []).filter((e) => !registrationAlreadyPresent(targetSrc, e))
+  const candidates0 = (missing ?? []).filter((e) => !registrationAlreadyPresent(targetSrc, e))
+  /**
+   * 第三形态的**回捞侧刹车**(与检测侧同一个谓词,`collectedInDriftComment`,§0.6 单源):
+   * 原文已被收拢进漂移注释的那些行不得插回开放态 —— 检测侧本来就不会把它们交给这里,
+   * 这一道是给"绕过检测侧直接喂 missing 清单"的调用方(自愈之外的手工/第三方通道)兜底:
+   * 插回一行 = 替台账长出一份重复登记(§1「一个编号只能有一行当前状态」),比少插一行更响。
+   */
+  const collectedCorpusForHeal = driftCollectedCorpus(targetSrc)
+  let skippedCollected = 0
+  const candidates = candidates0.filter((e) => {
+    if (collectedInDriftComment(e, collectedCorpusForHeal).matched) {
+      skippedCollected += 1
+      return false
+    }
+    return true
+  })
+
   /**
    * idExistsOnFace 兜底(G-977954,86H 重复登记事故的第二道闸):`registrationAlreadyPresent`
    * 按 **(形态,编号)** 复合主键查,而重复登记的真实形态恰恰是**同编号跨形态** —— 面上是
@@ -1784,7 +2364,7 @@ export function healContent(targetSrc, missing) {
       appended += 1
     }
   }
-  return { out: lines.join(eol), inserted, appended, withheld, skippedExistingId }
+  return { out: lines.join(eol), inserted, appended, withheld, skippedExistingId, skippedCollected }
 }
 
 /**
@@ -2707,6 +3287,75 @@ function selfTest() {
     return seen.size >= 2 && missingFrom(seen, oneCopy, () => null).length === 0
   })
 
+  // ── G-948(2026-10-26):整文件回写吞掉他席已入库登记行 —— 侧车标头与历史面名额 ─────────────
+  // 现场(票面):一席按滞后副本整文件回写,把同一题面的多行写成少数几行;而 `markerOf` 对
+  // `- [ ] 〔归:…〕 G-863 **…**` 这类**侧车标头 + 粗体头**的行拿不到编号 ⇒ 该行在防丢面、
+  // 行首名额、复合主键三处同时隐身;`historyMarkers` 又按 marker 去重 ⇒ "这一族还剩一行"即判活。
+  const MT_ROW =
+    '- [ ] 〔归:web 聊天附件链〕 G-863 **附件容量 20→50,前端上传链三处改造,涉及组件与接口两层**'
+  const MT_LEASE = '- [ ]（进行中@2026-10-26/g948） 〔归:x〕 **G-241 自动化"结算状态机"**'
+  const MT_BASE = ['# 计划', '', MT_ROW, MT_ROW, '- **G-9001 无关登记行**:这一条与名额判据无关,只是让文档不像空壳。', ''].join('\n')
+  const MT_ONE = MT_BASE.split('\n').filter((l, i) => i !== 3).join('\n')
+  const mtSeen = (n) => {
+    const reg = registrationOf(MT_ROW)
+    return new Map([
+      [reg.marker, { line: MT_ROW, marker: reg.marker, id: reg.id, shape: reg.shape, sha: 's', prev: null, openCount: n }],
+    ])
+  }
+  t('G-948 侧车标头与租约+粗体头:行首编号必须被看见(看不见 ⇒ 防丢/名额/主键三处同时隐身)', () => {
+    const a = registrationOf(MT_ROW)
+    const b = registrationOf(MT_LEASE)
+    return (
+      !!a && a.id === 'G-863' && a.shape === 'checkbox' &&
+      !!b && b.id === 'G-241' && b.shape === 'checkbox' &&
+      headIdOf(MT_ROW) === 'G-863' &&
+      headIdOf(MT_LEASE) === 'G-241'
+    )
+  })
+  t('G-948 历史面名额:同题两行被写成一行 ⇒ 必须点名(旧集合判活在同一现场判"还活着"= 本票盲区)', () => {
+    const oldPredicateSaysAlive = (registrationSlots(MT_ONE).get('checkbox\u0000G-863') || { count: 0 }).count > 0
+    const missing = missingFrom(mtSeen(2), MT_ONE, () => null, new Set(), null, new Set())
+    return (
+      oldPredicateSaysAlive === true &&
+      missing.length === 1 &&
+      missing[0].marker === 'G-863' &&
+      missing[0].multiSlot === true
+    )
+  })
+  t('G-948 反向锁:两行都在 / 名额本身只有 1(别人新加了一行)⇒ 一条都不许报', () => {
+    return (
+      missingFrom(mtSeen(2), MT_BASE, () => null, new Set(), null, new Set()).length === 0 &&
+      missingFrom(mtSeen(1), MT_BASE, () => null, new Set(), null, new Set()).length === 0 &&
+      missingFrom(mtSeen(1), MT_ONE, () => null, new Set(), null, new Set()).length === 0
+    )
+  })
+  t('G-948 回捞侧:名额缺口只点名、一个字节都不写(插回去 = 替台账长重复登记)', () => {
+    const missing = missingFrom(mtSeen(2), MT_ONE, () => null, new Set(), null, new Set())
+    const healed = healContent(MT_ONE, missing)
+    // 两道闸任一挡住都算"没插":`registrationAlreadyPresent`(同形态同号还在行首,先挡)与
+    // `multiSlot` 刹车(编号整体消失但名额仍欠那一型才轮到它)。断言的是**结果**:一个字节都没写、
+    // 面逐字不变,且这条缺口在点名清单里带着"只点名不回捞"的标记(§0.3:看见 ≠ 替它做决定)。
+    return (
+      missing.length === 1 &&
+      missing[0].multiSlot === true &&
+      healed.inserted === 0 &&
+      healed.appended === 0 &&
+      healed.out === MT_ONE
+    )
+  })
+  t('G-948 两条腿各管一格:提交链(名额差值)由 foldedSlots 判红,历史面(本次提交未参与)只点名', () => {
+    // 提交链刻意不开 multiset(见 resolveRegistrationLoss 头注):同一次删除由 foldedSlots 判,
+    // 两把尺子各顶一遍名额就是双计债。两端各断言一次,防止有人"顺手"把同一维接到另一条腿上。
+    const folded = foldedSlots(MT_BASE, MT_ONE)
+    return (
+      lostMarkers(MT_BASE, MT_ONE).length === 0 &&
+      folded.length === 1 &&
+      folded[0].id === 'G-863' &&
+      folded[0].from === 2 &&
+      folded[0].to === 1
+    )
+  })
+
   t('反向锁:已作废行不得被"历史名额"重新召唤 —— 翻勾 + 注记的改写形态必须认作存活', () => {
     const closed = MM2.replace('### ', '### ').replace(
       '被旧基线整文件回写时最先被吞。',
@@ -2951,6 +3600,137 @@ function selfTest() {
     )
   })
 
+  /**
+   * 「已收拢」第三形态(2026-10-24)。判据口径与立因写在 `COLLECTED_TITLE_SPAN` 的头注里,
+   * 这里只钉四件事:① 生产面的注释形状(前导装饰被洗断 + 注释尾部挂原行没有的进展注记)必须
+   * 认成"在册";② 加粗族(a 族)的编号被写成句中形态时,老口径逐字断链 ⇒ 必须由新形态接住;
+   * ③ 四条反例一条都不许被豁免(同号不同题 / 注释在位而题面被换 / 已归档族 / 题面短到无法判);
+   * ④ 检测通道与回捞通道读同一个谓词 —— 同批夹具上"已收拢"与"仍判缺"两个集合必须不相交。
+   */
+  const D3_HOLDER =
+    '- [ ] G-880320 同组持有行 —— 收拢后每组只保留这一行当前状态,正文足够长以越过登记行长度门槛。'
+  const D3_CB =
+    '- [ ] G-880321 **第三形态夹具甲 —— 生产面漂移注释的正文会把前导装饰洗断还会挂上原行没有的注记。** —— 尾段。'
+  const D3_BOLD =
+    '- **G-880322 第三形态夹具乙 —— 加粗族编号在注释里写成句中形态老口径逐字断链。** —— 尾段。'
+  const D3_TRUE =
+    '- [ ] G-880323 第三形态夹具丙 —— 真丢对照:面上没有任何承接,必须照旧判缺并被回捞,不许为消红读成找到了。'
+  const D3_NOTE_CB =
+    '<!-- 重复副本(第三形态夹具甲系列,正主 L9): 进行中） G-880321 **第三形态夹具甲 —— 生产面漂移注释的正文会把前导装饰洗断还会挂上原行没有的注记。** —— 尾段。 〔PROGRESS@2026-10-24 探针席: 追加了一段原行没有的进展注记〕 -->'
+  const D3_NOTE_BOLD =
+    '<!-- 漂移副本(同题多号收拢@2026-10-24/夹具): **第三形态夹具乙 —— 加粗族编号在注释里写成句中形态老口径逐字断链。** —— 尾段。 (原编号 G-880322) -->'
+  const D3_BASE = [D3_CB, D3_BOLD, D3_TRUE].join('\n')
+  const D3_FACE = [D3_HOLDER, D3_NOTE_CB, D3_NOTE_BOLD].join('\n')
+
+  t('第三形态(阳性对照):生产形漂移注释(装饰被洗 + 额外注记 + 句中编号)⇒ 判「已收拢」不判缺', () => {
+    const sink = []
+    const lost = lostMarkers(D3_BASE, D3_FACE, new Set(), sink)
+    const sunk = sink.map((s) => s.id ?? '(无行首编号)')
+    return (
+      lost.length === 1 &&
+      /G-880323/.test(lost[0].marker) &&
+      sink.length === 2 &&
+      sunk.includes('G-880321') &&
+      collectedInDriftComment({ line: D3_BOLD }, driftCollectedCorpus(D3_FACE)).matched === true &&
+      collectedInDriftComment({ line: D3_CB, id: 'G-880321' }, driftCollectedCorpus(D3_FACE)).matched === true
+    )
+  })
+
+  t('第三形态(反向锁四条):同号不同题 / 题面被换 / 已归档族 / 题面短到无法判 ⇒ 一条都不许豁免', () => {
+    // ① 同号不同题:注释带着这个编号,但写的是另一件事
+    const sameIdOtherTitle = [
+      D3_HOLDER,
+      '<!-- 漂移副本(同题多号收拢@2026-10-24/夹具): **G-880321 完全不相干的另一件事,题面一个字都对不上。** —— 尾段。 -->',
+    ].join('\n')
+    const l1 = lostMarkers(D3_CB, sameIdOtherTitle).length
+    // ② 注释在位而正文被换(等价于①的另一写法,单独钉:防止有人把"注释存在"当免死牌)
+    const l2 = lostMarkers(
+      D3_TRUE,
+      '<!-- 漂移副本(同题多号收拢@2026-10-24/夹具): **与此探针毫无关系的一段话,题面完全不同不得豁免。** -->',
+    ).length
+    // ③ 已归档( 一族刻意不进射程(完整原文归 archivedCopy 承接)
+    const archivedShape = [
+      D3_HOLDER,
+      '<!-- 已归档(2026-10-24:G-880321 正文截断,完整内容在 .ihui-agent/archive/PROJECT_PLAN_x.md -->',
+    ].join('\n')
+    const l3 = lostMarkers(D3_CB, archivedShape).length
+    // ④ 题面短到无法判 ⇒ unjudged ⇒ 照旧判缺(§0.3:没判绝不写成判过)
+    const shortRow = '- [ ] G-880325 短句甲'
+    const shortFace =
+      '<!-- 漂移副本(同题多号收拢@2026-10-24/夹具): G-880325 短句甲 -->'
+    const cm = collectedInDriftComment({ line: shortRow, id: 'G-880325' }, driftCollectedCorpus(shortFace))
+    return l1 === 1 && l2 === 1 && l3 === 1 && cm.matched === false && cm.unjudged === true
+  })
+
+  t('第三形态(两把尺同判):检测通道判缺的集合与「已收拢」集合必须不相交,回捞侧刹车按同一谓词放行', () => {
+    const sink = []
+    const lost = lostMarkers(D3_BASE, D3_FACE, new Set(), sink)
+    const both = lost.filter((x) => sink.some((s) => s.marker === x.marker))
+    // 回捞侧:把基线三条**原样**当成 missing 清单硬喂进来(模拟任何绕过检测侧的调用方;
+    // marker 一律取 registeredLines 的真读数,不手写短 marker —— 手写会把"编号在注释里出现过"
+    // 这一型误判成"已在面",测的就不是新谓词了)。已收拢那两条必须一条不插,真丢那条必须插回。
+    const before = `${D3_FACE}\n`
+    const fake = registeredLines(D3_BASE).map((e) => ({ ...e, prev: D3_HOLDER }))
+    const healed = healContent(before, fake)
+    const added = healed.out.split(/\r?\n/).filter((l) => !before.split(/\r?\n/).includes(l))
+    return (
+      both.length === 0 &&
+      sink.length === 2 &&
+      fake.length === 3 &&
+      healed.inserted === 1 &&
+      healed.skippedCollected === 2 &&
+      added.length === 1 &&
+      /G-880323/.test(added[0]) &&
+      !added.some((l) => /G-88032[12]/.test(l))
+    )
+  })
+
+  // ── 摘除台账闸门(2026-10-27 立,执行席 mp-g71;fail-open ⇒ fail-closed 的同批自检) ──
+  t('台账闸门:未判定 ∧ 本轮确有回捞候选 ⇒ 零回捞 + 退出码 2(不得冒成 0)', () => {
+    const d = rescueDecisionFromGate(
+      { undetermined: true, why: '两本摘除台账都不在位', missing: ['a.jsonl'], filesSeen: 0 },
+      { disk: [1], head: [1], index: [] },
+    )
+    return d.rescue === false && d.exitCode === 2 && d.candidates === 2
+  })
+
+  t('台账闸门:未判定 ∧ 三档候选为 0 ⇒ 不误拦(本轮本无自动动作,"无缺失"与台账无关)', () => {
+    const d = rescueDecisionFromGate({ undetermined: true, why: 'x', missing: [] }, { disk: [], head: [], index: [] })
+    return d.rescue === true && d.exitCode === 0 && d.candidates === 0
+  })
+
+  t('台账闸门:索引面未判定(index=null)不得被折成"缺 0 条"再顶替回捞决议', () => {
+    const d = rescueDecisionFromGate({ undetermined: true, why: 'x', missing: [] }, { disk: [], head: [], index: null })
+    const e = rescueDecisionFromGate({ undetermined: true, why: 'x', missing: [] }, { disk: [1], head: [], index: null })
+    return d.rescue === true && e.rescue === false && e.legs.index === null
+  })
+
+  t('台账闸门在位 ⇒ 照常回捞,且判缺那一支一条不放宽(空声明集与满声明集成对)', () => {
+    const row =
+      '- [ ] G-909999 台账闸门自检靶行:被摘除后不得被回捞器插回,这是一条足够长的登记行用于夹具。'
+    const face = '- [ ] G-900001 另一条在册登记行,同样写得足够长以免被最短长度判据挡在射程之外。\n'
+    const seen = registeredLines(row)
+    const blind = resolveRegistrationLoss(seen, face, { set: new Set(), dropTitleFps: new Set() })
+    const ledgered = resolveRegistrationLoss(
+      seen,
+      face,
+      { set: new Set([row]), dropTitleFps: new Set([titleFpOf(row)]) },
+    )
+    // 正向牙:台账看不见时判缺 1(不豁免);台账在场时判缺 0(逐字命中)——两侧都必须是**判定**出来的
+    return seen.length === 1 && blind.length === 1 && ledgered.length === 0
+  })
+
+  t('形状锁:heal() 必须真消费闸门决议(摘掉这一支 ⇒ 上面那条未判定档就只是纸面判据)', () => {
+    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const body = src.slice(src.indexOf('function heal(commit)'))
+    return (
+      body.includes('declaredLedgerGate()') &&
+      body.includes('rescueDecisionFromGate(gate, legs)') &&
+      /if\s*\(\s*gate\.undetermined\s*&&\s*!rescue\.rescue\s*\)/.test(body) &&
+      body.includes('return 2')
+    )
+  })
+
   let failed = 0
   for (const c of cases) {
     console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
@@ -2962,7 +3742,10 @@ function selfTest() {
 
 /**
  * 回捞 + (可选)前向恢复提交。
- * 返回退出码:0 = 无需恢复或已恢复成功;1 = 恢复失败(不动历史,交人工)。
+ * 返回退出码(2026-10-27 起三档,§0.3「没判」绝不写成「判过」):
+ *  · 0 = 无需恢复 / 已恢复成功(判定输入齐备,或本轮本就没有候选);
+ *  · 1 = 判定/规模闸拦下或提交失败(不动历史,交人工);
+ *  · 2 = **未判定** —— 摘除台账取不到而本轮确有回捞候选 ⇒ 本轮零回捞(见 `declaredLedgerGate`)。
  */
 /**
  * 回捞行的**出处**(该登记行最后出现在哪一枚提交里)。
@@ -2987,6 +3770,13 @@ function heal(commit) {
    */
   const index = readSpecOrNull(`:${PLAN}`, ROOT)
   const seen = historyMarkers()
+  // 已结清短留痕:窗口内观察到的 retired 落盘,供窗口外轮次拒绝复插(G-61 型)。
+  const retiredAdded = recordRetiredMarkers(lastHistoryRetired(), ROOT)
+  if (retiredAdded) {
+    console.log(
+      `ℹ️ [已结清短留痕] 记录 ${retiredAdded} 个已勾销 marker(${RETIRED_LEDGER_REL});窗口外不再把它们复插成未勾`,
+    )
+  }
   /**
    * 工作区、HEAD、索引**分别**判缺失。只看工作区会留一个洞:并发会话走 commit-tree 旁路
    * (git-sync-converge / 临时索引提交)时钩子根本不跑,它把某行从 HEAD 合掉后,
@@ -3044,6 +3834,42 @@ function heal(commit) {
     console.log(
       `ℹ️  [族表自检] L${u.line} 声明位 ${u.token} 不被编号族认出 ⇒ 防丢面/复合主键/撞号三重看不见它:${u.head}`,
     )
+  /**
+   * 摘除台账闸门(2026-10-27 立,执行席 mp-g71;旧口径是 fail-open —— 台账取不到被折成空集
+   * 继续回捞,把 `strip-banned-buckets` / `strip-stale-closed-rows` 正当摘掉的行逐字节插回台账,
+   * 于是"摘了又回来"永不收敛,复现件 `.ihui-agent/tmp/mp-rescue/repro.mjs` 第⑤步)。
+   * 失效方向 = **多问一次**(点名缺的是哪一本账 + 未判定退出码),绝不是"多放一次自动写回"(§0.10)。
+   * 只拦自动回捞这一侧:三档读数、判缺枚数、点名一条不减(正向牙不放宽,§0.3 的对偶)。
+   */
+  const gate = declaredLedgerGate()
+  const rescue = rescueDecisionFromGate(gate, legs)
+  if (gate.undetermined && !rescue.rescue) {
+    console.error(
+      `🛑 [plan-line-loss] 台账闸门未判定 ⇒ 本轮零回捞(不回捞 ≠ 没丢):${rescue.why}`,
+    )
+    console.error(
+      `   缺的账:${rescue.missing.length ? rescue.missing.join(' / ') : '(在位但内容不可用)'} ` +
+        `(已读到 ${gate.filesSeen} 本 / 应读 ${LEDGERS.length} 本;落点 ${ROOT}/.ihui-agent/state/)`,
+    )
+    console.error(
+      `   本轮候选 ${rescue.candidates} 枚(工作树 ${rescue.legs.disk} / HEAD ${rescue.legs.head} / 索引 ${
+        rescue.legs.index === null ? '未判定' : rescue.legs.index
+      })一律**不写回、不建提交**;判缺读数照旧报出,不作削减。`,
+    )
+    console.error(
+      '   出路(是"多问一次",不是"多放一次"):先让写这本账的器物跑起来 —— 摘行留痕出口 `scripts/strip-banned-buckets.mjs` / ' +
+        '`scripts/strip-stale-closed-rows.mjs` / `scripts/strip-stale-claim-marks.mjs` 各自追写 ' +
+        '`.ihui-agent/state/plan-row-drop.jsonl`、`stale-claim-strip.jsonl`;\n' +
+        '        账修好后重跑 `node scripts/check-plan-line-loss.mjs --heal`(或 --heal --commit)照常回捞。\n' +
+        '        本闸**不提供跳过这枚闸门的变量**:跳过它 = 明知看不见"哪些行是被正当摘除的"还要自动往台账里插行。',
+    )
+    return 2
+  } else if (gate.undetermined) {
+    console.error(
+      `ℹ️  [plan-line-loss] 摘除台账闸门未判定(${gate.why}),但本轮三档判缺候选为 0 ⇒ 无自动回捞动作可做,` +
+        '"无缺失"这一结论与台账是否在场无关(空台账只会多判缺,不会少判)。',
+    )
+  }
   if (legs.allClean) {
     console.log(`✅ [plan-line-loss] 扫描 ${seen.size} 条登记行:无缺失,无需回捞`)
     return 0
@@ -3298,6 +4124,7 @@ if (isDirectRun) {
     const {
       ok,
       lost,
+      collected,
       prose,
       malformed,
       undetermined,
@@ -3377,6 +4204,34 @@ if (isDirectRun) {
         )
       }
     }
+    /**
+     * 三类读数必须逐类报(票面验收第 3 条):
+     *  · **本轮不动** = 其余在册条目,判据一条没碰(报总数,不逐条);
+     *  · **仍判缺**   = 走完全部通道仍判"原文不在这张面上"的那些(= 上面那份丢失清单);
+     *  · **已收拢**   = 凭漂移注释(编号 + 题面前 `COLLECTED_TITLE_SPAN` 字逐字对上)认下来的那些,
+     *                   逐条点名 —— "没判成缺"这件事不留下名字就等于没留下证据(§12f)。
+     */
+    const printCollected = () => {
+      const n = collected ? collected.length : 0
+      // 三类读数只有**历史面**才量得齐(staged 档的基线就是 HEAD,没有"基线总数"这个数)。
+      if (scanned > 0) {
+        const manual = reportOnly ? reportOnly.length : 0
+        const untouched = Math.max(0, scanned - n - lost.length - manual)
+        console.log(
+          `ℹ️ [plan-line-loss] [三类读数/${FACE_LABEL[face]}] 历史面登记行 ${scanned} 条 ⇒ ` +
+            `本轮不动 ${untouched} / 已收拢(第三形态) ${n} / 仍判缺 ${lost.length}` +
+            `${manual ? ` / 同编号仍占名额只报数 ${manual}` : ''}`,
+        )
+      }
+      if (!n) return
+      console.warn(
+        `ℹ️  [plan-line-loss] 其中 ${collected.length} 条登记行的原文只住在 PROJECT_PLAN.md 的漂移注释里` +
+          `(编号 + 题面前 ${COLLECTED_TITLE_SPAN} 字逐字对上)⇒ 判「已收拢在册」,不判缺、不回捞:`,
+      )
+      for (const c of collected.slice(0, 10))
+        console.warn(`     · ${c.id ?? '(无行首编号)'}: ${String(c.marker).slice(0, 30)} ← 注释正文起首 ${String(c.comment).slice(0, 46)}`)
+      if (collected.length > 10) console.warn(`     …另 ${collected.length - 10} 条(逐条见 --heal 的 [已收拢/*] 行)`)
+    }
     if (ok) {
       const winNote = historyWindowNote(window, face)
       console.log(
@@ -3407,6 +4262,7 @@ if (isDirectRun) {
       }
       reportProse()
       printMalformedStock()
+      printCollected()
       process.exit(0)
     }
     // 红灯路径:先点名"本次新增的畸形编号"(可能与登记行丢失同轮出现),再走原有丢失报告。
@@ -3468,6 +4324,7 @@ if (isDirectRun) {
           )
           .join('\n'),
     )
+    printCollected()
     const hl = headingLosses(lost)
     if (hl.length) {
       console.error(
@@ -3526,6 +4383,9 @@ export const __test__ = {
   healLegs,
   healLegRoster,
   healContent,
+  // 摘除台账闸门(2026-10-27 立):三态读取 + 回捞决议,镜像测试直接喂夹具,不得在测试里抄第二份(§22c)
+  declaredLedgerGate,
+  rescueDecisionFromGate,
   // 判活唯一实现与其取材(镜像测试据此证明"名额判活"只有一份,§22c 禁止再抄一份)
   registrationSlots,
   resolveRegistrationLoss,
@@ -3549,7 +4409,21 @@ export const __test__ = {
   malformedReport,
   runCheck,
   historyMarkers,
+  // 已结清短留痕(2026-10-25):retired 落盘与读取,镜像测试直接用生产实现
+  lastHistoryRetired,
+  retiredMarkerSet,
+  recordRetiredMarkers,
+  RETIRED_LEDGER_REL,
   // 已勾形态身份(2026-10-18):镜像测试据此证明"什么算一条已勾销登记"只有一份实现
   closedRegistrationOf,
+  // 「已收拢」第三形态(2026-10-24):漂移注释判活的唯一实现。镜像测试一律 import 这一组,
+  // 不得在测试里再抄一份归一式(§22c)—— 两把"什么算同一件事"的尺子必然漂开。
+  DRIFT_COMMENT_RE,
+  COLLECTED_TITLE_SPAN,
+  COLLECTED_MIN_JUDGABLE,
+  collectedNorm,
+  collectedTitleKey,
+  driftCollectedCorpus,
+  collectedInDriftComment,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

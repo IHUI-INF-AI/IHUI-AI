@@ -5,9 +5,10 @@
 /**
  * 反代号池多实例 Redis 共享态(2026-10-22 立)。
  *
- * 账号池转发器与巡检 worker 都可能多实例并行部署,以下三类状态必须跨实例一致,
+ * 账号池转发器与巡检 worker 都可能多实例并行部署,以下四类状态必须跨实例一致,
  * 否则会出现「A 实例熔断冷却中的号被 B 实例继续打」「会话亲和在 B 实例失效导致
- * Trae 多轮上下文断裂」「两实例同时 sweep 造成重复刷新风暴」:
+ * Trae 多轮上下文断裂」「两实例同时 sweep 造成重复刷新风暴」「两实例各自放行 ≤N
+ * 路全局在途、叠加后打爆上游」:
  *
  * (a) 账号冷却:accountId → 冷却到期毫秒时间戳,键 TTL = 剩余冷却秒级时长,
  *     Redis 自然过期,无需清扫任务。
@@ -15,6 +16,9 @@
  * (c) 巡检分布式锁:SET NX PX 原子获取,Lua 脚本按 token 原子释放(对标
  *     utils/distributed-lock.ts 的 owner+token 校验,但这里只需要「拿不到就跳过」
  *     的非阻塞语义,不排队等待)。
+ * (d) 全局在途并发闸(2026-10-29 立,O93,对标 pool.max_in_flight_global):
+ *     relay:pool:inflight:global 的 INCR/DECR 原子计数,每次 acquire 续 TTL 安全网;
+ *     达上限即回绝(调用方像冷却一样换下一候选,不排队);Redis 不可用 ⇒ 进程内计数兜底。
  *
  * 双档范式与 utils/code-store.ts、services/account-lockout.ts 完全一致:
  * Redis 为主存,写同时穿透进程内 Map;Redis 不可用/命令失败 ⇒ 降级内存兜底,
@@ -77,6 +81,8 @@ function getRedis(): Redis | null {
 const KEY_PREFIX_COOLDOWN = 'relay:pool:cooldown:'
 const KEY_PREFIX_AFFINITY = 'relay:pool:affinity:'
 const KEY_PREFIX_LOCK = 'relay:pool:lock:'
+/** 全局在途并发计数键(O93,对标 workbuddy2api-panel pool.max_in_flight_global) */
+const KEY_GLOBAL_INFLIGHT = 'relay:pool:inflight:global'
 
 /** 仅当 token 匹配才删除(原子释放),防误删他人持有的锁。 */
 const LOCK_RELEASE_SCRIPT = `
@@ -282,15 +288,113 @@ export async function tryAcquireSharedLock(
 }
 
 // =============================================================================
+// (d) 全局在途并发闸(2026-10-29 立,O93:对标 pool.max_in_flight_global)
+//     Redis INCR/DECR 原子计数 + TTL 兜底;Redis 不可用 ⇒ 进程内计数兜底。
+//     语义 = 「拿不到就跳过(像冷却一样换下一候选),绝不排队久等」——与上面
+//     分布式锁的非阻塞口径同族。钮值(IHUI_RELAY_POOL_MAX_IN_FLIGHT_GLOBAL)
+//     住 relay-pool-policy.ts 单源,本文件不读 env、不持默认值。
+// =============================================================================
+
+/**
+ * 计数键的安全网 TTL:每次 acquire 续期。进程崩溃漏放的腿靠它自愈,
+ * 闸永不因一次泄漏而永久卡死(失效方向 = 到期自动放,不是人工救火)。
+ */
+const GLOBAL_INFLIGHT_TTL_MS = 120_000
+
+/** 进程内兜底计数(Redis 不可用/命令失败时才生效;与 cooldownFallback 同语义) */
+let globalInflightFallback = 0
+
+/**
+ * 释放脚本:先 DECR;若减出负数(acquire 与 release 之间键已被 TTL 清掉 ⇒ 对新键
+ * DECR 会留下无 TTL 的负值,把可用额度虚假放大),立即删键归零。
+ * 负数不是错误,是「这一腿的额度已随键过期」的证据,归零即正确。
+ */
+const GLOBAL_INFLIGHT_RELEASE_SCRIPT = `
+local v = redis.call('decr', KEYS[1])
+if v < 0 then
+  redis.call('del', KEYS[1])
+  return 0
+end
+return v
+`
+
+export interface GlobalInflightHandle {
+  /** 本次占坑凭据(仅日志/排障用;释放走 handle.release,幂等) */
+  token: string
+  /** 本轮实际占坑的存储面(测试断言"我测的是哪一档",与 backend() 同口径) */
+  backend: 'redis' | 'memory'
+  /** 归还在途额度;幂等(同一 handle 重复调用只减一次) */
+  release(): Promise<void>
+}
+
+/**
+ * 尝试占用一枚全局在途额度(前提:调用方已确认 cap >= 1 —— 关闭档由调用方
+ * 按 policy.maxInFlightGlobal <= 0 自行跳过,不会走到这里)。
+ * 达上限 ⇒ 回滚增量并返回 null(调用方按"该候选本轮跳过"处理)。
+ * Redis 命令失败 ⇒ 降级进程内计数(跨实例不等价,但与无闸现状同向,绝不抛错)。
+ */
+export async function tryAcquireGlobalInflight(cap: number): Promise<GlobalInflightHandle | null> {
+  if (!Number.isFinite(cap) || cap < 1) return null
+  const token = randomBytes(8).toString('hex')
+  const redis = getRedis()
+  if (redis) {
+    try {
+      const v = await redis.incr(KEY_GLOBAL_INFLIGHT)
+      if (v > cap) {
+        // 超上限:撤销本次增量再回绝。回滚失败不改变"本轮无坑"的结论
+        // (TTL 安全网兜底),但必须喊出来。
+        try {
+          await redis.decr(KEY_GLOBAL_INFLIGHT)
+        } catch (e) {
+          logRedisError('tryAcquireGlobalInflight.rollback', e)
+        }
+        return null
+      }
+      await redis.pexpire(KEY_GLOBAL_INFLIGHT, GLOBAL_INFLIGHT_TTL_MS)
+      let done = false
+      return {
+        token,
+        backend: 'redis',
+        release: async () => {
+          if (done) return
+          done = true
+          try {
+            await redis.eval(GLOBAL_INFLIGHT_RELEASE_SCRIPT, 1, KEY_GLOBAL_INFLIGHT)
+          } catch (e) {
+            logRedisError('globalInflight.release', e)
+          }
+        },
+      }
+    } catch (e) {
+      logRedisError('tryAcquireGlobalInflight', e)
+      // 落入内存兜底(与 cooldown 系列同一条降级路径)
+    }
+  }
+  if (globalInflightFallback >= cap) return null
+  globalInflightFallback += 1
+  let done = false
+  return {
+    token,
+    backend: 'memory',
+    release: async () => {
+      if (done) return
+      done = true
+      globalInflightFallback = Math.max(0, globalInflightFallback - 1)
+    },
+  }
+}
+
+// =============================================================================
 // 测试出口(与 code-store __test__ 同范式)
 // =============================================================================
 
 export const __test__ = {
-  /** 清空两面(内存三张表 + Redis relay:pool:* 键)。测试用例之间必须互不残留。 */
+  /** 清空两面(内存三张表 + 全局在途计数 + Redis relay:pool:* 键)。测试用例之间必须互不残留。 */
   async reset(): Promise<void> {
     cooldownFallback.clear()
     affinityFallback.clear()
     lockFallback.clear()
+    globalInflightFallback = 0
     const redis = getRedis()
     if (!redis) return
     const keys: string[] = []
@@ -308,6 +412,14 @@ export const __test__ = {
     } catch {
       // 清不干净只影响测试隔离,不该让 beforeEach 抛错把整轮用例顶死
     }
+  },
+  /** 内存兜底档的当前在途计数(测试直接钉住"占用/归还恰好一次")。 */
+  globalInflightMemory(): number {
+    return globalInflightFallback
+  },
+  /** 全局闸的安全网 TTL(测试断言档位形态用,单源于此导出)。 */
+  globalInflightTtlMs(): number {
+    return GLOBAL_INFLIGHT_TTL_MS
   },
   /** 当前这一轮实际用的是共享存储还是进程内兜底 —— 断言"我测的是哪一档"。 */
   backend(): 'redis' | 'memory' {

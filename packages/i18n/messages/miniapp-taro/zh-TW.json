@@ -150,6 +150,7 @@
     "googleNotConfigured": "Google 登入未配置，請在 .env 設定 EXPO_PUBLIC_GOOGLE_CLIENT_ID。",
     "sdkPending": "{name} 登入請使用網頁端,移動端暫未集成原生 SDK。\n您也可以使用\"智匯AI網頁授權登入\"按鈕跳轉網頁端授權。",
     "agree": "同意",
+    "webAuthLogin": "網頁授權登入",
     "agreeTermsTitle": "確認同意服務條款"
   },
   "forgot": {
@@ -6719,6 +6720,12 @@
     "unknownLecturer": "未知講師",
     "viewCount": "{count} 次觀看"
   },
+  "scanLogin": {
+    "menuTitle": "掃一掃",
+    "invalidCode": "請掃本站登入二維碼",
+    "success": "已確認登入",
+    "failed": "確認失敗，請重試",
+    "needLogin": "請先登入後再掃碼"
   "skillsMarket": {
     "noRatings": "暫無評分",
     "detailTitle": "技能詳情",

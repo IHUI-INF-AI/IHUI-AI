@@ -29,11 +29,11 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { tokens, currentRnTheme } from '../theme/active-tokens'
-import { MoreLink } from '@ihui/rn-app'
+import { SectionHeader } from '@ihui/rn-app'
 import { formatRelativeTime } from '@ihui/shared'
 import { Eye, MessageCircle, Share2, ThumbsUp, type LucideIcon } from 'lucide-react-native'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 export interface KnowledgePlanetItem {
@@ -224,17 +224,15 @@ export function KnowledgePlanet({
   return (
     <View style={styles.wrapper}>
       {/* 标题栏:知识星球 + 进入星球(对齐原项目 popular-courses-title) */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.headerIcon} />
-          <Text style={styles.headerTitle}>知识星球</Text>
-        </View>
-        <MoreLink
-          label={t('knowledgePlanet.enter')}
-          onPress={onEnter}
-          colorScheme={currentRnTheme()}
-        />
-      </View>
+      <SectionHeader
+        title="知识星球"
+        leading={<View style={styles.headerIcon} />}
+        moreText={t('knowledgePlanet.enter')}
+        onMore={onEnter}
+        showMore={Boolean(onEnter)}
+        colorScheme={currentRnTheme()}
+        style={styles.header}
+      />
 
       {/* Tab 切换(对齐原项目 popular-courses-tab-box) */}
       <View style={styles.tabBox}>
@@ -296,43 +294,31 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   // ── 标题栏(对齐原项目 popular-courses-title) ──
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: LIST_PADDING,
     paddingVertical: 10,
-  } as ViewStyle,
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
   } as ViewStyle,
   headerIcon: {
     width: 24,
     height: 24,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
-    marginRight: rnSpacing.sm,
+    marginRight: 8,
   } as ViewStyle,
-  headerTitle: {
-    fontSize: rnType.title.size,
-    fontWeight: '700',
-    color: tokens.text.primary,
-  } as TextStyle,
   // ── Tab 切换(对齐原项目 popular-courses-tab-box) ──
   tabBox: {
     flexDirection: 'row',
     paddingHorizontal: LIST_PADDING,
-    gap: rnSpacing.lg,
-    paddingBottom: rnSpacing.sm,
+    gap: 16,
+    paddingBottom: 8,
   } as ViewStyle,
   tabItem: {
-    paddingVertical: rnSpacing.xs,
+    paddingVertical: 4,
   } as ViewStyle,
   tabItemPressed: {
     opacity: 0.7,
   } as ViewStyle,
   tabText: {
-    fontSize: rnType.body.size,
+    fontSize: 14,
   } as TextStyle,
   tabTextActive: {
     color: tokens.brand.DEFAULT,
@@ -371,7 +357,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   } as ViewStyle,
   contentGap: {
-    marginLeft: rnSpacing.md,
+    marginLeft: 12,
   } as ViewStyle,
   title: {
     fontSize: TITLE_FONT_SIZE,
@@ -382,7 +368,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rnSpacing.sm,
+    gap: 8,
     marginTop: 6,
   } as ViewStyle,
   authorBadge: {
@@ -414,7 +400,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: CARD_PADDING,
-    paddingTop: rnSpacing.sm,
+    paddingTop: 8,
   } as ViewStyle,
   socialLeft: {
     flexDirection: 'row',
@@ -424,7 +410,7 @@ const styles = StyleSheet.create({
   socialRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rnSpacing.md,
+    gap: 12,
   } as ViewStyle,
   stat: {
     flexDirection: 'row',
@@ -451,7 +437,7 @@ const styles = StyleSheet.create({
   emptyWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: rnSpacing['5xl'],
+    paddingVertical: 48,
   } as ViewStyle,
   emptyText: {
     fontSize: EMPTY_FONT_SIZE,

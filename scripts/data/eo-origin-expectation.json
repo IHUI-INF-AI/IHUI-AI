@@ -1,26 +1,26 @@
 {
-  "$comment": "EdgeOne 源站直填地址的期望台账 —— 唯一消费方 scripts/check-egress-ip-drift.mjs(只读巡检,判机器态,不进提交链 §12e)。expectedIPv4 = 家宽公网出口 IPv4(动态!),一变即全公网 5xx;本机无腾讯云/EdgeOne API 凭据 ⇒ 器物只能量到'漂了'并到人,改源站那一格归人工。expires 到期 = 该重裁(§0.7 同族纪律:登记必须会到期)。",
+  "$comment": "EdgeOne 源站直填地址的期望台账 —— 消费方 scripts/check-egress-ip-drift.mjs(只读巡检,判机器态,不进提交链 §12e)。2026-10-28 实测更正:生产 apps/api/.env 的 TENCENT_SMS_SECRET_ID/KEY 能签名通过 teo.tencentcloudapi.com(读 + 写,ModifyAccelerationDomain 同值回写 200),自动改源站已落地 scripts/repair-eo-origin.mjs(改源站 → 轮询公网 /api/health → 失败回滚),由 git-guardian 的 auditEgressIpDrift 在漂移分支上先自愈、自愈不成才到人。守护优先用 EO 现配投影的运行时台账(.ihui-agent/state/eo-origin-live-ledger.json,经 --ledger 喂入);本文件的 expectedIPv4 只是活读失败时的回落期望,自愈动作不依赖它。expires 到期 = 该重裁(§0.7 同族纪律:登记必须会到期)。",
   "schema": 1,
   "updatedByConvention": "改期望值必须同步 updatedOn 与 expires(默认 30 天窗,2026-10-21 立档依据:家宽动态地址的常态重拨周期未实测,取'一个自然月内人必回 EO 控制台复核一次'的重裁节律,不是拍脑袋的到期恐吓)",
   "rows": [
     {
       "face": "www.aizhs.top",
       "role": "EdgeOne 站点源站直填地址(2026-10 起取代 Cloudflare Tunnel 跨境回源,实测回源 ttfb 10~45s → 0.28~0.34s)",
-      "expectedIPv4": "218.27.70.129",
+      "expectedIPv4": "218.27.68.23",
       "port": 8801,
-      "owner": "机主(唯一可整改动作:腾讯云 EdgeOne 控制台 → 站点 aizhs.top → 源站配置,把源站 IP 改成巡检信里 current= 的那一个,端口 8801)",
-      "note": "本机 git status 现读无 EO API 凭据(D:/DevEnv/secrets/ 无 tencent/edgeone 条目,2026-10-21 实测),故无自动改源站腿;信里给的是人工出口(§5e-1 可整改性)。",
+      "owner": "机主(兜底,非常态):守护已能自动把 EO 源站改到现测出口并验证公网入口;只有自愈失败(出口非公网 IPv4 / 源站非 IP_DOMAIN / API 不可达 / 验证不过已回滚)时才需要人工去腾讯云 EdgeOne 控制台 → 站点 aizhs.top → 源站配置,把源站 IP 改成巡检信里 current= 的那一个,端口 8801",
+      "note": "2026-10-28 更正 2026-10-21 的判断:本机确有可用 EO 凭据(生产 apps/api/.env 的 TENCENT_SMS_*),自愈腿 = scripts/repair-eo-origin.mjs --apply,坐三重闸(G1 出口须公网 IPv4、G2 源站须 IP_DOMAIN+IPv4、G3 验证不过即回滚),挂在守护漂移分支先修后喊。本行 expectedIPv4 仅作活读失败回落。",
       "judge": true,
-      "updatedOn": "2026-10-21",
-      "expires": "2026-11-20"
+      "updatedOn": "2026-10-28",
+      "expires": "2026-11-27"
     },
     {
       "face": "bsm.aizhs.top",
-      "role": "同域站点,外部只见 EdgeOne 边缘节点 —— 是否同一源站**未经现读确认**(需 EO 控制台人工看源站那一格)",
+      "role": "同域站点,2026-10-28 现读更正:CNAME 指向 e675929a-f6f0-4893-927e-4c823f9724e0.cfargotunnel.com(Cloudflare Tunnel,proxied),且 EO 站点 aizhs.top 的加速域名清单只有 www 一个 ⇒ 不走 EO 源站直填,家宽 IP 漂移对它无影响",
       "expectedIPv4": null,
       "port": null,
       "owner": "机主",
-      "note": "登记但不判(与 check-env-drift 的 ai-service 目标同型):判它 = 拿未证实的期望值冒假 drift。人工在 EO 控制台确认同源后,填 expectedIPv4/port 并把 judge 翻 true。",
+      "note": "登记但不判(与 check-env-drift 的 ai-service 目标同型),且 2026-10-28 已确认它不在 EO 加速域名清单(DescribeAccelerationDomains 仅 www.aizhs.top)⇒ 没有可比的 EO 源站期望值,judge 保持 false。它的入口由 cloudflared 出站维持(隧道不受入站 IP/端口映射影响),另有 check-public-path-probe 看守公网可达。",
       "judge": false,
       "updatedOn": "2026-10-21",
       "expires": "2026-11-20"

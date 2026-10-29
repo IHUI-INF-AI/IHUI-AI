@@ -55,6 +55,8 @@
  *   node scripts/devenv-migrate.mjs --probe      # 只打印静默窗口三态
  *   node scripts/devenv-migrate.mjs --apply      # 执行搬迁(window 才动手;pending/未判定一律拒绝)
  *   node scripts/devenv-migrate.mjs --self-test  # 判据取证(夹具内,不碰真盘真根)
+ *   (自动档)git-guardian 巡检轮每 30 分钟派发 devenvMigratePatrol:默认只 probe 留痕,
+ *            真搬须 scripts/data/devenv-migrate-arm.json enabled=true(入库默认 false)。
  *  退出码:0 = window(可执行)/ 已完成;1 = pending / apply 复核不过;2 = 未判定/脚本异常;
  *          3 = --apply 被静默窗口前置闸拒绝。
  *
@@ -128,8 +130,9 @@ export const APPLY_REPLACEMENTS = [
   },
 ]
 
-/** 判定用只读 io 集;--apply 另需写面(全部经 io 注入,§22c 构造面可证 + 零写盘行为锁)。 */
-function defaultIO() {
+/** 判定用只读 io 集;--apply 另需写面(全部经 io 注入,§22c 构造面可证 + 零写盘行为锁)。
+ *  2026-10-28 补 export:guardian 巡检臂与镜像测试要拿同一份真实 io,禁另造第二份(§0.6)。 */
+export function defaultIO() {
   return {
     existsSync,
     lstatSync,
@@ -792,6 +795,122 @@ function verifyApplied(io) {
     : { ok: true, note: '四项回读全过(旧根清形 / junction 全指新根 / 硬编码活代码零残留 / .gitignore 在册)' }
 }
 
+// ══════════════ 巡检派发臂(git-guardian 挂点,2026-10-28)══════════════
+// 票面「探测器找静默窗口自动执行」此前只造好器物、没有调度器(§0.9 造好没装车 = 没有)。
+// 本臂就是那一格:挂进 guardian 巡检轮,**默认只探测**(零搬迁动作),真搬必须
+// scripts/data/devenv-migrate-arm.json 显式 enabled=true(默认关,照 archive-gc-arm.json 同形)。
+// 判据单源:窗口三态只问 probeQuietWindow、待做盘点只问 assessSteps、执行只走 applyMigration
+// —— 本层零复算(§0.6;另起一份窗口判据必然漂移)。节流戳双执行体(main 单轮 + daemon tick)
+// 共用一枚 ⇒ 同一窗口只有先到那一个真探。
+
+/** 开关配置面(照 archive-gc-arm.json 同形:{"enabled":boolean});入库默认关。 */
+export const ARM_CONFIG = join(ROOT, 'scripts', 'data', 'devenv-migrate-arm.json')
+/** 节流戳(双执行体共用唯一一枚)。 */
+export const ARM_TICK = join(ROOT, '.ihui-agent', 'state', 'devenv-migrate-arm-tick.iso')
+/** 节流窗口 30 分钟:窗口判据要求旧根静默 ≥60 分钟,半小时采样足以在窗口出现后抓住它。 */
+export const PATROL_INTERVAL_MS = Number(process.env.IHUI_DEVENV_MIGRATE_ARM_INTERVAL_MS || 30 * 60 * 1000)
+
+/** 节流判定(纯函数):取不到戳 ⇒ 视为**该跑了**(与 archiveGcArmDue 同一条失效方向)。 */
+export function devenvArmDue(nowMs, tickMs, intervalMs = PATROL_INTERVAL_MS) {
+  if (!Number.isFinite(tickMs)) return true
+  return nowMs - tickMs >= intervalMs
+}
+
+/**
+ * 开关读取(纯注入面,镜像测试喂构造件)。三态:
+ * 读到布尔 ⇒ {ok:true, enabled};读不到/坏形 ⇒ {ok:false, why}(未判定,不是「已关」)。
+ * 只有明写 enabled=true 才可能动作。
+ */
+export function loadDevenvMigrateArm({
+  configPath = ARM_CONFIG,
+  readFile = (p) => readFileSync(p, 'utf8'),
+  exists = existsSync,
+} = {}) {
+  if (!exists(configPath)) return { ok: false, why: `开关配置不在位:${configPath}` }
+  let parsed
+  try {
+    parsed = JSON.parse(readFile(configPath))
+  } catch (e) {
+    return { ok: false, why: `开关配置不可解析:${String((e && e.message) || e).slice(0, 120)}` }
+  }
+  if (!parsed || typeof parsed !== 'object' || typeof parsed.enabled !== 'boolean')
+    return { ok: false, why: '开关配置形状不对(需 {"enabled": true|false})' }
+  return { ok: true, enabled: parsed.enabled }
+}
+
+/**
+ * 巡检轮接线臂本体。默认零参数即生产形态;镜像测试全部走注入(零真搬迁、零生产副作用)。
+ * 顺序:节流 → probe(判据单源) → 三态分流 → 待做盘点(既有 assessSteps) → 开关 → apply。
+ * 日志纪律:pending 与「window 但六步无待做」静默(常态,写它只会把通道喊废);
+ * window 有待做 / undetermined 各留一行(前者要人开档或搬,后者是判据输入取不到)。
+ * @returns {{ran:boolean, state?:string, ok?:boolean, actions:number, done?:boolean, why?:string}}
+ */
+export function devenvMigratePatrol(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = PATROL_INTERVAL_MS,
+    tickFile = ARM_TICK,
+    configPath = ARM_CONFIG,
+    io = defaultIO(),
+    logger = (m) => console.log(m),
+    probeFn = probeQuietWindow,
+    applyFn = applyMigration,
+    readFile = (p) => readFileSync(p, 'utf8'),
+    exists = existsSync,
+    mkdir = mkdirSync,
+    writeTick = writeFileSync,
+  } = opts
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFile(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!devenvArmDue(now, lastTick, intervalMs)) return { ran: false, actions: 0, why: '未到节流窗口' }
+  // 本窗口已留痕 ⇒ 先落节流戳(戳写不下去只意味着下轮多探一次,不得让本臂失明)。
+  try {
+    mkdir(dirname(tickFile), { recursive: true })
+    writeTick(tickFile, new Date(now).toISOString(), 'utf8')
+  } catch {
+    /* 盘错不得让本臂失明 */
+  }
+  const probe = probeFn(io, now)
+  if (probe.state === 'pending') return { ran: true, state: 'pending', actions: 0 }
+  if (probe.state === 'undetermined') {
+    logger(`⚠️ G-50 DevEnv 搬迁:静默窗口未判定 ⇒ 本轮不搬(不记绿也不冒红)· ${probe.reasons.join(' ; ')}`)
+    return { ran: true, state: 'undetermined', ok: false, actions: 0 }
+  }
+  // window:还有没有待做 —— 复用既有盘点(assessSteps),本层不另写第二份判据。
+  const todo = assessSteps(io).filter((s) => s.state === 'todo')
+  if (!todo.length) return { ran: true, state: 'window', ok: true, actions: 0, done: true }
+  const arm = loadDevenvMigrateArm({ configPath, readFile, exists })
+  if (!arm.ok) {
+    logger(`⚠️ G-50 DevEnv 搬迁:静默窗口已到(待做 ${todo.length} 步),但开关配置未判定(${arm.why})⇒ 只探测不搬`)
+    return { ran: true, state: 'window', ok: false, actions: 0 }
+  }
+  if (!arm.enabled) {
+    logger(
+      `⏸ G-50 DevEnv 搬迁:静默窗口已到(待做 ${todo.length} 步:${todo.map((s) => `S${s.id}`).join('/')}),` +
+        `devenv-migrate-arm.json enabled=false ⇒ 只探测不搬(开档由机主核过盘点后改配置)`,
+    )
+    return { ran: true, state: 'window', ok: true, actions: 0 }
+  }
+  const r = applyFn(io, probe)
+  if (r.refused) {
+    logger(`⚠️ G-50 DevEnv 搬迁:开臂但 apply 前置闸拒绝 ⇒ 本轮零动作 · ${r.reason}`)
+    return { ran: true, state: 'window', ok: false, actions: 0 }
+  }
+  const bad = r.rows.filter((row) => !row.ok)
+  for (const row of r.rows) logger(`· G-50 [步骤${row.step}] ${row.ok ? 'ok' : 'FAIL'}: ${row.note}`)
+  const pass = r.verified && bad.length === 0
+  logger(
+    pass
+      ? '✅ G-50 DevEnv 搬迁:window 期执行完成且回读验证通过'
+      : `⚠️ G-50 DevEnv 搬迁:执行有 ${bad.length} 行不 OK、回读${r.verified ? '通过' : '不过'} ⇒ 交人工裁决(未回滚不可逆步)`,
+  )
+  return { ran: true, state: 'window', ok: pass, actions: r.rows.length }
+}
+
 function selfTest() {
   const { t: push, report } = makeRegistrar()
   const NOW = 1_800_000_000_000
@@ -1092,5 +1211,9 @@ export const __test__ = {
   planSteps,
   applyMigration,
   defaultIO,
+  // 巡检派发臂(2026-10-28):镜像测试直接取生产判据,零复制(§22c)。
+  devenvArmDue,
+  loadDevenvMigrateArm,
+  devenvMigratePatrol,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

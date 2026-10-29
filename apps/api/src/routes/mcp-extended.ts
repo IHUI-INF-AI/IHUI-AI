@@ -27,6 +27,7 @@ import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
 const idParam = z.object({ id: z.string().min(1) })
 const projectIdParam = z.object({ projectId: z.string().min(1) })
@@ -366,6 +367,90 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '切换 MCP 集成状态失败'))
+    }
+  })
+
+  // ==========================================================================
+  // 12. POST /mcp/slash-commands/reload — 控制帧 `reload_plugins`
+  // ==========================================================================
+  // 竞品原帧 `request({type:"reload_plugins"})` 的语义 = 宿主显式调用 + 必须把
+  // **重载后的命令列表**回灌给宿主(竞品那句 replaceLatestCommands(e.commands))。
+  // 我方插件面的对位物 = 技能贡献的命令集(本仓插件能力以技能形态承载),所以这一帧
+  // 走 ai-service 的 `POST /api/mcp/slash-commands/reload`,拿回「最新命令列表 + 技能差额」。
+  //
+  // 为什么包一层 envelope:ai-service 那一路由返的是裸 JSON(与同文件其它 slash-commands
+  // 路由同形),而本仓 api 侧的响应统一是 {code,message,data};api-client 的 fetchApi
+  // 两种都吃,但统一包起来才能让端内 `res.data` 拿到形状一致的一份。
+  server.post('/mcp/slash-commands/reload', async (request, reply) => {
+    await authenticate(request)
+    const body = request.body === undefined ? {} : request.body
+    try {
+      const resp = await aiServiceFetch(request, '/api/mcp/slash-commands/reload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const raw = await resp.text()
+      if (!resp.ok) {
+        request.log.error(`reload_plugins 上游失败: ${resp.status} ${raw.slice(0, 200)}`)
+        return reply.status(502).send(error(502, '插件面重载服务暂不可用'))
+      }
+      let data: unknown
+      try {
+        data = JSON.parse(raw)
+      } catch {
+        return reply.status(502).send(error(502, '插件面重载返回不可解析'))
+      }
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      // 与上面 `!resp.ok` 同为「上游这一格失败」,必须给同一个状态码:调用方拿两种码
+      // 无从区分也用不上,只会让排障多一层杂音。同族 meta-learner 代理的外层 catch
+      // 亦为 502,这里跟着对齐,不另立一套。
+      return reply.status(502).send(error(502, '插件面重载服务暂不可用'))
+    }
+  })
+
+  // ==========================================================================
+  // 13. POST /mcp/external/servers/:name/clear-auth — 控制帧 `mcp_clear_auth`
+  // ==========================================================================
+  // 竞品原帧 `request({type:"mcp_clear_auth", serverName})`:按 serverName 逐台撤回
+  // **用户自授权**的 OAuth 凭据(没有「全清」出口)。归属判定在 ai-service 侧
+  // (can_mutate:只允许动自己注册的;部署级谁都动不了),本层只做透传 + 状态码映射。
+  server.post('/mcp/external/servers/:name/clear-auth', async (request, reply) => {
+    await authenticate(request)
+    const { name } = request.params as { name: string }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/mcp/external/servers/${encodeURIComponent(name)}/clear-auth`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request.body ?? {}),
+        },
+      )
+      const raw = await resp.text()
+      let payload: unknown = raw
+      try {
+        payload = JSON.parse(raw)
+      } catch {
+        // 保留原始 text
+      }
+      if (!resp.ok) {
+        const detail =
+          payload !== null && typeof payload === 'object' && 'error' in payload
+            ? String((payload as { error: unknown }).error)
+            : null
+        return reply.status(resp.status).send(error(resp.status, detail ?? '清除 MCP 凭据失败'))
+      }
+      return reply.send(success(payload))
+    } catch (e) {
+      request.log.error(e)
+      // 同族已从 503 收敛到 502:这一格是「连不上 ai-service」,与上面上游非 2xx 同属
+      // 代理层失败,给同一个码更好排障(上面的 !resp.ok 会如实透出 403/404,那些才是
+      // 「鉴权/归属」的结论,不能被这一格盖掉)。
+      return reply.status(502).send(error(502, '清除 MCP 凭据服务暂不可用'))
     }
   })
 }

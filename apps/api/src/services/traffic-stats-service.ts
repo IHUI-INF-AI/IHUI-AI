@@ -306,7 +306,7 @@ export async function computeTrafficLiveSnapshot(
  * 每个观众最多每 5 秒触发一轮 46 ms 的聚合,多个观众并发时用 in-flight 去重
  * 合成同一轮 —— 既保住"5 秒内必是新的",又不让观众数变成 DB 负载乘数。
  */
-export const TRAFFIC_LIVE_TTL_MS = 5_000
+const TRAFFIC_LIVE_TTL_MS = 5_000
 
 let liveCache: { atMs: number; value: TrafficLiveSnapshot } | null = null
 let liveInflight: Promise<TrafficLiveSnapshot> | null = null

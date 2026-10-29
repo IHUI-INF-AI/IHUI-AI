@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Loader2, Package, Pencil, Power } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, Loader2, Package, Pencil, Power } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
@@ -29,6 +29,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
+// 剪贴板唯一出口(web 端实例,内部走 @ihui/shared 工厂)—— 不在页面里另写 navigator.clipboard
+import { useClipboard } from '@/hooks/use-clipboard'
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -67,6 +69,7 @@ interface EditForm {
 export default function AdminRelayModelsPage() {
   const locale = useLocale()
   const qc = useQueryClient()
+  const { copy } = useClipboard()
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState('')
   const [status, setStatus] = React.useState<'all' | 'public' | 'private'>('all')
@@ -137,6 +140,18 @@ export default function AdminRelayModelsPage() {
     },
     onError: (e: Error) => toast.error(e.message || '更新失败'),
   })
+
+  /**
+   * 复制模型名(2026-10-29 立)。形态对齐同目录 account-pool 页的 copyUid:
+   * 成功/失败都出声,不静默;但剪贴板本体走共享出口 `@/hooks/use-clipboard`
+   * (内部是 @ihui/shared 的 createUseClipboard 工厂),不在页面里再抄一份
+   * navigator.clipboard —— AGENTS.md §0.6 单一真相源。
+   */
+  const copyModelId = async (modelId: string) => {
+    const ok = await copy(modelId)
+    if (ok) toast.success('已复制模型名')
+    else toast.error('复制失败')
+  }
 
   const openEdit = (m: RelayModel) => {
     setEditTarget(m)
@@ -245,7 +260,21 @@ export default function AdminRelayModelsPage() {
                       <div className="font-medium">
                         {m.relayDisplayName || m.displayName || m.modelId}
                       </div>
-                      <div className="text-xs text-muted-foreground">{m.modelId}</div>
+                      <div className="flex items-center gap-1">
+                        <span className="truncate text-xs text-muted-foreground">{m.modelId}</span>
+                        <Tooltip content="复制模型名">
+                          <span className="inline-flex">
+                            <Button
+                              size="icon-2xs"
+                              variant="ghost"
+                              onClick={() => void copyModelId(m.modelId)}
+                            >
+                              <Copy className="h-4 w-4" />
+                              <span className="sr-only">复制模型名</span>
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-xs">{m.providerCode}</td>
                     <td className="px-3 py-2 text-right tabular-nums">

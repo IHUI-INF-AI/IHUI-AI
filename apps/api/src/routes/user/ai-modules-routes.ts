@@ -28,6 +28,7 @@ import { aiModelConfig } from '@ihui/database'
 import { config } from '../../config/index.js'
 import { authenticate } from '../../plugins/auth.js'
 import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
+import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
 import {
   findAiIndexBanners,
   findAiTeamMembers,
@@ -317,7 +318,7 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
     ].join('\n')
 
     const aiUrl = `${config.AI_SERVICE_URL}/api/llm/complete`
-    // 30s 超时:step-3.5-flash 正常 5-15s,留 2x 余量,超时则走兜底
+    // 30s 超时:常规档正常 5-15s,留 2x 余量,超时则走兜底
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30000)
     try {
@@ -328,9 +329,9 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
         body: JSON.stringify({
           // ai-service /llm/complete 契约:OpenAI 格式 messages 数组(非 prompt 字段)
           messages: [{ role: 'user', content: prompt }],
-          // step-3.5-flash:reasoning 模型,max_tokens 太小会把全部预算耗在 reasoning
-          // 导致 content 为空;2500 给 reasoning 留 ~1800 + content 留 ~700 tokens(约 800 字)
-          model: 'stepfun/step-3.5-flash',
+          // 2026-10-26 stepfun 永久退役 ⇒ 不再写死已退役档;经 utils/retired-providers.ts
+          // 的统一解析入口取(与 crew-llm-adapter / conversation-title / semantic-summary 同源)。
+          model: resolveDefaultChatModel(),
           max_tokens: 2500,
           temperature: 0.7,
         }),

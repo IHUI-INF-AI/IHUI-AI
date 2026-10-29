@@ -24,7 +24,7 @@ import { useGoalStore, type Goal } from './goal'
 export type QuestStatus = CanonicalGoalStatus
 
 /** 自评估条目来源:auto=goal 生命周期自动登记;manual=看板手动记录 */
-export type QuestAssessmentSource = 'auto' | 'manual'
+type QuestAssessmentSource = 'auto' | 'manual'
 
 export interface QuestAssessment {
   id: string

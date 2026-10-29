@@ -3150,11 +3150,17 @@ pub fn checkin_capture_jwts() -> Result<Vec<CapturedAccount>, IpcError> {
 
 #[tauri::command(async)]
 pub fn checkin_reset_device_ids(
+    app: tauri::AppHandle,
     include_machine_guid: bool,
     clean_browser_cookies: bool,
     deep_reset: bool,
     reset_mac: Option<bool>,
 ) -> Result<ResetReport, IpcError> {
+    crate::require_native_confirm(
+        &app,
+        "重置设备标识",
+        "将重置本机设备指纹(可含 Machine GUID/浏览器 Cookie/MAC)。确认执行?",
+    )?;
     let dir = require_trae_dir()?;
     // kill_running 恒 true:用户点重置=授权自动关闭 TRAE(2026-10-09 用户指令「别让用户操作」)
     // reset_mac 向后兼容:已部署生产页不传 ⇒ None ⇒ 默认关(层⑬记 skip)
@@ -3281,7 +3287,18 @@ pub async fn checkin_get_public_ip() -> Result<PublicIpReport, IpcError> {
 /// 硬安全网:MachineGuid 旧值备份失败 ⇒ 层⑤【真跳过】(include_machine_guid=false),
 /// 决不允许无备份的不可逆改写(2026-10-10 审查修正:旧实现事后改报告是假安全网)。
 #[tauri::command(async)]
-pub fn checkin_one_click_reset() -> Result<ResetReport, IpcError> {
+pub fn checkin_one_click_reset(app: tauri::AppHandle) -> Result<ResetReport, IpcError> {
+    crate::require_native_confirm(
+        &app,
+        "TRAE 一键重置",
+        "将重置 TRAE 设备标识与本地状态,不可撤销。确认执行?",
+    )?;
+    checkin_one_click_reset_inner()
+}
+
+/// 重置逻辑本体(无闸):#[ignore] 真机实测走这一层 —— 测试验证的是重置语义本身,
+/// 不该被「弹原生确认窗、无人应答即失败」卡住;闸由命令壳(checkin_one_click_reset)持有。
+pub fn checkin_one_click_reset_inner() -> Result<ResetReport, IpcError> {
     let dir = require_trae_dir()?;
     let guid_backup = ensure_machine_guid_backup();
     let include_guid = guid_backup.is_ok();
@@ -3320,9 +3337,14 @@ pub struct OneClickAllReport {
 /// 本地清除→应用自行重新注册,不做指纹伪造)。本机未安装/无特征目录的平台照实
 /// skipped,不拦流程;各平台失败也逐条入 platforms 摘要,不谎报全绿。
 #[tauri::command(async)]
-pub fn checkin_one_click_reset_all() -> Result<OneClickAllReport, IpcError> {
-    // ── TRAE:原 14 层语义不变 ──
-    let trae = checkin_one_click_reset()?;
+pub fn checkin_one_click_reset_all(app: tauri::AppHandle) -> Result<OneClickAllReport, IpcError> {
+    crate::require_native_confirm(
+        &app,
+        "全平台一键重置",
+        "将重置 TRAE/Qoder/WorkBuddy 等全部平台的设备标识与登录态,不可撤销。确认执行?",
+    )?;
+    // ── TRAE:原 14 层语义不变(闸只在聚合入口弹一次,内部走无闸 inner)──
+    let trae = checkin_one_click_reset_inner()?;
 
     let mut platforms: Vec<OneClickPlatformSummary> = Vec::new();
 
@@ -3470,6 +3492,11 @@ pub fn checkin_snapshot_restore(
     app: tauri::AppHandle,
     user_id: String,
 ) -> Result<RestoreReport, IpcError> {
+    crate::require_native_confirm(
+        &app,
+        "恢复快照",
+        "将用快照覆盖当前打卡配置(当前状态将被替换)。确认执行?",
+    )?;
     let trae = require_trae_dir()?;
     let data_dir = app_data_dir_or_err(&app)?;
     snapshot_restore(&trae, &data_dir, &user_id)
@@ -3483,6 +3510,11 @@ pub fn checkin_snapshot_list(app: tauri::AppHandle) -> Result<Vec<SnapshotSummar
 
 #[tauri::command]
 pub fn checkin_snapshot_delete(app: tauri::AppHandle, user_id: String) -> Result<(), IpcError> {
+    crate::require_native_confirm(
+        &app,
+        "删除快照",
+        "将永久删除该用户快照,不可恢复。确认执行?",
+    )?;
     let data_dir = app_data_dir_or_err(&app)?;
     snapshot_delete(&data_dir, &user_id)
 }
@@ -5618,7 +5650,7 @@ mod tests {
     fn traereal_one_click_reset_glue() {
         let dir = detect_trae_dir().expect("本机必须能探测到 TRAE 现场目录");
         eprintln!("[oneclick] detected = {}", dir.display());
-        let report = checkin_one_click_reset().expect("一键重置胶水调用失败");
+        let report = checkin_one_click_reset_inner().expect("一键重置胶水调用失败");
         assert_eq!(report.layers.len(), 14, "层报告数应为 14");
         for l in &report.layers {
             eprintln!("[oneclick] L{:02} {:26} ok={} {}", l.layer, l.name, l.ok, l.detail);
@@ -5674,7 +5706,7 @@ mod tests {
         assert!(!before.is_empty(), "真机上必须抓得到旧身份值(否则 TRAE 现场可能已被清空)");
 
         // ③ 一键 14 层(与 UI 按钮同路径)
-        let report = checkin_one_click_reset().expect("一键重置不应返回错误");
+        let report = checkin_one_click_reset_inner().expect("一键重置不应返回错误");
         for l in &report.layers {
             eprintln!("[verify] L{:02} {:26} ok={} {}", l.layer, l.name, l.ok, l.detail);
             if l.layer == 5 || l.layer == 7 || l.layer == 13 {

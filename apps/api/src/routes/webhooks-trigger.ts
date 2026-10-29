@@ -15,15 +15,17 @@
  * - GET  /webhooks/events/:eventId 查看事件详情
  * - POST /webhooks/events/:eventId/retry 手动重试事件
  *
- * 安全:本路由不挂 authenticate 中间件(webhook 是外部系统调用,用 HMAC 签名验证身份)。
- * 触发器管理端点(/triggers/*)和事件查询端点(/events/*)同样不挂鉴权,由主 agent 在
- * server.ts 注册时决定是否套 authenticate 前缀(生产环境应对管理端点加 admin 鉴权)。
+ * 安全(2026-10-27 加固):POST /trigger/:id 为外部系统入口,凭 HMAC 签名验身份;
+ * 触发器管理端点(/triggers/*)与事件查询/重试端点(/events/*)均挂 requireAdmin
+ * (此前完全无鉴权,攻击者可未认证创建 trigger 自供 secret、拉取全部 secret、
+ * 以恶意 regex 打满主线程 —— 三重洞一次封死)。
  *
- * 存储:进程内存 Map,重启失效(生产环境用 DB)。
+ * 存储:进程内存 Map(带配额硬顶),重启失效(生产环境用 DB)。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { createHmac, randomUUID } from 'node:crypto'
+import { createHmac, randomUUID, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import {
@@ -55,6 +57,14 @@ const auditLogs: WebhookTriggerAuditLog[] = []
 /** 默认最大重试次数 */
 const DEFAULT_MAX_RETRIES = 3
 
+/** 内存存储配额(防无界增长 DoS):触发器/事件条数硬顶 */
+const MAX_TRIGGERS = 100
+const MAX_EVENTS = 1000
+
+/** regex 条件的 pattern 与被测值长度上限(主线程同步执行,防 ReDoS 放大) */
+const MAX_REGEX_PATTERN_LENGTH = 200
+const MAX_REGEX_SUBJECT_LENGTH = 10 * 1024
+
 // =============================================================================
 // Zod schemas
 // =============================================================================
@@ -72,12 +82,19 @@ const conditionSchema = z.object({
   operator: z.enum(['eq', 'neq', 'contains', 'regex', 'exists']),
   value: z.unknown().optional(),
 })
+// regex 条件的 ReDoS 防护在 evaluateCondition 运行时做(pattern/被测值长度硬顶)
 
 const createTriggerSchema = z.object({
   name: z.string().min(1, '名称不能为空').max(100),
   url: z.string().min(1, 'URL 不能为空').max(512),
-  agentId: z.string().min(1, 'agentId 不能为空'),
-  secret: z.string().min(8, '密钥至少 8 字符').max(512),
+  agentId: z
+    .string()
+    .min(1, 'agentId 不能为空')
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/, 'agentId 仅允许字母数字下划线连字符(防出站路径拼接)'),
+  // secret 改为服务端生成(安全修正 2026-10-27):客户端自供 secret = 未认证方可
+  // 自建 trigger 后自己签名通过 HMAC 验证。兼容老调用方显式传 secret 的场景保留可选。
+  secret: z.string().min(8).max(512).optional(),
   condition: conditionSchema.optional(),
   enabled: z.boolean().default(true),
 })
@@ -85,7 +102,12 @@ const createTriggerSchema = z.object({
 const updateTriggerSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   url: z.string().min(1).max(512).optional(),
-  agentId: z.string().min(1).optional(),
+  agentId: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/, 'agentId 仅允许字母数字下划线连字符')
+    .optional(),
   secret: z.string().min(8).max(512).optional(),
   condition: conditionSchema.optional(),
   enabled: z.boolean().optional(),
@@ -96,6 +118,16 @@ const listEventsQuerySchema = z.object({
   status: z.enum(['pending', 'executing', 'success', 'failed', 'retrying']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 })
+
+// =============================================================================
+// 辅助函数:secret 脱敏(列表/详情响应不回完整 secret)
+// =============================================================================
+
+/** secret 脱敏:只保留前 4 位供调用方核对,其余以固定掩码代替 */
+function maskSecret(secret: string): string {
+  if (secret.length <= 8) return '****'
+  return `${secret.slice(0, 4)}****${secret.slice(-2)}`
+}
 
 // =============================================================================
 // 辅助函数:签名验证
@@ -147,6 +179,13 @@ function evaluateCondition(payload: unknown, condition: WebhookCondition): boole
       return fieldValue.includes(String(condition.value))
     case 'regex':
       if (typeof fieldValue !== 'string') return false
+      // ReDoS 防护:pattern/被测值超限直接判不匹配(主线程同步正则,灾难性回溯可打满事件循环)
+      if (
+        String(condition.value ?? '').length > MAX_REGEX_PATTERN_LENGTH ||
+        fieldValue.length > MAX_REGEX_SUBJECT_LENGTH
+      ) {
+        return false
+      }
       try {
         return new RegExp(String(condition.value)).test(fieldValue)
       } catch {
@@ -365,6 +404,13 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
       executedAt: null,
       completedAt: null,
     }
+    // 内存配额:超限淘汰最旧事件(防无鉴权触发路径灌爆内存)
+    if (eventStore.size >= MAX_EVENTS) {
+      const oldest = [...eventStore.values()].sort((a, b) =>
+        a.createdAt.localeCompare(b.createdAt),
+      )[0]
+      if (oldest) eventStore.delete(oldest.id)
+    }
     eventStore.set(eventId, event)
 
     // 记录审计日志
@@ -393,20 +439,28 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // GET /webhooks/triggers — 列出所有触发器配置
-  server.get('/webhooks/triggers', async (_request, reply) => {
-    const list = Array.from(triggerStore.values())
+  // GET /webhooks/triggers — 列出所有触发器配置(仅管理员;secret 脱敏)
+  server.get('/webhooks/triggers', { preHandler: requireAdmin }, async (_request, reply) => {
+    const list = Array.from(triggerStore.values()).map((t) => ({
+      ...t,
+      secret: maskSecret(t.secret),
+    }))
     return reply.send(success({ list, total: list.length }))
   })
 
-  // POST /webhooks/triggers — 创建触发器
-  server.post('/webhooks/triggers', async (request, reply) => {
+  // POST /webhooks/triggers — 创建触发器(仅管理员;secret 服务端生成;配额硬顶)
+  server.post('/webhooks/triggers', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = createTriggerSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    if (triggerStore.size >= MAX_TRIGGERS) {
+      return reply.status(429).send(error(429, `触发器数量已达上限(${MAX_TRIGGERS})`))
+    }
 
     const input = parsed.data as CreateWebhookTriggerInput
+    // secret 缺省由服务端生成(256bit 随机),客户端自供仅作兼容且不再是唯一凭据来源
+    const secret = input.secret ?? randomBytes(32).toString('hex')
     const id = randomUUID()
     const now = new Date().toISOString()
     const config: WebhookTriggerConfig = {
@@ -414,18 +468,19 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
       name: input.name,
       url: input.url,
       agentId: input.agentId,
-      secret: input.secret,
+      secret,
       condition: input.condition,
       enabled: input.enabled,
       createdAt: now,
       updatedAt: now,
     }
     triggerStore.set(id, config)
+    // 响应回完整 secret 仅此一次(创建方需保存);后续列表/详情一律脱敏
     return reply.status(201).send(success({ trigger: config }))
   })
 
-  // PUT /webhooks/triggers/:id — 更新触发器
-  server.put('/webhooks/triggers/:id', async (request, reply) => {
+  // PUT /webhooks/triggers/:id — 更新触发器(仅管理员)
+  server.put('/webhooks/triggers/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = triggerIdParamSchema.parse(request.params)
     const existing = triggerStore.get(id)
     if (!existing) {
@@ -446,11 +501,11 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
       updatedAt: new Date().toISOString(),
     }
     triggerStore.set(id, updated)
-    return reply.send(success({ trigger: updated }))
+    return reply.send(success({ trigger: { ...updated, secret: maskSecret(updated.secret) } }))
   })
 
-  // DELETE /webhooks/triggers/:id — 删除触发器
-  server.delete('/webhooks/triggers/:id', async (request, reply) => {
+  // DELETE /webhooks/triggers/:id — 删除触发器(仅管理员)
+  server.delete('/webhooks/triggers/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = triggerIdParamSchema.parse(request.params)
     if (!triggerStore.has(id)) {
       return reply.status(404).send(error(404, '触发器不存在'))
@@ -459,8 +514,8 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ deleted }))
   })
 
-  // GET /webhooks/events — 列出触发事件(支持 triggerId / status 过滤)
-  server.get('/webhooks/events', async (request, reply) => {
+  // GET /webhooks/events — 列出触发事件(仅管理员;支持 triggerId / status 过滤)
+  server.get('/webhooks/events', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = listEventsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -476,8 +531,8 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: list.length }))
   })
 
-  // GET /webhooks/events/:eventId — 查看事件详情
-  server.get('/webhooks/events/:eventId', async (request, reply) => {
+  // GET /webhooks/events/:eventId — 查看事件详情(仅管理员)
+  server.get('/webhooks/events/:eventId', { preHandler: requireAdmin }, async (request, reply) => {
     const { eventId } = eventIdParamSchema.parse(request.params)
     const event = eventStore.get(eventId)
     if (!event) {
@@ -488,47 +543,51 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ event, auditLogs: logs }))
   })
 
-  // POST /webhooks/events/:eventId/retry — 手动重试事件
-  server.post('/webhooks/events/:eventId/retry', async (request, reply) => {
-    const { eventId } = eventIdParamSchema.parse(request.params)
-    const event = eventStore.get(eventId)
-    if (!event) {
-      return reply.status(404).send(error(404, '事件不存在'))
-    }
-    // 只允许重试失败 / 已完成但需重新触发的事件
-    if (event.status === 'executing' || event.status === 'retrying') {
-      return reply.status(409).send(error(409, `事件正在执行中(状态: ${event.status}),无法重试`))
-    }
-    if (event.status === 'success') {
-      return reply.status(409).send(error(409, '事件已成功,无需重试'))
-    }
+  // POST /webhooks/events/:eventId/retry — 手动重试事件(仅管理员)
+  server.post(
+    '/webhooks/events/:eventId/retry',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { eventId } = eventIdParamSchema.parse(request.params)
+      const event = eventStore.get(eventId)
+      if (!event) {
+        return reply.status(404).send(error(404, '事件不存在'))
+      }
+      // 只允许重试失败 / 已完成但需重新触发的事件
+      if (event.status === 'executing' || event.status === 'retrying') {
+        return reply.status(409).send(error(409, `事件正在执行中(状态: ${event.status}),无法重试`))
+      }
+      if (event.status === 'success') {
+        return reply.status(409).send(error(409, '事件已成功,无需重试'))
+      }
 
-    // 重置状态,重新触发
-    event.status = 'pending'
-    event.lastError = null
-    event.executedAt = null
-    event.completedAt = null
-    event.attempts = 1
-    void executeAgentAsync(event)
+      // 重置状态,重新触发
+      event.status = 'pending'
+      event.lastError = null
+      event.executedAt = null
+      event.completedAt = null
+      event.attempts = 1
+      void executeAgentAsync(event)
 
-    recordAuditLog({
-      eventId,
-      timestamp: new Date().toISOString(),
-      triggerId: event.triggerId,
-      signatureValid: true,
-      conditionMatched: true,
-      status: 'pending',
-      sourceIp: request.ip,
-    })
-
-    return reply.send(
-      success({
+      recordAuditLog({
         eventId,
-        message: '已重新触发,agent 异步执行中',
-        asyncExecution: true,
-      }),
-    )
-  })
+        timestamp: new Date().toISOString(),
+        triggerId: event.triggerId,
+        signatureValid: true,
+        conditionMatched: true,
+        status: 'pending',
+        sourceIp: request.ip,
+      })
+
+      return reply.send(
+        success({
+          eventId,
+          message: '已重新触发,agent 异步执行中',
+          asyncExecution: true,
+        }),
+      )
+    },
+  )
 }
 
 export default webhookTriggerRoutes

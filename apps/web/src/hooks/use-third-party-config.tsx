@@ -149,8 +149,8 @@ export function useThirdPartyConfig(): ThirdPartyConfig {
     () => ({
       providers,
       currentPlatform,
-      onLogin: (p) => {
-        void startLogin(p)
+      onLogin: (p, agreementAccepted) => {
+        void startLogin(p, agreementAccepted)
       },
     }),
     [providers, currentPlatform, startLogin],

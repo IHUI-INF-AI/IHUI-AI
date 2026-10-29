@@ -37,6 +37,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core import jwt_auth
 from app.core.config import settings
+from app.core.token_baseline import CHAIN_MAIN
 
 pytestmark = pytest.mark.real_jwt
 
@@ -385,6 +386,9 @@ async def test_request_approval_registers_owner_from_run_user_id(
         # 本例测的是"审批条目属主 = 路由传入的 user_id"(越权链),前置条件是这人身为
         # admin 走到了审批那一步;role 闸自身的正反例在 tests/test_engine_role_parity.py。
         user_role=1,
+        # G-941 写账侧:本例走的是主链构造点,链别显式标注(缺省已收成"未判定",
+        # 漏传会在构造时点名 warning 并把用量记进"未判定"桶而非主链)。
+        chain=CHAIN_MAIN,
     )
     tc = ToolCall(id="c1", name="write_file", args={"path": "/tmp/authz59.txt"})
     task = asyncio.create_task(loop._execute_single(tc))

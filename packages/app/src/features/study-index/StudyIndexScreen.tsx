@@ -32,7 +32,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { SearchInput } from '../../components/SearchInput'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
-import { MoreLink } from '../../components/MoreLink'
+import { SectionHeader } from '../../components/SectionHeader'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
 import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
@@ -258,18 +258,15 @@ export function StudyIndexScreen({
 
           {/* 推荐课程合集预览 */}
           <View style={styles.previewSection}>
-            <View style={styles.previewHeader}>
-              <View style={styles.previewTitleRow}>
-                <Flame size={20} color={tk.text.medium} style={styles.previewIcon} />
-                <Text style={styles.previewTitle}>推荐课程合集</Text>
-              </View>
-              <MoreLink
-                label="更多"
-                onPress={onViewMoreModels}
-                accessibilityLabel="查看更多模型"
-                colorScheme={colorScheme}
-              />
-            </View>
+            <SectionHeader
+              title="推荐课程合集"
+              leading={<Flame size={20} color={tk.text.medium} style={styles.previewIcon} />}
+              moreText="更多"
+              onMore={onViewMoreModels}
+              accessibilityLabel="查看更多模型"
+              colorScheme={colorScheme}
+              style={styles.previewHeader}
+            />
             {previewModels.length > 0 ? (
               previewModels.map((m) => (
                 <View key={m.id} style={styles.previewModelRow}>
@@ -314,18 +311,15 @@ export function StudyIndexScreen({
 
           {/* 最新课程预览 */}
           <View style={styles.previewSection}>
-            <View style={styles.previewHeader}>
-              <View style={styles.previewTitleRow}>
-                <Clapperboard size={20} color={tk.text.medium} style={styles.previewIcon} />
-                <Text style={styles.previewTitle}>最新课程</Text>
-              </View>
-              <MoreLink
-                label="更多"
-                onPress={onViewMoreCourses}
-                accessibilityLabel="查看更多课程"
-                colorScheme={colorScheme}
-              />
-            </View>
+            <SectionHeader
+              title="最新课程"
+              leading={<Clapperboard size={20} color={tk.text.medium} style={styles.previewIcon} />}
+              moreText="更多"
+              onMore={onViewMoreCourses}
+              accessibilityLabel="查看更多课程"
+              colorScheme={colorScheme}
+              style={styles.previewHeader}
+            />
             {initialLoading ? (
               <View style={styles.centerWrap}>
                 <ActivityIndicator color={tk.brand.DEFAULT} />
@@ -436,18 +430,9 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginBottom: rnSpacing.sm,
     } as ViewStyle,
-    previewTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    } as ViewStyle,
     previewIcon: {
       fontSize: rnType.heading.size,
       marginRight: rnSpacing.sm,
-    } as TextStyle,
-    previewTitle: {
-      fontSize: rnType.subtitle.size,
-      fontWeight: '700',
-      color: tk.text.primary,
     } as TextStyle,
     // 模型预览行
     previewModelRow: {

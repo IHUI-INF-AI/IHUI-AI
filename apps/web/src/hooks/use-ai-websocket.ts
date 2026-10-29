@@ -19,13 +19,13 @@ export const PROVIDER_PATHS: Record<AIWSProvider, string> = {
   generic: '/v1/ai/capabilities/ws/stream',
 }
 
-export interface AIWSMessage {
+interface AIWSMessage {
   type: string
   data?: unknown
   [key: string]: unknown
 }
 
-export interface UseAIWebSocketReturn {
+interface UseAIWebSocketReturn {
   send: (data: unknown) => void
   close: () => void
   isConnected: boolean
@@ -96,7 +96,7 @@ const useGenericWS = createWebSocketHook<AIWSMessage>({
  * - 消息类型守卫:仅符合 AIWSMessage 结构且非 pong 的消息才会被推送
  *
  * 用法:
- *   const { send, isConnected, lastMessage } = useAIWebSocket('qwen')
+ *   const { send, isConnected, lastMessage } = useAiWebSocket() // '@/hooks/use-ai-ws-business'
  *
  * 2026-08-02 修复 Bug #17:重构为始终挂载 5 个 provider hook(符合 Rules of Hooks),
  * 按 provider 选择 active hook,其他 hook enabled=false 不建立连接。

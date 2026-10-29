@@ -87,6 +87,8 @@ import { TurnChangesCard } from '@/components/chat/message-list/turn-changes-car
 // D64 ⑤(2026-09-26 挂载):反馈问卷卡 —— 2026-09-24 立卡后一直零消费点,本票接线
 import { FeedbackSurveyCard } from '@/components/chat/feedback-survey-card'
 import type { FeedbackSurveyPayload } from '@ihui/shared/chat/element-pack'
+// 2026-10-28 reaction 档:操作行常驻轻评分(直连 D49①/D64⑤ 现成端点,本件零新判据)
+import { MessageFeedbackActions } from '@/components/chat/message-list/message-feedback-actions'
 // P3 #39(2026-09-16 立):执行轨迹回放(toolCalls 时序重演)
 import { TraceReplay } from '@/components/ai/trace-replay'
 import { matchesPaneEvent, useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
@@ -799,6 +801,12 @@ const MessageItem = React.memo(function MessageItem({
           }),
         })
         if (!res.success) throw new Error(res.error || '反馈提交失败')
+        // 2026-10-28 reaction 档:问卷折算票同步给操作行轻评分回显(同一 messageId 单一真相)
+        window.dispatchEvent(
+          new CustomEvent('ihui:feedback-rating-sync', {
+            detail: { messageId: payload.messageId, rating },
+          }),
+        )
       } catch (err) {
         toast.error(t('toast.feedbackFailed'), {
           description: err instanceof Error ? err.message : String(err),
@@ -1549,6 +1557,13 @@ const MessageItem = React.memo(function MessageItem({
                   )}
                 </button>
               </Tooltip>
+            )}
+            {/* AI 消息:常驻轻评分 👍/👎(2026-10-28 reaction 档;流式中禁用;
+                写面与问卷卡共写同一 upsert 端点,读面走 m.rating(服务端盖章),
+                会话内另有 rating-sync 事件把问卷折算票实时合流到同一处)。
+                `?? null`:字段缺失(老服务端)与明确无票在渲染上等价,都显示未表态。 */}
+            {!isUser && !streamingThis && m.content.length > 0 && (
+              <MessageFeedbackActions messageId={m.id} initialRating={m.rating ?? null} />
             )}
             {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
             {!isUser && messageImages.length > 0 && (

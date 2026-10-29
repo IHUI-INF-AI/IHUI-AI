@@ -515,6 +515,12 @@
     "noLogsHint": "(ログなし — ページ上でクリックすると座標情報が表示されます)",
     "runJs": "JavaScript 実行",
     "runJsPlaceholder": "document.title — JS を入力して実行をクリック(例: document.querySelector(\"button\").click())",
+    "browserTab": "ブラウザ",
+    "home": "ホームへ戻る",
+    "pickElement": "要素を選択",
+    "picking": "選択中:ページ要素をクリックで選択、もう一度押すと解除",
+    "devtools": "開発者ツール",
+    "popout": "別ウィンドウで開く",
     "run": "実行"
   },
   "a11y": {
@@ -922,6 +928,37 @@
       "panelVisitTransition": "ページ遷移",
       "visitTransitionMoves": "24時間 遷移 {count} 回",
       "visitTransitionTop": "よく踏む経路(24時間)",
+      "avgDwellSec": "滞在 {s}s",
+      "panelHourlyVisits": "時間別アクセス",
+      "hourlyVisitWindow": "直近 24h · 時間別",
+      "visitHourlyPv": "アクセス数",
+      "visitHourlyUv": "訪問者数",
+      "sessionQualityExitTop": "終了ページ(セッション/単一)",
+      "activeUsers7d": "アクティブ(7日)",
+      "alertCountAtLeast": "アラート ≥{count}",
+      "apiErrRateHint": "集計範囲:本日の api_logs 全件(ヘッダーの Prometheus 5xx 率とは補完関係)",
+      "level0": "通常",
+      "level1": "シルバー",
+      "level2": "ゴールド",
+      "level3": "ダイヤ",
+      "levelDistTitle": "等級分布",
+      "noPoolRows": "プール行なし",
+      "poolBalanceLow": "残高不足",
+      "poolExpiring24h": "24時間以内に期限",
+      "poolHealthDegraded": "劣化",
+      "poolHealthDown": "ダウン",
+      "poolHealthHealthy": "正常",
+      "poolHealthUnknown": "不明",
+      "poolProviderAccountTitle": "アカウント・プロバイダ別",
+      "poolProviderKeyTitle": "キー・プロバイダ別",
+      "stateDown": "異常",
+      "stateUnknown": "不明",
+      "stateUp": "正常",
+      "userGrowth14d": "ユーザー成長·14日",
+      "usersInvited": "招待登録",
+      "usersInvited7d": "招待(7日)",
+      "usersTrader": "トレーダー",
+      "usersVip": "VIPユーザー",
       "visitTransitionNoData": "24時間にページ遷移なし"
     },
     "aboutUs": {
@@ -1418,6 +1455,19 @@
         "update": "しい",
         "warning": "警告"
       },
+      "platforms": {
+        "cli": "CLI",
+        "desktop": "デスクトップ",
+        "extension": "拡張機能",
+        "miniapp": "ミニプログラム",
+        "mobile-cap": "モバイル収集",
+        "rn": "モバイルアプリ",
+        "web": "Web"
+      },
+      "colPlatforms": "配信先",
+      "fieldPlatforms": "配信先",
+      "platformsAll": "すべての端末",
+      "platformsHint": "未選択の場合は全端末に表示されます。選択した端末のみに表示されます",
       "yes": "はい"
     },
     "anomalies": {
@@ -1799,8 +1849,12 @@
       "save": "保存",
       "statusAriaLabel": "ステータス",
       "statusExpired": "期限切れ",
-      "statusInUse": "せる",
-      "statusUnused": "せる",
+      "statusInUse": "使用中",
+      "statusUnused": "未使用",
+      "colAddress": "アドレス",
+      "colCreatedAt": "作成日時",
+      "colCreator": "作成者",
+      "colSignNickname": "ニックネーム",
       "total": "{total}"
     },
     "developerLink": {
@@ -6225,6 +6279,244 @@
       "installerHint": "GitHub 側の操作者 id(プラットフォームユーザーではありません)"
     },
     "smsReceive": "SMS認証コード",
+    "relayTasks": {
+      "wbTitle": "WorkBuddy タスク自動化",
+      "wbAccount": "アカウント",
+      "wbAccountEmpty": "WorkBuddy アカウントなし",
+      "wbDryRun": "プレビュー(ドライラン)",
+      "wbRefresh": "更新",
+      "wbNoAccount": "先にアカウントを選択してください",
+      "wbLoading": "タスクを読み込み中…",
+      "wbReadFailed": "読み込み失敗",
+      "wbUnjudged": "未判定",
+      "wbNoTasks": "実行可能なタスクなし",
+      "wbColTask": "タスク",
+      "wbColProgress": "進捗",
+      "wbColStatus": "ステータス",
+      "wbColReward": "報酬",
+      "wbKindGrowth": "成長",
+      "wbKindTravel": "旅行",
+      "wbKindActivity": "アクティブ",
+      "wbKindBlackcat": "夜間",
+      "wbRunOk": "タスクを実行しました",
+      "wbRunFailed": "実行失敗",
+      "wbAccepted": "受取済み",
+      "wbClaimed": "獲得済み",
+      "wbCreditDelta": "クレジット変動",
+      "wbEnergyDelta": "体力変動",
+      "wbNeverRun": "未実行"
+    },
+    "smsOperations": {
+      "page": {
+        "title": "SMS チャネル運用",
+        "loadingStatus": "チャネル状態を読み込み中…",
+        "tabStatus": "チャネル状態",
+        "tabSend": "送信",
+        "tabLogs": "送信台帳",
+        "tabUnsubscribes": "配信停止ブラックリスト"
+      },
+      "category": {
+        "notice": "通知系",
+        "marketing": "マーケティング系"
+      },
+      "provider": {
+        "tencent": "Tencent Cloud",
+        "aliyun": "Alibaba Cloud",
+        "proxy": "自社構築プロキシ",
+        "none": "利用可能なチャネルなし"
+      },
+      "review": {
+        "approved": "有効",
+        "pending": "審査中",
+        "rejected": "承認不可",
+        "unknown": "状態不明"
+      },
+      "template": {
+        "bindingSuccess": "携帯電話の連携完了",
+        "newDevice": "新規デバイスでのログイン通知",
+        "passwordChanged": "パスワード変更の通知",
+        "maintenance": "システム保守のお知らせ",
+        "accountCancel": "アカウント削除の確認",
+        "membershipExpiry": "会員期限切れの通知",
+        "paymentSuccess": "支払い完了のお知らせ",
+        "contentReject": "コンテンツ審査の差し戻し",
+        "securityLimit": "セキュリティ制御による制限",
+        "serviceRestore": "サービス復旧のお知らせ",
+        "newFeature": "新機能の追加",
+        "promo": "プロモーション"
+      },
+      "error": {
+        "rateLimited": "1番号あたりの回数制限に到達",
+        "suppressedUnsubscribed": "配信停止/受信拒否",
+        "unsubscribeCheckUnavailable": "配信停止リストの照会に失敗（マーケティングは fail-closed）",
+        "noChannel": "利用可能なチャネルなし（設定なし）",
+        "notConfigured": "テンプレートまたはチャネルが未設定",
+        "notInMarketingWindow": "マーケティング送信時間帯（08:00–21:00）外",
+        "globalDailyCapReached": "マーケティングの全体日上限に到達",
+        "sdkUnavailable": "クラウド SDK を利用できません",
+        "aliyunSdkUnavailable": "Alibaba Cloud SDK を利用できません",
+        "aliyunResponseUnparsable": "Alibaba Cloud の応答を解析できません",
+        "proxyCallFailed": "自社プロキシの呼び出しに失敗",
+        "invalidTemplate": "テンプレート key が不正",
+        "marketingDisabled": "マーケティング主スイッチがオフ（SMS_MARKETING_ENABLED=0）",
+        "duplicate": "同一の業務イベントは送信済み（重複排除）"
+      },
+      "field": {
+        "phone": "携帯電話番号",
+        "number": "番号",
+        "reason": "理由",
+        "usage": "用途",
+        "template": "テンプレート",
+        "category": "分類",
+        "channel": "チャネル",
+        "status": "状態",
+        "source": "出所",
+        "time": "時刻",
+        "templateId": "テンプレート ID",
+        "bizType": "業務タイプ",
+        "bizId": "業務 ID",
+        "rawReply": "元の返信",
+        "updateTime": "更新日時",
+        "fallbackContent": "代替本文（任意）",
+        "phoneInvalid": "携帯電話番号の形式が正しくありません（13800000000 / +8613800000000 に対応）"
+      },
+      "pager": {
+        "loading": "読み込み中…",
+        "prev": "前へ",
+        "next": "次へ"
+      },
+      "status": {
+        "cardCurrentChannel": "現在のチャネル",
+        "available": "利用可能",
+        "missingCredentials": "認証情報なし",
+        "configured": "設定済み",
+        "notConfigured": "未設定",
+        "autoModeHint": "auto モードではテンプレートを設定済みのチャネルが優先され、未設定の場合は Alibaba Cloud の通知テンプレートにフォールバックします。",
+        "signName": "署名",
+        "signReview": "署名審査",
+        "signId": "署名 ID",
+        "signIdNotRegistered": "署名 ID 未登録",
+        "region": "リージョン",
+        "codeTemplate": "認証コード · {code}",
+        "codeTemplateColumn": "認証コードテンプレート",
+        "notifyTemplate": "通知テンプレート",
+        "noNotifyTemplateHint": "ALI_SMS_NOTIFY_TEMPLATE_CODE を未設定の場合、Tencent のテンプレートが未承認の通知系 SMS は代替チャネルがありません。",
+        "cardCallbackCompliance": "コールバックとコンプライアンス",
+        "callbackToken": "コールバックトークン",
+        "callbackIpAllowlist": "コールバック IP 許可リスト",
+        "unsubscribeFailClosed": "配信停止リスト fail-closed",
+        "marketingSwitch": "マーケティング主スイッチ",
+        "callbackPath": "コールバックパス",
+        "marketingWindow": "マーケティング送信時間帯",
+        "cardRateLimit": "レート制限と割り当て",
+        "noticePerNumber": "1番号あたり（通知）",
+        "marketingPerNumber": "1番号あたり（マーケティング）",
+        "perHourPerDay": "時間あたり {hourly} 件 · 日あたり {daily} 件",
+        "perDayPerMonth": "日あたり {daily} 件 · 月あたり {monthly} 件",
+        "perDay": "日あたり {count} 件",
+        "countUnit": "{count} 件",
+        "marketingGlobalDailyCap": "マーケティング全体日上限",
+        "broadcastLimit": "1回の一括送信上限",
+        "unsubscribeCount": "配信停止リスト人数",
+        "cardTemplateMatrix": "テンプレート一覧",
+        "reviewSource": "審査状態は Tencent Cloud 由来、照会時刻 {time}",
+        "reviewUnavailable": "審査状態を照会できないため、現地の設定状況のみ表示しています",
+        "reviewUnavailableWithCode": "審査状態を照会できません（{code}）。現地の設定状況のみ表示しています",
+        "colEnvKey": "環境変数",
+        "colTencentTemplateId": "Tencent テンプレート ID",
+        "colBackfilled": "設定",
+        "colReviewStatus": "審査状態",
+        "colReviewReply": "審査コメント",
+        "backfilled": "設定済み",
+        "notBackfilled": "未設定"
+      },
+      "log": {
+        "exportFileName": "SMS 送信台帳",
+        "exported": "{count} 件を書き出しました",
+        "exportLimitHint": "直近 {limit} 件まで書き出します",
+        "allStatuses": "すべての状態",
+        "totalCount": "全 {count} 件",
+        "loadFailed": "台帳の読み込みに失敗しました。以下は「記録なし」ではなく、取得できていない状態です。",
+        "empty": "送信記録はまだありません",
+        "pagination": "{page} ペ目 · 1ページ {size} 件 · 全 {total} 件",
+        "colSendTime": "送信時刻",
+        "statusAccepted": "受け付け済み",
+        "statusDelivered": "配信済み",
+        "statusDeliveryFailed": "配信に失敗",
+        "statusFailed": "送信に失敗",
+        "statusSuppressed": "ブロック済み",
+        "rawCode": "{code}"
+      },
+      "unsub": {
+        "sourceReply": "返信による配信停止",
+        "sourceAdmin": "管理者によるブロック",
+        "sourceManual": "手動登録",
+        "addedToast": "配信停止ブラックリストに追加しました",
+        "restoredToast": "受信を再開しました",
+        "restore": "受信を再開",
+        "restoreDesc": "{phone} を配信停止ブラックリストから外しますか？ユーザーが明確に受信再開に同意した後だけにしてください。それ以外の場合は迷惑行為になります。",
+        "restoreAction": "再開",
+        "addToList": "ブラックリストに追加",
+        "listSummary": "全 {total} 人 · {page}/{totalPages} ページ",
+        "reasonPlaceholder": "ユーザーからの電話での苦情など",
+        "empty": "配信停止記録はありません"
+      },
+      "send": {
+        "cardSingle": "単独送信",
+        "cardSingleDesc": "カスタマーサポートの補填と連携確認用。既定はプレビューで、割り当てを消費しません。",
+        "cardBroadcast": "一括送信",
+        "cardBroadcastDesc": "全ユーザーを対象に、登録順で携帯電話番号を持つ先頭 N 件を選択します。既定では直近 {days} 日で同一テンプレートを受け取り済みのユーザーをスキップし、後続バッチが自然に前へ進むようにします。1回の上限は {limit} 件。",
+        "dryRunLabel": "プレビュー（実際には送信しない）",
+        "skipRateLimitLabel": "1番号あたりのレート制限をスキップ",
+        "submitLabel": "送信",
+        "submitBroadcastLabel": "一括送信を実行",
+        "suffixRejected": "審査未通過",
+        "fallbackPlaceholder": "Tencent テンプレートが未承認のときに Alibaba Cloud 通知テンプレートへ回送。35 字以内",
+        "fallbackShortPlaceholder": "35 字以内",
+        "fallbackCounter": "{n}/35 · Tencent が承認済みなら使用されません",
+        "fallbackTooLong": "Alibaba Cloud の代替本文は 35 字を超えられません（変数の長さ上限）",
+        "marketingOffBanner": "マーケティング主スイッチがオフです（SMS_MARKETING_ENABLED=0）: マーケティング系 SMS はプレビューのみ可能で、実送信はバックエンドで一律ブロックされます。通知系 SMS は影響を受けません。",
+        "marketingOffToast": "マーケティング主スイッチがオフです。マーケティング系はプレビューのみ",
+        "marketingConstraint": "マーケティングは配信停止ブラックリスト、1番号あたり日 2 件・月 4 件、全体日上限 {cap} 件、および {window} の送信時間帯により制限されます。",
+        "templateNotBackfilled": "このテンプレートには ID が設定されていません。実送信するには先に設定するか、代替本文を入力して Alibaba Cloud 経由にしてください",
+        "templateRejected": "このテンプレートは Tencent の審査を通過していません。代替本文を入力して再試行してください",
+        "confirmWordRequired": "実送信には確認語 {word} の入力が必要です",
+        "confirmLabel": "確認語（<code>{word}</code> と入力した場合のみ実送信します）",
+        "fillConfirmWord": "確認語を入力",
+        "limitLabel": "今回の件数",
+        "limitInvalid": "件数は 1–{max} の整数である必要があります",
+        "excludeLabel": "直近 N 日で受信済みをスキップ",
+        "excludeDaysInvalid": "スキップ日数は 0–30 の整数である必要があります",
+        "excludeZeroHint": "0 = スキップしない",
+        "zeroDaysTitle": "スキップ日数が 0",
+        "zeroDaysDesc": "この一括送信は直近で同一テンプレートを受け取り済みのユーザーを除外しないため、たった今受け取った人に重複して届く可能性があります。続行しますか？",
+        "zeroDaysConfirm": "実送信を続行",
+        "dryRunDoneToast": "プレビュー完了：{count} 件該当",
+        "broadcastDoneToast": "一括送信完了：成功 {sent} / 失敗 {failed}",
+        "dryRunPassed": "プレビュー通過：チャネルは <badge>{channel}</badge> と解析され、割り当ては消費していません。",
+        "sentSuccess": "送信成功 · チャネル {channel} · テンプレート {template}",
+        "sendFailed": "送信失敗：{reason}",
+        "dryRunSummary": "プレビュー：{total} 件該当 · チャネル {channel} · テンプレート {template}",
+        "scopeSummary": "対象内 {scopeTotal} 件 · 直近 {days} 日で受信済み {excluded} 件をスキップ · 送信可能 {eligible} 件",
+        "scopeOffset": "開始オフセット {offset}",
+        "samplePhones": "サンプル番号：{phones}",
+        "broadcastSummary": "全 {total} 件 · 成功 <ok>{sent}</ok> · 失敗 <bad>{failed}</bad> · ブロック {suppressed}"
+      }
+    },
+    "relayPoolPolicy": {
+      "title": "プール選定ポリシー(グローバル既定値)",
+      "refresh": "更新",
+      "loading": "ポリシーを読み込み中…",
+      "loadFailed": "読み込み失敗",
+      "badgeAllDefault": "すべて既定値",
+      "badgeDeviated": "{n} 件が既定値と異なる",
+      "badgeInvalid": "{n} 件が不正値のためフォールバック",
+      "badgeRegistryBroken": "登録表が不完全",
+      "readOnlyHint": "読み取り専用: .env を編集して apps/api を再起動",
+      "defaultIs": "既定 {v}",
+      "invalidFellBack": "不正値は既定に回落",
+      "registryDiff": "未登録ノブ:{missing} / 孤立登録:{orphan}"
+    },
     "sms": "SMSテンプレート"
   },
   "connectors": {
@@ -6868,6 +7160,8 @@
       "title": "センター",
       "urlRequired": "URLはです",
       "webhooks": "ウェブフックス",
+      "permissionHint": "このキーがアクセスできる API 権限を選択",
+      "permissionLabel": "権限",
       "whCreateSuccess": "Webhooksをしました"
     },
     "dict": {
@@ -7538,6 +7832,8 @@
       "runningCount": "{count} 実行中",
       "title": "バックグラウンドエージェント",
       "total": "合計 {count}",
+      "takeover": "引き継ぐ",
+      "tokens": "トークン",
       "viewResult": "結果を表示"
     },
     "checkpointHistory": {
@@ -7749,7 +8045,7 @@
             "sourceMismatch": "ソースが一致しません。この操作は音声委任タスク専用です"
           },
           "outcome": {
-            "deferred": "メッセージは送信されず、キューに保持されています",
+            "deferred": "メッセージは送信されず、キューから削除されました。もう一度送信してください。",
             "failed": "メッセージの送信に失敗しました。再試行してください",
             "sent": "メッセージを送信しました"
           },
@@ -8964,6 +9260,34 @@
           "title": "リクエストの内容が大きすぎます",
           "action": "内容を減らしてから再試行"
         },
+        "MODEL_RETIRED": {
+          "title": "このモデルは永久に提供終了しました",
+          "action": "モデル一覧の提供中モデルに変更"
+        },
+        "ALREADY_CLAIMED": {
+          "title": "このタスクはすでに他のエージェントに引き受けられています",
+          "action": "別のタスクを引き受けるか、相手が解放するのを待ってから再試行してください"
+        },
+        "BOARD_FULL": {
+          "title": "チームのタスク一覧が上限に達しています",
+          "action": "完了済みの項目を整理してから追加してください"
+        },
+        "FORBIDDEN": {
+          "title": "このタスクを更新する権限がありません",
+          "action": "先にタスクを引き受けるか、現在の担当者に連絡してください"
+        },
+        "INVALID_STATUS": {
+          "title": "タスクのステータスが無効です",
+          "action": "pending、claimed、done、blocked のいずれかに変更してください"
+        },
+        "TASK_CLOSED": {
+          "title": "このタスクはすでに完了またはブロックされています",
+          "action": "別のタスクを選択してください"
+        },
+        "TASK_NOT_FOUND": {
+          "title": "タスクが見つかりません",
+          "action": "タスク一覧を更新して再試行"
+        },
         "invalid_arguments": {
           "title": "送信された内容に誤りがあります",
           "action": "確認してから再試行"
@@ -9076,6 +9400,7 @@
           "browser": "既定のブラウザーでウェブページを開く"
         }
       },
+      "injectionKindExpertPack": "意図に基づいてエキスパートパックを適用しました",
       "promptPolish": {
         "entryLabel": "推敲",
         "ariaLabel": "プロンプトを推敲",
@@ -9317,6 +9642,8 @@
       "unarchive": "アーカイブ解除",
       "pin": "ピン留め",
       "unpin": "ピン留め解除",
+      "exportSubmenu": "エクスポート / 共有",
+      "compressSubmenu": "圧縮",
       "branchFromHere": "ここから分岐"
     },
     "checkpoint": {
@@ -9525,6 +9852,10 @@
     "closeWorkPanel": "ワークパネルを閉じる",
     "toggleWorkPanel": "ワークパネルを切り替える",
     "user": "ユーザー",
+    "favorite": "ブックマークに追加",
+    "unfavorite": "ブックマークを解除",
+    "delete": "削除",
+    "earlier": "それ以前",
     "org": {
       "title": "会話を整理",
       "folderLabel": "フォルダ",
@@ -10413,6 +10744,11 @@
     "clear": "クリア",
     "cleared": "目標をクリアしました",
     "resetProgress": "リセット",
+    "resumeServerOk": "目標を再開しました",
+    "resumeAlreadyActive": "目標は既に進行中です。再開の必要はありません",
+    "resumeTerminal": "目標は完了済みのため再開できません",
+    "resumeNoGoal": "このセッションに再開できる目標がありません",
+    "resumeFailed": "再開に失敗しました:{message}",
     "fullProgress": "100% にする"
   },
   "memoryCards": {
@@ -11351,6 +11687,7 @@
       "roleAssistant": "アシスタント",
       "exportCard": "画像カードを共有",
       "shareCardUser": "ユーザー",
+      "compression": "会話を圧縮",
       "exportPdf": "PDF をエクスポート"
     },
     "fallbackNotice": "バックアップモデル {backup} に切り替えました(元モデル {primary} は一時的に利用不可)",
@@ -11856,6 +12193,29 @@
       "tabSlash": "コマンド",
       "tabTemplate": "テンプレート",
       "title": "スキルライブラリ",
+      "reloadSkills": "スキルを再読み込み",
+      "reloadSkillsHint": "ディスク上の SKILL.md を再スキャンして変更を即時反映します",
+      "reloadSkillsRunning": "再読み込み中…",
+      "reloadSkillsSuccess": "再読み込み完了",
+      "reloadSkillsFailed": "再読み込みに失敗しました",
+      "reloadSkillsAdded": "追加",
+      "reloadSkillsRemoved": "削除",
+      "reloadSkillsChanged": "更新",
+      "reloadSkillsUnchanged": "変更なし",
+      "reloadSkillsTotal": "合計 {count} 件のスキル",
+      "reloadSkillsNoChange": "今回の再読み込みで内容の変更はありません",
+      "reloadSkillsAuto": "auto ソース {count} 件",
+      "tabAiSkills": "AI スキル",
+      "tabAll": "すべて",
+      "reloadPlugins": "プラグイン面を再読み込み",
+      "reloadPluginsHint": "プラグイン面を再スキャンし、最新コマンド一覧をホストへ差し戻します",
+      "reloadPluginsRunning": "再読み込み中…",
+      "reloadPluginsSuccess": "プラグイン面を再読み込みしました",
+      "reloadPluginsFailed": "プラグイン面の再読み込みに失敗しました",
+      "reloadPluginsCommandCount": "コマンド {count} 件",
+      "reloadPluginsSkillCount": "スキル {count} 件",
+      "reloadPluginsCommandList": "最新コマンド一覧",
+      "reloadPluginsNoCommand": "現在利用可能なコマンドはありません",
       "viewAll": "すべて表示"
     },
     "sessionDiff": {
@@ -11948,6 +12308,7 @@
       "messageDeleted": "メッセージを削除しました",
       "operationFailed": "操作に失敗しました",
       "regenerating": "再生成中…",
+      "dislikeThanks": "記録しました —— アンケートカードで理由を補足できます",
       "branching": "ブランチを作成中…"
     },
     "toolCallSkipped": "スキップ済み(重複呼び出し)",
@@ -12213,6 +12574,34 @@
     "reasoningEffortHigh": "熟考",
     "reasoningEffortUnsupported": "このモデルでは推論の深さを選択できません",
     "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}",
+    "favorite": "ブックマークに追加",
+    "unfavorite": "ブックマークを解除",
+    "workbenchSessions": "セッション",
+    "feedbackLike": "参考になった",
+    "feedbackDislike": "参考にならなかった",
+    "workbenchHeroTitle": "AI 対話ワークベンチ",
+    "workbenchHeroHint": "ここで入力して新しい会話を開始するか、左側のセッションを選んで続行できます。",
+    "workbenchSplit": "ペインを分割",
+    "workbenchDropHere": "左側から会話をここにドラッグ",
+    "workbenchQuickStart": "クイック操作",
+    "bindIssueHint": "この会話を GitHub / Linear の Issue に紐付けます——バグや要件の追跡に便利です。検索して選ぶと、会話の横にリンク付きバッジが表示されます。紐付けなくても他の機能はそのまま使えます。",
+    "searchIssueAction": "検索",
+    "reviewTargetGroupLabel": "レビュー対象の選択",
+    "reviewTargetLabel": "レビュー対象",
+    "reviewTargetUncommitted": "未コミットの変更",
+    "reviewTargetBranch": "比較ブランチ",
+    "reviewTargetBranchLabel": "比較するブランチ名",
+    "reviewTargetBranchPlaceholder": "例: main / feature/login",
+    "reviewTargetCommit": "コミット指定",
+    "reviewTargetCommitLabel": "レビューするコミット SHA",
+    "reviewTargetCommitPlaceholder": "例: 9cb7c5a",
+    "reviewTargetFile": "特定ファイル",
+    "reviewTargetFileLabel": "レビューするファイルパス",
+    "reviewTargetFilePlaceholder": "ワークスペース相対パス(例: src/app.ts)",
+    "reviewTargetSnippet": "貼り付けスニペット",
+    "reviewTargetSnippetLabel": "レビューするコードスニペット",
+    "reviewTargetSnippetPlaceholder": "レビューするコードを貼り付け…",
+    "reviewTargetClear": "レビュー対象をクリア",
     "analysisOpen": "シナリオ分析を見る"
   },
   "chatHistory": {
@@ -14690,6 +15079,17 @@
       "toolFailures": "ツール失敗",
       "trigger": "手動トリガー",
       "triggerError": "トリガー失敗",
+      "refresh": "記憶ソースを再スキャン",
+      "refreshSuccess": "記憶ソースを再スキャンしました",
+      "refreshReadFailed": "記憶ソースの読み取りに失敗しました（再スキャン前の記憶は保持されます）",
+      "refreshFailed": "記憶ソースの再スキャンに失敗しました",
+      "refreshTotal": "再スキャン前 {before} 件 → 再スキャン後 {after} 件",
+      "refreshLoadState": "読み取り状態",
+      "refreshAdded": "追加",
+      "refreshRemoved": "削除",
+      "refreshChanged": "更新",
+      "refreshUnchanged": "変更なし",
+      "refreshNoChange": "今回の再スキャンで内容の変更はありません",
       "triggerSuccess": "トリガー成功"
     },
     "orch": {
@@ -16709,6 +17109,27 @@
       "settings": "設定",
       "terminal": "ターミナル"
     },
+    "agentsMd": {
+      "title": "AGENTS.md",
+      "hint": "現在のワークスペースをスキャンして協働ルールの下書きを生成します。生成時に書き込みは行わず、書き込み前にもう一度確認します。",
+      "generate": "AGENTS.md の下書きを生成",
+      "generateConfirmTitle": "AGENTS.md の下書きを生成しますか?",
+      "generateConfirmContent": "現在のワークスペースをスキャンして下書きを生成します。下書きはここに表示されるだけで、ディスクには書き込まれません。",
+      "generating": "ワークスペースをスキャン中…",
+      "generateFailed": "下書きの生成に失敗しました",
+      "draftTitle": "AGENTS.md の下書き(編集可能、確認後に書き込み)",
+      "draftNotice": "下書きはまだ書き込まれていません",
+      "write": "AGENTS.md に書き込む",
+      "writeConfirmTitle": "AGENTS.md に書き込みますか?",
+      "writeConfirmContent": "上記の内容をワークスペース直下の AGENTS.md に書き込みます。同名ファイルは上書きされます。",
+      "writing": "書き込み中…",
+      "writeFailed": "書き込みに失敗しました",
+      "written": "AGENTS.md を書き込みました",
+      "discard": "下書きを破棄",
+      "errorEmptyWorkspace": "ワークスペースのパスが空です",
+      "errorRequestFailed": "AI サービスへのリクエストに失敗しました",
+      "errorNoDraft": "ツールが下書きを返しませんでした"
+    },
     "viewSwitcher": {
       "groupSettings": "設定",
       "groupTools": "ツール",
@@ -18044,6 +18465,11 @@
     "dashboardSuccessRate": "成功率",
     "dashboardAvgLatency": "平均レイテンシ",
     "dashboardNoData": "データなし",
+    "clearAuth": "認可を取り消す",
+    "clearAuthHint": "この Server に付与した OAuth 認証情報を取り消します(この 1 台のみ)",
+    "clearAuthSuccess": "{name} の認可を取り消しました",
+    "clearAuthNoOauth": "{name} は OAuth チャネルを使用していないため、取り消す認可はありません",
+    "clearAuthFailed": "{name} の認可取り消しに失敗しました",
     "dashboardLatency": "{value}秒"
   },
   "member": {
@@ -19801,6 +20227,9 @@
     "editDeviceMapTitle": "デバイスフィンガープリントを編集",
     "editDeviceMapDescription": "{platform} アカウントのデバイスフィンガープリントを編集します（JSON オブジェクト。空のまま保存すると自動生成されます）。",
     "checkedInToday": "本日は出席済み",
+    "captureTraeWebWaiting": "右側のワークパネルのブラウザで Trae のログインページを開きました。パネル内でログイン(電話番号/QR)してください。ログイン状態を検出すると自動でアカウントを取り込み、チェックインページに戻ります。",
+    "captureTraeWebDone": "Trae Web ログインの取り込みが完了しました(合計 {count} 件)",
+    "captureTraeWebCancelled": "Trae の Web ログインをキャンセルしました。「Web ログイン」を再度クリックするとやり直せます。",
     "rename": "名前を変更"
   },
   "accountPool": {
@@ -21756,6 +22185,31 @@
     "title": "マルチプラットフォーム公開",
     "uploadFailed": "アップロード失敗",
     "uploadProgress": "アップロード中",
+    "keepalive": {
+      "accountFallback": "アカウント #{id}",
+      "allHealthy": "{total} 件のアカウントはすべて正常です",
+      "disabledHint": "apps/ai-service/.env に KEEPALIVE_ENABLED=true を設定してサービスを再起動すると有効になります。",
+      "disabledTitle": "アカウント・キープアライブは無効です",
+      "expiresAt": "失効 {time}",
+      "expiringSoon": "{count} 件がまもなく失効",
+      "failures": "{count} 回連続で失敗",
+      "healthCritical": "失効",
+      "healthHealthy": "正常",
+      "healthUnknown": "未確認",
+      "healthWarning": "要注意",
+      "interval": "{hours} 時間ごとにチェック",
+      "loading": "キープアライブ状態を読み込み中…",
+      "needsAttention": "{count} 件の対応が必要",
+      "rate7d": "直近 7 日の成功率",
+      "rateUnknown": "データなし",
+      "retry": "再試行",
+      "sourceCheckin": "チェックイン認証情報",
+      "sourceCookie": "プラットフォームのログイン状態",
+      "sourceToken": "API 認証情報",
+      "title": "アカウント・キープアライブ",
+      "triggerNow": "今すぐ確認",
+      "triggering": "実行中…"
+    },
     "uploadSuccess": "アップロード成功"
   },
   "publishMonitor": {
@@ -22913,6 +23367,18 @@
     "codeIndexEgressOptOutDesc": "コード断片はベクトル化インデックスのために外部へ送信されません",
     "autoMemoryOptOut": "自動長期メモリを無効化",
     "autoMemoryOptOutDesc": "会話をセッション横断の嗜好や規約に自動抽出しません",
+    "expertRoute": {
+      "title": "エキスパートパックの自動ルーティング",
+      "desc": "今回のユーザー意図からエキスパートパックを判定し、一致時の扱いを選択します。",
+      "default": "デフォルト",
+      "envLockedNotice": "デプロイ側が環境変数でこの機能を無効化しているため、ここでは表示のみで変更できません。",
+      "hint": "ヒントのみ",
+      "hintDesc": "一致時に、どのエキスパートパックに一致したかを返信内で示すだけで、ツールとシステムプロンプトは変更しません",
+      "auto": "自動適用",
+      "autoDesc": "一致時に、エキスパートパックのツール許可リストとシステムプロンプトを今回のリクエストに統合します",
+      "off": "オフ",
+      "offDesc": "意図判定もヒントも行いません"
+    },
     "navTiers": {
       "title": "サイドバー簡素モード",
       "desc": "開発者向け・運用向けの項目を既定で非表示にします。必要になったら下のスイッチで表示できます。",
@@ -23185,6 +23651,9 @@
       "backToLogin": "ログインに戻る",
       "sso_code": "SSO 授權碼"
     },
+    "miniappHandoffTitle": "認証が完了しました",
+    "miniappHandoffHint": "ログイン資格をミニプログラムに引き渡しました。左上の「戻る」でミニプログラムに戻り、ログインを完了してください。",
+    "miniappHandoffFailed": "ミニプログラムへの引き渡しに失敗しました。再試行するか、手動で戻ってください。",
     "platform": "平台"
   },
   "statistics": {
@@ -24604,7 +25073,6 @@
       "openSelected": "{name} を開く",
       "opening": "開いています...",
       "parent": "親ディレクトリ",
-      "refresh": "更新",
       "retry": "再試行",
       "rootHint": "このレベルでドライブを選択するか、上に完全なパスを入力してください",
       "rowOpenHint": "開く",
@@ -26943,7 +27411,6 @@
       "created": "作成しました",
       "updated": "保存しました",
       "saveFailed": "保存に失敗",
-      "loadFailed": "読み込み失敗",
       "runDone": "実行完了",
       "runFailed": "実行に失敗",
       "paused": "一時停止しました",
@@ -26953,6 +27420,12 @@
       "deleteFailed": "削除に失敗"
     },
     "cancel": "キャンセル",
+    "terminalReason": {
+      "manualPause": "手動で一時停止",
+      "failedPermanent": "恒久的な失敗",
+      "failedRetriesExhausted": "リトライ回数上限に到達",
+      "completed": "完了"
+    },
     "save": "保存"
   },
   "mediaTasksPage": {
@@ -28939,7 +29412,6 @@
         "active": "送信中",
         "completed": "送信済み",
         "following": "送信待ち"
-      }
     }
   },
   "unifiedSuggestion": {
@@ -28994,6 +29466,30 @@
   "aiHub": {
     "title": "エージェントとモデル",
     "subtitle": "チャット履歴、メモリ、ナレッジベース、メディアタスクとワークスペース"
+  },
+  "appUpdate": {
+    "title": "新しいバージョンがあります",
+    "body": "ページを更新して最新バージョンを取得してください",
+    "action": "更新",
+    "close": "閉じる",
+    "ready": "更新の準備ができました",
+    "installing": "再起動しています…",
+    "error": "更新に失敗しました",
+    "errorDesc": "ネットワークを確認して再試行してください",
+    "gateTitle": "更新が必要です",
+    "gateBody": "バージョン {version} はサポートされていません。続行するには {latest} に更新してください。",
+    "gateForceBody": "新しいバージョン {latest} があります。今回の更新は必須です。",
+    "gateReleaseNotes": "更新内容",
+    "gateUpdateNow": "今すぐ更新",
+    "gateQuit": "ページを閉じる",
+    "gateQuitConfirm": "更新はまだ完了していません。閉じるとこの利用は中断されます。",
+    "gateQuitFailed": "ページを自動で閉じられませんでした。このタブを手動で閉じてください。"
+  },
+  "pwaInstall": {
+    "title": "アプリをインストール",
+    "body": "ホーム画面に追加すると、より快適に使えます",
+    "action": "インストール",
+    "close": "閉じる"
   },
   "personalHub": {
     "title": "アカウント",

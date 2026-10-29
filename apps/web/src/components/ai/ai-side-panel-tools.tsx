@@ -41,6 +41,7 @@ import { AgentProgressPanel } from '@/components/ai/agent-progress-panel'
 import { AgentManager, type AgentItem } from '@/components/ai/agent-manager'
 import { AgentPill } from '@/components/ai/agent-pill'
 import { BackgroundAgentsPanel } from '@/components/ai/background-agents-panel'
+import { FleetCrossSessionPanel } from '@/components/ai/fleet-cross-session-panel'
 import { AgentSwarmMonitor } from '@/components/ai/agent-swarm-monitor'
 import { OrchestrationHubPanel } from '@/components/ai/orchestration-hub-panel'
 import { RoutinesPanel } from '@/components/ai/routines-panel'
@@ -609,15 +610,21 @@ export function AiSidePanelTools() {
           </div>
         )
       case 'background':
-        return bgAgents.length > 0 ? (
-          <BackgroundAgentsPanel
-            agents={bgAgents}
-            loading={activeDispatches.isFetching}
-            onRefresh={() => void activeDispatches.refetch()}
-            onCancel={(id) => cancelDispatch.mutateAsync(id)}
-          />
-        ) : (
-          emptyHint
+        return (
+          <div className="space-y-3">
+            {bgAgents.length > 0 ? (
+              <BackgroundAgentsPanel
+                agents={bgAgents}
+                loading={activeDispatches.isFetching}
+                onRefresh={() => void activeDispatches.refetch()}
+                onCancel={(id) => cancelDispatch.mutateAsync(id)}
+              />
+            ) : (
+              emptyHint
+            )}
+            {/* D08 ③(2026-10-27):跨会话 Fleet 视图 —— 全量派单按状态分桶,手动刷新、无新 SSE 帧族 */}
+            <FleetCrossSessionPanel onCancel={(id) => void cancelDispatch.mutateAsync(id)} />
+          </div>
         )
       // D6 第 2 步(half-merge 占位):swarm 入口收敛说明。
       // 完整归并目标:把 AgentSwarmMonitor + SwarmTopologyView 并入 OrchestrationHubPanel

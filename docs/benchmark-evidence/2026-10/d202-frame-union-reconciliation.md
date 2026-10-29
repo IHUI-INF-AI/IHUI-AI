@@ -207,6 +207,8 @@
 
 **PROJECT_PLAN 同步**:D202 真缺去向登记行按收敛后口径(真缺 6 帧:resume_goal/add_directories/reload_plugins/reload_skills/refresh_memory/mcp_clear_auth)更正;`add_directories` 维持与 D201 互链,立票依据不受影响。
 
+**2026-10-28 后续(收口)**:本并集中被判「真缺」的 4 个冲突/单边帧 —— `resume_goal`、`reload_plugins`、`refresh_memory`、`mcp_clear_auth` —— 已与早先落地的 `reload_skills` 一并实现完毕,正本 §2 账面归零。**4 帧落地结果反过来验证了 D202「采信更严口径(B 表 = 真缺)」是对的**:若按 A 表("范围互补/等价另名/不构成差距")放过去,这 4 格宿主可调口至今仍是零;`resume_goal` 更是典型 —— A 的帧枚举正则根本抓不到 `action:"resume"` 这种"藏在枚举里"的形态,被判成"范围外"而不是"没有"。`mcp_clear_auth` 一项的形态说明已重写:揭开的不是"能不能补",而是 AGENTS §5 那条口径需要拆细(禁平台级一键清除 / 不禁用户撤回自己给第三方站的授权),详见正本 §1.6 该行。
+
 ## §6 方法与复现命令
 
 1. 通读三份文档(跳过水印行),手工提取判定对象帧名全集:表 A 65 名(equivalence.md §一 9 + §二 52 + §三 4)、表 B 74 名(58 判定行展开)。

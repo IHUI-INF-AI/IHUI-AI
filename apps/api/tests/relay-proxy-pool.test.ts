@@ -95,6 +95,9 @@ import {
   updateProxy,
   deleteProxy,
   getProxyById,
+  encryptAccountProxyUrl,
+  resolveAccountProxyUrl,
+  maskAccountProxyUrl,
 } from '../src/services/relay-proxy-pool.js'
 
 describe('relay-proxy-pool', () => {
@@ -131,6 +134,46 @@ describe('relay-proxy-pool', () => {
     it('查询异常 → null(降级直连,永不抛)', async () => {
       mockExecuteResult.mockRejectedValueOnce(new Error('db down'))
       await expect(pickProxyForAccount({ id: 'acc-1', proxyUrl: null })).resolves.toBeNull()
+    })
+  })
+
+  describe('账号级 proxyUrl 加密存储', () => {
+    it('encrypt → resolve 往返一致,落库值不是明文', () => {
+      const plain = 'http://user:pass@10.0.0.1:8080'
+      const stored = encryptAccountProxyUrl(plain)
+      expect(stored).not.toBeNull()
+      expect(stored).not.toContain(plain)
+      expect(stored).not.toContain('10.0.0.1')
+      expect(resolveAccountProxyUrl(stored)).toBe(plain)
+    })
+
+    it('空值 → null;存量明文直通(升级期兼容)', () => {
+      expect(encryptAccountProxyUrl('')).toBeNull()
+      expect(encryptAccountProxyUrl(null)).toBeNull()
+      expect(resolveAccountProxyUrl(null)).toBeNull()
+      expect(resolveAccountProxyUrl('http://10.0.0.9:3128')).toBe('http://10.0.0.9:3128')
+    })
+
+    it('密文损坏 → resolve 按直连(null),绝不回吐密文本体', () => {
+      const broken = JSON.stringify({ iv: 'AAAA', ciphertext: 'BBBB', tag: 'CCCC' })
+      expect(resolveAccountProxyUrl(broken)).toBeNull()
+    })
+
+    it('脱敏只留协议+主机:账密打码,路径/查询串不出现', () => {
+      const stored = encryptAccountProxyUrl('http://user:pass@10.0.0.1:8080/path?k=v')
+      expect(maskAccountProxyUrl(stored)).toBe('http://***@10.0.0.1:8080')
+      expect(maskAccountProxyUrl(encryptAccountProxyUrl('http://10.0.0.2:3128'))).toBe(
+        'http://10.0.0.2:3128',
+      )
+      expect(maskAccountProxyUrl(null)).toBeNull()
+    })
+
+    it('pickProxyForAccount 对加密的账号级代理先解密再返回', async () => {
+      const stored = encryptAccountProxyUrl('http://user:pass@10.0.0.1:8080')
+      await expect(pickProxyForAccount({ id: 'acc-1', proxyUrl: stored })).resolves.toBe(
+        'http://user:pass@10.0.0.1:8080',
+      )
+      expect(mockExecuteResult).not.toHaveBeenCalled()
     })
   })
 

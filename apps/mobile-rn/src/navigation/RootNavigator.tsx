@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { View, Text } from 'react-native'
+import { View, Text, ActivityIndicator } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
@@ -127,6 +127,13 @@ import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
 import { StatusScreen } from '../screens/StatusScreen'
+import { SignUpScreen } from '../screens/SignUpScreen'
+import { CirclePostScreen } from '../screens/CirclePostScreen'
+import { InvitationsScreen } from '../screens/InvitationsScreen'
+import { LettersScreen } from '../screens/LettersScreen'
+import { LetterChatScreen } from '../screens/LetterChatScreen'
+import { NewsCategoryScreen } from '../screens/NewsCategoryScreen'
+import { SearchHistoryScreen } from '../screens/SearchHistoryScreen'
 import { AiWorldDetailScreen } from '../screens/AiWorldDetailScreen'
 import { AiWorldEditScreen } from '../screens/AiWorldEditScreen'
 import { AiWorldFavoritesScreen } from '../screens/AiWorldFavoritesScreen'
@@ -173,6 +180,7 @@ import { PointsMallScreen } from '../screens/PointsMallScreen'
 import { PointsRecordScreen } from '../screens/PointsRecordScreen'
 import { TaskCenterScreen } from '../screens/TaskCenterScreen'
 import { CheckInScreen } from '../screens/CheckInScreen'
+import { ScanLoginScreen } from '../screens/ScanLoginScreen'
 import CheckinAssistantScreen from '../screens/CheckinAssistantScreen'
 import AccountPoolScreen from '../screens/AccountPoolScreen'
 import { RankingScreen } from '../screens/RankingScreen'
@@ -251,7 +259,6 @@ import { SearchScreen } from '../screens/SearchScreen'
 import { HistoryScreen } from '../screens/HistoryScreen'
 import { BookmarkScreen } from '../screens/BookmarkScreen'
 import { ShareScreen } from '../screens/ShareScreen'
-import { useTheme } from '../context/ThemeContext'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
 import AigcCoverScreen from '../screens/AigcCoverScreen'
 import AigcPublishScreen from '../screens/AigcPublishScreen'
@@ -375,6 +382,8 @@ export type VipPopupType =
 
 export type RootStackParamList = {
   Login: undefined
+  // PC 端 App 扫码登录的移动端确认屏(扫码 → /auth/qr/confirm)
+  ScanLogin: undefined
   Main: NavigatorScreenParams<MainStackParamList>
   Home: undefined
   // P3 侧边栏收敛:教育/交易/社区域入口二级屏,params.domain 指定域单源(navigation/domain-hub)
@@ -522,6 +531,13 @@ export type RootStackParamList = {
   Agreement: undefined
   About: undefined
   Status: undefined
+  SignUp: undefined
+  CirclePost: undefined
+  Invitations: undefined
+  Letters: undefined
+  LetterChat: { memberId: string; memberName: string }
+  NewsCategory: { id: string }
+  SearchHistory: undefined
   AiWorldDetail: { id: string }
   AiWorldEdit: { id: string }
   AiWorldFavorites: undefined
@@ -807,7 +823,6 @@ const PUSH_BANNER_DURATION_MS = 5000
 
 function RootNavigatorInner() {
   const { token, ready } = useAuth()
-  const { resolvedTheme } = useTheme()
   const ws = useNotificationWebSocket(token)
   const { t } = useI18n()
   const insets = useSafeAreaInsets()
@@ -916,11 +931,16 @@ function RootNavigatorInner() {
   }, [bannerHeadId, setVisible])
 
   if (!ready) {
+    // 启动态必须像个"在动"的界面(2026-10-27 机主反馈「更新后一直停在灰屏页」):
+    // 旧稿只有一行 tertiary 小字压在纯色底上,更像卡死页而不是加载页;底色也换成 surface.bg
+    // (与全站 shell 同档),不再用 bg-white/neutral-900 另立两档。
     return (
       <View
-        className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: tokens.surface.bg }}
       >
-        <Text style={{ color: tokens.text.tertiary }}>加载中...</Text>
+        <ActivityIndicator color={tokens.brandAccent.deep} />
+        <Text style={{ color: tokens.text.secondary, marginTop: 12 }}>加载中...</Text>
       </View>
     )
   }
@@ -962,6 +982,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="PointsRecord" component={PointsRecordScreen} />
             <RootStack.Screen name="TaskCenter" component={TaskCenterScreen} />
             <RootStack.Screen name="CheckIn" component={CheckInScreen} />
+            <RootStack.Screen name="ScanLogin" component={ScanLoginScreen} />
             <RootStack.Screen name="CheckinAssistant" component={CheckinAssistantScreen} />
             <RootStack.Screen name="AccountPool" component={AccountPoolScreen} />
             <RootStack.Screen name="Ranking" component={RankingScreen} />
@@ -1063,6 +1084,13 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Agreement" component={AgreementScreen} />
             <RootStack.Screen name="About" component={AboutScreen} />
             <RootStack.Screen name="Status" component={StatusScreen} />
+            <RootStack.Screen name="SignUp" component={SignUpScreen} />
+            <RootStack.Screen name="CirclePost" component={CirclePostScreen} />
+            <RootStack.Screen name="Invitations" component={InvitationsScreen} />
+            <RootStack.Screen name="Letters" component={LettersScreen} />
+            <RootStack.Screen name="LetterChat" component={LetterChatScreen} />
+            <RootStack.Screen name="NewsCategory" component={NewsCategoryScreen} />
+            <RootStack.Screen name="SearchHistory" component={SearchHistoryScreen} />
             <RootStack.Screen name="AiWorldDetail" component={AiWorldDetailScreen} />
             <RootStack.Screen name="AiWorldEdit" component={AiWorldEditScreen} />
             <RootStack.Screen name="AiWorldFavorites" component={AiWorldFavoritesScreen} />

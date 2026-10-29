@@ -33,6 +33,10 @@ on:
       - 'packages/shared/src/chat/**'
       - 'scripts/scan-dead-i18n-keys.mjs'
       - 'scripts/_i18n-scan-helpers.mjs'
+      # 2026-10-29:契约键台账是扫描器的判据输入面(scan-dead-i18n-keys.mjs:192 从判定面读
+      # CONTRACT_FILE_REL 并逐条核验 evidence),此前不在触发面 ⇒ 只改豁免台账时本腿根本不跑,
+      # 「豁免腐烂 / 撤免后死键重现」都无人判,属同一型 fail-open(参照 8end-consistency-cert 2026-10-04 同款修复)。
+      - 'scripts/i18n-contract-keys.json'
       - 'scripts/tests/**'
       - '.github/workflows/i18n-dead-key-audit.yml'
   pull_request:
@@ -49,6 +53,10 @@ on:
       - 'packages/shared/src/chat/**'
       - 'scripts/scan-dead-i18n-keys.mjs'
       - 'scripts/_i18n-scan-helpers.mjs'
+      # 2026-10-29:契约键台账是扫描器的判据输入面(scan-dead-i18n-keys.mjs:192 从判定面读
+      # CONTRACT_FILE_REL 并逐条核验 evidence),此前不在触发面 ⇒ 只改豁免台账时本腿根本不跑,
+      # 「豁免腐烂 / 撤免后死键重现」都无人判,属同一型 fail-open(参照 8end-consistency-cert 2026-10-04 同款修复)。
+      - 'scripts/i18n-contract-keys.json'
       - 'scripts/tests/**'
       - '.github/workflows/i18n-dead-key-audit.yml'
 

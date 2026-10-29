@@ -623,6 +623,10 @@ function buildDispatch(
     orchestration: input.orchestration ?? 'parallel',
     status,
     result,
+    // D08 ③(2026-10-27):会话归属随派单记录一起落库 —— 落点唯一就是派单记录本身,
+    // 路由层不另存映射表(§0.6)。入口没有会话上下文时 input.conversationId 为 undefined,
+    // 记录上就不带这个字段 ⇒ 载荷里也没有 ⇒ 消费方按「未归属会话」渲染(不塞常量)。
+    conversationId: input.conversationId,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   }

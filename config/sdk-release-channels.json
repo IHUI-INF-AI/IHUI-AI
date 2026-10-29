@@ -18,15 +18,15 @@
     {
       "id": "npm",
       "job": "npm-publish",
-      "coordinate": "@ihui/sdk",
+      "coordinate": "@ihui-ai/sdk",
       "status": "blocked-by-external-ownership",
-      "blocker": "npmjs.com 上 `@ihui` org **根本不存在**(2026-10-21 现读:registry `-/org/org:ihui/user` → HTTP 404;`@ihui/sdk` → 404;对照 `ihui-cli` → 200)—— 这是账号侧硬阻塞,补一条 secret 解不了。凭据侧**已不再缺**:gh secret list 2026-10-21 现读 21 项,含 CLI 通道同枚 `NPM_PUBLISH_TOKEN`(2026-10-19 建),release-sdk.yml 已于 2026-10-21 就地改名由它取值(此前登记的 `NPM_TOKEN` 那一枚从未存在,是本台账旧文的错误)。故 gate 步 real 模式对 npm 的『secret 非空』判据已满足;org 一旦建成并首发,本条即应翻账。",
+      "blocker": "npmjs.com 上 `@ihui` org **根本不存在**(2026-10-21 现读:registry `-/org/org:ihui/user` → HTTP 404;`@ihui-ai/sdk` → 404;对照 `ihui-cli` → 200)—— 这是账号侧硬阻塞,补一条 secret 解不了。凭据侧**已不再缺**:gh secret list 2026-10-21 现读 21 项,含 CLI 通道同枚 `NPM_PUBLISH_TOKEN`(2026-10-19 建),release-sdk.yml 已于 2026-10-21 就地改名由它取值(此前登记的 `NPM_TOKEN` 那一枚从未存在,是本台账旧文的错误)。故 gate 步 real 模式对 npm 的『secret 非空』判据已满足;org 一旦建成并首发,本条即应翻账。",
       "unblockAction": "① 建 org:走 CI 通道 `.github/workflows/npm-bootstrap.yml` 的 `action=org_create`(真 Chrome+xvfb 网页代行,本机/生产机出口被 www.npmjs.com 403)—— 运行命令 `gh workflow run npm-bootstrap.yml -f action=org_create`;卡邮箱 OTP 时补 `-f otp_code=<李总邮件里的验证码>`,卡 reCAPTCHA 时按 rc-live 分支截图识别。② 凭据**无需新建**:复用已入库 secrets 的 `NPM_PUBLISH_TOKEN`(granular + read-write + 勾 Bypass 2FA)。⛔ 不启用 2FA、不登记 trusted publisher(用户 2026-10-19 定案,详见 AGENTS.md §0 第 11 条),故本通道永久走 token,不存在『以后再切 OIDC』这一步。",
       "requiredSecrets": ["NPM_PUBLISH_TOKEN"],
-      "verifyCommand": "npm view @ihui/sdk version --registry=https://registry.npmjs.org/",
+      "verifyCommand": "npm view @ihui-ai/sdk version --registry=https://registry.npmjs.org/",
       "probe": {
         "kind": "http-status",
-        "url": "https://registry.npmjs.org/@ihui%2Fsdk",
+        "url": "https://registry.npmjs.org/@ihui-ai%2Fsdk",
         "presentOn": [200],
         "absentOn": [404, 410]
       },
@@ -93,7 +93,7 @@
       "coordinate": "github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go",
       "status": "ready",
       "blocker": null,
-      "unblockAction": "无需解除:本通道不依赖任何第三方凭据 —— 发布动作 = CI 往 origin 推 packages/sdk/go/v<semver> tag,用的就是自带 GITHUB_TOKEN(workflow permissions.contents=write 已覆盖;gate 步对 go 的判据是对 tag 列表接口做一次真实只读调用,失败即判红)。唯一前置是所有通道共享的 sdk-v* 触发 tag,属 owner 动作。proxy.golang.org 收录延迟不计判据(CI 里如实记状态,不写成『已可 go get』)。",
+      "unblockAction": "无需解除:本通道不依赖任何第三方凭据 —— 发布动作 = CI 往 origin 推 packages/sdk/go/v<semver> tag,用的就是自带 GITHUB_TOKEN(workflow permissions.contents=write 已覆盖;gate 步对 go 的判据是对 tag 列表接口做一次真实只读调用,失败即判红)。唯一前置是所有通道共享的 sdk-v* 触发 tag,属 owner 动作。proxy.golang.org 收录延迟不计判据(CI 里如实记状态,不写成『已可 go get』)。**首发发布物已在位**:版本号来源 tag = `packages/sdk/go/v0.1.0`(2026-10-28 `git ls-remote --tags origin` 回读命中 tag 本体 + peeled `^{}` 共 2 条)。",
       "requiredSecrets": [],
       "verifyCommand": "git ls-remote --tags origin \"refs/tags/packages/sdk/go/v*\"",
       "probe": {
@@ -101,8 +101,8 @@
         "remote": "origin",
         "pattern": "refs/tags/packages/sdk/go/v*"
       },
-      "statusVerifiedAt": "2026-09-26",
-      "lastRealProbe": "absent(命令 exit 0、输出为空 = origin 可达且尚无该前缀 tag;实测 2026-09-26)"
+      "statusVerifiedAt": "2026-10-28",
+      "lastRealProbe": "present(git ls-remote --tags origin exit 0,命中 refs/tags/packages/sdk/go/v0.1.0 —— tag 本体 + peeled ^{} 共 2 条;实测 2026-10-28)。版本号来源 tag:packages/sdk/go/v0.1.0。"
     }
   ]
 }

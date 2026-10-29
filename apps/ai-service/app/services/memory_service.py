@@ -33,11 +33,13 @@ from collections import OrderedDict
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
 import asyncpg
 
 from ..core.config import settings
 from ..core.db_pool import get_shared_pool
+from ..core.internal_ticket import internal_service_headers
 from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
@@ -86,6 +88,44 @@ def _internal_service_token() -> str:
 def _memory_api_base() -> str:
     """API base url(用 settings.api_service_url,默认 http://localhost:8802)。"""
     return str(settings.api_service_url).rstrip("/")
+
+
+def _memory_http_subject(user_id: Any) -> str | None:
+    """出站 /api/memory 的主体闸:只有**用户 UUID** 才值得发这一枪,伪身份一律不发。
+
+    立因(2026-10-28 一手实测,本机 8802):`/api/memory` 的归属主体落在 `users.id`
+    (uuid 列)。承载层把网关注入的系统身份原样当主体转发时(8802 的
+    `utils/system-access-token.ts` 签的 token `sub='system-worker'` ⇒ ai-service
+    `request.state.user_id='system-worker'` ⇒ 本服务把它塞进 `X-User-Id`/内部票的 `sub`),
+    验票通过后 api 侧仍要拿它去查 uuid 列 ⇒ Postgres `22P02` ⇒ **HTTP 500**。
+    生产 `api_logs` 近 24h 的 18 次 `GET /api/memory -> 500` 就是这一型(同期
+    `duration` 6–11ms 的快速失败、`user_id` 列为空)。
+
+    闸在这里,不在 api 侧那一条(那边也已同批补了形状闸,归位 401):
+    api 侧的 401 只能证明"这一枪不该打",而**这一枪本来就不该打**——
+    伪身份在 `users` 表结构上不可能有行,发出去必然失败,失败还连带污染 5xx 指标。
+    同型先例:`routers/llm.py::_resolve_owner_uuid`(2026-10-19 把 `system-worker`
+    映射到 `settings.system_owner_uuid`)。本处**刻意不做那个映射**,理由是落点不同:
+    memory_graph 读的是"系统自己的规则子图",映射有对象;而这里是**按属主读写用户长期
+    记忆**,把系统身份折成一个库里不存在的"全零属主"只会把 500 换成 401,还会让后台任务
+    往一个假属主的桶里写记忆(伪造用户记忆)。拿不到合法属主 ⇒ 一步都不做,不猜。
+
+    返回 None = 不发这一枪。调用方一律保持既有降级语义(读返回空 / 写直接跳过)。
+    """
+    uid = str(user_id or "").strip()
+    if not uid:
+        return None
+    try:
+        UUID(uid)
+    except ValueError:
+        # 稳定 tag,便于按主体归因"是谁在打这一枪"(生产 api_logs 的 error 列当时只有状态码行)
+        logger.info(
+            "[memory-scope-gate] 跳过出站 /api/memory:主体 %r 不是用户 UUID,"
+            "在 users.id(uuid 列)上结构上不可能有行(不发请求、不写记忆)",
+            uid,
+        )
+        return None
+    return uid
 
 
 # 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
@@ -932,8 +972,10 @@ class MemoryService:
 
         内部服务认证:X-Internal-Service-Token 头(INTERNAL_SERVICE_TOKEN)。
         user_id 通过 X-User-Id 头传递(API 端 internal token 中间件解析)。
+        主体非用户 UUID ⇒ 不发请求(见 `_memory_http_subject`),返回空列表。
         """
-        if not user_id:
+        subject = _memory_http_subject(user_id)
+        if subject is None:
             return []
         try:
             import httpx
@@ -941,10 +983,10 @@ class MemoryService:
             params: dict[str, str] = {"scope": scope}
             if session_id and scope == "session":
                 params["sessionId"] = session_id
-            headers = {
-                "X-Internal-Service-Token": _internal_service_token(),
-                "X-User-Id": user_id,
-            }
+            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档)
+            headers = internal_service_headers(
+                subject, "memory", legacy_token=_internal_service_token()
+            )
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(
                     f"{_memory_api_base()}/api/memory",
@@ -1056,6 +1098,13 @@ class MemoryService:
         if not user_id or not messages:
             return
 
+        # 主体闸(2026-10-28,与 _fetch_memory_entries 同一判据、同一出口):伪身份
+        # (system-worker 等)在 users.id 上结构上不可能有行 ⇒ 既不能落库,也不该花这一次
+        # LLM 提炼。闸门放在拼文本**之前**,与上面"隐私闸门也省掉 LLM 调用"同一条纪律。
+        subject = _memory_http_subject(user_id)
+        if subject is None:
+            return
+
         # 隐私闸门:user_id 是本方法已有的必填位置参数,这条路径上一定拿得到
         # (与下方"拿不到属主"的路径不同),故不存在降级分支。
         if not await self._is_auto_memory_enabled(user_id):
@@ -1120,11 +1169,13 @@ class MemoryService:
             # 4. 批量保存到 API
             import httpx
 
-            headers = {
-                "X-Internal-Service-Token": _internal_service_token(),
-                "X-User-Id": user_id,
-                "Content-Type": "application/json",
-            }
+            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档)
+            headers = internal_service_headers(
+                subject,
+                "memory",
+                legacy_token=_internal_service_token(),
+                extra={"Content-Type": "application/json"},
+            )
             saved = 0
             async with httpx.AsyncClient(timeout=5.0) as client:
                 for item in extracted:

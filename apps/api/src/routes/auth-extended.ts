@@ -6,7 +6,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 import { eq } from 'drizzle-orm'
 import { generateShortCode } from '../utils/crypto-random.js'
@@ -41,6 +41,7 @@ import {
   type OAuth2Client,
 } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
+import { CHALLENGE_TOKEN_TTL_SECONDS, signChallengeToken } from '../services/totp-service.js'
 import { success, error } from '../utils/response.js'
 import { setAuthCookies } from '../utils/auth-cookies.js'
 import { encryptJSON, decryptJSON } from '../utils/crypto.js'
@@ -67,6 +68,8 @@ import {
   getLockRemainingMs,
   ACCOUNT_LOCKOUT_CONFIG,
 } from '../services/account-lockout.js'
+import { STEP_UP_WINDOW_SEC, recordTwoFactorStepUp } from '../services/two-factor-step-up-store.js'
+import { transparentlyUpgradePasswordHash } from '../services/login-hash-upgrade.js'
 import {
   findUserByPhone,
   findUserByEmail,
@@ -105,8 +108,17 @@ import {
   deleteUserSk,
   createAuditLog,
 } from '../db/oauth-queries.js'
-import { sendSmsCode, isSmsConfigured } from '../services/sms.js'
+import { sendSmsCode, isSmsConfigured, extractSmsSendGuard } from '../services/sms.js'
+import { sendNoticeSmsToUser } from '../services/sms-notify.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
+import {
+  OAUTH_AGREEMENT_REQUIRED,
+  OAUTH_CONSENT_KEY_PREFIX,
+  OAUTH_CONSENT_TTL_SECONDS,
+  isOAuthConsentRecorded,
+  type OAuthConsentState,
+} from '../services/oauth-consent.js'
+import { resolveLoginRegion } from '../services/login-region.js'
 import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
 import {
   getCodeEntry,
@@ -379,7 +391,7 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
   if (!stored) return { ok: false, status: 400, message: 'refresh_token 无效' }
   if (isRefreshTokenReused(stored)) {
     // 三档裁决的唯一出口在 services/refresh-replay-policy.ts(与 routes/auth.ts 的
-    // /refresh 同一把尺子):race 放行轮转 / stale-sibling 只拒绝本次 / reuse 吊销整族。
+    // /refresh 同一把尺子):race 放行轮转 / stale-sibling 也放行轮转 / reuse 吊销整族。
     // 此前这里一律吊销整族,与 /refresh 的 30s 宽限期口径不同 —— 同一次竞态在两条
     // 端点上一个放行一个全族打死,用户侧表现就是"关掉再打开要重新登录"(2026-10-20)。
     const revokedAt = stored.revokedAt ? new Date(stored.revokedAt) : null
@@ -393,13 +405,9 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
           message: 'refresh_token 已被重用,该 token family 已全部撤销',
         }
       }
-      if (replay.verdict === 'stale-sibling') {
-        return {
-          ok: false,
-          status: 400,
-          message: 'refresh_token 已被轮转(存在更新的会话),请用最新凭据重试',
-        }
-      }
+      // stale-sibling(超宽限但族内仍有活 token):2026-10-27 起放行正常轮转。
+      // 族还活着即会话未死,迟到的是旧副本;此前返回 400 会把调用方永久锁死
+      // (与 /auth/refresh 同尺,真正的攻击面由上面的 reuse 覆盖)。
     }
   }
   if (isRefreshTokenExpired(stored))
@@ -410,7 +418,9 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
   // 而 POST /auth/refresh 判 status !== 1 —— 两套口径下被禁用的账号仍能换新 access token,
   // 等于绕过登录侧的禁用判定(AGENTS §5「认证不等于授权」)。与 /auth/refresh 同口径拒绝。
   if (user.status !== 1) return { ok: false, status: 403, message: '账号已被禁用' }
-  await revokeRefreshToken(rawRefreshToken)
+  // 已是吊销态(race / stale-sibling 放行)不再重复 revoke:否则 revokedAt 被刷成 now,
+  // 30s 窗口随每次重放滑动 —— 与 /auth/refresh 第 4 步同一条纪律。
+  if (!stored.revokedAt) await revokeRefreshToken(rawRefreshToken)
   const tokens = await buildTokenPair({
     ...user,
     familyId: payload.familyId || user.familyId || createFamilyId(),
@@ -514,8 +524,12 @@ async function loginWithOAuthAccount(params: {
   nickname?: string
   avatar?: string
   email?: string
+  /** IdP 是否确认了该邮箱归属(oidc: email_verified / discord: verified);缺省按未验证处理 */
+  emailVerified?: boolean
 }): Promise<
   | { blocked: true }
+  | { blocked: false; emailUnverified: true; email: string }
+  | { blocked: false; twoFactorRequired: true; challengeToken: string; expiresIn: number }
   | {
       blocked: false
       accessToken: string
@@ -526,7 +540,8 @@ async function loginWithOAuthAccount(params: {
       isNewUser: boolean
     }
 > {
-  const { request, reply, platform, openId, unionId, nickname, avatar, email } = params
+  const { request, reply, platform, openId, unionId, nickname, avatar, email, emailVerified } =
+    params
   const binding = await findThirdPartyAccount(platform, openId)
   let user: NonNullable<Awaited<ReturnType<typeof findUserById>>>
   let isNewUser = false
@@ -540,6 +555,13 @@ async function loginWithOAuthAccount(params: {
     // 避免 users_email_unique 唯一约束冲突导致 SSO 首登 500)
     const existingByEmail = email ? await findUserByEmail(email) : undefined
     if (existingByEmail) {
+      // 2026-10-27 接管链封堵:自动关联的前提是 IdP 确认了邮箱归属(email_verified)。
+      // 此前不看验证位 —— 攻击者在自己控制的 IdP 上把邮箱声明成受害者邮箱,首登即绑定
+      // 进受害者账号并拿到完整 token(免密码账号接管)。未验证一律拒绝,让用户用密码
+      // 登录后在设置里手动绑定。
+      if (emailVerified !== true) {
+        return { blocked: false, emailUnverified: true, email: email ?? '' }
+      }
       if (existingByEmail.status !== 1) throw new Error('账号已被禁用')
       user = existingByEmail
       await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
@@ -555,6 +577,24 @@ async function loginWithOAuthAccount(params: {
       await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
     }
   }
+  // 2026-10-27 2FA 一致性(修旁路):三条密码/验证码登录路均已要求已开 TOTP 的账号过
+  // login-verify,社交登录此前漏了 —— IdP 会话失窃即可在无第二因子的情况下直接拿 token
+  // 对。现与 /login 密码路同一状态机:签发 5min challengeToken,由调用方交前端走
+  // /auth/2fa/login-verify,不在此处直接下发可用凭据。
+  if (user.twoFactorEnabled) {
+    const challengeToken = await signChallengeToken({
+      userId: user.id,
+      phone: user.phone ?? '',
+      familyId: '',
+      roleId: user.roleId ?? 0,
+    })
+    return {
+      blocked: false,
+      twoFactorRequired: true,
+      challengeToken,
+      expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+    }
+  }
   const gate = await gateLoginIpWhitelist(request, reply, user.id)
   if (!gate.allowed) return { blocked: true }
   const tokens = await buildTokenPair(user)
@@ -568,6 +608,10 @@ async function loginWithOAuthAccount(params: {
     isNewUser,
   }
 }
+
+// __test__ 导出(§22c 模式):社交登录 2FA/邮箱验证位两道闸的契约测试从这里进,
+// 不复制判据。
+export const __test__ = { loginWithOAuthAccount }
 
 // 共用 callback 响应格式(与现有 /auth/:platform/callback 一致)
 function buildOAuthCallbackResponse(result: {
@@ -740,6 +784,24 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         recordAuthLoginFailed(request.ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
+      // 2FA 一致性(2026-10-27 修旁路):与 /login 密码路同一状态机 —— 开启 TOTP 的账号
+      // 走邮箱验证码登录同样必须过 login-verify,否则"仅需邮箱验证码"即完全绕过 TOTP。
+      if (user.twoFactorEnabled) {
+        const challengeToken = await signChallengeToken({
+          userId: user.id,
+          phone: user.phone ?? '',
+          familyId: '',
+          roleId: user.roleId ?? 0,
+        })
+        request.skipResponseSanitization = true
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken,
+            expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+          }),
+        )
+      }
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
       const { accessToken, refreshToken } = await buildTokenPair(user, reply)
@@ -803,6 +865,32 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
       await clearLoginFailures(username, ip)
+      // 2026-10-28 普查发现：本入口此前只 verify 不升级哈希，与 /auth/login 不一致
+      // （弱哈希账户若经此路登录就永远升不上 argon2id）。补同一出口调用，三入口行为齐平。
+      await transparentlyUpgradePasswordHash({
+        userId: String(user.id),
+        password,
+        currentHash: user.passwordHash,
+        log: request.log,
+      })
+      // 2FA 一致性(2026-10-27 修旁路):用户名+密码登录同样必须过 TOTP,
+      // 否则攻击者拿到密码后走此路即可完全绕过两步验证(P0)。
+      if (user.twoFactorEnabled) {
+        const challengeToken = await signChallengeToken({
+          userId: user.id,
+          phone: user.phone ?? '',
+          familyId: '',
+          roleId: user.roleId ?? 0,
+        })
+        request.skipResponseSanitization = true
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken,
+            expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+          }),
+        )
+      }
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
       const { accessToken, refreshToken } = await buildTokenPair(user, reply)
@@ -913,13 +1001,35 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { phone } = z.object({ phone: z.string() }).parse(request.params)
+      // 2026-10-27 收窄:只应答合法手机号 —— 该端点是小程序注册预检,公开 exists 探针
+      // 配 10/min/IP 限速后枚举成本已不可行(手机号空间 10^10 ⇒ 14400 次/天),但
+      // "任意字符串都查"的形态会让它被当免费的任意存在性查询代理用。无效号一律 400。
+      if (!/^1[3-9]\d{9}$/.test(phone)) {
+        return reply.status(400).send(error(400, '手机号格式不正确'))
+      }
       return reply.send(success({ exists: await checkPhoneExists(phone) }))
     },
   )
 
   // 第三方登录配置状态(公开端点,登录页用于显示哪些平台可用)
-  // 返回 8 平台 true/false,与 .env 凭据配置实时一致
-  server.get('/auth/oauth-status', async (_request, reply) => {
+  // 返回 8 平台 true/false,与 .env 凭据配置实时一致;
+  // 外加 loginRegion —— 按**请求来源 IP** 判的国内/海外,登录窗据此排登录方式优先级。
+  // 判据与「为什么它不得用于鉴权/风控」住在 services/login-region.ts。
+  //
+  // 为什么必须显式 no-store:响应里现在带一条「随访客 IP 而变」的字段,而这条响应
+  // 原本是**可被边缘缓存的公共 GET**(2026-10-26 实测 api.aizhs.top 那腿回
+  // `Cache-Control: max-age=14400` 且 `cf-cache-status` 存在)。一旦缓存住,首个访客的
+  // 地区会被钉在边缘上发给后面所有人 —— 国内用户收到海外的排法、反之亦然,而两个状态
+  // 各自看都"正常",没人能从账面发现。
+  server.get('/auth/oauth-status', async (request, reply) => {
+    const loginRegion = await resolveLoginRegion(request)
+    // 判定结果进请求日志:线上排"为什么这位访客看到的是另一套排法"时,这是不依赖
+    // 让访客配合 curl 的唯一取证面(响应里那份 loginRegionSource 只在被请求那一刻可见)。
+    request.log.info(
+      { loginRegion: loginRegion.region, loginRegionSource: loginRegion.source },
+      '登录呈现地区判定',
+    )
+    reply.header('Cache-Control', 'no-store')
     return reply.send(
       success({
         google: isGoogleConfigured(),
@@ -935,6 +1045,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         feishu: isFeishuConfigured(),
         github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
         alipay: isAlipayLoginConfigured(),
+        loginRegion: loginRegion.region,
+        loginRegionSource: loginRegion.source,
       }),
     )
   })
@@ -1548,7 +1660,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const parsed = smsCodeSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      const result = await sendSmsCode(parsed.data.phone)
+      const result = await sendSmsCode(
+        parsed.data.phone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) {
         // 限速 → 429;云侧没发出去 → 502。两者不能同形:把欠费读成"慢点再试"没人会去查账户。
         const status = result.failure === 'delivery_failed' ? 502 : 429
@@ -1567,7 +1683,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const parsed = smsCodeSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      const result = await sendSmsCode(parsed.data.phone)
+      const result = await sendSmsCode(
+        parsed.data.phone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) {
         // 限速 → 429;云侧没发出去 → 502。两者不能同形:把欠费读成"慢点再试"没人会去查账户。
         const status = result.failure === 'delivery_failed' ? 502 : 429
@@ -2694,7 +2814,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const user = await findUserById(request.userId!)
       if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
-      const result = await sendSmsCode(user.phone)
+      const result = await sendSmsCode(
+        user.phone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) return reply.status(429).send(error(429, result.msg))
       return reply.send(success({ sent: true }))
     },
@@ -2736,11 +2860,13 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const { newPhone } = parsed.data
-      const existing = await findUserByPhone(newPhone)
-      if (existing && existing.id !== request.userId) {
-        return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
-      }
-      const result = await sendSmsCode(newPhone)
+      // 号码是否已被他人绑定只在 confirm 阶段裁决:发码前预检会把“该号是否注册”直接回给调用方,
+      // 等于开放手机号枚举。发码本身无害,先发再在确认时 409。
+      const result = await sendSmsCode(
+        newPhone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) return reply.status(429).send(error(429, result.msg))
       return reply.send(success({ sent: true }))
     },
@@ -2772,6 +2898,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
       }
       const updated = await updateUser(request.userId!, { phone: newPhone })
+      // 安全类短信:换绑成功必须让用户知道,失败不影响换绑结果。
+      // bizId 用完整号码的短摘要(不落裸号、同一新号重试键相同),不再掺 Date.now()。
+      void sendNoticeSmsToUser(request.userId!, 'binding-success', {
+        bizType: 'auth',
+        bizId: `bind:${request.userId!}:${createHash('sha256').update(newPhone).digest('hex').slice(0, 12)}`,
+      })
       return reply.send(success({ user: { id: updated.id, phone: updated.phone ?? '' } }))
     },
   )
@@ -2806,7 +2938,44 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!bodyParsed.success)
       return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
     const { platform } = paramParsed.data
-    const { code } = bodyParsed.data
+    const { code, state } = bodyParsed.data
+
+    // 用户协议同意闸:本次回调的 state 必须在发起期留下过同意记录。
+    // 位置刻意放在厂商 code 交换与查/建用户之前 —— 未同意就不得换取 token;
+    // 也放在 switch 之前,保证下面对各平台的提前 return 都无法绕过这道闸。
+    // 判据单源 services/oauth-consent.ts,Redis I/O 复用本文件 getRedis()。
+    {
+      const redis = getRedis()
+      const key = OAUTH_CONSENT_KEY_PREFIX + state
+      let raw: string | null = null
+      if (redis) {
+        try {
+          raw = await redis.get(key)
+        } catch (e) {
+          request.log.warn({ err: e, platform }, '[oauth-consent] redis get 失败 ⇒ 按未同意拒绝')
+        }
+        // 一次性消费:无论判据结果如何都删除,同一 state 第二次回调必然被拒。
+        try {
+          await redis.del(key)
+        } catch (e) {
+          request.log.warn({ err: e, platform }, '[oauth-consent] redis del 失败(非致命)')
+        }
+      }
+      let consent: OAuthConsentState | null = null
+      if (raw) {
+        try {
+          consent = JSON.parse(raw) as OAuthConsentState
+        } catch {
+          // 存储内容损坏与"没有记录"同级处理
+        }
+      }
+      if (!isOAuthConsentRecorded(consent, platform)) {
+        request.log.warn({ platform }, '[oauth-consent] 无有效的发起期同意记录 ⇒ 拒绝回调')
+        return reply
+          .status(403)
+          .send(error(403, '请先同意用户协议与隐私政策', OAUTH_AGREEMENT_REQUIRED))
+      }
+    }
 
     let openId: string
     let unionId: string | undefined
@@ -3115,8 +3284,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     '/auth/login/phone-code',
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
     async (request, reply) => {
+      // 2026-10-26 海外登录策略:手机验证码登录仅限中国大陆号码,海外用户走 Google 授权。
       const parsed = z
-        .object({ phone: z.string().min(1), code: z.string().length(6) })
+        .object({
+          phone: z
+            .string()
+            .regex(/^1[3-9]\d{9}$/, '仅支持中国大陆手机号登录，海外用户请使用 Google 登录'),
+          code: z.string().length(6),
+        })
         .safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -3372,6 +3547,53 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // POST /auth/2fa/step-up — 敏感动作前置的二次验证。
+  // 与 /auth/2fa/verify 的区别:那一枚是"开启 2FA"的入伙校验(会改库置 twoFactorEnabled);
+  // 这一枚**只验不写开关**,给提现这类高敏动作当第二因子用。校验出口仍复用本文件的
+  // decryptTwoFactorSecret + verifyTotp,新鲜度记账住在 two-factor-step-up-store.ts(单源)。
+  server.post(
+    '/auth/2fa/step-up',
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: '敏感操作二次验证（TOTP，仅记账）',
+        tags: ['auth', '2fa'],
+        body: {
+          type: 'object',
+          required: ['code'],
+          properties: { code: { type: 'string', pattern: '^[0-9]{6}$', description: '6 位 TOTP' } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = z
+        .object({ code: z.string().regex(/^[0-9]{6}$/, '验证码必须为 6 位数字') })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '验证码必须为 6 位数字'))
+      }
+      const userId = request.userId!
+      const user = await findUserById(userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+        return reply.status(400).send(error(400, '该账号未启用 2FA，无需二次验证'))
+      }
+      const secret = decryptTwoFactorSecret(user.twoFactorSecret)
+      if (!secret) {
+        return reply.status(500).send(error(500, '密钥解密失败，请重新 setup'))
+      }
+      if (!verifyTotp(parsed.data.code, secret)) {
+        await recordSecurityEvent(request, 'two_factor_step_up_failed')
+        return reply.status(401).send(error(401, '验证码错误或已过期'))
+      }
+      await recordTwoFactorStepUp(userId, request.server.redis)
+      await recordSecurityEvent(request, 'two_factor_step_up')
+      return reply.send(success({ verified: true, windowSec: STEP_UP_WINDOW_SEC }))
+    },
+  )
+
   // POST /api/auth/2fa/disable — 禁用 2FA(需密码二次确认)
   server.post(
     '/auth/2fa/disable',
@@ -3606,6 +3828,49 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // Redis 客户端获取(防御式:测试环境可能未注册 redis 插件,与 auth.ts QR 登录同模式)
   const getRedis = (): Redis | null => (server as unknown as { redis?: Redis }).redis ?? null
+
+  // ============================================================================
+  // 发起期同意记录 POST /auth/oauth/consent
+  // 客户端在跳转厂商授权页之前调用,把"已同意用户协议与隐私政策"按 state 落 Redis;
+  // 通用回调 POST /auth/:platform/callback 一次性消费该记录后,才允许查/建用户与发 token。
+  // 判据单源 services/oauth-consent.ts,本端点只负责 Redis 读写。
+  // ============================================================================
+  const oauthConsentBody = z.object({
+    state: z.string().min(16, { error: 'state 长度不足 16 位' }),
+    platform: platformCallbackParam.shape.platform,
+    agreementAccepted: z.literal(true, { error: '必须同意用户协议与隐私政策' }),
+  })
+
+  server.post('/auth/oauth/consent', async (request, reply) => {
+    const parsed = oauthConsentBody.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const redis = getRedis()
+    // fail-closed:Redis 不可用就无处落同意记录,此时若放行回调等于这道闸失效。
+    if (!redis)
+      return reply
+        .status(503)
+        .send(error(503, '同意记录服务不可用,请稍后重试', 'OAUTH_CONSENT_UNAVAILABLE'))
+    const record = {
+      platform: parsed.data.platform,
+      agreementAccepted: true as const,
+      createdAt: new Date().toISOString(),
+    }
+    try {
+      await redis.set(
+        OAUTH_CONSENT_KEY_PREFIX + parsed.data.state,
+        JSON.stringify(record),
+        'EX',
+        OAUTH_CONSENT_TTL_SECONDS,
+      )
+    } catch (e) {
+      request.log.error({ err: e }, '[oauth-consent] redis set 失败 ⇒ 503')
+      return reply
+        .status(503)
+        .send(error(503, '同意记录服务不可用,请稍后重试', 'OAUTH_CONSENT_UNAVAILABLE'))
+    }
+    return reply.send(success({ ok: true }))
+  })
 
   /** state 持久化载荷 */
   interface OAuthStatePayload {
@@ -3842,15 +4107,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         nickname: info.nickname,
         avatar: info.avatar,
         email: info.email,
+        emailVerified: info.emailVerified,
       })
       if (result.blocked) return reply
-      // 浏览器闭环(2026-09-19 立):OIDC 由后端代理,回调落在浏览器会话,
-      // 必须写 httpOnly cookie 并 302 回前端登录页/首页,否则浏览器停留在 API JSON 页。
-      setAuthCookies(
-        reply,
-        { accessToken: result.accessToken, refreshToken: result.refreshToken },
-        true,
-      )
       // 回跳源:优先 state 里记录的发起源(签发时已过白名单,此处二次校验防
       // CORS_ORIGIN 在 10min state 有效期内变更),未记录/已失效回退 CORS_ORIGIN 首项。
       // 修复:bsm.aizhs.top 发起的登录不再被硬编码丢到 aizhs.top(2026-09-19)。
@@ -3859,6 +4118,29 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         stateCheck.webOrigin && isAllowedWebOrigin(stateCheck.webOrigin)
           ? stateCheck.webOrigin
           : fallbackOrigin
+      if ('emailUnverified' in result) {
+        return reply
+          .status(403)
+          .send(
+            error(
+              403,
+              '该邮箱已注册,但身份提供方未确认邮箱归属,拒绝自动关联;请用密码登录后在设置中绑定',
+            ),
+          )
+      }
+      if ('twoFactorRequired' in result) {
+        // 挑战经 URL fragment 交给前端:fragment 不进代理与服务器访问日志,也不随请求
+        // 回服务器;challengeToken 是 5min 一次性凭据,与 OAuth code 同级的短时效面。
+        // 消费侧(登录页读 fragment 调 /auth/2fa/login-verify)属前端体验层,后端契约已闭合。
+        return reply.redirect(`${webOrigin}/login#sso2fa=${result.challengeToken}`)
+      }
+      // 浏览器闭环(2026-09-19 立):OIDC 由后端代理,回调落在浏览器会话,
+      // 必须写 httpOnly cookie 并 302 回前端登录页/首页,否则浏览器停留在 API JSON 页。
+      setAuthCookies(
+        reply,
+        { accessToken: result.accessToken, refreshToken: result.refreshToken },
+        true,
+      )
       // sso=oidc 标记:前端 /sso/login 检测到后,已登录态自动跳转 redirect(关闭登录弹窗),
       // 避免 OIDC 回跳后停留在授权卡片需要手动点击(2026-09-19 SSO 闭环体验修复)
       return reply.redirect(`${webOrigin}/sso/login?sso=oidc`)
@@ -3897,8 +4179,29 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         nickname: info.nickname,
         avatar: info.avatar,
         email: info.email,
+        emailVerified: info.emailVerified,
       })
       if (result.blocked) return reply
+      if ('emailUnverified' in result) {
+        return reply
+          .status(403)
+          .send(
+            error(
+              403,
+              '该邮箱已注册,但身份提供方未确认邮箱归属,拒绝自动关联;请用密码登录后在设置中绑定',
+            ),
+          )
+      }
+      if ('twoFactorRequired' in result) {
+        request.skipResponseSanitization = true
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken: result.challengeToken,
+            expiresIn: result.expiresIn,
+          }),
+        )
+      }
       return reply.send(buildOAuthCallbackResponse(result))
     } catch (e) {
       request.log.error(e)
@@ -3988,6 +4291,29 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           avatar: authResult.avatar,
         })
         if (result.blocked) return reply
+        if ('emailUnverified' in result) {
+          // Telegram 走 Bot 回写,当前不携带 email ⇒ 本分支逻辑上不可达;类型上仍要
+          // 消掉联合的这一支,且将来若给 Telegram 回写补上 email,这里的闸已在位。
+          return reply
+            .status(403)
+            .send(
+              error(
+                403,
+                '该邮箱已注册,但身份提供方未确认邮箱归属,拒绝自动关联;请用密码登录后在设置中绑定',
+              ),
+            )
+        }
+        if ('twoFactorRequired' in result) {
+          request.skipResponseSanitization = true
+          return reply.send(
+            success({
+              status: '2fa_required',
+              twoFactorRequired: true,
+              challengeToken: result.challengeToken,
+              expiresIn: result.expiresIn,
+            }),
+          )
+        }
         return reply.send(
           success({
             status: 'success',

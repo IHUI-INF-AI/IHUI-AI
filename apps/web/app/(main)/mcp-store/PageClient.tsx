@@ -23,6 +23,7 @@ import {
   Power,
   PowerOff,
   ShieldAlert,
+  KeyRound,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -36,11 +37,14 @@ import {
   type McpStoreEntry,
   type McpStoreResponse,
   type McpExternalServersResponse,
+  type McpRegisteredServer,
   type McpScoreDetail,
 } from '@ihui/api-client/endpoints/mcp'
+import { clearMcpAuth } from '@ihui/api-client/endpoints/control-frames'
 import { useAuthStore } from '@/stores/auth'
 import { BackButton } from '@/components/common'
 import { Badge } from '@/components/data'
+import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { McpQualityDashboard } from '@/components/mcp/mcp-quality-dashboard'
 import { ReviewBadge, ScoringBadges } from '@/components/mcp/mcp-scoring-badges'
 import {
@@ -278,198 +282,258 @@ export default function McpStorePageClient() {
     }
   }
 
+  /**
+   * 控制帧 `mcp_clear_auth` —— 撤回**用户自授权**给某台外部 MCP Server 的 OAuth 凭据。
+   *
+   * 三条纪律(与竞品 `mcp_clear_auth` 帧的"按 serverName 逐台点名"语义对齐):
+   * ① **逐台点名**,没有「一键全清」入口 —— 撤回是逐个第三方站点分别做的决定;
+   * ② **失败必须给可见原因** —— 403(不是你的)/404(已不在)/服务端失败 三者说不同的
+   *    话,不能一律弹「操作失败」;
+   * ③ **不静默** —— 撤回后立刻重取列表,让「已未授权」这件事在 UI 上看得见。
+   *
+   * 口径边界(AGENTS §5「可清除的是业务元数据,不是授权凭据」):本端点清的是
+   * **用户自己**给某个第三方站的 OAuth token,不碰 client_secret / 系统令牌 /
+   * 其它 Server 的凭据 —— 那是 OAuth 服务端持有的东西,本进程根本拿不到。
+   */
+  const handleClearAuth = async (srv: McpRegisteredServer) => {
+    if (actingName) return
+    setActingName(srv.name)
+    try {
+      const r = await clearMcpAuth(srv.name)
+      if (r.cleared) {
+        toast.success(t('clearAuthSuccess', { name: srv.name }))
+      } else if (r.reason === 'no_oauth') {
+        // 这台压根没走 OAuth 通道 —— 不是错误,是「本来就没有可撤的授权」
+        toast.success(t('clearAuthNoOauth', { name: srv.name }))
+      } else {
+        toast.error(r.error || r.reason || t('clearAuthFailed', { name: srv.name }))
+      }
+      // 撤回后重取列表:连接态可能已随之变化
+      refresh()
+    } catch (e) {
+      toast.error(
+        e instanceof Error && e.message ? e.message : t('clearAuthFailed', { name: srv.name }),
+      )
+    } finally {
+      setActingName(null)
+    }
+  }
+
   const servers = store?.servers ?? []
   const registeredServers = registered?.servers ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-4">
-      <BackButton />
-      {/* 顶部:标题 + 统计 */}
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Store className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-          {!isLoading && !error && (
-            <Badge variant="primary">{t('count', { count: store?.count ?? servers.length })}</Badge>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
-      </header>
-
-      {/* 目录列表(含安装状态) */}
-      {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>{t('loading')}</span>
-        </div>
-      )}
-      {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {t('loadFailed')}
-        </div>
-      )}
-      {!isLoading && !error && (
-        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
-          {servers.map((entry) => (
-            <DirectoryCard
-              key={entry.key}
-              entry={entry}
-              installing={installingKey === entry.key}
-              acting={actingName === entry.server_name}
-              onInstall={
-                entry.env_required.length > 0
-                  ? () => openEnvDialog(entry)
-                  : () => void handleInstall(entry, {})
-              }
-              onToggleEnabled={() => void handleToggleEnabled(entry)}
-              onUninstall={() => void handleUninstall(entry)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 质量看板(H8:各 server 运行时指标 + 质量/安全评分;端点不可用时静默降级不渲染) */}
-      <McpQualityDashboard />
-
-      {/* 已注册外部 Server(手动注册通道,保留原有功能) */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-1.5">
-          <Server className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold">{t('registeredTitle')}</h2>
-          {registeredServers.length > 0 && (
-            <Badge variant="default">{registeredServers.length}</Badge>
-          )}
-        </div>
-        {registeredServers.length === 0 ? (
-          <div className="rounded-lg border bg-card py-6 text-center text-sm text-muted-foreground">
-            {t('registeredEmpty')}
+    <TooltipProvider>
+      <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-4">
+        <BackButton />
+        {/* 顶部:标题 + 统计 */}
+        <header className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Store className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+            {!isLoading && !error && (
+              <Badge variant="primary">
+                {t('count', { count: store?.count ?? servers.length })}
+              </Badge>
+            )}
           </div>
-        ) : (
-          <div className="space-y-2">
-            {registeredServers.map((srv) => (
-              <div
-                key={srv.name}
-                className="flex items-center justify-between gap-3 rounded-lg border bg-card px-3 py-2.5"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <Plug className="h-4 w-4 shrink-0 text-primary" />
-                  <span className="truncate text-sm font-medium text-foreground">{srv.name}</span>
-                  <span className="text-xs text-muted-foreground">{srv.transport}</span>
-                </div>
-                <Badge variant={srv.connected ? 'success' : 'default'}>
-                  {srv.connected ? t('connected') : t('disconnected')}
-                </Badge>
-              </div>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        </header>
+
+        {/* 目录列表(含安装状态) */}
+        {isLoading && (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>{t('loading')}</span>
+          </div>
+        )}
+        {error && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            {t('loadFailed')}
+          </div>
+        )}
+        {!isLoading && !error && (
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+            {servers.map((entry) => (
+              <DirectoryCard
+                key={entry.key}
+                entry={entry}
+                installing={installingKey === entry.key}
+                acting={actingName === entry.server_name}
+                onInstall={
+                  entry.env_required.length > 0
+                    ? () => openEnvDialog(entry)
+                    : () => void handleInstall(entry, {})
+                }
+                onToggleEnabled={() => void handleToggleEnabled(entry)}
+                onUninstall={() => void handleUninstall(entry)}
+              />
             ))}
           </div>
         )}
-      </section>
 
-      {/* 环境变量输入对话框 */}
-      <Dialog open={envEntry !== null} onOpenChange={(v) => !v && setEnvEntry(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{envEntry?.name}</DialogTitle>
-            <DialogDescription>{t('envHint')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {envEntry?.env_required.map((key) => (
-              <div key={key} className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  {t('requiredEnv')}: {key}
-                </Label>
-                <Input
-                  type="text"
-                  value={envValues[key] ?? ''}
-                  onChange={(e) => setEnvValues((prev) => ({ ...prev, [key]: e.target.value }))}
-                  placeholder={t('envPlaceholder', { env: key })}
-                  autoComplete="off"
-                />
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEnvEntry(null)}>
-              {t('cancel')}
-            </Button>
-            <Button onClick={() => void handleEnvInstall()} disabled={installingKey !== null}>
-              {installingKey ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  {t('installing')}
-                </>
-              ) : (
-                t('submit')
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* 质量看板(H8:各 server 运行时指标 + 质量/安全评分;端点不可用时静默降级不渲染) */}
+        <McpQualityDashboard />
 
-      {/* 高风险安装确认对话框(P1 1-4:评分 high/critical 时安装前确认) */}
-      <Dialog open={riskEntry !== null} onOpenChange={(v) => !v && setRiskEntry(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-destructive" />
-              {t('riskConfirmTitle')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('riskConfirmDesc', {
-                name: riskEntry?.name ?? '',
-                score: riskDetail?.security.score ?? riskEntry?.scoring?.security_score ?? 0,
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {riskLoading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t('loading')}
-              </div>
-            )}
-            {!riskLoading && (
-              <ul className="space-y-1.5">
-                {(riskDetail?.risk_factors.length
-                  ? riskDetail.risk_factors
-                  : [t('riskGeneric')]
-                ).map((factor, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-xs text-foreground">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
-                    {factor}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {riskDetail?.recommendation && (
-              <p className="rounded-md bg-muted px-2.5 py-2 text-xs text-muted-foreground">
-                {t('riskRecommendation')}: {riskDetail.recommendation}
-              </p>
+        {/* 已注册外部 Server(手动注册通道,保留原有功能) */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-1.5">
+            <Server className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold">{t('registeredTitle')}</h2>
+            {registeredServers.length > 0 && (
+              <Badge variant="default">{registeredServers.length}</Badge>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRiskEntry(null)}>
-              {t('riskCancel')}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => void handleRiskConfirm()}
-              disabled={installingKey !== null || riskLoading}
-              className="text-destructive hover:text-destructive"
-            >
-              {installingKey ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  {t('installing')}
-                </>
-              ) : (
-                t('riskConfirmProceed')
+          {registeredServers.length === 0 ? (
+            <div className="rounded-lg border bg-card py-6 text-center text-sm text-muted-foreground">
+              {t('registeredEmpty')}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {registeredServers.map((srv) => (
+                <div
+                  key={srv.name}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-3 py-2.5"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Plug className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="truncate text-sm font-medium text-foreground">{srv.name}</span>
+                    <span className="text-xs text-muted-foreground">{srv.transport}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={srv.connected ? 'success' : 'default'}>
+                      {srv.connected ? t('connected') : t('disconnected')}
+                    </Badge>
+                    {/* 控制帧 `mcp_clear_auth`:撤回本台 Server 的用户自授权凭据(逐台点名) */}
+                    <Tooltip content={t('clearAuthHint')}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleClearAuth(srv)}
+                        disabled={actingName !== null}
+                        data-testid={`mcp-clear-auth-${srv.name}`}
+                      >
+                        {actingName === srv.name ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        {t('clearAuth')}
+                      </Button>
+                    </Tooltip>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* 环境变量输入对话框 */}
+        <Dialog open={envEntry !== null} onOpenChange={(v) => !v && setEnvEntry(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{envEntry?.name}</DialogTitle>
+              <DialogDescription>{t('envHint')}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {envEntry?.env_required.map((key) => (
+                <div key={key} className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    {t('requiredEnv')}: {key}
+                  </Label>
+                  <Input
+                    type="text"
+                    value={envValues[key] ?? ''}
+                    onChange={(e) => setEnvValues((prev) => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={t('envPlaceholder', { env: key })}
+                    autoComplete="off"
+                  />
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEnvEntry(null)}>
+                {t('cancel')}
+              </Button>
+              <Button onClick={() => void handleEnvInstall()} disabled={installingKey !== null}>
+                {installingKey ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    {t('installing')}
+                  </>
+                ) : (
+                  t('submit')
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 高风险安装确认对话框(P1 1-4:评分 high/critical 时安装前确认) */}
+        <Dialog open={riskEntry !== null} onOpenChange={(v) => !v && setRiskEntry(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-destructive" />
+                {t('riskConfirmTitle')}
+              </DialogTitle>
+              <DialogDescription>
+                {t('riskConfirmDesc', {
+                  name: riskEntry?.name ?? '',
+                  score: riskDetail?.security.score ?? riskEntry?.scoring?.security_score ?? 0,
+                })}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {riskLoading && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('loading')}
+                </div>
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+              {!riskLoading && (
+                <ul className="space-y-1.5">
+                  {(riskDetail?.risk_factors.length
+                    ? riskDetail.risk_factors
+                    : [t('riskGeneric')]
+                  ).map((factor, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-xs text-foreground">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                      {factor}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {riskDetail?.recommendation && (
+                <p className="rounded-md bg-muted px-2.5 py-2 text-xs text-muted-foreground">
+                  {t('riskRecommendation')}: {riskDetail.recommendation}
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRiskEntry(null)}>
+                {t('riskCancel')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void handleRiskConfirm()}
+                disabled={installingKey !== null || riskLoading}
+                className="text-destructive hover:text-destructive"
+              >
+                {installingKey ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    {t('installing')}
+                  </>
+                ) : (
+                  t('riskConfirmProceed')
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TooltipProvider>
   )
 }
 

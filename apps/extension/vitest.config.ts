@@ -11,6 +11,10 @@ export default defineConfig({
     // 取与 apps/api / apps/cli 已有的 15_000 同档 —— 这是**资源预算**,不改任何判据与用例内容。
     testTimeout: 15_000,
     environment: 'node',
+    // 逐档 `@vitest-environment happy-dom` 只带进 window,不复制 window.localStorage 到 globalThis
+    // (实测:同包用 document/render 的用例全绿,只有裸读 localStorage 的两枚红在 undefined)。
+    // 只补介质,不改包级默认 —— 成因与取证见 tests/setup/happy-dom-storage.ts 头注。
+    setupFiles: ['tests/setup/happy-dom-storage.ts'],
     include: [
       'tests/**/*.test.ts',
       'tests/**/*.test.tsx',

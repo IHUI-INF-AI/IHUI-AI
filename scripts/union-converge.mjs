@@ -66,6 +66,17 @@
  *       #   "需人工",把发布链卡在分叉上(2026-09-28 实测挡停约 3 小时)。
  *       #   声明它 = 该路径持有者说"本侧这一份是被取代的",整文件取对侧。
  *       #   纪律照抄 --take-ours:逐条声明、逐条打印、写进合并提交信息;不声明就仍是 needHuman。
+ *   node scripts/union-converge.mjs --take-theirs-doc <path> [--take-theirs-doc <path>]...
+ *       # 活文档专用(2026-10-27 补):该路径**整份 blob 取对侧**并跳过行级 union。
+ *       #   立因:路径级 --take-theirs 对活文档**不生效** —— 1) 的活文档循环不问选边声明,
+ *       #   行级 union 照旧把对侧滞后的基线形态并回结果(生产签出 D:/DevEnv/ihui-prod 实测:
+ *       #   声明 --take-theirs PROJECT_PLAN.md 后 121 行滞后基线仍回灌),路径级选边与
+ *       #   行级 union 两层打架,缺的就是"整份活文档取对侧"这一条声明式出口。
+ *       #   自证语义与零丢失断言对齐:对这类路径,verifyUnion 的判据改为"合并树该路径 blob
+ *       #   逐字等于对侧 blob"(不再按行级期望表追讨 —— 本侧独有行被整份取代是声明本身)。
+ *       #   纪律照抄 --take-ours/--take-theirs:逐条声明、逐条打印、写进合并提交信息;
+ *       #   声明的路径两侧都取不到 ⇒ 未判定(不记通过,拦落地);声明了非活文档路径
+ *       #   ⇒ 声明未命中判红(整路径取对侧请改用 --take-theirs,它对非活文档本来就生效)。
  *   node scripts/union-converge.mjs --resolve '<path>=<内容文件>' [--resolve ...]
  *       # 真三方报冲突后,**人工判完的回灌出口**(2026-09-26 立)。此前"请人工判"是一句死路:
  *       #   工具不接收人工结果,人只能去做裸 git 手术(read-tree/commit-tree/update-ref),
@@ -2197,6 +2208,7 @@ export function buildUnion(
   accepted = null,
   foldKeep = null,
   declaredLoss = null,
+  takeTheirsDocs = null,
 ) {
   const scratch = mkScratch('union-idx')
   const idx = join(scratch, 'index')
@@ -2240,9 +2252,36 @@ export function buildUnion(
     // 摘除台账拦下的补回候选(G-34/G-43, 2026-10-25):逐字以外按复合主键/指纹认账,
     // 命中与"未判定"都不回补 —— 但必须逐条计数点名并随返回值交回报告面,不得静默(§0.3/§0.10)。
     const ledgerWithheld = []
+    // --take-theirs-doc 的两本账(2026-10-27):整份取对侧已生效的路径(逐条点名进报告与提交信息)
+    // 与声明了但取不到对侧 blob 的格(未判定,随返回值交回;落地闸由 verifyUnion 对同一格点名)。
+    // 声明位置在活文档循环之前 —— 循环里就要往里 push,挂到 2) 的清单堆里会撞 TDZ(见 violations 同款)。
+    const keptTheirsDocs = []
+    const takeDocsUndetermined = []
     for (const p of LIVE_DOCS) {
       const a = show(ours, p, cwd)
       const b = show(theirs, p, cwd)
+      // --take-theirs-doc(2026-10-27):声明 = 整 blob 取对侧、跳过行级 union。
+      // 必须排在 `if (a === b) continue` 之前,否则"两侧恰好同文"的声明会被静默吞掉,
+      // keptTheirsDocs 不点名 = "配了清单被读成这轮真放过东西"(§0.3 同一条纪律)。
+      // 写入走 update-index 直接引用对侧 blob oid(与 --take-theirs 同一形态,不另造 blob)。
+      // 复活对账/搬运感知/状态分叉这几维都随行级 union 一起跳过:它们量的是"union 带回了什么",
+      // 本路径根本没有 union;整份取代的留痕就是 keptTheirsDocs 这条逐路径点名本身。
+      if (takeTheirsDocs?.has?.(p)) {
+        const theirsBlob = blobOf(theirs, p, cwd)
+        if (!theirsBlob) {
+          // 取不到输入 ⇒ 未判定,绝不冒充"对侧本来就是空的"而静默跳过:落地闸会拦下这一格
+          // (verifyUnion 对同一声明点名),此处照常落回普通行 union 让报告仍能展示合并形态。
+          takeDocsUndetermined.push({ doc: p, reason: '对侧取不到该路径的 blob(路径不存在/对象不在本机)' })
+        } else {
+          run(['update-index', '--add', '--cacheinfo', `100644,${theirsBlob},${p}`])
+          keptTheirsDocs.push(p)
+          console.log(
+            `   活文档整份取对侧(已声明 --take-theirs-doc):${p} —— 跳过行级 union,` +
+              `整 blob 逐字等于对侧 ${String(theirsBlob).slice(0, 11)}(本侧独有行被整份取代是声明本身)`,
+          )
+          continue
+        }
+      }
       if (a === b) continue
       const bt = base ? show(base, p, cwd) : null
       const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
@@ -2624,6 +2663,9 @@ export function buildUnion(
       generatedDeferred,
       keptOurs,
       keptTheirs,
+      // --take-theirs-doc(2026-10-27):整份取对侧已生效的活文档(逐条点名)与未判定格(拦落地的红住 verifyUnion)。
+      keptTheirsDocs,
+      takeTheirsDocsUndetermined: takeDocsUndetermined,
       humanResolved,
       violations,
       caps,
@@ -2691,6 +2733,7 @@ export function verifyUnion(
   moveAwareCache = null,
   foldLedgers = null,
   supersede = null,
+  takeTheirsDocs = null,
 ) {
   const M = new Set(listPaths(tree, cwd))
   const bad = []
@@ -2757,6 +2800,22 @@ export function verifyUnion(
   for (const p of LIVE_DOCS) {
     const a = show(ours, p, cwd)
     const b = show(theirs, p, cwd)
+    // --take-theirs-doc 的自证语义(2026-10-27):对这类路径,"零丢失"= **整 blob 逐字等于对侧**。
+    // 行级期望表(liveDocExpectedCounts)不跑 —— 本侧独有行被整份取代是声明本身,不是归并失误;
+    // 但声明绝不因此免检:树里不是对侧那一份字节 ⇒ 照红,取不到对侧 ⇒ 未判定(不记通过)。
+    if (takeTheirsDocs?.has?.(p)) {
+      const tb = blobOf(theirs, p, cwd)
+      const mb = blobOf(tree, p, cwd)
+      if (!tb)
+        bad.push(
+          `${p} --take-theirs-doc 已声明但对侧取不到该路径(未判定,不记通过:路径不存在或对象不在本机,请核对声明)`,
+        )
+      else if (mb !== tb)
+        bad.push(
+          `${p} --take-theirs-doc 已声明但合并树该路径 blob 不等于对侧(自证失败,不记通过):树 ${String(mb).slice(0, 11)} ≠ 对侧 ${String(tb).slice(0, 11)}`,
+        )
+      continue
+    }
     if (a === null || b === null) {
       bad.push(`${p} 落地后取不到(本侧或对侧任一面读不出 = 无法自证,不记通过)`)
       continue
@@ -2970,7 +3029,6 @@ function recordSideLosses(lost, label, violations, caps, decl = null, credit = n
     const d = decl?.get?.(l)
     if (d) {
       credit?.push({ line: l, why: d.why, label })
-      continue
     }
     violations.push(`${label}:${String(l).slice(0, 60)}`)
   }
@@ -3184,6 +3242,7 @@ export function plan(
   supersede = null,
   foldKeep = null,
   declaredLoss = null,
+  takeTheirsDocs = null,
 ) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
@@ -3229,13 +3288,29 @@ export function plan(
     accepted,
     foldKeep,
     declaredLoss,
+    takeTheirsDocs,
   )
   // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
   //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
   const blocked = built.needHuman.map((h) => `${h.path} 需人工判(${h.kind}):${h.detail}`)
   // 折叠台账必须**同轮**交给落地自证(§0.4 同面同轮):产物面是折叠之后那一份,自证侧若拿不到
   // 这本账,就会对着一个"产物面根本不存在的重数"判红 —— 本机实测 289 处「未存活行」而真丢失 0。
-  const vu = verifyUnion(ours, theirs, built.tree, cwd, base, moveAwareCache, built.foldLedgers, supersede)
+  const vu = verifyUnion(ours, theirs, built.tree, cwd, base, moveAwareCache, built.foldLedgers, supersede, takeTheirsDocs)
+  // --take-theirs-doc 的陈旧/错道声明必须当场点名(§0.3:配了清单 ≠ 这轮真放过东西):
+  //  · 声明的路径两侧都取不到 ⇒ 未判定(不记通过);
+  //  · 声明的路径存在但不在活文档清单 ⇒ 未命中(该族整路径取对侧本就由 --take-theirs 负责,
+  //    --take-theirs-doc 只对"会被行级 union 覆盖选边"的活文档才有意义)。
+  // buildUnion 的活文档循环只遍历 LIVE_DOCS,不在清单里的声明那里永远看不见 ⇒ 只能在 plan() 这一层拦。
+  const staleDocPicks = []
+  for (const d of takeTheirsDocs || []) {
+    if (LIVE_DOCS.includes(d)) continue
+    const exists = blobOf(ours, d, cwd) || blobOf(theirs, d, cwd)
+    staleDocPicks.push(
+      exists
+        ? `${d} --take-theirs-doc 声明未命中(该路径存在但不在活文档清单 ${LIVE_DOCS.join('/')} 里,行级 union 本就不覆盖它;整路径取对侧请改用 --take-theirs)⇒ 不记通过`
+        : `${d} --take-theirs-doc 未判定(声明的路径两侧都取不到:路径不存在或对象不在本机)⇒ 不记通过`,
+    )
+  }
   // 折叠层拒绝裁定的组必须以「未判定」进落地闸(2026-10-20):两版并存不是"没得折",而是"机器不敢猜"。
   // 让它静默通过 = 把下一次合并的裁定权交给并不在场的人;拦下来点名 = §0.10 要的那个方向。
   const ambiguousRows = []
@@ -3270,6 +3345,7 @@ export function plan(
       ...stalePickRows,
       ...staleLossRows,
     ],
+    bad: [...built.violations, ...blocked, ...vu, ...ambiguousRows, ...stalePickRows, ...staleDocPicks],
     // 两条路径的"少带份数"合流:两侧同改的丢行分流(built.caps)+ 活文档行 union(vu.pointerCaps)。
     // 只接其中一条 = 台账这一族恰好无人点名,而那正是本票要防的形状。
     caps: [
@@ -4900,7 +4976,6 @@ function selfTest() {
           )
         } finally {
           rmScratch(d6, { bestEffort: true })
-        }
       }
       // ── 纯函数:影子候选名只认 .js/.cjs/.mjs → .ts/.tsx 这一个方向 ──
       ok(
@@ -5019,6 +5094,14 @@ async function main() {
   const takeTheirs = new Set()
   for (let i = 0; i < argv.length; i++)
     if (argv[i] === '--take-theirs' && argv[i + 1]) takeTheirs.add(argv[++i])
+  // --take-theirs-doc <path>(可重复,2026-10-27):活文档专用 —— 整份 blob 取对侧、跳过行级 union。
+  //   为什么与 --take-theirs 分开:活文档走 1) 的行级 union,路径级选边在那里**不生效**,
+  //   对侧滞后的基线形态会照旧并回结果(生产签出实测 121 行回灌)。本旗标让"整份取对侧"
+  //   真正落到树上,自证语义 = 合并树该路径 blob 逐字等于对侧 blob(见 verifyUnion 该分支)。
+  //   纪律照抄 --take-ours/--take-theirs:逐条声明、逐条打印、写进合并提交信息,绝不默认生效。
+  const takeTheirsDocs = new Set()
+  for (let i = 0; i < argv.length; i++)
+    if (argv[i] === '--take-theirs-doc' && argv[i + 1]) takeTheirsDocs.add(argv[++i])
   // --resolve <path>=<文件>(可重复):人工判完冲突后的**回灌出口**。与 --take-ours 的关键区别:
   //   它不选边 —— 喂进来的整份内容照样过"两侧独有行不得减少"的断言,少哪一侧当场 violations。
   // --union-capped <path>=<文件>(可重复,G-585):同一个入口,但先按"两侧最大值"机械封顶多余副本
@@ -5206,7 +5289,6 @@ async function main() {
       if (m.has(line)) {
         console.log(`❌ --declare-side-loss ${doc} 第 ${k + 1} 项与前一条同 line(一行两条裁定 ⇒ 歧义,拒绝执行)`)
         process.exit(2)
-      }
       m.set(line, { why: d.why.trim() })
     }
     declaredLoss.set(doc, m)
@@ -5279,9 +5361,10 @@ async function main() {
     supersede.size ? supersede : null,
     foldKeep.size ? foldKeep : null,
     declaredLoss.size ? declaredLoss : null,
+    takeTheirsDocs.size ? takeTheirsDocs : null,
   )
   console.log(
-    `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 删除随合并传播 ${p.propagatedDeletes?.length ?? 0} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
+    `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 活文档整份取对侧 ${p.keptTheirsDocs?.length ?? 0} / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 删除随合并传播 ${p.propagatedDeletes?.length ?? 0} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
   )
   for (const d of p.skippedDeletes)
     console.log(
@@ -5324,6 +5407,16 @@ async function main() {
   for (const r of p.keptTheirs || [])
     console.log(
       `  · 取对侧(已声明):${r} —— 本侧在该路径的独有行被取代(同一行两种写法,--resolve 无解);声明者须附"哪一份是被消费的"取证`,
+    )
+  // --take-theirs-doc 的逐条点名与未判定格(2026-10-27):与 keptTheirs 同一条留痕纪律 ——
+  // 整份取代必须当着落地这一刻说清,未判定的声明更要报出"它没生效"(落地闸会拦,但不许安静)。
+  for (const r of p.keptTheirsDocs || [])
+    console.log(
+      `  · 活文档整份取对侧(已声明 --take-theirs-doc):${r} —— 行级 union 已跳过,该路径整 blob 等于对侧(对侧行级 union 会回灌滞后基线时才用,声明者须附取证)`,
+    )
+  for (const u of p.takeTheirsDocsUndetermined || [])
+    console.log(
+      `  ⚠️ 未判定:--take-theirs-doc ${u.doc} —— ${u.reason};该声明未生效,落地闸已按未判定点名(不记通过)`,
     )
   // 副本指针 cap 必须**当着落地那一刻**打出来 —— 它不是违规,但把它静默折进"0 丢失"就等于
   // 用一条从未被点名的例外,替下一次的人做出"什么都没少"的判断(§"把没判写成判过了"同一条禁令)。
@@ -5419,6 +5512,9 @@ async function main() {
       ? `;影子 .js 未随合并恢复(同一份字节): ${p.shadowRestores.map((x) => `${x.path}⇔${x.twin}`).join(' ')}`
       : '') +
     (p.keptTheirs?.length ? `;取对侧(已声明+可复核): ${p.keptTheirs.join(' ')}` : '') +
+    (p.keptTheirsDocs?.length
+      ? `;活文档整份取对侧(已声明 --take-theirs-doc,整 blob 等于对侧、跳过行级 union): ${p.keptTheirsDocs.join(' ')}`
+      : '') +
     (p.acceptedGrowth?.length
       ? `;已声明放行的量纲放大(带理由,非静默): ${p.acceptedGrowth.join(' | ')}`
       : '') +
@@ -5443,7 +5539,6 @@ async function main() {
       ? `;声明式取代 ${supCredits.length} 行(--supersede 声明 + attestFoldPair 四问通过;逐条见 ${supCredits
           .map((s) => `${s.kind}←${String(s.dropped).slice(0, 24)}`)
           .join(' / ')})`
-      : '') +
     // 逐行声明放过的对侧少带必须进提交信息:落地闸只留下"过了",可追责的凭据在信息里(与上两格同纪律)。
     (lossCredits.length
       ? `;逐行声明放过的对侧少带 ${lossCredits.length} 行(--declare-side-loss 逐行声明 + 逐条带原因;` +
@@ -5521,7 +5616,6 @@ async function main() {
     } catch {
       /* 末行不是 JSON ⇒ 只报"没读到",不得把它当成对齐失败或成功 */
     }
-    console.log(
       `  🧹 落地后现场对齐:漂移 ${a.aligned ?? '?'} / 索引刷新 ${a.refreshed ?? '?'} / 落地欠回写 ${a.landingAligned ?? '?'}` +
         (a.landingHeld?.length ? ` —— 另有 ${a.landingHeld.length} 格证明不了归属,只报数不代裁` : ''),
     )
@@ -5529,7 +5623,6 @@ async function main() {
       console.log(
         `  ⚠️ 对齐子进程未完成(exit=${al.status ?? 'n/a'}${al.error ? ` / ${String(al.error.message).slice(0, 80)}` : ''})⇒ 不影响本轮结论,守护下一拍补`,
       )
-    }
   } catch (e) {
     console.log(`  ⚠️ 落地后对齐未派成(不影响本轮结论):${String(e?.message ?? e).slice(0, 160)}`)
   }
@@ -5550,8 +5643,6 @@ async function main() {
   if (affected.verdict === 2) {
     console.error(
       `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚合并已在 HEAD ${sha.slice(0, 11)}(不回滚),请人工复跑点名臂`,
-    )
-  }
   process.exit(lost.lost.length || affected.verdict === 1 ? 1 : affected.verdict === 2 ? 2 : 0)
 }
 

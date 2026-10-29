@@ -2,12 +2,14 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
 // 2026-07-24 国安级升级:argon2id 密码哈希(抗 GPU/ASIC),兼容老 bcrypt 透明升级
-import { hashPassword, verifyPassword, upgradeHashIfNeeded } from '../utils/password-crypto.js'
+import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
+import { transparentlyUpgradePasswordHash } from '../services/login-hash-upgrade.js'
+import { config } from '../config/index.js'
 import { verifyRefreshToken, createFamilyId, type JWTPayload } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
@@ -26,6 +28,7 @@ import {
   revokeAllUserRefreshTokens,
   isSystemAdminUser,
 } from '../db/queries.js'
+import { recordSecurityEvent } from '../db/security-logs-queries.js'
 import { getUserPermissions } from '../db/rbac-queries.js'
 import { findInvitationByCode, markInvitationUsed } from '../db/promotion-queries.js'
 import { earnPoints } from '../services/points-service.js'
@@ -41,8 +44,6 @@ import { wechatAppCode2session, isWechatAppConfigured } from '../services/oauth-
 import { findThirdPartyAccount, createThirdPartyBinding } from '../db/oauth-queries.js'
 import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
-// 陈旧副本的稳定错误码与端内判据单源(shared 一份,后端只发码、不复刻分型)
-import { REFRESH_TOKEN_STALE_ERROR_CODE } from '@ihui/shared/auth/auto-login-policy'
 import {
   getCodeEntry,
   putCodeEntry,
@@ -57,9 +58,16 @@ import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/tot
 import {
   buildSendCodePayload,
   consumeSendQuota,
+  refundSendQuota,
   sendCodePreSerialization,
 } from '../utils/code-echo-guard.js'
-import { deliverSmsCode, smsCodeTtlMs, isSmsConfigured } from '../services/sms.js'
+import {
+  deliverSmsCode,
+  smsCodeTtlMs,
+  isSmsConfigured,
+  extractSmsSendGuard,
+} from '../services/sms.js'
+import { sendNoticeSmsToUser, sendNoticeSmsToPhone } from '../services/sms-notify.js'
 import type { SmsScene } from '../services/sms-types.js'
 import { ErrorCode } from '../errors/codes.js'
 import { sendVerificationEmail } from '../services/email-service.js'
@@ -78,6 +86,7 @@ import {
   recordAuthLoginAnomaly,
 } from '../plugins/business-metrics.js'
 import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
+import { QR_AGREEMENT_REQUIRED, isQrSessionAgreed } from '../services/qr-login-agreement.js'
 
 /**
  * G-642(2026-09-29):设备指纹落库前归一 —— trim 首尾空白;归一后为空(如 " ")视为
@@ -155,7 +164,8 @@ const smsLoginSchema = z.object({
   phone: z
     .string()
     .length(11, '手机号必须为 11 位')
-    .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+    // 2026-10-26 海外登录策略:手机验证码登录仅限中国大陆号码,海外用户走 Google 授权。
+    .regex(/^1[3-9]\d{9}$/, '仅支持中国大陆手机号登录，海外用户请使用 Google 登录'),
   code: z.string().length(6, '验证码必须为 6 位'),
 })
 
@@ -303,6 +313,11 @@ const qrTicketSchema = z.object({
   ticket: z.string().min(1, 'ticket 不能为空'),
 })
 
+/** PC 端生成二维码时把「已同意条款」写入扫码会话(唯一真相源,判据见 qr-login-agreement)。 */
+const qrGenerateSchema = z.object({
+  agreementAccepted: z.boolean().optional(),
+})
+
 /** QR 登录 token 对(与 buildTokenPair 返回结构一致) */
 interface QrTokenPair {
   accessToken: string
@@ -317,8 +332,20 @@ interface QrTokenPair {
  * - confirmed: 移动端已确认,PC 端轮询可拿到 token 对 + userId
  */
 type QrLoginState =
-  | { status: 'pending'; userId: null; createdAt: string }
-  | { status: 'confirmed'; userId: string; tokens: QrTokenPair; createdAt: string }
+  | {
+      status: 'pending'
+      userId: null
+      createdAt: string
+      /** 生成二维码时由 PC 端写入;扫码确认与发 token 都读这一格(判据见 qr-login-agreement)。 */
+      agreementAccepted?: boolean
+    }
+  | {
+      status: 'confirmed'
+      userId: string
+      tokens: QrTokenPair
+      createdAt: string
+      agreementAccepted?: boolean
+    }
 
 // =============================================================================
 // 路由
@@ -329,13 +356,24 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   // 覆盖 /login /login/sms /login/email,未配置 TURNSTILE_SECRET_KEY 时 verifyTurnstile 内部放行
   // 客户端未提供 turnstileToken 时放行(兼容未启用 Turnstile 的旧客户端)
   server.addHook('preHandler', async (request, reply) => {
-    const loginPaths = new Set(['/login', '/login/sms', '/login/email'])
-    const routeUrl = request.routeOptions?.url
-    if (!routeUrl || !loginPaths.has(routeUrl)) return
+    // 2026-10-27 修复:routeOptions.url 是含注册前缀的全路径(如 /api/auth/login),
+    // 原实现对 Set 里的裸路径做全等比较恒不命中 ⇒ 钩子自 2026-08-01 上线起从未执行过。
+    // 改为后缀匹配,天然覆盖前缀。
+    const loginPaths = ['/login', '/login/sms', '/login/email']
+    const routeUrl = request.routeOptions?.url ?? ''
+    if (!routeUrl || !loginPaths.some((p) => routeUrl.endsWith(p))) return
 
     const body = request.body as Record<string, unknown> | undefined
     const token = body?.turnstileToken
-    if (typeof token !== 'string' || !token) return
+    if (typeof token !== 'string' || !token) {
+      // 2026-10-27 加固:服务端启用了 Turnstile(TURNSTILE_SECRET_KEY 已配置)时,
+      // 客户端"省略字段"= 绕过尝试,一律拒绝 —— 原写法不传 token 直接放行,
+      // 等于脚本打 /login 可以完全跳过人机验证(密码喷洒敞口)。
+      if (process.env.TURNSTILE_SECRET_KEY) {
+        return reply.code(403).send(error(403, '人机验证失败,请重试'))
+      }
+      return
+    }
 
     try {
       const result = await verifyTurnstile(token, request.ip)
@@ -434,9 +472,20 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 2026-10-22 根治:这里过去只写一行"验证码已生成"的日志,从不投递 ——
       // 响应却回"已发送",于是用户永远在等那条根本不会来的短信。现在真发,且发不出去就如实报错。
-      const delivery = await deliverSmsCode(phone, code, parsed.data.scene)
+      const delivery = await deliverSmsCode(
+        phone,
+        code,
+        parsed.data.scene,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!delivery.sent) {
+        // 没发出去就退还本标识 + IP 的取码配额,避免通道抖动一次就锁住用户 10 分钟
+        await refundSendQuota(phone, request.ip)
         request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
+        // IP/设备防刷命中与云侧失败必须区分:前者是客户端该退避,后者是通道问题
+        if (delivery.reason?.startsWith('rate_limited')) {
+          return reply.status(429).send(error(429, '请求过于频繁,请稍后再试'))
+        }
         return reply.status(502).send(error(502, '验证码发送失败,请稍后重试'))
       }
 
@@ -752,7 +801,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         // 的 7s 退避追不上 60s 窗口)。dev 放宽到 200 次/分钟;production 保持 5 次/分钟。
         // (账号锁定防爆破机制 recordLoginFailure/getLockRemainingMs 独立生效,不受影响)
         rateLimit:
-          process.env.NODE_ENV !== 'production'
+          // 档位判定走 config.isProductionGuard 单源(2026-10-27 收口,同 server.ts)
+          !config.isProductionGuard
             ? { max: 200, timeWindow: '1 minute' }
             : { max: 5, timeWindow: '1 minute' },
       },
@@ -825,21 +875,15 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       await clearLoginFailures(account, ip)
 
       // 2026-07-24 国安级升级:透明升级老 bcrypt 哈希到 argon2id(抗 GPU/ASIC)
-      // 登录成功后自动迁移,用户无感知,无需强制重置密码
-      // 2026-07-24 修复:system admin 等不可变用户(immutability trigger)updateUser 会抛
-      // PostgresError 导致 login 500。改为 try/catch 容错,升级失败仅 log 不阻断登录流程。
-      const upgradedHash = await upgradeHashIfNeeded(password, user.passwordHash)
-      if (upgradedHash) {
-        try {
-          await updateUser(user.id, { passwordHash: upgradedHash })
-          request.log.info({ userId: user.id }, '密码哈希已透明升级 bcrypt→argon2id')
-        } catch (hashErr) {
-          request.log.warn(
-            { err: String(hashErr), userId: user.id },
-            '密码哈希透明升级失败(可能是 system admin 不可变用户触发 trigger),跳过升级,登录流程继续',
-          )
-        }
-      }
+      // 登录成功后自动迁移,用户无感知,无需强制重置密码。
+      // 2026-10-28:判据与"升级失败绝不阻断登录"的容错抽到 services/login-hash-upgrade.ts,
+      // 由三个登录入口共用(此前只有这一处内联实现，另两个入口只验不升)。
+      await transparentlyUpgradePasswordHash({
+        userId: String(user.id),
+        password,
+        currentHash: user.passwordHash,
+        log: request.log,
+      })
 
       // 风控评估：异常 IP / 异地登录检测（命中异地登录/异常 IP 时异步触发登录异常通知）
       const risk = evaluateLoginRisk({
@@ -1019,6 +1063,15 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       await clearLoginFailures(phone, ip)
 
+      // 2026-10-28 普查发现：本入口（别名密码登录）此前只 verify 不升级哈希，
+      // 与 /auth/login 行为不一致 —— 弱哈希一旦经此路登录就永远升不上去。现补同一出口调用。
+      await transparentlyUpgradePasswordHash({
+        userId: String(user.id),
+        password,
+        currentHash: user.passwordHash,
+        log: request.log,
+      })
+
       // 风控评估（命中异地登录/异常 IP 时异步触发登录异常通知）
       const risk = evaluateLoginRisk({
         userId: String(user.id),
@@ -1118,6 +1171,25 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (user.status !== 1) {
         recordAuthLoginFailed(request.ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
+      }
+
+      // 2FA 一致性(2026-10-27 修旁路):短信验证码登录同样必须过 TOTP,
+      // 否则"SIM 劫持/短信截获 + 密码未知"路径完全绕过两步验证。
+      if (user.twoFactorEnabled) {
+        const challengeToken = await signChallengeToken({
+          userId: user.id,
+          phone: user.phone ?? '',
+          familyId: '',
+          roleId: user.roleId ?? 0,
+        })
+        request.skipResponseSanitization = true
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken,
+            expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+          }),
+        )
       }
 
       request.skipResponseSanitization = true
@@ -1288,7 +1360,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       const user = await findUserByEmail(email)
       if (!user) {
-        return reply.status(404).send(error(404, '邮箱未注册'))
+        // 防枚举(CWE-204,2026-10-27):未注册邮箱返回与已注册一致的模糊响应,
+        // 不发送真实邮件 —— 原 404「邮箱未注册」可被批量探测注册名单。
+        return reply.send(success({ sent: true, message: '若邮箱已注册,验证码已发送' }))
       }
 
       const existing = await getCodeEntry(email)
@@ -1403,26 +1477,32 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           return reply.status(401).send(error(401, 'Invalid refresh token'))
         }
         if (replay.verdict === 'stale-sibling') {
-          // 迟到的是陈旧副本(桌面 vault 旧值 / 停在旧页签的上下文 / 另一台设备),
-          // 这一族还有活 token ⇒ 只拒绝本次:不签发、不吊销,正常会话不受影响。
-          // 吊销整族正是"三端同时被踢、关掉再打开就要重新登录"的放大器(2026-10-20)。
+          // 迟到的是陈旧副本(桌面 vault 旧值 / 停在旧页签的上下文 / 另一台设备 /
+          // 刷新响应被 API 重启打断后浏览器仍留着旧 cookie),这一族还有活 token。
+          // 2026-10-27 根治:此前这里 401 拒绝,把「凭据在、族也活着」的用户永久锁在门外
+          // (生产日志连续 [security] stale ... rejected without revoking,每次只能手登并
+          // 新建 family,年复一年累积上千条会话记录)。族还活着就说明会话没死,放行正常轮转:
+          // 旧 token 已是吊销态(下方第 4 步跳过重复 revoke,窗口不滑动),新 token 续在同一
+          // family。留 warn 便于观测旧副本的出现频率。
           request.log.warn(
             {
               familyId: payload.familyId,
               userId: payload.userId,
               revokedAgeMs: replay.revokedAgeMs,
             },
-            '[security] stale refresh token replay while family still alive, rejected without revoking',
+            '[auth] stale refresh token replay recovered by rotation (family still alive)',
           )
-          return reply
-            .status(401)
-            .send(error(401, 'Invalid refresh token', REFRESH_TOKEN_STALE_ERROR_CODE))
+        } else {
+          // race:宽限期内竞态放行,记 info 便于观测,不吊销家族,继续下方正常轮转流程
+          request.log.info(
+            {
+              familyId: payload.familyId,
+              userId: payload.userId,
+              revokedAgeMs: replay.revokedAgeMs,
+            },
+            '[auth] refresh token replay within leeway, treated as multi-context race',
+          )
         }
-        // race:宽限期内竞态放行,记 info 便于观测,不吊销家族,继续下方正常轮转流程
-        request.log.info(
-          { familyId: payload.familyId, userId: payload.userId, revokedAgeMs: replay.revokedAgeMs },
-          '[auth] refresh token replay within leeway, treated as multi-context race',
-        )
       }
 
       // 3. 确认用户仍然存在且启用
@@ -1499,18 +1579,35 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             .string()
             .regex(/^1[3-9]\d{9}$/)
             .optional(),
+          // 2026-10-27 安全加固:改绑 email/phone 属账号凭据变更,必须携带当前密码确认。
+          // 原实现仅凭会话即可静默改绑 —— 借临时会话(XSS/借机)把受害者邮箱改成攻击者
+          // 自己的,随后走邮箱验证码登录实现持久接管。
+          currentPassword: z.string().min(1).max(200).optional(),
         })
         .safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { nickname, email, phone } = parsed.data
+      const { nickname, email, phone, currentPassword } = parsed.data
       if (nickname === undefined && email === undefined && phone === undefined) {
         return reply.status(400).send(error(400, '没有可更新的字段'))
       }
 
       const user = await findUserById(userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
+
+      const rebinding =
+        (email !== undefined && email !== user.email) ||
+        (phone !== undefined && phone !== user.phone)
+      if (rebinding) {
+        if (
+          !currentPassword ||
+          !user.passwordHash ||
+          !(await verifyPassword(currentPassword, user.passwordHash))
+        ) {
+          return reply.status(403).send(error(403, '改绑手机/邮箱需要验证当前密码'))
+        }
+      }
 
       if (email !== undefined && email !== user.email) {
         const byEmail = await findUserByEmail(email)
@@ -1526,6 +1623,19 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const updated = await updateUser(userId, { nickname, email, phone })
+      if (rebinding) {
+        // 改绑凭据后吊销全部 refresh token:旧会话(含潜在攻击者持有的)全部失效,
+        // 阻断"改绑 → 邮箱/短信验证码登录"的持久接管链。当前请求方重新登录即可。
+        await revokeAllUserRefreshTokens(userId)
+        await recordSecurityEvent(
+          { ip: request.ip, headers: request.headers, userId },
+          'account.rebind',
+          {
+            emailChanged: email !== undefined && email !== user.email,
+            phoneChanged: phone !== undefined && phone !== user.phone,
+          },
+        ).catch(() => {})
+      }
       const permissions = await resolveUserPermissions(updated.id, updated.roleId)
       return reply.send(success({ user: publicUser(updated, permissions) }))
     },
@@ -1633,9 +1743,20 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       await putCodeEntry(phone, entry)
       // 与 /send-code 同口径:真投递,失败如实报错(这支是小程序登录实际在打的端点)
-      const delivery = await deliverSmsCode(phone, code, parsed.data.scene)
+      const delivery = await deliverSmsCode(
+        phone,
+        code,
+        parsed.data.scene,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!delivery.sent) {
+        // 没发出去就退还本标识 + IP 的取码配额,避免通道抖动一次就锁住用户 10 分钟
+        await refundSendQuota(phone, request.ip)
         request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
+        // IP/设备防刷命中与云侧失败必须区分:前者是客户端该退避,后者是通道问题
+        if (delivery.reason?.startsWith('rate_limited')) {
+          return reply.status(429).send(error(429, '请求过于频繁,请稍后再试'))
+        }
         return reply.status(502).send(error(502, '验证码发送失败,请稍后重试'))
       }
       // G-192:默认不回显验证码;仅显式调试开关 + development 档 + loopback/内网三条件同时成立才回显
@@ -1668,11 +1789,16 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, '原密码错误'))
       }
       // updated 由委托侧 UPDATE … RETURNING 的行存在性派生(守门 134),不再回字面量 true。
-      const updatedUser = await updateUser(request.userId!, {
-        passwordHash: await hashPassword(newPassword),
-      })
+      const nextPasswordHash = await hashPassword(newPassword)
+      const updatedUser = await updateUser(request.userId!, { passwordHash: nextPasswordHash })
       // 2026-07-24 安全加固:密码修改后吊销所有 refresh token(与重置密码对齐)
       await revokeAllUserRefreshTokens(request.userId!)
+      // 安全类短信:改密后必须让用户知道(不受通知偏好约束),失败不影响改密结果。
+      // bizId 用新密码哈希的短摘要而不是 Date.now():同一改密请求重试时键不变,幂等闸才能去重。
+      void sendNoticeSmsToUser(request.userId!, 'password-changed', {
+        bizType: 'auth',
+        bizId: `pwd:${request.userId!}:${createHash('sha256').update(nextPasswordHash).digest('hex').slice(0, 12)}`,
+      })
       // updated 由委托侧 UPDATE … RETURNING 的命中行存在性派生(守门 134),不再回字面量 true。
       return reply.send(success({ updated: Boolean(updatedUser.id) }))
     },
@@ -1691,7 +1817,16 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           .status(statusCode)
           .send(error(statusCode, toUserFriendlyMessage(e) || '操作失败,请稍后重试'))
       }
+      // 注销会清空 PII(含手机号),所以先取号、注销成功后再用捕获的号码发确认短信
+      const phoneBeforeCancel = (await findUserById(request.userId!))?.phone ?? null
       await cancelUserAccount(request.userId!)
+      if (phoneBeforeCancel) {
+        // 注销是一次性事件,bizId 必须稳定(重复调用/重试都指向同一事件)。
+        void sendNoticeSmsToPhone(phoneBeforeCancel, 'account-cancel', {
+          bizType: 'auth',
+          bizId: `cancel:${request.userId!}`,
+        })
+      }
       return reply.send(success({ cancelled: true }))
     },
   )
@@ -1802,14 +1937,26 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/qr/generate',
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
-    async (_request, reply) => {
+    async (request, reply) => {
+      // 协议同意由 PC 端在进入扫码面板时采集(复用共享协议弹窗),随会话一并落 Redis。
+      // 缺省/非法值不阻断出码,但 `agreementAccepted` 只会是 false ⇒ 后续确认/领取 token
+      // 都会被 isQrSessionAgreed 拒掉(fail-closed),不会出现"未同意仍换到 token"。
+      const parsed = qrGenerateSchema.safeParse(request.body ?? {})
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
       const redis = getRedis()
       if (!redis) {
         return reply.status(503).send(error(503, 'Redis 未配置,无法生成二维码'))
       }
       const ticket = `qr_${randomUUID()}`
       const now = new Date().toISOString()
-      const state: QrLoginState = { status: 'pending', userId: null, createdAt: now }
+      const state: QrLoginState = {
+        status: 'pending',
+        userId: null,
+        createdAt: now,
+        agreementAccepted: parsed.data.agreementAccepted === true,
+      }
       try {
         await redis.set(
           QR_LOGIN_KEY_PREFIX + ticket,
@@ -1818,7 +1965,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           QR_LOGIN_TTL_SECONDS,
         )
       } catch (e) {
-        _request.log.error({ err: e }, '[qr] generate: redis set failed')
+        request.log.error({ err: e }, '[qr] generate: redis set failed')
         return reply.status(500).send(error(500, '二维码生成失败,请稍后重试'))
       }
       const expiresAt = new Date(Date.now() + QR_LOGIN_TTL_SECONDS * 1000).toISOString()
@@ -1827,9 +1974,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // GET /qr/status - PC 端轮询扫码登录状态(未鉴权)
+  // 限流必须比 PC 端轮询频率(2s/次 = 30 次/分钟)高一倍:原 max=30 与轮询等量,
+  // 一次偶发的第 31 帧(双标签页、代理重试)即 429,面板会当成终态把码停轮。
   server.get(
     '/qr/status',
-    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const parsed = qrTicketSchema.safeParse(request.query)
       if (!parsed.success) {
@@ -1859,6 +2008,21 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       if (state.status === 'pending') {
         return reply.send(success({ status: 'pending' as const }))
+      }
+      // 发 token 前的最后一道闸:会话未同意条款 ⇒ 不交付 token(旧版本遗留的
+      // confirmed 票据、或被直接改写的 Redis 值都在这里被拦住)。判据单源见
+      // services/qr-login-agreement.ts,与 /qr/confirm 共用,不在此另写一份。
+      if (!isQrSessionAgreed(state)) {
+        try {
+          await redis.del(QR_LOGIN_KEY_PREFIX + ticket)
+        } catch (e) {
+          request.log.warn({ err: e }, '[qr] status: redis del failed (non-fatal)')
+        }
+        return reply
+          .status(403)
+          .send(
+            error(403, '该扫码登录会话未同意用户协议与隐私政策,请重新扫码', QR_AGREEMENT_REQUIRED),
+          )
       }
       // state.status === 'confirmed':一次性删除 key,防止 token 被重复领取
       try {
@@ -1915,6 +2079,27 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!raw) {
         return reply.status(404).send(error(404, '二维码已过期或不存在'))
       }
+      // 2026-10-27 加固:此处原先只看 key 在不在,不校验状态 ⇒ 已被 A 确认过的票据
+      // 可被第二台设备(B)重复确认,写回 B 的 token 对,而 PC 端轮询拿到的是"最后写入"
+      // 那一枚 —— 等于 A 授权、B 换脸。非 pending 一律拒签(409)。
+      let state: QrLoginState
+      try {
+        state = JSON.parse(raw) as QrLoginState
+      } catch {
+        return reply.status(404).send(error(404, '二维码已过期或不存在'))
+      }
+      if (state.status !== 'pending') {
+        return reply.status(409).send(error(409, '该二维码已被使用,请在电脑端刷新后重新扫码'))
+      }
+      // 扫码确认即发 token 的起点:会话未同意条款 ⇒ 拒绝确认,不签发任何凭据。
+      // 判据与 /qr/status 共用 services/qr-login-agreement.ts,不得在此另写一份。
+      if (!isQrSessionAgreed(state)) {
+        return reply
+          .status(403)
+          .send(
+            error(403, '请先在电脑端同意用户协议与隐私政策,再扫码确认登录', QR_AGREEMENT_REQUIRED),
+          )
+      }
       // 加载用户信息,签发 token 对(复用 buildTokenPair,与正常登录一致)
       const user = await findUserById(userId)
       if (!user || user.status !== 1) {
@@ -1934,6 +2119,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         userId,
         tokens,
         createdAt: new Date().toISOString(),
+        agreementAccepted: state.agreementAccepted === true,
       }
       try {
         // 保留剩余 TTL(用 ttl 续期,避免 confirm 时 key 已临近过期被写回 300s)

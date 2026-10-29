@@ -750,6 +750,102 @@ async def test_g941_loop_producer_chain_end_to_end_baseline_not_swallowed(tmp_pa
     assert agg["total_tokens_in"] == 1000 + 1000 + 500 == 2500
 
 
+def test_g941_finish_run_syncs_three_chains_workflow_never_merges_main(tmp_path: Path):
+    """G-941 真判别维度:同 session、同 tool_name="llm" 的 main/subagent/workflow
+    三条链经「录制→收尾入账→聚合」各持独立基线,谁也不吃谁。
+
+    只按 tool_name 分桶的旧口径下,三条链同一条基线:1000 + 0 + 0 + 500 + 0 + 0
+    = 1500(少计三分之二)。分链后 1500×3 = 4500。
+    """
+    ld = _ledger(tmp_path)
+    rec = _recorder(tmp_path)
+    plan = [
+        (CHAIN_MAIN, 1000),
+        (CHAIN_SUBAGENT, 1000),
+        (CHAIN_WORKFLOW, 1000),
+        (CHAIN_MAIN, 1500),
+        (CHAIN_SUBAGENT, 1500),
+        (CHAIN_WORKFLOW, 1500),
+    ]
+    for idx, (chain, prompt) in enumerate(plan):
+        rec.append_step("run-g941-wf", {
+            "type": "llm", "tool_name": "llm", "chain": chain,
+            "tokens_in": prompt, "tokens_out": 10, "tokens": prompt + 10,
+            "at": f"2026-10-27T00:00:{idx:02d}Z",
+        })
+
+    out = rec.finish_run("run-g941-wf", user_id="u1", session_id="s-g941-wf", ledger=ld)
+    assert out["synced"] == 6
+
+    # 环①:workflow 链别在录制→入账路径上不被丢(丢了就落"未判定"桶)
+    entries = ld._filtered({"session_id": "s-g941-wf"})
+    assert {e["chain"] for e in entries} == {CHAIN_MAIN, CHAIN_SUBAGENT, CHAIN_WORKFLOW}
+    assert {e["tool_name"] for e in entries} == {"llm"}  # 三链共用同一个 tool_name
+
+    agg = ld.aggregate()
+    assert agg["total_tokens_in"] == 1500 * 3 == 4500
+    # 三链各落一桶、各 2 步、各 1500(1000 首条 + 500 增量)
+    by_chain = agg["by_chain"]
+    assert set(by_chain) == {CHAIN_MAIN, CHAIN_SUBAGENT, CHAIN_WORKFLOW}
+    for chain in (CHAIN_MAIN, CHAIN_SUBAGENT, CHAIN_WORKFLOW):
+        assert by_chain[chain]["steps"] == 2
+        assert by_chain[chain]["tokens_in"] == 1500
+    # by_tool 按 tool_name 仍合桶 —— 合的是展示,基线不共用才是本票的判据
+    assert agg["by_tool"]["llm"]["tokens_in"] == 4500
+
+    # 收尾幂等:同一 run 再收一次尾,账不重复记(走同一张方向表逐列合并)
+    again = rec.finish_run("run-g941-wf", user_id="u1", session_id="s-g941-wf", ledger=ld)
+    assert again["synced"] == 0
+    assert again["skipped"] == 6
+    assert ld.count() == 6
+    assert ld.aggregate()["total_tokens_in"] == 4500
+
+
+def test_g941_finish_run_degrades_without_breaking_the_caller(tmp_path: Path):
+    """收尾入账是**可观测面**:账本不可用 ⇒ 只 warning、如实回 synced=0,不得抛穿调用方。"""
+    rec = _recorder(tmp_path)
+    rec.append_step("run-g941-broken", {
+        "type": "llm", "tool_name": "llm", "chain": CHAIN_WORKFLOW,
+        "tokens_in": 1000, "tokens_out": 10, "tokens": 1010,
+    })
+
+    class _BrokenLedger:
+        def sync_from_recorder(self, *args, **kwargs):
+            raise RuntimeError("账本不可用")
+
+    out = rec.finish_run("run-g941-broken", session_id="s-broken", ledger=_BrokenLedger())
+    assert out["run_id"] == "run-g941-broken"
+    assert out["synced"] == 0
+    assert "账本不可用" in out["error"]
+    # 录制本身不受影响(降级只发生在入账那一环)
+    assert rec.get_run_metrics("run-g941-broken")["step_count"] == 1
+
+
+
+def test_g941_finish_run_defaults_to_the_global_ledger_singleton(tmp_path, monkeypatch):
+    """接线另一半:`ledger` 缺省时真取到全局账本单例,而不是静默落降级面。
+
+    这条腿若断(延迟 import 打错名字/被 except 吞掉),生产上每次都只 warning +
+    synced=0 —— 返回值仍是"收尾完成"的形状,账本却一行不进,正是本票要消灭的
+    "录好了不入账"。故用替身单例锁住:不传 ledger 时条目必须落到那本账上。
+    """
+    import app.services.cost_ledger as ledger_mod
+
+    ld = _ledger(tmp_path)
+    monkeypatch.setattr(ledger_mod, "cost_ledger", ld)
+    rec = _recorder(tmp_path)
+    for chain in (CHAIN_MAIN, CHAIN_WORKFLOW):
+        rec.append_step("run-g941-singleton", {
+            "type": "llm", "tool_name": "llm", "chain": chain,
+            "tokens_in": 1000, "tokens_out": 10, "tokens": 1010,
+        })
+
+    out = rec.finish_run("run-g941-singleton", user_id="u1", session_id="s-singleton")
+    assert out == {"run_id": "run-g941-singleton", "synced": 2, "skipped": 0}
+    assert ld.count() == 2
+    assert set(ld.aggregate()["by_chain"]) == {CHAIN_MAIN, CHAIN_WORKFLOW}
+
+
 # =============================================================================
 # 同 record_id 二次投递的逐列定向合并(G-822,2026-09-29)
 # 旧行为:同 id ⇒ return {"appended": False} 整条丢弃 ⇒ 迟到的完成事件永远进不了账。

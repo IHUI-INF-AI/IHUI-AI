@@ -25,7 +25,7 @@ import type {
 } from './hands-contract.js'
 
 /** 深度优先遍历,返回首个满足 predicate 的节点(含 root);找不到返回 null。 */
-export function findNode(
+function findNode(
   root: UiNodeSchema,
   predicate: (node: UiNodeSchema) => boolean,
 ): UiNodeSchema | null {

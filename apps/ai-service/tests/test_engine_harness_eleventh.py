@@ -187,6 +187,55 @@ def test_sanitized_child_env_strips_dangerous_vars(monkeypatch):
     assert "PATH" in env
 
 
+@pytest.mark.skipif(
+    os.name != "nt",
+    reason="只对 Windows 的 cmd.exe 控制台代码页成立;POSIX 会话本就是 UTF-8",
+)
+async def test_unified_exec_survives_non_ascii_command_and_output(tmp_path):
+    """含非 ASCII 路径的命令必须真的被执行,中文回显不得被打成替换符。
+
+    2026-10-26 实测缺陷(两个方向同源):
+    - 写入侧:命令按 UTF-8 写进 cmd.exe 的 stdin,cmd 按控制台 OEM 代码页(中文机
+      cp936)解码 ⇒ 中文路径变乱码 ⇒ 只回一句「系统找不到指定的路径」,**命令一次
+      都没执行**(对照组:同一行命令按 GBK 写入则完全正常)。
+    - 读取侧:输出按 UTF-8 解码 ⇒ 中文提示/报错全成 U+FFFD。
+    两个方向现由 `_shell_stream_codec()` 统一;本用例用中文目录/文件名把这条路走一遍。
+    """
+    workdir = tmp_path / "中文目录"
+    workdir.mkdir()
+    target = workdir / "结果.txt"
+
+    engine = _engine()
+    started = await _rpc(engine, "thread.start", {"workspace": str(tmp_path)})
+    thread = engine._threads[started["threadId"]]
+    tool = _find_builtin(engine, thread, "unified_exec")
+
+    cmd = f'echo 中文回显 & type nul > "{target}"'
+    result = await tool.executor({"command": cmd, "timeoutMs": 15000})
+    assert not result.get("error"), result
+    text = result.get("output") or result.get("newOutput") or ""
+    # ① 命令真的执行了:中文路径上的文件被创建(只回一句报错时这里不存在)
+    assert target.exists(), f"中文路径的命令没有被执行,输出: {text!r}"
+    # ② 输出侧没把中文打成替换符
+    assert "中文回显" in text, text
+    assert "\ufffd" not in text, text
+
+
+def test_encode_shell_input_refuses_unencodable_instead_of_rewriting():
+    """编不出来的字符必须显式拒绝:静默 replace 会把命令改写成另一条再执行。"""
+    from app.services.agent_engine import _SHELL_STREAM_CODEC, _encode_shell_input
+
+    assert _encode_shell_input("echo hi") == b"echo hi\n"
+    exotic = "\U0001f9ff"  # 任何 OEM 代码页都没有这个码点
+    try:
+        expected = exotic.encode(_SHELL_STREAM_CODEC)
+    except UnicodeEncodeError:
+        assert _encode_shell_input(exotic) is None
+    else:
+        # 代码页表示得了(如 65001)⇒ 必须真编出来,不得无故拒绝
+        assert _encode_shell_input(exotic) == expected + b"\n"
+
+
 @pytest.mark.asyncio
 async def test_unified_exec_output_stripped_of_ansi(tmp_path):
     """shell 输出中的 ANSI 转义在进入缓冲前被剥离。"""

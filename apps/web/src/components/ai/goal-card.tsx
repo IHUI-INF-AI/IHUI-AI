@@ -23,6 +23,7 @@ import {
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { MyQuestsBoard } from '@/components/quests/my-quests-board'
+import { resumeSessionGoal } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 import { useGoalStore, type GoalStatus } from '@/stores/goal'
 
@@ -144,6 +145,57 @@ export function GoalCard() {
     if (!blockerDraft.trim()) return
     addBlocker(blockerDraft)
     setBlockerDraft('')
+  }
+
+  /**
+   * 控制帧 `resume_goal`(2026-10-28 立):恢复走**服务端主副本**。
+   *
+   * 三条纪律逐条对应:
+   * - **差额必须可见**:服务端回了确定的 reason 码(没有目标 / 已结束 / 本来就在进行中)
+   *   就把那句话显示出来 —— 只回一句「已恢复」等于把静默失败包装成成功态。
+   * - **失败必须给可见原因**:网络/HTTP 失败时把原因显示出来,不许静默。
+   * - **回退口径**:`ok:false` = 服务端这一轮没有这条会话的主副本(不存在 / 不属于本主体,
+   *   两种情形服务端同形回包,不给存在性预言机)⇒ 退回纯本地态、**不弹错**。
+   *
+   * 本地态先乐观改(status 变更即刻可见),服务端给出否定结论时**回滚**到原档 ——
+   * 乐观改完不回滚 = 界面停在「恢复好了」而服务端压根没这回事。
+   */
+  const handleResume = async () => {
+    const previousStatus = goal.status
+    setStatus('active')
+    // 控制帧 `resume_goal`(2026-10-28 立):恢复要落到**服务端主副本**,才谈得上
+    // 「换浏览器/换端仍看得见」——只改本地缓存的那一下,服务端那份仍停在 paused。
+    // 会话 id 取 chat store 的 conversationId(它就是端点路径里的 {session_id})。
+    const conversationId = useChatStore.getState()?.conversationId
+    if (!conversationId) {
+      // 没有会话 id ⇒ 发不出去(猜一个地址发出去的表现是「点了什么都没发生且不报错」)
+      return
+    }
+    try {
+      const ack = await resumeSessionGoal(conversationId)
+      if (ack.ok && ack.accepted) {
+        toast.success(t('resumeServerOk'))
+        return
+      }
+      if (!ack.ok) {
+        // 同形拒绝 ⇒ 退回纯本地态,功能不中断(不弹「恢复失败」)
+        return
+      }
+      // ok 但没恢复 ⇒ 有确定原因:回滚本地态并把原因显示出来
+      setStatus(previousStatus)
+      if (ack.reason === 'already_active') {
+        toast.info(t('resumeAlreadyActive'))
+      } else if (ack.reason === 'terminal') {
+        toast.error(t('resumeTerminal'))
+      } else if (ack.reason === 'no_goal') {
+        toast.error(t('resumeNoGoal'))
+      } else {
+        toast.error(t('resumeFailed', { message: ack.reason ?? '' }))
+      }
+    } catch (e) {
+      setStatus(previousStatus)
+      toast.error(t('resumeFailed', { message: (e as Error)?.message ?? '' }))
+    }
   }
 
   /** 六档取词:旧四档走本端 goalCard,新两档走跨端共享 chat.goal.status(见 STATUS_LABEL 注释) */
@@ -367,7 +419,9 @@ export function GoalCard() {
               <button
                 type="button"
                 data-testid="goal-resume"
-                onClick={() => setStatus('active')}
+                onClick={() => {
+                  void handleResume()
+                }}
                 className="flex items-center gap-1 rounded-sm border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
               >
                 <Play className="h-3 w-3" />

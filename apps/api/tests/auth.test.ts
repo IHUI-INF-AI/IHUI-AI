@@ -53,7 +53,7 @@ describe('auth — JWT 认证中间件', () => {
   })
 
   const mockPayload: JWTPayload = {
-    userId: 'user-001',
+    userId: '00000000-0000-4000-8000-000000000c01',
     roleId: 0,
     phone: '13800000001',
     familyId: 'fam-001',
@@ -75,7 +75,7 @@ describe('auth — JWT 认证中间件', () => {
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.ok).toBe(true)
-      expect(body.userId).toBe('user-001')
+      expect(body.userId).toBe('00000000-0000-4000-8000-000000000c01')
     })
 
     it('设置 request.userId 和 request.jwtPayload', async () => {

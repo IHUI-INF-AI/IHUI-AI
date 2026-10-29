@@ -197,6 +197,34 @@ export function candidateConfigPaths(cwd: string = process.cwd()): string[] {
   ]
 }
 
+// =============================================================================
+// 全平台最低版本闸门（2026-10-27 立）
+// =============================================================================
+//
+// 为什么要有这一格：web 端 lib/app-version-gate.ts 早就会读 check-update 响应的
+// `minimumVersion` 做"低于最低版本 ⇒ 强更会话"的判定，但**这个端点从来不返回该字段** ——
+// 客户端那条分支结构上不可达，等于写了不生效。这里把下发送补齐，判定仍然单一真相源
+// （客户端只做版本比较，不自己定策略）。
+//
+// 取值面刻意只有一个：环境变量 `IHUI_MIN_VERSION`（全平台通用，形如 1.2.0）。
+// 不引入文件/DB 的第二真相源 —— 需要按平台分别抬版本时，再在这里扩成表，
+// 而不是让每个调用方各自读配置（§0.6 单一真相源）。
+// 未配置与配错都返回 null（= 不拦），与服务端既有降级哲学一致：挡住全部用户比旧版本跑新契约更坏。
+
+export const APP_MIN_VERSION_ENV = 'IHUI_MIN_VERSION'
+
+/** 纯判据：只认 X.Y.Z 三段数字，其余（含空串）一律 null ⇒ 不拦。 */
+export function resolveAppMinVersion(envValue: string | undefined): string | null {
+  const raw = typeof envValue === 'string' ? envValue.trim() : ''
+  if (raw === '') return null
+  return MIN_VERSION_RE.test(raw) ? raw : null
+}
+
+/** 带 env 读取的薄包装（路由直接调用）。 */
+export function currentAppMinVersion(): string | null {
+  return resolveAppMinVersion(process.env[APP_MIN_VERSION_ENV])
+}
+
 /**
  * 带 IO 的取真值：读文件（不存在不算错）后交给纯判据。
  * 任何异常都被折进 reason，绝不抛出 —— 抛出会让这个公开接口 500，
@@ -383,6 +411,8 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
           latestVersion: version,
           forceUpdate: false,
           downloadUrl: null,
+          // 即使没有新版本，"最低版本"策略仍要下发：这是"没发新版也能一刀切抬门槛"的唯一途径
+          minimumVersion: currentAppMinVersion(),
         }),
       )
     }
@@ -396,6 +426,7 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
         forceUpdate: hasUpdate ? latest.forceUpdate : false,
         downloadUrl: latest.downloadUrl ?? null,
         releaseNotes: latest.releaseNotes ?? null,
+        minimumVersion: currentAppMinVersion(),
       }),
     )
   })

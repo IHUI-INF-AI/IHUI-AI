@@ -30,6 +30,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ..core.llm_gateway import llm_gateway
+from ..core.token_baseline import CHAIN_MAIN
 from ..services.agent_loop_v2 import AgentLoopV2, ToolDefinition
 from ..services.plan_mode import (
     READONLY_TOOLS,
@@ -195,6 +196,12 @@ async def _execute_plan(rec: Any, tool_names: frozenset[str]) -> dict[str, Any]:
             enable_checkpoint=False,
             enable_memory=False,
             approval_enabled=False,
+            # G-941 写账侧(2026-10-26):计划执行是**主链**用户请求的延续(批准人
+            # 就是发起这次对话的人),链标签取 core.token_baseline 的唯一常量源。
+            # 漏传不再是"看不出来的那格":agent_loop_v2 自本票起把缺省收成 None,
+            # 漏传 ⇒ 当场 warning + 用量落「未判定」桶(绝不并入主链),
+            # 增量基线(G-816021)因此永远读不到这一族 llm 步。
+            chain=CHAIN_MAIN,
         )
         loop_result = await loop.run(
             [

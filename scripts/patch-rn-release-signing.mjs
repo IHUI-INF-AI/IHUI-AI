@@ -81,7 +81,17 @@ const SECTIONS = [
     // 本机 build.gradle 已有一份生效的 release 签名(指向 apps/mobile-rn/credentials/release.keystore,
     // 存量 APK/AAB 就是这把证书签的)。此时再按模板锚点重注入必然匹配失败 ⇒ 整条出包链在第 1 步就断。
     // 已有 release 签名即视为"已配置",不再要求它必须读 IHUI_RELEASE_*。
-    detect: (s) => /signingConfigs \{[\s\S]{0,2000}?\n {8}release \{/.test(s),
+    // 〔2026-10-27 修误报〕旧正则 `/signingConfigs \{[\s\S]{0,2000}?\n {8}release \{/` 会被
+    // buildTypes.release 命中(prebuild 生成文件里它恰好也是 8 空格缩进、且必在 2000 字窗内)
+    // ⇒ expo prebuild 后每轮必误判"已注入" ⇒ signingConfigs 里根本没 release 块,
+    // gradle 配置期抛 `Could not get unknown property 'release' for SigningConfig container`。
+    // 收窄:只在 signingConfigs 段与 buildTypes 段**之间**找 8 空格的 release 块。
+    detect: (s) => {
+      const start = s.indexOf('    signingConfigs {')
+      const end = s.indexOf('    buildTypes {', start)
+      if (start === -1 || end === -1) return false
+      return /\n {8}release \{/.test(s.slice(start, end))
+    },
     apply: (s) =>
       s.replace(
         [
@@ -250,4 +260,34 @@ if (changed) {
   console.log(`[patch] 已写入 ${changed} 段 -> ${TARGET}`)
 } else {
   console.log('[patch] 无需改动, build.gradle 已含全部 release 签名配置')
+}
+
+// ---------- gradle.properties 内存档(2026-10-29 实测) ----------
+// 这个文件同样是 prebuild 生成物,模板给的是 `-Xmx2048m -XX:MaxMetaspaceSize=512m`。
+// 本仓 40+ 原生模块 + KSP + lintVitalAnalyzeRelease 一起跑时,512m 元空间不够:
+// 实测 `e: [ksp] java.lang.OutOfMemoryError: Metaspace` 直接把 daemon 打死,
+// 外层只看到 "Gradle build daemon disappeared unexpectedly"(不点名 OOM,极易被读成随机崩溃)。
+// 只抬高、不降低:已经比目标大的值原样保留(别的机器/别的模板给的更大档是合法的)。
+const GRADLE_PROPS = join(ROOT, 'apps', 'mobile-rn', 'android', 'gradle.properties')
+const NEED_XMX = 4096
+const NEED_META = 2048
+
+if (!existsSync(GRADLE_PROPS)) {
+  console.error(`[patch] [FAIL] gradle.properties 不存在: ${GRADLE_PROPS} (prebuild 未完成?)`)
+  process.exit(1)
+}
+const propsText = readFileSync(GRADLE_PROPS, 'utf8')
+const jvmLine = /^org\.gradle\.jvmargs=.*$/m
+const curLine = propsText.match(jvmLine)?.[0] ?? ''
+const curXmx = Number(curLine.match(/-Xmx(\d+)m/)?.[1] ?? 0)
+const curMeta = Number(curLine.match(/-XX:MaxMetaspaceSize=(\d+)m/)?.[1] ?? 0)
+if (curXmx >= NEED_XMX && curMeta >= NEED_META) {
+  console.log(`[patch] [skip] gradle.properties 内存档 (${curLine || '缺省'})`)
+} else {
+  const want = `org.gradle.jvmargs=-Xmx${NEED_XMX}m -XX:MaxMetaspaceSize=${NEED_META}m`
+  const next = jvmLine.test(propsText)
+    ? propsText.replace(jvmLine, want)
+    : `${propsText.trimEnd()}\n${want}\n`
+  writeFileSync(GRADLE_PROPS, next, 'utf8')
+  console.log(`[patch] [ok]   gradle.properties 内存档 ${curLine || '(缺行)'} -> ${want}`)
 }

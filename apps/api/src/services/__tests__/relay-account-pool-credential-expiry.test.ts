@@ -65,6 +65,9 @@ vi.mock('../../utils/crypto.js', () => ({
 // shared-state 走内存兜底(锁不碰真实 Redis)
 vi.mock('../../config/index.js', () => ({
   config: { REDIS_URL: 'redis://127.0.0.1:1/0' },
+  // config 出口新增的守卫开关:被测模块会 import 它,漏在 mock 外会让整个文件收集期就失败
+  // (vitest 报 No "isProductionGuard" export is defined on the mock —— 测试静默不跑)。
+  isProductionGuard: false,
 }))
 
 const mockPurgeAccountUsage = vi.hoisted(() => vi.fn().mockResolvedValue(0))

@@ -40,8 +40,48 @@ const CALL_SITES = [
   'apps/api/src/utils/conversation-title.ts',
   'apps/api/src/utils/semantic-summary.ts',
 ]
+/**
+ * 显式指定档位的调用点(2026-10-26 第二批收口)。
+ *
+ * 为什么单列一批:上面 4 处是「**默认**模型写死」——改走 resolveDefaultChatModel() 即可。
+ * 下面 2 处是「**显式**指定某个档位」——它们连默认解析都不经过,守卫挂在
+ * default_chat_model 上完全管不到它们 ⇒ 必须逐字换成统一解析入口,
+ * 否则退役档照样从这些点回到调用链。
+ */
+const EXPLICIT_CALL_SITES = [
+  'apps/api/src/routes/user/ai-modules-routes.ts',
+  'apps/api/scripts/backfill-all-summaries.mts',
+]
 /** 已退役的模型 id 字面量:4 个调用点里不得再出现(代码与注释 alike) */
 const RETIRED_MODEL_LITERAL = 'stepfun/step-3.7-flash'
+/** 显式档位调用点里不得再出现的退役字面量(3.5 是 career-advice 原写死的那一档) */
+const RETIRED_MODEL_LITERAL_ALT = 'stepfun/step-3.5-flash'
+/**
+ * 入站守卫所在文件与「守卫函数名 + 端点挂载」两处必须同时在场。
+ *
+ * 实测依据(2026-10-26 生产现读):退役除名原本只在 core/default_model.py 的
+ * default_chat_model(解析层)设了守卫,**入站请求显式 model=stepfun/xxx 这条路径
+ * 完全绕过它** —— llm_gateway.complete() 的 `used_model = model` 分支照旧发往上游。
+ * 线上表现:ihui_llm_provider_errors_total{provider="stepfun",status="5xx"} 持续增长
+ * (30 分钟 +18.5),退役厂商仍在消耗真实调用额度并污染告警面。
+ * 故守卫必须落在 **routers/llm.py 的入站端点**上,且两个端点都要挂
+ * (/llm/complete 与 /llm/complete/stream —— 流式端点尤其关键:流一旦开始 yield,
+ * HTTP 状态码已锁定 200,无法中途改成 410,只能在进入流之前拒)。
+ */
+const INBOUND_GUARD_FILE = 'apps/ai-service/app/routers/llm.py'
+const INBOUND_GUARD_FUNCTION = '_retired_model_error'
+const INBOUND_GUARD_ENDPOINTS = [
+  { marker: '@router.post("/llm/complete"', label: '/llm/complete' },
+  { marker: '@router.post("/llm/complete/stream"', label: '/llm/complete/stream' },
+]
+/**
+ * 用户可见面板面:免费 provider 矩阵的渲染函数所在文件。
+ *
+ * 实测依据(2026-10-26):GET /llm/free-providers 无鉴权且 web 端有转发 ⇒ 用户可见;
+ * 退役厂商若仍列在里面,用户看得到它的申请入口与默认模型档,选中后必然失败。
+ */
+const DASHBOARD_FILE = 'apps/ai-service/app/services/free_provider_registry.py'
+const DASHBOARD_RENDERER = 'to_dashboard_dict'
 /** 夹具落点:仓内 .ihui-agent/tmp(git 忽略面);禁 os.tmpdir() */
 const FIXTURE_BASE = join(ROOT, '.ihui-agent', 'tmp', 'retired-providers-parity')
 
@@ -116,6 +156,48 @@ export function audit(rootDir = ROOT) {
     return { file: rel, hits, why: '' }
   })
 
+  // 显式档位调用点:两种退役字面量(3.7 与 3.5)都不得出现。
+  const explicitSites = EXPLICIT_CALL_SITES.map((rel) => {
+    const r = read(rel)
+    if (!r.ok) return { file: rel, hits: -1, why: r.why }
+    const hits =
+      r.text.split(RETIRED_MODEL_LITERAL).length - 1 +
+      (r.text.split(RETIRED_MODEL_LITERAL_ALT).length - 1)
+    return { file: rel, hits, why: '' }
+  })
+
+  // 入站守卫:函数存在 + 两个端点都挂上。
+  const guardFile = read(INBOUND_GUARD_FILE)
+  const guardFnPresent = guardFile.ok && guardFile.text.includes(INBOUND_GUARD_FUNCTION)
+  const guardEndpoints = INBOUND_GUARD_ENDPOINTS.map((ep) => {
+    if (!guardFile.ok) return { label: ep.label, mounted: false, why: guardFile.why }
+    // 端点装饰器之后的那段函数体里必须出现守卫调用(取装饰器之后 2500 字窗口)。
+    const idx = guardFile.text.indexOf(ep.marker)
+    if (idx < 0) return { label: ep.label, mounted: false, why: '端点装饰器没找到' }
+    const window = guardFile.text.slice(idx, idx + 2500)
+    const mounted = window.includes(INBOUND_GUARD_FUNCTION + '(')
+    return { label: ep.label, mounted, why: mounted ? '' : '端点内没看到守卫调用' }
+  })
+
+  // 用户可见面板面:渲染函数体内必须有**可执行的**退役过滤。
+  // 判据不查"字样在不在"(那会被 `if False: continue` 这类写法骗过),
+  // 而是查「退役判定调用 + 紧随其后的 continue」这一对动作是否同时在场。
+  const dashFile = read(DASHBOARD_FILE)
+  let dashboardGuarded = false
+  let dashboardWhy = dashFile.ok ? '' : dashFile.why
+  if (dashFile.ok) {
+    const idx = dashFile.text.indexOf('def ' + DASHBOARD_RENDERER)
+    if (idx < 0) {
+      dashboardWhy = '渲染函数没找到'
+    } else {
+      const window = dashFile.text.slice(idx, idx + 1200)
+      // 形如: if is_retired_provider(p.provider_code):\n<缩进>continue
+      const callRe = /is_retired_provider\([^)]*\)[\s\S]{0,120}?\n\s*continue/
+      dashboardGuarded = callRe.test(window)
+      if (!dashboardGuarded) dashboardWhy = '渲染函数体内没看到"退役判定 ⇒ continue"这一对动作'
+    }
+  }
+
   const equal =
     python.state === 'parsed' &&
     tsSide.state === 'parsed' &&
@@ -134,8 +216,32 @@ export function audit(rootDir = ROOT) {
     if (c.hits === -1) reds.push(`调用点读不到:${c.file}(${c.why})`)
     else if (c.hits > 0) reds.push(`${c.file} 仍含退役模型字面量(${c.hits} 处)`)
   }
+  for (const c of explicitSites) {
+    if (c.hits === -1) reds.push(`显式档位调用点读不到:${c.file}(${c.why})`)
+    else if (c.hits > 0) reds.push(`${c.file} 仍含退役模型字面量(${c.hits} 处)`)
+  }
+  if (!guardFile.ok) {
+    reds.push(`入站守卫文件读不到:${INBOUND_GUARD_FILE}(${guardFile.why})`)
+  } else {
+    if (!guardFnPresent) reds.push(`入站守卫函数 ${INBOUND_GUARD_FUNCTION} 不存在`)
+    for (const ep of guardEndpoints) {
+      if (!ep.mounted) reds.push(`入站守卫未挂在 ${ep.label}(${ep.why})`)
+    }
+  }
+  if (!dashboardGuarded) reds.push(`用户可见面板未过滤退役厂商(${dashboardWhy})`)
 
-  return { python, ts: tsSide, equal, callSites, reds, red: reds.length > 0 }
+  return {
+    python,
+    ts: tsSide,
+    equal,
+    callSites,
+    explicitSites,
+    guardFnPresent,
+    guardEndpoints,
+    dashboardGuarded,
+    reds,
+    red: reds.length > 0,
+  }
 }
 
 /** 把仓内一份文件复制进夹具树(保持相对路径)。 */
@@ -147,12 +253,21 @@ function fixtureCopy(root, rel) {
   return dst
 }
 
-/** 建一棵夹具树:6 份文件(两侧真相源 + 4 个调用点)逐字复制过去。 */
+/** 建一棵夹具树:全部受判文件逐字复制过去。 */
 function makeFixture(name) {
   const dir = join(FIXTURE_BASE, `${name}-${process.pid}-${Date.now()}`)
   rmSync(dir, { recursive: true, force: true })
   mkdirSync(dir, { recursive: true })
-  for (const rel of [PY_FILE, TS_FILE, ...CALL_SITES]) fixtureCopy(dir, rel)
+  for (const rel of [
+    PY_FILE,
+    TS_FILE,
+    INBOUND_GUARD_FILE,
+    DASHBOARD_FILE,
+    ...CALL_SITES,
+    ...EXPLICIT_CALL_SITES,
+  ]) {
+    fixtureCopy(dir, rel)
+  }
   return dir
 }
 
@@ -245,6 +360,75 @@ test('P7 正对照:逐字副本 ⇒ 判据必须绿(证明"红"不是恒真)', (
   try {
     const r = runSelfCheck(dir)
     assert.equal(r.status, 0, `逐字副本却判红(退出码 ${r.status}):${r.stdout.slice(0, 400)}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('P8 显式档位调用点里不再出现退役模型字面量', () => {
+  const r = audit(ROOT)
+  for (const c of r.explicitSites) {
+    assert.notEqual(c.hits, -1, `显式档位调用点读不到:${c.file}(${c.why})`)
+    assert.equal(c.hits, 0, `${c.file} 仍含退役模型字面量(${c.hits} 处)`)
+  }
+})
+
+test('P9 入站守卫存在且挂在两个入站端点上(显式 model=退役档 不得发往上游)', () => {
+  const r = audit(ROOT)
+  assert.equal(r.guardFnPresent, true, `入站守卫函数 ${INBOUND_GUARD_FUNCTION} 不存在`)
+  for (const ep of r.guardEndpoints) {
+    assert.equal(ep.mounted, true, `入站守卫未挂在 ${ep.label}(${ep.why})`)
+  }
+})
+
+test('P10 变体自证:显式调用点被塞回退役字面量 ⇒ 判据必须红', () => {
+  const dir = makeFixture('explicit-call-site-literal')
+  try {
+    const p = join(dir, EXPLICIT_CALL_SITES[0])
+    writeFileSync(p, `${readFileSync(p, 'utf8')}\n// 'stepfun/step-3.5-flash'\n`, 'utf8')
+    const r = runSelfCheck(dir)
+    assert.notEqual(r.status, 0, `显式调用点含退役字面量却判绿(退出码 ${r.status})⇒ 判据没牙`)
+    assert.match(r.stdout, /仍含退役模型字面量/, `红因没点名显式调用点:${r.stdout.slice(0, 400)}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('P11 变体自证:入站守卫被摘掉 ⇒ 判据必须红(证明入站面有牙)', () => {
+  const dir = makeFixture('inbound-guard-removed')
+  try {
+    const p = join(dir, INBOUND_GUARD_FILE)
+    const patched = readFileSync(p, 'utf8').replace(
+      new RegExp(`retired_err = ${INBOUND_GUARD_FUNCTION}\\(req\\.model\\)`, 'g'),
+      'retired_err = None',
+    )
+    writeFileSync(p, patched, 'utf8')
+    const r = runSelfCheck(dir)
+    assert.notEqual(r.status, 0, `入站守卫被摘却判绿(退出码 ${r.status})⇒ 判据没牙`)
+    assert.match(r.stdout, /入站守卫未挂在/, `红因没点名入站守卫:${r.stdout.slice(0, 400)}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('P12 用户可见面板必须过滤退役厂商', () => {
+  const r = audit(ROOT)
+  assert.equal(r.dashboardGuarded, true, '用户可见面板未过滤退役厂商')
+})
+
+test('P13 变体自证:面板退役过滤被摘掉 ⇒ 判据必须红(证明面板面有牙)', () => {
+  const dir = makeFixture('dashboard-guard-removed')
+  try {
+    const p = join(dir, DASHBOARD_FILE)
+    // 摘掉过滤动作本身(不是只改字样)——判据必须仍能咬住。
+    const patched = readFileSync(p, 'utf8').replace(
+      /if is_retired_provider\(p\.provider_code\):\s*\n\s*continue\s*\n/,
+      '',
+    )
+    writeFileSync(p, patched, 'utf8')
+    const r = runSelfCheck(dir)
+    assert.notEqual(r.status, 0, `面板过滤被摘却判绿(退出码 ${r.status})⇒ 判据没牙`)
+    assert.match(r.stdout, /用户可见面板未过滤退役厂商/, `红因没点名面板面:${r.stdout.slice(0, 400)}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

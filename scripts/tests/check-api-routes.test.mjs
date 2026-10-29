@@ -1856,4 +1856,123 @@ test('ER3 边缘改写派生反向锁:同前缀透明规则不派生(注册面�
     destroyTempRoot(dir)
   }
 })
+
+// ─── O87g-A1(2026-10-26):「前缀假设命中」必须分档报名 ───────────────────────
+// 现场(真实仓现读):`GET /api/keepalive/status` 在旧笛卡尔面里**没有同形静态键**,只是被
+// `/api/:type/:id` 按段数吞下 —— 而后者本身是「`admin/content/**` 的 localPath 拼到 `/api`
+// 上」造出来的笛卡尔产物。旧文案把它与"图未追到的真挂载链"混成一句,读的人分不清哪条是
+// 票面点名的假绿。本组钉:参数段吞并档必须单独计数、逐条带 `[仅参数段吞并]` 标记。
+// 反向牙:退回单一布尔 `assumptionHasRoute`(不分档)⇒ 本组两条断言同时翻红。
+test('O87g-A1 分档报名:只被参数段吞并的调用单列「仅参数段吞并」,不冒充同形静态键', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(
+      dir,
+      'apps/api/src/server.ts',
+      [
+        "import Fastify from 'fastify'",
+        "import { contentRoutes } from './routes/content'",
+        "import { topRoutes } from './routes/top'",
+        'export function buildServer() {',
+        '  const server = Fastify()',
+        "  server.register(contentRoutes, { prefix: '/api/admin/content' })",
+        "  server.register(topRoutes, { prefix: '/api' })",
+        '  return server',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    writeFile(
+      dir,
+      'apps/api/src/routes/content.ts',
+      "export async function contentRoutes(server) {\n  server.get('/:type/:id', async () => ({}))\n}\n",
+    )
+    writeFile(
+      dir,
+      'apps/api/src/routes/top.ts',
+      "export async function topRoutes(server) {\n  server.get('/ping', async () => ({}))\n}\n",
+    )
+    writeFile(dir, 'apps/web/api.ts', `fetchApi('/api/keepalive/status')`)
+    const r = runScript(dir)
+    assert.match(
+      r.out,
+      /未判定\(前缀假设命中\)1 处调用 = 同形静态键 0 \+ 仅参数段吞并 1/,
+      `两档必须分开计数(否则"图未追到的真挂载链"与"参数段吞并假影"共用一句文案)\nstdout: ${r.out}`,
+    )
+    assert.match(
+      r.out,
+      /\[仅参数段吞并\] GET \/api\/keepalive\/status/,
+      `逐条点名必须带分档标记\nstdout: ${r.out}`,
+    )
+    assert.equal(
+      r.status,
+      0,
+      `两档都不判红(§12e 恒红防线);本组只钉"报名必须分家"\nstdout: ${r.out}\nstderr: ${r.stderr}`,
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── O87g-A2(2026-10-26):「少判组合」必须按**源文件**归因,不得按路径尾段猜 ────────
+// 尾段法近乎恒真:只要图里有**任意**一条同尾路由,就会把「图没追到这个文件」错报成
+// 「结构上不存在」。现场实测 `admin/_shared.ts` 的 `${basePath}/:id` 三型就是这么被误标的。
+// 夹具:ranking.ts 挂 `/api/ranking` 且有 `/x/ghost`(图里有同尾条目),orphan.ts 未被任何
+// register 引用 ⇒ 图里零条目 —— 后者拼出的 `/api/ghost` 必须落 `unmappedFile`,不得落
+// `crossPrefix`。反向牙:退回尾段法 ⇒ `/api/ghost` 被标成 crossPrefix ⇒ 本例翻红。
+test('O87g-A2 少判归因:图零条目的源文件落 unmappedFile(不得按同尾路由冒充结构上不存在)', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(
+      dir,
+      'apps/api/src/server.ts',
+      [
+        "import Fastify from 'fastify'",
+        "import { rankingRoutes } from './routes/ranking'",
+        "import { topRoutes } from './routes/top'",
+        'export function buildServer() {',
+        '  const server = Fastify()',
+        "  server.register(rankingRoutes, { prefix: '/api/ranking' })",
+        "  server.register(topRoutes, { prefix: '/api' })",
+        '  return server',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    writeFile(
+      dir,
+      'apps/api/src/routes/ranking.ts',
+      "export async function rankingRoutes(server) {\n  server.get('/x/ghost', async () => ({}))\n}\n",
+    )
+    writeFile(
+      dir,
+      'apps/api/src/routes/top.ts',
+      "export async function topRoutes(server) {\n  server.get('/ping', async () => ({}))\n}\n",
+    )
+    // 未被 server.ts 引用:挂载图对它零条目;旧提取式照样能从文件里读到它的路由
+    writeFile(
+      dir,
+      'apps/api/src/routes/orphan.ts',
+      "export async function orphanRoutes(server) {\n  server.get('/ghost', async () => ({}))\n}\n",
+    )
+    const r = runScript(dir)
+    assert.match(
+      r.out,
+      /少判 \d+ 个组合（crossPrefix 结构上不存在 \d+ \/ unmappedFile 图未追到该源文件 2）/,
+      `图盲区必须单列成 unmappedFile(数字=orphan.ts 的两条组合)\nstdout: ${r.out}`,
+    )
+    assert.match(
+      r.out,
+      /少判\(unmappedFile,该源文件在挂载图里零条目=图盲区\): GET \/api\/ghost/,
+      `盲区组合必须逐条点名\nstdout: ${r.out}`,
+    )
+    assert.doesNotMatch(
+      r.out,
+      /少判\(crossPrefix[^\n]*GET \/api\/ghost/,
+      `图没追到的源文件不得被标成"结构上不存在"(尾段法就是这么出错的)\nstdout: ${r.out}`,
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

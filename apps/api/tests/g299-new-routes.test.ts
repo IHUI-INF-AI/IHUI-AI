@@ -26,12 +26,25 @@ vi.mock('../src/plugins/auth.js', () => ({
   checkAuth: async () => true,
 }))
 
+// n8n 面走真实透传(safeFetch),成功路径用例在配置在位时把 safeFetch 替成可控桩,
+// 验证 fetch-merge-put / activate-deactivate+回读 真的把请求发向上游且把真值回包。
+const { safeFetchMock } = vi.hoisted(() => ({ safeFetchMock: vi.fn() }))
+vi.mock('../src/utils/ssrf-guard.js', () => ({
+  ensureSafeFetchUrl: async () => undefined,
+  safeFetch: (url: string, init?: { method?: string }) => safeFetchMock(url, init),
+}))
+
 const listAllMock = vi.fn()
 vi.mock('../src/services/subagent-dispatch-service.js', () => ({
   subagentDispatchService: {
     setRedisClient: async () => undefined,
     listAll: () => listAllMock(),
     listActive: () => [],
+    // /all 路由逐行取 getDispatchStats/getDag(buildFleetRow 的统计输入);
+    // 方法缺位 ⇒ TypeError ⇒ 500,会把"mock 烂了"写成"路由坏了"。null 档 =
+    // "统计取不到 ⇒ 行不带 metrics"(buildFleetRow 契约),本票只钉列表形状,不测 metrics。
+    getDispatchStats: () => null,
+    getDag: () => null,
   },
 }))
 vi.mock('../src/db/agent-queries.js', () => ({ findAgentTasksByAgentId: async () => [] }))
@@ -165,6 +178,84 @@ describe('G-299②③ /api/ai/n8n/workflows*(路由归属 + 未配置档)', () =
       payload: { active: true },
     })
     expect(t.statusCode).toBe(503)
+  })
+})
+
+describe('G-02②③ n8n 成功路径(配置在位时真透传 fetch-merge-put / activate+回读)', () => {
+  // 与上一组"未配置 ⇒ 503"互补:本组把 N8N_DOMAIN+N8N_API_KEY 置位、safeFetch 替成可控桩,
+  // 钉"配置成功时请求真的发向上游、且把上游真值(非请求值)回包"。n8n 面不吃用户鉴权
+  // (改用 X-N8N-API-KEY + SSRF 校验),故无 401 闸 —— 既有约定如此,不补假鉴权。
+  const saved = {
+    d: process.env.N8N_DOMAIN,
+    k: process.env.N8N_API_KEY,
+  }
+  let app: FastifyInstance
+  beforeEach(async () => {
+    process.env.N8N_DOMAIN = 'https://n8n.example.com'
+    process.env.N8N_API_KEY = 'test-key'
+    // url 形如 `${origin}/api/v1/workflows/abc`(或 .../abc/activate)。
+    safeFetchMock.mockImplementation(async (url: string, init?: { method?: string }) => {
+      const method = (init?.method ?? 'GET').toUpperCase()
+      const ok = (data: unknown) => ({ ok: true, status: 200, json: async () => data })
+      if (url.includes('/activate') || url.includes('/deactivate')) return ok({})
+      if (url.endsWith('/api/v1/workflows/abc')) {
+        if (method === 'GET') return ok({ id: 'abc', name: 'orig', active: true })
+        if (method === 'PUT') return ok({ id: 'abc', name: 'new-name', active: false })
+      }
+      return { ok: false, status: 500, json: async () => ({}) }
+    })
+    app = Fastify()
+    await app.register(n8nProxyRoutes, { prefix: '/api' })
+    await app.ready()
+  })
+  afterEach(async () => {
+    await app.close()
+    safeFetchMock.mockReset()
+    if (saved.d) process.env.N8N_DOMAIN = saved.d
+    else delete process.env.N8N_DOMAIN
+    if (saved.k) process.env.N8N_API_KEY = saved.k
+    else delete process.env.N8N_API_KEY
+  })
+
+  it('PUT :id 成功:先 GET 现件→合并 name→PUT 回,回包用上游真值', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/ai/n8n/workflows/abc',
+      payload: { name: 'new-name' },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.code).toBe(0)
+    // 回包形状与下游契约同(N8nModelScreen 读 data.id/name/active)
+    expect(body.data.id).toBe('abc')
+    expect(body.data.name).toBe('new-name')
+    expect(body.data.active).toBe(false)
+    // fetch-merge-put:PUT 真把合并后的 name 发向上游(不是部分字段 PATCH)
+    const putCall = safeFetchMock.mock.calls.find(
+      (c) => (c[1]?.method ?? 'GET').toUpperCase() === 'PUT',
+    )
+    expect(putCall).toBeTruthy()
+    const sent = JSON.parse((putCall![1] as { body: string }).body)
+    expect(sent.name).toBe('new-name')
+  })
+
+  it('POST toggle 成功:activate 后回读真值(active 取上游而非请求值背书)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/ai/n8n/workflows/abc/toggle',
+      payload: { active: true },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.code).toBe(0)
+    expect(body.data.success).toBe(true)
+    // 回读上游 active=true(请求值只驱动选 activate 端点,不替结果背书)
+    expect(body.data.active).toBe(true)
+    // activate 端点确实被命中
+    const activateCall = safeFetchMock.mock.calls.find((c) =>
+      (c[0] as string).includes('/activate'),
+    )
+    expect(activateCall).toBeTruthy()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

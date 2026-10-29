@@ -68,11 +68,19 @@ import { blobInAncestry } from './heal-worktree-tracked.mjs'
 import {
   auditPlan,
   compositeKeyOf,
+  dispatchSlotOf,
   dispositionOfV2,
+  // F13「已勾行被捣回未勾」的判据本体(2026-10-27 补牙):主键分组与勾选态一律走该库单源
+  // (compositeKeyOf / parseTaskRows / isClaimExcludedPointer),本文件零新正则、不写第二套
+  // "什么算同一件事"(§0.6;守门 191 专拦复制判据)。
+  findClosedToOpenRegressions,
   findReopenedFlipCandidates,
   FLIPPED_ROW_RE,
   isDeclarationRow,
+  isDispatchKeptSlot,
   nextTaskIdLabel,
+  ownerLabelOf,
+  OWNER_EVIDENCE_COMMIT_WINDOW,
   parseTaskRows,
   usedIdsOfPrefix,
   LEDGER_TTL_DAYS,
@@ -240,11 +248,7 @@ export function sameTitleDispatchGroups(rows) {
 }
 
 export function fileConflictOverlay({ rows, dirtySet, headSet, lagJudge = null }) {
-  const hasAnyUnder = (set, key) => {
-    const pre = key + '/'
-    for (const p of set) if (p === key || p.startsWith(pre)) return true
-    return false
-  }
+  const hasAnyUnder = (set, key) => hasPathUnder(set, key)
   const list = []
   const absentList = []
   let refsTotal = 0
@@ -320,6 +324,15 @@ export function fileConflictOverlay({ rows, dirtySet, headSet, lagJudge = null }
   }
 }
 
+/** 台账里点名的是**目录**时(`deploy/prod-bundle/`),脏面按"任一路径以其为前缀"命中。
+ *  抽成模块级函数是因为归属证据尺(③ 脏面)与文件叠层问的是同一件事 —— 两处各写一遍必然漂。 */
+function hasPathUnder(set, key) {
+  if (!set || !key) return false
+  const pre = key + '/'
+  for (const p of set) if (p === key || p.startsWith(pre)) return true
+  return false
+}
+
 /**
  * 在飞路径集合(索引/工作树与 HEAD 不一致 + 未跟踪新文件)。
  * 取不到 ⇒ 返回 null,由调用方喊"未判定" —— 把没量到写成"都没有在飞"就是替打架发合格证。
@@ -369,6 +382,60 @@ function repoToplevel(root) {
     return out === '' ? null : out.replace(/\\/g, '/')
   } catch {
     return null
+  }
+}
+
+/** ② 的取材窗口 = 判据层那一份(§0.6:窗口只有一个出处,CLI 不复写数字)。 */
+export const OWNER_EVIDENCE_COMMITS = OWNER_EVIDENCE_COMMIT_WINDOW
+/**
+ * 最近 N 枚提交信息(②「持有者短名出现在提交史里」的**唯一**取材出口)。
+ * 取不到(不是仓 / git 不可问 / 空输出)⇒ **null**,判据据此落"未判定"。
+ * 绝不返回空串冒充"最近没人提交":那会把每一枚散文标签都盖上"无证据"的章,
+ * 而盖章的后果是这些行被**放回派单面** —— 拿"没量到"当"量到没有"就是给打架发合格证(§0.3)。
+ */
+export function readRecentCommitText(root, n = OWNER_EVIDENCE_COMMITS) {
+  const top = repoToplevel(root)
+  if (!top) return null
+  try {
+    const raw = gitRaw(['log', `-${n}`, '--format=%s%n%b'], top, { maxBuffer: 1 << 28 })
+    if (typeof raw !== 'string' || raw.trim() === '') return null
+    return raw
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 归属证据的三条输入里需要 IO 的那两条(② 提交史 / ③ 脏面),一次装配、同面同轮。
+ * 判据本体在 `lib/plan-task-index.mjs` 的 `ownershipEvidenceOf`(纯函数,输入注入),本函数只取数。
+ * 任一路取不到 ⇒ 对应字段为 null,由判据落 `undetermined` 并**点名是哪一路** ——
+ * 禁止在这里回落成空集合/空串(§0.3:取不到不等于量到没有)。
+ */
+export function ownerEvidenceFace(root) {
+  const recentCommitText = readRecentCommitText(root)
+  const dirtySet = collectDirtyPaths(root)
+  const dirtyRefs = (line) => {
+    if (!dirtySet) return null
+    const refs = extractRefs(String(line ?? ''), PLAN_REL)
+    const hits = []
+    for (const [key, rec] of refs) {
+      const dirty = rec.form === 'dir' ? hasPathUnder(dirtySet, key) : dirtySet.has(key)
+      if (dirty) hits.push(key)
+    }
+    return hits
+  }
+  return {
+    recentCommitText,
+    dirtyRefs,
+    now: new Date(),
+    why:
+      recentCommitText === null && dirtySet === null
+        ? '最近 200 枚提交信息与 git status 脏面都取不到'
+        : recentCommitText === null
+          ? '最近 200 枚提交信息取不到'
+          : dirtySet === null
+            ? 'git status 脏面取不到'
+            : null,
   }
 }
 
@@ -545,6 +612,10 @@ export function auditFace(root, face) {
   a.counts.f9WideGroups = (a.collisions ?? []).length
   // 派单面的"F1 看不见的那一型"计数(逐对清单只打人读面,不进 json 以免把整行正文带出去)
   a.counts.sameIdDonePairs = (a.sameIdDone?.pairs ?? []).length
+  // F13 的**跨面**判据要吃两面的全文。两面的全文必须来自同一轮取材(§0.4 同面同轮):把这一面
+  // 的全文钉在面上,锚点面就复用这个对象,绝不再开一次 `git show` —— 两次取材之间别人推进
+  // HEAD,算出来的就是"别人那一半改动"的债,记在本次提交头上(§12e 同族)。
+  a.__contentText = content
   return narrowF9Face(a, content)
 }
 
@@ -754,6 +825,28 @@ function report(a, face) {
         ? `${c.reopenedFlips} 个(其中未判定 ${c.reopenedFlipUndetermined} 个 / 史证主键 ${c.reopenedFlipSweptKeys} 个 / 扫 ${c.reopenedFlipCommits} 枚提交${c.reopenedFlipCapped ? ',已截断' : ''})`
         : '未扫描 —— 取证要遍历提交 diff,须显式跑 `--reopened-flips --since=<日期>`(见该旗标头注)'),
   )
+  // ── F13 已勾行被捣回未勾(2026-10-27 补牙)──
+  // 三条读数必须分行:F1 是"组内两态并存"的**面内**读数,本维是"锚点面已勾 ∧ 被审面未勾"的
+  // **跨面**读数;而"枚举到 0 候选"与"没量到"是两种结论(§0.3)—— 所以未判定时把原因印出来,
+  // 绝不让这一行退化成"0 = 干净"。
+  {
+    const hits = a.f13Hits ?? []
+    const stock = new Set(a.f13StockKeys ?? [])
+    const newHits = hits.filter((h) => !stock.has(h.key))
+    console.log(
+      `  F13 已勾行被捣回未勾(跨面对账:锚点面已勾 ∧ 被审面未勾): 命中 ${hits.length} 枚` +
+        ` / 其中锚点面自身存量 ${newHits.length === hits.length ? 0 : hits.length - newHits.length} 枚(只报数)` +
+        ` / 本次带回 ${newHits.length} 枚(差值棘轮只判这一档)` +
+        ` —— 锚点面已勾主键 ${c.f13AnchorDoneKeys ?? '未判定'} 枚 / 锚点面条目行 ${c.f13AnchorRows ?? '未判定'} / 被审面条目行 ${c.f13FaceRows ?? '未判定'}` +
+        (a.f13CrossNotMeaningful
+          ? ' —— 本档两面同源(全量档),跨面差集结构上算不出"本次新增",只报存量'
+          : '') +
+        (a.f13Unjudged ? ` —— ⚠ 未判定:${a.f13Unjudged}` : ''),
+    )
+    for (const h of newHits.slice(0, 6)) console.log(`     ${f13HitLine(h)}`)
+    if (newHits.length > 6)
+      console.log(`     … 其余 ${newHits.length - 6} 枚见 --json 的 f13Hits`)
+  }
   console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行`)
   console.log(
     `  分解(逐层互斥,可直接相加):未勾选 ${c.open} = 已认领 ${c.claimed} + 其余排除 ${c.unclaimed - c.claimable} + 真待办 ${c.claimable}`,
@@ -773,8 +866,9 @@ function report(a, face) {
   // 上面那行的基数混着两千多行"已标副本指针/当次算出的同题副本",所以它的"等人拍板"是**行数**
   // 而不是**事项数**(实测 70 行 → 20 个独立事项)。派单/提问一律看下面这行,它已扣副本。
   console.log(
-    `  └ 同一分层按**派单口径**重算(基数 ${c.claimable} 行,已扣同题副本/作废/分叉):` +
+    `  └ 同一分层按**派单口径**重算(基数 ${c.claimable} 行,已扣同题副本/作废/分叉;分桶尺=v2 侧车优先、无侧车回落散文,与 --dispatchable 过滤同尺):` +
       `现在可做 ${c.dispClaimActionable} / 等人拍板 ${c.dispClaimWaitingHuman} / 等条件 ${c.dispClaimWaitingEnv} / 归他人 ${c.dispClaimOwnedElsewhere}` +
+      ` [散文影子 可做 ${c.dispClaimActionableProse}/归他人 ${c.dispClaimOwnedElsewhereProse} —— 与正读数之差=侧车迁移进度,派单不得消费影子]` +
       ` —— 两行不得互相顶结论:上行答"账面有几行挂着",下行答"真有几件事"`,
   )
   if (c.dispWaitingHuman > 0 || c.dispClaimWaitingHuman > 0)
@@ -872,6 +966,14 @@ export const probe = (a) => [
   ['F11', '新增等人拍板未勾行(行)', a.counts.newWaitingHuman ?? 0],
   // F12 等条件(2026-10-25 机主令,与 F11 同型):只在差值档有意义,绝对层由 F12 键集基线看守。
   ['F12', '新增等条件未勾行(行)', a.counts.newWaitingEnv ?? 0],
+  // F13 已勾行被捣回未勾(2026-10-27 立,主席 16:30 实测补牙):某席把工作树/索引里那份滞后副本
+  // 交进提交时,同一件事从"已完成"变回"待办",而 F1/F4/F4b/F6 全在**一面之内**数数 ⇒ 那一型
+  // 结构性失明(现读实测四档全 0、差值棘轮全绿)。量纲 = 复合主键枚数,跨面判据本体在 lib。
+  // 锚点 = 同一把尺子跑在**锚点面自身**(HEAD 面自己的两态并存存量)⇒ 存量只报数、只有本次
+  // 带进来的回退判红(§0.2/§12e:存量没归零就上绝对零容忍 = 恒红门,唯一结局是逼人 --no-verify)。
+  // 基线 JSON 刻意**不写 F13 键**(缺项不判 = ratchetViolations 既有善意):回退一旦进 HEAD,
+  // 该主键的 done 份就从所有后续面上消失,基线键集锚结构上守不住它 —— 拦点只能在链上。
+  ['F13', '已勾行被捣回未勾(主键枚)', a.counts.f13Regressed ?? 0],
   // 自 2026-09-28 G-312:基线里 F9 存的是**排序后的键集**而不是组数 —— 判红只认"基线里没有的键",
   // 所以"等量换掉一组撞号键"也红(计数锚点在这一型上恒绿),而同键再多挂一行不移动读数。
   // 镜像 M9 要求每一维都必须有基线键:缺项 = 那一维静默不判,而账面看不出来。
@@ -1335,6 +1437,65 @@ export function f9AvoidGuidance() {
 }
 
 /**
+ * F13 读数的**唯一装配出口**(2026-10-27 立):CLI 两个档与镜像测试都只走这里,禁止在别处
+ * 再拼一遍"拿两面全文调 lib"的装配(两处各装一次必漂移,§0.6)。
+ *
+ * 两档:
+ *  - 提交链(`--staged`)⇒ 被审面 = 索引 blob、锚点面 = HEAD blob(两次取材同轮,见调用点);
+ *  - 全量档(`--gate`)⇒ 两面同为 HEAD(退化成一面对账)⇒ 命中集 == 面内存量集 ⇒ 差集恒空。
+ *    这一档的作用是把"账面此刻有几枚两态并存"量出来给人看,并把**结构上算不出新增**这件事
+ *    大声说出来(`f13CrossNotMeaningful`)—— 不得让读的人把它当成"这一维判过且没问题"(§0.3)。
+ * 任一面的全文不在手 ⇒ **不判**:读数落 0 但同时置 `f13Unjudged`,报告行与 gate 都点名原因,
+ * 既不记绿也不冒红。
+ *
+ * @param a      被审面的判定面对象(auditFace 的产物,带 __contentText)
+ * @param anchor 锚点面的判定面对象(提交链 = HEAD 面;全量档 = a 自身)
+ */
+export function wireF13(a, anchor, opts = {}) {
+  const faceLabel = opts.faceLabel ?? LABEL[a?.__face] ?? '被审面'
+  const anchorLabel = opts.anchorLabel ?? LABEL[anchor === a ? a?.__face : 'head'] ?? '锚点面'
+  a.f13Hits = []
+  a.f13CrossKeys = []
+  a.f13StockKeys = []
+  a.counts.f13Regressed = 0
+  a.counts.f13Stock = 0
+  a.f13Unjudged = null
+  a.f13CrossNotMeaningful = false
+  const faceText = a?.__contentText
+  const anchorText = anchor?.__contentText
+  if (typeof faceText !== 'string' || faceText === '') {
+    a.f13Unjudged = `${faceLabel}的全文不在手(auditFace 没钉上 __contentText)⇒ 这一维本轮没有判`
+    return a
+  }
+  if (typeof anchorText !== 'string' || anchorText === '') {
+    a.f13Unjudged = `${anchorLabel}的全文不在手 ⇒ 分不清存量与本次带回,这一维本轮没有判`
+    return a
+  }
+  const cross = findClosedToOpenRegressions(anchorText, faceText)
+  const self = findClosedToOpenRegressions(faceText, faceText)
+  a.f13Hits = cross.hits
+  a.f13CrossKeys = cross.hits.map((h) => h.key)
+  // 差值锚点 = **被审面自身**的两态并存存量(auditFace(head) 时面==锚点 ⇒ 就是"HEAD 面自身的命中数";
+  // 索引面档下它代表"不靠本次改动就已经在账面成立的那批主键")。
+  a.f13StockKeys = self.anchorStockKeys
+  a.counts.f13Regressed = cross.hits.length
+  a.counts.f13Stock = self.hits.length
+  a.counts.f13AnchorDoneKeys = cross.anchorDoneKeys
+  a.counts.f13AnchorRows = cross.anchorRows
+  a.counts.f13FaceRows = cross.faceRows
+  if (anchor === a) a.f13CrossNotMeaningful = true
+  return a
+}
+
+/** F13 逐枚点名的唯一文案出口(报告档与 gate 的红档共用一份;行号只做定位、不进判据,§1)。 */
+export function f13HitLine(h) {
+  return (
+    `F13 回退主键 ${h.key} —— 锚点面已勾 ${h.anchorDoneLines.length} 行(L${h.anchorDoneLines.join(',L')})` +
+    ` 而被审面未勾 ${h.faceOpenLines.length} 行(L${h.faceOpenLines.join(',L')})`
+  )
+}
+
+/**
  * 棘轮纯函数:基线里没有某项 ⇒ 不判该项(既不"0 容忍"也不"通过")。
  *
  * F9 例外(2026-09-27 G-312):它的锚点是**键集合**,精确判据需要判定面的逐组明细。
@@ -1488,6 +1649,23 @@ export function grewViolations(now, before, absFloor) {
     out.push(
       `F5 归并落账注记由 ${b5} 条掉到 ${now.counts.mergeNotes} 条(被一次旧计划文档整文件提交抹掉了)`,
     )
+  // ── F13 已勾行被捣回未勾(2026-10-27 补牙,主席 16:30 实测"滞后副本交进提交、四档全绿")──
+  // 通用"比变多"那一循环**量不到这一族**:滞后副本把旧短版交进来时,常常一边消掉一枚既有分叉
+  // (F1/F13 的存量读数因此往下走)而同时带回一枚新回退 ⇒ 枚数持平 ⇒ 恒绿(等量换键那一型,
+  // F9 的 G-312 同一课)。所以拦点是**回退主键集合的差集**:回退永远以"锚点面已勾"为前提,
+  // 锚点面(HEAD)自身永远产不出它 ⇒ 跨面命中里凡不在锚点面存量集里的键,都是本次改动带进来的。
+  // 存量(锚点面自己就两态并存的那批主键)只报数不判红 —— 绝对零容忍 = 与任何提交无关的恒红门,
+  // 唯一结局是逼人 --no-verify 并连带废掉全部守门(§0.2/§12e)。
+  // 输入不全时**不在这里判红也不在这里判绿**:未判定由 gate() 大声打印(与"差值棘轮未判定"
+  // 同一条既有先例 —— 差值层的输入缺失不构成一次可处置的红,但绝不静默,§0.3)。
+  if (Array.isArray(now.f13CrossKeys) && Array.isArray(now.f13StockKeys)) {
+    const stock = new Set(before.f13StockKeys ?? [])
+    const added = now.f13CrossKeys.filter((k) => !stock.has(k))
+    if (added.length)
+      out.push(
+        `F13 已勾行被捣回未勾:本次改动带回 ${added.length} 枚回退主键 ${added.slice(0, 6).join(' ')}${added.length > 6 ? ` …其余 ${added.length - 6} 枚见 --gate 点名` : ''}`,
+      )
+  }
   return out
 }
 
@@ -1600,6 +1778,19 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
   } else if (beforeErr) {
     console.log(`⚠️ 差值棘轮未判定 —— ${beforeErr}`)
   }
+  // ── F13 的"没量到"必须自报(§0.3:未判定既不是绿也不是红)────────────────
+  // 这一维是**跨面**的:任何一侧的输入不在手,差值臂就结构上判不了。判不了还印 ✅(那一行的
+  // 读数清单里 F13=0 看起来就像"量到 0")= 把"没判"写成"判过",正是门 239 那句"两面逐字相同"
+  // 的同型缺陷(2026-10-27 实测:blob 不同而结论说相同)。
+  if (a.f13Unjudged)
+    console.log(
+      `⚠️ F13 未判定 —— ${a.f13Unjudged};这一维本轮没有判,不得读成"没有已勾行被捣回未勾"`,
+    )
+  else if (before && !Array.isArray(before.f13StockKeys))
+    console.log(
+      '⚠️ F13 未判定 —— 差值基准面没给"面内存量主键集"(f13StockKeys)⇒ 分不清存量与本次带回;' +
+        '调用方须走 auditFace()(它把该面全文钉在 __contentText 上)或 wireF13(face, anchor) 装配,不得自己拼半个面',
+    )
   if (f9b.kind === 'unmigrated' || f9b.kind === 'blind') {
     console.log(`⚠️ 无法判定 —— F9 基线层:${f9b.message}`)
     console.log(
@@ -2326,6 +2517,91 @@ function selfTest() {
       f7d.counts.dispClaimOwnedElsewhere
     } vs claimable ${f7d.counts.claimable}`,
   )
+  // ── F7e 派单面与过滤面同尺(票 G-1182552,2026-10-26)──
+  // 立因是本席现读的真仓缺陷:文本 `--open --dispatchable` 报"可做 0",同一瞬间 JSON 的
+  // counts.dispClaimActionable=5 —— 那 5 行侧车 owner 全部命中(归他人),照 JSON 派单的会话
+  // 会把别人持有的票再领一遍(§1 认领即租约要防的"两席领同一张票";机主 2026-10-26 明令
+  // 不允许两个 agent 打架重复做同一件任务)。这里把"派单桶 = v2 尺"与"v1 只准当影子"钉成契约:
+  // 摘掉 v2 接线(换回裸 dispositionOf)必红,散文尺影子不报数也必红 —— 正反都钉死。
+  const F7EFIX = [
+    // 复刻 HEAD 面 G-957/G-863 那一型:散文一个归属字没写(v1 兜底算"可做"),侧车记着"归他人"。
+    // 编号必须取本尺认得的族形态(实测裸 `T11` 取不到复合主键 ⇒ 夹具自己先被尺否证)。
+    '- [ ] **D-11 侧车有主而散文沉默**:把登录页的按钮换成图标。',
+    // 阳性对照:两侧都没说归属 ⇒ 两把尺必须一致判"可做"(证明 F7e 不是把派单面整体掐死)。
+    '- [ ] **D-12 真无人认领的活**:明文字段加掩码,今晚可做。',
+    '',
+  ].join('\n')
+  const t11Line = F7EFIX.split('\n')[0]
+  const t11Key = compositeKeyOf(t11Line)
+  ok(
+    !!t11Key,
+    `F7e 夹具的 D-11 必须能取到复合主键(取不到=夹具写法与本尺脱节),实测 ${t11Key}`,
+  )
+  // 夹具侧车刻意不落盘(§15b:判据夹具走 loadFields 的 text 入参,不碰真台账侧车)
+  const f7efixFields = loadFields(
+    ROOT,
+    [
+      JSON.stringify({
+        key: t11Key,
+        owner: 'fixture web 前端持有人',
+        waiting: 'none',
+        updatedAt: '2026-10-26T00:00:00.000Z',
+        updatedBy: 'selftest-fixture',
+      }),
+      '',
+    ].join('\n'),
+  )
+  const f7e = auditPlan(F7EFIX, { fields: f7efixFields })
+  // 分母锁:侧车记录必须**真的命中**这一行(键对不上 ⇒ v2 静默回落散文,整组断言全部空转)
+  ok(f7efixFields.map.get(t11Key)?.owner === 'fixture web 前端持有人', 'F7e 夹具侧车必须命中的 D-11 的复合主键')
+  ok(
+    // 反证:同一夹具不给侧车 ⇒ v2 回落散文 ⇒ 与 v1 影子同读数(证明正读数的变化全部来自侧车,不是换尺附带)
+    (() => {
+      const noFields = auditPlan(F7EFIX)
+      return (
+        noFields.counts.dispClaimActionable === 2 &&
+        noFields.counts.dispClaimActionable === noFields.counts.dispClaimActionableProse
+      )
+    })(),
+    '不给侧车时 v2 必须逐字回落散文尺(与影子同读数)',
+  )
+  ok(
+    // 正读数(v2 尺):D-11 必须被剔出"可做"——否则"照 JSON 派单领别人票"的通道又开了
+    f7e.counts.dispClaimActionable === 1 &&
+      f7e.dispClaimBuckets.actionable.length === 1 &&
+      f7e.dispClaimBuckets.actionable[0].raw.includes('D-12') &&
+      f7e.counts.dispClaimOwnedElsewhere === 1 &&
+      f7e.dispClaimBuckets['owned-elsewhere'][0].raw.includes('D-11'),
+    `派单桶必须按 v2 尺把侧车有主的 D-11 记"归他人"、只把 D-12 留"可做",实测 可做=${f7e.counts.dispClaimActionable} 归他人=${f7e.counts.dispClaimOwnedElsewhere}`,
+  )
+  ok(
+    // 影子读数(v1 尺):D-11 在散文尺下仍落"可做"(差值=侧车迁移进度),影子必须逐字报数,
+    // 把影子删成 0/删键 = 拆掉迁移进度尺(§12f 不移别人锚点的另一面:也不许把自己的尺藏起来)。
+    f7e.counts.dispClaimActionableProse === 2 &&
+      f7e.counts.dispClaimOwnedElsewhereProse === 0 &&
+      f7e.counts.dispClaimActionableProse - f7e.counts.dispClaimActionable === 1,
+    `v1 影子必须如实报出散文尺读数(侧车不表态时兜底 actionable),实测 影子可做=${f7e.counts.dispClaimActionableProse} 影子归他人=${f7e.counts.dispClaimOwnedElsewhereProse}`,
+  )
+  ok(
+    f7e.counts.dispClaimActionable +
+      f7e.counts.dispClaimWaitingHuman +
+      f7e.counts.dispClaimWaitingEnv +
+      f7e.counts.dispClaimOwnedElsewhere ===
+      f7e.counts.claimable,
+    `换尺后四桶闭合必须照旧:相加=${
+      f7e.counts.dispClaimActionable +
+      f7e.counts.dispClaimWaitingHuman +
+      f7e.counts.dispClaimWaitingEnv +
+      f7e.counts.dispClaimOwnedElsewhere
+    } vs claimable ${f7e.counts.claimable}`,
+  )
+  // 与过滤面的同尺性由形状锁保证(§0.6):过滤用 dispositionOfV2(dispatchable 档 :3285),
+  // 桶用同一个 dispositionOfV2 —— 两消费点共读一个出口,任何一侧换尺都不会偷偷发生在这里。
+  // 账面口径(F7 的 dispActionable*)不受本切换影响:它必须继续量"散文怎么说"(§12f)。
+  ok(
+    f7e.counts.dispActionable === 2 && f7e.counts.dispOwnedElsewhere === 0,
+    `账面口径必须仍是 v1 散文尺(换尺只动派单桶),实测 账面可做=${f7e.counts.dispActionable} 账面归他人=${f7e.counts.dispOwnedElsewhere}`,
+  )
   // F8a 只在差值档有意义:全量档它算不出来,必须显式"未判定"而不是悄悄当 0
   const headFace = auditPlan(F7FIX)
   const withNew = auditPlan(`${F7FIX}- [ ] **T8 本次新登记**:没有任何交代。`)
@@ -2956,6 +3232,92 @@ function selfTest() {
     ),
     'F12 清偿(1 降到 0)不得判红',
   )
+  // ── F13 已勾行被捣回未勾(2026-10-27 补牙,主席 16:30 实测"滞后副本交进提交、四档全绿")──
+  // 三型构造面(全部纯函数、不碰 git):
+  //   ① 真回退:锚点面该主键只有已勾行,被审面同一主键变成未勾 ⇒ 跨面命中,且不在存量集 ⇒ 判红;
+  //   ② 存量:锚点面自己就两态并存的主键 ⇒ 跨面命中 ∧ 在存量集 ⇒ 只报数不判红(§12e);
+  //   ③ 等量换键:消掉一枚存量分叉 + 带回一枚新回退 ⇒ 枚数持平 ⇒ 通用"比变多"那把尺恒绿,
+  //      必须由**主键集合差集**才拦得住(G-312 同一课)。
+  const F13_DONE = '- [x] ✅(2026-10-20) **G-777 回退正例**:已结清的票,滞后副本会把它捣回未勾。'
+  const F13_OPEN_OLD = '- [ ] **G-777 回退正例**:已结清的票,滞后副本会把它捣回未勾。'
+  const F13_STOCK_DONE = '- [x] ✅(2026-10-19) **G-779 存量分叉甲**:同一件事的已勾登记。'
+  const F13_STOCK_OPEN = '- [ ] **G-779 存量分叉甲**:同一件事的另一份未勾登记(HEAD 面上就并存)。'
+  const f13Anchor = ['# 计划', F13_DONE, F13_STOCK_DONE, F13_STOCK_OPEN].join('\n')
+  const f13Face = ['# 计划', F13_OPEN_OLD, F13_STOCK_DONE, F13_STOCK_OPEN].join('\n')
+  const f13Cross = findClosedToOpenRegressions(f13Anchor, f13Face)
+  ok(
+    f13Cross.hits.map((h) => h.key).join(',') ===
+      [...f13Cross.hits.map((h) => h.key)].sort().join(',') &&
+      f13Cross.hits.length === 2 &&
+      f13Cross.hits.every((h) => /^G-77[79]#/.test(h.key)),
+    `F13 跨面命中应恰好两枚(G-777 真回退 + G-779 存量),实测 ${JSON.stringify(f13Cross.hits.map((h) => h.key))}`,
+  )
+  ok(
+    f13Cross.anchorStockKeys.join(',') === f13Cross.hits[1].key,
+    `F13 锚点面自身存量应恰好是 G-779 那一组,实测 ${JSON.stringify(f13Cross.anchorStockKeys)}`,
+  )
+  ok(
+    f13Cross.anchorDoneKeys === 2 && f13Cross.anchorRows === 3 && f13Cross.faceRows === 3,
+    `F13 候选面读数(枚举到 0 不得被读成通过):实测 ${JSON.stringify([f13Cross.anchorDoneKeys, f13Cross.anchorRows, f13Cross.faceRows])}`,
+  )
+  const f13AnchorObj = { ...auditPlan(f13Anchor), __face: 'head', __contentText: f13Anchor }
+  const f13AnchorFace = wireF13(f13AnchorObj, f13AnchorObj)
+  const f13ReviewFace = wireF13(
+    { ...auditPlan(f13Face), __face: 'staged', __contentText: f13Face },
+    f13AnchorFace,
+  )
+  ok(
+    grewViolations(f13ReviewFace, f13AnchorFace).some((x) => x.startsWith('F13')),
+    'F13 真回退必须进差值红名单(①型)',
+  )
+  ok(
+    !grewViolations(f13AnchorFace, f13AnchorFace).some((x) => x.startsWith('F13')),
+    'F13 存量(两面同源)不得判红(②型,§12e)',
+  )
+  // ③ 等量换键:被审面把 G-779 的未勾行删掉(消掉一枚存量分叉)同时把 G-777 捣回未勾(带回一枚)
+  const f13Swap = ['# 计划', F13_OPEN_OLD, F13_STOCK_DONE].join('\n')
+  const f13SwapFace = wireF13(
+    { ...auditPlan(f13Swap), __face: 'staged', __contentText: f13Swap },
+    f13AnchorFace,
+  )
+  ok(
+    f13SwapFace.counts.f13Regressed === f13AnchorFace.counts.f13Regressed,
+    `③型构造前提:枚数必须持平(实测 ${f13SwapFace.counts.f13Regressed} vs ${f13AnchorFace.counts.f13Regressed}),否则本例没量到"等量换键"`,
+  )
+  ok(
+    grewViolations(f13SwapFace, f13AnchorFace).some((x) => x.startsWith('F13')),
+    '③ 等量换键必须由主键集合差集拦下(通用"比变多"那一循环在这一型恒绿)',
+  )
+  // 反向对照(§22c 的形状锁):摘掉 F13 装配 ⇒ 退回未补牙前的形状,同一夹具必须读不出红。
+  // ⚠ 摘的必须是**整维**(明细数组 + 读数一起摘):只摘明细时,probe 的 F13 读数仍在、由 1 涨到 2,
+  // 通用"比变多"那一循环照样红 —— 那种摘法证明不了"红来自这一维的差集臂",是恒真断言的孪生兄弟。
+  const stripF13 = (f) => ({
+    ...f,
+    f13CrossKeys: undefined,
+    f13StockKeys: undefined,
+    counts: { ...f.counts, f13Regressed: undefined },
+  })
+  ok(
+    !grewViolations(stripF13(f13ReviewFace), stripF13(f13AnchorFace)).some((x) =>
+      x.startsWith('F13'),
+    ),
+    '摘掉 F13 装配后同一夹具必须不红(证明红来自这一维本身,不是别的维度代跑)',
+  )
+  ok(
+    grewViolations(f13ReviewFace, f13AnchorFace).some((x) => x.startsWith('F13')),
+    '装回去必须立刻翻红(与上一条成对;只留一条就是恒真断言)',
+  )
+  // 面取不到 ⇒ 不判、不冒 0 绿:读数留 0 但 f13Unjudged 必须点名原因(§0.3)
+  const f13NoAnchor = wireF13(
+    { ...auditPlan(f13Face), __face: 'staged', __contentText: f13Face },
+    null,
+  )
+  ok(
+    f13NoAnchor.counts.f13Regressed === 0 &&
+      typeof f13NoAnchor.f13Unjudged === 'string' &&
+      f13NoAnchor.f13Unjudged.includes('全文不在手'),
+    `F13 锚点面取不到必须落未判定并点名,实测 ${JSON.stringify([f13NoAnchor.counts.f13Regressed, f13NoAnchor.f13Unjudged])}`,
+  )
   // ── 时间排序档 --order(2026-10-23 立)──
   // 夹具只用构造面(锚点表由本例注入),不碰 git ⇒ 确定性(§22b 取向:形状判据要用纯函数+构造面证明)。
   const tOld = Date.UTC(2026, 8, 1)
@@ -3153,6 +3515,19 @@ function main() {
     a.newWaitingEnvRows = ne
     a.counts.newWaitingEnv = ne.length
   }
+  // ── F13 已勾行被捣回未勾(2026-10-27 补牙,主席 16:30 实测"滞后副本交进提交、四档全绿")──
+  // 这一维是**跨面**的:被审面 vs HEAD 锚点面,两面全文同轮取(§0.4)。
+  //  · 提交链(--gate --staged):被审面 = 索引 blob,锚点面 = 上面那次 auditFace('head') 的同一枚 blob;
+  //    锚点面自己也要过一遍同一把尺(存量档),否则"分不清存量与本次带回"。
+  //  · 全量档(--gate):面 == 锚点 ⇒ 走"面内存量"档,命中只报数(这一档结构上算不出"本次新增",
+  //    与 F8/F11/F12 兜 0 同一条理由,不拿它冒充"判过")。
+  // 锚点面取不到 ⇒ **不判**:读数落 0 但 `f13Unjudged` 点名原因,报告行与 gate 都如实写未判定,
+  // 既不记绿也不冒红(§0.3);绝不回落工作树副本 —— 工作树那份正是本次要判的那一型(§0.4)。
+  if (preBefore) wireF13(preBefore, preBefore, { faceLabel: 'HEAD 锚点面', anchorLabel: 'HEAD 锚点面' })
+  wireF13(a, o.face === 'head' ? a : preBefore, {
+    faceLabel: `被审面(${LABEL[o.face] ?? o.face})`,
+    anchorLabel: `HEAD 锚点面`,
+  })
   // ── F10 翻勾回写候选(仅在显式旗标下跑:取证要遍历提交 diff,≈210s/900 枚,绝不压在默认档)──
   if (o.reopenedFlips) {
     if (!o.since) {
@@ -3278,16 +3653,26 @@ function main() {
   if (o.open) {
     // `--open --dispatchable`:把"现在就能做的活"从"等着别人/等环境的账"里分出来。
     // 默认口径不变 —— 分层只在这条显式旗标下生效,免得一次正则误判把真活踢出派单面。
+    // 过滤面按 v2 尺逐行剔(票 G-1182552:JSON 的 dispClaim* 已改为同尺,两不再各说各话)。
     const F = fieldsFace
     const bucketV2 = (r) => dispositionOfV2({ line: r.raw, fields: F }).bucket
+    // 归属证据尺(2026-10-26 立,任务书「v2 归属尺只在有真实归属证据时才剔」):
+    // `dispositionOfV2` 说"归他人"之后**还要问一句"这份归属现在还立得住吗"** ——
+    // ① ≤72h 完整租约 / ② 持有者短名在最近 200 枚提交信息里 / ③ 点名文件此刻在脏面。
+    // 三条皆不成立 ⇒ `stale-owner-label`,**默认保留在出单面并逐条点名**(不是静默剔除:
+    // 一个不会过期的散文标签冒充"现在有人在动",正是派单面读成 0 行的成因)。
+    // 判据本体在 `lib/plan-task-index.mjs`,这里只取数(提交史 / 脏面),取不到即"未判定"。
+    const EV = o.dispatchable ? ownerEvidenceFace(o.root) : null
+    const slotOf = (r) => dispatchSlotOf({ line: r.raw, fields: F, evidence: EV ?? {} })
+    const slots = o.dispatchable ? a.claimableRows.map((r) => ({ row: r, v: slotOf(r) })) : null
     const rows = o.dispatchable
-      ? a.claimableRows.filter((r) => bucketV2(r) === 'actionable')
+      ? slots.filter((s) => isDispatchKeptSlot(s.v.slot)).map((s) => s.row)
       : a.claimableRows
     if (o.dispatchable) {
       console.log(
         `── 派单口径中"现在可做" ${rows.length} / ${a.claimableRows.length} 行` +
-          `(剔除:待人拍板 ${a.counts.dispWaitingHuman} / 等条件 ${a.counts.dispWaitingEnv} / 归他人 ${a.counts.dispOwnedElsewhere};` +
-          `剔除按正文推导,拿不准的**留在清单里**而不是踢掉)──`,
+          `(剔除计数:待人拍板 ${a.counts.dispWaitingHuman} / 等条件 ${a.counts.dispWaitingEnv} / 归他人 ${a.counts.dispOwnedElsewhere} —— 这一组是**账面口径 v1 散文尺**的计数;` +
+          `过滤面本身按 **v2 尺(侧车优先)**,**归他人一档再经归属证据尺核验**;拿不准的**留在清单里**而不是踢掉)──`,
       )
       // 判定来源必须自己报名:侧车一旦开始有记录,上行那组"按正文推导"的剔除数就会与过滤面分开,
       // 而分开的方向是" fewer 活被踢出清单" —— 不报名就会被当成读数错乱(规格 §2)。
@@ -3303,6 +3688,37 @@ function main() {
           `   按 v2 重算的剔除面:待人拍板 ${v2c['waiting-human']} / 等条件 ${v2c['waiting-env']} / 归他人 ${v2c['owned-elsewhere']}` +
             `(与上行不同即两侧都在报数,不静默取其一)`,
         )
+      }
+      // ── 归属证据尺的四档读数(必须与上面三行**对得上账**:出单 + 仍归他人 + 未判定 + 等人 + 等条件 = claimable)──
+      const tally = {}
+      for (const s of slots) tally[s.v.slot] = (tally[s.v.slot] ?? 0) + 1
+      const owned = slots.filter((s) => s.v.slot === 'owned-elsewhere')
+      const heldBy = (k) => owned.filter((s) => s.v.by === k).length
+      console.log(
+        `── 归属证据尺(2026-10-26):出单 ${rows.length} = 可做 ${tally.actionable ?? 0} + stale-owner-label ${tally['stale-owner-label'] ?? 0};` +
+          `仍归他人 ${owned.length} 枚 = 机主面 ${heldBy('human-action-face')} / 侧车 ${heldBy('sidecar')} / 租约 ${heldBy('lease')} / 提交史 ${heldBy('commit')} / 在飞 ${heldBy('dirty')};` +
+          `归属未判定 ${tally.undetermined ?? 0} 枚 ──`,
+      )
+      if (EV?.why)
+        console.log(
+          `   ⚠ 证据输入未判定(${EV.why})⇒ 这几枚**既不派也不冒充归他人**,先修取材再派单`,
+        )
+      const stale = slots.filter((s) => s.v.slot === 'stale-owner-label')
+      if (stale.length > 0) {
+        console.log(
+          `  stale-owner-label ${stale.length} 行:票面挂了归属标签,但**无租约 ∧ 持有者不在最近 ${OWNER_EVIDENCE_COMMITS} 枚提交信息里 ∧ 点名文件不脏**` +
+            ' ⇒ 按"没人认领的真活"派单。**派前先看标签点名的持有人是否还在动**:在动就让他续租(写 `（进行中@日期/短名）`),不在动就照常领。',
+        )
+        for (const s of stale)
+          console.log(
+            `    L${s.row.line}  「${s.v.holder ?? ownerLabelOf(s.row.raw)?.owner ?? '(标签无持有人)'}」 —— ${s.v.detail}`,
+          )
+      }
+      const undet = slots.filter((s) => s.v.slot === 'undetermined')
+      if (undet.length > 0) {
+        console.log(`  归属未判定 ${undet.length} 行(输入取不到,**不出单也不记成归他人**):`)
+        for (const s of undet)
+          console.log(`    L${s.row.line}  ${s.v.detail}  「${s.v.holder ?? ownerLabelOf(s.row.raw)?.owner ?? ''}」`)
       }
       // 行内自述"不再单独派单/走持有行"的副本:勾选一字未动(§1 F4 口径),但不再占派单名额。
       // 必须报名而不只报数 —— 拿数字的人会去 grep【归并】字面并据此判定"这一族不存在"。

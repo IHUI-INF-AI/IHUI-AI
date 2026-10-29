@@ -81,6 +81,7 @@ apps/ai-service/
 | `hooks.py` | - | - | Webhook 回调入口 |
 | `rules.py` | - | - | 规则管理 |
 | `spec.py` | - | - | OpenAPI spec 导出 |
+| `keepalive.py` | `/api/keepalive` | 6 | 账号保活中心状态面(自检 / 总览 / 明细 / 流水 / 成功率 / 手动触发) |
 
 ### services/ 文件用途
 
@@ -127,6 +128,7 @@ apps/ai-service/
 | `user_profile.py` | 用户画像 |
 | `audit_service.py` | 审计服务 |
 | `publish/` | 多平台发布(14 平台 adapter + AES-256-GCM 凭证加密 + 调度器) |
+| `keepalive/` | 账号保活中心实现:Cookie 探活 + 凭证到期 + 签到 JWT 健康,一套调度 / 两张表 / 四档健康度 / 一个告警出口(HTTP 装配件在 `routers/keepalive.py`) |
 
 ### core/ 文件用途
 

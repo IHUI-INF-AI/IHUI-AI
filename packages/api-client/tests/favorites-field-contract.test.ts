@@ -99,7 +99,9 @@ describe('收藏字段口径:FavoriteItem 必须等于后端真实回传键', ()
 
   it('三个消费端读的是同一套名字(不再有一端留着旧词)', () => {
     for (const rel of [
-      'apps/mobile-rn/src/screens/FavoritesScreen.tsx',
+      // 2026-10-28 跨端重复屏合并:RN 侧收藏取数只剩这一份模型
+      // (Favorites 路由与 Favorite 路由共用;见 scripts/tests/cross-end-collection-screen-merge.test.mjs)
+      'apps/mobile-rn/src/screens/FavoriteScreen.tsx',
       'apps/extension/entrypoints/sidepanel/pages/FavoritesPage.tsx',
       'apps/miniapp-taro/src/pkg-user/favorites/index.tsx',
     ]) {

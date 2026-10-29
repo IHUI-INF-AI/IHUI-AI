@@ -13,6 +13,8 @@ import {
   buildRequestAttribution,
   isOpenSurfacePath,
 } from './audit-logger.js'
+// 5xx 摘要的打码走日志面唯一出口(见 log-sanitizer.ts 的具名导出注释),不落第二份规则。
+import { redactCredentialText } from './log-sanitizer.js'
 
 /**
  * API 日志中间件：记录请求到 api_logs 表。
@@ -51,10 +53,65 @@ interface BufferedLog {
   ip?: string
   userAgent?: string
   error?: string
+  // 契约(2026-10-28):created_at = 本行**请求完成时刻**,不是 flush 时刻 —— PG 的 now() 在同一 INSERT 内恒等,批量写会把整批拉平成同一毫秒,而下游(自动发现器按 24h 同签名计数/最近样本时刻)全靠 created_at 开窗。
+  createdAt: Date
 }
 
 /** 记录范围前缀:站内会话 API + 对外开放面网关(与 nginx 被限流的前缀一一对应)。 */
 const LOGGED_PREFIXES: readonly string[] = ['/api/', ...OPEN_SURFACE_PREFIXES]
+
+/**
+ * 5xx 摘要(2026-10-28 立,治"api_logs 里的 500 无法追责")。
+ *
+ * 一手现场:生产 `api_logs` 近 24h 有 18 次 `GET /api/memory -> 500`,而 `error` 列
+ * 逐字就是那一行状态码 —— 异常类型、SQLSTATE、堆栈**一个字节都没进表**(它们只落在
+ * pino stdout:`server.ts` 的 errorHandler 里 `logger.error({ err })`)。
+ * 也就是说这不是"记了被截断",而是**中间件本来就没记**:onResponse 这一刻手里只有
+ * 状态码,拿不到那次抛出的错误对象。定位只能靠把同一形请求在本机重放一遍(本次即如此)。
+ *
+ * 最小修法 = 在**同一个落库出口**里补一条摘要,而不是新建一条链路:
+ *   ① `onError` 钩子先于响应结束触发,是"错误对象还带在手上"的最后一个时刻 ——
+ *      抓一份存进 WeakMap(以 request 为键,进程内、无跨请求串味、随请求对象回收);
+ *   ② `onResponse` 落库时,只对 **>=500** 拼接到原状态码行之后。
+ *
+ * 为什么只给 5xx:4xx 绝大多数是框架的入参/体校验错误,其 message 会**带上请求体片段**
+ * (PII 面),而那一级别本来就能靠状态码定位;5xx 才是"没人知道为什么坏了"的那一格。
+ * 脱敏:摘要文本先过日志面唯一出口 `redactCredentialText`(共享层 SECRET_RULES + redactUrl),
+ * 再钳到 `ERROR_SUMMARY_LIMIT` 字符、折成单行 —— 不写 token/cookie 原文,也不落多行堆栈。
+ */
+const ERROR_SUMMARY_LIMIT = 300
+
+/** request → 单行异常摘要(WeakMap:不落全局累积,请求对象回收即消失)。 */
+const errorSummaries = new WeakMap<object, string>()
+
+/** 从错误对象取"类名 [+SQLSTATE] + 首行 message",折成一行并钳长。 */
+function buildErrorSummary(error: unknown): string {
+  const e = error as { name?: unknown; code?: unknown; message?: unknown } | undefined
+  const name = typeof e?.name === 'string' && e.name ? e.name : 'Error'
+  const sqlState =
+    typeof e?.code === 'string' && /^[A-Za-z0-9]{2,6}$/.test(e.code) ? `[${e.code}]` : ''
+  const rawMessage = String(e?.message ?? error ?? '')
+  const firstLine = rawMessage.split('\n')[0] ?? ''
+  const oneLine = `${name}${sqlState ? ' ' + sqlState : ''}: ${firstLine}`
+    .replace(/\s+/g, ' ')
+    .trim()
+  const clipped =
+    oneLine.length > ERROR_SUMMARY_LIMIT ? `${oneLine.slice(0, ERROR_SUMMARY_LIMIT)}…` : oneLine
+  return redactCredentialText(clipped)
+}
+
+/** 落库用的 error 列:状态码行是既有契约(下游按 `-> <code>` 计数),摘要只在 5xx 追加。 */
+function composeErrorColumn(
+  request: FastifyRequest,
+  method: string,
+  url: string,
+  statusCode: number,
+): string {
+  const base = `${method} ${url} -> ${statusCode}`
+  if (statusCode < 500) return base
+  const summary = errorSummaries.get(request)
+  return summary ? `${base} | ${summary}` : base
+}
 
 const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   if (!config.API_LOG_ENABLED) return
@@ -95,6 +152,16 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     await flush()
   })
 
+  // 错误对象只在 onError 这一刻还带在手上(onResponse 时已被 errorHandler 消费掉),
+  // 所以摘要必须在这里抓 —— 这是"5xx 能落到表里"的唯一时机。
+  server.addHook('onError', async (request, _reply, error) => {
+    try {
+      errorSummaries.set(request, buildErrorSummary(error))
+    } catch {
+      // 摘要抓取本身不得把业务请求带崩;失败时落库退回旧的"只有状态码行"形态(不冒假数据)
+    }
+  })
+
   server.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
     const url = request.url.split('?')[0] ?? ''
     if (!LOGGED_PREFIXES.some((p) => url.startsWith(p))) return
@@ -104,6 +171,8 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
     const method = request.method.toUpperCase()
     const statusCode = reply.statusCode
+    // 事件时间必须在这里取:缓冲区最快也要等到 flush 才落库,而落库那刻的 now() 会被整批共享。
+    const finishedAt = new Date()
 
     // 采样：2xx 按采样率，4xx/5xx 全量
     if (statusCode < 400) {
@@ -114,7 +183,8 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     // 会话用户优先;开放面没有 JWT,则归因到 key 的归属人 —— 否则网关流量的 userId 全为 null
     const userId = attribution.userId ?? attribution.apiKeyOwnerId ?? undefined
     const userAgent = request.headers['user-agent']
-    const error = statusCode >= 400 ? `${method} ${url} -> ${statusCode}` : undefined
+    const error =
+      statusCode >= 400 ? composeErrorColumn(request, method, url, statusCode) : undefined
 
     buffer.push({
       userId,
@@ -125,6 +195,7 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       ip: request.ip,
       userAgent: userAgent ? userAgent.slice(0, 512) : undefined,
       error,
+      createdAt: finishedAt,
     })
 
     // 开放面的失败请求(401/403/429 等安全事件)带完整归因打一条 stdout 日志。

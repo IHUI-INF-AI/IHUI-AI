@@ -161,6 +161,13 @@ function stripCommentLines(src) {
     .join('\n')
 }
 
+// 旧根 `D:\IHUI-AI` 的判据。**右边界不能省**:`D:/IHUI-AI-git-repo` 是本机真 gitdir
+// (ihui-deploy.ps1 的取源候选之一),它与旧根是两个目录,前缀相同但不是它 ——
+// 缺右边界会把那几处判成"脚本里还写着旧根",而消息模板又写死了 `D:\IHUI-AI` ⇒
+// 报红却与被指文件的实际内容不符(2026-10-23 `5a3cedfd40` 起恒红的假阳,一直到 2026-10-26)。
+// 抽到模块作用域是为了让 R6b 能直接喂正反用例 —— 判据被改宽或改坏必须当场有声(§5e-1/§12f)。
+const LEGACY_ROOT = /D:[\\/]IHUI-AI(?![\w.-])/i
+
 // =============================================================================
 // R1 解析正确性:多个不同深度的 StartDir 都必须解析到 git 仓库根
 // =============================================================================
@@ -268,6 +275,7 @@ test('R6 静态抽查:11 个调用方 dot-source 唯一实现,全部脚本可执
   // dot-source 形态有两种:直接 `. (Join-Path ... 'ihui-root-common.ps1')` 与
   // 先算变量再 `. $RootCommon`(deploy-loop / run-* 的大声死护栏写法),两者都认。
   const dotSourcePat = /^\s*\.\s+(?:\(Join-Path|\$)/m
+  // 右边界与立因见模块作用域的 LEGACY_ROOT(2026-10-26 修)。
   const ps1Callers = [
     'deploy/win/ihui-deploy.ps1',
     'deploy/win/ihui-deploy-loop.ps1',
@@ -293,13 +301,48 @@ test('R6 静态抽查:11 个调用方 dot-source 唯一实现,全部脚本可执
     assert.match(src, dotSourcePat, `${rel}: 未 dot-source helper`)
     assert.match(src, /Resolve-IhuiProjectRoot\s+-StartDir/, `${rel}: 未调用 Resolve-IhuiProjectRoot`)
     const exec = stripCommentLines(src)
-    assert.ok(!/D:[\\/]IHUI-AI/i.test(exec), `${rel}: 可执行代码里仍有 D:\\IHUI-AI 字面量(注释外)`)
+    const hit = exec.match(LEGACY_ROOT)
+    assert.ok(!hit, `${rel}: 可执行代码里仍有旧根字面量 ${hit ? hit[0] : ''}(注释外)`)
   }
   for (const rel of cmdCallers) {
     const src = readFileSync(join(REPO, rel), 'utf8')
     const exec = stripCommentLines(src)
-    assert.ok(!/D:[\\/]IHUI-AI/i.test(exec), `${rel}: 可执行代码里仍有 D:\\IHUI-AI 字面量(注释外)`)
+    const hit = exec.match(LEGACY_ROOT)
+    assert.ok(!hit, `${rel}: 可执行代码里仍有旧根字面量 ${hit ? hit[0] : ''}(注释外)`)
   }
+})
+
+// =============================================================================
+// R6b 旧根判据自证(让 R6 那把尺子以后不可能被悄悄改宽或改坏)
+// =============================================================================
+// 为什么要这一条:2026-10-26 之前 R6 的判据是 /D:[\\/]IHUI-AI/i,缺右边界,把本机真 gitdir
+// `D:/IHUI-AI-git-repo` 当旧根前缀命中,而消息里写死 `D:\IHUI-AI` ⇒ 报红却与被指文件内容不符,
+// 且恒红 3 天没人发现(该测试未接提交链)。修判据时只要动一个字符,就可能把它改成
+// "什么都拦不住"(比如去掉 /i、漏掉正斜杠、错把 .git 后缀算进去),而 R6 在真仓库上照样绿。
+// 所以把正反两向各钉死在这里:改宽 ⇒ 反向用例红;改窄到抓不住旧根 ⇒ 正向用例红。
+test('R6b 旧根判据正反自证:旧根五形态判红,本机真 gitdir 等四形态不误判', () => {
+  const shouldHit = [
+    ['D:\\IHUI-AI', '旧根裸写(反斜杠)'],
+    ['D:/IHUI-AI', '旧根裸写(正斜杠)'],
+    ['D:\\IHUI-AI\\deploy', '旧根带子路径'],
+    ["$Root = 'D:\\IHUI-AI'", '旧根赋值语句'],
+    ['d:/ihui-ai', '大小写无关(Windows 路径不区分大小写)'],
+  ]
+  const shouldMiss = [
+    ["@('origin', 'D:/IHUI-AI-git-repo')", '本机真 gitdir(正斜杠):是另一个目录,不是旧根'],
+    ['请先确认 D:\\IHUI-AI-git-repo 在位', '本机真 gitdir(反斜杠)'],
+    ['D:/IHUI-AI.bak', '旧根的备份目录,不是旧根本身'],
+    ['http://host/D:IHUI-AI', '既无分隔符也无盘符形态'],
+  ]
+  for (const [text, why] of shouldHit) {
+    assert.ok(LEGACY_ROOT.test(text), `判据把它们漏了(改窄了?):${why} —— 实参 ${JSON.stringify(text)}`)
+  }
+  for (const [text, why] of shouldMiss) {
+    assert.ok(!LEGACY_ROOT.test(text), `判据误判了(改宽了?):${why} —— 实参 ${JSON.stringify(text)}`)
+  }
+  // 消息面自证:报红时必须能回显真实命中,不许再"消息说 A、实际命中 B"(§12f)
+  const hit = 'x = D:\\IHUI-AI\\deploy'.match(LEGACY_ROOT)
+  assert.ok(hit && hit[0].includes('IHUI-AI'), `判据命中却取不出可回显的片段:${JSON.stringify(hit)}`)
 })
 
 // =============================================================================

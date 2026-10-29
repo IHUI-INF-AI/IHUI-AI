@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
+import type { Redis } from 'ioredis'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -91,6 +92,55 @@ vi.mock('../../db/index.js', () => {
 import { authExtendedRoutes } from '../auth-extended.js'
 import { findThirdPartyAccount, createThirdPartyBinding } from '../../db/oauth-queries.js'
 import { createUser } from '../../db/queries.js'
+import {
+  OAUTH_CONSENT_KEY_PREFIX,
+  OAUTH_CONSENT_TTL_SECONDS,
+} from '../../services/oauth-consent.js'
+
+/**
+ * 通用回调的同意闸需要 Redis。本文件考的是 Apple 分支的交换/建号行为,
+ * 因此按真实流程预置一条同意记录,而不是把闸门关掉。
+ */
+class FakeRedis {
+  private readonly store = new Map<string, { value: string; expiresAt: number | null }>()
+
+  async set(key: string, value: string, _ex?: string, ttlSeconds?: number): Promise<'OK'> {
+    this.store.set(key, {
+      value,
+      expiresAt: typeof ttlSeconds === 'number' ? Date.now() + ttlSeconds * 1000 : null,
+    })
+    return 'OK'
+  }
+
+  async get(key: string): Promise<string | null> {
+    const entry = this.store.get(key)
+    if (!entry) return null
+    if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      this.store.delete(key)
+      return null
+    }
+    return entry.value
+  }
+
+  async del(key: string): Promise<number> {
+    return this.store.delete(key) ? 1 : 0
+  }
+
+  clear(): void {
+    this.store.clear()
+  }
+}
+
+const consentRedis = new FakeRedis()
+
+async function seedConsent(platform: string, state: string): Promise<void> {
+  await consentRedis.set(
+    OAUTH_CONSENT_KEY_PREFIX + state,
+    JSON.stringify({ platform, agreementAccepted: true, createdAt: new Date().toISOString() }),
+    'EX',
+    OAUTH_CONSENT_TTL_SECONDS,
+  )
+}
 
 const originalFetch = global.fetch
 
@@ -116,6 +166,8 @@ describe('Auth Apple Callback — POST /auth/:platform/callback', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    // 通用回调的同意闸需要 Redis;测试用内存替身
+    app.decorate('redis', consentRedis as unknown as Redis)
     // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
     await app.register(cookie)
     await app.register(authExtendedRoutes, { prefix: '/api' })
@@ -127,8 +179,10 @@ describe('Auth Apple Callback — POST /auth/:platform/callback', () => {
     global.fetch = originalFetch
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    consentRedis.clear()
+    await seedConsent('apple', 'test-state')
     delete process.env.APPLE_CLIENT_ID
     delete process.env.APPLE_CLIENT_SECRET
     delete process.env.APPLE_TEAM_ID
