@@ -102,9 +102,21 @@ const PUBLIC_PREFIXES: readonly string[] = [
   // 公开市场与公开内容
   '/api/agents',
   '/api/categories',
-  '/api/landing/',
+  '/api/landing',
   '/api/voice/',
   '/api/crash-reports',
+  // 2026-10-29 主动探测(无凭据 GET,只认 200)与 observe 实测补入:
+  // 门户落地页 / 首页内容聚合 / 分类字典缓存。三者都是渲染首页所需,漏了会让首页空屏。
+  '/landing',
+  '/api/feature-center/',
+  '/api/ai-world/',
+  '/api/cache/agent-category-dict/',
+  // 2026-10-29 切 enforce 后由 enforce-401 日志抓出的合法公开面:
+  // 客户端启动即调的版本检查(源码注释自述"公开"),以及新闻列表。
+  // 注意 /api/configs 刻意**不**加:ai-user-model-chat 那份实现要 request.userId,
+  // 匿名访问本就该 401。
+  '/api/app-version/',
+  '/api/news/',
 ]
 
 /** 兜底只看这两类前缀之外的路由(其余如 /uploads 静态面根本不进 Fastify 路由表)。 */
@@ -127,15 +139,17 @@ export function isAuthDefaultPublicPath(rawUrl: string): boolean {
 const OBSERVE_LOG_INTERVAL_MS = 60_000
 const lastLoggedAt = new Map<string, number>()
 
-function logObserveHit(method: string, path: string): void {
-  const key = `${method} ${path}`
+function logObserveHit(method: string, path: string, tag: 'observe' | 'enforce-401'): void {
+  const key = `${tag} ${method} ${path}`
   const now = Date.now()
   const prev = lastLoggedAt.get(key)
   if (prev !== undefined && now - prev < OBSERVE_LOG_INTERVAL_MS) return
   lastLoggedAt.set(key, now)
   logger.warn(
-    `[auth-default-deny] ${method} ${path} 无凭据且不在公开名单 —— enforce 档下将 401,请确认是否应列入名单`,
-    { event: 'auth_default_deny_observe', method, path },
+    `[auth-default-deny] ${tag} ${method} ${path} 无凭据且不在公开名单 —— ${
+      tag === 'observe' ? 'enforce 档下将 401,请确认是否应列入名单' : '已 401,若属公开面请补进名单'
+    }`,
+    { event: `auth_default_deny_${tag.replace('-', '_')}`, method, path },
   )
 }
 
@@ -144,6 +158,10 @@ function logObserveHit(method: string, path: string): void {
  * 模块级而非插件内闭包 —— 测试要直接调用它,不复制判据(§22c)。
  */
 export async function authGuard(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  // 上游 preHandler 可能已经 send 过(401/403)但仍把链交到这里 —— 再 send 一次会抛
+  // "Reply was already sent" 并被全局处理器收敛成 500(2026-10-29 生产实测:
+  // /api/knowledge/docs 匿名访问 500 而非 401)。这道判断是根治,不依赖上游写法。
+  if (reply.sent) return
   const mode = resolveAuthDefaultDenyMode()
   if (mode === 'off') return
   if (request.method === 'OPTIONS' || request.method === 'HEAD') return
@@ -151,9 +169,11 @@ export async function authGuard(request: FastifyRequest, reply: FastifyReply): P
   const path = request.url.split('?')[0] ?? request.url
   if (isAuthDefaultPublicPath(path)) return
   if (mode === 'observe') {
-    logObserveHit(request.method, path)
+    logObserveHit(request.method, path, 'observe')
     return
   }
+  // enforce 档同样留痕:切档后若真有漏列的公开面,日志里能直接看到是哪一条被 401 打断。
+  logObserveHit(request.method, path, 'enforce-401')
   await checkAuth(request, reply)
 }
 

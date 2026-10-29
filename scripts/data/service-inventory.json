@@ -1,0 +1,50 @@
+{
+  "$comment": "本机 Windows 服务运行配置的入库真相源(票 G-584 归口)。射程 = 注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services 下名字匹配 ^(IHUI|Keycloak)$ 的服务;四键 application/appParameters/appDirectory/appStdout 仅 nssmManaged=true 时有值。秘密只存脱敏形态(前6***后2 (len=N)),原始凭据永不入仓。重建方式:node scripts/check-service-inventory.mjs --snapshot 重定向覆写本文件;不得手改单条。",
+  "generatedAt": "2026-10-29T22:34:53.903Z",
+  "host": "lichunchuan",
+  "nssmBinaryPresent": false,
+  "comparisonBasis": "脱敏后逐字节等值;两侧同基准归一化",
+  "services": [
+    {
+      "name": "IHUI-AI-SERVICE",
+      "displayName": "IHUI AI Service",
+      "start": 2,
+      "imagePath": "cmd.exe /c \"cd /d G:\\IHUI-AI\\apps\\ai-service && G:\\IHUI-AI\\apps\\ai-service\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8803\"",
+      "nssmManaged": false,
+      "application": null,
+      "appParameters": null,
+      "appDirectory": null,
+      "appStdout": null,
+      "referencedByRepoNssmScripts": false,
+      "repoNssmRefFiles": []
+    },
+    {
+      "name": "IHUI-API",
+      "displayName": "IHUI API Service",
+      "start": 2,
+      "imagePath": "cmd.exe /c \"cd /d G:\\IHUI-AI\\apps\\api && C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe --require G:\\IHUI-AI\\node_modules\\.pnpm\\tsx@4.23.12\\node_modules\\tsx\\dist\\preflight.cjs --import file:///G:/IHUI-AI/node_modules/.pnpm/tsx@4.23.12/node_modules/tsx/dist/loader.mjs src/index.ts\"",
+      "nssmManaged": false,
+      "application": null,
+      "appParameters": null,
+      "appDirectory": null,
+      "appStdout": null,
+      "referencedByRepoNssmScripts": true,
+      "repoNssmRefFiles": [
+        "deploy/win/ihui-enable-unattended-intake.ps1"
+      ]
+    },
+    {
+      "name": "IHUI-WEB",
+      "displayName": "IHUI Web Service",
+      "start": 2,
+      "imagePath": "cmd.exe /c \"cd /d G:\\IHUI-AI\\apps\\web && node G:\\IHUI-AI\\apps\\web\\node_modules\\next\\dist\\bin\\next dev --turbopack -p 8801\"",
+      "nssmManaged": false,
+      "application": null,
+      "appParameters": null,
+      "appDirectory": null,
+      "appStdout": null,
+      "referencedByRepoNssmScripts": false,
+      "repoNssmRefFiles": []
+    }
+  ]
+}

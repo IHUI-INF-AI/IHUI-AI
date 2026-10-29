@@ -25,6 +25,8 @@ import { useTheme } from 'next-themes'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
+// 2026-10-29:中文全角括号 autolink 收尾修正(GFM 只认 ASCII 边界,全角右括号会被吞进 href)
+import { remarkTrimCjkAutolink } from '@/lib/markdown-autolink-cjk'
 import rehypeKatex from 'rehype-katex'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
@@ -48,6 +50,16 @@ import {
   splitMarkdownStable,
   judgeBlockStability,
 } from '@/lib/markdown-stable-split'
+// 2026-10-29(对标 Qoder §6.6):静态长文档块级虚拟化 —— 流式已完且 ≥16384 字符时
+// 只挂可视区块 + overscan,窗口外不进 React 树(用上下占位撑住总高)。
+// 刻意**不用** content-visibility / contain-intrinsic-size(AGENTS G-828 明文禁恢复)。
+import {
+  STATIC_BLOCK_OVERSCAN,
+  STATIC_BLOCK_VIRTUALIZE_MIN_CHARS,
+  buildStaticBlockOffsets,
+  resolveStaticBlockWindow,
+  sliceBlocksForWindow,
+} from '@/lib/markdown-block-window'
 // V3 #70(2026-09-27 立):PDF/CSV/TSV/office 消息内富预览的唯一入口。
 // 取代此前 P3 #32 的两个分支与 D41 的 office 分支 —— 派发器内部仍复用既有
 // PDFViewer(pdf.js)/ OfficePreview(SUPPORTED_EXTS 唯一支持表),不是第二套实现。
@@ -1011,7 +1023,36 @@ const StableBlock = React.memo(function StableBlock({
 }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
+      remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath, remarkTrimCjkAutolink]}
+      rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
+      components={components}
+    >
+      {content}
+    </ReactMarkdown>
+  )
+})
+
+/**
+ * 活跃段渲染组件(2026-10-29 抽出:此前是两处内联 `<ReactMarkdown>` 字面量)。
+ *
+ * 抽出的**唯一理由**是块级虚拟化需要给 active 尾巴包一层测高容器,而内联字面量
+ * 一旦复制就会变成四处(`markdown-autolink-cjk.test.ts` 的接线锁量的是**三处**,
+ * 复制第四处既破坏该锁的语义、也让"插件装了几处"从此数不清)。
+ * 抽成一个组件后仍是三处 `remarkPlugins` 字面量:StableBlock / ActiveBlock / 无 stable 分支。
+ *
+ * memo 的理由与 StableBlock 同:窗口滑动时 mounted 区的 active 尾巴若内容未变,
+ * 不该跟着父组件重渲染而重跑一遍 parse。
+ */
+const ActiveBlock = React.memo(function ActiveBlock({
+  content,
+  components,
+}: {
+  content: string
+  components: Components
+}) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath, remarkTrimCjkAutolink]}
       rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
       components={components}
     >
@@ -1386,37 +1427,218 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
 
   const blockKeyPrefix = `b${blockLedgerRef.current.epoch}`
 
+  // 2026-10-29(对标 Qoder §6.6):静态长文档块级虚拟化。
+  //
+  // 判据住在 `lib/markdown-block-window.ts`(纯函数,17 例钉住六条让位分支与偏移拼装),
+  // 本处只做两件事:**量几何**、**接线**。
+  //
+  // 为什么允许"部分实测":窗口化天生只挂一部分块,其余块永远量不到。若要求全量
+  // 实测才算得出窗口,判据就死锁(不挂 ⇒ 量不到 ⇒ 不挂)。所以走
+  // `buildStaticBlockOffsets`:挂过的块用实测值,没挂过的用"已测块均值"估计,
+  // 每次重算都会被新实测值修正(Qoder 的 estimateSize + 测量回填同型)。
+  //
+  // 三个格:`measuredHeights`(逐块实测值,state 而非 ref —— 窗口重算必须真正依赖它,
+  // 用 ref 就得靠一个人造的版本号去触发重算,`useMemo` 的依赖会变成假依赖)、
+  // `containerRef` 本消息坐标系原点、`viewportHeight` 视口高。
+  //
+  // 失效方向恒为"不优化":量不到几何(resolveStaticBlockWindow 六条让位判据任一命中)
+  // ⇒ 全量挂载,与优化前同形。**绝不**退化成"挂空"(正文消失比卡顿严重得多)。
+  const containerRef = React.useRef<HTMLDivElement | null>(null)
+  const [measuredHeights, setMeasuredHeights] = React.useState<readonly number[]>([])
+  const [viewportHeight, setViewportHeight] = React.useState(0)
+
+  // `active` 必须计入块数:流式结束后 `splitMarkdownStable` 仍可能留下非空 active
+  // (末个安全切点之后的那段永远不会进 stable)。漏算它,窗口就会把正文尾巴当占位
+  // 隐藏 —— 那是丢内容,不是优化。
+  const virtualBlockCount = renderBlocks.length + (active.trim() ? 1 : 0)
+  const virtualizable: boolean =
+    !isStreaming &&
+    virtualBlockCount > 1 &&
+    parseContent.length >= STATIC_BLOCK_VIRTUALIZE_MIN_CHARS
+
+  // 滚动与视口:监听最近的滚动祖先(消息列表容器),只把**视口高度**落进 state
+  // (相对位移必须渲染时刻现读 rect,缓存会随容器滚动过期)。
+  // 不用 IntersectionObserver 逐块判:块数可能上百,观察器本身的开销就抵掉收益。
+  React.useEffect(() => {
+    if (!virtualizable) return
+    const root = containerRef.current
+    if (!root) return
+    let scroller: HTMLElement | null = root.parentElement
+    while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
+      scroller = scroller.parentElement
+    }
+    const update = (): void => {
+      const next = scroller ? scroller.clientHeight : window.innerHeight
+      setViewportHeight((prev) => (prev === next ? prev : next))
+    }
+    const target: HTMLElement | Window = scroller ?? window
+    target.addEventListener('scroll', update, { passive: true })
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null
+    ro?.observe(root)
+    if (scroller) ro?.observe(scroller)
+    // 首帧同步量一次:scroll 事件在初始位置不会触发,不量就会以 0 视口进入判据
+    // ⇒ 恒命中 `viewport-unknown` ⇒ 虚拟化永远不生效(判据存在但沉默,正是本票要修的那型)。
+    setViewportHeight(scroller ? scroller.clientHeight : window.innerHeight)
+    return () => {
+      target.removeEventListener('scroll', update)
+      ro?.disconnect()
+    }
+  }, [virtualizable])
+
+  const blockWindow = React.useMemo(() => {
+    const { offsets } = buildStaticBlockOffsets({
+      blockCount: virtualBlockCount,
+      measured: measuredHeights,
+    })
+    // 视口坐标系:用 getBoundingClientRect 现读"本组件顶边离滚动视口上沿多远"。
+    // 滚动容器不可得时取 0 —— 那时 `viewportHeight` 也来自 window,语义一致。
+    let scrollTop = 0
+    const root = containerRef.current
+    if (root) {
+      let scroller: HTMLElement | null = root.parentElement
+      while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
+        scroller = scroller.parentElement
+      }
+      if (scroller) {
+        scrollTop = Math.max(
+          0,
+          scroller.getBoundingClientRect().top - root.getBoundingClientRect().top,
+        )
+      }
+    }
+    return resolveStaticBlockWindow({
+      blockCount: virtualBlockCount,
+      totalChars: parseContent.length,
+      // prop 是可选(`boolean | undefined`),判据层要求严格布尔:undefined 语义
+      // 等同"非流式"(与 `virtualizable` 的 `!isStreaming` 同口径),显式归一。
+      isStreaming: isStreaming === true,
+      offsets,
+      scrollTop,
+      viewportHeight,
+      overscan: STATIC_BLOCK_OVERSCAN,
+    })
+  }, [virtualBlockCount, parseContent.length, isStreaming, viewportHeight, measuredHeights])
+
+  // 逐块测高:一次布局读回填实测值。**必须排在 `blockWindow` 之后**(依赖它定窗口边界;
+  // 放到前面就是 TDZ —— 实测过 28 例整批 `Cannot access 'blockWindow' before initialization`)。
+  //
+  // 依赖含 `blockWindow.start/end`:测高的目的就是"补上窗口内还没量过的块",
+  // 所以窗口一变就量一轮。量到新值 ⇒ `measuredHeights` 变 ⇒ 窗口按新几何重算 ⇒
+  // 若窗口又挪了就再量一轮。这条链**结构上收敛**:每轮至少把一个块从"估计"变成
+  // "实测",块总数有限;且只有实测值与已有值差 > 0.5px 才写 state,几何稳定后自然停住。
+  React.useLayoutEffect(() => {
+    if (!virtualizable) {
+      // 退出虚拟化(重新流式/内容变短)⇒ 实测值作废,别把旧几何带进下一次
+      setMeasuredHeights((prev) => (prev.length === 0 ? prev : []))
+      return
+    }
+    const root = containerRef.current
+    if (!root) return
+    const nodes = root.querySelectorAll<HTMLElement>('[data-markdown-block]')
+    let next: number[] | null = null
+    nodes.forEach((node) => {
+      const index = Number(node.dataset.markdownBlockIndex)
+      if (!Number.isInteger(index) || index < 0) return
+      const h = node.getBoundingClientRect().height
+      if (!(h > 0)) return
+      const current = (next ?? measuredHeights)[index]
+      if (Math.abs(h - (current ?? -1)) > 0.5) {
+        next ??= measuredHeights.slice()
+        next[index] = h
+      }
+    })
+    if (next) setMeasuredHeights(next)
+  }, [virtualizable, measuredHeights, blockWindow.start, blockWindow.end])
+
+  // 挂载区按"块身份"取:前 renderBlocks.length 个是 stable 块,最后一个(若存在)是 active。
+  // `tailMounted` 为 true 时 active 在窗口内,必须**排在下方占位之前** —— 否则占位会把
+  // 正文尾巴推走(视觉上像"回答被截断",而数据是全的)。
+  const tailMounted = blockWindow.enabled && blockWindow.end >= renderBlocks.length
+  const stableSlice = React.useMemo(
+    () => sliceBlocksForWindow(renderBlocks, blockWindow),
+    [renderBlocks, blockWindow],
+  )
+
   return (
     // 2026-08-02:AI 对话正文 14px → 15px(text-[15px]),用户反馈"太大了 小点"
     // 2026-10-28 观感档⑤:流式光标改 CSS ::after 内联尾随(stream-caret-host,定义在
     // animations.css)——旧 DOM span 挂在容器末尾,块级输出断行让它悬在下一行行首;
     // 现光标作为最后一个块元素的行内子盒,真·跟在末字符后。DOM 不再渲染 caret 节点。
     <div
+      ref={containerRef}
       className={cn('!m-0 !p-0 !space-y-0 text-[15px]', isStreaming && 'stream-caret-host')}
       data-testid="markdown-stream"
+      data-markdown-virtualized={blockWindow.enabled ? 'true' : undefined}
     >
       {stable ? (
         <>
           {/* 稳定前缀:按块冻结,各块 memo 命中时零 parse(每帧只重解析最后一块)。
-              key 前缀随边界漂移 epoch 变 —— 漂移时强制整列重挂(见 renderBlocks 注记)。 */}
-          {renderBlocks.map((block, index) => (
-            <StableBlock
-              key={`${blockKeyPrefix}-block-${index}`}
-              content={block}
-              components={components}
-            />
-          ))}
-          <ReactMarkdown
-            remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
-            rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
-            components={components}
-          >
-            {active}
-          </ReactMarkdown>
+              key 前缀随边界漂移 epoch 变 —— 漂移时强制整列重挂(见 renderBlocks 注记)。
+
+              2026-10-29 块级虚拟化(对标 Qoder §6.6):`blockWindow.enabled` 时只挂
+              窗口内的块,上下各用一个 `data-markdown-block-placeholder` 占位块把总高
+              撑住(滚动条长度不变、锚点位置不变)。占位高度来自实测/估计偏移表,不用
+              `contain-intrinsic-size`(G-828 明令禁止恢复)。
+              `data-markdown-block` + `data-markdown-block-index` 是**测高入口**
+              (见上方 layoutEffect),全量挂载时也在 —— 这样"流式结束那一刻"已有几何,
+              不会先闪一帧全量再收缩。 */}
+          {blockWindow.enabled ? (
+            <>
+              {/* 虚拟化档:窗口内块各带测高属性(见上方 layoutEffect),窗口外只用
+                  占位块撑高。key 跟**块身份**(全局下标)走 —— 窗口一移若按新下标复用
+                  节点,代码块折叠态/mermaid 渲染结果会串位(与档⑦ 同一型)。 */}
+              {blockWindow.paddingTop > 0 && (
+                <div
+                  aria-hidden
+                  data-markdown-block-placeholder="above"
+                  style={{ height: blockWindow.paddingTop }}
+                />
+              )}
+              {stableSlice.mounted.map((block, index) => {
+                const globalIndex = stableSlice.above + index
+                return (
+                  <div
+                    key={`${blockKeyPrefix}-block-${globalIndex}`}
+                    data-markdown-block=""
+                    data-markdown-block-index={globalIndex}
+                  >
+                    <StableBlock content={block} components={components} />
+                  </div>
+                )
+              })}
+              {/* active 尾巴只在"落在窗口内"时挂 —— 否则整段正文尾巴会被下方占位块
+                  挡在后面(视觉上像回答被截断,而数据是全的)。 */}
+              {tailMounted && (
+                <div data-markdown-block="" data-markdown-block-index={renderBlocks.length}>
+                  <ActiveBlock content={active} components={components} />
+                </div>
+              )}
+              {blockWindow.paddingBottom > 0 && (
+                <div
+                  aria-hidden
+                  data-markdown-block-placeholder="below"
+                  style={{ height: blockWindow.paddingBottom }}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              {/* 非虚拟化档:与优化前**逐字节同形**(StableBlock 直接是子节点,
+                  active 不套壳)—— 失效方向是"退回旧路径",不是"旧路径也改一点"。 */}
+              {renderBlocks.map((block, index) => (
+                <StableBlock
+                  key={`${blockKeyPrefix}-block-${index}`}
+                  content={block}
+                  components={components}
+                />
+              ))}
+              <ActiveBlock content={active} components={components} />
+            </>
+          )}
         </>
       ) : (
         <ReactMarkdown
-          remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
+          remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath, remarkTrimCjkAutolink]}
           rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
           components={components}
         >
