@@ -122,4 +122,46 @@ test('⑦ 信封往返自证:encryptEnvelope → decryptEnvelope 逐字节还原
     assert.equal(decryptEnvelope(encryptEnvelope(text)), text)
   }
 })
+
+test('⑧ killTrae 按 pid 逐个杀,不按映像名全杀', () => {
+  const killed = []
+  const r = S.killTrae({
+    lister: () => [
+      { pid: 11, exePath: 'D:\\a\\Trae CN.exe' },
+      { pid: 22, exePath: 'D:\\b\\Trae CN.exe' },
+    ],
+    kill: (pid) => killed.push(pid),
+  })
+  assert.deepEqual(r.killed, [11, 22])
+  assert.deepEqual(killed, [11, 22])
+})
+
+test('⑨ killTrae:没在跑 ⇒ 零动作', () => {
+  const killed = []
+  const r = S.killTrae({ lister: () => [], kill: (p) => killed.push(p) })
+  assert.deepEqual(r, { killed: [], reason: 'not-running' })
+  assert.deepEqual(killed, [])
+})
+
+test('⑩ killTrae:问不到可执行路径 ⇒ 拒绝,一个都不杀', () => {
+  const killed = []
+  assert.throws(
+    () => S.killTrae({ lister: () => [{ pid: 33, exePath: '' }], kill: (p) => killed.push(p) }),
+    (e) => e.code === 'kill-refused',
+  )
+  assert.deepEqual(killed, [])
+})
+
+test('⑪ killTrae:某个停不掉 ⇒ kill-partial,不谎报全成', () => {
+  assert.throws(
+    () =>
+      S.killTrae({
+        lister: () => [{ pid: 44, exePath: 'D:\\a\\Trae CN.exe' }],
+        kill: () => {
+          throw new Error('拒绝访问')
+        },
+      }),
+    (e) => e.code === 'kill-partial' && /44/.test(e.message),
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
