@@ -390,8 +390,14 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
   调 `networkStats()`,**从不调用 `services()`**,且不接收任何用户可控参数。
 - 处置:**不升级**(patch 版本虽兼容,但本仓多会话并发,动 lockfile 冲突风险高于收益);
   改为登记判定依据。下次该依赖升级时自然带修复(修复版 >= 5.33.16)。
-- **待补判据**:依赖审计目前无守门。建议后续加「生产依赖 critical/high 必须为 0」的差值棘轮
-  (构建链存量按 §12e 只报数不拦),避免 28 个 critical 躺着无人认领。
+- **机读判据已补(2026-10-29,同日收尾)**:守门 **260** `scripts/check-prod-dep-advisories.mjs`
+  (blocking)。判据:生产可达(非 devOnly)的 critical/high 必须全被**未过期** waiver 覆盖;
+  构建链存量只报数不拦(§12e)。豁免清单 = `scripts/data/dep-audit-policy.json`(三要素
+  module/reason/expiresAt,reason <20 字即红、过期即红)。数据源是审计快照
+  `.ihui-agent/state/dep-audit-cache.json`,缺失或超 30 天自动刷新(`pnpm audit --registry`,
+  实测 6.8s),刷新失败 ⇒ exit 2 未判定。**这 28 个 critical 从此不再依赖人读文档。**
+  当前水位:生产未豁免 0 条 / 已豁免 3 枚(systeminformation、image-size、zod,均带硬证据与
+  2027-01-31 到期日)/ 构建链存量 23 条只报数。
 
 ---
 
@@ -432,10 +438,11 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
   见 §10.6。放开普通用户调试能力的前置仍是「连 `args` 一起约束」,未做。
 - ~~依赖漏洞审计~~ **已出结论(2026-10-29)**:生产运行时唯一 high(`systeminformation`)
   判定不可达,构建链存量另计,见 §10.7。**仍未做的是机读判据**(见下条)。
-- **依赖审计守门(建议 P1)**:加一道「生产依赖 critical/high 必须为 0」的差值棘轮
-  (构建链存量只报数不拦,§12e)。当前 28 个 critical 全靠人读文档,下一个人不会读。
+- ~~依赖审计守门~~ **已补(2026-10-29)**:守门 260 + `scripts/data/dep-audit-policy.json`,
+  生产 critical/high 不再依赖人读文档,见 §10.7。
 - **`systeminformation` 升级**:等 `@opentelemetry/*` 自然带上来(>= 5.33.16),或单独开一次
   lockfile 变更窗口;单独为不可达 CVE 动 lockfile 的冲突风险高于收益(§10.7)。
+  **注意 waiver 到期日 2027-01-31**:到期前必须重验,否则守门 260 会红。
 - **定期渗透 / 红队**:建议每季度一次,覆盖 API、relay 面、支付回调。
 - **WAF 启用评估**:仅 nginx 形态适用(§10.3/§10.4);本机生产走 EdgeOne,应在 EdgeOne
   控制台评估其 WAF/限流规则,而不是改仓库里的 nginx 片段。
