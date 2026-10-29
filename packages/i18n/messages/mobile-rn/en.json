@@ -3911,6 +3911,9 @@
     }
   },
   "orderDetail": {
+    "actionFailed": "Action failed, please try again",
+    "cancelConfirmTitle": "Cancel this order?",
+    "refundConfirmTitle": "Request a refund?",
     "amount": "Amount",
     "createdAt": "Created at",
     "loadFailed": "Failed to load order",

@@ -3911,6 +3911,9 @@
     }
   },
   "orderDetail": {
+    "actionFailed": "작업이 실패했습니다. 다시 시도해 주세요",
+    "cancelConfirmTitle": "이 주문을 취소하시겠습니까?",
+    "refundConfirmTitle": "환불을 신청하시겠습니까?",
     "amount": "금액",
     "createdAt": "생성 시간",
     "loadFailed": "주문 상세 불러오기 실패",
