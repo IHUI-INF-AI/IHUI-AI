@@ -388,6 +388,12 @@ const CodeBlockImpl = function CodeBlock({
   // 时,该块首拍挂载前一刻刚入簿仍被认可);历史重载被闸死(见 sessionStreamedRef 注记),
   // 在写尾块不入簿。
   const [collapsed, setCollapsed] = React.useState(() => !preserveExpanded)
+  // 2026-10-29 流式观感档⑩(e2e 像素守门现形):闭合沿变那一拍,prop preserveExpanded
+  // 已为 true 但 collapsed 还是挂载旧值 true —— 档③ 的 setCollapsed(false) 在 effect 里
+  // (paint 之后),中间存在**一帧折叠闪位**(实浏览器逐帧量到 302px→99px→302px;jsdom 恒不可见)。
+  // 修:展开判定在"用户未亲手点过折叠钮"期间由 collapsed 态 ∪ carry 事实共同决定 ——
+  // carry 在场即视为展开(挂载/沿变两型统一),用户一旦亲手操作,其意志最高、立即接管。
+  const userToggledCollapseRef = React.useRef(false)
   const preRef = React.useRef<HTMLPreElement>(null)
 
   // 当代码块展开/折叠时，自动滚动到代码块位置
@@ -419,7 +425,13 @@ const CodeBlockImpl = function CodeBlock({
   const hlSource = isStreaming ? debouncedCode : code
   const codeLines = hlSource.split('\n')
   const shouldCollapse = collapseLines > 0 && codeLines.length > collapseLines
-  const effectiveCollapsed = isStreaming ? false : collapsed
+  // 档⑩:未亲手点过钮时,carry 事实(preserveExpanded)与 collapsed 取并集判展开 ——
+  // 闭合沿变那一拍不再闪一帧折叠;用户一旦操作,其意志立即接管。
+  const effectiveCollapsed = isStreaming
+    ? false
+    : userToggledCollapseRef.current
+      ? collapsed
+      : collapsed && !preserveExpanded
 
   const lang = (language ?? '').trim().toLowerCase()
   const isPlain = PLAIN_TEXT_LANGS.has(lang)
@@ -582,11 +594,15 @@ const CodeBlockImpl = function CodeBlock({
   const collapseButton = shouldCollapse && !isStreaming && (
     <button
       type="button"
-      onClick={() => setCollapsed((prev) => !prev)}
+      onClick={() => {
+        // 档⑩:用户意志接管展开判定(carry 让位);标签/动作统一以 effectiveCollapsed 为准
+        userToggledCollapseRef.current = true
+        setCollapsed(!effectiveCollapsed)
+      }}
       className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-sm border border-border/60 bg-float-indicator-bg px-2 py-1 text-xs text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      aria-label={collapsed ? '展开代码' : '收起代码'}
+      aria-label={effectiveCollapsed ? '展开代码' : '收起代码'}
     >
-      {collapsed ? `展开 (${codeLines.length} 行)` : '收起'}
+      {effectiveCollapsed ? `展开 (${codeLines.length} 行)` : '收起'}
     </button>
   )
 
@@ -970,11 +986,14 @@ function lastOpenFenceBody(content: string): string | null {
     }
   }
   if (!open || openedAt < 0) return null
-  const body = lines
+  // 尾沿换行归一(档⑦/⑧边界修正,e2e 像素守门现形):content 尾恰好停在换行符时,
+  // 渲染侧 codeText(虚拟闭栏前多一个 \n,只 strip 一个)与切片侧 body 会差一个尾 \n ——
+  // 等值误判"已写完"→ 完成态/在写态逐拍交替 + 防抖快照回卷(实测行数 9→2 闪回)。
+  // 比对值双侧去尾 \n 归一;显示值(codeText 本体)一字不动。
+  return lines
     .slice(openedAt + 1)
     .join('\n')
-    .replace(/\n$/, '')
-  return body
+    .replace(/\n+$/, '')
 }
 
 /** P3 #35:稳定段渲染组件——content 字符串不变时 memo 命中,整段跳过 react-markdown parse。 */
@@ -1087,7 +1106,11 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
           // 其余已闭围栏当拍进完成外观(动作按钮/折叠态不再干等整实例翻转);
           // 粗判为奇但切不出发栏体(行内 ``` 噪声)⇒ 无从识别,回落旧粗判,失效方向不劣化。
           const writingBody = streamingFenceBodyRef.current
-          const isWritingCode = streamingCode && (writingBody === null || codeText === writingBody)
+          // 比对双侧尾 \n 归一(与 lastOpenFenceBody 同一规则;displayCode 用原 codeText)
+          const isWritingCode =
+            streamingCode &&
+            (writingBody === null ||
+              codeText.replace(/\n+$/, '') === writingBody.replace(/\n+$/, ''))
           // ⑦:在写尾块不入簿(中间态前缀不是"完成过"的事实);携带 = 本会话见过未闭合围栏
           // ∧ 文本已入簿 ⇒ 晋升新实例不把折叠滚回复位。判序先记后判(闭合与下栏开挤同一拍,
           // 首拍即晋升拍,先判会空塌一次)。
@@ -1277,6 +1300,12 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   // ⑨ mermaid 重挂闪一拍:MermaidDiagram.tsx 把 renderedKeyRef 升级为模块级"已成功的
   //   消毒后 SVG 缓存 + 同键并发合流",晋升重挂实例首帧同步取图,占位闪烁与二次全量布局
   //   一并退役;容量/失效/主题隔离规则见该文件头注。
+  // ⑩ 闭合沿变的一帧折叠闪位(2026-10-29 e2e 像素守门现形,jsdom 恒不可见):
+  //   isStreaming prop 翻 false 那一拍 collapsed state 还是挂载旧值 true,档③ 的
+  //   setCollapsed(false) 在 effect(paint 后)才落地 → 中间一帧按折叠态渲染(实测 302→99→302)。
+  //   修在 CodeBlockImpl:未亲手点过折叠钮期间,展开判定由 collapsed ∪ preserveExpanded 事实
+  //   并集决定(effectiveCollapsed);用户一旦操作立即接管。权威回归 = e2e/streaming-lifecycle
+  //   逐帧高度单调判据;jsdom 侧另钉"用户意志接管"与"carry 优先"两型。
   const { stable, active } = React.useMemo(() => splitMarkdownStable(parseContent), [parseContent])
 
   return (

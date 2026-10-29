@@ -2219,6 +2219,17 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-29**
+- 🐞 수정:补回 playwright.stream-lifecycle.config.ts 的溯源载荷 —— HEAD 面欠账清零 (9960c239c4)
+- 🚀 기능/개선:分诊留账补齐 + --status 分桶读数 —— registered 面此前只打印不落账,导致三次矛盾归因都无从判死 (49b1a67a8e)
+- 📚 문서:§1 侧车出口措辞跟上现实 —— 归属改判的声明式出口入册(票 O68 结清批) (5d6cc2d558)
+- 🔧 기타:结清 O68 侧车改判出口 —— plan-fields-reclassify.mjs 已交付(声明档逐条给 before/after 桶 + why,复用 dispositionOfV2 复算,11 例镜像测试),O02 已改判并吃出派单面 (0faf680919)
+
+**2026-10-29**
+- 📚 문서:需求发现器第三源生产者已落并更正票面 —— export-user-feedback 自检 10/10、guardian 已派发,旧注记『仓内无生产者』过期 (fd426cdb34)
+- 🐞 수정:补上 plan-fields-extract --reclassify 旧腿的禁桶守卫 —— 它此前是 F11/F12 的后门 (f9ecc8879b)
+- 📚 문서:凭据交付面空键读数更正 —— 实测 48 空键,真需供值约 20 枚(其余设计默认或代码自生成),票面 35/74/79 三个旧读数过期 (aa53c46743)
+
+**2026-10-29**
 - 🚀 기능/개선:补 pnpm check:public-exposure 入口 —— G-329 ④ 的 pnpm 面此前只有 node 直调,门已接线而脚本位缺失 (f85e1f55de)
 - 🔧 기타:结清 G-329 与 O66 + G-957 卡点定位更正 (5016a01222)
 - 📚 문서:体积清偿第 29 日批 —— §5c 一条改判留痕整段逐字迁 archive,净省 944 字节回到预算内 (535029dfea)
@@ -2283,13 +2294,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-10-29**
 - 📚 문서:Z-1 行形态修正 + 声明式改桶 actionable→owned-elsewhere —— 编号与题面之间不夹标头,复合主键才取得出 (dfca68aa11)
-
-**2026-10-29**
-- 📚 문서:登记取号池饱和票(Z-1) —— 顺带用新字母族验证"开新族"这条出路的可行性 (149f6c17a8)
-- 🐞 수정:两端 ui-routes 产物按 HEAD 面重派 —— 门 105 的 G5 自述钉由 stale 转 matched (85e15a629c)
-
-**2026-10-29**
-- 🐞 수정:补回被"整份写回旧态"吞掉的 auditFeedbackLoopClosure 六行(本枚走落地器出口②,理由与证据在下面) (7c5b1b90eb)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
