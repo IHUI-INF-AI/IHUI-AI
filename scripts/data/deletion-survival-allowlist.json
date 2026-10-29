@@ -480,6 +480,16 @@
       "path": "apps/mobile-rn/src/lib/carrier-one-click.ts",
       "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/ai-service/app/core/background_tasks.py",
+      "reason": "不是回潮,是修 9fdbc207ba2e(2026-10-25 19:03「chore: 清理功能回退残留」)那笔批量误删:该枚把 spawn 强引用登记处当残留摘掉,却留下两处活消费者 —— apps/ai-service/app/routers/llm.py 与 apps/ai-service/app/services/model_sync.py 都 from ..core.background_tasks import spawn,而 apps/ai-service/app/main.py 顶层 from app.routers import (…) 在启动路径上就含 llm ⇒ ai-service 任何一次启动都 ModuleNotFoundError,这个状态在 HEAD 上从 10-25 19:03 一直持续到 10-29 19:28(4 天)。f7d269568cf083f004c79dd464b12e0651f55163 逐字节补回(blob d8145bfd4d,与被删版同一枚对象)。两侧内容已逐条读过:模块 55 行 = asyncio.create_task + _pending 强引用集 + done 回调自摘 + 无 running loop 抛 RuntimeError(与 create_task 同语义);它同时是守门 247 check-ai-task-background-reference.mjs 的落点面(该门仍在 scripts/guardian-runner.mjs 注册),摘掉本文件等于把「ai-service 内每个 create_task/ensure_future 必须走 spawn 唯一出口」这条单一真相源判据架空。同批被 9fdbc207ba 误删的路径本仓已按「误删但仍被引用」逐批恢复:a5c7e209a8(守门 247 本体与镜像)、60668e4c25(四组 web 功能面)、f33f7b82a3(WorkPanel 第五组 props)。reviewBy 随 9fdbc207ba 批量误删家族的整体对账一并复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/ai-service/tests/test_background_tasks_spawn.py",
+      "reason": "与被裁的 apps/ai-service/app/core/background_tasks.py 同批、同因:该枚是它唯一的行为锁(实测 3 例:强引用登记防 fire-and-forget 任务被 GC 静默回收、完成后自摘不反向泄漏、无 running loop 抛 RuntimeError),由同一枚 f7d269568cf083f004c79dd464b12e0651f55163 逐字节补回(blob b5e43b5870,与被 9fdbc207ba2e 删掉的那份同一枚对象)。留它的理由是判据面而不是观感:守门 247 要求 spawn 为唯一出口,而没有这把行为锁时「强引用」这件事一旦被人改回裸 create_task 就无人响应(本仓在账的「蒸馏偶尔什么都没发生」「workflow 实例永逝」症状族正是该缺陷)。两侧内容已逐条读过。reviewBy 与上一条同步,随 9fdbc207ba 批量误删家族的整体对账复核。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }
