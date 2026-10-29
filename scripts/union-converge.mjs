@@ -146,6 +146,10 @@ import { resolveRemoteHead, catBatch } from './lib/face-reader.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
+// 孤儿提交备份腿的单一真相源(2026-10-29 门 30a 根因票):本器原先在 CAS 失败分支手拼
+// `lost-commit/wip-<sha10>`,是 converge 那份 `wip-conv-<sha7>` 之外漂开的第二份副本(§0.6 违规),
+// 现整体并库 —— 本文件只留 import 与调用,不再有任何拼 ref 名的实现。
+import { backupOrphanCommit, orphanBackupRefName } from './lib/orphan-backup.mjs'
 // G-113(2026-10-23):旁路落地不跑钩子 ⇒ 落地后必须自带"复跑受影响判据"(与 object-space-land
 // 头注④同一出口;开工时本器被 G-815913 折叠层在飞持有,那一格如实登记未闭环,本轮补上)。
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
@@ -5663,14 +5667,19 @@ async function main() {
     // CAS 失败留下的这枚悬空提交**本工具自己兜掉**:守门 30a 会因为"未备份悬空 commit"
     // 拦下此后每一次提交(今天实测连吃数轮 --no-verify,而一次绕过 = 约 130 道门作废)。
     // 与其把噪声留给下一个人,就地按 §22 的规矩打 tag —— tag 只是加引用,不改任何历史。
-    const tagName = `lost-commit/wip-${sha.slice(0, 10)}`
-    let tagged = false
-    try {
-      git(['tag', tagName, sha, '-m', 'union-converge CAS 失败的悬空合并提交(§22 备份)'])
-      tagged = true
-    } catch {
-      /* tag 失败不得掩盖原始故障,下面如实说明 */
-    }
+    // (2026-10-29 门 30a 根因票)原先本器手拼 `lost-commit/wip-<sha10>` 是 converge 那份
+    // `wip-conv-<sha7>` 之外漂开的第二份(§0.6 违规),现已整体并库到 lib/orphan-backup.mjs
+    // 的 uni 档:拼名、查重、annotated tag、pack-refs、留痕、永不抛 全在那一份里。
+    const tagName = orphanBackupRefName(sha, 'uni')
+    const bk = backupOrphanCommit({
+      sha,
+      kind: 'uni',
+      why: 'union-converge CAS 失败(HEAD 被他人推进)',
+      root: ROOT,
+      logger: (m) => console.log(m),
+    })
+    // tag 失败不得掩盖原始故障:下面 ❌ 行仍如实给手工出路(tagged 即"本轮是否已兜住")
+    const tagged = bk.ok
     console.log(
       `❌ CAS 失败(HEAD 被他人推进)⇒ 本轮作废,重跑即可;产物 ${sha.slice(0, 11)} ${tagged ? `已按 §22 备份为 ${tagName}(随后由 tag-sync 推远端)` : `是悬空提交且 tag 失败 ⇒ 手工:git tag ${tagName} ${sha}`} —— 不这么做,守门 30a 会替我们记住这笔`,
     )

@@ -69,6 +69,9 @@
     "analysisSubmit": "发起分析"
   },
   "search": {
+    "tabs": {
+      "files": "文件"
+    },
     "title": "搜索",
     "placeholder": "搜索课程、讲师、内容",
     "empty": "未找到相关内容",
@@ -2643,6 +2646,7 @@
     "defaultTitle": "加入我们"
   },
   "register": {
+    "resendIn": "{{countdown}}s 后重发",
     "enterPhone": "请输入手机号",
     "codeSent": "验证码已发送",
     "incomplete": "请填写完整信息",
@@ -3698,6 +3702,7 @@
     "members": "成员"
   },
   "chat": {
+    "approvalExpiredNotice": "工具 {toolName} 的审批已因连接中断失效,该操作未执行;如需继续请重新发起",
     "modelSwitchStopped": "已切换到 {model},本轮回答已终止",
     "partialDoneTitle": "回答被中断,以下内容可能不完整",
     "truncation": {
@@ -4087,6 +4092,11 @@
     "d16": "定制化解决方案"
   },
   "aigcList": {
+    "videoBadge": "视频",
+    "promptLabel": "提示词",
+    "empty": "暂无作品",
+    "subtitle": "我的 AIGC 作品",
+    "title": "AIGC 作品",
     "d1": "赛博城市夜景",
     "d2": "智汇小方",
     "d3": "极光幻境",
@@ -7035,6 +7045,9 @@
     "runningHint": "仍在运行,暂无最终输出",
     "noOutput": "暂无输出",
     "noTask": "无任务描述"
+  },
+  "aigcPublish": {
+    "typeText": "文案"
   },
   "chatWorkbenchPage": {
     "title": "对话",
