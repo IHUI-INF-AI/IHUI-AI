@@ -29,6 +29,12 @@ export const ErrorCode = {
   CAPABILITY_UNSUPPORTED: { status: 501, code: 'CAPABILITY_UNSUPPORTED' },
   CAPABILITY_UNAVAILABLE: { status: 503, code: 'CAPABILITY_UNAVAILABLE' },
   DUPLICATE_REQUEST: { status: 409, code: 'DUPLICATE_REQUEST' },
+  // 票 L7648(2026-10-25):上游(LiteLLM/第三方 LLM/ai-service)回的 401/403 是
+  // "上游凭据错误",不是"用户会话失效" —— api 侧鉴权层已验过会话,这个 401 若原样
+  // 出栈,api-client 只按 isAuthEndpoint 排除,会把用户带进"你要重新登录"。
+  // 出栈映射(唯一实现 errors/upstream-status.ts):上游 401/403 → 502 + 本码;
+  // 真 401 只有 api 自己的鉴权层(plugins/auth.ts)能发。
+  UPSTREAM_AUTH_FAILED: { status: 502, code: 'UPSTREAM_AUTH_FAILED' },
 } as const
 
 export type ErrorCodeKey = keyof typeof ErrorCode
@@ -80,6 +86,8 @@ export const ERROR_CODE_CATEGORY: Record<ErrorCodeKey, ErrorCategory> = {
   UPSTREAM_FAILURE: 'upstream',
   SERVICE_UNAVAILABLE: 'upstream',
   CAPABILITY_UNAVAILABLE: 'upstream',
+  // 上游凭据失效(L7648):归属上游面,不是用户会话(auth 类别会误导端上弹登录)。
+  UPSTREAM_AUTH_FAILED: 'upstream',
 
   // ---- internal:我方代码/基础设施故障,客户端重试无意义 ----
   INTERNAL_ERROR: 'internal',

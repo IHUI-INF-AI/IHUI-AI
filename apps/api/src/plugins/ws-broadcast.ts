@@ -25,7 +25,7 @@ import IORedis, { type Redis } from 'ioredis'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { config } from '../config/index.js'
-import { allocateChatSyncRev, readChatSyncRev } from '../db/chat-sync-rev-queries.js'
+import { readChatSyncRev } from '../db/chat-sync-rev-queries.js'
 // 票71 第二切片:帧载荷的构造器唯一源在 @ihui/types(与契约事件逐字同源,不另造形状)。
 // 2026-10-25(票 B02 余面①)同批把 role / kind 两个封闭集也改取契约类型 —— 本文件此前
 // 各写了一份同值字面量联合,是契约 §2 封闭集的第二个真相源(§0.6)。

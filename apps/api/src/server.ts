@@ -350,6 +350,8 @@ export async function buildServer(): Promise<FastifyInstance> {
       return
     }
 
+    const INTERNAL_ONLY_PREFIXES = ['/api/internal/']
+
     // 内部服务路由:强制内网(公网不可达),不追加 mTLS(见上方立据)
     if (INTERNAL_ONLY_PREFIXES.some((p) => url.startsWith(p))) {
       routeOptions.config = {

@@ -164,7 +164,7 @@ describe('号池到期列与上游接受态同口径', () => {
       },
       { fetchImpl: fetchImpl as unknown as typeof fetch },
     )
-    expect(parsed?.expiresAt.toISOString()).toBe(UPSTREAM_EXPIRES_AT)
+    expect(parsed?.expiresAt?.toISOString()).toBe(UPSTREAM_EXPIRES_AT)
 
     // 2) 调度刷新回写同一时刻
     registerQoder({
