@@ -1039,7 +1039,6 @@
     "sectionSocial": "Social",
     "favorites": "My Favorites",
     "follow": "Following & Followers",
-    "favorite": "My Favorites",
     "messageCenter": "Messages",
     "messageSystem": "System messages",
     "messageDirect": "Direct messages",
@@ -5451,10 +5450,6 @@
     "favoritesCount": "Favorites",
     "joined": "Joined"
   },
-  "courseSwiper": {
-    "tabHotIntro": "Popular starter courses",
-    "tabHotPick": "Popular featured courses"
-  },
   "llmSettings": {
     "title": "Model Providers",
     "empty": "No providers configured",
@@ -5818,12 +5813,6 @@
     "cycleUnitWeek": "Week"
   },
   "news": {
-    "catAi": "AI",
-    "catMl": "Machine Learning",
-    "catCv": "Computer Vision",
-    "catNlp": "NLP",
-    "catChip": "AI chips",
-    "catRec": "Recommendation",
     "title": "AI News",
     "anonAuthor": "Anonymous",
     "netFail": "Network error",

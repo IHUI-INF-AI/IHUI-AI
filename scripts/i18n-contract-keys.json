@@ -223,6 +223,66 @@
           }
         ]
       },
+      "appUpdate.readyBody": {
+        "reason": "packages/i18n/tests/app-update-copy-parity.test.ts 的 RN_ONLY_KEYS(:75 起,:83 逐字 'readyBody')把该键钉成两端更新卡的形状键:同文件 :133 那条 it('RN 独占键五语言齐备且非空')对 mobile-rn 五语言逐键断言 toBeTypeOf('string') 且非空串(:137)。本端无静态 t() 引用属实(UpdatePrompt.tsx:125 取 appUpdate.body、:90 取 appUpdate.installing,SettingsScreen.tsx:223 取 appUpdate.ready),但删键必须与该测试同批 —— 2026-10-30 实测单摘本端五语该键 ⇒ 该文件 10 例中 2 例翻红('mobile-rn/zh-CN 缺 RN 独占键 readyBody')。2026-10-28 机主「怎么还能提示用户去刷新页面」定案:web 的 body 讲刷新页面、RN 讲点按钮重启进程,就绪态改用 RN 自己的 readyBody。故本端保留该键、登记为形状键契约,不作孤儿处理。",
+        "evidence": [
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 83,
+            "contains": "'readyBody'"
+          },
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 133,
+            "contains": "RN 独占键五语言齐备且非空"
+          },
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 137,
+            "contains": "缺 RN 独占键"
+          }
+        ]
+      },
+      "appUpdate.installingHint": {
+        "reason": "同 appUpdate.readyBody:packages/i18n/tests/app-update-copy-parity.test.ts 的 RN_ONLY_KEYS(:75 起,:84 逐字 'installingHint')钉成形状键,该测试对 mobile-rn 五语言逐键断言取到非空字符串(:133/:137)。本端无静态 t() 引用属实(渲染位取的是 appUpdate.installing),而该键是 2026-10-28 机主「重启迟迟不回来时的兜底说明同理只在 RN 出现」那一批补的 RN 独占文案,单摘本端词包即让该测试翻红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
+        "evidence": [
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 84,
+            "contains": "'installingHint'"
+          },
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 133,
+            "contains": "RN 独占键五语言齐备且非空"
+          },
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 137,
+            "contains": "缺 RN 独占键"
+          }
+        ]
+      },
+      "appUpdate.restartNow": {
+        "reason": "同 appUpdate.readyBody:packages/i18n/tests/app-update-copy-parity.test.ts 的 RN_ONLY_KEYS(:75 起,:85 逐字 'restartNow')钉成形状键,该测试对 mobile-rn 五语言逐键断言取到非空字符串(:133/:137)。本端无静态 t() 引用属实(RN 更新卡当前按钮位取 appUpdate.action/restart 族文案),但该键属 2026-10-28 那批 RN 独占补文,删键须与该测试同批、单删本端词包即判红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
+        "evidence": [
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 85,
+            "contains": "'restartNow'"
+          },
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 133,
+            "contains": "RN 独占键五语言齐备且非空"
+          },
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 137,
+            "contains": "缺 RN 独占键"
+          }
+        ]
+      },
       "topic.detail.loading": {
         "reason": "c72a93dda9 为「跨端同屏同字」补五语言该键:同一屏 pkg-content/topic 的 loading 文案在小程序端 static 取(apps/miniapp-taro/src/pkg-content/topic/detail.tsx:200),RN 端共享屏改走骨架/loadingMore 故本端无静态引用。该键同时被本端测试钉成形状键:apps/mobile-rn/tests/topic-detail-screen-render.test.tsx 的 USED 清单(:163-179,含 :165)逐语言断言 topic.detail.* 15 键取到非空且不等于键名 —— 删键必须与该测试同批,单删本端词包即判 5 红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
         "evidence": [
@@ -233,12 +293,12 @@
           },
           {
             "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
-            "line": 165,
+            "line": 175,
             "contains": "'loading'"
           },
           {
             "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
-            "line": 182,
+            "line": 192,
             "contains": "15 键全部取到非空字符串"
           }
         ]

@@ -36,6 +36,7 @@ const STATUS_KEY: Record<WithdrawalStatus, string> = {
 
 export default function AdminWithdrawalPage() {
   const t = useTranslations('admin.withdrawal')
+  const tr = useTranslations('common')
   const locale = useLocale()
   const qc = useQueryClient()
   const { can } = useWithdrawalMachine()
@@ -48,7 +49,7 @@ export default function AdminWithdrawalPage() {
   if (search) qs.set('keyword', search)
   if (status !== 'all') qs.set('status', status)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'withdrawal', search, status, page],
     queryFn: async () => {
       const r = await fetchApi<WithdrawalListData>(`/api/admin/finance/withdrawal?${qs.toString()}`)
@@ -154,6 +155,22 @@ export default function AdminWithdrawalPage() {
                     </td>
                   </tr>
                 ))
+              ) : isError ? (
+                // 请求失败绝不能渲染成"暂无提现记录":那会把"取不到"说成"今天没人申请",
+                // 管理员据此漏审。
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                    {tr('loadFailed')}
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="ml-2"
+                      onClick={() => void refetch()}
+                    >
+                      {tr('retry')}
+                    </Button>
+                  </td>
+                </tr>
               ) : list.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">

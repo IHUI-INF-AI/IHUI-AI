@@ -4,6 +4,7 @@
 
 'use client'
 import { isNum, isUnset, thresholdTone, type StatusTone } from './unknown-state'
+import { DATA_TZ, tzParts } from './data-time'
 
 /**
  * 生产在线端监控大屏(/admin/monitor/wallboard)。
@@ -295,8 +296,10 @@ function fmtPct(v: number | null | undefined, digits = 2): string {
 }
 
 function fmtClockDigits(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+  // 时钟也必须走数据侧时区:值班机换个系统时区,读数就会与服务端聚合错开一整天,
+  // 而画面看着完全正常(见 data-time.ts 头注)。
+  const p = tzParts(d)
+  return `${p.dateKey} ${p.hms}`
 }
 
 /**
@@ -352,16 +355,22 @@ function makeFmt(locale: string, t: WallboardT) {
       if (!iso) return '—'
       const d = new Date(iso)
       if (Number.isNaN(d.getTime())) return '—'
-      return d.toLocaleTimeString(locale, { hour12: false })
+      return tzParts(d).hms
     },
-    /** 事件流用:当天只显示时分秒,跨天补 MM-DD(否则隔夜事件看不出哪一天)。 */
+    /** 事件流用:当天只显示时分秒,跨天补 MM-DD(否则隔夜事件看不出哪一天)。
+     *  「今天」按数据侧时区判定 —— 用浏览器时区会把跨零点的隔夜事件当成本日。 */
     fmtStamp(iso: string | null | undefined): string {
       if (!iso) return '—'
       const d = new Date(iso)
       if (Number.isNaN(d.getTime())) return '—'
-      const time = d.toLocaleTimeString(locale, { hour12: false })
-      if (d.toDateString() === new Date().toDateString()) return time
-      return `${d.toLocaleDateString(locale, { month: '2-digit', day: '2-digit' })} ${time}`
+      const p = tzParts(d)
+      if (p.dateKey === tzParts(new Date()).dateKey) return p.hms
+      const md = d.toLocaleDateString(locale, {
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: DATA_TZ,
+      })
+      return `${md} ${p.hms}`
     },
     fmtAgo(iso: string | null | undefined): string {
       if (!iso) return '—'
@@ -467,7 +476,7 @@ function StatCell({
       <div className="text-[10px] tracking-[0.12em] text-muted-foreground">{label}</div>
       <div
         className={cn(
-          'wb-num mt-0.5 text-[18px] leading-tight font-semibold',
+          'wb-num whitespace-nowrap mt-0.5 text-[18px] leading-tight font-semibold',
           tone === 'bad'
             ? 'text-danger-text'
             : tone === 'warn'
@@ -1021,7 +1030,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   }, [trend, locale, t, isDark])
 
   // 只画到今天当前小时:把未到的时段画成 0 柱会被读成「这些时段没有流量」。
-  const nowHour = now.getHours()
+  const nowHour = tzParts(now).hour
   const hourlyOption = React.useMemo<EChartsOption>(() => {
     const hours = Array.from({ length: nowHour + 1 }, (_, i) => String(i).padStart(2, '0'))
     const byHour = new Map((trend?.hourlyCalls ?? []).map((r) => [r.hour, r.calls]))
@@ -1432,7 +1441,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               </div>
               <div
                 className={cn(
-                  'wb-num mt-1 text-[26px] leading-none font-bold',
+                  'wb-num whitespace-nowrap mt-1 text-[26px] leading-none font-bold',
                   k.tone === 'bad'
                     ? 'text-danger-text'
                     : k.tone === 'warn'
@@ -2208,7 +2217,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                     <div
                       className={cn(
-                        'wb-num mt-0.5 text-[26px] leading-none font-bold',
+                        'wb-num whitespace-nowrap mt-0.5 text-[26px] leading-none font-bold',
                         edgeLastTone === 'bad'
                           ? 'text-danger-text'
                           : edgeLastTone === 'warn'
@@ -2232,7 +2241,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                     <div
                       className={cn(
-                        'wb-num mt-0.5 text-[26px] leading-none font-bold',
+                        'wb-num whitespace-nowrap mt-0.5 text-[26px] leading-none font-bold',
                         edgeHitTone === 'bad'
                           ? 'text-danger-text'
                           : edgeHitTone === 'warn'
@@ -2435,13 +2444,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 </span>
               ) : null
             }
-            bodyClassName="wb-split"
+            bodyClassName="wb-split-c3"
           >
             <div>
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolKey')}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('poolKeySchedulable')}
                   value={`${fmtInt(relayPool?.keySchedulable)} / ${fmtInt(relayPool?.keyTotal)}`}
@@ -2475,7 +2484,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolAccount')}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('poolAccountSchedulable')}
                   value={`${fmtInt(relayPool?.accountsSchedulable)} / ${fmtInt(relayPool?.accountsTotal)}`}
@@ -2622,7 +2631,11 @@ const WALLBOARD_CSS = `
 /* 均匀列网格:列数由容器宽决定,不再用视口断点(实测容器宽与视口不同步)。
  * 104 = 实测最大标签需求 99px + 余量;135 = 反算自原设计(容器 914 时 6 栏、gap 10 ⇒ 6×135+5×10=860≤882)。
  * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。 */
+/* 读数单行列宽下限的唯一源头(五语言最坏 143):.wb-cells-c3 与两栏阈值都按它复算。
+ * 这两层曾各写各的数字(裸档 96 + 620 阈值)⇒ 实测「6天19小时」被切成两行、卡片被撑高。 */
+.wb-root { --wb-cell-min: 143px; }
 .wb-cells { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+.wb-cells-c3 { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min), 1fr)); }
 /* 6 格一组(Redis / 访客):auto-fit 在半宽面板里只能排 5 列 ⇒ 第 6 格单独一行。
  * 这里固定 3 列 ×2 行(总行数与 5+1 相同,但不再出现孤格);<480 落 2 列。 */
 .wb-cells-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -2662,6 +2675,11 @@ const WALLBOARD_CSS = `
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+}
+/* 长读数两栏面板:阈值按 --wb-cell-min 复算(2×(3×143+2×6)+8=890),不沿用 .wb-split 的 620 ——
+ * 620 时每栏约 300、3 格各 ~96 < 单行需求 143 ⇒ 时长读数必断行。窄于 890 就单列,宁少一栏不折读。 */
+@container (min-width: 890px) {
+  .wb-split-c3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container (max-width: 1149px) {
   .wb-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }

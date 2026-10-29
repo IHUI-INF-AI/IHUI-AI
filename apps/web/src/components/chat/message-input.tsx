@@ -336,6 +336,7 @@ export function MessageInput({
     addTextReference,
     removeReference,
     resetReferences,
+    detachReferences,
   } = useMessageReferences()
   // 强制加载工作区所有 agent 规则文件(AGENTS.md/CLAUDE.md 等,任意层级)作为可见参考块(2026-08-29)
   const agentMdRefs = useAgentMdReference()
@@ -452,6 +453,7 @@ export function MessageInput({
     // agent 文件内容已通过 workspaceContext 注入 system prompt,重复传入会污染消息。
     references,
     resetReferences,
+    detachReferences,
     addFileReference,
     // G-833:批量校验 + 预筛/提交拆分入口,供选/拖/贴三入口"先聚合再报"
     addFileReferences,
