@@ -90,6 +90,9 @@ const PUBLIC_PREFIXES: readonly string[] = [
   '/api/payments/',
   '/api/payment/',
   '/api/cozeZhsApi/',
+  // 2026-10-29 observe 档上线 5 分钟即抓到的真实流量:GitHub App webhook 走 HMAC 验签
+  // (services/github-app/signature.ts),匿名到达。漏了这一条就切 enforce = CI 回调全 401。
+  '/api/github-app/',
   // 协议发现
   '/.well-known/',
   // 机器面(API Key 自证;requireApiKeyAuth 会写 request.apiKey)
