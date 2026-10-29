@@ -445,17 +445,26 @@ export const SHELL_CAPABILITY_RULES = [
   {
     what: '用户提示',
     tokens: ['Taro.showToast'],
-    shellEvidence: (s) => /appAlert\s*\(|Alert\.alert\s*\(|setError\s*\(|errorText/.test(s),
+    // 两条形态都算"失败提示由壳承担":
+    // ① 壳自己弹(appAlert / Alert.alert / setError / errorText);
+    // ② 壳把 error 交给共享屏、共享屏真渲染给用户 —— 2026-10-29 把 wrapper 重构成
+    //    usePaginatedList 后就是这个形(壳里不再有 setError 字面量),错误经 hook 的 error 出口
+    //    流到 ErrorState / errorText。只认 ① 会让"重构掉 setError"当场把一页新判成缺能力,
+    //    实测 live/history 与 member/integral 两页就是这么退回去的。
+    shellEvidence: (s, shared) =>
+      /appAlert\s*\(|Alert\.alert\s*\(|setError\s*\(|errorText/.test(s) ||
+      (/error=\{error\}/.test(s) && /ErrorState|\{error\}|message=\{error\}/.test(shared)),
   },
 ]
 
 /** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。 */
-export function shellCapabilityCovered(pageTokens, shellText) {
+export function shellCapabilityCovered(pageTokens, shellText, sharedText = '') {
   const s = maskComments(String(shellText ?? ''))
+  const shared = maskComments(String(sharedText ?? ''))
   const cleared = []
   for (const rule of SHELL_CAPABILITY_RULES) {
     if (!rule.tokens.some((t) => pageTokens.has(t))) continue
-    if (!rule.shellEvidence(s)) continue
+    if (!rule.shellEvidence(s, shared)) continue
     for (const t of rule.tokens) pageTokens.delete(t)
     cleared.push(rule.what)
   }
@@ -795,7 +804,7 @@ export function judgeConversion({
   if (apiEndpointsCovered(pageText, shellText, apiModuleText))
     for (const tok of ['@/api', '@/api/index', '@/api/social']) pageTokens.delete(tok)
   // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)
-  shellCapabilityCovered(pageTokens, shellText)
+  shellCapabilityCovered(pageTokens, shellText, sharedText)
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -1185,6 +1194,17 @@ function main(argv) {
       }).kind,
       'convertible',
     )
+    P('S23 提示能力的两种壳形态都算承担:自弹 或 error 交给共享屏真渲染;两者都无照旧不销', [
+      shellCapabilityCovered(new Set(['Taro.showToast']), "appAlert('加载失败')", ''),
+      shellCapabilityCovered(
+        new Set(['Taro.showToast']),
+        '<Shared error={error} />',
+        '<ErrorState message={error} />',
+      ),
+      // 反向对照:壳把 error 传下去了,但共享屏那一侧根本没渲染它 ⇒ 用户看不见失败 ⇒ 不销
+      shellCapabilityCovered(new Set(['Taro.showToast']), '<Shared error={error} />', ''),
+      shellCapabilityCovered(new Set(['Taro.showToast']), '', ''),
+    ], [['用户提示'], ['用户提示'], [], []])
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
