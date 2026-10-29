@@ -64,7 +64,11 @@ import {
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 // G-248/G-916415 R1 web 腿:帧级 traceId 的错误上报消费点(onError → crash-reports 发射面)
-import { buildStreamErrorReport, reportStreamError } from './stream-error-report'
+import {
+  buildStreamErrorReport,
+  reportFrameWatermarkFacts,
+  reportStreamError,
+} from './stream-error-report'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
 import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
@@ -1352,6 +1356,10 @@ export function createSendMessage(
           ]
           return agentTools.length > 0 ? { agentTools } : {}
         })(),
+        // b76-15(2026-10-29 立):帧水位事实的端内消费点(唯一)。
+        // 判据与文案拼装在 stream-error-report.ts,这里只接线;不上屏(丢帧是内部
+        // 协议事实,用户看到的是既有"回答被截断"文案,不把内部计数顶到界面)。
+        onFrameWatermarkFacts: (facts) => reportFrameWatermarkFacts(facts),
         onError: (errMsg, info) => {
           // D131(2026-09-29 立):流以错误收场 ⇒ 连接位落"已断开"并占位。
           // 这是 disconnected 的**唯一生产点**(此前它只有测试在调,即一个永远不会
