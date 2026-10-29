@@ -390,6 +390,8 @@ Made with an unusually long chain of machine-checkable rules — because "we'll 
 
 </div>
 
+> **口径说明**：规模、模型数等对外说明以首屏「[关键数字（现算）](#关键数字现算)」与 `pnpm doc:numbers` 为准；自下列「一键部署」起为保留的历史长文（含 GEO/对标等），其中手抄数字可能过期，**勿作权威口径**。
+
 ---
 
 ## 一键部署 · One-Click Deploy

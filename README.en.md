@@ -166,6 +166,8 @@ Use the table keys only (`llmModels`, `publishPlatforms`, `apiRoutes`, …)—do
 
 Full positioning: [`docs/engineering/readme-01-positioning.md`](./docs/engineering/readme-01-positioning.md).
 
+> **Canonical scale figures:** use [**Key numbers (live-computed)**](#key-numbers-live-computed) and `pnpm doc:numbers` only; from **Recent updates** and the engineering archive excerpts linked below, legacy marketing prose may repeat stale hand-copied counts—**do not treat them as authoritative**.
+
 ---
 
 ## Recent updates (auto-maintained)
