@@ -182,7 +182,7 @@ export default function PayIndex() {
         Taro.showToast({ title: t('pay.missingParams'), icon: 'none' })
         return
       }
-      dispatchPay(res.payInfo, orderNo)
+      await dispatchPay(res.payInfo, orderNo)
     } catch {
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
@@ -190,7 +190,7 @@ export default function PayIndex() {
     }
   }
 
-  function dispatchPay(payInfo: VipPayInfo, no: string) {
+  async function dispatchPay(payInfo: VipPayInfo, no: string) {
     if (
       payInfo.method === 'jsapi' &&
       payInfo.timeStamp &&
@@ -199,7 +199,9 @@ export default function PayIndex() {
       payInfo.signType &&
       payInfo.paySign
     ) {
-      requestWxPayment(payInfo as AnyPayParams)
+      // 必须等微信收银台回来再复位 submitting:原实现 fire-and-forget,
+      // onPay 的 finally 在支付弹窗还开着时就把按钮放回去 ⇒ 连点会重复拉起支付。
+      await requestWxPayment(payInfo as AnyPayParams)
         .then(() =>
           Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${no}&status=paid` }),
         )
