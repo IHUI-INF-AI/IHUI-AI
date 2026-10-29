@@ -2547,5 +2547,26 @@
         }
       }
     }
+  },
+  "streamErrors": {
+    "action": {
+      "retry": "再試行",
+      "waitAndRetry": "しばらくして再試行",
+      "switchModel": "モデルを変更",
+      "checkQuota": "利用枠を確認",
+      "contactAdmin": "管理者に連絡",
+      "relogin": "再ログイン",
+      "upgradeApp": "アプリを更新",
+      "trimContext": "コンテキストを削減",
+      "none": "了解"
+    },
+    "admission": {
+      "tentative": "送信済み、サーバーの確認待ち",
+      "admitted": "サーバーが受理しました",
+      "queued": "現在の回答が終わるまで待機中",
+      "rejected": "サーバーがこの送信を拒否しました",
+      "unconfirmed": "サーバーが受信したか確認できません。再送前にご確認ください"
+    },
+    "nextStepLabel": "次の操作"
   }
 }

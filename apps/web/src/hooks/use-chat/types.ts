@@ -8,6 +8,7 @@ import type { useQueryClient } from '@tanstack/react-query'
 import type { FallbackEvent } from '@ihui/api-client'
 import type { useChatStore } from '@/stores/chat'
 import type { InlineDiffInfo } from '@/components/ai/types'
+import type { StreamErrorLabelSet } from '@/lib/stream-error-view'
 
 /** 自媒体斜杠命令 API 返回数据 */
 export interface SlashCommandData {
@@ -81,5 +82,13 @@ export interface ChatActionContext {
   sendInFlightRef: React.MutableRefObject<boolean>
   streamGenerationRef: React.MutableRefObject<number>
   streamConversationRef: React.MutableRefObject<string | null>
+  /**
+   * 对标 Qoder 借鉴清单第 10 项(2026-10-29 立):流错误的命名码分类处置词表。
+   *
+   * **可选**是刻意的:既有 7 处测试的 `makeCtx()` 只造最小面,加必填字段会把它们整批打红,
+   * 而那些红与本票无关(§12e)。缺省时发送链退回既有 `t()` 取词(`chat` 命名空间),
+   * 即**逐字节等价于接线前的行为** —— 增量只在真 ctx 传入时生效。
+   */
+  streamErrorLabels?: StreamErrorLabelSet
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
