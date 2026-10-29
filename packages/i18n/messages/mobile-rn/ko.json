@@ -7024,5 +7024,31 @@
     "readyBody": "업데이트 다운로드가 완료되었습니다. 「업데이트」를 누르면 바로 적용됩니다.",
     "installingHint": "앱이 자동으로 다시 시작되며 보통 몇 초면 됩니다.",
     "restartNow": "지금 다시 시작"
+  },
+  "cloudRuns": {
+    "title": "클라우드 에이전트 실행",
+    "subtitle": "클라우드 에이전트의 실행 기록과 상세 출력을 확인합니다",
+    "refresh": "새로고침",
+    "loadFailed": "로드 실패",
+    "empty": "실행 기록이 없습니다",
+    "loading": "로드 중…",
+    "running": "실행 중",
+    "done": "완료",
+    "error": "오류",
+    "back": "뒤로",
+    "detailTitle": "실행 상세",
+    "runId": "실행 ID",
+    "agentType": "에이전트 유형",
+    "sessionAlias": "세션 별칭",
+    "startTime": "시작 시간",
+    "endTime": "종료 시간",
+    "task": "작업",
+    "output": "최종 출력",
+    "runningHint": "아직 실행 중이며 최종 출력이 없습니다",
+    "noOutput": "출력 없음",
+    "noTask": "작업 설명 없음",
+    "prev": "이전",
+    "pagination": "{page} / {totalPages} 페이지, 총 {total}건",
+    "next": "다음"
   }
 }
