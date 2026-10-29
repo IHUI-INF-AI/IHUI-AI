@@ -82,7 +82,7 @@
     "@babel/plugin-transform-for-of": "^7.29.7",
     "@babel/plugin-transform-logical-assignment-operators": "^7.29.7",
     "@babel/plugin-transform-modules-commonjs": "^7.29.7",
-    "@babel/plugin-transform-named-capturing-groups-regex": "^7.29.7",
+    "@babel/plugin-transform-named-capturing-groups-regex": "^8.0.1",
     "@babel/plugin-transform-nullish-coalescing-operator": "^7.29.7",
     "@babel/plugin-transform-object-rest-spread": "^7.29.7",
     "@babel/plugin-transform-optional-catch-binding": "^7.29.7",
