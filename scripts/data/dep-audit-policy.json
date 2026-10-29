@@ -15,13 +15,7 @@
   ],
   "waivers": [
     {
-      "module": "systeminformation",
-      "severity": "high",
-      "reason": "OTel instrumentation-host-metrics 只 require('systeminformation/lib/network') 调 networkStats(),从不调用有注入面的 services();且不接收任何用户可控参数 ⇒ 该 CVE 在本仓运行时不可达。逐行验证 2026-10-29(commit ae3599d2ddc 的 docs/SECURITY.md §10.7)。修复版 >=5.33.16,等 @opentelemetry/* 自然带上,不为此单独动 lockfile。",
-      "expiresAt": "2027-01-31",
-      "evidence": "host-metrics build/src/stats/si.js 唯一 import 的是 systeminformation/lib/network;grep 'si\\.services\\|services(' 无命中。"
-    },
-    {
+      "module": "image-size",
       "module": "image-size",
       "severity": "high",
       "reason": "唯一路径是 apps__mobile-rn > react-native > @react-native/community-cli-plugin > metro > image-size,即 RN 打包器在构建期解析图片尺寸。实测 apps/api、apps/ai-service、apps/web 的 node_modules/image-size 均不存在 ⇒ 三个服务器进程都 require 不到该包,不可达。修复版 >=2.0.3,升级需等 metro 带上。",
