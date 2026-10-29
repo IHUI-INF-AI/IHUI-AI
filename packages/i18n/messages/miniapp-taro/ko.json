@@ -69,6 +69,9 @@
     "analysisSubmit": "분석 시작"
   },
   "search": {
+    "tabs": {
+      "files": "파일"
+    },
     "title": "검색",
     "placeholder": "강의·강사·콘텐츠 검색",
     "empty": "관련 콘텐츠를 찾을 수 없습니다",
@@ -2643,6 +2646,7 @@
     "defaultTitle": "참여하기"
   },
   "register": {
+    "resendIn": "{{countdown}}초 후 재전송",
     "enterPhone": "전화번호 입력",
     "codeSent": "코드 발송됨",
     "incomplete": "모든 항목 입력",
@@ -3698,6 +3702,7 @@
     "members": "멤버"
   },
   "chat": {
+    "approvalExpiredNotice": "연결이 끊겨 {toolName} 도구의 승인이 만료되었습니다. 해당 작업은 실행되지 않았습니다. 계속하려면 다시 요청하세요.",
     "modelSwitchStopped": "{model}(으)로 전환하여 이번 응답을 중단했습니다",
     "partialDoneTitle": "응답이 중단되었습니다. 아래 내용은 불완전할 수 있습니다",
     "truncation": {
@@ -4087,6 +4092,11 @@
     "d16": "맞춤 솔루션"
   },
   "aigcList": {
+    "videoBadge": "비디오",
+    "promptLabel": "프롬프트",
+    "empty": "작품이 없습니다",
+    "subtitle": "내 AIGC 작품",
+    "title": "AIGC 작품",
     "d1": "사이버 시티 야경",
     "d2": "지혜샤오팡",
     "d3": "오로라 환상",
@@ -7035,6 +7045,9 @@
     "runningHint": "아직 실행 중이며 최종 출력이 없습니다",
     "noOutput": "출력 없음",
     "noTask": "작업 설명 없음"
+  },
+  "aigcPublish": {
+    "typeText": "텍스트"
   },
   "chatWorkbenchPage": {
     "title": "대화",
