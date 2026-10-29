@@ -8,7 +8,8 @@
 //   并成对钉住两条写法纪律:状态↔src 配对(换资源旧状态不得续用)、key 按资源重建。
 // · G-737 —— 解析模式(isStreaming)不得进入渲染器身份:翻转 isStreaming 而内容逐字相同时,
 //   StableBlock 收到的 components 引用必须不变(旧 deps [collapseLines, isStreaming] 下该引用必变,
-//   稳定前缀 memo 失效整段重 parse —— 这里正是它的留痕处)。
+//   稳定前缀 memo 失效整段重 parse)。档⑥(2026-10-28)后翻转不塌树、前缀根本不重 parse,
+//   留痕形态升级为「计数恒 1 + 无全文 parse 反例」,由 ④ 用例双向往返钉住。
 // 判据键名走 next-intl mock 回显(断言不查文案,与 image-preview-pack.test.tsx 同一取向)。
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import React from 'react'
@@ -132,7 +133,7 @@ describe('G-737 解析模式不进入渲染器身份', () => {
   const LONG = `${PARAGRAPH}\n\n第二段落仍在活跃段内。`
   const { stable } = splitMarkdownStable(LONG)
 
-  it('④ isStreaming 翻转(内容逐字相同)⇒ StableBlock 的 components 引用不变;流式追加而前缀不变 ⇒ parse 计数不增', async () => {
+  it('④ isStreaming 翻转(内容逐字相同)⇒ 切分结构不随翻转:稳定前缀零重 parse、components 身份不变(2026-10-28 观感档⑥后形态)', async () => {
     if (!stable) throw new Error('setup failed: 内容未达切分阈值,不存在稳定前缀,判据无从验证')
     const stableCount = () => mdRenderLog.filter((e) => e.children === stable).length
 
@@ -142,17 +143,19 @@ describe('G-737 解析模式不进入渲染器身份', () => {
     const comps1 = mdRenderLog.find((e) => e.children === stable)?.components
     expect(comps1).toBeTruthy()
 
-    // 翻 false:走全量单路径(P3 #35 切分门按设计整段呈现),全文 parse 一次
+    // 档⑥(2026-10-28)定形:翻 false 不解除切分、不塌树重挂 ⇒ 前缀 memo 命中、计数不动;
+    // 旧档⑥前断言"翻转后 children===LONG 整段全 parse"已成不可能事件,2026-10-29 档⑦全族
+    // 复跑时以反例方向钉死(出现即翻转塌树回潮),正例方向由 stableCount 恒 1 守住。
     rerender(<MarkdownStream content={LONG} isStreaming={false} />)
-    await waitFor(() => expect(mdRenderLog.some((e) => e.children === LONG)).toBe(true))
+    await waitFor(() => expect(stableCount()).toBe(1))
+    expect(mdRenderLog.some((e) => e.children === LONG)).toBe(false)
 
-    // 翻回 true,内容未变:StableBlock 重新挂载并 parse 第二次 —— 但它拿到的
-    // components 必须仍是同一引用(G-737 修复点;旧 deps [collapseLines, isStreaming]
-    // 下这里必为新对象,断言翻红)。
+    // 翻回 true,内容未变:档⑥后不再发生"重挂载 parse 第二次";components 引用等值(G-737 修复点;
+    // 旧 deps [collapseLines, isStreaming] 下引用必变,断言翻红)。
     rerender(<MarkdownStream content={LONG} isStreaming />)
-    await waitFor(() => expect(stableCount()).toBe(2))
-    const second = mdRenderLog.filter((e) => e.children === stable)[1]
-    expect(second?.components).toBe(comps1)
+    await waitFor(() => expect(stableCount()).toBe(1))
+    const first = mdRenderLog.find((e) => e.children === stable)
+    expect(first?.components).toBe(comps1)
 
     // 流式继续:活跃段追加、稳定前缀逐字不变 ⇒ memo 命中,稳定段 parse 计数不增
     rerender(<MarkdownStream content={`${LONG}活跃段继续追加。`} isStreaming />)
@@ -163,7 +166,7 @@ describe('G-737 解析模式不进入渲染器身份', () => {
         ),
       ).toBe(true),
     )
-    expect(stableCount()).toBe(2)
+    expect(stableCount()).toBe(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

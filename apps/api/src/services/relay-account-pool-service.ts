@@ -38,7 +38,11 @@ import {
   phoneMatchesMask,
   recognizeImportShape,
   resolveOverwriteRefresh,
+  resolveRelayAccountName,
   resolveRelayCredentialSlots,
+  type RelayAccountNameDecision,
+  type RelayAccountNameFallback,
+  type RelayAccountNameSource,
   type RelayProviderCode,
 } from './relay-account-format.js'
 import {
@@ -85,6 +89,15 @@ interface ImportItemResult {
   uid: string | null
   status: ImportItemStatus
   reason: string | null
+  /** 统一名来源(O66:手机号优先;判据单源 resolveRelayAccountName) */
+  nameSource: RelayAccountNameSource
+  /** 手机号为何没被采信;null = 用了手机号 */
+  nameFallback: RelayAccountNameFallback
+  /**
+   * 退化的人话归因。**绝不含手机号/候选原值**(PII:手机号只进 `name` 列本身,
+   * 不进日志、不进错误 message、不进这里的说明)。
+   */
+  nameFallbackReason: string | null
 }
 
 export interface ImportBatchResult {
@@ -300,14 +313,10 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
     uid,
     expiresAt: parseFlexibleExpiry(a['expiresAt']) ?? extractTokenExpiry(token),
     refreshExpiresAt: parseFlexibleExpiry(a['refreshTokenExpiresAt']),
-    // 号池统一名称 = 官方绑定手机号(2026-10-28 定):phone 优先,昵称/显示名只作兜底;
-    // 取不到 phone 才退回 nickname → name,绝不拿昵称当统一名。
-    name:
-      cstr(a['phone']) ||
-      (user ? cstr(user['phone']) : '') ||
-      cstr(a['nickname']) ||
-      cstr(a['name']) ||
-      null,
+    // 平台映射名:手机号一律由统一名单源 resolveRelayAccountName 裁定(键位含 phone 与
+    // user.phone),这里**不再判一遍**(§0.6 单一真相源:两处判手机号必然漂移)。
+    // 本字段只在拿不到手机号时作 platform-name 兜底,昵称仍压过载荷自带名。
+    name: cstr(a['nickname']) || cstr(a['name']) || null,
     cosy: Object.keys(cosy).length > 0 ? cosy : null,
   }
 }
@@ -623,13 +632,33 @@ export async function importAccounts(
   // O72:本批落库行的设备材料收集(uid 是 (providerCode,uid) 去重键,可直接当行标识)
   const writtenDeviceRows: Array<{ uid: string; deviceId: string | null }> = []
 
+  /**
+   * 结果项装配的唯一出口:命名归因三键恒与该行的 naming 判定同源带出,
+   * 免得七处 push 各抄一遍、抄漏一处就把"退化了"报成"没退化"。
+   */
+  const pushItem = (
+    naming: RelayAccountNameDecision,
+    item: Omit<ImportItemResult, 'nameSource' | 'nameFallback' | 'nameFallbackReason'>,
+  ): void => {
+    result.items.push({
+      ...item,
+      nameSource: naming.source,
+      nameFallback: naming.fallback,
+      nameFallbackReason: naming.fallbackReason,
+    })
+  }
+
   for (let i = 0; i < accounts.length; i++) {
     // 外来格式自适应(判据单源 relay-account-format,与 validateAccountExport 同一函数):
     // workbuddy-switch 等第三方导出(access_token/expires_at 等)在这里归一成规范形状;
     // 我方原生形状(token 在场)原样通过。
     const acc = normalizeForeignAccountShape(accounts[i] ?? {}) as ImportAccountInput
-    const accName = typeof acc.name === 'string' && acc.name ? acc.name : ''
-    let displayName = accName || `#${i + 1}`
+    // 统一名 = 官方绑定手机号(O66)。判定单源 resolveRelayAccountName(与 CLI 预检
+    // validateAccountExport 同一函数,改前两侧是两份各写各的链)。这里先按「载荷 + 无票内
+    // 候选」定一次名(形状闸门/凭据闸门失败时也要报得出名字与退化归因),取到 token 之后再
+    // 带票内手机号候选与平台映射名复算一次。
+    let naming = resolveRelayAccountName({ providerCode, payload: acc, index: i })
+    let displayName = naming.name
     try {
       // 形状闸门(单源判据 relay-account-format.recognizeImportShape):只有本仓认得的
       // 平台形状才放行;认不出就整条拒掉并点名缺哪个键 —— 绝不静默丢弃,也绝不把
@@ -637,7 +666,7 @@ export async function importAccounts(
       const shape = recognizeImportShape(providerCode, acc)
       if (!shape.importable) {
         result.failed++
-        result.items.push({
+        pushItem(naming, {
           index: i,
           name: displayName,
           uid: null,
@@ -674,15 +703,26 @@ export async function importAccounts(
                             : null
       // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
       const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
-      // 号池统一名称 = 官方绑定手机号:qoder 映射出的 name 即 phone,具备权威性,
-      // 压过载荷自带的 name(捕获件里它是客户端昵称,不能当统一名;2026-10-28 定)
-      if (mapped?.name && (!accName || providerCode === 'qoder')) displayName = mapped.name
       // 入口归一化:从 JSON 整段复制的粘贴值会带包裹引号,上游按前缀校验 ⇒ 一个多余字符
       // 就令号池自刷新与每日签到同时失败(dev 实测 `"drt-…` 那枚,详见 normalizeCredentialValue 头注)
       const token = normalizeCredentialValue(mapped ? mapped.token : acc.token) ?? ''
+      // ── 统一名复算(手机号优先,O66)──
+      // 三份输入齐了才能定名:载荷(phone 键位表 + 载荷名)、平台映射名(mapped.name)、
+      // 票内手机号候选(JWT preferred_username:WorkBuddy 的官方绑定手机号全号住在这里,
+      // 不在载荷字段上)。形态判据一律交还单源 resolveRelayAccountName,本处不再各判一遍
+      // (§0.6;改前这里只有 qoder 走 phone、workbuddy 走票内声明,其余 9 个平台从未看过 phone)。
+      const prefClaim = token ? parseJwtClaims(token)?.['preferred_username'] : undefined
+      naming = resolveRelayAccountName({
+        providerCode,
+        payload: acc,
+        index: i,
+        platformName: mapped?.name ?? null,
+        extraPhoneCandidates: [typeof prefClaim === 'string' ? prefClaim : null],
+      })
+      displayName = naming.name
       if (!token) {
         result.failed++
-        result.items.push({
+        pushItem(naming, {
           index: i,
           name: displayName,
           uid: null,
@@ -691,19 +731,12 @@ export async function importAccounts(
         })
         continue
       }
-      // WorkBuddy 全号通道(2026-10-28 立):Keycloak JWT 的 preferred_username 就是官方
-      // 绑定的完整手机号;客户端会话只有昵称、第三方导出件常带脱敏号,故以票内声明为准
-      // 覆盖统一名。只对全号形态生效,解不出/非手机号形态一律不动(维持原兜底命名)。
-      if (providerCode === 'workbuddy') {
-        const pref = parseJwtClaims(token)?.['preferred_username']
-        if (typeof pref === 'string' && /^1[3-9]\d{9}$/.test(pref)) displayName = pref
-      }
       const refreshToken = normalizeCredentialValue(mapped ? mapped.refreshToken : acc.refreshToken)
       const uid = normalizeCredentialValue(mapped ? mapped.uid : acc.uid) ?? extractUid(token)
       const shapeIssue = credentialShapeIssue(providerCode, { refreshToken })
       if (shapeIssue) {
         result.failed++
-        result.items.push({
+        pushItem(naming, {
           index: i,
           name: displayName,
           uid,
@@ -714,7 +747,7 @@ export async function importAccounts(
       }
       if (seenInBatch.has(uid)) {
         result.skipped++
-        result.items.push({
+        pushItem(naming, {
           index: i,
           name: displayName,
           uid,
@@ -891,11 +924,15 @@ export async function importAccounts(
           ...valuesWithoutRefresh
         } = values
         void _keptRefreshTokenEnc
+        // 只有「本批确实带来权威名」才覆盖 name 列:手机号(O66 统一名)或载荷自带名。
+        // 退化成平台映射名/#序号 的那一批不写,免得网页重登把库里已有的统一名抹成 `#1`
+        // (2026-10-27 真机实证:展示名退成 uid)。
+        const nameIsAuthoritative = naming.source === 'phone' || naming.source === 'payload-name'
         const overwriteValues = overwriteRefresh.preserve
           ? {
               ...valuesWithoutRefresh,
               ...(incomingExpiryColumn === null ? {} : { refreshExpiresAt: incomingExpiryColumn }),
-              ...(accName && accName !== uid ? { name: incomingNameColumn } : {}),
+              ...(nameIsAuthoritative && displayName !== uid ? { name: incomingNameColumn } : {}),
             }
           : values
         const [written] = await db
@@ -913,7 +950,7 @@ export async function importAccounts(
         writtenId = written.id
         writtenCredVersion = written.credVersion
         result.updated++
-        result.items.push({
+        pushItem(naming, {
           index: i,
           name: displayName,
           uid,
@@ -936,7 +973,7 @@ export async function importAccounts(
         writtenId = written.id
         writtenCredVersion = written.credVersion
         result.imported++
-        result.items.push({
+        pushItem(naming, {
           index: i,
           name: displayName,
           uid,
@@ -964,7 +1001,7 @@ export async function importAccounts(
       )
     } catch (e) {
       result.failed++
-      result.items.push({
+      pushItem(naming, {
         index: i,
         name: displayName,
         uid: null,

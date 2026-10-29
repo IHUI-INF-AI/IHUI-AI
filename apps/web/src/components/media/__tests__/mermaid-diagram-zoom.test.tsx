@@ -37,7 +37,7 @@ vi.mock('@/lib/copy-as-image', () => ({
   svgElementToPngBlob: (...args: unknown[]) => mockSvgToPng(...args),
 }))
 
-import { MermaidDiagram } from '../MermaidDiagram'
+import { MermaidDiagram, __test__ as mermaidTest } from '../MermaidDiagram'
 
 class ClipboardItemStub {
   data: Record<string, Blob>
@@ -66,6 +66,8 @@ describe('MermaidDiagram — D196 缩放控件', () => {
     mockMermaidRender.mockReset()
     mockMermaidInitialize.mockReset()
     mockMermaidInitialize.mockResolvedValue(undefined)
+    // 档⑨:清模块台账,防前例成功渲染让后例首帧命中、绕开真实渲染路径(顺序耦合)
+    mermaidTest.clearMermaidRenderCache()
     mockSvgToPng.mockReset()
     writeMock.mockReset()
   })
@@ -150,6 +152,7 @@ describe('MermaidDiagram — D198 复制为图片', () => {
     mockMermaidRender.mockReset()
     mockMermaidInitialize.mockReset()
     mockMermaidInitialize.mockResolvedValue(undefined)
+    mermaidTest.clearMermaidRenderCache()
     mockSvgToPng.mockReset()
     writeMock.mockReset()
   })
