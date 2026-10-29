@@ -71,8 +71,8 @@
 {"key":"G-01#main的CI现读仍红五件事逐条点名","owner":"mobile-rn 3 项","waiting":"none","updatedAt":"2026-10-25T06:20:55.326Z","updatedBy":"plan-fields-extract"}
 {"key":"G-828#长会话渲染成本","owner":"web 消息列表持有人 + 用户)","waiting":"none","updatedAt":"2026-10-22T08:29:34.915Z","updatedBy":"plan-fields-extract"}
 {"key":"G-241#自动化\"结算状态机\"","owner":"api 端持有者","waiting":"none","updatedAt":"2026-10-22T06:39:58.316Z","updatedBy":"plan-fields-extract"}
-{"key":"G-242#一次性capabilityticket取代常驻可","owner":"ai-service↔api 两侧持有者）","waiting":"none","updatedAt":"2026-10-22T08:29:34.915Z","updatedBy":"plan-fields-extract"}
-{"key":"G-244#后台任务run状态缺append-onlyjou","owner":"ai-service 端）","waiting":"none","updatedAt":"2026-10-22T08:29:34.915Z","updatedBy":"plan-fields-extract"}
+{"key":"G-242#一次性capabilityticket取代常驻可","owner":"ai-service↔api 两侧持有者","waiting":"none","updatedAt":"2026-10-29T16:09:44.773Z","updatedBy":"plan-fields-reclassify"}
+{"key":"G-244#后台任务run状态缺append-onlyjou","owner":"ai-service 端","waiting":"none","updatedAt":"2026-10-29T16:09:44.773Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-395#配置分层的\"出处标签\"与\"请求档vs实得档\"留痕","owner":"cli/子代理线持有人","waiting":"none","updatedAt":"2026-10-22T06:39:58.316Z","updatedBy":"plan-fields-extract"}
 {"key":"G-397#锁的\"租约认token不认pid\"一格只登记","owner":"`git-lock`/`deploy-lock` 持有人)**","waiting":"none","updatedAt":"2026-10-22T13:03:10.517Z","updatedBy":"ledger-p2"}
 {"key":"G-398#第八轮剩余六格候选清单","owner":"未派","waiting":"none","updatedAt":"2026-10-22T06:39:58.316Z","updatedBy":"plan-fields-extract"}
@@ -88,7 +88,7 @@
 {"key":"G-455#守门130的F9把「已完成历史行」与「正文里的交","owner":"门 130 持有人","waiting":"none","updatedAt":"2026-10-22T06:39:58.319Z","updatedBy":"plan-fields-extract"}
 {"key":"G-937#归档器B档","owner":"本席续做","waiting":"none","updatedAt":"2026-10-22T06:39:58.319Z","updatedBy":"plan-fields-extract"}
 {"key":"G-931#那一格今日拿到硬证据","owner":"活文档归并线持有人","waiting":"none","updatedAt":"2026-10-22T06:39:58.320Z","updatedBy":"plan-fields-extract"}
-{"key":"G-863#附件容量按\"屏当时快照\"计","owner":"web 聊天附件链)","waiting":"none","updatedAt":"2026-10-22T08:29:34.917Z","updatedBy":"plan-fields-extract"}
+{"key":"G-863#附件容量按\"屏当时快照\"计","owner":"web 聊天附件链","waiting":"none","updatedAt":"2026-10-29T16:09:44.773Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-941#token增量基线还缺一个真判别维度","owner":"ai-service 成本账本)","waiting":"none","updatedAt":"2026-10-22T08:29:34.917Z","updatedBy":"plan-fields-extract"}
 {"key":"G-942#生产切流被\"别人滞留在工作树的整份台账副本\"挡住","owner":"那份副本的写者会话","waiting":"none","blocking":"它自己落地或被显式处置 —— 自愈层按设计拒绝代","updatedAt":"2026-10-22T08:29:34.917Z","updatedBy":"plan-fields-extract"}
 {"key":"G-819#取证代理把兄弟会话的在飞改动当成我方现状——这一","waiting":"env","blocking":"本机没有","updatedAt":"2026-10-22T08:29:34.917Z","updatedBy":"plan-fields-extract"}
