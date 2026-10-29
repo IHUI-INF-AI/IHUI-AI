@@ -48,8 +48,10 @@ def _origin_of(base_url: str) -> str:
 
 
 def _extract_video_url(record: dict[str, Any]) -> str:
-    metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
-    result = record.get("result") if isinstance(record.get("result"), dict) else {}
+    metadata_raw = record.get("metadata")
+    metadata: dict[str, Any] = metadata_raw if isinstance(metadata_raw, dict) else {}
+    result_raw = record.get("result")
+    result: dict[str, Any] = result_raw if isinstance(result_raw, dict) else {}
     candidates = (
         metadata.get("url"),
         record.get("video_url"),
@@ -267,7 +269,8 @@ class AgnesVideoProvider(BaseProvider):
                 resp.status_code if resp.status_code >= 400 else 502,
             )
         if resp.status_code >= 400:
-            error = data.get("error") if isinstance(data.get("error"), dict) else {}
+            error_raw = data.get("error")
+            error: dict[str, Any] = error_raw if isinstance(error_raw, dict) else {}
             message = str(error.get("message") or data.get("message") or data.get("code") or data)[
                 :300
             ]

@@ -323,7 +323,7 @@ def _shell_stream_codec() -> str:
     try:
         import ctypes
 
-        kernel32 = ctypes.windll.kernel32
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         cp = int(kernel32.GetConsoleCP() or 0) or int(kernel32.GetOEMCP() or 0)
     except Exception:  # noqa: BLE001 - 探测失败不得拖垮会话创建
         cp = 0

@@ -1094,16 +1094,19 @@ export function HomeScreen() {
    * 两个分支统一走 foldLegacyGroups:legacy 档收编进尾部「历史模型(N)」分组。
    */
   /** 占位模型组 vendor/name/description 存的是 i18n 键,进列表渲染前本地化为展示词 */
-  const localizePlaceholderGroups = (gs: ModelListGroup[]): ModelListGroup[] =>
-    gs.map((g) => ({
-      ...g,
-      vendor: g.vendor ? t(g.vendor) : g.vendor,
-      models: g.models.map((m) => ({
-        ...m,
-        name: t(m.name),
-        description: m.description ? t(m.description) : m.description,
+  const localizePlaceholderGroups = useCallback(
+    (gs: ModelListGroup[]): ModelListGroup[] =>
+      gs.map((g) => ({
+        ...g,
+        vendor: g.vendor ? t(g.vendor) : g.vendor,
+        models: g.models.map((m) => ({
+          ...m,
+          name: t(m.name),
+          description: m.description ? t(m.description) : m.description,
+        })),
       })),
-    }))
+    [t],
+  )
   const modalModelGroups = useMemo<ModelListGroup[]>(() => {
     const q = modelSearch.trim().toLowerCase()
     if (q) {

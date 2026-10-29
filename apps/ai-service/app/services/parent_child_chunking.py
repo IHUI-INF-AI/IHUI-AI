@@ -115,7 +115,7 @@ class TokenCounter:
         self._fallback = estimate_tokens
         if prefer_tiktoken:
             try:  # noqa: S112 - 可选依赖探测,失败即静默回退是本类的设计
-                import tiktoken  # type: ignore[import-not-found]
+                import tiktoken
 
                 self._encoding = tiktoken.get_encoding("cl100k_base")
             except Exception:

@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, type ReactNode } from 'react'
+import { useWrapFocus } from '../../hooks/use-wrap-focus'
 import {
   AlertTriangle,
   Award,
@@ -519,9 +520,10 @@ export function EduAiHubScreen({
 }: EduAiHubScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createEduAiStyles(tk), [tk])
+  const searchWrapFocus = useWrapFocus(tk)
 
   const searchBox = (tab: EduAiTab, placeholder: string, value: string) => (
-    <View style={styles.searchBox}>
+    <View style={[styles.searchBox, searchWrapFocus.focusBorder]}>
       <Search size={15} color={tk.text.tertiary} strokeWidth={2} />
       <TextInput
         style={styles.searchInput}
@@ -531,6 +533,8 @@ export function EduAiHubScreen({
         placeholderTextColor={tk.text.tertiary}
         accessibilityLabel={placeholder}
         returnKeyType="search"
+        onFocus={searchWrapFocus.onFocus}
+        onBlur={searchWrapFocus.onBlur}
       />
     </View>
   )
