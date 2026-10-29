@@ -19,6 +19,11 @@ import { bucketFromFields, claimMarkOf, dispositionOf, keyOfRow } from './plan-t
 const OPEN_RE = /^\s*- \[ \]/
 const DONE_RE = /^\s*- \[[xX]\]/
 
+/** 未勾登记行的**唯一判据**(本层与写盘闸/声明校验共用;不得各写一份,§0.6)。 */
+export function isOpenRow(line) {
+  return OPEN_RE.test(String(line ?? ''))
+}
+
 /** 侧车命中 ⇒ 用判据层的**单源映射**(顺序必须与散文同序,否则迁移即改判);没命中 ⇒ 回落散文。 */
 export function bucketOf(line, rec) {
   return rec ? bucketFromFields(rec) : dispositionOf(line)
