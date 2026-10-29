@@ -1,0 +1,11 @@
+// i18n-cross-end-waivers.jsonl —— 跨端同名键文案漂移的**在册裁定**台账。
+// 一行一条 JSON:{key, kind, reason, expires}。对账尺 = scripts/check-i18n-cross-end-wording.mjs
+// (只读尺子,不进提交链也不进 CI:§12e —— 判的是文案裁定面,挂成提交门就是恒红门)。
+// 类别允许集(与尺子里 LEGAL_KINDS 同单源,不要在这里另立一套):
+//   platform-adaptation   平台措辞差异(微信里给不出本机路径这类)
+//   form-difference       渲染形态差异(标签+值合并 ↔ 纯标签)
+//   semantic-split-needed 同名不同义,待拆键
+//   pending-product       待产品/翻译定(带到期日的债,不是白名单)
+//   deprecated-on-one-end 一端已下线该界面
+// 刻意不含 same-screen-drift:同一个界面两端读两套字是**待修项**,写进台账也判红。
+// reason 需 ≥20 字的定向说明;expires 必填(YYYY-MM-DD),到期即回到未裁队列(§0.7)。
