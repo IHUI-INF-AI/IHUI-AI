@@ -80,7 +80,26 @@ function getBackend(): Promise<SecureBackend> {
       const secure = await probeSecureStore()
       if (secure) {
         return {
-          getItem: secure.getItemAsync,
+          // 一次性迁移:secure-store 修复前,令牌走的是降级后端(AsyncStorage 明文)或被直接
+          // 拒写。修复后读的是系统加密库,存量令牌不在里面 ⇒ 用户会被迫重登一次。
+          // 这里在"加密库没有、AsyncStorage 有"时搬过去并立刻删明文:对用户是零感知,
+          // 对安全面是只读一次旧明文随后清除,不新增任何明文落盘路径。
+          getItem: async (k) => {
+            const hit = await secure.getItemAsync(k)
+            if (hit !== null && hit !== undefined) return hit
+            const legacy = await AsyncStorage.getItem(k)
+            if (legacy === null || legacy === undefined) return null
+            try {
+              await secure.setItemAsync(k, legacy)
+              await AsyncStorage.removeItem(k)
+              if (typeof __DEV__ === 'undefined' || __DEV__) {
+                console.warn(`[secure-store] migrated legacy plaintext item into keystore: ${k}`)
+              }
+            } catch {
+              // 迁移失败不阻断读取:本次仍返回旧值,下次冷启再试
+            }
+            return legacy
+          },
           setItem: secure.setItemAsync,
           deleteItem: secure.deleteItemAsync,
           encrypted: true,

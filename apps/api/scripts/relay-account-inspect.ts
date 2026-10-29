@@ -28,6 +28,7 @@ import {
 import {
   extractTokenExpiry,
   isRelayProviderCode,
+  type RelayProviderCode,
   normalizeForeignAccountShape,
   parseJwtClaims,
   parseFlexibleExpiry,
@@ -249,6 +250,7 @@ function parseArgs(argv: string[]): {
     } else if (a === '--local') local = true
     else if (a === '--json') json = true
     else if (a === '--help' || a === '-h') return { provider, error: '__help__' }
+    else if (a === '--') continue // pnpm 透传的裸分隔符,不是参数
     else return { provider, error: `未知参数: ${a}` }
   }
   if (!file && !local) return { provider, error: '需给 --file <json> 或 --local' }
