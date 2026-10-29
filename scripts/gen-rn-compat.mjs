@@ -215,9 +215,33 @@ function buildRouteMap() {
  * 纯函数版(镜像测试直接打,不碰 git 也不写盘):导航器正文 + 登记表 entries ⇒ 路由映射三桶。
  */
 export function buildRouteMapFromText(nav, registryEntries) {
-  const byRn = new Map(
-    (registryEntries || []).filter((e) => e.rn && e.miniapp).map((e) => [e.rn, e.miniapp]),
-  )
+  const regRows = (registryEntries || []).filter((e) => e.rn && e.miniapp)
+  const byRn = new Map(regRows.map((e) => [e.rn, e.miniapp]))
+  /**
+   * 同一个 rn 被多条登记条目共用时,上面的 new Map 是**后写静默覆盖** —— 前一条的 miniapp 页
+   * 从此在映射表里不存在,而这条错跳在守门上是合规的(C3 只验目标页在 app.config 在册)。
+   * 现读实证:登记表 home 条目把 rn 写成 AgentScreen.tsx,与真 agent 条目抢同一个键,
+   * 结果小程序路由表把 Agent/AiMain 都指到首页镜像壳(2026-10-29 提交 8fa01c3233 修的那一组);
+   * 同一张表当天现读还有 15 组同型撞键。
+   * 本字段只**点名不出手**:不改 byRn 的胜出结果(改语义要另立票 + 微信 IDE 真机走查),
+   * 也不判红 —— 存量未归零前升 blocking 就是 §12e 明令禁止的恒红门(唯一结局是逼人
+   * --no-verify 连带废掉全部守门)。失效方向恒为"多要一次定向说明"。
+   */
+  const regByRnSeen = new Map()
+  for (const e of regRows) {
+    const list = regByRnSeen.get(e.rn)
+    if (list) list.push(e)
+    else regByRnSeen.set(e.rn, [e])
+  }
+  const rnCollisions = []
+  for (const [rn, list] of regByRnSeen) {
+    if (list.length < 2) continue
+    rnCollisions.push({
+      rn,
+      winner: list[list.length - 1].miniapp,
+      losers: list.slice(0, -1).map((e) => ({ shared: e.shared, miniapp: e.miniapp })),
+    })
+  }
   // 组件名 → 壳文件。两种导入形态都要认:
   //   ① 默认导入 `import X from '../screens/Y'`
   //   ② 具名导入 `import { X } from '../screens/Y'`(可带 `as` 别名,别名后的**本地名**才是
@@ -261,7 +285,7 @@ export function buildRouteMapFromText(nav, registryEntries) {
     }
     map.set(routeName, `/${miniapp}`)
   }
-  return { map, unmapped, unbound, total: compToFile.size }
+  return { map, unmapped, unbound, rnCollisions, total: compToFile.size }
 }
 
 function renderRouteMap(map) {
@@ -392,6 +416,20 @@ async function main() {
       // 与"确实没这屏"不同形,混在一起就把解析缺陷读成缺口数。
       ` / 组件名解析不到 ${routeInfo.unbound.length} 条${routeInfo.unbound.length ? `(逐条:${routeInfo.unbound.slice(0, 8).join(', ')}${routeInfo.unbound.length > 8 ? ' …' : ''})` : ''}`,
   )
+  // 撞键逐组点名走 stderr(不污染结论行的可机器读形态)+ 末了给总组数。
+  // 只报数:不改 map 胜出结果,也不改 exit code —— 见 buildRouteMapFromText 里那段注记。
+  for (const c of routeInfo.rnCollisions) {
+    console.error(
+      `⚠️ rn 撞键:${c.rn} 被 ${c.losers.length + 1} 条登记共用 ⇒ 胜出 ${c.winner},被静默丢弃 ${c.losers
+        .map((l) => `${l.shared ?? '(未登记 shared)'}→${l.miniapp}`)
+        .join(' / ')}`,
+    )
+  }
+  if (routeInfo.rnCollisions.length > 0) {
+    console.error(
+      `⚠️ 登记表同 rn 撞键共 ${routeInfo.rnCollisions.length} 组(只报数不判红:存量未归零前升档即 §12e 恒红门;逐组核 shared↔rn 同名并真机走查后才谈收口)`,
+    )
+  }
   if (write) {
     if (iconsAlreadyCovered)
       console.log(`✓ 图标无变化(盘上生成物已覆盖现读全集 ${iconNamesNew.length} 名)`)
