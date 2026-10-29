@@ -126,6 +126,24 @@ export function resolveEdition(userDataDir) {
   return null
 }
 
+/**
+ * 版本 → 登录会话文件绝对路径(2026-10-29 立)。
+ * 提取端与「一键切号」写回端必须同一条拼接:版本表若加档,两侧一起跟上,不许再抄第二份。
+ * 未知版本 ⇒ 点名抛错,绝不把 undefined 拼进路径继续往下跑。
+ */
+export function workbuddyAuthFilePath(edition) {
+  const fileName = Object.prototype.hasOwnProperty.call(AUTH_FILE_BY_EDITION, edition)
+    ? AUTH_FILE_BY_EDITION[edition]
+    : null
+  if (typeof fileName !== 'string' || fileName === '') {
+    throw new ExtractError(
+      `未知的 WorkBuddy 版本:${JSON.stringify(edition)}(可选:${Object.keys(AUTH_FILE_BY_EDITION).join(' | ')})`,
+      'edition-undetermined',
+    )
+  }
+  return path.join(AUTH_DIR, fileName)
+}
+
 export function normalizeAtRestKey(atRestSecretKey) {
   const key = crypto.createHash('sha256').update(String(atRestSecretKey), 'utf8').digest()
   const keyId = crypto.createHash('sha256').update(key).digest('hex').slice(0, 16)
@@ -222,6 +240,93 @@ export function collectSealedPaths(node, prefix = '', out = []) {
     collectSealedPaths(v, prefix ? `${prefix}.${k}` : k, out)
   }
   return out
+}
+
+/** 路径段黑名单:写侧一旦放进这三段就是原型污染,读侧也不允许沿原型链取。 */
+const UNSAFE_PATH_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+/**
+ * 点分 + 方括号下标路径 → 段数组(2026-10-29 立)。
+ * 语法就是 collectSealedPaths 吐出的那一种(`auth.accessToken`、`accounts[0].nickname`),
+ * 两把必须互逆对账 —— 别在消费方再发明第二套路径拼法。
+ */
+function parseSealedPath(jsonPath) {
+  const text = String(jsonPath ?? '')
+  const bad = (reason) => new ExtractError(`路径形态不合法(${reason}):${JSON.stringify(jsonPath)}`, 'extract-failed')
+  if (text === '') throw bad('空路径')
+  const segments = []
+  let i = 0
+  while (i < text.length) {
+    if (text[i] === '[') {
+      const close = text.indexOf(']', i)
+      if (close < 0) throw bad('方括号未闭合')
+      const digits = text.slice(i + 1, close)
+      if (!/^\d+$/.test(digits)) throw bad('方括号内不是数组下标')
+      segments.push(Number(digits))
+      i = close + 1
+      if (i >= text.length) break
+      if (text[i] === '.') {
+        i += 1
+        if (i >= text.length) throw bad('以 . 结尾')
+      } else if (text[i] !== '[') throw bad('下标后必须接 . 或 [')
+    } else {
+      let end = i
+      while (end < text.length && text[end] !== '.' && text[end] !== '[') end += 1
+      const key = text.slice(i, end)
+      if (key === '') throw bad('存在空的路径段')
+      if (UNSAFE_PATH_KEYS.has(key)) throw bad(`路径段 ${key} 属原型污染风险,拒绝`)
+      segments.push(key)
+      i = end
+      if (i === text.length) break
+      if (text[i] === '.') {
+        i += 1
+        if (i === text.length) throw bad('以 . 结尾')
+      }
+    }
+  }
+  if (segments.length === 0) throw bad('没有任何路径段')
+  return segments
+}
+
+/** 按段取值:任一层不存在或类型对不上 ⇒ undefined(读侧要能判"这格没有",不抛)。 */
+export function getPathByJsonPath(node, jsonPath) {
+  const segments = parseSealedPath(jsonPath)
+  let cursor = node
+  for (const seg of segments) {
+    if (cursor === null || typeof cursor !== 'object') return undefined
+    if (Array.isArray(cursor) !== Number.isInteger(seg)) return undefined
+    if (!Object.prototype.hasOwnProperty.call(cursor, seg)) return undefined
+    cursor = cursor[seg]
+  }
+  return cursor
+}
+
+/**
+ * 按段写值,返回根节点。中间层缺失时创建(数字段 ⇒ 数组,否则 ⇒ 对象);
+ * 黑名单段在解析阶段就抛出 ⇒ 根节点一个键都不会被改动(越权用例断言的是副作用没发生)。
+ */
+export function setPathByJsonPath(node, jsonPath, value) {
+  const segments = parseSealedPath(jsonPath)
+  if (node === null || typeof node !== 'object' || Array.isArray(node)) {
+    throw new ExtractError(`setPathByJsonPath 的根节点必须是对象:${JSON.stringify(jsonPath)}`, 'extract-failed')
+  }
+  let cursor = node
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    const seg = segments[i]
+    const wantArray = Number.isInteger(segments[i + 1])
+    const child = Object.prototype.hasOwnProperty.call(cursor, seg) ? cursor[seg] : undefined
+    if (child === null || typeof child !== 'object') {
+      cursor[seg] = wantArray ? [] : {}
+    } else if (Array.isArray(child) !== wantArray) {
+      throw new ExtractError(
+        `路径段 ${JSON.stringify(seg)} 上已存在${Array.isArray(child) ? '数组' : '对象'},而下一段要的是${wantArray ? '数组' : '对象'} ⇒ 拒绝覆盖已有数据:${JSON.stringify(jsonPath)}`,
+        'extract-failed',
+      )
+    }
+    cursor = cursor[seg]
+  }
+  cursor[segments[segments.length - 1]] = value
+  return node
 }
 
 /**
@@ -406,7 +511,7 @@ export async function extractWorkbuddyAccount({ now = () => Date.now() } = {}) {
   if (!edition) {
     throw new ExtractError(`无法从 --user-data-dir 判定版本: ${userDataDir}`, 'edition-undetermined')
   }
-  const authFile = path.join(AUTH_DIR, AUTH_FILE_BY_EDITION[edition])
+  const authFile = workbuddyAuthFilePath(edition)
   if (!fs.existsSync(authFile)) {
     throw new ExtractError(`未找到登录会话文件: ${authFile}`, 'auth-file-missing')
   }
@@ -486,11 +591,14 @@ export const __test__ = {
   decryptSessionTree,
   normalizeAtRestKey,
   resolveEdition,
+  workbuddyAuthFilePath,
   assertRealmMatchesEdition,
   decodeJwtClaims,
   fingerprintOf,
   resolveMainProcessesFromRows,
   collectSealedPaths,
+  getPathByJsonPath,
+  setPathByJsonPath,
   buildSessionTemplate,
   WB_CREDENTIAL_PATHS,
   AUTH_DIR,
