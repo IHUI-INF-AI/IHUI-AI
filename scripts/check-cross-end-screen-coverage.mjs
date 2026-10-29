@@ -252,7 +252,11 @@ function collectRn(face = FACE) {
  *  路径清单与正文同笔产出 —— 棘轮锚点侧要按**同一批载体**重算声明,两侧同宽才有牙。 */
 function sidecarCssPaths(hit) {
   if (!hit) return []
-  return [hit.replace(/\.tsx$/, '.css'), hit.replace(/[^/]*$/, 'index.css')]
+  // 只认同 basename 的 .css。旧实现多拼一条「同目录 index.css」: 对 `dir/index.tsx` 与第一条同值,
+  // 对 `dir/foo.tsx` 却把**目录主页面**的样式算了进来 —— pages/member/index.css 头注
+  // 「视觉唯一标准: …vip/VipScreen.tsx」于是被读成 member/* 四页各自的镜像声明,
+  // 镜像还原度报「声明 VipScreen、承载 PointHistoryScreen」假红(实测 4 页)。
+  return [hit.replace(/\.[jt]sx$/, '.css')]
 }
 
 function collectSidecarCss(hit, face = FACE) {
