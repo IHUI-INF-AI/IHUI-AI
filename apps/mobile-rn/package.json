@@ -44,7 +44,7 @@
     "expo-media-library": "~57.0.3",
     "expo-modules-core": "~57.0.0",
     "expo-notifications": "~57.0.0",
-    "expo-secure-store": "~57.0.0",
+    "expo-secure-store": "~58.0.2",
     "expo-status-bar": "~57.0.0",
     "expo-updates": "~57.0.26",
     "expo-web-browser": "~57.0.0",
