@@ -73,6 +73,7 @@ export function parseAudit(text) {
     if (!a || typeof a !== 'object') continue
     const module = asText(a.module_name)
     if (!module) continue
+    const findings = Array.isArray(a.findings) ? a.findings : []
     rows.push({
       id: asText(a.id ?? id),
       module,
@@ -85,6 +86,12 @@ export function parseAudit(text) {
       usedBy: Array.isArray(a.findings)
         ? a.findings.map((f) => asText(f?.version)).filter(Boolean).slice(0, 3)
         : [],
+      // 生产可达性(2026-10-29 补,供守门 260 判「生产 critical/high 必须为 0」):
+      // pnpm audit 的 findings[].dev=true 表示该路径只在 devDependencies 里 ——
+      // 威胁模型是「构建机被投毒」,不是线上服务器,两者不能混为一谈(混了就等于
+      // 把 Taro 构建链的 28 个 critical 当成线上 RCE,门会恒红到没人再看)。
+      // findings 为空时判 false(保守:当生产可达,宁可多报一次)。
+      devOnly: findings.length > 0 && findings.every((f) => f?.dev === true),
     })
   }
   const vulns = doc.metadata?.vulnerabilities

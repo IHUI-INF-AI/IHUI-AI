@@ -95,6 +95,10 @@ export const GUARD_SOURCES = Object.freeze([
   'apps/api/src/plugins/ws-guard.ts',
   'apps/api/src/plugins/rate-limit-failsafe-store.ts',
   'apps/ai-service/app/core/conn_guard.py',
+  // 2026-10-29 第二批:边缘 router 的准入判定。这一份此前是**内联在回调里的 if 链**,
+  // 于是 upgrade 分支漏接两道闸时,类型检查/单测/构建与接好时逐字同形(§0.9 那一型)。
+  // 抽成 lib 后既可单测,也能被本门按"注册锚点在不在"钉住。
+  'deploy/win/lib/edge-admission.mjs',
 ])
 
 /**
@@ -123,6 +127,19 @@ export const WIRING = Object.freeze([
       'sio_conn_gate.allow_handshake(',
       'sio_conn_gate.acquire(',
       'sio_conn_gate.release(',
+    ],
+  },
+  {
+    // 2026-10-29 第二批:边缘 router。这三根线对应三类各不相同的静默失效:
+    //   · decideUpgradeAdmission —— WS 握手不经闸(改个请求行即绕开限流与回源鉴权);
+    //   · bgStatusVisibleTo       —— 运维探针在 0.0.0.0 的 web 入口上公网可读;
+    //   · server.maxConnections   —— 连接数无上限(缺省 Infinity),连接耗尽型攻击直接拖死入口。
+    // 三者在"摘掉"时都不会让任何既有检查翻红,故必须在这里点名。
+    file: 'deploy/win/ihui-api-router.mjs',
+    anchors: [
+      'decideUpgradeAdmission(',
+      'bgStatusVisibleTo(',
+      'server.maxConnections = ',
     ],
   },
 ])
