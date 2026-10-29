@@ -49,6 +49,7 @@ export function AgentDetailScreen() {
       error={error}
       onBack={() => navigation.goBack()}
       onStartChat={(agentId, name) => navigation.navigate('AgentChat', { agentId, name })}
+      onEdit={() => navigation.navigate('AgentEdit', { id })}
       colorScheme={resolvedTheme}
     />
   )
