@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 50418afb2dba817a3a4d7133374d15cd13aa6086
-// inputsSha256: fc46ce14e3a46e3a3758d8fca98f1f9c3ba5a6884e8660433e6ceef0f6f871dc
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx f1d5baefb375d394cbf1feeb30543e8ad0ada9f3b4be06a400c2bedf8070c004
+// sourceCommit: 1dcff062c95b98f0de46b9a53db0d7bff216d65a
+// inputsSha256: 53d05e07748aa804b3109d3c7f8ff75869550d951c3f86180f16d8e952a35cc3
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 8162576e7806c28e3cb289c97abb2c06585d05da0abf43474182abd5e88ad506
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-29T08:26:43.049Z
+// generatedAt: 2026-10-29T13:11:23.432Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,13 +28,14 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 330 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 331 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Home', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'DomainHub', tab: false, requiresParams: true, requiredParams: ['domain'] },
   { name: 'Chat', tab: false, requiresParams: true, requiredParams: ['url', 'durationSec'] },
+  { name: 'ChatWorkbench', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'OrderRefund', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Payment', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Vip', tab: false, requiresParams: false, requiredParams: [] },
