@@ -235,7 +235,6 @@ export function judge(
         // 新号键能认领旧号键的侧车字段(搬支在册)⇒ 不算"缺交代":结构化归属已在侧车,
         // 只是键还挂在旧号上。迁移出口:node scripts/plan-fields-extract.mjs --apply。
       } else if (baseRowTexts && !baseRowTexts.has(identity(line)))
-      if (baseRowTexts && !baseRowTexts.has(line))
         a1List.push(`  L${r.line}  ${key ?? '(无主键)'}  ${titleOf(line) ?? clip(line)}`)
       else stock++
     }
@@ -333,7 +332,6 @@ export function readFaces(root = ROOT, face = 'head') {
     const bs = readFieldsFace(root, 'head')
     if (bs.undetermined)
       return { ok: false, why: `基准侧车面(HEAD)取不到 ⇒ A3 未判定:${bs.why ?? '(未点名原因)'}` }
-    baseSideSigs = new Set(conflictGroupsOf([...bs.map.values(), ...(bs.orphans ?? [])]).conflicts.map(sideSig))
     // 纪元面:基准矛盾签名里的号按映射折算 —— 重编号只是把这些矛盾搬到新号下,不是新矛盾;
     // 无纪元 ⇒ 原样(旧行为)。折算后仍不匹配的新签名照旧拦红。
     baseSideSigs = new Set(
