@@ -190,6 +190,8 @@ export interface CreateResourceInput {
   image?: string | null
   introduction?: string | null
   cidList?: string[] | null
+  /** 归属用户(2026-10-29 立):admin 代用户创建时显式传入;缺省 NULL = 平台内容。 */
+  ownerUserId?: string | null
 }
 
 export async function createResource(data: CreateResourceInput): Promise<Resource> {
@@ -212,6 +214,7 @@ export async function createResource(data: CreateResourceInput): Promise<Resourc
       image: data.image,
       introduction: data.introduction,
       cidList: data.cidList,
+      ownerUserId: data.ownerUserId ?? null,
     })
     .returning()
   const row = rows[0]
@@ -268,6 +271,85 @@ export async function updateResource(
 
 export async function deleteResource(id: string): Promise<void> {
   await db.delete(resources).where(eq(resources.id, id))
+}
+
+/** 用户侧「我的资源」行(web /student/my-resources 与 RN/共享屏 MyResourcesScreen 消费同一形状)。 */
+export interface MyResourceRow {
+  id: string
+  title: string
+  description: string | null
+  fileType: string | null
+  fileSize: number
+  viewCount: number
+  downloadCount: number
+  status: number
+  createdAt: string
+}
+
+/**
+ * 分页查询某用户名下的资源(2026-10-29 立,web→RN 台账 student/my-resources 数据面结清)。
+ * ownerUserId 必须由承载层从鉴权结果显式传入 —— 不得从被操作记录反推、不得信客户端自报
+ * (AGENTS §5「认证不等于授权」)。NULL owner 的存量平台内容天然不在结果集。
+ */
+export async function findMyResources(opts: {
+  ownerUserId: string
+  page: number
+  pageSize: number
+}): Promise<{ list: MyResourceRow[]; total: number; page: number; pageSize: number }> {
+  const { ownerUserId, page, pageSize } = opts
+  const where = eq(resources.ownerUserId, ownerUserId)
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: resources.id,
+        title: resources.title,
+        intro: resources.intro,
+        introduction: resources.introduction,
+        fileType: resources.fileType,
+        fileSize: resources.fileSize,
+        viewCount: resources.viewCount,
+        downloadCount: resources.downloadCount,
+        status: resources.status,
+        createdAt: resources.createdAt,
+      })
+      .from(resources)
+      .where(where)
+      .orderBy(desc(resources.createdAt), desc(resources.id))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(resources)
+      .where(where),
+  ])
+  const list: MyResourceRow[] = rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    description: r.intro ?? r.introduction ?? null,
+    fileType: r.fileType,
+    fileSize: r.fileSize,
+    viewCount: r.viewCount,
+    downloadCount: r.downloadCount,
+    status: r.status,
+    createdAt: r.createdAt.toISOString(),
+  }))
+  return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
+}
+
+/**
+ * 归属闸删除:仅当 (id, owner_user_id) 同时命中才删(单语句原子,无 TOCTOU)。
+ * 非本人行 / 行不存在 / NULL owner 平台内容 ⇒ 零副作用,返回 'not_found'。
+ * 返回集合以 .returning({id}) 回库确认(门 134 同纪律:不把请求侧当 affected)。
+ */
+export async function deleteResourceIfOwned(
+  id: string,
+  ownerUserId: string,
+): Promise<'deleted' | 'not_found'> {
+  const rows = await db
+    .delete(resources)
+    .where(and(eq(resources.id, id), eq(resources.ownerUserId, ownerUserId)))
+    .returning({ id: resources.id })
+  return rows.length > 0 ? 'deleted' : 'not_found'
 }
 
 /** 发布/取消发布资源。 */
