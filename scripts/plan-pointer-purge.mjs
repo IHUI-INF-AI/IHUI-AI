@@ -59,6 +59,14 @@
  *   A3 清偿后全文件 DUP_POINTER_RE 与 SELF_DEDISPATCH_RE 命中归零(用户要的"不要再看到")。
  *   A4 认领标记 `（进行中…）` 总数不减少(8 条存量全部转移,不许静默丢失)。
  *
+ * 落地前另有**一道守门 130 同源自查**(G-07,2026-10-29 立):旁路落地(commit-tree + CAS)不触发
+ * 钩子 ⇒ 守门 130 差值棘轮的"新增"维在落地那一刻没有任何人计算,清偿器可能把「剥注记后第一次
+ * 露出的同题副本」整批写进 HEAD,而账面要到下一次全量档才红(票面现读 6 组 F4 + 3 组 F4b +
+ * 1 组 F9 撞号,同型第三次)。本器因此在落地前用与守门 130 **同一把尺**(`auditPlan` 的
+ * F4/F4b + `narrowF9Face` 收窄后的 F9)比父面与待落面,**任一维变多 ⇒ 整批拒落并逐条点名**。
+ * 与 A5 的分工:A5 在剥注记归一化面上量"本批有没有真造出重复",本条在原文面上量"落地后
+ * 守门 130 会不会涨" —— G-07 的盲区正长在这个差别里,两条必须同时在场。
+ *
  * 用法: node scripts/plan-pointer-purge.mjs [--dry-run|--apply] [--absorb]
  *
  * 退出态(2026-10-25 定档,派单侧按这一把尺决定是否落地):
@@ -92,6 +100,9 @@ import { baseNameOf, parseZList } from './lib/plan-id-face.mjs'
 const { extractTaskFingerprint } = require(
   path.join(ROOT, 'scripts/check-plan-task-duplicates.mjs'),
 )
+// 守门 130(G-07)同源判据:F9 的收窄口径(声明位 + 活题面定级)唯一实现在 plan-tasks.mjs ——
+// 本器只问它,不复制一份"什么算撞号"的第二把尺子(§0.6)。无环:plan-tasks.mjs 不 import 本器。
+import { narrowF9Face } from './plan-tasks.mjs'
 const {
   alignSharedIndex,
   attestBypassCommit,
@@ -619,17 +630,22 @@ export function workResidueCount(text, opts = {}) {
  * 判据只此一份(§0.6),落地臂与镜像测试共用;测试不得复制判据(§22c)。
  */
 export function landingDiffVerdict({ parentText, nextText, work = [] } = {}) {
-  const p = String(parentText ?? '').split(/\r?\n/).filter((l) => l.trim() !== '')
-  const q = String(nextText ?? '').split(/\r?\n/).filter((l) => l.trim() !== '')
+  const p = String(parentText ?? '')
+    .split(/\r?\n/)
+    .filter((l) => l.trim() !== '')
+  const q = String(nextText ?? '')
+    .split(/\r?\n/)
+    .filter((l) => l.trim() !== '')
   const nonEmptyEqual = p.length === q.length && p.every((l, i) => l === q[i])
   const textsDiffer = String(parentText ?? '') !== String(nextText ?? '')
   if (work.length === 0) {
     return {
       ok: false,
       blankOnly: nonEmptyEqual && textsDiffer,
-      why: nonEmptyEqual && textsDiffer
-        ? '真实行为 0 而序列化结果与父面不等 ⇒ 差异只在空白行,拒绝落地(器物不得往活文档灌空行)'
-        : '本轮真的会动 0 行 ⇒ 无事可做,拒绝落地(不产 blob / 不提交 / 不推送)',
+      why:
+        nonEmptyEqual && textsDiffer
+          ? '真实行为 0 而序列化结果与父面不等 ⇒ 差异只在空白行,拒绝落地(器物不得往活文档灌空行)'
+          : '本轮真的会动 0 行 ⇒ 无事可做,拒绝落地(不产 blob / 不提交 / 不推送)',
     }
   }
   if (nonEmptyEqual) {
@@ -729,6 +745,151 @@ export function verifyPurge(oldLines, newLines, plan) {
     errs.push(`A5 未判定(${String(e?.message ?? e).slice(0, 120)})⇒ 整批不落,先修判据输入`)
   }
   return errs
+}
+
+/**
+ * 落地前自查 —— 守门 130 的 **F4 / F4b / F9** 三维在本批落地后不得比父面更多(G-07,2026-10-29 立)。
+ *
+ * 立因(实事故,不是推理):旁路落地走 commit-tree + CAS,**结构上不触发任何钩子** ⇒ 守门 130
+ * 差值棘轮的"新增"维在落地那一刻没有任何人计算;清偿器把「剥注记后第一次露出的同题副本」
+ * 整批写进 HEAD,账面要到下一次全量档才红(票面现读:6 组 F4 + 3 组 F4b + 1 组 F9 撞号,同型第三次)。
+ *
+ * 判据同源(§0.6):三维的读数一律取 `lib/plan-task-index.mjs` 的 `auditPlan`(F4 = `dupCopies`
+ * 即 `findDupOpenCopies`,F4b = `verbatimDups.copies` 即 `findVerbatimDupOpenRows`)与
+ * `plan-tasks.mjs` 的 `narrowF9Face`(守门 130 自己调的就是这一份)。本函数**只做两面相减**,
+ * 不重新解析一遍文档、不抄第二份分组逻辑。
+ *
+ * 与 `verifyPurge` 里 A5 的分工(两把尺子量纲不同,不许合并成一个):
+ *  - A5 在**剥注记归一化**的两面上比 ⇒ 量"本批有没有**真造出**重复"(剥注记是本职工作,不算造重复);
+ *  - 本函数在**原文面**上比 ⇒ 量"落地后守门 130 会不会涨"(那道门读的就是原文面)。
+ *   G-07 的盲区正长在这个差别里:A5 归一化后两侧一样高,而全量档在剥离后的文本上第一次看见它们。
+ *   ⇒ 两条**同时保留**:A5 管"别自造重复",本条管"别把门顶红",方向不同、输入面不同。
+ *
+ * 身份口径(为什么不能拿行号/整行原文当键):
+ *  - 行号:本器会删行,落地面行号整体漂移 ⇒ 按行号比会把"存量"读成"新增";
+ *  - 整行原文:F4b 那一族逐字等值,而本器的本职就是剥注记(会改文本)⇒ 按原文比会把每一次
+ *    剥注记读成"换了一批新孪生",变成恒红门(§12e)。
+ *  故 F4 用判据自己的分组键(复合主键),F4b 用**剥注记后**的正文,按多重集配额判"多出来的那几份"。
+ *  F9 用**键集差**(不是组数差):与守门 130 的基线键集口径同一条 —— "等量换掉一组撞号"在
+ *  计数锚点上恒绿,那一型必须拦。
+ *
+ * @returns {{ok:boolean, undetermined:string, f4:object, f4b:object, f9:object, problems:string[]}}
+ *   `ok:false ∧ undetermined` 非空 = 判据自己抛错 ⇒ **未判定**(§0.3:绝不折成绿,也不冒充红)。
+ */
+export function gate130Delta(oldText, newText) {
+  const empty = () => ({ before: 0, after: 0, added: [] })
+  const faceOf = (text) => {
+    const src = String(text ?? '')
+    const a = idx.auditPlan(src)
+    // narrowF9Face 就地覆盖 counts.collisionGroups / collisions ⇒ 拿到的就是守门 130 判定面那一份。
+    const narrowed = narrowF9Face(a, src)
+    return {
+      f4: Array.isArray(a.dupCopies) ? a.dupCopies : [],
+      f4b: Array.isArray(a.verbatimDups?.copies) ? a.verbatimDups.copies : [],
+      f9: Array.isArray(narrowed.collisions) ? narrowed.collisions : [],
+    }
+  }
+  let before = null
+  let after = null
+  try {
+    before = faceOf(oldText)
+    after = faceOf(newText)
+  } catch (e) {
+    return {
+      ok: false,
+      undetermined: String(e?.message ?? e).slice(0, 160),
+      f4: empty(),
+      f4b: empty(),
+      f9: empty(),
+      problems: [],
+    }
+  }
+  /** 多重集配额:落地面这一条消耗掉父面同身份的一份,消耗不到的才是"新增"。 */
+  const quotaAdded = (list, prev, idOf) => {
+    const quota = new Map()
+    for (const c of prev) quota.set(idOf(c), (quota.get(idOf(c)) ?? 0) + 1)
+    const added = []
+    for (const c of list) {
+      const k = idOf(c)
+      const left = quota.get(k) ?? 0
+      if (left > 0) quota.set(k, left - 1)
+      else added.push(c)
+    }
+    return added
+  }
+  const id4 = (c) => String(c?.key ?? '')
+  const id4b = (c) => {
+    const raw = String(c?.row?.raw ?? '')
+    return stripMergeNotes(raw).trim() || raw
+  }
+  const added4 = quotaAdded(after.f4, before.f4, id4)
+  const added4b = quotaAdded(after.f4b, before.f4b, id4b)
+  const prevF9Keys = new Set(before.f9.map((g) => String(g?.key ?? '')))
+  const added9 = after.f9.filter((g) => !prevF9Keys.has(String(g?.key ?? '')))
+  const rowLabel = (r) => `落地面 L${r?.line ?? '?'}「${String(r?.raw ?? '').slice(0, 56)}」`
+  const problems = []
+  if (added4.length)
+    problems.push(
+      `F4 同题待办副本 +${added4.length} 行(父面 ${before.f4.length} → 落地面 ${after.f4.length}):` +
+        added4
+          .slice(0, 8)
+          .map((c) => `键=${id4(c) || '(无键)'} ${rowLabel(c.row)}`)
+          .join(';') +
+        (added4.length > 8 ? ` …其余 ${added4.length - 8} 行` : ''),
+    )
+  if (added4b.length)
+    problems.push(
+      `F4b 无主键逐字孪生副本 +${added4b.length} 行(父面 ${before.f4b.length} → 落地面 ${after.f4b.length}):` +
+        added4b
+          .slice(0, 8)
+          .map((c) => rowLabel(c.row))
+          .join(';') +
+        (added4b.length > 8 ? ` …其余 ${added4b.length - 8} 行` : ''),
+    )
+  if (added9.length)
+    problems.push(
+      `F9 撞号新增 +${added9.length} 组(父面 ${before.f9.length} → 落地面 ${after.f9.length} 组):` +
+        added9
+          .slice(0, 8)
+          .map((g) => idx.f9GroupLine(g))
+          .join(';') +
+        (added9.length > 8 ? ` …其余 ${added9.length - 8} 组` : ''),
+    )
+  return {
+    ok: problems.length === 0,
+    undetermined: '',
+    f4: { before: before.f4.length, after: after.f4.length, added: added4 },
+    f4b: { before: before.f4b.length, after: after.f4b.length, added: added4b },
+    f9: {
+      before: before.f9.map((g) => String(g?.key ?? '')),
+      after: after.f9.map((g) => String(g?.key ?? '')),
+      added: added9,
+    },
+    problems,
+  }
+}
+
+/** 自查结论的**唯一文案出口**(首轮与 CAS 重算轮共用,不得各写一套措辞 —— 两处不一致时
+ *  人会以为它们量的不是同一件事)。`say` 由调用方给(默认 console.error,测试可直接捕获)。 */
+export function reportGate130Delta(delta, say = console.error) {
+  if (delta?.undetermined) {
+    say(
+      `❌ 守门 130 同源增量自查**未判定**(${delta.undetermined})⇒ 整批不落` +
+        '(§0.3:判不了不猜 —— 既不记绿也不冒红;修好判据输入再重跑本器)',
+    )
+    return
+  }
+  const d = delta || {}
+  say(
+    `❌ 守门 130 同源增量自查失败:F4 ${d.f4?.before ?? '?'}→${d.f4?.after ?? '?'} 行 / ` +
+      `F4b ${d.f4b?.before ?? '?'}→${d.f4b?.after ?? '?'} 行 / ` +
+      `F9 ${d.f9?.before?.length ?? '?'}→${d.f9?.after?.length ?? '?'} 组 ⇒ 整批拒落(不等下一次全量档才发现):`,
+  )
+  for (const p of d.problems || []) say(`   - ${p}`)
+  say(
+    '   ⇒ 出路:先跑 `node scripts/plan-tasks.mjs --gate` 看逐组点名,按票面出路逐组判"哪侧是后来者"并归并后再落;' +
+      '禁止批量改号(G-312 明令),禁止把新键写进基线(那等于关掉这一维)。',
+  )
 }
 
 /** 某 ref 下路径的**内容**(不是 oid —— headBlobOf 返回的是 oid,别混用)。 */
@@ -1043,6 +1204,19 @@ function main() {
     console.error('   ⇒ 分族键仍与门 203 不同源,先修 famKeyOf 的归一化,再重跑(不许为消红放宽判据)')
     process.exit(1)
   }
+  // 守门 130 同源增量自查(G-07):旁路落地不跑钩子 ⇒ 差值棘轮的"新增"维在落地那一刻无人计算。
+  // 放在这里 = 落地之前,不是等下一次全量档;有增量整批拒落并逐条点名(§0.3 未判定同样拒落)。
+  {
+    const g130 = gate130Delta(headText, serialize(next, eol))
+    if (!g130.ok) {
+      reportGate130Delta(g130, console.error)
+      process.exit(1)
+    }
+    console.log(
+      `守门 130 同源自查: F4 ${g130.f4.before}→${g130.f4.after} / F4b ${g130.f4b.before}→${g130.f4b.after} / ` +
+        `F9 ${g130.f9.before.length}→${g130.f9.after.length} 组(零增量)`,
+    )
+  }
   const work = realWorkRows(lines, plan)
   const before = lines.filter((l) => l.trim() !== '').length
   const after = next.filter((l) => l.trim() !== '').length
@@ -1058,7 +1232,13 @@ function main() {
     work,
   })
   if (!verdict.ok) {
-    console.log(apply ? `❌ ${verdict.why}` : verdict.blankOnly ? `⚠️ ${verdict.why}` : '本轮无需清偿 ⇒ 加 --apply 也不会落地、不会推送。')
+    console.log(
+      apply
+        ? `❌ ${verdict.why}`
+        : verdict.blankOnly
+          ? `⚠️ ${verdict.why}`
+          : '本轮无需清偿 ⇒ 加 --apply 也不会落地、不会推送。',
+    )
     return 3
   }
   if (!apply) {
@@ -1069,7 +1249,8 @@ function main() {
   const MSG_TAIL =
     '落地前五条守恒断言必须全绿(A1 已勾选不缩水 ∧ A2 未勾选不反增 ∧ A3 登记行注记归零 ∧\n' +
     'A4 族级认领守恒 ∧ A5 真归并单调性 F4/F10 不反增(两侧同做注记归一化,量的才是重复压力本身)' +
-    '),并过门 203 同源自校验。\n' +
+    '),并过门 203 同源自校验与守门 130 同源增量自查(F4/F4b/F9 三维零增量;\n' +
+    '前者在归一化面上量"有没有真造重复",后者在原文面上量"落地后守门 130 会不会涨")。\n' +
     '落地方式:对象空间 + CAS,从不写工作树(共享工作树的台账副本常年滞后 HEAD,按 pathspec 写等于\n' +
     '把别人已入库的行整批写回旧态,§12 一族);被删行原文进 ' +
     LEDGER_DIR_REL +
@@ -1152,7 +1333,11 @@ function main() {
       const fNextText = serialize(fNext, fEol)
       // no-op 拒落闸(2026-10-25 立,治"73 枚自增提交"):行级铁证不成立就不许产 blob、
       // 不许提交、不许推送 —— 判据唯一实现是 landingDiffVerdict(与镜像测试同一把尺)。
-      const fVerdict = landingDiffVerdict({ parentText: freshText, nextText: fNextText, work: fWork })
+      const fVerdict = landingDiffVerdict({
+        parentText: freshText,
+        nextText: fNextText,
+        work: fWork,
+      })
       if (!fVerdict.ok) {
         console.log(workVerdictLine(fWork, fStats))
         console.log(`❌ ${fVerdict.why}`)
@@ -1166,6 +1351,14 @@ function main() {
       const fDups = gate203Delta(freshText, fNextText)
       if (fDups.length) {
         console.log(`❌ 重算后门 203 同源自校验失败(${fDups.length} 键)⇒ 拒绝落地`)
+        return 1
+      }
+      // 守门 130 同源增量自查(G-07):CAS 重算轮也必须在新面上重算 —— 与 A5/门 203 两处同构,
+      // 不许"首轮判过就算判过"(别人推进 HEAD 后,新面上的增量可能完全不同)。
+      const fG130 = gate130Delta(freshText, fNextText)
+      if (!fG130.ok) {
+        console.log('❌ 重算后守门 130 同源增量自查未过 ⇒ 拒绝落地')
+        reportGate130Delta(fG130, (m) => console.log(m))
         return 1
       }
       const fSkipped = fPlan.skipped || []
@@ -1321,6 +1514,9 @@ export const __test__ = {
   workResidueCount,
   workVerdictLine,
   landingDiffVerdict,
+  gate130Delta,
+  reportGate130Delta,
+  isCandidate,
   serialize,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
