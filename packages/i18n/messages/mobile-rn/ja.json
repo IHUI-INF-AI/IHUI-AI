@@ -11,6 +11,12 @@
     "loadFailed": "ワークフローの読み込みに失敗しました"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "手動で一時停止",
+      "failedPermanent": "恒久的な失敗",
+      "failedRetriesExhausted": "リトライ回数上限に到達",
+      "completed": "完了"
+    },
     "title": "自動化",
     "empty": "自動化タスクはまだありません",
     "loadFailed": "自動化の読み込みに失敗しました",
@@ -24,12 +30,6 @@
     "noResult": "実行結果はまだありません",
     "rrule": "スケジュール (RRULE)",
     "timezone": "タイムゾーン",
-    "terminalReason": {
-      "manualPause": "手動で一時停止",
-      "failedPermanent": "恒久的な失敗",
-      "failedRetriesExhausted": "リトライ回数上限に到達",
-      "completed": "完了"
-    },
     "schedule": "実行タイミング"
   },
   "dashboard": {
@@ -129,7 +129,6 @@
     "modelSck": "知識ベース",
     "matAll": "すべて",
     "matText": "テキスト",
-    "myCreation": "マイ作成",
     "inputPlaceholder": "質問を入力、または長押しで話す",
     "modelSelectTitle": "モデル選択",
     "modelSelectSearchCount": "{count}件のモデルを検索",
@@ -261,9 +260,7 @@
     "pubVideo": "動画を公開",
     "pubGroup": "コレクションを公開",
     "closePreview": "プレビューを閉じる",
-    "recentUsed": "最近使ったもの",
-    "closeDrawer": "ドロワーを閉じる",
-    "shareBoardTitle": "智汇AIコミュニティ - {name}"
+    "recentUsed": "最近使ったもの"
   },
   "plaza": {
     "index": {
@@ -300,8 +297,7 @@
       "n4t": "4. プライバシー保護 ",
       "n4b": "開発者はユーザーのプライバシーを厳格に保護し、個人情報を漏えい・販売・違法利用してはなりません。",
       "n5t": "5. 技術基準 ",
-      "n5b": "開発者は業界基準に適合した技術サービスを提供し、技術方針の実現可能性と信頼性を確保するものとします。",
-      "searchNeedDesc": "ニーズや説明を検索"
+      "n5b": "開発者は業界基準に適合した技術サービスを提供し、技術方針の実現可能性と信頼性を確保するものとします。"
     }
   },
   "login": {
@@ -315,10 +311,6 @@
     "ssoCancelled": "ユーザーが権限付与をキャンセルしました",
     "ssoNoCode": "SSOリダイレクトにcodeが含まれません",
     "ssoTokenFail": "SSOのtoken交換に失敗しました",
-    "carrierNotConfigured": "通信キャリアワンクリックログインは未設定のためSMSコードログインに切り替えました",
-    "carrierOneClick": "この番号でワンクリックログイン",
-    "carrierLaunching": "キャリア認証を起動中...",
-    "closeCarrier": "キャリアログインを閉じる",
     "wechatH5Hint": "微信ログインはネイティブアプリでのみ利用可能です（微信アプリのインストールが必要）。\n「智汇AI Web権限ログイン」ボタンでブラウザ認証に進めます。",
     "goWeb": "Web版へ",
     "wechatNotInstalled": "微信アプリが未インストールです。先にインストールしてください",
@@ -560,8 +552,7 @@
     "editProfile": "プロフィール編集",
     "notLoggedIn": "未ログアウト",
     "cfgVoiceLongyue": "龍悦 · 女 · 活発",
-    "clickRetry": "タップして再試行",
-    "benefitTraderAll": "プラットフォーム全特典を享受"
+    "clickRetry": "タップして再試行"
   },
   "payResult": {
     "title": "支払い結果",
@@ -931,6 +922,7 @@
     "themeChanged": "テーマが切り替わりました",
     "checkUpdateTitle": "アップデート確認",
     "checkUpdateLatest": "最新のバージョンです",
+    "checkUpdateUnsupported": "このビルドではアプリ内更新を利用できません",
     "changePhoneMissingUser": "ユーザー情報が不足しています",
     "logoutConfirm": "ログアウトしますか?",
     "appPermission": "アプリ権限",
@@ -953,7 +945,6 @@
     "version": "バージョン",
     "language": "言語",
     "theme": "テーマ",
-    "checkUpdateUnsupported": "このビルドではアプリ内更新を利用できません",
     "logoutConfirmBody": "このアカウントからログアウトしますか？"
   },
   "menu": {
@@ -1201,18 +1192,7 @@
     "chat": {
       "title": "チャットを開始",
       "message": "「{name}」とのチャットを開始します"
-    },
-    "mainAll": "全て",
-    "mainWriting": "文章作成",
-    "mainCoding": "プログラミング",
-    "mainOffice": "オフィス",
-    "mainLearning": "学習",
-    "catLearning": "学習",
-    "catDouyin": "抖音運營",
-    "catPrivate": "私域運營",
-    "catContent": "內容創作",
-    "catData": "數據分析",
-    "catAll2": "全部"
+    }
   },
   "aiAssistantN8n": {
     "title": "AIアシスタント",
@@ -1368,13 +1348,7 @@
     "kindAutoContext": "自動取得したコンテキスト"
   },
   "developer": {
-    "becomeDeveloper": "開発者になる",
-    "title": "開発者ポータル",
-    "subtitle": "エージェントを公開して収益を得る",
-    "selectService": "サービスプランを選択",
-    "processing": "処理中...",
-    "openNow": "今すぐ有効化",
-    "agreementHint": "有効化により《開発者サービス規約》に同意したものとみなされます"
+    "becomeDeveloper": "開発者になる"
   },
   "liveHost": {
     "error": {
@@ -1409,8 +1383,7 @@
     "streamKey": "ストリームキー",
     "streamTitle": "ライブタイトル",
     "streamTitlePlaceholder": "ライブタイトルを入力",
-    "title": "ライブ配信者",
-    "productLoading": "読み込み中..."
+    "title": "ライブ配信者"
   },
   "modelEdit": {
     "error": {
@@ -1466,8 +1439,7 @@
     "operationFailed": "操作に失敗しました。もう一度お試しください",
     "title": "n8n モデル",
     "vendorName": "n8n ワークフロー",
-    "listView": "リスト表示",
-    "groupBrowse": "グループ表示"
+    "listView": "リスト表示"
   },
   "modelPlaza": {
     "officialBadge": "智",
@@ -1490,8 +1462,7 @@
     "selectProviderLabel": "プロバイダーを選択",
     "title": "モデルプラザ",
     "groupBrowse": "グループ表示",
-    "workflowTab": "ワークフロー",
-    "listView": "リスト表示"
+    "workflowTab": "ワークフロー"
   },
   "tokenValue": {
     "recharge": {
@@ -1642,14 +1613,7 @@
     "ctaDesc": "登録で 1,000 クレジットを獲得、全モデル無料体験、クレジットカート不要。",
     "ctaPrimary": "無料登録",
     "ctaSecondary": "ドキュメントを見る",
-    "complianceTitle": "法務・コンプライアンス",
-    "title": "について",
-    "appName": "アプリ名",
-    "version": "バージョン",
-    "description": "アプリ紹介",
-    "officialSite": "公式サイト",
-    "contactEmail": "お問い合わせメールアドレス",
-    "license": "オープンソースライセンス"
+    "complianceTitle": "法務・コンプライアンス"
   },
   "activityDetail": {
     "title": "イベント詳細",
@@ -1929,10 +1893,7 @@
     "sales": "{count} 件販売",
     "loadFailed": "アフィリエイトの読み込みに失敗",
     "withdrawFailed": "出金に失敗",
-    "withdrawSuccess": "出金に成功",
-    "unsettled": "未精算",
-    "refunded": "返金済み",
-    "unknown": "不明"
+    "withdrawSuccess": "出金に成功"
   },
   "earnCommission": {
     "title": "コミッションプラン",
@@ -3325,27 +3286,10 @@
   },
   "studyIndex": {
     "title": "AI動画",
-    "catAll": "すべて",
     "catDouyin": "Douyin運用",
     "catPrivate": "プライベートドメイン",
     "catContent": "コンテンツ制作",
     "catData": "データ分析",
-    "tipMarquee": "智汇AI クラウド教育/ショート動画 — AI関連動画のアップロード・共有を歓迎",
-    "myCollection": "マイコレクション",
-    "searchPh": "動画を検索",
-    "loadMoreHint": "読み込み中...",
-    "noMoreText": "これ以上ありません",
-    "emptyVideos": "学習動画がありません",
-    "emptyModels": "モデルなし",
-    "paidCollection": "おすすめ講座コレクション",
-    "latestCourses": "最新講座",
-    "viewMoreModels": "モデルをもっと見る",
-    "viewMoreCourses": "講座をもっと見る",
-    "tagPaid": "有料",
-    "tagFree": "無料",
-    "publishVidBtn": "動画を投稿",
-    "authorFallback": "智汇コミュニティ・公式",
-    "receiveFreeTitle": "無料資料を受け取る",
     "receiveFreeBody": "リンクをコピーしました。ブラウザに貼り付けて開けます"
   },
   "studyProgress": {
@@ -3520,23 +3464,7 @@
     "price": "価格",
     "rating": "評価",
     "startChat": "チャットを開始",
-    "uses": "利用回数",
-    "catAll": "All",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Data",
-    "catWriting": "Writing",
-    "catCoding": "Coding",
-    "catOffice": "Office",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "uses": "利用回数"
   },
   "agentMarket": {
     "empty": "エージェントがありません",
@@ -3795,9 +3723,7 @@
     "yourAnswer": "あなたの回答"
   },
   "favorites": {
-    "deleteTitle": "削除の確認",
     "empty": "お気に入りなし",
-    "loadFailed": "読み込みに失敗",
     "title": "マイお気に入り"
   },
   "feedback": {
@@ -4653,10 +4579,7 @@
       "empty": "まだ投稿がありません。最初の投稿をしてみましょう",
       "loadingMore": "読み込み中…",
       "noMore": "これ以上ありません",
-      "anonymous": "匿名ユーザー",
-      "justNow": "たった今",
-      "minutesAgo": "{n} 分前",
-      "hoursAgo": "{n} 時間前"
+      "anonymous": "匿名ユーザー"
     }
   },
   "circle": {
@@ -5447,15 +5370,7 @@
     "addTitle": "アカウントを追加",
     "adding": "追加中…",
     "deleteConfirm": "{name} を削除しますか？",
-    "summary": "アカウント {total} 件 · 有効 {enabled}",
-    "add": "アカウントを追加",
-    "provider": "プラットフォーム",
-    "name": "名前",
-    "cancel": "キャンセル",
-    "loading": "読み込み中…",
-    "confirmDelete": "削除を確認",
-    "addSuccess": "アカウントを追加しました",
-    "loginRequired": "ログインしてアカウントプールを管理"
+    "summary": "アカウント {total} 件 · 有効 {enabled}"
   },
   "checkinAssistant": {
     "title": "チェックインアシスタント",
@@ -5726,15 +5641,7 @@
     "updated": "更新日時"
   },
   "voice": {
-    "cam": "カメラ",
-    "album": "アルバム",
-    "file": "ファイル",
-    "closeImgMenu": "画像メニューを閉じる",
-    "addImage": "画像を追加",
     "holdToTalk": "長押しで話しかけて",
-    "clearResult": "結果をクリア",
-    "releaseEnd": " 離すと終了",
-    "transcribing": "文字化中…",
     "realStart": "リアルタイム音声開始",
     "realConnecting": "接続中...",
     "realLive": "通話中",
@@ -5774,7 +5681,6 @@
     "shareMoments": "モーメント",
     "needAlbum": "アルバム権限が必要",
     "uploadFail": "画像アップロード失敗",
-    "okTitle": "成功",
     "updated": "名刺更新済み",
     "submitFail": "送信失敗",
     "customFail": "名刺カスタマイズ失敗"
@@ -5873,7 +5779,6 @@
     "trader": "トレーダー",
     "normal": "一般会員",
     "closeA11y": "ログイン閉じる",
-    "oneLoginFail": "キャリアログイン失敗。手動で番号入力",
     "nickRequired": "ニックネームを入力",
     "nickTooLong": "ニックネームが長すぎ(8文字まで)",
     "phoneInvalid": "正しい電話番号を入力",
@@ -5960,7 +5865,6 @@
     "modelA11y": "モデル：{name}",
     "modelConfig": "モデル設定",
     "voiceInput": "音声入力",
-    "feature2": "機能",
     "source": "ソース",
     "enlarge": "拡大",
     "agentAssist": "Agent補助"
@@ -6009,15 +5913,12 @@
     "customA11y": "AIカスタマイズ"
   },
   "confirm": {
-    "defaultCancel": "キャンセル",
-    "defaultOk": "確認",
     "payFmt": "今すぐ支払い ¥{v}"
   },
   "sr": {
     "closeA11y": "タップで閉じる",
     "firstBonus": "初回シェア特典 {n}",
     "inviteNote": "友達を招待すると双方にポイント",
-    "claimA11y": "{n} を受け取る",
     "rewardUnit": " ポイント",
     "footnote": "ポイントは計算力や会員特典と交換可",
     "claimBtn": "{n} を受け取る"
@@ -6087,15 +5988,6 @@
     "teacher": "担当",
     "time": "時間",
     "classroom": "教室",
-    "weekday": {
-      "mon": "月",
-      "tue": "火",
-      "wed": "水",
-      "thu": "木",
-      "fri": "金",
-      "sat": "土",
-      "sun": "日"
-    },
     "title2": "学校の時間割"
   },
   "eduChildAttendance": {
@@ -6233,7 +6125,6 @@
   "tagsPage": {
     "title": "タグ",
     "subtitle": "すべてのタグを見る",
-    "loading": "読み込み中...",
     "empty": "タグがありません",
     "popular": "人気タグ",
     "usageCount": "{count} 回使用",
@@ -6283,9 +6174,7 @@
     "makeAdmin": "管理者に設定",
     "makeMember": "メンバーに設定",
     "removeMember": "メンバーを削除",
-    "inviteMember": "新しいメンバーを招待",
     "inviteMemberDesc": "電話番号またはメールで新しいメンバーをチームに招待",
-    "invitee": "招待対象者",
     "inviteePlaceholder": "電話番号またはメールを入力してください",
     "inviteeRequired": "招待対象者を入力してください",
     "sendInvite": "招待を送信",
@@ -6297,7 +6186,6 @@
     "roleOwner": "所有者",
     "roleAdmin": "管理者",
     "roleMember": "メンバー",
-    "editTeam": "チーム情報を編集",
     "editTeamDesc": "チーム名と説明を変更",
     "save": "保存",
     "dangerZone": "危険な操作",
@@ -6802,6 +6690,7 @@
     "usagePolicy": {
       "title": "使用政策",
       "lastUpdated": "最終更新"
+    },
     "backToHome": "ホームに戻る"
   },
   "agentEdit": {
@@ -6970,129 +6859,6 @@
     "unknownLecturer": "不明な講師",
     "viewCount": "{count} 回視聴"
   },
-  "quickNotes": {
-    "menuEntry": "クイックノート",
-    "title": "クイックノート",
-    "new": "新規ノート",
-    "search": "ノートを検索",
-    "insert": "チャットに挿入",
-    "archive": "アーカイブ",
-    "unarchive": "アーカイブ解除",
-    "archived": "アーカイブ済み",
-    "showArchived": "アーカイブを表示",
-    "empty": "ノートはまだありません",
-    "titlePlaceholder": "タイトル",
-    "contentPlaceholder": "本文",
-    "groupPlaceholder": "グループ(任意)"
-  "scanLogin": {
-    "menuTitle": "スキャン",
-    "title": "スキャンしてログイン",
-    "hint": "パソコン画面のQRコードを枠内に合わせてください",
-    "submitting": "確認中…",
-    "permissionHint": "スキャンにはカメラの権限が必要です",
-    "deniedHint": "カメラの権限が拒否されました。システム設定で許可してから再度お試しください。",
-    "grant": "カメラを許可",
-    "openSettings": "設定を開く",
-    "invalidCode": "このサイトのログイン用QRコードを読み取ってください",
-    "success": "ログインを確認しました",
-    "failed": "確認に失敗しました。もう一度お試しください。",
-    "needLogin": "スキャンの前にログインしてください"
-  "circlePostPage": {
-    "title": "コミュニティ",
-    "back": "戻る",
-    "cardTitle": "新規投稿",
-    "selectCircle": "サークルを選択",
-    "titleLabel": "タイトル",
-    "titlePlaceholder": "投稿タイトルを入力",
-    "contentLabel": "内容",
-    "contentPlaceholder": "投稿内容を入力",
-    "images": "画像",
-    "submit": "送信",
-    "cancel": "キャンセル",
-    "errorCircleRequired": "サークルを選択してください",
-    "errorTitleContentRequired": "タイトルと内容は必須です",
-    "error": "読み込み失敗"
-  "invitationsPage": {
-    "title": "APIテスト",
-    "subtitle": "のなドキュメントとAPIリファレンス",
-    "generate": "招待コード生成",
-    "myCodes": "マイコード",
-    "invitees": "みユーザー",
-    "loading": "読み込み中...",
-    "emptyCodes": "コードがありません。をクリックして",
-    "emptyInvitees": "みユーザーがいません",
-    "user": "ユーザー",
-    "registeredAt": "登録時間",
-    "reward": "報酬",
-    "rewardValue": "+{inviter} / られる +{invitee} ポイント",
-    "expiresAt": "有効期限",
-    "copy": "コピー",
-    "copied": "コピーしました",
-    "statusUnused": "アクティブ",
-    "statusUsed": "使用済み",
-    "statusExpired": "期限切れ",
-    "back": "戻る",
-    "loginRequired": "先にログインしてください",
-    "error": "読み込み失敗"
-  "lettersPage": {
-    "title": "プライベートメッセージ",
-    "subtitle": "プラットフォームユーザーとの1対1のプライベートチャット",
-    "searchPlaceholder": "連絡先を検索...",
-    "loading": "読み込み中...",
-    "empty": "会話なし",
-    "error": "読み込み失敗",
-    "you": "私",
-    "send": "送信",
-    "sendPlaceholder": "メッセージを入力...",
-    "deleteConfirm": "このメッセージを削除しますか？",
-    "confirm": "確認",
-    "back": "戻る",
-    "loginRequired": "先にログインしてください"
-  "newsCategoryPage": {
-    "backToList": "るリスト",
-    "subtitle": "のなドキュメントとAPIリファレンス",
-    "notFound": "つかりません",
-    "empty": "コンテンツはまだありません。おしみに",
-    "pinned": "ピンめ",
-    "publishedAt": "{date} に",
-    "viewCount": "{count}",
-    "total": "合計 {total} 篇",
-    "prev": "前のページ",
-    "next": "次のページ",
-    "loading": "読み込み中...",
-    "error": "読み込み失敗"
-  "searchHistoryPage": {
-    "title": "検索履歴",
-    "subtitle": "のなドキュメントとAPIリファレンス",
-    "clearAll": "クリアて",
-    "loading": "読み込み中...",
-    "empty": "検索履歴はありません",
-    "resultCount": "検索結果 {count} 件",
-    "back": "戻る",
-    "loginRequired": "先にログインしてください",
-    "error": "読み込み失敗"
-  "signUpPage": {
-    "title": "マイ申込",
-    "empty": "データがありません",
-    "statusDraft": "審査待ち",
-    "statusPublished": "確認済み",
-    "statusRejected": "拒否",
-    "statusCompleted": "完了"
-  "appUpdate": {
-    "title": "新しいバージョンがあります",
-    "action": "更新",
-    "close": "閉じる",
-    "ready": "更新の準備ができました",
-    "installing": "再起動しています…",
-    "error": "更新に失敗しました",
-    "errorDesc": "ネットワークを確認して再試行してください",
-    "downloading": "アップデートをダウンロード中…",
-    "currentBundle": "現在実行中:{{bundle}}",
-    "bundleEmbedded": "内蔵パッケージ",
-    "bundleOta": "ホットアップデート",
-    "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。",
-    "installingHint": "アプリは自動的に再起動します（通常は数秒）。",
-    "restartNow": "今すぐ再起動"
   "skillsMarket": {
     "title": "スキルマーケット",
     "subtitle": "コミュニティスキルを探索・インストール",
@@ -7116,5 +6882,142 @@
     "ratingCount": "{count} 件の評価",
     "pageIndicator": "{page}/{total} ページ",
     "notFoundHint": "「{name}」が見つかりません。一覧に戻って再試行してください"
+  },
+  "quickNotes": {
+    "menuEntry": "クイックノート",
+    "title": "クイックノート",
+    "new": "新規ノート",
+    "edit": "編集",
+    "search": "ノートを検索",
+    "insert": "チャットに挿入",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブ解除",
+    "archived": "アーカイブ済み",
+    "showArchived": "アーカイブを表示",
+    "empty": "ノートはまだありません",
+    "titlePlaceholder": "タイトル",
+    "contentPlaceholder": "本文",
+    "groupPlaceholder": "グループ(任意)"
+  },
+  "scanLogin": {
+    "menuTitle": "スキャン",
+    "title": "スキャンしてログイン",
+    "hint": "パソコン画面のQRコードを枠内に合わせてください",
+    "submitting": "確認中…",
+    "permissionHint": "スキャンにはカメラの権限が必要です",
+    "deniedHint": "カメラの権限が拒否されました。システム設定で許可してから再度お試しください。",
+    "grant": "カメラを許可",
+    "openSettings": "設定を開く",
+    "invalidCode": "このサイトのログイン用QRコードを読み取ってください",
+    "success": "ログインを確認しました",
+    "failed": "確認に失敗しました。もう一度お試しください。",
+    "needLogin": "スキャンの前にログインしてください"
+  },
+  "circlePostPage": {
+    "title": "コミュニティ",
+    "back": "戻る",
+    "cardTitle": "新規投稿",
+    "selectCircle": "サークルを選択",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "投稿タイトルを入力",
+    "contentLabel": "内容",
+    "contentPlaceholder": "投稿内容を入力",
+    "images": "画像",
+    "submit": "送信",
+    "cancel": "キャンセル",
+    "errorCircleRequired": "サークルを選択してください",
+    "errorTitleContentRequired": "タイトルと内容は必須です",
+    "uploadFailed": "アップロードに失敗しました",
+    "error": "読み込み失敗"
+  },
+  "invitationsPage": {
+    "title": "APIテスト",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "generate": "招待コード生成",
+    "myCodes": "マイコード",
+    "invitees": "みユーザー",
+    "loading": "読み込み中...",
+    "emptyCodes": "コードがありません。をクリックして",
+    "emptyInvitees": "みユーザーがいません",
+    "user": "ユーザー",
+    "registeredAt": "登録時間",
+    "reward": "報酬",
+    "rewardValue": "+{inviter} / られる +{invitee} ポイント",
+    "expiresAt": "有効期限",
+    "copy": "コピー",
+    "copied": "コピーしました",
+    "statusUnused": "アクティブ",
+    "statusUsed": "使用済み",
+    "statusExpired": "期限切れ",
+    "back": "戻る",
+    "loginRequired": "先にログインしてください",
+    "error": "読み込み失敗"
+  },
+  "lettersPage": {
+    "title": "プライベートメッセージ",
+    "subtitle": "プラットフォームユーザーとの1対1のプライベートチャット",
+    "searchPlaceholder": "連絡先を検索...",
+    "loading": "読み込み中...",
+    "empty": "会話なし",
+    "error": "読み込み失敗",
+    "you": "私",
+    "send": "送信",
+    "sendPlaceholder": "メッセージを入力...",
+    "delete": "削除",
+    "deleteConfirm": "このメッセージを削除しますか？",
+    "confirm": "確認",
+    "cancel": "キャンセル",
+    "back": "戻る",
+    "loginRequired": "先にログインしてください"
+  },
+  "newsCategoryPage": {
+    "backToList": "るリスト",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "notFound": "つかりません",
+    "empty": "コンテンツはまだありません。おしみに",
+    "pinned": "ピンめ",
+    "publishedAt": "{date} に",
+    "viewCount": "{count}",
+    "total": "合計 {total} 篇",
+    "prev": "前のページ",
+    "next": "次のページ",
+    "loading": "読み込み中...",
+    "error": "読み込み失敗"
+  },
+  "searchHistoryPage": {
+    "title": "検索履歴",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "clearAll": "クリアて",
+    "loading": "読み込み中...",
+    "empty": "検索履歴はありません",
+    "resultCount": "検索結果 {count} 件",
+    "back": "戻る",
+    "loginRequired": "先にログインしてください",
+    "error": "読み込み失敗"
+  },
+  "signUpPage": {
+    "title": "マイ申込",
+    "loading": "読み込み中...",
+    "empty": "データがありません",
+    "statusDraft": "審査待ち",
+    "statusPublished": "確認済み",
+    "statusRejected": "拒否",
+    "statusCompleted": "完了"
+  },
+  "appUpdate": {
+    "title": "新しいバージョンがあります",
+    "action": "更新",
+    "close": "閉じる",
+    "ready": "更新の準備ができました",
+    "installing": "再起動しています…",
+    "error": "更新に失敗しました",
+    "errorDesc": "ネットワークを確認して再試行してください",
+    "downloading": "アップデートをダウンロード中…",
+    "currentBundle": "現在実行中:{{bundle}}",
+    "bundleEmbedded": "内蔵パッケージ",
+    "bundleOta": "ホットアップデート",
+    "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。",
+    "installingHint": "アプリは自動的に再起動します（通常は数秒）。",
+    "restartNow": "今すぐ再起動"
   }
 }

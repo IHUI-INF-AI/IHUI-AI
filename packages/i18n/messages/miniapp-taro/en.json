@@ -150,8 +150,8 @@
     "googleNotConfigured": "Google login is not configured; set EXPO_PUBLIC_GOOGLE_CLIENT_ID in .env.",
     "sdkPending": "{name} login is only available on the web; the native SDK is not integrated on mobile.\nYou can use the “IHUI AI web authorized login” button to authorize in the browser.",
     "agree": "Agree",
-    "webAuthLogin": "Sign in via web authorization",
-    "agreeTermsTitle": "Agree to the Terms of Service"
+    "agreeTermsTitle": "Agree to the Terms of Service",
+    "webAuthLogin": "Sign in via web authorization"
   },
   "forgot": {
     "step1": "Step 1: Verify phone",
@@ -347,10 +347,7 @@
     "titleRequired": "Please enter a stream title",
     "startFailed": "Failed to start live",
     "endFailed": "Failed to end live",
-    "copySuccess": "Copied to clipboard",
-    "d1": "AI Course Pack",
-    "d2": "Membership Annual Card",
-    "d3": "Physical Merch"
+    "copySuccess": "Copied to clipboard"
   },
   "order": {
     "title": "Orders",
@@ -4334,9 +4331,7 @@
     "13": "Joined on {m}",
     "14": "Select tracks you are interested in for personalized recommendations",
     "15": "Default model",
-    "16": "Using \"data flood\" as imagery, generate a prose poem about creation in the digital age.",
     "17": "Paid, ¥{m}",
-    "18": "When machines begin to think, is humanity ready? This is a story about consciousness, freedom, and coexistence. At the intersection of silicon-based and carbon-based life, we re-examine the meaning of \"existence\".",
     "20": "Confirm selection{count}",
     "21": "More free AI assistant uses",
     "22": "Free access to selected courses",
@@ -5001,8 +4996,6 @@
   },
   "eduParent": {
     "title": "Parent Center",
-    "child": "Child",
-    "relationship": "Relationship",
     "statusTitle": "Status",
     "empty": "No children bound yet",
     "status": {
@@ -6720,12 +6713,6 @@
     "unknownLecturer": "Unknown lecturer",
     "viewCount": "{count} views"
   },
-  "scanLogin": {
-    "menuTitle": "Scan",
-    "invalidCode": "Please scan the sign-in QR code from this site",
-    "success": "Sign-in confirmed",
-    "failed": "Confirmation failed. Please try again.",
-    "needLogin": "Please sign in before scanning"
   "skillsMarket": {
     "noRatings": "No ratings",
     "detailTitle": "Skill details",
@@ -6749,5 +6736,12 @@
     "pageIndicator": "Page {page} of {total}",
     "title": "Skill Market",
     "subtitle": "Browse and install community skills"
+  },
+  "scanLogin": {
+    "menuTitle": "Scan",
+    "invalidCode": "Please scan the sign-in QR code from this site",
+    "success": "Sign-in confirmed",
+    "failed": "Confirmation failed. Please try again.",
+    "needLogin": "Please sign in before scanning"
   }
 }

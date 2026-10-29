@@ -150,8 +150,8 @@
     "googleNotConfigured": "Google 登录未配置,请在 .env 设置 EXPO_PUBLIC_GOOGLE_CLIENT_ID。",
     "sdkPending": "{name} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用\"智汇AI网页授权登录\"按钮跳转网页端授权。",
     "agree": "同意",
-    "webAuthLogin": "网页授权登录",
-    "agreeTermsTitle": "确认同意服务条款"
+    "agreeTermsTitle": "确认同意服务条款",
+    "webAuthLogin": "网页授权登录"
   },
   "forgot": {
     "step1": "第一步:验证手机号",
@@ -347,10 +347,7 @@
     "titleRequired": "请输入直播标题",
     "startFailed": "开启直播失败",
     "endFailed": "结束直播失败",
-    "copySuccess": "已复制到剪贴板",
-    "d1": "AI 课程包",
-    "d2": "会员年卡",
-    "d3": "实体周边"
+    "copySuccess": "已复制到剪贴板"
   },
   "order": {
     "title": "订单",
@@ -4334,9 +4331,7 @@
     "13": "加入于 {m}",
     "14": "选择感兴趣的赛道,获取个性化推荐",
     "15": "默认模型",
-    "16": "以\"数据洪流\"为意象,生成一段关于数字时代创作的散文诗。",
     "17": "付费可看 ¥{m}",
-    "18": "当机器开始思考,人类是否做好了准备?这是一个关于意识、自由与共存的故事。在硅基生命与碳基生命的交汇处,我们重新审视\"存在\"的意义。",
     "20": "确认选择{count}",
     "21": "AI助手免费使用次数增加",
     "22": "部分课程免费学习",
@@ -5001,8 +4996,6 @@
   },
   "eduParent": {
     "title": "家长端",
-    "child": "孩子",
-    "relationship": "关系",
     "statusTitle": "状态",
     "empty": "还没有绑定的孩子",
     "status": {
@@ -6720,12 +6713,6 @@
     "unknownLecturer": "未知讲师",
     "viewCount": "{count} 次观看"
   },
-  "scanLogin": {
-    "menuTitle": "扫一扫",
-    "invalidCode": "请扫本站登录二维码",
-    "success": "已确认登录",
-    "failed": "确认失败，请重试",
-    "needLogin": "请先登录后再扫码"
   "skillsMarket": {
     "noRatings": "暂无评分",
     "detailTitle": "技能详情",
@@ -6749,5 +6736,12 @@
     "pageIndicator": "第 {page}/{total} 页",
     "title": "自进化技能市场",
     "subtitle": "浏览与安装社区技能"
+  },
+  "scanLogin": {
+    "menuTitle": "扫一扫",
+    "invalidCode": "请扫本站登录二维码",
+    "success": "已确认登录",
+    "failed": "确认失败，请重试",
+    "needLogin": "请先登录后再扫码"
   }
 }

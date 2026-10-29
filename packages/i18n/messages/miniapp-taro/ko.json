@@ -150,8 +150,8 @@
     "googleNotConfigured": "Google 로그인 미설정. .env 에 EXPO_PUBLIC_GOOGLE_CLIENT_ID 를 설정하세요.",
     "sdkPending": "{name} 로그인은 웹에서만 가능합니다. 모바일에는 네이티브 SDK가 미통합입니다.\n“智汇AI 웹 인증 로그인” 버튼으로 웹 인증으로 이동할 수 있습니다.",
     "agree": "동의",
-    "webAuthLogin": "웹 인증 로그인",
-    "agreeTermsTitle": "서비스 약관 동의 확인"
+    "agreeTermsTitle": "서비스 약관 동의 확인",
+    "webAuthLogin": "웹 인증 로그인"
   },
   "forgot": {
     "step1": "1단계: 휴대폰 인증",
@@ -347,10 +347,7 @@
     "titleRequired": "라이브 제목을 입력해 주세요",
     "startFailed": "라이브 시작 실패",
     "endFailed": "라이브 종료 실패",
-    "copySuccess": "클립보드에 복사되었습니다",
-    "d1": "AI 강좌 패키지",
-    "d2": "멤버십 연간 카드",
-    "d3": "굿즈"
+    "copySuccess": "클립보드에 복사되었습니다"
   },
   "order": {
     "title": "주문",
@@ -4334,9 +4331,7 @@
     "13": "{m}에 가입",
     "14": "관심 있는 트랙을 선택하여 맞춤 추천 받기",
     "15": "기본 모델",
-    "16": "\"데이터 홍수\"를 이미지로 삼아 디지털 시대 창작에 관한 산문시를 생성합니다.",
     "17": "유료 ¥{m}",
-    "18": "기계가 생각하기 시작하면 인류는 준비되어 있을까? 이것은 의식, 자유, 공존에 관한 이야기다. 실리콘 생명과 탄소 생명의 교차점에서 우리는 '존재'의 의미를 다시 바라본다.",
     "20": "선택 확인{count}",
     "21": "AI 어시스턴트 무료 이용 횟수 증가",
     "22": "일부 강좌 무료 학습",
@@ -5001,8 +4996,6 @@
   },
   "eduParent": {
     "title": "학부모 센터",
-    "child": "자녀",
-    "relationship": "관계",
     "statusTitle": "상태",
     "empty": "연결된 자녀가 없습니다",
     "status": {
@@ -6720,12 +6713,6 @@
     "unknownLecturer": "알 수 없는 강사",
     "viewCount": "{count}회 시청"
   },
-  "scanLogin": {
-    "menuTitle": "스캔",
-    "invalidCode": "이 사이트의 로그인 QR 코드를 스캔하세요",
-    "success": "로그인이 확인되었습니다",
-    "failed": "확인에 실패했습니다. 다시 시도하세요.",
-    "needLogin": "스캔하기 전에 로그인하세요"
   "skillsMarket": {
     "noRatings": "평점이 없습니다",
     "detailTitle": "스킬 상세",
@@ -6749,5 +6736,12 @@
     "pageIndicator": "{page}/{total} 페이지",
     "title": "스킬 마켓",
     "subtitle": "커뮤니티 스킬 탐색 및 설치"
+  },
+  "scanLogin": {
+    "menuTitle": "스캔",
+    "invalidCode": "이 사이트의 로그인 QR 코드를 스캔하세요",
+    "success": "로그인이 확인되었습니다",
+    "failed": "확인에 실패했습니다. 다시 시도하세요.",
+    "needLogin": "스캔하기 전에 로그인하세요"
   }
 }
