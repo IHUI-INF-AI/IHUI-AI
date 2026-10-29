@@ -209,16 +209,16 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         secretsChanged = JSON.stringify(merged) !== JSON.stringify(existing)
         if (secretsChanged) secretPatch = merged
       }
-      const deviceUpdate = secretPatch
-        ? {
-            secretsEnc: encryptField(JSON.stringify(secretPatch)),
-            ...(deviceId ? { deviceId } : {}),
-            ...(machineId ? { machineId } : {}),
-          }
-        : {}
       if (!final.apply) {
         // 同票也要种档案(2026-10-28 补):一键切号写回信封要 profile/设备材料,而票未轮换时
         // decideSync 恒 skip ⇒ 不种就永远缺档。只动 secrets 三列,凭证列/credVersion/健康态不碰。
+        const deviceUpdate = secretPatch
+          ? {
+              secretsEnc: encryptField(JSON.stringify(secretPatch)),
+              ...(deviceId ? { deviceId } : {}),
+              ...(machineId ? { machineId } : {}),
+            }
+          : {}
         if (secretsChanged && !dryRun) {
           await db
             .update(aiRelayAccountPool)
