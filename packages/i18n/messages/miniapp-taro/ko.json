@@ -5162,11 +5162,11 @@
   },
   "agreementSections": {
     "sectionTerms": "서비스 약관",
-    "sectionTermsBody": "본 플랫폼 서비스를 이용하면 본 약관의 모든 조항에 동의하는 것으로 간주됩니다.",
+    "sectionTermsBody": "본 약관은 본 플랫폼 서비스 이용에 관하여 귀하와 지혜 AI 간에 체결됩니다. 이용 전에 주의 깊게 읽어 주세요. 본 플랫폼을 이용하면 본 약관의 모든조항에 동의하고 수락한 것으로 간주됩니다.",
     "sectionRights": "사용자 권리",
-    "sectionRightsBody": "언제든지 개인정보를 조회, 수정, 삭제할 권리가 있습니다.",
+    "sectionRightsBody": "법률에 따라 서비스에 접근할 권리, 개인 정보를 관리할 권리, 위반 콘텐츠를 신고할 권리를 가집니다.",
     "sectionObligations": "사용자 의무",
-    "sectionObligationsBody": "본 플랫폼을 불법적이거나 권리 침해 활동에 사용해서는 안 됩니다."
+    "sectionObligationsBody": "관련 법률 및 규정을 준수해야 하며 불법, 위반, 유해한 정보를 게시해서는 안 되며 타인의 합법적 권익을 침해해서는 안 됩니다."
   },
   "developerConversations": {
     "title": "릴레이 대화 기록",

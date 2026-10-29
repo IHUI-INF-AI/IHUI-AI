@@ -5162,11 +5162,11 @@
   },
   "agreementSections": {
     "sectionTerms": "利用規約",
-    "sectionTermsBody": "本プラットフォームのサービスを利用することで、本規約の全条項に同意したことになります。",
+    "sectionTermsBody": "本規約は、本プラットフォームサービスの利用に関してお客様と生慧 AI との間に締結されるものです。利用前に注意深くお読みください。利用した時点で、本規約の全条項に同意し承諾したものとみなされます。",
     "sectionRights": "ユーザーの権利",
-    "sectionRightsBody": "いつでも個人情報の閲覧、変更、削除を行う権利があります。",
+    "sectionRightsBody": "法律に基づきサービスを利用する権利、個人情報を管理する権利、規約違反コンテンツを報告する権利を有します。",
     "sectionObligations": "ユーザーの義務",
-    "sectionObligationsBody": "本プラットフォームを違法または権利侵害の活動に使用してはなりません。"
+    "sectionObligationsBody": "関連法令・規制を遵守し、違法・規約違反・有害な情報を公開せず、他者の合法的権利を侵害してはなりません。"
   },
   "developerConversations": {
     "title": "リレー会話ログ",
