@@ -138,7 +138,7 @@ jobs:
           node scripts/check-api-key-leak.mjs 2>&1 | tee reports/api-key-leak.txt || true
 
       - name: 密钥泄露扫描 (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
