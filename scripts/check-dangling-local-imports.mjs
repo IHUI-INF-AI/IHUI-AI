@@ -947,7 +947,13 @@ export function auditNamespaceAggregator(relPath, readFile, hasPath) {
       })
     }
   }
-  if (keys.size === 0) return { violations: viol, blind, files: seen, blindSites }
+  if (keys.size === 0) {
+    // 键集为空 ⇒ 这一维**想判而读不到**(最常见是 `return { ...codex, ...opencode }` 这种展开式命名空间:
+    // 没有 `别名: ns.member` 行可收)。沉默跳过就是给这一型留死角(排除条款必须点名),
+    // 所以如实进 blind —— 既不冒红也不记绿。
+    blindSites.push(`${relPath}: 命名空间键集为空(展开式 `+'...ns'+` 或本判据读不出的写法)⇒ c 维不判`)
+    return { violations: viol, blind: blind + 1, files: seen, blindSites }
+  }
 
   // c) 调用面必须在键集里
   const nsFn = namespaceFnName(codeOnly)
