@@ -492,22 +492,30 @@ def _extract_family_and_version(name: str) -> tuple[str, str | None]:
     return (head, version)
 
 
-def _version_tuple(version: str | None) -> tuple[int, ...]:
+def _is_grok_family(family: str | None) -> bool:
+    """xAI 把 grok-4.20 写成 4.2 代。这条俗称只属于 grok,不能套到别的厂商。"""
+    fam = (family or "").strip().lower()
+    return fam == "grok" or fam.startswith("grok-")
+
+
+def _version_tuple(version: str | None, family: str | None = None) -> tuple[int, ...]:
     """版本号 → 可比较元组。`4-6` → (4, 6);`3.1` → (3, 1);None → ()
 
     2026-10-29:xAI 用 `grok-4.20` 表示 4.2 代(4.20-beta 发布于 2026-03,其后
     4.3 / 4.5 / 4.6 / 4.7 逐代推进),按字面比较会得出「4.20 > 4.7」,把最新的
-    4.7 旗舰压进前端「历史模型」折叠区、首屏只剩实验档。两位且以 0 结尾的小版本
-    段按 ÷10 归一(20 归 2),与厂商实际代次序一致;8 位日期快照段等其余段原样。
+    4.7 旗舰压进前端「历史模型」折叠区。两位且以 0 结尾的小版本段按 ÷10 归一
+    (20 归 2)。**只在 family 是 grok 时生效** —— 标准 semver 的 4.10 / 3.30
+    按字面比较,折成 4.1 / 3.3 会把更新的次版本判成 legacy。
     """
     if not version:
         return ()
+    grok_minor = _is_grok_family(family)
     parts: list[int] = []
     for p in re.split(r"[.-]", version):
         if not p.isdigit():
             continue
         n = int(p)
-        if len(p) == 2 and n >= 10 and n % 10 == 0:
+        if grok_minor and len(p) == 2 and n >= 10 and n % 10 == 0:
             n //= 10
         parts.append(n)
     return tuple(parts)
@@ -788,7 +796,7 @@ def _promote_unlisted_providers(
         if str(models[idx].get("model_tier") or "") != ModelTier.LATEST.value:
             continue
         fam = str(cls.family or "").strip().lower()
-        ver = _version_tuple(cls.generation)
+        ver = _version_tuple(cls.generation, cls.family)
         if not fam or not ver:
             continue
         known_key = _version_sort_key(ver)
@@ -806,7 +814,7 @@ def _promote_unlisted_providers(
             reason = str(models[idx].get("classify_reason") or "")
             if not reason.startswith(_UNCLASSIFIED_REASON):
                 continue
-            ver = _version_tuple(cls.generation)
+            ver = _version_tuple(cls.generation, cls.family)
             if not ver:
                 continue
             key = _version_sort_key(ver)
@@ -883,7 +891,9 @@ def annotate_models(
     for _family, idxs in by_family.items():
         if len(idxs) < 2:
             continue
-        versions = [_version_tuple(classifications[i].generation) for i in idxs]
+        versions = [
+            _version_tuple(classifications[i].generation, classifications[i].family) for i in idxs
+        ]
         max_ver = max(versions, key=_version_sort_key)
         max_key = _version_sort_key(max_ver)
         for i in idxs:
@@ -892,7 +902,7 @@ def annotate_models(
             # 预设档位(default_models.json 手工标注)不参与自动降级
             if str(model.get("classify_reason") or "").startswith("preset:"):
                 continue
-            ver = _version_tuple(cls.generation)
+            ver = _version_tuple(cls.generation, cls.family)
             if not ver:
                 continue
             ver_key = _version_sort_key(ver)
@@ -920,7 +930,10 @@ def annotate_models(
     #   ④ 命中 CURATED_LATEST —— 该代次是人认的"厂商当前新代次",不是变体在装新。
     for _family, idxs in by_family.items():
         max_key = max(
-            _version_sort_key(_version_tuple(classifications[i].generation)) for i in idxs
+            _version_sort_key(
+                _version_tuple(classifications[i].generation, classifications[i].family)
+            )
+            for i in idxs
         )
         for i in idxs:
             model = models[i]
@@ -931,7 +944,12 @@ def annotate_models(
             raw_id = str(model.get("id") or model.get("model") or "")
             if ":free" not in raw_id.lower():
                 continue
-            if _version_sort_key(_version_tuple(classifications[i].generation)) != max_key:
+            if (
+                _version_sort_key(
+                    _version_tuple(classifications[i].generation, classifications[i].family)
+                )
+                != max_key
+            ):
                 continue
             if not _is_curated(_normalize(raw_id), raw_id):
                 continue
