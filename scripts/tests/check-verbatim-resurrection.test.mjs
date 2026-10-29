@@ -73,7 +73,9 @@ test('T3 阳性对照:事故枚上必须量得到那型回潮(钉 sha 不钉 HEA
     console.log('  ⓘ T3 跳过:事故枚 ' + INCIDENT_SHA.slice(0, 11) + ' 在本仓不可解析 ⇒ 本例未判定(不记绿)')
     return
   }
-  const res = V.auditVerbatim({ ref: INCIDENT_SHA, window: 300 })
+  // 窗口 40 够含住正控:事故枚就是被审面的顶点,它那枚的 A 行必然被扫到;
+  // 300 那档实测 215s(每枚候选一次删除出处派生),把镜像测试拖到没人愿意跑 = 判据作废的另一条路。
+  const res = V.auditVerbatim({ ref: INCIDENT_SHA, window: 40 })
   assert.equal(res.unjudged, false, '事故枚面应可判')
   if (res.undetermined.length > 0) {
     console.log('  ⓘ T3 有未判定维:' + res.undetermined[0].slice(0, 120))
