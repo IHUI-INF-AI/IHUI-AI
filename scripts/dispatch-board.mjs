@@ -50,6 +50,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseTaskRows, keyOfRow, claimMarkOf } from './lib/plan-task-index.mjs'
 import { extractRefs } from './check-live-doc-references.mjs'
 import { collectDirtyPaths, collectHeadPaths } from './plan-tasks.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..')
@@ -448,12 +449,7 @@ export function spinVerdict({ dispatchFaceCount, waveCount, dropped, anchorMisma
 
 export function readHeadPlan(root) {
   try {
-    const buf = execFileSync('git', ['-C', root, 'show', 'HEAD:PROJECT_PLAN.md'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 1 << 28,
-      windowsHide: true,
-    })
-    return { text: buf.toString('utf8'), sha: headSha(root) }
+    return { text: gitRaw(['show', 'HEAD:PROJECT_PLAN.md'], root), sha: headSha(root) }
   } catch (e) {
     return { text: null, sha: null, error: String(e?.stderr ?? e?.message ?? e).slice(0, 200) }
   }
@@ -461,12 +457,7 @@ export function readHeadPlan(root) {
 
 export function headSha(root) {
   try {
-    return execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
-      .toString()
-      .trim()
+    return gitRaw(['rev-parse', 'HEAD'], root).trim()
   } catch {
     return null
   }
