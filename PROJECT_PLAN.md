@@ -8868,6 +8868,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 ## 2026-10-28 四端 ui-routes 自述钉追平已入库输入(登记@2026-10-28/ui-gen)
 - [ ] 〔归:机主生产机面｜等:—〕O67 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=10080min count=1 first=2026-10-25T13:45:54.324Z last=2026-10-25T13:45:54.324Z route=/deploy/build-fail sample="deploy_outcome action=build-fail sha=[hex:40] d…"）〔归机主依据@2026-10-28/gb23:face 修复后现读两候选仍皆无 —— G:\IHUI-AI\.DevEnv\ 只有 Temp/backups/cache/tools 无 ihui-prod,主仓 .ihui-agent/deploy-decisions.jsonl 也不在;生产账本只住生产机,此处取不到(证据 sha 已被 intake 折成 [hex:40] 占位,原值只能回生产账本取)〕
+- [ ] O66 **号池账号命名统一为手机号优先(所有平台导入兜底链补 phone)** —— 2026-10-28 立(机主令「名称应该都统一为手机号 所有平台都是」;当日 dev 库已把本机登录号 3cde9010-… 的 name 订正为 19390097993,签到侧 checkin_accounts id=111 同名实证,手机号权威来源在签到侧)。落点四件:① `apps/api/src/services/relay-account-format.ts` 预检 name 链改 name→phone→平台特化→#序号(trae/workbuddy 补 phone 兜底,qoder 的 phone 提到 nickname 之前);② `apps/api/src/services/relay-account-pool-service.ts` importAccounts 的 displayName 与 mapQoderImport 优先级同步(phone 先于 nickname,入库唯一真源对齐);③ `docs/RELAY_ACCOUNT_IMPORT_FORMAT.md` §2 通用字段表补 phone 行、§3.1 Qoder 描述同步;④ 测试锁优先级(qoder nickname+phone→phone、显式 name 不被覆盖、trae/workbuddy 无 name 有 phone→phone)。取舍:用户态 account-pool.ts 的 name 必填不动(个人池起名属用户自由,不属运营池规范;显式 name 恒最优先,phone 只是缺省兜底位)。 （进行中@2026-10-28/WorkBuddy）
 
 
 
