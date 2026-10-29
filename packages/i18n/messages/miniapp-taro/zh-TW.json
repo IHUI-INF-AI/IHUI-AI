@@ -5162,11 +5162,11 @@
   },
   "agreementSections": {
     "sectionTerms": "服務條款",
-    "sectionTermsBody": "使用本平臺服務即表示您同意本協議的全部條款。",
+    "sectionTermsBody": "本協議是您與智匯 AI 之間就使用本平臺服務所訂立的協議。請在使用前仔細閱讀,一旦使用即視為同意並接受本協議所有條款。",
     "sectionRights": "用戶權利",
-    "sectionRightsBody": "您有權隨時查看、修改和刪除您的個人資訊。",
+    "sectionRightsBody": "您享有依法獲取服務、對個人資訊進行管理、對違規內容檢舉等權利。",
     "sectionObligations": "用戶義務",
-    "sectionObligationsBody": "您不得利用本平臺進行違法或侵權活動。"
+    "sectionObligationsBody": "您應遵守相關法律法規,不得發布違法、違規、有害資訊,不得侵犯他人合法權益。"
   },
   "developerConversations": {
     "title": "中轉會話記錄",
