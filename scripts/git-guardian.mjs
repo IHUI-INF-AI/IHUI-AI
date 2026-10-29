@@ -6165,6 +6165,9 @@ const CROSS_END_LEGS = new Set([
   // 2026-10-28 立:web→RN 对账腿(尺子 check-web-rn-parity.mjs)。此前不在册 ⇒ 未知腿分支
   // 当场返回 { mailed:false },这条腿瞎了也无人喊(§12f「判据失效的表现永远是安静」)。
   'web-rn-parity',
+  // 2026-10-29 立:跨端驾驶舱(编排器 parity-auto.mjs)。不在册 ⇒ 它整轮跑不起来时一声不出,
+  // 而"没人跑完整趟"与"跑完整趟且全绿"是两件必须分开的事(§5e-3:能看见的才谈得上修)。
+  'parity-cockpit',
 ])
 const crossEndUndetFile = (leg) =>
   join(WORKTREE, '.ihui-agent', 'state', `cross-end-${leg}-undetermined-first.json`)
@@ -6362,10 +6365,157 @@ export function auditCrossEndParityDrift(opts = {}) {
   return { ran: true, ok: true, state: 'ok', cur }
 }
 
+const PARITY_COCKPIT_INTERVAL_MS = Number(
+  process.env.IHUI_PARITY_COCKPIT_INTERVAL_MS || 60 * 60 * 1000,
+)
+
+/**
+ * 跨端驾驶舱巡检(2026-10-29 立):`scripts/parity-auto.mjs` 自述是「web→RN→小程序全自动管线的
+ * 唯一入口」,而全仓对它**零调用点**(git log -S 只命中造它自己那枚提交)—— 与前两格同型:
+ * 判据齐全却无人调度,失效形态是安静(§0.9「造好没装车」= 没有)。而它一绿一红的口径直接决定
+ * 收口判断:当天就有人据它的 fast 档「阶段 11 全绿」宣布三端已对齐收口,而同一时刻漂移哨兵报
+ * regressed —— 那条链此前没有任何一层会自动跑完整一趟并留下机读结论。
+ *
+ * 只跑**只读档**(不带 --apply/--apply-decl/--apply-gen ⇒ 结构上写不了盘,零副作用);
+ * 结论三态(§0.3):全绿 ok / 有阶段红 regressed / 有阶段未判定或未取到 JSON ⇒ undetermined,
+ * 一律**只写日志与台账,不喊人**:驾驶舱是各腿结论的汇总面,每一维的红在各自那条腿里已经按
+ * 稳定身份到人,再从这里寄一次就是同一故障双份(§5e-1 去重按语义身份,不按刷屏次数)。
+ * 判机器状态 ⇒ 绝不进提交链(§12e);不改本守护退出码。
+ */
+export function sweepParityCockpit(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = PARITY_COCKPIT_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'parity-cockpit-last.json'),
+    logger = log,
+    runner = null,
+    notify = notifyGuardRed,
+    undetFile = crossEndUndetFile('parity-cockpit'),
+    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'parity-auto.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 跨端驾驶舱巡检:器物不在位(scripts/parity-auto.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  // 节流戳排在阻塞调用**之前**:写在这条腿跑完之后,一旦它挂死就永远记不上"试过了",
+  // 每个 tick 重派一次(自愈配额必须先写后跑)。
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(
+      `⚠️ 跨端驾驶舱巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+    )
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 12 * 60 * 1000, // 全量档 15 阶段实测 ~150s;最坏单阶段上限 900s
+              maxBuffer: 1 << 24,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g:漏此参数稳定 EBUSY
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // 驾驶舱 exit 1 = 有红灯、exit 2 = 有阶段未判定;两种都**不是**"编排器坏了"。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? r.stdout ?? '')
+  const stderr = String(r.err ?? r.stderr ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面"结论不可用"那一支 */
+  }
+  if (!parsed || !parsed.counts) {
+    logger(
+      `⚠️ 跨端驾驶舱巡检:结论不可用 ⇒ 本轮没判,不等于"管线是绿的"(§0.3)` +
+        ` —— ${stderr.slice(0, 120) || '未取到 JSON'}`,
+    )
+    noteCrossEndUndetermined(
+      'parity-cockpit',
+      `派生 rc=${r.status ?? '?'};stderr 前 120:${stderr.slice(0, 120) || '(空)'}\n` +
+        `这表示「整条跨端链这一轮没被跑过」,不是"跑过且没红"。\n` +
+        `出路:node scripts/parity-auto.mjs --json(只读复跑,看它实际报哪几阶段)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
+    stampCrossEndDispatch(tickFile, now, r, stdout, { state: 'unparsed' })
+    return { ran: true, ok: false, state: 'unparsed' }
+  }
+  const counts = parsed.counts ?? {}
+  const coverage = parsed.coverage ?? {}
+  const reds = Number(counts.red ?? 0)
+  const others = Number(counts.undetermined ?? 0) + Number(counts.error ?? 0)
+  const redIds = (parsed.results ?? []).filter((x) => x?.status === 'red').map((x) => x.id)
+  const notJudged = (parsed.results ?? [])
+    .filter((x) => x?.status !== 'ok' && x?.status !== 'red')
+    .map((x) => `${x.id}:${x.status}`)
+  // 三态在**这一处**定档,再落台账:`parsed.state` 这一维驾驶舱的机读档里根本没有(它只出
+  // counts/coverage/results),照抄过去就是一个恒 null 的假字段 —— 账面看着像记了状态,其实没记。
+  const state = others > 0 ? 'undetermined' : reds > 0 ? 'regressed' : 'ok'
+  stampCrossEndDispatch(tickFile, now, r, stdout, {
+    state,
+    counts,
+    coverage,
+    red: redIds,
+    undetermined: notJudged,
+  })
+  const ran = Number(coverage.ran ?? 0)
+  const total = Number(coverage.total ?? 0)
+  if (coverage.partial) {
+    // 派发面给的旗标本该是全量档;真出现 partial 说明这一腿的旗标被改窄了 ⇒ 必须点名,
+    // 否则"部分覆盖的绿"又会像 2026-10-29 那次一样被读成合格证。
+    logger(
+      `⚠️ 跨端驾驶舱巡检:本轮只覆盖 ${ran}/${total} 阶段(跳过 ${(coverage.skipped ?? [])
+        .map((s) => s.id)
+        .join(',')})⇒ 该结论不构成三端对齐合格证`,
+    )
+  }
+  if (others > 0) {
+    settleCrossEndLeg('parity-cockpit', { logger })
+    logger(
+      `⚠️ 跨端驾驶舱巡检:${ran}/${total} 阶段 · 未判定/坏掉 ${others} 道 ⇒ 本轮不得记绿(§0.3),` +
+        ` 红 ${reds} 道已按各自腿到人`,
+    )
+    return { ran: true, ok: false, state: 'undetermined', reds, others }
+  }
+  settleCrossEndLeg('parity-cockpit', { logger })
+  if (reds > 0) {
+    logger(
+      `⚠️ 跨端驾驶舱巡检:${ran}/${total} 阶段全判过 · 红 ${reds} 道(${redIds.join(',')})⇒ 各维由对应巡检腿按稳定身份到人,本汇总面不重复寄(§5e-1)`,
+    )
+    return { ran: true, ok: false, state: 'regressed', reds }
+  }
+  logger(`✅ 跨端驾驶舱巡检:${ran}/${total} 阶段全绿(只读档,未写任何盘)`)
+  return { ran: true, ok: true, state: 'ok', reds: 0 }
+}
+
 const CROSS_END_WEB_RN_INTERVAL_MS = Number(
   process.env.IHUI_CROSS_END_WEB_RN_INTERVAL_MS || 60 * 60 * 1000,
 )
-
 /** web→RN 巡检的五个功能维 + 样式维(维名同时是到人身份,不随计数抖动) */
 const WEB_RN_DIMS = [
   ['unmapped', '未映射(web 有路由、台账零判定)'],
@@ -7935,6 +8085,8 @@ function main() {
     if (!CHECK_ONLY) sweepRnHostShells()
     if (!CHECK_ONLY) sweepCrossEndShellPages()
     if (!CHECK_ONLY) sweepHandMirrorUpgrades()
+    // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
+    if (!CHECK_ONLY) sweepParityCockpit()
     if (!CHECK_ONLY) healI18nBundleLeg()
     if (!CHECK_ONLY) auditPushDivergenceLeg()
     if (!CHECK_ONLY) healMirrorPurgeLeg()
@@ -8958,6 +9110,8 @@ export const __test__ = {
   // 跨端漂移巡检的派发腿(镜像测试 cross-end-parity-drift-dispatch 的 T6 装车锁按名 import)。
   // 此前函数已 export 而未登记进本台账 ⇒ 那道锁自本票立日起结构上打不到这一格(恒红,§0.2)。
   auditCrossEndParityDrift,
+  // 跨端驾驶舱派发腿(镜像测试 git-guardian-parity-cockpit 按名 import,不复制判据 §22c)。
+  sweepParityCockpit,
   auditDispatchSites,
   auditPublicPathProbe,
   auditTunnelLegHealth,
