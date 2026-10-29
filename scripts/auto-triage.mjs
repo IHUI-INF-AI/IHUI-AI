@@ -422,7 +422,11 @@ export async function readGrafanaAlerts({
   if (!base) {
     return {
       status: 'undetermined',
-      why: '无 Grafana/Alertmanager 读取地址(grafanaAlerts.url 与 ALERTMANAGER_URL 皆空),不猜本机默认口',
+      why:
+        '无 Grafana/Alertmanager 读取地址(grafanaAlerts.url 与 ALERTMANAGER_URL 皆空)⇒ ' +
+        '在 scripts/data/auto-triage-config.json 的 grafanaAlerts.url 或环境变量 ALERTMANAGER_URL ' +
+        '填 Alertmanager 根地址(与应用 admin-ops-wallboard 同源,部署侧默认 127.0.0.1:9093);' +
+        '本器不猜本机默认口(拿别的进程冒充告警面比读不到更坏)',
     }
   }
   let data
@@ -689,6 +693,12 @@ const LEDGER_ACTIONS = new Set([
  * §0.1 凡数字一律现读)。
  * 三态纪律:时刻读不到 ⇒ 只进全期计数、不进窗内(不用 0 冒充"窗内没有");
  *  ledger 为空数组 ⇒ total=0 并如实报 0(与"文件读不到"由调用方按 existsSync 分档,本纯函数不猜)。
+ *
+ * 去重指纹维(2026-10-29 立):本账是**轮次账** —— 同一缺陷每轮都会重写一行 observed,
+ * 实测全期 observed=261 条却只有 8 枚指纹(单枚最多重记 52 次),register-failed=124 条
+ * 也只有 3 枚指纹。只看行数会把「8 个缺陷被轮询 5 天」读成「发现 261 个问题」,这正是本票
+ * 三条互相矛盾注记的同一块土壤。⇒ 读数同时给出按指纹去重后的大小,行数仍原样保留
+ * (轮次是事实,不能被合并掉);无指纹的行单独计数,不混进任何一枚指纹冒充"同一个"。
  */
 export function summarizeTriageLedger(ledger = [], { now = Date.now(), windowHours = 24 } = {}) {
   const byAction = {}
@@ -696,13 +706,24 @@ export function summarizeTriageLedger(ledger = [], { now = Date.now(), windowHou
   const windowByAction = {}
   const windowBySource = {}
   const untsRows = { count: 0, actions: [] }
+  const fpByAction = new Map()
+  const windowFpByAction = new Map()
+  let missingFingerprint = 0
   let lastTs = null
   const windowMs = windowHours * 3600_000
+  const addFp = (map, action, fp) => {
+    if (!map.has(action)) map.set(action, new Set())
+    map.get(action).add(fp)
+  }
+  const sizeOf = (map) => Object.fromEntries([...map].map(([k, v]) => [k, v.size]))
   for (const e of ledger ?? []) {
     const action = LEDGER_ACTIONS.has(e?.action) ? e.action : 'other'
     byAction[action] = (byAction[action] ?? 0) + 1
     const src = String(e?.source ?? '(无来源字段)')
     bySource[src] = (bySource[src] ?? 0) + 1
+    const fpRaw = String(e?.fingerprint ?? '')
+    if (!fpRaw) missingFingerprint += 1
+    else addFp(fpByAction, action, fpRaw)
     const ts = Date.parse(String(e?.ts ?? ''))
     if (!Number.isFinite(ts)) {
       untsRows.count += 1
@@ -713,6 +734,7 @@ export function summarizeTriageLedger(ledger = [], { now = Date.now(), windowHou
     if (now - ts <= windowMs) {
       windowByAction[action] = (windowByAction[action] ?? 0) + 1
       windowBySource[src] = (windowBySource[src] ?? 0) + 1
+      if (fpRaw) addFp(windowFpByAction, action, fpRaw)
     }
   }
   return {
@@ -722,6 +744,9 @@ export function summarizeTriageLedger(ledger = [], { now = Date.now(), windowHou
     windowHours,
     windowByAction,
     windowBySource,
+    distinctFingerprints: sizeOf(fpByAction),
+    windowDistinctFingerprints: sizeOf(windowFpByAction),
+    missingFingerprint,
     lastTs: lastTs ? lastTs.iso : null,
     untsRows,
   }
@@ -746,6 +771,15 @@ export function renderLedgerSummary(s) {
     `  窗内(${s.windowHours}h)按处置 ${fmt(s.windowByAction)} —— 读不到时刻的行不进窗`,
     `  全期按来源 ${srcFmt(s.bySource)}`,
   ]
+  // 轮次账 vs 缺陷账(2026-10-29 立):行数会被同一指纹逐轮重记放大,去重后的大小才是
+  // 「手上有几件真东西」。这一行不许省 —— 省掉它就又回到"人手数 jsonl"的老路。
+  if (s.distinctFingerprints)
+    out.push(
+      `  全期按去重指纹(同一缺陷的轮次重记已合并) ${fmt(s.distinctFingerprints)}` +
+        (s.missingFingerprint ? `;另有 ${s.missingFingerprint} 条无指纹(不计入去重)` : ''),
+    )
+  if (s.windowDistinctFingerprints && Object.keys(s.windowDistinctFingerprints).length)
+    out.push(`  窗内按去重指纹 ${fmt(s.windowDistinctFingerprints)}`)
   if (s.untsRows.count > 0)
     out.push(`  ⚠ ${s.untsRows.count} 条无有效 ts(动作 ${s.untsRows.actions.join('/')}),只计全期不判窗内`)
   return out
@@ -1458,8 +1492,11 @@ async function selfTest() {
   )
   const gNoUrl = await readGrafanaAlerts({ url: '' })
   ok(
-    'T8 grafana-alerts 无 URL ⇒ 未判定',
-    gNoUrl.status === 'undetermined' && /读取地址/.test(gNoUrl.why),
+    'T8 grafana-alerts 无 URL ⇒ 未判定,且指名去哪填(配置键 + 环境变量)',
+    gNoUrl.status === 'undetermined' &&
+      /读取地址/.test(gNoUrl.why) &&
+      /auto-triage-config\.json/.test(gNoUrl.why) &&
+      /ALERTMANAGER_URL/.test(gNoUrl.why),
   )
   ok(
     'T8b grafana-alerts 夹具:同 alertname 两实例聚成一桶',
@@ -1817,6 +1854,32 @@ async function selfTest() {
         s.byAction.other === 1 &&
         empty.total === 0 &&
         renderLedgerSummary(empty)[0].includes('共 0 条')
+      )
+    })(),
+  )
+  ok(
+    'T14 轮次账 ≠ 缺陷账:同一指纹重记只算一条;无指纹行单列且不冒充同一枚',
+    (() => {
+      const ts = new Date(now - 60_000).toISOString()
+      const s = summarizeTriageLedger(
+        [
+          { ts, action: 'observed', source: 'api-logs', fingerprint: 'fpA' },
+          { ts, action: 'observed', source: 'api-logs', fingerprint: 'fpA' },
+          { ts, action: 'observed', source: 'api-logs', fingerprint: 'fpB' },
+          { ts, action: 'observed', source: 'api-logs' },
+          { ts, action: 'register-failed', source: 'api-logs', fingerprint: 'fpA' },
+        ],
+        { now },
+      )
+      const lines = renderLedgerSummary(s)
+      return (
+        s.byAction.observed === 4 &&
+        s.distinctFingerprints.observed === 2 &&
+        s.distinctFingerprints['register-failed'] === 1 &&
+        s.missingFingerprint === 1 &&
+        s.windowDistinctFingerprints.observed === 2 &&
+        lines.some((l) => /按去重指纹/.test(l) && /observed=2/.test(l)) &&
+        lines.some((l) => /1 条无指纹/.test(l))
       )
     })(),
   )
