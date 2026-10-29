@@ -28,17 +28,75 @@ export interface TerminateStreamDeps {
   /** 回收全局"压缩中"灰条(主动终止不触发 onResponse,不清则全站常驻)。 */
   clearCompactionPreview: () => void
   /**
+   * 清除"未回答的提问"挂起态,返回**是否真的清掉了一个**待答提问。
+   *
+   * 缺省不注入 = 不清(既有注入方零行为变化)。为什么要在这里清:提问是挂在
+   * 这条流上的 —— 流被终止后,弹窗里选出来的答案会投给一条已经结束的流,
+   * 服务端 `/chat/answer` 无从续接,用户却以为答案生效了(僵尸弹窗)。
+   */
+  clearPendingQuestion?: () => boolean
+  /**
+   * 提问被本次终止取消时给用户的说明(由调用方本地化)。
+   * 与 `notice` 的分工:`notice` 解释"为什么停了",本条解释"你正在回答的东西去哪了"
+   * —— 静默关弹窗会让用户以为是自己点错了。
+   */
+  questionCancelledNotice?: string
+  /**
    * 面向用户的终止原因(例:「已切换到 X,本轮回答已终止」)。
    * 缺省 = 静默,即用户自己点「停止」的既有行为 —— 那条路径不需要额外解释。
    */
   notice?: string
-  /** 呈现 notice 的出口(注入而非直接 import toast,保持本模块可纯测)。 */
-  showNotice?: (message: string) => void
+  /**
+   * 呈现说明的出口(注入而非直接 import toast,保持本模块可纯测)。
+   * `description` 只在"终止理由"与"提问已取消"同时成立时带 —— 两条信息合成
+   * 一条提示(标题说提问被取消,描述说为什么停),不叠两条 toast 吵人。
+   */
+  showNotice?: (message: string, description?: string) => void
+}
+
+/**
+ * 清掉"未回答的提问"挂起态,并把"到底有没有清到东西"如实返回。
+ *
+ * 只认 `pendingQuestion` 非空这一条判据 —— 它是"弹窗现在可见"的唯一真源
+ * (QuestionDialog 的 `question` prop 就是它)。返回值驱动提示:没有待答提问时
+ * 终止不得凭空弹一条"问题已取消"(每次点停止都弹一句无意义提示)。
+ */
+export function clearPendingQuestionIfAny(store: {
+  pendingQuestion: unknown
+  clearPendingQuestion: () => void
+}): boolean {
+  if (!store.pendingQuestion) return false
+  store.clearPendingQuestion()
+  return true
+}
+
+/**
+ * 终止时要呈现给用户的说明(纯判定,便于单测驱动)。
+ *
+ * 三条信息各有归属,不许互相吞:
+ *  - 终止理由(切模型带过来的 `notice`)—— 只在本轮**确实**有在途流时才说;
+ *  - 提问已取消(`questionCancelledNotice`)—— 只在真的清了待答提问时才说;
+ *  - 两者都成立 ⇒ 合成一条:标题说"你正在答的问题没了",描述说"为什么停"。
+ *    这比叠两条 toast 好读,也避免用户只看见其中一条。
+ *
+ * @returns `null` = 一句都不用说(用户自己点停止且无待答提问的既有静默行为)。
+ */
+export function resolveTerminateNotice(args: {
+  notice?: string
+  questionCancelledNotice?: string
+  questionCancelled: boolean
+}): { message: string; description?: string } | null {
+  const questionCopy = args.questionCancelled ? args.questionCancelledNotice : undefined
+  if (questionCopy && args.notice) return { message: questionCopy, description: args.notice }
+  if (questionCopy) return { message: questionCopy }
+  if (args.notice) return { message: args.notice }
+  return null
 }
 
 /**
  * 终止当前在途的流式回答。与改造前的 `stop()` 逐动作等值:
- * 标记中断 → 通知网关 → abort 控制器 → 回收压缩预告;notice 只在本轮**确实终止了一条流**时才呈现。
+ * 标记中断 → 通知网关 → abort 控制器 → 回收压缩预告 → 取消未回答的提问;
+ * 说明只在本轮**确实终止了一条流**时才呈现。
  *
  * @returns 是否真的终止了一条流。`false` = 当前没有控制器(纯换档,不该打扰用户)。
  */
@@ -58,7 +116,16 @@ export function terminateActiveStream(deps: TerminateStreamDeps): boolean {
   // 在这里置空会让 finally 的清理条件失真,残留 isStreaming。
   controller.abort()
   deps.clearCompactionPreview()
-  if (deps.notice && deps.showNotice) deps.showNotice(deps.notice)
+  // 提问挂在这条流上:流没了,弹窗必须跟着没。不清的表现是弹窗还在,
+  // 用户选完答案投给一条已终止的流 —— 服务端无从续接,界面上却毫无反馈。
+  // 放在 abort / 回收之后:先让流进入终态,再拆挂在它上面的 UI。
+  const questionCancelled = deps.clearPendingQuestion?.() ?? false
+  const notice = resolveTerminateNotice({
+    notice: deps.notice,
+    questionCancelledNotice: deps.questionCancelledNotice,
+    questionCancelled,
+  })
+  if (notice && deps.showNotice) deps.showNotice(notice.message, notice.description)
   return true
 }
 
