@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
 import { ShowMoreList } from './show-more-list'
+import { ConnectorGroupSection } from './connector-group-section'
 import { toolDisplayKey } from '@ihui/shared/chat'
 import { useAnalytics } from '@/hooks/use-analytics'
 import {
@@ -53,6 +54,10 @@ interface ToolCallSummaryCardProps {
     args?: Record<string, unknown>
     status?: string
     durationMs?: number
+    /** 连接器来源(D81 ⑤ 分组用):仅 mcp / plugin 两类会进连接器分组段 */
+    serverSource?: string
+    serverId?: string
+    serverName?: string
   }>
   /** 是否流式中(流式时折叠态显示 "统计中..." 提示,完成后显示数字) */
   isStreaming?: boolean
@@ -259,8 +264,11 @@ function CategoryCard({ run, t, tStatus, toolDisplayKeyFn }: CategoryCardProps) 
       contentChars: 0, // 类目卡无正文,字数维恒 0(不参与折叠决策)
       toolCallCount: run.totalCount,
       durationMs: 0, // 类目卡不聚合耗时(耗时归 ToolCallSummaryCard 的 chip 档)
+      // 语义维(2026-10-29):把卡内工具名带下去,让"永不折叠例外集"能压过阈值。
+      // 判据不在此处复制 —— resolveCategoryInitialOpen → hasNeverFoldTool → isNeverFoldTool 单源。
+      toolNames: run.tools.map((tool) => tool.toolName),
     }),
-    [run.totalCount],
+    [run.totalCount, run.tools],
   )
   const userToggledRef = React.useRef(false)
   // 初值经 D21 联动出口解析(优先级:用户模式 > 类目档位 > 自适应)
@@ -521,6 +529,11 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
             />
           </div>
         )}
+
+        {/* D81 ⑤ 连接器读写分组(2026-10-29 接线):把带连接器来源(mcp/plugin)的工具卡
+            按「连接器 × 读/写」分组加分组头。判据与分组逻辑全部来自共享层
+            `groupToolActivitiesByConnector`,本处零名单;无来源调用不进本段(整段不出现)。 */}
+        {toolCalls && toolCalls.length > 0 && <ConnectorGroupSection toolCalls={toolCalls} />}
 
         {/* 总览(展开态显示) */}
         <div
