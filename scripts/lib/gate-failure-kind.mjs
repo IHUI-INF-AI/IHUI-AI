@@ -135,6 +135,11 @@ export function fallbackCodeOfReason(reason) {
  * 依赖型崩溃(模块找不到)才是 `pnpm install` 能治的;超时与输出超限**不是**,
  * 对它们喊装依赖就是本仓明令禁止的"文档写跑不通的出路"(§0.8)。
  * 两型兜底都不许把"调大旋钮"当出路(§12e 不得顺手削判据)。
+ * 〔2026-10-29 补〕依赖型这一支必须连**串行化**一起给:本仓多个会话共写一棵树,而 `pnpm install`
+ * 的写面就是 `node_modules` 本身(先清后链)。过去这里只写"跑全量 install",于是每个看见缺依赖的
+ * 会话各开一枚 ⇒ 四枚并发互踩,实测把各端 `node_modules` 全部掏掉、根层 48 个包变成空目录,而
+ * pnpm store 完好(不是下载失败)。**给出的出路本身成了新的故障源**,这一支后来必须是"先拿 build 锁
+ * 再装、绝不并发"。
  */
 export function crashNextStep(reason) {
   switch (fallbackCodeOfReason(reason)) {
@@ -143,7 +148,10 @@ export function crashNextStep(reason) {
     case 'ENOBUFS':
       return '单独复跑本门看它在刷什么输出;**不要**靠调大 20MB 上限消红(那是削判据)'
     default:
-      return '先跑全量 pnpm install(不带 --filter)再复跑本批'
+      return (
+        '先取 build 锁(deploy-lock.mjs acquire --mode build)再跑全量 pnpm install(不带 --filter),' +
+        '装完复跑本批;**禁止并发安装** —— 它写的就是 node_modules 本身(先清后链),并发会互踩成空目录'
+      )
   }
 }
 
@@ -161,7 +169,8 @@ export function crashAdvisory(crashCount, reasons = []) {
   ]
   if (dependencyOnly > 0)
     parts.push(
-      `缺依赖型 ${dependencyOnly} 道:先跑**全量** \`pnpm install\`(不带 --filter,见 AGENTS §12e),再复跑本批`,
+      `缺依赖型 ${dependencyOnly} 道:先取 build 锁再跑**全量** \`pnpm install\`(不带 --filter,见 AGENTS §12e),` +
+        '装完复跑本批;**禁止并发安装**(2026-10-29 实测:多枚并发互踩 ⇒ 各端 node_modules 全丢、根层包成空目录,而 store 完好)',
     )
   if (fallbackKilled > 0)
     parts.push(
