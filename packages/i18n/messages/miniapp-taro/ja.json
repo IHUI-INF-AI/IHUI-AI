@@ -69,6 +69,9 @@
     "analysisSubmit": "分析を開始"
   },
   "search": {
+    "tabs": {
+      "files": "ファイル"
+    },
     "title": "検索",
     "placeholder": "コース・講師・コンテンツを検索",
     "empty": "関連コンテンツが見つかりません",
@@ -3698,6 +3701,7 @@
     "members": "メンバー"
   },
   "chat": {
+    "approvalExpiredNotice": "接続が切断されたため {toolName} の承認は失効しました。この操作は実行されていません。必要なら再度リクエストしてください。",
     "modelSwitchStopped": "{model} に切り替えたため、この回答を終了しました",
     "partialDoneTitle": "回答が中断されました。以下の内容は不完全な可能性があります",
     "truncation": {
@@ -4087,6 +4091,11 @@
     "d16": "カスタマイズソリューション"
   },
   "aigcList": {
+    "videoBadge": "動画",
+    "promptLabel": "プロンプト",
+    "empty": "作品がありません",
+    "subtitle": "マイ AIGC 作品",
+    "title": "AIGC 作品",
     "d1": "サイバー都市の夜景",
     "d2": "智匯小方",
     "d3": "オーロラ幻想",
@@ -7035,6 +7044,9 @@
     "runningHint": "実行中です。最終出力はまだありません",
     "noOutput": "出力なし",
     "noTask": "タスクの説明なし"
+  },
+  "aigcPublish": {
+    "typeText": "テキスト"
   },
   "chatWorkbenchPage": {
     "title": "会話",
