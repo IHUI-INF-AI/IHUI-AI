@@ -6329,6 +6329,126 @@ function stampCrossEndDispatch(tickFile, attemptAtMs, r, stdout, extra = {}) {
 }
 
 /**
+ * 判据面不可变护栏 · 增量巡检腿(2026-10-30 接线,票面「两枚零派发的护栏该接线还是退役」)。
+ *
+ * 立因:尺子 `scripts/check-immutable-guard.mjs` 判据齐全(自检 26 例 + 镜像 16 例)、受保护面
+ * 清单在仓(`scripts/data/immutable-guard.json` 6 条)、`scripts/lesson-draft.mjs` 与
+ * `scripts/check-lesson-draft.mjs` 还把「写回 AGENTS.md 必须带 `immutable-exempt:`」当成自己的
+ * 前置口径 —— 而全仓**零派发点**(现读 `git grep check-immutable-guard` 只命中自身/lib/镜像测试)
+ * = §0.9「造好没装车 = 没有」,那条声明因此是一张空头支票。
+ *
+ * 为什么不挂提交链(§12e,恒红门禁令):守门执行器对注册条目**无条件追加 `--staged`**
+ * (`lib/guardian-executor.mjs` 现读 `if (passStaged) cmdArgs.push('--staged')`),而本尺子的
+ * `--staged` 档结构上拿不到提交信息 ⇒ 触及受保护面即 exit 2 ⇒ 一旦注册就是天天堵门。
+ * 挂成阻断档的前置 = 挂点换 commit-msg 且执行器支持按门给面参数(两样都不在本仓现读能力内),
+ * 所以这一格先按**旁路检测 + 到人**装车,不冒充阻断闸。
+ *
+ * 三态(§0.3):`bootstrapped`/`no-new-head` 只写一行(没判 ≠ 判过,更不等于零违规);
+ * `breach` 到人(去重身份 = 稳定类别 `undeclared`,不把 sha/明细清单塞进身份,§5e-3);
+ * `undetermined` 只写 ⚠️ 不喊人。尺子自己带游标(判"游标之后每枚恰好一次"),本腿只派发与读结论。
+ * 判机器状态 ⇒ 绝不进提交链;不改本守护退出码(与 auditCrossEndParityDrift 同型)。
+ * 5 分钟节流:无新提交时尺子零 git 派生(游标==HEAD 即返),不会刷爆共享仓。
+ */
+export const IMMUTABLE_GUARD_AUDIT_INTERVAL_MS = 5 * 60 * 1000
+
+export function auditImmutableGuardNewCommits(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = IMMUTABLE_GUARD_AUDIT_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'immutable-guard-audit-last.json'),
+    logger = log,
+    runner = null,
+    notify = notifyGuardRed,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-immutable-guard.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 判据面护栏巡检:尺子不在位(scripts/check-immutable-guard.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 判据面护栏巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--audit-new', '--record', '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 3 * 60 * 1000, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // exit 1 = 判出静默改判据面、exit 2 = 未判定;两种都**不是**"尺子坏了",结论整份在 stdout。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? r.stdout ?? '')
+  const stderr = String(r.err ?? r.stderr ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面"结论不可用"那一支 */
+  }
+  if (!parsed || typeof parsed.state !== 'string') {
+    logger(
+      `⚠️ 判据面护栏巡检:尺子结论不可用 —— 派生 rc=${r.status ?? '?'};` +
+        `stderr 前 120:${stderr.slice(0, 120) || '(空)'} ⇒ 本轮**没判**,不等于"判据面没人动"(§0.3)`,
+    )
+    return { ran: true, state: 'undetermined', why: '结论不可用' }
+  }
+  const tail = `判 ${parsed.audited ?? 0} 枚(合并跳过 ${parsed.skippedMerges ?? 0})/ 红 ${(parsed.breaches ?? []).length} / 未判定 ${(parsed.undetermined ?? []).length} / 待判 ${parsed.pending ?? 0} / 游标 ${String(parsed.cursorBefore || '(无)').slice(0, 12)}→${String(parsed.cursorAfter || '').slice(0, 12)}`
+  if (parsed.state === 'breach') {
+    const first = (parsed.breaches ?? [])[0] ?? {}
+    const paths = (first.hits ?? []).map((h) => h.path).join(', ')
+    const breachCount = (parsed.breaches ?? []).length
+    logger(`❌ 判据面护栏巡检:静默改动判据面 ${breachCount} 枚 —— ${first.sha ?? '?'}「${String(first.subject ?? '').slice(0, 60)}」命中 ${paths || '(见 --json)'} | ${tail}`)
+    notify('判据面被静默改动(无 immutable-exempt 声明)', `判据面(门体 / scripts/lib / 豁免台账 / guardian-runner / AGENTS.md)被改动,而提交信息里没有 \`immutable-exempt: <理由>\`。\n最近一枚:${first.sha ?? '?'}「${String(first.subject ?? '').slice(0, 80)}」\n命中面:${paths || '(见 --json)'}\n\n下一步(可整改):复核这枚改动是不是在削判据;确属必要改动就在下一枚提交信息里补一行 \`immutable-exempt: <≥10 字理由>\`,或复核 scripts/data/immutable-guard.json 里该面是否还该受保护。\n复跑:node scripts/check-immutable-guard.mjs --audit-new --limit 1\n\n${tail}`, {
+      severity: 'critical',
+      dedupKey: 'undeclared',
+    })
+    return { ran: true, state: 'breach', detail: parsed }
+  }
+  if (parsed.state === 'undetermined') {
+    logger(`⚠️ 判据面护栏巡检:未判定 ${(parsed.undetermined ?? []).length} 枚 —— ${String((parsed.undetermined ?? [])[0]?.detail || parsed.detail || '').slice(0, 120)} | ${tail}(不记绿,§0.3)`)
+    return { ran: true, state: 'undetermined', detail: parsed }
+  }
+  if (parsed.state === 'bootstrapped') {
+    logger(`ℹ️ 判据面护栏巡检:游标建在 ${String(parsed.cursorAfter || '').slice(0, 12)} —— **历史提交一律未判**(存量不点红,§0.2),从下一枚起判恰好一次`)
+    return { ran: true, state: 'bootstrapped' }
+  }
+  if (parsed.state === 'no-new-head') {
+    logger(`ℹ️ 判据面护栏巡检:HEAD 与游标同枚 ⇒ 本轮无新输入,零判据(${tail})`)
+    return { ran: true, state: 'no-new-head' }
+  }
+  logger(`✅ 判据面护栏巡检:游标之后 ${(parsed.breaches ?? []).length} 枚静默改动 —— ${tail}`)
+  return { ran: true, state: 'clean', detail: parsed }
+}
+
+/**
  * 跨端对齐漂移巡检(2026-10-26 立):尺子 `check-cross-end-parity-drift.mjs` 的头注自述
  * 「供 git-guardian 巡检轮派发」,而全仓此前**零派发** —— 判据齐全却无人调度,失效形态是安静
  * (§0.9「造好没装车」= 没有)。本函数是它唯一的调度器。
@@ -8177,6 +8297,7 @@ function main() {
     if (!CHECK_ONLY) dispatchE2eAutofill()
     if (!CHECK_ONLY) dispatchDepAdvisoryRadar()
     if (!CHECK_ONLY) dispatchAutoEvolve()
+    if (!CHECK_ONLY) auditImmutableGuardNewCommits()
     if (!CHECK_ONLY) auditCrossEndParityDrift()
     if (!CHECK_ONLY) auditWebRnParity()
     if (!CHECK_ONLY) auditPushChannel()
@@ -9215,6 +9336,8 @@ export const __test__ = {
   // 跨端漂移巡检的派发腿(镜像测试 cross-end-parity-drift-dispatch 的 T6 装车锁按名 import)。
   // 此前函数已 export 而未登记进本台账 ⇒ 那道锁自本票立日起结构上打不到这一格(恒红,§0.2)。
   auditCrossEndParityDrift,
+  // 判据面不可变护栏的派发腿(2026-10-30 接线;镜像测试按名 import,不复制判据 §22c)。
+  auditImmutableGuardNewCommits,
   // 跨端驾驶舱派发腿(镜像测试 git-guardian-parity-cockpit 按名 import,不复制判据 §22c)。
   sweepParityCockpit,
   auditDispatchSites,
