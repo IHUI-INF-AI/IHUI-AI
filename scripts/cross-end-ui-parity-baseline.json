@@ -468,7 +468,7 @@
       "until": "2027-03-27"
     },
     "IntelligentAssistant": {
-      "reason": "32 是小程序行内矢量机器人(单侧载体);9/107/110 属 RN 的 robotImage 位图装饰分支 —— 实测该 prop 的调用点只有 apps/mobile-rn/tests/intelligent-assistant.test.tsx 两处,生产四个调用方(AgentScreen/AiAssistantN8n/ChatScreen/HomeScreen)都不传 ⇒ 屏幕上不渲染;16 是避让该装饰的文本缩进;3 是充值胶囊内衬。0.5 是 line-height:1 被折半的读数噪音。\n更正(2026-09-27 复量):`robotImage` 的宿主文件 `apps/mobile-rn/src/components/IntelligentAssistant.tsx` 此刻被并行会话持有(工作树 ` M`)⇒ 本会话未改;该 prop 生产 4 个调用方都不传、只有测试传,是**已导出未取用的装饰面**而非误留死码,清理须等持有方收尾后另判。",
+      "reason": "32 是小程序行内矢量机器人(单侧载体);9/107/110 属 RN 的 robotImage 位图装饰分支 —— 实测该 prop 的调用点只有 apps/mobile-rn/tests/intelligent-assistant.test.tsx 两处,生产四个调用方(AgentScreen/AiAssistantN8n/ChatScreen/HomeScreen)都不传 ⇒ 屏幕上不渲染;16 是避让该装饰的文本缩进;3 是充值胶囊内衬。0.5 是 line-height:1 被折半的读数噪音。\n更正(2026-09-27 复量):`robotImage` 的宿主文件 `apps/mobile-rn/src/components/IntelligentAssistant.tsx` 此刻被并行会话持有(工作树 ` M`)⇒ 本会话未改;该 prop 生产 4 个调用方都不传、只有测试传,是**已导出未取用的装饰面**而非误留死码,清理须等持有方收尾后另判。\n更正(2026-10-29 首页去重):RN 首页已不再渲染该卡,生产调用方由 4 枚减为 3 枚(AgentScreen / AiAssistantN8nScreen / ChatScreen)⇒ 上方「生产四个调用方含 HomeScreen」的叙述自此过期;数字维 counts 由门现算,不因本叙述变动,本条只更正事实描述、未动豁免射程与到期日。",
       "singleEndTiers": [
         {
           "tier": "IA_ROBOT_ICON_INK_PX",
