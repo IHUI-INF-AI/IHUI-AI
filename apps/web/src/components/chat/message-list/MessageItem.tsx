@@ -149,6 +149,10 @@ import { SelectionAnnotationBar } from './d180-selection-annotations'
 import { useSelectionAnnotationsStore } from '@/stores/d180-selection-annotations'
 // D125(2026-10-23 立):逐消息评论面板 —— 协作会话最小纵向切片的 web 消费面
 import { MessageCommentPanel } from './MessageCommentPanel'
+// G-87(2026-10-29 装车):hook 执行失败的六态卡 —— 判定层 `@ihui/shared/chat/hook-failures`
+// 交付时 14/14 导出零消费(hook 挂了界面上完全不存在),本件补的就是那个渲染位。
+// 渲染门由卡片自己把住(`records` 为空 ⇒ 返回 null),本文件只负责把数据递进去。
+import { HookFailureCard, hookFailureRecordsFromMeta } from './hook-failure-card'
 
 // W16(2026-09-13):文件修改类工具集合(与 tool-call-summary-card 口径一致,前后端并集)。
 // 用于编辑重跑 Dialog 判断"该消息之后是否产生了文件改动",决定是否展示文件回滚勾选项。
@@ -279,6 +283,11 @@ const MessageItem = React.memo(function MessageItem({
   const steerNotices = chatStore(
     React.useCallback((s) => s.steerNoticesByMessageId[m.id] ?? null, [m.id]),
   )
+  // G-87(2026-10-29 装车):本条回答上的 hook 执行失败记录。
+  // 数据面:消息 `meta.hookFailures`(见 `hookFailureRecordsFromMeta` 的判据说明)。
+  // memo 依赖收窄到 `m.meta` 本身 —— store 每帧替换被追加的那一条消息对象,
+  // meta 引用随之一并变;历史消息的 meta 引用稳定 ⇒ 不因别条流式而重算。
+  const hookFailureRecords = React.useMemo(() => hookFailureRecordsFromMeta(m.meta), [m.meta])
   // D115:按 messageId 取本轮审查结论;数组引用仅在 appendReviewFinding 时变更。
   const reviewFindings = chatStore(
     React.useCallback((s) => s.reviewFindingsByMessageId[m.id] ?? null, [m.id]),
@@ -350,7 +359,7 @@ const MessageItem = React.memo(function MessageItem({
   //
   // 为什么默认不收起(与 D21 规则①"用户显式操作最优先"同一条纪律):
   // 折叠是**信息密度取舍**,不是正确性判断 —— 同一轮里"折了更清爽"和"我要盯着每一张卡"
-  // 都可能是用户此刻的意图。默认收起等于替用户做决定,而本轮既有入口
+  // 都可能是用户此刻的意图。默认收起等于替用户做决定,而本轮的既有入口
   // (`toolCallWindow` 窗口化)已经在做"长列表只挂首段",再叠一层默认隐藏会让
   // "工具卡少了一张"这种失效方向变得不可归因(究竟是窗口裁的还是折叠收的?)。
   // 于是:摘要恒显示(纯增量、不减少任何一张卡),收起必须由用户显式触发。
@@ -1512,6 +1521,11 @@ const MessageItem = React.memo(function MessageItem({
             )}
             {/* D39/D108 上游重试交代:换 key / 退避重试时给一行"第 N/M 次重试,X 秒后继续" */}
             {m.retryNotice && <RetryNotice notice={m.retryNotice} />}
+            {/* G-87(2026-10-29 装车):hook 执行失败 —— 数据面 `meta.hookFailures` 非空才出现。
+                位置在"引用/装配/重试"交代族之后、"记忆/引导"之前:它们同属"这一轮附带发生了什么"
+                的交代层,顺序按引擎生命周期(hook 在工具执行前后 → 早于记忆落库)。
+                无数据时卡片自己返回 null,不占位、不常驻空卡。 */}
+            {hookFailureRecords.length > 0 && <HookFailureCard records={hookFailureRecords} />}
             {/* P1 #27 记忆更新可视化(2026-09-16 立):本轮新增长期记忆「已记住」提示条。
                 数据来自 done 事件 memoryUpdates(store 旁路,不落 ChatMessage 字段),
                 每轮限 1 条摘要 + 计数 + 管理入口。 */}
