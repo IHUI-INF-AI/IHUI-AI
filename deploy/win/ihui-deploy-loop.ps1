@@ -639,6 +639,15 @@ function Invoke-PollOnce {
             # 旧措辞只有 pid,日志一停没人知道卡在哪;子进程自己每段都打一行(构建尝试 i/N、
             # 交换 staging、GATE-ITER i/N …),把最后收到的那条带下来即可,不需要新增 IPC。
             $lastLine = ''
+            # ── 子进程静默心跳(2026-10-29 Y-1,只加日志、不改判定与阈值)────────────────
+            # 立因:静默阈值不再拍常数,而是按本文件日志的**相邻写入间隔实测分布**派生
+            # (派生实现 = scripts/check-credential-health.mjs 的 deriveSilenceThresholdMin)。
+            # 派生式里的"轮内静默"那一项一旦无界,阈值就会被历史最长阻塞(实测健康门禁曾静默
+            # 20 分钟)顶到 40 分钟以上,于是本票要抓的 27 分钟停摆照样漏过。
+            # 这里把"构建/门禁期间的合法静默"每 IntervalSeconds 钉一行心跳,尾巴就被收进节律内,
+            # 阈值只由"轮次间隔"决定。心跳只在**确实没有新输出**时写,不刷屏、不动任何判据。
+            $silenceHeartbeatSec = $IntervalSeconds
+            $lastOutAt = Get-Date
             while ($true) {
                 foreach ($f in @($runOut, $runErr)) {
                     if (-not (Test-Path $f)) { continue }
@@ -661,7 +670,7 @@ function Invoke-PollOnce {
                             $line = $sr.ReadLine()
                             if ($null -ne $line) {
                                 Log "[deploy] $line"
-                                if ($line.Trim()) { $lastLine = $line }
+                                if ($line.Trim()) { $lastLine = $line; $lastOutAt = Get-Date }
                                 # [2026-10-16 根治] 只认真实部署完成的标志行刷新节流锚
                                 # (ihui-deploy.ps1 健康门禁通过后打印;失败/behind=0 不含此行)。
                                 # 同一行顺带取上线 sha(O65 第 2 期金丝雀记账用):与完成锚同源,
@@ -678,6 +687,14 @@ function Invoke-PollOnce {
                     } catch { Start-Sleep -Milliseconds 300 }   # 子进程正在写:下一轮再读
                 }
                 if ($child.HasExited) { break }
+                # 静默心跳(见本节开头):子进程连续 $silenceHeartbeatSec 秒没有新输出才写一行,
+                # 让"环活着"这件事在日志里有上界可读 —— 反之若这一行也不再出现,就是环自己停写了。
+                if ($silenceHeartbeatSec -gt 0 -and ((Get-Date) - $lastOutAt).TotalSeconds -ge $silenceHeartbeatSec) {
+                    $silentSec = [int]((Get-Date) - $lastOutAt).TotalSeconds
+                    $ranMin = [Math]::Round(((Get-Date) - $roundStart).TotalMinutes, 1)
+                    Log ("[loop] 心跳 本轮已跑 {0} 分钟,子进程 {1} 秒无新输出(心跳间隔 {2} 秒;静默读数供停摆阈值按实测分布派生)" -f $ranMin, $silentSec, $silenceHeartbeatSec)
+                    $lastOutAt = Get-Date
+                }
                 # 心跳:判据 C4 要求持有者在长任务里持续续心跳,否则 45 分钟后锁会被
                 # 下一轮(或手工部署)判陈旧并抢占。构建一轮实测 2-3 分钟、门禁曾阻塞 20 分钟,
                 # 上限 45 分钟的推导见 deploy-lock-common.ps1 头注。函数内部按 15s 节流,

@@ -42,7 +42,12 @@ import { useCodeBlockPrefsStore } from '@/stores/code-block-prefs'
 import { codeTextToPngBlob } from '@/lib/copy-as-image'
 import { useCodeBlockRun, isRunnableLanguage, type RunResult } from '@/components/ai/code-block-run'
 // P3 #35(2026-09-16 立):流式稳定段/活跃段切分——稳定前缀 memo 缓存跳过 parse
-import { splitMarkdownStable } from '@/lib/markdown-stable-split'
+// 2026-10-30:块级增量——稳定前缀再按安全切点拆块,每块独立 memo,每帧只重解析最后一块
+import {
+  splitMarkdownBlocks,
+  splitMarkdownStable,
+  judgeBlockStability,
+} from '@/lib/markdown-stable-split'
 // V3 #70(2026-09-27 立):PDF/CSV/TSV/office 消息内富预览的唯一入口。
 // 取代此前 P3 #32 的两个分支与 D41 的 office 分支 —— 派发器内部仍复用既有
 // PDFViewer(pdf.js)/ OfficePreview(SUPPORTED_EXTS 唯一支持表),不是第二套实现。
@@ -1308,6 +1313,61 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   //   逐帧高度单调判据;jsdom 侧另钉"用户意志接管"与"carry 优先"两型。
   const { stable, active } = React.useMemo(() => splitMarkdownStable(parseContent), [parseContent])
 
+  // 2026-10-30 块级增量渲染:stable 前缀按全部安全切点拆成有序块,每块一个 StableBlock。
+  // 切点只会向后追加(流式纯追加 ⇒ 已落地切点不移动)⇒ 前缀块 content 字符串恒等,
+  // StableBlock memo 命中、整块跳过 parse;新内容只落在最后一块与 active。
+  // key 用序号:块的"身份"就是它在切点序列里的位置,前缀块内容不会变。
+  // 其余一律不动:active 仍整段渲染(含在写代码块判定)、components 依赖仍只有
+  // collapseLines、throttle 与 parseContent 的虚拟闭合逻辑原样。
+  //
+  // 2026-10-29 补:上面那句"切点只会向后追加"此前是**假设**,不是判据 —— 实测会破
+  // (列表标记逐字符到达时块边界回退,见 judgeBlockStability 头注)。现在每拍都用
+  // judgeBlockStability 对账,并把结果喂给 key:
+  //   · 边界稳定(常态)⇒ 序号 key 原样,前缀块 memo 命中;
+  //   · 边界漂移(判据兜住的异常型)⇒ epoch 自增,整列 key 换组强制重挂。
+  //     漂移时前缀块内容已错位,**必须**重挂才正确;有了这道闸,漂移至少不会以
+  //     "React 按旧下标复用错节点、界面出现张冠李戴的段落"这种最难归因的形态出现。
+  // 判据本身在 lib 层(纯函数、可单测),这里只做接线与告警,不复算任何判据(§0.6)。
+  const blockLedgerRef = React.useRef<{
+    source: string
+    blocks: readonly string[]
+    epoch: number
+  }>({ source: '', blocks: [], epoch: 0 })
+
+  const renderBlocks = React.useMemo(() => {
+    if (!stable) {
+      blockLedgerRef.current = { source: '', blocks: [], epoch: blockLedgerRef.current.epoch }
+      return [] as readonly string[]
+    }
+    const { blocks } = splitMarkdownBlocks(stable)
+    const ledger = blockLedgerRef.current
+    const v = judgeBlockStability({
+      previousBlocks: ledger.blocks,
+      previousSource: ledger.source,
+      source: stable,
+      nextBlocks: blocks,
+    })
+    if (v.splitEnabled) {
+      // 首次开启切分(上一拍单块即全文):可预期的一次性重建,内容刚过门槛,代价可忽略。
+      // 不告警、不换 epoch —— 它不是边界回退,分型与处置都必须与回退分开。
+      blockLedgerRef.current = { source: stable, blocks, epoch: ledger.epoch }
+      return blocks
+    }
+    if (v.appendOnly && !v.stable) {
+      // 边界回退:本仓"失效方向必须响"纪律 —— 不静默修,点名下标后强制重挂。
+      const epoch = ledger.epoch + 1
+      blockLedgerRef.current = { source: stable, blocks, epoch }
+      console.warn(
+        `[markdown-stream] 块边界回退 block=${String(v.firstDriftIndex)} prev=${String(ledger.blocks.length)} next=${String(blocks.length)} epoch=${String(epoch)}`,
+      )
+      return blocks
+    }
+    blockLedgerRef.current = { source: stable, blocks, epoch: ledger.epoch }
+    return blocks
+  }, [stable])
+
+  const blockKeyPrefix = `b${blockLedgerRef.current.epoch}`
+
   return (
     // 2026-08-02:AI 对话正文 14px → 15px(text-[15px]),用户反馈"太大了 小点"
     // 2026-10-28 观感档⑤:流式光标改 CSS ::after 内联尾随(stream-caret-host,定义在
@@ -1319,8 +1379,15 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
     >
       {stable ? (
         <>
-          {/* 稳定前缀:内容冻结,memo 命中时零 parse */}
-          <StableBlock content={stable} components={components} />
+          {/* 稳定前缀:按块冻结,各块 memo 命中时零 parse(每帧只重解析最后一块)。
+              key 前缀随边界漂移 epoch 变 —— 漂移时强制整列重挂(见 renderBlocks 注记)。 */}
+          {renderBlocks.map((block, index) => (
+            <StableBlock
+              key={`${blockKeyPrefix}-block-${index}`}
+              content={block}
+              components={components}
+            />
+          ))}
           <ReactMarkdown
             remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
             rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}

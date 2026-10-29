@@ -12,7 +12,8 @@
  *  ④ 同身份 24h 去重(新鲜拦 / 过期放);
  *  ⑤ 每轮 --max-per-run 配额上限;
  *  ⑥ 输入缺失 / 契约坏 ⇒ exit 2;登记行短 sha 被清洗;--status 只读不写盘;
- *  ⑦ 取号族现读可行、绝不使用满员的 G 族。
+ *  ⑦ 取号族现读可行、绝不使用满员的 G 族;
+ *  ⑨ 门槛只问契约(dispatch.minCountBySource.deploy_outcome 现读,缺门槛即未判定)。
  *
  * 全程只用 scripts/lib/scratch-dir.mjs 的夹具,并注入假 spawn:
  * 绝不碰真实 `.ihui-agent/state/deploy-feedback-ledger.jsonl`,也不真跑 live-doc-edit。
@@ -50,7 +51,8 @@ const V2 = {
     traceId: { maxLength: 128 },
     route: { maxLength: 300 },
   },
-  dispatch: { minSeverity: 'warn' },
+  // 门槛随契约现读(2026-10-29):消费方不再自持「单次=1」,夹具必须与真契约同形声明门槛。
+  dispatch: { minSeverity: 'warn', minCount: 3, minCountBySource: { deploy_outcome: 1 } },
   owners: { api_logs: '后端', grafana_alert: '运维', user_feedback: '产品', deploy_outcome: '运维值班' },
 }
 const V1 = {
@@ -306,6 +308,28 @@ test('⑧ intake 形态(无 action/dims 字段):从 route 与 message 回读 act
   assert.match(rec.evidence, /dims=web\+llm/)
   assert.match(rec.evidence, /action=rollback/)
   assert.match(rec.evidence, /窗口=1440min/)
+})
+
+test('⑨ 门槛只问契约:minCountBySource.deploy_outcome 现读,契约收紧则跟着收紧,契约缺门槛判未判定', () => {
+  const inputPath = signalFile('gate.jsonl', [signal()])
+  const strict = structuredClone(V2)
+  strict.dispatch.minCountBySource = { deploy_outcome: 2 }
+  const tightened = quietRound({ inputPath, contract: strict, ledgerPath: join(SCRATCH, 'gate-ledger.jsonl'), tmpDir: join(SCRATCH, 'gate-tmp') })
+  assert.equal(tightened.res.code, 0, tightened.res.why ?? '')
+  assert.equal(tightened.res.candidates.length, 0, '契约抬到 2 ⇒ 单条信号不得派单(消费方不得自持旧字面量)')
+  assert.ok(tightened.logs.some((l) => l.includes('dispatch.minCountBySource.deploy_outcome')), tightened.logs.join('\n'))
+
+  const noGate = structuredClone(V2)
+  delete noGate.dispatch.minCount
+  delete noGate.dispatch.minCountBySource
+  const undet = quietRound({ inputPath, contract: noGate, ledgerPath: join(SCRATCH, 'gate-none.jsonl') })
+  assert.equal(undet.res.code, 2, '契约缺门槛必须判未判定,不得回落硬编码阈值')
+  assert.match(undet.res.why ?? '', /门槛不可判定/)
+
+  // 真实契约必须声明本源门槛:消费方已不再自持「单次=1」,契约缺这一格 ⇒ 生产会直接落未判定。
+  const realContract = JSON.parse(readFileSync(new URL('../data/incident-signal-contract.json', import.meta.url), 'utf8'))
+  const realGate = realContract?.dispatch?.minCountBySource?.deploy_outcome
+  assert.ok(Number.isInteger(realGate) && realGate >= 1, `真契约缺 dispatch.minCountBySource.deploy_outcome(实得 ${JSON.stringify(realGate)})`)
 })
 
 test('⑦ 取号族现读:O65 落成字母族 O、下一号现读;绝不选 G', () => {

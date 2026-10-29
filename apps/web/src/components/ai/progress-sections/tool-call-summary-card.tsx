@@ -16,7 +16,12 @@ import { useAnalytics } from '@/hooks/use-analytics'
 import {
   aggregateCategoryRuns,
   summarizeCategoriesByTool,
+  readFoldPolicyMode,
+  resolveCategoryInitialOpen,
+  FOLD_POLICY_EVENT,
   type CategoryRun,
+  type FoldPolicyInput,
+  type FoldPolicyMode,
 } from '@/components/chat/message-list/fold-policy'
 import type { ToolCallSummary } from '@ihui/types/ai'
 
@@ -233,12 +238,53 @@ interface CategoryCardProps {
  * 沿用既有 FoldableSection(不新建折叠组件),仅在其 onOpenChange 上补折叠点击埋点:
  *   cardType / group_key / children_count 三字段,经既有 useAnalytics 通道上报。
  * 受控展开态由本组件内部 state 维护,用户显式展开/收起即更新,不被任何自动策略覆盖(D21 规则①)。
+ *
+ * 2026-10-29 接线修正(D58 与 D21 的联动此前是"判据在、消费者为 0"):
+ * 原先初值写死 `run.expandStrategy === 'expand'`,于是 'auto' 档的 15 个类目一律按折叠开,
+ * 用户在 FoldPolicyButton 里选"强制展开"对类目卡完全无效 —— `fold-policy.ts` 的
+ * `resolveCategoryInitialOpen` 正是为这一格准备的正式接口,却全仓零消费。
+ * 现改为经它解析,优先级:**用户折叠模式 > 类目档位 > 自适应**。
+ * 用户一旦亲手点过,`userToggledRef` 立即接管、策略不再覆盖。
  */
 function CategoryCard({ run, t, tStatus, toolDisplayKeyFn }: CategoryCardProps) {
   const { track } = useAnalytics()
-  const [open, setOpen] = React.useState(run.expandStrategy === 'expand')
+  // D21 用户配置:与 MessageItem 同源(readFoldPolicyMode),变更经 FOLD_POLICY_EVENT 广播
+  const [foldPolicyMode, setFoldPolicyMode] = React.useState<FoldPolicyMode>(() =>
+    readFoldPolicyMode(),
+  )
+  // 本卡的 D21 三维输入:只看自己这张卡的体量(不借用整条消息的读数,
+  // 否则"这一卡很轻"会被消息级重任务拉成折叠)
+  const categoryDims = React.useMemo<FoldPolicyInput>(
+    () => ({
+      contentChars: 0, // 类目卡无正文,字数维恒 0(不参与折叠决策)
+      toolCallCount: run.totalCount,
+      durationMs: 0, // 类目卡不聚合耗时(耗时归 ToolCallSummaryCard 的 chip 档)
+    }),
+    [run.totalCount],
+  )
+  const userToggledRef = React.useRef(false)
+  // 初值经 D21 联动出口解析(优先级:用户模式 > 类目档位 > 自适应)
+  const initialOpen = React.useMemo(
+    () => resolveCategoryInitialOpen(run.expandStrategy, categoryDims, foldPolicyMode),
+    [run.expandStrategy, categoryDims, foldPolicyMode],
+  )
+  const [open, setOpen] = React.useState(initialOpen)
+
+  // 配置变更广播 ⇒ 重读用户模式
+  React.useEffect(() => {
+    const sync = () => setFoldPolicyMode(readFoldPolicyMode())
+    window.addEventListener(FOLD_POLICY_EVENT, sync)
+    return () => window.removeEventListener(FOLD_POLICY_EVENT, sync)
+  }, [])
+
+  // 初值变化(用户切模式 / 流式追加把这张卡拉成重任务)时跟随;
+  // 用户亲手点过就立即让位 —— 这是 D21 规则① 的机器表达。
+  React.useEffect(() => {
+    if (!userToggledRef.current) setOpen(initialOpen)
+  }, [initialOpen])
 
   const handleOpenChange = (next: boolean) => {
+    userToggledRef.current = true
     setOpen(next)
     // 折叠点击埋点(D58 验收):cardType / group_key / children_count,复用既有通道
     track({
@@ -267,7 +313,7 @@ function CategoryCard({ run, t, tStatus, toolDisplayKeyFn }: CategoryCardProps) 
       count={run.countable ? run.totalCount : undefined}
       open={open}
       onOpenChange={handleOpenChange}
-      defaultOpen={run.expandStrategy === 'expand'}
+      defaultOpen={initialOpen}
       data-testid={`tool-call-category-${run.categoryKey}`}
     >
       <div className="space-y-0.5 rounded-sm bg-muted/15 px-2 py-0.5 text-[11px]">
@@ -280,7 +326,9 @@ function CategoryCard({ run, t, tStatus, toolDisplayKeyFn }: CategoryCardProps) 
             >
               <span className="truncate">{dk ? tStatus(dk) : tool.toolName}</span>
               {tool.count > 1 && (
-                <span className="shrink-0 tabular-nums text-muted-foreground/60">×{tool.count}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground/60">
+                  ×{tool.count}
+                </span>
               )}
             </div>
           )

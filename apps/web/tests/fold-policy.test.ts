@@ -16,6 +16,7 @@ import {
   FOLD_POLICY_EVENT,
   shouldCollapseSteps,
   resolveInitialStepsOpen,
+  resolveCategoryInitialOpen,
   readFoldPolicyMode,
   writeFoldPolicyMode,
 } from '@/components/chat/message-list/fold-policy'
@@ -58,6 +59,42 @@ describe('D21 折叠策略 · resolveInitialStepsOpen(配置综合解析,返回�
   it('expanded:恒展开(即使三维全重,Qoder 0.2.1 口径)', () => {
     const heavy = { contentChars: 999_999, toolCallCount: 99, durationMs: 999_999 }
     expect(resolveInitialStepsOpen('expanded', heavy)).toBe(true)
+  })
+})
+
+/**
+ * D58 ⇄ D21 联动出口(2026-10-29 补 mode 入参)。
+ *
+ * 立因:此前 `resolveCategoryInitialOpen` 只吃类目自身档位,**完全不吃用户折叠模式** ——
+ * 用户在 FoldPolicyButton 里选"强制展开/强制折叠"对 15 个 'auto' 档类目卡永远无效。
+ * 本组用例钉住优先级:**用户模式 > 类目档位 > 自适应**。
+ */
+describe('D21 折叠策略 · resolveCategoryInitialOpen(类目卡初值,含用户模式优先级)', () => {
+  const light = { contentChars: 0, toolCallCount: 1, durationMs: 0 }
+  const heavy = { contentChars: 0, toolCallCount: 99, durationMs: 0 }
+
+  it("不传 mode(旧口径):只按类目档位 —— 'expand' 真 / 'collapse' 假 / 'auto' 走自适应", () => {
+    expect(resolveCategoryInitialOpen('expand', heavy)).toBe(true)
+    expect(resolveCategoryInitialOpen('collapse', light)).toBe(false)
+    expect(resolveCategoryInitialOpen('auto', light)).toBe(true)
+    expect(resolveCategoryInitialOpen('auto', heavy)).toBe(false)
+  })
+
+  it("用户模式 'expanded' 压过类目档位:即使 'auto'+重任务、'collapse',也一律展开", () => {
+    expect(resolveCategoryInitialOpen('auto', heavy, 'expanded')).toBe(true)
+    expect(resolveCategoryInitialOpen('collapse', heavy, 'expanded')).toBe(true)
+  })
+
+  it("用户模式 'collapsed' 压过类目档位:即使 'expand'、'auto'+轻任务,也一律收起", () => {
+    expect(resolveCategoryInitialOpen('expand', light, 'collapsed')).toBe(false)
+    expect(resolveCategoryInitialOpen('auto', light, 'collapsed')).toBe(false)
+  })
+
+  it("用户模式 'auto' 时不越权:回落到类目档位判据(与不传 mode 同结果)", () => {
+    expect(resolveCategoryInitialOpen('expand', heavy, 'auto')).toBe(true)
+    expect(resolveCategoryInitialOpen('collapse', light, 'auto')).toBe(false)
+    expect(resolveCategoryInitialOpen('auto', light, 'auto')).toBe(true)
+    expect(resolveCategoryInitialOpen('auto', heavy, 'auto')).toBe(false)
   })
 })
 

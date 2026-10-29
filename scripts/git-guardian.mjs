@@ -5103,6 +5103,11 @@ export function auditAasaPublicHealth(opts = {}) {
 /** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
+/**
+ * 「环已停写 + 线上落后」的一次定向升级台账(2026-10-29 Y-1)。身份落在**事件**(线上 sha 前缀)上,
+ * 不落在正文上 —— 同一场停摆的静默分钟数每小时都在涨,靠 notify 的内容指纹去重会退化成每窗一封。
+ */
+const DEPLOY_STALL_ESCALATED = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-escalated.json')
 const DEPLOY_STALL_INTERVAL_MS = Number(process.env.IHUI_DEPLOY_STALL_INTERVAL_MS || 15 * 60 * 1000)
 const DEPLOY_STALL_TIMEOUT_MS = Number(process.env.IHUI_DEPLOY_STALL_TIMEOUT_MS || 120_000)
 
@@ -5112,6 +5117,7 @@ export function auditDeployStall(opts = {}) {
     intervalMs = DEPLOY_STALL_INTERVAL_MS,
     tickFile = DEPLOY_STALL_TICK,
     firstFile = DEPLOY_STALL_FIRST,
+    escalatedFile = DEPLOY_STALL_ESCALATED,
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -5165,12 +5171,78 @@ export function auditDeployStall(opts = {}) {
       logger(`ℹ️ 部署停摆:未判定(rc=${call.status},读数不可解析)—— ${String(call.stderr || call.stdout || '(无输出)').split(/[\r\n]+/)[0].slice(0, 140)}`)
       return { ran: true, judged: false, why: '读数不可解析' }
     }
+    // ── 定向升级(2026-10-29 Y-1):"落后 + 环已停写"时,把看不见的那一档升一次到人到得见的通道 ──
+    // 资格完全由尺子给(`p.escalate`,判据在 check-credential-health.mjs 的 judgeStallSilence),
+    // 派发侧不自立第二套判断 —— 这里只做两件派发层该做的事:去重身份、走既有品牌出口(守门 81)。
+    //
+    // 为什么两支(unjudged 与 ok)都要问它:现场 27 分钟静默既可能落 unknown(成功史读不到),
+    // 也可能落**绿**("线上落后但最近 27 分钟刚成功过,不算停摆"——这正是 45 分钟阈值的盲区)。
+    // 只挂 unjudged 就等于换个输入形态又漏一次;真正的护栏是"环自己不再写行"。
+    const escalateSilence = (payload) => {
+      const esc = payload.escalate && payload.escalate.eligible === true ? payload.escalate : null
+      if (!esc) return { escalated: false, why: (payload.escalate && payload.escalate.why) || '尺子未给升级资格' }
+      let escalatedKey = ''
+      try {
+        escalatedKey = String(JSON.parse(readFileSync(escalatedFile, 'utf8')).episodeKey || '')
+      } catch {
+        /* 没升过 */
+      }
+      if (escalatedKey && escalatedKey === esc.episodeKey) {
+        return { escalated: false, deduped: true, why: '同一停摆事件已定向升级过一次' }
+      }
+      const outcome = notify(
+        '部署停摆(环已停写)· 落后 origin/main 但判据看不见',
+        `环本身已经停写 —— 这一次不再留在日志里(读数档位 ${String(payload.level || '?')}):\n${String(payload.why || '')}\n` +
+          `线上 ${String(payload.liveSha || '(无)').slice(0, 12)} ≠ tip ${String(payload.tipSha || '?').slice(0, 12)}(来源 ${payload.tipSource || '未标注'})\n` +
+          `deploy-loop.log 末行写入 ${payload.lastLogWriteIso || '(取不到)'};已静默 ${esc.silenceMin} 分钟 ≥ 派生阈值 ${esc.thresholdMin} 分钟(${esc.why})\n` +
+          `阈值来源:按该日志相邻写入间隔实测分布派生,见读数里的 logGaps / silence 两键(非常数)\n` +
+          `取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
+        { severity: 'critical', dedupKey: `stall-silence;episode=${esc.episodeKey}` },
+      )
+      // 只在这封信**真的有了归宿**(寄出,或窗口内已由同身份寄出)时才落账:
+      // 投递失败必须留给下一轮重试,否则"寄失败"会被记成"已经喊过了"——那正是本票要根治的静默。
+      if (outcome && (outcome.sent || outcome.suppressed)) {
+        try {
+          mkdirSync(dirname(escalatedFile), { recursive: true })
+          writeFileSync(
+            escalatedFile,
+            JSON.stringify({
+              episodeKey: esc.episodeKey,
+              at: new Date(now).toISOString(),
+              silenceMin: esc.silenceMin,
+              thresholdMin: esc.thresholdMin,
+              liveSha: esc.episodeKey.replace(/^silence:/, ''),
+              tipSha: String(payload.tipSha || ''),
+              levelAtEscalation: String(payload.level || ''),
+            }),
+            'utf8',
+          )
+        } catch (e) {
+          logger(`⚠️ 部署停摆:定向升级已寄出但台账写不进(${String((e && e.message) || e).slice(0, 120)})⇒ 下一轮可能重寄一次`)
+        }
+      }
+      logger(
+        outcome && outcome.sent
+          ? `❌ 部署停摆:环已停写(静默 ${esc.silenceMin} 分钟 ≥ ${esc.thresholdMin} 分钟)⇒ 已定向升级到邮件通道`
+          : `⚠️ 部署停摆:定向升级未送达(${(outcome && outcome.why) || '无原因'})⇒ 下一轮重试`,
+      )
+      return { escalated: true, sent: Boolean(outcome && outcome.sent) }
+    }
     if (p.level === 'unjudged') {
-      logger(`ℹ️ 部署停摆:未判定 —— ${String(p.why || '(尺子未给原因)').slice(0, 200)}`)
-      return { ran: true, judged: false, why: '尺子自报未判定' }
+      const esc = escalateSilence(p)
+      if (esc.escalated) return { ran: true, judged: true, ok: false, escalated: true }
+      logger(
+        `ℹ️ 部署停摆:未判定 —— ${String(p.why || '(尺子未给原因)').slice(0, 200)}(定向升级不介入:${String(esc.why).slice(0, 160)})`,
+      )
+      return { ran: true, judged: false, why: esc.deduped ? '同一事件已升级' : '尺子自报未判定' }
     }
     if (p.level === 'ok') {
       clearUndeterminedStreak(firstFile)
+      // 升级台账只在**线上追平 tip**时结清:绿档也可能是"落后但刚成功过"(正是 27 分钟静默那一支),
+      // 那种绿代表环已停写,结清它等于把下一轮的升级资格白送一次,结果就是每轮重寄。
+      if (String(p.liveSha || '').trim() && p.liveSha === p.tipSha) clearUndeterminedStreak(escalatedFile)
+      const esc = escalateSilence(p)
+      if (esc.escalated) return { ran: true, judged: true, ok: false, escalated: true }
       logger(`✅ 部署停摆:绿(线上 ${String(p.liveSha || '(无)').slice(0, 9)},最近成功 ${p.lastSuccessIso || '?'})`)
       return { ran: true, judged: true, ok: true }
     }

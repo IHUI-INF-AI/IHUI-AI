@@ -214,6 +214,35 @@ export function windowOf(signals, windowMinutes) {
   }
 }
 
+/**
+ * 簇门槛的唯一读法:契约 `dispatch.minCountBySource[source]` 优先,其次 `dispatch.minCount`。
+ *
+ * 立因(2026-10-29 实证):契约 v2 起就写了 `dispatch.minCountBySource.deploy_outcome = 1`,
+ * 全仓却无一处读它 —— deploy-feedback 自持字面量 1、clusterSignals 自持字面量 3、triage-incidents
+ * 自持 CLI 默认 3,契约那句「门槛表只此一份,消费方不得自持第二份」形同虚设。改契约门槛时
+ * 消费方不会跟着动,静默漂移。本函数把门槛收敛成一处:契约怎么定,判据就怎么走。
+ * 两处皆缺 ⇒ 抛(调用方落未判定),不猜阈值。
+ */
+export function minCountForSource(source, contract) {
+  const bySrc = contract?.dispatch?.minCountBySource
+  if (bySrc && typeof bySrc === 'object' && !Array.isArray(bySrc)) {
+    const v = bySrc[source]
+    if (v !== undefined) {
+      if (!Number.isInteger(v) || v < 1) {
+        throw new IncidentShapeError(
+          `契约 dispatch.minCountBySource.${source} 必须是正整数(实得 ${JSON.stringify(v)})`,
+        )
+      }
+      return { minCount: v, basis: `dispatch.minCountBySource.${source}` }
+    }
+  }
+  const base = contract?.dispatch?.minCount
+  if (Number.isInteger(base) && base >= 1) return { minCount: base, basis: 'dispatch.minCount' }
+  throw new IncidentShapeError(
+    `契约 dispatch 段缺 minCount 且缺 minCountBySource.${source} ⇒ 门槛不可判定(不猜阈值)`,
+  )
+}
+
 function assertClusterParams(minCount, windowMinutes) {
   if (!Number.isInteger(minCount) || minCount < 1) throw new IncidentShapeError(`minCount 必须是正整数(实得 ${minCount})`)
   if (!Number.isFinite(windowMinutes) || windowMinutes <= 0) {
@@ -228,7 +257,7 @@ function assertClusterParams(minCount, windowMinutes) {
  * 坏行必须由调用方单列,传进来非法形状即抛错 —— 静默丢弃会让"判不了"伪装成"没有")。
  *
  * opts:
- *  - minCount       达到该样本数才够格派单(默认 3)
+ *  - minCount       显式覆盖门槛(正整数);不给则按契约 dispatch.minCountBySource[source]/minCount
  *  - windowMinutes  窗口长度,锚点 = 批次内最新时刻(默认 60)
  *  - contract       已校验的契约(默认现场读;测试可注入)
  *
@@ -237,9 +266,10 @@ function assertClusterParams(minCount, windowMinutes) {
  */
 export function clusterSignals(signals, opts = {}) {
   if (!Array.isArray(signals)) throw new IncidentShapeError('signals 必须是数组')
-  const minCount = opts.minCount ?? 3
+  // 门槛来源:显式入参优先(排障/演练通道),否则逐簇问契约 —— 不自持第二份数字表。
+  const explicitMinCount = opts.minCount ?? null
   const windowMinutes = opts.windowMinutes ?? 60
-  assertClusterParams(minCount, windowMinutes)
+  assertClusterParams(explicitMinCount ?? 1, windowMinutes)
   const contract = opts.contract ?? loadContract()
   const sevEnum = contract.fields.severity.enum
   const minSevRank = sevEnum.indexOf(contract.dispatch.minSeverity)
@@ -285,8 +315,12 @@ export function clusterSignals(signals, opts = {}) {
 
   const clusters = [...buckets.values()].map((b) => {
     const reasons = []
-    if (b.count < minCount) {
-      reasons.push(`样本 ${b.count} < 阈值 ${minCount}(窗口 ${windowMinutes} 分钟)⇒ 观察类,不足以证明是持续缺陷,写进台账只会多一条没人能动手的行`)
+    // 门槛逐簇问契约(同簇同 source ⇒ 同门槛);显式入参只作覆盖。
+    const gate = explicitMinCount
+      ? { minCount: explicitMinCount, basis: 'opts.minCount(显式覆盖)' }
+      : minCountForSource(b.source, contract)
+    if (b.count < gate.minCount) {
+      reasons.push(`样本 ${b.count} < 阈值 ${gate.minCount}(契约 ${gate.basis};窗口 ${windowMinutes} 分钟)⇒ 观察类,不足以证明是持续缺陷,写进台账只会多一条没人能动手的行`)
     }
     if (b.sevRank < minSevRank) {
       reasons.push(`最高档 ${b.severity} 低于可派单门槛 ${contract.dispatch.minSeverity} ⇒ 观察类(该档没有必须有人动手的动作)`)
@@ -304,7 +338,7 @@ export function clusterSignals(signals, opts = {}) {
       sample: String(b.sample).slice(0, 240),
       dispatchable,
       why: dispatchable
-        ? `样本 ${b.count} ≥ 阈值 ${minCount},最高档 ${b.severity} ≥ 门槛 ${contract.dispatch.minSeverity},身份 ${b.clusterKey} 可指名承载面`
+        ? `样本 ${b.count} ≥ 阈值 ${gate.minCount}(${gate.basis}),最高档 ${b.severity} ≥ 门槛 ${contract.dispatch.minSeverity},身份 ${b.clusterKey} 可指名承载面`
         : reasons.join('；'),
       severity: b.severity,
       source: b.source,
@@ -332,6 +366,7 @@ export const __test__ = {
   validateSignal,
   windowOf,
   clusterSignals,
+  minCountForSource,
   loadContract,
   IncidentShapeError,
   CONTRACT_PATH,

@@ -352,10 +352,30 @@ function uniqTickets(list) {
   return out
 }
 
+/**
+ * 票号是否作为**独立票号**出现在文本里:前后不得紧邻字母/数字。
+ *
+ * 立因(2026-10-29 实证):原判据用裸 `includes`,'O68' 会把 'O680'、'D16' 会把 'D160' 认成同一票,
+ * 于是别人的修复提交 / 派单行被算到本事故头上 ⇒ fixed/dispatched 假阳(比漏判更坏:它把没修的账记成修好了)。
+ * 票号两侧只允许非字母数字(空格/括号/冒号/行首尾)或边界。
+ * 这里只收紧匹配,不放宽任何门槛:命中要求更强,未命中仍按原文判未判定。
+ */
+export function mentionsTicketNo(text, no) {
+  const s = String(text ?? '')
+  const n = String(no ?? '').trim()
+  if (!s || !n) return false
+  const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  try {
+    return new RegExp(`(?<![A-Za-z0-9])${esc}(?![A-Za-z0-9])`, 'i').test(s)
+  } catch {
+    return false
+  }
+}
+
 function dispatchMatchesTicket(d, ticket) {
   if (!d || !ticket) return false
   if (ticket.key && d.ticketKey && ticket.key === d.ticketKey) return true
-  if (ticket.no && d.ticketLine && d.ticketLine.includes(ticket.no)) return true
+  if (ticket.no && d.ticketLine && mentionsTicketNo(d.ticketLine, ticket.no)) return true
   return false
 }
 
@@ -372,6 +392,24 @@ function latestByAt(rows) {
     if (!best || r.at > best.at) best = r
   }
   return best
+}
+
+/**
+ * 同 sha 多枚裁决时取主裁决(2026-10-29 补,镜像测试 ⑬ 已先立规格)。
+ *
+ * 观察维(pass-unproven / canary-unproven / pass-entry-broken)的语义是「这一维没拿到证据」:
+ * 它不判过也不判坏。若它恰好晚于同 sha 的 pass,旧判据会取最新一行、把已确认的切流判成
+ * 「未判定」—— 一场真实上线被一条探针缺失永久挂成悬案(本票要治的正是这种"永远差一格")。
+ * 只对**同一 sha** 放宽到主裁决;换了 sha 就不是同一件事,仍按各行原样判,绝不用「时间相近」硬凑。
+ */
+function preferPrimaryVerdict(rows) {
+  const latest = latestByAt(rows)
+  if (!latest || !UNPROVEN_ACTIONS.includes(latest.action)) return { chosen: latest, overruled: null }
+  const primaries = rows.filter(
+    (d) => d !== latest && !UNPROVEN_ACTIONS.includes(d.action) && shaMatches(d.sha, latest.sha),
+  )
+  if (primaries.length === 0) return { chosen: latest, overruled: null }
+  return { chosen: latestByAt(primaries), overruled: latest }
 }
 
 function inWindowAt(at, sinceMs) {
@@ -493,7 +531,7 @@ export function judgeIncident({ identity, signals, feedback, dispatchRows, decis
   if (matchedDispatch.length === 0) {
     if (commitsRequested && git && git.ok === true && evidence.ticketNo) {
       const nos = String(evidence.ticketNo).split(',').filter(Boolean)
-      const hitsB = git.commits.filter((c) => nos.some((no) => c.subject.toLowerCase().includes(no.toLowerCase())))
+      const hitsB = git.commits.filter((c) => nos.some((no) => mentionsTicketNo(c.subject, no)))
       // 与 fixed 阶段同一把尺子:取最早命中。否则旁路时间基准会被最新的同票提交推到部署之后,
       // 出现「修复在部署之后」的假象而误报未部署。
       bypassFix = hitsB.length
@@ -535,7 +573,7 @@ export function judgeIncident({ identity, signals, feedback, dispatchRows, decis
     undet('断在 fixed:登记行票面无票号,commit subject 无从对齐(票→提交环未闭环,见台账 L28822)')
   } else {
     const nos = String(evidence.ticketNo).split(',').filter(Boolean)
-    const hits = git.commits.filter((c) => nos.some((no) => c.subject.toLowerCase().includes(no.toLowerCase())))
+    const hits = git.commits.filter((c) => nos.some((no) => mentionsTicketNo(c.subject, no)))
     if (hits.length === 0) {
       stages.fixed = 'undetermined'
       undet(`断在 fixed:最近 ${git.commits.length} 条 commit subject 均未含票号 ${nos.join('/')}(票→提交环未闭环)`)
@@ -583,7 +621,13 @@ export function judgeIncident({ identity, signals, feedback, dispatchRows, decis
       (d) => shaMatches(d.sha, fixSha) || (typeof isAncestor === 'function' && isAncestor(fixSha, d.sha)),
     )
     if (sameSha.length > 0) {
-      chosen = latestByAt(sameSha)
+      const pick = preferPrimaryVerdict(sameSha)
+      chosen = pick.chosen
+      if (pick.overruled) {
+        notes.push(
+          `同 sha 的观察维行(action=${pick.overruled.action})只说明该维缺证据,不压主裁决(action=${chosen.action}) ⇒ 属观察维`,
+        )
+      }
       evidence.deployBasis = shaMatches(chosen.sha, fixSha) ? 'sha' : 'contains-fix'
       if (evidence.deployBasis === 'contains-fix') {
         notes.push(`部署提交 ${String(chosen.sha).slice(0, 7)} 包含修复提交 ${String(fixSha).slice(0, 7)} ⇒ 修复已上线`)
@@ -594,7 +638,13 @@ export function judgeIncident({ identity, signals, feedback, dispatchRows, decis
       return finish()
     }
   } else if (deployFacts.length > 0) {
-    chosen = latestByAt(deployFacts)
+    const pick = preferPrimaryVerdict(deployFacts)
+    chosen = pick.chosen
+    if (pick.overruled) {
+      notes.push(
+        `同 sha 的观察维行(action=${pick.overruled.action})只说明该维缺证据,不压主裁决(action=${chosen.action}) ⇒ 属观察维`,
+      )
+    }
     evidence.deployBasis = 'time'
     notes.push('部署环仅按时间关联(无修复 sha 可对齐)')
   }
@@ -1018,6 +1068,33 @@ export function selfTest() {
       if (normalizeSignal(raw).identity !== expected) throw new Error('normalizeSignal 身份与 identityOf 不一致')
       if (signalIdentityOf({ at: at(1), message: 'boom' }).identity !== '') throw new Error('缺 source/kind 时不得自造身份')
     })
+    t('⑩ 票号按边界匹配:O68 不得认成 O680 的修复/派单', () => {
+      const box = makeBox()
+      writeLines(join(box, SOURCE_FILES.signals), [signal('sig-6')])
+      writeLines(join(box, SOURCE_FILES.feedback), [
+        { at: at(2), identity: 'sig-6', ticket: '- [ ] O68 假登记行', ticketKey: 'k6' },
+      ])
+      writeLines(join(box, SOURCE_FILES.dispatch), [dispatch('k6', '- [ ] O68 假登记行', 3)])
+      writeLines(join(box, SOURCE_FILES.decisions), [{ v: 1, ts: at(4), action: 'canary-pass', sha }])
+      const wrong = buildStatus({
+        stateDir: box,
+        now,
+        commits: 5,
+        git: { ok: true, why: '', commits: [{ sha, at: at(3), subject: 'fix: O680 别人的票' }] },
+      })
+      if (wrong.incidents[0].stages.fixed !== 'undetermined') {
+        throw new Error(`O680 不得被当作 O68 的修复,实得 ${wrong.incidents[0].stages.fixed}`)
+      }
+      const right = buildStatus({
+        stateDir: box,
+        now,
+        commits: 5,
+        git: { ok: true, why: '', commits: [{ sha, at: at(3), subject: 'fix: O68 就是本票' }] },
+      })
+      if (right.incidents[0].stages.fixed !== 'yes') throw new Error(`同票号应判 fixed=yes,实得 ${right.incidents[0].stages.fixed}`)
+      if (mentionsTicketNo('- [ ] D160 别的行', 'D16')) throw new Error('D16 不得命中 D160')
+      if (!mentionsTicketNo('- [ ] D16 别的行', 'D16')) throw new Error('D16 应命中本行')
+    })
   } catch (e) {
     checks.push({ name: '夹具准备', ok: false, why: e?.message ?? String(e) })
   } finally {
@@ -1103,6 +1180,7 @@ export const __test__ = {
   normalizeDispatch,
   normalizeDecision,
   judgeIncident,
+  mentionsTicketNo,
   buildStatus,
   renderHuman,
   formatSummaryLine,

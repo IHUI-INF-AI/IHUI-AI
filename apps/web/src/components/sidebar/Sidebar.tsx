@@ -456,6 +456,9 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
         // 测试可用 aside#main-sidebar 精准锁定桌面侧边栏(避免 strict mode violation)。
         id={id}
         aria-label={t('mainNav')}
+        // 大屏指挥台(2026-10-29):桌面侧栏的稳定锚点 —— 工作台沉浸模式由
+        // html[data-workbench-immersive] 选中它整体隐藏,不靠层级/类名巧合。
+        data-main-sidebar=""
         data-viewport-collapsed="true"
         className={cn(
           // z-sticky(990) < z-modal(2000):登录弹窗等遮罩必须能盖住侧边栏,
