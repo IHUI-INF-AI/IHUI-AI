@@ -32,15 +32,16 @@
  * 不压低。`--source` 已显式指到别的面 ⇒ 不重复问远端;`--check` 不发号 ⇒ 不问远端,其 stdout
  * 与退出码契约逐字不变。
  *
- * 第四条(2026-10-14,池式硬上限):建议号不再 = max+1,而是**池内最小空闲号** ——
- * 每族号池 = 1..999(三位数拍板),池内占用 = 条目标题号 ∪ 登记行号 ∪ 远端避让段;
+ * 第四条(2026-10-14,池式硬上限;2026-10-24 降为两位数):建议号不再 = max+1,而是**池内最小空闲号** ——
+ * 每族号池 = 1..LEASE_POOL_MAX(两位数,每族 1..99,族满开新字母族、永不升位数),池内占用 =
+ * 条目标题号 ∪ 登记行号 ∪ 远端避让段;
  * "最小空闲"这一把尺只住在 `scripts/lib/plan-id-lease.mjs`(与第一发号出口共用,不抄第二份)。
- * 发不出 ⇒ **拒绝发号**(exit 1)—— 绝不发 1000+;>999 的归档大号不占池(存量债不挡新号)。
+ * 发不出 ⇒ **拒绝发号**(exit 1)—— 绝不发池外的号;>LEASE_POOL_MAX 的归档大号不占池(存量债不挡新号)。
  * 〔更正@2026-10-23,取代上一条里"池满 ⇒ 拒绝发号"这一句归因;上一条只作改判留痕读〕:
  *   "发不出号"有**两种完全不同的成因**,旧措辞一律念成"号池已满 ⇒ 归档腾号",而本席现读
- *   (G 族:池内已占 815 / 空闲 184,最长可落窗连续游程 32 < 段容量 50)证明真因是
+ *   (G 族:池内已占 815 / 空闲 184,最长可落窗连续游程 32 < 段容量当时 50)证明真因是
  *   **「没有连续 50 号的租约窗」** —— 散点让位对这一型无效(腾不出连续窗)。该措辞已污染台账
- *   (≥6 行票头照抄"1..999 池已满;腾号靠归档已完成条目")。⇒ 现在两型由 `lib/plan-id-lease.mjs`
+ *   (≥6 行票头照抄"1..99 池已满;腾号靠归档已完成条目")。⇒ 现在两型由 `lib/plan-id-lease.mjs`
  *   的机读字段 `reason`(`POOL_FULL` / `NO_CONTIGUOUS_LEASE_WINDOW`)分开判,可读行由
  *   `describePoolExhaustion` 一处渲染(本器不另拼句子,§0.6);本器报告还把"第二出口按最小空闲可发"
  *   与"第一出口的租约窗尺子挡住"这一对相反读数一起打出来(两出口口径不同,不得混成"池已满")。
@@ -53,7 +54,6 @@
  *   (本器不拼句子,§0.6);为量这一档另读两枚现成读数 `narrowFreeList`(占用面口径可发)与
  *   `killedByScan`(被扫描/远端面顶掉)—— 都走 lib 同一份 `poolFreeList`/`poolBlocked`,零复制判据。
  *   **分配语义仍一字未动**:建议号、段容量、池上限、算法全沿用。
- *   **分配语义一字未动**(段容量/池上限/取号算法全沿用),改的只有结论的可读文本与机读字段。
  * `--check` 的重号对账按**归一化后的条目标题 key**(含系列小后缀)判,退出码语义不变(有真重号仍 exit 1)。
  * 〔2026-10-25 补:那一句里的"真重号"自 G-927/G-955 起只指**登记行声明位同号多行**,且只指
  *   **新增**那一档 —— 标题口径两档(孪生副本 / 系列小节)只报数;登记行重号按 §0.5 差值棘轮
@@ -156,6 +156,7 @@ import {
   smallestFreeId,
   poolFreeList,
   poolBlocked,
+  remoteIdNumsOf,
   LEASE_POOL_MAX,
   LEASE_SEGMENT_SIZE,
 } from './lib/plan-id-lease.mjs'
@@ -206,15 +207,28 @@ function headingReFor(family) {
 }
 
 /**
+ * 「同题已在册」查重(2026-10-24,第五条):把每一行喂给守门 194 的指纹判据,
+ * 命中即带回既有行号与既有号 —— "什么算同题"全在 `extractTaskFingerprint` 那一份里,
+ * 本函数只做遍历与取值(§22c:不另写一份标题归一化)。
+ * 关键词档用同一份归一化面(小写 + 去空白/标点/符号)做子串匹配。
  */
-}
-
-/**
- */
-}
-
-}
-
+const keywordKey = (raw) => String(raw ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '')
+function findSameTitleRows(body, { fp, keyword }) {
+  if (!fp && !keyword) return []
+  const hits = []
+  const lines = String(body ?? '').split('\n')
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i]
+    const rowFp = extractTaskFingerprint(raw)
+    if (!rowFp) continue
+    if (fp ? rowFp !== fp : !rowFp.includes(keyword)) continue
+    hits.push({
+      line: i + 1,
+      id: /^-\s*\[[ x]\]\s*(?:[（(〔][^）)〕]*[）)〕]\s*)*([A-Z]+-?\d+)/.exec(raw)?.[1] ?? null,
+      preview: raw.trim().slice(0, 120),
+    })
+  }
+  return hits
 }
 
 const argv = process.argv.slice(2)
@@ -262,15 +276,16 @@ if (familyFlag.value !== null && !/^[A-Za-z]$/.test(familyFlag.value)) {
 const FAMILY = (familyFlag.value ?? DEFAULT_FAMILY).toUpperCase()
 /** 标题判据的族实例(形状只有一份,换族见 headingReFor) */
 const HEADING_RE = headingReFor(FAMILY)
+/**
  * 数字段提取(族感知):算术**只有一份** —— 复用上面 `headingNum` 那颗 `^O(\d+)`:族名是单字母,
  * 把 key 的首字母换回 `O` 交同一份算术(`Z12附⑥ → O12附⑥ → 12`)。
- * 不另写一条 `^Z(\d+)`(§22c:两处算同一件事必漂移,而镜像 T6 只锁得住其中一份)。
+ * 不另写一条"族名 + 数字"的族内正则(§22c:两处算同一件事必漂移,而镜像 T6 只锁得住其中一份)。
+ */
 const headingNumOf = (key) => headingNum(`${DEFAULT_FAMILY}${String(key).slice(FAMILY.length)}`)
 
 if (flags.has('--help') || flags.has('-h')) {
   console.log(
     [
-      '用法: node scripts/next-plan-id.mjs [--next-only] [--check] [--source <rev>]',
       '用法: node scripts/next-plan-id.mjs [--next-only] [--check] [--source <rev>] [--family <字母>] [--title <标题>] [--keyword <词>]',
       '  默认从 `git show HEAD:PROJECT_PLAN.md` 取权威条目号(不看工作树副本 —— 理由见文件头)。',
       '  占用面 = 台账 ⊕ .ihui-agent/archive/PROJECT_PLAN*.md(归档器搬走的那一侧也算已占用)。',
@@ -286,7 +301,6 @@ if (flags.has('--help') || flags.has('-h')) {
 }
 
 for (const f of flags) {
-  if (!['--next-only', '--check', '--source'].includes(f)) {
   if (!['--next-only', '--check', '--source', '--family', '--title', '--keyword'].includes(f)) {
     console.error(`✗ 未知参数 ${f}(拒绝把它当编号继续跑;可用项见 --help)`)
     process.exit(2)
@@ -448,8 +462,8 @@ if (!flags.has('--check') && SOURCE === 'HEAD') {
   }
 }
 const remoteWide = Number.isFinite(remote?.max?.[FAMILY]) ? remote.max[FAMILY] : null
-// ── 池式取号(2026-10-14):建议号 = 池内最小空闲;池满 ⇒ 拒绝发号,绝不给 1000+ ──────────
-// 池内占用 = 条目标题号 ∪ 登记行号(两口径并);>999 的归档大号不占池(存量债不挡新号)。
+// ── 池式取号(2026-10-14;2026-10-24 池上限降到两位数):建议号 = 池内最小空闲;池满 ⇒ 拒绝发号,绝不给池外号 ──────────
+// 池内占用 = 条目标题号 ∪ 登记行号(两口径并);>LEASE_POOL_MAX 的归档大号不占池(存量债不挡新号)。
 // "最小空闲"的尺只有 lib/plan-id-lease.mjs 那一份(与第一发号出口共用)。
 const rowNums = (rowUsedWide?.ids ?? [])
   .map((l) => Number(/(\d+)$/.exec(String(l))?.[1] ?? Number.NaN))
@@ -479,9 +493,14 @@ const scanWork = scanFamilyIds(worktreeText, FAMILY)
 // 发出去的号必须用该族自己的形状(与第一发号出口同一个来源:`usedIdsOfPrefix` 的 template)——
 // 印成 `Z2` 而该族行写的是 `Z-1`,就是给使用者一个判据认不出来的号(那是本仓记过的原病)。
 // 面序:HEAD 宽面(台账 ⊕ 归档件)> 工作树副本(新族首行常只活在这一侧,如未提交的 `Z-1`)
-// > 族名裸拼。缺省族 O 现读 template = `O%d` ⇒ 与改前逐字同形。
+// > 兜底。缺省族 O 现读 template = `O%d` ⇒ 与改前逐字同形。
 const familyTemplate =
-  rowUsedWide?.template ?? usedIdsOfPrefix(worktreeText, FAMILY)?.template ?? `${FAMILY}%d`
+  rowUsedWide?.template ??
+  usedIdsOfPrefix(worktreeText, FAMILY)?.template ??
+  // 兜底只在"判定层一条该族登记行都没有"时可达(新族首行还没入库 / 缺省族面全空)。它只是**显示形状**,
+  // 不参与占用判定(扫描面 `[-_ ]?` 把三种写法读成同一个号):缺省族沿用改前的裸拼,新族按两位数
+  // 号池的连字符惯例(本仓 `G-05`,也是唯一一条 `Z-1` 的写法 —— 与既有行同形才有人认得出来)。
+  (FAMILY === DEFAULT_FAMILY ? `${FAMILY}%d` : `${FAMILY}-%d`)
 /** 号 → 该族的书写形状(`O%d` → `O69`,`Z-%d` → `Z-2`) */
 const labelOf = (n) => familyTemplate.replace('%d', String(n))
 // ── 发号前对目标文件现读正文查同题(第五条,2026-10-24)────────────────────────────────
@@ -528,6 +547,16 @@ if (titleFp || kwKey) {
   }
 }
 const liveUsed = [...new Set([...poolUsed, ...scanHead, ...scanWork])]
+// ── G-454 ② 对齐(2026-10-25,票 G-35):远端那一维不能只交 max 给本器 ──────────────────────
+// `poolBlocked` 的远端避让只盖 `lowMax+1..baseMax` 这段"本地盲区";远端**低位**已占号
+// (本地面已让空 / 远端已推未并)落不进那一段 ⇒ `smallestFreeId` 会把它当空闲发出。
+// 第一出口(live-doc-edit 的 resolveIdTokens)自 2026-10-16 起已把远端号集从空闲清单里扣掉,
+// 本器当时没跟上 —— 两出口同一件事两种口径(§22c 漂移型)。现在 import 同一份投影
+// (lib/plan-id-lease.mjs 的 remoteIdNumsOf)把远端已用号集并进实时占用面,行为与第一出口对齐:
+// 远端与本地同号集时本行是恒等并(建议号与改动前逐字同形),只有远端多出本地看不见的号才顺延。
+// `--check` 不发号(在远端读取之前分岔)、`--source` 显式指面(不问远端)⇒ remote 为 null ⇒ 空数组。
+const remoteIdNums = remoteIdNumsOf(remote?.ids?.[FAMILY])
+if (remoteIdNums.length) liveUsed.push(...remoteIdNums)
 const nextNarrow = smallestFreeId({ usedNumbers: poolUsed, baseMax: remoteWide })
 const next = smallestFreeId({ usedNumbers: liveUsed, baseMax: remoteWide })
 // 「命中即换号」里被扫描顶掉的号:旧口径判空闲、全文件扫描判已占(撞号正病;走 stderr,
@@ -559,14 +588,13 @@ const { lowMax: poolLowMax, blocked: liveBlocked } = poolBlocked({
   usedNumbers: liveUsed,
   baseMax: remoteWide,
 })
-const { lowMax: poolLowMax } = poolBlocked({ usedNumbers: liveUsed, baseMax: remoteWide })
 // ── 租约窗读数(2026-10-23 立,只读不改分配)────────────────────────────────────────────
 // "发不出号"有两种完全不同的成因,旧措辞把它们一律念成"号池已满 ⇒ 先归档腾号":
 //  ① POOL_FULL = 池内一个空闲号都没有(这一型让位才真能腾出号);
 //  ② NO_CONTIGUOUS_LEASE_WINDOW = 池内仍有空闲号,却没有连续 segmentSize 个可落窗位
-//     (2026-10-23 现读 G 族:已占 815 / 空闲 184 / 最长可落窗游程 32 < 段容量 50)。
+//     (2026-10-23 现读 G 族:已占 815 / 空闲 184 / 最长可落窗游程 32 < 段容量当时 50)。
 // ② 靠散点让位腾不出连续窗 ⇒ 旧归因把台账里的票全引向无效出路。这里让**判据自己**把两型量出来
-// (尺住 lib/plan-id-lease.mjs,本器不另数空闲位、不拼句子,§0.6),段容量/池上限/算法一字未动。
+// (尺住 lib/plan-id-lease.mjs,本器不另数空闲位、不拼句子,§0.6),2026-10-23 当次段容量/池上限/算法一字未动。
 const leaseView = leaseCursor({
   usedNumbers: liveUsed,
   leases: parseLeases(wideText, FAMILY),
@@ -640,10 +668,9 @@ console.log(
 if (FAMILY !== DEFAULT_FAMILY) console.log(`族 = ${FAMILY}(书写形状 ${familyTemplate};缺省族 = ${DEFAULT_FAMILY})`)
 console.log(`已占用的最大号 = ${fmt(maxWide)}   下一个号 = ${labelOf(next)}(池内最小空闲)`)
 console.log(
-  `  G-14 实时占用面:全文件扫描 HEAD 宽面 ${scanHead.size} 号 ⊕ 工作树副本 ${scanWork.size} 号 ⇒ ` +
+  `  G-14 实时占用面:全文件扫描 HEAD 宽面 ${scanHead.size} 号 ⊕ 工作树副本 ${scanWork.size} 号` +
+    ` ⊕ 远端已用号集 ${remoteIdNums.length} 号(G-454② 对齐,票 G-35)⇒ ` +
     `池内占用 ${liveUsed.filter((n) => n >= 1 && n <= LEASE_POOL_MAX).length} 号(旧口径 ${poolUsed.length});` +
-    `本轮顶掉 ${skippedByScan.length} 个旧口径假空闲号` +
-    `${skippedByScan.length ? `(${skippedByScan.map((n) => `O${n}`).join(', ')})` : ''}`,
     `本轮顶掉 ${skippedByScan.length + skippedByRemote.length} 个旧口径假空闲号` +
     `${skippedByScan.length ? `(扫描:${skippedByScan.map(labelOf).join(', ')})` : ''}` +
     `${skippedByRemote.length ? `(远端:${skippedByRemote.map(labelOf).join(', ')})` : ''}`,
@@ -664,13 +691,14 @@ if (remote) {
     remoteWide === null
       ? '远端未参与(原因见上方 stderr)⇒ 未与远端对齐'
       : remoteWide > LEASE_POOL_MAX
-        ? `⇒ 池外大号(>999),池式取号不参考(硬上限 ${LEASE_POOL_MAX})`
+        ? `⇒ 池外大号(>${LEASE_POOL_MAX}),池式取号不参考(硬上限 ${LEASE_POOL_MAX})`
         : remoteWide > poolLowMax
           ? `⇒ 池内避让远端已占号(${poolLowMax + 1}..${remoteWide} 不发)`
           : '⇒ 与本地池内占用同值'
   console.log(
     `  号段基准(含远端):${remote.remote} ${remote.ref} 该族 max=${remoteWide === null ? '未判到' : fmt(remoteWide)} ${rel}`,
   )
+}
 if (freeList.length)
   console.log(
     `(池内空闲 ${freeList.length} 个,如实报:${freeList
@@ -692,12 +720,14 @@ if (dupRow.ok && dupRow.rowDups.length) {
   console.log(
     `⚠️  重号这一维未判定:${dupRow.reason} —— 建议号照常给,但不得把"没报"读成"没有重号"。`,
   )
+}
 if (dups.length) {
   console.log(
     `ℹ️  历史小节标题同 id ${dups.length} 组(${dups.map(([i, n]) => `${i}×${n}`).join(' ')}):` +
       `含逐字孪生副本 ${twinDups.length} 组(${twinDups.join(' ') || '无'}—— 该折,归活文档归并线既有折叠出口处置,不判相撞也不判绿)` +
       ` / 纯系列小节 ${seriesDups.length} 组(${seriesDups.join(' ') || '无'}—— 同一票下的正当复用)(G-927 分档 + G-955 两档读数)。`,
   )
+}
 console.log(`建议本次使用:${fmt(next)}`)
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

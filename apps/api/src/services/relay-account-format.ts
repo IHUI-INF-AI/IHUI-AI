@@ -83,6 +83,196 @@ export function phoneMatchesMask(phone: string, maskShape: PhoneMaskShape): bool
 }
 
 // =============================================================================
+// 号池统一名判定(手机号优先,O66 单源)
+// =============================================================================
+
+/** 统一名最终采信的来源(可归因:预检报告、入库结果、CLI 共用这一套枚举) */
+export type RelayAccountNameSource = 'phone' | 'payload-name' | 'platform-name' | 'sequence'
+
+/**
+ * 手机号为何没被采信(§0.3「没判」不得写成「判过」的同族纪律:退化必须点名,不许静默)。
+ * - `phone-absent`    = 载荷与票面都没给出任何手机号候选
+ * - `phone-not-shape` = 给了手机号候选,但既非 11 位大陆全号、也非掩码形态
+ * - `null`            = 采信了手机号(无退化)
+ */
+export type RelayAccountNameFallback = 'phone-absent' | 'phone-not-shape' | null
+
+/**
+ * 手机号取位键(**全仓唯一一份**,支持 `a.b` 嵌套)。
+ *
+ * 机主 2026-10-28 令「名称应该都统一为手机号 所有平台都是」⇒ 12 平台一律先认顶层
+ * `phone`;平台特有的**嵌套**手机号位只在有实证时才登记:
+ * - qoder:`user.phone`(桌面端捕获的内联 `user{id,name,phone,email,…}` 会话导出,
+ *   见 docs/RELAY_ACCOUNT_IMPORT_FORMAT.md §3.1);
+ * - codearts:`account.phone`(桌面端导出 `account{id,label}` 同层预留)。
+ * 没有实证的一律**不加** —— 猜出来的键位会把"取不到手机号"读成"取到了别人的值"。
+ */
+export const RELAY_ACCOUNT_PHONE_KEYS: Record<RelayProviderCode, readonly string[]> = {
+  trae: ['phone'],
+  workbuddy: ['phone'],
+  codearts: ['phone', 'account.phone'],
+  qoder: ['phone', 'user.phone'],
+  codex: ['phone'],
+  opencode: ['phone'],
+  minimax: ['phone'],
+  zcode: ['phone'],
+  loomy: ['phone'],
+  doubao: ['phone'],
+  lingma: ['phone'],
+  grokbot: ['phone'],
+}
+
+/**
+ * 手机号取不到时的名字候选键位(**全仓唯一一份**,数组顺序即优先级,支持 `a.b` 嵌套)。
+ *
+ * 这张表把此前**两份**逐平台 if-else(预检 `validateAccountExport` 一份、入库
+ * `importAccounts` 一份,两者对 12 平台里的 9 个根本没探 phone)折成一处口径。
+ * 顺序 = 改前逐平台读数的并集(trae/workbuddy 取 name、qoder 取 nickname→name、
+ * codearts 取 name→account.label→user_name、lingma 补 user_name、余者取 name),
+ * 即:除"phone 提前 + 补齐缺失的平台"外不改任何既有优先关系。
+ */
+export const RELAY_ACCOUNT_NAME_KEYS: Record<RelayProviderCode, readonly string[]> = {
+  trae: ['name'],
+  workbuddy: ['name'],
+  codearts: ['name', 'account.label', 'user_name'],
+  qoder: ['nickname', 'name'],
+  codex: ['name'],
+  opencode: ['name'],
+  minimax: ['name'],
+  zcode: ['name'],
+  loomy: ['name'],
+  doubao: ['name'],
+  lingma: ['name', 'user_name'],
+  grokbot: ['name'],
+}
+
+/** 统一名入库列宽上限(与 `ai_relay_account_pool.name` 及 applyPhoneCompletion 同值) */
+const RELAY_ACCOUNT_NAME_MAX = 128
+
+/** 按 `a.b.c` 键路径取字符串(只穿对象层;数组/标量中途即算取不到)。取不到 → `''` */
+export function readAccountKeyPath(row: Record<string, unknown>, path: string): string {
+  let cur: unknown = row
+  for (const seg of path.split('.')) {
+    if (cur === null || typeof cur !== 'object' || Array.isArray(cur)) return ''
+    cur = (cur as Record<string, unknown>)[seg]
+  }
+  return cstr(cur)
+}
+
+/** 是不是号池统一名接受的手机号形态(全号或掩码;其余一律不算手机号) */
+export function isRelayNamePhoneShape(v: string): boolean {
+  return isFullPhone(v) || detectPhoneMask(v) !== null
+}
+
+export interface RelayAccountNameInput {
+  providerCode: RelayProviderCode
+  /** 归一化后的账号载荷(`normalizeForeignAccountShape` 的输出) */
+  payload: Record<string, unknown>
+  /** 0-based 行序号,`#序号` 兜底用(预检与入库同一形态) */
+  index?: number
+  /** 平台映射器算出的名字(codex `codex:<id8>`、minimax `minimax:<region>` 等),可空 */
+  platformName?: string | null
+  /**
+   * 调用方补强的手机号候选。WorkBuddy 的官方绑定手机号住在 Keycloak 票的
+   * `preferred_username` 声明里、不在载荷字段上 ⇒ 由服务端解出后传进来。
+   * **形态判定不许在调用方复算**(§0.6),这里只喂原始字符串。
+   */
+  extraPhoneCandidates?: readonly (string | null | undefined)[]
+}
+
+export interface RelayAccountNameDecision {
+  /** 最终统一名(可能就是手机号;这是设计,见 PII 纪律) */
+  name: string
+  source: RelayAccountNameSource
+  fallback: RelayAccountNameFallback
+  /** 退化的人话说明;**绝不含号码/候选原值**(PII 纪律:日志、错误 message、对外面不落地) */
+  fallbackReason: string | null
+}
+
+/** 退化说明(按码给固定句式,只报码与退化去向,不报候选原值) */
+function nameFallbackText(code: Exclude<RelayAccountNameFallback, null>, target: string): string {
+  const why =
+    code === 'phone-absent'
+      ? '载荷与票面都没有手机号候选'
+      : '手机号候选既非 11 位大陆全号也非掩码形态(原值不回显)'
+  return `统一名未取到手机号(${code}:${why}),已退化为${target}`
+}
+
+/**
+ * 号池统一名 = 官方绑定手机号(手机号优先),取不到才按
+ * 载荷自带名 → 平台映射名 → `#序号` 退化。
+ *
+ * 预检(`validateAccountExport`)与入库(`importAccounts`)**共用本函数** ⇒ 两侧口径
+ * 不可能再分叉(改前是分叉的:预检只给 qoder/trae/workbuddy 补了 phone,入库只有
+ * qoder 走 phone、workbuddy 走票内声明,其余 9 个平台连 `phone` 这个键都没看过)。
+ *
+ * 手机号形态两档都采信:全号最佳;掩码形态(上游只下发脱敏号)照采,入库后由
+ * `extraMetadata.phoneMask` + complete-phone / match-phone 补全成对账链。
+ * 既非全号也非掩码的候选**一律不入名**(这是"非法 phone 不落原文"那一格)。
+ *
+ * PII:返回的 `name` 可能就是手机号本身(号池统一名的定义如此,与既有 qoder/workbuddy
+ * 行为同形);但 `fallbackReason` 永不含号码原值,调用方不得把候选原值写进日志/错误面。
+ */
+export function resolveRelayAccountName(input: RelayAccountNameInput): RelayAccountNameDecision {
+  const seq = `#${(input.index ?? 0) + 1}`
+  const phoneKeys = RELAY_ACCOUNT_PHONE_KEYS[input.providerCode] ?? ['phone']
+  const phoneCandidates = [
+    ...phoneKeys.map((k) => readAccountKeyPath(input.payload, k)),
+    ...(input.extraPhoneCandidates ?? []).map((v) => cstr(v)),
+  ].filter((v) => v !== '')
+
+  // 全号优先于掩码:同一行同时给了两档时,统一名必须是能签到对账的那个
+  const full = phoneCandidates.find((v) => isFullPhone(v))
+  if (full) {
+    return {
+      name: full.slice(0, RELAY_ACCOUNT_NAME_MAX),
+      source: 'phone',
+      fallback: null,
+      fallbackReason: null,
+    }
+  }
+  const masked = phoneCandidates.find((v) => detectPhoneMask(v) !== null)
+  if (masked) {
+    return {
+      name: masked.slice(0, RELAY_ACCOUNT_NAME_MAX),
+      source: 'phone',
+      fallback: null,
+      fallbackReason: null,
+    }
+  }
+
+  const code: Exclude<RelayAccountNameFallback, null> =
+    phoneCandidates.length === 0 ? 'phone-absent' : 'phone-not-shape'
+  const nameKeys = RELAY_ACCOUNT_NAME_KEYS[input.providerCode] ?? ['name']
+  const payloadName = nameKeys
+    .map((k) => readAccountKeyPath(input.payload, k))
+    .find((v) => v !== '')
+  if (payloadName) {
+    return {
+      name: payloadName.slice(0, RELAY_ACCOUNT_NAME_MAX),
+      source: 'payload-name',
+      fallback: code,
+      fallbackReason: nameFallbackText(code, '载荷自带名'),
+    }
+  }
+  const platformName = cstr(input.platformName)
+  if (platformName) {
+    return {
+      name: platformName.slice(0, RELAY_ACCOUNT_NAME_MAX),
+      source: 'platform-name',
+      fallback: code,
+      fallbackReason: nameFallbackText(code, '平台映射名'),
+    }
+  }
+  return {
+    name: seq,
+    source: 'sequence',
+    fallback: code,
+    fallbackReason: nameFallbackText(code, '#序号'),
+  }
+}
+
+// =============================================================================
 // JWT / Cookie 纯解析
 // =============================================================================
 
@@ -300,6 +490,11 @@ interface ImportIssue {
 interface AccountValidation {
   index: number
   name: string
+  /** 统一名来源(O66:手机号优先;见 resolveRelayAccountName) */
+  nameSource: RelayAccountNameSource
+  /** 手机号为何没被采信;null = 用了手机号。说明绝不含号码原值 */
+  nameFallback: RelayAccountNameFallback
+  nameFallbackReason: string | null
   uid: string | null
   tokenExpiresAt: string | null
   expired: boolean
@@ -804,6 +999,9 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
       accounts.push({
         index,
         name: `#${index + 1}`,
+        nameSource: 'sequence',
+        nameFallback: 'phone-absent',
+        nameFallbackReason: nameFallbackText('phone-absent', '#序号'),
         uid: null,
         tokenExpiresAt: null,
         expired: false,
@@ -821,18 +1019,16 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
     // 同一个函数,不允许任何调用方自己抄别名表。
     const acc = normalizeForeignAccountShape(row)
     const isCodearts = opts.providerCode === 'codearts'
-    const codeartsAccount = isCodearts && isRecord(acc['account']) ? acc['account'] : undefined
-    // 统一名称 = 官方绑定手机号(O66):qoder 的 nickname、trae/workbuddy 的 name 都是
-    // 客户端昵称/第三方导出件里的脱敏串,不作统一名;载荷给了 phone 就以 phone 为准。
-    const name =
-      opts.providerCode === 'qoder'
-        ? cstr(acc['phone']) || cstr(acc['nickname']) || cstr(acc['name']) || `#${index + 1}`
-        : opts.providerCode === 'trae' || opts.providerCode === 'workbuddy'
-          ? cstr(acc['phone']) || cstr(acc['name']) || `#${index + 1}`
-          : cstr(acc['name']) ||
-            (isCodearts
-              ? cstr(codeartsAccount?.['label']) || cstr(acc['user_name']) || `#${index + 1}`
-              : `#${index + 1}`)
+    // 统一名 = 官方绑定手机号(O66,2026-10-30 收口到 12 平台全覆盖):判据单源
+    // resolveRelayAccountName(与入库 importAccounts 同一函数)。载荷里的 name/nickname
+    // 是客户端昵称或第三方导出件里的脱敏串,不作统一名;给了 phone 就以 phone 为准,
+    // 取不到手机号才退化,且退化必须带归因(nameFallback / nameFallbackReason)。
+    const naming = resolveRelayAccountName({
+      providerCode: opts.providerCode,
+      payload: acc,
+      index,
+    })
+    const name = naming.name
 
     // ── 凭证必填面(形状判据单源:recognizeImportShape)──
     // 12 平台原生形状(tokens.access_token / auth.key / accessToken / value /
@@ -1021,6 +1217,9 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
     accounts.push({
       index,
       name,
+      nameSource: naming.source,
+      nameFallback: naming.fallback,
+      nameFallbackReason: naming.fallbackReason,
       uid,
       tokenExpiresAt: expiresAt ? expiresAt.toISOString() : null,
       expired: isExpired,

@@ -386,4 +386,28 @@ test('T12 端到端:名单外那台进判定面,门自报的问题行原样进�
   assert.equal(j.counts.offlist, 1)
   assert.equal(j.counts.offlistUnregistered, 1, '未登记这一档必须单独有数,台账烂了要量得到(§5e-3)')
 })
+test('T14 strikes 必须带开账时刻:0→1 开账、1→2 沿用、恢复即清(消费方 = 守护的带伤快档)', () => {
+  const c = parseConfig(JSON.stringify({ services: [entry('A')] }), NOW)
+  const down = { A: { verdict: 'down', why: 'x' } }
+  const first = decideRound({ config: c, state: { services: {}, restarts: [] }, verdicts: down, nowMs: NOW, apply: false })
+  assert.equal(first.next.services.A.strikes, 1)
+  assert.equal(first.next.services.A.sinceMs, NOW, '首轮开账 ⇒ 起账时刻就是这一轮,不能留空(留空等于下一轮从头再算)')
+  const second = decideRound({ config: c, state: first.next, verdicts: down, nowMs: NOW + 60_000, apply: false })
+  assert.equal(second.next.services.A.strikes, 2)
+  assert.equal(second.next.services.A.sinceMs, NOW, '链条未断 ⇒ 沿用最初时刻;否则"已持续多久"永远读成新发生的')
+  const healed = decideRound({ config: c, state: second.next, verdicts: { A: { verdict: 'answering', why: 'ok' } }, nowMs: NOW + 120_000, apply: false })
+  assert.equal(healed.next.services.A.strikes, 0)
+  assert.equal(healed.next.services.A.sinceMs, null, '恢复必须清账 —— 留着旧起账点,下一次真故障第一秒就被读成"已经拖了很久"')
+})
+
+test('T14b 升级前留下的僵尸链(有 strikes 无 sinceMs)必须就地盖章,而不是当"刚发生"无限加密', () => {
+  const c = parseConfig(JSON.stringify({ services: [entry('A')] }), NOW)
+  const legacy = { services: { A: { strikes: 1, lastRestartMs: null, lastVerdict: 'down' } }, restarts: [] }
+  const r = decideRound({ config: c, state: legacy, verdicts: { A: { verdict: 'expected-stopped', why: '门已裁定设计内停止' } }, nowMs: NOW, apply: false })
+  assert.equal(r.next.services.A.strikes, 1, 'expected-stopped 保留计数(本次不改这一格语义)')
+  assert.equal(r.next.services.A.sinceMs, NOW, '但缺起账点的必须补上 —— 派发侧据此判"开账多久",留空等于把快档窗口永久钉死')
+  const later = decideRound({ config: c, state: r.next, verdicts: { A: { verdict: 'expected-stopped', why: 'x' } }, nowMs: NOW + 3_600_000, apply: false })
+  assert.equal(later.next.services.A.sinceMs, NOW, '盖章只在缺字段那一次发生,之后沿用最初时刻')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

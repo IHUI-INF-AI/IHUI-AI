@@ -105,7 +105,7 @@
       "evidence": "2026-10-25 现读:nslookup img.aizhs.top = Non-existent domain;curl -s -o /dev/null -w '%{http_code}' = 000"
     }
   ],
-  "callbackLegsComment": "第三方会 POST 进来的回调腿 —— 消费方 = scripts/check-public-path-probe.mjs 的 --callback-redirect(只读,按 GET 不跟随的状态码判方法会不会被降级重定向吃掉;零 POST,不给自家威胁检测层投喂假签名请求)。2026-10-29 立:GitHub App 回调配在裸域,裸域在 CF 边缘恒 301 → www,跟随方按 RFC 9110 §15.4 把 POST 变 GET ⇒ 收到的是 GET /api/github-app/webhook 404(单档日志 2154 条),投递判失败并重试成洪。",
+  "callbackLegsComment": "第三方会 POST 进来的回调腿 —— 消费方 = scripts/check-public-path-probe.mjs 的 --callback-redirect(只读,按 GET 不跟随的状态码判方法会不会被降级重定向吃掉;零 POST,不给自家威胁检测层投喂假签名请求)。2026-10-29 立:GitHub App 回调配在裸域,裸域在 CF 边缘恒 301 → www,跟随方按 RFC 9110 §15.4 把 POST 变 GET ⇒ 收到的是 GET /api/github-app/webhook 404(单档日志 2154 条),投递判失败并重试成洪。〔同日 09:5x 实测更正:https 裸域规则已存成 308,按 (文件,pid) 边界配对 reqId 量到该路径的入站从 GET/404 洪转为 POST/2xx;但 80 端口那条裸域规则仍是 301,而当时三条腿全不在它射程内 ⇒ 尺子报『全绿』看不见半条没改完,故补第 4 条 http-apex 腿。另现读 05:00 起同一接收路径的入站 Host 里出现 api.aizhs.top 直达臂(提供方侧配置变更,非我方动作,归因未判定)。〕",
   "callbackLegs": [
     {
       "id": "github-app-cb",
@@ -124,6 +124,12 @@
       "apexUrl": "https://api.aizhs.top/api/payments/alipay/notify",
       "configuredBy": "生产 env ALIPAY_NOTIFY_URL 现读主机名 = api.aizhs.top(不是裸域)⇒ 这一条是在验『它有没有也踩降级重定向』,不得凭『配的本来就是子域』放过",
       "ourReceiver": "verifyNotify RSA 验签在 handler 首行,GET 探测不触达业务"
+    },
+    {
+      "id": "http-apex-github-app-cb",
+      "apexUrl": "http://aizhs.top/api/github-app/webhook",
+      "configuredBy": "2026-10-29 现读:当前没有提供方配在明文 80 端口。登记它的凭据是**上一条腿的教训重演**——同日把 https 裸域规则存成 308 后,80 端口那条(http-apex-to-www-redirect)实测仍回 301,而前三条腿全在 https/api 臂上,尺子当时报的是『全绿』⇒ 结构上看不见这半条没改完。缺这一维,『两条都改了』这句话永远是量不出来的",
+      "ourReceiver": "apps/api/src/routes/github-app.ts 注册于 /api/github-app(prefix: routes/index.ts)"
     }
   ]
 }

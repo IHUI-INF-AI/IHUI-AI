@@ -17,27 +17,75 @@
     }
   ],
   "blueGreen": {
-    "$comment": "蓝绿冷备:同一时刻只有一个色在服务,另一个色按设计 Stop(各族 cutoverStep 指的『停旧色』步;两族都由 deploy/win/ihui-api-bluegreen.mjs 这份通用切换器落地,它第 6 步停旧色、第 0 步按状态文件自愈)。活跃色由该族 stateFile 里的 active 决定;活跃色停着 = 真故障,照旧报红。stateFile 取不到 ⇒ 该族未判定,本族一枚豁免都不给(2026-10-29 现读:web 迁入前 deploy/run/web-bluegreen.json 不在位 ⇒ web 族当轮就应以『未判定』出现在报告里,而不是被读成『活跃色是 blue』)。两族的 router(IHUI-API-ROUTER/IHUI-WEB-ROUTER)不在本表射程:它是唯一入口,停着/挂起都是真故障,不得登记成设计内停止,也不得因『冷备该停』被顺手免掉。",
+    "$comment": "蓝绿冷备:同一时刻只有一个色在服务,另一个色按设计 Stop(各族 cutoverStep 指的『停旧色』步;两族都由 deploy/win/ihui-api-bluegreen.mjs 这份通用切换器落地,它第 6 步停旧色、第 0 步按状态文件自愈)。活跃色由该族 stateFile 里的 active 决定;活跃色停着 = 真故障,照旧报红。stateFile 取不到 ⇒ 该族未判定,本族一枚豁免都不给(2026-10-29 现读:web 迁入前 deploy/run/web-bluegreen.json 不在位 ⇒ web 族当轮就应以『未判定』出现在报告里,而不是被读成『活跃色是 blue』)。两族的 router(IHUI-API-ROUTER/IHUI-WEB-ROUTER)不在『停着是设计内』射程:它是唯一入口,停着/挂起都是真故障,不得登记成设计内停止,也不得因『冷备该停』被顺手免掉。 ── envPortKey 一维为何必须存在(2026-10-29 立):当晚 IHUI-WEB-GREEN 的 AppEnvironmentExtra 被写成一整串(一条参数塞完全部 KEY=VALUE),nssm get 回显只有一行、IHUI_WEB_PORT 被读成『8852 IHUI_WEB_HOST=… IHUI_BUILD_DIST=…』⇒ 启动脚本 [int] 转换崩 ⇒ 8852 永远不健康 ⇒ web 蓝绿每轮 Fail、约两小时(00:35→02:32)没有任何一次部署真正上岗,而期间所有守门全绿 —— nssm 的 SERVICE_PAUSED 假症状把成因指错了方向,只有『逐行问 nssm 要 env 块、断言存在一整行恰为 KEY=期望端口』这一把尺子能在当场抓住它。规约:①每族登记 envPortKey(api 族端口键=PORT,web 族=IHUI_WEB_PORT,键名只住台账、判据零写死);②不靠 env 定端口的成员(router 这类)必须登记进 noPortExpectationMembers 并写明理由 ⇒ 显式表达『该成员无端口期望』,绝不让判据去猜、也不得静默不点名;③族缺 envPortKey ⇒ 该族端口期望成员一律落 undetermined 并点名,不记绿。 ── bootStart 一维为何必须存在(2026-10-29 同日立,与 envPortKey 同一场夜里的第二起):开机自启是**规约**不是快照 —— 仓内唯一的机器快照基准件(scripts/data/service-definitions.json)当时还停在另一台机的 3 个旧单实例服务,蓝绿族整体不在册,所以『web 三件套被装成 Manual』这件事在仓里没有任何一面写着,量算器无从可判。本段把每条族的『谁的启动类型必须是 Auto、谁必须是 Manual』逐台写明(判据 = check-service-binary-paths.mjs 的 judgeBootStart,取材 = 既有 STATE 通道的 StartType,归一复用同文件 normalizeStartType,零第二份实现);本机没有该服务 ⇒ 落 absent(不适用),不得读成不符,也不得静默跳过;读不到 STATE 通道 ⇒ undetermined。这一维同样只报数不判红(判机器现状,§12e)。",
     "families": [
       {
         "family": "api",
         "stateFile": "D:/DevEnv/ihui-prod/deploy/run/api-bluegreen.json",
         "cutoverStep": "deploy/win/ihui-api-bluegreen.ps1 第 6 步『停旧色』(经 deploy/win/ihui-api-bluegreen.mjs)",
         "reviewBy": "2027-01-01",
+        "envPortKey": "PORT",
+        "noPortExpectationMembers": [
+          {
+            "service": "IHUI-API-ROUTER",
+            "reason": "router 不靠 env 定端口(台账显式声明该成员无端口期望;2026-10-29 现读其 AppEnvironmentExtra 为 0 行)⇒ 不进 env 形态对账的端口断言射程,但仍逐台点名读数。"
+          }
+        ],
         "colors": {
           "blue": { "service": "IHUI-API-BLUE", "port": 8842 },
           "green": { "service": "IHUI-API-GREEN", "port": 8843 }
-        }
+        },
+        "bootStart": [
+          {
+            "service": "IHUI-API-ROUTER",
+            "expect": "AUTOMATIC",
+            "why": "8802 唯一入口:开机不起即全站 API 断流,而部署环只在有提交时才切流 ⇒ 不能指望下一轮部署把它拉回来。"
+          },
+          {
+            "service": "IHUI-API-BLUE",
+            "expect": "AUTOMATIC",
+            "why": "兜底色:deploy/win/ihui-api-router.mjs 的 reconcileActiveAtBoot 明确假定『重启后只有 blue 自动启动』,再由 router 把状态文件里的活跃色改到真在跑的那一侧。"
+          },
+          {
+            "service": "IHUI-API-GREEN",
+            "expect": "MANUAL",
+            "why": "按需启动的活跃色(切换器起它);刻意不随开机起,否则两色同抢一份 dist 语义、且与上面那条『blue 兜底』的对账假设相反。"
+          }
+        ]
       },
       {
         "family": "web",
         "stateFile": "D:/DevEnv/ihui-prod/deploy/run/web-bluegreen.json",
         "cutoverStep": "deploy/win/ihui-deploy.ps1 的 web 蓝绿段经 deploy/win/ihui-api-bluegreen.mjs 第 6 步『停旧色』",
         "reviewBy": "2027-01-01",
+        "envPortKey": "IHUI_WEB_PORT",
+        "noPortExpectationMembers": [
+          {
+            "service": "IHUI-WEB-ROUTER",
+            "reason": "router 的端口住在 IHUI_BG_ROUTER_PORT/IHUI_BG_PORT_BLUE/IHUI_BG_PORT_GREEN 一族键里,不属于本维『单键=单期望端口』的整行断言(台账显式声明该成员无端口期望,不是判据去猜);2026-10-29 现读其 AppEnvironmentExtra 为 8 行,仍逐台点名。"
+          }
+        ],
         "colors": {
           "blue": { "service": "IHUI-WEB-BLUE", "port": 8851 },
           "green": { "service": "IHUI-WEB-GREEN", "port": 8852 }
-        }
+        },
+        "bootStart": [
+          {
+            "service": "IHUI-WEB-ROUTER",
+            "expect": "AUTOMATIC",
+            "why": "8801 = 公网入口(EdgeOne 直连源站 / Cloudflared 源站同端口)。2026-10-29 09:31:54 本机重启后它因 Manual 没回来 ⇒ 09:33 监控报警、绕开 CDN 缓存实测 522;而部署环因 behind=0 每轮只报『无需部署』,不会在任何一次切流里把它拉起 —— 开机自启是它唯一的兜底。"
+          },
+          {
+            "service": "IHUI-WEB-BLUE",
+            "expect": "AUTOMATIC",
+            "why": "兜底色,与 api 族同型:reconcileActiveAtBoot 假定重启后 blue 在跑,再据此改写活跃色。2026-10-29 现读三件套全被装成 Manual(仓内没有任何安装脚本声明过它的启动类型,是手工装机留下的),这条就是那份缺失的声明。"
+          },
+          {
+            "service": "IHUI-WEB-GREEN",
+            "expect": "MANUAL",
+            "why": "按需启动的活跃色;与 api 族一致,刻意不随开机起。"
+          }
+        ]
       }
     ]
   }

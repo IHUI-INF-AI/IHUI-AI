@@ -724,12 +724,20 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
     const suppress = noteCredits && noteCredits.suppress ? noteCredits.suppress : null
     const baseC = noteCredits && noteCredits.baseText ? counter(noteCredits.baseText) : null
     const oursC = noteCredits && noteCredits.oursText ? counter(noteCredits.oursText) : null
+    /**
+     * ⑥ 归档整区移出的凭据(2026-10-29 死结):调用点把行级 union 补回判定用的**同一本账**
+     * `archiveDropCaps(a, archived)` 喂进来(§0.6 单一真相源)。集合为 null(归档面取不到)⇒ 这一档
+     * 一分不给,照旧多报(§0.3/§0.10 失效方向恒为"多要一次说明",绝不静默吞)。
+     */
+    const archiveDropSet =
+      noteCredits && noteCredits.archiveDropSet instanceof Set ? noteCredits.archiveDropSet : null
     let allowed = 0
     let byPlaceholder = 0
     let byOwnShrink = 0
     let byDupPointer = 0
     let byVerbatimCopies = 0
     let byFold = 0
+    let byArchiveMoved = 0
     const unexplained = []
     /**
      * 逐行欠账的**机器可读**副本(G-62 恢复,c18ac45d98 那一版):上面 `unexplained` 是给人读的
@@ -740,6 +748,7 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
     const verbatimCredited = []
     const foldCredited = []
     const foldUnattested = []
+    const archiveMovedCredited = []
     /**
      * 折叠去向的两条取材路(⑤ 档,见循环内注释):调用点喂来的折叠台账 pairs 优先
      * (foldLedgerOf 的"折叠自己记的去向"—— 并入注记改变保留行指纹时,事后回查会落空);
@@ -853,6 +862,21 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
           }
         }
       }
+      /**
+       * ⑥ 归档整区移出(2026-10-29 立,根治"本侧按 §1 把整区逐字移入 archive、对侧滞后基线把
+       *   那批 `<!-- 已归档 -->` 占位原样带回、归并正确排除后 F5 却把它读成未解释少带"的死结):
+       *   凭据 = 行级 union 决定"不补回"用的**同一本账** `archiveDropCaps(a, archived)`(§0.6)。
+       *   一行落在集合里 ⇔ "逐字存在于同族归档件 ∧ 本侧 0 份" ⇒ 处置权已在本侧行使,归并不该带回,
+       *   这份少带即有据。
+       *   **不削牙**(§12e 修绿不得顺手削判据):① 集合为 null(归档面取不到)⇒ 一分不给,照旧进
+       *   unexplained(失效方向恒为多报);② 对侧**独有的真注记行**(从未进任何归档件)不在集合里
+       *   ⇒ 即便本侧 0 份、归并未带,这一档也一分不给,照常判红并点名(反证用例锁此两向)。
+       */
+      if (rest > 0 && archiveDropSet && archiveDropSet.has(l)) {
+        byArchiveMoved += rest
+        archiveMovedCredited.push(`移出 ${rest} 份(归档件持有 ∧ 本侧 0 份)← ${l.slice(0, 120)}`)
+        rest = 0
+      }
       if (rest > 0) {
         unexplained.push(`缺 ${rest} 份 :: ${l.slice(0, 70)}`)
         f5Deficit.push({ line: l.slice(0, 140), short: rest, carried: mm.get(l) || 0 })
@@ -887,9 +911,14 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
       const foldFail = foldUnattested.length
         ? `;折叠举证未过(不记额度,列前 3):${foldUnattested.slice(0, 3).join(' | ')}`
         : ''
+      const archiveMovedNamed = archiveMovedCredited.length
+        ? `;归档整区移出名单(共 ${archiveMovedCredited.length} 行,前 5):${archiveMovedCredited
+            .slice(0, 5)
+            .join(' | ')}`
+        : ''
       out.push(
         `F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条` +
-          `(已按行扣除五类**有据**额度共 ${allowed} 条:归档占位代表 ${byPlaceholder} / 本侧相对基底自缩 ${byOwnShrink} / 副本指针有意少带 ${byDupPointer} / 逐字副本折半 ${byVerbatimCopies} / 折叠去向举证吸收 ${byFold};扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)${named}${credited}${foldNamed}${foldFail}`,
+          `(已按行扣除六类**有据**额度共 ${allowed} 条:归档占位代表 ${byPlaceholder} / 本侧相对基底自缩 ${byOwnShrink} / 副本指针有意少带 ${byDupPointer} / 逐字副本折半 ${byVerbatimCopies} / 折叠去向举证吸收 ${byFold} / 归档整区移出 ${byArchiveMoved};扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)${named}${credited}${foldNamed}${foldFail}${archiveMovedNamed}`,
       )
     }
   }
@@ -2294,13 +2323,17 @@ export function buildUnion(
       const withheldReport = []
       const archFaces = archiveTextsOn(ours, cwd)
       const archived = archFaces.ok ? selectMovedOut(p, archFaces.files, a) : null
+      // 归档整区移出的扣行账:行级 union 用 `archived` 决定"不补回"(见 liveDocExpectedCounts 的
+      // archiveDropCaps 那一维),F5 落地闸必须问**同一本账**,否则把"本侧有意移入归档、对侧滞后基线
+      // 带回又被归并正确排除"的 `<!-- 已归档 -->` 存根读成"未解释少带"(2026-10-29 全仓推送死结)。
+      const archiveDropSet = archived && archived.ok ? archiveDropCaps(a, archived) : new Set()
       const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn, foldPicks, withheldReport, null, archived)
       if (archived === null) {
         console.log(
           `   归档移出这一维本轮不生效(${p};归档面取不到:${archFaces.reason ?? '未判定'})⇒ 退路 = 多留一份,不冒充"已归档"`,
         )
-      } else if (archived.ok && archiveDropCaps(a, archived).size) {
-        const caps = archiveDropCaps(a, archived)
+      } else if (archiveDropSet.size) {
+        const caps = archiveDropSet
         console.log(
           `   归档移出认账:${caps.size} 行不参与补回(${p};本侧已按 §1 把整区逐字移入 ${ARCHIVE_REL}/,对侧旧基线那份不再带回)`,
         )
@@ -2370,6 +2403,9 @@ export function buildUnion(
           // verifyUnion 认同一本账,两把尺子同形)。growth 维(F1-F4/F6/F9)仍看全部面。
           f5SideTexts: [a, b],
           foldPairs: built0.ledger?.pairs || null,
+          // ⑥ 归档整区移出:与行级 union 同一本账(archiveDropCaps(a,archived)),把"本侧有意移入
+          // 归档、归并正确排除"的存根少带判为有据(2026-10-29 死结)。取不到归档面时为空集 ⇒ 一分不给。
+          archiveDropSet: archiveDropSet,
         })
         for (const msg of __rg) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
         for (const msg of __rg.accepted || []) acceptedGrowth.push(msg)
@@ -3708,7 +3744,10 @@ function selfTest() {
             // G-815913:活文档调用点必须把 F5 比较集收到两侧、并把折叠台账一起喂进来
             src.includes('f5SideTexts: [a, b]') &&
             src.includes('foldPairs: built0.ledger?.pairs || null') &&
-            src.includes('f5SideTexts: [__sideBlobs[1], __sideBlobs[2]]')
+            src.includes('f5SideTexts: [__sideBlobs[1], __sideBlobs[2]]') &&
+            // ⑥ 归档整区移出:活文档调用点必须把行级 union 用的同一本 archiveDropCaps 账喂进 F5,
+            // 否则本侧有意移入归档的 `<!-- 已归档 -->` 存根会被 F5 判成未解释少带(2026-10-29 死结)。
+            src.includes('archiveDropSet: archiveDropSet')
           )
         })(),
       )
@@ -4158,6 +4197,63 @@ function selfTest() {
       planStateRegressions('# M\n无\n', [BASE78, OURS78, THEIRS78], null, {
         f5SideTexts: [OURS78, THEIRS78],
       }).join('').includes('F5'),
+    )
+    // ── 2026-10-29 代裁:F5 ⑥ 档(归档整区移出),与行级 union 同一本 archiveDropCaps 账 ──
+    // 立因:本侧按 §1 把整区逐字移入 .ihui-agent/archive/ 并删掉 `<!-- 已归档 -->` 占位(该删除已是
+    // merge-base 的祖先);对侧滞后基线把那批占位原样带回,行级 union 用 archived 正确不补回,
+    // 而 F5 此前拿不到这本账 ⇒ 把"本侧有意移出的存根"判成"未解释少带"(实测扣 190 条/22 行,顶死部署环)。
+    ok(
+      'F5 额度⑥:本侧有意自缩(归档整区移出,archiveDropCaps 持有 ∧ 本侧 0 份)⇒ 不误报',
+      planStateRegressions('x\n', ['x\n', 'x\n', ARn(3)], null, {
+        suppress: null,
+        baseText: 'x\n',
+        oursText: 'x\n',
+        archiveDropSet: new Set([AR]),
+      }).length === 0,
+    )
+    ok(
+      'F5 ⑥ 有牙:对侧**独有的真注记行**(从未进任何归档件 ⇒ 不在集合)被归并结果顶掉 ⇒ 照常判红并点名;' +
+        '且归档面取不到(集合为 null)时同一行也照旧红(失效方向恒为多报,绝不静默吞)',
+      (() => {
+        const rEmpty = planStateRegressions('x\n', ['x\n', 'x\n', ARn(2)], null, {
+          suppress: null,
+          baseText: 'x\n',
+          oursText: 'x\n',
+          archiveDropSet: new Set(),
+        }).join('')
+        const rNull = planStateRegressions('x\n', ['x\n', 'x\n', ARn(2)], null, {
+          suppress: null,
+          baseText: 'x\n',
+          oursText: 'x\n',
+          archiveDropSet: null,
+        }).join('')
+        return (
+          rEmpty.includes('F5') &&
+          rEmpty.includes('未被任何机制解释') &&
+          rNull.includes('F5') &&
+          rNull.includes('未被任何机制解释')
+        )
+      })(),
+    )
+    ok(
+      'F5 ⑥ 混合有牙:一行确被归档件持有(记额度并报名)、另一行对侧独有真丢(照旧红)⇒ ' +
+        '红句必须**同时**出现"归档整区移出"额度与本维名单,合法额度不得替真丢失背书(与 ④ 反向臂同规)',
+      (() => {
+        const NB = '<!-- 对侧独有的真新增落账 〔【归并】ZZ 落账:复测 2026-09-26〕 -->'
+        const r = planStateRegressions('x\n', ['x\n', 'x\n', `${AR}\n${NB}\n`], null, {
+          suppress: null,
+          baseText: 'x\n',
+          oursText: 'x\n',
+          archiveDropSet: new Set([AR]),
+        }).join('')
+        return (
+          r.includes('F5') &&
+          r.includes('归档整区移出 2') &&
+          r.includes('归档整区移出名单') &&
+          r.includes('未被任何机制解释') &&
+          r.includes('对侧独有的真新增落账')
+        )
+      })(),
     )
     // ── G-977960 ①:跨行注记不得再造"无论怎么合并都差 N 条"的死局,但真抹掉行仍必须判红 ──
     // `MERGE_NOTE_RE` 的字符类含换行 ⇒ 一条注记可以横写两行;旧写法拿"整面命中数"当份数,
@@ -4976,6 +5072,7 @@ function selfTest() {
           )
         } finally {
           rmScratch(d6, { bestEffort: true })
+        }
       }
       // ── 纯函数:影子候选名只认 .js/.cjs/.mjs → .ts/.tsx 这一个方向 ──
       ok(
@@ -5289,6 +5386,7 @@ async function main() {
       if (m.has(line)) {
         console.log(`❌ --declare-side-loss ${doc} 第 ${k + 1} 项与前一条同 line(一行两条裁定 ⇒ 歧义,拒绝执行)`)
         process.exit(2)
+      }
       m.set(line, { why: d.why.trim() })
     }
     declaredLoss.set(doc, m)
@@ -5539,6 +5637,7 @@ async function main() {
       ? `;声明式取代 ${supCredits.length} 行(--supersede 声明 + attestFoldPair 四问通过;逐条见 ${supCredits
           .map((s) => `${s.kind}←${String(s.dropped).slice(0, 24)}`)
           .join(' / ')})`
+      : '') +
     // 逐行声明放过的对侧少带必须进提交信息:落地闸只留下"过了",可追责的凭据在信息里(与上两格同纪律)。
     (lossCredits.length
       ? `;逐行声明放过的对侧少带 ${lossCredits.length} 行(--declare-side-loss 逐行声明 + 逐条带原因;` +
@@ -5616,6 +5715,7 @@ async function main() {
     } catch {
       /* 末行不是 JSON ⇒ 只报"没读到",不得把它当成对齐失败或成功 */
     }
+    console.log(
       `  🧹 落地后现场对齐:漂移 ${a.aligned ?? '?'} / 索引刷新 ${a.refreshed ?? '?'} / 落地欠回写 ${a.landingAligned ?? '?'}` +
         (a.landingHeld?.length ? ` —— 另有 ${a.landingHeld.length} 格证明不了归属,只报数不代裁` : ''),
     )
@@ -5623,6 +5723,7 @@ async function main() {
       console.log(
         `  ⚠️ 对齐子进程未完成(exit=${al.status ?? 'n/a'}${al.error ? ` / ${String(al.error.message).slice(0, 80)}` : ''})⇒ 不影响本轮结论,守护下一拍补`,
       )
+    }
   } catch (e) {
     console.log(`  ⚠️ 落地后对齐未派成(不影响本轮结论):${String(e?.message ?? e).slice(0, 160)}`)
   }
@@ -5643,6 +5744,8 @@ async function main() {
   if (affected.verdict === 2) {
     console.error(
       `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚合并已在 HEAD ${sha.slice(0, 11)}(不回滚),请人工复跑点名臂`,
+    )
+  }
   process.exit(lost.lost.length || affected.verdict === 1 ? 1 : affected.verdict === 2 ? 2 : 0)
 }
 
