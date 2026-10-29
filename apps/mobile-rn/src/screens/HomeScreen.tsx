@@ -71,16 +71,12 @@ import {
   deleteFavorite,
   getActiveCarousels,
   getAllStudyProgress,
-  getAgentDetail,
-  getAgentUseHistory,
   getAgents,
   getCourses,
-  getFavorites,
   getLiveList,
   getMyCreation,
   getMyCreationDetail,
   getShareFirstStatus,
-  getTokenBalance,
   fetchModels,
   resolveFileUrl,
   uploadFileMultipart,
@@ -116,7 +112,7 @@ import { ShareSheet } from '../components/ShareSheet'
 import { SearchOverlay } from '../components/SearchOverlay'
 import { BottomFigure, type BottomFigureItem } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
-// 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
+// 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
@@ -136,12 +132,8 @@ import ModelConfigDialog, {
   type ModelType as ConfigModelType,
 } from '../components/ModelConfigDialog'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
-import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
-// 对齐 Uniapp tools/index(AI应用商店):ai-list 智能体列表
+// 输入区「技能」弹窗的智能体条目契约(商品列表本身由 AI 应用商店页承载)
 import type { AgentShopItem } from '../components/AgentShopList'
-// 对齐 Uniapp tools/index:MyAgents(我的AI APP)+ IntelligentAssistant(智汇值卡)
-import MyAgents, { type MyAgentItem } from '../components/MyAgents'
-import IntelligentAssistant from '../components/IntelligentAssistant'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useNotificationStore } from '../stores/notification'
@@ -600,20 +592,6 @@ function toAgentShopItem(a: Agent): AgentShopItem {
   }
 }
 
-/** AgentShopItem → AiModelData 映射(2026-10-20 商店主列表改用 AiModelCard 渲染多卡;
- *  id 走索引签名携带,回调按 data.id 定位;userType: 会员专享→freevip,其余→freeuse) */
-function toAgentModelData(a: AgentShopItem): AiModelData {
-  return {
-    id: a.id,
-    name: a.name,
-    subname: a.description,
-    icon: a.avatar,
-    tags: a.tags?.slice(0, 3),
-    userType: a.isVipExclusive ? 'freevip' : 'freeuse',
-    authorName: a.userNickname,
-  }
-}
-
 /** AgentShopItem → AgentListItem 映射(技能弹窗复用 AgentList,字段契约逐一对齐;tags 不入列表) */
 function toAgentListItem(a: AgentShopItem): AgentListItem {
   return {
@@ -874,18 +852,7 @@ export function HomeScreen() {
     level: (user?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
-  /** RecentAgents 最近使用智能体(对齐 Uniapp tools/index RecentAgents)
-   *  api-client 暂无 getAgentUseHistory(/agent/use/history)封装,降级取智能体列表前 5 条占位 */
-  const [recentAgents, setRecentAgents] = useState<RecentAgentItem[]>([])
-
-  /** MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue)
-   *  数据源:与 agentItems 同源(loadAgentList 填充后取前 6 条),点击跳 AiAssistantN8n */
-  const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
-
-  /** IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue;数据源 getTokenBalance) */
-  const [tokenQuantity, setTokenQuantity] = useState(0)
-
-  // ── 对齐 Uniapp tools/index.vue:ai-list 智能体列表 ──
+  // ── 智能体列表(仅供输入区「技能」弹窗选取,首页不再渲染商品列表) ──
   const [agentItems, setAgentItems] = useState<AgentShopItem[]>([])
   // ── toodown 返回顶部(对齐 Uniapp onPageScroll > 阈值显示,RN 端 >600 显示) ──
   const [showBackTop, setShowBackTop] = useState(false)
@@ -1423,30 +1390,6 @@ export function HomeScreen() {
     void maybeTriggerFirstShareReward()
   }, [maybeTriggerFirstShareReward])
 
-  // ── RecentAgents 点击(对齐 Uniapp pitchHandlea → ai_assistant 对话页) ──
-  const handleRecentAgentPress = (item: RecentAgentItem): void => {
-    rootNav?.navigate('AiAssistantN8n', { agentId: item.id, title: item.name })
-  }
-
-  // ── MyAgents 我的AI APP 点击(对齐 Uniapp MyAgents.vue navigateTo → ai_assistant/ai_assistant_n8n) ──
-  const handleMyAgentPress = (item: MyAgentItem): void => {
-    const id = item.agentId ?? item.id
-    if (!id) return
-    rootNav?.navigate('AiAssistantN8n', { agentId: id, title: item.agentName ?? item.name })
-  }
-  /** 我的AI员工(对齐 Uniapp MyAgents.vue goToTeam → /pages/tools/ai_group/index) */
-  const handleTeamPress = (): void => {
-    rootNav?.navigate('AiGroup')
-  }
-  /** 智汇值卡充值(对齐 Uniapp Intelligent-assistant.vue topupClick → /pagesA/top-up/index) */
-  const handleRechargePress = (): void => {
-    if (!user) {
-      rootNav?.navigate('Login')
-      return
-    }
-    rootNav?.navigate('AppTopup')
-  }
-
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
   const bannerItems: CarouselItem[] = useMemo(
     () =>
@@ -1567,79 +1510,6 @@ export function HomeScreen() {
     setAssistantShareVisible(true)
   }, [])
 
-  // ── 商店主列表 AiModelCard 逐卡接线(2026-10-20:数据源 agentItems,收藏接真后端) ──
-
-  /** 智能体卡收藏/取消收藏(resourceType='agent',乐观更新 agentItems,失败回滚) */
-  const handleAgentCardFavorite = useCallback(
-    async (data: AiModelData) => {
-      const agentId = String(data.id ?? '')
-      if (!agentId) return
-      if (!token) {
-        showToast('info', t('home.loginToFavorite'))
-        return
-      }
-      const current = agentItems.find((a) => a.id === agentId)
-      const nextFavorited = !current?.isCollect
-      // 乐观更新
-      setAgentItems((prev) =>
-        prev.map((a) => (a.id === agentId ? { ...a, isCollect: nextFavorited } : a)),
-      )
-      try {
-        const res = nextFavorited
-          ? await addFavorite('agent', agentId)
-          : await deleteFavorite('agent', agentId)
-        if (res.success) {
-          showToast(
-            nextFavorited ? 'success' : 'info',
-            nextFavorited ? t('home.favDone') : t('home.favRemoved'),
-          )
-        } else {
-          // 失败回滚
-          setAgentItems((prev) =>
-            prev.map((a) => (a.id === agentId ? { ...a, isCollect: !nextFavorited } : a)),
-          )
-          showToast('error', res.error || t('home.favFailed'))
-        }
-      } catch {
-        setAgentItems((prev) =>
-          prev.map((a) => (a.id === agentId ? { ...a, isCollect: !nextFavorited } : a)),
-        )
-        showToast('error', t('home.favNetBusy'))
-      }
-    },
-    [token, agentItems, showToast, t],
-  )
-
-  /** 智能体卡点击 → AiAssistantN8n 对话页(对齐 handleSkillAgentPress) */
-  const handleAgentCardPress = useCallback(
-    (data: AiModelData) => {
-      const agentId = String(data.id ?? '')
-      if (!agentId) return
-      rootNav?.navigate('AiAssistantN8n', { agentId, title: data.name })
-    },
-    [rootNav],
-  )
-
-  /** 智能体卡信息:展示该智能体简介 */
-  const handleAgentCardInfo = useCallback(
-    (data: AiModelData) => {
-      showToast('info', String(data.subname || data.name))
-    },
-    [showToast],
-  )
-
-  /** 智能体卡分享 → ShareSheet(标题随卡片) */
-  const handleAgentCardShare = useCallback(
-    (data: AiModelData) => {
-      setCardShareTarget({
-        title: t('home.shareBoardTitle', { name: data.name }),
-        description: String(data.subname || ''),
-      })
-      setAssistantShareVisible(true)
-    },
-    [t],
-  )
-
   /** FunctionBlockColumn 点击路由映射 */
   const onFunctionBlockPress = (id: string) => {
     switch (id) {
@@ -1690,12 +1560,6 @@ export function HomeScreen() {
 
   useEffect(() => {
     void load()
-    // 智汇值卡余额(对齐 Uniapp Intelligent-assistant.vue 展示用户智汇值;getTokenBalance)
-    void getTokenBalance()
-      .then((res) => {
-        if (res.success) setTokenQuantity(res.data.balance)
-      })
-      .catch(() => undefined)
     // 真实模型列表(fetchModels → /llm/models,与 web ModelSelector fetchSelectorModels 同源;
     // 按 provider 分组;category 透传 —— 弹窗分类 tab 过滤依赖它,缺失按 web normalizeCategory 兜底 chat。
     // description 显示代次档位(厂商名与分组标题重复,无信息量);组内按 latest→standard→legacy 排序)
@@ -1772,67 +1636,16 @@ export function HomeScreen() {
     }
   }, [])
 
-  /** 最近使用智能体(对齐 Uniapp getAgentUseHistory → /agents/use-history;
-   *  返回 botId 列表,并行查详情关联名称/头像;失败降级用 agentItems 前 5 条) */
-  const loadRecentAgents = useCallback(async (fallback: AgentShopItem[] = []): Promise<void> => {
-    try {
-      const res = await getAgentUseHistory({ page: 1, pageSize: 5 })
-      if (res.success && res.data.list.length > 0) {
-        const bots = res.data.list.slice(0, 5)
-        const details = await Promise.all(
-          bots.map((b) =>
-            getAgentDetail(b.botId).then(
-              (d) => (d.success ? d.data : null),
-              () => null,
-            ),
-          ),
-        )
-        const items: RecentAgentItem[] = details
-          .filter((d): d is Agent => d !== null)
-          .map((d) => ({ id: d.agentId, name: d.name, avatar: d.avatar ?? undefined }))
-        if (items.length > 0) {
-          setRecentAgents(items)
-          return
-        }
-      }
-    } catch {
-      // 接口失败走降级
-    }
-    setRecentAgents(fallback.slice(0, 5).map((a) => ({ id: a.id, name: a.name, avatar: a.avatar })))
-  }, [])
-
-  // ── 智能体列表加载(对齐 Uniapp tools/index getAgentList;2026-10-20 用户定:首页不做分类筛选) ──
+  // ── 智能体列表加载(仅供输入区「技能」弹窗;首页不再渲染商品列表,AI 应用商店页承载) ──
   const loadAgentList = useCallback(async (): Promise<void> => {
     const res = await getAgents({
       status: 'published',
       pageSize: 20,
     })
     if (res.success) {
-      const list = (res.data.list ?? []).map(toAgentShopItem)
-      // 收藏态回读(2026-10-20:后端 agents 列表不回传 isFavorited,
-      // 用 GET /favorites 里 resourceType='agent' 的 resourceId 集合回填 isCollect,
-      // 保证刷新后书签高亮与后端一致;回读失败不阻塞列表。
-      // pageSize 上限 100(后端 ajv/Zod 双层 max 100,传 200 直接 400 被吞成全部未收藏))
-      try {
-        const favRes = await getFavorites({ page: 1, pageSize: 100 })
-        if (favRes.success) {
-          const favIds = new Set(
-            (favRes.data.list ?? [])
-              .filter((f) => f.resourceType === 'agent')
-              .map((f) => f.resourceId),
-          )
-          for (const item of list) item.isCollect = favIds.has(item.id)
-        }
-      } catch {
-        // 收藏态回读失败走缺省未收藏
-      }
-      setAgentItems(list)
-      setMyAgents(
-        list.slice(0, 6).map((a) => ({ agentId: a.id, agentName: a.name, avatar: a.avatar })),
-      )
-      void loadRecentAgents(list)
+      setAgentItems((res.data.list ?? []).map(toAgentShopItem))
     }
-  }, [loadRecentAgents])
+  }, [])
 
   useEffect(() => {
     void loadAgentList()
@@ -1845,11 +1658,6 @@ export function HomeScreen() {
     [agentItems],
   )
 
-  /** 商店主列表 AiModelCard 数据(2026-10-20:后端 agents → 多卡渲染,见 MyAgents 后区块) */
-  const agentModelData: AiModelData[] = useMemo(
-    () => agentItems.map(toAgentModelData),
-    [agentItems],
-  )
   /** 技能弹窗智能体点击(对齐 Uniapp handleAgentPitch → ai_assistant 对话页;跳转后关闭弹窗) */
   const handleSkillAgentPress = useCallback(
     (id: string): void => {
@@ -1940,46 +1748,8 @@ export function HomeScreen() {
             onSharePress={handleAssistantShare}
           />
         </View>
-        {/* RecentAgents 最近使用智能体(对齐 Uniapp tools/index RecentAgents)
-         *  数据源:无 getAgentUseHistory 接口,降级取智能体列表前 5 条(loadAgentList 内更新);
-         *  点击跳 AiAssistant(对齐 Uniapp pitchHandlea → /pages/tools/ai_assistant) */}
-        {recentAgents.length > 0 ? (
-          <View style={shellStyles.sectionWrap}>
-            <RecentAgents items={recentAgents} onItemClick={handleRecentAgentPress} />
-          </View>
-        ) : null}
-        {/* IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue:小方欢迎卡 + 剩余智汇值 + 充值) */}
-        <View style={shellStyles.sectionWrap}>
-          <IntelligentAssistant tokenQuantity={tokenQuantity} onRecharge={handleRechargePress} />
-        </View>
-        {/* MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue:标题 + 我的AI员工入口 + 横滑卡片)
-         *  数据源:与 ai-list 同源取前 6 条;点击跳 AiAssistantN8n */}
-        <View style={shellStyles.sectionWrap}>
-          <MyAgents
-            items={myAgents}
-            onItemClick={handleMyAgentPress}
-            onTeamPress={handleTeamPress}
-          />
-        </View>
-        {/* 商店主列表(对齐 Uniapp tools/index ai-list 主体;2026-10-20 改用 AiModelCard
-         *  按后端 agents 渲染多卡:点击开聊/收藏接真后端/警告跳反馈/分享随卡) */}
-        {agentModelData.length > 0 ? (
-          <View style={shellStyles.sectionWrap}>
-            {agentModelData.map((d) => (
-              <AiModelCard
-                key={String(d.id)}
-                data={d}
-                favorited={agentItems.find((a) => a.id === d.id)?.isCollect}
-                onPress={handleAgentCardPress}
-                onWarningPress={handleAssistantWarning}
-                onDislikePress={handleAssistantDislike}
-                onFavoritePress={handleAgentCardFavorite}
-                onInfoPress={handleAgentCardInfo}
-                onSharePress={handleAgentCardShare}
-              />
-            ))}
-          </View>
-        ) : null}
+        {/* 最近使用 / 智汇值卡 / 我的AI APP / 智能体商品列表 只在「AI 应用商店」Tab 呈现,
+         *  首页不重复(2026-10-29 机主定) */}
         <SharedHomeScreen
           t={t}
           userNickname={user?.nickname || user?.phone || ''}
