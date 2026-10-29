@@ -2171,27 +2171,6 @@ IHUI-AI はひとつの製品ではなく、**オープンソースインフラ*
 
 ---
 
-## アカウント・キープアライブ・センター(2026-10-26 追加 — 無関係だった二本の生存確認を一つの答えに)
-
-公開ラインの Cookie 探活(`services/publish/cookie_refresh_daemon.py`)と AI プラットフォームのチェックイン資格情報(`services/checkin_scheduler.py`)は、これまで別々のスイッチ・別々の集計・別々の失敗表現を持っていたため、「このアカウントはまだ生きているのか」に対して**システム全体で一つの答えがありませんでした**。本センター(`apps/ai-service/app/services/keepalive/`、HTTP 層は `apps/ai-service/app/routers/keepalive.py`)は、Cookie 探活・資格情報(api_key / oauth)の失効検出・チェックイン JWT の健全性(`exp` を読むだけで再署名はしない)を、一つのスケジュール、二つのテーブル、一つの健康度語彙、一つのアラート出口にまとめます。
-
-| エンドポイント | メソッド | 何に答えるか |
-| -------------- | -------- | ------------ |
-| `/api/keepalive/status` | GET | 自己診断:本当に有効か(理由・スケジューラの生存・前回の要約・探針一覧)。設定を読んで推測しない |
-| `/api/keepalive/overview` | GET | 健康度の総覧:四段階の件数・来源別・要対応・期限間近・直近 7 日の成功率・有効な設定 |
-| `/api/keepalive/accounts` | GET | アカウント別明細。`?source=` と `?health=` で絞り込み可 |
-| `/api/keepalive/events` | GET | 探活の履歴。`?ref=` と `?only_failures=true` で絞り込み可。`limit` は既定 50、上限 500 |
-| `/api/keepalive/stats` | GET | `?days=`(1..90、既定 7)の来源別 ok / 失敗 / 合計 / 成功率 |
-| `/api/keepalive/run` | POST | 1 ラウンドをバックグラウンドで起動して即返す。`?ref=<source>:<id>` で単一アカウント、`?force=true` でバックオフを無視 |
-
-- **健康度の四段階**は一箇所(`policy.health_of`)だけで判定します。直近の失敗が `expired`、期限切れ、連続失敗が `ALERT_AFTER_FAILURES` 以上なら `critical`。連続失敗あり、期限警告ウィンドウ内、失敗しか観測していないなら `warning`。それ以外は `healthy`。成功も失敗も未記録なら `unknown`。**クライアント側で再計算してはいけません**。
-- **失敗の語彙**:`ok` / `expired` / `network` / `error` / `unsupported` / `skipped` の六種で、正規化は一つの入口(`classify_message`)だけ。復号できない暗号文(`InvalidTag`、鍵不一致)は必ず `expired` — 何度再試行しても同じ誤りで、録り直ししか救いません。`unsupported`(そもそも生存確認が不要)は成功にも失敗にも数えず `failed` に入れません。そうしないと「本来不要なもの」が本当の赤を覆い隠します。バックオフは `base × 2^(n-1)` を `RETRY_CAP_SECONDS` で頭打ち、再試行は `RETRY_MAX` 回まで。成功したら連続失敗・警告印・アラート印をまとめて消します。
-- **アラート出口**:サイト全体の `notifications` テーブル。**1 ラウンドにつき所有者ごとに 1 件へ集約**(19 件同時に期限切れでも 19 通は送らない — 送ると通知を切られて本当の異常が見えなくなる)。`probe-user` のような非 uuid の所有者は捨てて計数します(1 件の不正 owner でバッチ INSERT 全体が落ちるため)。テーブルが無い場合は warning を出して飛ばし、届いたふりはしません。`KEEPALIVE_ALERT_WEBHOOK` で追加送信も可。全体は fail-open で、通知の失敗がキープアライブを止めることはありません。
-- **スイッチ**:`KEEPALIVE_ENABLED`。未設定時は `COOKIE_REFRESH_ENABLED` / `CHECKIN_CRON_ENABLED` から継承。`resolve_config()` は毎ラウンド再解決するので、`.env` の変更は再起動なしで次ラウンドから効きます。主な既定値:`INTERVAL_HOURS`=6、`RETRY_MAX`=3、`RETRY_BASE_SECONDS`=300、`RETRY_CAP_SECONDS`=21600、`ALERT_AFTER_FAILURES`=3、`ALERT_REPEAT_HOURS`=24、`EXPIRE_WARN_DAYS`=3、`ALERT_INAPP`=true、`PROBE_CONCURRENCY`=4、`EVENT_RETENTION_DAYS`=90。
-- **境界**:判定するのは資格情報の生存だけ。投稿は公開スケジューラ、日次チェックインは `checkin_scheduler` の担当のままです(代行すると同一アカウントに二つの書き手が同時に触れます)。フロントは `apps/web/src/components/publish/KeepaliveCenterPanel.tsx`(`/publish/accounts`)、クライアント側のラッパーは `packages/api-client/src/endpoints/keepalive.ts`。
-
----
-
 ## License
 
 [Apache License 2.0](LICENSE) — 自由な使用、改変、配布、商用利用が可能で、伝染性はありません。
@@ -2219,82 +2198,71 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-29**
-- 🐞 修正:补回 playwright.stream-lifecycle.config.ts 的溯源载荷 —— HEAD 面欠账清零 (9960c239c4)
-- 🚀 機能/改善:分诊留账补齐 + --status 分桶读数 —— registered 面此前只打印不落账,导致三次矛盾归因都无从判死 (49b1a67a8e)
-- 📚 ドキュメント:§1 侧车出口措辞跟上现实 —— 归属改判的声明式出口入册(票 O68 结清批) (5d6cc2d558)
-- 🔧 その他:结清 O68 侧车改判出口 —— plan-fields-reclassify.mjs 已交付(声明档逐条给 before/after 桶 + why,复用 dispositionOfV2 复算,11 例镜像测试),O02 已改判并吃出派单面 (0faf680919)
+- 🐞 修正:复洁器补"未勾形态被加表头改写后回潮"这一维 —— 四道维此前结构上全够不着 (37de95181b5)
+- 🔧 その他:同步本地未提交改动——新增 keepalive REST router 与 Python SDK，收紧键盘快捷键类型，清理 G-44 监控腿冗余，README 数据更新 (b41b9fdce8c)
 
 **2026-10-29**
-- 📚 ドキュメント:需求发现器第三源生产者已落并更正票面 —— export-user-feedback 自检 10/10、guardian 已派发,旧注记『仓内无生产者』过期 (fd426cdb34)
-- 🐞 修正:补上 plan-fields-extract --reclassify 旧腿的禁桶守卫 —— 它此前是 F11/F12 的后门 (f9ecc8879b)
-- 📚 ドキュメント:凭据交付面空键读数更正 —— 实测 48 空键,真需供值约 20 枚(其余设计默认或代码自生成),票面 35/74/79 三个旧读数过期 (aa53c46743)
+- 🐞 修正:预算基线换成同 command 同 pass 态的实测值 147067ms —— 旧基线把两步判红的时间算进来了 (702d476c8d5)
 
 **2026-10-29**
-- 🚀 機能/改善:补 pnpm check:public-exposure 入口 —— G-329 ④ 的 pnpm 面此前只有 node 直调,门已接线而脚本位缺失 (f85e1f55de)
-- 🔧 その他:结清 G-329 与 O66 + G-957 卡点定位更正 (5016a01222)
-- 📚 ドキュメント:体积清偿第 29 日批 —— §5c 一条改判留痕整段逐字迁 archive,净省 944 字节回到预算内 (535029dfea)
+- 🐞 修正:补回被 45dd89e4e45 吞掉的 pnpm check:all:120 —— 预算档此前根本没有可执行的出路 (d92a968ec68)
 
 **2026-10-29**
-- 🔧 その他:撤回 32 枚桶收窄实验,只留两处经全仓 tsc 验证的收窄 —— 中途造出过一次真断链 (65cc33c418)
+- 🐞 修正:GitHub App webhook 豁免 sqli-guard —— 实测 59 条 400 正在把提供方投递判死 (d1e739d9fc0)
 
 **2026-10-29**
-- 🔧 その他:更正提交——重删退役归档器四件(上一枚 ba51496b4bf 落地后被收编器从工作树写回) (d47ff00d63)
+- 📚 ドキュメント:登记一张可派单票 —— App 内更新卡取不到安卓包(app_versions 无 latest 安卓行) (c4dd4ae894a)
+- 🐞 修正:回收站存续腿补上第三格 —— 删除弹「回收站」错误框的真因是 SID 目录上的显式 Deny (329073ee006)
+- 📚 ドキュメント:登记两张可派单票(Y 族第三、四枚) —— api 公网腿 p95 8.3 秒 与 webhook 对 CI 事件返 400/500 (8d46643e473)
 
 **2026-10-29**
-- 🔧 その他:删除退役归档器四件 + 修正 AGENTS.md 归档读数(「完成即删」收口第二枚) (ba51496b4b)
+- 🐞 修正:下载按钮不得被 GitHub nightly 资产劫持 —— 现读线上按钮指向 releases/download/nightly-40425910619/ihui-ai-latest.apk (dbf1d8ac4a7)
 
 **2026-10-29**
-- 🔧 その他:Z-1 归属标头前置 + 立 O68 侧车改判缺票 (6dd09343d0)
-- 📚 ドキュメント:再撤一次回潮的 Z-1 号池票 —— 前者按"严格模式"回落被拒,后者才是可达终态;本票前提已被正牌探针证伪 (96ddd2341d)
-- 🔧 その他:结清两条过期票 + O02 改归机主真机面 + 收编他席六条登记 (90bd9fcc8c)
-- 🐞 修正:BackChevron 壳补回 default 导出 —— 接线锁 ③ 在 HEAD 面 1/12 红(壳契约要求双导出),具名导出保留不破现有消费方 (bbf6cf1248)
-- 🐞 修正:BackChevron 壳补回 default 导出 —— 接线锁 ③ 在 HEAD 面 1/12 红(壳契约要求双导出),具名导出保留不破现有消费方 (51d8aca1e3)
-- 🚀 機能/改善:O02④ BottomActionBar 补 ⑧ 落屏 px 现算相等维 —— 档名在、单位/倍数折错时门 128 与 ⑥ 双盲,只有算式求值能发现 (73f25dcc07)
+- 🐞 修正:门 98 D7 的排除格改成"点名不静默" —— 展开式命名空间不判,但必须登记未判定 (0105cb2b0ad)
+- 🐞 修正:web 蓝绿换色自 03:03 起每轮静默蒸发 —— 健康探测读满 4096 就掐流,Promise 永悬后 Node 静默 exit 0 (2dd65414250)
 
 **2026-10-29**
-- 🔧 その他:回退取号池 99→999 —— 配套面超出可安全范围,不在仓里留红 (963c5655da)
-- 🐞 修正:门 251 全量档改判 HEAD blob 并换成绝对判据 —— 共享树下"未判定"与"永远判不出红"两型一起收 (0b327e41b8)
-- 🐞 修正:ihui-api-bluegreen.ps1 补 3 字节 UTF-8 BOM —— 门 251 的 HEAD 面存量清零 (3ae446470e)
-- 🚀 機能/改善:门 10 补 [F] 同批性点名 —— 改路由没带产物这件事在提交链上原本结构看不见 (453b21908a)
-- 🐞 修正:提现 2FA 闸补桩 + Trae 导入丢模板真缺陷 + workbuddy 本机登录测试按统一脚本契约重写 (4f969cd751)
-- 🚀 機能/改善:声明式退场档 --retire-intent —— 解自写面/正文命中两族的退场死锁,并清退 66 枚存量孤儿记录 (67cba57784)
+- 🐞 修正:门 98 D7 自身崩整道门 —— test 走原文、exec 走遮噪面,注释里的形状让 m 为 null (4a695e663a8)
 
 **2026-10-29**
-- 🐞 修正:取号池 99 → 999 —— 两位数池已被引用面占满,三族令牌全灭;附夹具钉死口径 (816efd2412)
+- 🔧 その他:侧车补两条归属记录 —— 把 O68/Z-1 从"靠散文报数"搬进机读面(抽取器唯一出口) (81a2f9872dc)
+- 🚀 機能/改善:守门 98 加 D7 维 —— 动态 import 拼出来的扁平命名空间,成员悬空此前三层全盲 (c65caf91e1c)
+- 🐞 修正:workbuddy「一键切号」写回端此前是死路 —— 扁平命名空间里 5 个成员在 lib 根本不存在 (d5b136ee427)
 
 **2026-10-29**
-- 🔧 その他:重派 ui-routes 产物钉 —— 门 105 报该产物落后于源(inputsSha256 9e64b0931a4d 对不上 HEAD 现算 a173057346f0) (ee34fad3b0)
+- 🔧 その他:写回 apps/web 端派生钉 —— 收编器把别席路由源改动带进 HEAD 时没跑钩子,G5 在干净 HEAD 上红 (c02aaffcab1)
 
 **2026-10-29**
-- 🐞 修正:OpenAPI Check 不再取消在飞 —— 与 knip.yml 同口径改 cancel-in-progress=false (23db1e6984)
-- 🔧 その他:写回本批面板改动的派生钉 —— apps/web 端 12 行(旁路落地不跑 pre-commit 登记表,故器点名手工补) 承接上一枚 f7c98f0f6f9:它改了 logs/models/account-pool/key-scheduling 四页并新增两枚组件,而 ui-routes 的写回档挂在 .husky/pre-commit 上、commit-tree 结构上不跑钩子 ⇒ 落地器当场照出"派生产物自述钉陈旧(G5)"并给出唯一出路 --heal-ui-routes --staged。现读:四端产物 4 份,已写回 1(apps/web 钉 4b07656ad085→b8648e74f9a6,行级变更 12)/ 拒绝写回 0 / 无需写回 3。 (1c6002cbbd)
-- 🐞 修正:W4 接进提交链——终结型钩子的同步形态会把下游整条链静默冻住 (eb7c91a3c4)
-- 🐞 修正:重封根护栏 —— 门 259 补回后的新内容(73da356c6774) (4333adf163)
-- 🐞 修正:补回被 chore(auto) 收编写回旧基线吞掉的门 259 + 重封根护栏 (99ea9d6c8d)
-- 🐞 修正:恢复被旧基线写回的末屏停留结算 + web 图标按钮 aria 兜底 (090f52d1d0)
+- 🐞 修正:回收站清理装载器补「写走 schtasks/XML + 读走 COM」回落腿 —— 本机 5.1 系统模块目录已不存在,只认 cmdlet 的装载器结构上装不上任务 (72092781dd6)
+- 📚 ドキュメント:APK 分发地址三处遗留出口归一 —— 出包链已改站点 CDN 腿,文档与部署机模板不得再指向 public/apk (0e2e3c81c35)
 
 **2026-10-29**
-- 🐞 修正:契约产物再跟上路由面（净检出 @ee248c585f 重生成）—— CI OpenAPI Check 复红收口 (d76b7ad820)
-- 🚀 機能/改善:号池面板与运维可见性收口 —— 策略档只读卡片 / 日志详情抽屉 / 模型名复制 / 续期能力位标注 / 探针装车 / 非 git 夹具修复 (f7c98f0f6f)
+- 🐞 修正:G16 汇总有未判定腿时不得写成 ok —— 用词改 partial 并自证覆盖面 (a22b2f25ae8)
 
 **2026-10-29**
-- 🐞 修正:复洁器维五补上"旁路落地型"那一格 —— 滞后副本现场两步判据同时失效,R4⑨ 已第三次回潮 (ee248c585f)
-- 📚 ドキュメント:补门 89 R4 —— 给已装车的 AASA 哨兵在 AGENTS.md 点名(与体积清偿同批收口) (7c74403489)
-- 🐞 修正:prebuild 重打 gradle 内存档 —— 512m 元空间实测 OOM 打死 daemon (da077b5d8b)
-- 📚 ドキュメント:门 207 体积清偿 —— 两组"多条合一条",96899→95398(省 1501,预算 96000) (6a903bb87d)
-- 🐞 修正:并发守卫的 onResponse 钩子是同步形态——它把线上整条响应链静默冻住 (5e9ea10ba7)
-- 📚 ドキュメント:撤销 Z-1 号池票 —— 同步远端裁决 d788019208d,本侧滞后副本摘行 (4b795c62ca)
-- 🔧 その他:登记 EX-C1-3 挂住 api-client 单文件行上限的 6 行越限 —— 拆分前置与到期追责写死 (10c2708882)
-- 🐞 修正:重封根护栏 —— 守门 259 装车后未重封,部署环 00:35:47 fail-closed (ade8233ceb)
-- 🐞 修正:2FA step-up 同族补两处漏接 —— agent 提现申请、创建 Key 分享(一次性出 shareToken) (b8b3fc6c7e)
-- 🐞 修正:web 蓝绿接线入库 —— 生产签出本地实现回收进 main(根治 O68 切流空窗) (dfc9b905b5)
+- 🐞 修正:根治"重启后 web 入口不自启"三层缺口,并补完上一轮被额度掐断的 env 形态尺子 (8e9e0f53e18)
+- 🐞 修正:根治"重启后 web 入口不自启"三层缺口,并补完上一轮被额度掐断的 env 形态尺子 (3dee3fe7540)
 
 **2026-10-29**
-- 📚 ドキュメント:Z-1 行形态修正 + 声明式改桶 actionable→owned-elsewhere —— 编号与题面之间不夹标头,复合主键才取得出 (dfca68aa11)
+- 📚 ドキュメント:GitHub 回调腿位不变量写进入口路由头注 —— 裸域/www 经 web 蓝绿 router,换流瞬间对本入口连发 ECONNRESET(2026-10-28 19:47-21:23Z 实测 svc-web-router.log 10 条),GitHub 侧读成 522/超时并 1-3 分钟一次重试;api 腿由 IHUI-API-ROUTER 单点接管、换流不断流。仓内无任何脚本写这个 url,故把不变量钉在下一个改址的人一定会读到的位置,并写明"取现值/用真实事件核对投递腿"两个动作。 (bd66dab8579)
+- 🔧 その他:复结 Z-1 号池饱和票并摘除回捞带回的两份形态 —— 上枚 d5be75da91 摘后被并发席的守门 71 回捞腿按未勾旧形态补回(两份形态与留痕 rowBefore 不同字 ⇒ declaredExempt 认不出,故按当下逐字重入账再摘);凭据不变:出路三开新字母族已实测 Z 族令牌可发,出路二放宽扫描面被取号器判据源明文禁止,出路一扩池属既有拍板 (a23a42a3fb5)
 
 **2026-10-29**
-- 📚 ドキュメント:登记取号池饱和票(Z-1) —— 顺带用新字母族验证"开新族"这条出路的可行性 (149f6c17a8)
-- 🐞 修正:两端 ui-routes 产物按 HEAD 面重派 —— 门 105 的 G5 自述钉由 stale 转 matched (85e15a629c)
+- 🚀 機能/改善:APK 固定地址改走站点 CDN 腿并加 no-cache 302 指针 —— CF 橙云腿实测只剩 3-6KB/s (8afd5986ca2)
+- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5f85b6a6639)
+- 🔧 その他:补 G-86 仓内侧装车证明 —— WebSocket 有界重连、SSE 降级兜底、可见失败终态与终态唯一性四条臂十例真跑绿;变异取证三条(摘上限判断七红、摘兜底腿五红、摘终态门仅终态唯一性一红)均还原并 sha 复验回基线;测试根因是工厂构造写在 render 回调内致每轮新标识符拆建 effect,与真实消费方 helpers.ts 模块级单次构造相反,已全部外提 (a0693d9feb6)
+- 🐞 修正:把 O93 号池选号八钮登记进 .env.example —— CI Test 步唯一红的根因是模板没登记 (2b415a4e5ff)
+- 🐞 修正:补回 playwright.stream-lifecycle.config.ts 的溯源载荷 —— HEAD 面欠账清零 (9960c239c4d)
+- 🚀 機能/改善:分诊留账补齐 + --status 分桶读数 —— registered 面此前只打印不落账,导致三次矛盾归因都无从判死 (49b1a67a8eb)
+- 📚 ドキュメント:§1 侧车出口措辞跟上现实 —— 归属改判的声明式出口入册(票 O68 结清批) (5d6cc2d5582)
+- 🔧 その他:结清 O68 侧车改判出口 —— plan-fields-reclassify.mjs 已交付(声明档逐条给 before/after 桶 + why,复用 dispositionOfV2 复算,11 例镜像测试),O02 已改判并吃出派单面 (0faf6809192)
+- 📚 ドキュメント:需求发现器第三源生产者已落并更正票面 —— export-user-feedback 自检 10/10、guardian 已派发,旧注记『仓内无生产者』过期 (fd426cdb345)
+- 🐞 修正:补上 plan-fields-extract --reclassify 旧腿的禁桶守卫 —— 它此前是 F11/F12 的后门 (f9ecc8879b6)
+- 📚 ドキュメント:凭据交付面空键读数更正 —— 实测 48 空键,真需供值约 20 枚(其余设计默认或代码自生成),票面 35/74/79 三个旧读数过期 (aa53c467432)
+- 🚀 機能/改善:补 pnpm check:public-exposure 入口 —— G-329 ④ 的 pnpm 面此前只有 node 直调,门已接线而脚本位缺失 (f85e1f55dee)
+- 🔧 その他:结清 G-329 与 O66 + G-957 卡点定位更正 (5016a012223)
+- 📚 ドキュメント:体积清偿第 29 日批 —— §5c 一条改判留痕整段逐字迁 archive,净省 944 字节回到预算内 (535029dfeaf)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

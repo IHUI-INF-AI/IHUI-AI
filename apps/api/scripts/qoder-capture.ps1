@@ -1,4 +1,4 @@
-﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 #requires -Version 7
@@ -41,23 +41,11 @@ function ConvertTo-IsoUtc($v) {
 }
 
 # ── 1. Qoder 数据目录(mtime 新→旧;国际版 com.qoder.app.* / 国内版 com.qodercn.app.*)──
-# 2026-10-27 补:进程不是登录用户账户(服务/沙箱会话)时 $env:APPDATA 指向别处,
-# 兜底扫本机各用户 profile 的 AppData\Roaming(与 trae-auth-extract 同款);目录按 FullName 去重。
-# IHUI_QODER_SCAN_USERS=0 可关。
 $base = $env:APPDATA
 if (-not $base) { Write-Error 'APPDATA 未设置(非 Windows 交互会话?)'; exit 2 }
-$bases = New-Object System.Collections.ArrayList
-[void]$bases.Add($base)
-if ($env:IHUI_QODER_SCAN_USERS -ne '0' -and (Test-Path 'C:\Users')) {
-    Get-ChildItem -Path 'C:\Users' -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-        $p = Join-Path $_.FullName 'AppData\Roaming'
-        if (Test-Path $p) { [void]$bases.Add($p) }
-    }
-}
-$dirs = $bases | Select-Object -Unique | ForEach-Object {
-    Get-ChildItem -Path $_ -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -like 'com.qoder.app.*' -or $_.Name -like 'com.qodercn.app.*' }
-} | Sort-Object LastWriteTime -Descending
+$dirs = Get-ChildItem -Path $base -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like 'com.qoder.app.*' -or $_.Name -like 'com.qodercn.app.*' } |
+    Sort-Object LastWriteTime -Descending
 if (-not $dirs) { Write-Error "未找到 Qoder 数据目录($base 下 com.qoder[cn].app.*);请先在本机登录 Qoder 客户端"; exit 2 }
 
 $sessions = New-Object System.Collections.ArrayList
@@ -187,6 +175,8 @@ foreach ($dir in $dirs) {
     [void]$sessions.Add([ordered]@{
         appDir                = $dir.FullName
         edition               = $edition
+        # 会话原文(含凭证):供「登录本机」重封 auth.v1.dat 用;提取器会剔凭证后存成 sessionTemplate
+        rawSession            = $session
         uid                   = $uid
         accessToken           = $token
         refreshToken          = "$($session.refreshToken)".Trim()
@@ -205,7 +195,7 @@ foreach ($dir in $dirs) {
 }
 
 if ($sessions.Count -eq 0) { Write-Error '未解出任何 Qoder 会话(登录态缺失或全部解密失败)'; exit 1 }
-$json = @{ sessions = @($sessions) } | ConvertTo-Json -Depth 6
+$json = @{ sessions = @($sessions) } | ConvertTo-Json -Depth 20
 if ($OutFile) {
     $json | Out-File -FilePath $OutFile -Encoding utf8NoBOM
     Write-Output "SAVED=$OutFile"
