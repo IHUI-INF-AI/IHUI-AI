@@ -1,0 +1,18 @@
+{
+  // scripts 面单独成档:主 tsconfig 的 rootDir=./src 同时服务 build(要往 dist 吐文件),
+  // 把 scripts 收进它的 include 会让 tsc 报 TS6059。本档 noEmit,只作 typecheck 的第二条腿。
+  // 立因(2026-10-29):一次合并把重复 const 留在 apps/api/scripts/ 里,src 射程外的这枚
+  // 破损穿过了全部守门,把两条号池回灌腿静默炸死一整天。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "..",
+    "incremental": true,
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/apps-api-scripts.tsbuildinfo",
+    "declaration": false,
+    "sourceMap": false,
+    "types": ["node"]
+  },
+  "include": ["scripts/**/*.ts", "src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests"]
+}

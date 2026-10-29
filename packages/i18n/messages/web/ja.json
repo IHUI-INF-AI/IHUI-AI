@@ -20291,6 +20291,7 @@
     "loginRequired": "ログインしてアカウントプールを管理"
   },
   "nav": {
+    "pdfTools": "PDF ツール",
     "accountPool": "マイアカウントプール",
     "checkin": "チェックイン",
     "monitorWallboard": "監視ウォールボード",

@@ -22,7 +22,7 @@ import { listQoderModels } from '../src/services/upstream-adapters/qoder-models.
 
 // 带值旗标取值口径(G-322):紧邻 token 必须非空且不以 `-` 开头(与
 // relay-workbuddy-models.ts 的本地副本逐字同源,语义变更须两处同改)。
-function isFlagValueToken(token: unknown): boolean {
+function isFlagValueToken(token: unknown): token is string {
   return typeof token === 'string' && token !== '' && !token.startsWith('-')
 }
 

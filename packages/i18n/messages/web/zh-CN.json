@@ -20292,6 +20292,7 @@
     "loginRequired": "登录后管理你的个人号池"
   },
   "nav": {
+    "pdfTools": "PDF 工具",
     "accountPool": "个人号池",
     "checkin": "签到助手",
     "monitorWallboard": "监控大屏",

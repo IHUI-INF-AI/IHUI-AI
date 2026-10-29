@@ -39,6 +39,16 @@ _ALWAYS_PUBLIC: tuple[str, ...] = ("/.well-known/agent.json", "/.well-known/agen
 # router 根:该前缀下的任何条目(含精确到端点的写法)都不允许匿名可达
 _NEVER_PUBLIC_ROOTS: tuple[str, ...] = ("/api/mcp", "/api/agents")
 
+# 精确到端点的永不公开名单(成本面 / 调度状态面)。
+# 立因(2026-10-29 实测):代码默认值已把这两条收回,但部署 .env 的
+# JWT_PUBLIC_PATHS 是**整串替换**而非增量,一份陈旧 .env 就把它们静默重开了 ——
+# trigger-refresh 匿名可触发 LLM 消耗,scheduler-status 匿名可读调度内部状态。
+# 与 router 根同档:配置里写了也剔除;确需公开须改本清单并走 code review。
+_NEVER_PUBLIC_EXACT: tuple[str, ...] = (
+    "/api/admin/news/trigger-refresh",
+    "/api/admin/news/scheduler-status",
+)
+
 # 会让整条鉴权链失效的兜底放行写法
 _CATCH_ALL_PUBLIC_ENTRIES: tuple[str, ...] = ("/", "/api", "/api/")
 
@@ -46,7 +56,7 @@ _CATCH_ALL_PUBLIC_ENTRIES: tuple[str, ...] = ("/", "/api", "/api/")
 def _is_never_public(entry: str) -> bool:
     """判定一条 JWT_PUBLIC_PATHS 配置是否必须剔除(入参是配置条目,不是请求路径)。"""
     normalized = entry.strip()
-    if normalized in _CATCH_ALL_PUBLIC_ENTRIES:
+    if normalized in _CATCH_ALL_PUBLIC_ENTRIES or normalized in _NEVER_PUBLIC_EXACT:
         return True
     return any(normalized == root or normalized.startswith(f"{root}/") for root in _NEVER_PUBLIC_ROOTS)
 
@@ -55,6 +65,8 @@ def _why_never_public(entry: str) -> str:
     normalized = entry.strip()
     if normalized in _CATCH_ALL_PUBLIC_ENTRIES:
         return "该条目会让全部 /api 路由匿名可达(等同于关闭鉴权中间件)"
+    if normalized in _NEVER_PUBLIC_EXACT:
+        return "该端点会消耗模型成本或泄露调度内部状态,不得匿名可达"
     return "所属 router 无端点级鉴权,匿名放行即等同于对外开放未授权执行面"
 
 
