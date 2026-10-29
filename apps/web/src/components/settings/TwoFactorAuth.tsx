@@ -29,6 +29,7 @@ type Step = 'status' | 'qr' | 'verify' | 'backup'
 
 export function TwoFactorAuth() {
   const t = useTranslations('settings')
+  const tc = useTranslations('common')
   const [step, setStep] = React.useState<Step>('status')
   const [enabled, setEnabled] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
@@ -36,6 +37,10 @@ export function TwoFactorAuth() {
   const [code, setCode] = React.useState('')
   const [error, setError] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
+  // 关闭两步验证需要密码二次确认(后端 body required: ['password'])。
+  // 原实现不带 body ⇒ 后端当场 400,用户点"关闭"永远关不掉,且提示写的是"验证码无效"。
+  const [confirmingDisable, setConfirmingDisable] = React.useState(false)
+  const [disablePassword, setDisablePassword] = React.useState('')
   const { copied, copy } = useClipboard()
   const [previewCode, setPreviewCode] = React.useState('')
 
@@ -118,17 +123,28 @@ export function TwoFactorAuth() {
   }
 
   const handleDisable = async () => {
+    if (!disablePassword) {
+      setError(t('pwdFieldsRequired'))
+      return
+    }
     setSubmitting(true)
+    setError(null)
     try {
-      const res = await fetchApi('/api/auth/2fa/disable', { method: 'POST' })
+      const res = await fetchApi('/api/auth/2fa/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: disablePassword }),
+      })
       if (!res.success) {
-        toast.error(res.error || t('twofa.codeInvalid'))
+        toast.error(res.error || t('twofa.disabled'))
         return
       }
       setEnabled(false)
       setStep('status')
+      setConfirmingDisable(false)
+      setDisablePassword('')
     } catch {
-      toast.error(t('twofa.codeInvalid'))
+      toast.error(t('twofa.disabled'))
     } finally {
       setSubmitting(false)
     }
@@ -175,9 +191,45 @@ export function TwoFactorAuth() {
               <span className="text-sm">{enabled ? t('twofa.enabled') : t('twofa.disabled')}</span>
             </div>
             {enabled ? (
-              <Button variant="outline" size="sm" disabled={submitting} onClick={handleDisable}>
-                {t('twofa.disable')}
-              </Button>
+              confirmingDisable ? (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="tfa-disable-pwd" className="sr-only">
+                    {t('oldPassword')}
+                  </Label>
+                  <Input
+                    id="tfa-disable-pwd"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder={t('oldPassword')}
+                    value={disablePassword}
+                    onChange={(e) => setDisablePassword(e.target.value)}
+                    className="w-40"
+                  />
+                  <Button size="sm" disabled={submitting} onClick={handleDisable}>
+                    {tc('confirm')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setConfirmingDisable(false)
+                      setDisablePassword('')
+                      setError(null)
+                    }}
+                  >
+                    {tc('cancel')}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={submitting}
+                  onClick={() => setConfirmingDisable(true)}
+                >
+                  {t('twofa.disable')}
+                </Button>
+              )
             ) : (
               <Button size="sm" disabled={submitting} onClick={startSetup}>
                 {t('twofa.enable')}

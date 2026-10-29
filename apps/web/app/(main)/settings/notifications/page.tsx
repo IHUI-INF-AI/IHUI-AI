@@ -88,7 +88,11 @@ export default function NotificationsPage() {
   }, [toast])
 
   const update = async (key: keyof NotificationPrefs, value: boolean) => {
+    // 乐观更新失败必须回滚:不回滚时开关停在新位置、只有一条 toast,
+    // 用户会以为已保存,刷新后又变回去。
+    const previous = prefs[key]
     setPrefs((prev) => ({ ...prev, [key]: value }))
+    const rollback = () => setPrefs((prev) => ({ ...prev, [key]: previous }))
     try {
       const res = await fetchApi('/settings/notifications', {
         method: 'PUT',
@@ -97,9 +101,11 @@ export default function NotificationsPage() {
       if (res.success) {
         setToast({ type: 'success', msg: t('notificationsSaveSuccess') })
       } else {
+        rollback()
         setToast({ type: 'error', msg: t('notificationsSaveFailed') })
       }
     } catch {
+      rollback()
       setToast({ type: 'error', msg: t('notificationsSaveFailed') })
     }
   }

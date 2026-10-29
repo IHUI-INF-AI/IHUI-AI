@@ -1039,7 +1039,6 @@
     "sectionSocial": "社交",
     "favorites": "我的收藏",
     "follow": "關注與粉絲",
-    "favorite": "我的收藏",
     "messageCenter": "訊息",
     "messageSystem": "系統訊息",
     "messageDirect": "私訊",
@@ -4310,7 +4309,7 @@
     "distributionWithdrawRecords": "分銷提現記錄",
     "pluginMarket": "插件市場",
     "skillsMarket": "技能市場",
-    "memoryManager": "記憶管理台",
+    "memoryManager": "記憶管理臺",
     "agentRules": "運行規則",
     "publishMonitor": "發佈監測",
     "dramaStudio": "短劇劇本",
@@ -5451,10 +5450,6 @@
     "favoritesCount": "收藏",
     "joined": "加入於"
   },
-  "courseSwiper": {
-    "tabHotIntro": "爆款入門課程",
-    "tabHotPick": "爆款精選課程"
-  },
   "llmSettings": {
     "title": "模型服務商",
     "empty": "還沒有配置服務商",
@@ -5818,12 +5813,6 @@
     "cycleUnitWeek": "周"
   },
   "news": {
-    "catAi": "人工智慧",
-    "catMl": "機器學習",
-    "catCv": "計算機視覺",
-    "catNlp": "自然語言",
-    "catChip": "AI 晶片",
-    "catRec": "智能推薦",
     "title": "AI資訊",
     "anonAuthor": "佚名",
     "netFail": "網路異常",

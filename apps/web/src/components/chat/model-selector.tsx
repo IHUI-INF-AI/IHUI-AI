@@ -674,10 +674,12 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
 
   React.useEffect(() => {
     if (!authedWithToken) {
-      // 登出/未登录:重置加载态与 API-only 标记(曾登录过的会话回到初始演示态,
-      // trigger 重新禁用,避免残留上一会话的 API 模型列表)
-      setLoading(true)
+      // 登出/未登录:回到初始演示态并**结束加载态**。原实现停在 loading=true ⇒ 按钮
+      // 永远转圈且点不开,访客连当前模型名都读不到,看起来像坏了。
+      // 重置为 seed 档即可满足"不残留上一会话的 API 模型列表",无需用 loading 代替禁用。
+      setOptions(createSeedOptions())
       setUseApiOnly(false)
+      setLoading(false)
       return
     }
     let cancelled = false

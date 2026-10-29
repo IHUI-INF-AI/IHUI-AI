@@ -56,6 +56,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -1320,7 +1321,16 @@ if (isDirectRun) {
   const argv = process.argv.slice(2)
   // --root 是给测试用的显式注入位(§22d + 守门 70 的教训:只改 cwd 会被判据忽略,
   // 于是"扫夹具"静默变成"扫真仓")。生产调用一律不带,语义不变。
-  const rootAt = argv.indexOf('--root')
+  // G-322 第二十一批:取值走 `lib/flag-value.mjs` 单源。旧写法 `path.resolve(argv[rootAt + 1] ?? '')` 有两格静默:
+  // ① `--root` 结尾无值 ⇒ `resolve('')` = **当前工作目录**,读起来像"审了调用方指定的那棵树",实测 RC
+  //    与不传完全一致(在仓根跑就是默认面 ⇒ 吞值这件事看不见);
+  // ② `--root --strict` ⇒ `resolve('--strict')` 交给 assertRepoRoot,冒成"git 二进制或该 root 不可达",
+  //    点名的是 git 而不是用户少打的那个值。判死排在 --self-test 之前(用法错先于任何档)。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error} ⇒ 未判定(不猜要审哪棵树)`)
+    process.exit(2)
+  }
   const code = argv.includes('--self-test')
     ? selfTest()
     : run({
@@ -1329,7 +1339,7 @@ if (isDirectRun) {
         json: argv.includes('--json'),
         strict: argv.includes('--strict'),
         updateBaseline: argv.includes('--update-baseline'),
-        root: rootAt >= 0 ? path.resolve(argv[rootAt + 1] ?? '') : undefined,
+        root: rootFlag.value ? path.resolve(rootFlag.value) : undefined,
       })
   process.exit(code)
 }
