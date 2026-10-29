@@ -10,7 +10,8 @@ import { useTranslations } from 'next-intl'
 import { Loader2, RefreshCw, Send } from 'lucide-react'
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
-import { BASE, api } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { BASE } from './helpers'
 import { LogPanel } from './LogPanel'
 import { SendPanel } from './SendPanel'
 import { StatusPanel } from './StatusPanel'
@@ -24,7 +25,7 @@ export default function SmsOperationsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0)
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['admin', 'sms-operations', 'status', refreshKey],
-    queryFn: () => api<SmsStatus>(`${BASE}/status${refreshKey > 0 ? '?refresh=1' : ''}`),
+    queryFn: () => apiOrThrow<SmsStatus>(`${BASE}/status${refreshKey > 0 ? '?refresh=1' : ''}`),
   })
 
   return (

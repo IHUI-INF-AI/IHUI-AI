@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * gen-tool-name-sets.mjs —— 工具名单「单一真相源 → Python 可读生成物」的唯一出口。
@@ -133,7 +134,9 @@ function stringRecord(text, name) {
   if (!m) return null
   const out = {}
   for (const line of m[1].split('\n')) {
-    const row = line.match(/^\s*(?:'([^']+)'|"([^"]+)"|([A-Za-z_$][\w$]*))\s*:\s*'([^']+)'\s*,?\s*$/)
+    const row = line.match(
+      /^\s*(?:'([^']+)'|"([^"]+)"|([A-Za-z_$][\w$]*))\s*:\s*'([^']+)'\s*,?\s*$/,
+    )
     if (!row) continue
     out[row[1] ?? row[2] ?? row[3]] = row[4]
   }
@@ -158,12 +161,30 @@ export function buildToolNameSets(texts) {
   const category = withoutComments(texts.toolCategory)
   const card = withoutComments(texts.summaryCard)
 
-  const fileWrite = need(setMembers(task, 'FILE_WRITE_TOOLS'), `FILE_WRITE_TOOLS(${SOURCES.taskStatus})`)
-  const pathArgKeys = need(stringList(task, 'PATH_ARG_KEYS'), `PATH_ARG_KEYS(${SOURCES.taskStatus})`)
-  const fileSearch = need(setMembers(card, 'FILE_SEARCH_TOOLS'), `FILE_SEARCH_TOOLS(${SOURCES.summaryCard})`)
-  const webSearch = need(setMembers(card, 'WEB_SEARCH_TOOLS'), `WEB_SEARCH_TOOLS(${SOURCES.summaryCard})`)
-  const fileModify = need(setMembers(card, 'FILE_MODIFY_TOOLS'), `FILE_MODIFY_TOOLS(${SOURCES.summaryCard})`)
-  const categoryByTool = need(stringRecord(category, 'EXACT_MAP'), `EXACT_MAP(${SOURCES.toolCategory})`)
+  const fileWrite = need(
+    setMembers(task, 'FILE_WRITE_TOOLS'),
+    `FILE_WRITE_TOOLS(${SOURCES.taskStatus})`,
+  )
+  const pathArgKeys = need(
+    stringList(task, 'PATH_ARG_KEYS'),
+    `PATH_ARG_KEYS(${SOURCES.taskStatus})`,
+  )
+  const fileSearch = need(
+    setMembers(card, 'FILE_SEARCH_TOOLS'),
+    `FILE_SEARCH_TOOLS(${SOURCES.summaryCard})`,
+  )
+  const webSearch = need(
+    setMembers(card, 'WEB_SEARCH_TOOLS'),
+    `WEB_SEARCH_TOOLS(${SOURCES.summaryCard})`,
+  )
+  const fileModify = need(
+    setMembers(card, 'FILE_MODIFY_TOOLS'),
+    `FILE_MODIFY_TOOLS(${SOURCES.summaryCard})`,
+  )
+  const categoryByTool = need(
+    stringRecord(category, 'EXACT_MAP'),
+    `EXACT_MAP(${SOURCES.toolCategory})`,
+  )
 
   if (missing.length) throw new Undetermined(`抽不出这些常量:${missing.join(', ')}`)
 
@@ -187,7 +208,8 @@ export function buildToolNameSets(texts) {
 
   return {
     _generatedBy: 'scripts/gen-tool-name-sets.mjs',
-    _doNotEdit: '本文件由生成器产出,手改会被 --check 判漂移。改名单请改 _origin 指向的 TS 真相源并重跑本脚本。',
+    _doNotEdit:
+      '本文件由生成器产出,手改会被 --check 判漂移。改名单请改 _origin 指向的 TS 真相源并重跑本脚本。',
     _origin: { ...ORIGIN },
     fileWrite: sorted(fileWrite),
     pathArgKeys: [...pathArgKeys],
@@ -226,7 +248,9 @@ export function diffToolNameSets(expected, actual) {
       const am = a ?? {}
       for (const name of new Set([...Object.keys(em), ...Object.keys(am)])) {
         if (em[name] !== am[name]) {
-          diffs.push(`categoryByTool[${name}]:生成器=${em[name] ?? '(缺)'} 磁盘=${am[name] ?? '(缺)'}`)
+          diffs.push(
+            `categoryByTool[${name}]:生成器=${em[name] ?? '(缺)'} 磁盘=${am[name] ?? '(缺)'}`,
+          )
         }
       }
       continue
@@ -238,14 +262,23 @@ export function diffToolNameSets(expected, actual) {
       const onlyA = [...as].filter((x) => !es.has(x))
       if (onlyE.length) diffs.push(`${k}:只存在于生成器侧 ${onlyE.join(', ')}`)
       if (onlyA.length) diffs.push(`${k}:只存在于磁盘生成物 ${onlyA.join(', ')}`)
-      if (!onlyE.length && !onlyA.length && Array.isArray(e) && Array.isArray(a) && e.length !== a.length) {
+      if (
+        !onlyE.length &&
+        !onlyA.length &&
+        Array.isArray(e) &&
+        Array.isArray(a) &&
+        e.length !== a.length
+      ) {
         diffs.push(`${k}:顺序不同(顺序对该项有语义)`)
       }
       continue
     }
     if (JSON.stringify(e) !== JSON.stringify(a)) {
       // 键序不是判据(stableStringify 落盘时已按键排序,内存里的对象按声明序)⇒ 比规范化后的字面。
-      if (stableStringify(e ?? null, 0).replace(/\s+/g, '') !== stableStringify(a ?? null, 0).replace(/\s+/g, '')) {
+      if (
+        stableStringify(e ?? null, 0).replace(/\s+/g, '') !==
+        stableStringify(a ?? null, 0).replace(/\s+/g, '')
+      ) {
         diffs.push(`${k}:生成器=${JSON.stringify(e)} 磁盘=${JSON.stringify(a)}`)
       }
     }
@@ -267,7 +300,9 @@ function readActual() {
   try {
     raw = readFileSync(abs, 'utf8')
   } catch (e) {
-    throw new Undetermined(`生成物读不到:${OUT_REL}(${e?.code ?? e?.message ?? e});先跑一次不带 --check 的生成`)
+    throw new Undetermined(
+      `生成物读不到:${OUT_REL}(${e?.code ?? e?.message ?? e});先跑一次不带 --check 的生成`,
+    )
   }
   try {
     return JSON.parse(raw)
@@ -367,3 +402,4 @@ export const __test__ = {
   readActual,
   Undetermined,
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

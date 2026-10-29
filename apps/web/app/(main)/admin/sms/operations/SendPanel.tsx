@@ -29,6 +29,7 @@ import {
 } from '@ihui/ui-react'
 import { Textarea } from '@/components/form'
 import { richAnchorRenderer } from '@/components/chat/rich-anchor-text'
+import { apiOrThrow } from '@/lib/api'
 import {
   BASE,
   CATEGORY_LABEL_KEYS,
@@ -37,7 +38,6 @@ import {
   PROVIDER_LABEL_KEYS,
   TEMPLATE_KEYS,
   TEMPLATE_LABEL_KEYS,
-  api,
   codeLabel,
   normalizePhoneInput,
   parseDryRun,
@@ -189,7 +189,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
 
   const sendMut = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
-      api<SmsSendResponse>(`${BASE}/send`, {
+      apiOrThrow<SmsSendResponse>(`${BASE}/send`, {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
@@ -201,7 +201,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
 
   const bcastMut = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
-      api<SmsBroadcastResponse>(`${BASE}/broadcast`, {
+      apiOrThrow<SmsBroadcastResponse>(`${BASE}/broadcast`, {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
