@@ -69,6 +69,9 @@
     "analysisSubmit": "發起分析"
   },
   "search": {
+    "tabs": {
+      "files": "檔案"
+    },
     "title": "搜尋",
     "placeholder": "搜尋課程、講師、內容",
     "empty": "未找到相關內容",
@@ -2643,6 +2646,7 @@
     "defaultTitle": "加入我們"
   },
   "register": {
+    "resendIn": "{{countdown}} 秒後重新發送",
     "enterPhone": "請輸入手機號碼",
     "codeSent": "驗證碼已發送",
     "incomplete": "請填寫完整資訊",
@@ -3698,6 +3702,7 @@
     "members": "成員"
   },
   "chat": {
+    "approvalExpiredNotice": "工具 {toolName} 的審批已因連線中斷失效,該操作未執行;如需繼續請重新發起",
     "modelSwitchStopped": "已切換到 {model},本輪回答已終止",
     "partialDoneTitle": "回答被中斷,以下內容可能不完整",
     "truncation": {
@@ -4087,6 +4092,11 @@
     "d16": "客製化解決方案"
   },
   "aigcList": {
+    "videoBadge": "影片",
+    "promptLabel": "提示詞",
+    "empty": "暫無作品",
+    "subtitle": "我的 AIGC 作品",
+    "title": "AIGC 作品",
     "d1": "賽博城市夜景",
     "d2": "智匯小方",
     "d3": "極光幻境",
@@ -7035,6 +7045,9 @@
     "runningHint": "仍在運行,暫無最終輸出",
     "noOutput": "暫無輸出",
     "noTask": "無任務描述"
+  },
+  "aigcPublish": {
+    "typeText": "文案"
   },
   "chatWorkbenchPage": {
     "title": "對話",
