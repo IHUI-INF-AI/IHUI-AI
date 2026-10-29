@@ -152,6 +152,10 @@ function logObserveHit(method: string, path: string, tag: 'observe' | 'enforce-4
  * 模块级而非插件内闭包 —— 测试要直接调用它,不复制判据(§22c)。
  */
 export async function authGuard(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  // 上游 preHandler 可能已经 send 过(401/403)但仍把链交到这里 —— 再 send 一次会抛
+  // "Reply was already sent" 并被全局处理器收敛成 500(2026-10-29 生产实测:
+  // /api/knowledge/docs 匿名访问 500 而非 401)。这道判断是根治,不依赖上游写法。
+  if (reply.sent) return
   const mode = resolveAuthDefaultDenyMode()
   if (mode === 'off') return
   if (request.method === 'OPTIONS' || request.method === 'HEAD') return
