@@ -1003,8 +1003,8 @@
     "vip": "VIP Center",
     "vipBenefit": "Membership Benefits",
     "vipCompare": "VIP Compare",
-    "coupon": "Coupons",
-    "promotion": "Coupons",
+    "coupon": "My Coupons",
+    "promotion": "Coupon Center",
     "sectionPoints": "Points",
     "pointsMall": "Points Mall",
     "pointsRecord": "Token Value Details",
@@ -1759,7 +1759,7 @@
     "empty": "No coupons",
     "loadFailed": "Failed to load",
     "minSpend": "Min spend {amount}",
-    "title": "Coupons",
+    "title": "My Coupons",
     "validUntil": "Valid until",
     "use": "Use now",
     "useHint": "Please use it on the product page",
@@ -2203,7 +2203,7 @@
     "status_inactive": "Inactive"
   },
   "promotion": {
-    "title": "Coupons",
+    "title": "Coupon Center",
     "empty": "No coupons available",
     "minSpend": "Min. spend ¥{minSpend}",
     "expireDate": "Valid until",
@@ -3156,7 +3156,7 @@
     "status_rejected": "Rejected"
   },
   "distributionCompany": {
-    "title": "Distribution Center",
+    "title": "Distribution Performance",
     "refresh": "Refresh",
     "loadFailed": "Failed to load data",
     "empty": "No commission data",
