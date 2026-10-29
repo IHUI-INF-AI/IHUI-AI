@@ -14,10 +14,27 @@
 // 草稿保留提示(message-draft-preserved-${id})与 message-error-card-${id} 契约保留,便于 MessageItem 平滑替换。
 
 import * as React from 'react'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Lightbulb, RefreshCw } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { QuotaOwnershipCard } from '@/components/ai/quota-ownership-card'
 import { fromErrorCode, type QuotaOwnershipAction } from '@ihui/shared/chat/quota-ownership'
+// D71②(2026-10-29 装车):`error-catalog.ts` 的 129 条 `errorCode → 标题 + 建议动作`
+// 自交付起**生产零消费**(只有它自己的单测在读写),于是 695 条词包一次都没被 `t()` 取过,
+// 后端产出的业务码在界面上退化成笼统标题。本件是它的渲染位。
+//
+// **与 D92 `view-failure-taxonomy` 的分工(两张表并存,不是重复)** —— 维度不同:
+//   · D92 那张是**分类学**:15 类视图失败分类(按 MCP/插件视图生命周期阶段划分),
+//     输入可以是 errorCode / jsonRpcCode / httpStatus / errorName / message,
+//     输出"这是哪一类失败 + 该类的通用标题/动作"。它回答「哪一类」。
+//   · 本表是**逐码目录**:129 条具体业务码各自的专属标题 + 专属建议动作,
+//     其 `category` 字段**复用** `ViewFailureKind`(不另立分类学,见该文件头注:21-23)。
+//     它回答「这一个码具体是什么、该怎么办」。
+// 合并不安全:分类学是"15 类闭集 + 穷尽 switch",目录是"129 条开放字典 + 未收录返回 null";
+// 把目录塞进分类学会让 15 类变 129 类(分类判据全部失效),把分类学塞进目录会让
+// jsonRpcCode/httpStatus/errorName/message 四条判定输入无处可去。故两张表**各自保留**,
+// 本卡片按"目录命中优先、未命中回落 D92"的判序消费。
+import { ERROR_CATALOG_NAMESPACE, resolveErrorCatalog } from '@ihui/shared/chat/error-catalog'
 
 import { QuotaActionFamily } from './QuotaActionFamily'
 import {
@@ -91,6 +108,11 @@ export function MessageErrorCard({
   onUpgradePlan,
   onReLogin,
 }: MessageErrorCardProps) {
+  // D71②(2026-10-29 装车):errorCode → 专属标题 + 建议动作(**129 条目录的唯一消费点**)。
+  // 未收录 ⇒ `null`,整段目录行不渲染,标题回落宿主给的 D92 分类标题 / 笼统标题 ——
+  // **绝不把错误码本身当文案喷出来**(那是"喷键名"的一种:用户看到 `E_XYZ` 什么也得不到)。
+  const catalogEntry = resolveErrorCatalog(errorCode)
+  const tCatalog = useTranslations(ERROR_CATALOG_NAMESPACE)
   // 帧缺失:retryInfo 为 null/undefined → remaining 无意义,view 为 null,倒计时块不渲染
   const remaining = useRetryCountdown(retryInfo?.retryInMs)
   const view =
@@ -145,6 +167,33 @@ export function MessageErrorCard({
       <p className="whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive/90">
         {content.replace(/^⚠\s*/, '')}
       </p>
+
+      {/* D71②(2026-10-29 装车):错误码目录命中的**具体**标题 + 建议动作。
+          与上方分类标题分工:分类标题说"哪一类",这一行说"这一个码是什么、该怎么办"。
+          未收录(`catalogEntry === null`)整段不出现 —— 不喷键名、不臆造"未知错误"(§:误报比不报更贵)。 */}
+      {catalogEntry ? (
+        <div
+          className="px-3 pb-1.5"
+          data-testid={`message-error-catalog-${messageId}`}
+          data-error-catalog-code={errorCode ?? ''}
+        >
+          <p
+            className="text-xs font-medium text-destructive"
+            data-testid="message-error-catalog-title"
+          >
+            {tCatalog(catalogEntry.titleKey)}
+          </p>
+          {catalogEntry.actionKey ? (
+            <p
+              className="mt-0.5 flex items-start gap-1 text-xs leading-relaxed text-muted-foreground"
+              data-testid="message-error-catalog-action"
+            >
+              <Lightbulb className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+              <span>{tCatalog(catalogEntry.actionKey)}</span>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {children}
 

@@ -8,11 +8,13 @@
 半路被 GC,症状是"联动/抽取偶尔什么都没发生且零报错"(CPython asyncio 文档明写的陷阱)。
 
 两档锁:
-- 结构档(对旧实现 100% 判别):slot/集合必须真的持有 task —— 旧形态连属性都不存在;
+- 结构档(对旧实现 100% 判别):token 槽位必须真的持有 task,memory_graph 必须经唯一出口
+  background_tasks.spawn() 提交 —— 旧形态(裸 create_task)连槽位都没有、pending 也不涨;
 - 行为档:GC 之后取消仍须传播、抽取仍须跑到完成。
 
-变异自证(HEAD=旧形态面):本文件 8 例中至少结构档 4 例红(旧代码无 _propagate_task /
-_watches_task / _pending_extract_tasks),这是判定"锁有牙"的依据,不是口头声称。
+变异自证(HEAD=旧形态面):本文件 7 例中至少结构档 3 例红(旧代码无 _propagate_task /
+_watches_task,且 memory_graph 不经 spawn ⇒ pending_count 不增),这是判定"锁有牙"的
+依据,不是口头声称。
 """
 
 import asyncio
@@ -79,7 +81,8 @@ async def test_cancel_when_either_first_source_still_propagates():
 
 
 async def test_memory_graph_fire_and_forget_keeps_reference(monkeypatch):
-    """结构档:memory_graph 的 fire-and-forget 抽取必须被模块集合持到完成。"""
+    """结构档:memory_graph 的 fire-and-forget 抽取必须被唯一出口 spawn() 持到完成。"""
+    from app.core import background_tasks
     from app.services import memory_graph as mg
 
     started = asyncio.Event()
@@ -90,23 +93,25 @@ async def test_memory_graph_fire_and_forget_keeps_reference(monkeypatch):
         await release.wait()
 
     monkeypatch.setattr(mg, "extract_and_store_edges", _slow_extract)
-    mg._pending_extract_tasks.clear()
+    before = background_tasks.pending_count()
     mg.fire_and_forget_extract("owner-1")
     assert started and not started.is_set()  # 尚未被调度,但引用已在
-    assert len(mg._pending_extract_tasks) == 1
-    task = next(iter(mg._pending_extract_tasks))
+    assert background_tasks.pending_count() == before + 1
     await started.wait()
     release.set()
-    await task
-    await asyncio.sleep(0)
-    assert len(mg._pending_extract_tasks) == 0  # done callback 摘除,不会永久积累
+    for _ in range(50):  # done 回调经 call_soon 调度,给足轮次让它落位
+        if background_tasks.pending_count() == before:
+            break
+        await asyncio.sleep(0)
+    assert background_tasks.pending_count() == before  # 摘除,不会永久积累
 
 
 async def test_memory_graph_without_loop_is_noop():
     """无 running loop 时保持原降级(不崩、不排队、只 warning)。"""
+    from app.core import background_tasks
     from app.services import memory_graph as mg
 
-    before = len(mg._pending_extract_tasks)
+    before = background_tasks.pending_count()
     # 同步栈上没有 running loop? asyncio_mode=auto 的测试线程在 loop 内 ——
     # 这里用线程切出去量"纯同步面"降级。
     import threading
@@ -124,5 +129,5 @@ async def test_memory_graph_without_loop_is_noop():
     t.start()
     t.join()
     assert result.get("ok") is True
-    assert len(mg._pending_extract_tasks) == before
+    assert background_tasks.pending_count() == before
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

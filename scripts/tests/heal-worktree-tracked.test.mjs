@@ -791,4 +791,101 @@ test('T19 活工作保护窗:窗内不判不写且点名,窗外同一现场照�
   }
 })
 
+/**
+ * T20 —— 活工作二审(2026-10-29 立,当日事故根治):**按"写入先后"而不是"距离现在多近"**分开
+ * 「正当恢复历史内容」与「陈旧副本回写」。
+ *
+ * 立因是今日实测(不是假想):一个子任务恢复被误删的历史功能,补回内容**逐字节等于祖先 blob**
+ * `83321dbba3` —— 那正是恢复该做的。alignDrifts 的三条判据(索引==HEAD ∧ 工作区!=HEAD ∧
+ * 内容==某祖先)全部成立 ⇒ 20:05:43 工作树被 restore 回 HEAD,任务最后只能用 object-space-land
+ * 的 blob 模式(只写对象空间)绕过。既有墙钟窗(`e5e01735b9`,默认 600s)挡不住它,因为那类
+ * 工作的耗时是**任务时长**(取祖先 blob → 逐块补回 → 跑 vitest + typecheck),轻松超过 10 分钟。
+ *
+ * 本条把两面钉死,缺任何一面都不构成守住:
+ *  ① 盘上那份**晚于** HEAD 那一版被提交 ⇒ 判活工作:不写、点名到 `liveSkipped`
+ *     (摘掉护栏则 aligned 变 1,本条立刻红);
+ *  ② 同一现场只把 mtime 做成**早于** HEAD 那一版被提交 ⇒ 必须照常对齐(否则护栏成了永不修复,
+ *     存量那族 converge/旁路落地留下的落后副本就再没人清);
+ *  ③ 取不到输入(mtime / 提交时刻)⇒ 进 undetermined,**既不还原也不记绿**(§0.3);
+ *  ④ 装车形状锁:二审必须接在墙钟窗之后、两条历史遍历通道之前,`liveSkipped` 必须在返回形状里。
+ *
+ * 窗口设 0 关掉墙钟窗,好让 ① 与 ② 的差别只能归因于二审 —— 否则两者的 mtime 都落在窗内,
+ * 测的就是墙钟窗而不是本条判据(与 T19 头注同一条纪律)。
+ */
+test('T20 活工作二审:恢复历史内容(晚于 HEAD 那一版)不还原,真漂移(早于)照常对齐', () => {
+  const dir = mkScratch('wt-heal-liveguard-')
+  const key = 'IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC'
+  const prev = process.env[key]
+  process.env[key] = '0' // 关掉墙钟窗,只留二审
+  try {
+    const g = (args) => gitRaw(args, dir, { timeout: 60000 })
+    g(['init', '-q', '--initial-branch=main'])
+    g(['config', 'user.email', 't@t'])
+    g(['config', 'user.name', 't'])
+    g(['config', 'core.autocrlf', 'false'])
+    writeFileSync(join(dir, 'a.ts'), 'v1\n')
+    g(['add', '-A'])
+    g(['commit', '-qm', 'A: v1'])
+    writeFileSync(join(dir, 'a.ts'), 'v2\n')
+    g(['commit', '-qam', 'B: v2(HEAD)'])
+    // HEAD 上这一版是被哪一刻引入的 —— 二审的时间基准,从 git 现取(不在测试里另造一个时刻)
+    const committedAt = Number(g(['log', '-1', '--format=%ct', 'HEAD', '--', 'a.ts']).trim())
+    assert.ok(Number.isFinite(committedAt) && committedAt > 0, '取不到 HEAD 那一版的提交时刻')
+
+    // ① 正当恢复:补回 v1(== 祖先 blob),且盘上那份晚于 HEAD 那一版的提交时刻
+    writeFileSync(join(dir, 'a.ts'), 'v1\n')
+    const later = new Date((committedAt + 10) * 1000)
+    utimesSync(join(dir, 'a.ts'), later, later)
+    const live = alignDrifts(dir)
+    assert.equal(live.aligned, 0, '晚于 HEAD 那一版写下的内容 = 在飞编辑/正当恢复,不得被还原')
+    assert.deepEqual(live.liveSkipped, ['a.ts'], '被判活工作的路径必须逐条点名到 liveSkipped')
+    assert.deepEqual(live.recentlySkipped, [], '它不在墙钟窗里(窗已关)⇒ 不得记进那一格')
+    assert.equal(readFileSync(join(dir, 'a.ts'), 'utf8'), 'v1\n', '现场内容必须一字不动')
+
+    // ② 同一现场、同一内容,只把 mtime 做成早于 HEAD 那一版的提交时刻 ⇒ 必须照常对齐。
+    //    这样 ① 少做的那件事只能归因于"写入先后",不可能是判据本身失明。
+    const earlier = new Date((committedAt - 10) * 1000)
+    utimesSync(join(dir, 'a.ts'), earlier, earlier)
+    const stale = alignDrifts(dir)
+    assert.equal(stale.aligned, 1, '早于 HEAD 那一版的内容 = 真幻影漂移,仍必须对齐(否则永不修复)')
+    assert.deepEqual(stale.liveSkipped || [], [])
+    assert.equal(readFileSync(join(dir, 'a.ts'), 'utf8'), 'v2\n', '对齐后必须回到 HEAD 内容')
+
+    // ③ 取不到输入 ⇒ 未判定且零动作(§0.3:不记绿也不冒红)
+    const noMtime = __test__.splitLiveRestorePaths(dir, g, ['nope-缺文件.ts'])
+    assert.deepEqual(noMtime.judgeable, [], '取不到 mtime 的路径不得进可判堆(那等于替它猜内容)')
+    assert.deepEqual(noMtime.live, [], '取不到 mtime 也不得判活工作(猜出来的放宽同样是错)')
+    assert.equal(noMtime.undetermined.length, 1, '取不到 mtime 必须逐条进未判定')
+    // 盘上有、但 HEAD 里没有该路径 ⇒ `git log -1 HEAD -- <path>` 给空 ⇒ 提交时刻取不到
+    writeFileSync(join(dir, 'untracked.ts'), 'x\n')
+    const noCt = __test__.splitLiveRestorePaths(dir, g, ['untracked.ts'])
+    assert.deepEqual(noCt.judgeable, [], '取不到提交时刻不得进可判堆')
+    assert.equal(noCt.undetermined.length, 1, '取不到提交时刻必须逐条进未判定')
+    assert.match(noCt.undetermined[0].reason, /提交时刻/, '点名必须说清是哪一个输入取不到')
+
+    // ④ 装车形状锁
+    const body = funcBody(healSrc(), 'alignDrifts')
+    assert.match(body, /splitLiveRestorePaths\(/, '二审调用不得从本层消失')
+    assert.match(body, /liveSplit\.judgeable/, '可判集必须取二审的 judgeable 那一支')
+    assert.ok(
+      body.indexOf('splitLiveRestorePaths(') > body.indexOf('compositeDriftPaths('),
+      '二审必须排在两条通道之后(排在前面 = 对几十枚候选逐枚 git log,白付一个量级)',
+    )
+    assert.ok(
+      body.indexOf('splitLiveRestorePaths(') < body.indexOf('restoreToHead(g, paths)'),
+      '二审必须排在漂移写盘之前(排在后面 = 判完仍照原判还原,护栏等于没装)',
+    )
+    const headBlock = body.slice(body.indexOf('const head = ('), body.indexOf('let dirty = []'))
+    assert.match(
+      headBlock,
+      /liveSkipped:\s*liveSkips/,
+      '返回形状必须带 liveSkipped(否则"跳过"在账面上与"没事发生"同形)',
+    )
+  } finally {
+    if (prev === undefined) delete process.env[key]
+    else process.env[key] = prev
+    rmScratch(dir)
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

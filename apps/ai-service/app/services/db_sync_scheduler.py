@@ -60,6 +60,7 @@ from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
 
+from app.core.background_tasks import spawn
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -584,7 +585,7 @@ async def trigger_sync(request: Request, mode: str = "") -> dict[str, Any]:
             "message": "已有一轮在执行,本次未重复触发",
             "data": {"triggered": False, "running_mode": db_sync_scheduler.running_mode},
         }
-    asyncio.get_running_loop().create_task(
+    spawn(
         db_sync_scheduler.run_once(picked, trigger="admin"),
         name=f"db-sync-manual-{picked}",
     )
@@ -606,7 +607,7 @@ async def trigger_drift(request: Request) -> dict[str, Any]:
             "message": "已有一轮在执行,本次未重复触发",
             "data": {"triggered": False, "running_mode": db_sync_scheduler.running_mode},
         }
-    asyncio.get_running_loop().create_task(
+    spawn(
         db_sync_scheduler.run_once("drift", trigger="drift-endpoint"),
         name="db-sync-drift",
     )

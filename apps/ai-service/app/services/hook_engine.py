@@ -44,6 +44,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
+from app.core.background_tasks import spawn
 from app.core.config import settings
 
 from ._load_lifecycle import (
@@ -117,6 +118,50 @@ HOOK_EVENTS: tuple[str, ...] = (
 )
 
 HOOK_ACTION_TYPES: tuple[str, ...] = ("webhook", "script", "log", "notify")
+
+# ---------------------------------------------------------------------------
+# G-87 补链(2026-10-29):hook 失败的可观测出口。
+#
+# 判据层 `packages/shared/src/chat/hook-failures.ts`(2026-09-24 立)早就写好了六态卡与
+# 脱敏出口,但**数据面一直空着**:失败信息只落 `_make_log` 与 DLQ,`hook.failed` 只发
+# orchestration_hub(内部编排总线,不进任何 SSE 通道)⇒ 界面上 hook 挂了完全不可见。
+#
+# 本段补的正是"缺失的那一环"的源头:失败时同时向 **hook_engine 订阅者**
+# (`subscribe()` 的分队列,agents.py 三个 SSE 端点都订阅它)广播 `hook.failed`,
+# 载荷补齐前端六态卡要的六字段。
+#
+# 三条纪律:
+#   ① **不走 `emit()`**:`emit()` 是"触发用户 hook 的总线",把 hook.failed 塞进去等于
+#      允许"hook 失败"去点火别的 hook,一次失败能自激成环;而且 `HOOK_EVENTS` 是用户
+#      可配的触发器白名单,不该混进系统事实。故直接 `_broadcast()`,与 emit 的订阅面
+#      同一批队列、语义各自独立。
+#   ② **载荷必须自带 session_id**:agents.py 的转发按 `session_id`/`run_id` 过滤,
+#      不带键的帧在 tasks/stream 会被属主过滤 fail-closed 丢掉(且丢得无声)。
+#   ③ **出库脱敏**:stderr/command 会进浏览器,可能含路径与凭据片段,统一过既有出口
+#      `app.core.output_cleaning.redact_secrets`(全仓唯一的出库脱敏实现,不另写正则)。
+HOOK_FAILED_EVENT = "hook.failed"
+
+# 失败帧里 stderr 的字符上限(与 `error[:200]` 之外单独给一档:证据要有,但不能撑爆帧)
+HOOK_FAILED_STDERR_MAX = 2000
+HOOK_FAILED_COMMAND_MAX = 500
+
+
+def _redact_event_text(value: str | None, limit: int) -> str:
+    """出库脱敏(**复用** `app.core.output_cleaning.redact_secrets`,不写第二套正则)。
+
+    取不到脱敏器时返回**空串而不是原文**:少一格证据好过漏一次凭据,调用方据此把该字段
+    整键省略(前端对缺席字段不渲染空标签,与"确实为空"在类型上可分)。
+    """
+    text = value or ""
+    if not text:
+        return ""
+    try:
+        from app.core.output_cleaning import redact_secrets as _redact_secrets
+
+        return _redact_secrets(text)[:limit]
+    except Exception:  # noqa: BLE001 - 脱敏器不可用绝不回落原文
+        logger.warning("[hook_engine] 脱敏器不可用,该字段按未取得处理(不回落原文)")
+        return ""
 
 # P0-5 高危动作白名单(2026-08-05):script(任意命令 RCE)/webhook(任意外发 SSRF)默认禁用,
 # 必须显式出现在 settings.hook_allowed_actions(逗号分隔)中才允许创建。
@@ -594,8 +639,7 @@ class HookEngine:
     def _schedule_persist_hooks(self) -> None:
         """调度异步持久化(fire-and-forget,无事件循环时跳过)。"""
         try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._persist_hooks())
+            spawn(self._persist_hooks(), name="hook-persist-hooks")
         except RuntimeError:
             # 没有运行中的事件循环(如模块加载时),跳过
             pass
@@ -603,8 +647,7 @@ class HookEngine:
     def _schedule_persist_log(self, hook_id: str, log_entry: dict[str, Any]) -> None:
         """调度异步日志持久化(fire-and-forget)。"""
         try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._persist_log(hook_id, log_entry))
+            spawn(self._persist_log(hook_id, log_entry), name="hook-persist-log")
         except RuntimeError:
             pass
 
@@ -902,6 +945,9 @@ class HookEngine:
         success = False
         last_result: str | None = None
         last_err: str | None = None
+        # G-87 补链:失败现场的**可举证事实**出参(目前只有 script 执行器回填 exit_code/stderr;
+        # 其余动作类型不回填任何键 —— 前端对缺席字段不渲染,而不是显示一个编出来的 0)。
+        facts: dict[str, Any] = {}
 
         for attempt in range(retry_count + 1):
             result_str: str | None = None
@@ -910,7 +956,9 @@ class HookEngine:
                 if action_type == "webhook":
                     result_str, err_str = await self._run_webhook(config, event, context)
                 elif action_type == "script":
-                    result_str, err_str = await self._run_script(config, event, context)
+                    result_str, err_str = await self._run_script(
+                        config, event, context, facts
+                    )
                 elif action_type == "log":
                     result_str, err_str = self._run_log(config, event, context)
                 elif action_type == "notify":
@@ -951,6 +999,16 @@ class HookEngine:
         # 重试耗尽仍失败 → 入 DLQ(2026-07-22 立)
         if not success:
             await self._push_dlq(hook["id"], context, last_err or "未知错误", retry_count)
+            self._broadcast_hook_failed(
+                hook=hook,
+                event=event,
+                context=context,
+                error=last_err or "未知错误",
+                duration_ms=duration_ms,
+                action_type=action_type,
+                config=config,
+                facts=facts,
+            )
             # 发射 hook.failed 事件(重试耗尽后)
             try:
                 from .orchestration_hub import orchestration_hub
@@ -967,6 +1025,79 @@ class HookEngine:
             except Exception:
                 logger.exception("[hook_engine] hook_failed_event_emit_failed: hook_id=%s event=%s", hook["id"], event)
         return log
+
+    def _broadcast_hook_failed(
+        self,
+        *,
+        hook: dict[str, Any],
+        event: str,
+        context: dict[str, Any],
+        error: str,
+        duration_ms: int,
+        action_type: Any,
+        config: dict[str, Any],
+        facts: dict[str, Any],
+    ) -> None:
+        """向 hook 订阅者广播 `hook.failed`(G-87 缺环的源头;2026-10-29 立)。
+
+        **为什么不走 `emit()`**:见上方 `HOOK_FAILED_EVENT` 段头注 ① —— `emit()` 会去
+        匹配并执行用户配置的 hook,把"hook 失败"当成触发源会让一次失败自激成环;
+        且 `HOOK_EVENTS` 是触发器白名单,系统事实不该混进去。这里直接走订阅面。
+
+        载荷逐字段的**取得与取不到**,如实登记(前端六态卡按 `HookFailureContext` 六字段收):
+          · hookId     —— 恒有(`hook["id"]`);
+          · hookName   —— 恒有(`hook.get("name")`,用户创建时的名字);
+          · hookEvent  —— 恒有(触发事件名,如 `tool.before`);
+          · command    —— **只有 script 动作有**;取 `config["command"]` 并过脱敏出口;
+                          其它动作类型整键省略(webhook 的 url 不外泄到端上);
+          · stderr     —— **只有 script 动作真失败回填了才能取到**;timeout/命令未配置/
+                          被敏感模式拒/子进程启动失败这几档都**没有 stderr 可给**,
+                          此时整键省略(不补空串 —— 空串会被读成"命令确实没输出");
+          · exitCode   —— 同上,只有真跑完且非零才有;超时被杀进程**无退出码**;
+          · durationMs —— 恒有(墙钟,含重试与退避等待,是"用户实际等了多久");
+          · failedAt   —— 恒有。
+        `state` 取 `timedOut` / `failed` 两档:timeout 由执行器的事实位 `facts["timeout"]`
+        给出(不在散文里找"超时"二字 —— 文案一改就静默失效)。
+        """
+        try:
+            session_id = str(context.get("session_id") or context.get("run_id") or "")
+            payload: dict[str, Any] = {
+                "type": HOOK_FAILED_EVENT,
+                "hook_id": str(hook.get("id") or ""),
+                "hook_name": str(hook.get("name") or ""),
+                "event": event,
+                "state": "timedOut" if facts.get("timeout") else "failed",
+                "error": error[:HOOK_FAILED_STDERR_MAX],
+                "duration_ms": int(duration_ms),
+                "failed_at": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
+                # 转发层(tasks/stream / {agent_id}/stream)按这两个键过滤归属,
+                # 缺了就是被 fail-closed 静默丢掉(`""` 只对 execute/stream 的宽松档成立)。
+                "session_id": session_id,
+                "run_id": session_id,
+                "action_type": str(action_type or ""),
+            }
+            if action_type == "script":
+                command = _redact_event_text(
+                    str(config.get("command") or ""), HOOK_FAILED_COMMAND_MAX
+                )
+                if command:
+                    payload["command"] = command
+            raw_stderr = facts.get("stderr")
+            stderr = _redact_event_text(
+                raw_stderr if isinstance(raw_stderr, str) else None, HOOK_FAILED_STDERR_MAX
+            )
+            if stderr:
+                payload["stderr"] = stderr
+            exit_code = facts.get("exit_code")
+            if isinstance(exit_code, int):
+                payload["exit_code"] = exit_code
+            self._broadcast(HOOK_FAILED_EVENT, payload)
+        except Exception:  # noqa: BLE001 - 观测面失败绝不阻塞 hook 主链路
+            logger.exception(
+                "[hook_engine] hook_failed_broadcast_failed: hook_id=%s event=%s",
+                hook.get("id"),
+                event,
+            )
 
     def _resolve_retry_count(self, action_type: str, config: dict[str, Any]) -> int:
         """解析重试次数:log 不重试,notify 重试 1 次,webhook/script 按 config.retry_count。"""
@@ -1037,8 +1168,19 @@ class HookEngine:
             return None, f"webhook 失败: {e}"
 
     async def _run_script(
-        self, config: dict[str, Any], event: str, context: dict[str, Any]
+        self, config: dict[str, Any], event: str, context: dict[str, Any],
+        facts: dict[str, Any] | None = None,
     ) -> tuple[str | None, str | None]:
+        """执行 script 动作。
+
+        `facts`(2026-10-29 G-87 补链,可选出参):把"失败现场里可举证的事实"回填给调用方,
+        供 `hook.failed` 事件携带。此前 exitCode 与 stderr 只被拼进错误散文
+        (`script 退出码 N: ...`)—— 前端六态卡要的是分字段证据,从散文反解析既脆、又会
+        在文案改动时静默失效。取值口径:
+          · exit_code —— 只在子进程**真跑完并返回非零**时写入;超时被杀进程没有退出码,
+            那一格留空(由 state='timedOut' 表达),绝不补 0;
+          · stderr    —— 原始解码文本(未脱敏),脱敏由发射点统一过一次既有出口。
+        """
         command = config.get("command")
         if not command:
             return None, "script command 未配置"
@@ -1083,11 +1225,26 @@ class HookEngine:
             except TimeoutError:
                 proc.kill()
                 await proc.wait()
+                if facts is not None:
+                    # 超时是**可举证的事实位**(不在散文里找"超时"二字):被杀进程没有退出码,
+                    # exit_code 与 stderr 都不写 —— 前端据 state='timedOut' 表达终态,
+                    # 不拿编出来的 0 冒充"跑完了但退出码是 0"。
+                    facts["timeout"] = True
                 return None, f"script 超时({SCRIPT_TIMEOUT}s)"
             stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace")[:SCRIPT_MAX_OUTPUT]
             stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[:SCRIPT_MAX_OUTPUT]
-            if proc.returncode != 0:
-                return stdout_text or None, f"script 退出码 {proc.returncode}: {stderr_text}"
+            # mypy strict:proc.returncode 的类型是 int | None(进程未被 wait 过时为 None)。
+            # 这里已经 communicate() 返回 => 进程确实退出、值必然有;显式收窄成 int,
+            # 不写 `or 0`(0 是成功退出这个肯定结论,拿它兜未知值就是把没判写成判过)。
+            _rc = proc.returncode
+            if _rc is None:
+                return None, "script 启动后未取得退出码(进程状态未知)"
+            if _rc != 0:
+                if facts is not None:
+                    # 只回填**真观测到**的退出码(stderr 原文交给发射点脱敏)
+                    facts["exit_code"] = int(_rc)
+                    facts["stderr"] = stderr_text
+                return stdout_text or None, f"script 退出码 {_rc}: {stderr_text}"
             return stdout_text or "OK", None
         except Exception as e:
             return None, f"script 执行失败: {e}"
@@ -1408,8 +1565,7 @@ class HookEngine:
                 from .orchestration_hub import orchestration_hub
                 severity = "warning" if status == "degraded" else "critical"
                 try:
-                    loop = asyncio.get_running_loop()
-                    loop.create_task(orchestration_hub.emit(
+                    spawn(orchestration_hub.emit(
                         event_type="hook.health_degraded",
                         source_pillar="hook",
                         payload={
@@ -1418,7 +1574,7 @@ class HookEngine:
                             "success_rate": r.get("successRate", 0.0),
                         },
                         severity=severity,
-                    ))
+                    ), name="hook-health-degraded")
                 except RuntimeError:
                     pass  # 无运行中的事件循环,跳过
             except Exception:

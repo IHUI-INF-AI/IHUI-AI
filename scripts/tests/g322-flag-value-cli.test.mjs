@@ -688,4 +688,38 @@ test('G-322 第十九批:未注册档四站 —— --root/--max-sites 与两把 
   assertBadFlag(S('measure-i18n-ja-suspect-buckets.mjs'), '--source', 'git rev', { eat: '--json', rc: 2 })
   assertBadFlag(S('measure-i18n-ja-suspect-buckets.mjs'), '--limit', '非负整数', { eat: '--json', rc: 2 })
 })
+
+// ─── 第二十批(2026-10-30,g31-s4)───
+// 覆盖面缺口,不是新缺陷:HEAD 面只读尺现读的 11 个"已在册 ∧ 已接单源(usesLib=true)"文件里,
+// 本探针覆盖了 10 个,唯一漏的是 plan-fields-project.mjs 的 --emit —— 它已经用 flagValue +
+// describeFlagToken 判死,但探针从未喂过坏值,等于"接了单源却没人量过"(票面验收要求每站实跑)。
+// 只测两支:缺值支(`--emit` 后无 token)按票面契约**故意**落默认落点 `.ihui-agent/state/`,
+// 那是设计意图不是错,拿它当第三支会把契约钉成缺陷;而且该支会真写盘,探针不得跑。
+// --batch 的数值域现读也只 exit 2 而不点名实得 token(形态不佳)——本探针不锁缺陷形态,
+// 去处记在交付报告的「未收格」,不在这里用一条宽松断言把它钉住。
+test('G-322 第二十批:plan-fields-project 的 --emit 顶值/空串各自 exit 2 并点名实得 token', () => {
+  const script = S('plan-fields-project.mjs')
+  for (const { args, expect } of [
+    // 顶值支:`--emit --batch 5` 旧写法会把 `--batch` 当出件路径(resolve 后是一个合法文件名)
+    // ⇒ 出件写进一个由吞值造出来的位置,而"已出件"那行照打。
+    { args: ['--emit', '--batch', '5'], expect: '"--batch"' },
+    { args: ['--emit', ''], expect: '""' },
+  ]) {
+    const r = spawnSync(process.execPath, [script, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    assert.equal(
+      r.status,
+      2,
+      `${JSON.stringify(args)} 必须 exit 2(不得把被吞的 token 当出件路径):\n${r.stdout ?? ''}${r.stderr ?? ''}`,
+    )
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--emit 需要一个 json 路径/, out.slice(0, 240))
+    assert.match(out, new RegExp(esc(expect)), `三态必须分开(缺值支是契约不是错,故只测这两支):${out.slice(0, 240)}`)
+    assert.doesNotMatch(out, /ERR_INVALID_ARG_TYPE|at ModuleJob/, '不得以裸栈当用法错出口')
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
