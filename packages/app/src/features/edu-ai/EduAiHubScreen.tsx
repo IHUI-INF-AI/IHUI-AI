@@ -440,7 +440,7 @@ function FilterChips({
             accessibilityState={{ selected: isActive }}
             onPress={() => onSelect(opt.value)}
           >
-            <Text style={[styles.chipText, isActive ? styles.chipTextActive : null]}>
+            <Text style={[styles.chipText, isActive ? styles.chipActiveText : null]}>
               {t(opt.labelKey)}
             </Text>
           </TouchableOpacity>
@@ -1348,7 +1348,7 @@ export function EduAiHubScreen({
                 strokeWidth={2}
                 color={active ? tk.brand.ctaForeground : tk.text.secondary}
               />
-              <Text style={[styles.tabText, active ? styles.tabTextActive : null]}>
+              <Text style={[styles.tabText, active ? styles.tabActiveText : null]}>
                 {t(TAB_LABEL_KEYS[kind])}
               </Text>
             </TouchableOpacity>

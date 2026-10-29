@@ -6979,5 +6979,13 @@
     "runningHint": "実行中です。最終出力はまだありません",
     "noOutput": "出力なし",
     "noTask": "タスクの説明なし"
+  },
+  "chatWorkbenchPage": {
+    "title": "会話",
+    "newConversation": "新規会話",
+    "searchPlaceholder": "キーワードを入力...",
+    "empty": "コンテンツはまだありません。おしみに",
+    "searchNoResult": "結果なし",
+    "retry": "再試行"
   }
 }

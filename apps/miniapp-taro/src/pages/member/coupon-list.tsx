@@ -6,8 +6,6 @@ import { useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getCouponList } from '@/api'
-import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface Coupon {
@@ -37,22 +35,21 @@ export default function CouponListPage() {
     [t],
   )
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(() => {
     setError(false)
-    try {
-      const res = await getCouponList({ status: 'available' })
-      setList(res.list || [])
-    } catch (e) {
-      logger.error('member/coupon-list', '获取优惠券', e)
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
+    // 「可领取券」这一档后端还没有:GET /api/coupons 的 status 只收 unused/used/expired,
+    // 传 available 会被 zod 拒成 400;而 promo_coupons(券模板)目前只有 admin 面 CRUD,
+    // 没有面向用户的公开列表与按 id 领取。端点上线前本页落空态 —— 把"这个能力还没有"
+    // 渲染成"加载失败"会让下一个接手的人以为这只是网络问题。
+    setList([])
+    setLoading(false)
   }, [])
 
-  useDidShow(() => load())
-  usePullDownRefresh(() => load().finally(() => Taro.stopPullDownRefresh()))
+  useDidShow(load)
+  usePullDownRefresh(() => {
+    load()
+    Taro.stopPullDownRefresh()
+  })
 
   const onReceive = useCallback(
     (_id: string) => {
