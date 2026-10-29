@@ -486,6 +486,78 @@ EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形�
   任务档兜住(实测 21:13 仍在写日志),存续治理没断。已把 failure action 改成 5s/10s/30s 三档
   递增(仍治不了 exit 0 那一型);正解 = 在巡检轮加一条"服务非 Running 即拉起"的派发腿并配镜像测试。
 
+### 10.9 P0 — 2026-10-29 二轮加固:未授权面 / 本地文件面 / 边缘 IP 身份
+
+> 五组修复,全部有代码级回归锁,且在生产实测闭环。本节只记"改了什么 + 怎么验",
+> 判据细节见各提交信息与对应测试文件。
+
+**① `/api/knowledge/*` 全插件强制登录(未授权读写他人知识库)**
+
+- 缺陷:插件注册时无任何鉴权 preHandler,八处 handler 读 `(req.user)?.userId`,而
+  `@fastify/jwt` 把 `request.user` 装饰为 null、本仓 `authenticate()` 只写 `request.userId`
+  ⇒ 该读数恒 undefined,主体退化为客户端自报的 `ownerUuid`。匿名即可读写任意用户知识库。
+  同时 web/CLI 因传 `ownerUuid=''` 直接 500 —— 功能坏与越权两种失真并存。
+- 修复:插件级 preHandler(健康检查除外)+ 删除请求侧 `ownerUuid` + 服务层 `search`/
+  `getRagContext` 的 owner 由可选改必填并强制拼 WHERE。同族两处内部调用
+  (crew-tools 搜索工具、crew-orchestrator 的 RAG 上下文)原先传空串"检索全局知识库",
+  实际等于跨所有用户检索,改为取当前会话 userId;`loadKnowledgeContext` 无 userId 直接返回。
+- 验证:`identity-principal-idor.test.ts` 12 条(匿名 401 且零查库 / 自报 ownerUuid 无效 /
+  健康检查仍匿名)。
+
+**② ai-service 成本面与调度状态面进入永不公开名单**
+
+- 缺陷:`.env` 的 `JWT_PUBLIC_PATHS` 是**整串替换**而非增量,与 config.py 默认值分叉
+  +3/-2:多出 `/api/agents/`、`trigger-refresh`、`scheduler-status`,漏掉 `/internal/` 与
+  `/api/publish/scan-login/platforms`。生产实测 `GET /api/admin/news/scheduler-status` 匿名 200。
+- 修复:`jwt_auth` 新增 `_NEVER_PUBLIC_EXACT`(配置里写了也剔除);本机与生产的 `.env`
+  删掉危险条目;`/internal/` 与扫码登录平台清单随之恢复。
+- 验证:重启后 `scheduler-status` / `trigger-refresh` 均 401,`/api/publish/scan-login/platforms`
+  200,探活 200;`test_privileged_surface_auth_59.py` 23 条。
+
+**③ 边缘 IP 归一再补隧道腿(公网 `/metrics` 从 200 变 403)**
+
+- 缺陷:`api.aizhs.top` 走本机 cloudflared,请求 TCP 对端恒为 127.0.0.1;而
+  `buildForwardHeaders` 把 `cf-connecting-ip` 当可伪造头删除、XFF 回落 socketIp
+  ⇒ 上游 `request.ip` 恒为回环:公网 `/metrics` 实测 200(87 行指标)、全局限流退化成
+  单桶、`isPrivateIp` 对全部公网流量短路(风控层静默关闭)。off 档还会把客户端自带的
+  X-Forwarded-For 原样透传。
+- 修复:回环对端采信 `CF-Connecting-IP`(直连源站对端为公网地址,同一头即攻击者可控,
+  仅回环采信);三档统一归一;未验证时删除入站 `x-ihui-edge-verified`(否则 ws-guard /
+  conn_guard 会把客户端自填的 IP 当限流键)。
+- 验证:生产重启 router 后 `https://api.aizhs.top/metrics` 200 → **403**,
+  带伪造 XFF 仍 403,`127.0.0.1:8802/metrics` 200(Prometheus 采集不受影响),主站 200。
+
+**④ 镜像构建上下文排除真实密钥**
+
+- 缺陷:`apps/ai-service` 无 `.dockerignore` 而 Dockerfile 是 `COPY . .`;根 `.dockerignore`
+  不排除 `.env` / `cert` / `*.pem`。上下文里真实存在微信支付与支付宝私钥、GitHub App 私钥、
+  小程序上传私钥与多份 `.env.bak-*` ⇒ 一次 build 即写进镜像层。
+- 修复:两处补齐;新增 `scripts/tests/dockerignore-secrets.test.mjs`(进 CI 的 scripts/tests
+  全量作业)。判据当场抓到"`*.pem` 不跨 `/`、子目录私钥仍会漏"的真实写法错误。
+- 注意:本机生产走 NSSM 不受影响,**SaaS / 多机 docker 形态**才暴露。
+
+**⑤ 本地文件面收口 + 管理员 TOTP 默认 enforce**
+
+- `resource.ts`:下载接口对 admin 可写的 `fileUrl` 直接 `stat` + `createReadStream` ⇒
+  写入 `../../.env` 即可读走任意文件。线上该字段 100% 是 http(s) 外链,本地分支零使用
+  ⇒ 直接删除,只留远程重定向。
+- `chunked-upload.ts`:`cancel` 的 `uploadId` 只校验非空,随即 `join` + `rmSync(recursive)`
+  ⇒ **任何登录用户传 `../../..` 可递归删除任意可达目录**;且八处会话查询不带 userId
+  (IDOR:可往他人会话写分片/触发合并)。修复:uploadId 形态校验 + 八处查询加 userId +
+  cancel 先验归属再动磁盘。
+- TOTP:闸门默认由 `warn` 升 `enforce`。生产库唯一管理员**尚未绑定**,故生产 `.env` 显式
+  写 `ADMIN_TOTP_MODE=warn` 作过渡。**机主在「设置 → 安全」绑定 TOTP 后删掉那一行即回到
+  enforce**;绑定期内 admin 面仍可被单密码进入,这是本轮唯一保留的已知风险。
+
+**⑥ 本轮未做(已登记为下一轮工单)**
+
+`api` 的鉴权仍是"每路由手挂 `authenticate`",没有根级默认拒绝。现状读数:341 个路由文件 /
+3470 个注册点 / 188 个插件级 preHandler / 1450 处鉴权调用;已实测两处漏挂形态
+(`developer-relay-keys-admin` 恒 401 属碰巧 fail-closed、`chat`/`files` 为 handler 内手调)。
+执行次序:①运行时 `onRoute` 盘点出「零 preHandler 且不在公开名单」的路由;②建显式公开
+名单文件;③根级 `onRequest` 默认拒绝 + 名单放行;④全量回归 + 生产灰度。
+**不放进本轮的原因**:需逐个分类 3470 个注册点,漏判即整站 401,必须独立一轮并带灰度。
+
 ---
 
 ## 11. 密钥与凭证轮转流程
