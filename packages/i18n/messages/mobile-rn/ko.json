@@ -1003,8 +1003,8 @@
     "vip": "회원 센터",
     "vipBenefit": "멤버십 혜택",
     "vipCompare": "회원 비교",
-    "coupon": "쿠폰",
-    "promotion": "쿠폰",
+    "coupon": "내 쿠폰",
+    "promotion": "쿠폰 센터",
     "sectionPoints": "포인트",
     "pointsMall": "포인트 몰",
     "pointsRecord": "포인트 내역",
@@ -1759,7 +1759,7 @@
     "empty": "쿠폰이 없습니다",
     "loadFailed": "불러오기 실패",
     "minSpend": "{amount} 이상 사용 가능",
-    "title": "쿠폰",
+    "title": "내 쿠폰",
     "validUntil": "유효기간",
     "use": "지금 사용",
     "useHint": "상품 페이지에서 사용해 주세요",
@@ -2203,7 +2203,7 @@
     "status_inactive": "비활성"
   },
   "promotion": {
-    "title": "쿠폰",
+    "title": "쿠폰 센터",
     "empty": "사용 가능한 쿠폰이 없습니다",
     "minSpend": "¥{minSpend} 이상 사용 가능",
     "expireDate": "유효 기간",
@@ -3156,7 +3156,7 @@
     "status_rejected": "반려됨"
   },
   "distributionCompany": {
-    "title": "판매 유통 센터",
+    "title": "분배 실적",
     "refresh": "새로고침",
     "loadFailed": "데이터를 불러오지 못했습니다",
     "empty": "커미션 데이터가 없습니다",
