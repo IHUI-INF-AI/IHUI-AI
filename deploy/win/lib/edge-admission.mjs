@@ -1,0 +1,173 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 边缘准入判定(2026-10-29 加固第二批)。
+ *
+ * 立因:上一批把「回源鉴权」与「入口限流」接在了 router 的**普通 HTTP 分支**上,而
+ * `server.on('upgrade')` 是另一条独立回调 —— 它拿到连接就直接 `net.connect` 到上游,
+ * 既不看回源密钥、也不过令牌桶。后果不是"少一层",而是**两层全绕**:
+ *   攻击者只要在请求行写 `Upgrade: websocket`,就能以任意速率、任意条数直连上游,
+ *   限流日志里一条都不留(它压根没走那条分支)。
+ * 这类缺口的共同特征与 AGENTS §0.9 记的那一型同构 ——「装了一半」在类型检查、
+ * 单测、构建上全都与装完同形,只有真打一下才看得见。故本模块把判定抽成纯函数,
+ * 让"绕没绕过"变成可断言的用例,而不是靠读代码确认。
+ *
+ * 为什么判定要和执行分开:
+ *   原实现是内联在回调里的 if 链,想验证只能起一个真 router 再发真握手 ——
+ *   而"从非回环地址发"这件事在本机结构上做不到(全是 127.0.0.1),于是这条路径
+ *   在测试里**永远测不到**。抽成纯函数后,`remoteAddress` 直接当参数注入,
+ *   公网来源、回环来源、密钥匹配/缺失/错误三种态都能在同一进程里断言。
+ */
+
+import { decideEdgeGuard } from './edge-origin-guard.mjs'
+import { isLoopbackAddress } from './ip-rate-limit.mjs'
+
+/**
+ * WebSocket 握手准入。
+ *
+ * 两道闸的顺序与 HTTP 分支保持一致:先回源鉴权、后限流。
+ * 理由同 HTTP 侧 —— 直连攻击者不带头,不必为它耗一个限流令牌;
+ * 而回源鉴权只做一次定长比较,比令牌桶更便宜。
+ *
+ * @param {object} input
+ * @param {'off'|'observe'|'enforce'} input.edgeMode   回源鉴权档位
+ * @param {string} input.edgeSecret                     期望密钥;空串 ⇒ 守卫未配置
+ * @param {string} input.remoteAddress                  TCP 对端地址(不可伪造)
+ * @param {Record<string, unknown>} input.headers       握手请求头
+ * @param {((ip: string) => {allowed: boolean, retryAfterSec: number}) | null} [input.checkRate]
+ *        限流检查器;null/缺省 ⇒ 限流层未启用。**由调用方注入**而不是本模块自建桶:
+ *        桶必须是全进程唯一的那一个(与 HTTP 分支共用),各建一个等于把阈值翻倍。
+ * @returns {{
+ *   allow: boolean,
+ *   status: 0|403|429,
+ *   reason: 'ok'|'edge-guard'|'rate-limit',
+ *   edgeReason: string,
+ *   retryAfterSec: number,
+ * }}
+ */
+export function decideUpgradeAdmission({
+  edgeMode,
+  edgeSecret,
+  remoteAddress,
+  headers,
+  checkRate = null,
+}) {
+  const ip = typeof remoteAddress === 'string' ? remoteAddress : ''
+  const loopback = isLoopbackAddress(ip)
+
+  const verdict = decideEdgeGuard({
+    mode: edgeMode,
+    secret: edgeSecret,
+    loopback,
+    headers,
+  })
+
+  if (verdict.action === 'deny') {
+    return {
+      allow: false,
+      status: 403,
+      reason: 'edge-guard',
+      edgeReason: verdict.reason,
+      retryAfterSec: 0,
+    }
+  }
+
+  // 回环豁免与 HTTP 分支同源(isLoopbackAddress 单一真相源):内部服务、部署脚本、
+  // 健康检查的握手不该被自己的限流挡住 —— 那是「加固把自己打瘫」。
+  if (checkRate && !loopback) {
+    const r = checkRate(ip)
+    if (!r.allowed) {
+      return {
+        allow: false,
+        status: 429,
+        reason: 'rate-limit',
+        edgeReason: verdict.reason,
+        retryAfterSec: r.retryAfterSec,
+      }
+    }
+  }
+
+  return {
+    allow: true,
+    status: 0,
+    reason: 'ok',
+    edgeReason: verdict.reason,
+    retryAfterSec: 0,
+  }
+}
+
+/**
+ * 握手被拒时写回的 HTTP 响应帧。
+ *
+ * 为什么不能只 `socket.destroy()`:客户端只会看到 "connection reset",分不清
+ * 「被限流(等一会儿再来)」和「被拦(根本不该来)」;而 ws 客户端库拿到 429 会按
+ * Retry-After 退避,拿到 403 会直接放弃 —— 这两种行为都是我们要的。
+ * 直接断连还会让排障面归零:日志里只有一个 RST,看不出是谁拦的。
+ *
+ * @param {number} status
+ * @param {string} reason
+ * @param {number} [retryAfterSec]
+ * @returns {string}
+ */
+export function buildRejectionFrame(status, reason, retryAfterSec = 0) {
+  const body = JSON.stringify({ code: status, message: reason })
+  const lines = [
+    `HTTP/1.1 ${status} ${status === 403 ? 'Forbidden' : 'Too Many Requests'}`,
+    'content-type: application/json',
+    `content-length: ${Buffer.byteLength(body)}`,
+    'connection: close',
+  ]
+  if (retryAfterSec > 0) lines.push(`retry-after: ${retryAfterSec}`)
+  return `${lines.join('\r\n')}\r\n\r\n${body}`
+}
+
+/**
+ * 运维探针 `/__bg/status` 的可见性。
+ *
+ * 立因(2026-10-29 实测):该端点原注释写「仅本机可达(监听 127.0.0.1)」,
+ * 但那份注释只对 API router 成立 —— WEB router 复用同一份实现且监听 **0.0.0.0**
+ * (EdgeOne 回源直填公网 IP 的硬约束)。实测 `curl http://127.0.0.1:8801/__bg/status`
+ * 返回 `{"ok":true,"active":"green","upstream":8852}` ⇒ 公网任何人可读走
+ * 「当前活跃配色 + 两色内部端口」。单看不是漏洞,但它给攻击者两件事:
+ *   ① 确认打的是真源站而非蜜罐/边缘;
+ *   ② 知道切流窗口 —— 蓝绿切换时打旧色可命中"已经排空但还没停"的实例。
+ * 故判据改为按**来源**而不是按"我以为它监听在哪"。
+ *
+ * 非回环一律回 404(与未知路径同形),不回 403:403 等于告诉对方"这个路径存在,
+ * 只是你没权限",那还是泄露了端点的存在性。
+ *
+ * @param {string} remoteAddress
+ * @returns {boolean} true ⇒ 可以返回真实状态
+ */
+export function bgStatusVisibleTo(remoteAddress) {
+  return isLoopbackAddress(typeof remoteAddress === 'string' ? remoteAddress : '')
+}
+
+/**
+ * 从 env 读连接数硬顶。
+ *
+ * 立因:Node 的 `server.maxConnections` 缺省是 `Infinity` —— 反代进程对「同时挂多少条
+ * TCP」没有任何上限。headersTimeout=30s 只保证单条连接不会永远挂着,挡不住
+ * 「每秒建 N 条、30 秒内堆 30N 条」这种量:FD 与内存按连接数线性涨,而 router 一旦
+ * OOM,全站入口同时消失(比被攻击更彻底)。
+ *
+ * 取值口径与限流一致:给得宽(默认 10000),正常流量远达不到,连接耗尽型攻击会瞬间打满。
+ * 非法/非正数一律回落默认值 —— 失效方向恒为「保持有上限」,绝不因配错变成无上限。
+ *
+ * 为什么**不**复用 `apps/api/src/plugins/http-conn-guard.ts` 的同名函数(§0.6 单一真相源
+ * 在这里的例外必须写明,否则下一个人会以为是漏抄):
+ *   · 运行时不同 —— 那边是 TS,由 tsx 加载;本文件是 Node 直跑的 .mjs,import 不到 TS;
+ *   · 缺省值不同且不能统一 —— 那边缺省 20000,且把 `'0'` 判成 0(它的调用方另行兜底);
+ *     本层 `'0'` 若透传成 0,等于**一条连接都不许进**,那是把入口关死,失效方向反了。
+ *   两处唯一共享的是"非法值回落"这条语义,故此处独立实现并各自用测试钉住。
+ *
+ * @param {unknown} raw
+ * @returns {number}
+ */
+export function resolveRouterMaxConnections(raw) {
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 10_000
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
