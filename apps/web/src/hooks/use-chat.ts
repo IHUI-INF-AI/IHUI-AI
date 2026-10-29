@@ -12,6 +12,9 @@ import type { FallbackEvent } from '@ihui/api-client'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useApplyDiff } from '@/hooks/use-apply-diff'
 import { fetchApi } from '@/lib/api'
+// 对标 Qoder 借鉴清单第 10 项(2026-10-29):命名错误码的分类处置词表
+// (标题/建议仍取 ai.pane.errorCatalog 的既有 139 码表,本层只加"动作"这一维)。
+import { useStreamErrorLabels } from '@/lib/stream-error-view'
 import { createSendMessage } from './use-chat/send-message'
 import { getStreamRuntime } from './use-chat/stream-runtime'
 import { createSendAnswer } from './use-chat/send-answer'
@@ -41,6 +44,9 @@ export function useChat(): UseChatReturn {
   const queryClient = useQueryClient()
   // ChatMode 斜杠命令 toast i18n(2026-07-28 立,模块级函数无法调 hook,由此处传入 t)
   const t = useTranslations('chat')
+  // 对标 Qoder 第 10 项:流错误分类处置词表(9 动作 × 5 准入态,键在 streamErrors 命名空间)。
+  // 与 chat 命名空间**刻意分开** —— chat 正被并行工作流写,共用一支必然冲突。
+  const streamErrorLabels = useStreamErrorLabels()
   // 票60 步序三(2026-10-18):abort 域收进按 store 实例隔离的运行时记录(stream-runtime.ts)。
   // 步序四起 chatStore 来自 usePaneChatStore():无 Provider 时仍是单例 useChatStore,
   // 恒同一份记录 ⇒ 与原 React.useRef 行为逐字节等价;窗格实例各挂各的记录,互不串扰。
@@ -98,6 +104,9 @@ export function useChat(): UseChatReturn {
     sendInFlightRef,
     streamGenerationRef,
     streamConversationRef,
+    // 对标 Qoder 第 10 项(2026-10-29):命名错误码的分类处置词表。
+    // 这里把 hook 的产物**一次性**塞进 ctx,发送链内部就不必再调 hook(它是模块级函数)。
+    streamErrorLabels,
   }
 
   const sendMessage = React.useCallback(createSendMessage(ctx, chatStore), [
@@ -106,7 +115,11 @@ export function useChat(): UseChatReturn {
     t,
     chatStore,
   ])
-  const sendAnswer = React.useCallback(createSendAnswer(ctx, chatStore), [t, chatStore])
+  const sendAnswer = React.useCallback(createSendAnswer(ctx, chatStore), [
+    t,
+    chatStore,
+    streamErrorLabels,
+  ])
 
   // V3 #68(2026-09-27 立):终止在途流的**唯一**出口,由「停止」按钮与「流式中切换模型」共用。
   // 动作与原 stop() 逐条等值(标记中断 → 通知网关 → abort → 回收压缩预告),
