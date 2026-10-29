@@ -7872,6 +7872,44 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "hookFailures": {
+        "title": "Hook execution failed",
+        "evidenceMissing": "Result not recorded: this execution is neither in the execution log nor the dead-letter queue, so its outcome cannot be confirmed.",
+        "state": {
+          "succeeded": "Succeeded",
+          "retryScheduled": "Retry scheduled",
+          "failed": "Failed",
+          "timedOut": "Timed out",
+          "skipped": "Skipped",
+          "resultNotRecorded": "Result not recorded"
+        },
+        "aria": {
+          "card": "Hook execution failure details",
+          "state": "Status: {state}",
+          "hookName": "Hook name",
+          "event": "Trigger event",
+          "evidence": "Evidence details",
+            "dismiss": "Dismiss this card"
+        },
+        "hint": {
+          "retryScheduled": "The system will retry automatically; no action needed.",
+          "failed": "This hook did not complete; dependent automation steps may not have taken effect.",
+          "timedOut": "Execution exceeded its time limit and was interrupted. Check the hook script or timeout setting.",
+          "resultNotRecorded": "This execution is neither in the execution log nor the dead-letter queue, so its outcome cannot be confirmed."
+        },
+        "field": {
+          "hookName": "Hook",
+          "event": "Event",
+          "exitCode": "Exit code",
+          "command": "Command",
+          "durationMs": "Duration",
+          "stderr": "Error output"
+        },
+        "action": {
+          "retry": "Retry",
+          "inspect": "Inspect in settings"
+        }
+      },
       "elementPack": {
         "backgroundTask": {
           "state": {

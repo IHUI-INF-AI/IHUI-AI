@@ -7872,6 +7872,44 @@
       "rollbackConfirmConfirm": "복원"
     },
     "pane": {
+      "hookFailures": {
+        "title": "Hook 실행 실패",
+        "evidenceMissing": "최종 결과 미기록: 이 실행은 실행 로그에도, 데드레터 큐에도 없어 성공 여부를 확인할 수 없습니다.",
+        "state": {
+          "succeeded": "성공",
+          "retryScheduled": "재시도 예약됨",
+          "failed": "실패",
+          "timedOut": "시간 초과",
+          "skipped": "건너뜀",
+          "resultNotRecorded": "최종 결과 미기록"
+        },
+        "aria": {
+          "card": "Hook 실행 실패 세부 정보",
+          "state": "상태: {state}",
+          "hookName": "Hook 이름",
+          "event": "트리거 이벤트",
+          "evidence": "증거 세부 정보",
+            "dismiss": "이 카드 닫기"
+        },
+        "hint": {
+          "retryScheduled": "잠시 후 자동으로 재시도됩니다. 별도 작업이 필요하지 않습니다.",
+          "failed": "이 Hook 이 완료되지 않았습니다. 관련 자동화 단계가 적용되지 않았을 수 있습니다.",
+          "timedOut": "제한 시간을 초과해 중단되었습니다. Hook 스크립트 또는 시간 초과 설정을 확인하세요.",
+          "resultNotRecorded": "이 실행은 실행 로그에도, 데드레터 큐에도 없어 성공 여부를 확인할 수 없습니다."
+        },
+        "field": {
+          "hookName": "Hook",
+          "event": "이벤트",
+          "exitCode": "종료 코드",
+          "command": "명령",
+          "durationMs": "소요 시간",
+          "stderr": "오류 출력"
+        },
+        "action": {
+          "retry": "재시도",
+          "inspect": "설정에서 확인"
+        }
+      },
       "elementPack": {
         "backgroundTask": {
           "state": {

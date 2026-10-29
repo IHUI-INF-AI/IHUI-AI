@@ -7872,6 +7872,44 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "hookFailures": {
+        "title": "Hook 执行失败",
+        "evidenceMissing": "未记录最终结果:该次执行既不在执行日志、也不在死信队列里,无法确认成败。",
+        "state": {
+          "succeeded": "已成功",
+          "retryScheduled": "已安排重试",
+          "failed": "执行失败",
+          "timedOut": "执行超时",
+          "skipped": "已跳过",
+          "resultNotRecorded": "未记录最终结果"
+        },
+        "aria": {
+          "card": "Hook 执行失败详情",
+          "state": "状态:{state}",
+          "hookName": "Hook 名称",
+          "event": "触发事件",
+          "evidence": "证据明细",
+            "dismiss": "关闭此卡片"
+        },
+        "hint": {
+          "retryScheduled": "系统会在稍后自动重试,无需操作。",
+          "failed": "该 Hook 未能完成,相关自动化步骤可能未生效。",
+          "timedOut": "执行超过时限被中断,可检查 Hook 脚本或用时设置。",
+          "resultNotRecorded": "该次执行既不在执行日志、也不在死信队列里,无法确认成败。"
+        },
+        "field": {
+          "hookName": "Hook",
+          "event": "事件",
+          "exitCode": "退出码",
+          "command": "命令",
+          "durationMs": "耗时",
+          "stderr": "错误输出"
+        },
+        "action": {
+          "retry": "重试",
+          "inspect": "去设置排查"
+        }
+      },
       "elementPack": {
         "backgroundTask": {
           "state": {

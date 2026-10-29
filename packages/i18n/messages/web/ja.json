@@ -7872,6 +7872,44 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "hookFailures": {
+        "title": "Hook の実行に失敗しました",
+        "evidenceMissing": "最終結果が未記録:この実行は実行ログにもデッドレターキューにも存在しないため、成否を確認できません。",
+        "state": {
+          "succeeded": "成功",
+          "retryScheduled": "再試行を予定",
+          "failed": "失敗",
+          "timedOut": "タイムアウト",
+          "skipped": "スキップ",
+          "resultNotRecorded": "最終結果が未記録"
+        },
+        "aria": {
+          "card": "Hook 実行失敗の詳細",
+          "state": "状態:{state}",
+          "hookName": "Hook 名",
+          "event": "トリガーイベント",
+          "evidence": "証跡の詳細",
+            "dismiss": "このカードを閉じる"
+        },
+        "hint": {
+          "retryScheduled": "しばらくして自動的に再試行されます。操作は不要です。",
+          "failed": "この Hook は完了しませんでした。関連する自動化手順が反映されていない可能性があります。",
+          "timedOut": "制限時間を超えたため中断されました。Hook スクリプトまたはタイムアウト設定を確認してください。",
+          "resultNotRecorded": "この実行は実行ログにもデッドレターキューにも存在しないため、成否を確認できません。"
+        },
+        "field": {
+          "hookName": "Hook",
+          "event": "イベント",
+          "exitCode": "終了コード",
+          "command": "コマンド",
+          "durationMs": "所要時間",
+          "stderr": "エラー出力"
+        },
+        "action": {
+          "retry": "再試行",
+          "inspect": "設定で確認"
+        }
+      },
       "elementPack": {
         "backgroundTask": {
           "state": {
