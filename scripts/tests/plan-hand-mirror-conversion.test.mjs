@@ -255,4 +255,30 @@ test('M18 提示能力认"error 交给共享屏渲染"这一形:共享屏不渲�
     ['用户提示'],
   )
 })
+
+test('M19 返回键两端同源:壳交 onBack ∧ 共享屏渲染 <BackChevron> 才销,缺一侧不销', () => {
+  const mk = () => new Set(['@/components/BackChevron'])
+  // 正例 = pkg-content/search/index 现读三层:页面 <BackChevron onTap={goBack}> /
+  // 壳 onBack={() => navigation.goBack()} / 共享屏 <BackChevron onPress={onBack} …>
+  const t1 = mk()
+  assert.deepEqual(
+    conv.shellCapabilityCovered(t1, 'onBack={() => navigation.goBack()}', '<BackChevron onPress={onBack} />'),
+    ['返回键'],
+  )
+  assert.ok(!t1.has('@/components/BackChevron'))
+  // 反面:壳传了 onBack,但共享屏根本没渲染返回键 ⇒ 转壳后用户没退路 ⇒ 不销
+  const t2 = mk()
+  assert.deepEqual(conv.shellCapabilityCovered(t2, 'onBack={() => navigation.goBack()}', 'return <View />'), [])
+  assert.ok(t2.has('@/components/BackChevron'))
+  // 反面:共享屏有 <BackChevron>,但壳没把 onBack 交进去 ⇒ 按上去没反应 ⇒ 不销
+  const t3 = mk()
+  assert.deepEqual(conv.shellCapabilityCovered(t3, 'return <Shared items={items} />', '<BackChevron onPress={onBack} />'), [])
+  assert.ok(t3.has('@/components/BackChevron'))
+  // 共享屏侧的 BackChevron 也算注释不成立(遮注释后仍要有真 JSX)
+  const t4 = mk()
+  assert.deepEqual(
+    conv.shellCapabilityCovered(t4, 'onBack={() => navigation.goBack()}', '// <BackChevron /> 以后再说'),
+    [],
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

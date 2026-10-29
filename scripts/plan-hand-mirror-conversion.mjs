@@ -443,6 +443,16 @@ export const SHELL_CAPABILITY_RULES = [
     shellEvidence: (s) => /navigation\.(?:navigate|push|replace)\s*\(|router\.(?:push|replace)\s*\(/.test(s),
   },
   {
+    what: '返回键',
+    // 仓规 §4 把返回键定成三端单一源头:端内 apps/miniapp-taro/src/components/BackChevron.tsx、
+    // 共享 packages/app/src/components/BackChevron.tsx。页面 import 端内那一枚、壳把 onBack 交给
+    // 共享屏渲染共享那一枚 ⇒ 同一件事的两个出处,转壳后返回键照样在(实测 pkg-content/search/index
+    // 三层齐:页面 <BackChevron onTap={goBack}> / 壳 onBack={() => navigation.goBack()} /
+    // 共享屏 <BackChevron onPress={onBack} label={t('common.back')}>)。
+    tokens: ['@/components/BackChevron'],
+    shellEvidence: (s, shared) => /onBack/.test(s) && /<BackChevron\b/.test(shared),
+  },
+  {
     what: '用户提示',
     tokens: ['Taro.showToast'],
     // 两条形态都算"失败提示由壳承担":
@@ -1205,6 +1215,23 @@ function main(argv) {
       shellCapabilityCovered(new Set(['Taro.showToast']), '<Shared error={error} />', ''),
       shellCapabilityCovered(new Set(['Taro.showToast']), '', ''),
     ], [['用户提示'], ['用户提示'], [], []])
+    P('S24 返回键:壳把 onBack 交给共享屏 ∧ 共享屏渲染 <BackChevron> 才销;缺一侧都不销', [
+      shellCapabilityCovered(
+        new Set(['@/components/BackChevron']),
+        'onBack={() => navigation.goBack()}',
+        '<BackChevron onPress={onBack} label={t("common.back")} />',
+      ),
+      shellCapabilityCovered(
+        new Set(['@/components/BackChevron']),
+        'onBack={() => navigation.goBack()}',
+        'return <View />',
+      ),
+      shellCapabilityCovered(
+        new Set(['@/components/BackChevron']),
+        'return <Shared items={items} />',
+        '<BackChevron onPress={onBack} />',
+      ),
+    ], [['返回键'], [], []])
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
