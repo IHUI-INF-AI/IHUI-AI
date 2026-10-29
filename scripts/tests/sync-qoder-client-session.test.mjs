@@ -17,6 +17,9 @@ test('① 参数面:--dry-run/--json 合法;未知参数 ⇒ 未判定;--help �
   assert.equal(S.parseArgs(['--json']).json, true)
   assert.equal(S.parseArgs(['--bogus']).error, '未知参数: --bogus')
   assert.equal(S.parseArgs(['--help']).help, true)
+  // pnpm 透传的裸 `--` 不是参数:pnpm x:foo -- --dry-run 必须照样能跑(AGENTS §0.8)
+  assert.equal(S.parseArgs(['--', '--dry-run']).error, null)
+  assert.equal(S.parseArgs(['--', '--dry-run']).dryRun, true)
 })
 
 test('② 载荷形状:providerCode=qoder,Cosy 设备头族随会话带上', () => {

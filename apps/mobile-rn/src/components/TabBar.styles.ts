@@ -24,6 +24,7 @@ import {
   TAB_BAR_INDICATOR_INSET_PX,
   TAB_BAR_MARGIN_H_PX,
   TAB_BAR_GLOW_RADIUS_PX as TAB_BAR_GLOW_RADIUS_SRC_PX,
+  TAB_BAR_GLASS_BLUR_PX,
 } from '@ihui/shared/ui/tab-bar-spec'
 
 /*
@@ -83,7 +84,7 @@ export function tabBarDockSpacer(insetsBottom: number): number {
 // 名字刻意不带 RADIUS:它是模糊半径(px),不是圆角档位。门 77 的 B2 按常量名取"圆角绕过",
 // 而该门头注(535 行)写明"确实叫 RADIUS 但不是圆角"属命名债,正解是改名而不是加豁免、
 // 更不是把它吸附到 rnRadius 档位上(24 是 blur 的 px,与圆角档位表无关)。
-const GLASS_BLUR_PX = 24
+const GLASS_BLUR_PX = TAB_BAR_GLASS_BLUR_PX
 
 /** web 预览专属模糊层(RNW 类型外属性,经 ViewStyle 断言注入,避免 any);
  *  TabBar 胶囊与 HomeScreen 底部玻璃停靠区共用同一模糊半径。 */

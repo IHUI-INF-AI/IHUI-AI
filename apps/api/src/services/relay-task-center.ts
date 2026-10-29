@@ -5,7 +5,7 @@
 /**
  * 号池任务中心(2026-10-27 立,号池对标缺口清单第 4 项,机主定案「观测面+手动触发」)。
  *
- * 治的病:号池周期任务散在 4 种载体(BullMQ×3 / guardian×2 / Windows 计划任务×1 /
+ * 治的病:号池周期任务散在 4 种载体(BullMQ×5 / guardian×2 / Windows 计划任务×1 /
  * ai-service APScheduler×1),执行状态只有日志、tick 文件、Prometheus gauge 三种
  * 互不相通的落点——任务停摆只有翻日志才知道。本模块把它们折成一张任务表:
  * 每项 = 名称 / 载体 / 频率 / 上次执行(时间+成败) / 下次执行 / 能否手动触发。
@@ -24,7 +24,7 @@
  * - apscheduler(ai-service):fetch {AI_SERVICE_URL}/api/checkin/scheduler/status
  *   (Phase1c 只读端点);不可达 ⇒ indeterminate。
  *
- * 手动触发:仅 bullmq 三项(sweep/trae-session-sync/relay-pool-gauge)有进程内
+ * 手动触发:仅 bullmq 五项(sweep/trae/qoder/workbuddy-session-sync/relay-pool-gauge)有进程内
  * 直调口;guardian/schtasks/apscheduler 一律 triggerable:false 并给真实出路
  * (§0.8 文档不写跑不通的出路)——容量哨兵已有 CLI,凭据巡检由计划任务承载,
  * 签到调度开关在 ai-service env(CHECKIN_CRON_ENABLED,默认 false)。
@@ -81,6 +81,28 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     queue: 'relay-account-pool-queue',
     schedulerId: 'trae-session-sync-cron',
     jobName: 'trae-session-sync',
+    triggerable: true,
+  },
+  {
+    id: 'qoder-session-sync',
+    name: 'Qoder 客户端登录态回灌',
+    carrier: 'bullmq',
+    schedule: '每 10 分钟',
+    cron: '*/10 * * * *',
+    queue: 'relay-account-pool-queue',
+    schedulerId: 'qoder-session-sync-cron',
+    jobName: 'qoder-session-sync',
+    triggerable: true,
+  },
+  {
+    id: 'workbuddy-session-sync',
+    name: 'WorkBuddy 会话模板回灌',
+    carrier: 'bullmq',
+    schedule: '每 10 分钟',
+    cron: '*/10 * * * *',
+    queue: 'relay-account-pool-queue',
+    schedulerId: 'workbuddy-session-sync-cron',
+    jobName: 'workbuddy-session-sync',
     triggerable: true,
   },
   {
@@ -347,15 +369,29 @@ export async function runRelayTaskById(
   if (id === 'relay-pool-sweep') {
     const { sweepAccountPool } = await import('./relay-account-pool-scheduler.js')
     const r = await sweepAccountPool()
+    // 产出面只有 6 枚键(2026-10-29 复核:旧串读的 keepalive 结构上不存在,管理面恒显示
+    // "保活=undefined");skipped=true = 分布式锁被别席持有,本轮根本没执行,不得冒"完成"
+    if (r.skipped) {
+      return { ok: false, detail: '本轮跳过:分布式锁被其他实例持有(未执行 ≠ 零结果)' }
+    }
     return {
       ok: true,
-      detail: `巡检完成:保活=${r.keepalive} 刷新=${r.refreshed} 刷新失败=${r.refreshFailed} 定级=${r.healthChecked} 恢复=${r.healthRecovered}`,
+      detail: `巡检完成:刷新=${r.refreshed} 刷新失败=${r.refreshFailed} 跳过刷新=${r.refreshSkipped} 定级=${r.healthChecked} 恢复=${r.healthRecovered}`,
     }
   }
-  if (id === 'trae-session-sync') {
-    const { runTraeSessionSync } = await import('../workers/relay-account-pool-worker.js')
-    const r = await runTraeSessionSync()
-    // 退出码 2 = 未判定(本机无 Trae 客户端等),不是失败
+  if (
+    id === 'trae-session-sync' ||
+    id === 'qoder-session-sync' ||
+    id === 'workbuddy-session-sync'
+  ) {
+    const { runTraeSessionSync, runQoderSessionSync, runWorkbuddySessionSync } =
+      await import('../workers/relay-account-pool-worker.js')
+    const r = await (id === 'qoder-session-sync'
+      ? runQoderSessionSync()
+      : id === 'workbuddy-session-sync'
+        ? runWorkbuddySessionSync()
+        : runTraeSessionSync())
+    // 退出码 2 = 未判定(本机无对应客户端/解密失败/tsx 缺失),不是失败
     return {
       ok: r.code === 0,
       detail:
