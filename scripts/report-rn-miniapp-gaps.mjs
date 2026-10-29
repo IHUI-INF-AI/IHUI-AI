@@ -18,6 +18,7 @@
 //   node scripts/report-rn-miniapp-gaps.mjs --write <file>  # 写入 markdown
 //   node scripts/report-rn-miniapp-gaps.mjs --json
 import { dirname, resolve } from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
@@ -188,7 +189,19 @@ if (pendingHooks.length > 0) {
 }
 const md = lines.join('\n') + '\n'
 if (writePath) {
-  writeFileSync(resolve(ROOT, writePath), md)
+  const abs = resolve(ROOT, writePath)
+  writeFileSync(abs, md, 'utf8')
+  // AGENTS §5c:产出被跟踪文件后由**生成器自己**紧随注入水印。缺这一腿时「重新生成一次」就是把
+  // 已有的溯源载荷整片洗掉(实测 2026-10-29:这份账本经一次 --write 后进了未覆盖清单),而覆盖率
+  // 门禁又是自愈式的 —— 它会在别的档口替生成器把载荷补回工作区,于是提交链上永远不响,失效形态
+  // 是安静(同型的话写在 benchmark-frame-end-matrix.mjs:313 头注里)。
+  // 本器正是漂移尺 doc-stale 那一维给出的**唯一出路**,会被人和器物反复跑 ⇒ 根因必须长在这器上。
+  execFileSync(process.execPath, [resolve(ROOT, 'scripts', 'watermark.mjs'), 'inject', abs], {
+    cwd: ROOT,
+    stdio: 'ignore', // §12g:不吃的子进程也必须显式给 stdio,否则本机稳定报 EBUSY
+    windowsHide: true,
+    timeout: 120000,
+  })
   console.log(`written ${writePath} (${rows.length} gaps)`)
 } else {
   console.log(md)

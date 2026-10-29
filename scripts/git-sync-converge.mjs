@@ -51,6 +51,9 @@ import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { gitRaw, resolveRemoteHead } from './lib/face-reader.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
+// 孤儿提交备份腿的单一实现(2026-10-29 门 30a 根因票):四台旁路落地器共用一份判据(§0.6),
+// 本器只留薄封装与再导出 —— conv 档命名/幂等/pack-refs/留痕/永不抛 全部住在那一层。
+import { orphanBackupRefName, backupOrphanCommit } from './lib/orphan-backup.mjs'
 // 旁路合并的"对侧独有新增必须 ∈ 结果"复量:判据一律 import 守门 100 自己那份 A1 实现,
 // 本器不复算第二份集合运算(AGENTS §0.6 单一真相源 / §22c 镜像测试纪律)。
 import { auditOne as auditMergeAdditionLoss } from './check-merge-addition-loss.mjs'
@@ -144,14 +147,13 @@ export const GIT_MACHINE_IDENTITY = [
 
 /**
  * 纯函数:悬空合并提交的备份 ref 名(§29 命名族 `lost-commit/wip-*`)。
- * 取 sha 前 7 位当后缀 —— 与 `check-commit-loss-guard` 已登记的 4188 枚 `lost-commit/wip-*`
- * 同族,所以它**天然被那道门的"已备份"判据认账**;换成别的前缀就是替门制造新红。
+ * 判据已迁入 `scripts/lib/orphan-backup.mjs`(§0.6 单一真相源:四台旁路落地器各拼一份必然漂开,
+ * union-converge 那份 10 位无中段的副本就是活证据)。**这个再导出必须留着** —— 镜像测试
+ * `scripts/tests/git-sync-converge-orphan-backup.test.mjs` 经 `__test__` 按名从本文件取用;
+ * 删掉再导出 = 门 253 D2 那一型(削出口而消费方还按名取用 ⇒ 装载期当场炸)。
+ * lib 版默认 `kind:'conv'`,读出值与本文件历史行为逐字相同(`lost-commit/wip-conv-<sha7>`)。
  */
-export function orphanBackupRefName(sha) {
-  const s = String(sha || '').trim()
-  if (!/^[0-9a-f]{7,40}$/.test(s)) return null
-  return `lost-commit/wip-conv-${s.slice(0, 7)}`
-}
+export { orphanBackupRefName }
 
 /**
  * 纯函数:把"吞并 + 应急出口"的裁定从 CLI 里剥出来,好让镜像测试真判(§0.3 方向:裸开关不放行)。
@@ -425,34 +427,41 @@ export function localPreservedVerdict({ bad = [], undetermined = [] } = {}) {
   return { status: 'ok', exitCode: 0, bad: 0, undetermined: 0 }
 }
 
-/** 把一枚 CAS 落空的合并提交按 §29 零损失流程备份成 tag 并固化(pack-refs)。 */
+/**
+ * 把一枚 CAS 落空的合并提交按 §29 零损失流程备份成 tag 并固化(pack-refs)。
+ * 实现住 `scripts/lib/orphan-backup.mjs`(conv/uni/land 三档共用一份判据,§0.6);本层是**薄封装**:
+ * 同名同签名、返回形状 `{ok, ref, already?}` 与日志文案/颜色逐字不变 ——
+ * 镜像测试与 addition-loss / deletion-resurrection 两把调用侧锁钉的就是这些字面。
+ */
 function backupOrphanMerge(sha, why) {
-  const ref = orphanBackupRefName(sha)
-  if (!ref) {
+  let anomaly = ''
+  const res = backupOrphanCommit({
+    sha,
+    why,
+    kind: 'conv',
+    root: process.cwd(),
+    // lib 的出声一律暂存,由下面按本文件历史文案逐字重放(日志形状也是契约,不随手换措辞)。
+    logger: (m) => {
+      anomaly = String(m)
+    },
+  })
+  if (res.why === 'bad-sha-or-kind') {
     log(C.yellow, `  ⚠️ 悬空合并提交的 SHA 形状不对(${String(sha).slice(0, 12)}),未备份`)
     return { ok: false, ref: null }
   }
-  try {
-    if (
-      git(['rev-parse', '--verify', '--quiet', `refs/tags/${ref}`], { allowFail: true }) !== null
-    ) {
-      return { ok: true, ref, already: true }
-    }
-    const tagged = git(
-      ['tag', ref, sha, '-m', `孤儿合并提交(${why}):CAS 未抢到 HEAD,按 §29 零损失备份`],
-      {
-        allowFail: true,
-      },
-    )
-    if (tagged === null) return { ok: false, ref }
-    // 嵌套 tag 不 pack 就会被宿主清理层删掉(§5b),而 tag 消失 = 30a 重新判红
-    git(['pack-refs', '--all', '--prune'], { allowFail: true })
-    log(C.green, `  🛟 已备份孤儿合并提交为 ${ref}(否则守门 30a 会让每次提交跳门)`)
-    return { ok: true, ref }
-  } catch (e) {
-    log(C.yellow, `  ⚠️ 备份孤儿合并提交失败:${e && e.message ? e.message.slice(0, 120) : e}`)
-    return { ok: false, ref }
+  if (res.ok && res.already) return { ok: true, ref: res.ref, already: true }
+  if (res.ok) {
+    log(C.green, `  🛟 已备份孤儿合并提交为 ${res.ref}(否则守门 30a 会让每次提交跳门)`)
+    return { ok: true, ref: res.ref }
   }
+  // tag 未成(历史同形:不出声,只把 ok:false 交回调用点);lib 自身抛异常才重放失败行
+  if (res.why === 'threw') {
+    log(
+      C.yellow,
+      `  ⚠️ 备份孤儿合并提交失败:${anomaly.replace(/^⚠️ 备份孤儿提交异常:/, '').slice(0, 120)}`,
+    )
+  }
+  return { ok: false, ref: res.ref }
 }
 /** 纯函数:拼出带身份的 `commit-tree` 参数(判据可被镜像测试直接喂构造面)。 */
 export function mergeCommitArgs({ tree, parents, message }) {
