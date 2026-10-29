@@ -63,6 +63,7 @@ import type { ProviderFormState } from './types-v2'
 export default function UserLlmConfigsPage() {
   const t = useTranslations('llmSettings')
   const tV2 = useTranslations('llmSettings.v2')
+  const tc = useTranslations('common')
   const qc = useQueryClient()
   // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
   const { allow } = useAuthGate()
@@ -149,7 +150,7 @@ export default function UserLlmConfigsPage() {
   }, [searchParams])
 
   // 加载 provider 列表
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['v2-providers'],
     queryFn: () => fetchProvidersV2(),
     enabled: allow,
@@ -314,6 +315,17 @@ export default function UserLlmConfigsPage() {
               <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
               <span className="whitespace-nowrap">{t('loading')}</span>
             </div>
+          ) : isError ? (
+            // 拉取失败不得复用"还没有配置任何模型服务商"的空态:那会让用户以为已配置的密钥被清空,
+            // 进而重复添加。
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+                <p className="text-sm font-medium">{tV2('fetchFailed')}</p>
+                <Button size="sm" variant="outline" onClick={() => void refetch()}>
+                  {tc('retry')}
+                </Button>
+              </CardContent>
+            </Card>
           ) : visibleProviders.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center gap-3 py-8 text-center">

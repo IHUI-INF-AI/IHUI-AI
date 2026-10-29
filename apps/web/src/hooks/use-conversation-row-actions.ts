@@ -52,8 +52,13 @@ export function useConversationRowActions() {
 
   // P1 乐观更新(2026-07-23):收藏/归档即时反馈,不等 API 返回
   const favMutation = useMutation({
-    mutationFn: (id: string) =>
-      fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}/favorite`, { method: 'POST' }),
+    mutationFn: async (id: string) => {
+      const res = await fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}/favorite`, {
+        method: 'POST',
+      })
+      if (!res.success) throw new Error(res.error)
+      return res
+    },
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['chat', 'conversations'] })
       await queryClient.cancelQueries({ queryKey: ['chat', 'favorites'] })
@@ -74,8 +79,11 @@ export function useConversationRowActions() {
 
   // 置顶/取消置顶(2026-08-30 立):乐观更新 pinned,刷新会话列表(后端排序置顶优先)
   const pinMutation = useMutation({
-    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
-      setConversationPinned(id, pinned),
+    mutationFn: async ({ id, pinned }: { id: string; pinned: boolean }) => {
+      const res = await setConversationPinned(id, pinned)
+      if (!res.success) throw new Error(res.error)
+      return res
+    },
     onMutate: async ({ id, pinned }) => {
       await queryClient.cancelQueries({ queryKey: ['chat', 'conversations'] })
       await queryClient.cancelQueries({ queryKey: ['chat', 'favorites'] })
@@ -96,7 +104,11 @@ export function useConversationRowActions() {
   })
 
   const archiveMutation = useMutation({
-    mutationFn: (id: string) => archiveConversation(id),
+    mutationFn: async (id: string) => {
+      const res = await archiveConversation(id)
+      if (!res.success) throw new Error(res.error)
+      return res
+    },
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['chat', 'conversations'] })
       await queryClient.cancelQueries({ queryKey: ['chat', 'favorites'] })
@@ -115,16 +127,23 @@ export function useConversationRowActions() {
   })
 
   const unarchiveMutation = useMutation({
-    mutationFn: (id: string) => unarchiveConversation(id),
+    mutationFn: async (id: string) => {
+      const res = await unarchiveConversation(id)
+      if (!res.success) throw new Error(res.error)
+      return res
+    },
     onSuccess: () => invalidateAll(),
   })
 
   const renameMutation = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) =>
-      fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}`, {
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      const res = await fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         body: JSON.stringify({ title }),
-      }),
+      })
+      if (!res.success) throw new Error(res.error)
+      return res
+    },
     onSuccess: () => invalidateAll(),
   })
 
