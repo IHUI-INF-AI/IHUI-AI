@@ -82,7 +82,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw } from './lib/face-reader.mjs'
 // 登记行形态/勾选态/主键/剥装饰正文的唯一真相源(§0.6):本器只 import,不另写一份正则(§22c)。
-import { bodyOfRow, compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
+import { bodyOfRow, claimMarkOf, compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
 // 维五(归档批次维,2026-10-28)的凭据同样只 import:`selectMovedOutForDisposition` 是本仓唯一的
 // "处置侧归档批次取材 + 判据"出口(同族表 / 整篇复制件两判别 / 通配指针不受理 / MIN_MOVED_LINE /
 // "本侧 0 份"全在那一份实现里),本器不得再写第二份(§0.6)。
@@ -139,6 +139,13 @@ export function buildDeclared(rowTexts) {
   const closed = new Map()
   const keyIndex = new Map()
   const seenClosed = new Set()
+  // 维六输入(2026-10-29 立):台账里**未勾**形态按复合主键建索引。
+  // 立因是现读的一枚真例:某行以 `- [ ]` 形态被 live-doc-edit 摘除(台账存未勾原文),
+  // 之后被"收编他席副本"带回 —— 但带回时已被加过 `〔归:…〕` 表头 ⇒ 维一逐字不中;
+  // 而维二/维四只吃**已勾**形态 ⇒ 四道维全都够不着。实测两个形态的 `compositeKeyOf` 与
+  // `bodyOfRow` 完全相等(表头属装饰),所以身份判据本来就有,只是没人用它。
+  const open = new Map()
+  const seenOpen = new Set()
   for (const s of rowTexts) {
     if (typeof s !== 'string' || !/^\s*- \[[ xX]\]/.test(s)) continue
     set.add(s)
@@ -147,6 +154,15 @@ export function buildDeclared(rowTexts) {
       if (!keyIndex.has(ck)) keyIndex.set(ck, [])
       keyIndex.get(ck).push(s)
     }
+    if (rowStateOf(s) === 'open') {
+      const body = bodyOfRow(s)
+      if (ck && body !== null && !seenOpen.has(s)) {
+        seenOpen.add(s)
+        if (!open.has(ck)) open.set(ck, [])
+        open.get(ck).push({ raw: s, body })
+      }
+      continue
+    }
     if (rowStateOf(s) !== 'done' || seenClosed.has(s)) continue
     seenClosed.add(s)
     const body = bodyOfRow(s)
@@ -154,7 +170,7 @@ export function buildDeclared(rowTexts) {
     if (!closed.has(ck)) closed.set(ck, [])
     closed.get(ck).push({ raw: s, body })
   }
-  return { set, closed, keyIndex, closedDeclared: seenClosed.size }
+  return { set, closed, keyIndex, open, closedDeclared: seenClosed.size, openDeclared: seenOpen.size }
 }
 
 /** 摘除声明集合:
@@ -238,10 +254,12 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
 
 /** 兼容旧调用方:只给 `Set` 的调用只有逐字维(维二/维三输入为空 ⇒ 不按正文/题面剔)。 */
 function declaredInputs(declared) {
-  if (declared instanceof Set) return { set: declared, closed: new Map(), dropTitleFps: new Set() }
+  if (declared instanceof Set)
+    return { set: declared, closed: new Map(), open: new Map(), dropTitleFps: new Set() }
   return {
     set: declared?.set ?? new Set(),
     closed: declared?.closed ?? new Map(),
+    open: declared?.open ?? new Map(),
     dropTitleFps: declared?.dropTitleFps ?? new Set(),
   }
 }
@@ -250,7 +268,7 @@ function declaredInputs(declared) {
  *  `archiveCaps`(2026-10-28 立的维五)= 本侧已按 §1「整区逐字移入 archive」处置过、且**处置侧文本里已为
  *  0 份**的正文行集合(`archiveDropCaps` 的返回值,原始行不是 trim 后的)。缺省/空集 ⇒ 四维行为逐字节不变。 */
 export function scrub(text, headText, declared, archiveCaps = null) {
-  const { set: declaredSet, closed, dropTitleFps } = declaredInputs(declared)
+  const { set: declaredSet, closed, open, dropTitleFps } = declaredInputs(declared)
   const caps =
     archiveCaps instanceof Set
       ? archiveCaps
@@ -303,6 +321,42 @@ export function scrub(text, headText, declared, archiveCaps = null) {
       kept.push(l)
       continue
     }
+    // 维六(未勾形态的装饰改写回潮,2026-10-29 立)—— 排在维二之前,因为两者吃的是**同一主键的两个不同台账桶**
+    // (未勾 vs 已勾),互不吃对方的行;先判未勾侧,免得"同主键两态并存"时静默吞行。
+    // 四道闸,任一不过就留行(失效方向恒为"多留一份"):
+    //   ① 台账侧存在**同复合主键的未勾形态**;② 本行也是未勾登记行;
+    //   ③ 正文**逐字相等**(不是前缀 —— 这一维要的是"同一行的装饰改写",前缀太松会误伤题面相近的新登记);
+    //   ④ HEAD 面既无逐字同文、也无同主键行;且本行**不带任何认领牌**(在干活的席位一律让路,不算老化;
+    //      取不到牌就按"有牌"处理)。
+    if (open.size > 0 && rowStateOf(l) === 'open') {
+      const key6 = compositeKeyOf(l)
+      const cands6 = key6 ? open.get(key6) : null
+      if (cands6) {
+        if (headKeys.has(key6)) {
+          held.push({ line: l, why: '维六:HEAD 面仍有同主键行(别人真在写同题)⇒ 不剔' })
+          kept.push(l)
+          continue
+        }
+        const body6 = bodyOfRow(l)
+        // 正文判据与维二**同一条**(两向之一成前缀):表头装饰与题面改写都在这条尺子的容差内,
+        // 而"同键不同事"的行(实测 D03 与本行只共享 16 字)会落进 held 交人工。不新造相似度阈值。
+        const hit6 =
+          body6 === null
+            ? null
+            : cands6.find((c) => c.body.startsWith(body6) || body6.startsWith(c.body))
+        if (hit6) {
+          if (claimMarkOf(l)) {
+            held.push({ line: l, why: '维六:同主键同正文但带认领牌(席位在飞)⇒ 不剔' })
+            kept.push(l)
+            continue
+          }
+          dropped.push(l)
+          via.set(l, `open:${hit6.raw.trim().slice(0, 28)}`)
+          continue
+        }
+        held.push({ line: l, why: '维六:同主键的台账未勾形态正文不等(题面已漂开)⇒ 不剔,交人工' })
+      }
+    }
     // 维二(正文等值维)——四道闸,任一不过就留行;该点名的点名
     if (rowStateOf(l) !== 'open') {
       kept.push(l)
@@ -345,6 +399,7 @@ function countByVia(result, kind) {
 function viaBucket(v) {
   const s = String(v ?? '')
   if (s.startsWith('body:')) return 'body'
+  if (s.startsWith('open:')) return 'open'
   if (s === 'archive' || s.startsWith('archive:')) return 'archive'
   return 'verbatim'
 }
@@ -466,13 +521,14 @@ function main(argv, root = ROOT) {
   const vHits = countByVia(r, 'verbatim')
   const bHits = countByVia(r, 'body')
   const aHits = countByVia(r, 'archive')
+  const oHits = countByVia(r, 'open')
   console.log(
-    `SCRUB-RESULT state=${r.dropped.length ? 'dropped' : 'clean'} dropped=${r.dropped.length} verbatim=${vHits} body=${bHits} held=${r.held.length} declared=${declared.size} closedDeclared=${closedDeclared} ledgerKeys=${closed.size} keyIndex=${keyIndex?.size ?? 0} malformed=${malformed} file=${file} archive=${aHits} caps=${caps.size} ${credNote}`,
+    `SCRUB-RESULT state=${r.dropped.length ? 'dropped' : 'clean'} dropped=${r.dropped.length} verbatim=${vHits} body=${bHits} open=${oHits} held=${r.held.length} declared=${declared.size} closedDeclared=${closedDeclared} openDeclared=${d.openDeclared ?? 0} ledgerKeys=${closed.size} keyIndex=${keyIndex?.size ?? 0} malformed=${malformed} file=${file} archive=${aHits} caps=${caps.size} ${credNote}`,
   )
   for (const item of r.dropped.slice(0, 6)) {
     const b = viaBucket(r.via.get(item))
     console.log(
-      `  · 剔除[${b === 'archive' ? '归档批次' : b === 'body' ? '正文' : '逐字'}]:${item.trim().slice(0, 78)}`,
+      `  · 剔除[${b === 'archive' ? '归档批次' : b === 'body' ? '正文' : b === 'open' ? '未勾形态' : '逐字'}]:${item.trim().slice(0, 78)}`,
     )
   }
   if (r.dropped.length > 6) console.log(`  · 另有 ${r.dropped.length - 6} 行同批`)
@@ -532,8 +588,12 @@ function selfTest() {
     scrub(`${head}\n${staleRow}`, head, dd).dropped.length === 1,
   )
   t(
-    '维二只吃"勾选态相反"这一形:台账也是未勾(维一逐字又不命中)⇒ 不剔',
-    scrub(`${head}\n${staleRow}`, head, buildDeclared([openLedgerRow])).dropped.length === 0,
+    '维二不吃"台账也是未勾"这一形(closed 索引为空 ⇒ 它结构上不判);同一形态由维六接住,归因必须是 open 桶',
+    (() => {
+      const r = scrub(`${head}\n${staleRow}`, head, buildDeclared([openLedgerRow]))
+      const v = r.dropped.length === 1 ? String(r.via.get(r.dropped[0])) : ''
+      return v.startsWith('open:')
+    })(),
   )
   t(
     '维二:HEAD 面仍有同主键行 ⇒ 绝不剔并点名',
