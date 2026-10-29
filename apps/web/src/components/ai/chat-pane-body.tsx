@@ -219,10 +219,6 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
     try {
       const res = await getMessages(conversationId, { cursor, direction: 'older', pageSize: 50 })
       if (!res.success) return
-      // await 期间窗格可能已切会话:store 在切会话时同步写 conversationId,复验不等即整页作废 ——
-      // 否则旧会话的一页会 prepend 进新会话列表,resetPager 把旧游标装进新会话,
-      // patchCache 再把串了会话的列表写进旧会话的缓存桶(跨桶持久污染)。
-      if (chatStore.getState().conversationId !== conversationId) return
       const older = hydrateHistoryMessages(res.data.messages)
       const advance = judgePageAdvance({
         requestCursor: cursor,

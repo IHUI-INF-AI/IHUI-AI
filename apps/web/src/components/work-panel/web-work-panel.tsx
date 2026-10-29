@@ -9,58 +9,13 @@ import { useShallow } from 'zustand/react/shallow'
 import { WorkPanel, WebViewFrame } from '@ihui/ui-react'
 import type { WorkPanelLabels, WorkPanelTabItem } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
-import { Plus, X } from 'lucide-react'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useWebViewFrameLabels } from '@/hooks/use-web-view-frame-labels'
-import {
-  onEmbeddedBrowserElementPicked,
-  openExternalUrl,
-  closeDockedBrowser,
-  destroyDockedBrowser,
-  openDockedBrowser,
-  setDockedBrowserBounds,
-  dockedBrowserBack,
-  dockedBrowserCloseTab,
-  dockedBrowserDevtools,
-  dockedBrowserForward,
-  dockedBrowserHome,
-  dockedBrowserNavigate,
-  dockedBrowserNewTab,
-  dockedBrowserPick,
-  dockedBrowserPopout,
-  dockedBrowserReload,
-  dockedBrowserStop,
-  dockedBrowserSwitchTab,
-  getDockedBrowserTabs,
-  getDockedBrowserStore,
-  getDockedBrowserUrl,
-  dockedBrowserFavoriteRemove,
-  dockedBrowserFavoriteToggle,
-  dockedBrowserHistoryClear,
-  onDockedBrowserPoppedOut,
-  onDockedBrowserTabs,
-} from '@/lib/tauri-bridge'
-import type { DockedBrowserStore, DockedBrowserTab } from '@/lib/tauri-bridge'
+import { openEmbeddedBrowser, onEmbeddedBrowserElementPicked } from '@/lib/tauri-bridge'
 import { ADD_TEXT_REFERENCE_EVENT } from '@/components/chat/annotation-anchor'
-import { useTauriIpcReady } from '@/hooks/use-desktop'
 
 import { CdpBrowserView } from './cdp-browser-view'
-
-/** 两组停靠标签是否等价(字段级逐项比对,避免无意义的状态替换)。 */
-function dockTabsEqual(a: DockedBrowserTab[], b: DockedBrowserTab[]): boolean {
-  if (a.length !== b.length) return false
-  for (let i = 0; i < a.length; i += 1) {
-    const x = a[i]
-    const y = b[i]
-    // noUncheckedIndexedAccess:长度已比对过,这里只是让类型收窄
-    if (!x || !y) return false
-    if (x.id !== y.id || x.url !== y.url || x.title !== y.title || x.active !== y.active) {
-      return false
-    }
-  }
-  return true
-}
 
 /**
  * Web 端工作展示区(2026-08-01 架构改动:从右列独立面板改为嵌入工作区覆盖 children)。
@@ -77,8 +32,6 @@ function dockTabsEqual(a: DockedBrowserTab[], b: DockedBrowserTab[]): boolean {
 export function WebWorkPanel() {
   const mounted = useMounted()
   const tw = useTranslations('workPanel')
-  // 桌面端判据(IPC 异步注入 ⇒ 必须用就绪钩子,否则首帧误判成 web 端)
-  const desktop = useTauriIpcReady()
   // 不注入 labels 时 @ihui/ui-react 回退 DEFAULT_LABELS(简体)⇒ 英/日/韩界面整条内置浏览器
   // 工具条、地址栏占位符与空态都是中文。20 键全量注入,新增键须同步 5 语言包。
   const workPanelLabels = React.useMemo<WorkPanelLabels>(
@@ -103,11 +56,6 @@ export function WebWorkPanel() {
       dragInsertBefore: tw('dragInsertBefore'),
       dragInsertAfter: tw('dragInsertAfter'),
       closeTab: tw('closeTab'),
-      home: tw('home'),
-      pickElement: tw('pickElement'),
-      picking: tw('picking'),
-      devtools: tw('devtools'),
-      popout: tw('popout'),
     }),
     [tw],
   )
@@ -187,7 +135,6 @@ export function WebWorkPanel() {
   const sessionId = activeTab?.state.sessionId
   const proxyUrl = activeTab?.state.proxyUrl
   const isCdpMode = rawMode === 'cdp' && !!sessionId
-  const isDockedMode = rawMode === 'docked'
   const isProxyMode = rawMode === 'proxy' && !!proxyUrl
   const mode: 'iframe' | 'screenshot' | 'external' =
     rawMode === 'native' || rawMode === 'cdp'
@@ -200,313 +147,23 @@ export function WebWorkPanel() {
   const canBack = activeTab ? activeTab.historyIndex > 0 : false
   const canForward = activeTab ? activeTab.historyIndex < activeTab.history.length - 1 : false
 
-  // 停靠档工具条直连原生命令(2026-10-24 用户反馈「独立窗口有的功能这里没有」):
-  // 停靠浏览器是 OS 级子 webview,store 的 iframe/代理导航对它无效 —— 不接就是死按钮。
-  // 失败只打日志,不走 onFailed:那条路会把 Tab 降级到 CDP/截图,停靠占位反而消失。
-  const runDockAction = React.useCallback(async (action: () => Promise<string | null>) => {
-    const err = await action()
-    if (err) console.warn('[work-panel] docked action failed:', err)
-  }, [])
-
-  const handleAddressSubmit = React.useCallback(() => {
-    if (!isDockedMode) {
-      navigate(addressInput, 'user')
-      return
-    }
-    const raw = addressInput.trim()
-    if (!raw) return
-    const target = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
-    void runDockAction(() => dockedBrowserNavigate(target))
-  }, [addressInput, isDockedMode, navigate, runDockAction])
-
-  const handleBack = React.useCallback(() => {
-    if (isDockedMode) void runDockAction(dockedBrowserBack)
-    else back()
-  }, [back, isDockedMode, runDockAction])
-
-  const handleForward = React.useCallback(() => {
-    if (isDockedMode) void runDockAction(dockedBrowserForward)
-    else forward()
-  }, [forward, isDockedMode, runDockAction])
-
-  const handleReload = React.useCallback(() => {
-    if (isDockedMode) void runDockAction(dockedBrowserReload)
-    else reload()
-  }, [isDockedMode, reload, runDockAction])
-
-  // 元素点选(2026-10-24):独立窗口有的能力,停靠档不能少 —— 复用同一份 PICK_JS,
-  // Rust 端把它 eval 进停靠 webview,点选结果仍走 embedded-browser://element-picked
-  // (下面已有的监听会汇入文本引用)。点完自动退出点选态。
-  const [picking, setPicking] = React.useState(false)
-  const handlePickToggle = React.useCallback(() => {
-    if (!isDockedMode) return
-    const next = !picking
-    setPicking(next)
-    void runDockAction(() => dockedBrowserPick(next))
-  }, [isDockedMode, picking, runDockAction])
-  // 换页/切 Tab 后点选态要归零(原生脚本在页面导航后本就失效)
-  React.useEffect(() => {
-    setPicking(false)
-  }, [activeTab?.id, addressInput])
-
-  const handleHome = React.useCallback(() => {
-    if (isDockedMode) void runDockAction(dockedBrowserHome)
-    else navigate('https://aizhs.top/', 'user')
-  }, [isDockedMode, navigate, runDockAction])
-
-  // 停靠浏览器**内部**标签栏(2026-10-24 用户要求「多标签栏都应该有」):
-  // 标签状态归 Rust 会话(每个标签一个子 webview,hide/show 切换),这里只做渲染 +
-  // 动作转发。工作区上方那个**页面**标签仍固定叫「浏览器」—— 这是它内部的标签。
-  const [dockTabs, setDockTabs] = React.useState<DockedBrowserTab[]>([])
-  React.useEffect(() => {
-    if (!desktop) return
-    let alive = true
-    const offs: Array<() => void> = []
-    void (async () => {
-      offs.push(
-        await onDockedBrowserTabs((next) => {
-          if (!alive) return
-          // 内容一致就复用旧数组:原生侧已去抖,这里再挡一道,
-          // 避免每次标题/地址微变都把整块工作面板重渲染一遍。
-          setDockTabs((prev) => (dockTabsEqual(prev, next) ? prev : next))
-          // 地址栏跟随**当前标签**的落点(切换标签/重定向都以原生侧为准)。
-          // 值没变就不 set:zustand 每次 set 都会通知订阅者(面板选择器虽浅比较,
-          // 但没必要白跑一轮)。
-          const active = next.find((t) => t.active)
-          if (active?.url && active.url !== useWorkPanelStore.getState().addressInput) {
-            setAddressInput(active.url)
-          }
-        }),
-      )
-      offs.push(
-        await onDockedBrowserPoppedOut(() => {
-          if (!alive) return
-          // 已切到独立窗口:停靠层已被 Rust 销毁,前端把停靠标签清掉、面板收起
-          setDockTabs([])
-          for (const t of useWorkPanelStore.getState().tabs) {
-            if (t.state.mode === 'docked') closeTab(t.id)
-          }
-          // 停靠标签没了还留着面板 = 工作区被一块空的「浏览器」Tab 占着,
-          // 独立窗口才是此刻的浏览位置。收面板(closeTab 不会动 open)。
-          closePanel()
-        }),
-      )
-    })()
-    return () => {
-      alive = false
-      for (const off of offs) off()
-    }
-  }, [desktop, setAddressInput, closeTab, closePanel])
-
-  // 进入停靠档时补一次拉取(事件只在变化时推,首帧可能是空)
-  React.useEffect(() => {
-    if (!desktop || !isDockedMode) return
-    let alive = true
-    void getDockedBrowserTabs().then((tabs) => {
-      if (alive && tabs.length) setDockTabs(tabs)
-    })
-    return () => {
-      alive = false
-    }
-  }, [desktop, isDockedMode])
-
-  // 停靠档收藏 / 历史来自宿主进程的 browser_store(与独立窗口共用同一份文件):
-  // 裸 webview 里的第三方页面拿不到本站 localStorage,所以这一档必须走原生命令。
-  // 浏览过程中历史在变,所以每次标签列表推送(页面落点变化)都重拉一次快照。
-  const [dockStore, setDockStore] = React.useState<DockedBrowserStore>({
-    favorites: [],
-    history: [],
-  })
-  // 依赖只取"落点集合"而不是整个 dockTabs:标题变化(未读数之类)不该触发拉取,
-  // 且重定向链会连续改 URL —— 300ms 去抖把它们合成一次请求。
-  const dockUrlKey = React.useMemo(
-    () => dockTabs.map((t) => `${t.id}:${t.url}`).join('|'),
-    [dockTabs],
-  )
-  React.useEffect(() => {
-    if (!desktop || !isDockedMode) return
-    let alive = true
-    const timer = setTimeout(() => {
-      void getDockedBrowserStore().then((s) => {
-        if (alive) setDockStore(s)
-      })
-    }, 300)
-    return () => {
-      alive = false
-      clearTimeout(timer)
-    }
-  }, [desktop, isDockedMode, dockUrlKey])
-
-  const handleDockTabSelect = React.useCallback(
-    (id: number) => {
-      void runDockAction(() => dockedBrowserSwitchTab(id))
-    },
-    [runDockAction],
-  )
-  const handleDockTabClose = React.useCallback(
-    (id: number) => {
-      void runDockAction(() => dockedBrowserCloseTab(id))
-    },
-    [runDockAction],
-  )
-  const handleDockTabNew = React.useCallback(() => {
-    void runDockAction(() => dockedBrowserNewTab())
-  }, [runDockAction])
-  // 「切换为独立窗口」是打开独立窗口的**唯一**入口(2026-10-24 用户规则)
-  const handlePopout = React.useCallback(() => {
-    if (!isDockedMode) return
-    void runDockAction(dockedBrowserPopout)
-  }, [isDockedMode, runDockAction])
-
   // 2026-08-01 架构改动:删除 maxAvailableWidth / effectiveWidth / handleResize / 空间不足自动关闭逻辑
   // 原因:WebWorkPanel 从右列独立面板改为 absolute inset-0 覆盖 work-area children,
   // 不再需要固定宽度 + resize handle + 空间不足自动关闭(由父容器 work-area 控制宽度)
   const effectiveOpen = mounted && open
 
-  // SSO 兜底登录成功 → 外部桥接发事件收起停靠浏览器(原生层已由桥接销毁,
-  // 这里负责把面板里的 docked Tab 一并关掉,否则面板会把它重新铺回来)。
-  React.useEffect(() => {
-    const onClose = () => {
-      for (const t of useWorkPanelStore.getState().tabs) {
-        if (t.state.mode === 'docked') closeTab(t.id)
-      }
-      closePanel()
-    }
-    window.addEventListener('ihui:close-docked-browser', onClose)
-    return () => window.removeEventListener('ihui:close-docked-browser', onClose)
-  }, [closeTab, closePanel])
-
-  // 停靠 webview 的**唯一**生命周期所有者(2026-10-24 二次收口):以前只有签到页
-  // 自己在量矩形/开窗,导致「+ 菜单/对话链接」开的 docked Tab 没人把原生层铺上去。
-  // 现在统一到面板:激活 Tab 是 docked 且面板可见 ⇒ 量宿位矩形并开窗(之后只校正);
-  // 切走 Tab / 关面板 / 卸载 ⇒ 收窗。宿位 `[data-ihui-dock-host]` 就是下面渲染的 div。
-  //
-  // 状态存 ref 而不是 effect 局部变量(2026-10-24 修):Tabs 每次 store 更新都是新对象,
-  // 旧实现以 dockedTab 对象为依赖,任何更新都会 cleanup(收窗)+ 重开(重新导航到 Tab 里
-  // 记的 URL),表现为"刚点过的页面自己跳回初始 URL"与幽灵窗。依赖只留 id/url 标量。
-  const dockedTab = activeTab?.state.mode === 'docked' ? activeTab : null
-  const dockedTabId = dockedTab?.id
-  const dockedTabUrl = dockedTab?.url
-  // rect 一并记在 ref 里:800ms 轮询只用来兜底布局变化,矩形没变就不再调原生命令
-  // (原生侧每摆一次 = 一次主线程 set_position/set_size,空转纯浪费)。
-  const dockedRef = React.useRef<{
-    open: boolean
-    url: string
-    rect?: { x: number; y: number; width: number; height: number }
-    /** 上次是被「切到别的页面标签」收起的:重开时只恢复,不把页面导回 Tab 记的 URL。 */
-    paused?: boolean
-  }>({ open: false, url: '' })
-  React.useEffect(() => {
-    if (!dockedTabId || !effectiveOpen || !desktop) return
-    const targetUrl = dockedTabUrl || 'about:blank'
-    let stopped = false
-    let busy = false
-    const sync = async () => {
-      if (stopped || busy) return
-      const host = document.querySelector('[data-ihui-dock-host]')
-      if (!host) return
-      const r = host.getBoundingClientRect()
-      if (r.width < 80 || r.height < 80) return
-      const rect = {
-        x: Math.round(r.left),
-        y: Math.round(r.top),
-        width: Math.round(r.width),
-        height: Math.round(r.height),
-      }
-      busy = true
-      try {
-        const st = dockedRef.current
-        if (st.open) {
-          if (st.url !== targetUrl) {
-            dockedRef.current = { open: true, url: targetUrl, rect: st.rect }
-            await runDockAction(() => dockedBrowserNavigate(targetUrl))
-          } else if (
-            !st.rect ||
-            Math.abs(st.rect.x - rect.x) > 2 ||
-            Math.abs(st.rect.y - rect.y) > 2 ||
-            Math.abs(st.rect.width - rect.width) > 2 ||
-            Math.abs(st.rect.height - rect.height) > 2
-          ) {
-            dockedRef.current = { ...st, rect }
-            await setDockedBrowserBounds(rect)
-          }
-          return
-        }
-        // 从「切走再切回」恢复时不要导航:会话里那个页面就是用户离开时的样子
-        const err = await openDockedBrowser(targetUrl, rect, !st.paused)
-        if (!err) dockedRef.current = { open: true, url: targetUrl, rect }
-        else console.warn('[work-panel] docked open failed:', err)
-      } finally {
-        busy = false
-      }
-    }
-    void sync()
-    window.addEventListener('resize', sync)
-    const host = document.querySelector('[data-ihui-dock-host]')
-    const ro = host ? new ResizeObserver(() => void sync()) : null
-    if (host && ro) ro.observe(host)
-    // 兜底轮询:resize 与 ResizeObserver 已覆盖真实的布局变化,这里只是万一有
-    // 量不到的情况(如父级 transform 动画)不把原生层留在错位置 —— 2s 足够,
-    // 频率降到原来的 1/2.5(每次 setInterval 唤醒都要过一遍事件循环)。
-    const timer = setInterval(() => void sync(), 2000)
-    return () => {
-      stopped = true
-      window.removeEventListener('resize', sync)
-      ro?.disconnect()
-      clearInterval(timer)
-      // 这里**不**收窗:依赖变化(切 Tab 再切回)不该销毁原生层,
-      // 收窗只由下面唯一出口决定。
-    }
-  }, [dockedTabId, dockedTabUrl, effectiveOpen, desktop, runDockAction])
-
-  // 收窗唯一出口(2026-10-25 分两种):
-  // - 切到工作区别的页面标签 ⇒ 只隐藏冻结,**保留多标签与页面状态**,切回来原样恢复;
-  // - 整个面板收起 / 「浏览器」页面标签被关 ⇒ 彻底销毁(否则会留下盖在工作区上的幽灵窗)。
-  const dockedVisible = !!dockedTab && effectiveOpen
-  React.useEffect(() => {
-    if (dockedVisible || !dockedRef.current.open) return
-    dockedRef.current = { open: false, url: '', paused: effectiveOpen }
-    void (effectiveOpen ? closeDockedBrowser() : destroyDockedBrowser())
-  }, [dockedVisible, effectiveOpen])
-
-  // 停靠档地址栏跟随真实落点(登录跳转会换 URL);用户正在输入时不覆盖。
-  React.useEffect(() => {
-    if (!effectiveOpen || !isDockedMode) return
-    let stopped = false
-    const timer = setInterval(() => {
-      void (async () => {
-        const live = await getDockedBrowserUrl()
-        if (stopped || !live) return
-        if (document.activeElement?.tagName === 'INPUT') return
-        if (live !== useWorkPanelStore.getState().addressInput) setAddressInput(live)
-      })()
-    }, 1500)
-    return () => {
-      stopped = true
-      clearInterval(timer)
-    }
-  }, [effectiveOpen, isDockedMode, setAddressInput])
-
   // Tab 栏数据(映射为 UI 组件需要的格式)
   const uiTabs: WorkPanelTabItem[] = React.useMemo(
     () =>
-      // 停靠档固定显示「浏览器」(2026-10-24 用户要求):全 App 只有这一个浏览器
-      // 标签窗口,标题跟着页面走会让人以为"又开了一个浏览器"。
-      tabs.map((t) => ({
-        id: t.id,
-        title: t.state.mode === 'docked' ? tw('browserTab') : t.title || t.url || tw('untitledTab'),
-        type: t.type,
-      })),
+      tabs.map((t) => ({ id: t.id, title: t.title || t.url || tw('untitledTab'), type: t.type })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
     [tabs],
   )
 
   const handleOpenExternal = React.useCallback(() => {
-    // 2026-10-24 用户规则:独立窗口只能由停靠浏览器工具条上的「切换为独立窗口」
-    // 按钮打开 —— 这里的「在外部浏览器打开」按字面交给系统默认浏览器,
-    // 不再另开项目内嵌独立窗(否则等于绕过规则留了第二个入口)。
-    if (!url) return
-    void openExternalUrl(url)
+    // 2026-10-16:桌面端用**项目内嵌浏览器**打开(自绘工具条 + 地址栏,
+    // Chromium 内核 + Chrome UA),web 端降级 window.open 新标签页。
+    if (url) void openEmbeddedBrowser(url)
   }, [url])
 
   // 内嵌浏览器「元素点选」→ 汇入既有文本引用通道(D22 `ihui:add-text-reference`)。
@@ -517,7 +174,6 @@ export function WebWorkPanel() {
     let unlisten: (() => void) | undefined
     void onEmbeddedBrowserElementPicked((payload) => {
       try {
-        setPicking(false) // 点完即退出点选态(脚本自己也已 off)
         const info = JSON.parse(payload) as {
           selector?: string
           text?: string
@@ -583,47 +239,16 @@ export function WebWorkPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
   }, [isProxyMode, status, onFailed, proxyUrl])
 
-  // 收藏 / 历史(2026-10-24 用户要求「两种形态都该有」):
-  // web 端(iframe/代理)用本站 store;停靠档换成宿主进程的 browser_store ——
-  // 与独立窗口同一份数据,收藏在停靠档点过,弹出后仍然在。
-  const effectiveFavorites = isDockedMode ? dockStore.favorites : favorites
-  const effectiveRecentUrls = isDockedMode ? dockStore.history : recentUrls
-  const isFavorite = effectiveFavorites.some((f) => f.url === url)
+  // 收藏切换
+  const isFavorite = favorites.some((f) => f.url === url)
   const handleToggleFavorite = React.useCallback(() => {
-    if (isDockedMode) {
-      void dockedBrowserFavoriteToggle().then((s) => {
-        if (s) setDockStore(s)
-      })
-      return
-    }
     if (!url) return
     if (isFavorite) {
       removeFavorite(url)
     } else {
       addFavorite(url, title ?? url)
     }
-  }, [isDockedMode, url, title, isFavorite, addFavorite, removeFavorite])
-  const handleRemoveFavorite = React.useCallback(
-    (target: string) => {
-      if (isDockedMode) {
-        void dockedBrowserFavoriteRemove(target).then((s) => {
-          if (s) setDockStore(s)
-        })
-        return
-      }
-      removeFavorite(target)
-    },
-    [isDockedMode, removeFavorite],
-  )
-  const handleClearHistory = React.useCallback(() => {
-    if (isDockedMode) {
-      void dockedBrowserHistoryClear().then((s) => {
-        if (s) setDockStore(s)
-      })
-      return
-    }
-    clearHistory()
-  }, [isDockedMode, clearHistory])
+  }, [url, title, isFavorite, addFavorite, removeFavorite])
 
   // 键盘快捷键(2026-09-02,对标 主流 AI IDE 内嵌浏览器):
   // 仅在焦点位于面板 chrome(工具栏/地址栏)时生效——代理 iframe 为跨源 sandbox(opaque origin),
@@ -634,14 +259,17 @@ export function WebWorkPanel() {
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const mod = e.ctrlKey || e.metaKey
       if (e.altKey && e.key === 'ArrowLeft') {
-        // 停靠档走原生命令(前端历史栈是空的)
-        e.preventDefault()
-        handleBack()
+        if (canBack) {
+          e.preventDefault()
+          back()
+        }
         return
       }
       if (e.altKey && e.key === 'ArrowRight') {
-        e.preventDefault()
-        handleForward()
+        if (canForward) {
+          e.preventDefault()
+          forward()
+        }
         return
       }
       if (mod && (e.key === 'r' || e.key === 'R')) {
@@ -650,20 +278,13 @@ export function WebWorkPanel() {
         // 的 'view.reload'(web 端实现是 location.reload()),只 preventDefault 挡不住它,
         // 结果"刷新内嵌页面"会把整个 SPA 一起重载掉。
         e.stopPropagation()
-        handleReload()
+        reload()
         return
       }
       if (e.key === 'F5') {
         e.preventDefault()
         e.stopPropagation()
-        handleReload()
-        return
-      }
-      if (isDockedMode && e.key === 'F12') {
-        // 停靠档没有独立窗口的工具条按钮,DevTools 用 F12 直连原生 webview
-        e.preventDefault()
-        e.stopPropagation()
-        void runDockAction(dockedBrowserDevtools)
+        reload()
         return
       }
       if (mod && (e.key === 'l' || e.key === 'L')) {
@@ -675,7 +296,7 @@ export function WebWorkPanel() {
         input?.select()
       }
     },
-    [handleBack, handleForward, handleReload, isDockedMode, runDockAction],
+    [canBack, canForward, back, forward, reload],
   )
 
   if (!effectiveOpen) return null
@@ -705,32 +326,21 @@ export function WebWorkPanel() {
         onClose={closePanel}
         addressValue={addressInput}
         onAddressChange={setAddressInput}
-        onAddressSubmit={handleAddressSubmit}
-        onBack={handleBack}
-        onForward={handleForward}
-        onReload={handleReload}
-        onStop={isDockedMode ? () => void runDockAction(dockedBrowserStop) : stop}
+        onAddressSubmit={() => navigate(addressInput, 'user')}
+        onBack={back}
+        onForward={forward}
+        onReload={reload}
+        onStop={stop}
         onOpenExternal={handleOpenExternal}
-        onHome={isDockedMode ? handleHome : undefined}
-        onPickToggle={isDockedMode ? handlePickToggle : undefined}
-        isPicking={picking}
-        // 停靠档:开发者工具/停止按钮对齐独立窗口工具条(Web 端保持原样)
-        onDevtools={isDockedMode ? () => void runDockAction(dockedBrowserDevtools) : undefined}
-        onPopout={isDockedMode ? handlePopout : undefined}
-        showStop={isDockedMode}
         isFavorite={isFavorite}
         onToggleFavorite={handleToggleFavorite}
-        favorites={effectiveFavorites}
-        recentUrls={effectiveRecentUrls}
-        onSelectFromList={(target) => {
-          if (isDockedMode) void runDockAction(() => dockedBrowserNavigate(target))
-          else navigate(target, 'user')
-        }}
-        onRemoveFavorite={handleRemoveFavorite}
-        onClearHistory={handleClearHistory}
-        // 停靠档的历史栈在前端是空的(导航发生在原生 webview 里),按钮不能按栈禁用
-        canBack={isDockedMode ? true : canBack}
-        canForward={isDockedMode ? true : canForward}
+        favorites={favorites}
+        recentUrls={recentUrls}
+        onSelectFromList={(url) => navigate(url, 'user')}
+        onRemoveFavorite={removeFavorite}
+        onClearHistory={clearHistory}
+        canBack={canBack}
+        canForward={canForward}
         isLoading={isLoading}
         isSecure={url.startsWith('https://')}
         tabs={uiTabs}
@@ -766,52 +376,6 @@ export function WebWorkPanel() {
             onRetry={reload}
             labels={webViewFrameLabels}
           />
-        ) : isDockedMode ? (
-          /* 停靠浏览器(2026-10-24):标签栏 + 宿位。真正的页面由桌面端把原生
-             webview 按 `[data-ihui-dock-host]` 的屏幕矩形铺在上面 —— 我们只上
-             报坐标系,渲染与输入全部发生在原生层。
-             多标签(2026-10-24 用户要求):原生侧一个标签一个子 webview,
-             这里的标签栏与独立窗口同语义(点击切换 / X 关闭 / + 新建)。 */
-          <div className="flex h-full w-full flex-col">
-            <div className="flex shrink-0 items-center gap-1 overflow-x-auto bg-muted/30 px-1.5 py-1">
-              {dockTabs.map((t) => (
-                <div
-                  key={t.id}
-                  className={
-                    t.active
-                      ? 'flex min-w-0 max-w-[180px] items-center gap-1 rounded-md bg-background px-2 py-1 text-xs text-foreground shadow-sm'
-                      : 'flex min-w-0 max-w-[180px] items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-background/60'
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={() => handleDockTabSelect(t.id)}
-                    title={t.title || t.url}
-                    className="min-w-0 flex-1 truncate text-left"
-                  >
-                    {t.title || t.url}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={workPanelLabels.closeTab}
-                    onClick={() => handleDockTabClose(t.id)}
-                    className="shrink-0 rounded p-0.5 hover:bg-muted"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                aria-label={workPanelLabels.newTab}
-                onClick={handleDockTabNew}
-                className="shrink-0 rounded p-1 text-muted-foreground hover:bg-background/60"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div data-ihui-dock-host className="min-h-0 w-full flex-1" />
-          </div>
         ) : isCdpMode && sessionId ? (
           <CdpBrowserView
             sessionId={sessionId}

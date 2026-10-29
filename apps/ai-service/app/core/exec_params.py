@@ -70,12 +70,6 @@ class CancellationToken:
 
     def __init__(self) -> None:
         self._event = asyncio.Event()
-        # 长命 watcher 任务的强引用槽(见 _link / cancel_when_either):事件循环对 task 只握弱引用,
-        # 不持有就可能在 await 期间被 GC —— 症状是"父取消而子 token 纹丝不动"的静默断链。
-        # 挂在被子 token 自身上:有人引用 token ⇒ watcher 活着;token 没人引用 ⇒ 一起回收(语义正确,
-        # 不再被引用的 token 本就不需要可取消性)。
-        self._propagate_task: asyncio.Task[None] | None = None
-        self._watches_task: asyncio.Task[None] | None = None
 
     def cancel(self) -> None:
         self._event.set()
@@ -102,12 +96,10 @@ class CancellationToken:
             child.cancel()
 
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop().create_task(_propagate())
         except RuntimeError:
             # 无运行loop(纯同步构造场景):子 token 退化为不联动,调用方在 loop 内应重建
-            return
-        # 强引用落槽(原写法丢弃返回值 ⇒ 联动可能在任意一次 GC 后静默失效)
-        child._propagate_task = loop.create_task(_propagate())
+            pass
 
 
 def cancel_when_either(first: CancellationToken, second: CancellationToken) -> CancellationToken:
@@ -122,11 +114,9 @@ def cancel_when_either(first: CancellationToken, second: CancellationToken) -> C
         combined.cancel()
 
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop().create_task(_watch())
     except RuntimeError:
-        return combined
-    # 强引用落槽:第二个源的 watcher 若被 GC,"任一取消即取消"退化成只认第一个源
-    combined._watches_task = loop.create_task(_watch())
+        pass
     return combined
 
 

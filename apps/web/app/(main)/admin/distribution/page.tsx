@@ -4,7 +4,6 @@
 
 'use client'
 
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -25,6 +24,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface Overview {
   totalCommission?: number

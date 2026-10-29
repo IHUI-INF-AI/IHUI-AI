@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnTokens } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -22,7 +22,7 @@ export const EDU_AI_PALETTE = {
   blue: { bg: 'rgba(59,130,246,0.10)', fg: '#2563eb' },
   purple: { bg: 'rgba(168,85,247,0.10)', fg: '#9333ea' },
   slate: { bg: 'rgba(115,115,115,0.12)', fg: '#52525b' },
-  star: { bg: 'rgba(245,158,11,0.12)', fg: rnTokens.warning.amber },
+  star: { bg: 'rgba(245,158,11,0.12)', fg: '#f59e0b' }, // handcopy-token-exempt: 评分星色,与 warning.amber 同值不同语义(挂主题档会让"改警示色"重绘星星;本表整张是固定语义色)
 } as const
 
 export type EduAiTone = keyof typeof EDU_AI_PALETTE
@@ -56,8 +56,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       borderColor: tk.brand.cta,
     },
     tabText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
-    // 配对前景键必须与底键同前缀(tabActive × tabActiveText),门 83 R3 才认得到兄弟对
-    tabActiveText: { color: tk.brand.ctaForeground },
+    tabTextActive: { color: tk.brand.ctaForeground },
     scroll: { padding: 12, paddingBottom: 32, gap: 12 },
     hero: { gap: 4 },
     heroTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
@@ -84,8 +83,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
     },
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     chipText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
-    // 同上:底键与前景键同前缀才成对(chipActive × chipActiveText)
-    chipActiveText: { color: tk.brand.ctaForeground },
+    chipTextActive: { color: tk.brand.ctaForeground },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,

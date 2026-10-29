@@ -258,12 +258,7 @@ test('⑤ 口径同源:机器标识 import 自 lib/plan-id-lease.mjs,本脚本�
 })
 
 test('⑥ 装车证明:真仓 HEAD 面只读取名一次,选出的名字必须真不在该面上', () => {
-  // 2026-10-24 改面(生产件的落点变了,不是放宽判据):归档台账 2026-10-23 起已
-  // `取消跟踪 .ihui-agent/tmp` 下 61 枚(commit 41a3bdeeb4,盘上保留),HEAD 面该目录
-  // 结构上恒为 0 份 ⇒ 旧断言"必须 >0"变成恒红。取名要防的是"重写别人的台账",
-  // 而被跟踪的台账副本现在住 `.ihui-agent/archive`(同一族文件),故本用例改用那个非空真面;
-  // 枚举函数本身带 dir 覆盖口,生产缺省(LEDGER_DIR_REL)不动。
-  const local = listLedgerNamesOnSource('HEAD', { root: REPO, dir: '.ihui-agent/archive' })
+  const local = listLedgerNamesOnSource('HEAD', { root: REPO })
   assert.ok(
     Array.isArray(local.files),
     `本地 HEAD 面未判定(${local.reason})⇒ 真仓连自己的归档目录都列不出来`,

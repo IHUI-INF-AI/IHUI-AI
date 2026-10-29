@@ -10,6 +10,7 @@ import { getPlazaDetail } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { PostDetailScreen as SharedPostDetailScreen, type PostDetailItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Route = RouteProp<RootStackParamList, 'PostDetail'>
@@ -24,6 +25,8 @@ export function PostDetailScreen() {
   const [post, setPost] = useState<PostDetailItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+    const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -60,7 +63,10 @@ export function PostDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):bump reloadKey 让上面的 effect 重跑
+  useRefreshOnFocus(() => setReloadKey((k) => k + 1))
 
   return (
     <SharedPostDetailScreen

@@ -16,10 +16,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
-// 2026-10-25 修正测量对象:本套件原先 import 的 `../src/hooks/use-paginated-list` 是
-// `@ihui/shared/hooks`(父别名 → tests/__mocks__ 的手写平行件)的 re-export ⇒ 9 例一直在验
-// **替身**而不是 shipped 实现(§22c「测试 import 源,禁止复制判据」的反面现场)。
-// 改走 vitest 配置里 exact 子路径别名(排在父别名之前)⇒ 直连 packages/shared 真实源文件。
+/**
+ * 必须按**子路径**导入真源码,不能走 `../src/hooks/use-paginated-list` 那层 re-export:
+ * 该 re-export 写的是 `export { usePaginatedList } from '@ihui/shared/hooks'`(父路径),
+ * 而 vitest.config 的父别名指向 `tests/__mocks__/ihui-shared-hooks.ts` 替身 —— 逐文件别名
+ * 只覆盖 `@ihui/shared/hooks/<模块>` 子路径。走父路径时本文件测的其实是替身
+ * (2026-10-29 实测:shared 实现加了 hasMore,本文件读出来恒 undefined 才暴露这一点)。
+ */
 import { usePaginatedList } from '@ihui/shared/hooks/use-paginated-list'
 
 interface Item {
@@ -196,48 +199,69 @@ describe('usePaginatedList 分页 hook', () => {
     expect(result.current.items[0]!.name).toBe('B')
   })
 
-  // 2026-10-25 序号守卫(切档竞态判高):旧请求迟到的响应一律作废 ——
-  // 不得 append 进新列表、不得改 page 游标(旧形态:refresh 后到达的第 2 页旧数据
-  // 被 [...prev, C] 拼进新筛选结果,并把"下次加载更多"的页号偷换成 2 ⇒ 直接跳页缺页)。
-  it('序号守卫:refresh 之后,在途第 2 页迟到 ⇒ 不 append、不改游标、状态由最后一发清', async () => {
-    let resolvePage2: (v: Res) => void = () => {}
-    const page2 = new Promise<Res>((r) => {
-      resolvePage2 = r
-    })
-    let firstPageList = [{ id: 'A', name: 'A' }]
-    const fetcher = vi.fn(({ page }: { page: number; pageSize: number }): Promise<Res> =>
-      page === 2
-        ? page2
-        : Promise.resolve({ success: true, data: { list: firstPageList, total: 3 } }),
+  // 后端不给 total 的那一支(2026-10-29 立):/api/articles 一类路由做了分页查询却只发回数组,
+  // 前端拿不到总数。旧判据 `items.length >= total` 在 total 恒 0 时当场为真 ⇒ loadMore 永不触发,
+  // 页面上"只看得到第一页"就是这么来的。这一支只能按"本页是否取满"自守。
+  it('无 total(后端只发数组):本页取满 ⇒ hasMore 且 loadMore 追加下一页', async () => {
+    type ArrayRes = { success: true; data: Item[] } | { success: false; error?: string }
+    const fetcher = vi.fn(
+      async ({ page }: { page: number; pageSize: number }): Promise<ArrayRes> => {
+        const byPage: Record<number, Item[]> = {
+          1: [
+            { id: '1', name: 'A' },
+            { id: '2', name: 'B' },
+          ],
+          2: [{ id: '3', name: 'C' }],
+        }
+        const list = byPage[page]
+        return list ? { success: true, data: list } : { success: false, error: 'no more' }
+      },
     )
-
     const { result } = renderHook(() => usePaginatedList<Item>(fetcher, 2))
+
     await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.items).toHaveLength(2)
+    expect(result.current.hasMore).toBe(true)
 
-    // 1) 上拉第 2 页:故意悬挂在途
-    act(() => {
-      result.current.loadMore()
-    })
-    await waitFor(() => expect(result.current.loadingMore).toBe(true))
-
-    // 2) 切筛选 ⇒ 新数据重发第 1 页(比第 2 页后发先至)
-    firstPageList = [{ id: 'B', name: 'B' }]
-    act(() => {
-      result.current.refresh()
-    })
-    await waitFor(() => expect(result.current.items.map((i) => i.name)).toEqual(['B']))
-
-    // 3) 迟到的第 2 页(旧上下文)放行 ⇒ 必须整发作废
-    resolvePage2({ success: true, data: { list: [{ id: 'C', name: 'C' }], total: 3 } })
     await act(async () => {
-      await page2
-      await Promise.resolve()
+      await result.current.loadMore()
     })
-    expect(result.current.items.map((i) => i.name)).toEqual(['B'])
-    expect(result.current.page).toBe(1)
-    // 最后一发已完成 ⇒ 加载位不留挂死
-    expect(result.current.loading).toBe(false)
-    expect(result.current.loadingMore).toBe(false)
+    await waitFor(() => expect(result.current.loadingMore).toBe(false))
+
+    expect(fetcher).toHaveBeenLastCalledWith({ page: 2, pageSize: 2 })
+    expect(result.current.items).toHaveLength(3)
+    expect(result.current.items.map((i) => i.id)).toEqual(['1', '2', '3'])
+  })
+
+  it('无 total:本页未满 pageSize ⇒ 判定到底,loadMore 不再发请求', async () => {
+    type ArrayRes = { success: true; data: Item[] } | { success: false; error?: string }
+    const fetcher = vi.fn(async (): Promise<ArrayRes> => ({
+      success: true,
+      data: [{ id: '1', name: 'A' }],
+    }))
+    const { result } = renderHook(() => usePaginatedList<Item>(fetcher, 2))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.hasMore).toBe(false)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await result.current.loadMore()
+    })
+
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(result.current.items).toHaveLength(1)
+  })
+
+  it('有 total 时仍按累计条数判到底(不给数组那一支留行为不变)', async () => {
+    const fetcher = makeFetcher({
+      1: { list: [{ id: '1', name: 'A' }], total: 1 },
+    })
+    const { result } = renderHook(() => usePaginatedList<Item>(fetcher))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.total).toBe(1)
+    expect(result.current.hasMore).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

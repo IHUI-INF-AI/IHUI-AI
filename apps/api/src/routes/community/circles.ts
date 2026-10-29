@@ -763,38 +763,20 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (existing) {
       await db.delete(circlePostLikes).where(eq(circlePostLikes.id, existing.id))
-      // 计数一律让数据库自己加减:以前写的是 `post.likeCount - 1`(把事务外读到的旧值算成绝对值
-      // 再落回),两个并发请求会各自读到 N、各自写 N-1 ⇒ 取消一次点赞被吞掉。
       const [updated] = await db
         .update(circlePosts)
-        .set({ likeCount: sql`GREATEST(0, ${circlePosts.likeCount} - 1)`, updatedAt: new Date() })
+        .set({ likeCount: Math.max(0, post.likeCount - 1), updatedAt: new Date() })
         .where(eq(circlePosts.id, parsed.data.id))
         .returning()
       return reply.send(success({ liked: false, likeCount: updated?.likeCount ?? 0 }))
     }
-    // 唯一键 circle_post_like_uniq(post_id,user_id) 实测在库(线上 psql 现读)。
-    // 以前是"先查没有 → 裸插":同用户双击时两条都通过判断,第二条撞 23505 ⇒ 全局 errorHandler
-    // 渲染成 500。改成 onConflictDoNothing + 用"这次真的插入了吗"决定要不要加计数。
-    const [inserted] = await db
-      .insert(circlePostLikes)
-      .values({ postId: parsed.data.id, userId })
-      .onConflictDoNothing({ target: [circlePostLikes.postId, circlePostLikes.userId] })
-      .returning({ id: circlePostLikes.id })
-    if (!inserted) {
-      // 并发双击:另一条请求已经插入并加过计数 ⇒ 本次幂等返回,
-      // 绝不发 UPDATE(发一次就会把 updatedAt 顶新,连带把帖子顶回信息流前排)
-      const [cur] = await db
-        .select({ likeCount: circlePosts.likeCount })
-        .from(circlePosts)
-        .where(eq(circlePosts.id, parsed.data.id))
-      return reply.send(success({ liked: true, likeCount: cur?.likeCount ?? 0 }))
-    }
+    await db.insert(circlePostLikes).values({ postId: parsed.data.id, userId })
     const [updated] = await db
       .update(circlePosts)
-      .set({ likeCount: sql`${circlePosts.likeCount} + 1`, updatedAt: new Date() })
+      .set({ likeCount: post.likeCount + 1, updatedAt: new Date() })
       .where(eq(circlePosts.id, parsed.data.id))
       .returning()
-    return reply.send(success({ liked: true, likeCount: updated?.likeCount ?? 0 }))
+    return reply.send(success({ liked: true, likeCount: updated?.likeCount ?? post.likeCount + 1 }))
   })
 
   // GET /circles/posts/:id/comments - 帖子评论列表
@@ -854,7 +836,7 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
     if (!created) return reply.status(500).send(error(500, '发表评论失败'))
     await db
       .update(circlePosts)
-      .set({ replyCount: sql`${circlePosts.replyCount} + 1`, updatedAt: new Date() })
+      .set({ replyCount: post.replyCount + 1, updatedAt: new Date() })
       .where(eq(circlePosts.id, parsed.data.id))
     return reply.status(201).send(success({ comment: created }))
   })

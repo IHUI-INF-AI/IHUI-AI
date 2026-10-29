@@ -7,7 +7,7 @@ import { Image, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RankingDetailScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /** RankingDetailScreen props re-export(单一来源 @ihui/types) */
 export type { RankingDetailScreenProps }
@@ -87,27 +87,36 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     scroll: { flex: 1 },
     scrollContent: { padding: 14 },
-    card: { backgroundColor: tk.surface.light, borderRadius: rnRadius.lg, padding: 14, gap: 12 },
-    row1: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    card: {
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius.lg,
+      padding: 14,
+      gap: rnSpacing.md,
+    },
+    row1: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
     logo: { width: 64, height: 64, borderRadius: rnRadius.xl, backgroundColor: tk.surface.muted },
     logoFallback: { alignItems: 'center', justifyContent: 'center' },
-    logoText: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
+    logoText: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
     titleDesc: { flex: 1, gap: 6 },
-    title: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
-    desc: { fontSize: 14, color: tk.text.secondary, lineHeight: 18 },
-    row2: { flexDirection: 'row', gap: 8 },
+    title: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
+    desc: { fontSize: rnType.body.size, color: tk.text.secondary, lineHeight: 18 },
+    row2: { flexDirection: 'row', gap: rnSpacing.sm },
     metric: {
       flex: 1,
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.xl,
       paddingVertical: 10,
       alignItems: 'center',
-      gap: 4,
+      gap: rnSpacing.xs,
     },
-    metricLabel: { fontSize: 11 },
-    metricValue: { fontSize: 14, fontWeight: '600' },
-    contextBox: { backgroundColor: tk.surface.muted, borderRadius: rnRadius.lg, padding: 12 },
-    contextText: { fontSize: 14, color: tk.text.medium, lineHeight: 20 },
+    metricLabel: { fontSize: rnType.caption.size },
+    metricValue: { fontSize: rnType.body.size, fontWeight: '600' },
+    contextBox: {
+      backgroundColor: tk.surface.muted,
+      borderRadius: rnRadius.lg,
+      padding: rnSpacing.md,
+    },
+    contextText: { fontSize: rnType.body.size, color: tk.text.medium, lineHeight: 20 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

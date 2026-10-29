@@ -25,12 +25,6 @@
  *
  * 归档注释形态(现读 HEAD):`<!-- 已归档(2026-10-08:✅(2026-10-07) G-807 ... -->`,单行。
  *
- * 编号纪元(2026-10-24 加):被审面若带 `<!-- 编号纪元:YYYY-MM-DD … -->` 标记,说明该台账已完成
- * **一次全量重编号**(旧号全部退役、号被新票复用),此时 R1 的归档标记集改取**被审面自己的**
- * 归档注释,不再拿 HEAD 的旧归档标记判"复活" —— 旧号的"复活"在重编号语义下是**换号复用**,不是
- * 把已完成票展开回活行。纪元之后的归档注释照旧受 R1 保护(它们在候选面里)。
- * 无该标记 ⇒ 行为与加此档之前逐字一致(HEAD 归档标记集)。
- *
  * 用法:
  *   node scripts/check-plan-archive-monotonic.mjs --staged          # pre-commit:审索引 blob
  *   node scripts/check-plan-archive-monotonic.mjs --worktree        # 收编前自检/审计:审磁盘
@@ -170,13 +164,12 @@ export function analyze(headText, candText) {
   const del = []
   for (const [row, n] of headCount) for (let i = n - (candCount.get(row) || 0); i > 0; i--) del.push(row)
 
-  // 归档标记集取哪一面:有编号纪元 ⇒ 取被审面(旧号已全量退役);无纪元 ⇒ HEAD(旧行为逐字不变)
-  const epoch = (/(?:^|\n)\s*<!--\s*编号纪元[:：]\s*(\d{4}-\d{2}-\d{2})/.exec(candText) || [])[1] || null
+  // HEAD 侧三张索引
   const archivedMarks = new Set()
   const archivedText = []
   const openMarks = new Map()
   const openBodies = new Set()
-  for (const row of (epoch ? cand : head)) {
+  for (const row of head) {
     const ab = archiveBody(row)
     if (ab !== null) {
       archivedText.push(ab)
@@ -184,7 +177,7 @@ export function analyze(headText, candText) {
       if (m) archivedMarks.add(m)
       continue
     }
-    if (epoch || !isEntry(row)) continue
+    if (!isEntry(row)) continue
     if (isOpen(row)) {
       const m = markOf(row)
       if (m && !openMarks.has(m)) openMarks.set(m, row)
@@ -229,7 +222,6 @@ export function analyze(headText, candText) {
       passedRewrite,
       archived: archivedText.length,
       openInHead: openBodies.size,
-      epoch: epoch || '—',
     },
   }
 }
@@ -277,9 +269,7 @@ function render(hits, stats) {
       ' · 放行(改写/搬移) ' +
       stats.passedRewrite +
       ' · HEAD 归档注释 ' +
-      stats.archived +
-      ' · 编号纪元 ' +
-      stats.epoch,
+      stats.archived,
   )
   return lines.join('\n')
 }
@@ -337,22 +327,6 @@ function selfTest() {
         .replace('- [x] G-101 已完成但尚未归档的一行样例正文很长很长', '') +
         '\n<!-- 已归档(2026-10-23:✅(2026-10-23) G-100 G-101 已结清) -->',
       want: 0,
-    },
-    {
-      name: '编号纪元下换号复用旧号(G-807)⇒ 必绿',
-      cand: '<!-- 编号纪元:2026-10-24 两位号全量重排 -->\n' +
-        head.replace('<!-- 已归档(2026-10-08:✅(2026-10-07) G-807 恢复器用例不稳定,完整内容在归档件) -->', '') +
-        '\n- [ ] G-807 恢复器用例不稳定,完整内容在归档件',
-      want: 0,
-    },
-    {
-      name: '编号纪元下复活纪元后的归档票 ⇒ 必红',
-      cand: '<!-- 编号纪元:2026-10-24 两位号全量重排 -->\n' +
-        head.replace('<!-- 已归档(2026-10-08:✅(2026-10-07) G-807 恢复器用例不稳定,完整内容在归档件) -->',
-          '<!-- 已归档(2026-10-24:✅(2026-10-24) G-907 恢复器用例不稳定,完整内容在归档件) -->') +
-        '\n- [ ] G-907 恢复器用例不稳定,完整内容在归档件',
-      want: 1,
-      kind: 'R1',
     },
   ]
   let bad = 0

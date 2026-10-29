@@ -22,6 +22,7 @@ import {
   type EduShopOrderView,
 } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
+import { useRefreshOnFocus } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -111,6 +112,13 @@ function EduShopScreen() {
   const refreshOrders = useCallback(() => {
     void loadOrders(1, false)
   }, [loadOrders])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):课程与订单一起刷
+  const refreshOnFocus = useCallback(() => {
+    void loadCourses(1, false)
+    void loadOrders(1, false)
+  }, [loadCourses, loadOrders])
+  useRefreshOnFocus(refreshOnFocus)
 
   const onBuy = useCallback(
     async (course: EduShopCourseView) => {

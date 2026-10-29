@@ -21,6 +21,8 @@
  *    最危险的失效方向是"把真红洗成未判定"(逃逸口),故 F2/F3 与 F1 同票成对。
  *  - 门自己按 §0.3 交付的 exit 2 + 自称「未判定」⇒ 独成 undetermined 档(2026-10-27 立),
  *    **两个条件缺一不可**:只凭退出码放行会把刻意用 exit 2 顶红的尺子洗绿;F9 四条反向牙钉死。
+ * 三条硬约束各有正反例(缺一即判据无牙):
+ *  - 中断族(75 / 128+N / 只有 signal)⇒ interrupt,与 G-611 的传播语义同形。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -33,8 +35,6 @@ import { resolve } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 import { __test__ as gateFail } from '../lib/gate-failure-kind.mjs'
-// 后果不变量的另一半住这把尺子里(§22c:直接 import 源实现,测试不复制判据)。
-import { shouldPropagateAsInterrupt } from '../lib/signal-exit.mjs'
 
 const REAL_CRASH_STDERR =
   "Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'opencc-js' imported from G:\\IHUI-AI-wt-crash\\scripts\\scan-i18n-zh-residue.mjs\n" +

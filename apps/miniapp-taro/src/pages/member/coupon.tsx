@@ -1,224 +1,108 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-// 镜像 packages/app/src/features/coupon/CouponScreen.tsx
 
-import { useI18n, type TtFn } from '@/i18n'
-import { View, Text, Button } from '@tarojs/components'
-import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
-import { useState, useCallback, useRef } from 'react'
-import { getCouponList } from '@/api'
-import { logger } from '@/utils/logger'
+// 镜像 packages/app/src/features/coupon/CouponScreen.tsx(直载共享屏 + 注入本端事实)
+
+/**
+ * 手工迁移(2026-10-28):端内 224 行手写 → 直载承载(about-shared 同形制)。
+ * 判据腿此前拒转的两个真缺口,由同日补的共享屏出口承担:
+ *   可用券「立即使用」 = CouponScreen.onUseCoupon(小程序端事实:提示"请前往商品页使用");
+ *   底部「领券中心」   = CouponScreen.onOpenCouponCenter(跳本端 pages/member/coupon-list,RN 端
+ *                        没有领券列表页 ⇒ RN 宿主不传该档,两端按各自能力渲染)。
+ *   数据腿与 RN 宿主 apps/mobile-rn/src/screens/CouponScreen.tsx 逐字同构:
+ *   同端点 GET /api/coupons{page,pageSize,status}、同 tab→库内词汇映射(unused/used/expired)、
+ *   同 usePaginatedList(pageSize 20)、同 formatDateOnly(expiresAt)。
+ *   回屏刷新 = useDidShow→refresh(对齐本页旧行为 useDidShow(load);RN 宿主另有 useRefreshOnFocus)。
+ * ⇒ 排版与词条真相源 = 共享屏;改这一屏的外观/文案去改 packages/app,不再动本页。
+ */
 import ThemeRoot from '@/components/ThemeRoot'
+import { Alert } from '@/rn-compat/apis'
+import { useTheme } from '@/rn-compat/theme'
+import { fetchApi } from '@ihui/api-client'
+import { CouponScreen as SharedCouponScreen } from '@ihui/rn-app/features/coupon/CouponScreen'
+import { formatDateOnly } from '@ihui/shared/utils/date-utils'
+import { usePaginatedList } from '@ihui/shared/hooks'
+import { useI18n } from '@/i18n'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useCallback, useState } from 'react'
 
-interface Coupon {
-  id: string
-  title: string
-  amount: number
-  threshold: number
-  expireTime: string
-  status: string
+/** 与 RN 宿主同形的后端响应行 */
+interface CouponPage {
+  list: Array<{
+    id: string
+    name: string
+    amount: number
+    minSpend: number
+    expiresAt: string
+    status: 'unused' | 'used' | 'expired'
+  }>
+  total: number
 }
 
-const TABS = (tt: TtFn) => [
-  { key: 'unused', i18nKey: 'member.coupon.unused', fallback: tt('coupon.available', '未使用') },
-  { key: 'used', i18nKey: 'member.coupon.used', fallback: tt('coupon.used', '已使用') },
-  {
-    key: 'expired',
-    i18nKey: 'member.coupon.expired',
-    fallback: tt('member.index.expired', '已过期'),
-  },
-]
-
-const COUPON_STATUS_KEY: Record<string, string> = {
-  unused: 'member.coupon.unused',
-  used: 'member.coupon.used',
-  expired: 'member.coupon.expired',
+type CouponTab = 'available' | 'used' | 'expired'
+/** 与共享屏 TAB_KEYS 同词汇(声明件契约只出口组件符号,词汇在此与本端对齐) */
+type CouponStatusLocal = CouponTab | string
+/** 本屏 tab 词汇 → 后端档位词汇(与 RN 宿主同一份映射,只在端上映射一次) */
+const TAB_STATUS: Record<CouponTab, 'unused' | 'used' | 'expired'> = {
+  available: 'unused',
+  used: 'used',
+  expired: 'expired',
 }
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 20
 
-export default function CouponPage() {
+export default function CouponPageScreen() {
   const { t } = useI18n()
-  const [list, setList] = useState<Coupon[]>([])
-  const [shown, setShown] = useState<Coupon[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-  const [status, setStatus] = useState('unused')
-  const pageRef = useRef(1)
-  const hasMoreRef = useRef(true)
+  const { resolvedTheme } = useTheme()
+  const [statusTab, setStatusTab] = useState<CouponTab>('available')
 
-  const tt = useCallback(
-    (key: string, fallback: string, params?: Record<string, string | number>) => {
-      const v = t(key, params)
-      if (v === key) {
-        if (!params) return fallback
-        return fallback.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? ''))
-      }
-      return v
+  const fetcher = useCallback(
+    async ({ page, pageSize }: { page: number; pageSize: number }) => {
+      const res = await fetchApi<CouponPage>('/api/coupons', {
+        params: { page, pageSize, status: TAB_STATUS[statusTab] },
+      })
+      if (!res.success) return { success: false as const, error: t('coupon.loadFailed') }
+      const list = (res.data?.list ?? []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        amount: c.amount,
+        minSpend: c.minSpend,
+        validUntil: formatDateOnly(c.expiresAt),
+        status: c.status === 'unused' ? 'available' : c.status,
+      }))
+      return { success: true as const, data: { list, total: res.data?.total ?? list.length } }
     },
-    [t],
+    [statusTab, t],
   )
 
-  const load = useCallback(
-    async (s?: string) => {
-      const st = s ?? status
-      setLoading(true)
-      setError(false)
-      try {
-        const res = await getCouponList({ status: st })
-        const items = res.list || []
-        setList(items)
-        pageRef.current = 1
-        hasMoreRef.current = items.length > PAGE_SIZE
-        setShown(items.slice(0, PAGE_SIZE))
-      } catch (e) {
-        logger.error('member/coupon', tt('memberCoupon.q1', '获取优惠券'), e)
-        setError(true)
-        setList([])
-        setShown([])
-      } finally {
-        setLoading(false)
-      }
-    },
-    [status, tt],
-  )
+  const { items, loading, refreshing, error, refresh } = usePaginatedList(fetcher, PAGE_SIZE)
+  // 回屏即重取:本页旧行为 useDidShow(load) 的等价承载(共享屏无该钩子,由本壳接)
+  useDidShow(() => refresh())
 
-  const switchTab = useCallback(
-    (s: string) => {
-      setStatus(s)
-      load(s)
-    },
-    [load],
-  )
-
-  const loadMore = useCallback(() => {
-    if (!hasMoreRef.current || loading) return
-    const next = pageRef.current + 1
-    setShown(list.slice(0, next * PAGE_SIZE))
-    hasMoreRef.current = next * PAGE_SIZE < list.length
-    pageRef.current = next
-  }, [list, loading])
-
-  const useCoupon = useCallback(() => {
-    Taro.showToast({ title: tt('member.coupon.useHint', '请前往商品页使用'), icon: 'none' })
-  }, [tt])
-
-  const goList = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/member/coupon-list' })
-  }, [])
-
-  useDidShow(() => load())
-  useReachBottom(() => loadMore())
-  usePullDownRefresh(() => load().finally(() => Taro.stopPullDownRefresh()))
+  const onSelectTab = (tab: CouponStatusLocal) => {
+    const next = tab as CouponTab
+    if (next === statusTab) return
+    setStatusTab(next)
+    setTimeout(refresh, 0)
+  }
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background pb-[140rpx]">
-        {/* tab 胶囊切换栏(对齐 RN 共享 CouponScreen tabs:card 底胶囊 + 选中 brand 底) */}
-        <View className="flex gap-[16rpx] px-[20rpx] py-[16rpx]">
-          {TABS(tt).map((tb) => (
-            <View
-              key={tb.key}
-              className={`px-[24rpx] py-[12rpx] rounded-lg ${status === tb.key ? 'bg-primary' : 'bg-card'}`}
-              onClick={() => switchTab(tb.key)}
-              hoverClass="opacity-60"
-            >
-              <Text
-                className={`text-[length:28rpx] ${status === tb.key ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
-              >
-                {tt(tb.i18nKey, tb.fallback)}
-              </Text>
-            </View>
-          ))}
-        </View>
-        {loading ? (
-          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[length:28rpx]">
-            <Text>{t('common.loading')}</Text>
-          </View>
-        ) : error ? (
-          <View className="flex flex-col items-center py-[64rpx] text-[length:28rpx]">
-            <Text className="text-[var(--color-danger)]">
-              {tt('member.coupon.loadFailed', '加载失败')}
-            </Text>
-            <Text
-              className="mt-[16rpx] px-[32rpx] py-[8rpx] text-[length:28rpx] text-[var(--color-success)]"
-              onClick={() => load()}
-            >
-              {t('common.retry')}
-            </Text>
-          </View>
-        ) : shown.length ? (
-          <View className="p-[20rpx] pb-[64rpx]">
-            {shown.map((c) => (
-              <View
-                key={c.id}
-                className="flex bg-card border border-[var(--color-border)] rounded-lg overflow-hidden mb-[16rpx]"
-              >
-                <View className="w-[192rpx] bg-[var(--color-success-light)] flex flex-col items-center justify-center py-[32rpx]">
-                  <View className="flex items-baseline">
-                    <Text className="text-[length:44rpx] font-bold text-[var(--color-success)]">
-                      {c.amount}
-                    </Text>
-                    <Text className="text-[length:22rpx] ml-[8rpx] text-muted-foreground">
-                      {tt('member.coupon.unit', '元')}
-                    </Text>
-                  </View>
-                  <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground text-center">
-                    {tt('member.coupon.thresholdText', '满{threshold}可用', {
-                      threshold: c.threshold,
-                    })}
-                  </Text>
-                </View>
-                <View className="flex-1 p-[24rpx] flex flex-col justify-between">
-                  <Text className="block text-[length:32rpx] text-foreground font-semibold">
-                    {c.title}
-                  </Text>
-                  <Text className="block mt-[16rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                    {tt('member.coupon.expireText', '有效期至 {time}', { time: c.expireTime })}
-                  </Text>
-                  {c.status === 'unused' ? (
-                    <Button
-                      className="self-start mt-[16rpx] text-[length:22rpx] text-cta-foreground bg-cta rounded-sm px-[16rpx] leading-[44rpx]"
-                      onClick={useCoupon}
-                    >
-                      {tt('member.coupon.use', '立即使用')}
-                    </Button>
-                  ) : (
-                    <View
-                      className={`self-start mt-[16rpx] px-[16rpx] py-[4rpx] rounded-lg ${c.status === 'used' ? 'bg-[var(--color-text-tertiary)]' : 'bg-[var(--color-danger)]'}`}
-                    >
-                      <Text className="text-[length:22rpx] text-[var(--color-surface-light)]">
-                        {tt(
-                          COUPON_STATUS_KEY[c.status] ?? 'member.coupon.expired',
-                          c.status === 'used'
-                            ? tt('coupon.used', '已使用')
-                            : tt('member.index.expired', '已过期'),
-                        )}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            ))}
-            {hasMoreRef.current ? (
-              <View className="text-center py-[24rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                <Text>{tt('member.coupon.loadMore', '上拉加载更多')}</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : (
-          <View className="text-center py-[64rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
-            <Text>{tt('member.coupon.empty', '暂无优惠券')}</Text>
-          </View>
-        )}
-        <Button
-          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-cta text-cta-foreground rounded-sm text-[length:28rpx] h-[88rpx] leading-[88rpx]"
-          onClick={goList}
-        >
-          {tt('member.coupon.couponCenter', '领券中心')}
-        </Button>
-      </View>
+      <SharedCouponScreen
+        t={t}
+        items={items}
+        activeTab={statusTab}
+        onSelectTab={onSelectTab}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onRefresh={refresh}
+        onBack={() => Taro.navigateBack()}
+        colorScheme={resolvedTheme}
+        onUseCoupon={() => Alert.alert('', t('coupon.useHint'))}
+        onOpenCouponCenter={() => void Taro.navigateTo({ url: '/pages/member/coupon-list' })}
+      />
     </ThemeRoot>
   )
 }

@@ -39,7 +39,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..core.background_tasks import spawn
 from .codebase_indexer import (
     _EXT_TO_LANG,
     _IGNORED_DIRS,
@@ -1289,7 +1288,8 @@ class SpecGenerator:
             success = len(failed) == 0
             severity = "info" if success else "warning"
             try:
-                spawn(orchestration_hub.emit(
+                loop = asyncio.get_running_loop()
+                loop.create_task(orchestration_hub.emit(
                     event_type="spec.patch_applied",
                     source_pillar="spec",
                     payload={

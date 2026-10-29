@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 
 /**
  * Checkpoint / Rewind 前端 API 客户端(2026-09-03 立,对标 Claude Code checkpoint /rewind)。
@@ -77,11 +77,11 @@ export interface CheckpointImpactResult {
 
 /** 列出指定会话可回滚的 checkpoint */
 export async function listCheckpoints(sessionId: string): Promise<CheckpointListResult> {
-  const r = await api<CheckpointListResult>(
+  const r = await fetchApi<CheckpointListResult>(
     `/api/checkpoints?session_id=${encodeURIComponent(sessionId)}`,
-    { fallbackError: '加载 checkpoint 失败' },
   )
-  return r
+  if (!r.success) throw new Error(r.error || '加载 checkpoint 失败')
+  return r.data
 }
 
 /** 恢复到指定 checkpoint(可指定回退范围:对话 / 文件 / 两者) */
@@ -90,16 +90,16 @@ export async function restoreCheckpoint(
   sessionId: string,
   scope: CheckpointScope = 'both',
 ): Promise<CheckpointRestoreResult> {
-  const r = await api<CheckpointRestoreResult>(
+  const r = await fetchApi<CheckpointRestoreResult>(
     `/api/checkpoints/${encodeURIComponent(checkpointId)}/restore`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId, scope }),
-      fallbackError: '恢复 checkpoint 失败',
     },
   )
-  return r
+  if (!r.success) throw new Error(r.error || '恢复 checkpoint 失败')
+  return r.data
 }
 
 /** 回退前的影响预览:影响文件清单 + 逐文件 diff 数据。
@@ -109,11 +109,11 @@ export async function getCheckpointImpact(
   sessionId: string,
   scope: CheckpointScope = 'both',
 ): Promise<CheckpointImpactResult> {
-  const r = await api<CheckpointImpactResult>(
+  const r = await fetchApi<CheckpointImpactResult>(
     `/api/checkpoints/${encodeURIComponent(checkpointId)}/impact` +
       `?session_id=${encodeURIComponent(sessionId)}&scope=${encodeURIComponent(scope)}`,
-    { fallbackError: '加载影响预览失败' },
   )
-  return r
+  if (!r.success) throw new Error(r.error || '加载影响预览失败')
+  return r.data
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

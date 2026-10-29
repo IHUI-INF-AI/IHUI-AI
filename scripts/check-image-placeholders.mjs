@@ -32,7 +32,6 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 import { catBatch, gitErrText, gitRaw } from './lib/face-reader.mjs'
-import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
@@ -41,16 +40,9 @@ const IMG_RE = /\.(png|jpe?g|gif|webp|svg)$/i
 function arg(name) {
   return process.argv.includes(name)
 }
-// --root 取值走 G-322 单源:紧邻 token 是另一枚旗标(如 `--root --strict`)或结尾无值/空串
-// 既不得当目录吞掉,也不得按"没给"回落默认根(那是把另一棵树扫成通过)。点名叫用法错并 exit 2。
-// (§22c 禁复制判据;判死出口对齐 lib/flag-value.mjs 头注"给了旗标就必须给值"。)
 function argVal(name) {
-  const f = flagValue(process.argv, name)
-  if (f.present && !f.valid) {
-    console.error(`用法错:${name} 需要一个目录,紧邻的 token 实得:${describeFlagToken(f)}(不得静默回落默认根)`)
-    process.exit(2)
-  }
-  return f.valid ? f.value : null
+  const i = process.argv.indexOf(name)
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : null
 }
 
 const srvRoot = resolve(argVal('--root') || join(ROOT, 'deploy/server-root'))

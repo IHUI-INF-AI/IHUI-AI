@@ -80,7 +80,7 @@ function isDir(p: string): boolean {
 }
 
 /** 定位 Qoder CN 安装（与桥脚本内解析逻辑保持一致） */
-function resolveQoderAppRoot(): { root: string; version: string } | null {
+export function resolveQoderAppRoot(): { root: string; version: string } | null {
   const candidates = [
     process.env.QODER_APP_DIR,
     'D:/电脑软件/Qoder CN',

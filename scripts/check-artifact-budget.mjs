@@ -22,6 +22,10 @@
  *       **刻意不是**"清除 sourcemap":规格已实测我方 `sourcesContent` 命中 0、
  *       web 侧 `productionBrowserSourceMaps:false`,把"清除"立成判据主体会造一台
  *       在完好仓库上无事可判的门。
+ *   AB3 单分包尺寸(2026-10-26 加)—— 微信对**每个分包**同样有 2 MiB 硬上限,而 AB1 只判主包。
+ *       实测:78 枚壳承载页让主包 +46 KB(84% 仍在预算内),pkg-user 却从 1,525,850 B 涨到
+ *       3,769,041 B(超 1.8 倍),总量 8.09→13.38 MB ⇒ 主包与 CI 全绿而上传必拒。
+ *       逐包(含独立分包)超 2 MiB 即判红;恰好等于上限不判(微信口径是 `> 2 MiB`)。
  *
  * 退出码按**机器态 vs 内容态**三态分流(与守门 104 同一取向,不得回退):
  *   0 = 产物在预算内,**或**产物根本不在磁盘上(未判定 —— 逐条喊出原因与构建命令,绝不静默记绿)
@@ -58,6 +62,14 @@ const NUM = new Intl.NumberFormat('en-US')
 const DEFAULT_WARN_PCT = 90
 
 /**
+ * 微信**单个分包**硬上限(与主包同值 2 MiB)。
+ * 2026-10-26 实测立的维:本门过去只判主包 ⇒ 78 枚壳承载页只让主包涨 46 KB,而 pkg-user
+ * 从 1,525,850 B 涨到 3,769,041 B(超 1.8 倍)、总量 8.09→13.38 MB。上传微信那一步必炸,
+ * 而主包口径与 CI 全绿 —— 判据看得见的地方,恰好不是会坏的地方。
+ */
+const SUBPACKAGE_LIMIT_BYTES = 2_097_152
+
+/**
  * 预算表 —— 一处改,判据与打印同时动(不得把上限散进 if)。
  * `limitBytes: null` 的档是**未校准档**:只报数不判红,理由写在 `uncalibratedReason`,
  * 输出与 --json 里都会如实标 `calibrated:false`("判据存在而永不调用 = 没有",
@@ -71,6 +83,10 @@ const BUDGET = {
     limitBytes: 2_097_152,
     warnPct: DEFAULT_WARN_PCT,
     mainPackageScoped: true,
+    // 分包逐桶判 2 MiB(AB3):微信对**每个**分包同样有硬上限,主包绿不等于能上传
+    subPackageJudged: true,
+    // 整档总量判 20 MiB(AB4):逐包都绿也可能整档传不上去
+    totalPackageLimitBytes: 20_971_520,
     ab2Judged: true,
     buildHint: 'pnpm --filter @ihui/miniapp-taro build',
     basis: '微信平台硬上限 2,097,152 B(2 MiB)',
@@ -249,6 +265,17 @@ function judgeBudget(measuredBytes, limitBytes, warnPct) {
   return { status: 'ok', usedPct, marginBytes }
 }
 
+/** 纯函数:AB3 —— 逐个分包(含独立分包)对 2 MiB 硬上限。只报超的,不判水位。 */
+function judgeSubPackages(buckets, limitBytes = SUBPACKAGE_LIMIT_BYTES) {
+  if (!buckets) return { limitBytes, judged: false, overs: [] }
+  const all = [
+    ...Object.entries(buckets.sub ?? {}).map(([root, v]) => ({ root, kind: 'sub', bytes: v.bytes, files: v.files })),
+    ...Object.entries(buckets.independent ?? {}).map(([root, v]) => ({ root, kind: 'independent', bytes: v.bytes, files: v.files })),
+  ]
+  const overs = all.filter((e) => e.bytes > limitBytes)
+  return { limitBytes, judged: true, overs }
+}
+
 /** 纯函数:AB2 —— 只找"引用在、目标不在"。注入 IO,便于不碰磁盘就自证。 */
 function findDanglingSourceMaps({ scriptFiles, readText, existsSibling }) {
   const dangling = []
@@ -392,6 +419,14 @@ function evaluate({ target, artifactPath }) {
   const verdict = judgeBudget(measuredBytes, spec.limitBytes, spec.warnPct)
   const ab2 = measureAb2(dir, entries)
   const ab2Fail = spec.ab2Judged && ab2.dangling.length > 0
+  const ab3 = spec.subPackageJudged ? judgeSubPackages(buckets) : { limitBytes: SUBPACKAGE_LIMIT_BYTES, judged: false, overs: [] }
+  const ab3Fail = ab3.overs.length > 0
+  // AB4 整档总量:微信 20 MiB 上限。实测 2026-10-26 落完 219 屏后合计 18,016,705 B(86%),
+  // 只判逐包会漏"每个包都还装得下、整档传不上去"这一型。
+  const ab4 = spec.totalPackageLimitBytes
+    ? judgeBudget(total.bytes, spec.totalPackageLimitBytes, spec.warnPct)
+    : { status: 'unjudged', usedPct: null, marginBytes: null }
+  const ab4Fail = ab4.status === 'over' || ab4.status === 'over-water'
 
   return {
     ...base,
@@ -408,7 +443,11 @@ function evaluate({ target, artifactPath }) {
     buckets: spec.mainPackageScoped ? buckets : undefined,
     ab2: { ...ab2, judged: spec.ab2Judged },
     ab2Fail,
-    fail: verdict.status === 'over' || verdict.status === 'over-water' || ab2Fail,
+    ab3,
+    ab3Fail,
+    ab4: { ...ab4, limitBytes: spec.totalPackageLimitBytes ?? null },
+    ab4Fail,
+    fail: verdict.status === 'over' || verdict.status === 'over-water' || ab2Fail || ab3Fail || ab4Fail,
   }
 }
 
@@ -468,7 +507,22 @@ function printHuman(r) {
       '     本档 AB2 未启用判红(立门批次只覆盖 miniapp + desktop-installer),以上仅如实计数。',
     )
   }
-  const verdictText = {
+  if (r.ab3?.judged) {
+    console.log(
+      `  AB3 单分包尺寸: 上限 ${fmtBytes(r.ab3.limitBytes)}/包(微信硬限)· ` +
+        (r.ab3.overs.length === 0 ? '全部在限内' : `${r.ab3.overs.length} 个超限`),
+    )
+    for (const o of r.ab3.overs) {
+      console.log(`     - ${o.root}: ${fmtBytes(o.bytes)} / ${o.files} 文件(超 ${fmtBytes(o.bytes - r.ab3.limitBytes)})`)
+    }
+  }
+  if (r.ab4 && r.ab4.status !== 'unjudged' && r.ab4.limitBytes) {
+    console.log(
+      `  AB4 整档总量: 上限 ${fmtBytes(r.ab4.limitBytes)} · 实测 ${fmtBytes(r.totalBytes)}` +
+        `(已用 ${r.ab4.usedPct}%,余量 ${fmtBytes(r.ab4.marginBytes)})`,
+    )
+  }
+  let verdictText = {
     ok: '✅ 结论:在预算内',
     'over-water': `⛔ 结论:破告警水位(${r.warnPct}%)—— 尚未超硬上限,但余量只剩 ${fmtBytes(r.marginBytes)}`,
     over: `⛔ 结论:超硬上限 ${fmtBytes(-r.marginBytes)}`,
@@ -476,6 +530,23 @@ function printHuman(r) {
       ? '⛔ 结论:尺寸未校准(不计),命中 AB2 悬空 map 引用'
       : 'ℹ️ 结论:尺寸未校准档,只报数',
   }[r.status]
+  // 三个尺寸维各说各话:主包 / 单分包 / 整档总量。哪一维红的都必须点名,
+  // 否则"主包在预算内"这五个字会被读成"能上传"—— 而炸的是另外两维。
+  const dims = []
+  if (r.ab3Fail) dims.push(`单分包超 2 MiB(${r.ab3.overs.map((o) => `${o.root} ${fmtBytes(o.bytes)}`).join('、')})`)
+  if (r.ab4Fail)
+    dims.push(
+      r.ab4.status === 'over'
+        ? `整档总量超 20 MiB(实测 ${fmtBytes(r.totalBytes)},超 ${fmtBytes(-r.ab4.marginBytes)})`
+        : `整档总量破告警水位(实测 ${fmtBytes(r.totalBytes)},余量只剩 ${fmtBytes(r.ab4.marginBytes)})`,
+    )
+  if (r.ab2Fail) dims.push('AB2 悬空 map 引用')
+  if (dims.length) {
+    verdictText =
+      r.status === 'ok' || r.status === 'uncalibrated'
+        ? `⛔ 结论:主包在预算内,但命中 ${dims.length} 维:${dims.join(' | ')} —— 上传会被拒`
+        : `${verdictText};另命中:${dims.join(' | ')}`
+  }
   console.log(verdictText)
 }
 
@@ -657,6 +728,35 @@ function selfTest() {
       'T7d 真磁盘夹具:合计 = 主包 + 分包(两数都必须出现)',
       scopedMain.total.bytes === expectedMain + Buffer.byteLength(subJs),
     )
+
+    // T8 AB3 单分包上限(纯函数;2026-10-26 立:主包绿而 pkg-user 3.77 MB 的那型)
+    const b = (sub, independent = {}) => ({
+      main: { bytes: 0, files: 0 },
+      sub,
+      independent,
+      plugin: { bytes: 0, files: 0 },
+    })
+    const ab3ok = judgeSubPackages(b({ 'pkg-a': { bytes: 100, files: 1 } }))
+    ck('T8a 分包在限内不报', ab3ok.judged && ab3ok.overs.length === 0)
+    ck(
+      'T8b 恰好等于上限不超(微信口径:> 2 MiB 才拒)',
+      judgeSubPackages(b({ 'pkg-a': { bytes: SUBPACKAGE_LIMIT_BYTES, files: 1 } })).overs.length === 0,
+    )
+    const ab3over = judgeSubPackages(
+      b({ 'pkg-a': { bytes: SUBPACKAGE_LIMIT_BYTES + 1, files: 1 } }, { 'pkg-b': { bytes: SUBPACKAGE_LIMIT_BYTES + 9, files: 2 } }),
+    )
+    ck('T8c 超 1 B 即报,独立分包同判', ab3over.overs.length === 2, `实得 ${ab3over.overs.length}`)
+    ck(
+      'T8d 真磁盘夹具接进 AB3:把分包桶换成超限值即被抓到',
+      judgeSubPackages({ ...scopedMain.buckets, sub: { 'pkg-ai': { bytes: SUBPACKAGE_LIMIT_BYTES + 1, files: 1 } } }).overs
+        .length === 1,
+    )
+
+    // T9 AB4 整档总量(微信 20 MiB):逐包都绿也可能整档传不上去
+    const TOTAL = 20_971_520
+    ck('T9a 总量在水位线下不判', judgeBudget(10_000_000, TOTAL, 90).status === 'ok')
+    ck('T9b 总量破水位判 over-water', judgeBudget(19_000_000, TOTAL, 90).status === 'over-water')
+    ck('T9c 总量超 1 B 即 over', judgeBudget(TOTAL + 1, TOTAL, 90).status === 'over')
   } finally {
     rmScratch(scratch)
   }

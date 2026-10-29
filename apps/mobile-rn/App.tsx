@@ -4,16 +4,7 @@
 
 import './global.css'
 import { useCallback, useEffect, useState } from 'react'
-import {
-  AppRegistry,
-  ActivityIndicator,
-  AppState,
-  LogBox,
-  Platform,
-  Text,
-  TextInput,
-  View,
-} from 'react-native'
+import { AppRegistry, LogBox, Platform, Text, TextInput, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFonts } from 'expo-font'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
@@ -23,13 +14,13 @@ import { AuthProvider } from './src/context/AuthContext'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import { I18nProvider } from './src/i18n'
 import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
+import { UpdatePromptGate as UpdatePrompt } from './src/components/UpdatePromptGate'
 import { OfflineBanner } from './src/components/OfflineBanner'
 import { DevErrorToast } from './src/components/DevErrorToast'
-import { UpdatePrompt } from './src/components/UpdatePrompt'
 import { RootNavigator } from './src/navigation/RootNavigator'
 import { linking } from './src/navigation/linking'
 import { navigationRef, navigateTo } from './src/navigation/navigation-ref'
-import { reportScreenView, settleScreenTime } from './src/lib/visit-tracker'
+import { reportScreenView } from './src/lib/visit-tracker'
 import { registerWechat } from './src/lib/wechat'
 import {
   subscribeOAuthDeepLink,
@@ -118,9 +109,6 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   AiMain: (t) => t.surface.chrome,
   Agent: (t) => t.surface.chrome,
   Settings: (t) => t.surface.chrome,
-  // CheckinAssistant(2026-10-24 补录):签到助手屏入库时注册了路由、屏内渲染 <NavBar> 却漏登记本表
-  // ⇒ 状态栏 inset 带与导航行两截色(nav-chrome-route-parity 测试当场判红,信号真实)。按表判据补 chrome 档。
-  CheckinAssistant: (t) => t.surface.chrome,
   AiAssistantN8n: (t) => t.surface.chrome,
   Cart: (t) => t.surface.chrome,
   Chat: (t) => t.surface.chrome,
@@ -196,14 +184,6 @@ if (__DEV__) {
 
 function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
-  // 退后台即结算当前屏停留:visit-tracker 的 page_time 原本只在换屏时结算,
-  // 用户直接退后台/杀 app 时最后一屏的停留永远丢(2026-10-27 收口)。
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'background' || state === 'inactive') settleScreenTime()
-    })
-    return () => sub.remove()
-  }, [])
   return (
     <NavigationContainer
       ref={navigationRef}
@@ -237,8 +217,8 @@ function AppInner() {
       <OfflineBanner banner={banner} reason={reason} />
       <ThemedNavigation />
       <DevErrorToast />
-      {/* OTA 更新提示(对齐 web PWAUpdatePrompt):expo-updates 静默下载就绪后弹出,
-          [更新]=reloadAsync 立即生效;自身判 __DEV__/web 返回 null */}
+      {/* OTA 更新提示:组件与 lib/ota-update 早已入库,但此前无人渲染 ⇒ 更新检查从不触发(造好没装车)。
+          卡片是 position:absolute 浮层、非更新态返回 null;lib 对 __DEV__ 与 web 有短路,故对开发与 Web 预览零行为。 */}
       <UpdatePrompt />
     </SafeAreaView>
   )
@@ -396,66 +376,18 @@ function AppContent() {
   )
 }
 
-/**
- * 字体门最长等待(ms):超过就按系统字体先开屏。
- *
- * 为什么需要上限(2026-10-27 真机「点更新 → 灰屏一直不动」的根因):RN 下 `global.window` 存在,
- * expo-font 走 **运行时**加载分支;热更包首启时这枚 7.4MB 字体资产要走远端取用,取失败
- * (弱网 / 资产 CDN 不可达)⇒ loadAsync reject ⇒ 原写法只判 `!fontsLoaded` 就 return null,
- * 把「加载失败」也当成「还没加载完」⇒ 整棵树永不挂载:一块不动的灰屏,连更新检查入口都没有。
- * 现在:失败立即放行,未失败但久等不到也放行 —— 宁可字体不完美,不能打不开。
- */
-const FONT_GATE_TIMEOUT_MS = 6000
-
-/**
- * 启动兜底屏(2026-10-28 机主「点了更新依旧灰屏 卡死」):
- * 字体还没就绪时**不再 return null**。null 期间 RN 根视图是空的 —— 原生启动图撤下后
- * 只剩 AppTheme 的 DayNight 窗口底(深色机型就是一块暗灰),真机上读作"灰屏卡死"。
- * 这里给一帧与应用同色的底 + 一枚转圈:任何等待都有可见反馈,绝不再出现无内容灰屏。
- */
-function BootScreen(): React.JSX.Element {
-  return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: tokens.surface.bg,
-      }}
-    >
-      <ActivityIndicator color={tokens.brandAccent.deep} />
-    </View>
-  )
-}
-
 export default function App() {
   // 加载阿里妈妈方圆体(对齐 uniapp);未加载完返回 null 避免字体闪烁
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const fontAsset = require('./assets/fonts/AlimamaFangYuanTiVF-Thin.ttf')
   // eslint-enable @typescript-eslint/no-require-imports
-  const [fontsLoaded, fontError] = useFonts({
+  const [fontsLoaded] = useFonts({
     'AlimamaFangYuanTiVF-Thin': fontAsset,
   })
-  const [fontGateExpired, setFontGateExpired] = useState(false)
-  useEffect(() => {
-    if (Platform.OS === 'web' || fontsLoaded || fontError) return
-    const timer = setTimeout(() => setFontGateExpired(true), FONT_GATE_TIMEOUT_MS)
-    return () => clearTimeout(timer)
-  }, [fontsLoaded, fontError])
-  useEffect(() => {
-    // 失败必须喊出来(§0.3 不静默降级):release 包里这行是唯一的现场线索
-    if (fontError) console.warn('[boot] 字体加载失败,以系统字体继续启动:', fontError)
-  }, [fontError])
   // 原生:未加载完返回 null,避免字体闪烁。Web 预览必须跳过这道门:
   // react-native-web 下 require(ttf) 返回的是资产 id 而非可加载 URL,expo-font 的 web
   // loader 永远不 resolve ⇒ fontsLoaded 恒 false ⇒ 整棵树 return null(:8806 白屏根因)。
-  if (Platform.OS !== 'web' && !fontsLoaded && !fontError && !fontGateExpired) {
-    return (
-      <ThemeProvider>
-        <BootScreen />
-      </ThemeProvider>
-    )
-  }
+  if (Platform.OS !== 'web' && !fontsLoaded) return null
   return (
     <ThemeProvider>
       <AppContent />

@@ -26,6 +26,7 @@ import { Zap, PauseCircle } from 'lucide-react-native'
 import { tokens, currentRnTheme } from '../theme/active-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
@@ -118,6 +119,9 @@ export default function N8nModelScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首屏由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
 
   const onRefresh = () => {
     setRefreshing(true)

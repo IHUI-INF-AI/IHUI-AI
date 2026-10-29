@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 
 const SIZES = ['1024*1024', '1280*720', '720*1280'] as const
@@ -42,11 +42,12 @@ export const ImageGenQwen = React.memo(function ImageGenQwen() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; model: string; size: string; n: number }) => {
-      const res = await api<{ taskId: string; status: string }>('/api/ai/dashscope/image', {
+      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/dashscope/image', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      return res
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: (data) => {
       setTaskId(data.taskId)
@@ -58,8 +59,9 @@ export const ImageGenQwen = React.memo(function ImageGenQwen() {
   const { data: task } = useQuery({
     queryKey: ['ai-task', taskId],
     queryFn: async () => {
-      const res = await api<AsyncTask>(`/api/ai/tasks/${taskId}`)
-      return res
+      const res = await fetchApi<AsyncTask>(`/api/ai/tasks/${taskId}`)
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     enabled: !!taskId,
     refetchInterval: (query) => {

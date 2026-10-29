@@ -9,7 +9,6 @@
  * 企业认证 / 发票申请(对已支付订单)/ 对公结算(登记打款凭证,admin 确认后
  * 订单自动完成并激活订阅)/ 合同列表与签署。
  */
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Loader2 } from 'lucide-react'
@@ -20,6 +19,7 @@ import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 import { apiFailureToError } from '@ihui/shared/utils'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface OrderLite {
   id: string

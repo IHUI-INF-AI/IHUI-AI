@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 
 const MODELS = ['mureka-6', 'mureka-5'] as const
@@ -51,12 +51,13 @@ export function MusicGenMureka() {
 
   const mutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await api<MurekaSubmitResult>('/api/ai/mureka/generate', {
+      const res = await fetchApi<MurekaSubmitResult>('/api/ai/mureka/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      if (!res?.id) throw new Error(t('noResult'))
-      return res.id
+      if (!res.success) throw new Error(res.error)
+      if (!res.data?.id) throw new Error(t('noResult'))
+      return res.data.id
     },
     onSuccess: (id) => {
       setUpstreamId(id)
@@ -68,10 +69,11 @@ export function MusicGenMureka() {
   const { data: task } = useQuery({
     queryKey: ['mureka-task', upstreamId],
     queryFn: async () => {
-      const res = await api<MurekaTaskResult>(`/api/ai/mureka/tasks/${upstreamId}`, {
+      const res = await fetchApi<MurekaTaskResult>(`/api/ai/mureka/tasks/${upstreamId}`, {
         method: 'GET',
       })
-      return res
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     enabled: !!upstreamId,
     refetchInterval: (query) => {

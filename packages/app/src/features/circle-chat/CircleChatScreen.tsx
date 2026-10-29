@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useMemo, useRef } from 'react'
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { TextField } from '../../components/TextField'
 import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -11,6 +11,7 @@ import type { CircleChatMessage, CircleChatScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 圈子聊天共享屏 — props 注入式跨端组件(wrapper 保留 API 调用,共享层负责渲染+自动滚动) */
 export type { CircleChatMessage, CircleChatScreenProps }
@@ -42,12 +43,7 @@ export function CircleChatScreen({
   }, [messages.length])
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={tk.brand.DEFAULT} />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
   }
   if (error && messages.length === 0) {
     return (
@@ -79,11 +75,7 @@ export function CircleChatScreen({
         data={messages}
         keyExtractor={(item) => item.id}
         style={styles.list}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.muted}>{t('circleChat.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('circleChat.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
           <View style={[styles.msg, item.role === 'user' ? styles.msgUser : styles.msgOther]}>
             {item.role === 'other' ? <Text style={styles.msgAuthor}>{item.author}</Text> : null}
@@ -107,7 +99,8 @@ export function CircleChatScreen({
         )}
       />
       <View style={styles.inputRow}>
-        <TextField colorScheme={colorScheme}
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={input}
           onChangeText={onInputChange}
@@ -137,8 +130,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
     list: { flex: 1 },
-    empty: { paddingVertical: 40, alignItems: 'center' },
-    muted: { fontSize: 14, color: tk.text.secondary },
     msg: {
       maxWidth: '85%',
       marginBottom: 8,

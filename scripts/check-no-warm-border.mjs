@@ -84,7 +84,6 @@ import {
   FACE_NOTE,
 } from './lib/face-reader.mjs'
 import { maskComments } from './lib/code-mask.mjs'
-import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
 
 const SKIP_ENV = 'HUSKY_SKIP_WARM_BORDER'
 // 2026-10-21 G-929:`--root <dir>` 显式指定**被审仓根**,缺省仍按脚本位置自推导 ⇒ 生产行为一字不变。
@@ -93,20 +92,8 @@ const SKIP_ENV = 'HUSKY_SKIP_WARM_BORDER'
 // "fatal: not a tree object" ⇒ 未判定 ⇒ 落地器 fail-closed 拒绝 ⇒ object-space-land 镜像
 // 套件 26 例整批红。判据本身与仓根无关(暖色描边是内容事实),换仓不该让它失明,失明更不该
 // 被当成"拒绝"。镜像用例 M16 钉这一档的三态。
-// --root 取值走 G-322 单源:`--root --worktree` 这类"值被紧邻旗标顶掉"不得吞成目录名,
-// 也不得按"没给"回落本仓根(那会审错树还照常出结论)。点名叫用法错并 exit 2。
-const rootF = flagValue(process.argv, '--root')
-if (rootF.present && !rootF.valid) {
-  console.error(`用法错:--root 需要一个目录,紧邻的 token 实得:${describeFlagToken(rootF)}(不得静默回落本仓根)`)
-  process.exit(2)
-}
-const rootArg = rootF.valid ? String(rootF.value ?? '').trim() : ''
-// 单源只判"非空且不以 - 开头";空白串能过那一层,trim 后会与"没给"同形 ⇒ 静默回落本仓根。
-// 这里补一道域校验,不让 `--root "   "` 变成"在主仓审过了"。
-if (rootF.valid && rootArg === '') {
-  console.error('用法错:--root 需要一个目录 —— 实得空白串(不得静默回落本仓根)')
-  process.exit(2)
-}
+const rootArgAt = process.argv.indexOf('--root')
+const rootArg = rootArgAt >= 0 ? String(process.argv[rootArgAt + 1] ?? '').trim() : ''
 const root = rootArg !== '' ? resolve(rootArg) : join(dirname(fileURLToPath(import.meta.url)), '..')
 const EXEMPTIONS_REL = 'scripts/data/warm-border-exemptions.json'
 
@@ -1173,20 +1160,8 @@ HEAD 面实测 90 处)—— 那是语义档,判它等于 §12e 禁的恒红门�
   // 为什么必须有这一档:旁路通道(commit-tree + CAS)**结构上不跑 pre-commit**,
   // 而本仓大量落地走的是它 —— 只活在提交链的内容门对这条通道等于没装
   // (AGENTS:防它必须在它自己的判据源头接)。这一档审的是"将要落盘的那棵树",不是历史。
-  // --rev / --only 也走单源:`--rev` 被顶值/结尾无值旧写法会**静默退回 face 档**(旁路落地器
-  // 以为在审"将要落盘的那棵树",实际审的是 HEAD/索引);`--only` 被顶值时旧写法把旗标当路径,
-  // 收窄集变成一个不存在的路径 ⇒ 0 条 ⇒ 表头照写"只审 1 条"。两支都是"多放一次跳门"方向,判死。
-  const revFlag = flagValue(argv, '--rev')
-  if (revFlag.present && !revFlag.valid) {
-    console.error(`❌ --rev 需要一个 oid —— 紧邻的 token 实得:${describeFlagToken(revFlag)}(不得静默改审别的面)`)
-    return 2
-  }
-  const revOid = revFlag.valid ? String(revFlag.value).trim() : ''
-  // 同 --root:空白串能过单源的"非空"层,trim 后与"没给"同形 ⇒ 静默改审 face 档。
-  if (revFlag.valid && revOid === '') {
-    console.error('❌ --rev 需要一个 oid —— 实得空白串(不得静默改审别的面)')
-    return 2
-  }
+  const revAt = argv.indexOf('--rev')
+  const revOid = revAt >= 0 ? String(argv[revAt + 1] ?? '').trim() : ''
   if (revOid && (argv.includes('--staged') || argv.includes('--worktree'))) {
     console.error('❌ --rev 与 --staged/--worktree 互斥(审树档只认显式给定的那棵树)')
     return 2
@@ -1195,18 +1170,9 @@ HEAD 面实测 90 处)—— 那是语义档,判它等于 §12e 禁的恒红门�
     console.error(`❌ --rev 取值不是合法 oid ⇒ 未判定(不猜要审哪棵树):${revOid.slice(0, 40)}`)
     return 2
   }
-  const onlyFlag = flagValue(argv, '--only')
-  if (onlyFlag.present && !onlyFlag.valid) {
-    console.error(`❌ --only 需要 a;b 路径清单 —— 紧邻的 token 实得:${describeFlagToken(onlyFlag)}(不得静默改审全树)`)
-    return 2
-  }
-  const only = onlyFlag.valid ? new Set(onlyFlag.value.split(';').map((s) => s.trim()).filter(Boolean)) : null
-  // `--only "   "` 会得到一个空集合(truthy),下游只审 0 条还按审树档报"通过" —— 与"没给"同形。
-  // 给了旗标就必须给至少一条路径;空清单判用法错,不静默放行。
-  if (only !== null && only.size === 0) {
-    console.error('❌ --only 需要 a;b 路径清单 —— 实得空清单(不得静默改审全树/报通过)')
-    return 2
-  }
+  const onlyAt = argv.indexOf('--only')
+  const onlyRaw = onlyAt >= 0 ? String(argv[onlyAt + 1] ?? '') : ''
+  const only = onlyRaw ? new Set(onlyRaw.split(';').map((s) => s.trim()).filter(Boolean)) : null
 
   let face
   let faceErr

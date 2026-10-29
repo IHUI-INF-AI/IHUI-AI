@@ -67,7 +67,7 @@ import {
   rmScratch,
   scratchRoot,
 } from './lib/scratch-dir.mjs'
-import { flagValue, requireFlagValue } from './lib/flag-value.mjs'
+import { flagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // §15/§118:ROOT 由脚本自身位置推导。本门**不**用它定被扫的树(那由 scratchRoot()/--root 决定),
@@ -468,17 +468,9 @@ function existsHere(p) {
   }
 }
 
-// G-322:flagVal 是旧取值副本的残留 —— 空格形只挡 `--` 双划线(单划线 token 被当合法值收下,
-// Number() 读成 NaN 后静默乱扫),漏值/空串静默落默认档照常出结论。改走单源:present&&!valid
-// ⇒ 当场 exit 2 点名实得 token。本门顶层 catch 按设计把异常吞成 exit 0(机器态不拦提交),
-// 所以这里**必须 process.exit 而不是 throw** —— 抛出去 = 静默放行,正是本票要消的形态。
-function flagVal(argv, name, noun = '参数') {
-  const f = requireFlagValue(argv, name, { noun })
-  if (f.error) {
-    console.error(`❌ 无法判定:${f.error}`)
-    process.exit(2)
-  }
-  return f.value
+function flagVal(argv, name) {
+  const i = argv.indexOf(name)
+  return i >= 0 && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--') ? argv[i + 1] : null
 }
 
 function main(argv) {
@@ -486,6 +478,7 @@ function main(argv) {
     selfTest()
     return
   }
+  const rootArg = flagVal(argv, '--root')
   // G-322:给了 --root 却没收到合法值 ⇒ 点名实得 token 并按"无法判定"退,不得静默扫默认树。
   const rootFlag = flagValue(argv, '--root')
   if (rootFlag.present && !rootFlag.valid) {
@@ -493,21 +486,12 @@ function main(argv) {
     console.error(`❌ 无法判定:--root 需要一个目录参数 —— 紧邻的 token 实得:${got}(不得静默退回默认 scratch 根)`)
     process.exit(2)
   }
-  const root = rootFlag.value ? resolve(rootFlag.value) : scratchRoot()
-  const maxDepthRaw = flagVal(argv, '--max-depth', '正整数')
-  const budgetRaw = flagVal(argv, '--budget', '正整数')
-  const posInt = (name, raw) => {
-    if (raw === null) return undefined
-    const n = Number(raw)
-    if (!Number.isInteger(n) || n <= 0) {
-      console.error(`❌ 无法判定:${name} 必须是正整数,实得:${JSON.stringify(raw)}(不得让 NaN 静默乱扫)`)
-      process.exit(2)
-    }
-    return n
-  }
+  const root = rootArg ? resolve(rootArg) : scratchRoot()
+  const maxDepth = flagVal(argv, '--max-depth')
+  const budget = flagVal(argv, '--budget')
   const res = scanScratchRoot(root, {
-    maxDepth: posInt('--max-depth', maxDepthRaw),
-    entryBudget: posInt('--budget', budgetRaw),
+    maxDepth: maxDepth ? Number(maxDepth) : undefined,
+    entryBudget: budget ? Number(budget) : undefined,
   })
   const state = decide(res)
   const code = exitCodeFor(state)

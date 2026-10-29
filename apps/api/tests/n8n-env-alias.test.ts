@@ -77,10 +77,6 @@ vi.mock('../src/plugins/auth.js', () => ({
 vi.mock('../src/utils/ssrf-guard.js', () => ({
   ensureSafeFetchUrl: async () => undefined,
   assertSafeFetchUrl: async () => ({ safe: true }),
-  // 安全出口(逐跳重定向复检)在此透传到被 stub 的 global fetch,
-  // 让"发到哪个 URL"仍是可断言的事实;落点判禁本身由 ssrf-outbound-guard.test.ts 守。
-  safeFetch: (...args: unknown[]) =>
-    (globalFetchMock as unknown as (...a: unknown[]) => unknown)(...args),
 }))
 
 vi.mock('../src/db/index.js', () => ({

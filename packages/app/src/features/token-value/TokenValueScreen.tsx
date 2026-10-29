@@ -24,6 +24,7 @@ import type {
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** TokenValue 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type {
@@ -157,11 +158,11 @@ export function TokenValueScreen({
         contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 32 }}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>
-              {loading ? t('common.loading') : t('tokenValue.empty')}
-            </Text>
-          </View>
+          loading ? (
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('tokenValue.empty')} colorScheme={colorScheme} />
+          )
         }
         renderItem={({ item }) => (
           <View style={styles.recordItem}>
@@ -267,8 +268,6 @@ function createStyles(tk: AppThemeTokens) {
     pkgPrice: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
     tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
     errorText: { color: tk.brandAccent.deep, fontSize: 14 },
-    empty: { alignItems: 'center', paddingVertical: 32 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     recordItem: {
       flexDirection: 'row',
       alignItems: 'center',

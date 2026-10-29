@@ -21,6 +21,8 @@ import { dirname, resolve } from 'node:path'
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
+// 判定台账(单源 lib):读"这一格验过没有",把已判定与未判定分开(§0.6)。
+import { indexVerdicts, readVerdicts } from './lib/cross-end-verdicts.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
@@ -45,13 +47,19 @@ if (shared.length === 0 || mp.length === 0) {
   process.exit(2)
 }
 
-// 已镜像集合(与门 128 同一判据)
-const MARK_RE = /packages\/app\/src\/features\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_]+)Screen/g
+// 已镜像集合 —— **直接用门 128 的同一把尺子**(cov.mirroredSpecs),本文件零复算(§0.6)。
+// 为什么删掉本文件原先自己抄的那份 MARK_RE:两处正则必然漂移(标记行形态一变,这里就静默失明,
+// 而门 128 仍绿 ⇒ 缺口账本与守门尺对不上账)。单源化之后,标记形态的改动只需改门 128 一处。
 const mirrored = new Set()
 for (const p of mp) {
-  const hay = `${p.text || ''}\n${p.cssText || ''}`
-  for (const m of hay.matchAll(MARK_RE)) mirrored.add(`packages/app/src/features/${m[1]}/${m[2]}Screen.tsx`)
+  for (const spec of cov.mirroredSpecs(p)) mirrored.add(spec)
 }
+
+// 判定台账:把"验过但没落地代码"的两档(missing / not-applicable)从"未判定"里剥出来。
+// 不剥的后果是:缺口账本把已判定为"缺页"的屏继续列成待办,下轮又重判一遍 ——
+// 人力被反复消耗在已结论的格子上,而真正没验过的格子被淹没(§0.3「没判不写成判过」的反面)。
+const verdictRows = readVerdicts(face, ROOT)
+const verdicts = indexVerdicts(verdictRows.rows)
 
 const gaps = shared.filter((s) => !mirrored.has(s.spec))
 const rows = gaps.map((s) => {
@@ -75,13 +83,44 @@ const rows = gaps.map((s) => {
     .filter((c) => c.hit > 0)
     .sort((a, b) => b.hit - a.hit)
     .slice(0, 2)
-  return { shared: s.spec, domain: s.domain, name: s.name, rn: rnCands, mp: mpCands }
+  const v = verdicts.get(s.spec)
+  return {
+    shared: s.spec,
+    domain: s.domain,
+    name: s.name,
+    rn: rnCands,
+    mp: mpCands,
+    verdict: v ? v.verdict : null,
+    evidence: v ? v.evidence || '' : '',
+  }
 })
 
-const stats = { face, sharedTotal: shared.length, mirrored: mirrored.size, gaps: gaps.length }
+const stats = {
+  face,
+  sharedTotal: shared.length,
+  mirrored: mirrored.size,
+  gaps: gaps.length,
+  // 已判定与未判定分列 —— 这两个数必须分开,合在一起就分不清
+  // "没人看过"和"看过且结论是不该有"。前者要派单,后者不必再派。
+  verdicted: rows.filter((r) => r.verdict).length,
+  undetermined: rows.filter((r) => !r.verdict).length,
+  verdictLedgerRows: verdictRows.rows.length,
+  verdictLedgerBad: verdictRows.bad.length,
+  // 台账三档分布(全表,不止缺口集):
+  //   missing = 判过、该造页、尚未造;not-applicable = 判过、不该由小程序承载;
+  //   generated = **已造页**(声明链+路由+五语词包已落),但数据钩子/交互待补。
+  // generated 这一档单列的原因:它的屏**已被计入覆盖率**,但功能还没跟上 ——
+  // 不单列就等于让覆盖率读数替功能缺口背书(§0.3「造好没装车 = 没有」)。
+  ledgerMissing: verdictRows.rows.filter((r) => r.verdict === 'missing').length,
+  ledgerGenerated: verdictRows.rows.filter((r) => r.verdict === 'generated').length,
+  ledgerNotApplicable: verdictRows.rows.filter((r) => r.verdict === 'not-applicable').length,
+}
+
+/** 待补数据钩子的工作单:已造页但功能未跟上的屏(不在缺口集里,单列成一张单) */
+const pendingHooks = verdictRows.rows.filter((r) => r.verdict === 'generated')
 
 if (jsonMode) {
-  console.log(JSON.stringify({ stats, rows }, null, 1))
+  console.log(JSON.stringify({ stats, rows, pendingHooks }, null, 1))
   process.exit(0)
 }
 
@@ -95,19 +134,58 @@ lines.push('')
 lines.push(`- 判定面: **${face === 'head' ? 'HEAD blob' : '工作树(人工)'}**`)
 lines.push(`- 共享屏(真相源): **${stats.sharedTotal}**`)
 lines.push(`- 已被小程序显式镜像: **${stats.mirrored}**`)
-lines.push(`- 缺口(未判定镜像): **${stats.gaps}**`)
+lines.push(`- 缺口合计: **${stats.gaps}**(其中已判定 ${stats.verdicted} / 未判定 ${stats.undetermined})`)
+lines.push(
+  `- 判定台账: **${stats.verdictLedgerRows}** 行` +
+    (stats.verdictLedgerBad ? `(坏行 ${stats.verdictLedgerBad} 行,已单列不静默丢)` : '') +
+    ` — 路径与口径单源 \`scripts/lib/cross-end-verdicts.mjs\``,
+)
+lines.push(
+  `- 台账三档: **缺页待造 ${stats.ledgerMissing}** / **已造页待补数据钩子 ${stats.ledgerGenerated}** / **不承载 ${stats.ledgerNotApplicable}**`,
+)
+if (stats.ledgerGenerated > 0) {
+  lines.push(
+    `> ⚠ 已造页 ${stats.ledgerGenerated} 条**已计入上面的覆盖率**,但数据钩子/交互尚未按共享屏补齐 ⇒ ` +
+      `覆盖率不等于功能对齐(§0.3「造好没装车 = 没有」);待补清单见文末「已造页·待补数据钩子」单。`,
+  )
+}
 lines.push('')
 lines.push('## 缺口清单')
 lines.push('')
-lines.push('| # | 共享屏(域) | RN 候选屏 | 小程序既有页线索 | 状态 |')
-lines.push('|---|---|---|---|---|')
+lines.push('| # | 共享屏(域) | RN 候选屏 | 小程序既有页线索 | 状态 | 判定依据 |')
+lines.push('|---|---|---|---|---|---|')
 rows.forEach((r, i) => {
   const rnTxt = r.rn.length ? r.rn.map((c) => `${c.exact ? '★' : ''}${c.name}`).join(' / ') : '—'
   const mpTxt = r.mp.length ? r.mp.map((c) => c.route).join(' / ') : '—'
-  lines.push(`| ${i + 1} | \`${r.domain}/${r.name}\` | ${rnTxt} | ${mpTxt} | 🔲 |`)
+  // 状态四态:未判定(没人验过)/ 缺页(验过,确实没有,待造页)/ 不承载(验过,不该由小程序承载)
+  //          / 已造页(已落声明链,功能钩子待补 —— 已计入覆盖率,故不在本表)
+  const state =
+    r.verdict === 'missing'
+      ? '🧱 缺页(已判定)'
+      : r.verdict === 'not-applicable'
+        ? '🚫 不承载(已判定)'
+        : r.verdict === 'generated'
+          ? '🏗 已造页(功能待补)'
+          : '🔲 未判定'
+  lines.push(`| ${i + 1} | \`${r.domain}/${r.name}\` | ${rnTxt} | ${mpTxt} | ${state} | ${r.evidence || '—'} |`)
 })
 lines.push('')
 lines.push(`> 合计 ${rows.length} 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。`)
+lines.push(
+  `> 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页);**🏗 已造页** = 页已按声明链造出,数据钩子待补。`,
+)
+if (pendingHooks.length > 0) {
+  lines.push('')
+  lines.push('## 已造页 · 待补数据钩子(已计入覆盖率,功能尚未跟上)')
+  lines.push('')
+  lines.push('| # | 共享屏 | 判定依据 |')
+  lines.push('|---|---|---|')
+  pendingHooks.forEach((r, i) => {
+    lines.push(`| ${i + 1} | \`${r.shared}\` | ${r.evidence || '—'} |`)
+  })
+  lines.push('')
+  lines.push(`> 共 ${pendingHooks.length} 条;每条都要按对应共享屏补齐取数/交互/跳转,才算功能真对齐。`)
+}
 const md = lines.join('\n') + '\n'
 if (writePath) {
   writeFileSync(resolve(ROOT, writePath), md)

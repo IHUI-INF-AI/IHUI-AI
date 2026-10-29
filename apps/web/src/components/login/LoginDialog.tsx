@@ -16,9 +16,8 @@ import { toast } from 'sonner'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
 import { resolvePostLoginLanding } from '@/lib/post-login-landing'
-import { openExternalUrl } from '@/lib/tauri-bridge'
-import { rememberSsoDockedWindow } from '@/lib/sso-desktop-bridge'
-import { useWorkPanelStore } from '@/stores/work-panel'
+import { openEmbeddedBrowser, openExternalUrl } from '@/lib/tauri-bridge'
+import { rememberSsoEmbeddedWindow } from '@/lib/sso-desktop-bridge'
 import { buildSsoLoginUrl, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared'
 import { useDesktop } from '@/hooks/use-desktop'
 import { useIsMobile } from '@/hooks/use-media-query'
@@ -75,15 +74,13 @@ export function LoginDialog() {
     // 一套窗口(单一真相源);同一类缺陷不留第二处。
     const opened = await openExternalUrl(ssoUrl)
     if (opened) return
-    console.warn('[sso] 默认浏览器打开失败,兜底工作区停靠浏览器')
-    // 2026-10-24 用户规则:独立窗口只能由停靠浏览器工具条上的「切换为独立窗口」
-    // 按钮打开,其余场景一律不得使用独立窗口 —— SSO 兜底改走工作区停靠浏览器。
+    console.warn('[sso] 默认浏览器打开失败,兜底项目内嵌浏览器')
     try {
-      useWorkPanelStore.getState().openPanel({ url: ssoUrl, source: 'user' })
-      rememberSsoDockedWindow()
+      await openEmbeddedBrowser(ssoUrl, '登录智汇AI')
+      rememberSsoEmbeddedWindow()
       return
     } catch {
-      // 落到这里 = 停靠浏览器也没起来,继续走下面的可见反馈
+      // 落到这里 = 内嵌窗也没开起来,继续走下面的可见反馈
     }
     // 2026-10-13(实测"按钮又没反应"期间立):两条外开路径全失败时必须给用户
     // 可见反馈 —— 此前开窗失败只有 console.warn,用户感知就是"点了没反应"。

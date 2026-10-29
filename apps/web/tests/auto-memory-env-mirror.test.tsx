@@ -31,13 +31,6 @@ const { fetchApiMock, fetchMemoryMock, deleteMemoryMock } = vi.hoisted(() => ({
   deleteMemoryMock: vi.fn(),
 }))
 
-// 登录态门:页面 useEffect 以 if (!allow) return 挡取数(与 exam 页同型),不 mock 时
-// 真身判 allow=false ⇒ 两个端点都不发 ⇒ 开关停在初始 true,8 例齐红(checkin 同款形态)。
-const authGate = vi.hoisted(() => ({ state: { ready: true, allow: true } }))
-vi.mock('@/hooks/use-auth-gate', () => ({
-  useAuthGate: () => authGate.state,
-}))
-
 vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
 vi.mock('@/lib/memory-api', () => ({
   fetchMemory: fetchMemoryMock,

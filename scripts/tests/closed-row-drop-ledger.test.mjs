@@ -155,10 +155,8 @@ test('③接线锁:union 的期望表必须调用 declaredDropCaps(被删 ⇒ �
 })
 
 test('③b 接线锁:union 必须 import 摘除台账(§0.6 单一真相源,不许在本器复算)', () => {
-  // G-34/G-43(2026-10-25)放宽形状:同一行 import 允许再带 `titleFpOf`(题面 32 字指纹,同为
-  // scrub 单源出口)—— 锁的是"declaredRows 必须从复洁器 import"这件事,不是花括号的字面内容。
   assert.ok(
-    /import \{[^}]*\bdeclaredRows\b[^}]*\} from '\.\/scrub-declared-removals\.mjs'/.test(UNION_SRC),
+    /import \{ declaredRows \} from '\.\/scrub-declared-removals\.mjs'/.test(UNION_SRC),
     'declaredRows 必须从复洁器 import —— 两处各写一份必漂移',
   )
 })

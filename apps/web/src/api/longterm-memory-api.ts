@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 
 /**
  * 长期记忆管理(Long-term Memory)前端 API 客户端(2026-09-03 立)。
@@ -87,49 +87,53 @@ export async function fetchMemoryEntries(
   if (importanceMin > 0) qs.set('importance_min', String(importanceMin))
   qs.set('page', '1')
   qs.set('page_size', '100')
-  const r = await api<LongTermMemoryListResult>(`/api/longterm-memory/entries?${qs.toString()}`, {
-    fallbackError: '加载长期记忆失败',
-  })
-  return r
+  const r = await fetchApi<LongTermMemoryListResult>(
+    `/api/longterm-memory/entries?${qs.toString()}`,
+  )
+  if (!r.success) throw new Error(r.error || '加载长期记忆失败')
+  return r.data
 }
 
 /** 新增一条记忆。失败抛错。 */
 export async function createMemoryEntry(
   payload: CreateMemoryPayload,
 ): Promise<{ memory_id: string; entry: LongTermMemoryEntry }> {
-  const r = await api<{ memory_id: string; entry: LongTermMemoryEntry }>(
+  const r = await fetchApi<{ memory_id: string; entry: LongTermMemoryEntry }>(
     '/api/longterm-memory/entries',
-    { method: 'POST', body: JSON.stringify(payload), fallbackError: '新增记忆失败' },
+    { method: 'POST', body: JSON.stringify(payload) },
   )
-  return r
+  if (!r.success) throw new Error(r.error || '新增记忆失败')
+  return r.data
 }
 
 /** 删除一条记忆。失败抛错。 */
 export async function deleteMemoryEntry(memoryId: string): Promise<void> {
-  await api<{ deleted: string }>(`/api/longterm-memory/entries/${encodeURIComponent(memoryId)}`, {
-    method: 'DELETE',
-    fallbackError: '删除记忆失败',
-  })
+  const r = await fetchApi<{ deleted: string }>(
+    `/api/longterm-memory/entries/${encodeURIComponent(memoryId)}`,
+    { method: 'DELETE' },
+  )
+  if (!r.success) throw new Error(r.error || '删除记忆失败')
 }
 
 /** 提升一条记忆的重要度(+1, 封顶 5)。返回更新后的条目。 */
 export async function markMemoryImportant(memoryId: string): Promise<LongTermMemoryEntry> {
-  const r = await api<LongTermMemoryEntry>(
+  const r = await fetchApi<LongTermMemoryEntry>(
     `/api/longterm-memory/entries/${encodeURIComponent(memoryId)}/important`,
-    { method: 'POST', fallbackError: '提升重要度失败' },
+    { method: 'POST' },
   )
-  return r
+  if (!r.success) throw new Error(r.error || '提升重要度失败')
+  return r.data
 }
 
 /** 从会话消息抽取并批量导入长期记忆。返回 imported 计数。 */
 export async function extractMemoryFromMessages(
   messages: Array<{ role: string; content: string }>,
 ): Promise<ExtractMemoryResult> {
-  const r = await api<ExtractMemoryResult>('/api/longterm-memory/extract', {
+  const r = await fetchApi<ExtractMemoryResult>('/api/longterm-memory/extract', {
     method: 'POST',
     body: JSON.stringify({ messages }),
-    fallbackError: '归纳本会话失败',
   })
-  return r
+  if (!r.success) throw new Error(r.error || '归纳本会话失败')
+  return r.data
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

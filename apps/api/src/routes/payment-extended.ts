@@ -149,26 +149,13 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
             // 成功回调只需释放冻结(frozen -= amount),禁止再扣 token(否则双重扣减)。
             // flow.userId 可空(用户删除时置 NULL),此时无法更新余额,跳过(流水状态已更新,人工对账)。
             if (flow.userId) {
-              // 释放冻结必须是"够才放":此前只带 eq(userId),冻结已被别的路径动过时会把
-              // frozen_quantity 扣成**负数**且无人察觉(账面从此对不平)。加守卫 + 取回影响行,
-              // 空集即"放不动",抛错让本事务回滚(流水不标完成),由外层回 FAIL 交微信重投 + 人工对账。
-              const released = await tx
+              await tx
                 .update(userMargins)
                 .set({
-                  frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
+                  frozenQuantity: sql`frozen_quantity - ${flow.amount}`,
                   updatedAt: new Date(),
                 })
-                .where(
-                  and(
-                    eq(userMargins.userId, flow.userId),
-                    gte(userMargins.frozenQuantity, flow.amount),
-                  ),
-                )
-                .returning({ userId: userMargins.userId })
-              if (!released[0])
-                throw Object.assign(new Error('冻结余额不足以释放提现冻结,需人工对账'), {
-                  statusCode: 409,
-                })
+                .where(eq(userMargins.userId, flow.userId))
             }
           } else if (state === 'FAIL') {
             // 转账失败:更新状态为 failed(3),记录失败原因
@@ -185,26 +172,14 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
             // P0 资金守恒(2026-08-02 修正):applyWithdrawal 申请时已 token -= amount + frozen += amount,
             // 失败回调必须退还 token(token += amount)+ 释放冻结(frozen -= amount),否则用户余额被锁死。
             if (flow.userId) {
-              // 同一档口径:退回可用 + 释放冻结必须整体"够才动",否则 frozen 被扣成负数
-              // 而 token 平白多出一笔(= 凭空铸钱)。空集抛错回滚,流水留在待处理等重投/人工。
-              const refunded = await tx
+              await tx
                 .update(userMargins)
                 .set({
-                  tokenQuantity: sql`${userMargins.tokenQuantity} + ${flow.amount}`,
-                  frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
+                  tokenQuantity: sql`token_quantity + ${flow.amount}`,
+                  frozenQuantity: sql`frozen_quantity - ${flow.amount}`,
                   updatedAt: new Date(),
                 })
-                .where(
-                  and(
-                    eq(userMargins.userId, flow.userId),
-                    gte(userMargins.frozenQuantity, flow.amount),
-                  ),
-                )
-                .returning({ userId: userMargins.userId })
-              if (!refunded[0])
-                throw Object.assign(new Error('冻结余额不足以退回提现金额,需人工对账'), {
-                  statusCode: 409,
-                })
+                .where(eq(userMargins.userId, flow.userId))
             }
           }
           // ACCEPTED / TRANSFERING / WAIT_USER_CONFIRM 等中间状态不更新，等待最终状态回调
@@ -213,14 +188,8 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.send({ code: 'SUCCESS', message: 'OK' })
       } catch (e) {
         request.log.error({ err: e }, 'withdrawal notify processing failed')
-        // 处理失败必须回 FAIL 让微信按自己的重试曲线重投 —— 与本仓 payment-gateway.ts:729
-        // ("副作用处理失败,待重试")同口径。此前"即使出错也返回 SUCCESS 防止重复回调"把两件事
-        // 混成了一件:重复回调本就由上面的 status 守卫(只认 0/1)挡住,不需要用 SUCCESS 去换;
-        // 代价却是永久的 —— 流水停在 pending/processing、frozen_quantity 永不释放,而全仓
-        // jobs/services/workers 对 withdrawalFlows 零引用,没有任何对账兜底会来补这一步。
-        // 死锁/连接抖动这类瞬时故障因此有了自愈路径;真·持久故障会重试耗尽并留下逐次错误日志,
-        // 仍优于静默吞掉。
-        return reply.code(500).send({ code: 'FAIL', message: '副作用处理失败,待重试' })
+        // 即使出错也返回 SUCCESS，防止微信重复回调（错误已记录日志）
+        return reply.send({ code: 'SUCCESS', message: 'OK' })
       }
     },
   )

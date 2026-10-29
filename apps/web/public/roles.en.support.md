@@ -163,7 +163,7 @@ assist.on('suggestion', (suggestion) => {
 - **Browser Extension**: WXT (Manifest V3, web widget)
 - **Mobile**: React Native (iOS / Android, mobile support)
 - **CLI**: Node.js + Commander
-- **9-platform coverage**: Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / Capacitor 7 / CLI
+- **8-platform coverage**: Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / CLI
 - **ASR / TTS**: Whisper / Alibaba Cloud Voice / Volcengine Voice
 - **Sentiment Model**: bge-large-zh fine-tuned
 - **Vector Retrieval**: pgvector + HNSW index

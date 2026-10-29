@@ -14,6 +14,7 @@ import type { MessageCenterItem, MessageConversationItem, MessageTab } from '@ih
 import { SearchInput } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { useRefreshOnFocus } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
@@ -135,6 +136,9 @@ export function MessageCenterScreen() {
     setLoading(true)
     void load()
   }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首次挂载由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
 
   const onSelectTab = (tab: MessageTab) => {
     if (tab !== activeTab) setActiveTab(tab)

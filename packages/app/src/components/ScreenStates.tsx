@@ -2,10 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius } from '@ihui/design-tokens'
-import { Circle } from 'lucide-react-native'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../theme/tokens'
 
@@ -109,12 +108,10 @@ export function ScreenSkeleton({
 /* ────────────────────────── 2. 空状态 ────────────────────────── */
 
 export interface EmptyStateProps {
-  /**
-   * 顶部真图标(ReactNode,建议 lucide-react-native 组件)。
-   * 只接受图标节点,不再接受字符串 —— 关闭「字符当图标」通道(AGENTS §4:图标一律图标库)。
-   * 不传则用默认中性图标(圆圈)。
-   */
-  icon?: React.ReactNode
+  /** 顶部真图标(ReactNode,建议 lucide-react-native 组件)。与 glyph 二者其一,icon 优先 */
+  icon?: ReactNode
+  /** 顶部字符图标(纯文本,免三方图标依赖,两端一致);存量调用点仍用,新代码优选 icon(AGENTS §4) */
+  glyph?: string
   title: string
   desc?: string
   actionLabel?: string
@@ -125,6 +122,7 @@ export interface EmptyStateProps {
 
 export function EmptyState({
   icon,
+  glyph = '◍',
   title,
   desc,
   actionLabel,
@@ -137,12 +135,12 @@ export function EmptyState({
   return (
     <View style={styles.stateWrap} testID={testID}>
       <View style={styles.stateGlyphCircle}>
-        {icon ?? <Circle size={26} color={tk.text.tertiary} />}
+        {icon ?? <Text style={styles.stateGlyph}>{glyph}</Text>}
       </View>
       <Text style={styles.stateTitle}>{title}</Text>
       {desc ? <Text style={styles.stateDesc}>{desc}</Text> : null}
       {actionLabel && onAction ? (
-        <Pressable style={styles.stateBtn} onPress={onAction}>
+        <Pressable style={styles.stateBtn} onPress={onAction} accessibilityRole="button">
           <Text style={styles.stateBtnText}>{actionLabel}</Text>
         </Pressable>
       ) : null}
@@ -176,7 +174,7 @@ export function ErrorState({
       </View>
       <Text style={styles.stateTitle}>{message}</Text>
       {onRetry ? (
-        <Pressable style={styles.stateBtn} onPress={onRetry}>
+        <Pressable style={styles.stateBtn} onPress={onRetry} accessibilityRole="button">
           <Text style={styles.stateBtnText}>{retryLabel}</Text>
         </Pressable>
       ) : null}
@@ -223,6 +221,7 @@ export function PressableCard({
         onPressOut={pressOut}
         onPress={onPress}
         testID={testID}
+        accessibilityRole="button"
         style={[styles.pressCard, style]}
       >
         {children}
@@ -236,11 +235,11 @@ export function PressableCard({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     // 骨架
-    skeletonWrap: { padding: 16, gap: 12 },
+    skeletonWrap: { padding: rnSpacing.lg, gap: rnSpacing.md },
     skeletonRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: rnSpacing.md,
       padding: 14,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -250,27 +249,33 @@ function createStyles(tk: AppThemeTokens) {
     skeletonCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: 12,
-      padding: 16,
+      gap: rnSpacing.md,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
     skeletonAvatar: { width: 44, height: 44, borderRadius: rnRadius.md },
-    skeletonLines: { flex: 1, gap: 8 },
+    skeletonLines: { flex: 1, gap: rnSpacing.sm },
     skeletonLineLg: { height: 12, width: '80%' },
     skeletonLineSm: { height: 10, width: '50%' },
-    gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    gridCell: { width: '47%', gap: 8 },
+    gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md },
+    gridCell: { width: '47%', gap: rnSpacing.sm },
     gridThumb: { height: 92, width: '100%', borderRadius: rnRadius.md },
     gridLine: { height: 10, width: '70%' },
     // 空态 / 错误态
-    stateWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 },
+    stateWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: rnSpacing['3xl'],
+      gap: 10,
+    },
     stateGlyphCircle: {
       width: 64,
       height: 64,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius['2xl'], // 与小程序 .ihui-state-glyph-circle 同取 2xl 档(128rpx 盒 + var(--radius-2xl));写 50% 会让两端一个圆角方、一个正圆
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.light,
@@ -278,7 +283,12 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     stateGlyph: { fontSize: 26, color: tk.text.tertiary },
-    stateTitle: { fontSize: 15, fontWeight: '600', color: tk.text.medium, textAlign: 'center' },
+    stateTitle: {
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tk.text.medium,
+      textAlign: 'center',
+    },
     stateDesc: { fontSize: 13, color: tk.text.tertiary, textAlign: 'center', lineHeight: 19 },
     stateBtn: {
       marginTop: 6,
@@ -287,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.DEFAULT,
     },
-    stateBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.foreground },
+    stateBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
     // 按压卡片
     pressCard: {
       padding: 14,

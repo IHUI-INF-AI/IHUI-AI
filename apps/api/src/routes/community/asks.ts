@@ -1044,33 +1044,20 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (existing) {
       await db.delete(circlePostLikes).where(eq(circlePostLikes.id, existing.id))
-      // 同 circles.ts 的点赞族:计数交给数据库加减,不再把事务外读到的旧值当绝对值写回
       const [updated] = await db
         .update(circlePosts)
-        .set({ likeCount: sql`GREATEST(0, ${circlePosts.likeCount} - 1)`, updatedAt: new Date() })
+        .set({ likeCount: Math.max(0, post.likeCount - 1), updatedAt: new Date() })
         .where(eq(circlePosts.id, dynamicId))
         .returning()
       return reply.send(success({ liked: false, likeCount: updated?.likeCount ?? 0 }))
     }
-    // 唯一键在库(post_id,user_id):裸插 + 先查 = 双击撞 23505 变 500,这里同批收口
-    const [inserted] = await db
-      .insert(circlePostLikes)
-      .values({ postId: dynamicId, userId })
-      .onConflictDoNothing({ target: [circlePostLikes.postId, circlePostLikes.userId] })
-      .returning({ id: circlePostLikes.id })
-    if (!inserted) {
-      const [cur] = await db
-        .select({ likeCount: circlePosts.likeCount })
-        .from(circlePosts)
-        .where(eq(circlePosts.id, dynamicId))
-      return reply.send(success({ liked: true, likeCount: cur?.likeCount ?? 0 }))
-    }
+    await db.insert(circlePostLikes).values({ postId: dynamicId, userId })
     const [updated] = await db
       .update(circlePosts)
-      .set({ likeCount: sql`${circlePosts.likeCount} + 1`, updatedAt: new Date() })
+      .set({ likeCount: post.likeCount + 1, updatedAt: new Date() })
       .where(eq(circlePosts.id, dynamicId))
       .returning()
-    return reply.send(success({ liked: true, likeCount: updated?.likeCount ?? 0 }))
+    return reply.send(success({ liked: true, likeCount: updated?.likeCount ?? post.likeCount + 1 }))
   })
 
   // DELETE /circles/dynamic/comment - 删除动态评论(query/body: commentId)

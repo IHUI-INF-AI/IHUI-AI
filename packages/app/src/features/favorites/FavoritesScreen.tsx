@@ -18,6 +18,7 @@ import { Star } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 收藏列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FavoritesItem, FavoritesScreenProps }
@@ -68,13 +69,9 @@ export function FavoritesScreen({
         onEndReachedThreshold={0.3}
         ListEmptyComponent={
           loading ? (
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('common.loading')}</Text>
-            </View>
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('favorites.empty')}</Text>
-            </View>
+            <EmptyState title={t('favorites.empty')} colorScheme={colorScheme} />
           )
         }
         ListFooterComponent={
@@ -131,8 +128,6 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     listBody: { padding: 10, paddingBottom: 32 },
     separator: { height: 12 },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    emptyText: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     footer: { alignItems: 'center', paddingVertical: 16 },
     footerText: { fontSize: 11, color: tk.text.secondary },
     card: {

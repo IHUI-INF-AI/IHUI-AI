@@ -642,6 +642,22 @@ const TOKEN_SYNC_TARGETS = [
     failMode: 'warn',
     check: 'check-cross-end-tokens.mjs',
   },
+  {
+    // 2026-10-26 小程序 RN 兼容层的生成面。共享层/RN 壳每新增一枚 lucide 图标名或一条 RN 路由名,
+    // icons-generated.tsx / route-map.generated.ts 必须跟着长(名字全集按 **HEAD 面**现算,不靠人工登记)。
+    // 不接这一格的现场:守门 251 的 C2/C3 判"消费面取用全集 ⊆ 生成物/在册页",缺一名就让**下一枚不相干的提交**
+    // 整轮红(§12e 恒红门),而补名只需要跑一次生成器 ⇒ 正确性归生成腿自己,不归"记得跑它的人"。
+    // failMode=warn:生成器在盘上内容与他席在飞改动冲突时按设计拒绝写回(§12 防吞他人现场),
+    // 那不是故障;真值由守门 251 在提交链那一轮继续兜(§0.3 取不到不冒绿)。
+    label: 'rn-compat 生成面(lucide 图标 + RN 路由名映射)',
+    file: 'apps/miniapp-taro/src/rn-compat/icons-generated.tsx apps/miniapp-taro/src/rn-compat/route-map.generated.ts',
+    cmd: 'node scripts/gen-rn-compat.mjs --write',
+    trigger: 'v3-src',
+    // 精确面 ⊆ 粗触发(守门 105 镜像 T21 的死行锁按这条判):本行只看两个消费面
+    pathTrigger: 'packages/app/src/ apps/mobile-rn/src/',
+    failMode: 'warn',
+    check: 'check-rn-compat-coverage.mjs',
+  },
   // ── 四端「AI 可导航路由」派生产物(2026-10-10 立,G-816040)────────────────────
   // 病因(本仓人肉修过多次、每次都写"消守门 105 恒红"的那一型):`apps/web/app/**/page.tsx`
   // 之类的输入被别人改了并入库,而链条上没有任何环节重跑各端的 generate-ui-routes ⇒ 产物里的自述钉

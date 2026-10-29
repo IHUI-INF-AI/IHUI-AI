@@ -140,12 +140,6 @@ interface IDEWorkspaceState {
   loading: boolean
   /** 错误信息 */
   error: string | null
-  /**
-   * 编辑器「揭示到行」入口:由 CodeEditorPane 挂载期注册、卸载即注销。
-   * 审查 finding 等跨面板跳转在 openFile + setActiveTopTab('editor') 之后调用;
-   * 只做转发,揭示机制仍由 CodeEditor 的 pendingReveal 单点承载。
-   */
-  revealAt: ((file: string, line: number, column: number) => void) | null
 
   // UI Actions
   setActiveView: (view: ViewPanelType) => void
@@ -160,7 +154,6 @@ interface IDEWorkspaceState {
   setActiveTab: (tabId: string) => void
   setActiveDiffFile: (fileId: string) => void
   setDiffViewMode: (mode: DiffViewMode) => void
-  setRevealAt: (fn: ((file: string, line: number, column: number) => void) | null) => void
 
   // Fetch Actions
   fetchFileTree: () => Promise<void>
@@ -189,7 +182,6 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
   gitCurrentBranch: 'main',
   loading: false,
   error: null,
-  revealAt: null,
 
   setActiveView: (view) => set({ activeView: view }),
   setActiveTopTab: (tab) => set({ activeTopTab: tab }),
@@ -266,7 +258,6 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
   setActiveTab: (tabId) => set({ activeTabId: tabId }),
   setActiveDiffFile: (fileId) => set({ activeDiffFileId: fileId }),
   setDiffViewMode: (mode) => set({ diffViewMode: mode }),
-  setRevealAt: (fn) => set({ revealAt: fn }),
 
   // ============ Fetch Actions ============
 

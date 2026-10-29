@@ -80,7 +80,6 @@
     "toolAudioTranscription": "Transcribe audio",
     "toolVisionAnalyze": "Analyze an image",
     "toolDispatchSubagent": "Dispatch a subagent",
-    "toolTeamTask": "Manage the team task board",
     "toolScheduleTask": "Create a scheduled task",
     "toolBgTaskStatus": "Check background tasks",
     "toolUiDescribe": "Inspect page controls",
@@ -196,7 +195,6 @@
     "toolDebugListSessions": "List debug sessions",
     "toolVendorVoiceClone": "Clone a voice",
     "toolRequestBusinessForm": "Request a business form",
-    "toolInitAgentsMd": "Initialize AGENTS.md",
     "fileActivity": "{state, select, running {Processing file} completed {Processed file} other {Process file}}",
     "imageActivity": "{state, select, running {Processing image} completed {Processed image} other {Process image}}",
     "searchActivity": "{state, select, running {Searching} completed {Searched} other {Search}}",
@@ -237,8 +235,7 @@
     "toolMcpToolGetFileActivity": "{state, select, running {Getting a file} completed {Got a file} other {Get a file}}",
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {Getting the file \"{name}\"} completed {Got the file \"{name}\"} other {Get the file \"{name}\"}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {Searching documents} completed {Searched documents} other {Search documents}}",
-    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {Searching documents for \"{name}\"} completed {Searched documents for \"{name}\"} other {Search documents for \"{name}\"}}",
-    "toolInitAgentsMdActivity": "{state, select, running {Initializing AGENTS.md} completed {Initialized AGENTS.md} other {Initialize AGENTS.md}}"
+    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {Searching documents for \"{name}\"} completed {Searched documents for \"{name}\"} other {Search documents for \"{name}\"}}"
   },
   "a11y": {
     "addAttachment": "Add attachment (image/video/file)",
@@ -1393,6 +1390,23 @@
     "empty": "No favorites",
     "deleteTitle": "Delete favorite"
   },
+  "favorite": {
+    "title": "My Favorites",
+    "empty": "No favorites yet",
+    "tab_all": "All",
+    "tab_course": "Courses",
+    "tab_live": "Live",
+    "tab_post": "Posts",
+    "tab_aigc": "AI Works",
+    "tab_news": "News",
+    "total": "Saved",
+    "items_unit": "items",
+    "collected_at": "Saved on",
+    "cancel": "Remove favorite",
+    "loading_more": "Load more",
+    "no_more": "No more items",
+    "go_discover": "Discover"
+  },
   "checkIn": {
     "title": "Daily Check-in",
     "subtitle": "Check in daily to earn points",
@@ -1447,6 +1461,7 @@
     "validUntil": "Valid until"
   },
   "ranking": {
+    "anonymous": "Anonymous",
     "title": "Ranking",
     "loadFailed": "Failed to load ranking",
     "empty": "No ranking data",
@@ -1798,6 +1813,23 @@
     "loadFailed": "Failed to load",
     "useCount": "Used {count}",
     "rating": "Rating {score}"
+  },
+  "agents": {
+    "categories": {
+      "recommend": "Recommended",
+      "office": "Office",
+      "writing": "Writing",
+      "coding": "Coding",
+      "education": "Education",
+      "life": "Lifestyle"
+    },
+    "keywords": {
+      "office": "office,meeting,email,excel,word,ppt,document,spreadsheet",
+      "writing": "writing,copy,article,creation,novel,content,text,blog",
+      "coding": "code,coding,program,development,bug,function,frontend,backend,python,javascript",
+      "education": "learn,teach,lesson,knowledge,exam,quiz,education,explain,solution",
+      "life": "life,health,food,travel,sport,shopping,daily"
+    }
   },
   "aiAssistant": {
     "title": "AI Assistant",

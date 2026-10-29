@@ -3,14 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useMemo, useRef } from 'react'
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { TextField } from '../../components/TextField'
 import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 私聊消息(平台注入,字段对齐 mobile-rn MessageChatScreen ChatMsg) */
 export interface MessageChatMessage {
@@ -72,9 +73,8 @@ export function MessageChatScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={tk.brand.DEFAULT} />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -105,11 +105,7 @@ export function MessageChatScreen({
         data={messages}
         keyExtractor={(item) => item.id}
         style={styles.list}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.muted}>{t('messageChat.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('messageChat.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
           <View style={[styles.msg, item.isMine ? styles.msgMine : styles.msgPeer]}>
             <Text style={styles.content}>{item.content}</Text>
@@ -118,7 +114,8 @@ export function MessageChatScreen({
         )}
       />
       <View style={styles.inputRow}>
-        <TextField colorScheme={colorScheme}
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={input}
           onChangeText={onInputChange}
@@ -151,17 +148,15 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: 16,
     },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     error: { fontSize: 14, color: tk.error.text, marginBottom: 8, textAlign: 'center' },
     header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
     title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
     list: { flex: 1 },
-    empty: { paddingVertical: 40, alignItems: 'center' },
     msg: { padding: 10, borderRadius: rnRadius.xl, marginBottom: 8, maxWidth: '80%' },
     msgMine: { alignSelf: 'flex-end', backgroundColor: tk.brand.cta },
     msgPeer: { alignSelf: 'flex-start', backgroundColor: tk.surface.card },
     content: { fontSize: 16, color: tk.surface.light },
-    meta: { marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.7)' },
+    meta: { marginTop: 8, fontSize: 10, color: rnCssLight.white70 },
     inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
     input: {
       flex: 1,

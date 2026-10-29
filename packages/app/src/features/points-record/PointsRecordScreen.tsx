@@ -9,6 +9,7 @@ import type { PointsRecordItem, PointsRecordScreenProps, PointsRecordType } from
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 积分记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PointsRecordItem, PointsRecordScreenProps, PointsRecordType }
@@ -83,9 +84,7 @@ export function PointsRecordScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<PointsRecordItem>
           data={items}
@@ -94,9 +93,7 @@ export function PointsRecordScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('pointsRecord.empty')}</Text>
-            </View>
+            <EmptyState title={t('pointsRecord.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -169,8 +166,6 @@ function createStyles(tk: AppThemeTokens) {
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 14, paddingBottom: 32 },
     separator: { height: 8 },
     card: {

@@ -32,6 +32,7 @@ import { FREE_RESOURCE_URL } from '../constants/links'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { NavChrome } from '../components/NavChrome'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
+import { useRefreshOnFocus } from '../hooks'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -70,6 +71,9 @@ export default function RankingDetailScreenWrapper() {
   useEffect(() => {
     void loadHistory()
   }, [loadHistory])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首次挂载由上面的 useEffect 负责)
+  useRefreshOnFocus(loadHistory)
 
   const openDrawer = () => setDrawerVisible(true)
   const closeDrawer = () => setDrawerVisible(false)

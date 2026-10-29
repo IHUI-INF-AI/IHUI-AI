@@ -366,7 +366,7 @@ export interface CheckInScreenProps {
 }
 
 /** 收藏项(对齐 mobile-rn FavoriteScreen FavoriteItem) */
-export type FavoriteFilterTab = 'all' | 'course' | 'live' | 'article'
+export type FavoriteFilterTab = 'all' | 'course' | 'live' | 'article' | 'post' | 'aigc' | 'news'
 export interface FavoriteItemRow {
   id: string
   targetType: string
@@ -383,11 +383,15 @@ export interface FavoriteScreenProps {
   loading: boolean
   refreshing: boolean
   loadingMore: boolean
+  /** 是否还有下一页(undefined = 承载壳未提供,不渲染「没有更多了」) */
+  hasMore?: boolean
   error: string
   onRefresh: () => void
   onLoadMore: () => void
   onDelete: (item: FavoriteItemRow) => void
   onBack: () => void
+  /** 空态「去发现」CTA 的跳转注入(平台行为由壳注入;undefined = 不渲染该 CTA) */
+  onGoDiscover?: () => void
   colorScheme?: 'light' | 'dark'
 }
 
