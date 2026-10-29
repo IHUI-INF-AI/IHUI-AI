@@ -6,10 +6,11 @@
  * 优惠券核心 service(2026-07-31 立,折扣券/满减券/裂变券三合一)。
  *
  * 职责:
- * 1. claimCoupon: 用户输入码领取券(含裂变券:被分享人领取后,分享人也得券/余额)
+ * 1. claimCoupon / claimCouponById: 领取券(按券码 / 按领券中心 id,共用同一份事务体;
+ *    含裂变券:被分享人领取后,分享人也得券/余额)
  * 2. redeemCoupon: 核销券(调用前预检,返回折扣金额,状态 unused → used)
  * 3. refundCoupon: 退券(调用失败时回滚核销,状态 used → unused)
- * 4. listUserCoupons: 查用户可用券
+ * 4. listUserCoupons / listAvailableCoupons: 查用户可用券 / 领券中心现在可领的券模板
  * 5. getReferralStats: 裂变统计
  * 6. batchGenerateCoupons / listCoupons / getCouponStats / listUserCouponsByCoupon: admin 辅助
  *
@@ -19,8 +20,9 @@
  * 注:表名 promo_coupons(避免与 promotions.ts 的 coupons 表冲突)。
  */
 import { randomBytes } from 'crypto'
-import { eq, and, sql, desc, type SQL } from 'drizzle-orm'
+import { eq, and, sql, desc, gte, isNull, lte, or, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
+import { isUuidString } from '../utils/uuid.js'
 import { promoCoupons, userCoupons, developerApiKeys } from '@ihui/database'
 import type { PromoCoupon, UserCoupon, NewPromoCoupon } from '@ihui/database'
 
@@ -76,11 +78,40 @@ export interface ClaimResult {
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /**
+ * claim 可失败原因的**单源清单**(`ClaimError.reason` / `ClaimResult.reason` 同词汇)。
+ * `code_not_found` 兼作「按 id 定位不到」——两条入口共用一套原因,不另起 not_found。
+ */
+export type ClaimFailureReason =
+  | 'code_not_found'
+  | 'disabled'
+  | 'not_started'
+  | 'expired'
+  | 'sold_out'
+  | 'per_user_limit_exceeded'
+  | 'insert_failed'
+
+/**
+ * 「券行已定位 ⇒ 现在能不能领」的唯一判据:null = 可领,否则返回第一个不满足的原因。
+ *
+ * 顺序与 claimCoupon 既有预检逐条一致(enabled → 未开始 → 已过期 → 售罄);
+ * 两条 claim 入口与用户面可领列表(领券中心 SQL 收窄 + 响应前二次核对)都从这里取判据。
+ */
+export function claimFailureReasonOf(
+  coupon: PromoCoupon,
+  now: Date = new Date(),
+): ClaimFailureReason | null {
+  if (!coupon.enabled) return 'disabled'
+  if (coupon.startsAt > now) return 'not_started'
+  if (coupon.expiresAt < now) return 'expired'
+  if (coupon.totalQuota !== null && coupon.issuedCount >= coupon.totalQuota) return 'sold_out'
+  return null
+}
+
+/**
  * 领券:用户输入码领取。
  *
- * P1 修复:整个领取流程(FOR UPDATE 锁券 + perUserLimit 校验 + issued_count 递增 +
- * user_coupons INSERT + 裂变奖励)包在单事务内,失败自动回滚,防 issued_count 递增后
- * user_coupons INSERT 失败导致库存泄漏。
+ * 事务体只有一份(claimResolvedCoupon):本函数只负责「按券码定位券行」,
+ * 按 id 领取的 claimCouponById 与它共用同一份事务体,不为第二条入口复制一遍。
  *
  * @param referrerUserCouponId 裂变券专属:分享人的 user_coupon.id(被分享人通过分享链接领取时传入)
  */
@@ -102,24 +133,59 @@ export async function claimCoupon(
     return { success: false, reason: 'code_not_found' }
   }
 
-  // 2. 校验启用/时间(事务外快速失败)
-  const now = new Date()
-  if (!coupon.enabled) {
-    return { success: false, reason: 'disabled' }
-  }
-  if (coupon.startsAt > now) {
-    return { success: false, reason: 'not_started' }
-  }
-  if (coupon.expiresAt < now) {
-    return { success: false, reason: 'expired' }
+  return claimResolvedCoupon(userId, coupon, referrerUserCouponId)
+}
+
+/**
+ * 领券(领券中心用):按 promo_coupons.id 领取,用户无需知道券码。
+ *
+ * 与 claimCoupon 的唯一差别是「怎么定位券行」——定位之后走同一份 claimResolvedCoupon,
+ * 因此 reason 枚举、错误类型、返回值形状两条入口逐字相同。
+ * `code_not_found` 在此表示「该 id 的券不存在」:刻意复用同一份原因词汇,
+ * 不给第二条入口另起一套 not_found,避免调用方按 reason 分支时两处漂移。
+ */
+export async function claimCouponById(
+  userId: string,
+  couponId: string,
+  referrerUserCouponId?: string,
+): Promise<ClaimResult> {
+  // 形状闸必须排在进 SQL 之前:uuid 列收非 uuid 字面量会让 Postgres 抛 22P02(判据单源 utils/uuid.ts)
+  if (!isUuidString(couponId)) {
+    return { success: false, reason: 'code_not_found' }
   }
 
-  // 3. 事务外预检库存(事务内会再次原子校验)
-  if (coupon.totalQuota !== null && coupon.issuedCount >= coupon.totalQuota) {
-    return { success: false, reason: 'sold_out' }
+  const [coupon] = await dbRead
+    .select()
+    .from(promoCoupons)
+    .where(eq(promoCoupons.id, couponId))
+    .limit(1)
+
+  if (!coupon) {
+    return { success: false, reason: 'code_not_found' }
   }
 
-  // 4. 裂变券:查 referrer 的 user_coupon(事务外预查,referrer 数据不参与事务一致性)
+  return claimResolvedCoupon(userId, coupon, referrerUserCouponId)
+}
+
+/**
+ * 领券事务体唯一实现(按码 / 按 id 两条入口共用)。
+ *
+ * P1 修复:整个领取流程(FOR UPDATE 锁券 + perUserLimit 校验 + issued_count 递增 +
+ * user_coupons INSERT + 裂变奖励)包在单事务内,失败自动回滚,防 issued_count 递增后
+ * user_coupons INSERT 失败导致库存泄漏。
+ */
+async function claimResolvedCoupon(
+  userId: string,
+  coupon: PromoCoupon,
+  referrerUserCouponId?: string,
+): Promise<ClaimResult> {
+  // 2. 校验启用/时间/库存(事务外快速失败;判据单源 claimFailureReasonOf,事务内会再次原子校验)
+  const failure = claimFailureReasonOf(coupon)
+  if (failure) {
+    return { success: false, reason: failure }
+  }
+
+  // 3. 裂变券:查 referrer 的 user_coupon(事务外预查,referrer 数据不参与事务一致性)
   let referrerUserId: string | null = null
   if (coupon.type === 'referral' && referrerUserCouponId) {
     const [referrerCoupon] = await dbRead
@@ -132,7 +198,7 @@ export async function claimCoupon(
     }
   }
 
-  // 5. 事务:FOR UPDATE 锁券 + perUserLimit 校验 + 原子递增 issued_count + INSERT user_coupons + rewardReferrer
+  // 4. 事务:FOR UPDATE 锁券 + perUserLimit 校验 + 原子递增 issued_count + INSERT user_coupons + rewardReferrer
   try {
     const userCoupon = await db.transaction(async (tx) => {
       // FOR UPDATE 锁定券行,防止并发领取读到相同 issuedCount
@@ -220,7 +286,7 @@ export async function claimCoupon(
   }
 }
 
-/** claimCoupon 事务内错误(携带 reason 字段,供 catch 块映射返回值) */
+/** 领券事务体内的错误(携带 reason 字段,供 catch 块映射返回值;两条 claim 入口共用) */
 class ClaimError extends Error {
   readonly reason: string
   constructor(reason: string) {
@@ -463,6 +529,44 @@ export async function listUserCoupons(
     .orderBy(desc(userCoupons.createdAt))
 
   return rows.map((r) => ({ ...r.userCoupon, coupon: r.coupon }))
+}
+
+/**
+ * 领券中心:现在可领的券模板(读 promo_coupons,与「我的券」读 user_coupons 相对)。
+ *
+ * SQL 侧按 `claimFailureReasonOf` 的同序条件收窄:
+ * enabled = true ∧ startsAt <= now ∧ expiresAt >= now ∧ (totalQuota IS NULL ∨ issuedCount < totalQuota)。
+ * 只回模板行本身;券码是否出投影由调用方决定(用户面 /coupons/available 一律剔除)。
+ */
+export async function listAvailableCoupons(
+  filter: { page?: number; pageSize?: number } = {},
+): Promise<{ items: PromoCoupon[]; total: number }> {
+  const page = Math.max(1, filter.page ?? 1)
+  const pageSize = Math.min(100, Math.max(1, filter.pageSize ?? 20))
+  const now = new Date()
+
+  const where = and(
+    eq(promoCoupons.enabled, true),
+    lte(promoCoupons.startsAt, now),
+    gte(promoCoupons.expiresAt, now),
+    or(
+      isNull(promoCoupons.totalQuota),
+      sql`${promoCoupons.issuedCount} < ${promoCoupons.totalQuota}`,
+    ),
+  )
+
+  const [items, totalRows] = await Promise.all([
+    dbRead
+      .select()
+      .from(promoCoupons)
+      .where(where)
+      .orderBy(desc(promoCoupons.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    dbRead.select({ c: sql<number>`count(*)::int` }).from(promoCoupons).where(where),
+  ])
+
+  return { items, total: totalRows[0]?.c ?? 0 }
 }
 
 // =============================================================================
