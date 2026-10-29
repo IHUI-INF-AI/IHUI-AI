@@ -95,7 +95,7 @@ export default function VoiceInput({
   return (
     <View className="w-full">
       <View
-        className={`flex items-center justify-center min-h-12 rounded-lg px-4 py-3 ${
+        className={`flex items-center justify-center min-h-12 rounded-sm px-4 py-3 ${
           recording ? 'bg-[var(--color-danger-tint)]' : 'bg-muted'
         } ${disabled ? 'opacity-50' : ''}`}
         onTouchStart={startRecord}
@@ -113,7 +113,7 @@ export default function VoiceInput({
               {WAVE_BARS.map((i) => (
                 <View
                   key={i}
-                  className="w-1 mx-[4rpx] bg-[var(--color-danger)] rounded-sm animate-pulse"
+                  className="w-1 mx-[4rpx] bg-[var(--color-danger)] rounded-xs animate-pulse"
                   style={{ height: '60%', animationDelay: `${i * 0.12}s` }}
                 />
               ))}
