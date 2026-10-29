@@ -10,6 +10,7 @@ import { HelpScreen as SharedHelpScreen, type HelpListItem } from '@ihui/rn-app'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useRefreshOnFocus } from '../hooks'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -42,6 +43,9 @@ export function HelpScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首次挂载由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
 
   const onRefresh = () => {
     setRefreshing(true)

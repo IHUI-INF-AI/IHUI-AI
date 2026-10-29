@@ -190,7 +190,7 @@ export function DeepResearchScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => clampIterations(iterations - 1)}
-              className="rounded-sm bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800 min-h-[44px]"
+              className="rounded-sm bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800"
             >
               <Text className="text-xs text-neutral-700 dark:text-neutral-300">-</Text>
             </TouchableOpacity>
@@ -199,7 +199,7 @@ export function DeepResearchScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => clampIterations(iterations + 1)}
-              className="rounded-sm bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800 min-h-[44px]"
+              className="rounded-sm bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800"
             >
               <Text className="text-xs text-neutral-700 dark:text-neutral-300">+</Text>
             </TouchableOpacity>
@@ -207,7 +207,7 @@ export function DeepResearchScreen() {
             <TouchableOpacity
               disabled={starting || query.trim().length === 0}
               onPress={onStart}
-              className={`rounded-sm px-4 py-2 min-h-[44px] ${
+              className={`rounded-sm px-4 py-2 ${
                 starting || query.trim().length === 0
                   ? 'bg-neutral-300 dark:bg-neutral-800'
                   : 'bg-neutral-900 dark:bg-neutral-100'
@@ -234,7 +234,7 @@ export function DeepResearchScreen() {
 
         {!report ? (
           <View className="items-center py-12">
-            <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('deepResearch.idle')}</Text>
+            <Text className="text-sm text-neutral-500">{t('deepResearch.idle')}</Text>
           </View>
         ) : (
           <>
@@ -248,7 +248,7 @@ export function DeepResearchScreen() {
                 </Text>
               </View>
               {report.iteration !== undefined && report.max_iterations ? (
-                <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                <Text className="mt-1 text-xs text-neutral-500">
                   {t('deepResearch.iteration', {
                     cur: report.iteration,
                     max: report.max_iterations,
@@ -272,7 +272,7 @@ export function DeepResearchScreen() {
                       <Text className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
                         {stage.phase}
                       </Text>
-                      <Text className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                      <Text className="mt-0.5 text-xs text-neutral-500">
                         {t(stageStatusKey(stage.status))}
                         {stage.detail ? ` · ${stage.detail}` : ''}
                       </Text>
@@ -308,7 +308,7 @@ export function DeepResearchScreen() {
                     <Text className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
                       {item.question}
                     </Text>
-                    <Text className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                    <Text className="mt-0.5 text-xs text-neutral-500">
                       {t('deepResearch.evidenceDepth', { depth: item.depth })} ·{' '}
                       {item.content.slice(0, 80)}
                     </Text>
@@ -323,7 +323,7 @@ export function DeepResearchScreen() {
                   <Text className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                     {t('deepResearch.report')}
                   </Text>
-                  <Text className="text-xs text-neutral-500 dark:text-neutral-400">
+                  <Text className="text-xs text-neutral-500">
                     {t('deepResearch.sourceCount', { count: sources.length })}
                   </Text>
                 </View>
@@ -336,7 +336,7 @@ export function DeepResearchScreen() {
               </View>
             ) : report.running ? (
               <View className="items-center py-10">
-                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('deepResearch.generating')}</Text>
+                <Text className="text-sm text-neutral-500">{t('deepResearch.generating')}</Text>
               </View>
             ) : null}
 
@@ -350,7 +350,7 @@ export function DeepResearchScreen() {
                     <Text className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
                       {src.title || src.url}
                     </Text>
-                    <Text className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400" numberOfLines={1}>
+                    <Text className="mt-0.5 text-xs text-neutral-500" numberOfLines={1}>
                       {src.url}
                     </Text>
                     <View className="mt-1 flex-row flex-wrap items-center">
@@ -359,15 +359,15 @@ export function DeepResearchScreen() {
                           {t(sourceTierKey(src.tier))}
                         </Text>
                       </View>
-                      <Text className="mr-2 text-xs text-neutral-500 dark:text-neutral-400">
+                      <Text className="mr-2 text-xs text-neutral-500">
                         {t('deepResearch.confidence')}: {Math.round((src.confidence ?? 0) * 100)}%
                       </Text>
-                      <Text className="text-xs text-neutral-500 dark:text-neutral-400">
+                      <Text className="text-xs text-neutral-500">
                         {src.verified ? t('deepResearch.verified') : t('deepResearch.unverified')}
                       </Text>
                     </View>
                     {src.snippet ? (
-                      <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400" numberOfLines={3}>
+                      <Text className="mt-1 text-xs text-neutral-500" numberOfLines={3}>
                         {src.snippet}
                       </Text>
                     ) : null}

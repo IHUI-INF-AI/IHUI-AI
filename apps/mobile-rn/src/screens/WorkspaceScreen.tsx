@@ -20,6 +20,9 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { ChevronRight } from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
 import {
@@ -42,6 +45,7 @@ import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PAGE_SIZE = 50
 /** 切到这一档会跳过审批门,必须在确认弹窗里把后果说清楚 */
@@ -53,6 +57,7 @@ export function WorkspaceScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
 
   const [tab, setTab] = useState<TabKey>('projects')
 
@@ -284,7 +289,7 @@ export function WorkspaceScreen() {
               key={mode}
               disabled={busyKey !== ''}
               onPress={() => onPick(mode)}
-              className={`mb-2 mr-2 rounded-sm px-3 py-1.5 min-h-[44px] ${
+              className={`mb-2 mr-2 rounded-sm px-3 py-1.5 ${
                 active ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-800'
               }`}
             >
@@ -318,7 +323,7 @@ export function WorkspaceScreen() {
             <TouchableOpacity
               key={k}
               onPress={() => setTab(k)}
-              className={`mr-2 rounded-sm px-3 py-1.5 min-h-[44px] ${
+              className={`mr-2 rounded-sm px-3 py-1.5 ${
                 active ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-800'
               }`}
             >
@@ -345,7 +350,7 @@ export function WorkspaceScreen() {
             <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
               <TouchableOpacity
                 onPress={() => setFormOpen((v) => !v)}
-                className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100 min-h-[44px]"
+                className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100"
               >
                 <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                   {t('workspace.newProject')}
@@ -375,7 +380,7 @@ export function WorkspaceScreen() {
                   <TouchableOpacity
                     disabled={creating}
                     onPress={onSubmitProject}
-                    className={`mt-2 self-start rounded-sm px-4 py-2 min-h-[44px] ${
+                    className={`mt-2 self-start rounded-sm px-4 py-2 ${
                       creating
                         ? 'bg-neutral-300 dark:bg-neutral-800'
                         : 'bg-neutral-900 dark:bg-neutral-100'
@@ -393,14 +398,14 @@ export function WorkspaceScreen() {
 
             {loading ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
+                <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
               </View>
             ) : error ? (
               <View className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
                 <Text className="mb-3 text-xs text-red-700 dark:text-red-300">{error}</Text>
                 <TouchableOpacity
                   onPress={() => void loadProjects()}
-                  className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100 min-h-[44px]"
+                  className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100"
                 >
                   <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                     {t('common.retry')}
@@ -409,7 +414,7 @@ export function WorkspaceScreen() {
               </View>
             ) : projects.length === 0 ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('workspace.empty')}</Text>
+                <Text className="text-sm text-neutral-500">{t('workspace.empty')}</Text>
               </View>
             ) : (
               projects.map((item) => (
@@ -427,20 +432,32 @@ export function WorkspaceScreen() {
                       </Text>
                     </View>
                   </View>
-                  {item.description ? (
-                    <Text className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-                      {item.description}
-                    </Text>
-                  ) : null}
-                  <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    {t('workspace.files', { count: item.fileCount })} ·{' '}
-                    {t('workspace.members', {
-                      count: item.memberCount,
-                    })}
-                  </Text>
+                  {/* 项目详情入口(web /workspace/[id];2026-10-28 起有原生屏)。整段信息区可点,
+                      删除按钮留在此区之外 —— 两个可点区域互不嵌套,避免误删。 */}
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('AiWorkspaceProject', { id: item.id })}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.name}
+                    className="mt-2 flex-row items-center justify-between gap-2"
+                  >
+                    <View className="flex-1">
+                      {item.description ? (
+                        <Text className="text-xs text-neutral-600 dark:text-neutral-400">
+                          {item.description}
+                        </Text>
+                      ) : null}
+                      <Text className="mt-1 text-xs text-neutral-500">
+                        {t('workspace.files', { count: item.fileCount })} ·{' '}
+                        {t('workspace.members', {
+                          count: item.memberCount,
+                        })}
+                      </Text>
+                    </View>
+                    <ChevronRight size={16} color={tokens.text.tertiary} strokeWidth={2} />
+                  </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => onDeleteProject(item)}
-                    className="mt-3 self-start rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
+                    className="mt-3 self-start rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
                   >
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                       {t('common.delete')}
@@ -466,14 +483,14 @@ export function WorkspaceScreen() {
 
             {permLoading ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
+                <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
               </View>
             ) : permError ? (
               <View className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
                 <Text className="mb-3 text-xs text-red-700 dark:text-red-300">{permError}</Text>
                 <TouchableOpacity
                   onPress={() => void loadPermissions()}
-                  className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100 min-h-[44px]"
+                  className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100"
                 >
                   <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                     {t('common.retry')}
@@ -482,7 +499,7 @@ export function WorkspaceScreen() {
               </View>
             ) : permissions.length === 0 ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('workspace.permEmpty')}</Text>
+                <Text className="text-sm text-neutral-500">{t('workspace.permEmpty')}</Text>
               </View>
             ) : (
               permissions.map((perm) => {
@@ -502,11 +519,11 @@ export function WorkspaceScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400" numberOfLines={1}>
+                    <Text className="mt-1 text-xs text-neutral-500" numberOfLines={1}>
                       {t('workspace.permPath')}: {perm.workspacePath}
                     </Text>
                     {perm.techStack ? (
-                      <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                      <Text className="mt-1 text-xs text-neutral-500">
                         {t('workspace.permStack')}: {perm.techStack}
                       </Text>
                     ) : null}
@@ -517,7 +534,7 @@ export function WorkspaceScreen() {
                     <TouchableOpacity
                       disabled={busyKey === perm.id}
                       onPress={() => onDeletePermission(perm)}
-                      className="self-start rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
+                      className="self-start rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
                     >
                       <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                         {t('workspace.permDelete')}
