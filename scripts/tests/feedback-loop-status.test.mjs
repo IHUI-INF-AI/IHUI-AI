@@ -135,7 +135,8 @@ test('④ --json 结构 + 末行机器行', () => {
 test('⑤ --self-test 全过且不写真实状态目录', () => {
   const run = spawnSync(process.execPath, [SRC, '--self-test'], { cwd: ROOT, encoding: 'utf8' })
   assert.equal(run.status, 0, run.stdout + run.stderr)
-  assert.match(run.stdout, /# self-test 9\/9/)
+  // 计数不钉死:自检例数会随判据补强增长,钉死数字会让「加一条用例」变成恒红(与「全过」是两件事)。
+  assert.match(run.stdout, /# self-test (\d+)\/\1/)
   assert.ok(!run.stdout.includes('FAIL'))
 })
 
@@ -311,3 +312,34 @@ test('⑬ 观察维(canary-unproven)不压死同 sha 主裁决;没有主裁决�
   assert.equal(two.status, 'undetermined')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ⑭ 票号必须按边界匹配(2026-10-29 补):原判据 `subject.includes(no)` 会把 'O680' 认成 'O68' 的修复,
+// 把别人的提交记成本事故已修 —— 假阳比漏判更坏(它让闭环表看起来全绿)。这里只收紧,不放宽任何阶段。
+test('⑭ 票号边界:O68 不得认成 O680 的修复;D16 不得命中 D160', () => {
+  const box = bypassBox({ ticket: '- [ ] O68 [deploy-feedback] build-fail /deploy/build-fail' })
+  const wrong = buildStatus({
+    stateDir: box,
+    now: NOW,
+    commits: 5,
+    git: { ok: true, why: '', commits: [{ sha: FIX_SHA, at: at(3), subject: 'fix: O680 别人的票' }] },
+    isAncestor: () => true,
+    ticketNoPatterns: PATTERNS,
+  })
+  const one = wrong.incidents.find((i) => i.identity === 'bypass-1')
+  assert.equal(one.stages.fixed, 'undetermined', 'O680 不得当作 O68 的修复')
+  assert.equal(one.stages.dispatched, 'no', 'O680 不得当作 O68 的派单凭证')
+
+  const right = buildStatus({
+    stateDir: box,
+    now: NOW,
+    commits: 5,
+    git: { ok: true, why: '', commits: [{ sha: FIX_SHA, at: at(3), subject: 'fix(deploy): 结清 O68 build-fail' }] },
+    isAncestor: () => true,
+    ticketNoPatterns: PATTERNS,
+  })
+  assert.equal(right.incidents.find((i) => i.identity === 'bypass-1').stages.fixed, 'yes', '同票号必须仍能命中')
+
+  assert.equal(mod.mentionsTicketNo('- [ ] D160 别的行', 'D16'), false)
+  assert.equal(mod.mentionsTicketNo('- [ ] D16 本行', 'D16'), true)
+  assert.equal(mod.mentionsTicketNo('fix(G-9001): x', 'G-9001'), true)
+})

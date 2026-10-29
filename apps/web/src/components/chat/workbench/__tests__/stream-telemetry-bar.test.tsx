@@ -27,6 +27,7 @@ const telemetryState = {
   tokens: 1_260 as number | null,
   toolCount: 3,
   failedTools: 0,
+  rateSamples: [12, 40, 25],
 }
 
 vi.mock('@/hooks/use-stream-telemetry', () => ({
@@ -59,6 +60,15 @@ describe('StreamTelemetryBar', () => {
     expect(text).toContain('1.3k')
     expect(text).toContain('[telemetryTools]')
     expect(text).not.toContain('[telemetryFailed]')
+    expect(document.querySelector('[data-telemetry-sparkline]')).not.toBeNull()
+  })
+
+  it('采样不足两个点不画火花线（不拿一个点冒充趋势）', () => {
+    const original = telemetryState.rateSamples
+    telemetryState.rateSamples = [42]
+    render(<StreamTelemetryBar />)
+    expect(document.querySelector('[data-telemetry-sparkline]')).toBeNull()
+    telemetryState.rateSamples = original
   })
 
   it('失败工具 > 0 才出失败格', () => {

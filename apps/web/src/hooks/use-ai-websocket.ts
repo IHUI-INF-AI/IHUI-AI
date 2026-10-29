@@ -6,7 +6,12 @@
 
 import * as React from 'react'
 
-import { createWebSocketHook, type WebSocketHookResult } from '@/hooks/create-websocket-hook'
+import {
+  createWebSocketHook,
+  type WebSocketHookResult,
+  type WebSocketStreamStatus,
+  type WebSocketStreamStopReason,
+} from '@/hooks/create-websocket-hook'
 import { buildWsUrl as buildWs } from '@/lib/ws-url'
 
 export type AIWSProvider = 'qwen' | 'zhipu' | 'deepseek' | 'doubao' | 'generic'
@@ -31,6 +36,21 @@ interface UseAIWebSocketReturn {
   isConnected: boolean
   lastMessage: AIWSMessage | null
   error: Event | null
+  /**
+   * G-86(2026-10-29):工厂已算出的连接状态机原样透出,不再只给一个无 message 的 Event。
+   * 'failed' = 有界重连耗尽后的可见终态(此前这里只映射成 Event('error'),UI 无法区分
+   * "正在重连"与"已放弃",即票面所述"握手失败后静默"的可归因缺口)。
+   */
+  status: WebSocketStreamStatus
+  /** 仅 status='failed' 时有值:放弃原因可归因(reconnect-exhausted/fallback-unavailable/fallback-failed) */
+  stopReason: WebSocketStreamStopReason | null
+  /** 人读错误文案(i18n 已译文案),null=无异常;与 error:Event 并存,后者仅保留向后兼容 */
+  errorMessage: string | null
+  /** 已消耗的重连次数(第 attempt/max 次) */
+  reconnectAttempt: number
+  maxReconnectAttempts: number
+  /** 失败终态后的人为恢复出口(复位计数并重走 WS 阶梯) */
+  retry: () => void
 }
 
 /** 类型守卫:判断解析后的对象是否符合 AIWSMessage 结构 */
@@ -145,6 +165,13 @@ export function useAIWebSocket(provider: AIWSProvider): UseAIWebSocketReturn {
     isConnected: ws.isConnected,
     lastMessage: ws.lastMessage,
     error,
+    // G-86:失败终态可见、可归因(不复用 error:Event —— 它没有 message,UI 读不出原因)
+    status: ws.status,
+    stopReason: ws.stopReason,
+    errorMessage: ws.error,
+    reconnectAttempt: ws.reconnectAttempt,
+    maxReconnectAttempts: ws.maxReconnectAttempts,
+    retry: ws.retry,
   }
 }
 

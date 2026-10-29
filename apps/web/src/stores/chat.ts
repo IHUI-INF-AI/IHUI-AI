@@ -716,6 +716,9 @@ export interface ChatState {
    *  index=1 是新一轮审查的首帧 ⇒ 先清旧列表;同 findingId 重放幂等丢弃。 */
   appendReviewFinding: (messageId: string, finding: ReviewFinding) => void
   /** Steer(中途引导):登记/清空当前流式 assistant 消息 ID(流开始写入,收尾清空) */
+  /** D115:追加某条助手消息的审查结论(SSE review-finding 事件触发)。
+   *  index=1 是新一轮审查的首帧 ⇒ 先清旧列表;同 findingId 重放幂等丢弃。 */
+  appendReviewFinding: (messageId: string, finding: ReviewFinding) => void
   setStreamingAssistantId: (id: string | null) => void
   /** P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
    *  前端 onUsage 回调调用此方法把 usage 写入 assistant 消息 meta.usage,UI 展示 token 计数。 */
