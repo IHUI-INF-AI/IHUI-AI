@@ -271,7 +271,7 @@ class TestCosyHeaders:
                 }
             }
         )
-        for k, v in full.items():
+        for _k, v in full.items():
             v.encode("ascii")  # 不抛 ⇒ 合法 HTTP 头值
 
 
