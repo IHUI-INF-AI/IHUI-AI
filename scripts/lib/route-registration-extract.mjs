@@ -742,6 +742,8 @@ export function analyzeTsFile(rel, raw) {
   const edges = [] // {fn, recv, symbol, prefix, line}
   const directEdges = [] // {fn, recv, symbol, line}
   const opaqueLocal = [] // {prefix, line}
+  /** 前缀是表达式、静态解不出的 register(交 walkFastifyGraph 报名,本函数不持有桶) */
+  const dynamicPrefixes = [] // {symbol, expr, line}
 
   /** 本文件里被当 Fastify 实例用过的标识符(见 INSTANCE_USE_SRC 注释) */
   const instanceNames = new Set()
@@ -771,16 +773,41 @@ export function analyzeTsFile(rel, raw) {
     const argsText = readParenArgs(src, openIdx)
     const args = splitTopLevelArgs(argsText)
     const optObj = args[1] || ''
-    const pre = /prefix\s*:\s*['"`]([^'"`]*)['"`]/.exec(optObj)
+    // 前缀三态(2026-10-29 G-962 收口):字面量 / 同文件常量 / 解不出的表达式。
+    // 旧判据只认字面量,另两态一律按「无前缀」处理 —— 那等于把「前缀未知」写成「前缀为空」,
+    // 条目落到 `/ledger` 而前端打 `/api/ledger`,于是真在册的路由被假红(实测夹具两向都翻)。
+    // 常量档解到值就用值(与 emitRegs 的 pathConsts 同一份单源);解不到 ⇒ 标记 prefixUnknown,
+    // 该子树条目交 check 侧判「未判定(动态前缀)」,不猜、也不当空前缀。
+    const preLit = /prefix\s*:\s*['"`]([^'"`]*)['"`]/.exec(optObj)
+    const preIdent = preLit ? null : /prefix\s*:\s*([A-Za-z_$][\w$]*)\s*(?=[,}])/.exec(optObj)
+    let pre = preLit
+    let prefixUnknown = null
+    if (preIdent) {
+      const constVal = pathConsts.get(preIdent[1])
+      if (typeof constVal === 'string' && constVal.startsWith('/')) pre = [null, constVal]
+      else prefixUnknown = preIdent[1]
+    }
     const fnName = (enclosingFn(fns, m.index) || { name: MODULE_FN }).name
     const first = (args[0] || '').trim()
+    if (/prefix\s*:\s*(?:[`{]|'|")/.test(optObj) && !pre && !prefixUnknown)
+      opaqueLocal.push({ prefix: '<template-prefix>', line: lineOfIdx(src, m.index) })
+    if (prefixUnknown)
+      dynamicPrefixes.push({
+        symbol: (args[0] || '').trim().split(/[(,]/)[0] || '?',
+        expr: prefixUnknown,
+        line: lineOfIdx(src, m.index),
+      })
     if (/^(?:async\s*)?\(/.test(first)) {
       const paramName = /^\s*(?:async\s*)?\(\s*([A-Za-z_$][\w$]*)/.exec(first)
       const braceInArgs = argsText.indexOf('{')
       const bodyEnd =
         braceInArgs === -1 ? -1 : findMatchingBracket(argsText, braceInArgs, '{', '}')
       if (paramName && bodyEnd !== -1) {
-        aliases.set(`${fnName}\u0000${paramName[1]}`, { parentRecv: recv, prefix: pre ? pre[1] : '' })
+        aliases.set(`${fnName}\u0000${paramName[1]}`, {
+          parentRecv: recv,
+          prefix: pre ? pre[1] : '',
+          prefixUnknown,
+        })
         instanceNames.add(paramName[1])
       } else if (pre) opaqueLocal.push({ prefix: pre[1], line: lineOfIdx(src, m.index) })
       registerRe.lastIndex = openIdx
@@ -792,13 +819,12 @@ export function analyzeTsFile(rel, raw) {
       registerRe.lastIndex = openIdx
       continue
     }
-    if (!pre && /prefix\s*:\s*[`{]/.test(optObj))
-      opaqueLocal.push({ prefix: '<template-prefix>', line: lineOfIdx(src, m.index) })
     edges.push({
       fn: fnName,
       recv,
       symbol: sym[1],
       prefix: pre ? pre[1] : '',
+      prefixUnknown,
       line: lineOfIdx(src, m.index),
     })
     registerRe.lastIndex = openIdx
@@ -888,6 +914,7 @@ export function analyzeTsFile(rel, raw) {
     directEdges,
     aliases,
     opaqueLocal,
+    dynamicPrefixes,
   }
 }
 
@@ -1228,12 +1255,28 @@ export function walkFastifyGraph(tsInfos, opts = {}) {
     }
   }
 
-  const pushNode = (file, fnName, prefix, note) => {
+  /** 前缀是表达式、静态解不出的节点(子树) —— 其条目 via 记 'dynamic-prefix',交消费侧判未判定 */
+  const dynamicNodes = new Set()
+  // 逐文件报名一次(每个 register 表达式一条):这是「缺什么输入」的原始依据,
+  // 不许因为子树条目另有出口就省掉 —— 不报名的话,消费侧只知道"有调用没判",不知道为什么。
+  for (const [rel, info] of tsInfos)
+    for (const d of info.dynamicPrefixes || [])
+      undetermined.push({
+        file: rel,
+        line: d.line,
+        kind: 'dynamic-prefix',
+        detail: `register(${d.symbol}) 的 prefix 是表达式 ${d.expr} —— 静态解不出,该子树挂载前缀未知`,
+      })
+  const pushNode = (file, fnName, prefix, note, dynamic) => {
     const key = `${file}\u0000${fnName}\u0000${prefix}`
-    if (enqueued.has(key)) return
+    if (enqueued.has(key)) {
+      if (dynamic) dynamicNodes.add(key)
+      return
+    }
     enqueued.add(key)
     queue.push([file, fnName, prefix])
     touchedFns.add(`${file}\u0000${fnName}`)
+    if (dynamic) dynamicNodes.add(key)
     if (note) undetermined.push({ file, line: 0, kind: 'symbol-approx', detail: note })
   }
 
@@ -1256,7 +1299,8 @@ export function walkFastifyGraph(tsInfos, opts = {}) {
     const [file, fnName, prefix] = queue.shift()
     const info = tsInfos.get(file)
     if (!info) continue
-    emitRegs(info, fnName, prefix, 'graph')
+    const nodeDynamic = dynamicNodes.has(`${file}\u0000${fnName}\u0000${prefix}`)
+    emitRegs(info, fnName, prefix, nodeDynamic ? 'dynamic-prefix' : 'graph')
     emitFactoryCalls(info, fnName, prefix)
     const allEdges = [
       ...info.edges.map((e) => ({ ...e, inline: false })),
@@ -1275,7 +1319,14 @@ export function walkFastifyGraph(tsInfos, opts = {}) {
           undetermined.push({ file, line: e.line, kind: 'edge-unresolved', detail: `register(${e.symbol}) ${why}` })
         continue
       }
-      for (const t of r) pushNode(t.file, t.fn, acc, t.approx ? `符号 ${e.symbol} 未按名匹配,按整文件函数并集挂载` : null)
+      for (const t of r)
+        pushNode(
+          t.file,
+          t.fn,
+          acc,
+          t.approx ? `符号 ${e.symbol} 未按名匹配,按整文件函数并集挂载` : null,
+          nodeDynamic || Boolean(e.prefixUnknown),
+        )
     }
   }
 

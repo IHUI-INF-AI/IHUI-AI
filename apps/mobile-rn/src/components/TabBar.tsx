@@ -19,7 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { tokens } from '../theme/active-tokens'
 import { withAlpha } from '@ihui/design-tokens'
 import { useTheme } from '../context/ThemeContext'
-import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
+import BottomFadeMask from './BottomFadeMask'
+import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, TAB_BAR_HEIGHT, tabBarStyleSheet } from './TabBar.styles'
 // 底栏图标的取源方式(2026-10-21 定档,刻意保留,不是遗留绕行):
 // 这族曾在 release 包里长期空白,当时的根因是 @react-native/assets-registry 被装成两份
 // (注册进 A、读取走 B ⇒ resolveAssetSource 吐 null),已由 metro.config.cjs 的单实例去重
@@ -104,70 +105,76 @@ export default function TabBar({ activeTab, onChange, labels, blurTarget }: TabB
   // 0.0.8 的「直落底边」几何被机主否决——菜单栏沉底、底部距离消失、面板底部多出一段空嵌套块;
   // 恢复悬浮胶囊几何,材质仍用磨砂实底)
   const floatGap = Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4)
+  // 胶囊顶沿距屏幕底的距离:淡出遮罩的底边就落在这一高度(遮罩在胶囊之上、接缝被胶囊盖住)。
+  const capsuleTopOffset = floatGap + TAB_BAR_HEIGHT
 
   // Android 真模糊开关:拿到各屏 BlurTargetView 的 ref 才渲染 BlurView(dimezis),
   // 否则整层不渲染,由容器 0.88 磨砂实底兜底 —— 半吊子 BlurView 正是五稿实心白块的来源。
   const androidBlur = Platform.OS === 'android' && !!blurTarget
 
   return (
-    <View style={[tabBarStyleSheet.wrapper, { marginBottom: floatGap }]}>
-      {/* 悬浮玻璃胶囊:图标行 + 底部留距(悬浮)组成同一块磨砂玻璃。
+    <View style={tabBarStyleSheet.root}>
+      {/* 底部平滑淡出遮罩:内容接近胶囊前无硬边地溶解进背景(层级在内容之上、胶囊之下) */}
+      <BottomFadeMask offsetFromBottom={capsuleTopOffset} />
+      <View style={[tabBarStyleSheet.wrapper, { marginBottom: floatGap }]}>
+        {/* 悬浮玻璃胶囊:图标行 + 底部留距(悬浮)组成同一块磨砂玻璃。
           七稿(Android 真模糊补全,2026-10-28):六稿查明五稿白块真因 = expo-blur SDK 55+
           的 Android dimezis 模糊必须配 blurTarget(缺 target 即禁用模糊并退实心 LIGHT tint
           白块)。各屏已把胶囊背后的内容包进 BlurTargetView 并把 ref 传进来 ⇒ Android 上真
           模糊,容器底色调回 0.5 半透(模糊层负责质感);若某屏漏传 target,Android 仍走
           0.88 磨砂实底兜底,绝不再出实心白。iOS 用 UIVisualEffectView(无需 target)不变;
           web 走 backdropFilter 不变。 */}
-      <View
-        style={[
-          tabBarStyleSheet.container,
-          Platform.OS === 'android' && {
-            backgroundColor: withAlpha(
-              resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,
-              androidBlur ? 0.5 : 0.88,
-            ),
-          },
-        ]}
-      >
-        {Platform.OS === 'ios' || androidBlur ? (
-          <BlurView
-            intensity={resolvedTheme === 'dark' ? 40 : 48}
-            tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
-            blurMethod={androidBlur ? 'dimezisBlurView' : undefined}
-            blurTarget={blurTarget}
-            style={tabBarStyleSheet.blurFill}
-          />
-        ) : null}
-        {resolvedTheme !== 'dark' ? (
-          <View style={tabBarStyleSheet.rimLight} pointerEvents="none" />
-        ) : null}
-        {TABS.map((tab) => {
-          const isActive = tab.key === activeTab
-          return (
-            <Pressable
-              key={tab.key}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
-              accessibilityLabel={t(tab.label)}
-              onPress={handlePress(tab.key)}
-              style={tabBarStyleSheet.item}
-            >
-              {/* 2026-09-23 修复 P1:选中态顶部指示条(3px 高强调档,左右留边圆角)。
-                  原选中态仅白色 vs 灰色文字,区分度极低;新增指示条 + 强调色文字 + 粗体三重区分。 */}
-              {isActive ? <View style={tabBarStyleSheet.activeIndicator} /> : null}
-              <TabBarIcon tab={tab} isActive={isActive} />
-              <Text
-                style={[
-                  tabBarStyleSheet.label,
-                  isActive ? tabBarStyleSheet.labelActive : tabBarStyleSheet.labelInactive,
-                ]}
-                numberOfLines={1}
+        <View
+          style={[
+            tabBarStyleSheet.container,
+            Platform.OS === 'android' && {
+              backgroundColor: withAlpha(
+                resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,
+                androidBlur ? 0.5 : 0.88,
+              ),
+            },
+          ]}
+        >
+          {Platform.OS === 'ios' || androidBlur ? (
+            <BlurView
+              intensity={resolvedTheme === 'dark' ? 40 : 48}
+              tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
+              blurMethod={androidBlur ? 'dimezisBlurView' : undefined}
+              blurTarget={blurTarget}
+              style={tabBarStyleSheet.blurFill}
+            />
+          ) : null}
+          {resolvedTheme !== 'dark' ? (
+            <View style={tabBarStyleSheet.rimLight} pointerEvents="none" />
+          ) : null}
+          {TABS.map((tab) => {
+            const isActive = tab.key === activeTab
+            return (
+              <Pressable
+                key={tab.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={t(tab.label)}
+                onPress={handlePress(tab.key)}
+                style={tabBarStyleSheet.item}
               >
-                {labels?.[tab.key] ?? t(tab.label)}
-              </Text>
-            </Pressable>
-          )
-        })}
+                {/* 2026-09-23 修复 P1:选中态顶部指示条(3px 高强调档,左右留边圆角)。
+                  原选中态仅白色 vs 灰色文字,区分度极低;新增指示条 + 强调色文字 + 粗体三重区分。 */}
+                {isActive ? <View style={tabBarStyleSheet.activeIndicator} /> : null}
+                <TabBarIcon tab={tab} isActive={isActive} />
+                <Text
+                  style={[
+                    tabBarStyleSheet.label,
+                    isActive ? tabBarStyleSheet.labelActive : tabBarStyleSheet.labelInactive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {labels?.[tab.key] ?? t(tab.label)}
+                </Text>
+              </Pressable>
+            )
+          })}
+        </View>
       </View>
     </View>
   )
