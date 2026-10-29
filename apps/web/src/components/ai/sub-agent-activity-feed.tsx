@@ -8,6 +8,10 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Bug, Code2, DraftingCompass, Eye, LayoutGrid, List, Search, Users } from 'lucide-react'
 import { humanizeToolText } from '@ihui/shared/chat'
+import {
+  isSubagentTerminalStatus,
+  subagentGroupStillActive,
+} from '@ihui/shared/subagents/parent-turn-settle'
 
 import { cn } from '@/lib/utils'
 import {
@@ -54,7 +58,7 @@ function agentStreamStatus(agent: SubAgentActivity): StreamStatus {
 }
 
 function isAgentActive(agent: SubAgentActivity): boolean {
-  return agent.status !== 'completed' && agent.status !== 'failed' && agent.status !== 'cancelled'
+  return !isSubagentTerminalStatus(agent.status)
 }
 
 /**
@@ -222,6 +226,10 @@ export function SubAgentActivityFeed({
   const t = useTranslations('ai.subAgentFeed')
   const tStatus = useTranslations('taskStatus')
   const hasRunning = activities.some(isAgentActive)
+  const groupActive = subagentGroupStillActive(
+    activities.map((agent) => agent.status),
+    completed,
+  )
   const [expanded, setExpanded] = React.useState(initiallyExpanded ?? (hasRunning && !completed))
   // W26:canvas=泳道画布(默认)/ feed=传统列表
   const [view, setView] = React.useState<'canvas' | 'feed'>('canvas')
@@ -246,9 +254,9 @@ export function SubAgentActivityFeed({
   }, [activities])
 
   const selected = activities.find((a) => a.agentId === selectedAgentId) ?? null
-  const headline = completed
-    ? t('coordinated', { count: activities.length })
-    : t('working', { count: activities.length })
+  const headline = groupActive
+    ? t('working', { count: activities.length })
+    : t('coordinated', { count: activities.length })
 
   // 视图切换控件:作为 StreamGroup 的 headerExtra(在组头触发器**外面**,避免按钮套按钮)
   const viewToggle = (
@@ -295,7 +303,7 @@ export function SubAgentActivityFeed({
   return (
     <div className="min-w-0" data-testid="sub-agent-activity-feed">
       <StreamGroup
-        active={hasRunning && !completed}
+        active={groupActive}
         stepCount={totalSteps}
         headline={headline}
         elapsedMs={groupDoneMs}
