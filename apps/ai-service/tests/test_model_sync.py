@@ -328,11 +328,25 @@ class TestExtractPricing:
                 },
                 (10, 20),
             ),
+            # xAI:单位 1e-10 USD/token(12500 = $1.25/1M)。0.125 cents/1k 必须保留小数,
+            # 取整会变 0 = 免费档
+            (
+                "xai",
+                {"prompt_text_token_price": 12500, "completion_text_token_price": 25000},
+                (0.125, 0.25),
+            ),
+            (
+                "xai",
+                {"prompt_text_token_price": 20000, "completion_text_token_price": 60000},
+                (0.2, 0.6),
+            ),
+            # 图像/视频模型没有文本 token 价 -> (0, 0),不拿 image_price 冒充 token 价
+            ("xai", {"image_price": 200000000}, (0.0, 0.0)),
             ("openai", {}, (0, 0)),
         ],
     )
     def test_extract_pricing(
-        self, provider_code: str, model: dict, expected: tuple[int, int]
+        self, provider_code: str, model: dict, expected: tuple[float, float]
     ) -> None:
         """多 provider 格式 -> 统一 (input_cents, output_cents)。"""
         result = ModelSyncService._extract_pricing(provider_code, model)
@@ -419,6 +433,16 @@ class TestClassifyModel:
             # "small" 命中 fast 规则(小模型 = fast),embedding 模型不加 chat
             ("text-embedding-3-small", {}, ["fast", "embedding"]),
             ("gpt-4o-mini", {}, ["fast", "chat"]),
+            # 2026-10-29 xai imagine:生成式媒体档不得带 chat(否则混进对话选择器)。
+            # 图像靠上游 image_price / pricing[].price_per_image 证据,视频靠 id 自述
+            ("grok-imagine-video-1.5", {}, ["video"]),
+            (
+                "grok-imagine-image-2.0",
+                {"pricing": [{"price_per_image": 400000000}]},
+                ["image", "vision"],
+            ),
+            # 文本模型(有 prompt_text_token_price)仍按对话档
+            ("grok-4.7", {"prompt_text_token_price": 20000}, ["chat"]),
         ],
     )
     def test_classify_model(
