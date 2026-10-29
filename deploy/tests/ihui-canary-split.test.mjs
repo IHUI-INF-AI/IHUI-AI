@@ -11,6 +11,8 @@
  *  ② 车道面:同 key 稳定、强制头覆盖、缺契约恒 stable。
  *  ③ 健康面:灰度实例不在位 ⇒ 命中灰度的流量**回落 stable**(绝不打到空端口)。
  *  ④ 端到端:真起分流器 + 两个假上游,验比例切流与强制头确实落到不同上游。
+ *  ⑤ 契约缺失/形状坏:有现网回调端口 ⇒ 200 落 stable;没有 ⇒ 503 点名。两条都不得抛异常
+ *     (2026-10-29 实测旧实现会 TypeError 打死整只分流器进程)。
  *
  * 本文件不连生产、不连真实部署环:上游是两个只回显自身端口的本地假服务。
  */
@@ -55,6 +57,12 @@ function contractFile(content) {
   const p = join(scratchDir, `ramp-${process.pid}-${Math.random().toString(36).slice(2)}.json`)
   writeFileSync(p, content, 'utf8')
   return p
+}
+
+/** 一个**不存在**的契约路径(钉"契约缺失"这一格,不落盘)。 */
+function absentContractFile() {
+  if (!scratchDir) scratchDir = mkScratch('canary-split-')
+  return join(scratchDir, `absent-${process.pid}-${Math.random().toString(36).slice(2)}.json`)
 }
 
 test.after(() => {
@@ -180,7 +188,7 @@ test('T8 端到端:分流器按比例把请求切给两个上游,并留下车道
   }
 })
 
-test('T9 端到端:比例 0 ⇒ 全部走 stable;缺契约 ⇒ 也全部走 stable', async () => {
+test('T9 端到端:比例 0 ⇒ 全部走 stable', async () => {
   const stable = await startEchoUpstream()
   const canary = await startEchoUpstream()
   const zeroPath = contractFile(CONTRACT_JSON(0, {
@@ -225,6 +233,53 @@ test('T10 端到端:灰度上游不在位 ⇒ 请求不得打到空端口(回落
   } finally {
     split.close()
     stable.srv.close()
+  }
+})
+
+/**
+ * T11/T12 钉的是 2026-10-29 现读抓到的一枚真缺陷:契约缺失时旧实现仍读
+ * `contract.stablePort` ⇒ TypeError 未捕获 ⇒ **分流器进程整只退出**(线上从"灰度过半"
+ * 掉成"全站不可达"),而模块头注与 readContract 都承诺"契约缺失 ⇒ 比例 0、全部回 stable"。
+ * 判据:① 有现网回调端口 ⇒ 200 且真落到 stable 上游;② 没有 ⇒ 503 点名,**不得崩、
+ * 不得挂起**(下一枚请求仍要被应答)。
+ */
+test('T11 端到端:契约缺失但有现网回调端口 ⇒ 200 且落到 stable(不是崩、不是挂)', async () => {
+  const stable = await startEchoUpstream()
+  const split = createSplitServer({
+    contractPath: absentContractFile(),
+    health: { isUp: async () => true },
+    stablePortFallback: stable.port,
+  })
+  const splitPort = await listen(split)
+  try {
+    const res = await fetch(`http://127.0.0.1:${splitPort}/probe`, { headers: { 'x-ihui-canary-key': 'u-1' } })
+    assert.equal(res.status, 200, '契约缺失不得 5xx / 不得挂起')
+    assert.equal(await res.text(), `upstream:${stable.port}`, '契约缺失 ⇒ 全部回 stable')
+    assert.equal(res.headers.get('x-ihui-canary-lane'), 'stable')
+    assert.equal(res.headers.get('x-ihui-canary-percent'), '0')
+    assert.equal(res.headers.get('x-ihui-canary-contract'), 'missing', '缺失要留证据头')
+  } finally {
+    split.close()
+    stable.srv.close()
+  }
+})
+
+test('T12 端到端:契约缺失且无现网端口 ⇒ 503 点名,且进程不倒(第二枚请求仍被应答)', async () => {
+  const split = createSplitServer({
+    contractPath: absentContractFile(),
+    health: { isUp: async () => true },
+  })
+  const splitPort = await listen(split)
+  try {
+    for (let i = 0; i < 2; i += 1) {
+      const res = await fetch(`http://127.0.0.1:${splitPort}/probe`)
+      await res.text()
+      assert.equal(res.status, 503, '取不到现网端口 ⇒ 明确 503(拒绝盲转发),不得按 502/挂起冒充')
+      assert.equal(res.headers.get('x-ihui-canary-lane'), 'none')
+      assert.equal(res.headers.get('x-ihui-canary-contract'), 'missing')
+    }
+  } finally {
+    split.close()
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
