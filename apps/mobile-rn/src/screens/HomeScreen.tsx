@@ -2087,12 +2087,12 @@ export function HomeScreen() {
         onPress={handleOpenMaterialList}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={t('home.myCreation')}
+        accessibilityLabel={t('common.myCreation')}
         style={shellStyles.creationEntry}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs }}>
           <Folder size={13} color={tokens.brand.DEFAULT} />
-          <Text style={shellStyles.creationEntryText}>{t('home.myCreation')}</Text>
+          <Text style={shellStyles.creationEntryText}>{t('common.myCreation')}</Text>
         </View>
       </TouchableOpacity>
       {/* 语音输入已内嵌 InputArea 大输入框(麦克风长按录音,2026-09-22 用户定稿):
