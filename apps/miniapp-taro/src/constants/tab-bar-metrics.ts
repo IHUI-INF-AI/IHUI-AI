@@ -34,7 +34,11 @@ import {
   TAB_BAR_INDICATOR_H_PX,
   TAB_BAR_INDICATOR_INSET_PX,
   TAB_BAR_MARGIN_H_PX,
+  TAB_BAR_GLASS_BLUR_PX,
 } from '@ihui/shared/ui/tab-bar-spec'
+
+/** 胶囊毛玻璃模糊半径(px);此前本端自写一份 24、靠注释与 RN 对齐,2026-10-29 收口到 spec */
+export const TAB_BAR_GLASS_BLUR = TAB_BAR_GLASS_BLUR_PX
 
 export const TAB_BAR_HEIGHT = TAB_BAR_HEIGHT_PX
 export const TAB_BAR_ICON_SIZE = TAB_BAR_ICON_SIZE_PX
