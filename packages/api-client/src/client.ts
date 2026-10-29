@@ -1699,6 +1699,13 @@ export interface ReasoningEffortNotice {
   reason?: string
 }
 
+/** D09(2026-10-24 立):专家包自动路由档位 —— 封闭集,端内不得再写字面量数组。
+ *  - `hint`(默认):只回一帧"命中了哪个专家包",不改工具与系统提示;
+ *  - `auto`:命中时把专家包工具白名单与系统提示并入本次请求;
+ *  - `off`:不分类、不提示。
+ *  undefined = 不发该字段,由部署方 env(IHUI_EXPERT_AUTO_ROUTE)或后端默认档裁定。 */
+export type ExpertAutoRouteMode = 'off' | 'hint' | 'auto'
+
 export interface StreamChatOptions {
   model: string
   // role 含 'tool':与 @ihui/context-compaction 的 ChatMessage 及 OpenAI 兼容协议对齐
@@ -1784,6 +1791,10 @@ export interface StreamChatOptions {
    *  值域 = @ihui/types 的封闭联合,端内不得再写字面量数组。undefined = 不发该字段,
    *  后端按既有默认档处理 ⇒ 旧客户端零行为变化。 */
   reasoningEffort?: ReasoningEffort
+  /** D09(2026-10-24 立):专家包自动路由档位(web 设置项)。camel 入网关,网关转 snake
+   *  `expert_auto_route` 出到 ai-service(与 reasoningEffort 同区同形)。
+   *  undefined = 不发该字段 ⇒ 部署方 env(IHUI_EXPERT_AUTO_ROUTE)或后端默认档生效。 */
+  expertAutoRoute?: ExpertAutoRouteMode
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
    * 由 use-chat.ts 调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
   contextLimit?: number
@@ -1896,6 +1907,9 @@ export interface StreamChatOptions {
    *  静默丢弃 ⇒ 半截回答与完整回答在端上完全同形。收到本帧时已到达正文**有效**,
    *  但必须如实告知用户"回答被截断",不得当作完整回答收束。 */
   onPartialDone?: (event: PartialDoneEvent) => void
+  /** D115(2026-10-23):review 模式的结构化 finding 帧(review-finding)。一 finding 一帧,
+   *  端上按严重度分组渲染并定位到 文件:行;未注册回调时**不解析**(与其余 per-field 同口径)。 */
+  onReviewFinding?: (event: ReviewFindingEvent) => void
   /**
    * G-425(2026-10-07 立,默认档"只提示"):done 帧携带的上游 finish/stop reason
    * (OpenAI 系 `length`/`stop`;Gemini 原生 `STOP`/`MAX_TOKENS`)。与 onMemoryUpdates
@@ -2316,6 +2330,33 @@ export interface PartialDoneEvent {
  * 经 llm.py /llm/complete/stream 的 done 重建点透传;契约声明见
  * packages/shared/src/sse/contract.ts 的 done 帧 `finishReason` 字段。
  */
+/** D115(2026-10-23):review 模式的结构化 finding 帧(review-finding)。
+ *  定义放本包是为了守住零依赖包边界:不 import @ihui/shared,与 PartialDoneEvent 同姿势。 */
+export interface ReviewFindingEvent {
+  /** 本次审查内的稳定标识(`rf-<序号>`,重连重放时同序) */
+  findingId: string
+  /** 1-based 序号与总数(端上据此显示"第 i/n 条",total=0 的帧不存在) */
+  index: number
+  total: number
+  /** 严重度三档封闭集(与 shared 契约同值:P1 阻塞 / P2 建议 / Nit 细节) */
+  severity: ReviewFindingSeverity
+  /** 仓库相对路径 */
+  file: string
+  /** 新文件里的 1-based 行号;0 = 整文件级 finding(端上只显示文件) */
+  line: number
+  /** 一句话结论 */
+  title: string
+  /** 为什么是问题(可为空串) */
+  detail: string
+  /** 一行修复建议(可为空串) */
+  suggestion: string
+  /** 审查对象描述(如 `uncommitted` / `branch:main` / `commit:abc1234`),可缺省 */
+  target?: string
+}
+
+/** review-finding 的严重度域(与 shared 契约的 `'P1' | 'P2' | 'Nit'` 同值)。 */
+export type ReviewFindingSeverity = 'P1' | 'P2' | 'Nit'
+
 export interface FinishReasonEvent {
   /** 上游原样值(不归一):`length`/`stop`/`tool_calls`/`STOP`/`MAX_TOKENS`/… */
   finishReason: string
