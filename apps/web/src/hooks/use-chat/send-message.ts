@@ -134,6 +134,11 @@ import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 // 建会话后的 URL 同步目标:侧栏/根形态恒 '/chat'(旧行为逐字),工作台形态留在 /chat/workbench
 // (两形态共享内核的"新建会话不得被拽回侧栏"钉子;判据单一真相源见 spec)。
 import { chatDeeplinkPath } from '@ihui/shared/ui/chat-workbench-shell-spec'
+// G-816008 接线(2026-10-29):「已 accepted 未投影」账本的端内准入判定。
+// 判据全在 @ihui/shared/chat/pending-command-registry,本文件只调 claim / settle 两枚出口。
+import { claimPendingSend, settlePendingSend } from './pending-send'
+// 回合答案完整性(2026-10-29):空响应不伪造 agent 气泡 + 非"完成"呈现态的唯一判定层。
+import { applyTurnAnswerFallback, markEmptyTurn } from './turn-answer-fallback'
 import type { ChatActionContext } from './types'
 
 // =============================================================================
@@ -150,13 +155,16 @@ export interface SendMessageOptions {
    *  store 中已存在该用户消息,仅需补一个 assistant 占位并走流式。 */
   regenerate?: boolean
   /** 票59(消息级版本切换 3/3,2026-10-22 立):regenerate 的 sibling 入族坐标。
-   *  后端 /regenerate 已不再物理删除(1/3):目标 AI 消息保留为版本族根,本参数把
    *  (rootId, siblingIndex) 交给三件事 —— ① 占位行按族尾插入且带坐标(mergeVersionMessage,
    *  与票64 编辑链同构),旧回复即刻被读投影压成"上一版"而不是消失;② 发给 LLM 的
    *  history 切到族根之前(旧回复与后续轮次不进上下文,与旧截断语义同位);
    *  ③ streamChat metadata 透传坐标,回调落库时新回复以 sibling 入族(网关+worker 腿)。
    *  缺省 = 普通发送,三条全不触发。 */
   version?: { rootId: string; siblingIndex: number }
+  /** G-816008(2026-10-29 立):人工放行「已 accepted 未投影」那一格。
+   *  只由"被拦 toast 的『仍要发送』"传入 —— 走与普通发送**同一条**链(不另开一条绕过判定的
+   *  发送路径),但准入判定按 force 语义结算旧条目后重新登记。 */
+  forcePending?: boolean
 }
 
 /**
@@ -179,6 +187,41 @@ async function autoTitleAfterFirstTurn(
   } catch {
     // 标题生成失败:静默降级,保持默认标题(与后端静默策略对称)
   }
+}
+
+/**
+ * 「本轮其实有可见产物,只是没有正文」的判定。
+ *
+ * 起因是实测回归:review-finding 帧只写 `reviewFindingsByMessageId`,assistant 行正文仍为空 ——
+ * 若只看 content 就给这种回合补"没有返回任何内容",等于把**成功的回合说成失败**。
+ *
+ * 取的全部是 store 里**已经存在**的事实,不新增任何状态:
+ * 工具卡 / plan 步骤 / 终端任务 / 子代理活动 / AI 提问 / 审查结论 / 记忆条目。
+ * 判据方向恒为"能少报一次错就少报":宁可漏补一张失败卡(界面至少还有结构化产物可看),
+ * 也不能给有产物的回合贴失败标签。
+ *
+ * **刻意只用于"要不要落失败卡"这一格**,不参与共享层的 append/duplicate/empty 判定 ——
+ * 早先版本试过给共享层塞一段哨兵文本冒充"答案已在",结果哨兵被当成 append 写进了转写
+ * (实测:`assistant` 行内容变成 `\u0000turn-output-present`)。判定与呈现是两件事,
+ * 共享层管前者,端内管后者。
+ */
+function hasVisibleTurnOutput(
+  chatStore: ChatStore,
+  assistantId: string,
+  tail: ChatMessage | undefined,
+): boolean {
+  if (!tail) return false
+  if ((tail.toolCalls?.length ?? 0) > 0) return true
+  if ((tail.planSteps?.length ?? 0) > 0) return true
+  if ((tail.terminalTasks?.length ?? 0) > 0) return true
+  if ((tail.subagentActivities?.length ?? 0) > 0) return true
+  if (tail.question) return true
+  const state = chatStore.getState()
+  if ((state.reviewFindingsByMessageId[assistantId]?.length ?? 0) > 0) return true
+  if (state.memoryUpdateNotices.some((n) => n.messageId === assistantId && n.items.length > 0)) {
+    return true
+  }
+  return false
 }
 
 export function createSendMessage(
@@ -462,6 +505,34 @@ export function createSendMessage(
       queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
     }
 
+    // 1.5「已 accepted 未投影」准入判定(G-816008 接线,2026-10-29)
+    // 位置刻意在这里:conversationId 已解析(账本按会话分桶),而用户消息**尚未**入 store /
+    // 尚未落库 —— 被拦下时是零副作用的,不需要事后回滚任何东西。
+    // 重新生成模式跳过:那一轮的用户消息早已存在,不是新指令。
+    let pendingCommandId: string | null = null
+    if (!isRegenerate) {
+      const claim = claimPendingSend({
+        conversationId,
+        text,
+        rows: store.messages,
+        force: opts?.forcePending === true,
+      })
+      if (!claim.allowed) {
+        sendInFlightRef.current = false
+        // 定向说明 + 一键人工放行:失效方向是"多要一次说明",不是"多放一次跳门"。
+        // 放行走同一条 sendMessage(带 forcePending),不另开绕过判定的发送路径。
+        toast.warning(t('duplicatePendingTitle'), {
+          description: t('duplicatePendingDesc'),
+          action: {
+            label: t('permission.dangerousCommandProceed'),
+            onClick: () => void sendMessage(text, { ...opts, forcePending: true }),
+          },
+        })
+        return false
+      }
+      pendingCommandId = claim.commandId
+    }
+
     // 2. 持久化用户消息(后台 fire-and-forget,不阻塞流式响应)
     // 重新生成模式跳过:store 中已存在该用户消息(后端 /regenerate 已保留),无需重复持久化
     if (!isRegenerate) {
@@ -533,6 +604,8 @@ export function createSendMessage(
             useCostGuardStore.getState().setPendingConfirm(null)
             if (!okToSend) {
               // 用户取消:解锁在途锁,静默返回(消息未入流,零残留)
+              // 账本同步结算:这一轮根本没发出,不能留成"未确认"(否则下一次同文会被误拦)
+              if (pendingCommandId) settlePendingSend(pendingCommandId)
               sendInFlightRef.current = false
               return true
             }
@@ -631,6 +704,14 @@ export function createSendMessage(
     // - 用户主动 stop 触发的 abort 不报错(由 abortedByTimeout* 标志区分)
     let firstContentTokenReceived = false
     let firstReasoningTokenReceived = false
+    // G-816008 接线(2026-10-29):本轮是否拿到了"结束"这件事本身(流正常走完 / 服务端明确拒绝)。
+    // **done 帧就是回执**:内容为空也说明服务端完成了这一轮(空响应是模型没吐字,不是没收到)。
+    // 真正没有回执的只有三种:页面死在半路(finally 从没跑)、超时 abort、用户主动停止 ——
+    // 那三种下服务端可能已经执行了一半,必须留在账本里拦下一次重复提交。
+    let turnHadReceipt = false
+    // 本轮是否已有"产出证据"(正文 或 非文本可见产物)。计算在代际守卫内,收尾结算在守卫外,
+    // 故声明与 turnHadReceipt 同层。
+    let turnHasEvidence = false
     let abortedByTimeout15s = false
     let abortedByTimeout60s = false
     const timeout15sId = setTimeout(() => {
@@ -749,6 +830,11 @@ export function createSendMessage(
         // W25:#Rule 展开后的文本发给 LLM(重新生成模式:用户消息已在 store/历史中,直接作为完整上下文发送,不重复追加)
         messages: isRegenerate ? history : [...history, { role: 'user', content: llmText }],
         signal: controller.signal,
+        // G-816008:onDone 是"这一轮走完了"的权威信号(done 帧 / 重试耗尽后的正常收束)。
+        // 空内容也照样是回执 —— 说明服务端完成了这一轮,只是模型没吐字。
+        onDone: () => {
+          turnHadReceipt = true
+        },
         // P1-7(2026-09-13 立):会话级采样参数(高级参数面板),undefined = 用模型默认,
         // api-client 仅在字段存在时写入 body(见 client.ts streamChat body 构造)。
         temperature: samplingParams.temperature,
@@ -1148,6 +1234,31 @@ export function createSendMessage(
             ...(typeof evt.count === 'number' ? { count: evt.count } : {}),
           })
         },
+        // G-87 补链(2026-10-29 立):hook 执行失败帧 → 本条 assistant 消息的
+        // `meta.hookFailures`,由 `MessageItem` 的 `HookFailureCard` 渲染六态卡。
+        //
+        // **不接这一格 = 前面三层全白做**:SSE 发了、api-client 解析了、store action 也写了,
+        // 但没人把回调挂上去 —— 界面上依旧什么都看不见,而 typecheck / lint / 其余门全绿
+        // (本仓最高频的"造好没装车"形态)。
+        //
+        // 幂等键由服务端给(`evt.hookId::failedAt::hookEvent`,见 Python `_hook_failure_frame`),
+        // 这里**不自造**:重连重放要让同一次失败命中同一个键,端上编的键做不到。
+        // 缺 `messageId` 时回退到本轮流式消息(该帧必然属于当前流)。
+        onHookFailure: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId) return
+          chatStore.getState().appendMessageHookFailure(targetId, {
+            id: `${evt.hookId}::${evt.failedAt}::${evt.hookEvent}`,
+            state: evt.state,
+            hookName: evt.hookName,
+            hookEvent: evt.hookEvent,
+            ...(evt.command ? { command: evt.command } : {}),
+            ...(evt.stderr ? { stderr: evt.stderr } : {}),
+            ...(typeof evt.exitCode === 'number' ? { exitCode: evt.exitCode } : {}),
+            ...(typeof evt.durationMs === 'number' ? { durationMs: evt.durationMs } : {}),
+            ...(evt.failedAt ? { failedAt: evt.failedAt } : {}),
+          })
+        },
         // D39/D108 上游重试交代:retry_scheduled → 本条 assistant 消息的一行提示。
         // 不接就等于让 web 用户在退避期只看到"停顿"(该帧第 42 轮已入契约,当时只补了通道)。
         onRetryScheduled: (evt) => {
@@ -1370,6 +1481,9 @@ export function createSendMessage(
           // 纪律在 stream-error-report.ts:info.traceId 缺席 ⇒ 上报体无 frameTraceId 键,
           // 绝不写 undefined;字段名 frameTraceId 与动作链 traceId(user-action-telemetry)区分。
           reportStreamError(buildStreamErrorReport({ message: errMsg, info }))
+          // G-816008:服务端/网关明确给出了错误回执 ⇒ 这一棒被拒了(有结局,不是"没回音")。
+          // 收尾时据此结算账本 —— 让用户能立刻重发;而真正没回音的窗口必须留在账本里。
+          turnHadReceipt = true
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失
           contentBatcher.flush()
           reasoningBatcher.flush()
@@ -1457,6 +1571,10 @@ export function createSendMessage(
         const formatted = formatSSEError(err)
         chatStore.getState().setMessageError(assistantId, formatted.message)
         chatStore.getState().setError(formatted.message)
+        // G-816008:非 abort 的 catch 路径 = HTTP 4xx/5xx 抛错,服务端已明确拒绝这一棒
+        // (有结局,不是"没回音")。abort(用户停止 / 超时)刻意**不**置位:那两种情况下
+        // 服务端可能已经执行了一半,必须凭账本拦下一次重复提交。
+        turnHadReceipt = true
         if (formatted.severity === 'auth') {
           useLoginDialogStore.getState().open('login')
         }
@@ -1515,6 +1633,50 @@ export function createSendMessage(
         // cancelled(报错/中断/超时路径下后端不会再返回 tool-result)。
         // 正常 done 路径所有工具卡已有终态,此调用为空操作。
         chatStore.getState().revokePendingToolCalls(assistantId)
+
+        // ── 回合答案完整性(2026-10-29 接线)────────────────────────────────────
+        // 判据全在 `@ihui/shared/chat/turn-answer-integrity`(shouldAppendTurnFallback /
+        // applyTurnFallbackAnswer 是唯一实现),这里只落 store。
+        //
+        // **为什么在代际守卫内**:被「切换会话」abort 的旧流不该在当前会话里落失败态 ——
+        // 它已经不是"本轮"了。守卫内同时满足"本轮转写已是终值"(上面 batcher 已 flush)。
+        //
+        // **为什么必须有这一步**:空响应(模型没吐字就结束 / 流截断后没补回)会在界面留一个
+        // **空气泡**,而 `isStreaming` 此时已被清 —— 连"进行中"的转圈都没了,用户看到一片空白,
+        // 既不知道发生了什么也没有重试入口。这正是模块头注所说的"本轮没有权威答案落点"。
+        //
+        // 无条件下调一次共享判据(不预先筛"内容是否为空"):三态各由共享层裁定 ——
+        // 有内容且已在转写里 ⇒ `duplicate` ⇒ 零写入;空 ⇒ `empty`;缺一段 ⇒ `append`。
+        // 于是"重连后再收尾"天然幂等,不靠调用方自觉只调一次。
+        const turnTail = chatStore.getState().messages.find((m) => m.id === assistantId)
+        const turnAnswer = turnTail?.content ?? ''
+        const turnStopped = chatStore.getState().interruptedMessageId === assistantId
+        // **文本为空 ≠ 这一轮什么都没产出**。同一轮里非文本帧落在别处(D115 审查结论、
+        // 工具卡、plan 步骤、终端任务、子代理活动、AI 提问)。给那些回合补一张
+        // "没有返回任何内容"的失败卡,就是把**成功的回合说成失败**。
+        const hasStructuredOutput = hasVisibleTurnOutput(chatStore, assistantId, turnTail)
+        // 本轮"有产出证据" = 有正文,或有非文本可见产物。两路都并入结算判据:
+        // 工具轮/审查轮/plan 轮的正文天然为空,但它们明明跑完了 —— 不结算会把下一轮
+        // 同文提问拦成"上一次还没确认"(实测回归:review-findings 用例第二轮被自己拦下)。
+        turnHasEvidence = turnAnswer.trim().length > 0 || hasStructuredOutput
+        const fallback = applyTurnAnswerFallback({
+          chatStore,
+          answer: turnAnswer,
+          // 失败轮的 content 是错误文案而非回答:共享层已把它排除在"答案已在"之外,
+          // 但写入必须跳过 —— 否则会在错误卡之后再加一条回答,把"这轮失败了"说成"这轮答了"。
+          alreadyFailed: turnTail?.error === true,
+          // 用户主动停止属"已停止"终态,不是"失败";它的呈现位由 interruptedMessage 承担。
+          userStopped: turnStopped,
+          host: { model: roundModel, permissionMode: currentMode },
+        })
+        // 只有"上游真的没产出任何可见东西"才落非"完成"终态 —— 落 `failed` 而不是"完成"
+        // (AGENTS §30:没有终态却写成已完成是本仓最高频失效型)。
+        // `turnStopped` 时不落:那是"已停止",把用户的选择改判成故障是反向失真。
+        if (fallback.decision.kind === 'empty' && !turnStopped && !hasStructuredOutput) {
+          // 文案复用既有键 `chat.emptyAnswerFallback`;错误码复用既有目录项 EMPTY_RESULT,
+          // 于是失败卡能取到"没有可展示的结果 / 修改后重试"这一对现成词条(零新增词表)。
+          markEmptyTurn(chatStore, assistantId, t('emptyAnswerFallback'), 'EMPTY_RESULT')
+        }
       }
       // P1-6:流已收尾(正常完成 / 报错 / 超时 / 主动 stop)→ 标记完成,刷新后不再续接。
       // 注意:必须在 generation 守卫之外 —— 被「切换会话」abort 的旧流同样已终止,
@@ -1547,6 +1709,26 @@ export function createSendMessage(
         }
       }
       emitAgentHook('session.end', { summary: conversationId })
+
+      // 「已 accepted 未投影」结算(G-816008,2026-10-29)。
+      //
+      // **判据 = 这一轮到底有没有拿到回执**,而不是"跑到 finally 就算结束":
+      // 任一证据即回执 —— ① 收到过正文;② 收到了非文本产物(工具卡 / 审查结论 / plan 步骤…,
+      // 那些回合屏幕上是有东西的);③ 流正常走完(`onDone`,空内容也算:服务端完成了这一轮,
+      // 只是模型没吐字);④ 服务端/网关明确报错(这一棒被拒,重发是用户的权利)。
+      //
+      // 明确**不算**回执的只有:用户主动停止、超时 abort、页面死在半路(finally 从没跑)。
+      // 那三种下服务端可能已经执行了一半,条目必须留在账本里 —— 下次提交同一条会被拦
+      // 并给定向说明 + 一键人工放行。这正是本账本存在的理由:若写成"只要 finally 就结算",
+      // 弱网下那条最危险的窗口(请求已发出、一个回执都没收到)会被自己抹平。
+      //
+      // 注意 `onDone` 在 abort 路径也会被调用(api-client 的 isAbortError ⇒ onDone + 静默收束),
+      // 所以超时两档必须显式排除,否则超时会被误当成"有回执"。
+      const timedOut = abortedByTimeout15s || abortedByTimeout60s
+      const stoppedOrAborted = timedOut || chatStore.getState().interruptedMessageId === assistantId
+      if (pendingCommandId && !stoppedOrAborted && (turnHadReceipt || turnHasEvidence)) {
+        settlePendingSend(pendingCommandId)
+      }
     }
     // 消息已提交到 store(即使流式出错也有 error 标记 + retry 按钮),可清空输入框
     return true
