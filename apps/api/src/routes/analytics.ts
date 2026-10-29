@@ -214,7 +214,9 @@ export const analyticsRoutes: FastifyPluginAsync = async (server) => {
           }>
           properties?: unknown
         } | null) ?? {}
-      const ip = request.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ?? request.ip
+      // IP 一律取 request.ip(trustProxy 已解析可信代理链);不手读 X-Forwarded-For,
+      // 理由见 services/security-service.ts 头注 —— 客户端可整写,会污染统计。
+      const ip = request.ip
       const ua = request.headers['user-agent']?.slice(0, 500) ?? null
       const userId = (request as { userId?: string }).userId ?? null
 

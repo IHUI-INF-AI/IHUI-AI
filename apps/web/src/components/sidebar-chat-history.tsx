@@ -172,7 +172,7 @@ async function fetchConversations(page = 1): Promise<ConversationsResponse> {
 
 type GroupKey = 'today' | 'thisWeek' | 'thisMonth'
 
-function groupByDate(items: ConversationItem[]): { key: GroupKey; items: ConversationItem[] }[] {
+export function groupByDate(items: ConversationItem[]): { key: GroupKey; items: ConversationItem[] }[] {
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   const DAY = 24 * 60 * 60 * 1000
