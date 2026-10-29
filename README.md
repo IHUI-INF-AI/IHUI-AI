@@ -5470,6 +5470,20 @@ RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」�
 - 库里 `unused` 而券已过期 ⇒ 投影读成 `expired`,且 `status=unused` 的筛选发生在投影之后(清扫任务还没落状态时,"未使用"页不会显示过期券)。
 - 归属主体只取 `request.userId`;查询 schema 是 `strict`,客户端塞 `userId` 连同任何未知键一律 400(不是"塞了被忽略",而是"塞了不通过")。`total` 是全集条数而不是本页条数。
 - 这条路径原先的状态:RN 打 `/coupons`、小程序打 `/member/coupon`、web 打 `/api/coupons`,三端字面量互不相同而**后端一条都没注册**(库里 `user_coupons` 有写入链路:领券/裂变/核销都真在写,admin 侧也有列表,唯独用户侧没有出口)⇒ 三端会员券页都只会拿到错误态。移动两端字面量已统一成显式 `/api/coupons` 形态,好让门 8(`check-api-routes.mjs`)看得见这两处调用。
+
+**领券中心端点(2026-10-30 立,补 `promo_coupons` 的用户面出口):**
+| 端点 | 方法 | 鉴权 | 响应形状 | 消费端 |
+| ---- | ---- | ---- | -------- | ------ |
+| `/api/coupons/available` | GET | 需登录(承载层注入身份) | `{ code:0, message:'success', data: { list: AvailableCouponRow[], total, page, pageSize } }` | 小程序 `pages/member/coupon-list` |
+| `/api/coupons/:couponId/claim` | POST | 需登录(主体只认鉴权结果) | `{ code:0, message:'success', data: { id, couponId, status, createdAt } }` | 小程序 `pages/member/coupon-list` |
+- 与上面那条 `/api/coupons`(**我的券**,读 `user_coupons`)相对,本组读的是**券模板** `promo_coupons`,回答的是"现在有什么券能领"。可领判据 = `enabled` ∧ 落在 `startsAt…expiresAt` 窗口内 ∧ (`totalQuota IS NULL` ∨ `issuedCount < totalQuota`);判据单源 `coupon-service.claimFailureReasonOf`,列表层与领取层取同一份,不各写一遍。
+- 列表投影**刻意不含 `code`**:券码是"按码领取"那条入口(`POST /api/developer/relay/coupons/redeem`)的凭据,公开列表带上它等于把入口连同凭据一起发给所有人;码只出现在用户自己已领取的券上。所以领券中心走按 `couponId` 领取,不走按码。
+- 两条领取入口(按码 `claimCoupon` / 按 id `claimCouponById`)**共用同一份事务体** `claimResolvedCoupon`:FOR UPDATE 锁券行 → `perUserLimit` 校验 → 条件 UPDATE 扣库存(防超发)→ insert → 裂变奖励,失败原因枚举与返回形状逐字相同,按码那条的既有调用方零改动。按 id 那条的 uuid 形状闸排在进 SQL 之前(非 uuid 字面量会被 Postgres 抛 22P02)。
+- 这条路径原先的状态:小程序「领券中心」页打的是 `GET /api/coupons?status=available`,而后端 `status` 枚举只收 `unused|used|expired` ⇒ **必 400**,用户点进去永远看到"加载失败";`promo_coupons` 表结构、领取事务、防超发全都齐备,唯独没有任何用户面读出口 ⇒ 属"表在、链路在、入口从未存在"。
+- 数据现状如实说明:端点上线不等于列表有内容。当前可领的券仍需由 admin `POST /api/admin/coupons` 建出来,这是运营动作,不是代码缺口(全仓无 `promo_coupons` 的 seed)。
+
+**工具目录 seed(2026-10-30 立,补 `/tools` 页的数据面):**`GET /api/tools` 与 `tools` 表、web `/tools` 页三向都齐,但此前**全仓无 seed、也无运营建工具的页面** ⇒ 新库这张表恒空,页面三个分类各显示「暂无工具」。`packages/database/seed/tools-seed.ts` 落 9 条基线,每条对应一个本仓真实存在、点得动的 web 路由(`tools/pdf/{merge,split,watermark,convert}`、`tools/voice-stt`、`models`、`knowledge-base`、`mcp-store`、`web-tools`),按 name 幂等、已注册进 seed 主流程。因三端工具页(web `/tools`、RN `ToolsScreen`、小程序 `pkg-user/tools`)同取这一个端点,一份 seed 三端同时有内容。
+
 **圈子加入端点(2026-10-18 立,补上 leave 缺的那条对称腿):**
 | 端点                    | 方法 | 鉴权               | 响应形状                                                          | 消费端                           |
 | ----------------------- | ---- | ------------------ | ----------------------------------------------------------------- | -------------------------------- |
