@@ -56,7 +56,6 @@ export function UploadDialog({
       if (!file) throw new Error(t('noFile'))
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('ownerUuid', '')
       if (title.trim()) fd.append('title', title.trim())
       const r = await fetchApi<{ chunkCount: number; docId: number }>('/api/knowledge/upload', {
         method: 'POST',
@@ -83,7 +82,6 @@ export function UploadDialog({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ownerUuid: '',
           title: title.trim() || t('defaultTitle'),
           text: text.trim(),
         }),

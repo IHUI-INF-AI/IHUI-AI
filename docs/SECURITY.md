@@ -454,6 +454,117 @@ EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形�
 
 ---
 
+### 10.9 主机侧敞口清点(2026-10-29 二次实测,三项当场处置)
+
+1. **SMB 共享 `Users` → `C:\Users`,权限 `Everyone, FULL`** —— 已拆。它不是 Windows 默认共享
+   (默认只有 `C$/D$/ADMIN$/IPC$`),却把 `~/.ssh/id_ed25519`、`~/.npmrc`(发布令牌)、
+   `~/.git-credentials` 整片摊给局域网任意主体,且 FULL 是可写(可直接往启动目录投毒)。
+   拆前实测 `net session` 无活动会话,默认管理共享保留 ⇒ 管理员远程能力未减。
+   留痕 `.ihui-agent/state/smb-users-share-before.txt`。
+
+2. **`node.exe` 按程序全网放行 12 条 `remote=Any`** —— 全部 `enable=no`;同批删掉 ChatGPT 客户端
+   留下的 `8081-8112`/`3128-3159`/`1455`/`1457` 全网放行(实测均无监听)。这种"按程序放行"把入站
+   控制权交给了"哪个端口恰好有 node 在听",与 `IHUI-DENY-WAN-SERVICES` 的按端口收口是两套口径。
+   留痕 `.ihui-agent/state/fw-rules-node-chatgpt-before.txt`。复核业务零中断:公网 `www` 200、
+   `www/api/health` 200、api 经代理 200、本机 8802 200、直连 8801 仍 403。
+
+3. **Keycloak 启动命令行明文带 PG 密码与 bootstrap admin 密码** —— 已脱出命令行。
+   `kc-run-production.bat` 改用官方 `KC_*` 环境变量映射(`set /p KC_DB_PASSWORD=<secrets 文件`),
+   明文落 `D:\DevEnv\secrets\keycloak-{db,bootstrap-admin}-password.txt` 并收紧 ACL 为
+   SYSTEM 只读 + Administrators 完全(服务身份 = LocalSystem)。成因:进程命令行对任何能读
+   进程列表的主体可见。重启后实测 8850 在听、`/realms/master` 返 `"realm":"master"`、公网 SSO 200。
+
+**两格均已处置(2026-10-29 当日闭环,读数与判据如下)**:
+
+- **防病毒** —— 原状态:Defender 是被**整体移除**而非禁用(`C:\Program Files\Windows Defender\` 与
+  `C:\ProgramData\Microsoft\Windows Defender\` 两个目录都不在,`WinDefend` 服务注册表不存在,
+  `wscsvc`/`SecurityHealthService` 也一并没了 ⇒ 安全中心组件被精简,DISM 修不回)。
+  处置:装火绒安全软件 **6.0.1.3**(winget id `XPDNH1FMW7NB40`,落 `C:\Program Files\Huorong\Sysdiag`,
+  带 `uninst.exe` 可回退),`HipsDaemon` Automatic + Running、`HipsTray` 在跑。
+  **能力用 EICAR 实测过,不是看进程列表**:写入时不拦、**读取/执行时立即删除**(惰性扫描 ⇒ 构建写入零拖慢);
+  自我保护在岗(外部 `Stop-Process` 被拒)。未做:信任区排除项没有命令入口(配置在 `config.db` 的
+  `UserConfig` BLOB 里,无明文键,全表 13 行杂项)—— 若部署环出现明显变慢,再把 `D:\IHUI-AI` 与
+  `D:\DevEnv` 加进火绒信任区。
+- **`git-guardian` daemon 档自拉起腿** —— 已补(提交 `cca0a95e4f6b47daf8fe3c4111cdd9f86d113a60`)。
+  病因是 exit 0 不触发 SCM 的 failure action,而它在服务自愈台账里又被 excluded(重启自己 = 自杀)
+  ⇒ 两条路都堵死。新腿挂在**计划任务那一侧**(在服务外),判据只读 SCM 现值:STOPPED 且 AUTO_START
+  才代拉,轮询到终态,拿不到路径/状态一律判未判定、不动作。镜像 16 例 + 两次真停服务的变异自证
+  (首版在 START_PENDING 就断言失败,正是被自证抓出来改掉的)。
+
+### 10.9 P0 — 2026-10-29 二轮加固:未授权面 / 本地文件面 / 边缘 IP 身份
+
+> 五组修复,全部有代码级回归锁,且在生产实测闭环。本节只记"改了什么 + 怎么验",
+> 判据细节见各提交信息与对应测试文件。
+
+**① `/api/knowledge/*` 全插件强制登录(未授权读写他人知识库)**
+
+- 缺陷:插件注册时无任何鉴权 preHandler,八处 handler 读 `(req.user)?.userId`,而
+  `@fastify/jwt` 把 `request.user` 装饰为 null、本仓 `authenticate()` 只写 `request.userId`
+  ⇒ 该读数恒 undefined,主体退化为客户端自报的 `ownerUuid`。匿名即可读写任意用户知识库。
+  同时 web/CLI 因传 `ownerUuid=''` 直接 500 —— 功能坏与越权两种失真并存。
+- 修复:插件级 preHandler(健康检查除外)+ 删除请求侧 `ownerUuid` + 服务层 `search`/
+  `getRagContext` 的 owner 由可选改必填并强制拼 WHERE。同族两处内部调用
+  (crew-tools 搜索工具、crew-orchestrator 的 RAG 上下文)原先传空串"检索全局知识库",
+  实际等于跨所有用户检索,改为取当前会话 userId;`loadKnowledgeContext` 无 userId 直接返回。
+- 验证:`identity-principal-idor.test.ts` 12 条(匿名 401 且零查库 / 自报 ownerUuid 无效 /
+  健康检查仍匿名)。
+
+**② ai-service 成本面与调度状态面进入永不公开名单**
+
+- 缺陷:`.env` 的 `JWT_PUBLIC_PATHS` 是**整串替换**而非增量,与 config.py 默认值分叉
+  +3/-2:多出 `/api/agents/`、`trigger-refresh`、`scheduler-status`,漏掉 `/internal/` 与
+  `/api/publish/scan-login/platforms`。生产实测 `GET /api/admin/news/scheduler-status` 匿名 200。
+- 修复:`jwt_auth` 新增 `_NEVER_PUBLIC_EXACT`(配置里写了也剔除);本机与生产的 `.env`
+  删掉危险条目;`/internal/` 与扫码登录平台清单随之恢复。
+- 验证:重启后 `scheduler-status` / `trigger-refresh` 均 401,`/api/publish/scan-login/platforms`
+  200,探活 200;`test_privileged_surface_auth_59.py` 23 条。
+
+**③ 边缘 IP 归一再补隧道腿(公网 `/metrics` 从 200 变 403)**
+
+- 缺陷:`api.aizhs.top` 走本机 cloudflared,请求 TCP 对端恒为 127.0.0.1;而
+  `buildForwardHeaders` 把 `cf-connecting-ip` 当可伪造头删除、XFF 回落 socketIp
+  ⇒ 上游 `request.ip` 恒为回环:公网 `/metrics` 实测 200(87 行指标)、全局限流退化成
+  单桶、`isPrivateIp` 对全部公网流量短路(风控层静默关闭)。off 档还会把客户端自带的
+  X-Forwarded-For 原样透传。
+- 修复:回环对端采信 `CF-Connecting-IP`(直连源站对端为公网地址,同一头即攻击者可控,
+  仅回环采信);三档统一归一;未验证时删除入站 `x-ihui-edge-verified`(否则 ws-guard /
+  conn_guard 会把客户端自填的 IP 当限流键)。
+- 验证:生产重启 router 后 `https://api.aizhs.top/metrics` 200 → **403**,
+  带伪造 XFF 仍 403,`127.0.0.1:8802/metrics` 200(Prometheus 采集不受影响),主站 200。
+
+**④ 镜像构建上下文排除真实密钥**
+
+- 缺陷:`apps/ai-service` 无 `.dockerignore` 而 Dockerfile 是 `COPY . .`;根 `.dockerignore`
+  不排除 `.env` / `cert` / `*.pem`。上下文里真实存在微信支付与支付宝私钥、GitHub App 私钥、
+  小程序上传私钥与多份 `.env.bak-*` ⇒ 一次 build 即写进镜像层。
+- 修复:两处补齐;新增 `scripts/tests/dockerignore-secrets.test.mjs`(进 CI 的 scripts/tests
+  全量作业)。判据当场抓到"`*.pem` 不跨 `/`、子目录私钥仍会漏"的真实写法错误。
+- 注意:本机生产走 NSSM 不受影响,**SaaS / 多机 docker 形态**才暴露。
+
+**⑤ 本地文件面收口 + 管理员 TOTP 默认 enforce**
+
+- `resource.ts`:下载接口对 admin 可写的 `fileUrl` 直接 `stat` + `createReadStream` ⇒
+  写入 `../../.env` 即可读走任意文件。线上该字段 100% 是 http(s) 外链,本地分支零使用
+  ⇒ 直接删除,只留远程重定向。
+- `chunked-upload.ts`:`cancel` 的 `uploadId` 只校验非空,随即 `join` + `rmSync(recursive)`
+  ⇒ **任何登录用户传 `../../..` 可递归删除任意可达目录**;且八处会话查询不带 userId
+  (IDOR:可往他人会话写分片/触发合并)。修复:uploadId 形态校验 + 八处查询加 userId +
+  cancel 先验归属再动磁盘。
+- TOTP:闸门默认由 `warn` 升 `enforce`。生产库唯一管理员**尚未绑定**,故生产 `.env` 显式
+  写 `ADMIN_TOTP_MODE=warn` 作过渡。**机主在「设置 → 安全」绑定 TOTP 后删掉那一行即回到
+  enforce**;绑定期内 admin 面仍可被单密码进入,这是本轮唯一保留的已知风险。
+
+**⑥ 本轮未做(已登记为下一轮工单)**
+
+`api` 的鉴权仍是"每路由手挂 `authenticate`",没有根级默认拒绝。现状读数:341 个路由文件 /
+3470 个注册点 / 188 个插件级 preHandler / 1450 处鉴权调用;已实测两处漏挂形态
+(`developer-relay-keys-admin` 恒 401 属碰巧 fail-closed、`chat`/`files` 为 handler 内手调)。
+执行次序:①运行时 `onRoute` 盘点出「零 preHandler 且不在公开名单」的路由;②建显式公开
+名单文件;③根级 `onRequest` 默认拒绝 + 名单放行;④全量回归 + 生产灰度。
+**不放进本轮的原因**:需逐个分类 3470 个注册点,漏判即整站 401,必须独立一轮并带灰度。
+
+---
+
 ## 11. 密钥与凭证轮转流程
 
 ### 11.1 凭证清单
@@ -499,7 +610,11 @@ EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形�
 - **定期渗透 / 红队**:建议每季度一次,覆盖 API、relay 面、支付回调。
 - **WAF 启用评估**:仅 nginx 形态适用(§10.3/§10.4);本机生产走 EdgeOne,应在 EdgeOne
   控制台评估其 WAF/限流规则,而不是改仓库里的 nginx 片段。
-- **源站收敛**:代码侧已就绪(§10.8 回源鉴权守卫,默认 off)。**待机主在 EdgeOne 控制台**
-  配「修改 HTTP 回源请求头」→ 走 observe ≥24h → 切 enforce。防火墙 IP 白名单路线已排除:
-  仅付费套餐开放、3-6 个月变一次、且官方文档自认网段内可能混入非 EdgeOne 的 IP。
+- ~~源站收敛~~ **已闭环(2026-10-29 线上切换,见 §10.8)**:两半都已落地 —— 源站侧守卫 +
+  `scripts/eo-origin-guard-rule.mjs --apply` 直调 teo API 落回源头,**不需要人去控制台点**。
+  现档 `enforce`,当次复测读数:公网 `www.aizhs.top` 200 / 局域网直连 `192.168.1.37:8801` 403 /
+  回环不带源头 200,且守卫日志已实录拦到外部直连来源(`ip=108.181.23.71` reason=missing)。
+  防火墙 IP 白名单路线已排除:仅付费套餐开放、3-6 个月变一次、且官方文档自认网段内可能混入非 EdgeOne 的 IP。
+  **本机出口 IP 实测已从 218.27.70.129 变为 218.27.68.23(联通动态)** —— 这正是"按源站 IP 收防火墙"
+  不可靠的直接证据,不必再回头补。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

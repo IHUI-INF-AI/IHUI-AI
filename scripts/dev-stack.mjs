@@ -635,7 +635,11 @@ if (watchMode) {
       /* 审计失败不阻塞守护 */
     }
   };
-  const tick = async () => {
+  /** 每条腿最近一次重拉的时刻(冷却判据,见重拉处的注释) */
+  const lastStartAt = new Map();
+  /** 重拉冷却 = 2× 就绪等待(45s),足够覆盖 api 冷启动超过 45s 的实测值 */
+  const RELAUNCH_COOLDOWN_MS = 120_000;
+  const rawTick = async () => {
     writeHeartbeat();
     silentAuditTicks++;
     if (silentAuditTicks % SILENT_AUDIT_EVERY_TICKS === 1) runSilentAudit();
@@ -650,6 +654,17 @@ if (watchMode) {
             continue;
           }
           cannotStartNotified.delete(svc.name);
+          // 2026-10-29: 重拉冷却。就绪等待最长 45s 而 tick 间隔 30s,上一轮刚 spawn 的树
+          // 还没监听时下一轮就会判它 down 再拉一棵 ⇒ 两棵树抢同一个端口,双双失败。
+          // 冷却期内的"掉线"只记录不重拉(startedAt 由本轮写入,与重入锁配合兜底)。
+          const nowMs = Date.now();
+          if (nowMs - (lastStartAt.get(svc.name) ?? 0) < RELAUNCH_COOLDOWN_MS) {
+            console.log(
+              `[${new Date().toLocaleTimeString()}] ${svc.name}(:${svc.port}) 掉线,仍在启动冷却期内,本轮不重拉`,
+            );
+            continue;
+          }
+          lastStartAt.set(svc.name, nowMs);
           console.log(`[${new Date().toLocaleTimeString()}] ${svc.name}(:${svc.port}) 掉线,重拉中...`);
           const child = startSvc(svc);
           if (child && typeof child.unref === 'function') child.unref();
@@ -667,6 +682,20 @@ if (watchMode) {
         console.log(`手机转发: ${d.ok ? '✅' : '⚠️'} ${d.msg}`);
         lastDeviceMsg = d.msg;
       }
+    }
+  };
+  // 2026-10-29: tick 重入锁。setInterval(30s) 不等上一轮结束,而单轮最坏 7×45s(waitReady)
+  // 远大于 30s ⇒ 多轮 tick 并发在飞;每轮的 startSvc → killStale 都会按 pid 文件 taskkill,
+  // 而 pid 只有一槽 ⇒ 后写覆盖前写、前一棵树成孤儿占住端口、新树绑不上 ⇒ 永久「重拉失败」
+  // (实测末 200 行:api 掉41/成12/败30、web 掉45/成8/败37、web-preview 掉8/成1/败7)。
+  let ticking = false;
+  const tick = async () => {
+    if (ticking) return;
+    ticking = true;
+    try {
+      await rawTick();
+    } finally {
+      ticking = false;
     }
   };
   reclaimForeignLegs();

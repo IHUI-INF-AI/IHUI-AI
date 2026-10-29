@@ -210,7 +210,6 @@ export function KnowledgeEntryReadingScreen({
 
         {(prev && onPrev) || (next && onNext) ? (
           <View style={styles.navRow}>
-            {' '}
             {prev && onPrev ? (
               <TouchableOpacity
                 style={styles.navBtn}

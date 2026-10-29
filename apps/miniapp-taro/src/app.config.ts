@@ -197,6 +197,7 @@ export default defineAppConfig({
         'quick-notes/index',
         'cloud-runs/index',
         'chat-workbench/index',
+        'pdf-tools-hub/index',
       ],
     },
     {

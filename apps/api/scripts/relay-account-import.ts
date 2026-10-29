@@ -134,7 +134,7 @@ export async function runHealth(providerCode: string, uid: string): Promise<Heal
     .limit(1)
   if (!row) return null
   const adapter = getRelayAdapter(providerCode)
-  if (!adapter) return { id: row.id, uid, ok: false, error: `平台 ${providerCode} 适配器未注册` }
+  if (!adapter) return { id: row.id, uid, ok: false, indeterminate: true, error: `平台 ${providerCode} 适配器未注册` }
   let outcome: { ok: boolean; error?: string; indeterminate?: boolean }
   try {
     outcome = await Promise.race([

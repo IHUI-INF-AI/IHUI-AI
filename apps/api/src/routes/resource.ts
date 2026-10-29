@@ -3,9 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync } from 'fastify'
-import { createReadStream } from 'node:fs'
-import { stat } from 'node:fs/promises'
-import { basename } from 'node:path'
 import { z } from 'zod'
 import { and, eq, desc } from 'drizzle-orm'
 import { auditLogs, resourceProducts } from '@ihui/database'
@@ -369,21 +366,14 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
         return reply.redirect(fileUrl)
       }
 
-      // 本地文件 → 流式传输
-      try {
-        const stats = await stat(fileUrl)
-        const filename = basename(fileUrl)
-        reply.header('Content-Type', resource.fileType || 'application/octet-stream')
-        reply.header('Content-Length', stats.size)
-        reply.header(
-          'Content-Disposition',
-          `attachment; filename="${encodeURIComponent(filename)}"`,
-        )
-        const stream = createReadStream(fileUrl)
-        return reply.send(stream)
-      } catch {
-        return reply.status(404).send(error(404, '资源文件不存在'))
-      }
+      // 2026-10-29 安全收口:删掉本地文件分支。
+      // fileUrl 是 admin 可写的自由文本(z.string().max(500),无路径约束),原实现直接
+      // stat + createReadStream ⇒ 写入 ../../.env 之类的路径即可借下载接口读走服务器任意
+      // 文件(组合链:管理员密码泄漏 → TOTP 未绑 → 进后台 → 任意文件读取)。
+      // 实测线上资源的 file_url 全部是 http(s) 外链,本地分支零使用。
+      // 将来若要支持本地文件:新建带根目录约束的专用端点(resolve 后必须落在 UPLOAD_DIR 内),
+      // 不要复活这一段 —— 它没有、也不该有"任意路径"的语义。
+      return reply.status(404).send(error(404, '资源文件不存在'))
     },
   )
 

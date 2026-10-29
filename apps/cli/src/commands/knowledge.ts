@@ -12,7 +12,7 @@
  *    POST   /api/knowledge-base  body: { title, summary?, content?, ... } → { item }
  *    DELETE /api/knowledge-base/:id(RESTful 约定,后端待补则报错提示)
  *  - RAG apps/api/src/routes/knowledge-rag.ts(注册前缀 /api/knowledge):
- *    POST /api/knowledge/search  body: { query, collectionName, topK, scoreThreshold, ownerUuid } → SearchHit[]
+ *    POST /api/knowledge/search  body: { query, collectionName, topK, scoreThreshold } → SearchHit[]
  *    POST /api/knowledge/upload  multipart: { file, title?, collectionName? } → { chunkCount, filename, mimeType }
  *
  * 类型契约:KBArticle / SearchHit / DocSummary 与 Web 端 knowledge-base/page.tsx、knowledge-rag/page.tsx 对齐。
@@ -80,7 +80,6 @@ interface SearchBody {
   collectionName: string;
   topK: number;
   scoreThreshold: number;
-  ownerUuid: string;
 }
 
 interface UploadResult {
@@ -414,7 +413,6 @@ async function ragSearch(
     collectionName: kb ?? DEFAULT_COLLECTION,
     topK: DEFAULT_TOP_K,
     scoreThreshold: 0,
-    ownerUuid: '',
   };
   const resp = await apiRequest(baseUrl, '/api/knowledge/search', {
     method: 'POST',

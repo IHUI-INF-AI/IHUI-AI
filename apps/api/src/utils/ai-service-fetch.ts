@@ -98,6 +98,18 @@ export async function aiServiceFetch(
       headers.Authorization = `Bearer ${await getSystemAccessToken()}`
     }
   }
+  // 把边缘层(router)验证后的真实客户端 IP 透传给 ai-service,使其能做 per-user 连接/握手
+  // 限流(ai-service 的 conn_guard 只在 x-ihui-edge-verified==1 时采信 x-ihui-client-ip)。
+  // 这两个头由 router 注入且不可伪造:未经验证时 router 会重写为 TCP 对端且不带 verified
+  // 标记,故此处只在「确实带了 verified 标记」时才透传,绝不把客户端自带的值转出去。
+  if (request) {
+    const edgeVerified = request.headers['x-ihui-edge-verified']
+    const edgeIp = request.headers['x-ihui-client-ip']
+    if (edgeVerified === '1' && typeof edgeIp === 'string' && edgeIp) {
+      headers['x-ihui-client-ip'] = edgeIp
+      headers['x-ihui-edge-verified'] = '1'
+    }
+  }
   const url = `${config.AI_SERVICE_URL}${path}`
   return fetch(url, {
     ...init,
