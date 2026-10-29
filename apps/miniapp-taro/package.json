@@ -51,7 +51,7 @@
     "@tarojs/plugin-html": "4.2.1",
     "@tarojs/plugin-platform-alipay": "4.2.1",
     "@tarojs/plugin-platform-h5": "4.2.1",
-    "@tarojs/plugin-platform-swan": "4.2.1",
+    "@tarojs/plugin-platform-swan": "4.3.1",
     "@tarojs/plugin-platform-tt": "4.2.1",
     "@tarojs/plugin-platform-weapp": "4.2.1",
     "@tarojs/react": "4.2.1",
