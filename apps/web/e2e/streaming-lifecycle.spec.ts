@@ -20,10 +20,12 @@ import { bootHarnessPage } from './harness-boot'
 interface FrameSample {
   ts: number
   h: number[]
+  l: number[]
   a: number
   g: number
   p: boolean
   t: number
+  s: string[]
 }
 
 async function readTimeline(page: import('@playwright/test').Page): Promise<{
@@ -56,31 +58,72 @@ test.describe('流式生命周期像素守门(⑦⑧⑨)', () => {
     expect(frames.length, '时间线帧数应足够(≥60)才谈得上逐帧判据').toBeGreaterThanOrEqual(60)
     expect(Number.isFinite(doneTs), '驱动必须已停笔').toBe(true)
 
-    // ── ⑦ 围栏高度单调不回塌 ────────────────────────────────────
-    // 同 index 相邻两拍高度只许增/持平(容 1px 取整);降 = 折叠复位那一闪被抓现行。
+    // ── ⑦ 围栏显示行数单调不回塌 ────────────────────────────────
+    // 判据是"行数"而非高度:react-syntax-highlighter 是懒加载 chunk,plain fallback ↔
+    // 高亮版换装会因行高差让像素高度正常跳变(实测 77→54、234→99 皆此型,行数不变);
+    // 折叠复位才让行数真缩(12→5)。innerText 按块级布局折行,行号各行计一行。
     const drops: string[] = []
+    const heightJitter: string[] = []
     for (let i = 1; i < frames.length; i++) {
       const prev = frames[i - 1] as FrameSample
       const cur = frames[i] as FrameSample
-      const sharedLen = Math.min(prev.h.length, cur.h.length)
+      const sharedLen = Math.min(prev.l.length, cur.l.length)
       for (let k = 0; k < sharedLen; k++) {
+        const pl = prev.l[k] as number
+        const cl = cur.l[k] as number
+        if (cl < pl) drops.push(`帧#${i} 围栏#${k}: ${pl}行 → ${cl}行`)
         const ph = prev.h[k] as number
         const ch = cur.h[k] as number
-        if (ch < ph - 1) drops.push(`帧#${i} 围栏#${k}: ${ph}px → ${ch}px`)
+        if (ch < ph - 1) heightJitter.push(`帧#${i} 围栏#${k}: ${ph}px → ${ch}px`)
       }
     }
-    expect(drops, '流式全程围栏块高度只增不减(晋升 remount 不得丢展开态)').toEqual([])
+    // eslint-disable-next-line no-console
+    console.log(
+      `[lifecycle] heightJitter=${heightJitter.length} 处(高亮换装,信息性): ${heightJitter.slice(0, 6).join(' | ')}`,
+    )
+    if (drops.length > 0) {
+      // 取证:每个塌缩帧的 ±3 帧全字段读数(归因用,不参与判定)
+      const idxs = [...new Set(drops.map((d) => Number(/帧#(\d+)/.exec(d)?.[1] ?? NaN)))]
+      for (const di of idxs) {
+        for (let i = Math.max(1, di - 3); i <= Math.min(frames.length - 1, di + 3); i++) {
+          const f = frames[i] as FrameSample
+          // eslint-disable-next-line no-console
+          console.log(
+            `[lifecycle][evidence] 帧#${i} h=${JSON.stringify(f.h)} l=${JSON.stringify(f.l)} a=${f.a} g=${f.g} p=${f.p} t=${f.t} s=${JSON.stringify(f.s)}`,
+          )
+        }
+      }
+    }
+    // (调试通道)若塌缩在册:抓每个围栏块的 outerHTML 片段——"展开 (N 行)"按钮文本
+    // 直接暴露 codeLines.length,可一步分辨塌缩来源(先取证再断言,expect 会短路)。
+    if (drops.length > 0) {
+      const html: string[] = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('[data-testid="code-block-header"]')).map((e) =>
+          (e.parentElement?.outerHTML ?? '').replace(/\s+/g, ' ').slice(0, 400),
+        ),
+      )
+      for (const [i, frag] of html.entries()) {
+        // eslint-disable-next-line no-console
+        console.log(`[lifecycle][html] 块#${i}: ${frag}`)
+      }
+    }
+    expect(drops, '流式全程围栏显示行数只增不减(折叠复位/晋升回塌即现形)').toEqual([])
 
     // ── ⑨ mermaid 真出图后占位不得再现 ──────────────────────────
     const firstSvg = frames.findIndex((f) => f.g > 0)
     expect(firstSvg, '真实浏览器内 mermaid 必须完成首次出图').toBeGreaterThan(-1)
-    const bFrame = frames.findIndex((f) => f.h.length >= 2)
+    // B 块在场判据 = 快照里出现 main.py。不能用 h.length>=2:晋升 commit 瞬间新旧双头,
+    // "长度≥2"最早命中的是 A 的晋升拍而非 B(2026-10-29 实跑分辨)。
+    const bFrame = frames.findIndex((f) => f.s.some((x) => x.includes('main.py')))
     expect(bFrame, '第二围栏必须到场(样本驱动未走完后段?)').toBeGreaterThan(-1)
     // 判别力守卫:只有"先出图、后晋升",闪位窗口才存在;顺序反了本片的 ⑨ 腿无的放矢,明说。
     expect(firstSvg, 'mermaid 应在晋升窗前已出图(否则 ⑨ 腿不构成判别窗口)').toBeLessThanOrEqual(
       bFrame,
     )
-    const relapseAfterSvg = frames.slice(firstSvg + 1).some((f) => f.p)
+    // 闪位 = "占位在场且 mermaid 不在场"的帧。裸 p 判据会误伤:
+    // react-syntax-highlighter 也是懒加载 chunk,其 dynamic loading 占位同为 animate-pulse
+    // (2026-10-29 实跑分辨:图出后 py 块高亮 chunk 在载入 → p 真 g 在 → 非闪位)。
+    const relapseAfterSvg = frames.slice(firstSvg + 1).some((f) => f.p && f.g === 0)
     expect(
       relapseAfterSvg,
       'mermaid 出图后"渲染中"占位不得再现(晋升重挂必须由模块级台账首帧接上)',
