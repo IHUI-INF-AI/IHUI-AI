@@ -247,12 +247,27 @@ export function resolveEdgeClientIp(headers) {
  * @param {string} input.edgeReason                   decideEdgeGuard 给出的 reason
  * @returns {Record<string, unknown>}
  */
-export function buildForwardHeaders({ headers, remoteAddress, edgeMode, edgeReason }) {
+export function buildForwardHeaders({
+  headers,
+  remoteAddress,
+  edgeMode,
+  edgeReason,
+  // 仅内部路由(只监听回环、上游只能来自可信公网路由)传 true:把公网路由 8801 经回源鉴权后
+  // 注入的 verified 标记原样透传,使"已验证"结论一路带到 API 上游实例 —— ai-service 的
+  // per-user 连接/握手限流要靠它拿到真实客户端 IP。
+  //   公网路由 8801 自身必须传 false —— 它的上游是开放互联网(cloudflared 在本机以 127.0.0.1
+  //   连入,故不能靠 isLoopback 区分),攻击者可在公网请求里自带 x-ihui-edge-verified 骗过,
+  //   所以 8801 只认自己比对的 secret,绝不信任入站该头。
+  // 角色判定由调用方按 LISTEN_HOST 给出(见 ihui-api-router.mjs),本函数只消费标志。
+  trustInboundVerified = false,
+}) {
   const out = { ...(headers ?? {}) }
   if (edgeMode === 'off') return out
 
   const socketIp = typeof remoteAddress === 'string' && remoteAddress ? remoteAddress : 'unknown'
-  const trusted = edgeReason === 'match'
+  // 入站已带 verified ⇒ 来自上游可信路由的真验证(本实例只监听回环时才成立)。
+  const inboundVerified = out['x-ihui-edge-verified'] === '1'
+  const trusted = edgeReason === 'match' || (trustInboundVerified && inboundVerified)
   const clientIp = (trusted && resolveEdgeClientIp(headers)) || socketIp
 
   for (const name of IP_HEADERS_TO_DROP) delete out[name]
