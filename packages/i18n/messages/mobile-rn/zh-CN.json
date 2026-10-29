@@ -3911,6 +3911,9 @@
     }
   },
   "orderDetail": {
+    "actionFailed": "操作失败，请重试",
+    "cancelConfirmTitle": "确认取消该订单？",
+    "refundConfirmTitle": "确认申请退款？",
     "amount": "金额",
     "createdAt": "创建时间",
     "loadFailed": "加载订单详情失败",

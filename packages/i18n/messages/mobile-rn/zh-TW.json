@@ -3911,6 +3911,9 @@
     }
   },
   "orderDetail": {
+    "actionFailed": "操作失敗，請重試",
+    "cancelConfirmTitle": "確認取消該訂單？",
+    "refundConfirmTitle": "確認申請退款？",
     "amount": "金額",
     "createdAt": "建立時間",
     "loadFailed": "載入訂單詳情失敗",
