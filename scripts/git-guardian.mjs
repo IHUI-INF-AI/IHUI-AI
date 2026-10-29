@@ -3182,6 +3182,104 @@ const WORKTREE_ALIGN_TICK = join(WORKTREE, '.ihui-agent', 'state', 'worktree-ali
 const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS || 420_000)
 
 // 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l3279(门 103 C1 收口)〉首意: 
+// ── daemon 档自我存活兜底(2026-10-29 立)────────────────────────────────────
+// 立因:IHUI-GIT-GUARD 在 heal-unresponsive-services 的台账里是 excluded(「动作器就跑在
+// 这个执行体里,重启自己 = 自杀」),而 SCM 的失败动作对 **exit 0** 不触发 —— daemon 正常
+// 退出后既没有恢复动作,也没有任何一格巡检去看它。2026-10-29 实测它停在 Stopped,期间全靠
+// 计划任务档(每 2 分钟一轮)维持巡检,账面零判据喊过 —— 失效方向是安静(§12f)。
+//
+// 只挂在**非 daemon 执行体**上:daemon 里调它等于自己拉自己(函数内部还有一道 daemon 挡板,
+// 供镜像测试与误挂防御)。判据取 SCM 现值,不探端口(daemon 无监听面);取不到 ⇒ 未判定、不动作。
+// 不喊人:daemon 停摆只是把巡检从"连续"降到"每 2 分钟一次",计划任务档仍在跑,够不上人到场;
+// 日志行是唯一留痕,人工复现 = sc query IHUI-GIT-GUARD。
+export const GUARD_SERVICE_NAME = 'IHUI-GIT-GUARD'
+const SC_EXE = process.env.IHUI_SC_EXE || 'C:\\Windows\\System32\\sc.exe'
+/** 同步小睡(不派生进程):sc start 是异步的,复验要等,见 ensureGuardDaemonAlive 的轮询段。 */
+export function sleepSync(ms) {
+  if (!(ms > 0)) return
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/**
+ * 纯判据:SCM 两段文本 → 该不该代拉。零 IO、零副作用。
+ * 过渡态(START_PENDING=2 / STOP_PENDING=3)一律不插一脚:插了会吃 1056 或把正在停的拽回来。
+ */
+export function judgeGuardDaemonAlive({ daemon, queryOutput, configOutput }) {
+  if (daemon) return { action: 'noop', reason: 'daemon-self' }
+  const m = String(queryOutput ?? '').match(/\bSTATE\s*:\s*(\d+)/i)
+  if (!m) return { action: 'undetermined', reason: 'state-unreadable' }
+  const code = Number(m[1])
+  if (code === 4) return { action: 'noop', reason: 'running' }
+  if (code === 2 || code === 3) return { action: 'noop', reason: 'pending' }
+  if (code !== 1) return { action: 'undetermined', reason: `state-${code}` }
+  const cfg = String(configOutput ?? '')
+  // 手动启动的服务被人刻意停掉是人的决定,不代拉;只有"自动启动"语义才补这一腿。
+  if (!/START_TYPE/i.test(cfg)) return { action: 'undetermined', reason: 'config-unreadable' }
+  if (!/AUTO_START/i.test(cfg)) return { action: 'noop', reason: 'not-auto-start' }
+  return { action: 'start', reason: 'stopped' }
+}
+
+export function ensureGuardDaemonAlive(opts = {}) {
+  const {
+    logger = log,
+    runner = null,
+    daemon = DAEMON,
+    waitMs = 20_000,
+    sleep = sleepSync,
+  } = opts
+  if (daemon) return { ran: false, why: 'daemon-self' }
+  const run =
+    runner ||
+    ((args) =>
+      execFileSync(SC_EXE, args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 20_000,
+      }))
+  const tap = (args) => {
+    try {
+      return { out: String(run(args) ?? '') }
+    } catch (e) {
+      return { out: String(e?.stdout ?? '') }
+    }
+  }
+  const q = tap(['query', GUARD_SERVICE_NAME])
+  const pre = judgeGuardDaemonAlive({ daemon, queryOutput: q.out })
+  // 只有 STOPPED 才需要 START_TYPE 那一维(RUNNING / 过渡态 / 取不到值都不必再派生一次 sc)
+  const needsConfig = pre.reason === 'config-unreadable'
+  const c = needsConfig ? tap(['qc', GUARD_SERVICE_NAME]) : { out: '' }
+  const verdict = needsConfig
+    ? judgeGuardDaemonAlive({ daemon, queryOutput: q.out, configOutput: c.out })
+    : pre
+  if (verdict.action === 'undetermined') {
+    logger(`ℹ️ daemon 存活兜底:未判定(${verdict.reason})⇒ 本轮不动作,不记绿也不冒红`)
+    return { ran: true, ok: false, why: verdict.reason }
+  }
+  if (verdict.action === 'noop') return { ran: true, ok: true, why: verdict.reason }
+  tap(['start', GUARD_SERVICE_NAME])
+  // sc start 是**异步返回**的:返 0 时服务往往还在 START_PENDING。轮询到非过渡态或超时 ——
+  // 把过渡态当失败会误报(2026-10-29 变异自证实测:日志喊"代拉后仍非 RUNNING",3 秒后它已是 RUNNING)。
+  let post = { action: 'undetermined', reason: 'timeout' }
+  const deadline = Date.now() + waitMs
+  for (;;) {
+    post = judgeGuardDaemonAlive({
+      daemon,
+      queryOutput: tap(['query', GUARD_SERVICE_NAME]).out,
+      configOutput: c.out,
+    })
+    if (post.reason !== 'pending' || Date.now() >= deadline) break
+    sleep(500)
+  }
+  const ok = post.reason === 'running'
+  logger(
+    ok
+      ? '⚠️ daemon 存活兜底:IHUI-GIT-GUARD 曾非 RUNNING(exit 0 型静默停摆),已代拉并复验 RUNNING'
+      : `⚠️ daemon 存活兜底:IHUI-GIT-GUARD 代拉后仍非 RUNNING(${post.reason})⇒ 需人工看 sc query 与服务日志`,
+  )
+  return { ran: true, ok, why: ok ? 'restarted' : post.reason }
+}
+
 export function healUnresponsiveServices(opts = {}) {
   const {
     now = Date.now(),
@@ -7845,6 +7943,10 @@ function main() {
     // 不响应服务的自愈(三层方案第三层,台账 G-978121):nssm 包装的服务 SCM 看不死,
     // 这一层是"进程在但端口不应答 / 子进程起不来"唯一的动作器。节流与发信见函数头注。
     if (!CHECK_ONLY) healUnresponsiveServices()
+    // daemon 档存活兜底(2026-10-29 立):跑在**计划任务/手工单轮**这一侧 —— 只有执行体外的
+    // 腿才拉得动服务自己(daemon 里调 = 自杀,函数内有挡板)。daemon 的 exit 0 不触发 SCM
+    // 恢复动作,此前停了无人管;它无监听面故不探端口,判据全走 SCM 现值。
+    if (!CHECK_ONLY) ensureGuardDaemonAlive()
     // 公网路径与换流窗口的常驻探测(票 G-301):两条序列互不顶账,节流 30 分钟,
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
     if (!CHECK_ONLY) auditPublicPathProbe()
@@ -8942,6 +9044,9 @@ if (isDirectRun) {
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
   gitdirTargetVerdict,
+  // daemon 存活兜底的纯判据(2026-10-29 立):镜像只吃这一份,不复制 STATE 码表
+  judgeGuardDaemonAlive,
+  ensureGuardDaemonAlive,
   // 恢复面的"当次实测形态分派"唯一出口(gitdir-pointer 票本席收的格,镜像只 import 这一份)
   gitdirTargetVerdictFromFace,
   // `.git` 指针形态的修复面(2026-10-27 票面第③格补的口):判据、现读形态、两形态分流、
