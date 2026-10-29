@@ -8955,6 +8955,9 @@ export const __test__ = {
   judgeRefsHealth,
   alertFingerprint,
   stableAlertFingerprint,
+  // 跨端漂移巡检的派发腿(镜像测试 cross-end-parity-drift-dispatch 的 T6 装车锁按名 import)。
+  // 此前函数已 export 而未登记进本台账 ⇒ 那道锁自本票立日起结构上打不到这一格(恒红,§0.2)。
+  auditCrossEndParityDrift,
   auditDispatchSites,
   auditPublicPathProbe,
   auditTunnelLegHealth,

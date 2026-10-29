@@ -157,15 +157,25 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
     reasons.push({ dim: 'registry-rot', detail: `门 128 判红 ${cur.coverageRed} 处` })
   if (cur.mapRot > 0) reasons.push({ dim: 'map-rot', detail: `web↔RN 登记表腐烂 ${cur.mapRot} 行` })
   // 断链/声明不符:现读存量都是 0 ⇒ 这一维一旦出现就是"新增的产物级缺陷",按绝对值出声不算恒红门。
+  // 点名(§5e-1 可整改性准入):这两维的 detail 此前只给"另一把尺子在哪",收信人还得再跑一趟才知道
+  // 是哪一屏。fidelity 自己已经算了逐屏 rows,这里只把它现成的 route 抄进正文 —— 取不到就整段不附
+  // (§0.3:宁可不点名,不编点名)。到人身份只按 dim 拼(guardian 的 dedupKey),明细抖动不换身份。
+  const named = (form) => {
+    const rows = fidelity?.json?.rows
+    if (!Array.isArray(rows)) return ''
+    const hit = rows.filter((r) => r && r.form === form).slice(0, 3)
+    if (hit.length === 0) return ''
+    return ` ⇒ 点名:${hit.map((r) => `${r.route}${r.why ? `(${String(r.why).slice(0, 60)})` : `(${r.spec})`}`).join(' ｜ ')}`
+  }
   if (cur.fidelityBroken > 0)
     reasons.push({
       dim: 'mirror-chain-broken',
-      detail: `${cur.fidelityBroken} 对镜像页引了 @rn-shells 而链不成立(壳不在面/壳未消费本屏/取用形态与壳导出对不上 ⇒ 页面渲染不出) ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看点名行,再按 repair-cross-end-mirror.mjs 补声明或直接改回同名壳`,
+      detail: `${cur.fidelityBroken} 对镜像页引了 @rn-shells 而链不成立(壳不在面/壳未消费本屏/取用形态与壳导出对不上 ⇒ 页面渲染不出) ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看点名行,再按 repair-cross-end-mirror.mjs 补声明或直接改回同名壳${named('broken')}`,
     })
   if (cur.fidelityOther > 0)
     reasons.push({
       dim: 'mirror-declaration-mismatch',
-      detail: `${cur.fidelityOther} 对声明镜像 A 而承载的壳是 B ⇒ 账面"已镜像"而 A 那一屏并没渲染 ⇒ 出路:改标记为真承载的那一屏,或把壳指向声明的那一屏`,
+      detail: `${cur.fidelityOther} 对声明镜像 A 而承载的壳是 B ⇒ 账面"已镜像"而 A 那一屏并没渲染 ⇒ 出路:改标记为真承载的那一屏,或把壳指向声明的那一屏${named('other')}`,
     })
   // 转换机会:"有页可转"不是倒退,但它是"少养一份端内实现"的窗口,现读到 >0 就出声
   // (身份按维去重 ⇒ 同一批机会不会每 60 分钟刷一封;明细抖动不换身份)。
@@ -276,9 +286,16 @@ function selfTestMain() {
     },
   })
   /** 还原度尺的结论夹具(字段名与 check-miniapp-mirror-fidelity --json 逐字同形) */
-  const mkFid = ({ hosted = 114, hand = 99, missing = 646, broken = 0, other = 0 } = {}) => ({
+  const mkFid = ({
+    hosted = 114,
+    hand = 99,
+    missing = 646,
+    broken = 0,
+    other = 0,
+    rows = [],
+  } = {}) => ({
     ok: true,
-    json: { hosted, hand, totalMissing: missing, broken, other },
+    json: { hosted, hand, totalMissing: missing, broken, other, rows },
   })
   /** 转换机会预演夹具(与 upgrade-miniapp-shell-pages 的机读档同形;默认"没机会"= 现读真实状态) */
   const mkConv = ({ upgradable = 0, refused = 12 } = {}) => ({
@@ -424,6 +441,53 @@ function selfTestMain() {
         prev: null,
       })
       return j.reasons.some((r) => r.dim === 'mirror-declaration-mismatch')
+    })(),
+  })
+  cases.push({
+    name: 'T18 产物级缺陷正文自带 route 点名(§5e-1:不能让人再跑一趟尺子才知道是哪屏)',
+    pass: (() => {
+      const rows = [
+        {
+          form: 'other',
+          route: 'pages/member/integral',
+          spec: 'vip/VipScreen.tsx',
+          why: '声明 VipScreen 而承载 PointHistoryScreen',
+        },
+        {
+          form: 'broken',
+          route: 'pkg-user/x/index',
+          spec: 'aigc/AigcScreen.tsx',
+          why: '壳在本面不存在',
+        },
+      ]
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ other: 1, broken: 1, rows }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      const pick = (dim) => j.reasons.find((r) => r.dim === dim)?.detail ?? ''
+      return (
+        pick('mirror-declaration-mismatch').includes('pages/member/integral') &&
+        pick('mirror-chain-broken').includes('pkg-user/x/index')
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T19 取不到逐屏 rows ⇒ 正文不附点名(宁缺毋造,§0.3)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ other: 1 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      const d = j.reasons.find((r) => r.dim === 'mirror-declaration-mismatch')?.detail ?? ''
+      return d.length > 0 && !d.includes('点名:')
     })(),
   })
   cases.push({
