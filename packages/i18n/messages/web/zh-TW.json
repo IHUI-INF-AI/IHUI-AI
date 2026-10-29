@@ -11383,6 +11383,7 @@
       "loadFailed": "檢索失敗",
       "noMatch": "無相符結果"
     },
+    "questionCancelledByStop": "任務已停止,未回答的問題已取消",
     "modelSwitchStopped": "已切換到 {model},本輪回答已終止",
     "filePreviewEmpty": "檔案沒有可預覽的資料列",
     "filePreviewTypeMismatch": "檔案內容與 {ext} 格式不符",
@@ -11469,7 +11470,8 @@
       "title": "本輪變更",
       "revert": "恢復到本輪之前",
       "noCheckpoints": "無可用檢查點",
-      "revertConfirm": "即將把對話與檔案恢復到本條 AI 回覆之前。共 {count} 個檔案改動將回退,此操作不可撤銷。",
+      "revertConfirmWithTurns": "即將把對話與檔案恢復到本條 AI 回覆之前:共 {count} 個檔案改動將回退,並同時撤銷從這輪開始受影響的 {turns} 輪修改。任務記錄不會刪除,此操作不可撤銷。",
+      "revertConfirm": "即將把對話與檔案恢復到本條 AI 回覆之前:共 {count} 個檔案改動將回退。任務記錄不會刪除,此操作不可撤銷。",
       "changedFile": "修改檔案",
       "createdFile": "新建檔案",
       "deletedFile": "刪除檔案"
