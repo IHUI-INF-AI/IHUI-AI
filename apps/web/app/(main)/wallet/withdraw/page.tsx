@@ -37,13 +37,20 @@ interface AvailableData {
   available: number
 }
 
-const withdrawSchema = z.object({
-  amount: z.coerce.number().min(0.01, 'wallet.withdrawAmount'),
-  method: z.enum(['wechat', 'alipay', 'bank']),
-  accountInfo: z.string().min(1, 'wallet.withdrawMethod'),
-})
+// message 一律写 i18n 键名(不带命名空间前缀),由渲染处 t() 解析。
+// 原先把 'wallet.withdrawAmount' 这类键串塞进 min(),页面又直接渲染字段名 ⇒ 红字永远只写
+// "提现金额",用户看不出错在哪。上限用可提现余额兜住,余额未到(还在加载)时不拦。
+const makeWithdrawSchema = (max?: number) =>
+  z.object({
+    amount: z.coerce
+      .number()
+      .min(0.01, 'errAmountMin')
+      .refine((n) => max === undefined || !(n > max), 'errAmountMax'),
+    method: z.enum(['wechat', 'alipay', 'bank']),
+    accountInfo: z.string().min(1, 'errAccountRequired'),
+  })
 
-type WithdrawValues = z.infer<typeof withdrawSchema>
+type WithdrawValues = z.infer<ReturnType<typeof makeWithdrawSchema>>
 
 export default function WithdrawPage() {
   const t = useTranslations('wallet')
@@ -66,7 +73,9 @@ export default function WithdrawPage() {
     watch,
     formState: { errors },
   } = useForm<WithdrawValues>({
-    resolver: zodResolver(withdrawSchema) as unknown as Resolver<WithdrawValues>,
+    resolver: zodResolver(
+      makeWithdrawSchema(availableQ.data?.available),
+    ) as unknown as Resolver<WithdrawValues>,
     defaultValues: { amount: 0, method: 'wechat', accountInfo: '' },
   })
 
@@ -149,7 +158,11 @@ export default function WithdrawPage() {
                   placeholder={t('withdrawAmount')}
                   {...register('amount')}
                 />
-                {errors.amount && <p className="text-xs text-destructive">{t('withdrawAmount')}</p>}
+                {errors.amount && (
+                  <p className="text-xs text-destructive">
+                    {t((errors.amount.message ?? 'errAmountMin') as Parameters<typeof t>[0])}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -170,14 +183,20 @@ export default function WithdrawPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="accountInfo">{t('withdrawMethod')}</Label>
+                <Label htmlFor="accountInfo">{t('withdrawAccount')}</Label>
                 <Input
                   id="accountInfo"
-                  placeholder={t('withdrawMethod')}
+                  placeholder={t('withdrawAccount')}
                   {...register('accountInfo')}
                 />
                 {errors.accountInfo && (
-                  <p className="text-xs text-destructive">{t('withdrawMethod')}</p>
+                  <p className="text-xs text-destructive">
+                    {t(
+                      (errors.accountInfo.message ?? 'errAccountRequired') as Parameters<
+                        typeof t
+                      >[0],
+                    )}
+                  </p>
                 )}
               </div>
 

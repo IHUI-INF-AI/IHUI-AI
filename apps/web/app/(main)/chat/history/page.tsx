@@ -19,6 +19,7 @@ import { Tooltip } from '@/components/feedback'
 import { ConversationList, type Conversation } from '@/components/chat/conversation-list'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
+import { useDebounce } from '@/hooks/use-debounce'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 
 interface ConversationsResponse {
@@ -28,8 +29,13 @@ interface ConversationsResponse {
   pageSize: number
 }
 
-async function fetchConversations(): Promise<ConversationsResponse> {
-  const res = await fetchApi<ConversationsResponse>('/api/chat/conversations?pageSize=100')
+async function fetchConversations(search: string): Promise<ConversationsResponse> {
+  // search 走服务端(GET /chat/conversations 的 querystring 支持按 title 搜索)。
+  // 原先固定 pageSize=100 再在本地 filter ⇒ 会话数超过 100 时,早期会话永远搜不到,
+  // 而标题徽章却写着服务端总数,读起来像"这里有 300 条只是我没找到"。
+  const qs = new URLSearchParams({ pageSize: '100' })
+  if (search) qs.set('search', search)
+  const res = await fetchApi<ConversationsResponse>(`/api/chat/conversations?${qs.toString()}`)
   if (!res.success) throw new Error(res.error)
   return res.data
 }
@@ -47,18 +53,20 @@ export default function ChatHistoryPage() {
   const { ready } = useAuthBootstrap()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
+  const keyword = q.trim().toLowerCase()
+  const debouncedSearch = useDebounce(q.trim(), 300)
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['chat', 'conversations'],
-    queryFn: fetchConversations,
+    // 前两段 ['chat','conversations'] 是全仓共享的失效契约(行级动作/侧栏同键),
+    // invalidateQueries 按前缀匹配 ⇒ 追加第三段仍能被打中。
+    queryKey: ['chat', 'conversations', debouncedSearch],
+    queryFn: () => fetchConversations(debouncedSearch),
     enabled: ready && isAuthenticated,
   })
 
-  const keyword = q.trim().toLowerCase()
   // 列表渲染序必须过唯一排序出口:ConversationList 的置顶乐观更新只翻标记,
   // 不在这里排的话,"取消置顶"那一行会原地停到下次 refetch 才落位。
-  const items = sortPinnedFirst(
-    (data?.conversations ?? []).filter((c) => !keyword || c.title.toLowerCase().includes(keyword)),
-  )
+  const items = sortPinnedFirst(data?.conversations ?? [])
   const total = data?.total ?? items.length
 
   return (
@@ -71,7 +79,7 @@ export default function ChatHistoryPage() {
             {t('title')}
             {total > 0 && (
               <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium tabular-nums leading-none text-muted-foreground">
-                {total}
+                {items.length < total ? `${items.length}/${total}` : total}
               </span>
             )}
           </h1>
