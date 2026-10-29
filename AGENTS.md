@@ -249,7 +249,7 @@ UI 改动必须真机/真浏览器验证(截图或 e2e),禁止只凭代码审查
 - 翻译文件语言纯度:zh-TW/ko 阻塞中文残留、ja warn(`scan-i18n-zh-residue.mjs`);en 破损检测 `check-i18n-broken-en.mjs`;parity `check-i18n-keys.mjs`(五语言键集对齐);**新增状态词必须同批补齐五语言**,禁止端内硬编码中文(`scan-hardcoded-zh.mjs` 70,基线棘轮)。
 - **JSON 重复键禁止**:JSON.parse last-wins 静默遮蔽;同层重复键守门 `check-i18n-duplicate-namespaces.mjs`(2e-dupns,blocking)。
 - 翻译策略 source of truth:`scripts/brand-glossary.json`;ICU 插值走 `t(key,{vars})`,禁 `.replace('{{n}}',…)` 反模式(`check-miniapp-replace-antipattern.mjs`)。
-- parity 绿 ≠ 语种对:逐语种必查 CJK 三族互判 + 扫同名自套一层(`{"x":{"x":…}}`),这两型已由守门 133  判(blocking,已装车)。
+- parity 绿 ≠ 语种对:逐语种必查 CJK 三族互判 + 扫同名自套一层(`{"x":{"x":…}}`),这两型已由守门 133 `check-i18n-locale-content-language.mjs` 判(blocking,已装车)。
 
 ## 20. 任务完成硬定义(强制)
 
