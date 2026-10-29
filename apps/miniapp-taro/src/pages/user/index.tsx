@@ -4,7 +4,6 @@
 
 import { aizhsUrl } from '@/constants/icon-urls'
 import { parseQrLoginTicket } from '@ihui/shared'
-import { localMonthKey, parseQrLoginTicket } from '@ihui/shared'
 import { TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
