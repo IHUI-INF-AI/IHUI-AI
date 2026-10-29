@@ -830,13 +830,18 @@ function namespaceFnName(masked) {
 export function auditNamespaceAggregator(relPath, readFile, hasPath) {
   const exists = hasPath || ((p) => readFile(p) !== null && readFile(p) !== undefined)
   const text = readFile(relPath)
-  if (typeof text !== 'string' || !NS_PROMISE_ALL_RE.test(text)) return { violations: [], blind: 0, files: 0 }
-  const seen = 1 // 本文件命中"聚合器"形状 ⇒ 进覆盖面计数(口径见 d7ChannelBlind)
+  if (typeof text !== 'string') return { violations: [], blind: 0, files: 0, blindSites: [] }
+  // test 与 exec 必须走**同一张面**:先在原文 test、再到遮噪面上 exec,注释里写的
+  // `// const [a, b] = await Promise.all([...])` 会让 test 命中而 exec 返回 null ⇒ 整门 TypeError 崩盘
+  // (2026-10-29 首枚落地后全量档实测 rc=2 就是这个;§0.4 同面同轮,注释永远不构成射程)。
   const codeOnly = maskComments(text)
+  if (!NS_PROMISE_ALL_RE.test(codeOnly)) return { violations: [], blind: 0, files: 0, blindSites: [] }
+  const seen = 1 // 本文件命中"聚合器"形状 ⇒ 进覆盖面计数(口径见 d7ChannelBlind)
   const viol = []
   let blind = 0
 
   const m = NS_PROMISE_ALL_RE.exec(codeOnly)
+  if (!m) return { violations: [], blind: 1, files: 0, blindSites: [`${relPath}: 遮噪面上取不到 Promise.all 解构头`] }
   const names = (m[1] || '')
     .split(',')
     .map((s) => {
