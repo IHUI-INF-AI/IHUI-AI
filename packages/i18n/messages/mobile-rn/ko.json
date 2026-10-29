@@ -1039,7 +1039,6 @@
     "sectionSocial": "소셜",
     "favorites": "내 즐겨찾기",
     "follow": "팔로우 및 팔로워",
-    "favorite": "내 즐겨찾기",
     "messageCenter": "메시지",
     "messageSystem": "시스템 메시지",
     "messageDirect": "쪽지",
@@ -5451,10 +5450,6 @@
     "favoritesCount": "즐겨찾기",
     "joined": "가입일"
   },
-  "courseSwiper": {
-    "tabHotIntro": "인기 입문 강의",
-    "tabHotPick": "인기 추천 강의"
-  },
   "llmSettings": {
     "title": "모델 공급자",
     "empty": "구성된 공급자 없음",
@@ -5818,12 +5813,6 @@
     "cycleUnitWeek": "주"
   },
   "news": {
-    "catAi": "AI",
-    "catMl": "머신러닝",
-    "catCv": "컴퓨터 비전",
-    "catNlp": "자연어",
-    "catChip": "AI 칩",
-    "catRec": "추천",
     "title": "AI 소식",
     "anonAuthor": "익명",
     "netFail": "네트워크 오류",

@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 'use client'
 
 /**
@@ -86,6 +85,9 @@ export function useLinkPreview(): UseLinkPreviewReturn {
   // 记账在发请求之前:同一 URL 的并发重复触发与 resolved 后重复触发都挡住。
   const probedUrlsRef = React.useRef<Set<string>>(new Set())
   const inflightUrlRef = React.useRef<string | null>(null)
+  // 单调序号:先粘 A 再粘 B 时,A 的迟到响应必须丢弃,否则会把 B 的卡覆盖成 A 的;
+  // reset(发送后关卡)后迟到的 A 也不得把卡"复活"在已发出的消息下方。
+  const seqRef = React.useRef(0)
 
   const probeFromPaste = React.useCallback((text: string): void => {
     const url = detectPastedUrl(text)
@@ -93,9 +95,11 @@ export function useLinkPreview(): UseLinkPreviewReturn {
     if (probedUrlsRef.current.has(url) || inflightUrlRef.current === url) return
     probedUrlsRef.current.add(url)
     inflightUrlRef.current = url
+    const mySeq = ++seqRef.current
     setPreview({ status: 'loading', url })
 
     const finish = (next: LinkPreviewState): void => {
+      if (seqRef.current !== mySeq) return
       inflightUrlRef.current = null
       setPreview(next)
     }
@@ -132,6 +136,8 @@ export function useLinkPreview(): UseLinkPreviewReturn {
   }, [])
 
   const reset = React.useCallback((): void => {
+    seqRef.current++
+    inflightUrlRef.current = null
     setPreview(null)
   }, [])
 

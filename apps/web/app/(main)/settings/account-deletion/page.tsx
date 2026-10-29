@@ -117,7 +117,12 @@ export default function AccountDeletionPage() {
     if (!confirmed || !code) return
     setSubmitting(true)
     try {
-      const res = await fetchApi('/settings/delete-account', { method: 'POST' })
+      // 后端二次校验要求 code 或 password 二选一(缺少即 400):页面已收集短信验证码,
+      // 原实现不传 body ⇒ 注销永远失败且只提示一句"注销失败"。
+      const res = await fetchApi('/settings/delete-account', {
+        method: 'POST',
+        body: JSON.stringify({ code }),
+      })
       if (res.success) {
         setToast({ type: 'success', msg: t('accountDeletionSuccess') })
         setTimeout(() => {
