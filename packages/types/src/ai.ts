@@ -113,13 +113,14 @@ export interface ToolCallSummary {
   totalCalls: number
   /**
    * 涉及的目录数(唯一目录集合,仅文件类工具调用参与)。
-   * 可选:后端 `_build_tool_summary` 暂不发送,由前端本地降级聚合(deriveToolSummary)产出;
-   * 取不到时渲染层隐藏该 chip,绝不以 0 冒充"没碰目录"。
+   * 2026-10-29 起后端 `_build_tool_summary` 也发送该键(目录算式 = 共享层 `fileDirname`)。
+   * 仍为可选:旧后端 / 回放里的历史帧不带它,此时渲染层隐藏该 chip,
+   * **绝不**以 0 冒充"没碰目录"(AGENTS §0.3)。
    */
   directories?: number
-  /** 编辑/写入类工具调用**次数**(类目 file_modify + file_write;区别于 filesModified 的唯一文件数)。 */
+  /** 编辑/写入类工具调用**次数**(写类白名单 `FILE_WRITE_TOOLS`;区别于 filesModified 的唯一文件数)。 */
   edits?: number
-  /** 终端命令类工具调用次数(类目 command)。 */
+  /** 终端命令类工具调用次数(类目 `command`)。 */
   terminalCommands?: number
   /** 总耗时(ms,从第一个 tool-call-start 到最后一个 tool-result) */
   totalDurationMs?: number
