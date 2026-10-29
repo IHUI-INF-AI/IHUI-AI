@@ -6979,5 +6979,13 @@
     "runningHint": "仍在運行,暫無最終輸出",
     "noOutput": "暫無輸出",
     "noTask": "無任務描述"
+  },
+  "chatWorkbenchPage": {
+    "title": "對話",
+    "newConversation": "新增會話",
+    "searchPlaceholder": "輸入關鍵詞搜索...",
+    "empty": "開始新的任務",
+    "searchNoResult": "無匹配結果",
+    "retry": "重試"
   }
 }
