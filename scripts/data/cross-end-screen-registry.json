@@ -983,7 +983,7 @@
     },
     {
       "shared": "packages/app/src/features/home/HomeScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AgentScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/HomeScreen.tsx",
       "miniapp": "pkg-mirror2/home/index"
     },
     {
