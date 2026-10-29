@@ -20261,6 +20261,7 @@
     "captureTraeWebCancelled": "已取消 Trae 網頁登入。重新點「網頁登入」可再試。"
   },
   "nav": {
+    "pdfTools": "PDF 工具",
     "accountPool": "個人號池",
     "checkin": "簽到助手",
     "monitorWallboard": "監控大屏",
