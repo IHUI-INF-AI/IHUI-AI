@@ -12,7 +12,7 @@
  */
 
 import type { ReactNode } from 'react'
-import type { TFunction } from './app-shared.js'
+import type { ListPaginationProps, TFunction } from './app-shared.js'
 import type { CategoryItem } from './app-learning.js'
 
 /** 笔记列表项(平台注入,字段对齐 mobile-rn NoteListScreen Note) */
@@ -53,7 +53,7 @@ export interface ArticleListItem {
 }
 
 /** ArticleList 屏 props */
-export interface ArticleListScreenProps {
+export interface ArticleListScreenProps extends ListPaginationProps {
   t: TFunction
   items: ArticleListItem[]
   loading: boolean
