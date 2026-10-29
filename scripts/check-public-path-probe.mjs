@@ -1572,6 +1572,17 @@ function selfTest() {
           summarizeCallbackVerdicts([{ state: 'ok' }], { state: 'ok', legs: [{}] }).rc === 0,
       ],
       [
+        'G16 混入未判定 ⇒ verdict=partial(§0.3 没判的不写成判过)',
+        (() => {
+          const s = summarizeCallbackVerdicts([{ state: 'ok' }, { state: 'unjudged' }], { state: 'ok', legs: [{}, {}] })
+          return s.verdict === 'partial' && s.rc === 0 && typeof s.why === 'string' && s.why.includes('只覆盖已判到的')
+        })(),
+      ],
+      [
+        'G16 成对:零未判定才允许 verdict=ok',
+        summarizeCallbackVerdicts([{ state: 'ok' }, { state: 'ok' }], { state: 'ok', legs: [{}, {}] }).verdict === 'ok',
+      ],
+      [
         'G16 台账枚举到 0 ⇒ 整档未判定(判死不记绿)',
         loadCallbackLegs('x', {
           readFileSync: () => JSON.stringify({ expires: '2099-01-01', callbackLegs: [] }),
@@ -1714,6 +1725,17 @@ export function summarizeCallbackVerdicts(verdicts, load) {
   if (breach.length > 0) return { verdict: 'breach', rc: 1, breach, ok, unjudged }
   if (ok.length === 0)
     return { verdict: 'undetermined', rc: 2, breach, ok, unjudged, why: '没有任何一条腿拿到可判定的应答' }
+  // §0.3:有腿没判到时不得把整档写成"未被降级"—— 覆盖不到的那几条在这一轮是隐身的。
+  // rc 仍为 0(breach=0 是真结论,不谎报红),但 verdict 用词必须换成 partial 并把覆盖面写出来。
+  if (unjudged.length > 0)
+    return {
+      verdict: 'partial',
+      rc: 0,
+      breach,
+      ok,
+      unjudged,
+      why: `已判到 ${ok.length} 条、未判定 ${unjudged.length} 条 ⇒ "无降级"这句只覆盖已判到的那 ${ok.length} 条`,
+    }
   return { verdict: 'ok', rc: 0, breach, ok, unjudged }
 }
 
@@ -1744,7 +1766,9 @@ async function main(argv) {
       console.log(`  · ${v.id} ${v.status ?? '-'} [${v.state}] ${(v.why ?? v.note ?? '')}${v.location ? ` → ${v.location}` : ''}`)
     console.log(
       sum.rc === 0
-        ? '结论:回调腿未被方法降级重定向(307/308 或直达)。'
+        ? sum.verdict === 'partial'
+          ? `结论:部分判定 —— ${sum.why};未判定腿逐条见上,不得读成"全部没配错"。`
+          : '结论:回调腿未被方法降级重定向(307/308 或直达)。'
         : sum.rc === 1
           ? '结论:存在 301/302/303 降级腿 ⇒ 跟随方按 RFC 会把 POST 变 GET。逐条看 configuredBy:真在配的腿其投递正在丢,当前无提供方的腿是"配上即丢"的预置坑。修法=把该重定向改成 308(Cloudflare 边缘规则),或把提供方回调地址配到不经该重定向的域名。'
           : `结论:未判定 —— ${sum.why ?? '取不到输入'}(既不等于"配错了",也不等于"没配错")`,
