@@ -6979,5 +6979,13 @@
     "runningHint": "아직 실행 중이며 최종 출력이 없습니다",
     "noOutput": "출력 없음",
     "noTask": "작업 설명 없음"
+  },
+  "chatWorkbenchPage": {
+    "title": "대화",
+    "newConversation": "새 대화",
+    "searchPlaceholder": "키워드 입력...",
+    "empty": "콘텐츠가 없습니다",
+    "searchNoResult": "결과 없음",
+    "retry": "재시도"
   }
 }

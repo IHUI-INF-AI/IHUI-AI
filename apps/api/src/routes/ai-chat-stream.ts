@@ -1596,6 +1596,19 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       { conversationId, messageId: parsed.data.messageId, aborted: count },
       '[ChatAbort] abort requested',
     )
+    // 中止即作废挂在该流上的提问(2026-10-29 立,僵尸弹窗的**服务端**那一半):
+    // 前端点停止时清了本地 pendingQuestion,但挂起态同时被写进了
+    // conversation.metadata.pendingQuestion(POST /chat/questions,merge 模式)。
+    // 只清本地 ⇒ 用户一刷新/换端,history 装载那一步(ai-side-panel.tsx)就把弹窗
+    // 从 metadata 里原样恢复出来,而它挂的那条流早已终止 —— 弹窗回来了,答案仍然投不出去。
+    // 故此处按同一份 merge 语义把挂起态置 null(answeredQuestionId 不动:这里不是"已回答")。
+    // userId 取令牌主体(插件级 preHandler 已鉴权),ownership 由 patchConversationMetadata 自校;
+    // 失败不阻塞中止本身的响应(fire-and-forget,与 /chat/questions 的容错同级)。
+    if (request.userId) {
+      void patchConversationMetadata(conversationId, request.userId, {
+        pendingQuestion: null,
+      }).catch(() => {})
+    }
     // 未命中不是错误(流可能刚好自然结束),仍返回 200 便于前端统一处理
     return reply.send(success({ ok: true, aborted: count > 0, count }))
   })

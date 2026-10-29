@@ -129,7 +129,7 @@
     "modelSck": "知識庫",
     "matAll": "全部",
     "matText": "文本",
-    "inputPlaceholder": "請輸入您的問題，或長按說話",
+    "inputPlaceholder": "請輸入您的問題",
     "modelSelectTitle": "模型選擇",
     "modelSelectSearchCount": "搜索到 {count} 個模型",
     "modelSelectAgentCount": "共 {count} 個智能體",
@@ -1003,8 +1003,8 @@
     "vip": "會員中心",
     "vipBenefit": "會員權益",
     "vipCompare": "會員對比",
-    "coupon": "優惠券",
-    "promotion": "優惠券",
+    "coupon": "我的優惠券",
+    "promotion": "優惠券中心",
     "sectionPoints": "積分",
     "pointsMall": "積分商城",
     "pointsRecord": "智匯值明細",
@@ -1759,7 +1759,7 @@
     "empty": "暫無優惠券",
     "loadFailed": "載入失敗",
     "minSpend": "滿 {amount} 可用",
-    "title": "優惠券",
+    "title": "我的優惠券",
     "validUntil": "有效期至",
     "use": "立即使用",
     "useHint": "請前往商品頁使用",
@@ -2203,7 +2203,7 @@
     "status_inactive": "未活躍"
   },
   "promotion": {
-    "title": "優惠券",
+    "title": "優惠券中心",
     "empty": "暫無可用優惠券",
     "minSpend": "滿 ¥{minSpend} 可用",
     "expireDate": "有效期限至",
@@ -3156,7 +3156,7 @@
     "status_rejected": "已駁回"
   },
   "distributionCompany": {
-    "title": "分銷中心",
+    "title": "分銷業績",
     "refresh": "重新整理",
     "loadFailed": "資料載入失敗",
     "empty": "暫無佣金資料",
@@ -4240,7 +4240,7 @@
     "allowInvites": "允許被邀請"
   },
   "memberDashboard": {
-    "title": "會員中心",
+    "title": "會員概覽",
     "level": "會員等級",
     "points": "我的積分",
     "coupons": "優惠券",
@@ -7050,5 +7050,13 @@
     "prev": "上一頁",
     "pagination": "第 {page} / {totalPages} 頁,共 {total} 條",
     "next": "下一頁"
+  },
+  "chatWorkbenchPage": {
+    "title": "對話",
+    "newConversation": "新增會話",
+    "searchPlaceholder": "輸入關鍵詞搜索...",
+    "empty": "開始新的任務",
+    "searchNoResult": "無匹配結果",
+    "retry": "重試"
   }
 }

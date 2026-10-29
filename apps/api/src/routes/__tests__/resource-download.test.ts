@@ -24,6 +24,9 @@ vi.mock('../../db/resource-queries.js', () => ({
   createResource: vi.fn().mockResolvedValue({ id: 'res-1' }),
   updateResource: vi.fn().mockResolvedValue({ id: 'res-1' }),
   deleteResource: vi.fn().mockResolvedValue(undefined),
+  // 2026-10-29 镜像登记:resources-mine-authz.test.ts 同批新增两枚导出
+  findMyResources: vi.fn().mockResolvedValue({ list: [], total: 0, page: 1, pageSize: 20 }),
+  deleteResourceIfOwned: vi.fn().mockResolvedValue('not_found'),
   publishResource: vi.fn().mockResolvedValue({ id: 'res-1' }),
   findProducts: vi.fn().mockResolvedValue({ list: [], total: 0, page: 1, pageSize: 20 }),
   findProductById: vi.fn().mockResolvedValue(undefined),
@@ -85,6 +88,8 @@ function makeResource(overrides: Record<string, unknown> = {}) {
     image: null,
     introduction: null,
     cidList: null,
+    // 2026-10-29 迁移 20261029120000 给 resources 加了 owner_user_id(NULL = 平台内容)
+    ownerUserId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

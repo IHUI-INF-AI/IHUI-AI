@@ -453,8 +453,9 @@ export function PlazaScreen() {
       <NavChrome>
         <NavBar
           title={t('plaza.index.title')}
+          // 根 tab 没有上一页:传了 onBack 会与 leftActions 的抽屉菜单键并列渲染成两条返回键
+          // (NavBar 左侧是「onBack ? 返回键 : null」+ leftActions.map 两段并列,非替代关系)。
           leftActions={leftActions}
-          onBack={() => navigation.goBack()}
           rightActions={[
             {
               // 2026-10-28 用户定:FolderOpen「分类」换 LayoutGrid 纯图标去文字(位置不动,

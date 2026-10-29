@@ -26,7 +26,7 @@ const WORKER_SRC = readFileSync(
 
 test('① 定时注册:qoder-session-sync 走 upsertJobScheduler 且带 cron', () => {
   assert.match(WORKER_SRC, /upsertJobScheduler\(\s*'qoder-session-sync-cron'/)
-  assert.match(WORKER_SRC, /QODER_SYNC_CRON_PATTERN\s*=\s*TRAE_SYNC_CRON_PATTERN/)
+  assert.match(WORKER_SRC, /QODER_SYNC_CRON_PATTERN\s*=\s*'\*\/10 \* \* \* \*'/)
   assert.match(WORKER_SRC, /name:\s*'qoder-session-sync'/)
 })
 
@@ -38,10 +38,11 @@ test('② 处理器分支先于 unknown-job 兜底', () => {
 })
 
 test('③ spawn 指向回灌脚本且显式 stdio + windowsHide', () => {
-  assert.match(WORKER_SRC, /scripts',\s*'relay-qoder-session-sync\.ts'/)
+  assert.match(WORKER_SRC, /'sync-qoder-client-session\.mjs'/)
+  // 2026-10-29 重锚:spawn 收进 runClientSessionSync 助手,脚本名按 isQoder 三目传入
   const spawnBlock = WORKER_SRC.slice(
-    WORKER_SRC.indexOf('function runQoderSessionSync'),
-    WORKER_SRC.indexOf('export function startRelayAccountPoolWorker'),
+    WORKER_SRC.indexOf('async function runClientSessionSync'),
+    WORKER_SRC.indexOf('const worker = new Worker('),
   )
   assert.match(
     spawnBlock,
@@ -57,7 +58,7 @@ test('④ 退出码 2(未判定)走 warn 不 throw —— 不许把常态当失�
     WORKER_SRC.indexOf("job.name === 'qoder-session-sync'"),
     WORKER_SRC.indexOf("if (job.name !== 'sweep'"),
   )
-  assert.match(branch, /qdOutcome\.code === 2[\s\S]*?warn/)
+  assert.match(branch, /outcome\.code === 2[\s\S]*?warn/)
   assert.doesNotMatch(branch, /throw new Error\(/, '分支内不许 throw(throw 会进 BullMQ 失败重试)')
 })
 
