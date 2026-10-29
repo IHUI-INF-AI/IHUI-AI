@@ -570,6 +570,21 @@ API, model sync and IM multi-platform control: [`readme-05`](./docs/engineering/
 9. Temp files only under `.ihui-agent/tmp/<task>/`.
 10. New files must be watermarked: `node scripts/watermark.mjs inject <file>`.
 
+
+---
+
+## Long-form archives (not duplicated here)
+
+Positioning manifesto, benchmark matrices, brand story, and GEO/Keywords live only in:
+
+| Topic | Document |
+| --- | --- |
+| Positioning, manifesto, GEO, feature matrix | [`readme-01-positioning`](./docs/engineering/readme-01-positioning.md) |
+| Why IHUI-AI, comparisons, scenarios | [`readme-03-why-comparison-scenarios`](./docs/engineering/readme-03-why-comparison-scenarios.md) |
+| Brand story, Keywords, SEO | [`readme-08-seo-keywords-story`](./docs/engineering/readme-08-seo-keywords-story.md) |
+
+Architecture deep-dives: [`readme-04-architecture-and-modules`](./docs/engineering/readme-04-architecture-and-modules.md). Use the **Key numbers** table above and `pnpm doc:numbers` for scale—do not hand-copy counts in prose.
+
 ## License & copyright
 
 - **License**: Apache-2.0 (see [`LICENSE`](./LICENSE)); contributor terms in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
