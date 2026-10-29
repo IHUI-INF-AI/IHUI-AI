@@ -66,7 +66,12 @@ export type FrameSeqVerdict =
   /** 与游标连续 ⇒ 可应用并推进 */
   | { readonly kind: 'continuous'; readonly seq: number }
   /** 断档:游标与本帧 seq 不衔接 ⇒ 丢弃该帧并计数(不猜、不跳过继续应用) */
-  | { readonly kind: 'gap'; readonly seq: number; readonly expected: number; readonly actual: number }
+  | {
+      readonly kind: 'gap'
+      readonly seq: number
+      readonly expected: number
+      readonly actual: number
+    }
 
 /** 逐行累加器:SSE 是行流,`id:` 行与它所属的 `data:` 行必须配对,配不上就不判。 */
 export interface FrameSeqTracker {
