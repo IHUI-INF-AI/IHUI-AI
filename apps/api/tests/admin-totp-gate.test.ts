@@ -9,8 +9,8 @@
  * requireAdminRouteGuard 补一道"管理员必须绑 TOTP"的判断,档位 `ADMIN_TOTP_MODE`:
  *
  *  - `off`     :完全不检查(不查库) —— 回滚口子
- *  - `warn`    :未绑放行 + 一条结构化告警(含 userId / path) —— **env 默认值**
- *  - `enforce` :未绑 → 403,文案直接告诉用户去「安全设置」绑 TOTP
+ *  - `warn`    :未绑放行 + 一条结构化告警(含 userId / path) —— 过渡档,生产可显式设
+ *  - `enforce` :未绑 → 403,文案直接告诉用户去「安全设置」绑 TOTP —— **env 默认值**(2026-10-29 升档)
  *
  * 另钉两条不变量:
  *  1. 非管理员不受本闸影响(仍是"需要管理员权限"403,且不查 TOTP 表);
@@ -283,14 +283,16 @@ describe('管理员 TOTP 闸(ADMIN_TOTP_MODE)', () => {
   })
 
   describe('档位缺省', () => {
-    it('schema 默认档为 warn(钉源码,不读进程 env)', async () => {
+    it('schema 默认档为 enforce(钉源码,不读进程 env)', async () => {
       // 为什么不读真实 config:测试进程的 env 被 tests/setup-env.ts 显式设成 off
       // (那是为了不破坏既有 admin 测试的顺序队列 DB mock,见该文件注释),所以
-      // "当前进程读到的值"证明不了默认值。这里直接钉 config schema 的 .default('warn'),
+      // "当前进程读到的值"证明不了默认值。这里直接钉 config schema 的 .default('enforce'),
       // 钉的是"部署方不配这个变量时会得到什么"—— 那才是这条契约的本体。
+      // 2026-10-29 该默认档由 warn 升到 enforce(新部署不再裸奔),但这条钉子没跟着改 ⇒
+      // 已入库的红测试:源码 enforce、测试仍要求 warn。本枚把它对齐到 enforce。
       const { readFileSync } = await import('node:fs')
       const src = readFileSync(new URL('../src/config/index.ts', import.meta.url), 'utf8')
-      const decl = /ADMIN_TOTP_MODE\s*:\s*z[\s\S]{0,200}?\.default\(\s*'warn'\s*\)/
+      const decl = /ADMIN_TOTP_MODE\s*:\s*z[\s\S]{0,200}?\.default\(\s*'enforce'\s*\)/
       expect(src).toMatch(decl)
     })
 

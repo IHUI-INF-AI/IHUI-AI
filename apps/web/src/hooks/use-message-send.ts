@@ -41,6 +41,9 @@ export interface UseMessageSendParams {
   isHighRisk: boolean
   references: ReferenceItem[]
   resetReferences: () => void
+  /** 入队专用:清空输入区引用但不释放 blob URL(W27 队列出队后还要用)。
+   *  缺省回退 resetReferences,保持既有 harness/测试调用不变。 */
+  detachReferences?: () => void
   addFileReference: (file: File) => void
   /** G-833 批量校验入口(可选:缺省时三入口退回逐文件 addFileReference 旧行为,
    *  保持 apps/web/tests 既有 harness 兼容)。返回结构化 reject,由本 hook 聚合为一条提示 */
@@ -141,6 +144,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     isHighRisk,
     references,
     resetReferences,
+    detachReferences = resetReferences,
     addFileReference,
     addFileReferences,
     screenAttachments,
@@ -532,20 +536,17 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         // 显示在输入框上方,每次流式结束后自动出队发送
         setPendingMessages((prev) => [...prev, { text, refs: references.map((r) => ({ ...r })) }])
         setValue('')
-        resetReferences()
+        // 不释放 blob URL:队列条目出队时还要用它们拼 markdown(提前 revoke ⇒ 裂图)
+        detachReferences()
         if (typeof window !== 'undefined') clearDraft(draftKey)
         requestAnimationFrame(() => inputCoreRef.current?.resize())
         return
       }
-      // 非流式:直接发送
-      // 先乐观清空输入框,让用户感觉"已发出"(doSend 返回后还会再清空一次,幂等)
-      setValue('')
-      resetReferences()
-      if (typeof window !== 'undefined') clearDraft(draftKey)
-      requestAnimationFrame(() => inputCoreRef.current?.resize())
+      // 非流式:直接发送。清理交给 doSend —— 它只在成功时 resetReferences/setValue。
+      // 原实现在 await 之前就清空并 revoke 了附件 blob URL,失败只恢复正文
+      // ⇒ 用户刚选的图片/文件白传一次,只能重选。
       const ok = await doSend(text, references)
       if (!ok) {
-        // 发送失败恢复输入内容
         setValue(text)
         requestAnimationFrame(() => inputCoreRef.current?.resize())
       }
@@ -558,7 +559,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       doSend,
       references,
       setValue,
-      resetReferences,
+      detachReferences,
       draftKey,
       inputCoreRef,
       onSent,
@@ -601,7 +602,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       // 流已收尾或会话未就绪:退化为普通入队(FIFO),不让引导文本丢失
       setPendingMessages((prev) => [...prev, { text, refs: references.map((r) => ({ ...r })) }])
       setValue('')
-      resetReferences()
+      detachReferences()
       requestAnimationFrame(() => inputCoreRef.current?.resize())
       return
     }
@@ -623,7 +624,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       // 5xx / 网络失败(fetchApi 抛错路径):同样保留输入内容,toast 提示
       toast.warning(t('steerFailed'))
     }
-  }, [value, isStreaming, references, setValue, resetReferences, inputCoreRef, draftKey, track, t])
+  }, [value, isStreaming, references, setValue, detachReferences, inputCoreRef, draftKey, track, t])
 
   return {
     isDragOver,
