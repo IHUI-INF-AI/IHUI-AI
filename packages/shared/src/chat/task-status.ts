@@ -52,6 +52,22 @@ export function fileBasename(path: string): string {
   return slash === -1 ? normalized : normalized.slice(slash + 1)
 }
 
+/**
+ * 所在目录(与 `fileBasename` 同一份归一:先统一正斜杠再切末段)。
+ *
+ * 返回空串的三种情形一致处理:空路径、无目录段的裸文件名、路径本身就是盘根/根。
+ * "没有目录"和"目录是空"在调用方是同一种语义(不计入目录集合),所以不造 '/' 这种假值
+ * —— 否则 `read_file("a.ts")` 会让目录数多算一个。
+ */
+export function fileDirname(path: string): string {
+  const normalized = path.replace(/\\/g, '/')
+  const slash = normalized.lastIndexOf('/')
+  if (slash <= 0) return ''
+  const dir = normalized.slice(0, slash)
+  // 盘根写法(C:/、/x 只有一段)截到根就没有"目录"可言
+  return /^[A-Za-z]:$/.test(dir) ? '' : dir
+}
+
 function countLines(text: string): number {
   if (!text) return 0
   // 文件末尾换行不构成额外一行,否则 "+4 行" 会把 3 行文件报成 4 行
