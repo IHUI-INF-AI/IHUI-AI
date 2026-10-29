@@ -16,9 +16,12 @@
  *   401 而不是 500(fail-open 崩在鉴权层后面,比 401 更难发现 —— 本路由由测试钉死)。
  *
  * 处理链:secret 未配置 → 503;签名缺失/非法/不匹配 → 401;
- *        事件不在白名单 → 200 accepted:false;事件体不合 schema → 400;
+ *        事件不在白名单 → 200 accepted:false;事件体不合 schema → 400(带缺少的字段路径);
+ *        CI 三类事件(check_suite / workflow_run / check_run)→ 200 + reason=ci_event_not_subscribed
+ *        (Y-13:认得出、有话回,不再判 unsupported_event 静默丢弃);
  *        delivery guid 重复 → 200 duplicate(内存 LRU 一级 + deliveries 表二级);
- *        否则按事件种类派发,处理完成后投递落表 processed(D15②)。
+ *        否则按事件种类派发,处理完成后投递落表 processed(D15②);
+ *        派发抛错 → 结构化 500(带 requestId/delivery 供对账,不回显异常正文)。
  *
  * 回调注册地址的腿位不变量(2026-10-29 实测立):GitHub App 的 `url` 必须登记成
  * `https://api.aizhs.top/api/github-app/webhook`,**不得**用裸域或 `www.` 那两条 ——
@@ -260,6 +263,42 @@ function ignoredReply(
   return ok({ accepted: false, reason: ignored.reason, event: ignored.event })
 }
 
+/**
+ * 处理链错误边界(Y-13,2026-10-29 立)。
+ *
+ * 此前 handler 抛错由 Fastify 兜底成裸 500(`{"statusCode":500,"error":"Internal Server Error"}`):
+ * GitHub 侧只留一条 500 + durationMs,既对不上是哪条投递,也没法与我们日志对账 —— 现场那条
+ * `check_run / 500 / durationMs=10s` 就是这么丢的(既无 delivery 也没异常名)。
+ * 这里统一转成结构化 500:带 requestId 与 delivery 供对账,**不回显**异常正文
+ * (可能是上游响应片段或 DB 报错);异常名 + message 只进日志。
+ */
+function withDiagnosableFailure(
+  handler: (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>,
+): (request: FastifyRequest, reply: FastifyReply) => Promise<unknown> {
+  return async (request, reply) => {
+    try {
+      return await handler(request, reply)
+    } catch (error) {
+      const delivery = headerValue(request.headers, WEBHOOK_DELIVERY_HEADER) ?? ''
+      request.log.error(
+        {
+          err: error instanceof Error ? { name: error.name, message: error.message } : error,
+          delivery,
+          event: headerValue(request.headers, WEBHOOK_EVENT_HEADER) ?? '',
+          requestId: request.id,
+        },
+        '[github-app] 处理链异常(已捕获,返回可诊断 500)',
+      )
+      if (reply.sent) throw error
+      return reply
+        .status(500)
+        .send(
+          fail(500, `处理链异常,已记录(requestId=${request.id}, delivery=${delivery || 'none'})`),
+        )
+    }
+  }
+}
+
 export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async (
   server,
   options,
@@ -319,7 +358,7 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
       // 同型先例:/api/ai/callback(2026-08-06 生产故障立)、internal-tool-invocation-ledger。
       config: { sqliGuard: { enabled: false } },
     },
-    async (request, reply) => {
+    withDiagnosableFailure(async (request, reply) => {
       const env = options.env ?? process.env
       const secret =
         options.webhookSecret === undefined ? readWebhookSecret(env) : options.webhookSecret
@@ -415,6 +454,41 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
             event: 'installation',
             action: envelope.action,
             outcome,
+          }),
+        )
+      }
+
+      // 4.6) CI 三类事件(Y-13,2026-10-29 立):check_suite / workflow_run / check_run
+      //      此前连事件名都没进白名单,直接被判 unsupported_event —— 对 CI 来说与"请求没到"
+      //      同形,自动化全程失聪。现在 schema 认、分支显式回话:200 + 忽略原因 + 落表,
+      //      读数上能区分"我们看到了但没订阅"与"我们没收到"。这三类要真正驱动动作
+      //      (评论触发/工单闭环)需要单独一张票定义动作面,本票只把它从静默里捞出来。
+      if (parsed.data.kind === 'ci_event') {
+        const { event: ciEvent, summary } = parsed.data
+        request.log.info(
+          {
+            delivery: envelope.deliveryId,
+            event: ciEvent,
+            action: envelope.action,
+            status: summary.status,
+            conclusion: summary.conclusion,
+            headSha: summary.headSha,
+            repo: envelope.repoFullName,
+          },
+          '[github-app] CI 事件已识别,当前无订阅处理分支 → 显式忽略(不再静默丢弃)',
+        )
+        await recordProcessedDelivery(store, envelope, request.log)
+        return reply.send(
+          ok({
+            accepted: false,
+            reason: 'ci_event_not_subscribed',
+            event: ciEvent,
+            action: envelope.action,
+            ci: {
+              status: summary.status,
+              conclusion: summary.conclusion,
+              headSha: summary.headSha,
+            },
           }),
         )
       }
@@ -524,7 +598,7 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
       )
       await recordProcessedDelivery(store, envelope, request.log)
       return reply.send(ok({ accepted: true, event: 'issue_comment', outcome }))
-    },
+    }),
   )
 }
 
