@@ -58,6 +58,11 @@ const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     defaultModel: 'llama-3.1-8b-instant',
     apiFormat: 'openai_chat',
   },
+  xai: {
+    baseUrl: 'https://api.x.ai/v1',
+    defaultModel: 'grok-4.7',
+    apiFormat: 'openai_chat',
+  },
   siliconflow: {
     baseUrl: 'https://api.siliconflow.cn/v1',
     defaultModel: 'Qwen/Qwen2.5-7B-Instruct',
