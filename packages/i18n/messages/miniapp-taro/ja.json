@@ -193,7 +193,18 @@
     "recommend": "おすすめ",
     "navMenu": "メニュー",
     "matDeletedOk": "削除しました",
-    "notLoggedIn": "未ログイン"
+    "notLoggedIn": "未ログイン",
+    "voiceUploadRetry": "音声のアップロードに失敗しました。再試行してください",
+    "fallbackFileName": "ファイル",
+    "uploadedNameToast": "アップロード済み：{name}",
+    "fileUploadFailed": "ファイルのアップロードに失敗しました",
+    "filePickRetry": "ファイルの選択に失敗しました。再試行してください",
+    "contentImage": "画像コンテンツ",
+    "contentVideo": "動画コンテンツ",
+    "contentText": "テキストコンテンツ",
+    "boolYes": "はい",
+    "boolNo": "いいえ",
+    "closePreview": "プレビューを閉じる"
   },
   "course": {
     "learningProgress": "学習進捗",
@@ -1164,7 +1175,8 @@
     "statusUnknown": "不明",
     "noUrl": "アクセスURLなし",
     "loadFailed": "読み込み失敗",
-    "openWorkflow": "ワークフローを開く"
+    "openWorkflow": "ワークフローを開く",
+    "gatewayRetry": "{attempt}/{max} 回目を再試行中、{seconds} 秒後に続けます"
   },
   "agentDialogue": {
     "sendFailed": "送信に失敗しました、再試行してください",
@@ -3587,7 +3599,12 @@
     "holdToSpeak": "押して話す",
     "addFile": "添付ファイルを追加",
     "document": "ドキュメント",
-    "video": "動画"
+    "video": "動画",
+    "compactSuccess": "コンテキストを圧縮しました: {before} → {after} トークン（{saved} 節約）",
+    "compactTooFew": "メッセージが少ないため圧縮は不要です",
+    "compactIncompressible": "圧縮できるコンテキストはもうありません",
+    "compactFailed": "圧縮に失敗しました",
+    "compactNoSession": "会話が未連携のため圧縮できません"
   },
   "toolbar": {
     "ai": "AIチャット"
@@ -3700,7 +3717,86 @@
     },
     "notes": {
       "loadFailShort": "読み込み失敗"
-    }
+    },
+    "selectModel": "モデルを選択",
+    "inputPlaceholder": "メッセージを入力...",
+    "flagFailed": "標識の保存に失敗",
+    "viewCard": "カードを見る",
+    "closeCard": "カードを閉じる",
+    "imageDelete": "画像を削除",
+    "webLinkPlaceholder": "ウェブリンクを入力（https://...）",
+    "micPermHint": "マイクにアクセスできません。権限設定を確認してください。",
+    "micInitFailed": "録音開始に失敗しました。再試行してください。",
+    "modelDegrade": "モデル降格：{from} → {to}",
+    "reconnecting": "ネットワークが不安定です。{attempt}回目の再接続（{countdown}秒後）",
+    "roundFailed": "音声ターンが失敗しました。再試行してください。",
+    "ttsSuccess": "音声生成成功（{voice}）",
+    "favOpFail": "お気に入りに失敗：{reason}",
+    "chatEmptyToast": "現在の会話は空です",
+    "clearDialogTitle": "会話をクリア",
+    "clearDialogBody": "現在の会話の全メッセージを削除しますか？",
+    "clearOk": "クリア",
+    "exportEmptyTitle": "IHUI AI 会話（空）",
+    "exportHeader": "IHUI AI 会話記録",
+    "camSoonHint": "カメラ撮影は未対応です。アルバムからアップロードしてください.",
+    "shareClaimed": "{points} ポイント獲得済み",
+    "shareClaimedOnce": "初回シェア報酬は受領済み",
+    "shareClaimFailed": "受領に失敗しました。後で再試行。",
+    "inviteShareBody": "IHUI AI コミュニティへ招待 — AI 雑談を一緒に楽しもう！",
+    "matTypePrefix": "タイプ",
+    "matNoDetailHint": "この素材の詳細は表示できません",
+    "loadDetailFail": "詳細の読み込みに失敗",
+    "netLoadFail": "ネットワークエラー、読み込み失敗",
+    "linkCopied": "リンクをコピーしました。ブラウザで貼り付けてください。",
+    "historyLoadFail": "履歴の読み込みに失敗しました。再試行してください。",
+    "delConvTitle": "会話を削除",
+    "delConvBody": "この会話を削除しますか？",
+    "chatDeleteFail": "削除に失敗しました。再試行。",
+    "topBarMenu": "メニューを開く",
+    "topBarAgent": "Agent を選択",
+    "topBarProfile": "マイページ",
+    "topBarCommunity": "コミュニティ参加",
+    "shareInviteNow": "今すぐ招待をシェア",
+    "fnTitle": "機能",
+    "sourceTitlePanel": "知識ソース",
+    "selectFile": "ファイルを選択",
+    "uploadingShort": "アップロード中…",
+    "closeCardShort": "閉じる",
+    "viewCardShort": "見る",
+    "cardWord": "カード",
+    "matDeleteA11y": "素材を削除",
+    "matFallback": "素材",
+    "sendLink": "リンクを送信",
+    "imagePreviewA11y": "画像プレビュー",
+    "menuAnnotateImage": "この画像に注釈",
+    "chatDeleteFailed2": "削除失敗",
+    "loginToSend": "メッセージを送信するには先にログインしてください",
+    "vipOnlyModel": "このモデルはVIP限定です。登録してご利用いただけます",
+    "openVipBtn": "VIPに登録",
+    "reloginBtn": "再ログイン",
+    "connectFailRetry": "接続に失敗しました。再試行してください",
+    "noMsgToTts": "変換できるメッセージがありません",
+    "ttsFailRetry": "音声生成に失敗しました。再試行してください",
+    "noMsgToFav": "お気に入りできるメッセージがありません",
+    "favFailRetry": "お気に入り登録に失敗しました。しばらくしてから再試行してください",
+    "qrNeedPerm": "QRコードを保存するにはアルバムの権限が必要です",
+    "qrNotRendered": "QRコードが未生成です。しばらくしてから再試行してください",
+    "qrSaved": "QRコードをアルバムに保存しました",
+    "qrSaveFail": "保存に失敗しました。再試行してください",
+    "favOn": "已收藏",
+    "favOff": "已取消收藏",
+    "annotAdded": "注釈を入力欄に追加しました",
+    "menuSwitchModel": "モデル切替",
+    "menuClear": "会話を消去",
+    "menuExport": "会話をエクスポート",
+    "menuShare": "会話を共有",
+    "menuToVoice": "音声に変換",
+    "menuFavorite": "收藏",
+    "menuMaterial": "素材ライブラリ",
+    "menuVoiceNote": "ボイスメモ",
+    "menuWebLink": "Webリンク",
+    "menuFileUpload": "ファイルアップロード",
+    "menuHistory": "会話履歴"
   },
   "tabBar": {
     "community": "コミュニティ",
@@ -6825,5 +6921,43 @@
     "title": "マイ申込",
     "loading": "読み込み中...",
     "empty": "データがありません"
+  },
+  "quickNotes": {
+    "menuEntry": "クイックノート",
+    "title": "クイックノート",
+    "new": "新規ノート",
+    "edit": "編集",
+    "search": "ノートを検索",
+    "insert": "チャットに挿入",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブ解除",
+    "archived": "アーカイブ済み",
+    "showArchived": "アーカイブを表示",
+    "empty": "ノートはまだありません"
+  },
+  "chatAlert": {
+    "compaction": {
+      "title": "コンテキストを自動圧縮しました",
+      "message": "{before} → {after}({removed} 件の履歴を削除)"
+    },
+    "loginBtn": "ログインへ",
+    "longPress": {
+      "myTitle": "自分のメッセージ",
+      "aiTitle": "AI メッセージ",
+      "message": "スクリーンショットを生成しました",
+      "shareBtn": "共有"
+    }
+  },
+  "mat": {
+    "unknown": "不明なエラー",
+    "deleteTitle": "素材削除",
+    "deleteBody": "「{title}」を削除しますか？",
+    "detailLabel": "素材詳細"
+  },
+  "selectionAnnotations": {
+    "addAnnotation": "注釈を追加"
+  },
+  "slashCmd": {
+    "statusToast": "モデル {model} · メッセージ {count} 件 · {state}"
   }
 }
