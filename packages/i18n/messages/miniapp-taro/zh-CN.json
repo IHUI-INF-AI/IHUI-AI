@@ -6809,5 +6809,21 @@
     "prev": "上一页",
     "next": "下一页",
     "loading": "加载中..."
+  },
+  "searchHistoryPage": {
+    "title": "搜索历史",
+    "subtitle": "最近的搜索记录",
+    "clearAll": "清空",
+    "loading": "加载中...",
+    "empty": "暂无搜索历史",
+    "resultCount": "共 {count} 条",
+    "back": "返回",
+    "loginRequired": "请先登录",
+    "error": "加载失败"
+  },
+  "signUpPage": {
+    "title": "我的报名",
+    "loading": "加载中...",
+    "empty": "目前还没有数据"
   }
 }
