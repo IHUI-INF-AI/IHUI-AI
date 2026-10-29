@@ -32,15 +32,55 @@
 export const MARKDOWN_SPLIT_MIN_LENGTH = 1500
 
 /**
- * 相邻块**都短于**该值时合并(碎片化阈值)。
- * 每块各自一次 parse 有固定开销(插件链 + AST 构建);几十字符的小块单独成容器
- * 比合并后一起解析更慢,也更容易把段间距压没。512 是经验档:正常段落/列表段
- * 体量,低于它两块合起来仍是一次轻量 parse。
+ * 相邻块**达到**该长度即封块(累积式分组阈值)。
+ *
+ * 2026-10-29 改判据:此前是"相邻两块**都短于**该值就合并"的贪心式,那个判据**不单调** ——
+ * 已合并的一块(如 11 + 511 = 522 字)在末块继续增长、越过 512 之后不再满足"两块都短",
+ * 于是又被**拆回两块**。实测阳性对照:`prev=["522字"] → next=["11字","512字"]`,
+ * 判据当场报边界回退。这与我修掉的那个列表标记 bug 是同一种病(块边界随内容增长而回退),
+ * 只是成因不同,所以必须一并修掉 —— 只修一头,渲染层的块 key 照样会错位。
+ *
+ * 现判据是**累积式**:从上一个封块点起累加,累计长度够了就封,封过之后不再回看。
+ * 累积长度只随内容增长 ⇒ 已封的边界永不回退(单调性由此结构性地成立,不靠约定)。
+ * 这也正是"每帧只重解析最后一块"能成立的前提。
  */
 export const MARKDOWN_BLOCK_MERGE_THRESHOLD = 512
 
 /** 空行后下一行以这些模式开头时,该空行不是安全切点(列表/缩进延续)。 */
 const LIST_CONTINUATION_RE = /^\s*(?:[-*+]|\d+[.)])\s/
+
+/**
+ * 「列表标记还没写完」的形态(2026-10-29 立,流式切点回退根治)。
+ *
+ * 立因是实测出来的,不是猜的:流式下一个列表项是**逐字符到达**的,
+ * `- ` 会先到成 `-`,`1. ` 会先到成 `1`、`1.` 两拍。这些中间态**不匹配**
+ * `LIST_CONTINUATION_RE`(它要求标记后跟空白),于是被当成普通非空行 ⇒
+ * 前一个空行**当场落成切点**;下一拍标记写全,切点又被撤销。
+ *
+ * 后果不是"慢一点":`splitMarkdownBlocks` 的块 key 取序号,切点一撤数组变短、
+ * 中段内容错位 ⇒ 前缀块整列按新下标复用/重挂,`StableBlock` 的 memo 全线失效
+ * (每帧整段重解析),跨树重挂还会把代码块折叠态与 mermaid 渲染结果一起打回。
+ * 实测样本 `# 分析结论…## 小节 A\n\n- ` 处切点集从 `[8,27,36]` 回退到 `[8,27]`。
+ *
+ * 判据:行**整体**只是一个可能的列表标记前缀(可带前导缩进),即
+ *   `-` / `*` / `+` / `1` / `1.` / `1)` / `- `(尾随空白尚未跟正文)
+ * 这类行在流式里可能是"列表项写了一半",本拍**不落地切点、也不丢弃候选**,
+ * 留到下一拍再判。失效方向恒为「本拍少切一次」(更保守),不会多切一刀。
+ */
+const LIST_MARKER_PREFIX_RE = /^\s*(?:[-*+]|\d+[.)]?)\s*$/
+
+/**
+ * 空行后的这一行,是否足以判定"该空行是/不是切点"。
+ *
+ * `false` = **本拍判不了**(列表标记可能还没写完),调用方必须保留候选切点等下一拍。
+ * 这一格与 `LIST_CONTINUATION_RE` 是两个不同的问题,不可互相顶替:
+ *   - `LIST_CONTINUATION_RE` 答"这是列表延续 ⇒ 这里绝不能切";
+ *   - 本函数答"这行还没定性 ⇒ 这里**暂时**不能下结论"。
+ * 只有两者都为否,空行才是安全切点。
+ */
+function isUndecidableListMarker(line: string): boolean {
+  return LIST_MARKER_PREFIX_RE.test(line)
+}
 
 /**
  * 跨空行生效、且解析作用域是**单次 parse** 的构造。
@@ -109,6 +149,9 @@ function collectSafeCutPoints(content: string): number[] {
         // 空行后的第一个非空行:列表/缩进延续 → 该空行不安全,弃用
         if (LIST_CONTINUATION_RE.test(line) || /^\s/.test(line)) {
           pendingBlank = null
+        } else if (isUndecidableListMarker(line)) {
+          // 列表标记可能只写了一半(流式逐字符到达)—— 本拍判不了:
+          // 既不落地切点,也不丢弃候选,留给下一拍。见 isUndecidableListMarker 注记。
         } else {
           cuts.push(pendingBlank.end)
           pendingBlank = null
@@ -189,7 +232,7 @@ export function splitMarkdownBlocks(
     return { blocks: [content] }
   }
 
-  // 先按切点原样切片(拼回必等于 content),再按碎片阈值做相邻合并
+  // 先按切点原样切片(拼回必等于 content),再按累积阈值封块
   const raw: string[] = []
   let start = 0
   for (const cut of cuts) {
@@ -198,19 +241,151 @@ export function splitMarkdownBlocks(
   }
   raw.push(content.slice(start))
 
+  // 累积式封块:封过的点不再回看 ⇒ 已封边界随内容增长永不移动(单调性由结构保证)。
+  // 贪心式的"两块都短就合并"不单调:合并产生的块长大越过阈值后会被重新拆开。
   const blocks: string[] = []
+  let buffer = ''
   for (const block of raw) {
-    const prev = blocks[blocks.length - 1]
-    if (
-      prev !== undefined &&
-      prev.length < MARKDOWN_BLOCK_MERGE_THRESHOLD &&
-      block.length < MARKDOWN_BLOCK_MERGE_THRESHOLD
-    ) {
-      blocks[blocks.length - 1] = prev + block
-    } else {
-      blocks.push(block)
+    buffer += block
+    if (buffer.length >= MARKDOWN_BLOCK_MERGE_THRESHOLD && buffer.trim()) {
+      blocks.push(buffer)
+      buffer = ''
+    }
+  }
+  // 尾部残量**独立成块**(生长尾巴)。刻意不并回最后一块:并回去会让末块内容
+  // 在下一拍被"切开重来"(末块无法以自身为前缀延伸),单调性当场破。
+  if (buffer) blocks.push(buffer)
+
+  return { blocks }
+}
+
+/**
+ * 流式切分的**单调性判据**(2026-10-29 立)。
+ *
+ * ── 为什么必须单独有这个出口 ──
+ * `splitMarkdownBlocks` 只保证"拼回等于原文"这一条**静态**不变量。流式真正依赖的是
+ * 另一条**跨拍**不变量:**内容纯追加时,已落地的块边界不得移动**。渲染层用序号做块 key,
+ * 边界一退,数组当场变短、中段内容错位,前缀块的 memo 按新下标全部失效(等于每帧整段
+ * 重解析),跨树重挂还会把代码块折叠态、mermaid 渲染结果一起打回。
+ *
+ * 这条不变量此前**没有任何机器判据**,而实测它真的会破:列表标记逐字符到达时
+ * (`- ` 先到成 `-`),前一拍的空行被误判成安全切点、下一拍又撤销 —— 实测样本
+ * `# 分析结论…## 小节 A\n\n- ` 处块边界从 `[8,27,36]` 退到 `[8,27]`。
+ *
+ * ── 「已落地」的口径(这一条写错就会假阴性)──
+ * 第一版把末块整体排除比较,结果**漏掉了 bug 本体**:原始失效型正是「末切点撤销」——
+ * 上一拍 `[a, b, c]`(c 之前那一刀已落地),这一拍 c 的切点消失 ⇒ `[a, b]`,
+ * c 被并回 active。若末块不参与比较,这一型判成 stable、判据形同虚设。
+ *
+ * 正确口径:**每一块都要在场**,但末块允许「生长」而不允许「被动」——
+ *  - `next[i]` 缺席 ⇒ 块消失(切点被撤销 / 数组变短)⇒ 错位;
+ *  - 非末块:必须逐字节等值(已落地块的内容不许再变);
+ *  - 末块:必须**以自己为前缀延伸**(`next[i].startsWith(prev[i])`),即内容可以继续长,
+ *    但不许换成别的内容、也不许被前面吞掉。
+ *
+ * ── 判据本身 ──
+ *  1. 内容必须**以上次内容为前缀**(纯追加)。不是 ⇒ `appendOnly: false`,
+ *     **这一型不可判**(上游改写/重载属合法的非追加路径),调用方必须按"不可复用"处理,
+ *     不得读成"边界稳定"。
+ *  2. 是纯追加 ⇒ 按上面口径逐块核对。
+ *  3. 全过 ⇒ `stable: true` 并报出新增块数。
+ *
+ * 失效方向固定:**判不出就说判不出**(`appendOnly: false`),绝不默认稳定。
+ */
+export interface BlockStabilityInput {
+  /** 上一拍参与渲染的块(顺序即当时的下标次序;末项是生长尾巴) */
+  readonly previousBlocks: readonly string[]
+  /** 上一拍的完整内容(用于判纯追加) */
+  readonly previousSource: string
+  /** 这一拍的完整内容 */
+  readonly source: string
+  /** 这一拍的有序块序列 */
+  readonly nextBlocks: readonly string[]
+}
+
+export interface BlockStability {
+  /** 这一拍是否纯追加(内容以上一拍为前缀)。false ⇒ 其余字段无意义,不得当稳定读 */
+  readonly appendOnly: boolean
+  /** 已落地的块边界是否全部保持原位(仅 appendOnly 为真时才有意义) */
+  readonly stable: boolean
+  /** 第一个错位的块下标;`stable` 为真或不可判时 `null` */
+  readonly firstDriftIndex: number | null
+  /**
+   * 本拍新增的块数(纯追加且稳定时 = nextBlocks.length - previousBlocks.length)。
+   * 不可判时为 `null` —— 与"没有新增"是两件事。
+   */
+  readonly appendedBlocks: number | null
+  /**
+   * 本拍是否属**首次开启切分**:上一拍还是"单块 = 全文"的未切分态,这一拍因跨过
+   * `minLength` 门槛才开始分块。
+   *
+   * 这是可预期的**一次性**转变(不是边界回退),但它确实会让前缀块当场全部重建,
+   * 所以必须显式归类而不是默默按 stable 放过 —— 否则"每帧只重解析最后一块"的证据链上
+   * 就留了一格说不清的东西。此时内容刚过门槛(长度约等于 minLength),重建代价可忽略。
+   */
+  readonly splitEnabled: boolean
+}
+
+export function judgeBlockStability(input: BlockStabilityInput): BlockStability {
+  const { previousBlocks, previousSource, source, nextBlocks } = input
+
+  if (previousSource.length > 0 && !source.startsWith(previousSource)) {
+    return {
+      appendOnly: false,
+      stable: false,
+      firstDriftIndex: null,
+      appendedBlocks: null,
+      splitEnabled: false,
     }
   }
 
-  return { blocks }
+  // 上一拍是"未切分态"(单块即全文)且这一拍开始分块 ⇒ 首次开启切分,单独归类
+  const previousWasUnsplit =
+    previousBlocks.length === 1 &&
+    previousSource.length > 0 &&
+    previousBlocks[0] === previousSource &&
+    nextBlocks.length > 1
+  if (previousWasUnsplit) {
+    return {
+      appendOnly: true,
+      stable: false,
+      firstDriftIndex: null,
+      appendedBlocks: nextBlocks.length - previousBlocks.length,
+      splitEnabled: true,
+    }
+  }
+
+  const lastIndex = previousBlocks.length - 1
+  for (let i = 0; i < previousBlocks.length; i += 1) {
+    const prev = previousBlocks[i] ?? ''
+    const next = nextBlocks[i]
+    // 块消失 = 切点被撤销 / 数组变短,一律错位(末块也不例外)
+    if (next === undefined) {
+      return {
+        appendOnly: true,
+        stable: false,
+        firstDriftIndex: i,
+        appendedBlocks: null,
+        splitEnabled: false,
+      }
+    }
+    const ok = i === lastIndex ? next.startsWith(prev) : next === prev
+    if (!ok) {
+      return {
+        appendOnly: true,
+        stable: false,
+        firstDriftIndex: i,
+        appendedBlocks: null,
+        splitEnabled: false,
+      }
+    }
+  }
+
+  return {
+    appendOnly: true,
+    stable: true,
+    firstDriftIndex: null,
+    appendedBlocks: nextBlocks.length - previousBlocks.length,
+    splitEnabled: false,
+  }
 }
