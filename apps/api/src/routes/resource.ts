@@ -3,9 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync } from 'fastify'
-import { createReadStream } from 'node:fs'
-import { stat } from 'node:fs/promises'
-import { basename } from 'node:path'
 import { z } from 'zod'
 import { and, eq, desc } from 'drizzle-orm'
 import { auditLogs, resourceProducts } from '@ihui/database'
@@ -25,7 +22,9 @@ import {
   createResource,
   updateResource,
   deleteResource,
+  deleteResourceIfOwned,
   publishResource,
+  findMyResources,
   findProducts,
   findProductById,
   createProduct,
@@ -84,6 +83,10 @@ const paginationQuery = {
 
 const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
+// GET /resources/mine 的分页 query(参数名与 web/RN 消费方逐字一致:page/pageSize;
+// 刻意不接受 owner/ownerUserId 之类的客户端自报归属键)
+const myResourcesQuery = z.object({ ...paginationQuery })
+
 const resourcesListQuery = z.object({
   ...paginationQuery,
   title: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
@@ -134,6 +137,9 @@ const createResourceSchema = z.object({
   image: z.string().max(500).nullable().optional(),
   introduction: z.string().nullable().optional(),
   cidList: z.array(z.uuid()).max(100).nullable().optional(),
+  // 2026-10-29 立:admin 代用户建资源时显式归属(资源 admin 有权指派,
+  // 读取/删除侧仍按令牌主体授权,见 GET /api/resources/mine)。缺省 NULL = 平台内容。
+  ownerUserId: z.uuid().nullable().optional(),
 })
 
 const updateResourceSchema = z.object({
@@ -360,21 +366,14 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
         return reply.redirect(fileUrl)
       }
 
-      // 本地文件 → 流式传输
-      try {
-        const stats = await stat(fileUrl)
-        const filename = basename(fileUrl)
-        reply.header('Content-Type', resource.fileType || 'application/octet-stream')
-        reply.header('Content-Length', stats.size)
-        reply.header(
-          'Content-Disposition',
-          `attachment; filename="${encodeURIComponent(filename)}"`,
-        )
-        const stream = createReadStream(fileUrl)
-        return reply.send(stream)
-      } catch {
-        return reply.status(404).send(error(404, '资源文件不存在'))
-      }
+      // 2026-10-29 安全收口:删掉本地文件分支。
+      // fileUrl 是 admin 可写的自由文本(z.string().max(500),无路径约束),原实现直接
+      // stat + createReadStream ⇒ 写入 ../../.env 之类的路径即可借下载接口读走服务器任意
+      // 文件(组合链:管理员密码泄漏 → TOTP 未绑 → 进后台 → 任意文件读取)。
+      // 实测线上资源的 file_url 全部是 http(s) 外链,本地分支零使用。
+      // 将来若要支持本地文件:新建带根目录约束的专用端点(resolve 后必须落在 UPLOAD_DIR 内),
+      // 不要复活这一段 —— 它没有、也不该有"任意路径"的语义。
+      return reply.status(404).send(error(404, '资源文件不存在'))
     },
   )
 
@@ -431,8 +430,36 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ record: record ?? null }))
   })
 
-  // DELETE /resources/:id - 删除资源(G-962 批7 补后端,迁移自 D 盘历史死路径)
-  // 注:resources 表无 owner 列,此处仅做登录闸 + 存在性校验;真归属校验需 schema 迁移(残段登记)。
+  // GET /resources/mine - 我的资源(2026-10-29 立,web→RN 台账 student/my-resources 数据面结清)。
+  // 消费方:apps/web/app/(main)/student/my-resources/page.tsx 与共享屏
+  // packages/app/src/features/student/MyResourcesScreen.tsx(分页参数名逐字 page/pageSize,
+  // 读取 res.data.list / res.data.total)。归属主体取自鉴权结果并显式入参,
+  // 不接受查询串/请求体自报 owner(AGENTS §5「认证不等于授权」)。
+  server.get(
+    '/resources/mine',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      try {
+        await authenticate(request)
+      } catch {
+        return reply.status(401).send(error(401, '操作失败,请稍后重试'))
+      }
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
+      const parsed = myResourcesQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await findMyResources({ ownerUserId: userId, ...parsed.data })
+      return reply.send(success(result))
+    },
+  )
+
+  // DELETE /resources/:id - 删除资源(G-962 批7 补后端;2026-10-29 升级归属闸)
+  // 原「登录闸 + 存在性校验」允许任意注册用户删任意资源 —— 该残段登记的缺口已随
+  // resources.owner_user_id 迁移(20261029120000)清偿:仅 (id, owner) 同命中才删,
+  // 非本人行 / NULL owner 平台内容一律 404 且零副作用;平台内容由 admin 面
+  // (DELETE /api/admin/resources/:id)负责。
   server.delete(
     '/resources/:id',
     { schema: { response: { ...responseSchema } } },
@@ -442,13 +469,14 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
       } catch {
         return reply.status(401).send(error(401, '操作失败,请稍后重试'))
       }
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
       const parsed = uuidParamSchema.safeParse(request.params)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const resource = await findResourceById(parsed.data.id)
-      if (!resource) return reply.status(404).send(error(404, '资源不存在'))
-      await deleteResource(parsed.data.id)
+      const outcome = await deleteResourceIfOwned(parsed.data.id, userId)
+      if (outcome === 'not_found') return reply.status(404).send(error(404, '资源不存在'))
       return reply.send(success({ ok: true }))
     },
   )

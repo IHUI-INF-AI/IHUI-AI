@@ -59,13 +59,13 @@ export async function loadKnowledgeContext(
   userId: string | null,
   query: string | null,
 ): Promise<KnowledgeContextResult | null> {
-  if (!query || !query.trim()) return null
+  if (!userId || !query || !query.trim()) return null
   const trimmedQuery = query.trim().slice(0, KNOWLEDGE_QUERY_MAX)
   let hits: Array<{ id: number; docId: number; content: string; score: number; chunkIndex: number }>
   try {
     hits = await knowledgeRagService.search({
       query: trimmedQuery,
-      ownerUuid: userId ?? '',
+      ownerUuid: userId,
       topK: KNOWLEDGE_TOP_K,
     })
   } catch (e) {

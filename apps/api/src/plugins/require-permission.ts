@@ -148,15 +148,15 @@ export const requireAuth = async (request: FastifyRequest, reply: FastifyReply):
 /**
  * 管理员 TOTP 闸档位(2026-10-28 安全审计)。
  * - `off`:完全不检查(回滚口子)
- * - `warn`:未绑 TOTP 的管理员放行,仅记结构化告警(env 默认值)
- * - `enforce`:未绑 TOTP 的管理员访问 admin 面 → 403
+ * - `warn`:未绑 TOTP 的管理员放行,仅记结构化告警(过渡档)
+ * - `enforce`:未绑 TOTP 的管理员访问 admin 面 → 403(env 默认值,2026-10-29 起)
  */
 export type AdminTotpMode = 'off' | 'warn' | 'enforce'
 
 /**
  * 解析档位。
  *
- * `config.ADMIN_TOTP_MODE` 由 envSchema 兜底(缺省 `warn`),**真实 config 恒有值** ——
+ * `config.ADMIN_TOTP_MODE` 由 envSchema 兜底(缺省 `enforce`),**真实 config 恒有值** ——
  * 运行时不存在"字段缺失"这一态。唯一可能出现 undefined 的是旧测试里手写的 config
  * mock(它们整对象替换 config),这类 mock 走的是"加固前的旧判据"回退(同 config/index.ts
  * 里 `isProductionGuard` 的既有约定),否则给每个 admin 测试塞一次额外查询会整体打乱
@@ -258,7 +258,7 @@ async function checkAdminTotpGate(request: FastifyRequest, reply: FastifyReply):
  * 即"持有内部密钥 + 把 X-User-Id 填成某管理员"不构成 admin 提权。
  *
  * 管理员 TOTP 闸(2026-10-28):roleId 判定通过后再过 `checkAdminTotpGate`,档位由
- * `ADMIN_TOTP_MODE` 控制(默认 `warn`:只告警放行,不改变上述 401/403 语义)。
+ * `ADMIN_TOTP_MODE` 控制(默认 `enforce`:未绑 TOTP 一律 403;`warn` 仅作过渡档)。
  */
 export const requireAdmin = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
   try {
@@ -290,7 +290,7 @@ export const requireAdmin = async (request: FastifyRequest, reply: FastifyReply)
  *  2. 已鉴权但账号非活动 → 同状态码族 + `... || '账号已注销'`
  *  3. 活动但非管理员 → 403 `'需要管理员权限'`
  * 2026-10-28 追加第 4 步(不影响上述三条):管理员 TOTP 闸 `checkAdminTotpGate`,
- * 档位 `ADMIN_TOTP_MODE` 默认 `warn`(只告警放行),`enforce` 时未绑 TOTP 才是 403。
+ * 档位 `ADMIN_TOTP_MODE` 默认 `enforce`(2026-10-29 起;`warn` 为过渡档),未绑 TOTP 即 403。
  * 响应体一律走 `utils/response.js` 的 `error()`(admin 面历史形状,与 `requireAdmin`
  * 的内联字面量形状**不必相同**,收编时不得顺手统一)。
  */
