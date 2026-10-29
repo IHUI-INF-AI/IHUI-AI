@@ -3,6 +3,7 @@
     "title": "每日簽到"
   },
   "conversationImport": {
+    "failedCountLabel": "失敗",
     "pageTitle": "匯入對話",
     "desc": "將 Claude Code / Codex / Cursor / Aider / 微信等外部工具的對話紀錄匯入本平臺",
     "sourcesTitle": "選擇對話來源",
@@ -43,7 +44,7 @@
     "historyEmpty": "暫無匯入記錄",
     "historyParsed": "解析",
     "historyImported": "匯入",
-    "historyFailed": "失敗",
+    "historyFailed": "載入導入歷史失敗:{error}",
     "statusSuccess": "成功",
     "statusPartial": "部分成功",
     "statusFailed": "失敗",

@@ -3,6 +3,7 @@
     "title": "Daily Check-in"
   },
   "conversationImport": {
+    "failedCountLabel": "Failed",
     "pageTitle": "Import Conversations",
     "desc": "Import chat history from Claude Code / Codex / Cursor / Aider / WeChat into this platform",
     "sourcesTitle": "Choose a source",
@@ -43,7 +44,7 @@
     "historyEmpty": "No import records yet",
     "historyParsed": "Parsed",
     "historyImported": "Imported",
-    "historyFailed": "Failed",
+    "historyFailed": "Failed to load import history: {error}",
     "statusSuccess": "Succeeded",
     "statusPartial": "Partly succeeded",
     "statusFailed": "Failed",

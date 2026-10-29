@@ -3,6 +3,7 @@
     "title": "每日签到"
   },
   "conversationImport": {
+    "failedCountLabel": "失败",
     "pageTitle": "外部会话导入",
     "desc": "将 Claude Code / Codex / Cursor / Aider / 微信等外部工具的会话记录导入为平台会话",
     "sourcesTitle": "选择会话来源",
@@ -43,7 +44,7 @@
     "historyEmpty": "暂无导入记录",
     "historyParsed": "解析",
     "historyImported": "导入",
-    "historyFailed": "失败",
+    "historyFailed": "加载导入历史失败:{error}",
     "statusSuccess": "成功",
     "statusPartial": "部分成功",
     "statusFailed": "失败",
