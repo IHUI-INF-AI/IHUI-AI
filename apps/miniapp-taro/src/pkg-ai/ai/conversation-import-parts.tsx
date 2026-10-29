@@ -254,7 +254,7 @@ export function ImportHistoryList({
             <Text className="block text-[length:22rpx] text-muted-foreground mt-[8rpx]">
               {tt('conversationImport.historyParsed', '解析')}: {h.parsedCount} ·{' '}
               {tt('conversationImport.historyImported', '导入')}: {h.importedCount} ·{' '}
-              {tt('conversationImport.historyFailed', '失败')}: {h.failedCount}
+              {tt('conversationImport.failedCountLabel', '失败')}: {h.failedCount}
               {h.errorMessage ? ` · ${h.errorMessage}` : ''}
             </Text>
           </ThemeRoot>

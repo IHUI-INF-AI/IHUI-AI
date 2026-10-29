@@ -125,6 +125,10 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
     fidelityMissing: fidelity?.json?.totalMissing ?? null,
     fidelityBroken: fidelity?.json?.broken ?? null,
     fidelityOther: fidelity?.json?.other ?? null,
+    // 端词包命名空间维(2026-10-29 立):尺子报 packUndetermined 时这里是 null ⇒ 整轮按未判定走,
+    // 绝不把"词包没读到"折成"零缺口"。
+    fidelityPackAbsent:
+      fidelity?.json?.packUndetermined === true ? null : (fidelity?.json?.packAbsentRows ?? null),
     // 转换机会维(2026-10-27 接):落地器**只读预演**的结论 —— 有页可自动转壳承载时必须被机器看见。
     // 为什么不直接把 apply 挂守护轮:转换还要同批改 `rn-shell-types` 声明件(门 251 C9 判它),
     // 只落页不落声明件会把那道 blocking 门打红(§12e 恒红门),而那一步需要一个按 HEAD 面重生成的
@@ -177,6 +181,25 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
       dim: 'mirror-declaration-mismatch',
       detail: `${cur.fidelityOther} 对声明镜像 A 而承载的壳是 B ⇒ 账面"已镜像"而 A 那一屏并没渲染 ⇒ 出路:改标记为真承载的那一屏,或把壳指向声明的那一屏${named('other')}`,
     })
+  // 端词包缺整块命名空间(2026-10-29 立):这一型的失效方向最坏 —— 壳承载页由共享源渲染,
+  // 还原度尺对 hosted 行"按构造 100%、无键可缺",逐键那把尺又只看页面文本里有没有键(壳页天生没有),
+  // 两把尺同时看不见,而用户打开那一屏看到的是**每一句话都取不到词条**。实测存量 16 个命名空间 × 5 语言
+  // 是在"还原度 76.5%、断链 0、声明不符 0"一片绿期间撞出来的 ⇒ 现读存量已随本批补齐,按绝对值出声。
+  if (cur.fidelityPackAbsent > 0) {
+    const rows = fidelity?.json?.rows
+    const hit = Array.isArray(rows)
+      ? rows
+          .filter((r) => Array.isArray(r?.packAbsent) && r.packAbsent.length)
+          .slice(0, 3)
+          .map((r) => `${r.route} 缺 ${r.packAbsent.slice(0, 4).join(',')}`)
+      : []
+    reasons.push({
+      dim: 'mirror-pack-namespace-missing',
+      detail:
+        `${cur.fidelityPackAbsent} 屏要的命名空间在本端词包里整块不存在(本端包 ∪ shared 都查无)⇒ 那一屏全部文案取不到` +
+        ` ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看 ❌ 点名行,再从 messages/mobile-rn(基准侧)或 messages/shared 逐字搬该命名空间(勿代拟译文)${hit.length ? ` ⇒ 点名:${hit.join(' ｜ ')}` : ''}`,
+    })
+  }
   // 转换机会:"有页可转"不是倒退,但它是"少养一份端内实现"的窗口,现读到 >0 就出声
   // (身份按维去重 ⇒ 同一批机会不会每 60 分钟刷一封;明细抖动不换身份)。
   if (cur.conversionUpgradable > 0)
@@ -293,9 +316,20 @@ function selfTestMain() {
     broken = 0,
     other = 0,
     rows = [],
+    packAbsentRows = 0,
+    packUndetermined = false,
   } = {}) => ({
     ok: true,
-    json: { hosted, hand, totalMissing: missing, broken, other, rows },
+    json: {
+      hosted,
+      hand,
+      totalMissing: missing,
+      broken,
+      other,
+      rows,
+      packAbsentRows,
+      packUndetermined,
+    },
   })
   /** 转换机会预演夹具(与 upgrade-miniapp-shell-pages 的机读档同形;默认"没机会"= 现读真实状态) */
   const mkConv = ({ upgradable = 0, refused = 12 } = {}) => ({
@@ -491,6 +525,50 @@ function selfTestMain() {
     })(),
   })
   cases.push({
+    name: 'T20 端词包缺整块命名空间 ⇒ 出声且带点名(两把尺都看不见这一型,没人喊就是满屏空白)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({
+          packAbsentRows: 2,
+          rows: [
+            { route: 'pkg-user/pdf-tools-hub/index', packAbsent: ['pdfToolsPage'] },
+            { route: 'pkg-shop/pay/result/index', packAbsent: ['payResult', 'team'] },
+          ],
+        }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      const d = j.reasons.find((r) => r.dim === 'mirror-pack-namespace-missing')?.detail ?? ''
+      return (
+        d.includes('2 屏') &&
+        d.includes('pkg-user/pdf-tools-hub/index') &&
+        d.includes('pdfToolsPage') &&
+        d.includes('勿代拟译文')
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T21 词包取不到(packUndetermined) ⇒ 整轮未判定,不把"没读到"折成"零缺口"(§0.3)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ packAbsentRows: 0, packUndetermined: true }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return (
+        j.state === 'undetermined' &&
+        (j.missing || []).includes('fidelityPackAbsent') &&
+        !j.reasons.some((r) => r.dim === 'mirror-pack-namespace-missing')
+      )
+    })(),
+  })
+  cases.push({
     name: 'T11 还原度尺跑不动 ⇒ undetermined 且点名 fidelity(不记绿)',
     pass: (() => {
       const j = judge({
@@ -650,7 +728,7 @@ function main() {
   } else {
     console.log(`STATE=${result.state}`)
     console.log(
-      `现读:镜像 ${result.cur?.mirrored ?? '?'} / 登记 ${result.cur?.registryEntries ?? '?'} / web aligned ${result.cur?.aligned ?? '?'} / unmapped ${result.cur?.unmapped ?? '?'} / 还原度: 承载 ${result.cur?.fidelityHosted ?? '?'} 手写 ${result.cur?.fidelityHand ?? '?'} 未还原键 ${result.cur?.fidelityMissing ?? '?'} 断链 ${result.cur?.fidelityBroken ?? '?'} 声明不符 ${result.cur?.fidelityOther ?? '?'}`,
+      `现读:镜像 ${result.cur?.mirrored ?? '?'} / 登记 ${result.cur?.registryEntries ?? '?'} / web aligned ${result.cur?.aligned ?? '?'} / unmapped ${result.cur?.unmapped ?? '?'} / 还原度: 承载 ${result.cur?.fidelityHosted ?? '?'} 手写 ${result.cur?.fidelityHand ?? '?'} 未还原键 ${result.cur?.fidelityMissing ?? '?'} 断链 ${result.cur?.fidelityBroken ?? '?'} 声明不符 ${result.cur?.fidelityOther ?? '?'} 本端词包缺命名空间 ${result.cur?.fidelityPackAbsent ?? '未判定'}`,
     )
     if (result.why) console.log(`未判定原因:${result.why}`)
     for (const r of result.reasons || []) console.log(`· ${r.dim} —— ${r.detail}`)
