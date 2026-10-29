@@ -21,7 +21,7 @@ import net from 'node:net'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { createIpRateLimiter, resolveRateLimitConfig } from './lib/ip-rate-limit.mjs'
+import { createIpRateLimiter, isLoopbackAddress, resolveRateLimitConfig } from './lib/ip-rate-limit.mjs'
 
 // ── 通用化(2026-10-28 生产席:web 蓝绿复用同一份 router,不落第二份反代实现)────────
 // 立因:web 走蓝绿也要一个"常驻监听 + 原子切流"的入口层,而另写一份 router 就是第二个真相源
@@ -142,17 +142,21 @@ const server = http.createServer((req, res) => {
     // key = TCP 对端地址(不可伪造)。绝不用 X-Forwarded-For:那是客户端可任意改的头,
     // 拿它当 key 等于把限流开关交给攻击者(每请求换一个假 IP 即绕过)。
     const ip = req.socket.remoteAddress || 'unknown'
-    const verdict = limiter.check(ip)
-    if (!verdict.allowed) {
-      logRateLimited(ip, verdict)
-      const body = Buffer.from(JSON.stringify({ code: 429, message: 'too many requests' }))
-      res.writeHead(429, {
-        'content-type': 'application/json',
-        'content-length': body.length,
-        'retry-after': String(verdict.retryAfterSec),
-      })
-      res.end(body)
-      return
+    // 回环豁免:内部服务(ai-service → /api/internal/*)与健康检查都从这里进来,
+    // 不豁免会让一次批量内部调用把自己的通道限死(加固把自己打瘫)。见 lib 头注。
+    if (!isLoopbackAddress(ip)) {
+      const verdict = limiter.check(ip)
+      if (!verdict.allowed) {
+        logRateLimited(ip, verdict)
+        const body = Buffer.from(JSON.stringify({ code: 429, message: 'too many requests' }))
+        res.writeHead(429, {
+          'content-type': 'application/json',
+          'content-length': body.length,
+          'retry-after': String(verdict.retryAfterSec),
+        })
+        res.end(body)
+        return
+      }
     }
   }
   proxyHttp(req, res, 0)

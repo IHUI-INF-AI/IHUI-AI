@@ -13,7 +13,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { createIpRateLimiter, resolveRateLimitConfig } from '../ip-rate-limit.mjs'
+import { createIpRateLimiter, isLoopbackAddress, resolveRateLimitConfig } from '../ip-rate-limit.mjs'
 
 /** 可控时钟:不 sleep,直接推进时间。 */
 function makeClock(start = 1_000_000) {
@@ -111,4 +111,20 @@ test('配置:应急开关可整层关闭(off/0/false/no 四种写法)', () => {
     assert.equal(resolveRateLimitConfig({ IHUI_BG_RATE_LIMIT: flag }).enabled, false, flag)
   }
   assert.equal(resolveRateLimitConfig({ IHUI_BG_RATE_LIMIT: 'on' }).enabled, true)
+})
+
+// ── 回环豁免(2026-10-29):内部服务与健康检查都从 127.0.0.1 进来,不豁免会把
+//    自己的内部通道限死。这一族错法的表现是「加固后批量任务开始 429」,极难归因。
+test('回环地址三种写法都认(含双栈 IPv4-mapped)', () => {
+  for (const ip of ['127.0.0.1', '::1', '::ffff:127.0.0.1', '127.0.0.2', '127.255.255.254']) {
+    assert.equal(isLoopbackAddress(ip), true, ip)
+  }
+})
+
+test('回环判定不做前缀模糊匹配:公网 IP 与空值都必须是 false', () => {
+  // 反向对照:若把 `startsWith('127')` 写漏成 `startsWith('12')`,128.x 会被误豁免 ——
+  // 那是一整段公网地址凭空失去限流保护,而测试若只测正例就发现不了。
+  for (const ip of ['128.0.0.1', '12.7.0.1', '10.0.0.1', '::ffff:8.8.8.8', '', 'unknown', undefined]) {
+    assert.equal(isLoopbackAddress(ip), false, String(ip))
+  }
 })

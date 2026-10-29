@@ -32,6 +32,27 @@ const DEFAULTS = Object.freeze({
 })
 
 /**
+ * 回环地址豁免:内部服务(ai-service → api 的 `/api/internal/*`)与健康检查都走
+ * `127.0.0.1:8802`,与外部流量共用同一个桶。若不豁免,一次批量内部调用(突发数百)
+ * 就会把内部通道自己限死 —— 那是「加固把自己打瘫」,比不加固更糟。
+ *
+ * 安全性上不亏:能在本机发请求的主体,已经拥有远超限流的权限(本机进程可直接打
+ * 8842/8852 绕过 router),限流对它没有防护价值,只有误伤价值。
+ *
+ * 注意必须认三种写法:Node 在双栈 socket 上会把 IPv4 回环报成 `::ffff:127.0.0.1`。
+ */
+export function isLoopbackAddress(ip) {
+  if (typeof ip !== 'string' || ip.length === 0) return false
+  const normalized = ip.toLowerCase()
+  return (
+    normalized === '127.0.0.1' ||
+    normalized === '::1' ||
+    normalized === '::ffff:127.0.0.1' ||
+    normalized.startsWith('127.')
+  )
+}
+
+/**
  * @param {object} [opts]
  * @param {number} [opts.rps] 每秒补充令牌数
  * @param {number} [opts.burst] 桶容量(允许的瞬时突发)
