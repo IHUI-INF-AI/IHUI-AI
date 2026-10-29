@@ -2873,6 +2873,8 @@ const edgeRewriteDerived = GRAPH_AVAILABLE
       [
         ...regGraph.entries.flatMap((e) => {
           if (e.file.endsWith('.py')) return []
+          // 图盲区兜底条目的前缀是猜的,拿它派生边缘改写 = 让猜测再长出第二层猜测
+          if (e.via === 'fallback') return []
           if (e.method === 'ANY') {
             return BACKEND_VERBS.map((v) => ({
               method: String(v).toUpperCase(),
@@ -2988,6 +2990,13 @@ const backendPathSet = new Set()
 if (GRAPH_AVAILABLE) {
   for (const e of regGraph.entries) {
     if (e.file.endsWith('.py')) continue // py 条目从旧提取式来(判据窄度不同,见接线块头注)
+    // 图盲区兜底条目**不进精确注册面**:它的前缀是本文件内部声明的,不是 server.ts 上的挂载点
+    // (判据与两档出口见下方 fallbackOnlyIndex 头注)。命中它的调用改判 orphan(红)/
+    // blind(未判定),不在这里冒充「在册」。
+    if (e.via === 'fallback') continue
+    // 前缀是表达式、静态解不出的子树(库标 via:'dynamic-prefix'):条目路径缺了前缀这一段,
+    // 拿它当注册 = 把「前缀未知」写成「前缀为空」。改由 dynamicPrefixEntries 按尾段判未判定。
+    if (e.via === 'dynamic-prefix') continue
     if (e.method === 'ANY') {
       for (const v of BACKEND_VERBS) backendPathSet.add(`${v.toUpperCase()} ${e.path}`)
       continue
@@ -3367,8 +3376,166 @@ function buildRouteIndex(pathSet) {
   return { exactKeys, segBuckets, starEntries }
 }
 const { exactKeys, segBuckets, starEntries } = buildRouteIndex(backendPathSet)
+/**
+ * 「动态前缀子树」的尾段索引(G-962 收口,2026-10-29):库对 `register(x, { prefix: EXPR })`
+ * 里解不出的表达式标 `via:'dynamic-prefix'`,这些条目的路径只到父前缀 + localPath,
+ * **缺了未知那一段**。把它们当注册(旧行为:当成「无前缀」照样进面)会把真在册的路由判红,
+ * 而按任意前缀补齐又会造假绿 —— 唯一不撒谎的出口是「未判定 + 点名缺的输入」。
+ * 命中判据用**尾段**(不猜前缀值):方法相符、调用路径的尾部与条目路径逐段同形
+ * (`:param` 段按通配)。尾段命中 ⇒ 该调用可能落在这棵子树下,也可能不 ⇒ 不记绿不判红。
+ */
+const dynamicPrefixEntries = (() => {
+  if (!GRAPH_AVAILABLE) return []
+  return regGraph.entries
+    .filter((e) => e.via === 'dynamic-prefix')
+    .map((e) => ({
+      method: e.method,
+      parts: String(e.path).replace(/\/$/, '').split('/').filter(Boolean),
+      file: e.file,
+      line: e.line,
+    }))
+})()
+/** 该调用是否落在「前缀未知」的子树尾段上;命中返回条目,不命中 null */
+function dynamicPrefixHit(method, callPath) {
+  if (dynamicPrefixEntries.length === 0) return null
+  const parts = callPath.replace(/\/$/, '').split('/').filter(Boolean)
+  for (const e of dynamicPrefixEntries) {
+    if (e.method !== 'ANY' && method !== 'ANY' && e.method !== method) continue
+    if (e.parts.length === 0 || e.parts.length > parts.length) continue
+    let ok = true
+    for (let i = 1; i <= e.parts.length; i++) {
+      const a = e.parts[e.parts.length - i]
+      const b = parts[parts.length - i]
+      if (a.startsWith(':')) continue
+      if (a !== b) {
+        ok = false
+        break
+      }
+    }
+    if (ok) return e
+  }
+  return null
+}
 /** 精确档专用:「前缀假设」面的同型索引(兜底档它已是绿档本身,不需要第二份) */
 const assumptionIndex = GRAPH_AVAILABLE ? buildRouteIndex(assumptionPathSet) : null
+/**
+ * ===== 「图盲区兜底条目」(via === 'fallback')独立索引:精确档不得把它当注册(G-962 / O87g 收口)=====
+ *
+ * 为什么需要第二张索引:精确档的注册面 = 挂载图 entries + py entries,但 entries 里混着两种
+ * 来路完全不同的条目 ——
+ *   · `via:'graph'` / `via:'factory:…'` —— 从 server.ts 的 `register(…)` 边逐层累加真实前缀
+ *     走到的,**前缀是事实**;
+ *   · `via:'fallback'` —— 图**没走到**该(文件,函数),库按「本文件自身声明的前缀」补出来的。
+ *     它的前缀是本文件内部的子前缀,**不是**它在 server.ts 上的真实挂载点。
+ * 第二型就是票面 O87g 点名的「把某调用方前缀当挂载点推断」的最后一处残余:它没有笛卡尔面
+ * 那么夸张,但只要该子前缀恰好等于某个真实绝对前缀(实测形态:`routes/x.ts` 里直接写
+ * `server.get('/api/orphan')`,库把这条**绝对路径**原样收进面),前端打它就被记成「在册」
+ * —— 而该文件可能根本没有一条 register 边指向它,生产上永远 404。单看 `backendPathSet`
+ * 分不出来(键已拼好),所以必须按 `via` 分开建索引。
+ *
+ * 两档判据(都不记绿,且**都不许静默**):
+ *   · `orphan` —— 该文件在面上**没有任何其它源文件提及**(连 import 都没有)⇒ 不是"挂载点未知",
+ *     而是"无人挂载":这条路由此路由文件在生产上不可能生效 ⇒ 判红(与"客户端调用不存在于
+ *     服务端"完全同义)。零提及用保守口径:basename 短于 4 字符一律不判(过短会假阳),
+ *     测试文件里的提及也算提及(过宽只让本档退化到 `blind`,不会误判红)。
+ *   · `blind` —— 文件被提及/被 register 引用但图没走到 ⇒ 前缀未知,缺的输入是「该文件在
+ *     server.ts 上的 register 边」⇒ 落「未判定(图盲区兜底命中)」并点名,不判红。
+ * 现读 HEAD 面这两档命中 0 条(票 G-962 的 237 桶已由 py include 前缀拼接 + barrel 追链结清),
+ * 所以本次接线是**零读数变化**的收口:它堵的是同型通道,不是改写存量结论。
+ */
+const fallbackOnlyIndex = (() => {
+  if (!GRAPH_AVAILABLE) return null
+  const walked = new Set()
+  const blind = new Set()
+  const owner = new Map()
+  for (const e of regGraph.entries) {
+    const methods = e.method === 'ANY' ? BACKEND_VERBS.map((v) => String(v).toUpperCase()) : [e.method]
+    for (const m of methods) {
+      const k = `${m} ${e.path}`
+      if (e.via === 'fallback') {
+        blind.add(k)
+        if (!owner.has(k)) owner.set(k, e.file)
+      } else {
+        walked.add(k)
+      }
+    }
+  }
+  for (const k of walked) blind.delete(k) // 同键只要有「走到」的一条,就不算盲区
+  const unreachedByFile = new Map()
+  for (const u of regGraph.unreached) {
+    const [file, fn] = String(u).split('#')
+    if (!unreachedByFile.has(file)) unreachedByFile.set(file, [])
+    if (fn) unreachedByFile.get(file).push(fn)
+  }
+  /** 面上是否有任何其它源文件提到这个模块(保守:宽匹配 ⇒ 只可能把 orphan 降级成 blind) */
+  const mentionedElsewhere = (file) => {
+    const base = file.replace(/\.ts$/, '').split('/').pop()
+    if (base.length < 4) return true
+    const re = new RegExp(`['"\`/.]${base}['"\`/.]`)
+    for (const [rel, src] of backendTsFiles) {
+      if (rel === file) continue
+      if (typeof src === 'string' && re.test(src)) return true
+    }
+    return false
+  }
+  return {
+    index: buildRouteIndex(blind),
+    size: blind.size,
+    /**
+     * 命中「仅兜底条目」的调用怎么判:`null` = 没命中;否则给 kind + 缺什么输入。
+     * 匹配器与主判据同一份(buildRouteIndex + classifyRouteCoverage),不另写。
+     */
+    verdictOf(method, callPath) {
+      const f = callPath.replace(/\/$/, '')
+      const methods =
+        method === 'ANY'
+          ? [...BACKEND_VERBS.map((v) => String(v).toUpperCase()), 'ANY']
+          : [method, 'ANY']
+      let hitFile = null
+      for (const m of methods) {
+        const k = `${m} ${f}`
+        if (blind.has(k)) {
+          hitFile = owner.get(k)
+          break
+        }
+      }
+      if (!hitFile) {
+        // 同段数被兜底条目的 `:param` 段吞并 —— 与主腿 param 档同义,照样不记绿
+        const parts = f.split('/')
+        for (const m of methods) {
+          for (const bp of blind) {
+            const [bm, bpath] = bp.split(' ')
+            if (bm !== m || bpath.split('/').length !== parts.length) continue
+            if (classifyRouteCoverage(parts, bpath.replace(/\/$/, '').split('/')) === 'param') {
+              hitFile = owner.get(bp)
+              break
+            }
+          }
+          if (hitFile) break
+        }
+      }
+      if (!hitFile) return null
+      const fns = unreachedByFile.get(hitFile)
+      const fnText = fns && fns.length ? `#${fns.join('/')}` : ''
+      if (!mentionedElsewhere(hitFile)) {
+        return {
+          kind: 'orphan',
+          file: hitFile,
+          evidence:
+            `${hitFile}${fnText} 在面上没有任何 import/register 提及(无人挂载),` +
+            '该条目的前缀只是它文件内部声明的,生产上不可能生效',
+        }
+      }
+      return {
+        kind: 'blind',
+        file: hitFile,
+        evidence:
+          `${hitFile}${fnText} 在挂载图上没有走到(缺 server.ts 侧可解析的 register 边),` +
+          '该条目前缀取自文件内部声明,真实挂载前缀未知',
+      }
+    },
+  }
+})()
 /**
  * 原 pathMatches 非通配分支逐行搬移(段数校验保留,防分桶外误用)
  *
@@ -3626,6 +3793,12 @@ const assumptionUndetermined = []
  * 方向纪律(fail-closed):宁可把"参数路由恰好接住"的活路径列进未判定,也不许把死调用读活。
  */
 const paramCovered = []
+/** 精确档:图盲区兜底条目命中(盲区,挂载前缀未知)—— 不记绿也不判红,逐条报名并点名缺什么输入 */
+const fallbackBlindUndetermined = []
+/** 精确档:图盲区兜底条目命中且该文件无人挂载 —— 与「客户端调用不存在于服务端」同义,判红 */
+const fallbackOrphanMissing = []
+/** 精确档:落在「前缀是表达式、静态解不出」的子树尾段上的调用 —— 前缀未知,未判定点名 */
+const dynamicPrefixUndetermined = []
 const missing = []
 const seen = new Set()
 for (const call of allCalls) {
@@ -3646,6 +3819,27 @@ for (const call of allCalls) {
       // 判不出 ≠ 没有:与守门 127「不透明前缀下的未判定」同一口径,单独计数并点名,
       // 既不冒红(把别人的正确实现钉成死调用),也绝不静默成"看起来全绿"。
       opaqueUndetermined.push({ ...call, evidence: op.evidence })
+      continue
+    }
+    const dyn = dynamicPrefixHit(call.method, call.path)
+    if (dyn) {
+      dynamicPrefixUndetermined.push({
+        ...call,
+        evidence: `${dyn.file}:${dyn.line} 的 register 前缀是表达式(静态解不出)⇒ 该调用可能落在这棵子树下,也可能不:缺的输入是前缀表达式的静态值`,
+      })
+      continue
+    }
+    // 图盲区兜底条目(精确面已把它们剔除):orphan ⇒ 判红(无人挂载 = 生产上不存在);
+    // blind ⇒ 未判定并点名缺的 register 边。两档都不许落进下面的「前缀假设」桶被二次稀释:
+    // 前缀假设面是**同一份旧提取器**的产物,拿它给兜底条目做旁证等于让同一个猜测自证。
+    const fb = fallbackOnlyIndex ? fallbackOnlyIndex.verdictOf(call.method, call.path) : null
+    if (fb) {
+      if (fb.kind === 'orphan') {
+        fallbackOrphanMissing.push({ ...call, evidence: fb.evidence })
+        missing.push(call)
+      } else {
+        fallbackBlindUndetermined.push({ ...call, evidence: fb.evidence })
+      }
       continue
     }
     const assumptionKind = assumptionHitKind(call.method, call.path)
@@ -3764,6 +3958,11 @@ const bareOpaque = []
 const bareParam = []
 /** BP 腿与主腿同一降级判据(§0.6 不另发明):图走不到但前缀假设拼得出 ⇒ 未判定,不判红 */
 const bareAssumption = []
+/** BP 腿同主腿:图盲区兜底条目命中且无人挂载 ⇒ 判红;其余盲区 ⇒ 未判定点名 */
+const bareFallbackBlind = []
+const bareFallbackOrphan = []
+/** BP 腿同主腿:动态前缀子树尾段命中 ⇒ 未判定点名 */
+const bareDynamicPrefix = []
 for (const c of bareUnique) {
   const coverage = backendCoverage(c.method, c.path)
   if (coverage === 'literal' || coverage === 'wild') {
@@ -3778,6 +3977,25 @@ for (const c of bareUnique) {
   const op = EFFECTIVE_OPAQUE.find((o) => f.startsWith(o.prefix))
   if (op) {
     bareOpaque.push({ ...c, evidence: op.evidence })
+    continue
+  }
+  const dyn = dynamicPrefixHit(c.method, c.path)
+  if (dyn) {
+    bareDynamicPrefix.push({
+      ...c,
+      evidence: `${dyn.file}:${dyn.line} 的 register 前缀是表达式(静态解不出)⇒ 该调用可能落在这棵子树下,也可能不:缺的输入是前缀表达式的静态值`,
+    })
+    continue
+  }
+  const fb = fallbackOnlyIndex ? fallbackOnlyIndex.verdictOf(c.method, c.path) : null
+  if (fb) {
+    if (fb.kind === 'orphan') {
+      bareFallbackOrphan.push({ ...c, evidence: fb.evidence })
+      if (matchesIgnore(c)) bareIgnored.push(c)
+      else bareMissing.push(c)
+    } else {
+      bareFallbackBlind.push({ ...c, evidence: fb.evidence })
+    }
     continue
   }
   if (assumptionHasRoute(c.method, c.path)) {
@@ -4379,7 +4597,7 @@ if (opaqueUndetermined.length > 0) {
  */
 if (paramCovered.length > 0) {
   console.log(
-    `${C.yellow}[API 路由比对] ⚠️ 未判定(参数段覆盖)${paramCovered.length} 处:前端具体字面路径只在同段数上被后端 \`:param\` 路由接住,不证明该静态路径存在 —— 不记在册也不判红,逐条报名:${C.reset}`,
+    `${C.yellow}[API 路由比对] ⚠️ 未判定(参数段覆盖)${paramCovered.length} 处(去重调用共 ${seen.size} 条):前端具体字面路径只在同段数上被后端 \`:param\` 路由接住,不证明该静态路径存在 —— 不记在册也不判红,逐条报名:${C.reset}`,
   )
   for (const c of paramCovered.slice(0, 20)) {
     console.log(`${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line}${C.reset}`)
@@ -4393,6 +4611,49 @@ if (paramCovered.length > 0) {
   console.log(
     `${C.dim}[API 路由比对] ℹ️ 未判定(参数段覆盖)0 处 —— 对账了 ${seen.size} 条去重调用,没有"具体字面路径只被 \`:param\` 接住"的站点(不是"这一格没扫")${C.reset}`,
   )
+}
+if (GRAPH_AVAILABLE && dynamicPrefixUndetermined.length > 0) {
+  console.log(
+    `${C.yellow}[API 路由比对] ⚠️ 未判定(动态前缀子树)${dynamicPrefixUndetermined.length} 处:该调用落在 register(x, { prefix: <表达式> }) 的子树尾段上,表达式静态解不出 ⇒ 真实前缀未知。` +
+      `按前缀补齐会造假绿、按空前缀处理会造假红,故不记绿不判红,逐条点名缺的输入:${C.reset}`,
+  )
+  for (const c of dynamicPrefixUndetermined.slice(0, 20)) {
+    console.log(`${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line} —— ${c.evidence}${C.reset}`)
+  }
+  if (dynamicPrefixUndetermined.length > 20) {
+    console.log(
+      `${C.dim}    ... 其余 ${dynamicPrefixUndetermined.length - 20} 条见 --dump-undetermined 的 dynamicPrefixUndetermined${C.reset}`,
+    )
+  }
+}
+if (GRAPH_AVAILABLE && fallbackOnlyIndex) {
+  // 0 也要出声:这条口径的作用是"把猜出来的前缀挡在注册面外",读数 0 必须读成
+  // "本轮没有任何调用落在兜底条目上",而不是"这一格没接线"。所以无条件打印。
+  console.log(
+    `${C.dim}[API 路由比对] 图盲区兜底条目 ${fallbackOnlyIndex.size} 条(from 库的 unreached 兜底)不进精确注册面 —— 命中判据:无人挂载 ⇒ 判红 ${fallbackOrphanMissing.length} 条 / 挂载前缀未知 ⇒ 未判定 ${fallbackBlindUndetermined.length} 条(其余按调用面 0 命中)${C.reset}`,
+  )
+}
+if (GRAPH_AVAILABLE && fallbackBlindUndetermined.length > 0) {
+  console.log(
+    `${C.yellow}[API 路由比对] ⚠️ 未判定(图盲区兜底命中)${fallbackBlindUndetermined.length} 处:该路由文件在挂载图上没有走到,前端调用的路径只是它内部声明的前缀拼出来的 —— 缺的输入是该文件在 server.ts 上的 register 边(补了边就能判 match/mismatch)⇒ 不记绿也不判红,逐条报名:${C.reset}`,
+  )
+  for (const c of fallbackBlindUndetermined.slice(0, 20)) {
+    console.log(`${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line} —— ${c.evidence}${C.reset}`)
+  }
+  if (fallbackBlindUndetermined.length > 20) {
+    console.log(
+      `${C.dim}    ... 其余 ${fallbackBlindUndetermined.length - 20} 条见 --dump-undetermined 的 fallbackBlindUndetermined${C.reset}`,
+    )
+  }
+}
+if (GRAPH_AVAILABLE && fallbackOrphanMissing.length > 0) {
+  // 判红档必须逐条点名(禁消音):这档是"客户端调用了一个生产上不可能生效的路径",不是未判定。
+  console.log(
+    `${C.red}[API 路由比对] ❌ 死调用(图盲区兜底条目 + 无人挂载)${fallbackOrphanMissing.length} 处 —— 该路由文件在面上零 import/零 register,条目前缀是它自己写的,生产上永远 404:${C.reset}`,
+  )
+  for (const c of fallbackOrphanMissing) {
+    console.log(`${C.red}    ${c.method} ${c.path} @ ${c.file}:${c.line} —— ${c.evidence}${C.reset}`)
+  }
 }
 if (GRAPH_AVAILABLE && assumptionUndetermined.length > 0) {
   // 报数必须报名(票面③):这一桶里有两种结构上完全不同的东西,合并成一句话就会让后者
@@ -4444,6 +4705,14 @@ if (undeterminedDumpPath) {
             opaque: regGraph.opaque,
             assumptionUndetermined,
             bareAssumptionUndetermined: bareAssumption,
+            // 图盲区兜底条目的两档出口(精确面已把它们剔除,见 fallbackOnlyIndex 头注)
+            fallbackBlindUndetermined,
+            fallbackOrphanMissing,
+            fallbackOrphanMissingBare: bareFallbackOrphan,
+            fallbackBlindUndeterminedBare: bareFallbackBlind,
+            // 动态前缀子树的未判定出口(库标 via:'dynamic-prefix',精确面同样剔除)
+            dynamicPrefixUndetermined,
+            dynamicPrefixUndeterminedBare: bareDynamicPrefix,
             assumptionAdjudicated: assumptionAdjLedger.adjudicatedMain,
             bareAssumptionAdjudicated: assumptionAdjLedger.adjudicatedBare,
             assumptionAdjudicationProblems: assumptionAdjLedger.problems,
@@ -4564,7 +4833,7 @@ if (bareLegVerdict.state !== 'ok') {
   if (bareLegVerdict.state === 'inconsistent' || FACE !== 'worktree') process.exit(2)
 }
 console.log(
-  `${C.dim}  · BP 桶明细:可判 ${bareCensus.get('api') || 0} / 已在册 ${bareRegistered.length} / 死调用 ${bareMissing.length}(无锚点 ${bareNoAnchor.reduce((a, s) => a + s.count, 0)} + 存量 ${bareStock.reduce((a, s) => a + s.count, 0)} + 新增 ${bareNew.reduce((a, s) => a + (s.count - s.allowed), 0)}) / 已豁免 ${bareIgnored.length} / 不透明挂载 ${bareOpaque.length} / 前缀假设未判定 ${bareAssumption.length} / 参数段覆盖未判定 ${bareParam.length}${C.reset}`,
+  `${C.dim}  · BP 桶明细:可判 ${bareCensus.get('api') || 0} / 已在册 ${bareRegistered.length} / 死调用 ${bareMissing.length}(无锚点 ${bareNoAnchor.reduce((a, s) => a + s.count, 0)} + 存量 ${bareStock.reduce((a, s) => a + s.count, 0)} + 新增 ${bareNew.reduce((a, s) => a + (s.count - s.allowed), 0)}) / 已豁免 ${bareIgnored.length} / 不透明挂载 ${bareOpaque.length} / 前缀假设未判定 ${bareAssumption.length} / 参数段覆盖未判定 ${bareParam.length} / 图盲区兜底未判定 ${bareFallbackBlind.length} / 动态前缀未判定 ${bareDynamicPrefix.length}${C.reset}`,
 )
 console.log(
   `${C.dim}  · BP 不判的桶(逐桶报名,不静默丢):已是 /api/(主腿射程)${bareCensus.get('alreadyApi') || 0} / 透传档原样返回 ${bareCensus.get('passthrough') || 0} / 改写档那一族(判权在 CE 与③')${bareCensus.get('aliasRewriteFamily') || 0} / \`:param\` 假影 ${bareCensus.get('interpPhantom') || 0} / 字面量读不出 ${bareCensus.get('literalUnparsed') || 0} / 字面量未闭合 ${bareCensus.get('literalUnclosed') || 0} / 转发面豁免 ${bareCensus.get('rewriteForwarded') || 0} / 事实源读不出 ${bareCensus.get('factSourceUnread') || 0} / 归一未读到 ${bareCensus.get('barePrefixUnread') || 0} / 两口径不同形 ${bareCensus.get('normalizationMismatch') || 0}${C.reset}`,
@@ -4797,7 +5066,7 @@ if (
   channelVerdict.sites.length === 0
 ) {
   console.log(
-    `${C.green}[API 路由比对] ✅ 通过(新增 0 处死调用;三端存量 ${ratchetStock.reduce((a, s) => a + s.count, 0)} 处按棘轮只报数;BP 腿裸路径存量 ${bareStock.reduce((a, s) => a + s.count, 0)} 处同样只报数;参数段覆盖 ${paramCovered.length}+${bareParam.length} 处未判定、不记在册(主腿+BP 腿))${C.reset}`,
+    `${C.green}[API 路由比对] ✅ 通过(新增 0 处死调用;三端存量 ${ratchetStock.reduce((a, s) => a + s.count, 0)} 处按棘轮只报数;BP 腿裸路径存量 ${bareStock.reduce((a, s) => a + s.count, 0)} 处同样只报数;参数段覆盖 ${paramCovered.length}+${bareParam.length} 处未判定、不记在册(主腿+BP 腿);图盲区兜底 ${fallbackBlindUndetermined.length}+${bareFallbackBlind.length}、动态前缀 ${dynamicPrefixUndetermined.length}+${bareDynamicPrefix.length} 处同样未判定)${C.reset}`,
   )
   process.exit(0)
 }
