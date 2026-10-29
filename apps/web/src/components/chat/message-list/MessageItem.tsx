@@ -316,11 +316,17 @@ const MessageItem = React.memo(function MessageItem({
   )
   // 自适应三维输入:正文字数(正文未到时用 reasoning 字数兜底,覆盖"先想后答"场景)/
   // 工具调用数/工具耗时求和(BaseToolCall.durationMs)
+  // 2026-10-29 补第四维 `toolNames`(语义维):语义例外集(永不折叠工具)此前只在类目卡层
+  // 生效,**消息级「中间步骤」开关吃不到** —— 于是含 AskUserQuestion / Agent / ImageGen
+  // 这类"等人回话 / 子代理树 / 独立 UI"的轮次,三维读数一大照样被折叠收起。
+  // 判据不在此处另立:名单与判定只在 `tool-category.ts`(经 `fold-policy` 转出),
+  // 本处只负责把工具名如实递进去(§0.6 单一真相源)。
   const stepDims = React.useMemo(
     () => ({
       contentChars: isUser ? 0 : m.content.length || (m.reasoning?.length ?? 0),
       toolCallCount: m.toolCalls?.length ?? 0,
       durationMs: (m.toolCalls ?? []).reduce((sum, tc) => sum + (tc.durationMs ?? 0), 0),
+      toolNames: (m.toolCalls ?? []).map((tc) => tc.toolName),
     }),
     [isUser, m.content.length, m.reasoning, m.toolCalls],
   )
