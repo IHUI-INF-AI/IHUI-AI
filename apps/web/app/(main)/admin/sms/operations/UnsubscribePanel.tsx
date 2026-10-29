@@ -11,7 +11,8 @@ import { toast } from 'sonner'
 import { Ban, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { useConfirm } from '@/hooks/use-confirm'
-import { BASE, PHONE_RE, api, codeLabel, fmtTime, maskPhone, normalizePhoneInput } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { BASE, PHONE_RE, codeLabel, fmtTime, maskPhone, normalizePhoneInput } from './helpers'
 import type { SmsUnsubscribesResponse } from './types'
 
 const PAGE_SIZE = 20
@@ -37,7 +38,7 @@ export function UnsubscribePanel() {
   }).toString()
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['admin', 'sms-operations', 'unsubscribes', params],
-    queryFn: () => api<SmsUnsubscribesResponse>(`${BASE}/unsubscribes?${params}`),
+    queryFn: () => apiOrThrow<SmsUnsubscribesResponse>(`${BASE}/unsubscribes?${params}`),
   })
   const items = data?.items ?? []
   const total = data?.total ?? 0
@@ -46,7 +47,7 @@ export function UnsubscribePanel() {
 
   const addMut = useMutation({
     mutationFn: (target: string) =>
-      api(`${BASE}/unsubscribes`, {
+      apiOrThrow(`${BASE}/unsubscribes`, {
         method: 'POST',
         body: JSON.stringify({ phone: target, reason: reason.trim() || undefined }),
       }),
@@ -61,7 +62,7 @@ export function UnsubscribePanel() {
 
   const delMut = useMutation({
     mutationFn: (target: string) =>
-      api(`${BASE}/unsubscribes/${encodeURIComponent(target)}`, { method: 'DELETE' }),
+      apiOrThrow(`${BASE}/unsubscribes/${encodeURIComponent(target)}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'sms-operations'] })
       toast.success(t('unsub.restoredToast'))
