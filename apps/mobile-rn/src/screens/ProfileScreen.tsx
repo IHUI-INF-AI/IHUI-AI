@@ -137,6 +137,21 @@ type RootNav = NativeStackNavigationProp<RootStackParamList>
 /** 首屏统计加载无响应多久后转为"超时+重试"(api-client 层无超时,不兜住就是无限转圈) */
 const PROFILE_LOAD_TIMEOUT_MS = 12000
 
+/**
+ * 胶囊几何占高之外还必须让出的「淡出遮罩带」(px)。为什么 tabBarScrollReserve 不够(2026-10-30
+ * 真机:滚到底时末几项仍被胶囊压住,实测差额不在呼吸量):
+ *  · 胶囊几何占高 = TAB_BAR_HEIGHT 62 + TAB_BAR_GAP_TOP 6 + max(8, inset/2+4);
+ *    tabBarScrollReserve 本身就等于「占高 + 16 呼吸」,与 TAB_BAR_FLOAT_RESERVE 同值 ⇒ 呼吸量没缺。
+ *  · 真正的遮挡件是 TabBar 自带的 BottomFadeMask:高 160、底边贴胶囊顶沿、顶部 22% 完全透明、
+ *    55% 处已达 0.7 ⇒ 胶囊顶沿上方 0..124.8 依次压上 1.0..0 的页面底色。末项底边若只高出
+ *    胶囊顶沿 22(6 顶隙 + 16 呼吸),就落在 ≈0.91 不透明带里 —— 观感正是「被压住」。
+ *    该遮罩 2026-10-29 落地(同日加强),而预留定档于 10-16/18,从未把它计入。
+ *  · 取值:末项底边须越过遮罩全透明起点 160×(1−22%) = 124.8,现有预留只给到 22 ⇒ 补 104
+ *    (≥103,取 8 的倍数)。HomeScreen 的 dockHeight + 16 实测也停在胶囊顶沿上方约 120 处,同一档。
+ *  · 若 BottomFadeMask 的高度/透明带比例再变,本值须同步(它只有这一个消费点)。
+ */
+const TAB_BAR_FADE_CLEARANCE_PX = 104
+
 /** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310;title/desc 存 i18n 键,消费处 t 解析) */
 const MEMBERSHIP_BENEFITS: readonly {
   id: string
@@ -557,16 +572,20 @@ export function ProfileScreen() {
       <NavChrome>
         <NavBar
           title={t('profile.title')}
+          /* 抽屉菜单键在左:Home/Plaza/News 三个 tab 的菜单键都在左上,只有本页原在右上 —— 同一
+             手势语义的入口不能一份在左一份在右(真机确认的位置不一致)。右操作区只留页面自己的动作。 */
+          leftActions={[
+            {
+              icon: PanelLeftRounded,
+              a11yLabel: t('common.menu'),
+              onPress: () => setDrawerVisible(true),
+            },
+          ]}
           rightActions={[
             {
               icon: SquarePen,
               label: t('menu.feedback'),
               onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never),
-            },
-            {
-              icon: PanelLeftRounded,
-              a11yLabel: t('common.menu'),
-              onPress: () => setDrawerVisible(true),
             },
           ]}
         />
@@ -576,7 +595,9 @@ export function ProfileScreen() {
         style={styles.screenScroll}
         contentContainerStyle={[
           styles.screenScrollContent,
-          { paddingBottom: tabBarScrollReserve(insets.bottom) },
+          {
+            paddingBottom: tabBarScrollReserve(insets.bottom) + TAB_BAR_FADE_CLEARANCE_PX,
+          },
         ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleProfileScroll}
