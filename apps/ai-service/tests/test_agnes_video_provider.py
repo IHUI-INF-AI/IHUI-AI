@@ -115,8 +115,8 @@ async def test_submit_payload_and_video_id_polling():
         "size": "720P",
     }
     assert submit["headers"]["Authorization"] == "Bearer test-key"
-    # video_id 形态必须走站点根 /agnesapi
-    assert client.calls[1]["url"] == "https://api.agnes-ai.cn/agnesapi?video_id=video_1"
+    # `task_` 前缀走资源端点(与 agnes-ai-cli 的 buildVideoGetUrl 同判据)
+    assert client.calls[1]["url"] == f"{_BASE}/videos/task_1"
     assert client.calls[1]["method"] == "GET"
 
 
@@ -177,7 +177,20 @@ async def test_non_video_model_falls_back_to_default():
     )
     with _patched(client):
         await _provider(client).generate_video("p", "agnes-2.5-pro")
-    assert client.calls[0]["json"]["model"] == "agnes-video-2.5"
+    assert client.calls[0]["json"]["model"] == "agnes-video-2.5-flash"
+
+
+async def test_non_task_prefix_uses_agnesapi_endpoint():
+    client = _Client(
+        [
+            _Resp(200, {"id": "video_abc", "status": "queued"}),
+            _Resp(200, {"status": "succeeded", "url": "https://cdn/v.mp4"}),
+        ]
+    )
+    with _patched(client):
+        out = await _provider(client).generate_video("p", "agnes-video-2.5-flash")
+    assert out["video_url"] == "https://cdn/v.mp4"
+    assert client.calls[1]["url"] == "https://api.agnes-ai.cn/agnesapi?video_id=video_abc"
 
 
 async def test_failed_status_raises_502():
