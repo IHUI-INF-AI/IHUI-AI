@@ -138,7 +138,7 @@
     },
     {
       "shared": "packages/app/src/features/course-planet/CoursePlanetScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/CarteScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CoursePlanetScreen.tsx",
       "miniapp": "pkg-learn/course-planet/index"
     },
     {
@@ -148,7 +148,7 @@
     },
     {
       "shared": "packages/app/src/features/developer/DeveloperScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/DevEnterCoverScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/DeveloperScreen.tsx",
       "miniapp": "pkg-ai/dev-space/index"
     },
     {
@@ -188,6 +188,11 @@
     },
     {
       "shared": "packages/app/src/features/lecturer-list/LecturerListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LecturerListScreen.tsx",
+      "miniapp": "pkg-learn/teacher/list"
+    },
+    {
+      "shared": "packages/app/src/features/lecturer-list/LecturerListScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/TeacherListScreen.tsx",
       "miniapp": "pkg-learn/teacher/list"
     },
@@ -223,7 +228,7 @@
     },
     {
       "shared": "packages/app/src/features/order-detail/OrderDetailScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/CartScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/OrderDetailScreen.tsx",
       "miniapp": "pkg-shop/order/detail"
     },
     {
@@ -243,7 +248,7 @@
     },
     {
       "shared": "packages/app/src/features/plaza/PlazaScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/NewsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PlazaScreen.tsx",
       "miniapp": "pages/plaza/index/index"
     },
     {
@@ -263,7 +268,7 @@
     },
     {
       "shared": "packages/app/src/features/ranking/RankingScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/RankingDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RankingScreen.tsx",
       "miniapp": "pkg-ai/ranking/index"
     },
     {
@@ -348,12 +353,12 @@
     },
     {
       "shared": "packages/app/src/features/vip/VipScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AppTopupScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VipScreen.tsx",
       "miniapp": "pages/member/index"
     },
     {
       "shared": "packages/app/src/features/vip/VipScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AppTopupScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VipScreen.tsx",
       "miniapp": "pkg-shop/vip/index"
     },
     {
@@ -638,7 +643,7 @@
     },
     {
       "shared": "packages/app/src/features/certificate/CertificateScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/CertListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertificateScreen.tsx",
       "miniapp": "pkg-user/certificate/index"
     },
     {
@@ -718,7 +723,7 @@
     },
     {
       "shared": "packages/app/src/features/exam-history/ExamHistoryScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AgentMarketScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ExamHistoryScreen.tsx",
       "miniapp": "pkg-mirror/exam-history/index"
     },
     {
@@ -733,7 +738,7 @@
     },
     {
       "shared": "packages/app/src/features/history/HistoryScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AgentMarketScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/HistoryScreen.tsx",
       "miniapp": "pkg-mirror/history/index"
     },
     {
@@ -743,7 +748,7 @@
     },
     {
       "shared": "packages/app/src/features/image-gen-history/ImageGenHistoryScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ImageGenGalleryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ImageGenHistoryScreen.tsx",
       "miniapp": "pkg-mirror/image-gen-history/index"
     },
     {
@@ -863,7 +868,7 @@
     },
     {
       "shared": "packages/app/src/features/payment/PaymentScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/CartScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PaymentScreen.tsx",
       "miniapp": "pkg-mirror3/payment/index"
     },
     {
@@ -908,7 +913,7 @@
     },
     {
       "shared": "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/IdentityVerifyScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RealNameAuthScreen.tsx",
       "miniapp": "pkg-mirror3/real-name-auth/index"
     },
     {
@@ -963,7 +968,7 @@
     },
     {
       "shared": "packages/app/src/features/usage/UsageScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/PointsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/UsageScreen.tsx",
       "miniapp": "pkg-mirror3/usage/index"
     },
     {
@@ -1078,7 +1083,7 @@
     },
     {
       "shared": "packages/app/src/features/workflows/WorkflowListScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/WorkflowDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WorkflowListScreen.tsx",
       "miniapp": "pkg-mirror3/workflow-list/index"
     },
     {
@@ -1108,7 +1113,7 @@
     },
     {
       "shared": "packages/app/src/features/learn/LearnScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/CourseScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LearnScreen.tsx",
       "miniapp": "pkg-learn/learn/index"
     },
     {
