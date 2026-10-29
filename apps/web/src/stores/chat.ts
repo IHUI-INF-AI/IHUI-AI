@@ -625,6 +625,39 @@ export interface ChatState {
     messageId: string,
     injection: { kind: string; collapsed: string; fullText?: string; count?: number },
   ) => void
+  /**
+   * G-87 补链(2026-10-29 立):把一条 hook 执行失败记录追加到消息 `meta.hookFailures`。
+   *
+   * **为什么落在 `meta` 而不是新增 store 字段**:渲染侧(`hook-failure-card.tsx` 的
+   * `hookFailureRecordsFromMeta`)读的就是 `meta.hookFailures`,而 `meta` 是既有的
+   * `Record<string, unknown>` 旁路袋(与水合侧 `metadata.*` 逐字段对应)。在 store 里另开
+   * 一个会话级桶反而要另配一条水合链,且跨轮会把上一轮的失败挂到这一轮头上。
+   *
+   * 三条硬约束(逐条对应票面要求):
+   *   ① **追加不覆盖**:只重写 `meta.hookFailures` 这一个键,`meta` 其余键原样保留
+   *      (整体替换 `meta` 会顺手抹掉 `usage`/`timeline`/`fallback` 等并行写入的键);
+   *   ② **幂等**:按 `record.id` 去重(服务端给的 `hookId::failedAt::event`,重连重放同帧
+   *      同键)。**没有 id 的记录不落桶** —— 用下标当键会让每次重放都算"新的一条";
+   *   ③ **值等价即不写**:同一条记录再次到达时连对象都不重建(与 `updateMessageMeta` 的
+   *      G-704 同取向,避免 store→effect→set 自环与整列表重渲染)。
+   *
+   * 入参形状 = `hookFailure-card.tsx::HookFailureRecord` 的兼容形态(渲染侧会再过一遍
+   * `isHookStatusState` 收窄,认不出的 `state` 丢弃,本动作**不做**第二套状态判定)。
+   */
+  appendMessageHookFailure: (
+    messageId: string,
+    record: {
+      id: string
+      state: string
+      hookName?: string
+      hookEvent?: string
+      command?: string
+      stderr?: string
+      exitCode?: number
+      durationMs?: number
+      failedAt?: string
+    },
+  ) => void
   /** D39/D108 上游重试交代(retry_scheduled 命名帧):整体替换为**最近一次**重试(第 N 次递增,
    *  旧的"第 1 次"没有继续显示的价值),MessageItem 据此渲染一行提示。 */
   setMessageRetryNotice: (
@@ -1736,6 +1769,36 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       }
       const next = s.messages.slice()
       next[idx] = { ...target, injections: [...existing, injection] }
+      return { messages: next }
+    }),
+
+  // G-87 补链(2026-10-29 立):hook 执行失败记录 → `message.meta.hookFailures`(追加 + 幂等)。
+  // 判据与纪律见接口注释(① 只重写 hookFailures 一个键 ② 按 record.id 去重 ③ 值等价即不写)。
+  // 与 `appendMessageInjection` 的关键差别:那个写的是消息**顶层**字段 `injections`,
+  // 本动作写的是**旁路袋 `meta` 里的一个键** —— 所以绝不能用 `{ ...target, hookFailures }`
+  // 那种整行重建,否则 `meta` 里别人写的键(usage/timeline/fallback)会被一起抹掉。
+  appendMessageHookFailure: (messageId, record) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      // 没有稳定键就不落桶:下标会在重放后指向另一条,把"重复帧"变成"新记录"
+      const id = record.id.trim()
+      if (!id) return s
+      const meta = target.meta ?? {}
+      const existing = Array.isArray(meta.hookFailures) ? meta.hookFailures : []
+      // 幂等:同 id 已在其中 ⇒ 原样返回 s(连对象都不重建)
+      const duplicated = existing.some(
+        (entry) => entry && typeof entry === 'object' && (entry as { id?: unknown }).id === id,
+      )
+      if (duplicated) return s
+      const next = s.messages.slice()
+      next[idx] = {
+        ...target,
+        // **只**重写 meta 的 hookFailures 一个键,其余键逐字保留
+        meta: { ...meta, hookFailures: [...existing, record] },
+      }
       return { messages: next }
     }),
 

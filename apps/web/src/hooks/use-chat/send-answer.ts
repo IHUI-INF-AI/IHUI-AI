@@ -58,6 +58,13 @@ import {
 import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 import type { ChatActionContext } from './types'
+// 对标 Qoder 借鉴清单第 10 项(2026-10-29):命名错误码 → 分类处置(动作 / 可重试)。
+// 纯判据与文案键都在共享层与 lib/stream-error-view,本文件只做拼装与落地。
+import { buildStreamErrorView, type StreamErrorView } from '@/lib/stream-error-view'
+// 对标 Qoder 借鉴清单第 9 项(2026-10-29):发送准入回执配对。
+// 每条续答一个稳定 inputId;回执缺席时凭隐式证据(流已开 / 有增量 / 已收尾)定性,
+// 收场时零证据落 `unconfirmed` —— 绝不把"不知道送没送到"渲染成"已收下"。
+import { createInputId, createSendAdmissionTracker } from '@ihui/shared/chat'
 
 export function createSendAnswer(
   ctx: ChatActionContext,
@@ -70,6 +77,7 @@ export function createSendAnswer(
     lastSentAnswerRef,
     streamGenerationRef,
     streamConversationRef,
+    streamErrorLabels,
   } = ctx
   // 票60 普查批(2026-10-21):mode / timeline 按 chatStore 反查 paneId 取窗格实例
   // (根单例 chatStore ⇒ null ⇒ 回落根单例),侧问题回答不再读写根窗格的伴生态。
@@ -185,8 +193,32 @@ export function createSendAnswer(
     // P1-6 断点续传(2026-09-13 立):与 sendMessage 对称——续答流开始先标记该助手消息
     // 「未完成」;中途刷新页面时 finally 不执行,标记保持 false,页面重挂载后据此续接。
     chatStore.getState().setMessageStreamCompleted(assistantId, false)
+    // Qoder 第 9 项:本轮的准入跟踪器。inputId 在这里生成(发送前),随后随请求上行;
+    // 服务端若回执则按同一 inputId 配对(见 onResponse/onDelta 的 noteEvidence 与最终 settle)。
+    const admission = createSendAdmissionTracker({ inputId: createInputId(), messageId: assistantId })
+    /** 把准入态落到消息 meta(唯一写点;值等价时 store 侧等价即不写,见其注释)。 */
+    const flushAdmission = (): void => {
+      chatStore.getState().updateMessageMeta(assistantId, admission.metaPatch())
+    }
+    flushAdmission()
     try {
       const answerContextLimit = getModelContextCapacity(effectiveModel)
+      /**
+       * Qoder 第 10 项(2026-10-29):把"一句笼统文案"换成"命名码 → 下一步"。
+       * 只在 `ctx.streamErrorLabels` 就位时启用 —— 缺省时返回 null,调用方逐字节走既有分支
+       * (既有 7 处测试的 makeCtx 只造最小面,不传这一格 ⇒ 它们的断言一字不变)。
+       */
+      const dispositionOf = (info?: { errorCode?: string }): StreamErrorView | null => {
+        if (!streamErrorLabels) return null
+        const view = buildStreamErrorView({
+          errorCode: info?.errorCode,
+          fallbackTitle: '',
+          fallbackMessage: '',
+          labels: streamErrorLabels,
+        })
+        // 码未收录 ⇒ 交回既有分支(零兜底:不编标题、不替用户判可重试)
+        return view.action ? view : null
+      }
       // 2026-09-21 修复(与 sendMessage 对称):仅当上下文占用已达后端 88% 压缩阈值,
       // 才显示"正在压缩上下文"预告;原实现无条件点亮且无兜底回收,会全站常驻。
       if (isContextAtCompactionThreshold(store.messages, answerContextLimit)) {
@@ -359,6 +391,9 @@ export function createSendAnswer(
         onResponse: () => {
           clearTimeout(timeout15sId)
           clearCompactionPreview()
+          // Qoder 第 9 项:响应头到达 = 网关已受理 ⇒ 隐式准入证据(最强的"服务端收下了"
+          // 里仅次于回执与正文的那一档)。只在真迁移时写盘(changed 判据)。
+          if (admission.noteEvidence('stream-open').changed) flushAdmission()
         },
         onUsage: (usage) => {
           // 流尾帧:与 sendMessage 同一姿势落 Runtime 插话能力声明(读不到不写)。
@@ -375,6 +410,8 @@ export function createSendAnswer(
             clearTimeout(timeout15sId)
             clearTimeout(timeout60sId)
           }
+          // Qoder 第 9 项:首帧正文 = 上游模型已在产出 ⇒ 准入已成立(隐式证据)。
+          if (admission.noteEvidence('delta').changed) flushAdmission()
           contentBatcher.batch(delta)
         },
         onAgentDelta: (agentId, delta) => {
@@ -521,7 +558,13 @@ export function createSendAnswer(
           // (ai-service 未登记该码,HTTP 仍回落默认 502),且不给出 retry 按钮。
           const ec = info?.errorCode
           const quotaNotice = localizeQuotaExhausted(ec, t)
-          const displayMessage = quotaNotice?.message ?? formatted.message
+          // Qoder 第 10 项:命名码 → 分类处置。命中时**标题与建议都换成该码的那两句**,
+          // 且 toast 按钮按 `action` 走(可重试才给重试;切模型/查额度/重新登录各走各的出口)。
+          // 未命中(码未收录 / 词表未注入)⇒ 下面三支既有分支逐字节不变。
+          const disposition = dispositionOf(info)
+          const displayMessage = disposition
+            ? disposition.title
+            : (quotaNotice?.message ?? formatted.message)
           chatStore.getState().setMessageError(assistantId, displayMessage, formatted.errorCode) // D92:带 errorCode 供分类表取词
           chatStore.getState().setError(displayMessage)
           if (formatted.severity === 'auth') {
@@ -534,7 +577,35 @@ export function createSendAnswer(
               : ec
                 ? `[${ec}] ${formatted.rawMessage}`
                 : formatted.rawMessage
-          if (quotaNotice) {
+          if (disposition) {
+            // 有处置表就**只有**这一支:标题/建议取该码的词条,按钮按可重试性给或不给。
+            // 具体建议优先于原始报错文本(码本身已说清是什么事,原始文本退为附注)。
+            const detail = disposition.detail
+              ? `${disposition.detail} · ${toastDesc}`
+              : toastDesc
+            const isAuth = disposition.action === 'relogin'
+            const retryAction =
+              disposition.retryable && lastSentAnswerRef.current
+                ? {
+                    label: disposition.actionLabel ?? t('retry'),
+                    onClick: () => {
+                      const last = lastSentAnswerRef.current
+                      if (last) sendAnswer(last.answer, { fromRetry: true })
+                    },
+                  }
+                : undefined
+            const openAction = isAuth
+              ? {
+                  label: disposition.actionLabel ?? t('retry'),
+                  onClick: () => useLoginDialogStore.getState().open('login'),
+                }
+              : retryAction
+            if (disposition.retryable) {
+              toast.error(disposition.title, { description: detail, action: openAction })
+            } else {
+              toast.warning(disposition.title, { description: detail, action: openAction })
+            }
+          } else if (quotaNotice) {
             toast.error(quotaNotice.title, { description: toastDesc })
           } else if (formatted.severity === 'ratelimit') {
             // ratelimit/safety 错误保持 warning 无 retry(与 sendMessage 一致)
@@ -614,6 +685,20 @@ export function createSendAnswer(
     } finally {
       clearTimeout(timeout15sId)
       clearTimeout(timeout60sId)
+      // Qoder 第 9 项:本轮收场结算。有正文 ⇒ admitted;以失败/主动停止收场且**零证据**
+      // ⇒ unconfirmed(不是 admitted,也不是"没送到")。放在 finally 最前:它只读跟踪器
+      // 状态,与下面的 flush/cancel 无先后依赖,但必须在任何提前 return 之前落地。
+      const settled = admission.settle(
+        firstContentTokenReceived || firstReasoningTokenReceived
+          ? 'answered'
+          : // 用户主动 stop 走 abort,与"超时 abort"同为 abort 但语义不同:前者是
+            // `signal.aborted` 且两个 timeout 旗都没置;后者必有旗。两者都零证据时
+            // 都落 unconfirmed(该档文案对两者都成立:不知道送没送到)。
+            controller.signal.aborted
+            ? 'aborted'
+            : 'failed',
+      )
+      if (settled.changed) flushAdmission()
       // 2026-07-27 修复"AI 响应不显示"(与 sendMessage 对称):先 flush 再 cancel
       contentBatcher.flush()
       reasoningBatcher.flush()

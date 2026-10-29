@@ -40,6 +40,9 @@ import { recordStreamFrame } from './stream-frame-log.js'
 // b76-13 票1:帧水位与纪元读环判据(唯一语义出口在 @ihui/shared 的 agent-events,
 // 本包零依赖不得反向 import,此为逐字同形移植,漂移由 frame-watermark-parity 测试钉住)
 import { isFrameGap, readFrameWatermark, type FrameWatermarkCursor } from './frame-watermark.js'
+// b76-15(2026-10-29 立):seq 维水位生产点(从网关 `id: <seq>` 行派生连续性事实)
+import { carriesPayloadWatermark, createFrameSeqTracker } from './frame-watermark-producer.js'
+import type { FrameWatermarkFacts } from './frame-watermark-producer.js'
 // G-816030:帧归属屏障 —— 本包零依赖边界下的同形移植(判据源在 shared,对账测试钉住);
 // 溢出错误(FrameBarrierOverflowError)由屏障 activate 命中溢出记录时构造抛出,
 // reason/droppedCount 以屏障内记录为准,本侧不重复构造。
@@ -1876,6 +1879,22 @@ export interface StreamChatOptions {
    *  streamChat 逐帧解门 / 判重订阅 / 处置迟到片;本回调在流结束时交出账目
    *  (含未判定逐条报名)。旧生产端从未下发权威信封 ⇒ 账目恒空、零行为变化。 */
   onRecoveryGateLedger?: (ledger: RecoveryGateLedger) => void
+  /**
+   * b76-15(2026-10-29 立):帧水位事实的**唯一读取出口**。
+   *
+   * 为什么必须有:水位判据此前只有写入侧 —— `_frameGapDropped` 带 `_` 前缀登记
+   * "故意未读",而载荷级四字段(`subscriptionId/logEpoch/fromSeq/toSeq`)在生产端
+   * 至今没有下发点,于是 `readFrameWatermark` 在真机上恒 `undetermined`、丢帧恒 0。
+   * 账面"判过",实际"一次都没判"(AGENTS §0.3)。
+   *
+   * 现在:① 每次丢弃立刻报一次(`kind` 点名是哪条腿判的);② 流终态兜底再报一次
+   * (`kind: 'stream-end'`),把"全程零丢弃"也变成**可读事实** —— 上层不该靠
+   * 回调缺席去猜"没丢",那是把未判定读成绿。`payloadWatermarkSeen` 明确回答
+   * 载荷级三维腿到底有没有机会跑过。
+   *
+   * 未注册 ⇒ 零成本(本仓 web 端已接线,见 `use-chat/stream-error-report.ts`)。
+   */
+  onFrameWatermarkFacts?: (facts: FrameWatermarkFacts) => void
   /** 2026-09-13 立,#11 Citations 全链路:knowledge_lookup 工具执行后,
    *  后端在 done 前下发 `event: citations` SSE 事件,前端据此写入 message.citations,
    *  MessageItem 渲染 CitationBar(来源标签 + 可点击 URL)。 */
@@ -1928,6 +1947,10 @@ export interface StreamChatOptions {
    *  下发本帧,前端据此显示"本轮回答带了哪些注入"(自定义指令 / 工作区记忆 / Repo Wiki /
    *  检索上下文)。此前该帧只被"不喷进正文"地丢弃,等于生产了却没人看。 */
   onInjectionApplied?: (event: InjectionAppliedEvent) => void
+  /** G-87 补链(2026-10-29 立):hook 执行失败帧(hook-failed)。与 onError 的分工见
+   *  HookFailureEvent 头注:这个是"某个 hook 动作没跑成",回答本身通常完好;
+   *  onError 是"这条回答失败"。不注册则不解析(与其余 per-field 同形)。 */
+  onHookFailure?: (event: HookFailureEvent) => void
   /** D39 重试交代(2026-09-22 立):网关要换 key / 退避重试时下发,前端显示"第 N/M 次重试,
    *  Xs 后继续"。没有它,用户在流上看到的只是"卡住"。 */
   onRetryScheduled?: (event: RetryScheduledEvent) => void
@@ -2071,6 +2094,12 @@ export function parseStreamLine(line: string): string | null {
   }
   try {
     const json = JSON.parse(data)
+    // G-87 补链(2026-10-29,实测踩过):`hook-failed` 帧自带 `error` 字符串字段,
+    // 而下面第一条就是 `json.error && typeof === 'string' ⇒ throw`(OpenAI 错误格式)。
+    // 分流必须排在**错误判据之前** —— 否则一个"lint hook 挂了"的帧会被当成本轮回答失败:
+    // 抛 SSEError → runner 重连 → 前端气泡变红,而界面文案与真实原因毫无关系。
+    // (实测症状:带 error 的 hook-failed 帧 100% 触发重连,去掉该字段就正常。)
+    if (json?.type === 'hook-failed') return null
     if (json?.type === 'error' && typeof json?.message === 'string') {
       throw attachErrorMeta(new Error(json.message), json)
     }
@@ -2454,6 +2483,52 @@ export interface RetryScheduledEvent {
 }
 
 /**
+ * G-87 补链(2026-10-29 立):hook 执行失败帧(`event: hook-failed`)的解析后形态。
+ *
+ * **为什么必须有这一格,而不是走既有的 `error` 帧**:`error` 是「这一轮回答失败了」,
+ * 消费面是 `onError` → `setMessageError`(气泡变红、正文不可用);hook 失败是
+ * 「某个用户配置的 hook 动作没跑成」,回答本身通常完好 —— 混到 `error` 里就是让前端
+ * 把"我的 lint hook 挂了"读成"这条回答失败了"。两件事必须两个帧。
+ *
+ * 字段来源 = ai-service `hook_engine._broadcast_hook_failed` 的 wire 载荷(snake_case,
+ * 与 hook 透传帧同族);本类型是 camelCase 视图形态,与其余 per-frame 回调同构。
+ *
+ * ⚠️ **三字段的可取性(如实登记,勿当恒有)**:
+ *   · `command`  —— 只有 `script` 动作才有;其它动作类型整键缺席(webhook 的 url 不外泄);
+ *   · `stderr`   —— 只有脚本**真跑完且非零退出**才有;超时/未配置/被敏感模式拒/
+ *                   子进程起不来这几档都**没有输出可给**,整键缺席;
+ *   · `exitCode` —— 同上;被超时杀掉的进程**没有退出码**(不补 0)。
+ * 缺席 ≠ 空串 ≠ 0:渲染层据此跳过该字段(不画空标签),而 `0` 是"确实以 0 退出"
+ * 这个肯定结论(与"没取到"不可合并)。
+ */
+export interface HookFailureEvent {
+  /** hook 实体 id(`hk-…`) */
+  hookId: string
+  /** hook 名字(用户创建时的 name) */
+  hookName: string
+  /** 触发这次执行的 hook 事件名(如 `tool.before`) */
+  hookEvent: string
+  /** 终态两档:失败 / 超时。取值域与 ai-service 发射面一致(服务端只发这两档) */
+  state: 'failed' | 'timedOut'
+  /** 失败原因(已脱敏,截断) */
+  error: string
+  /** 墙钟耗时(ms,含重试与退避等待) */
+  durationMs: number
+  /** 失败时刻(ISO 字符串,服务端时钟) */
+  failedAt: string
+  /** 动作类型(webhook/script/log/notify);缺席 = 旧帧没报 */
+  actionType?: string
+  /** 命令行(**仅 script 动作**,已脱敏) */
+  command?: string
+  /** 脚本 stderr(**仅真跑完且非零退出**,已脱敏) */
+  stderr?: string
+  /** 脚本退出码(**仅真跑完且非零**) */
+  exitCode?: number
+  /** 挂载到哪条 assistant 消息;缺省时调用方回退当前流式消息 */
+  messageId?: string
+}
+
+/**
  * D77 对话流业务表单请求帧(2026-09-25 立,G-106)。
  *
  * ⚠️ V3 #63 现读结论(2026-09-27):本帧**当前无任何后端生产点** ——
@@ -2729,6 +2804,12 @@ export function parseStreamLineReasoning(line: string): string | null {
   if (data === '[DONE]') return null
   try {
     const json = JSON.parse(data)
+    // G-87 补链(2026-10-29,实测踩过):`hook-failed` 帧自带 `error` 字符串字段,
+    // 而下面第一条就是 `json.error && typeof === 'string' ⇒ throw`(OpenAI 错误格式)。
+    // 分流必须排在**错误判据之前** —— 否则一个"lint hook 挂了"的帧会被当成本轮回答失败:
+    // 抛 SSEError → runner 重连 → 前端气泡变红,而界面文案与真实原因毫无关系。
+    // (实测症状:带 error 的 hook-failed 帧 100% 触发重连,去掉该字段就正常。)
+    if (json?.type === 'hook-failed') return null
     if (json?.type === 'error' && typeof json?.message === 'string') {
       const e = new Error(json.message)
       e.name = 'SSEError'
@@ -3505,9 +3586,21 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // "手上状态属于哪个代际/纪元/位点" —— 没有它,会话重建/fork/rewind 后
   // id 仍能对上而内容属于另一个纪元,消费端会静默拼接两个纪元的状态。
   const frameWatermarkRef = { current: null as FrameWatermarkCursor | null }
-  // 2026-10-03 lint-strict:两枚计数器为刻意只写的丢帧留痕(b76-13 票2),
-  // 尚无读取方 —— 按守门允许口径加 `_` 前缀登记"故意未读",接入诊断面时摘帽。
-  let _frameGapDropped = 0
+  // b76-15(2026-10-29 立):seq 维水位**生产点**。载荷级四字段生产端至今不下发
+  // (现读:ai-service 的 `_sse()` 与网关 `emitUpstreamLine` 都不写),所以
+  // `readFrameWatermark` 那条腿在真机上恒 `undetermined`;本追踪器从网关确实在发的
+  // `id: <seq>` 行派生 seq 连续性事实,把"看起来有、实际没跑"补成有生产点的腿。
+  // 跨 attempt 保留(重连续传后 seq 接着原值),见 frame-watermark-producer 头注。
+  const frameSeqTracker = createFrameSeqTracker()
+  /**
+   * 载荷级四字段是否**真的**见过(at least once)。它是"未判定"与"判过"的分水岭:
+   * 全程 false ⇒ 生产端没下发,seq 腿是唯一在场的判据;true ⇒ 三维腿接管过。
+   * 报给上层而不是留在本文件里自证(§0.3:没判绝不能写成判过)。
+   */
+  let payloadWatermarkSeen = false
+  // 丢帧留痕计数。b76-15 起**有读取方**(`onFrameWatermarkFacts` + 终态兜底上报),
+  // 摘掉 `_` 前缀 —— 只写不读的计数器就是"造了一个没人读的出口"。
+  let watermarkDroppedFrames = 0
   // b76-13 票2:字段级结构不变量的 typed fault 计数(读环侧;shared 侧同表
   // 判据见 SSE_FRAME_SCHEMAS —— 丢帧必须留痕,不冒充解析成功)
   let _sseFrameSchemaFaults = 0
@@ -3519,6 +3612,29 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     if (recoveryLedgerReported) return
     recoveryLedgerReported = true
     opts.onRecoveryGateLedger?.(streamAuthority.ledger())
+  }
+  /**
+   * b76-15(2026-10-29 立):帧水位事实的**唯一上报出口**。
+   *
+   * 立因是现读出来的一格哑账:丢帧计数此前叫 `_frameGapDropped`,带 `_` 前缀,按
+   * lint 允许口径带 `_` 前缀登记"故意未读" —— 计了数,但全仓没有第二个地方读它。
+   * 一个只有写入方的计数器等于没有(`AGENTS` §0.10「失效方向必须是多要一次定向
+   * 说明」的反面:这里连说明都没有)。现在三条:① 每次丢弃都立刻上报;② 流终态
+   * 兜底再报一次(把"全程零丢弃"也变成可读事实,而不是靠缺席去猜);③ 载荷级四字段
+   * 是否真的到场一并报出 —— 那一维是 `undetermined` 还是 `ok`,上层必须能分清。
+   *
+   * 回调未注册 ⇒ 零成本返回(与 onMemoryUpdates / onFinishReason 同口径:未注册
+   * 不解析);这不算"造了没人读的出口",因为注册方就是本仓的 web 端(见
+   * `apps/web/src/hooks/use-chat/stream-error-report.ts`)。
+   */
+  const emitFrameWatermarkFacts = (kind: string): void => {
+    if (!opts.onFrameWatermarkFacts) return
+    opts.onFrameWatermarkFacts({
+      kind,
+      dropped: watermarkDroppedFrames,
+      cursor: frameSeqTracker.cursor(),
+      payloadWatermarkSeen: payloadWatermarkSeen,
+    })
   }
   // G-816030:帧归属屏障 —— ACK(本 attempt 首个 ok 水位帧)之前,undetermined 帧
   // 有界暂存不投递(上游 ackActivationBarrier:通知先于 RPC 响应抵达时,半截批次
@@ -3540,9 +3656,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       topics: [FRAME_BARRIER_TOPIC],
     })
   }
-  // 水位闸:帧带**完整**水位字段时才判(读不出 ⇒ undetermined 原样放行,生产端
-  // 未下发水位的旧帧零行为变化);gap/死帧 ⇒ 丢弃且计数 —— 不进渲染、不推进游标,
-  // 重连后从服务端快照重建,绝不把残帧算成"已应用"。
+  // 水位闸:两条来源同一事实,由 `carriesPayloadWatermark` 择一,不并行判两遍
+  // (AGENTS §0.6)。
+  //   ① 载荷级四字段(**生产端至今不下发**)⇒ `readFrameWatermark` 判三维;
+  //   ② `id: <seq>` 行(网关**确实在发**)⇒ seq 维连续性,见 b76-15 注记。
+  // 两腿的失效方向一致:读不出 ⇒ undetermined 原样放行;gap/死帧 ⇒ 丢弃且计数,
+  // 不进渲染、不推进游标,重连后从服务端快照重建,绝不把残帧算成"已应用"。
   const shouldDropByWatermark = (line: string): boolean => {
     if (!line.startsWith('data:')) return false
     const raw = line.slice(5).trim()
@@ -3561,8 +3680,25 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       throw new StreamAuthorityResubscribeError(authority.reason ?? 'unspecified')
     }
     if (authority.drop) {
-      _frameGapDropped++
+      watermarkDroppedFrames++
+      emitFrameWatermarkFacts('authority-closed')
       return true
+    }
+    // b76-15:载荷级四字段在场 ⇒ 三维腿接管,seq 腿让位(只此一份判据生效)。
+    // 不在场 ⇒ 走 seq 腿,它判的那一维就是"网关到底有没有丢帧"。
+    if (!carriesPayloadWatermark(parsed)) {
+      const verdict = frameSeqTracker.observeLine(line)
+      if (verdict.kind === 'gap') {
+        watermarkDroppedFrames++
+        emitFrameWatermarkFacts('seq-discontinuity')
+        return true
+      }
+      if (verdict.kind === 'invalid') {
+        watermarkDroppedFrames++
+        emitFrameWatermarkFacts('seq-invalid')
+        return true
+      }
+      return false
     }
     const read = readFrameWatermark(parsed)
     if (read.verdict === 'undetermined') {
@@ -3588,9 +3724,13 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       return verdict === 'staged'
     }
     if (read.verdict === 'invalid') {
-      _frameGapDropped++
+      watermarkDroppedFrames++
+      emitFrameWatermarkFacts('payload-invalid')
       return true
     }
+    // 到这儿 read.verdict === 'ok':载荷级四字段真的到场了。这一位是"判过"与
+    // "没判"的分水岭,必须记下并上报(全程 false ⇒ seq 腿是唯一在场判据)。
+    payloadWatermarkSeen = true
     const cursor = frameWatermarkRef.current
     if (cursor === null) {
       // 首个带水位的帧:手上没有可比状态,以服务端帧为基线(owned snapshot 语义)
@@ -3610,7 +3750,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       if (!frameBarrierAckedThisAttempt) frameBarrier.reset()
       // G-816031:gap 即权威断档 ⇒ 关闸,直到 recovery 信封重新授予权威。
       streamAuthority.observeGap(gap)
-      _frameGapDropped++
+      watermarkDroppedFrames++
+      emitFrameWatermarkFacts(gap)
       return true
     }
     frameWatermarkRef.current = { ...cursor, seq: read.watermark.toSeq }
@@ -3740,6 +3881,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     // D77(2026-09-25 立):业务表单请求帧;帧带 fields/actions 结构化字段,
     // 未注册回调时不解析(与 injection 同口径)。
     const hasFormRequest = typeof opts.onFormRequest === 'function'
+    // G-87 补链(2026-10-29 立):hook 执行失败帧;未注册回调不解析(与其余 per-field 同口径)
+    const hasHookFailure = typeof opts.onHookFailure === 'function'
     // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
     void hasCitations
 
@@ -4952,6 +5095,67 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
 
+    /**
+     * G-87 补链(2026-10-29 立):hook 执行失败帧的解析器。
+     *
+     * 畸形帧一律**不发回调**(与 injection_applied / form_request 同纪律):
+     *   · 缺 `state` 或不在两档内 ⇒ 丢帧(`state` 是六态卡唯一派发依据,猜一个就会把
+     *     "未记录"伪装成"失败",正是判定层点名禁止的那一型);
+     *   · 缺 `hookName` / `hookEvent` ⇒ 丢帧(卡片上没有任何可指认的对象)。
+     *
+     * 三个可选证据字段(`command`/`stderr`/`exitCode`)只在**类型对得上**时透传:
+     * `exitCode` 收窄成 `number` 而不是 `Number(x)` —— `Number(null)` 是 0,会把
+     * "没取到"变成"确实以 0 退出"这个肯定结论。
+     */
+    const tryParseHookFailure = (line: string): void => {
+      if (!hasHookFailure) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'hook-failed') return
+        const state = json.state
+        if (state !== 'failed' && state !== 'timedOut') return
+        const hookName = json.hookName
+        const hookEvent = json.hookEvent
+        if (typeof hookName !== 'string' || hookName === '') return
+        if (typeof hookEvent !== 'string' || hookEvent === '') return
+        const event: HookFailureEvent = {
+          // 服务端 wire 用 snake(hook_id,与其余 hook 透传帧同族);camel 是视图形态。
+          // 两形状都认:只认一种会让真帧的 hookId 恒为空串(实测过)。
+          hookId:
+            typeof json.hookId === 'string'
+              ? json.hookId
+              : typeof json.hook_id === 'string'
+                ? json.hook_id
+                : '',
+          hookName,
+          hookEvent,
+          state,
+          error: typeof json.error === 'string' ? json.error : '',
+          durationMs: typeof json.durationMs === 'number' ? json.durationMs : 0,
+          failedAt: typeof json.failedAt === 'string' ? json.failedAt : '',
+          ...(typeof json.actionType === 'string' && json.actionType !== ''
+            ? { actionType: json.actionType }
+            : {}),
+          ...(typeof json.command === 'string' && json.command !== ''
+            ? { command: json.command }
+            : {}),
+          ...(typeof json.stderr === 'string' && json.stderr !== '' ? { stderr: json.stderr } : {}),
+          ...(typeof json.exitCode === 'number' ? { exitCode: json.exitCode } : {}),
+          ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+        }
+        opts.onHookFailure!(event)
+      } catch {
+        /* 非 JSON 或非 hook-failed 事件忽略 */
+      }
+    }
     const routeLineByType = (line: string): string | null => {
       if (!line || line.startsWith(':')) return null
       if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
@@ -5041,6 +5245,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           // D77(2026-09-25 立):对话流业务表单请求帧
           case 'form_request':
             return 'form_request'
+          // G-87 补链(2026-10-29):hook 执行失败帧。必须显式分流 —— 静默返回 null 与
+          // "没人订阅" 在端上完全同形(本仓最高频的失效形态)。
+          case 'hook-failed':
+            return 'hook_failed'
           default:
             return null
         }
@@ -5113,6 +5321,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseRetryScheduled(line)
       } else if (route === 'form_request') {
         tryParseFormRequest(line)
+        tryParseHookFailure(line)
+      } else if (route === 'hook_failed') {
+        tryParseHookFailure(line)
       } else {
         // fallback:无 type / 未知 type / 注释 / event:/id:/retry: / 非 JSON token 行。
         // 各 tryParse 内部第一道守护(`if (!hasXxx) return` + line 前缀检查)对非匹配行立即 return,
@@ -5144,6 +5355,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseInjection(line)
         tryParseRetryScheduled(line)
         tryParseFormRequest(line)
+        tryParseHookFailure(line)
       }
     }
 
@@ -5199,7 +5411,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         recordStreamFrame(line)
         noteFrameTraceId(line)
       }
-      // b76-13 票1:水位闸 —— gap/死帧丢弃且计数,不进下游解析与渲染
+      // b76-13 票1 / b76-15:水位闸 —— gap/死帧丢弃且计数,不进下游解析与渲染。
+      // 闸内的 seq 判读只吃 `data:` 行;`id:` / `event:` 行不经过闸(闸首行就
+      // `return false`),所以它们必须在进闸之前先喂给追踪器 —— 否则 id 与随后的
+      // data 永远配不上对(见 frame-watermark-producer 的字段序注记)。
+      if (!line.startsWith('data:')) frameSeqTracker.observeLine(line)
       if (shouldDropByWatermark(line)) return
       // G-816030:ACK 帧(本 attempt 首个 ok 水位帧)到达 ⇒ 先按原序交付 ACK 之前
       // 暂存的帧,再处理 ACK 帧本身 —— "ACK 前的帧按原序交付"由此成立。
@@ -5281,11 +5497,15 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       },
     })
     reportRecoveryGateLedger()
+    // b76-15:终态兜底上报 —— 把"全程零丢弃"也变成可读事实(靠回调缺席去猜
+    // "没丢"就是把未判定读成绿)。
+    emitFrameWatermarkFacts('stream-end')
     opts.onDone?.()
     return
   } catch (err) {
     if (isAbortError(err)) {
       reportRecoveryGateLedger()
+      emitFrameWatermarkFacts('stream-end')
       opts.onDone?.()
       return
     }
@@ -5300,6 +5520,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const message = err instanceof Error ? err.message : '网络异常'
     // G-816031:无论终态是业务错误还是重试耗尽,账目都要交出去(未判定逐条报名)。
     reportRecoveryGateLedger()
+    // b76-15:失败终态同样兜底上报帧水位事实 —— 丢帧计数与"载荷级水位有没有到场"
+    // 在失败轮次里同样是可归因读数,不因失败而免报。
+    emitFrameWatermarkFacts('stream-end')
     // 2026-09-04 吞错修复(Fix B):流内 SSE error 事件(如 provider 402 配额耗尽, errorCode: LLM_ERROR)
     // 耗尽内部重试后,若调用方传了 onError 则保持原行为(回调后 return);
     // 若未传 onError 则必须 throw err(reject),否则 Promise 会正常 resolve,
