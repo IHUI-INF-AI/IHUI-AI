@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 /* eslint-disable no-console -- CLI 器物,需打印预演/落地结论 */
 /**
  * gen-rn-host-shell.mjs —— 「共享屏 → RN 宿主薄壳」的生成器 + 对账器(2026-10-28 立)。
@@ -77,7 +73,7 @@ function git(args) {
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 1 << 28,
-    windowsHide: true,
+    // §12g:派生 git 必须显式接管 stdio —— 不写在本机稳定 EBUSY(守门 193)
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
@@ -92,7 +88,10 @@ function loadRegistry() {
 
 /** 共享屏相对路径 → 其导出组件名(取文件 basename,与仓内 249 屏一致) */
 function symbolOf(specRel) {
-  const base = specRel.split('/').pop().replace(/\.tsx$/, '')
+  const base = specRel
+    .split('/')
+    .pop()
+    .replace(/\.tsx$/, '')
   return { component: base, shared: `Shared${base}` }
 }
 
@@ -109,23 +108,31 @@ const sortLegs = (legs) =>
 /** 档位:判据给 reusable/needs-data,本器再按"腿能否直接注入"细分为 seedable/needs-manual */
 function classify(specRel) {
   const probe = requiredPropsOf(specRel)
-  if (probe.state === 'undetermined') return { kind: 'undetermined', reason: probe.reason, legs: [], hard: [] }
+  if (probe.state === 'undetermined')
+    return { kind: 'undetermined', reason: probe.reason, legs: [], hard: [] }
   const required = probe.required || []
   const hard = required.filter((l) => !SEEDABLE.has(l))
   // 可选但语义必须注入的腿(不传则暗色/返回静默失效):取同一解析器的全量面,只认可注入集
   const all = allPropsOf(specRel)
   const optionalInject =
-    all.state === 'ok' ? all.props.filter((p) => p.optional && SEEDABLE.has(p.name)).map((p) => p.name) : []
+    all.state === 'ok'
+      ? all.props.filter((p) => p.optional && SEEDABLE.has(p.name)).map((p) => p.name)
+      : []
   const legs = sortLegs([...new Set([...required, ...optionalInject])])
-  return hard.length === 0 ? { kind: 'seedable', legs, hard: [] } : { kind: 'needs-manual', legs, hard }
+  return hard.length === 0
+    ? { kind: 'seedable', legs, hard: [] }
+    : { kind: 'needs-manual', legs, hard }
 }
 
 /** 生成薄壳源码。纯函数(便于自测):只依赖 specRel 与 legs。 */
 export function buildShell(specRel, legs) {
   const { component, shared } = symbolOf(specRel)
   const specs = specRel.split('/features/')[1] ?? specRel
-  const body = legs.map((l) => `      ${l}={${LEG_EXPR[l]}}`).join('\n')
+  const body = sortLegs(legs)
+    .map((l) => `      ${l}={${LEG_EXPR[l]}}`)
+    .join('\n')
   return `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // ${MARK} —— 本文件为生成物,勿手改结构;共享屏 props 变更后重跑:
 //   node scripts/gen-rn-host-shell.mjs --screen=${specRel} --write --force
 
@@ -216,10 +223,14 @@ function main() {
 
   if (has('list')) {
     const { tally, rows } = listAll(registry)
-    console.log(`共享屏 ${rows.length} 个 · seedable ${tally.seedable} · needs-manual ${tally['needs-manual']} · undetermined ${tally.undetermined}`)
+    console.log(
+      `共享屏 ${rows.length} 个 · seedable ${tally.seedable} · needs-manual ${tally['needs-manual']} · undetermined ${tally.undetermined}`,
+    )
     for (const r of rows.filter((x) => x.kind === 'seedable')) {
       const tgt = targetPathOf(r.spec, registry)
-      console.log(`  seedable  ${r.spec.split('/features/')[1]} → ${tgt}${existsSync(R(tgt)) ? ' (已存在)' : ' (待生成)'}`)
+      console.log(
+        `  seedable  ${r.spec.split('/features/')[1]} → ${tgt}${existsSync(R(tgt)) ? ' (已存在)' : ' (待生成)'}`,
+      )
     }
     return
   }
@@ -266,7 +277,9 @@ function main() {
     }
     if (c.kind === 'needs-manual') {
       manual++
-      console.log(`  needs-manual ${spec.split('/features/')[1]} ← 需人工接的腿: ${c.hard.join(', ')}`)
+      console.log(
+        `  needs-manual ${spec.split('/features/')[1]} ← 需人工接的腿: ${c.hard.join(', ')}`,
+      )
       continue
     }
     const goal = targetPathOf(spec, registry)
@@ -299,7 +312,19 @@ function main() {
   process.exit(write || targets.length === 0 ? 0 : 1)
 }
 
-if (process.argv[1] && relative(ROOT, process.argv[1]).replace(/\\/g, '/') === 'scripts/gen-rn-host-shell.mjs') main()
+if (
+  process.argv[1] &&
+  relative(ROOT, process.argv[1]).replace(/\\/g, '/') === 'scripts/gen-rn-host-shell.mjs'
+)
+  main()
 
-export const __test__ = { buildShell, symbolOf, classify, SEEDABLE, LEG_EXPR, MARK, brokenLinks, drifted }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+export const __test__ = {
+  buildShell,
+  symbolOf,
+  classify,
+  SEEDABLE,
+  LEG_EXPR,
+  MARK,
+  brokenLinks,
+  drifted,
+}
