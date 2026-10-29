@@ -7050,5 +7050,13 @@
     "prev": "上一页",
     "pagination": "第 {page} / {totalPages} 页,共 {total} 条",
     "next": "下一页"
+  },
+  "chatWorkbenchPage": {
+    "title": "对话",
+    "newConversation": "新建会话",
+    "searchPlaceholder": "输入关键词搜索...",
+    "empty": "开始新的任务",
+    "searchNoResult": "无匹配结果",
+    "retry": "重试"
   }
 }
