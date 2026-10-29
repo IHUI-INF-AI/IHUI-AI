@@ -5858,7 +5858,14 @@ const checks = [
 
   // --- .ps1 BOM(差值棘轮)(1 项,blocking)---
   {
-    id: '260',
+    // 原登记 260,与 2026-10-29 新立的 check-prod-dep-advisories 撞号(门 89 R5:同 id 登记两道门
+    // ⇒ 串 skipEnv 与失败归属,且 R5 看不见"后写字段覆盖前写"那一型)。
+    // **让号方刻意不是"后来者"**:prod-dep 那道的编号已在 4 处面上被写成 260(门体头注、
+    // docs/SECURITY.md:393、scripts/data/dep-audit-policy.json:6、git-guardian 的到人文案),
+    // 而 AGENTS.md 刚把它作为「R4 漏点名补记 ⑪」入库 —— 改它等于把已点名的能力改成谎;
+    // 本道在门体/测试/文档三面**从不带编号**(现读 grep 皆零命中)⇒ 让号牵连 0 处。
+    // 空闲号取 265(现读 runner 内 265 零命中,264 为当前最大)。
+    id: '265',
     label:
       '📄 .ps1 必须带 UTF-8 BOM(差值棘轮:只拦本次新增/弄掉的)',
     script: 'check-ps1-bom.mjs',
