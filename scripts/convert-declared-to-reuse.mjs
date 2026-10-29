@@ -71,6 +71,7 @@ const git = (args) =>
     encoding: 'utf8',
     maxBuffer: 1 << 28,
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
 
 /** 端点字面量集合:去掉模板插值段,只比静态前缀(否则 `/a/${id}` 与 `/a/${b}` 会被当成两条) */
