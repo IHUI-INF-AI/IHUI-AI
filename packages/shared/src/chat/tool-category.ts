@@ -107,6 +107,52 @@ export function toolCategory(toolName: string): ActivityCategory {
 /** 工具调用状态(与 @ihui/types 的 AgentToolCall['status'] 同集合,此处不引类型包以免成环) */
 export type ToolActivityStatus = 'running' | 'success' | 'error' | 'cancelled'
 
+/** 类目全集(顺序即摘要展示顺序:文件 → 图像 → 检索 → 分析 → 其他) */
+export const ACTIVITY_CATEGORIES: readonly ActivityCategory[] = [
+  'file',
+  'image',
+  'search',
+  'thinking',
+  'custom',
+]
+
+/** 一轮内工具活动的聚合计数(只数,不取词;文案由端侧按类目键渲染) */
+export interface ToolActivitySummary {
+  total: number
+  running: number
+  failed: number
+  byCategory: Record<ActivityCategory, number>
+}
+
+export interface ToolActivitySummaryItem {
+  toolName: string
+  status: ToolActivityStatus
+}
+
+/**
+ * 按类目聚合一轮工具活动。分类判据**只走 `toolCategory`**(§0.6 单一真相源),
+ * 本函数不识别任何工具名;认不出的工具由 `toolCategory` 落 'custom'。
+ */
+export function summarizeToolActivity(
+  items: readonly ToolActivitySummaryItem[],
+): ToolActivitySummary {
+  const byCategory: Record<ActivityCategory, number> = {
+    file: 0,
+    image: 0,
+    search: 0,
+    thinking: 0,
+    custom: 0,
+  }
+  let running = 0
+  let failed = 0
+  for (const item of items) {
+    byCategory[toolCategory(item.toolName)] += 1
+    if (item.status === 'running') running += 1
+    if (item.status === 'error') failed += 1
+  }
+  return { total: items.length, running, failed, byCategory }
+}
+
 /**
  * 状态 → 时态。**error / cancelled 一律 null**:
  * 失败或被撤回的调用显示"已 X"是假陈述,宁可只显示中性功能名。
@@ -207,7 +253,8 @@ export function groupToolActivitiesByConnector(
 ): ConnectorActivityGroup[] {
   const map = new Map<string, ConnectorActivityGroup>()
   for (const item of items) {
-    const connector = item.connector && item.connector.trim() !== '' ? item.connector : EMPTY_CONNECTOR
+    const connector =
+      item.connector && item.connector.trim() !== '' ? item.connector : EMPTY_CONNECTOR
     const direction: ConnectorDirection = item.direction === 'write' ? 'write' : 'read'
     const groupKey = `${connector}::${direction}`
     const group = map.get(groupKey)

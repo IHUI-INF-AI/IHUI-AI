@@ -294,6 +294,11 @@ test('F6 措辞单源:crashNextStep 三型各异,反查只认清单原文', () =
   assert.match(timeoutStep, /不要/, '必须显式禁止"调大旋钮消红"(§12e)')
   assert.match(capStep, /20MB/)
   assert.match(depStep, /pnpm install/)
+  // 〔2026-10-29 立〕依赖型这一支必须连**串行化**一起给:本仓多会话共写一棵树,过去只写"跑全量 install",
+  // 每个看见缺依赖的会话各开一枚 ⇒ 并发互踩把 node_modules 掏成空目录(实测各端全丢、根层 48 包空)。
+  // 给出的出路本身成了故障源 ⇒ 现在必须点名取锁与禁并发,且"不许提装依赖"那一侧的反例照旧成立。
+  assert.match(depStep, /deploy-lock|build 锁/, '依赖型必须点名先取 build 锁(并发 install 会互踩)')
+  assert.match(depStep, /并发/, '依赖型必须显式禁止并发安装')
   assert.equal(gateFail.fallbackCodeOfReason(TIMEOUT_REASON), 'ETIMEDOUT')
   assert.equal(gateFail.fallbackCodeOfReason(CAP_REASON), 'ENOBUFS')
   assert.equal(gateFail.fallbackCodeOfReason('随便一句人话'), null, '反查不得靠"看着像"')
@@ -306,6 +311,8 @@ test('F7 汇总分型报数:兜底型不会被劝去装依赖,依赖型仍给出
   assert.match(mixed, /被兜底弄死型 1 道/)
   assert.match(mixed, /缺依赖型 1 道/)
   assert.match(mixed, /--filter/, '依赖型必须写明**不带 --filter**(§12e 的剪枝坑)')
+  assert.match(mixed, /build 锁|deploy-lock/, '依赖型必须点名先取锁(并发安装会互踩)')
+  assert.match(mixed, /禁止并发安装/, '并发禁令必须出现在汇总里,不能只写在逐条档')
   const onlyFallback = gateFail.crashAdvisory(1, [CAP_REASON])
   assert.match(onlyFallback, /1 道/)
   assert.doesNotMatch(onlyFallback, /pnpm install/, '对超限截断喊装依赖 = 跑不通的出路(§0.8)')

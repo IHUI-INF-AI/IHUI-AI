@@ -78,7 +78,11 @@ test('①c 留痕必须在落地成功之后——先写台账后落地会把"�
   const rejectedAt = SWEEPER_SRC.indexOf("why: 'landing-rejected-'")
   const landAt = SWEEPER_SRC.indexOf("'scripts/object-space-land.mjs'")
   const advancedAt = SWEEPER_SRC.indexOf('if (advanced)')
-  const ledgerAt = SWEEPER_SRC.indexOf('appendDropLedger(part.strippable')
+  // 锚点取"调用形"而不是单行字面量(2026-10-29 实测:留痕调用被排版折成两行 ⇒ 旧的
+  // `appendDropLedger(part.strippable` 连续字面量在 HEAD 面上就取不到,这把锁天天红,
+  // 而它要防的"调用被删/被挪到门控之前"两种形态一个也没多拦住 —— 恒红锁等同于没有锁)。
+  // 空白容错只放宽**字符间空白**,不放宽"必须是 appendDropLedger 直接吃 part.strippable"这一判据。
+  const ledgerAt = SWEEPER_SRC.search(/appendDropLedger\(\s*part\.strippable/)
   assert.ok(rejectedAt > 0, '源码里必须还有落地被拒那一支(找不到说明契约被改,本锁要跟着改)')
   assert.ok(landAt > 0, '源码里必须有落地器派发(找不到说明契约被改,本锁要跟着改)')
   assert.ok(advancedAt > 0, '源码里必须有 if (advanced) 门控——留痕凭据是 HEAD 推进,不是退出码')

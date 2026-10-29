@@ -1141,8 +1141,45 @@ async def get_decrypted_jwt(account_id: int, owner_user_id: str) -> dict[str, An
     }
 
 
+def _accounts_from_rows(rows: Any, *, with_owner: bool = False) -> list[dict[str, Any]]:
+    """行 → 账号字典;解不开的只摘它自己那一格并点名。
+
+    立因(2026-10-29 实测):签到侧 Fernet 主密钥文件被误删后,17 行里 16 行解不开,
+    而两处取数都是"逐行解密、任一行抛 ⇒ 整轮 0 执行",主窗口/Qoder 窗口/积分快照
+    全部静默不跑。坏密文该让那一枚账号缺席并喊人,不该把别人的签一起打死。
+    """
+    out: list[dict[str, Any]] = []
+    bad: list[str] = []
+    for r in rows:
+        try:
+            jwt = _decrypt_jwt(r["jwt_enc"])
+        except ValueError:
+            bad.append(f"{r['platform']}#{r['id']}({r['name']})")
+            continue
+        item: dict[str, Any] = {
+            "id": r["id"],
+            "name": r["name"],
+            "jwt": jwt,
+            "platform": r["platform"],
+            "device_map": json.loads(r["device_map"] or "{}")
+            if isinstance(r["device_map"], str)
+            else dict(r["device_map"] or {}),
+        }
+        if with_owner:
+            item["owner_user_id"] = r["owner_user_id"]
+        out.append(item)
+    if bad:
+        logger.warning(
+            "[checkin_store] %s 行凭据解不开(密钥不匹配或损坏 ⇒ 需重录或由号池重推),"
+            "本轮跳过这些账号,其余照常执行: %s",
+            len(bad),
+            ", ".join(bad[:30]),
+        )
+    return out
+
+
 async def list_enabled_accounts() -> list[dict[str, Any]]:
-    """调度器用:所有 enabled 账号(已解密 jwt)。"""
+    """调度器用:凭据可解的 enabled 账号(已解密 jwt)。"""
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -1153,20 +1190,7 @@ async def list_enabled_accounts() -> list[dict[str, Any]]:
             ORDER BY id
             """
         )
-    out: list[dict[str, Any]] = []
-    for r in rows:
-        out.append(
-            {
-                "id": r["id"],
-                "name": r["name"],
-                "jwt": _decrypt_jwt(r["jwt_enc"]),
-                "platform": r["platform"],
-                "device_map": json.loads(r["device_map"] or "{}")
-                if isinstance(r["device_map"], str)
-                else dict(r["device_map"] or {}),
-            }
-        )
-    return out
+    return _accounts_from_rows(rows)
 
 
 async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
@@ -1921,7 +1945,7 @@ async def sum_credits_delta_for_day(account_id: int, owner_user_id: str, day: st
 
 
 async def list_enabled_accounts_full() -> list[dict[str, Any]]:
-    """积分快照调度用:所有 enabled 账号(含 owner_user_id,已解密 jwt)。
+    """积分快照调度用:凭据可解的 enabled 账号(含 owner_user_id,已解密 jwt)。
 
     与 list_enabled_accounts 的差异仅是多回 owner_user_id —— 快照落表需要
     属主列;不改动既有方法,避免影响每日签到 job 的既有调用面。
@@ -1936,20 +1960,6 @@ async def list_enabled_accounts_full() -> list[dict[str, Any]]:
             ORDER BY id
             """
         )
-    out: list[dict[str, Any]] = []
-    for r in rows:
-        out.append(
-            {
-                "id": r["id"],
-                "owner_user_id": r["owner_user_id"],
-                "name": r["name"],
-                "jwt": _decrypt_jwt(r["jwt_enc"]),
-                "platform": r["platform"],
-                "device_map": json.loads(r["device_map"] or "{}")
-                if isinstance(r["device_map"], str)
-                else dict(r["device_map"] or {}),
-            }
-        )
-    return out
+    return _accounts_from_rows(rows, with_owner=True)
 # ⁠[IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
