@@ -27,6 +27,7 @@ import { registerRoutes } from './routes/index.js'
 import { llmVerifyKeyRoutes } from './routes/llm-verify-key.js'
 import { downloadsRoutes } from './routes/downloads.js'
 import { crashReportsRoutes } from './routes/crash-reports.js'
+import { evaluateOriginAllowance } from './plugins/cors-origin.js'
 
 import { setFastify } from './utils/logger.js'
 import { wildcardContentTypeParser, applyUploadsStaticHardening } from './utils/static-hardening.js'
@@ -336,6 +337,28 @@ export async function buildServer(): Promise<FastifyInstance> {
       return
     }
 
+    // DAP 调试代理(/api/debug/*):P0 安全加固(2026-10-29)。
+    // 该面能在 ai-service 上 launch 任意程序 / eval 任意表达式 / attach 任意进程 = 服务器级 RCE 面;
+    // 而 ai-service 侧 debug.py 无鉴权、无 userId 作用域隔离。
+    // 入口已收为「管理员」(debug.ts 用 requireAdmin),此处再叠加「强制内网」,公网一律 403。
+    // 根因修复(ai-service 侧按 userId 隔离 + 限定 program/cwd 在项目目录内)完成前,不对公网开放。
+    if (url.startsWith('/api/debug/') || url === '/api/debug') {
+      routeOptions.config = {
+        ...existingConfig,
+        network: existingConfig.network ?? { allowExternal: false },
+      }
+      return
+    }
+
+    // 内部服务路由:强制内网(公网不可达),不追加 mTLS(见上方立据)
+    if (INTERNAL_ONLY_PREFIXES.some((p) => url.startsWith(p))) {
+      routeOptions.config = {
+        ...existingConfig,
+        network: existingConfig.network ?? { allowExternal: false },
+      }
+      return
+    }
+
     // 公开路由:不注入网络分段(保持公网可达)
     if (PUBLIC_PREFIXES.some((p) => url.startsWith(p))) return
 
@@ -506,38 +529,34 @@ async function registerPlugins(server: FastifyInstance) {
     //   常量)。该 Origin 只有桌面应用自身 webview 页面能产生,恶意网页无法伪造;
     //   加入固定白名单后不依赖部署侧 CORS_ORIGIN 环境变量,生产/测试环境开箱即支持
     //   桌面端跨域调用。
+    // 2026-10-29 收紧为 fail-closed:chrome-extension:// 不再整体放行 —— 任何已安装扩展
+    // (含恶意)都能产生该 Origin,前缀放行等于给全部扩展发全站带凭据通行证。
+    // 已配置 IHUI_EXTENSION_IDS 时按精确 ID 放行;未配置时**拒绝**(不给任何扩展通行证)。
+    // 需要支持自家扩展时,把扩展 ID 逐枚填入 IHUI_EXTENSION_IDS。
+    // 决策逻辑收敛到 plugins/cors-origin.ts 的 evaluateOriginAllowance(单一真源 + 可单测钉死)。
     origin: (origin: string | undefined, cb: (err: Error | null, allow: boolean) => void) => {
-      if (!origin) return cb(null, true) // 非浏览器客户端(服务端/curl)允许
-      const o = origin.toLowerCase()
       const allowed = config.CORS_ORIGIN.split(',')
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean)
-      // 2026-10-27 收紧:chrome-extension:// 不再整体放行 —— 任何已安装扩展(含恶意)
-      // 都能产生该 Origin,前缀放行等于给全部扩展发全站带凭据通行证。运维把自家扩展 ID
-      // 逐枚填进 IHUI_EXTENSION_IDS 即收紧;未配置时保持旧行为(扩展 UI 不断),但每次
-      // 都点名实际请求的扩展 ID,让"还没配"这件事在日志里可见。
       const extIds = config.EXTENSION_IDS.split(',')
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean)
-      let extAllowed = false
-      if (o.startsWith('chrome-extension://')) {
-        if (extIds.length > 0) {
-          extAllowed = extIds.includes(o)
-        } else {
-          extAllowed = true
-          server.log.warn(
-            { origin: o },
-            'chrome-extension origin 放行(未配置 IHUI_EXTENSION_IDS,精确白名单未生效)',
-          )
-        }
+      const r = evaluateOriginAllowance({
+        origin,
+        allowedOrigins: allowed,
+        desktopOrigins: DESKTOP_ORIGINS,
+        mobileCapOrigins: MOBILE_CAP_ORIGINS,
+        extensionIds: extIds,
+      })
+      if (r.unconfiguredExtension) {
+        // 未配置 IHUI_EXTENSION_IDS:fail-closed,不给任何扩展发全站带凭据通行证。
+        // 需要支持自家扩展时,把扩展 ID 逐枚填入 IHUI_EXTENSION_IDS。
+        server.log.warn(
+          { origin },
+          'chrome-extension origin 拒绝(未配置 IHUI_EXTENSION_IDS,精确白名单未生效)',
+        )
       }
-      cb(
-        null,
-        allowed.includes(o) ||
-          DESKTOP_ORIGINS.includes(o) ||
-          MOBILE_CAP_ORIGINS.includes(o) ||
-          extAllowed,
-      )
+      cb(null, r.allow)
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -736,22 +755,24 @@ async function registerPlugins(server: FastifyInstance) {
           return
         }
         // 缺失 Origin(非浏览器/curl/服务端客户端):允许,依赖 JWT wsAuth
-        // 2026-10-27 与 CORS 同步收紧:chrome-extension:// 不再整体放行(任何已安装
-        // 扩展都能产生该 Origin)。精确白名单 = IHUI_EXTENSION_IDS;未配置保持旧行为
-        // 并逐次点名(见 CORS 同名注释)。
+        // 2026-10-29 与 CORS 同步收紧为 fail-closed:chrome-extension:// 不再整体放行。
+        // 已配置 IHUI_EXTENSION_IDS 时按精确 ID 放行;未配置时**拒绝**(见 CORS 同名注释)。
+        // 决策逻辑收敛到 plugins/cors-origin.ts 的 evaluateOriginAllowance(与 CORS 同一真源)。
         const extIds = config.EXTENSION_IDS.split(',')
           .map((s) => s.trim().toLowerCase())
           .filter(Boolean)
-        let extAllowed = false
-        if (origin.startsWith('chrome-extension://')) {
-          if (extIds.length > 0) {
-            extAllowed = extIds.includes(origin)
-          } else {
-            extAllowed = true
-            server.log.warn({ origin }, 'chrome-extension WS 握手放行(未配置 IHUI_EXTENSION_IDS)')
-          }
+        const r = evaluateOriginAllowance({
+          origin: origin || undefined, // '' 视为缺失 Origin
+          allowedOrigins: [...wsAllowedOrigins],
+          desktopOrigins: DESKTOP_ORIGINS,
+          mobileCapOrigins: MOBILE_CAP_ORIGINS,
+          extensionIds: extIds,
+        })
+        if (r.unconfiguredExtension) {
+          // 未配置 IHUI_EXTENSION_IDS:fail-closed,不给任何扩展发全站带凭据通行证。
+          server.log.warn({ origin }, 'chrome-extension WS 握手拒绝(未配置 IHUI_EXTENSION_IDS)')
         }
-        if (!origin || wsAllowedOrigins.has(origin) || extAllowed) {
+        if (r.allow) {
           next(true)
         } else {
           next(false, 403, 'Origin not allowed')
