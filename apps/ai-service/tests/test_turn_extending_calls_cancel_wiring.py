@@ -84,11 +84,11 @@ def test_turn_extending_calls_are_wrapped_in_wait_interruptible() -> None:
 def test_wiring_check_has_teeth() -> None:
     """变异自检:合成片段里摘掉包裹必须被判"未包裹",包上则判"已包裹"。"""
     bare_src = """
-async def f(self, payload):
+async def sample_bare(self, payload):
     await self._hook_runtime.run("PRE_TOOL_USE", payload)
 """
     wrapped_src = """
-async def f(self, payload):
+async def sample_wrapped(self, payload):
     await self._wait_interruptible(
         self._hook_runtime.run("PRE_TOOL_USE", payload)
     )
