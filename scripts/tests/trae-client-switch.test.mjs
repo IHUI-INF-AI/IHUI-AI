@@ -9,6 +9,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import { __test__ as S } from '../lib/trae-client-switch.mjs'
 import { decryptEnvelope, encryptEnvelope } from '../lib/trae-auth-extract.mjs'
@@ -121,5 +122,66 @@ test('⑦ 信封往返自证:encryptEnvelope → decryptEnvelope 逐字节还原
   for (const text of ['{}', JSON.stringify(S.buildClientUserInfo(BASE)), '中文 mixed\ne'] ) {
     assert.equal(decryptEnvelope(encryptEnvelope(text)), text)
   }
+})
+
+/**
+ * ⑧–⑪ 强杀面的归属判据(2026-10-29 立,守门 52 name-kill 那一型)。
+ *
+ * 旧写法 `taskkill /IM "Trae CN.exe"` 只接受裸文件名 ⇒ 连全机同名进程一起杀。改成按可执行路径划归属后,
+ * 必须成对锁住两件事:**归属命中时真逐个杀**(⑩ 正控)与**筛不出归属时一个都不发**(⑨⑪ 反向对照)——
+ * 只测后者会放行"永远不杀"的实现,只测前者会放行"照旧乱杀"的实现。
+ */
+const ROOT_OK = 'C:/Users/me/AppData/Local/Programs/Trae CN'
+
+test('⑧ selectTraeVictims:安装根之下才算 mine,路径问不到/根外一律 foreign', () => {
+  const rows = `123|${ROOT_OK}/Trae CN.exe\n456|C:/Portable/Trae CN.exe\n789|\nnot-a-row\n234|${ROOT_OK}\\sub\\Trae.exe\n`
+  const r = S.selectTraeVictims(rows, [ROOT_OK])
+  assert.deepEqual(r.mine, ['123', '234'], `反斜杠与正斜杠必须同判,实测 ${JSON.stringify(r.mine)}`)
+  assert.equal(r.foreign.length, 2, `根外 1 枚 + 路径问不到 1 枚要报名,实测 ${JSON.stringify(r.foreign)}`)
+  // 前缀相似不等于子路径:只差一个字符的兄弟目录不算归属内
+  const near = S.selectTraeVictims('999|C:/Users/me/AppData/Local/Programs/Trae CN2/Trae CN.exe\n', [ROOT_OK])
+  assert.deepEqual(near.mine, [], '…/Trae CN2/… 不是 …/Trae CN/ 的子路径')
+})
+
+test('⑨ killTrae 归属不命中 ⇒ 一个 kill 都不发并抛错(反向对照)', () => {
+  const killed = []
+  assert.throws(
+    () =>
+      S.killTrae({
+        rows: '456|C:/Portable/Trae CN.exe\n',
+        roots: [ROOT_OK],
+        killer: (p) => killed.push(p),
+      }),
+    (e) => e instanceof S.SwitchError && e.code === 'TRAE_NOT_OWNED',
+  )
+  assert.deepEqual(killed, [], '非归属时绝不能发出任何 kill —— 少停可诊断,误杀是用户事故')
+})
+
+test('⑩ killTrae 正控:归属命中的逐个杀(大小写不敏感),根外那枚必须报名', () => {
+  const killed = []
+  const res = S.killTrae({
+    rows: `123|${ROOT_OK}/Trae CN.exe\n234|${ROOT_OK.toLowerCase()}/trae cn.exe\n456|C:/Other/Trae CN.exe\n`,
+    roots: [ROOT_OK],
+    killer: (p) => killed.push(String(p)),
+  })
+  assert.deepEqual(res.killed, ['123', '234'])
+  assert.deepEqual(killed, ['123', '234'], '只杀归属内那两枚,顺序按枚举序')
+  assert.equal(res.foreign.length, 1, '根外那枚必须报出来,不能被静默丢弃')
+})
+
+test('⑪ 枚举失败 ⇒ 未判定:一个都不杀并抛 TRAE_ENUM_FAILED;并锁死按镜像名杀不得回潮', () => {
+  const killed = []
+  assert.throws(
+    () =>
+      S.killTrae({
+        roots: [ROOT_OK],
+        spawn: () => ({ status: 1, stdout: '', stderr: 'boom' }),
+        killer: (p) => killed.push(p),
+      }),
+    (e) => e instanceof S.SwitchError && e.code === 'TRAE_ENUM_FAILED',
+  )
+  assert.deepEqual(killed, [])
+  const src = readFileSync(new URL('../lib/trae-client-switch.mjs', import.meta.url), 'utf8')
+  assert.doesNotMatch(src, /taskkill['"]?\s*,\s*\[\s*['"]\/IM/, "源码里又出现按镜像名 taskkill ⇒ 那一型回潮")
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
