@@ -493,10 +493,24 @@ def _extract_family_and_version(name: str) -> tuple[str, str | None]:
 
 
 def _version_tuple(version: str | None) -> tuple[int, ...]:
-    """版本号 → 可比较元组。`4-6` → (4, 6);`3.1` → (3, 1);None → ()"""
+    """版本号 → 可比较元组。`4-6` → (4, 6);`3.1` → (3, 1);None → ()
+
+    2026-10-29:xAI 用 `grok-4.20` 表示 4.2 代(4.20-beta 发布于 2026-03,其后
+    4.3 / 4.5 / 4.6 / 4.7 逐代推进),按字面比较会得出「4.20 > 4.7」,把最新的
+    4.7 旗舰压进前端「历史模型」折叠区、首屏只剩实验档。两位且以 0 结尾的小版本
+    段按 ÷10 归一(20 归 2),与厂商实际代次序一致;8 位日期快照段等其余段原样。
+    """
     if not version:
         return ()
-    return tuple(int(p) for p in re.split(r"[.-]", version) if p.isdigit())
+    parts: list[int] = []
+    for p in re.split(r"[.-]", version):
+        if not p.isdigit():
+            continue
+        n = int(p)
+        if len(p) == 2 and n >= 10 and n % 10 == 0:
+            n //= 10
+        parts.append(n)
+    return tuple(parts)
 
 
 def _version_sort_key(version: tuple[int, ...]) -> tuple[int, int, int]:
