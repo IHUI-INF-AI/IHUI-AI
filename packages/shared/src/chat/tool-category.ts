@@ -219,12 +219,15 @@ export function toolCategoryKeyList(): string[] {
 // ⑤ 活动按连接器读写分组(D81 第⑤项):把带连接器来源的工具活动按"读 / 写"方向聚合。
 // 纯函数,跨端共用;渲染层用 readingConnector / writingConnector 词表给分组加标签。
 //
-// 接线状态(2026-09-25 实测,如实登记,勿当已闭环):本函数生产侧**零消费者**。
-// 它的宿主形态是"一条消息里多枚工具卡按连接器分组加分组头",而该列表在
-// `apps/web/src/components/chat/message-list/MessageItem.tsx` 的 `m.toolCalls?.map()`(:914);
-// 现渲染路径是**每张卡各打一次标签**(`tool-call-card.tsx` 用共享层 `FILE_WRITE_TOOLS` 判方向),
-// 属"逐行注解"而非"分组",故不能靠把本函数喂一个单元素数组来制造消费计数
-// —— 那只会产出一条假的装车证明。分组头落地见 PROJECT_PLAN / 该票报告。
+// 接线状态(2026-10-29 实测更新,替换 2026-09-25 的"零消费者"登记):
+// **已部分接线**。生产消费者 = `apps/web/src/components/ai/progress-sections/tool-call-summary-card.tsx`
+// (类目卡区块旁的「连接器分组」段):它把带来源的工具卡映射成 `ConnectorActivityItem`
+// (direction 经共享层 `FILE_WRITE_TOOLS` 判定),再喂本函数分组并渲染分组头,
+// 单测 `__tests__/connector-group-wiring.test.tsx` 钉住"同连接器同方向合一组 + 分组头文案"。
+// 仍**未接**的一步:逐行的方向标签由 `tool-call-card.tsx` 各自打一次(属"逐行注解"),
+// 其宿主列表在 `MessageItem.tsx` 的 `m.toolCalls?.map()`,该文件当时被他席未提交改动占用,
+// 故"整条消息级分组替换逐行注解"留待该文件落地后再接。**不得**用"把单元素数组喂进来"
+// 制造消费计数 —— 那只会产出一条假的装车证明。
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ConnectorDirection = 'read' | 'write'
