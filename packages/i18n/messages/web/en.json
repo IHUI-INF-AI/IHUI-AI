@@ -515,12 +515,6 @@
     "noLogsHint": "(No logs yet — click on the page to see coordinate info)",
     "runJs": "Run JavaScript",
     "runJsPlaceholder": "document.title — enter JS then click Run (e.g. document.querySelector(\"button\").click())",
-    "browserTab": "Browser",
-    "home": "Go to home page",
-    "pickElement": "Pick element",
-    "picking": "Picking: click an element to select it; click the button again to cancel",
-    "devtools": "Developer tools",
-    "popout": "Open in a separate window",
     "run": "Run"
   },
   "a11y": {
@@ -928,38 +922,38 @@
       "panelVisitTransition": "Page transitions",
       "visitTransitionMoves": "{count} moves / 24h",
       "visitTransitionTop": "Most travelled paths (24h)",
+      "visitTransitionNoData": "No transitions in 24h",
+      "alertCountAtLeast": "Alerts ≥{count}",
+      "apiErrRateHint": "Scope: all of today's api_logs rows (complements the Prometheus 5xx rate in the header)",
+      "stateUp": "Up",
+      "stateDown": "Down",
+      "stateUnknown": "Unknown",
+      "userGrowth14d": "User Growth (14d)",
+      "usersVip": "VIP Users",
+      "usersTrader": "Traders",
+      "usersInvited": "Invited",
+      "usersInvited7d": "Invited (7d)",
+      "activeUsers7d": "Active (7d)",
+      "levelDistTitle": "Level mix",
+      "level0": "Normal",
+      "level1": "Silver",
+      "level2": "Gold",
+      "level3": "Diamond",
       "avgDwellSec": "stay {s}s",
       "panelHourlyVisits": "Visits by Hour",
       "hourlyVisitWindow": "Last 24h · hourly",
       "visitHourlyPv": "Page views",
       "visitHourlyUv": "Visitors",
-      "sessionQualityExitTop": "Exit page (sessions/single)",
-      "activeUsers7d": "Active (7d)",
-      "alertCountAtLeast": "Alerts ≥{count}",
-      "apiErrRateHint": "Scope: all of today's api_logs rows (complements the Prometheus 5xx rate in the header)",
-      "level0": "Normal",
-      "level1": "Silver",
-      "level2": "Gold",
-      "level3": "Diamond",
-      "levelDistTitle": "Level mix",
-      "noPoolRows": "No pool rows",
-      "poolBalanceLow": "Low balance",
-      "poolExpiring24h": "Expiring ≤24h",
+      "poolHealthHealthy": "Healthy",
       "poolHealthDegraded": "Degraded",
       "poolHealthDown": "Down",
-      "poolHealthHealthy": "Healthy",
       "poolHealthUnknown": "Unknown",
-      "poolProviderAccountTitle": "Accounts by provider",
+      "poolBalanceLow": "Low balance",
+      "poolExpiring24h": "Expiring ≤24h",
       "poolProviderKeyTitle": "Keys by provider",
-      "stateDown": "Down",
-      "stateUnknown": "Unknown",
-      "stateUp": "Up",
-      "userGrowth14d": "User Growth (14d)",
-      "usersInvited": "Invited",
-      "usersInvited7d": "Invited (7d)",
-      "usersTrader": "Traders",
-      "usersVip": "VIP Users",
-      "visitTransitionNoData": "No transitions in 24h"
+      "poolProviderAccountTitle": "Accounts by provider",
+      "noPoolRows": "No pool rows",
+      "sessionQualityExitTop": "Exit page (sessions/single)"
     },
     "aboutUs": {
       "add": "Add",
@@ -1455,19 +1449,6 @@
         "update": "Update",
         "warning": "Warning"
       },
-      "platforms": {
-        "cli": "CLI",
-        "desktop": "Desktop",
-        "extension": "Extension",
-        "miniapp": "Mini App",
-        "mobile-cap": "Mobile Capture",
-        "rn": "Mobile App",
-        "web": "Web"
-      },
-      "colPlatforms": "Platforms",
-      "fieldPlatforms": "Platforms",
-      "platformsAll": "All Platforms",
-      "platformsHint": "Leave all unchecked to show on every platform; only checked platforms will see it",
       "yes": "Yes"
     },
     "anomalies": {
@@ -1820,10 +1801,14 @@
     "developer": {
       "cancel": "Cancel",
       "colActions": "Actions",
+      "colAddress": "Address",
       "colCozeId": "Coze ID",
+      "colCreatedAt": "Created At",
+      "colCreator": "Creator",
       "colNickname": "Nickname",
       "colPlatform": "Platform",
       "colSignAccount": "Sign Account",
+      "colSignNickname": "Sign Nickname",
       "colStatus": "Status",
       "cozeCreate": "Add Account",
       "cozeCreateTitle": "Add Coze Account",
@@ -1851,10 +1836,6 @@
       "statusExpired": "Expired",
       "statusInUse": "In Use",
       "statusUnused": "Unused",
-      "colAddress": "Address",
-      "colCreatedAt": "Created At",
-      "colCreator": "Creator",
-      "colSignNickname": "Sign Nickname",
       "total": "{total} items"
     },
     "developerLink": {
@@ -6279,6 +6260,21 @@
       "installerHint": "GitHub-side actor id (not a platform user)"
     },
     "smsReceive": "SMS Verification",
+    "sms": "SMS Templates",
+    "relayPoolPolicy": {
+      "title": "Relay pool selection policy (global defaults)",
+      "refresh": "Refresh",
+      "loading": "Loading policy…",
+      "loadFailed": "Failed to load",
+      "badgeAllDefault": "All defaults",
+      "badgeDeviated": "{n} deviated",
+      "badgeInvalid": "{n} fell back from invalid env",
+      "badgeRegistryBroken": "Registry incomplete",
+      "readOnlyHint": "Read-only: edit .env and restart apps/api",
+      "defaultIs": "default {v}",
+      "invalidFellBack": "invalid value fell back",
+      "registryDiff": "Unregistered knobs: {missing}; orphan entries: {orphan}"
+    },
     "relayTasks": {
       "wbTitle": "WorkBuddy task automation",
       "wbAccount": "Account",
@@ -6502,22 +6498,7 @@
         "samplePhones": "Sample numbers: {phones}",
         "broadcastSummary": "{total} in total · <ok>{sent}</ok> succeeded · <bad>{failed}</bad> failed · {suppressed} suppressed"
       }
-    },
-    "relayPoolPolicy": {
-      "title": "Relay pool selection policy (global defaults)",
-      "refresh": "Refresh",
-      "loading": "Loading policy…",
-      "loadFailed": "Failed to load",
-      "badgeAllDefault": "All defaults",
-      "badgeDeviated": "{n} deviated",
-      "badgeInvalid": "{n} fell back from invalid env",
-      "badgeRegistryBroken": "Registry incomplete",
-      "readOnlyHint": "Read-only: edit .env and restart apps/api",
-      "defaultIs": "default {v}",
-      "invalidFellBack": "invalid value fell back",
-      "registryDiff": "Unregistered knobs: {missing}; orphan entries: {orphan}"
-    },
-    "sms": "SMS Templates"
+    }
   },
   "connectors": {
     "title": "Chinese Connectors",
@@ -7160,8 +7141,6 @@
       "title": "Developer Center",
       "urlRequired": "URL is required",
       "webhooks": "Webhooks",
-      "permissionHint": "Choose which API permissions this key can access",
-      "permissionLabel": "Permissions",
       "whCreateSuccess": "Webhook created"
     },
     "dict": {
@@ -7830,10 +7809,10 @@
       "notifyCompletedTitle": "Task completed: {name}",
       "notifyFailedTitle": "Task failed: {name}",
       "runningCount": "{count} Running",
-      "title": "Background Agents",
-      "total": "Total {count}",
       "takeover": "Take over",
+      "title": "Background Agents",
       "tokens": "Tokens",
+      "total": "Total {count}",
       "viewResult": "View Result"
     },
     "checkpointHistory": {
@@ -9260,9 +9239,9 @@
           "title": "The request is too large",
           "action": "Reduce the content and retry"
         },
-        "MODEL_RETIRED": {
-          "title": "This model has been permanently retired",
-          "action": "Switch to an available model in the list"
+        "invalid_arguments": {
+          "title": "The submitted information is invalid",
+          "action": "Check it and retry"
         },
         "ALREADY_CLAIMED": {
           "title": "This task has already been claimed",
@@ -9280,6 +9259,10 @@
           "title": "Invalid task status",
           "action": "Use pending, claimed, done, or blocked"
         },
+        "MODEL_RETIRED": {
+          "title": "This model has been permanently retired",
+          "action": "Switch to an available model in the list"
+        },
         "TASK_CLOSED": {
           "title": "This task is already closed or blocked",
           "action": "Choose another task"
@@ -9287,10 +9270,6 @@
         "TASK_NOT_FOUND": {
           "title": "Task not found",
           "action": "Refresh the task list and retry"
-        },
-        "invalid_arguments": {
-          "title": "The submitted information is invalid",
-          "action": "Check it and retry"
         }
       },
       "worktree": {
@@ -9400,7 +9379,6 @@
           "browser": "Open the page in your default browser"
         }
       },
-      "injectionKindExpertPack": "Expert pack matched by intent",
       "promptPolish": {
         "entryLabel": "Polish",
         "ariaLabel": "Polish prompt",
@@ -9419,7 +9397,8 @@
           "emptyDraft": "The draft is empty. Enter some text before polishing."
         },
         "restartHint": "Polishing takes effect after a restart. Your draft has been kept."
-      }
+      },
+      "injectionKindExpertPack": "Expert pack matched by intent"
     },
     "permissionConfirm": {
       "allow": "Allow",
@@ -9629,6 +9608,9 @@
     "title": "AI Career Guidance"
   },
   "aiChat": {
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
+    "delete": "Delete",
     "bindIssue": "Bind issue",
     "actions": {
       "archive": "Archive",
@@ -9637,13 +9619,13 @@
       "delete": "Delete",
       "exportMd": "Export as Markdown",
       "exportTxt": "Export as TXT",
+      "exportSubmenu": "Export / Share",
+      "compressSubmenu": "Compress",
       "menu": "More actions",
       "rename": "Rename",
       "unarchive": "Unarchive",
       "pin": "Pin",
       "unpin": "Unpin",
-      "exportSubmenu": "Export / Share",
-      "compressSubmenu": "Compress",
       "branchFromHere": "Branch from here"
     },
     "checkpoint": {
@@ -9829,6 +9811,7 @@
       "title": "PowerShell Terminal"
     },
     "thisMonth": "This Month",
+    "earlier": "Earlier",
     "thisWeek": "This Week",
     "title": "AIChat",
     "toast": {
@@ -9852,10 +9835,6 @@
     "closeWorkPanel": "Close Work Panel",
     "toggleWorkPanel": "Toggle Work Panel",
     "user": "User",
-    "favorite": "Add bookmark",
-    "unfavorite": "Remove bookmark",
-    "delete": "Delete",
-    "earlier": "Earlier",
     "org": {
       "title": "Organize conversation",
       "folderLabel": "Folder",
@@ -10717,6 +10696,11 @@
     "noAssessment": "No assessments yet"
   },
   "goalCard": {
+    "resumeServerOk": "Goal resumed",
+    "resumeAlreadyActive": "Goal is already active, nothing to resume",
+    "resumeTerminal": "Goal is completed and cannot be resumed",
+    "resumeNoGoal": "No resumable goal in this session",
+    "resumeFailed": "Resume failed: {message}",
     "editAriaLabel": "Edit goal",
     "editSave": "Save",
     "editCancel": "Cancel",
@@ -10744,11 +10728,6 @@
     "clear": "Clear",
     "cleared": "Goal cleared",
     "resetProgress": "Reset",
-    "resumeServerOk": "Goal resumed",
-    "resumeAlreadyActive": "Goal is already active, nothing to resume",
-    "resumeTerminal": "Goal is completed and cannot be resumed",
-    "resumeNoGoal": "No resumable goal in this session",
-    "resumeFailed": "Resume failed: {message}",
     "fullProgress": "Full"
   },
   "memoryCards": {
@@ -11687,8 +11666,8 @@
       "roleAssistant": "Assistant",
       "exportCard": "Share as image card",
       "shareCardUser": "User",
-      "compression": "Compress conversation",
-      "exportPdf": "Export PDF"
+      "exportPdf": "Export PDF",
+      "compression": "Compress conversation"
     },
     "fallbackNotice": "Switched to backup model {backup} (primary model {primary} temporarily unavailable)",
     "fallbackNoticeQuota": "This answer was written by {backup}. The provider account behind {primary} ran out of quota, so the platform routed to an equivalent model in the same family.",
@@ -12172,6 +12151,27 @@
       "noContent": "(no content)",
       "openGitHub": "Open GitHub",
       "promptPlaceholder": "Prompt template content",
+      "reloadSkills": "Reload skills",
+      "reloadSkillsHint": "Rescan SKILL.md on disk so changes take effect immediately",
+      "reloadSkillsRunning": "Reloading…",
+      "reloadSkillsSuccess": "Reload complete",
+      "reloadSkillsFailed": "Reload failed",
+      "reloadSkillsAdded": "Added",
+      "reloadSkillsRemoved": "Removed",
+      "reloadSkillsChanged": "Changed",
+      "reloadSkillsUnchanged": "Unchanged",
+      "reloadSkillsTotal": "{count} skills in total",
+      "reloadSkillsNoChange": "No content changes in this reload",
+      "reloadSkillsAuto": "{count} from auto sources",
+      "reloadPlugins": "Reload plugin surface",
+      "reloadPluginsHint": "Rescan the plugin surface and feed the latest command list back to the host",
+      "reloadPluginsRunning": "Reloading…",
+      "reloadPluginsSuccess": "Plugin surface reloaded",
+      "reloadPluginsFailed": "Plugin surface reload failed",
+      "reloadPluginsCommandCount": "{count} commands",
+      "reloadPluginsSkillCount": "{count} skills",
+      "reloadPluginsCommandList": "Latest command list",
+      "reloadPluginsNoCommand": "No commands available right now",
       "save": "Save",
       "saving": "Saving…",
       "scenario": "Scenario",
@@ -12186,6 +12186,8 @@
       "sectionCustom": "My custom",
       "statusAvailable": "Available",
       "statusComingSoon": "Coming soon",
+      "tabAiSkills": "AI Skills",
+      "tabAll": "All",
       "tabCustom": "Custom",
       "tabMcp": "MCP",
       "tabOpenclaw": "OpenClaw",
@@ -12193,29 +12195,6 @@
       "tabSlash": "Commands",
       "tabTemplate": "Templates",
       "title": "Skill Library",
-      "reloadSkills": "Reload skills",
-      "reloadSkillsHint": "Rescan SKILL.md on disk so changes take effect immediately",
-      "reloadSkillsRunning": "Reloading…",
-      "reloadSkillsSuccess": "Reload complete",
-      "reloadSkillsFailed": "Reload failed",
-      "reloadSkillsAdded": "Added",
-      "reloadSkillsRemoved": "Removed",
-      "reloadSkillsChanged": "Changed",
-      "reloadSkillsUnchanged": "Unchanged",
-      "reloadSkillsTotal": "{count} skills in total",
-      "reloadSkillsNoChange": "No content changes in this reload",
-      "reloadSkillsAuto": "{count} from auto sources",
-      "tabAiSkills": "AI Skills",
-      "tabAll": "All",
-      "reloadPlugins": "Reload plugin surface",
-      "reloadPluginsHint": "Rescan the plugin surface and feed the latest command list back to the host",
-      "reloadPluginsRunning": "Reloading…",
-      "reloadPluginsSuccess": "Plugin surface reloaded",
-      "reloadPluginsFailed": "Plugin surface reload failed",
-      "reloadPluginsCommandCount": "{count} commands",
-      "reloadPluginsSkillCount": "{count} skills",
-      "reloadPluginsCommandList": "Latest command list",
-      "reloadPluginsNoCommand": "No commands available right now",
       "viewAll": "View all"
     },
     "sessionDiff": {
@@ -12305,10 +12284,10 @@
       "feedbackRecorded": "Feedback recorded, thank you",
       "feedbackSaved": "Feedback saved",
       "feedbackFailed": "Failed to submit feedback",
+      "dislikeThanks": "Thanks — you can add details from the survey card",
       "messageDeleted": "Message deleted",
       "operationFailed": "Operation failed",
       "regenerating": "Regenerating…",
-      "dislikeThanks": "Thanks — you can add details from the survey card",
       "branching": "Creating branch…"
     },
     "toolCallSkipped": "Skipped (duplicate call)",
@@ -12574,6 +12553,7 @@
     "reasoningEffortHigh": "Deep",
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
+    "analysisOpen": "View Scenario Analysis",
     "favorite": "Add bookmark",
     "unfavorite": "Remove bookmark",
     "workbenchSessions": "Sessions",
@@ -12601,8 +12581,7 @@
     "reviewTargetSnippet": "Pasted snippet",
     "reviewTargetSnippetLabel": "Code snippet to review",
     "reviewTargetSnippetPlaceholder": "Paste the code to review…",
-    "reviewTargetClear": "Clear review target",
-    "analysisOpen": "View Scenario Analysis"
+    "reviewTargetClear": "Clear review target"
   },
   "chatHistory": {
     "moveToGroup": "Move to group",
@@ -15076,6 +15055,7 @@
       "toolFailures": "Tool Failures",
       "trigger": "Trigger",
       "triggerError": "Trigger failed",
+      "triggerSuccess": "Triggered successfully",
       "refresh": "Rescan memory source",
       "refreshSuccess": "Memory source rescanned",
       "refreshReadFailed": "Memory source read failed (previous memory kept)",
@@ -15086,8 +15066,7 @@
       "refreshRemoved": "Removed",
       "refreshChanged": "Changed",
       "refreshUnchanged": "Unchanged",
-      "refreshNoChange": "No content changes in this rescan",
-      "triggerSuccess": "Triggered successfully"
+      "refreshNoChange": "No content changes in this rescan"
     },
     "orch": {
       "dashboard": "Dashboard",
@@ -17106,27 +17085,6 @@
       "settings": "Settings",
       "terminal": "Terminal"
     },
-    "agentsMd": {
-      "title": "AGENTS.md",
-      "hint": "Scan the current workspace to draft collaboration conventions. Generating does not write to disk; you will be asked once more before writing.",
-      "generate": "Generate AGENTS.md draft",
-      "generateConfirmTitle": "Generate an AGENTS.md draft?",
-      "generateConfirmContent": "The current workspace will be scanned and a draft produced. The draft is shown here only; nothing is written to disk.",
-      "generating": "Scanning workspace…",
-      "generateFailed": "Failed to generate draft",
-      "draftTitle": "AGENTS.md draft (editable; written only after confirmation)",
-      "draftNotice": "Draft not yet written to disk",
-      "write": "Write AGENTS.md",
-      "writeConfirmTitle": "Write AGENTS.md?",
-      "writeConfirmContent": "This writes the content above to AGENTS.md in the workspace root; an existing file with the same name will be overwritten.",
-      "writing": "Writing…",
-      "writeFailed": "Write failed",
-      "written": "AGENTS.md written",
-      "discard": "Discard draft",
-      "errorEmptyWorkspace": "Workspace path is empty",
-      "errorRequestFailed": "AI service request failed",
-      "errorNoDraft": "The tool did not return a draft"
-    },
     "viewSwitcher": {
       "groupSettings": "Settings",
       "groupTools": "Tools",
@@ -18462,12 +18420,12 @@
     "dashboardSuccessRate": "Success rate",
     "dashboardAvgLatency": "Avg latency",
     "dashboardNoData": "No data",
+    "dashboardLatency": "{value}s",
     "clearAuth": "Revoke authorization",
     "clearAuthHint": "Revoke the OAuth credential you granted to this server (this one only)",
     "clearAuthSuccess": "Authorization for {name} revoked",
     "clearAuthNoOauth": "{name} does not use the OAuth channel, nothing to revoke",
-    "clearAuthFailed": "Failed to revoke authorization for {name}",
-    "dashboardLatency": "{value}s"
+    "clearAuthFailed": "Failed to revoke authorization for {name}"
   },
   "member": {
     "feedback": {
@@ -20224,9 +20182,6 @@
     "editDeviceMapTitle": "Edit device fingerprint",
     "editDeviceMapDescription": "Edit the device fingerprint for the {platform} account (JSON object; leave empty to auto-generate on save).",
     "checkedInToday": "Checked in today",
-    "captureTraeWebWaiting": "The Trae sign-in page is open in the browser on the right work panel. Please sign in there (phone/QR); once the login state is detected, the account is imported automatically and you return to the check-in page.",
-    "captureTraeWebDone": "Trae web sign-in imported ({count} account(s))",
-    "captureTraeWebCancelled": "Trae web sign-in cancelled. Click \"Web sign-in\" to try again.",
     "rename": "Rename"
   },
   "accountPool": {
@@ -21768,6 +21723,7 @@
       "deleteConfirm": "Are you sure you want to delete this prompt?",
       "deleteFailed": "Failed to delete",
       "deleteSuccess": "Prompt deleted successfully",
+      "loadFailed": "Failed to load",
       "updateSuccess": "Updated successfully"
     },
     "rollback": "Rollback",
@@ -21993,6 +21949,31 @@
     "cooldownActive": "Cooling down",
     "cooldownRemaining": "Cooldown remaining",
     "countdownRemaining": "Time remaining",
+    "keepalive": {
+      "accountFallback": "Account #{id}",
+      "allHealthy": "All {total} accounts are healthy",
+      "disabledHint": "Set KEEPALIVE_ENABLED=true in apps/ai-service/.env and restart the service to enable it.",
+      "disabledTitle": "Account keep-alive is off",
+      "expiresAt": "Expires {time}",
+      "expiringSoon": "{count} expiring soon",
+      "failures": "{count} consecutive failures",
+      "healthCritical": "Expired",
+      "healthHealthy": "Healthy",
+      "healthUnknown": "Unchecked",
+      "healthWarning": "Attention",
+      "interval": "checks every {hours}h",
+      "loading": "Loading keep-alive status…",
+      "needsAttention": "{count} need attention",
+      "rate7d": "7-day success rate",
+      "rateUnknown": "No data",
+      "retry": "Retry",
+      "sourceCheckin": "Check-in credential",
+      "sourceCookie": "Platform session",
+      "sourceToken": "API credential",
+      "title": "Account keep-alive",
+      "triggerNow": "Check now",
+      "triggering": "Triggering…"
+    },
     "editor": {
       "autoSaved": "Auto saved",
       "bold": "Bold",
@@ -22181,31 +22162,6 @@
     "title": "Multi-Platform Publishing",
     "uploadFailed": "Upload failed",
     "uploadProgress": "Uploading",
-    "keepalive": {
-      "accountFallback": "Account #{id}",
-      "allHealthy": "All {total} accounts are healthy",
-      "disabledHint": "Set KEEPALIVE_ENABLED=true in apps/ai-service/.env and restart the service to enable it.",
-      "disabledTitle": "Account keep-alive is off",
-      "expiresAt": "Expires {time}",
-      "expiringSoon": "{count} expiring soon",
-      "failures": "{count} consecutive failures",
-      "healthCritical": "Expired",
-      "healthHealthy": "Healthy",
-      "healthUnknown": "Unchecked",
-      "healthWarning": "Attention",
-      "interval": "checks every {hours}h",
-      "loading": "Loading keep-alive status…",
-      "needsAttention": "{count} need attention",
-      "rate7d": "7-day success rate",
-      "rateUnknown": "No data",
-      "retry": "Retry",
-      "sourceCheckin": "Check-in credential",
-      "sourceCookie": "Platform session",
-      "sourceToken": "API credential",
-      "title": "Account keep-alive",
-      "triggerNow": "Check now",
-      "triggering": "Triggering…"
-    },
     "uploadSuccess": "Upload succeeded"
   },
   "publishMonitor": {
@@ -23363,18 +23319,6 @@
     "codeIndexEgressOptOutDesc": "Code snippets are never sent out for vector indexing",
     "autoMemoryOptOut": "Turn Off Auto Long-term Memory",
     "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences",
-    "expertRoute": {
-      "title": "Expert pack auto-routing",
-      "desc": "Detect the matching expert pack from this turn's intent, and choose how matches are handled.",
-      "default": "Default",
-      "envLockedNotice": "The deployment has disabled this capability through an environment variable, so it can only be viewed here and cannot be changed.",
-      "hint": "Hint only",
-      "hintDesc": "When a pack matches, only show which one matched in the reply; tools and system prompt are unchanged",
-      "auto": "Apply automatically",
-      "autoDesc": "When a pack matches, merge its tool allowlist and system prompt into this request",
-      "off": "Off",
-      "offDesc": "No intent detection and no hint"
-    },
     "navTiers": {
       "title": "Simplified sidebar",
       "desc": "Hides developer and operations entries from the sidebar by default. Turn on any group below when you need it.",
@@ -23601,6 +23545,9 @@
     "authorizeAndRedirect": "Authorize & Redirect",
     "authorizing": "Authorizing for {clientId}…",
     "desktopHandoffHint": "Handed back to the desktop app to finish signing in. You can close this page now.",
+    "miniappHandoffTitle": "Authorization complete",
+    "miniappHandoffHint": "Your credentials were handed back to the mini program. Tap the back button to return and finish signing in.",
+    "miniappHandoffFailed": "Failed to hand off to the mini program. Please retry or go back manually.",
     "desktopHandoffTitle": "Authorization complete",
     "code": "Verification code",
     "codePlaceholder": "Enter verification code",
@@ -23647,9 +23594,6 @@
       "backToLogin": "Back to sign in",
       "sso_code": "SSO Code"
     },
-    "miniappHandoffTitle": "Authorization complete",
-    "miniappHandoffHint": "Your credentials were handed back to the mini program. Tap the back button to return and finish signing in.",
-    "miniappHandoffFailed": "Failed to hand off to the mini program. Please retry or go back manually.",
     "platform": "Platform"
   },
   "statistics": {
@@ -25069,6 +25013,7 @@
       "openSelected": "Open {name}",
       "opening": "Opening...",
       "parent": "Parent",
+      "refresh": "Refresh",
       "retry": "Retry",
       "rootHint": "Pick a drive at this level, or type a full path above",
       "rowOpenHint": "Open",
@@ -27342,6 +27287,12 @@
     "pageSubtitle": "A user-editable rule set that is injected into the system prompt at agent runtime according to its match conditions"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "Manually paused",
+      "failedPermanent": "Permanent failure",
+      "failedRetriesExhausted": "Retries exhausted",
+      "completed": "Completed"
+    },
     "delete": "Delete",
     "title": "Automations",
     "subtitle": "Run your agent tasks on schedule",
@@ -27417,12 +27368,6 @@
       "deleteFailed": "Delete failed"
     },
     "cancel": "Cancel",
-    "terminalReason": {
-      "manualPause": "Manually paused",
-      "failedPermanent": "Permanent failure",
-      "failedRetriesExhausted": "Retries exhausted",
-      "completed": "Completed"
-    },
     "save": "Save"
   },
   "mediaTasksPage": {
@@ -29409,6 +29354,7 @@
         "active": "Sending",
         "completed": "Sent",
         "following": "Waiting to send"
+      }
     }
   },
   "unifiedSuggestion": {
@@ -29464,6 +29410,10 @@
     "title": "Agents and Models",
     "subtitle": "Chat history, memory, knowledge base, media tasks and workspace"
   },
+  "personalHub": {
+    "title": "Account",
+    "subtitle": "My learning, account security, student center, feedback and help"
+  },
   "appUpdate": {
     "title": "New version available",
     "body": "Refresh the page to get the latest version",
@@ -29488,8 +29438,13 @@
     "action": "Install",
     "close": "Close"
   },
-  "personalHub": {
-    "title": "Account",
-    "subtitle": "My learning, account security, student center, feedback and help"
+  "wsChannel": {
+    "reconnecting": "Realtime connection dropped — reconnecting ({attempt}/{max})…",
+    "connectFailed": "Realtime connection failed, retrying",
+    "connectError": "Realtime connection error",
+    "reconnectExhausted": "Realtime connection ended after {max} retries; content streaming stopped. You can retry manually.",
+    "degradedNotice": "Realtime connection unavailable — automatically switched to the compatible channel to keep streaming content",
+    "fallbackUnavailable": "Realtime connection ended and the compatible channel is unavailable; content streaming stopped",
+    "fallbackFailed": "The compatible channel also dropped; content streaming stopped. Please retry manually later."
   }
 }

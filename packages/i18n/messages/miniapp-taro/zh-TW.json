@@ -150,8 +150,8 @@
     "googleNotConfigured": "Google 登入未配置，請在 .env 設定 EXPO_PUBLIC_GOOGLE_CLIENT_ID。",
     "sdkPending": "{name} 登入請使用網頁端,移動端暫未集成原生 SDK。\n您也可以使用\"智匯AI網頁授權登入\"按鈕跳轉網頁端授權。",
     "agree": "同意",
-    "webAuthLogin": "網頁授權登入",
-    "agreeTermsTitle": "確認同意服務條款"
+    "agreeTermsTitle": "確認同意服務條款",
+    "webAuthLogin": "網頁授權登入"
   },
   "forgot": {
     "step1": "第一步:驗證手機號",
@@ -347,10 +347,7 @@
     "titleRequired": "請輸入直播標題",
     "startFailed": "開啟直播失敗",
     "endFailed": "結束直播失敗",
-    "copySuccess": "已複製到剪貼簿",
-    "d1": "AI 課程包",
-    "d2": "會員年卡",
-    "d3": "實體週邊"
+    "copySuccess": "已複製到剪貼簿"
   },
   "order": {
     "title": "訂單",
@@ -4334,9 +4331,7 @@
     "13": "加入於 {m}",
     "14": "選擇感興趣的賽道,獲取個人化推薦",
     "15": "預設模型",
-    "16": "以\"資料洪流\"為意象,生成一段關於數位時代創作的散文詩。",
     "17": "付費可看 ¥{m}",
-    "18": "當機器開始思考,人類是否做好了準備?這是一個關於意識、自由與共存的故事。在矽基生命與碳基生命的交匯處,我們重新審視\"存在\"的意義。",
     "20": "確認選擇{count}",
     "21": "AI助手免費使用次數增加",
     "22": "部分課程免費學習",
@@ -5001,8 +4996,6 @@
   },
   "eduParent": {
     "title": "家長端",
-    "child": "孩子",
-    "relationship": "關係",
     "statusTitle": "狀態",
     "empty": "還沒有綁定的孩子",
     "status": {
@@ -6720,12 +6713,6 @@
     "unknownLecturer": "未知講師",
     "viewCount": "{count} 次觀看"
   },
-  "scanLogin": {
-    "menuTitle": "掃一掃",
-    "invalidCode": "請掃本站登入二維碼",
-    "success": "已確認登入",
-    "failed": "確認失敗，請重試",
-    "needLogin": "請先登入後再掃碼"
   "skillsMarket": {
     "noRatings": "暫無評分",
     "detailTitle": "技能詳情",
@@ -6749,5 +6736,12 @@
     "pageIndicator": "第 {page}/{total} 頁",
     "title": "自進化技能市場",
     "subtitle": "瀏覽與安裝社區技能"
+  },
+  "scanLogin": {
+    "menuTitle": "掃一掃",
+    "invalidCode": "請掃本站登入二維碼",
+    "success": "已確認登入",
+    "failed": "確認失敗，請重試",
+    "needLogin": "請先登入後再掃碼"
   }
 }
