@@ -28,6 +28,7 @@ import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gitRaw } from './lib/face-reader.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LOG_DIR = path.join(ROOT, '.tmp-sync');
@@ -228,12 +229,11 @@ async function main() {
     console.log(`adb reverse:\n${adbReverseList()}`);
     let head = '?';
     try {
-      head = spawnSync('git', ['-C', TIP_WT, 'rev-parse', '--short', 'HEAD'], {
-        encoding: 'utf8',
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }).stdout.trim();
-    } catch {}
+      head = gitRaw(['rev-parse', '--short', 'HEAD'], TIP_WT).trim();
+    } catch (e) {
+      // git 跑起来但非零退出(HEAD 未解析等):原 spawnSync 形态下 stdout 是空串,这里同样展示空
+      if (typeof e?.status === 'number') head = '';
+    }
     console.log(`工作树: ${RN_TIP} (HEAD ${head})`);
     return;
   }
