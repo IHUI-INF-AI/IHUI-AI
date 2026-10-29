@@ -526,6 +526,20 @@ export function normalizeUrlPublic(url: string): string {
 }
 
 /**
+ * 敏感操作的 2FA step-up 拒绝同样回 401,但它不是凭据失效。
+ *
+ * 若按通用 401 出口走:一个开了 2FA 的用户点一次提现,会被弹「登录已过期」并被触发
+ * 一次无谓的 token 续期(续期即便成功,重试那一发仍是 401)。与验证码那一型同一处置 ——
+ * 剥掉 status,让 errorCode 原样交给调用方去拉二次验证面板。
+ *
+ * ACCOUNT_UNJUDGED 一并归此型:那是服务端读不到账号的 2FA 状态(判不出就不放行),
+ * 不是用户凭据被否 —— 把人登出既救不了这一次操作,还会打断他正在做的事。
+ */
+export function isStepUpRejection(errorCode: string | undefined): boolean {
+  return errorCode === 'STEP_UP_REQUIRED' || errorCode === 'ACCOUNT_UNJUDGED'
+}
+
+/**
  * 合并多个 AbortSignal 为一个(ES2022+ 兼容 polyfill)。
  * AbortSignal.any() 需要 ES2024 lib,mobile-rn(ES2023)不可用。
  * 任一 signal abort 时,合并 signal 也 abort。
@@ -792,7 +806,8 @@ async function fetchOnce<T>(
     // 连带效果(方向正确):该 401 不再进 fetchApi 的续期 / notifyUnauthorized 块 ——
     // 打错验证码不是会话死亡,不得触发"会话被踢"清理(换绑手机验旧码等非认证端点同理受益)。
     const failureStatus =
-      response.status === 401 && isVerificationCodeFailure(errorCode, message)
+      response.status === 401 &&
+      (isVerificationCodeFailure(errorCode, message) || isStepUpRejection(errorCode))
         ? undefined
         : response.status
     return {
@@ -2988,6 +3003,21 @@ export function formatSSEError(
       severity: 'unknown',
       title: '验证码错误',
       message: '验证码错误或已过期,请重新获取验证码',
+      rawMessage,
+      requireReauth: false,
+    }
+  }
+  // 2FA step-up 拒绝(2026-10-29):与验证码那一型同理 —— 它不是"会话死亡",
+  // 消费方若按 severity='auth' 开登录框,2FA 用户每次提现都会被要求重新登录。
+  // requireReauth 同为 false:重登救不了"这一次操作缺一次窗内二次验证"。
+  if (code === 401 && isStepUpRejection(errorCode)) {
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'unknown',
+      title: '需要二次验证',
+      message: rawMessage,
       rawMessage,
       requireReauth: false,
     }
@@ -5804,11 +5834,7 @@ export async function postSessionGoal(
  * 那一侧是调用方自己那条会话的确定答案,应当把原因显示出来。
  */
 export type GoalResumeReason =
-  | 'no_goal'
-  | 'terminal'
-  | 'already_active'
-  | 'not_resumable'
-  | 'no_objective'
+  'no_goal' | 'terminal' | 'already_active' | 'not_resumable' | 'no_objective'
 
 export interface SessionGoalResumeResult {
   /** 帧是否给出了确定结论(false = 同形拒绝:不存在 / 非属主 / 未鉴权) */
@@ -5826,9 +5852,7 @@ export interface SessionGoalResumeResult {
   reason?: GoalResumeReason
 }
 
-export async function resumeSessionGoal(
-  sessionId: string,
-): Promise<SessionGoalResumeResult> {
+export async function resumeSessionGoal(sessionId: string): Promise<SessionGoalResumeResult> {
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
@@ -5880,9 +5904,7 @@ export async function resumeSessionGoal(
     ...(typeof ack?.status === 'string' ? { status: ack?.status as GoalWireStatus } : {}),
     ...(typeof ack?.objective === 'string' ? { objective: ack?.objective } : {}),
     ...(typeof ack?.sessionId === 'string' ? { sessionId: ack?.sessionId } : {}),
-    ...(typeof reason === 'string'
-      ? { reason: reason as GoalResumeReason }
-      : {}),
+    ...(typeof reason === 'string' ? { reason: reason as GoalResumeReason } : {}),
   }
 }
 

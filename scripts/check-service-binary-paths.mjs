@@ -109,8 +109,9 @@ export const ENUM_TAIL = '#IHUI-SVC-END'
  *  禁 `process.cwd()` —— 共享工作区里 cwd 不可靠。该文件只由人工/快照生成器写,本门**只读**。 */
 export const BASELINE_REL = 'scripts/data/service-definitions.json'
 export const SERVICE_BASELINE_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'service-definitions.json')
-/** 『停着是设计内』台账(2026-10-28 新增)。它要治的是**假红**而不是放宽判据 —— 见该文件头注与
- *  `applyExpectedStopped` 的三条约束(只豁免"它停着"、读不到就不豁免、豁免带 reviewBy 会到期)。 */
+/** 『停着是设计内』台账(2026-10-28 新增;2026-10-29 起蓝绿按**族**参数化,api 与 web 两族共用本份实现)。
+ *  它要治的是**假红**而不是放宽判据 —— 见该文件头注与 `applyExpectedStopped` 的约束:只豁免 STATE 的
+ *  `stopped` 这一档(PAUSED 是挂起 ≠ 停着,照旧红)、台账/状态文件读不到就不豁免、豁免带 reviewBy 会到期。 */
 export const EXPECTED_STOPPED_REL = 'scripts/data/expected-stopped-services.json'
 export const EXPECTED_STOPPED_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'expected-stopped-services.json')
 const PS_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_ENUM_TIMEOUT_MS) || 120_000
@@ -909,6 +910,42 @@ export function readAndCompareBaseline({ stateRows = [], services = [], deps = d
 }
 
 /**
+ * STATE 读数的分档(2026-10-29 立):`running / stopped / paused / pending / unknown` 五档绝不并桶
+ * ("取不到"是维度三态里的 `unmeasured`,由调用方在 STATE 维那一格另判,不进本函数射程)。
+ *
+ * 立因是现读的一台真故障:`IHUI-WEB-ROUTER` 落在 **PAUSED**。nssm 的 `AppExit=Restart` 在应用反复
+ * 退出时会进入节流,服务态由 SCM 置为 Paused,`Start-Service` 当场回
+ * `Unexpected status SERVICE_PAUSED` —— 它既不是 RUNNING(确实没在服务),也不是 STOPPED
+ * (按设计停着),而是"配置坏了/应用起不来"的信号。旧写法只有一条 `state.value !== 'RUNNING'`,
+ * 于是 PAUSED 与 STOPPED 产出同一种 `STATE=` 前缀的问题串,而 `applyExpectedStopped` 按 `^STATE=`
+ * 认"停着这一条" ⇒ **一台挂起的路由会被"冷备色该停着"那条例外顺手免掉**。所以判据改成:豁免面只认
+ * `stopped` 这一档,`paused`/`pending`/`unknown` 一律照旧报红。
+ */
+export const SERVICE_STATE_BANDS = Object.freeze(['running', 'stopped', 'paused', 'pending', 'unknown'])
+export function stateBandOf(value) {
+  const label = String(value ?? '').trim().toUpperCase()
+  if (label === '' || label === 'UNKNOWN') return { band: 'unknown', label: label || '(空)' }
+  if (label === 'RUNNING') return { band: 'running', label }
+  if (label === 'STOPPED') return { band: 'stopped', label }
+  if (label === 'PAUSED' || label === 'PAUSE_PENDING') return { band: 'paused', label }
+  if (label === 'START_PENDING' || label === 'STOP_PENDING' || label === 'CONTINUE_PENDING') return { band: 'pending', label }
+  return { band: 'unknown', label }
+}
+
+/**
+ * STATE 这一维的问题串(唯一书写处 = `judgeService`,消费侧 `applyExpectedStopped` 同一把尺)。
+ * `running` ⇒ 这一维没有坏值(返回 null);其余档都产串,且**串里自带档位**,免得下游再按前缀猜。
+ */
+export function stateProblemOf(value) {
+  const { band, label } = stateBandOf(value)
+  if (band === 'running') return null
+  if (band === 'paused') return `STATE=${label}(挂起档,不是"停着是设计内"):nssm AppExit=Restart 在应用反复退出时进入节流,Start-Service 回 Unexpected status SERVICE_PAUSED ⇒ 真故障档,『停着是设计内』台账免不到它`
+  if (band === 'pending') return `STATE=${label}(过渡档:既没在服务也没停稳,不构成"按设计停着")`
+  if (band === 'unknown') return `STATE=${label}(形态不认识:不并入 stopped,也不读成 running)`
+  return `STATE=${label}`
+}
+
+/**
  * 合并三判据成级别。规则(朝"不冤枉、不背书"收):
  *   任何一维**量到了坏值** ⇒ issue;
  *   有**非 nssm 托管解释不了**的失明维 ⇒ unattested(不冒充健康);
@@ -930,7 +967,11 @@ export function judgeService(rec) {
   }
   const state = rec.state
   if (state.kind === 'unmeasured') hard('STATE', state.reason)
-  else if (state.value !== 'RUNNING') problems.push(`STATE=${state.value}`)
+  else {
+    // 档位分岔的唯一书写处 = stateProblemOf(Running/Stopped/Paused/过渡/未知各给各的话,绝不并桶)
+    const sp = stateProblemOf(state.value)
+    if (sp !== null) problems.push(sp)
+  }
 
   const app = rec.application
   if (app.kind === 'unmeasured') excuseable('Application', app.reason)
@@ -988,16 +1029,41 @@ export function judgeService(rec) {
 }
 
 /**
- * 『停着是设计内』台账的读取面(2026-10-28)。读不到任何一项 ⇒ 返回空清单(**不豁免任何人**):
- * 台账缺失 / JSON 坏 / 蓝绿状态文件读不到,一律按"未登记"处理 —— 方向是多喊一次,不是多静音
- * 一次(§0.10/§0.7 同一条:豁免必须会到期、失效必须朝"更响"倒)。
+ * 台账里 `blueGreen` 段的**族**归一(2026-10-29 参数化):api 与 web 两族(以及以后任何一族)共用本
+ * 文件这一份实现,判据里不得再出现任何一族的 service/port/stateFile 字面量(§0.6 单一真相源)。
+ * 吃三种形态,认不出的那种**只报数不猜**:
+ *  · `blueGreen: [ …族… ]` —— 族数组;
+ *  · `blueGreen: { families: [ …族… ] }` —— 登记册现行形态(段内还能挂 `$comment`);
+ *  · `blueGreen: { stateFile, colors }` —— 2026-10-28 的旧单族形,仍按一族读(别的会话/别的机的
+ *    台账副本还没跟上时,若这里返回空集,api 冷备就天天假红 = §12e 恒红门)。
+ */
+export function blueGreenFamiliesOf(raw) {
+  const bg = raw?.blueGreen
+  if (Array.isArray(bg)) return bg
+  if (!bg || typeof bg !== 'object') return []
+  if (Array.isArray(bg.families)) return bg.families
+  if (bg.colors && typeof bg.colors === 'object') return [bg]
+  return []
+}
+
+/**
+ * 『停着是设计内』台账的读取面(2026-10-28;2026-10-29 起蓝绿按**族**参数化)。读不到任何一项 ⇒
+ * 返回空清单(**不豁免任何人**):台账缺失 / JSON 坏 / 某族状态文件读不到 ⇒ 该族本轮一条豁免都不给。
+ * 方向是多喊一次,不是多静音一次(§0.10/§0.7:豁免必须会到期、失效必须朝"更响"倒)。
  *
  * 两类来源:
  *  ① `static`:人工裁定的退役/长期停用服务(必须带 reviewBy,过期即失效);
- *  ② `blueGreen`:按设计非活跃色就该 Stop(读实时状态文件定活跃色;**活跃色停着是真故障,绝不豁免**)。
+ *  ② `blueGreen`:按设计非活跃色就该 Stop(逐族读**实时状态文件**定活跃色)。这一族里有三条硬语义:
+ *     · **活跃色停着 = 真故障**,绝不进豁免集;
+ *     · **状态文件取不到 ⇒ 该族未判定**,绝不退"默认色"去猜 —— 猜错的那一侧正好是"活跃色其实停着、
+ *       而我把它免了"这种全站故障被淹掉(2026-10-29 现读:web 迁入前 `web-bluegreen.json` 不在位,
+ *       web 族就该以"未判定"出现在报告里,而不是被读成"活跃色是 blue");
+ *     · 族必须带未过期的 `reviewBy`,否则同族不豁免并点名。
+ * 产出面 `out.families` 逐族写 `state: measured|undetermined|expired` 与 `active`,供报告与 `--json`
+ * 点名(静默降级就是本票要修的那个形态)。
  */
 export function loadExpectedStopped({ readText = readFileSync, exists = existsSync, nowMs = Date.now() } = {}) {
-  const out = { names: new Map(), notes: [] }
+  const out = { names: new Map(), notes: [], families: [] }
   let raw
   try {
     if (!exists(EXPECTED_STOPPED_PATH)) {
@@ -1026,33 +1092,58 @@ export function loadExpectedStopped({ readText = readFileSync, exists = existsSy
       reviewBy: String(it.reviewBy),
     })
   }
-  const bg = raw?.blueGreen
-  if (bg && typeof bg === 'object') {
-    const stateFile = typeof bg.stateFile === 'string' ? bg.stateFile.trim() : ''
+  for (const fam of blueGreenFamiliesOf(raw)) {
+    const family = typeof fam?.family === 'string' && fam.family.trim() ? fam.family.trim() : '(未命名族)'
+    const stateFile = typeof fam?.stateFile === 'string' ? fam.stateFile.trim() : ''
+    const colors = fam?.colors && typeof fam.colors === 'object' ? fam.colors : {}
+    const colorNames = Object.entries(colors)
+      .map(([c, spec]) => `${c}=${typeof spec?.service === 'string' ? spec.service.trim() : '(缺 service)'}`)
+      .join(', ')
+
+    const due = Date.parse(String(fam?.reviewBy ?? ''))
+    if (!Number.isFinite(due) || due <= nowMs) {
+      const why = `reviewBy 缺失或已过期(${fam?.reviewBy ?? '空'})`
+      out.notes.push(`蓝绿族 ${family}:${why} ⇒ 本族本轮不豁免任何色`)
+      out.families.push({ family, state: 'expired', active: null, stateFile, colors: colorNames, why })
+      continue
+    }
+
     let active = null
-    if (stateFile && exists(stateFile)) {
+    let why = ''
+    if (!stateFile) why = '族里没有 stateFile ⇒ 无从问起活跃色'
+    else if (!exists(stateFile)) why = `状态文件不在位(${stateFile})`
+    else {
       try {
         const s = JSON.parse(String(readText(stateFile, 'utf8')))
         active = s?.active === 'blue' || s?.active === 'green' ? s.active : null
-        if (!active) out.notes.push(`蓝绿状态文件的 active 不是 blue/green(${stateFile})⇒ 退回默认色`)
+        if (!active) why = `状态文件里的 active 不是 blue/green(${stateFile}:${JSON.stringify(s?.active ?? null)})`
       } catch (e) {
-        out.notes.push(`蓝绿状态文件不可解析(${stateFile}):${e?.message ?? e} ⇒ 退回默认色`)
+        why = `状态文件不可解析(${stateFile}):${e?.message ?? e}`
       }
-    } else if (stateFile) {
-      out.notes.push(`蓝绿状态文件不在位(${stateFile})⇒ 退回默认色`)
     }
-    if (!active) active = bg.defaultActive === 'green' ? 'green' : 'blue'
-    const colors = bg.colors && typeof bg.colors === 'object' ? bg.colors : {}
+    if (!active) {
+      // 未判定:本族一条都不豁免。绝不退回"默认色"猜 —— 猜错的一侧正是"活跃色其实停着而我把它免了"。
+      out.notes.push(`蓝绿族 ${family}:未判定 —— ${why} ⇒ 本族本轮不豁免任何色(冷备色停着与活跃色停着在这一轮同形,由人先看状态文件)`)
+      out.families.push({ family, state: 'undetermined', active: null, stateFile, colors: colorNames, why })
+      continue
+    }
+    out.families.push({ family, state: 'measured', active, stateFile, colors: colorNames, why: null })
+    const cutover = typeof fam?.cutoverStep === 'string' && fam.cutoverStep.trim() ? fam.cutoverStep.trim() : `${family} 蓝绿切换器的『停旧色』步`
     for (const [color, spec] of Object.entries(colors)) {
       const svc = typeof spec?.service === 'string' ? spec.service.trim() : ''
-      if (!svc || color === active) continue // 活跃色停着 = 真故障,必须照旧报红
+      if (!svc) {
+        out.notes.push(`蓝绿族 ${family}:色 ${color} 缺 service ⇒ 该色不登记(不猜服务名)`)
+        continue
+      }
+      if (color === active) continue // 活跃色停着 = 真故障,必须照旧报红
       out.names.set(svc.toLowerCase(), {
         source: 'blue-green',
-        reason: `蓝绿冷备(${color}):状态文件记的活跃色是 ${active};按 ihui-api-bluegreen.ps1 第 6 步『停旧色』,非活跃色本就该 Stop`,
-        reviewBy: null,
+        family,
+        color,
+        reason: `蓝绿冷备(${family}/${color}):状态文件记的活跃色是 ${active};按 ${cutover},非活跃色本就该 Stop`,
+        reviewBy: String(fam.reviewBy),
       })
     }
-    out.activeColor = active
   }
   return out
 }
@@ -1060,39 +1151,57 @@ export function loadExpectedStopped({ readText = readFileSync, exists = existsSy
 /**
  * 把『停着是设计内』的服务从 issue 降为 skipped(纯函数,构造面可测)。
  *
- * **只豁免"它停着"这一条**:STATE 量到非 RUNNING 之外的任何 problem(Application 路径不是可用文件 /
- * AppDirectory 没了 / 端口声明读不到 / 运行时代码断链 …)一律保持 issue —— 否则这张表就成了新的消红
- * 通道(与 `skipped` 曾被当通道那一型同型,见 collectDotSourceLayer 头注)。STATE 量不到时同理不豁免:
- * "量不到"不是"停着"。
+ * **只豁免"它停着"这一条,而且只认 STATE 的 `stopped` 档**(2026-10-29 起按档位判,不再按 `^STATE=`
+ * 前缀认 —— 前缀尺子会把 PAUSED 读成"停着",挂起的路由就被蓝绿豁免顺手免掉了):
+ *  · `paused`(挂起)—— nssm AppExit=Restart 节流/应用起不来的信号,属**真故障档**,本表任何条目都免不到它;
+ *  · `pending`/`unknown` —— 过渡态与不认识的形态同理不豁免;
+ *  · 量到其它 problem(Application 路径不是可用文件 / AppDirectory 没了 / 运行时代码断链 …)一律保持
+ *    issue —— 否则这张表就成了新的消红通道(与 `skipped` 曾被当通道那一型同型,见 collectDotSourceLayer 头注);
+ *  · STATE 量不到时同理不豁免:"量不到"不是"停着"。
  */
 export function applyExpectedStopped(rows, expected) {
   const applied = []
   const kept = []
   const names = expected?.names instanceof Map ? expected.names : new Map()
-  const ONLY_STOPPED = (p) => /^STATE=/.test(p) || /^监听无应答/.test(p)
+  const STOPPED_LINE = stateProblemOf('STOPPED')
+  const ONLY_STOPPED = (p) => p === STOPPED_LINE || /^监听无应答/.test(p)
   for (const row of Array.isArray(rows) ? rows : []) {
     const hit = names.get(String(row?.name ?? '').toLowerCase())
     if (!hit) continue
     if (row.level !== 'issue') continue
     const problems = Array.isArray(row.problems) ? row.problems : []
     const stateValue = row.rec?.state?.kind === 'measured' ? row.rec.state.value : null
-    const onlyStopped = stateValue !== null && stateValue !== 'RUNNING' && problems.every(ONLY_STOPPED)
+    const band = stateValue === null ? null : stateBandOf(stateValue).band
+    const onlyStopped = band === 'stopped' && problems.every(ONLY_STOPPED)
     if (!onlyStopped) {
       const rest = problems.filter((p) => !ONLY_STOPPED(p))
       kept.push({
         name: row.name,
+        band,
+        state: stateValue,
         why:
           stateValue === null
             ? '登记为预期停止,但 STATE 这一维量不到(未判定不等于"停着")⇒ 不豁免'
-            : `登记为预期停止,但还量到"停着"以外的坏:${rest.join(' | ')}`,
+            : band === 'paused'
+              ? `登记为预期停止,但量到的是 ${stateValue}(挂起档 ≠ 停着):nssm 节流/应用起不来是真故障,『停着是设计内』免不到 ⇒ 照旧报红`
+              : band === 'running'
+                ? '登记为预期停止,但它正在 RUNNING ⇒ 豁免只免"按设计停着"这一条,不改变它的任何读数'
+                : band === 'pending' || band === 'unknown'
+                  ? `登记为预期停止,但量到的是 ${stateValue}(${band} 档:过渡/未知,不是"按设计停着")⇒ 不豁免`
+                  : `登记为预期停止,但还量到"停着"以外的坏:${rest.join(' | ')}`,
       })
       continue
     }
-    applied.push({ name: row.name, source: hit.source, reason: hit.reason })
+    applied.push({ name: row.name, source: hit.source, family: hit.family ?? null, color: hit.color ?? null, band, reason: hit.reason })
     row.level = 'skipped'
-    row.expectedStopped = { source: hit.source, reason: hit.reason, reviewBy: hit.reviewBy ?? null }
+    row.expectedStopped = { source: hit.source, family: hit.family ?? null, color: hit.color ?? null, reason: hit.reason, reviewBy: hit.reviewBy ?? null, band }
   }
-  return { applied, kept, notes: Array.isArray(expected?.notes) ? expected.notes : [] }
+  return {
+    applied,
+    kept,
+    notes: Array.isArray(expected?.notes) ? expected.notes : [],
+    families: Array.isArray(expected?.families) ? expected.families : [],
+  }
 }
 
 /**
@@ -1733,7 +1842,7 @@ export function judgeRuntimeFreshness({
 }) {
   if (state !== 'RUNNING')
     return unmeasured(
-      `服务态=${state ?? '(未量到)'},非 RUNNING ⇒ 没有活进程可与脚本比(它停着这件事由 STATE 维负责,本维不重复计账)`,
+      `服务态=${state ?? '(未量到)'},非 RUNNING ⇒ 没有活进程可与脚本比(这一态是哪一档由 STATE 维负责判,本维不重复计账)`,
     )
   if (!start) return unmeasured('进程枚举里没有这个服务的启动时刻条目 ⇒ 无从比较')
   if (start.kind === 'na') return unmeasured('服务 pid=0(未运行或非进程型)⇒ 读不到启动时刻')
@@ -2108,6 +2217,12 @@ function finish(meta, exitCode, opts) {
     skipped: count('skipped'),
     // 其中有多少是『停着是设计内』豁免出来的(不等于"坏了被静音",报告里必须能分开数)
     expectedStopped: svcs.filter((s) => s.expectedStopped).length,
+    // STATE 档位分桶(2026-10-29):`paused` 必须单独可见 —— 它与 `stopped` 在旧写法里同形,而豁免只认
+    // 后者;并入 stopped 就是"把挂起读成停着"(实测 IHUI-WEB-ROUTER)。取不到的那一档在 dimUnmeasured.state。
+    stateBands: SERVICE_STATE_BANDS.reduce((acc, b) => {
+      acc[b] = svcs.filter((s) => s.rec?.state?.kind === 'measured' && stateBandOf(s.rec.state.value).band === b).length
+      return acc
+    }, {}),
     // 运行时代码新鲜度分桶(2026-10-25 票面验收:每服务落哪一档必须现读可见,不得只藏在逐条问题行里)
     runtimeBuckets: {
       fresh: svcs.filter((s) => rtIs(s, 'fresh')).length,
@@ -2215,10 +2330,28 @@ export function renderText(meta) {
     L.push(
       `结论:入审 ${t.services} 个 —— 量到问题 ${t.issue} / 未出具合格证(有维量不到)${t.unattested} / 全维健康 ${t.ok} / 非 nssm 托管跳过 ${t.skipped}(其中『停着是设计内』${t.expectedStopped});各维未判定 STATE=${t.dimUnmeasured.state} Application=${t.dimUnmeasured.application} 端口声明=${t.dimUnmeasured.ports} 监听观察=${t.dimUnmeasured.observed} 应答=${t.dimUnmeasured.probe} 托管性=${t.dimUnmeasured.nssmManaged}`,
     )
+    if (t.stateBands) {
+      const sb = t.stateBands
+      const namesOfBand = (band) => {
+        const ns = meta.services.filter((s) => s.rec?.state?.kind === 'measured' && stateBandOf(s.rec.state.value).band === band).map((s) => s.name)
+        return ns.length ? ns.join(', ') : '无'
+      }
+      L.push(
+        `STATE 档位分桶(五档不并桶):running ${sb.running} / stopped ${sb.stopped} / paused ${sb.paused}${sb.paused ? `[${namesOfBand('paused')}]` : ''} / pending ${sb.pending}${sb.pending ? `[${namesOfBand('pending')}]` : ''} / unknown ${sb.unknown}${sb.unknown ? `[${namesOfBand('unknown')}]` : ''};STATE 取不到 ${t.dimUnmeasured.state} 台`,
+      )
+      if (sb.paused > 0) L.push(`  ❌ 挂起档真故障:${namesOfBand('paused')} —— PAUSED ≠ STOPPED:nssm AppExit=Restart 在应用反复退出时进入节流(Start-Service 回 Unexpected status SERVICE_PAUSED),『停着是设计内』台账一类条目都免不到它`)
+    }
     const es = meta.expectedStopped
-    if (es && (es.applied?.length || es.kept?.length || es.notes?.length)) {
-      if (es.applied?.length) L.push(`  ➖ 『停着是设计内』已豁免 ${es.applied.length} 台(只豁免"它停着"这一条,其余问题照旧报红):${es.applied.map((x) => `${x.name}(${x.source})`).join(', ')}`)
+    if (es && (es.applied?.length || es.kept?.length || es.notes?.length || es.families?.length)) {
+      if (es.applied?.length) L.push(`  ➖ 『停着是设计内』已豁免 ${es.applied.length} 台(只豁免"它停着"这一条,其余问题照旧报红):${es.applied.map((x) => `${x.name}(${x.source}${x.family ? `/${x.family}族 冷备色=${x.color}` : ''})`).join(', ')}`)
       for (const k of es.kept ?? []) L.push(`  ⚠️ ${k.name} 未获豁免 —— ${k.why}`)
+      // 逐族点名"活跃色是谁 / 未判定为什么"——族的状态不印出来,读报告的人就分不清"豁免了冷备"与"根本没判"
+      for (const f of es.families ?? [])
+        L.push(
+          f.state === 'measured'
+            ? `  · 蓝绿族 ${f.family}:活跃色=${f.active}(状态文件 ${f.stateFile})⇒ 非活跃色按设计 Stop:${f.colors}`
+            : `  · 蓝绿族 ${f.family}:${f.state}(未判定,本族一条豁免都不给)—— ${f.why};该族色位 ${f.colors}`,
+        )
       for (const n of es.notes ?? []) L.push(`  · 台账:${n}`)
     }
     if (t.issue > 0) L.push('  ⚠️ 存在量到的问题 —— 这正是 RSSHub 那 3 天的形态:服务在、路径没了、无人喊。逐条见上;修复属机器状态动作,由持有人执行,本工具不动任何服务。')
@@ -2297,6 +2430,64 @@ function selfTest(opts) {
   ok('S9 只有"端口这维读不到声明" ⇒ unattested(不得因 state+path 好就发合格证)', judge({ ports: dim('m', []), probe: dim('u', '没有声明') }).level === 'unattested')
   ok('S10 端口声明在而无应答 ⇒ issue;有应答见 S7 —— 成对', judge({ probe: dim('m', { listening: false, ports: [8802] }) }).level === 'issue')
   ok('S10b STATE 非 RUNNING 而其余全好 ⇒ issue(只看路径会把"停着"读成健康)', judge({ state: dim('m', 'STOPPED') }).level === 'issue')
+  // STATE 档位尺(2026-10-29 立):PAUSED 必须与 STOPPED 分档,否则挂起会被『停着是设计内』顺手免掉(实测 IHUI-WEB-ROUTER)
+  ok('S10c 五档互不并桶:running/stopped/paused/pending/unknown 各归各档',
+    ['RUNNING', 'STOPPED', 'PAUSED', 'PAUSE_PENDING', 'START_PENDING', 'WHAT-IS-THIS', ''].map((v) => stateBandOf(v).band).join(',') ===
+      'running,stopped,paused,paused,pending,unknown,unknown')
+  ok('S10d PAUSED 量到就是 issue,且问题行自带"挂起档"与 SERVICE_PAUSED 取证(不得与停着同形)', (() => {
+    const r = judge({ state: dim('m', 'PAUSED') })
+    return r.level === 'issue' && r.problems.length === 1 && /挂起档/.test(r.problems[0]) && /SERVICE_PAUSED/.test(r.problems[0])
+  })())
+  ok('S10e STOPPED 的问题串与旧档逐字一致(『停着是设计内』只认这一串;改串必须同批改 applyExpectedStopped)',
+    judge({ state: dim('m', 'STOPPED') }).problems[0] === stateProblemOf('STOPPED') && stateProblemOf('STOPPED') === 'STATE=STOPPED')
+  ok('S10f 成对:同一夹具 RUNNING ⇒ ok,改成 PAUSED ⇒ issue(证明不是"给了 state 就红"的恒真式)', (() => {
+    const base = { application: dim('m', 'D:\\runtimes\\node.exe'), appExists: dim('m', 'file'), appDirectory: dim('m', 'D:/r'), appDirectoryExists: dim('m', 'dir'), ports: dim('m', [8801]), probe: dim('m', { listening: true, ports: [8801], labels: ['127.0.0.1:8801'] }), nssmManaged: dim('m', true), runtime: dim('m', { verdict: 'fresh', detail: '夹具' }) }
+    return judgeService({ ...base, state: dim('m', 'RUNNING') }).level === 'ok' && judgeService({ ...base, state: dim('m', 'PAUSED') }).level === 'issue'
+  })())
+  ok('S10g 蓝绿按族参数化后两族共用一份实现:活跃色逐族按各自状态文件判(改哪族的状态文件就换哪一色)', (() => {
+    // 构造面台账(真件的锁定面在 scripts/tests/service-expected-stopped.test.mjs,自检不依赖真件内容)
+    const ledger = JSON.stringify({
+      static: [],
+      blueGreen: {
+        families: [
+          { family: 'api', stateFile: 'X:/run/api-bluegreen.json', reviewBy: '2027-01-01', colors: { blue: { service: 'IHUI-API-BLUE' }, green: { service: 'IHUI-API-GREEN' } } },
+          { family: 'web', stateFile: 'X:/run/web-bluegreen.json', reviewBy: '2027-01-01', colors: { blue: { service: 'IHUI-WEB-BLUE' }, green: { service: 'IHUI-WEB-GREEN' } } },
+        ],
+      },
+    })
+    const read = (p) => (String(p) === EXPECTED_STOPPED_PATH ? ledger : JSON.stringify({ active: String(p).endsWith('web-bluegreen.json') ? 'blue' : 'green' }))
+    const r = loadExpectedStopped({ exists: () => true, readText: read, nowMs: Date.parse('2026-10-29T00:00:00Z') })
+    // api 族状态文件记 green ⇒ 豁免 blue;web 族记 blue ⇒ 豁免 green —— 两族各判各的,互不串色
+    return r.families.length === 2 && r.names.has('ihui-api-blue') && !r.names.has('ihui-api-green') && r.names.has('ihui-web-green') && !r.names.has('ihui-web-blue')
+  })())
+  ok('S10h 状态文件取不到 ⇒ 该族未判定且一枚都不豁免(绝不退默认色去猜);族数仍逐族点名', (() => {
+    const ledger = JSON.stringify({
+      static: [{ name: 'IHUI-RETIRED', reason: '夹具', reviewBy: '2027-01-01' }],
+      blueGreen: { families: [{ family: 'web', stateFile: 'X:/run/web-bluegreen.json', reviewBy: '2027-01-01', colors: { blue: { service: 'IHUI-WEB-BLUE' }, green: { service: 'IHUI-WEB-GREEN' } } }] },
+    })
+    const r = loadExpectedStopped({
+      exists: (p) => String(p) === EXPECTED_STOPPED_PATH,
+      readText: (p) => (String(p) === EXPECTED_STOPPED_PATH ? ledger : (() => { throw new Error('ENOENT:' + p) })()),
+      nowMs: Date.parse('2026-10-29T00:00:00Z'),
+    })
+    return r.families.length === 1 && r.families[0].state === 'undetermined' && [...r.names.keys()].join(',') === 'ihui-retired' && /未判定/.test(r.notes.join('\n'))
+  })())
+  ok('S10i 豁免只认 stopped 档:登记在册的冷备色落到 PAUSED ⇒ kept 点名挂起档,level 仍 issue', (() => {
+    const rec = {
+      state: dim('m', 'PAUSED'),
+      application: dim('m', 'D:\\runtimes\\node.exe'),
+      appExists: dim('m', 'file'),
+      appDirectory: dim('m', 'D:/r'),
+      appDirectoryExists: dim('m', 'dir'),
+      ports: dim('m', [8851]),
+      probe: dim('u', '不是 RUNNING,没有活进程可探'),
+      nssmManaged: dim('m', true),
+      runtime: dim('u', '非 RUNNING'),
+    }
+    const rows = [{ name: 'IHUI-WEB-BLUE', rec, ...judgeService(rec) }]
+    const res = applyExpectedStopped(rows, { names: new Map([['ihui-web-blue', { source: 'blue-green', reason: '夹具', reviewBy: '2027-01-01' }]]), notes: [], families: [] })
+    return rows[0].level === 'issue' && res.applied.length === 0 && res.kept.length === 1 && res.kept[0].band === 'paused'
+  })())
   ok('S11 Application 值为空(取到了但内容是空)⇒ issue,与"取不到"不同态',
     judge({ application: dim('m', null), appExists: dim('u', '没有可判的存在性') }).level === 'issue')
 
@@ -2944,6 +3135,7 @@ export const __test__ = {
   resolvePorts, normalizeStartType, parseServiceBaseline, compareServiceBaseline, readAndCompareBaseline,
   BASELINE_REL, SERVICE_BASELINE_PATH,
   existenceOf, judgeService, computeExitCode, parseArgs, renderText, main, selfTest,
+  SERVICE_STATE_BANDS, stateBandOf, stateProblemOf, blueGreenFamiliesOf, loadExpectedStopped, applyExpectedStopped,
   interpretNetstatListening, splitHostPort, buildProcessListScript, interpretProcessList, buildProcessTree,
   PROC_SCRIPT_SHAPE_FORMS,
   attributeListening, probeHostForBind, buildProbeTargets, foldProbeOutcome, computeObservedListening,
