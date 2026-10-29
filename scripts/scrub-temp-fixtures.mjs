@@ -71,10 +71,6 @@ import { devEnvRoot } from './seal-c-root-stray.mjs'
 // 240MB / 115 条夹具残留从来没人扫到,而汇总里表现为"候选 0",读起来跟"已清干净"一模一样
 // (本仓最贵的假绿正是这一型)。§0.6:同一件事只留一处实现。
 import { scratchRoot } from './lib/scratch-dir.mjs'
-// 守门 26「项目外污染」判据的**唯一真相源**:清扫这一族不许在这儿再写一遍"什么算污染"
-// (§0.6 —— 同一件事两处实现必漂移;本仓为这一条挨过太多次)。只取它的 __test__ 出口:
-// SUSPICIOUS_EXTS 给后缀围栏,contentTriggers 给内容双信号(项目路径引用 ∧ agent 操作痕迹)。
-import { __test__ as parentPollutionJudge } from './check-parent-pollution.mjs'
 
 const OUR_PREFIXES = ['ihui-', 'IHUI-', 'next-backup-', 'probe-']
 /** 整目录不碰:名字命中即跳过(按 toLowerCase 比对,大小写不敏感) */
@@ -97,23 +93,6 @@ const NAME_GUARD_RE = /(secret|credential|token|passw|api[-_]?key|private[-_]?ke
  * 但任何"一次读成几万枚"的形态(判据被改歪、或某个程序把同一形状写疯)都会被掐住。
  */
 export const HOST_STRAY_ROUND_CAP = 20000
-
-/**
- * 门 26 点名集的后缀围栏**按门体自己的 SUSPICIOUS_EXTS 派生**,不在这里抄一份清单。
- *
- * 比门体宽 ⇒ 会删门体没判过的东西;比门体窄 ⇒ 排水口排不动该排的那批。两个方向都是错,
- * 所以这里只有"派生"一条路(§0.6)。实测那 13 档全是脚本/文本/日志形态
- * (.ps1/.psm1/.bat/.cmd/.sh/.py/.js/.mjs/.cjs/.ts/.txt/.log/.tmp),
- * `.node`/`.ico`/`.dll` 这类宿主二进制天然进不来 —— 本族敢删人的文件的第一道凭据就在这里。
- */
-const PARENT_POLLUTION_STRAY_RE = new RegExp(
-  '\\.(' +
-    [...parentPollutionJudge.SUSPICIOUS_EXTS]
-      .map((s) => String(s).replace(/^\./, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-      .join('|') +
-    ')$',
-  'i',
-)
 
 /**
  * 宿主自产散文件的具名族表 —— 第二腿的**唯一**准入通道。
@@ -156,29 +135,6 @@ export const HOST_STRAY_FAMILIES = [
       '2026-10-16 现读 489 枚 / 5.20 MB,其中 ≥7 天 441 枚 / 4.69 MB,最大 32,934 B(< 64 KB 大小闸)。',
     owner: '机主(李春川)/ 产出方 = Qoder 会话宿主',
     reviewBy: '2027-01-16',
-  },
-  {
-    name: 'parent-pollution-strays',
-    // 成员资格**不是名字形状**,而是门 26 自己那份内容双信号(见下面 content 档),
-    // 所以名字围栏只到"后缀"一档,且该后缀由门体的 SUSPICIOUS_EXTS 派生(不在这里抄清单)。
-    re: PARENT_POLLUTION_STRAY_RE,
-    maxBytes: 2 * 1024 * 1024,
-    minAgeDays: 7,
-    content: 'parentPollutionDualSignal',
-    why:
-      '守门 26(`check-parent-pollution.mjs`,blocking、绝对零容忍、无棘轮)现读点名 123 枚项目外污染件,' +
-      '分布:`D:\\DevEnv\\Temp` 顶层 119 / `D:\\tmp` 3 / `D:\\tmp\\edu-tsplan` 1,按后缀 .mjs 108 / .txt 11 / .cjs 3 / .ps1 2 / .tmp 1,' +
-      '体积中位 17,265 B、p90 318,019 B、最大 448,898 B(全在 2 MiB 大小闸内);内容一律命中"项目路径引用 ∧ agent 操作痕迹"双信号,' +
-      '**按文件名强信号命中的只有 2 枚** ⇒ 既有 `OUR_PREFIXES` 名字围栏与上面两族具名形状都接不住它们。' +
-      '要命的读数是:这 123 枚里**账龄 ≥7 天的只有 1 枚** —— 账龄闸天天把它们挡在射程外,而没有任何器物能把它们接住,' +
-      '于是 7 天后它们只是"变老",永远等不到被清的那一天 ⇒ 门 26 的 blocking 红是**结构造出来的**(§12e 那一型:' +
-      '存量归不了零的 blocking 门,唯一结局是逼人 skipEnv、连带废掉全部守门)。抽样证它们是死件而非在飞工作:' +
-      '`base_check-mirror-purge-intact.mjs`(门体旧版拷贝)、`chk-scripts__git-guardian.mjs`(8,599 行 cmp 现读 NOT_IDENTICAL 的过期面拷贝)、' +
-      '`c3.txt`(8,635 行 guardian 转储)、`rndigest.mjs`/`gather1.mjs`/`idx.mjs`(手写探针),这些 basename 在仓内 `git grep` 零命中。' +
-      '本族就是那条排水口,四重闸:门体自己的后缀 ∧ 门体自己的双信号内容闸 ∧ ≤2 MiB ∧ 账龄 ≥7 天(在飞保护),' +
-      '删除出口仍只有 `del()` 且只有显式 `--apply` 才走到;到期(reviewBy)整族回退"不碰"并报名。',
-    owner: '机主(李春川)/ 产出方 = 历次 agent 会话写在批准临时根顶层的物化探针件',
-    reviewBy: '2027-01-29',
   },
 ]
 
@@ -496,20 +452,6 @@ export function scanHostStrays({
         continue
       }
       if (!isPathLikeBreadcrumb(typeof raw === 'string' ? raw : String(raw ?? ''))) {
-        row.rejected.content++
-        continue
-      }
-    } else if (fam.content === 'parentPollutionDualSignal') {
-      // 内容闸 = 守门 26 自己那份双信号(项目路径引用 ∧ agent 操作痕迹),**import 不复制**(§0.6)。
-      // 门体内部本就把读入内容截到 50 KB(见其 hasProjectRefSignal 的 slice),这里不重复收窄。
-      let raw
-      try {
-        raw = readFile(full)
-      } catch {
-        row.rejected.unreadable++
-        continue
-      }
-      if (!parentPollutionJudge.contentTriggers(typeof raw === 'string' ? raw : String(raw ?? ''))) {
         row.rejected.content++
         continue
       }

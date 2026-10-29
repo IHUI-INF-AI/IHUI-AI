@@ -6,6 +6,7 @@ import { toast } from '@/components/common'
 import { useModeStore, type ModeStore } from '@/stores/mode'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
+import type { ChatStore } from '@/stores/chat-pane-context'
 import { useGoalStore } from '@/stores/goal'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { emitAgentHook } from '@/stores/agent-hooks'
@@ -248,7 +249,7 @@ export function tryHandleChatModeSlash(
 //   ③ 收集失败 / diff 为空要**明说**(交给模型转述),不静默发一轮空审查。
 
 /** 审查目标:未提交改动 / 指定分支对比 HEAD / 指定 commit。 */
-type ReviewTargetKind = 'uncommitted' | 'branch' | 'commit'
+export type ReviewTargetKind = 'uncommitted' | 'branch' | 'commit'
 
 export interface ReviewTargetSpec {
   kind: ReviewTargetKind
@@ -482,6 +483,9 @@ export async function tryHandlePermissionSlash(
 export function tryHandleGoalSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  // 票60 步序四:会话域按 store 实例寻址(默认单例 = 既有行为逐字节等价;
+  // 窗格场景由 send-message 传 pane 实例,`/goal clear` 的上行会话取自该窗格)。
+  chatStore: ChatStore = useChatStore,
 ): boolean {
   const trimmed = text.trim()
   if (trimmed !== '/goal' && !trimmed.startsWith('/goal ') && !trimmed.startsWith('/goal\n')) {
@@ -511,13 +515,13 @@ export function tryHandleGoalSlash(
   }
   if (rest === 'clear') {
     goalStore.clear()
-    pushGoalToServer('clear')
+    pushGoalToServer('clear', undefined, chatStore)
     toast.success(t('goalCleared'))
     return true
   }
   // 设定 / 更新目标文本
   goalStore.setGoal(rest)
-  pushGoalToServer('set', rest)
+  pushGoalToServer('set', rest, chatStore)
   toast.success(t('goalSet'))
   return true
 }
@@ -534,8 +538,13 @@ export function tryHandleGoalSlash(
  * 把它 await 成"发送前的一跳"会让一次网络抖动变成目标设不上;而下行帧会把它追平,
  * 所以写失败的真相面是"日志 + 下一帧没来",不是"界面卡住"。
  */
-function pushGoalToServer(action: 'set' | 'pause' | 'resume' | 'clear', objective?: string): void {
-  const conversationId = useChatStore.getState().conversationId
+function pushGoalToServer(
+  action: 'set' | 'pause' | 'resume' | 'clear',
+  objective?: string,
+  // 票60 步序四:conversationId 取调用方传入的 store 实例(默认单例,零回归)
+  chatStore: ChatStore = useChatStore,
+): void {
+  const conversationId = chatStore.getState().conversationId
   if (!conversationId) {
     logger.info(`[goal] 本轮还没有会话 id,目标只落本机缓存,未上行(action=${action})`)
     return
@@ -568,6 +577,9 @@ function pushGoalToServer(action: 'set' | 'pause' | 'resume' | 'clear', objectiv
 export async function tryHandleBtwSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  // 票60 步序四:侧聊回显写调用方的 store 实例(默认单例,零回归)——
+  // 窗格里 /btw 的回答落在该窗格,不再串到根单例。
+  chatStore: ChatStore = useChatStore,
 ): Promise<boolean> {
   const trimmed = text.trim()
   if (trimmed !== '/btw' && !trimmed.startsWith('/btw ') && !trimmed.startsWith('/btw\n')) {
@@ -583,7 +595,7 @@ export async function tryHandleBtwSlash(
     const d = await runBestOfN(rest, 1)
     const c = d.candidates[0]
     const answer = c?.content || t('btwNoAnswer')
-    const store = useChatStore.getState()
+    const store = chatStore.getState()
     store.addMessage({
       role: 'assistant',
       content: `> 💬 **${t('btwBadge')}** · ${rest}\n\n${answer}`,
@@ -611,12 +623,14 @@ export async function tryHandleBtwSlash(
 export async function answerSideQuestion(
   question: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  // 票60 步序四:侧问回答写调用方的 store 实例(默认单例,零回归)
+  chatStore: ChatStore = useChatStore,
 ): Promise<void> {
   // 单副本直调:不走 LLM chat 流,不写主线历史
   const d = await runBestOfN(question, 1)
   const c = d.candidates[0]
   const answer = c?.content || t('btwNoAnswer')
-  const store = useChatStore.getState()
+  const store = chatStore.getState()
   store.addMessage({
     role: 'assistant',
     content: `> 💬 **${t('sideBadge')}** · ${question}\n\n${answer}`,
@@ -661,6 +675,8 @@ function escapeCommitMessage(msg: string): string {
 export async function tryHandleCommitSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  // 票60 步序四:commit 回显写调用方的 store 实例(默认单例,零回归)
+  chatStore: ChatStore = useChatStore,
 ): Promise<boolean> {
   const trimmed = text.trim()
   if (
@@ -739,7 +755,7 @@ export async function tryHandleCommitSlash(
     // commit.after 钩子
     emitAgentHook('commit.after', { summary: `${ok ? 'ok' : 'failed'}: ${message}` })
     // 侧聊消息回显结果(不污染主线历史,同 /btw 模式)
-    const store = useChatStore.getState()
+    const store = chatStore.getState()
     store.addMessage({
       role: 'assistant',
       content: [
@@ -977,12 +993,16 @@ export function buildSessionStatusReport(
 export async function tryHandleToolSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  // 票60 步序四:diff/status/compact 读写调用方的 store 实例(默认单例,零回归)——
+  // 窗格里 /diff 收集的是该窗格的消息、/status 读的是该窗格的用量、/compact 守卫与
+  // 重拉写回都落在该窗格,不再串到根单例。
+  chatStore: ChatStore = useChatStore,
 ): Promise<boolean> {
   const trimmed = text.trim()
   const m = /^\/(diff|status|model|mcp|compact)\b\s*$/.exec(trimmed)
   if (!m) return false
   const cmd = m[1]!
-  const store = useChatStore.getState()
+  const store = chatStore.getState()
 
   if (cmd === 'diff') {
     const changes = collectSessionFileChanges(store.messages)
