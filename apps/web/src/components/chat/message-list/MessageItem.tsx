@@ -122,6 +122,10 @@ import { toolActivitySummaryText } from '@/lib/tool-activity-summary-text'
 // 与 `windowing.ts`(消息行级几何窗口)分工不同:本档是交互驱动、消息级 state。
 // 此处刻意**不用** content-visibility/contain-intrinsic-size(G-828 明文禁恢复)。
 import { ACTIVITY_WINDOW_LIMIT, windowActivities } from '@/lib/activity-window'
+// Qoder 借鉴清单第 4 项(2026-10-29 立):语义折叠归组 —— 连续同类工具活动折成一行
+// 计数短语(「读取 5 个文件 · 执行 3 条命令」),而不是 20 张卡平铺。
+// 与下行 `./fold-policy`(折叠开关策略 D21)是两件事,同名不同物(见 lib 侧头注)。
+import { buildFoldRows, foldSummaryText, foldedAwayIds } from '@/lib/fold-policy'
 import {
   TypingIndicator,
   formatMessageTimestamp,
@@ -338,6 +342,36 @@ const MessageItem = React.memo(function MessageItem({
   const toolCallWindow = React.useMemo(
     () => windowActivities(m.toolCalls ?? [], ACTIVITY_WINDOW_LIMIT, activityExpanded),
     [m.toolCalls, activityExpanded],
+  )
+  // ─── Qoder 借鉴清单第 4 项:语义折叠归组(2026-10-29 立)──────────────────
+  // 归组判据全在纯函数 `@/lib/fold-policy`(本组件零分类表、零工具名);这里只做两件事:
+  //   ① 默认把摘要行显示成一行可读短语(「读取 5 个文件 · 执行 3 条命令」);
+  //   ② 用户点一下才真的**收起**被折的那些卡(`foldedView`)。
+  //
+  // 为什么默认不收起(与 D21 规则①"用户显式操作最优先"同一条纪律):
+  // 折叠是**信息密度取舍**,不是正确性判断 —— 同一轮里"折了更清爽"和"我要盯着每一张卡"
+  // 都可能是用户此刻的意图。默认收起等于替用户做决定,而本轮既有入口
+  // (`toolCallWindow` 窗口化)已经在做"长列表只挂首段",再叠一层默认隐藏会让
+  // "工具卡少了一张"这种失效方向变得不可归因(究竟是窗口裁的还是折叠收的?)。
+  // 于是:摘要恒显示(纯增量、不减少任何一张卡),收起必须由用户显式触发。
+  //
+  // 与 `toolCallWindow` 的关系:**不改它**。窗口化仍按原条数切前 N 条;折叠视图只在
+  // 窗口内那批里再筛一次(于是"挂载数 ≤ 窗口上限"这条不变量保持成立)。
+  const foldRows = React.useMemo(() => buildFoldRows(m.toolCalls ?? []), [m.toolCalls])
+  const foldedAway = React.useMemo(() => foldedAwayIds(foldRows), [foldRows])
+  const foldSummaryLine = React.useMemo(
+    () => foldSummaryText(foldRows, (key, values) => tStream(key, values)),
+    [foldRows, tStream],
+  )
+  const [foldedView, setFoldedView] = React.useState(false)
+  // 折叠视图下一张都不挂时不必留着开关(`foldedAway` 为空 ⇒ 折叠没有意义)
+  const canFold = foldedAway.size > 0
+  const visibleToolCalls = React.useMemo(
+    () =>
+      foldedView && canFold
+        ? toolCallWindow.visible.filter((tc) => !foldedAway.has(tc.id))
+        : toolCallWindow.visible,
+    [foldedView, canFold, foldedAway, toolCallWindow.visible],
   )
   const [showSteps, setShowStepsState] = React.useState<boolean>(() =>
     resolveInitialStepsOpen(foldPolicyMode, stepDims),
@@ -1202,7 +1236,18 @@ const MessageItem = React.memo(function MessageItem({
                       </div>
                     </div>
                   )}
-                  {toolCallWindow.visible.map((tc) => {
+                  {/* Qoder 借鉴清单第 4 项:折叠摘要行 —— 连续同类活动折成一句计数短语。
+                      只在**确有被折起来的行**时出现(全是被保留的 group/item ⇒ 摘要为空 ⇒ 不占位)。
+                      流式中不出(此刻组头已经在说"正在做什么",再叠一句会打架)。 */}
+                  {!streamingThis && foldSummaryLine !== '' && (
+                    <p
+                      className="text-xs text-muted-foreground/80"
+                      data-testid={`message-fold-summary-${m.id}`}
+                    >
+                      {foldSummaryLine}
+                    </p>
+                  )}
+                  {visibleToolCalls.map((tc) => {
                     // edit_file/write_file:为 Accept/Reject 回调构造 diffInfo
                     // 优先用 store 中的 tc.diffInfo,否则从 args 推导(与 ToolCallCard 内部逻辑一致)
                     const effectiveDiffInfo =
@@ -1336,6 +1381,22 @@ const MessageItem = React.memo(function MessageItem({
                       data-testid={`activity-expand-more-${m.id}`}
                     >
                       {t('activityExpandMore', { n: toolCallWindow.hiddenCount })}
+                    </Button>
+                  )}
+                  {/* Qoder 借鉴清单第 4 项:折叠视图开关 —— 只收起「被折成摘要」的那批卡
+                      (含永不折叠工具的行与单条活动一律留台面,判据在 lib 的 `foldedAwayIds`)。
+                      `visibleToolCalls` 已按窗口与折叠双重过滤,故「挂载数 ≤ 窗口上限」不受影响。 */}
+                  {canFold && (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      className="px-2 text-xs text-muted-foreground"
+                      onClick={() => setFoldedView((prev) => !prev)}
+                      aria-expanded={foldedView}
+                      data-testid={`activity-fold-toggle-${m.id}`}
+                    >
+                      {t(foldedView ? 'activityFoldShowAll' : 'activityFoldCollapse')}
                     </Button>
                   )}
                   {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾 */}
