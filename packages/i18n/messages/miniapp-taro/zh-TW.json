@@ -4811,7 +4811,7 @@
     "distributionWithdrawRecords": "分銷提現記錄",
     "pluginMarket": "插件市場",
     "skillsMarket": "技能市場",
-    "memoryManager": "記憶管理台",
+    "memoryManager": "記憶管理臺",
     "agentRules": "運行規則",
     "publishMonitor": "發佈監測",
     "dramaStudio": "短劇劇本",
@@ -6576,7 +6576,7 @@
   },
   "toolsPage": {
     "title": "工具中心",
-    "subtitle": "瀏覽並使用平台提供的各類工具",
+    "subtitle": "瀏覽並使用平臺提供的各類工具",
     "empty": "暫無工具",
     "fetchFailed": "工具列表載入失敗,請稍後重試",
     "refresh": "重新整理",
