@@ -14,18 +14,6 @@ const fetchApiMock = vi.fn()
 
 vi.mock('@/lib/api', () => ({
   fetchApi: (...args: unknown[]) => fetchApiMock(...args),
-  // ceec372e6d6 起本地 api<T>() 手抄壳迁到单源出口 apiOrThrow,本文件被迁面;
-  // mock 缺该导出 ⇒ 六例齐 No "apiOrThrow" export(2026-10-24)
-  // 复刻 apiOrThrow 语义(src/lib/api.ts:228):success=false ⇒ throw;否则返回 data
-  apiOrThrow: async (url: string, options?: Record<string, unknown>) => {
-    const r = (await fetchApiMock(url, options)) as {
-      success: boolean
-      error?: string
-      data?: unknown
-    }
-    if (!r.success) throw new Error(r.error || 'api failed')
-    return r.data
-  },
 }))
 
 import {

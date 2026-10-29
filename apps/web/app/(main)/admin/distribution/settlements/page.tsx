@@ -4,7 +4,6 @@
 
 'use client'
 
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -23,6 +22,7 @@ import {
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface Settlement {
   id: string

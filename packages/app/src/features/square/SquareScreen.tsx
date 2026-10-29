@@ -23,6 +23,7 @@ import type { ArticleItem, CategoryItem } from '@ihui/types'
 import { rnRadius } from '@ihui/design-tokens'
 import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { ScrollJumpButton } from '../../components/ScrollJumpButton'
 
 export interface SquareScreenProps {
@@ -159,16 +160,14 @@ export function SquareScreen({
         itemGap={8}
       />
       {loading ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.loadingText}>加载中...</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : error && items.length === 0 ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={onRefresh} style={styles.retryButton}>
-            <Text style={styles.retryText}>{t('common.retry')}</Text>
-          </Pressable>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <FlatList
           data={items}
@@ -185,9 +184,7 @@ export function SquareScreen({
           }
           ListEmptyComponent={
             !loading && items.length === 0 ? (
-              <View style={styles.centerWrap}>
-                <Text style={styles.emptyText}>暂无文章</Text>
-              </View>
+              <EmptyState title="暂无文章" colorScheme={colorScheme} />
             ) : undefined
           }
           onEndReached={onEndReached}
@@ -228,35 +225,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 20,
       fontWeight: '600',
       color: tk.text.primary,
-    } as TextStyle,
-    centerWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-    } as ViewStyle,
-    loadingText: {
-      fontSize: 16,
-      color: tk.text.secondary,
-    } as TextStyle,
-    errorText: {
-      fontSize: 16,
-      color: tk.text.primary,
-      marginBottom: 12,
-      textAlign: 'center',
-    } as TextStyle,
-    retryButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    } as ViewStyle,
-    retryText: {
-      // retryButton 底色用 brand.DEFAULT(深色=白),文字必须用 brand.foreground(深色=黑),
-      // 不得用 surface.light(两态皆白 → 深色白底白字不可见)
-      color: tk.brand.ctaForeground,
-      fontSize: 16,
-      fontWeight: '600',
     } as TextStyle,
     listContent: {
       paddingHorizontal: 10,
@@ -336,10 +304,6 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: 14,
       color: tk.text.tertiary,
       marginTop: 4,
-    } as TextStyle,
-    emptyText: {
-      fontSize: 16,
-      color: tk.text.secondary,
     } as TextStyle,
 
     // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」),

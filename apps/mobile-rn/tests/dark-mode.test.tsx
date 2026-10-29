@@ -10,8 +10,34 @@
  * - base tokens 保留(向后兼容 RootNavigator Tab Bar)
  * - SettingsScreen 接收 colorScheme prop 时根 View 背景色正确切换
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
+import { type ReactNode } from 'react'
+
+vi.mock('react-native', async () => {
+  const { createElement } = await import('react')
+  const mk = (tag: string) =>
+    function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
+      return createElement(tag, props, props.children)
+    }
+  const Switch = (props: { value?: boolean; onValueChange?: (v: boolean) => void }) =>
+    createElement('input', { type: 'checkbox', checked: !!props.value, readOnly: true })
+  const Modal = (props: { visible?: boolean; children?: ReactNode }) =>
+    props.visible ? createElement('div', null, props.children) : null
+  return {
+    View: mk('div'),
+    // SettingsScreen 用 ScrollView 作根容器(68bf1d85f6)—— 本测试自带的是**局部**替身,
+    // 少导出一个就在 vitest 下抛 "No ScrollView export is defined on the react-native mock",
+    // 4 例全灭且报的是渲染错,看不出是替身缺项。补上,并在同处说明为什么不能用共享替身。
+    ScrollView: mk('div'),
+    Text: mk('span'),
+    TouchableOpacity: mk('button'),
+    TextInput: mk('input'),
+    Switch,
+    Modal,
+    StyleSheet: { create: (s: Record<string, unknown>) => s },
+  }
+})
 
 import {
   getTokens,

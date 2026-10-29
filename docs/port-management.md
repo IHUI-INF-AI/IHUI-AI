@@ -118,7 +118,7 @@
 ### 3.3 端口分配段位规则
 
 ```
-8800-8809  → 应用服务(9 端)
+8800-8809  → 应用服务(8 端)
 8810-8819  → 基础设施(PG/Redis/OTel/Jaeger/Prom/Grafana/NodeExporter/Loki)
 8820-8829  → 辅助工具(Storybook/Promtail)
 8830-8839  → SaaS 部署(Admin API)
@@ -169,7 +169,7 @@ extension/desktop/mobile-rn/miniapp-taro
 
 | 日期 | 变更 | 负责人 |
 |------|------|--------|
-| 2026-07-22 | 立规:全项目端口统一 88xx,9 端 + 基础设施 + 辅助 | AI Agent |
+| 2026-07-22 | 立规:全项目端口统一 88xx,8 端 + 基础设施 + 辅助 | AI Agent |
 | 2026-07-22 | 补充:蓝绿部署段位 8840-8849 | AI Agent |
 | 2026-07-25 | 修复:Storybook 端口不一致(改 docs 承认 6006 豁免)+ 注册 CLI 8841 + 预留空槽说明 | AI Agent |
 | 2026-08-15 | 全项目无豁免:所有服务(含容器内部)统一 88xx,删除豁免场景 | AI Agent |

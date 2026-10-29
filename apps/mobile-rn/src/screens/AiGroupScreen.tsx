@@ -15,6 +15,7 @@ import {
   type AiGroupTab,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
 
 interface Member {
   id: string
@@ -83,6 +84,9 @@ export default function AiGroupScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首次挂载由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
 
   const onRefresh = () => {
     setRefreshing(true)

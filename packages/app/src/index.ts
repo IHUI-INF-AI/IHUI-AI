@@ -15,6 +15,31 @@ export type {
 } from './features/status/StatusScreen'
 export { ProfileScreen } from './features/profile/ProfileScreen'
 export { SettingsScreen } from './features/settings/SettingsScreen'
+export { SecurityAuditScreen, auditTypeOf } from './features/security-audit/SecurityAuditScreen'
+export type {
+  SecurityAuditItem,
+  SecurityAuditScreenProps,
+  SecurityAuditType,
+} from './features/security-audit/SecurityAuditScreen'
+export { MemberSettingsScreen } from './features/member-settings/MemberSettingsScreen'
+export type {
+  MemberPrefs,
+  MemberSettingsScreenProps,
+} from './features/member-settings/MemberSettingsScreen'
+export { MemberDashboardScreen } from './features/member-dashboard/MemberDashboardScreen'
+export type {
+  MemberCardKey,
+  MemberDashboardScreenProps,
+  MemberOrderRow,
+} from './features/member-dashboard/MemberDashboardScreen'
+export { MyAgentsScreen } from './features/my-agents/MyAgentsScreen'
+export type { MyAgentRow, MyAgentsScreenProps } from './features/my-agents/MyAgentsScreen'
+export { EduDashboardScreen } from './features/edu-dashboard/EduDashboardScreen'
+export type {
+  EduDashboardData,
+  EduDashboardScreenProps,
+  EduRecentCourse,
+} from './features/edu-dashboard/EduDashboardScreen'
 export { FeedbackScreen } from './features/feedback/FeedbackScreen'
 export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen'
 export { FeedbackDetailScreen } from './features/feedback-detail/FeedbackDetailScreen'
@@ -29,8 +54,6 @@ export { WalletScreen } from './features/wallet/WalletScreen'
 export { CourseCatalogScreen } from './features/course-catalog/CourseCatalogScreen'
 export { PointHistoryScreen } from './features/point-history/PointHistoryScreen'
 export { NoteListScreen } from './features/note-list/NoteListScreen'
-export { QuickNotesScreen } from './features/notes/QuickNotesScreen'
-export type { QuickNotesScreenProps, QuickNoteDraft } from './features/notes/QuickNotesScreen'
 export { NoteDetailScreen } from './features/note-detail/NoteDetailScreen'
 export { ArticleListScreen } from './features/article-list/ArticleListScreen'
 export { AnnouncementScreen } from './features/announcement/AnnouncementScreen'
@@ -102,21 +125,25 @@ export { WithdrawScreen } from './features/withdraw/WithdrawScreen'
 export { VipCompareScreen } from './features/vip-compare/VipCompareScreen'
 export { ShareScreen } from './features/share/ShareScreen'
 export { SearchScreen } from './features/search/SearchScreen'
+export { SearchHistoryScreen } from './features/community/SearchHistoryScreen'
 export { OrderLogScreen } from './features/order-log/OrderLogScreen'
 export { OrderTrackScreen } from './features/order-track/OrderTrackScreen'
 export { CourseChapterScreen } from './features/course-chapter/CourseChapterScreen'
 export { StudyProgressScreen } from './features/study-progress/StudyProgressScreen'
 export { AskCreateScreen } from './features/ask-create/AskCreateScreen'
 export { NoteCreateScreen } from './features/note-create/NoteCreateScreen'
+export { QuickNotesScreen } from './features/notes/QuickNotesScreen'
 export { CertApplyScreen } from './features/cert-apply/CertApplyScreen'
 export { SettingsAccountScreen } from './features/settings-account/SettingsAccountScreen'
 export { LiveListScreen } from './features/live-list/LiveListScreen'
 export { CouponScreen } from './features/coupon/CouponScreen'
+export { FollowingScreen } from './features/following/FollowingScreen'
 export { RankingScreen } from './features/ranking/RankingScreen'
 export { PointsMallScreen } from './features/points-mall/PointsMallScreen'
 export { ExamScreen } from './features/exam/ExamScreen'
 export { VipScreen } from './features/vip/VipScreen'
 export { LoginScreen } from './features/login/LoginScreen'
+export { SignUpScreen } from './features/sign-up/SignUpScreen'
 export { RegisterScreen } from './features/register/RegisterScreen'
 export { ProfileEditScreen } from './features/profile-edit/ProfileEditScreen'
 export { ChangePhoneScreen } from './features/change-phone/ChangePhoneScreen'
@@ -125,6 +152,7 @@ export { AgentMarketScreen } from './features/agent-market/AgentMarketScreen'
 export { AgentReviewListScreen } from './features/agent-review-list/AgentReviewListScreen'
 export { LiveScreen } from './features/live/LiveScreen'
 export { ActivityScreen } from './features/activity/ActivityScreen'
+export { FavoritesScreen } from './features/favorites/FavoritesScreen'
 export { CheckInScreen } from './features/check-in/CheckInScreen'
 /** 批次 15:消息/记录/关系类(私聊/群聊/系统/详情/积分/学习/收益/邀请/关注/收藏) */
 export { MessageDirectScreen } from './features/message-direct/MessageDirectScreen'
@@ -136,9 +164,6 @@ export { StudyRecordScreen } from './features/study-record/StudyRecordScreen'
 export { IncomeScreen } from './features/income/IncomeScreen'
 export { InviteScreen } from './features/invite/InviteScreen'
 export { FollowScreen } from './features/follow/FollowScreen'
-// 2026-10-28 跨端重复屏合并:following/FollowingScreen 与 favorites/FavoritesScreen 已删,
-// 上面两枚(FollowScreen / FavoriteScreen)是它们的超集(同端点、同意图、多 tab 筛选)。
-// 旧屏没有独立交互,不得再加回第二份渲染真相源(门 237 一页两声明即假精度)。
 export { FavoriteScreen } from './features/favorite/FavoriteScreen'
 /** 批次 18(2026-07-29):模型/AIGC 屏(模型广场/n8n 模型管理/模型编辑/AIGC 作品列表) */
 export { ModelPlazaScreen } from './features/model-plaza/ModelPlazaScreen'
@@ -156,6 +181,77 @@ export { AiAssistantScreen } from './features/ai-assistant/AiAssistantScreen'
 export { AiCareerScreen } from './features/ai-career/AiCareerScreen'
 export { AI_CAREER_QUESTIONS, AI_CAREER_REQUIRED_FIELDS } from './features/ai-career/questions'
 export { AIMultimodalScreen } from './features/ai-multimodal/AIMultimodalScreen'
+/**
+ * 跨端补屏批(2026-10-28):web→RN 功能缺口 10 条 + 小程序镜像待造的共享屏。
+ * 每一屏都是「web 已上线、RN 零承载」的那一类(台账见 scripts/data/web-rn-parity* 与
+ * check-web-rn-parity.mjs 的 gapRows);RN 宿主只取数/导航,渲染全在共享屏(AGENTS §3)。
+ */
+export { AiWorkspaceProjectScreen } from './features/ai-workspace/AiWorkspaceProjectScreen'
+export type {
+  AiWorkspaceConvertResult,
+  AiWorkspaceFile,
+  AiWorkspaceMember,
+  AiWorkspaceProject,
+  AiWorkspaceProjectScreenProps,
+  AiWorkspaceTask,
+} from './features/ai-workspace/AiWorkspaceProjectScreen'
+export { CourseHomeworkScreen } from './features/learn-homework/CourseHomeworkScreen'
+export type {
+  CourseHomeworkItem,
+  CourseHomeworkScreenProps,
+} from './features/learn-homework/CourseHomeworkScreen'
+export { EduGradeTrendScreen } from './features/edu-grade-trend/EduGradeTrendScreen'
+export type {
+  EduGradeTrendEntry,
+  EduGradeTrendScreenProps,
+  EduGradeWeaknessItem,
+} from './features/edu-grade-trend/EduGradeTrendScreen'
+export { EduTeacherStudyPlanScreen } from './features/edu-teacher-study-plan/EduTeacherStudyPlanScreen'
+export type {
+  EduTeacherClass,
+  EduTeacherPlanForm,
+  EduTeacherPlanItem,
+  EduTeacherStudyPlan,
+  EduTeacherStudyPlanScreenProps,
+  EduTeacherTerm,
+} from './features/edu-teacher-study-plan/EduTeacherStudyPlanScreen'
+export { KnowledgeEntryReadingScreen } from './features/knowledge-base/KnowledgeEntryReadingScreen'
+export type {
+  KnowledgeEntryArticle,
+  KnowledgeEntryNavItem,
+  KnowledgeEntryReadingScreenProps,
+  KnowledgeEntryTocItem,
+} from './features/knowledge-base/KnowledgeEntryReadingScreen'
+export { KnowledgeBaseListScreen } from './features/knowledge-base/KnowledgeBaseListScreen'
+export type {
+  KnowledgeBaseCategoryItem,
+  KnowledgeBaseListItem,
+  KnowledgeBaseListScreenProps,
+} from './features/knowledge-base/KnowledgeBaseListScreen'
+export { LiveLecturerListScreen } from './features/lecturer/LecturerListScreen'
+export type {
+  LiveLecturerListItem,
+  LiveLecturerListScreenProps,
+} from './features/lecturer/LecturerListScreen'
+export { LecturerProfileScreen } from './features/lecturer/LecturerProfileScreen'
+export type {
+  LecturerProfileScreenProps,
+  LiveLecturerChannelItem,
+} from './features/lecturer/LecturerProfileScreen'
+export { NewsArticleScreen } from './features/news/NewsArticleScreen'
+export type { NewsArticleItem, NewsArticleScreenProps } from './features/news/NewsArticleScreen'
+export { NewsCategoryScreen } from './features/news/NewsCategoryScreen'
+export type {
+  NewsCategoryArticle,
+  NewsCategoryScreenProps,
+} from './features/news/NewsCategoryScreen'
+export { SkillMarketDetailScreen } from './features/skills-market/SkillMarketDetailScreen'
+export type {
+  SkillMarketDetailScreenProps,
+  SkillMarketEntryView,
+} from './features/skills-market/SkillMarketDetailScreen'
+export { SkillMarketListScreen } from './features/skills-market/SkillMarketListScreen'
+export type { SkillMarketListScreenProps } from './features/skills-market/SkillMarketListScreen'
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
 export { ExamHistoryScreen } from './features/exam-history/ExamHistoryScreen'
 export { ExamResultScreen } from './features/exam-result/ExamResultScreen'
@@ -219,6 +315,7 @@ export type {
 export { AgentStatScreen } from './features/agent-stat/AgentStatScreen'
 export { AgentSettingScreen } from './features/agent-setting/AgentSettingScreen'
 export { AgentCreateScreen } from './features/agent-create/AgentCreateScreen'
+export { AgentEditScreen } from './features/agent-edit/AgentEditScreen'
 export { AgentChatScreen } from './features/agent-chat/AgentChatScreen'
 export { CourseScreen } from './features/course-screen/CourseScreen'
 export { CourseTabScreen } from './features/course-tab/CourseTabScreen'
@@ -316,9 +413,8 @@ export type {
 } from './features/cards'
 
 /** 跨端共享小组件。两条死载体已先后摘除,依据与判据同形(全仓零具名消费者):
- *  · SectionHeader —— 2026-09-30 摘除后又于 2026-10-27 重建为 RN 唯一渲染腿:几何取自
- *    packages/shared/src/ui/section-header-spec.ts,小程序端腿在
- *    apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx。
+ *  · SectionHeader —— 2026-09-30 摘除,小程序端渲染腿在 apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx,
+ *    而 RN 侧区段头部至今**没有单一源**(9+ 屏各自自绘,见 packages/shared/src/ui/section-header-spec.ts)。
  *  · Selecter —— 2026-10-15 摘除(连同 packages/app 侧文件);小程序端腿是 adapters/Selecter.taro.tsx,
  *    RN 端用 apps/mobile-rn/src/components/ModelConfigDialog.tsx 自绘的 ModelSelecterDialog,本包那份无人取。
  *  历史同批:ColorfulLoader / PayButton 两条出口于 2026-09-26 摘除。 */
@@ -343,10 +439,6 @@ export type { WrapFocus, WrapFocusOptions } from './hooks/use-wrap-focus'
 /** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
-
-/** 区段头(标题 + 可选副标题 + 可选「更多」):RN 端唯一实现,几何取自 @ihui/shared/ui 单一源 */
-export { SectionHeader } from './components'
-export type { SectionHeaderProps } from './components'
 
 export { BackChevron } from './components'
 export type { BackChevronProps } from './components'
@@ -648,6 +740,9 @@ export type {
   AgentSettingData,
   AgentSettingScreenProps,
   AgentCreateScreenProps,
+  AgentEditForm,
+  AgentEditCategory,
+  AgentEditScreenProps,
   AgentChatMessage,
   AgentChatScreenProps,
   CourseScreenItem,
@@ -1149,40 +1244,4 @@ export type {
   PdfProcessOutcome,
   PdfToolsHubScreenProps,
 } from './features/tools/pdf/PdfToolsHubScreen'
-export { CirclePostScreen } from './features/community/CirclePostScreen'
-export type {
-  CircleOption,
-  CirclePostImage,
-  CirclePostScreenProps,
-} from './features/community/CirclePostScreen'
-export { InvitationsScreen } from './features/community/InvitationsScreen'
-export type {
-  InvitationStatus,
-  InvitationRowView,
-  InviteeRowView,
-  InvitationsScreenProps,
-} from './features/community/InvitationsScreen'
-export { LettersScreen } from './features/community/LettersScreen'
-export type { LetterConversationRow, LettersScreenProps } from './features/community/LettersScreen'
-export { LetterChatScreen } from './features/community/LetterChatScreen'
-export type {
-  LetterChatMessageRow,
-  LetterChatScreenProps,
-} from './features/community/LetterChatScreen'
-export { NewsCategoryScreen } from './features/community/NewsCategoryScreen'
-export type {
-  NewsCategoryArticleRow,
-  NewsCategoryScreenProps,
-} from './features/community/NewsCategoryScreen'
-export { SearchHistoryScreen } from './features/community/SearchHistoryScreen'
-export type {
-  SearchHistoryRowView,
-  SearchHistoryScreenProps,
-} from './features/community/SearchHistoryScreen'
-export { SignUpScreen } from './features/sign-up/SignUpScreen'
-export type {
-  SignUpRowView,
-  SignUpStatusView,
-  SignUpScreenProps,
-} from './features/sign-up/SignUpScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

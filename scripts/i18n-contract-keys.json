@@ -13,68 +13,6 @@
     "不得登记 desktop:该端无 JS 扫描面,声明永远不会被读到。"
   ],
   "targets": {
-    "mobile-rn": {
-      "topic.detail.loading": {
-        "reason": "c72a93dda9 为「跨端同屏同字」补五语言该键:同一屏 pkg-content/topic 的 loading 文案在小程序端 static 取(apps/miniapp-taro/src/pkg-content/topic/detail.tsx:200),RN 端共享屏改走骨架/loadingMore 故本端无静态引用。该键同时被本端测试钉成形状键:apps/mobile-rn/tests/topic-detail-screen-render.test.tsx 的 USED 清单(:163-179,含 :165)逐语言断言 topic.detail.* 15 键取到非空且不等于键名 —— 删键必须与该测试同批,单删本端词包即判 5 红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
-        "evidence": [
-          {
-            "file": "apps/miniapp-taro/src/pkg-content/topic/detail.tsx",
-            "line": 200,
-            "contains": "topic.detail.loading"
-          },
-          {
-            "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
-            "line": 165,
-            "contains": "'loading'"
-          },
-          {
-            "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
-            "line": 182,
-            "contains": "15 键全部取到非空字符串"
-          }
-        ]
-      },
-      "byok.step1Title": {
-        "reason": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171 用 t(`byok.step${wizardStep + 1}Title`) 动态拼接,wizardStep∈{0,1,2,3} ⇒ 产出 byok.step1Title..step4Title;静态扫描看不见整串字面量,但属真实渲染键(BYOK 向导步骤标题),删之即让第 1 步标题空白。与 miniapp-taro / cli 端同型动态拼接盲区。",
-        "evidence": [
-          {
-            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
-            "line": 171,
-            "contains": "byok.step${wizardStep + 1}Title"
-          }
-        ]
-      },
-      "byok.step2Title": {
-        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step2Title;静态扫描盲区,真实渲染键。",
-        "evidence": [
-          {
-            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
-            "line": 171,
-            "contains": "byok.step${wizardStep + 1}Title"
-          }
-        ]
-      },
-      "byok.step3Title": {
-        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step3Title;静态扫描盲区,真实渲染键。",
-        "evidence": [
-          {
-            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
-            "line": 171,
-            "contains": "byok.step${wizardStep + 1}Title"
-          }
-        ]
-      },
-      "byok.step4Title": {
-        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step4Title;静态扫描盲区,真实渲染键。",
-        "evidence": [
-          {
-            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
-            "line": 171,
-            "contains": "byok.step${wizardStep + 1}Title"
-          }
-        ]
-      }
-    },
     "web": {
       "eduCertificates.certificateNo": {
         "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
@@ -244,6 +182,68 @@
         ]
       }
     },
+    "mobile-rn": {
+      "byok.step1Title": {
+        "reason": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171 用 t(`byok.step${wizardStep + 1}Title`) 动态拼接,wizardStep∈{0,1,2,3} ⇒ 产出 byok.step1Title..step4Title;静态扫描看不见整串字面量,但属真实渲染键(BYOK 向导步骤标题),删之即让第 1 步标题空白。与 miniapp-taro / cli 端同型动态拼接盲区。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step2Title": {
+        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step2Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step3Title": {
+        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step3Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step4Title": {
+        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step4Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "topic.detail.loading": {
+        "reason": "c72a93dda9 为「跨端同屏同字」补五语言该键:同一屏 pkg-content/topic 的 loading 文案在小程序端 static 取(apps/miniapp-taro/src/pkg-content/topic/detail.tsx:200),RN 端共享屏改走骨架/loadingMore 故本端无静态引用。该键同时被本端测试钉成形状键:apps/mobile-rn/tests/topic-detail-screen-render.test.tsx 的 USED 清单(:163-179,含 :165)逐语言断言 topic.detail.* 15 键取到非空且不等于键名 —— 删键必须与该测试同批,单删本端词包即判 5 红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
+        "evidence": [
+          {
+            "file": "apps/miniapp-taro/src/pkg-content/topic/detail.tsx",
+            "line": 200,
+            "contains": "topic.detail.loading"
+          },
+          {
+            "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
+            "line": 165,
+            "contains": "'loading'"
+          },
+          {
+            "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
+            "line": 182,
+            "contains": "15 键全部取到非空字符串"
+          }
+        ]
+      }
+    },
     "cli": {
       "cliEntry.undoSucceeded": {
         "reason": "取词点真实存在但静态扫描看不见:undo-claim-copy.ts:91 用常量相加 t(UNDO_CLAIM_KEY_PREFIX + 'undoSucceeded', { count }) 渲染,而 :41 才把前缀写成 'cliEntry.' ⇒ 全仓没有一处把 'cliEntry.undoSucceeded' 整串写成字面量。摘键等于让 CLI 回退成功时报出一句空白;补字面引用要改他人已入库的纯函数与 :62 的反向锁注释,归该线持有人。",
@@ -322,26 +322,6 @@
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
             "line": 70,
             "contains": "if (input.verdict === 'changed') return 'undoFailedChanged';"
-          }
-        ]
-      },
-      "cliEntry.undoFailedUnverifiable": {
-        "reason": "同族::69 返回叶名、:98 拼前缀成串。这一态专管「判不了就不声称」——摘掉它,失败三拆少一条,无法核实的回退会被读成成功;:59 的顺序契约已把这一格钉成互斥,所以键必须留在五语言词包里。",
-        "evidence": [
-          {
-            "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 41,
-            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
-          },
-          {
-            "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 98,
-            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
-          },
-          {
-            "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 69,
-            "contains": "if (input.verdict === 'unknown') return 'undoFailedUnverifiable';"
           }
         ]
       },
@@ -437,6 +417,26 @@
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
             "line": 234,
             "contains": "t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFilesMore'"
+          }
+        ]
+      },
+      "cliEntry.undoFailedUnverifiable": {
+        "reason": "同族::69 返回叶名、:98 拼前缀成串。这一态专管「判不了就不声称」——摘掉它,失败三拆少一条,无法核实的回退会被读成成功;:59 的顺序契约已把这一格钉成互斥,所以键必须留在五语言词包里。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 41,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 98,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 69,
+            "contains": "if (input.verdict === 'unknown') return 'undoFailedUnverifiable';"
           }
         ]
       }

@@ -14,7 +14,7 @@
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 // lucide-react 版本随依赖升级漂移,写死版本号会整器报废(实测 1.31.0 出依赖树后 -- 即断):
@@ -76,30 +76,42 @@ function generate(name, strokeColor) {
   return svg
 }
 
-const args = process.argv.slice(2)
-let color = '#000000'
-const names = []
-for (const a of args) {
-  if (a === '--color') continue
-  if (a.startsWith('--color=')) {
-    color = a.slice(8)
-  } else if (args[args.indexOf(a) - 1] === '--color') {
-    color = a
-  } else {
-    names.push(a)
+function main() {
+  const args = process.argv.slice(2)
+  let color = '#000000'
+  const names = []
+  for (const a of args) {
+    if (a === '--color') continue
+    if (a.startsWith('--color=')) {
+      color = a.slice(8)
+    } else if (args[args.indexOf(a) - 1] === '--color') {
+      color = a
+    } else {
+      names.push(a)
+    }
+  }
+
+  if (names.length === 0) {
+    console.error('usage: node gen-taro-lucide-icons.mjs [--color #hex] icon1 icon2 ...')
+    process.exit(1)
+  }
+
+  mkdirSync(OUT_DIR, { recursive: true })
+  for (const n of names) {
+    const svg = generate(n, color)
+    const out = join(OUT_DIR, `${n}.svg`)
+    writeFileSync(out, svg, 'utf8')
+    console.log(`✓ ${n}.svg -> ${out} (stroke ${color})`)
   }
 }
 
-if (names.length === 0) {
-  console.error('usage: node gen-taro-lucide-icons.mjs [--color #hex] icon1 icon2 ...')
-  process.exit(1)
+// §22d:本文件同时被 scripts/gen-rn-compat.mjs import(取 generate 这一份 lucide 解析实现)。
+// 顶层直接跑 main() 会让 import 方在求值期就走 usage 分支 exit 1 ⇒ 加 isDirectRun 守卫。
+const isDirectRun = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url
+
+if (isDirectRun) {
+  main()
 }
 
-mkdirSync(OUT_DIR, { recursive: true })
-for (const n of names) {
-  const svg = generate(n, color)
-  const out = join(OUT_DIR, `${n}.svg`)
-  writeFileSync(out, svg, 'utf8')
-  console.log(`✓ ${n}.svg -> ${out} (stroke ${color})`)
-}
+export const __test__ = { generate, parseNode, LUCIDE_DIR, OUT_DIR }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

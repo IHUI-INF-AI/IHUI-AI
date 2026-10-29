@@ -4,8 +4,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QrCodeImage from '../../assets/images/common/qewm.png'
+import ShareZhuanmiImage from '../../assets/images/common/share-zhuanmi.png'
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Image,
   Keyboard,
   Modal,
@@ -14,6 +17,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -26,13 +30,11 @@ import * as MediaLibrary from 'expo-media-library'
 import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
 import { Asset } from 'expo-asset'
-import { BlurTargetView } from 'expo-blur'
 import {
   BookOpen,
   Bot,
   Camera,
   Folder,
-  Library,
   Search,
   History,
   Bookmark,
@@ -153,7 +155,7 @@ import { inferVendor } from '../lib/vendor-infer'
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { tabBarDockSpacer } from '../components/TabBar.styles'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
@@ -345,24 +347,6 @@ function foldLegacyGroups(
   return legacy.length > 0
     ? [...primary, { title: historyLabelOf(legacy.length), models: legacy }]
     : primary
-}
-
-/** 占位模型组 vendor/name/description 存的是 i18n 键,进列表渲染前本地化为展示词。
- *  模块作用域纯函数,t 由调用方注入(同 ChatScreen mapConversationToDrawer 的口径),
- *  不进 useMemo deps —— 组件内定义会让 memo 身份每渲染一变(react-hooks/exhaustive-deps)。 */
-function localizePlaceholderGroups(
-  gs: ModelListGroup[],
-  t: (key: string) => string,
-): ModelListGroup[] {
-  return gs.map((g) => ({
-    ...g,
-    vendor: g.vendor ? t(g.vendor) : g.vendor,
-    models: g.models.map((m) => ({
-      ...m,
-      name: t(m.name),
-      description: m.description ? t(m.description) : m.description,
-    })),
-  }))
 }
 
 /** 模型参数默认配置(对齐 Uniapp ModelConfigDialog 初始值) */
@@ -676,6 +660,61 @@ async function persistShareFirstDismissed(): Promise<void> {
 /** AiModelCard 收藏资源标识(品牌主推卡固定资源;resourceType='agent' 已入后端枚举,2026-10-15) */
 const ASSISTANT_FAVORITE = { resourceType: 'agent' as const, resourceId: 'zhihui-ai-assistant' }
 
+// ── 顶部分享图按钮(2026-10-28 用户定):与小程序 ai_index 右上角 share-image 同图
+//    (remote-images/share_zhuanmi.png),纯图片不带文字,上下浮动吸引点击;点击弹 ShareSheet。
+//    内置 256px 压缩版(原 CDN 图 2048²/2MB 不适合按 40dp 整图解码),内容与小程序同源图一致。──
+const NAV_SHARE_IMAGE_PX = 40 // 小程序 80rpx 的 dp 投影(80/2)
+const NAV_SHARE_BOB_PX = 5 // 上下浮动幅度
+const NAV_SHARE_BOB_HALF_MS = 700 // 半程时长(整周期 1.4s,呼吸节奏不喧宾夺主)
+
+function NavShareImageButton({ onPress, a11yLabel }: { onPress: () => void; a11yLabel: string }) {
+  const bob = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bob, {
+          toValue: -NAV_SHARE_BOB_PX,
+          duration: NAV_SHARE_BOB_HALF_MS,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(bob, {
+          toValue: 0,
+          duration: NAV_SHARE_BOB_HALF_MS,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [bob])
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      style={navShareStyles.btn}
+    >
+      <Animated.Image
+        source={ShareZhuanmiImage}
+        style={{
+          width: NAV_SHARE_IMAGE_PX,
+          height: NAV_SHARE_IMAGE_PX,
+          transform: [{ translateY: bob }],
+        }}
+        resizeMode="contain"
+      />
+    </TouchableOpacity>
+  )
+}
+
+const navShareStyles = StyleSheet.create({
+  btn: { paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+})
+
 export function HomeScreen() {
   const { t } = useI18n()
   // ── i18n 消费侧(§19 端内禁硬编码文案,2026-10-24):以下三组替代原模块顶层
@@ -851,8 +890,6 @@ export function HomeScreen() {
   // ── toodown 返回顶部(对齐 Uniapp onPageScroll > 阈值显示,RN 端 >600 显示) ──
   const [showBackTop, setShowBackTop] = useState(false)
   const scrollRef = useRef<ScrollView>(null)
-  // Android 真模糊:背景内容包进 BlurTargetView 供 TabBar 胶囊取样
-  const tabBarBlurTargetRef = useRef<View>(null)
 
   // ── 底部玻璃停靠区(2026-10-16 用户定稿:整个底部菜单栏液态玻璃,内容若隐若现)──
   // 输入区 + 底部导航整块绝对定位悬浮;ScrollView 预留 = 停靠区实测高度 + 呼吸距。
@@ -963,15 +1000,16 @@ export function HomeScreen() {
    *  点击开 SearchOverlay 弹窗(遮罩 + 三段面板,弹窗内直接出结果,不再跳全屏搜索页;
    *  RootStack 'Search' 路由保留)
    *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal: rpx(24))
-   *  分享按钮(2026-10-15 产品定):原对齐 Uniapp share-image → goToMyPage 跳我的页,
-   *  改为弹微信分享面板 ShareSheet(微信好友/朋友圈原生分享 + 复制链接兜底) */
+   *  分享按钮(2026-10-28 用户定):从 Gift 图标改为与小程序 ai_index 右上角同款的
+   *  share-image「分享赚米」徽章图(纯图片无文字 + 上下浮动),经 NavBar rightAction
+   *  挂在最右(与小程序 share-image 同位),点击弹微信分享面板 ShareSheet(微信好友/
+   *  朋友圈原生分享 + 复制链接兜底,2026-10-15 产品定) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
     { icon: PanelLeftRounded, a11yLabel: t('home.navMenu'), onPress: handleMenuPress },
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
     { icon: Search, a11yLabel: t('common.search'), onPress: () => setSearchOverlayVisible(true) },
     { icon: Handshake, label: t('home.navJoinGroup'), onPress: handleJoinPress },
-    { icon: Gift, label: t('home.navShare'), onPress: () => setShareSheetVisible(true) },
   ]
 
   // ── InputArea 提交(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) ──
@@ -1055,8 +1093,17 @@ export function HomeScreen() {
    * skills tab 渲染真实智能体列表(AgentList),不走模型过滤(搜索态除外)。
    * 两个分支统一走 foldLegacyGroups:legacy 档收编进尾部「历史模型(N)」分组。
    */
-  /** 占位模型组本地化已提为模块作用域纯函数 localizePlaceholderGroups(见文件上部),
-   *  此处只按 tab 取占位表并把 t 交进去。 */
+  /** 占位模型组 vendor/name/description 存的是 i18n 键,进列表渲染前本地化为展示词 */
+  const localizePlaceholderGroups = (gs: ModelListGroup[]): ModelListGroup[] =>
+    gs.map((g) => ({
+      ...g,
+      vendor: g.vendor ? t(g.vendor) : g.vendor,
+      models: g.models.map((m) => ({
+        ...m,
+        name: t(m.name),
+        description: m.description ? t(m.description) : m.description,
+      })),
+    }))
   const modalModelGroups = useMemo<ModelListGroup[]>(() => {
     const q = modelSearch.trim().toLowerCase()
     if (q) {
@@ -1084,10 +1131,10 @@ export function HomeScreen() {
       .filter((g) => g.models.length > 0)
     return filtered.length > 0
       ? foldLegacyGroups(filtered, (n) => t('home.historyGroupCount', { count: n }))
-      : foldLegacyGroups(localizePlaceholderGroups(PLACEHOLDER_MODELS[modelModalTab], t), (n) =>
+      : foldLegacyGroups(localizePlaceholderGroups(PLACEHOLDER_MODELS[modelModalTab]), (n) =>
           t('home.historyGroupCount', { count: n }),
         )
-  }, [modelModalTab, realModelGroups, modelSearch, t])
+  }, [modelModalTab, realModelGroups, modelSearch, t, localizePlaceholderGroups])
   const modalModelCount = useMemo(
     () => modalModelGroups.reduce((n, g) => n + g.models.length, 0),
     [modalModelGroups],
@@ -1582,13 +1629,16 @@ export function HomeScreen() {
   )
 
   /** 智能体卡分享 → ShareSheet(标题随卡片) */
-  const handleAgentCardShare = useCallback((data: AiModelData) => {
-    setCardShareTarget({
-      title: `智汇AI社区 - ${data.name}`,
-      description: String(data.subname || ''),
-    })
-    setAssistantShareVisible(true)
-  }, [])
+  const handleAgentCardShare = useCallback(
+    (data: AiModelData) => {
+      setCardShareTarget({
+        title: t('home.shareBoardTitle', { name: data.name }),
+        description: String(data.subname || ''),
+      })
+      setAssistantShareVisible(true)
+    },
+    [t],
+  )
 
   /** FunctionBlockColumn 点击路由映射 */
   const onFunctionBlockPress = (id: string) => {
@@ -1662,7 +1712,7 @@ export function HomeScreen() {
               name: m.name,
               description:
                 m.model_tier && MODEL_TIER_LABELS[m.model_tier]
-                  ? t(MODEL_TIER_LABELS[m.model_tier]!)
+                  ? t(MODEL_TIER_LABELS[m.model_tier] ?? '')
                   : '',
               // 厂商品牌图标优先:vendor 有值时 ModelList 渲染 BrandIcon 真实矢量
               // (web 同源 @lobehub/icons);provider 缺失按 inferVendor 从模型 id 推断
@@ -1820,691 +1870,690 @@ export function HomeScreen() {
 
   return (
     <View style={shellStyles.root}>
-      {/* Android 真模糊:背景内容包进 BlurTargetView 供 TabBar 胶囊取样 */}
-      <BlurTargetView ref={tabBarBlurTargetRef} style={{ flex: 1 }}>
-        {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
-         *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
-         *  (2026-10-20 用户定:原右侧「分类」按钮移除,首页不做赛道分类筛选)
-         *  NavBar 置于 ScrollView 外,等价于 Uniapp viscosity=true 粘性效果(始终固定顶部) */}
-        <NavChrome>
-          <NavBar
-            title={t('home.brandName')}
-            leftActions={navLeftActions}
-            rightActions={navRightActions}
-          />
-        </NavChrome>
-        <ScrollView
-          ref={scrollRef}
-          style={shellStyles.scroll}
-          contentContainerStyle={[
-            shellStyles.scrollContent,
-            // 底部玻璃停靠区让位:内容可滚到输入区/胶囊底下若隐若现(2026-10-16)
-            { paddingBottom: dockHeight + 16 },
-          ]}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-        >
-          {/* BottomFigure 轮播(2026-10-15 用户定稿:轮播图置顶;数据源 GET /api/carousels?position=home,
+      {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
+       *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/分享徽章图 对齐 join-click/share-image
+       *  分享位(2026-10-28 用户定):小程序同款 share_zhuanmi 徽章图,纯图片 + 上下浮动,
+       *  经 rightAction 挂最右(与小程序 share-image 右上角同位)
+       *  (2026-10-20 用户定:原右侧「分类」按钮移除,首页不做赛道分类筛选)
+       *  NavBar 置于 ScrollView 外,等价于 Uniapp viscosity=true 粘性效果(始终固定顶部) */}
+      <NavChrome>
+        <NavBar
+          title={t('home.brandName')}
+          leftActions={navLeftActions}
+          rightActions={navRightActions}
+          rightAction={
+            <NavShareImageButton
+              onPress={() => setShareSheetVisible(true)}
+              a11yLabel={t('home.navShare')}
+            />
+          }
+        />
+      </NavChrome>
+      <ScrollView
+        ref={scrollRef}
+        style={shellStyles.scroll}
+        contentContainerStyle={[
+          shellStyles.scrollContent,
+          // 底部玻璃停靠区让位:内容可滚到输入区/胶囊底下若隐若现(2026-10-16)
+          { paddingBottom: dockHeight + 16 },
+        ]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        {/* BottomFigure 轮播(2026-10-15 用户定稿:轮播图置顶;数据源 GET /api/carousels?position=home,
             运营数据为空/接口失败时回退组件内置本地默认图) */}
-          <View style={shellStyles.bottomFigureWrap}>
-            <BottomFigure items={carouselList.length > 0 ? carouselList : undefined} />
+        <View style={shellStyles.bottomFigureWrap}>
+          <BottomFigure items={carouselList.length > 0 ? carouselList : undefined} />
+        </View>
+        {/* Carousel banner 轮播(对齐 Uniapp 首页轮播图) */}
+        {bannerItems.length > 0 ? (
+          <View style={shellStyles.carouselWrap}>
+            <Carousel
+              banner={bannerItems}
+              onItemPress={(item) => {
+                if (item.link) navigation.navigate('CourseDetail', { id: item.link })
+              }}
+            />
           </View>
-          {/* Carousel banner 轮播(对齐 Uniapp 首页轮播图) */}
-          {bannerItems.length > 0 ? (
-            <View style={shellStyles.carouselWrap}>
-              <Carousel
-                banner={bannerItems}
-                onItemPress={(item) => {
-                  if (item.link) navigation.navigate('CourseDetail', { id: item.link })
-                }}
-              />
-            </View>
-          ) : null}
-          {/* CardWithList 推荐课程横向列表(对齐 Uniapp 首页推荐区) */}
-          {cardItems.length > 0 ? (
-            <View style={shellStyles.cardListWrap}>
-              <CardWithList
-                title={t('home.recommendCourses')}
-                items={cardItems}
-                onItemClick={(id) => navigation.navigate('CourseDetail', { id })}
-              />
-            </View>
-          ) : null}
-          {/* AiModelCard AI 模型卡片(对齐 Uniapp 首页 AI 模型入口;
+        ) : null}
+        {/* CardWithList 推荐课程横向列表(对齐 Uniapp 首页推荐区) */}
+        {cardItems.length > 0 ? (
+          <View style={shellStyles.cardListWrap}>
+            <CardWithList
+              title={t('home.recommendCourses')}
+              items={cardItems}
+              onItemClick={(id) => navigation.navigate('CourseDetail', { id })}
+            />
+          </View>
+        ) : null}
+        {/* AiModelCard AI 模型卡片(对齐 Uniapp 首页 AI 模型入口;
             2026-10-15 全交互接线:收藏/举报/踩/详情/分享) */}
-          <View style={shellStyles.aiModelWrap}>
-            <AiModelCard
-              data={aiModelData}
-              favorited={assistantFavorited}
-              onPress={() => rootNav?.navigate('Chat', {})}
-              onWarningPress={handleAssistantWarning}
-              onDislikePress={handleAssistantDislike}
-              onFavoritePress={handleAssistantFavorite}
-              onInfoPress={handleAssistantInfo}
-              onSharePress={handleAssistantShare}
+        <View style={shellStyles.aiModelWrap}>
+          <AiModelCard
+            data={aiModelData}
+            favorited={assistantFavorited}
+            onPress={() => rootNav?.navigate('Chat', {})}
+            onWarningPress={handleAssistantWarning}
+            onDislikePress={handleAssistantDislike}
+            onFavoritePress={handleAssistantFavorite}
+            onInfoPress={handleAssistantInfo}
+            onSharePress={handleAssistantShare}
+          />
+        </View>
+        {/* RecentAgents 最近使用智能体(对齐 Uniapp tools/index RecentAgents)
+         *  数据源:无 getAgentUseHistory 接口,降级取智能体列表前 5 条(loadAgentList 内更新);
+         *  点击跳 AiAssistant(对齐 Uniapp pitchHandlea → /pages/tools/ai_assistant) */}
+        {recentAgents.length > 0 ? (
+          <View style={shellStyles.sectionWrap}>
+            <RecentAgents items={recentAgents} onItemClick={handleRecentAgentPress} />
+          </View>
+        ) : null}
+        {/* IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue:小方欢迎卡 + 剩余智汇值 + 充值) */}
+        <View style={shellStyles.sectionWrap}>
+          <IntelligentAssistant tokenQuantity={tokenQuantity} onRecharge={handleRechargePress} />
+        </View>
+        {/* MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue:标题 + 我的AI员工入口 + 横滑卡片)
+         *  数据源:与 ai-list 同源取前 6 条;点击跳 AiAssistantN8n */}
+        <View style={shellStyles.sectionWrap}>
+          <MyAgents
+            items={myAgents}
+            onItemClick={handleMyAgentPress}
+            onTeamPress={handleTeamPress}
+          />
+        </View>
+        {/* 商店主列表(对齐 Uniapp tools/index ai-list 主体;2026-10-20 改用 AiModelCard
+         *  按后端 agents 渲染多卡:点击开聊/收藏接真后端/警告跳反馈/分享随卡) */}
+        {agentModelData.length > 0 ? (
+          <View style={shellStyles.sectionWrap}>
+            {agentModelData.map((d) => (
+              <AiModelCard
+                key={String(d.id)}
+                data={d}
+                favorited={agentItems.find((a) => a.id === d.id)?.isCollect}
+                onPress={handleAgentCardPress}
+                onWarningPress={handleAssistantWarning}
+                onDislikePress={handleAssistantDislike}
+                onFavoritePress={handleAgentCardFavorite}
+                onInfoPress={handleAgentCardInfo}
+                onSharePress={handleAgentCardShare}
+              />
+            ))}
+          </View>
+        ) : null}
+        <SharedHomeScreen
+          t={t}
+          userNickname={user?.nickname || user?.phone || ''}
+          connected={connected}
+          unreadCount={unreadCount}
+          recommends={recommends}
+          lives={lives}
+          progress={progress}
+          menuItems={MENU_ITEMS}
+          loading={loading}
+          refreshing={refreshing}
+          error={error}
+          onRefresh={() => load(true)}
+          onOpenNotifications={() => setVisible(true)}
+          onPressProgress={(courseId) => navigation.navigate('CourseDetail', { id: courseId })}
+          onPressLive={(id) => navigation.navigate('LiveDetail', { id })}
+          onPressCourse={(id) => navigation.navigate('CourseDetail', { id })}
+          onPressMenu={(key) => {
+            switch (key) {
+              case 'Search':
+                // 九宫格「搜索」与 NavBar 搜索钮一致(2026-10-15):开 SearchOverlay 弹窗,不跳全屏搜索页
+                setSearchOverlayVisible(true)
+                break
+              case 'History':
+                rootNav?.navigate('History')
+                break
+              case 'Bookmark':
+                rootNav?.navigate('Bookmark')
+                break
+              case 'CourseFilter':
+                rootNav?.navigate('CourseFilter')
+                break
+              case 'LiveList':
+                rootNav?.navigate('LiveList')
+                break
+              case 'LivePlaybackList':
+                rootNav?.navigate('LivePlaybackList')
+                break
+              case 'CourseAnnex':
+                rootNav?.navigate('CourseAnnex')
+                break
+              case 'CourseResource':
+                rootNav?.navigate('CourseResource')
+                break
+              case 'CourseQAList':
+                rootNav?.navigate('CourseQAList')
+                break
+              default:
+                // 未识别的菜单 key,静默忽略(防御性:防止菜单配置漂移)
+                break
+            }
+          }}
+          onNavigateCourses={() => rootNav?.navigate('Main', { screen: 'CourseMain' })}
+          onNavigateLives={() => rootNav?.navigate('Main', { screen: 'LiveMain' })}
+          colorScheme={resolvedTheme}
+        />
+        {/* KnowledgePlanet 知识星球卡片列表(对齐 Uniapp 首页知识星球入口) */}
+        {knowledgeItems.length > 0 ? (
+          <View style={shellStyles.sectionWrap}>
+            <MoreTitles title={t('home.knowledgePlanet')} />
+            <KnowledgePlanet
+              items={knowledgeItems}
+              onItemClick={(id) => navigation.navigate('CourseDetail', { id })}
             />
           </View>
-          {/* RecentAgents 最近使用智能体(对齐 Uniapp tools/index RecentAgents)
-           *  数据源:无 getAgentUseHistory 接口,降级取智能体列表前 5 条(loadAgentList 内更新);
-           *  点击跳 AiAssistant(对齐 Uniapp pitchHandlea → /pages/tools/ai_assistant) */}
-          {recentAgents.length > 0 ? (
-            <View style={shellStyles.sectionWrap}>
-              <RecentAgents items={recentAgents} onItemClick={handleRecentAgentPress} />
-            </View>
-          ) : null}
-          {/* IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue:小方欢迎卡 + 剩余智汇值 + 充值) */}
+        ) : null}
+        {/* PopularCourses 热门课程 2 列网格(对齐 Uniapp 首页热门课程区) */}
+        {popularCourseItems.length > 0 ? (
           <View style={shellStyles.sectionWrap}>
-            <IntelligentAssistant tokenQuantity={tokenQuantity} onRecharge={handleRechargePress} />
-          </View>
-          {/* MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue:标题 + 我的AI员工入口 + 横滑卡片)
-           *  数据源:与 ai-list 同源取前 6 条;点击跳 AiAssistantN8n */}
-          <View style={shellStyles.sectionWrap}>
-            <MyAgents
-              items={myAgents}
-              onItemClick={handleMyAgentPress}
-              onTeamPress={handleTeamPress}
+            <PopularCourses
+              courses={popularCourseItems}
+              title={t('home.popularCourses')}
+              subtitle={t('home.popularCoursesSubtitle')}
+              onPress={(id) => navigation.navigate('CourseDetail', { id })}
             />
           </View>
-          {/* 商店主列表(对齐 Uniapp tools/index ai-list 主体;2026-10-20 改用 AiModelCard
-           *  按后端 agents 渲染多卡:点击开聊/收藏接真后端/警告跳反馈/分享随卡) */}
-          {agentModelData.length > 0 ? (
-            <View style={shellStyles.sectionWrap}>
-              {agentModelData.map((d) => (
-                <AiModelCard
-                  key={String(d.id)}
-                  data={d}
-                  favorited={agentItems.find((a) => a.id === d.id)?.isCollect}
-                  onPress={handleAgentCardPress}
-                  onWarningPress={handleAssistantWarning}
-                  onDislikePress={handleAssistantDislike}
-                  onFavoritePress={handleAgentCardFavorite}
-                  onInfoPress={handleAgentCardInfo}
-                  onSharePress={handleAgentCardShare}
-                />
+        ) : null}
+        {/* FunctionBlockColumn 功能块列(对齐 Uniapp 首页功能入口) */}
+        <View style={shellStyles.sectionWrap}>
+          <MoreTitles title={t('home.featureEntry')} />
+          <FunctionBlockColumn blocks={functionBlocks} onBlockPress={onFunctionBlockPress} />
+        </View>
+      </ScrollView>
+      {/* toodown 返回顶部悬浮按钮:外观与几何一律不在此设定,由 ScrollJumpButton 单一源给出;
+       *  bottom 按底部玻璃停靠区实测高度上浮(载体高度是实测值,不是外观档) */}
+      {showBackTop ? (
+        <ScrollJumpButton
+          direction="top"
+          onPress={backToTop}
+          label={t('common.backToTop')}
+          colorScheme={resolvedTheme}
+          style={{
+            position: 'absolute',
+            right: scrollJumpInsetPx(),
+            bottom: dockHeight + scrollJumpInsetPx(),
+          }}
+        />
+      ) : null}
+      {/* ModelTypeBar 模型类型选择栏(原对齐 Uniapp BottomActionBar 8 种 model-type-btn 行 44-97)
+       *  2026-10-15 用户重构:外挂选择栏整块移除,8 种分类改经 categories props 收进 InputArea
+       *  大输入框内「+」左侧(对齐 web 输入卡底栏两行布局);selectedModel 小标签随分类行内嵌 */}
+      {/* 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮 showMaterialList=true,
+       *  点击打开并加载"全部"tab(getMyCreation('agent') 我的创作数据) */}
+      <TouchableOpacity
+        onPress={handleOpenMaterialList}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('home.myCreation')}
+        style={shellStyles.creationEntry}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs }}>
+          <Folder size={13} color={tokens.brand.DEFAULT} />
+          <Text style={shellStyles.creationEntryText}>{t('home.myCreation')}</Text>
+        </View>
+      </TouchableOpacity>
+      {/* 语音输入已内嵌 InputArea 大输入框(麦克风长按录音,2026-09-22 用户定稿):
+          原独立 VoiceInput「按住说出你的问题」行移除,转文字回填输入框,随提交跳 Chat */}
+      {/* 素材卡片行(对齐 Uniapp material-cards-wrap:点击素材插入输入区上方,每卡右上 × 移除)
+       *  数据源 materialCards 由 handleMaterialPress 写入,横向滚动包裹 */}
+      {materialCards.length > 0 ? (
+        <View style={shellStyles.materialCardsWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={shellStyles.materialCardsRow}>
+              {materialCards.map((card) => (
+                <View key={card.uid} style={shellStyles.materialCardItem}>
+                  <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
+                    {card.title}
+                  </Text>
+                  <Pressable
+                    onPress={() => handleRemoveMaterialCard(card.uid)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('home.a11yRemoveMat')}
+                  >
+                    <Text style={shellStyles.materialCardClose}>×</Text>
+                  </Pressable>
+                </View>
               ))}
             </View>
-          ) : null}
-          <SharedHomeScreen
-            t={t}
-            userNickname={user?.nickname || user?.phone || ''}
-            connected={connected}
-            unreadCount={unreadCount}
-            recommends={recommends}
-            lives={lives}
-            progress={progress}
-            menuItems={MENU_ITEMS}
-            loading={loading}
-            refreshing={refreshing}
-            error={error}
-            onRefresh={() => load(true)}
-            onOpenNotifications={() => setVisible(true)}
-            onPressProgress={(courseId) => navigation.navigate('CourseDetail', { id: courseId })}
-            onPressLive={(id) => navigation.navigate('LiveDetail', { id })}
-            onPressCourse={(id) => navigation.navigate('CourseDetail', { id })}
-            onPressMenu={(key) => {
-              switch (key) {
-                case 'Search':
-                  // 九宫格「搜索」与 NavBar 搜索钮一致(2026-10-15):开 SearchOverlay 弹窗,不跳全屏搜索页
-                  setSearchOverlayVisible(true)
-                  break
-                case 'History':
-                  rootNav?.navigate('History')
-                  break
-                case 'Bookmark':
-                  rootNav?.navigate('Bookmark')
-                  break
-                case 'CourseFilter':
-                  rootNav?.navigate('CourseFilter')
-                  break
-                case 'LiveList':
-                  rootNav?.navigate('LiveList')
-                  break
-                case 'LivePlaybackList':
-                  rootNav?.navigate('LivePlaybackList')
-                  break
-                case 'CourseAnnex':
-                  rootNav?.navigate('CourseAnnex')
-                  break
-                case 'CourseResource':
-                  rootNav?.navigate('CourseResource')
-                  break
-                case 'CourseQAList':
-                  rootNav?.navigate('CourseQAList')
-                  break
-                default:
-                  // 未识别的菜单 key,静默忽略(防御性:防止菜单配置漂移)
-                  break
-              }
-            }}
-            onNavigateCourses={() => rootNav?.navigate('Main', { screen: 'CourseMain' })}
-            onNavigateLives={() => rootNav?.navigate('Main', { screen: 'LiveMain' })}
-            colorScheme={resolvedTheme}
-          />
-          {/* KnowledgePlanet 知识星球卡片列表(对齐 Uniapp 首页知识星球入口) */}
-          {knowledgeItems.length > 0 ? (
-            <View style={shellStyles.sectionWrap}>
-              <MoreTitles title={t('home.knowledgePlanet')} />
-              <KnowledgePlanet
-                items={knowledgeItems}
-                onItemClick={(id) => navigation.navigate('CourseDetail', { id })}
-              />
-            </View>
-          ) : null}
-          {/* PopularCourses 热门课程 2 列网格(对齐 Uniapp 首页热门课程区) */}
-          {popularCourseItems.length > 0 ? (
-            <View style={shellStyles.sectionWrap}>
-              <PopularCourses
-                courses={popularCourseItems}
-                title={t('home.popularCourses')}
-                subtitle={t('home.popularCoursesSubtitle')}
-                onPress={(id) => navigation.navigate('CourseDetail', { id })}
-              />
-            </View>
-          ) : null}
-          {/* FunctionBlockColumn 功能块列(对齐 Uniapp 首页功能入口) */}
-          <View style={shellStyles.sectionWrap}>
-            <MoreTitles title={t('home.featureEntry')} />
-            <FunctionBlockColumn blocks={functionBlocks} onBlockPress={onFunctionBlockPress} />
-          </View>
-        </ScrollView>
-        {/* toodown 返回顶部悬浮按钮:外观与几何一律不在此设定,由 ScrollJumpButton 单一源给出;
-         *  bottom 按底部玻璃停靠区实测高度上浮(载体高度是实测值,不是外观档) */}
-        {showBackTop ? (
-          <ScrollJumpButton
-            direction="top"
-            onPress={backToTop}
-            label={t('common.backToTop')}
-            colorScheme={resolvedTheme}
-            style={{
-              position: 'absolute',
-              right: scrollJumpInsetPx(),
-              bottom: dockHeight + scrollJumpInsetPx(),
-            }}
-          />
-        ) : null}
-        {/* ModelTypeBar 模型类型选择栏(原对齐 Uniapp BottomActionBar 8 种 model-type-btn 行 44-97)
-         *  2026-10-15 用户重构:外挂选择栏整块移除,8 种分类改经 categories props 收进 InputArea
-         *  大输入框内「+」左侧(对齐 web 输入卡底栏两行布局);selectedModel 小标签随分类行内嵌 */}
-        {/* 「我的创作」入口与素材卡片行一律不挂在此处:本行之后是绝对定位的 bottomDock,
-          普通流兄弟节点会被 flex:1 的 ScrollView 顶到屏幕最底边,从悬浮胶囊下面露出来
-          (2026-10-27 实机反馈「下面怎么还有个我的创作的嵌套块」)。
-          入口收进 AddPanel 的 heroItem(与 ChatScreen 同形),卡片行进停靠区贴着输入框。 */}
-        {/* 语音输入已内嵌 InputArea 大输入框(麦克风长按录音,2026-09-22 用户定稿):
-          原独立 VoiceInput「按住说出你的问题」行移除,转文字回填输入框,随提交跳 Chat */}
-        {/* 输入框「+」底部滑出菜单:统一走共享 AddPanel(图标按钮组:相机/相册/本地文件/微信文件,
+          </ScrollView>
+        </View>
+      ) : null}
+      {/* 输入框「+」底部滑出菜单:统一走共享 AddPanel(图标按钮组:相机/相册/本地文件/微信文件,
           与 BottomActionBar/ChatScreen 同源),上传结果拼入输入框随提交发送 */}
-        <AddPanel
-          visible={plusPanelVisible}
-          onClose={closePlusPanel}
-          // 「我的创作」主入口行(2026-10-27 自页面底部迁入):与 ChatScreen 的
-          // BottomActionBar → AddPanel heroItem 同一形态与同一文案键,不再在屏幕底边另挂一行
-          heroItem={{
-            key: 'my-creation',
-            label: t('common.myCreation'),
-            subtitle: t('common.myCreationSubtitle'),
-            icon: <Library size={24} color={tokens.text.secondary} />,
-            onPress: handleOpenMaterialList,
-          }}
-          items={[
-            {
-              key: 'camera',
-              label: t('home.addCamera'),
-              icon: <Camera size={24} color={tokens.text.secondary} />,
-              onPress: handlePlusCamera,
-            },
-            {
-              key: 'album',
-              label: t('home.addAlbum'),
-              icon: plusUploading ? (
-                <ActivityIndicator size="small" color={tokens.text.secondary} />
-              ) : (
-                <ImageIcon size={24} color={tokens.text.secondary} />
-              ),
-              onPress: () => void handlePlusAlbum(),
-            },
-            {
-              key: 'file',
-              label: t('home.addLocalFile'),
-              icon: <Folder size={24} color={tokens.text.secondary} />,
-              onPress: () => void handlePlusFile(),
-            },
-            {
-              key: 'wxfile',
-              label: t('home.addWxFile'),
-              icon: <MessageCircle size={24} color={tokens.text.secondary} />,
-              onPress: () => void handlePlusFile(),
-            },
-          ]}
-        />
-        {/* 悬浮栏(赚米/客服/反馈)由 App.tsx 的 GlobalFloatBox 单点渲染;
+      <AddPanel
+        visible={plusPanelVisible}
+        onClose={closePlusPanel}
+        items={[
+          {
+            key: 'camera',
+            label: t('home.addCamera'),
+            icon: <Camera size={24} color={tokens.text.secondary} />,
+            onPress: handlePlusCamera,
+          },
+          {
+            key: 'album',
+            label: t('home.addAlbum'),
+            icon: plusUploading ? (
+              <ActivityIndicator size="small" color={tokens.text.secondary} />
+            ) : (
+              <ImageIcon size={24} color={tokens.text.secondary} />
+            ),
+            onPress: () => void handlePlusAlbum(),
+          },
+          {
+            key: 'file',
+            label: t('home.addLocalFile'),
+            icon: <Folder size={24} color={tokens.text.secondary} />,
+            onPress: () => void handlePlusFile(),
+          },
+          {
+            key: 'wxfile',
+            label: t('home.addWxFile'),
+            icon: <MessageCircle size={24} color={tokens.text.secondary} />,
+            onPress: () => void handlePlusFile(),
+          },
+        ]}
+      />
+      {/* 悬浮栏(赚米/客服/反馈)由 App.tsx 的 GlobalFloatBox 单点渲染;
           此处曾另挂一份,两份同屏叠出双栏,且这份的「反馈」错跳 Settings。 */}
-        {/* Drawer 侧滑抽屉(对齐 Uniapp DrawerComponent,由 NavBar 菜单按钮触发) */}
-        <Drawer
-          visible={drawerVisible}
-          onClose={closeDrawer}
-          user={drawerUser}
-          conversations={[]}
-          onNavigate={handleDrawerNavigate}
-          onNavigateExtra={handleNavigateExtra}
-          onNavigateCompany={handleDrawerNavigateCompany}
-          onClaimFree={handleDrawerClaimFree}
-          onCreateNewChat={handleDrawerCreateNewChat}
-          onSelectConversation={handleDrawerSelectConversation}
-          onDeleteConversation={handleDrawerDeleteConversation}
-          onOpenSettings={handleDrawerOpenSettings}
-          onOpenMessages={handleDrawerOpenMessages}
-          onGoHome={handleDrawerGoHome}
-        />
-        {/* FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示) */}
-        <FloatBox
-          visible={toastVisible}
-          type={toastType}
-          message={toastMessage}
-          onHide={hideToast}
-        />
-        {/* ModelList Modal(对齐 web ModelSelector:底部 sheet + 弹窗内 8 分类 tab 切换模型列表)
-         *  入口:输入区模型钮/九宫格技能入口 → openModelModal(tab);选模型后填充输入区小标签 */}
-        <Modal
-          visible={showModelSelect}
-          transparent
-          animationType="slide"
-          onRequestClose={closeModelModal}
-          statusBarTranslucent
-        >
-          <View style={shellStyles.modelModalBackdrop}>
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onPress={closeModelModal}
-              accessibilityLabel={t('home.a11yCloseModels')}
-            />
-            <View style={shellStyles.modelModalSheet}>
-              {/* 拖拽指示条(iOS bottom-sheet 惯例,可下滑关闭) */}
-              <View style={shellStyles.modelModalGrabber} />
-              <View style={shellStyles.modelModalHeader}>
-                <View style={shellStyles.modelModalHeading}>
-                  <Text style={shellStyles.modelModalTitle} numberOfLines={1}>
-                    {t('home.modelSelectTitle')}
-                  </Text>
-                  <Text style={shellStyles.modelModalSubtitle} numberOfLines={1}>
-                    {modelSearch.trim()
-                      ? t('home.modelSelectSearchCount', { count: modalModelCount })
-                      : modelModalTab === 'skills'
-                        ? t('home.modelSelectAgentCount', { count: skillAgentItems.length })
-                        : t('home.modelSelectGroupCount', { count: modalModelCount })}
-                  </Text>
-                </View>
-                {/* 搜索开关(图标钮,2026-10-15 用户定:最右上一个图标,不带文字) */}
-                <Pressable
-                  onPress={() => {
-                    if (showModelSearch) {
-                      setShowModelSearch(false)
-                      setModelSearch('')
-                    } else {
-                      setShowModelSearch(true)
-                    }
-                  }}
-                  hitSlop={8}
-                  style={shellStyles.modelSearchToggle}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('home.a11yModelSearch')}
-                  accessibilityState={{ selected: showModelSearch }}
-                >
-                  <Search
-                    size={18}
-                    color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={closeModelModal}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('home.closeBtn')}
-                >
-                  <Text style={shellStyles.modelModalClose}>×</Text>
-                </Pressable>
-              </View>
-              {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
-              {showModelSearch ? (
-                <View style={[shellStyles.modelSearchBox, modelSearchFF.focusBorder]}>
-                  <Search size={16} color={tokens.text.tertiary} />
-                  <TextInput
-                    style={shellStyles.modelSearchInput}
-                    value={modelSearch}
-                    onChangeText={setModelSearch}
-                    onFocus={modelSearchFF.onFocus}
-                    onBlur={modelSearchFF.onBlur}
-                    placeholder={t('home.modelSearchPlaceholder')}
-                    placeholderTextColor={tokens.text.tertiary}
-                    returnKeyType="search"
-                    clearButtonMode="while-editing"
-                    accessibilityLabel={t('home.a11yModelSearchInput')}
-                  />
-                  {modelSearch ? (
-                    <Pressable
-                      onPress={() => setModelSearch('')}
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('home.a11yClearQuery')}
-                    >
-                      <Text style={shellStyles.modelSearchClear}>×</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              ) : null}
-              {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间发丝线分层 */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={shellStyles.modelModalTabRow}
-                contentContainerStyle={shellStyles.modelModalTabContent}
-              >
-                {modelTypeOptions.map((mt) => {
-                  const active = !modelSearch.trim() && modelModalTab === mt.type
-                  const Icon = mt.icon
-                  return (
-                    <Pressable
-                      key={mt.type}
-                      onPress={() => {
-                        setModelSearch('')
-                        setModelModalTab(mt.type)
-                      }}
-                      style={[shellStyles.modelModalTab, active && shellStyles.modelModalTabActive]}
-                      accessibilityRole="tab"
-                      accessibilityState={{ selected: active }}
-                      accessibilityLabel={mt.label}
-                    >
-                      <Icon
-                        size={14}
-                        color={active ? tokens.brand.ctaForeground : tokens.text.secondary}
-                      />
-                      <Text
-                        style={[
-                          shellStyles.modelModalTabText,
-                          active && shellStyles.modelModalTabActiveText,
-                        ]}
-                      >
-                        {mt.label}
-                      </Text>
-                    </Pressable>
-                  )
-                })}
-              </ScrollView>
-              {/* 技能 tab 渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);
-                搜索态跨全部分类渲染模型列表;其余 tab 渲染分类过滤后的模型列表 */}
-              {modelModalTab === 'skills' && !modelSearch.trim() ? (
-                <AgentList
-                  style={shellStyles.modelModalListBody}
-                  items={skillAgentItems}
-                  onItemClick={handleSkillAgentPress}
-                  isLoading={false}
-                  emptyText={t('home.noAgentsHint')}
-                />
-              ) : (
-                <ModelList
-                  style={shellStyles.modelModalListBody}
-                  groups={modalModelGroups}
-                  selectionMode="single"
-                  selectedIds={selectedModel ? [selectedModel.id] : []}
-                  onSelectChange={handleModelSelect}
-                />
-              )}
-            </View>
-          </View>
-        </Modal>
-        {/* MaterialList 素材弹窗(对齐 Uniapp showMaterialList → MaterialList「我的创作」,底部 sheet)
-         *  共享组件:MaterialList 自身不带 Modal,包裹 RN Modal 实现底部 sheet(对齐 BottomPopup 同款) */}
-        <Modal
-          visible={showMaterialList}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowMaterialList(false)}
-          statusBarTranslucent
-        >
-          <View style={shellStyles.materialBackdrop}>
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onPress={() => setShowMaterialList(false)}
-              accessibilityLabel={t('home.a11yCloseMatList')}
-            />
-            <View style={shellStyles.materialSheet}>
-              <View style={shellStyles.materialSheetBar}>
-                <Pressable
-                  onPress={() => setShowMaterialList(false)}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('home.closeBtn')}
-                >
-                  <Text style={shellStyles.materialSheetClose}>×</Text>
-                </Pressable>
-              </View>
-              <MaterialList
-                categories={materialCategories}
-                activeCategory={activeMaterialCategory}
-                onCategoryChange={handleMaterialCategoryChange}
-                items={materialItems}
-                onPress={handleMaterialPress}
-                onDelete={handleMaterialDelete}
-                onDetail={handleMaterialDetail}
-                loading={materialLoading}
-                hasMore={false}
-              />
-            </View>
-          </View>
-        </Modal>
-        {/* 素材详情弹窗(点击列表项「详情」→ getMyCreationDetail;居中对话框,参照 ChatScreen listDialog 模式) */}
-        <Modal
-          visible={materialDetailItem !== null}
-          transparent
-          animationType="fade"
-          onRequestClose={closeMaterialDetail}
-          statusBarTranslucent
-        >
-          <View style={shellStyles.detailDialogMask}>
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onPress={closeMaterialDetail}
-              accessibilityLabel={t('home.a11yCloseMatDetail')}
-            />
-            <View style={shellStyles.detailDialogContent}>
-              <View style={shellStyles.detailDialogHeader}>
-                <Text style={shellStyles.detailDialogTitle} numberOfLines={1}>
-                  {materialDetailItem?.title ?? t('home.matDetailFallback')}
-                </Text>
-                <Pressable
-                  onPress={closeMaterialDetail}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('home.closeBtn')}
-                >
-                  <Text style={shellStyles.detailDialogClose}>×</Text>
-                </Pressable>
-              </View>
-              <View style={shellStyles.detailDialogBody}>
-                {materialDetailLoading ? (
-                  <ActivityIndicator size="small" color={tokens.brand.DEFAULT} />
-                ) : materialDetailError ? (
-                  <View style={shellStyles.detailDialogErrorWrap}>
-                    <Text style={shellStyles.detailDialogErrorText}>{materialDetailError}</Text>
-                    <Pressable
-                      onPress={() => materialDetailItem && handleMaterialDetail(materialDetailItem)}
-                      style={shellStyles.detailDialogRetryBtn}
-                      accessibilityRole="button"
-                    >
-                      <Text style={shellStyles.detailDialogRetryText}>{t('home.retryText')}</Text>
-                    </Pressable>
-                  </View>
-                ) : materialDetailData ? (
-                  <ScrollView style={shellStyles.detailDialogScroll}>
-                    {MATERIAL_DETAIL_FIELDS.map((f) => {
-                      const value = formatDetailValue(
-                        materialDetailData[f.key],
-                        t('home.boolYes'),
-                        t('home.boolNo'),
-                      )
-                      if (!value) return null
-                      return (
-                        <View key={f.key} style={shellStyles.detailDialogFieldRow}>
-                          <Text style={shellStyles.detailDialogFieldLabel}>{t(f.label)}</Text>
-                          <Text style={shellStyles.detailDialogFieldValue}>{value}</Text>
-                        </View>
-                      )
-                    })}
-                  </ScrollView>
-                ) : null}
-              </View>
-            </View>
-          </View>
-        </Modal>
-        {/* ModelConfigDialog 模型参数配置弹窗(对齐 Uniapp showModelaConfig → ModelConfigDialog)
-         *  共享组件:内部自带 Modal;visible 控制显隐,modelType 映射自本屏 ModelType */}
-        <ModelConfigDialog
-          visible={showModelConfig}
-          modelType={selectedModel ? toConfigModelType(selectedModel.type) : 'text'}
-          config={modelConfig}
-          onChange={setModelConfig}
-          onClose={closeModelConfig}
-        />
-        {/* 二维码弹窗(对齐 Uniapp ai_index qr-code-modal:qewm.png 600rpx + 长按保存 + 关闭) */}
-        <Modal
-          visible={qrCodeVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setQrCodeVisible(false)}
-        >
+      {/* Drawer 侧滑抽屉(对齐 Uniapp DrawerComponent,由 NavBar 菜单按钮触发) */}
+      <Drawer
+        visible={drawerVisible}
+        onClose={closeDrawer}
+        user={drawerUser}
+        conversations={[]}
+        onNavigate={handleDrawerNavigate}
+        onNavigateExtra={handleNavigateExtra}
+        onNavigateCompany={handleDrawerNavigateCompany}
+        onClaimFree={handleDrawerClaimFree}
+        onCreateNewChat={handleDrawerCreateNewChat}
+        onSelectConversation={handleDrawerSelectConversation}
+        onDeleteConversation={handleDrawerDeleteConversation}
+        onOpenSettings={handleDrawerOpenSettings}
+        onOpenMessages={handleDrawerOpenMessages}
+        onGoHome={handleDrawerGoHome}
+      />
+      {/* FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示) */}
+      <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
+      {/* ModelList Modal(对齐 web ModelSelector:底部 sheet + 弹窗内 8 分类 tab 切换模型列表)
+       *  入口:输入区模型钮/九宫格技能入口 → openModelModal(tab);选模型后填充输入区小标签 */}
+      <Modal
+        visible={showModelSelect}
+        transparent
+        animationType="slide"
+        onRequestClose={closeModelModal}
+        statusBarTranslucent
+      >
+        <View style={shellStyles.modelModalBackdrop}>
           <Pressable
-            style={shellStyles.modalMask}
-            onPress={() => setQrCodeVisible(false)}
-            accessibilityRole="button"
-            accessibilityLabel={t('home.closeBtn')}
-          >
-            <Pressable style={shellStyles.qrContent} onPress={(e) => e.stopPropagation()}>
+            style={StyleSheet.absoluteFill}
+            onPress={closeModelModal}
+            accessibilityLabel={t('home.a11yCloseModels')}
+          />
+          <View style={shellStyles.modelModalSheet}>
+            {/* 拖拽指示条(iOS bottom-sheet 惯例,可下滑关闭) */}
+            <View style={shellStyles.modelModalGrabber} />
+            <View style={shellStyles.modelModalHeader}>
+              <View style={shellStyles.modelModalHeading}>
+                <Text style={shellStyles.modelModalTitle} numberOfLines={1}>
+                  {t('home.modelSelectTitle')}
+                </Text>
+                <Text style={shellStyles.modelModalSubtitle} numberOfLines={1}>
+                  {modelSearch.trim()
+                    ? t('home.modelSelectSearchCount', { count: modalModelCount })
+                    : modelModalTab === 'skills'
+                      ? t('home.modelSelectAgentCount', { count: skillAgentItems.length })
+                      : t('home.modelSelectGroupCount', { count: modalModelCount })}
+                </Text>
+              </View>
+              {/* 搜索开关(图标钮,2026-10-15 用户定:最右上一个图标,不带文字) */}
               <Pressable
-                onLongPress={() => void handleLongPressQrCode()}
-                delayLongPress={500}
-                accessibilityRole="imagebutton"
-                accessibilityLabel={t('home.qrLongPressA11y')}
-              >
-                <Image source={QrCodeImage} style={shellStyles.qrImage} resizeMode="contain" />
-              </Pressable>
-              <Text style={shellStyles.qrTitle}>{t('home.qrHint')}</Text>
-              <Pressable
+                onPress={() => {
+                  if (showModelSearch) {
+                    setShowModelSearch(false)
+                    setModelSearch('')
+                  } else {
+                    setShowModelSearch(true)
+                  }
+                }}
                 hitSlop={8}
-                onPress={() => setQrCodeVisible(false)}
-                style={shellStyles.qrClose}
+                style={shellStyles.modelSearchToggle}
+                accessibilityRole="button"
+                accessibilityLabel={t('home.a11yModelSearch')}
+                accessibilityState={{ selected: showModelSearch }}
+              >
+                <Search
+                  size={18}
+                  color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
+                />
+              </Pressable>
+              <Pressable
+                onPress={closeModelModal}
+                hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t('home.closeBtn')}
               >
-                <Text style={shellStyles.qrCloseText}>×</Text>
+                <Text style={shellStyles.modelModalClose}>×</Text>
               </Pressable>
+            </View>
+            {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
+            {showModelSearch ? (
+              <View style={[shellStyles.modelSearchBox, modelSearchFF.focusBorder]}>
+                <Search size={16} color={tokens.text.tertiary} />
+                <TextInput
+                  style={shellStyles.modelSearchInput}
+                  value={modelSearch}
+                  onChangeText={setModelSearch}
+                  onFocus={modelSearchFF.onFocus}
+                  onBlur={modelSearchFF.onBlur}
+                  placeholder={t('home.modelSearchPlaceholder')}
+                  placeholderTextColor={tokens.text.tertiary}
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                  accessibilityLabel={t('home.a11yModelSearchInput')}
+                />
+                {modelSearch ? (
+                  <Pressable
+                    onPress={() => setModelSearch('')}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('home.a11yClearQuery')}
+                  >
+                    <Text style={shellStyles.modelSearchClear}>×</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+            {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间发丝线分层 */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={shellStyles.modelModalTabRow}
+              contentContainerStyle={shellStyles.modelModalTabContent}
+            >
+              {modelTypeOptions.map((mt) => {
+                const active = !modelSearch.trim() && modelModalTab === mt.type
+                const Icon = mt.icon
+                return (
+                  <Pressable
+                    key={mt.type}
+                    onPress={() => {
+                      setModelSearch('')
+                      setModelModalTab(mt.type)
+                    }}
+                    style={[shellStyles.modelModalTab, active && shellStyles.modelModalTabActive]}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={mt.label}
+                  >
+                    <Icon
+                      size={14}
+                      color={active ? tokens.brand.ctaForeground : tokens.text.secondary}
+                    />
+                    <Text
+                      style={[
+                        shellStyles.modelModalTabText,
+                        active && shellStyles.modelModalTabActiveText,
+                      ]}
+                    >
+                      {mt.label}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </ScrollView>
+            <View style={shellStyles.modelModalHairline} />
+            {/* 技能 tab 渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);
+                搜索态跨全部分类渲染模型列表;其余 tab 渲染分类过滤后的模型列表 */}
+            {modelModalTab === 'skills' && !modelSearch.trim() ? (
+              <AgentList
+                style={shellStyles.modelModalListBody}
+                items={skillAgentItems}
+                onItemClick={handleSkillAgentPress}
+                isLoading={false}
+                emptyText={t('home.noAgentsHint')}
+              />
+            ) : (
+              <ModelList
+                style={shellStyles.modelModalListBody}
+                groups={modalModelGroups}
+                selectionMode="single"
+                selectedIds={selectedModel ? [selectedModel.id] : []}
+                onSelectChange={handleModelSelect}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+      {/* MaterialList 素材弹窗(对齐 Uniapp showMaterialList → MaterialList「我的创作」,底部 sheet)
+       *  共享组件:MaterialList 自身不带 Modal,包裹 RN Modal 实现底部 sheet(对齐 BottomPopup 同款) */}
+      <Modal
+        visible={showMaterialList}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMaterialList(false)}
+        statusBarTranslucent
+      >
+        <View style={shellStyles.materialBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowMaterialList(false)}
+            accessibilityLabel={t('home.a11yCloseMatList')}
+          />
+          <View style={shellStyles.materialSheet}>
+            <View style={shellStyles.materialSheetBar}>
+              <Pressable
+                onPress={() => setShowMaterialList(false)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('home.closeBtn')}
+              >
+                <Text style={shellStyles.materialSheetClose}>×</Text>
+              </Pressable>
+            </View>
+            <MaterialList
+              categories={materialCategories}
+              activeCategory={activeMaterialCategory}
+              onCategoryChange={handleMaterialCategoryChange}
+              items={materialItems}
+              onPress={handleMaterialPress}
+              onDelete={handleMaterialDelete}
+              onDetail={handleMaterialDetail}
+              loading={materialLoading}
+              hasMore={false}
+            />
+          </View>
+        </View>
+      </Modal>
+      {/* 素材详情弹窗(点击列表项「详情」→ getMyCreationDetail;居中对话框,参照 ChatScreen listDialog 模式) */}
+      <Modal
+        visible={materialDetailItem !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeMaterialDetail}
+        statusBarTranslucent
+      >
+        <View style={shellStyles.detailDialogMask}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={closeMaterialDetail}
+            accessibilityLabel={t('home.a11yCloseMatDetail')}
+          />
+          <View style={shellStyles.detailDialogContent}>
+            <View style={shellStyles.detailDialogHeader}>
+              <Text style={shellStyles.detailDialogTitle} numberOfLines={1}>
+                {materialDetailItem?.title ?? t('home.matDetailFallback')}
+              </Text>
+              <Pressable
+                onPress={closeMaterialDetail}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('home.closeBtn')}
+              >
+                <Text style={shellStyles.detailDialogClose}>×</Text>
+              </Pressable>
+            </View>
+            <View style={shellStyles.detailDialogBody}>
+              {materialDetailLoading ? (
+                <ActivityIndicator size="small" color={tokens.brand.DEFAULT} />
+              ) : materialDetailError ? (
+                <View style={shellStyles.detailDialogErrorWrap}>
+                  <Text style={shellStyles.detailDialogErrorText}>{materialDetailError}</Text>
+                  <Pressable
+                    onPress={() => materialDetailItem && handleMaterialDetail(materialDetailItem)}
+                    style={shellStyles.detailDialogRetryBtn}
+                    accessibilityRole="button"
+                  >
+                    <Text style={shellStyles.detailDialogRetryText}>{t('home.retryText')}</Text>
+                  </Pressable>
+                </View>
+              ) : materialDetailData ? (
+                <ScrollView style={shellStyles.detailDialogScroll}>
+                  {MATERIAL_DETAIL_FIELDS.map((f) => {
+                    const value = formatDetailValue(
+                      materialDetailData[f.key],
+                      t('home.boolYes'),
+                      t('home.boolNo'),
+                    )
+                    if (!value) return null
+                    return (
+                      <View key={f.key} style={shellStyles.detailDialogFieldRow}>
+                        <Text style={shellStyles.detailDialogFieldLabel}>{t(f.label)}</Text>
+                        <Text style={shellStyles.detailDialogFieldValue}>{value}</Text>
+                      </View>
+                    )
+                  })}
+                </ScrollView>
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* ModelConfigDialog 模型参数配置弹窗(对齐 Uniapp showModelaConfig → ModelConfigDialog)
+       *  共享组件:内部自带 Modal;visible 控制显隐,modelType 映射自本屏 ModelType */}
+      <ModelConfigDialog
+        visible={showModelConfig}
+        modelType={selectedModel ? toConfigModelType(selectedModel.type) : 'text'}
+        config={modelConfig}
+        onChange={setModelConfig}
+        onClose={closeModelConfig}
+      />
+      {/* 二维码弹窗(对齐 Uniapp ai_index qr-code-modal:qewm.png 600rpx + 长按保存 + 关闭) */}
+      <Modal
+        visible={qrCodeVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQrCodeVisible(false)}
+      >
+        <Pressable
+          style={shellStyles.modalMask}
+          onPress={() => setQrCodeVisible(false)}
+          accessibilityRole="button"
+          accessibilityLabel={t('home.closeBtn')}
+        >
+          <Pressable style={shellStyles.qrContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable
+              onLongPress={() => void handleLongPressQrCode()}
+              delayLongPress={500}
+              accessibilityRole="imagebutton"
+              accessibilityLabel={t('home.qrLongPressA11y')}
+            >
+              <Image source={QrCodeImage} style={shellStyles.qrImage} resizeMode="contain" />
+            </Pressable>
+            <Text style={shellStyles.qrTitle}>{t('home.qrHint')}</Text>
+            <Pressable
+              hitSlop={8}
+              onPress={() => setQrCodeVisible(false)}
+              style={shellStyles.qrClose}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.closeBtn')}
+            >
+              <Text style={shellStyles.qrCloseText}>×</Text>
             </Pressable>
           </Pressable>
-        </Modal>
-        {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup)
-         *  2026-10-15 深度重构:抽共享组件 ShareRewardDialog(金渐变纪念币 Hero +
-         *  brandAccent 渐变 CTA),Home/Chat 两屏统一;渲染容器病理说明见组件头注释 */}
-        <ShareRewardDialog
-          visible={rewardDialogVisible}
-          reward={shareFirstReward}
-          onClaim={handleClaimShareReward}
-          onClose={closeRewardDialog}
-          secondaryLabel={t('home.shareRewardLater')}
-        />
-        {/* AiModelCard 分享面板(2026-10-15 接线;2026-10-20 泛化:智能体卡随卡设置标题/描述) */}
-        <ShareSheet
-          visible={assistantShareVisible}
-          onClose={() => setAssistantShareVisible(false)}
-          shareTitle={cardShareTarget?.title ?? t('home.shareDefaultTitle')}
-          shareDescription={cardShareTarget?.description ?? t('home.shareDefaultDesc')}
-          onNotify={(type, message) => showToast(type, message)}
-        />
-        {/* 分享面板(导航栏「分享」触发;微信原生分享 + web 复制链接降级,见组件头注释) */}
-        <ShareSheet
-          visible={shareSheetVisible}
-          onClose={() => setShareSheetVisible(false)}
-          onNotify={showToast}
-        />
-        {/* 搜索弹窗(2026-10-15 与 web 端一致:NavBar 搜索钮 + 九宫格「搜索」统一开此弹层,
-         *  遮罩 + 三段面板(历史/热门/联想),弹窗内直接出结果) */}
-        <SearchOverlay
-          visible={searchOverlayVisible}
-          onClose={() => setSearchOverlayVisible(false)}
-        />
-        {/* 底部玻璃停靠区(2026-10-16 用户定稿「整个底部菜单栏液态玻璃、内容若隐若现」):
+        </Pressable>
+      </Modal>
+      {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup)
+       *  2026-10-15 深度重构:抽共享组件 ShareRewardDialog(金渐变纪念币 Hero +
+       *  brandAccent 渐变 CTA),Home/Chat 两屏统一;渲染容器病理说明见组件头注释 */}
+      <ShareRewardDialog
+        visible={rewardDialogVisible}
+        reward={shareFirstReward}
+        onClaim={handleClaimShareReward}
+        onClose={closeRewardDialog}
+        secondaryLabel={t('home.shareRewardLater')}
+      />
+      {/* AiModelCard 分享面板(2026-10-15 接线;2026-10-20 泛化:智能体卡随卡设置标题/描述) */}
+      <ShareSheet
+        visible={assistantShareVisible}
+        onClose={() => setAssistantShareVisible(false)}
+        shareTitle={cardShareTarget?.title ?? t('home.shareDefaultTitle')}
+        shareDescription={cardShareTarget?.description ?? t('home.shareDefaultDesc')}
+        onNotify={(type, message) => showToast(type, message)}
+      />
+      {/* 分享面板(导航栏「分享」触发;微信原生分享 + web 复制链接降级,见组件头注释) */}
+      <ShareSheet
+        visible={shareSheetVisible}
+        onClose={() => setShareSheetVisible(false)}
+        onNotify={showToast}
+      />
+      {/* 搜索弹窗(2026-10-15 与 web 端一致:NavBar 搜索钮 + 九宫格「搜索」统一开此弹层,
+       *  遮罩 + 三段面板(历史/热门/联想),弹窗内直接出结果) */}
+      <SearchOverlay
+        visible={searchOverlayVisible}
+        onClose={() => setSearchOverlayVisible(false)}
+      />
+      {/* 底部玻璃停靠区(2026-10-16 用户定稿「整个底部菜单栏液态玻璃、内容若隐若现」):
           输入区 + 底部导航胶囊整块绝对定位悬浮在内容之上,玻璃底(glass.bg 半透明 +
           web 预览 backdrop blur);停靠区实测高度回灌 ScrollView 预留,内容滚到底下若隐若现。 */}
-        <View
-          style={shellStyles.bottomDock}
-          onLayout={(e) => setDockHeight(e.nativeEvent.layout.height)}
-        >
-          {/* 素材卡片行(对齐 Uniapp material-cards-wrap:每卡右上 × 移除;数据源 materialCards
-           *  由 handleMaterialPress 写入)。2026-10-27 由页面根容器迁入停靠区:它是输入框的附件行,
-           *  挂在 ScrollView 之后会落到屏幕最底边(胶囊下面);停靠区高度经 onLayout 回灌
-           *  ScrollView 预留,内容不会与它叠字。 */}
-          {materialCards.length > 0 ? (
-            <View style={shellStyles.materialCardsWrap}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={shellStyles.materialCardsRow}>
-                  {materialCards.map((card) => (
-                    <View key={card.uid} style={shellStyles.materialCardItem}>
-                      <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
-                        {card.title}
-                      </Text>
-                      <Pressable
-                        onPress={() => handleRemoveMaterialCard(card.uid)}
-                        hitSlop={8}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('home.a11yRemoveMat')}
-                      >
-                        <Text style={shellStyles.materialCardClose}>×</Text>
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-          ) : null}
-          {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分)
-           *  常驻输入栏(2026-09-22 用户明令去掉折叠 FAB 加号球:collapsible/defaultCollapsed 均不传,
-           *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
-           *  大输入框(2026-09-22 用户定稿):麦克风+文本+发送同框,长按麦克风「按住说出你的问题」。
-           *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2)。
-           *  transparentBackground:底色/顶描边由停靠区玻璃统一提供(2026-10-16)。 */}
-          <InputArea
-            // D43 语音笔记 RN 腿接线(2026-10-24 复挂:ChatScreen 同款经 voiceNoteNode 槽传入;
-            // 此前某轮 HomeScreen 重构把挂载丢了,voice-note-mount 契约三例钉红)
-            voiceNoteNode={
-              <VoiceNote
-                conversationId={null}
-                onInsert={(text) =>
-                  setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))
-                }
-              />
-            }
-            value={inputValue}
-            onChangeText={setInputValue}
-            placeholder={t('home.inputPlaceholder')}
-            onSubmit={handleInputSubmit}
-            showVoiceMic
-            voiceRecording={voiceRecorder.recording}
-            voiceTranscribing={voiceRecorder.transcribing}
-            voiceDuration={voiceRecorder.duration}
-            onVoiceStart={voiceRecorder.start}
-            onVoiceEnd={() => void voiceRecorder.stop()}
-            onPlusToggle={handlePlusToggle}
-            plusActive={plusPanelVisible}
-            // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
-            // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
-            onOpenModelSelect={() => openModelModal()}
-            selectedModelName={selectedModel?.name ?? null}
-            onClearModel={handleClearModel}
-            onOpenModelConfig={() => setShowModelConfig(true)}
-            transparentBackground
-          />
-          {/* 悬浮胶囊让位区:透明,停靠区玻璃透出;TabBar 绝对定位在其中浮起 */}
-          <View style={{ height: tabBarDockSpacer(insets.bottom) }} />
-        </View>
-      </BlurTargetView>
-      <TabBar activeTab="home" onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
+      <View
+        style={shellStyles.bottomDock}
+        onLayout={(e) => setDockHeight(e.nativeEvent.layout.height)}
+      >
+        {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分)
+         *  常驻输入栏(2026-09-22 用户明令去掉折叠 FAB 加号球:collapsible/defaultCollapsed 均不传,
+         *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
+         *  大输入框(2026-09-22 用户定稿):麦克风+文本+发送同框,长按麦克风「按住说出你的问题」。
+         *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2)。
+         *  transparentBackground:底色/顶描边由停靠区玻璃统一提供(2026-10-16)。 */}
+        <InputArea
+          value={inputValue}
+          onChangeText={setInputValue}
+          placeholder={t('home.inputPlaceholder')}
+          onSubmit={handleInputSubmit}
+          showVoiceMic
+          voiceRecording={voiceRecorder.recording}
+          voiceTranscribing={voiceRecorder.transcribing}
+          voiceDuration={voiceRecorder.duration}
+          onVoiceStart={voiceRecorder.start}
+          onVoiceEnd={() => void voiceRecorder.stop()}
+          onPlusToggle={handlePlusToggle}
+          plusActive={plusPanelVisible}
+          // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
+          // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
+          onOpenModelSelect={() => openModelModal()}
+          selectedModelName={selectedModel?.name ?? null}
+          onClearModel={handleClearModel}
+          onOpenModelConfig={() => setShowModelConfig(true)}
+          // D43 票③ RN 大输入框挂载位(2026-10-23 强制令到终态的顺延格,与 ChatScreen
+          // L3025 同形):首页尚未开会话 ⇒ conversationId 恒 null,归档笔记标"无会话";
+          // 「插入对话」= 追加进本页输入框既有通道(setInputValue),提交时随消息带过去。
+          voiceNoteNode={
+            <VoiceNote
+              conversationId={null}
+              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
+            />
+          }
+          transparentBackground
+        />
+        {/* 悬浮胶囊让位区:透明,停靠区玻璃透出;TabBar 绝对定位在其中浮起 */}
+        <View style={{ height: tabBarDockSpacer(insets.bottom) }} />
+        <TabBar activeTab="home" onChange={handleTabChange} />
+      </View>
     </View>
   )
 }
@@ -2544,8 +2593,17 @@ const shellStyles = {
   //  不同脸;端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。 ──
   // ── ModelTypeBar 模型类型选择栏样式已随外挂选择栏移除(2026-10-15 用户重构:
   //  分类收进 InputArea 大输入框,样式随迁至 InputArea.tsx catChip 族) ──
-  // ── creationEntry 我的创作入口样式已随入口移除(2026-10-27:入口收进 AddPanel heroItem,
-  //  与 ChatScreen 同源;原样式挂在 ScrollView 之后的普通流位置,会落到屏幕最底边) ──
+  // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
+  creationEntry: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
+  } as const,
+  creationEntryText: {
+    fontSize: 13,
+    color: tokens.brand.DEFAULT,
+    fontWeight: '600',
+  } as const,
   // ── 素材卡片行(对齐 Uniapp material-cards-wrap:卡片带标题 + 右上 × 移除,compact 风格) ──
   materialCardsWrap: {
     paddingHorizontal: rpx(24),
@@ -2571,7 +2629,7 @@ const shellStyles = {
     color: tokens.text.primary,
   } as const,
   materialCardClose: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 18,
     color: tokens.text.tertiary,
     fontWeight: '400',
@@ -2632,7 +2690,7 @@ const shellStyles = {
   detailDialogTitle: {
     flex: 1,
     marginRight: rpx(16),
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '600',
     color: tokens.text.primary,
   } as const,
@@ -2714,7 +2772,7 @@ const shellStyles = {
   } as const,
   modelModalTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   } as const,
@@ -2725,7 +2783,7 @@ const shellStyles = {
     fontWeight: '300',
     paddingHorizontal: rpx(8),
   } as const,
-  // ── 弹窗深化(2026-10-15):把手 + 副标题计数 + 分类 tab + 搜索 ──
+  // ── 弹窗深化(2026-10-15):把手 + 副标题计数 + 分类 tab + 发丝线 + 搜索 ──
   modelModalGrabber: {
     alignSelf: 'center',
     width: rpx(72),
@@ -2739,7 +2797,7 @@ const shellStyles = {
     paddingRight: rpx(16),
   } as const,
   modelModalSubtitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
     marginTop: 2,
   } as const,
@@ -2790,6 +2848,11 @@ const shellStyles = {
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as const,
+  modelModalHairline: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: tokens.border.light,
+    marginHorizontal: rpx(32),
+  } as const,
   // ── 弹窗内搜索(头部图标开关 + 展开态胶囊输入框)──
   modelSearchToggle: {
     width: rpx(56),
@@ -2812,13 +2875,13 @@ const shellStyles = {
   } as const,
   modelSearchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
     // RN web 端 TextInput 默认内边距偏大,压平与图标同行
     paddingVertical: 0,
   } as const,
   modelSearchClear: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     lineHeight: 20,
     color: tokens.text.tertiary,
     paddingHorizontal: rpx(8),
@@ -2847,7 +2910,7 @@ const shellStyles = {
   } as const,
   qrTitle: {
     marginTop: rpx(20),
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
     textAlign: 'center',
@@ -2856,10 +2919,10 @@ const shellStyles = {
     position: 'absolute',
     top: 10,
     right: 14,
-    padding: 4,
+    padding: rnSpacing.xs,
   } as const,
   qrCloseText: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
     lineHeight: 26,
     color: tokens.text.tertiary,
     fontWeight: '300',

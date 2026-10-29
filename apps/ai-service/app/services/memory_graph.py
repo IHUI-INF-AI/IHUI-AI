@@ -26,12 +26,6 @@ import asyncpg
 
 logger = logging.getLogger(__name__)
 
-# `asyncio.create_task` 的返回值若不被任何地方持有,事件循环只握**弱引用** —— 任务可能
-# 跑到一半被 GC,表现正是"抽取偶尔什么都没发生且无报错"(CPython asyncio 文档明写的陷阱;
-# 本仓 knowledge_card_extractor.py 已把这写成明文纪律,audit_service 是同模式活例)。
-# fire-and-forget 的语义不变:主流程零感知,但任务必须被持到完成。
-_pending_extract_tasks: set[asyncio.Task[Any]] = set()
-
 # 抽取时取最近记忆条数(控制 prompt 长度与 LLM 成本)
 EXTRACT_WINDOW = 20
 # 单轮抽取超时(s)——超时放弃本轮,不影响记忆主功能
@@ -216,17 +210,9 @@ async def query_graph(owner_uuid: str, query: str) -> dict[str, Any]:
 
 
 def fire_and_forget_extract(owner_uuid: str) -> None:
-    """记忆写入后的异步抽取入口(fire-and-forget;主流程零感知)。
-
-    2026-10-25 收口:原先 `asyncio.create_task(...)` 返回值直接丢弃 —— 事件循环对任务只握
-    弱引用,GC 何时收走全看内存压力,症状正是"图谱偶尔不更新且零报错"(与导出清单同型)。
-    改为持强引用到完成(audit_service/knowledge_card_extractor 的屋内模式)。
-    """
+    """记忆写入后的异步抽取入口(fire-and-forget;主流程零感知)。"""
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
+        asyncio.create_task(extract_and_store_edges(owner_uuid))
     except RuntimeError:
         logger.warning("memory_graph: 无 running loop,跳过异步抽取")
-        return
-    task = loop.create_task(extract_and_store_edges(owner_uuid))
-    _pending_extract_tasks.add(task)
-    task.add_done_callback(_pending_extract_tasks.discard)

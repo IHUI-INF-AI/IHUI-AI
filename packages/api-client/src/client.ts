@@ -1699,14 +1699,6 @@ export interface ReasoningEffortNotice {
   reason?: string
 }
 
-/** D09(2026-10-24 立):专家包自动路由档位(设置项三档)。
- *  - `hint`(默认):只回一帧"命中了哪个专家包",不改工具与系统提示;
- *  - `auto`:命中时把专家包工具白名单与系统提示并入本次请求;
- *  - `off`:不分类、不提示。
- *  undefined = 不发该字段,由部署方 env(IHUI_EXPERT_AUTO_ROUTE)或后端默认档裁定
- *  ⇒ 旧客户端 / 未表态用户零行为变化。 */
-export type ExpertAutoRouteMode = 'off' | 'hint' | 'auto'
-
 export interface StreamChatOptions {
   model: string
   // role 含 'tool':与 @ihui/context-compaction 的 ChatMessage 及 OpenAI 兼容协议对齐
@@ -1792,10 +1784,6 @@ export interface StreamChatOptions {
    *  值域 = @ihui/types 的封闭联合,端内不得再写字面量数组。undefined = 不发该字段,
    *  后端按既有默认档处理 ⇒ 旧客户端零行为变化。 */
   reasoningEffort?: ReasoningEffort
-  /** D09(2026-10-24 立):专家包自动路由档位(web 设置项)。camel 入网关,网关转 snake
-   *  `expert_auto_route` 出到 ai-service(与 reasoningEffort 同区同形)。
-   *  undefined = 不发该字段 ⇒ 部署方 env(IHUI_EXPERT_AUTO_ROUTE)或后端默认档生效。 */
-  expertAutoRoute?: ExpertAutoRouteMode
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
    * 由 use-chat.ts 调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
   contextLimit?: number
@@ -1908,9 +1896,6 @@ export interface StreamChatOptions {
    *  静默丢弃 ⇒ 半截回答与完整回答在端上完全同形。收到本帧时已到达正文**有效**,
    *  但必须如实告知用户"回答被截断",不得当作完整回答收束。 */
   onPartialDone?: (event: PartialDoneEvent) => void
-  /** D115(2026-10-23):review 模式的结构化 finding 帧(review-finding)。一 finding 一帧,
-   *  端上按严重度分组渲染并定位到 文件:行;未注册回调时**不解析**(与其余 per-field 同口径)。 */
-  onReviewFinding?: (event: ReviewFindingEvent) => void
   /**
    * G-425(2026-10-07 立,默认档"只提示"):done 帧携带的上游 finish/stop reason
    * (OpenAI 系 `length`/`stop`;Gemini 原生 `STOP`/`MAX_TOKENS`)。与 onMemoryUpdates
@@ -2109,9 +2094,6 @@ export function parseStreamLine(line: string): string | null {
     // 意义恰是"半截回答 ≠ 完整回答",静默丢弃 = 该帧要防的混淆继续发生。
     // 显式分流是不依赖兜底行为的写法(与 usage/steer/budget 同一姿势)。
     if (json?.type === 'partial_done') return null
-    // D115(2026-10-23):review-finding 走专用通道(onReviewFinding)。本帧无 content/text,
-    // 兜底抽取链本会返回 null;显式分流与 usage/steer/budget 同一姿势,不依赖兜底行为。
-    if (json?.type === 'review-finding') return null
     // D34(2026-09-22 立):运行环境交代帧必须显式分流。injection_applied 带 collapsed/fullText、
     // retry_scheduled 带 message —— 不拦截会被下方兜底抽取链喷进正文增量,
     // 历史坑位与 usage/steer/budget 同一处。
@@ -2327,39 +2309,6 @@ export interface PartialDoneEvent {
   /** 本轮实际使用的模型(可缺省) */
   model?: string
 }
-
-/**
- * D115(2026-10-23,G-229):review 模式的结构化 finding 帧(review-finding)。
- *
- * 契约声明唯一事实源在 `packages/shared/src/sse/contract.ts` 的
- * `SSEEventPayload` 成员;生产点 `apps/ai-service/app/core/review_findings.py`
- * 的 `build_review_finding_frames`。本接口是该契约在本包的**投影**,不是第二份
- * schema(本包零依赖包边界,不 import @ihui/shared,与 PartialDoneEvent 同姿势)。
- */
-export interface ReviewFindingEvent {
-  /** 本次审查内的稳定标识(`rf-<序号>`,重连重放时同序) */
-  findingId: string
-  /** 1-based 序号与总数(端上据此显示"第 i/n 条",total=0 的帧不存在) */
-  index: number
-  total: number
-  /** 严重度三档封闭集(与 shared 契约同值:P1 阻塞 / P2 建议 / Nit 细节) */
-  severity: ReviewFindingSeverity
-  /** 仓库相对路径 */
-  file: string
-  /** 新文件里的 1-based 行号;0 = 整文件级 finding(端上只显示文件) */
-  line: number
-  /** 一句话结论 */
-  title: string
-  /** 为什么是问题(可为空串) */
-  detail: string
-  /** 一行修复建议(可为空串) */
-  suggestion: string
-  /** 审查对象描述(如 `uncommitted` / `branch:main` / `commit:abc1234`),可缺省 */
-  target?: string
-}
-
-/** review-finding 的严重度域(与 shared 契约的 `'P1' | 'P2' | 'Nit'` 同值)。 */
-export type ReviewFindingSeverity = 'P1' | 'P2' | 'Nit'
 
 /**
  * G-425(2026-10-07 立,默认档"只提示"):done 帧的 finish/stop reason 透传事件。
@@ -3675,9 +3624,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // D130(2026-09-30 立):推理强度档位。仅字段存在时写入(与 permissionMode 同形):
   // undefined 不进 body ⇒ 后端走默认档,旧客户端零行为变化。
   if (opts.reasoningEffort !== undefined) body.reasoningEffort = opts.reasoningEffort
-  // D09(2026-10-24 立):专家包自动路由档位。仅字段存在时写入(与 reasoningEffort 同形):
-  // undefined 不进 body ⇒ 没表态的用户沿用后端默认 hint / 部署方 env 档位。
-  if (opts.expertAutoRoute !== undefined) body.expertAutoRoute = opts.expertAutoRoute
   if (opts.extraBody) Object.assign(body, opts.extraBody)
   // 2026-08-15 立:streamChat 默认流式,后端 detectStreamUsage 依赖 request.stream===true 才启用 usage chunk。
   // 默认 true,允许 extraBody 或显式 opts.stream 覆盖为 false。
@@ -3735,8 +3681,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasBudget = typeof opts.onBudget === 'function'
     // G-815976(2026-10-04 收口入契约):流式中断标记帧;未注册回调不解析
     const hasPartialDone = typeof opts.onPartialDone === 'function'
-    // D115(2026-10-23):review 模式结构化 finding 帧;未注册回调不解析(同口径)
-    const hasReviewFinding = typeof opts.onReviewFinding === 'function'
     // G-425(2026-10-07 立):done 帧携带 finishReason(截断提示数据源;未注册回调不解析)
     const hasFinishReason = typeof opts.onFinishReason === 'function'
     // D155(2026-09-29 立):下行告警三档;未注册回调不解析(与其余 per-field 同口径)
@@ -4724,54 +4668,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     }
 
     /**
-     * D115(2026-10-23,G-229):review 模式结构化 finding 帧解析。
-     *
-     * 生产端已把 `<review-findings>` JSON 块投影成逐条帧(一 finding 一帧),
-     * 本解析器是端上唯一入口 —— 此前白名单无此类型,帧在 routeLineByType 的
-     * default 分支无声消失(正是"生产了却没人看"那一型)。
-     * 判据:`findingId`/`file` 非空串、`severity` ∈ 三档封闭集、`line` 为有限数;
-     * 任一不满足即丢帧(不猜档位、不落正文)。`line=0` 是整文件级,原样保留。
-     */
-    const tryParseReviewFinding = (line: string): void => {
-      if (!hasReviewFinding) return
-      if (!line || line.startsWith(':')) return
-      let data = line
-      if (line.startsWith('data:')) {
-        data = line.slice(5).replace(/^\s/, '')
-      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
-        return
-      }
-      if (!data || data === '[DONE]') return
-      try {
-        const json = JSON.parse(data) as Record<string, unknown>
-        if (json?.type !== 'review-finding') return
-        const findingId = json.findingId
-        const file = json.file
-        const severity = json.severity
-        if (typeof findingId !== 'string' || findingId === '') return
-        if (typeof file !== 'string' || file === '') return
-        if (severity !== 'P1' && severity !== 'P2' && severity !== 'Nit') return
-        const rawLine = json.line
-        if (typeof rawLine !== 'number' || !Number.isFinite(rawLine)) return
-        const event: ReviewFindingEvent = {
-          findingId,
-          index: typeof json.index === 'number' ? json.index : 0,
-          total: typeof json.total === 'number' ? json.total : 0,
-          severity,
-          file,
-          line: rawLine > 0 ? Math.floor(rawLine) : 0,
-          title: typeof json.title === 'string' ? json.title : '',
-          detail: typeof json.detail === 'string' ? json.detail : '',
-          suggestion: typeof json.suggestion === 'string' ? json.suggestion : '',
-          ...(typeof json.target === 'string' && json.target !== '' ? { target: json.target } : {}),
-        }
-        opts.onReviewFinding!(event)
-      } catch {
-        /* 非 JSON 或非 review-finding 事件忽略 */
-      }
-    }
-
-    /**
      * D155(2026-09-29 立)下行告警三档解析(契约见 shared contract.ts 的
      * SSE_ALERT_EVENTS 段)。与 tryParseBudget 同构,但三档共用一条归一纪律:
      * `type` 命中 + `message` 非空串 ⇒ 收帧;severity 表外/缺省**回退 'warning'**
@@ -5082,9 +4978,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           // G-815976(2026-10-04 收口入契约):流式中断标记帧
           case 'partial_done':
             return 'partial_done'
-          // D115(2026-10-23):review 模式结构化 finding 帧(一 finding 一帧)
-          case 'review-finding':
-            return 'review_finding'
           // D155(2026-09-29 立):下行告警三档(配置告警/弃用预告/守护告警)
           case 'config-warning':
             return 'config-warning'
@@ -5160,8 +5053,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseBudget(line)
       } else if (route === 'partial_done') {
         tryParsePartialDone(line)
-      } else if (route === 'review_finding') {
-        tryParseReviewFinding(line)
       } else if (route === 'config-warning') {
         tryParseConfigWarning(line)
       } else if (route === 'deprecation-notice') {
@@ -5199,7 +5090,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseSteer(line)
         tryParseBudget(line)
         tryParsePartialDone(line)
-        tryParseReviewFinding(line)
         tryParseConfigWarning(line)
         tryParseDeprecationNotice(line)
         tryParseGuardianWarning(line)

@@ -683,9 +683,8 @@ while ($true) {
   #    而这条链是**用户可见的**:apps/web/next.config.ts:315-321 把 /remote-images/* 反代到
   #    http://localhost:80,源站一挂,公网页面图片全断,而本清单不会喊。
   #    2026-09-29 实测复现该失明:把 cdn-server.js 的进程杀掉,本清单 6 个端口**一个都不红**。
-  #    自本行起它归位;载体 2026-10-25 换成看门狗任务 IHUI-ImageCDN-Watch(开机+每分钟
-  #    守活,自愈≤60s,见 deploy/win/cdn-watchdog.ps1;09-29 那版 nssm 方案本机缺 nssm 未装成,
-  #    cmd 服务档被 SCM 就绪窗超时杀宿主亦落选)⇒ 挂了先由看门狗拉回,拉不回来由这里喊人。
+  #    自本行起它归位;载体同日已从开机计划任务换成 nssm 服务 IHUI-IMAGE-CDN(见
+  #    deploy/win/install-image-cdn-service.ps1)⇒ 挂了先由服务拉回,拉不回来由这里喊人。
   foreach ($p in @(@{n="web(8801)";p=8801}, @{n="api(8802)";p=8802}, @{n="ai(8803)";p=8803},
                   @{n="cdn(80)";p=80},
                   # ↓ 2026-09-27 补:监控链自身的三个端口。加它们的唯一理由是**自指**——

@@ -103,7 +103,7 @@ export function PlanProgressBlock({
   )
 }
 
-function PlanStatusBadge({
+export function PlanStatusBadge({
   status,
   t,
   styles,
@@ -198,13 +198,13 @@ export function PlanListScreen({
                 accessibilityRole="button"
                 onPress={() => onFilterChange(f.value)}
               >
-                <Text style={[styles.filterChipText, active && styles.filterChipActiveText]}>
+                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
                   {t(f.labelKey)}
                 </Text>
                 <Text
                   style={[
                     styles.filterChipText,
-                    active && styles.filterChipActiveText,
+                    active && styles.filterChipTextActive,
                     { fontSize: 11 },
                   ]}
                 >

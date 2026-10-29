@@ -24,8 +24,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { selectClass } from './helpers'
-import type { Announcement, AnnouncementForm, AnnouncementPlatform, AnnType } from './types'
-import { ANNOUNCEMENT_PLATFORMS } from './types'
+import type { Announcement, AnnouncementForm, AnnType } from './types'
 
 interface Props {
   open: boolean
@@ -50,13 +49,6 @@ export function AnnouncementDialog({
 }: Props) {
   const t = useTranslations('admin.announcements')
   const tc = useTranslations('common')
-  function togglePlatform(p: AnnouncementPlatform) {
-    const cur = form.platforms
-    setForm({
-      ...form,
-      platforms: cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p],
-    })
-  }
   return (
     <Dialog
       open={open}
@@ -133,23 +125,6 @@ export function AnnouncementDialog({
                 {t('fieldPublished')}
               </label>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label>{t('fieldPlatforms')}</Label>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {ANNOUNCEMENT_PLATFORMS.map((p) => (
-                <label key={p} className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.platforms.includes(p)}
-                    onChange={() => togglePlatform(p)}
-                    className="h-4 w-4 accent-primary"
-                  />
-                  {t(`platforms.${p}`)}
-                </label>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">{t('platformsHint')}</p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>

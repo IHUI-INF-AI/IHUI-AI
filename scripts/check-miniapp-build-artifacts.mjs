@@ -30,7 +30,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { requireFlagValue } from './lib/flag-value.mjs'
 
 const SELF_TEST_FLAG = '--self-test'
 
@@ -119,11 +118,14 @@ export function defaultDistDir() {
  */
 export function parseCli(argv) {
   if (argv.includes(SELF_TEST_FLAG)) return { mode: 'self-test' }
-  // 取不到输入 ⇒ 显式未判定,绝不回落默认 dist(§0.3:不记绿也不冒红)。
-  const distFlag = requireFlagValue(argv, '--dist', { noun: '目录参数' })
-  if (distFlag.error) return { mode: 'check', distDir: null, error: distFlag.error }
-  if (!distFlag.present) return { mode: 'check', distDir: defaultDistDir(), error: null }
-  return { mode: 'check', distDir: resolve(distFlag.value), error: null }
+  const i = argv.indexOf('--dist')
+  if (i < 0) return { mode: 'check', distDir: defaultDistDir(), error: null }
+  const value = argv[i + 1]
+  if (!value || value.startsWith('--')) {
+    // 取不到输入 ⇒ 显式未判定,绝不回落默认 dist(§0.3:不记绿也不冒红)。
+    return { mode: 'check', distDir: null, error: '--dist 缺一个目录参数(取不到输入 ⇒ 未判定)' }
+  }
+  return { mode: 'check', distDir: resolve(value), error: null }
 }
 
 /** 一次对账 ⇒ { code, lines }(自检据此断言 0/1/2 三档,不必派生进程)。 */

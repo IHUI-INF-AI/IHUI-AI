@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
 import { hashPassword } from '../src/utils/password-crypto.js'
@@ -165,17 +165,6 @@ import { __test__ as codeStoreTest, putCodeEntry } from '../src/utils/code-store
 import { resetSendQuotaForTests } from '../src/utils/code-echo-guard.js'
 import { __test__ as windowCounterTest } from '../src/utils/window-counter.js'
 import { config } from '../src/config/index.js'
-
-/** G-876:register 只认 register 场景发出的短信码;夹具按发送端同口径备一枚。 */
-async function seedRegisterCode(phone: string, code = '123456'): Promise<void> {
-  const now = Date.now()
-  await putCodeEntry(phone, {
-    code,
-    expiresAt: now + 10 * 60 * 1000,
-    sentAt: now,
-    scene: 'register',
-  } as never)
-}
 
 const NOW = new Date('2026-07-23T00:00:00Z')
 
@@ -432,17 +421,6 @@ describe('auth routes', () => {
   })
 
   describe('POST /api/auth/register', () => {
-    // G-876:短信通道未配置时 register 一律 503;本组只测注册,用代理档(死端口,不会真发)
-    // 点亮「已配置」判据 —— 必须在本组作用域内设,否则同文件的 /send-code dev 回显用例会被改道。
-    const savedProxy = process.env.SMS_API_BASE_URL
-    beforeEach(() => {
-      process.env.SMS_API_BASE_URL = 'http://127.0.0.1:1'
-    })
-    afterEach(() => {
-      if (savedProxy === undefined) delete process.env.SMS_API_BASE_URL
-      else process.env.SMS_API_BASE_URL = savedProxy
-    })
-
     it('参数校验失败(密码过短)返回 400', async () => {
       const res = await app.inject({
         method: 'POST',
@@ -454,11 +432,10 @@ describe('auth routes', () => {
 
     it('手机号已注册返回 409', async () => {
       mockFindUserByPhone.mockResolvedValueOnce(makeUser())
-      await seedRegisterCode('13800000001')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/register',
-        payload: { phone: '13800000001', password: 'pass1234', code: '123456' },
+        payload: { phone: '13800000001', password: 'pass1234' },
       })
       expect(res.statusCode).toBe(409)
       expect(res.json().message).toContain('已注册')
@@ -467,11 +444,10 @@ describe('auth routes', () => {
     it('注册成功返回 200 与 token + user', async () => {
       mockFindUserByPhone.mockResolvedValueOnce(null)
       mockCreateUser.mockResolvedValueOnce(makeUser())
-      await seedRegisterCode('13800000001')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/register',
-        payload: { phone: '13800000001', password: 'pass1234', code: '123456' },
+        payload: { phone: '13800000001', password: 'pass1234' },
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()

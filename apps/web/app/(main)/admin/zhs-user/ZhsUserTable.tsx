@@ -69,9 +69,9 @@ export function ZhsUserTable({ list, isLoading, onEdit, onDelete }: Props) {
                 <TableCell className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">
                   {item.inviteCode || '-'}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 tabular-nums">{item.balance ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 tabular-nums">{item.balance || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 tabular-nums">
-                  {item.totalEarnings ?? '-'}
+                  {item.totalEarnings || '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">{item.isVip || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">{item.identityTypy || '-'}</TableCell>
