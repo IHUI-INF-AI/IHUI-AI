@@ -643,4 +643,19 @@ test('⑲c G-960 逐维三态报数(照 check-tunnel-leg-health 的形态):不�
   // 形态不认识的一律算未判定(不得默认成 ok —— 那正是本票要消灭的顶绿)
   assert.equal(probe.summarizeLegStates([{ verdict: 'green?' }, {}], { state: 'ok', legsExpected: 2 }).unjudged, 2)
 })
+
+test('⑳ G16 汇总用词:混入未判定必须落 partial,零未判定才许叫 ok', () => {
+  const mixed = probe.summarizeCallbackVerdicts([{ state: 'ok' }, { state: 'unjudged' }], { state: 'ok', legs: [{}, {}] })
+  assert.equal(mixed.verdict, 'partial', '有腿没判到时不得把整档写成"未被降级"(§0.3 没判的不写成判过)')
+  assert.equal(mixed.rc, 0, '未判定不冒充红 —— breach=0 本身是量出来的真结论')
+  assert.match(mixed.why, /只覆盖已判到的/)
+  assert.equal(probe.summarizeCallbackVerdicts([{ state: 'ok' }, { state: 'ok' }], { state: 'ok', legs: [{}, {}] }).verdict, 'ok')
+  // 成对反向 1:一条 breach 仍压过全部未判定(不得被"多数未判定"稀释)
+  assert.equal(
+    probe.summarizeCallbackVerdicts([{ state: 'breach' }, { state: 'unjudged' }], { state: 'ok', legs: [{}, {}] }).verdict,
+    'breach',
+  )
+  // 成对反向 2:一条都没判到 ⇒ 整档未判定,不得用 partial 蒙过去
+  assert.equal(probe.summarizeCallbackVerdicts([{ state: 'unjudged' }], { state: 'ok', legs: [{}] }).verdict, 'undetermined')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
