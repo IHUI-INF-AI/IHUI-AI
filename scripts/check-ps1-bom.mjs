@@ -58,28 +58,26 @@
  *   「整张面枚举到 0」与「面上确无 .ps1」由 readTrackedList 的第二问(git ls-files 全量)分开,
  *   前者判 2、后者判 0 —— 这正是修法席①要修的那一格。
  */
-import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 // §15b:临时夹具唯一落点(修法席③,2026-10-27 —— 旧版走 os.tmpdir()+mkdtempSync,
 // 被 check-fixture-tmpdir 的 F1/F2 点名在册;不得回退)。
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// 裸 git 派生统一走 face-reader 的 gitRaw 出口(层内已带 -C root / cwd / stdio 两态 /
+// windowsHide / safe.directory,调用方不再自己拼 execFileSync)。
+import { gitRaw } from './lib/face-reader.mjs'
 
 const BOM = Buffer.from([0xef, 0xbb, 0xbf])
 const ROOT = resolve(import.meta.dirname, '..')
 
 function git(args, { cwd = ROOT, allowFail = false } = {}) {
   try {
-    return execFileSync('git', args, {
-      cwd,
+    return gitRaw(args, cwd, {
       maxBuffer: 512 * 1024 * 1024,
-      encoding: 'buffer',
-      // 门 193 硬要求:派生 git 必须显式接管 stdio —— 不写时本机 0/30 成功(EBUSY)。
-      // 取值按 face-reader 同族惯例 ['ignore','pipe','pipe'](这里不喂 stdin)。
-      stdio: ['ignore', 'pipe', 'pipe'],
-      // 门 52:本机派生进程禁弹控制台窗口(AGENTS §5b 机器级默认钩子之外的逐点参数)。
-      windowsHide: true,
+      // 下游要 Buffer(subarray / 前 3 字节 hex),故走 binary 而非默认 utf8 串。
+      binary: true,
+      // 门 193 / 门 52:stdio 与 windowsHide 已由 gitRaw 层统一接管,此处不再重复传。
     })
   } catch (e) {
     if (allowFail) return null
@@ -360,8 +358,7 @@ function selfTest() {
   }
   const tmp = mk('ps1bom-selftest-')
   try {
-    const run = (args) =>
-      execFileSync('git', args, { cwd: tmp, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+    const run = (args) => gitRaw(args, tmp)
     run(['init', '-q'])
     run(['config', 'user.email', 't@t'])
     run(['config', 'user.name', 't'])
@@ -440,8 +437,7 @@ function selfTest() {
 
     // ⑤ 有效面 + 真的零枚 .ps1(面上有别的跟踪文件)⇒ 必须 0(§12e 反恒红对照)
     const noPs = mk('ps1bom-nops-')
-    const runNoPs = (args) =>
-      execFileSync('git', args, { cwd: noPs, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+    const runNoPs = (args) => gitRaw(args, noPs)
     runNoPs(['init', '-q'])
     runNoPs(['config', 'user.email', 't@t'])
     runNoPs(['config', 'user.name', 't'])
