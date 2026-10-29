@@ -24,6 +24,7 @@ import { rnRadius, withAlpha } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import { COLORS } from '@/constants/style'
+import BottomFadeMask from '@/components/BottomFadeMask'
 import {
   TAB_BAR_HEIGHT,
   TAB_BAR_ICON_SIZE,
@@ -34,6 +35,7 @@ import {
   TAB_BAR_INDICATOR_H,
   TAB_BAR_INDICATOR_INSET,
   TAB_BAR_GLOW_RADIUS_PX,
+  TAB_BAR_OCCUPIED_CSS,
 } from '@/constants/tab-bar-metrics'
 import { t as tGlobal } from '@/i18n'
 
@@ -100,78 +102,82 @@ export default function CustomTabBar() {
   const glowStyle = buildGlowStyle(ink)
 
   return (
-    <View
-      style={{
-        position: 'fixed',
-        left: `${TAB_BAR_MARGIN_H}px`,
-        right: `${TAB_BAR_MARGIN_H}px`,
-        bottom: 0,
-        marginBottom: `calc(${TAB_BAR_GAP_BOTTOM}px + env(safe-area-inset-bottom))`,
-        zIndex: 50,
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        height: `${TAB_BAR_HEIGHT}px`,
-        backgroundColor: COLORS.glassBg[resolved],
-        backdropFilter: `blur(${GLASS_BLUR_PX}px)`,
-        WebkitBackdropFilter: `blur(${GLASS_BLUR_PX}px)`,
-        borderRadius: rnRadius.xl,
-        borderWidth: 1,
-        borderStyle: 'solid',
-        borderColor: COLORS.borderMedium[resolved],
-      }}
-    >
-      {TABS.map((item) => {
-        const active = current === item.pagePath
-        return (
-          <View
-            key={item.pagePath}
-            style={{
-              flex: 1,
-              position: 'relative',
-              height: `${TAB_BAR_HEIGHT}px`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            onClick={() => switchTab(item)}
-            hoverClass="opacity-60"
-          >
-            {active ? (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: `${TAB_BAR_INDICATOR_INSET}px`,
-                  right: `${TAB_BAR_INDICATOR_INSET}px`,
-                  height: `${TAB_BAR_INDICATOR_H}px`,
-                  borderRadius: rnRadius.xs,
-                  backgroundColor: ink,
-                }}
-              />
-            ) : null}
-            {/* 选中态浅蓝发光(半径与 RN 的 iconGlow 同名同档);光晕挂包裹层 —— LineIcon 本体是
-                CSS mask 块,filter 作用于它的渲染结果 */}
-            <View style={active ? glowStyle : undefined}>
-              <LineIcon name={item.icon} size={TAB_BAR_ICON_SIZE} color={active ? ink : muted} />
-            </View>
-            <Text
+    <>
+      {/* 底部平滑淡出遮罩:贴在胶囊正上方,内容滚到胶囊前先溶解(见 BottomFadeMask 头注) */}
+      <BottomFadeMask bottomOffsetCss={TAB_BAR_OCCUPIED_CSS} />
+      <View
+        style={{
+          position: 'fixed',
+          left: `${TAB_BAR_MARGIN_H}px`,
+          right: `${TAB_BAR_MARGIN_H}px`,
+          bottom: 0,
+          marginBottom: `calc(${TAB_BAR_GAP_BOTTOM}px + env(safe-area-inset-bottom))`,
+          zIndex: 50,
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          height: `${TAB_BAR_HEIGHT}px`,
+          backgroundColor: COLORS.glassBg[resolved],
+          backdropFilter: `blur(${GLASS_BLUR_PX}px)`,
+          WebkitBackdropFilter: `blur(${GLASS_BLUR_PX}px)`,
+          borderRadius: rnRadius.xl,
+          borderWidth: 1,
+          borderStyle: 'solid',
+          borderColor: COLORS.borderMedium[resolved],
+        }}
+      >
+        {TABS.map((item) => {
+          const active = current === item.pagePath
+          return (
+            <View
+              key={item.pagePath}
               style={{
-                marginTop: 2,
-                fontSize: `${active ? TAB_BAR_FONT_SIZE_ACTIVE : TAB_BAR_FONT_SIZE}px`,
-                lineHeight: `${(active ? TAB_BAR_FONT_SIZE_ACTIVE : TAB_BAR_FONT_SIZE) + 2}px`,
-                fontWeight: active ? '600' : '400',
-                color: active ? ink : muted,
+                flex: 1,
+                position: 'relative',
+                height: `${TAB_BAR_HEIGHT}px`,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
+              onClick={() => switchTab(item)}
+              hoverClass="opacity-60"
             >
-              {tGlobal(item.labelKey)}
-            </Text>
-          </View>
-        )
-      })}
-    </View>
+              {active ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: `${TAB_BAR_INDICATOR_INSET}px`,
+                    right: `${TAB_BAR_INDICATOR_INSET}px`,
+                    height: `${TAB_BAR_INDICATOR_H}px`,
+                    borderRadius: rnRadius.xs,
+                    backgroundColor: ink,
+                  }}
+                />
+              ) : null}
+              {/* 选中态浅蓝发光(半径与 RN 的 iconGlow 同名同档);光晕挂包裹层 —— LineIcon 本体是
+                CSS mask 块,filter 作用于它的渲染结果 */}
+              <View style={active ? glowStyle : undefined}>
+                <LineIcon name={item.icon} size={TAB_BAR_ICON_SIZE} color={active ? ink : muted} />
+              </View>
+              <Text
+                style={{
+                  marginTop: 2,
+                  fontSize: `${active ? TAB_BAR_FONT_SIZE_ACTIVE : TAB_BAR_FONT_SIZE}px`,
+                  lineHeight: `${(active ? TAB_BAR_FONT_SIZE_ACTIVE : TAB_BAR_FONT_SIZE) + 2}px`,
+                  fontWeight: active ? '600' : '400',
+                  color: active ? ink : muted,
+                }}
+              >
+                {tGlobal(item.labelKey)}
+              </Text>
+            </View>
+          )
+        })}
+      </View>
+    </>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
