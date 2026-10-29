@@ -7050,5 +7050,13 @@
     "prev": "前へ",
     "pagination": "{page} / {totalPages} ページ、合計 {total} 件",
     "next": "次へ"
+  },
+  "chatWorkbenchPage": {
+    "title": "会話",
+    "newConversation": "新規会話",
+    "searchPlaceholder": "キーワードを入力...",
+    "empty": "コンテンツはまだありません。おしみに",
+    "searchNoResult": "結果なし",
+    "retry": "再試行"
   }
 }

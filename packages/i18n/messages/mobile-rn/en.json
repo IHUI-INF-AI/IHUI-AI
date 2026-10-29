@@ -7050,5 +7050,13 @@
     "prev": "Previous",
     "pagination": "Page {page} / {totalPages}, {total} total",
     "next": "Next"
+  },
+  "chatWorkbenchPage": {
+    "title": "Chat",
+    "newConversation": "New conversation",
+    "searchPlaceholder": "Type to search...",
+    "empty": "Start a conversation",
+    "searchNoResult": "No results",
+    "retry": "Retry"
   }
 }
