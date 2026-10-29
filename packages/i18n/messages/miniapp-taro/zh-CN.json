@@ -2646,6 +2646,7 @@
     "defaultTitle": "加入我们"
   },
   "register": {
+    "resendIn": "{{countdown}}s 后重发",
     "enterPhone": "请输入手机号",
     "codeSent": "验证码已发送",
     "incomplete": "请填写完整信息",

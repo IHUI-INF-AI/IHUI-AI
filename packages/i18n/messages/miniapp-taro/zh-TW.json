@@ -2646,6 +2646,7 @@
     "defaultTitle": "加入我們"
   },
   "register": {
+    "resendIn": "{{countdown}} 秒後重新發送",
     "enterPhone": "請輸入手機號碼",
     "codeSent": "驗證碼已發送",
     "incomplete": "請填寫完整資訊",

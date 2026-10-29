@@ -2646,6 +2646,7 @@
     "defaultTitle": "참여하기"
   },
   "register": {
+    "resendIn": "{{countdown}}초 후 재전송",
     "enterPhone": "전화번호 입력",
     "codeSent": "코드 발송됨",
     "incomplete": "모든 항목 입력",

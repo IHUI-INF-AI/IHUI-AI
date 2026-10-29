@@ -2646,6 +2646,7 @@
     "defaultTitle": "参加する"
   },
   "register": {
+    "resendIn": "{{countdown}}秒後に再送信",
     "enterPhone": "電話番号を入力",
     "codeSent": "コード送信済み",
     "incomplete": "全項目入力",
