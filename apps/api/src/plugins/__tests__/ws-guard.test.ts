@@ -30,18 +30,57 @@ beforeEach(() => {
 })
 
 describe('wsClientIp', () => {
-  it('优先取 CF-Connecting-IP', () => {
-    const req = fakeReq({ 'cf-connecting-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2, 3.3.3.3' })
+  it('边缘层已验证时取 x-ihui-client-ip', () => {
+    const req = fakeReq({ 'x-ihui-edge-verified': '1', 'x-ihui-client-ip': '1.1.1.1' })
     expect(wsClientIp(req)).toBe('1.1.1.1')
   })
 
-  it('无 CF 头时取 X-Forwarded-For 最左跳', () => {
-    const req = fakeReq({ 'x-forwarded-for': '2.2.2.2, 3.3.3.3' })
-    expect(wsClientIp(req)).toBe('2.2.2.2')
+  it('反向对照:带了 x-ihui-client-ip 但没有 verified 标记,不认,回落 socket', () => {
+    // 没验证就不认 —— 这是"只信边缘层结论"的边界,不是"有这个头就用"。
+    const req = fakeReq({ 'x-ihui-client-ip': '1.1.1.1' }, '10.0.0.9')
+    expect(wsClientIp(req)).toBe('10.0.0.9')
+  })
+
+  it('反向对照:cf-connecting-ip 是伪造值,必须忽略并回落 socket', () => {
+    // EdgeOne 链路上这个头必为客户端自带,取它等于把限流键交给攻击者。
+    const req = fakeReq({ 'cf-connecting-ip': '9.9.9.9' }, '10.0.0.9')
+    expect(wsClientIp(req)).toBe('10.0.0.9')
+  })
+
+  it('反向对照:x-forwarded-for 最左跳可整写,必须忽略并回落 socket', () => {
+    const req = fakeReq({ 'x-forwarded-for': '8.8.8.8, 7.7.7.7' }, '10.0.0.9')
+    expect(wsClientIp(req)).toBe('10.0.0.9')
+  })
+
+  it('伪造头与边缘层结论同时出现时,仍以边缘层结论为准', () => {
+    const req = fakeReq(
+      {
+        'x-ihui-edge-verified': '1',
+        'x-ihui-client-ip': '1.1.1.1',
+        'cf-connecting-ip': '9.9.9.9',
+        'x-forwarded-for': '8.8.8.8, 7.7.7.7',
+      },
+      '10.0.0.9',
+    )
+    expect(wsClientIp(req)).toBe('1.1.1.1')
   })
 
   it('都没有时回退 socket 远端地址', () => {
     expect(wsClientIp(fakeReq({}, '10.0.0.7'))).toBe('10.0.0.7')
+  })
+
+  it('verified 标记存在但 IP 头为空/纯空格时回落 socket', () => {
+    expect(wsClientIp(fakeReq({ 'x-ihui-edge-verified': '1', 'x-ihui-client-ip': '' }, '10.0.0.9'))).toBe(
+      '10.0.0.9',
+    )
+    expect(
+      wsClientIp(fakeReq({ 'x-ihui-edge-verified': '1', 'x-ihui-client-ip': '   ' }, '10.0.0.9')),
+    ).toBe('10.0.0.9')
+  })
+
+  it('verified 标记非 "1" 时同样不认(只接受精确的 1)', () => {
+    const req = fakeReq({ 'x-ihui-edge-verified': 'true', 'x-ihui-client-ip': '1.1.1.1' }, '10.0.0.9')
+    expect(wsClientIp(req)).toBe('10.0.0.9')
   })
 
   it('连 socket 地址都拿不到时给 unknown 而不是空串', () => {
