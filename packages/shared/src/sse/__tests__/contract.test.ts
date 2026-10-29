@@ -130,6 +130,7 @@ describe('isSSEEventName', () => {
  * 真·穷尽性在下面 UNION_MEMBER_BY_NAME,由 2026-09-28 D132 那票补上。
  */
 const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
+  HOOK_FAILED: 'hook-failed',
   CHUNK: 'chunk',
   REASONING: 'reasoning',
   TOOL_CALL_START: 'tool-call-start',
@@ -187,6 +188,7 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
  * 上一段那张表管不住第一种,它只保证"映射值 ∈ 事件名集"。
  */
 const UNION_MEMBER_BY_NAME: Record<SSEEventName, SSEEventPayload['type']> = {
+  'hook-failed': 'hook-failed',
   budget: 'budget',
   chunk: 'chunk',
   citations: 'citations',
