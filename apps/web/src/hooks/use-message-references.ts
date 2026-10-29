@@ -226,6 +226,8 @@ export function useMessageReferences(): {
   addCodeReference: (code: string, language: string) => void
   removeReference: (id: string) => void
   resetReferences: () => void
+  /** 入队专用:清空输入区引用但不 revoke blob URL(条目出队发送后再由 doSend 释放) */
+  detachReferences: () => void
 } {
   const [references, setReferences] = React.useState<ReferenceItem[]>([])
   // 2026-08-02 修复 P1 内存泄露:用 ref 引用最新 references,
@@ -433,6 +435,15 @@ export function useMessageReferences(): {
     reservedCountRef.current = 0
   }, [])
 
+  // W27 流式入队专用:清空输入区引用但**不释放** blob URL —— 队列条目带着这些引用
+  // 等流结束才发送,提前 revoke 会让出队消息里的图片变成裂图。释放交给 doSend 成功路径。
+  const detachReferences = React.useCallback(() => {
+    setReferences([])
+    pendingFiles.current.clear()
+    committedCountRef.current = 0
+    reservedCountRef.current = 0
+  }, [])
+
   // 2026-08-02 修复 P1 内存泄露:组件卸载时释放 references 中所有 objectURL。
   React.useEffect(() => {
     return () => {
@@ -455,6 +466,7 @@ export function useMessageReferences(): {
     addCodeReference,
     removeReference,
     resetReferences,
+    detachReferences,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

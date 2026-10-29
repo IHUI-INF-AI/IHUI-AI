@@ -218,6 +218,16 @@ export default function WorkspacePage() {
             <ProjectCard key={project.id} project={project as ProjectCardData} />
           ))}
         </div>
+      ) : error ? (
+        // 错误条被手动关掉(dismissed)不等于"加载成功且没有项目":这一分支必须仍说"加载失败",
+        // 否则用户关掉横幅后看到的是"还没有项目" —— 把取不到谎报成没有数据。
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
+          <p className="text-sm text-destructive">{t('loadErrorTitle')}</p>
+          <Button variant="ghost" size="xs" className="gap-1" onClick={() => void refetch()}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t('retry')}
+          </Button>
+        </div>
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <p className="text-sm text-muted-foreground">{t('noProjects')}</p>
