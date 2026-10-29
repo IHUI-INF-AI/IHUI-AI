@@ -1318,3 +1318,110 @@ test('DS-9 真实盘(scratch-dir 夹具 + defaultDeps 真出口):模块新于进
 
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ── D4 env 形态对账 / D5 开机自启对账(2026-10-29 凌晨两起同夜故障)─────────────────
+// D4 立因:IHUI-WEB-GREEN 的 AppEnvironmentExtra 被写成一整串 ⇒ IHUI_WEB_PORT 读成
+//   "8852 IHUI_WEB_HOST=…",启动脚本 [int] 转换崩,8852 永不健康,00:35→02:32 无一次部署上岗;
+//   当晚全部守门绿 —— 因为没有任何尺子问过"那一整行是不是恰好等于 KEY=端口"。
+// D5 立因:09:31:54 本机重启,web 三件套因 SCM 里是 Manual 没回来 ⇒ 8801 无监听、公网绕开 CDN
+//   缓存实测 522;而部署环 behind=0 每轮只报"无需部署",自愈器要连续两轮才动 ⇒ 单靠自愈约 32 分钟。
+//   仓内当时没有任何一面写着"谁的启动类型必须是 Auto" —— 唯一快照基准件还停在另一台机的 3 个旧服务。
+// 判据一律走 gate 的导出口(§22c:测试里不抄第二份实现)。
+
+const ENV_OK = 'IHUI_WEB_PORT=8852\nIHUI_WEB_HOST=127.0.0.1\nIHUI_BUILD_DIST=.next-green'
+// 真机当晚的坏形态逐字样本(一整串塞成一条参数,nssm get 只回显一行)
+const ENV_ONE_SHOT = 'IHUI_WEB_PORT=8852 IHUI_WEB_HOST=127.0.0.1 IHUI_BUILD_DIST=.next-green'
+const envMember = (over = {}) => ({ service: 'IHUI-WEB-GREEN', family: 'web', color: 'green', envPortKey: 'IHUI_WEB_PORT', expectedPort: 8852, ...over })
+const envRow = (block) => ({ name: 'IHUI-WEB-GREEN', rec: { envBlock: block } })
+
+test('ES-1 成对夹具:同一台服务只差"逐行 vs 一整串",判定必须从 ok 翻成 malformed', () => {
+  const good = gate.judgeEnvShape([envRow(gate.measured(ENV_OK))], { members: [envMember()], notes: [] })
+  assert.equal(good.totals.ok, 1, '逐行形态是当晚唯一的合法形态')
+  assert.equal(good.totals.malformed, 0)
+  const bad = gate.judgeEnvShape([envRow(gate.measured(ENV_ONE_SHOT))], { members: [envMember()], notes: [] })
+  assert.equal(bad.totals.malformed, 1, '"键在、但没有任何一整行等于 KEY=端口"就是写歪')
+  assert.equal(bad.totals.ok, 0, '包含式判据会在这里记 ok —— 那正是当晚骗过所有看守的钝尺')
+  assert.equal(bad.buckets.malformed[0].lines, 1)
+  assert.match(bad.buckets.malformed[0].observed, /IHUI_WEB_PORT=8852 IHUI_WEB_HOST/, '点名必须带实读原文,人照着才改得动')
+})
+
+test('ES-2 端口漂了与整块缺键分开记(两种病,修法不同,不得并桶)', () => {
+  const drifted = gate.judgeEnvShape([envRow(gate.measured('IHUI_WEB_PORT=8851'))], { members: [envMember()], notes: [] })
+  assert.equal(drifted.totals.malformed, 1)
+  assert.equal(drifted.totals.missing, 0)
+  const noKey = gate.judgeEnvShape([envRow(gate.measured('IHUI_WEB_HOST=127.0.0.1'))], { members: [envMember()], notes: [] })
+  assert.equal(noKey.totals.missing, 1, '键根本没出现是 missing,不是 malformed')
+  const empty = gate.judgeEnvShape([envRow(gate.measured(null))], { members: [envMember()], notes: [] })
+  assert.equal(empty.totals.missing, 1, '量到"空块"仍属缺键(量到了,内容为空)')
+  assert.equal(empty.buckets.missing[0].lines, 0)
+})
+
+test('ES-3 三种取不到输入一律 undetermined:服务不在集合 / env 块没量到 / 台账缺期望', () => {
+  const cases = [
+    gate.judgeEnvShape([], { members: [envMember()], notes: [] }),
+    gate.judgeEnvShape([envRow(gate.unmeasured('取不到值:nssm 不在位'))], { members: [envMember()], notes: [] }),
+    gate.judgeEnvShape([envRow(gate.measured(ENV_OK))], { members: [envMember({ envPortKey: null })], notes: [] }),
+    gate.judgeEnvShape([envRow(gate.measured(ENV_OK))], { members: [envMember({ expectedPort: null })], notes: [] }),
+  ]
+  for (const r of cases) {
+    assert.equal(r.totals.undetermined, 1, '未判定独立成档(§0.3:取不到输入不记绿也不冒红)')
+    assert.equal(r.totals.ok, 0)
+    assert.equal(r.totals.malformed, 0)
+  }
+})
+
+test('ES-4 台账显式声明"无端口期望"的成员只点名、不判断言,但仍报行数(不静默消失)', () => {
+  const m = envMember({ service: 'IHUI-WEB-ROUTER', outOfScope: true, why: '端口住一族键里', envPortKey: null, expectedPort: null })
+  const r = gate.judgeEnvShape([{ name: 'IHUI-WEB-ROUTER', rec: { envBlock: gate.measured('A=1\nB=2') } }], { members: [m], notes: [] })
+  assert.equal(r.totals.ok, 0)
+  assert.equal(r.totals.undetermined, 0, '显式声明过的成员不该被读成"没量到"')
+  assert.equal(r.outOfScope.length, 1)
+  assert.equal(r.outOfScope[0].lines, 2)
+})
+
+test('ES-5 接线锁:两维都必须真接在 main 上,且都不参与退出码(§12e 恒红门禁令)', () => {
+  const src = rawSource()
+  assert.match(src, /meta\.envShape = judgeEnvShape\(/, '判据造好没装车 = 没有(§0.9);上一轮正是断在这一格')
+  assert.match(src, /meta\.bootStart = judgeBootStart\(/, '同上:D5 必须接在 main,而不是只住在自检档里')
+  const fn = src.slice(src.indexOf('export function computeExitCode'), src.indexOf('// ---------------------------------------------------------------------------\n// CLI 参数'))
+  assert.ok(fn, '取到 computeExitCode 函数体')
+  assert.doesNotMatch(fn, /envShape|bootStart/, 'env/开机自启两维判的是机器现状 ⇒ 结构上不得进退出码')
+})
+
+test('BS-1 开机自启:归一后相等 ⇒ ok;档位不符 ⇒ mismatch 并点名声明与实读', () => {
+  const m = { service: 'IHUI-WEB-ROUTER', family: 'web', expect: 'AUTOMATIC', why: '公网入口' }
+  const ok = gate.judgeBootStart([{ name: 'IHUI-WEB-ROUTER', startType: 'AUTO' }], { members: [m], notes: [] })
+  assert.equal(ok.totals.ok, 1, 'Win32 回显 Auto 与声明 AUTOMATIC 同档(归一尺子 = normalizeStartType,测试里不复算)')
+  const bad = gate.judgeBootStart([{ name: 'IHUI-WEB-ROUTER', startType: 'MANUAL' }], { members: [m], notes: [] })
+  assert.equal(bad.totals.mismatch, 1, '2026-10-29 09:31 那一型:入口服务被装成 Manual,重启后无人拉起')
+  assert.equal(bad.buckets.mismatch[0].observed, 'MANUAL')
+  assert.match(bad.buckets.mismatch[0].why, /公网入口/)
+})
+
+test('BS-2 本机无此服务 ⇒ absent(不适用),不等于不符;注册表里有而 STATE 漏了 ⇒ 未判定', () => {
+  const m = { service: 'IHUI-WEB-ROUTER', family: 'web', expect: 'AUTOMATIC', why: '夹具' }
+  const gone = gate.judgeBootStart([], { members: [m], notes: [] })
+  assert.equal(gone.totals.absent, 1)
+  assert.equal(gone.totals.mismatch, 0, '换机/另一台机没有蓝绿族是合法状态,判成不符就是恒红(§12e)')
+  const blind = gate.judgeBootStart([], { members: [m], notes: [] }, ['IHUI-WEB-ROUTER'])
+  assert.equal(blind.totals.undetermined, 1, '"没量到"不得写成"没有差异"(§0.3)')
+  assert.equal(blind.totals.absent, 0)
+})
+
+test('BS-3 真台账:六条 bootStart 齐备(4 Auto / 2 Manual),且判据源码里不写死任何服务名(§0.6)', () => {
+  const exp = gate.loadExpectedStopped()
+  assert.equal(exp.bootCheck.members.length, 6, 'api 族 3 台 + web 族 3 台,一族漏登记就必须在这里响')
+  assert.ok(exp.bootCheck.members.every((m) => m.service && m.expect && m.why), '每条都带依据,不登记空声明')
+  assert.equal(exp.bootCheck.members.filter((m) => m.expect === 'AUTOMATIC').length, 4)
+  assert.equal(exp.bootCheck.members.filter((m) => m.expect === 'MANUAL').length, 2)
+  assert.ok(exp.envCheck.members.some((m) => m.envPortKey === 'IHUI_WEB_PORT' && m.expectedPort === 8852), 'env 维的键名/端口同样只住台账')
+  assert.doesNotMatch(String(gate.judgeBootStart), /IHUI-WEB-ROUTER|IHUI-API-BLUE/, '判据里没有一枚服务名 ⇒ 新增一族只改台账')
+  assert.doesNotMatch(String(gate.judgeEnvShape), /IHUI_WEB_PORT/, '同上:env 键名不得住进判据')
+})
+
+test('BS-4 空射程 ⇒ 注记点名"不得读成都对"(两维同纪律,空集不冒绿)', () => {
+  for (const r of [gate.judgeBootStart([], { members: [], notes: [] }), gate.judgeEnvShape([], { members: [], notes: [] })]) {
+    assert.equal(r.totals.members, 0)
+    assert.ok(r.notes.some((n) => /不得读成/.test(n)), '枚举到 0 个候选必须自杀式点名(§0.3)')
+  }
+})
