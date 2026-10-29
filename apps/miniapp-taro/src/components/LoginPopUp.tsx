@@ -196,8 +196,9 @@ export default function LoginPopUp({
                 })
               }
             }}
-            className="!p-0 !bg-transparent !border-none rounded-sm overflow-hidden"
+            className="!bg-transparent !border-none rounded-sm overflow-hidden"
             style={{
+              padding: 0,
               width: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
               height: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
             }}
@@ -303,8 +304,10 @@ export default function LoginPopUp({
                 Taro.showToast({ title: tt('login.loginFailed', '登录失败,请重试'), icon: 'none' })
               }
             }}
-            className="w-full !py-0 !px-4 rounded-sm !border-none text-center"
+            className="w-full px-4 rounded-sm !border-none text-center"
             style={{
+              paddingTop: 0,
+              paddingBottom: 0,
               height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX),
               background: 'var(--color-primary)',
               marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
@@ -377,8 +380,10 @@ export default function LoginPopUp({
                   />
                 </View>
                 <Button
-                  className="w-full !py-0 !px-4 rounded-sm !border-none text-center"
+                  className="w-full px-4 rounded-sm !border-none text-center"
                   style={{
+                    paddingTop: 0,
+                    paddingBottom: 0,
                     height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX),
                     background: 'var(--color-primary)',
                   }}

@@ -19,6 +19,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 生图任务状态(对齐 @ihui/api-client AigcTask['status']) */
 export type ImageGenTaskStatus = 'pending' | 'running' | 'succeeded' | 'failed'
@@ -139,8 +140,8 @@ export function ImageGenHistoryScreen({
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <Text style={styles.loadingText}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -172,12 +173,12 @@ export function ImageGenHistoryScreen({
       </View>
 
       {error ? (
-        <View style={styles.errorWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
-            <Text style={styles.retryText}>{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <FlatList<ImageGenHistoryGridItem>
           data={items}
@@ -189,11 +190,10 @@ export function ImageGenHistoryScreen({
           onEndReachedThreshold={0.3}
           onEndReached={onLoadMore}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>
-                {tab === 'history' ? t('imageGen.historyEmpty') : t('imageGen.favoritesEmpty')}
-              </Text>
-            </View>
+            <EmptyState
+              title={tab === 'history' ? t('imageGen.historyEmpty') : t('imageGen.favoritesEmpty')}
+              colorScheme={colorScheme}
+            />
           }
           renderItem={renderItem}
         />
@@ -211,15 +211,6 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-    },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    loadingText: {
-      fontSize: 14,
-      color: tk.text.secondary,
     },
     /* 顶部导航行 */
     headerBar: {
@@ -262,29 +253,6 @@ function createStyles(tk: AppThemeTokens) {
     tabTextActive: {
       fontSize: 14,
       fontWeight: '500',
-      color: tk.text.primary,
-    },
-    /* 错误态 */
-    errorWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-    },
-    errorText: {
-      marginBottom: 12,
-      fontSize: 14,
-      textAlign: 'center',
-      color: tk.text.secondary,
-    },
-    retryBtn: {
-      borderRadius: rnRadius.sm,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      backgroundColor: tk.surface.muted,
-    },
-    retryText: {
-      fontSize: 14,
       color: tk.text.primary,
     },
     /* 双列网格 */
@@ -345,15 +313,6 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 4,
       fontSize: 10,
       color: tk.text.tertiary,
-    },
-    /* 空态 */
-    empty: {
-      alignItems: 'center',
-      paddingVertical: 64,
-    },
-    emptyText: {
-      fontSize: 14,
-      color: tk.text.secondary,
     },
   } satisfies Record<string, ViewStyle | TextStyle | ImageStyle>)
 }

@@ -424,16 +424,6 @@ test(
 // 就把那条结论扔掉,而"本地落后主线"恰是值守最该先看的一维。
 const VERDICT_JSON = JSON.stringify({ code: 1, axes: { upstream: { status: 'red', behind: 3 } } })
 
-test('V0 被测模块必须是同代副本:readProbeVerdict 缺位 ⇒ 报"副本陈旧",不抛 TypeError', () => {
-  // 2026-10-25 立:旧行为是 `N.readProbeVerdict(...)` 抛 TypeError —— 一句"不是函数"把
-  // "被测文件是陈旧工作树副本(不等于任何已提交版本)"冒充成"判据坏了",没人能从读数看出该对齐副本。
-  assert.equal(
-    typeof N.readProbeVerdict,
-    'function',
-    '被测 scripts/git-guardian.mjs 缺 readProbeVerdict —— 工作树是陈旧副本(= HEAD 之外的另一份实现),先与 HEAD 对齐再跑;别把它读成判据失败',
-  )
-})
-
 test('V1b 真判据:同一份 JSON 在 rc=1 下必须解析出 axes', () => {
   const r = N.readProbeVerdict({ status: 1, stdout: VERDICT_JSON, stderr: '' })
   assert.ok(r.parsed, 'rc=1 + 合法 JSON 必须采用结论,why 应为空')

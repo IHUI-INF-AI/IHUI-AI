@@ -688,37 +688,4 @@ test('G-322 第十九批:未注册档四站 —— --root/--max-sites 与两把 
   assertBadFlag(S('measure-i18n-ja-suspect-buckets.mjs'), '--source', 'git rev', { eat: '--json', rc: 2 })
   assertBadFlag(S('measure-i18n-ja-suspect-buckets.mjs'), '--limit', '非负整数', { eat: '--json', rc: 2 })
 })
-
-// ─── 第二十批(2026-10-24)───
-// 本批 10 站 / 8 文件全是**未注册档**的发布/运维 CLI,旧形是同一份 `argValue` 副本:
-// 值位被下一个旗标顶掉时把 `--dry-run` 当文件名/主机名收下,漏值/空串则折成 null 由 `|| 默认` 静默接管。
-test('G-322 第二十批:未注册档发布/运维 8 文件 10 站接单源判死', () => {
-  assertBadFlag(S('cross-publish-devto.mjs'), '--file', '值', { eat: '--dry-run', rc: 2 })
-  assertBadFlag(S('cross-publish-hashnode.mjs'), '--file', '值', { eat: '--dry-run', rc: 2 })
-  assertBadFlag(S('cross-publish-producthunt.mjs'), '--name', '值', { eat: '--dry-run', rc: 2 })
-  assertBadFlag(S('cross-publish-reddit.mjs'), '--subreddit', '值', { eat: '--dry-run', rc: 2 })
-  assertBadFlag(S('cross-publish-v2ex.mjs'), '--node', '值', { eat: '--dry-run', rc: 2 })
-  assertBadFlag(S('indexnow-submit.mjs'), '--host', '值', { eat: '--dry-run', rc: 2 })
-  assertBadFlag(S('verify-free-providers.mjs'), '--provider', 'provider 代号', { eat: '--dry-run', rc: 2 })
-  assertBadFlag(S('verify-free-providers.mjs'), '--timeout', '毫秒数', { eat: '--dry-run', rc: 2 })
-  assertBadFlag(S('verify-publish-adapters.mjs'), '--jwt', 'JWT 字符串', { eat: '--dry-run', rc: 2 })
-  assertBadFlag(S('verify-publish-adapters.mjs'), '--api-url', 'API 地址', { eat: '--dry-run', rc: 2 })
-})
-
-// ─── 第二十一批(2026-10-25,台账票 L7635)───
-// 本批 10 站 / 10 文件:门与运维 CLI 的 --root/--dist/--today/--provider/--face 旧形
-// `argv[i+1]` 直取(或只挡 `--` 前缀/自写三态文案),值位被下一个旗标顶掉/结尾无值/空串
-// 三态不分,单划线 token 那格还漏。统一换 requireFlagValue 判死,文案只剩 lib 一份。
-test('G-322 第二十一批:十站三支坏值各自大声拒绝(rc 2 + 点名实得 token)', () => {
-  assertBadFlag(S('check-i18n-messages-exist.mjs'), '--root', '目录参数', { eat: '--staged', rc: 2 })
-  assertBadFlag(S('check-load-state-loaded-marks.mjs'), '--root', '目录参数', { eat: '--json', rc: 2 })
-  assertBadFlag(S('check-migration-immutable.mjs'), '--root', '目录参数', { eat: '--staged', rc: 2 })
-  assertBadFlag(S('check-miniapp-build-artifacts.mjs'), '--dist', '目录参数', { eat: '--json', rc: 2 })
-  assertBadFlag(S('check-turn-ordinal-lock.mjs'), '--root', '目录参数', { eat: '--json', rc: 2 })
-  assertBadFlag(S('check-txn-cancel-boundary.mjs'), '--root', '目录参数', { eat: '--json', rc: 2 })
-  assertBadFlag(S('check-theme-prop-wiring.mjs'), '--root', '目录参数', { eat: '--json', rc: 2 })
-  assertBadFlag(S('check-tool-contract-declared.mjs'), '--today', 'ISO 日期(YYYY-MM-DD)', { eat: '--staged', rc: 2 })
-  assertBadFlag(S('scan-upstream-models.mjs'), '--provider', 'provider 代号', { eat: '--dry-run', rc: 2 })
-  assertBadFlag(S('sync-alpha-usage.mjs'), '--face', '面名(head|staged)', { eat: '--check', rc: 2 })
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

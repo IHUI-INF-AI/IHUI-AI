@@ -5,6 +5,7 @@
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { AppIcon } from '@ihui/types'
 import {
+  Award,
   Receipt,
   ScanLine,
   Undo2,
@@ -122,6 +123,7 @@ export const MENU_SECTIONS: MenuSection[] = [
     items: [
       { key: 'Vip', labelKey: 'menu.vip', icon: Crown, viaParent: true },
       { key: 'VipBenefit', labelKey: 'menu.vipBenefit', icon: Gift, viaParent: true },
+      { key: 'MemberDashboard', labelKey: 'memberDashboard.title', icon: Crown, viaParent: true },
       { key: 'VipCompare', labelKey: 'menu.vipCompare', icon: Scale, viaParent: true },
       { key: 'Coupon', labelKey: 'menu.coupon', icon: Ticket, viaParent: true },
       { key: 'Promotion', labelKey: 'menu.promotion', icon: Tag, viaParent: true },
@@ -165,6 +167,7 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'StudyRecord', labelKey: 'menu.studyRecord', icon: BookOpen, viaParent: true },
       { key: 'StudyPlan', labelKey: 'menu.studyPlan', icon: CalendarCheck, viaParent: true },
       { key: 'StudyProgress', labelKey: 'menu.studyProgress', icon: TrendingUp, viaParent: true },
+      { key: 'EduDashboard', labelKey: 'eduDashboard.title', icon: Award, viaParent: true },
       { key: 'AIMultimodal', labelKey: 'menu.aiMultimodal', icon: Palette, viaParent: true },
       { key: 'KnowledgeBase', labelKey: 'menu.knowledgeBase', icon: BookOpen, viaParent: true },
       // M4.1(2026-08-26):RAG 知识库增强(搜索/切片)
@@ -238,6 +241,10 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'CertApply', labelKey: 'menu.certApply', icon: PenLine, viaParent: true },
       { key: 'CertVerify', labelKey: 'menu.certVerify', icon: BadgeCheck, viaParent: true },
     ],
+  },
+  {
+    titleKey: 'menu.sectionAi',
+    items: [{ key: 'MyAgents', labelKey: 'myAgentsPage.title', icon: Bot, viaParent: true }],
   },
   {
     titleKey: 'menu.sectionSocial',

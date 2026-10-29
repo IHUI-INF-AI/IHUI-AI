@@ -348,6 +348,59 @@
    *
    * 配套 Tailwind utility: `[&>span]:translate-y-[var(--text-vcenter-offset)]` */
   --text-vcenter-offset: 0.3px;
+
+  /* css-tokens:managed:begin */
+  /* 间距档(源:spacing.ts 的 SPACING_STEPS)→ p-md / gap-md / m-md / size-md */
+  --spacing-none: 0px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+  --spacing-3xl: 32px;
+  --spacing-4xl: 40px;
+  --spacing-5xl: 48px;
+  --spacing-6xl: 64px;
+  /* 字号三连档(源:typography.ts 的 TYPE_STEPS + FONT_WEIGHTS)→ text-body / font-medium */
+  --text-caption: 11px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 400;
+  --text-label: 12px;
+  --text-label--line-height: 16px;
+  --text-label--font-weight: 400;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body--font-weight: 400;
+  --text-strong: 15px;
+  --text-strong--line-height: 22px;
+  --text-strong--font-weight: 500;
+  --text-title: 16px;
+  --text-title--line-height: 24px;
+  --text-title--font-weight: 600;
+  --text-subtitle: 18px;
+  --text-subtitle--line-height: 26px;
+  --text-subtitle--font-weight: 600;
+  --text-heading: 20px;
+  --text-heading--line-height: 28px;
+  --text-heading--font-weight: 700;
+  --text-display: 24px;
+  --text-display--line-height: 32px;
+  --text-display--font-weight: 700;
+  --text-display-lg: 30px;
+  --text-display-lg--line-height: 38px;
+  --text-display-lg--font-weight: 700;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  /* 阴影档(源:elevation.ts 的 ELEVATION_CSS)→ shadow-elevation-md */
+  --shadow-elevation-none: none;
+  --shadow-elevation-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-elevation-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-elevation-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-elevation-xl: 0 8px 24px rgba(0, 0, 0, 0.16);
+  /* css-tokens:managed:end */
 }
 
 /* ============ Tailwind v3 端 alpha 通道三元组(2026-09-25 立) ============
@@ -430,6 +483,26 @@
   --color-black-87: rgba(0, 0, 0, 0.87);
   --color-black-90: rgba(0, 0, 0, 0.9);
   --color-black-95: rgba(0, 0, 0, 0.95);
+
+  /* ============ neutral 色阶(2026-10-27 立:给 RN 的灰阶一个真源)============
+   * 值**逐字取自本机安装的 Tailwind v4 内置色板**(tailwindcss@4.3.3 dist 里的 neutral 块),
+   * 因此 web 侧现有 `bg-neutral-*` 工具类渲染一字不变 —— 这一段的引入不改任何已生效颜色。
+   * 为什么要显式声明:RN 侧 rn-tokens.ts 的 gray.* 十个档一直是手抄 hex,而它的值等于 v4 neutral
+   * 刻度(2026-10-27 用量等判定量得 9/10 逐位相符,唯一不符的是 gray.400,那一档留给人裁)。
+   * 源里没有同名档 ⇒ 门 93/254 只能报"不可派生",web 改一处 RN 永远不动;声明完,
+   * RN 侧按 §4「派生态一律由源头派生」经 scripts/sync-rn-tokens.mjs 跟随本块。
+   * 禁止端内手改 rn-tokens.ts 的这几档(改本块才是正解)。
+   */
+  --color-neutral-50: oklch(98.5% 0 none);
+  --color-neutral-100: oklch(97% 0 none);
+  --color-neutral-200: oklch(92.2% 0 none);
+  --color-neutral-300: oklch(87% 0 none);
+  --color-neutral-400: oklch(70.8% 0 none);
+  --color-neutral-500: oklch(55.6% 0 none);
+  --color-neutral-600: oklch(43.9% 0 none);
+  --color-neutral-700: oklch(37.1% 0 none);
+  --color-neutral-800: oklch(26.9% 0 none);
+  --color-neutral-900: oklch(20.5% 0 none);
 }
 
 /* ============ z-index token(共享 — 2026-07-24 迁移) ============

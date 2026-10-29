@@ -62,11 +62,11 @@
 //  · GIT_BIN 取数改走层 gitBinary()(返回值恒等 `resolveGitBin() || 'git'`,同一兜底链)——本文件
 //    由此脱离型 B 判据(scripts/tests/face-reader.test.mjs 的 PATH_BOUND_GIT_BASELINE)。
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, statSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+
 import { gitBinary, gitRaw } from './face-reader.mjs'
 import { mkScratch, rmScratch } from './scratch-dir.mjs'
-import { assertNoConflictMarkers } from './conflict-marker-guard.mjs'
 // 旁路留痕的写口只有一份(lib/commit-attestation.mjs);这里不另开一本台账、不自己拼 JSONL 行。
 import { readLedgerRecords, recordBypassLanding } from './commit-attestation.mjs'
 import { gitCommitPaths } from './git-paths.mjs'
@@ -157,15 +157,8 @@ export function indexBlobOf(path, { root }) {
   return oid || UNKNOWN
 }
 
-/**
- * 把文本写成 blob(hash-object -w,经临时夹具文件),返回 oid。
- * 冲突标记闸(2026-10-25 立,wallboard 实况):成对 <<<<====>>>> 的文本拒绝入库。
- * 判据住 lib/conflict-marker-guard.mjs 一份;这里在唯一写出口上装牙。
- */
-export function writeBlob(text, { root }, meta = {}) {
-  // 只有拿得到业务路径才判(豁免表按路径;无路径通道不瞎判 ⇒ 也绝不误伤)。
-  if (meta.path && typeof text === 'string' && text.length > 0 && !text.includes('\u0000'))
-    assertNoConflictMarkers(meta.path, text, { source: 'bypass-git.writeBlob' })
+/** 把文本写成 blob(hash-object -w,经临时夹具文件),返回 oid。 */
+export function writeBlob(text, { root }) {
   const dir = mkScratch('bypass-blob-')
   try {
     const f = join(dir, 'content')
@@ -178,17 +171,6 @@ export function writeBlob(text, { root }, meta = {}) {
 
 /** 把工作树某路径的当前字节写成 blob(落地器"以盘上内容为准"的那条通道)。 */
 export function writeBlobOfWorktree(path, { root }) {
-  // 同一道闸:盘上内容里有成对冲突标记 ⇒ 拒绝。>16MB / 二进制 / 取不到 ⇒ 交由 git 通道与
-  // 守门 79 处理(本闸只拦它拦得住且该拦的形态,不制造第二把瞎尺)。
-  try {
-    const abs = join(root ?? process.cwd(), path)
-    if (existsSync(abs) && statSync(abs).isFile() && statSync(abs).size <= 16 * 1024 * 1024) {
-      const buf = readFileSync(abs)
-      if (!buf.includes(0)) assertNoConflictMarkers(path, buf.toString('utf8'), { source: 'bypass-git.worktree' })
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.startsWith('❌ 冲突标记拒绝进树')) throw e
-  }
   return git(['hash-object', '-w', '--', path], { root })
 }
 

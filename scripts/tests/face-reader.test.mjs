@@ -914,6 +914,17 @@ test('spawnCauseText:缓冲区溢出不得被折成"git 无输出",超时与溢�
   assert.equal(spawnCauseText({ stderr: '' }, 64 << 20, 'x'), '(git 无输出)')
 })
 
+test('gitErrText:异常退出(超时/资源耗尽)必须点名 signal/code,不得折成「无输出」', () => {
+  const tmo = gitErrText({ stderr: '', signal: 'SIGTERM', message: 'spawnSync git ETIMEDOUT' })
+  assert.match(tmo, /signal=SIGTERM/, '超时必须点名被哪个信号杀掉:145 条「无输出」就是这么堆出来的')
+  assert.ok(tmo.startsWith('(git 无输出;'), '保留原前缀,既有按前缀识别的哨兵不会被破坏')
+  const mem = gitErrText({ stderr: '', code: 'ENOMEM', message: 'spawnSync git ENOMEM' })
+  assert.match(mem, /code=ENOMEM/, '资源耗尽必须点名 code')
+  // 反向:正常退出(status 有值)且零命中 ⇒ 仍是那句常量(门 99 / 102 按它逐字对账)
+  assert.equal(gitErrText({ stderr: '', status: 1 }), '(git 无输出)')
+  assert.equal(gitErrText({ stderr: '' }), '(git 无输出)')
+})
+
 test('parseBatchCheckSizes:oid blob size 对齐回填,missing / tree 归 null', () => {
   const oid = 'f'.repeat(40)
   const out = `${oid} blob 123\n:no-such blob missing\n${oid} tree 4096\n`

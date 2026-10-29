@@ -201,15 +201,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       await requireActiveUser(request)
     } catch (e) {
-      // 票 L7648(2026-10-25):能到这里的是 requireActiveUser 的错误 —— 真会话结论
-      // (用户不存在/账号已注销)由 auth 层显式标 statusCode=401,原样出栈;查状态失败
-      // 已被 auth 层收敛为 AppError 502(errorCode 随体透传)。兜底从 401 收窄为 502:
-      // 没标 statusCode 的异常是内部/上游故障,盖 401 会被 api-client 读成"重新登录"
-      // (上游 provider 凭据错误 ≠ 会话死亡;口径同 auth.ts 票 G-396/G-765/G-357)。
-      const err = e as Error & { statusCode?: number; errorCode?: string }
-      const statusCode = err.statusCode ?? 502
-      const message = err.message || (statusCode === 401 ? '账号已注销' : '操作失败,请稍后重试')
-      return reply.status(statusCode).send(error(statusCode, message, err.errorCode))
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '账号已注销'
+      return reply.status(statusCode).send(error(statusCode, message))
     }
   })
 

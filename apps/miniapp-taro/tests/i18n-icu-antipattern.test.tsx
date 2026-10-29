@@ -22,7 +22,7 @@
  *   - 单元测试(本文件,方案 A):运行期断言
  *   - E2E 测试:web 端 apps/web/e2e/compress-toast-icu.spec.ts(miniapp-taro 无 e2e 框架)
  *
- * 覆盖范围:ICU_KEYS 登记表(逐条对照语言包)+ 5 语言 ICU 占位符 parity + 反模式静态扫描。
+ * 覆盖范围:11 处修复后的源文件 + 5 语言 ICU 占位符 parity + 反模式静态扫描。
  *
  * 关键事实(@ihui/i18n/loader.ts:34-41 验证):
  *   translate() 先尝试 {{var}} 再尝试 {var},所以 JSON 用 {{n}} 和源码用 {n} 都 OK。
@@ -67,7 +67,7 @@ vi.mock('@/i18n', () => ({
 
 import { useI18n } from '@/i18n'
 
-// ── 测试数据:修复后调用的 key + 占位符(与 SOURCE_FILES 内现存的 t() 调用逐条对齐)──
+// ── 测试数据:11 处修复后调用的 key + 占位符 ───────────────────────────────
 type IcuKey = {
   /** 完整 i18n key,如 "streak.continuousDays" */
   key: string
@@ -81,8 +81,7 @@ const ICU_KEYS: readonly IcuKey[] = [
   { key: 'modelPlaza.synced', placeholder: 'n' },
   { key: 'pay.countdownTip', placeholder: 'time' },
   { key: 'pay.couponSaved', placeholder: 'n' },
-  // 'pay.balanceAmount' 已随「余额支付」档位摘除(2026-10-25:该档打的 POST /pay/balance
-  // 后端从未注册,prose 键不留死值 —— 登记表与语言包同批,反模式扫描才量得准)。
+  { key: 'pay.balanceAmount', placeholder: 'n' },
   { key: 'pay.couponAvailable', placeholder: 'n' },
   { key: 'news.readCount', placeholder: 'n' },
   { key: 'wallet.recharge.tokenRate', placeholder: 'n' },
@@ -179,12 +178,12 @@ describe('miniapp-taro · next-intl ICU 反模式回归', () => {
       const { t } = useI18n()
       // 模拟源码调用模式
       t('ai.historyPage.msgCount', { n: 42 })
-      t('pay.couponAvailable', { n: 3 })
+      t('pay.balanceAmount', { n: 88 })
       t('pay.countdownTip', { time: '14:59' })
 
       const last3 = capturedCalls.tCalls.slice(-3)
       expect(last3[0]).toEqual({ key: 'ai.historyPage.msgCount', params: { n: 42 } })
-      expect(last3[1]).toEqual({ key: 'pay.couponAvailable', params: { n: 3 } })
+      expect(last3[1]).toEqual({ key: 'pay.balanceAmount', params: { n: 88 } })
       expect(last3[2]).toEqual({ key: 'pay.countdownTip', params: { time: '14:59' } })
     })
   })

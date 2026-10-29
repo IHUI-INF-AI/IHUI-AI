@@ -191,3 +191,36 @@ describe('在册快照与源脚本口径一致', () => {  const snapshot = () =>
     )
   })
 })
+
+describe('「门判红」与「门跑不动」必须是两条口径(2026-10-25 立)', () => {
+  const { parseGateOutput } = L
+  const goodJson = JSON.stringify({ face: 'head', findings: [{ name: 'X', diffCount: 1 }] })
+
+  it('T14 门 rc=1 且 stdout 完好 ⇒ 照常出账(旧形态在这里抛,台账因此恒瞎)', () => {
+    const j = parseGateOutput(goodJson, 1)
+    assert.equal(j.findings.length, 1)
+  })
+
+  it('T15 真·跑不动仍要落未判定:rc=0 但 stdout 空 ⇒ 抛', () => {
+    assert.throws(() => parseGateOutput('', 0), /未判定/)
+  })
+
+  it('T16 rc 取不到(超时被杀/ENOENT)但 stdout 有 JSON ⇒ 仍出账(stdout 是唯一凭据)', () => {
+    assert.equal(parseGateOutput(goodJson, null).face, 'head')
+  })
+
+  it('T17 阳性对照:垃圾输出带 rc=1 也照样抛,且消息点名 stdout 字节数(不许把坏读成红)', () => {
+    assert.throws(() => parseGateOutput('boom without brace', 1), /stdout 18 字节/)
+  })
+
+  it('T18 接线形状锁:readGateJson 必须接住非零退出并把 e.stdout 交给 parseGateOutput', () => {
+    const src = readFileSync(resolve(HERE, '../cross-end-ui-parity-debt.mjs'), 'utf8').replace(/\s+/g, ' ')
+    const at = src.indexOf('function readGateJson()')
+    assert.ok(at >= 0, 'readGateJson 不在了')
+    // 取函数体那一段(邻接会被合法注释插断,所以按结构取段再判锚点成套,不拿"紧挨着"当凭据)
+    const body = src.slice(at, at + 900)
+    for (const anchor of ['catch (e)', 'e.stdout', 'parseGateOutput(out, rc)', 'gateRc = rc']) {
+      assert.ok(body.includes(anchor), `readGateJson 里缺锚点 ${anchor} ⇒ 可能已改回裸 execFileSync(门一红台账就瞎)`)
+    }
+  })
+})

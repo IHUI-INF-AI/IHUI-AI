@@ -12,9 +12,8 @@
  */
 
 import type { ReactNode } from 'react'
-import type { AppIcon, TFunction } from './app-shared.js'
+import type { AppIcon, ListPaginationProps, TFunction } from './app-shared.js'
 import type { PromotionCoupon } from './app-commerce.js'
-
 
 // ============================================================
 // 第三批共享屏类型(2026-07-29):PointHistory/NoteList/ArticleList/
@@ -35,7 +34,7 @@ export interface PointHistoryItem {
 }
 
 /** PointHistory 屏 props */
-export interface PointHistoryScreenProps {
+export interface PointHistoryScreenProps extends ListPaginationProps {
   t: TFunction
   items: PointHistoryItem[]
   loading: boolean

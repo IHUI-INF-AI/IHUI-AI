@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { DevEnterCoverScreenProps } from '@ihui/types'
 export type { DevEnterCoverScreenProps }
 
@@ -77,32 +77,32 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     content: {
       flex: 1,
       padding: 14,
     },
     desc: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.secondary,
       lineHeight: 20,
-      marginBottom: 24,
+      marginBottom: rnSpacing['2xl'],
     },
     planSection: {
-      marginBottom: 24,
+      marginBottom: rnSpacing['2xl'],
     },
     planLabel: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     planList: {
       flexDirection: 'row',
-      gap: 12,
+      gap: rnSpacing.md,
     },
     planCard: {
       flex: 1,
@@ -118,16 +118,16 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     planName: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
     planNameActive: {
       color: tk.brand.DEFAULT,
     },
     planPrice: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     },
     planPriceActive: {
@@ -144,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
       opacity: 0.6,
     },
     submitBtnText: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.surface.light,
     },

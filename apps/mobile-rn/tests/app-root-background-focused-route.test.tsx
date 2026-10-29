@@ -30,6 +30,17 @@ const env = vi.hoisted(() => {
   }
 })
 
+// 共享 react-native 替身缺 AppRegistry/LogBox(App.tsx 模块求值期注册组件 + 抑制 LogBox),
+// 按 chat-disclosure-tier-approval.test.tsx 同法 importOriginal 扩展,不另造第三份替身。
+vi.mock('react-native', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    AppRegistry: { registerComponent: vi.fn(), runApplication: vi.fn() },
+    LogBox: { ignoreAllLogs: vi.fn() },
+  }
+})
+
 vi.mock('expo-font', () => ({ useFonts: () => [true] }))
 vi.mock('expo-status-bar', () => ({ StatusBar: () => null }))
 vi.mock('@react-navigation/native', () => ({

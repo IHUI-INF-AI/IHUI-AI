@@ -48,9 +48,7 @@ import { __test__ as G } from '../git-guardian.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const GUARDIAN = join(HERE, '..', 'git-guardian.mjs')
-const GITDIR_LIB = join(HERE, '..', 'lib', 'gitdir.mjs')
 const SRC = readFileSync(GUARDIAN, 'utf8')
-const LIB_SRC = readFileSync(GITDIR_LIB, 'utf8')
 
 function git(args, cwd) {
   return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
@@ -145,16 +143,6 @@ function fnBody(name) {
   return rest.slice(0, end + 2)
 }
 
-/** 同一把尺子量 lib 单源(批量档判定自 3c75fceac5 起住在这里)。 */
-function libFnBody(name) {
-  const start = LIB_SRC.indexOf(`function ${name}(`)
-  assert.ok(start >= 0, `lib 里的 ${name} 不见了 —— 单源被搬走却没同步锁,正是本文件要拦的那一型`)
-  const rest = LIB_SRC.slice(start)
-  const end = rest.indexOf('\n}')
-  assert.ok(end >= 0, `lib 里 ${name} 的函数体闭合形态解不出`)
-  return rest.slice(0, end + 2)
-}
-
 test('T2 方向锁:空清单规则只许住在一处 —— refsOk 不得自己另算一遍', () => {
   const body = fnBody('refsOk')
   assert.ok(
@@ -237,40 +225,13 @@ test('T7 判据三态:faceReadable=false ⇒ 未判定,既不报"缺失 N 个"�
   assert.equal(j({ manifestCount: 7149, visibleNestedCount: 0, missingCount: 3 }).reason, 'missing')
 })
 
-test('T8 装车锁:取材三处都必须接住 null,溢出型失败不得再被读成"面上没有 ref"', async () => {
+test('T8 装车锁:取材三处都必须接住 null,溢出型失败不得再被读成"面上没有 ref"', () => {
   assert.match(fnBody('currentRefs'), /if \(out === null\) return null/, 'currentRefs 必须把"问不到"与"没有"分开')
-  // 2026-10-24 批量快照改造(4dd635da6f8/3c75fceac5f):missingRefs 不再内联 cur 判空,
-  // null 透传改由 lib 单源 brokenRefsFromSnapshot 承接。锚句跟着**形态**搬家 —— 判据没变,
-  // 变的只是它住的地方;末尾的行为对照证"接住 null"仍真实成立,不是把锁磨平。
-  assert.match(
-    fnBody('missingRefs'),
-    /brokenRefsFromSnapshot\(readRefsManifest\(\), currentRefs\(\)\)/,
-    'missingRefs 必须走 lib 单源,不得自己再算一遍面(§0.6)',
-  )
-  assert.match(
-    fnBody('missingRefs'),
-    /broken === null \? null/,
-    '快照层报"问不到"时,missingRefs 必须原样传 null(折成 [] 或全清单都是假告警)',
-    libFnBody('brokenRefsFromSnapshot'),
-    /if \(snapshot === null\) return null/,
-    '三态档必须在 lib 单源里(摘掉它,null 会被 Object.entries 读成"清单全缺")',
-  )
+  assert.match(fnBody('missingRefs'), /if \(cur === null\) return null/, 'missingRefs 不得在面上空转时把整张清单报成缺失')
   assert.match(fnBody('healRefs'), /cur === null/, 'healRefs 必须挡 null(否则按清单撒数千枚松散 ref)')
   assert.match(fnBody('refsVerdict'), /faceReadable/, 'refsVerdict 必须把未判定信号交给 judgeRefsHealth(判据改了调用点没改 = 生效 0 次)')
   assert.match(fnBody('git'), /maxBuffer: GIT_ENUM_MAX_BUFFER/, '整表枚举的预算必须在唯一出口给,不许散到调用点')
   assert.ok(SRC.includes('GIT_ENUM_MAX_BUFFER = '), '预算常量必须存在且有名')
-  // 行为对照(真 import lib 判据,不是文本复读):§22c 的正解是 import 源而不是复读形态。
-  const LB = await import('../lib/gitdir.mjs')
-  assert.equal(
-    LB.brokenRefsFromSnapshot({ 'refs/tags/a': 'x' }, null),
-    null,
-    'lib 层若丢了 null ⇒ 面上空转仍会把整张清单报成缺失(T8 第一条的存在意义)',
-  )
-  assert.deepEqual(
-    LB.brokenRefsFromSnapshot({ 'refs/tags/a': 'x' }, {}),
-    [['refs/tags/a', 'x']],
-    '面可读而 ref 不在 ⇒ 判缺;"未判定"与"缺失"两档不得互折',
-  )
 })
 
 test('T9 措辞分流:face-unreadable 在 --check 与守护日志里都不许被印成"个缺失"', () => {

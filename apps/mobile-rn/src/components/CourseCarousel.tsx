@@ -40,7 +40,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { toImageSource, type CarouselSlideImg } from './Carousel'
 
 /** 单门课程数据(对齐原项目 PopularCourses 关键字段的子集) */
@@ -377,7 +377,7 @@ const uptodateStyles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     left: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: rnCssLight.black30,
     borderRadius: rnRadius.md,
     paddingHorizontal: rnSpacing.sm,
     paddingVertical: 2,
@@ -390,7 +390,7 @@ const uptodateStyles = StyleSheet.create({
     position: 'absolute',
     bottom: 6,
     right: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: rnCssLight.black30,
     borderRadius: rnRadius.md,
     paddingHorizontal: rnSpacing.sm,
     paddingVertical: 2,
@@ -755,7 +755,7 @@ const swiperStyles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: rnRadius.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: rnCssLight.white50,
     marginHorizontal: 5,
   },
   dotActive: {

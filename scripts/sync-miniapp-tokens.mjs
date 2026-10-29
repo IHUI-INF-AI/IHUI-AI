@@ -148,6 +148,16 @@ export const MINIAPP_SKIP_PREFIXES = [
   '--z-',
   '--global-box-shadow',
   '--shadow-premium',
+  // 2026-10-28 新增三条(与 scripts/sync-css-tokens.mjs 的受管块同笔):
+  // --spacing-* / --text-*(含 --text-<step>--line-height / --font-weight) / --shadow-elevation-*
+  // 是 **Tailwind v4 的 theme 语义键**,只在 web(globals.css @import tokens.css 走 v4)里生成
+  // p-md / gap-lg / text-body / shadow-elevation-md 这类工具类。小程序是 Tailwind v3,没有这套
+  // 命名空间;它消费的间距/字号/阴影是 TS 派的 taroSpacing / taroType / taroElevation(rpx 数值),
+  // 压根不读这些 CSS 变量 ⇒ 搬进 app.css 只会多 43 行零消费的档位,还让"小程序副本"多背一份要跟随的账。
+  // 注意 `--font-weight-*` 已被上面的 `--font-` 覆盖,这里不重复登记。
+  '--spacing-',
+  '--text-',
+  '--shadow-elevation-',
 ]
 
 /** 本表是否覆盖该档(生成器不写它 ⇒ 守门也不得判它缺)。 */

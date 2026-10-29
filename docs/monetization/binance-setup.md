@@ -430,7 +430,7 @@ A:
 - [ ] 反钓鱼码已设置
 - [ ] 多币种充值地址已获取（BTC / ETH / USDT / USDC）
 - [ ] 项目 `/sponsor` 页面显示加密货币地址
-- [ ] `.env` 文件已配置 `USDT_TRC20_ADDRESS` / `USDT_ERC20_ADDRESS`（服务端读取，**禁止 `NEXT_PUBLIC_` 前缀**，见 7.2 节）
+- [ ] `.env` 文件已配置 `NEXT_PUBLIC_*_ADDRESS` 变量
 - [ ] **测试**:用另一个钱包向 USDT 地址转 1 USDT，确认 Binance 收到
 - [ ] **测试**:卖 1 USDT 提现 ¥7，确认到账银行卡
 

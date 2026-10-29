@@ -8,19 +8,11 @@
  * check-workspace-hygiene.mjs v2 — 彻底根治项目外路径违规
  *
  * 7 大漏洞修复(2026-07-23 v2):
- *   1. 覆盖范围(取材面纪律,v4@2026-10-28,AGENTS §0.4 同面同轮):
- *      全量档 = **HEAD blob** —— 清单走 `listFaceFiles(root,'head')`(HEAD 树),内容走同一次
- *        `catBatch HEAD:<path>`,磁盘枚举不再进判定。他席未入库/被忽略的在飞产物把 blocking
- *        射程顶红是与本次提交内容无关的恒红门(§12e;实测现场:`.ihui-agent/tmp/cli-dist-exp/
- *        index.js`,列号 81298,是他席的 bundle 生成物,既不在 HEAD 也不在任何声明提交集)。
- *        但"不判"不等于"不说"(§0.3 不得静默):只在磁盘、不在被审面上的命中仍单独打印一行
- *        "落在射程外",并把查看出口指到 --worktree。
- *      `--staged` = 索引 blob(清单 diff --cached、内容 :<path>,同面);
- *      `--worktree` = 人工逃生舱:按磁盘面扫整棵树(含 .ihui-agent/tmp),输出自称"审的是磁盘面",
- *        磁盘面可能属于并行会话半编辑态/生成物,故不得作为提交门禁(§0.4);
- *      `--root` = 测试通道(scratch 树非 git 仓,仍按磁盘扫)。
- *      v3(2026-10-16)曾把在册清单与 .ihui-agent/tmp 磁盘件并进同一条 blocking 射程,
- *      v4 收掉这一格 —— 收窄的是"审哪一面",判据规则一条没减(§12e:不许缩覆盖面消红)。
+ *   1. 覆盖范围:从只扫 .ihui-agent/tmp/ → 扫整个项目 working tree(排除 node_modules/.git/dist/.output/.next/turbo)
+ *      〔v3 更正@2026-10-16(台账票「门 25 全量档把别人工具的缓存算成项目违规」)〕全量档不再走磁盘递归:面 = **在册文件**(`git ls-files --cached`)
+ *      ∪ `.ihui-agent/tmp/`。磁盘递归会把 `.gitignore` 内别人工具的缓存(实测 `.DevEnv/…/.codex/`
+ *      三条)算成违规,而那类红与任何提交内容无关、会话也无法让它变绿 ⇒ §12e 恒红门。
+ *      `--staged` 档不变(仍只扫本次暂存集)。
  *   2. 模式匹配:从只检测 ihui-ext/ihui-prof → 检测所有盘符 \temp\ 项目数据 + \AppData\ + 中文绝对路径
  *   3. 阻塞模式:默认 exit 1(阻塞 commit),--warn 降级为 warn-only
  *   4. pre-commit 用 --staged 模式:只扫 staged 文件,避免误报其他 agent 的 WIP
@@ -32,7 +24,7 @@
  *   a. 任何盘符 \temp\ 后跟非 .log/.txt 文件(项目数据写到系统 temp)
  *   b. \AppData\Local\Temp\ 后跟非 .log 文件
  *   c. $env:TEMP\ / $env:LOCALAPPDATA\ 后跟非 .log 文件
- *   d. 硬编码中文绝对路径(d:\桌面\ / d:\项目\ 等,GBK 会乱码);`.ihui-agent/tmp/` 的一次性脚本除外
+ *   d. 硬编码中文绝对路径(d:\桌面\ / d:\项目\ 等,GBK 会乱码)
  *   e. ihui-ext / ihui-prof 等项目数据目录名出现在项目外路径上下文
  *
  * 白名单:
@@ -42,12 +34,10 @@
  *   - --redirect 参数(日志重定向)
  *
  * 用法:
- *   node scripts/check-workspace-hygiene.mjs              # 全量档:审 HEAD blob(阻塞)
- *   node scripts/check-workspace-hygiene.mjs --staged      # 只审索引 blob(阻塞,用于 pre-commit)
- *   node scripts/check-workspace-hygiene.mjs --worktree    # 人工逃生舱:审磁盘面(自称审面;不得作为提交门禁)
+ *   node scripts/check-workspace-hygiene.mjs              # 扫整个项目(阻塞)
+ *   node scripts/check-workspace-hygiene.mjs --staged      # 只扫 staged(阻塞,用于 pre-commit)
  *   node scripts/check-workspace-hygiene.mjs --warn        # warn-only(不阻塞)
  *   node scripts/check-workspace-hygiene.mjs --staged --warn
- *   两面旗同给(--staged + --worktree)= 自相矛盾 ⇒ 当场 exit 2(与其余门同措辞,走 selectFace)。
  *
  * 退出码:0 = 无违规;1 = 发现违规(阻塞)
  */
@@ -56,7 +46,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, relative, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs';
-import { gitRaw, catBatch, listFaceFiles, selectFace } from './lib/face-reader.mjs';
+import { gitRaw, catBatch } from './lib/face-reader.mjs';
 import { createLogger } from './lib/logger.mjs';
 import { flagValue } from './lib/flag-value.mjs';
 
@@ -208,7 +198,7 @@ export function scanContent(relPath, content) {
   return violations;
 }
 
-/** 磁盘适配器:只服务"被审面上不存在"的对象 —— 全量档的射程外点名(.ihui-agent/tmp)、--worktree 逃生舱与 --root 测试树。 */
+/** 磁盘适配器:只服务"被审面上不存在"的两类对象 —— .ihui-agent/tmp 的未跟踪脏件与 --root 测试树。 */
 function scanFileFromDisk(filePath, root = ROOT) {
   const relPath = relative(root, filePath).replace(/\\/g, '/');
   let content;
@@ -251,11 +241,11 @@ export function scanSetFromFace(root, face, relPaths) {
   return out;
 }
 
-function scanDir(dir, allFiles = [], root = ROOT) {
+function scanDir(dir, allFiles = []) {
   if (!existsSync(dir)) return allFiles;
   for (const entry of readdirSync(dir)) {
     // 跳过 .ihui-agent/tmp(单独扫描,因为里面是临时脚本)
-    if (dir === root && entry === '.ihui-agent') {
+    if (dir === ROOT && entry === '.ihui-agent') {
       // 扫描 .ihui-agent/tmp 但跳过 .ihui-agent/archive, .ihui-agent/memory 等
       const tmpSubdir = join(dir, entry, 'tmp');
       if (existsSync(tmpSubdir)) scanDir(tmpSubdir, allFiles);
@@ -289,71 +279,53 @@ function getStagedFiles() {
 }
 
 /**
- * 全量档取材面(AGENTS §0.4 同面同轮,v4):清单 = **HEAD 树**(`git ls-tree -r --name-only HEAD`,
- * 经 face-reader 的 listFaceFiles,不自造第二套面读取);内容 = 同一次 catBatch 的 `HEAD:<path>` blob。
+ * 全量档取材面(AGENTS §0.4 同面同轮):版本控制在册文件 ∪ 本仓自己的暂存落点 `.ihui-agent/tmp/`。
  *
- * 为什么不再并入磁盘枚举(v3 的 `.ihui-agent/tmp/` 并入、以及更早的整树递归):
- * 磁盘上挂着的是**并行会话的运行态**——实测 `.ihui-agent/tmp/cli-dist-exp/index.js`(他席打包
- * 生成物,命中列号 81298)既不在 HEAD 也不在该席声明的提交集,却把 blocking 全量档顶红。
- * 与提交内容无关的红唯一结局是逼人 --no-verify、连带废掉全部守门(§12e/§12f)。
- * 射程没有缩小:HEAD 面上的源文件全在面内,判据规则一条未减;只存在于磁盘的命中降级为
- * **报告行**(offFace 通道,见 main),并给 --worktree 留完整磁盘面逃生舱。
+ * 为什么不再走磁盘递归:递归会把 `.gitignore` 内**别人工具的缓存**当项目源码扫 —— 实测
+ * `.DevEnv/cache/userhome/.codex/**\/browser-service.mjs` 三条恒命中"相对路径跳出项目",
+ * 而那些文件由 Codex 每次启动重写,任何会话都无法使其变绿。与提交内容无关的红门唯一结局是
+ * 逼人 `--no-verify`、连带废掉全部守门(§12e/§12f)。
+ * 射程没有缩小:在册源文件全在面内,§25 的临时脚本落点 `.ihui-agent/tmp/` 仍单独并入。
  */
-function getFullFaceFiles(root = ROOT) {
-  let listed;
+const FULL_FACE_GIT_ARGS = Object.freeze(['ls-files', '--cached', '-z']);
+const TMP_LANDING_DIR = join(ROOT, '.ihui-agent', 'tmp');
+
+function getFullFaceFiles() {
+  let raw;
   try {
-    listed = listFaceFiles(root, 'head');
+    raw = gitRaw(FULL_FACE_GIT_ARGS, ROOT);
   } catch (e) {
-    return { ok: false, reason: `HEAD 树清单取不到被审面:${e?.message ?? e}` };
+    return { ok: false, reason: `git ls-files 取不到被审面:${e?.message ?? e}` };
   }
-  const tracked = listed.filter((f) => SCRIPT_EXTS.has(extname(f).toLowerCase()));
+  const tracked = String(raw).split('\0').filter(Boolean)
+    .filter(f => SCRIPT_EXTS.has(extname(f).toLowerCase()));
   if (tracked.length === 0) {
     // §0.3:枚举到 0 个候选判死不记绿
-    return { ok: false, reason: 'HEAD 树脚本文件枚举结果为 0 个(判不出"没有违规",只判"没量到")' };
+    return { ok: false, reason: '在册文件清单枚举结果为 0 个脚本文件(判不出"没有违规",只判"没量到")' };
   }
-  return {
-    ok: true,
-    faceFiles: tracked,
-    // 射程外的磁盘件(§25 落点):只用于"点名不静默",不进判定集
-    offFaceFiles: scanDir(join(root, '.ihui-agent', 'tmp'), [], root),
-    headCount: tracked.length,
-  };
+  return { ok: true, faceFiles: tracked, diskFiles: scanDir(TMP_LANDING_DIR), trackedCount: tracked.length };
 }
-
-const TMP_LANDING_DIR = join(ROOT, '.ihui-agent', 'tmp');
 
 function main() {
   const args = process.argv.slice(2);
   const isStaged = args.includes('--staged');
-  const isWorktree = args.includes('--worktree');
   const isWarn = args.includes('--warn');
 
-  // 两面旗同给 = 自相矛盾(取哪一面都会让另一面成为假绿),selectFace 与其余门同措辞判死。
-  const sel = selectFace({ staged: isStaged, worktree: isWorktree });
-  if (sel.error) {
-    log.error('❌ workspace-hygiene: 无法判定 —— ' + sel.error);
-    process.exit(2);
-  }
-
-  // 三面各走各的取材通道(§0.4 同面同轮):staged = 索引 blob;全量 = HEAD blob;
-  // --worktree/--root = 磁盘面(人工逃生舱/测试通道,输出必须自称审的是磁盘面)。
+  // 三面各走各的取材通道:staged = 索引 blob;全量 = HEAD blob;
+  // --root 测试树与 .ihui-agent/tmp 的未跟踪脏件 = 磁盘(它们在面路上没有 blob)。
   let faceFiles = [];
   let diskFiles = [];
-  let offFaceFiles = [];
-  let faceKind;
+  let faceKind = 'head';
   if (isStaged) {
     faceFiles = getStagedFiles();
-    faceKind = '索引 blob(--staged:git show :<path>)';
+    faceKind = 'staged';
     if (faceFiles.length === 0) {
       log.info('✅ workspace-hygiene: 无 staged 脚本文件,跳过');
       process.exit(0);
     }
   } else if (EXPLICIT_ROOT) {
-    diskFiles = scanDir(ROOT, [], ROOT);
-    faceKind = '磁盘面(--root 测试通道:夹具树非 git 仓,按磁盘扫)';
-  } else if (isWorktree) {
-    diskFiles = scanDir(ROOT, [], ROOT);
-    faceKind = '磁盘面(--worktree 人工逃生舱:审的是磁盘,可能含并行会话在飞产物,不得作为提交门禁)';
+    diskFiles = scanDir(ROOT);
+    faceKind = 'disk(--root 测试通道)';
   } else {
     const got = getFullFaceFiles();
     if (!got.ok) {
@@ -361,52 +333,25 @@ function main() {
       process.exit(2);
     }
     faceFiles = got.faceFiles;
-    offFaceFiles = got.offFaceFiles;
-    faceKind = 'HEAD blob(全量档:清单与内容同取自 HEAD 面;磁盘上未入库件落在射程外,只点名不判)';
+    diskFiles = got.diskFiles;
   }
 
-  // 审面自报(任务要求):不管走到哪一档,第一行就说清本轮判的是哪一面。
-  log.info(`ℹ️ workspace-hygiene: 本档审面 = ${faceKind}`);
 
-  const faceRes = faceFiles.length
-    ? scanSetFromFace(ROOT, isStaged ? 'staged' : 'head', faceFiles)
-    : { violations: [], scanned: 0, unreadable: [] };
+  const faceRes = scanSetFromFace(ROOT, isStaged ? 'staged' : 'head', faceFiles);
   const diskRes = { violations: [], unreadable: 0 };
   for (const f of diskFiles) {
     const r = scanFileFromDisk(f);
     diskRes.violations.push(...r.violations);
     diskRes.unreadable += r.unreadable;
   }
-  // 全量档的射程外通道:磁盘件只点名、不进判定(§0.3 不静默 ∧ §12e 不顶红,两边都要)。
-  const offFaceViolations = [];
-  for (const f of offFaceFiles) {
-    offFaceViolations.push(...scanFileFromDisk(f).violations);
-  }
-  if (offFaceViolations.length > 0) {
-    const hitFiles = [...new Set(offFaceViolations.map((v) => v.file))];
-    log.info(
-      `ℹ️ workspace-hygiene: 磁盘面(未入库/被忽略)有 ${offFaceViolations.length} 处命中、涉及 ${hitFiles.length} 个文件` +
-        `(如 ${hitFiles.slice(0, 5).join(', ')}${hitFiles.length > 5 ? ' …' : ''})` +
-        ' —— 不在 HEAD 面 ⇒ **落在本档射程外**,判定与退出码不受影响;人工排查请用 --worktree 看磁盘全貌',
-    );
-  }
   const allViolations = [...faceRes.violations, ...diskRes.violations];
   const scannedCount = faceRes.scanned + (diskFiles.length - diskRes.unreadable);
 
   const blockingViolations = allViolations.filter(v => v.level === 'blocking');
-  /**
-   * `.ihui-agent/tmp/` 是 §15 批准的一次性脚本落点(用完即删):那里允许绝对路径,
-   * 耐久代码才讲可移植性。**只把「硬编码中文绝对路径」这一条**从 tmp 面排除;
-   * 落点/垃圾/写入面等 blocking 规则照旧扫 tmp(那条职责不变)。
-   * 2026-10-25 实测:8 处告警全来自 .ihui-agent/tmp 的分析脚本,每轮审计都被读成"隐患"。
-   */
-  const isTmpLandingFile = (p) => /(^|\/)\.ihui-agent\/tmp(\/|$)/.test(String(p ?? '').replace(/\\/g, '/').toLowerCase());
-  const warningViolations = allViolations.filter(
-    v => v.level === 'warning' && !(v.name.startsWith('硬编码中文') && isTmpLandingFile(v.file)),
-  );
+  const warningViolations = allViolations.filter(v => v.level === 'warning');
 
   if (allViolations.length === 0) {
-    log.info(`✅ workspace-hygiene: 面=${faceKind};扫描 ${scannedCount} 个文件,无违规` + (offFaceFiles.length ? `;射程外磁盘件 ${offFaceFiles.length} 个(只点名,不判)` : '') + (faceRes.unreadable.length ? `;另 ${faceRes.unreadable.length} 个在册件在该面取不到内容 ⇒ 该部分未判定,不记绿` : ''));
+    log.info(`✅ workspace-hygiene: 面=${faceKind} ⊕ 未跟踪磁盘件 ${diskFiles.length} 个;扫描 ${scannedCount} 个文件,无违规` + (faceRes.unreadable.length ? `;另 ${faceRes.unreadable.length} 个在册件在该面取不到内容 ⇒ 该部分未判定,不记绿` : ''));
     process.exit(0);
   }
 
@@ -427,7 +372,7 @@ function main() {
   if (blockingViolations.length > 0) {
     const mode = isWarn ? 'WARN' : 'BLOCK';
     const prefix = isWarn ? '⚠️ ' : '❌ ';
-    log.error(`${prefix}workspace-hygiene [${mode}](审面=${faceKind}): ${blockingViolations.length} 处项目外路径违规`);
+    log.error(`${prefix}workspace-hygiene [${mode}]: ${blockingViolations.length} 处项目外路径违规`);
     log.error('');
     log.error('违反 AGENTS.md §15 项目外路径禁令:');
     log.error('  - 扩展打包用 apps/extension/.output/chrome-mv3/');
@@ -478,7 +423,8 @@ export const __test__ = {
   VIOLATION_CHECKS,
   isLineWhitelisted,
   scanFile,
-  // 全量档取材面的形状锁(镜像测试据此判"有没有把未入库/被忽略的文件重新扫进判定集")
+  // 全量档取材面的形状锁(镜像测试据此判"有没有把未入库/被忽略的文件重新扫进面内")
+  FULL_FACE_GIT_ARGS,
   TMP_LANDING_DIR,
   getFullFaceFiles,
 };

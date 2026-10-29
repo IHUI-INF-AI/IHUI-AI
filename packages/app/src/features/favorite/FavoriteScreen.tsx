@@ -23,12 +23,13 @@ import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenS
 /** 收藏列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FavoriteFilterTab, FavoriteItemRow, FavoriteScreenProps }
 
-const TABS: FavoriteFilterTab[] = ['all', 'course', 'live', 'article']
+const TABS: FavoriteFilterTab[] = ['all', 'course', 'live', 'post', 'aigc', 'news']
 
 /**
  * 收藏列表共享屏 — props 注入式跨端组件(批次 15,带 tab 筛选)
  *
- * 平台无关:负责渲染 header(返回 + 标题)+ tabs(all/course/live/article)
+ * 平台无关:负责渲染 header(返回 + 标题 + 「已收藏 N 项」统计)
+ * + tabs(all/course/live/post/aigc/news,与小程序收藏页同一套分类)
  * + 收藏卡片列表(cover[Image 或 emoji 占位] + title + tab 标签 · createdAt + 删除按钮)
  * + 下拉刷新 + 上拉加载更多。
  * 平台特定(导航 / API 调用 / Alert 确认)由 wrapper 通过 props 注入。
@@ -41,11 +42,13 @@ export function FavoriteScreen({
   loading,
   refreshing,
   loadingMore,
+  hasMore,
   error,
   onRefresh,
   onLoadMore,
   onDelete,
   onBack,
+  onGoDiscover,
   colorScheme = 'light',
 }: FavoriteScreenProps) {
   const tk = getTokens(colorScheme)
@@ -54,15 +57,19 @@ export function FavoriteScreen({
   const tabLabel = (tab: FavoriteFilterTab) => {
     switch (tab) {
       case 'all':
-        return t('favorite.tabAll')
+        return t('favorite.tab_all')
       case 'course':
-        return t('favorite.tabCourse')
+        return t('favorite.tab_course')
       case 'live':
-        return t('favorite.tabLive')
-      case 'article':
-        return t('favorite.tabArticle')
+        return t('favorite.tab_live')
+      case 'post':
+        return t('favorite.tab_post')
+      case 'aigc':
+        return t('favorite.tab_aigc')
+      case 'news':
+        return t('favorite.tab_news')
       default:
-        return t('favorite.tabAll')
+        return t('favorite.tab_all')
     }
   }
 
@@ -71,6 +78,9 @@ export function FavoriteScreen({
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('favorite.title')}</Text>
+        <Text style={styles.statsText}>
+          {t('favorite.total')} {items.length} {t('favorite.items_unit')}
+        </Text>
       </View>
 
       <View style={styles.tabs}>
@@ -110,13 +120,22 @@ export function FavoriteScreen({
           loading ? (
             <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
-            <EmptyState title={t('favorite.empty')} colorScheme={colorScheme} />
+            <EmptyState
+              title={t('favorite.empty')}
+              actionLabel={onGoDiscover ? t('favorite.go_discover') : undefined}
+              onAction={onGoDiscover}
+              colorScheme={colorScheme}
+            />
           )
         }
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.footer}>
-              <Text style={styles.footerText}>{t('common.loading')}</Text>
+              <Text style={styles.footerText}>{t('favorite.loading_more')}</Text>
+            </View>
+          ) : hasMore === false && items.length > 0 ? (
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>{t('favorite.no_more')}</Text>
             </View>
           ) : null
         }
@@ -134,7 +153,7 @@ export function FavoriteScreen({
                 {item.title}
               </Text>
               <Text style={styles.cardMeta}>
-                {item.targetType} · {item.createdAt}
+                {item.targetType} · {t('favorite.collected_at')} {item.createdAt}
               </Text>
             </View>
             <TouchableOpacity
@@ -143,7 +162,7 @@ export function FavoriteScreen({
               activeOpacity={0.7}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
-              <Text style={styles.deleteBtnText}>{t('common.delete')}</Text>
+              <Text style={styles.deleteBtnText}>{t('favorite.cancel')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -163,6 +182,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    statsText: { marginLeft: 'auto', fontSize: rnType.caption.size, color: tk.text.secondary },
     tabs: {
       flexDirection: 'row',
       paddingHorizontal: 10,

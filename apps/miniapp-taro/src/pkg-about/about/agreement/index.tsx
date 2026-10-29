@@ -4,48 +4,26 @@
 
 // 镜像 packages/app/src/features/agreement/AgreementScreen.tsx
 
-import { useI18n } from '@/i18n'
-import { View, Text, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+/**
+ * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
+ *   渲染 = packages/app/src/features/agreement/AgreementScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
+ *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/AgreementScreen.tsx 本体,
+ *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
+ * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ */
 import ThemeRoot from '@/components/ThemeRoot'
+import { AgreementScreen as AgreementScreenShell } from '@rn-shells/AgreementScreen'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useI18n } from '@/i18n'
 
-const SECTION_KEYS = [
-  ['agreementSections.sectionTerms', 'agreementSections.sectionTermsBody'],
-  ['agreementSections.sectionRights', 'agreementSections.sectionRightsBody'],
-  ['agreementSections.sectionObligations', 'agreementSections.sectionObligationsBody'],
-] as const
-
-export default function Agreement() {
+export default function AgreementPage() {
   const { t } = useI18n()
   useDidShow(() => {
     Taro.setNavigationBarTitle({ title: t('agreement.title') })
   })
-
   return (
     <ThemeRoot>
-      <ScrollView className="h-screen bg-background" scrollY>
-        <View className="px-[28rpx] pt-[28rpx] pb-[64rpx] flex flex-col gap-[24rpx]">
-          <View className="bg-card rounded-lg border border-border p-[28rpx]">
-            <Text className="block text-[length:36rpx] font-semibold text-foreground leading-[44rpx] mb-[12rpx]">
-              {t('agreement.title')}
-            </Text>
-            <Text className="block text-[length:28rpx] text-muted-foreground leading-[40rpx]">
-              {t('agreement.subtitle')}
-            </Text>
-          </View>
-
-          {SECTION_KEYS.map(([titleKey, bodyKey]) => (
-            <View key={titleKey} className="bg-card rounded-lg border border-border p-[28rpx]">
-              <Text className="block text-[length:36rpx] font-semibold text-foreground leading-[44rpx] mb-[24rpx]">
-                {t(titleKey)}
-              </Text>
-              <Text className="block text-[length:28rpx] text-muted-foreground leading-[44rpx] text-justify">
-                {t(bodyKey)}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+      <AgreementScreenShell />
     </ThemeRoot>
   )
 }

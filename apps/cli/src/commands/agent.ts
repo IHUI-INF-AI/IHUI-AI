@@ -124,7 +124,7 @@ import { frameSystemReminder, neutralizeBoundaries } from '../utils/prompt-bound
 import { injectHostSection, injectReminderSection } from '../utils/prompt-injection-registry.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
-import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook, onHookRunEvent } from '../hooks/index.js';
+import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
 import { loadSettings, type SamplerSettings, type Settings } from './settings.js';
 import {
   createOutputTokenContinuationMessage,
@@ -2736,16 +2736,6 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     workspacePath: opts.workspacePath,
     sessionId: opts.session?.id,
   };
-  // G-41 生产接线:钩子事件流(started/terminal 成对)的生产侧出口 —— §30"钩子无终态
-  // 不得渲染成完成"自此有机器可读逐条终态可填(实现层 d4f8ba336b 事件面的首个生产
-  // 消费者)。json 模式静默:JSON 流不容非 JSON 行混入;terminal 才打印,started 只报
-  // 身份不报结果,刷出来是噪声。
-  const unsubscribeHookRunEvents = onHookRunEvent((evt) => {
-    if (evt.type !== 'terminal' || opts.jsonMode === true) return;
-    console.error(
-      chalk.dim(`  [hook] ${evt.hookEvent}/${evt.hook} → ${evt.outcome}${evt.exitCode !== 0 ? ` (exit ${evt.exitCode})` : ''}`),
-    );
-  });
   const startResult = await runSessionStartHooks(hooksConfig, sessionHookCtx, opts.signal);
   if (!startResult.proceed) {
     const errMsg = startResult.reason ?? 'sessionStart hook blocked';
@@ -3118,8 +3108,6 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     // W10 异常路径也 flush 残留 markdown(重复调用幂等:pending 清空后 flush 返回空)
     flushMdStream();
     await runSessionEndHooks(hooksConfig, sessionHookCtx, opts.signal);
-    // G-41:会话钩子(sessionEnd 含自身终态)发完再退订,本轮全部事件都已出口
-    unsubscribeHookRunEvents();
     // P1-6 Codegraph 增量索引:退出时持久化缓存(供下次启动加载)
     if (codegraphSettings.codegraphIncremental?.enabled === true) {
       try {

@@ -26,7 +26,6 @@
  */
 
 import { extractTaskFingerprint } from '../check-plan-task-duplicates.mjs'
-import { stripHeader } from './plan-field-line.mjs'
 
 const NOTE_RE = /〔[^〕]*〕/g
 const DATE_RE = /(\d{4}-\d{2}-\d{2})/g
@@ -192,33 +191,6 @@ export function dedupeGroups(text, baseLines = null, oursLines = null, picks = n
         continue
       }
       usedPicks.add(fp)
-    }
-    // 仅投影标头不同(正文逐字相同)⇒ 这台机器判得出,不算"两侧各改写一版"。
-    // 立因(2026-10-25 实测,主干合并卡死):两侧同期各动同一行 —— 本侧补侧车标头、对侧富化正文;
-    // 正文合并成同一份后产物仍留两行(带标头 / 不带标头)。它们指纹相同、都 ≠ 基底、同票号 ⇒ 旧写法
-    // 判 `clash` ⇒ 整组 ambiguous ⇒ 折叠层一条不折 ⇒ 落地闸 F4 判"同一件事多条待办"放大(各侧 0 /
-    // 归并 2),而 merge-tree 本身没有内容冲突 ⇒ 分叉只能人工删行才收得掉。
-    // 标头是侧车的**投影**(可重生成,不承载正文差异),正文逐字相同时不存在"哪一版是当下状态"的
-    // 分歧 —— 保留带标头那份即可;恰好一个带标头才自动裁(多个不同标头 ⇒ 仍交人工,见下)。
-    if (!picked) {
-      // 只在"两版正文是前缀关系"时自动裁:内容差异只在尾部 ⇒ 保留最长那份零信息损失,
-      // 不涉及"哪一版是当下状态"。判据要能同时吃掉三型实测形态:
-      //   ① marker 与正文间空白差异(`- [ ]**H05` vs `- [ ] 〔标头〕 **H05`);
-      //   ② 仅投影标头差异(正文逐字相同);
-      //   ③ 尾部注记/补充的差异(实测 G-50:本侧版 = 对侧正文 + 一段畸形嵌套注记,剥注记后
-      //      仍是其后缀延伸 —— 括号不配平时 stripNoteGroups 故意不剥,所以"去注记后逐字相等"
-      //      这条路对它不成立,只能用前缀关系)。
-      // 标头是侧车的投影(可重生成);带标头那一份必须同时是最长那份才裁 —— 标头只在短份说明
-      // 两份各有对方没有的东西(交人工),而不是"一版是另一版的旧形态"。
-      const norm = (l) =>
-        stripHeader(l)
-          .replace(/^(\s*-\s*\[[ xX]\])\s*/, '$1 ')
-          .trimEnd()
-      const rows = members.map((m) => ({ m, s: norm(m.line) }))
-      const longest = rows.reduce((a, b) => (b.s.length > a.s.length ? b : a))
-      const headed = rows.filter((r) => stripHeader(r.m.line) !== r.m.line)
-      if (rows.every((r) => r.m === longest.m || longest.s.startsWith(r.s)) && headed.length === 1 && headed[0].m === longest.m)
-        picked = longest.m
     }    // 「改写者优先」:组里"不等于基底原文"的那一条 = 某侧后来就地改写过的那一版,由它当 keeper。
     const rewritten = baseSet ? members.filter((m) => !baseSet.has(m.line)) : []
     // 只在**同一自持票号**下才问"是不是两侧各改写了一遍":同指纹而票号不同的两条是

@@ -46,6 +46,7 @@ import {
   Globe,
   Bot,
   Megaphone,
+  Activity,
   Info,
   Plug,
   Database,
@@ -103,6 +104,8 @@ export default function SettingsScreen() {
     // 安全设置 / 身份认证(孤儿路由修复:原注册无入口,补挂设置菜单)
     { key: 'SecurityCenter', label: t('securityCenter.title') },
     { key: 'SecuritySettings', label: t('securitySettings.title') },
+    // 会员偏好(通知/隐私七开关):后端 /api/settings/notifications|privacy
+    { key: 'MemberSettings', label: t('memberSettings.title') },
     { key: 'ApiKeys', label: t('apiKeys.title') },
     // 签到助手 / 个人号池(2026-10-23 立):与 Web /checkin 同一后端,移动端可管理
     { key: 'CheckinAssistant', label: t('checkinAssistant.title') },
@@ -131,6 +134,7 @@ export default function SettingsScreen() {
     { key: 'IcpRecord', label: t('menu.icpRecord') },
     { key: 'ModelRecord', label: t('menu.modelRecord') },
     { key: 'Announcement', label: t('announcement.title') },
+    { key: 'Status', label: t('statusPage.title') },
     { key: 'About', label: t('menu.about') },
   ]
 
@@ -164,6 +168,7 @@ export default function SettingsScreen() {
     // API 设置(对齐原项目 pagesA/settings/api-settings.vue:Coze PAT/Base URL 配置)
     { key: 'ApiSettings', label: t('menu.apiSettings'), icon: Plug },
     { key: 'Announcement', label: t('announcement.title'), icon: Megaphone },
+    { key: 'Status', label: t('statusPage.title'), icon: Activity },
     { key: 'About', label: t('menu.about'), icon: Info },
   ]
 

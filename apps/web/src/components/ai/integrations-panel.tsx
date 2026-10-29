@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Bell, Copy, GitBranch, MessageSquare, Trash2 } from 'lucide-react'
 
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { droppedNotice } from '@/lib/bounded-append'
@@ -129,8 +129,9 @@ export function IntegrationsPanel() {
     }
     setTesting('github')
     try {
-      await api(`/api/webhooks/trigger/${id}`, { method: 'POST' })
-      toast.success(t('githubTestSent'))
+      const r = await fetchApi(`/api/webhooks/trigger/${id}`, { method: 'POST' })
+      if (r.success) toast.success(t('githubTestSent'))
+      else toast.error(t('githubTestFailed'), { description: r.error || '' })
     } catch (e) {
       toast.error(t('githubTestFailed'), {
         description: e instanceof Error ? e.message : String(e),

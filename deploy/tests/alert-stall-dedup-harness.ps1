@@ -155,13 +155,7 @@ $d11c = Test-AlertDueByIdentity -Sig $fpB -StateFile $tmp -RepeatHours 4 -Stall
 T '11c 同文本换病因 ⇒ 第二发不被旧槽压住(due-new)' ($d11c.Due -and $d11c.Decision -eq 'due-new') "$($d11c.Decision) key=$($d11c.Key)"
 T '11d 换病因的槽键与病因 A 的槽键不同(同键=还会被压)' ($d11c.Key -ne $d11a.Key) "A=$($d11a.Key) B=$($d11c.Key)"
 T '11e 同病因身份逐字节稳定(同因去重的前提,不得吃漂移明细)' ((Get-AlertIdentitySig -Message $msgG21 -Reason 'Module not found: @ihui/shared') -eq $fpA) '身份不稳定 ⇒ 每轮换身份,48h/47 封那一型复活'
-# [2026-10-26 票 G-44] 11f 改档:旧断言要求"空原因 ⇒ 身份 = 整条文案",而 G-44 要修的正是这一形
-# (文案里任一处读数漂一个值就换一个槽)。新契约 = 身份只含稳定类别枚举,下两条 11g/11h 是它的正向锁。
-T '11f 空原因 ⇒ 身份只含类别枚举、不回落整条文案(G-44)' ((Get-AlertIdentitySig -Message $msgG21 -Reason '') -eq '类别=build-failed') "实得:$(Get-AlertIdentitySig -Message $msgG21 -Reason '')"
-$msgG44Drift = '构建失败 → 保持当前在线版本,不动 web,已记冷却(45 分钟后自动重试)'
-T '11g 同族读数漂移(冷却 30→45 分钟)身份不变(旧形会另开槽)' ((Get-AlertIdentitySig -Message $msgG44Drift -Reason '') -eq (Get-AlertIdentitySig -Message $msgG21 -Reason '')) "漂移后:$(Get-AlertIdentitySig -Message $msgG44Drift -Reason '')"
-$msgG44Other = 'git merge --ff-only 本轮远端 tip 分叉且自动收敛无效:需人工收敛后才能切流(未强推、未动任何在途改动)'
-T '11h 不同故障族不共槽(构建失败 vs ff 分叉)' ((Get-AlertIdentitySig -Message $msgG44Other -Reason '') -ne (Get-AlertIdentitySig -Message $msgG21 -Reason '')) "另族:$(Get-AlertIdentitySig -Message $msgG44Other -Reason '')"
+T '11f 空原因 ⇒ 身份与改动前逐字同形(存量槽位不失效,不制造重发风暴)' ((Get-AlertIdentitySig -Message $msgG21 -Reason '') -eq (($msgG21 -replace '\s+', ' ').Trim())) "实得:$(Get-AlertIdentitySig -Message $msgG21 -Reason '')"
 
 Write-Output '[12] G-21 装车锁:身份合成真的接进派发入口与调用点(否则上面全绿只是模块自洽)'
 T '12a Invoke-FailNotify 有 -Reason 参数' ($src -match 'function Invoke-FailNotify \{[\r\n]+\s*param\([^\r\n]*\[string\]\$Reason') '派发入口不吃原因 ⇒ 本票等于没做'

@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { appAlert } from '../components/BottomPops'
+import { useRefreshOnFocus } from '../hooks'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { listAiSkills, type AiSkillMeta } from '@ihui/api-client'
@@ -60,6 +61,9 @@ export function AiSkillScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新)
+  useRefreshOnFocus(load)
 
   // 点击技能卡:查看详情确认弹窗(原屏 Alert 行为,跳转在选项回调内完成)
   const onOpen = (skill: AiSkillListItem) => {

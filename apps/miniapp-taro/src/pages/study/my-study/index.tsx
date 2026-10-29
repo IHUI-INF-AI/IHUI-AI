@@ -13,7 +13,6 @@ import type { StudyRecord } from '@/api'
 import { formatRelativeTime } from '@ihui/shared'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import ThemeRoot from '@/components/ThemeRoot'
-import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 type TabKey = 'inProgress' | 'completed' | 'favorited'
 
 const TABS = (tt: TtFn): Array<{ key: TabKey; labelKey: string; fallback: string }> => [
@@ -62,13 +61,8 @@ export default function MyStudy() {
     }
   }, [])
 
-  // 2026-10-24 G-933 冷启动抢跑门控补漏:GET /study/records 由 routes/user/index.ts:36 组级
-  // preHandler 统一鉴权 ⇒ 鉴权判定落定前不发(与 pages/study/record.tsx 同一口径)。
-  const { waitUntilReady } = useAuthReadyGate()
   useDidShow(() => {
-    waitUntilReady(() => {
-      void loadData()
-    })
+    loadData()
   })
 
   const onTabChange = useCallback((key: TabKey) => {

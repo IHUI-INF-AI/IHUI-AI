@@ -350,7 +350,7 @@ export async function deliverSmsCode(
  *
  * 抽成纯函数是为了让每一档各有成对夹具可钉(§feedback-fix-must-carry-mutation-proof):
  * 摘掉 `devEchoOptIn` 这一维,显式声明那一档必须翻红,而不是两档同色。 */
-function judgeUnconfiguredDelivery(opts: {
+export function judgeUnconfiguredDelivery(opts: {
   productionGuard: boolean
   devEchoOptIn: boolean
 }): SmsDeliveryResult {

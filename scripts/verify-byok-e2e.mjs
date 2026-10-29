@@ -50,26 +50,17 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
-import { requireFlagValue } from './lib/flag-value.mjs'
 
 const args = argv.slice(2)
 const dryRun = args.includes('--dry-run')
 const live = args.includes('--live') || !!env.API_BYOK_KEY
 const apiKeyFlag = (() => {
-  const r = requireFlagValue(args, '--api-key', { noun: 'API Key', fallback: env.API_BYOK_KEY || '' })
-  if (r.error) {
-    console.error(`❌ 用法错:${r.error}`)
-    process.exit(2)
-  }
-  return r.value
+  const i = args.indexOf('--api-key')
+  return i >= 0 ? args[i + 1] : env.API_BYOK_KEY || ''
 })()
 const apiUrl = (() => {
-  const r = requireFlagValue(args, '--api-url', { noun: 'API URL', fallback: env.API_URL || 'http://localhost:8802' })
-  if (r.error) {
-    console.error(`❌ 用法错:${r.error}`)
-    process.exit(2)
-  }
-  return r.value
+  const i = args.indexOf('--api-url')
+  return i >= 0 ? args[i + 1] : env.API_URL || 'http://localhost:8802'
 })()
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))

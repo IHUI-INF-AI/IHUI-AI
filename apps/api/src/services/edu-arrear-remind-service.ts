@@ -29,7 +29,6 @@
  */
 
 import { and, asc, eq, gte, inArray, isNull, ne } from 'drizzle-orm'
-import { bizDayStartUtc } from '../utils/biz-day.js'
 import { eduEnrollment, eduFeeReminder, eduParentStudentBinding, users } from '@ihui/database'
 import { db } from '../db/index.js'
 import { createNotification } from '../db/notification-queries.js'
@@ -93,9 +92,11 @@ function buildReminderMessage(
   return `【学费催缴】${studentName} 同学尚有学费 ${dueAmount} 元未缴清,请尽快完成缴费。如有疑问请联系机构老师。`
 }
 
-/** 北京时间当日 0 点（返回 UTC Date）——算法唯一出口 = utils/biz-day.ts */
+/** 北京时间当日 0 点（返回 UTC Date） */
 function beijingMidnightUtc(): Date {
-  return bizDayStartUtc(0)
+  const bjNow = new Date(Date.now() + 8 * 3600 * 1000)
+  const bjDate = bjNow.toISOString().slice(0, 10)
+  return new Date(Date.parse(`${bjDate}T00:00:00+08:00`))
 }
 
 export interface ReminderRecipient {
@@ -247,7 +248,11 @@ export async function dispatchArrearChannels(input: {
   dueAmount: number
   channel: ExternalChannel
   /** 微信那支由调用方注入,保持本模块不直接依赖小程序通道实现细节 */
-  sendWx?: (studentId: string, studentName: string, dueAmount: number) => Promise<{ sent: boolean; reason?: string }>
+  sendWx?: (
+    studentId: string,
+    studentName: string,
+    dueAmount: number,
+  ) => Promise<{ sent: boolean; reason?: string }>
 }): Promise<ChannelDispatch> {
   const out: ChannelDispatch = {
     sms: [],
@@ -316,9 +321,9 @@ export function externalDeliveryMissed(input: {
 /**
  * 定时任务的外部通道集合;默认只走微信(与接短信之前的行为逐字一致,不偷偷扩面)。
  */
-export async function scanAndRemindArrears(
-  options?: { channels?: ExternalChannel[] },
-): Promise<ArrearRemindResult> {
+export async function scanAndRemindArrears(options?: {
+  channels?: ExternalChannel[]
+}): Promise<ArrearRemindResult> {
   const channels = options?.channels ?? ['wechat']
   const result: ArrearRemindResult = {
     scanned: 0,
@@ -489,8 +494,7 @@ export async function scanAndRemindArrears(
 }
 
 export type SmsAvailability =
-  | { ok: true; phone: string }
-  | { ok: false; bucket: 'not_configured' | 'no_phone' }
+  { ok: true; phone: string } | { ok: false; bucket: 'not_configured' | 'no_phone' }
 
 /**
  * 短信通道的"可达性"判定,抽成纯函数:它决定的是**这条通道对这个人有没有意义**,

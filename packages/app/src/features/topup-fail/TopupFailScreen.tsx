@@ -8,7 +8,7 @@ import { XCircle } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TopupFailScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 /** Props 类型 re-export(单一来源 @ihui/types) */
@@ -67,21 +67,21 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    body: { flex: 1, alignItems: 'center', padding: 24, gap: 12 },
-    icon: { fontSize: 64, marginTop: 12 },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    body: { flex: 1, alignItems: 'center', padding: rnSpacing['2xl'], gap: rnSpacing.md },
+    icon: { fontSize: 64, marginTop: rnSpacing.md },
     titleText: { fontSize: 22, fontWeight: '700', color: tk.danger.DEFAULT },
     card: {
       width: '100%',
       backgroundColor: tk.danger.light,
       borderRadius: rnRadius.lg,
-      padding: 12,
+      padding: rnSpacing.md,
     },
-    reason: { fontSize: 16, color: tk.danger.DEFAULT, textAlign: 'center' },
-    actions: { width: '100%', gap: 12, marginTop: 8 },
+    reason: { fontSize: rnType.title.size, color: tk.danger.DEFAULT, textAlign: 'center' },
+    actions: { width: '100%', gap: rnSpacing.md, marginTop: rnSpacing.sm },
     primaryBtn: {
       borderRadius: rnRadius.sm,
       height: 50,
@@ -89,7 +89,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
     },
-    primaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    primaryText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
     secondaryBtn: {
       borderRadius: rnRadius.sm,
       height: 44,
@@ -97,7 +97,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.surface.card,
     },
-    secondaryText: { fontSize: 16, color: tk.text.primary },
+    secondaryText: { fontSize: rnType.title.size, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

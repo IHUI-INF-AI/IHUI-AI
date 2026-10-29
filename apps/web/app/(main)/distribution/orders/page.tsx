@@ -4,7 +4,6 @@
 
 'use client'
 
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -31,6 +30,7 @@ import {
 import { cn } from '@/lib/utils'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface Order {
   id: string

@@ -113,7 +113,7 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 
 > **「长春零下 25 度。一个人。一台电脑。一年时间。**
 >
-> **9 端代码 · 340 张数据库表 · 4561 个 API 路由。**
+> **8 端代码 · 340 张数据库表 · 4393 个 API 路由。**
 >
 > **资本始终没来。但代码,还在生长。」**
 
@@ -234,11 +234,11 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 
 **百万人民币级的投入**,几乎全部来自创始人自筹与团队垫资。在那个时间点,中国 AI 一级市场的融资环境已经开始转冷——根据 IT 桔子的统计,2025 年 Q1 国内 AI 领域融资事件数量同比下降超过 30%,早期项目估值大幅回调,机构对"非明星团队 + 非明星赛道"的项目几乎不再下注。
 
-IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不是垂直 SaaS,它是一个**完整的、跨 9 端的、商业化生产级 AI 应用基座**——这件事本身就让融资变得异常艰难。投资人会问:"你的护城河是什么?为什么不是大厂做掉?为什么不是 Dify 做掉?"
+IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不是垂直 SaaS,它是一个**完整的、跨 8 端的、商业化生产级 AI 应用基座**——这件事本身就让融资变得异常艰难。投资人会问:"你的护城河是什么?为什么不是大厂做掉?为什么不是 Dify 做掉?"
 
 而李春川的答案始终只有一个:
 
-> **"因为大厂不会把计费、订阅、VIP、钱包、积分、退款、发票、10 支付网关(含海外 Stripe + PayPal)完整开源;Dify 不会把 9 端、CLI、桌面、扩展、移动、小程序全做掉。这件事必须有人做,那就由我们来做。"**
+> **"因为大厂不会把计费、订阅、VIP、钱包、积分、退款、发票、10 支付网关(含海外 Stripe + PayPal)完整开源;Dify 不会把 8 端、CLI、桌面、扩展、移动、小程序全做掉。这件事必须有人做,那就由我们来做。"**
 
 这个回答,不够性感,不够"故事化",也不够让投资人在合伙人会议上兴奋地拍桌子。
 
@@ -247,7 +247,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 那段时间,没有 PR 稿,没有发布会,只有:
 
 - 一张张数据库表从 0 长到 340
-- 一行行 API 路由从 0 长到 4561
+- 一行行 API 路由从 0 长到 4393
 - 一个个 pre-commit 守门钩子从 0 加到 17
 - 一次次推翻重构,一次次为某个 schema 是否合理争论到凌晨
 - 越来越紧的预算,越来越沉的肩
@@ -276,11 +276,11 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 | 维度                | 一个人的产出                                                                                           | 同类项目通常的团队规模          |
 | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| **9 端代码**        | Web / API / AI 服务 / CLI / 桌面 / 浏览器扩展 / 移动 RN / 移动 Capacitor(mobile-cap) / 微信小程序                                   | 通常 4-6 个端各 1 个团队,30+ 人 |
+| **8 端代码**        | Web / API / AI 服务 / CLI / 桌面 / 浏览器扩展 / 移动 RN / 微信小程序                                   | 通常 4-6 个端各 1 个团队,30+ 人 |
 | **100+ 大模型接入** | LiteLLM 网关统一 + 5 个 provider 适配                                                                  | 通常 1 个模型团队 3-5 人        |
 | **AI 编排三栈**     | LangGraph + MCP + A2A 协同 + Persona + Agent Runtime + 向量记忆                                        | 通常 1 个 AI 平台团队 5-10 人   |
-| **数据库**          | 608 表 + 235 schema 文件 + drizzle-kit push + RLS + 多租户路由 + pgvector + 知识图谱                   | 通常 1 个 DBA + 2-3 个后端      |
-| **API 规模**        | 4561 路由 + 12 WebSocket + 627 路由文件                                                                | 通常 5-8 个后端工程师           |
+| **数据库**          | 542 表 + 205 schema 文件 + drizzle-kit push + RLS + 多租户路由 + pgvector + 知识图谱                   | 通常 1 个 DBA + 2-3 个后端      |
+| **API 规模**        | 4393 路由 + 12 WebSocket + 288 路由文件                                                                | 通常 5-8 个后端工程师           |
 | **前端规模**        | 200+ 页面 + 5 语言 i18n parity + 暗黑模式 + PWA + SEO                                                  | 通常 4-6 个前端工程师           |
 | **工程守门**        | 56+10 pre-commit + post-commit 自动 push + drizzle-kit push 模式 + 9 PowerShell 启动                   | 通常 1-2 个 DevOps 工程师       |
 | **可观测性**        | Prometheus + Grafana(3 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                | 通常 1-2 个 SRE 工程师          |
@@ -343,7 +343,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 在被资本反复"再等等"的一年里,代码并没有停下生长。
 
 - 数据库表从 0 涨到 340
-- API 路由从 0 涨到 4561
+- API 路由从 0 涨到 4393
 - 8 端框架逐一成型
 - 100+ 大模型通过 LiteLLM 统一接入
 - LangGraph + MCP + A2A 三栈协同跑通
@@ -414,7 +414,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 - LangGraph 的**状态机模型**比 AutoGen 的"多 agent 对话"更适合复杂业务流(计费、订阅、退款这种需要严格状态转移的场景)
 - LangGraph 的**图结构可视化**让一个人也能 debug 复杂工作流(否则一个 agent 调用链跑飞了根本不知道在哪一步)
-- LangGraph 与 LangChain 生态深度集成,101 模型接入零成本
+- LangGraph 与 LangChain 生态深度集成,176 模型接入零成本
 - AutoGen 偏研究,CrewAI 偏简单任务编排,都不适合生产级商业应用
 - MCP 协议让 Agent 能调用外部工具(文件系统、数据库、API),A2A 让 Agent 之间能对话
 
@@ -443,17 +443,17 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 #### 决策 3 · 为什么选 TS Monorepo,而不是 Polyrepo?
 
-**背景**:9 端代码(Web / API / AI / CLI / Desktop / Extension / Mobile / Capacitor(mobile-cap) / Miniapp),monorepo vs polyrepo 是生死决策。
+**背景**:8 端代码(Web / API / AI / CLI / Desktop / Extension / Mobile / Miniapp),monorepo vs polyrepo 是生死决策。
 
 **选择**:pnpm workspace + Turborepo + 13 个共享 packages。
 
 **理由**:
 
-- **类型对齐**:9 端共享 `@ihui/types`,改一个类型 9 端立即感知,避免 polyrepo 的"类型漂移地狱"
-- **原子提交**:一个 feature 跨 9 端的改动可以一个 commit 搞定,polyrepo 要 8 个 PR
+- **类型对齐**:8 端共享 `@ihui/types`,改一个类型 8 端立即感知,避免 polyrepo 的"类型漂移地狱"
+- **原子提交**:一个 feature 跨 8 端的改动可以一个 commit 搞定,polyrepo 要 8 个 PR
 - **依赖一致性**:pnpm workspace 强制版本一致,避免 polyrepo 的"依赖碎片化"
 - **CI 缓存**:Turborepo 的远程缓存让一个独立开发者也能享受大团队的 CI 速度
-- **共享 UI**:`@ihui/ui-react` + `@ihui/design-tokens` 让 9 端 UI 一致,polyrepo 做不到
+- **共享 UI**:`@ihui/ui-react` + `@ihui/design-tokens` 让 8 端 UI 一致,polyrepo 做不到
 
 **代价**:monorepo 配置复杂,但配好之后一劳永逸。
 
@@ -641,16 +641,16 @@ IHUI-AI 的诞生离不开以下开源项目的启发与支持:
 A: Yes. Apache 2.0 license,商业友好,可自托管、可闭源衍生品,无传染性。
 
 **Q: How many LLMs does it support? / 支持多少个大模型?**
-A: 101 models via LiteLLM adapter(国际 30+ / 国产 15+ / 云厂商 10+),统一 API + 智能路由 + 60% 缓存。
+A: 176 models via LiteLLM adapter(国际 30+ / 国产 15+ / 云厂商 10+),统一 API + 智能路由 + 60% 缓存。
 
 **Q: Can I self-host it? / 可以自托管吗?**
-A: Yes. 9 platforms from one monorepo(Web / API / AI-service / Desktop / Extension / Mobile-RN / Mobile-cap / Miniapp-Taro / CLI),5 分钟 Fork 到上线。
+A: Yes. 8 platforms from one monorepo(Web / API / AI-service / Desktop / Extension / Mobile-RN / Miniapp-Taro / CLI),5 分钟 Fork 到上线。
 
 **Q: Does it support MCP? / 支持 MCP 协议吗?**
 A: Yes. MCP + LangGraph + A2A triple stack(三栈协同),工具协议 + 工作流编排 + Agent 互通一体化。
 
 **Q: Is it production-ready? / 生产环境可用吗?**
-A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4561 API 路由 / 542 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 
 ---
 
@@ -663,9 +663,9 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4561 API 路由 / 542 数
 ### Long-tail Keywords
 
 - open source ai agent platform with multi-tenant
-- self-hosted chatgpt alternative with 101 llms
+- self-hosted chatgpt alternative with 176 llms
 - langgraph mcp a2a triple stack ai framework
-- ai operating system 9 platforms monorepo
+- ai operating system 8 platforms monorepo
 - litellm gateway with rag knowledge base
 - multi-tenant row level security ai platform
 - agent marketplace open source apache 2.0

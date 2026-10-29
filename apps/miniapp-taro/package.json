@@ -42,6 +42,7 @@
     "@ihui/api-client": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
     "@ihui/i18n": "workspace:*",
+    "@ihui/rn-app": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "@tarojs/components": "4.2.1",

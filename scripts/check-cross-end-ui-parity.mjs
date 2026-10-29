@@ -369,6 +369,53 @@ export function readGeometry(src, side, tiers = {}) {
    * 追一跳,别名本身也按名字记进 named 表。
    */
   if (tiers && Object.keys(tiers).length) {
+    /**
+     * **间距档消费腿**(2026-10-27,治 C3/C8 那批"仅小程序"假分叉):
+     * 裸 `rnSpacing.md` / `rnSpacing['3xl']` / `rnSpacingFor.gap` 按档表 dp 计入 values,
+     * 并按命名空间名进 named(与具名档同一张冲突对账表)。
+     * **换算器包住的不双计**:包裹区间用**括号配对**扫(开括号起 400 字符封顶,配不拢弃区间);
+     * 落在区间内的成员入账交 `geometryItemsInSrc` 采集支按"成员解不到"报名。
+     * 前一版想用一条 `(?:X|\s)*` 嵌套量词的置换正则直接匹配"被换算器包住的成员",实测
+     * 对抗样本(`rpx(` 后接近而失败的长串)触发灾难性回溯,单样本冻结 >2 分钟、
+     * 全量门空转 28 分钟零输出(2026-10-27 取证)—— 位置判定对任意输入 O(n),回溯从根上禁用。
+     * 档表读不到的成员(改名/新增没进源)⇒ 报名未判定,不静默跳过(§0.3)。
+     */
+    {
+      const wrapRanges = []
+      const CALL_RE = /\b(?:toUnit|toRpx|px2rpx|rp|rpx)\s*\(/g
+      for (let mm; (mm = CALL_RE.exec(code)); ) {
+        const open = mm.index + mm[0].length - 1
+        let depth = 0
+        const cap = Math.min(code.length, open + 400)
+        for (let i = open; i < cap; i++) {
+          const ch = code[i]
+          if (ch === '(') depth++
+          else if (ch === ')') {
+            depth--
+            if (depth === 0) {
+              wrapRanges.push([mm.index, i + 1])
+              CALL_RE.lastIndex = i + 1
+              break
+            }
+          }
+        }
+      }
+      const insideWrap = (at) => wrapRanges.some(([a, b]) => at > a && at < b)
+      for (const m of code.matchAll(
+        /\b(rnSpacing(?:For)?)\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])/g,
+      )) {
+        if (insideWrap(m.index)) continue
+        const key = m[2] || m[3]
+        const memberName = `${m[1]}.${key}`
+        const px = tiers[memberName]
+        if (px === undefined) {
+          unreadable.push({ raw: memberName, text: key, px: null, why: '间距档位表读不到该成员(源表没有此档或已改名)' })
+          continue
+        }
+        push(px)
+        if (named[memberName] === undefined) named[memberName] = px
+      }
+    }
     const alias = {}
     for (const m of code.matchAll(
       /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:(?:rnGeometry|taroGeometry|GEOMETRY_PX)\.([A-Za-z_$][\w$]*)|([A-Z][A-Z0-9_]*))(?![\w.])/g,
@@ -476,6 +523,29 @@ export function specTiers(sources) {
       geom.push([m[1], Number(m[2])])
   }
   for (const [k, v] of geom) tiers[`geometry.${k}`] = v
+  /**
+   * **间距档位表**(`packages/design-tokens/src/spacing.ts`,全端共用 dp 唯一源,C3/C8 量具盲区补腿)。
+   * 键形态 = 消费方成员(`rnSpacing.md`/`rnSpacingFor.gap`),与 `geometry.<k>` 同构。
+   * 口径 = **dp 逻辑值**;`taroSpacing.*`(已×2 的 rpx 面)刻意**不入表** —— 单位口径没算清就把
+   * 双倍数值混进比对集,正是 C5 那格"给最坏的单位错发合格证"的形态。
+   * `none: 0` 不入档(0 值引用=造同值假账 —— C4 纪律)。
+   */
+  for (const [rel, srcSp] of Object.entries(sources)) {
+    if (!/[\\/]spacing\.[jt]s$/.test(rel)) continue
+    const codeSp = stripComments(srcSp)
+    const spTable = codeSp.match(/SPACING_STEPS\s*=\s*\{([\s\S]*?)\}\s*as const/)
+    if (!spTable) continue
+    const spSteps = []
+    for (const m of spTable[1].matchAll(/(?:'([^']{1,6})'|([A-Za-z_$][\w$]*))\s*:\s*(\d+(?:\.\d+)?)/g))
+      spSteps.push([m[1] || m[2], Number(m[3])])
+    for (const [k, v] of spSteps) if (v > 0) tiers[`rnSpacing.${k}`] = v
+    const spRoles = codeSp.match(/SPACING_ROLES\s*=\s*\{([\s\S]*?)\}\s*as const/)
+    if (spRoles)
+      for (const m of spRoles[1].matchAll(/([A-Za-z_$][\w$]*)\s*:\s*'([^']+)'/g)) {
+        const hit = spSteps.find(([k]) => k === m[2])
+        if (hit && hit[1] > 0) tiers[`rnSpacingFor.${m[1]}`] = hit[1]
+      }
+  }
   for (const [rel, src] of Object.entries(sources)) {
     if (/[\\/]geometry\.[jt]s$/.test(rel)) continue
     // `.d.ts` 是**声明**不是第二份档表:它的键集由 G 维单独与运行时表对账,
@@ -2437,11 +2507,19 @@ export function collect(
     throw new Undetermined(`${FACE_TXT[face]}有 ${geoPath} 而无 ${geoDtsPath} ⇒ 几何表无从对账`)
   const radiusPath = 'packages/design-tokens/src/radius.js'
   const hasRadius = geoList === null ? false : geoList.includes(radiusPath)
-  // 几何表与圆角表共用 tierPaths ⇒ 同面同轮一次读满,不另起一次 git 派生。
+  /**
+   * 间距唯一源表(RN/共享屏 `rnSpacing.X` 裸成员的档值出处)。
+   * 接进来的理由:不接,几何维就读不到这一族 —— 实测把 ScreenStates 族读成
+   * "仅小程序 8/16/32" 的假分叉(C3/C8,2026-10-27)。
+   */
+  const spacingPath = 'packages/design-tokens/src/spacing.ts'
+  const hasSpacing = geoList === null ? false : geoList.includes(spacingPath)
+  // 几何表、圆角表、间距表共用 tierPaths ⇒ 同面同轮一次读满,不另起一次 git 派生。
   const tierPaths = [
     ...specFiles,
     ...(hasGeo ? [geoPath, geoDtsPath] : []),
     ...(hasRadius ? [radiusPath] : []),
+    ...(hasSpacing ? [spacingPath] : []),
   ]
   const tierSpecs = tierPaths.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
   const tierGot = catBatch(repoRoot, tierSpecs, { maxBuffer: 1 << 26 })
@@ -2454,6 +2532,11 @@ export function collect(
   }
   if (!hasGeo && need.some((rel) => /\b(?:rnGeometry|taroGeometry|GEOMETRY_PX)\./.test(text[rel])))
     throw new Undetermined(`${FACE_TXT[face]}取不到 ${geoPath},而配对组件在引用几何表 ⇒ 判据失明`)
+  /** 间距表同一条失明判据(2026-10-27 与 hasSpacing 接线同批):表取不到而配对腿在引用 ⇒ 该维看不见,不得记成"两端一致"。 */
+  if (!hasSpacing && need.some((rel) => /\b(?:rnSpacing|rnSpacingFor|taroSpacing|taroSpacingFor)\s*[.[]/.test(text[rel])))
+    throw new Undetermined(
+      `${FACE_TXT[face]}取不到 ${spacingPath},而配对组件在引用间距档位 ⇒ 间距维判据失明`,
+    )
   /**
    * 圆角档表同一条失明判据:表取不到而配对组件在用圆角形态 ⇒ 那一维看不见,不得把"看不见"
    * 记成"两端一致"。空表(解析失败)与缺文件同罪。

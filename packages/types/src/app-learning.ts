@@ -585,6 +585,12 @@ export interface LecturerDetailScreenProps {
   onOpenCourse: (courseId: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /**
+   * 「查看全部课程」交互出口(2026-10-28 补,小程序 pkg-learn/teacher/detail 迁壳的缺口)。
+   * 参数为讲师名(小程序侧用作课程列表 keyword;宿主如何消费由其 wrapper 决定)。
+   * **可选且不默认渲染**:不传 ⇒ RN 现状零变化;文案走共享键 teacher.detail.viewCourses。
+   */
+  onViewCourses?: (lecturerName: string) => void
 }
 
 /** 任务中心任务项(TaskCenterScreen) */

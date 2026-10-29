@@ -36,8 +36,19 @@ const h = vi.hoisted(() => ({
 }))
 
 // 别名 '@ihui/api-client' 在 vitest.config.ts 里直指真实源码,这里只换掉上行回传一个出口。
-// 保留文件内 react-native mock(收归例外):本套件对 Modal 有行为定制——恒渲染以断言 visible prop、
-// 暴露 onRequestClose 模拟安卓返回键(全局替身的 Modal 是 visible 才渲染的简化形)。迁移前先改全局替身。
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>()
+  return {
+    ...mod,
+    postToolApprovalResponse: async (payload: Record<string, unknown>) => {
+      h.calls.push(payload)
+      return { ok: true }
+    },
+  }
+})
+
+// react-native 走端内桩;TextInput 不把 onChangeText 交给 DOM —— 所以保留其余导出,
+// 替这两件:输入框把 props 交回给用例,Modal 只在 visible 时渲染。
 vi.mock('react-native', async (importOriginal) => {
   const mod = await importOriginal<Record<string, unknown>>()
   const { createElement: ce } = await import('react')
@@ -53,20 +64,6 @@ vi.mock('react-native', async (importOriginal) => {
     },
   }
 })
-
-vi.mock('@ihui/api-client', async (importOriginal) => {
-  const mod = await importOriginal<Record<string, unknown>>()
-  return {
-    ...mod,
-    postToolApprovalResponse: async (payload: Record<string, unknown>) => {
-      h.calls.push(payload)
-      return { ok: true }
-    },
-  }
-})
-
-// react-native 走端内桩;TextInput 不把 onChangeText 交给 DOM —— 所以保留其余导出,
-// 替这两件:输入框把 props 交回给用例,Modal 只在 visible 时渲染。
 
 // 高危命令二次确认改走共享 appAlert(见 components/BottomPops);用 importOriginal 保底其余导出,
 // 只把 appAlert 替成捕获函数:确认框记录进 h.alerts(按钮 onPress 留待 pressAlert 手动触发)。

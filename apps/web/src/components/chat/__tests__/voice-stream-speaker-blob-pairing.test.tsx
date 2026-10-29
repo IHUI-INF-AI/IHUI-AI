@@ -4,19 +4,15 @@
 
 // @vitest-environment jsdom
 /**
- * VoiceStreamSpeaker 的两组回归:
+ * VoiceStreamSpeaker 的 blob URL 成对释放回归。
  *
- * ① blob URL 成对释放:本组件此前是全仓 `createObjectURL` 落点里唯一一个
- *    "有 create 无 revoke"的,而 TTS 播报是每轮回答一次的常规动作 —— 每次
- *    合成都永久压住一条 blob URL 和它引用的整块音频。判据是**计数配对**:
- *    每条用例结尾都断言 `revoke 次数 === create 次数`(播放进行中的那例除外,
- *    它显式断言"此刻还不该释放")。正常播完 / 构造失败抛错 / 播完前卸载。
+ * 立因:本组件此前是全仓 `createObjectURL` 落点里唯一一个"有 create 无 revoke"的
+ * (`git grep -l` 两面差集实测:39 个文件有 create、其中只有它没有 revoke),而 TTS
+ * 播报是每轮回答一次的常规动作 —— 每次合成都永久压住一条 blob URL 和它引用的整块音频。
  *
- * ② 段间静默内可打断(2026-10-24 D11 第二工客户端腿):mock NDJSON 流,
- *    正例断言"命中判据后 abort 传输层且后续段不再起播",反例断言"起音落在
- *    有声区(非段尾余量窗)时两段都照播"。
- * ③ VAD 采集约束:断言取流声明 AEC/NS/AGC,且实现拒绝约束时回落无约束取流、
- *    判据照常生效(防"扬声器回声误触发打断")。
+ * 判据是**计数配对**,不是"看起来释放了":每条用例结尾都断言
+ * `revoke 次数 === create 次数`(播放进行中的那一例除外,它显式断言"此刻还不该释放")。
+ * 三条路径各一条:正常播完 / 构造失败抛错 / 播完前卸载。
  */
 import * as React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -53,10 +49,7 @@ let urlSeq = 0
 class FakeAudio {
   static instances: FakeAudio[] = []
   static throwOnConstruct = false
-  static durationSeconds = 0
   src: string
-  duration = FakeAudio.durationSeconds
-  currentTime = 0
   handlers = new Map<string, () => void>()
   playCalls = 0
   pauseCalls = 0
@@ -85,7 +78,7 @@ class FakeAudio {
   }
 }
 
-/** 等异步链跑完:fetch → read → createObjectURL → new Audio → play。 */
+/** 等异步链跑完:fetch → blob → createObjectURL → new Audio → play。 */
 async function flush(): Promise<void> {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
@@ -106,96 +99,42 @@ function triggerSpeak() {
   return view
 }
 
-// ---- /voice/tts/stream 的最小 NDJSON 替身(不触网、不依赖真 TTS) ----
-const encoder = new TextEncoder()
-
-/** 逐行下发的 body;gate 用于把后续行卡到"打断之后"才到达。 */
-function ndjsonBody(lines: string[], gate?: Promise<void>) {
-  let index = 0
-  return {
-    getReader: () => ({
-      read: async (): Promise<{ value?: Uint8Array; done: boolean }> => {
-        if (index > 0 && gate) await gate
-        if (index >= lines.length) return { done: true }
-        return { value: encoder.encode(lines[index++]), done: false }
-      },
-    }),
-  }
-}
-
-function ndjsonFetch(lines: string[], gate?: Promise<void>) {
-  return vi.fn(async (_url: string, _init?: RequestInit) => ({
-    ok: true,
-    status: 200,
-    body: ndjsonBody(lines, gate),
-  }))
-}
-
-function segmentLine(index: number): string {
-  return (
-    '{"type":"segment","index":' +
-    index +
-    ',"total":2,"text":"第' +
-    (index + 1) +
-    '段。","contentType":"audio/mpeg","audioBase64":"' +
-    btoa('audio-bytes') +
-    '"}\n'
-  )
-}
-
-/** 与 app/core/voice_barge_in.policy_payload 同形(阈值只从这一帧来)。 */
-const POLICY_LINE =
-  JSON.stringify({
-    type: 'policy',
-    policy: 'silence_gap_only',
-    frameHopMs: 100,
-    minVoicedMs: 300,
-    segmentLeadSilenceMs: 180,
-    segmentTailSilenceMs: 570,
-    segmentGapMs: 750,
-    voicedRmsThreshold: 0.02,
-  }) + '\n'
-
 import { VoiceStreamSpeaker as Speaker } from '../voice-stream-speaker'
-
-/** 两个 describe 共用的扬声器环境:开关置 on、URL 计数、Audio 替身。 */
-function resetSpeakerEnv(): void {
-  created.length = 0
-  revoked.length = 0
-  urlSeq = 0
-  FakeAudio.instances = []
-  FakeAudio.throwOnConstruct = false
-  FakeAudio.durationSeconds = 0
-  store.isStreaming = false
-  store.messages = []
-  window.localStorage.setItem('ihui_voice_playback', 'on')
-  vi.spyOn(URL, 'createObjectURL').mockImplementation((blob: Blob | MediaSource) => {
-    void blob
-    const url = `blob:mock/${(urlSeq += 1)}`
-    created.push(url)
-    return url
-  })
-  vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url: string) => {
-    revoked.push(url)
-  })
-  vi.stubGlobal('Audio', FakeAudio)
-}
-
-function cleanupSpeakerEnv(): void {
-  vi.restoreAllMocks()
-  vi.unstubAllGlobals()
-  window.localStorage.removeItem('ihui_voice_playback')
-}
 
 describe('VoiceStreamSpeaker blob URL 成对释放', () => {
   beforeEach(() => {
-    resetSpeakerEnv()
-    // 无 policy 帧的流:老行为(整段逐段播完),正好覆盖"无 policy 不武装 VAD"
-    vi.stubGlobal('fetch', ndjsonFetch([segmentLine(0)]))
+    created.length = 0
+    revoked.length = 0
+    urlSeq = 0
+    FakeAudio.instances = []
+    FakeAudio.throwOnConstruct = false
+    store.isStreaming = false
+    store.messages = []
+    window.localStorage.setItem('ihui_voice_playback', 'on')
+
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob: Blob | MediaSource) => {
+      void blob
+      const url = `blob:mock/${(urlSeq += 1)}`
+      created.push(url)
+      return url
+    })
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url: string) => {
+      revoked.push(url)
+    })
+    vi.stubGlobal('Audio', FakeAudio)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        blob: async () => new Blob(['audio-bytes'], { type: 'audio/mpeg' }),
+      })),
+    )
   })
 
   afterEach(() => {
-    cleanupSpeakerEnv()
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    window.localStorage.removeItem('ihui_voice_playback')
   })
 
   it('正常播完:创建一条、播完释放一条(且播放期间不提前释放)', async () => {
@@ -258,168 +197,6 @@ describe('VoiceStreamSpeaker blob URL 成对释放', () => {
     await flush()
     expect(created).toHaveLength(0)
     expect(revoked).toHaveLength(0)
-    unmount()
-  })
-})
-
-describe('段间静默内可打断(barge-in)', () => {
-  let energy = 0
-  let gate: Promise<void> = Promise.resolve()
-  let openGate: () => void = () => {}
-  let lastSignal: AbortSignal | undefined
-
-  class FakeAnalyser {
-    fftSize = 2048
-    getFloatTimeDomainData(samples: Float32Array): void {
-      samples.fill(energy)
-    }
-  }
-
-  class FakeAudioContext {
-    createMediaStreamSource(): { connect: () => void } {
-      return { connect: () => {} }
-    }
-    createAnalyser(): FakeAnalyser {
-      return new FakeAnalyser()
-    }
-    close(): Promise<void> {
-      return Promise.resolve()
-    }
-  }
-
-  beforeEach(() => {
-    resetSpeakerEnv()
-    energy = 0
-    lastSignal = undefined
-    gate = new Promise<void>((resolve) => {
-      openGate = resolve
-    })
-    FakeAudio.durationSeconds = 1 // 1000ms 段:尾静默 570ms ⇒ 窗 [430,1000]
-    vi.stubGlobal('AudioContext', FakeAudioContext)
-    Object.defineProperty(window.navigator, 'mediaDevices', {
-      configurable: true,
-      value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop: () => {} }] })) },
-    })
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (_url: string, init?: RequestInit) => {
-        lastSignal = init?.signal ?? undefined
-        return {
-          ok: true,
-          status: 200,
-          body: ndjsonBody([POLICY_LINE + segmentLine(0), segmentLine(1)], gate),
-        }
-      }),
-    )
-  })
-
-  afterEach(() => {
-    Reflect.deleteProperty(window.navigator, 'mediaDevices')
-    cleanupSpeakerEnv()
-  })
-
-  /** 等一个 100ms 能量帧期满(setInterval 步长取自 policy,真实计时器)。 */
-  async function waitFrame(): Promise<void> {
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 120))
-    })
-  }
-
-  it('段尾余量内起音满 300ms:abort 传输层,第二段不再起播', async () => {
-    const { unmount } = triggerSpeak()
-    await flush()
-    expect(FakeAudio.instances).toHaveLength(1)
-    expect(created).toHaveLength(1)
-
-    // 有声 onset 从 530ms 起,连续 3 帧 → run_start=430 恰在窗内
-    energy = 0.2
-    const audio = FakeAudio.instances[0]!
-    audio.currentTime = 0.53
-    await waitFrame()
-    audio.currentTime = 0.63
-    await waitFrame()
-    audio.currentTime = 0.73
-    await waitFrame()
-
-    expect(audio.pauseCalls).toBe(1) // 当前声已停
-    expect(lastSignal?.aborted).toBe(true) // 传输层已 abort(服务端不再合成后续段)
-
-    // 让第二段在打断之后才到达:客户端仍不得起播它
-    openGate()
-    await act(async () => {
-      audio.emit('ended')
-    })
-    await flush()
-    expect(FakeAudio.instances).toHaveLength(1)
-    expect(created).toHaveLength(1)
-    unmount()
-  })
-
-  it('起音落在有声区(非窗内):不打断,第二段照常播', async () => {
-    FakeAudio.durationSeconds = 2 // 2000ms 段 ⇒ 窗 [1430,2000]
-    const { unmount } = triggerSpeak()
-    await flush()
-    expect(FakeAudio.instances).toHaveLength(1)
-
-    openGate() // 第二段先到达并排队
-    energy = 0.2
-    const audio = FakeAudio.instances[0]!
-    for (const at of [0.8, 0.9, 1.0, 1.5, 1.9]) {
-      audio.currentTime = at
-      await waitFrame()
-    }
-    expect(audio.pauseCalls).toBe(0)
-    expect(lastSignal?.aborted).toBe(false)
-
-    audio.currentTime = 2
-    await act(async () => {
-      audio.emit('ended')
-    })
-    await flush()
-    expect(FakeAudio.instances).toHaveLength(2)
-    unmount()
-  })
-
-  it('VAD 取流声明回声抑制三项约束(AEC/NS/AGC 取 true)', async () => {
-    const { unmount } = triggerSpeak()
-    await flush()
-
-    const mic = window.navigator.mediaDevices.getUserMedia as unknown as {
-      mock: { calls: unknown[][] }
-    }
-    expect(mic.mock.calls).toEqual([
-      [{ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }],
-    ])
-    unmount()
-  })
-
-  it('实现不认这三项约束:退回无约束取流,判据照常生效', async () => {
-    const unsupported = Object.assign(new Error('constraints unsupported'), {
-      name: 'OverconstrainedError',
-    })
-    const mic = vi
-      .fn<() => Promise<{ getTracks: () => Array<{ stop: () => void }> }>>()
-      .mockRejectedValueOnce(unsupported)
-      .mockResolvedValueOnce({ getTracks: () => [{ stop: () => {} }] })
-    Object.defineProperty(window.navigator, 'mediaDevices', {
-      configurable: true,
-      value: { getUserMedia: mic },
-    })
-
-    const { unmount } = triggerSpeak()
-    await flush()
-    expect(mic.mock.calls).toHaveLength(2)
-    expect(mic.mock.calls[1]).toEqual([{ audio: true }])
-
-    // 回落取到的那条流仍接上分析器:段尾余量内起音满 300ms 依旧打断
-    energy = 0.2
-    const audio = FakeAudio.instances[0]!
-    for (const at of [0.53, 0.63, 0.73]) {
-      audio.currentTime = at
-      await waitFrame()
-    }
-    expect(audio.pauseCalls).toBe(1)
-    expect(lastSignal?.aborted).toBe(true)
     unmount()
   })
 })

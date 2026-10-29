@@ -80,7 +80,6 @@
     "toolAudioTranscription": "音声を書き起こし",
     "toolVisionAnalyze": "画像を解析",
     "toolDispatchSubagent": "サブエージェントを派遣",
-    "toolTeamTask": "チーム共有タスクを管理",
     "toolScheduleTask": "定期タスクを作成",
     "toolBgTaskStatus": "バックグラウンドタスクを確認",
     "toolUiDescribe": "ページのコントロールを読み取り",
@@ -196,7 +195,6 @@
     "toolDebugListSessions": "デバッグセッション一覧",
     "toolVendorVoiceClone": "声をクローン",
     "toolRequestBusinessForm": "業務フォーム入力を依頼",
-    "toolInitAgentsMd": "AGENTS.md を初期化",
     "fileActivity": "{state, select, running {ファイルを処理中} completed {ファイルを処理済み} other {ファイルの処理}}",
     "imageActivity": "{state, select, running {画像を処理中} completed {画像を処理済み} other {画像の処理}}",
     "searchActivity": "{state, select, running {検索中} completed {検索済み} other {検索}}",
@@ -237,8 +235,7 @@
     "toolMcpToolGetFileActivity": "{state, select, running {ファイルを取得中} completed {ファイルを取得しました} other {ファイルを取得}}",
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {ファイル「{name}」を取得中} completed {ファイル「{name}」を取得しました} other {ファイル「{name}」を取得}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {ドキュメントを検索中} completed {ドキュメントを検索しました} other {ドキュメントを検索}}",
-    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {「{name}」でドキュメントを検索中} completed {「{name}」でドキュメントを検索しました} other {「{name}」でドキュメントを検索}}",
-    "toolInitAgentsMdActivity": "{state, select, running {AGENTS.md を初期化中} completed {AGENTS.md を初期化しました} other {AGENTS.md を初期化}}"
+    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {「{name}」でドキュメントを検索中} completed {「{name}」でドキュメントを検索しました} other {「{name}」でドキュメントを検索}}"
   },
   "a11y": {
     "addAttachment": "添付ファイルを追加（画像/動画/ファイル）",
@@ -1393,6 +1390,23 @@
     "empty": "お気に入りがありません",
     "deleteTitle": "お気に入り削除"
   },
+  "favorite": {
+    "title": "お気に入り",
+    "empty": "お気に入りはありません",
+    "tab_all": "すべて",
+    "tab_course": "コース",
+    "tab_live": "ライブ",
+    "tab_post": "投稿",
+    "tab_aigc": "AI作品",
+    "tab_news": "ニュース",
+    "total": "保存済み",
+    "items_unit": "件",
+    "collected_at": "追加日",
+    "cancel": "お気に入り解除",
+    "loading_more": "さらに読み込む",
+    "no_more": "以上です",
+    "go_discover": "発見する"
+  },
   "checkIn": {
     "title": "毎日チェックイン",
     "subtitle": "毎日チェックインしてポイント獲得",
@@ -1447,6 +1461,7 @@
     "validUntil": "有効期限"
   },
   "ranking": {
+    "anonymous": "匿名ユーザー",
     "title": "ランキング",
     "loadFailed": "ランキングの読み込みに失敗",
     "empty": "ランキングデータがありません",
@@ -1798,6 +1813,23 @@
     "loadFailed": "読み込みに失敗しました",
     "useCount": "使用 {count}",
     "rating": "評価 {score}"
+  },
+  "agents": {
+    "categories": {
+      "recommend": "おすすめ",
+      "office": "オフィス",
+      "writing": "執筆",
+      "coding": "プログラミング",
+      "education": "教育",
+      "life": "暮らし"
+    },
+    "keywords": {
+      "office": "オフィス,会議,メール,excel,word,ppt,文書,表計算",
+      "writing": "執筆,コピー,記事,創作,小説,コンテンツ,文章,ライティング",
+      "coding": "コード,プログラミング,プログラム,開発,bug,関数,フロントエンド,バックエンド,python,javascript",
+      "education": "学習,教える,授業,知識,試験,問題,教育,解説,解答",
+      "life": "暮らし,健康,グルメ,旅行,スポーツ,買い物,日常"
+    }
   },
   "aiAssistant": {
     "title": "AI アシスタント",

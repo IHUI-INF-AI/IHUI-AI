@@ -189,6 +189,19 @@ export function CourseDetailScreen() {
             </View>
           )}
         </Pressable>
+        {/* 课程作业入口(web /learn/[id]/homework;2026-10-28 起有原生屏,此前 RN 零承载) */}
+        <Pressable
+          style={styles.entryBtnHit}
+          onPress={() => navigation.navigate('CourseHomework', { id })}
+          accessibilityRole="button"
+          accessibilityLabel={t('learnHomework.title')}
+        >
+          {({ pressed }) => (
+            <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
+              <Text style={styles.entryBtnText}>{t('learnHomework.title')}</Text>
+            </View>
+          )}
+        </Pressable>
       </View>
     </View>
   )

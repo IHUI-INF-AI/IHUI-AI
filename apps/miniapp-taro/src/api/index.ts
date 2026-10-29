@@ -950,24 +950,9 @@ export const getWithdrawalRecords = (params?: { page?: number; pageSize?: number
   }>('/distribution/withdrawals', params)
 export const getCommissionRecords = (params?: { page?: number; pageSize?: number }) =>
   get<{
-    // 行形状 = 后端 listCommissionFlows 交出的 commission_flows 原始列(现读自
-    // apps/api/src/routes/distribution.ts:391 `/distribution/list`):
-    //  · amount 单位是**分**(schema/commission.ts 注释「佣金金额(分)」)
-    //  · type/status 是**整数档**,不是字符串;时间是 createdAt,没有 time / nickname 列
-    // 旧声明写的是 `type: string; time: string; nickname?: string` —— 那是照着
-    // 一个**从未注册过的**端点猜出来的形状,字段全都取不到值。
-    list: Array<{
-      id: string
-      amount: number
-      type: number
-      status: number
-      remark: string | null
-      createdAt: string
-    }>
+    list: Array<{ id: string; amount: number; type: string; time: string; nickname?: string }>
     total: number
-    page: number
-    pageSize: number
-  }>('/distribution/list', params)
+  }>('/distribution/commission', params)
 export const withdraw = (data: { amount: number; type: string }) =>
   post('/distribution/withdraw', { amount: data.amount, method: data.type })
 export const getDistributionRank = () =>
@@ -993,9 +978,7 @@ export const updateUserAvatar = (avatar: string) => put('/user/avatar', { avatar
 export const updateUserNickname = (nickname: string) => put('/user/nickname', { nickname })
 export const bindPhone = (phone: string, code: string) => post('/user/phone/bind', { phone, code })
 export const updatePassword = (oldPwd: string, newPwd: string) =>
-  // 立因:后端 miniapp-compat-routes.ts 的 POST /user/password 按 Zod 收
-  // {oldPassword,newPassword}(min 1/max 128、min 6/max 128),旧键名 oldPwd/newPwd 必 400
-  post('/user/password', { oldPassword: oldPwd, newPassword: newPwd })
+  post('/user/password', { oldPwd, newPwd })
 export const bindEmail = (email: string, code: string) => post('/user/email/bind', { email, code })
 export const realNameAuth = (data: { realName: string; idCard: string }) =>
   post('/user/realname', data)
@@ -1503,8 +1486,7 @@ export const getKnowledgePlanetNews = (page = 1) => get('/knowledge-planet/news'
 export const getCoursePlanet = () => get('/course-planet')
 
 /* ============ 多登录方式 ============ */
-// `loginByAlipay`(POST /auth/alipay/login)已摘除:后端注册面从未有过这一条,而它唯一的消费者
-// utils/miniapp-login.ts 现改为当场拒(见该处注释)—— 留着就是一条永远 404 的假入口。
+export const loginByAlipay = (code: string) => post('/auth/alipay/login', { code })
 export const register = (data: unknown) => post('/auth/register', data)
 export const changePassword = (data: unknown) => put('/auth/password', data)
 export const accountCancel = () => del('/auth/account')

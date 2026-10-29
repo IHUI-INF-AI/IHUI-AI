@@ -27,10 +27,9 @@ from app.services.agent_graph import AgentState, get_agent_graph
 
 # 真实云端 Agent 容器运行时(对标 Cursor Cloud Agents / Codex CI sandbox,2026-09-05 立)
 from app.services.container_runtime import container_runtime
-from app.services.memory import unified_memory_client
-
 # D14② 沙箱任务队列(G-17 拆票,2026-10-23):/queue/* 端点的队列消费面
 from app.services.sandbox_task_queue import SandboxQueueFullError, sandbox_task_queue
+from app.services.memory import unified_memory_client
 from app.services.session_store import owner_scoped_allows
 
 from ..core.jwt_auth import get_current_user_id

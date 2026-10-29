@@ -15,6 +15,7 @@ import { useWechatPayment } from '../hooks/useWechatPayment'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Medal } from 'lucide-react-native'
+import { useRefreshOnFocus } from '../hooks'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -135,6 +136,9 @@ export default function VipTraderScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首次挂载由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)
