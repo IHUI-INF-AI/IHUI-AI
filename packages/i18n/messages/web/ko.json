@@ -20289,6 +20289,7 @@
     "loginRequired": "로그인 후 계정 풀을 관리하세요"
   },
   "nav": {
+    "pdfTools": "PDF 도구",
     "accountPool": "내 계정 풀",
     "checkin": "출석",
     "monitorWallboard": "모니터링 월보",
