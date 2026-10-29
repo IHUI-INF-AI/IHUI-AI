@@ -16,6 +16,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { Check } from 'lucide-react-native'
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type {
   EduTeacherClass,
@@ -498,7 +499,9 @@ export function EduTeacherStudyPlanScreen({
                       accessibilityState={{ checked: item.completed }}
                     >
                       <View style={[styles.checkbox, item.completed ? styles.checkboxOn : null]}>
-                        {item.completed ? <Text style={styles.checkMark}>✓</Text> : null}
+                        {item.completed ? (
+                          <Check size={11} color={tk.brand.foreground} strokeWidth={3} />
+                        ) : null}
                       </View>
                       <View style={styles.itemMain}>
                         <Text
@@ -536,7 +539,9 @@ export function EduTeacherStudyPlanScreen({
                             child.completed ? styles.checkboxOn : null,
                           ]}
                         >
-                          {child.completed ? <Text style={styles.checkMark}>✓</Text> : null}
+                          {child.completed ? (
+                            <Check size={11} color={tk.brand.foreground} strokeWidth={3} />
+                          ) : null}
                         </View>
                         <View style={styles.itemMain}>
                           <Text
@@ -1079,7 +1084,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     checkboxSm: { width: 15, height: 15 },
     checkboxOn: { backgroundColor: tk.brand.DEFAULT, borderColor: tk.brandAccent.deep },
-    checkMark: { fontSize: 11, lineHeight: 14, color: tk.brand.foreground },
     itemMain: { flex: 1 },
     itemText: { fontSize: rnType.body.size, color: tk.text.primary },
     itemTextSm: { fontSize: rnType.label.size, color: tk.text.primary },
