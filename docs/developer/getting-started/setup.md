@@ -6,7 +6,7 @@
 
 # 环境配置
 
-> 本指南覆盖 SDK 安装、初始化、环境变量配置与首个请求验证。支持 TypeScript(`@ihui/sdk`)与 Python(`ihui-ai`)两种官方 SDK,以及其他语言的直接 HTTP 调用。
+> 本指南覆盖 SDK 安装、初始化、环境变量配置与首个请求验证。支持 TypeScript(`@ihui-ai/sdk`)与 Python(`ihui-ai`)两种官方 SDK,以及其他语言的直接 HTTP 调用。
 
 ## 前置条件
 
@@ -32,17 +32,17 @@
 ### 安装
 
 ```bash
-npm install @ihui/sdk
+npm install @ihui-ai/sdk
 # 或
-pnpm add @ihui/sdk
+pnpm add @ihui-ai/sdk
 # 或
-yarn add @ihui/sdk
+yarn add @ihui-ai/sdk
 ```
 
 ### 初始化
 
 ```typescript
-import { createClient } from '@ihui/sdk'
+import { createClient } from '@ihui-ai/sdk'
 
 const client = createClient({
   apiKey: process.env.IHUI_API_KEY!, // 必填

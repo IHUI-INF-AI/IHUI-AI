@@ -45,7 +45,16 @@ jobs:
     # 2026-09-14 复评:647 例全量在 2 workers 下实测 ~14m(本地同量级机器),
     # CI runner(4c)按 1.5x 余量 + install/build/migrate ≈ 10m → 60min 消除 30min 硬顶
     # (2026-08-20 起 e2e 连续 400+ 次 cancelled 的直接根因,见 PROJECT_PLAN 2-18)
-    timeout-minutes: 60
+    # 2026-10-28 复测并抬到 75min:顶不是被"判红"顶掉的,是被 cancelled 顶掉的 ——
+    # 现读 run 40631427897 / 40634584194 两枚 #1-#17 步全绿、#18「Run Playwright E2E tests」
+    # 结论=cancelled,job 起止 04:16:53→05:18:03 与 04:50:38→05:51:42(均 ≈61m,恰撞 60min 顶);
+    # 同族 run 40651484526 未被砍完,末行现读「31 failed / 664 passed (46.3m)」,整 job 54m。
+    # 60min 只够"全绿"那一档(2026-10-26 最后六枚 success 实测 21-39m):一旦有用例红,
+    # CI 档 retries=2(playwright.config.ts:39)使红用例跑满 3 次尝试,墙钟立刻越过 60m,
+    # 于是"哪个用例红"这份唯一证据被 cancelled 吞掉(§0.3:取不到判定不得写成判过)。
+    # 75 = 最长完整实测 54m + 约 21m 余量;仓为 public(ubuntu-latest 分钟数不受配额限),
+    # 抬高不换成本,只换"红的时候看得见红在哪"。
+    timeout-minutes: 75
 
     services:
       postgres:

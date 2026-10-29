@@ -104,6 +104,12 @@ export interface SubagentDispatchInput {
   quotas?: QuotaConfig
   /** 可选:关联 agent 主表 id,派单运行轨迹持久化到 agent_tasks(2026-08-06 新增) */
   agentId?: string
+  /**
+   * 可选:会话归属 = chat_conversations.id(D08 ③ Fleet 仪表盘)。
+   * 语义单一:这次派单发生在哪个聊天会话里;**没有会话上下文的派单入口不传**,
+   * 不许拿 goal 文本反推、不许塞常量顶替(载荷里没有 ⇒ 消费方按「未归属会话」渲染)。
+   */
+  conversationId?: string
 }
 
 /**
@@ -119,6 +125,8 @@ export interface DispatchInput {
   deliverables: string
   agentRole?: SubagentRole
   orchestration?: OrchestrationMode
+  /** 可选:会话归属 = chat_conversations.id(D08 ③);语义同 SubagentDispatchInput.conversationId */
+  conversationId?: string
 }
 
 /**
@@ -143,6 +151,12 @@ export interface SubagentDispatch {
   startedAt?: string
   completedAt?: string
   errorMessage?: string
+  /**
+   * 会话归属 = chat_conversations.id(D08 ③)。
+   * 派单入口没有会话上下文时**这个字段就不存在** ⇒ 消费方按「未归属会话」渲染,
+   * 不得用常量或从别处反推顶替(§0.3「没判」不能写成「判过」)。
+   */
+  conversationId?: string
 }
 
 /** 派单结果 */

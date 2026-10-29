@@ -63,7 +63,7 @@ const paginationSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
-/** 图片以 data URI 直传 JSON body(全局 bodyLimit 10MB;base64 膨胀后限 13MB 字符)。 */
+/** 图片以 data URI 直传 JSON body(全局 bodyLimit 默认 2MiB,本路由显式放开到 14MiB;base64 膨胀后限 13MB 字符)。 */
 const imageField = z
   .string()
   .min(16, '图片不能为空')

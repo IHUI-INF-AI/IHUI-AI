@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 if TYPE_CHECKING:
@@ -251,6 +252,8 @@ class Settings(BaseSettings):
     # 仅 Clash 7897 可通。空=直连。仅供 MODEL_SYNC 客户端显式使用,
     # 不影响对话出网(llm_proxy_url)与内部调用。
     sync_proxy_url: str = ""
+    # 按 provider 指定同步出网代理(2026-10-26 增补):可选。环境变量 SYNC_PROXY_URL_<PROVIDER>(PROVIDER=provider_code 大写,如 SYNC_PROXY_URL_HUGGINGFACE / SYNC_PROXY_URL_GITHUB_MODELS)。model_sync 拉该 provider 上游时优先用专用代理,缺省回退 sync_proxy_url。空 dict=全部走全局/直连。
+    sync_proxy_url_by_provider: dict[str, str] = {}
 
     # P3-3 OpenRouter 403 代理 + failover(2026-07-30 立)
     # OpenRouter 对国内 IP / 非浏览器 UA 常返回 403 Forbidden(WAF 拦截),
@@ -306,6 +309,26 @@ class Settings(BaseSettings):
     model_sync_interval_s: int = 21600
     # 并发拉取数(同时拉取的 provider 数量),默认 5
     model_sync_concurrency: int = 5
+
+    # WorkBuddy 任务赚积分自动化族(O68,2026-10-29 立)——四族 growth/travel/activity/blackcat。
+    # 证据级别(2026-10-28 真机读侧实弹后更新):六个读端点在 WB_BASE 与 WB_WEB_BASE
+    # 两域 GET 均 HTTP 200 + code:0 ⇒ **读侧已真机验证**(旧实现按 POST 打 ⇒ 404,已修);
+    # 写侧端点路由存在(tasks/accept 等 400 "invalid request"、travel/claim 403
+    # "no unclaimed travel"),但 **body 字段名未判定**(试过的四种形态同样 400)⇒ 默认关、
+    # 默认 dry-run、accept 未配字段名时拒绝执行并写明原因(§0.3 不猜)。判据实现唯一源
+    # = app/services/workbuddy_tasks.py。
+    workbuddy_tasks_enabled: bool = False  # 调度节拍总开关(默认 off)
+    workbuddy_tasks_live_run: bool = False  # 调度轮是否真写(领任务/出发/领取);false=只 dry-run
+    workbuddy_tasks_sweep_minutes: int = 180  # 任务巡检间隔(分钟)
+    workbuddy_tasks_actionable_statuses: str = "available"  # 任务行 status ∈ 此集 ⇒ 待 accept(真机实测值 available)
+    workbuddy_tasks_accept_field: str = ""  # accept 请求体的任务码字段名(未取证;留空=拒绝执行并点名)
+    workbuddy_tasks_claim_path: str = ""  # 领奖励路径(二进制只见 body 形未见路径;留空=拒绝执行)
+    workbuddy_tasks_activity_path: str = ""  # 活动遥测上报路径(未取证;留空=run_activity 未判定)
+    workbuddy_tasks_activity_hosts: str = ""  # JSON {"default":"https://...","<event_code>":"https://..."} 路径↔主机绑定,人工可覆盖
+    workbuddy_tasks_travel_depart_states: str = ""  # travel.state ∈ 此集才出发(真机实测态 "idle";留空=不自动出发)
+    workbuddy_tasks_blackcat_window: str = "23:00-08:00"  # 黑猫窗口(Asia/Shanghai,跨零点)
+    workbuddy_tasks_blackcat_model: str = ""  # 黑猫窗口内需跑闲聊的具体模型(未配置=未判定)
+    workbuddy_tasks_blackcat_count: int = 3  # 每夜补全次数 N
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:
@@ -347,6 +370,30 @@ class Settings(BaseSettings):
                 + "\n  - ".join(missing_paths)
                 + "\n请配置正确的证书路径,或设置 MTLS_ENABLED=false 进入降级模式(仅开发环境)"
             )
+
+    @model_validator(mode="after")
+    def _parse_sync_proxy_by_provider(self) -> "Settings":
+        """2026-10-26 增补:从 os.environ 读取 SYNC_PROXY_URL_<PROVIDER> 系列变量,
+        小写化 PROVIDER 段得到 provider_code,写入 sync_proxy_url_by_provider。
+
+        裸键 SYNC_PROXY_URL(无末尾下划线后的 PROVIDER 段)不属于此模式,跳过;
+        仅对非空值写入。缺省行为不变(空 dict=全部走全局/直连)。
+        """
+        mapping: dict[str, str] = {}
+        prefix = "SYNC_PROXY_URL_"
+        for key, value in os.environ.items():
+            if not key.startswith(prefix):
+                continue
+            provider_code = key[len(prefix):].lower()
+            if not provider_code:
+                # 裸键 SYNC_PROXY_URL(末尾下划线后无 PROVIDER 段)→ 跳过
+                continue
+            if value:
+                mapping[provider_code] = value
+        # 不覆盖已在字段声明中显式传入的 dict(本特性仅由环境变量驱动,
+        # 这里以环境变量解析结果为准填充)。
+        self.sync_proxy_url_by_provider = mapping
+        return self
 
     def get_provider_config(self, name: str) -> "ProviderConfig":
         """读取 provider 配置(阶段 3 主体:只走 JSON 路径,扁平字段已删除)。
@@ -466,6 +513,14 @@ def _sync_env_file_to_os() -> None:
                 # ⚠️ 这里必须是显式元组:括号内是 startswith 的参数表,裸双字符串会把
                 # 第二个前缀当 start 下标(TypeError: slice indices must be integers)。
                 "COOKIE_REFRESH_",
+                # 账号保活中心(2026-10-26):services/keepalive/center.py 以 os.environ
+                # 直读 KEEPALIVE_* 十键(总开关/间隔/重试/告警/流水保留期)。不进白名单
+                # → .env 里写了 KEEPALIVE_ENABLED=true 也读不到 → 中心恒判"未启用",
+                # 而且它的自检会把原因写成"未设置 KEEPALIVE_ENABLED"——**看起来像没配,
+                # 实际是配了读不到**,比静默 off 更难查。
+                # 这一型本文件已记录 6 次(DB_SYNC_ / COOKIE_REFRESH_ / CHECKIN 各自一次),
+                # 本条是第 7 例。用前缀而非逐个列键:后续新增 KEEPALIVE_* 自动覆盖。
+                "KEEPALIVE_",
             )
         ):
             os.environ.setdefault(key, value)

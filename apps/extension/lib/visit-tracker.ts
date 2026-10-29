@@ -15,7 +15,7 @@
 import { recordAnalyticsEvents, recordVisitLog, setBaseUrl } from '@ihui/api-client'
 import { getApiBaseUrl, initApiBaseUrl } from './config'
 
-export const EXT_VIEW_PREFIX = '/ex'
+const EXT_VIEW_PREFIX = '/ex'
 /** 同一视图 3 秒内只算一次:React StrictMode 双跑、路由抖动都会重复触发。 */
 export const EXT_VIEW_DEBOUNCE_MS = 3_000
 /** 与 visit_logs.url 列长一致,超长截断而不是丢掉整条。 */
@@ -69,7 +69,7 @@ let enterAt = 0
  * 不是"看了多久",报上去只会把数据大屏的停留均值拉向 0。
  * popup 是瞬时面板,关闭时上下文已销毁,不产停留 —— 只结算侧栏的逐页停留。
  */
-export const EXT_MIN_VIEW_TIME_SEC = 1
+const EXT_MIN_VIEW_TIME_SEC = 1
 
 /** 上报一次视图访问;返回是否真的发出 PV(被去抖或空名 ⇒ false)。失败静默,绝不影响 UI。 */
 export function reportExtensionView(view: string | null | undefined, now = Date.now()): boolean {

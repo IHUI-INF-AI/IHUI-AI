@@ -95,9 +95,18 @@ test('T5 豁免:必须带原因才放行,且放行后仍被点名(只报数)', (
   assert.equal(r3.exempted.length, 1)
 })
 
-test('T6 真仓 HEAD 阳性对照:看不见存量就不算通过', () => {
+test('T6 真仓 HEAD 阳性对照:取材面必须吃到东西,存量维只报数(不挂下限)', () => {
   const r = T.analyze('head')
-  assert.ok(r.total > 0, `HEAD 面必须看得见既有文本判分支(实得 ${r.total})`)
+  // 存量维(`total`)是门体明写的**只报数**维(`:352`「棘轮锚点 = 该文件 HEAD 自身的存量:……
+  // 不追存量债」、报告行「存量 N 处按……棘轮只报数」)⇒ 这里不许再挂 `total > 0`:
+  // 存量一旦清干净,`total > 0` 会把一台**已合规**的仓判红(2026-10-26 假牙批)。
+  // 取材面非空由 `scannedFiles` / `emptyScan` 两格负责,口径不因改判而放松。
+  assert.ok(
+    Number.isInteger(r.total) && r.total >= 0,
+    `存量读数必须是可解析的非负整数(实得 ${r.total})—— 数值本身只报数,不是判据`,
+  )
+  console.log('   T6 存量读数现读(只报数,不挂下限):', r.total)
+  assert.ok(r.scannedFiles > 0, `预筛候选 0 个 ⇒ 取材面没吃到东西,存量那一格数字不作数(实得 ${r.scannedFiles})`)
   // 这一条原本写的是 `assert.notEqual(r.exit, 1, '不得因存量判红')`,那是把两维混成一维:
   // head 面结构上不会往 red 里 push(棘轮只在 staged/worktree 档生效),所以它红的唯一来源
   // 是"出口不在位"。按原措辞修红的人只会去放宽出口表 —— 现在直接钉这条组成关系本身。
@@ -207,5 +216,66 @@ test('T12 接线与出口必须成对判(构造面六臂,不靠仓库此刻状�
   assert.equal(T.wiringConsistent('ok', undefined), false, '取不到注册面不得算一致')
   // ⑥ 出口判不出却接在线上,同样不一致(未判定不是放行条件)
   assert.equal(T.wiringConsistent('unreadable', wiredRunner), false, '出口判不出时仍接在线上必须判不一致')
+})
+
+/** 一次派生真仓全量档(下面形态锁与三条变异共用这一份输出,零额外全量扫描)。 */
+function runHead() {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [GATE], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: 300000, cwd: ROOT })
+  return { rc: r.status, out: `${r.stdout || ''}${r.stderr || ''}` }
+}
+
+/**
+ * 计数行形态锁(2026-10-26 假牙批改判)。
+ *
+ * 门体把 `total`(存量)写成"按该文件 HEAD 自身存量棘轮、只报数、不追存量债"(`:352`),
+ * 测试却对它挂 `total > 0` 下限 —— 那是把**存量维**当判据:存量清干净那天同一台合规仓假红,
+ * 假红的唯一结局是逼人 `--no-verify`、连带废掉链上其余门(§12e)。
+ * 尺子换成**形态**:行必须在 ∧ 字段必须齐 ∧ 数值必须可解析;数值本身只报数。
+ * 真判据只剩两格:取材面非空(扫描文件 > 0)与结论行必须在(两分支之一)。
+ */
+function assertCountLine(out) {
+  const m =
+    /\[error-code-not-text-matching\] 面:(\S+?)\((\S+)\) · 扫描 (\d+) 文件 · 文本判分支 (\d+) 处(?: \(([a-z-]+=\d+(?: [a-z-]+=\d+)*)\))? · 判不出 (\d+) 处/.exec(
+      out,
+    )
+  assert.ok(m, `报告缺计数行 ⇒ 这一维没上岗:${out.slice(0, 400)}`)
+  for (const [i, name] of [
+    [3, '扫描文件数'],
+    [4, '文本判分支(存量,只报数)'],
+    [6, '判不出'],
+  ])
+    assert.match(String(m[i] ?? ''), /^\d+$/, `计数行字段「${name}」缺失或非数字形态 ⇒ 计数行形状坏了`)
+  assert.ok(Number(m[3]) > 0, `扫描 0 文件 ⇒ 取材面没吃到东西,存量那一格不作数:${out.slice(0, 300)}`)
+  // 结论行必须存在(门体的 if/else-if 两分支之一),否则"存量只报数"这句承诺没人兑现
+  assert.match(
+    out,
+    /✅ 无新增。存量 \d+ 处按|❌ 新增[^\n]*个文件:/,
+    `缺结论行(存量只报数 / 新增判红 两支皆无)⇒ 这一维没上岗:${out.slice(-400)}`,
+  )
+  return { scanned: Number(m[3]), total: Number(m[4]), undetermined: Number(m[6]) }
+}
+
+test('T13 计数行形态锁 + 变异自证:摘行必翻红 / 存量归零必不红(存量只报数,数值不是判据)', () => {
+  const { rc, out } = runHead()
+  // 本门此刻未接线(T11 的 else 分支),出口被摘线时 exit=1 是合法现状 ⇒ 只要求"不因存量判红"
+  assert.ok(rc === 0 || rc === 1, `全量档退出码只允许 0/1(实得 ${rc}):\n${out.slice(-800)}`)
+  const now = assertCountLine(out)
+  console.log('   T13 计数行现读(存量只报数,不挂下限):', JSON.stringify(now))
+
+  // 变异①:整行摘除 ⇒ 必须红("这一维没上岗"要有牙)
+  const noLine = out.replace(/^.*\[error-code-not-text-matching\].*\n?/m, '')
+  assert.ok(noLine.length < out.length, '夹具失效:没摘到计数行(行形态漂了,先修正则再谈判据)')
+  assert.throws(() => assertCountLine(noLine), /缺计数行/, '摘掉计数行必须翻红')
+  // 变异②:存量读数 → 0(主计数行 + 结论行两处同改,模拟"存量已清干净")⇒ 必须不红
+  const zeroed = out
+    .replace(/(文本判分支 )\d+( 处)/, (_, a, b) => `${a}0${b}`)
+    .replace(/(存量 )\d+( 处按)/, (_, a, b) => `${a}0${b}`)
+  assert.match(zeroed, /文本判分支 0 处/, '夹具失效:没把存量改成 0')
+  assert.doesNotThrow(() => assertCountLine(zeroed), '存量=0 是门体明写的常态 ⇒ 断言不得为此翻红(旧 `> 0` 恰在这里假红)')
+  // 变异③:扫描文件数 → 0 ⇒ 必须红(取材面非空这一格仍然有牙)
+  const blind = out.replace(/(· 扫描 )\d+( 文件)/, (_, a, b) => `${a}0${b}`)
+  assert.match(blind, /· 扫描 0 文件/, '夹具失效:没把扫描文件数改成 0')
+  assert.throws(() => assertCountLine(blind), /取材面/, '取材面归零必须判死,不得记绿')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

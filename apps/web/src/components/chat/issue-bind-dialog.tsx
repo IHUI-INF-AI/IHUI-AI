@@ -14,7 +14,13 @@
  */
 
 import * as React from 'react'
-import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  QueryClient,
+  QueryClientProvider,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ExternalLink, Link2, Loader2, Search, Unlink } from 'lucide-react'
 
@@ -147,9 +153,10 @@ export function IssueBindDialog({
   const { success, error: toastError } = useToast()
   const [provider, setProvider] = React.useState<IssueProvider>('github')
   const [query, setQuery] = React.useState('')
-  const [submitted, setSubmitted] = React.useState<{ provider: IssueProvider; query: string } | null>(
-    null,
-  )
+  const [submitted, setSubmitted] = React.useState<{
+    provider: IssueProvider
+    query: string
+  } | null>(null)
   // 会话行传入的绑定只在打开瞬间快照;解绑后就地隐藏,不等列表失效回填
   const [current, setCurrent] = React.useState<IssueBinding | null>(binding)
   React.useEffect(() => {
@@ -218,9 +225,13 @@ export function IssueBindDialog({
   let emptyState: React.ReactNode = null
   if (submitted !== null && search.isSuccess) {
     if (!search.data.configured) {
-      emptyState = <div className="px-2 py-3 text-xs text-muted-foreground">{t('issueNotConfigured')}</div>
+      emptyState = (
+        <div className="px-2 py-3 text-xs text-muted-foreground">{t('issueNotConfigured')}</div>
+      )
     } else if (items.length === 0) {
-      emptyState = <div className="px-2 py-3 text-xs text-muted-foreground">{t('noMatchingIssues')}</div>
+      emptyState = (
+        <div className="px-2 py-3 text-xs text-muted-foreground">{t('noMatchingIssues')}</div>
+      )
     }
   } else if (submitted === null) {
     emptyState = <div className="px-2 py-3 text-xs text-muted-foreground">{t('noIssues')}</div>
@@ -231,7 +242,8 @@ export function IssueBindDialog({
       <DialogContent className="min-[640px]:max-w-md" data-testid="issue-bind-dialog">
         <DialogHeader>
           <DialogTitle>{t('bindIssue')}</DialogTitle>
-          <DialogDescription>{t('searchIssues')}</DialogDescription>
+          {/* 用法提示(2026-10-26 用户反馈新增):副标题从重复占位文案改为面向普通用户的白话说明 */}
+          <DialogDescription>{t('bindIssueHint')}</DialogDescription>
         </DialogHeader>
 
         {current && (
@@ -307,7 +319,8 @@ export function IssueBindDialog({
               ) : (
                 <Search className="h-3.5 w-3.5" aria-hidden />
               )}
-              <span>{t('searchIssues')}</span>
+              {/* 2026-10-26:按钮标签从长句占位文案改为动词短键(placeholder 仍用完整引导句) */}
+              <span>{t('searchIssueAction')}</span>
             </Button>
           </div>
         </div>

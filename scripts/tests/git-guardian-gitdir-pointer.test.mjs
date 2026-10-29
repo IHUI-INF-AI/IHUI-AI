@@ -14,14 +14,15 @@
  * 真实现场那一格如实留在台账行里,由持有人决定何时做。
  */
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, it } from 'node:test'
 
 import { __test__ as G } from '../git-guardian.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-const { gitdirTargetVerdict } = G
+const { gitdirTargetVerdict, writeGitdirPointer, GITFILE_MAX_BYTES } = G
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const SRC = readFileSync(path.resolve(HERE, '..', 'git-guardian.mjs'), 'utf8')
 
@@ -86,6 +87,79 @@ describe('形状锁 — 指针形态机上不得出现对 GITDIR 的裸写', () 
     const bad = unguardedGitdirWrites(mutated)
     assert.ok(bad.length >= 1, '摘掉守卫后锁没喊 ⇒ 这条形状锁无牙(恒真断言比没有断言更糟)')
     assert.ok(bad.some((b) => b.fn === 'healFromBackup'), `应点名 healFromBackup,实得 ${JSON.stringify(bad)}`)
+  })
+})
+
+/**
+ * 票面点名的第二条形状锁(2026-10-27/gb17-v1 补):**指针形态机上不得出现对 `.git` 的 mkdirSync**。
+ *
+ * 与上面那条锁分家的原因:上一条钉的是 GITDIR(真身那一侧),而 2026-10-16 那 15 次
+ * `EEXIST … mkdir 'D:\IHUI-AI\.git'` 打的是**工作区 `.git`** —— 那一侧此前只有"纯函数四态"
+ * 在自证,没有任何一条锁禁止有人在指针腿里 `mkdir` 那个路径。锁仍按 §22c 只扫源码文本,
+ * 且同一条"注释行不算写点"的口径照旧(守卫头注里逐字写着事故路径,不排注释就是假红)。
+ */
+function pointerMkdirSites(src) {
+  const bad = []
+  const RE = /\bmkdirSync\s*\(\s*(?:POINTER|pointer|join\(\s*WORKTREE\s*,\s*['"]\.git['"]\s*\))\b/g
+  for (const m of src.matchAll(RE)) {
+    const lineStart = src.lastIndexOf('\n', m.index) + 1
+    if (/^\s*(?:\*|\/\/|\/\*)/.test(src.slice(lineStart, m.index))) continue
+    let fn = '?'
+    for (const f of src.matchAll(/\b(?:export\s+)?function\s+([A-Za-z0-9_]+)/g)) {
+      if (f.index > m.index) break
+      fn = f[1]
+    }
+    bad.push({ at: m.index, call: m[0], fn })
+  }
+  return bad
+}
+
+describe('形状锁 — 指针形态机上不得出现对 `.git` 的 mkdirSync', () => {
+  it('现读:源码零处对 `.git`(POINTER)的 mkdirSync', () => {
+    assert.deepEqual(
+      pointerMkdirSites(SRC),
+      [],
+      '对 `.git` 建目录 = 2026-10-16 那 15 次 EEXIST 的原位复活,指针腿只许 writeFileSync + rename',
+    )
+  })
+  it('变异对照:在指针腿里注入一处 mkdirSync(pointer) ⇒ 锁当场点名 writeGitdirPointer', () => {
+    const anchor = 'const tmp = `${pointer}.tmp-${process.pid}`'
+    assert.ok(SRC.includes(anchor), '夹具前提:找不到指针落盘那一行 ⇒ 先修夹具再谈判据')
+    const mutated = SRC.replace(anchor, `mkdirSync(pointer, { recursive: true })\n  ${anchor}`)
+    const bad = pointerMkdirSites(mutated)
+    assert.ok(bad.length >= 1, '注入后锁没喊 ⇒ 这条锁无牙')
+    assert.ok(
+      bad.some((b) => b.fn === 'writeGitdirPointer'),
+      `应点名 writeGitdirPointer,实得 ${JSON.stringify(bad)}`,
+    )
+  })
+  it('真跑一例(票面"真现场"那格的 CI 可复现版):`.git` 是异形大文件 ⇒ 归档后仍落**文件**,不是目录', () => {
+    const dir = mkScratch('gb17-pointer-')
+    try {
+      const wt = path.join(dir, 'wt')
+      mkdirSync(wt, { recursive: true })
+      const pointer = path.join(wt, '.git')
+      // 造一枚超过 gitfile 上限的异形现场(2026-10-16 那枚 25,433,594 字节现场同型,此处取小一档够判据)
+      writeFileSync(pointer, Buffer.alloc(GITFILE_MAX_BYTES + 1024, 0x78))
+      const archiveDir = path.join(dir, 'archive')
+      const expected = 'gitdir: S:/some/where-git-repo\n'
+      const r = writeGitdirPointer({
+        pointer,
+        expectedPointer: expected,
+        // 归档落点必须与指针**不同目录**(同目录 = 工作区根,执行单元自己会拒)
+        archiveNameFor: () => path.join(archiveDir, 'gitfile-stray-1'),
+        logger: () => {},
+        notify: () => {},
+      })
+      assert.equal(r.ok, true, `异形现场应被归档并落指针,实得 ${JSON.stringify(r)}`)
+      assert.equal(r.state, 'stray-file')
+      assert.ok(r.archived && existsSync(r.archived), `现场应真的落到归档里,实得 ${r.archived}`)
+      // 形状锁的运行时一半:修完它必须是"文件",mkdir 出来的目录会让 git 直接不认这棵工作树
+      assert.equal(statSync(pointer).isFile(), true, '`.git` 被 mkdir 成目录 ⇒ 那一型事故回来了')
+      assert.equal(readFileSync(pointer, 'utf8').trim(), expected.trim())
+    } finally {
+      rmScratch(dir)
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

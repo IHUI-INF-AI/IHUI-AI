@@ -7,6 +7,13 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('../src/config/index.js', () => ({
+  // 2026-10-28:config/index.ts 的顶层运行时导出不止 config 一个 —— 全量装配会经
+  // src/services/clawdbot/logger.ts 读 isDevelopmentRuntime(config→crew→routes/index 这条链)。
+  // 手写全量 mock 每漏一个,装配用例就报 "No X export is defined on the mock";
+  // 这里把同族纯值一并列出(test 运行态),不再逐个等它红。
+  runtimeEnv: 'test',
+  isProductionGuard: false,
+  isDevelopmentRuntime: false,
   config: {
     NODE_ENV: 'test',
     PORT: 8802,

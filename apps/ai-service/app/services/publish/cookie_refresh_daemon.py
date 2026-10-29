@@ -212,9 +212,15 @@ class CookieRefreshDaemon:
                 )
             credentials = decrypt(row["credentials_enc"])
         except Exception as e:
+            # 文案带"需重新扫码录入":这句话会原样进告警。原先只说"加载凭证失败:
+            # InvalidTag",用户看到的是异常类名,不知道该做什么 —— 解密失败唯一
+            # 的出路就是重录,得把动作写在消息里。
+            # 没有 message 的异常(InvalidTag 就是)只留类名,避免出现 "InvalidTag: "
+            # 这种尾巴空着的字符串(形似笔误,看着像 bug)。
+            detail = type(e).__name__ + (f": {e}" if str(e).strip() else "")
             return RefreshResult(
                 account_id=account_id, platform=platform, success=False,
-                message=f"加载凭证失败: {type(e).__name__}: {e}",
+                message=f"凭证无法解密({detail}),需重新扫码录入该账号",
             )
 
         # 注入 cookies 并访问首页(sync_playwright 在线程池跑,规避 Windows

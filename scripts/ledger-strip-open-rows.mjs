@@ -36,7 +36,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 
-import { partitionPlanBlocks, resolvePlanBase, resolveRequestedFace } from './archive-completed-tasks.mjs'
+// 2026-10-29 改 doorway:这三个判据原先**定义**在 scripts/archive-completed-tasks.mjs 里(本文件顶部
+// import 它),而那枚归档器已随 2026-10-16「完成即删 / 存档机制退役」到期 —— 判据体连同它闭合捕获的
+// 取值位整体迁入户 scripts/lib/plan-block-partition.mjs(逐字搬,未重写)。此行若还指向归档器,
+// 归档器一删就是 ERR_MODULE_NOT_FOUND 的静默断链(而 scripts/tests/ 下没有任何本文件的测试覆盖这条边)。
+import { partitionPlanBlocks, resolvePlanBase, resolveRequestedFace } from './lib/plan-block-partition.mjs'
 import { OPEN_ROW_RE, isCompletedTaskHeading, headingLevel } from './lib/plan-task-headings.mjs'
 import { parseTaskRows } from './lib/plan-task-index.mjs'
 import { alignSharedIndex, attestBypassCommit, casUpdateRef, commitTreeWithIndex, resolveHeadRef } from './lib/bypass-git.mjs'

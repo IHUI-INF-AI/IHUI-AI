@@ -15,6 +15,7 @@
  *  M6/M7 取材面纪律 —— face-reader 的 catBatch、遮罩只引 code-mask 一份、--staged 收窄到暂存集;
  *  M8 自检必须真跑过(判据在真跑它的那一刻才成立);
  *  M9 全量档存量只报数不红(§12f 恒红门禁令:③的 HEAD 存量非零,当场判红就是恒红门);
+ *  M9b 该维断言的变异自证(摘形态锁必红 / 站点归零必不红 —— 2026-10-27 假牙清偿);
  *  M10 真仓阳性对照 —— 钉**出处 ref**(#23 修复提交的父版本 blob)成对正反,不钉 HEAD;
  *  M12 端到端(临时仓)—— 暂存一枚存在性豁免必须红、落地后只报数、--strict 才问责。
  *  **装车证明锁(T1/T2,2026-10-15 补录)**:主会话已把本门接线进 guardian-runner.mjs
@@ -463,14 +464,47 @@ test('M8 --self-test 必须真跑过且 exit 0(判据在真跑它的那一刻才
   assert.match(combo, /--self-test: 全部通过/)
 })
 
+/**
+ * ③ 存量维的**形态锁**(2026-10-27 改判,假牙清偿)。
+ *
+ * 门体原话把 ③ 定为只报数维:`scripts/check-csrf-exemption-shape.mjs:37-41` —— "**存量棘轮**:
+ * 锚点 = 本门在同一判据下的 HEAD 读数 … HEAD 面存量只报数不判红(§12f 恒红门禁令:立项现读
+ * HEAD 已有 78 处/23 文件量级存量,当场判红就是一台与任何提交都无关的恒红门)… 存量出路只有
+ * 收敛到 secretsEqual 或行内 csrf-exempt 标记"—— 存量出路是**收敛到 0**,所以"读数为 0"是
+ * 正当终态,不是判据失明。旧断言 `sites.length > 0` 把它钉成下限:存量被合法清干净那天本测试
+ * 就假红(现读已只剩 2 处,离该假红只差两笔收敛),而测试假红在共享树里等于挡住所有会话落地。
+ * 现在钉形态、不钉数值:
+ *  · `sites` / `addedSites` 数组在,且每条站点点名 file/line/text(缺维或空壳 ⇒ 这一维没上岗);
+ *  · `siteFiles` 与站点清单的分母自洽(有一边在撒谎 ⇒ 形态坏);
+ *  · 站点数的**数值**只报数(不挂下限;变异自证见 M9b)。
+ */
+function assertCsrfStockShape(j) {
+  assert.ok(Array.isArray(j.sites), `--json 缺 ③ 站点数组 ⇒ 这一维没上岗:${JSON.stringify(j).slice(0, 300)}`)
+  assert.ok(Array.isArray(j.addedSites), '--json 缺 ③ 新增站点数组 ⇒ 棘轮这一维没上岗')
+  for (const s of j.sites) {
+    assert.ok(typeof s.file === 'string' && s.file.length > 0, `③ 站点必须点名文件:${JSON.stringify(s)}`)
+    assert.ok(Number.isInteger(s.line) && s.line > 0, `③ 站点必须点名行号:${JSON.stringify(s)}`)
+    assert.ok(typeof s.text === 'string', `③ 站点必须带行文本:${JSON.stringify(s)}`)
+  }
+  assert.ok(Number.isInteger(j.siteFiles) && j.siteFiles >= 0, `siteFiles 必须是可解析的非负整数(实得 ${JSON.stringify(j.siteFiles)})`)
+  assert.equal(
+    new Set(j.sites.map((s) => s.file)).size,
+    j.siteFiles,
+    `siteFiles(${j.siteFiles}) 与站点清单的实际文件数(${new Set(j.sites.map((s) => s.file)).size})不符 ⇒ 有一边在撒谎`,
+  )
+  return { sites: j.sites.length, siteFiles: j.siteFiles, addedSites: j.addedSites.length }
+}
+
 test('M9 全量档(HEAD)存量只报数不红:③存量看得见、出口在线、不恒红', () => {
   const r = runJson(['--json'])
   assert.equal(r.json.face, 'head')
   assert.equal(r.rc, 0, `HEAD 全量档不得因存量判红(§12f):${r.raw.slice(0, 400)}`)
   assert.ok(r.json.scannedFiles > 100, `扫描面过窄(实得 ${r.json.scannedFiles})= 门在对着空气打分`)
   assert.ok(r.json.surfaceFiles > 0, 'CSRF 豁免决策面塌了 = ①整族失明')
-  // ③的 HEAD 存量必须**看得见**(立项现读非零;只报数不判红正是本门不恒红的形状)
-  assert.ok(r.json.sites.length > 0, `③存量读数为 0 ⇒ 棘轮没有锚点可报:${r.raw.slice(0, 300)}`)
+  // 【2026-10-27 改判·假牙清偿】③的 HEAD 存量是门体明写的**只报数**维(头注 :37-41,存量出路 =
+  // 收敛到 0),旧断言 `sites.length > 0` 把一次性读数钉成下限 ⇒ 收敛干净那天假红、挡住全仓落地
+  // (§12e 同型从门面挪到测试面)。现在只钉形态,数值只报数 —— 变异自证见 M9b。
+  console.log('  ③ 站点现读(只报数):', JSON.stringify(assertCsrfStockShape(r.json)))
   assert.equal(r.json.addedSites.length, 0, 'HEAD 面上"新增"必须恒为 0(锚点即自身)')
   assert.equal(r.json.unreadable.length, 0, '候选取不到内容 ⇒ 无法判定,不记绿')
   // ②出口在 HEAD 面必须全部在线(四条里断一条即"没有出路",任何档都红)
@@ -481,6 +515,37 @@ test('M9 全量档(HEAD)存量只报数不红:③存量看得见、出口在线�
   // strict 是问责档:有存量即 1(不与默认档顶账)
   const s = runJson(['--json', '--strict'])
   assert.ok(s.rc === 1 || s.rc === 2, `strict 档必须有牙(实得 ${s.rc})`)
+})
+
+/**
+ * 变异自证(2026-10-27,改判的承重证明):牙必须长在"形态"上,不能靠一次性读数。
+ * 都在**同一次**真仓结论面(§M9 那张 JSON)上做对象变异,零额外全量扫描:
+ *  变异①:摘掉 ③ 站点数组 ⇒ 必须抛(缺维=没上岗有牙);
+ *  变异①b:站点壳里丢 file ⇒ 必须抛;①c siteFiles 与清单分母不符 ⇒ 必须抛;
+ *  变异②:站点读数改成 0(清单与 siteFiles 同步清空)⇒ **必须不抛**(它不是判据 —— 旧的
+ *         `> 0` 下限正是这里会假红的牙;门体明写存量出路是"收敛到 0")。
+ */
+test('M9b ③存量维断言变异自证:摘数组/空壳/分母不符必翻红 / 站点归零必不红', () => {
+  const r = runJson(['--json'])
+  const j = r.json
+  assert.doesNotThrow(() => assertCsrfStockShape(j), '基准面:真报告必须先过(否则下面全是空转)')
+  const noSites = { ...j }
+  delete noSites.sites
+  assert.throws(() => assertCsrfStockShape(noSites), /缺 ③ 站点数组/, '摘掉站点数组必须翻红')
+  assert.throws(
+    () => assertCsrfStockShape({ ...j, sites: [{ line: 1, text: 'x' }], siteFiles: 1 }),
+    /必须点名文件/,
+    '站点壳(缺 file)必须有牙',
+  )
+  assert.throws(
+    () => assertCsrfStockShape({ ...j, siteFiles: j.siteFiles + 1 }),
+    /不符/,
+    'siteFiles 与清单分母不符必须翻红',
+  )
+  assert.doesNotThrow(
+    () => assertCsrfStockShape({ ...j, sites: [], siteFiles: 0 }),
+    '③ 存量归零是门体明写的正当终态(收敛到 0)⇒ 断言不得为此翻红(假红=挡全仓落地)',
+  )
 })
 
 /* ─────────────────────────── 真仓阳性对照(历史 blob,不钉 HEAD)─────────────────────────── */

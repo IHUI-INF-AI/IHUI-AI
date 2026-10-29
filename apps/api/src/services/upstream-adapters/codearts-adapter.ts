@@ -25,6 +25,8 @@ import type {
   AdapterAccountContext,
   AdapterCallOptions,
   NormalizedChatRequest,
+  QuotaCallOptions,
+  RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
   TranslatedChunk,
@@ -41,6 +43,14 @@ const SNAP_HOST = 'https://snap-access.cn-north-4.myhuaweicloud.com'
 const CHAT_URL = `${SNAP_HOST}/api/v2/chat/completions`
 const BUILTIN_MODELS_URL = `${SNAP_HOST}/v1/model/builtin`
 const STS_TOKEN_URL = 'https://sts.cn-north-4.myhuaweicloud.com/v1/oauth2/tokens'
+/**
+ * 限时福利余额端点(2026-10-27 取证自 codearts2api docs/reverse-engineering.md §8,
+ * 逆向自 CodeArtsSpace 0.1.18:幂等,官方客户端打开模型菜单即调用;同 host 同签名,
+ * 无 Agent-Type 头)。注意:CodeArts **没有**积分/套餐余额查询接口——官方明细只在
+ * 控制台页 codearts.huaweicloud.com/portal/settings/personal-usage(免费额度按月
+ * 重置,滑动窗口限流见官方 FAQ),本端点只覆盖限时福利 token 余额。
+ */
+const BENEFIT_BALANCE_URL = 'https://opengw.developer.huaweicloud.com/api/v1/user/tokens/balance'
 /** OAuth 客户端标识(= 桌面端 product.json 的 urlProtocol);secrets 缺省时兜底 */
 const DEFAULT_CLIENT_ID = 'codearts-agent'
 const PLUGIN_VERSION = '26.9.902'
@@ -614,6 +624,93 @@ function classifyUpstreamFailure(
   return { kind: 'client' }
 }
 
+/** 华为 APIG 业务信封(2026-10-27 双源实证:本机实弹 + 官方客户端 D5 判据) */
+interface CodeartsApigEnvelope {
+  error_code?: unknown
+  error_msg?: unknown
+  result?: unknown
+}
+
+/**
+ * 限时福利余额点查。信封形状 2026-10-27 双源实证(本机实弹 + 官方客户端
+ * vscode-codebot/out/extension.js D5 判据):HTTP 200 且 JSON 信封
+ * {error_code,error_msg,result},error_code==='0000' 为成功、载荷在 result。
+ * 2026-10-27 实弹现读:新开通账号回 200 + {"error_code":"4000","error_msg":
+ * "invalid channel, group not found","result":null}(限时福利分组未发放);
+ * gamma 内网线(snapengine-apig.cn-north-7)公网 DNS 不存在,opengw 是公网唯一线。
+ * result 载荷字段形状至今未取得成功样例 ⇒ 载荷读数一律未判定,不猜字段名。
+ * 2026-10-27 收尾票注:他席 32db9220c5 重派曾把本段误降为通用键名清单(误判「字段形状
+ * 未实证」),本票恢复双源实证版并加此注 —— 信封形状 {error_code,error_msg,result} 与
+ * '0000' 成功判据是实弹 + 官方 extension.js D5 双源实证过的,不得再降。
+ */
+async function getQuota(
+  ctx: AdapterAccountContext,
+  opts?: QuotaCallOptions,
+): Promise<RelayQuotaResult> {
+  try {
+    const secrets = readSecrets(ctx)
+    const headers = signRequest({
+      accessKeyId: secrets.accessKeyId,
+      secretAccessKey: secrets.secretAccessKey,
+      securityToken: ctx.credentials.token,
+      method: 'GET',
+      url: BENEFIT_BALANCE_URL,
+      headers: { accept: 'application/json' },
+    })
+    const res = await resolveFetchImpl(opts ?? {})(BENEFIT_BALANCE_URL, {
+      method: 'GET',
+      headers,
+    })
+    const text = await res.text().catch(() => '')
+    if (!res.ok) {
+      return {
+        ok: false,
+        ...(codeartsAdapter.isAuthFailure(res.status, text) ? { authFailed: true } : {}),
+        error: `balance HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+      }
+    }
+    // 200 = 网关与签名均已通过,进入业务信封。华为 APIG 信封形状 2026-10-27 实弹实证
+    // (官方客户端 vscode-codebot/out/extension.js 的 D5 判据同源:statusCode===200 &&
+    // error_code==='0000' 为成功,载荷在 result):{"error_code":"4000","error_msg":"invalid
+    // channel, group not found","result":null} —— 新开通账号限时福利分组未发放时的真实样例。
+    let envelope: CodeartsApigEnvelope | null = null
+    try {
+      const parsed: unknown = JSON.parse(text)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        envelope = parsed as CodeartsApigEnvelope
+      }
+    } catch {
+      /* 非 JSON 信封也如实报 */
+    }
+    if (!envelope) {
+      return {
+        ok: false,
+        error: `余额端点 200 但响应非 JSON 信封(原文前 120 字=${text.slice(0, 120)}) ⇒ 未判定`,
+      }
+    }
+    const errorCode = typeof envelope.error_code === 'string' ? envelope.error_code : null
+    if (errorCode !== '0000') {
+      return {
+        ok: false,
+        error: `余额端点业务拒绝 error_code=${errorCode ?? '(缺失/非字符串)'} error_msg=${String(envelope.error_msg ?? '(缺失)')}`,
+      }
+    }
+    // error_code==='0000':信封层成功,但 result 载荷字段形状至今未实证
+    // (2026-10-27 该账号福利 group 未发放,从未取得成功样例)⇒ 载荷读数保持未判定,不猜字段。
+    const resultKeys =
+      envelope.result && typeof envelope.result === 'object' && !Array.isArray(envelope.result)
+        ? Object.keys(envelope.result as Record<string, unknown>).join(',')
+        : String(envelope.result ?? 'null')
+    return {
+      ok: false,
+      error: `余额信封成功(error_code=0000)但 result 载荷形状未实证(键=[${resultKeys}]) ⇒ 余额数字未判定(不猜字段读成数字)`,
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { ok: false, error: `余额点查失败: ${msg}` }
+  }
+}
+
 // =============================================================================
 // 导出
 // =============================================================================
@@ -625,6 +722,7 @@ export const codeartsAdapter: RelayUpstreamAdapter = {
   translateNonStream,
   refreshToken,
   checkHealth,
+  getQuota,
   listModels,
   isAuthFailure,
   isAuthError,

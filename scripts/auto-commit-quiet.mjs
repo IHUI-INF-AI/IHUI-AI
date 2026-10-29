@@ -28,7 +28,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw } from './lib/face-reader.mjs'
 // 已结清行回退判据(§0.6 单一真相源):本器只 import,不抄第二份"什么算已结清/同一件事"。
@@ -68,6 +68,94 @@ function git(args, opts = {}) {
   // 原先手写的三件事(显式 stdio §12g、windowsHide 强制生效、带 input 时 stdin=pipe),
   // maxBuffer 默认 64MB 与本器原值同档;绝对路径 git 二进制与 safe.directory 纪律一并拿到。
   return gitRaw(args, ROOT, opts)
+}
+
+/**
+ * 滞后副本判据(纯函数;镜像测试直接用它,§22c)。
+ *
+ * 立因(2026-10-25 实测,不是推测):旁路落地(`object-space-land`)只推进 HEAD 与索引,**不写工作树**;
+ * 本器 3 分钟后按工作树字节收编,就把那笔已入库的改动整份写回旧版。实测一枚 `chore(auto)` 在同一文件里
+ * 回退了绑定手机/邮箱两端点 88 行与门 198 的 updatedAt 出口形态两处,HEAD 面行为锁 7/7 全红。
+ *
+ * 判据:工作树 blob ≠ HEAD blob,却等于该路径某个**祖先提交**的同路径 blob ⇒ 滞后副本。
+ * 失效方向刻意保持收编(任一探针取不到 ⇒ 当"不是滞后副本"),只有**证实**才跳过并点名,
+ * 让"有意回退"由人显式提交(§0.10:失效方向必须是多要一次定向说明)。
+ */
+export function partitionStaleCopies(paths, probes) {
+  const kept = []
+  const skipped = []
+  for (const p of paths) {
+    const wt = probes.worktree(p)
+    const head = probes.head(p)
+    if (!wt || !head || wt === head) {
+      kept.push(p)
+      continue
+    }
+    const ancestors = probes.ancestors(p) || []
+    if (ancestors.includes(wt)) skipped.push(p)
+    else kept.push(p)
+  }
+  return { kept, skipped }
+}
+
+/** git 探针(取不到一律返回 null ⇒ fail-open,保持原收编行为)。 */
+function staleCopyProbes(p) {
+  const oid = (ref) => {
+    try {
+      return git(['rev-parse', ref]).trim()
+    } catch {
+      return null
+    }
+  }
+  return {
+    worktree: () => {
+      try {
+        return git(['hash-object', '--', p]).trim()
+      } catch {
+        return null
+      }
+    },
+    head: () => oid(`HEAD:${p}`),
+    ancestors: () => {
+      let commits = []
+      try {
+        commits = git(['log', '-n', '6', '--format=%H', '--', p])
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+      } catch {
+        return []
+      }
+      const out = []
+      for (const c of commits) {
+        const b = oid(`${c}:${p}`)
+        if (b) out.push(b)
+      }
+      return out
+    },
+  }
+}
+
+/**
+ * 审**全部**候选路径(2026-10-29 取消「已暂存 = 明确意图」那条豁免)。
+ *
+ * 立因(现读事故,不是推测):b44ab834609(00:36:57)把 a3facca58f3(00:32:48,早 4 分钟)
+ * 刚入库的 relay 守卫②整份写回旧版。当时那三个路径被别席暂存过 ⇒ 落进旧豁免 ⇒ 守卫
+ * 一次都没问。而本器落地走 safe-commit,它 Step1 `git reset HEAD` 清索引、Step2
+ * `git add -A <声明集>` ⇒ **真正入库的是工作树字节**,与"谁暂存过"毫无关系。
+ * 所以"已暂存"既不能证明工作树内容是新的,也不能证明提交出去的就是那份暂存。
+ *
+ * `changes` 参数保留(调用方仍在传,且它是本器其它判据的输入),但不再参与豁免决策。
+ * 失效方向仍是"少收编一次":判成滞后就跳过并逐条点名,人想显式提交随时可以(§0.10)。
+ */
+function dropStaleCopies(stale, changes, probeFactory = staleCopyProbes) {
+  if (!stale.length) return { kept: stale, skipped: [] }
+  const { skipped } = partitionStaleCopies([...stale], {
+    worktree: (p) => probeFactory(p).worktree(),
+    head: (p) => probeFactory(p).head(),
+    ancestors: (p) => probeFactory(p).ancestors(),
+  })
+  return { kept: stale.filter((p) => !skipped.includes(p)), skipped }
 }
 
 function log(line) {
@@ -203,6 +291,37 @@ function rollbackLedger(file, snap, why) {
 }
 
 /**
+ * 处置侧快照落盘(2026-10-28 立,票 gb22「活文档被体积清偿压好后又被归并档原样拉回」)。
+ *
+ * 为什么需要这一份:§1 的体积清偿是两步走 —— 先把整区正文逐字写进 `.ihui-agent/archive/`,再把文档
+ * 压下来。压下来到落库之间(实测 11:40 压 → 11:54 入库)HEAD 仍是**未压版**,而 `merge-live-doc --apply`
+ * 比的正是 HEAD ↔ 工作树 ⇒ 它把刚被有意搬走的行判成"真丢失"原样插回(实测 2026-10-28 11:51:57 把
+ * 95336 字节顶回 102352,备份件 `.ihui-agent/tmp/AGENTS.md.2026-10-28T03-51-57.pre-merge.bak`)。
+ * 复洁器要判"这一行是本轮归并插回来的、还是别人真新增的",唯一可靠的基准就是**归并前那一刻的工作树**
+ * —— 也就是本器已经在手的 `snapshotLedger` 快照。落盘只为把它交给子进程,文件名固定 ⇒ 每轮覆盖,不堆积。
+ *
+ * 只服务正文族(AGENTS.md / README*.md):PROJECT_PLAN.md 一族的四道维有镜像测试钉着,本次红线是不动
+ * 其语义,故该族一律不传这一旗(判据语义与 2026-10-22 立版逐字相同)。
+ *
+ * @returns {string|null} 相对 ROOT 的快照路径;取不到快照 ⇒ null(本维不启用,复洁退回原判据)
+ */
+function writeDispositionSnapshot(file, snap) {
+  if (!file.endsWith('.md') || file.endsWith('PROJECT_PLAN.md')) return null
+  if (!snap || !snap.length) return null
+  try {
+    const dir = join(ROOT, '.ihui-agent', 'tmp', 'auto-commit-quiet')
+    mkdirSync(dir, { recursive: true })
+    const rel = join('.ihui-agent', 'tmp', 'auto-commit-quiet', `${basename(file)}.pre-merge.disposition`)
+    const abs = join(ROOT, rel)
+    writeFileSync(abs, snap)
+    return rel
+  } catch (e) {
+    log(`⚠️ 处置侧快照落盘失败(${file}):${String(e?.message || e)} ⇒ 本轮不启用归档批次维(退回原判据)`)
+    return null
+  }
+}
+
+/**
  * 已结清行回退闸的取数口(2026-10-25):HEAD blob 走取材层(守门 118 —— 散写 cat-file 会让
  * "判据与内容不同面同轮"悄悄发生);候选取**现盘文本**,因为调用点已在归并/复洁之后,
  * 那一刻的盘上文本就是即将入库的那一份。任一取不到 ⇒ null,由判据落 undetermined(fail-closed)。
@@ -318,6 +437,10 @@ function main() {
       // "本轮不收编"只保住了历史,工作树副本仍被写脏 —— 那正是 16:00/16:06/16:09 三次
       // 回插事故里污染扩散到下一席位的原因。
       const snap = snapshotLedger(f)
+      // 处置侧快照(2026-10-28,票 gb22):归并档比的是 HEAD ↔ 工作树,而体积清偿在飞的窗口里
+      // HEAD 还是未压版 ⇒ 被有意搬走的行会被判成"真丢失"插回。把归并前的工作树交给复洁器,
+      // 它才能把"本轮归并插回的迁出行"和"别人真新增的行"分开。PROJECT_PLAN 一族不传(红线)。
+      const dispRel = writeDispositionSnapshot(f, snap)
       /** 只在判定红时回滚;判定绿则保留本器写盘(归并/复洁的正当产物)。 */
       const revertIfRed = (why) => {
         if (!f.endsWith('PROJECT_PLAN.md')) return
@@ -333,7 +456,11 @@ function main() {
         try {
           const sr = execFileSync(
             process.execPath,
-            [join(ROOT, 'scripts', 'scrub-declared-removals.mjs'), f],
+            [
+              join(ROOT, 'scripts', 'scrub-declared-removals.mjs'),
+              f,
+              ...(dispRel ? ['--archive-disposition', dispRel] : []),
+            ],
             {
               cwd: ROOT,
               encoding: 'utf8',
@@ -344,11 +471,23 @@ function main() {
             },
           )
           const m = /state=(\w+) dropped=(\d+)/.exec(String(sr ?? ''))
+          const ar = /archive=(\d+)/.exec(String(sr ?? ''))
           log(
-            `活文档摘除台账复洁(${f}): ${m ? `${m[1]} dropped=${m[2]}` : '未回带机读行 ⇒ 本轮不收编'}`,
+            `活文档摘除台账复洁(${f}): ${m ? `${m[1]} dropped=${m[2]}${ar ? ` archive=${ar[1]}` : ''}` : '未回带机读行 ⇒ 本轮不收编'}`,
           )
           if (!m) {
             revertIfRed('复洁未回带机读行')
+            stale.splice(stale.indexOf(f), 1)
+            continue
+          }
+          // 归档批次维放过行 = 本轮归并确实把"已按 §1 逐字迁入 archive 的迁出批次"插回来了,而该批次
+          // 此刻只在盘上、不在 HEAD 面 ⇒ 现在收编会把清偿成果第二次写回历史。让路给文档所有者:
+          // 工作树已被复洁回到处置那一版(不是被插回的那一版),本器不再碰它,同批归档件与正文一起落库
+          // 之后下一轮自然无滞留。失效方向恒为"多要一次落库",绝不是"多放一次收编"。
+          if (ar && Number(ar[1]) > 0) {
+            log(
+              `活文档让路(${f}):本轮归并插回 ${ar[1]} 行"已逐字迁入 archive 的迁出批次"(凭据只在盘上、HEAD 面尚未入库)⇒ 不收编,留给文档所有者与同批归档件一起落库`,
+            )
             stale.splice(stale.indexOf(f), 1)
             continue
           }
@@ -381,8 +520,10 @@ function main() {
         // 归并档结构性看不见);归档单调性只管 ✅ 标题复活,不管勾选态。
         // 两型回退源都在本闸射程内(根因与取证见 scripts/lib/ledger-closed-rows.mjs 头注):
         // ① 混合体(旧副本⊕本地小改)——整份文本不等于任何祖先 blob,dropStaleCopies 结构上判不了;
-        // ② 整份旧 blob 覆盖——dropStaleCopies 能拦,但它只审未暂存文件、只回溯最近 6 枚提交,
-        //    而本闸按**盘上文本 vs HEAD blob** 判勾选态,不受"是否已暂存/副本多老"影响。
+        // ② 整份旧 blob 覆盖——dropStaleCopies 能拦(2026-10-29 起它审**全部**候选:旧的那条
+        //    "已暂存=明确意图"豁免正是 b44ab834609 回退守卫②的入口,而落地走 safe-commit 的
+        //    `git add -A`,提交的是工作树字节,与谁暂存过无关),但它仍只回溯该路径最近 6 枚提交,
+        //    而本闸按**盘上文本 vs HEAD blob** 判勾选态,不受"副本多老"影响。
         // 位置刻意选在**归并+复洁之后、safe-commit 之前**的最后一档:①候选文本此刻就是即将入库
         // 的那一份(复洁只剔 HEAD 面已不存在的行,动不到本闸的主键面);②放到归并之前会把"归并
         // 本来能补回的行"误判成回退;③与归档单调性同层,任何一道红都在同一处回滚 + 退出候选。
@@ -489,5 +630,7 @@ export const __test__ = {
   syncReadmeNumbers,
   snapshotLedger,
   rollbackLedger,
+  partitionStaleCopies,
+  dropStaleCopies,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

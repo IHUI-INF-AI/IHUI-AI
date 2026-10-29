@@ -170,7 +170,7 @@
 #   宽松匹配会产出 4 类**假边** —— packages/design-tokens → @ihui/ui-react
 #   (只出现在 JSDoc 注释里)、packages/eslint-config → @ihui/shared(只出现在
 #   规则文案字符串里)、apps/api → @ihui/ui-react(代码生成器拼的模板字符串)、
-#   apps/web → @ihui/sdk(示例页模板字符串)。首版实测这些假边共 12 处。
+#   apps/web → @ihui-ai/sdk(示例页模板字符串)。首版实测这些假边共 12 处。
 # 配置层文件(*.config.*、*.d.ts)整体不入依赖图:它们 import @ihui/eslint-config
 # 属于工具装配,不是运行时依赖(否则每个包都会多出一条"依赖 lint 配置"的边)。
 #
@@ -449,7 +449,7 @@ modules:
       - '.'
 
   - id: 'packages/sdk'
-    package: '@ihui/sdk'
+    package: '@ihui-ai/sdk'
     layer: 'platform'
     exported: true
     managed: true
@@ -764,5 +764,36 @@ modules:
 # 2026-10-05:唯一一条存量债 EX-C2-1(packages/types/src/app.ts 超契约行上限)已随该文件
 # 按业务域拆完而清偿,按它自己 reason 里写的出口①"拆完 ⇒ 删掉这条例外并把该块翻 managed:true"
 # 执行。**不得**为消红重新登记它 —— 那等于把已还的账再挂回去,并替人做出"还有债"的判断。
-exceptions: []
+# ---------------------------------------------------------------------------
+# 2026-10-27 登记 EX-C1-1/EX-C1-2(repo-tooling managed:true ⇒ C1 例外通道合法):
+#   两枚守门中枢分别被 2026-10-27 01:55 的指针形态 .git 修复(git-guardian 5988→6228)与
+#   2026-10-27 08:5x 的门 253/254+152 门射程清偿批(guardian-runner 5997→6205)推过 6000 上限,
+#   均为**最近 24h 新增越限**。硬拆的前置是抽门注册表/守门分派块到 scripts/lib/,但两文件
+#   恰是多席在飞热点(08:50–08:56 三笔连续),此刻动刀撞车风险最大 ⇒ 按例外通道挂账,
+#   拆分前置与期限写死在 reason/until,到期 X2 对账自动追。
+exceptions:
+  - id: EX-C1-1
+    rule: 'file-lines'
+    module: repo-tooling
+    file: scripts/git-guardian.mjs
+    until: 2026-11-10
+    reason: 拆分前置=把指针形态 .git 修复块(2026-10-27 01:55 +240 行)抽 scripts/lib/;到期末拆则红上加重
+  - id: EX-C1-2
+    rule: 'file-lines'
+    module: repo-tooling
+    file: scripts/guardian-runner.mjs
+    until: 2026-11-10
+    reason: 拆分前置=把门注册表(含 152 门射程声明)抽 scripts/lib/gate-registry.mjs;到期末拆则红上加重
+  # 2026-10-29 登记 EX-C1-3(packages/api-client managed:true ⇒ C1 例外通道合法,同 EX-C1-1/2 口径):
+  #   HEAD 面实测 6006 行 > 上限 6000,只越 6 行;越限来源是枚 55d5726383 补 resume_goal 控制帧
+  #   (GoalResumeReason/SessionGoalResumeResult/MyGoal* 一族落在同一文件)。此刻不动刀的原因与
+  #   EX-C1-1/2 同型:该文件是 @ihui/api-client 的唯一公开入口(public_entrypoints 钉 './client'),
+  #   且 goal 族正在多笔在飞链上,同批改写必撞车。到期日刻意与 11-10 那两条错开(到期同日会
+  #   在同一天集中引爆,巡检临期点名看不到先后)。
+  - id: EX-C1-3
+    rule: 'file-lines'
+    module: 'packages/api-client'
+    file: 'packages/api-client/src/client.ts'
+    until: 2026-11-14
+    reason: 拆分前置=把 SSE 错误格式化块(SSEErrorInfo/FormattedSSEError/getSSEErrorInfo/formatSSEError)抽 packages/api-client/src/sse-error.ts,client.ts 以 re-export 保公开面逐名等值(照 EX-C2-1 清偿先例的拆法);到期末拆 ⇒ C1 红上加重,由 X2 到期对账追,不得再挂第二条例外续期
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

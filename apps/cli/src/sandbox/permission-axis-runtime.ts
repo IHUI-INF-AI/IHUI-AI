@@ -60,7 +60,7 @@ export const SANDBOX_PROFILE_TO_AXIS: Readonly<Record<SandboxProfile, SandboxMod
 };
 
 /** 生效值来源(测试与审计读它区分"默认"与"用户显式")。 */
-export type AxisValueSource = 'explicit' | 'config-profile' | 'sandbox-profile' | 'contract-default';
+type AxisValueSource = 'explicit' | 'config-profile' | 'sandbox-profile' | 'contract-default';
 
 export interface PermissionAxisSettingsInput {
   /** 显式沙箱轴(settings.sandboxMode);字符串,未知值 ⇒ read-only + warning。 */
@@ -209,7 +209,7 @@ export function resolveCliPermissionAxisFromSettings(
 }
 
 /** 端内工具名 → 轴类别(唯一映射;未列出的按 dangerLevel 归类)。 */
-export const AXIS_TOOL_KIND_BY_NAME: Readonly<Record<string, AxisToolKind>> = {
+const AXIS_TOOL_KIND_BY_NAME: Readonly<Record<string, AxisToolKind>> = {
   // run_command 家族:dangerLevel 已是 dangerous,列在这里是为了让"命令类"不受 dangerLevel
   // 缺省变化影响(有工具曾把 dangerLevel 省掉,按缺省读成只读是登记过的失效型)。
   run_command: 'command',

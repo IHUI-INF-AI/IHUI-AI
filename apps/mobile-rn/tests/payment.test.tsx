@@ -244,12 +244,12 @@ describe('PaymentScreen 支付流程', () => {
     await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
 
     fireEvent.click(getByText('payment.payNow'))
-    // ConfirmPurchasePopUp 弹窗,"确认支付"同时出现在 title 和 button 上,点击第二个(button)
+    // ConfirmPurchasePopUp 弹窗,payment.confirm 键同时出现在 title 和 button 上,点击第二个(button)
     await waitFor(() => {
-      const confirmBtns = getAllByText('确认支付')
+      const confirmBtns = getAllByText('payment.confirm')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('确认支付')[1]!)
+    fireEvent.click(getAllByText('payment.confirm')[1]!)
     // 链:confirm → await createWechatAppPayment → await openWeChatPayment → setToast(paySuccess)。
     // paySuccess toast 是整条链的唯一终点:每步都 await,终点出现即证明前两跳都发生过 ⇒ 只等一次。
     // 立因与预算同先例 e4989cbb9e:多段串行 waitFor 各带一份等待预算,在并发跑 200+ 道守门的同机
@@ -294,12 +294,12 @@ describe('PaymentScreen 支付流程', () => {
     await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
 
     fireEvent.click(getByText('payment.payNow'))
-    // ConfirmPurchasePopUp 弹窗,点击"确认支付"按钮后用户取消微信支付
+    // ConfirmPurchasePopUp 弹窗,点击 payment.confirm 按钮后用户取消微信支付
     await waitFor(() => {
-      const confirmBtns = getAllByText('确认支付')
+      const confirmBtns = getAllByText('payment.confirm')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('确认支付')[1]!)
+    fireEvent.click(getAllByText('payment.confirm')[1]!)
     // 链:confirm → create 成功 → await openWeChatPayment(返回 false) → setToast(payCancelled)。
     // 取消 toast 是终点,只等一次;openWeChatPayment 降级为同步断言。
     await waitFor(() => expect(getByText('payment.payCancelled')).toBeTruthy(), { timeout: 8_000 })
@@ -334,10 +334,10 @@ describe('PaymentScreen 支付流程', () => {
     fireEvent.click(getByText('payment.payNow'))
     // 先弹出 ConfirmPurchasePopUp,点击确认按钮后再触发微信支付
     await waitFor(() => {
-      const confirmBtns = getAllByText('确认支付')
+      const confirmBtns = getAllByText('payment.confirm')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('确认支付')[1]!)
+    fireEvent.click(getAllByText('payment.confirm')[1]!)
     await waitFor(() => expect(getByText('payment.wechatNotInstalled')).toBeTruthy())
   })
 })

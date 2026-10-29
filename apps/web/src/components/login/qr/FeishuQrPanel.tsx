@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { getPlatformConfig } from '@/lib/third-party-config'
 import { generateState, saveOAuthState } from '@/lib/oauth-utils'
 import { loadFeishuQrSdk, type FeishuQrInstance } from './sdk-loader'
-import { UnconfiguredState, ErrorState } from './WechatQrPanel'
+import { UnconfiguredState, ErrorState, QR_PANEL_BOX } from './WechatQrPanel'
 
 interface FeishuQrPanelProps {
   refreshKey: number
@@ -87,9 +87,11 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
           qrRef.current = new window.QRLogin({
             id: containerId,
             goto: gotoUrl,
-            width: '280',
-            height: '260',
-            style: 'width:260px;height:260px;border:none;',
+            // 2026-10-27:与外框 QR_PANEL_BOX 同为 300×300 正方形
+            // (原 280×260 非正方形,且 style 里又写成 260×260,与 width/height 参数自相矛盾)
+            width: '300',
+            height: '300',
+            style: 'width:300px;height:300px;border:none;',
           })
           if (!cancelled) setStatus('ready')
         } catch (e) {
@@ -130,7 +132,7 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
   // React 18 严格模式 + 第三方 SDK DOM 操作冲突修复(2026-07-22)
   // 详见 WechatQrPanel.tsx 同名注释
   return (
-    <div className="relative mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-xl border bg-card">
+    <div className={QR_PANEL_BOX}>
       <div ref={containerRef} id={containerId} className="absolute inset-0" />
       {status === 'loading' && (
         <Loader2 className="relative h-6 w-6 animate-spin text-muted-foreground" />

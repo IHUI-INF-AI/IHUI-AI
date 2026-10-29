@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync } from 'fastify'
+import { isDevelopmentRuntime } from '../config/index.js'
 import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import { env } from 'node:process'
@@ -282,7 +283,8 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
     )
     // 开发环境直接激活方便测试，生产环境应等支付回调后激活。
     // 2026-09-18 收紧:须显式设置 PAYMENT_DEV_AUTO_ACTIVATE=1,防止环境标识误配导致未付款直发 VIP
-    if (process.env.NODE_ENV === 'development' && process.env.PAYMENT_DEV_AUTO_ACTIVATE === '1') {
+    // 档位判定走 config 出口;PAYMENT_DEV_AUTO_ACTIVATE 第二把钥匙保留(防环境标识误配直发 VIP)
+    if (isDevelopmentRuntime && process.env.PAYMENT_DEV_AUTO_ACTIVATE === '1') {
       await purchaseVip({ userId: request.userId!, vipLevelId: level.id, orderId: order.id })
     }
     return reply.send(

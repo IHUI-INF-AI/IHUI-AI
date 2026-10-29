@@ -20,10 +20,10 @@ import { dbRead } from '../db/index.js'
 import { visitLogs } from '@ihui/database'
 
 /** 窗口天数(有界常量,SQL 只吃它,不吃外部字符串)。 */
-export const AUDIENCE_WINDOW_DAYS = 7
+const AUDIENCE_WINDOW_DAYS = 7
 
 /** 侧栏/插件等非浏览器入口的 url 前缀;浏览器分布只统计裸路径(web 端)。 */
-export const NON_BROWSER_PATH_PREFIXES = ['/rn/', '/mp/', '/ex/'] as const
+const NON_BROWSER_PATH_PREFIXES = ['/rn/', '/mp/', '/ex/'] as const
 
 /** 访客身份:与 UV 口径同源(session_id 缺省时退到 ip)。 */
 const identity = sql<string>`coalesce(${visitLogs.sessionId}, ${visitLogs.ip})`
@@ -37,7 +37,7 @@ function windowStart(hours: number) {
  * UA 家族判序:Edge/Opera/微信的 UA 串里同时含 Chrome 与 Safari,必须先判它们,
  * 否则 Edge 会被读成 Chrome(实测 Edge 的 UA 尾串就是 "...Chrome/... Safari/537.36")。
  */
-export const UA_FAMILY_CASE = sql<string>`case
+const UA_FAMILY_CASE = sql<string>`case
   when coalesce(${visitLogs.userAgent}, '') ilike '%MicroMessenger%' then 'wechat'
   when coalesce(${visitLogs.userAgent}, '') ilike '%Edg%' then 'edge'
   when coalesce(${visitLogs.userAgent}, '') ilike '%OPR%' then 'opera'
@@ -141,8 +141,8 @@ export async function computeBrowserUsage(
  * 60 秒对"今天来了多少新面孔"这个量足够新。取不到时上抛,由调用方折成 null
  * (大屏渲染"—"),绝不兜成 0 —— 把"没判出来"读成"没有新访客"是本仓反复出现的失效型。
  */
-export const AUDIENCE_LIVE_WINDOW_HOURS = 24
-export const AUDIENCE_LIVE_TTL_MS = 60_000
+const AUDIENCE_LIVE_WINDOW_HOURS = 24
+const AUDIENCE_LIVE_TTL_MS = 60_000
 
 let liveCache: { atMs: number; value: AudienceSnapshot } | null = null
 let liveInflight: Promise<AudienceSnapshot> | null = null

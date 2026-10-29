@@ -151,7 +151,9 @@ catalog:
   typescript: ^5.7.2 # L1:保持 5.x(TS 7.0 是 major,留 L2 评估)
   rimraf: ^6.1.3 # L1:6.0.1 → 6.1.3 minor
   vitest: ^4.0.0 # L3:3.x→4.x major(miniapp-taro 除外,其 @tarojs/vite-runner peerDep 锁定 vite^4,而 vitest 4.x 需要 vite 5+ 的 ./module-runner 导出,故 miniapp-taro 单独降级到 vitest ^3.2.7)
-  zod: ^4.0.0 # L4:3.x→4.x major(已迁移:z.string().ip()→z.union([z.ipv4(),z.ipv6()])、errorMap→error、.flatten()→z.treeifyError、.passthrough()→z.looseObject()、z.record(z.x)→z.record(z.string(),z.x)、z.string().email()→z.email())
+  zod: ^4.6.6 # L4:3.x→4.x major(已迁移:z.string().ip()→z.union([z.ipv4(),z.ipv6()])、errorMap→error、.flatten()→z.treeifyError、.passthrough()→z.looseObject()、z.record(z.x)→z.record(z.string(),z.x)、z.string().email()→z.email())
+  # 2026-10-28 依赖审计:4.4.3 → ^4.6.6(GHSA-mrhx-c7xc-m3w5,超大集合校验内存耗尽)。
+  # 注意 catalog 的版本优先级高于 pnpm.overrides —— 只写 overrides 不会改动这里,实测 4.4.3 仍在树里。
   eslint: ^10.0.0 # L2:9.x→10.x major(已评估:flat config 已就位 + typescript-eslint v8.56+ 支持 + Node 24 满足要求)
   zustand: ^5.0.14 # L1:5.0.2 → 5.0.14 patch
 
@@ -167,12 +169,19 @@ minimumReleaseAge: 0
 # 原 package.json pnpm.overrides 迁移至此:
 overrides:
   ioredis: 6.0.0
+  # webpack 钉版 = Taro 4.2.1 工具链兼容必需,不是配置遗漏(2026-10-28 安全审计第二刀实证):
+  # 尝试抬到 ^5.104.1 后 `build:weapp` 在 Taro ProgressPlugin 的 ajv schema 校验处直接崩
+  # (webpack>=5.92 改了 ProgressPlugin handler 签名)。三条 webpack advisory(1 moderate DOM
+  # Clobbering + 2 low buildHttp allowedUris)均为**构建期工具链面**,不进入运行时代码与
+  # 产物运行时,属"恒红门禁令 §12e 同型"的不可修项 —— 出路在 @tarojs 上游适配新 webpack,
+  # 不适配前该钉版不得解除;下方第一刀批次的三条 webpack 选择器行因裸键优先级更高而无效,
+  # 保留仅作历史登记,不得当作"已抬升"的依据。
   webpack: 5.91.0
   '@types/react': 19.2.18
   '@types/react-dom': 19.2.4
   '@types/node': 26.1.2
   drizzle-orm: 0.45.2
-  fast-jwt: 6.3.1
+  fast-jwt: 6.3.4
   # 2026-09-06 依赖安全审计(PATCH 级低风险修复):
   # fast-uri 3.1.5/4.1.2 → ^3.1.6/^4.1.3(SSRF/IDN 规范化,被 @fastify/ajv-compiler 与 fastify 引用)
   # '@xmldom/xmldom' 0.8.14 → ^0.8.15(XML 片段注入,被 exceljs/@expo/plist 传递引用)
@@ -208,7 +217,7 @@ overrides:
   postcss@<=8.5.22: ^8.5.23
   serialize-javascript@<=7.0.2: ^7.0.3
   serialize-javascript@>=5.0.0 <7.0.5: ^7.0.5
-  sharp@<0.35.0: ^0.35.0
+  sharp@<0.35.5: ^0.35.5
   swiper@>=6.5.1 <12.1.2: ^12.1.2
   uuid@<11.1.1: ^11.1.1
   vite-plugin-static-copy@>=0.4.3 <=2.3.1: ^2.3.2
@@ -227,6 +236,98 @@ overrides:
   # 供应链(2026-09-06):xlsx(SheetJS npm 冻结版 0.18.5)存在 CVE-2023-30533(原型污染)/ReDoS,
   # npm 上游不再发布修复版,统一强制到无漏洞 drop-in fork @e965/xlsx 0.20.x(API 兼容)。
   xlsx: npm:@e965/xlsx@^0.20.3
+  # ===== 2026-10-28 依赖漏洞审计(OSV 直连,只收"上线面"命中项)=====
+  # 判据来源:outputs/dep-audit-deployed.json(按 name+version 双匹配生产依赖树,
+  # 只保留 @ihui/api 与 @ihui/web 生产链上的包)。全部为同 minor 内 patch 抬升,
+  # 不改任何包的主版本语义,调用方 API 不变。
+  # 跨主版本项(image-size 1→2、katex 0.16→0.18)刻意不在此列——2026-10-28 第二刀已对
+  # image-size 完成单独验证并抬升(见本区"第二刀"块),katex 维持不抬(见彼处留痕)。
+  '@grpc/grpc-js@<1.14.5': ^1.14.5
+  # brace-expansion 三条线各自抬到该线最新(5.x 与 1.x API 不同,不可跨线合并)
+  brace-expansion@>=1.0.0 <2.0.0: ^1.1.19
+  brace-expansion@>=2.0.0 <3.0.0: ^2.1.5
+  brace-expansion@>=5.0.0 <6.0.0: ^5.0.10
+  '@fastify/busboy@<3.2.2': ^3.2.2
+  fast-copy@<4.1.0: ^4.1.0
+  # fast-uri 上移既有两条的阈值(原 3.1.6/4.1.3 → 3.1.8/4.1.5)
+  fast-uri@>=3.0.0 <3.1.8: ^3.1.8
+  fast-uri@>=4.0.0 <4.1.5: ^4.1.5
+  ip-address@<10.5.1: ^10.5.1
+  moment@<2.31.0: ^2.31.0
+  seroval@<1.6.2: ^1.6.2
+  shell-quote@<1.11.0: ^1.11.0
+  # tiptap 3.x 全族(extension-*/react/starter-kit)对 core、pm 的 peerDependencies 是
+  # **精确版本**(如 "3.30.4"),不是 ^ 范围。原规则写 '@tiptap/core@<3.30.5': ^3.30.5,
+  # 只兜住下界、任其自解析,于是同一 importer 里 core 裂出 3.31.3 与 3.32.0 两份,
+  # 两份 Editor 类型互不赋值 ⇒ TiptapToolbar.tsx 十余处 toggleBold/toggleItalic 报 TS2339
+  # (CI lint-typecheck-test 的 Build 步)。core/pm 必须与全族钉同一版,锁单一版本。
+  '@tiptap/core@<3.32.0': 3.32.0
+  '@tiptap/pm@<3.32.0': 3.32.0
+  # 既有规则只覆盖 0.8.x,0.9.x 这条线单独抬
+  '@xmldom/xmldom@>=0.9.0 <0.9.12': ^0.9.12
+  compression@<1.8.2: ^1.8.2
+  joi@<17.13.7: ^17.13.7
+  js-yaml@>=3.0.0 <3.15.2: ^3.15.2
+  js-yaml@>=4.0.0 <4.3.2: ^4.3.2
+  prosemirror-view@<1.42.3: ^1.42.3
+  # @tiptap/pm@3.32.0 精确依赖 prosemirror-transform@1.12.4,而其余 prosemirror-*
+  # 包按自身 ^ 范围仍解析到 1.12.0,两份并存。prosemirror 运行时靠 instanceof 判别
+  # Step/Transform 子类,跨份实例会让 step 应用与历史回放出错(不是类型问题,tsc 看不见)。
+  # 同 minor 内 patch 收敛到 pm 要的那版。
+  prosemirror-transform@<1.12.4: 1.12.4
+  source-map-js@<1.2.2: ^1.2.2
+  colord@<2.9.4: ^2.9.4
+  # 既有 dompurify 规则止于 3.4.13,此处续到 3.4.17
+  dompurify@<=3.4.16: ^3.4.17
+  # zod 只抬 4.x 线:3.x 是 @expo/cli 的构建期依赖,强升 3→4 会打爆 Expo 工具链
+  zod@>=4.0.0 <4.6.6: ^4.6.6
+  # undici 7.x 线(api 直接声明的是 ^8.10.1,7.29.0 由其他包带入)
+  undici@>=7.0.0 <8.0.0: ^7.30.1
+  # ===== 2026-10-28 安全审计第二刀(pnpm audit --prod @ registry.npmjs.org)=====
+  # 现读:41 条 advisory = 1 critical / 12 high / 23 moderate / 5 low。
+  # 处置口径(与第一批一致):同主版本线内的补丁一律 override 抬升;跨主版本单独立项验证。
+  # 全部为链上传递依赖,product 代码零调用面变更风险由 build/typecheck 同批验证。
+  proxy-addr@<2.0.8: ^2.0.8 # CRITICAL · IPv4-mapped IPv6 信任子网伪装(webpack-dev-server>express 链)
+  body-parser@<1.20.9: ^1.20.9
+  follow-redirects@>=1.16.0 <1.16.1: ^1.16.1
+  launch-editor@<=2.14.1: ^2.14.2
+  node-forge@<=1.4.0: ^1.4.1 # RSA PKCS#1 v1.5 验签多嵌套接受(@expo/cli 链)
+  svgo@>=3.0.0 <3.3.5: ^3.3.5 # removeScripts 命名空间绕过的构建期 SVG 洗脱(miniapp cssnano 链)
+  vite@>=6.0.0 <6.4.4: ^6.4.4 # 现装仅 6.4.3;抬同一 minor 补丁
+  qs@<6.16.1: ^6.16.1 # 三条 qs advisory 并集补丁(现装 6.15.3)
+  # webpack 不在本块处置:钉版兼容性与三条 advisory 的归因留痕见上方迁移区裸键注释(§0.6 单源)。
+  postcss-selector-parser@<6.1.5: ^6.1.5
+  # advisory 声明补丁线 >=0.4.3,但 0.4.3 从未发布(现读 registry 全 9 版:0.2.x/0.3.x/0.5.x),
+  # 实际可命中的补丁版是 0.5.1;包对外只有单一默认导出,query-string 等调用方兼容。
+  decode-uri-component@<=0.4.2: ^0.5.1
+  # 本仓唯一生产链上的跨主版本项:image-size HIGH(JXL/HEIF/ICNS 解析死循环)。
+  # 生产宿主 = apps/api>pptxgenjs(声明 ^1.2.1,恶意图片喂进 PPT 生成即打满 CPU);
+  # 工具链宿主 = metro(RN 构建)与 @storybook/nextjs(web 文档构建)。
+  # 2026-10-28 锁内实测:范围选择器 'image-size@>=0.6.3 <2.0.3' 已把 pptxgenjs 链抬到 2.0.4,
+  # 但 metro/storybook 声明范围不被该 selector 命中(audit 复跑仍见 1.2.1 / 2.0.2 各 1 线);
+  # 故用父母域写法点名补,less(0.5.5,不在漏洞区间)不受牵连。image-size 2.x 保留
+  # sizeOf(buffer)→{width,height} 默认导出,调用方兼容,由同批 build 验证钉住。
+  image-size@>=0.6.3 <2.0.3: ^2.0.4
+  'metro>image-size': ^2.0.4
+  '@storybook/nextjs>image-size': ^2.0.4
+  # nodemailer 传递面补防:直接依赖已 ^10.2.1,但 dev 面 mailparser/smtp-server 仍携带
+  # nodemailer@9.0.5(audit --prod 不数 dev,生产不受影响;开发机与 CI 供应链同病要同治)。
+  # mailparser 3.9.15/smtp-server 3.19.3 实测只用 nodemailer 公开 createTransport/parser 面,
+  # 回归由 email 三套件 116 例钉住。
+  nodemailer@<10.1.4: ^10.2.1
+  # 刻意不抬(如实留痕,不是漏项):
+  #  · deepmerge(GHSA-gcqx-w48m-w2h4,LOW,原型污染 gadget,宿主=@svgr/RN cli 构建链):
+  #    advisory 声明的补丁版 4.3.2 在官方 npm registry 尚未发布(现读 latest=4.3.1,
+  #    2026-10-28 pnpm/npmmirror 双侧实测一致),写 override 只会让 install 直接失败。
+  #    发布后补一行 `deepmerge@<4.3.2: ^4.3.2`,并随本仓 audit 复跑销账。
+  #  · esbuild 0.21.5(@tarojs/helper/terser 链):advisory 只命中 esbuild "独立 dev server
+  #    / service 模式"(--serve),仓内无该形态入口;0.21→0.24.3 跨三条 minor 且 @tarojs/helper
+  #    对 esbuild 内部行为敏感,强抬会打爆 miniapp 构建(与 zod 3.x→Expo 同一先例)。
+  #  · katex 0.16.47(mermaid/@lobehub/ui 嵌套副本):LOW,利用前提是"已存在原型污染";
+  #    web 直接依赖已是 ^0.18.7,只有产品自渲染路径走它;强抬嵌套副本会破坏 mermaid/@lobehub
+  #    对 katex 0.16 API 的假设。升 blocking 前置 = mermaid 上游切换。
+  #  · zod 3.25.76(@expo/cli 构建期):上方既有注释已定档"强升 3→4 打爆 Expo 工具链";
+  #    产品请求校验用 catalog ^4.6.6,不受此条影响。
 
 # 原 package.json pnpm.peerDependencyRules 迁移至此:
 peerDependencyRules:

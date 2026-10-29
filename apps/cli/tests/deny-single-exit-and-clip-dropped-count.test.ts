@@ -389,13 +389,16 @@ describe('票 A:单源面 —— 在 HEAD 已成立的那几条判据(精确数)
     expect(countOccurrences(TOOLS_CODE, DANGER_JUDGMENT)).toBe(1)
   })
 
-  it('批准判定唯一定义;闸谓词在钩子咨询入口与改后人工窗两阶段求值(合计 3 = 定义 1 + 两处闸 2)', () => {
+  it('批准判定唯一定义;闸谓词在钩子咨询入口与改后人工窗两阶段求值(合计 4 = 定义 1 + 两处闸 2 + 权限轴复用读 1)', () => {
     // G-424 钩子改写重判:同一 requiresUserConfirmation 谓词先在钩子咨询入口求值一次,
     // 改后内容重判权限漂移后在人工窗再求值一次 —— 两处是同一谓词的两个流程阶段,
     // 不是把判据抄第二遍(定义唯一性由上一行继续钉死,判据本体仍单源)。
     expect(countOccurrences(TOOLS_CODE, 'export function requiresUserConfirmation(')).toBe(1)
     expect(countOccurrences(TOOLS_CODE, 'if (requiresUserConfirmation(')).toBe(2)
-    expect(countOccurrences(TOOLS_CODE, 'requiresUserConfirmation(')).toBe(3)
+    // 第三处是权限轴 ask 档的**复用读**(既有闸已经会问的交给它,避免同一次调用问两遍),
+    // 逐字钉住它的形状:合计从 3 变 4 只能由这一型解释,不许悄悄多出第四类站点。
+    expect(countOccurrences(TOOLS_CODE, 'opts.skipIfLegacyConfirm && requiresUserConfirmation(')).toBe(1)
+    expect(countOccurrences(TOOLS_CODE, 'requiresUserConfirmation(')).toBe(4)
   })
 
   it('闸名与归因串各归其位:每态出现次数必须等于其语义档位数 ⇒ 拒绝路径不能各自新造一态', () => {

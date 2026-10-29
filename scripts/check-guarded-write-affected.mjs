@@ -314,12 +314,17 @@ export function makeLocator(src) {
  * 层内 `gitRaw` 抛 `Undetermined`(绝对 git 取不到 / 非零退出 / 超时 / ENOBUFS),这里折回
  * 「git 说没有」的返回形态,由调用方落 err ⇒ 未判定;绝不在此回落另一个面(§0.4)。
  */
+/** 最近一次 git 派生的失败原文(2026-10-27 立):只为让"取材失败"能**点名文件 + 点名原因**,
+ *  不参与任何判定 —— 门体此前只报一个数字,违反 §0.3「未判定必须点名原因」。 */
+let lastGitErr = ''
 function git(args, opts = {}) {
   try {
     const stdout = gitRaw(args, ROOT, opts.input === undefined ? {} : { input: opts.input })
+    lastGitErr = ''
     return { status: 0, stdout, stderr: '' }
   } catch (e) {
-    return { status: typeof e.status === 'number' ? e.status : 1, stdout: '', stderr: gitErrText(e) }
+    lastGitErr = gitErrText(e)
+    return { status: typeof e.status === 'number' ? e.status : 1, stdout: '', stderr: lastGitErr }
   }
 }
 
@@ -562,11 +567,19 @@ async function main() {
   const stock = []
   const undetermined = []
   let unreadable = 0
+  // 2026-10-27 补:取材失败此前只 `unreadable++`(输出里只剩一个数字),而 §0.3 要求「未判定
+  // 必须点名」—— 一个数字让人既修不了也复核不了(守门 243 报"取材失败 1"而全树 1285 个路径
+  // 逐个 `cat-file --batch-check` 全可读,就是这一格的代价)。路径与取不到的原因一并留下。
+  const unreadableFiles = []
   const aRev = anchorRev()
   for (const file of listed.files) {
     const src = readRev(FACE_REV[face], file)
     if (src === null) {
       unreadable++
+      unreadableFiles.push({
+        file,
+        why: lastGitErr || `${FACE_REV[face]}:${file} 在被审面上取不到正文`,
+      })
       continue
     }
     const { leaks, g1, g2, g3 } = auditText(src)
@@ -630,10 +643,18 @@ async function main() {
     for (const s of stock) console.log(`     ${s.dim} ${s.file}:${s.line}  ${s.where ?? s.route ?? ''}`)
   }
   if (argv.includes('--json'))
-    console.log(JSON.stringify({ face, findings, stock, undetermined, unreadable }))
+    console.log(
+      JSON.stringify({ face, findings, stock, undetermined, unreadable, unreadableFiles }),
+    )
   if (unreadable > 0 || undetermined.length) {
+    // 逐条点名(§0.3):一个"取材失败 N"的数字既修不了也复核不了 —— 必须给出具体文件路径,
+    // 让人能当场 `git show <rev>:<file>` 复核到底是真取不到还是并发下的一过性失败。
+    for (const u of unreadableFiles) console.error(`  ❓ 取材失败 ${u.file}: ${u.why}`)
     for (const u of undetermined) console.error(`  ❓ ${u.file} 未判定:${u.reason}`)
-    console.error(`❌ 取材失败 ${unreadable} / 未判定 ${undetermined.length} ⇒ 不出具合格证`)
+    console.error(
+      `❌ 取材失败 ${unreadable} / 未判定 ${undetermined.length} ⇒ 未判定(exit 2),` +
+        `既不记绿也不冒红;上面已逐条点名文件路径`,
+    )
     return 2
   }
   if (findings.length) {

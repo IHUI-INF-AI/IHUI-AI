@@ -16,7 +16,7 @@
  * - Drawer 侧滑抽屉(对齐 .vue DrawerComponent,菜单按钮控制 tagWrapShow)
  * - FloatBox 悬浮提示
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Modal,
   View,
@@ -28,6 +28,7 @@ import {
   type ViewStyle,
   type TextStyle,
 } from 'react-native'
+import { BlurTargetView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -135,6 +136,7 @@ export function PlazaScreen() {
   const rootNav = navigation.getParent<RootNav>()
   // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
   const insets = useSafeAreaInsets()
+  const tabBarBlurTargetRef = useRef<View>(null)
 
   /** 赛道兜底 5 项(nameKey→展示词,语言切换后新拉取自然用新语言) */
   const makePlazaCategoryFallback = useCallback(
@@ -450,6 +452,103 @@ export function PlazaScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Android 真模糊:背景内容包进 BlurTargetView 供 TabBar 胶囊取样(两个 Modal 不包) */}
+      <BlurTargetView ref={tabBarBlurTargetRef} style={{ flex: 1 }}>
+        <NavChrome>
+          <NavBar
+            title={t('plaza.index.title')}
+            leftActions={leftActions}
+            onBack={() => navigation.goBack()}
+            rightActions={[
+              {
+                icon: LayoutGrid,
+                a11yLabel: t('plaza.index.navCategory'),
+                icon: FolderOpen,
+                label: t('plaza.index.navCategory'),
+                // 对齐原项目 navigation-bars showFenLei → 赛道筛选弹层(ScrollTitle + Tab)
+                onPress: () => setCategoryVisible(true),
+              },
+              {
+                icon: User,
+                label: t('plaza.index.identityLabel'),
+                // 对齐原项目 plaza/index.vue setshowBottom → 切换身份弹窗
+                onPress: () => setIdentityVisible(true),
+              },
+            ]}
+            rightAction={
+              <Pressable
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                onPress={() => setShowSearch((v) => !v)}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.search')}
+              >
+                {showSearch ? (
+                  <X size={20} color={tokens.text.medium} />
+                ) : (
+                  <Search size={20} color={tokens.text.medium} />
+                )}
+              </Pressable>
+            }
+          />
+        </NavChrome>
+        <SharedPlazaScreen
+          t={t}
+          items={items}
+          loading={loading}
+          refreshing={refreshing}
+          loadingMore={loadingMore}
+          error={error}
+          status={status}
+          search={search}
+          showSearch={showSearch}
+          onRefresh={onRefresh}
+          onEndReached={onEndReached}
+          onStatusChange={setStatus}
+          onSearchChange={setSearchInput}
+          onSubmitSearch={onSubmitSearch}
+          onPressItem={showDetail}
+          onPublish={onPublish}
+          contentBottomPadding={tabBarScrollReserve(insets.bottom)}
+          colorScheme={resolvedTheme}
+        />
+        <FloatBox
+          visible={floatBox.visible}
+          type={floatBox.type}
+          message={floatBox.message}
+          onHide={hideFloat}
+        />
+        <Drawer
+          visible={drawerVisible}
+          onClose={() => setDrawerVisible(false)}
+          user={drawerUser}
+          conversations={drawerConversations}
+          onNavigate={handleDrawerNavigate}
+          onNavigateCompany={handleDrawerNavigateCompany}
+          onClaimFree={handleDrawerClaimFree}
+          onCreateNewChat={handleDrawerCreateNewChat}
+          onSelectConversation={handleDrawerSelectConversation}
+          onDeleteConversation={handleDrawerDeleteConversation}
+          onOpenSettings={handleDrawerOpenSettings}
+          onOpenMessages={handleDrawerOpenMessages}
+          onGoHome={handleDrawerGoHome}
+          onNavigateExtra={handleNavigateExtra}
+        />
+        {/* 需求赛道筛选(对齐原项目 plaza/index.vue 顶栏分类按钮 → categorySaidao 赛道弹层):
+         *  改走统一 CategoryDropdown —— 顶栏 LayoutGrid 受控开合,选中即刷新列表(语义未变) */}
+         *  改走统一 CategoryDropdown —— 顶栏 FolderOpen 受控开合,选中即刷新列表(语义未变) */}
+        <CategoryDropdown
+          items={trackCategoryItems}
+          selectedId={selectedCategory}
+          onSelect={onSelectCategory}
+          colorScheme={resolvedTheme}
+          visible={categoryVisible}
+          onVisibleChange={setCategoryVisible}
+          hideTrigger
+          panelTitle={t('plaza.index.trackPanelTitle')}
+          backdropA11yLabel={t('plaza.index.closeTrackFilter')}
+          testID="plaza-track-dropdown"
+        />
+      </BlurTargetView>
       <NavChrome>
         <NavBar
           title={t('plaza.index.title')}
@@ -485,7 +584,6 @@ export function PlazaScreen() {
               )}
             </Pressable>
           }
-        />
       </NavChrome>
       <SharedPlazaScreen
         t={t}
@@ -667,7 +765,7 @@ export function PlazaScreen() {
         </Pressable>
       </Modal>
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
-      <TabBar activeTab="plaza" onChange={handleTabChange} />
+      <TabBar activeTab="plaza" onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
     </View>
   )
 }

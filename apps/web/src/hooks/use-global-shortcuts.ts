@@ -170,7 +170,7 @@ function matchShortcut(event: KeyboardEvent, keyCombo: string): boolean {
   if (!wantShift && event.shiftKey) return false
   if (!wantAlt && event.altKey) return false
 
-  return event.key.toLowerCase() === targetKey
+  return (event.key ?? '').toLowerCase() === targetKey // WebView2 偶发 key 为 undefined(IME/合成事件)
 }
 
 // ============================================================================

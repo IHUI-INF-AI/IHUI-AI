@@ -16,6 +16,15 @@ import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const replace = vi.fn()
+/**
+ * 守卫现在等的是 bootstrap 的 `ready`(2026-10-27),所以必须能自己拨这一格:
+ * 真 hook 会在 jsdom 里发 /auth/refresh 与 /auth/me,时序由网络决定 ⇒ 用例不可能稳。
+ * 默认 ready=true 保持既有 A–G 的语义;H 组专门把它压住,验证「刷新还在飞」不触发弹。
+ */
+const gate = vi.hoisted(() => ({ ready: true }))
+vi.mock('@/hooks/use-auth-bootstrap', () => ({
+  useAuthBootstrap: () => ({ ready: gate.ready, isAuthenticated: false, error: null }),
+}))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace, push: vi.fn(), prefetch: vi.fn() }),
 }))
@@ -29,23 +38,28 @@ import {
 } from '@/lib/session-marker'
 
 const ADMIN = { id: 'u1', nickname: 'admin', roleId: 1 } as const
+// 每次都要**新**的元素:同一个对象喂给 rerender 会让 React 直接 bail out(引用相等即跳过),
+// 于是"改了 gate.ready 再 rerender"根本不会重跑那个 effect = 用例假绿。
+const tree = () => (
+  <AdminLayout>
+    <div>受守卫的后台内容</div>
+  </AdminLayout>
+)
 
 async function mount() {
-  render(
-    <AdminLayout>
-      <div>受守卫的后台内容</div>
-    </AdminLayout>,
-  )
+  const view = render(tree())
   // 等 hydration effect 落地(hasHydrated 为真后判定分支才会开始跑)
   await act(async () => {
     await Promise.resolve()
   })
+  return view
 }
 
 describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
   beforeEach(async () => {
     vi.useFakeTimers()
     replace.mockClear()
+    gate.ready = true
     localStorage.clear()
     // session-marker 有进程内镜像,不清会把上一个用例的判定带进本用例
     __resetSessionEstablishedMirrorForTest()
@@ -156,6 +170,52 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
     })
     expect(replace).toHaveBeenCalledTimes(1)
     expect(String(replace.mock.calls[0]?.[0])).toMatch(/^\/sso\/login\?redirect=/)
+  })
+
+  it('H 刷新还在飞(ready 未落地)⇒ 两把宽限计时根本不开始,30s 也不许弹(2026-10-27)', async () => {
+    // 病灶:RECOVER_GRACE_MS(3s)/ ROLE_SETTLE_GRACE_MS(10s)都从挂载起算,而冷启动那次
+    // 静默刷新实测 2–4s(生产日志里有单条 12.5s 的 refresh_token 查询,API 重启窗口只会更久)。
+    // 原写法下"刷新还没回"会被读成"会话已死"⇒ 把凭据完好的人弹去登录页,并留下一轮无谓重登。
+    vi.useFakeTimers()
+    gate.ready = false
+    useAuthStore.setState({ isAuthenticated: false, token: null, user: null })
+    const view = await mount()
+
+    await act(async () => {
+      vi.advanceTimersByTime(30_000)
+    })
+    expect(
+      replace,
+      `ready 还没落地就弹了 ⇒ 宽限又被慢刷新顶穿(实寄 calls=${JSON.stringify(replace.mock.calls)})`,
+    ).not.toHaveBeenCalled()
+    expect(screen.getByText('正在校验管理员权限…')).toBeTruthy()
+
+    // ready 落地后才起宽限:先给 1s(未到 3s)不许弹,到点仍无登录态才必须有终态
+    act(() => {
+      gate.ready = true
+    })
+    await act(async () => {
+      view.rerender(tree())
+      vi.advanceTimersByTime(1_000)
+    })
+    expect(replace).not.toHaveBeenCalled()
+    await act(async () => {
+      vi.advanceTimersByTime(5_000)
+    })
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(String(replace.mock.calls[0]?.[0])).toMatch(/^\/sso\/login\?redirect=/)
+  })
+
+  it('I ready 落地前角色还没查到 ⇒ 10s 等资料那一格同样不许提前弹 /forbidden', async () => {
+    vi.useFakeTimers()
+    gate.ready = false
+    useAuthStore.setState({ isAuthenticated: true, token: 't', user: null })
+    await mount()
+
+    await act(async () => {
+      vi.advanceTimersByTime(30_000)
+    })
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('形状锁:守卫不得再把"取不到角色"折成 0 参与比较(§0.3)', async () => {

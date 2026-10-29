@@ -63,7 +63,8 @@ export function createAiWorldDetailStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     favBtnText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
-    favBtnTextActive: { color: tk.brand.ctaForeground },
+    // 配对前景键必须与底键同前缀(favBtnActive × favBtnActiveText),门 83 R3 才认得到兄弟对
+    favBtnActiveText: { color: tk.brand.ctaForeground },
     favBtnTextPending: { opacity: 0.6 },
     favErrorText: { fontSize: 12, color: tk.danger.DEFAULT },
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },

@@ -22,6 +22,7 @@
  */
 
 import { Platform } from 'react-native'
+import { recordOAuthConsent } from '@ihui/api-client'
 import {
   callOAuthCallback,
   loginByGoogleRedirect,
@@ -175,6 +176,18 @@ export async function exchangeGoogleCodeForJwt(
   // state 在原生 SDK 流程中由前端生成(redirect 流程由 openOAuthAndLogin 生成)
   // 这里用随机 state,后端 /auth/:platform/callback 只校验 state 非空,不校验一致性
   const state = Math.random().toString(36).slice(2, 18)
+  // 通用回调服务端 fail-closed:必须先在该 state 上落协议同意,再回调换 JWT
+  try {
+    const consent = await recordOAuthConsent('google', state, true)
+    if (!consent.success || !consent.data?.ok) {
+      return { success: false, error: consent.error ?? '未记录第三方登录协议同意,已中止授权' }
+    }
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : '记录第三方登录协议同意失败',
+    }
+  }
   return callOAuthCallback('google', serverAuthCode, state)
 }
 

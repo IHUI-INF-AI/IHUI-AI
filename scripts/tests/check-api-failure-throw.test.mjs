@@ -68,13 +68,75 @@ test('T4 取材面形状锁:内容必须经 face-reader 的层读,不得回磁�
   )
 })
 
-test('T5 真仓阳性对照:全量面必须看得见存量(看不见 = 判据对该形态全盲,不是"已清完")', () => {
-  const out = runNode([join(REPO, 'scripts', 'check-api-failure-throw.mjs'), '--json'])
-  const j = JSON.parse(out)
-  assert.ok(j.scannedFiles > 1000, `扫描面异常小(${j.scannedFiles})—— 枚举或过滤坏了`)
-  assert.ok(j.total > 300, `真仓 HEAD 看不见已知存量(实得 ${j.total})⇒ 判据失明`)
+// 全量面只跑一次(20s 级),两条测试共用同一张结论面 —— 变异自证不许再扫一遍树。
+let cachedHeadJson
+function headJson() {
+  if (!cachedHeadJson) cachedHeadJson = JSON.parse(runNode([SRC, '--json']))
+  return cachedHeadJson
+}
+
+/**
+ * 计数维形态锁(2026-10-27 改判,假牙清偿)。
+ *
+ * 门体原话把 `total` 定为**只报数**维:`scripts/check-api-failure-throw.mjs:17` ——
+ * "棘轮锚点 = **该文件在 HEAD 自身的存量数**(与 77/83/98/102/131 同族):立项实测存量 212 处,
+ * 当场判红就是一台与任何提交都无关的恒红门"。旧断言 `total > 300` 把一次性读数(212)钉成
+ * 下限:存量被合法清干净那天本测试就假红,而测试假红在共享树里等于挡住所有会话落地
+ * (§12e 同型,只是从门面挪到了测试面)。现在钉形态、不钉数值:
+ *  · 结论面(JSON)四字段齐备,数值维逐枚可解析(行在而字段缺/形态坏 ⇒ 这一维没上岗);
+ *  · 扫描面 `scannedFiles` > 1000 —— 真判据(采集口径塌了,那句"存量 0"不作数,§0.3);
+ *  · `emptyScan === false` —— 真判据(空扫不得记绿);
+ *  · `exit !== 1` —— 真判据(HEAD 全量档不得因存量判红);
+ *  · `total` 的**数值**只报数(可解析的非负数即可,不挂下限;变异自证见 T5b)。
+ */
+function assertApiThrowCounts(j) {
+  for (const k of ['scannedFiles', 'total', 'emptyScan', 'exit'])
+    assert.ok(k in j, `--json 缺字段「${k}」⇒ 这一维没上岗:${JSON.stringify(j).slice(0, 300)}`)
+  for (const k of ['scannedFiles', 'total', 'exit'])
+    assert.equal(typeof j[k], 'number', `结论行字段「${k}」必须是数字(实得 ${typeof j[k]})⇒ 形状坏了`)
+  assert.ok(
+    Number.isFinite(j.scannedFiles) && j.scannedFiles > 1000,
+    `扫描面异常小(${j.scannedFiles})—— 枚举或过滤坏了,上面那句"存量 N"不作数`,
+  )
+  assert.ok(
+    Number.isFinite(j.total) && j.total >= 0,
+    `total 必须是可解析的非负数(数值本身只报数,不是判据;实得 ${JSON.stringify(j.total)})`,
+  )
   assert.equal(j.emptyScan, false, '空扫不得记绿')
   assert.notEqual(j.exit, 1, 'HEAD 全量档不得因存量判红(锚点=该文件自身,否则是恒红门)')
+  return { scannedFiles: j.scannedFiles, total: j.total }
+}
+
+test('T5 全量面计数行:四字段齐备可解析 / 扫描面 > 1000 / total 数值只报数(2026-10-27 改判)', () => {
+  // 现读报数留痕(只报数,不挂下限):total 归零不得让本测试翻红 —— 由 T5b 变异②机器自证
+  console.log('   api-failure-throw 计数现读:', JSON.stringify(assertApiThrowCounts(headJson())))
+})
+
+/**
+ * 变异自证(2026-10-27,改判的承重证明):牙必须长在"形态"上,不能靠一次性读数。
+ * 都在**同一次**真仓结论面上做变异,零额外全量扫描:
+ *  变异①:摘掉只报数维字段(total)⇒ 必须抛(缺维=没上岗有牙);
+ *  变异①b:摘掉真判据载体(scannedFiles)⇒ 必须抛;
+ *  变异①c:字段形态坏(number → string)⇒ 必须抛;
+ *  变异②:total 读数改成 0 ⇒ **必须不抛**(它不是判据 —— 旧的 `> 300` 下限正是这里会假红的牙);
+ *  变异③:扫描面改成 0 ⇒ 必须抛(与①成对:证明牙长在真判据上,不是"什么都不判")。
+ */
+test('T5b 计数维断言变异自证:摘字段/坏形态必翻红 / total 归零必不红', () => {
+  const j = headJson()
+  assert.doesNotThrow(() => assertApiThrowCounts(j), '基准面:真报告必须先过(否则下面全是空转)')
+  const noTotal = { ...j }
+  delete noTotal.total
+  assert.ok(!('total' in noTotal), '夹具失效:没摘到 total 字段')
+  assert.throws(() => assertApiThrowCounts(noTotal), /缺字段「total」/, '摘掉只报数维字段必须翻红')
+  const noScan = { ...j }
+  delete noScan.scannedFiles
+  assert.throws(() => assertApiThrowCounts(noScan), /缺字段「scannedFiles」/, '摘掉扫描面字段必须翻红')
+  assert.throws(() => assertApiThrowCounts({ ...j, total: String(j.total) }), /必须是数字/, '字段形态坏必须有牙')
+  assert.doesNotThrow(
+    () => assertApiThrowCounts({ ...j, total: 0 }),
+    'total=0 是门体明写的"只报数"常态 ⇒ 断言不得为此翻红(假红=挡全仓落地)',
+  )
+  assert.throws(() => assertApiThrowCounts({ ...j, scannedFiles: 0 }), /扫描面异常小/, '扫描面 0 ⇒ 采集塌了,必须翻红')
 })
 
 test('T6 具名出口被摘线时,本门必须判"没有出路"(纯函数 + 构造面,不用源码正则比形状)', async () => {

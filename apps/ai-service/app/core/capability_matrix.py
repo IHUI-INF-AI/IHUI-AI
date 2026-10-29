@@ -129,6 +129,16 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "reason_if_off": "非开关而是融合常数:未设置即用论文默认 60,非法/非正数回退默认",
     },
     {
+        # 父子块 small-to-big 摄取/检索开关(唯一 env 读取点 rag.py:106)。
+        "key": "rag_parent_child_enabled",
+        "env": "RAG_PARENT_CHILD_ENABLED",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.services.rag",
+        "doc_ref": "app/services/rag.py:106",
+        "reason_if_off": "仅 \"1\"/\"true\"(忽略大小写、容忍空白)开启;关时 add_document 与检索逐字节等于旧实现,存量条目无 rag_* 键行为不变;放量前须用金标集(bench/fixtures_golden)在真实向量库跑 on/off 对照",
+    },
+    {
         # 二段 LLM 重排的总开关。上一版本条注释把它写成"构造入参 rag_llm_rerank_enabled"
         # 是错的(那个标识符全仓不存在),真读取点在此,默认关 ⇒ 恒降级为一阶段融合。
         "key": "agent_rerank_llm",

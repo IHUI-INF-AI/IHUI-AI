@@ -18,7 +18,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const MIN_PWD_LEN = 6
 
-export function ChangePwdScreen() {
+function ChangePwdScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const { t } = useI18n()

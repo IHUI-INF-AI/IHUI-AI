@@ -63,9 +63,9 @@ export type HubGlyph = LucideIcon
 
 export type DomainKey = 'edu' | 'content' | 'trade' | 'community'
 
-export type HubTarget = { type: 'route'; name: string } | { type: 'main'; screen: MainTabKey }
+type HubTarget = { type: 'route'; name: string } | { type: 'main'; screen: MainTabKey }
 
-export interface HubItem {
+interface HubItem {
   /** i18n 键(既有无键,本批零新增五语言文案) */
   labelKey: string
   Icon: HubGlyph

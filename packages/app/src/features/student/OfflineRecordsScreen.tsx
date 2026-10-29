@@ -11,10 +11,11 @@
  */
 import { useMemo } from 'react'
 import { CalendarClock, Paperclip, Pencil, Plus, Trash2 } from 'lucide-react-native'
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 import { createStudentStyles, STUDENT_PALETTE } from './student-styles'
 
 export interface OfflineRecordAttachmentItem {
@@ -151,7 +152,8 @@ export function OfflineRecordsScreen({
             </Text>
             <View>
               <Text style={styles.formLabel}>{t('offlineRecordsPage.type')}</Text>
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={styles.input}
                 value={form.type}
                 placeholder={t('offlineRecordsPage.typePlaceholder')}
@@ -161,7 +163,8 @@ export function OfflineRecordsScreen({
             </View>
             <View>
               <Text style={styles.formLabel}>{t('offlineRecordsPage.titleField')}</Text>
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={styles.input}
                 value={form.title}
                 placeholder={t('offlineRecordsPage.titlePlaceholder')}
@@ -171,7 +174,8 @@ export function OfflineRecordsScreen({
             </View>
             <View>
               <Text style={styles.formLabel}>{t('offlineRecordsPage.descLabel')}</Text>
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={styles.inputArea}
                 multiline
                 value={form.description}
@@ -181,7 +185,8 @@ export function OfflineRecordsScreen({
             <View style={styles.formRow}>
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={styles.formLabel}>{t('offlineRecordsPage.hoursLabel')}</Text>
-                <TextInput
+                <TextField
+                  colorScheme={colorScheme}
                   style={styles.input}
                   keyboardType="numeric"
                   value={form.hours}
@@ -190,7 +195,8 @@ export function OfflineRecordsScreen({
               </View>
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={styles.formLabel}>{t('offlineRecordsPage.dateLabel')}</Text>
-                <TextInput
+                <TextField
+                  colorScheme={colorScheme}
                   style={styles.input}
                   placeholder="YYYY-MM-DD"
                   placeholderTextColor={tk.text.tertiary}

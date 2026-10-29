@@ -10,7 +10,10 @@
  * 2. getTurnstileConfig:返回前端配置(enabled + siteKey)
  * 3. isTurnstileEnabled:便捷判断
  *
- * 降级:TURNSTILE_SECRET_KEY 未配置时,verifyTurnstile 返回 { success: true }(开发环境放行)。
+ * 降级:TURNSTILE_SECRET_KEY 未配置时,verifyTurnstile 返回 { success: true }(放行)。
+ * 如实写明:这一分支**不看 NODE_ENV**,生产缺键同样放行 —— 它的可整改性由
+ * scripts/check-env-drift.mjs 的巡检腿负责(对照面里这把键非空,被清空即点名),
+ * 运行期命中该分支另记一次 warn(见 verifyTurnstile)。
  * 环境变量:
  *  - TURNSTILE_SITE_KEY:前端渲染 widget 用(对应 NEXT_PUBLIC_TURNSTILE_SITE_KEY)
  *  - TURNSTILE_SECRET_KEY:后端 siteverify 用
@@ -42,6 +45,13 @@ export interface TurnstileConfig {
 const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
 const VERIFY_TIMEOUT_MS = 5_000
 
+/**
+ * 「防线不在岗」只报一次。
+ * 逐请求打同一条 warn 等于给攻击者一条免费的日志放大面(它一冲 /auth，这条就跟着涨)，
+ * 而配置缺失是可整改的机器状态，不需要每条请求重复宣告。
+ */
+let warnedMissingSecret = false
+
 /* -------------------------------------------------------------------------- */
 /* 服务实现                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -50,7 +60,7 @@ const VERIFY_TIMEOUT_MS = 5_000
  * 校验 Cloudflare Turnstile token。
  *
  * 调用 Cloudflare siteverify API,5 秒超时。
- * 未配置 TURNSTILE_SECRET_KEY 时降级返回 { success: true }(开发环境放行)。
+ * 未配置 TURNSTILE_SECRET_KEY 时降级返回 { success: true } 并记一次 warn(该分支不看 NODE_ENV)。
  *
  * @param token    前端 Turnstile widget 回调返回的 token
  * @param remoteIp 客户端 IP(可选,传给 Cloudflare 辅助判断)
@@ -61,8 +71,18 @@ export async function verifyTurnstile(
 ): Promise<TurnstileVerifyResult> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY
 
-  // 未配置 secret → 开发环境放行
+  // 未配置 secret ⇒ 这道人机验证实际不存在，按「放行」继续。
+  // 刻意不翻成 fail-closed：密钥属机主侧凭据，agent 无权代填，把它改成拒绝只会在
+  // .env 被整体清空时把全站登录一起打死(2026-09-26 那一型)。这里补的是另一格 ——
+  // 运行期「防线不在岗」不能一点痕迹都不留。
   if (!secretKey) {
+    if (!warnedMissingSecret) {
+      warnedMissingSecret = true
+      logger.warn(
+        'Turnstile 未配置 TURNSTILE_SECRET_KEY ⇒ 人机验证实际不生效(本条每进程只报一次；' +
+          '配置缺失由 scripts/check-env-drift.mjs 巡检对账)',
+      )
+    }
     return { success: true }
   }
 
@@ -125,5 +145,12 @@ export function getTurnstileConfig(): TurnstileConfig {
 /** 便捷判断 Turnstile 是否启用(siteKey + secretKey 都配置)。 */
 export function isTurnstileEnabled(): boolean {
   return getTurnstileConfig().enabled
+}
+
+export const __test__ = {
+  /** 重置「未配置」告警的一次性闸，供测试逐例验证可见性与不刷屏两条判据。 */
+  resetMissingSecretWarning: () => {
+    warnedMissingSecret = false
+  },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -13,19 +13,12 @@ import {
   Workflow,
   Zap,
 } from 'lucide-react-native'
-import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { rnRadius } from '@ihui/design-tokens'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 import type { WfTriggerType, WorkflowListRow } from './WorkflowListScreen'
 import type { WfInstanceStatus, WorkflowInstanceRow } from './WorkflowInstanceDetailScreen'
 
@@ -301,7 +294,8 @@ export function WorkflowDetailScreen({
           {editInfoMode ? (
             <View style={styles.formBlock}>
               <Text style={styles.fieldLabel}>{t('workflowsPage.fieldName')}</Text>
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={styles.input}
                 value={editName}
                 onChangeText={setEditName}
@@ -309,7 +303,8 @@ export function WorkflowDetailScreen({
                 placeholderTextColor={tk.text.tertiary}
               />
               <Text style={styles.fieldLabel}>{t('workflowsPage.fieldDesc')}</Text>
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={[styles.input, styles.inputMultiline]}
                 value={editDesc}
                 onChangeText={setEditDesc}
@@ -601,7 +596,8 @@ export function WorkflowDetailScreen({
               )}
             </View>
             {editStepsMode ? (
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={[styles.input, styles.stepsInput]}
                 value={stepsText}
                 onChangeText={setStepsText}

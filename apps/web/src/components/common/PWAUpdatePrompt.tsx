@@ -5,22 +5,36 @@
 'use client'
 
 import * as React from 'react'
-import { RefreshCw } from 'lucide-react'
-import { CloseButton } from '@ihui/ui-react'
-import { cn } from '@/lib/utils'
+import { useTranslations } from 'next-intl'
+import { UpdateNoticeCard } from './UpdateNoticeCard'
+
+/** Service Worker 侧"新版本已就绪"事件名(PwaUpdateWatcher 派发,此处消费)。 */
+export const PWA_UPDATE_AVAILABLE_EVENT = 'pwa-update-available'
 
 interface PWAUpdatePromptProps {
   onUpdate?: () => void
   className?: string
 }
 
+/**
+ * PWA 更新提示(2026-09 立,2026-10-27 补齐链路)。
+ *
+ * 链路:新 SW 装上且页面仍由旧 SW 控制 ⇒ PwaUpdateWatcher 派发 PWA_UPDATE_AVAILABLE_EVENT
+ * ⇒ 本组件弹卡片 ⇒ 点「更新」执行 onUpdate(默认整页 reload,新 SW 已 skipWaiting 接管)。
+ *
+ * 2026-10-27 修的两处:
+ *   ① 此前**全仓无人派发**该事件 ⇒ 卡片结构上永远不出现(挂载着却不可达);
+ *   ② 文案此前硬编码中文 ⇒ 5 语言站上只有中文提示。现走 packages/i18n 的 appUpdate 命名空间,
+ *      与 RN 端 components/UpdatePrompt.tsx 共用同一份文案与同一套键名。
+ */
 export function PWAUpdatePrompt({ onUpdate, className }: PWAUpdatePromptProps) {
+  const t = useTranslations('appUpdate')
   const [visible, setVisible] = React.useState(false)
 
   React.useEffect(() => {
     const handler = () => setVisible(true)
-    window.addEventListener('pwa-update-available', handler)
-    return () => window.removeEventListener('pwa-update-available', handler)
+    window.addEventListener(PWA_UPDATE_AVAILABLE_EVENT, handler)
+    return () => window.removeEventListener(PWA_UPDATE_AVAILABLE_EVENT, handler)
   }, [])
 
   const handleUpdate = () => {
@@ -31,20 +45,15 @@ export function PWAUpdatePrompt({ onUpdate, className }: PWAUpdatePromptProps) {
   if (!visible) return null
 
   return (
-    <div className={cn('flex items-center gap-3 rounded-lg border bg-card p-3 shadow', className)}>
-      <RefreshCw className="h-5 w-5 shrink-0 text-primary" />
-      <div className="flex-1 min-w-0 text-sm">
-        <p className="font-medium">有新版本可用</p>
-        <p className="text-xs text-muted-foreground">刷新页面以获取最新版本</p>
-      </div>
-      <button
-        onClick={handleUpdate}
-        className="rounded-sm bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground hover:bg-cta/90"
-      >
-        更新
-      </button>
-      <CloseButton aria-label="关闭" onClick={() => setVisible(false)} />
-    </div>
+    <UpdateNoticeCard
+      title={t('title')}
+      body={t('body')}
+      actionLabel={t('action')}
+      closeLabel={t('close')}
+      onAction={handleUpdate}
+      onClose={() => setVisible(false)}
+      className={className}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

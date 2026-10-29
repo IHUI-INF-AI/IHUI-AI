@@ -351,7 +351,8 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /projects/:id/files - 上传文件（multipart）
-  server.post('/projects/:id/files', async (request, reply) => {
+  // 2026-10-28 DDoS P2:项目文件上限 20MB,显式放开脱离全局 2MiB(handler 内再精确闸)。
+  server.post('/projects/:id/files', { bodyLimit: 21 * 1024 * 1024 }, async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const userId = request.userId

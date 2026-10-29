@@ -1,4 +1,4 @@
-# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -11,10 +11,12 @@
     1. 幂等注入 release 签名配置(node scripts/patch-rn-release-signing.mjs,
        android/ 为 Expo prebuild 生成物, prebuild 后必须重打)
     2. 前置检查: keystore(~/.android/ihui-release.keystore) + 签名凭据(~/.gradle/gradle.properties)
-    2.5 后端基址对账:烤进包的 API/WEB 基址必须是显式的;含回环地址而没给 -AllowLocalBackend 即拒绝构建
+    2.5 后端基址对账:烤进包的 API/WEB/WS 基址必须是显式的;含回环地址而没给 -AllowLocalBackend 即拒绝构建
     3. gradlew assembleRelease(前台执行——后台任务会被环境 ~2min 终结)
-    3.5 从产出的 APK 里读回 assets/index.android.bundle,确认两个基址真在里面、且无回环残留
-    4. apksigner 验签 + 产物报告
+    3.5 从产出的 APK 里读回 assets/index.android.bundle,确认三个基址真在里面、且无回环残留
+    4. apksigner 验签
+    5. 发布到固定下载地址(-NoPublish 可跳过):node scripts/publish-mobile-apk.mjs
+       覆盖 COS 上的 ihui-ai-latest.apk ⇒ 用户链接恒定,不必跟着版本号换地址
 
   签名凭据设计(不入库):
     - keystore: C:/Users/Administrator/.android/ihui-release.keystore(仓库外)
@@ -26,7 +28,7 @@
     pwsh -File scripts/build-mobile-rn-release.ps1 -VersionCode 2   # 指定版本号(上架必须递增)
     pwsh -File scripts/build-mobile-rn-release.ps1 -Abi x86_64      # 单 ABI(模拟器/快速验证)
     pwsh -File scripts/build-mobile-rn-release.ps1 -FullAbi         # 含 x86(32位, 一般不必要)
-    pwsh -File scripts/build-mobile-rn-release.ps1 -ApiBaseUrl https://api.aizhs.top -WebBaseUrl https://aizhs.top   # 生产包(显式给基址)
+    pwsh -File scripts/build-mobile-rn-release.ps1 -ApiBaseUrl https://www.aizhs.top -WebBaseUrl https://www.aizhs.top -WsBaseUrl https://api.aizhs.top   # 生产包(REST 走 www 快臂,WS 必须钉 api 臂)
     pwsh -File scripts/build-mobile-rn-release.ps1 -ApiBaseUrl http://192.168.1.7:8802 -WebBaseUrl http://192.168.1.7:8801   # 局域网真机联调
     pwsh -File scripts/build-mobile-rn-release.ps1 -AllowLocalBackend   # 本机回环 + adb reverse(不给这旗会被 2.5 拒绝)
 .PARAMETER VersionCode
@@ -54,9 +56,24 @@
   (CI / 换机 / 清空用户环境变量)。守卫防的是那条路径,不是已经烧出来的事故。
 .PARAMETER WebBaseUrl
   烤进包的 Web 基址(写 EXPO_PUBLIC_WEB_URL)。同上,SSO mobile-auth 与 WebView 域名都取自它。
+.PARAMETER WsBaseUrl
+  烤进包的 WebSocket 基址(写 EXPO_PUBLIC_WS_BASE_URL)。缺省 = 回落到 ApiBaseUrl
+  (与 `src/lib/config.ts` 的 `WS_BASE_URL = process.env.EXPO_PUBLIC_WS_BASE_URL || API_BASE_URL` 同语义)。
+  为什么必须由脚本管(2026-10-28 真机实测事故):REST 切到 www 快臂后,WS 跟着回落 www,
+  而 `wss://www.aizhs.top/ws/notifications` 全程拿不到 101 —— EdgeOne 那一跳把 Upgrade 剥掉,
+  api 侧只看到一条普通 GET ⇒ 404 ⇒ 客户端按 1/1/3/25 秒的节奏无限换票重连(实测 1 小时内
+  每 30 秒 4 次 `/ws/ticket`),通知通道一条都没连上。产物里没有第二处能表达这条分域,
+  所以它必须与 API/WEB 一起显式烤入并在构建后回读复核。
 .PARAMETER AllowLocalBackend
   显式允许产出连回环地址(localhost/127.0.0.1/10.0.2.2)的包,配 `adb reverse` 用。
   **不给这个旗就不许产出连回环的包** —— 缺省直接拒绝构建,而不是等人装到手机上才发现全不通。
+.PARAMETER NoPublish
+  只出包、不发布到公网固定地址(2026-10-29 立的第 5 步默认开启)。
+  默认动作:构建+回读+验签全过后,调 `node scripts/publish-mobile-apk.mjs` 把本次 APK 覆盖到
+  腾讯云 COS 桶,对外固定地址恒为 `https://dl.aizhs.top/ihui-ai-latest.apk`(用户不用换链接),
+  同时留一份带版本号的副本。latest 对象带 `Cache-Control: no-cache` ⇒ Cloudflare 每次回源校验
+  (实测 cf-cache-status=REVALIDATED),不会出现"发新包但用户还在下旧包"。
+  发布失败=整条链失败(exit 非 0),不许"包好了但没发出去"读成成功。
 #>
 param(
   [int]$VersionCode = 0,
@@ -64,8 +81,10 @@ param(
   [switch]$FullAbi,
   [switch]$SkipVerify,
   [switch]$ShowVersionCode,
+  [switch]$NoPublish,
   [string]$ApiBaseUrl = '',
   [string]$WebBaseUrl = '',
+  [string]$WsBaseUrl = '',
   [switch]$AllowLocalBackend,
   [string]$SelfTestApk = ''
 )
@@ -101,11 +120,15 @@ function Resolve-BakedBackend {
   $envFile = Join-Path $RepoRoot 'apps/mobile-rn/.env'
   $api = if ($ApiBaseUrl) { $ApiBaseUrl } elseif ($env:EXPO_PUBLIC_API_BASE_URL) { $env:EXPO_PUBLIC_API_BASE_URL } else { Resolve-DotEnvValue -EnvFile $envFile -Key 'EXPO_PUBLIC_API_BASE_URL' }
   $web = if ($WebBaseUrl) { $WebBaseUrl } elseif ($env:EXPO_PUBLIC_WEB_URL) { $env:EXPO_PUBLIC_WEB_URL } else { Resolve-DotEnvValue -EnvFile $envFile -Key 'EXPO_PUBLIC_WEB_URL' }
+  $ws = if ($WsBaseUrl) { $WsBaseUrl } elseif ($env:EXPO_PUBLIC_WS_BASE_URL) { $env:EXPO_PUBLIC_WS_BASE_URL } else { Resolve-DotEnvValue -EnvFile $envFile -Key 'EXPO_PUBLIC_WS_BASE_URL' }
   $apiSrc = if ($ApiBaseUrl) { '参数' } elseif ($env:EXPO_PUBLIC_API_BASE_URL) { '进程环境' } elseif ($api) { '.env' } else { 'config.ts 缺省' }
   $webSrc = if ($WebBaseUrl) { '参数' } elseif ($env:EXPO_PUBLIC_WEB_URL) { '进程环境' } elseif ($web) { '.env' } else { 'config.ts 缺省' }
+  $wsSrc = if ($WsBaseUrl) { '参数' } elseif ($env:EXPO_PUBLIC_WS_BASE_URL) { '进程环境' } elseif ($ws) { '.env' } else { 'config.ts 回落 API' }
   if (-not $api) { $api = 'http://localhost:8802' }
   if (-not $web) { $web = 'http://localhost:8801' }
-  return [pscustomobject]@{ Api = $api; Web = $web; ApiSrc = $apiSrc; WebSrc = $webSrc }
+  # WS 缺省跟 API 走:这就是 config.ts 的回落语义,脚本显式写出来而不是留给 Metro 猜。
+  if (-not $ws) { $ws = $api }
+  return [pscustomobject]@{ Api = $api; Web = $web; Ws = $ws; ApiSrc = $apiSrc; WebSrc = $webSrc; WsSrc = $wsSrc }
 }
 
 function Test-LoopbackUrl {
@@ -121,6 +144,18 @@ function Test-ApexRedirectUrl {
   param([string]$Url)
   try { $host_ = ([uri]$Url).Host } catch { return $false }
   return ($host_ -eq 'aizhs.top')
+}
+
+# WS 握手实测承载不了的那条臂(2026-10-28 立):`wss://www.aizhs.top/ws/notifications` 带 Upgrade 头
+# 反复拿到 **404**,响应头却是 api 自己的签名(x-api-version / x-trace-id / x-ratelimit-*)
+# ⇒ 请求到了 api、但升级语义在 EdgeOne 那一跳被剥成了普通 GET(api 侧看到的是没有 Upgrade 的 GET,
+# 于是 websocket 路由不匹配 → 404)。同一时刻 `wss://api.aizhs.top/ws/notifications` 101。
+# 判据只认"这一跳今天承载不了握手"这条实测,不判是哪一层剥的、也不许照猜去改 —— 与 apex 那条同理,
+# 不给旗放行;真要换臂,出路是改这条函数并附新的实测,而不是加一个 env 开关把事故放回产物里。
+function Test-WsArmCannotUpgrade {
+  param([string]$Url)
+  try { $host_ = ([uri]$Url).Host } catch { return $false }
+  return ($host_ -eq 'aizhs.top' -or $host_ -eq 'www.aizhs.top')
 }
 
 function Get-BundleText {
@@ -176,17 +211,27 @@ if ($SelfTestApk -ne '') {
   Chk 'apex-host-with-path-detected' (Test-ApexRedirectUrl 'https://aizhs.top/api')
   Chk 'api-subdomain-not-apex' (-not (Test-ApexRedirectUrl 'https://api.aizhs.top'))
   Chk 'www-subdomain-not-apex' (-not (Test-ApexRedirectUrl 'https://www.aizhs.top'))
+  # WS 臂判据:www/apex 实测拿不到 101,api 臂 101,本地联调臂不判。
+  Chk 'ws-www-arm-refused' (Test-WsArmCannotUpgrade 'https://www.aizhs.top')
+  Chk 'ws-apex-arm-refused' (Test-WsArmCannotUpgrade 'https://aizhs.top')
+  Chk 'ws-api-arm-allowed' (-not (Test-WsArmCannotUpgrade 'https://api.aizhs.top'))
+  Chk 'ws-loopback-arm-not-refused' (-not (Test-WsArmCannotUpgrade 'http://127.0.0.1:8802'))
+  Chk 'ws-lan-arm-not-refused' (-not (Test-WsArmCannotUpgrade 'http://192.168.1.7:8802'))
   # 取值优先级:参数 > 进程环境 > .env > config.ts 缺省。这一维错了的表现是「我传了参数却烤了别人的值」。
-  $ApiBaseUrl = 'https://param.example'; $WebBaseUrl = 'https://param.example'
-  $env:EXPO_PUBLIC_API_BASE_URL = 'https://env.example'; $env:EXPO_PUBLIC_WEB_URL = 'https://env.example'
+  $ApiBaseUrl = 'https://param.example'; $WebBaseUrl = 'https://param.example'; $WsBaseUrl = 'https://param-ws.example'
+  $env:EXPO_PUBLIC_API_BASE_URL = 'https://env.example'; $env:EXPO_PUBLIC_WEB_URL = 'https://env.example'; $env:EXPO_PUBLIC_WS_BASE_URL = 'https://env-ws.example'
   $b1 = Resolve-BakedBackend
   Chk 'precedence-param-over-env' ($b1.Api -eq 'https://param.example' -and $b1.ApiSrc -eq '参数')
-  $ApiBaseUrl = ''; $WebBaseUrl = ''
+  Chk 'precedence-param-over-env-ws' ($b1.Ws -eq 'https://param-ws.example' -and $b1.WsSrc -eq '参数')
+  $ApiBaseUrl = ''; $WebBaseUrl = ''; $WsBaseUrl = ''
   $b2 = Resolve-BakedBackend
   Chk 'precedence-env-when-no-param' ($b2.Api -eq 'https://env.example' -and $b2.ApiSrc -eq '进程环境')
-  $env:EXPO_PUBLIC_API_BASE_URL = ''; $env:EXPO_PUBLIC_WEB_URL = ''
+  Chk 'precedence-env-when-no-param-ws' ($b2.Ws -eq 'https://env-ws.example' -and $b2.WsSrc -eq '进程环境')
+  $env:EXPO_PUBLIC_API_BASE_URL = ''; $env:EXPO_PUBLIC_WEB_URL = ''; $env:EXPO_PUBLIC_WS_BASE_URL = ''
   $b3 = Resolve-BakedBackend
   Chk 'fallback-to-config-default-not-empty-string' ($b3.Api.Length -gt 0 -and $b3.Web.Length -gt 0)
+  # WS 缺省必须显式复刻 config.ts 的 `|| API_BASE_URL` 回落语义(否则脚本以为没烤、包里却烤了别的)。
+  Chk 'ws-falls-back-to-api-like-config-ts' ($b3.Ws -eq $b3.Api -and $b3.WsSrc -eq 'config.ts 回落 API')
   $tmpEnv = Join-Path ([System.IO.Path]::GetTempPath()) ("ihui-dotenv-probe-" + [guid]::NewGuid().ToString('N') + '.env')
   @(
     '# 注释里也写着同名键 EXPO_PUBLIC_API_BASE_URL=should-not-match',
@@ -301,14 +346,14 @@ if ($ShowVersionCode) {
   return
 }
 
-Write-Host "`n===== [1/4] 幂等注入 release 签名配置 =====" -ForegroundColor Cyan
+Write-Host "`n===== [1/5] 幂等注入 release 签名配置 =====" -ForegroundColor Cyan
 Push-Location $RepoRoot
 try {
   node scripts/patch-rn-release-signing.mjs
   if ($LASTEXITCODE -ne 0) { throw 'patch-rn-release-signing.mjs 失败' }
 } finally { Pop-Location }
 
-Write-Host "`n===== [2/4] 前置检查: keystore + 签名凭据 =====" -ForegroundColor Cyan
+Write-Host "`n===== [2/5] 前置检查: keystore + 签名凭据 =====" -ForegroundColor Cyan
 $Keystore = "$env:USERPROFILE\.android\ihui-release.keystore"
 $GradleProps = "$env:USERPROFILE\.gradle\gradle.properties"
 $hasKs = Test-Path $Keystore
@@ -333,10 +378,11 @@ if ($AbiDecision.Drift) {
   Write-Host "  ABI 依据: $($AbiDecision.Note)" -ForegroundColor DarkGray
 }
 
-Write-Host "`n===== [2.5/4] 后端基址对账(烤进包里的那个) =====" -ForegroundColor Cyan
+Write-Host "`n===== [2.5/5] 后端基址对账(烤进包里的那个) =====" -ForegroundColor Cyan
 $Backend = Resolve-BakedBackend
 Write-Host "  API = $($Backend.Api)   (来源:$($Backend.ApiSrc))" -ForegroundColor Gray
 Write-Host "  WEB = $($Backend.Web)   (来源:$($Backend.WebSrc))" -ForegroundColor Gray
+Write-Host "  WS  = $($Backend.Ws)   (来源:$($Backend.WsSrc))" -ForegroundColor Gray
 $loop = @()
 if (Test-LoopbackUrl $Backend.Api) { $loop += "API=$($Backend.Api)" }
 if (Test-LoopbackUrl $Backend.Web) { $loop += "WEB=$($Backend.Web)" }
@@ -369,13 +415,29 @@ if ($apex.Count -gt 0) {
     "禁止的出路:加旗放行 —— 这是服务端实测行为,不是本地联调偏好。"
   )
 }
+# WS 分域拒绝(2026-10-28 真机实测):REST 走 www、WS 也回落 www ⇒ 换票永远换到、握手永远 404,
+# 客户端按退避无限重连(实测每 30 秒 4 次 /ws/ticket,一小时没连上一条)。这条只在"WS 落在那条实测
+# 承载不了握手的臂"时红,所以本地联调(127.0.0.1 / 192.168.x)与正常生产组合都不受影响。
+if (-not $AllowLocalBackend -and (Test-WsArmCannotUpgrade $Backend.Ws)) {
+  Write-Error ("REFUSED: release build would bake a WS arm that cannot complete the handshake: WS=" + $Backend.Ws +
+    " | why: wss://www.aizhs.top/ws/notifications returns 404 while wss://api.aizhs.top returns 101 (EdgeOne hop drops Upgrade)." +
+    " | fix: pass -WsBaseUrl https://api.aizhs.top (REST may stay on https://www.aizhs.top).")
+  throw (
+    "拒绝产出 WS 基址落在 $($Backend.Ws) 的 release 包(来源:$($Backend.WsSrc))。" +
+    "2026-10-28 真机实测:同一条 www 臂上 `/ws/ticket` 200、`/ws/notifications` 404 —— 换票换得到、" +
+    "握手永远握不上,客户端于是按 1/1/3/25 秒退避无限重连(每小时 ~480 次换票),通知通道一条都不通。" +
+    "正解:显式传 -WsBaseUrl https://api.aizhs.top(REST 可以继续走 www 快臂)。" +
+    "禁止的出路:把这一维降级成 warning,或加旗放行 —— 那等于把「装上手机、看着能登录、收不到任何通知」留给下一个人。"
+  )
+}
 
 # 显式回写,让 Metro 与脚本判决读同一份值(不依赖调用方 shell 里恰好 export 过)。
 $env:EXPO_PUBLIC_API_BASE_URL = $Backend.Api
 $env:EXPO_PUBLIC_WEB_URL = $Backend.Web
+$env:EXPO_PUBLIC_WS_BASE_URL = $Backend.Ws
 if ($AllowLocalBackend) { Write-Warning 'AllowLocalBackend:本次包的基址含回环地址,只能在配了 adb reverse 的机器上验证' }
 
-Write-Host "`n===== [3/4] gradlew assembleRelease (versionCode=$VersionCode) =====" -ForegroundColor Cyan
+Write-Host "`n===== [3/5] gradlew assembleRelease (versionCode=$VersionCode) =====" -ForegroundColor Cyan
 Write-Host "  ABI: $($abiArg -replace '^.*=','')"
 if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo prebuild)" }
 
@@ -416,11 +478,11 @@ if ($missingAbis.Count -gt 0) {
   throw "APK 缺目标 ABI:$($missingAbis -join ', ') —— 构建成功但装不上对应真机。不要看 BUILD SUCCESSFUL 就交付。"
 }
 
-Write-Host "`n===== [3.5/4] 从包里回读烤进去的后端(不信任「我传了 env」) =====" -ForegroundColor Cyan
+Write-Host "`n===== [3.5/5] 从包里回读烤进去的后端(不信任「我传了 env」) =====" -ForegroundColor Cyan
 $bundle = Get-BundleText -ApkPath $Apk
 Write-Host "  bundle 字节:$($bundle.Length)(Latin1 计数,用于字符串包含判定)" -ForegroundColor Gray
 $miss = @()
-foreach ($pair in @(@{ k = 'API'; v = $Backend.Api }, @{ k = 'WEB'; v = $Backend.Web })) {
+foreach ($pair in @(@{ k = 'API'; v = $Backend.Api }, @{ k = 'WEB'; v = $Backend.Web }, @{ k = 'WS'; v = $Backend.Ws })) {
   if (-not $bundle.Contains($pair.v)) { $miss += "$($pair.k)=$($pair.v)" }
 }
 if ($miss.Count -gt 0) {
@@ -434,9 +496,9 @@ if (-not $AllowLocalBackend) {
     throw "包里残留回环缺省基址:$($stray -join ', ')(生产包不得含这些)—— 说明有第二处把缺省值写进了产物。"
   }
 }
-Write-Host "  回读一致:API/WEB 两个基址都真在包里,且无回环残留 ✓" -ForegroundColor Green
+Write-Host "  回读一致:API/WEB/WS 三个基址都真在包里,且无回环残留 ✓" -ForegroundColor Green
 
-Write-Host "`n===== [4/4] 验签 + 报告 =====" -ForegroundColor Cyan
+Write-Host "`n===== [4/5] 验签 + 报告 =====" -ForegroundColor Cyan
 if (-not $SkipVerify) {
   $BuildTools = Get-ChildItem "$env:ANDROID_HOME\build-tools" -Directory -ErrorAction SilentlyContinue |
     Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
@@ -447,10 +509,24 @@ if (-not $SkipVerify) {
   } else { Write-Warning "apksigner 未找到: $ApkSigner (跳过验签)" }
 }
 
+Write-Host "`n===== [5/5] 发布到固定下载地址 =====" -ForegroundColor Cyan
+$VersionName = (Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version
+$PublishUrl = 'https://dl.aizhs.top/ihui-ai-latest.apk'
+if ($NoPublish) {
+  Write-Warning 'NoPublish: 本次只出包,未发布到公网(固定地址仍是上一版)'
+} else {
+  Push-Location $RepoRoot
+  try {
+    node scripts/publish-mobile-apk.mjs --apk $Apk --version $VersionName --version-code $VersionCode
+    if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk.mjs 失败 (exit=$LASTEXITCODE) —— 包已构建但未发布,不许当成成功" }
+  } finally { Pop-Location }
+}
+
 Write-Host "`n========== BUILD RELEASE DONE ==========" -ForegroundColor Green
 Write-Host "  APK:      $Apk"
 Write-Host "  大小:     ${SizeMB} MB"
-Write-Host "  version:  $((Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version) (code=$VersionCode)"
+Write-Host "  version:  $VersionName (code=$VersionCode)"
+if (-not $NoPublish) { Write-Host "  下载地址: $PublishUrl" -ForegroundColor Green }
 Write-Host "  安装测试: adb install -r `"$Apk`""
 Write-Host "========================================"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

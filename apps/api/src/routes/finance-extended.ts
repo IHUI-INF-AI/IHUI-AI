@@ -8,6 +8,7 @@ import { eq, and, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
   commissionFlows,
@@ -221,6 +222,22 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
     const parsed = applySchema.safeParse(request.body)
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误: amount, type 必填'))
     const { amount, type, bankInfo, openId } = parsed.data
+    // 2FA step-up：已开 2FA 的账号，资金流出动作必须有窗内二次验证；
+    // 未开 2FA 的账号逐字不变（不打断存量）。判不出账号状态一律拒，不默认放行。
+    const gate = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!gate.ok) {
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            gate.code === 'STEP_UP_REQUIRED'
+              ? '提现需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前验证码'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            gate.code,
+          ),
+        )
+    }
     try {
       // 检查余额：佣金总额 - 已提现（含待审核/处理中/已完成）金额
       const commissionRows = await db
@@ -377,26 +394,33 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误: userId, amount 必填'))
     const { userId, amount, remark } = parsed.data
     try {
-      // 查询当前余额
-      const marginRows = await db
-        .select()
-        .from(userMargins)
-        .where(eq(userMargins.userId, userId))
-        .limit(1)
-      const currentBalance = marginRows[0]?.tokenQuantity ?? 0
-      const newBalance = currentBalance + amount
-      if (newBalance < 0) {
+      // 修前是"读余额 → JS 里加 → .set(绝对值)"整字回写:两处都会丢更新
+      //  · 管理员 A 调 +100 与管理员 B 调 −50 并发时,后写的那笔把前一笔整笔抹掉;
+      //  · 「调整后余额不能为负」也是拿陈旧读数判的 —— 并发扣减能让它落到负数而无人察觉。
+      // 现在:补行用 onConflictDoNothing(AGENTS 指定幂等惯用法),增减走 DB 侧表达式,
+      // 「不能为负」写进 WHERE 条件 ⇒ 判定与变更之间没有窗口;0 行即"这一笔调不下去"。
+      await db
+        .insert(userMargins)
+        .values({ userId, tokenQuantity: 0, frozenQuantity: 0 })
+        .onConflictDoNothing({ target: userMargins.userId })
+      const [adjusted] = await db
+        .update(userMargins)
+        .set({
+          tokenQuantity: sql`${userMargins.tokenQuantity} + ${amount}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(userMargins.userId, userId),
+            // numeric 列在 Drizzle 侧是 string ⇒ 比较式两侧都由 DB 求值,不做 JS 侧换算
+            sql`${userMargins.tokenQuantity} + ${amount} >= 0`,
+          ),
+        )
+        .returning({ tokenQuantity: userMargins.tokenQuantity })
+      if (!adjusted) {
         return reply.status(400).send(error(400, '调整后余额不能为负'))
       }
-      // 更新保证金余额
-      if (marginRows[0]) {
-        await db
-          .update(userMargins)
-          .set({ tokenQuantity: newBalance, updatedAt: new Date() })
-          .where(eq(userMargins.userId, userId))
-      } else {
-        await db.insert(userMargins).values({ userId, tokenQuantity: newBalance })
-      }
+      const newBalance = adjusted.tokenQuantity
       // 写入 token 流水（opType=5 管理员调整）
       const [flow] = await db
         .insert(tokenFlows)

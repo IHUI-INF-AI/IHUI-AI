@@ -91,6 +91,10 @@ vi.mock('../src/db/index.js', async () => {
       select: vi.fn(() => selectChain()),
       update: vi.fn(() => {
         let pending: Patch = {}
+        // G-241(2026-10-26)接线:update 链现在会被 `.returning()` 读走"命中几行"
+        // (原子认领判的就是命中数)。替身按 where 命中的那一行回报,形状与 Postgres 的
+        // `UPDATE … RETURNING id` 一致;未命中(读不到目标 id)回报空集,与真库同形。
+        let hitId: string | null = null
         const chain: Record<string, unknown> = {
           set: (patch: Patch) => {
             pending = patch
@@ -98,6 +102,7 @@ vi.mock('../src/db/index.js', async () => {
           },
           where: (cond: unknown) => {
             const id = targetIdOf(cond)
+            hitId = id
             state.updates.push({ id, patch: pending })
             if (id !== null) {
               const current = state.rows.get(id)
@@ -105,7 +110,8 @@ vi.mock('../src/db/index.js', async () => {
             }
             return chain
           },
-          then: (resolve: (value: unknown) => unknown) => Promise.resolve([]).then(resolve),
+          then: (resolve: (value: unknown) => unknown) =>
+            Promise.resolve(hitId === null ? [] : [{ id: hitId }]).then(resolve),
         }
         for (const m of ['returning', 'orderBy']) chain[m] = () => chain
         return chain
@@ -120,7 +126,9 @@ vi.mock('../src/utils/ai-service-fetch.js', () => ({
 }))
 
 const dbMock = (await import('../src/db/index.js')) as unknown as DbMockHandles
-const streamMock = vi.mocked((await import('../src/utils/ai-service-fetch.js')).aiServiceFetchStream)
+const streamMock = vi.mocked(
+  (await import('../src/utils/ai-service-fetch.js')).aiServiceFetchStream,
+)
 const {
   runAutomationTick,
   executeAutomation,
@@ -129,9 +137,8 @@ const {
   transientBackoffMs,
   MAX_TRANSIENT_ATTEMPTS,
 } = await import('../src/services/agent-automation-scheduler.js')
-const { describeAutomationFailure, classifyAutomationFailure } = await import(
-  '../src/services/automations/failure-class.js'
-)
+const { describeAutomationFailure, classifyAutomationFailure } =
+  await import('../src/services/automations/failure-class.js')
 
 // =============================================================================
 // 夹具
@@ -383,23 +390,29 @@ describe('G-669 ② transient 回队 + 有界退避', () => {
 // =============================================================================
 
 describe('G-669 ③ 一次执行只结算一次', () => {
+  // G-241(2026-10-26)注记:一次执行现在会写**两笔** —— 先 `UPDATE … 认领`(patch 只有
+  // claim_token/claimed_at),再结算(带 last_run_at)。本族判据是"结算只发生一次",
+  // 所以按"带不带 last_run_at"数结算笔,而不是数全部 UPDATE;认领那笔由
+  // g-241-automation-claim-terminal.test.ts 单独钉。
+  const settlementsOf = () => dbMock.__updates().filter((u) => 'lastRunAt' in u.patch)
+
   it('每次执行恰好一条 update;重复 tick 不二次落库', async () => {
     const row = makeRow()
     dbMock.__setRows([row])
     streamThrows('fetch failed')
 
     await runAutomationTick(T0)
-    expect(dbMock.__updates()).toHaveLength(1)
+    expect(settlementsOf()).toHaveLength(1)
 
     // 同一个 now 再跑一次:行已不再到期 ⇒ 既不执行也不写库
     await runAutomationTick(T0)
-    expect(dbMock.__updates()).toHaveLength(1)
+    expect(settlementsOf()).toHaveLength(1)
 
     // 到期后第二次执行 ⇒ 恰好第二条(不是每次执行两条)
     const next = dbMock.__getRow(row.id)!.nextRunAt!
     vi.setSystemTime(next)
     await runAutomationTick(next)
-    const updates = dbMock.__updates()
+    const updates = settlementsOf()
     expect(updates).toHaveLength(2)
     expect(updates.every((u) => u.id === row.id)).toBe(true)
   })
@@ -409,7 +422,7 @@ describe('G-669 ③ 一次执行只结算一次', () => {
     dbMock.__setRows([row])
     streamSummarizes('每日报告')
     await runAutomationTick(T0)
-    expect(dbMock.__updates()).toHaveLength(1)
+    expect(settlementsOf()).toHaveLength(1)
   })
 })
 
@@ -587,9 +600,9 @@ describe('G-669 分类器:档位与命中判据', () => {
     })
     expect(classifyAutomationFailure({ error: withCause })).toBe('transient')
     // 文案里书写的状态码(executor 的 `→ 401:` 形态)
-    expect(classifyAutomationFailure({ message: 'ai-service /api/agents/execute → 401: nope' })).toBe(
-      'permanent',
-    )
+    expect(
+      classifyAutomationFailure({ message: 'ai-service /api/agents/execute → 401: nope' }),
+    ).toBe('permanent')
     // 端口号不得被读成状态码(8803 里没有 803)
     expect(classifyAutomationFailure({ message: 'connect ECONNREFUSED 127.0.0.1:8803' })).toBe(
       'transient',
@@ -617,9 +630,8 @@ describe('G-669 C 格:认领可释放且逐条点名', () => {
   })
 
   it('release 后可重新认领;未认领/超上限一律 false(有界重试的"界")', async () => {
-    const { createFileLedger, MAX_RELEASES_PER_KEY } = await import(
-      '../src/services/automations/ledger.js'
-    )
+    const { createFileLedger, MAX_RELEASES_PER_KEY } =
+      await import('../src/services/automations/ledger.js')
     const ledger = createFileLedger(join(scratch(), 'ledger.json'))
     expect(ledger.claim('issue:1')).toBe(true)
     expect(ledger.release('issue:2', '从未认领')).toBe(false)
@@ -676,7 +688,11 @@ describe('G-669 C 格:认领可释放且逐条点名', () => {
       ledger: transientLedger,
       executor: {
         name: 'stub',
-        execute: async () => ({ ok: false, summary: '', error: 'agent 执行器提交失败: fetch failed' }),
+        execute: async () => ({
+          ok: false,
+          summary: '',
+          error: 'agent 执行器提交失败: fetch failed',
+        }),
       },
     })
 
@@ -701,7 +717,11 @@ describe('G-669 C 格:认领可释放且逐条点名', () => {
       ledger: permLedger,
       executor: {
         name: 'stub',
-        execute: async () => ({ ok: false, summary: '', error: 'execute → 401: Invalid or expired token' }),
+        execute: async () => ({
+          ok: false,
+          summary: '',
+          error: 'execute → 401: Invalid or expired token',
+        }),
       },
     })
     const permReport = await permRunner.runOnce()

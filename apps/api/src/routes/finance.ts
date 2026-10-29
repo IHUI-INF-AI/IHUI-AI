@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import {
   getBalance,
   rechargeToken,
@@ -237,6 +238,11 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     await authenticate(request)
     const { amount: amountCents } = z.object({ amount: z.coerce.number() }).parse(request.query)
     const userId = request.userId!
+    // 2FA step-up 闸：已开 2FA 的账号，敏感操作前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
+    const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!stepUp.ok) {
+      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+    }
     if (amountCents <= 0) return reply.status(400).send(error(400, '提现金额必须为正'))
 
     // 风控评估：大额提现 / 异常 IP 检测

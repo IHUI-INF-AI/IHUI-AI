@@ -144,7 +144,15 @@ test('T3 真仓 HEAD 面:覆盖面自证 + 现读必须零配对红(看不见存
   assert.equal(d.counts.unreadable, 0, `有文件取不到内容(未判定被算进通过):${d.counts.unreadable}`)
   assert.ok(d.counts.hosts > 0, '真仓上一处自检宿主都没看见 ⇒ 宿主判据对整面失明')
   assert.ok(d.counts.registrars > 0, '真仓上一处登记函数都没看见 ⇒ 本门的绿灯没有任何含义')
-  assert.ok(d.counts.latent > 0, '潜伏档在真仓上读为空 ⇒ "只报数"那一格从未被验证过')
+  // 潜伏档是门体明写的**只报数**维(head 注 `:57`「R-EXIST …… 只报数、不参与 exit 判定」、
+  // 报告行「潜伏 N 处按设计只报数」)⇒ 这里不许再挂数值下限:存量一旦清干净,`latent > 0`
+  // 会把一台**已合规**的仓判红(2026-10-26 假牙批:把"只报数"的存量维钉成下限)。该分支的
+  // 验证改走构造面 T15(合成夹具),不再依赖真仓此刻恰好有潜伏项。
+  assert.ok(
+    Number.isInteger(d.counts.latent) && d.counts.latent >= 0,
+    `潜伏档读数必须是可解析的非负整数(实得 ${d.counts.latent})—— 数值本身只报数,不是判据`,
+  )
+  console.log('   T3 潜伏读数现读(只报数,不挂下限):', d.counts.latent)
   assert.deepEqual(
     d.red,
     [],
@@ -407,5 +415,86 @@ test('T14 样板消费方已接共用出口:该文件本地自造 0 处且潜伏
   assert.equal(r.selfMade.length, 0, '样板门仍在本地自造登记器 ⇒ 共用出口没被真正接上')
   assert.equal(r.latent.length, 0, '样板门又回到裸存簇')
   assert.equal(r.red.length, 0, '样板门被判红')
+})
+
+/**
+ * 计数行形态锁(2026-10-26 假牙批改判)。
+ *
+ * 门体把 latent / R-EXIST 写成"只报数、不参与 exit"(头注 `:57`、报告行「潜伏 N 处按设计只报数」),
+ * 测试却对它挂 `latent > 0` 下限 —— 那是把**存量维**当成判据:存量一旦清干净,同一台合规仓
+ * 就会假红,而假红的唯一结局是逼各会话 `--no-verify`、连带废掉链上其余门(§12e)。
+ * 尺子换成**形态**:行必须在 ∧ 字段必须齐 ∧ 数值必须可解析;数值本身只报数。
+ * 真判据只剩两格:取材面非空(在射程文件 > 0)与配对红 = 0。
+ */
+function assertCountLine(out) {
+  const m =
+    /在射程文件 (\d+) \/ 自检宿主 (\d+) \/ 宿主内登记函数 (\d+)\(全文两参数候选 (\d+)\)\/ 已求值 (\d+) \/ 潜伏 (\d+) \/ 值比较族\(不计潜伏\)(\d+) \/ 已豁免 (\d+) \/ 未判定 (\d+) \/ 配对红 (\d+) \/ 取不到 (\d+)/.exec(
+      out,
+    )
+  assert.ok(m, `报告缺计数行 ⇒ 这一维没上岗:${out.slice(0, 400)}`)
+  const fields = [
+    '在射程文件',
+    '自检宿主',
+    '登记函数',
+    '两参数候选',
+    '已求值',
+    '潜伏(只报数)',
+    '值比较族',
+    '已豁免',
+    '未判定',
+    '配对红',
+    '取不到',
+  ]
+  fields.forEach((name, i) =>
+    assert.match(String(m[i + 1] ?? ''), /^\d+$/, `计数行字段「${name}」缺失或非数字形态 ⇒ 计数行形状坏了`),
+  )
+  assert.ok(Number(m[1]) > 0, `在射程文件 0 个 ⇒ 取材面没吃到东西,后面那些数字不作数:${out.slice(0, 300)}`)
+  assert.equal(Number(m[10]), 0, `计数行自报配对红 ${m[10]} 处 ⇒ 真仓 HEAD 上仍有一处从未判过的自检`)
+  return Number(m[6])
+}
+
+test('T15 潜伏档「只报数」改由合成夹具覆盖(不靠真仓存量)+ 计数行形态锁与变异自证', () => {
+  // ① 构造面:潜伏 1 处、其它干净 ⇒ exit 必须仍是 0(只报数),且必须被计数、被点名(报数 ≠ 静默)
+  const latentVerdict = {
+    file: 'scripts/fixture-latent.mjs',
+    hosts: 1,
+    decls: 1,
+    registrars: 1,
+    latent: [{ name: 't', declLine: 3, why: 'w' }],
+    evaluates: 0,
+    strictCompare: [],
+    undetermined: [],
+    exempted: [],
+    red: [],
+    selfMade: [],
+    unreadable: null,
+  }
+  const withLatent = gate.decide({ verdicts: [latentVerdict], enumerated: 10 })
+  assert.equal(withLatent.counts.latent, 1, '潜伏必须被数出来')
+  assert.equal(withLatent.latent.length, 1, '潜伏必须进点名清单(只报数 ≠ 静默)')
+  assert.equal(withLatent.exit, 0, '潜伏改变了 exit ⇒ 它已不是"只报数"档')
+  // ② 存量归零那一臂:同一夹具去掉潜伏 ⇒ 同样 0(这正是旧 `latent > 0` 会把合规仓判红的状态)
+  const zeroed = gate.decide({ verdicts: [{ ...latentVerdict, latent: [] }], enumerated: 10 })
+  assert.equal(zeroed.counts.latent, 0)
+  assert.equal(zeroed.exit, 0, '存量归零后必须照旧放行(下限式断言恰会在这里假红)')
+
+  // ③ 真仓那一路只锁形态(数值只报数):一次派生,下面三条变异都在同一份输出上做
+  const { rc, out } = runGate([])
+  assert.equal(rc, 0, `真仓全量档必须 exit 0(红或未判定被记成通过,先看这里):\n${out.slice(-1500)}`)
+  const latentNow = assertCountLine(out)
+  console.log('   T15 计数行潜伏读数现读(只报数,不挂下限):', latentNow)
+
+  // 变异①:整行摘除 ⇒ 必须红("这一维没上岗"要有牙)
+  const noLine = out.replace(/^.*在射程文件 \d+ \/.*\n?/m, '')
+  assert.ok(noLine.length < out.length, '夹具失效:没摘到计数行(行形态漂了,先修正则再谈判据)')
+  assert.throws(() => assertCountLine(noLine), /缺计数行/, '摘掉计数行必须翻红')
+  // 变异②:潜伏读数改 0 ⇒ 必须不红(它不是判据;旧 `latent > 0` 恰在这一步假红)
+  const zeroLine = out.replace(/(\/ 潜伏 )\d+( \/)/, (_, a, b) => `${a}0${b}`)
+  assert.match(zeroLine, /\/ 潜伏 0 \//, '夹具失效:没把潜伏改成 0')
+  assert.doesNotThrow(() => assertCountLine(zeroLine), '潜伏=0 是合规常态 ⇒ 断言不得为此翻红')
+  // 变异③:配对红改 1 ⇒ 必须红(证明形态锁不是"改什么都放行")
+  const redLine = out.replace(/(\/ 配对红 )\d+( \/)/, (_, a, b) => `${a}1${b}`)
+  assert.match(redLine, /\/ 配对红 1 \//, '夹具失效:没把配对红改成 1')
+  assert.throws(() => assertCountLine(redLine), /配对红/, '真判据那一格必须仍然有牙')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

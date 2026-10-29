@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import {
   Archive,
@@ -28,7 +28,6 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
 import { downloadText, slugifyForFilename, buildTimestamp } from '@/lib/download'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
@@ -46,18 +45,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { Tooltip } from '@/components/feedback'
 import { useToast } from '@/hooks/use-toast'
+import { useConversationRowActions } from '@/hooks/use-conversation-row-actions'
 import {
-  archiveConversation,
   batchOperateConversations,
   compressConversation,
   exportConversation,
-  setConversationPinned,
-  unarchiveConversation,
   type BatchConversationAction,
 } from '@ihui/api-client'
 import {
@@ -171,7 +172,6 @@ export function ConversationList({
   const tc = useTranslations('aiChat')
   const locale = useLocale()
   const router = useRouter()
-  const queryClient = useQueryClient()
   const { success, error } = useToast()
   // D53 联动(store 只读):挂起的提问归属当前会话 → 当前行自动进入等待态
   const pendingQuestion = useChatStore((s) => s.pendingQuestion)
@@ -192,94 +192,17 @@ export function ConversationList({
     minute: '2-digit',
   })
 
-  const invalidateAll = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] }),
-      queryClient.invalidateQueries({ queryKey: ['chat', 'favorites'] }),
-    ])
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      })
-      if (!res.success) throw new Error(res.error)
-      return res
-    },
-    onSuccess: () => invalidateAll(),
-    onError: (err: Error) => {
-      error(err.message || tc('deleteFailed'))
-    },
-  })
-
-  // P1 乐观更新(2026-07-23):收藏/归档即时反馈,不等 API 返回
-  const favMutation = useMutation({
-    mutationFn: (id: string) =>
-      fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}/favorite`, { method: 'POST' }),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['chat', 'conversations'] })
-      await queryClient.cancelQueries({ queryKey: ['chat', 'favorites'] })
-      const prevConv = queryClient.getQueryData<Conversation[]>(['chat', 'conversations'])
-      const prevFav = queryClient.getQueryData<Conversation[]>(['chat', 'favorites'])
-      const toggle = (list: Conversation[] | undefined) =>
-        list?.map((c) => (c.id === id ? { ...c, favorite: !c.favorite } : c))
-      queryClient.setQueryData(['chat', 'conversations'], toggle)
-      queryClient.setQueryData(['chat', 'favorites'], toggle)
-      return { prevConv, prevFav }
-    },
-    onError: (_e, _id, ctx) => {
-      if (ctx?.prevConv) queryClient.setQueryData(['chat', 'conversations'], ctx.prevConv)
-      if (ctx?.prevFav) queryClient.setQueryData(['chat', 'favorites'], ctx.prevFav)
-    },
-    onSettled: () => invalidateAll(),
-  })
-
-  // 置顶/取消置顶(2026-08-30 立):乐观更新 pinned,刷新会话列表(后端排序置顶优先)
-  const pinMutation = useMutation({
-    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
-      setConversationPinned(id, pinned),
-    onMutate: async ({ id, pinned }) => {
-      await queryClient.cancelQueries({ queryKey: ['chat', 'conversations'] })
-      await queryClient.cancelQueries({ queryKey: ['chat', 'favorites'] })
-      const prevConv = queryClient.getQueryData<Conversation[]>(['chat', 'conversations'])
-      const prevFav = queryClient.getQueryData<Conversation[]>(['chat', 'favorites'])
-      const apply = (list: Conversation[] | undefined) =>
-        list?.map((c) => (c.id === id ? { ...c, pinned } : c))
-      queryClient.setQueryData(['chat', 'conversations'], apply)
-      queryClient.setQueryData(['chat', 'favorites'], apply)
-      return { prevConv, prevFav }
-    },
-    onError: (_e, _id, ctx) => {
-      if (ctx?.prevConv) queryClient.setQueryData(['chat', 'conversations'], ctx.prevConv)
-      if (ctx?.prevFav) queryClient.setQueryData(['chat', 'favorites'], ctx.prevFav)
-      error(tc('toast.pinFailed'))
-    },
-    onSettled: () => invalidateAll(),
-  })
-
-  const archiveMutation = useMutation({
-    mutationFn: (id: string) => archiveConversation(id),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['chat', 'conversations'] })
-      await queryClient.cancelQueries({ queryKey: ['chat', 'favorites'] })
-      const prevConv = queryClient.getQueryData<Conversation[]>(['chat', 'conversations'])
-      const prevFav = queryClient.getQueryData<Conversation[]>(['chat', 'favorites'])
-      const remove = (list: Conversation[] | undefined) => list?.filter((c) => c.id !== id)
-      queryClient.setQueryData(['chat', 'conversations'], remove)
-      queryClient.setQueryData(['chat', 'favorites'], remove)
-      return { prevConv, prevFav }
-    },
-    onError: (_e, _id, ctx) => {
-      if (ctx?.prevConv) queryClient.setQueryData(['chat', 'conversations'], ctx.prevConv)
-      if (ctx?.prevFav) queryClient.setQueryData(['chat', 'favorites'], ctx.prevFav)
-    },
-    onSettled: () => invalidateAll(),
-  })
-
-  const unarchiveMutation = useMutation({
-    mutationFn: (id: string) => unarchiveConversation(id),
-    onSuccess: () => invalidateAll(),
-  })
+  // 行级六动作(删除/收藏/置顶/归档/取消归档/重命名)统一取自共享出口
+  // (2026-10-28 片A:抽自本件,历史页与 /chat/workbench rail 同连一份实现,§0.6)。
+  const {
+    invalidateAll,
+    deleteMutation,
+    favMutation,
+    pinMutation,
+    archiveMutation,
+    unarchiveMutation,
+    renameMutation,
+  } = useConversationRowActions()
 
   const exportMutation = useMutation({
     mutationFn: ({ id, format }: { id: string; format: 'txt' | 'md' }) =>
@@ -289,15 +212,6 @@ export function ConversationList({
   const compressMutation = useMutation({
     mutationFn: ({ id, targetChars }: { id: string; targetChars: 200000 | 1000000 }) =>
       compressConversation(id, targetChars),
-  })
-
-  const renameMutation = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) =>
-      fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ title }),
-      }),
-    onSuccess: () => invalidateAll(),
   })
 
   // 批量操作 mutation(2026-07-31 立,对话历史批量删除/收藏/归档)
@@ -700,34 +614,54 @@ export function ConversationList({
                         </>
                       )}
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleExport(item, 'md')}
-                      disabled={busyId === item.id}
-                    >
-                      <FileCode className="mr-2 h-3.5 w-3.5" />
-                      <span>{tc('actions.exportMd')}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleExport(item, 'txt')}
-                      disabled={busyId === item.id}
-                    >
-                      <FileText className="mr-2 h-3.5 w-3.5" />
-                      <span>{tc('actions.exportTxt')}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleCompress(item, 200000)}
-                      disabled={busyId === item.id}
-                    >
-                      <Shrink className="mr-2 h-3.5 w-3.5" />
-                      <span>{tc('actions.compressTo200k')}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleCompress(item, 1000000)}
-                      disabled={busyId === item.id}
-                    >
-                      <Shrink className="mr-2 h-3.5 w-3.5" />
-                      <span>{tc('actions.compressTo1m')}</span>
-                    </DropdownMenuItem>
+                    {/* 按钮层级重构(2026-10-26):与侧栏 sidebar-chat-history 同步——
+                        导出格式与压缩档位收进二级子菜单，一线只留高频动作。 */}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger data-testid="conversation-export-submenu">
+                        <FileCode className="mr-2 h-3.5 w-3.5" />
+                        <span>{tc('actions.exportSubmenu')}</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-48">
+                        <DropdownMenuItem
+                          onClick={() => handleExport(item, 'md')}
+                          disabled={busyId === item.id}
+                        >
+                          <FileCode className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.exportMd')}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleExport(item, 'txt')}
+                          disabled={busyId === item.id}
+                        >
+                          <FileText className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.exportTxt')}</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger data-testid="conversation-compress-submenu">
+                        <Shrink className="mr-2 h-3.5 w-3.5" />
+                        <span>{tc('actions.compressSubmenu')}</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-48">
+                        <DropdownMenuItem
+                          onClick={() => handleCompress(item, 200000)}
+                          disabled={busyId === item.id}
+                        >
+                          <Shrink className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.compressTo200k')}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleCompress(item, 1000000)}
+                          disabled={busyId === item.id}
+                        >
+                          <Shrink className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.compressTo1m')}</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => setPendingDeleteId(item.id)}
                       disabled={busyId === item.id}

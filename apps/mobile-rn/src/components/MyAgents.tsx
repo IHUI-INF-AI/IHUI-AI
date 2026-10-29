@@ -16,7 +16,7 @@
  */
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens, currentRnTheme } from '../theme/active-tokens'
-import { MoreLink } from '@ihui/rn-app'
+import { SectionHeader } from '@ihui/rn-app'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
@@ -60,17 +60,14 @@ export default function MyAgents({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('myAgents.title')}</Text>
-        {onTeamPress ? (
-          <MoreLink
-            label={t('myAgents.staff')}
-            onPress={onTeamPress}
-            colorScheme={currentRnTheme()}
-            style={styles.teamButton}
-          />
-        ) : null}
-      </View>
+      <SectionHeader
+        title={t('myAgents.title')}
+        moreText={t('myAgents.staff')}
+        onMore={onTeamPress}
+        showMore={Boolean(onTeamPress)}
+        colorScheme={currentRnTheme()}
+        style={styles.header}
+      />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -122,17 +119,6 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: rnType.title.size,
-    fontWeight: '700',
-    color: tokens.text.primary,
-  },
-  teamButton: {
-    marginLeft: rnSpacing.sm,
   },
   scroll: {
     flexDirection: 'row',

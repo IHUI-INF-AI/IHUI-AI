@@ -31,10 +31,13 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, openSync, closeSync, unlinkSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { createHash, createHmac, randomUUID } from 'node:crypto'
+import { createHmac, randomUUID } from 'node:crypto'
 import { loadCaps, parseLedger, evaluate, chargeLine } from './cost-breaker.mjs'
 import { loadHumanGates, summarize as summarizeHumanGates } from './human-gates.mjs'
 import { loadPolicy, decide, POLICY_PATH } from './autonomy-decision.mjs'
+// 票键唯一实现(§0.6 单一真相源):本器不再自持一份,改从 lib 收口处取,转出保持既有导出面不变。
+import { ticketKeyOf } from './lib/ticket-key.mjs'
+export { ticketKeyOf }
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
@@ -106,17 +109,10 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
  * 票键 = 去登记前缀/注记/租约牌后的标题指纹(同票跨会话识别;不按行号,行号一次 append 就挪位)。
  * 租约牌只剥「进行中@」形态(claimMarkOf 同族口径),标题内部普通括号不剥;
  * 误差方向刻意设计成"两形态算两票"(多派一次有白名单/预算兜着)而不是"两票合一"(漏派)。
+ *
+ * ⚠ 实现已收口到 `scripts/lib/ticket-key.mjs`(票键在全仓被三处台账取,各算一次就会变成三个键
+ *   ⇒ "票→提交环"永远串不上)。本处只做转出,不再拄第二份。
  */
-export function ticketKeyOf(rowText) {
-  const stripped = String(rowText)
-    .replace(/^[-*]\s*\[[ x]\]\s*/, '')
-    .replace(/^（进行中@[^）]*）\s*/, '')
-    .replace(/（进行中@[^）]*）\s*$/, '')
-    .replace(/〔[^〕]*〕/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return createHash('sha256').update(stripped).digest('hex').slice(0, 16)
-}
 
 /**
  * 白名单判定:只匹配**标题区**(第一个 `**…**` 加粗段;无加粗段 ⇒ 行首前 60 字),

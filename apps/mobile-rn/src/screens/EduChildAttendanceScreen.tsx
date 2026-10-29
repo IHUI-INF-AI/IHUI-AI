@@ -37,7 +37,7 @@ interface ChildAttendanceRecord {
 const statusTone = (s: string): ConsoleBadgeTone =>
   s === 'present' ? 'ok' : s === 'late' ? 'warn' : s === 'absent' ? 'danger' : 'muted'
 
-export function EduChildAttendanceScreen() {
+function EduChildAttendanceScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

@@ -133,6 +133,18 @@ export function maskSecret(value) {
   return `<set len=${String(value).length}>`
 }
 
+/**
+ * 键值展示面单源:PASSWORD 型整枚遮罩;DSN 型只脱口令段(保 host/db 可辨识);其余直显。
+ * 2026-10-28 补:此前只判 /PASSWORD/,而 E2E_DATABASE_URL 的口令是嵌在 URL 里的
+ * ⇒ `--check` 曾把整串含口令打到 stdout,与本文件头注「永不回显 DSN 口令段」正面冲突。
+ */
+export function shownValueOf(key, value) {
+  if (value === undefined || value === null || value === '') return '<absent>'
+  if (/PASSWORD/.test(key)) return maskSecret(value)
+  if (/(_URL|_DSN|_URI)$/.test(key)) return sanitizeDsn(value)
+  return String(value)
+}
+
 /** 单键取值序:process.env > 本机供给面文件 > 仓内默认值 ⇒ 附出处 */
 export function resolveValue(key, env, fileValues) {
   const fromEnv = env[key]
@@ -241,7 +253,7 @@ function printSupplyFace(env, file, fileValues, baseUrl) {
   console.log('  tier         key                        取值出处                 现值')
   for (const spec of SUPPLY_FACE) {
     const r = resolveValue(spec.key, env, fileValues)
-    const shown = /PASSWORD/.test(spec.key) ? maskSecret(r.value) : (r.value ?? '<absent>')
+    const shown = shownValueOf(spec.key, r.value)
     console.log(
       `  ${spec.tier.padEnd(11)} ${spec.key.padEnd(25)} ${String(r.source).padEnd(23)} ${shown}`,
     )
@@ -488,6 +500,7 @@ export const __test__ = {
   SUPPLY_FACE,
   SUPPLY_FILE,
   maskSecret,
+  shownValueOf,
   resolveValue,
   readSupplyFile,
   writeSupplyLine,

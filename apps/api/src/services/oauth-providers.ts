@@ -17,6 +17,7 @@
 
 import { env } from 'node:process'
 import { randomBytes } from 'node:crypto'
+import { isProxiedUrl, proxiedFetch } from '../utils/proxy-dispatcher'
 
 // ============================================================================
 // Google OAuth
@@ -34,9 +35,29 @@ export function isGoogleConfigured(): boolean {
   return Boolean(env.GOOGLE_APP_ID && env.GOOGLE_SECRET)
 }
 
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+const GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo'
+
+/**
+ * Google OAuth 出站（2026-10-26）：本机直连 oauth2.googleapis.com 会超时，
+ * 命中 PROXY_DOMAINS 白名单时改走 proxiedFetch（PROXY_URL 出口）；未配代理时保持直连。
+ */
+async function googleOAuthFetch(url: string, init?: RequestInit): Promise<Response> {
+  if (!isProxiedUrl(url)) return fetch(url, init)
+  const headers: Record<string, string> = {}
+  new Headers(init?.headers).forEach((value, key) => {
+    headers[key] = value
+  })
+  return proxiedFetch(url, {
+    method: init?.method,
+    headers,
+    body: typeof init?.body === 'string' ? init.body : undefined,
+  })
+}
+
 /** 用 code 换 id_token → 校验 aud → 返回用户信息 */
 export async function exchangeGoogleCode(code: string): Promise<GoogleUserInfo> {
-  const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+  const tokenResp = await googleOAuthFetch(GOOGLE_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -45,7 +66,7 @@ export async function exchangeGoogleCode(code: string): Promise<GoogleUserInfo> 
       client_secret: env.GOOGLE_SECRET ?? '',
       redirect_uri: env.GOOGLE_PC_REDIRECT_URI ?? '',
       grant_type: 'authorization_code',
-    }),
+    }).toString(),
   })
   if (!tokenResp.ok) throw new Error(`Google token exchange failed: ${tokenResp.status}`)
   const tokenData = (await tokenResp.json()) as { id_token: string }
@@ -55,8 +76,8 @@ export async function exchangeGoogleCode(code: string): Promise<GoogleUserInfo> 
 
 /** 校验 id_token → 返回用户信息 */
 export async function verifyGoogleIdToken(idToken: string): Promise<GoogleUserInfo> {
-  const resp = await fetch(
-    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+  const resp = await googleOAuthFetch(
+    `${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`,
   )
   if (!resp.ok) throw new Error(`Google tokeninfo failed: ${resp.status}`)
   const data = (await resp.json()) as {

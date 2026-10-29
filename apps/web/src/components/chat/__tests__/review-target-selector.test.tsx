@@ -8,6 +8,9 @@
 // 从源模块 import 真值(§22c:测试不复制判据常量)。
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -43,16 +46,50 @@ describe('ReviewTargetSelector(组件,受控)', () => {
     expect(queryByRole('group')).toBeNull()
   })
 
-  it('visible=true 未选 ⇒ 三源档齐(aria-pressed=false)、无清除钮、无展开输入', () => {
+  it('visible=true 未选 ⇒ 五档齐(含票面三类 git 目标)、无清除钮、无展开输入', () => {
     const { getByTestId, queryByTestId } = renderSelector()
-    for (const kind of ['uncommitted', 'file', 'snippet'] as const) {
+    for (const kind of ['uncommitted', 'branch', 'commit', 'file', 'snippet'] as const) {
       const btn = getByTestId(`review-target-kind-${kind}`)
       expect(btn).toBeTruthy()
       expect(btn.getAttribute('aria-pressed')).toBe('false')
     }
+    expect(getByTestId('review-target-kind-branch')).toBeTruthy()
+    expect(getByTestId('review-target-kind-commit')).toBeTruthy()
     expect(queryByTestId('review-target-clear')).toBeNull()
+    expect(queryByTestId('review-target-branch-input')).toBeNull()
+    expect(queryByTestId('review-target-commit-input')).toBeNull()
     expect(queryByTestId('review-target-file-input')).toBeNull()
     expect(queryByTestId('review-target-snippet-input')).toBeNull()
+  })
+
+  it('点指定分支档 ⇒ 上报 {kind:branch, value:""},展开分支名输入', () => {
+    const { getByTestId, onChange, rerender } = renderSelector()
+    fireEvent.click(getByTestId('review-target-kind-branch'))
+    expect(onChange).toHaveBeenCalledWith({ kind: 'branch', value: '' })
+    rerender(
+      <ReviewTargetSelector
+        visible
+        selection={{ kind: 'branch', value: '' }}
+        onChange={onChange}
+      />,
+    )
+    fireEvent.change(getByTestId('review-target-branch-input'), { target: { value: 'feature/x' } })
+    expect(onChange).toHaveBeenLastCalledWith({ kind: 'branch', value: 'feature/x' })
+  })
+
+  it('点指定 commit 档 ⇒ 上报 {kind:commit, value:""},展开 SHA 输入', () => {
+    const { getByTestId, onChange, rerender } = renderSelector()
+    fireEvent.click(getByTestId('review-target-kind-commit'))
+    expect(onChange).toHaveBeenCalledWith({ kind: 'commit', value: '' })
+    rerender(
+      <ReviewTargetSelector
+        visible
+        selection={{ kind: 'commit', value: '' }}
+        onChange={onChange}
+      />,
+    )
+    fireEvent.change(getByTestId('review-target-commit-input'), { target: { value: '9cb7c5a' } })
+    expect(onChange).toHaveBeenLastCalledWith({ kind: 'commit', value: '9cb7c5a' })
   })
 
   it('点未提交档 ⇒ 上报 {kind:uncommitted, value:null}(diff 收集归发送链)', () => {
@@ -100,6 +137,32 @@ describe('ReviewTargetSelector(组件,受控)', () => {
     })
     fireEvent.click(getByTestId('review-target-clear'))
     expect(onChange).toHaveBeenCalledWith(null)
+  })
+})
+
+describe('review 选择条词条(票面三类目标新增键,五语齐备)', () => {
+  // 2026-10-27 装车新增的六个键:选择条文案走 key,组件测试只能用 key=>key 桩,
+  // 真实词包由这一条直读文件守住(缺一语言 ⇒ 该语下按钮显示原始 key)。
+  const NEW_KEYS = [
+    'reviewTargetBranch',
+    'reviewTargetBranchLabel',
+    'reviewTargetBranchPlaceholder',
+    'reviewTargetCommit',
+    'reviewTargetCommitLabel',
+    'reviewTargetCommitPlaceholder',
+  ] as const
+  const here = dirname(fileURLToPath(import.meta.url))
+  const MESSAGES_ROOT = join(here, '../../../../../../packages/i18n/messages/web')
+
+  it.each(['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const)('%s 六键齐备且非空', (locale) => {
+    const pack = JSON.parse(readFileSync(join(MESSAGES_ROOT, `${locale}.json`), 'utf8')) as {
+      chat?: Record<string, unknown>
+    }
+    for (const key of NEW_KEYS) {
+      const value = pack.chat?.[key]
+      expect(typeof value, `${locale}.${key}`).toBe('string')
+      expect((value as string).length, `${locale}.${key}`).toBeGreaterThan(0)
+    }
   })
 })
 

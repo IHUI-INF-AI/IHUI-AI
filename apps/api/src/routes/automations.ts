@@ -11,7 +11,8 @@
  *   - GET  /automations/:id        详情
  *   - PATCH /automations/:id       部分更新(name/prompt/rrule/scheduledAt/status)
  *   - DELETE /automations/:id      删除
- *   - POST /automations/:id/run-now 立即执行一次(复用调度器 executeAutomation)
+ *   - POST /automations/:id/run-now 立即执行一次(复用调度器 executeAutomation;
+ *     G-241 ①:先做行级 CAS 认领,已被执行体持有 ⇒ 409,不再重复起一次执行)
  *
  * 所有查询强制 where userId = req.userId 防越权。
  */
@@ -21,12 +22,14 @@ import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { userAutomations, chatConversations } from '@ihui/database'
+import type { AutomationTerminalReason } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
   DEFAULT_SCHEDULE_TIMEZONE,
   parseNextRun,
   executeAutomation,
+  claimAutomationRun,
 } from '../services/agent-automation-scheduler.js'
 import type { AutomationRepairService } from '../services/automation-repair-service.js'
 import { buildRepairService } from '../services/automation-repair-service.js'
@@ -374,6 +377,27 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
       nextRunAt = parseNextRun(rrule, new Date(), timezone)
     }
 
+    // G-241 ②(2026-10-26 立):终态成因跟着**人的动作**走。
+    // 机器那三档由调度器的结算出口写(services/agent-automation-scheduler.ts),这里只写人这一档:
+    //  · 人把行按停 ⇒ 'manual_pause'(它与"永久失败"过去在库里是同一个 paused,读不出来);
+    //  · 人把行恢复 ⇒ 终态结清(置 null)并清掉上一轮的失败文案;
+    //  · 人改排程把 once 行重新武装 ⇒ 'completed' 那档不得粘着(它还会再跑,不是已完成)。
+    const manualPaused = input.status === 'paused' && existing.status !== 'paused'
+    const resumedToActive = input.status === 'active' && existing.status !== 'active'
+    const reArmedOnce = existing.scheduleType === 'once' && input.scheduledAt !== undefined
+    let terminalReasonPatch: AutomationTerminalReason | null | undefined
+    if (manualPaused) terminalReasonPatch = 'manual_pause'
+    else if (resumedToActive || reArmedOnce) terminalReasonPatch = null
+
+    // 失败终态被人为恢复 ⇒ 必须重开重试预算。否则一枚刚撞到 MAX_TRANSIENT_ATTEMPTS 的行
+    // 在恢复后的**第一次**抖动(attempt+1 仍 > 上限)就被立刻判回终态,用户的"再试一次"等于没试。
+    // once 行要留 attempt=1 而不是 0:到期判据的重试分支(automationDueConditions 分支②)
+    // 认的就是 attempt>0 —— 归零会让恢复后的 once 行永远不再到期(那是另一种静默停摆)。
+    const wasFailureTerminal =
+      existing.terminalReason === 'failed_permanent' ||
+      existing.terminalReason === 'failed_retries_exhausted'
+    const reopenRetryBudget = resumedToActive && wasFailureTerminal
+
     const [row] = await db
       .update(userAutomations)
       .set({
@@ -385,6 +409,9 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
           : {}),
         ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
+        ...(terminalReasonPatch !== undefined ? { terminalReason: terminalReasonPatch } : {}),
+        ...(resumedToActive ? { lastError: null } : {}),
+        ...(reopenRetryBudget ? { attempt: existing.scheduleType === 'once' ? 1 : 0 } : {}),
         ...(input.conversationId !== undefined ? { conversationId: input.conversationId } : {}),
         ...(nextRunAt ? { nextRunAt } : {}),
         updatedAt: new Date(),
@@ -426,6 +453,18 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(userAutomations.id, parsed.data.id), eq(userAutomations.userId, userId)))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '自动化不存在'))
+
+    // G-241 ①(2026-10-26 立):run-now 也必须先**原子认领**再执行。
+    // 原先这里是 select → execute 两步,与调度器 tick 之间零互斥:同一次触发可以既被 tick 取走、
+    // 又被用户点一次"立即运行",两个执行体各打一次上游(会话产出重复、算力双扣)。
+    // requireDue=false:立即运行的语义就是"不到点也跑",但它不得抢正在被跑的那一行。
+    // 认领未命中(行正被执行体持有,或这一路已被别的请求抢先认领)⇒ 409,不重复起一次执行。
+    const claimToken = await claimAutomationRun(row.id, { requireDue: false })
+    if (claimToken === null) {
+      return reply
+        .status(409)
+        .send(error(409, '该自动化正在执行中(已被调度器或另一次立即运行认领),请等本轮结束'))
+    }
 
     const summary = await executeAutomation(row, request)
     if (summary === null) {

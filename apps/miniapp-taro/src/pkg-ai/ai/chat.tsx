@@ -1246,6 +1246,7 @@ export default function ChatPage() {
       activeAgentId,
       selectedMaterial,
       t,
+      tt,
       checkSpecialModel,
       pushStreamActivity,
       upsertCard,

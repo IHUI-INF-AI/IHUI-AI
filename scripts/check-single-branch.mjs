@@ -67,12 +67,7 @@ const C = {
 }
 
 /** 合法分支白名单(本地 main + 远程 main:origin/upstream;main 即 main) */
-const ALLOWED = new Set([
-  'main',
-  'origin/main',
-  'upstream/main',
-  'HEAD',
-])
+const ALLOWED = new Set(['main', 'origin/main', 'upstream/main', 'HEAD'])
 
 /**
  * sanctioned 发布产物分支(非开发分支,不违反单分支原则)。
@@ -85,10 +80,7 @@ const ALLOWED = new Set([
  * 该分支由 CI/发版脚本写入,人工严禁在此分支做功能开发。
  * 2026-10-23:Gitee/GitCode 代码镜像已弃用,镜像侧的 desktop-feed 跟踪引用一并移出白名单。
  */
-const SANCTIONED_RELEASE_BRANCHES = new Set([
-  'desktop-feed',
-  'origin/desktop-feed',
-])
+const SANCTIONED_RELEASE_BRANCHES = new Set(['desktop-feed', 'origin/desktop-feed'])
 
 /**
  * §9b 的现行前提已变:2026-09-27 起 main 开启分支保护(直推被 GH006 拒),每个代理的改动
@@ -200,13 +192,24 @@ export function mirrorRemoteSet(raw) {
 }
 
 /**
- * 纯判据:某条 `git branch -a` 条目是否属"本机不可处置"的两类豁免。
+ * 纯判据:某条 `git branch -a` 条目是否属"本机不可处置"的豁免族。
  * `entry.remote` 必须来自 `remotes/` **原文前缀**而非 for-each-ref 的成员判断 ——
  * 指向缺失对象的幻影 ref 会被 `git for-each-ref` **直接跳过**(实测 `origin/batch-58`
  * 出现在 branch -a 却不在 for-each-ref),用后者当 memberships 会让本豁免整体空转,
  * 这正是"改了判据但没生效"的形态。
+ *
+ * 2026-10-26 第五类豁免 `orphan`(治"退役远端的跟踪引用被当成工作分支判红"):
+ *   ① 原本按 `git remote` **现配清单**判镜像,`gitee` 远端 2026-10-23 弃用后从配置里摘掉,
+ *      而 `packed-refs` 里 4 条 `refs/remotes/gitee/*` 还在(manifest 也还记着)⇒ 它们掉出
+ *      mirror 档、又不属 origin/upstream 的 stale 档,于是被判红。本门给出的四条出路对它们
+ *      **全部不成立**:A 的 `git push origin --delete` 打的是别的 remote;B 的 `git branch -D`
+ *      对远程跟踪引用无效;C 是 goal 专用;D 的 `git fetch origin --prune` 只 prune origin 的
+ *      命名空间。=无解恒红挂在每次提交上(§12e/§12f:结局是全队 `--no-verify`)。
+ *   ② 这类引用本机确实不可处置:远端对象已不存在 ⇒ 推不掉;它也不是"在飞工作分支" ⇒ 无可合并。
+ *      §9b 禁的是**工作分支**,而它连分支都不是、只是本机缓存。
+ *   ③ 失效方向仍是"多拦":`configuredRemotes` 取不到(传 null)时**不**判 orphan,照旧计红。
  */
-export function nonLocalExempt(entry, { mirrorRemotes, unresolvable }) {
+export function nonLocalExempt(entry, { mirrorRemotes, unresolvable, configuredRemotes = null }) {
   if (!entry || !entry.remote) return null // 本地分支永远要判
   const b = entry.name
   const slash = b.indexOf('/')
@@ -215,7 +218,11 @@ export function nonLocalExempt(entry, { mirrorRemotes, unresolvable }) {
   if (remote === 'origin' || remote === 'upstream') {
     return unresolvable.has(b) ? 'phantom' : null // origin 上的真分支仍是要判的违规
   }
-  return mirrorRemotes.has(remote) ? 'mirror' : unresolvable.has(b) ? 'phantom' : null
+  if (mirrorRemotes.has(remote)) return 'mirror'
+  if (unresolvable.has(b)) return 'phantom'
+  // 远端名既不在配置清单、也不在镜像集合里 ⇒ 退役远端的残留跟踪引用(见上 2026-10-26 注)
+  if (configuredRemotes instanceof Set && !configuredRemotes.has(remote)) return 'orphan'
+  return null
 }
 
 /**
@@ -320,8 +327,17 @@ function main() {
   const worktreeBranches = getWorktreeBranches()
   /** 远端清单取不到时按空集 ⇒ 不豁免任何镜像引用(宁误拦,不静默放行) */
   let mirrorRemotes = new Set()
+  /** 现配远端全集(含 origin/upstream);取不到必须留 null ⇒ orphan 档整体失效(失效方向是多拦) */
+  let configuredRemotes = null
   try {
-    mirrorRemotes = mirrorRemoteSet(gitRaw(['remote'], ROOT, { timeout: 10000 }))
+    const rawRemotes = gitRaw(['remote'], ROOT, { timeout: 10000 })
+    mirrorRemotes = mirrorRemoteSet(rawRemotes)
+    configuredRemotes = new Set(
+      rawRemotes
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
   } catch {
     console.error(`${C.yellow}⚠️ git remote 取不到,镜像远端不豁免${C.reset}`)
   }
@@ -333,7 +349,14 @@ function main() {
         `mirrors=${[...mirrorRemotes].join(',')} unresolvable=${[...unresolvable].join(',')}`,
     )
   }
-  const exempt = { mirror: [], phantom: [], 'in-flight': [], backup: [], stale: [] }
+  const exempt = {
+    mirror: [],
+    phantom: [],
+    orphan: [],
+    'in-flight': [],
+    backup: [],
+    stale: [],
+  }
   /** 分支尖端提交时刻(一次 for-each-ref,不逐个起进程);取不到 ⇒ 空表 ⇒ 在飞豁免整段失效并如实喊出 */
   let tipTimes = new Map()
   let tipTimesOk = true
@@ -371,7 +394,7 @@ function main() {
         exempt[flight].push(b)
         return false
       }
-      const why = nonLocalExempt(entry, { mirrorRemotes, unresolvable })
+      const why = nonLocalExempt(entry, { mirrorRemotes, unresolvable, configuredRemotes })
       if (why) {
         exempt[why].push(b)
         return false
@@ -420,6 +443,14 @@ function main() {
         `${C.dim}ℹ️ 不判但如实报数:${exempt.phantom.length} 个幻影远程跟踪引用(${exempt.phantom.join(', ')})` +
           ` —— sha 不可解析(§5b:宿主清 depth≥2 的 refs/remotes/**,而 refs-heal 会按旧清单重建,` +
           `prune 只是治标)${C.reset}`,
+      )
+    }
+    if (exempt.orphan.length) {
+      console.log(
+        `${C.dim}ℹ️ 不判但如实报数:${exempt.orphan.length} 个退役远端的残留跟踪引用` +
+          `(${exempt.orphan.join(', ')}) —— 该远端名已不在 git remote 清单里(镜像仓弃用后摘配),` +
+          `本门四条出路对它都不成立(删的是别的 remote / 对远程跟踪引用无效 / 只 prune origin),` +
+          `故归"本机不可处置"只报数;要清干净得连 .git/refs-manifest.json 一起摘,否则 refs-heal 会重建${C.reset}`,
       )
     }
     if (exempt.stale.length) {
@@ -505,10 +536,7 @@ export function selfTest() {
 
   t('remote 清单:origin/upstream 不当镜像,gh/cn 算镜像', () => {
     return (
-      mirrors.has('cn') &&
-      mirrors.has('gh') &&
-      !mirrors.has('origin') &&
-      !mirrors.has('upstream')
+      mirrors.has('cn') && mirrors.has('gh') && !mirrors.has('origin') && !mirrors.has('upstream')
     )
   })
   t('镜像远端引用豁免为 mirror(含未配进 git remote 的 gh)', () => {
@@ -516,6 +544,35 @@ export function selfTest() {
       nonLocalExempt(e('gh/desktop-feed'), ctx()) === 'mirror' &&
       nonLocalExempt(e('gh/main'), ctx()) === 'mirror'
     )
+  })
+  // 2026-10-26:退役远端的残留跟踪引用(gitee 摘配后 packed-refs 还在)必须归 orphan,
+  // 否则本门对它给出的四条出路全部不成立 ⇒ 无解恒红挂在每次提交上(§12e)。
+  t('退役远端的残留跟踪引用豁免为 orphan(远端名不在 git remote 清单里)', () => {
+    const configured = new Set(['origin', 'upstream'])
+    return (
+      nonLocalExempt(e('gitee/main'), ctx({ configuredRemotes: configured })) === 'orphan' &&
+      nonLocalExempt(
+        e('gitee/ihui-backup/main-20260927-r1'),
+        ctx({ configuredRemotes: configured }),
+      ) === 'orphan'
+    )
+  })
+  t('反向对照:远端配着就不是 orphan(那是 mirror 档的射程)', () => {
+    const configured = new Set(['origin', 'upstream', 'gitee'])
+    const mirrorsWithGitee = new Set([...mirrors, 'gitee'])
+    return (
+      nonLocalExempt(
+        e('gitee/main'),
+        ctx({ mirrorRemotes: mirrorsWithGitee, configuredRemotes: configured }),
+      ) === 'mirror'
+    )
+  })
+  t('反向对照:remote 清单取不到(configuredRemotes=null)⇒ 不判 orphan,照旧计红', () => {
+    return nonLocalExempt(e('gitee/main'), ctx()) === null
+  })
+  t('反向对照:origin 上的真分支不因 configuredRemotes 被吞(豁免只对非 origin 远端)', () => {
+    const configured = new Set(['origin', 'upstream'])
+    return nonLocalExempt(e('origin/feat/x'), ctx({ configuredRemotes: configured })) === null
   })
   t('幻影 origin 引用豁免为 phantom', () => {
     return (
@@ -571,7 +628,8 @@ export function selfTest() {
       staleExempt('origin/wip/collect-2026-09-30', {
         remoteHeads: heads,
         remoteQueryable: true,
-      }) === null && staleExempt('origin/main', { remoteHeads: heads, remoteQueryable: true }) === null
+      }) === null &&
+      staleExempt('origin/main', { remoteHeads: heads, remoteQueryable: true }) === null
     )
   })
   t('反向对照:远端清单问不到 ⇒ 一律不豁免(失效方向是多拦,绝不静默放行)', () => {

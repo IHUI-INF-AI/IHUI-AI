@@ -2391,6 +2391,55 @@
       "when": 1792998000000,
       "tag": "20261026150000_ai_model_config_global_provider_base_uniq",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 345,
+      "when": 1793003400000,
+      "tag": "20261026163000_automation_claim_and_terminal_state",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 346,
+      "when": 1793007000000,
+      "tag": "20261026170000_sms_delivery_compliance",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 347,
+      "when": 1793010600000,
+      "tag": "20261026180000_sms_phone_protection",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 348,
+      "when": 1793064599000,
+      "tag": "20261027085959_default_avatar_admin_pre348",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 349,
+      "when": 1793064600000,
+      "tag": "20261027090000_default_user_avatar",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 350,
+      "when": 1793065500000,
+      "tag": "20261027091500_default_avatar_www",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 351,
+      "when": 1793075400000,
+      "tag": "20261027120000_automation_settlement_state_machine",
+      "breakpoints": true
     }
   ]
 }

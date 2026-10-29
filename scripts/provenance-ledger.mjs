@@ -71,7 +71,12 @@ import {
   expandRootsToFiles,
 } from './lib/third-party-roots.mjs'
 // git 二进制的取法只有一处实现(face-reader 的 gitBinary:绝对路径优先、失败才退回 PATH)
-import { gitBinary } from './lib/face-reader.mjs'
+import {
+  GIT_RETRY_MAX_ATTEMPTS,
+  gitBinary,
+  gitRetryPlan,
+  sleepSync,
+} from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 
 const SELF = fileURLToPath(import.meta.url)
@@ -180,27 +185,57 @@ const FACES = ['head', 'staged', 'worktree']
 /** 台账判定的「无法判定」——一律收敛到 exit 2,不得冒红也不得记绿。 */
 class Undetermined extends Error {}
 
+/**
+ * 2026-10-27 补:本门此前**没有任何一过性失败兜底** —— 并发批里 `cat-file`/`ls-tree` 被
+ * 抢不到派生/IO 而超时一次,整门就 `Undetermined` ⇒ exit 2,而 exit 2 在批量汇总里被读成判红
+ * (门 107 与 84/117 在 `gates-progress.log` 16:28:18 同一刻整排 fail 即此型)。
+ * 判据**复用取材层 `scripts/lib/face-reader.mjs` 的 `gitRetryPlan`/`sleepSync`**(§0.6 单一
+ * 真相源,不在本门写第二份重试判据):只对只读动词、只认一过性形态、只多跑两次,
+ * 仍失败就抛**第一次**的错误 —— 判定语义一字未改(仍落 exit 2 未判定)。
+ */
 function gitRun(root, args, { encoding = 'utf8', allowFail = false } = {}) {
-  try {
-    return execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
-      cwd: root,
-      encoding,
-      timeout: GIT_TIMEOUT_MS,
-      maxBuffer: 64 * 1024 * 1024,
-      windowsHide: true,
-      // stderr 一律吞掉:面探测(cat-file -e)对「不存在」这一正常结论会让 git 打一行 fatal,
-      // 那些噪声会淹没判据自己的输出;真失败仍由 e.status + e.stderr 抛成无法判定。
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-  } catch (e) {
-    // git grep 用退出码 1 表示「没匹配上」,那是正常结论而不是工具失效。
-    if (allowFail && (e?.status === 1 || e?.status === undefined))
-      return e?.status === 1 ? '' : null
-    if (allowFail) return null
-    throw new Undetermined(
-      `git ${args.join(' ')} 调用失败: ${String(e?.message ?? e).split('\n')[0]}`,
-    )
+  const maxAttempts = GIT_RETRY_MAX_ATTEMPTS
+  let first = null
+  let retryNote = ''
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+        cwd: root,
+        encoding,
+        timeout: GIT_TIMEOUT_MS,
+        maxBuffer: 64 * 1024 * 1024,
+        windowsHide: true,
+        // stderr 一律吞掉:面探测(cat-file -e)对「不存在」这一正常结论会让 git 打一行 fatal,
+        // 那些噪声会淹没判据自己的输出;真失败仍由 e.status + e.stderr 抛成无法判定。
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+    } catch (e) {
+      if (attempt === 0) first = e
+      const errStatus = typeof e?.status === 'number' ? e.status : null
+      const errSignal = e?.signal ?? null
+      const plan = gitRetryPlan({
+        verb: String(args[0] ?? ''),
+        code: e?.code ?? null,
+        status: errStatus,
+        signal: errSignal,
+        stderrText: e?.stderr === undefined || e?.stderr === null ? '' : String(e.stderr),
+        attempt,
+        maxAttempts,
+      })
+      if (!plan.apply) break
+      retryNote = plan.why
+      sleepSync(plan.delayMs)
+    }
   }
+  const e = first
+  // git grep 用退出码 1 表示「没匹配上」,那是正常结论而不是工具失效。
+  if (allowFail && (e?.status === 1 || e?.status === undefined)) return e?.status === 1 ? '' : null
+  if (allowFail) return null
+  // 点名三件事(§0.3 未判定必须点名原因):动词、重试经过、git 原话。
+  const tried = retryNote ? `(已${retryNote}仍失败)` : ''
+  throw new Undetermined(
+    `git ${args.join(' ')} 调用失败${tried}: ${String(e?.message ?? e).split('\n')[0]}`,
+  )
 }
 
 /**

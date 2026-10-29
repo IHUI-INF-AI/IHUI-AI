@@ -229,6 +229,25 @@ export function siblingGitdir(worktree) {
   return normalizePath(join(dir, `${name}-git-repo`))
 }
 
+/**
+ * 从 `.git` 文本里解出 `gitdir:` 指向(纯函数,不做 IO)。
+ *
+ * 为什么要抽出来:同一行判据此前在 `resolveGitdir` 里是内联正则,而守护的**修复面**
+ * (git-guardian 的指针腿)也要问同一件事——"这个普通文件到底是不是合法 gitfile"。
+ * 两份必然漂移(§0.6),而漂移的方向是安静的:解析侧认它是指针、修复侧认它是垃圾,
+ * 就会把一台好机上的一行文本当现场归档掉,或反过来把 25MB 的异形现场当合法指针直接覆盖。
+ *
+ * 语义与抽出前逐字一致:先整段 trim,再要求**全文**恰好是一行 `gitdir: <目标>`
+ * (无 `m` 旗 ⇒ 多行文本不解出,返回 null),目标里的反斜杠归一为正斜杠。
+ * @param {string|null|undefined} text `.git` 文件内容
+ * @returns {string|null} 归一化后的指向路径;内容不是合法 gitfile ⇒ null(不猜)
+ */
+export function parseGitdirPointer(text) {
+  if (typeof text !== 'string') return null
+  const m = text.trim().match(/^gitdir:\s*(.+)$/i)
+  return m ? m[1].trim().replace(/\\/g, '/') : null
+}
+
 export function resolveGitdir(worktree) {
   const wt = worktree || resolveWorktree()
   const bin = resolveGitBin()
@@ -252,10 +271,8 @@ export function resolveGitdir(worktree) {
   // 回退:读 `.git` 指针文件(separate-git-dir 形态)
   const pointer = join(wt, '.git')
   try {
-    const raw = readFileSync(pointer, 'utf8').trim()
-    const m = raw.match(/^gitdir:\s*(.+)$/i)
-    if (m) {
-      const p = m[1].trim().replace(/\\/g, '/')
+    const p = parseGitdirPointer(readFileSync(pointer, 'utf8'))
+    if (p) {
       const abs = isAbsolute(p) ? p : join(wt, p)
       // 自指指针(`gitdir: <worktree>/.git`)是损坏态:照它解析会让 needsGitdirPointer() 返回
       // false,于是 pointerOk() 把"文件存在"当健康 → 僵尸化;且 GITDIR 落在工作树内,

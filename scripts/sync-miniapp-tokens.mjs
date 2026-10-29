@@ -568,6 +568,20 @@ function projectSelectorsForWeapp(baseCss) {
 }
 
 /**
+ * 空白归一 —— **只**用于"这段受管内容与源是否等价"的判定,绝不用于替换。
+ *
+ * 立因(2026-10-28 实测):base.css 里那条 `:where(input[type='checkbox'], …)` 是**单行**,
+ * 投影拆掉 `:where()` 后也是单行;而 app.css 里同一段被 prettier 折成四行(每选择器一行)。
+ * 于是"按字节比"永远不等 ⇒ `--check` **恒红**,且每次自动写回都把它改回单行 ⇒
+ * 与格式门(CI 的 check-format-changed)互相打架 —— 每笔提交都在悄悄制造格式债。
+ * CSS 里换行/缩进不改变任何语义,所以判定必须按"值"而不按"排版";真要换内容时仍整段写回
+ * (写回后的排版差异下一轮归一后即相等,不会再震荡)。
+ */
+function normalizeCssWs(text) {
+  return String(text).replace(/\s+/g, ' ').trim()
+}
+
+/**
  * base.css 段原位写回:只换两段标记注释之间的内容,标记本身与块外一行不碰。
  * 块内是**按目标端投影**(wxss 不认的 `:where()` 拆包,见 projectSelectorsForWeapp);
  * base.css 自带的 §5c 零宽横幅原样搬,不剥不改。
@@ -583,7 +597,9 @@ export function mergeAppCssBase(css, baseCss) {
     const close = css.indexOf(BASE_CLOSE, contentStart)
     if (close < 0) throw new Undetermined('base.css 受管段缺少结束标记')
     if (css.indexOf(BASE_CLOSE, close + 1) >= 0) throw new Undetermined('base.css 受管段结束标记重复')
-    return css.slice(contentStart, close) === body ? css : css.slice(0, contentStart) + body + css.slice(close)
+    // 等价即原样返回(幂等):排版差异不是漂移,重写它等于抹掉 prettier 的成果。
+    if (normalizeCssWs(css.slice(contentStart, close)) === normalizeCssWs(body)) return css
+    return css.slice(0, contentStart) + body + css.slice(close)
   }
   if (BASE_IMPORT_RE.test(css)) {
     return css.replace(

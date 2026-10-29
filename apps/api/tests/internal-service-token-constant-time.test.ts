@@ -47,6 +47,15 @@ vi.mock('../src/config/index.js', async (importOriginal) => {
 import { checkInternalServiceToken, secretsEqual } from '../src/plugins/internal-service-token'
 
 const SECRET = 'internal-secret-value-for-tests-0123456789'
+/**
+ * 主体一律取 uuid 形态(2026-10-28 改):`users.id` 是 uuid 列,而 `injectVerifiedUser`
+ * 现在在 SQL 之前就有 uuid 形状闸 —— 非 uuid 主体走的是"零查询直接 401"那一臂
+ * (由 tests/internal-service-uuid-subject.test.ts 专门盖住),会把本文件的
+ * "票对不对 / 用户在不在"两维判序搅浑。这一把是 v4 形态,与真库 defaultRandom() 同形。
+ */
+const UID = '6b8cd0f6-546f-44c8-853a-5f96edbe08be'
+/** uuid 形态、但库里没有这一行 —— 走的必须是"查过库再 401",与形状闸的"零查询 401"分档。 */
+const GHOST_UID = '3f2a4b6c-0000-4000-8000-000000000000'
 
 describe('secretsEqual:长度与内容都要盖住', () => {
   it('同值 ⇒ true(含非 ASCII;UTF-8 字节序一致才算同一把)', () => {
@@ -91,18 +100,18 @@ describe('checkInternalServiceToken:判定结论一字未变', () => {
   }
 
   it('对票 + 用户存在且活跃 ⇒ true 并注入 userId', async () => {
-    mockSelect.mockResolvedValue([{ id: 'user-1', status: 1, roleId: 0 }])
-    const r = await call({ 'x-internal-service-token': SECRET, 'x-user-id': 'user-1' })
+    mockSelect.mockResolvedValue([{ id: UID, status: 1, roleId: 0 }])
+    const r = await call({ 'x-internal-service-token': SECRET, 'x-user-id': UID })
     expect(r.ok).toBe(true)
   })
 
   it('错票 ⇒ 401(等长与不等长两种结论必须同形,不许因长度走到不同分支)', async () => {
-    mockSelect.mockResolvedValue([{ id: 'user-1', status: 1, roleId: 0 }])
+    mockSelect.mockResolvedValue([{ id: UID, status: 1, roleId: 0 }])
     const sameLen = await call({
       'x-internal-service-token': SECRET.replace(/9$/, '8'),
-      'x-user-id': 'user-1',
+      'x-user-id': UID,
     })
-    const diffLen = await call({ 'x-internal-service-token': 'x', 'x-user-id': 'user-1' })
+    const diffLen = await call({ 'x-internal-service-token': 'x', 'x-user-id': UID })
     expect(sameLen.code).toBe(401)
     expect(diffLen.code).toBe(401)
     // 关键:错票必须在**查库之前**就被拒 ⇒ 两条臂都不许触到 select
@@ -110,15 +119,16 @@ describe('checkInternalServiceToken:判定结论一字未变', () => {
   })
 
   it('缺 x-user-id ⇒ 400(格式校验是第二道门,与"票不对"分档)', async () => {
-    mockSelect.mockResolvedValue([{ id: 'user-1', status: 1, roleId: 0 }])
+    mockSelect.mockResolvedValue([{ id: UID, status: 1, roleId: 0 }])
     const r = await call({ 'x-internal-service-token': SECRET })
     expect(r.code).toBe(400)
   })
 
-  it('对票但库里没有这个用户 ⇒ 401', async () => {
+  it('对票但库里没有这个用户 ⇒ 401(且查询真的跑了 —— 与形状闸的零查询 401 分档)', async () => {
     mockSelect.mockResolvedValue([])
-    const r = await call({ 'x-internal-service-token': SECRET, 'x-user-id': 'ghost' })
+    const r = await call({ 'x-internal-service-token': SECRET, 'x-user-id': GHOST_UID })
     expect(r.code).toBe(401)
+    expect(mockSelect).toHaveBeenCalled()
   })
 })
 

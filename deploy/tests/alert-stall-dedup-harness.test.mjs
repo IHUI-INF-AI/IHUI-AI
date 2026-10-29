@@ -58,7 +58,7 @@ test('T1 判据本体:harness 必须零 FAIL 且退出码为 0', () => {
   assert.ok(m, `harness 没打印计数行 ⇒ 它可能崩在半路。输出头:\n${out.slice(0, 500)}`)
   const [, p, f] = m
   assert.equal(Number(f), 0, `harness 有 ${f} 条 FAIL(通过 ${p} 条):\n${out}`)
-  assert.ok(Number(p) >= 28, `用例数掉到 ${p} 条(<28)⇒ 覆盖面在缩水;2026-10-21 现读 29 条,少一条就得问是谁摘的`)
+  assert.ok(Number(p) >= 58, `用例数掉到 ${p} 条(<58)⇒ 覆盖面在缩水;2026-10-26 现读 58 条,少一条就得问是谁摘的`)
   assert.equal(r.status, 0, `harness 退出码 ${r.status} 而非 0`)
 })
 

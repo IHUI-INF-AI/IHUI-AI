@@ -40,6 +40,57 @@
 //
 // 消费方式只能是子路径 `@ihui/shared/ui/model-config-dialog-spec`,**禁止挂根桶**。
 
+/**
+ * ── O02 票④(第 ④ 格)收口证据:本族差异档逐条归属(2026-10-28 现读)────────────────
+ * 读数(`node scripts/check-cross-end-ui-parity.mjs --json`,face=head,HEAD 977d324b22):
+ *   findings[ModelConfigDialog] = diffCount 6(几何仅小程序 37 / 几何仅 RN 2·10·25·32·64)/
+ *   radiusCount 0 / elementRadiusCount 0。
+ *   SL ModelConfigDialog(5)= 仅小程序引用 MODEL_CONFIG_UPLOAD_TILE_PX、MODEL_CONFIG_SWITCH_THUMB_PX
+ *   | 仅 RN 引用 MODEL_CONFIG_UPLOAD_MARK_PX、MODEL_CONFIG_RECORD_BUTTON_PX、MODEL_CONFIG_RECORD_GLYPH_PX。
+ *   RE 维零判据:两侧无一同名元素(仅小程序具名 mcd-audio-menu / mcd-delete-btn / mcd-upload-btn,
+ *   RN 同槽位是 className 圆角、无元素名)⇒ elementRadiusCount 0 是"这一维没判",不是"已一致"。
+ *
+ * ⚠️ 本节 A/B/C 是 O02 票④的**差异档归因口径**,与上文常量的【A 两端同档】/【B 单端档】
+ * 标记不是同一套字母含义:A = 一端根本没有该元素(往另一端补引用 = 往屏幕上加一个不存在的
+ * 节点);B = 同一元素两端各取一档(取任一端会破另一端版,属产品裁决面);C = 同槽位两端各由
+ * 自身机制决定。**这三类都不收敛。**
+ *
+ * 8 条单侧事实(几何 6 档 + 只多出两枚单侧具名档 18/24)逐条归属 —— **A 8 条 / B 0 / C 0**:
+ *   仅小程序 37  MODEL_CONFIG_UPLOAD_TILE_PX   方形上传图块(标签在块外);RN 同槽是"虚线卡 + 标签在
+ *               卡内",宽 80 由 modelConfigUploadCardStyle 投影 —— 函数内投影的档门读不到(80 不在
+ *               RN 值集合里),结构分叉仍按文件头"未决结构分叉"处理,本票不动
+ *   仅 RN 2      selecter 变体描述行 `mt-0.5`;小程序本组件无 selecter 变体(纯模型选择走 Selecter.taro)
+ *   仅 RN 10     音色下拉触发/下拉行 `px-2.5 py-2.5` 与两枚底部按钮 `py-2.5`;小程序本组件不渲染
+ *               这些元素(音色选择是 chip 组、弹窗无底部按钮组)—— chip 与下拉是两枚不同元素,
+ *               不是"同一个量的两条写法",故不记 C
+ *   仅 RN 25     MODEL_CONFIG_UPLOAD_MARK_PX    上传卡内"状态标记盒";小程序票⑤续后图块内直接落
+ *               BLOCK_GLYPH 字形,不再内套盒 ⇒ RN 单侧盒档(上文注释已登记)
+ *   仅 RN 32     selecter 变体空态 `py-8`;同上,小程序无该变体
+ *   仅 RN 64     MODEL_CONFIG_RECORD_BUTTON_PX  录音按钮;小程序无录音界面(克隆音色走
+ *               `Taro.chooseMessageFile`)
+ *   仅小程序 18  MODEL_CONFIG_SWITCH_THUMB_PX    自绘开关拇指;RN 用平台 `<Switch>`,原生控件不暴露
+ *               几何档(机制差异;与 BLOCK_GLYPH 的 18 只是巧合,不是同一元素)
+ *   仅 RN 24     MODEL_CONFIG_RECORD_GLYPH_PX   录音按钮内字形;同 64,小程序无该界面
+ *
+ * B 同一元素两端各取一档:**0 枚** —— 两端共用的 9 枚档(输入行内衬 / 胶囊三档 / 标签间距 /
+ *   音色弹窗两档 / 行内字形 / 块内字形)已全部由两端**直接引本表且同值**,不存在"同元素取不同值"
+ *   可收敛的档;C 同槽位两端各由自身机制决定:**0 枚**。
+ *
+ * ⇒ 真收敛 **0 处**(没有"两端同值却各写一份"那一型):共用档两端都在引本表,其余档另一端没有该
+ *   元素或属未决结构分叉。counts 维持 6 / 0 / 0,**不为消差异给单端补数字或补引用**。
+ *
+ * 端内残迹(只登记,本票不代裁):`ModelConfigDialog.css` 的 `.mcd-upload-btn` 与 `.mcd-delete-btn`
+ *   在 HEAD 面**零消费方**(TSX 只用了 `.mcd-audio-menu`),其中 `.mcd-delete-btn` 的
+ *   `width/height: 32rpx`(=16)与 MODEL_CONFIG_DELETE_BADGE_PX(20)同槽不同值 —— 这是**同一端**的
+ *   第二份真相,不是跨端分叉;删除属单独动作(§7 三问已能答:零功能负载、内联 spec 为等价实现)。
+ *   另 `.mcd-audio-menu` 的 `--radius-md`(6)↔ RN 同槽 `rounded-xl`(12)在 RE 维**看不见**
+ *   (两侧不同名),属门 128 覆盖面缺口,另票。
+ *
+ * 逐条归属由 `packages/shared/src/ui/__tests__/model-config-dialog-wiring.test.ts` 机器钉住:
+ * 14 枚导出档三分(9 两端直引 / 2 仅小程序 / 3 仅 RN)+ 两端落屏 px 现算 + 端内块级反向锁 +
+ * 6 条几何差异档事实表与台账 counts 同批对账 + 幻影档/补引用凑平/出处改值三条变异自证。
+ */
+
 /** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
 export type GeometryUnit<U extends string | number> = (px: number) => U
 

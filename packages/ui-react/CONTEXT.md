@@ -24,8 +24,8 @@ apps/miniapp-taro、apps/mobile-rn 均为 0 —— **非 React(web 形态)宿主
 - `src/index.ts` 递出:`cn`、Esc 层栈(`pushOverlay` / `popOverlay` / `guardEscKeyDown`,2026-09-26 立的
   单栈协议)、`lucide-react` 全量 `export *`(图标唯一入口,禁止各端散落 `import 'lucide-react'`)、
   Button/Input/SearchInput/Label/Card/StatCard/Dialog/Sheet/Drawer/Select/Table/Tooltip 等具名导出。
-- 目录:`src/components/`(34 项,含 `login-form/` 11 个文件)、`src/lib/`(5 项:`utils.ts`、
-  `overlay-stack.ts`、`use-esc-stack.ts`、`remember-credentials.ts`、`artifact-preview.ts`)、
+- 目录:`src/components/`(34 项,含 `login-form/` 11 个文件)、`src/lib/`(4 项:`utils.ts`、
+  `overlay-stack.ts`、`use-esc-stack.ts`、`remember-credentials.ts`)、
   `src/styles/`(只有 `auth-shell.css`、`login-form.css` 两份)、`src/page-shell.tsx`。
 
 ## 3. 依赖方向与边界
@@ -51,4 +51,5 @@ AGENTS §4 在本模块的具体化:档位是唯一真相源,不得用 className
   统一档位属后续批次 —— 现值请跑守门脚本读,勿按本文数字派单。
 - 未取证:本包 dist 是否被任何宿主按产物路径解析(实测 `exports` 只给源码路径);
   `page-shell.tsx` 的消费方未逐一核对,故不声明"已被 web 端使用"。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

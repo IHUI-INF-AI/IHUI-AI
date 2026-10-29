@@ -322,6 +322,36 @@ async def list_ai_skills(category: str = "ai-top") -> dict[str, Any]:
     return _ok([_serialize_skill(s) for s in skills])
 
 
+class ReloadSkillsRequest(BaseModel):
+    """`POST /ai-skills/reload` 入参(控制帧 `reload_skills`)。
+
+    force=true(默认)绕过 mtime 判据做全量重扫:用户手改 SKILL.md 后 mtime 可能不变
+    (同秒连写 / 编辑器保留 mtime),只走增量会把"改了没生效"报成"没有变化"。
+    """
+
+    force: bool = Field(default=True, description="true=全量重扫(默认);false=只走 mtime 增量")
+
+
+@router.post("/reload", response_model=ApiEnvelope)
+async def reload_ai_skills(req: ReloadSkillsRequest | None = None) -> dict[str, Any]:
+    """运行时热重载 auto 来源的技能(控制帧 `reload_skills`)。
+
+    缺失帧的由来(D141 正本 + D202 防翻案注记):`services/skills.py` 里只有 mtime
+    驱动的 `reload_auto`(引擎自扫描、对宿主零回报),所以用户改完 SKILL.md 只能重启
+    服务才生效 —— 自动重载 ≠ 宿主可调控制帧。本端点补的正是那一格,并且**必须回报差额**:
+    前端只显示"已重载"而无从判断到底有没有生效,等于把一次静默失败包装成成功态。
+
+    Args:
+        req: `{"force": true}` 绕过 mtime 判据做全量重扫(默认);`false` 只走增量。
+            mtime 在同秒连写或编辑器保留 mtime 时不变,只认增量会漏掉"改了没生效"。
+
+    Returns:
+        data = `{total, auto, added[], removed[], changed[], unchanged, lastReload, forced, sourceDirs[]}`
+    """
+    force = True if req is None else bool(req.force)
+    return _ok(skill_registry.reload(force=force))
+
+
 @router.get("/recommendations", response_model=ApiEnvelope)
 async def get_recommendations(
     context: str = "",

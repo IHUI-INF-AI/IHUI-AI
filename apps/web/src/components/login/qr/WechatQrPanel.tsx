@@ -17,6 +17,32 @@ interface WechatQrPanelProps {
   refreshKey: number
 }
 
+/**
+ * 扫码面板外框统一尺寸(2026-10-27 修正)。
+ *
+ * 旧值 `h-[260px] w-full max-w-[280px]`(280×260)有两个硬伤:
+ *  1. **不是 1:1 正方形** —— 宽高写死成两个互不相干的数,永远凑不出正方形;
+ *  2. **必然裁掉二维码** —— 微信 wxLogin.js / 企微 wwLogin-1.2.7.js 生成的 iframe
+ *     尺寸在 SDK 里写死为 `width=300px height=400px`(已抓源码验证),塞进 280×260
+ *     的框 + `overflow-hidden`,横向被 max-w-full 压窄、纵向被裁掉 140px。
+ *
+ * 现用 `aspect-square` 强制 1:1,边长默认 300(与 SDK iframe 原生宽度对齐,不缩放、
+ * 不模糊),窄屏由 w-full 自适应为「可用宽 × 可用宽」。
+ *
+ * 为什么 300 高就够(iframe 明明是 400 高):iframe 内二维码经 /qr-styles/*.css
+ * 强制垂直居中,上下各留 60px 空白;容器只要 ≥ 二维码边长,裁掉的就是空白不是码。
+ * 尺寸关系与推导见 `public/qr-styles/wecom-qr.css` 头部注释。
+ */
+export const QR_PANEL_BOX =
+  'relative mx-auto flex aspect-square w-full max-w-[300px] items-center justify-center overflow-hidden rounded-xl border bg-card shadow-sm'
+
+/**
+ * 状态态外框(未配置 / 加载 / 成功 / 失败):与 QR_PANEL_BOX 同尺寸 1:1,内容纵向排列。
+ * 不含 gap —— 调用方按需自带 gap-2 / gap-3,避免同一元素上两个 gap-* 互相打架。
+ */
+export const QR_PANEL_STATE_BOX =
+  'mx-auto flex aspect-square w-full max-w-[300px] flex-col items-center justify-center rounded-xl border bg-card px-4 text-center shadow-sm'
+
 export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
   const t = useTranslations('auth')
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -95,7 +121,7 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
   // React cleanup 试图 removeChild 时节点已不存在 → "Failed to execute 'removeChild' on 'Node'"
   // 修复:SDK 挂载点(sdkContainerRef)与 React 子节点(Loader2)分层渲染,互不干扰
   return (
-    <div className="relative mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-xl border bg-card">
+    <div className={QR_PANEL_BOX}>
       <div
         ref={containerRef}
         id={containerId}
@@ -111,7 +137,7 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
 export function UnconfiguredState({ platform }: { platform: string }) {
   const t = useTranslations('auth')
   return (
-    <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border bg-muted/30 px-4 text-center">
+    <div className={`${QR_PANEL_STATE_BOX} gap-2 bg-muted/30`}>
       <p className="text-sm text-muted-foreground">{t('qrNotConfigured', { platform })}</p>
     </div>
   )
@@ -120,7 +146,7 @@ export function UnconfiguredState({ platform }: { platform: string }) {
 export function ErrorState({ message }: { message: string }) {
   const t = useTranslations('auth')
   return (
-    <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-4 text-center">
+    <div className={`${QR_PANEL_STATE_BOX} gap-2 border-destructive/30 bg-destructive/5`}>
       <p className="text-sm text-destructive">{t('qrSdkLoadFailed')}</p>
       <p className="text-xs text-muted-foreground">{message}</p>
     </div>

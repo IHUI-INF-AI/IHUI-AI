@@ -17,8 +17,13 @@ export interface CommentWithMeta extends Comment {
 }
 
 interface ListCommentsOpts {
-  resourceType: string
-  resourceId: string
+  /** 三者至少给一个:resource 对(公开列表面)或 authorId(/comments/mine 自范围面)。 */
+  resourceType?: string
+  resourceId?: string
+  /** 作者维(comments.user_id)。由路由层从令牌取,不接受客户端自报(§5 认证不等于授权)。 */
+  authorId?: string
+  /** authorId 面要同时看到顶级与回复,不再套「默认只回顶级」语义 */
+  anyDepth?: boolean
   parentId?: string | null
   page: number
   pageSize: number
@@ -34,15 +39,27 @@ interface ListCommentsOpts {
 export async function findComments(
   opts: ListCommentsOpts,
 ): Promise<{ list: CommentWithMeta[]; total: number }> {
-  const baseConds = [
-    eq(comments.resourceType, opts.resourceType),
-    eq(comments.resourceId, opts.resourceId),
-  ]
+  const baseConds: ReturnType<typeof eq>[] = []
+  const hasResource = Boolean(opts.resourceType && opts.resourceId)
+  if (hasResource) {
+    baseConds.push(
+      eq(comments.resourceType, opts.resourceType!),
+      eq(comments.resourceId, opts.resourceId!),
+    )
+  }
+  if (opts.authorId) baseConds.push(eq(comments.userId, opts.authorId))
+  // 不开无界全表面:既无 resource 对也无作者 ⇒ 直接抛,而不是退化成"全库评论"
+  if (!hasResource && !opts.authorId) {
+    throw new Error('findComments 需要 resourceType+resourceId 或 authorId 之一')
+  }
   // parentId 为非空字符串：按父评论过滤；为 null/undefined：返回顶级评论
+  // anyDepth(作者自范围面)不套顶级语义,否则"我的评论"会漏掉全部回复
   const parentIdCond = opts.parentId
     ? eq(comments.parentId, opts.parentId)
-    : isNull(comments.parentId)
-  baseConds.push(parentIdCond)
+    : opts.anyDepth
+      ? undefined
+      : isNull(comments.parentId)
+  if (parentIdCond) baseConds.push(parentIdCond)
   const where = and(...baseConds)
 
   const likedByMeExpr = opts.currentUserId

@@ -28,6 +28,7 @@ import { config } from '../config/index.js'
 import { decryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
+import { resolveAccountProxyUrl } from './relay-proxy-pool.js'
 
 // =============================================================================
 // 平台映射(D5 单一真相源:号池侧只此一张表,Python 侧零映射逻辑)
@@ -42,6 +43,16 @@ const PROVIDER_TO_CHECKIN: Record<RelayProviderCode, CheckinPlatform | null> = {
   qoder: 'qoder',
   // codearts:华为云码道账号,无签到引擎 ⇒ 永不进签到池(映射即拦截)
   codearts: null,
+  // 2026-10-27 扩容八平台:minimax 在 ai-service internal_checkin_pool 白名单内(真引擎);
+  // 其余七平台无签到引擎 ⇒ null(映射即拦截,导入不被要求签到动作)
+  minimax: 'minimax',
+  codex: null,
+  opencode: null,
+  zcode: null,
+  loomy: null,
+  doubao: null,
+  lingma: null,
+  grokbot: null,
 }
 
 /** providerCode → 签到平台;未知平台或无签到引擎 → null(调用方整批跳过) */
@@ -326,6 +337,7 @@ export interface CheckinSyncPendingRow {
   refreshTokenEnc: string | null
   /** 设备证明密钥对的密文列(补链 2026-10-26;与 tokenEnc 同级,仅推送时解密) */
   secretsEnc: string | null
+  /** 账号级出口代理的**密文**列(推送前 decryptField 还原,见 resolveAccountProxyUrl) */
   proxyUrl: string | null
   deviceId: string | null
   machineId: string | null
@@ -524,7 +536,7 @@ export async function retryPendingCheckinSyncs(
         refreshToken: row.refreshTokenEnc ? decryptField(row.refreshTokenEnc) : null,
         credVersion: row.credVersion,
         enabled: row.isEnabled,
-        proxyUrl: row.proxyUrl,
+        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
         deviceId: row.deviceId,
         machineId: row.machineId,
         cosy: extractCosy(row.extraMetadata),

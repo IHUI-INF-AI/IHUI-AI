@@ -23,9 +23,9 @@ import { recordAnalyticsEvents, recordVisitLog } from '@ihui/api-client'
 /** 同屏 3 秒内只报一次(与 web / RN 同档)。 */
 export const MP_VISIT_DEBOUNCE_MS = 3000
 /** 页面栈轮询间隔。 */
-export const MP_VISIT_POLL_MS = 2000
+const MP_VISIT_POLL_MS = 2000
 /** 停留低于 1 秒不报(按整秒四舍五入后):轮询抖动产生的"零点几秒停留"进均值只会把数字拉向 0。 */
-export const MP_MIN_PAGE_TIME_SEC = 1
+const MP_MIN_PAGE_TIME_SEC = 1
 
 /** 进程内会话 id(冷启动一个值,与 web 的 sessionStorage 语义对齐)。 */
 const SESSION_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
@@ -89,6 +89,38 @@ export function reportPageView(route: string | null | undefined, now = Date.now(
   try {
     // 走共享 api-client(守门 184:端内不得手拼 baseUrl 直连后端);失败静默
     void recordVisitLog({ url: path, sessionId: SESSION_ID }).catch(() => {
+      /* 埋点失败静默 */
+    })
+  } catch {
+    /* 埋点失败静默 */
+  }
+  return true
+}
+
+/**
+ * 结算当前页停留并清空在页状态(退后台收口,app.tsx 的 onAppHide 里调)。
+ *
+ * 立因(2026-10-27):页面栈轮询只在**前台**跑,用户切走小程序时最后一页的停留
+ * 永远丢(会话末页在 page_time 里结构性缺席,数据大屏「页面停留」对末页恒盲)。
+ * 判据与换页结算同一条(≥1 秒才报);没有在页记录时是 no-op。
+ * 返回是否真的发出了上报(供测试断言);回前台后轮询的 reportPageView 会重新进页。
+ */
+export function settlePageTime(now = Date.now()): boolean {
+  if (!enterPath) return false
+  const path = enterPath
+  const seconds = Math.round((now - enterAt) / 1000)
+  enterPath = ''
+  enterAt = 0
+  if (seconds < MP_MIN_PAGE_TIME_SEC) return false
+  try {
+    void recordAnalyticsEvents([
+      {
+        name: 'page_time',
+        category: 'user_engagement',
+        label: path,
+        value: seconds,
+      },
+    ]).catch(() => {
       /* 埋点失败静默 */
     })
   } catch {

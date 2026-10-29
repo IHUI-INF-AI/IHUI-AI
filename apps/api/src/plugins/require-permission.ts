@@ -8,6 +8,9 @@ import { checkInternalServiceToken, hasInternalServiceToken } from './internal-s
 import { checkAnyPermission } from '../db/rbac-queries.js'
 import { error as errorResponse } from '../utils/response.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
+import { config } from '../config/index.js'
+import { logger } from '../utils/logger.js'
+import { getTotpStatus, type TotpBindingStatus } from '../services/totp-service.js'
 
 /**
  * 与 admin 路由一致：roleId >= 1 视为系统管理员，直接放行所有权限。
@@ -143,11 +146,119 @@ export const requireAuth = async (request: FastifyRequest, reply: FastifyReply):
 }
 
 /**
+ * 管理员 TOTP 闸档位(2026-10-28 安全审计)。
+ * - `off`:完全不检查(回滚口子)
+ * - `warn`:未绑 TOTP 的管理员放行,仅记结构化告警(env 默认值)
+ * - `enforce`:未绑 TOTP 的管理员访问 admin 面 → 403
+ */
+export type AdminTotpMode = 'off' | 'warn' | 'enforce'
+
+/**
+ * 解析档位。
+ *
+ * `config.ADMIN_TOTP_MODE` 由 envSchema 兜底(缺省 `warn`),**真实 config 恒有值** ——
+ * 运行时不存在"字段缺失"这一态。唯一可能出现 undefined 的是旧测试里手写的 config
+ * mock(它们整对象替换 config),这类 mock 走的是"加固前的旧判据"回退(同 config/index.ts
+ * 里 `isProductionGuard` 的既有约定),否则给每个 admin 测试塞一次额外查询会整体打乱
+ * 它们的 `mockResolvedValueOnce` 序列 —— 那是测试装置问题,不该由安全闸来兜。
+ * 显式写错档位名(如 `enforc`)仍按 `warn` 处理:拼错不该静默关门,也不该静默锁死后台。
+ */
+function resolveAdminTotpMode(): AdminTotpMode {
+  const raw = (config as { ADMIN_TOTP_MODE?: string }).ADMIN_TOTP_MODE
+  if (raw === undefined) return 'off'
+  return raw === 'off' || raw === 'enforce' ? raw : 'warn'
+}
+
+/**
+ * 管理员 TOTP 闸:管理员账号未绑定 TOTP 时的处置。
+ *
+ * 背景(2026-10-28 安全审计):`/auth/2fa/*` 的三条登录路已强制"**已开启** TOTP 的账号"
+ * 过二次校验,但"管理员**必须**开启 TOTP"这道闸此前不存在 —— 管理员不主动开 2FA,
+ * 就能纯密码登录后走 requireAdmin 保护的全部 admin 路由。
+ *
+ * 设计约束(逐条对应安全审计要求):
+ *  1. **默认只告警**:`warn` 放行 + 一条 `event: 'admin_totp_unbound'` 的结构化日志
+ *     (含 userId / path / method),供运维盘点存量未绑账号;绝不因本闸锁死生产管理后台。
+ *  2. **查询失败一律放行**(含 db 驱动异常、mock 缺方法):闸门的职责是"确认未绑才拦",
+ *     不能把"查不到"当成"未绑" —— 否则数据库抖动会整体 403 掉 admin 面,这正是要避免的事故。
+ *  3. **一次主键查询、无缓存**:见 totp-service.getTotpStatus;绑定了要立刻生效。
+ *  4. 判定对象是"人用 JWT 链路"(调用处已用 `includeInternalChannel: false` 定过 roleId),
+ *     internal service token 链路到不了这里。
+ *
+ * @returns true = 已拦截并发出 403 响应;false = 放行
+ */
+async function checkAdminTotpGate(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  const mode = resolveAdminTotpMode()
+  if (mode === 'off') return false
+
+  const userId = request.userId ?? request.jwtPayload?.userId
+  if (!userId) {
+    // 已过 requireAdmin 却取不到 userId:无从判断绑定态 ⇒ 放行(不拦),只留痕
+    logger.warn('[admin-totp-gate] 管理员请求缺少 userId,跳过 TOTP 检查', {
+      event: 'admin_totp_gate_skip',
+      path: request.url,
+      mode,
+    })
+    return false
+  }
+
+  let status: TotpBindingStatus | null
+  try {
+    status = await getTotpStatus(userId)
+  } catch (e) {
+    logger.error('[admin-totp-gate] 查询 TOTP 绑定状态失败,本次放行(避免锁死管理后台)', {
+      event: 'admin_totp_gate_error',
+      userId,
+      path: request.url,
+      mode,
+      error: e,
+    })
+    return false
+  }
+
+  if (!status) {
+    logger.warn('[admin-totp-gate] 未查询到管理员账号,跳过 TOTP 检查', {
+      event: 'admin_totp_gate_skip',
+      userId,
+      path: request.url,
+      mode,
+    })
+    return false
+  }
+
+  if (status.enabled) return false
+
+  if (mode === 'warn') {
+    logger.warn('[admin-totp-gate] 管理员账号未绑定 TOTP(仅告警,不阻断)', {
+      event: 'admin_totp_unbound',
+      userId,
+      path: request.url,
+      method: request.method,
+    })
+    return false
+  }
+
+  // enforce:文案面向终端用户,直接给出可执行的下一步
+  reply
+    .status(403)
+    .send(
+      errorResponse(
+        403,
+        '管理员账号必须开启 TOTP 二次验证:请先在「安全设置」中绑定 TOTP,完成后再访问管理后台。',
+      ),
+    )
+  return true
+}
+
+/**
  * 校验是否为系统管理员（与 admin 路由 requireAdmin 等价），供"需 admin"端点复用。
  *
  * 提权不变量(O13b-③钉死):本闸门**只认人用 JWT**(`includeInternalChannel: false`)。
  * internal service token 链路的 roleId 只用于 RBAC 权限点豁免,永不能打开 admin 面 ——
  * 即"持有内部密钥 + 把 X-User-Id 填成某管理员"不构成 admin 提权。
+ *
+ * 管理员 TOTP 闸(2026-10-28):roleId 判定通过后再过 `checkAdminTotpGate`,档位由
+ * `ADMIN_TOTP_MODE` 控制(默认 `warn`:只告警放行,不改变上述 401/403 语义)。
  */
 export const requireAdmin = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
   try {
@@ -162,6 +273,8 @@ export const requireAdmin = async (request: FastifyRequest, reply: FastifyReply)
   if (roleId < ADMIN_ROLE_ID) {
     return reply.status(403).send({ code: 403, message: '需要管理员权限' })
   }
+  // 管理员 TOTP 闸:enforce 档未绑 TOTP → 403(warn 档仅告警放行;off 档不查库)
+  await checkAdminTotpGate(request, reply)
 }
 
 /**
@@ -176,6 +289,8 @@ export const requireAdmin = async (request: FastifyRequest, reply: FastifyReply)
  *  1. 未鉴权 → `statusCode`(缺省 401) + `toUserFriendlyMessage(e) || '操作失败,请稍后重试'`
  *  2. 已鉴权但账号非活动 → 同状态码族 + `... || '账号已注销'`
  *  3. 活动但非管理员 → 403 `'需要管理员权限'`
+ * 2026-10-28 追加第 4 步(不影响上述三条):管理员 TOTP 闸 `checkAdminTotpGate`,
+ * 档位 `ADMIN_TOTP_MODE` 默认 `warn`(只告警放行),`enforce` 时未绑 TOTP 才是 403。
  * 响应体一律走 `utils/response.js` 的 `error()`(admin 面历史形状,与 `requireAdmin`
  * 的内联字面量形状**不必相同**,收编时不得顺手统一)。
  */
@@ -200,5 +315,8 @@ export const requireAdminRouteGuard = async (
   if (resolveAdminRoleId(request, { includeInternalChannel: false }) < ADMIN_ROLE_ID) {
     return reply.status(403).send(errorResponse(403, '需要管理员权限'))
   }
+  // 管理员 TOTP 闸(2026-10-28):与 requireAdmin 同一档位、同一判定,置于 roleId 判定之后
+  // ⇒ 非管理员仍是上面的"需要管理员权限"403,不会被 TOTP 文案覆盖(上述三条契约不变)。
+  await checkAdminTotpGate(request, reply)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

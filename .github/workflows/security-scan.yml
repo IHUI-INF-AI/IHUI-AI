@@ -1,0 +1,149 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: security-scan
+
+# =============================================================================
+# SAST + 依赖审计阻断(2026-10-28 立)
+#
+# 背景:此前 CI 完全没有 SAST,依赖漏洞只有 weekly-security-audit 里的 pnpm audit,
+# 而那条命令的 `|| true` 把"端点不存在"和"真有高危"一起吞掉了,永远绿。
+#
+# 为什么单开一个 workflow:CodeQL 要 security-events: write,权限面不该扩到每周定时 job 上;
+# 权限按 job 收窄(见下),workflow 级只留 contents: read。
+#
+# 触发面:**只开 workflow_dispatch + 每周定时,不加 push / pull_request**。
+# 依据 AGENTS.md §12e 恒红门禁令:挂到 push 上等于给每个与安全无关的提交一道存量红,
+# 结局是人人 --no-verify 连带废掉全部守门。存量清零、且本 workflow 手动跑通之后,
+# 再单独谈是否升自动触发。
+# 存量数字刻意不写死(§0.1 凡数字现读):2026-10-28 治理前实测 97 包/220 条,
+# 治理后 api 生产链只剩 1 项且经查为不可达路径(pptxgenjs 从不 addImage ⇒ image-size
+# 解析逻辑永不执行)、web 只剩 1 项 LOW(katex,被 mermaid 的 ^0.16.45 锁住)。
+# 现值一律以本 workflow 或 outputs/dep-audit-osv-v2.mjs 现跑为准。
+#
+# known workaround:npmmirror 无 audit 端点。注意 **npm_config_registry 环境变量在 pnpm 11 不生效**
+# —— .npmrc 的 registry 优先级更高(2026-10-28 实测 `npm_config_registry=… pnpm config get registry`
+# 仍返回 npmmirror),必须用 `--registry` CLI 参数显式覆盖;否则 audit 只会拿到
+# ERR_PNPM_AUDIT_ENDPOINT_NOT_EXISTS 并以 exit 1 结束,再被 `|| true` 吞掉 = 扫了等于没扫。
+# =============================================================================
+
+on:
+  workflow_dispatch:
+  schedule:
+    # UTC 周一 03:00 = 北京周一 11:00,错开 weekly-security-audit(UTC 周日 18:00)
+    - cron: '0 3 * * 1'
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  codeql:
+    name: CodeQL (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # 仅本 job 需要:上传 SARIF 到 code scanning
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # 单语言矩阵:本仓只有 TS/JS 一种待分析语言,留矩阵是为将来加 python(ai-service)时只改这一行
+        language: [javascript-typescript]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 初始化 CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # 不跑构建:TS monorepo 全量构建要几分钟且会踩各包环境依赖,
+          # build-mode none 直接按源码树提取,判据不变
+          build-mode: none
+          config: |
+            paths-ignore:
+              - '**/node_modules'
+              - '**/.next'
+              - '**/dist'
+              - '**/build'
+              - '**/coverage'
+
+      - name: 分析并上传 SARIF
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'
+
+  dependency-audit:
+    name: 依赖审计阻断 (pnpm audit --prod)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # 不跑 pnpm install:pnpm audit 读 pnpm-lock.yaml 构建依赖树,不需要 node_modules,
+      # 省掉 monorepo 全量安装(这是本 job 只花一两分钟的原因)。
+      - name: 生产依赖审计 (high/critical 阻断)
+        run: |
+          mkdir -p reports
+          # pnpm audit 命中漏洞时本身就 exit 1,所以这里只负责把 JSON 落盘,
+          # 退出码由下面的脚本按 high/critical 计数决定(不能拿 pnpm 的退出码当判据:
+          # 端点失败、网络失败、真有高危,三种情况都是 1)。
+          pnpm audit --prod --json --registry=https://registry.npmjs.org > reports/pnpm-audit-prod.json || true
+          node - reports/pnpm-audit-prod.json <<'NODE'
+          const fs = require('fs');
+          const file = process.argv[2];
+          const unjudged = (msg) => {
+            console.error('::error::' + msg + '(审计未判定)');
+            process.exit(2);
+          };
+          let report;
+          try {
+            report = JSON.parse(fs.readFileSync(file, 'utf8'));
+          } catch (e) {
+            unjudged(file + ' 无法读取或不是合法 JSON:' + e.message);
+          }
+          // pnpm 在端点不存在/网络失败时输出 {"error":{code,message}},此时不能当成"零漏洞"
+          if (report && report.error) {
+            unjudged('审计端点失败 ' + report.error.code + ':' + report.error.message);
+          }
+          const counts = (report && report.metadata && report.metadata.vulnerabilities) || {};
+          let high = Number(counts.high || 0);
+          let critical = Number(counts.critical || 0);
+          if (!('high' in counts) && !('critical' in counts)) {
+            // 兜底:npm 兼容格式(.vulnerabilities)/ pnpm 自有格式(.advisories)逐条按 severity 数
+            const entries = Object.values((report && (report.vulnerabilities || report.advisories)) || {});
+            if (!entries.length) unjudged(file + ' 里没有可识别的漏洞字段,格式不认识');
+            for (const entry of entries) {
+              const severity = String((entry && entry.severity) || '').toLowerCase();
+              if (severity === 'high') high += 1;
+              else if (severity === 'critical') critical += 1;
+            }
+          }
+          console.log('生产依赖: high=' + high + ' critical=' + critical);
+          if (high + critical > 0) {
+            console.error('::error::生产依赖存在 ' + (high + critical) + ' 个 high/critical 漏洞,阻断');
+            process.exit(1);
+          }
+          console.log('::notice::生产依赖无 high/critical 漏洞');
+          NODE
+
+      - name: 上传审计报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-audit-${{ github.run_id }}
+          path: reports/
+          retention-days: 30
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

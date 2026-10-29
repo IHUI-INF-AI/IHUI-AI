@@ -39,6 +39,7 @@ import {
   updateAgent,
   deleteAgent,
 } from '../services/agent-service.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import {
   findCategoryList,
   findCategoryById,
@@ -1510,6 +1511,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // POST /oauth-apps/:clientId/regenerate-secret - 重新生成密钥
   server.post('/oauth-apps/:clientId/regenerate-secret', async (request, reply) => {
     const { clientId } = clientIdParam.parse(request.params)
+    const userId = request.userId!
+    // 2FA step-up 闸：已开 2FA 的账号，重新生成 OAuth 密钥前须有窗内二次验证
+    const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!stepUp.ok) {
+      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+    }
     const existing = await findOAuthAppByClientId(clientId)
     if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
     if (existing.ownerUuid !== request.userId) {
@@ -1642,10 +1649,19 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     if (parsed.data.deadline !== undefined) {
       updateData.deadline = new Date(parsed.data.deadline)
     }
+    // 2026-10-27 属主闸:此前 WHERE 只按 id —— 任意登录用户可改写**他人**悬赏的
+    // rewardTokens/acceptUserId/status(把自己写成接单方坐收结算)。与本文件 1262 行
+    // 既有口径对齐:属主一律取令牌主体,管理员(isSystemAdmin,只认人用 JWT)放行。
+    // 404 不区分"不存在"与"不是你的",不新增可用于探测单据存续的响应差分。
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
     const rows = await db
       .update(zhsAgentNeedTask)
       .set(updateData)
-      .where(eq(zhsAgentNeedTask.id, id))
+      .where(
+        isAdmin
+          ? eq(zhsAgentNeedTask.id, id)
+          : and(eq(zhsAgentNeedTask.id, id), eq(zhsAgentNeedTask.userId, request.userId!)),
+      )
       .returning()
     if (!rows[0]) return reply.status(404).send(error(404, '需求任务不存在'))
     return reply.send(success(rows[0]))
@@ -1654,7 +1670,16 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /agents/need-tasks/:id - 删除需求任务
   server.delete('/agents/need-tasks/:id', async (request, reply) => {
     const { id } = needTaskIdParam.parse(request.params)
-    const rows = await db.delete(zhsAgentNeedTask).where(eq(zhsAgentNeedTask.id, id)).returning()
+    // 2026-10-27 属主闸:同 PUT —— 此前任意登录用户可整单删除他人悬赏
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+    const rows = await db
+      .delete(zhsAgentNeedTask)
+      .where(
+        isAdmin
+          ? eq(zhsAgentNeedTask.id, id)
+          : and(eq(zhsAgentNeedTask.id, id), eq(zhsAgentNeedTask.userId, request.userId!)),
+      )
+      .returning()
     if (!rows[0]) return reply.status(404).send(error(404, '需求任务不存在'))
     return reply.send(success({ id, deleted: rows.length > 0 }))
   })

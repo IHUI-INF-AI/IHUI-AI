@@ -51,6 +51,18 @@ export const aiSkillsProxyRoutes: FastifyPluginAsync = async (server) => {
     return forward(request, reply, `/api/ai-skills${qs}`, { method: 'GET' })
   })
 
+  // POST /api/ai-skills/reload — 运行时热重载(控制帧 `reload_skills`)
+  // 必须声明在 /:id 族之前:find-my-way 虽优先静态段,但把静态口写在参数口之前
+  // 让"这条是宿主可调帧、不是某个 skill 的动作"在代码面上也读得出来。
+  server.post('/reload', async (request, reply) => {
+    const body = request.body === undefined ? undefined : JSON.stringify(request.body)
+    return forward(request, reply, '/api/ai-skills/reload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    })
+  })
+
   // GET /api/ai-skills/:id — 技能详情
   server.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string }

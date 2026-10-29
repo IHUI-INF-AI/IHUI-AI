@@ -53,6 +53,7 @@ import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
 // MSVC 工具链注入判据单源(立因/三态见该文件头注);vcvars 的生产实现同样复用
 // desktop-build.mjs 已有的具名导出,不另写第二种形态
 import { planBuildEnv, needsMsvcInjection } from './lib/msvc-env.mjs'
+import { applyRustupPinToEnv } from './lib/rustup-env.mjs'
 import { __test__ as desktopBuildInternals } from './desktop-build.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -391,6 +392,21 @@ if (needsMsvcInjection()) {
   log(`ⓘ 跳过 MSVC 注入:NOT_WINDOWS(platform=${process.platform}) —— 本平台不适用,按现 env 直跑`)
 }
 if (childEnv.IHUI_DESKTOP_OPEN_DEVTOOLS === undefined) childEnv.IHUI_DESKTOP_OPEN_DEVTOOLS = '0'
+
+// rustup 家钉正(判据与三态日志单源 lib/rustup-env.mjs):本脚本亲自 spawn `tauri dev`,
+// cargo 就在这一次 spawn 里跑。agent 会话把 HOME 顶成沙箱根时,MSVC 注入成功也会死在
+// "no default toolchain",而报错长得像"没装 Rust"。必须排在 planBuildEnv 之后 —— 本判据
+// 从 PATH 反推 cargo 档案位,而 PATH 正是上面刚重写过的那一份。
+Object.assign(
+  childEnv,
+  applyRustupPinToEnv({
+    env: childEnv,
+    platform: process.platform,
+    existsSync,
+    tag: 'desktop-dev-saas',
+    log,
+  }),
+)
 
 log('启动 Tauri 桌面端(窗口加载本地 dev server;首次需编译 Rust,约 30-60s)...')
 const r = spawnSync(npmExec, args, {

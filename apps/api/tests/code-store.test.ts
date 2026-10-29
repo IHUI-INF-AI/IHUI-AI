@@ -128,6 +128,30 @@ describe('code-store — 验证码存储与一次性校验', () => {
       expect(await verifyCode(PHONE, '123123')).toBe(false)
     })
 
+    it('输错 4 次后,正确码仍可通过(计数不该误伤本人)', async () => {
+      await seed(PHONE, '246813', CODE_TTL_MS)
+      for (let i = 0; i < 4; i += 1) {
+        expect(await verifyCode(PHONE, '000000')).toBe(false)
+      }
+      expect(await verifyCode(PHONE, '246813')).toBe(true)
+    })
+
+    it('连续输错 5 次 ⇒ 该码作废,正确码也过不去(防在线枚举)', async () => {
+      await seed(PHONE, '135790', CODE_TTL_MS)
+      for (let i = 0; i < 5; i += 1) {
+        expect(await verifyCode(PHONE, '000000')).toBe(false)
+      }
+      expect(await verifyCode(PHONE, '135790')).toBe(false)
+      expect(await store.exists(PHONE)).toBe(false)
+    })
+
+    it('重新取码后计数清零(换码不是接着上一次的失败次数)', async () => {
+      await seed(PHONE, '135790', CODE_TTL_MS)
+      for (let i = 0; i < 4; i += 1) expect(await verifyCode(PHONE, '000000')).toBe(false)
+      await seed(PHONE, '975310', CODE_TTL_MS)
+      expect(await verifyCode(PHONE, '975310')).toBe(true)
+    })
+
     it('按场景给的有效期真的生效:注册 10 分钟档在第 7 分钟仍可校验通过', async () => {
       const sentAt = Date.now() - 7 * 60 * 1000
       await seed(PHONE, '777666', CODE_TTL_REGISTER_MS, sentAt)

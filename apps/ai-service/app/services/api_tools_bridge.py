@@ -39,6 +39,7 @@ from urllib.parse import quote
 
 import httpx
 
+from ..core.internal_ticket import internal_service_headers
 from .mcp_server import (
     _TOOL_HANDLERS,
     MCPTool,
@@ -88,14 +89,13 @@ def api_base_url() -> str:
 
 
 def internal_headers(user_id: str) -> dict[str, str]:
-    """内部服务鉴权头(x-internal-service-token + x-user-id,小写与兄弟模块一致)。"""
-    headers: dict[str, str] = {}
-    token = _secret()
-    if token:
-        headers["x-internal-service-token"] = token
-    if user_id:
-        headers["x-user-id"] = str(user_id)
-    return headers
+    """内部服务鉴权头(经 internal_ticket 唯一出口构造,小写与兄弟模块一致)。
+
+    dual 兼容窗:旧 x-internal-service-token 照发(legacy_token 由本模块原有密钥解析
+    `_secret()` 提供),x-internal-service-ticket 短期票同带(主体 = user_id;签不出
+    票时只发旧头,见 internal_ticket.mint_internal_service_ticket)。
+    """
+    return internal_service_headers(user_id, "api-tools", legacy_token=_secret())
 
 
 # ---------------------------------------------------------------------------

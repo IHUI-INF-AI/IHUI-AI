@@ -12,9 +12,15 @@
  * - Redis 后端 → 多实例部署时计数一致(进程内 Map 不一致)。
  * - Redis 不可用时降级为进程内 Map,保证基础可用性。
  *
- * Redis 键设计:
- * - fail:login:{account}:{ip}    失败计数(纯 INCR,15 分钟 TTL)
- * - lock:login:{account}:{ip}    锁定标记(SET NX EX,15 分钟)
+ * Redis 键设计(2026-10-27 安全修正):
+ * - fail:login:{account}    失败计数(纯 INCR,15 分钟 TTL)
+ * - lock:login:{account}    锁定标记(SET NX EX,15 分钟)
+ *
+ * 修正前 key 为 {account}:{ip} —— 同一账号换 IP 即重置计数,锁定近乎失效
+ * (分布式撞库每 IP 每 15 分钟 5 次无限续)。现改为按账号全局计数:账号标识
+ * 统一小写归一(username/phone/email 大小写变体不分摊配额的意义同此),
+ * ip 参数保留于签名(调用点不动),暂不参与 key —— IP 维度滥用由全局
+ * rate-limit(100 req/min/IP)与 anti-automation 兜底。
  */
 import IORedis, { type Redis } from 'ioredis'
 import { config } from '../config/index.js'
@@ -58,8 +64,13 @@ const fallbackStore = new Map<
   { failures: number; lockedUntil: number; lastFailAt: number }
 >()
 
-function fallbackKey(account: string, ip: string): string {
-  return `${account}::${ip}`
+/** 账号标识归一:去空白 + 小写(大小写变体不产生平行计数) */
+function normalizeAccount(account: string): string {
+  return account.trim().toLowerCase()
+}
+
+function fallbackKey(account: string, _ip: string): string {
+  return `${normalizeAccount(account)}`
 }
 
 function fallbackRecordFailure(account: string, ip: string): number {
@@ -98,8 +109,8 @@ export async function recordLoginFailure(account: string, ip: string): Promise<n
   const redis = getRedis()
   if (!redis) return fallbackRecordFailure(account, ip)
 
-  const failKey = `${KEY_PREFIX_FAIL}${account}:${ip}`
-  const lockKey = `${KEY_PREFIX_LOCK}${account}:${ip}`
+  const failKey = `${KEY_PREFIX_FAIL}${normalizeAccount(account)}`
+  const lockKey = `${KEY_PREFIX_LOCK}${normalizeAccount(account)}`
   try {
     const count = await redis.incr(failKey)
     if (count === 1) {
@@ -122,7 +133,7 @@ export async function getLockRemainingMs(account: string, ip: string): Promise<n
   const redis = getRedis()
   if (!redis) return fallbackGetLockRemainingMs(account, ip)
 
-  const lockKey = `${KEY_PREFIX_LOCK}${account}:${ip}`
+  const lockKey = `${KEY_PREFIX_LOCK}${normalizeAccount(account)}`
   try {
     const ttl = await redis.ttl(lockKey)
     if (ttl > 0) return ttl * 1000
@@ -143,8 +154,8 @@ export async function clearLoginFailures(account: string, ip: string): Promise<v
     return
   }
   try {
-    const failKey = `${KEY_PREFIX_FAIL}${account}:${ip}`
-    const lockKey = `${KEY_PREFIX_LOCK}${account}:${ip}`
+    const failKey = `${KEY_PREFIX_FAIL}${normalizeAccount(account)}`
+    const lockKey = `${KEY_PREFIX_LOCK}${normalizeAccount(account)}`
     await redis.del(failKey, lockKey)
   } catch (e) {
     logger.error('[account-lockout] clearLoginFailures redis failed, fallback to memory', {

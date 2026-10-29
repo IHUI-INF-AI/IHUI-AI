@@ -27,6 +27,8 @@ import { createRequire } from 'node:module'
 import { randomUUID } from 'node:crypto'
 import IORedis from 'ioredis'
 import { config } from '../config/index.js'
+// 工作区登记根判据(与文件桥同一把尺子):终端的 cwd 只认服务端登记的根
+import { isWithinAnyRegisteredRoot } from '../utils/workspace-roots.js'
 import type {
   TerminalSession,
   TerminalSessionStatus,
@@ -312,6 +314,50 @@ async function updateSessionMetaExit(
 
 // ==================== 工具函数 ====================
 
+/**
+ * 交给交互式 shell 的环境变量最小集(2026-10-27 加固)。
+ *
+ * 原实现是 `env: process.env` —— 子进程因此继承数据库口令、模型 API key、JWT 签名密钥、
+ * SMTP 凭据等全部机密,而任何能在终端里敲一行 `set`(或 PowerShell 的 `dir env:`)的人都
+ * 把它们读走了。shell 本身只需要定位系统与临时目录,所以默认只放行下面这些;部署方确需
+ * 透传别的键,用 `IHUI_TERMINAL_ENV_EXTRA`(逗号分隔)显式加白,而不是整包放行。
+ */
+const SHELL_ENV_BASELINE = [
+  'PATH',
+  'PATHEXT',
+  'SYSTEMROOT',
+  'WINDIR',
+  'COMSPEC',
+  'TEMP',
+  'TMP',
+  'TMPDIR',
+  'USERPROFILE',
+  'HOMEDRIVE',
+  'HOMEPATH',
+  'APPDATA',
+  'LOCALAPPDATA',
+  'HOME',
+  'SHELL',
+  'LANG',
+  'LC_ALL',
+  'TERM',
+  'PWD',
+]
+
+function buildTerminalEnv(): Record<string, string> {
+  const allow = new Set(SHELL_ENV_BASELINE)
+  for (const item of (process.env.IHUI_TERMINAL_ENV_EXTRA ?? '').split(',')) {
+    const key = item.trim()
+    if (key) allow.add(key)
+  }
+  const out: Record<string, string> = {}
+  for (const key of allow) {
+    const value = process.env[key]
+    if (value !== undefined) out[key] = value
+  }
+  return out
+}
+
 /** 获取用户 shell(Windows: pwsh, Unix: /bin/bash 或 $SHELL) */
 function getDefaultShell(): string {
   if (process.platform === 'win32') {
@@ -333,7 +379,10 @@ function resolveShellByName(name: string): string {
       case 'wsl':
         return 'wsl.exe'
       default:
-        return name
+        // 只认固定表。default 原本把入参原样当可执行文件返回;当前路由层的 createSchema
+        // 不含 shell 字段(所以这条路还打不通),但任何一次「顺手把 shell 加进 schema」
+        // 都会立刻把它变成任意二进制执行 —— 判据不该留着等人来踩。
+        throw new Error(`不支持的 shell: ${name}`)
     }
   }
   switch (name) {
@@ -344,7 +393,7 @@ function resolveShellByName(name: string): string {
     case 'sh':
       return '/bin/sh'
     default:
-      return name
+      throw new Error(`不支持的 shell: ${name}`)
   }
 }
 
@@ -417,10 +466,7 @@ function flushScrollback(entry: PTYEntry): void {
 }
 
 /** G-998115 归因唯一写入点:首因锁定 —— 首次 cleanup 的原因不可被后续幂等回收改写。 */
-function markTerminationKind(
-  entry: PTYEntry,
-  kind: 'expected' | 'unexpected',
-): void {
+function markTerminationKind(entry: PTYEntry, kind: 'expected' | 'unexpected'): void {
   if (entry.terminationKindLocked) return
   entry.terminationKind = kind
   entry.terminationKindLocked = true
@@ -491,7 +537,10 @@ export function createSession(
   }
 
   // 本地 PTY 会话(原逻辑)
-  const cwd = opts.cwd && opts.cwd.length > 0 ? opts.cwd : process.cwd()
+  // cwd 白名单(2026-10-27):客户端自报目录不再直接交给 spawn —— 未落在服务端登记的根内
+  // 就回落进程工作目录,而不是让调用方在整台服务器的目录结构里任意挑一个起点。
+  const requestedCwd = opts.cwd && opts.cwd.length > 0 ? opts.cwd : ''
+  const cwd = requestedCwd && isWithinAnyRegisteredRoot(requestedCwd) ? requestedCwd : process.cwd()
   const shell =
     opts.shell && opts.shell.length > 0 ? resolveShellByName(opts.shell) : getDefaultShell()
 
@@ -513,7 +562,8 @@ export function createSession(
       cols,
       rows,
       cwd,
-      env: process.env as Record<string, string>,
+      // 白名单环境,不再整包继承 process.env(机密外泄面见 buildTerminalEnv 头注)
+      env: buildTerminalEnv(),
     })
   } catch (e) {
     throw new Error(`终端创建失败: ${(e as Error).message}`)
@@ -595,9 +645,10 @@ function registerLocalSession(
  */
 export function assertSshAuthPresent(ssh: TerminalSshParams): void {
   if (!ssh.password && !ssh.privateKey) {
-    const err = new Error(
-      'SSH 认证凭证缺失:password 与 privateKey 至少提供其一',
-    ) as Error & { statusCode?: number; errorCode?: string }
+    const err = new Error('SSH 认证凭证缺失:password 与 privateKey 至少提供其一') as Error & {
+      statusCode?: number
+      errorCode?: string
+    }
     err.statusCode = 400
     err.errorCode = 'ssh_auth_missing'
     throw err
@@ -995,6 +1046,22 @@ export async function getScrollback(
   const entry = sessions.get(sessionId)
   if (entry && entry.userId !== userId) {
     return { lines: [], source: 'memory' }
+  }
+  // 会话已收尾(不在内存)时同样要验归属:回显里可能有口令、密钥与私钥粘贴,而 sessionId
+  // 只是 UUID —— "猜不到"不是授权。Redis 里读不到 meta 时按空返回(fail-closed),
+  // 宁可历史读不到,也不能把别人的终端历史发给第三方。
+  if (!entry) {
+    const redis = getRedis()
+    if (redis) {
+      try {
+        const meta = await redis.hgetall(sessionMetaKey(sessionId))
+        if (!meta || !meta.userId || meta.userId !== userId) {
+          return { lines: [], source: 'memory' }
+        }
+      } catch {
+        return { lines: [], source: 'memory' }
+      }
+    }
   }
   const lines = await readScrollback(sessionId)
   return { lines, source: 'redis' }

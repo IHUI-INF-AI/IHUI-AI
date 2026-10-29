@@ -26,6 +26,7 @@ import os
 import secrets
 from collections.abc import Callable, Mapping
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 from zoneinfo import ZoneInfo
 
@@ -61,7 +62,19 @@ logger = get_logger(__name__)
 _get_jwt_exp: Callable[[str], tuple[datetime | None, float | None]] = get_jwt_exp
 
 _KEY_ENV = "CHECKIN_FERNET_KEY"
-_KEY_FILE = os.path.join("data", "checkin_fernet_key")
+# 轮换期旧密钥(逗号分隔的 Fernet key),**仅用于解密**历史密文,绝不用于加密。
+_LEGACY_ENV = "CHECKIN_FERNET_KEY_LEGACY"
+
+# 密钥文件路径**锚定到服务根**,不跟 cwd 走 —— 与 publish/credentials_crypto.py
+# 同一处修正(静默失效第 8 例):原实现 os.path.join("data", ...) 是相对路径,
+# 换个启动目录就读到另一个文件,文件不存在时还会**静默新建一把**,等于把历史密文
+# 全作废且零报错。本机实测:data/checkin_fernet_key(mtime 10-18 19:18)与
+# apps/ai-service/data/checkin_fernet_key(mtime 10-18 10:27)是两把不同的密钥。
+_SERVICE_ROOT = Path(__file__).resolve().parents[2]
+_KEY_FILE = str(_SERVICE_ROOT / "data" / "checkin_fernet_key")
+
+# 旧 cwd 相对位置:只读、永不写入;存在的历史密钥进解密环。
+_LEGACY_KEY_FILES = ("data/checkin_fernet_key",)
 
 # 同名冲突时的平台后缀(同一手机号在 TRAE/WorkBuddy/Qoder 各有一个账号 ⇒
 # 展示名撞唯一约束 (owner_user_id, name);自愈退化带平台名保可区分)。
@@ -345,51 +358,129 @@ async def backfill_identity_and_dedup() -> None:
 # ---------------------------------------------------------------------------
 
 _fernet: Fernet | None = None
+_legacy_fernets: list[Fernet] = []
+_fernet_source: str = ""
+
+
+def _candidate_key_files() -> list[str]:
+    """主位置在前,旧(cwd 相对)位置在后;绝对化后去重。"""
+    out = [_KEY_FILE]
+    for rel in _LEGACY_KEY_FILES:
+        path = os.path.abspath(rel)
+        if path not in out:
+            out.append(path)
+    return out
+
+
+def _fernet_from(raw: bytes | str) -> Fernet | None:
+    """构造 Fernet;非法 key 返回 None(warn 不抛,不让服务起不来)。"""
+    try:
+        return Fernet(raw.strip() if isinstance(raw, bytes) else raw.strip().encode("ascii"))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[checkin_store] 非法 Fernet key(已忽略): %s", e)
+        return None
+
+
+def _read_fernet_file(path: str) -> Fernet | None:
+    try:
+        with open(path, "rb") as f:
+            raw = f.read().strip()
+    except FileNotFoundError:
+        return None
+    except OSError as e:
+        logger.warning("[checkin_store] 密钥文件不可读(%s): %s", path, e)
+        return None
+    return _fernet_from(raw)
+
+
+def _load_fernets() -> tuple[Fernet, list[Fernet], str]:
+    """加载 (主 Fernet, 解密环, 主密钥来源)。
+
+    主密钥顺序:``CHECKIN_FERNET_KEY`` → 锚定位置密钥文件 → 生成新密钥。
+    其余能读到的历史密钥只进解密环 —— 轮换/换启动目录不再一次性打哑全部账号。
+    """
+    legacy: list[Fernet] = []
+
+    for part in (os.environ.get(_LEGACY_ENV) or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        f = _fernet_from(part)
+        if f is not None:
+            legacy.append(f)
+
+    file_primary: Fernet | None = None
+    for path in _candidate_key_files():
+        f = _read_fernet_file(path)
+        if f is None:
+            continue
+        if file_primary is None:
+            file_primary = f
+        elif f._signing_key != file_primary._signing_key:  # noqa: SLF001 —— Fernet 无公开比较口
+            legacy.append(f)
+            logger.warning(
+                "[checkin_store] 发现第二把历史 Fernet 密钥 %s,已加入解密环(不用于加密)。"
+                "两处并存说明本机曾换过启动目录 —— 建议只保留 %s。",
+                path, _KEY_FILE,
+            )
+
+    env_val = os.environ.get(_KEY_ENV, "").strip()
+    env_fernet = _fernet_from(env_val) if env_val else None
+    if env_fernet is not None:
+        primary, source = env_fernet, f"env {_KEY_ENV}"
+        if file_primary is not None and file_primary._signing_key != env_fernet._signing_key:  # noqa: SLF001
+            legacy.append(file_primary)
+    elif file_primary is not None:
+        primary, source = file_primary, _KEY_FILE
+    else:
+        key = Fernet.generate_key()
+        primary, source = Fernet(key), "generated"
+        try:
+            os.makedirs(os.path.dirname(_KEY_FILE), exist_ok=True)
+            with open(_KEY_FILE, "wb") as fh:
+                fh.write(key)
+            logger.warning(
+                "[checkin_store] %s 未设置且无历史密钥文件,已生成新的持久化密钥 %s。"
+                "注意:此前用别的密钥加密的密文将无法解密(需重新录入 JWT)。",
+                _KEY_ENV, _KEY_FILE,
+            )
+        except OSError as e:
+            logger.warning(
+                "[checkin_store] 密钥文件不可写(%s),使用进程内临时密钥(重启 = 历史密文解不开)",
+                e,
+            )
+
+    ring: list[Fernet] = []
+    for f in legacy:
+        if f._signing_key != primary._signing_key and all(  # noqa: SLF001
+            f._signing_key != g._signing_key for g in ring  # noqa: SLF001
+        ):
+            ring.append(f)
+    return primary, ring, source
 
 
 def _load_fernet() -> Fernet:
-    """加载 Fernet 密钥(env 优先,否则 data/checkin_fernet_key 首次生成并持久化)。"""
-    global _fernet
+    """加载主 Fernet 密钥(env 优先,否则锚定位置的密钥文件,首次生成并持久化)。"""
+    global _fernet, _legacy_fernets, _fernet_source
     if _fernet is not None:
         return _fernet
-
-    env_val = os.environ.get(_KEY_ENV, "").strip()
-    if env_val:
-        try:
-            _fernet = Fernet(env_val.encode("ascii"))
-            return _fernet
-        except Exception as e:
-            logger.warning("[checkin_store] 无效的 %s: %s,回退密钥文件", _KEY_ENV, e)
-
-    try:
-        with open(_KEY_FILE, "rb") as f:
-            key = f.read().strip()
-        if key:
-            _fernet = Fernet(key)
-            return _fernet
-    except FileNotFoundError:
-        pass
-    except Exception as e:
-        logger.warning("[checkin_store] 密钥文件不可读: %s,重新生成", e)
-
-    key = Fernet.generate_key()
-    try:
-        os.makedirs(os.path.dirname(_KEY_FILE), exist_ok=True)
-        with open(_KEY_FILE, "wb") as f:
-            f.write(key)
-        logger.warning(
-            "[checkin_store] %s 未设置,已生成持久化密钥 %s;生产环境请显式设置 "
-            "(base64 编码的 Fernet key),否则跨进程需共享同一密钥文件",
-            _KEY_ENV,
-            _KEY_FILE,
-        )
-    except OSError as e:
-        logger.warning(
-            "[checkin_store] 密钥文件不可写(%s),使用进程内临时密钥(重启 = 历史密文解不开)",
-            e,
-        )
-    _fernet = Fernet(key)
+    _fernet, _legacy_fernets, _fernet_source = _load_fernets()
+    logger.info(
+        "[checkin_store] 主密钥来源=%s 解密环=%d 把", _fernet_source, len(_legacy_fernets)
+    )
     return _fernet
+
+
+def fernet_key_source() -> str:
+    """主密钥来源描述(排障用)。"""
+    _load_fernet()
+    return _fernet_source
+
+
+def fernet_key_ring_size() -> int:
+    """解密环里旧密钥的把数。"""
+    _load_fernet()
+    return len(_legacy_fernets)
 
 
 def _encrypt_jwt(jwt: str) -> bytes:
@@ -397,10 +488,24 @@ def _encrypt_jwt(jwt: str) -> bytes:
 
 
 def _decrypt_jwt(blob: bytes) -> str:
-    try:
-        return _load_fernet().decrypt(bytes(blob)).decode("utf-8")
-    except InvalidToken as e:
-        raise ValueError("JWT 密文解密失败(密钥不匹配或密文损坏)") from e
+    """解密 JWT 密文;主密钥不行时依次试解密环,全失败才抛。"""
+    primary = _load_fernet()
+    for idx, f in enumerate([primary, *_legacy_fernets]):
+        try:
+            text = f.decrypt(bytes(blob)).decode("utf-8")
+        except InvalidToken:
+            continue
+        except Exception as e:  # noqa: BLE001 —— 格式坏(非 Fernet token)也算解不开
+            logger.warning("[checkin_store] JWT 密文格式异常: %s", e)
+            continue
+        if idx > 0:
+            logger.warning(
+                "[checkin_store] 该 JWT 由解密环第 %d 把旧密钥解开(主密钥不匹配),"
+                "建议尽快用主密钥重写该行。",
+                idx,
+            )
+        return text
+    raise ValueError("JWT 密文解密失败(密钥不匹配或密文损坏)")
 
 
 # ---------------------------------------------------------------------------
@@ -520,14 +625,18 @@ async def save_qoder_cred(
 
 def reset_fernet_cache() -> None:
     """清空密钥缓存(测试注入用;生产勿调)。"""
-    global _fernet
+    global _fernet, _legacy_fernets, _fernet_source
     _fernet = None
+    _legacy_fernets = []
+    _fernet_source = ""
 
 
 def set_fernet_for_testing(key: bytes) -> None:
-    """测试注入固定 Fernet key。"""
-    global _fernet
+    """测试注入固定 Fernet key(同时清空解密环,避免真实旧密钥干扰断言)。"""
+    global _fernet, _legacy_fernets, _fernet_source
     _fernet = Fernet(key)
+    _legacy_fernets = []
+    _fernet_source = "injected"
 
 
 def generate_fernet_key_b64() -> str:

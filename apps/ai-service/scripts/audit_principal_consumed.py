@@ -540,34 +540,38 @@ def _resolve_callee(
     base = str(key[1])
     g = str(key[2])
     dotted = f"{base}.{g}"
-    mod = imps.module_alias.get(base)
-    if mod is None and base in imps.aliases_from:
+    # 2026-10-28 修:本分支的 mod 原名与上面 kind=="name" 分支的 mod 共用同一个函数作用域
+    # 变量,而两处含义不同 —— 上面那处来自 `aliases_from[name]` 下标,必然是 str;本处来自
+    # `module_alias.get()` 可空。Python 无块级作用域 ⇒ mypy 只能给 mod 一个类型,于是本行
+    # 被判 assignment 不兼容。改名 owner_mod 表达"所属模块"的真语义,比加 cast 诚实。
+    owner_mod = imps.module_alias.get(base)
+    if owner_mod is None and base in imps.aliases_from:
         src = imps.aliases_from[base]
         sub = f"{src}.{base}"
         if sub in idx.rel_of_module:
-            mod = sub  # `from pkg import sub`(子模块)⇒ sub.g 一跳可解
+            owner_mod = sub  # `from pkg import sub`(子模块)⇒ sub.g 一跳可解
         elif base in idx.classes.get(src, set()) or base in idx.defs.get(src, {}):
             return ("nonfunc", src, dotted)  # 导入实体(类/函数对象)上的方法:非顶层函数
         elif src in idx.rel_of_module:
             return ("nonfunc", src, dotted)  # 实例/变量:仓内但不是函数(如 hook_engine)
         else:
             return ("repo-missing", src, dotted) if idx.is_repo_module(src) else ("external", None, dotted)
-    if mod is None:
+    if owner_mod is None:
         for smod in imps.star_modules:
             if f"{smod}.{base}" in idx.rel_of_module:
-                mod = f"{smod}.{base}"
+                owner_mod = f"{smod}.{base}"
                 break
         else:
             if imps.star_unresolved:
                 return ("unresolved", None, dotted)
             return ("unknown", None, dotted)
-    if g in idx.defs.get(mod, {}):
-        return ("def", mod, g)
-    if g in idx.classes.get(mod, set()):
-        return ("cls", mod, g)
-    if mod in idx.rel_of_module:
-        return ("nonfunc", mod, dotted)
-    return ("repo-missing", mod, dotted) if idx.is_repo_module(mod) else ("external", None, dotted)
+    if g in idx.defs.get(owner_mod, {}):
+        return ("def", owner_mod, g)
+    if g in idx.classes.get(owner_mod, set()):
+        return ("cls", owner_mod, g)
+    if owner_mod in idx.rel_of_module:
+        return ("nonfunc", owner_mod, dotted)
+    return ("repo-missing", owner_mod, dotted) if idx.is_repo_module(owner_mod) else ("external", None, dotted)
 
 
 def _helper_identity(

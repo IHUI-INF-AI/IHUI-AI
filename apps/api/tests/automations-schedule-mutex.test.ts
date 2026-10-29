@@ -21,7 +21,9 @@ vi.hoisted(() => {
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'mock-user-id', roleId: 1 }),
+  verifyAccessToken: vi
+    .fn()
+    .mockResolvedValue({ userId: '00000000-0000-4000-8000-000000000fee', roleId: 1 }),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 
@@ -95,7 +97,7 @@ describe('automations 调度 carrier 互斥(b76-12e G-998161)', () => {
     mod.__setState([
       {
         id: '00000000-0000-4000-8000-000000000001',
-        userId: 'mock-user-id',
+        userId: '00000000-0000-4000-8000-000000000fee',
         scheduleType: 'once',
         rrule: null,
         scheduledAt: new Date(Date.now() + 60_000).toISOString(),
@@ -177,7 +179,7 @@ describe('automations 调度 carrier 互斥(b76-12e G-998161)', () => {
       mod.__setState([
         {
           id: '00000000-0000-4000-8000-000000000001',
-          userId: 'mock-user-id',
+          userId: '00000000-0000-4000-8000-000000000fee',
           scheduleType: 'recurring',
           rrule: 'FREQ=DAILY;INTERVAL=1',
           scheduledAt: null,
@@ -223,7 +225,9 @@ describe('automations 调度 carrier 互斥(b76-12e G-998161)', () => {
       expect(nextRunAtMs - after).toBeLessThanOrEqual(65 * 60 * 1000)
       // 语义核对:与 parseNextRun 对同一 rrule 的产出同档(HOURLY 恒 +1h)
       const expected = parseNextRun('FREQ=HOURLY;INTERVAL=50', new Date(), null)
-      expect(expected!.getTime() - new Date(expected!.getTime() - 3600_000).getTime()).toBe(3600_000)
+      expect(expected!.getTime() - new Date(expected!.getTime() - 3600_000).getTime()).toBe(
+        3600_000,
+      )
     })
 
     it('POST 纯 once(只带 scheduledAt)⇒ 201,once 路径不受影响', async () => {
@@ -250,7 +254,7 @@ describe('automations 调度 carrier 互斥(b76-12e G-998161)', () => {
       mod.__setState([
         {
           id: '00000000-0000-4000-8000-000000000001',
-          userId: 'mock-user-id',
+          userId: '00000000-0000-4000-8000-000000000fee',
           scheduleType: 'recurring',
           rrule: 'FREQ=DAILY;INTERVAL=1',
           scheduledAt: null,

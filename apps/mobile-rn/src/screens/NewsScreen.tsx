@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, View, type FlatList, type ViewStyle } from 'react-native'
+import { BlurTargetView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
@@ -99,6 +100,7 @@ export default function NewsScreenWrapper() {
   const rootNav = navigation.getParent<RootNav>()
   // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
   const insets = useSafeAreaInsets()
+  const tabBarBlurTargetRef = useRef<View>(null)
 
   /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;News 为 RootStack 独立路由) */
   const handleTabChange = (key: TabBarKey): void => {
@@ -445,59 +447,62 @@ export default function NewsScreenWrapper() {
 
   return (
     <View style={styles.container}>
-      <NavChrome>
-        <NavBar
-          title={t('news.title')}
-          leftActions={leftActions}
-          rightActions={rightActions}
-          onBack={handleBack}
+      {/* Android 真模糊:背景内容包进 BlurTargetView 供 TabBar 胶囊取样 */}
+      <BlurTargetView ref={tabBarBlurTargetRef} style={{ flex: 1 }}>
+        <NavChrome>
+          <NavBar
+            title={t('news.title')}
+            leftActions={leftActions}
+            rightActions={rightActions}
+            onBack={handleBack}
+          />
+        </NavChrome>
+        <SharedSquareScreen
+          t={t}
+          colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+          items={items}
+          loading={loading}
+          refreshing={refreshing}
+          error={error}
+          categories={categoriesForShared}
+          selectedCategory={selectedCategory}
+          onSelectCategory={handleSelectCategory}
+          onRefresh={handleRefresh}
+          onEndReached={handleEndReached}
+          onItemClick={handleItemClick}
+          showBackTop={true}
+          onBackToTop={handleBackToTop}
+          onListRef={(ref) => {
+            listRef.current = ref as FlatList<ArticleItem> | null
+          }}
+          hideHeader
+          contentBottomPadding={tabBarScrollReserve(insets.bottom)}
         />
-      </NavChrome>
-      <SharedSquareScreen
-        t={t}
-        colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
-        items={items}
-        loading={loading}
-        refreshing={refreshing}
-        error={error}
-        categories={categoriesForShared}
-        selectedCategory={selectedCategory}
-        onSelectCategory={handleSelectCategory}
-        onRefresh={handleRefresh}
-        onEndReached={handleEndReached}
-        onItemClick={handleItemClick}
-        showBackTop={true}
-        onBackToTop={handleBackToTop}
-        onListRef={(ref) => {
-          listRef.current = ref as FlatList<ArticleItem> | null
-        }}
-        hideHeader
-        contentBottomPadding={tabBarScrollReserve(insets.bottom)}
-      />
-      <FloatBox
-        visible={floatBox.visible}
-        type={floatBox.type}
-        message={floatBox.message}
-        onHide={hideFloat}
-      />
-      <Drawer
-        visible={drawerVisible}
-        onClose={() => setDrawerVisible(false)}
-        user={drawerUser}
-        conversations={drawerConversations}
-        onNavigate={handleDrawerNavigate}
-        onNavigateCompany={handleDrawerNavigateCompany}
-        onClaimFree={handleDrawerClaimFree}
-        onCreateNewChat={handleDrawerCreateNewChat}
-        onSelectConversation={handleDrawerSelectConversation}
-        onDeleteConversation={handleDrawerDeleteConversation}
-        onOpenSettings={handleDrawerOpenSettings}
-        onOpenMessages={handleDrawerOpenMessages}
-        onGoHome={handleDrawerGoHome}
-        onNavigateExtra={handleNavigateExtra}
-      />
+        <FloatBox
+          visible={floatBox.visible}
+          type={floatBox.type}
+          message={floatBox.message}
+          onHide={hideFloat}
+        />
+        <Drawer
+          visible={drawerVisible}
+          onClose={() => setDrawerVisible(false)}
+          user={drawerUser}
+          conversations={drawerConversations}
+          onNavigate={handleDrawerNavigate}
+          onNavigateCompany={handleDrawerNavigateCompany}
+          onClaimFree={handleDrawerClaimFree}
+          onCreateNewChat={handleDrawerCreateNewChat}
+          onSelectConversation={handleDrawerSelectConversation}
+          onDeleteConversation={handleDrawerDeleteConversation}
+          onOpenSettings={handleDrawerOpenSettings}
+          onOpenMessages={handleDrawerOpenMessages}
+          onGoHome={handleDrawerGoHome}
+          onNavigateExtra={handleNavigateExtra}
+        />
+      </BlurTargetView>
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
-      <TabBar activeTab="news" onChange={handleTabChange} />
+      <TabBar activeTab="news" onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
     </View>
   )
 }

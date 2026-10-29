@@ -90,10 +90,16 @@ $deployLockDir = Join-Path $Root '.deploy.lock'                    # 部署并�
 # "D:\IHUI-AI\.trae-cn\tmp\next-build-node22\logs" —— 该目录在本机从不存在,于是
 # Get-LastBuildTime 恒返回 $null,"最近构建于…"这条诊断分支**一直是死的**(不是偶尔不准)。
 $buildLogDir = EnvOr 'IHUI_MONITOR_BUILD_LOG_DIR' (Join-Path $Root '.ihui-agent/tmp/next-build-node22/logs')
-# 部署环自身的流水(build-next-prod 由部署环调用时才会写上面那个目录,而本机部署环写的是这份日志,
-# 所以取两者中更新的一个,否则该诊断分支在本机仍然恒死)。
-$deployLoopLog = Join-Path $Root 'deploy/win/deploy-loop.log'
-$webSvcName     = "IHUI-WEB"; $apiSvcName = "IHUI-API"; $aiSvcName = "IHUI-AI-SERVICE"
+# 2026-10-28 web 蓝绿:8801 的监听者是 IHUI-WEB-ROUTER,真正出页面的是 BLUE(8851)/GREEN(8852)。
+# $webSvcName 由「IHUI-WEB」改为 router —— 旧名是已退役的单实例(见 service-auto-restart.json
+# 的 excluded 条目)。这里的名字只用于诊断文案与重启检测取 StartTime,端口判据本身走 Test-PortL,
+# 所以改名的收益是"报出来的服务名与实际监听者一致",不是修判据。
+$webSvcName     = "IHUI-WEB-ROUTER"; $apiSvcName = "IHUI-API"; $aiSvcName = "IHUI-AI-SERVICE"
+$webColorSvcNames = @("IHUI-WEB-BLUE", "IHUI-WEB-GREEN")
+# 2026-10-28 蓝绿:`api(8802)` 的监听者是 IHUI-API-ROUTER,真正干活的是 BLUE(8842)/GREEN(8843)。
+# $apiSvcName 保留为**旧单实例回滚形态**的名字:蓝绿在位时它在 SERVICE_DEMAND_START 下是停止态,
+# 属预期,不能拿来判"API 挂了"。
+$apiRouterSvcName = "IHUI-API-ROUTER"; $apiColorSvcNames = @("IHUI-API-BLUE", "IHUI-API-GREEN")
 
 # ── 邮件出口配置(与 ihui-deploy.ps1 / alert-webhook-bridge.cjs 同源)──────────────
 $NotifyEmailTo       = EnvOr 'ALERT_EMAIL_TO' '502319984@qq.com'
@@ -154,6 +160,25 @@ if (-not (Test-Path -LiteralPath $LockCommon)) {
     exit 1
 }
 . $LockCommon
+
+# ── 部署窗口状态(2026-10-26 立)──────────────────────────────────────────────────
+# 部署侧显式写、本侧只读的唯一"部署进行中"信号。立因:锁 pid / build log mtime /
+# 服务进程 StartTime 三条旧判据都有盲区(见 deploy-window-common.ps1 头注),部署窗口内
+# 照样寄信。状态文件不存在 ⇒ 退回旧判据(新代码尚未部署过的机器);文件在盘上 ⇒
+# 以它为准,不再让旧判据把已失败/已回滚的部署误判成"部署中"。
+# 模块缺失只禁用窗口判定,不阻断监控启动 —— 监控沉默比多寄一封严重得多。
+$DeployWindowEnabled = $false
+$DeployWindowFile = ''
+$DeployWindowStaleMinutes = 10
+$DeploySettleMinutes = 15
+$DeployWindowModule = Join-Path $PSScriptRoot 'deploy-window-common.ps1'
+if (Test-Path -LiteralPath $DeployWindowModule) {
+  . $DeployWindowModule
+  $DeployWindowEnabled = $true
+  $DeployWindowFile = Get-IhuiDeployWindowPath
+} else {
+  Log "WARN  缺少 deploy-window-common.ps1,部署窗口判定禁用(退回锁/构建/进程三条旧判据)"
+}
 
 function Resolve-NodeExe {
   # NSSM(LocalSystem)服务上下文的 PATH 常常没有 node,Get-Command 落空后必须按绝对路径兜底。
@@ -235,6 +260,14 @@ function Test-AlertDue {
 # (旧 `$sig = "$reason|$pendingTxt"`)是同一条缺陷(第三型:去重身份里放实时抖动的量)。
 # 正解只有档位化:身份只留"落到哪一档",实时读数进正文
 # (见 Send-Alert 的 $detail)。跨档 ⇒ 新身份当场重报;同档持续 ⇒ 由 4h 窗压住。
+# [2026-10-26 G-44 监控腿] "跨档必重报"这一条自本日起要按归一后的串读:身份面改走模块单源
+# (Get-AlertIdentitySig → ConvertTo-AlertStableText 会把裸数字折成 <n>)之后,
+#   · 磁盘两档 'lt1GB' 与 '1-10GB' 归一后是 'lt<n>GB' 与 '<n>-<n>GB' ⇒ 仍然不同串,跨档照旧重报;
+#   · 备份"缺 N 班"的班号是裸数字 ⇒ 归一后并成 '缺<n>班' 一个串,**跨班不再另开槽**。
+# 这一格是本票已知且被取证钉住的代价(harness 13k/13l),不是漏网:跨班最快也要 24h 后才发生,
+# 恒大于 $AlertRepeatHours 的 4h 窗 ⇒ 跨班那一轮仍然寄信,只是判定名从 due-new 变 due-repeat,
+# 主题与正文里的实际班号不受影响(展示面与身份面已分家,见 Send-Alert)。真要在跨班瞬间另开槽,
+# 出路是在 deploy/win/alert-dedup.ps1 的 Get-AlertCategory 给监控族登记固定枚举(交主席,本席不动单源)。
 function Get-DiskFreeTier {
   # 磁盘剩余(GB)→ 阈值档位标签。边界**不新造数**,两处都是现读既有阈值:
   #   · 10GB = 本文件巡检阈值(扫描段 "<10GB";文件头 :11「磁盘剩余(阈值 10GB)」;
@@ -262,9 +295,14 @@ function Get-BackupMissedShifts {
   return [int](1 + [math]::Floor(($AgeHours - 26) / 24))
 }
 
-# ── 身份串拼装唯一出口(2026-10-17 立;与上面两枚档位函数同一条纯函数纪律:不取盘、不打
-#    日志、无副作用)。镜像测试按 §22c 从本文件源码抽出这些函数体离线喂输入,测试内不得手抄判据。
-#    共同规矩:实时抖动的量只进 Send-Alert 的 $detail(正文),身份里只留固定类别/档位。──────
+# ── 档位串(逐项告警的**展示面** = 喂给身份层的输入)拼装唯一出口(2026-10-17 立;与上面两枚
+#    档位函数同一条纯函数纪律:不取盘、不打日志、无副作用)。镜像测试按 §22c 从本文件源码抽出这些
+#    函数体离线喂输入,测试内不得手抄判据。
+#    共同规矩:实时抖动的量只进 Send-Alert 的 $detail(正文),档位串里只留固定类别/档位。
+#    [2026-10-26 票 G-44 监控腿] 小节标题从"身份串"改成"档位串"的理由:这些串**不再直接拿去当
+#    去重身份用** —— 身份面自本日起只由下方 Get-MonitorAlertIdentity(透传共享模块的
+#    Get-AlertIdentitySig)产出,这里保留的固定类别/档位只是它的输入。此前全仓两把身份尺
+#    (部署侧已改档、监控侧仍吃整条文案),违反 §0.6 单一真相源,故把监控这侧也收到同一个出口。──────
 function Get-DiskAlertSig {
   # 磁盘告警身份:只含 档位+卷标(两者都不随轮次抖)。实时剩余量进 $alertDetail。
   param([string]$Tier, [string]$Volume)
@@ -300,6 +338,25 @@ function Get-BackupAbsentAlertSig {
   # 身份必须带类别:两类共用一条常量时,一类没备份会被另一类顶掉(去重只认一个身份)。
   param([string]$Kind)
   return "无数据库备份文件 类别=$Kind"
+}
+
+function Get-MonitorAlertIdentity {
+  # ── 监控侧告警身份的**唯一出口**(2026-10-26 立,票 G-44 的监控腿)──────────────────
+  # 这里**不拼任何字符串**:整条职责就是把逐项档位串透传给共享模块 alert-dedup.ps1 的
+  # Get-AlertIdentitySig(类别 + 归一化病因),与部署侧 ihui-deploy.ps1 吃的是同一把尺(§0.6)。
+  # 立因(现读,不是假想):此前 Send-Alert 的逐项身份就是**折叠过空白的那一条文案本身**,
+  # 于是"这条文案里有没有实时读数"全靠人记得调用上面那批档位函数 —— 那层保护是散文,不是器物。
+  # 下一个新增告警只要忘了分档、把轮次/条数/时刻/sha/盘符路径拼进文案,就又是一次"每轮换一槽 ⇒
+  # 去重窗结构上永不命中"(alert-dedup.ps1 头注的 48h/47 封、ihui-monitor 磁盘档的旧形同族)。
+  # 走单源之后,那种文案里的读数会被 ConvertTo-AlertStableText 当场折成 <n>/<ts>/<path>/<hex>。
+  # 与展示面的分工(与 ihui-deploy.ps1 的 Invoke-FailNotify 同构,见 Send-Alert 本体):
+  #   · 身份面 = 本函数 ⇒ 只进 Test-AlertDue / Test-AlertSuppressionGrace / 清偿档的键位;
+  #   · 展示面 = 逐项文案原样 ⇒ 进主题、正文、日志,给人看的仍然是"缺2 班"这种实测档位,
+  #     绝不能把归一后的 <n> 占位符寄到人邮箱里。
+  # 纯函数纪律同上面那批:不取盘、不打日志、无副作用;函数体注释里不出现花括号(镜像测试按大括号
+  # 配平从本文件抽函数原文离线喂输入)。
+  param([string]$Item)
+  return Get-AlertIdentitySig -Message $Item
 }
 
 function Write-Undelivered {
@@ -363,11 +420,9 @@ function Get-LastBuildTime {
   $log = Get-ChildItem "$buildLogDir\next-build-node22-*.log" -ErrorAction SilentlyContinue |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
   if ($log) { return $log.LastWriteTime.ToString("HH:mm") }
-  # 上面那个目录只有**直接**跑 scripts/build-next-prod.ps1 时才会写;本机部署环(IHUI-DEPLOYLOOP)
-  # 写的是自己的 deploy-loop.log。取两者中更新的一个,否则这条诊断分支在本机恒为 $null。
-  if (Test-Path $deployLoopLog) {
-    return (Get-Item $deployLoopLog).LastWriteTime.ToString("HH:mm")
-  }
+  # 2026-10-26 修正:旧实现在这里回落到 deploy-loop.log 的 mtime,而部署环**每 60 秒轮询一次
+  # 都要写那份日志** ⇒ "最近 15 分钟有构建"恒真,所有告警都被按部署中压住(09-28 事故同型)。
+  # 现只认 build log;部署环是否在跑由显式部署窗口回答,不再从日志 mtime 猜。
   return $null
 }
 
@@ -387,8 +442,29 @@ function Get-ServiceProcessStartTime {
 }
 
 function Get-Diagnosis {
+  param($WindowState = $null)
   $lines = @()
   $now = Get-Date
+
+  # 0) 显式部署窗口优先(2026-10-26 立):部署侧写、本侧只读。
+  #    Suppress  = 窗口进行中或成功后 settle 期 ⇒ 部署相关告警按预期现象暂存。
+  #    文件在盘上但不抑制 = 部署已失败/回滚/心跳失联/成功 settle 已过 ⇒ 这一轮**不得**再回落到
+  #    下面三条旧判据:失败部署同样会留下新锁、新 build log、刚启动的服务进程,旧判据会把
+  #    "该立刻喊人的失败"重新压成"部署中"。判据只有一个真相。
+  $win = $WindowState
+  if ($null -eq $win -and $DeployWindowEnabled) {
+    $win = Get-IhuiDeployWindowState -Path $DeployWindowFile -StaleMinutes $DeployWindowStaleMinutes
+  }
+  $legacyOk = $true
+  if ($win -and $win.Suppress) {
+    $lines += "[部署重启中-预期现象] $($win.Reason) | 部署相关告警暂存,失败/回滚/心跳失联会立即放行"
+    return ($lines -join "`n")
+  }
+  if ($win -and $win.Authoritative) {
+    $legacyOk = $false
+    $lines += "[部署窗口已结束不抑制] $($win.Reason) | 不再用锁/构建/进程启动时间推断部署状态,真实故障照报"
+  }
+
   $deployLockExists = Test-Path $deployLockDir
   $lastBuild = Get-LastBuildTime
   $buildAgeMin = $null
@@ -432,16 +508,16 @@ function Get-Diagnosis {
         $deployLockNote = "部署锁状态判不出($($_.Exception.Message)),本轮按无锁处理"
         $deployLockExists = $false
     }
-    if ($deployLockExists) {
+    if ($legacyOk -and $deployLockExists) {
         $lines += "[部署重启中-预期现象] 检测到部署锁(.deploy.lock),有构建/部署正在进行,服务重启导致的短暂不可用属正常,数分钟内自动恢复 | $deployLockNote"
         return ($lines -join "`n")
     }
-    if ($deployLockNote) {
+    if ($legacyOk -and $deployLockNote) {
         $lines += "[部署锁已判陈旧/无锁] $deployLockNote(不按'部署重启中'抑制,真故障照报)"
     }
 
   # 2) 最近 15 分钟内有构建完成 → 刚部署完,服务重启中
-  if ($lastBuild -and $buildAgeMin -le 15) {
+  if ($legacyOk -and $lastBuild -and $buildAgeMin -le 15) {
     $lines += "[部署重启中-预期现象] 最近构建于 $lastBuild(约 ${buildAgeMin} 分钟前)完成,服务重启中,预计很快恢复"
     return ($lines -join "`n")
   }
@@ -463,13 +539,15 @@ function Get-Diagnosis {
   # 进程不在(未监听且进程也没了)时取不到 StartTime,那种情况落到分支 3 照常报,不静默。
   $restartGrace = [int](EnvOr 'IHUI_MONITOR_SVC_RESTART_GRACE_MIN' '10')
   $youngest = $null
-  foreach ($sn in @($webSvcName, $apiSvcName, $aiSvcName)) {
+  # 2026-10-28 蓝绿:被重启的是 router 与 BLUE/GREEN,旧 IHUI-API 只在回滚形态下才起。
+  # 已停止态的服务取不到 StartTime 会被 continue 跳过,不会误压告警。
+  foreach ($sn in (@($webSvcName, $apiRouterSvcName, $aiSvcName, $apiSvcName) + $apiColorSvcNames + $webColorSvcNames)) {
     $st = Get-ServiceProcessStartTime -ServiceName $sn
     if ($null -eq $st) { continue }
     $age = [math]::Round(((Get-Date) - $st).TotalMinutes, 1)
     if ($null -eq $youngest -or $age -lt $youngest.age) { $youngest = @{ svc = $sn; age = $age } }
   }
-  if ($youngest -and $youngest.age -le $restartGrace) {
+  if ($legacyOk -and $youngest -and $youngest.age -le $restartGrace) {
     $lines += "[部署重启中-预期现象] 服务 $($youngest.svc) 的进程于 $($youngest.age) 分钟前启动(≤$restartGrace 分钟),重启窗口内的短暂未监听属预期,数分钟内自动恢复"
     return ($lines -join "`n")
   }
@@ -477,7 +555,7 @@ function Get-Diagnosis {
   # 3) 服务进程诊断:哪个没监听
   $portMap = @(
     @{ n = "web(8801)";  p = 8801; svc = $webSvcName },
-    @{ n = "api(8802)";  p = 8802; svc = $apiSvcName },
+    @{ n = "api(8802)";  p = 8802; svc = $apiRouterSvcName },
     @{ n = "ai(8803)";   p = 8803; svc = $aiSvcName }
   )
   $downPorts = @()
@@ -510,10 +588,24 @@ function Get-Diagnosis {
   return ($lines -join "`n")
 }
 
+function Test-DeployAffectedAlertItem {
+  # 部署会让哪些告警项短暂成立:web/api/ai 三个端口、所有公网 URL、三个服务的进程状态。
+  # 刻意**不含** cdn(80)、prometheus/alertmanager/alertbridge、Cloudflared、磁盘、备份:
+  # 这些不是部署重启的对象,窗口内异常就是真异常,必须照常寄信。
+  param([string]$Item)
+  $s = ($Item -replace '\s+', ' ').Trim()
+  if ($s -match '^(web|api|ai)\(\d+\)') { return $true }
+  if ($s -match '^https?://') { return $true }
+  if ($s -match 'IHUI-(WEB|API|AI)') { return $true }
+  return $false
+}
+
 function Send-Alert($msg, $detail = '') {
   # [2026-10-17 身份档位化] 新增可选第二参数 $detail:**实时读数只进正文,绝不进身份**
   # (与 ihui-deploy.ps1:422 那条"$Detail 只能进正文、绝不进签名"同一条规矩;身份里放抖动量
-  #  = 每轮换身份 = 下面 Test-AlertDue 的 4h 窗结构上永不命中)。逐项身份仍取 $msg 拆出来的条目。
+  #  = 每轮换身份 = 下面 Test-AlertDue 的 4h 窗结构上永不命中)。逐项**展示面**仍取 $msg 拆出来的
+  #  条目;逐项**身份面**自 2026-10-26 起只由 Get-MonitorAlertIdentity(共享模块单源)产出 ——
+  #  两面的分工见循环体内那段注释,人看的与当键用的从此不再是同一个东西。
   # [2026-10-16 根治] 去重身份从"全清单组合签名"改为**逐项独立身份**(机主明令:重复告警
   # 本身就是缺陷)。旧形:身份 = 所有异常项 join 后的单一签名,组合一变(一项恢复/一项新增)
   # 就生成新身份绕过 4h 去重 → 持续故障期间每个新组合都寄一封(10-15 一天 20+ 封的机制根源)。
@@ -523,7 +615,33 @@ function Send-Alert($msg, $detail = '') {
   #     仅 due 项被登记(Test-AlertDueByIdentity 判'该寄'时自带登记,未 due 项不触碰)。
   # 项内不含 " | " 分隔串(项形如 'web(8801) 未监听' / '<URL> → ERR'),拆分可靠。
   $items = @($msg -split '\s*\|\s*' | Where-Object { $_ })
-  $diag = Get-Diagnosis
+  # 部署窗口读一次,诊断与抑制共用同一份快照(两次读盘会在窗口收口的瞬间得出两个真相)。
+  $win = if ($DeployWindowEnabled) { Get-IhuiDeployWindowState -Path $DeployWindowFile -StaleMinutes $DeployWindowStaleMinutes } else { $null }
+  $diag = Get-Diagnosis -WindowState $win
+  $deployRunId = if ($win) { [string]$win.RunId } else { '' }
+  # 抑制上限按"窗口还剩多久"算,而不是固定 20 分钟:一轮部署 10-45 分钟,固定 20 分钟会在
+  # 部署中途就把同一条告警升级成正式邮件 —— 那正是这次要修的现象。窗口活动期 = 剩余时间 +
+  # settle + 10 分钟余量;settle 期 = 剩余 settle + 10 分钟;无窗口(旧判据)才用环境变量默认值。
+  $deployGraceMin = $ExpectedWindowGraceMinutes
+  if ($win -and $win.Active -and $win.ExpectedEndAt) {
+    $remain = [Math]::Max(1.0, ($win.ExpectedEndAt - [datetimeoffset]::Now).TotalMinutes)
+    $deployGraceMin = [int][Math]::Ceiling($remain) + $DeploySettleMinutes + 10
+    if ($deployGraceMin -lt 30) { $deployGraceMin = 30 }
+  } elseif ($win -and $win.Settle -and $win.SettleUntil) {
+    $remain = [Math]::Max(1.0, ($win.SettleUntil - [datetimeoffset]::Now).TotalMinutes)
+    $deployGraceMin = [int][Math]::Ceiling($remain) + 10
+    if ($deployGraceMin -lt 15) { $deployGraceMin = 15 }
+  }
+  # 旧窗口的抑制锚点每轮清一次(只留当前 runId):否则档案里会堆着历次部署的身份,
+  # 既让人读不出当前状态,也让 MaxEntries 把当前锚点挤掉。清理失败必须写日志,不得静默。
+  if ($deployRunId) {
+    $clr = Clear-AlertGraceAnchors -StateFile $MonitorStateFile -RunId $deployRunId -Keep
+    if (-not $clr.Ok) {
+      "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 旧窗口抑制锚点未清理: $($clr.Error)" | Add-Content $alertLog -Encoding utf8
+    } elseif ($clr.Cleared -gt 0) {
+      "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 清理旧窗口抑制锚点 $($clr.Cleared) 条(当前 runId=$deployRunId)" | Add-Content $alertLog -Encoding utf8
+    }
+  }
   # 诊断已判"部署重启中-预期现象"(部署锁在 / 15 分钟内有构建)⇒ 换流窗口的短暂拒连是
   # 预期内现象,只记日志不寄信。2026-09-28 实测:两天 30+ 封告警邮件全是这一种 —— 每轮部署
   # 窗口里 web/api/ai 与各公网域名各算一个不同告警身份,按身份去重拦不住。
@@ -535,21 +653,33 @@ function Send-Alert($msg, $detail = '') {
   $itemNotes  = @()
   $dueItems   = @()
   foreach ($item in $items) {
-    $isig = ($item -replace '\s+', ' ').Trim()
+    # [2026-10-26 票 G-44 监控腿] 展示面与身份面**分家**(旧形只有一把:整条文案既寄给人看、
+    # 又直接当去重身份 ⇒ 文案里混进读数就换槽,而收信人需要的恰好就是那条文案)。
+    #   $itemTxt = 逐项文案(与改动前那个身份表达式逐字同形 ⇒ 主题/正文/日志一字不变);
+    #   $isig    = 告警身份,只由 Get-MonitorAlertIdentity 产出(→ 模块单源 Get-AlertIdentitySig)。
+    # 抑制锚点也吃 $isig 而不吃文案:锚点回答"同一件事连续被压了多久",它只该按**稳定身份**
+    # 连续,措辞/读数漂一下不许把窗重新起锚(与 ihui-deploy.ps1:462 那条"锚点不随病因漂"同一条禁令)。
+    $itemTxt = ($item -replace '\s+', ' ').Trim()
+    $isig = Get-MonitorAlertIdentity -Item $item
     if ($diag.Contains('[部署重启中-预期现象]')) {
-      $g = Test-AlertSuppressionGrace -Sig $isig -StateFile $MonitorStateFile -GraceMinutes $ExpectedWindowGraceMinutes
-      if ($g.Suppressed) {
-        $itemNotes += "[$isig] 预期窗口抑制: $($g.Note)"
-        continue
+      # 只暂存"部署会让它短暂成立"的项;磁盘/备份/Cloudflared/监控栈端口照常走发信路径。
+      # 用一个不影响外层源码锁结构的内层判断,保持 T14 的 if ($diag.Contains(...)) { 原文。
+      if (Test-DeployAffectedAlertItem $isig) {
+        $g = Test-AlertSuppressionGrace -Sig $isig -RunId $deployRunId -StateFile $MonitorStateFile -GraceMinutes $deployGraceMin
+        if ($g.Suppressed) {
+          $itemNotes += "[" + $itemTxt + "] 预期窗口抑制: " + $g.Note
+          continue
+        }
+        $graceNotes += "[" + $itemTxt + "] " + $g.Note
       }
-      $graceNotes += "[$isig] $($g.Note)"
+
     }
     $due = Test-AlertDue -Sig $isig
     if ($due.Due) {
-      $dueItems += $isig
-      $itemNotes += "[$isig] 放行: $($due.Note)"
+      $dueItems += $itemTxt
+      $itemNotes += "[$itemTxt] 放行($($due.Decision)·身份=$($due.Key)): $($due.Note)"
     } else {
-      $itemNotes += "[$isig] 身份去重跳过: $($due.Note)"
+      $itemNotes += "[$itemTxt] 身份去重跳过: $($due.Note)"
     }
   }
   if ($dueItems.Count -eq 0) {
@@ -760,7 +890,11 @@ while ($true) {
   #   ③ 间歇故障会"清一轮、报一轮"交替 ⇒ 恢复信+新故障信交替轰炸,消噪变成造噪
   #      (alert-dedup.ps1 头注同一禁令)。信面沉默、账目有出口:缺席未超窗只打 recoveredTs
   #      标记(抑制间歇重寄),超窗才删条目(真终态)。
-  $activeSigs = @($alerts | ForEach-Object { ($_ -replace '\s+', ' ').Trim() } | Where-Object { $_ })
+  # [2026-10-26 票 G-44 监控腿] 这一行必须与身份面**同一把尺**:清偿档是按 Sig 反查键位判"在场/缺席"
+  # 的(Send-Alert 写进去的是身份面的键),这里若仍喂逐项文案 ⇒ 台账里每一格都成了"本轮缺席"
+  # ⇒ 刚寄过信的身份被标 recoveredTs、超窗被删 ⇒ 4h 抑制被拆掉、每轮重寄(消噪器亲手造噪)。
+  # 锚点与身份同键(见 Send-Alert),所以一份清单同时覆盖两型条目,不必再喂第二把尺。
+  $activeSigs = @($alerts | ForEach-Object { Get-MonitorAlertIdentity -Item $_ } | Where-Object { $_ })
   $rc = Clear-AlertRecoveredIdentities -StateFile $MonitorStateFile -ActiveSig $activeSigs -RepeatHours $AlertRepeatHours
   if (-not $rc.Ok) {
     Log "身份恢复清偿 未判定:$($rc.Error)(本轮台账未动——不等于已清,下一轮继续判)"

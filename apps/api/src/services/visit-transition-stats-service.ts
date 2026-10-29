@@ -29,7 +29,7 @@ export const VISIT_TRANSITION_WINDOW_HOURS = 24
 /** 页对榜取前 N 条。 */
 const TRANSITION_TOP_N = 8
 
-export interface VisitTransitionRow {
+interface VisitTransitionRow {
   /** 上一个页面(已归一的页面路径) */
   fromUrl: string
   /** 下一个页面 */
@@ -121,7 +121,7 @@ export function buildVisitTransition(
 }
 
 /** 现算一份流转快照;任一 SQL 抛错就整块上抛,由调用方折成 null(渲染「—」),绝不兜成 0。 */
-export async function computeVisitTransition(
+async function computeVisitTransition(
   hours: number = VISIT_TRANSITION_WINDOW_HOURS,
 ): Promise<VisitTransitionSnapshot> {
   const ordered = orderedPages(hours)
@@ -146,7 +146,7 @@ export async function computeVisitTransition(
  * 大屏实时档(24h 窗口 + 60 秒 TTL):流转要按 session_id 分组扫表,
  * 60 秒对"最近大家怎么走"这个读数足够新。
  */
-export const VISIT_TRANSITION_TTL_MS = 60_000
+const VISIT_TRANSITION_TTL_MS = 60_000
 
 let liveCache: { atMs: number; value: VisitTransitionSnapshot } | null = null
 let liveInflight: Promise<VisitTransitionSnapshot> | null = null
@@ -170,9 +170,4 @@ export async function getVisitTransitionLiveSnapshot(
   return current
 }
 
-/** 仅测试用:清缓存。 */
-export function __resetVisitTransitionCacheForTest(): void {
-  liveCache = null
-  liveInflight = null
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -62,6 +62,13 @@ export interface OAuthStatus {
   feishu: boolean
   github: boolean
   alipay: boolean
+  /**
+   * 服务器按**请求来源 IP** 判出的登录呈现地区(2026-10-27 立)。
+   * 值域与判据权威住在 apps/api/src/services/login-region.ts(本包零依赖,不 import 它);
+   * null / 缺键 = 未判定,消费方必须回落到更粗的判据(界面语言),不得当成海外或国内。
+   * 用途只有一个:登录界面把哪几种方式排在前面。不得用于鉴权、限流或风控。
+   */
+  loginRegion?: 'domestic' | 'overseas' | null
 }
 
 /** Google Android id_token 验证返回的用户信息 */
@@ -70,22 +77,6 @@ export interface GoogleUserInfo {
   email?: string
   name?: string
   picture?: string
-}
-
-// =============================================================================
-// 运营商一键登录
-// =============================================================================
-
-/** 运营商(一键登录通道)枚举:flashverify 闪验 / cmcc 移动 / cucc 联通 / ctcc 电信 */
-export type CarrierOperator = 'flashverify' | 'cmcc' | 'cucc' | 'ctcc'
-
-export interface CarrierOneClickLoginParams {
-  /** 运营商 SDK 校验成功后下发的 accessCode(闪验) 或 网关 token */
-  accessToken: string
-  /** 通道运营商:flashverify 闪验 / cmcc 移动 / cucc 联通 / ctcc 电信 */
-  operator: CarrierOperator
-  /** 场景标识,默认 one_click_login(一键登录) */
-  sceneType?: 'one_click_login'
 }
 
 // =============================================================================
@@ -155,24 +146,6 @@ export async function verifyTwoFactorLogin(
         ? { challengeToken, token: trimmed }
         : { challengeToken, backupCode: trimmed.toUpperCase() },
     ),
-  })
-}
-
-/** 运营商一键登录 — POST /auth/login/carrier
- *  客户端(如 mobile-rn 闪验/网关 SDK)完成本机手机号校验后,携带运营商下发的
- *  accessToken / operator 换取 JWT(返回结构与其它登录函数一致:token + user)。
- */
-export async function loginByCarrierOneClick(
-  params: CarrierOneClickLoginParams,
-): Promise<ApiResult<LoginResult>> {
-  const body: CarrierOneClickLoginParams = {
-    accessToken: params.accessToken,
-    operator: params.operator,
-    sceneType: params.sceneType ?? 'one_click_login',
-  }
-  return fetchApi<LoginResult>('/api/auth/login/carrier', {
-    method: 'POST',
-    body: JSON.stringify(body),
   })
 }
 
@@ -318,6 +291,20 @@ export async function wecomLogin(code: string): Promise<ApiResult<LoginResult>> 
   )
 }
 
+/**
+ * 本站 App 扫码登录 — 手机端确认(需已登录态)。
+ *
+ * PC 展示二维码 → 手机扫码拿到 ticket → 调本端点把 ticket 置为 confirmed,
+ * PC 轮询 /auth/qr/status 取 token 对。ticket 的解析判据走
+ * `@ihui/shared/auth/qr-login-ticket` 的 parseQrLoginTicket,端内不另写正则。
+ */
+export async function confirmQrLogin(ticket: string): Promise<ApiResult<{ confirmed: boolean }>> {
+  return fetchApi<{ confirmed: boolean }>('/api/auth/qr/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ ticket }),
+  })
+}
+
 // =============================================================================
 // 用户名登录 / 邮箱验证码 / 重置密码 / 注册邮箱
 // (2026-07-27 补建:消除 web 端 login 表单直 fetch,统一走 api-client)
@@ -337,15 +324,30 @@ export async function loginByUsername(
 /**
  * 发送验证码(手机/邮箱通用) — POST /auth/send-code
  * body 字段名按 method 动态决定(phone → {phone, scene} / email → {email, scene})
+ *
+ * 2026-10-27:支持携带人机验证 token(turnstileToken = Cloudflare Turnstile,
+ * captchaToken = /api/security/challenge 挑战换的一次性 token)。
+ * 服务端 escalate 模式下超频后强制要求;带 token 即校验,无效必拒。
  */
 export async function sendCode(
   method: 'phone' | 'email',
   target: string,
   scene: SmsScene = 'login',
+  options?: { turnstileToken?: string; captchaToken?: string },
 ): Promise<ApiResult<{ sent: boolean }>> {
+  const turnstileToken = options?.turnstileToken
+  const captchaToken = options?.captchaToken
+  // 空串不当作"已带 token":服务端 escalate 档是"带 token 即校验、无效必拒",
+  // 把 '' 透上去只会让正常用户收到一个无法自助的人机验证失败。
+  const tokenFields =
+    typeof turnstileToken === 'string' && turnstileToken.length > 0
+      ? { turnstileToken }
+      : typeof captchaToken === 'string' && captchaToken.length > 0
+        ? { captchaToken }
+        : {}
   return fetchApi<{ sent: boolean }>('/api/auth/send-code', {
     method: 'POST',
-    body: JSON.stringify({ [method]: target, scene }),
+    body: JSON.stringify({ [method]: target, scene, ...tokenFields }),
   })
 }
 
@@ -422,6 +424,23 @@ export async function oauthCallback(
   return fetchApi<LoginResult>(`/api/auth/${platform}/callback`, {
     method: 'POST',
     body: JSON.stringify({ code, state }),
+  })
+}
+
+/** OAuth 发起期协议同意记录 — POST /auth/oauth/consent
+ *  服务端对通用回调 `POST /auth/:platform/callback` 是 fail-closed 闸:只认发起期已落 Redis
+ *  且绑定 state 的同意记录(回调时一次性消费)。各端在**打开授权会话前**必须先调本端点;
+ *  返回非 ok 即中止授权,不得先开浏览器再补记录。
+ *  body: { state, platform, agreementAccepted: true };成功 { ok: true };Redis 不可用 503。
+ */
+export async function recordOAuthConsent(
+  platform: OAuthPlatform,
+  state: string,
+  agreementAccepted: boolean,
+): Promise<ApiResult<{ ok: boolean }>> {
+  return fetchApi<{ ok: boolean }>('/api/auth/oauth/consent', {
+    method: 'POST',
+    body: JSON.stringify({ state, platform, agreementAccepted }),
   })
 }
 

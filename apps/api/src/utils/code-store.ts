@@ -34,6 +34,12 @@ export const CODE_TTL_REGISTER_MS = 10 * 60 * 1000
 export const CODE_RESEND_INTERVAL_MS = 60 * 1000 // 60 秒内不可重发
 
 const KEY_PREFIX = 'code:'
+/** 错码尝试计数键。上限 5 次 —— 6 位码在 5 分钟内只靠路由限流兜底时,
+ *  「新增调用点忘配 rateLimit」就等于无限枚举;计数放在存储旁边,判据不再依赖调用方。 */
+const ATTEMPT_PREFIX = 'code:attempts:'
+const MAX_VERIFY_ATTEMPTS = 5
+/** bypass 表查询失败只告警一次,避免每个请求刷一行日志。 */
+let bypassWarned = false
 /** 比对 + 删除一步做完。分两步写会引入"两个请求同时校验同一枚都通过"的窗口:
  *  进程内 Map 时代靠单线程天然免疫,换到 Redis 就不免疫了。 */
 const CONSUME_SCRIPT = `
@@ -106,6 +112,8 @@ export function generateCode(): string {
 export async function putCodeEntry(identifier: string, entry: CodeEntry): Promise<void> {
   const ttlMs = Math.max(1000, entry.expiresAt - entry.sentAt)
   fallbackStore.set(identifier, entry)
+  // 新码从零开始计数:上一枚码的失败次数不能追到新码上(否则用户重取后只剩 1 次机会)
+  await clearAttempts(identifier)
   const redis = getRedis()
   if (!redis) return
   try {
@@ -145,19 +153,107 @@ export async function getCodeEntry(identifier: string): Promise<CodeEntry | null
   return mem
 }
 
+/** 当前活动尝试计数(仅内存档;Redis 档由脚本保证 TTL)。 */
+interface AttemptRecord {
+  count: number
+  expiresAt: number
+}
+const attemptStore = new Map<string, AttemptRecord>()
+
+const BUMP_ATTEMPT_SCRIPT = `
+local n = redis.call('INCR', KEYS[1])
+if n == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+return n
+`
+
+async function bumpAttempts(identifier: string, ttlMs: number): Promise<number> {
+  const now = Date.now()
+  const ttl = Math.max(1000, ttlMs)
+  const redis = getRedis()
+  if (redis) {
+    try {
+      return (await redis.eval(
+        BUMP_ATTEMPT_SCRIPT,
+        1,
+        ATTEMPT_PREFIX + identifier,
+        String(ttl),
+      )) as number
+    } catch (e) {
+      logger.error('[code-store] 尝试计数失败,回退内存', {
+        error: String((e as Error)?.message ?? e),
+      })
+    }
+  }
+  const mem = attemptStore.get(identifier)
+  if (!mem || mem.expiresAt <= now) {
+    attemptStore.set(identifier, { count: 1, expiresAt: now + ttl })
+    return 1
+  }
+  mem.count += 1
+  return mem.count
+}
+
+/** 达上限:码与计数一起作废,避免「计数满了但码还在」被继续消耗。 */
+async function purgeCodeAndAttempts(identifier: string): Promise<void> {
+  fallbackStore.delete(identifier)
+  attemptStore.delete(identifier)
+  const redis = getRedis()
+  if (!redis) return
+  try {
+    await redis.del(KEY_PREFIX + identifier, ATTEMPT_PREFIX + identifier)
+  } catch (e) {
+    logger.error('[code-store] 作废验证码失败', {
+      error: String((e as Error)?.message ?? e),
+    })
+  }
+}
+
+async function clearAttempts(identifier: string): Promise<void> {
+  attemptStore.delete(identifier)
+  const redis = getRedis()
+  if (!redis) return
+  try {
+    await redis.del(ATTEMPT_PREFIX + identifier)
+  } catch {
+    // 清不掉只影响下一枚码的宽容度,不阻塞校验
+  }
+}
+
+/**
+ * 固定码后门的环境开关名。**必须显式写成 `SMS_TEST_BYPASS=true` 才可能开门**。
+ *
+ * 为什么坐两道门(2026-10-26 根治):生产 .env 长期是 `NODE_ENV=development`,
+ * 只凭档位判定等于把后门交给一行配置;而库里的 bypass 行随时可能被重新激活。
+ * 现在必须「development 档 + 显式 flag」同时成立才查表,缺一则表都不碰:
+ *  - 生产 .env 不写该变量 ⇒ 后门死透,即便有人插入 active 行、即便 NODE_ENV 仍是 development;
+ *  - 本地测试要用固定码 ⇒ 自己显式打开,并接受启动告警。
+ */
+const BYPASS_ENV_KEY = 'SMS_TEST_BYPASS'
+
+function isFixedCodeBypassArmed(): boolean {
+  return config.isDevelopmentRuntime === true && process.env[BYPASS_ENV_KEY] === 'true'
+}
+
+if (config.isDevelopmentRuntime === true && process.env[BYPASS_ENV_KEY] === 'true') {
+  logger.warn('[code-store] 固定验证码后门已由 SMS_TEST_BYPASS=true 显式开启', {
+    env: BYPASS_ENV_KEY,
+    note: '生产环境严禁设置该变量',
+  })
+}
+
 /**
  * 校验验证码:匹配且未过期时返回 true 并删除该验证码(一次性使用)。
  *
- * 测试 bypass(仅 NODE_ENV !== 'production'):
- * - 先查 test_verify_code_bypass 表,命中且 code 匹配 → true(不消耗内存 code)
- * - bypass 名单由该表驱动(仅本地/CI seed 占位开发账号,真实账号标识不入仓库)
- * - 生产环境永远走真实验证码流程,且生产库此表保持 is_active=false
+ * 测试 bypass(双重门,见 isFixedCodeBypassArmed):
+ * - 必须 `config.isDevelopmentRuntime === true` **且** `SMS_TEST_BYPASS=true`,缺一不查表;
+ * - 旧判据只看 NODE_ENV ⇒ 部署链把 NODE_ENV 写成 development 时,生产库里的
+ *   bypass 行直接成为固定码后门(2026-10-26 实测:生产 .env 第 1 行即 development);
+ * - bypass 名单由 test_verify_code_bypass 表驱动,生产库应保持 is_active=false。
  *
  * @param identifier phone 或 email(与发送时存入的 key 一致)
  */
 export async function verifyCode(identifier: string, code: string): Promise<boolean> {
-  // 测试 bypass:仅非生产环境,admin 账号固定验证码 123456
-  if (process.env.NODE_ENV !== 'production') {
+  if (isFixedCodeBypassArmed()) {
     try {
       const result = await db.execute(sql`
         SELECT 1 FROM "test_verify_code_bypass"
@@ -169,8 +265,14 @@ export async function verifyCode(identifier: string, code: string): Promise<bool
       if (Array.isArray(result) && result.length > 0) {
         return true
       }
-    } catch {
-      // 表不存在或查询失败时降级到存储校验(不阻塞登录流程)
+    } catch (e) {
+      // 表不存在或查询失败时降级到存储校验(不阻塞登录流程),但必须留痕
+      if (!bypassWarned) {
+        bypassWarned = true
+        logger.warn('[code-store] bypass 表查询失败,按正常验证码流程处理', {
+          error: String((e as Error)?.message ?? e),
+        })
+      }
     }
   }
 
@@ -185,7 +287,17 @@ export async function verifyCode(identifier: string, code: string): Promise<bool
         String(Date.now()),
       )) as number
       fallbackStore.delete(identifier)
-      return consumed === 1
+      if (consumed === 1) {
+        await clearAttempts(identifier)
+        return true
+      }
+      // 错码:码仍在则记一次尝试;达上限直接作废该码,后续校验只能重新取码
+      const stillThere = await redis.get(KEY_PREFIX + identifier)
+      if (stillThere) {
+        const attempts = await bumpAttempts(identifier, CODE_TTL_MS)
+        if (attempts >= MAX_VERIFY_ATTEMPTS) await purgeCodeAndAttempts(identifier)
+      }
+      return false
     } catch (e) {
       logger.error('[code-store] 原子消费脚本失败,回退内存校验', {
         error: String((e as Error)?.message ?? e),
@@ -195,9 +307,14 @@ export async function verifyCode(identifier: string, code: string): Promise<bool
 
   const entry = fallbackStore.get(identifier)
   if (!entry || entry.code !== code || entry.expiresAt <= Date.now()) {
+    if (entry) {
+      const attempts = await bumpAttempts(identifier, entry.expiresAt - Date.now())
+      if (attempts >= MAX_VERIFY_ATTEMPTS) await purgeCodeAndAttempts(identifier)
+    }
     return false
   }
   fallbackStore.delete(identifier)
+  await clearAttempts(identifier)
   return true
 }
 
@@ -207,6 +324,7 @@ export const __test__ = {
   /** 清空两面。测试用例之间必须互不残留。 */
   async reset(): Promise<void> {
     fallbackStore.clear()
+    attemptStore.clear()
     const redis = getRedis()
     if (!redis) return
     const keys: string[] = []

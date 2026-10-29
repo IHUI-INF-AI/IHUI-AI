@@ -5,26 +5,18 @@
 import type { ComponentProps } from 'react'
 import { Image, Text, View } from 'react-native'
 import { cn } from '@ihui/design-tokens'
-
-type AvatarSize = 'sm' | 'md' | 'lg'
-
-const sizeMap: Record<AvatarSize, string> = {
-  sm: 'h-8 w-8',
-  md: 'h-10 w-10',
-  lg: 'h-12 w-12',
-}
-
-const textSizeMap: Record<AvatarSize, string> = {
-  sm: 'text-xs',
-  md: 'text-sm',
-  lg: 'text-base',
-}
+import {
+  AVATAR_TAILWIND,
+  AVATAR_TEXT_TAILWIND,
+  type AvatarSize,
+  type AvatarShape,
+} from '@ihui/shared/ui/avatar-spec'
 
 export interface AvatarProps extends Omit<ComponentProps<typeof View>, 'children'> {
   source?: ComponentProps<typeof Image>['source']
   name?: string
   size?: AvatarSize
-  shape?: 'circle' | 'rounded'
+  shape?: AvatarShape
 }
 
 export function Avatar({
@@ -48,7 +40,7 @@ export function Avatar({
     <View
       className={cn(
         'items-center justify-center overflow-hidden bg-muted',
-        sizeMap[size],
+        AVATAR_TAILWIND[size],
         shape === 'circle' ? 'rounded-md' : 'rounded-lg',
         className,
       )}
@@ -62,7 +54,7 @@ export function Avatar({
           className={cn(shape === 'circle' ? 'rounded-md' : 'rounded-lg', 'h-full w-full')}
         />
       ) : (
-        <Text className={cn('font-medium text-muted-foreground', textSizeMap[size])}>
+        <Text className={cn('font-medium text-muted-foreground', AVATAR_TEXT_TAILWIND[size])}>
           {initials}
         </Text>
       )}

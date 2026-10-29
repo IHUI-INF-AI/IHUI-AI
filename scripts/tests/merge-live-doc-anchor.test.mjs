@@ -24,6 +24,8 @@ import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 闭包由共用层递归求值(§0.6/§22c):测试自己列清单 = 第二份"什么算依赖",生产加一跳就必然漏拷。
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 // 按 §22c:取真值源,不在测试里复制一份实现(相似度工具正是为此被抽成 lib 的)。
 import { SIM_THRESHOLD, jaccard, tokenize } from '../lib/live-doc-similarity.mjs'
 
@@ -38,19 +40,20 @@ const GIT = 'git'
  * 被 spawn 的 CLI **一个字都不打**,而下面 `counts()` 把"没解析出来"折成 `-1` ⇒ 五条用例同时红,
  * 红语是"改写被判吃掉/删行没报丢失" —— 夹具缺件伪装成判据失效,与本仓"取证工具坏了表现得像
  * 仓库坏了"那一族同型。所以这一件单独抽成函数,两个夹具入口共用,且 `counts()` 先判"报告在不在"。
+ *
+ * 〔2026-10-28 收口〕这里曾逐文件手写清单(2026-09-29 两件 → 2026-10-25 补 archive-drops 一件)。
+ * 现读证据:HEAD `0a3defae5a`(2026-10-26)给 `live-doc-archive-drops.mjs` 加了 `./ledger-move-aware.mjs`
+ * 与 `./plan-task-headings.mjs` 两跳,**清单没跟着加** ⇒ 本文件 5/7 例自那天起恒红(`真丢失= -1`、
+ * 报告空),红语依旧长成"判据失效"的样子(§12f:判据失效的表现永远是安静)。改成走
+ * `copyScriptWithClosure` 的递归闭包:闭包由**生产文件的 import 语句**现算,测试里不再有第二份清单。
  */
 function copyClassifyClosure(dir) {
-  copyFileSync(
-    join(REPO, 'scripts/lib/live-doc-classify.mjs'),
-    join(dir, 'scripts/lib/live-doc-classify.mjs'),
-  )
-  // 2026-10-25 再补一件(守门 207 第二刀①):归并器新增 `lib/live-doc-archive-drops.mjs` 依赖,
-  // 不拷它 ⇒ 被 spawn 的 CLI 静默不打字 ⇒ `counts()` 读出 -1 ⇒ 红语变成"删行没报丢失",
-  // 与上面那段记的完全同型。闭包每增一件都必须加在这里,不许只改生产文件。
-  copyFileSync(
-    join(REPO, 'scripts/lib/live-doc-archive-drops.mjs'),
-    join(dir, 'scripts/lib/live-doc-archive-drops.mjs'),
-  )
+  copyScriptWithClosure(join(REPO, 'scripts'), 'merge-live-doc.mjs', join(dir, 'scripts'), [
+    'lib/live-doc-classify.mjs',
+    'lib/live-doc-archive-drops.mjs',
+    'lib/ledger-move-aware.mjs',
+    'lib/plan-task-headings.mjs',
+  ])
 }
 
 // 两行刻意"中段全换":锚点 `- **闸门甲**(7)` 相同,正文几乎不重叠。

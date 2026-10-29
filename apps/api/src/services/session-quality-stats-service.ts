@@ -28,8 +28,8 @@ import { visitLogs } from '@ihui/database'
 /** 会话窗口:与大屏其它腿同一档(24h),同口径才可比。 */
 export const SESSION_QUALITY_WINDOW_HOURS = 24
 
-/** 落地页榜取前 N 条。 */
-const SESSION_ENTRY_TOP_N = 6
+/** 落地页/退出页两榜各取前 N 条(2026-10-27 起两榜共用同一个 N)。 */
+const SESSION_PAGE_TOP_N = 6
 
 /**
  * 会话深度分档(唯一分档判据在服务端,前端只按桶渲染,不自己数档)。
@@ -37,20 +37,30 @@ const SESSION_ENTRY_TOP_N = 6
  * 所以第一档必须单独拎出来,否则 2-3 与 4-7 两档会把"进来即走"淹没在中间。
  */
 export const SESSION_DEPTH_BUCKETS = ['1', '2-3', '4-7', '8+'] as const
-export type SessionDepthBucket = (typeof SESSION_DEPTH_BUCKETS)[number]
+type SessionDepthBucket = (typeof SESSION_DEPTH_BUCKETS)[number]
 
-export interface SessionDepthSlice {
+interface SessionDepthSlice {
   bucket: SessionDepthBucket
   /** 该档会话数 */
   sessions: number
 }
 
-export interface SessionEntryPage {
+interface SessionEntryPage {
   /** 落地页路径(库里已是归一后的页面路径,见 @ihui/shared/utils/visit-url) */
   url: string
   /** 以该页为落地页的会话数 */
   sessions: number
   /** 其中只停留在这一个页面的会话数(进来即走) */
+  singlePageSessions: number
+}
+
+/** 退出页一行(2026-10-27 立):与落地页同一形状,判据镜像 —— 该会话**最后一条**有 url 的记录。 */
+interface SessionExitPage {
+  /** 退出页路径 */
+  url: string
+  /** 以该页收尾的会话数 */
+  sessions: number
+  /** 其中只停留在这一个页面的会话数(既是落地页也是退出页) */
   singlePageSessions: number
 }
 
@@ -67,6 +77,12 @@ export interface SessionQualitySnapshot {
   depth: SessionDepthSlice[]
   /** 落地页 TOP(进来的会话最多的页面) */
   entryPages: SessionEntryPage[]
+  /**
+   * 退出页 TOP(2026-10-27 立,收尾的会话最多的页面)。
+   * 落地页答「人从哪进」,退出页答「人从哪走」—— 两头都有才看得出路径断在哪一步;
+   * 口径与落地页镜像(最后一条有 url 的记录),单页会话两榜同时计入。
+   */
+  exitPages: SessionExitPage[]
   /** 本轮聚合完成时刻(缓存判据;不是"数据本身的时间") */
   computedAtMs: number
 }
@@ -74,9 +90,10 @@ export interface SessionQualitySnapshot {
 /**
  * 每会话聚合的列定义(导出供测试钉形状)。
  *
- * `entry_url` 取该会话**最早一条有 url 的记录**:库里 url 为 null 的行是"归一不出页面"
- * 的噪声行(见写入面 `saveVisitLog`),让它们占住落地页会把 landing 读数带偏 ⇒
- * `filter (where url is not null)` 是承重的那半句,去掉它落地页会被噪声行顶掉。
+ * `entry_url` 取该会话**最早一条有 url 的记录**;`exit_url`(2026-10-27)取**最后一条**:
+ * 两边同一个 `filter (where url is not null)` 理由 —— 库里 url 为 null 的行是"归一不出页面"
+ * 的噪声行(见写入面 `saveVisitLog`),让它们占住落地/退出页会把两头读数都带偏。
+ * 去掉这两个 filter,榜一会被噪声行顶掉(承重语句,测试 A/B 两侧都钉)。
  */
 export const SESSION_ROWS_COLUMNS = {
   pvCnt: sql<number>`count(*)::int`.as('pv_cnt'),
@@ -85,6 +102,11 @@ export const SESSION_ROWS_COLUMNS = {
     string | null
   >`(array_agg(${visitLogs.url} order by ${visitLogs.createdAt} asc, ${visitLogs.id} asc) filter (where ${visitLogs.url} is not null))[1]`.as(
     'entry_url',
+  ),
+  exitUrl: sql<
+    string | null
+  >`(array_agg(${visitLogs.url} order by ${visitLogs.createdAt} desc, ${visitLogs.id} desc) filter (where ${visitLogs.url} is not null))[1]`.as(
+    'exit_url',
   ),
 }
 
@@ -132,8 +154,15 @@ export interface SessionEntryRow {
   singlePageSessions?: number | string | null
 }
 
+/** 退出页腿的原始行形状(键名同上;与落地页镜像,2026-10-27 立)。 */
+export interface SessionExitRow {
+  exitUrl?: string | null
+  sessions?: number | string | null
+  singlePageSessions?: number | string | null
+}
+
 /**
- * 把两腿的原始行折成一份会话质量快照(纯函数,便于零连接取证)。
+ * 把三腿的原始行折成一份会话质量快照(纯函数,便于零连接取证)。
  *
  * 口径细则:
  * - `singlePageSessions` = `page_cnt = 1` 的会话(只停留在一个**页面**;
@@ -142,10 +171,13 @@ export interface SessionEntryRow {
  *   一个只停留 1 个页面但刷新 3 次的会话落在 "2-3" 档。
  * - 会话数为 0 时,占比与人均一律 null(不是 0):窗口内没有会话是**判过的**结果,
  *   但"占比 0%"会被读成"来的人都不翻页",那是把空集说成结论。
+ * - 落地页/退出页(2026-10-27):单页会话两榜同时计入(那一页既是入口也是出口),
+ *   不做互斥剔除 —— 剔除后两榜之和对不上会话数,反而读不出"进来即走"堆在哪一页。
  */
 export function buildSessionQuality(
   aggRow: SessionQualityAggRow | undefined,
   entryRows: SessionEntryRow[],
+  exitRows: SessionExitRow[],
 ): Omit<SessionQualitySnapshot, 'computedAtMs'> {
   const sessions = num(aggRow?.sessions)
   const singlePageSessions = num(aggRow?.singlePageSessions)
@@ -163,6 +195,13 @@ export function buildSessionQuality(
       singlePageSessions: num(r.singlePageSessions),
     }))
     .filter((r) => r.url.length > 0)
+  const exitPages: SessionExitPage[] = exitRows
+    .map((r) => ({
+      url: String(r.exitUrl ?? ''),
+      sessions: num(r.sessions),
+      singlePageSessions: num(r.singlePageSessions),
+    }))
+    .filter((r) => r.url.length > 0)
   return {
     sessions,
     singlePageSessions,
@@ -170,15 +209,16 @@ export function buildSessionQuality(
     avgPvPerSession: sessions > 0 ? totalPv / sessions : null,
     depth,
     entryPages,
+    exitPages,
   }
 }
 
 /** 现算一份会话质量快照;任一 SQL 抛错就整块上抛,由调用方折成 null(渲染"—"),绝不兜成 0。 */
-export async function computeSessionQuality(
+async function computeSessionQuality(
   hours: number = SESSION_QUALITY_WINDOW_HOURS,
 ): Promise<SessionQualitySnapshot> {
   // 子查询只建一次再复用:每次调用 perSession() 都会生成一个同名别名 `per_session`,
-  // 在一条 SQL 里出现两次 ⇒ 别名冲突。总量与落地页两腿共用这一个对象(口径同源)。
+  // 在一条 SQL 里出现两次 ⇒ 别名冲突。总量/落地页/退出页三腿共用这一个对象(口径同源)。
   const per = perSession(hours)
 
   const [row] = await dbRead
@@ -203,18 +243,33 @@ export async function computeSessionQuality(
     .where(sql`${per.entryUrl} is not null`)
     .groupBy(per.entryUrl)
     .orderBy(sql`count(*) desc, ${per.entryUrl} asc`)
-    .limit(SESSION_ENTRY_TOP_N)
+    .limit(SESSION_PAGE_TOP_N)
+
+  // 退出页腿(2026-10-27):与落地页同一子查询、镜像判据(exit_url 已在列定义里),
+  // 回答「人从哪走」—— 两头都有才看得出路径断在哪一步。
+  const exitRows = await dbRead
+    .select({
+      exitUrl: per.exitUrl,
+      sessions: sql<number>`count(*)::int`,
+      singlePageSessions: sql<number>`count(*) filter (where ${per.pageCnt} = 1)::int`,
+    })
+    .from(per)
+    .where(sql`${per.exitUrl} is not null`)
+    .groupBy(per.exitUrl)
+    .orderBy(sql`count(*) desc, ${per.exitUrl} asc`)
+    .limit(SESSION_PAGE_TOP_N)
 
   const agg = row as unknown as SessionQualityAggRow | undefined
   const entries = (entryRows as unknown as SessionEntryRow[]) ?? []
-  return { ...buildSessionQuality(agg, entries), computedAtMs: Date.now() }
+  const exits = (exitRows as unknown as SessionExitRow[]) ?? []
+  return { ...buildSessionQuality(agg, entries, exits), computedAtMs: Date.now() }
 }
 
 /**
  * 大屏实时档(24h 窗口 + 5 秒 TTL):会话族聚合要按 session_id 分组扫 visit_logs,
  * 与页面热度同一档节拍(多个观众共享一轮聚合)。取不到时上抛,由调用方折成 null。
  */
-export const SESSION_QUALITY_TTL_MS = 5_000
+const SESSION_QUALITY_TTL_MS = 5_000
 
 let liveCache: { atMs: number; value: SessionQualitySnapshot } | null = null
 let liveInflight: Promise<SessionQualitySnapshot> | null = null
@@ -238,9 +293,4 @@ export async function getSessionQualityLiveSnapshot(
   return current
 }
 
-/** 仅测试用:清缓存。 */
-export function __resetSessionQualityCacheForTest(): void {
-  liveCache = null
-  liveInflight = null
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

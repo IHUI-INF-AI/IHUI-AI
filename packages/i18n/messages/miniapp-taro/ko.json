@@ -150,6 +150,7 @@
     "googleNotConfigured": "Google 로그인 미설정. .env 에 EXPO_PUBLIC_GOOGLE_CLIENT_ID 를 설정하세요.",
     "sdkPending": "{name} 로그인은 웹에서만 가능합니다. 모바일에는 네이티브 SDK가 미통합입니다.\n“智汇AI 웹 인증 로그인” 버튼으로 웹 인증으로 이동할 수 있습니다.",
     "agree": "동의",
+    "webAuthLogin": "웹 인증 로그인",
     "agreeTermsTitle": "서비스 약관 동의 확인"
   },
   "forgot": {
@@ -6719,6 +6720,12 @@
     "unknownLecturer": "알 수 없는 강사",
     "viewCount": "{count}회 시청"
   },
+  "scanLogin": {
+    "menuTitle": "스캔",
+    "invalidCode": "이 사이트의 로그인 QR 코드를 스캔하세요",
+    "success": "로그인이 확인되었습니다",
+    "failed": "확인에 실패했습니다. 다시 시도하세요.",
+    "needLogin": "스캔하기 전에 로그인하세요"
   "skillsMarket": {
     "noRatings": "평점이 없습니다",
     "detailTitle": "스킬 상세",

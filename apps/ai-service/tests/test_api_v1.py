@@ -227,24 +227,31 @@ class TestAgentListEndpoint:
 class TestAgentRegisterEndpoint:
     @pytest.mark.asyncio
     async def test_register_new_agent(self, client):
-        """注册新 agent。"""
-        resp = await client.post(
-            "/api/v1/ai/agent/register",
-            json={
-                "name": "test_custom_agent",
-                "description": "测试 agent",
-                "system_prompt": "你是测试 agent",
-                "tools": ["read_file"],
-            },
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["code"] == 0
-        assert data["data"]["name"] == "test_custom_agent"
-        # 验证能列出来
-        list_resp = await client.get("/api/v1/ai/agent/list")
-        names = {a["name"] for a in list_resp.json()["data"]["agents"]}
-        assert "test_custom_agent" in names
+        """注册新 agent(用例自己摘掉,不污染共享注册表)。"""
+        from app.services.agent_orchestrator import agent_orchestrator
+
+        try:
+            resp = await client.post(
+                "/api/v1/ai/agent/register",
+                json={
+                    "name": "test_custom_agent",
+                    "description": "测试 agent",
+                    "system_prompt": "你是测试 agent",
+                    "tools": ["read_file"],
+                },
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["code"] == 0
+            assert data["data"]["name"] == "test_custom_agent"
+            # 验证能列出来
+            list_resp = await client.get("/api/v1/ai/agent/list")
+            names = {a["name"] for a in list_resp.json()["data"]["agents"]}
+            assert "test_custom_agent" in names
+        finally:
+            # 2026-10-26:xdist 同 worker 的后续用例同读这份进程内单例,
+            # 残留一档会让 dispatch_subagent 广告面与注册表集合不等(实测 -n auto 三连红)。
+            agent_orchestrator.registry.remove("test_custom_agent")
 
     @pytest.mark.asyncio
     async def test_register_empty_name_rejected(self, client):

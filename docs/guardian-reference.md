@@ -102,7 +102,7 @@
 | 34 | 🔍 @ts-ignore 新增检测(blocking:存量已清零,只拦 staged 新增) | check-ts-ignore.mjs | — | 有 |
 | 33 | 🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地) | check-llm-provider-schema.mjs | — | 有 |
 | 42 | 🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发) | check-event-closure-leak.mjs | — | 有 |
-| 44 | 🧹 根目录整洁守门(一级目录白名单) | check-root-dir-clean.mjs | — | 有 |
+| 44 | 🧹 根目录整洁守门(一级目录白名单 + 封口链接 D:/DevEnv/{Temp,Logs}) | check-root-dir-clean.mjs | — | 有 |
 | 46 | 🔙 统一返回键防私接守门(禁页面私写 router.back/history.back) | check-inline-back-button.mjs | — | 有 |
 | 47 | 💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区) | check-watermark-coverage.mjs | — | 有 |
 | 48 | 🧩 GitHub Actions 步骤顺序守门(setup-node cache:pnpm 必须在 pnpm/action-setup 之后) | check-workflow-step-order.mjs | — | 有 |
@@ -621,7 +621,7 @@
 
 ```
 
-#### [44] 🧹 根目录整洁守门(一级目录白名单)
+#### [44] 🧹 根目录整洁守门(一级目录白名单 + 封口链接 D:/DevEnv/{Temp,Logs})
 
 ```
 
@@ -630,6 +630,8 @@
        ① 临时/垃圾产物 → 删除,或移入 tmp/ 或 logs/
        ② 合法新增(新配置/新文档/新目录) → 加入 scripts/check-root-dir-clean.mjs 白名单后重新 commit
      白名单四组:ALLOWED_FILES / ALLOWED_DIRS / ALLOWED_HIDDEN_FILES / ALLOWED_HIDDEN_DIRS。
+     另有**封口链接**档(2026-10-28):指向 D:/DevEnv/{Temp,Logs} 的 junction 由 isSealedLink 放行,
+     无需改白名单(实体目录照旧红)—— 用于外部驱动按 cwd 在仓根建固定名字目录、删了会再建的那一型。
 
 ```
 
@@ -3159,7 +3161,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 34 | `code-quality/ts-ignore` | 🔍 @ts-ignore 新增检测(blocking:存量已清零,只拦 staged 新增) | check-ts-ignore.mjs |
 | 33 | `llm/provider-schema` | 🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地) | check-llm-provider-schema.mjs |
 | 42 | `—（待补充）` | 🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发) | check-event-closure-leak.mjs |
-| 44 | `—（待补充）` | 🧹 根目录整洁守门(一级目录白名单) | check-root-dir-clean.mjs |
+| 44 | `—（待补充）` | 🧹 根目录整洁守门(一级目录白名单 + 封口链接 D:/DevEnv/{Temp,Logs}) | check-root-dir-clean.mjs |
 | 46 | `—（待补充）` | 🔙 统一返回键防私接守门(禁页面私写 router.back/history.back) | check-inline-back-button.mjs |
 | 47 | `—（待补充）` | 💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区) | check-watermark-coverage.mjs |
 | 48 | `—（待补充）` | 🧩 GitHub Actions 步骤顺序守门(setup-node cache:pnpm 必须在 pnpm/action-setup 之后) | check-workflow-step-order.mjs |

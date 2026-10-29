@@ -6,7 +6,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync, execSync } from 'node:child_process'
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 // §22c:判据纯函数由源脚本 export,测试**直接 import**而不是抄一份镜像常量。
@@ -159,10 +159,13 @@ function stageFile(repoDir, relPath, content) {
 }
 
 // ─── 辅助:运行 check-port-registry.mjs ───
-function runScript(cwd, args = []) {
+function runScript(cwd, args = [], env) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd,
     encoding: 'utf8',
+    // 显式给 env 时必须与 process.env 合并:整份替换会让子进程丢 PATH,
+    // 门脚本再派生 git 就以另一种错法失败(归因被污染)。
+    ...(env ? { env: { ...process.env, ...env } } : {}),
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
   })
@@ -388,9 +391,33 @@ test('staged 模式: staged 文件含违规端口 7777 → ⚠️ 报告', () =>
 // 全量审计会"绿着漏过"。现在失败必须**出声**并退到 staged 口径,同时不得声称"扫描通过"。
 test('非 git 环境 --all 模式: git ls-files 失败 → 显式告警并回退 staged,不静默判绿', () => {
   const dir = mkScratch('ihui-port-nogit-')
+  // 夹具前提自证(2026-10-29 补):G-158 之后 mkScratch 落在 `<repoRoot>/.DevEnv/Temp/…` 之下,
+  // 路径仍在主仓管辖内 ⇒ git 向上就能找到 .git ⇒ `ls-files` 返回 0 个文件而**不是失败** ⇒
+  // 本例要测的"回退分支"根本进不去(所以它此前在本地长期静默失效)。正解不是把 scratch 搬出
+  // 仓外(§15b 的落点是定死的),而是用 git 自带机制造出非 git 目录:GIT_CEILING_DIRECTORIES
+  // 让向上查找在此止步。本机实测:不置 ⇒ status 0;置(正/反斜杠皆可)⇒ status 128
+  // 「not a git repository」。
+  const ceiling = dirname(dir)
+  const probeGit = (isolate) =>
+    spawnSync('git', ['ls-files'], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: isolate ? { ...process.env, GIT_CEILING_DIRECTORIES: ceiling } : process.env,
+    })
   try {
-    // 不 init git,直接跑 --all
-    const r = runScript(dir, ['--all'])
+    assert.equal(
+      probeGit(false).status,
+      0,
+      '前提破了:不置 ceiling 时 scratch 应当仍被主仓管辖(⇒ 本例必须显式造非 git)',
+    )
+    assert.notEqual(
+      probeGit(true).status,
+      0,
+      `夹具自证失败:置 GIT_CEILING_DIRECTORIES=${ceiling} 后该目录仍被当成 git 仓`,
+    )
+    // 不 init git,直接跑 --all(此刻该目录已被 ceiling 显式隔离在主仓之外)
+    const r = runScript(dir, ['--all'], { GIT_CEILING_DIRECTORIES: ceiling })
     // 2026-09-28 票 G-409 后此场景的退出码从 0 改成 **2(无法判定)**:扫描的判据就是
     // registered_ports 派生集,非 git 目录下那份清单取不到 ⇒ 此时报 exit 0 等于对着
     // "一处都没判"出具"端口合规"合格证 —— 正是本测试第二/三条断言已经在防的那一型,

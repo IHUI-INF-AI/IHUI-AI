@@ -150,6 +150,7 @@
     "googleNotConfigured": "Google login is not configured; set EXPO_PUBLIC_GOOGLE_CLIENT_ID in .env.",
     "sdkPending": "{name} login is only available on the web; the native SDK is not integrated on mobile.\nYou can use the “IHUI AI web authorized login” button to authorize in the browser.",
     "agree": "Agree",
+    "webAuthLogin": "Sign in via web authorization",
     "agreeTermsTitle": "Agree to the Terms of Service"
   },
   "forgot": {
@@ -6719,6 +6720,12 @@
     "unknownLecturer": "Unknown lecturer",
     "viewCount": "{count} views"
   },
+  "scanLogin": {
+    "menuTitle": "Scan",
+    "invalidCode": "Please scan the sign-in QR code from this site",
+    "success": "Sign-in confirmed",
+    "failed": "Confirmation failed. Please try again.",
+    "needLogin": "Please sign in before scanning"
   "skillsMarket": {
     "noRatings": "No ratings",
     "detailTitle": "Skill details",

@@ -176,8 +176,6 @@ export function createSupportStyles(tk: AppThemeTokens) {
     commentRole: { fontSize: 11, fontWeight: '600', color: tk.text.secondary },
     commentText: { fontSize: 13, color: tk.text.primary, lineHeight: 18 },
     starRow: { flexDirection: 'row', gap: 6 },
-    star: { fontSize: 22, color: tk.text.tertiary, paddingHorizontal: 2 },
-    starOn: { color: RATING_AMBER },
     ratingBox: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,

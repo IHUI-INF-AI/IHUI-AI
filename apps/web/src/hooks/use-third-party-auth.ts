@@ -6,6 +6,9 @@
 
 import * as React from 'react'
 
+import { recordOAuthConsent, type OAuthPlatform } from '@ihui/api-client'
+import type { LoginRegion } from '@ihui/ui-react'
+
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import {
@@ -55,6 +58,13 @@ const GOOGLE_GIS_SCRIPT_SRC = 'https://accounts.google.com/gsi/client'
 /** 最大重试次数 */
 const MAX_RETRY = 5
 
+/**
+ * 不走通用 OAuth 回调(`POST /api/auth/:platform/callback`)的平台:
+ * oidc 由后端自己 generateState 后 302 到 IdP、回跳到后端闭环;app 走扫码票据。
+ * 二者不参与"发起期落同意记录"这道闸,也不在 recordOAuthConsent 的 OAuthPlatform 枚举内。
+ */
+const NON_OAUTH_CALLBACK_PLATFORMS: readonly ThirdPartyPlatform[] = ['oidc', 'app']
+
 /** OAuth 回调后端入口（按平台） */
 function callbackPath(platform: ThirdPartyPlatform): string {
   return `/api/auth/${platform}/callback`
@@ -101,8 +111,8 @@ export interface UseThirdPartyAuthReturn {
   getBoundAccount: (platform: ThirdPartyPlatform) => ThirdPartyAccount | null
   /** 获取平台展示名 */
   getPlatformDisplayName: (platform: ThirdPartyPlatform) => string
-  /** 开始第三方登录（重定向流程） */
-  startLogin: (platform: ThirdPartyPlatform) => Promise<boolean>
+  /** 开始第三方登录（重定向流程）。第二参为发起期用户协议同意标记 */
+  startLogin: (platform: ThirdPartyPlatform, agreementAccepted?: boolean) => Promise<boolean>
   /** 处理 OAuth 回调 */
   handleCallback: (platform: ThirdPartyPlatform, code: string, state: string) => Promise<boolean>
   /** 处理登录失败 */
@@ -147,7 +157,14 @@ type OAuthStatusBody = Partial<
     | 'alipay',
     boolean
   >
->
+> & {
+  /**
+   * 服务器按**请求来源 IP** 判出的登录呈现地区(2026-10-26 立)。
+   * null / 缺键 = 未判定,调用方必须回落到更粗的判据(界面语言),不得当成海外或国内。
+   * 判据住在 apps/api/src/services/login-region.ts,前端不复算「哪个国家算国内」。
+   */
+  loginRegion?: LoginRegion | null
+}
 
 /**
  * 服务器自己知不知道自己配了某平台的 client_secret —— 必须去问,不能靠构建期烘死的开关。
@@ -171,6 +188,36 @@ function loadOAuthStatus(): Promise<OAuthStatusBody | null> {
       .catch(() => null)
   }
   return oauthStatusCache
+}
+
+/**
+ * 服务器按来源 IP 判出的登录呈现地区(2026-10-26 立)。
+ *
+ * 取数**复用上面那条模块级缓存**,不再自立一次 GET:登录窗同时需要
+ * 「哪些第三方凭据配了」和「访客在国内还是海外」,两者本就在同一条
+ * `GET /api/auth/oauth-status` 上。另开一份 fetch 会多一次往返,还会让两处
+ * 拿到不同刻的答复(边缘 no-store 之后每次都是真回源)。
+ *
+ * 取不到(端点挂/网络失败/服务器判不出)⇒ 恒 `null` = 未判定,由调用方回落 locale。
+ */
+export function useServerLoginRegion(): LoginRegion | null {
+  const [region, setRegion] = React.useState<LoginRegion | null>(null)
+
+  React.useEffect(() => {
+    let alive = true
+    void loadOAuthStatus().then((status) => {
+      if (!alive) return
+      // 只认两个字面量:脏值/缺键一律按未判定处理,不猜方向。
+      if (status?.loginRegion === 'domestic' || status?.loginRegion === 'overseas') {
+        setRegion(status.loginRegion)
+      }
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  return region
 }
 
 /** 测试面:这条缓存是模块级"只取一次",不清掉就没法在同一进程里逐档验(报 false / 报 true / 取不到)三种服务器答复。 */
@@ -279,9 +326,13 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
    * 构造授权 URL（含 state CSRF 防护）并重定向。
    * 配置完整时直接跳转厂商授权页；配置不完整时仅在存在 proxyPath 时走后端代理入口，
    * 否则明确报未配置（不跳到不存在的后端入口）。
+   *
+   * 2026-10-27 fail-closed 闸：通用 OAuth 回调要求发起期已在服务端落"用户协议同意"记录
+   * （绑定本次 state，回调一次性消费）。因此 recordOAuthConsent 必须在 saveOAuthState
+   * 与任何 location 跳转**之前**完成；写入失败就停在本地报错，绝不把用户送去厂商。
    */
   const startLogin = React.useCallback(
-    async (platform: ThirdPartyPlatform): Promise<boolean> => {
+    async (platform: ThirdPartyPlatform, agreementAccepted?: boolean): Promise<boolean> => {
       const displayName = PLATFORM_DISPLAY_NAMES[platform] ?? platform
       try {
         setIsLoading(true)
@@ -315,13 +366,38 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
 
         const config = getPlatformConfig(platform)
         const state = generateState()
-        saveOAuthState(platform, state)
 
-        // 配置完整 → 直接构造厂商授权 URL(真实 OAuth 流程)
+        // 先判本次能不能真的把用户送去厂商:配置完整 → 直连;配置不全 → 仅在存在
+        // proxyPath 时走后端代理入口;两者都不成立就明确报未配置(不导航,也就无需落同意记录)。
         const validation = validatePlatformConfig(platform)
         const canDirectRedirect =
           validation.valid && !!config.authUrl && !!(config.clientId || config.appId)
+        if (!canDirectRedirect && !config.proxyPath) {
+          const envPlatform = platform.toUpperCase()
+          throw new Error(
+            `${displayName}登录未配置：无法直连厂商授权页，也没有后端代理入口。请检查 NEXT_PUBLIC_${envPlatform}_CLIENT_ID/APP_ID 与 NEXT_PUBLIC_${envPlatform}_REDIRECT_URI`,
+          )
+        }
 
+        // 2026-10-27 fail-closed 闸:先落同意记录,再写本地 state、再跳厂商。
+        // 顺序不可换 —— 回调只消费一次,Redis 里没有这条 state 的同意记录就是 403。
+        if (!(NON_OAUTH_CALLBACK_PLATFORMS as readonly string[]).includes(platform)) {
+          const consent = await recordOAuthConsent(
+            platform as OAuthPlatform,
+            state,
+            agreementAccepted === true,
+          )
+          if (!consent.success) {
+            const msg = consent.error || '用户协议同意记录写入失败'
+            toast.error(`${displayName}登录启动失败`, msg)
+            updateLoginState(platform, { status: 'failed', error: msg })
+            return false
+          }
+        }
+
+        saveOAuthState(platform, state)
+
+        // 配置完整 → 直接构造厂商授权 URL(真实 OAuth 流程)
         if (canDirectRedirect && config.authUrl) {
           const params: Record<string, string> = {
             redirect_uri: config.redirectUri,
@@ -360,15 +436,7 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
           return true
         }
 
-        // 回退：走后端代理入口（state 由后端接管）
-        // 没有代理入口的平台(如 google/apple/dingtalk/github/feishu)配置不全时,
-        // 厂商授权本就发不起来,跳过去只会得到 404 页面 ⇒ 明确报未配置,不导航。
-        if (!config.proxyPath) {
-          const envPlatform = platform.toUpperCase()
-          throw new Error(
-            `${displayName}登录未配置：无法直连厂商授权页，也没有后端代理入口。请检查 NEXT_PUBLIC_${envPlatform}_CLIENT_ID/APP_ID 与 NEXT_PUBLIC_${envPlatform}_REDIRECT_URI`,
-          )
-        }
+        // 回退：走后端代理入口（state 由后端接管；上方的未配置判定已排除无 proxyPath 的平台）
         if (typeof window !== 'undefined') {
           window.location.href = `${config.proxyPath}?state=${encodeURIComponent(state)}`
         }
@@ -494,7 +562,9 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
         return false
       }
       clearLoginState(platform)
-      return startLogin(platform)
+      // 重试只可能发生在用户已经点过一次第三方登录之后(那一跳必然已过同意闸),
+      // 发起期同意标记按 true 续传,否则 recordOAuthConsent 会以 agreementAccepted=false 被 400 拒掉。
+      return startLogin(platform, true)
     },
     [clearLoginState, loginStates, startLogin, toast],
   )

@@ -10,6 +10,7 @@ import {
   DRAWER_HOME_ITEM,
   DRAWER_NAV_GROUPS,
   DRAWER_NAV_SECTIONS,
+  DRAWER_SCAN_ITEM,
   type DrawerNavItem,
 } from '../src/navigation/drawer-nav'
 import { DOMAIN_HUBS } from '../src/navigation/domain-hub'
@@ -43,6 +44,7 @@ const renderedItems = [
   ...DRAWER_NAV_GROUPS.flatMap((group) => flatten(group.items)),
   DRAWER_HOME_ITEM,
   DRAWER_AUTOMATION_ITEM,
+  DRAWER_SCAN_ITEM,
 ]
 
 function lookup(pack: unknown, key: string): unknown {
@@ -68,6 +70,7 @@ describe('抽屉导航单源(对齐 web 侧边栏)', () => {
     ...DRAWER_NAV_GROUPS.flatMap((group) => group.items),
     DRAWER_HOME_ITEM,
     DRAWER_AUTOMATION_ITEM,
+    DRAWER_SCAN_ITEM,
   ]
   it('竖排序列引用的分组与域都真实存在', () => {
     const groupKeys = new Set(DRAWER_NAV_GROUPS.map((group) => group.key))
@@ -119,9 +122,13 @@ describe('抽屉导航单源(对齐 web 侧边栏)', () => {
         if (item.children) assertUnique(item.children, `${where}/${item.labelKey}`)
       }
     }
-    // 顶层 = 各组条目 + 快捷区自动化任务(首页行走 Main Tab 容器,不参与)
+    // 顶层 = 各组条目 + 快捷区自动化任务 + 扫一扫(首页行走 Main Tab 容器,不参与)
     assertUnique(
-      [...DRAWER_NAV_GROUPS.flatMap((group) => group.items), DRAWER_AUTOMATION_ITEM],
+      [
+        ...DRAWER_NAV_GROUPS.flatMap((group) => group.items),
+        DRAWER_AUTOMATION_ITEM,
+        DRAWER_SCAN_ITEM,
+      ],
       '顶层',
     )
   })

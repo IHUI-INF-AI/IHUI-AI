@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from 'react-native'
-import { MessageCircle, UserCheck, UserPlus } from 'lucide-react-native'
+import { MessageCircle, User, UserCheck, UserPlus } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -105,7 +105,11 @@ export function UserPublicScreen({
             colorScheme={colorScheme}
           />
         ) : !user ? (
-          <EmptyState glyph="◍" title={t('userPublic.notFound')} colorScheme={colorScheme} />
+          <EmptyState
+            icon={<User size={26} color={tk.text.tertiary} />}
+            title={t('userPublic.notFound')}
+            colorScheme={colorScheme}
+          />
         ) : (
           <View style={styles.card}>
             <View style={styles.profileRow}>

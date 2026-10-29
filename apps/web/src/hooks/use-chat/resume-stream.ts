@@ -16,7 +16,9 @@ import { toast } from '@/components/common'
 import { fetchApi, getToken, getStreamBaseUrl, isAbortError } from '@/lib/api'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
 import { logger } from '@/lib/logger'
-import { createDeltaBatcher } from './stream-handlers'
+// 2026-10-28 流式观感档续:断线续接(续生成)正文泵与主链同谱升 smooth ——
+// 续接首帧是"已生成前缀之后"的增量,此前每帧整坨蹦字,与主链逐字平滑观感断裂。
+import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 
 /**
  * P1-6 断点续传(2026-09-13 立,PROJECT_PLAN.md 2549 行)
@@ -32,7 +34,7 @@ import { createDeltaBatcher } from './stream-handlers'
  *      b. 未落库 → POST /api/chat/resume,把"已生成前缀"作为末条 assistant 放进上下文,
  *         后端透传 ai-service /api/llm/complete/stream,模型自然续写;
  *         SSE 事件格式与主链路 /ai/chat/stream 一致,这里复用 parseStreamLine 提取 delta,
- *         再用 createDeltaBatcher 做 rAF 合批写入(与主链路同款节流,避免高频 setState)。
+ *         再用 smooth batcher 逐帧平滑推进写入(2026-10-28 与主链路同谱;此前为帧级整坨合批)。
  *      c. 失败 → toast 提示 + 「重新生成」按钮(复用既有 ihui:regenerate-message 闭环),
  *         绝不静默丢弃。
  */
@@ -199,7 +201,7 @@ export async function resumePendingMessage(
   chatStore.getState().setStreaming(true)
   chatStore.getState().setError(null)
 
-  const batcher = createDeltaBatcher((delta) => {
+  const batcher = createSmoothDeltaBatcher((delta) => {
     chatStore.getState().appendToMessage(p.messageId, delta)
   })
 

@@ -451,6 +451,7 @@ apps/ai-service 在 `app/main.py` 中以 `prefix="/api"` 注册 router,完整路
 | lsp | `/api/v1/lsp/*` | LSP 转发(web IDE 调试面板) |
 | debug | `/api/v1/debug/*` | DAP 调试 |
 | legacy | `/socketio/status` / `/card/convert` / `/category/cache` 等 | 历史兼容端点 |
+| keepalive | `/api/keepalive/*` | 账号保活中心(6 条:status / overview / accounts / events / stats / run,前缀自带,全需登录) |
 
 ai-service 全局异常兜底返回 `{ code: 500, message: '服务内部错误', data: None }`,CORS / JWT 中间件 / OpenTelemetry / 审计 / 输入净化 / 响应脱敏 / 限流中间件均在 `create_app()` 中注册。
 

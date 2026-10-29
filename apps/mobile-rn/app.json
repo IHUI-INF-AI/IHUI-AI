@@ -2,7 +2,13 @@
   "expo": {
     "name": "IHUI AI",
     "slug": "ihui-ai-mobile",
-    "version": "0.0.5",
+    "version": "0.0.9",
+    "updates": {
+      "url": "https://u.expo.dev/c840b892-d8fa-4341-8b51-fa70b4bf36a5"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -32,7 +38,8 @@
       },
       "config": {
         "usesNonExemptEncryption": false
-      }
+      },
+      "versionCode": 26102802
     },
     "plugins": [
       [
@@ -48,6 +55,13 @@
           "photosPermission": "允许 App 保存二维码到您的相册",
           "savePhotosPermission": "允许 App 保存二维码到您的相册",
           "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "允许使用相机扫描二维码，以确认电脑端登录",
+          "recordAudioAndroid": false
         }
       ]
     ],

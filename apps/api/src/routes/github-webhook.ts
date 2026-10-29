@@ -136,6 +136,8 @@ async function handleUnattendedIntake(
 const githubWebhookRoutes: FastifyPluginAsync = async (server) => {
   // 本插件作用域内覆盖 application/json 解析器,使 request.body 保留原始字符串
   // (HMAC 基于原始字节,不能先被 Fastify 解析成对象再 JSON.stringify —— 空白/键序可能不一致)。
+  // 根实例已有自定义 application/json(server.ts)⇒ 先 remove 再 add,否则抛 ALREADY_PRESENT。
+  server.removeContentTypeParser('application/json')
   server.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
     done(null, body)
   })

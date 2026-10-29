@@ -3,13 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import { Ticket } from 'lucide-react-native'
-import { RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Star, Ticket } from 'lucide-react-native'
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 import {
   createSupportStyles,
+  RATING_AMBER,
   TICKET_PRIORITY_PALETTE,
   TICKET_STATUS_PALETTE,
 } from './support-styles'
@@ -290,7 +292,12 @@ export function SupportScreen({
           accessibilityRole="button"
           onPress={() => editable && setStars(n)}
         >
-          <Text style={[styles.star, n <= value && styles.starOn]}>★</Text>
+          <Star
+            size={22}
+            color={n <= value ? RATING_AMBER : tk.text.tertiary}
+            fill={n <= value ? RATING_AMBER : undefined}
+            strokeWidth={2}
+          />
         </TouchableOpacity>
       ))}
     </View>
@@ -375,7 +382,8 @@ export function SupportScreen({
                 )}
 
                 <Text style={styles.fieldLabel}>{t('supportPage.replyLabel')}</Text>
-                <TextInput
+                <TextField
+                  colorScheme={colorScheme}
                   style={[styles.input, styles.replyInput]}
                   value={reply}
                   onChangeText={setReply}
@@ -408,7 +416,8 @@ export function SupportScreen({
                 <View style={styles.card}>
                   <Text style={styles.cardTitle}>{t('supportPage.serviceRating')}</Text>
                   {starRow(stars, true)}
-                  <TextInput
+                  <TextField
+                    colorScheme={colorScheme}
                     style={[styles.input, styles.replyInput]}
                     value={ratingComment}
                     onChangeText={setRatingComment}
@@ -481,7 +490,8 @@ export function SupportScreen({
         {tab === 'new' ? (
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>{t('supportPage.titleLabel')}</Text>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={styles.input}
               value={title}
               onChangeText={setTitle}
@@ -535,7 +545,8 @@ export function SupportScreen({
             </View>
 
             <Text style={styles.fieldLabel}>{t('supportPage.descLabel')}</Text>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={[styles.input, styles.inputMultiline]}
               value={desc}
               onChangeText={setDesc}

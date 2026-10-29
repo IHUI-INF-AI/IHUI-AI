@@ -426,6 +426,7 @@
     "githubLogin": "GitHub",
     "googleLogin": "Google",
     "googleNotConfigured": "Google 登录未配置",
+    "platformNotConfigured": "该登录方式未配置",
     "hasAccount": "已有账号？",
     "invalidAccount": "无效账号",
     "invalidCredentials": "账号或密码错误",
@@ -2184,6 +2185,7 @@
       "autoSkipApproval": "自动批准(免审批)",
       "bypassSkipApproval": "已跳过审批",
       "mcpRequiresApproval": "MCP 标注要求确认",
+      "taintEgressGate": "会话污点:出网需确认",
       "policyRequiresApproval": "策略要求审批",
       "policySkipsApproval": "策略免审批",
       "guardianReviewSuggested": "复核建议改用更安全路径",
@@ -2410,6 +2412,8 @@
         "unknownStatus": "未知"
       },
       "queueOps": {
+        "sendNow": "插到队首",
+        "sendNowAria": "插到队首，这条消息将最先发送",
         "ariaLabel": "排队消息操作条",
         "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键",
         "undo": "撤回",

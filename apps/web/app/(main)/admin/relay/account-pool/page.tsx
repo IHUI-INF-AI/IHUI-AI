@@ -22,10 +22,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Eye,
+  EyeOff,
   FileText,
   Input,
   Label,
   Loader2,
+  LogIn,
+  MonitorDown,
   PartyPopper,
   Pencil,
   Power,
@@ -42,6 +46,7 @@ import {
   SheetHeader,
   SheetTitle,
   ShieldAlert,
+  ShieldCheck,
   Switch,
   Plus,
   Tabs,
@@ -52,11 +57,27 @@ import {
   TriangleAlert,
   Users,
   Wallet,
+  Cpu,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { useConfirm } from '@/hooks/use-confirm'
+import { useTauriIpcReady } from '@/hooks/use-desktop'
+import { useWorkPanelStore } from '@/stores/work-panel'
+import { closeDockedBrowser } from '@/lib/tauri-bridge'
+import {
+  RELAY_WEB_LOGIN,
+  RELAY_WEB_LOGIN_PROVIDERS,
+  relayWebLoginAccountToImport,
+  type RelayWebLoginProvider,
+} from '@/lib/relay-web-login'
+
+/** 平台 → 网页重登能力(未登记的平台返回 null:该平台没进注册表,按钮 Tooltip 如实说明) */
+function relayWebLoginCap(providerCode: string) {
+  if (!(RELAY_WEB_LOGIN_PROVIDERS as readonly string[]).includes(providerCode)) return null
+  return RELAY_WEB_LOGIN[providerCode as RelayWebLoginProvider]
+}
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -64,9 +85,92 @@ const selectClass =
 const textareaClass =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs'
 
-const PROVIDER_OPTIONS = ['trae', 'workbuddy', 'codearts', 'qoder'] as const
+/** 号池统一命名规约 = 官方绑定手机号全号;掩码形态名(如 180******69)需补全/归位 */
+const MASKED_PHONE_NAME = /^\d{3}\*{2,8}\d{2,4}$/
+/** 大陆 11 位手机号全号(与后端 complete-phone 判据同口径,掩码形态直接拒) */
+const FULL_PHONE_CN = /^1[3-9]\d{9}$/
+
+// 账号级代理与代理池同口径:只接受 http(s)/socks5
+const PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:'])
+
+function isSupportedProxyUrl(raw: string): boolean {
+  try {
+    return PROXY_PROTOCOLS.has(new URL(raw).protocol)
+  } catch {
+    return false
+  }
+}
+
+/** 代理池列表脱敏展示:只留协议+主机,账密不渲染、不进 title */
+function maskProxyDisplay(raw?: string | null): string {
+  if (!raw) return '-'
+  try {
+    const u = new URL(raw)
+    return `${u.protocol}//${u.username || u.password ? '***@' : ''}${u.host}`
+  } catch {
+    return '已隐藏'
+  }
+}
+
+const PROVIDER_OPTIONS = [
+  'trae',
+  'workbuddy',
+  'codearts',
+  'qoder',
+  'codex',
+  'opencode',
+  'minimax',
+  'zcode',
+  'loomy',
+  'doubao',
+  'lingma',
+  'grokbot',
+] as const
 type ProviderCode = (typeof PROVIDER_OPTIONS)[number]
 
+/** 平台展示名(登录本机 toast/确认框话术用;未知平台回落代码本身) */
+const LOCAL_LOGIN_LABEL: Partial<Record<ProviderCode, string>> = {
+  trae: 'Trae',
+  workbuddy: 'WorkBuddy',
+  codearts: 'CodeArts',
+  qoder: 'Qoder',
+  codex: 'Codex',
+  opencode: 'OpenCode',
+  minimax: 'MiniMax Code',
+  zcode: 'ZCode',
+  loomy: 'Loomy',
+  doubao: '豆包',
+  lingma: '灵码',
+  grokbot: 'GrokBot',
+}
+
+/**
+ * 「登录本机」不支持矩阵(2026-10-28 与 API 同步:loomy/doubao 已落地写回配方):
+ * 与 API 的 LOCAL_LOGIN_UNSUPPORTED_REASONS 同口径 —— 支持平台可点,不支持平台 disabled
+ * 并在 tooltip 点名原因,不做假入口(判据见各平台提取器头注)。
+ */
+const LOCAL_LOGIN_UNSUPPORTED: Partial<Record<ProviderCode, string>> = {
+  lingma: '字段级登录态形状尚未实证(本机未安装),没有可验证的写回配方',
+  grokbot: '本机凭证是 sandSealedFile 密封串,没有明文 token 可重建',
+}
+
+/**
+ * 写前「先关客户端、写完自动拉起」的平台(2026-10-28 与 scripts/local-login.mjs 的
+ * CLIENT_IMAGES + trae 同口径):落点会被运行中的 GUI 用内存态覆写,不先关就是假绿。
+ * workbuddy 由 scripts/workbuddy-login-local.mjs 同形先关后写再拉起(未运行还要先拉起
+ * 冷启动,后端 restartClient:true,2026-10-28 补)。
+ * codex/opencode 是 CLI,每次启动现读 auth.json,写了即生效,不需要碰进程。
+ */
+const LOCAL_LOGIN_RESTARTS_CLIENT: ReadonlySet<ProviderCode> = new Set<ProviderCode>([
+  'trae',
+  'workbuddy',
+  'codearts',
+  'qoder',
+  'minimax',
+  'zcode',
+  'doubao',
+  'loomy',
+])
 // 24h 用量摘要。后端契约字段均为 number,但后端尚未合并时可能整体缺失,
 // 故全部可选并做容错渲染(缺字段显示 "-",不阻塞 typecheck)。
 interface UsageSummary {
@@ -107,6 +211,8 @@ interface AccountRow {
   refreshFailureCount: number
   consecutiveFailures: number
   hasProxy: boolean
+  /** 后端脱敏投影:scheme://***@host:port;明文账密/路径/查询串不返回前端 */
+  proxyUrlMasked: string | null
   totalCalls: number
   extraMetadata: unknown
   createdAt: string
@@ -114,6 +220,10 @@ interface AccountRow {
   usageSummary?: UsageSummary | null
   circuitBreakReason?: string | null
   expiresSoon?: boolean | null
+  /** 体检结论机器枚(判据单源 @ihui/shared,UI 只映射文案不重写判据) */
+  verdict?: string | null
+  tokenRemainingDays?: number | null
+  idleDays?: number | null
   claimStatus?: string | null
   claimedBy?: string | null
   claimedAt?: string | null
@@ -198,6 +308,75 @@ interface ImportResult {
   failed: number
   items: ImportItem[]
 }
+/** POST /admin/relay/accounts/:id/complete-phone 的 data 形状(掩码名回填官方绑定全号) */
+interface CompletePhoneResult {
+  id: string
+  oldName: string
+  name: string
+  changed: boolean
+  message: string
+  checkinSync?: { pushed?: number; pending?: boolean; error?: string | null } | null
+}
+/** POST /admin/relay/account-pool/match-phone 的 data 形状(批量归位结果分桶) */
+interface MatchPhoneResult {
+  scannedMasked: number
+  matched: Array<{
+    id: string
+    oldName: string
+    name: string
+    checkinSync?: { pushed?: number; pending?: boolean; error?: string | null } | null
+  }>
+  ambiguous: Array<{ id: string; name: string; candidates: string[] }>
+  unmatched: Array<{ id: string; name: string }>
+  rejected: Array<{ phone: string; reason: string }>
+}
+
+/**
+ * 平台续期能力位(GET /api/admin/relay/account-pool/renewal-capability)。
+ * 判据住后端适配器注册表(`isRefreshableProviderCode`),**前端不写平台名单** ——
+ * 名单一旦在两侧各存一份,面板就会在下一次接入平台时开始说谎。
+ */
+interface RenewalCapabilityItem {
+  providerCode: string
+  /** 适配器是否已注册:false ⇒ 能力位无从判定,只能标"未判定" */
+  adapterRegistered: boolean
+  autoRenewalSupported: boolean
+  accounts: number
+}
+interface RenewalCapabilityData {
+  items: RenewalCapabilityItem[]
+  unlistedProviderCodes: string[]
+}
+
+/**
+ * 平台列的续期标注:
+ * - 读数没到(查询失败/未注册该平台) ⇒ 什么都不写(没判过就不开口);
+ * - 可自动续期 ⇒ 不占版面;
+ * - 适配器在册但确无续期通道 ⇒ 明示"无自动续期",运维据此知道掉线只能重采凭证;
+ * - 适配器不在册 ⇒ 单列"未判定",绝不并入"无自动续期"那一档。
+ */
+function RenewalNote({ cap }: { cap: RenewalCapabilityItem | undefined }) {
+  if (!cap) return null
+  if (!cap.adapterRegistered) {
+    return (
+      <Tooltip content="上游适配器未在册,续期能力位读不到">
+        <span className="whitespace-nowrap rounded-md bg-red-500/10 px-1.5 py-0.5 text-[10px] text-red-600 dark:text-red-400">
+          续期未判定
+        </span>
+      </Tooltip>
+    )
+  }
+  if (cap.autoRenewalSupported) return null
+  return (
+    <Tooltip
+      content={`该平台没有 refreshToken 续期通道,共 ${cap.accounts} 个号;掉线后调度器无法自动续,只能重新采集凭证`}
+    >
+      <span className="whitespace-nowrap rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+        无自动续期
+      </span>
+    </Tooltip>
+  )
+}
 
 const HEALTH_CLASS: Record<string, string> = {
   unknown: 'bg-muted text-muted-foreground',
@@ -210,6 +389,32 @@ const HEALTH_LABEL: Record<string, string> = {
   healthy: '健康',
   degraded: '降级',
   down: '异常',
+}
+
+// 体检徽章(admin 面写死中文映射即可,门 70 排除 admin;i18n  parity 不涉)
+const VERDICT_LABEL: Record<string, string> = {
+  usable: '可用',
+  'expiring-soon': '临期',
+  'expired-renewable': '可救回',
+  'expired-dead': '待重登',
+  'envelope-only': '仅同机',
+  indeterminate: '未知',
+}
+const VERDICT_CLASS: Record<string, string> = {
+  usable: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  'expiring-soon': 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  'expired-renewable': 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  'expired-dead': 'bg-red-500/10 text-red-600 dark:text-red-400',
+  'envelope-only': 'bg-muted text-muted-foreground',
+  indeterminate: 'bg-muted text-muted-foreground',
+}
+const VERDICT_HINT: Record<string, string> = {
+  'envelope-only': '信封凭据仅同机可解,号池无法代刷',
+  'expired-dead': '无 refreshToken,调度救不回,需重新登录/导出',
+  'expired-renewable': '过期但有票,临期/保活档会自动续',
+  usable: '',
+  'expiring-soon': '1 天内到期,保活档会兜住;本机用则开一次客户端',
+  indeterminate: '读不到到期,以健康检查为准',
 }
 
 const IMPORT_STATUS_LABEL: Record<string, string> = {
@@ -273,6 +478,8 @@ interface QuotaResult {
     ratio?: number
     unit?: string
     resetsAt?: string
+    /** 订阅档名(workbuddy 实证:summary 的 SubscriptionPackageName,如"体验版") */
+    subscriptionName?: string
     packs?: Array<{ name?: string; limit?: number; remaining?: number; endAt?: string }>
   } | null
   queriedAt: string
@@ -281,6 +488,7 @@ interface QuotaResult {
 // 余额一行话:优先"剩余/总额";平台只给已用时按 total 换算,两者都给不到就不编数字。
 function formatQuotaLine(q: NonNullable<QuotaResult['quota']>): string {
   const unit = q.unit ?? '额度'
+  const sub = q.subscriptionName ? `(${q.subscriptionName}) ` : ''
   const remaining =
     q.remaining ?? (q.used !== undefined && q.total !== undefined ? q.total - q.used : undefined)
   const pct =
@@ -288,11 +496,23 @@ function formatQuotaLine(q: NonNullable<QuotaResult['quota']>): string {
       ? ` · 已用 ${(q.ratio * 100).toFixed(1)}%`
       : ''
   if (remaining !== undefined && q.total !== undefined) {
-    return `余额 ${fmtNum(remaining)} / ${fmtNum(q.total)} ${unit}${pct}`
+    return `${sub}余额 ${fmtNum(remaining)} / ${fmtNum(q.total)} ${unit}${pct}`
   }
-  if (remaining !== undefined) return `余额 ${fmtNum(remaining)} ${unit}`
-  if (q.used !== undefined) return `已用 ${fmtNum(q.used)} ${unit}`
+  if (remaining !== undefined) return `${sub}余额 ${fmtNum(remaining)} ${unit}`
+  if (q.used !== undefined) return `${sub}已用 ${fmtNum(q.used)} ${unit}`
   return '余额接口已应答,但字段未识别(未判定)'
+}
+
+/** POST /admin/relay/accounts/:id/models 的 data 形状(模型条目不编造,id 给不到就缺省) */
+interface ModelsResult {
+  id: string
+  providerCode: string
+  ok: boolean
+  error: string | null
+  /** 清单语义:upstream-account=该账号凭据点查;local-cli-login=本机 CLI 登录态(qoder) */
+  scope: string | null
+  models: Array<{ name: string; id?: string; idTruncated?: boolean }>
+  queriedAt: string
 }
 
 // failRate24h 契约未指明是 0–1 比例还是 0–100 百分数:≤1 视为比例换算,否则按百分数直显。
@@ -327,20 +547,75 @@ export default function AdminRelayAccountPoolPage() {
     'all',
   )
   const [importOpen, setImportOpen] = React.useState(false)
+  // 一键重登(2026-10-27 第 3 格):进行中的账号 id + 阶段;null = 空闲。
+  // 能力登记在 @/lib/relay-web-login(单一源);trae/workbuddy 有实证链,其余明示未判定。
+  const [relogin, setRelogin] = React.useState<{
+    id: string
+    phase: 'waiting' | 'importing'
+  } | null>(null)
+  const reloginDockTabRef = React.useRef<string | null>(null)
+  const reloginDockSeenRef = React.useRef(false)
   const [importProvider, setImportProvider] = React.useState<ProviderCode | ''>('')
   const [importText, setImportText] = React.useState('')
   const [importResult, setImportResult] = React.useState<ImportResult | null>(null)
+  // ⑤ 拖拽/点选文件(2026-10-26,机主「更傻瓜」):第三方工具导出的备份 .json 拖进来即可
+  const importFileRef = React.useRef<HTMLInputElement | null>(null)
+  const [importDragOver, setImportDragOver] = React.useState(false)
+  const [importFileName, setImportFileName] = React.useState('')
+  // 读文件只填文本框,解析/入库仍走同一条 submitImport 通道(不另起第二份导入判据)
+  const applyImportFile = (file: File | null | undefined): void => {
+    if (!file) return
+    const name = file.name || 'pasted.json'
+    if (!/\.(json|txt)$/i.test(name)) {
+      toast.error('只接受 .json / .txt 账号导出文件')
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error(`文件过大(${Math.round(file.size / 1048576)}MB),单次上限 8MB`)
+      return
+    }
+    file
+      .text()
+      .then((t) => {
+        if (!t.trim()) {
+          toast.error('文件是空的')
+          return
+        }
+        setImportText(t)
+        setImportFileName(name)
+        toast.success(`已读取「${name}」,点「提交导入」入池`)
+      })
+      .catch(() => toast.error('读取文件失败,请改用「粘贴」'))
+  }
+  // 导出包顶层自带 providerCode 时自动选平台(用户手选过则尊重手选)
+  const autofillProviderFromPayload = (parsed: unknown): void => {
+    if (importProvider) return
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return
+    const raw = (parsed as { providerCode?: unknown }).providerCode
+    const alt = (parsed as { provider?: unknown }).provider
+    const v = typeof raw === 'string' ? raw : typeof alt === 'string' ? alt : ''
+    if ((PROVIDER_OPTIONS as readonly string[]).includes(v)) setImportProvider(v as ProviderCode)
+  }
+
   const [editing, setEditing] = React.useState<AccountRow | null>(null)
   const [editForm, setEditForm] = React.useState({
     name: '',
     priority: '0',
     weight: '1',
     tempUnschedulable: false,
-    proxyUrl: '',
   })
+  // 代理:keep=不改动(默认),set=替换,clear=移除;避免打开编辑即把已有代理清空
+  const [proxyMode, setProxyMode] = React.useState<'keep' | 'set' | 'clear'>('keep')
+  const [proxyDraft, setProxyDraft] = React.useState('')
+  const [proxyVisible, setProxyVisible] = React.useState(false)
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [usageAccountId, setUsageAccountId] = React.useState<string | null>(null)
   const [tab, setTab] = React.useState<PoolTab>('accounts')
+  // 补全手机号 / 批量归位(号池命名规约 = 官方绑定手机号全号,掩码名需归位)
+  const [completing, setCompleting] = React.useState<AccountRow | null>(null)
+  const [completePhone, setCompletePhone] = React.useState('')
+  const [matchOpen, setMatchOpen] = React.useState(false)
+  const [matchText, setMatchText] = React.useState('')
 
   const qs = React.useMemo(() => {
     const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
@@ -367,6 +642,25 @@ export default function AdminRelayAccountPoolPage() {
   const poolHealth = data?.poolHealth ?? null
   const showRefillBanner =
     poolHealth !== null && ((poolHealth.needRefill ?? false) || (poolHealth.expiredCount ?? 0) > 0)
+
+  // ── 平台续期能力位(2026-10-29 立):能力位与在册账号数都由后端现读,页面只投影 ──
+  const renewalCapabilityQuery = useQuery({
+    queryKey: ['admin', 'relay', 'account-pool', 'renewal-capability'],
+    queryFn: async () => {
+      const r = await fetchApi<RenewalCapabilityData>(
+        '/api/admin/relay/account-pool/renewal-capability',
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    // 能力位只在适配器变更时会动,不跟着翻页刷
+    staleTime: 5 * 60 * 1000,
+  })
+  const renewalByProvider = React.useMemo(() => {
+    const m = new Map<string, RenewalCapabilityItem>()
+    for (const i of renewalCapabilityQuery.data?.items ?? []) m.set(i.providerCode, i)
+    return m
+  }, [renewalCapabilityQuery.data])
 
   const usageQuery = useQuery({
     queryKey: ['admin', 'relay', 'account-pool', 'usage', usageAccountId],
@@ -456,6 +750,51 @@ export default function AdminRelayAccountPoolPage() {
     onError: (e: Error) => toast.error(e.message || '触发签到失败'),
   })
 
+  // 补全手机号:掩码名账号回填官方绑定全号(后端校验前 3 后 2 吻合,不吻合 400 如实报)
+  const completePhoneMut = useMutation({
+    mutationFn: async (vars: { id: string; phone: string }) => {
+      const r = await fetchApi<CompletePhoneResult>(
+        `/api/admin/relay/accounts/${vars.id}/complete-phone`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: vars.phone }),
+        },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      const msg = d.message || `已补全为 ${d.name},签到副本已同步`
+      toast.success(d.checkinSync?.pending ? `${msg};签到同步待重试` : msg)
+      setCompleting(null)
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '补全手机号失败'),
+  })
+
+  // 批量归位:粘贴候选全号(每行一个),后端按掩码前后缀归位号池内掩码名账号并改名
+  const matchPhoneMut = useMutation({
+    mutationFn: async (phones: string[]) => {
+      const r = await fetchApi<MatchPhoneResult>('/api/admin/relay/account-pool/match-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phones }),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      const summary = `归位 ${d.matched.length} 条,歧义 ${d.ambiguous.length},无命中 ${d.unmatched.length},非法 ${d.rejected.length}`
+      if (d.matched.length > 0) toast.success(summary)
+      else toast(summary)
+      setMatchOpen(false)
+      setMatchText('')
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '批量归位失败'),
+  })
+
   const toggleSelect = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   const allOnPageSelected = list.length > 0 && list.every((k) => selectedIds.includes(k.id))
@@ -480,6 +819,60 @@ export default function AdminRelayAccountPoolPage() {
       invalidate()
     },
     onError: (e: Error) => toast.error(e.message || '操作失败'),
+  })
+
+  // 登录本机(2026-10-27 全平台):把号池账号写进本机客户端登录态(写前自动备份)
+  const loginLocalMut = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<{
+        providerCode: string
+        uid: string
+        replacedUid: string | null
+        targetFile: string
+        backupFile: string
+        notes: string[]
+        tokenNearExpiry: boolean
+        refreshed: boolean
+        restartHint: string
+        clientProduct?: string
+        clientWasRunning?: boolean
+        clientClosed?: boolean
+        clientForced?: boolean
+        clientRestarted?: boolean
+        clientLaunchError?: string
+        /**
+         * 超时放宽到 150s:该端点在客户端运行中时要走「优雅关闭(最多 15s)→ 补一轮(8s)→
+         * 强杀后复核(8s)→ 写盘 → 拉起并复核(3s)」;workbuddy 还多一段冷启动(未运行先
+         * 拉起再关再写再重启),最坏预算 ~150s。用默认 30s 会出现
+         * 「浏览器先超时报错,服务端随后其实写成功了」的假失败(2026-10-28 与六平台
+         * 进程控制同批补;API 侧 SPAWN_TIMEOUT_MS=150s 同批放宽)。
+         */
+      }>(`/api/admin/relay/accounts/${id}/login-local`, { method: 'POST', timeoutMs: 150_000 })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      const label = LOCAL_LOGIN_LABEL[d.providerCode as ProviderCode] ?? d.providerCode
+      const replaced = d.replacedUid ? `,已替换原登录 ${d.replacedUid}` : ''
+      const clientName = d.clientProduct || label
+      const clientNote = d.clientWasRunning
+        ? d.clientRestarted
+          ? `\n写前已${d.clientForced ? '强制' : '自动'}关闭 ${clientName} 并重新打开(运行中的客户端会用内存态覆写登录态)`
+          : `\n写前已关闭 ${clientName},但未能自动重新打开${d.clientLaunchError ? `(${d.clientLaunchError})` : ''}:请手动打开客户端`
+        : ''
+      toast.success(`已把 uid=${d.uid} 写进本机 ${label}${replaced};${d.restartHint}`, {
+        description:
+          `落点:${d.targetFile}\n备份:${d.backupFile || '(原文件不存在,本次为新建)'}` +
+          clientNote +
+          (d.notes.length > 0 ? `\n${d.notes.join('\n')}` : '') +
+          (d.tokenNearExpiry
+            ? '\n这枚票已临期:客户端启动后会自行续期' +
+              (d.providerCode === 'trae' ? ',号池由 10 分钟一次的同步回灌' : '')
+            : ''),
+      })
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '写入本机登录态失败'),
   })
 
   const healthMut = useMutation({
@@ -512,6 +905,29 @@ export default function AdminRelayAccountPoolPage() {
       else toast.error(`余额查询失败:${d.error ?? '未判定'}`)
     },
     onError: (e: Error) => toast.error(e.message || '余额查询失败'),
+  })
+
+  // 模型清单点查:成功弹 Dialog(清单可能 10+ 条,toast 放不下);失败 toast 如实报
+  const [modelsView, setModelsView] = React.useState<{ name: string; result: ModelsResult } | null>(
+    null,
+  )
+  const modelsMut = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<ModelsResult>(`/api/admin/relay/accounts/${id}/models`, {
+        method: 'POST',
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d, id) => {
+      if (d.ok) {
+        const acc = list.find((k) => k.id === id)
+        setModelsView({ name: acc?.name ?? id, result: d })
+      } else {
+        toast.error(`模型清单查询失败:${d.error ?? '未判定'}`)
+      }
+    },
+    onError: (e: Error) => toast.error(e.message || '模型清单查询失败'),
   })
 
   const deleteMut = useMutation({
@@ -548,7 +964,12 @@ export default function AdminRelayAccountPoolPage() {
   })
 
   const importMut = useMutation({
-    mutationFn: async (body: { providerCode: string; accounts: unknown[] }) => {
+    mutationFn: async (body: {
+      providerCode: string
+      accounts: unknown[]
+      /** 一键重登专用:本批未带 refreshToken 时保留库内旧票(重登只换得到 access) */
+      preserveMissingRefresh?: boolean
+    }) => {
       const r = await fetchApi<ImportResult>('/api/admin/relay/accounts/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -559,12 +980,17 @@ export default function AdminRelayAccountPoolPage() {
     },
     onSuccess: (d) => {
       setImportResult(d)
+      setImportFileName('')
+      setRelogin(null)
       toast.success(
         `导入完成:新增 ${d.imported} / 更新 ${d.updated} / 跳过 ${d.skipped} / 失败 ${d.failed}`,
       )
       invalidate()
     },
-    onError: (e: Error) => toast.error(e.message || '导入失败'),
+    onError: (e: Error) => {
+      setRelogin(null)
+      toast.error(e.message || '导入失败')
+    },
   })
 
   const sweepMut = useMutation({
@@ -615,8 +1041,10 @@ export default function AdminRelayAccountPoolPage() {
       priority: String(k.priority),
       weight: String(k.weight),
       tempUnschedulable: k.tempUnschedulable,
-      proxyUrl: '',
     })
+    setProxyMode('keep')
+    setProxyDraft('')
+    setProxyVisible(false)
   }
 
   const submitEdit = (e: React.FormEvent) => {
@@ -632,39 +1060,57 @@ export default function AdminRelayAccountPoolPage() {
       weight: Number(editForm.weight) || 1,
       tempUnschedulable: editForm.tempUnschedulable,
     }
-    const proxy = editForm.proxyUrl.trim()
-    body.proxyUrl = proxy ? proxy : null
+    // 只有显式更换/清除才带 proxyUrl;keep 状态绝不提交,防止覆盖已有代理
+    if (proxyMode === 'set') {
+      const proxy = proxyDraft.trim()
+      if (!proxy) {
+        toast.error('请输入代理地址')
+        return
+      }
+      if (!isSupportedProxyUrl(proxy)) {
+        toast.error('代理地址必须是 http(s)/socks5 协议')
+        return
+      }
+      body.proxyUrl = proxy
+    } else if (proxyMode === 'clear') {
+      body.proxyUrl = null
+    }
     editMut.mutate({ id: editing.id, body })
   }
 
   const submitImport = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!importProvider) {
-      toast.error('请选择平台')
-      return
-    }
     const raw = importText.trim()
     if (!raw) {
-      toast.error('请粘贴账号导出 JSON')
+      toast.error('把 .json 拖进来、点「选文件」,或直接粘贴账号导出 JSON')
       return
     }
     let accounts: unknown[]
+    let parsedTop: unknown
     try {
-      const parsed: unknown = JSON.parse(raw)
-      if (Array.isArray(parsed)) {
-        accounts = parsed
+      parsedTop = JSON.parse(raw)
+      if (Array.isArray(parsedTop)) {
+        accounts = parsedTop
       } else if (
-        parsed &&
-        typeof parsed === 'object' &&
-        Array.isArray((parsed as { accounts?: unknown }).accounts)
+        parsedTop &&
+        typeof parsedTop === 'object' &&
+        Array.isArray((parsedTop as { accounts?: unknown }).accounts)
       ) {
-        accounts = (parsed as { accounts: unknown[] }).accounts
+        accounts = (parsedTop as { accounts: unknown[] }).accounts
+      } else if (parsedTop && typeof parsedTop === 'object' && !Array.isArray(parsedTop)) {
+        // 单条账号对象也吃(最傻瓜:workbuddy-switch 等工具常一文件一号)
+        accounts = [parsedTop]
       } else {
-        toast.error('JSON 需为账号数组或 { accounts: [...] } 整包')
+        toast.error('JSON 需为账号数组、{ accounts: [...] } 整包或单条对象')
         return
       }
     } catch {
       toast.error('JSON 解析失败,请检查格式')
+      return
+    }
+    autofillProviderFromPayload(parsedTop)
+    if (!importProvider) {
+      toast.error('请选择平台(或让导出 JSON 顶层带 providerCode)')
       return
     }
     if (accounts.length === 0) {
@@ -678,6 +1124,128 @@ export default function AdminRelayAccountPoolPage() {
     importMut.mutate({ providerCode: importProvider, accounts })
   }
 
+  const submitCompletePhone = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!completing) return
+    const phone = completePhone.trim()
+    if (!FULL_PHONE_CN.test(phone)) {
+      toast.error('请输入 11 位大陆手机号全号(1[3-9] 开头,掩码不接受)')
+      return
+    }
+    completePhoneMut.mutate({ id: completing.id, phone })
+  }
+
+  const submitMatchPhone = (e: React.FormEvent) => {
+    e.preventDefault()
+    const phones = matchText
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+    if (phones.length === 0) {
+      toast.error('每行一个手机号全号,至少填一行')
+      return
+    }
+    if (phones.length > 200) {
+      toast.error(`单次最多提交 200 个候选号,当前 ${phones.length} 个`)
+      return
+    }
+    matchPhoneMut.mutate(phones)
+  }
+
+  // ── 一键重登(第 3 格):凭据死了在页内直接唤起网页登录换票,走同一条导入通道覆盖凭证 ──
+  const desktop = useTauriIpcReady()
+  // 嵌入页检测(与签到页同判据:内嵌浏览器工具条注入脚本定义 window.__ihuiNav;
+  // 内容页没有 IPC,probe 全被 capability 拒,入口必须只在桌面主窗可用)
+  const [embedBrowser, setEmbedBrowser] = React.useState(false)
+  React.useEffect(() => {
+    if (typeof (window as unknown as { __ihuiNav?: unknown }).__ihuiNav === 'function') {
+      setEmbedBrowser(true)
+    }
+  }, [])
+
+  // 收尾共用:关登录 Tab(没别的 Tab 时面板一并收)+ 销毁原生 webview。
+  const endReloginDock = React.useCallback(() => {
+    const store = useWorkPanelStore.getState()
+    const tabId = reloginDockTabRef.current
+    reloginDockTabRef.current = null
+    reloginDockSeenRef.current = false
+    if (tabId) store.closeTab(tabId)
+    if (useWorkPanelStore.getState().tabs.length === 0) store.closePanel()
+    void closeDockedBrowser()
+  }, [])
+
+  const startRelogin = (k: AccountRow) => {
+    const cap = relayWebLoginCap(k.providerCode)
+    if (!cap) return
+    if (cap.kind === 'none') {
+      toast.error(cap.reason)
+      return
+    }
+    if (!desktop || embedBrowser) {
+      toast.error('一键重登要在桌面主窗里用:内嵌浏览器内容页没有 IPC,读不到登录 Cookie')
+      return
+    }
+    reloginDockSeenRef.current = false
+    setRelogin({ id: k.id, phase: 'waiting' })
+    reloginDockTabRef.current = useWorkPanelStore
+      .getState()
+      .openDockedTab(cap.loginUrl, cap.tabTitle)
+  }
+
+  // 轮询探测(2.5s):ok ⇒ 关登录 Tab + 走导入通道覆盖凭证(preserveMissingRefresh 保住
+  // 库内旧 refreshToken —— 重登只换得到 access,不保留就把能自续的号抹成待重登死号);
+  // 见过窗口之后又没了 = 用户关窗 ⇒ 复位;waiting/error 继续等,6.5min 超时兜底。
+  // 平台与载荷形状都由注册表条目给出(cap.providerCode / cap.probe 已在注册表内归一),
+  // 页内不硬编码任何 provider。
+  React.useEffect(() => {
+    if (!relogin || relogin.phase !== 'waiting') return
+    const row = list.find((k) => k.id === relogin.id)
+    const cap = row ? relayWebLoginCap(row.providerCode) : null
+    if (!cap || cap.kind === 'none') return
+    let stopped = false
+    const poll = async () => {
+      if (stopped) return
+      try {
+        const probe = await cap.probe()
+        if (stopped) return
+        if (probe.status === 'waiting' && !probe.windowGone) reloginDockSeenRef.current = true
+        if (probe.status === 'ok') {
+          stopped = true
+          endReloginDock()
+          setRelogin({ id: relogin.id, phase: 'importing' })
+          importMut.mutate({
+            providerCode: cap.providerCode,
+            accounts: [relayWebLoginAccountToImport(probe.account)],
+            preserveMissingRefresh: true,
+          })
+        } else if (probe.status === 'waiting' && probe.windowGone && reloginDockSeenRef.current) {
+          stopped = true
+          endReloginDock()
+          setRelogin(null)
+          toast.error('登录窗已关闭,重登未完成')
+        }
+      } catch {
+        // 瞬态(窗口未建好/IPC 注入竞态):下一轮再试
+      }
+    }
+    const timer = setInterval(() => void poll(), 2500)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- importMut 是稳定引用,进依赖只会空转
+  }, [relogin, list, desktop, embedBrowser, endReloginDock])
+
+  React.useEffect(() => {
+    if (!relogin || relogin.phase !== 'waiting') return
+    const timer = setTimeout(() => {
+      endReloginDock()
+      setRelogin(null)
+      toast.error('等了 6 分半还没等到登录完成,已退出;确认网络后可再点一次重试')
+    }, 390_000)
+    return () => clearTimeout(timer)
+  }, [relogin, endReloginDock])
+
   const copyUid = (uid: string) => {
     navigator.clipboard?.writeText(uid).then(
       () => toast.success('已复制 uid'),
@@ -690,6 +1258,8 @@ export default function AdminRelayAccountPoolPage() {
     setImportResult(null)
     setImportText('')
     setImportProvider('')
+    setImportFileName('')
+    setImportDragOver(false)
   }
 
   return (
@@ -709,6 +1279,9 @@ export default function AdminRelayAccountPoolPage() {
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             刷新
+          </Button>
+          <Button variant="outline" onClick={() => setMatchOpen(true)}>
+            批量归位
           </Button>
           <Button onClick={() => setImportOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -851,9 +1424,22 @@ export default function AdminRelayAccountPoolPage() {
                       />
                     </th>
                     <th className="px-3 py-2 text-left">名称</th>
-                    <th className="px-3 py-2 text-left">平台</th>
+                    <th className="px-3 py-2 text-left">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span>平台</span>
+                        {/* 能力位读数没到手时明确说"未判定",不能让整列空白冒充"全平台都能续期" */}
+                        {renewalCapabilityQuery.isError && (
+                          <Tooltip content="续期能力位读数未到手,本列的平台标注不可用">
+                            <span className="whitespace-nowrap rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                              续期能力未判定
+                            </span>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </th>
                     <th className="px-3 py-2 text-left">uid</th>
                     <th className="px-3 py-2 text-left">健康</th>
+                    <th className="px-3 py-2 text-left">体检</th>
                     <th className="px-3 py-2 text-left">熔断</th>
                     <th className="px-3 py-2 text-left">签到</th>
                     <th className="px-3 py-2 text-right">24h 用量</th>
@@ -875,20 +1461,20 @@ export default function AdminRelayAccountPoolPage() {
                   {isLoading ? (
                     Array.from({ length: 8 }).map((_, i) => (
                       <tr key={`sk-${i}`}>
-                        <td colSpan={20} className="px-3 py-2">
+                        <td colSpan={21} className="px-3 py-2">
                           <Skeleton className="h-6 w-full" />
                         </td>
                       </tr>
                     ))
                   ) : isError ? (
                     <tr>
-                      <td colSpan={20} className="px-3 py-8 text-center text-red-500">
+                      <td colSpan={21} className="px-3 py-8 text-center text-red-500">
                         加载失败:{error instanceof Error ? error.message : '未知错误'}
                       </td>
                     </tr>
                   ) : list.length === 0 ? (
                     <tr>
-                      <td colSpan={20} className="px-3 py-8 text-center text-muted-foreground">
+                      <td colSpan={21} className="px-3 py-8 text-center text-muted-foreground">
                         暂无数据
                       </td>
                     </tr>
@@ -902,6 +1488,7 @@ export default function AdminRelayAccountPoolPage() {
                       const claimed = k.claimStatus === 'claimed'
                       const failPct = failRatePct(k.usageSummary?.failRate24h)
                       const ci = checkinItems[k.id]
+                      const relCap = relayWebLoginCap(k.providerCode)
                       return (
                         <tr key={k.id} className={soon ? 'bg-amber-500/5' : undefined}>
                           <td className="px-3 py-2">
@@ -919,6 +1506,11 @@ export default function AdminRelayAccountPoolPage() {
                                   即将过期
                                 </span>
                               )}
+                              {MASKED_PHONE_NAME.test(k.name) && (
+                                <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
+                                  待补全
+                                </span>
+                              )}
                             </div>
                             {k.lastErrorMessage && (
                               <div
@@ -929,7 +1521,12 @@ export default function AdminRelayAccountPoolPage() {
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-xs">{k.providerCode}</td>
+                          <td className="px-3 py-2 text-xs">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="whitespace-nowrap">{k.providerCode}</span>
+                              <RenewalNote cap={renewalByProvider.get(k.providerCode)} />
+                            </div>
+                          </td>
                           <td className="px-3 py-2">
                             {k.uid ? (
                               <div className="flex items-center gap-1">
@@ -955,12 +1552,40 @@ export default function AdminRelayAccountPoolPage() {
                           </td>
                           <td className="px-3 py-2">
                             <span
-                              className={`rounded-md px-2 py-0.5 text-xs ${
+                              className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs ${
                                 HEALTH_CLASS[k.healthStatus] ?? HEALTH_CLASS.unknown
                               }`}
                             >
                               {HEALTH_LABEL[k.healthStatus] ?? k.healthStatus}
                             </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            {k.verdict ? (
+                              <Tooltip
+                                content={
+                                  VERDICT_HINT[k.verdict]
+                                    ? `${k.verdict}：${VERDICT_HINT[k.verdict]}`
+                                    : `剩余 ${k.tokenRemainingDays ?? '?'} 天`
+                                }
+                              >
+                                <span className="inline-flex items-center gap-1">
+                                  <span
+                                    className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs ${
+                                      VERDICT_CLASS[k.verdict] ?? VERDICT_CLASS.indeterminate
+                                    }`}
+                                  >
+                                    {VERDICT_LABEL[k.verdict] ?? k.verdict}
+                                  </span>
+                                  {typeof k.idleDays === 'number' && (
+                                    <span className="text-xs tabular-nums text-muted-foreground">
+                                      闲置{Math.round(k.idleDays)}天
+                                    </span>
+                                  )}
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
                           </td>
                           <td className="px-3 py-2">
                             {k.circuitBreakReason ? (
@@ -1069,7 +1694,18 @@ export default function AdminRelayAccountPoolPage() {
                           <td className="px-3 py-2 text-right tabular-nums">
                             {k.refreshFailureCount}
                           </td>
-                          <td className="px-3 py-2 text-xs">{k.hasProxy ? '是' : '否'}</td>
+                          <td className="px-3 py-2 text-xs">
+                            {k.hasProxy ? (
+                              <Tooltip content={`代理：${k.proxyUrlMasked ?? '已配置（脱敏）'}`}>
+                                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  私有
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-muted-foreground">直连</span>
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">
                             {k.lastUsedAt ? fmt.format(new Date(k.lastUsedAt)) : '-'}
                           </td>
@@ -1109,6 +1745,19 @@ export default function AdminRelayAccountPoolPage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex items-center justify-end gap-1">
+                              {MASKED_PHONE_NAME.test(k.name) && (
+                                <Button
+                                  size="xs"
+                                  variant="ghost"
+                                  className="px-2 text-xs"
+                                  onClick={() => {
+                                    setCompleting(k)
+                                    setCompletePhone('')
+                                  }}
+                                >
+                                  补全
+                                </Button>
+                              )}
                               <Tooltip content="健康检查">
                                 <span className="inline-flex">
                                   <Button
@@ -1159,6 +1808,77 @@ export default function AdminRelayAccountPoolPage() {
                                   </Button>
                                 </span>
                               </Tooltip>
+                              {(() => {
+                                const provider = k.providerCode as ProviderCode
+                                const unsupported = LOCAL_LOGIN_UNSUPPORTED[provider]
+                                const label = LOCAL_LOGIN_LABEL[provider] ?? k.providerCode
+                                const willRestart = LOCAL_LOGIN_RESTARTS_CLIENT.has(provider)
+                                return (
+                                  <Tooltip
+                                    content={
+                                      unsupported
+                                        ? `登录本机不可用:${unsupported}`
+                                        : `登录本机:把该号写进本机 ${label} 客户端登录态(写前自动备份原文件,可回滚)${
+                                            willRestart
+                                              ? ';写前自动关闭客户端、写完自动重新打开'
+                                              : ';CLI 下次启动即生效'
+                                          }`
+                                    }
+                                  >
+                                    <span className="inline-flex">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        aria-label="登录本机"
+                                        disabled={loginLocalMut.isPending || Boolean(unsupported)}
+                                        onClick={() => {
+                                          void confirm({
+                                            title: `把「${k.name}」登录到本机 ${label}?`,
+                                            description: willRestart
+                                              ? `会替换本机当前 ${label} 登录态(写入前自动备份原文件)。写入前会自动关闭 ${label} 并在写入完成后重新打开 —— 客户端运行中直接写会被它退出时的内存态覆盖,所以必须先关后写。请先保存手头未保存的文件。`
+                                              : `会替换本机当前 ${label} 登录态(写入前自动备份原文件)。CLI 每次启动现读登录态,写完即生效,无需重启。`,
+                                            confirmText: '写入并替换',
+                                          }).then((ok) => {
+                                            if (ok) loginLocalMut.mutate(k.id)
+                                          })
+                                        }}
+                                      >
+                                        {loginLocalMut.isPending &&
+                                        loginLocalMut.variables === k.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <MonitorDown className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </span>
+                                  </Tooltip>
+                                )
+                              })()}
+                              <Tooltip
+                                content={
+                                  relCap
+                                    ? relCap.kind !== 'none'
+                                      ? '一键重登:停靠浏览器打开登录页,换新票自动覆盖凭证(保留原 refreshToken)'
+                                      : relCap.reason
+                                    : '该平台未登记网页重登链(出路见告警话术:导入账号 JSON)'
+                                }
+                              >
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    aria-label="一键重登"
+                                    disabled={relogin !== null || !desktop}
+                                    onClick={() => startRelogin(k)}
+                                  >
+                                    {relogin?.id === k.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <LogIn className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </span>
+                              </Tooltip>
                               <Tooltip content="查余额">
                                 <span className="inline-flex">
                                   <Button
@@ -1171,6 +1891,22 @@ export default function AdminRelayAccountPoolPage() {
                                       <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
                                       <Wallet className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                              <Tooltip content="可用模型">
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={modelsMut.isPending}
+                                    onClick={() => modelsMut.mutate(k.id)}
+                                  >
+                                    {modelsMut.isPending && modelsMut.variables === k.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Cpu className="h-4 w-4" />
                                     )}
                                   </Button>
                                 </span>
@@ -1332,14 +2068,135 @@ export default function AdminRelayAccountPoolPage() {
                 临时摘除(暂不参与调度)
               </Label>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="a-proxy">代理地址</Label>
-              <Input
-                id="a-proxy"
-                value={editForm.proxyUrl}
-                onChange={(e) => setEditForm({ ...editForm, proxyUrl: e.target.value })}
-                placeholder="http://127.0.0.1:7890(留空则清除)"
-              />
+            <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium leading-none">账号代理</div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      仅对该账号生效，不进入共享代理池
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={
+                    editing?.hasProxy
+                      ? 'shrink-0 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-600 dark:text-emerald-400'
+                      : 'shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground'
+                  }
+                >
+                  {editing?.hasProxy ? '已配置' : '直连'}
+                </span>
+              </div>
+
+              {editing?.hasProxy && proxyMode === 'keep' ? (
+                <div className="flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs">
+                    {editing.proxyUrlMasked ?? '已配置（脱敏）'}
+                  </code>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setProxyMode('set')
+                      setProxyDraft('')
+                      setProxyVisible(false)
+                    }}
+                  >
+                    更换
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    onClick={() => setProxyMode('clear')}
+                  >
+                    清除
+                  </Button>
+                </div>
+              ) : null}
+
+              {!editing?.hasProxy && proxyMode === 'keep' ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setProxyMode('set')
+                    setProxyVisible(false)
+                  }}
+                >
+                  设置代理
+                </Button>
+              ) : null}
+
+              {proxyMode === 'set' ? (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Input
+                      id="a-proxy"
+                      type={proxyVisible ? 'text' : 'password'}
+                      value={proxyDraft}
+                      onChange={(e) => setProxyDraft(e.target.value)}
+                      placeholder="http://user:pass@host:port 或 socks5://host:port"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="pr-9 font-mono text-xs"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={() => setProxyVisible((v) => !v)}
+                      aria-label={proxyVisible ? '隐藏代理地址' : '显示代理地址'}
+                    >
+                      {proxyVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    支持 http(s):// 与 socks5://，保存后聊天、换票、巡检都走该出口。
+                  </p>
+                  {editing?.hasProxy ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      当前：{editing.proxyUrlMasked ?? '已配置（脱敏）'}
+                    </p>
+                  ) : null}
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setProxyMode('keep')
+                        setProxyDraft('')
+                        setProxyVisible(false)
+                      }}
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              {proxyMode === 'clear' ? (
+                <div className="space-y-2">
+                  <p className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                    保存后将移除该账号的代理，回落到共享代理池或直连。
+                  </p>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setProxyMode('keep')}
+                    >
+                      撤销
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>
@@ -1384,18 +2241,56 @@ export default function AdminRelayAccountPoolPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="a-import-json">账号导出 JSON</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="a-import-json">账号导出 JSON</Label>
+                <div className="flex items-center gap-1">
+                  <input
+                    ref={importFileRef}
+                    type="file"
+                    accept=".json,.txt,application/json,text/plain"
+                    className="hidden"
+                    onChange={(e) => applyImportFile(e.target.files?.[0])}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="px-2 text-xs"
+                    onClick={() => importFileRef.current?.click()}
+                  >
+                    <FileText className="mr-1 h-3 w-3" />
+                    选文件
+                  </Button>
+                </div>
+              </div>
               <textarea
                 id="a-import-json"
                 rows={10}
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
-                placeholder='支持整包 { "accounts": [...] } 或裸数组 [ ... ]'
-                className={textareaClass}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  setImportDragOver(true)
+                }}
+                onDragLeave={() => setImportDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setImportDragOver(false)
+                  applyImportFile(e.dataTransfer.files?.[0])
+                }}
+                placeholder='把 .json 备份文件拖进来 / 点「选文件」;也支持粘贴整包 { "accounts": [...] }、裸数组、单条,以及 workbuddy-switch 等第三方导出(access_token 形状由服务端自动归一)'
+                className={
+                  textareaClass +
+                  ' transition-colors' +
+                  (importDragOver
+                    ? ' border-brand-accent-deep bg-primary/5 ring-1 ring-primary/40'
+                    : '')
+                }
               />
               <p className="text-xs text-muted-foreground">
-                字段:name / token / refreshToken / deviceId / machineId / enabled / cookies(proxyUrl
-                可选)。示例:
+                {importFileName
+                  ? `已载入文件 ${importFileName}（点「提交导入」才写进号池）`
+                  : '字段:name / token / refreshToken / deviceId / machineId / enabled / cookies(proxyUrl 可选);第三方导出自动识别。示例:'}
               </p>
               <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
                 {EXAMPLE_JSON}
@@ -1473,6 +2368,74 @@ export default function AdminRelayAccountPoolPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!completing} onOpenChange={(o) => !o && setCompleting(null)}>
+        <DialogContent>
+          <form onSubmit={submitCompletePhone} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>补全手机号{completing ? `:${completing.name}` : ''}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="a-complete-phone">官方绑定手机号(11 位全号)</Label>
+              <Input
+                id="a-complete-phone"
+                value={completePhone}
+                onChange={(e) => setCompletePhone(e.target.value)}
+                placeholder="如 18012345669"
+                autoComplete="off"
+                spellCheck={false}
+                required
+              />
+              <p className="text-[11px] text-muted-foreground">
+                号池命名规约 = 官方绑定手机号全号;全号前 3 后 2 需与该掩码名吻合,不吻合会被拒绝。
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCompleting(null)}>
+                取消
+              </Button>
+              <Button type="submit" disabled={completePhoneMut.isPending}>
+                {completePhoneMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                提交补全
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={matchOpen} onOpenChange={(o) => !o && setMatchOpen(false)}>
+        <DialogContent className="max-w-2xl">
+          <form onSubmit={submitMatchPhone} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>批量归位手机号</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="a-match-phones">候选手机号(每行一个 11 位全号,1~200 个)</Label>
+              <textarea
+                id="a-match-phones"
+                rows={10}
+                value={matchText}
+                onChange={(e) => setMatchText(e.target.value)}
+                placeholder="每行粘贴一个手机号全号,如:18012345669"
+                className={textareaClass}
+              />
+              <p className="text-xs text-muted-foreground">
+                后端按掩码前 3 后 2
+                归位号池内掩码名账号并统一改名为全号;歧义/无命中/非法只汇总报数。
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setMatchOpen(false)}>
+                取消
+              </Button>
+              <Button type="submit" disabled={matchPhoneMut.isPending}>
+                {matchPhoneMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                提交归位
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Sheet open={usageAccountId !== null} onOpenChange={(o) => !o && setUsageAccountId(null)}>
         <SheetContent side="right" className="w-full gap-4 sm:max-w-xl">
           <SheetHeader>
@@ -1496,7 +2459,7 @@ export default function AdminRelayAccountPoolPage() {
                     Tokens {fmtNum(usageQuery.data?.summary?.tokens24h)}
                   </span>
                   <span
-                    className={`rounded-md px-2 py-1 tabular-nums ${
+                    className={`whitespace-nowrap rounded-md px-2 py-1 tabular-nums ${
                       failRatePct(usageQuery.data?.summary?.failRate24h) !== null &&
                       (failRatePct(usageQuery.data?.summary?.failRate24h) ?? 0) > 30
                         ? 'bg-red-500/10 font-medium text-red-600 dark:text-red-400'
@@ -1549,6 +2512,44 @@ export default function AdminRelayAccountPoolPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* 可用模型点查结果(qoder=本机 CLI 登录态清单,scope 一行如实标注) */}
+      <Dialog open={modelsView !== null} onOpenChange={(o) => !o && setModelsView(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>可用模型{modelsView?.name ? `:${modelsView.name}` : ''}</DialogTitle>
+          </DialogHeader>
+          {modelsView && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                {modelsView.result.scope === 'local-cli-login'
+                  ? '清单来源:本机 Qoder CLI 登录态(当前登录账号;自定义模型 ID 因 CLI 显示上限截断,转发请用名称或 auto)'
+                  : '清单来源:上游账号凭据点查'}
+                {' · '}
+                {new Date(modelsView.result.queriedAt).toLocaleString()}
+              </p>
+              {modelsView.result.models.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">清单为空</p>
+              ) : (
+                <div className="max-h-80 space-y-1 overflow-auto rounded-md border border-border p-2">
+                  {modelsView.result.models.map((m, i) => (
+                    <div key={`${m.name}-${i}`} className="flex items-center gap-2 text-sm">
+                      <span className="truncate" title={m.id ?? m.name}>
+                        {m.name}
+                      </span>
+                      {m.idTruncated ? (
+                        <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          ID 截断
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialogRenderer />
     </div>
@@ -1746,9 +2747,9 @@ function ProxyPoolPanel() {
                     <tr key={p.id}>
                       <td
                         className="max-w-[18rem] truncate px-3 py-2 font-mono text-xs"
-                        title={p.proxyUrl ?? undefined}
+                        title={p.proxyUrl ? maskProxyDisplay(p.proxyUrl) : undefined}
                       >
-                        {p.proxyUrl ?? '-'}
+                        {maskProxyDisplay(p.proxyUrl)}
                       </td>
                       <td className="px-3 py-2 text-xs">{p.providerCode ?? '-'}</td>
                       <td

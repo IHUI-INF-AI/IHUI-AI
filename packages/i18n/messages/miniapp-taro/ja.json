@@ -150,6 +150,7 @@
     "googleNotConfigured": "Googleログイン未設定。.env で EXPO_PUBLIC_GOOGLE_CLIENT_ID を設定してください。",
     "sdkPending": "{name}ログインはWeb版のみ対応。モバイルにはネイティブSDKが未統合です。\n「智汇AI Web権限ログイン」ボタンでブラウザ認証に進めます。",
     "agree": "同意",
+    "webAuthLogin": "Web認証ログイン",
     "agreeTermsTitle": "サービス条項への同意確認"
   },
   "forgot": {
@@ -6719,6 +6720,12 @@
     "unknownLecturer": "不明な講師",
     "viewCount": "{count} 回視聴"
   },
+  "scanLogin": {
+    "menuTitle": "スキャン",
+    "invalidCode": "このサイトのログイン用QRコードを読み取ってください",
+    "success": "ログインを確認しました",
+    "failed": "確認に失敗しました。もう一度お試しください。",
+    "needLogin": "スキャンの前にログインしてください"
   "skillsMarket": {
     "noRatings": "評価はまだありません",
     "detailTitle": "スキル詳細",

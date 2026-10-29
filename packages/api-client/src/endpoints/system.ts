@@ -35,6 +35,12 @@ export interface VersionCheckResult {
   forceUpdate?: boolean
   downloadUrl?: string
   releaseNotes?: string
+  /**
+   * 服务端强制最低版本(X.Y.Z);null/缺省 = 没有要求。
+   * 2026-10-27 起由 GET /api/app-version/check-update 真的下发(此前客户端读的字段端点从不返回,
+   * 那条强更分支结构上不可达);来源是服务端环境变量 IHUI_MIN_VERSION,未配置即 null。
+   */
+  minimumVersion?: string | null
   [key: string]: unknown
 }
 

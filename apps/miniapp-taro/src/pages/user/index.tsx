@@ -3,6 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
+import { parseQrLoginTicket } from '@ihui/shared'
+import { localMonthKey, parseQrLoginTicket } from '@ihui/shared'
 import { TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
@@ -30,6 +32,8 @@ import DrawerComponent, {
 } from '@/components/DrawerComponent'
 import UserInfoCard from '@/components/UserInfoCard'
 import LoginPopUp from '@/components/LoginPopUp'
+import { getSsoLoginUrl, SSO_REDIRECT_URI } from '@/utils/sso'
+import { navigateToWebView } from '@/pages/webview/index'
 import StudyBar from '@/components/StudyBar'
 import { FloatBox, VideoPlayer } from '@/components'
 import { rpx } from '@/utils/rpx'
@@ -127,6 +131,13 @@ const menus: ReadonlyArray<{ icon: string; key: string; path: string; fallback?:
     icon: 'users',
     key: 'userFans.title',
     path: '/pkg-user/fans/index',
+  },
+  // 扫一扫:PC 端「App 扫码登录」的移动端一半(扫 ticket → /auth/qr/confirm)。
+  // path 用伪协议 'scan-login' 走本页 handler,不新开页面;ticket 判据走 @ihui/shared。
+  {
+    icon: 'maximize',
+    key: 'scanLogin.menuTitle',
+    path: 'scan-login',
   },
 ]
 
@@ -425,7 +436,40 @@ export default function UserIndex() {
     setShowLoginPopup(true)
   }
 
+  /**
+   * 扫一扫确认 PC 登录:扫到 ticket → POST /auth/qr/confirm。
+   * 取消扫码属常态(用户点了返回),静默返回不弹错;判据与 RN 端共用 @ihui/shared。
+   */
+  async function handleScanLogin() {
+    if (!isLoggedIn()) {
+      Taro.showToast({ title: t('scanLogin.needLogin'), icon: 'none' })
+      return
+    }
+    let raw = ''
+    try {
+      const res = await Taro.scanCode({ scanType: ['qrCode'] })
+      raw = res.result
+    } catch {
+      return
+    }
+    const ticket = parseQrLoginTicket(raw)
+    if (!ticket) {
+      Taro.showToast({ title: t('scanLogin.invalidCode'), icon: 'none' })
+      return
+    }
+    try {
+      await api.confirmQrLogin(ticket)
+      Taro.showToast({ title: t('scanLogin.success'), icon: 'success' })
+    } catch {
+      Taro.showToast({ title: t('scanLogin.failed'), icon: 'none' })
+    }
+  }
+
   function goPage(path: string) {
+    if (path === 'scan-login') {
+      void handleScanLogin()
+      return
+    }
     Taro.navigateTo({ url: path })
   }
 
@@ -958,6 +1002,17 @@ export default function UserIndex() {
           }
           onClose={() => setShowLoginPopup(false)}
           onUpgrade={goVipDetail}
+          onWebAuthLogin={() => {
+            // 网页授权登录(G-957):打开 web 中转页 /sso/login(client_id=miniapp-taro),
+            // web 端签发一次性 sso_code 后经 wx.miniProgram.postMessage 回传,由
+            // pages/webview 的 onMessage 换登录态后 reLaunch 首页(回传腿已接管)。
+            // 收弹窗再跳,避免返回时弹窗还挂在「我的」页上。
+            setShowLoginPopup(false)
+            navigateToWebView(
+              getSsoLoginUrl(SSO_REDIRECT_URI),
+              tf('login.webAuthLogin', '网页授权登录'),
+            )
+          }}
           onOneClickLogin={async ({ loginCode, phoneCode }) => {
             try {
               // 一键登录:两个 code 一次交给后端,手机号由微信侧验证后换回(客户端不自报字段)。

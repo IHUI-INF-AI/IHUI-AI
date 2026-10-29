@@ -67,7 +67,11 @@ _LEGACY_DESC = (
 
 
 def _advertised_names(desc: str, marker: str = MARKER) -> list[str]:
-    """从描述文本取广告名单:marker 后到句号,按 、 分档,每档取头部 ASCII 名串。
+    """从描述文本取广告名单:marker 后到句号,按 、 分档,每档取头部名字串。
+
+    名字字符集跟随 `AgentRegistry.register` 的实际规则(只校验非空,不限制字符集),
+    所以这里不能假设 `[a-z][a-z0-9-]*` —— `test_api_v1` 注册的 `test_custom_agent`
+    就是合法名,窄式提取会把它截成 `test`,让"广告面与注册表相等"这一格凭空变红。
 
     取不到 marker 直接判失败 —— 广告面被整体摘掉(或改名)时,本文件必须喊出来,
     不得静默读成"没有广告名 ⇒ 无需解析"。
@@ -79,7 +83,7 @@ def _advertised_names(desc: str, marker: str = MARKER) -> list[str]:
     seg = desc[i + len(marker) : j if j >= 0 else None]
     names: list[str] = []
     for chunk in seg.split("、"):
-        m = re.match(r"[a-z][a-z0-9-]*", chunk.strip())
+        m = re.match(r"[A-Za-z0-9_.-]+", chunk.strip())
         if m:
             names.append(m.group(0))
     return names

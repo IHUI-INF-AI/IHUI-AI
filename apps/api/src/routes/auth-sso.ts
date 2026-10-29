@@ -6,7 +6,6 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { type JWTPayload, verifyRefreshToken } from '@ihui/auth'
 import { isSameOriginRelativePath } from '@ihui/shared/auth/sso-core'
-import { REFRESH_TOKEN_STALE_ERROR_CODE } from '@ihui/shared/auth/auto-login-policy'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
@@ -35,7 +34,7 @@ const ADMIN_WILDCARD_PERMISSIONS = ['*:*:*']
  * - localhost:http://localhost:NNNN/* 或 http://127.0.0.1:NNNN/*(CLI 本地回调服务器)
  * - 配置化 origins:env SSO_ALLOWED_ORIGINS(逗号分隔,如 http://localhost:8801,https://aizhs.top)
  * - Chrome 扩展 redirect:https://<extension-id>.chromiumapp.org/(chrome.identity.launchWebAuthFlow 固定域)
- * - deep-link custom scheme:env SSO_ALLOWED_DEEP_LINK_SCHEMES(逗号分隔,默认 ihui)
+ * - deep-link custom scheme:env SSO_ALLOWED_DEEP_LINK_SCHEMES(逗号分隔,默认 ihui,ihui-miniapp)
  *   用于 mobile-rn(expo-linking)+ desktop(Tauri deep-link)SSO 回调,格式 ihui://sso[?sso_code=xxx]
  * - 不允许包含 "\n\r" 等控制字符
  * - 总长度不超过 2048
@@ -53,9 +52,15 @@ const SSO_ALLOWED_ORIGINS = (process.env.SSO_ALLOWED_ORIGINS ?? '')
  * 允许的 deep-link custom scheme 白名单(2026-08-01 立,修复 H1 遗漏)。
  * 默认 `ihui`,与 mobile-rn(SSO_REDIRECT_URI = 'ihui://sso/callback')+
  * desktop(tauri.conf.json plugins.deep-link.schemes: ["ihui"])共用单一 scheme。
+ * 2026-10-26(G-957):补 `ihui-miniapp` —— 小程序端 SSO 授权中转页
+ * (/sso/login?client_id=miniapp-taro&redirect=ihui-miniapp://sso/callback)的回跳形态
+ * 同样是 custom scheme(AGENTS §9 契约;微信 web-view 内实际回传走 wx.miniProgram
+ * postMessage,custom scheme 只是该授权请求过服务端 isSafeRedirectUri 的合法形态)。
  * 生产环境如需多 scheme(如企业定制),通过 env SSO_ALLOWED_DEEP_LINK_SCHEMES 逗号分隔扩展。
  */
-const SSO_ALLOWED_DEEP_LINK_SCHEMES = (process.env.SSO_ALLOWED_DEEP_LINK_SCHEMES ?? 'ihui')
+const SSO_ALLOWED_DEEP_LINK_SCHEMES = (
+  process.env.SSO_ALLOWED_DEEP_LINK_SCHEMES ?? 'ihui,ihui-miniapp'
+)
   .split(',')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean)
@@ -392,25 +397,28 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
           return reply.code(401).send(error(401, 'refresh_token 无效或已被吊销'))
         }
         if (replay.verdict === 'stale-sibling') {
-          // 超出宽限期但这一族还有活 token:迟到的是陈旧副本 ⇒ 只拒绝本次,
-          // 不签发、不吊销,并带稳定错误码供端上分型(与 /auth/refresh 同码)。
+          // 超出宽限期但这一族还有活 token:迟到的是陈旧副本 ⇒ 2026-10-27 起放行正常轮转
+          // (与 /auth/refresh 同尺)。此前这里 401,把「凭据在、族也活着」的调用方永久锁死;
+          // 族还活着即会话未死,真正的攻击面由 reuse 覆盖。留 warn 便于观测旧副本频率。
           request.log.warn(
             {
               familyId: payload.familyId,
               userId: payload.userId,
               revokedAgeMs: replay.revokedAgeMs,
             },
-            '[security] SSO stale refresh token replay while family still alive, rejected without revoking',
+            '[sso] stale refresh token replay recovered by rotation (family still alive)',
           )
-          return reply
-            .code(401)
-            .send(error(401, 'refresh_token 无效或已被吊销', REFRESH_TOKEN_STALE_ERROR_CODE))
+        } else {
+          // race:宽限期内竞态放行(记 info 便于观测),不吊销家族,继续下方正常轮转
+          request.log.info(
+            {
+              familyId: payload.familyId,
+              userId: payload.userId,
+              revokedAgeMs: replay.revokedAgeMs,
+            },
+            '[sso] refresh token replay within leeway, treated as multi-context race',
+          )
         }
-        // race:宽限期内竞态放行(记 info 便于观测),不吊销家族,继续下方正常轮转
-        request.log.info(
-          { familyId: payload.familyId, userId: payload.userId, revokedAgeMs: replay.revokedAgeMs },
-          '[sso] refresh token replay within leeway, treated as multi-context race',
-        )
       }
 
       // 3. 确认用户仍然存在且启用

@@ -426,6 +426,7 @@
     "githubLogin": "GitHub",
     "googleLogin": "Google",
     "googleNotConfigured": "Google Login is not configured",
+    "platformNotConfigured": "This sign-in method is not configured",
     "hasAccount": "Already have an account?",
     "invalidAccount": "Invalid account",
     "invalidCredentials": "Invalid account or password",
@@ -2184,6 +2185,7 @@
       "autoSkipApproval": "Auto-approved (no approval needed)",
       "bypassSkipApproval": "Approval skipped",
       "mcpRequiresApproval": "MCP annotations require approval",
+      "taintEgressGate": "Session taint: network access needs approval",
       "policyRequiresApproval": "Policy requires approval",
       "policySkipsApproval": "Policy skips approval",
       "guardianReviewSuggested": "Review suggests a safer alternative",
@@ -2410,6 +2412,8 @@
         "unknownStatus": "unknown"
       },
       "queueOps": {
+        "sendNow": "Send next",
+        "sendNowAria": "Move to front of queue; this message will be sent next",
         "ariaLabel": "Queued message actions",
         "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused",
         "undo": "Undo",

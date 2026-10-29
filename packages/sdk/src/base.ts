@@ -22,18 +22,27 @@ export interface SdkConfig {
   fetch?: typeof fetch
 }
 
-/** SDK 错误,携带 HTTP 状态码 + 错误码 + 详情。 */
+/** SDK 错误,携带 HTTP 状态码 + 错误码 + 详情 + 限流建议等待时间。 */
 export class SdkError extends Error {
   readonly status: number
   readonly code: string
   readonly details?: unknown
+  /** 服务端 `Retry-After` 头解析出的建议等待毫秒数;头缺失/不可解析时为 undefined。 */
+  readonly retryAfterMs: number | undefined
 
-  constructor(status: number, code: string, message: string, details?: unknown) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details?: unknown,
+    retryAfterMs?: number,
+  ) {
     super(message)
     this.name = 'SdkError'
     this.status = status
     this.code = code
     this.details = details
+    this.retryAfterMs = retryAfterMs
   }
 }
 
@@ -47,6 +56,20 @@ function normalizeBaseUrl(baseUrl: string): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * 解析 `Retry-After` 响应头为建议等待毫秒数。
+ * 两种标准形态:delta-seconds(非负数字秒)与 HTTP-date(到该时刻的毫秒数,时刻已过归 0)。
+ * 头缺失或两种形态都不匹配 ⇒ undefined —— 不猜默认值,退避策略留给调用方。
+ */
+function parseRetryAfterMs(header: string | null): number | undefined {
+  const raw = (header ?? '').trim()
+  if (raw === '') return undefined
+  if (/^\d+(\.\d+)?$/.test(raw)) return Math.round(parseFloat(raw) * 1000)
+  const at = Date.parse(raw)
+  if (!Number.isNaN(at)) return Math.max(0, at - Date.now())
+  return undefined
 }
 
 /** SDK 基础客户端,封装鉴权、重试、超时、错误处理。 */
@@ -134,6 +157,7 @@ export class BaseClient {
           errBody.code ?? `http_${resp.status}`,
           errBody.message ?? resp.statusText,
           errBody.details,
+          parseRetryAfterMs(resp.headers.get('retry-after')),
         )
 
         if (resp.status === 429) break
@@ -173,6 +197,7 @@ export class BaseClient {
         errBody.code ?? `http_${resp.status}`,
         errBody.message ?? resp.statusText,
         errBody.details,
+        parseRetryAfterMs(resp.headers.get('retry-after')),
       )
     }
 
