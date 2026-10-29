@@ -13,6 +13,7 @@
 - 错误处理:RuntimeError("不存在/已终止") → 404,其他 → 500
 - 隔离:mock get_debug_manager(),不调真实 DAP adapter 子进程
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -37,6 +38,23 @@ from app.api.v1.debug import (
 # =============================================================================
 # 辅助
 # =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _debug_face_enabled(monkeypatch: pytest.MonkeyPatch):
+    """本文件测的是「调试面已启用」时的端点行为。
+
+    2026-10-29 起该面默认关闭(IHUI_DEBUG_ENABLED 未设即整面 404),故这里显式打开;
+    关闭态的 fail-closed 行为由 test_debug_api.py::test_disabled_face_returns_404 单独钉死。
+    同时清空 jwt_secret 并钉住 development:让 require_request_user_id 回落到开发主体
+    (dev-anonymous)而不是 401 —— 身份缺失的拒绝路径不在本文件射程内。
+    """
+    from app.core.config import settings
+
+    monkeypatch.setenv("IHUI_DEBUG_ENABLED", "true")
+    monkeypatch.setattr(settings, "jwt_secret", "")
+    monkeypatch.setattr(settings, "node_env", "development")
+    yield
 
 
 def _make_app():
@@ -212,7 +230,7 @@ async def test_attach_endpoint_success(monkeypatch):
     assert resp.status_code == 200
     assert resp.json()["data"]["sessionId"] == "sess-2"
     fake_manager.attach.assert_awaited_once_with(
-        language="node", port=9229, host="localhost"
+        language="node", port=9229, host="localhost", owner_user_id="dev-anonymous"
     )
 
 
@@ -239,9 +257,7 @@ async def test_attach_endpoint_failure_returns_500(monkeypatch):
 async def test_set_breakpoints_success(monkeypatch):
     """POST /api/v1/debug/sessions/{id}/breakpoints 成功。"""
     fake_manager = MagicMock()
-    fake_manager.set_breakpoints = AsyncMock(
-        return_value=[{"line": 10, "verified": True}]
-    )
+    fake_manager.set_breakpoints = AsyncMock(return_value=[{"line": 10, "verified": True}])
     monkeypatch.setattr(debug_module, "get_debug_manager", lambda: fake_manager)
 
     app = _make_app()
@@ -258,9 +274,7 @@ async def test_set_breakpoints_success(monkeypatch):
 async def test_set_breakpoints_session_missing_404(monkeypatch):
     """set_breakpoints:session 不存在 → 404。"""
     fake_manager = MagicMock()
-    fake_manager.set_breakpoints = AsyncMock(
-        side_effect=RuntimeError("debug session 不存在: s1")
-    )
+    fake_manager.set_breakpoints = AsyncMock(side_effect=RuntimeError("debug session 不存在: s1"))
     monkeypatch.setattr(debug_module, "get_debug_manager", lambda: fake_manager)
 
     app = _make_app()
@@ -385,9 +399,7 @@ async def test_get_variables_success(monkeypatch):
         )
     assert resp.status_code == 200
     assert resp.json()["data"]["variables"] == variables
-    fake_manager.get_variables.assert_awaited_once_with(
-        session_id="s1", frame_id=0, scope="local"
-    )
+    fake_manager.get_variables.assert_awaited_once_with(session_id="s1", frame_id=0, scope="local")
 
 
 async def test_get_variables_default_scope(monkeypatch):
@@ -403,9 +415,7 @@ async def test_get_variables_default_scope(monkeypatch):
             params={"frameId": 0},
         )
     assert resp.status_code == 200
-    fake_manager.get_variables.assert_awaited_once_with(
-        session_id="s1", frame_id=0, scope="local"
-    )
+    fake_manager.get_variables.assert_awaited_once_with(session_id="s1", frame_id=0, scope="local")
 
 
 # =============================================================================
@@ -454,9 +464,7 @@ async def test_eval_success_without_type(monkeypatch):
 async def test_eval_session_missing_404(monkeypatch):
     """eval:session 不存在 → 404。"""
     fake_manager = MagicMock()
-    fake_manager.evaluate = AsyncMock(
-        side_effect=RuntimeError("debug session 不存在: s1")
-    )
+    fake_manager.evaluate = AsyncMock(side_effect=RuntimeError("debug session 不存在: s1"))
     monkeypatch.setattr(debug_module, "get_debug_manager", lambda: fake_manager)
 
     app = _make_app()
@@ -529,4 +537,6 @@ async def test_list_sessions(monkeypatch):
     data = resp.json()
     assert data["data"]["sessions"] == sessions
     assert len(data["data"]["sessions"]) == 2
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
