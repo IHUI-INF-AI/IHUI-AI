@@ -28,6 +28,10 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-alert-triangle"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />\n  <path d="M12 9v4" />\n  <path d="M12 17h.01" />\n</svg>\n',
   AppWindow:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-app-window"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect x="2" y="4" width="20" height="16" rx="2" />\n  <path d="M10 4v4" />\n  <path d="M2 8h20" />\n  <path d="M6 4v4" />\n</svg>\n',
+  Archive:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-archive"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="20" height="5" x="2" y="3" rx="1" />\n  <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />\n  <path d="M10 12h4" />\n</svg>\n',
+  ArchiveRestore:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-archive-restore"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="20" height="5" x="2" y="3" rx="1" />\n  <path d="M4 8v11a2 2 0 0 0 2 2h2" />\n  <path d="M20 8v11a2 2 0 0 1-2 2h-2" />\n  <path d="m9 15 3-3 3 3" />\n  <path d="M12 12v9" />\n</svg>\n',
   ArrowDown:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-arrow-down"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M12 5v14" />\n  <path d="m19 12-7 7-7-7" />\n</svg>\n',
   ArrowRight:
@@ -110,6 +114,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-clapperboard"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m12.296 3.464 3.02 3.956" />\n  <path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3z" />\n  <path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />\n  <path d="m6.18 5.276 3.1 3.899" />\n</svg>\n',
   ClipboardList:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-clipboard-list"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />\n  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />\n  <path d="M12 11h4" />\n  <path d="M12 16h4" />\n  <path d="M8 11h.01" />\n  <path d="M8 16h.01" />\n</svg>\n',
+  ClipboardPaste:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-clipboard-paste"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M11 14h10" />\n  <path d="M16 4h2a2 2 0 0 1 2 2v1.344" />\n  <path d="m17 18 4-4-4-4" />\n  <path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 1.793-1.113" />\n  <rect x="8" y="2" width="8" height="4" rx="1" />\n</svg>\n',
   Clock:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-clock"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <circle cx="12" cy="12" r="10" />\n  <path d="M12 6v6l4 2" />\n</svg>\n',
   Code: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-code"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m16 18 6-6-6-6" />\n  <path d="m8 6-6 6 6 6" />\n</svg>\n',
@@ -449,6 +455,8 @@ export const Activity = makeIcon('Activity', src('Activity'))
 export const AlertCircle = makeIcon('AlertCircle', src('AlertCircle'))
 export const AlertTriangle = makeIcon('AlertTriangle', src('AlertTriangle'))
 export const AppWindow = makeIcon('AppWindow', src('AppWindow'))
+export const Archive = makeIcon('Archive', src('Archive'))
+export const ArchiveRestore = makeIcon('ArchiveRestore', src('ArchiveRestore'))
 export const ArrowDown = makeIcon('ArrowDown', src('ArrowDown'))
 export const ArrowRight = makeIcon('ArrowRight', src('ArrowRight'))
 export const ArrowUp = makeIcon('ArrowUp', src('ArrowUp'))
@@ -491,6 +499,7 @@ export const CircleHelp = makeIcon('CircleHelp', src('CircleHelp'))
 export const CircleQuestionMark = makeIcon('CircleQuestionMark', src('CircleQuestionMark'))
 export const Clapperboard = makeIcon('Clapperboard', src('Clapperboard'))
 export const ClipboardList = makeIcon('ClipboardList', src('ClipboardList'))
+export const ClipboardPaste = makeIcon('ClipboardPaste', src('ClipboardPaste'))
 export const Clock = makeIcon('Clock', src('Clock'))
 export const Code = makeIcon('Code', src('Code'))
 export const Coins = makeIcon('Coins', src('Coins'))
