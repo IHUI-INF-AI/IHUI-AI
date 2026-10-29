@@ -3221,7 +3221,6 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 > ② **存量坏测试**:超时前进度线显示首 79 例约 19% 失败/超时(×/T 标记),线性外推全量约 120 例坏——只拉长超时也无法绿;
 > ③ **保守设定未按 CI 复评**:workers=1 源于本地 10 并发压垮 Turbopack dev server 的教训(2026-08-29 实锤),但 CI 跑的是 `next start` 生产服务器,该约束不必然适用于 CI。
 > 修复路线(按序,验收=e2e 回绿且连续 3 次 main push 稳定绿):
-- [ ] 副本指针(编号 4·观察期):同主键第二份未勾选副本,只加指针不动勾选;当前状态见下方完整原文那条(其紧邻上一行是 2026-09-27 观察期重开注记)。本行与注记行原是并发插入把正文拦腰截断的产物,2026-09-28 现读归正:正文归还完整副本,注记独立成行。
   - **2026-09-27 观察期重开(连红回归根因已修)**:9-26 深夜 `aa83eb70198` 把 7 个包 exports 从 src 改 dist,但 e2e.yml 的两个构建步骤仍排在 seed 之后 ⇒ seed 步 `ERR_MODULE_NOT_FOUND: @ihui/types/dist/index.js`,每轮 ~2 分钟即败(2026-09-27 实测 gh 连查 8/8 failure)。修复 = 「Build database package」+「Build workspace deps(topological closure)」两步移到「Run database migrations / Seed」之前(YAML 解析校验通过,本批提交);连续 3 次绿后按本条原判据收官。
 
 
