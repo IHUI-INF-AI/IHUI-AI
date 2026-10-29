@@ -29,7 +29,7 @@
  * 需要看工作树时用 `--worktree`,只透传给**支持该旗的**器物,不支持的不给(给了会 exit 2)。
  *
  * Usage:
- *   node scripts/parity-auto.mjs                    # 驾驶舱:13 阶段全跑,只读
+ *   node scripts/parity-auto.mjs                    # 驾驶舱:全部阶段一趟跑完,只读(条数以 STAGES 现读为准)
  *   node scripts/parity-auto.mjs --fast             # 跳过慢门(128 / 237),日常高频用
  *   node scripts/parity-auto.mjs --stage=tokens     # 只跑某组(sync / decl / gen / gate / all)
  *   node scripts/parity-auto.mjs --apply            # 派生态写回(安全档)
@@ -64,7 +64,7 @@ const STAGE_TIMEOUT_LONG_MS = 900_000
  * `tokens-miniapp` 的写回实测会把它块外的多行选择器压成一行(破坏 prettier 格式),在写回器改好之前
  * 不能计入可自修档 —— 否则驾驶舱会一路指着一条"越修越脏"的路。
  */
-const SELF_HEALABLE = new Set(['tokens-rn', 'tokens-rn-css', 'tokens-chrome', 'repair-mirror'])
+const SELF_HEALABLE = new Set(['tokens-rn', 'tokens-rn-css', 'tokens-chrome', 'ui-mirror', 'repair-mirror'])
 const HEAL_BLOCKERS = {
   'tokens-miniapp': '写回会压平块外格式,待修写回器',
   'gen-mirror': '判据拒绝:缺腿/撞面/端内私有能力',
@@ -116,6 +116,18 @@ export const STAGES = [
     script: 'sync-miniapp-chrome.mjs',
     args: ['--check'],
     applyArgs: [],
+    tier: 'token',
+    wt: false,
+  },
+  {
+    id: 'ui-mirror',
+    group: 'sync',
+    title: '小程序壳的 spec 绑定块 ← RN 壳(档→类映射表)',
+    script: 'gen-ui-mirror.mjs',
+    // 两端都写 Tailwind 风格类名 ⇒ 同一档位两份映射表必须逐字相等;本器只派生映射声明,不改 JSX 结构。
+    // 不接进来就是「RN 改一档、小程序静默错位」(Card 同屏错位即此型),而门只判不修。
+    args: [],
+    applyArgs: ['--apply'],
     tier: 'token',
     wt: false,
   },
