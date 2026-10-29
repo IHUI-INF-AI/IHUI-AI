@@ -24,7 +24,7 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import nodemailer from 'nodemailer'
+import nodemailer, { type Transporter } from 'nodemailer'
 import { escapeHtml, renderSystemAlertEmail } from '../src/services/email-templates.js'
 import { finalizeEmailHtml, missingInlineImageAssets } from '../src/services/email-assets.js'
 import type { InlineImageAttachment } from '../src/services/email-assets.js'
@@ -32,7 +32,7 @@ import { sanitizeAlertMessage } from '../src/utils/alert-text.js'
 // 带值旗标取值口径(G-322):紧邻 token 必须非空且不以 `-` 开头。本地副本与
 // scripts/lib/flag-value.mjs 的 isFlagValueToken 逐字同源 —— apps/api→repo-tooling 被
 // config/architecture-policy.yaml 禁止(D1/D2/D3),消依赖优先;语义变更须两处同改。
-function isFlagValueToken(token: unknown): boolean {
+function isFlagValueToken(token: unknown): token is string {
   return typeof token === 'string' && token !== '' && !token.startsWith('-')
 }
 
@@ -145,6 +145,7 @@ function parseCliArgs(argv: readonly string[]): CliArgs {
   const args: CliArgs = {
     plain: false,
     strict: false,
+    forceAlert: false,
     dryRun: false,
     probe: false,
     probeDeliver: false,
@@ -1213,7 +1214,10 @@ function computeExitCode(o: {
  * SMTP 传输构造的**唯一**一份。发信与探针必须走同一个连接参数集 —— 两处各写一遍,
  * 迟早出现"探针连上了而真发信连不上"(或反过来),而那种分叉的唯一成因就是参数漂移。
  */
-function makeSmtpTransport(opts: SmtpSendOpts): nodemailer.Transporter {
+function makeSmtpTransport(opts: SmtpSendOpts): Transporter {
+  // `family` 是 nodemailer 9 透给 net.connect 的运行时旋钮,@types/nodemailer@8 没登记它
+  // (类型面落后运行时一大版本)。经具名变量 spread 进去,而不是把整包选项 as any。
+  const runtimeOnly: { family: 4 } = { family: 4 }
   return nodemailer.createTransport({
     host: opts.host,
     port: opts.port,
@@ -1222,7 +1226,7 @@ function makeSmtpTransport(opts: SmtpSendOpts): nodemailer.Transporter {
     // 2026-10-01 实测:本机到 smtp.qq.com 的 IPv6(2408:8756::/32,587 端口)ENETUNREACH,
     // autoSelectFamily 拿到 AAAA 就先撞死在 v6 上 ⇒ 告警整链静默失败(备份失败无人知晓)。
     // 强制 v4;若未来某台机 v4 不通 v6 通,再把这一格改成环境可配,而不是两头猜。
-    family: 4,
+    ...runtimeOnly,
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 10_000,
