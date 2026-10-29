@@ -90,6 +90,70 @@ export interface TelemetryUsageTruth {
   totalTokens: number
 }
 
+export interface StreamClock {
+  conversationId: string | null
+  isStreaming: boolean
+  startedAt: number | null
+  firstTokenAt: number | null
+  endedAt: number | null
+  /** 切会话或新开一轮时递增;调用方据此清空速率采样 */
+  epoch: number
+}
+
+export interface StreamClockEvent {
+  conversationId: string | null
+  isStreaming: boolean
+  /** 已到达的正文字符数;>0 才记下首字时刻 */
+  chars: number
+  /** 本次转移的时刻,由调用方注入 */
+  now: number
+}
+
+/**
+ * 流式计时状态机。开流、出字、收流、切会话都在同一次转移里写完时刻,
+ * 调用方用返回值渲染 —— 不把时刻藏进 effect 之后才赋值的 ref
+ * (那样收流不触发重渲染,耗时会停在上一拍;开流第一帧还会被看成「没跑过」)。
+ * 无变化时返回同一引用。
+ */
+export function reduceStreamClock(prev: StreamClock, event: StreamClockEvent): StreamClock {
+  let next = prev
+  if (event.conversationId !== prev.conversationId) {
+    next = {
+      conversationId: event.conversationId,
+      isStreaming: event.isStreaming,
+      startedAt: event.isStreaming ? event.now : null,
+      firstTokenAt: null,
+      endedAt: null,
+      epoch: prev.epoch + 1,
+    }
+  } else if (event.isStreaming !== prev.isStreaming) {
+    next = event.isStreaming
+      ? {
+          ...prev,
+          isStreaming: true,
+          startedAt: event.now,
+          firstTokenAt: null,
+          endedAt: null,
+          epoch: prev.epoch + 1,
+        }
+      : {
+          ...prev,
+          isStreaming: false,
+          endedAt: event.now,
+        }
+  }
+
+  if (
+    next.isStreaming &&
+    event.chars > 0 &&
+    next.startedAt !== null &&
+    next.firstTokenAt === null
+  ) {
+    next = { ...next, firstTokenAt: event.now }
+  }
+  return next
+}
+
 /**
  * 后端 usage 帧到达后用权威值覆盖实时估算(仅覆盖"有值且为正"的字段)。
  * usage 的 firstTokenMs/durationMs 是从请求发出量到流结束,与实时口径同源。

@@ -27,6 +27,7 @@ from app.services.model_catalog import (
     PROVIDER_TOP_GEN_REASON,
     ModelCategory,
     ModelTier,
+    _version_tuple,
     annotate_models,
     classify_model,
     derive_capabilities,
@@ -129,6 +130,19 @@ def test_xai_grok_420_is_generation_4_2() -> None:
         by_id[i] != ModelTier.LATEST.value
         for i in ("grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "grok-4.3")
     )
+
+
+def test_two_digit_minor_stays_literal_outside_grok() -> None:
+    """grok-4.20 的 ÷10 不能吞掉标准 semver:4.10 / 3.30 按字面比较,4.10 压过 4.9。"""
+    assert _version_tuple("4.10") == (4, 10)
+    assert _version_tuple("3.30") == (3, 30)
+    assert _version_tuple("4.20", "grok") == (4, 2)
+    assert _version_tuple("4.10", "acme") == (4, 10)
+    models = [_mk("acme-4.10", "acme"), _mk("acme-4.9", "acme")]
+    annotate_models(models, now=NOW)
+    by_id = {m["id"]: m["model_tier"] for m in models}
+    assert by_id["acme-4.10"] == ModelTier.LATEST.value
+    assert by_id["acme-4.9"] != ModelTier.LATEST.value
 
 
 # ---------------------------------------------------------------------------
