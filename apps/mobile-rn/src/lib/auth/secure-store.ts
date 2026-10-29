@@ -47,27 +47,13 @@ async function probeSecureStore(): Promise<SecureStoreNative | null> {
     return null
   }
   try {
-    // 必须同步取模块:动态 import() 在 dev bundle 里会被拆成 lazy chunk,Metro 对该 chunk
-    // 路径回 404(实测 node_modules/.pnpm/expo-secure-store@57…/SecureStore.bundle),
-    // Promise 就 reject ⇒ 静默退回 AsyncStorage 并拒写明文刷新令牌(冷启要重新登录)。
-    // require 同步打进主 bundle、不产生分块;测试环境取不到或求值抛错时仍由外层 catch 兜底。
-    // 行内豁免:此处 require 是刻意的(见上),仓内 GlobalFloatBox.tsx 有同型先例
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('expo-secure-store') as Partial<SecureStoreNative>
+    // 动态 import:测试环境无该依赖时直接走 fallback
+    const mod = (await import('expo-secure-store')) as Partial<SecureStoreNative>
     if (typeof mod.getItemAsync !== 'function' || typeof mod.setItemAsync !== 'function') {
-      // 取到了模块对象但方法不全:同样要留痕,否则上层只看到"未加密后端"这句误判文案
-      if (__DEV__) {
-        console.warn('[secure-store] probe: module loaded but methods missing', Object.keys(mod))
-      }
       return null
     }
     return mod as SecureStoreNative
-  } catch (e) {
-    // 静默吞错会让"取不到模块"与"本该走 fallback"长得一样,排障时只能看到上层那句
-    // "native module missing is a build defect"的误判文案 —— dev 下把真实原因打出来。
-    if (__DEV__) {
-      console.warn('[secure-store] probe failed:', e instanceof Error ? e.message : String(e))
-    }
+  } catch {
     return null
   }
 }

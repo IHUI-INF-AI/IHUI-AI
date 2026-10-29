@@ -32,7 +32,7 @@ const API_DIR = resolvePath(SCRIPT_DIR, '..')
 import { config } from 'dotenv'
 config({ path: resolvePath(API_DIR, '.env') })
 
-const { and, eq, sql, isNull } = await import('drizzle-orm')
+const { and, eq, sql } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { encryptField, decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
@@ -153,13 +153,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
       const [row] = await db
         .select()
         .from(aiRelayAccountPool)
-        .where(
-          and(
-            eq(aiRelayAccountPool.providerCode, 'qoder'),
-            eq(aiRelayAccountPool.uid, uid),
-            isNull(aiRelayAccountPool.ownerUserId),
-          ),
-        )
+        .where(and(eq(aiRelayAccountPool.providerCode, 'qoder'), eq(aiRelayAccountPool.uid, uid)))
         .limit(1)
       if (!row) {
         summary.missing++
@@ -218,11 +212,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
               updatedAt: new Date(),
             })
             .where(
-              and(
-                eq(aiRelayAccountPool.providerCode, 'qoder'),
-                eq(aiRelayAccountPool.uid, uid),
-                isNull(aiRelayAccountPool.ownerUserId),
-              ),
+              and(eq(aiRelayAccountPool.providerCode, 'qoder'), eq(aiRelayAccountPool.uid, uid)),
             )
         }
         summary.skipped++
@@ -250,13 +240,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
           credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(aiRelayAccountPool.providerCode, 'qoder'),
-            eq(aiRelayAccountPool.uid, uid),
-            isNull(aiRelayAccountPool.ownerUserId),
-          ),
-        )
+        .where(and(eq(aiRelayAccountPool.providerCode, 'qoder'), eq(aiRelayAccountPool.uid, uid)))
       summary.applied++
       summary.rows.push({ uid, decision: final.reason, applied: true })
     } catch (e) {
@@ -284,8 +268,6 @@ function parseArgs(argv: string[]): {
     if (a === '--stdin') options.stdin = true
     else if (a === '--dry-run') options.dryRun = true
     else if (a === '--json') options.json = true
-    else if (a === '--')
-      continue // pnpm 透传的裸分隔符,不是参数
     else options.error = `未知参数: ${a}`
   }
   if (!options.stdin && !options.error) options.error = '必须 --stdin(凭据经标准输入,不落盘)'
