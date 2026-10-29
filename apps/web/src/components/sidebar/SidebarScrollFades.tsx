@@ -20,7 +20,7 @@ import * as React from 'react'
  * (滚动由 nav 自身 overflow-y-auto 承担),故淡出始终钉在视口边缘。
  */
 
-const FADE_HEIGHT_PX = 40
+const FADE_HEIGHT_PX = 56
 
 export interface SidebarScrollFadesProps {
   /** 可滚动菜单 nav 的 ref(用于监听 scroll / 计算溢出) */
@@ -61,7 +61,7 @@ export default function SidebarScrollFades({ navRef }: SidebarScrollFadesProps) 
           height: `${FADE_HEIGHT_PX}px`,
           opacity: topVisible ? 1 : 0,
           backgroundImage:
-            'linear-gradient(to bottom, hsl(var(--background) / 1) 0%, hsl(var(--background) / 1) 35%, hsl(var(--background) / 0) 100%)',
+            'linear-gradient(to bottom, hsl(var(--background) / 1) 0%, hsl(var(--background) / 1) 50%, hsl(var(--background) / 0) 100%)',
         }}
       />
       {/* 底部淡出:下边缘实底 → 向上透明,菜单下滑时先溶进背景 */}
@@ -72,7 +72,7 @@ export default function SidebarScrollFades({ navRef }: SidebarScrollFadesProps) 
           height: `${FADE_HEIGHT_PX}px`,
           opacity: bottomVisible ? 1 : 0,
           backgroundImage:
-            'linear-gradient(to top, hsl(var(--background) / 1) 0%, hsl(var(--background) / 1) 35%, hsl(var(--background) / 0) 100%)',
+            'linear-gradient(to top, hsl(var(--background) / 1) 0%, hsl(var(--background) / 1) 50%, hsl(var(--background) / 0) 100%)',
         }}
       />
     </>

@@ -2440,6 +2440,14 @@
       "when": 1793075400000,
       "tag": "20261027120000_automation_settlement_state_machine",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 352,
+      "when": 1793246400000,
+      "tag": "20261029120000_resources_owner_user_id",
+      "breakpoints": true
     }
+
   ]
 }

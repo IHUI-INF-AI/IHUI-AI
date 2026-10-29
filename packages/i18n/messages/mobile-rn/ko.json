@@ -7050,5 +7050,13 @@
     "prev": "이전",
     "pagination": "{page} / {totalPages} 페이지, 총 {total}건",
     "next": "다음"
+  },
+  "chatWorkbenchPage": {
+    "title": "대화",
+    "newConversation": "새 대화",
+    "searchPlaceholder": "키워드 입력...",
+    "empty": "콘텐츠가 없습니다",
+    "searchNoResult": "결과 없음",
+    "retry": "재시도"
   }
 }
