@@ -1039,7 +1039,6 @@
     "sectionSocial": "社交",
     "favorites": "我的收藏",
     "follow": "关注与粉丝",
-    "favorite": "我的收藏",
     "messageCenter": "消息",
     "messageSystem": "系统消息",
     "messageDirect": "私信",
@@ -5451,10 +5450,6 @@
     "favoritesCount": "收藏",
     "joined": "加入于"
   },
-  "courseSwiper": {
-    "tabHotIntro": "爆款入门课程",
-    "tabHotPick": "爆款精选课程"
-  },
   "llmSettings": {
     "title": "模型服务商",
     "empty": "还没有配置服务商",
@@ -5818,12 +5813,6 @@
     "cycleUnitWeek": "周"
   },
   "news": {
-    "catAi": "人工智能",
-    "catMl": "机器学习",
-    "catCv": "计算机视觉",
-    "catNlp": "自然语言",
-    "catChip": "AI 芯片",
-    "catRec": "智能推荐",
     "title": "AI资讯",
     "anonAuthor": "佚名",
     "netFail": "网络异常",
