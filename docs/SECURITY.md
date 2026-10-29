@@ -474,17 +474,22 @@ EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形�
    SYSTEM 只读 + Administrators 完全(服务身份 = LocalSystem)。成因:进程命令行对任何能读
    进程列表的主体可见。重启后实测 8850 在听、`/realms/master` 返 `"realm":"master"`、公网 SSO 200。
 
-**仍未处置的两格(写清楚,不当场糊过去)**:
+**两格均已处置(2026-10-29 当日闭环,读数与判据如下)**:
 
-- **本机没有任何防病毒能力**:Windows Defender 被整体移除(`WinDefend` 服务注册表不存在、
-  `MpEngine.dll` 不存在),SecurityCenter2 里 `AntiVirusProduct` 为空,同时政策键
-  `DisableAntiVirus=1`。后果是上面 1/3 两类的凭据失窃面没有第二道拦网。补它要往生产机装常驻
-  扫描组件,真实代价是误杀 node/nssm 派生进程与拖慢部署环,属需单独开窗口评估的变更。
-- **`git-guardian` daemon 档缺自拉起腿**:`IHUI-GIT-GUARD` 此前是 Stopped,而它的 failure action
-  原本就写着两条 60s 重启 —— 说明进程是**正常退出**(exit 0 不触发 failure action),不是崩溃。
-  `scripts/git-guardian.mjs` 通篇没有对自身服务名的判活动作,故 daemon 停了无人管;当天巡检靠计划
-  任务档兜住(实测 21:13 仍在写日志),存续治理没断。已把 failure action 改成 5s/10s/30s 三档
-  递增(仍治不了 exit 0 那一型);正解 = 在巡检轮加一条"服务非 Running 即拉起"的派发腿并配镜像测试。
+- **防病毒** —— 原状态:Defender 是被**整体移除**而非禁用(`C:\Program Files\Windows Defender\` 与
+  `C:\ProgramData\Microsoft\Windows Defender\` 两个目录都不在,`WinDefend` 服务注册表不存在,
+  `wscsvc`/`SecurityHealthService` 也一并没了 ⇒ 安全中心组件被精简,DISM 修不回)。
+  处置:装火绒安全软件 **6.0.1.3**(winget id `XPDNH1FMW7NB40`,落 `C:\Program Files\Huorong\Sysdiag`,
+  带 `uninst.exe` 可回退),`HipsDaemon` Automatic + Running、`HipsTray` 在跑。
+  **能力用 EICAR 实测过,不是看进程列表**:写入时不拦、**读取/执行时立即删除**(惰性扫描 ⇒ 构建写入零拖慢);
+  自我保护在岗(外部 `Stop-Process` 被拒)。未做:信任区排除项没有命令入口(配置在 `config.db` 的
+  `UserConfig` BLOB 里,无明文键,全表 13 行杂项)—— 若部署环出现明显变慢,再把 `D:\IHUI-AI` 与
+  `D:\DevEnv` 加进火绒信任区。
+- **`git-guardian` daemon 档自拉起腿** —— 已补(提交 `cca0a95e4f6b47daf8fe3c4111cdd9f86d113a60`)。
+  病因是 exit 0 不触发 SCM 的 failure action,而它在服务自愈台账里又被 excluded(重启自己 = 自杀)
+  ⇒ 两条路都堵死。新腿挂在**计划任务那一侧**(在服务外),判据只读 SCM 现值:STOPPED 且 AUTO_START
+  才代拉,轮询到终态,拿不到路径/状态一律判未判定、不动作。镜像 16 例 + 两次真停服务的变异自证
+  (首版在 START_PENDING 就断言失败,正是被自证抓出来改掉的)。
 
 ### 10.9 P0 — 2026-10-29 二轮加固:未授权面 / 本地文件面 / 边缘 IP 身份
 
