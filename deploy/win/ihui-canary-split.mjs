@@ -25,7 +25,11 @@
  * 安全边界:
  *   - 只绑 127.0.0.1(公网仍只经 Cloudflare Tunnel 回源,源站物理不可达);
  *   - 路由键优先取契约指定的请求头(缺省则取客户端 IP),不取任何凭据正文;
- *   - 契约缺失/形状坏 ⇒ 比例按 0 处理(全部回 stable),绝不「猜一个比例放量」。
+ *   - 契约缺失/形状坏 ⇒ 比例按 0 处理(全部回 stable),绝不「猜一个比例放量」;
+ *     回 stable 需要现网端口,故进程从策略 traffic.slots.stable.port 取一次作为回调端口
+ *     (`--stable-port` 可覆盖)。**端口也取不到时明确 503 并点名**,绝不抛异常 ——
+ *     2026-10-29 实测:旧实现在契约缺失时读 `contract.stablePort` 抛 TypeError,
+ *     未捕获 ⇒ 分流器进程整只退出,线上由「灰度过半」直接掉成「全站不可达」。
  *
  * 用法:
  *   node deploy/win/ihui-canary-split.mjs --contract <ramp.json> --listen <port>
@@ -37,7 +41,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { selectTrafficLane } from '../../scripts/canary-traffic.mjs'
+import { loadTrafficPolicy, selectTrafficLane } from '../../scripts/canary-traffic.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DEFAULT_CONTRACT = join(ROOT, '.ihui-agent', 'state', 'canary', 'ramp.json')
@@ -199,26 +203,58 @@ function loadContract(path) {
   }
 }
 
-/** 起一个分流器实例(测试与生产共用这一条路径)。 */
-export function createSplitServer({ contractPath, onLane = null, health = null } = {}) {
+/** 起一个分流器实例(测试与生产共用这一条路径)。
+ *
+ * `stablePortFallback`:契约缺失/形状坏时的现网端口(由调用方从策略 slots.stable.port 给出)。
+ * 没有它就无法「全部回 stable」—— 此时明确 503 并带 `x-ihui-canary-contract: missing`,
+ * **不 throw**:handler 里抛异常会打穿到进程层,分流器一死,线上就全不可达。
+ */
+export function createSplitServer({ contractPath, onLane = null, health = null, stablePortFallback = 0 } = {}) {
   const path = contractPath || DEFAULT_CONTRACT
   const healthCache = health || createHealthCache()
-  return http.createServer(async (req, res) => {
+  const handler = async (req, res) => {
     // 契约每次请求现读:部署环改档位后下一枚请求即生效,不需要重启进程。
     const contract = loadContract(path)
-    // 灰度实例在位与否:不健康 ⇒ 命中灰度的流量回落 stable(绝不打到空端口)。
-    let canaryUp = true
-    if (contract && contract.percent > 0) {
-      canaryUp = await healthCache.isUp(contract.canaryPort)
+    const fallbackPort = Number(stablePortFallback) > 0 ? Number(stablePortFallback) : 0
+    let lane = 'stable'
+    let percent = 0
+    let forced = false
+    let bucket = null
+    let fellBack = false
+    let port = fallbackPort
+    const extraHeaders = {}
+    if (contract) {
+      // 灰度实例在位与否:不健康 ⇒ 命中灰度的流量回落 stable(绝不打到空端口)。
+      let canaryUp = true
+      if (contract.percent > 0) canaryUp = await healthCache.isUp(contract.canaryPort)
+      const picked = laneFor({
+        contract,
+        headers: req.headers,
+        remoteAddress: req.socket?.remoteAddress ?? '',
+        canaryUp,
+      })
+      lane = picked.lane
+      percent = picked.percent
+      forced = picked.forced
+      bucket = picked.bucket
+      fellBack = picked.fallback
+      port = lane === 'canary' ? contract.canaryPort : contract.stablePort
+    } else {
+      // 契约缺失 ⇒ 比例 0、全走 stable(文档承诺的那一侧);证据头点名,排障时不必猜。
+      extraHeaders['x-ihui-canary-contract'] = 'missing'
     }
-    const { lane, percent, forced, bucket, fallback } = laneFor({
-      contract,
-      headers: req.headers,
-      remoteAddress: req.socket?.remoteAddress ?? '',
-      canaryUp,
-    })
-    const port = lane === 'canary' ? contract.canaryPort : contract.stablePort
-    if (onLane) onLane({ lane, percent, forced, bucket, fallback, path: req.url })
+    if (onLane) {
+      onLane({ lane, percent, forced, bucket, fallback: fellBack, path: req.url, contractMissing: !contract })
+    }
+    if (!port) {
+      res.writeHead(503, {
+        'content-type': 'text/plain; charset=utf-8',
+        'x-ihui-canary-lane': 'none',
+        'x-ihui-canary-contract': 'missing',
+      })
+      res.end('canary-split: 契约缺失且无现网端口可回(拒绝盲转发)')
+      return
+    }
 
     const headers = { ...req.headers }
     for (const h of Object.keys(headers)) {
@@ -228,7 +264,8 @@ export function createSplitServer({ contractPath, onLane = null, health = null }
     // 分流证据:下游能从响应头看出这枚请求走了哪条车道(排障用,不参与任何判据)。
     headers['x-ihui-canary-lane'] = lane
     headers['x-ihui-canary-percent'] = String(percent)
-    if (fallback) headers['x-ihui-canary-fallback'] = '1'
+    if (fellBack) headers['x-ihui-canary-fallback'] = '1'
+    Object.assign(headers, extraHeaders)
 
     const upstream = http.request(
       { host: '127.0.0.1', port, method: req.method, path: req.url, headers },
@@ -237,7 +274,8 @@ export function createSplitServer({ contractPath, onLane = null, health = null }
           ...up.headers,
           'x-ihui-canary-lane': lane,
           'x-ihui-canary-percent': String(percent),
-          ...(fallback ? { 'x-ihui-canary-fallback': '1' } : {}),
+          ...(fellBack ? { 'x-ihui-canary-fallback': '1' } : {}),
+          ...extraHeaders,
         })
         up.pipe(res)
       },
@@ -247,7 +285,27 @@ export function createSplitServer({ contractPath, onLane = null, health = null }
       res.end('canary-split upstream error')
     })
     req.pipe(upstream)
+  }
+  // handler 抛异常不得带走整只进程(契约缺失就是这么把分流器打死的):兜成 502 并留证据。
+  return http.createServer((req, res) => {
+    handler(req, res).catch(() => {
+      if (!res.headersSent) res.writeHead(502, { 'content-type': 'text/plain' })
+      res.end('canary-split handler error')
+    })
   })
+}
+
+/**
+ * 现网端口(契约缺失时的回调端口):只从策略单一真相源取;取不到 ⇒ 0(⇒ 503,不猜端口)。
+ * 这一枚数字不写死在本文件 —— 与档位/比例同一条纪律(§0.6)。
+ */
+function policyStablePort() {
+  const p = process.env.IHUI_CANARY_POLICY || join(ROOT, 'scripts', 'data', 'canary-policy.json')
+  try {
+    return loadTrafficPolicy(readFileSync(p, 'utf8')).slots.stable.port
+  } catch {
+    return 0
+  }
 }
 
 function main() {
@@ -269,12 +327,17 @@ function main() {
   }
   const contractPath = args.contract || DEFAULT_CONTRACT
   const listen = Number(args.listen || process.env.IHUI_CANARY_SPLIT_PORT || 8846)
-  const server = createSplitServer({ contractPath })
+  const stablePortFallback = Number(args['stable-port']) > 0 ? Number(args['stable-port']) : policyStablePort()
+  if (!stablePortFallback) {
+    console.error('[canary-split] 现网端口取不到(策略 traffic.slots.stable.port 读不出)⇒ 契约缺失时只能 503,不回退猜端口')
+  }
+  const server = createSplitServer({ contractPath, stablePortFallback })
   server.listen(listen, '127.0.0.1', () => {
     const c = loadContract(contractPath)
     console.log(
       `[canary-split] 监听 127.0.0.1:${listen} 契约=${contractPath} 比例=${c ? c.percent : 0}%` +
-      `${c ? '' : '(契约缺失 ⇒ 全部回 stable)'}`,
+      `${c ? '' : `(契约缺失 ⇒ 全部回 stable:${stablePortFallback || '端口不可知 ⇒ 503'})`}` +
+      ` 现网回调端口=${stablePortFallback || 'n/a'}`,
     )
   })
 }
