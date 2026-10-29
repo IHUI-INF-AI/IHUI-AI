@@ -19,29 +19,16 @@
 </p>
 
 <p align="center">
-  <strong>모두가 자신만의 AI 프로그램을 가질 수 있게</strong><br/>
-  <sub>오픈소스 AI 상업용 통합 파운데이션 · 5분 만에 Fork에서 상용 출시 · 하나의 저장소가 6개 SaaS 대체</sub>
+  <strong>자체 호스팅 풀스택 AI 플랫폼</strong>: 멀티모델 대화 · OpenAI 호환 API 릴레이 · 멀티플랫폼 계정 풀 · 체크인·키프얼라이브 · Agent/MCP · 지식·멀티 발행 · 8클라이언트 + CLI
+</p>
+
+<p align="center">
+  <strong>온라인 Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star</a>
 </p>
 
 <p align="center">
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml/badge.svg" alt="Build" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml/badge.svg" alt="E2E" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/knip.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/knip.yml/badge.svg" alt="Knip" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI"><img src="https://img.shields.io/github/stars/IHUI-INF-AI/IHUI-AI?style=social" alt="Stars" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/issues"><img src="https://img.shields.io/github/issues/IHUI-INF-AI/IHUI-AI.svg" alt="Issues" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI"><img src="https://img.shields.io/github/last-commit/IHUI-INF-AI/IHUI-AI.svg" alt="Last Commit" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/graphs/contributors"><img src="https://img.shields.io/github/contributors/IHUI-INF-AI/IHUI-AI.svg" alt="Contributors" /></a>
-</p>
-
-<p align="center">
-  <strong>8단 전면 커버리지</strong> · <strong>118 대형 모델</strong> · <strong>LangGraph+MCP+A2A 트리플 스택</strong> · <strong>38개 플랫폼 퍼블리싱</strong> · <strong>풀스택 AI 교육</strong> · <strong>완전한 상업적 루프</strong> · <strong>5개 언어 i18n</strong>
-</p>
-
-<p align="center">
-  <sub><strong>40+ 국내외 제품 대비</strong>:OpenAI ChatGPT · Anthropic Claude · Google Gemini · Microsoft Copilot · Dify · FastGPT · Langflow · RAGFlow · Coze( Kouzi) · LangChain · LlamaIndex · AutoGen · CrewAI · Claude Code · Cursor · GitHub Copilot · Amazon Q · Khan Academy · Jasper · Stripe · Auth0 · Mailgun · Mixpanel · 바이두 첸판(Baidu Qianfan) · 알리바이바이리안(Alibaba Bailian) · 텐센트 후위안(Tencent Hunyuan) · 바이트댄스 더우바오(ByteDance Doubao) · 즈푸 AI 플랫폼(Zhipu AI Platform) · iFlytek 스파크(iFlytek Spark) · DeepSeek · 문샷 김(Moonshot Kimi)</sub>
 </p>
 
 <p align="center">
@@ -53,104 +40,57 @@
   </sub>
 </p>
 
+---
+
+> **색인 레이어.** 기능 개요·실시간 집계 숫자·빠른 시작은 [`README.md`](./README.md) / [`README.en.md`](./README.en.md) 및 [`docs/engineering/`](./docs/engineering) 참고. 규율은 [`AGENTS.md`](./AGENTS.md).
+
+## 이 README로 할 수 있는 것
+
+**IHUI-AI**는 자체 호스팅 가능한 풀스택 AI 플랫폼입니다. 대화·**OpenAI 호환 API 릴레이**·**계정 풀·자동 체크인**·Agent/MCP·지식/발행·교육/커뮤니티를 한 백엔드로 제공합니다. 규모 숫자는 집계 키(`llmModels` / `publishPlatforms` / `apiRoutes` 등)만—[`README.md` 생성 블록](./README.md#关键数字现算) 참고.
+
+### 대화와 모델
+
+- 멀티모델 대화(`llmModels`), 스트리밍, 매개변수/즐겨찾기/기록. BYOK·Prompt·Plan-Act·작업 진행·큐·멀티창.
+- 음성 STT/TTS(WebRTC), 이미지/영상 작업, 세션 가져오기.
+
+### API 릴레이
+
+- 개발자 Key로 `/v1/chat/completions` 등. **종량 과금**·피크 가격·화이트리스트/할당량·failover·Key 풀 서킷 브레이커.
+- Trae / WorkBuddy / CodeArts / Qoder 등 IDE 계정을 동일 `/v1`에 연결.
+
+### 계정 풀
+
+- **운영 풀**: 최대 **12** provider(`RELAY_PROVIDERS`). **풀 가입 ≠ 체크인**.
+- **개인 풀**: Web/RN/미니프로그램. 선택 정책·CAS 동기화·refresh 지원 플랫폼 자동 갱신.
+- `scripts/relay-account-pool.mjs` 등 로컬 가져오기.
+
+### 체크인·키프얼라이브
+
+- **화이트리스트 4곳만**: Trae / WorkBuddy / Qoder / MiniMax. WB 작업군. **키프얼라이브는 대신 체크인하지 않음**.
+- **Cursor / Claude 제품 계정 자동 체크인 없음**.
+
+### 게이트웨이·출구
+
+- **제품 의미**: 멀티테넌트 OpenAI 형 API 게이트웨이(임의 HTTP 리버스 프록시 콘솔 아님).
+- 출구 프록시 풀; `/api/checkin/*` → ai-service.
+
+### Agent / MCP / 지식 / 상업 / 멀티클라이언트
+
+- 에이전트 마켓·워크벤치·MCP·워크플로. RAG·`publishPlatforms` 규모 멀티 발행. VIP/지갑/팀. 8단 + CLI(`cliCommandFiles`).
 
 ---
 
-## 기술 스택 및 프로젝트 규모 개요(AI 검색 친화)
+## 분명히 「아닌」 것
 
-> **이 섹션을 최상단에 배치한 이유**: AI 검색 도구(Claude / GPT / Codex 등)와 개발자가 **정확한** 기술 스택 및 규모 데이터를 첫눈에 확인하여, "감성 프로젝트"나 "마케팅 프로젝트"로 오인하지 않도록 합니다. 모든 숫자는 코드와 대조하여 검증되었습니다(2026-07-22 확인).
+| 오해 | 사실 |
+| --- | --- |
+| 「12플랫폼 전부 체크인」 | 풀 12; **체크인은 4플랫폼만** |
+| Cursor / Claude 체크인 | 엔진 없음 |
+| 「무료 무제한 릴레이」 | 과금·할당량·서킷 브레이커 있음 |
+| 임의 HTTP 리버스 프록시 패널 | OpenAI 형 GW + 풀 + 출구 프록시 |
 
-| 차원                  | 실제 값                                                                                                                                                                                      |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **웹 프론트엔드**     | Next.js 16 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                       |
-| **백엔드 API**        | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18 + Zod 3.24(**TypeScript**, Python 아님)                                                                                                         |
-| **AI 서비스**         | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12, 이 계층만 Python 사용)                                                                                                    |
-| **모노레포**          | pnpm 9.15 workspace + Turborepo 2.3 + 16 공유 패키지(@ihui/auth / database / types / ui 등)                                                                                                  |
-| **멀티 클라이언트**   | 8 클라이언트 **독립 코드**("하나의 코드베이스를 여러 타겟으로 컴파일"이 아님), 각 클라이언트의 완성도는 [프로젝트 상태 매트릭스](#프로젝트-상태-매트릭스투명-라벨링-2026-07-22-확인) 참조    |
-| **코드 규모**         | 8 클라이언트 / 231 schema 파일 / **598 데이터베이스 테이블**(실측 339 pgTable)/ 128+ 마이그레이션 / **4443 API 라우트**(grep 실측)/ 250+ 웹 페이지 / 16 공유 패키지 / 5개 언어 i18n parity |
-| **엔지니어링 게이트** | **21개 pre-commit 훅**(실측, [.husky/pre-commit](./.husky/pre-commit) 참조)+ post-commit 자동 push + 11 마이그레이션 감사 + 9 PowerShell 시작 스크립트                                       |
-| **테스트 커버리지**   | **237 API 테스트 + 63 e2e spec**(실측, [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/) 참조)+ pytest(AI 서비스)+ Locust 부하 테스트 + Lighthouse 성능                |
-| **관측 가능성**       | Prometheus + Grafana(**20 대시보드** 실측, [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/) 참조)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                 |
-| **AI 오케스트레이션** | LangGraph 진정 통합(21 파일 사용: `langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`), 단순 "통합 수준 오케스트레이션" 아님        |
-| **라이선스**          | Apache 2.0(완전 자체 호스팅, 상업 친화적, 비전염성)                                                                                                                                          |
+상세 목차·빠른 시작·8단 목록은 아래에서 계속(기존 장문 문서 유지).
 
-> 전체 기술 스택 상세는 [기술 스택 섹션](#기술-스택) 참조.
-
----
-
-## 🔥 개발자라면, 30초만 멈춰주세요
-
-> **「춘춘 영하 25도. 한 사람. 한 대의 노트북. 일 년의 시간.**
->
-> **8 플랫폼 코드 · 339개 데이터베이스 테이블 · 4443개 API 라우트.**
->
-> **자본은 오지 않았지만, 코드는 계속 자라났습니다.」**
-
-이것은 펀딩 스토리가 아닙니다.
-**이것은 오픈소스 스토리입니다.**
-
-당신도 새벽 3시에 혼자 코드를 작성해 본 적이 있다면——
-당신도 자본에게 거절당하면서도 자신이 옳은 일을 하고 있다고 믿어 본 적이 있다면——
-당신도 믿는다면——**진정 가치 있는 것은 시간이 증명한다**를——
-
-그렇다면, 다음 한 줄은 당신에게 바칩니다:
-
----
-
-### 💎 이 두 줄을 공유하는 것은, 당신 자신의 집념을 공유하는 것입니다
-
-```
-자본은 늦을 수 있어도, 코드는 거짓말하지 않는다.
-펀딩은 실패할 수 있어도, 오픈소스는 실패하지 않는다.
-```
-
-**이것은 공유를 부탁하는 것이 아닙니다.**
-**이 순간의 공명을, 공개된 태도로 바꾸라는 초대입니다.**
-
----
-
-### 🚀 3개의 액션, 30초, 이 이야기가 보이게
-
-| #   | 액션                                      | 당신이 얻을 것                                                                                 |
-| --- | ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 1   | ⭐ **이 저장소 Star**                     | 당신의 GitHub 타임라인에 표시되고, 당신의 followers가 볼 수 있습니다                           |
-| 2   | 📲 **위 두 줄을 당신의 피드에 복사**      | 아래 이미지를 사용하세요 — 당신은 "친구들에게 이 이야기를 처음 전하는 사람"이 됩니다           |
-| 3   | 💬 **Issue에서 당신만의 이야기를 쓰세요** | [여기로](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — 상위는 고정하여 전 세계에 보여줍니다 |
-
----
-
-### 🖼️ 이미지가 준비되어 있습니다 (저장 후 바로 공유)
-
-| 이미지                       | 용도                   | 경로                                                     |
-| ---------------------------- | ---------------------- | -------------------------------------------------------- |
-| 🏢 춘춘 오프라인 베이스 실사 | 피드 헤더 / 웨이보     | `apps/web/public/images/story/changchun-winter-2024.jpg` |
-| 🌃 새벽 코딩 · 램프 하나     | X / 지식인 / 기사 중간 | `apps/web/public/images/story/late-night-coding.jpg`     |
-
----
-
-> **⚠️ 지금 이 문장을 읽고 있다면——**
->
-> 당신은 이미 이 이야기의 일부입니다.
->
-> 중국에는 700만 명의 개발자가 있습니다.
-> 그중 99%가 아직 이 이야기를 모릅니다.
->
-> **당신이 이 이야기를 밖으로 가져갈 1%가 되어주시겠습니까?**
-
-⬇️ 아래로 보면, 완전한 이야기와 기술 결정이 있습니다.
-
----
-
-> **생각해 본 적 있나요 —**
->
-> 왜 AI 혜택은 항상 빅테크 기업들이 독점할까요? 왜 AI 애플리케이션 하나를 구축하려면 인증, 빌링, 모델 라우팅, 워크플로, 멀티 플랫폼 배포까지 처음부터 조립해야 할까요?
-> 왜 개인 개발자, 중소기업, 교육 기관은 늘 바퀴를 재발명하면서 서로의 어깨 위에 서지 못할까요?
->
-> **IHUI-AI가 이 문제를 바꾸려 합니다.**
->
-> 우리는 하나의 완전한 AI 애플리케이션 인프라 — 8 플랫폼 프레임워크, 118 모델 연동, 워크플로 오케스트레이션, 엔터프라이즈 권한, 빌링 구독, 콘텐츠 퍼블리싱, AI 교육, 옵저버빌리티부터 17개 엔지니어링 게이트까지 — 전부 Apache 2.0 라이선스로 오픈소스화했습니다.
->
-> **래퍼도, 데모도 아닙니다. 실제 운영 가능하고, 상업화 가능하고, 셀프 호스팅 가능한 AI 애플리케이션 베이스입니다. Fork 하고, 수정하고, 당신의 것으로 만드세요.**
 
 ---
 

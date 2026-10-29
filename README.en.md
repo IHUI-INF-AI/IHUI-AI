@@ -19,8 +19,19 @@
 </p>
 
 <p align="center">
+  <strong>Self-hosted full-stack AI platform</strong>: multi-model chat · OpenAI-compatible API relay · multi-platform account pool · check-in &amp; keepalive · Agent/MCP · RAG &amp; publishing · 8 clients + CLI
+</p>
+
+<p align="center">
   <strong>Online Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star this repo</a><br/>
-  <sub><strong>Self-hosted full-stack AI platform</strong>: model gateway + Agent orchestration + multi-tenant business backend + 8 frontend ends · Apache 2.0 · Fork to production in 5 minutes</sub>
+  <sub>Model gateway + Agent orchestration + multi-tenant backend + 8 frontend ends · Apache-2.0 (retain NOTICE) · fork and self-host</sub>
+</p>
+
+<p align="center">
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml/badge.svg" alt="Build" /></a>
+  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml/badge.svg" alt="E2E" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0" /></a>
 </p>
 
 <p align="center">
@@ -31,55 +42,36 @@
 
 ---
 
-> **This file is an index only.** As of 2026-09-30 the root README is an index layer: positioning,
-> live-computed numbers, quick start, and entry points into nine topic documents. Every capability's
-> full rationale and evidence lives, verbatim, in the nine archive files under
-> [`docs/engineering/`](./docs/engineering); the authoritative engineering rulebook is
-> [`AGENTS.md`](./AGENTS.md).
+> **This file is an index layer.** Capability-first intro, live-computed numbers, quick start, and nine topic archives under [`docs/engineering/`](./docs/engineering). Engineering rules: [`AGENTS.md`](./AGENTS.md).
 
-## What it is
+## On this page
 
-| Dimension   | Description                                                                                                                                                     |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| In one line | Self-hosted full-stack AI platform: model gateway + Agent orchestration + multi-tenant backend + 8 frontend ends                                                |
-| Backend     | `apps/api` — Fastify 5 + Drizzle ORM + PostgreSQL + Zod (TypeScript)                                                                                            |
-| AI service  | `apps/ai-service` — FastAPI + LangGraph + LiteLLM + MCP (Python)                                                                                                |
-| Frontends   | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui (web), Taro 4 (mini-program), React Native + NativeWind (app), Tauri 2 (desktop), WXT (extension), Node.js (CLI) |
-| Data        | PostgreSQL (row-level security, multi-tenant) + pgvector vector search + Redis                                                                                  |
-| License     | Apache-2.0 (copyright notice and NOTICE must be retained; source files carry provenance watermarks)                                                             |
+- [What you can do](#what-you-can-do) · [What this is not](#what-this-is-not) · [Key numbers](#key-numbers-live-computed) · [Nine topic documents](#nine-topic-documents-verbatim-archives-from-the-old-root-readme) · [The 8 ends](#the-8-ends-plus-one-shell) · [Quick start](#-quick-start)
 
-Full positioning narrative (value pyramid, cost comparison, differentiation, benchmark categories):
-[`docs/engineering/readme-01-positioning.md`](./docs/engineering/readme-01-positioning.md).
+---
 
 ## Key numbers (live-computed)
 
 **These numbers are not hand-copied.** The single algorithm lives in
-[`scripts/gen-doc-numbers.mjs`](./scripts/gen-doc-numbers.mjs), which counts from real sources
-(schema code, route registrations, locale directories, compose manifests...). The gate
-[`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
-the Chinese README, and blocks any stale value.
+[`scripts/gen-doc-numbers.mjs`](./scripts/gen-doc-numbers.mjs); the gate
+[`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and the Chinese README.
 
-Headline claims (same source as the table below, all live-computed): **611 tables · 4600 API routes ·
-25 WebSocket endpoints · 99 catalogued LLMs · 38 platforms auto-publishing · 3544 test files ·
-273 engineering gates · 50 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
-14 compose services**.
+```bash
+pnpm doc:numbers
+node scripts/gen-doc-numbers.mjs --markdown
+node scripts/check-doc-numbers.mjs --worktree
+```
+
+Use the table keys only (`llmModels`, `publishPlatforms`, `apiRoutes`, …)—do not paste stale counts in prose.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 609 | `dbTables` |
-| schema 文件 | 236 | `dbSchemaFiles` |
-| API 路由 | 4569 | `apiRoutes` |
-| 路由文件 | 630 | `apiRouteFiles` |
-| AI 服务路由 | 596 | `aiServiceRoutes` |
-| 数据库表 | 608 | `dbTables` |
-| schema 文件 | 235 | `dbSchemaFiles` |
-| API 路由 | 4564 | `apiRoutes` |
-| AI 服务路由 | 603 | `aiServiceRoutes` |
-| 数据库表 | 611 | `dbTables` |
-| API 路由 | 4600 | `apiRoutes` |
-| 路由文件 | 646 | `apiRouteFiles` |
-| AI 服务路由 | 617 | `aiServiceRoutes` |
+| 数据库表 | 612 | `dbTables` |
+| schema 文件 | 237 | `dbSchemaFiles` |
+| API 路由 | 4608 | `apiRoutes` |
+| 路由文件 | 649 | `apiRouteFiles` |
+| AI 服务路由 | 616 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 99 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -90,40 +82,91 @@ Headline claims (same source as the table below, all live-computed): **611 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3326 | `testFiles` |
-| CI 工作流 | 50 | `ciWorkflows` |
+| 测试文件 | 3547 | `testFiles` |
+| CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 292 | `guardianGates` |
-| — blocking | 266 | `guardianBlocking` |
+| 工程守门 | 298 | `guardianGates` |
+| — blocking | 272 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 16853 | `trackedFiles` |
+| 跟踪文件 | 17546 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-28。
-| 测试文件 | 3362 | `testFiles` |
-| CI 工作流 | 49 | `ciWorkflows` |
-| 工程守门 | 286 | `guardianGates` |
-| — blocking | 261 | `guardianBlocking` |
-| — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 16690 | `trackedFiles` |
-
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-26。
-
-
-
-
-
-
-
-
-| 测试文件 | 3544 | `testFiles` |
-| 工程守门 | 293 | `guardianGates` |
-| — warn | 29 | `guardianWarn` |
-| 跟踪文件 | 17172 | `trackedFiles` |
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-29。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
+---
 
+## What you can do
+
+**IHUI-AI** is a self-hostable full-stack AI platform: one backend for chat & models, **OpenAI-compatible API relay**, **account pools & scheduled check-in**, Agent/MCP/workflows, knowledge & multi-platform publishing, education & community, plus Web / desktop / app / mini-program / CLI / extension.
+
+### Chat & models
+
+- Multi-model chat on Web, app, mini-program, and CLI (catalog size: key `llmModels`); streaming; params, favorites, and history.
+- BYOK, usage, prompts/personas; Plan-Act; task progress bar; queue reorder/withdraw/edit; multi-pane layout.
+- Voice STT/TTS (incl. WebRTC); image gen/edit; video task queue; session import (Chrome/CLI).
+
+### API relay (developer gateway)
+
+- Developer keys and **OpenAI-compatible** `/v1/chat/completions` plus related `v1-*` APIs.
+- Token/image/video billing; public vs effective pricing and peak pricing; IP/model allowlists and quotas; wallet and usage logs.
+- Upstream channel routing with failover; shared key pool with weighted pick and circuit breaking.
+- Route Trae / WorkBuddy / CodeArts / Qoder **IDE accounts** through the same `/v1` entry (adapter-translated upstream).
+
+### Account pool
+
+- **Operator pool**: import up to **12** provider kinds (`RELAY_PROVIDERS`); enable/disable, claim, health checks—**pool membership ≠ check-in**.
+- **Personal pool**: user-owned accounts across Web / RN / mini-program; selection policies (weighted, expiry-first, concurrency caps, etc.).
+- **CAS sync** between pool credentials and check-in assistants; refresh where the platform supports it.
+- Local import via `scripts/relay-account-pool.mjs` and Trae/WorkBuddy/Qoder login-sync scripts.
+
+### Check-in & keepalive
+
+- **Check-in whitelist (four only)**: Trae, WorkBuddy, Qoder, MiniMax—scheduled credits; manual check-in supported.
+- WorkBuddy task family (growth / travel / activity / blackcat); **keepalive center** probes cookies/JWT and does **not** check in for you.
+- **No** Cursor or Claude product-account check-in. CodeArts and others may be in the pool/relay without a check-in engine.
+
+### Gateway & egress
+
+- **Product meaning**: multi-tenant **OpenAI-shaped API gateway** (per-key quota and billing)—not a generic arbitrary HTTP reverse-proxy console.
+- Egress **proxy pool** (per-account or shared rotation); `/api/checkin/*` proxies to ai-service for all clients.
+
+### Agent, tools & MCP
+
+- Agent marketplace and “my agents”; workbench, timeline, kanban, canvas; plans and progress; subagent dispatch.
+- Tools & skills marketplace; MCP store/projects/gateway; connectors and capability registry; workflows, automations, orchestration, schedules.
+
+### Knowledge & publishing
+
+- RAG, team knowledge/memory, personal memory; multi-platform publishing (count: key `publishPlatforms`; WeChat, Zhihu, Bilibili, Douyin, Xiaohongshu, CSDN, Juejin, …); calendar and analytics.
+
+### Commerce, teams, education & community
+
+- VIP/subscriptions, wallet, orders/refunds, invoices, points; teams/workspaces and permissions.
+- Courses, exams, live lessons, certificates; plaza, Q&A, circles; optional edu-admin and parent views.
+
+### Multi-client & developers
+
+- Web, Tauri desktop shell, React Native, WeChat mini-program, CLI, browser extension; shared `packages/app` screens and WebView portal.
+- Developer center: keys, webhooks, relay docs; route scale via `apiRoutes` / `aiServiceRoutes` / `cliCommandFiles`.
+
+---
+
+## What this is not
+
+| Myth | Fact |
+| --- | --- |
+| “12 platforms auto check-in” | Up to 12 **pool** providers; **check-in only** Trae / WorkBuddy / Qoder / MiniMax |
+| Cursor / Claude account check-in | No check-in engine in-repo; usable as LLM upstream, not this product’s check-in surface |
+| “Free unlimited relay” | Billing, quotas, allowlists, and key-pool circuit breaking apply |
+| “Reverse-proxy any HTTP backend” | Narrative is OpenAI gateway + pool forwarding + egress proxy pool |
+| “Production RLS fully enabled” | Mostly application-layer tenant gates—do not overclaim |
+| “Just a chat wrapper” | Full tenant, billing, content, and education domains |
+| “One codebase compiles to 8 ends” | Independent per-end code; shared tokens and contracts |
+
+Full positioning: [`docs/engineering/readme-01-positioning.md`](./docs/engineering/readme-01-positioning.md).
+
+---
 
 ## Recent updates (auto-maintained)
 

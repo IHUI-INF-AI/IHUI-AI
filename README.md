@@ -15,25 +15,17 @@
 
 # IHUI-AI
 
-<table align="center"><tr><td>
-
-> 🐉 **孤勇者宣言**
->
-> **没有团队,没有融资,没有办公室。**
-> **只有一个人,一台电脑,和百万行代码。**
-> **他们用 100 人做不出来的事,我用 1 个人做出来了,而且做得更好。**
-> **IHUI-AI —— 一个人对整个 AI SaaS 行业的降维打击。**
-
-</td></tr></table>
-
 <p align="center">
-  <strong>8 端全覆盖</strong> · <strong>118 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
 </p>
 
 <p align="center">
+  <strong>自托管全栈 AI 平台</strong>：多模型对话 · OpenAI 兼容 API 中继 · 多平台号池 · 签到与保活 · Agent/MCP · 知识库与多平台发布 · 8 端 + CLI
+</p>
+
+<p align="center">
   <strong>在线 Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star 感谢支持</a><br/>
-  <sub><strong>自托管的全栈 AI 平台</strong>:模型网关 + Agent 编排 + 多租户业务后端 + 8 端前端 · Apache 2.0 商业可用 · 5 分钟 Fork 到上线</sub>
+  <sub>模型网关 + Agent 编排 + 多租户业务后端 + 8 端前端 · Apache-2.0（须保留 NOTICE）· 可 Fork 自托管</sub>
 </p>
 
 <p align="center">
@@ -55,33 +47,11 @@
 
 ---
 
-> **本文件只写索引。** 2026-09-30 起根 README 收敛为索引层:定位、数字、快速开始与九份主题文档的入口。
-> 每条能力的完整判据、成因与取证按题域逐字拆入 [`docs/engineering/`](./docs/engineering) 下九份收纳件
-> (重写前正文的每一个节都有落点,来源行号写在各收纳件文件头),工程纪律的权威文本是
-> [`AGENTS.md`](./AGENTS.md)。
-
-## 是什么
-
-| 维度    | 说法                                                                                                                                   |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 一句话  | 自托管的全栈 AI 平台:模型网关 + Agent 编排 + 多租户业务后端 + 8 端前端                                                                 |
-| 后端    | `apps/api` — Fastify 5 + Drizzle ORM + PostgreSQL + Zod(TypeScript)                                                                    |
-| AI 服务 | `apps/ai-service` — FastAPI + LangGraph + LiteLLM + MCP(Python)                                                                        |
-| 前端    | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui(web),Taro 4(小程序),React Native + NativeWind(App),Tauri 2(桌面),WXT(扩展),Node.js(CLI) |
-| 数据    | PostgreSQL(行级安全 RLS 多租户)+ pgvector 向量检索 + Redis                                                                             |
-| 许可    | Apache-2.0(须保留版权与 NOTICE;源码带可溯源水印,见[许可](#许可与版权))                                                                 |
-
-**不是什么**:不是一个「给 LLM 套壳的聊天页」(它有租户、权限、计费、内容、教育等完整业务域);
-不是「一套代码编译到 8 端」(各端是独立代码,共享的是设计令牌、契约与组件工厂,不是运行时适配层)。
-
-完整定位叙述(三层价值金字塔、成本对比、差异化价值、与 6 大对标类别的关系)与项目宣言、GEO 检索优化全文:
-[`docs/engineering/readme-01-positioning.md`](./docs/engineering/readme-01-positioning.md)。
-
----
+> **本文件只写索引。** 根 README 收敛为：能力首屏、现算数字、快速开始与 [`docs/engineering/`](./docs/engineering) 九份主题文档入口；工程纪律权威文本是 [`AGENTS.md`](./AGENTS.md)。
 
 ## 目录
 
-- [是什么](#是什么) · [关键数字(现算)](#关键数字现算) · [九份主题文档](#九份主题文档从根-readme-拆出的原文收纳件) · [八端清单](#八端清单)
+- [你能用它做什么](#你能用它做什么) · [明确不是什么](#明确不是什么) · [关键数字(现算)](#关键数字现算) · [九份主题文档](#九份主题文档从根-readme-拆出的原文收纳件) · [八端清单](#八端清单)
 - [快速开始](#-快速开始) · [部署](#部署) · [开发约束摘要](#开发约束摘要) · [文档导航](#文档导航) · [许可与版权](#许可与版权) · [联系我们](#联系我们)
 
 ---
@@ -99,18 +69,16 @@ node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
 
-对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4538 API 路由 · 25 个 WebSocket 端点 ·
-118 入库模型 · 38 平台自动发布 · 3115 测试文件 · 271 道工程守门 · 50 CI workflows ·
-5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
+对外规模请只看下表取数键（`llmModels`、`publishPlatforms`、`apiRoutes` 等），禁止在正文手抄腐烂数字。
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 608 | `dbTables` |
-| schema 文件 | 235 | `dbSchemaFiles` |
-| API 路由 | 4564 | `apiRoutes` |
-| 路由文件 | 630 | `apiRouteFiles` |
-| AI 服务路由 | 603 | `aiServiceRoutes` |
+| 数据库表 | 612 | `dbTables` |
+| schema 文件 | 237 | `dbSchemaFiles` |
+| API 路由 | 4608 | `apiRoutes` |
+| 路由文件 | 649 | `apiRouteFiles` |
+| AI 服务路由 | 616 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 99 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -121,20 +89,91 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3363 | `testFiles` |
-| CI 工作流 | 49 | `ciWorkflows` |
+| 测试文件 | 3547 | `testFiles` |
+| CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 286 | `guardianGates` |
-| — blocking | 261 | `guardianBlocking` |
-| — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 16696 | `trackedFiles` |
+| 工程守门 | 298 | `guardianGates` |
+| — blocking | 272 | `guardianBlocking` |
+| — warn | 28 | `guardianWarn` |
+| 跟踪文件 | 17546 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-26。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-29。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
-
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
+
+---
+
+## 你能用它做什么
+
+**智汇 AI（IHUI-AI）** 是一套可自托管的全栈 AI 平台：同一套后端同时支撑对话与多模型、**OpenAI 兼容 API 中继**、**多平台账号号池与自动签到**、Agent/MCP/工作流、知识库与多平台内容发布、教育与社区，以及 Web / 桌面 / App / 小程序 / CLI / 扩展。
+
+### 对话与模型
+
+- 在 Web、App、小程序、CLI 里多模型对话（目录规模见取数键 `llmModels`），流式输出，调参数、收藏与历史。
+- 自带 Provider Key、用量与 Prompt/Persona；Plan-Act 双模式；任务进度条；队列重排/撤回/编辑；多任务窗格。
+- 语音识别与播报（含 WebRTC）；文生图/图像编辑；视频生成任务队列；会话导入（含 Chrome/CLI）。
+
+### API 中继（开发者网关）
+
+- 申请开发者 Key，用 **OpenAI 兼容**协议调用 `/v1/chat/completions` 及同族 `v1-*` 能力。
+- 按 token/次/图/视频计费；官方价 vs 实付价、高峰价；Key 白名单与配额；钱包充值与用量日志。
+- 多上游渠道路由与故障转移；公共 Key 池加权调度与递进熔断。
+- 将 Trae / WorkBuddy / CodeArts / Qoder 等 **IDE 账号**接到同一 `/v1`（上游由适配器翻译）。
+
+### 号池（账号 / 凭证调度）
+
+- **运营池**：批量导入最多 **12** 类平台账号（`RELAY_PROVIDERS`），启停、认领、健康检查；**进池 ≠ 自动签到**。
+- **个人池**：用户自管账号，Web / App / 小程序互通；选号策略（加权、临期、并发闸等）。
+- 凭证与签到助手 **CAS 版本同步**；支持 refresh 的平台可临期换票。
+- 本机脚本导入：`scripts/relay-account-pool.mjs` 及 Trae/WorkBuddy/Qoder 等 login/sync 脚本。
+
+### 多平台签到与保活
+
+- **签到白名单仅四平台**：Trae、WorkBuddy、Qoder、MiniMax——定时领积分；支持手动立即签。
+- WorkBuddy 任务族（growth / travel / activity / blackcat）；**保活中心**探活 Cookie/JWT，**不代签**。
+- **没有** Cursor、Claude 产品账号自动签到。CodeArts 等可进号池/中继，但无签到引擎。
+
+### 反代与出口
+
+- **产品义**：多租户 OpenAI 形 API 网关（Key 隔离、配额、计费），不是「任意 HTTP 反代控制台」。
+- 出口 **代理池**（账号自带或共享池轮换）；`/api/checkin/*` 网关代理到 ai-service，供多端共用签到数据。
+
+### Agent、工具与 MCP
+
+- 智能体市场/我的智能体；工作台、时间线、看板、画布；计划与进度；子智能体派单。
+- 工具与技能市场；MCP 市场/项目/网关；连接器与能力注册表；工作流、自动化、编排与定时任务。
+
+### 知识与内容发布
+
+- 知识库 RAG、团队知识/记忆、个人记忆；多平台发布（平台数见 `publishPlatforms`，含微信/知乎/B站/抖音/小红书/CSDN/掘金等）；日历与分析。
+
+### 商业、团队与教育社区
+
+- VIP/订阅、钱包、订单/退款、发票、积分；团队与工作区权限。
+- 课程/考试/直播/证书；社区广场、问答、圈子；可选教务与家长端能力。
+
+### 多端与开发者
+
+- Web、Tauri 桌面薄壳、React Native、微信小程序、CLI、浏览器扩展；跨端 WebView 门户与 `packages/app` 共享屏。
+- 开发者中心：Key、Webhook、Relay 文档；开放路由规模见 `apiRoutes` / `aiServiceRoutes` / `cliCommandFiles`。
+
+---
+
+## 明确不是什么
+
+| 误区 | 事实 |
+| --- | --- |
+| 「12 平台全自动签到」 | 号池最多 12 类 provider；**签到只有** Trae / WorkBuddy / Qoder / MiniMax |
+| Cursor / Claude 账号签到 | 全仓无对应签到引擎；可作 LLM 上游，**不是**本产品签到面 |
+| 「免费无限中转」 | 有计费、配额、白名单与 Key 池熔断 |
+| 「任意后端 HTTP 反代面板」 | 主叙事是 OpenAI 形网关 + 号池转发 + 出口代理池 |
+| 「生产级 RLS 已全开」 | 多靠应用层租户闸；勿写满 |
+| 「给 LLM 套壳聊天页」 | 含租户、权限、计费、内容、教育等完整业务域 |
+| 「一套代码编译到 8 端」 | 各端独立代码；共享设计令牌与契约，不是运行时单二进制 |
+
+完整定位与对标叙述见 [`docs/engineering/readme-01-positioning.md`](./docs/engineering/readme-01-positioning.md)。
 
 ---
 

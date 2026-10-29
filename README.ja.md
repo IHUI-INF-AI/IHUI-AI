@@ -19,29 +19,16 @@
 </p>
 
 <p align="center">
-  <strong>誰もが自分だけの AI プログラムを持てるように</strong><br/>
-  <sub>オープンソース AI 商用グレード統合ファウンデーション · 5 分で Fork から商用リリース · 1 リポジトリで 6 つの SaaS を代替</sub>
+  <strong>自ホスト型フルスタック AI プラットフォーム</strong>：マルチモデル対話 · OpenAI 互換 API 中継 · マルチプラットフォーム号池 · チェックインとキープアライブ · Agent/MCP · ナレッジとマルチ配信 · 8 クライアント + CLI
+</p>
+
+<p align="center">
+  <strong>オンライン Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star</a>
 </p>
 
 <p align="center">
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml/badge.svg" alt="Build" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml/badge.svg" alt="E2E" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/knip.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/knip.yml/badge.svg" alt="Knip" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI"><img src="https://img.shields.io/github/stars/IHUI-INF-AI/IHUI-AI?style=social" alt="Stars" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/issues"><img src="https://img.shields.io/github/issues/IHUI-INF-AI/IHUI-AI.svg" alt="Issues" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI"><img src="https://img.shields.io/github/last-commit/IHUI-INF-AI/IHUI-AI.svg" alt="Last Commit" /></a>
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI/graphs/contributors"><img src="https://img.shields.io/github/contributors/IHUI-INF-AI/IHUI-AI.svg" alt="Contributors" /></a>
-</p>
-
-<p align="center">
-  <strong>8 クライアント全面対応</strong> · <strong>118 大型モデル</strong> · <strong>LangGraph + MCP + A2A トリプルスタック</strong> · <strong>38 プラットフォーム配信</strong> · <strong>フルスタック AI 教育</strong> · <strong>完全な商業ループ</strong> · <strong>5 言語 i18n</strong>
-</p>
-
-<p align="center">
-  <sub><strong>40+ の国際/国内製品に対抗</strong>:OpenAI ChatGPT · Anthropic Claude · Google Gemini · Microsoft Copilot · Dify · FastGPT · Langflow · RAGFlow · Coze(扣子)· LangChain · LlamaIndex · AutoGen · CrewAI · Claude Code · Cursor · GitHub Copilot · Amazon Q · Khan Academy · Jasper · Stripe · Auth0 · Mailgun · Mixpanel · 百度千帆(Baidu Qianfan)· 阿里百煉(Alibaba Bailian)· 騰訊混元(Tencent Hunyuan)· 字節跳動豆包(ByteDance Doubao)· 智譜開放プラットフォーム(Zhipu AI Platform)· 訊飛星火(iFlytek Spark)· DeepSeek · 月之暗面 Kimi(Moonshot Kimi)</sub>
 </p>
 
 <p align="center">
@@ -53,104 +40,57 @@
   </sub>
 </p>
 
+---
+
+> **索引レイヤー。** 能力の概要・現算数字・クイックスタートは [`README.md`](./README.md) / [`README.en.md`](./README.en.md) と [`docs/engineering/`](./docs/engineering) を参照。規律は [`AGENTS.md`](./AGENTS.md)。
+
+## この README でできること
+
+**IHUI-AI** は自ホスト可能なフルスタック AI 基盤です。対話・**OpenAI 互換 API 中継**・**号池と自動チェックイン**・Agent/MCP・ナレッジ/配信・教育/コミュニティを同一バックエンドで支え、Web / デスクトップ / アプリ / 小程序 / CLI / 拡張に届きます。規模数字は取数キー（`llmModels` / `publishPlatforms` / `apiRoutes` 等）のみ—[`README.md` の生成ブロック](./README.md#关键数字现算)を参照。
+
+### 対話とモデル
+
+- マルチモデル対話（`llmModels`）、ストリーミング、パラメータ/お気に入り/履歴。BYOK・Prompt/Persona・Plan-Act・タスク進捗・キュー操作・マルチペイン。
+- 音声 STT/TTS（WebRTC 含む）、画像/動画タスク、セッションインポート。
+
+### API 中継
+
+- 開発者 Key で `/v1/chat/completions` 等。**従量課金**・高峰価格・白名单/クォータ・failover・Key プール熔断。
+- Trae / WorkBuddy / CodeArts / Qoder 等 IDE アカウントを同一 `/v1` に接続。
+
+### 号池
+
+- **運営池**：最大 **12** provider（`RELAY_PROVIDERS`）。**池に入る ≠ チェックイン**。
+- **個人池**：Web/RN/小程序。選号ポリシー・CAS 同期・refresh 対応平台は自動換票。
+- `scripts/relay-account-pool.mjs` 等でローカル导入。
+
+### チェックインとキープアライブ
+
+- **白名单 4 平台のみ**：Trae / WorkBuddy / Qoder / MiniMax。WB タスク族。**キープアライブは代签しない**。
+- **Cursor / Claude 製品アカウントの自動チェックインはなし**。
+
+### 反代と出口
+
+- **製品義**：多テナント OpenAI 形ゲートウェイ（任意 HTTP 反代コンソールではない）。
+- 出口プロキシプール；`/api/checkin/*` → ai-service。
+
+### Agent / MCP / ナレッジ / 商业 / 多端
+
+- エージェント市場・ワークベンチ・MCP・ワークフロー。RAG・`publishPlatforms` 規模のマルチ配信。VIP/ウォレット/チーム。8 端 + CLI（`cliCommandFiles`）。
 
 ---
 
-## 技術スタック・プロジェクト規模概要(AI 検索フレンドリー)
+## 明確に「ではない」もの
 
-> **このセクションを最上部に配置した理由**: AI 検索ツール(Claude / GPT / Codex など)と開発者が**正確な**技術スタックと規模データを一目で取得し、「感情プロジェクト」や「マーケティングプロジェクト」との誤判定を防ぐためです。すべての数値はコードと照合して検証済みです(2026-07-22 確認)。
+| 誤解 | 事実 |
+| --- | --- |
+| 「12 平台が全部チェックイン」 | 池 12；**チェックインは 4 平台のみ** |
+| Cursor / Claude チェックイン | エンジンなし |
+| 「無料無制限中継」 | 課金・クォータ・熔断あり |
+| 任意 HTTP 反代パネル | OpenAI 形 GW + 号池 + 出口代理 |
 
-| 次元                        | 実際の値                                                                                                                                                                                                      |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Web フロントエンド**      | Next.js 16 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                                        |
-| **バックエンド API**        | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18 + Zod 3.24(**TypeScript**,Python ではない)                                                                                                                       |
-| **AI サービス**             | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12,このレイヤーのみ Python 使用)                                                                                                               |
-| **モノレポ**                | pnpm 9.15 workspace + Turborepo 2.3 + 16 共有パッケージ(@ihui/auth / database / types / ui / api-client / shared / i18n / sdk など)                                                                           |
-| **マルチクライアント**      | 8 クライアント**独立コード**(「一つのコードベースを複数ターゲットにコンパイル」ではなく)、各クライアントの完了度は[プロジェクト状態マトリクス](#プロジェクト状態マトリクス透明ラベリング-2026-07-22-確認)参照 |
-| **コード規模**              | 8 クライアント / 231 schema ファイル / **598 データベーステーブル**(実測 339 pgTable)/ 128+ マイグレーション / **4443 API ルート**(grep 実測)/ 250+ Web ページ / 16 共有パッケージ / 5 言語 i18n parity     |
-| **エンジニアリングゲート**  | **21 個の pre-commit フック**(実測、[.husky/pre-commit](./.husky/pre-commit)参照)+ post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動スクリプト                                              |
-| **テストカバレッジ**        | **237 API テスト + 63 e2e spec**(実測、[apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/)参照)+ pytest(AI サービス)+ Locust 負荷テスト + Lighthouse パフォーマンス                       |
-| **オブザーバビリティ**      | Prometheus + Grafana(**20 ダッシュボード**実測、[monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/)参照)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                              |
-| **AI オーケストレーション** | LangGraph 真の統合(21 ファイル使用: `langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`)、単なる「統合レベルオーケストレーション」ではない           |
-| **ライセンス**              | Apache 2.0(完全セルフホスト、商用フレンドリー、非伝染性)                                                                                                                                                      |
+詳細索引・クイックスタート・8 端一覧は以下の目次から（従来の長文ドキュメントを保持）。
 
-> 完全な技術スタック詳細は[技術スタックセクション](#技術スタック)参照。
-
----
-
-## 🔥 開発者なら、30 秒だけ立ち止まってください
-
-> **「長春、零下 25 度。一人。一台のノートパソコン。一年間。**
->
-> **8 プラットフォームのコード · 339 枚のデータベーステーブル · 4443 個の API ルート。**
->
-> **資本は来なかった。しかしコードは成長し続けた。」**
-
-これは資金調達の物語ではない。
-**これはオープンソースの物語だ。**
-
-あなたも真夜中の 3 時に一人でコードを書いたことがあるなら——
-あなたも資本に拒絶されながらも、自分が正しいことをしていると信じたことがあるなら——
-あなたも信じるなら——**本当に価値あるものは、時間が証明してくれる**と——
-
-ならば、次の一行はあなたに贈ります:
-
----
-
-### 💎 この二行をシェアすることは、あなた自身の執念をシェアすること
-
-```
-資本は遅れても、コードは嘘をつかない。
-資金調達は失敗しても、オープンソースは失敗しない。
-```
-
-**これはシェアのお願いではありません。**
-**この瞬間の共鳴を、公開された態度に変えるという招待です。**
-
----
-
-### 🚀 3 つのアクション、30 秒、この物語を届ける
-
-| #   | アクション                                | あなたが得るもの                                                                         |
-| --- | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 1   | ⭐ **このリポジトリを Star**              | あなたの GitHub タイムラインに表示され、あなたの followers が見ます                      |
-| 2   | 📲 **上の二行をあなたのフィードにコピー** | 下の画像を使ってください — あなたは「友達にこの物語を最初に届ける人」になります          |
-| 3   | 💬 **Issue であなたの物語を語る**         | [ここから](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — 上位は固定し、世界に見せます |
-
----
-
-### 🖼️ 画像を用意しました (保存して、そのままシェア)
-
-| 画像                             | 用途                    | パス                                                     |
-| -------------------------------- | ----------------------- | -------------------------------------------------------- |
-| 🏢 長春オフラインベース実写      | フィードヘッダー / 微博 | `apps/web/public/images/story/changchun-winter-2024.jpg` |
-| 🌃 深夜コーディング · ランプ一つ | X / 知乎 / 記事の中間   | `apps/web/public/images/story/late-night-coding.jpg`     |
-
----
-
-> **⚠️ 今、この文を読んでいるあなた——**
->
-> あなたはすでにこの物語の一部です。
->
-> 中国には 700 万人の開発者がいます。
-> その 99% はまだこの物語を知りません。
->
-> **あなたが、この物語を外に運ぶ 1% になりますか?**
-
-⬇️ この先に、完全な物語と技術決定があります。
-
----
-
-> **考えたことはありますか——**
->
-> なぜ AI の恩恵はいつも大手テック企業に独占されるのでしょうか。なぜ AI アプリケーションを構築するには、認証・課金・モデルルーティング・ワークフロー・マルチプラットフォーム配信をゼロから寄せ集めなければならないのでしょうか。
-> なぜ個人開発者や中小企業、教育機関は常に車輪の再発明を繰り返し、互いの肩の上に立っていないのでしょうか。
->
-> **IHUI-AI はこの現状を変えたいと考えています。**
->
-> 私たちは、完全な AI アプリケーション基盤——8 プラットフォームフレームワーク、118 モデル接続、ワークフローオーケストレーション、エンタープライズ級権限管理、課金サブスクリプション、コンテンツ配信、AI 教育、オブザーバビリティ、さらには 17 のエンジニアリング品質ゲート——を Apache 2.0 ライセンスで完全にオープンソース化しました。
->
-> **単なるラッパーでも、デモでもありません。本番環境で利用でき、商用利用可能で、セルフホストできる本物の AI アプリケーション基盤です。Fork して、改造して、自分だけのものにしてください。**
 
 ---
 
