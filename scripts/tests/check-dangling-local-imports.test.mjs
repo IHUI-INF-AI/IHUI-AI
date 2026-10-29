@@ -43,6 +43,8 @@ import {
   mergeSites,
   auditTree,
   auditDuplicateBarrelExports,
+  auditNamespaceAggregator,
+  d7ChannelBlind,
   D5_BARREL_RE,
   __test__ as D6KIT,
   SELF_SKIP as GATE_SKIP_ENV,
@@ -68,6 +70,8 @@ test('源模块导出可单测的纯函数(§22c 前置条件;D3/D4/D5 那几个
     mergeSites,
     auditTree,
     auditDuplicateBarrelExports,
+    auditNamespaceAggregator,
+    d7ChannelBlind,
   ])
     assert.equal(typeof fn, 'function')
   assert.ok(Array.isArray(KNOWN_ALIAS_LEDGER), 'KNOWN_ALIAS_LEDGER 必须是数组(待偿台账不是豁免清单)')
@@ -772,5 +776,136 @@ test('D6 端到端计数行:HEAD 面两判据均 0 且整门 exit 0(覆盖面 0 
   const guardPos = src.search(/if \(isDirectRun\)/)
   const kitPos = src.search(/export const __test__ = \{/)
   assert.ok(guardPos >= 0 && kitPos > guardPos, '§22d:__test__ 的 export 必须在入口守卫之后(位置本身是判据)')
+})
+
+/**
+ * D7「动态 import 拼扁平命名空间」(2026-10-29 立)。
+ *
+ * 立项现场是现读的:scripts/local-login.mjs 的 loadExtract() 里 5 个键指向 workbuddy lib
+ * 根本没有的成员,而三层防线一起放行 —— parseImports 只认 `^import` 语句(动态 `import(...)`
+ * 不在射程)、`.mjs` 不进 tsc、只有真走到那条分支才 TypeError。所以这一族每一臂都必须**成对**:
+ * 只造正例,门会在自己的夹具外面把合法写法判红(首跑就中了两枚:TS 侧 `import('./x.js')` 实指 `x.ts`,
+ * 以及 `const env = opts.env` 被当成命名空间变量 ⇒ env.APPDATA 报"键集缺格")。
+ */
+const D7LIB = ['export function alpha() {}', 'export const beta = 1', 'export default null', ''].join('\n')
+/**
+ * 造一枚聚合器:两个动态 import 槽位(射程要求 ≥2 —— 只有一跳的 Promise.all 根本不拼命名空间,
+ * 上一版的夹具恰好踩在这一格上,四臂全空跑而门"判了 0 处",这就是假绿的形状)。
+ */
+const d7Agg = (member, callMember) =>
+  [
+    'import path from "node:path"',
+    'const HERE = "."',
+    'async function loadKit() {',
+    '  const [ns, ns2] = await Promise.all([',
+    '    import(pathToFileURL(path.join(HERE, "lib", "x.mjs")).href),',
+    '    import(pathToFileURL(path.join(HERE, "lib", "y.mjs")).href),',
+    '  ])',
+    '  return {',
+    `    got: ns.${member},`,
+    '    wrapped: (n) => ns.alpha(n),',
+    '    second: ns2.beta,',
+    '  }',
+    '}',
+    'const kit = await loadKit()',
+    `kit.${callMember}(1)`,
+    '',
+  ].join('\n')
+const d7Fs = (extra = {}) => ({ 'p/lib/x.mjs': D7LIB, 'p/lib/y.mjs': D7LIB, ...extra })
+const d7Read = (fs) => (p) => (Object.prototype.hasOwnProperty.call(fs, p) ? fs[p] : null)
+const d7Has = (fs) => (p) => Object.prototype.hasOwnProperty.call(fs, p)
+const d7Run = (rel, fs) => {
+  const r = auditNamespaceAggregator(rel, d7Read(fs), d7Has(fs))
+  return { rules: r.violations.map((v) => v.raw), files: r.files, blind: r.blind }
+}
+
+test('D7-b 主判据:键指向 lib 从未导出的成员 ⇒ 必拦', () => {
+  const r = d7Run('p/main.mjs', d7Fs({ 'p/main.mjs': d7Agg('ghost', 'got') }))
+  assert.deepEqual(r.rules, ['got: ns.ghost'], `必须点名这一格,实得:${JSON.stringify(r.rules)}`)
+  assert.equal(r.files, 1, '命中射程 ⇒ 覆盖面计数必须记 1(否则 d7ChannelBlind 会把它读成"没看过")')
+})
+
+test('D7-b 反向对照:成员真在 lib 导出面 ⇒ 一律不判(与上条成对)', () => {
+  const r = d7Run('p/main.mjs', d7Fs({ 'p/main.mjs': d7Agg('beta', 'got') }))
+  assert.deepEqual(r.rules, [], `合法写法不得判红:${JSON.stringify(r.rules)}`)
+  assert.equal(r.files, 1)
+})
+
+test('D7-c 调用面:命名空间变量取了键集里没有的一格 ⇒ 必拦', () => {
+  const r = d7Run('p/main.mjs', d7Fs({ 'p/main.mjs': d7Agg('alpha', 'nope') }))
+  assert.ok(
+    r.rules.some((s) => s === 'kit.nope'),
+    `必须点名调用面,实得:${JSON.stringify(r.rules)}`,
+  )
+})
+
+test('D7-c 反向对照:同名透传的局部变量不得当命名空间(env.APPDATA 假红的成因)', () => {
+  const fs = d7Fs({
+    'p/main.mjs': `${d7Agg('alpha', 'got')}function useEnv(opts) {\n  const env = opts.env\n  return env.APPDATA || env.IHUI_LOCAL_LOGIN_PROC_CONTROL\n}\n`,
+  })
+  const r = d7Run('p/main.mjs', fs)
+  assert.deepEqual(r.rules, [], `env.* 不是命名空间键缺失,一处都不许报:${JSON.stringify(r.rules)}`)
+})
+
+test('D7-a 动态说明符指向不存在的模块 ⇒ 必拦', () => {
+  const fs = d7Fs({ 'p/main.mjs': d7Agg('alpha', 'got').replace('"x.mjs"', '"gone.mjs"') })
+  const r = d7Run('p/main.mjs', fs)
+  assert.ok(
+    r.rules.some((s) => s.includes('p/lib/gone.mjs')),
+    `路径缺失必须点名,实得:${JSON.stringify(r.rules)}`,
+  )
+})
+
+test('D7-a 反向对照:TS 侧 `import("./x.js")` 实指 x.ts ⇒ 不得判红(首跑造出两枚假红的成因)', () => {
+  const fs = {
+    'p/t.spec.ts': [
+      'async function load() {',
+      '  const [a, b] = await Promise.all([import("./routes/auth.js"), import("./routes/auth-extended.js")])',
+      '  return { a: a.h1, b: b.h2 }',
+      '}',
+      'const k = await load()',
+      'k.a()',
+      '',
+    ].join('\n'),
+    'p/routes/auth.js': 'export const h1 = 1',
+    'p/routes/auth-extended.js': 'export const h2 = 1',
+  }
+  const r = d7Run('p/t.spec.ts', fs)
+  assert.deepEqual(r.rules, [], `字面 .js 与 .ts 候选都得认,一处不报:${JSON.stringify(r.rules)}`)
+  // 同一夹具的变异自证:把目标文件真的拿掉 ⇒ 必须立刻红(a 维不是靠"读不到就放过"蒙绿的)
+  const broken = { ...fs }
+  delete broken['p/routes/auth.js']
+  const r2 = d7Run('p/t.spec.ts', broken)
+  assert.ok(r2.rules.length >= 1, '拿掉真实模块后 a 维必须翻红')
+})
+
+test('D7 射程:单跳动态 import 不算聚合器 ⇒ files=0(覆盖面不得被 Promise.all 解构灌水)', () => {
+  const single = [
+    'async function one() {',
+    '  const [a] = await Promise.all([import("./lib/x.mjs")])',
+    '  return a',
+    '}',
+    '',
+  ].join('\n')
+  const r = d7Run('p/main.mjs', d7Fs({ 'p/main.mjs': single }))
+  assert.equal(r.files, 0, '只有一跳 ⇒ 这一维不该声称"看过"')
+  assert.deepEqual(r.rules, [])
+})
+
+test('D7 通道判死:覆盖面为 0 时"悬空 0 处"不作数(§0.3 与 d4ChannelBlind 同语义)', () => {
+  assert.equal(d7ChannelBlind([]), true, '一枚聚合器都没扫到 ⇒ 必须判死')
+  assert.equal(d7ChannelBlind([{ file: 'p/main.mjs', files: 0, blind: 3 }]), true, 'blind 格不等于看过')
+  assert.equal(d7ChannelBlind([{ file: 'p/main.mjs', files: 1, blind: 0 }]), false, '扫到 1 枚 ⇒ 判活')
+})
+
+test('D7 接线形状锁:并进同一张违规表、覆盖面取全量 HEAD、runner 里点名(造好没装车 = 没有)', () => {
+  const src = readFileSync(GUARD, 'utf8')
+  assert.match(src, /const d7 = auditNamespaceAggregator\(f, readFile, hasPath\)/, 'D7 必须住在 auditTree 里(与 D1..D6 同一条采集通道)')
+  assert.match(src, /v\.push\(\.\.\.d7\.violations\)/, 'D7 的违规必须并进同一张表(锚点/打印/退出码只一套语义)')
+  assert.match(src, /d7ChannelBlind\(d7HeadSink\)/, '判死必须取 HEAD 全量面,不随 --staged/--files 收窄')
+  assert.match(src, /auditNamespaceAggregator,/, '__test__ 必须出口本体(镜像测试不得复制判据,§22c)')
+  const runner = readFileSync(join(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
+  assert.match(runner, /check-dangling-local-imports\.mjs/, '门 98 本体必须仍在 runner 里')
+  assert.match(runner, /D7/, 'runner 的 label/onFailHint 必须点名 D7 —— 已接线而文档不点名是门 89 R4 的红')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
