@@ -114,6 +114,14 @@ export const SSE_EVENTS = {
   // 同一条禁令)。消费:api-client `onPartialDone` → web send-message.ts 告知截断。
   // 必须与 apps/ai-service/app/core/sse_contract.py 同步。
   PARTIAL_DONE: 'partial_done',
+  // G-87 补链(2026-10-29 立):hook 执行失败帧。生产点 = ai-service `llm.py` 主对话流的
+  // `_drain_hook_failure_frames`(源头 `hook_engine._broadcast_hook_failed`,在重试耗尽
+  // 落 DLQ 之后广播)。消费 = api-client `onHookFailure` → web store 落
+  // `message.meta.hookFailures` → `HookFailureCard` 六态卡。
+  // **刻意不并进 `error` 帧**:`error` 是"这条回答失败"(气泡变红、正文不可用),
+  // 本帧是"某个用户配置的 hook 动作没跑成"—— 回答通常完好。合并 = 把"我的 lint hook
+  // 挂了"呈现成"这条回答失败了"。必须与 apps/ai-service/app/core/sse_contract.py 同步。
+  HOOK_FAILED: 'hook-failed',
 } as const
 
 /**
@@ -756,6 +764,42 @@ export type SSEEventPayload =
       reason: string
       /** 本轮实际使用的模型(可缺省) */
       model?: string
+    }>
+  // G-87 补链(2026-10-29):hook 执行失败。字段与 ai-service `llm.py::_hook_failure_frame`
+  // 的产出一一对应;`state` 取两档(与 Python 发射面同域:超时 / 失败)。
+  //
+  // ⚠️ **三个可选字段的可取性**(与 `HookFailureEvent` 注释逐字同义,此处不重复展开):
+  // `command` 仅 script 动作、`stderr`/`exitCode` 仅"真跑完且非零退出"那一档。
+  // 缺席 ≠ 空串 ≠ 0;`exitCode: 0` 是"确实以 0 退出"这个**肯定结论**,与"没取到"不可合并
+  // (与 usage.reasoningTokens 的两态纪律同族)。
+  | SSEEventWithMeta<{
+      type: 'hook-failed'
+      /** 终态两档:failed(重试耗尽) / timedOut(执行器超时) */
+      state: 'failed' | 'timedOut'
+      /** hook 名字(用户创建时的 name) */
+      hookName: string
+      /** 触发这次执行的 hook 事件名(如 tool.before) */
+      hookEvent: string
+      /** 墙钟耗时(ms,含重试与退避) */
+      durationMs: number
+      /** 失败时刻(服务端时钟,ISO);与 hookId/hookEvent 一起构成重放幂等键 */
+      failedAt: string
+      /** 失败原因(已过服务端脱敏,截断) */
+      error?: string
+      /** 动作类型(webhook/script/log/notify) */
+      actionType?: string
+      /** 命令行(**仅 script 动作**,已脱敏) */
+      command?: string
+      /** 脚本 stderr(**仅真跑完且非零退出**,已脱敏) */
+      stderr?: string
+      /** 脚本退出码(**仅真跑完且非零**) */
+      exitCode?: number
+      /** 记录稳定键(服务端给:`hookId::failedAt::event`);缺失时调用方不得自造 */
+      id?: string
+      /** 本流会话 id(服务端回显;前端只读,不参与归属判定) */
+      sessionId?: string
+      /** 挂载到哪条 assistant 消息 */
+      messageId?: string
     }>
   // D115(2026-10-23,G-229):review 模式的结构化 finding。字段与 ai-service
   // `app/core/review_findings.py::build_review_finding_frames` 的输出逐字对齐;
