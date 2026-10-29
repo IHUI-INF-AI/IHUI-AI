@@ -2219,6 +2219,17 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-29**
+- 🐞 修正:补回 playwright.stream-lifecycle.config.ts 的溯源载荷 —— HEAD 面欠账清零 (9960c239c4)
+- 🚀 機能/改善:分诊留账补齐 + --status 分桶读数 —— registered 面此前只打印不落账,导致三次矛盾归因都无从判死 (49b1a67a8e)
+- 📚 ドキュメント:§1 侧车出口措辞跟上现实 —— 归属改判的声明式出口入册(票 O68 结清批) (5d6cc2d558)
+- 🔧 その他:结清 O68 侧车改判出口 —— plan-fields-reclassify.mjs 已交付(声明档逐条给 before/after 桶 + why,复用 dispositionOfV2 复算,11 例镜像测试),O02 已改判并吃出派单面 (0faf680919)
+
+**2026-10-29**
+- 📚 ドキュメント:需求发现器第三源生产者已落并更正票面 —— export-user-feedback 自检 10/10、guardian 已派发,旧注记『仓内无生产者』过期 (fd426cdb34)
+- 🐞 修正:补上 plan-fields-extract --reclassify 旧腿的禁桶守卫 —— 它此前是 F11/F12 的后门 (f9ecc8879b)
+- 📚 ドキュメント:凭据交付面空键读数更正 —— 实测 48 空键,真需供值约 20 枚(其余设计默认或代码自生成),票面 35/74/79 三个旧读数过期 (aa53c46743)
+
+**2026-10-29**
 - 🚀 機能/改善:补 pnpm check:public-exposure 入口 —— G-329 ④ 的 pnpm 面此前只有 node 直调,门已接线而脚本位缺失 (f85e1f55de)
 - 🔧 その他:结清 G-329 与 O66 + G-957 卡点定位更正 (5016a01222)
 - 📚 ドキュメント:体积清偿第 29 日批 —— §5c 一条改判留痕整段逐字迁 archive,净省 944 字节回到预算内 (535029dfea)
@@ -2284,20 +2295,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 **2026-10-29**
 - 📚 ドキュメント:登记取号池饱和票(Z-1) —— 顺带用新字母族验证"开新族"这条出路的可行性 (149f6c17a8)
 - 🐞 修正:两端 ui-routes 产物按 HEAD 面重派 —— 门 105 的 G5 自述钉由 stale 转 matched (85e15a629c)
-
-**2026-10-29**
-- 🐞 修正:补回被"整份写回旧态"吞掉的 auditFeedbackLoopClosure 六行(本枚走落地器出口②,理由与证据在下面) (7c5b1b90eb)
-
-**2026-10-29**
-- 🐞 修正:找回被 b966cb2167 整份写回旧态的 dev-stack 超时双形态修复 —— 门 98 由红转绿 (fbfae3f297)
-- 🐞 修正:zh-TW clearAuthHint「這一台」改「這一臺」—— 门 2b 简体残留归零 (bcad210fe7)
-- 📚 ドキュメント:本侧 README 对齐远端新版守门清单行,解掉 git-sync-converge 的零丢失自证停顿 (017f455c72)
-- 🐞 修正:上游转发器补守卫②连接期 dispatcher —— 首跳复检挡不住 DNS rebinding (a3facca58f)
-- 🐞 修正:蓝绿编排器参数化 —— web 蓝绿改走 Node 执行面 (8a4ff327f8)
-- 🐞 修正:scripts/ 面 mypy strict 35→0 + 修 2 处 GBK 日志静默丢行 (969d74b9a6)
-- 📚 ドキュメント:UI/样式 门清单行对齐远端形态 —— 本侧 790 字版是远端 1106 字版的**前缀**(已实证 B.startsWith(A)=true),远端仅在其后追加了 check-ui-spec-mirror.mjs(259) 等条目 ⇒ 取远端版对本侧零丢失。此前 git-sync-converge 因这行按整行比对判『README.md 未存活行』拒绝推进 HEAD,而语义上并无内容丢失。 (12b99cbc35)
-- 🚀 機能/改善:web 蓝绿双实例 + router 原子切流(根治 O68 切流空窗) (38d71cfb82)
-- 🚀 機能/改善:守门 259 装车 —— RN 壳↔小程序壳 spec 接线对账进提交链 (a02c39768b)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
