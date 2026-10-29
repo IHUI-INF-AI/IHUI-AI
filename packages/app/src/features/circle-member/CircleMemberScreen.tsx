@@ -7,7 +7,7 @@ import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleMemberItem, CircleMemberScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -104,17 +104,17 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    listBody: { padding: 10, paddingBottom: 32 },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    errorText: { paddingHorizontal: 10, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    listBody: { padding: 10, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -127,21 +127,21 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 12,
+      marginRight: rnSpacing.md,
     },
-    avatarText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    avatarText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
     cardBody: { flex: 1 },
-    cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    cardTime: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    cardName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    cardTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     roleBadge: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
       borderRadius: rnRadius.md,
     },
     roleBadgeOwner: { backgroundColor: tk.brand.cta },
     roleBadgeAdmin: { backgroundColor: tk.success.DEFAULT },
     roleBadgeMember: { backgroundColor: tk.text.tertiary },
-    roleText: { fontSize: 11, fontWeight: '600', color: tk.surface.light },
+    roleText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -17,6 +17,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcCategory, AigcFileType, AigcListItem, AigcListScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** AIGC 作品列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcCategory, AigcListItem, AigcListScreenProps }
@@ -162,11 +163,11 @@ export function AigcListScreen({
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.3}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>
-              {loading ? t('common.loading') : t('aigcList.empty')}
-            </Text>
-          </View>
+          loading ? (
+            <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('aigcList.empty')} colorScheme={colorScheme} />
+          )
         }
         renderItem={renderItem}
       />
@@ -260,8 +261,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.light,
     },
     audioPlayText: { fontSize: 14, color: tk.brand.DEFAULT, fontWeight: '600' },
-    empty: { paddingVertical: 60, alignItems: 'center' },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     fab: {

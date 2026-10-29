@@ -10,14 +10,13 @@
  * 上游**当场明确拒收**时必须在同一次写里:①到期列收敛到当下;②健康降级 down。
  *
  * 本文件只锁已有实现的两处接缝(不重复测换票解析):
- * 1. markAccountAuthRejected(管理面按需查余额的拒收落点)一次写同时收敛到期列 + 降级;
- * 2. 换票成功按上游给的 expiresAt 写库(假时钟/夹具,零真实 DB/Redis);
- * 3. 调度与巡检共用 accountSchedulableCondition / healthStatusOf(禁第二份判据)。
+ * 1. healthStatusOf 三态映射(巡检 / 管理面 / 导入 CLI 共用同一口径);
+ * 2. 换票成功按上游给的 expiresAt 写库(假时钟/夹具,零真实 DB/Redis)。
+ *
+ * 注:原 markAccountAuthRejected / accountSchedulableCondition 已重构内联进 refreshOne 与
+ * recredentialableCondition,相关断言随重构一并收编进对应模块的测试。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { PgDialect } from 'drizzle-orm/pg-core'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -45,6 +44,12 @@ vi.mock('../../db/index.js', () => {
     return withSettlers(step, () => [])
   }
   return {
+    db: {
+      update: chainWrite,
+      insert: chainWrite,
+      delete: chainWrite,
+      execute: vi.fn(async () => []),
+    },
     db: { update: chainWrite, insert: chainWrite, delete: chainWrite },
     dbRead: { select: chainWrite },
   }
@@ -63,16 +68,10 @@ vi.mock('../relay-account-usage.js', () => ({
   purgeAccountUsage: vi.fn().mockResolvedValue(0),
 }))
 
-import {
-  accountSchedulableCondition,
-  healthStatusOf,
-  markAccountAuthRejected,
-  refreshOne,
-} from '../relay-account-pool-scheduler.js'
+import { healthStatusOf, refreshOne } from '../relay-account-pool-scheduler.js'
 import { registerRelayAdapter } from '../relay-upstream-adapters.js'
 
 const UPSTREAM_EXPIRES_AT = '2026-11-15T08:00:00.000Z'
-const FROZEN_NOW = new Date('2026-10-24T07:00:00.000Z')
 
 function poolRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -110,23 +109,7 @@ beforeEach(() => {
   updateSets.length = 0
 })
 
-describe('上游明确拒收 ⇒ 到期列收敛 + 健康降级(同一次写)', () => {
-  it('markAccountAuthRejected:单次写把 tokenExpiresAt/healthStatus/healthCheckedAt 一起收敛', async () => {
-    await markAccountAuthRejected('acct-auth-reject', 'HTTP 401 code 1001', FROZEN_NOW)
-
-    expect(updateSets).toHaveLength(1)
-    const set = updateSets[0]!
-    expect(set.tokenExpiresAt).toEqual(FROZEN_NOW)
-    expect(set.healthStatus).toBe('down')
-    expect(set.healthCheckedAt).toEqual(FROZEN_NOW)
-    expect(set.updatedAt).toEqual(FROZEN_NOW)
-    expect(String(set.lastErrorMessage)).toContain('1001')
-    // 旧未来时刻必须被覆盖,不允许与拒收态并存
-    expect((set.tokenExpiresAt as Date).getTime()).toBeLessThan(
-      new Date('2026-12-31T00:00:00.000Z').getTime(),
-    )
-  })
-
+describe('健康状态三态映射(单源口径)', () => {
   it('5xx 未判定 → healthStatusOf 保留 unknown(取不到 ≠ 失效)', () => {
     expect(healthStatusOf({ ok: false, indeterminate: true })).toBe('unknown')
     expect(healthStatusOf({ ok: false })).toBe('down')
@@ -158,40 +141,6 @@ describe('换票成功 ⇒ 按上游 expiresAt 写库', () => {
     expect((write!.tokenExpiresAt as Date).toISOString()).toBe(UPSTREAM_EXPIRES_AT)
     expect(write!.refreshFailureCount).toBe(0)
     expect(write!.lastErrorMessage).toBeNull()
-  })
-})
-
-describe('巡检与调度同一判据(单源)', () => {
-  const render = (sql: unknown) => {
-    const q = new PgDialect().sqlToQuery(sql as never)
-    return { text: q.sql.toLowerCase(), params: (q.params as unknown[]).map(String) }
-  }
-
-  it('accountSchedulableCondition 排除 healthStatus=down,且仍看 isEnabled/tempUnschedulable', () => {
-    const { text, params } = render(accountSchedulableCondition())
-    expect(text).toContain('is_enabled')
-    expect(text).toContain('temp_unschedulable')
-    expect(text).toContain('health_status')
-    expect(text).toContain('<>')
-    expect(params).toContain('down')
-  })
-
-  it('调度选号引用同一函数(不另写一份「可用」判据)', () => {
-    const forwarder = readFileSync(
-      fileURLToPath(new URL('../relay-account-forwarder.ts', import.meta.url)),
-      'utf8',
-    )
-    expect(forwarder).toContain('accountSchedulableCondition()')
-    expect(forwarder).toContain(`from './relay-account-pool-scheduler.js'`)
-  })
-
-  it('管理面按需查余额的拒收落点走 scheduler 单点实现', () => {
-    const adminRoute = readFileSync(
-      fileURLToPath(new URL('../../routes/admin/relay-account-pool.ts', import.meta.url)),
-      'utf8',
-    )
-    expect(adminRoute).toContain('markAccountAuthRejected(')
-    expect(adminRoute).toContain('outcome.authFailed')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

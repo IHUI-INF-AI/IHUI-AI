@@ -26,10 +26,7 @@ vi.stubGlobal('fetch', fetchMock)
 vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
 vi.mock('next/navigation', () => ({ usePathname: () => '/chat' }))
 vi.mock('@/stores/auth', () => ({
-  // isAuthenticated 门(2026-10-14 挂载整改):AnalyticsCapture 以 if (!isAuthenticated) return
-  // 挡偏好拉取,mock 缺该字段 ⇒ undefined ⇒ 门恒关 ⇒ refreshSpy 0 次红。
-  useAuthStore: (sel: (s: { user?: { id: string }; isAuthenticated?: boolean }) => unknown) =>
-    sel({ user: { id: 'u-1' }, isAuthenticated: true }),
+  useAuthStore: (sel: (s: { user?: { id: string } }) => unknown) => sel({ user: { id: 'u-1' } }),
 }))
 
 // AnalyticsCapture 复用 use-analytics 的判定链,这里只桩掉「拉偏好」这一个副作用,

@@ -58,8 +58,6 @@ import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.j
 import { requireCapability } from '../utils/capability-guard.js'
 import type { Redis } from 'ioredis'
 import { error } from '../utils/response.js'
-import { ErrorCode } from '../errors/codes.js'
-import { UPSTREAM_AUTH_FAILED_MESSAGE, mapUpstreamOutbound } from '../errors/upstream-status.js'
 import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 import { recordCall, refundTaskCall } from '../services/relay-billing-service.js'
 import { forwardToChannel, type SelectedChannelKey } from '../services/relay-upstream-forwarder.js'
@@ -387,22 +385,10 @@ async function forwardInternal(
       return reply.send(result.buffer)
     }
     if (!result.ok) {
-      // 票 L7648:本面消费者凭据(API Key)已在 preHandler 验过,callInternal 调
-      // ai-service 回的 401/403 是内部 JWT/上游凭据故障,不是消费者会话问题 ——
-      // 映射 502 + UPSTREAM_AUTH_FAILED,不得以 401 出栈误导集成方"凭据被拒"。
-      const outbound = mapUpstreamOutbound(result.status)
-      const httpStatus = outbound.status
+      const httpStatus = result.status >= 400 && result.status < 600 ? result.status : 502
       return reply
         .status(httpStatus)
-        .send(
-          error(
-            httpStatus,
-            outbound.remapped
-              ? UPSTREAM_AUTH_FAILED_MESSAGE
-              : result.message || `Internal service error (${result.status})`,
-            outbound.remapped ? ErrorCode.UPSTREAM_AUTH_FAILED.code : undefined,
-          ),
-        )
+        .send(error(httpStatus, result.message || `Internal service error (${result.status})`))
     }
     return reply.send(mapper ? mapper(result.data) : result.data)
   } catch (e) {
@@ -1207,20 +1193,10 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       // 1. 提交生成任务(可能直接返回 images,也可能返回 taskId)
       const result = await callInternal(path, jsonInit(body), userId)
       if (!result.ok) {
-        // 票 L7648:同上,上游/内部 401/403 映射 502 + UPSTREAM_AUTH_FAILED(非消费者凭据结论)。
-        const outbound = mapUpstreamOutbound(result.status)
-        const httpStatus = outbound.status as 200 | 202 | 400 | 401 | 500 | 502 | 503
+        const httpStatus = result.status >= 400 && result.status < 600 ? result.status : 502
         return reply
-          .status(httpStatus)
-          .send(
-            error(
-              httpStatus,
-              outbound.remapped
-                ? UPSTREAM_AUTH_FAILED_MESSAGE
-                : result.message || `Internal service error (${result.status})`,
-              outbound.remapped ? ErrorCode.UPSTREAM_AUTH_FAILED.code : undefined,
-            ),
-          )
+          .status(httpStatus as 200 | 202 | 400 | 401 | 500 | 502 | 503)
+          .send(error(httpStatus, result.message || `Internal service error (${result.status})`))
       }
       const d = asObj(result.data)
 

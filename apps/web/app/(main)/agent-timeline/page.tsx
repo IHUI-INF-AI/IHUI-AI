@@ -205,7 +205,7 @@ export default function AgentTimelinePage() {
       {data && (
         <>
           {/* 汇总统计 */}
-          <div className="grid grid-cols-2 gap-3 tablet:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border p-3">
               <div className="mb-1 text-xs text-muted-foreground">{t('totalEvents')}</div>
               <div className="text-xl font-bold">{data.total}</div>

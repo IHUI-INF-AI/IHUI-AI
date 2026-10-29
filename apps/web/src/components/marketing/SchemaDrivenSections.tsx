@@ -18,7 +18,6 @@ import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
-import { useAnnouncementMarqueeItems } from '@/hooks/use-announcements'
 import { useTranslations } from 'next-intl'
 import type { HomeSchema, SectionComponentType } from '@/components/marketing/home-schema'
 
@@ -78,13 +77,10 @@ interface SectionProps {
 function HeroSection({ pageIndex }: SectionProps) {
   const t = useTranslations('marketing')
   const benefits = BENEFITS_KEYS.map((k) => t(`welcome.benefits.${k}`))
-  // 2026-10-24:公告跑马灯动态化 —— 后台 /admin/announcements 发布即首页可见;
-  // API 失败/无公告时返回 null,Marquee 自行 fallback i18n 静态兜底文案。
-  const announcementItems = useAnnouncementMarqueeItems()
   return (
     <HomeSectionFrame page={pageIndex} ariaLabel={t('indicator.page1', { fallback: 'Hero' })}>
       <div className="relative z-10 flex w-full flex-col gap-2 px-4 pt-4 min-[768px]:px-8 min-[768px]:pt-6">
-        <Marquee items={announcementItems ?? undefined} />
+        <Marquee />
         <GithubStarBanner />
       </div>
       <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center gap-4 px-4 py-2 min-[768px]:gap-5 min-[768px]:py-3">
@@ -165,8 +161,7 @@ function PricingSection({ pageIndex }: SectionProps) {
         <div className="mx-auto w-full max-w-5xl px-4">
           <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2 min-[768px]:gap-3 min-[1024px]:grid-cols-4">
             {[
-              // 2026-10-24:端应用包实测 9 个(apps/*/package.json,gen-doc-numbers.mjs appPackages)
-              { value: 9, suffix: '', label: t('stats.platforms') },
+              { value: 8, suffix: '', label: t('stats.platforms') },
               { value: 100, suffix: '+', label: t('stats.models') },
               { value: 6000, prefix: '¥', label: te('hero.priceEarlyBird') },
               { value: 18, suffix: '', label: t('stats.seats') },

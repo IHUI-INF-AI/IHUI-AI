@@ -10,8 +10,9 @@ import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { formatDateByTemplate, formatPrice } from '@ihui/shared'
+import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 interface TeamMember {
   id: string
@@ -26,8 +27,6 @@ interface TeamMember {
 type SortTab = 'orderNum' | 'date'
 
 const PAGE_SIZE = 20
-
-// 分→元不在此另写一份:唯一出口 = @ihui/shared 的 formatPrice(§0.6)
 
 /** 时间戳(秒/毫秒)或 ISO 字符串 → 毫秒数 */
 const toMs = (v: number | string): number => {

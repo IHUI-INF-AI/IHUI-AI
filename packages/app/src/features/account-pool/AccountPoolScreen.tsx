@@ -144,7 +144,7 @@ export function AccountPoolScreen({
                 onPress={() => onDraftChange({ providerCode: p })}
               >
                 <Text
-                  style={[styles.chipText, draft.providerCode === p ? styles.chipOnText : null]}
+                  style={[styles.chipText, draft.providerCode === p ? styles.chipTextOn : null]}
                 >
                   {p}
                 </Text>

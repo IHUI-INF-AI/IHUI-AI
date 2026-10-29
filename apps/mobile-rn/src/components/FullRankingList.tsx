@@ -26,7 +26,7 @@ import { tokens } from '../theme/active-tokens'
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { ListRenderItem } from 'react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 export interface FullRankingItem {
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xl,
-    padding: 4,
+    padding: rnSpacing.xs,
   },
   listBody: {
     paddingVertical: 0,
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: rnSpacing.xs,
   },
   separator: {
     height: 4,
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rankText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '700',
   },
   rankChange: {
@@ -271,12 +271,12 @@ const styles = StyleSheet.create({
     height: 10,
   },
   rankChangeArrow: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     fontWeight: '700',
     lineHeight: 12,
   },
   rankChangeNum: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     fontWeight: '600',
     lineHeight: 12,
     marginLeft: 1,
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.secondary,
   },
@@ -302,42 +302,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   name: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   company: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     marginTop: 2,
   },
   attentionCol: {
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
     minWidth: 48,
   },
   attentionValue: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   attentionLabel: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.secondary,
     marginTop: 2,
   },
   valueWrap: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
   },
   valueText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   },
   valueLabel: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     marginLeft: 2,
   },

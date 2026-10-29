@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 
 const STYLES = [
@@ -51,11 +51,12 @@ export const ImageGenJimeng = React.memo(function ImageGenJimeng() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; width: number; height: number }) => {
-      const res = await api<unknown>('/api/ai/jimeng4/image', {
+      const res = await fetchApi<unknown>('/api/ai/jimeng4/image', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      return res
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: () => toast.success(t('generateSuccess')),
     onError: (err: Error) => toast.error(err.message),

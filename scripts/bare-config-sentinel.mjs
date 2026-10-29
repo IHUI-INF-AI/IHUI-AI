@@ -30,7 +30,6 @@
 
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join, basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -188,23 +187,13 @@ function argValue(flag, def) {
   // 当成"没传"而 fallback 到默认(真仓 gitdir/落点)—— 对本件等价于"夹具测试把事件
   // 件写进活仓运行态目录",这是高危静默失效,所以两形态必须都显式认。
   const eq = process.argv.find((a) => a.startsWith(flag + '='))
-  if (eq !== undefined) {
-    const v = eq.slice(flag.length + 1)
-    // 等号形空值(`--out=`)旧写法与"没给"同形 ⇒ 静默落到默认落点。判死,不猜意图。
-    if (v === '') {
-      console.error(`用法错:${flag} 需要一个值 —— 等号后为空(不得静默回落默认)`)
-      process.exit(2)
-    }
-    return v
+  if (eq !== undefined) return eq.slice(flag.length + 1)
+  const i = process.argv.indexOf(flag)
+  if (i >= 0) {
+    const v = process.argv[i + 1]
+    if (v && !v.startsWith('--')) return v
   }
-  // 空格形态走 G-322 单源:紧邻 token 是另一枚旗标或结尾无值不得当值吞掉,也不得回落默认
-  // (采样器的 gitdir/落点错位 = 事件写进别的仓还报正常)。点名叫用法错并 exit 2。
-  const f = flagValue(process.argv, flag)
-  if (f.present && !f.valid) {
-    console.error(`用法错:${flag} 需要一个值,紧邻的 token 实得:${describeFlagToken(f)}(不得吞掉相邻旗标/回落默认)`)
-    process.exit(2)
-  }
-  return f.valid ? f.value : def
+  return def
 }
 function hasFlag(flag) {
   return process.argv.includes(flag)

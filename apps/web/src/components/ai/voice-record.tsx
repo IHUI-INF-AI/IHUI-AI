@@ -78,9 +78,6 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
       setIsRecording(true)
       setIsPaused(false)
       setDuration(0)
-      // 起新之前先停旧:直接覆盖 timerRef.current 会让上一只计时器变成清不掉的孤儿
-      // (它还在跑 setDuration,并在 maxDuration 处回头调 stopRecording)
-      if (timerRef.current) clearInterval(timerRef.current)
       timerRef.current = setInterval(() => {
         setDuration((d) => {
           if (d + 1 >= maxDuration) {

@@ -34,6 +34,8 @@
 // 2026-10-16 C1 收口:执行段(缓存/计数/attest/汇总/PAR 池/主循环)整体外置到
 // scripts/lib/guardian-executor.mjs 的 runGuardianBatch(ctx);本文件只剩注册表、
 // CLI 解析与 help。执行语义逐字未动,镜像测试同票改取材面(见该 lib 头注)。
+// 2026-10-25(GOAL-合入票):第 5 轮合并 c8fee04806ea 的「人工归并回灌」把本文件的门注册段截断 —— checks 数组里 240-249 十门注册整体消失、bare-decode-uri/token-literal-debt/rn-readout-cell 三条只剩尾巴、pushGateChecks 追加 68 行缺头缺尾的残骸 ⇒ 本文件语法错误 ⇒ push 门编排器(.husky/pre-push → guardian-runner --push-gate)整个跑不起来,本地 ahead 的提交一律推不动。
+// 本次以 origin/main 当前面为基线逐字复原(§0.6 单一真相源下对侧的完整形态);判据面一字未改,只复原被截断的注册段。
 import { execFileSync } from 'node:child_process'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
 import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
@@ -2018,11 +2020,14 @@ const checks = [
     // 且实测开销仅 0.46s(--staged)/ 1.3s(全量),没有为之省时间的理由。
     onFailHint: [
       '',
-      '  💡 三条判据:',
+      '  💡 判据一览:',
       '     R1 已声明映射逐位同值 —— rn-tokens.ts 的色值必须等于 tokens.css 对应 CSS 变量(亮/暗各自对账)。',
       '     R2 品牌键覆盖 —— rn-tokens 的 brand 命名空间里每个键,必须被某条映射声明,或在 RN_ONLY_BRAND_KEYS',
       '        写明"web 无对应变量"的理由(豁免项若已不存在同样算红,防清单腐烂)。',
       '     R3 悬空引用 —— tokens.brand.<key> / tk.brand.<key> 必须命中已声明键集合(默认判 HEAD,--staged 判索引)。',
+      '     R9–R11 非色档同源 —— tokens.css 的 css-tokens 受管块必须逐值与 TS 源一致:',
+      '        R9 间距 SPACING_STEPS / R10 字号 TYPE_STEPS + FONT_WEIGHTS / R11 阴影 ELEVATION_CSS。',
+      '        受管块是派生态,禁止手改;改值只能改 TS 源后跑 node scripts/sync-css-tokens.mjs --write。',
       '',
       '     品牌 CTA 的唯一写法(AGENTS §4,2026-09-26 回翻):backgroundColor/borderColor = brand.cta,',
       '     其上文字 = brand.ctaForeground(等价 web 的 --color-cta + --color-cta-foreground;',
@@ -2031,7 +2036,7 @@ const checks = [
       '     要调主按钮观感,改 tokens.css 的 --color-cta(亮)与 .dark --color-cta(暗)一处,三端一起动。',
       '',
       '     定位:node scripts/check-cross-end-tokens.mjs --list(看映射与依据)',
-      '     自检:node scripts/check-cross-end-tokens.mjs --self-test(8 例正反对照)',
+      '     自检:node scripts/check-cross-end-tokens.mjs --self-test(81 例正反对照)',
       '     紧急跳过(不推荐):HUSKY_SKIP_CROSS_END_TOKENS=1 git commit ...',
       '',
     ].join('\n'),
@@ -2567,6 +2572,11 @@ const checks = [
     label: '🧩 HEAD 悬空具名导入对账(blocking,import/动态命名空间取的名字目标必须真导出)',
     script: 'check-dangling-local-imports.mjs',
     args: [],
+    // 落地后复跑档必须以锚点档跑本门(本门支持 --rev/--anchor,判"相对上一枚是否新增"):
+    // 不带锚点 ⇒ HEAD 上 16 条存量被算成本枚新增,每次旁路落地都判红一次 —— 那是逼人设
+    // IHUI_LAND_SKIP_AFFECTED_GATES=1 的恒红臂(§12e),而落地前那一跑本来就是带锚点的,
+    // 两跑口径不一致才是这次的病根。CI/pre-commit 的 --staged 档不受此字段影响。
+    rerunAnchor: true,
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DANGLING_IMPORTS',
     stagedTriggers: ['apps/**/*.ts', 'apps/**/*.tsx', 'packages/**/*.ts', 'packages/**/*.tsx', 'scripts/**/*.mjs'],
@@ -2942,8 +2952,13 @@ const checks = [
       '     缺产物不判红也不静默绿:exit 0 + 逐条打印"未判定:<原因>"并点名重建命令。',
       '     主包口径:分包与独立分包不得计入主包(镜像测试 C5/C5b 用同字节换个目录做正反对照)。',
       '     单独复验:node scripts/check-artifact-budget.mjs --target miniapp',
-      '     自检:node scripts/check-artifact-budget.mjs --self-test(32 条断言,连跑两次须同结论)',
-      '     镜像测试:node --test scripts/tests/check-artifact-budget.test.mjs(15 例,含"接了提交链就必须同时有 CI 调用点"的防退化断言)',
+      '     自检:node scripts/check-artifact-budget.mjs --self-test(39 条断言,连跑两次须同结论)',
+      '     镜像测试:node --test scripts/tests/check-artifact-budget.test.mjs(21 例,含"接了提交链就必须同时有 CI 调用点"的防退化断言)',
+      '     AB3 单分包尺寸(2026-10-26 加):微信对**每个分包**同样有 2 MiB 硬上限,只判主包等于',
+      '     把会坏的那一格留在盲区 —— 实测 78 枚壳承载页只让主包涨 46 KB,pkg-user 却到 3,769,041 B',
+      '     (超 1.8 倍,上传必拒),而主包口径与 CI 全绿。逐包超限即判红(含独立分包)。',
+      '     AB4 整档总量(同日加):微信对**整档**还有 20 MiB 上限。实测落完 219 屏后合计 18,016,705 B(86%),',
+      '     只判逐包会漏"每个包都装得下、整档传不上去"那一型 ⇒ 破 90% 水位即判红(造页器的总量水位在 88%,停在红线之前)。',
       '',
     ].join('\n'),
   },
@@ -3447,6 +3462,139 @@ const checks = [
       '     ③ 禁止靠删条目或改判据去消红 —— 那是把尺子锯短,不是收口;棘轮锚点是 HEAD 面(无基线文件可维护),确需放行时用 skipEnv 并把理由写进提交信息;',
       '     ④ 「小程序端没有这一页」≠ 缺口:本门把无标记的记为**未判定**,既不记已对齐也不判红。',
       '',
+    ]
+  },
+  {
+    id: '251',
+    label:
+      '🧱 RN 兼容层覆盖面对账(blocking,小程序复用共享屏/RN 壳的"能不能编过"三维 —— 缺一名即整屏运行期炸,而 babel 构建照样绿)',
+    script: 'check-rn-compat-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RN_COMPAT_COVERAGE',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/rn-compat/',
+      'apps/miniapp-taro/src/app.config.ts',
+      'apps/miniapp-taro/config/',
+      'packages/app/src/',
+      'apps/mobile-rn/src/',
+      'scripts/gen-rn-compat.mjs',
+      'scripts/check-rn-compat-coverage.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 本门判的是覆盖面,不是观感:消费面(packages/app + apps/mobile-rn)从 react-native /',
+      '     lucide-react-native 具名取用的全集,必须在 src/rn-compat 出口或生成物里真在册。',
+      '     ① C1 缺标识符 ⇒ 在 apps/miniapp-taro/src/rn-compat 补出口(值档补实现、类型档补类型位,',
+      '        两者缺一分别炸运行期与 tsc);',
+      '     ② C2 缺图标 ⇒ 跑 `node scripts/gen-rn-compat.mjs --write`(名字全集按 HEAD 面现算,不需要人工登记);',
+      '     ③ C3 路由映射指向不在册页 ⇒ 同上重生成(映射由导航器登记 ∩ 跨端登记表 join 得出)。',
+      '     绝对零容忍:兼容层的缺口没有"存量合理"这一说 —— 补上即绿,禁止为消红放宽判据(§12e)。',
+      '     自检:node scripts/check-rn-compat-coverage.mjs --self-test(6 例,含摘掉即翻红)',
+      '',
+    ]
+  },
+  {
+    id: '252',
+    label:
+      '📦 workspace 包 exports 条件真值对账(blocking,子路径必须对 CJS 解析条件可达 —— 缺 default 就是小程序/CI 构建当场红)',
+    script: 'fix-package-exports-conditions.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PACKAGE_EXPORTS_CONDITIONS',
+    stagedTriggers: [
+      'packages/',
+      'apps/',
+      'scripts/fix-package-exports-conditions.mjs',
+    ],
+    onFailHint: [
+      '  💡 判的是 exports 条件覆盖:只写 types+import 的子路径,对 webpack(require/module/production)' +
+         '与 pnpm frozen install 都不可达(import 条件不等于 module/require)。',
+      '     ① 看哪几条缺:node scripts/fix-package-exports-conditions.mjs --check;',
+      '     ② 补(单向增覆盖面,不改既有条件、不删条目):node scripts/fix-package-exports-conditions.mjs --apply,',
+      '     ② 补(单向增覆盖面,不改既有条件、不删条目):node scripts/fix-package-exports-conditions.mjs --apply,',
+      '        并把所改 package.json 与本枚改动同提交;',
+      '     ③ 判据本体:node scripts/fix-package-exports-conditions.mjs --self-test(5 例)。',
+      '     禁止为消红放宽判据(§12e);存量已于 e91d8c38ed96 一次清零,故本门从第一天起绝对零容忍。',
+    ]
+  },
+  {
+    id: '253',
+    label:
+      '🧬 scripts 相对具名导入 ↔ 目标模块出口面真值对账(blocking,生产方被削出口那一型的唯一着力点 —— 消费方一字未动而守护当场起不来)',
+    script: 'check-mjs-export-resolution.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MJS_EXPORT_RESOLUTION',
+    stagedTriggers: ['scripts/'],
+    onFailHint: [
+      '  💡 两维:D1 = 本枚改动的文件里有人按名取用而目标不再导出;D2 = 本枚改动/删除的文件削掉了某个仍被按名取用的出口。',
+      '     ① 看清单:node scripts/check-mjs-export-resolution.mjs --staged(全量档只报存量,不拦提交);',
+      '     ② 修法二选一,不许两边都不选:',
+      '        · 能力仍在用 ⇒ 把出口连实现补回生产方(逐字回补可参考 HEAD^ 面,补完 node --check + import 自证);',
+      '        · 能力确已退役 ⇒ 同批把消费方的取用一起摘掉(删者须答 §7 三问,不得只删一半留个崩口)。',
+      '     ③ 判据本体:node scripts/check-mjs-export-resolution.mjs --self-test(11 例,含 D2 正控/反向对照/新建面不判)。',
+      '     立因实测:9fdbc207ba2e 删 lib/gitdir.mjs 的 brokenRefsFromSnapshot 而 git-guardian.mjs 未动 ⇒ 守护实例化期抛、任何档起不来,巡检腿全停。',
+    ]
+  },
+  {
+    id: '254',
+    label:
+      '🎨 RN 令牌表派生面 ↔ tokens.css 对账(blocking;值同步 + 覆盖面块落后都算漂移 —— 源改一处 RN 自动跟上,不跟上就拦在提交口)',
+    script: 'sync-rn-tokens.mjs',
+    args: ['--check', '--staged'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RN_TOKEN_DERIVATION',
+    stagedTriggers: [
+      'packages/design-tokens/',
+      'scripts/sync-rn-tokens.mjs',
+    ],
+    onFailHint: [
+      '  💡 判的是 rn-tokens.ts 的派生面落后于唯一源 packages/design-tokens/src/styles/tokens.css。',
+      '     ① 看差在哪:node scripts/sync-rn-tokens.mjs --check;台账(逐档可派生/不可派生/拒绝/跳过):node scripts/sync-rn-tokens.mjs --list;',
+      '     ② 修:node scripts/sync-rn-tokens.mjs(原位写回,幂等;含末端的 rnCssLight/rnCssDark 覆盖面块),',
+      '        然后 pnpm --filter @ihui/design-tokens build(RN 读 dist,不重建则设备上毫无变化 —— 2026-10-20 实测四轮),',
+      '        并把所改文件与本枚改动同提交;',
+      '     ③ 判据本体:node scripts/sync-rn-tokens.mjs --self-test(41 例;J 族钉覆盖面块:遮蔽手抄档即跳 / 应用后幂等 / 源改值即落后 / 标记不齐拒写 / 水印仍在文件末)。',
+      '     拒绝项(refusals)与语义分歧档属人工裁决,派生器不抹平;禁止为消红放宽判据(§12e)。',
+    ]
+  },
+  {
+    id: '256',
+    label:
+      '🌐 门户表↔端内词包不变量(blocking;门户表每个 webViewPortal.* titleKey 必须在两端×五语言十份词包里,且条目指向的 web 路由真存在)',
+    script: 'check-web-portal-label-keys.mjs',
+    args: [],
+    mode: 'blocking',
+    // 2026-10-28 立:存量现读 0(140 titleKey × 10 份词包 W1=0、W2=0、W3 116 条 path 全在位)⇒ 绝对零容忍,
+    // 不是差值棘轮(§12e 升 blocking 前置=存量归零已满足)。缺任意一份词包时端上按约定回落中文 fallbackLabel,
+    // 界面不报错、只是变成中文 —— 既有 i18n 门只判词包↔词包对齐,不知道门户表引用了哪些键,结构上判不到。
+    skipEnv: 'HUSKY_SKIP_PORTAL_LABEL_KEYS',
+    stagedTriggers: ['packages/shared/src/constants/web-portal.ts', 'packages/i18n/messages/'],
+    onFailHint: [
+      '  💡 修复出口:node scripts/add-web-portal-entries.mjs --routes-file <清单> --apply',
+      '     手工补词包也行,但必须两端×五语言十份齐补;W3 红=条目指向的 web 路由不在被审面(点开即 404)。',
+    ],
+  },
+  {
+    id: '255',
+    label:
+      '🎨 端内写死源档色值拦新增(blocking;只按本枚改动的文件计数 —— 源里已有档却写回字面量,下一枚提交就拦在这里)',
+    script: 'fix-rn-color-literals.mjs',
+    args: ['--check', '--staged'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RN_COLOR_LITERAL_RATCHET',
+    stagedTriggers: [
+      'apps/mobile-rn/src/',
+      'packages/app/src/',
+    ],
+    onFailHint: [
+      '  💡 判的是 packages/app 与 apps/mobile-rn 里「对象字面量属性值上写了个等于源档的色字面量」。',
+      '     ① 看清单:node scripts/fix-rn-color-literals.mjs(只读报告,含歧义/需主题两类队列);',
+      '     ② 修:node scripts/fix-rn-color-literals.mjs --apply —— 机械改写 + 逐处 colorsAgree 自证,写完 pnpm --filter @ihui/design-tokens build;',
+      '     ③ 确实要留在端内的(比如与源档只是巧合同值、或语义就是本地常量):在同文件加一行 handcopy-token-exempt: <原因>(门 93 R8 同族豁免,须带原因);',
+      '     ④ 判据本体:node scripts/fix-rn-color-literals.mjs --self-test(11 例,T10 是拦新增的正反控)。',
+      '     禁止为消红放宽判据(§12e);存量只报数,不由本门代裁。',
     ]
   },
   {
@@ -5710,7 +5858,7 @@ const checks = [
 
   // --- .ps1 BOM(差值棘轮)(1 项,blocking)---
   {
-    id: '251',
+    id: '260',
     label:
       '📄 .ps1 必须带 UTF-8 BOM(差值棘轮:只拦本次新增/弄掉的)',
     script: 'check-ps1-bom.mjs',
@@ -5734,7 +5882,7 @@ const checks = [
 
   // --- lint-staged stdio 三针盯针(1 项,warn:判机器状态 ⇒ §12e 只能 warn,与门 153 同型)---
   {
-    id: '252',
+    id: '261',
     label:
       '📌 lint-staged stdio 三针盯针(判机器状态:node_modules 里三针还在不在;§12e 只能 warn)',
     script: 'check-lint-staged-stdio-pin.mjs',
@@ -5757,7 +5905,7 @@ const checks = [
 
   // --- 门注册表射程声明(1 项,blocking)---
   {
-    id: '253',
+    id: '262',
     label:
       '📌 门注册表射程声明完备性(新增门必须写 stagedTriggers;摘射程判红;存量只报数)',
     script: 'check-gate-triggers.mjs',
@@ -5774,7 +5922,7 @@ const checks = [
     ].join('\n'),
   },
   {
-    id: '254',
+    id: '263',
     label: '🐍 Python ruff lint(拦 chore(auto)/旁路落地把 Python 欠账直带进 HEAD)—— 2026-10-27 补注册,接线与点名同批',
     script: 'check-ruff-python.mjs',
     args: [],
@@ -5789,9 +5937,9 @@ const checks = [
     ],
   },
 
-  // --- 跨端视觉原子 spec 覆盖率棘轮(阶段3,守门 256)---
+  // --- 跨端视觉原子 spec 覆盖率棘轮(阶段3,守门 264)---
   {
-    id: '256',
+    id: '264',
     label: '🔗 跨端视觉原子 spec 覆盖率棘轮(退化才拦;口径见 scripts/check-cross-end-spec-coverage.mjs)',
     script: 'check-cross-end-spec-coverage.mjs',
     args: ['--ratchet'],
@@ -5811,23 +5959,6 @@ const checks = [
       '     看差在哪:node scripts/check-cross-end-spec-coverage.mjs',
       '     基线:scripts/data/cross-end-spec-baseline.json(口径已校正:视觉原子 11 项含 button,collapsible 为 EXEMPT 不计分母)。',
       '     应急放行 HUSKY_SKIP_CROSS_END_SPEC_COVERAGE=1(仅限退化确属他人文件/并行谱系时,须在提交信息写明理由)。',
-      '',
-    ].join('\n'),
-  },
-  {
-    id: '257',
-    label:
-      '🌐 web↔RN 跨端对账(仅报告):web 新增路由/功能而 RN 缺承载时自动可见 —— 复用 check-web-rn-screen-parity 同一把尺,拦「web 有、RN 零承载」漂移回潮',
-    script: 'check-web-rn-parity.mjs',
-    args: [],
-    mode: 'warn',
-    skipEnv: 'HUSKY_SKIP_WEB_RN_PARITY',
-    stagedTriggers: ['apps/web/app/**', 'apps/mobile-rn/src/**', 'packages/app/src/**', 'scripts/data/web-rn-screen-map.jsonl', 'scripts/check-web-rn-parity.mjs'],
-    onFailHint: [
-      '',
-      '  💡 仅报告:web 有路由/能力而 RN 零承载。逐条看差在哪:node scripts/check-web-rn-parity.mjs',
-      '     映射表:scripts/data/web-rn-screen-map.jsonl(新增承载后请在表里登记)。',
-      '     应急放行 HUSKY_SKIP_WEB_RN_PARITY=1(须在提交信息写明理由)。',
       '',
     ].join('\n'),
   },

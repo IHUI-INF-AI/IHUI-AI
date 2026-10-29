@@ -8,11 +8,7 @@ import { useTranslations } from 'next-intl'
 import { useIDEWorkspace, EXT_LANG } from '@/stores/ide-workspace'
 import { EditorEmptyState } from './editor-empty-state'
 import { EditorTabBar } from './editor-tab-bar'
-import {
-  CodeEditor,
-  type MonacoSelection,
-  type CodeEditorHandle,
-} from '@/components/editor/CodeEditor'
+import { CodeEditor, type MonacoSelection } from '@/components/editor/CodeEditor'
 import { InlineEditDialog } from '@/components/ai/inline-edit-dialog'
 import { useInlineEdit } from '@/hooks/use-inline-edit'
 import { useInlineEditStore, type InlineEditSelection } from '@/stores/inline-edit'
@@ -41,13 +37,6 @@ const DEFAULT_FONT_SIZE = 14
 const MIN_FONT_SIZE = 10
 const MAX_FONT_SIZE = 24
 
-/** 路径比较统一成正斜杠,并允许一侧为绝对路径(与 CodeEditor 的落点匹配同口径) */
-function sameFilePath(a: string, b: string): boolean {
-  const x = a.replace(/\\/g, '/')
-  const y = b.replace(/\\/g, '/')
-  return x === y || x.endsWith('/' + y) || y.endsWith('/' + x)
-}
-
 /** Monaco editor 实例的最小类型(仅用到的子集) */
 interface MonacoEditorLike {
   executeEdits(
@@ -74,7 +63,6 @@ interface MonacoEditorLike {
 
 export function CodeEditorPane() {
   const { openTabs, activeTabId, workspacePath, openFile } = useIDEWorkspace()
-  const setRevealAt = useIDEWorkspace((s) => s.setRevealAt)
   const t = useTranslations('ide')
   const activeTab = openTabs.find((tab) => tab.id === activeTabId)
   // tab 内容为空字符串表示正在异步加载
@@ -88,10 +76,6 @@ export function CodeEditorPane() {
   } | null>(null)
   const editorRef = React.useRef<MonacoEditorLike | null>(null)
   const tabIdRef = React.useRef<string | null>(null)
-  // D06③ 跨路由落点:审查发现卡在聊天页点「跳转」时编辑器可能尚未挂载/内容仍在加载,
-  // 故落点先存 pending ref,等 active tab 就绪(挂载 + 内容非空 + 文件匹配)再转发给 CodeEditor。
-  const codeEditorRef = React.useRef<CodeEditorHandle | null>(null)
-  const pendingRevealRef = React.useRef<{ file: string; line: number; column: number } | null>(null)
 
   const { openInlineEdit } = useInlineEdit()
   const registerApplyPatchCallback = useInlineEditStore((s) => s.registerApplyPatchCallback)
@@ -153,15 +137,8 @@ export function CodeEditorPane() {
       const path = loc.file.replace(/\\/g, '/')
       const state = useIDEWorkspace.getState()
       const existing = state.openTabs.find((t) => t.path.replace(/\\/g, '/') === path)
-      // 落点先存 pending:该 tab 可能仍在异步加载(内容为空),或编辑器尚未挂载。
-      // 就绪后由下面的 effect 转发;已就绪则当场转发。
-      pendingRevealRef.current = { ...loc, file: path }
       if (existing) {
         state.setActiveTab(existing.id)
-        if (existing.content !== '' && codeEditorRef.current) {
-          pendingRevealRef.current = null
-          codeEditorRef.current.revealAt(path, loc.line, loc.column)
-        }
         return
       }
       const name = path.split('/').pop() ?? path
@@ -176,24 +153,6 @@ export function CodeEditorPane() {
     },
     [openFile],
   )
-
-  // D06③ 把 handleOpenLocation 注册成 store 的唯一落点出口(审查发现卡等跨路由调用方只用它);
-  // 卸载即注销,避免 store 里留下指向已卸载组件的回调。
-  React.useEffect(() => {
-    setRevealAt((file, line, column) => handleOpenLocation({ file, line, column }))
-    return () => setRevealAt(null)
-  }, [setRevealAt, handleOpenLocation])
-
-  // D06③ pending 落点的转发:active tab 内容就绪(非空)且与落点同文件时交给 CodeEditor。
-  React.useEffect(() => {
-    const pending = pendingRevealRef.current
-    if (!pending || !activeTab || activeTab.content === '') return
-    if (!sameFilePath(activeTab.path, pending.file)) return
-    const handle = codeEditorRef.current
-    if (!handle) return
-    pendingRevealRef.current = null
-    handle.revealAt(activeTab.path, pending.line, pending.column)
-  }, [activeTab, activeTabId])
 
   // 切换 tab 时重置选区缓存 + 同步 tabIdRef
   React.useEffect(() => {
@@ -300,7 +259,6 @@ export function CodeEditorPane() {
               </div>
             ) : (
               <CodeEditor
-                ref={codeEditorRef}
                 value={activeTab.content}
                 language={activeTab.language}
                 filePath={activeTab.path}

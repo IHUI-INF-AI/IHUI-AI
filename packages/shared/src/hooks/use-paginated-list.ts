@@ -2,13 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { type PageData } from '@ihui/api-client'
 
 export type Fetcher<T> = (query: {
   page: number
   pageSize: number
-}) => Promise<{ success: true; data: PageData<T> } | { success: false; error?: string }>
+}) => Promise<{ success: true; data: PageData<T> | T[] } | { success: false; error?: string }>
 
 export interface PaginatedListResult<T> {
   items: T[]
@@ -18,6 +18,8 @@ export interface PaginatedListResult<T> {
   error: string
   page: number
   total: number
+  /** 还有下一页(判据见 fetch 内两分支:后端给 total 就按条数,不给就按本页条数) */
+  hasMore: boolean
   refresh: () => void
   loadMore: () => void
   removeItem: (predicate: (item: T) => boolean) => void
@@ -33,22 +35,21 @@ export interface PaginatedListResult<T> {
  */
 export function usePaginatedList<T>(fetcher: Fetcher<T>, pageSize = 20): PaginatedListResult<T> {
   const [items, setItems] = useState<T[]>([])
-  const [loading, setLoading] = useState(false)
+  // 初值必须是 true:effect 在 paint 之后才跑,写 false 会让首帧"既不 loading 也没数据",
+  // 列表屏的 `loading && items.length === 0` 骨架屏判据当场落空 ⇒ 先闪一帧空态再进骨架
+  // (2026-10-29 接 ArticleListScreen 时实测到,故在源头改,而不是让每张屏各自兜一层)。
+  const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  // 序号守卫(2026-10-25):fetcher 身份变化(筛选切档)会经下方 effect 重发第 1 页,
-  // 与在途的旧查询/第 N 页并跑 —— 无守卫时两条响应按**到达顺序**互相覆盖:
-  // 慢的旧页会把新筛选的第 1 页整表替换、或把第 N 页 append 进新结果,同时 setPage
-  // 记成旧页号(下次"加载更多"直接跳页)。规则恒定:最后一次发出的请求才是当下事实,
-  // 先发出的任何在途响应落地一律丢弃(不写数据、不写错误、不翻加载位 —— 状态归最后一发管)。
-  const seqRef = useRef(0)
+  /** 后端给不给 total 是两回事:给了就按累计条数判到底,不给就只能按"本页是否取满"自守。 */
+  const [totalKnown, setTotalKnown] = useState(false)
+  const [lastCount, setLastCount] = useState(0)
 
   const fetch = useCallback(
     async (nextPage: number, isRefresh: boolean) => {
-      const mine = ++seqRef.current
       if (nextPage === 1) {
         if (isRefresh) setRefreshing(true)
         else setLoading(true)
@@ -57,10 +58,14 @@ export function usePaginatedList<T>(fetcher: Fetcher<T>, pageSize = 20): Paginat
       }
       setError('')
       const res = await fetcher({ page: nextPage, pageSize })
-      if (seqRef.current !== mine) return
       if (res.success) {
-        setItems((prev) => (nextPage === 1 ? res.data.list : [...prev, ...res.data.list]))
-        setTotal(res.data.total)
+        const list = Array.isArray(res.data) ? res.data : res.data.list
+        setItems((prev) => (nextPage === 1 ? list : [...prev, ...list]))
+        setLastCount(list.length)
+        if (!Array.isArray(res.data)) {
+          setTotal(res.data.total)
+          setTotalKnown(true)
+        }
         setPage(nextPage)
       } else {
         setError(res.error || '加载失败')
@@ -76,14 +81,16 @@ export function usePaginatedList<T>(fetcher: Fetcher<T>, pageSize = 20): Paginat
     void fetch(1, false)
   }, [fetch])
 
+  const hasMore = totalKnown ? items.length < total : lastCount === pageSize
+
   const refresh = useCallback(() => {
     void fetch(1, true)
   }, [fetch])
 
   const loadMore = useCallback(() => {
-    if (loadingMore || items.length >= total) return
+    if (loadingMore || !hasMore) return
     void fetch(page + 1, false)
-  }, [fetch, loadingMore, items.length, total, page])
+  }, [fetch, loadingMore, hasMore, page])
 
   const removeItem = useCallback((predicate: (item: T) => boolean) => {
     setItems((prev) => prev.filter((item) => !predicate(item)))
@@ -98,6 +105,7 @@ export function usePaginatedList<T>(fetcher: Fetcher<T>, pageSize = 20): Paginat
     error,
     page,
     total,
+    hasMore,
     refresh,
     loadMore,
     removeItem,

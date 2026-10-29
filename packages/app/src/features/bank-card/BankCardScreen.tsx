@@ -7,7 +7,7 @@ import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { BankCardItem, BankCardScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -83,15 +83,20 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    error: { paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: tk.danger.DEFAULT },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    error: {
+      paddingHorizontal: 10,
+      paddingVertical: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
     listBody: { padding: 10 },
     separator: { height: 12 },
     card: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.cta,
     },
@@ -100,9 +105,9 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    bankName: { fontSize: 16, fontWeight: '600', color: tk.brand.ctaForeground },
+    bankName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.brand.ctaForeground },
     badge: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
       backgroundColor: 'rgba(255,255,255,0.25)',
@@ -110,12 +115,16 @@ function createStyles(tk: AppThemeTokens) {
     badgeText: { fontSize: 10, color: tk.surface.light },
     cardNumber: {
       marginTop: 10,
-      fontSize: 20,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.brand.ctaForeground,
       letterSpacing: 1,
     },
-    holder: { marginTop: 8, fontSize: 14, color: 'rgba(255,255,255,0.85)' },
+    holder: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: 'rgba(255,255,255,0.85)',
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

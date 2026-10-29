@@ -39,6 +39,7 @@ import { PurchaseNoticePopUp } from '../components/PurchaseNoticePopUp'
 import { IntroducePopup } from '../components/IntroducePopup'
 import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
 import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
@@ -258,6 +259,9 @@ export function VipScreen() {
     const timer = setTimeout(() => setLevelIntroVisible(true), 500)
     return () => clearTimeout(timer)
   }, [load, routeType])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首屏与弹窗分支由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
 
   const onPurchase = async (level: VipLevelItem2) => {
     setPurchasingId(level.id)

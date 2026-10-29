@@ -284,8 +284,6 @@ export async function buildServer(): Promise<FastifyInstance> {
   // - 不覆盖:保留路由已显式配置的 config(?? 合并)
   // - 分层保护:
   //   * admin 路由:强制内网(allowExternal:false)+ mTLS,公网不可达
-  //   * 内部服务路由(/api/internal/*):强制内网(allowExternal:false),不要求 mTLS
-  //     —— 调用方只有本机 ai-service(立据见 INTERNAL_ONLY_PREFIXES 注释)
   //   * 敏感业务路由(auth/users/wallet/finance/order/payment 等):允许公网访问,
   //     但启用网络分段策略,strict 模式下 unknown IP 会被拒绝
   //   * 公开路由(health/landing/public/oss/metrics):不注入,保持可达
@@ -324,18 +322,6 @@ export async function buildServer(): Promise<FastifyInstance> {
     '/business-metrics',
     '/api/csrf-token',
   ]
-  // 内部服务专用前缀(只允许回环/内网,公网一律 403;G-815989 声明面第三档)
-  // 立据(逐条读到调用方,不按文档):`/api/internal/*` 的调用方只有本机 ai-service ——
-  //   · routes/internal-relay-account-pool-credential.ts(号池凭证回写,签到引擎)
-  //   · routes/internal-relay-user-pool.ts(upsert/delete 个人号池反向同步)
-  //   · routes/internal-user-broadcast.ts(D154 MCP 状态下行)
-  // 三者的出网基地址 = `apps/ai-service/app/services/api_tools_bridge.py:api_base_url()`
-  //   → API_INTERNAL_BASE_URL ?? settings.api_service_url(本机现值 http://127.0.0.1:8802;
-  //   docker-compose 形态给 ai-service 注入 http://api:8802,容器互联走 RFC1918 内网段)⇒
-  //   两型部署都是 internal 分类;全仓 TS/TSX 无任何客户端引用这些路径。
-  // 与 admin 档的差别:刻意**不**注入 mTLS —— 内部通道凭据是 X-Internal-Secret /
-  //   internal ticket(路由自带 preHandler),强制客户端证书会让 Python 侧静默降级。
-  const INTERNAL_ONLY_PREFIXES = ['/api/internal/']
 
   server.addHook('onRoute', (routeOptions) => {
     const url = routeOptions.url ?? ''

@@ -27,18 +27,16 @@
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-// git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;不写死本机 Git 安装位)。
-import { resolveGitBin } from './lib/gitdir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const GIT = process.env.IHUI_GIT_BIN || resolveGitBin()
+const GIT =
+  process.env.IHUI_GIT_BIN ||
+  (process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : 'git')
 const ABS_LIMIT = 1000
 const RATIO = 0.2
 
-const git = (args) => {
-  // 解析不到就是「未判定」:不回落 PATH 里的裸 git(§5b 唯一出口 + 型 B 棘轮)。
-  if (!GIT) throw new Error('resolveGitBin() 解析不到可用 git(候选链见 scripts/lib/gitdir.mjs)')
-  return execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+const git = (args) =>
+  execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
@@ -47,7 +45,6 @@ const git = (args) => {
     // 本helper 全部调用点都是**只读** git(ls-files/ls-tree/diff/rev-parse/show),一律不吃 stdin。
     stdio: ['ignore', 'pipe', 'pipe'],
   })
-}
 
 /** 纯判据(供自测直接调用):返回 null = 放行,返回字符串 = 拦截理由 */
 export function judge(deletedCount, headCount, allowed = false) {

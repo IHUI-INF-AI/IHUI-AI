@@ -116,7 +116,7 @@ function readStdin(): string {
   return readFileSync(0, 'utf8')
 }
 
-interface HealthOutcome {
+export interface HealthOutcome {
   id: string
   uid: string
   ok: boolean
@@ -125,7 +125,8 @@ interface HealthOutcome {
   error: string | null
 }
 
-async function runHealth(providerCode: string, uid: string): Promise<HealthOutcome | null> {
+/** 导入后即时体检(单一实现:qoder 一键导入器直接复用,不写第二份) */
+export async function runHealth(providerCode: string, uid: string): Promise<HealthOutcome | null> {
   const [row] = await dbRead
     .select()
     .from(aiRelayAccountPool)

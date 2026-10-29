@@ -30,9 +30,8 @@ import { fileURLToPath } from 'node:url'
 // 夹具判据只有一份实现(scratch-dir.mjs 是 §26 批准的临时物唯一落点,段名与计数都住在那儿)。
 // 在别处再抄一遍 `ihui-scratch` 字面量 = 名字一改本闸整族失明,与 §3「两处实现必漂移」同一条禁令。
 import { countScratchSegments } from './scratch-dir.mjs'
-// G-814433(2026-09-30):归档根推导跟随 devEnvRoot() 双形态。2026-10-25 起判据改为
-// 「仓内 .DevEnv 带机器标记(runtimes/tools/… )才算数」,否则回落 <盘>/DevEnv ——
-// 半迁移机器上 scratch 自建的仓内空壳不再能把归档根吸进仓树。seal 不依赖本模块,无环。
+// G-814433(2026-09-30):DevEnv 实体已迁仓内 G:/IHUI-AI/.DevEnv,归档根推导跟随
+// devEnvRoot() 双形态(仓内 .DevEnv 优先,回落 <盘>/DevEnv)。seal 不依赖本模块,无环。
 import { devEnvRoot } from '../seal-c-root-stray.mjs'
 
 // ── git 可执行文件解析:不依赖 PATH(服务账户如 LocalSystem 可能没有 PATH) ──

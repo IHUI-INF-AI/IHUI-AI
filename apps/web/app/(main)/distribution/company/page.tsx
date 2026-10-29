@@ -4,7 +4,6 @@
 
 'use client'
 
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -35,6 +34,7 @@ import { useAuthStore } from '@/stores/auth'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
+import { formatPrice } from '@ihui/shared/utils/format'
 
 const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
 

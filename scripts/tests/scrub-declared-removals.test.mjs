@@ -12,7 +12,7 @@ import { __test__ as scrubTool } from '../scrub-declared-removals.mjs'
 import { compositeKeyOf } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-const { scrub, declaredRows, buildDeclared, rowStateOf, titleFpOf, main, LEDGERS } = scrubTool
+const { scrub, declaredRows, buildDeclared, rowStateOf, main, LEDGERS } = scrubTool
 
 const ROW = '- [ ] G-900 已被台账摘除的登记行'
 const HEAD = ['- [ ] G-901 在册行', '- [x] G-902 已勾在册行'].join('\n')

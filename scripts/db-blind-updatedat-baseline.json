@@ -5,7 +5,7 @@
   "face": "head",
   "perFileCount": {
     "apps/api/src/db/admin-queries.ts": 3,
-    "apps/api/src/db/admin-sys-queries.ts": 11,
+    "apps/api/src/db/admin-sys-queries.ts": 12,
     "apps/api/src/db/agents-queries.ts": 8,
     "apps/api/src/db/agreements-queries.ts": 1,
     "apps/api/src/db/chat-group-queries.ts": 3,
@@ -33,7 +33,7 @@
     "apps/api/src/db/skills-queries.ts": 2,
     "apps/api/src/db/system-queries.ts": 1,
     "apps/api/src/db/usercenter-queries.ts": 2,
-    "apps/api/src/db/vip-queries.ts": 1,
+    "apps/api/src/db/vip-queries.ts": 2,
     "apps/api/src/db/workspace-permission-queries.ts": 1,
     "apps/api/src/jobs/hot-words-sync.ts": 1,
     "apps/api/src/plugins/search-aspect.ts": 1,

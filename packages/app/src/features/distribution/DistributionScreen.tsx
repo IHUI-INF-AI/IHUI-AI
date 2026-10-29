@@ -2,23 +2,17 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { formatPrice } from '@ihui/shared/utils'
 import { useMemo } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { DistributionProduct, DistributionInfo, DistributionScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { formatPrice } from '@ihui/shared/utils'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 export type { DistributionProduct, DistributionInfo, DistributionScreenProps }
-
-/** 后端金额以「分」存储,换算为元(两位小数)——委托全仓唯一出口(2026-10-26):
- * 非有限值同回 '0.00',旧语义逐字保留,不在此重算。 */
-function yuan(cents: number): string {
-  return Number.isFinite(cents) ? formatPrice(cents) : '0.00'
-}
 
 /**
  * 分销共享屏 — props 注入式跨端组件
@@ -94,16 +88,16 @@ export function DistributionScreen({
       <View style={styles.earningsCard}>
         <View style={styles.earningsRow}>
           <View style={styles.earningsItem}>
-            <Text style={styles.earningsValue}>{yuan(info.totalCommission)}</Text>
+            <Text style={styles.earningsValue}>{formatPrice(info.totalCommission)}</Text>
             <Text style={styles.earningsLabel}>{t('distribution.totalEarnings')}</Text>
           </View>
           <View style={styles.earningsItem}>
-            <Text style={styles.earningsValue}>{yuan(info.withdrawnCommission)}</Text>
+            <Text style={styles.earningsValue}>{formatPrice(info.withdrawnCommission)}</Text>
             <Text style={styles.earningsLabel}>{t('distribution.withdrawn')}</Text>
           </View>
           <View style={styles.earningsItem}>
             <Text style={[styles.earningsValue, styles.pendingValue]}>
-              {yuan(info.pendingCommission)}
+              {formatPrice(info.pendingCommission)}
             </Text>
             <Text style={styles.earningsLabel}>{t('distribution.pending')}</Text>
           </View>
@@ -118,7 +112,7 @@ export function DistributionScreen({
           </Text>
         </TouchableOpacity>
         <Text style={styles.withdrawHint}>
-          {t('distribution.withdrawMin', { amount: yuan(info.withdrawMin ?? 0) })}
+          {t('distribution.withdrawMin', { amount: formatPrice(info.withdrawMin ?? 0) })}
         </Text>
       </View>
 
@@ -193,10 +187,8 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
-    // 读数 22px,最坏「¥99,999.99」(10 字符 × 22 × 0.55 = 121px)⇒ minWidth 128。
     earningsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
-    earningsItem: { alignItems: 'center', flex: 1, minWidth: 128 },
+    earningsItem: { alignItems: 'center', flex: 1, minWidth: 88 },
     earningsValue: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     pendingValue: { color: tk.success.DEFAULT },
     earningsLabel: {

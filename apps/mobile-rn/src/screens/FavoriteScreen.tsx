@@ -23,7 +23,7 @@ import { getFavorites } from '@ihui/api-client'
 import { FavoriteScreen as SharedFavoriteScreen } from '@ihui/rn-app'
 import type { FavoriteFilterTab, FavoriteItemRow, FavoriteScreenProps } from '@ihui/types'
 import { deleteFavorite } from '../api/social'
-import { usePaginatedList } from '../hooks'
+import { usePaginatedList, useRefreshOnFocus } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { formatShortDateWithYear } from '../utils/date-utils'
@@ -97,8 +97,10 @@ export function useFavoriteScreenModel(): FavoriteScreenProps {
     [tab, uniappT],
   )
 
-  const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
+  const { items, loading, refreshing, loadingMore, error, total, refresh, loadMore, removeItem } =
     usePaginatedList<FavoriteItemRow>(fetcher, PAGE_SIZE)
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):走分页 hook 的 refresh,重置分页并重载
+  useRefreshOnFocus(refresh)
 
   const onSelectTab = (next: FavoriteFilterTab) => {
     if (next === tab) return
@@ -139,11 +141,32 @@ export function useFavoriteScreenModel(): FavoriteScreenProps {
     onDelete,
     onBack: () => navigation.goBack(),
     colorScheme: resolvedTheme,
+    hasMore: items.length < total,
+    onGoDiscover: () => navigation.navigate('Home'),
   }
 }
 
 export function FavoriteScreen() {
   const model = useFavoriteScreenModel()
   return <SharedFavoriteScreen {...model} />
+  return (
+    <SharedFavoriteScreen
+      t={uniappT}
+      items={items}
+      activeTab={tab}
+      onSelectTab={onSelectTab}
+      loading={loading}
+      refreshing={refreshing}
+      loadingMore={loadingMore}
+      hasMore={items.length < total}
+      error={error}
+      onRefresh={refresh}
+      onLoadMore={loadMore}
+      onDelete={onDelete}
+      onBack={() => navigation.goBack()}
+      onGoDiscover={() => navigation.navigate('Home')}
+      colorScheme={resolvedTheme}
+    />
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

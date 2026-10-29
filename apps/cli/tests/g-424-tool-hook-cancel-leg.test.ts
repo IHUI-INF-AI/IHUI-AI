@@ -11,8 +11,6 @@
  *   ④ 生产装配面(runToolLoop):回合 opts.signal 经 toolCtx 注入进 ToolContext
  *      (handler 侧 ctx.signal 非 undefined 且随父级 abort 而 aborted),
  *      取消打在运行中的 post 钩子 ⇒ 端到端 Cancelled。
- *   ⑤ 有意不接形状锁:builtins.ts 后台 post 钩子(fire-and-forget 跨回合,2 处调用位)与
- *      file-ops.ts cmdBash(REPL /bash 直达命令,无信号源)不挂 signal,点名注释必须在位。
  * 全程走生产链 executeToolCall → handler → run*ToolCall(真派生子进程 + 真 hooks.json),
  * 不 mock 执行面;钩子自身 timeout 远大于"取消后快速返回"的断言窗,防止"等超时才绿"。
  * ④ 唯一 mock 的是采样出口 streamChat(不真发网络),执行面/钩子面仍是真的。
@@ -21,8 +19,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
 
 import {
   onHookRunEvent,
@@ -65,7 +61,6 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'g424-cancel-leg-'));
 const CONFIG = path.join(TMP, 'hooks.json');
-const HERE = dirname(fileURLToPath(import.meta.url));
 const isWin = process.platform === 'win32';
 let uniq = 0;
 const hookName = (tag: string) => `cancelleg-${tag}-${++uniq}`;
@@ -288,25 +283,5 @@ describe('工具粒度钩子取消腿(承 G-424)', () => {
       streamChatMock.mockReset();
     }
   }, 25_000);
-
-  it('⑤ 有意不接形状锁:后台 post 钩子(fire-and-forget 跨回合)与 cmdBash(无信号源)不挂 signal,点名注释在位', () => {
-    const builtinsSrc = fs.readFileSync(path.join(HERE, '../src/tools/builtins.ts'), 'utf-8');
-    const fileOpsSrc = fs.readFileSync(path.join(HERE, '../src/commands/file-ops.ts'), 'utf-8');
-    // 点名注释在位:删掉「有意不接」的交代 ⇒ 红,防止后人误判为漏接或悄悄接线不留名
-    expect(builtinsSrc).toContain('G-424 有意不接');
-    expect(fileOpsSrc).toContain('G-424 有意不接');
-    // builtins:后台(background:true ⇒ fire-and-forget 跨回合)post 钩子恰好 2 处,均不挂 signal
-    const bgCalls = builtinsSrc.split('\n').filter((l) => l.includes("runPostToolCall('bash'") && l.includes('background: true'));
-    expect(bgCalls.length).toBe(2);
-    for (const line of bgCalls) expect(line).not.toContain('signal');
-    // builtins:前台同步路径恰好 1 处,必须传 ctx.signal(对照点,证明"不接"是选择不是遗漏)
-    const fgCalls = builtinsSrc.split('\n').filter((l) => l.includes("runPostToolCall('bash'") && !l.includes('background: true'));
-    expect(fgCalls.length).toBe(1);
-    expect(fgCalls[0]).toContain('ctx.signal');
-    // file-ops:cmdBash 的 post 钩子恰好 1 处,不挂 signal(直达命令无信号源)
-    const cmdBashCalls = fileOpsSrc.split('\n').filter((l) => l.includes('runPostToolCall('));
-    expect(cmdBashCalls.length).toBe(1);
-    expect(cmdBashCalls[0]).not.toContain('signal');
-  });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -39,7 +39,9 @@ export async function getBalance(userId: string): Promise<number> {
  *  - 累计消耗 = op_type = 1
  * 其余 op_type(2=冻结/过期等既非净增也非净耗)刻意**两边都不计**,不得为凑数塞进任一侧。
  */
-export async function getTokenFlowTotals(userId: string): Promise<{ totalEarned: number; totalUsed: number }> {
+export async function getTokenFlowTotals(
+  userId: string,
+): Promise<{ totalEarned: number; totalUsed: number }> {
   const rows = await db
     .select({
       totalEarned: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} IN (0,3,4,5,6) THEN ${tokenFlows.quantity} ELSE 0 END)::int, 0)`,
@@ -107,8 +109,7 @@ export async function deductToken(
   userId: string,
   quantity: number,
   remark?: string,
-  relatedOrderNo?: string,
-): Promise<{ balanceAfter: number; flowId: string }> {
+): Promise<number> {
   await ensureMargin(userId)
   // P1-1 行锁原子 UPDATE:WHERE 条件内联 token_quantity >= quantity,消除 SELECT→UPDATE 跨事务 TOCTOU
   const result = await db.transaction(async (tx) => {
@@ -118,21 +119,14 @@ export async function deductToken(
       .where(and(eq(userMargins.userId, userId), sql`token_quantity >= ${quantity}`))
       .returning()
     if (!updated) throw new Error('Token 余额不足')
-    const [flowRow] = await tx
-      .insert(tokenFlows)
-      .values({
-        userId,
-        opType: 1,
-        quantity,
-        balanceAfter: updated.tokenQuantity,
-        remark: remark ?? '扣减',
-      // 关联单号透传:扣减流水若丢了订单号,支付历史就再也对不回那一单(下面这条链的调用方
-      // 正是"支付历史"路由,它此前自己写了一份读-改-写实现,现改复用本函数,单号必须留住)
-        ...(relatedOrderNo ? { relatedOrderNo } : {}),
-      })
-      .returning({ id: tokenFlows.id })
-    if (!flowRow) throw new Error('扣减流水写入失败')
-    return { balanceAfter: updated.tokenQuantity, flowId: flowRow.id }
+    await tx.insert(tokenFlows).values({
+      userId,
+      opType: 1,
+      quantity,
+      balanceAfter: updated.tokenQuantity,
+      remark: remark ?? '扣减',
+    })
+    return updated.tokenQuantity
   })
   return result
 }
@@ -280,56 +274,6 @@ export async function listCommissionFlows(beneficiaryId: string, page: number, l
     .where(where)
   const count = countRows[0]?.count ?? 0
   return { items: rows, total: count }
-}
-
-/**
- * 我的分销订单(2026-10-25 补建)。
- *
- * 为什么要有它:小程序「分销-我的订单」页一直在调 `GET /distribution/orders`,
- * 而这个路径**后端从未注册**(现读:routes/distribution.ts 只有 overview/invited-users/tree/
- * stats/commission-rates/levels/withdrawals/invite-info/list/withdraw-list/ranking/team/*),
- * 页面 `catch {}` 把 404 吞成"暂无订单" ⇒ 用户以为自己没有分销订单,实际是屏幕坏了。
- *
- * 口径:一行 = 我作为受益人(beneficiaryId)产生过的一条佣金流水所挂的订单。
- *  · 主体只取 `beneficiaryId = 调用者`,不接受任何客户端传的 userId(§5 认证不等于授权);
- *  · `orders.amount` 与 `commission_flows.amount` 单位都是**分**(schema 注释口径),
- *    由前端 formatPrice 统一转元,这里不做二次换算,免得两端各除一次 100;
- *  · 已退款/已取消的订单照常返回并带其订单状态,由前端按 tab 过滤(与 withdrawals 同形态)。
- */
-export async function listDistributionOrders(
-  beneficiaryId: string,
-  page: number,
-  limit: number,
-  status?: string,
-) {
-  const conditions = [eq(commissionFlows.beneficiaryId, beneficiaryId)]
-  if (status) conditions.push(eq(orders.status, status))
-  const where = and(...conditions)
-  const rows = await db
-    .select({
-      id: commissionFlows.id,
-      orderId: orders.id,
-      orderNo: orders.orderNo,
-      product: orders.targetTitle,
-      amount: orders.amount,
-      commission: commissionFlows.amount,
-      status: orders.status,
-      orderType: orders.orderType,
-      createdAt: commissionFlows.createdAt,
-      paidAt: orders.paidAt,
-    })
-    .from(commissionFlows)
-    .innerJoin(orders, eq(commissionFlows.orderId, orders.id))
-    .where(where)
-    .orderBy(desc(commissionFlows.createdAt))
-    .limit(limit)
-    .offset((page - 1) * limit)
-  const [countRow] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(commissionFlows)
-    .innerJoin(orders, eq(commissionFlows.orderId, orders.id))
-    .where(where)
-  return { items: rows, total: countRow?.count ?? 0 }
 }
 
 export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
@@ -619,22 +563,14 @@ export async function rejectWithdrawal(
     // ② 退还冻结余额到可用余额(tokenQuantity += amount, frozenQuantity -= amount)
     // flow.userId 可空(用户删除时 SET NULL),null 时无法退还(资金沉淀 frozen 等待人工处理)
     if (flow.userId) {
-      // 驳回即退钱:必须"冻结够才退"。此前只带 eq(userId),冻结不足时把 frozen 扣成负数、
-      // 同时凭空给 token 加一笔(铸钱)。空集 ⇒ 抛带 statusCode 的错,事务回滚,
-      // 审批不会留下"已驳回但账没退"的半截态(与本文件 428/444 行既有模式同口径)。
-      const refunded = await tx
+      await tx
         .update(userMargins)
         .set({
           tokenQuantity: sql`${userMargins.tokenQuantity} + ${flow.amount}`,
           frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
           updatedAt: new Date(),
         })
-        .where(
-          and(eq(userMargins.userId, flow.userId), gte(userMargins.frozenQuantity, flow.amount)),
-        )
-        .returning({ userId: userMargins.userId })
-      if (!refunded[0])
-        throw Object.assign(new Error('冻结余额不足以退回提现金额,需人工对账'), { statusCode: 409 })
+        .where(eq(userMargins.userId, flow.userId))
     }
     return flow
   })

@@ -24,7 +24,7 @@
 
 ## 通用架构组件
 
-IHUI-AI 是 TS Monorepo(pnpm workspace + Turborepo)全栈 AI 平台,9 端清单:
+IHUI-AI 是 TS Monorepo(pnpm workspace + Turborepo)全栈 AI 平台,8 端清单:
 
 | 组件 | 端 | 技术栈 | 容器内端口 | 宿主端口(88xx) |
 |------|------|--------|-----------|------------------|

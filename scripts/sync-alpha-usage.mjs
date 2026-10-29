@@ -47,7 +47,6 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { __test__ as GATE } from './check-cross-end-tokens.mjs'
-import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -62,12 +61,10 @@ const isHelp = argv.includes('--help')
 const isQuiet = argv.includes('--quiet')
 const isSelfTest = argv.includes('--self-test')
 const isForce = argv.includes('--force')
-const faceFlag = requireFlagValue(argv, '--face', { noun: '面名(head|staged)', fallback: 'head' })
-if (faceFlag.error) {
-  console.error(`❌ ${faceFlag.error}`)
-  process.exit(2)
-}
-const faceArg = faceFlag.value
+const faceArg = (() => {
+  const i = argv.indexOf('--face')
+  return i >= 0 ? argv[i + 1] : 'head'
+})()
 
 const UndeterminedError = GATE.UndeterminedError
 

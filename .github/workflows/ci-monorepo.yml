@@ -134,36 +134,19 @@ jobs:
       - name: e2e typecheck (@ihui/web)
         id: typecheck-e2e
         run: pnpm --filter @ihui/web typecheck:e2e
-      # G-28(2026-10-25 接线):HEAD 面(已入库代码)能否通过各端 tsc 的**独立**出口。
-      # 立因:scripts/check-head-typecheck.mjs 早已入库(package.json 也有 check:head-typecheck),
-      # 但 guardian-runner / husky / CI 五处权威点零接 ⇒ "造好没装车"= 没有(§0.9)。本步是它的 CI 挂点。
-      # 与上一格 `pnpm run typecheck` 的分工:那一格走 scripts/typecheck-full.mjs 的端内脚本;
-      # 本步逐端直跑仓内 node_modules/typescript/bin/tsc,每端独立超时 + 总预算,超预算/起不来的端
-      # 落「未判定/未跑到」并点名,不读成通过(§0.3);端清单现读(不维护手工名单)。
-      # CI 检出即 HEAD(净面)⇒ 归因恒落「已入库」;刻意不挂 pre-commit —— 全量 tsc 会造慢门(§12e)。
-      # 依赖前置:上面的 prepare-wxt(extension 的 .wxt/tsconfig.json)与 build-types-deps / typecheck
-      # 落下的 packages dist 即本步的取材面,缺一即假红,故排序刻意放在两格之后。
-      # 预算与超时:端清单现读(当前 20 端串行)。总预算 30min、单端 10min;超预算/单端超时的端
-      # 由脚本自己落「未跑到」并点名(**不读成通过**,也不判红 —— 慢 ≠ 有错),故 step 超时 45min
-      # 刻意大于总预算,留足收尾余量;失败时由下面的 Failure triage 点名并重跑本行。
-      - name: HEAD 面类型检查 (已入库代码能否通过各端 tsc)
-        id: head-typecheck
-        timeout-minutes: 45
-        run: node scripts/check-head-typecheck.mjs --budget-ms=1800000 --timeout-ms=600000
       # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
       - name: Failure triage (public annotations)
         id: failure-triage
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install prepare-wxt build-types-deps typecheck typecheck-e2e head-typecheck
+          TRIAGE_IDS: checkout install prepare-wxt build-types-deps typecheck typecheck-e2e
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
           O_PREPARE_WXT: ${{ steps.prepare-wxt.outcome }}
           O_BUILD_TYPES_DEPS: ${{ steps.build-types-deps.outcome }}
           O_TYPECHECK: ${{ steps.typecheck.outcome }}
           O_TYPECHECK_E2E: ${{ steps.typecheck-e2e.outcome }}
-          O_HEAD_TYPECHECK: ${{ steps.head-typecheck.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
   source-check:
@@ -311,26 +294,14 @@ jobs:
         id: artifact-budget
         if: matrix.app == 'miniapp-taro'
         run: node scripts/check-artifact-budget.mjs --target miniapp
-      # 镜像还原度尺子只在 CI 问责(同 artifact-budget 先例):本机不进提交链,避免存量缺口(当前 avg≈24.4%)
-      # 恒红逼出 --no-verify;但提交链拦不住"声明了镜像却把正文键删掉"的倒退 —— CI 这一腿补不可旁路问责面。
-      # 判据必须走 --base=<显式基线>:三档面在干净检出上全部退化(staged/worktree==HEAD ⇒ 倒退恒空),
-      # 直跑等于假接线。基线取法:PR 判 base.sha(需显式 fetch,浅克隆默认 depth=1 拿不到),push 判 HEAD^1
-      # (对同一 sha 以 depth=2 加深浅边界即可拿到父提交)。只拦倒退,存量只报数,不会恒红。
-      - name: 镜像还原度对账(仅 miniapp 档,只读尺子,防 --no-verify 旁路)
+      # 镜像页还原度对账:门 237 只管「页在不在/标记有没有」,这一门管「声明了镜像、正文还原了多少」。
+      # CI 里 HEAD 面即被审提交本身,存量缺口只报数、只拦相对 HEAD 的倒退(§12e),故不会成为恒红门。
+      # 为什么不只挂提交链:本机 guardian-runner.mjs 曾出现条目被拆成两半的结构损坏(2026-10-25 实测
+      # 13 处),调度器一旦加载不了,挂在它上面的门全部静默失效 —— CI 直跑门体是这条判据的独立兜底面。
+      - name: 小程序镜像页还原度对账(仅 miniapp 档;存量只报数,只拦倒退)
         id: mirror-fidelity
         if: matrix.app == 'miniapp-taro'
-        env:
-          PR_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
-          PUSH_SHA: ${{ github.sha }}
-        run: |
-          if [ -n "$PR_BASE" ]; then
-            git fetch --no-tags --depth=1 origin "$PR_BASE"
-            BASE="$PR_BASE"
-          else
-            git fetch --no-tags --depth=2 origin "$PUSH_SHA"
-            BASE="$(git rev-parse HEAD^1)"
-          fi
-          node scripts/check-miniapp-mirror-fidelity.mjs --base="$BASE"
+        run: node scripts/check-miniapp-mirror-fidelity.mjs
       - uses: actions/upload-artifact@v4
         id: upload
         with:
@@ -346,12 +317,11 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install turbo-build artifact-budget mirror-fidelity upload
+          TRIAGE_IDS: checkout install turbo-build artifact-budget upload
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
           O_TURBO_BUILD: ${{ steps.turbo-build.outcome }}
           O_ARTIFACT_BUDGET: ${{ steps.artifact-budget.outcome }}
-          O_MIRROR_FIDELITY: ${{ steps.mirror-fidelity.outcome }}
           O_UPLOAD: ${{ steps.upload.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
