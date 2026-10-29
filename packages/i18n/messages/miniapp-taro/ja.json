@@ -3,6 +3,7 @@
     "title": "毎日チェックイン"
   },
   "conversationImport": {
+    "failedCountLabel": "失敗",
     "pageTitle": "会話のインポート",
     "desc": "Claude Code / Codex / Cursor / Aider / WeChat などの外部ツールの会話履歴をこのプラットフォームに取り込みます",
     "sourcesTitle": "インポート元を選択",
@@ -43,7 +44,7 @@
     "historyEmpty": "インポート履歴はまだありません",
     "historyParsed": "解析",
     "historyImported": "インポート",
-    "historyFailed": "失敗",
+    "historyFailed": "インポート履歴の読み込みに失敗しました: {error}",
     "statusSuccess": "成功",
     "statusPartial": "一部成功",
     "statusFailed": "失敗",
