@@ -140,13 +140,30 @@ export const STAGES = [
     wt: false,
   },
   {
+    id: 'gen-rn-shell',
+    group: 'gen',
+    title: '共享屏 → RN 宿主薄壳',
+    script: 'gen-rn-host-shell.mjs',
+    // --all 只取「seedable 且目标壳不存在」的屏;needs-manual 逐条点名缺哪条腿,不产半成品。
+    args: ['--all'],
+    applyArgs: ['--all', '--write', '--cap=2'],
+    tier: 'gen',
+    wt: false,
+  },
+  {
     id: 'gen-mirror',
     group: 'gen',
-    title: '缺页 → 造镜像页 + 四处接缝',
+    title: '缺页 → 造镜像页 + 四处接缝(只读预演)',
     script: 'gen-miniapp-mirror.mjs',
-    args: ['--all'],
-    applyArgs: ['--all', '--apply'],
-    tier: 'gen',
+    // 形制必须显式给 shell(端内不写布局与数据,复用 RN 壳);缺省档是旧文案骨架,只作对照、
+    // 不是收口形制 —— 驾驶舱曾按缺省档跑,造出的页与"壳承载"方向相反。
+    args: ['--all', '--form=shell'],
+    applyArgs: [],
+    // 刻意不设写回档:同一批 planned 已有唯一落地通道 = land-cross-end-shell-pages
+    // (HEAD blob ⊕ 本批行 + 分包容量闸 + cap,走对象空间),由守护每轮派发;本器的 --apply
+    // 会往工作树直写同一批接缝 = 第二条落地通道(§0.6「同类清单/取值实现全仓只许一份,第二份必然漂移」)。
+    // 所以这一档在驾驶舱里永远只读,落地交给下面的 land-shells。
+    tier: null,
     timeout: STAGE_TIMEOUT_LONG_MS,
     wt: false,
   },
@@ -315,6 +332,21 @@ function selfTest() {
     ['gen 档在 --apply-decl 下不放行', tierAllowed('gen', { applyDecl: true }), false],
     ['gen 档在 --apply-gen 下放行', tierAllowed('gen', { applyGen: true }), true],
     ['只读档永不写', tierAllowed(null, { applyGen: true }), false],
+    [
+      'gen-mirror 预演形制含 --form=shell(缺省档是旧骨架,不许回退)',
+      (STAGES.find((s) => s.id === 'gen-mirror')?.args ?? []).includes('--form=shell'),
+      true,
+    ],
+    [
+      'gen-mirror 不设写回档(落地通道唯一 = land-shells,走对象空间)',
+      STAGES.find((s) => s.id === 'gen-mirror')?.tier === null,
+      true,
+    ],
+    [
+      '链条三段齐:RN 薄壳 → 镜像页 → 壳页落地(缺一格则新屏无人产)',
+      ['gen-rn-shell', 'gen-mirror', 'land-shells'].every((id) => STAGES.some((s) => s.id === id)),
+      true,
+    ],
   ]
   let failed = 0
   for (const [name, actual, expected] of cases) {
