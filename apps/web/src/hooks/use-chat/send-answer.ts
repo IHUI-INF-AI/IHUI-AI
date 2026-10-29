@@ -40,7 +40,7 @@ import {
   mapEndToTimelineUpdate,
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
-import { eduToolsFor, fileToolsFor, mergeAgentTools } from './tool-config'
+import { eduToolsFor, fileToolsFor, mergeAgentTools, videoToolsFor } from './tool-config'
 // Runtime 插话能力声明落库口(与 send-message.ts 同一入口)
 import { noteRuntimeCapabilities } from './runtime-capabilities'
 import {
@@ -493,6 +493,7 @@ export function createSendAnswer(
               ...mergeAgentTools(chatStore),
               ...eduToolsFor(answer),
               ...fileToolsFor(answer),
+              ...videoToolsFor(answer),
             ]),
           ]
           return agentTools.length > 0 ? { agentTools } : {}
