@@ -5,7 +5,6 @@
 import type { IngestForm, SearchForm } from './types'
 
 export const EMPTY_INGEST: IngestForm = {
-  ownerUuid: '',
   title: '',
   collectionName: 'default',
   text: '',

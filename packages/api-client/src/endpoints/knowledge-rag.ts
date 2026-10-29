@@ -44,7 +44,6 @@ export async function checkKnowledgeHealth(): Promise<{ status: string }> {
 
 /** 文本入库 */
 export async function ingestKnowledgeText(opts: {
-  ownerUuid: string
   title: string
   text: string
   collectionName?: string
@@ -64,7 +63,6 @@ export async function searchKnowledge(opts: {
   collectionName?: string
   topK?: number
   scoreThreshold?: number
-  ownerUuid?: string
 }): Promise<KnowledgeSearchHit[]> {
   const res = await fetchApi<KnowledgeSearchHit[]>('/api/knowledge/search', {
     method: 'POST',
@@ -80,7 +78,6 @@ export async function getKnowledgeRagContext(opts: {
   query: string
   collectionName?: string
   topK?: number
-  ownerUuid?: string
 }): Promise<{ context: string; hasResult: boolean }> {
   const res = await fetchApi<{ context: string; hasResult: boolean }>(
     '/api/knowledge/rag-context',
@@ -95,22 +92,15 @@ export async function getKnowledgeRagContext(opts: {
 }
 
 /** 列出文档 */
-export async function listKnowledgeDocs(ownerUuid: string): Promise<KnowledgeDocSummary[]> {
-  const res = await fetchApi<KnowledgeDocSummary[]>(
-    `/api/knowledge/docs?ownerUuid=${encodeURIComponent(ownerUuid)}`,
-  )
+export async function listKnowledgeDocs(): Promise<KnowledgeDocSummary[]> {
+  const res = await fetchApi<KnowledgeDocSummary[]>('/api/knowledge/docs')
   if (!res.success) throw new Error(res.error || '查询文档列表失败')
   return res.data
 }
 
 /** 文档详情 */
-export async function getKnowledgeDoc(
-  docId: number,
-  ownerUuid: string,
-): Promise<KnowledgeDocDetail> {
-  const res = await fetchApi<KnowledgeDocDetail>(
-    `/api/knowledge/docs/${docId}?ownerUuid=${encodeURIComponent(ownerUuid)}`,
-  )
+export async function getKnowledgeDoc(docId: number): Promise<KnowledgeDocDetail> {
+  const res = await fetchApi<KnowledgeDocDetail>(`/api/knowledge/docs/${docId}`)
   if (!res.success) throw new Error(res.error || '查询文档失败')
   return res.data
 }
@@ -118,27 +108,23 @@ export async function getKnowledgeDoc(
 /** 文档切片预览 */
 export async function getKnowledgeDocChunks(
   docId: number,
-  ownerUuid: string,
   limit?: number,
 ): Promise<KnowledgeChunkPreview[]> {
-  const q = new URLSearchParams({ ownerUuid })
+  const q = new URLSearchParams()
   if (limit !== undefined) q.append('limit', String(limit))
+  const suffix = q.toString() ? `?${q.toString()}` : ''
   const res = await fetchApi<KnowledgeChunkPreview[]>(
-    `/api/knowledge/docs/${docId}/chunks?${q.toString()}`,
+    `/api/knowledge/docs/${docId}/chunks${suffix}`,
   )
   if (!res.success) throw new Error(res.error || '查询切片失败')
   return res.data
 }
 
 /** 软删除文档 */
-export async function deleteKnowledgeDoc(
-  docId: number,
-  ownerUuid: string,
-): Promise<{ deleted: boolean }> {
-  const res = await fetchApi<{ deleted: boolean }>(
-    `/api/knowledge/docs/${docId}?ownerUuid=${encodeURIComponent(ownerUuid)}`,
-    { method: 'DELETE' },
-  )
+export async function deleteKnowledgeDoc(docId: number): Promise<{ deleted: boolean }> {
+  const res = await fetchApi<{ deleted: boolean }>(`/api/knowledge/docs/${docId}`, {
+    method: 'DELETE',
+  })
   if (!res.success) throw new Error(res.error || '删除失败')
   return res.data
 }
@@ -174,14 +160,13 @@ export async function uploadKnowledgeDoc(
 /** 批量删除文档 */
 export async function batchDeleteKnowledgeDocs(
   docIds: number[],
-  ownerUuid: string,
 ): Promise<{ success: number[]; failed: number[] }> {
   const res = await fetchApi<{ success: number[]; failed: number[] }>(
     '/api/knowledge/docs/batch-delete',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ docIds, ownerUuid }),
+      body: JSON.stringify({ docIds }),
     },
   )
   if (!res.success) throw new Error(res.error || '批量删除失败')
