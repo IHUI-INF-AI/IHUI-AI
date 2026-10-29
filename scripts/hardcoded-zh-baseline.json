@@ -739,6 +739,7 @@
     "apps/mobile-rn/src/components/PersonalInformationCard.tsx": 6,
     "apps/mobile-rn/src/components/VerifyCodeModal.tsx": 6,
     "apps/mobile-rn/src/hooks/use-ui-control-bridge.ts": 6,
+    "apps/mobile-rn/src/lib/carrier-one-click.ts": 5,
     "apps/mobile-rn/src/screens/CourseDetailScreen.tsx": 6,
     "apps/mobile-rn/src/screens/MoreCourseScreen.tsx": 3,
     "apps/mobile-rn/src/screens/TokenValueScreen.tsx": 6,
