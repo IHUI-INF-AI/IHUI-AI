@@ -16,7 +16,7 @@ OAuth2 授权码 + PKCE、WS token、第三方 Provider(OIDC / Discord / Telegra
 
 - 插件层:`src/plugins/auth.ts`(`authenticate()` 住这里,不在本包 —— 见 §4)、`ws-helpers.ts`、
   `ws-notifications.ts`、`ws-relay-ops.ts`、`anti-automation.ts`
-- 路由层:`routes/auth.ts`、`auth-extended.ts`、`auth-passkey.ts`、`auth-sso.ts`、`mfa.ts`、
+- 路由层:`routes/auth.ts`、`auth-extended.ts`、`auth-carrier.ts`、`auth-passkey.ts`、`auth-sso.ts`、`mfa.ts`、
   `oauth-authorization-server.ts`、`oauth-register.ts`、`oauth-tokens.ts`、`chat-models.ts`、`ai-audio.ts`、
   `ai-vendors/proxy-tools.ts`、`v1-shared.ts`
 - 服务/工具:`services/token-service.ts`、`utils/scoped-guard.ts`、`utils/oauth-as.ts`
@@ -77,5 +77,4 @@ OAuth2 授权码 + PKCE、WS token、第三方 Provider(OIDC / Discord / Telegra
 - `oauth2.ts` 已到 **1270 行**,是本包最大的单文件;策略表 C1 上限是 6000 行,离判红还远,
   但它同时承载 PKCE、授权码、client 凭据与错误码映射四件事 —— 再往里加东西时应先拆,不要等 C1 喊。
 - 本包不声明 `contract_files`,也不命中 `contract_file_patterns` ⇒ E2 齐备性由此文档补足。
-
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

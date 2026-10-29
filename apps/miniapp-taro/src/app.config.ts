@@ -195,6 +195,7 @@ export default defineAppConfig({
         'skill-market-list/index',
         'sign-up/index',
         'quick-notes/index',
+        'cloud-runs/index',
       ],
     },
     {

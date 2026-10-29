@@ -6959,5 +6959,25 @@
   },
   "slashCmd": {
     "statusToast": "模型 {model} · 訊息 {count} 筆 · {state}"
+  },
+  "cloudRuns": {
+    "title": "雲託管 Agent 運行",
+    "subtitle": "查看雲託管 Agent 的歷次運行記錄與詳細輸出",
+    "refresh": "重新整理",
+    "loadFailed": "載入失敗",
+    "empty": "暫無運行記錄",
+    "loading": "載入中…",
+    "back": "返回",
+    "detailTitle": "運行詳情",
+    "runId": "運行 ID",
+    "agentType": "Agent 類型",
+    "sessionAlias": "會話別名",
+    "startTime": "開始時間",
+    "endTime": "結束時間",
+    "task": "任務描述",
+    "output": "最終輸出",
+    "runningHint": "仍在運行,暫無最終輸出",
+    "noOutput": "暫無輸出",
+    "noTask": "無任務描述"
   }
 }
