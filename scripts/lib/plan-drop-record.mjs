@@ -116,7 +116,14 @@ export function rowsToRecordOf(flips, drops = []) {
     rows.push({ rowBefore: f.after, form: 'closed' })
   }
   for (const d of Array.isArray(drops) ? drops : [])
-    rows.push({ rowBefore: d.before, form: 'open' })
+    // 终态是"整行消失",不是"翻勾前的旧形态"。〔2026-10-29 改判〕过去这里也写 `open`,于是账面上
+    // "被删掉的行"与"即将变成已勾的行的前像"同值 —— 而消费方 `scrub-declared-removals.declaredRows`
+    // 的题面指纹通道(维三)要按"声明为删除"取条目,拿不到这个区别,只能按生产者名字枚举。
+    // 实测代价就是当天 Z-1 那枚票:两轮正当摘除都被守门 71 按"历史登记行丢失"建前向恢复提交补回
+    // (`d5be75da91`→`9c1bd9a5df`、`a23a42a3fb`→`0853d13df9`),因为回捞器插回的是它自己从历史面
+    // 采集的那份字节形态(实测 600 → 599),与被摘那一刻的整行**不同字** ⇒ 只认逐字的维一结构上
+    // 永远命中不了。缺的就是这一格具名终态。
+    rows.push({ rowBefore: d.before, form: 'dropped' })
   return rows
 }
 
@@ -413,6 +420,15 @@ export function selfTestCases() {
           rows[1].rowBefore === closedRow &&
           rows[1].form === 'closed'
         )
+      })(),
+    ),
+  )
+  cases.push(
+    mk(
+      'P3b 删除档的终态具名为 dropped,不得与翻勾前像的 open 同值(2026-10-29:同值 ⇒ 维三拿不到"这是删除",回捞器插回的另一份字节形态又对不上逐字维 ⇒ 摘一次回一次)',
+      (() => {
+        const rows = rowsToRecordOf([], [{ before: openRow }])
+        return rows.length === 1 && rows[0].rowBefore === openRow && rows[0].form === 'dropped'
       })(),
     ),
   )
