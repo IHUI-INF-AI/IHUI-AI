@@ -418,6 +418,19 @@ describe('可再取凭据的候选谓词(cookie 通道必须在内)', () => {
     expect(params).toContain('true')
   })
 
+  it('临期刷新候选:已判死/已摘除的号必须被排除(2026-10-29 实测死号被打了 327 次)', async () => {
+    const m = await import('../src/services/relay-account-pool-scheduler.js')
+    const { text, params } = render(m.expiringRefreshWhere(new Date('2026-10-23T00:00:00Z')))
+    // 接缝单源:排除条件不得是这里再抄一份,而必须是 accountSchedulableCondition 本体
+    expect(text).toContain(render(m.accountSchedulableCondition()).text)
+    expect(text).toContain('health_status')
+    expect(text).toContain('temp_unschedulable')
+    expect(params).toContain('down')
+    // 反向牙:排除只发生在「临期主动刷」这一档。down 恢复档若也被这条接缝拦死,
+    // 等于把判死的号彻底遗忘 —— 那是另一类缺陷(摘了就再也回不来)。
+    expect(render(m.downRecoveryWhere()).text).not.toContain('temp_unschedulable')
+  })
+
   it('down 恢复候选:含 cookie 通道且按 down/degraded 定级筛,不受到期界限拦', async () => {
     const { downRecoveryWhere } = await import('../src/services/relay-account-pool-scheduler.js')
     const { text, params } = render(downRecoveryWhere())
