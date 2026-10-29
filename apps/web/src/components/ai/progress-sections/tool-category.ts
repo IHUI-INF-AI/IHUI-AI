@@ -58,6 +58,10 @@ export interface CategoryDef {
    *  - 'collapse' 默认收起(思考/结束等阶段标记,默认让位正文)
    *  - 'expand'   默认展开(对标 Qoder 全程可见偏好) */
   expandStrategy: ExpandStrategy
+  /** 永不折叠(语义维,与上面的档位维正交,2026-10-29 立)。
+   *  为 true 时该类目卡**不受任何阈值约束**(字数/工具数/耗时再大也不折);
+   *  判定出口只有一个:`isNeverFoldTool()` —— 调用方不得自建第二份名单。 */
+  neverFold?: boolean
 }
 
 /** 18 个具名类目(逐字对齐 D58 原文;order 单调) */
@@ -122,6 +126,7 @@ export const CATEGORY_TABLE: readonly CategoryDef[] = [
     order: 13,
     countable: true,
     expandStrategy: 'auto',
+    neverFold: true,
   },
   { key: 'image_gen', labelKey: 'catImageGen', order: 14, countable: true, expandStrategy: 'auto' },
   { key: 'video_gen', labelKey: 'catVideoGen', order: 15, countable: true, expandStrategy: 'auto' },
@@ -193,18 +198,34 @@ const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   think: 'thinking',
   reasoning: 'thinking',
   internal_thought: 'thinking',
+  // Qoder 0.4.11 例外集原字面量(独立 UI 型思考块,永不折叠)
+  Thinking: 'thinking',
   // 用户交互
   ask_user: 'user_interaction',
   ask_followup: 'user_interaction',
   user_input: 'user_interaction',
   request_clarification: 'user_interaction',
   permission_request: 'user_interaction',
+  // 用户交互 · Qoder 0.4.11 例外集的驼峰原字面量(2026-10-29 对标登记)。
+  // 与上面蛇形名是同一族语义,收在此处而不是另起一张表 —— 例外集(NEVER_FOLD_TOOLS)
+  // 只放"折叠策略"这一维,类目归属仍只由本表回答。
+  AskQuestion: 'user_interaction',
+  AskUserQuestion: 'user_interaction',
+  SwitchMode: 'user_interaction',
+  // 子代理:18 类目无独立"子代理"档,按"任务编排"归 task_management(不臆造第 19 类)
+  Agent: 'task_management',
+  Task: 'task_management',
+  TaskOutput: 'task_management',
+  TaskText: 'task_management',
+  ExitPlanMode: 'task_management',
   // 生图
   image_gen: 'image_gen',
   generate_image: 'image_gen',
   text_to_image: 'image_gen',
   dalle: 'image_gen',
   imagen: 'image_gen',
+  // Qoder 0.4.11 例外集原字面量(2026-10-29 对标登记):独立 UI 型生图卡,永不折叠
+  ImageGen: 'image_gen',
   // 生视频
   video_gen: 'video_gen',
   generate_video: 'video_gen',
@@ -239,6 +260,49 @@ export function resolveToolCategory(toolName: string): CategoryKey {
   return 'other'
 }
 
+// ─── 永不折叠例外集(语义维,2026-10-29 立,对标 Qoder 0.4.11) ──────────
+// 竞品做法(asar 字节抽取取证):折叠**不按长度阈值**,而按语义分类 + 例外集;
+// 例外集全是字面量工具名,分三族 ——
+//   ① 需要用户确认  AskQuestion / AskUserQuestion / SwitchMode
+//   ② 子代理        Agent / Task
+//   ③ 独立 UI       ExitPlanMode / TaskOutput / ImageGen / Thinking / TaskText
+// 三族的共同点:折叠起来要么把"等你点一下"的东西藏掉,要么把一块自成一体的 UI
+// (子代理树 / 图 / 思考块)压成一行摘要,信息损失不可逆。
+//
+// 纪律(§0.6 单一真相源):本 Set 只回答"折叠策略"这一维,**类目归属仍只由
+// `EXACT_MAP` + `CATEGORY_TABLE` 回答**;判定出口只有 `isNeverFoldTool()` 一个,
+// 调用方不得另抄一份名单(反例警告见仓库 `check-test-judge-not-replicated.mjs`)。
+export const NEVER_FOLD_TOOLS: ReadonlySet<string> = new Set([
+  // ① 需要用户确认
+  'AskQuestion',
+  'AskUserQuestion',
+  'SwitchMode',
+  // ② 子代理
+  'Agent',
+  'Task',
+  // ③ 独立 UI
+  'ExitPlanMode',
+  'TaskOutput',
+  'ImageGen',
+  'Thinking',
+  'TaskText',
+])
+
+/**
+ * 该工具是否"永不折叠"。
+ *
+ * 两档合判,缺一不可:
+ *  - 按**工具名**命中例外集(上面那张字面量表);
+ *  - 按**类目**命中 `CategoryDef.neverFold`(整个类目语义上都不该被自动折叠,
+ *    如 user_interaction —— 它整类都是"等人回话")。
+ * 空名/未知名一律 false(不臆造例外)。
+ */
+export function isNeverFoldTool(toolName: string): boolean {
+  if (!toolName) return false
+  if (NEVER_FOLD_TOOLS.has(toolName)) return true
+  return CATEGORY_TABLE_BY_KEY[resolveToolCategory(toolName)].neverFold === true
+}
+
 /** 单个工具名 + 次数(聚合输入单元) */
 export interface ToolNameCount {
   toolName: string
@@ -255,6 +319,18 @@ export interface CategoryRun {
   order: number
   countable: boolean
   expandStrategy: ExpandStrategy
+  /**
+   * 本 run 是否"永不折叠"(2026-10-29 立,语义维)。
+   * 成立条件二选一:类目自身 `neverFold`(如 user_interaction 整类都要等人回话),
+   * 或 run 内**含至少一枚**例外集工具(见 `isNeverFoldTool`)。
+   *
+   * **混合语义(已定档,调用方不必再猜)**:类目内只要混有一枚永不折叠的工具,
+   * 该 run 的 `expandStrategy` 一律**提升为 'expand'** —— 因为类目卡是整体折叠的粒度,
+   * 无法只展开其中一行;若按阈值把整卡折起来,那枚"等你点一下"的入口就被藏掉了。
+   * 提升只发生在 run 这一层,`CATEGORY_TABLE` 的类目档位不受影响(18 个类目的
+   * order / countable / labelKey / expandStrategy 语义保持原样)。
+   */
+  neverFold: boolean
   /** 该 run 内所有工具调用数之和 */
   totalCount: number
   /** run 内工具明细(已按同类连续聚合并合并同工具) */
@@ -265,13 +341,16 @@ function makeRun(categoryKey: CategoryKey, tools: ToolNameCount[]): CategoryRun 
   const def = CATEGORY_TABLE_BY_KEY[categoryKey]
   // groupKey 锚定首行工具名:同类目多段时各段首工具通常不同,避免 React key 冲突
   const anchor = tools[0]?.toolName ?? ''
+  // 语义维:类目级 neverFold ∨ run 内含例外工具 ⇒ 整卡永不折叠(见 CategoryRun.neverFold)
+  const neverFold = def.neverFold === true || tools.some((t) => isNeverFoldTool(t.toolName))
   return {
     categoryKey,
     groupKey: `${categoryKey}::${anchor}`,
     labelKey: def.labelKey,
     order: def.order,
     countable: def.countable,
-    expandStrategy: def.expandStrategy,
+    expandStrategy: neverFold ? 'expand' : def.expandStrategy,
+    neverFold,
     totalCount: tools.reduce((s, t) => s + t.count, 0),
     tools,
   }
@@ -281,6 +360,21 @@ function makeRun(categoryKey: CategoryKey, tools: ToolNameCount[]): CategoryRun 
  *  流式末尾追加时,已有段的序号不变 → groupKey 稳定 → 展开态不丢。 */
 function withSegmentIndex(runs: CategoryRun[]): CategoryRun[] {
   return runs.map((r, i) => ({ ...r, groupKey: `${r.groupKey}::${i}` }))
+}
+
+/**
+ * 就地重算一张 run 的语义维与档位。
+ *
+ * 必要性(2026-10-29 实测踩到的真缺陷):`aggregateCategoryRuns` 的"同类连续"分支
+ * 只往 `last.tools` 推元素、改 `totalCount`,**不会重跑 makeRun** —— 于是首元素是普通工具、
+ * 后续才追加一枚例外工具时,`neverFold` 会永远停在 false(`混合语义` 用例当场红)。
+ * 流式追加恰是这种顺序(先 image_gen、后 ImageGen),不能靠"首元素就够"的假设。
+ */
+function refreshRunSemantics(run: CategoryRun): void {
+  const def = CATEGORY_TABLE_BY_KEY[run.categoryKey]
+  const neverFold = def.neverFold === true || run.tools.some((t) => isNeverFoldTool(t.toolName))
+  run.neverFold = neverFold
+  run.expandStrategy = neverFold ? 'expand' : def.expandStrategy
 }
 
 /** run 列表按类目 order 稳定排序,便于渲染顺序与断言 */
@@ -305,9 +399,11 @@ export function aggregateCategoryRuns(ordered: ToolNameCount[]): CategoryRun[] {
     const cat = resolveToolCategory(item.toolName)
     const last = runs[runs.length - 1]
     if (last && last.categoryKey === cat) {
-      // 同类连续:合并进当前卡
+      // 同类连续:合并进当前卡。合并后必须重算语义维 —— 否则"先普通、后例外"的
+      // 流式追加顺序会让这类目卡停在 folded(见 refreshRunSemantics 的立因)。
       last.tools.push(item)
       last.totalCount += item.count
+      if (!last.neverFold) refreshRunSemantics(last)
     } else {
       runs.push(makeRun(cat, [item]))
     }
