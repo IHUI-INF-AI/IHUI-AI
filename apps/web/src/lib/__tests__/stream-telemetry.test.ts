@@ -10,6 +10,8 @@ import {
   formatCompactCount,
   formatElapsedShort,
   pushRateSample,
+  reduceStreamClock,
+  type StreamClock,
   type StreamTelemetryInput,
 } from '../stream-telemetry'
 
@@ -88,6 +90,109 @@ describe('deriveStreamTelemetry', () => {
     expect(deriveStreamTelemetry(base).tokensPerSec).toBeNull()
     const snap = deriveStreamTelemetry({ ...base, tokens: 200, now: 3_000 })
     expect(snap.tokensPerSec).toBe(100)
+  })
+})
+
+describe('reduceStreamClock', () => {
+  const idle: StreamClock = {
+    conversationId: 'c1',
+    isStreaming: false,
+    startedAt: null,
+    firstTokenAt: null,
+    endedAt: null,
+    epoch: 0,
+  }
+
+  it('开流同一拍写下 startedAt,无变化时返回同一引用', () => {
+    const next = reduceStreamClock(idle, {
+      conversationId: 'c1',
+      isStreaming: true,
+      chars: 0,
+      now: 1_000,
+    })
+    expect(next.startedAt).toBe(1_000)
+    expect(next.endedAt).toBeNull()
+    expect(next.epoch).toBe(1)
+    expect(
+      reduceStreamClock(next, {
+        conversationId: 'c1',
+        isStreaming: true,
+        chars: 0,
+        now: 1_500,
+      }),
+    ).toBe(next)
+  })
+
+  it('收流同一拍写下 endedAt,不靠后续 tick', () => {
+    const live = reduceStreamClock(idle, {
+      conversationId: 'c1',
+      isStreaming: true,
+      chars: 10,
+      now: 1_000,
+    })
+    const done = reduceStreamClock(live, {
+      conversationId: 'c1',
+      isStreaming: false,
+      chars: 10,
+      now: 1_800,
+    })
+    expect(done.startedAt).toBe(1_000)
+    expect(done.firstTokenAt).toBe(1_000)
+    expect(done.endedAt).toBe(1_800)
+    expect(
+      deriveStreamTelemetry({
+        ...base,
+        isStreaming: false,
+        startedAt: done.startedAt,
+        firstTokenAt: done.firstTokenAt,
+        endedAt: done.endedAt,
+        now: 99_000,
+      }).elapsedMs,
+    ).toBe(800)
+  })
+
+  it('出字那一拍记下首字时刻,之后不再改', () => {
+    const live = reduceStreamClock(idle, {
+      conversationId: 'c1',
+      isStreaming: true,
+      chars: 0,
+      now: 1_000,
+    })
+    const token = reduceStreamClock(live, {
+      conversationId: 'c1',
+      isStreaming: true,
+      chars: 4,
+      now: 1_300,
+    })
+    expect(token.firstTokenAt).toBe(1_300)
+    expect(
+      reduceStreamClock(token, {
+        conversationId: 'c1',
+        isStreaming: true,
+        chars: 20,
+        now: 1_600,
+      }),
+    ).toBe(token)
+  })
+
+  it('切会话清账;新会话已在流则当场重开', () => {
+    const live = reduceStreamClock(idle, {
+      conversationId: 'c1',
+      isStreaming: true,
+      chars: 3,
+      now: 1_000,
+    })
+    const switched = reduceStreamClock(live, {
+      conversationId: 'c2',
+      isStreaming: true,
+      chars: 0,
+      now: 2_000,
+    })
+    expect(switched.conversationId).toBe('c2')
+    expect(switched.startedAt).toBe(2_000)
+    expect(switched.firstTokenAt).toBeNull()
+    expect(switched.endedAt).toBeNull()
+    expect(switched.epoch).toBe(live.epoch + 1)
   })
 })
 

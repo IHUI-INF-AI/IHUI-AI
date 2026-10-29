@@ -129,9 +129,11 @@ describe('splitMarkdownBlocks · 拼接不变量', () => {
   it('跨空行构造(引用式链接定义 / $$ 数学块)整段不切:切开即改变语义', () => {
     const linkDef = `${pad('正文里出现引用式链接 [文档][doc]。', 1500)}\n\n[doc]: https://example.com/a`
     expect(splitMarkdownBlocks(linkDef)).toEqual({ blocks: [linkDef] })
+    expect(splitMarkdownStable(linkDef)).toEqual({ stable: '', active: linkDef })
 
     const math = `${pad('引言段。', 1500)}\n\n$$\n\\begin{aligned}\na &= b\n\nc &= d\n\\end{aligned}\n$$`
     expect(splitMarkdownBlocks(math)).toEqual({ blocks: [math] })
+    expect(splitMarkdownStable(math)).toEqual({ stable: '', active: math })
   })
 })
 

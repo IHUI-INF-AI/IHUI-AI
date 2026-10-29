@@ -79,6 +79,14 @@ describe('splitMarkdownStable', () => {
     expect(out).toEqual({ stable: '', active: full })
   })
 
+  it('引用式链接定义或 $$ 数学块整段不切(两棵 parse 树解不开引用)', () => {
+    const linkDef = `${pad('正文里出现引用式链接 [文档][doc]。', MARKDOWN_SPLIT_MIN_LENGTH)}\n\n[doc]: https://example.com/a`
+    expect(splitMarkdownStable(linkDef)).toEqual({ stable: '', active: linkDef })
+
+    const math = `${pad('引言段。', MARKDOWN_SPLIT_MIN_LENGTH)}\n\n$$\n\\begin{aligned}\na &= b\n\nc &= d\n\\end{aligned}\n$$`
+    expect(splitMarkdownStable(math)).toEqual({ stable: '', active: math })
+  })
+
   it('多段落长文:stable 尽量长(只留最后一个块在 active)', () => {
     const blocks = Array.from(
       { length: 8 },

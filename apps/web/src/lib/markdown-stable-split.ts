@@ -24,8 +24,8 @@
  * 2026-10-30 块级增量渲染:`stable` 这一段此前是"一整块 memo",块内任何一处变化
  * (切点只追加,但 active 晋升进 stable 时尾部仍在长)都要整段重 parse。现按**全部**
  * 安全切点(`collectSafeCutPoints`,与单刀同一把尺子)拆成有序块,渲染层每块一个
- * memo 容器 ⇒ 每帧只重解析最后一块。单刀判据一字未动 —— `splitMarkdownStable`
- * 继续消费同一份切点表,只取最后一个。
+ * memo 容器 ⇒ 每帧只重解析最后一块。切点扫描器仍是同一份 —— `splitMarkdownStable`
+ * 继续消费同一份切点表,只取最后一个。跨空行的链接定义 / 数学块两把尺子一起放弃切分。
  */
 
 /** 内容短于该值不启用切分(与 MarkdownStream throttle 中档对齐)。 */
@@ -43,18 +43,20 @@ export const MARKDOWN_BLOCK_MERGE_THRESHOLD = 512
 const LIST_CONTINUATION_RE = /^\s*(?:[-*+]|\d+[.)])\s/
 
 /**
- * 块级切分的额外安全闸(2026-10-30;只作用于 splitMarkdownBlocks,**不改单刀行为**)。
+ * 跨空行生效、且解析作用域是**单次 parse** 的构造。
+ * 单刀(stable/active 两棵 ReactMarkdown)与块级切分共用这一闸:
+ *  - 引用式链接定义 `[label]: url` —— 定义与 `[text][label]` 落到两棵树,
+ *    引用退化成字面量,流结束结构不变,链接永久失效;
+ *  - `$$` 数学块 —— 块内空行被当切点,公式被切成两半。
  *
- * 以下两类构造的解析作用域都是**单次 parse**,且都能合法跨任意空行存在
- * (不在围栏/列表/缩进三条规则射程内):
- *  - 引用式链接定义 `[label]: url` —— 定义与被引用的 `[text][label]` 被切到不同块,
- *    引用退化成字面量;
- *  - `$$` 数学块 —— 块内空行被当切点,公式被切成两半(KaTeX 两侧都解析失败)。
- *
- * 错切比慢更糟:命中即整段退回单块(= 升级前的整段 memo 行为),失效方向零劣化。
+ * 错切比慢更糟:命中即整段不切,失效方向零劣化。
  */
 const LINK_REFERENCE_DEFINITION_RE = /^\s{0,3}\[[^\]\n]+\]:/m
 const DISPLAY_MATH_OPEN_RE = /^\s{0,3}\$\$/m
+
+function mustNotSplitAcrossParses(content: string): boolean {
+  return LINK_REFERENCE_DEFINITION_RE.test(content) || DISPLAY_MATH_OPEN_RE.test(content)
+}
 
 export interface MarkdownSplit {
   /** 冻结前缀(可为空串);渲染层 memo 缓存 */
@@ -134,6 +136,11 @@ export function splitMarkdownStable(content: string): MarkdownSplit {
     return { stable: '', active: content }
   }
 
+  // 与块级同一闸:切开后 stable/active 是两棵独立 parse,链接定义与公式都会坏
+  if (mustNotSplitAcrossParses(content)) {
+    return { stable: '', active: content }
+  }
+
   const cuts = collectSafeCutPoints(content)
   // 最后一个安全切点(active 保留尽量多,stable 命中率最高)
   const splitStart = cuts.length > 0 ? cuts[cuts.length - 1] : undefined
@@ -178,7 +185,7 @@ export function splitMarkdownBlocks(
   }
 
   // 跨空行生效的构造(链接定义 / 数学块)被切开即改变语义 ⇒ 整段不切
-  if (LINK_REFERENCE_DEFINITION_RE.test(content) || DISPLAY_MATH_OPEN_RE.test(content)) {
+  if (mustNotSplitAcrossParses(content)) {
     return { blocks: [content] }
   }
 
