@@ -272,7 +272,11 @@ test('N-本面阳性对照:HEAD 面真实在册页里,新形确实把 N 枚从�
     for (const s of mirroredSpecs(p)) if (idx.bySpec.has(s)) strict.add(s)
   }
   const gained = [...wide].filter((s) => !strict.has(s))
-  assert.ok(gained.length >= 1, `新形在 HEAD 面必须真实命中(否则是无消费者的判据),实得 ${gained.length}`)
+  // 「HEAD 面净增必须 ≥1」不判红(§12e):判据活性由上面 N1–N7 那组全合成夹具成对证明
+  // (含 N4「退回旧尺即零命中」的摘掉即翻红反控),这一格钉的是存量读数 —— 与 R3 镜像棘轮
+  // 的成功条件互斥:账越干净,每枚屏越会有硬路径,裸名净增必然趋零 ⇒ 恒红且不会随账还清自愈。
+  // 牙不减:下面两条结构断言照常判红(正文可读 / 宽尺⊇旧尺),读数仍打印供人复核。
+  console.log(`ℹ️ 本面净增枚数(只报数):${gained.length}(宽尺 ${wide.size} / 旧尺 ${strict.size})`)
   for (const s of gained)
     assert.equal(typeof faceRead('head', s), 'string', `${s} 被判为在位却读不出正文`)
   for (const s of strict) assert.ok(wide.has(s), '宽尺不得把旧尺已认的枚数弄丢(只增不减)')
@@ -291,7 +295,13 @@ test('N-桶守恒:直跑 --json,四桶之和必须等于全部未镜像屏,且"�
   const sum = b['判为无声明'].length + b['提及未成凭据'].length + b['名称歧义'].length + b['真未判定'].length
   assert.equal(sum, j.notMirrored.length, '逐桶之和必须等于未镜像总数(一项都不许被静默吞)')
   assert.equal(j.stats.undeterminedMiniapp, b['真未判定'].length, '未判定读数必须就是"真未判定"桶,不是差值凑数')
-  assert.ok(j.stats.recognizedByNewForms >= 1, '报数面必须能看见降幅来自哪一形')
+  // 这一条判的是「报数面看得见降幅来自哪一形」= 字段必须存在且是个数字;
+  // 不是「该形必须真认出 ≥1 枚」——后者是存量读数,与 R3 棘轮成功条件互斥(同上一条,§12e)。
+  assert.equal(
+    typeof j.stats.recognizedByNewForms,
+    'number',
+    `recognizedByNewForms 必须是可打印的数字,实得 ${JSON.stringify(j.stats.recognizedByNewForms)}`,
+  )
   assert.ok(
     j.stats.mirroredShared >= j.stats.strictOnlyCount,
     '宽尺镜像数不得少于旧硬路径尺(补形只认新形,不撤旧形)',

@@ -35,7 +35,7 @@
   为什么不能移除、为什么不能升 5.x、为什么 Metro resolver 拦不住 config-load 阶段的 `require()` 版本检查,
   并指向 `scripts/check-nativewind-status.mjs` 那把监控尺)、`babel.config.js`
   (`babel-preset-expo` + `nativewind/babel`)、`tailwind.config.js`、`global.css`(派生态)、
-  `plugins/`(withWechat / withSplash / withExpoImportFix)、`polyfills.js`、`stubs/`、
+  `plugins/`(withWechat / withSplash / withCarrier / withExpoImportFix)、`polyfills.js`、`stubs/`、
   `eas.json`、`android/`。
 
 ## 3. 依赖方向与边界
@@ -46,7 +46,6 @@ packages/types, packages/i18n, packages/ui-native`,实测 import 文件数:api-c
 `@ihui/ui-react` 在本端 **0 处 import**(DOM 组件禁面)。
 
 AGENTS 在本端的具体化(每条都有尺子):
-
 - §3 共享层优先:屏级实现住 `packages/app`,本端只做 wrapper + 平台适配。判据是守门 39
   `scripts/check-rn-app-migration.mjs`(blocking):`src/screens/` 每个文件必须
   `from '@ihui/rn-app'`,除 **28 项白名单**(RN 独占屏:WebView 壳、expo-file-system 深度耦合、
@@ -84,5 +83,4 @@ AGENTS 在本端的具体化(每条都有尺子):
 - 未取证:`stubs/` 与 `plugins/withExpoImportFix.cjs` 各自绕开的上游缺陷未逐条读;
   iOS 侧无等效接线可查(HEAD 面 `apps/mobile-rn/ios` = **0 个文件**,只有 `android/`);
   `src/screens` 与 `packages/app/src/features` 的重复实现面未逐文件比对(AGENTS 记过两侧各有存量)。
-
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -134,21 +134,48 @@ function styleParity() {
   }
 }
 
-/* web 令牌消费面广度(信息量,不计入拦截面):各端 import @ihui/design-tokens 的文件数 */
+/**
+ * 令牌消费面广度(信息量,不计入拦截面)。
+ *
+ * 2026-10-29 改造 —— 旧版这把尺子在**两个方向同时失真**,而它的末行还替人下了因果结论:
+ *   ① 判据只认包名字面量 `@ihui/design-tokens`(grep -l),于是把注释里的提及也算一枚用量
+ *      (假阳实证:apps/web/src/components/ai/markdown-stream.tsx:473 是注释行,该文件
+ *      按 `^\s*(import|export).*@ihui/design-tokens` 复跑命中 0);
+ *   ② 射程只写 `apps/web/src`,**漏掉 apps/web/app 那 2445 个 ts/tsx 与全部 CSS**
+ *      (同一 HEAD 面上 2088/3609 个 web 文件在用语义令牌类名或 var(--color-*))。
+ *   两错叠加打印出「web 31」,再据它输出「web 消费面明显偏窄 ⇒ 优先迁移」——那不是读数,
+ *   是由坏尺子推出来的建议,且已被原样转述给人过一次(§0.1 凡数字一律现读 / §12f 判据本身
+ *   有问题就拆,不得拿它继续指导决策)。
+ *
+ * 现按两种**可核形制**分别计数,并停止替人下因果结论:
+ *   pkg  = 行首 import/export 里引用包名(锚定到语句,注释里的散文提及不计);
+ *   cssVar = 消费 var(--color-*) 派生档(含注释提及 ⇒ 只作量级参考,不当精确用量)。
+ * 射程统一收到整端目录(含页面树与样式)。两档都是信息量,不参与拦截,也不互相换算成「谁偏窄」。
+ */
 function tokenBreadth() {
-  const dirs = ['apps/web/src', 'packages/app/src', 'apps/mobile-rn/src', 'apps/miniapp-taro/src']
-  const out = {}
-  for (const dir of dirs) {
+  const dirs = ['apps/web', 'packages/app', 'apps/mobile-rn', 'apps/miniapp-taro']
+  const count = (dir, pattern) => {
     try {
-      const r = execFileSync(
-        'git',
-        ['-C', ROOT, 'grep', '-l', '@ihui/design-tokens', 'HEAD', '--', `${dir}`],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 * 1024 * 1024 },
-      )
-      out[dir] = r.split('\n').filter(Boolean).length
+      const r = execFileSync('git', ['-C', ROOT, 'grep', '-l', '-E', pattern, 'HEAD', '--', dir], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        maxBuffer: 16 * 1024 * 1024,
+      })
+      return r.split('\n').filter(Boolean).length
     } catch {
-      out[dir] = 0
+      // 零命中时 git grep 退 1 —— 那是「这一档没有」,不是「没判出来」;与取不到面区分不开就会假红。
+      return 0
     }
+  }
+  // ⚠ 正则只能用 git grep 自带 ERE 认得的写法:`.` 天然不跨行(它按行匹配),所以行内排除用 `.*`。
+  // 实测坑:写成 `[^\n]*` 会被解析成「非字母 n」(ERE 里 \n 不是换行转义),于是 277 枚真 import
+  // 只剩 1 枚巧合命中 —— 尺子静默读小,比读错更难发现(同 [[feedback-no-negative-from-invalid-probe]])。
+  const PKG_RE = '^[[:space:]]*(import|export).*@ihui/design-tokens'
+  const CSSVAR_RE = 'var\\(--color-'
+  const out = {}
+  for (const dir of dirs) out[dir] = {
+    pkg: count(dir, PKG_RE),
+    cssVar: count(dir, CSSVAR_RE),
   }
   return out
 }
@@ -208,11 +235,12 @@ function run() {
     log(`       ${st.detail.slice(0, 200)}`)
   }
   log('')
-  log('【样式维 · 令牌消费广度(信息量)】')
-  log(
-    `  web ${breadth['apps/web/src']} · 共享层 ${breadth['packages/app/src']} · RN ${breadth['apps/mobile-rn/src']} · 小程序 ${breadth['apps/miniapp-taro/src']} 文件`,
-  )
-  log('  (web 消费面明显偏窄 ⇒ 其样式更易脱离令牌源漂移;优先把 web 组件迁到消费 design-tokens)')
+  const b = breadth
+  const cell = (k) => `${k === 'apps/web' ? 'web' : k === 'packages/app' ? '共享层' : k === 'apps/mobile-rn' ? 'RN' : '小程序'} 包名 ${b[k].pkg} / var() ${b[k].cssVar}`
+  log('【样式维 · 令牌消费广度(信息量,两档各判各的形制,不换算成"谁偏窄")】')
+  log(`  ${['apps/web', 'packages/app', 'apps/mobile-rn', 'apps/miniapp-taro'].map(cell).join(' · ')}`)
+  log('  (射程=整端目录含页面树与样式;"包名"档锚定行首 import/export,散文提及不计;')
+  log('   "var()" 档含注释提及,只作量级参考。取零命中记 0,与"取不到面"由 exit 2 分开。)')
   log('')
   log('────────────────────────────────────────')
 
