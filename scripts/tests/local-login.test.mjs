@@ -728,20 +728,23 @@ const WB_SECRET = 'wb-test-bootstrap-secret'
 
 /** 造一份带信封的本机会话文件(与真机同形:资料/凭证都是 $wbEncrypted) */
 function wbRawTree({ uid, at, rt, nickname }) {
-  const { key, keyId } = W.deriveAtRestKey(WB_SECRET)
+  // 走消费方那把扁平命名空间(不是 lib 内部名):写回端实际调的就是这两个键,
+  // 别名一旦指错,这里必须当场翻红 —— 2026-10-29 那桩"lib 压根没有 deriveAtRestKey"
+  // 之所以三层防线全绿,正是因为夹具当年按 lib 名写、生产按别名读。
+  const { key, keyId } = extract.deriveAtRestKey(WB_SECRET)
   return {
     tree: {
-      account: { uid, nickname: W.sealField(nickname, key, keyId), type: 'oath' },
+      account: { uid, nickname: extract.sealField(nickname, key, keyId), type: 'oath' },
       auth: {
-        accessToken: W.sealField(at, key, keyId),
-        refreshToken: W.sealField(rt, key, keyId),
+        accessToken: extract.sealField(at, key, keyId),
+        refreshToken: extract.sealField(rt, key, keyId),
         expiresIn: 7200,
         tokenType: 'Bearer',
         domain: 'codebuddy.cn',
         lastRefreshTime: '2026-10-01T00:00:00.000Z',
         expiresAt: '2026-10-01T02:00:00.000Z',
       },
-      accounts: [{ uid, nickname: W.sealField(nickname, key, keyId) }],
+      accounts: [{ uid, nickname: extract.sealField(nickname, key, keyId) }],
       allAccounts: [],
     },
     key,
@@ -801,7 +804,7 @@ test('workbuddy:本机是别人号 ⇒ 用池内模板重建树并按 sealedPath
     const other = wbRawTree({ uid: 'other-uid', at: 'other-at', rt: 'other-rt', nickname: '别人' })
     fs.writeFileSync(file, JSON.stringify(other.tree))
     const mine = wbRawTree({ uid: 'wb-uid', at: 'tpl-at', rt: 'tpl-rt', nickname: '我' })
-    const template = W.buildWorkbuddyTemplate(W.decryptSessionTree(mine.tree, mine.key, mine.keyId))
+    const template = W.buildSessionTemplate(W.decryptSessionTree(mine.tree, mine.key, mine.keyId))
     assert.equal(template.auth.accessToken, undefined, '模板必须剔净凭证')
     const payload = L.normalizePayload({
       uid: 'wb-uid',
