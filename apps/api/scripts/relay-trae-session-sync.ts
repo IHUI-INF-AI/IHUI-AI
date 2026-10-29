@@ -35,7 +35,7 @@ const API_DIR = resolvePath(SCRIPT_DIR, '..')
 import { config } from 'dotenv'
 config({ path: resolvePath(API_DIR, '.env') })
 
-const { and, eq, sql } = await import('drizzle-orm')
+const { and, eq, sql, isNull } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { encryptField, decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
@@ -43,6 +43,8 @@ const { db } = await import('../src/db/index.js')
 const decision = await import('../src/services/relay-session-sync-decision.js')
 export const decideSync = decision.decideSync
 export const parseIso = decision.parseIso
+// 本地作用域也要这个名字(RowOutcome.decision);export type from 只交出出口,不建本地绑定
+import type { SyncReason } from '../src/services/relay-session-sync-decision.js'
 export type {
   DecideInput,
   SyncDecision,
@@ -135,7 +137,13 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
       const [row] = await db
         .select()
         .from(aiRelayAccountPool)
-        .where(and(eq(aiRelayAccountPool.providerCode, 'trae'), eq(aiRelayAccountPool.uid, uid)))
+        .where(
+          and(
+            eq(aiRelayAccountPool.providerCode, 'trae'),
+            eq(aiRelayAccountPool.uid, uid),
+            isNull(aiRelayAccountPool.ownerUserId),
+          ),
+        )
         .limit(1)
       if (!row) {
         summary.missing++
@@ -224,7 +232,11 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
             .update(aiRelayAccountPool)
             .set({ ...deviceUpdate, updatedAt: new Date() })
             .where(
-              and(eq(aiRelayAccountPool.providerCode, 'trae'), eq(aiRelayAccountPool.uid, uid)),
+              and(
+                eq(aiRelayAccountPool.providerCode, 'trae'),
+                eq(aiRelayAccountPool.uid, uid),
+                isNull(aiRelayAccountPool.ownerUserId),
+              ),
             )
         }
         summary.skipped++
@@ -279,7 +291,13 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
           credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
           updatedAt: new Date(),
         })
-        .where(and(eq(aiRelayAccountPool.providerCode, 'trae'), eq(aiRelayAccountPool.uid, uid)))
+        .where(
+          and(
+            eq(aiRelayAccountPool.providerCode, 'trae'),
+            eq(aiRelayAccountPool.uid, uid),
+            isNull(aiRelayAccountPool.ownerUserId),
+          ),
+        )
       summary.applied++
       summary.rows.push({ uid, decision: final.reason, applied: true })
     } catch (e) {
@@ -307,6 +325,8 @@ function parseArgs(argv: string[]): {
     if (a === '--stdin') options.stdin = true
     else if (a === '--dry-run') options.dryRun = true
     else if (a === '--json') options.json = true
+    else if (a === '--')
+      continue // pnpm 透传的裸分隔符,不是参数
     else options.error = `未知参数: ${a}`
   }
   if (!options.stdin && !options.error) options.error = '必须 --stdin(凭据经标准输入,不落盘)'
