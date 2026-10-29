@@ -129,7 +129,7 @@
     "modelSck": "知识库",
     "matAll": "全部",
     "matText": "文本",
-    "inputPlaceholder": "请输入您的问题，或长按说话",
+    "inputPlaceholder": "请输入您的问题",
     "modelSelectTitle": "模型选择",
     "modelSelectSearchCount": "搜索到 {count} 个模型",
     "modelSelectAgentCount": "共 {count} 个智能体",
