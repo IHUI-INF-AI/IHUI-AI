@@ -269,6 +269,11 @@ export const OUT_OF_SCOPE = [
     bExempt: true,
   },
   {
+    re: /^apps\/miniapp-taro\/src\/rn-compat\/icons-generated\.tsx$/,
+    why: '与 LineIcon/icons.ts 同一份 lucide 字形数据的另一形态(gen-rn-compat.mjs 生成物;rx/ry 是 24 格 viewBox 单位,吸附档位会改坏图标形状,与 UI 容器圆角无关)',
+    bExempt: true,
+  },
+  {
     re: /^apps\/miniapp-taro\/scripts\/gen-line-icons\.mjs$/,
     why: '上面那份字形数据的生成器(写入的是 lucide 原始 path 文本,不是本仓 UI 的圆角取用)',
     bExempt: true,

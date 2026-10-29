@@ -488,6 +488,19 @@ export async function deleteAccount(password: string, reason?: string): Promise<
   })
 }
 
+/**
+ * 账户注销 —— 短信验证码通道。
+ * 后端 deleteAccountSchema 只认 code / password 二选一;把验证码塞进 deleteAccount 的
+ * password 形参会走 verifyPassword ⇒ 有密码账号收「密码错误」、无密码账号收「未设置密码」,
+ * 端侧收短信输码的注销流程因此 0% 可用。
+ */
+export async function deleteAccountWithCode(code: string): Promise<ApiResult<void>> {
+  return fetchApi<void>('/api/settings/delete-account', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  })
+}
+
 /** 获取账户删除状*/
 export async function getAccountDeletionStatus(): Promise<
   ApiResult<{
