@@ -229,7 +229,7 @@ describe('collab C 解析侧与构造侧同一套规则', () => {
 })
 
 describe('collab D 扩档不挤掉旧档', () => {
-  it('事件清单六档齐在(既有三档 + collab 三档,另批收口加 collab:lock)', () => {
+  it('事件清单九档齐在(既有三档 + collab 三档 + message 三档)', () => {
     expect([...USER_BROADCAST_EVENT_NAMES].sort()).toEqual(
       [
         'checkpoint:availability',
@@ -238,6 +238,9 @@ describe('collab D 扩档不挤掉旧档', () => {
         'collab:lock',
         'conversation:updated',
         'mcp:status',
+        'message:created',
+        'message:patched',
+        'message:terminal',
       ].sort(),
     )
   })

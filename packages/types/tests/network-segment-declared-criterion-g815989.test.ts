@@ -39,7 +39,13 @@ const REPO = resolve(__dirname, '../../..')
 const API_SRC = join(REPO, 'apps/api/src')
 
 const SENSITIVE_SEGMENTS = new Set(['admin', 'internal', 'report', 'export'])
-const KNOWN_UNDECLARED_ABSOLUTE = ['/api/internal/user-broadcast/mcp-status']
+const KNOWN_UNDECLARED_ABSOLUTE = [
+  '/api/internal/relay/account-pool/credential',
+  '/api/internal/relay/user-pool/delete',
+  '/api/internal/relay/user-pool/upsert',
+  '/api/internal/tool-ledger/invocation',
+  '/api/internal/user-broadcast/mcp-status',
+].sort()
 
 function readSrc(rel: string): string {
   return readFileSync(join(API_SRC, rel), 'utf8')

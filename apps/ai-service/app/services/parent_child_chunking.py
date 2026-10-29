@@ -52,7 +52,7 @@ import hashlib
 import json
 import os
 import re
-from bisect import bisect_left, bisect_right
+from bisect import bisect_right
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
@@ -178,7 +178,7 @@ class ChunkerConfig:
         return int(round(self.child_max_tokens * self.child_overlap_ratio))
 
     @classmethod
-    def from_env(cls) -> "ChunkerConfig":
+    def from_env(cls) -> ChunkerConfig:
         """从环境变量构建(非法/缺失回退默认,行为对齐 rag.resolve_rrf_k)。"""
 
         def _positive_int(name: str, default: int) -> int:
