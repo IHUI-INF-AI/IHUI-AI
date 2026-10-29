@@ -4,7 +4,7 @@
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../theme/tokens'
 
@@ -108,7 +108,9 @@ export function ScreenSkeleton({
 /* ────────────────────────── 2. 空状态 ────────────────────────── */
 
 export interface EmptyStateProps {
-  /** 顶部字符图标(纯文本,免三方图标依赖,两端一致) */
+  /** 顶部真图标(ReactNode,建议 lucide-react-native 组件)。与 glyph 二者其一,icon 优先 */
+  icon?: ReactNode
+  /** 顶部字符图标(纯文本,免三方图标依赖,两端一致);存量调用点仍用,新代码优选 icon(AGENTS §4) */
   glyph?: string
   title: string
   desc?: string
@@ -119,6 +121,7 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({
+  icon,
   glyph = '◍',
   title,
   desc,
@@ -132,7 +135,7 @@ export function EmptyState({
   return (
     <View style={styles.stateWrap} testID={testID}>
       <View style={styles.stateGlyphCircle}>
-        <Text style={styles.stateGlyph}>{glyph}</Text>
+        {icon ?? <Text style={styles.stateGlyph}>{glyph}</Text>}
       </View>
       <Text style={styles.stateTitle}>{title}</Text>
       {desc ? <Text style={styles.stateDesc}>{desc}</Text> : null}
