@@ -37,6 +37,9 @@ import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
+// D04(2026-10-24 接线):模型输出里的白名单动作锚点(<action>/<detail>/<link>…)走
+// chat 侧唯一受控渲染器(与 t.rich 共用同一张表),**不**打开裸 HTML 通道。
+import { RichAnchorText } from '@/components/chat/rich-anchor-text'
 // D129:用户气泡的正文渲染器(附件拍平形态的止血;详见该文件头注)
 import { UserMessageBody } from './user-message-body'
 import { MessageVersionMenu, type MessageVersionEntry } from './message-version-menu'
@@ -58,7 +61,12 @@ import { HandoffPackageCard } from '@/components/ai/handoff-package-card'
 // O60i(2026-09-25):失败卡两份实现合一 —— 本文件的内联卡已删,唯一出口是这张组件卡
 import { MessageErrorCard } from '@/components/chat/message-list/MessageErrorCard'
 import { StreamGroup } from '@/components/chat/stream/stream-ui'
-import { describeToolCall, humanizeToolText, summarizeToolActivity } from '@ihui/shared/chat'
+import {
+  describeToolCall,
+  hasRichAnchors,
+  humanizeToolText,
+  summarizeToolActivity,
+} from '@ihui/shared/chat'
 import {
   resolveViewFailure,
   VIEW_FAILURE_NAMESPACE,
@@ -77,6 +85,15 @@ import { RetryNotice } from '@/components/ai/progress-sections/retry-notice'
 import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice-bar'
 // Steer(中途引导,2026-09-19 立):消息级「已引导」提示条(store 旁路 steerNoticesByMessageId)
 import { SteerNoticeBar } from '@/components/ai/progress-sections/steer-notice-bar'
+// D115(G-229,2026-10-24 立):review 结论卡(store 旁路 reviewFindingsByMessageId)
+import {
+  ReviewFindingsCard,
+  buildFixDispatchPreset,
+  type ReviewFinding,
+} from '@/components/chat/message-list/review-findings-card'
+// D06(G-229,2026-10-25 立):「派发修复」复用既有派发对话框(提交即 /api/subagents/dispatch),
+// 不新造第二套派发入口;对话框成功面板 + toast 即本动作的可见反馈。
+import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 // 2026-09-19 立:上下文压缩分隔线(compaction 命名帧 → onCompaction → store setMessageCompaction)
 import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
 // P3 #36(2026-09-16 立):消息流内 best-of 并排对比卡(按 meta.bestOfRunId 关联)
@@ -101,6 +118,10 @@ import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { formatDuration } from '@/lib/permission-mode-history'
 import { toolActivitySummaryText } from '@/lib/tool-activity-summary-text'
+// 2026-10-29 立:单条消息内工具卡列表窗口化 —— 默认只挂首段,展开后全量。
+// 与 `windowing.ts`(消息行级几何窗口)分工不同:本档是交互驱动、消息级 state。
+// 此处刻意**不用** content-visibility/contain-intrinsic-size(G-828 明文禁恢复)。
+import { ACTIVITY_WINDOW_LIMIT, windowActivities } from '@/lib/activity-window'
 import {
   TypingIndicator,
   formatMessageTimestamp,
@@ -254,6 +275,17 @@ const MessageItem = React.memo(function MessageItem({
   const steerNotices = chatStore(
     React.useCallback((s) => s.steerNoticesByMessageId[m.id] ?? null, [m.id]),
   )
+  // D115:按 messageId 取本轮审查结论;数组引用仅在 appendReviewFinding 时变更。
+  const reviewFindings = chatStore(
+    React.useCallback((s) => s.reviewFindingsByMessageId[m.id] ?? null, [m.id]),
+  )
+  // D06 一键派发修复(2026-10-25):点某条 finding ⇒ 用该条自身字段预填**既有**
+  // `DispatchSubagentDialog`,由用户在既有表单里确认后走既有 `/api/subagents/dispatch`
+  // (票面 ③ 的 dispatch_subagent)。只改被点那一条,不动其他 finding 的状态。
+  const [fixDispatchFinding, setFixDispatchFinding] = React.useState<ReviewFinding | null>(null)
+  const dispatchFix = React.useCallback((finding: ReviewFinding) => {
+    setFixDispatchFinding(finding)
+  }, [])
   // D64 ⑤(2026-09-26 接线):右键点踩(use-message-list-context-menu)派发的展开事件。
   // 票已在点踩瞬间落库(D49① 语义不变),问卷只是点踩的结构化细化,故只监听不重放。
   const [surveyOpen, setSurveyOpen] = React.useState(false)
@@ -291,6 +323,15 @@ const MessageItem = React.memo(function MessageItem({
       durationMs: (m.toolCalls ?? []).reduce((sum, tc) => sum + (tc.durationMs ?? 0), 0),
     }),
     [isUser, m.content.length, m.reasoning, m.toolCalls],
+  )
+  // 2026-10-29 立:单条消息内工具卡窗口化(默认挂前 ACTIVITY_WINDOW_LIMIT 张,
+  // 点「展开其余 N 项」全量挂载)。展开态是消息级、不持久化:
+  // 流式追加使 toolCalls 变长时,已展开的保持展开(布尔不变),未展开的按新长度
+  // 重算 hiddenCount(判据只在纯函数 @/lib/activity-window 里,组件不复算)。
+  const [activityExpanded, setActivityExpanded] = React.useState(false)
+  const toolCallWindow = React.useMemo(
+    () => windowActivities(m.toolCalls ?? [], ACTIVITY_WINDOW_LIMIT, activityExpanded),
+    [m.toolCalls, activityExpanded],
   )
   const [showSteps, setShowStepsState] = React.useState<boolean>(() =>
     resolveInitialStepsOpen(foldPolicyMode, stepDims),
@@ -949,6 +990,11 @@ const MessageItem = React.memo(function MessageItem({
     renderStreaming: streamingThis,
     mode: markdownRenderModeFor(codeCollapseLines),
   }
+  // D04 判据只在共享解析层算一次(hasRichAnchors),端内不再自带正则。
+  // 含锚点时走受控渲染器:MarkdownStream 默认丢弃裸 HTML,直接过它等于把整段动作锚点弄丢。
+  // 取舍:锚点消息走 RichAnchorText(白名单 → 组件映射),不做 markdown 重排 —— 这类正文是
+  // 状态/动作行,样式语义由锚点表承担,不引第二套解析。
+  const richAnchorsPresent = hasRichAnchors(m.content)
 
   return (
     <div
@@ -1150,7 +1196,7 @@ const MessageItem = React.memo(function MessageItem({
                       </div>
                     </div>
                   )}
-                  {m.toolCalls?.map((tc) => {
+                  {toolCallWindow.visible.map((tc) => {
                     // edit_file/write_file:为 Accept/Reject 回调构造 diffInfo
                     // 优先用 store 中的 tc.diffInfo,否则从 args 推导(与 ToolCallCard 内部逻辑一致)
                     const effectiveDiffInfo =
@@ -1271,6 +1317,21 @@ const MessageItem = React.memo(function MessageItem({
                       </React.Fragment>
                     )
                   })}
+                  {/* 2026-10-29 立:工具卡窗口化的展开出口 —— 默认只挂首段,
+                      其余条目在点击后全量挂载(状态在本消息内,切换会话即复原)。
+                      只在确有折叠项时出现;toolCalls 为空时不渲染。 */}
+                  {toolCallWindow.hiddenCount > 0 && (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      className="px-2 text-xs text-muted-foreground"
+                      onClick={() => setActivityExpanded(true)}
+                      data-testid={`activity-expand-more-${m.id}`}
+                    >
+                      {t('activityExpandMore', { n: toolCallWindow.hiddenCount })}
+                    </Button>
+                  )}
                   {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾 */}
                   <ToolCallSummaryCard
                     summary={m.toolCallSummary}
@@ -1323,11 +1384,19 @@ const MessageItem = React.memo(function MessageItem({
                   )
                 }}
               >
-                <MarkdownStream
-                  content={m.content}
-                  isStreaming={streamingThis}
-                  collapseLines={codeCollapseLines}
-                />
+                {richAnchorsPresent ? (
+                  <RichAnchorText
+                    text={m.content}
+                    className="whitespace-pre-wrap break-words px-3 py-2 text-[15px] leading-relaxed"
+                    data-testid={`message-rich-anchors-${m.id}`}
+                  />
+                ) : (
+                  <MarkdownStream
+                    content={m.content}
+                    isStreaming={streamingThis}
+                    collapseLines={codeCollapseLines}
+                  />
+                )}
               </ErrorBoundary>
             </ReplyAnnotationLayer>
             {/* D33 消息级降级交代行:顶部 FallbackBanner 是瞬态,历史态由水合把 metadata.fallback
@@ -1386,6 +1455,22 @@ const MessageItem = React.memo(function MessageItem({
                 数据来自 SSE steer 事件回执(tool loop 边界已生效确认,store 旁路,
                 不落 ChatMessage 字段),展开可回看每条引导文本预览。 */}
             {steerNotices && steerNotices.length > 0 && <SteerNoticeBar notices={steerNotices} />}
+            {/* D115 review 结论卡:一 finding 一帧累积在 store,按 P1/P2/Nit 分组;
+                点击落点由卡片自己走 IDE 出口(行级揭示经 revealAt);每条可一键派发修复。 */}
+            {!isUser && reviewFindings && reviewFindings.length > 0 && (
+              <div data-testid={`message-review-findings-${m.id}`}>
+                <ReviewFindingsCard findings={reviewFindings} onDispatchFix={dispatchFix} />
+                {fixDispatchFinding && (
+                  <DispatchSubagentDialog
+                    open
+                    onOpenChange={(next) => {
+                      if (!next) setFixDispatchFinding(null)
+                    }}
+                    preset={buildFixDispatchPreset(fixDispatchFinding)}
+                  />
+                )}
+              </div>
+            )}
             {/* P3 #36 多模型并排对比(2026-09-16 立):/bestof 的 assistant 消息按
                 meta.bestOfRunId 关联结果,消息流内直接渲染并排对比卡(可改选/落盘),
                 不再只能切到工具面板查看;刷新后 store 映射仍在,历史消息可回看。 */}

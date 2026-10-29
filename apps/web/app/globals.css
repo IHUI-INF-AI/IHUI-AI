@@ -876,6 +876,17 @@ iframe::-webkit-scrollbar {
   }
 }
 
+/* ============================================================
+ * 大屏指挥台(2026-10-29):工作台沉浸模式下隐藏全局主导航。
+ * - 开关由 WorkbenchShell 写在 html[data-workbench-immersive];
+ * - 锚点 data-main-sidebar 同时挂在 Sidebar 桌面 aside 与 GlobalShell 的 Suspense 占位上,
+ *   两者一起隐藏,避免占位残留 160px 空洞;
+ * - 只作用于沉浸态,退出即回落,不影响其它路由。
+ * ============================================================ */
+html[data-workbench-immersive='true'] aside[data-main-sidebar] {
+  display: none;
+}
+
 /* AI 面板打开态手柄的 hover 竖向提示:tooltip 显示在面板内(手柄线左侧),
    避免遮挡 work-area。writing-mode/样式与关闭态 tooltip 一致,通过 :hover/:focus-within 同步触发。 */
 .ai-panel-resize-tooltip {
