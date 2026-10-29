@@ -20,19 +20,83 @@
 
 底层复用 app.services.debugger.get_debug_manager() 单例。
 """
+
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from app.services.debugger import get_debug_manager
+from app.core.jwt_auth import require_request_user_id
+from app.services.debugger import DebugSessionForbidden, get_debug_manager
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/debug", tags=["debug"])
+
+# ==================== 身份与归属(P0 根因加固 2026-10-29)====================
+#
+# 本面在 ai-service 上能 launch 任意程序 / eval 任意表达式 / attach 任意进程 —— 服务器级 RCE。
+# api 网关层已收为「管理员 + 内网」,但那只挡住 HTTP 入口;本层补三件根因:
+#   ① **默认关闭**(IHUI_DEBUG_ENABLED 不为 true 时整面 404):本仓实测零调用方
+#      (apps/web / apps/mobile-rn / packages 无任何 /api/debug 引用,MCP 工具面亦无),
+#      不用就关 = 攻击面直接不存在,强于任何入口校验;
+#   ② 逐端点身份依赖(require_request_user_id):生产缺身份即 401,不依赖网关是否转发;
+#   ③ 会话归属:launch/attach 记录调用者,其余端点逐次校验,拿到他人 session_id 也不能接管。
+#
+# 刻意**不**做 program/cwd 路径白名单:program 允许指向仓库内的解释器,args 传
+# `-c "<任意代码>"` 即等价于 RCE —— 白名单只会制造「已防护」的错觉,却挡不住一次攻击;
+# 且 Windows 上 `/tmp` 这类 POSIX 字面量会被解析成盘符相对路径,误伤真实调用方。
+# 真要做到「开了也只能调自己的代码」,必须连 args 一起约束(解释器白名单 + 脚本路径校验),
+# 那是另一个量级的改造,不在本次范围;在那之前靠 ① 默认关闭 + ② 管理员内网兜底。
+
+
+def _debug_enabled() -> bool:
+    """调试面总开关。只有显式 `IHUI_DEBUG_ENABLED=true` 才启用。
+
+    默认关闭的理由:本面零调用方(见上方注释),而它是本服务最强的 RCE 面 ——
+    「不用就关」比任何入口校验都可靠。开启后仍受 api 网关的「管理员 + 内网」双重约束。
+    """
+    return os.environ.get("IHUI_DEBUG_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _require_debug_enabled() -> None:
+    """router 级依赖:未启用时整面 404(不暴露「这里有个调试面」这一事实)。"""
+    if not _debug_enabled():
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": 404,
+                "message": "Not Found",
+                "data": None,
+            },
+        )
+
+
+def _guard_owner(manager: Any, session_id: str, user_id: str) -> None:
+    """归属校验的 HTTP 映射:异主体 ⇒ 403,不存在 ⇒ 404。
+
+    manager 是 mock 时 verify_owner 为 MagicMock,调用即通过(既有测试不被打断)。
+    """
+    try:
+        manager.verify_owner(session_id, user_id)
+    except DebugSessionForbidden as e:
+        raise HTTPException(
+            status_code=403,
+            detail={"code": 403, "message": "无权访问该调试会话", "data": None},
+        ) from e
+    except RuntimeError as e:
+        raise _session_not_found(session_id) from e
+
+
+# 总开关挂在 router 级:一处生效,12 个端点不必各写一遍(漏写一个就是一条绕过路径)。
+router = APIRouter(
+    prefix="/debug",
+    tags=["debug"],
+    dependencies=[Depends(_require_debug_enabled)],
+)
 
 
 # ==================== 请求模型(camelCase 对齐前端)====================
@@ -103,6 +167,11 @@ def _internal_error(e: Exception) -> HTTPException:
 
 def _handle_debug_error(session_id: str, e: Exception) -> None:
     """统一处理 DebugSessionManager 抛出的 RuntimeError。"""
+    if isinstance(e, DebugSessionForbidden):
+        raise HTTPException(
+            status_code=403,
+            detail={"code": 403, "message": "无权访问该调试会话", "data": None},
+        ) from e
     msg = str(e)
     if "不存在" in msg or "已终止" in msg:
         raise _session_not_found(session_id)
@@ -113,7 +182,10 @@ def _handle_debug_error(session_id: str, e: Exception) -> None:
 
 
 @router.post("/launch")
-async def launch(req: DebugLaunchRequest) -> dict[str, Any]:
+async def launch(
+    req: DebugLaunchRequest,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """POST /api/v1/debug/launch — 启动调试会话。"""
     manager = get_debug_manager()
     try:
@@ -124,6 +196,7 @@ async def launch(req: DebugLaunchRequest) -> dict[str, Any]:
             args=req.args,
             cwd=req.cwd,
             env=req.env,
+            owner_user_id=user_id,
         )
     except Exception as e:
         raise _internal_error(e)
@@ -131,7 +204,10 @@ async def launch(req: DebugLaunchRequest) -> dict[str, Any]:
 
 
 @router.post("/attach")
-async def attach(req: DebugAttachRequest) -> dict[str, Any]:
+async def attach(
+    req: DebugAttachRequest,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """POST /api/v1/debug/attach — 附加到已运行进程。"""
     manager = get_debug_manager()
     try:
@@ -139,6 +215,7 @@ async def attach(req: DebugAttachRequest) -> dict[str, Any]:
             language=req.language,
             port=req.port,
             host=req.host,
+            owner_user_id=user_id,
         )
     except Exception as e:
         raise _internal_error(e)
@@ -147,10 +224,13 @@ async def attach(req: DebugAttachRequest) -> dict[str, Any]:
 
 @router.post("/sessions/{session_id}/breakpoints")
 async def set_breakpoints(
-    session_id: str, req: DebugBreakpointsRequest
+    session_id: str,
+    req: DebugBreakpointsRequest,
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """POST /api/v1/debug/sessions/{id}/breakpoints — 设置断点。"""
     manager = get_debug_manager()
+    _guard_owner(manager, session_id, user_id)
     try:
         breakpoints = await manager.set_breakpoints(
             session_id=session_id,
@@ -164,9 +244,13 @@ async def set_breakpoints(
 
 
 @router.post("/sessions/{session_id}/continue")
-async def continue_execution(session_id: str) -> dict[str, Any]:
+async def continue_execution(
+    session_id: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """POST /api/v1/debug/sessions/{id}/continue — 继续执行。"""
     manager = get_debug_manager()
+    _guard_owner(manager, session_id, user_id)
     try:
         stopped = await manager.continue_execution(session_id)
     except Exception as e:
@@ -176,12 +260,17 @@ async def continue_execution(session_id: str) -> dict[str, Any]:
 
 
 @router.post("/sessions/{session_id}/step")
-async def step(session_id: str, req: DebugStepRequest) -> dict[str, Any]:
+async def step(
+    session_id: str,
+    req: DebugStepRequest,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """POST /api/v1/debug/sessions/{id}/step — 单步执行。
 
     stepType=continue 时内部转发到 continue_execution(语义等价)。
     """
     manager = get_debug_manager()
+    _guard_owner(manager, session_id, user_id)
     try:
         if req.stepType == "continue":
             stopped = await manager.continue_execution(session_id)
@@ -194,9 +283,13 @@ async def step(session_id: str, req: DebugStepRequest) -> dict[str, Any]:
 
 
 @router.get("/sessions/{session_id}/stack")
-async def get_stack_trace(session_id: str) -> dict[str, Any]:
+async def get_stack_trace(
+    session_id: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """GET /api/v1/debug/sessions/{id}/stack — 获取调用栈。"""
     manager = get_debug_manager()
+    _guard_owner(manager, session_id, user_id)
     try:
         stack_frames = await manager.get_stack_trace(session_id)
     except Exception as e:
@@ -209,9 +302,11 @@ async def get_stack_trace(session_id: str) -> dict[str, Any]:
 async def get_scopes(
     session_id: str,
     frameId: int = Query(..., description="栈帧 ID(必填,从 stackTrace 获取)"),
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """GET /api/v1/debug/sessions/{id}/scopes — 获取 frame 的 scope 分组(DAP scopes)。"""
     manager = get_debug_manager()
+    _guard_owner(manager, session_id, user_id)
     try:
         scopes = await manager.get_scopes(session_id=session_id, frame_id=frameId)
     except Exception as e:
@@ -221,9 +316,13 @@ async def get_scopes(
 
 
 @router.get("/sessions/{session_id}/threads")
-async def get_threads(session_id: str) -> dict[str, Any]:
+async def get_threads(
+    session_id: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """GET /api/v1/debug/sessions/{id}/threads — 获取线程列表(DAP threads)。"""
     manager = get_debug_manager()
+    _guard_owner(manager, session_id, user_id)
     try:
         threads = await manager.get_threads(session_id)
     except Exception as e:
@@ -235,11 +334,10 @@ async def get_threads(session_id: str) -> dict[str, Any]:
 @router.get("/sessions/{session_id}/variables")
 async def get_variables(
     session_id: str,
-    variablesReference: int | None = Query(
-        None, description="DAP 变量引用(优先,支持子树懒加载)"
-    ),
+    variablesReference: int | None = Query(None, description="DAP 变量引用(优先,支持子树懒加载)"),
     frameId: int | None = Query(None, description="栈帧 ID(兼容旧接口)"),
     scope: str = Query("local", description="变量作用域: local/globals/closure"),
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """GET /api/v1/debug/sessions/{id}/variables — 获取变量。
 
@@ -256,6 +354,7 @@ async def get_variables(
             },
         )
     manager = get_debug_manager()
+    _guard_owner(manager, session_id, user_id)
     try:
         if variablesReference is not None:
             variables = await manager.get_variables_by_reference(
@@ -277,9 +376,14 @@ async def get_variables(
 
 
 @router.post("/sessions/{session_id}/eval")
-async def evaluate(session_id: str, req: DebugEvalRequest) -> dict[str, Any]:
+async def evaluate(
+    session_id: str,
+    req: DebugEvalRequest,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """POST /api/v1/debug/sessions/{id}/eval — 表达式求值。"""
     manager = get_debug_manager()
+    _guard_owner(manager, session_id, user_id)
     try:
         result = await manager.evaluate(
             session_id=session_id,
@@ -297,9 +401,13 @@ async def evaluate(session_id: str, req: DebugEvalRequest) -> dict[str, Any]:
 
 
 @router.delete("/sessions/{session_id}")
-async def disconnect(session_id: str) -> dict[str, Any]:
+async def disconnect(
+    session_id: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """DELETE /api/v1/debug/sessions/{id} — 断开会话。"""
     manager = get_debug_manager()
+    _guard_owner(manager, session_id, user_id)
     try:
         disconnected = await manager.disconnect(session_id)
     except Exception as e:
@@ -310,9 +418,13 @@ async def disconnect(session_id: str) -> dict[str, Any]:
 
 
 @router.get("/sessions")
-async def list_sessions() -> dict[str, Any]:
-    """GET /api/v1/debug/sessions — 列出所有会话。"""
+async def list_sessions(
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """GET /api/v1/debug/sessions — 列出会话(仅当前主体自己的)。"""
     manager = get_debug_manager()
-    sessions = await manager.list_sessions()
+    sessions = await manager.list_sessions(user_id)
     return _ok({"sessions": sessions})
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
