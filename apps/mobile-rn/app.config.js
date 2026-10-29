@@ -75,6 +75,11 @@ module.exports = ({ config }) => {
     )
   }
 
+  // 运营商一键登录(可选增强,未配置不阻断):闪验 appId + WebView/H5 SDK 地址(单一数据源:env)
+  const carrierAppId = process.env.EXPO_PUBLIC_CARRIER_APP_ID || config.extra?.CARRIER_APP_ID
+  const carrierWebSdkUrl =
+    process.env.EXPO_PUBLIC_CARRIER_WEB_SDK_URL || config.extra?.CARRIER_WEB_SDK_URL
+
   // 版本号:android.versionCode 与 ios.buildNumber 同源(见 resolveBuildNumber 头注)。
   // prebuild 时分别写入 build.gradle 与 Info.plist;EAS(remote 源)不读这两个值。
   const buildNumber = resolveBuildNumber()
@@ -94,6 +99,11 @@ module.exports = ({ config }) => {
       'expo-secure-store',
       ...(config.plugins || []),
       ['./plugins/withWechat.cjs', { appId, universalLink, androidPackage }],
+      // 运营商一键登录骨架(可选;未配置时 UI 隐藏该入口,走免费自动回填降级)
+      [
+        './plugins/withCarrier.cjs',
+        { appId: carrierAppId, webSdkUrl: carrierWebSdkUrl, androidPackage },
+      ],
       './plugins/withExpoImportFix.cjs',
       // Android 开屏图 + 样式:未装 expo-splash-screen 时 prebuild 的 legacy 分支
       // 不会写 drawable 资源,原生目录里留的是模板灰白占位图(详见插件头注释)
