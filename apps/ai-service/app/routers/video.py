@@ -202,8 +202,9 @@ async def video_providers() -> dict[str, Any]:
         "ok": True,
         "data": {
             "configured": configured,
-            "available": ["kling", "jimeng", "wan", "hunyuan"],
+            "available": ["agnes", "kling", "jimeng", "wan", "hunyuan"],
             "kv": {
+                "agnes": "LLM_PROVIDERS.agnes.api_key 或 AGNES_API_KEY",
                 "kling": "KLING_ACCESS_KEY + KLING_SECRET_KEY",
                 "jimeng": "ARK_API_KEY 或 ARK_ACCESS_KEY + ARK_SECRET_KEY",
                 "wan": "DASHSCOPE_API_KEY",
