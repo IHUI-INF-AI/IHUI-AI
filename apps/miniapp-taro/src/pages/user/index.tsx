@@ -104,6 +104,9 @@ const menus: ReadonlyArray<{ icon: string; key: string; path: string; fallback?:
   { icon: 'file-text', key: 'exam.title', path: '/pages/exam/list' },
   { icon: courseIconLocal, key: 'nav.courses', path: '/pkg-learn/course/list' },
   { icon: aiIconLocal, key: 'toolbar.ai', path: '/pkg-ai/ai/chat' },
+  // PDF 工具台(2026-10-29):web /tools/pdf 三路由的端内承载(壳承载页,渲染共享屏)。
+  // 此前该页在小程序端**根本不存在**,而 RN 侧已有完整链路却也没有入口 ⇒ 两端都是死的。
+  { icon: 'file-text', key: 'pdfToolsPage.title', path: '/pkg-user/pdf-tools-hub/index' },
   { icon: shezhiIcon, key: 'settings.title', path: '/pkg-user/user/settings' },
   // P0 页面导航入口(复用 LineIcon 图标资产)
   {

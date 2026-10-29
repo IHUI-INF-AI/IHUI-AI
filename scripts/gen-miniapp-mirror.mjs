@@ -72,7 +72,12 @@ const APP_INDEX = 'packages/app/src/index.ts'
 const TARO_CONFIG_REL = 'apps/miniapp-taro/config/index.ts'
 const RN_PACK_DIR = 'packages/i18n/messages/mobile-rn'
 const MP_PACK_DIR = 'packages/i18n/messages/miniapp-taro'
-const MP_SHARED_SCREEN_RE = new RegExp(`^${SHARED_DIR}/([^/]+)/([A-Z][A-Za-z0-9_]*)Screen\\.tsx$`)
+// 域目录允许嵌套(features/tools/pdf/…):旧尺只认一层 ⇒ 三层那枚 PdfToolsHubScreen 被
+// screenShapeOf 判成 undetermined("不是尺子认得的形制"),于是造页腿永远看不见它。
+// 现读全树三层形态只有这 1 枚,放宽后不引入一批新候选。
+const MP_SHARED_SCREEN_RE = new RegExp(
+  `^${SHARED_DIR}/((?:[^/]+/)*[^/]+)/([A-Z][A-Za-z0-9_]*)Screen\\.tsx$`,
+)
 
 /** 与 auto-register-cross-end.mjs 同族清单(那份无 __test__ 不可 import,归并前两份同改)。 */
 const GENERIC_NS = new Set(['common', 'app', 'nav', 'button', 'action', 'state', 'error', 'tip', 'toast'])
