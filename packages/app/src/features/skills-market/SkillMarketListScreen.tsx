@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react'
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { Download, Wand2 } from 'lucide-react-native'
+import { Download, Star, Wand2 } from 'lucide-react-native'
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { SkillMarketEntryView, SkillMarketListScreenProps } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -182,7 +182,10 @@ export function SkillMarketListScreen({
               {item.description}
             </Text>
             <View style={styles.metaRow}>
-              <Text style={styles.rating}>★ {item.rating.toFixed(1)}</Text>
+              <View style={styles.rating}>
+                <Star size={11} color={tk.warning.DEFAULT} strokeWidth={2} />
+                <Text style={styles.ratingValue}>{item.rating.toFixed(1)}</Text>
+              </View>
               <Text style={styles.meta}>
                 {item.ratingCount > 0
                   ? t('skillsMarket.ratingCount', { count: item.ratingCount })
@@ -379,6 +382,11 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     rating: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.xs,
+    },
+    ratingValue: {
       fontSize: rnType.caption.size,
       color: tk.warning.DEFAULT,
     },

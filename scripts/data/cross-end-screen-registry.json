@@ -1275,6 +1275,11 @@
       "shared": "packages/app/src/features/sign-up/SignUpScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/SignUpScreen.tsx",
       "miniapp": "pkg-user/sign-up/index"
+    },
+    {
+      "shared": "packages/app/src/features/notes/QuickNotesScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/QuickNotesScreen.tsx",
+      "miniapp": "pkg-user/quick-notes/index"
     }
   ]
 }

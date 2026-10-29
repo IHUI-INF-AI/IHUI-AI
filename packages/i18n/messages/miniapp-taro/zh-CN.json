@@ -193,7 +193,18 @@
     "recommend": "为你推荐",
     "navMenu": "菜单",
     "matDeletedOk": "已删除",
-    "notLoggedIn": "未登录"
+    "notLoggedIn": "未登录",
+    "voiceUploadRetry": "语音上传失败，请重试",
+    "fallbackFileName": "文件",
+    "uploadedNameToast": "已上传：{name}",
+    "fileUploadFailed": "文件上传失败",
+    "filePickRetry": "文件选择失败，请重试",
+    "contentImage": "图片内容",
+    "contentVideo": "视频内容",
+    "contentText": "文本内容",
+    "boolYes": "是",
+    "boolNo": "否",
+    "closePreview": "关闭预览"
   },
   "course": {
     "learningProgress": "学习进度",
@@ -1164,7 +1175,8 @@
     "statusUnknown": "未知",
     "noUrl": "暂无访问地址",
     "loadFailed": "加载失败",
-    "openWorkflow": "打开工作流"
+    "openWorkflow": "打开工作流",
+    "gatewayRetry": "第 {attempt}/{max} 次重试,{seconds} 秒后继续"
   },
   "agentDialogue": {
     "sendFailed": "发送失败,请重试",
@@ -3587,7 +3599,12 @@
     "holdToSpeak": "按住说话",
     "addFile": "添加",
     "document": "文档",
-    "video": "视频"
+    "video": "视频",
+    "compactSuccess": "上下文已压缩: {before} → {after} tokens(节省 {saved})",
+    "compactTooFew": "对话消息太少,无需压缩",
+    "compactIncompressible": "当前上下文已无可压缩空间",
+    "compactFailed": "压缩失败",
+    "compactNoSession": "当前对话未关联会话,暂无法压缩"
   },
   "toolbar": {
     "ai": "AI对话"
@@ -3700,7 +3717,86 @@
     },
     "notes": {
       "loadFailShort": "加载失败"
-    }
+    },
+    "selectModel": "选择模型",
+    "inputPlaceholder": "输入消息...",
+    "flagFailed": "标记保存失败",
+    "viewCard": "查看卡片",
+    "closeCard": "关闭卡片",
+    "imageDelete": "删除图片",
+    "webLinkPlaceholder": "请输入网页链接（https://...）",
+    "micPermHint": "无法访问麦克风，请检查权限设置",
+    "micInitFailed": "录音启动失败，请重试",
+    "modelDegrade": "模型降级：{from} → {to}",
+    "reconnecting": "网络波动，正在第 {attempt} 次重连（{countdown}s 后）",
+    "roundFailed": "语音回合失败，请重试",
+    "ttsSuccess": "语音生成成功（{voice}）",
+    "favOpFail": "收藏操作失败：{reason}",
+    "chatEmptyToast": "当前对话为空",
+    "clearDialogTitle": "清空对话",
+    "clearDialogBody": "确认清空当前对话的所有消息？",
+    "clearOk": "清空",
+    "exportEmptyTitle": "智汇AI 对话（空）",
+    "exportHeader": "智汇AI 对话记录",
+    "camSoonHint": "相机拍摄待接入，请先用相册上传图片",
+    "shareClaimed": "已领取 {points} 智汇值",
+    "shareClaimedOnce": "已领取过首次分享奖励",
+    "shareClaimFailed": "领取失败，请稍后重试",
+    "inviteShareBody": "智汇AI社区 — 邀请你加入，一起探索 AI 对话！",
+    "matTypePrefix": "类型",
+    "matNoDetailHint": "该素材暂不支持查看详情",
+    "loadDetailFail": "加载详情失败",
+    "netLoadFail": "网络异常，加载失败",
+    "linkCopied": "链接已复制到剪贴板，可在浏览器粘贴打开",
+    "historyLoadFail": "加载历史对话失败，请重试",
+    "delConvTitle": "删除对话",
+    "delConvBody": "确认删除此对话？",
+    "chatDeleteFail": "删除失败，请重试",
+    "topBarMenu": "打开菜单",
+    "topBarAgent": "选择 Agent",
+    "topBarProfile": "个人中心",
+    "topBarCommunity": "加入社区",
+    "shareInviteNow": "立即分享邀请好友",
+    "fnTitle": "功能",
+    "sourceTitlePanel": "知识来源",
+    "selectFile": "选择文件",
+    "uploadingShort": "上传中…",
+    "closeCardShort": "关闭",
+    "viewCardShort": "查看",
+    "cardWord": "卡片",
+    "matDeleteA11y": "删除素材",
+    "matFallback": "素材",
+    "sendLink": "发送链接",
+    "imagePreviewA11y": "图片预览",
+    "menuAnnotateImage": "标注此图",
+    "chatDeleteFailed2": "删除失败",
+    "loginToSend": "请先登录后再发送消息",
+    "vipOnlyModel": "该模型为 VIP 专享,开通会员后可使用",
+    "openVipBtn": "开通会员",
+    "reloginBtn": "重新登录",
+    "connectFailRetry": "连接失败,请重试",
+    "noMsgToTts": "暂无消息可转换",
+    "ttsFailRetry": "语音生成失败,请重试",
+    "noMsgToFav": "暂无消息可收藏",
+    "favFailRetry": "收藏失败,请稍后重试",
+    "qrNeedPerm": "需要相册权限才能保存二维码",
+    "qrNotRendered": "二维码未渲染,请稍后重试",
+    "qrSaved": "二维码已保存到相册",
+    "qrSaveFail": "保存失败，请重试",
+    "favOn": "已收藏",
+    "favOff": "已取消收藏",
+    "annotAdded": "标注已加入输入框",
+    "menuSwitchModel": "切换模型",
+    "menuClear": "清空对话",
+    "menuExport": "导出对话",
+    "menuShare": "分享对话",
+    "menuToVoice": "转语音",
+    "menuFavorite": "收藏",
+    "menuMaterial": "素材库",
+    "menuVoiceNote": "语音笔记",
+    "menuWebLink": "网页链接",
+    "menuFileUpload": "文件上传",
+    "menuHistory": "历史对话"
   },
   "tabBar": {
     "community": "智汇社区",
@@ -6825,5 +6921,43 @@
     "title": "我的报名",
     "loading": "加载中...",
     "empty": "目前还没有数据"
+  },
+  "quickNotes": {
+    "menuEntry": "快捷笔记",
+    "title": "快捷笔记",
+    "new": "新建笔记",
+    "edit": "编辑",
+    "search": "搜索笔记",
+    "insert": "插入对话",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "archived": "已归档",
+    "showArchived": "显示已归档",
+    "empty": "暂无笔记"
+  },
+  "chatAlert": {
+    "compaction": {
+      "title": "上下文已自动压缩",
+      "message": "{before} → {after}(移除 {removed} 条历史)"
+    },
+    "loginBtn": "去登录",
+    "longPress": {
+      "myTitle": "我的消息",
+      "aiTitle": "AI 消息",
+      "message": "截图已生成",
+      "shareBtn": "分享"
+    }
+  },
+  "mat": {
+    "unknown": "未知错误",
+    "deleteTitle": "删除素材",
+    "deleteBody": "确认删除「{title}」？",
+    "detailLabel": "素材详情"
+  },
+  "selectionAnnotations": {
+    "addAnnotation": "添加批注"
+  },
+  "slashCmd": {
+    "statusToast": "模型 {model} · 消息 {count} 条 · {state}"
   }
 }
