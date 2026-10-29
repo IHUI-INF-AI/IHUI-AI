@@ -384,6 +384,9 @@ export const CONTENT_HUB_ITEMS: NavItem[] = [
   { href: '/self-media/koubo', labelKey: 'selfMediaKoubo', icon: Mic },
   // 2026-08-07 feature-connect2:AI 语音转写(上传音频转文字)
   { href: '/tools/voice-stt', labelKey: 'eduAiStt', icon: Mic },
+  // PDF 工具台(2026-10-29):/tools/pdf 三路由一直只有页面、没有入口 —— 侧栏与 /tools 都到不了
+  // (/tools 的数据源 GET /api/tools 目前后端未实现 ⇒ 工具页恒空)。本条是它唯一的可达入口。
+  { href: '/tools/pdf', labelKey: 'pdfTools', icon: FileText },
   // 2026-08-07 feature-connect:私信(用户间 1对1 私密聊天)
   { href: '/letters', labelKey: 'eduAiLetters', icon: Mail },
   // 2026-08-07 feature-connect:群组(用户自建群组与成员管理)
