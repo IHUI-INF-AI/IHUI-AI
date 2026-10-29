@@ -22,7 +22,11 @@ export interface ShortcutPlatformInfo {
 }
 
 export interface ShortcutKeyEventLike {
-  key: string
+  /**
+   * 可选:Tauri WebView2 的合成事件与部分 IME 事件里 `key` 会缺席(实测崩过),
+   * 缺席时按物理 `code` 兜底判定,不得直接读 `.toLowerCase()`。
+   */
+  key?: string
   code?: string
   metaKey: boolean
   ctrlKey: boolean
@@ -73,7 +77,7 @@ export function matchesShortcutKeyCode(
   event: Pick<ShortcutKeyEventLike, 'key' | 'code'>,
   key: string,
 ): boolean {
-  if (event.key.toLowerCase() === key.toLowerCase()) {
+  if (typeof event.key === 'string' && event.key.toLowerCase() === key.toLowerCase()) {
     return true
   }
   const expectedCode = getExpectedShortcutCode(key.toLowerCase())
