@@ -6979,5 +6979,13 @@
     "runningHint": "仍在运行,暂无最终输出",
     "noOutput": "暂无输出",
     "noTask": "无任务描述"
+  },
+  "chatWorkbenchPage": {
+    "title": "对话",
+    "newConversation": "新建会话",
+    "searchPlaceholder": "输入关键词搜索...",
+    "empty": "开始新的任务",
+    "searchNoResult": "无匹配结果",
+    "retry": "重试"
   }
 }

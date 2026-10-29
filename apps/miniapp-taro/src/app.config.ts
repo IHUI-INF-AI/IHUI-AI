@@ -196,6 +196,7 @@ export default defineAppConfig({
         'sign-up/index',
         'quick-notes/index',
         'cloud-runs/index',
+        'chat-workbench/index',
       ],
     },
     {

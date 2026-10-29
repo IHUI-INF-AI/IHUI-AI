@@ -64,6 +64,11 @@ export const resources = pgTable(
     image: varchar('image', { length: 500 }),
     introduction: text('introduction'),
     cidList: jsonb('cid_list').$type<string[]>(),
+    // 2026-10-29(web→RN 台账 student/my-resources 数据面结清):资源归属用户。
+    // NULL = 平台/admin 创建的内容(存量行全部归此档,行为零变化);
+    // 非 NULL = 用户个人资源(GET /api/resources/mine 与 DELETE 归属闸只认这一列)。
+    // 逻辑关联 users.id(与 resourceDownloads.userId 同口径,不做物理外键)。
+    ownerUserId: uuid('owner_user_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -71,6 +76,7 @@ export const resources = pgTable(
     catIdx: index('resources_category_idx').on(t.categoryId),
     pubIdx: index('resources_published_idx').on(t.isPublished),
     prodIdx: index('resources_product_idx').on(t.productId),
+    ownerIdx: index('resources_owner_idx').on(t.ownerUserId),
   }),
 )
 
