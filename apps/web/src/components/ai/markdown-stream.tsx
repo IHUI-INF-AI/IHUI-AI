@@ -25,6 +25,8 @@ import { useTheme } from 'next-themes'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
+// 2026-10-29:中文全角括号 autolink 收尾修正(GFM 只认 ASCII 边界,全角右括号会被吞进 href)
+import { remarkTrimCjkAutolink } from '@/lib/markdown-autolink-cjk'
 import rehypeKatex from 'rehype-katex'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
@@ -1011,7 +1013,7 @@ const StableBlock = React.memo(function StableBlock({
 }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
+      remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath, remarkTrimCjkAutolink]}
       rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
       components={components}
     >
@@ -1407,7 +1409,7 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
             />
           ))}
           <ReactMarkdown
-            remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
+            remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath, remarkTrimCjkAutolink]}
             rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
             components={components}
           >
@@ -1416,7 +1418,7 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
         </>
       ) : (
         <ReactMarkdown
-          remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
+          remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath, remarkTrimCjkAutolink]}
           rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
           components={components}
         >
