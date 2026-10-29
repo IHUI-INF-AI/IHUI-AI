@@ -16,7 +16,11 @@ import { createSendMessage } from './use-chat/send-message'
 import { getStreamRuntime } from './use-chat/stream-runtime'
 import { createSendAnswer } from './use-chat/send-answer'
 import { clearCompactionPreview } from './use-chat/stream-handlers'
-import { shouldTerminateForModelSwitch, terminateActiveStream } from './use-chat/model-switch'
+import {
+  clearPendingQuestionIfAny,
+  shouldTerminateForModelSwitch,
+  terminateActiveStream,
+} from './use-chat/model-switch'
 import { toast } from '@/components/common'
 import type { UseChatReturn, ChatActionContext } from './use-chat/types'
 
@@ -132,10 +136,16 @@ export function useChat(): UseChatReturn {
           }).catch(() => {})
         },
         clearCompactionPreview,
+        // 提问挂在这条流上:终止时一并清掉未回答的提问,否则弹窗残留、
+        // 答案投给一条已终止的流(用户以为生效了)。返回"是否真清到"驱动提示。
+        clearPendingQuestion: () => clearPendingQuestionIfAny(chatStore.getState()),
+        questionCancelledNotice: t('questionCancelledByStop'),
         notice,
-        showNotice: (message) => toast.info(message),
+        // 两条说明合成一条:标题说提问被取消,描述说为什么停(不叠两条 toast)。
+        showNotice: (message, description) =>
+          toast.info(message, description ? { description } : undefined),
       }),
-    [chatStore],
+    [chatStore, t],
   )
 
   const stop = React.useCallback(() => {
