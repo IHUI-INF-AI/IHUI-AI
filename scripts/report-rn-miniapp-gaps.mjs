@@ -18,6 +18,7 @@
 //   node scripts/report-rn-miniapp-gaps.mjs --write <file>  # 写入 markdown
 //   node scripts/report-rn-miniapp-gaps.mjs --json
 import { dirname, resolve } from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
@@ -31,7 +32,15 @@ const jsonMode = argv.includes('--json')
 const writeArg = argv.indexOf('--write')
 const writePath = writeArg >= 0 ? argv[writeArg + 1] : null
 
-const STOP = new Set(['app', 'index', 'page', 'screen', 'main', 'web', 'pkg', 'pages'])
+/**
+ * 停用词:结构词/容器词,不表达业务身份。
+ * `hub` 是 2026-10-30 补的 —— 它在本仓指"入口集合页"这一形制(legal-docs-hub / edu-ai-hub /
+ * pdf-tools-hub / domain-hub…),任何两个不相干屏都能靠它蹭上候选;实测新落地的
+ * `pkg-user/pdf-tools-hub/index` 因此挤进了 `domain-hub/DomainHubScreen` 那一行的候选列
+ * (两行原本也全是蹭 hub,并没有真实业务对应)。宁可让那一格空着写「—」,
+ * 也不要一个看着像、其实无关的页名 —— 候选列是给下一席看的线索,假线索比没有更贵。
+ */
+const STOP = new Set(['app', 'index', 'page', 'screen', 'main', 'web', 'pkg', 'pages', 'hub'])
 const tokensOf = (s) =>
   s
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -188,7 +197,19 @@ if (pendingHooks.length > 0) {
 }
 const md = lines.join('\n') + '\n'
 if (writePath) {
-  writeFileSync(resolve(ROOT, writePath), md)
+  const abs = resolve(ROOT, writePath)
+  writeFileSync(abs, md, 'utf8')
+  // AGENTS §5c:产出被跟踪文件后由**生成器自己**紧随注入水印。缺这一腿时「重新生成一次」就是把
+  // 已有的溯源载荷整片洗掉(实测 2026-10-29:这份账本经一次 --write 后进了未覆盖清单),而覆盖率
+  // 门禁又是自愈式的 —— 它会在别的档口替生成器把载荷补回工作区,于是提交链上永远不响,失效形态
+  // 是安静(同型的话写在 benchmark-frame-end-matrix.mjs:313 头注里)。
+  // 本器正是漂移尺 doc-stale 那一维给出的**唯一出路**,会被人和器物反复跑 ⇒ 根因必须长在这器上。
+  execFileSync(process.execPath, [resolve(ROOT, 'scripts', 'watermark.mjs'), 'inject', abs], {
+    cwd: ROOT,
+    stdio: 'ignore', // §12g:不吃的子进程也必须显式给 stdio,否则本机稳定报 EBUSY
+    windowsHide: true,
+    timeout: 120000,
+  })
   console.log(`written ${writePath} (${rows.length} gaps)`)
 } else {
   console.log(md)
