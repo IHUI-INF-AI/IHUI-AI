@@ -146,6 +146,7 @@ import { StudentCenterScreen } from '../screens/StudentCenterScreen'
 import { MyCommentsScreen } from '../screens/MyCommentsScreen'
 import { MyLessonsScreen } from '../screens/MyLessonsScreen'
 import { MyResourcesScreen } from '../screens/MyResourcesScreen'
+import { CloudRunScreen } from '../screens/CloudRunScreen'
 import { OfflineRecordsScreen } from '../screens/OfflineRecordsScreen'
 import { ToolsScreen } from '../screens/ToolsScreen'
 import { PdfToolsHubScreen } from '../screens/PdfToolsHubScreen'
@@ -550,6 +551,7 @@ export type RootStackParamList = {
   MyComments: undefined
   MyLessons: undefined
   MyResources: undefined
+  CloudRun: undefined
   OfflineRecords: undefined
   Tools: undefined
   PdfToolsHub: { tab?: 'merge' | 'split' | 'watermark' } | undefined
@@ -1101,6 +1103,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="MyComments" component={MyCommentsScreen} />
             <RootStack.Screen name="MyLessons" component={MyLessonsScreen} />
             <RootStack.Screen name="MyResources" component={MyResourcesScreen} />
+            <RootStack.Screen name="CloudRun" component={CloudRunScreen} />
             <RootStack.Screen name="OfflineRecords" component={OfflineRecordsScreen} />
             <RootStack.Screen name="Tools" component={ToolsScreen} />
             <RootStack.Screen name="PdfToolsHub" component={PdfToolsHubScreen} />
