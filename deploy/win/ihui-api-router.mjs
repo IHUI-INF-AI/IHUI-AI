@@ -25,6 +25,7 @@ import { createIpRateLimiter, isLoopbackAddress, resolveRateLimitConfig } from '
 import { decideEdgeGuard, resolveEdgeGuardMode } from './lib/edge-origin-guard.mjs'
 import {
   bgStatusVisibleTo,
+  buildForwardHeaders,
   buildRejectionFrame,
   decideUpgradeAdmission,
   resolveRouterMaxConnections,
@@ -179,6 +180,7 @@ function sendJson(res, status, body) {
   res.end(buf)
 }
 
+
 const server = http.createServer((req, res) => {
   // 运维探针：给部署脚本确认「路由在跑、当前是哪一色」。
   //
@@ -196,6 +198,10 @@ const server = http.createServer((req, res) => {
   }
   // 回源鉴权在限流**之前**:直连攻击者不带头 ⇒ 直接 403,不必再为它耗一个限流令牌;
   // 正常流量经 EdgeOne 带头 ⇒ 通过后再进限流。两道都是「便宜的先做」。
+  //
+  // 结论要传给转发层做 IP 归一(buildForwardHeaders 只信"确实经边缘"的请求),
+  // 故用块外变量承接 —— 写在块内则转发层读不到,归一退化成"全按直连处理"。
+  let edgeReason = 'off'
   if (EDGE_MODE !== 'off') {
     const ip = req.socket.remoteAddress || ''
     const verdict = decideEdgeGuard({
@@ -204,6 +210,7 @@ const server = http.createServer((req, res) => {
       loopback: isLoopbackAddress(ip),
       headers: req.headers,
     })
+    edgeReason = verdict.reason
     if (verdict.action === 'observe') {
       logEdgeGuard(verdict.reason, ip)
     } else if (verdict.action === 'deny') {
@@ -236,7 +243,7 @@ const server = http.createServer((req, res) => {
       }
     }
   }
-  proxyHttp(req, res, 0)
+  proxyHttp(req, res, 0, edgeReason)
 })
 
 // 慢速攻击面收口(2026-10-29):Node 默认 headersTimeout=60s / requestTimeout=300s,
@@ -248,7 +255,7 @@ server.requestTimeout = 120_000
 // 连接数硬顶(2026-10-29):常量见文件上方 MAX_CONNECTIONS(启动日志已报出)。
 server.maxConnections = MAX_CONNECTIONS
 
-function proxyHttp(req, res, attempt) {
+function proxyHttp(req, res, attempt, edgeReason = 'off') {
   const ports = upstreams()
   const port = ports[attempt]
   if (!port) {
@@ -261,7 +268,14 @@ function proxyHttp(req, res, attempt) {
     port,
     method: req.method,
     path: req.url,
-    headers: req.headers,
+    // 不是 req.headers 原样透传:客户端可整写 IP 类头,原样转给上游等于把
+    // "我是谁" 的决定权交给它(限流键、风控、审计全部随之失真)。见 buildForwardHeaders。
+    headers: buildForwardHeaders({
+      headers: req.headers,
+      remoteAddress: req.socket.remoteAddress,
+      edgeMode: EDGE_MODE,
+      edgeReason,
+    }),
   })
 
   upReq.on('response', (upRes) => {
@@ -278,7 +292,7 @@ function proxyHttp(req, res, attempt) {
         secondary: ports[1],
         url: req.url,
       })
-      proxyHttp(req, res, 1)
+      proxyHttp(req, res, 1, edgeReason)
       return
     }
     log('error', 'proxy error', { port, url: req.url, code: err.code, message: err.message })
@@ -340,9 +354,17 @@ server.on('upgrade', (req, socket, head) => {
   }
 
   const port = upstreams()[0]
+  // WS 握手同样要过 IP 归一:API 侧的 ws-guard 拿这个头当单 IP 并发/握手的限流键,
+  // 原样透传客户端头就等于把限流开关交出去。
+  const forwardHeaders = buildForwardHeaders({
+    headers: req.headers,
+    remoteAddress: req.socket.remoteAddress,
+    edgeMode: EDGE_MODE,
+    edgeReason: admission.edgeReason,
+  })
   upSocket = net.connect(port, UPSTREAM_HOST, () => {
     const lines = [`${req.method} ${req.url} HTTP/1.1`]
-    for (const [k, v] of Object.entries(req.headers)) {
+    for (const [k, v] of Object.entries(forwardHeaders)) {
       lines.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
     }
     upSocket.write(`${lines.join('\r\n')}\r\n\r\n`)
