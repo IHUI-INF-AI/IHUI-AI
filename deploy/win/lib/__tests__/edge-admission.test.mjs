@@ -260,7 +260,10 @@ test('resolveEdgeClientIp 取 XFF 最右(最近一跳),不是最左(客户端整
   assert.equal(resolveEdgeClientIp(null), '')
 })
 
-test('off 档:请求头原样返回(未装闸必须零行为变化)', () => {
+test('off 档:仍做 IP 归一(客户端自带的 XFF 不被透传),但不做回源验证', () => {
+  // 2026-10-29 改判:原断言"一个头都不许动"让 off 档把客户端自带的 X-Forwarded-For
+  // 原样交给上游 —— 限流键与内网判据因此由攻击者指定,比"没装闸"更糟。IP 归一是身份
+  // 语义修正,不是闸门行为;off 档仍不做回源验证(不注入 verified)。
   const headers = {
     'x-forwarded-for': '1.1.1.1, 2.2.2.2',
     'cf-connecting-ip': '9.9.9.9',
@@ -272,7 +275,37 @@ test('off 档:请求头原样返回(未装闸必须零行为变化)', () => {
     edgeMode: 'off',
     edgeReason: 'off',
   })
-  assert.deepEqual(out, headers, 'off 档一个头都不许动')
+  assert.equal(out['x-forwarded-for'], '203.0.113.9', 'off 档也只认 TCP 对端')
+  assert.equal(out['x-ihui-client-ip'], '203.0.113.9')
+  assert.ok(!('x-ihui-edge-verified' in out), 'off 档不做回源验证')
+  assert.ok(!('x-real-ip' in out), 'x-real-ip 不透传')
+  assert.ok(!('cf-connecting-ip' in out), '非回环对端不采信 cf-connecting-ip')
+})
+
+test('回环对端(cloudflared 隧道):采信 CF-Connecting-IP,否则上游只看到 127.0.0.1', () => {
+  // api.aizhs.top 走本机 cloudflared,对端恒为回环;真实客户端 IP 只在 CF-Connecting-IP。
+  // 不采信它 ⇒ request.ip 恒 127.0.0.1 ⇒ isPrivateIp 失效(实测公网 /metrics 返回 200)、
+  // 全局限流退化为单桶。
+  const out = buildForwardHeaders({
+    headers: { 'cf-connecting-ip': '198.51.100.23', 'x-forwarded-for': '127.0.0.1' },
+    remoteAddress: '127.0.0.1',
+    edgeMode: 'observe',
+    edgeReason: 'no-secret',
+  })
+  assert.equal(out['x-forwarded-for'], '198.51.100.23')
+  assert.equal(out['x-ihui-client-ip'], '198.51.100.23')
+  assert.ok(!('x-ihui-edge-verified' in out), '隧道来源不等于回源鉴权匹配')
+})
+
+test('公网对端直连源站:同一个 CF 头不可采信(那是客户端自己写的)', () => {
+  const out = buildForwardHeaders({
+    headers: { 'cf-connecting-ip': '198.51.100.23' },
+    remoteAddress: '203.0.113.7',
+    edgeMode: 'observe',
+    edgeReason: 'no-secret',
+  })
+  assert.equal(out['x-forwarded-for'], '203.0.113.7')
+  assert.equal(out['x-ihui-client-ip'], '203.0.113.7')
 })
 
 test('match 档:采信 XFF 最右,注入 verified,并删掉其余伪造 IP 头', () => {
