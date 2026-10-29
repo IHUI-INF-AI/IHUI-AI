@@ -19,7 +19,7 @@ import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { __test__ as G, judge, verdict } from '../check-plan-fields.mjs'
+import { __test__ as G, idNorm, judge, verdict } from '../check-plan-fields.mjs'
 import { __test__ as H } from '../lib/plan-field-line.mjs'
 import { compositeKeyOf, dispositionOfV2 } from '../lib/plan-task-index.mjs'
 
@@ -46,6 +46,37 @@ describe('check-plan-fields 可导入且导入不走 main', () => {
   it('判据确实以 __test__ 导出(同一引用,不是第二份实现)', () => {
     assert.equal(G.judge, judge)
     assert.equal(G.verdict, verdict)
+  })
+})
+
+describe('--staged 档回归锁:崩溃即门不存在(§0.9,g33-s15 立@2026-10-30)', () => {
+  // 立因:9fdbc207ba 删掉纪元折算的定义面、6d0dbde7c9 收编把消费行带回而不带声明,HEAD 上
+  // `readFaces` 在 face!=='head' 分支引用裸标识符 `translate` ⇒ `node scripts/check-plan-fields.mjs
+  // --staged` 必抛 ReferenceError。这道 blocking 门(stagedTriggers=PROJECT_PLAN.md)在 pre-commit
+  // 面等于不存在,而崩溃还会把每次碰台账的提交顶成红/逼人跳门(§12e)。本锁真跑 CLI,把
+  // "崩了悄悄回来"钉成测试红;差值维的取数面正是 --staged,所以锁必须挂在这一档。
+  it('真跑 --staged:不抛 ReferenceError、必产机读结论行、RC∈{0,1,2}', () => {
+    const r = spawnSync(process.execPath, ['scripts/check-plan-fields.mjs', '--staged'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    })
+    assert.ok([0, 1, 2].includes(r.status), `退出码必须是三态之一,实得 ${r.status}:${r.stderr}`)
+    assert.doesNotMatch(String(r.stderr ?? ''), /is not defined|ReferenceError/)
+    assert.match(
+      String(r.stdout ?? ''),
+      /PLAN-FIELDS-RESULT state=(clean|warn|red|undetermined)\b/,
+      '崩溃的指纹就是机读行缺失(run() 在打印前抛出) ⇒ 必须现出结论行',
+    )
+  })
+
+  it('纪元身份尺 idNorm:换号不换正文同一身份,正文改一字仍判新', () => {
+    const a = '- [ ] G-41 甲某件活 细节'
+    const b = '- [ ] H07 甲某件活 细节'
+    assert.equal(idNorm(a), idNorm(b), '重编号只是把同一件事搬到新号下,A1 不得读成新行(§12e)')
+    assert.notEqual(idNorm(a), idNorm('- [ ] H07 甲某件活 细节日'), '正文变一个字必须仍判新')
+    // 族表必须含 H|I 且位数到 6 —— check-plan-line-loss 的 bodyKeyOf 注记记过的同一条漂移教训。
+    assert.equal(idNorm('- [ ] D42046 断线重连'), idNorm('- [ ] D14 断线重连'))
+    assert.equal(idNorm('- [ ] H04 题面'), idNorm('- [ ] H05 题面'))
   })
 })
 
