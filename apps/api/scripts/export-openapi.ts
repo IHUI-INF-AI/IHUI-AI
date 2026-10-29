@@ -62,9 +62,13 @@ export const CAPABILITIES_REL_PATH = 'packages/types/generated/capabilities.json
  * 注册期的幂等建表(`live-gifts.ts:70`)上崩。Windows 本地永远绿,所以这是一条只在 CI
  * 现形的平台性失效(与守门 72/78 "本地全绿、出事的是别人"同族)。
  *
- * 写成无类型标注的普通 function:它要被 `.toString()` 注入 `data:` URL 的钩子模块里,
- * 那里跑的是纯 JS。
+ * 写成无类型标注的普通 function:它要被 `.toString()` 注入钩子模块,那里跑的是纯 JS。
+ * 注入面取的是**源码文本**(scripts/tests/export-openapi-stub-key.test.mjs 用 vm 直接执行
+ * 抠出来的函数体),所以这里既不能留类型标注(会变成 JS 语法错),也不能用默认参数
+ * (默认参数让 fn.length 从 1 变 0,而 arity 正是那把锁钉住的契约)。implicit-any 只能就地
+ * 定向豁免 —— 豁免的理由是"消费面吃源码文本",不是"这文件没人检查"。
  */
+// @ts-expect-error 源码文本会被 vm 直接执行:任何类型标注都会成为 JS 语法错误
 function normalizeStubKey(p) {
   return p.replace(/\\/g, '/').replace(/^\//, '').toLowerCase()
 }
@@ -86,11 +90,11 @@ function buildDbStubSource(): string {
   for (const m of src.matchAll(
     /^export\s+(?:declare\s+)?(?:async\s+)?(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/gm,
   )) {
-    names.add(m[1])
+    names.add(m[1]!)
   }
   // export { a, b as c } / export { x } from '...'
   for (const m of src.matchAll(/^export\s*\{([^}]*)\}(?!\s*from)/gm)) {
-    for (const part of m[1].split(',')) {
+    for (const part of m[1]!.split(',')) {
       const seg = part.trim()
       if (!seg || seg.startsWith('type ')) continue
       const asName = seg
@@ -315,8 +319,9 @@ interface ScopeRoute {
 export function parseCapabilityRoute(entry: string): ScopeRoute | null {
   const m = /^([A-Za-z]+)\s+(\S+)$/.exec(entry.trim())
   if (!m) return null
-  const method = m[1].toLowerCase()
-  const raw = m[2].startsWith('/') ? m[2] : `/${m[2]}`
+  const method = m[1]!.toLowerCase()
+  const seg = m[2]!
+  const raw = seg.startsWith('/') ? seg : `/${seg}`
   const prefixMatch = raw.endsWith('/*')
   const path = prefixMatch ? raw.slice(0, -2) : raw
   return { method, path: toOpenApiPath(path), scope: '', prefixMatch }
@@ -433,8 +438,8 @@ export function pathPatternMatches(
   const a = actual.split('/').filter(Boolean)
   const dyn = (s: string): boolean => s.startsWith(':') || s.startsWith('{') || s === '*'
   const segEq = (x: string, y: string): boolean => x === y || dyn(x) || dyn(y)
-  if (prefixMatch) return a.length >= d.length && d.every((s, i) => segEq(s, a[i]))
-  return a.length === d.length && d.every((s, i) => segEq(s, a[i]))
+  if (prefixMatch) return a.length >= d.length && d.every((s, i) => segEq(s, a[i]!))
+  return a.length === d.length && d.every((s, i) => segEq(s, a[i]!))
 }
 
 /**
@@ -665,7 +670,7 @@ export function stabilizeDocument(doc: JsonObject): JsonObject {
   const paths = (doc.paths ?? {}) as Record<string, JsonObject>
   const sortedPaths: JsonObject = {}
   for (const pathKey of Object.keys(paths).sort()) {
-    const item = paths[pathKey]
+    const item = paths[pathKey]!
     const sortedItem: JsonObject = {}
     for (const key of Object.keys(item).sort()) {
       if (key === 'parameters') {
