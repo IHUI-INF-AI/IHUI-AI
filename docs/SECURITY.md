@@ -399,7 +399,7 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
   当前水位:生产未豁免 0 条 / 已豁免 3 枚(systeminformation、image-size、zod,均带硬证据与
   2027-01-31 到期日)/ 构建链存量 23 条只报数。
 
-### 10.8 P0 — 源站收敛:回源鉴权(代码侧已就绪,控制台侧待机主开启)
+### 10.8 P0 — 源站收敛:回源鉴权(两半均已落地,控制台侧由脚本直落)
 
 **问题**:web 的 8801 必须绑 `0.0.0.0`(EdgeOne 回源直填公网 IP),知道源站 IP 即可绕过
 EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形同虚设。
@@ -410,8 +410,16 @@ EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形�
 3. 文档自己写明「回源 IP 网段内也可能存在少数不归属于 EdgeOne 的 IP」,并**建议叠加
    回源鉴权**(回源时携带自定义鉴权信息,由源站校验通过后再响应)形成多层防护。
 
-**已实现**(代码侧):`deploy/win/lib/edge-origin-guard.mjs` + `ihui-api-router.mjs` 接线。
-EdgeOne 控制台「规则引擎 → 修改 HTTP 回源请求头」注入 `X-IHUI-Edge-Secret`,源站只放行匹配的请求。
+**两半都已落地**:
+- **源站侧**:`deploy/win/lib/edge-origin-guard.mjs` + `ihui-api-router.mjs` 接线。
+- **控制台侧**:`scripts/eo-origin-guard-rule.mjs` 直接调 teo API 落地「修改 HTTP 回源请求头」规则
+  (`ModifyRequestHeader` → `X-IHUI-Edge-Secret`),**不再需要人去控制台点**。幂等:条件按站点
+  在线加速域名枚举,密钥读 `IHUI-WEB-ROUTER` 服务的 `AppEnvironmentExtra`,取值不落日志。
+
+两个实现约束(实测 2026-10-29,踩过才写):
+- `ModifyL7AccRule` 只传 `{RuleId,RuleName,Status}` 会回 `InternalError`,改造用 Delete + Create;
+- `Condition` **不接受空串 / `true`**(`ErrNilCondition` / `Invalid Matching type: 'true'`),
+  而 `uri.path in ['/']` 只精确匹配根路径(同名缓存规则就只缓存首页)—— 所以按域名枚举。
 
 三档,**默认 `off`**(线上关键路径上新装 403 开关,默认必须什么都不做):
 
@@ -429,16 +437,20 @@ EdgeOne 控制台「规则引擎 → 修改 HTTP 回源请求头」注入 `X-IHU
 - 比较用定长 XOR(不按字节短路泄漏密钥前缀)。
 
 **开启顺序(必须按这个来,跳步就是全站 403)**:
-1. EdgeOne 控制台 → 站点 → 规则引擎 → 新建规则「修改 HTTP 回源请求头」,
-   加 `X-IHUI-Edge-Secret: <48 位随机串>`(全站生效);
+1. 规则侧:`node scripts/eo-origin-guard-rule.mjs`(只读对账)→ `--apply`(落地/修偏);
 2. 源站设 `IHUI_EDGE_SECRET=<同一个串>` + `IHUI_EDGE_SECRET_MODE=observe`,重启两个 ROUTER;
-3. 观察 ≥ 24h:`D:\DevEnv\logs\svc-*-router.log` 里搜 `"msg":"edge guard"` ——
-   **应当几乎没有** `reason=missing`(有就说明还有流量没走 EdgeOne,先查清再继续);
+3. 观察:`D:\DevEnv\logs\svc-*-router.log` 里搜 `"msg":"edge guard"` ——
+   **应当没有** `reason=missing`(有就说明还有流量没走 EdgeOne,先查清再继续);
+   `match` 走 `pass` 分支**不写日志**,所以"日志安静"就是正向信号,别把"没日志"读成"没流量":
+   主动打几发公网请求(`curl --noproxy '*' https://www.aizhs.top/__probe_<ts>`)再看 `edge guard` 行数增量为 0;
 4. 切 `=enforce` 重启,再从外网直连源站 IP 验证返回 403、正常访问不受影响。
 
-**实测**(router 冒烟,enforce 档):局域网不带头 403 / 错头 403 / 正确头 200 /
-回环不带头 200;observe 档四向全 200(不拦人)。测试 14 例 +
-`deploy/win/lib/__tests__/edge-origin-guard.test.mjs`。
+**实测**:
+- **2026-10-29 线上切换**:规则由 `scripts/eo-origin-guard-rule.mjs --apply` 落地并 enable;
+  落地后守卫日志连续 13 分钟零 `reason=missing`(主动打 3 发公网请求,增量 0)才切 enforce。
+  切档后:公网 `www.aizhs.top` 200、内网直连源站不带/错头 403、回环不带 200、正确头 200。
+- router 冒烟(observe/enforce 两档):局域网不带头 403 / 错头 403 / 正确头 200 / 回环不带头 200;
+  observe 档四向全 200(不拦人)。测试 14 例 + `deploy/win/lib/__tests__/edge-origin-guard.test.mjs`。
 
 ---
 
