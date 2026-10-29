@@ -129,7 +129,7 @@
     "modelSck": "知識ベース",
     "matAll": "すべて",
     "matText": "テキスト",
-    "inputPlaceholder": "質問を入力、または長押しで話す",
+    "inputPlaceholder": "質問を入力",
     "modelSelectTitle": "モデル選択",
     "modelSelectSearchCount": "{count}件のモデルを検索",
     "modelSelectAgentCount": "{count}件のエージェント",
