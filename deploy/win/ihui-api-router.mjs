@@ -23,6 +23,12 @@ import path from 'node:path'
 
 import { createIpRateLimiter, isLoopbackAddress, resolveRateLimitConfig } from './lib/ip-rate-limit.mjs'
 import { decideEdgeGuard, resolveEdgeGuardMode } from './lib/edge-origin-guard.mjs'
+import {
+  bgStatusVisibleTo,
+  buildRejectionFrame,
+  decideUpgradeAdmission,
+  resolveRouterMaxConnections,
+} from './lib/edge-admission.mjs'
 
 // ── 通用化(2026-10-28 生产席:web 蓝绿复用同一份 router,不落第二份反代实现)────────
 // 立因:web 走蓝绿也要一个"常驻监听 + 原子切流"的入口层,而另写一份 router 就是第二个真相源
@@ -83,6 +89,13 @@ const limiter = RATE_LIMIT.enabled
   ? createIpRateLimiter({ rps: RATE_LIMIT.rps, burst: RATE_LIMIT.burst })
   : null
 
+// ── 连接数硬顶(2026-10-29 加固,第三层)────────────────────────────────────
+// Node 缺省 `maxConnections = Infinity` —— 反代对「同时挂多少条 TCP」没有任何上限。
+// headersTimeout 只保证单条连接不会永远挂着,挡不住「每秒建 N 条、30 秒内堆 30N 条」这种量:
+// FD 与内存按连接数线性涨,而 router 一旦 OOM,全站入口同时消失(比被攻击更彻底)。
+// 超顶时 Node 直接关掉新连接,已建立的照常服务。常量提前到此,因为启动日志要报它。
+const MAX_CONNECTIONS = resolveRouterMaxConnections(process.env.IHUI_BG_MAX_CONNECTIONS)
+
 // ── 回源鉴权(2026-10-29 加固,第二层)───────────────────────────────────────
 // 治「知道源站 IP 就能绕过 EdgeOne 直连」。第一层(防火墙只放行 EdgeOne 回源 IP 段)
 // 必须在 EdgeOne 控制台拿 IP 段才能配,且只对付费套餐开放、3-6 个月变一次 —— 那一层
@@ -126,6 +139,8 @@ log('info', 'router started', {
   upstream: state[state.active],
   source: state.source,
   rateLimit: RATE_LIMIT.enabled ? `${RATE_LIMIT.rps}rps/${RATE_LIMIT.burst}burst` : 'off',
+  // 连接数硬顶必须报出来:运维要能一眼确认「上限是多少」,而不是去翻 env 或读源码。
+  maxConnections: MAX_CONNECTIONS,
   // 必须报出来:运维要能一眼确认「回源鉴权到底开没开」,而不是去翻 env。
   // 配了 observe/enforce 却没给密钥 ⇒ 实际不拦,这里明说,免得被当成已生效。
   edgeGuard:
@@ -165,8 +180,17 @@ function sendJson(res, status, body) {
 }
 
 const server = http.createServer((req, res) => {
-  // 运维探针：仅本机可达（监听 127.0.0.1），给部署脚本确认「路由在跑、当前是哪一色」
+  // 运维探针：给部署脚本确认「路由在跑、当前是哪一色」。
+  //
+  // 2026-10-29 加固:原注释写「仅本机可达（监听 127.0.0.1）」,那只对 API router 成立 ——
+  // WEB router 复用同一份实现且监听 0.0.0.0,实测公网可读走「活跃色 + 两色内部端口」。
+  // 故判据从"我以为它监听在哪"改成按**来源**:非回环一律 404(与未知路径同形,
+  // 不回 403 —— 403 等于承认端点存在)。
   if (req.url === '/__bg/status') {
+    if (!bgStatusVisibleTo(req.socket.remoteAddress || '')) {
+      sendJson(res, 404, { code: 404, message: 'not found' })
+      return
+    }
     sendJson(res, 200, { ok: true, active: state.active, upstream: state[state.active] })
     return
   }
@@ -221,6 +245,9 @@ const server = http.createServer((req, res) => {
 server.headersTimeout = 30_000
 server.requestTimeout = 120_000
 
+// 连接数硬顶(2026-10-29):常量见文件上方 MAX_CONNECTIONS(启动日志已报出)。
+server.maxConnections = MAX_CONNECTIONS
+
 function proxyHttp(req, res, attempt) {
   const ports = upstreams()
   const port = ports[attempt]
@@ -265,9 +292,55 @@ function proxyHttp(req, res, attempt) {
 }
 
 // WebSocket：手工做 HTTP Upgrade 透传（不引第三方依赖，避免 pnpm 隔离目录解析问题）
+//
+// 2026-10-29 加固:这条分支此前**完全绕过**上面两道闸 —— `server.on('upgrade')` 是独立
+// 回调,拿到连接就直接 net.connect,既不验回源密钥也不过令牌桶。攻击者只要在请求行写
+// `Upgrade: websocket`,就能以任意速率、任意条数直连上游,限流日志里一条都不留。
+// 判定抽到 lib/edge-admission.mjs 并做成纯函数 —— 原实现内联在回调里时,想验证只能起
+// 真 router 发真握手,而「从非回环地址发」在本机结构上做不到,这条路径永远测不到。
 server.on('upgrade', (req, socket, head) => {
+  // 先挂 error:拒绝路径要往 socket 写响应帧,对端此刻已断时 write 会 EPIPE,
+  // 没有 handler 就是整个 router 进程崩(那等于攻击者用一次断连打掉入口)。
+  let upSocket = null
+  socket.on('error', () => {
+    if (upSocket) upSocket.destroy()
+    else socket.destroy()
+  })
+
+  const admission = decideUpgradeAdmission({
+    edgeMode: EDGE_MODE,
+    edgeSecret: EDGE_SECRET,
+    remoteAddress: req.socket.remoteAddress || '',
+    headers: req.headers,
+    // 与 HTTP 分支共用同一个桶:各建一个等于把阈值悄悄翻倍。
+    checkRate: limiter ? (ip) => limiter.check(ip) : null,
+  })
+
+  if (!admission.allow) {
+    if (admission.reason === 'edge-guard') edgeGuardDenied += 1
+    log('warn', 'ws handshake rejected', {
+      reason: admission.reason,
+      status: admission.status,
+      edgeReason: admission.edgeReason,
+      ip: req.socket.remoteAddress || '',
+      url: req.url,
+    })
+    try {
+      socket.end(buildRejectionFrame(admission.status, admission.reason, admission.retryAfterSec))
+    } catch {
+      /* 对端已断,下面统一销毁 */
+    }
+    socket.destroy()
+    return
+  }
+  // observe 档下不拦,但要留下「这条握手是直连来的」证据 —— 与 HTTP 分支同一口径。
+  // 不记的话,直连攻击者只要改走 WS 就能在 observe 统计里彻底隐身。
+  if (EDGE_MODE !== 'off' && admission.edgeReason !== 'match' && admission.edgeReason !== 'loopback') {
+    logEdgeGuard(admission.edgeReason, req.socket.remoteAddress || '')
+  }
+
   const port = upstreams()[0]
-  const upSocket = net.connect(port, UPSTREAM_HOST, () => {
+  upSocket = net.connect(port, UPSTREAM_HOST, () => {
     const lines = [`${req.method} ${req.url} HTTP/1.1`]
     for (const [k, v] of Object.entries(req.headers)) {
       lines.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
@@ -281,8 +354,9 @@ server.on('upgrade', (req, socket, head) => {
     log('warn', 'ws upstream error', { port, code: err.code, url: req.url })
     socket.destroy()
   })
-  socket.on('error', () => upSocket.destroy())
-  socket.on('close', () => upSocket.destroy())
+  socket.on('close', () => {
+    if (upSocket) upSocket.destroy()
+  })
 })
 
 server.on('error', (err) => {

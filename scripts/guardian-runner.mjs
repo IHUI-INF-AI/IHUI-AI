@@ -5975,6 +5975,11 @@ const checks = [
       'apps/ai-service/app/main.py',
       'apps/ai-service/app/sio/handlers.py',
       'apps/ai-service/app/core/',
+      // 2026-10-29 第二批:边缘 router 的三根线(WS 握手准入 / 探针可见性 / 连接数硬顶)
+      // 进了本门的锚点清单,射程必须同步 —— 否则改 router 时本门在提交链上永不复跑,
+      // 判据只在 CI 全量档才看得见(守门 253 的"两通道反义"正是这一型)。
+      'deploy/win/ihui-api-router.mjs',
+      'deploy/win/lib/',
       'scripts/check-ddos-guard-wiring.mjs',
     ],
     onFailHint: [
