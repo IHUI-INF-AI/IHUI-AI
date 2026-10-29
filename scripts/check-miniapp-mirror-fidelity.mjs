@@ -167,6 +167,29 @@ export function consumedKeys(text) {
 }
 
 /**
+ * 端词包命名空间齐全性(2026-10-29 立,纯函数零 IO)。
+ *
+ * 立因:`hosted` 行的文案由**共享源本体**渲染 ⇒ 本门按构造判它 100%、无键可缺;而逐键那把尺
+ * 数的是"键在不在页面文本里",壳页文本里本来就没有键。**两把尺对同一件事同时失明**:
+ * 共享源取词用的是本端词包,若那一整块命名空间从没搬进 `messages/miniapp-taro/`,这一屏
+ * 每一句话都取不到词条,而账面一路是绿的。实测撞出来的两例:`pdfToolsPage`(54 键 × 5 语言全缺)
+ * 与随后同族扫出的 16 个命名空间 —— 都发生在「还原度 74.9%、断链 0、声明不符 0」的读数为绿期间。
+ *
+ * 动态拼键(`t(\`x.${id}\`)`)的命名空间在这一维里量不到 ⇒ 逐条排除并另计,不混进缺陷数。
+ * `available` 取不到 ⇒ 返回 null 由调用方记未判定,绝不折成"无缺口"(§0.3)。
+ */
+export function packNamespaceGap({ usedKeys, available }) {
+  if (!available || !(available instanceof Set) || available.size === 0) return null
+  const absent = new Set()
+  for (const k of usedKeys || []) {
+    const ns = String(k).split('.')[0]
+    if (!ns || ns.includes('$')) continue
+    if (!available.has(ns)) absent.add(ns)
+  }
+  return [...absent].sort()
+}
+
+/**
  * 这一对(共享屏 spec ↔ 小程序页)是**壳承载**还是**端内手写**。
  *
  * 立因(2026-10-27 实测):本门头注写于「壳承载形制」装车之前,当时小程序页全是人工改写
@@ -262,6 +285,27 @@ export function computeFidelity(face) {
   const shellTexts = batchReadTexts(face, shellRels)
   const readShell = (rel) => shellTexts.get(rel) ?? null
 
+  // 端可得词包 = 本端包 ∪ shared(两端取词都算得到;少算 shared 会把 200+ 个正常命名空间读成缺口)。
+  // 只读 zh-CN 顶层键:命名空间存在性五语言同构,键集对齐另有 check-i18n-parity 那道门管。
+  // 本模块没有 faceRead,一律走自己的 batchReadTexts(§0.4 同面同轮:与被判正文取同一个面)。
+  const PACK_RELS = [
+    'packages/i18n/messages/miniapp-taro/zh-CN.json',
+    'packages/i18n/messages/shared/zh-CN.json',
+  ]
+  const packTexts = batchReadTexts(face, PACK_RELS)
+  const topsOf = (rel) => {
+    const t = packTexts.get(rel)
+    if (t === null || t === undefined) return null
+    try {
+      return Object.keys(JSON.parse(t))
+    } catch {
+      return null
+    }
+  }
+  const mpTops = topsOf(PACK_RELS[0])
+  const shTops = topsOf(PACK_RELS[1])
+  const packAvailable = mpTops && shTops ? new Set([...mpTops, ...shTops]) : null
+
   const rows = []
   for (const s of shared) {
     if (!paired.has(s.spec)) continue
@@ -278,6 +322,7 @@ export function computeFidelity(face) {
       const mpKeys = consumedKeys(`${p.text || ''}\n${p.cssText || ''}`)
       // 承载页的文案由共享源本体渲染 ⇒ 无键可缺;断链/手写页照旧逐键数,一分不宽。
       const missing = form === 'hosted' ? [] : sharedKeys.filter((k) => !mpKeys.has(k))
+      const gap = packNamespaceGap({ usedKeys: sharedKeys, available: packAvailable })
       rows.push({
         spec: s.spec,
         route: p.route,
@@ -287,6 +332,8 @@ export function computeFidelity(face) {
         covered: sharedKeys.length - missing.length,
         missing,
         fidelity: (sharedKeys.length - missing.length) / sharedKeys.length,
+        // 本端词包里根本不存在的那些命名空间(null ⇒ 词包取不到,这一维未判定,不折成空数组冒绿)
+        packAbsent: gap,
       })
     }
   }
@@ -302,6 +349,14 @@ export function computeFidelity(face) {
     totalShared,
     totalCovered,
     totalMissing,
+    // 新维(2026-10-29):取不到词包 ⇒ packUndetermined 为真,由调用方落未判定档,
+    // 绝不在这里把"没判"写成"零缺口"(§0.3)。
+    packUndetermined: packAvailable === null,
+    packAbsentRows: rows.filter((r) => Array.isArray(r.packAbsent) && r.packAbsent.length > 0)
+      .length,
+    packAbsentNamespaces: [
+      ...new Set(rows.flatMap((r) => (Array.isArray(r.packAbsent) ? r.packAbsent : []))),
+    ].sort(),
     hosted: rows.filter((r) => r.form === 'hosted').length,
     hand: rows.filter((r) => r.form === 'hand').length,
     other: rows.filter((r) => r.form === 'other').length,
@@ -442,6 +497,11 @@ function run() {
     broken: now.broken,
     regressions: reg,
     rows: now.rows,
+    // 新维随 json 一起出去,由漂移尺按"绝对值出声"接走(与 broken/other 同一链路),
+    // 本尺的退出码口径不动 —— 它历来只把"倒退"折进 rc。
+    packUndetermined: now.packUndetermined === true,
+    packAbsentRows: now.packAbsentRows ?? 0,
+    packAbsentNamespaces: now.packAbsentNamespaces ?? [],
   }
 
   if (opts.json) {
@@ -449,7 +509,7 @@ function run() {
     return reg.length > 0 ? 1 : 0
   }
 
-  const head = `FIDELITY-RESULT face=${face} base=${baseLabel} pairs=${now.pairs} hosted=${now.hosted} hand=${now.hand} other=${now.other} broken=${now.broken} avg=${pct(now.avg)} missing=${now.totalMissing} regressions=${reg.length} state=${state}`
+  const head = `FIDELITY-RESULT face=${face} base=${baseLabel} pairs=${now.pairs} hosted=${now.hosted} hand=${now.hand} other=${now.other} broken=${now.broken} packAbsentRows=${now.packUndetermined === true ? '?' : (now.packAbsentRows ?? 0)} avg=${pct(now.avg)} missing=${now.totalMissing} regressions=${reg.length} state=${state}`
   console.log(head)
   if (now.broken > 0) {
     console.log('❌ 壳承载断链(引了壳而链不成立 ⇒ 这一页在产物里渲染不出,比缺文案严重):')
@@ -462,6 +522,22 @@ function run() {
     )
     for (const r of now.rows)
       if (r.form === 'other') console.log(`   ${r.spec} → ${r.route}:${r.why}`)
+  }
+  if (now.packUndetermined === true) {
+    console.log(
+      '⚠️ 端词包命名空间这一维**未判定**:取不到 messages/miniapp-taro 或 messages/shared 的顶层键' +
+        ' ⇒ 不记"零缺口",也不冒红(§0.3)',
+    )
+  } else if ((now.packAbsentRows ?? 0) > 0) {
+    console.log(
+      '❌ 端词包缺整块命名空间(壳承载页的文案由共享源渲染,而它取词用的是本端词包 ⇒ 这些屏每句话都取不到词条;' +
+        '逐键那把尺对 hosted 行按构造判 100%,两把尺同时看不见这一型):',
+    )
+    for (const r of now.rows)
+      if (Array.isArray(r.packAbsent) && r.packAbsent.length)
+        console.log(
+          `   ${r.spec} → ${r.route} [${r.form}] 缺 ns: ${r.packAbsent.slice(0, 6).join(', ')}${r.packAbsent.length > 6 ? ' …' : ''}`,
+        )
   }
   if (reg.length > 0) {
     console.log('❌ 还原度倒退(本次丢掉的键 / 新增的端内手写镜像页):')
@@ -511,6 +587,7 @@ export const __test__ = {
   isBusinessKey,
   businessKeys,
   consumedKeys,
+  packNamespaceGap,
   hostingFormOf,
   computeFidelity,
   regressions,

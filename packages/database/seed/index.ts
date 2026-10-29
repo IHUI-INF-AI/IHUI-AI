@@ -16,6 +16,7 @@ import { seedCourses } from './courses-seed.js'
 import { seedAiCostRecords } from './ai-cost-records-seed.js'
 import { seedRelayPricing } from './relay-pricing-seed.js'
 import { seedLegacyVideos } from './legacy-videos.js'
+import { seedTools } from './tools-seed.js'
 
 interface SeedStep {
   /** 步骤编号(1-based) */
@@ -125,6 +126,13 @@ const STEPS: SeedStep[] = [
     description:
       '22 门课 / 867 小节,时长与分辨率实测自 mp4 容器头,视频指向云端对象存储(幂等;草稿态,不上架)',
     fn: () => seedLegacyVideos({ apply: true, publish: false }).then(() => undefined),
+  },
+  {
+    index: 15,
+    name: '工具目录基线',
+    description:
+      '9 条 web /tools 页的目录数据,每条对应一个本仓真实存在的路由(幂等;此前表恒空 ⇒ /tools 三档全显示「暂无工具」)',
+    fn: seedTools,
   },
 ]
 

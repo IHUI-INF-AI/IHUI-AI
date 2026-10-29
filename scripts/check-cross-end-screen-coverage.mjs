@@ -561,7 +561,10 @@ function run() {
   for (const e of registry.entries || []) {
     const { shared: sp, rn: rf, miniapp: mr } = e || {}
     if (!sp || !rf || !mr) {
-      r1Red.push({ entry: e, why: '登记项缺 shared/rn/miniapp 三键之一' })
+      r1Red.push({
+        entry: e,
+        why: '登记项缺 shared/rn/miniapp 三键之一(置 null 不等于"无 rn 腿":全仓无 RN 屏 import 该 shared 符号 ⇒ 删该条目才是恢复口径;有而漏登 ⇒ 补该 rn 路径)',
+      })
       continue
     }
     if (faceRead(FACE, sp) === null) {

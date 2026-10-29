@@ -378,8 +378,48 @@ test('T20 形制桶齐全:结论行必须报出 hosted/hand/other/broken 四维(
     maxBuffer: 32 * 1024 * 1024,
   })
   const out = `${r.stdout || ''}${r.stderr || ''}`
-  for (const dim of ['hosted=', 'hand=', 'other=', 'broken='])
+  for (const dim of ['hosted=', 'hand=', 'other=', 'broken=', 'packAbsentRows='])
     assert.ok(out.includes(dim), `结论行缺维度 ${dim}:${out.slice(0, 300)}`)
+})
+
+/* ── 端词包命名空间维(2026-10-29 立)──────────────────────────────
+ * 立因:hosted 行按构造判 100%、无键可缺,而逐键那把尺数的是"键在不在页面文本里"——
+ * 壳页文本本来就没有键。于是"共享源要取的那整块命名空间根本没搬进本端词包"这一型,
+ * 两把尺同时看不见,账面一路绿(实测撞出 pdfToolsPage 54 键 × 5 语言全缺,以及同族 16 个命名空间)。
+ * 判据一律 import 生产出口(§22c),测试不复制一份。 */
+test('P1 正控:命名空间不在本端词包 ⇒ 必须报出来', () => {
+  const gap = gate.packNamespaceGap({
+    usedKeys: ['pdfToolsPage.title', 'pdfToolsPage.unitKb', 'common.ok'],
+    available: new Set(['common']),
+  })
+  assert.deepEqual(gap, ['pdfToolsPage'], '缺的那块要逐字点名,不能只报个数')
+})
+
+test('P2 反控:词包取不到 ⇒ 返回 null,绝不折成"零缺口"(§0.3)', () => {
+  assert.equal(
+    gate.packNamespaceGap({ usedKeys: ['any.leaf'], available: null }),
+    null,
+    '取不到输入必须与"判过且为 0"分家',
+  )
+  assert.equal(gate.packNamespaceGap({ usedKeys: ['any.leaf'], available: new Set() }), null)
+})
+
+test('P3 动态拼键:整段是模板的(${ns})跳过,"固定 ns + 动态 leaf"照报(后者确实要那块词包)', () => {
+  const gap = gate.packNamespaceGap({
+    usedKeys: ['${ns}', 'legalDocs.${id}.title', 'realPage.title'],
+    available: new Set(['other']),
+  })
+  // `${ns}` 这一段根本取不到命名空间 ⇒ 本维量不到,跳过而不是编一个缺;
+  // `legalDocs.${id}.title` 的 ns 段是固定的 ⇒ 它真需要 legalDocs 这块词包,漏报就是假绿。
+  assert.deepEqual(gap, ['legalDocs', 'realPage'])
+})
+
+test('P4 并集语义:住在 messages/shared 里的命名空间不算缺(少算它会凭空报出 200+)', () => {
+  const gap = gate.packNamespaceGap({
+    usedKeys: ['settings.pwdTooShort', 'profile.logout'],
+    available: new Set(['settings', 'profile']), // 调用方传的是 本端包 ∪ shared
+  })
+  assert.deepEqual(gap, [])
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
