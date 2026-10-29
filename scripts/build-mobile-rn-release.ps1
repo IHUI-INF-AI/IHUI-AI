@@ -69,11 +69,13 @@
   **不给这个旗就不许产出连回环的包** —— 缺省直接拒绝构建,而不是等人装到手机上才发现全不通。
 .PARAMETER NoPublish
   只出包、不发布到公网固定地址(2026-10-29 立的第 5 步默认开启)。
-  默认动作:构建+回读+验签全过后,调 `node scripts/publish-mobile-apk.mjs` 把本次 APK 覆盖到
-  腾讯云 COS 桶,对外固定地址恒为 `https://dl.aizhs.top/ihui-ai-latest.apk`(用户不用换链接),
-  同时留一份带版本号的副本。latest 对象带 `Cache-Control: no-cache` ⇒ Cloudflare 每次回源校验
-  (实测 cf-cache-status=REVALIDATED),不会出现"发新包但用户还在下旧包"。
-  发布失败=整条链失败(exit 非 0),不许"包好了但没发出去"读成成功。
+  默认动作:构建+回读+验签全过后,调 `node scripts/publish-mobile-apk.mjs` 同时发两条腿 ——
+  主用站点 CDN 腿 `https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk`(EdgeOne,
+  国内实测 1–4MB/s;这条不是实物文件,而是 cdn-server 读旁边指针转出的 no-cache 302,真正长
+  缓存的是带版本号那份),备用腾讯云 COS 腿 `https://dl.aizhs.top/ihui-ai-latest.apk`(CF 橙云,
+  2026-10-29 实测国内只剩 3–6KB/s,故降为备用;两家云默认域名都禁发 APK,必须走自定义域名)。
+  两条都是固定地址 ⇒ 用户不用换链接;发布末尾还要从公网回读一次(302 目标 + 大小 +
+  Content-Type),取不到即整条链失败 —— 不许"包好了但没发出去"读成成功。
 #>
 param(
   [int]$VersionCode = 0,
@@ -511,7 +513,10 @@ if (-not $SkipVerify) {
 
 Write-Host "`n===== [5/5] 发布到固定下载地址 =====" -ForegroundColor Cyan
 $VersionName = (Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version
-$PublishUrl = 'https://dl.aizhs.top/ihui-ai-latest.apk'
+# 主用站点 CDN 腿(EdgeOne,2026-10-29 实测国内 1–4MB/s);COS/CF 橙云腿降为备用
+# (同一时刻实测只剩 3–6KB/s,免费橙云跨境腿限速不在我方可控范围,不能当唯一出口)。
+$PublishUrl = 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk'
+$PublishUrlBackup = 'https://dl.aizhs.top/ihui-ai-latest.apk'
 if ($NoPublish) {
   Write-Warning 'NoPublish: 本次只出包,未发布到公网(固定地址仍是上一版)'
 } else {
@@ -526,7 +531,10 @@ Write-Host "`n========== BUILD RELEASE DONE ==========" -ForegroundColor Green
 Write-Host "  APK:      $Apk"
 Write-Host "  大小:     ${SizeMB} MB"
 Write-Host "  version:  $VersionName (code=$VersionCode)"
-if (-not $NoPublish) { Write-Host "  下载地址: $PublishUrl" -ForegroundColor Green }
+if (-not $NoPublish) {
+  Write-Host "  下载地址: $PublishUrl" -ForegroundColor Green
+  Write-Host "  备用地址: $PublishUrlBackup"
+}
 Write-Host "  安装测试: adb install -r `"$Apk`""
 Write-Host "========================================"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
