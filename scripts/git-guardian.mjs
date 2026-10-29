@@ -3168,6 +3168,11 @@ const PUBLIC_PROBE_STREAK_TTL_MS = Number(process.env.IHUI_PUBLIC_PROBE_STREAK_T
  */
 const OPS_PATROL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-tick.ts')
 const SERVICE_HEAL_INTERVAL_MS = Number(process.env.IHUI_SERVICE_HEAL_INTERVAL_MS || 30 * 60 * 1000)
+// 带伤快档(2026-10-29):自愈状态里存在未恢复的 down 链时,下一轮隔这么久而非标称 30 分钟 ——
+// 成本按现读取过(自愈一轮实测 5.3 秒 ⇒ 2 分钟档约 4% 占空),窗口封顶 15 分钟:超窗说明已喊过人,
+// 不再自行加密(§「抑制告警必须有终态」同一条纪律)。三个旋钮都可 env 覆盖;置 0 即回旧行为。
+const SERVICE_HEAL_RETRY_MS = Number(process.env.IHUI_SERVICE_HEAL_RETRY_MS || 2 * 60 * 1000)
+const SERVICE_HEAL_RETRY_WINDOW_MS = Number(process.env.IHUI_SERVICE_HEAL_RETRY_WINDOW_MS || 15 * 60 * 1000)
 
 // 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3216(门 103 C1 收口)〉首意: 工作区写索引动作的节流(2026-10-04 复核补)。
 const WORKTREE_HEAL_INTERVAL_MS = Number(process.env.IHUI_WORKTREE_HEAL_INTERVAL_MS || 5 * 60 * 1000)
@@ -3180,6 +3185,9 @@ export function healUnresponsiveServices(opts = {}) {
     now = Date.now(),
     intervalMs = SERVICE_HEAL_INTERVAL_MS,
     tickFile = join(WORKTREE, '.ihui-agent', 'state', 'service-heal-tick.iso'),
+    stateFile = join(WORKTREE, '.ihui-agent', 'state', 'service-heal-state.json'),
+    retryMs = SERVICE_HEAL_RETRY_MS,
+    retryWindowMs = SERVICE_HEAL_RETRY_WINDOW_MS,
     cappedFile = join(WORKTREE, '.ihui-agent', 'state', 'service-heal-capped-first.json'),
     offlistFile = join(WORKTREE, '.ihui-agent', 'state', 'service-offlist-down-first.json'),
     blindFile = join(WORKTREE, '.ihui-agent', 'state', 'service-heal-blind-first.json'),
@@ -3198,7 +3206,17 @@ export function healUnresponsiveServices(opts = {}) {
   } catch {
     /* 没跑过 */
   }
-  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  // 择档(2026-10-29):带伤 ⇒ 快档,其余一律标称。状态读不到 ⇒ 标称 + mode=undetermined ——
+  // 既不猜"还带伤"(那会把节流永久钉死在快档),也不猜"已恢复"(那会维持半小时空档)。
+  let stateText = null
+  let stateReadError = null
+  try {
+    stateText = existsSync(stateFile) ? String(readFileSync(stateFile, 'utf8')) : null
+  } catch (e) {
+    stateReadError = e?.message ?? String(e)
+  }
+  const cadence = serviceHealCadence({ stateText, readError: stateReadError, nowMs: now, nominalMs: intervalMs, retryMs, retryWindowMs })
+  if (!publicProbeDue(now, lastTick, cadence.intervalMs)) return { ran: false, why: '未到节流窗口', mode: cadence.mode, intervalMs: cadence.intervalMs }
   try {
     mkdirSync(dirname(tickFile), { recursive: true })
     writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
@@ -3228,7 +3246,7 @@ export function healUnresponsiveServices(opts = {}) {
     }
     if (!parsed || !parsed.counts) {
       logger(`⚠️ 服务自愈未拿到可解析结论(rc=${r.status}):${([r.stderr, r.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ')}`)
-      return { ran: true, ok: false, why: '结论不可解析' }
+      return { ran: true, ok: false, why: '结论不可解析', mode: cadence.mode }
     }
     const c = parsed.counts
     const acted = (parsed.results || []).filter((x) => String(x.kind).startsWith('restarted'))
@@ -3356,6 +3374,7 @@ export function healUnresponsiveServices(opts = {}) {
       blind: blind.n,
       blindMailed: blind.mailed,
       undetermined: c.undetermined ?? 0,
+      mode: cadence.mode,
     }
   } catch (e) {
     logger(`⚠️ 服务自愈异常:${String(e?.message || e).slice(0, 200)}`)
@@ -3379,6 +3398,43 @@ const OPS_PATROL_STREAK_TTL_MS = Number(process.env.IHUI_OPS_PATROL_STREAK_TTL_M
 export function publicProbeDue(nowMs, tickMs, intervalMs = PUBLIC_PROBE_INTERVAL_MS) {
   if (!Number.isFinite(tickMs)) return true
   return nowMs - tickMs >= intervalMs
+}
+
+/**
+ * 服务自愈的**派发节奏**择档(2026-10-29 立;纯函数,零 IO ⇒ 可构造面锁)。
+ *
+ * 立因是当晚量出来的一个空档:09:31:54 本机重启把 web 入口留在 Manual 态,09:33:15 这一轮自愈
+ * 已经看见它 down 了(`strikes=1`),但 `consecutiveRounds=2` 要求下一轮才动手,而下一轮排在
+ * **30 分钟之后** ⇒ 从"已经发现"到"真的去拉"要等半小时,期间站点 522。确认轮数不能减(它就是防
+ * 瞬时抖动的),能动的只有"一轮隔多久":带伤(有未恢复的 down 链且开账未满 `retryWindowMs`)时压到
+ * `retryMs`,恢复或超窗即回 nominal。成本按现读取过:自愈一轮实测 5.3 秒 ⇒ 2 分钟档约占 4%,封顶 15 分钟。
+ *
+ * 失效方向照 §0.3:状态文件读不到/解不出 ⇒ 回 nominal 并点名 `undetermined`,绝不因为"看不见"就
+ * 判定"没有带伤",也绝不反过来把 nominal 当 retry(那会把节流永久钉死在 2 分钟)。
+ */
+export function serviceHealCadence({ stateText = null, readError = null, nowMs = Date.now(), nominalMs, retryMs, retryWindowMs }) {
+  if (readError) return { intervalMs: nominalMs, open: null, mode: 'undetermined', why: `自愈状态读不出(${readError})⇒ 按标称节流,不猜带伤` }
+  let parsed = null
+  try {
+    parsed = stateText === null || stateText === undefined ? null : JSON.parse(String(stateText))
+  } catch (e) {
+    return { intervalMs: nominalMs, open: null, mode: 'undetermined', why: `自愈状态不可解析(${e?.message ?? e})⇒ 按标称节流,不猜带伤` }
+  }
+  if (!parsed || typeof parsed !== 'object') return { intervalMs: nominalMs, open: null, mode: 'nominal', why: '还没有跑过任何一轮 ⇒ 无带伤链' }
+  const services = parsed.services && typeof parsed.services === 'object' ? parsed.services : {}
+  const ages = []
+  for (const [name, s] of Object.entries(services)) {
+    const strikes = Number(s?.strikes ?? 0)
+    if (!(strikes > 0)) continue
+    const since = Number(s?.sinceMs)
+    // 开账时刻缺失(旧状态文件形态)⇒ 按"本轮才发现"处理:先给一次快档,下一轮 healer 自己会把 sinceMs 写上。
+    ages.push({ name, strikes, ageMs: Number.isFinite(since) ? Math.max(0, nowMs - since) : 0 })
+  }
+  if (ages.length === 0) return { intervalMs: nominalMs, open: null, mode: 'nominal', why: '在册服务均已恢复 ⇒ 回标称节流' }
+  const oldest = ages.reduce((a, b) => (a.ageMs >= b.ageMs ? a : b))
+  if (oldest.ageMs >= retryWindowMs)
+    return { intervalMs: nominalMs, open: oldest, mode: 'window-expired', why: `带伤链已开账 ${Math.round(oldest.ageMs / 60_000)} 分钟,超过快档窗口 ${Math.round(retryWindowMs / 60_000)} 分钟 ⇒ 回标称节流(已经喊过人,不再自行加密)` }
+  return { intervalMs: retryMs, open: oldest, mode: 'retry', why: `${oldest.name} 连续 down ${oldest.strikes} 轮 / 开账 ${Math.round(oldest.ageMs / 1000)} 秒 ⇒ 快档 ${Math.round(retryMs / 1000)} 秒后再问一轮` }
 }
 
 /**
@@ -4519,6 +4575,27 @@ const ASSET_PATH_LAST = join(WORKTREE, '.ihui-agent', 'state', 'asset-path-last.
 const ASSET_PATH_INTERVAL_MS = Number(process.env.IHUI_ASSET_PATH_INTERVAL_MS || 6 * 60 * 60 * 1000)
 const ASSET_PATH_TIMEOUT_MS = Number(process.env.IHUI_ASSET_PATH_TIMEOUT_MS || 120_000)
 
+// 反馈闭环断点巡检(2026-10-28 立):闭环器件此前**没有任何自动调用者** ⇒ 链断了没人喊。
+const FEEDBACK_CLOSURE_INTERVAL_MS = Number(
+  process.env.IHUI_FEEDBACK_CLOSURE_INTERVAL_MS || 30 * 60 * 1000,
+)
+const FEEDBACK_CLOSURE_TIMEOUT_MS = Number(process.env.IHUI_FEEDBACK_CLOSURE_TIMEOUT_MS || 120_000)
+const FEEDBACK_CLOSURE_WINDOW_MS = Number(
+  process.env.IHUI_FEEDBACK_CLOSURE_WINDOW_MS || 48 * 60 * 60 * 1000,
+)
+const FEEDBACK_CLOSURE_TICK = join(
+  WORKTREE,
+  '.ihui-agent',
+  'state',
+  'feedback-loop-closure-tick.ts',
+)
+const FEEDBACK_CLOSURE_LAST = join(
+  WORKTREE,
+  '.ihui-agent',
+  'state',
+  'feedback-loop-closure-last.json',
+)
+
 export function auditAssetPathHealth(opts = {}) {
   const {
     now = Date.now(),
@@ -4614,6 +4691,136 @@ export function auditAssetPathHealth(opts = {}) {
   }
 }
 
+export function auditFeedbackLoopClosure(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = FEEDBACK_CLOSURE_INTERVAL_MS,
+    windowMs = FEEDBACK_CLOSURE_WINDOW_MS,
+    tickFile = FEEDBACK_CLOSURE_TICK,
+    lastFile = FEEDBACK_CLOSURE_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'feedback-loop-status.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 反馈闭环巡检:尺子脚本不在位(scripts/feedback-loop-status.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+  } catch {
+    /* 刻度写不掉不影响判据本身 */
+  }
+  const call =
+    typeof runner === 'function'
+      ? runner()
+      : (() => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--commits', '300', '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+              timeout: FEEDBACK_CLOSURE_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 23,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+            })
+            return { status: 0, stdout: String(out || ''), stderr: '' }
+          } catch (e) {
+            return {
+              status: typeof e.status === 'number' ? e.status : 2,
+              stdout: String(e.stdout || ''),
+              stderr: String(e.stderr || e.message || ''),
+            }
+          }
+        })()
+  const jsonLine = String(call.stdout || '')
+    .split(/\r?\n/)
+    .find((l) => l.trim().startsWith('{'))
+  let parsed = null
+  try {
+    parsed = jsonLine ? JSON.parse(jsonLine) : null
+  } catch {
+    parsed = null
+  }
+  if (!parsed || !Array.isArray(parsed.incidents)) {
+    logger(
+      `⚠️ 反馈闭环巡检未产出结论(未判定,不记为已探测):rc=${call.status} ${(
+        [call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)'
+      )
+        .split(/\r?\n/)[0]
+        .slice(0, 140)}`,
+    )
+    return { ran: true, judged: false, why: '结论不可解析' }
+  }
+  const ORDER = ['perceived', 'ticketed', 'dispatched', 'fixed', 'deployed', 'verified']
+  const DONE = new Set(['yes', 'bypassed', 'skip', 'not-requested'])
+  const stuck = []
+  for (const inc of parsed.incidents) {
+    if (!inc || typeof inc !== 'object') continue
+    if (inc.status === 'verified' || inc.status === 'rolled_back') continue
+    const stages = inc.stages || {}
+    const at = inc.evidence?.feedbackAt || inc.evidence?.signalAt || ''
+    const t = Date.parse(at)
+    if (!Number.isFinite(t) || !(now - t > windowMs)) continue // 处置窗口内:先给人时间
+    const stage = ORDER.find((k) => !DONE.has(String(stages[k] ?? ''))) || '(未达成)'
+    stuck.push({
+      identity: String(inc.identity || '(无身份)'),
+      stage,
+      why: String(inc.why || '').slice(0, 160),
+    })
+  }
+  const summary = parsed.summary || {}
+  try {
+    mkdirSync(dirname(lastFile), { recursive: true })
+    writeFileSync(
+      lastFile,
+      JSON.stringify(
+        {
+          at: new Date(now).toISOString(),
+          incidents: summary.incidents ?? null,
+          closed: summary.closed ?? null,
+          open: summary.open ?? null,
+          undetermined: summary.undetermined ?? null,
+          stuck,
+        },
+        null,
+        1,
+      ),
+      'utf8',
+    )
+  } catch {
+    /* 状态件写不掉只影响可见性,不影响告警本身 */
+  }
+  if (stuck.length === 0) {
+    logger(
+      `✅ 反馈闭环巡检:${summary.incidents ?? 0} 条事故无超窗卡点(closed=${summary.closed ?? 0} open=${summary.open ?? 0} undetermined=${summary.undetermined ?? 0})`,
+    )
+    return { ran: true, red: 0, stuck: [] }
+  }
+  const hours = Math.round(windowMs / 3600_000)
+  const keys = stuck.map((s) => `${s.identity}@${s.stage}`)
+  notify(
+    `反馈闭环卡住超 ${hours}h:${stuck.length} 条`,
+    `以下事故在处置窗口(${hours} 小时)之后仍卡在同一段,链路没有推进:\n` +
+      stuck.map((s) => `· ${s.identity} ⇒ ${s.why || `断在 ${s.stage}`}`).join('\n'),
+    { severity: 'warning', now },
+  )
+  logger(
+    `⚠️ 反馈闭环巡检:${stuck.length} 条超窗卡点(${keys.slice(0, 3).join(' / ')}${keys.length > 3 ? ' …' : ''})`,
+  )
+  return { ran: true, red: stuck.length, stuck }
+}
 
 /**
  * AASA(apple-app-site-association)公网健康的**常驻**派发点(尺子 = `scripts/check-aasa-public-health.mjs`,
@@ -5728,12 +5935,10 @@ function main() {
     if (!CHECK_ONLY) auditOpsPatrol()
     // lint-staged stdio 三针盯针:与上一行同挂点语义(判机器状态 ⇒ 不进提交链,§12e),45 分钟节流。
     if (!CHECK_ONLY) auditLintStagedPins()
-    // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
-    // .ihui-agent/state/feedback-loop-closure-tick.ts 节流戳 ⇒ 双执行体并存只有先到那一个真跑,
-    // 不会翻倍发信)。为什么必须挂在 tick 而不是只挂 main():startDaemon 是内存常驻的
-    // setTimeout 链,不重读本文件;只挂 main() 一次性路径的话,常驻守护**永远跑不到**这一格,
-    // 闭环就退回"器件在、没人看"。挂上后本改动需重启守护进程才生效(常驻不重读)。
-    auditFeedbackLoopClosure()
+    // 反馈闭环断点(2026-10-28 立,尺子 = scripts/feedback-loop-status.mjs):闭环器件此前零自动
+    // 调用者,链断了没人喊。30 分钟节流;超 48 小时处置窗口仍卡同一段才喊,窗口内只写日志。
+    // 判机器状态 ⇒ 不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。
+    if (!CHECK_ONLY) auditFeedbackLoopClosure()
     // 巡检**自己**也要有人看(2026-10-17 立):上面那行派发它,而它一旦停摆,账面没有任何一格会红
     // —— 它判的是"别的任务没在跑", "它自己没在跑"没有任何判据。挂点与上面各层同格(健康轮次
     // 早退之前 + !CHECK_ONLY),读它每轮落的 ops-patrol-last.json,超 3 期未更新即就地起跳一轮。
@@ -5902,6 +6107,12 @@ function startDaemon() {
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
         auditOpsPatrol()
         auditLintStagedPins()
+        // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
+        // .ihui-agent/state/feedback-loop-closure-tick.ts 节流戳 ⇒ 双执行体并存只有先到那一个真跑,
+        // 不会翻倍发信)。为什么必须挂在 tick 而不是只挂 main():startDaemon 是内存常驻的
+        // setTimeout 链,不重读本文件;只挂 main() 一次性路径的话,常驻守护**永远跑不到**这一格,
+        // 闭环就退回"器件在、没人看"。挂上后本改动需重启守护进程才生效(常驻不重读)。
+        auditFeedbackLoopClosure()
         // 同一挂点语义:与 main() 单轮路径共用 .ihui-agent/state/service-heal-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会把同一台服务重启两遍。
         healUnresponsiveServices()

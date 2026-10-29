@@ -32,7 +32,7 @@ vi.mock('mermaid', () => ({
   },
 }))
 
-import { MermaidDiagram } from '../MermaidDiagram'
+import { MermaidDiagram, __test__ as mermaidTest } from '../MermaidDiagram'
 import { MERMAID_RENDER_BUDGET } from '@/components/ai/mermaid-render-budget'
 
 /** 超结构档但不超字符/行档的一段图(与纯函数面同一夹具口径)。 */
@@ -70,6 +70,8 @@ describe('MermaidDiagram 预算闸', () => {
     mockMermaidRender.mockReset()
     mockMermaidInitialize.mockReset()
     mockMermaidInitialize.mockResolvedValue(undefined)
+    // 档⑨:清模块台账(同 code 的"后台→前台补渲染"例不得被先例结果短路)
+    mermaidTest.clearMermaidRenderCache()
     setVisibility('visible')
   })
   afterEach(() => {

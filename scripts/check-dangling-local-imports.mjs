@@ -113,7 +113,7 @@ import { catBatch, gitRaw } from './lib/face-reader.mjs'
 // 注释(`// 别写成 interface Foo {`)就会被判成"这文件是穿了马甲的 TS"。本仓被这类"门读自己的
 // 解释文字"咬过多次(守门 70/131/135),而遮噪器只许有一台 —— 用 lib/code-mask 那份等长实现,
 // 行号不漂(D4 要报出命中行)。
-import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
+import { maskComments, maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 
 // G-929 同型票(2026-10-23,参照门 231 已定型的正解):`--root <dir>` 显式指定**被审仓根**,
 // 缺省仍按本脚本位置自推导 ⇒ 生产行为一字不变。
@@ -719,6 +719,294 @@ export function auditFile(relPath, readFile, hasPath, aliasIndex, jsSink) {
   return bad
 }
 
+// ── D7:动态 import 拼出来的扁平命名空间 ─────────────────────────────────────────────
+/**
+ * 立因(2026-10-29 现读):`scripts/local-login.mjs` 的 `loadExtract()` 把 8 个平台 lib 拼成
+ * 一份扁平命名空间,其中 workbuddy 一族有 5 个键指向 lib **根本没有**的成员
+ * (deriveAtRestKey / sealField / getPathByJsonPath / setPathByJsonPath / workbuddyAuthFilePath)。
+ * 这一型一次穿过三层防线,而且每一层都不是疏忽:
+ *   ① D1 结构上看不见它 —— parseImports 只认 `^import` 语句,`import(pathToFileURL(path.join(HERE,…)))`
+ *      这种动态说明符根本不在射程(连"文件在不在"都没人问);
+ *   ② `tsc` 不判 `.mjs`(脚本面不在 tsconfig include 里)⇒ 取到 undefined 不报;
+ *   ③ 只有真走到"一键切号"那条分支才 TypeError ⇒ 服务启动、端口应答、/health 全绿。
+ * 三条判据共用 `parseExports` 那把尺,不再写第二份导出名单(§0.6):
+ *   a) 动态说明符解析不到该面上的文件 ⇒ 红(与 D2 同向,但 D2 摸不到动态形);
+ *   b) `alias: ns.member` 或 `alias: (…) => ns.member(…)` 的 member 不在该 lib 导出面 ⇒ 红;
+ *   c) 命名空间变量 `<id>.<member>` 调用面不在键集 ⇒ 红(键集缺的那一格同样是运行时 undefined)。
+ * 射程刻意收在"Promise.all 里 ≥2 个动态 import 拼一份命名空间"这一形状上:放宽到"任何属性访问"
+ * 就是把全仓判成红面,而恒红门的唯一结局是各会话绕钩子(§12e)。
+ * 取材面两把:路径/键名要从**字符串字面量**里读,所以 a/b 用 `maskComments`(只剥注释、留字符串);
+ * c 判的是代码调用面,用 `maskCommentsStringsAndRegex`(字符串里的 `extract.mjs` 之类不算调用)。
+ * 两把都必须等长遮罩,否则行号漂移(本仓吃过)。
+ */
+const NS_PROMISE_ALL_RE = /const\s*\[([^\]]*)\]\s*=\s*await\s*Promise\.all\(\s*\[/
+/** `alias: ns.member` 与 `alias: (args) => ns.member(...)`,一行一条(逗号收尾) */
+const NS_ENTRY_RE =
+  /^\s*([A-Za-z_$][\w$]*)\s*:\s*(?:\([^{}]*\)\s*=>\s*)?([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)(?:\s*\([^()]*\))?\s*,\s*$/
+const STR_LIT_RE = /['"]([^'"\n]*)['"]/g
+
+/** 把 Promise.all 数组体按**顶层逗号**切开(元素内部的括号/方括号/字符串里的逗号不算) */
+function splitTopLevelCommas(body) {
+  const out = []
+  let depth = 0
+  let quote = ''
+  let cur = ''
+  for (let i = 0; i < body.length; i += 1) {
+    const ch = body[i]
+    if (quote) {
+      cur += ch
+      if (ch === quote && body[i - 1] !== '\\') quote = ''
+      continue
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      quote = ch
+      cur += ch
+      continue
+    }
+    if (ch === '(' || ch === '[' || ch === '{') depth += 1
+    else if (ch === ')' || ch === ']' || ch === '}') depth -= 1
+    if (ch === ',' && depth === 0) {
+      out.push(cur)
+      cur = ''
+      continue
+    }
+    cur += ch
+  }
+  if (cur.trim()) out.push(cur)
+  return out
+}
+
+/** 从一个 Promise.all 元素里还原它动态指向的仓内相对路径;不是动态 import ⇒ 返回 null */
+function dynamicModuleRel(fromPath, elementText) {
+  const text = String(elementText || '')
+  if (!/\bimport\s*\(/.test(text)) return null
+  const bare = /import\s*\(\s*['"]([^'"]+)['"]/.exec(text)
+  if (bare) return normalizeModuleRel(fromPath, bare[1])
+  const join = /path\.join\(\s*(?:__dirname|HERE|ROOT)\s*,([\s\S]*?)\)/.exec(text)
+  if (join) {
+    const parts = (join[1].match(STR_LIT_RE) || []).map((s) => String(s).slice(1, -1))
+    if (parts.length === 0) return null
+    return normalizeModuleRel(fromPath, `./${parts.join('/')}`)
+  }
+  const lit = STR_LIT_RE.exec(text)
+  return lit ? normalizeModuleRel(fromPath, lit[1]) : null
+}
+
+function normalizeModuleRel(fromPath, spec) {
+  if (!spec.startsWith('./') && !spec.startsWith('../')) return null // 裸包名/node: 不在本判据射程
+  const dir = fromPath.includes('/') ? fromPath.slice(0, fromPath.lastIndexOf('/') + 1) : ''
+  const joined = posixJoin(dir, spec)
+  return joined === null ? null : joined
+}
+
+function posixJoin(dir, spec) {
+  const segs = (dir + spec).split('/')
+  const stack = []
+  for (const s of segs) {
+    if (s === '' || s === '.') continue
+    if (s === '..') {
+      if (stack.length === 0) return null
+      stack.pop()
+      continue
+    }
+    stack.push(s)
+  }
+  return stack.join('/')
+}
+
+/** 找到承载该命名空间的那个函数名(返回对象字面量所在函数);找不到返回 null */
+function namespaceFnName(masked) {
+  const idx = masked.search(NS_PROMISE_ALL_RE)
+  if (idx < 0) return null
+  const head = masked.slice(0, idx)
+  const m = [...head.matchAll(/(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g)].pop()
+  return m ? m[1] : null
+}
+
+/**
+ * D7 主判据。返回 `{ violations, blind }`:
+ * blind = 因 lib 导出面读不到(opaque / blob 缺失)而**没能判**的条目数 —— 报数不静默(§0.3)。
+ */
+export function auditNamespaceAggregator(relPath, readFile, hasPath) {
+  const exists = hasPath || ((p) => readFile(p) !== null && readFile(p) !== undefined)
+  const text = readFile(relPath)
+  if (typeof text !== 'string') return { violations: [], blind: 0, files: 0, blindSites: [] }
+  // test 与 exec 必须走**同一张面**:先在原文 test、再到遮噪面上 exec,注释里写的
+  // `// const [a, b] = await Promise.all([...])` 会让 test 命中而 exec 返回 null ⇒ 整门 TypeError 崩盘
+  // (2026-10-29 首枚落地后全量档实测 rc=2 就是这个;§0.4 同面同轮,注释永远不构成射程)。
+  const codeOnly = maskComments(text)
+  if (!NS_PROMISE_ALL_RE.test(codeOnly)) return { violations: [], blind: 0, files: 0, blindSites: [] }
+  const seen = 1 // 本文件命中"聚合器"形状 ⇒ 进覆盖面计数(口径见 d7ChannelBlind)
+  const viol = []
+  let blind = 0
+
+  const m = NS_PROMISE_ALL_RE.exec(codeOnly)
+  if (!m) return { violations: [], blind: 1, files: 0, blindSites: [`${relPath}: 遮噪面上取不到 Promise.all 解构头`] }
+  const names = (m[1] || '')
+    .split(',')
+    .map((s) => {
+      const mm = /^\s*([A-Za-z_$][\w$]*)/.exec(s)
+      return mm ? mm[1] : ''
+    })
+    .filter(Boolean)
+  const start = m.index + m[0].length
+  let depth = 1
+  let end = -1
+  for (let i = start; i < codeOnly.length; i += 1) {
+    if (codeOnly[i] === '[') depth += 1
+    else if (codeOnly[i] === ']') {
+      depth -= 1
+      if (depth === 0) {
+        end = i
+        break
+      }
+    }
+  }
+  const blindSites = []
+  // 数组体里一个 `import(` 都没有 ⇒ 这根本是本型射程外的普通并发调用(全仓几十个 `Promise.all([...])`
+  // 是 drizzle/查询编排),不配占"未判定"的名 —— 未判定要说的是"我想判而读不到",不是"这不归我管"。
+  const bodyText = end < 0 ? '' : codeOnly.slice(start, end)
+  const outOfScope = (why) => {
+    if (!/\bimport\s*\(/.test(bodyText)) return { violations: [], blind: 0, files: 0, blindSites: [] }
+    blindSites.push(`${relPath}: ${why}`)
+    return { violations: [], blind: 1, files: 0, blindSites }
+  }
+  if (end < 0 || names.length === 0) return outOfScope('Promise.all 的解构形状读不準(取不到名字或数组体不闭合)')
+  const elements = splitTopLevelCommas(bodyText)
+  if (elements.length !== names.length) {
+    return outOfScope(`解构名 ${names.length} 个与 Promise.all 元素 ${elements.length} 个对不上(嵌套解构/空洞)`)
+  }
+
+  // 先做一遍**纯采集**:只有"≥2 个动态 import 槽位"才算聚合器形状(头注里declared的射程)。
+  // 顺序很重要 —— 上一版在还不知道 dynCount 的时候就把 a 维违规推出去了,结果
+  // `const [x] = await Promise.all([import('./y')])` 这种单跳写法也被算进覆盖面,
+  // 290 枚 Promise.all 解构全成了"聚合器",而真正的射程只有 1 枚 —— 覆盖面被读成 290 就是假绿的一种。
+  const slots = []
+  for (let i = 0; i < names.length; i += 1) {
+    const rel = dynamicModuleRel(relPath, elements[i])
+    if (rel === null) {
+      if (/\bimport\s*\(/.test(elements[i])) slots.push({ name: names[i], unresolved: true })
+      continue // 该槽位不是动态 import(如 Promise.resolve(…))
+    }
+    // 与 D1/D2 走**同一条**解析通道(resolveCands):TS 侧 `import('./routes/auth.js')` 指的就是
+    // `auth.ts`,拿字面路径判存在性会把这类合法写法整批判红(2026-10-29 首跑即中两枚 ⇒ §12e 恒红门)。
+    slots.push({ name: names[i], rel, cands: resolveCands(rel) })
+  }
+  const dyn = slots.filter((s) => !s.unresolved)
+  if (dyn.length < 2) return { violations: viol, blind: 0, files: 0 } // 不是本型的射程 ⇒ 连"看过"都不算
+
+  const bindingCands = new Map(dyn.map((s) => [s.name, s.cands]))
+  for (const s of slots.filter((x) => x.unresolved)) {
+    // 读不出落点 ⇒ 未判定(点名),**不判红**:红必须给出"改什么才能绿"的可执行下一步,
+    // 而"把路径拼法改成让门读得懂"不是真工作,是把判据的盲区成本转嫁给提交者(§5e-1 可整改性)。
+    blindSites.push(`${relPath}: ${s.name} 的动态说明符是拼出来的,本判据读不出落点 ⇒ 这一格未判定`)
+    blind += 1
+  }
+  for (const s of dyn) {
+    if (!s.cands.some((c) => exists(c))) {
+      viol.push({
+        line: lineAt(codeOnly, start),
+        rule: 'D7',
+        raw: `${s.rel} ← ${s.name} 的动态说明符`,
+        hint: '动态 import 指向的文件在该面不存在 ⇒ 整个 await 当场抛 ERR_MODULE_NOT_FOUND',
+      })
+    }
+  }
+
+  // b) 键集与成员存在性
+  const keys = new Set()
+  const inTemplate = templateInteriorLines(text)
+  const codeLines = codeOnly.split('\n')
+  for (let i = 0; i < codeLines.length; i += 1) {
+    if (inTemplate[i]) continue
+    const em = NS_ENTRY_RE.exec(codeLines[i])
+    if (!em) continue
+    const [, alias, binding, member] = em
+    if (!bindingCands.has(binding)) continue
+    keys.add(alias)
+    const target = bindingCands.get(binding).find((c) => exists(c))
+    if (!target) continue // a 维已为这一格红过,不重复报
+    const libText = readFile(target)
+    if (typeof libText !== 'string') {
+      blindSites.push(`${relPath}: ${target} 在被审面上取不到内容 ⇒ 这一格未判定`)
+      blind += 1
+      continue
+    }
+    const { names: exported, opaque } = parseExports(libText)
+    if (opaque) {
+      blindSites.push(`${relPath}: ${target} 的导出面不可枚举(export * / 星号转导),这一格不猜`)
+      blind += 1
+      continue
+    }
+    if (!exported.has(member)) {
+      viol.push({
+        line: i + 1,
+        rule: 'D7',
+        raw: `${alias}: ${binding}.${member}`,
+        hint: `${target} 从未导出 ${member} ⇒ 消费方拿到 undefined,只有走到那条分支才 TypeError`,
+      })
+    }
+  }
+  if (keys.size === 0) {
+    // 键集为空 ⇒ 这一维**想判而读不到**(最常见是 `return { ...codex, ...opencode }` 这种展开式命名空间:
+    // 没有 `别名: ns.member` 行可收)。沉默跳过就是给这一型留死角(排除条款必须点名),
+    // 所以如实进 blind —— 既不冒红也不记绿。
+    blindSites.push(`${relPath}: 命名空间键集为空(展开式 `+'...ns'+` 或本判据读不出的写法)⇒ c 维不判`)
+    return { violations: viol, blind: blind + 1, files: seen, blindSites }
+  }
+
+  // c) 调用面必须在键集里
+  const nsFn = namespaceFnName(codeOnly)
+  const nsIds = new Set()
+  for (const rm of codeOnly.matchAll(/(?:const|let|var)?\s*([A-Za-z_$][\w$]*)\s*=\s*await\s+([A-Za-z_$][\w$]*)\(\)/g)) {
+    if (rm[2] === nsFn) nsIds.add(rm[1])
+  }
+  // 命名空间变量的身份**只认一条**:它由 `= await <nsFn>()` 直接绑出。
+  // `const env = opts.env` 这类"同名透传"不配当命名空间 —— 上一版把它也算进去,
+  // 于是 env.APPDATA / env.IHUI_LOCAL_LOGIN_PROC_CONTROL 被当成"键集缺格"判红(§12e 恒红门)。
+  // 测试注入面的 `const extract = opts.extract` 不需要单独收:同一个 `extract` 已由上面那条绑出。
+  if (nsIds.size === 0) {
+    blindSites.push(`${relPath}: 绑不出命名空间变量(没有 \`X = await ${nsFn || '<nsFn>'}()\` 这一行)⇒ c 维不判`)
+    return { violations: viol, blind: blind + 1, files: seen, blindSites }
+  }
+  const face = maskCommentsStringsAndRegex(text)
+  for (const [i, line] of face.split('\n').entries()) {
+    if (inTemplate[i]) continue
+    for (const um of line.matchAll(/(?<![\w$.])([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)/g)) {
+      if (!nsIds.has(um[1])) continue
+      const member = um[2]
+      if (keys.has(member)) continue
+      if (member === 'then' || member === 'catch' || member === 'finally') continue // 不是键,是 Promise 方法
+      viol.push({
+        line: i + 1,
+        rule: 'D7',
+        raw: `${um[1]}.${member}`,
+        hint: `命名空间键集里没有 ${member}(该函数返回的对象缺这一格)⇒ 运行到这一行才崩`,
+      })
+    }
+  }
+  return { violations: viol, blind, files: seen, blindSites }
+}
+
+/**
+ * D7 的覆盖面是否**失明**:整轮扫描一枚聚合器文件都没发现(`files` 计数为 0)⇒ 这一维没看过任何东西,
+ * 此时"候选 0 处"与"这一型已经不存在"逐字同形 —— 而它更可能是判据被绕开(聚合器改名/换写法),
+ * 不是缺陷被修光。与 `d4ChannelBlind` 同一条设计:判死不记绿(§0.3)。
+ * 反过来,`blind > 0`(某枚聚合器的形状读不準 / lib 导出面 opaque)只随报告点名,不单独判死 ——
+ * 那一格已经由 a 维的"路径解不出"条目自己红过,再叠一层会把真红盖成噪声。
+ */
+export function d7ChannelBlind(d7Sink) {
+  const seen = (d7Sink || []).reduce((s, r) => s + Number(r.files || 0), 0)
+  return !(seen > 0)
+}
+
+/** 偏移 → 1-based 行号(遮罩等长,所以行号与原文件一致) */
+function lineAt(masked, offset) {
+  let n = 1
+  for (let i = 0; i < offset && i < masked.length; i += 1) if (masked[i] === '\n') n += 1
+  return n
+}
+
 // ── D4:影子 .js ────────────────────────────────────────────────────────────────────
 /** 只有以 `.js` 结尾的说明符参与 D4 —— 那是本仓"写 `.js` 实指 `.ts`"这一约定的**唯一**形态。
  *  `.jsx`/`.mjs`/`.cjs` 不参与:Node 对它们是字面解析,不存在"读者以为是别的文件"这一歧义。 */
@@ -1081,7 +1369,7 @@ export function buildAliasIndex(readFile, paths) {
 
 /** 按文件聚合(`jsSink` 见 auditFile:同一遍解析顺手收 D4 的落点;`d5Sink` 收 D5 的"在射程但
  *  内容取不到"文件名 —— 未判定必须点名,不得被"没进违规表"洗成通过)。 */
-export function auditTree(readFile, files, hasPath, aliasIndex, jsSink, d5Sink) {
+export function auditTree(readFile, files, hasPath, aliasIndex, jsSink, d5Sink, d7Sink) {
   const byFile = new Map()
   for (const f of files) {
     const v = auditFile(f, readFile, hasPath, aliasIndex, jsSink)
@@ -1089,6 +1377,11 @@ export function auditTree(readFile, files, hasPath, aliasIndex, jsSink, d5Sink) 
     if (d5 === null) {
       if (d5Sink) d5Sink.push(f)
     } else if (d5.length) v.push(...d5)
+    const d7 = auditNamespaceAggregator(f, readFile, hasPath)
+    if (d7.violations.length) v.push(...d7.violations)
+    if (d7.files > 0 || d7.blind > 0) {
+      if (d7Sink) d7Sink.push({ file: f, files: d7.files, blind: d7.blind, blindSites: d7.blindSites || [], violations: d7.violations.length })
+    }
     if (v.length) byFile.set(f, v)
   }
   return byFile
@@ -1297,7 +1590,8 @@ async function main() {
    *  会在自验模式下静默 —— 漏的那一格恰好是本判据立项的唯一理由。 */
   const jsSitesHead = []
   const d5Unhead = []
-  const byHead = auditTree(readHead, headFiles, hasPath, aliasHead.index, jsSitesHead, d5Unhead)
+  const d7HeadSink = []
+  const byHead = auditTree(readHead, headFiles, hasPath, aliasHead.index, jsSitesHead, d5Unhead, d7HeadSink)
   const shadowHead = auditShadowJs(readHead, jsSitesHead, new Set(headFiles))
   mergeShadow(byHead, shadowHead)
   const wnHead = auditWrongNameShadow(jsSitesHead, new Set(headFiles))
@@ -1434,6 +1728,38 @@ async function main() {
   for (const p of d5Unpending) console.log(`   ⚠️ D5 未判定 ${p}:barrel 枚举在列但被审面取不到内容`)
   if (d5Unpending.length) {
     console.log('❌ 无法判定:D5 有 barrel 在本面取不到内容 —— 不记绿也不冒红(§0.3),先修取材通道')
+    process.exit(2)
+  }
+  /**
+   * D7 的计数与覆盖面同源:聚合器一枚都没扫到 ⇒ 这一维根本没看过东西(改名/换写法都会这样),
+   * 判死不记绿。覆盖面**恒取全量 HEAD 面**(d7HeadSink),不随 --files/--staged 收窄 ——
+   * 暂存清单里常年没有那枚聚合器,拿判定面计数判死就是一条天天红的假门(§12e),
+   * 与上面 D4 锚点面「恒取全量 HEAD」是同一条理由。
+   */
+  const d7Hits = [...byPending.values()].flat().filter((v) => v.rule === 'D7')
+  const d7HeadHits = [...byHead.values()].flat().filter((v) => v.rule === 'D7')
+  const d7Aggregators = d7HeadSink.reduce((s, r) => s + Number(r.files || 0), 0)
+  const d7BlindCount = d7HeadSink.reduce((s, r) => s + Number(r.blind || 0), 0)
+  console.log(
+    `[dangling-imports] D7 动态命名空间:HEAD 面聚合器 ${d7Aggregators} 枚` +
+      ` | HEAD 面悬空 ${d7HeadHits.length} 处 | 判定面候选 ${d7Hits.length} 处` +
+      ` | 读不準/opaque ${d7BlindCount} 格(不判也不猜,--all 逐条点名)`,
+  )
+  if (SHOW_ALL) {
+    const d7List = d7HeadSink.filter((x) => Number(x.files || 0) > 0)
+    console.log(
+      `   D7 在射程的聚合器(${d7List.length} 枚,名单决定这一维到底看了谁):\n` +
+        d7List.map((r) => `     ${r.file}`).join('\n'),
+    )
+    for (const r of d7HeadSink.filter((x) => Number(x.blind || 0) > 0))
+      for (const why of (r.blindSites && r.blindSites.length ? r.blindSites : [`${r.file}: ${r.blind} 格未判定(原因未登记)`]))
+        console.log(`   ⚠️ D7 未判定 ${why}`)
+  }
+  if (d7ChannelBlind(d7HeadSink)) {
+    console.log(
+      '❌ 无法判定:D7 在 HEAD 面扫到 0 枚「Promise.all 拼动态 import」聚合器 —— 这一维没看过任何东西,' +
+        '「悬空 0 处」不作数;若这一型确实已退役,连同这条判据一起摘(不得留一条永不命中的尺子)',
+    )
     process.exit(2)
   }
   if (SHOW_ALL && shadowPending.targets.length)
@@ -2235,5 +2561,13 @@ export const __test__ = {
   TS_SIDE_CONSUMER_RE,
   SHADOW_PARTNERS,
   JS_SPEC_RE,
+  // D7(2026-10-29 立):判据本体交镜像测试,CLI 与测试共用同一把尺(§22c)
+  auditNamespaceAggregator,
+  d7ChannelBlind,
+  splitTopLevelCommas,
+  dynamicModuleRel,
+  namespaceFnName,
+  NS_PROMISE_ALL_RE,
+  NS_ENTRY_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -186,10 +186,10 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         !Array.isArray(acc.sessionTemplate) &&
         Object.keys(acc.sessionTemplate).length > 0
           ? acc.sessionTemplate
+          : null
       let secretPatch: Record<string, unknown> | null = null
       let secretsChanged = false
       if ((keyPem && pubPem) || profile || template) {
-      if ((keyPem && pubPem) || profile) {
         let existing: Record<string, unknown> = {}
         if (row.secretsEnc) {
           try {
@@ -239,14 +239,23 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
       let secrets: Record<string, unknown> | null = null
       if ((keyPem && pubPem) || template) {
         let base: Record<string, unknown> = {}
+        if (row.secretsEnc) {
+          try {
+            const parsed = JSON.parse(decryptField(row.secretsEnc))
             if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
               base = parsed as Record<string, unknown>
             }
+          } catch {
             /* 坏密文/密钥轮换 ⇒ 以本次提供为准重建 */
+          }
+        }
         secrets = { ...base }
+        if (keyPem && pubPem) {
           secrets.deviceKeyPem = keyPem
           secrets.devicePubPem = pubPem
+        }
         if (template) secrets.sessionTemplate = template
+      }
       const secretsUpdate = secrets ? { secretsEnc: encryptField(JSON.stringify(secrets)) } : {}
       const deviceUpdate =
         keyPem && pubPem

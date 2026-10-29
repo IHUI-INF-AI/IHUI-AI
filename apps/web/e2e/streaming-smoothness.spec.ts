@@ -1,5 +1,5 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE).
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 流式渲染平滑度 e2e 守门(2026-10-28 立,2026-10-28 改走隔离路由)
@@ -17,120 +17,16 @@
 //   - 整坨蹦(回退 400ms):文本长度只有几次大跳,单次跳变 ≈ 总长 100%。
 // 完成瞬间翻转 isStreaming=false,验证 active→stable 零重排(子节点数恒定、DOM 复用)。
 // 本沙箱 chromium 下载被墙,改走系统 Edge via channel:'msedge' + --no-sandbox。
-import { test, expect, type Page, type Route } from '@playwright/test'
-
-const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8801'
-
-// 鉴权持久化真实形状(zustand persist 包裹):key 'ihui-auth' = { state:{ isAuthenticated, user }, version }
-// token/refreshToken 是 httpOnly cookie 不落盘,这里仅让 isAuthenticated 标志位通过,使 MobileLoginGate
-// 放行 harness children(不携带任何生产凭据)。
-const AUTH_USER = {
-  id: 'u1',
-  nickname: 'E2E',
-  username: 'e2e',
-  avatar: '',
-  roleId: 1,
-  status: 1,
-}
-const IHUI_AUTH = {
-  state: { isAuthenticated: true, user: AUTH_USER },
-  version: 0,
-}
-
-// 通用信封:覆盖 GlobalShell/TopBar 等全局查询(check-update / monitor-panels/query /
-// profile 等),避免无后端时整页崩。
-// 关键:shape 必须与 app 的 fetchApi 判定一致 —— 成功看 `code: 0`(非 `success` 字段),
-// fetchApi 会归一化成 { success:true, data },各 queryFn 再取 res.data.*。
-// 字段尽量铺全,让各 queryFn 取到 defined 值(避免 "Query data cannot be undefined")。
-const RICH = {
-  code: 0,
-  message: 'ok',
-  data: {
-    id: 'u1',
-    nickname: 'E2E',
-    username: 'e2e',
-    avatar: '',
-    roleId: 1,
-    status: 1,
-    mode: 'member',
-    role: 'member',
-    version: '0.0.0',
-    hasUpdate: false,
-    items: [],
-    list: [],
-    data: [],
-    rows: [],
-    results: [],
-    permissions: [],
-    conversations: [],
-    messages: [],
-    workspaces: [],
-    notifications: [],
-    panels: [],
-    monitors: [],
-    query: [],
-    profile: { id: 'u1', nickname: 'E2E' },
-    user: { id: 'u1', nickname: 'E2E' },
-  },
-}
-
-async function boot(page: Page) {
-  // 诊断:在 goto 前挂控制台/错误抓取,确保抓全量
-  page.on('console', (msg) => {
-    if (msg.type() === 'error' || msg.text().includes('[harness]')) {
-      // eslint-disable-next-line no-console
-      console.log(`[browser:${msg.type()}] ${msg.text()}`)
-    }
-  })
-  page.on('pageerror', (err) => {
-    // eslint-disable-next-line no-console
-    console.log(`[pageerror] ${err.message}`)
-  })
-
-  // 假会话态:跳过真实后端登录(localStorage 'ihui-auth' zustand 形状让 MobileLoginGate 放行)
-  await page.addInitScript((authJson: string) => {
-    localStorage.setItem('ihui-auth', authJson)
-  }, JSON.stringify(IHUI_AUTH))
-
-  // 会话资料(fetchApi 归一化后 → res.success=true, res.data.user 存在)
-  await page.route('**/api/auth/me', (route: Route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        code: 0,
-        message: 'ok',
-        data: {
-          user: { id: 'u1', nickname: 'E2E', username: 'e2e', roleId: 1, status: 1 },
-        },
-      }),
-    }),
-  )
-
-  // 其余所有 /api/** 一律通用信封(含 check-update / monitor-panels/query / profile 等)
-  await page.route('**/api/**', (route: Route) => {
-    const method = route.request().method()
-    if (method !== 'GET') {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ code: 0, message: 'ok', data: {} }),
-      })
-    }
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(RICH),
-    })
-  })
-
-  await page.goto(`${BASE}/e2e-harness/markdown-stream`, { waitUntil: 'domcontentloaded' })
-  await page.getByTestId('start-stream').waitFor({ state: 'visible', timeout: 20000 })
-}
+// 2026-10-29:启动夹具(localStorage 假会话 + /api 信封)抽到 ./harness-boot 单一真相源,
+// 与 streaming-lifecycle(档⑦⑧⑨像素守门)共用,不再各自复制一份。
+import { test, expect, type Page } from '@playwright/test'
+import { bootHarnessPage } from './harness-boot'
 
 test.describe('长回答流式平滑度(隔离路由实跑)', () => {
+  // 隔离实例首访 harness 路由需现场编译;共享热实例下该额度不会用满
+  test.setTimeout(180_000)
   test('长回答逐帧平滑淌出,无整坨蹦,完成瞬间零重排', async ({ page }: { page: Page }) => {
-    await boot(page)
+    await bootHarnessPage(page)
 
     // harness 页挂载后自动启动流式(绕过按钮被覆盖层拦截的 onClick 失效问题)
     // 先等流式真正开始(content > 0),再采样

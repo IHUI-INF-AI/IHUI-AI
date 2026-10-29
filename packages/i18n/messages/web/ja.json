@@ -129,6 +129,15 @@
     "creditLowTitle": "クレジットが不足しています",
     "creditLowDesc": "クレジット残高が {min} を下回っているため、モデルを利用できません。チャージしてください"
   },
+  "wsChannel": {
+    "reconnecting": "リアルタイム接続が切断されました。{attempt}/{max} 回目の再接続中…",
+    "connectFailed": "リアルタイム接続に失敗しました。再試行中",
+    "connectError": "リアルタイム接続エラー",
+    "reconnectExhausted": "リアルタイム接続が終了しました({max} 回再試行)。コンテンツの受信が停止しました。手動で再試行できます",
+    "degradedNotice": "リアルタイム接続を利用できないため、互換チャネルに自動切り替えしてコンテンツの受信を続けます",
+    "fallbackUnavailable": "リアルタイム接続が終了し、互換チャネルも利用できないため、コンテンツの受信が停止しました",
+    "fallbackFailed": "互換チャネルも停止したため、コンテンツの受信が停止しました。しばらくしてから手動で再試行してください"
+  },
   "treeSelect": {
     "placeholder": "選択してください",
     "searchPlaceholder": "検索...",
@@ -11261,6 +11270,30 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "favorite": "ブックマークに追加",
+    "unfavorite": "ブックマークを解除",
+    "workbenchSessions": "セッション",
+    "workbenchImmersiveEnter": "大画面モードに入る",
+    "workbenchImmersiveExit": "大画面モードを終了",
+    "telemetryWaiting": "応答待ち",
+    "telemetryThinking": "思考中",
+    "telemetryTool": "ツール実行",
+    "telemetryWriting": "生成中",
+    "telemetryDone": "完了",
+    "telemetryElapsed": "経過",
+    "telemetryTtft": "初回トークン",
+    "telemetryRate": "速度",
+    "telemetryRateValue": "{n} 文字/秒",
+    "telemetryTokens": "Tokens",
+    "telemetryTools": "ツール",
+    "telemetryFailed": "失敗",
+    "feedbackLike": "参考になった",
+    "feedbackDislike": "参考にならなかった",
+    "workbenchHeroTitle": "AI 対話ワークベンチ",
+    "workbenchHeroHint": "ここで入力して新しい会話を開始するか、左側のセッションを選んで続行できます。",
+    "workbenchSplit": "ペインを分割",
+    "workbenchDropHere": "左側から会話をここにドラッグ",
+    "workbenchQuickStart": "クイック操作",
     "truncation": {
       "maxLengthNotice": "この回答は最大出力長に達したため切り詰められており、内容が完全ではありません。「続けて」と送信すると生成を再開できます。"
     },

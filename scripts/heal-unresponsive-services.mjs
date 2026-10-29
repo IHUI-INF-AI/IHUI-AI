@@ -169,7 +169,20 @@ export function decideRound({ config, state, verdicts, nowMs, apply = false }) {
     const entry = byName.get(name)
     const p = prev[name] || { strikes: 0, lastRestartMs: null }
     const keep = (strikes) => {
-      next.services[name] = { strikes, lastRestartMs: p.lastRestartMs ?? null, lastVerdict: v.verdict }
+      next.services[name] = {
+        strikes,
+        lastRestartMs: p.lastRestartMs ?? null,
+        // 故障链的开账时刻(2026-10-29 立):0→1 时开账,链条未恢复就一直带着,恢复(归零)即清。
+        // 消费方 = `git-guardian.mjs` 的 `healUnresponsiveServices` —— 带伤期间把派发节流从 30 分钟
+        // 压到 2 分钟。立因是当晚实测:09:31 重启后 web 入口没自启,09:33:15 这一轮只记到 strikes=1,
+        // 而 `consecutiveRounds=2` 要下一轮才动手 ⇒ 下一轮排在 30 分钟之后 ⇒ 站点从"已经发现"到
+        // "真的去拉"要等半小时。确认轮数一颗不减(防瞬时抖动),缩短的只是"一轮隔多久"。
+        // 缺字段的旧状态(升级前留下的)在这里**就地盖章**:实测本机有一条 10-28 之前留下的僵尸链
+        // (IHUI-API 退役后走 expected-stopped,那一支只保留计数、永不清零)——不盖章就会把快档窗口
+        // 永久钉死在"刚发生";盖了 ⇒ 最多多跑一个窗口(15 分钟)快档,之后照旧按标称节流。
+        sinceMs: strikes > 0 ? (Number.isFinite(p.sinceMs) ? p.sinceMs : nowMs) : null,
+        lastVerdict: v.verdict,
+      }
     }
     // 『停着是设计内』必须在"在册 / 不在册"之前判(2026-10-28):退役的 IHUI-API 已从 services
     // 台账移除,若先走 `!entry` 那一格,门刚裁定的 expected-stopped 会被静默吞掉 —— 报告里少一行,

@@ -129,6 +129,15 @@
     "creditLowTitle": "Not enough credits",
     "creditLowDesc": "Your credit balance is below {min}, so models are unavailable. Please top up."
   },
+  "wsChannel": {
+    "reconnecting": "Realtime connection dropped — reconnecting ({attempt}/{max})…",
+    "connectFailed": "Realtime connection failed, retrying",
+    "connectError": "Realtime connection error",
+    "reconnectExhausted": "Realtime connection ended after {max} retries; content streaming stopped. You can retry manually.",
+    "degradedNotice": "Realtime connection unavailable — automatically switched to the compatible channel to keep streaming content",
+    "fallbackUnavailable": "Realtime connection ended and the compatible channel is unavailable; content streaming stopped",
+    "fallbackFailed": "The compatible channel also dropped; content streaming stopped. Please retry manually later."
+  },
   "treeSelect": {
     "placeholder": "Select an option",
     "searchPlaceholder": "Search...",
@@ -11261,6 +11270,30 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
+    "workbenchSessions": "Sessions",
+    "workbenchImmersiveEnter": "Enter big-screen mode",
+    "workbenchImmersiveExit": "Exit big-screen mode",
+    "telemetryWaiting": "Waiting",
+    "telemetryThinking": "Thinking",
+    "telemetryTool": "Running tools",
+    "telemetryWriting": "Generating",
+    "telemetryDone": "Completed",
+    "telemetryElapsed": "Elapsed",
+    "telemetryTtft": "First token",
+    "telemetryRate": "Rate",
+    "telemetryRateValue": "{n} chars/s",
+    "telemetryTokens": "Tokens",
+    "telemetryTools": "Tools",
+    "telemetryFailed": "Failed",
+    "feedbackLike": "Helpful",
+    "feedbackDislike": "Not helpful",
+    "workbenchHeroTitle": "AI Chat Workbench",
+    "workbenchHeroHint": "Type below to start a new conversation right here, or pick a session on the left to continue.",
+    "workbenchSplit": "Split panes",
+    "workbenchDropHere": "Drag a conversation here from the left",
+    "workbenchQuickStart": "Quick actions",
     "truncation": {
       "maxLengthNotice": "This reply was cut off at the maximum output length and is incomplete; send \"continue\" to keep generating."
     },

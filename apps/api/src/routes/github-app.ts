@@ -19,6 +19,14 @@
  *        事件不在白名单 → 200 accepted:false;事件体不合 schema → 400;
  *        delivery guid 重复 → 200 duplicate(内存 LRU 一级 + deliveries 表二级);
  *        否则按事件种类派发,处理完成后投递落表 processed(D15②)。
+ *
+ * 回调注册地址的腿位不变量(2026-10-29 实测立):GitHub App 的 `url` 必须登记成
+ * `https://api.aizhs.top/api/github-app/webhook`,**不得**用裸域或 `www.` 那两条 ——
+ * 二者都经 web 蓝绿 router,换流瞬间会对本入口连发 ECONNRESET(svc-web-router.log 里
+ * 19:47–21:23Z 共 10 条),GitHub 侧表现为 522/超时并在 1–3 分钟一次重试;而 api 腿由
+ * IHUI-API-ROUTER 单点接管、换流期不断流。仓内没有任何脚本写这个 url(只能经 GitHub
+ * API/控制台改),所以这条只能靠读这里的人遵守:改址前先 `GET /app/hook/config` 取现值,
+ * 换腿后用真实事件(不是重投——重投读到的可能是旧记录)核对投递落在哪条腿。
  */
 import type { FastifyBaseLogger, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 
@@ -301,208 +309,223 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
     },
   )
 
-  server.post(WEBHOOK_PATH, async (request, reply) => {
-    const env = options.env ?? process.env
-    const secret =
-      options.webhookSecret === undefined ? readWebhookSecret(env) : options.webhookSecret
+  server.post(
+    WEBHOOK_PATH,
+    {
+      // 2026-10-29 实测:近 4 小时该路径 59 条 400 全部来自 sqli-guard 命中(GitHub 侧同刻的
+      // App 投递也记 400,集中在 workflow_run / check_suite)——提供方正文里的引号/分号 ∧ SQL
+      // 结构签名被当成语句注入,投递判失败并重试成风暴。本端点准入是 HMAC-SHA256 签名(见本文件
+      // 头注),拿不到 webhook secret 就构造不出请求;正文只进 Drizzle 参数化查询,不拼 SQL。
+      // 同型先例:/api/ai/callback(2026-08-06 生产故障立)、internal-tool-invocation-ledger。
+      config: { sqliGuard: { enabled: false } },
+    },
+    async (request, reply) => {
+      const env = options.env ?? process.env
+      const secret =
+        options.webhookSecret === undefined ? readWebhookSecret(env) : options.webhookSecret
 
-    // 1) secret 未配置 => 503。绝不因为"没配密钥"放行(fail-open 是本路由的第一号禁令)
-    if (!secret) {
-      request.log.warn('[github-app] webhook secret 未配置,拒绝接收')
-      return reply.status(503).send(fail(503, 'webhook secret 未配置'))
-    }
-
-    // 2) 签名校验在最前,且在任何解析/派发之前
-    const rawBody = rawBodyOf(request.body)
-    if (rawBody === null) {
-      return reply.status(415).send(fail(415, '请求体必须是 application/json 原始字符串'))
-    }
-    const verification = verifyWebhookSignature({
-      rawBody,
-      signatureHeader: headerValue(request.headers, WEBHOOK_SIGNATURE_HEADER),
-      secret,
-    })
-    if (!verification.ok) {
-      request.log.warn(
-        {
-          reason: verification.reason,
-          delivery: headerValue(request.headers, WEBHOOK_DELIVERY_HEADER),
-          ip: request.ip,
-        },
-        '[github-app] 签名校验失败',
-      )
-      return reply.status(401).send(rejected(verification.reason))
-    }
-
-    // 3) 事件体解析(白名单事件 + Zod)
-    let payload: unknown
-    try {
-      payload = JSON.parse(rawBody) as unknown
-    } catch {
-      return reply.status(400).send(fail(400, 'payload 非合法 JSON'))
-    }
-    const parsed = parseWebhook({
-      eventHeader: headerValue(request.headers, WEBHOOK_EVENT_HEADER),
-      deliveryHeader: headerValue(request.headers, WEBHOOK_DELIVERY_HEADER),
-      payload,
-    })
-    if (parsed.status === 'ignored') return reply.send(ignoredReply(parsed))
-    if (parsed.status === 'invalid') {
-      return reply.status(400).send(fail(400, parsed.message))
-    }
-
-    // 4) 幂等(两级,D15②):一级内存 LRU 吃分钟级重投;二级 deliveries 表吃跨重启重投。
-    //    表查询失败时按"未处理"继续(fail-open),由处理器自身的 (repo, pr, commit) 幂等兜底。
-    const { envelope } = parsed.data
-    if (envelope.deliveryId && !deduper.record(envelope.deliveryId)) {
-      request.log.info({ delivery: envelope.deliveryId }, '[github-app] 重复投递,跳过')
-      return reply.send(
-        ok({ accepted: false, reason: 'duplicate_delivery', event: envelope.event }),
-      )
-    }
-    const store = await resolveStore(options, request.log)
-    if (envelope.deliveryId && store) {
-      let seenInDb = false
-      try {
-        seenInDb = await store.hasDelivery(envelope.deliveryId)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : '未知错误'
-        request.log.warn(
-          { delivery: envelope.deliveryId },
-          `[github-app] 投递查表失败,按未处理继续:${message}`,
-        )
+      // 1) secret 未配置 => 503。绝不因为"没配密钥"放行(fail-open 是本路由的第一号禁令)
+      if (!secret) {
+        request.log.warn('[github-app] webhook secret 未配置,拒绝接收')
+        return reply.status(503).send(fail(503, 'webhook secret 未配置'))
       }
-      if (seenInDb) {
-        request.log.info(
-          { delivery: envelope.deliveryId },
-          '[github-app] 重复投递(持久层命中),跳过',
+
+      // 2) 签名校验在最前,且在任何解析/派发之前
+      const rawBody = rawBodyOf(request.body)
+      if (rawBody === null) {
+        return reply.status(415).send(fail(415, '请求体必须是 application/json 原始字符串'))
+      }
+      const verification = verifyWebhookSignature({
+        rawBody,
+        signatureHeader: headerValue(request.headers, WEBHOOK_SIGNATURE_HEADER),
+        secret,
+      })
+      if (!verification.ok) {
+        request.log.warn(
+          {
+            reason: verification.reason,
+            delivery: headerValue(request.headers, WEBHOOK_DELIVERY_HEADER),
+            ip: request.ip,
+          },
+          '[github-app] 签名校验失败',
         )
+        return reply.status(401).send(rejected(verification.reason))
+      }
+
+      // 3) 事件体解析(白名单事件 + Zod)
+      let payload: unknown
+      try {
+        payload = JSON.parse(rawBody) as unknown
+      } catch {
+        return reply.status(400).send(fail(400, 'payload 非合法 JSON'))
+      }
+      const parsed = parseWebhook({
+        eventHeader: headerValue(request.headers, WEBHOOK_EVENT_HEADER),
+        deliveryHeader: headerValue(request.headers, WEBHOOK_DELIVERY_HEADER),
+        payload,
+      })
+      if (parsed.status === 'ignored') return reply.send(ignoredReply(parsed))
+      if (parsed.status === 'invalid') {
+        return reply.status(400).send(fail(400, parsed.message))
+      }
+
+      // 4) 幂等(两级,D15②):一级内存 LRU 吃分钟级重投;二级 deliveries 表吃跨重启重投。
+      //    表查询失败时按"未处理"继续(fail-open),由处理器自身的 (repo, pr, commit) 幂等兜底。
+      const { envelope } = parsed.data
+      if (envelope.deliveryId && !deduper.record(envelope.deliveryId)) {
+        request.log.info({ delivery: envelope.deliveryId }, '[github-app] 重复投递,跳过')
         return reply.send(
           ok({ accepted: false, reason: 'duplicate_delivery', event: envelope.event }),
         )
       }
-    }
-    if (parsed.data.kind === 'ping') {
-      await recordProcessedDelivery(store, envelope, request.log)
-      return reply.send(ok({ accepted: true, reason: 'pong', event: 'ping' }))
-    }
+      const store = await resolveStore(options, request.log)
+      if (envelope.deliveryId && store) {
+        let seenInDb = false
+        try {
+          seenInDb = await store.hasDelivery(envelope.deliveryId)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : '未知错误'
+          request.log.warn(
+            { delivery: envelope.deliveryId },
+            `[github-app] 投递查表失败,按未处理继续:${message}`,
+          )
+        }
+        if (seenInDb) {
+          request.log.info(
+            { delivery: envelope.deliveryId },
+            '[github-app] 重复投递(持久层命中),跳过',
+          )
+          return reply.send(
+            ok({ accepted: false, reason: 'duplicate_delivery', event: envelope.event }),
+          )
+        }
+      }
+      if (parsed.data.kind === 'ping') {
+        await recordProcessedDelivery(store, envelope, request.log)
+        return reply.send(ok({ accepted: true, reason: 'pong', event: 'ping' }))
+      }
 
-    // 4.5) installation 事件:只驱动安装映射表(D15①),不碰 GitHub API
-    if (parsed.data.kind === 'installation') {
-      const outcome = await applyInstallationEvent(store, parsed.data.payload, request.log)
-      await recordProcessedDelivery(store, envelope, request.log)
-      return reply.send(
-        ok({
-          accepted: outcome.status === 'applied',
-          event: 'installation',
-          action: envelope.action,
-          outcome,
-        }),
-      )
-    }
-
-    // 5) 派发
-    if (parsed.data.kind === 'pull_request') {
-      const event = parsed.data.payload
-      if (!isPrReviewAction(envelope.action)) {
+      // 4.5) installation 事件:只驱动安装映射表(D15①),不碰 GitHub API
+      if (parsed.data.kind === 'installation') {
+        const outcome = await applyInstallationEvent(store, parsed.data.payload, request.log)
+        await recordProcessedDelivery(store, envelope, request.log)
         return reply.send(
           ok({
-            accepted: false,
-            reason: 'action_not_reviewed',
-            event: 'pull_request',
+            accepted: outcome.status === 'applied',
+            event: 'installation',
             action: envelope.action,
+            outcome,
           }),
         )
       }
+
+      // 5) 派发
+      if (parsed.data.kind === 'pull_request') {
+        const event = parsed.data.payload
+        if (!isPrReviewAction(envelope.action)) {
+          return reply.send(
+            ok({
+              accepted: false,
+              reason: 'action_not_reviewed',
+              event: 'pull_request',
+              action: envelope.action,
+            }),
+          )
+        }
+        const coordinates = toPrCoordinates(
+          envelope.repoFullName,
+          event.pull_request.number,
+          envelope.installationId,
+        )
+        if (!coordinates) {
+          return reply.send(
+            ok({ accepted: false, reason: 'no_installation_or_repo', event: 'pull_request' }),
+          )
+        }
+        const transport = buildGithubTransport(options, coordinates.installationId, request.log)
+        if (!transport) {
+          return reply.send(
+            ok({
+              accepted: false,
+              reason: 'app_credentials_not_configured',
+              event: 'pull_request',
+            }),
+          )
+        }
+        const textModel =
+          options.textModel !== undefined
+            ? options.textModel
+            : await resolveDefaultTextModel(env, request.log)
+        const reviewModel =
+          options.reviewModel === undefined
+            ? createReviewModelFromTextOrEmpty(textModel)
+            : options.reviewModel
+        const outcome: PrReviewOutcome = await runPrReview(
+          { transport, reviewModel },
+          {
+            title: event.pull_request.title,
+            description: event.pull_request.body ?? null,
+            baseRef: event.pull_request.base.ref,
+            headRef: event.pull_request.head.ref,
+            commitSha: event.pull_request.head.sha,
+            coordinates,
+            isDraft: event.pull_request.draft,
+            log: (level, message) => request.log[level](message),
+          },
+        )
+        // 到这里处理已收敛(runPrReview 不抛,失败也是 outcome.status),投递落表
+        await recordProcessedDelivery(store, envelope, request.log)
+        return reply.send(
+          ok({ accepted: true, event: 'pull_request', action: envelope.action, outcome }),
+        )
+      }
+
+      const event = parsed.data.payload
+      const decision = decideCommentTrigger({
+        action: envelope.action,
+        commentBody: event.comment.body,
+        commenterLogin: event.comment.user.login,
+        isPullRequestDiscussion:
+          event.issue.pull_request !== null && event.issue.pull_request !== undefined,
+      })
+      if (!decision.handle) {
+        return reply.send(ok({ accepted: false, reason: decision.reason, event: 'issue_comment' }))
+      }
       const coordinates = toPrCoordinates(
         envelope.repoFullName,
-        event.pull_request.number,
+        event.issue.number,
         envelope.installationId,
       )
       if (!coordinates) {
         return reply.send(
-          ok({ accepted: false, reason: 'no_installation_or_repo', event: 'pull_request' }),
+          ok({ accepted: false, reason: 'no_installation_or_repo', event: 'issue_comment' }),
         )
       }
       const transport = buildGithubTransport(options, coordinates.installationId, request.log)
       if (!transport) {
         return reply.send(
-          ok({ accepted: false, reason: 'app_credentials_not_configured', event: 'pull_request' }),
+          ok({ accepted: false, reason: 'app_credentials_not_configured', event: 'issue_comment' }),
         )
       }
       const textModel =
         options.textModel !== undefined
           ? options.textModel
           : await resolveDefaultTextModel(env, request.log)
-      const reviewModel =
-        options.reviewModel === undefined
-          ? createReviewModelFromTextOrEmpty(textModel)
-          : options.reviewModel
-      const outcome: PrReviewOutcome = await runPrReview(
-        { transport, reviewModel },
+      const outcome: CommentTriggerOutcome = await handleIssueComment(
+        { transport, complete: textModel },
         {
-          title: event.pull_request.title,
-          description: event.pull_request.body ?? null,
-          baseRef: event.pull_request.base.ref,
-          headRef: event.pull_request.head.ref,
-          commitSha: event.pull_request.head.sha,
           coordinates,
-          isDraft: event.pull_request.draft,
+          prTitle: event.issue.title ?? '',
+          instruction: decision.mention.instruction,
+          mention: decision.mention,
+          isDraft: false,
           log: (level, message) => request.log[level](message),
         },
       )
-      // 到这里处理已收敛(runPrReview 不抛,失败也是 outcome.status),投递落表
       await recordProcessedDelivery(store, envelope, request.log)
-      return reply.send(
-        ok({ accepted: true, event: 'pull_request', action: envelope.action, outcome }),
-      )
-    }
-
-    const event = parsed.data.payload
-    const decision = decideCommentTrigger({
-      action: envelope.action,
-      commentBody: event.comment.body,
-      commenterLogin: event.comment.user.login,
-      isPullRequestDiscussion:
-        event.issue.pull_request !== null && event.issue.pull_request !== undefined,
-    })
-    if (!decision.handle) {
-      return reply.send(ok({ accepted: false, reason: decision.reason, event: 'issue_comment' }))
-    }
-    const coordinates = toPrCoordinates(
-      envelope.repoFullName,
-      event.issue.number,
-      envelope.installationId,
-    )
-    if (!coordinates) {
-      return reply.send(
-        ok({ accepted: false, reason: 'no_installation_or_repo', event: 'issue_comment' }),
-      )
-    }
-    const transport = buildGithubTransport(options, coordinates.installationId, request.log)
-    if (!transport) {
-      return reply.send(
-        ok({ accepted: false, reason: 'app_credentials_not_configured', event: 'issue_comment' }),
-      )
-    }
-    const textModel =
-      options.textModel !== undefined
-        ? options.textModel
-        : await resolveDefaultTextModel(env, request.log)
-    const outcome: CommentTriggerOutcome = await handleIssueComment(
-      { transport, complete: textModel },
-      {
-        coordinates,
-        prTitle: event.issue.title ?? '',
-        instruction: decision.mention.instruction,
-        mention: decision.mention,
-        isDraft: false,
-        log: (level, message) => request.log[level](message),
-      },
-    )
-    await recordProcessedDelivery(store, envelope, request.log)
-    return reply.send(ok({ accepted: true, event: 'issue_comment', outcome }))
-  })
+      return reply.send(ok({ accepted: true, event: 'issue_comment', outcome }))
+    },
+  )
 }
 
 /** 文本模型缺失时不构造 review 模型 —— 交给 runPrReview 明确报 skipped */

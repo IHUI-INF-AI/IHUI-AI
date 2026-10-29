@@ -288,5 +288,25 @@ test('D8 默认结清即删(2026-10-28):只入未勾一条,该行整行消失(�
   const es = entriesOf(dir)
   assert.equal(es.length, 1, '只入未勾一条')
   assert.equal(es[0].rowBefore, FLIP_BEFORE)
-  assert.equal(es[0].form, 'open')
+  assert.equal(es[0].form, 'dropped', '结清即删的终态是"删掉",不是"翻勾前的旧形态"')
+})
+
+test('D11 删除档必须把形态标成 dropped(不得与翻勾前像的 open 同值)—— 2026-10-29 实测:同值时复洁器的题面指纹通道拿不到它,而守门 71 插回的是它自己采集的另一份字节形态 ⇒ 逐字通道对不上 ⇒ 摘一次回一次', () => {
+  const rows = drop.rowsToRecordOf(
+    [{ before: '- [ ] Z-9 翻勾票', after: '- [x] ✅(2026-10-29) Z-9 翻勾票' }],
+    [{ before: '- [ ] Z-8 删除票' }],
+  )
+  const flip = rows.filter((r) => r.rowBefore.includes('翻勾票'))
+  const dpr = rows.filter((r) => r.rowBefore.includes('删除票'))
+  assert.equal(flip.length, 2, '翻勾仍是两形态(open + closed)')
+  assert.deepEqual(
+    flip.map((r) => r.form),
+    ['open', 'closed'],
+  )
+  assert.equal(dpr.length, 1, '删除档只入被删那一条')
+  assert.equal(
+    dpr[0].form,
+    'dropped',
+    '被删的行不能标成 open —— 那与"翻勾前的旧形态"在账面上不可区分',
+  )
 })

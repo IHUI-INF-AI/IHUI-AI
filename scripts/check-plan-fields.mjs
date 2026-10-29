@@ -158,7 +158,6 @@ export function judge(
     baseRotSignatures = null,
     identity = (s) => s,
   } = {},
-  { baseRowTexts = null, map = new Map(), allRecords = [], baseSideSignatures = null } = {},
 ) {
   const { conflicts, dup } = conflictGroupsOf(allRecords)
   const conflictKeys = new Map(conflicts.map((g) => [g.key, g]))

@@ -40,7 +40,6 @@ import { cpus } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFile, execFileSync } from 'node:child_process'
-import { execFileSync } from 'node:child_process'
 import { triggersTouch } from './guardian-triggers.mjs'
 import { catBatch } from './face-reader.mjs'
 import { maskComments, maskCommentsStringsAndRegex } from './code-mask.mjs'
@@ -587,7 +586,6 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
         const gateArgs = g.args.filter((a) => a !== '--staged')
         if (g.rerunAnchor) gateArgs.push('--rev', 'HEAD', '--anchor', 'HEAD^')
         batchPlan.push({ g, scriptPath, args: gateArgs })
-        batchPlan.push({ g, scriptPath, args: g.args.filter((a) => a !== '--staged') })
       }
       const outcomes = runGateBatch(
         batchPlan.map((b) => ({ script: b.scriptPath, args: b.args, timeoutMs: GATE_TIMEOUT_MS })),
@@ -596,7 +594,6 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       for (let i = 0; i < batchPlan.length; i++) {
         const g = batchPlan[i].g
         const r = outcomes[i] ?? { rc: 9, out: '并发批量未回填该臂 ⇒ 未判定' }
-        const r = spawnGate(scriptPath, [...gateArgs], root, 300000, env)
         const rec = { kind: 'registry', id: g.id, script: g.script, mode: g.mode }
         if (r.rc === 0) res.ran.push({ ...rec })
         else if (r.rc === 1) {

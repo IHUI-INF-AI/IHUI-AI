@@ -2010,19 +2010,41 @@ function Do-Rollback {
                 $oldDir = Join-Path $WebDir ".next-$oldColor"
                 if (Test-Path "$oldDir\BUILD_ID") {
                     Log "蓝绿回滚:活跃=$($bgj.active) ⇒ 切回旧色 $oldColor(:$oldPort)"
-                    $rbBg = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'deploy\win\ihui-api-bluegreen.ps1') `
-                        -Target $oldColor -SvcBlue 'IHUI-WEB-BLUE' -SvcGreen 'IHUI-WEB-GREEN' `
-                        -PortBlue 8851 -PortGreen 8852 -HealthPath '/' -HealthMatch '<!DOCTYPE html' `
-                        -StateFile $bgStateFile -LogFile 'D:\DevEnv\logs\web-bluegreen.log' 2>&1
+                    # 执行面一律走 Node 版编排器(与上方部署段同一个出口,不另立一份)。
+                    # 这里原先调 `& powershell -File ihui-api-bluegreen.ps1`:嵌套解释器在本机被限成
+                    # 几乎无 cmdlet + .ps1 里的 sc.exe 又被程序黑名单封死(2026-10-29 00:07 实测),
+                    # ⇒ 回滚每轮必然 rc≠0,再顺着下面那条"退回整盘"的岔路走 —— 等于安全网是断的。
+                    $rbMjs = Join-Path $Root 'deploy\win\ihui-api-bluegreen.mjs'
+                    $rbNode = Resolve-NodeExe
+                    if (-not ($rbNode -and (Test-Path -LiteralPath $rbMjs))) {
+                        Log "WARN  蓝绿回滚执行面不可用(node=$rbNode, mjs=$rbMjs)⇒ 不走切色,按下述拓扑判据处置"
+                        $rbRc = 1
+                    } else {
+                        $rbBg = & $rbNode $rbMjs --target $oldColor `
+                            --svc-blue 'IHUI-WEB-BLUE' --svc-green 'IHUI-WEB-GREEN' `
+                            --port-blue 8851 --port-green 8852 `
+                            --health-path '/' --health-match '<!DOCTYPE html' `
+                            --state-file $bgStateFile --log-file 'D:\DevEnv\logs\web-bluegreen.log' 2>&1
+                        $rbRc = $LASTEXITCODE
+                    }
                     $rbBg | ForEach-Object { Log "  [bg-rollback] $_" }
-                    if ($LASTEXITCODE -eq 0) {
+                    if ($rbRc -eq 0) {
                         Ok "回滚完成(蓝绿:已切回旧色 $oldColor,8801 未断监听)"
                         if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
                             try { Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'rolledback' -Reason "蓝绿回滚:切回旧色 $oldColor" | Out-Null } catch { Log "WARN  回滚窗口收口失败(不影响回滚结果):$_" }
                         }
                         return
                     }
-                    Log "WARN  蓝绿回滚未成功(rc=$LASTEXITCODE)⇒ 退回整盘 .rollback 恢复路径"
+                    # router 在位时,下面那条"整盘 Copy-Item .rollback → .next + Stop-Web/Start-Web"
+                    # 结构上做不成:8801 归 IHUI-WEB-ROUTER,单实例 IHUI-WEB 是停着的回滚形态,
+                    # 把它拉起来只会与 router 抢端口(实测 EADDRINUSE ⇒ 进程退出 ⇒ nssm 落 Paused),
+                    # 结果是"回滚报告说恢复了,而 8801 其实没人应答"。所以这里当场 fail-closed,
+                    # 保住当前活跃色继续服务,把处置权交回人工 —— 宁缺毋假。
+                    $rbRouter = Get-Service -Name 'IHUI-WEB-ROUTER' -ErrorAction SilentlyContinue
+                    if ($rbRouter -and $rbRouter.Status -eq 'Running') {
+                        Fail "蓝绿切色回滚失败(rc=$rbRc)而 8801 由 IHUI-WEB-ROUTER 持有 ⇒ 不退回整盘路径,当前活跃色继续服务(线上无损)" -Detail "出路:人工起旧色实例(node deploy\win\ihui-api-bluegreen.mjs --target $oldColor --svc-blue IHUI-WEB-BLUE --svc-green IHUI-WEB-GREEN --port-blue 8851 --port-green 8852 --health-path / --state-file $bgStateFile),或先停 router 再起 IHUI-WEB 回单实例形态" -Reason "web-rollback color-switch failed under router"
+                    }
+                    Log "WARN  蓝绿回滚未成功(rc=$rbRc)⇒ 退回整盘 .rollback 恢复路径"
                 } else {
                     Log "旧色 $oldColor 构建目录不可用 ⇒ 退回整盘 .rollback 恢复路径"
                 }
@@ -3089,13 +3111,23 @@ if ($webBg) {
     Move-Item "$WebDir\.next-staging" "$WebDir\$webTargetDist"
 
     # 起目标色 → 健康 → 原子切流 → 排空 → 停旧色(复用同一份编排器,不另写一份)
-    $bgPs1 = Join-Path $Root 'deploy\win\ihui-api-bluegreen.ps1'
-    $bgOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $bgPs1 `
-        -Target $webTarget `
-        -SvcBlue 'IHUI-WEB-BLUE' -SvcGreen 'IHUI-WEB-GREEN' `
-        -PortBlue 8851 -PortGreen 8852 `
-        -HealthPath '/' -HealthMatch '<!DOCTYPE html' `
-        -StateFile $WebBgStateFile -LogFile $WebBgLogFile 2>&1
+    # 2026-10-29 换执行面(Node 版),与 api 蓝绿同因同解:
+    #   ① `& powershell -File ihui-api-bluegreen.ps1` 是嵌套解释器,本机策略把它限成几乎
+    #      无 cmdlet ⇒ 子进程第一行 Test-Path 就报 "The term 'Test-Path' is not
+    #      recognized"(00:07:44 实测,web 蓝绿首次启用即 FAIL 未切流);
+    #   ② 即使解释器能跑,.ps1 里的 sc.exe 也被程序黑名单封死 ⇒ 换任何 shell 都绕不过。
+    #   两条叠加 ⇒ 只有 Node 执行面(nssm 控服)走得通。编排器已参数化,默认仍是 API 形态,
+    #   这里显式给 web 的服务名/端口/健康判据。
+    $bgMjs  = Join-Path $Root 'deploy\win\ihui-api-bluegreen.mjs'
+    $bgNode = Resolve-NodeExe
+    if (-not ($bgNode -and (Test-Path -LiteralPath $bgMjs))) {
+        Fail "web 蓝绿编排器不可用(node=$bgNode, mjs=$bgMjs)⇒ 不切流,保持当前在线版本" -Reason "web-bluegreen missing-runner"
+    }
+    $bgOut = & $bgNode $bgMjs --target $webTarget `
+        --svc-blue 'IHUI-WEB-BLUE' --svc-green 'IHUI-WEB-GREEN' `
+        --port-blue 8851 --port-green 8852 `
+        --health-path '/' --health-match '<!DOCTYPE html' `
+        --state-file $WebBgStateFile --log-file $WebBgLogFile 2>&1
     $bgRc = $LASTEXITCODE
     $bgOut | ForEach-Object { Log "  [bg] $_" }
     if ($bgRc -ne 0) {

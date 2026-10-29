@@ -26,6 +26,9 @@
  *
  * 用法:`node scripts/plan-fields-extract.mjs --check | --dry-run | --apply [--staged|--worktree]`
  *       `node scripts/plan-fields-extract.mjs --dedupe [--apply]`(同键去重;默认只报不写)
+ *       `node scripts/plan-fields-extract.mjs --retire-orphans [--apply] [--retire-intent <json>]`
+ *        声明档形态:`[{key, why(≥10字), declaredAt, declaredBy?, recordSig?, hitRefs?, sameNumberProof?}]`
+ *        (`sameNumberProof` 只对同号族生效,且放行前机器另验三件事,见文件头 (i)(ii)(iii))
  * 结论行:`EXTRACT-RESULT state=ready|changed|refused|undetermined changed=N extractable=N bucketsDrift=M adopted=K`
  * 退出码:0 = 无待搬 / 1 = 有待搬且本档只报数 / 2 = 未判定或被拒。
  *
@@ -57,8 +60,16 @@
  * `sigOf`(语义字段签名)判"改没改"的:下一版与现版签名相同就 `continue` 跳过,`updatedBy` 因此
  * 永远换不成人给的交代 ⇒ 改判通道造不出那次改写,这两族结构上被钉死。故新增声明档
  * `--retire-intent <json>`:逐条声明 `key` + `why`(≥10 字,与 `--reclassify` 同一把尺子)+
- * `declaredAt`,题面族还要 `hitRefs` 把**每一枚**命中行点名(见 `validateRetireIntents`)。
- * 声明不会绕过任何别的判据:它只在这两族上放行,其余前置照旧逐条判。
+ * `declaredAt`,题面族还要 `hitRefs` 把**每一枚**命中行点名(见 `validateRetireIntents`);
+ * 同号族(`rowNums`)还要 `sameNumberProof`(见下,凭据要求更严)。
+ * 声明不会绕过任何别的判据:它只在这几族上放行,其余前置照旧逐条判。
+ *
+ * **同号族(`rowNums`)的凭据要求比上述两族更严**:它挡的是"把活票的归属记录误退掉"——同号被另
+ * 一题面的活行占着时,只凭声明人说了算就会退掉那张活票承接归属的那一条记录。故除 ≥10 字
+ * `sameNumberProof` 外,放行前机器还自证三件事:(i) 该号段确有"被别的题面占着的活行"(活行复合主键
+ * ≠ 本记录键);(ii) **那条活行自己在侧车里已有记录**(用 `sideMap` 问,不得凭空认为它有 —— 这是
+ * "退掉本记录不会让活票失去归属"的正证,少了它放行的凭据就只剩声明人一句话);(iii) 本记录题面的
+ * 指纹与压缩形在台账面都 0 命中(`anchors` 与 `compactRows` 两项既有判据都落空)。三条缺一 ⇒ held 并点名缺哪条。
  * 零丢失:退场前把被退物理行**逐字**写进既有那本账 `.ihui-agent/state/plan-row-drop.jsonl`
  * (同型条目,`kind=sidecar-orphan-retire`,不新建第二本账格式)—— 取不到那本账 ⇒ 整批不退并 exit 2。
  * **留痕排在摘行之前**:AGENTS §1 那条"留痕必须排在落地成功之后"的立因是"先写后落会把面上还在的
@@ -807,7 +818,9 @@ const MIN_HIT_REF = 20
 export function validateRetireIntents(items, records) {
   const reject = (error) => ({ intents: new Map(), error, skipped: [] })
   if (!Array.isArray(items) || items.length === 0)
-    return reject('声明档必须是非空数组 [{key, why, declaredAt, declaredBy?, recordSig?, hitRefs?}]')
+    return reject(
+      '声明档必须是非空数组 [{key, why, declaredAt, declaredBy?, recordSig?, hitRefs?, sameNumberProof?}]',
+    )
   // 同键多份物理行:哪条算"当下记录"必须与 retirePlanOf 同序(严格更新才换、并列取先出现),
   // 否则两处读出的 updatedAt 可以不同 ⇒ 同一份声明在一边已陈旧、在另一边还新鲜。
   const latest = new Map()
@@ -846,6 +859,15 @@ export function validateRetireIntents(items, records) {
       return reject(
         `第 ${n} 项 hitRefs 必须是字符串数组且每条 ≥${MIN_HIT_REF} 字(太短的 ref 覆盖不到具体行)`,
       )
+    // sameNumberProof(同号族凭据):给了就必须是 ≥10 字字符串,否则整批拒(与其他可选字段同档)。
+    // 它只在 retirePlanOf 里被 `rowNums` 那一族消费,不消费它的族一律不开口子(见文件头)。
+    if (
+      it.sameNumberProof !== undefined &&
+      (typeof it.sameNumberProof !== 'string' || it.sameNumberProof.trim().length < MIN_DECLARED_WHY)
+    )
+      return reject(
+        `第 ${n} 项 sameNumberProof 必须是非空字符串且 ≥${MIN_DECLARED_WHY} 字(同号族退场的凭据说明)`,
+      )
     const rec = latest.get(it.key)
     if (!rec) return reject(`第 ${n} 项 key 不在侧车面(陈旧声明不记通过):${it.key}`)
     if (Date.parse(String(rec.updatedAt ?? '')) > Date.parse(it.declaredAt)) {
@@ -865,6 +887,7 @@ export function validateRetireIntents(items, records) {
       declaredAt: it.declaredAt,
       declaredBy: typeof it.declaredBy === 'string' ? it.declaredBy : '',
       hitRefs: Array.isArray(it.hitRefs) ? [...it.hitRefs] : [],
+      sameNumberProof: typeof it.sameNumberProof === 'string' ? it.sameNumberProof.trim() : '',
     })
   }
   return { intents, error: null, skipped }
@@ -889,8 +912,9 @@ function hitRefsCover(hits, refs) {
 /**
  * 退场判据(纯函数,零 IO、零 git):物理行条目 + 台账行 + 被审面侧车映射 ⇒ 可退/留下/畸形。
  * `faceIds` 缺省 null = 不做盘上↔面同形核验(单测直接构造条目时用);实跑档必传。
- * `retireIntents` = `validateRetireIntents` 准入的 Map(缺省 null = 没有声明档):它只对两族
- * "没有值可改"的记录放行,其余前置一条都不绕过。
+ * `retireIntents` = `validateRetireIntents` 准入的 Map(缺省 null = 没有声明档):它只对三族
+ * "没有值可改/编号顶死"的记录放行(自写面、正文命中、同号族),其余前置一条都不绕过。
+ * 同号族还要机器自证三件事(见文件头 (i)(ii)(iii)),凭 `sameNumberProof` 之外不额外放宽。
  */
 export function retirePlanOf(
   entries,
@@ -920,6 +944,9 @@ export function retirePlanOf(
   // 失效方向恒为多留:命中即不退,绝不拿它当"题面等价"去放宽别的分支。
   const compactRows = []
   const anchors = new Map()
+  // 号段 → 该号段所有能解析出复合主键的行 `{key, state}`(供同号族的带凭据出口问"号被别的题面
+  // 占着的那条活行是谁、它自己在侧车里有没有记录")。与 rowNums/anchors 同一次循环填,不另起一遍。
+  const rowsByNum = new Map()
   for (const r of rows ?? []) {
     const raw = String(r?.raw ?? '')
     if (raw === '') continue
@@ -931,7 +958,10 @@ export function retirePlanOf(
     if (!k) continue
     const i = k.indexOf('#')
     if (i <= 0) continue
-    rowNums.add(k.slice(0, i).trim())
+    const num = k.slice(0, i).trim()
+    rowNums.add(num)
+    if (!rowsByNum.has(num)) rowsByNum.set(num, [])
+    rowsByNum.get(num).push({ key: k, state: r.state })
     const t = titleKeyOf(k.slice(i + 1))
     if (!t) continue
     if (!anchors.has(t)) anchors.set(t, [])
@@ -995,14 +1025,35 @@ export function retirePlanOf(
     // 编号是强身份:同号行还在(哪怕题面已改写/带空格),题面漂移就**不是**孤儿凭据。
     // 2026-10-27 实测:41 条 dry-run 可退里有 12 条与活行只差一个空格(G-50 "DevEnv 搬入 G"
     // 对侧车 G-50#DevEnv搬入G)或同号不同题 ⇒ 只按逐字题面比会把这些活票的归属记录退掉。
+    // 声明档先取:下面几族都要问它(带凭据的同号出口是其中判据最严的一族)。
+    const intent = retireIntents?.get(key) ?? null
     const numSegment = key.slice(0, i).trim()
     if (rowNums.has(numSegment)) {
-      held.push({
-        key,
-        why: `台账面仍有同号行(${numSegment})—— 编号是强身份,题面漂移不足以判孤儿 ⇒ 不退`,
-        lines: g.lines,
-      })
-      continue
+      const baseWhy = `台账面仍有同号行(${numSegment})—— 编号是强身份,题面漂移不足以判孤儿 ⇒ 不退`
+      const proof = String(intent?.sameNumberProof ?? '')
+      if (proof === '') {
+        held.push({ key, why: baseWhy, lines: g.lines })
+        continue
+      }
+      // 带凭据的同号出口(比自写面/正文命中两族更严,理由见文件头):挡的是"把活票的归属记录
+      // 误退掉" ⇒ 除人给的 sameNumberProof 外,机器还要自证三件事,缺一律 held 并点名缺哪一条。
+      const cAnchor = titleKeyOf(anchor)
+      const occupants = (rowsByNum.get(numSegment) ?? []).filter((o) => o.state === 'open' && o.key !== key)
+      const occupied = occupants.find((o) => (sideMap ?? new Map()).get(o.key)) ?? null
+      const c1 = occupants.length > 0
+      const c2 = occupied !== null
+      const c3 = (anchors.get(cAnchor) ?? []).length === 0 && compactRows.every((t) => !t.compact.includes(cAnchor))
+      if (c1 && c2 && c3) {
+        // 三验齐备 ⇒ 从这一族放行:号被别的题面的活行占着、那张活票自己有归属记录(退本条不使其
+        // 失归属)、本记录题面在台账面全形态 0 命中。后面的 anchors/compactRows 检查因 c3 恒落空。
+      } else {
+        const miss = []
+        if (!c1) miss.push('(i) 该号段无"被别的题面占着的活行"(活行主键须≠本记录键)')
+        if (!c2) miss.push('(ii) 占号的活行自身在侧车里无记录(退掉本记录会让那张活票失去归属)')
+        if (!c3) miss.push('(iii) 本记录题面的指纹或压缩形在台账面仍命中')
+        held.push({ key, why: `${baseWhy};sameNumberProof 三验不过:${miss.join(' ∧ ')}`, lines: g.lines })
+        continue
+      }
     }
     const hits = anchors.get(titleKeyOf(anchor)) ?? []
     if (hits.length > 0) {
@@ -1014,8 +1065,7 @@ export function retirePlanOf(
       continue
     }
     const compactAnchor = titleKeyOf(anchor)
-    // 声明档只在这两族上生效(见文件头「两条前置衍生出的死锁」):先取,后面的判据按需问它。
-    const intent = retireIntents?.get(key) ?? null
+    // `intent` 已在同号族分支前取到(声明档在自写面/正文命中/同号三族上按需生效,见文件头)。
     const hitRows = compactRows.filter((t) => t.compact.includes(compactAnchor))
     if (hitRows.length > 0 && !hitRefsCover(hitRows, intent?.hitRefs)) {
       held.push({
@@ -1151,6 +1201,8 @@ export function applyRetireRecords(
         entry.declaredWhy = r.intent.why
         entry.declaredAt = r.intent.declaredAt
         entry.declaredBy = r.intent.declaredBy ?? ''
+        // 同号族凭据:走了这条出口退场的记录必须把凭据原样入账(没给就不写这个键 ⇒ 旧账逐字节不变)。
+        if (r.intent.sameNumberProof) entry.sameNumberProof = r.intent.sameNumberProof
       }
       entries.push(entry)
     }
@@ -1372,6 +1424,26 @@ function selfTest() {
   const s9 = applyReclassify([s8base], [{ key: 'G-8 甲', owner: 42, why: '非字符串 owner 必须整批拒' }])
   ok('S9 非字符串 owner ⇒ error(不落半批)', !!s9.error)
 
+  // 禁桶守卫(票 O68 补洞,2026-10-29):旧腿 --reclassify 此前不判"改判落进被禁的桶",
+  // 现读复现同份声明两条腿对照(旧腿 changed=1 / 桶维出口 state=refused)⇒ 守卫住进共用判据。
+  const s10base = { key: 'G-8 甲', waiting: 'none', blocking: '', updatedAt: '2026-10-24T00:00:00.000Z' }
+  const s10 = applyReclassify([s10base], [
+    { key: 'G-8 甲', waiting: 'env', blocking: '等上游镜像源同步', why: '把干净记录改判进等条件桶——F12 禁令射程必须整批拒' },
+  ])
+  ok('S10 新入等条件桶(waiting=env)⇒ 整批拒(旧腿不再是 F12 后门)', /已禁形态/.test(s10.error ?? ''))
+  const s11 = applyReclassify([s10base], [
+    { key: 'G-8 甲', waiting: 'human', why: '把干净记录改判进待拍板桶——F11 禁令射程同样必须整批拒' },
+  ])
+  ok('S11 新入待拍板桶(waiting=human)⇒ 整批拒(F11 同型)', /已禁形态/.test(s11.error ?? ''))
+  const s12 = applyReclassify([s10base], [
+    { key: 'G-8 甲', waiting: 'none', blocking: '等主席拍板', why: 'blocking 带拍板残留同样是禁形态,必须整批拒' },
+  ])
+  ok('S12 blocking 拍板残留(禁形态第三支)⇒ 同样整批拒', /已禁形态/.test(s12.error ?? ''))
+  const s13 = applyReclassify([s10base], [
+    { key: 'G-8 甲', owner: '门 130 持有人', waiting: 'none', why: '把可做行改归他席持有人——合法改判不得被守卫误伤' },
+  ])
+  ok('S13 合法改判(owned-elsewhere 方向)原样放行(守卫不误伤)', !s13.error && s13.changes.length === 1)
+
   // 孤儿键归并(2026-10-26):改号器留下的旧号键由新号键认领 —— 搬/退场/守恒闸/禁令/歧义各一臂。
   const newRow = '- [ ] G-70 备份链重建 —— 归属:备份链持有人'
   const newRowKey = compositeKeyOf(newRow)
@@ -1508,6 +1580,41 @@ function selfTest() {
       ) &&
       p20b.retireKeys === 1,
   )
+  // 同号族的带凭据出口(2026-10-29 补):比自写面/正文命中两族更严 —— 除人给的 sameNumberProof 外,
+  // 机器自证三件事:(i) 号段被别的题面的活行占着 ∧ (ii) 那条活行自己在侧车有记录 ∧ (iii) 本记录题面
+  // 全形态 0 命中。三支臂:三验齐备 ⇒ 退;不给凭据 ⇒ held;(ii) 不成立 ⇒ 仍 held 且 why 点名 (ii)。
+  const snOccRaw = '- [ ] **G-50 搬入盘符演练题面**'
+  const snOccKey = compositeKeyOf(snOccRaw)
+  const snRows = [{ line: 1, state: 'open', raw: snOccRaw }]
+  const snRec = {
+    key: 'G-50#收敛链这一轮量到的四格',
+    waiting: 'none',
+    updatedAt: '2026-10-20T00:00:00.000Z',
+    updatedBy: 'seat-x',
+  }
+  const snEntry = { raw: JSON.stringify(snRec), rec: snRec, why: '' }
+  const snOccSide = { key: snOccKey, owner: '某人', waiting: 'none', updatedAt: '2026-10-20T00:00:00.000Z' }
+  const snMap = new Map([[snOccKey, snOccSide]])
+  const snIntent = {
+    key: snRec.key,
+    why: '该票重排时被并发取号抖动同时给了两号,归并裁决留另一号,本记录是死记录',
+    declaredAt: '2026-10-21T00:00:00.000Z',
+    sameNumberProof: '同号已被另一题面的活行占着,且该活行自带归属记录',
+  }
+  const v21 = validateRetireIntents([snIntent], [snRec])
+  const p21a = retirePlanOf([snEntry], snRows, snMap, { retireIntents: v21.intents })
+  const p21b = retirePlanOf([snEntry], snRows, snMap)
+  // (ii) 不成立 = 占号的活行自己在侧车里没有记录 ⇒ sideMap 不含该活行键
+  const p21c = retirePlanOf([snEntry], snRows, new Map(), { retireIntents: v21.intents })
+  ok(
+    'S21 同号族带凭据出口:三验齐备 ⇒ 退;不给凭据 ⇒ held;(ii) 不成立 ⇒ 仍 held 且点名 (ii)',
+    v21.error === null &&
+      p21a.retireKeys === 1 &&
+      p21b.retireKeys === 0 &&
+      /同号行/.test(p21b.held.find((h) => h.key === snRec.key)?.why ?? '') &&
+      p21c.retireKeys === 0 &&
+      /\(ii\)/.test(p21c.held.find((h) => h.key === snRec.key)?.why ?? ''),
+  )
   let fails = 0
   for (const [name, pass] of checks) {
     if (!pass) fails++
@@ -1518,9 +1625,20 @@ function selfTest() {
 }
 
 /**
- * 纯函数:声明式改判的**唯一判据**(main 的 `--reclassify` 档只做 I/O 与打印)。
+ * 纯函数:声明式改判的**唯一判据**(main 的 `--reclassify` 档与 `plan-fields-reclassify.mjs` 桶维出口
+ * 都走这一份;§0.6 不写第二把尺子)。
  * 逐条校验 key 在面 / why ≥10 字 / waiting 合法;与现状同形 ⇒ 跳过(不制造"改过"的假账);
  * 任一不合格 ⇒ 整批 `{error}`(不做部分应用)。
+ *
+ * 禁桶守卫(票 O68 补洞,2026-10-29 立):`--reclassify` 这一条**旧腿**此前只判值域,不判
+ * "这一改把记录落进被禁的桶"——现读复现(同份声明两条腿对照):
+ *   `node scripts/plan-fields-extract.mjs --reclassify decl-banned2.json` ⇒ `changed=1`(旧腿会接受)
+ *   `node scripts/plan-fields-reclassify.mjs --decl decl-banned2.json`   ⇒ `state=refused` exit 2
+ * 桶维出口自带 `rotReasonsOf` 闸,而旧腿没有 ⇒ 它就是绕过守门 130 F11/F12 与
+ * `strip-banned-buckets` 的后门(写进去的 waiting-env/human 侧车投影会被下一轮兜底清扫摘掉,
+ * 期间派单面读到禁桶形态)。守卫必须住在**两条腿共用的这一份判据**里,而不是补在调用侧
+ * (调用侧各补一遍 = 第二把尺子,必漂)。方向纪律与桶维出口同:**只拦本次新引入**
+ * (before 已在禁桶的正是"改出来"的那族唯一出路,放行)。
  */
 export function applyReclassify(records, items, nowIso = new Date().toISOString()) {
   const byKey = new Map((records ?? []).map((r) => [r.key, r]))
@@ -1543,6 +1661,15 @@ export function applyReclassify(records, items, nowIso = new Date().toISOString(
     // 同一条纪律:逐条声明、带 why、陈旧不记通过。
     if (it.owner !== undefined) next.owner = String(it.owner).trim()
     if (sigOf(next) === sigOf(rec)) continue
+    // 禁桶守卫(见函数头注):改判后**新落**已禁形态(待拍板 F11 / 等条件 F12 / blocking 拍板残留)
+    // ⇒ 整批不落;before 已在禁桶的放行(从禁桶改出来是本族唯一出路)。判据单源 rotReasonsOf。
+    const rotAfter = rotReasonsOf(next)
+    if (rotAfter.length > 0 && rotReasonsOf(rec).length === 0)
+      return {
+        error:
+          `第 ${k + 1} 项改判目标是已禁形态(待拍板 F11 / 等条件 F12 的机主禁令射程)⇒ 整批不落:` +
+          `${it.key}:改判后落 ${rotAfter.join(' ∧ ')}(从禁桶改出来仍放行)`,
+      }
     next.updatedAt = nowIso
     next.updatedBy = 'plan-fields-reclassify'
     changes.push({ key: it.key, from: sigOf(rec), to: sigOf(next), why: it.why, rec: next })

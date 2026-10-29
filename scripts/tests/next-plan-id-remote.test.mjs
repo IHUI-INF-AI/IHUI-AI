@@ -27,6 +27,9 @@
  *      (remote.ids[族],readRemoteIdBasis 的 G-454② 产出)并进实时占用面 —— poolBlocked 的
  *      远端避让只盖 lowMax+1..baseMax,远端**低位**独占号(本地面已让空/已推未并)旧口径会当空闲
  *      发出(第一出口 2026-10-16 已修,本器当时没跟上 = 两出口漂移)。夹具级正证 + 装车形状锁。
+ *  T12/T13 票 Z-1(2026-10-30)「族是第一等参数」:号池饱和时合法出路是换字母族(扩池那条已被
+ *      实测回退,见 T12 头注);`--family` 必须走带值旗标,标题判据形状仍只有一份(族只换捕获组里
+ *      的那一个字母),发出的号用该族书写形状;缺值/非单字母 exit 2 且不给号。
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -36,7 +39,7 @@ import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
 import { judgeRowIdDuplicates, judgeRowIdDuplicatesDelta } from '../lib/plan-id-duplicates.mjs'
-import { smallestFreeId, remoteIdNumsOf, poolBlocked } from '../lib/plan-id-lease.mjs'
+import { smallestFreeId, remoteIdNumsOf, poolBlocked, LEASE_POOL_MAX } from '../lib/plan-id-lease.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 import { scanFamilyIds } from '../lib/plan-id-face.mjs'
 import { git } from '../lib/bypass-git.mjs'
@@ -488,5 +491,110 @@ test('T11b 装车形状锁:发号路径必须真吃远端号集并逐枚点名(�
   const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
   const consume = TOOL_SRC.indexOf('liveUsed.push(...remoteIdNums)')
   assert.ok(consume > checkBranch, '--check 不发号 ⇒ 远端号集消费必须在其后(契约逐字不变)')
+})
+
+/**
+ * T12/T13 —— 票 Z-1(2026-10-30):取号池饱和的**合法出路 = 换字母族**。
+ *
+ * 背景(现读):G 99/99、D 99/99、O 90/99 且最长连续游程 < 段容量 ⇒ 令牌取不出;另一条出路
+ * "扩池 99→999"已实测回退(提交 963c5655da):它会顶穿以池宽为边界构造的 T10 型用例,要保住用例
+ * 就得削判据(§12f 不许)。而在此之前本器把族写死成 `const FAMILY = 'O'` ⇒ 票面写着"开新字母族",
+ * 器物却结构上发不出新族号(只剩手填具名号,那条路不过 keepIfFree / 扫描 / 租约)。
+ *
+ * T12 源码形状锁:① 族必须走带值旗标 `--family`,缺省族只有一个来源;② 标题判据仍是源码里那颗
+ * `/…/gm` 字面量(下面 T5/T6 从它抽取),族只换捕获组里的那一个字母 —— 另写一颗族正则或第二份
+ * 数字段算术都等于第二份判据(§22c);③ 号必须用该族自己的书写形状,裸拼族名会印出判据认不出的号。
+ * T13 端到端:`--family Z --next-only` 真发得出号且该号在实时占用面上零命中;用法错两支
+ * (缺值 / 非单字母)必须 exit 2 且不给号 —— G-322:给了旗标就要有值,绝不静默退回默认族。
+ */
+test('T12 族是第一等参数:--family 单源 + 标题形状只换字母 + 号用该族书写形状', () => {
+  assert.match(TOOL_SRC, /const DEFAULT_FAMILY = 'O'/, '缺省族必须只有一个来源')
+  assert.match(
+    TOOL_SRC,
+    /const FAMILY = \(familyFlag\.value \?\? DEFAULT_FAMILY\)\.toUpperCase\(\)/,
+    '族必须由 --family 取值、缺省落 DEFAULT_FAMILY(写死 O 就是本票要治的原病)',
+  )
+  assert.match(
+    TOOL_SRC,
+    /requireFlagValue\(argv, '--family'/,
+    '--family 必须走带值旗标的唯一出口(缺值不得静默退回默认族)',
+  )
+  assert.match(
+    TOOL_SRC,
+    /\['--next-only', '--check', '--source', '--family', '--title', '--keyword'\]/,
+    '--family 必须进旗标白名单(否则当场报未知参数)',
+  )
+  // 形状单源:族实例从 HEADING 派生,不得另立一颗族正则字面量
+  assert.match(TOOL_SRC, /const src = HEADING\.source/, '族实例必须从 HEADING.source 派生(第二颗字面量 = 第二份判据)')
+  assert.ok(
+    TOOL_SRC.includes('src.replace(FAMILY_SLOT_RE, `(${family}'),
+    '族只换捕获组里的那一个字母(形状本身仍只有一份)',
+  )
+  assert.match(TOOL_SRC, /const HEADING_RE = headingReFor\(FAMILY\)/, '标题判据必须真用上族实例(造好没装车 = 没有)')
+  assert.doesNotMatch(TOOL_SRC, /const HEADING_[A-Z]+ = \//, '不得新写第二颗族正则字面量')
+  // 数字段算术单源:族感知那一份复用 headingNum(T6 逐字锁定的那一份),不另写 `^Z(\d+)`
+  assert.match(
+    TOOL_SRC,
+    /const headingNumOf = \(key\) => headingNum\(/,
+    '族感知数字段必须复用 headingNum 那一份算术(另写一族正则即第二份判据)',
+  )
+  assert.doesNotMatch(TOOL_SRC, /\^Z\(\\d\+\)/, '不得另写一族数字段正则')
+  // 书写形状单源:号按该族模板渲染(裸拼族名会印出判据认不出来的号)
+  assert.match(TOOL_SRC, /const familyTemplate =/, '书写形状必须有单一出口')
+  assert.match(TOOL_SRC, /familyTemplate\.replace\('%d', String\(n\)\)/, '号必须按模板渲染,不得裸拼族名')
+  assert.match(TOOL_SRC, /console\.log\(labelOf\(next\)\)/, '--next-only 的 stdout 必须走形状出口')
+})
+
+test('T13 --family Z 真发得出号;缺值 / 非单字母必须 exit 2 且不给号(G-322)', (t) => {
+  // 用法错三支:必须在任何取号动作之前判死,stdout 一个号都不许出
+  for (const args of [['--family'], ['--family', 'OO'], ['--family', '--check']]) {
+    const bad = spawnSync(process.execPath, [CLI, ...args], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 60_000,
+    })
+    assert.equal(bad.status, 2, `${JSON.stringify(args)} 必须 exit 2(给了旗标就要有值 / 值须单字母),实得 ${bad.status}`)
+    assert.match(String(bad.stderr), /单字母族名/, `${JSON.stringify(args)} 必须点名取值要求,实得:${bad.stderr}`)
+    assert.equal(String(bad.stdout).trim(), '', `${JSON.stringify(args)} 不得在 stdout 给号`)
+  }
+  // 正证:换族必须真能发号(族满三族之后新票唯一的合法取号路)
+  const preHead = git(['rev-parse', 'HEAD'], { root: ROOT, timeout: 60_000 })
+  const r = spawnSync(process.execPath, [CLI, '--family', 'Z', '--next-only'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 300_000,
+  })
+  if (skipIfCliCrashed(t, r)) return
+  if (/占用面判不出|无法判定占用/.test(String(r.stderr))) {
+    t.skip(`未判定:CLI 占用面判不出(并发 HEAD 切换窗口),换族发号未判成;preHead=${String(preHead).slice(0, 8)}`)
+    return
+  }
+  // 远端基准这一维取不到(自补救 fetch 后仍读不到对面底稿 / 网络抖动)⇒ CLI 按 G-313 硬前置拒绝发号,
+  // 那是**未判定**不是"换族发不出"(Z 族池内近乎全空,结构上不可能因池满被拒):t.skip 点名,不记绿也不冒红。
+  if (r.status !== 0 && /本次要发号,但/.test(String(r.stderr))) {
+    t.skip(`未判定:远端号段基准这一轮取不到(自补救 fetch 未成功),换族发号未判成;preHead=${String(preHead).slice(0, 8)}`)
+    return
+  }
+  assert.equal(r.status, 0, `--family Z 必须发得出号:\n${r.stderr}`)
+  const line = String(r.stdout).trim()
+  assert.match(line, /^Z-?\d+$/, `换族后 stdout 仍恒一行 Z 族号,实得:${JSON.stringify(r.stdout)}`)
+  const n = Number(/(\d+)$/.exec(line)[1])
+  assert.ok(n >= 1 && n <= LEASE_POOL_MAX, `${line} 必须落在号池 1..${LEASE_POOL_MAX}(绝不发池外号)`)
+  const wt = readFileSync(resolve(ROOT, 'PROJECT_PLAN.md'), 'utf8')
+  const head = git(['show', 'HEAD:PROJECT_PLAN.md'], { root: ROOT, raw: true, timeout: 120_000 })
+  assert.equal(typeof head, 'string', 'HEAD 台账取不到(占用面判不出 ⇒ 这一轮端到端不成立)')
+  const occupied = scanFamilyIds(`${head}\n${wt}`, 'Z')
+  if (occupied.has(n)) {
+    // 并发窗口分诊(与 T8c 同一套纪律):preHead 历史面已命中 ⇒ 真回归照红;只在之后的新落账里
+    // 出现 ⇒ 别席同刻取了同一枚号,非本用例射程。
+    const preHeadLedger = git(['show', `${preHead}:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000 })
+    const preOccupied = typeof preHeadLedger === 'string' ? scanFamilyIds(preHeadLedger, 'Z') : null
+    if (preOccupied && preOccupied.has(n)) {
+      assert.fail(`${line} 在 CLI 运行前的历史面(preHead=${String(preHead).slice(0, 8)})里就已命中 ⇒ 换族把已占号当空闲发`)
+    }
+    t.skip(`未判定:并发窗口 —— ${line} 只在 preHead=${String(preHead).slice(0, 8)} 之后的新落账里出现`)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
