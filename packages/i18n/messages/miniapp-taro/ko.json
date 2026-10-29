@@ -193,7 +193,18 @@
     "recommend": "추천 콘텐츠",
     "navMenu": "메뉴",
     "matDeletedOk": "삭제되었습니다",
-    "notLoggedIn": "로그인하지 않음"
+    "notLoggedIn": "로그인하지 않음",
+    "voiceUploadRetry": "음성 업로드 실패, 다시 시도해 주세요",
+    "fallbackFileName": "파일",
+    "uploadedNameToast": "업로드 완료: {name}",
+    "fileUploadFailed": "파일 업로드 실패",
+    "filePickRetry": "파일 선택 실패, 다시 시도해 주세요",
+    "contentImage": "이미지 내용",
+    "contentVideo": "동영상 내용",
+    "contentText": "텍스트 내용",
+    "boolYes": "예",
+    "boolNo": "아니요",
+    "closePreview": "미리보기 닫기"
   },
   "course": {
     "learningProgress": "학습 진행도",
@@ -1164,7 +1175,8 @@
     "statusUnknown": "알 수 없음",
     "noUrl": "접근 주소 없음",
     "loadFailed": "로딩 실패",
-    "openWorkflow": "워크플로우 열기"
+    "openWorkflow": "워크플로우 열기",
+    "gatewayRetry": "{attempt}/{max}회 재시도, {seconds}초 후 계속합니다"
   },
   "agentDialogue": {
     "sendFailed": "전송 실패, 재시도",
@@ -3587,7 +3599,12 @@
     "holdToSpeak": "눌러서 말하기",
     "addFile": "첨부 파일 추가",
     "document": "문서",
-    "video": "동영상"
+    "video": "동영상",
+    "compactSuccess": "컨텍스트가 압축되었습니다: {before} → {after} 토큰({saved} 절약)",
+    "compactTooFew": "메시지가 너무 적어 압축할 필요가 없습니다",
+    "compactIncompressible": "더 이상 압축할 수 있는 컨텍스트가 없습니다",
+    "compactFailed": "압축 실패",
+    "compactNoSession": "대화가 연결되지 않아 압축할 수 없습니다"
   },
   "toolbar": {
     "ai": "AI 채팅"
@@ -3700,7 +3717,86 @@
     },
     "notes": {
       "loadFailShort": "불러오기 실패"
-    }
+    },
+    "selectModel": "모델 선택",
+    "inputPlaceholder": "메시지 입력...",
+    "flagFailed": "표시 저장 실패",
+    "viewCard": "카드 보기",
+    "closeCard": "카드 닫기",
+    "imageDelete": "이미지 삭제",
+    "webLinkPlaceholder": "웹 링크 입력(https://...)",
+    "micPermHint": "마이크에 접근할 수 없습니다. 권한 설정을 확인하세요",
+    "micInitFailed": "녹음 시작에 실패했습니다. 다시 시도해 주세요",
+    "modelDegrade": "모델 대체: {from} → {to}",
+    "reconnecting": "네트워크 불안정, {attempt}번째 재연결 중({countdown}초 후)",
+    "roundFailed": "음성 라운드 실패, 다시 시도",
+    "ttsSuccess": "음성 생성 성공({voice})",
+    "favOpFail": "즐겨찾기 실패: {reason}",
+    "chatEmptyToast": "현재 대화가 비어 있음",
+    "clearDialogTitle": "대화 비우기",
+    "clearDialogBody": "현재 대화의 모든 메시지를 삭제할까요?",
+    "clearOk": "비우기",
+    "exportEmptyTitle": "IHUI AI 대화(비움)",
+    "exportHeader": "IHUI AI 대화 기록",
+    "camSoonHint": "카메라 촬영은 준비 중, 앨범에서 업로드를 사용하세요",
+    "shareClaimed": "{points} 포인트 수령 완료",
+    "shareClaimedOnce": "첫 공유 보상 이미 수령함",
+    "shareClaimFailed": "수령 실패, 잠시 후 재시도",
+    "inviteShareBody": "IHUI AI 커뮤니티로 초대 — AI 대화를 함께 즐겨요!",
+    "matTypePrefix": "유형",
+    "matNoDetailHint": "이 소재는 상세 보기 미지원",
+    "loadDetailFail": "상세 불러오기 실패",
+    "netLoadFail": "네트워크 오류, 로드 실패",
+    "linkCopied": "링크가 클립보드에 복사되었습니다. 브라우저에서 붙여넣으세요",
+    "historyLoadFail": "기록 불러오기 실패, 다시 시도",
+    "delConvTitle": "대화 삭제",
+    "delConvBody": "이 대화를 삭제할까요?",
+    "chatDeleteFail": "삭제 실패, 재시도",
+    "topBarMenu": "메뉴 열기",
+    "topBarAgent": "Agent 선택",
+    "topBarProfile": "개인 센터",
+    "topBarCommunity": "커뮤니티 참여",
+    "shareInviteNow": "지금 초대 공유",
+    "fnTitle": "기능",
+    "sourceTitlePanel": "지식 출처",
+    "selectFile": "파일 선택",
+    "uploadingShort": "업로드 중…",
+    "closeCardShort": "닫기",
+    "viewCardShort": "보기",
+    "cardWord": "카드",
+    "matDeleteA11y": "소재 삭제",
+    "matFallback": "소재",
+    "sendLink": "링크 전송",
+    "imagePreviewA11y": "이미지 미리보기",
+    "menuAnnotateImage": "이 이미지에 주석",
+    "chatDeleteFailed2": "삭제 실패",
+    "loginToSend": "메시지 전송 전 로그인하세요",
+    "vipOnlyModel": "이 모델은 VIP 전용, 회원 가입 후 사용 가능",
+    "openVipBtn": "회원 가입",
+    "reloginBtn": "다시 로그인",
+    "connectFailRetry": "연결 실패, 다시 시도해 주세요",
+    "noMsgToTts": "변환할 메시지가 없습니다",
+    "ttsFailRetry": "음성 생성 실패, 다시 시도해 주세요",
+    "noMsgToFav": "즐겨찾기할 메시지가 없습니다",
+    "favFailRetry": "즐겨찾기 실패, 잠시 후 다시 시도",
+    "qrNeedPerm": "QR 저장에 사진 권한이 필요합니다",
+    "qrNotRendered": "QR 렌더링 대기, 잠시 후 재시도",
+    "qrSaved": "QR을 앨범에 저장했습니다",
+    "qrSaveFail": "저장 실패, 재시도",
+    "favOn": "즐겨찾기됨",
+    "favOff": "즐겨찾기 해제",
+    "annotAdded": "주석이 입력란에 추가되었습니다",
+    "menuSwitchModel": "모델 전환",
+    "menuClear": "대화 비우기",
+    "menuExport": "대화 내보내기",
+    "menuShare": "대화 공유",
+    "menuToVoice": "음성 변환",
+    "menuFavorite": "즐겨찾기",
+    "menuMaterial": "소재 라이브러리",
+    "menuVoiceNote": "음성 메모",
+    "menuWebLink": "웹 링크",
+    "menuFileUpload": "파일 업로드",
+    "menuHistory": "대화 기록"
   },
   "tabBar": {
     "community": "커뮤니티",
@@ -6825,5 +6921,43 @@
     "title": "내 신청",
     "loading": "로딩 중...",
     "empty": "데이터가 없습니다"
+  },
+  "quickNotes": {
+    "menuEntry": "빠른 메모",
+    "title": "빠른 메모",
+    "new": "새 메모",
+    "edit": "편집",
+    "search": "메모 검색",
+    "insert": "대화에 삽입",
+    "archive": "보관",
+    "unarchive": "보관 해제",
+    "archived": "보관됨",
+    "showArchived": "보관 항목 표시",
+    "empty": "메모가 없습니다"
+  },
+  "chatAlert": {
+    "compaction": {
+      "title": "컨텍스트가 자동 압축되었습니다",
+      "message": "{before} → {after}({removed}개 기록 제거)"
+    },
+    "loginBtn": "로그인",
+    "longPress": {
+      "myTitle": "내 메시지",
+      "aiTitle": "AI 메시지",
+      "message": "스크린샷이 생성되었습니다",
+      "shareBtn": "공유"
+    }
+  },
+  "mat": {
+    "unknown": "알 수 없는 오류",
+    "deleteTitle": "소재 삭제",
+    "deleteBody": "「{title}」 삭제할까요?",
+    "detailLabel": "소재 상세"
+  },
+  "selectionAnnotations": {
+    "addAnnotation": "주석 추가"
+  },
+  "slashCmd": {
+    "statusToast": "모델 {model} · 메시지 {count}개 · {state}"
   }
 }
