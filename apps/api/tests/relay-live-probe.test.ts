@@ -55,7 +55,6 @@ afterEach(() => {
 describe.skipIf(process.env[PROBE_ENABLE_ENV] !== '1')('relay live probe(真实上游联调)', () => {
   it('逐平台执行探针并产出结构化报告(有凭据平台不得为 skip)', { timeout: 300_000 }, async () => {
     const report = await runLiveProbe(process.env)
-    // eslint-disable-next-line no-console
     console.log(formatProbeReport(report))
     expect(report.enabled).toBe(true)
     expect(report.results).toHaveLength(3)

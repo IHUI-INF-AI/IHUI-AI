@@ -49,7 +49,12 @@ async function clickTestId(testId: string) {
   const el = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)
   expect(el, `必须存在 [data-testid=${testId}]`).not.toBeNull()
   await React.act(async () => {
-    el?.click()
+    // Radix TabsTrigger 在 mousedown 上切换 value,click 会静默无效(见 login-region-priority 夹具注释)
+    if (testId.startsWith('login-tab-')) {
+      el?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))
+    } else {
+      el?.click()
+    }
   })
 }
 

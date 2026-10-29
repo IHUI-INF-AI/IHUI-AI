@@ -182,11 +182,25 @@ export function LoginForm(props: LoginFormProps) {
   }, [tab, agreed, showAgreement, agreementMode])
 
   // 切 tab 时清空协议错误(避免上一次的红色状态残留)
-  const handleTabChange = React.useCallback((v: string) => {
-    userPickedTab.current = true
-    setTab(v as LoginTab)
-    setShowAgreeErr(false)
-  }, [])
+  const handleTabChange = React.useCallback(
+    (v: string) => {
+      userPickedTab.current = true
+      const next = v as LoginTab
+      setTab(next)
+      setShowAgreeErr(false)
+      // 与下方 useEffect 同判据;切 tab 时在 commit 前即开弹窗,避免 Radix/happy-dom 下
+      // 仅依赖 effect 时序导致「点扫码 tab 协议窗未即现」(qr-entry-agreement-prompt ③)。
+      if (
+        next === 'qr' &&
+        showAgreement &&
+        !agreed &&
+        agreementMode === 'notice-dialog'
+      ) {
+        setNoticeOpen(true)
+      }
+    },
+    [agreed, showAgreement, agreementMode],
+  )
 
   /**
    * 第三方按钮的同意门禁(2026-10-27 立)。
