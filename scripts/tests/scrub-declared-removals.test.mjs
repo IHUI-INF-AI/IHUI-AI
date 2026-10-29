@@ -210,7 +210,47 @@ describe('维二:正文等值(2026-10-23 补,治"已结清票以未勾形态复�
     assert.equal(r.dropped.length, 0)
   })
 
-  it('declaredRows 只为 f11-purge 条目建题面前缀集(其它 kind 不进维三)', () => {
+  it('删除档具名 form=dropped 进题面指纹集;同 kind 而 form=open(翻勾前像)不得进', () => {
+    const dir = mkScratch('declared-dropped-form-')
+    try {
+      mkdirSync(path.join(dir, '.ihui-agent', 'state'), { recursive: true })
+      // 现场复刻 2026-10-29 实测的死循环:走 live-doc-edit 删除档摘掉的未勾行,留痕只有整行逐字,
+      // 而守门 71 插回的是它自己采集的**另一份字节形态** ⇒ 逐字通道永远对不上 ⇒ 摘一次回一次。
+      const droppedRow = '- [ ] 〔归:机主号池裁决面〕 Z-9 取号池饱和票(被删除档摘除)'
+      const flipBefore = '- [ ] Z-8 另一张票(只是翻勾,并未摘行)'
+      writeFileSync(
+        path.join(dir, '.ihui-agent', 'state', 'drop.jsonl'),
+        [
+          JSON.stringify({
+            rowBefore: droppedRow,
+            kind: 'closed-row-reclose-open-form',
+            form: 'dropped',
+            at: '2026-10-29T02:11:09.568Z',
+          }),
+          JSON.stringify({
+            rowBefore: flipBefore,
+            kind: 'closed-row-reclose-open-form',
+            form: 'open',
+            at: '2026-10-29T02:11:09.568Z',
+          }),
+        ].join('\n') + '\n',
+        'utf8',
+      )
+      const d = declaredRows(dir, ['.ihui-agent/state/drop.jsonl'])
+      assert.ok(d.dropTitleFps.has(titleFpOf(droppedRow)), '声明为删除的行必须拿到题面指纹豁免')
+      assert.equal(
+        d.dropTitleFps.has(titleFpOf(flipBefore)),
+        false,
+        '翻勾前像不是删除 ⇒ 不得进维三(否则"没结清"能被写成"已处置")',
+      )
+      assert.equal(d.set.has(droppedRow), true, '逐字维照旧收(两维并存,不互相顶替)')
+      assert.equal(d.set.has(flipBefore), true, '逐字维照旧收')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('既非 f11/f12-purge 又未具名 dropped ⇒ 不进维三(维三只认"声明为删除"那一族)', () => {
     const dir = mkScratch('declared-tfp-')
     try {
       mkdirSync(path.join(dir, '.ihui-agent', 'state'), { recursive: true })
