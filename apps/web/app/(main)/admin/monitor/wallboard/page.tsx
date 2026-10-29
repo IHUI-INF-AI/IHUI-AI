@@ -4,7 +4,6 @@
 
 'use client'
 import { isNum, isUnset, thresholdTone, type StatusTone } from './unknown-state'
-import { tzParts } from './data-time'
 
 /**
  * 生产在线端监控大屏(/admin/monitor/wallboard)。
@@ -22,7 +21,6 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
   Bell,
   Clock3,
   Cpu,
@@ -30,10 +28,8 @@ import {
   Gauge,
   Globe,
   HardDrive,
-  Layers,
   Maximize2,
   Minimize2,
-  MousePointerClick,
   Radio,
   Server,
   ShieldAlert,
@@ -80,7 +76,7 @@ interface HostSnapshot {
 
 interface ServicesSnapshot {
   windows: Array<{ name: string; state: string; retired: boolean }>
-  targets: Array<{ job: string; instance: string; up: number | null }>
+  targets: Array<{ job: string; instance: string; up: number }>
   windowsTotal: number
   windowsRunning: number
   windowsExpectedTotal: number
@@ -97,6 +93,7 @@ interface HttpSnapshot {
   uptimeSeconds: Array<{ job: string; seconds: number }>
   wsConnections: number | null
   activeConnections: number | null
+  aiActiveSessions: number | null
 }
 
 interface RedisSnapshot {
@@ -171,28 +168,17 @@ interface BusinessSnapshot {
   ordersTodayAmountCents: number
   ordersYesterdayPaid: number
   apiCallsToday: number
-  apiErrRate: number | null
-  apiAvgLatencyMs: number | null
+  apiErrRate: number
+  apiAvgLatencyMs: number
   topEndpoints: Array<{ path: string; method: string; calls: number }>
   llmCallsToday: number
   llmTokensToday: number
   llmCostCentsToday: number
-  llmErrRate: number | null
-  llmP95LatencyMs: number | null
+  llmErrRate: number
+  llmP95LatencyMs: number
   llmTopModels: Array<{ model: string; calls: number }>
   /** 签到快照:后端取不到时为 null(渲染"—"),老版本后端无此字段(undefined 同样走"—") */
   signIn?: SignInSnapshot | null
-  /** 近 14 日每日新增用户(上海日界,含今天);后端查询失败或老后端无此字段 ⇒ null/undefined */
-  userGrowth?: Array<{ date: string; count: number }> | null
-  /** 用户构成(与 usersTotal 同一次查询的即时计数;老后端无这些字段 ⇒ undefined ⇒ 渲染"—") */
-  usersVip?: number
-  usersTrader?: number
-  usersInvited?: number
-  usersInvited7d?: number
-  /** 等级分布 [普通, 白银, 黄金, 钻石](users.level 0..3) */
-  usersByLevel?: [number, number, number, number]
-  /** 近 7 日签到去重用户数(留存近似);查询失败为 null */
-  activeUsers7d?: number | null
 }
 
 interface TrafficSnapshot {
@@ -206,153 +192,6 @@ interface TrafficSnapshot {
   /** 这份快照距今多少秒(后端 5 秒缓存 + 5 秒轮询 ⇒ 常为 0..5);null = 整块取不到 */
   aggregationAgeSec: number | null
   truncated: boolean | null
-  /** 近 24h 页面访问排行(visit_logs 口径);null = 页面热度腿取不到 */
-  pageTop: Array<{
-    url: string
-    scope: 'public' | 'admin' | 'auth'
-    platform: 'web' | 'rn' | 'mp' | 'ex'
-    pv: number
-    uv: number
-  }> | null
-  /** 近 24h visit_logs 同口径总 PV(排行占比的分母);null = 页面热度腿取不到 */
-  pageTotalPv: number | null
-  /** 近 24h 各访问面 PV/UV(前台/后台/登录页);null = 同一条腿取不到 */
-  scopeSplit: Array<{ scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
-  /** 近 24h 各端 PV/UV(web/RN/小程序/浏览器插件)+ 90 日接入史;null = 同一条腿取不到 */
-  platformSplit: Array<{
-    platform: 'web' | 'rn' | 'mp' | 'ex'
-    pv: number
-    uv: number
-    /** 近 90 日 PV:用来把"这端从没上报过"与"今天恰好没人用"分开 */
-    pv90d?: number
-    lastSeenAt?: string | null
-  }> | null
-  /** 近 24h 会话质量(来了之后看了几屏 / 落地页排行);null = 同一条腿取不到 */
-  sessionQuality: {
-    /** 窗口内会话数(标签页级口径:一个标签页一个 session) */
-    sessions: number
-    /** 只停留在一个页面的会话数 */
-    singlePageSessions: number
-    /** 单页会话占比 0..1;会话数为 0 ⇒ null(「没判」不是「零」) */
-    singlePageRate: number | null
-    /** 平均每会话 PV;会话数为 0 ⇒ null */
-    avgPvPerSession: number | null
-    /** 会话深度分档(1 / 2-3 / 4-7 / 8+ 屏) */
-    depth: Array<{ bucket: '1' | '2-3' | '4-7' | '8+'; sessions: number }>
-    /** 落地页 TOP(进来的会话最多的页面)+ 其中「只停这一页」的会话数 */
-    entryPages: Array<{ url: string; sessions: number; singlePageSessions: number }>
-    /** 退出页 TOP(收尾的会话最多的页面,2026-10-27);与落地页镜像口径 */
-    exitPages: Array<{ url: string; sessions: number; singlePageSessions: number }>
-  } | null
-  /** 近 24h 访问来源(直接访问/本机开发/站内/外部 + 主机 TOP);null = 同一条腿取不到 */
-  visitSource: {
-    /** 窗口内总 PV(所有来源之和) */
-    totalPv: number
-    /** 来源分类桶(未配自有域时不含 internal) */
-    buckets: Array<{
-      kind: 'direct' | 'local' | 'internal' | 'external'
-      pv: number
-    }>
-    /** 来源主机 TOP(按 PV 降序) */
-    hosts: Array<{
-      host: string
-      kind: 'direct' | 'local' | 'internal' | 'external'
-      pv: number
-    }>
-    /** 是否做了站内/外部二分(配了自有域才有) */
-    splitInternal: boolean
-  } | null
-  /** 近 24h 页面流转(相邻页对 TOP);null = 同一条腿取不到 */
-  visitTransition: {
-    /** 相邻跳转总次数(已排除同页刷新) */
-    totalMoves: number
-    /** 发生过的不同页对数 */
-    distinctPairs: number
-    top: Array<{ fromUrl: string; toUrl: string; n: number }>
-  } | null
-  /** 近 5 分钟去重会话数(实时在线近似);null = 同一条腿取不到 */
-  online5m: number | null
-  /** 近 5 分钟浏览量 */
-  pv5m: number | null
-  /** 近 24h 各页面平均停留时长(秒),按 url 与页面排行对齐;null = 同一条腿取不到 */
-  pageDwell: Array<{ url: string; avgDwellSec: number | null; samples: number }> | null
-  /** 近 24h 逐小时 PV/UV(上海小时桶,2026-10-27);null = 页面热度腿取不到 */
-  pageHourly: Array<{ hour: string; pv: number; uv: number }> | null
-}
-
-/**
- * 端前缀着色:四端埋点写同一张表,`/chat`(网站)与 `/rn/Chat`(移动端)在页面排行里
- * 是并列两行,不给前缀上色就分不清「这一行是哪一端」。
- *
- * 刻意**不新增端徽章文案**:「各端使用量」面板已经逐行列了网站/移动端/小程序/浏览器插件,
- * 再加一枚文字徽章既重复又会把窄列挤扁;前缀本来就是端身份的一部分(服务端
- * `classifyVisitPlatform` 按同一组前缀分桶),给它上色即可,不引入第二套端说法。
- */
-const PLATFORM_PREFIX_CLASS: Record<'rn' | 'mp' | 'ex', string> = {
-  rn: 'text-violet-600 dark:text-violet-400',
-  mp: 'text-green-700 dark:text-green-400',
-  ex: 'text-orange-700 dark:text-orange-400',
-}
-const PLATFORM_PREFIXES: Array<['rn' | 'mp' | 'ex', string]> = [
-  ['rn', '/rn/'],
-  ['mp', '/mp/'],
-  ['ex', '/ex/'],
-]
-
-/** 行首端前缀拆分:命中则返回 [前缀, 其余路径],未命中返回 null(web 裸路径)。 */
-function splitPlatformPrefix(url: string): ['rn' | 'mp' | 'ex', string, string] | null {
-  for (const [platform, prefix] of PLATFORM_PREFIXES) {
-    if (url.startsWith(prefix)) return [platform, prefix, url.slice(prefix.length)]
-  }
-  return null
-}
-
-/**
- * 会话深度分档 → 文案键。
- *
- * 桶**不是**前端自己数的:服务端 `services/session-quality-stats-service.ts` 按 PV 数
- * 分好四档回传(判据单一真相源),前端只负责把桶渲染出来 + 配文案。
- * 档位边界(1 / 2-3 / 4-7 / 8+)不许在前端另写一份 —— 那样两侧早晚会漂。
- */
-const SESSION_DEPTH_LABEL_KEY: Record<
-  '1' | '2-3' | '4-7' | '8+',
-  'sessionDepth1' | 'sessionDepth23' | 'sessionDepth47' | 'sessionDepth8Plus'
-> = {
-  '1': 'sessionDepth1',
-  '2-3': 'sessionDepth23',
-  '4-7': 'sessionDepth47',
-  '8+': 'sessionDepth8Plus',
-}
-
-/**
- * 深度分档堆叠条的档位配色(同色系递减,不引入告警色)。
- * 刻意不给「单屏会话占比高」染红 —— 那是事实不是故障,染成告警会让面板天天报警。
- */
-const SESSION_DEPTH_BAR_CLASS = ['bg-info', 'bg-info/70', 'bg-info/45', 'bg-info/25'] as const
-
-/**
- * 来源类别 → 文案键(判据在服务端 `services/visit-source-stats-service.ts`,
- * 前端只按 kind 渲染,不自己判来源)。
- */
-const VISIT_SOURCE_KIND_LABEL_KEY: Record<
-  'direct' | 'local' | 'internal' | 'external',
-  'visitSourceDirect' | 'visitSourceLocal' | 'visitSourceInternal' | 'visitSourceExternal'
-> = {
-  direct: 'visitSourceDirect',
-  local: 'visitSourceLocal',
-  internal: 'visitSourceInternal',
-  external: 'visitSourceExternal',
-}
-
-/**
- * 来源主机的着色:本机开发压成灰(不是渠道),站内用 info,外部用前景色。
- * 刻意不给外部用告警色 —— 外部来源量大是事实,不是故障,染成告警会让面板天天报警。
- */
-const VISIT_SOURCE_HOST_CLASS: Record<'direct' | 'local' | 'internal' | 'external', string> = {
-  direct: 'text-foreground',
-  local: 'text-muted-foreground',
-  internal: 'text-info-text',
-  external: 'text-foreground',
 }
 
 interface RelayPoolSnapshot {
@@ -368,21 +207,6 @@ interface RelayPoolSnapshot {
   accountRefreshAgeSec?: number | null
   /** 健康态不在封闭词表内、无法折叠的行数(非 0 = 库里有脏值) */
   rowsUnclassified?: number | null
-  /** Key 健康四态计数(unknown/healthy/degraded/down;老后端无此字段 ⇒ undefined) */
-  keyHealth?: { unknown: number; healthy: number; degraded: number; down: number } | null
-  /** 按 provider 分组的 Key 分布 */
-  keyByProvider?: Array<{
-    provider: string
-    total: number
-    schedulable: number
-    abnormal: number
-  }> | null
-  /** 按 provider 分组的账号池分布 */
-  accountByProvider?: Array<{ provider: string; total: number; schedulable: number }> | null
-  /** 余额 < 5 元且非无限的 Key 条数(余额预警) */
-  keyBalanceLow?: number | null
-  /** token 将在 24h 内过期的账号条数(含已过期) */
-  accountExpiring24h?: number | null
 }
 
 interface ActiveAlert {
@@ -432,22 +256,6 @@ interface OverviewPayload {
   alerts: AlertsSnapshot | null
   events: EventItem[] | null
   traffic?: TrafficSnapshot | null
-  /** 行为埋点 24h 快照(analytics_events 口径);null = 该腿取不到 */
-  engagement?: {
-    events: Array<{ event: string; n: number }>
-    clickTop: Array<{ label: string; n: number }>
-    avgPageTimeSec: number | null
-    totalEvents: number
-    computedAtMs: number
-  } | null
-  /** 访客构成 24h 快照(visit_logs 身份口径);null = 该腿取不到 */
-  audience?: {
-    newUv: number
-    returningUv: number
-    activeUv: number
-    returningRate: number | null
-    computedAtMs: number
-  } | null
   relayPool?: RelayPoolSnapshot | null
   edge: EdgeSnapshot | null
 }
@@ -486,14 +294,9 @@ function fmtPct(v: number | null | undefined, digits = 2): string {
   return `${v.toFixed(digits)}%`
 }
 
-/**
- * 大屏的时间一律按**数据侧时区**显示与判定(实现与理由见 ./data-time:page.tsx 不能带
- * 具名导出,判据住在一个可被测试 import 的模块里才不会漂移)。
- */
-
 function fmtClockDigits(d: Date): string {
-  const t = tzParts(d)
-  return `${t.dateKey} ${t.hms}`
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
 }
 
 /**
@@ -549,16 +352,16 @@ function makeFmt(locale: string, t: WallboardT) {
       if (!iso) return '—'
       const d = new Date(iso)
       if (Number.isNaN(d.getTime())) return '—'
-      return tzParts(d).hms
+      return d.toLocaleTimeString(locale, { hour12: false })
     },
     /** 事件流用:当天只显示时分秒,跨天补 MM-DD(否则隔夜事件看不出哪一天)。 */
     fmtStamp(iso: string | null | undefined): string {
       if (!iso) return '—'
       const d = new Date(iso)
       if (Number.isNaN(d.getTime())) return '—'
-      const t = tzParts(d)
-      if (t.dateKey === tzParts(new Date()).dateKey) return t.hms
-      return `${t.dateKey.slice(5)} ${t.hms}`
+      const time = d.toLocaleTimeString(locale, { hour12: false })
+      if (d.toDateString() === new Date().toDateString()) return time
+      return `${d.toLocaleDateString(locale, { month: '2-digit', day: '2-digit' })} ${time}`
     },
     fmtAgo(iso: string | null | undefined): string {
       if (!iso) return '—'
@@ -600,10 +403,10 @@ function Panel({
       <header className="flex shrink-0 items-center gap-2 px-3 pt-2 pb-1">
         <span className="h-3 w-[3px] rounded-full bg-info shadow-[0_0_8px_color-mix(in_srgb,var(--color-info)_80%,transparent)]" />
         {icon ? <span className="text-info-text/70">{icon}</span> : null}
-        <h2 className="wb-display min-w-0 truncate text-[13px] font-semibold tracking-[0.18em] text-foreground uppercase">
+        <h2 className="wb-display text-[13px] font-semibold tracking-[0.18em] text-foreground uppercase">
           {title}
         </h2>
-        <div className="ml-auto flex shrink-0 items-center gap-2">{right}</div>
+        <div className="ml-auto flex items-center gap-2">{right}</div>
       </header>
       <div className={cn('min-h-0 flex-1 overflow-hidden p-3', bodyClassName)}>{children}</div>
     </section>
@@ -653,29 +456,18 @@ function StatCell({
   value,
   unit,
   tone,
-  hint,
 }: {
   label: string
   value: string
   unit?: string
   tone?: StatusTone | 'accent'
-  /** 口径说明:把「这数是怎么算出来的」收进悬停,标签本身只留能一眼读完的名字。 */
-  hint?: string
 }) {
   return (
-    <div className="min-w-0 rounded-lg border border-border bg-muted/60 px-2.5 py-2">
-      <div className="text-[10px] tracking-[0.12em] text-muted-foreground">
-        {hint ? (
-          <Tooltip content={hint}>
-            <span>{label}</span>
-          </Tooltip>
-        ) : (
-          label
-        )}
-      </div>
+    <div className="rounded-lg border border-border bg-muted/60 px-2.5 py-2">
+      <div className="text-[10px] tracking-[0.12em] text-muted-foreground">{label}</div>
       <div
         className={cn(
-          'wb-num mt-0.5 text-[18px] leading-tight font-semibold whitespace-nowrap',
+          'wb-num mt-0.5 text-[18px] leading-tight font-semibold',
           tone === 'bad'
             ? 'text-danger-text'
             : tone === 'warn'
@@ -882,8 +674,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const alerts = ov?.alerts ?? null
   const events = ov?.events ?? null
   const traffic = ov?.traffic ?? null
-  const engagement = ov?.engagement ?? null
-  const audience = ov?.audience ?? null
   const relayPool = ov?.relayPool ?? null
   const edge = ov?.edge ?? null
 
@@ -902,9 +692,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         ? null
         : (alerts.promActiveCount ?? 0) +
           (alerts.firingNames ?? []).filter((n) => !promAlertNames.has(n)).length
-  // AM 侧没量到、只有库内 firing ⇒ 上面这个数是**下界**,不得渲染成精确总数(会静默少报)。
-  const alertCountIsFloor =
-    alerts !== null && alerts.promActiveCount === null && (alertCount ?? 0) > 0
   // 退役服务(见路由 RETIRED_SERVICES)不计入健康度分母,避免状态灯恒黄。
   // alerts 块或 services 块不可达 ⇒ 'unknown'(§0.3:「没判」不得渲染成「全域正常 / 0 告警」)。
   // 核心数据源断掉时不能仍报「全域正常」:Prometheus / 业务库是这张屏的主判据,
@@ -1119,7 +906,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     const ordered = [...rows].reverse()
     const data = ordered.map((s) => ({
       value: total > 0 ? Number(((s.rate / total) * 100).toFixed(2)) : 0,
-      rate: s.rate,
       itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: rnRadius.xs },
     }))
     return {
@@ -1130,25 +916,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         backgroundColor: chartBg(isDark),
         borderColor: chartAxis(isDark),
         textStyle: { color: fg(isDark), fontSize: 11 },
-        // 条形长度是占比,速率(次/秒)只在 tooltip 里给 —— 值班排障时两个读数都要。
-        formatter: (params) => {
-          const list = Array.isArray(params) ? params : [params]
-          return list
-            .map((raw) => {
-              const p = raw as {
-                marker?: string
-                name?: string
-                value?: number | string
-                data?: { rate?: number }
-              }
-              const rate =
-                p.data && typeof p.data.rate === 'number'
-                  ? `${p.data.rate.toFixed(3)}${t('piePerSecSuffix')}`
-                  : '—'
-              return `${p.marker ?? ''}${p.name ?? ''}  ${p.value ?? '—'}% · ${rate}`
-            })
-            .join('<br/>')
-        },
+        valueFormatter: (v) => `${v}%`,
       },
       xAxis: {
         type: 'value',
@@ -1180,7 +948,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [http?.statusRates, isDark, t])
+  }, [http?.statusRates, isDark])
 
   // 主机 CPU / 内存走势(补齐 trend.cpuPct / trend.memPct 两个已返回未上屏的序列)
   const hostTrendOption = React.useMemo<EChartsOption>(() => {
@@ -1253,9 +1021,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   }, [trend, locale, t, isDark])
 
   // 只画到今天当前小时:把未到的时段画成 0 柱会被读成「这些时段没有流量」。
-  // 小时必须按数据侧时区取(服务端分桶就是 Asia/Shanghai 的小时),否则非 +08 的机器
-  // 会把对侧已发生的小时整段截掉,剩下的空槽照样渲染成 0 柱。
-  const nowHour = tzParts(now).hour
+  const nowHour = now.getHours()
   const hourlyOption = React.useMemo<EChartsOption>(() => {
     const hours = Array.from({ length: nowHour + 1 }, (_, i) => String(i).padStart(2, '0'))
     const byHour = new Map((trend?.hourlyCalls ?? []).map((r) => [r.hour, r.calls]))
@@ -1297,67 +1063,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       ],
     }
   }, [trend?.hourlyCalls, isDark, nowHour, t, locale])
-
-  // 页面使用的分时曲线(2026-10-27):滚动 24h 按小时分桶 ⇒ 24 个桶都画满,
-  // **不像**上面「今日分时调用」按 nowHour 截断 —— 窗口跨夜,夜里那半截也是真数据,
-  // 截掉会把"凌晨没人用"读成"没到"(两图横轴都 00..23,可对读)。
-  const visitHourlyOption = React.useMemo<EChartsOption>(() => {
-    const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
-    const byHour = new Map((traffic?.pageHourly ?? []).map((r) => [r.hour, r]))
-    return {
-      grid: { left: 40, right: 36, top: 16, bottom: 22 },
-      legend: {
-        data: [t('visitHourlyPv'), t('visitHourlyUv')],
-        textStyle: { color: fg(isDark), fontSize: 10 },
-        itemWidth: 10,
-        itemHeight: 6,
-        top: 0,
-        right: 0,
-      },
-      tooltip: {
-        trigger: 'axis',
-        backgroundColor: chartBg(isDark),
-        borderColor: chartAxis(isDark),
-        textStyle: { color: fg(isDark), fontSize: 11 },
-      },
-      xAxis: { type: 'category', data: hours, ...AXIS(isDark) },
-      yAxis: [
-        { type: 'value', ...AXIS(isDark) },
-        { type: 'value', ...AXIS(isDark), splitLine: { show: false } },
-      ],
-      series: [
-        {
-          name: t('visitHourlyPv'),
-          type: 'bar',
-          data: hours.map((h) => byHour.get(h)?.pv ?? 0),
-          barWidth: '58%',
-          itemStyle: {
-            borderRadius: [2, 2, 0, 0],
-            color: {
-              type: 'linear',
-              x: 0,
-              y: 0,
-              x2: 0,
-              y2: 1,
-              colorStops: [
-                { offset: 0, color: withAlpha(CHART_CYAN, 0.95) },
-                { offset: 1, color: withAlpha(CHART_CYAN, 0.15) },
-              ],
-            },
-          },
-        },
-        {
-          name: t('visitHourlyUv'),
-          type: 'line',
-          yAxisIndex: 1,
-          smooth: true,
-          showSymbol: false,
-          data: hours.map((h) => byHour.get(h)?.uv ?? 0),
-          ...seriesGlow(CHART_VIOLET),
-        },
-      ],
-    }
-  }, [traffic?.pageHourly, isDark, t])
 
   const modelOption = React.useMemo<EChartsOption>(() => {
     const models = [...(biz?.llmTopModels ?? [])].reverse()
@@ -1446,44 +1151,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     }
   }, [biz?.signIn?.last7d, isDark, t, locale])
 
-  // 近 14 日每日新增用户:纯柱形,横轴只留 MM-DD(14 根太密 ⇒ 标签间隔 2),柱顶不标数字
-  const userGrowthOption = React.useMemo<EChartsOption>(() => {
-    const rows = biz?.userGrowth ?? []
-    return {
-      grid: { left: 4, right: 4, top: 12, bottom: 2, containLabel: true },
-      tooltip: {
-        trigger: 'axis',
-        backgroundColor: chartBg(isDark),
-        borderColor: chartAxis(isDark),
-        textStyle: { color: fg(isDark), fontSize: 11 },
-      },
-      xAxis: {
-        type: 'category',
-        data: rows.map((r) => r.date.slice(5)),
-        ...AXIS(isDark),
-        axisLabel: { color: chartText(isDark), fontSize: 9, interval: 2 },
-      },
-      yAxis: {
-        type: 'value',
-        ...AXIS(isDark),
-        splitLine: { show: false },
-        axisLabel: { show: false },
-      },
-      series: [
-        {
-          type: 'bar',
-          data: rows.map((r) => r.count),
-          barWidth: 6,
-          tooltip: {
-            valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitUser')}`,
-          },
-          itemStyle: { borderRadius: [3, 3, 0, 0], color: withAlpha(CHART_CYAN, 0.85) },
-          label: { show: false },
-        },
-      ],
-    }
-  }, [biz?.userGrowth, isDark, t, locale])
-
   // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
   const edgeOption = React.useMemo<EChartsOption>(() => {
     const rows = edge?.series ?? []
@@ -1532,9 +1199,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   // 避免被圆角角色门按 panel 角色误判须 xl;该徽章自身无角色类名,落「未判定」射程外,不计入红。
   const no5xxBadge =
     trend &&
-    // 趋势查询本身已停摆时不得再发好消息:徽章读的是**上一份快照**,而快照会一直绿着
-    // (trendStale = 请求报错,或快照超 60s 未更新)。
-    !trendStale &&
     trend.qps.length > 0 &&
     // 空序列 ≠ 「窗口内没有 5xx」:查询无数据时不能凭 0 条样本发好消息(§0.3)。
     trend.errRate.length > 0 &&
@@ -1549,10 +1213,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const edgeLastTone = thresholdTone(edge?.stats.lastMs, (n) =>
     n >= 3000 ? 'bad' : n >= 1500 ? 'warn' : 'ok',
   )
-  // 数据源/抓取目标/探测腿的状态词:后端给的是 up/down/undefined 这三档协议值,
-  // 直接渲染会在中文界面里留下 "up"——机主 2026-10-24 指认的同一族缺陷,统一走文案。
-  const stateWord = (s: string | undefined) =>
-    s === 'up' ? t('stateUp') : s === 'down' ? t('stateDown') : t('stateUnknown')
   const edgeHitTone = thresholdTone(edge?.stats.hitRatio, (n) => (n >= 0.8 ? 'ok' : 'warn'))
   // 边缘探测三条腿的标签键(官网首页 / 根域名跳转 / 静态资源);对照腿 originViaCf 已有专属文案
   const EDGE_LEG_LABEL: Record<
@@ -1572,10 +1232,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
 
         {/* overview/trend 整体失败(网络/500):顶部横幅 + 一键重试,避免整屏「—」或旧快照无解释 */}
         {ovError || trendError ? (
-          <div
-            role="alert"
-            className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-danger-text"
-          >
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-danger-text">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>{t('loadFailed')}</span>
             <button
@@ -1584,7 +1241,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 void refetchOv()
                 void refetchTrend()
               }}
-              className="ml-auto shrink-0 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-danger-text transition-colors hover:bg-destructive/20 focus-visible:ring-1 focus-visible:ring-ring"
+              className="ml-auto shrink-0 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-danger-text transition-colors hover:bg-destructive/20"
             >
               {t('retry')}
             </button>
@@ -1617,10 +1274,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 [t('srcEdge'), ov?.sources?.edge],
               ] as Array<[string, string | undefined]>
             ).map(([name, state]) => (
-              <Tooltip key={name} content={`${name} · ${stateWord(state)}`}>
+              <Tooltip key={name} content={name}>
                 <span
                   role="img"
-                  aria-label={`${name} ${stateWord(state)}`}
+                  aria-label={name}
                   className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground"
                 >
                   <Dot tone={sourceTone(state)} />
@@ -1649,7 +1306,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   : t('statusUnknown')}
             </span>
             <span
-              aria-live="polite"
               className={cn(
                 'flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px]',
                 alertCount === null
@@ -1662,15 +1318,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <Bell className="h-3 w-3" />
               {alertCount === null
                 ? t('alertCountUnknown')
-                : alertCountIsFloor
-                  ? t('alertCountAtLeast', { count: alertCount })
-                  : t('alertCount', { count: alertCount })}
+                : t('alertCount', { count: alertCount })}
             </span>
             <div className="text-right">
               <LiveClock />
               <div
                 className={cn(
-                  'wb-hdr-refresh text-[9px] tracking-[0.2em]',
+                  'text-[9px] tracking-[0.2em]',
                   dataStale ? 'text-warning-text/90' : 'text-muted-foreground',
                 )}
               >
@@ -1690,7 +1344,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 onClick={() => void toggleDutyMode()}
                 aria-pressed={dutyMode}
                 aria-label={dutyMode ? t('exitDutyMode') : t('dutyMode')}
-                className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:bg-muted focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:bg-muted"
               >
                 {dutyMode ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
                 <span className="wb-src-name">{dutyMode ? t('exitDutyMode') : t('dutyMode')}</span>
@@ -1770,7 +1424,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           ].map((k) => (
             <div
               key={k.label}
-              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2"
+              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-xl border border-border bg-card/80 px-3 py-2"
             >
               <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
                 <span className="text-info-text/70">{k.icon}</span>
@@ -1778,7 +1432,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               </div>
               <div
                 className={cn(
-                  'wb-num mt-1 text-[26px] leading-none font-bold whitespace-nowrap',
+                  'wb-num mt-1 text-[26px] leading-none font-bold',
                   k.tone === 'bad'
                     ? 'text-danger-text'
                     : k.tone === 'warn'
@@ -1828,7 +1482,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <ChartEmpty text={t('sourceUnreachable')} />
               ) : null}
             </div>
-            <div className="mt-2 wb-cells wb-cells-wide grid gap-2">
+            <div className="mt-2 wb-cells grid gap-2">
               <StatCell
                 label={t('memPhysical')}
                 value={`${fmtBytes(typeof host?.memTotalBytes === 'number' && typeof host?.memFreeBytes === 'number' ? host.memTotalBytes - host.memFreeBytes : null)} / ${fmtBytes(host?.memTotalBytes)}`}
@@ -1966,34 +1620,21 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 })}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {(services?.targets ?? []).map((target) => {
-                  // 三档:1=在线 / 0=确实抓取失败 / 其它=没有样本(未判定,不得染成红色)
-                  const tone: StatusTone =
-                    target.up === 1 ? 'ok' : target.up === 0 ? 'bad' : 'unknown'
-                  const word = stateWord(tone === 'ok' ? 'up' : tone === 'bad' ? 'down' : undefined)
-                  return (
-                    <Tooltip
-                      key={`${target.job}-${target.instance}`}
-                      content={`${target.instance} · ${word}`}
+                {(services?.targets ?? []).map((target) => (
+                  <Tooltip key={`${target.job}-${target.instance}`} content={target.instance}>
+                    <span
+                      className={cn(
+                        'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]',
+                        target.up === 1
+                          ? 'border-success/25 bg-success/10 text-success-text/90'
+                          : 'border-destructive/30 bg-destructive/10 text-danger-text',
+                      )}
                     >
-                      <button
-                        type="button"
-                        aria-label={`${target.job} ${word}`}
-                        className={cn(
-                          'flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
-                          tone === 'ok'
-                            ? 'border-success/25 bg-success/10 text-success-text/90'
-                            : tone === 'bad'
-                              ? 'border-destructive/30 bg-destructive/10 text-danger-text'
-                              : 'border-border bg-muted/60 text-muted-foreground',
-                        )}
-                      >
-                        <Dot tone={tone} />
-                        {target.job}
-                      </button>
-                    </Tooltip>
-                  )
-                })}
+                      <Dot tone={target.up === 1 ? 'ok' : 'bad'} />
+                      {target.job}
+                    </span>
+                  </Tooltip>
+                ))}
                 {(services?.targets ?? []).length === 0 && services !== null ? (
                   <span className="text-[10px] text-muted-foreground">{t('noScrapeTargets')}</span>
                 ) : null}
@@ -2026,11 +1667,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noTrendData')} />
               ) : null}
             </div>
-            <div className="wb-cells wb-cells-4 grid gap-2">
+            <div className="wb-cells grid gap-2">
               <StatCell
                 label={t('wsConnections')}
                 value={fmtInt(http?.wsConnections)}
                 unit={t('unitConn')}
+                tone="accent"
+              />
+              <StatCell
+                label={t('aiSessions')}
+                value={fmtInt(http?.aiActiveSessions)}
+                unit={t('unitSession')}
                 tone="accent"
               />
               <StatCell
@@ -2046,7 +1693,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               />
               <StatCell
                 label={t('apiErrRateLabel')}
-                hint={t('apiErrRateHint')}
                 value={typeof biz?.apiErrRate === 'number' ? fmtPct(biz.apiErrRate, 2) : '—'}
                 tone={thresholdTone(biz?.apiErrRate, (n) =>
                   n > 5 ? 'bad' : n > 1 ? 'warn' : 'ok',
@@ -2059,7 +1705,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelQuality')}
             icon={<Gauge className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md order-1 self-start"
+            className="wb-c6 wb-c3-md order-1"
             bodyClassName="flex flex-col gap-1"
           >
             <div className="relative">
@@ -2078,15 +1724,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               {trendError ? (
                 <ChartEmpty text={t('trendLoadFailed')} />
               ) : trend && trend.hourlyCalls.length === 0 ? (
-                /* 分时数据来自业务库聚合(后端失败降级为 []);库不可达、或聚合静默失败时
-                   不得把空数组渲染成「今日无流量」(§0.3)。只有当日调用数确实是 0 才敢这么说。 */
+                /* 分时数据来自业务库聚合(后端失败降级为 []);库不可达时不得把
+                   全零柱渲染成「今日无流量」(§0.3) */
                 <ChartEmpty
                   text={
-                    ov?.sources?.database === 'down'
-                      ? t('sourceUnreachable')
-                      : biz?.apiCallsToday === 0
-                        ? t('noCallsToday')
-                        : t('noTrendData')
+                    ov?.sources?.database === 'down' ? t('sourceUnreachable') : t('noCallsToday')
                   }
                 />
               ) : null}
@@ -2231,9 +1873,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       </span>
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-muted-foreground">
-                      <span className="shrink-0 text-info-text">{a.source}</span>
+                      <span className="shrink-0 text-info-text/70">{a.source}</span>
                       {a.resolvedAt ? (
-                        <span className="truncate text-success-text">
+                        <span className="truncate text-success-text/80">
                           {t('resolvedAgo', { ago: fmtAgo(a.resolvedAt) })}
                         </span>
                       ) : a.message ? (
@@ -2280,7 +1922,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                               : 'ok'
                         }
                       />
-                      <span className="shrink-0 text-[9px] tracking-[0.12em] text-info-text uppercase">
+                      <span className="shrink-0 text-[9px] tracking-[0.12em] text-info-text/80 uppercase">
                         {e.type}
                       </span>
                       <span className="ml-auto shrink-0 text-[9px] text-muted-foreground">
@@ -2311,7 +1953,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelDatastore')}
             icon={<Database className="h-3.5 w-3.5" />}
-            className="wb-c6 order-1 self-start"
+            className="wb-c6 order-1"
             bodyClassName="flex flex-col gap-2"
           >
             <div>
@@ -2325,7 +1967,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </span>
                 )}
               </div>
-              <div className="wb-cells wb-cells-5 grid gap-1.5">
+              <div className="wb-cells grid gap-1.5">
                 <StatCell label={t('dbSize')} value={fmtBytes(pg?.sizeBytes)} tone="accent" />
                 <StatCell
                   label={t('bufferHit')}
@@ -2372,7 +2014,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <SourceGap text={t('sourceUnreachable')} />
                 ) : null}
               </div>
-              <div className="wb-cells wb-cells-5 grid gap-1.5">
+              <div className="wb-cells grid gap-1.5">
                 <StatCell
                   label={t('llmCallsToday')}
                   value={fmtCompact(biz?.llmCallsToday)}
@@ -2410,9 +2052,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             title={t('panelBusiness')}
             icon={<Wallet className="h-3.5 w-3.5" />}
             className="wb-c6 wb-business-early"
-            bodyClassName="wb-split wb-split-c3 overflow-y-auto"
+            bodyClassName="wb-split overflow-y-auto"
           >
-            <div className="wb-col">
+            <div>
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('topEndpoints')}
               </div>
@@ -2423,7 +2065,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
                   >
                     <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
-                    <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text">
+                    <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text/90">
                       {e.method}
                     </span>
                     <Tooltip content={e.path}>
@@ -2444,7 +2086,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 ) : null}
               </div>
-              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
+              <div className="mt-2 wb-cells grid gap-1.5">
                 <StatCell
                   label={t('usersRegistered')}
                   value={fmtInt(biz?.usersTotal)}
@@ -2453,80 +2095,35 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <StatCell label={t('usersActive')} value={fmtInt(biz?.usersActive)} />
                 <StatCell label={t('usersNewToday')} value={fmtInt(biz?.usersTodayNew)} tone="ok" />
               </div>
-              {/* 用户构成(2026-10-25 机主要求"更多有用的数据"):VIP / 操盘手 / 邀请注册 /
-                  近 7 日邀请 / 近 7 日活跃。全部与 usersTotal 同一次查询的 filter 计数 ⇒ 零额外开销;
-                  老后端无这些字段 ⇒ 各自渲染"—"(§0.3 不把"没量到"写成 0)。 */}
-              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
-                <StatCell label={t('usersVip')} value={fmtInt(biz?.usersVip)} tone="accent" />
-                <StatCell label={t('usersTrader')} value={fmtInt(biz?.usersTrader)} />
-                <StatCell label={t('usersInvited')} value={fmtInt(biz?.usersInvited)} />
-                <StatCell
-                  label={t('usersInvited7d')}
-                  value={fmtInt(biz?.usersInvited7d)}
-                  tone="ok"
-                />
-                <StatCell
-                  label={t('activeUsers7d')}
-                  value={fmtInt(biz?.activeUsers7d)}
-                  unit={t('unitUser')}
-                />
-              </div>
-              {/* 等级分布:users.level 0..3 = 普通/白银/黄金/钻石(同一次查询的 4 个 filter 计数)。
-                  9px 小字行,不是 StatCell 读数 ⇒ 不在门 240 R1 射程,nowrap 防等级名被折断。 */}
-              <div className="mt-1 text-[9px] text-muted-foreground">
-                {t('levelDistTitle')}:{' '}
-                <span className="wb-num whitespace-nowrap">
-                  {t('level0')} {fmtInt(biz?.usersByLevel?.[0])} · {t('level1')}{' '}
-                  {fmtInt(biz?.usersByLevel?.[1])} · {t('level2')} {fmtInt(biz?.usersByLevel?.[2])}{' '}
-                  · {t('level3')} {fmtInt(biz?.usersByLevel?.[3])}
-                </span>
-              </div>
-              {/* 用户增长:近 14 日每日新增(上海日界,与上面「今日新增」同口径)。
-                  取不到 ⇒ 空态,不得把"没量到"画成 14 根 0 柱(§0.3)。 */}
-              <div className="relative mt-2">
-                <div className="mb-0.5 text-[9px] tracking-[0.12em] text-muted-foreground">
-                  {t('userGrowth14d')}
-                </div>
-                <EChart
-                  option={userGrowthOption}
-                  height={62}
-                  merge
-                  ariaLabel={t('userGrowth14d')}
-                />
-                {!biz?.userGrowth || biz.userGrowth.length === 0 ? (
-                  <ChartEmpty text={t('sourceUnreachable')} />
-                ) : null}
-              </div>
               {/* 签到:数据来自 sign_in_records(与积分体系同源);取不到 ⇒ 各格渲染"—",不写 0 */}
               <div className="mt-2">
                 <div className="mb-1.5 flex items-center gap-2 text-[10px] tracking-[0.14em] text-muted-foreground">
                   <span>{t('signInTitle')}</span>
                   {biz && !biz.signIn ? <SourceGap text={t('sourceUnreachable')} /> : null}
                 </div>
-                <div className="wb-cells wb-cells-4 grid gap-1.5">
+                <div className="wb-cells grid gap-1.5">
                   <StatCell
                     label={t('signInToday')}
                     value={fmtInt(biz?.signIn?.todayUsers)}
                     unit={t('unitUser')}
-                    tone={isNum(biz?.signIn?.todayUsers) ? 'ok' : 'unknown'}
+                    tone="ok"
                   />
                   <StatCell
                     label={t('signInUnsigned')}
                     value={fmtInt(biz?.signIn?.unsignedActiveUsers)}
                     unit={t('unitUser')}
-                    tone={isNum(biz?.signIn?.unsignedActiveUsers) ? 'warn' : 'unknown'}
+                    tone="warn"
                   />
                   <StatCell
                     label={t('signInStreak')}
                     value={fmtInt(biz?.signIn?.maxStreakDays)}
                     unit={t('unitDay')}
-                    tone={isNum(biz?.signIn?.maxStreakDays) ? undefined : 'unknown'}
                   />
                   <StatCell
                     label={t('signInReward')}
                     value={fmtInt(biz?.signIn?.todayRewardPoints)}
                     unit={t('unitPoint')}
-                    tone={isNum(biz?.signIn?.todayRewardPoints) ? 'accent' : 'unknown'}
+                    tone="accent"
                   />
                 </div>
                 <div className="relative mt-1.5">
@@ -2552,7 +2149,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   />
                 ) : null}
               </div>
-              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
+              <div className="mt-2 wb-cells grid gap-1.5">
                 <StatCell
                   label={t('ordersToday')}
                   value={fmtInt(biz?.ordersTodayPaid)}
@@ -2611,7 +2208,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                     <div
                       className={cn(
-                        'wb-num mt-0.5 text-[26px] leading-none font-bold whitespace-nowrap',
+                        'wb-num mt-0.5 text-[26px] leading-none font-bold',
                         edgeLastTone === 'bad'
                           ? 'text-danger-text'
                           : edgeLastTone === 'warn'
@@ -2635,7 +2232,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                     <div
                       className={cn(
-                        'wb-num mt-0.5 text-[26px] leading-none font-bold whitespace-nowrap',
+                        'wb-num mt-0.5 text-[26px] leading-none font-bold',
                         edgeHitTone === 'bad'
                           ? 'text-danger-text'
                           : edgeHitTone === 'warn'
@@ -2664,10 +2261,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     label={t('edgeStatWorst')}
                     value={isNum(edge.stats.worstMs) ? fmtInt(edge.stats.worstMs) : '—'}
                     unit={t('unitMs')}
-                    tone={thresholdTone(edge.stats.worstMs, (n) =>
-                      // 三档:原实现是「<5000 一律 warn」⇒ 最差 12ms 也染黄,警告就成了常态噪声。
-                      n >= 5000 ? 'bad' : n >= 2000 ? 'warn' : 'ok',
-                    )}
+                    tone={thresholdTone(edge.stats.worstMs, (n) => (n >= 5000 ? 'bad' : 'warn'))}
                   />
                   <StatCell label={t('edgeStatSamples')} value={fmtInt(edge.stats.samples)} />
                 </div>
@@ -2702,11 +2296,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       key={legKey}
                       content={`HTTP ${leg.status ?? '—'} · TTFB ${leg.ttfbMs ?? '—'}ms${leg.encoding ? ` · ${leg.encoding}` : ''}`}
                     >
-                      <button
-                        type="button"
-                        aria-label={`${t(EDGE_LEG_LABEL[legKey])} ${stateWord(leg.ok ? 'up' : 'down')} ${isNum(leg.totalMs) ? `${leg.totalMs}ms` : ''}`}
-                        className="flex w-full items-center gap-2 rounded-sm border border-border bg-muted/60 px-2.5 py-1.5 text-left focus-visible:ring-1 focus-visible:ring-ring"
-                      >
+                      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5">
                         <Dot tone={leg.ok ? 'ok' : 'bad'} />
                         <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
                           {t(EDGE_LEG_LABEL[legKey])}
@@ -2722,7 +2312,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                             {t('unitMs')}
                           </span>
                         </span>
-                      </button>
+                      </div>
                     </Tooltip>
                   ))}
                 </div>
@@ -2753,7 +2343,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 </span>
               ) : null
             }
-            bodyClassName="wb-split wb-split-c3"
+            bodyClassName="wb-split"
           >
             <div>
               <div className="wb-cells wb-cells-6 grid gap-1.5">
@@ -2831,646 +2421,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             </div>
           </Panel>
 
-          {/* 页面访问热度(2026-10-26):visit_logs 口径的页面级 PV + 前台/后台/登录页使用量。
-              与「访客与机器人」同为 24h 窗口,但数据源是页面埋点而非 api_logs ⇒ 回答
-              「每个页面被用了多少次」;两列都是单腿取不到即"—",不折 0。 */}
-          <Panel
-            title={t('panelPageUsage')}
-            icon={<MousePointerClick className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md"
-            right={
-              traffic === null ? (
-                <SourceGap text={t('sourceUnreachable')} />
-              ) : isNum(traffic.online5m) ? (
-                <span className="text-[10px] text-muted-foreground">
-                  {t('onlineNow', { count: fmtInt(traffic.online5m) })}
-                </span>
-              ) : null
-            }
-            bodyClassName="wb-split wb-split-c3"
-          >
-            <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('pageUsageScope')}
-              </div>
-              <div className="space-y-1">
-                {(['public', 'admin', 'auth'] as const).map((key) => {
-                  const scopeSplit = traffic?.scopeSplit
-                  const row = (scopeSplit ?? []).find((s) => s.scope === key)
-                  // 服务端 group by 不出空桶:某访问面在窗口内 0 次 ⇒ 该桶整行缺席。
-                  // 那是「确实 0 次」(查询成功),不是「取不到」——必须落 0;落 '—' 会让
-                  // 「24h 没人进后台/登录页」这种常态被读成监控失明。整条腿失败
-                  // (scopeSplit 为 null / traffic 整个取不到)才保留 '—'。
-                  const pv = row?.pv ?? (scopeSplit ? 0 : undefined)
-                  const uv = row?.uv ?? (scopeSplit ? 0 : undefined)
-                  const label =
-                    key === 'public'
-                      ? t('scopePublic')
-                      : key === 'admin'
-                        ? t('scopeAdmin')
-                        : t('scopeAuth')
-                  return (
-                    <div
-                      key={key}
-                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                    >
-                      <span className="text-[10px] text-foreground">{label}</span>
-                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                        {fmtInt(pv)}
-                        <span className="text-muted-foreground"> / {fmtInt(uv)}</span>
-                      </span>
-                    </div>
-                  )
-                })}
-                {traffic?.scopeSplit === null ? (
-                  <div className="flex justify-center px-2 py-2">
-                    <SourceGap text={t('sourceUnreachable')} />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('pageUsageTop')}
-              </div>
-              <div className="space-y-1">
-                {/* 平均停留按 url 对齐页面排行:page_time(label=上一页路径)经同一把归一尺 ⇒ 键一致 */}
-                {(traffic?.pageTop ?? []).slice(0, 8).map((p) => {
-                  // 占比条:这个页面占近 24h visit_logs 总 PV 的比例。
-                  // 分母取不到就不画条(绝不折 0 —— 那是把"没判"画成"零")。
-                  const sharePct =
-                    typeof traffic?.pageTotalPv === 'number' && traffic.pageTotalPv > 0
-                      ? Math.max(0, Math.min(100, (p.pv / traffic.pageTotalPv) * 100))
-                      : null
-                  const prefix = splitPlatformPrefix(p.url)
-                  // 平均停留时长:与页面排行按 url 对齐;取不到(该页没有合法 page_time)就不显示,不画"—"。
-                  const dwellSec =
-                    traffic?.pageDwell?.find((d) => d.url === p.url)?.avgDwellSec ?? null
-                  return (
-                    <div
-                      key={p.url}
-                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
-                    >
-                      {sharePct !== null ? (
-                        <div
-                          aria-hidden
-                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
-                          style={{ width: `${sharePct}%` }}
-                        />
-                      ) : null}
-                      <span className="relative truncate text-[10px] text-foreground">
-                        {prefix ? (
-                          <>
-                            <span className={PLATFORM_PREFIX_CLASS[prefix[0]]}>{prefix[1]}</span>
-                            {prefix[2]}
-                          </>
-                        ) : (
-                          p.url
-                        )}
-                      </span>
-                      {/* 读数 = PV / UV:前者答「用了多少次」,后者答「多少人」 */}
-                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
-                        {fmtCompact(p.pv)}
-                        <span className="text-muted-foreground"> / {fmtCompact(p.uv)}</span>
-                        {dwellSec !== null && dwellSec !== undefined ? (
-                          <span className="text-muted-foreground">
-                            {' · '}
-                            {t('avgDwellSec', { s: Math.round(dwellSec) })}
-                          </span>
-                        ) : null}
-                      </span>
-                    </div>
-                  )
-                })}
-                {traffic?.pageTop && traffic.pageTop.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                    {t('pageUsageNoData')}
-                  </div>
-                ) : null}
-                {traffic?.pageTop === null ? (
-                  <div className="flex justify-center px-2 py-2">
-                    <SourceGap text={t('sourceUnreachable')} />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </Panel>
-
-          {/* 分时访问(2026-10-27):visit_logs 逐小时 PV/UV —— 「一天里什么时段用得多」。
-              此前时间维度只有 api_logs 的「今日分时调用」,页面使用只有总量与排行;
-              滚动 24h 窗口跨夜 ⇒ 24 桶画满,夜里那半截是真数据(与今日分时调用的
-              截断语义不同,那里未来小时不得画 0 柱)。两图横轴同为 00..23,可对读。 */}
-          <Panel
-            title={t('panelHourlyVisits')}
-            icon={<Clock3 className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md"
-            right={
-              traffic === null ? (
-                <SourceGap text={t('sourceUnreachable')} />
-              ) : (
-                <span className="text-[10px] text-muted-foreground">{t('hourlyVisitWindow')}</span>
-              )
-            }
-          >
-            <div className="relative min-h-[168px]">
-              <EChart
-                option={visitHourlyOption}
-                height={168}
-                merge
-                ariaLabel={t('panelHourlyVisits')}
-              />
-              {traffic?.pageHourly === null ? (
-                <ChartEmpty text={t('sourceUnreachable')} />
-              ) : (traffic?.pageHourly?.length ?? 0) === 0 && traffic !== null ? (
-                <ChartEmpty text={t('pageUsageNoData')} />
-              ) : null}
-            </div>
-          </Panel>
-
-          {/* 各端使用量(2026-10-26):web 裸路径 / RN `/rn/*` / 小程序 `/mp/*` / 插件 `/ex/*` 同表分桶。
-              四端埋点都写 visit_logs,这里回答「哪一端在用、用了多少次」。 */}
-          <Panel
-            title={t('panelPlatforms')}
-            icon={<Globe className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md"
-            right={traffic === null ? <SourceGap text={t('sourceUnreachable')} /> : null}
-          >
-            <div className="space-y-1">
-              {(
-                [
-                  ['web', 'platformWeb'],
-                  ['rn', 'platformRn'],
-                  ['mp', 'platformMp'],
-                  ['ex', 'platformEx'],
-                ] as const
-              ).map(([key, labelKey]) => {
-                const row = (traffic?.platformSplit ?? []).find((p) => p.platform === key)
-                // 24h 零量时,靠 90 日接入史区分"今天没人用"与"这端根本没接入"——两者在 24h 口径下逐字同形
-                const statusKey =
-                  (row?.pv ?? 0) > 0
-                    ? null
-                    : (row?.pv90d ?? 0) > 0
-                      ? 'platformQuiet'
-                      : 'platformNever'
-                return (
-                  <div
-                    key={key}
-                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                  >
-                    <span className="text-[10px] text-foreground">{t(labelKey)}</span>
-                    {statusKey && traffic !== null ? (
-                      <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">
-                        {t(statusKey)}
-                      </span>
-                    ) : null}
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                      {fmtInt(row?.pv)}
-                      <span className="text-muted-foreground"> / {fmtInt(row?.uv)}</span>
-                    </span>
-                  </div>
-                )
-              })}
-              {traffic?.platformSplit === null ? (
-                <div className="flex justify-center px-2 py-2">
-                  <SourceGap text={t('sourceUnreachable')} />
-                </div>
-              ) : traffic && (traffic.platformSplit?.length ?? 0) === 0 ? (
-                <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                  {t('platformNoData')}
-                </div>
-              ) : null}
-            </div>
-          </Panel>
-
-          {/* 会话质量(2026-10-26):visit_logs 的 session_id 族 —— 来了之后看了几屏、从哪一页落地。
-              口径 = 标签页级会话(web 端写在 sessionStorage,一个标签页一个 sid),不是 30 分钟
-              滚动窗口 ⇒ 文案照实说,不包装成行业通用定义。分档判据在服务端,前端只渲染。 */}
-          <Panel
-            title={t('panelSessionQuality')}
-            icon={<Layers className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md"
-            right={
-              traffic === null || traffic.sessionQuality === null ? (
-                <SourceGap text={t('sourceUnreachable')} />
-              ) : (
-                <span className="text-[10px] text-muted-foreground">
-                  {t('sessionQualitySessions', { count: fmtInt(traffic.sessionQuality.sessions) })}
-                </span>
-              )
-            }
-            bodyClassName="wb-split wb-split-c3"
-          >
-            <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('sessionQualityDepth')}
-              </div>
-              {/* 深度堆叠条:分母为 0(窗口内没有会话)时整条不画 ——
-                  把"没判"画成"零"是本仓明令禁止。 */}
-              <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                {(traffic?.sessionQuality?.depth ?? []).map((d, i) => {
-                  const total = traffic?.sessionQuality?.sessions ?? 0
-                  const w = total > 0 ? (d.sessions / total) * 100 : 0
-                  if (w <= 0) return null
-                  return (
-                    <div
-                      key={d.bucket}
-                      className={SESSION_DEPTH_BAR_CLASS[i]}
-                      style={{ width: `${w}%` }}
-                    />
-                  )
-                })}
-              </div>
-              <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
-                {(traffic?.sessionQuality?.depth ?? []).map((d, i) => (
-                  <div key={d.bucket} className="flex min-w-0 items-center gap-1">
-                    <span
-                      className={cn('h-1.5 w-1.5 shrink-0 rounded-sm', SESSION_DEPTH_BAR_CLASS[i])}
-                    />
-                    <span className="truncate text-[9px] text-muted-foreground">
-                      {t(SESSION_DEPTH_LABEL_KEY[d.bucket])}
-                    </span>
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-foreground">
-                      {fmtInt(d.sessions)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-1.5 space-y-1">
-                <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1">
-                  <span className="text-[10px] text-foreground">
-                    {t('sessionQualitySinglePage')}
-                  </span>
-                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                    {isNum(traffic?.sessionQuality?.singlePageRate)
-                      ? `${Math.round((traffic?.sessionQuality?.singlePageRate ?? 0) * 100)}%`
-                      : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1">
-                  <span className="text-[10px] text-foreground">{t('sessionQualityAvgPv')}</span>
-                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                    {isNum(traffic?.sessionQuality?.avgPvPerSession)
-                      ? (traffic?.sessionQuality?.avgPvPerSession ?? 0).toFixed(1)
-                      : '—'}
-                  </span>
-                </div>
-              </div>
-              {traffic?.sessionQuality === null ? (
-                <div className="flex justify-center px-2 py-2">
-                  <SourceGap text={t('sourceUnreachable')} />
-                </div>
-              ) : null}
-            </div>
-            <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('sessionQualityEntryTop')}
-              </div>
-              <div className="space-y-1">
-                {(traffic?.sessionQuality?.entryPages ?? []).map((p) => (
-                  <div
-                    key={p.url}
-                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                  >
-                    <span className="truncate text-[10px] text-foreground">{p.url}</span>
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                      {fmtInt(p.sessions)}
-                      <span className="text-muted-foreground">
-                        {' '}
-                        / {fmtInt(p.singlePageSessions)}
-                      </span>
-                    </span>
-                  </div>
-                ))}
-                {traffic?.sessionQuality && traffic.sessionQuality.entryPages.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                    {t('sessionQualityNoData')}
-                  </div>
-                ) : null}
-                {traffic?.sessionQuality === null ? (
-                  <div className="flex justify-center px-2 py-2">
-                    <SourceGap text={t('sourceUnreachable')} />
-                  </div>
-                ) : null}
-              </div>
-              {/* 退出页(2026-10-27):落地页答「人从哪进」,这榜答「人从哪走」——
-                  两头都有才看得出路径断在哪一步。单页会话两榜同时计入(口径见服务端头注)。 */}
-              <div className="mb-1.5 mt-2.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('sessionQualityExitTop')}
-              </div>
-              <div className="space-y-1">
-                {(traffic?.sessionQuality?.exitPages ?? []).map((p) => (
-                  <div
-                    key={p.url}
-                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                  >
-                    <span className="truncate text-[10px] text-foreground">{p.url}</span>
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                      {fmtInt(p.sessions)}
-                      <span className="text-muted-foreground">
-                        {' '}
-                        / {fmtInt(p.singlePageSessions)}
-                      </span>
-                    </span>
-                  </div>
-                ))}
-                {traffic?.sessionQuality &&
-                (traffic.sessionQuality.exitPages?.length ?? 0) === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                    {t('sessionQualityNoData')}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </Panel>
-
-          {/* 访问来源(2026-10-26):流量从哪来 —— 直接访问 / 本机开发 / 站内 / 外部 + 主机 TOP。
-              生产实测 GitHub 是最大入口,而本机开发流量占着约三成 ⇒ 不分类就分不清推广渠道。
-              只给 PV:来源维度上访客数无法精确去重(同一访客既从外部进来又在站内点了两页),
-              与其给一个看着准、实际重复计的数字,不如少给一格。 */}
-          <Panel
-            title={t('panelVisitSource')}
-            icon={<Globe className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md"
-            right={
-              traffic === null || traffic.visitSource === null ? (
-                <SourceGap text={t('sourceUnreachable')} />
-              ) : (
-                <span className="text-[10px] text-muted-foreground">
-                  {t('visitSourceTotal', { count: fmtInt(traffic.visitSource.totalPv) })}
-                </span>
-              )
-            }
-            bodyClassName="wb-split wb-split-c3"
-          >
-            <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('visitSourceBuckets')}
-              </div>
-              <div className="space-y-1">
-                {(traffic?.visitSource?.buckets ?? []).map((b) => {
-                  const total = traffic?.visitSource?.totalPv ?? 0
-                  // 分母取不到就不画条、也不写百分比:把"没判"画成"零"是本仓明令禁止
-                  const pct = total > 0 ? (b.pv / total) * 100 : null
-                  return (
-                    <div
-                      key={b.kind}
-                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
-                    >
-                      {pct !== null ? (
-                        <div
-                          aria-hidden
-                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
-                          style={{ width: `${pct}%` }}
-                        />
-                      ) : null}
-                      <span className="relative truncate text-[10px] text-foreground">
-                        {t(VISIT_SOURCE_KIND_LABEL_KEY[b.kind])}
-                      </span>
-                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
-                        {fmtInt(b.pv)}
-                        {pct !== null ? (
-                          <span className="text-muted-foreground"> · {Math.round(pct)}%</span>
-                        ) : null}
-                      </span>
-                    </div>
-                  )
-                })}
-                {traffic?.visitSource && traffic.visitSource.buckets.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                    {t('visitSourceNoData')}
-                  </div>
-                ) : null}
-                {traffic?.visitSource === null ? (
-                  <div className="flex justify-center px-2 py-2">
-                    <SourceGap text={t('sourceUnreachable')} />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('visitSourceHosts')}
-              </div>
-              <div className="space-y-1">
-                {(traffic?.visitSource?.hosts ?? []).map((h) => {
-                  const total = traffic?.visitSource?.totalPv ?? 0
-                  const pct = total > 0 ? (h.pv / total) * 100 : null
-                  return (
-                    <div
-                      key={h.host}
-                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
-                    >
-                      {pct !== null ? (
-                        <div
-                          aria-hidden
-                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
-                          style={{ width: `${pct}%` }}
-                        />
-                      ) : null}
-                      <span
-                        className={cn(
-                          'relative truncate text-[10px]',
-                          VISIT_SOURCE_HOST_CLASS[h.kind],
-                        )}
-                      >
-                        {h.host}
-                      </span>
-                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
-                        {fmtInt(h.pv)}
-                      </span>
-                    </div>
-                  )
-                })}
-                {traffic?.visitSource && traffic.visitSource.hosts.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                    {t('visitSourceNoData')}
-                  </div>
-                ) : null}
-                {traffic?.visitSource === null ? (
-                  <div className="flex justify-center px-2 py-2">
-                    <SourceGap text={t('sourceUnreachable')} />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </Panel>
-
-          {/* 页面流转(2026-10-26):同一标签页会话内相邻两页 —— 人从哪走到哪。
-              排行只说"哪个页面热"、会话质量只说"看了几屏",都不答这一句;
-              生产实测最大的一跳是 `/ → /sso/login` 与 `/sso/login → /`(登录↔首页打转)。
-              同页刷新不算流转(服务端已剔除),箭头用矢量图标,不用字符箭头。 */}
-          <Panel
-            title={t('panelVisitTransition')}
-            icon={<ArrowRight className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md"
-            right={
-              traffic === null || traffic.visitTransition === null ? (
-                <SourceGap text={t('sourceUnreachable')} />
-              ) : (
-                <span className="text-[10px] text-muted-foreground">
-                  {t('visitTransitionMoves', { count: fmtInt(traffic.visitTransition.totalMoves) })}
-                </span>
-              )
-            }
-          >
-            <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-              {t('visitTransitionTop')}
-            </div>
-            <div className="space-y-1">
-              {(traffic?.visitTransition?.top ?? []).map((row) => (
-                <div
-                  key={`${row.fromUrl}->${row.toUrl}`}
-                  className="flex items-center gap-1.5 rounded-md bg-muted/50 px-2 py-1"
-                >
-                  <span className="truncate text-[10px] text-foreground">{row.fromUrl}</span>
-                  <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  <span className="truncate text-[10px] text-foreground">{row.toUrl}</span>
-                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                    {fmtInt(row.n)}
-                  </span>
-                </div>
-              ))}
-              {traffic?.visitTransition && traffic.visitTransition.top.length === 0 ? (
-                <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                  {t('visitTransitionNoData')}
-                </div>
-              ) : null}
-              {traffic?.visitTransition === null ? (
-                <div className="flex justify-center px-2 py-2">
-                  <SourceGap text={t('sourceUnreachable')} />
-                </div>
-              ) : null}
-            </div>
-          </Panel>
-
-          {/* 访客构成(2026-10-26):近 24h「第一次来的人」与「回头客」各多少。
-              身份口径与 UV/实时在线同一把尺(coalesce(session_id, ip)),所以新访客 + 回访 = 窗口访客。 */}
-          <Panel
-            title={t('panelAudience')}
-            icon={<Users className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md"
-            right={
-              audience === null ? (
-                <SourceGap text={t('sourceUnreachable')} />
-              ) : (
-                <span className="text-[10px] text-muted-foreground">
-                  {t('audienceTotal', { count: fmtInt(audience.activeUv) })}
-                </span>
-              )
-            }
-          >
-            <div className="space-y-1">
-              {(
-                [
-                  ['audienceNew', isNum(audience?.newUv) ? fmtInt(audience?.newUv) : '—'],
-                  [
-                    'audienceReturning',
-                    isNum(audience?.returningUv) ? fmtInt(audience?.returningUv) : '—',
-                  ],
-                  [
-                    'audienceRevisitRate',
-                    isNum(audience?.returningRate)
-                      ? `${Math.round((audience?.returningRate ?? 0) * 100)}%`
-                      : '—',
-                  ],
-                ] as const
-              ).map(([labelKey, value]) => (
-                <div
-                  key={labelKey}
-                  className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                >
-                  <span className="text-[10px] text-foreground">{t(labelKey)}</span>
-                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                    {value}
-                  </span>
-                </div>
-              ))}
-              {audience === null ? (
-                <div className="flex justify-center px-2 py-2">
-                  <SourceGap text={t('sourceUnreachable')} />
-                </div>
-              ) : null}
-            </div>
-          </Panel>
-
-          {/* 交互热度(2026-10-26):analytics_events 口径的事件分布 / 平均停留 / 热门点击。
-              补的是「用了多少次」之外的另一半:用户点了什么、在一页停多久。 */}
-          <Panel
-            title={t('panelEngagement')}
-            icon={<Activity className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md"
-            right={
-              engagement === null ? (
-                <SourceGap text={t('sourceUnreachable')} />
-              ) : (
-                <span className="text-[10px] text-muted-foreground">
-                  {t('engagementAvgStay')}:{' '}
-                  {isNum(engagement?.avgPageTimeSec)
-                    ? fmtDuration(Math.round(engagement.avgPageTimeSec))
-                    : '—'}
-                </span>
-              )
-            }
-            bodyClassName="wb-split wb-split-c3"
-          >
-            <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('engagementEvents')}
-              </div>
-              <div className="space-y-1">
-                {(engagement?.events ?? []).map((e) => (
-                  <div
-                    key={e.event}
-                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                  >
-                    <span className="truncate text-[10px] text-foreground">{e.event}</span>
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                      {fmtCompact(e.n)}
-                    </span>
-                  </div>
-                ))}
-                {engagement && engagement.events.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                    {t('engagementNoData')}
-                  </div>
-                ) : null}
-                {engagement === null ? (
-                  <div className="flex justify-center px-2 py-2">
-                    <SourceGap text={t('sourceUnreachable')} />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('engagementClicks')}
-              </div>
-              <div className="space-y-1">
-                {(engagement?.clickTop ?? []).map((c) => (
-                  <div
-                    key={c.label}
-                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                  >
-                    <span className="truncate text-[10px] text-foreground">{c.label}</span>
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                      {fmtCompact(c.n)}
-                    </span>
-                  </div>
-                ))}
-                {engagement && engagement.clickTop.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                    {t('engagementNoData')}
-                  </div>
-                ) : null}
-                {engagement === null ? (
-                  <div className="flex justify-center px-2 py-2">
-                    <SourceGap text={t('sourceUnreachable')} />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </Panel>
-
           {/* AI 号池:key 池 / 账号池 / token 临期(后端现读两张池表 + 5 秒缓存,取不到一律"—") */}
           <Panel
             title={t('panelRelayPool')}
@@ -3480,27 +2430,18 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               relayPool === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
               ) : isNum(relayPool.staleAgeSec) ? (
-                <span
-                  className={cn(
-                    'text-[10px]',
-                    // 「滞后」是结论,不是年龄:一两秒的缓存龄是这张板的正常节拍,
-                    // 常年挂着「号池刷新滞后 2秒」等于把警告喊成噪声(5e-1 可整改性)。
-                    relayPool.staleAgeSec >= 60 ? 'text-warning-text' : 'text-muted-foreground',
-                  )}
-                >
-                  {relayPool.staleAgeSec >= 60
-                    ? `${t('poolStale')} ${fmtDuration(relayPool.staleAgeSec)}`
-                    : t('footerDataAge', { duration: fmtDuration(relayPool.staleAgeSec) })}
+                <span className="text-[10px] text-muted-foreground">
+                  {t('poolStale')} {fmtDuration(relayPool.staleAgeSec)}
                 </span>
               ) : null
             }
-            bodyClassName="wb-split wb-split-c3"
+            bodyClassName="wb-split"
           >
-            <div className="wb-col">
+            <div>
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolKey')}
               </div>
-              <div className="wb-cells wb-cells-c3 grid gap-1.5">
+              <div className="wb-cells grid gap-1.5">
                 <StatCell
                   label={t('poolKeySchedulable')}
                   value={`${fmtInt(relayPool?.keySchedulable)} / ${fmtInt(relayPool?.keyTotal)}`}
@@ -3529,94 +2470,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   }
                 />
               </div>
-              {/* Key 健康四态(2026-10-25 机主要求"更多有用的数据"):unknown/healthy/degraded/down。
-                  与汇总字段同一把尺子(RELAY_POOL_HEALTH_STATE_VALUE);老后端无此字段 ⇒ 各格"—"。
-                  半宽栏内 4 格 auto-fit(143 下限)排 2×2 —— 与签到块同形态,门 240 R4 同规。 */}
-              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
-                <StatCell
-                  label={t('poolHealthHealthy')}
-                  value={fmtInt(relayPool?.keyHealth?.healthy)}
-                  tone="ok"
-                />
-                <StatCell
-                  label={t('poolHealthDegraded')}
-                  value={fmtInt(relayPool?.keyHealth?.degraded)}
-                  tone={
-                    !isNum(relayPool?.keyHealth?.degraded)
-                      ? 'unknown'
-                      : (relayPool?.keyHealth?.degraded ?? 0) > 0
-                        ? 'warn'
-                        : undefined
-                  }
-                />
-                <StatCell
-                  label={t('poolHealthDown')}
-                  value={fmtInt(relayPool?.keyHealth?.down)}
-                  tone={
-                    !isNum(relayPool?.keyHealth?.down)
-                      ? 'unknown'
-                      : (relayPool?.keyHealth?.down ?? 0) > 0
-                        ? 'bad'
-                        : undefined
-                  }
-                />
-                <StatCell
-                  label={t('poolHealthUnknown')}
-                  value={fmtInt(relayPool?.keyHealth?.unknown)}
-                />
-              </div>
-              {/* 余额预警:余额 < 5 元且非"无限"(-1)的 Key 条数。0 = 无需动作(绿),>0 = 要续费(琥珀) */}
-              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
-                <StatCell
-                  label={t('poolBalanceLow')}
-                  value={fmtInt(relayPool?.keyBalanceLow)}
-                  tone={
-                    !isNum(relayPool?.keyBalanceLow)
-                      ? 'unknown'
-                      : (relayPool?.keyBalanceLow ?? 0) > 0
-                        ? 'warn'
-                        : 'ok'
-                  }
-                />
-              </div>
-              {/* Key 按供应商分布:可调度/异常与汇总字段同一把尺子;一行一供应商,数字右对齐 */}
-              <div className="mt-2">
-                <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                  {t('poolProviderKeyTitle')}
-                </div>
-                <div className="space-y-1">
-                  {(relayPool?.keyByProvider ?? []).map((p) => (
-                    <div
-                      key={p.provider}
-                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                    >
-                      <span className="truncate text-[10px] text-foreground">{p.provider}</span>
-                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                        {fmtInt(p.schedulable)}/{fmtInt(p.total)}
-                      </span>
-                      <span
-                        className={cn(
-                          'wb-num w-8 shrink-0 text-right text-[10px]',
-                          p.abnormal > 0 ? 'text-warning-text' : 'text-muted-foreground',
-                        )}
-                      >
-                        {fmtInt(p.abnormal)}
-                      </span>
-                    </div>
-                  ))}
-                  {relayPool && !relayPool.keyByProvider?.length ? (
-                    <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                      {t('noPoolRows')}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
             </div>
-            <div className="wb-col">
+            <div>
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolAccount')}
               </div>
-              <div className="wb-cells wb-cells-c3 grid gap-1.5">
+              <div className="wb-cells grid gap-1.5">
                 <StatCell
                   label={t('poolAccountSchedulable')}
                   value={`${fmtInt(relayPool?.accountsSchedulable)} / ${fmtInt(relayPool?.accountsTotal)}`}
@@ -3657,46 +2516,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   }
                 />
               </div>
-              {/* token 临期预警:24 小时内过期(含已过期)的账号条数。
-                  minTokenExpiresInSeconds 只看"最短的那一个",这个数看"一共有几个要续"——
-                  两个一起才构成可动作的监控(只修最短的,第二个过期时又宕一次)。 */}
-              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
-                <StatCell
-                  label={t('poolExpiring24h')}
-                  value={fmtInt(relayPool?.accountExpiring24h)}
-                  tone={
-                    !isNum(relayPool?.accountExpiring24h)
-                      ? 'unknown'
-                      : (relayPool?.accountExpiring24h ?? 0) > 0
-                        ? 'warn'
-                        : 'ok'
-                  }
-                />
-              </div>
-              {/* 账号按供应商分布:可调度/总数,一行一供应商 */}
-              <div className="mt-2">
-                <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                  {t('poolProviderAccountTitle')}
-                </div>
-                <div className="space-y-1">
-                  {(relayPool?.accountByProvider ?? []).map((p) => (
-                    <div
-                      key={p.provider}
-                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                    >
-                      <span className="truncate text-[10px] text-foreground">{p.provider}</span>
-                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                        {fmtInt(p.schedulable)}/{fmtInt(p.total)}
-                      </span>
-                    </div>
-                  ))}
-                  {relayPool && !relayPool.accountByProvider?.length ? (
-                    <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                      {t('noPoolRows')}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
             </div>
           </Panel>
 
@@ -3704,19 +2523,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelUptime')}
             icon={<Clock3 className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md order-1 self-start"
+            className="wb-c6 wb-c3-md order-1"
             right={http === null ? <SourceGap text={t('sourceUnreachable')} /> : null}
             bodyClassName="max-h-[320px] overflow-y-auto"
           >
             {(http?.uptimeSeconds ?? []).length === 0 ? (
-              /* 只有 http 块**确实取不到**(null)才喊「数据源不可达」;
-                 源是好的、序列为空(或首轮还没回来)时这句是假指控 —— 页头数据源灯会同时亮绿。 */
               <div className="flex justify-center py-3">
-                {http === null ? (
-                  <SourceGap text={t('sourceUnreachable')} />
-                ) : (
-                  <span className="text-[11px] text-muted-foreground">{t('noScrapeTargets')}</span>
-                )}
+                <SourceGap text={t('sourceUnreachable')} />
               </div>
             ) : (
               <div className="space-y-1">
@@ -3755,14 +2568,6 @@ const WALLBOARD_CSS = `
 .wb-root {
   --wb-font-display: 'Bahnschrift', 'DIN Alternate', 'Oswald', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --wb-font-num: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Bahnschrift', monospace;
-  /* 「一格一读数」网格的列宽下限 = 读数**单行**放下的最小格宽(真 Chromium + 自托管字体实测):
-   * 五语言最坏读数是 ko「365일 23시간」内容 120.5px,加 px-2.5(20) 与边框(2) ⇒ 143。
-   * 读数一旦折行就是"数字被切成两半"(机主 2026-10-24 指认的号池面板缺陷),
-   * 所以这条下限是硬约束:宁可少列,不可断读数。 */
-  --wb-cell-min: 143px;
-  /* 复合读数(「12.3 GB / 15.6 GB」「↓ 1.5 MB/s ↑ 1.5 MB/s」= 两个量并排 + unit 槽)
-   * 实测单行需 224px。这类格必须走 .wb-cells-wide,否则 nowrap 会把它压成溢出(实测溢出 51px)。 */
-  --wb-cell-min-wide: 224px;
   /* 刻意不给底:大屏直接坐在工作区自己的背景上(机主 2026-10-20 定档:灰底 + 网格线是多余的一层壳)。 */
 }
 .wb-display { font-family: var(--wb-font-display); }
@@ -3789,10 +2594,6 @@ const WALLBOARD_CSS = `
 .dark .wb-panel.ui-lift:hover {
   box-shadow: var(--wb-inset), var(--lift-shadow-dark);
 }
-/* 页头底部的扫描线:用 background-position 移动,**不用 transform:translateX(±30%)**。
- * 后者会把这条 1px 线整条推到容器右边界之外(实测页头 scrollWidth 比 clientWidth 多 220px,
- * 连带整块大屏多出 166px 横向可滚动区 —— 值班屏上就是「能左右拖、右边一片空白」)。
- * 背景绘制天然被自身盒子裁切,视觉上仍是同一条从左扫到右的光带,零溢出。 */
 .wb-header::after {
   content: '';
   position: absolute;
@@ -3800,22 +2601,19 @@ const WALLBOARD_CSS = `
   right: 0;
   bottom: -1px;
   height: 1px;
-  background-image: linear-gradient(
+  background: linear-gradient(
     90deg,
     transparent,
     color-mix(in srgb, var(--color-info) 55%, transparent),
     color-mix(in srgb, var(--chart-5) 45%, transparent),
     transparent
   );
-  background-size: 55% 100%;
-  background-repeat: no-repeat;
-  background-position: -30% 0;
   animation: wb-scan 6s linear infinite;
 }
 @keyframes wb-scan {
-  0% { background-position: -30% 0; opacity: 0.5; }
-  50% { background-position: 100% 0; opacity: 1; }
-  100% { background-position: 130% 0; opacity: 0.5; }
+  0% { transform: translateX(-30%); opacity: 0.5; }
+  50% { transform: translateX(30%); opacity: 1; }
+  100% { transform: translateX(-30%); opacity: 0.5; }
 }
 /* 页头按容器判定,不按视口:三簇 nowrap 实测宽 326(标题)+251(数据源)+331(状态)=997,
  * 嵌进 ~900px 面板时视口 lg: 仍算"宽"⇒ 中文被逐字断行。996 取 N-1 防临界抖动;
@@ -3823,37 +2621,14 @@ const WALLBOARD_CSS = `
 .wb-header { container-type: inline-size; }
 /* 均匀列网格:列数由容器宽决定,不再用视口断点(实测容器宽与视口不同步)。
  * 104 = 实测最大标签需求 99px + 余量;135 = 反算自原设计(容器 914 时 6 栏、gap 10 ⇒ 6×135+5×10=860≤882)。
- * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。
- * 注意:96 只兜得住「纯数字读数」的组(实测 128,431 单行 92px)。读数里带中文时长/单位的组
- * 必须改用 .wb-cells-c3,否则读数会被切成两半 —— 见下方 --wb-cell-min 的算式。 */
+ * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。 */
 .wb-cells { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
-/* 读数为「中文时长/带单位」等长形态的组:列宽下限 = 单行放下的最小格宽(--wb-cell-min)。
- * 与 auto-fit 配合 ⇒ 宽度不够时**减列**,而不是把读数折断或让它溢出压到邻格。 */
-.wb-cells-c3 { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min), 1fr)); }
-/* 复合读数组(两个量并排 / 带 unit 槽):列宽下限更高,窄面板下自动落成单列一行一格。 */
-.wb-cells-wide { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min-wide), 1fr)); }
-/* 三格一组的长读数档:auto-fit 在「只够排 2 列」这一带会留下 2+1 的空洞(1440 实测号池面板
- * 单栏 365 ⇒ 2 列 + 第 3 格独占半行)。441 = 3 格下限 + 2 个格间距的临界值:装不下 3 列
- * 就整组竖排 —— 该减的是列数,不是把网格排坏。必须写在上面那条基档之后(门 240 R3 取首个
- * .wb-cells-c3 块判下限来源)。 */
-@container (max-width: 440px) { .wb-cells-c3 { grid-template-columns: minmax(0, 1fr); } }
 /* 6 格一组(Redis / 访客):auto-fit 在半宽面板里只能排 5 列 ⇒ 第 6 格单独一行。
  * 这里固定 3 列 ×2 行(总行数与 5+1 相同,但不再出现孤格);<480 落 2 列。 */
 .wb-cells-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @container (max-width: 479px) { .wb-cells-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-/* 5 格一组(流量摘要 / 数据库 / LLM):5 是质数,除了 5 列一行就必在末行留空位。
- * 手机档固定 2 列并让第 5 格吃满整行 ⇒ 2+2+一整行,不留半个空洞。 */
-@container (max-width: 479px) {
-  .wb-cells-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .wb-cells-5 > :last-child:nth-child(5) { grid-column: 1 / -1; }
-}
-/* 4 格一组(边缘分位 / 签到):必须固定列数。auto-fit 在 3~4 格之间只会排 3 列
- * ⇒ 第 4 格孤零零占满一行 1/3(实测 1920 业务纵深左栏 390、边缘面板 762 各撞一次)。
- * 472 = 4×112 + 3×8:单格 112px 是离线实测尺(verify-wallboard-readout.mjs)量出的
- * 「六位读数 + 单位槽」单行下限(999,999人 实测需 111.9,108.6 时溢出 3.3px),8 是这两组
- * 里更大的格间距(gap-2)。低于 472 就退回 2×2 —— 宁可两行,不要溢出也不要孤格。 */
-.wb-cells-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@container (min-width: 472px) { .wb-cells-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* 4 格组(边缘分位):窄面板下 auto-fit 会排成 3+1,孤格单独一行;固定 2×2。 */
+@container (max-width: 479px) { .wb-cells-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wb-cells-lg { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
 /* KPI 带按容器宽分档:1440 视口下容器 ~786px,auto-fit(135) 只排 5 列,第 6 张会单独
  * 占一行的 1/5(实测 2026-10-24)。≥900 六列一行、600–899 三列两行、<600 两列。 */
@@ -3861,11 +2636,7 @@ const WALLBOARD_CSS = `
 @container (min-width: 600px) and (max-width: 899px) { .wb-cells-lg { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @container (max-width: 599px) { .wb-cells-lg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wb-hdr-title h1, .wb-hdr-title p, .wb-hdr-status, .wb-hdr-sources { white-space: nowrap; }
-/* ≤996 曾整簇隐掉数据源名,但 ≤1023 起状态簇已换到第二行 ⇒ 第一行只剩「标题 + 数据源」,
- * 实测 326 + 12 + 267(四名全开)= 605 就够;996 那档在 620–995 之间白白把四个源退化成
- * 四个无名字圆点(1440 值班屏正是这一带,四个点读不出哪个源掉了)。阈值改按第一行实需收到 605,
- * 再窄才收名字(名字收掉后第一行只需 326 + 12 + 4×22 ≈ 426,由标题 truncate 兜底)。 */
-@container (max-width: 605px) {
+@container (max-width: 996px) {
   /* 窄容器只收掉文字、保留四个状态点(悬停 Tooltip 给全名),不再整块隐藏数据源 */
   .wb-src-name { display: none; }
 }
@@ -3892,10 +2663,6 @@ const WALLBOARD_CSS = `
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
-/* 两栏 .wb-split 的某一栏需要「按自己这一栏的宽度」分档时,把这一栏标成容器再挂档。
- * 不加它,栏内的 @container 会一路向上找到 .wb-panel ⇒ 面板 788 却只有 390 可用宽,
- * 4 格组被排成 4 列挤到 91px/格(读数断行那一族的同一成因)。 */
-.wb-col { container-type: inline-size; }
 @container (max-width: 1149px) {
   .wb-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .wb-c3 { grid-column: span 3; }
@@ -3915,27 +2682,12 @@ const WALLBOARD_CSS = `
 }
 /* 半宽面板(约 440px)内部两栏会把 11px 文本挤成 2-3 字一行 ⇒ 只有面板自身够宽才开两栏 */
 @container (min-width: 620px) {
-  .wb-split:not(.wb-split-c3) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-/* 分组里还要再排「一格一读数」网格的面板(号池:两组各 3 格)必须另开一栏档。
- * 620 对它们是错的阈值:两栏后每栏只剩 ~333、3 格各 107 < --wb-cell-min(143)
- * ⇒ 「6天19小时」被切成「6天19小 / 时」(机主 2026-10-24 指认的号池面板缺陷)。
- * 列宽不足时该减的是**栏数**,不是把读数折断。
- * 890 = 2×(3×143 + 2×6) + 8,即两栏各自放得下 3 格单行读数所需的面板**内容宽**
- * (@container 按 content box 判,不含 p-3 的 24 与边框 2)。门 240 R5 复算这条算式。 */
-@container (min-width: 890px) {
-  .wb-split-c3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wb-split { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* 窄容器:状态区落到第二行右对齐,标题不再被逐字挤压 */
 @container (max-width: 1023px) {
   .wb-header { flex-wrap: wrap; }
   .wb-hdr-status { width: 100%; justify-content: flex-end; }
-}
-/* 极窄容器(<=699):状态区允许换行,并收起"刷新于"这行 —— 否则总体状态+告警+时钟+
-   值班键+视图切换器约 450px,超过可用宽会被裁掉左侧徽章。 */
-@container (max-width: 699px) {
-  .wb-hdr-status { flex-wrap: wrap; }
-  .wb-hdr-refresh { display: none; }
 }
 /* fill-mode 用 backwards 而不是 both:both 会在动画结束后**永久占住 transform**
  * (动画优先级高于普通作者声明),把 hover 浮起的 transform 整个吃掉 —— 实测这些卡片
@@ -3958,9 +2710,9 @@ const WALLBOARD_CSS = `
   border-radius: var(--radius-xs);
 }
 .wb-root ::-webkit-scrollbar-track, .wb-scroll-host::-webkit-scrollbar-track { background: transparent; }
-/* 4K/超宽值班屏:按可用容器宽(不是视口)放大 12% —— 侧栏展开时视口 2560 的可用宽
- * 只有 ~1906,同样需要放大;1440(786)不触发。不支持 zoom 的浏览器退化为当前密度。 */
-@container (min-width: 1700px) {
+/* 4K/超宽值班屏:视口 ≥2200 时整体放大 12%,字号与图表一起变,不用逐类改 px。
+ * 常规 1920/1440 不触发;不支持 zoom 的浏览器自动退化为当前密度(不做第二套布局)。 */
+@media (min-width: 2200px) {
   .wb-root { zoom: 1.12; }
 }
 `
