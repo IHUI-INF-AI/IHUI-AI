@@ -816,7 +816,7 @@ const d7Read = (fs) => (p) => (Object.prototype.hasOwnProperty.call(fs, p) ? fs[
 const d7Has = (fs) => (p) => Object.prototype.hasOwnProperty.call(fs, p)
 const d7Run = (rel, fs) => {
   const r = auditNamespaceAggregator(rel, d7Read(fs), d7Has(fs))
-  return { rules: r.violations.map((v) => v.raw), files: r.files, blind: r.blind }
+  return { rules: r.violations.map((v) => v.raw), files: r.files, blind: r.blind, blindSites: r.blindSites }
 }
 
 test('D7-b 主判据:键指向 lib 从未导出的成员 ⇒ 必拦', () => {
@@ -902,6 +902,35 @@ test('D7 判据自伤锁:形状只出现在注释里 ⇒ files=0 且绝不崩(�
     .join('\n')
   const r2 = d7Run('p/main.mjs', d7Fs({ 'p/main.mjs': `async function f(){\n${real}\n}\nconst k = await f()\nk.a()\n` }))
   assert.equal(r2.files, 1, `挪出注释后必须进射程,实得 files=${r2.files}`)
+})
+
+/**
+ * 排除条款必须点名(2026-10-29):展开式命名空间 `return { ...a, ...b }` 收不到键集,
+ * 这一维不判 —— 但必须进 blind 逐条报名。静默跳过 = 给这一型留死角,
+ * 而"判据的排除条款"本身就是下一次事故的候选根因。
+ */
+test('D7 排除格:展开式命名空间 ⇒ 不判红也不记绿,如实登记 blind 一格', () => {
+  const spread = [
+    'import path from "node:path"',
+    'async function loadKit() {',
+    '  const [a, b] = await Promise.all([',
+    '    import(pathToFileURL(path.join(HERE, "lib", "x.mjs")).href),',
+    '    import(pathToFileURL(path.join(HERE, "lib", "y.mjs")).href),',
+    '  ])',
+    '  return { ...a, ...b }',
+    '}',
+    'const kit = await loadKit()',
+    'kit.alpha()',
+    '',
+  ].join('\n')
+  const r = d7Run('p/main.mjs', d7Fs({ 'p/main.mjs': spread }))
+  assert.deepEqual(r.rules, [], '键集读不出来时不得凭猜判红(假阳的代价是逼人 --no-verify)')
+  assert.equal(r.files, 1, '它确实在射程内')
+  assert.ok(r.blind >= 1, `必须登记未判定格,实得 blind=${r.blind}`)
+  assert.ok(
+    (r.blindSites || []).some((s) => s.includes('键集为空')),
+    `排除原因要点名,实得:${JSON.stringify(r.blindSites)}`,
+  )
 })
 
 test('D7 射程:单跳动态 import 不算聚合器 ⇒ files=0(覆盖面不得被 Promise.all 解构灌水)', () => {  const single = [
