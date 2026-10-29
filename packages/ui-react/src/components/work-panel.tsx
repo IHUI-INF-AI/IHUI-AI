@@ -18,6 +18,9 @@ import {
   ChevronDown,
   Trash2,
   Clock,
+  House,
+  MousePointerClick,
+  Bug,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '../lib/overlay-stack'
@@ -82,6 +85,21 @@ export interface WorkPanelProps {
   onReload: () => void
   onStop?: () => void
   onOpenExternal?: () => void
+  /** 回主页(2026-10-24:桌面端停靠浏览器要对齐独立窗口的「主页」) */
+  onHome?: () => void
+  /** 元素点选开关(桌面端停靠浏览器复用独立窗口的 PICK_JS) */
+  onPickToggle?: () => void
+  /** 点选是否进行中(高亮按钮) */
+  isPicking?: boolean
+  /** 开发者工具(桌面端停靠浏览器直连原生 open_devtools) */
+  onDevtools?: () => void
+  /**
+   * 「切换为独立窗口」(2026-10-24 用户规则):独立窗口只能由浏览器工具条上这个
+   * 按钮触发;不传就不存在任何打开独立窗口的入口。
+   */
+  onPopout?: () => void
+  /** 常显「停止」按钮(桌面端停靠浏览器没有加载态可读,对齐独立窗口工具条) */
+  showStop?: boolean
   /** 导航能力 */
   canBack: boolean
   canForward: boolean
@@ -143,6 +161,16 @@ export interface WorkPanelLabels {
   dragInsertAfter: string
   /** 关闭单个 tab 的按钮 a11y 标签(改造前是无名 span[role=button],现降生为真 button 必须有名) */
   closeTab: string
+  /** 主页按钮(可选;仅桌面端停靠浏览器展示) */
+  home?: string
+  /** 元素点选按钮(可选) */
+  pickElement?: string
+  /** 点选中状态提示(可选) */
+  picking?: string
+  /** 开发者工具按钮(可选) */
+  devtools?: string
+  /** 切换为独立窗口按钮(可选;独立窗口唯一入口) */
+  popout?: string
 }
 
 /** i18n 默认值(不传 labels 时回退到英文;界面语言文案一律由调用端 labels 注入) */
@@ -167,6 +195,8 @@ const DEFAULT_LABELS: WorkPanelLabels = {
   dragInsertBefore: 'Insert before this tab',
   dragInsertAfter: 'Insert after this tab',
   closeTab: 'Close tab',
+  devtools: 'Developer tools',
+  popout: 'Open in separate window',
 }
 
 export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
@@ -186,6 +216,12 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
       onReload,
       onStop,
       onOpenExternal,
+      onHome,
+      onPickToggle,
+      isPicking,
+      onDevtools,
+      onPopout,
+      showStop,
       canBack,
       canForward,
       isLoading,
@@ -308,6 +344,11 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
           >
             {isLoading ? <X className="h-4 w-4" /> : <RotateCw className="h-4 w-4" />}
           </ToolbarButton>
+          {showStop && !isLoading && onStop && (
+            <ToolbarButton onClick={onStop} title={labels.stop}>
+              <X className="h-4 w-4" />
+            </ToolbarButton>
+          )}
 
           {/* 地址栏 */}
           <form
@@ -334,6 +375,30 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             </div>
           </form>
 
+          {onHome && (
+            <ToolbarButton onClick={onHome} title={labels.home}>
+              <House className="h-4 w-4" />
+            </ToolbarButton>
+          )}
+          {onPickToggle && (
+            <ToolbarButton
+              onClick={onPickToggle}
+              title={isPicking ? labels.picking : labels.pickElement}
+              className={isPicking ? 'bg-primary/15 text-primary' : undefined}
+            >
+              <MousePointerClick className="h-4 w-4" />
+            </ToolbarButton>
+          )}
+          {onDevtools && (
+            <ToolbarButton onClick={onDevtools} title={labels.devtools}>
+              <Bug className="h-4 w-4" />
+            </ToolbarButton>
+          )}
+          {onPopout && (
+            <ToolbarButton onClick={onPopout} title={labels.popout}>
+              <ExternalLink className="h-4 w-4" />
+            </ToolbarButton>
+          )}
           {onToggleFavorite && (
             <ToolbarButton
               onClick={onToggleFavorite}
