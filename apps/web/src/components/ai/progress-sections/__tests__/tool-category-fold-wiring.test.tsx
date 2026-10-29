@@ -75,6 +75,47 @@ afterEach(() => {
   window.localStorage.clear()
 })
 
+describe('D58 ⇄ D21 语义例外集 · 渲染侧阳性对照(2026-10-29)', () => {
+  // 同一套"远超阈值"的读数:工具数 = 阈值 × 10
+  const heavy = AUTO_COLLAPSE_TOOL_CALLS * 10
+
+  it('对照 (b):重任务 + 含 AskUserQuestion ⇒ user_interaction 卡不折叠', () => {
+    window.localStorage.setItem(FOLD_POLICY_KEY, 'auto')
+    renderCard([
+      ...calls('read_file', heavy),
+      { id: 'ask-1', toolName: 'AskUserQuestion', status: 'running', args: {} },
+    ])
+    expect(isCategoryOpen('user_interaction')).toBe(true)
+  })
+
+  it('对照 (a):同规格但不含例外 ⇒ file_read 卡折叠(阈值判据未被削弱)', () => {
+    window.localStorage.setItem(FOLD_POLICY_KEY, 'auto')
+    renderCard(calls('read_file', heavy))
+    expect(isCategoryOpen('file_read')).toBe(false)
+    expect(screen.queryByTestId('tool-call-category-user_interaction')).toBeNull()
+  })
+
+  it('混合语义:类目内混有例外工具 ⇒ 整卡展开,同类重任务的普通卡仍折叠', () => {
+    window.localStorage.setItem(FOLD_POLICY_KEY, 'auto')
+    renderCard([
+      { id: 'a1', toolName: 'ask_user', status: 'success', args: {} },
+      { id: 'a2', toolName: 'AskUserQuestion', status: 'running', args: {} },
+      ...calls('read_file', heavy),
+    ])
+    expect(isCategoryOpen('user_interaction')).toBe(true)
+    expect(isCategoryOpen('file_read')).toBe(false)
+  })
+
+  it('用户「强制折叠」仍压过语义例外(D21 规则①:用户意志最高)', () => {
+    window.localStorage.setItem(FOLD_POLICY_KEY, 'collapsed')
+    renderCard([
+      ...calls('read_file', heavy),
+      { id: 'ask-1', toolName: 'AskUserQuestion', status: 'running', args: {} },
+    ])
+    expect(isCategoryOpen('user_interaction')).toBe(false)
+  })
+})
+
 describe('D58 ⇄ D21 联动:类目卡初值经 resolveCategoryInitialOpen 解析', () => {
   it('auto 档 · 轻任务(工具数 ≤ 阈值)⇒ 类目卡展开', () => {
     window.localStorage.setItem(FOLD_POLICY_KEY, 'auto')
