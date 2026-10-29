@@ -618,6 +618,9 @@ describe('⑤ 五语言包:词条齐备', () => {
     'historyParsed',
     'historyImported',
     'historyFailed',
+    // 2026-10-30 拆同名不同义:端内这一处是列标签「失败: {n}」,而 historyFailed 本义是共享屏
+    // 那条错误句「加载导入历史失败:{error}」⇒ 标签改用本键,两枚都必须在册(键集精确断言)。
+    'failedCountLabel',
     'statusSuccess',
     'statusPartial',
     'statusFailed',

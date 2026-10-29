@@ -3,6 +3,7 @@
     "title": "매일 출석 체크"
   },
   "conversationImport": {
+    "failedCountLabel": "실패",
     "pageTitle": "대화 가져오기",
     "desc": "Claude Code / Codex / Cursor / Aider / WeChat 등 외부 도구의 대화 기록을 이 플랫폼으로 가져옵니다",
     "sourcesTitle": "가져올 출처 선택",
@@ -43,7 +44,7 @@
     "historyEmpty": "가져온 기록이 없습니다",
     "historyParsed": "분석",
     "historyImported": "가져옴",
-    "historyFailed": "실패",
+    "historyFailed": "가져오기 기록을 불러오지 못했습니다: {error}",
     "statusSuccess": "성공",
     "statusPartial": "부분 성공",
     "statusFailed": "실패",
