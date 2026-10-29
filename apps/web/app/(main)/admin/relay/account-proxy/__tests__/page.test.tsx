@@ -96,7 +96,7 @@ describe('账号代理管理页', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '设置代理' }))
     fireEvent.change(screen.getByLabelText('代理地址'), {
-      target: { value: 'socks5://127.0.0.1:1080' },
+      target: { value: 'socks5://127.0.0.1:7897' },
     })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
@@ -107,7 +107,7 @@ describe('账号代理管理页', () => {
       expect(put).toBeTruthy()
       expect(put![0]).toBe('/api/admin/relay/accounts/acc-2')
       expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({
-        proxyUrl: 'socks5://127.0.0.1:1080',
+        proxyUrl: 'socks5://127.0.0.1:7897',
       })
     })
   })
@@ -118,7 +118,7 @@ describe('账号代理管理页', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '设置代理' }))
     fireEvent.change(screen.getByLabelText('代理地址'), {
-      target: { value: 'ftp://127.0.0.1:21' },
+      target: { value: 'ftp://127.0.0.1:8821' },
     })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
 

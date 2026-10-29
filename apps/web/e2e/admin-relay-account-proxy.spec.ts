@@ -15,9 +15,9 @@ import { expect, setupTest, type Page } from './fixtures'
  */
 
 const PATH = '/admin/relay/account-proxy'
-const PROBE_URL = 'http://127.0.0.1:18080'
+const PROBE_URL = 'http://127.0.0.1:8877'
 // 无账密的地址按 `scheme://host:port` 原样脱敏(带账密才替换成 ***@)
-const PROBE_MASKED = 'http://127.0.0.1:18080'
+const PROBE_MASKED = 'http://127.0.0.1:8877'
 
 async function gotoPage(page: Page) {
   // 冷编译首个 admin 路由可达分钟级,超时给足(本机实测 turbopack 缓存重建后首访 ~90s)

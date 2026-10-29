@@ -121,7 +121,7 @@
     {
       "version": "v3.2",
       "date": "2026-10-18",
-      "changes": "完成第65篇公众号长文（稿毕，机主将自行后台发布，非经 API）：《35B 大模型塞进 iPhone、只吃 3GB 内存：面壁 MiniCPM-V 4.7 跨过端侧 AI 临界点》。端侧 AI 深度文：引子→35B 与 3GB 共存(MoE 解耦)→四层技术干货(MoE/量化/端侧引擎/多模态结构)→AI 离开云端→创业者四机会+三陷阱→五步落地清单→结语；含 1 张模型对比表 + 2 张 matplotlib 示意图。发布通道诊断(本日实证)：A 账号(AI智汇社)真实 AppSecret 存放在 D:\\BaiduSyncdisk\\密钥\\公众号APP SECRET.txt(机主点名授权读取，仅 A 账号)；微信 API 推送受 IP 白名单限制(errcode 40164, 本机公网出口 IP 175.17.196.187 未加白),需机主在 mp.weixin.qq.com「基本配置→IP白名单」加入该 IP 后方可 API 推送；后台手动粘贴 HTML 发布不受白名单、无需 secret。另外：用浏览器自动化登录 mp.weixin.qq.com 须先 unset http(s)_proxy 环境变量(本机挂了 127.0.0.1:50749 代理,不清除则页面返回 39 字符空文档),清掉代理后页面正常加载。"
+      "changes": "完成第65篇公众号长文（稿毕，机主将自行后台发布，非经 API）：《35B 大模型塞进 iPhone、只吃 3GB 内存：面壁 MiniCPM-V 4.7 跨过端侧 AI 临界点》。端侧 AI 深度文：引子→35B 与 3GB 共存(MoE 解耦)→四层技术干货(MoE/量化/端侧引擎/多模态结构)→AI 离开云端→创业者四机会+三陷阱→五步落地清单→结语；含 1 张模型对比表 + 2 张 matplotlib 示意图。发布通道诊断(本日实证)：A 账号(AI智汇社)真实 AppSecret 存放在 D:\\BaiduSyncdisk\\密钥\\公众号APP SECRET.txt(机主点名授权读取，仅 A 账号)；微信 API 推送受 IP 白名单限制(errcode 40164, 本机公网出口 IP 175.17.196.187 未加白),需机主在 mp.weixin.qq.com「基本配置→IP白名单」加入该 IP 后方可 API 推送；后台手动粘贴 HTML 发布不受白名单、无需 secret。另外：用浏览器自动化登录 mp.weixin.qq.com 须先 unset http(s)_proxy 环境变量(本机挂了本地代理端口 50749,不清除则页面返回 39 字符空文档),清掉代理后页面正常加载。"
     },
     {
       "version": "v3.3",
