@@ -554,14 +554,26 @@ EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形�
   写 `ADMIN_TOTP_MODE=warn` 作过渡。**机主在「设置 → 安全」绑定 TOTP 后删掉那一行即回到
   enforce**;绑定期内 admin 面仍可被单密码进入,这是本轮唯一保留的已知风险。
 
-**⑥ 本轮未做(已登记为下一轮工单)**
+**⑥ 鉴权默认拒绝兜底闸 —— observe 档已上线**
 
-`api` 的鉴权仍是"每路由手挂 `authenticate`",没有根级默认拒绝。现状读数:341 个路由文件 /
-3470 个注册点 / 188 个插件级 preHandler / 1450 处鉴权调用;已实测两处漏挂形态
-(`developer-relay-keys-admin` 恒 401 属碰巧 fail-closed、`chat`/`files` 为 handler 内手调)。
-执行次序:①运行时 `onRoute` 盘点出「零 preHandler 且不在公开名单」的路由;②建显式公开
-名单文件;③根级 `onRequest` 默认拒绝 + 名单放行;④全量回归 + 生产灰度。
-**不放进本轮的原因**:需逐个分类 3470 个注册点,漏判即整站 401,必须独立一轮并带灰度。
+api 的鉴权此前是"每路由手挂 `authenticate`",没有根级默认;新增路由忘挂即裸奔
+(实测 `developer-relay-keys-admin` 恒 401 属碰巧 fail-closed)。本轮补了
+`apps/api/src/plugins/auth-default-deny.ts`:用 `onRoute` 把一道兜底 preHandler
+**追加到每个路由 preHandler 链末尾** —— 前面的路由级/插件级鉴权先跑并写 `request.userId`,
+兜底见 `userId` / `apiKey` / `openCapability` 任一存在即放行(**不重复查库**),
+只兜"完全没人管"的路由。
+
+三档:`off` / `observe`(默认) / `enforce`。**当前生产 = observe**:只记
+`[auth-default-deny] <METHOD> <path> 无凭据且不在公开名单`,不拦人。
+上线 5 分钟即抓到一条真实流量:`POST /api/github-app/webhook`(HMAC 验签,匿名)——
+直接切 enforce 会打断 CI 回调,已补进名单。这条实例本身就是"为什么必须先 observe"的证据。
+
+**切 enforce 的前置**:observe 满 24h 且 `D:\DevEnv\logs\svc-api-blue-nssm.log` 里
+不再出现新的 `auth_default_deny_observe` 路径。反向(先 enforce)遇到漏列公开面就是
+整站 401,比没有这道闸更糟。
+
+现状读数(立案时盘点):341 个路由文件 / 3470 个注册点 / 188 个插件级 preHandler /
+1450 处鉴权调用。
 
 ---
 
