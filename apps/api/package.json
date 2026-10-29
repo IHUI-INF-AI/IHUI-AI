@@ -67,7 +67,7 @@
     "@opentelemetry/sdk-node": "^0.221.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "bcryptjs": "^3.0.3",
-    "bullmq": "^6.0.6",
+    "bullmq": "^6.4.2",
     "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
