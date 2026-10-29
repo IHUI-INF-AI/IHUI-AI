@@ -7024,5 +7024,31 @@
     "readyBody": "Update downloaded. Tap Update to apply it now.",
     "installingHint": "The app restarts automatically — usually within seconds.",
     "restartNow": "Restart now"
+  },
+  "cloudRuns": {
+    "title": "Cloud Agent Runs",
+    "subtitle": "View the run history and detailed output of cloud-hosted agents",
+    "refresh": "Refresh",
+    "loadFailed": "Failed to load",
+    "empty": "No runs yet",
+    "loading": "Loading…",
+    "running": "Running",
+    "done": "Done",
+    "error": "Error",
+    "back": "Back",
+    "detailTitle": "Run Details",
+    "runId": "Run ID",
+    "agentType": "Agent Type",
+    "sessionAlias": "Session Alias",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "task": "Task",
+    "output": "Final Output",
+    "runningHint": "Still running, no final output yet",
+    "noOutput": "No output",
+    "noTask": "No task description",
+    "prev": "Previous",
+    "pagination": "Page {page} / {totalPages}, {total} total",
+    "next": "Next"
   }
 }
