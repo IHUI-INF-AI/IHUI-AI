@@ -45,6 +45,8 @@ def _isolate_vector_memory(monkeypatch: pytest.MonkeyPatch):
     from app.services.vector_memory import vector_memory
 
     monkeypatch.setattr(settings, "jwt_secret", "")
+    # 2026-10-29 起调试面默认关闭(IHUI_DEBUG_ENABLED),本文件测启用态端点行为。
+    monkeypatch.setenv("IHUI_DEBUG_ENABLED", "true")
     vector_memory._use_redis = False
     vector_memory._redis = None
     vector_memory._entries.clear()
@@ -75,13 +77,23 @@ def _make_mock_manager() -> MagicMock:
     mgr.continue_execution = AsyncMock(
         return_value={"reason": "breakpoint", "threadId": 1, "allThreadsStopped": True}
     )
-    mgr.step = AsyncMock(
-        return_value={"reason": "step", "threadId": 1, "allThreadsStopped": True}
-    )
+    mgr.step = AsyncMock(return_value={"reason": "step", "threadId": 1, "allThreadsStopped": True})
     mgr.get_stack_trace = AsyncMock(
         return_value=[
-            {"id": 100, "name": "main", "source": {"path": "/tmp/script.py"}, "line": 15, "column": 1},
-            {"id": 101, "name": "helper", "source": {"path": "/tmp/script.py"}, "line": 30, "column": 5},
+            {
+                "id": 100,
+                "name": "main",
+                "source": {"path": "/tmp/script.py"},
+                "line": 15,
+                "column": 1,
+            },
+            {
+                "id": 101,
+                "name": "helper",
+                "source": {"path": "/tmp/script.py"},
+                "line": 30,
+                "column": 5,
+            },
         ]
     )
     mgr.get_variables = AsyncMock(
@@ -112,9 +124,7 @@ def _make_mock_manager() -> MagicMock:
             {"id": 2, "name": "worker"},
         ]
     )
-    mgr.evaluate = AsyncMock(
-        return_value={"result": "42", "type": "int", "variablesReference": 0}
-    )
+    mgr.evaluate = AsyncMock(return_value={"result": "42", "type": "int", "variablesReference": 0})
     mgr.disconnect = AsyncMock(return_value=True)
     mgr.list_sessions = AsyncMock(
         return_value=[
@@ -371,9 +381,7 @@ async def test_get_scopes_ok(client, mock_manager) -> None:
     assert scopes[0]["name"] == "Locals"
     assert scopes[0]["variablesReference"] == 1000
     assert scopes[0]["expensive"] is False
-    mock_manager.get_scopes.assert_awaited_once_with(
-        session_id="session-abc-123", frame_id=100
-    )
+    mock_manager.get_scopes.assert_awaited_once_with(session_id="session-abc-123", frame_id=100)
 
 
 async def test_get_scopes_missing_frame_id_returns_422(client, mock_manager) -> None:
@@ -386,9 +394,7 @@ async def test_get_scopes_missing_frame_id_returns_422(client, mock_manager) -> 
 async def test_get_scopes_session_not_found_returns_404(client, mock_manager) -> None:
     """session 不存在返回 404。"""
     mock_manager.get_scopes.side_effect = RuntimeError("debug session 不存在: ghost-id")
-    resp = await client.get(
-        "/api/v1/debug/sessions/ghost-id/scopes", params={"frameId": 1}
-    )
+    resp = await client.get("/api/v1/debug/sessions/ghost-id/scopes", params={"frameId": 1})
     assert resp.status_code == 404
 
 
@@ -483,9 +489,7 @@ async def test_get_variables_missing_params_returns_422(client, mock_manager) ->
 async def test_get_variables_session_not_found_returns_404(client, mock_manager) -> None:
     """session 不存在返回 404。"""
     mock_manager.get_variables.side_effect = RuntimeError("debug session 不存在: ghost-id")
-    resp = await client.get(
-        "/api/v1/debug/sessions/ghost-id/variables", params={"frameId": 1}
-    )
+    resp = await client.get("/api/v1/debug/sessions/ghost-id/variables", params={"frameId": 1})
     assert resp.status_code == 404
 
 
@@ -563,4 +567,6 @@ async def test_list_sessions_ok(client, mock_manager) -> None:
     assert sessions[0]["sessionId"] == "session-abc-123"
     assert sessions[0]["language"] == "python"
     mock_manager.list_sessions.assert_awaited_once()
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

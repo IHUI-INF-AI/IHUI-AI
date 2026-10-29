@@ -21,6 +21,8 @@ import net from 'node:net'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { createIpRateLimiter, isLoopbackAddress, resolveRateLimitConfig } from './lib/ip-rate-limit.mjs'
+
 // ── 通用化(2026-10-28 生产席:web 蓝绿复用同一份 router,不落第二份反代实现)────────
 // 立因:web 走蓝绿也要一个"常驻监听 + 原子切流"的入口层,而另写一份 router 就是第二个真相源
 // (§0.6:同类实现全仓只许一份,第二份必然漂移)。故把监听面/上游面/端口表全部改成 env 驱动,
@@ -69,12 +71,37 @@ function loadState() {
 }
 
 let state = loadState()
+
+// ── 入口限流(2026-10-29 加固)──────────────────────────────────────────────
+// 线上入口就是本文件,**没有 nginx** —— deploy/nginx/conf.d/rate-limit.conf 的 6 套 zone
+// 在本机生产从未装车(实测:无 nginx.exe 进程、无 docker,8802/8801 由本 router 承载)。
+// 而 web 的 8801 必须绑 0.0.0.0(EdgeOne 回源直填公网 IP)⇒ 知道源站 IP 即可绕过边缘,
+// 本层是唯一还能拦一手的。定位与阈值取舍见 lib/ip-rate-limit.mjs 头注。
+const RATE_LIMIT = resolveRateLimitConfig()
+const limiter = RATE_LIMIT.enabled
+  ? createIpRateLimiter({ rps: RATE_LIMIT.rps, burst: RATE_LIMIT.burst })
+  : null
+// 日志节流:被刷时每 IP 10s 只记一条,避免攻击本身把日志盘写满(那也是一种打垮)。
+const RATE_LIMIT_LOG_INTERVAL_MS = 10_000
+const rateLimitLogAt = new Map()
+
+function logRateLimited(ip, verdict) {
+  const t = Date.now()
+  const last = rateLimitLogAt.get(ip) ?? 0
+  if (t - last < RATE_LIMIT_LOG_INTERVAL_MS) return
+  rateLimitLogAt.set(ip, t)
+  // 这个 Map 只在「被限流的 IP」上增长;超限时直接清空(宁可丢几条日志,不换内存泄漏)
+  if (rateLimitLogAt.size > 10_000) rateLimitLogAt.clear()
+  log('warn', 'rate limited', { ip, retryAfterSec: verdict.retryAfterSec })
+}
+
 log('info', 'router started', {
   listen: `${LISTEN_HOST}:${LISTEN_PORT}`,
   state: STATE_FILE,
   active: state.active,
   upstream: state[state.active],
   source: state.source,
+  rateLimit: RATE_LIMIT.enabled ? `${RATE_LIMIT.rps}rps/${RATE_LIMIT.burst}burst` : 'off',
 })
 
 // 状态文件变化即热切换；1s 轮询足以让部署脚本「写完即生效」，又不必依赖 fs.watch 的
@@ -111,8 +138,35 @@ const server = http.createServer((req, res) => {
     sendJson(res, 200, { ok: true, active: state.active, upstream: state[state.active] })
     return
   }
+  if (limiter) {
+    // key = TCP 对端地址(不可伪造)。绝不用 X-Forwarded-For:那是客户端可任意改的头,
+    // 拿它当 key 等于把限流开关交给攻击者(每请求换一个假 IP 即绕过)。
+    const ip = req.socket.remoteAddress || 'unknown'
+    // 回环豁免:内部服务(ai-service → /api/internal/*)与健康检查都从这里进来,
+    // 不豁免会让一次批量内部调用把自己的通道限死(加固把自己打瘫)。见 lib 头注。
+    if (!isLoopbackAddress(ip)) {
+      const verdict = limiter.check(ip)
+      if (!verdict.allowed) {
+        logRateLimited(ip, verdict)
+        const body = Buffer.from(JSON.stringify({ code: 429, message: 'too many requests' }))
+        res.writeHead(429, {
+          'content-type': 'application/json',
+          'content-length': body.length,
+          'retry-after': String(verdict.retryAfterSec),
+        })
+        res.end(body)
+        return
+      }
+    }
+  }
   proxyHttp(req, res, 0)
 })
+
+// 慢速攻击面收口(2026-10-29):Node 默认 headersTimeout=60s / requestTimeout=300s,
+// 一个连接可以慢吞吞喂头/喂体占住 socket 五分钟。本服务正常请求远达不到这两个量级
+// (API 体上限 2MiB),故收紧到 30s/120s —— 对合法用户无感,对 slowloris 直接断。
+server.headersTimeout = 30_000
+server.requestTimeout = 120_000
 
 function proxyHttp(req, res, attempt) {
   const ports = upstreams()
