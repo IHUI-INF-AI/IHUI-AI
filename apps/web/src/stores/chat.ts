@@ -14,6 +14,8 @@ import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 // 本包入口是显式命名清单,ReasoningEffortNotice 尚未递出(两侧结构逐字同形,赋值安全),
 // 引一个入口里没有的名字就是守门 149 记过的那一型运行时 undefined。
 import type { ReasoningEffortFallbackNotice as ReasoningEffortNotice } from '@/components/chat/reasoning-effort-axis'
+// D115(2026-10-24):review 结论帧的端内投影,store 只持引用不复制 schema。
+import type { ReviewFinding } from '@/components/chat/message-list/review-findings-card'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import type {
   SubagentSpawnEvent,
@@ -417,6 +419,11 @@ export interface ChatState {
    * MessageItem 按 message.id 订阅渲染「⚡ 引导已生效」badge。
    * 单消息上限对齐后端 _STEER_QUEUE_LIMIT(8 条);不持久化(执行期瞬时态)。 */
   steerNoticesByMessageId: Record<string, SteerNotice[]>
+  /** D115(G-229,2026-10-24 立):按 messageId 索引的 review 结论帧。
+   *  `onReviewFinding` 回调经 appendReviewFinding 累积写入,MessageItem 按 message.id
+   *  订阅渲染 ReviewFindingsCard(按 P1/P2/Nit 分组)。不持久化(执行期瞬时态);
+   *  新一轮审查首帧(index=1)会覆盖旧列表,避免两轮 finding 混在同一张卡上。 */
+  reviewFindingsByMessageId: Record<string, ReviewFinding[]>
   /** Steer(中途引导):当前流式 assistant 消息 ID(steer 端点凭 conversationId+messageId
    *  在网关定位 upstream 会话)。流开始由 send-message/send-answer 写入,收尾清空。 */
   streamingAssistantId: string | null
@@ -652,6 +659,9 @@ export interface ChatState {
    * 单消息上限 8 条(对齐后端 _STEER_QUEUE_LIMIT),超出静默丢弃。 */
   appendSteerNotice: (messageId: string, notice: SteerNotice) => void
   /** Steer(中途引导):登记/清空当前流式 assistant 消息 ID(流开始写入,收尾清空) */
+  /** D115:追加某条助手消息的审查结论(SSE review-finding 事件触发)。
+   *  index=1 是新一轮审查的首帧 ⇒ 先清旧列表;同 findingId 重放幂等丢弃。 */
+  appendReviewFinding: (messageId: string, finding: ReviewFinding) => void
   setStreamingAssistantId: (id: string | null) => void
   /** P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
    *  前端 onUsage 回调调用此方法把 usage 写入 assistant 消息 meta.usage,UI 展示 token 计数。 */
@@ -810,6 +820,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   usageByMessageId: {},
   // Steer(中途引导)注入确认 + 当前流式 assistant 消息 ID(执行期瞬时态,不持久化)
   steerNoticesByMessageId: {},
+  // D115(2026-10-24):review 结论帧(执行期瞬时态,不持久化)
+  reviewFindingsByMessageId: {},
   streamingAssistantId: null,
   // D22 引用回复(执行期瞬时态,不持久化)
   quotedMessage: null,
@@ -1033,6 +1045,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       usageByMessageId: {},
       // Steer(中途引导):提示条一并清空;流式目标消息 ID 已随上面 RUN_SCOPED_RESET 失效
       steerNoticesByMessageId: {},
+      // D115:审查结论卡随消息消失,新建对话一并清空
+      reviewFindingsByMessageId: {},
       // 票59 2/3:版本切换态是会话局部坐标(消息 id),新建对话必须一起清
       activeVersionByRoot: {},
     }),
@@ -1818,6 +1832,21 @@ const buildChatState: ChatStateCreator = (set, get) => ({
         steerNoticesByMessageId: {
           ...s.steerNoticesByMessageId,
           [messageId]: [...existing, notice],
+        },
+      }
+    }),
+
+  // D115:审查结论累积。index=1 是生产端(1-based)新一轮审查的首帧 ——
+  // 重连重放与"再审查一次"都从这里重来,先清旧表再落首条;同 findingId 幂等丢弃。
+  appendReviewFinding: (messageId, finding) =>
+    set((s) => {
+      if (!messageId || !finding?.findingId) return s
+      const existing = finding.index === 1 ? [] : (s.reviewFindingsByMessageId[messageId] ?? [])
+      if (existing.some((f) => f.findingId === finding.findingId)) return s
+      return {
+        reviewFindingsByMessageId: {
+          ...s.reviewFindingsByMessageId,
+          [messageId]: [...existing, finding],
         },
       }
     }),
