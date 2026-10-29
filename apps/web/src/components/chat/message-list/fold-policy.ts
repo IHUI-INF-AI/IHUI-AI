@@ -108,18 +108,32 @@ export {
 import type { ExpandStrategy } from '@/components/ai/progress-sections/tool-category'
 
 /**
- * 类目卡的"默认展开态"决策(与 shouldCollapseSteps 同源,不另起判定):
+ * 类目卡的"默认展开态"决策(与 shouldCollapseSteps 同源,不另起判定)。
  * - 'expand'   → 恒展开(对标 Qoder 全程可见偏好)
  * - 'collapse' → 恒收起(思考/结束等阶段标记,默认让位正文)
  * - 'auto'     → 跟随 D21 自适应策略(轻任务展开、重任务折叠)
  *
  * 返回的是"默认初值";用户显式操作(D21 规则①)永远最高优先,此处结果不被用于覆盖它。
  * 纯函数,可单测。
+ *
+ * 2026-10-29 补 `mode`(用户折叠模式)入参:此前本函数只吃类目自身档位,
+ * 于是用户在 FoldPolicyButton 里选"强制展开/强制折叠"对类目卡**完全无效** ——
+ * 15 个 'auto' 档类目一律按自适应走,用户意志落不了地。
+ *
+ * 优先级(D21 规则①/②的展开):**用户模式 > 类目档位 > 自适应**。
+ * - 'expanded'  → 恒展开(用户要全程可见,类目卡也不例外)
+ * - 'collapsed' → 恒收起
+ * - 'auto'      → 落到类目自身档位('expand'/'collapse' 恒值、'auto' 走自适应)
+ *
+ * `mode` 缺省不传 ⇒ 沿用旧语义(只按类目档位),既有调用方与用例零回归。
  */
 export function resolveCategoryInitialOpen(
   strategy: ExpandStrategy,
   input: FoldPolicyInput,
+  mode?: FoldPolicyMode,
 ): boolean {
+  if (mode === 'expanded') return true
+  if (mode === 'collapsed') return false
   if (strategy === 'expand') return true
   if (strategy === 'collapse') return false
   return !shouldCollapseSteps(input)
