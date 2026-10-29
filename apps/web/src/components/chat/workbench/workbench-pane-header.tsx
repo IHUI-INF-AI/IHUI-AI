@@ -13,18 +13,29 @@
  * 模型与流式态取自 useChat()(同 Provider 寻址),本件只负责把它们递给环。
  */
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
+import { Maximize2, Minimize2 } from 'lucide-react'
 
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { useChat } from '@/hooks/use-chat'
+import { Button } from '@ihui/ui-react'
 
 export interface WorkbenchPaneHeaderProps {
   /** 当前会话标题(新任务态由壳传 t('newConversation')) */
   title: string
+  /** 大屏模式当前态(布局由壳负责,顶栏只负责开关) */
+  immersive?: boolean
+  onToggleImmersive?: () => void
 }
 
-export function WorkbenchPaneHeader({ title }: WorkbenchPaneHeaderProps) {
+export function WorkbenchPaneHeader({
+  title,
+  immersive = false,
+  onToggleImmersive,
+}: WorkbenchPaneHeaderProps) {
   const { currentModel, isStreaming } = useChat()
+  const t = useTranslations('chat')
   return (
     <header
       className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border px-4"
@@ -38,6 +49,23 @@ export function WorkbenchPaneHeader({ title }: WorkbenchPaneHeaderProps) {
             切的是**工作台窗格**的模式,不带走根侧栏;本壳不写第二份切换逻辑。 */}
         <ModeSwitcher />
         <ContextUsageRing model={currentModel ?? ''} isStreaming={isStreaming} />
+        {onToggleImmersive && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={onToggleImmersive}
+            aria-pressed={immersive}
+            aria-label={immersive ? t('workbenchImmersiveExit') : t('workbenchImmersiveEnter')}
+            data-workbench-immersive-toggle={immersive ? 'on' : 'off'}
+          >
+            {immersive ? (
+              <Minimize2 className="h-3.5 w-3.5" aria-hidden />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+            )}
+          </Button>
+        )}
       </div>
     </header>
   )
