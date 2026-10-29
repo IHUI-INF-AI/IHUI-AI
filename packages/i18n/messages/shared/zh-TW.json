@@ -2547,5 +2547,26 @@
         }
       }
     }
+  },
+  "streamErrors": {
+    "action": {
+      "retry": "重試",
+      "waitAndRetry": "稍後重試",
+      "switchModel": "換個模型",
+      "checkQuota": "查看額度",
+      "contactAdmin": "聯絡管理員",
+      "relogin": "重新登入",
+      "upgradeApp": "升級用戶端",
+      "trimContext": "精簡上下文",
+      "none": "知道了"
+    },
+    "admission": {
+      "tentative": "已送出,等待伺服器確認",
+      "admitted": "伺服器已接收",
+      "queued": "已排隊,等目前回答結束",
+      "rejected": "伺服器拒絕了這次送出",
+      "unconfirmed": "無法確認伺服器是否收到,請檢查後再決定是否重送"
+    },
+    "nextStepLabel": "下一步"
   }
 }
