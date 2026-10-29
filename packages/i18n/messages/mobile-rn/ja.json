@@ -129,7 +129,7 @@
     "modelSck": "知識ベース",
     "matAll": "すべて",
     "matText": "テキスト",
-    "inputPlaceholder": "質問を入力、または長押しで話す",
+    "inputPlaceholder": "質問を入力",
     "modelSelectTitle": "モデル選択",
     "modelSelectSearchCount": "{count}件のモデルを検索",
     "modelSelectAgentCount": "{count}件のエージェント",
@@ -1003,8 +1003,8 @@
     "vip": "会員センター",
     "vipBenefit": "会員権益",
     "vipCompare": "会員比較",
-    "coupon": "クーポン",
-    "promotion": "クーポン",
+    "coupon": "マイクーポン",
+    "promotion": "クーポンセンター",
     "sectionPoints": "ポイント",
     "pointsMall": "ポイントモール",
     "pointsRecord": "トークン明細",
@@ -1759,7 +1759,7 @@
     "empty": "クーポンがありません",
     "loadFailed": "読み込みに失敗",
     "minSpend": "{amount} 以上で利用可能",
-    "title": "クーポン",
+    "title": "マイクーポン",
     "validUntil": "有効期限",
     "use": "今すぐ使う",
     "useHint": "商品ページでご利用ください",
@@ -2203,7 +2203,7 @@
     "status_inactive": "非アクティブ"
   },
   "promotion": {
-    "title": "クーポン",
+    "title": "クーポンセンター",
     "empty": "利用可能なクーポンはありません",
     "minSpend": "¥{minSpend} 以上で利用可能",
     "expireDate": "有効期限",
@@ -3156,7 +3156,7 @@
     "status_rejected": "却下されました"
   },
   "distributionCompany": {
-    "title": "販売代理センター",
+    "title": "ディストリビューション実績",
     "refresh": "更新",
     "loadFailed": "データの読み込みに失敗しました",
     "empty": "リワードデータはありません",
@@ -4240,7 +4240,7 @@
     "allowInvites": "招待を許可"
   },
   "memberDashboard": {
-    "title": "会員センター",
+    "title": "会員概要",
     "level": "会員ランク",
     "points": "マイポイント",
     "coupons": "クーポン",
@@ -7050,5 +7050,13 @@
     "prev": "前へ",
     "pagination": "{page} / {totalPages} ページ、合計 {total} 件",
     "next": "次へ"
+  },
+  "chatWorkbenchPage": {
+    "title": "会話",
+    "newConversation": "新規会話",
+    "searchPlaceholder": "キーワードを入力...",
+    "empty": "コンテンツはまだありません。おしみに",
+    "searchNoResult": "結果なし",
+    "retry": "再試行"
   }
 }

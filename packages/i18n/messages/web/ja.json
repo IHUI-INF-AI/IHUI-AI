@@ -8567,12 +8567,15 @@
       "timelineSubagentToolResultSuccess": "ツール結果:{tool} 成功",
       "timelineTabsAriaLabel": "タイムラインタブ",
       "toolCallsCount": "{n} 回ツール呼び出し",
+      "toolSummaryDirectories": "対象ディレクトリ",
       "toolSummaryDuration": "総所要時間",
+      "toolSummaryEdits": "編集回数",
       "toolSummaryFilesModified": "変更ファイル",
       "toolSummaryFilesSearched": "検索ファイル",
       "toolSummaryLinesAdded": "追加行数",
       "toolSummaryLinesDeleted": "削除行数",
       "toolSummaryStreaming": "ツール呼び出しを集計中…",
+      "toolSummaryTerminalCommands": "ターミナルコマンド",
       "toolSummaryTitle": "ツール呼び出しサマリー",
       "toolSummaryTotalCalls": "総呼び出し",
       "toolSummaryWebSearched": "ウェブ検索",
@@ -11383,6 +11386,7 @@
       "loadFailed": "検索に失敗しました",
       "noMatch": "一致する結果がありません"
     },
+    "questionCancelledByStop": "タスクを停止しました。未回答の質問は取り消されました",
     "modelSwitchStopped": "{model} に切り替えたため、この回答を終了しました",
     "filePreviewEmpty": "プレビューできるデータ行がありません。",
     "filePreviewTypeMismatch": "ファイルの内容が {ext} 形式と一致しません。",
@@ -11469,7 +11473,8 @@
       "title": "このターンの変更",
       "revert": "このターンに戻す",
       "noCheckpoints": "チェックポイントなし",
-      "revertConfirm": "この AI 回復より前の会話とファイルに復元します。{count} 件のファイル変更が取り消されます。この操作は元に戻せません。",
+      "revertConfirmWithTurns": "この AI 返信より前の会話とファイルに復元します：{count} 件のファイル変更が取り消され、このターン以降に影響する {turns} ターン分の変更も同時に取り消されます。タスク記録は削除されません。この操作は元に戻せません。",
+      "revertConfirm": "この AI 返信より前の会話とファイルに復元します：{count} 件のファイル変更が取り消されます。タスク記録は削除されません。この操作は元に戻せません。",
       "changedFile": "ファイルを変更",
       "createdFile": "ファイルを作成",
       "deletedFile": "ファイルを削除"
@@ -20286,6 +20291,7 @@
     "loginRequired": "ログインしてアカウントプールを管理"
   },
   "nav": {
+    "pdfTools": "PDF ツール",
     "accountPool": "マイアカウントプール",
     "checkin": "チェックイン",
     "monitorWallboard": "監視ウォールボード",

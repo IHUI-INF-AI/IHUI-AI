@@ -11,7 +11,9 @@ import { computeFileChanges, describeToolCall, summarizeFileChanges } from '@ihu
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui-react'
 import type { ChatMessage, ToolCall } from '@/stores/chat'
-import { listCheckpoints, restoreCheckpoint } from '@/api/checkpoint-api'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
+import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
+import { pickRevertCheckpoint, countAffectedTurns } from '@/components/ai/checkpoint-impact'
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
 import {
@@ -70,6 +72,9 @@ export interface TurnChangesCardProps {
 export function TurnChangesCard({ message, conversationId }: TurnChangesCardProps) {
   const t = useTranslations('chat')
   const tStatus = useTranslations('taskStatus')
+  // 消息面按窗格寻址:撤销涟漪的轮次数要数**这个窗格**里真正会消失的 assistant 轮次,
+  // 读根单例会数到别的窗格/别的会话的消息上去。
+  const chatStore = usePaneChatStore()
   // ±行数与文件清单的唯一口径来自 @ihui/shared/chat(不在端内重复数行)
   const changes = React.useMemo(() => computeFileChanges(message.toolCalls), [message.toolCalls])
   const summary = React.useMemo(() => summarizeFileChanges(changes), [changes])
@@ -85,6 +90,8 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [restoring, setRestoring] = React.useState(false)
   const [hasCheckpoint, setHasCheckpoint] = React.useState<boolean | null>(null)
+  // 撤销涟漪读数:目标 checkpoint 时点之后会一起消失的 round 数(null = 算不出来)
+  const [turnCount, setTurnCount] = React.useState<number | null>(null)
 
   // 挂载即探查本消息 createdAt 之前是否存在 checkpoint,决定「恢复到本轮之前」可用性
   React.useEffect(() => {
@@ -95,8 +102,12 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
     }
     listCheckpoints(conversationId)
       .then((res) => {
-        if (!cancelled)
-          setHasCheckpoint(res.checkpoints.some((c) => c.created_at < message.createdAt))
+        if (cancelled) return
+        const target = pickRevertCheckpoint(res.checkpoints, message.createdAt)
+        setHasCheckpoint(target !== null)
+        setTurnCount(
+          target ? countAffectedTurns(chatStore.getState().messages, target.created_at) : null,
+        )
       })
       .catch(() => {
         if (!cancelled) setHasCheckpoint(false)
@@ -104,16 +115,17 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
     return () => {
       cancelled = true
     }
-  }, [conversationId, message.createdAt])
+  }, [conversationId, message.createdAt, chatStore])
 
   const handleConfirmRevert = React.useCallback(async () => {
     if (!conversationId) return
     setRestoring(true)
     try {
       const list = await listCheckpoints(conversationId)
-      const target = list.checkpoints
-        .filter((c) => c.created_at < message.createdAt)
-        .sort((a, b) => b.created_at - a.created_at)[0]
+      const target: CheckpointMeta | null = pickRevertCheckpoint(
+        list.checkpoints,
+        message.createdAt,
+      )
       if (!target) {
         toast.error(t('turnChanges.noCheckpoints'))
         setConfirmOpen(false)
@@ -130,6 +142,14 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
   }, [conversationId, message.createdAt, t])
 
   if (changes.length === 0) return null
+
+  // 确认文案:文件数 + 连带撤销的轮次数 + 任务记录不删。
+  // 三件事缺一就是"不可撤销操作只讲了一半":用户以为只回退 N 个文件,实际连后面
+  // 若干轮对话的上下文一起没了。turnCount <= 1 = 没有涟漪,走单轮文案(不虚报轮数)。
+  const confirmText =
+    turnCount !== null && turnCount > 1
+      ? t('turnChanges.revertConfirmWithTurns', { count: changes.length, turns: turnCount })
+      : t('turnChanges.revertConfirm', { count: changes.length })
 
   return (
     <div className="min-w-0" data-testid={`turn-changes-${message.id}`}>
@@ -211,8 +231,8 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
           <DialogHeader>
             <DialogTitle>{t('turnChanges.revert')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            {t('turnChanges.revertConfirm', { count: changes.length })}
+          <p className="text-sm text-muted-foreground" data-testid="turn-revert-confirm-text">
+            {confirmText}
           </p>
           <div className="flex items-center justify-end gap-2">
             <Button size="sm" variant="outline" onClick={() => setConfirmOpen(false)}>

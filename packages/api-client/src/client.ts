@@ -2039,6 +2039,16 @@ export interface ToolSummaryEvent {
   toolsByCategory: Record<string, number>
   totalCalls: number
   totalDurationMs?: number
+  /**
+   * 以下三档 2026-10-29 起后端 `_build_tool_summary` 开始发送(此前只有前端本地聚合产出)。
+   * **可选**语义是有意的:旧后端 / 回放里的历史帧不带它们,解析层因此保留 `undefined`
+   * 而不是折成 0 —— 渲染层按 `!== undefined` 决定是否显示该 chip,用 0 冒充
+   * "没碰目录 / 没编辑" 属于"没判写成判过"(AGENTS §0.3)。
+   * 取值口径与 `@ihui/types/ai` 的 `ToolCallSummary` 同名键逐条一致。
+   */
+  directories?: number
+  edits?: number
+  terminalCommands?: number
 }
 
 export function parseStreamLine(line: string): string | null {

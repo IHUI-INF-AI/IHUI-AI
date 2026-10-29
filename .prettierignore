@@ -75,3 +75,9 @@ AGENTS.md
 /README.en.md
 /README.ja.md
 /README.ko.md
+
+# 工具名单生成物(scripts/gen-tool-name-sets.mjs 产出,**必须与生成器逐字节一致**):
+# 生成器的 `--check` 档按字节比对,而 prettier 会把短数组(`commandTools` 6 枚)折成单行,
+# 于是 lint-staged 每次 commit 一跑 --write,`--check` 就永远红 —— 与上面 openapi.json /
+# capabilities.json 的 O8 判据同一形态。格式化对这份机器产物没有价值,对可比性有破坏。
+apps/ai-service/app/data/tool_name_sets.json

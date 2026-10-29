@@ -8567,12 +8567,15 @@
       "timelineSubagentToolResultSuccess": "Tool result: {tool} success",
       "timelineTabsAriaLabel": "Timeline tabs",
       "toolCallsCount": "{n} tool calls",
+      "toolSummaryDirectories": "Directories",
       "toolSummaryDuration": "Total Duration",
+      "toolSummaryEdits": "Edits",
       "toolSummaryFilesModified": "Files Modified",
       "toolSummaryFilesSearched": "Files Searched",
       "toolSummaryLinesAdded": "Lines Added",
       "toolSummaryLinesDeleted": "Lines Deleted",
       "toolSummaryStreaming": "Counting tool calls…",
+      "toolSummaryTerminalCommands": "Terminal Commands",
       "toolSummaryTitle": "Tool Call Summary",
       "toolSummaryTotalCalls": "Total Calls",
       "toolSummaryWebSearched": "Web Searched",
@@ -11383,6 +11386,7 @@
       "loadFailed": "Search failed",
       "noMatch": "No matches"
     },
+    "questionCancelledByStop": "Task stopped — the unanswered question was cancelled.",
     "modelSwitchStopped": "Switched to {model}. This response was stopped.",
     "filePreviewEmpty": "The file has no data rows to preview.",
     "filePreviewTypeMismatch": "File content does not match the {ext} format.",
@@ -11469,7 +11473,8 @@
       "title": "Changes in this turn",
       "revert": "Revert this turn",
       "noCheckpoints": "No checkpoint available",
-      "revertConfirm": "This will restore the conversation and files to before this AI reply. All {count} file changes will be reverted. This cannot be undone.",
+      "revertConfirmWithTurns": "This restores the conversation and files to before this AI reply: {count} file changes will be reverted, and {turns} turns from this point on will be undone as well. Task records are kept. This cannot be undone.",
+      "revertConfirm": "This restores the conversation and files to before this AI reply: {count} file changes will be reverted. Task records are kept. This cannot be undone.",
       "changedFile": "Modified file",
       "createdFile": "Created file",
       "deletedFile": "Deleted file"
@@ -20283,6 +20288,7 @@
     "loginRequired": "Sign in to manage your account pool"
   },
   "nav": {
+    "pdfTools": "PDF Tools",
     "accountPool": "My Account Pool",
     "checkin": "Check-in",
     "monitorWallboard": "Ops Wallboard",

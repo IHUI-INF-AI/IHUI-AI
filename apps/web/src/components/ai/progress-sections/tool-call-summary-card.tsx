@@ -5,14 +5,27 @@
 'use client'
 
 import * as React from 'react'
-import { FileSearch, Globe, FilePen, Plus, Minus, Wrench, Clock } from 'lucide-react'
+import {
+  FileSearch,
+  Globe,
+  FilePen,
+  Plus,
+  Minus,
+  Wrench,
+  Clock,
+  Terminal,
+  SquarePen,
+  FolderTree,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
 import { ShowMoreList } from './show-more-list'
+import { ACTIVITY_VIRTUAL_THRESHOLD } from './activity-virtual-window'
 import { ConnectorGroupSection } from './connector-group-section'
-import { toolDisplayKey } from '@ihui/shared/chat'
+import { resolveToolCategory } from './tool-category'
+import { FILE_WRITE_TOOLS, fileDirname, pickFilePath, toolDisplayKey } from '@ihui/shared/chat'
 import { useAnalytics } from '@/hooks/use-analytics'
 import {
   aggregateCategoryRuns,
@@ -143,6 +156,9 @@ function deriveToolSummary(
   let filesSearched = 0
   let webSearched = 0
   const modifiedFiles = new Set<string>()
+  const touchedDirs = new Set<string>()
+  let edits = 0
+  let terminalCommands = 0
   let linesAdded = 0
   let linesDeleted = 0
   let totalDurationMs = 0
@@ -152,6 +168,20 @@ function deriveToolSummary(
     toolsByCategory[name] = (toolsByCategory[name] ?? 0) + 1
     if (FILE_SEARCH_TOOLS.has(name)) filesSearched++
     if (WEB_SEARCH_TOOLS.has(name)) webSearched++
+    // 新增三档(2026-10-29)全部接到**既有映射**,不另立工具名清单(§0.6):
+    // - 编辑次数 = 共享层写类白名单 `FILE_WRITE_TOOLS` 的命中数(动作粒度),与下面
+    //   `filesModified`(文件粒度,`FILE_MODIFY_TOOLS` 镜像后端 llm.py 口径)正交;
+    //   两个集合是**包含关系**(本地 ⊂ 共享,漂移由 __tests__ 的包含断言钉住),
+    //   不是两把各说各话的尺子;
+    // - 命令数 = 类目表 `command` 档(`run_command` / `shell` / `exec` … 已在 EXACT_MAP 单点定义);
+    // - 目录数 = 文件类调用取所在目录后的唯一集合(路径键归一复用共享层 `pickFilePath`)。
+    const category = resolveToolCategory(name)
+    if (FILE_WRITE_TOOLS.has(name)) edits++
+    if (category === 'command') terminalCommands++
+    if (category.startsWith('file_')) {
+      const dir = fileDirname(pickFilePath(tc.args))
+      if (dir) touchedDirs.add(dir)
+    }
     if (FILE_MODIFY_TOOLS.has(name)) {
       const fp = tc.args?.['file_path'] ?? tc.args?.['path']
       if (typeof fp === 'string' && fp) modifiedFiles.add(fp)
@@ -170,6 +200,9 @@ function deriveToolSummary(
     toolsByCategory,
     totalCalls: toolCalls.length,
     totalDurationMs: totalDurationMs > 0 ? totalDurationMs : undefined,
+    directories: touchedDirs.size,
+    edits,
+    terminalCommands,
   }
 }
 
@@ -365,10 +398,24 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
 
   // 优先用 summary prop,缺失时降级本地聚合。
   // 依赖 fingerprint 而非 toolCalls 引用:内容不变则跳过重算。
+  //
+  // 2026-10-29 补齐:后端 `_build_tool_summary` 目前只发既有 8 键,新三档
+  // (directories / edits / terminalCommands)它不产。若这里直接用 summary,
+  // 这三档在真实会话里**永远不出现**(判据接上了、生产面看不见 = 没装车)。
+  // 故:两条来源都在时,**只补 summary 缺的键**,已有读数一律不覆盖(后端是权威)。
+  // 只剩 summary、没有 toolCalls 时无法补 —— 那就如实不显示,不用 0 冒充。
   const effectiveSummary = React.useMemo<ToolCallSummary | null>(() => {
-    if (summary) return summary
-    if (toolCalls && toolCalls.length > 0) return deriveToolSummary(toolCalls)
-    return null
+    const local = toolCalls && toolCalls.length > 0 ? deriveToolSummary(toolCalls) : null
+    if (summary) {
+      if (!local) return summary
+      return {
+        ...summary,
+        directories: summary.directories ?? local.directories,
+        edits: summary.edits ?? local.edits,
+        terminalCommands: summary.terminalCommands ?? local.terminalCommands,
+      }
+    }
+    return local
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意基于 fingerprint 比较,避免引用变化触发重算
   }, [summary, toolCallsFingerprint])
 
@@ -435,6 +482,44 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       label: t('toolSummaryFilesModified'),
       colorClass: 'text-amber-500/80',
     },
+    // ── 2026-10-29 补齐的三档(对标 Qoder buildToolsSummary 七项里的 directories /
+    //    edits / terminalCommands)。插在"文件修改"之后、"行数"之前:语义上先"动了什么"
+    //    再"改了多少行",与既有的 文件搜索 → 网页搜索 → 文件修改 顺序一致。
+    //    取不到(undefined)的档不渲染 —— 后端 tool-summary 事件尚未携带这三键,
+    //    用 `0` 冒充"没碰目录/没编辑"就是 §0.3 禁止的"没判写成判过"。
+    ...(effectiveSummary.directories !== undefined
+      ? [
+          {
+            key: 'directories',
+            Icon: FolderTree,
+            value: effectiveSummary.directories,
+            label: t('toolSummaryDirectories'),
+            colorClass: 'text-violet-500/80',
+          },
+        ]
+      : []),
+    ...(effectiveSummary.edits !== undefined
+      ? [
+          {
+            key: 'edits',
+            Icon: SquarePen,
+            value: effectiveSummary.edits,
+            label: t('toolSummaryEdits'),
+            colorClass: 'text-orange-500/80',
+          },
+        ]
+      : []),
+    ...(effectiveSummary.terminalCommands !== undefined
+      ? [
+          {
+            key: 'terminalCommands',
+            Icon: Terminal,
+            value: effectiveSummary.terminalCommands,
+            label: t('toolSummaryTerminalCommands'),
+            colorClass: 'text-sky-500/80',
+          },
+        ]
+      : []),
     {
       key: 'linesAdded',
       Icon: Plus,
@@ -517,6 +602,10 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
               testId="tool-call-summary-category-list"
               moreLabel={t('toolSummaryShowMore')}
               lessLabel={t('toolSummaryShowLess')}
+              // 2026-10-29:展开后按几何挂载(不再"展开即全量")。阈值与行高档住在
+              // `./activity-virtual-window`(判据单源),此处只给开关与稳定键。
+              virtualizeThreshold={ACTIVITY_VIRTUAL_THRESHOLD}
+              itemKeys={categoryRuns.map((run) => run.groupKey)}
               renderItem={(run) => (
                 <CategoryCard
                   key={run.groupKey}

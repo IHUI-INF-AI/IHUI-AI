@@ -961,4 +961,91 @@ select:-webkit-autofill:focus {
   --border-unified-subtle: var(--color-white-10);
   --border-unified-inverse: var(--color-black-30);
 }
+
+/* ============================================================
+ * max-w 命名档恢复(容器档语义)—— 2026-10-29 布局塌缩回归修复
+ * ============================================================
+ * 根因:Tailwind v4 默认主题 maxWidth 映射为 {...容器档, ...spacing 展开}
+ * (dist 默认主题源码实测:maxWidth 尾部 ...e("spacing")),即间距命名键
+ * 按框架契约覆盖同名容器档(为了让 max-w-<number> 走间距)。
+ * 上方受管块定义 --spacing-{xs..6xl}(4px..64px,源:spacing.ts)后,
+ * 全站 max-w-xs..6xl 被解析成 4px..64px 而非容器档 20rem..72rem,
+ * web+ui-react 约 130 处 max-w-* 全部塌缩(实测 AI 面板 .max-w-3xl
+ * 计算宽 32px,输入框 0 宽不可见;编译产物 .max-w-7xl 因不在间距档
+ * 仍走容器档,反证解析顺序)。
+ *
+ * 修法:@layer utilities 普通规则,按源序晚于 @import 'tailwindcss'
+ * 的内建规则,同层同特异性后者胜。变体(sm:/min-[640px]:)必须逐一
+ * 覆盖 —— 本文件只重定义基类挡不住变体规则(不同选择器)。
+ *
+ * ⚠ 维护约定:新增 变体: max-w-{xs..6xl} 用法时,必须同步在下方
+ * 变体区补对应选择器(或直接改用 max-w-[Nrem] 任意值写法,永不塌缩)。
+ * 间距受管块键名若增删,基类区需同步。
+ */
+@layer utilities {
+  /* ---- 基类(xs..6xl → Tailwind v4 默认容器档;7xl 不在间距档,内建正常,不覆盖) ---- */
+  .max-w-xs {
+    max-width: 20rem;
+  }
+  .max-w-sm {
+    max-width: 24rem;
+  }
+  .max-w-md {
+    max-width: 28rem;
+  }
+  .max-w-lg {
+    max-width: 32rem;
+  }
+  .max-w-xl {
+    max-width: 36rem;
+  }
+  .max-w-2xl {
+    max-width: 42rem;
+  }
+  .max-w-3xl {
+    max-width: 48rem;
+  }
+  .max-w-4xl {
+    max-width: 56rem;
+  }
+  .max-w-5xl {
+    max-width: 64rem;
+  }
+  .max-w-6xl {
+    max-width: 72rem;
+  }
+
+  /* ---- 变体(现存用法全量清点 2026-10-29:sm: 4 档共 7 处,min-[640px]: 5 档共 15 处) ---- */
+  @media (min-width: 40rem) {
+    .sm\:max-w-xl {
+      max-width: 36rem;
+    }
+    .sm\:max-w-2xl {
+      max-width: 42rem;
+    }
+    .sm\:max-w-md {
+      max-width: 28rem;
+    }
+    .sm\:max-w-lg {
+      max-width: 32rem;
+    }
+  }
+  @media (min-width: 640px) {
+    .min-\[640px\]\:max-w-xs {
+      max-width: 20rem;
+    }
+    .min-\[640px\]\:max-w-sm {
+      max-width: 24rem;
+    }
+    .min-\[640px\]\:max-w-md {
+      max-width: 28rem;
+    }
+    .min-\[640px\]\:max-w-lg {
+      max-width: 32rem;
+    }
+    .min-\[640px\]\:max-w-3xl {
+      max-width: 48rem;
+    }
+  }
+}
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

@@ -1285,6 +1285,16 @@
       "shared": "packages/app/src/features/cloud-runs/CloudRunsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CloudRunsScreen.tsx",
       "miniapp": "pkg-user/cloud-runs/index"
+    },
+    {
+      "shared": "packages/app/src/features/chat-workbench/ChatWorkbenchScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ChatWorkbenchScreen.tsx",
+      "miniapp": "pkg-user/chat-workbench/index"
+    },
+    {
+      "shared": "packages/app/src/features/tools/pdf/PdfToolsHubScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx",
+      "miniapp": "pkg-user/pdf-tools-hub/index"
     }
   ]
 }
