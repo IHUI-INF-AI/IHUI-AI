@@ -300,6 +300,24 @@ const clip = (s, n = HEADER_MAX + 8) =>
     .trim()
     .slice(0, n)
 
+/**
+ * 编号纪元身份尺(2026-10-24 立,ea32579b60;2026-10-30 归位@票 g33-s15):全量重编号后,
+ * 同一任务的 raw 行必然逐字不同(号是正文的一部分),A1 若按 raw 比对基准面,会把**每一条在册行**
+ * 都读成"本次新增缺交代" —— 与提交内容无关的恒红门(§12e)。纪元标记下,身份改按"抹掉任务号"后
+ * 的正文比对:号可以全退全换,正文变一个字仍判新。
+ * 仅在候选面带 `<!-- 编号纪元:YYYY-MM-DD … -->` 时启用;无标记 ⇒ 逐字旧行为。
+ * 族表口径与 `check-plan-line-loss` 的 `bodyKeyOf` 抹号表对齐(2026-10-24 实测教训:漏 H|I 族、
+ * 位数上限留 {1,4} 都会让换号行两面身份对不上 ⇒ 误判新增/误判丢失,见该文件 bodyKeyOf 头注)。
+ */
+const ID_TOKEN_RE = /\b(?:G|WP|V3|D|O|A|B|P|W|H|I)-?\d{1,6}\b/g
+
+export function idNorm(line) {
+  return String(line)
+    .replace(/〔旧号[^〕]*〕/g, '')
+    .replace(/(\s*-\s*\[[ xX]\]\s*(?:（[^）]*）\s*)?)\d{1,3}(?=[.、])/, '$1<ID>')
+    .replace(ID_TOKEN_RE, '<ID>')
+}
+
 /** 取两面(台账 + 侧车)。任一面取不到 ⇒ 未判定,绝不回落另一个面(§0.4)。 */
 export function readFaces(root = ROOT, face = 'head') {
   let content
@@ -311,6 +329,8 @@ export function readFaces(root = ROOT, face = 'head') {
       why: `${LABEL[face] ?? face} 取不到 PROJECT_PLAN.md:${String(e?.message ?? e).split('\n')[0]}`,
     }
   }
+  const epochMark =
+    face === 'head' ? null : ((/<!--\s*编号纪元[:：][^>]*-->/.exec(content) || [])[0] ?? null)
   const side = readFieldsFace(root, face)
   if (side.undetermined) return { ok: false, why: `侧车面取不到:${side.why ?? '(未点名原因)'}` }
   let base = null
@@ -318,10 +338,12 @@ export function readFaces(root = ROOT, face = 'head') {
   let baseRotSigs = null
   if (face !== 'head') {
     try {
+      // 纪元面:基准身份按抹号后的正文比;无纪元 ⇒ 逐字旧行为(镜像测试锁住这一条)
+      const identity = epochMark ? idNorm : (s) => s
       base = new Set(
         parseTaskRows(readPlan(root, 'head'))
           .filter(isOpenRow)
-          .map((r) => r.raw),
+          .map((r) => identity(r.raw)),
       )
     } catch (e) {
       return {
@@ -332,24 +354,24 @@ export function readFaces(root = ROOT, face = 'head') {
     const bs = readFieldsFace(root, 'head')
     if (bs.undetermined)
       return { ok: false, why: `基准侧车面(HEAD)取不到 ⇒ A3 未判定:${bs.why ?? '(未点名原因)'}` }
-    // 纪元面:基准矛盾签名里的号按映射折算 —— 重编号只是把这些矛盾搬到新号下,不是新矛盾;
-    // 无纪元 ⇒ 原样(旧行为)。折算后仍不匹配的新签名照旧拦红。
+    // 基准签名按**面现值逐字**取(g33-s15 归位@2026-10-30,修复 ReferenceError: translate 崩溃)。
+    // ea32579b60(10-24)曾按重编号映射折算基准键前缀,其前提"重排把矛盾搬到新号下"已被
+    // 10-26 的归并维判据证伪:「改号器只换台账行号、**不搬侧车键**」(见 judge() 内 adopt 头注)
+    // —— 旧号键在侧车里逐字留存成孤儿(实测 `adoptMovesOf` 的搬支正是为它而设),两面键同字;
+    // 而"号可被新票复用"(纪元标记原文)使映射键域与在活键域重叠,折算会把**基准面已有**的签名
+    // 折到别处 ⇒ 稳态(index==HEAD)下凭空造出"新增"。实测:带折算的 --staged 档 rotn=17 假阳性
+    // (恒红门,§12e),不带折算 rotn=0 且真新增仍拦(棘轮只认"基准面没有的签名",维不缩水)。
     baseSideSigs = new Set(
-      conflictGroupsOf([...bs.map.values(), ...(bs.orphans ?? [])]).conflicts.map((g) =>
-        sideSig(translate ? { ...g, key: translateSideKey(g.key, translate) } : g),
-      ),
+      conflictGroupsOf([...bs.map.values(), ...(bs.orphans ?? [])]).conflicts.map(sideSig),
     )
-    // 已禁形态(腐烂)的基准签名:同面同轮取自 HEAD 侧车;纪元面同样按映射折算号段。
-    baseRotSigs = new Set(
-      [...bs.map.values(), ...(bs.orphans ?? [])]
-        .map((r) => rotSigOf(translate ? { ...r, key: translateSideKey(r.key, translate) } : r))
-        .filter(Boolean),
-    )
+    // 已禁形态(腐烂)的基准签名:同面同轮取自 HEAD 侧车,同一口径逐字取。
+    baseRotSigs = new Set([...bs.map.values(), ...(bs.orphans ?? [])].map(rotSigOf).filter(Boolean))
   }
   return {
     ok: true,
     rows: parseTaskRows(content),
     baseRowTexts: base,
+    identity: epochMark ? idNorm : (s) => s,
     map: side.map,
     allRecords: [...side.map.values(), ...(side.orphans ?? [])],
     baseSideSignatures: baseSideSigs,
@@ -388,6 +410,7 @@ function run({ root = ROOT, face = 'head' } = {}) {
   }
   const v = judge(f.rows, {
     baseRowTexts: f.baseRowTexts,
+    identity: f.identity,
     map: f.map,
     allRecords: f.allRecords,
     baseSideSignatures: f.baseSideSignatures,
