@@ -22,7 +22,7 @@ import { COLORS } from '@/constants/style'
  * tokens.css 的 surface.bg)经 hsl→rgba 手转,做带透明度的渐变停点,避免 `transparent`
  * 关键字在渐变里产生「透明黑」插值灰带(硬边同源病)。
  */
-const BOTTOM_FADE_HEIGHT_PX = 120
+const BOTTOM_FADE_HEIGHT_PX = 160
 
 /** `hsl(H S% L%)` → `rgba(r,g,b,a)`。微信内联 style 不解析 var(--color-*) 与斜杠 alpha,
  *  这里把 tokens 的 hsl 值手动转 rgba,以便渐变停点带正确透明度(同 hue/sat/light 保证无灰带)。 */
@@ -83,7 +83,7 @@ export default function BottomFadeMask({
   const { resolved } = useAppTheme()
   const bg = COLORS.bgPrimary[resolved]
   const c0 = hslToRgba(bg, 0)
-  const c50 = hslToRgba(bg, 0.5)
+  const c70 = hslToRgba(bg, 0.7)
   const c100 = hslToRgba(bg, 1)
   return (
     <View
@@ -95,7 +95,7 @@ export default function BottomFadeMask({
         height: `${height}px`,
         pointerEvents: 'none',
         zIndex: 40,
-        backgroundImage: `linear-gradient(to bottom, ${c0} 0%, ${c0} 35%, ${c50} 78%, ${c100} 100%)`,
+        backgroundImage: `linear-gradient(to bottom, ${c0} 0%, ${c0} 22%, ${c70} 55%, ${c100} 100%)`,
       }}
     />
   )
