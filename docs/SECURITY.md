@@ -276,4 +276,102 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
 
 **注意**:`security@aizhs.top` 为占位地址,正式地址以仓库 README 公示为准。在正式地址
 启用前,优先使用 GitHub Security Advisory 渠道。
+
+---
+
+## 10. 安全加固记录（2026-10-29 全量加固）
+
+本次对生产面做了一次实战级加固,聚焦"缩小攻击面、堵住未授权入口"。遵循项目铁律:
+改动后须在 CI/本地把相关测试跑绿再上线。
+
+### 10.1 P0 — DAP 调试代理越权 / RCE 面封禁
+
+- **问题**:`apps/api/src/routes/debug.ts` 把 12 个 DAP 调试端点挂在 `/api/debug/*`,只校验
+  "是否登录",无角色限制;而 `apps/ai-service/app/api/v1/debug.py` 的端点**无任何鉴权、无
+  userId 作用域隔离**。`launch` 能在 ai-service 服务器上启动任意程序、`attach` 能挂任意进程、
+  `eval` 能执行任意表达式、`list_sessions` 跨用户全局可见 —— 任意登录用户即可在服务器上 RCE。
+- **修复**:
+  1. `debug.ts` 入口守卫由 `authenticate`(仅登录)升为 `requireAdmin`(roleId≥1,只认人用 JWT,
+     拒绝 internal service token 提权);
+  2. `server.ts` 的 `onRoute` 钩子给 `/api/debug/` 注入 `network: { allowExternal: false }`,
+     由 `network-segment` 插件在公网 IP 上硬拦 403(`NETWORK_SEGMENT_POLICY` 默认 `strict`);
+  3. 回归测试 `apps/api/src/routes/__tests__/debug.test.ts` 新增"非管理员返回 403"用例钉死。
+- **影响**:前端 IDE 调试面板(普通用户)变为管理员专属。在 ai-service 侧补"按 userId 隔离 +
+  限定 program/cwd 在项目目录内"的根因修复完成前,调试能力不对普通用户开放。
+
+### 10.2 P1 — chrome-extension Origin 收紧为 fail-closed
+
+- **问题**:`server.ts` 的 CORS origin 函数与 WebSocket `verifyClient` 在 `IHUI_EXTENSION_IDS`
+  未配置时,对 `chrome-extension://` 前缀**整体放行**所有已安装扩展(含恶意),仅记日志不拒绝。
+- **修复**:未配置 `IHUI_EXTENSION_IDS` 时**拒绝**(fail-closed);已配置时按精确扩展 ID 放行。
+  两处(CORS + WebSocket)同步修改。需支持自家扩展时,把扩展 ID 逐枚填入 `IHUI_EXTENSION_IDS`
+  (约定填**完整** `chrome-extension://<id>` origin,与代码 `extIds.includes(o)` 比较一致)。
+- **实现收敛(2026-10-29 补充)**:两处 Origin 判定已抽到单一纯函数
+  `apps/api/src/plugins/cors-origin.ts` 的 `evaluateOriginAllowance`,并由新增单测
+  `src/plugins/__tests__/cors-origin.test.ts`(10 用例,含"未配置即拒绝"核心契约)钉死 fail-closed,
+  防止未来有人把 `chrome-extension` 误放回 `extAllowed=true` 静默回退。
+
+### 10.3 P1 — nginx 边缘限流落地确认
+
+- `deploy/nginx/conf.d/rate-limit.conf` 已存在,定义 6 个 zone(login/api/static/gateway_key/
+  gateway_anon/ws_handshake),与 `nginx-blue-green.conf` 引用一一对应。
+- **部署约束**:必须与 `nginx-blue-green.conf` **同批**部署到 `/etc/nginx/conf.d/`;漏放会
+  `nginx -t` fail-fast 拒绝加载(宁可起不来,也不静默无限流上线)。
+
+### 10.4 P2 — 可选边缘 WAF
+
+- 新增 `deploy/nginx/conf.d/00-waf.conf`(路径遍历 + 已知恶意 UA 粗滤,宁漏勿误伤)。
+- **默认不启用**:只定义 map 变量,需在 server 块内引用 `$waf_block` 才拦截。启用方式见文件头注释。
+
+---
+
+## 11. 密钥与凭证轮转流程
+
+### 11.1 凭证清单
+
+| 凭证 | 环境变量 / 位置 | 用途 | 轮转影响 |
+|---|---|---|---|
+| JWT 签名密钥 | `JWT_SECRET` | 用户/管理员会话 JWT(HS256) | 轮转后所有现有会话失效,用户需重新登录;建议错峰或双密钥过渡 |
+| 内部服务令牌密钥 | `INTERNAL_SERVICE_SECRET` | api↔ai-service 内部调用鉴权 | 轮转需 api 与 ai-service 同步,否则内部调用 401 |
+| 回调共享密钥 | `AI_CALLBACK_SECRET` | ai-service→api 回调(`X-Internal-Secret`) | 与 `INTERNAL_SERVICE_SECRET` 类似,双端同步 |
+| 凭证加密密钥 | `CREDENTIALS_ENCRYPTION_KEY` | AES-256-GCM 加密第三方 OAuth/支付凭证 | 轮转需先解密再重加密存量,否则凭证不可读 |
+| 微信支付证书 | `cert/`(`*.pem`/`*.p12`,`.gitignore`) | 微信支付 V3 验签/回调 | 由微信侧周期换发,`scripts/cert-renew-watchdog.mjs` 监控续期 |
+| SSL 证书 | nginx `ssl/` | `aizhs.top` HTTPS | Let's Encrypt 自动续期(certbot --nginx) |
+| relay 密钥池 | `ai_relay_key_pool`(DB 表) | 第三方 AI 模型转发凭证 | 池内单条 key 可单独禁用/替换,不影响其他;见 `admin/relay-api-keys` |
+| 第三方 API Key | 阿里云短信/`ALIYUN_*`、微信支付/`WECHAT_*`、支付宝/`ALIPAY_*`、OpenAI/火山等 | 外部服务调用 | 各平台控制台轮换,更新对应 env 后重启相关 worker |
+| 数据库密码 | `DATABASE_URL` | PostgreSQL 连接 | 改密码后需滚动重启 api/ai-service/worker |
+| Redis 密码 | `REDIS_PASSWORD` / `REDIS_URL` | 缓存/限流/会话 | 改密码后需滚动重启所有依赖 Redis 的服务 |
+| 部署 PAT | GitHub `GITHUB_TOKEN`(推送用) | 代码推送 | 按 GitHub 侧轮换,更新本地凭据文件 |
+
+### 11.2 轮转通用原则
+
+1. **fail-closed 优先**:任何密钥缺失/错配,生产应启动中止或拒绝服务,而非降级放行(见
+   `checkProductionConfig`、`security-service` 启动硬约束)。
+2. **双密钥过渡**:会话类密钥(JWT)支持新旧并存窗口,避免全员掉线。
+3. **同步双端**:内部通道密钥(`INTERNAL_SERVICE_SECRET`/`AI_CALLBACK_SECRET`)必须 api 与
+   ai-service 同一次发布内更新,否则内部链路 401 雪崩。
+4. **配置外置**:所有密钥走 env / 密钥管理,禁止硬编码入源码(`scripts/check-safe-parse.mjs`)
+   守门扫描)。
+5. **轮换即审计**:密钥轮换动作本身写入 `audit_logs`,记录操作人与时间。
+
+---
+
+## 12. 后续收尾待办
+
+- **ai-service 侧 debug 根因修复**:`debug.py` 接入鉴权 + 按 `userId` 隔离会话,并限定 `launch`
+  的 `program`/`cwd` 只能在用户项目目录内 —— 完成后可评估放开普通用户的调试能力(否则仅管理员)。
+- **依赖漏洞审计**:本机 npm registry 指向 `registry.npmmirror.com`,该镜像**无 audit 端点**,
+  `pnpm audit` 直接报 `ERR_PNPM_AUDIT_ENDPOINT_NOT_EXISTS`,无法本地核验。
+  **CI/有网环境改用官方 registry 执行**:
+  ```bash
+  # 整个 workspace(生产依赖)
+  pnpm config set registry https://registry.npmjs.org/ && pnpm audit --prod
+  # 或针对单包
+  cd apps/api && pnpm audit --prod
+  ```
+  **高频风险面(建议重点盯)**:Fastify 及 `@fastify/*` 全家桶、JWT 签发/验签 `jose`、
+  队列/Redis `bullmq`+`ioredis`、密码哈希 `argon2`/`bcrypt`、HTTP 客户端 `axios`/`node-fetch` 等。
+  扫描节奏见 §5(CI 每次 + 每周)。
+- **定期渗透 / 红队**:建议每季度一次,覆盖 API、relay 面、支付回调。
+- **WAF 启用评估**:如 §10.4,评估后可在边缘开启 `00-waf.conf`。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
