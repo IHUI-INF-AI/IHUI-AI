@@ -16,12 +16,13 @@
  * ④ 是 CLI 层的接线错,由本文件末尾的源码形状锁钉住(判据层拿不到面)。
  */
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test, { after } from 'node:test'
 
 import { __test__ as ex } from '../plan-fields-extract.mjs'
+import { compositeKeyOf } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -346,4 +347,69 @@ test('㉑ 同键重复声明 ⇒ error 非空(同一键只能有一份交代)', 
   assert.equal(v.intents.size, 0)
   assert.match(v.error, /重复声明/)
 })
+
+// ㉒ 同号族的带凭据出口(2026-10-29 补):比自写面/正文命中两族更严。三件事齐备才放行 ——
+//   (i) 号段被"别的题面"的活行占着 ∧ (ii) 那条活行自己在侧车已有记录 ∧ (iii) 本记录题面全形态 0 命中。
+//   正向:三验齐备 ⇒ 退;并顺带钉住留痕条目多写 sameNumberProof(没给则不写此键,旧账形状不变)。
+test('㉒ 同号族带凭据出口:三验齐备 ⇒ 退,且留痕条目带 sameNumberProof', () => {
+  const occRaw = '- [ ] **G-50 搬入盘符演练题面**'
+  const occKey = compositeKeyOf(occRaw)
+  const dead = rec('G-50#收敛链这一轮量到的四格')
+  const proof = '同号已被另一题面的活行占着,且该活行自带归属记录'
+  const v = ex.validateRetireIntents(
+    [
+      {
+        key: dead.key,
+        why: '该票重排时被并发取号抖动同时给了两号,归并裁决留另一号,本记录是死记录',
+        declaredAt: '2026-10-02T00:00:00.000Z',
+        sameNumberProof: proof,
+      },
+    ],
+    [dead],
+  )
+  assert.equal(v.error, null)
+  const rows = [row(occRaw)]
+  const side = new Map([[occKey, rec(occKey, { owner: '某人' })]])
+  const rp = ex.retirePlanOf(entriesOf(dead), rows, side, { retireIntents: v.intents })
+  assert.equal(rp.retireKeys, 1)
+  assert.equal(rp.retire[0].intent.sameNumberProof, proof)
+  // 落盘:留痕条目必须多写 sameNumberProof 键(可追责:凭"活票自己有归属记录"这一正证退的场)
+  const d = repo()
+  mkdirSync(path.join(d, 'scripts', 'data'), { recursive: true })
+  mkdirSync(path.join(d, '.ihui-agent', 'state'), { recursive: true })
+  writeFileSync(path.join(d, FIELDS_REL), JSON.stringify(dead) + '\n', 'utf8')
+  writeFileSync(path.join(d, LEDGER_REL), '', 'utf8')
+  const res = ex.applyRetireRecords(d, rp)
+  assert.equal(res.state, 'stripped')
+  const entry = JSON.parse(readFileSync(path.join(d, LEDGER_REL), 'utf8').trim().split('\n')[0])
+  assert.equal(entry.sameNumberProof, proof)
+  assert.equal(entry.kind, ex.RETIRE_DROP_KIND)
+})
+
+// ㉓ 反向安全锁(这条出口的核心):占号的活行自己没有侧车记录 ⇒ 三验不过 (ii) ⇒ 绝不退,
+//   且 held 文案点名 (ii)。缺这一支,同号出口就退化成"声明人说了算"⇒ 会误退活票归属记录。
+test('㉓ 同号族带凭据出口反向:活行自己没有侧车记录 ⇒ 不退,且 why 点名 (ii)', () => {
+  const occRaw = '- [ ] **G-50 搬入盘符演练题面**'
+  const dead = rec('G-50#收敛链这一轮量到的四格')
+  const v = ex.validateRetireIntents(
+    [
+      {
+        key: dead.key,
+        why: '该票重排时被并发取号抖动同时给了两号,归并裁决留另一号,本记录是死记录',
+        declaredAt: '2026-10-02T00:00:00.000Z',
+        sameNumberProof: '同号已被另一题面的活行占着,且该活行自带归属记录',
+      },
+    ],
+    [dead],
+  )
+  assert.equal(v.error, null)
+  // sideMap 不含占号活行的键 ⇒ (ii) 不成立
+  const rp = ex.retirePlanOf(entriesOf(dead), [row(occRaw)], new Map(), { retireIntents: v.intents })
+  assert.equal(rp.retireKeys, 0)
+  const h = rp.held.find((x) => x.key === dead.key)
+  assert.ok(h, '三验不过必须出现在 held 里(不退)')
+  assert.match(h.why, /同号行/)
+  assert.match(h.why, /\(ii\)/)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

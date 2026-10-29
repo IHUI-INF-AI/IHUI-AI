@@ -104,5 +104,26 @@
       "reason": "deploy/cdn-server.js:253 规划过该腿,但 2026-10-25 实测 DNS 直接 NXDOMAIN(curl exit 6,连不上)⇒ 该腿当前不存在。挂进 legs 就是恒红靶(§12e);要它进射程得先在 DNS/控制台确认上线,并把 measuredOn/measured 刷新。",
       "evidence": "2026-10-25 现读:nslookup img.aizhs.top = Non-existent domain;curl -s -o /dev/null -w '%{http_code}' = 000"
     }
+  ],
+  "callbackLegsComment": "第三方会 POST 进来的回调腿 —— 消费方 = scripts/check-public-path-probe.mjs 的 --callback-redirect(只读,按 GET 不跟随的状态码判方法会不会被降级重定向吃掉;零 POST,不给自家威胁检测层投喂假签名请求)。2026-10-29 立:GitHub App 回调配在裸域,裸域在 CF 边缘恒 301 → www,跟随方按 RFC 9110 §15.4 把 POST 变 GET ⇒ 收到的是 GET /api/github-app/webhook 404(单档日志 2154 条),投递判失败并重试成洪。",
+  "callbackLegs": [
+    {
+      "id": "github-app-cb",
+      "apexUrl": "https://aizhs.top/api/github-app/webhook",
+      "configuredBy": "GitHub App 设置页(webhook URL 不在 REST API 面,仓内代码不创建它 —— 现读 grep 无 /repos/*/hooks 写调用)",
+      "ourReceiver": "apps/api/src/routes/github-app.ts 注册于 /api/github-app(prefix: routes/index.ts)"
+    },
+    {
+      "id": "github-repo-cb",
+      "apexUrl": "https://aizhs.top/api/webhooks/github",
+      "configuredBy": "2026-10-29 现读:该仓库 webhook = 0 条(org hooks 面 404)⇒ 这一条当前**没有提供方在配**,登记它是因为同一条边缘规则会咬住未来任何配上的仓库 webhook,不得等配上新提供方再重踩一次",
+      "ourReceiver": "apps/api/src/routes/github-webhook.ts:145 注册于 /api/webhooks"
+    },
+    {
+      "id": "alipay-notify-cb",
+      "apexUrl": "https://api.aizhs.top/api/payments/alipay/notify",
+      "configuredBy": "生产 env ALIPAY_NOTIFY_URL 现读主机名 = api.aizhs.top(不是裸域)⇒ 这一条是在验『它有没有也踩降级重定向』,不得凭『配的本来就是子域』放过",
+      "ourReceiver": "verifyNotify RSA 验签在 handler 首行,GET 探测不触达业务"
+    }
   ]
 }
