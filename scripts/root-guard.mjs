@@ -27,7 +27,7 @@
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'node:fs'
 import { createHash } from 'node:crypto'
-import { execFileSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -222,12 +222,7 @@ export function faceDiagnosis({ expected, actual, head }) {
 /** 读 HEAD 面上该目标的哈希(section 模式沿用同一条 extractSection 尺)。取不到 ⇒ null,不冒充。 */
 function headHashOf(target) {
   try {
-    const raw = execFileSync('git', ['show', `HEAD:${target.path}`], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    const raw = gitRaw(['show', `HEAD:${target.path}`], ROOT, {})
     return sha256Of(target.mode === 'section' ? extractSection(raw) : raw)
   } catch {
     return null
