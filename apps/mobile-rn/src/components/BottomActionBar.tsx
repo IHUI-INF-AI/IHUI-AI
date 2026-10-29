@@ -76,6 +76,56 @@ import {
   // 发送/停止槽字形(2026-10-15 再裁决:web 发送簇 ArrowUp/Square 均 h-4 = 16,glyphSm 箭头档)
   BOTTOM_ACTION_BAR_SEND_GLYPH_PX,
 } from '@ihui/shared/ui/bottom-action-bar-spec'
+import type { GestureResponderEvent } from 'react-native'
+import { BottomActionBarControl, type BottomActionBarPlatform } from '@ihui/shared/ui'
+
+const rnBarPlatform: BottomActionBarPlatform<number, ViewStyle, GestureResponderEvent> = {
+  toUnit: (px) => px,
+  glyphUnit: (px) => px,
+  View: ({ boxStyle, style, children }) => <View style={[boxStyle, style]}>{children}</View>,
+  Text: ({ fontSize, color, style, children }) => (
+    <Text style={[{ fontSize, color }, style]}>{children}</Text>
+  ),
+  Pressable: ({
+    onActivate,
+    disabled,
+    boxStyle,
+    style,
+    disabledStyle,
+    children,
+    accessibilityLabel,
+  }) => (
+    <Pressable
+      onPress={onActivate}
+      disabled={disabled}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      {({ pressed }) => (
+        <View
+          style={[
+            boxStyle,
+            style,
+            disabled === true ? disabledStyle : null,
+            pressed ? { opacity: 0.85 } : null,
+          ]}
+        >
+          {children}
+        </View>
+      )}
+    </Pressable>
+  ),
+  Glyph: ({ name, size, color }) => {
+    if (name === 'square') {
+      return <Square size={size} color={color} fill={color} />
+    }
+    if (name === 'plus') {
+      return <Paperclip size={size} color={color} />
+    }
+    return <ArrowUp size={size} color={color} />
+  },
+}
 
 // ── 兼容旧 API:简单按钮列表 ──
 
@@ -685,29 +735,18 @@ function ChatInputBar(props: BottomActionBarProps) {
         ) : null}
 
         {onSend !== undefined ? (
-          <Pressable
-            style={[styles.sendBtn, isLoading ? styles.sendBtnDisabled : null]}
-            onPress={onSend}
+          <BottomActionBarControl
+            platform={rnBarPlatform}
+            boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
+            glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
+            glyph={isLoading ? 'square' : 'arrow-up'}
+            glyphColor={tokens.brand.ctaForeground}
+            label={t('chat.send')}
+            onActivate={onSend}
             disabled={isLoading}
-            hitSlop={4}
-            accessibilityRole="button"
-            accessibilityLabel={t('chat.send')}
-          >
-            {isLoading ? (
-              /* 流式/发送中 = 停止语义:与 web 发送簇 Square(实心方块)同形,
-                 不再用 ActivityIndicator 充当图标(AGENTS §4 矢量铁律)。 */
-              <Square
-                size={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
-                color={tokens.brand.ctaForeground}
-                fill={tokens.brand.ctaForeground}
-              />
-            ) : (
-              /* 发送字形 2026-10-15 再裁决:与 web 发送簇 ArrowUp 同形同档(h-4 = 16),
-                 告别旧裁决的 lucide `Send` 纸飞机(墨迹 14);档源 BOTTOM_ACTION_BAR_SEND_GLYPH_PX。
-                 此前更早的形态是文字「发送」胶囊(硬编码中文,三端唯一的文字胶囊)。 */
-              <ArrowUp size={BOTTOM_ACTION_BAR_SEND_GLYPH_PX} color={tokens.brand.ctaForeground} />
-            )}
-          </Pressable>
+            style={styles.sendBtn}
+            disabledStyle={styles.sendBtnDisabled}
+          />
         ) : null}
       </View>
 
@@ -1134,8 +1173,6 @@ const styles = StyleSheet.create({
   // 发送可见方块:档源在共享 spec(= web `message-input.tsx` 的 `h-8 w-8` = 32)。
   // 可点区不减:`hitSlop`(本文件多处已在用)把命中区扩到 40,可见盒与小程序端逐档同值。
   sendBtn: {
-    width: BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
-    height: BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
     borderRadius: INPUT_BORDER_RADIUS,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',

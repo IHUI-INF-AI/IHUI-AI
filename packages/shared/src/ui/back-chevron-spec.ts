@@ -21,6 +21,7 @@
  * 新增本目录下的模块时,package.json 的 ./ui/* 与架构表的 public_entrypoints 已覆盖,无需再改出口表。
  */
 import { GEOMETRY_PX } from '@ihui/design-tokens'
+import { NAVBAR_BACK_GLYPH_PX } from './navbar-spec'
 
 /** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
 export type GeometryUnit<U extends string | number> = (px: number) => U
@@ -47,9 +48,9 @@ export function backChevronBoxStyle<U extends string | number>(
   }
 }
 
-/** 图标墨迹边长(逻辑 px)。两端必须同一个数,差异只允许出现在单位换算。 */
+/** 图标墨迹边长(逻辑 px)。与 navbar-spec 的 NAVBAR_BACK_GLYPH_PX 同档,供 NavBar 族 wiring 取数。 */
 export function backChevronGlyphPx(): number {
-  return GEOMETRY_PX.glyphMd
+  return NAVBAR_BACK_GLYPH_PX
 }
 
 /** 按下态弱化值:两端此前各自写 0.6,收进一处(RN pressed 样式与小程序 hoverClass 同值)。 */

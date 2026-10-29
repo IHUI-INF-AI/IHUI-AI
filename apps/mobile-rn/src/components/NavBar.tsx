@@ -16,10 +16,9 @@
 import { rnSpacing } from '@ihui/design-tokens'
 import { type ReactNode } from 'react'
 import { Image, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native'
-import { tokens } from '../theme/active-tokens'
-import { ChevronLeft } from 'lucide-react-native'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
-import { backChevronBoxStyle, backChevronGlyphPx } from '@ihui/shared/ui/back-chevron-spec'
+import { BackChevron } from '@ihui/rn-app'
 import {
   NAVBAR_ACTION_GLYPH_PX,
   NAVBAR_ACTION_LABEL_FONT_PX,
@@ -35,6 +34,7 @@ import {
   NAVBAR_TITLE_MAX_WIDTH_PX,
   navbarActionBoxStyle,
 } from '@ihui/shared/ui/navbar-spec'
+import { NavBarCore, type NavBarCorePlatform } from '@ihui/shared/ui'
 import { useI18n } from '../i18n'
 
 export interface NavBarAction {
@@ -62,9 +62,17 @@ export interface NavBarProps {
 
 /// 行高/侧占位/按钮盒/字号不在本文件取数 —— 唯一源是 @ihui/shared/ui/navbar-spec(与小程序端同档);
 /// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等。hitSlop 是 RN 独有命中扩张通道(waiver,数值对齐)。
-const BACK_BUTTON_STYLE = backChevronBoxStyle((px: number) => px)
 const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
 const ACTION_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 } as const
+
+const NAVBAR_PLATFORM: NavBarCorePlatform<ViewStyle, ViewStyle, undefined> = {
+  Box: ({ style, children }) => <View style={style}>{children}</View>,
+  Text: ({ style, numberOfLines, children }) => (
+    <Text style={style} numberOfLines={numberOfLines}>
+      {children}
+    </Text>
+  ),
+}
 
 /**
  * RN 类型 position 不含 'sticky'(StyleSheetTypes.d.ts 仅声明 'absolute'|'relative'|'static'),
@@ -94,56 +102,43 @@ export function NavBar({
     (rightActions !== undefined && rightActions.length > 0) || rightAction !== undefined
 
   return (
-    <View style={[styles.container, sticky ? STICKY_STYLE : null]}>
-      <View style={[styles.row, { height: contentHeight }]}>
-        {/* 左侧:back + leftActions */}
-        <View style={styles.leftSection}>
+    <NavBarCore
+      platform={NAVBAR_PLATFORM}
+      containerStyle={[styles.container, sticky ? STICKY_STYLE : null]}
+      rowStyle={[styles.row, { height: contentHeight }]}
+      leftStyle={styles.leftSection}
+      left={
+        <>
           {onBack ? (
-            <TouchableOpacity
+            <BackChevron
               onPress={onBack}
-              hitSlop={BACK_HIT_SLOP}
-              style={styles.backBtn}
-              activeOpacity={0.6}
-              accessibilityRole="button"
-              accessibilityLabel={t('common.back')}
-            >
-              <ChevronLeft size={backChevronGlyphPx()} color={tokens.text.primary} />
-            </TouchableOpacity>
+              label={t('common.back')}
+              colorScheme={currentRnTheme()}
+              style={styles.backBtnWrap}
+            />
           ) : null}
           {leftActions?.map((action, index) => (
             <NavBarActionButton key={index} action={action} />
           ))}
           {!hasLeftContent ? <View style={styles.sidePlaceholder} /> : null}
-        </View>
-
-        {/* 中间:title + subtitle(flex 居中)。
-            2026-09-23 修复 P1:两侧功能图标过多压缩标题空间,"智汇AI" 4 字在 18px 下被截断为"智汇..."。
-            方案 B+C:center 加下限确保标题区至少容纳 4 个中文字 + title 字号 18→16 释放横向空间。
-            下限与截断上限都不再写在本文件:唯一源是 navbar-spec 的
-            NAVBAR_CENTER_MIN_WIDTH_PX / NAVBAR_TITLE_MAX_WIDTH_PX,小程序端取的是同一对档。 */}
-        <View style={styles.center}>
-          {title ? (
-            <Text style={styles.title} numberOfLines={1}>
-              {title}
-            </Text>
-          ) : null}
-          {subtitle ? (
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* 右侧:rightActions + rightAction(兼容旧 API) */}
-        <View style={styles.rightSection}>
+        </>
+      }
+      centerStyle={styles.center}
+      title={title}
+      titleStyle={styles.title}
+      subtitle={subtitle}
+      subtitleStyle={styles.subtitle}
+      rightStyle={styles.rightSection}
+      right={
+        <>
           {rightActions?.map((action, index) => (
             <NavBarActionButton key={index} action={action} />
           ))}
           {rightAction ? <View style={styles.legacyRight}>{rightAction}</View> : null}
           {!hasRightContent ? <View style={styles.sidePlaceholder} /> : null}
-        </View>
-      </View>
-    </View>
+        </>
+      }
+    />
   )
 }
 
@@ -203,7 +198,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backBtn: BACK_BUTTON_STYLE,
+  backBtnWrap: {
+    marginRight: 4,
+  },
   center: {
     flex: 1,
     alignItems: 'center',

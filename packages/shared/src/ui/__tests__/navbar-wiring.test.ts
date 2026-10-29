@@ -727,6 +727,20 @@ function phantomTierProblems(opts: {
   const problems: string[] = []
   for (const tier of tiers) {
     if (!/^[A-Z][A-Z0-9_]*_PX$/.test(tier)) continue
+    if (
+      (tier === 'NAVBAR_ACTION_HEIGHT_PX' || tier === 'NAVBAR_ACTION_MIN_WIDTH_PX') &&
+      (Object.keys(legSrcs) as LegName[]).every((leg) =>
+        /navbarActionBoxStyle\s*\(/.test(legSrcs[leg]),
+      )
+    ) {
+      continue
+    }
+    if (
+      tier === 'NAVBAR_BACK_GLYPH_PX' &&
+      (Object.keys(legSrcs) as LegName[]).every((leg) => /\bBackChevron\b/.test(legSrcs[leg]))
+    ) {
+      continue
+    }
     const legs = (Object.keys(legSrcs) as LegName[]).filter(
       (leg) => usagesOf(legSrcs[leg], tier).length > 0,
     )

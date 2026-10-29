@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import type { CSSProperties } from 'react'
 import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
@@ -16,6 +17,7 @@ import {
   NAVBAR_TITLE_MAX_WIDTH_PX,
   navbarActionBoxStyle,
 } from '@ihui/shared/ui/navbar-spec'
+import { NavBarCore, type NavBarCorePlatform } from '@ihui/shared/ui'
 import { rpx, px } from '@/utils/rpx'
 import BackChevron from '@/components/BackChevron'
 
@@ -24,6 +26,19 @@ const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
 /// LineIcon 的 size 收 rpx 数值(与 BackChevron 同一口径)
 const ACTION_GLYPH_RPX_NUM = NAVBAR_ACTION_GLYPH_PX * TARO_RPX_PER_PX
 const ACTION_BOX_STYLE = navbarActionBoxStyle(toUnit)
+
+const NAVBAR_PLATFORM: NavBarCorePlatform<CSSProperties, CSSProperties, string> = {
+  Box: ({ style, className, children }) => (
+    <View className={className} style={style}>
+      {children}
+    </View>
+  ),
+  Text: ({ style, className, children }) => (
+    <Text className={className} style={style}>
+      {children}
+    </Text>
+  ),
+}
 const TITLE_FONT = toUnit(NAVBAR_TITLE_FONT_PX)
 /// 标题区下限 / 标题截断宽:与 RN 的 center.minWidth、title.maxWidth 同档同值(两端都真取它,
 /// 不是把数字搬进声明而另一端仍渲染别的宽度)
@@ -146,22 +161,18 @@ export default function NavBar({
   if (variant === 'ai-home') {
     // ===== ai-home 模式:对齐原项目 navigation-bars/index.vue(粘性 + 标题居中 + 左菜单 + 右加入按钮)=====
     return (
-      <View
-        className="sticky top-0 left-0 right-0 z-[1001] flex flex-col"
-        style={{ backgroundColor: bgColor }}
-      >
-        {/* 状态栏占位 */}
-        <View style={{ height: px(statusBarHeight) }} />
-        {/* 标题栏:flex 行布局,左菜单 / 中标题 / 右加入按钮 */}
-        <View
-          className="relative flex items-center"
-          style={{
-            height: px(navBarHeight),
-            paddingLeft: toUnit(NAVBAR_SIDE_PADDING_PX),
-            paddingRight: toUnit(NAVBAR_SIDE_PADDING_PX),
-          }}
-        >
-          {/* 左侧:返回首页按钮 + 菜单按钮(对齐原项目 navigation-bars: @pack + @menu-click) */}
+      <NavBarCore
+        platform={NAVBAR_PLATFORM}
+        leading={<View style={{ height: px(statusBarHeight) }} />}
+        containerClassName="sticky top-0 left-0 right-0 z-[1001] flex flex-col"
+        containerStyle={{ backgroundColor: bgColor }}
+        rowClassName="relative flex items-center"
+        rowStyle={{
+          height: px(navBarHeight),
+          paddingLeft: toUnit(NAVBAR_SIDE_PADDING_PX),
+          paddingRight: toUnit(NAVBAR_SIDE_PADDING_PX),
+        }}
+        left={
           <View className="flex items-center gap-[12rpx]">
             {onPack ? <BackChevron onTap={onPack} color={textColor} /> : null}
             <View style={ACTION_BOX_STYLE} onClick={onMenuClick} hoverClass="opacity-60">
@@ -172,8 +183,9 @@ export default function NavBar({
               />
             </View>
           </View>
-          {/* 中间:标题切换(每日资讯/排行榜)或普通标题 */}
-          {onActiveNav ? (
+        }
+        center={
+          onActiveNav ? (
             <View
               className="flex flex-1 items-center justify-center gap-[40rpx]"
               style={CENTER_STYLE}
@@ -209,14 +221,13 @@ export default function NavBar({
             </View>
           ) : (
             <View className="flex flex-1 items-center justify-center" style={CENTER_STYLE}>
-              {/* 标题截断宽与 RN 端同档(spec `NAVBAR_TITLE_MAX_WIDTH_PX` = 150,即原写法 rpx(300)
-                  的同一数值):两端最终落到屏幕上的宽度相同,不是只把数字搬进声明。 */}
               <Text className="font-bold truncate" style={{ color: textColor, ...TITLE_STYLE }}>
                 {title}
               </Text>
             </View>
-          )}
-          {/* 右侧:反馈按钮 / 分类按钮 / 搜索按钮 / 加入社区群按钮(对齐原项目 navigationBars) */}
+          )
+        }
+        right={
           <View className="ml-auto flex flex-shrink-0 items-center gap-[12rpx]">
             {showFeedback ? (
               <View style={ACTION_BOX_STYLE} onClick={onFeedbackClick} hoverClass="opacity-60">
@@ -249,8 +260,6 @@ export default function NavBar({
               <View
                 className="flex flex-shrink-0 items-center justify-center"
                 style={{
-                  // 侧按钮盒档(最小宽 + 定高)与同行图标钮、RN 的 actionBtn 同一份 spec 盒子;
-                  // 原端内自写 height: rpx(48)=24px 是本文件里第二枚按钮盒档,收口到 spec 的 32。
                   ...ACTION_BOX_STYLE,
                   padding: '0 16rpx',
                   border: '3rpx solid var(--color-brand-accent-deep)',
@@ -273,11 +282,84 @@ export default function NavBar({
               </View>
             ) : null}
           </View>
-        </View>
-        {notification && (
+        }
+        trailing={
+          notification ? (
+            <View
+              className="flex items-center justify-between px-[32rpx] py-[16rpx]"
+              style={{ backgroundColor: 'var(--color-notification-bg)' }}
+            >
+              <Text
+                className="flex-1 truncate text-[length:24rpx]"
+                style={{ color: 'var(--color-notification-text)' }}
+              >
+                {notification.text}
+              </Text>
+              <LineIcon
+                name="x"
+                size={32}
+                color="var(--color-notification-text)"
+                className="ml-[16rpx]"
+                onClick={notification.onClose}
+              />
+            </View>
+          ) : undefined
+        }
+      />
+    )
+  }
+
+  // ===== 默认模式:fixed 顶部 + 返回按钮(兼容 distribution 等旧调用)=====
+  return (
+    <NavBarCore
+      platform={NAVBAR_PLATFORM}
+      containerClassName={cn('fixed top-0 left-0 right-0 z-50 flex flex-col')}
+      containerStyle={{
+        backgroundColor: bgColor,
+        paddingTop: px(statusBarHeight),
+        height: px(statusBarHeight + navBarHeight),
+      }}
+      rowClassName="relative flex items-center justify-center w-full"
+      rowStyle={{ height: px(navBarHeight) }}
+      left={
+        showBack ? (
+          <View className="absolute left-2 flex items-center" style={rowBoxStyle}>
+            <BackChevron onTap={handleBack} color={textColor} />
+          </View>
+        ) : undefined
+      }
+      center={
+        <Text
+          className="font-medium truncate max-w-[60%]"
+          style={{ color: textColor, fontSize: TITLE_FONT, lineHeight: px(navBarHeight) }}
+        >
+          {title}
+        </Text>
+      }
+      right={
+        rightText ? (
+          <View className="absolute right-3 flex items-center" style={rowBoxStyle}>
+            <View
+              className="px-2"
+              style={ACTION_BOX_STYLE}
+              onClick={onRightClick}
+              hoverClass="opacity-60"
+            >
+              <Text className="truncate" style={{ color: textColor, ...ACTION_LABEL_STYLE }}>
+                {rightText}
+              </Text>
+            </View>
+          </View>
+        ) : undefined
+      }
+      trailing={
+        notification ? (
           <View
-            className="flex items-center justify-between px-[32rpx] py-[16rpx]"
-            style={{ backgroundColor: 'var(--color-notification-bg)' }}
+            className="absolute left-0 right-0 flex items-center justify-between px-[32rpx] py-[16rpx]"
+            style={{
+              top: px(statusBarHeight + navBarHeight),
+              backgroundColor: 'var(--color-notification-bg)',
+            }}
           >
             <Text
               className="flex-1 truncate text-[length:24rpx]"
@@ -285,8 +367,6 @@ export default function NavBar({
             >
               {notification.text}
             </Text>
-            {/* 关闭键载体 = 矢量(O81 票:原为字符 × 冒充图标);
-                尺寸沿用该元素原数值档 32rpx,色档沿用 var(--color-notification-text) 不变 */}
             <LineIcon
               name="x"
               size={32}
@@ -295,74 +375,9 @@ export default function NavBar({
               onClick={notification.onClose}
             />
           </View>
-        )}
-      </View>
-    )
-  }
-
-  // ===== 默认模式:fixed 顶部 + 返回按钮(兼容 distribution 等旧调用)=====
-  return (
-    <View
-      className={cn('fixed top-0 left-0 right-0 z-50 flex items-center justify-center')}
-      style={{
-        backgroundColor: bgColor,
-        paddingTop: px(statusBarHeight),
-        height: px(statusBarHeight + navBarHeight),
-      }}
-    >
-      {showBack && (
-        <View className="absolute left-2 flex items-center" style={rowBoxStyle}>
-          <BackChevron onTap={handleBack} color={textColor} />
-        </View>
-      )}
-      <Text
-        className="font-medium truncate max-w-[60%]"
-        style={{ color: textColor, fontSize: TITLE_FONT, lineHeight: px(navBarHeight) }}
-      >
-        {title}
-      </Text>
-      {rightText && (
-        <View className="absolute right-3 flex items-center" style={rowBoxStyle}>
-          {/* 侧按钮盒子 = navbarActionBoxStyle(最小宽 28 + 定高 32 + 行内居中),与 RN 的 actionBtn
-              同一条出口、同一份尺寸;端内只加自己的水平留白 px-2。 */}
-          <View
-            className="px-2"
-            style={ACTION_BOX_STYLE}
-            onClick={onRightClick}
-            hoverClass="opacity-60"
-          >
-            {/* 侧按钮文字宽度上限与 RN 的 actionLabel 同一档(spec 60);truncate = RN 的 numberOfLines={1} */}
-            <Text className="truncate" style={{ color: textColor, ...ACTION_LABEL_STYLE }}>
-              {rightText}
-            </Text>
-          </View>
-        </View>
-      )}
-      {notification && (
-        <View
-          className="absolute left-0 right-0 flex items-center justify-between px-[32rpx] py-[16rpx]"
-          style={{
-            top: px(statusBarHeight + navBarHeight),
-            backgroundColor: 'var(--color-notification-bg)',
-          }}
-        >
-          <Text
-            className="flex-1 truncate text-[length:24rpx]"
-            style={{ color: 'var(--color-notification-text)' }}
-          >
-            {notification.text}
-          </Text>
-          {/* 关闭键载体 = 矢量(与上方 ai-home 同一处 × 同批收口);尺寸/色档同口径 */}
-          <LineIcon
-            name="x"
-            size={32}
-            color="var(--color-notification-text)"
-            className="ml-[16rpx]"
-            onClick={notification.onClose}
-          />
-        </View>
-      )}
-    </View>
+        ) : undefined
+      }
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

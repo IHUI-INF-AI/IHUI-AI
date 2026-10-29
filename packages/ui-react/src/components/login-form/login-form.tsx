@@ -190,12 +190,7 @@ export function LoginForm(props: LoginFormProps) {
       setShowAgreeErr(false)
       // 与下方 useEffect 同判据;切 tab 时在 commit 前即开弹窗,避免 Radix/happy-dom 下
       // 仅依赖 effect 时序导致「点扫码 tab 协议窗未即现」(qr-entry-agreement-prompt ③)。
-      if (
-        next === 'qr' &&
-        showAgreement &&
-        !agreed &&
-        agreementMode === 'notice-dialog'
-      ) {
+      if (next === 'qr' && showAgreement && !agreed && agreementMode === 'notice-dialog') {
         setNoticeOpen(true)
       }
     },
