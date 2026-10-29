@@ -418,7 +418,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         id: checkout
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         id: setup-python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
