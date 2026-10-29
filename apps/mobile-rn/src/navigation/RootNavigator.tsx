@@ -22,6 +22,7 @@ import { useI18n } from '../i18n'
 import { LoginScreen } from '../screens/LoginScreen'
 import { HomeScreen } from '../screens/HomeScreen'
 import { ChatScreen } from '../screens/ChatScreen'
+import { ChatWorkbenchScreen } from '../screens/ChatWorkbenchScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
 import { CourseScreen } from '../screens/CourseScreen'
 import { LiveScreen } from '../screens/LiveScreen'
@@ -411,6 +412,8 @@ export type RootStackParamList = {
      */
     autoSendVoice?: { url: string; durationSec: number }
   }
+  /** 聊天工作台(web /chat/workbench 的移动端承载,2026-10-29 立) */
+  ChatWorkbench: undefined
   Workflows: undefined
   Automations: { id?: string }
   Dashboard: undefined
@@ -966,6 +969,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Home" component={HomeScreen} />
             <RootStack.Screen name="DomainHub" component={DomainHubScreen} />
             <RootStack.Screen name="Chat" component={ChatScreen} />
+            <RootStack.Screen name="ChatWorkbench" component={ChatWorkbenchScreen} />
             <RootStack.Screen name="OrderRefund" component={OrderRefundScreen} />
             <RootStack.Screen name="Payment" component={PaymentScreen} />
             <RootStack.Screen name="Vip" component={VipScreen} />
