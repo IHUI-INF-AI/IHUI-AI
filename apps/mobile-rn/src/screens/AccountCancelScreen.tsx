@@ -2,7 +2,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import {} from 'react-native'
 import { appAlert } from '../components/BottomPops'
@@ -10,7 +10,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { AccountCancelScreen as SharedAccountCancelScreen } from '@ihui/rn-app'
-import { deleteAccount, sendSmsCode } from '@ihui/api-client'
+import { deleteAccountWithCode, sendSmsCode } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -32,6 +32,8 @@ export default function AccountCancelScreen() {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmCountdown, setConfirmCountdown] = useState(5)
   const [submitting, setSubmitting] = useState(false)
+  // 二次确认闸门的状态位:第一击开弹窗,弹窗内那一击才真发请求(见 onSubmit)
+  const confirmGateRef = useRef(false)
 
   useEffect(() => {
     if (countdown > 0) {
@@ -86,10 +88,22 @@ export default function AccountCancelScreen() {
       appAlert(t('home.pubTip'), err)
       return
     }
+    // 共享屏的主提交按钮与二次确认弹窗的"确认注销"按钮**回调的是同一个 onSubmit**,
+    // 而 setShowConfirmModal(true) 在 RN 侧从未被调用 ⇒ "注销后数据不可恢复"这道
+    // 5 秒倒计时闸门在 RN 端根本不出现。用这一位区分两击:第一击只开闸门。
+    if (!confirmGateRef.current) {
+      confirmGateRef.current = true
+      setConfirmCountdown(5)
+      setShowConfirmModal(true)
+      return
+    }
+    confirmGateRef.current = false
     setSubmitting(true)
     try {
-      // 真实注销接口(对齐原项目 accountCancel → DELETE /login/cancel;RN 后端为 POST /api/settings/delete-account)
-      const res = await deleteAccount(smsCode.trim(), '用户主动申请注销')
+      // 后端 deleteAccountSchema 只认 code / password 二选一。原实现走 deleteAccount()
+      // 把**短信验证码**当 password 提交 ⇒ 有密码账号收「登录密码错误」、无密码账号收
+      // 「该账户未设置密码」,RN 端注销 0% 可用。验证码必须走 code 通道。
+      const res = await deleteAccountWithCode(smsCode.trim())
       if (!res.success) {
         appAlert(t('home.pubTip'), res.error ?? t('account.failRetry'))
         return
@@ -125,7 +139,10 @@ export default function AccountCancelScreen() {
       onSmsCodeChange={setSmsCode}
       onSendSms={onSendSms}
       onSubmit={onSubmit}
-      onCloseModal={() => setShowConfirmModal(false)}
+      onCloseModal={() => {
+        confirmGateRef.current = false
+        setShowConfirmModal(false)
+      }}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />
