@@ -27,6 +27,7 @@
 
 import { redactCrashText } from '@ihui/shared/utils/redact'
 import type { SSEErrorInfo } from '@ihui/api-client'
+import type { FrameWatermarkFacts } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 
 /** 服务端 crashBodySchema.errorMessage 上限(zod .max(4000)),超限会被 400 静默拒收。 */
@@ -89,5 +90,43 @@ export function reportStreamError(report: StreamErrorReport): void {
   } catch {
     /* 上报失败静默:绝不打断用户可见错误路径 */
   }
+}
+
+/**
+ * b76-15(2026-10-29 立):帧水位事实 → 诊断行(纯函数,可单测)。
+ *
+ * 为什么要这一层而不是直接把 facts 塞进 crash-reports:crash-reports 是**失败轮**
+ * 才发的面,而水位事实在**成功的流**上同样需要可见(全程零丢弃也是要读到的读数)。
+ * 所以本函数产出的是可进 console 与可并入失败上报体的通用投影,两条面共用一份
+ * 文案拼装(§0.6 单一真相源),不各写一套。
+ *
+ * 判据纪律(逐条对应 AGENTS §0.3「没判绝不能写成判过」):
+ * - `payloadWatermarkSeen === false` ⇒ 输出里必须**点名** `generation=undetermined
+ *   epoch=undetermined`,绝不许因为"没报错"就让这一行读起来像三维全绿;
+ * - `cursor === null` ⇒ 写 `seq=undetermined`,不写 0(0 是一个合法 seq);
+ * - `dropped` 是**有效读数**,0 照写(它不是"未采到")。
+ */
+export function formatFrameWatermarkFacts(facts: FrameWatermarkFacts): string {
+  const cursor = facts.cursor === null ? 'undetermined' : String(facts.cursor)
+  const dims = facts.payloadWatermarkSeen
+    ? 'generation=judged epoch=judged'
+    : 'generation=undetermined epoch=undetermined'
+  return `kind=${facts.kind} dropped=${String(facts.dropped)} seq=${cursor} payloadWatermark=${facts.payloadWatermarkSeen ? 'seen' : 'absent'} ${dims}`
+}
+
+/**
+ * 帧水位事实的端内消费点(唯一)。
+ *
+ * 落点选择:进 console(dev 与生产都留,与既有 `[SSE-DEBUG]` / `[markdown-stream]`
+ * 同族诊断面),失败轮另由 `send-message` / `send-answer` 并入既有错误上报体
+ * (`frameWatermark` 键,白名单内、默认被服务端 schema 剥离)。刻意**不上屏**:
+ * 丢帧是内部协议事实,用户看到的是"回答被截断"这类既有文案,不把内部计数顶到界面。
+ */
+export function reportFrameWatermarkFacts(facts: FrameWatermarkFacts): void {
+  // 只在有可读事实时打一行:终态兜底在每轮流末都会来一次,静默流也要留读数
+  // (否则"没丢"这一读数永远没人看得见)。丢弃事件用 warn 提高可检索性。
+  const line = `[frame-watermark] ${formatFrameWatermarkFacts(facts)}`
+  if (facts.dropped > 0) console.warn(line)
+  else console.info(line)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

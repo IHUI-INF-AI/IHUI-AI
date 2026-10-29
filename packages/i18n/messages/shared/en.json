@@ -2547,5 +2547,26 @@
         }
       }
     }
+  },
+  "streamErrors": {
+    "action": {
+      "retry": "Retry",
+      "waitAndRetry": "Retry in a moment",
+      "switchModel": "Switch model",
+      "checkQuota": "View quota",
+      "contactAdmin": "Contact admin",
+      "relogin": "Sign in again",
+      "upgradeApp": "Update app",
+      "trimContext": "Trim context",
+      "none": "Got it"
+    },
+    "admission": {
+      "tentative": "Sent, waiting for server confirmation",
+      "admitted": "Accepted by server",
+      "queued": "Queued until the current answer finishes",
+      "rejected": "Server rejected this message",
+      "unconfirmed": "Could not confirm delivery — check before resending"
+    },
+    "nextStepLabel": "Next step"
   }
 }

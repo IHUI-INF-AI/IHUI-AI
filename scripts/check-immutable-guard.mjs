@@ -30,8 +30,35 @@
  * ## 为什么 pre-commit 档不给消息就判"未判定"而不是"判红"
  *
  * 结构上拿不到输入 ⇒ 按 §0.3 只能是 exit 2「未判定」，不能冒红（那会是一道恒红门，
- * 逼人 `--no-verify`，§12e）也不能记绿（那等于没有护栏）。所以接线位天然是 **commit-msg**
- * 钩子（此时 `$1` 就是本次消息文件），建议见 `PROJECT_PLAN` / 交付报告。
+ * 逼人 `--no-verify`，§12e）也不能记绿（那等于没有护栏）。所以本门**刻意不进提交链**：
+ * 守门执行器 `lib/guardian-executor.mjs` 对注册条目**无条件追加 `--staged`**（现读
+ * `const cmdArgs = [...check.args]` + `if (passStaged) cmdArgs.push('--staged')`），而
+ * `--staged` 档在本门里结构上没有消息来源 ⇒ 只要提交触及受保护面就 exit 2 ⇒ 按 §12e
+ * 那正是一道恒堵门。要把它升成阻断档，前置 = 挂点换到 **commit-msg**（此时 `$1` 就是
+ * 本次消息文件）且执行器要能按门给面参数，两件事都不在本席射程内（热档只读）。
+ *
+ * ## 派发点（2026-10-30 接线，§0.9"造好没装车 = 没有"的出口）
+ *
+ * 唯一调度器 = `scripts/git-guardian.mjs` 的 `auditImmutableGuardNewCommits()`（巡检轮，
+ * 5 分钟节流），跑 `--audit-new --record --json`：
+ *
+ *   `--audit-new` 判"**游标之后**的每一枚新提交恰好一次"（游标 =
+ *                  `.ihui-agent/state/immutable-guard-audit.json`，与 `check-merge-addition-loss.mjs
+ *                  --all-new` 同型）；每枚提交按**它自己那一面**取清单与改动
+ *                  （`${rev}` 与 `${rev}^`，§0.4 同面同轮），提交信息取 `${rev}` 自己的正文。
+ *   首轮无游标 ⇒ **只立游标、不判历史**（state=bootstrapped 并明写"历史未判"）：老提交里
+ *                  没带 trailer 的是存量，按 §0.2 不许拿存量把这枚巡检点红，也不许写成"零违规"。
+ *   游标不是 HEAD 祖先（改写史 / 强推）⇒ 只判最近 `--limit` 枚并点名 `cursor-detached`，
+ *                  绝不静默当成"没有新提交"。
+ *   区间超过 `--limit`（默认 50）⇒ 本轮只判最老那一段、游标推进到已判末位，余数进
+ *                  `pending` 报数 ⇒ 节律上收敛，不是丢。
+ *   合并提交**跳过并计数**（`skippedMerges`）：它按第一父比 diff，命中就是父辈内容的并集，
+ *                  而父辈那些枚自己已被判过 ⇒ 再判一遍是把同一件事记两回。残余缺口 =
+ *                  恶意 merge 自己改判据面（两父都没有的形态）：那一格归 `root-guard --check`
+ *                  的哈希封条（部署环 fail-closed），本档如实不覆盖。
+ *
+ * 判红不阻断任何提交（旁路检测档），但经 guardian 的到人通道按**稳定身份**去重上报
+ * （`dedupKey='undeclared'`，明细与 sha 不进身份，§5e-3）：判据必须"看得见地响"。
  *
  * ## 判定顺序（`lib/immutable-guard.mjs` 的 `decide`，单一真相源）
  *
@@ -42,6 +69,7 @@
  *   node scripts/check-immutable-guard.mjs                    # HEAD 面（HEAD vs HEAD^）
  *   node scripts/check-immutable-guard.mjs --staged --message-file .git/COMMIT_EDITMSG
  *   node scripts/check-immutable-guard.mjs --worktree --message "…"
+ *   node scripts/check-immutable-guard.mjs --audit-new [--record] [--limit 50] [--json]
  *   node scripts/check-immutable-guard.mjs --self-test        # 自检（真跑 git 夹具，§22c 反向牙）
  */
 
@@ -76,15 +104,27 @@ export const SELF_SKIP = 'HUSKY_SKIP_IMMUTABLE_GUARD'
 export const RECORD_REL = '.ihui-agent/state/immutable-guard-exemptions.jsonl'
 
 /**
+ * 增量巡检游标（`--audit-new`）：记"判到哪儿了"，与 `check-merge-addition-loss.mjs --all-new`
+ * 的位移游标同型 —— 游标之后的每一枚新提交判**恰好一次**。只判"最近一枚"在这一仓不行：
+ * 多会话分钟级提交（现读 `.ihui-agent/state/` 各留痕）会让真正该判的那枚跟着别人的提交滑走，
+ * 挂点存在而输入看不见 = §0.9 的"挂着-but-瞎"。
+ */
+export const CURSOR_REL = '.ihui-agent/state/immutable-guard-audit.json'
+
+/** 单轮最多判多少枚（区间更长时留下轮并在 `pending` 里报数，不丢）。 */
+export const AUDIT_BATCH_DEFAULT = 50
+
+/**
  * 按判定面读单文件正文。取不到返回 null（**不回落**另一个面，§0.4）。
+ * `rev` 只作用于 head 档：增量巡检读的是**那枚提交自己**的清单面（§0.4 清单与改动同面同轮）。
  * @returns {string|null}
  */
-export function readFaceText(root, face, rel) {
+export function readFaceText(root, face, rel, rev = 'HEAD') {
   if (!FACES.includes(face)) throw new Undetermined(`未知判定面 ${String(face)}（只认 ${FACES.join(' / ')}）`)
   if (face === 'worktree') return readWorktreeFile(root, rel)
-  const rev = face === 'staged' ? `:${rel}` : `HEAD:${rel}`
-  const got = catBatch(root, [rev])
-  return got.get(rev) ?? null
+  const key = face === 'staged' ? `:${rel}` : `${rev}:${rel}`
+  const got = catBatch(root, [key])
+  return got.get(key) ?? null
 }
 
 /**
@@ -92,10 +132,10 @@ export function readFaceText(root, face, rel) {
  * `--worktree` 档把未跟踪文件按 A 计入 —— 新建一枚受保护面同样是"触及判据面"。
  * @returns {Array<{status:string,path:string,oldPath?:string}>}
  */
-export function listFaceChanges(root, face) {
+export function listFaceChanges(root, face, rev = 'HEAD') {
   try {
     if (face === 'head') {
-      return parseNameStatusZ(gitRaw(['diff', '--name-status', '-M', '-z', 'HEAD^', 'HEAD'], root))
+      return parseNameStatusZ(gitRaw(['diff', '--name-status', '-M', '-z', `${rev}^`, rev], root))
     }
     if (face === 'staged') {
       return parseNameStatusZ(gitRaw(['diff', '--cached', '--name-status', '-M', '-z'], root))
@@ -115,8 +155,8 @@ export function listFaceChanges(root, face) {
   }
 }
 
-function readHeadMessage(root) {
-  return gitRaw(['log', '-1', '--format=%B', 'HEAD'], root)
+function readHeadMessage(root, rev = 'HEAD') {
+  return gitRaw(['log', '-1', '--format=%B', rev], root)
 }
 
 /**
@@ -126,10 +166,13 @@ function readHeadMessage(root) {
  *   `undefined` ⇒ head 档读 HEAD 提交信息；staged/worktree 档为 `null`（= 结构上没有消息）;
  *   `string`    ⇒ 用调用方给的（`--message` / `--message-file` / 夹具）;
  *   `null`      ⇒ 显式"没有消息"。
+ * `rev` 只作用于 head 档：`--audit-new` 用它把判定面钉在**被审的那枚提交**上
+ *   （清单、改动、提交信息三样都取 `${rev}` 那一轮，§0.4 同面同轮）。
  */
-export function runAudit(root, face, { message = undefined, today = todayStr(), record = false } = {}) {
+export function runAudit(root, face, { message = undefined, today = todayStr(), record = false, rev = 'HEAD' } = {}) {
   const baseOut = {
     face,
+    rev,
     exit: 2,
     code: 'face-missing',
     entryCount: 0,
@@ -143,13 +186,13 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
   }
   let listText
   try {
-    listText = readFaceText(root, face, GUARD_DATA_REL)
+    listText = readFaceText(root, face, GUARD_DATA_REL, rev)
   } catch (e) {
     if (e instanceof Undetermined) return { ...baseOut, detail: e.message, code: 'list-missing' }
     throw e
   }
   if (listText === null) {
-    return { ...baseOut, code: 'list-missing', detail: `受保护面清单在 ${face} 面不存在：${GUARD_DATA_REL}` }
+    return { ...baseOut, code: 'list-missing', detail: `受保护面清单在 ${rev} 面不存在：${GUARD_DATA_REL}` }
   }
   const parsed = parseGuardList(listText, { today })
   if (parsed.problems.length) {
@@ -164,7 +207,7 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
 
   let changes
   try {
-    changes = listFaceChanges(root, face)
+    changes = listFaceChanges(root, face, rev)
   } catch (e) {
     if (e instanceof Undetermined) return { ...baseOut, entryCount: parsed.entries.length, code: 'face-missing', detail: e.message }
     throw e
@@ -174,10 +217,10 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
   if (msg === undefined) {
     if (face === 'head') {
       try {
-        msg = readHeadMessage(root)
+        msg = readHeadMessage(root, rev)
       } catch (e) {
         msg = null
-        baseOut.detail = `HEAD 提交信息取不到：${e?.message ?? e}`
+        baseOut.detail = `${rev} 的提交信息取不到：${e?.message ?? e}`
       }
     } else {
       msg = null
@@ -189,6 +232,7 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
     ...baseOut,
     ...out,
     face,
+    rev,
     entryCount: parsed.entries.length,
     changeCount: changes.length,
     detail: baseOut.detail,
@@ -261,6 +305,215 @@ export function formatReport(out) {
   }
   lines.push(
     `[判定面=${out.face}] code=${out.code} 受保护面 ${out.entryCount} 条 / 改动 ${out.changeCount} 条 / 命中 ${out.hits.length} 条 / 到期 ${out.expired.length} 条 / 未判定 ${out.exit === 2 ? 1 : 0}`,
+  )
+  return lines.join('\n')
+}
+
+// ---------------------------------------------------------------------------
+// 增量巡检档（--audit-new）：巡检轮的唯一入口，判"游标之后每一枚提交恰好一次"
+// ---------------------------------------------------------------------------
+
+/** 游标读不到 / 形状坏 ⇒ 返回 null（调用方按首轮建点，绝不"当成没新提交"记绿）。 */
+export function readCursorText(root) {
+  try {
+    const doc = JSON.parse(readFileSync(path.join(root, CURSOR_REL), 'utf8'))
+    return typeof doc?.cursor === 'string' && /^[a-f0-9]{40}$/.test(doc.cursor.trim()) ? doc.cursor.trim() : null
+  } catch {
+    return null
+  }
+}
+
+/** 游标写失败不影响本轮判定结论（下轮重判同一批 = 重复判，不 = 漏判），但必须回传原因。 */
+export function writeCursor(root, sha, extra = {}) {
+  try {
+    const abs = path.join(root, CURSOR_REL)
+    mkdirSync(path.dirname(abs), { recursive: true })
+    writeFileSync(abs, JSON.stringify({ cursor: sha, at: new Date().toISOString(), ...extra }, null, 2), 'utf8')
+    return ''
+  } catch (e) {
+    return `游标写入失败：${e?.message ?? e}`
+  }
+}
+
+/** 游标必须是 HEAD 的祖先，否则（改写史/强推）`since..HEAD` 会漏掉整段真实历史。 */
+export function isAncestor(root, sha, head) {
+  try {
+    gitRaw(['merge-base', '--is-ancestor', sha, head], root)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const AUDIT_BASE = {
+  exit: 2,
+  state: 'undetermined',
+  audited: 0,
+  judged: 0,
+  skippedMerges: 0,
+  declared: 0,
+  pending: 0,
+  breaches: [],
+  undetermined: [],
+  cursorBefore: '',
+  cursorAfter: '',
+  head: '',
+  detached: false,
+  detail: '',
+}
+
+/**
+ * 判游标之后的新提交（最老→最新，单轮 ≤limit，超出留下轮）。三态各自封闭：
+ *   bootstrapped    首轮建点，**历史未判**（不冒充"零违规"，§0.3；也不拿存量点红，§0.2）；
+ *   no-new-head     游标 == HEAD，本轮零判据（不是"判过且干净"）；
+ *   cursor-detached 游标不在 HEAD 祖先链 ⇒ 只判最近 limit 枚并点名；
+ *   clean           判过的每一枚都未触及 / 已声明；
+ *   breach          至少一枚静默改了判据面（未声明 / 声明过短 / 清单到期）；
+ *   undetermined    至少一枚判不了（HEAD 取不到 / 无父提交 / 清单坏 / 触及却无消息）。
+ * 退出码 0 / 1 / 2 = 上述后三档；breach 与 undetermined 同时有 ⇒ 先报 breach（红优先于没判）。
+ */
+export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = todayStr(), record = false } = {}) {
+  let head
+  try {
+    head = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+  } catch (e) {
+    return { ...AUDIT_BASE, detail: `HEAD 取不到：${e?.message ?? e}` }
+  }
+  if (!/^[a-f0-9]{40}$/.test(head)) return { ...AUDIT_BASE, detail: `HEAD 不是 40 位 sha：${head.slice(0, 20)}` }
+
+  const cursor = readCursorText(root)
+  if (cursor === null) {
+    const why = writeCursor(root, head, { bootstrappedAt: new Date().toISOString() })
+    return {
+      ...AUDIT_BASE,
+      exit: 0,
+      state: 'bootstrapped',
+      head,
+      cursorAfter: head,
+      detail: `游标缺失或形状坏 ⇒ 本轮只把起点建在 ${head}，**历史提交一律未判**（存量按 §0.2 不点红、也不冒充零违规）${why ? `；${why}` : ''}`,
+    }
+  }
+  if (cursor === head) {
+    return { ...AUDIT_BASE, exit: 0, state: 'no-new-head', head, cursorBefore: cursor, cursorAfter: cursor, detail: 'HEAD 与游标同枚 ⇒ 本轮没有新输入（不等于"判过且干净"）' }
+  }
+
+  const detached = !isAncestor(root, cursor, head)
+  let batch
+  let pending = 0
+  if (detached) {
+    batch = String(gitRaw(['rev-list', head], root))
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .slice(0, limit)
+      .reverse()
+  } else {
+    const all = String(gitRaw(['rev-list', '--reverse', `${cursor}..${head}`], root))
+      .split(/\r?\n/)
+      .filter(Boolean)
+    batch = all.slice(0, limit)
+    pending = Math.max(0, all.length - batch.length)
+  }
+  if (batch.length === 0) {
+    // 游标是 HEAD 的后代（别人刚把 HEAD 往回挪）或区间真空 ⇒ 判不了就点名，不推进游标。
+    return { ...AUDIT_BASE, state: 'undetermined', head, cursorBefore: cursor, cursorAfter: cursor, detail: `游标之后枚举到 0 枚提交（cursor=${cursor.slice(0, 12)}）⇒ 未判定，不记绿` }
+  }
+
+  const breaches = []
+  const undetermined = []
+  let declared = 0
+  let skippedMerges = 0
+  for (const sha of batch) {
+    // 合并提交按**第一父**比diff ⇒ 它的命中是"父辈内容的并集"，那些枚自己已被判过；
+    // 再判一遍就是把同一件事记两回（噪音会把巡检读成"天天在响"，§5e-1 的可整改性就没了）。
+    // 残余缺口 = 恶意的 merge 本身改判据面（两父都没有的形态）：那一格归 `root-guard --check`
+    // 的哈希封条（部署环 fail-closed），不归本巡检，本档如实不覆盖它。
+    if (parentCount(root, sha) > 1) {
+      skippedMerges += 1
+      continue
+    }
+    let one
+    try {
+      one = runAudit(root, 'head', { today, record, rev: sha })
+    } catch (e) {
+      one = { exit: 2, code: 'threw', detail: String(e?.message ?? e), hits: [], entryCount: 0, expired: [] }
+    }
+    const brief = {
+      sha,
+      code: one.code,
+      subject: safeSubject(root, sha),
+      hits: (one.hits ?? []).map((h) => ({ path: h.path, kind: h.entry?.kind ?? '', status: h.status ?? '' })),
+      reasons: (one.exempt?.reasons ?? []).map((r) => r.reason),
+      problems: (one.exempt?.problems ?? []).map((p) => p.message),
+      expired: (one.expired ?? []).map((x) => `${x.path}@${x.reviewBy}`),
+      detail: one.detail ?? '',
+    }
+    if (one.exit === 1) breaches.push(brief)
+    else if (one.exit === 2) undetermined.push(brief)
+    else if (one.code === 'declared') declared += 1
+  }
+
+  const lastAudited = batch[batch.length - 1]
+  const cursorWriteWhy = writeCursor(root, lastAudited, { audited: batch.length, pending, detached })
+  const state = breaches.length > 0 ? 'breach' : undetermined.length > 0 ? 'undetermined' : 'clean'
+  const notes = []
+  if (detached) notes.push('游标不在 HEAD 祖先链（改写史/强推）⇒ 本轮按最近提交判')
+  if (pending > 0) notes.push(`区间长于本轮额度（limit=${limit}）⇒ 剩余 ${pending} 枚留下轮，游标只推进到已判末位`)
+  if (cursorWriteWhy) notes.push(cursorWriteWhy)
+  return {
+    exit: breaches.length > 0 ? 1 : undetermined.length > 0 ? 2 : 0,
+    state,
+    head,
+    audited: batch.length,
+    judged: batch.length - skippedMerges,
+    skippedMerges,
+    declared,
+    pending,
+    breaches,
+    undetermined,
+    cursorBefore: cursor,
+    cursorAfter: lastAudited,
+    detached,
+    detail: notes.join('；'),
+  }
+}
+
+/** 父数（>1 = 合并提交）。取不到按 1 处理 ⇒ 宁可多判一枚，不放过一枚。 */
+function parentCount(root, sha) {
+  try {
+    return String(gitRaw(['show', '-s', '--format=%P', sha], root)).trim().split(/\s+/).filter(Boolean).length
+  } catch {
+    return 1
+  }
+}
+
+/** `git log --format=%s` 在根提交上会失败 ⇒ 标题取不到只写空串，不影响判定。 */
+function safeSubject(root, sha) {
+  try {
+    return String(gitRaw(['log', '-1', '--format=%s', sha], root)).trim()
+  } catch {
+    return ''
+  }
+}
+
+/** 人读输出：判红逐枚点名"哪一面 / 为什么受保护 / 怎么合法改"，与单枚档同一口径。 */
+export function formatAuditReport(out) {
+  const lines = []
+  const head = `[immutable-guard:audit] state=${out.state}`
+  if (out.exit === 0 && (out.state === 'clean' || out.state === 'no-new-head')) lines.push(`✅ ${head}`)
+  else if (out.exit === 0 && out.state === 'bootstrapped') lines.push(`ℹ️ ${head}`)
+  else if (out.exit === 1) lines.push(`❌ ${head} 判据面被静默改动（未声明 / 声明过短 / 清单到期）`)
+  else lines.push(`❌ 未判定 ${head}`)
+  for (const b of out.breaches) {
+    lines.push(`   - ${b.sha}「${b.subject}」code=${b.code}`)
+    for (const h of b.hits) lines.push(`     · ${h.path}（${h.kind} / ${h.status}）`)
+    for (const x of b.expired) lines.push(`     · 清单到期：${x}`)
+    for (const p of b.problems) lines.push(`     ⚠️ ${p}`)
+  }
+  for (const u of out.undetermined) lines.push(`   · 未判定 ${u.sha}「${u.subject}」code=${u.code} —— ${u.detail}`)
+  if (out.declared) lines.push(`   已声明（--record 已留痕）：${out.declared} 枚`)
+  if (out.detail) lines.push(`   注：${out.detail}`)
+  lines.push(
+    `[immutable-guard:audit] 判 ${out.audited} 枚(其中合并跳过 ${out.skippedMerges ?? 0} 枚) / 红 ${out.breaches.length} / 未判定 ${out.undetermined.length} / 待判 ${out.pending} / 游标 ${out.cursorBefore.slice(0, 12) || '(无)'} → ${out.cursorAfter.slice(0, 12) || '(无)'}`,
   )
   return lines.join('\n')
 }
@@ -550,6 +803,84 @@ export function selfTest() {
     )
   })
 
+  // ST22 --audit-new 首轮只建点：历史里那枚未声明的改动**不得**被读成"零违规"，也不得点红
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: tweak reader')
+    const out = auditNewCommits(root)
+    ok(
+      'ST22 --audit-new 首轮 ⇒ bootstrapped / exit 0 / 判 0 枚 / 游标落在 HEAD',
+      out.state === 'bootstrapped' && out.exit === 0 && out.audited === 0 && out.cursorAfter === out.head && out.breaches.length === 0,
+      JSON.stringify({ state: out.state, exit: out.exit, audited: out.audited, cursorAfter: out.cursorAfter?.slice(0, 8), head: out.head?.slice(0, 8) }),
+    )
+  })
+
+  // ST23 建点后每一枚新提交判恰好一次：红→判 1 枚，游标推进；再跑一轮 ⇒ 无新输入不记绿成"判过"
+  run((root) => {
+    auditNewCommits(root) // 建点
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// silent edit\n')
+    commitAll(root, 'refactor: silent judgement edit')
+    const bad = auditNewCommits(root)
+    const again = auditNewCommits(root)
+    ok(
+      'ST23 游标后那枚静默改判据面 ⇒ breach/exit 1 且点名路径；下一轮 no-new-head 不重复判',
+      bad.state === 'breach' &&
+        bad.exit === 1 &&
+        bad.audited === 1 &&
+        bad.breaches.length === 1 &&
+        bad.breaches[0].hits.some((h) => h.path === 'scripts/lib/face-reader.mjs') &&
+        again.state === 'no-new-head' &&
+        again.exit === 0,
+      JSON.stringify({ bad: { state: bad.state, audited: bad.audited, hits: bad.breaches.map((b) => b.hits.map((h) => h.path)) }, again: { state: again.state, exit: again.exit } }),
+    )
+  })
+
+  // ST24 单轮额度：区间长于 limit ⇒ 只判最老那段、游标只推进到已判末位、余数进 pending（不丢）
+  run((root) => {
+    auditNewCommits(root) // 建点
+    for (let i = 0; i < 3; i += 1) {
+      writeIn(root, 'scripts/lib/face-reader.mjs', `// edit ${i}\n`)
+      commitAll(root, `refactor: edit ${i}`)
+    }
+    const first = auditNewCommits(root, { limit: 2 })
+    const second = auditNewCommits(root, { limit: 2 })
+    ok(
+      'ST24 limit=2 时先判最老两枚(pending=1)，第二轮补判最后一枚 ⇒ 三枚各判一次',
+      first.audited === 2 && first.pending === 1 && first.breaches.length === 2 && second.audited === 1 && second.breaches.length === 1,
+      JSON.stringify({ first: { audited: first.audited, pending: first.pending, breach: first.breaches.length }, second: { audited: second.audited, breach: second.breaches.length } }),
+    )
+  })
+
+  // ST25 游标被改写（别人 force-push / 历史重写）⇒ 点名 detached，绝不静默"没有新提交"
+  run((root) => {
+    auditNewCommits(root) // 建点
+    writeFileSync(path.join(root, CURSOR_REL), JSON.stringify({ cursor: '0'.repeat(40), at: new Date().toISOString() }), 'utf8')
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// after rewrite\n')
+    commitAll(root, 'refactor: after rewrite')
+    const out = auditNewCommits(root, { limit: 1 })
+    ok(
+      'ST25 游标不在祖先链 ⇒ detached 且仍判到最近一枚（不记绿）',
+      out.detached === true && out.audited === 1 && out.breaches.length === 1 && /祖先链|枚举到 0/.test(out.detail),
+      JSON.stringify({ detached: out.detached, audited: out.audited, breach: out.breaches.length, detail: out.detail.slice(0, 60) }),
+    )
+  })
+
+  // ST26 合并提交不重复计（第一父 diff 是父辈内容的并集）：分支那枚判一次，merge 枚跳过并点名
+  run((root) => {
+    auditNewCommits(root) // 建点
+    gitRaw(['checkout', '-q', '-b', 'feat'], root)
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// branch edit\n')
+    commitAll(root, 'refactor: silent branch edit')
+    gitRaw(['checkout', '-q', 'main'], root)
+    gitRaw(['merge', '-q', '--no-ff', 'feat', '-m', 'Merge branch feat'], root)
+    const out = auditNewCommits(root)
+    ok(
+      'ST26 分支枚判一次 ⇒ breach=1 且 merge 枚 skippedMerges=1（同一件事不记两回）',
+      out.state === 'breach' && out.breaches.length === 1 && out.skippedMerges === 1 && out.judged === 1 && out.audited === 2,
+      JSON.stringify({ state: out.state, breach: out.breaches.length, skippedMerges: out.skippedMerges, judged: out.judged, audited: out.audited }),
+    )
+  })
+
   const failed = cases.filter((c) => !c.ok)
   for (const c of cases) {
     console.log(`${c.ok ? 'ok  ' : 'FAIL'} ${c.name}${c.ok ? '' : ` —— ${c.detail}`}`)
@@ -566,6 +897,8 @@ function parseArgv(argv) {
   const opts = {
     staged: false,
     worktree: false,
+    auditNew: false,
+    limit: AUDIT_BATCH_DEFAULT,
     message: undefined,
     messageFile: null,
     json: false,
@@ -578,7 +911,12 @@ function parseArgv(argv) {
     const a = argv[i]
     if (a === '--staged') opts.staged = true
     else if (a === '--worktree') opts.worktree = true
-    else if (a === '--json') opts.json = true
+    else if (a === '--audit-new') opts.auditNew = true
+    else if (a === '--limit') {
+      const n = Number.parseInt(String(argv[++i]), 10)
+      if (!Number.isFinite(n) || n <= 0) throw new Error(`--limit 必须是正整数，收到：${argv[i]}`)
+      opts.limit = n
+    } else if (a === '--json') opts.json = true
     else if (a === '--record') opts.record = true
     else if (a === '--self-test') opts.selfTest = true
     else if (a === '--message-file') opts.messageFile = argv[++i]
@@ -592,10 +930,12 @@ function parseArgv(argv) {
 }
 
 const USAGE = [
-  '用法: node scripts/check-immutable-guard.mjs [--staged|--worktree] [--message-file <f>|--message <s>] [--json] [--record] [--root <仓根>] [--today <YYYY-MM-DD>]',
+  '用法: node scripts/check-immutable-guard.mjs [--staged|--worktree|--audit-new] [--message-file <f>|--message <s>] [--json] [--record] [--root <仓根>] [--today <YYYY-MM-DD>]',
+  '      node scripts/check-immutable-guard.mjs --audit-new [--limit 50] [--record]   # 巡检轮档（游标之后每枚判一次）',
   '      node scripts/check-immutable-guard.mjs --self-test',
   '',
   `受保护面清单: ${GUARD_DATA_REL}；合法改法: 提交信息里一行 \`${EXEMPT_TRAILER} <≥${MIN_REASON_CHARS} 字理由>\``,
+  `巡检游标: ${CURSOR_REL}（派发点 = scripts/git-guardian.mjs 的 auditImmutableGuardNewCommits）`,
 ].join('\n')
 
 export function main(argv = process.argv.slice(2)) {
@@ -621,6 +961,26 @@ export function main(argv = process.argv.slice(2)) {
   if (opts.staged && opts.worktree) {
     console.error('❌ --staged 与 --worktree 不得同用（两个判定面互斥）')
     return 2
+  }
+  if (opts.auditNew && (opts.staged || opts.worktree)) {
+    console.error('❌ --audit-new 走自己的面（每枚提交自己那一轮），不得与 --staged/--worktree 同用')
+    return 2
+  }
+  if (opts.auditNew) {
+    let out
+    try {
+      out = auditNewCommits(opts.root, {
+        limit: opts.limit,
+        record: opts.record,
+        ...(opts.today ? { today: opts.today } : {}),
+      })
+    } catch (e) {
+      console.error(`❌ 未判定：${e?.message ?? e}`)
+      return 2
+    }
+    if (opts.json) console.log(JSON.stringify(out, null, 2))
+    else console.log(formatAuditReport(out))
+    return out.exit
   }
   const picked = selectFace({ staged: opts.staged, worktree: opts.worktree, def: 'head' })
   if (picked.error) {
@@ -663,12 +1023,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 export const __test__ = {
   SELF_SKIP,
   RECORD_REL,
+  CURSOR_REL,
+  AUDIT_BATCH_DEFAULT,
   ROOT,
   readFaceText,
   listFaceChanges,
   runAudit,
   recordExemption,
   formatReport,
+  readCursorText,
+  writeCursor,
+  isAncestor,
+  auditNewCommits,
+  formatAuditReport,
   selfTest,
   parseArgv,
   seedRepo,

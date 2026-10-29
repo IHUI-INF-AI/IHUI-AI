@@ -800,7 +800,6 @@
     "apps/cli/src/tools/hub/mcp-adapter.ts": 3,
     "apps/cli/src/tools/sandbox/platform/unix.ts": 1,
     "apps/cli/src/tui/prompt-enhancer.ts": 2,
-    "apps/mobile-rn/src/components/CardWithList.tsx": 2,
     "apps/mobile-rn/src/components/DevErrorToast.tsx": 1,
     "apps/mobile-rn/src/lib/web-stubs/react-native-view-shot.ts": 2,
     "apps/mobile-rn/src/lib/wechat-pay.ts": 2,
