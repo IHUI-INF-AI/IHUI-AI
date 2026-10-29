@@ -4,7 +4,7 @@
 
 // 镜像 packages/app/src/features/user-public/UserPublicScreen.tsx
 import ThemeRoot from '@/components/ThemeRoot'
-import { UserPublicScreen as UserPublicScreenShell } from '@rn-shells/UserPublicScreen'
+import UserPublicScreenShell from '@rn-shells/UserPublicScreen'
 
 /**
  * 手工迁移(2026-10-28):判据腿因页面从 `@/api` 导入业务函数(followUser 等)而保守拒转;
