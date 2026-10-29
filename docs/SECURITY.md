@@ -138,12 +138,17 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
 
 ### 4.6 限流与异常检测
 
-- 限流:`apps/api/src/services/security-service.ts` → `RateLimiter`(Redis 滑动窗口)
+- **入口层(边缘)**:`deploy/win/ihui-api-router.mjs` 的单 IP 令牌桶(默认 500 rps / 1000 burst,
+  超限 429 + Retry-After,回环豁免)。本机生产的入口就是这个 Node 反代,**不是 nginx** ——
+  详见 §10.3 与 §10.5。
+- 应用层限流:`apps/api/src/services/security-service.ts` → `RateLimiter`(Redis 滑动窗口)
   - 每分钟 60 次 / 每小时 1000 次(默认,可按路由覆盖)
   - `@fastify/rate-limit` 插件提供框架级限流
 - IP 黑名单:`isIpBlacklisted()`(Redis set `sec:ip:blacklist`)
 - 异常检测:`recordIpFailure()` 连续失败 10 次自动拉黑 1 小时
 - IP 提取:`X-Forwarded-For` > `X-Real-IP` > `request.ip`(支持反代)
+  - 注:入口限流**刻意不用** XFF 做 key(可伪造),只用 TCP 对端地址;应用层的 XFF 提取
+    用于业务风控,不能当作限流依据。
 
 ### 4.7 凭证加密存储
 
@@ -311,17 +316,82 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
   `src/plugins/__tests__/cors-origin.test.ts`(10 用例,含"未配置即拒绝"核心契约)钉死 fail-closed,
   防止未来有人把 `chrome-extension` 误放回 `extAllowed=true` 静默回退。
 
-### 10.3 P1 — nginx 边缘限流落地确认
+### 10.3 ⚠️ 更正 — 本机生产的边缘层**不是 nginx**(2026-10-29 实测)
 
-- `deploy/nginx/conf.d/rate-limit.conf` 已存在,定义 6 个 zone(login/api/static/gateway_key/
-  gateway_anon/ws_handshake),与 `nginx-blue-green.conf` 引用一一对应。
-- **部署约束**:必须与 `nginx-blue-green.conf` **同批**部署到 `/etc/nginx/conf.d/`;漏放会
-  `nginx -t` fail-fast 拒绝加载(宁可起不来,也不静默无限流上线)。
+> 本节原写「nginx 边缘限流已落地确认」,与实测不符,已按真相改写。留原结论会让人以为
+> 边缘有 6 套 zone 在挡 —— 那比没写更危险。
 
-### 10.4 P2 — 可选边缘 WAF
+- **实测**(`Get-Service`/`netstat -ano`/`Win32_Service`):本机无 `nginx.exe` 进程、无 docker。
+  8802(API)与 8801(web)均由 `deploy/win/ihui-api-router.mjs`(Node 反代,NSSM 服务
+  `IHUI-API-ROUTER` / `IHUI-WEB-ROUTER`)承载。
+- **因此** `deploy/nginx/conf.d/rate-limit.conf` 的 6 个 zone 与 `00-waf.conf` 在本机生产
+  **从未生效**。它们只在 docker / 独立 nginx 形态下有意义(保留,不删)。
+- **真实边缘防护由 EdgeOne 承担**(腾讯云边缘,含 DDoS 防护与部分 WAF 能力)。
+- **源站暴露是已知权衡**:web 的 8801 必须绑 `0.0.0.0`(EdgeOne 源站直填本机公网 IP,
+  只绑回环会让回源恒 522)⇒ 知道源站 IP 即可绕过 EdgeOne 直连。这是 router 层必须
+  自带限流的原因,见 §10.5。
 
-- 新增 `deploy/nginx/conf.d/00-waf.conf`(路径遍历 + 已知恶意 UA 粗滤,宁漏勿误伤)。
+### 10.4 P2 — 可选边缘 WAF(仅 nginx 形态)
+
+- `deploy/nginx/conf.d/00-waf.conf`(路径遍历 + 已知恶意 UA 粗滤,宁漏勿误伤)。
 - **默认不启用**:只定义 map 变量,需在 server 块内引用 `$waf_block` 才拦截。启用方式见文件头注释。
+- **本机生产不适用**:见 §10.3,本机没有 nginx。
+
+### 10.5 P0 — 入口层限流(真实承载体 = Node router)
+
+- **问题**:§10.3 更正后暴露的真实缺口 —— 入口 router 是纯反代,零限流、零 WAF、零超时收紧。
+  而 web 源站可被直连绕过 EdgeOne,该层是唯一还能拦一手的。
+- **实现**:`deploy/win/lib/ip-rate-limit.mjs`(单 IP 令牌桶),`ihui-api-router.mjs` 接线。
+  - key = **TCP 对端地址**,绝不用 `X-Forwarded-For`(客户端可任意伪造,等于把限流开关交给攻击者);
+  - 默认 **500 rps / 1000 burst**。定位是挡单 IP 扫描/小规模 CC,**不是**抗分布式 DDoS ——
+    那种量级归 EdgeOne,单进程内存计数扛不住也不该扛(把 router 拖死等于替攻击者完成攻击);
+  - 阈值给宽是因为 EdgeOne 回源时所有请求共享出口 IP;
+  - 超限 `429` + `Retry-After`;日志每 IP 10s 节流(防被刷时日志盘先满,那也是一种打垮);
+  - **回环豁免**(`127.0.0.1` / `::1` / `::ffff:127.0.0.1` / `127.*`):内部服务
+    `ai-service → /api/internal/*` 与健康检查都从回环进来,不豁免会让批量内部调用把自己的通道限死;
+  - 应急逃生舱:`IHUI_BG_RATE_LIMIT=off`(要的是「一条命令止血」,不是猜一个够大的数字)。
+- **慢速攻击收口**:`headersTimeout` 60s→**30s**、`requestTimeout` 300s→**120s**
+  (正常请求远达不到;slowloris 喂头/喂体能占 socket 五分钟的问题被堵)。
+- **测试**:`deploy/win/lib/__tests__/ip-rate-limit.test.mjs` 12 条(突发/回补/桶容量硬上限/
+  多 IP 独立/淘汰/配置回落/回环正反例);router 冒烟两向实测 —— 回环 30 请求全 200,
+  局域网 IP 前 10 个 200、后 15 个 429 且日志点名。
+
+### 10.6 P0 根因 — ai-service 调试面收口(默认关闭 + 归属隔离)
+
+- **问题**:§10.1 只封了 api 网关入口,`apps/ai-service/app/api/v1/debug.py` 本身仍无鉴权、
+  无 userId 隔离 —— 直连 8803 即可 launch 任意程序 / eval 任意表达式。
+- **修复**:
+  1. **默认关闭**:`IHUI_DEBUG_ENABLED` 未显式为真时整面 **404**(router 级依赖,12 端点一处生效)。
+     依据是实测**零调用方** —— `apps/web` / `apps/mobile-rn` / `packages` 无任何 `/api/debug`
+     引用,MCP 工具面亦无。不用就关,强于任何入口校验。
+  2. **身份**:12 端点全部 `Depends(require_request_user_id)`,生产缺身份即 401,不依赖网关转发。
+  3. **归属**:`launch`/`attach` 记录 `owner_user_id`,其余端点逐次 `verify_owner` ——
+     拿到他人 `session_id` 不能接管;`list_sessions` 只返回自己的(否则枚举到 id 就等于能接管)。
+- **刻意不做** `program`/`cwd` 路径白名单:`program` 指向仓库内解释器 + `args` 传 `-c` 即等价 RCE,
+  白名单只制造「已防护」的错觉;且 Windows 上 `/tmp` 这类 POSIX 字面量会被解析成盘符相对路径
+  而误伤真实调用方。真要做到「开了也只能调自己的代码」必须连 `args` 一起约束,那是另一个量级。
+- **测试**:`apps/ai-service/tests/test_debug_hardening.py` 30 条 + 既有 82 条,共 112 条绿。
+- **坑位**:归属校验方法原名 `assert_owner` —— `MagicMock` 会把 `assert_*` 属性当断言方法拦截,
+  mock manager 的 36 条用例一次性 `AttributeError`,而真实调用方全绿 ⇒ 只在测试面爆,
+  极易被误判成「测试写错了」而删判据。已改名 `verify_owner` 并在测试里写成显式断言。
+
+### 10.7 P2 — 依赖审计实测结论(2026-10-29)
+
+本机 registry 指向 npmmirror 无 audit 端点,但一次并发任务产出的 `npm audit --json` 快照
+(已归档 `tmp/audit-20261029-1248.json`)给出了可判读的结论:
+
+- 总览:critical 28 / high 49 / moderate 40 / low 10。
+- **critical + high 的绝大多数落在 `apps/miniapp-taro` 的 devDependencies**(Taro/miniprogram-ci
+  构建链:vm2、protobufjs、form-data、decompress、git-clone、lodash.template、json5 …)。
+  威胁模型是**构建机被投毒**,不是线上服务器。
+- **生产运行时唯一的 high**:`apps/api` ← `@opentelemetry/auto-instrumentations-node` ←
+  `instrumentation-host-metrics` ← `systeminformation@5.33.1`(Windows `services()` 命令注入)。
+  **逐行验证判定为不可达**:该 instrumentation 只 `require('systeminformation/lib/network')`
+  调 `networkStats()`,**从不调用 `services()`**,且不接收任何用户可控参数。
+- 处置:**不升级**(patch 版本虽兼容,但本仓多会话并发,动 lockfile 冲突风险高于收益);
+  改为登记判定依据。下次该依赖升级时自然带修复(修复版 >= 5.33.16)。
+- **待补判据**:依赖审计目前无守门。建议后续加「生产依赖 critical/high 必须为 0」的差值棘轮
+  (构建链存量按 §12e 只报数不拦),避免 28 个 critical 躺着无人认领。
 
 ---
 
@@ -358,20 +428,17 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
 
 ## 12. 后续收尾待办
 
-- **ai-service 侧 debug 根因修复**:`debug.py` 接入鉴权 + 按 `userId` 隔离会话,并限定 `launch`
-  的 `program`/`cwd` 只能在用户项目目录内 —— 完成后可评估放开普通用户的调试能力(否则仅管理员)。
-- **依赖漏洞审计**:本机 npm registry 指向 `registry.npmmirror.com`,该镜像**无 audit 端点**,
-  `pnpm audit` 直接报 `ERR_PNPM_AUDIT_ENDPOINT_NOT_EXISTS`,无法本地核验。
-  **CI/有网环境改用官方 registry 执行**:
-  ```bash
-  # 整个 workspace(生产依赖)
-  pnpm config set registry https://registry.npmjs.org/ && pnpm audit --prod
-  # 或针对单包
-  cd apps/api && pnpm audit --prod
-  ```
-  **高频风险面(建议重点盯)**:Fastify 及 `@fastify/*` 全家桶、JWT 签发/验签 `jose`、
-  队列/Redis `bullmq`+`ioredis`、密码哈希 `argon2`/`bcrypt`、HTTP 客户端 `axios`/`node-fetch` 等。
-  扫描节奏见 §5(CI 每次 + 每周)。
+- ~~ai-service 侧 debug 根因修复~~ **已完成(2026-10-29)**:默认关闭 + 逐端点身份 + 会话归属,
+  见 §10.6。放开普通用户调试能力的前置仍是「连 `args` 一起约束」,未做。
+- ~~依赖漏洞审计~~ **已出结论(2026-10-29)**:生产运行时唯一 high(`systeminformation`)
+  判定不可达,构建链存量另计,见 §10.7。**仍未做的是机读判据**(见下条)。
+- **依赖审计守门(建议 P1)**:加一道「生产依赖 critical/high 必须为 0」的差值棘轮
+  (构建链存量只报数不拦,§12e)。当前 28 个 critical 全靠人读文档,下一个人不会读。
+- **`systeminformation` 升级**:等 `@opentelemetry/*` 自然带上来(>= 5.33.16),或单独开一次
+  lockfile 变更窗口;单独为不可达 CVE 动 lockfile 的冲突风险高于收益(§10.7)。
 - **定期渗透 / 红队**:建议每季度一次,覆盖 API、relay 面、支付回调。
-- **WAF 启用评估**:如 §10.4,评估后可在边缘开启 `00-waf.conf`。
+- **WAF 启用评估**:仅 nginx 形态适用(§10.3/§10.4);本机生产走 EdgeOne,应在 EdgeOne
+  控制台评估其 WAF/限流规则,而不是改仓库里的 nginx 片段。
+- **源站 IP 收敛**:web 8801 必须绑 `0.0.0.0` 是 EdgeOne 回源约束(§10.3)。若能改为
+  EdgeOne 回源固定段 + 防火墙只放行该段,则可消除「知道源站 IP 即绕过边缘」这一整类风险。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
