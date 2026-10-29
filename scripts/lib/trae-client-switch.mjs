@@ -185,12 +185,70 @@ export function isTraeRunning() {
   }
 }
 
-/** 强杀客户端(含子进程树);调用方负责等落盘静默 */
-export function killTrae() {
-  execFileSync('taskkill', ['/IM', TRAE_PROCESS, '/F', '/T'], {
+/**
+ * 列出本机 Trae 实例。`exePath` 为空 = 问不到路径(权限不足或进程正在退出)。
+ * 走 CIM 而非 tasklist:后者只给映像名,拿不到可执行路径就没法区分"哪一份"。
+ */
+export function listTraeProcesses(lister = defaultProcessLister) {
+  return lister()
+}
+
+function defaultProcessLister() {
+  const out = execFileSync(
+    'pwsh.exe',
+    [
+      '-NoProfile',
+      '-Command',
+      `Get-CimInstance Win32_Process -Filter "Name='${TRAE_PROCESS}'" | Select-Object ProcessId,ExecutablePath | ConvertTo-Json -Compress`,
+    ],
+    { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 20_000 },
+  )
+  const text = String(out ?? '').trim()
+  if (!text) return []
+  const parsed = JSON.parse(text)
+  const rows = Array.isArray(parsed) ? parsed : [parsed]
+  return rows
+    .map((r) => ({ pid: Number(r?.ProcessId) || 0, exePath: String(r?.ExecutablePath ?? '').trim() }))
+    .filter((r) => r.pid > 0)
+}
+
+function defaultKiller(pid) {
+  execFileSync('taskkill', ['/PID', String(pid), '/F', '/T'], {
     windowsHide: true,
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 20_000,
   })
+}
+
+/**
+ * 强杀客户端(含子进程树);调用方负责等落盘静默。
+ *
+ * **不用 `taskkill /IM <名字>`**:那个开关只接受裸文件名,杀的是全机所有同名进程
+ * (门 52 N1 一律拦)。改按 pid 逐个杀,并且**问不到可执行路径就一个都不杀** ——
+ * 切号失败可以重来,误杀用户的另一份客户端不可撤销。
+ */
+export function killTrae({ lister = defaultProcessLister, kill = defaultKiller } = {}) {
+  const procs = listTraeProcesses(lister)
+  if (!procs.length) return { killed: [], reason: 'not-running' }
+  const unknown = procs.filter((p) => !p.exePath)
+  if (unknown.length) {
+    throw new SwitchError(
+      `有 ${unknown.length} 个 Trae 进程取不到可执行路径(权限不足或正在退出)⇒ 拒绝按名字盲杀,请手工关闭客户端后重试`,
+      'kill-refused',
+    )
+  }
+  const failed = []
+  for (const p of procs) {
+    try {
+      kill(p.pid)
+    } catch (e) {
+      failed.push(`${p.pid}:${String(e?.message ?? e).slice(0, 80)}`)
+    }
+  }
+  if (failed.length) {
+    throw new SwitchError(`有 ${failed.length} 个 Trae 进程停不掉: ${failed.join('; ')}`, 'kill-partial')
+  }
+  return { killed: procs.map((p) => p.pid), reason: 'killed' }
 }
 
 export const __test__ = {
@@ -201,6 +259,8 @@ export const __test__ = {
   findStorageFile,
   writeStorageAtomic,
   isTraeRunning,
+  listTraeProcesses,
+  killTrae,
   SwitchError,
   AUTH_KEY,
   DC_KEY_PREFIX,
