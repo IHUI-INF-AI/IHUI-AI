@@ -1240,6 +1240,31 @@
       "shared": "packages/app/src/features/knowledge-base/KnowledgeBaseListScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/KnowledgeBaseListScreen.tsx",
       "miniapp": "pkg-mirror/knowledge-base-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/community/CirclePostScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CirclePostScreen.tsx",
+      "miniapp": "pkg-content/circle-post/index"
+    },
+    {
+      "shared": "packages/app/src/features/community/InvitationsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/InvitationsScreen.tsx",
+      "miniapp": "pkg-content/invitations/index"
+    },
+    {
+      "shared": "packages/app/src/features/community/LetterChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LetterChatScreen.tsx",
+      "miniapp": "pkg-content/letter-chat/index"
+    },
+    {
+      "shared": "packages/app/src/features/community/LettersScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LettersScreen.tsx",
+      "miniapp": "pkg-content/letters/index"
+    },
+    {
+      "shared": "packages/app/src/features/community/NewsCategoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NewsCategoryScreen.tsx",
+      "miniapp": "pkg-mirror/news-category/index"
     }
   ]
 }

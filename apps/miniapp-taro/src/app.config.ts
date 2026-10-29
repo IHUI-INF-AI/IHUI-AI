@@ -217,6 +217,10 @@ export default defineAppConfig({
         'activity-detail-shared/index',
         'news-article/index',
         'news-category/index',
+        'circle-post/index',
+        'invitations/index',
+        'letter-chat/index',
+        'letters/index',
       ],
     },
     {
@@ -349,6 +353,7 @@ export default defineAppConfig({
         'publish/index',
         'knowledge-entry-reading/index',
         'knowledge-base-list/index',
+        'news-category/index',
       ],
     },
     {
