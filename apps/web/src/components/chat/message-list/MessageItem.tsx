@@ -61,7 +61,12 @@ import { HandoffPackageCard } from '@/components/ai/handoff-package-card'
 // O60i(2026-09-25):失败卡两份实现合一 —— 本文件的内联卡已删,唯一出口是这张组件卡
 import { MessageErrorCard } from '@/components/chat/message-list/MessageErrorCard'
 import { StreamGroup } from '@/components/chat/stream/stream-ui'
-import { describeToolCall, hasRichAnchors, humanizeToolText } from '@ihui/shared/chat'
+import {
+  describeToolCall,
+  hasRichAnchors,
+  humanizeToolText,
+  summarizeToolActivity,
+} from '@ihui/shared/chat'
 import {
   resolveViewFailure,
   VIEW_FAILURE_NAMESPACE,
@@ -112,6 +117,7 @@ import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { formatDuration } from '@/lib/permission-mode-history'
+import { toolActivitySummaryText } from '@/lib/tool-activity-summary-text'
 import {
   TypingIndicator,
   formatMessageTimestamp,
@@ -388,6 +394,24 @@ const MessageItem = React.memo(function MessageItem({
       : activeStepTitle
         ? humanizeToolText(activeStepTitle, (key) => tStream(key))
         : tStream('statusRunning')
+
+  // 完成后的组头 → 语义摘要(2026-10-29):把哑标题"N 个步骤"升级成
+  // "2 个文件 · 1 次检索 · 1 次分析"。分类判据只走 shared 的 toolCategory(§0.6),
+  // 本组件不识别任何工具名;零工具的消息不产摘要(idleActivityHeadline 为 undefined)。
+  const toolActivitySummary = React.useMemo(
+    () =>
+      summarizeToolActivity(
+        (m.toolCalls ?? []).map((tc) => ({ toolName: tc.toolName, status: tc.status })),
+      ),
+    [m.toolCalls],
+  )
+  const idleActivityHeadline = React.useMemo(
+    () =>
+      streamingThis
+        ? undefined
+        : toolActivitySummaryText(toolActivitySummary, (key, values) => tStream(key, values)),
+    [streamingThis, toolActivitySummary, tStream],
+  )
 
   // #14 批量 Accept/Reject 派生统计(2026-09-13 立):
   // 统计消息内 diff 卡(hasDiffCard)的 applyStatus 分布,驱动消息级批量按钮条与聚合徽章
@@ -1104,7 +1128,7 @@ const MessageItem = React.memo(function MessageItem({
                 key={foldPolicyMode}
                 active={streamingThis}
                 stepCount={stepSectionsCount}
-                headline={stepsHeadline}
+                headline={stepsHeadline ?? idleActivityHeadline}
                 elapsedMs={typeof m.meta?.durationMs === 'number' ? m.meta.durationMs : null}
                 open={showSteps}
                 onOpenChange={setShowSteps}
