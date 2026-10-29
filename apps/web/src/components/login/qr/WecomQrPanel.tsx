@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { getPlatformConfig } from '@/lib/third-party-config'
 import { generateState, saveOAuthState } from '@/lib/oauth-utils'
 import { loadWecomQrSdk, type WecomLoginInstance } from './sdk-loader'
-import { UnconfiguredState, ErrorState } from './WechatQrPanel'
+import { UnconfiguredState, ErrorState, QR_PANEL_BOX } from './WechatQrPanel'
 
 interface WecomQrPanelProps {
   refreshKey: number
@@ -101,7 +101,7 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
   // React 18 严格模式 + 第三方 SDK DOM 操作冲突修复(2026-07-22)
   // 详见 WechatQrPanel.tsx 同名注释
   return (
-    <div className="relative mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-xl border bg-card">
+    <div className={QR_PANEL_BOX}>
       <div
         ref={containerRef}
         id={containerId}

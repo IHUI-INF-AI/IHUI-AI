@@ -126,7 +126,7 @@ export function collectEsmBlockers(prefix, jsFiles) {
  * 为什么本判据必须剥注释,而判据 7 可以不剥:本判据问的是"**运行时到底会去 resolve 什么**",
  * 那是行为问题,注释里的示例 import 结构上不可能被执行。不剥的后果实测就在本仓:
  * `packages/sdk/dist/client.js` 与 `index.js` 的头注里写着文档示例 `import { createClient }
- * from '@ihui/sdk'` —— 按文本判,一道发布门会在一具已被 `check-pkg-installable` 判过绿灯的
+ * from '@ihui-ai/sdk'` —— 按文本判,一道发布门会在一具已被 `check-pkg-installable` 判过绿灯的
  * 健康包上恒红(§12e 那条"恒红门的唯一结局是逼人 --no-verify"同型)。
  * 反过来,判据 7 看的是"文件名有没有扩展名"这一**字符串字面**属性,注释里的同形文本
  * 同样值得报出来(那多半也是坏写法),两条判据对注释的取舍刻意不同,不是疏漏。
@@ -221,7 +221,7 @@ export function findBareImportSpecifiers(text) {
 
 /**
  * 判据 9:运行时 import 的裸包名必须被"会发出去的那三类依赖字段"覆盖。
- * 允许自包名(ESM 允许经 exports 自指,`@ihui/sdk` 之类包内的示例与工具都算这种形态)。
+ * 允许自包名(ESM 允许经 exports 自指,`@ihui-ai/sdk` 之类包内的示例与工具都算这种形态)。
  * node: 内建不参与 —— 它是另一维问题(浏览器/小程序可用性),由守门 126 按可达性判。
  */
 export function collectBareImportBlockers(prefix, jsFiles, manifest) {

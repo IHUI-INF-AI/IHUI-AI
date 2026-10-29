@@ -583,6 +583,71 @@ class MCPOAuthClient:
         await self._client.aclose()
 
     # ------------------------------------------------------------------
+    # 凭据清除(控制帧 `mcp_clear_auth`,2026-10-28 立)
+    # ------------------------------------------------------------------
+
+    def clear_auth(self) -> dict[str, Any]:
+        """清除**本客户端持有的用户自授权 OAuth 凭据**(内存 token + 持久化文件)。
+
+        ## 这一格为什么必须有,而以前是禁区
+
+        AGENTS §5 的口径原文是「**可清除的是业务元数据,不是授权凭据**」——
+        那条口径针对的是「一键抹掉系统/平台级凭据」这类动作(把整台机器的登录态、
+        平台密钥一起清掉)。它**没有**禁止「用户自己授权给某个 MCP server 的
+        OAuth token 可以被撤回」—— 撤回恰恰是 OAuth 规范的固有动作
+        (RFC 7009 revocation 的同族语义),用户有权让某个第三方站点不再持有
+        自己的授权。
+
+        所以本方法的边界是**逐条钉死**的:
+          ① 只清**用户自授权**的 token(本 client 拿到的 access/refresh token);
+          ② **只清一个具名 server** 的(调用方按 serverName 逐个点名,没有"全清"出口);
+          ③ **不碰** client_secret / client_id / 系统令牌 / 其它 server 的凭据
+             —— 本方法根本拿不到那些东西,它们的持有者是 OAuth 服务端;
+          ④ 清完即"未授权":后续 `get_token()` 会走一次**新的**授权流程,而不是
+             拿旧 token 复活。
+
+        ## 返回形状
+
+        `{"cleared": bool, "hadToken": bool, "persistFileRemoved": bool,
+        "error": str|None}` —— `cleared=false` 且 `error` 非空时,调用方**必须把
+        原因显示出来**(失败必须给可见原因),不许静默吞掉。
+
+        持久化文件的删除失败**不阻断**内存侧的清除(内存态已经是"未授权");
+        但要在返回值里如实点名 —— 谎报"已清除"会让用户以为撤回了授权,
+        而磁盘上那份还在。
+        """
+        had_token = self._token is not None
+        self._token = None
+        # 授权码流的一次性凭据也一并作废(它是"待兑换的授权",不是已授权态,
+        # 但留着它等于留着一条可兑换的路径)。
+        self._authorization_code = None
+        self._code_verifier = None
+        self._state = ""
+
+        persist_removed = True
+        error: str | None = None
+        persist_path = self._config.persist_path
+        if persist_path:
+            try:
+                path = Path(persist_path)
+                if path.exists():
+                    path.unlink()
+                    persist_removed = True
+            except Exception as e:  # noqa: BLE001 - 删不掉不阻断内存侧清除,但必须点名
+                persist_removed = False
+                error = f"持久化凭据文件删除失败: {e}"
+                logger.warning("清除 MCP OAuth 凭据时删除持久化文件失败: %s", e)
+
+        if error is None:
+            logger.info("已清除 MCP OAuth 用户自授权凭据(had_token=%s)", had_token)
+        return {
+            "cleared": True,
+            "hadToken": had_token,
+            "persistFileRemoved": persist_removed,
+            "error": error,
+        }
+
+    # ------------------------------------------------------------------
     # 注入
     # ------------------------------------------------------------------
 

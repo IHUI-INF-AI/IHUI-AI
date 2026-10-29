@@ -195,6 +195,7 @@ export const visitTrackingRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/visit-tracking/visit-log',
     {
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
       schema: {
         summary: '保存访问记录',
         tags: ['visit-tracking'],
@@ -249,37 +250,45 @@ export const visitTrackingRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // POST /visit-tracking/source/record - 记录来源（访客可不登录）
-  server.post('/visit-tracking/source/record', async (request, reply) => {
-    const parsed = sourceRecordSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    // 2026-10-23:此前这里手抄了一份 db.insert(visitLogs).values(...),既不写
-    // user_agent、又收客户端自报 ip ⇒ 同一张表两个写入口径不同(§0.6)。
-    // 现统一走 saveVisitLog 唯一写入口:ip/user_agent 取服务端观测面、visitDate 同一天。
-    const visitLog = await saveVisitLog({
-      referer: parsed.data.referer,
-      sessionId: parsed.data.sessionId,
-      userId: parsed.data.userId,
-      observed: observeVisitorRequest(request),
-    })
-    return reply.send(success({ visitLog }))
-  })
+  server.post(
+    '/visit-tracking/source/record',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = sourceRecordSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      // 2026-10-23:此前这里手抄了一份 db.insert(visitLogs).values(...),既不写
+      // user_agent、又收客户端自报 ip ⇒ 同一张表两个写入口径不同(§0.6)。
+      // 现统一走 saveVisitLog 唯一写入口:ip/user_agent 取服务端观测面、visitDate 同一天。
+      const visitLog = await saveVisitLog({
+        referer: parsed.data.referer,
+        sessionId: parsed.data.sessionId,
+        userId: parsed.data.userId,
+        observed: observeVisitorRequest(request),
+      })
+      return reply.send(success({ visitLog }))
+    },
+  )
 
   // POST /visit-tracking/page/record - 记录页面访问（访客可不登录）
-  server.post('/visit-tracking/page/record', async (request, reply) => {
-    const parsed = pageRecordSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const visitLog = await saveVisitLog({
-      url: parsed.data.url,
-      sessionId: parsed.data.sessionId,
-      userId: parsed.data.userId,
-      observed: observeVisitorRequest(request),
-    })
-    return reply.send(success({ visitLog }))
-  })
+  server.post(
+    '/visit-tracking/page/record',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = pageRecordSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const visitLog = await saveVisitLog({
+        url: parsed.data.url,
+        sessionId: parsed.data.sessionId,
+        userId: parsed.data.userId,
+        observed: observeVisitorRequest(request),
+      })
+      return reply.send(success({ visitLog }))
+    },
+  )
 }
 
 // =============================================================================

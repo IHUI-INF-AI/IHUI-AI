@@ -148,12 +148,20 @@ vi.mock('../src/services/relay-proxy-pool.js', () => ({
   pickProxyForAccount: async () => null,
   reportProxyFailure: async () => {},
   reportProxySuccess: async () => {},
+  // e2e 不验证加密:账号级代理按明文直通,断言只看导入/转发编排
+  encryptAccountProxyUrl: (u: string | null) => u,
+  resolveAccountProxyUrl: (u: string | null) => u,
 }))
 vi.mock('../src/services/relay-model-catalog.js', () => ({
   resolveModelAlias: async () => null,
 }))
 vi.mock('undici', () => ({
   ProxyAgent: class {
+    close(): void {}
+  },
+  // 直连出口的 dispatcher（连接期守卫挂在它上面）；本文件只测选号/转发，桩成空壳。
+  Agent: class {
+    constructor(_opts?: unknown) {}
     close(): void {}
   },
   fetch: vi.fn(),

@@ -20,14 +20,22 @@
 //    真要收口,前置只有两条(均属持判据者的另票,不是清账顺手动作):
 //    ① 把兜底文案与叠加层移植进 RN 端(那是新增能力,§24),届时六档全部立 `_PX` 档两端同吃;
 //    ② 或由台账 `pairingRejects` 判这一族"同名而能力集不同"并拆对(reason + until 齐备)。
-//    【裁定已执行 2026-10-24,机主 2026-10-23 强制令代裁直执】选②、落选①:RN 端课程卡是独立
+//    【裁定@2026-10-24,机主 2026-10-23 强制令代裁】选②、落选①:RN 端课程卡是独立
 //    组件 CourseCarousel,把这两层移植进 RN = 在既有件之外再造一层课程卡,属新增能力,不满足
 //    "最小且可回退";而对面结构上确无这两层,"给单端补数字"即假绿,正解只剩承认两端不同族。
-//    落地形态:台账 `pairingRejects.Carousel`(legs=main、until 2027-03-27)入账,本族
-//    counts/radiusCounts/elementRadiusCounts/waivers 四键同批清掉(门体规则③:拆对的族不得再挂
-//    锚点,双记账判红)。拆对后本族不再进守门 128 的配对射程;两端真正必须同值的指示点几何/
-//    默认高仍以本文件为单一源、两端继续 import,该机制不受拆对影响。若将来 RN 端真落地这两层
-//    渲染(前置①),撤该声明并按默认档实测重新登记。
+//    ⚠️ **落地状态纠偏@2026-10-27(xend-geometry 现读)**:此处原写「落地形态:台账
+//    `pairingRejects.Carousel`(legs=main、until 2027-03-27)入账,本族 counts/radiusCounts/
+//    elementRadiusCounts/waivers 四键同批清掉」—— **那句与台账不符,作废**。现读
+//    `scripts/cross-end-ui-parity-baseline.json`:`pairingRejects` 只有 `FloatBox` 一族,
+//    `counts.Carousel` 仍 = 6、`waivers.Carousel` 仍在,门 128 判定档仍报
+//    `○ Carousel [className|className] 几何仅小程序档 2/4/8/14/16/20` ⇒ 本族**仍在配对射程内**,
+//    下一步读票的人不得按"已拆对"跳过它。未落地不是执行漏笔:拆对要删这四键,而票「守门 128
+//    换腿后新暴露的跨端几何差(三对)」的硬约束是"只许清偿后下调,不许删条目/为变绿删账"
+//    ⇒ 该步归门 128 持有人 / 主席批,执行席不得自行销账。
+//    两条出口按裁决原样保留:① RN 端真落地这两层渲染(§24 新增能力,须人定档)⇒ 六档立 `_PX`
+//    两端同吃;② 主席批准拆对 ⇒ 再补 `pairingRejects.Carousel`(reason+until 齐备)并同批清四键。
+//    拆对不影响本文件的单一源地位:两端真正必须同值的指示点几何 / 默认高仍从这里取。
+//    若将来 RN 端真落地这两层渲染(前置①),撤声明并按默认档实测重新登记。
 //  - 12 的两侧"抵消"是**数字巧合,不是同值**:小程序侧来自叠加层容器 p-3 与徽章 text-xs,
 //    RN 侧来自空列表占位文案 text-xs(小程序空列表 return null,该占位在对面不存在)。
 //    三个不同元素撞在同一个数上 —— 改任一侧,这一档立刻以"仅小程序档 12"或"仅 RN 档 12"
@@ -41,6 +49,43 @@
 //    `window.innerWidth` 取不到时的设备宽度默认值,不是设计档 —— 小程序侧同一含义走
 //    百分比宽(`width: ${(total*100)}%` + 每屏 `100/total%`),两端都没有"轮播宽"这个档。
 //    该共享层死副本已按 O81 票删除(守门 128 配对面上 RN 腿只剩端内那份),此条留作依据出处。
+//
+// ── O02 票④(第 ④ 格)收口证据:本族"只剩一份源"────────────────────────────────
+// 现读 2026-10-28(`node scripts/check-cross-end-ui-parity.mjs --json`,HEAD 977d324b22):
+//   findings[Carousel] = diffCount 6 / radiusCount 0 / elementRadiusCount 0;
+//   人读面:`○ Carousel [className|className] 几何仅小程序档 2/4/8/14/16/20`。
+// 两条腿的**共用**几何档全部经本文件三个出口取数,端内不再自持数字:
+//   · apps/miniapp-taro/src/components/Carousel.tsx → carouselDefaultHeightPx /
+//     carouselIndicatorWrapStyle / carouselDotStyle(换算 `toUnit = rpx(px * TARO_RPX_PER_PX)`)
+//   · apps/mobile-rn/src/components/Carousel.tsx   → 同三出口(换算 `toUnit = px` 恒等)
+// 已收口档(两端同值同源):默认高 160、指示器底距 12、点间距 6、点高 6、非激活宽 6、激活宽 16。
+// ⚠ 门读数里 6/12/16 两侧都出现**不能**当作收口证据:12 在两端另有巧合来源(见下),6/16 在端内
+//   是圆角档(rounded-md / rounded-2xl,归守门 77)不是几何档;收口证据是三出口被两条腿真调用
+//   (__tests__/carousel-wiring.test.ts ②③ 逐端现算)。
+//
+// 6 枚几何逐条归属 —— **全部 A 类**,0 枚 B、0 枚 C:
+//  A 一端根本没有该元素(六枚全部来自小程序独有渲染两块,RN 同名文件不渲染它们):
+//    兜底文案块(`!hasImg && (title || subtitle)`):16 = 容器 p-4;20 = 标题 text-xl;
+//                                          14 = 副标题 text-sm;8 = 标题 mb-2
+//    course 叠加层(`variant === 'course' && meta`):8 = 标签行 gap-2 / 徽章 px-2;
+//                                          4 = 标签行 mt-1;2 = 徽章 py-[4rpx];
+//                                          14 = 叠加层标题 text-sm
+//    ⇒ 集合恰为 2/4/8/14/16/20。依据与裁决(2026-10-24 选拆对、不向 RN 移植)以及
+//      落地状态纠偏(2026-10-27:pairingRejects 仍只有 FloatBox、counts 仍 = 6)见上半段。
+//  B 已裁决变体契约:0 枚。
+//  C 同槽位、机制不同:0 枚**带数值的**。轮播步进确属机制不同(小程序 ScrollView + scrollIntoView
+//    + 每屏 `100/total%` 宽 vs RN pagingEnabled + slideWidth 像素 + scrollTo),但两端都没有
+//    "步进宽"这个档 —— 一端是百分比、一端是容器实测宽,不构成可对账的档。
+//
+// ⚠ 12 的"两侧相消"是数字巧合:小程序来自叠加层容器 p-3 与徽章 text-xs,RN 来自空列表占位文案
+//   text-xs(小程序空列表 return null,该占位在对面不存在)⇒ 不得读成已收口档。
+//   RD / RE 两维 0:圆角两端同走 radius.js(rounded-2xl / rounded-sm 两端同值,守门 77 问责);
+//   RE 维两侧无同名具名元素 ⇒ 零判据(覆盖面事实,不是"已同值")。
+//
+// ⇒ 结论:本族**无可继续收敛项** —— A 组六枚与"RN 端不渲染这两层"是同一件事的两面,补引用是
+//   造假;B/C 0 枚。counts 维持 6(几何)/ 0(RD)/ 0(RE)。逐档归属由
+//   __tests__/carousel-wiring.test.ts 机器钉住:谁往 RN 端补这六枚、谁把三出口的取数删掉、
+//   谁在端内同一块里另写同值裸数字,对应那条用例就红。
 
 /** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
 export type GeometryUnit<U extends string | number> = (px: number) => U

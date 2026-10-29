@@ -17,16 +17,21 @@
  *   失败按序回退备用端点 /v2/auth/token/refresh 与备用凭据字段(登录态内嵌 refresh),
  *   全部失败抛最后一次错误走既有错误分类;
  * - checkHealth()/listModels() 共用 /console/enterprises/personal/models(进程内缓存 1h);
+ * - getQuota() 走用户中心权益接口(POST /billing/meter/get-user-resource-summary,
+ *   取不到资源包才补 paid/free 明细;基址随 realm/domain 变、Origin 必须等于请求 host);
  * - classifyUpstreamFailure() 实现接口可选的富错误分类(返回 {kind}),
  *   区分 credit/session_dead/auth/rate/request 等,供转发层决定罚不罚号。
  *
  * 安全红线:凭证/token 一律不进日志与抛错 message。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import { config } from '../../config/index.js'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
   NormalizedChatRequest,
+  QuotaCallOptions,
+  RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
   TokenRefreshResult,
@@ -36,6 +41,9 @@ import type {
 import { parseJwtClaims } from '../relay-account-format.js'
 import { normalizeStopList } from '../relay-stop-truncate.js'
 import {
+  billingBaseUrl,
+  billingPathCandidates,
+  buildBillingHeaders,
   buildChatHeaders,
   buildHealthHeaders,
   buildRefreshHeaders,
@@ -43,25 +51,61 @@ import {
   classifyUpstreamFailure,
   deriveConversationRequestId,
   deriveStableId,
+  extractResourceList,
+  extractSubscriptionInfo,
   isAuthFailureCore,
+  isResourceSuccess,
+  isResourceUnauthorized,
   normalizeCompletion,
+  normalizeResourcePackage,
   normalizeStreamChunk,
   parseEnvelope,
   parseLoginState,
   prepareChatBody,
   randomHex32,
   REFRESH_ENDPOINT_PATHS,
+  RESOURCE_SUMMARY_PATH,
   resolveIdentity,
   resolveRealm,
+  resourceErrorMessage,
+  workBuddyIdDeploymentSalt,
   type UpstreamFailureKind,
+  type WorkBuddyIdSeed,
   type WorkBuddyIdentity,
   type WorkBuddyLoginState,
   type WorkBuddyRealm,
+  type WorkBuddyResourcePackage,
 } from './workbuddy-protocol.js'
 
 /** listModels 进程内缓存:按 realm 分 key,TTL 1h(模型目录变化慢,健康检查不重复打上游) */
 const MODELS_CACHE_TTL_MS = 60 * 60 * 1000
 const modelsCache = new Map<WorkBuddyRealm, { ids: string[]; at: number }>()
+
+// =============================================================================
+// 稳定身份派生种子(O72 整改@2026-10-28,判据全部在 workbuddy-protocol.deriveStableId)
+// =============================================================================
+
+/** 部署级机密盐(进程内一次算定;账号有存储设备材料时该档根本不参与派生) */
+let cachedIdDeploymentSalt: string | null = null
+function idDeploymentSalt(): string {
+  if (cachedIdDeploymentSalt === null) {
+    // 取 config 的必填密钥做域分隔;盐只在本地参与哈希,绝不出现在任何请求头/日志
+    const secret =
+      String(config.CREDENTIALS_ENCRYPTION_KEY ?? '') || String(config.JWT_SECRET ?? '')
+    cachedIdDeploymentSalt = secret ? workBuddyIdDeploymentSalt(secret) : ''
+  }
+  return cachedIdDeploymentSalt
+}
+
+/** 由账号行组装 stable-id 种子:存储材料(machineId>deviceId)优先,部署盐兜底 */
+function idSeedFor(row: AdapterAccountContext['row']): WorkBuddyIdSeed {
+  return {
+    uid: row.uid,
+    storedMachineId: row.machineId,
+    storedDeviceId: row.deviceId,
+    deploymentSalt: idDeploymentSalt(),
+  }
+}
 
 // =============================================================================
 // fetch 解析(测试缝 > 账号级代理 > 全局直连;与 trae-adapter 同款)
@@ -142,6 +186,72 @@ function extractModelIds(envelopeText: string): string[] | null {
   return ids
 }
 
+// =============================================================================
+// 权益/余额点查(上游用户中心 billing 接口)
+// =============================================================================
+
+interface BillingResponse {
+  status: number
+  url: string
+  root: unknown
+}
+
+/** 解析回包 JSON(非法体 → null,不抛;原文不外泄) */
+function parseJsonLoose(text: string): unknown {
+  if (!text) return null
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 权益接口单次 POST,按 realm 走路径候选。
+ * **只有 404 换下一个候选**;401/403/WAF 10085 一律原样返回 —— 把它们当"路径不对"
+ * 会掩盖真因,也会让承载层误判可重试。
+ */
+async function postBilling(
+  fetchImpl: typeof fetch,
+  base: string,
+  realm: WorkBuddyRealm,
+  path: string,
+  body: unknown,
+  headers: Record<string, string>,
+): Promise<BillingResponse> {
+  const candidates = billingPathCandidates(realm, path)
+  let last: BillingResponse = { status: 0, url: `${base}${candidates[0]}`, root: null }
+  for (let i = 0; i < candidates.length; i += 1) {
+    const url = `${base}${candidates[i]}`
+    const res = await fetchImpl(url, { method: 'POST', headers, body: JSON.stringify(body) })
+    const text = await res.text().catch(() => '')
+    last = { status: res.status, url, root: parseJsonLoose(text) }
+    if (res.status !== 404 || i + 1 === candidates.length) return last
+  }
+  return last
+}
+
+/**
+ * 从一路回包里取资源包并归一。
+ * HTTP 非 2xx / 信封失败 / 列表缺失 / 包内无任何数字 —— 一律返回空数组(不补 0)。
+ */
+function packagesFrom(
+  res: BillingResponse,
+  key: 'Packages' | 'Accounts',
+  now: number,
+): WorkBuddyResourcePackage[] {
+  if (res.status < 200 || res.status >= 300) return []
+  if (!isResourceSuccess(res.root)) return []
+  const list = extractResourceList(res.root, key)
+  if (!list) return []
+  const out: WorkBuddyResourcePackage[] = []
+  for (const item of list) {
+    const pkg = normalizeResourcePackage(item, now)
+    if (pkg) out.push(pkg)
+  }
+  return out
+}
+
 /** 单次刷新尝试(一个端点 × 一个刷新凭证);失败抛错,message 不带凭证 */
 async function attemptRefresh(
   fetchImpl: typeof fetch,
@@ -150,8 +260,7 @@ async function attemptRefresh(
   account: {
     realm: WorkBuddyRealm
     identity: WorkBuddyIdentity
-    rowUid: string
-    fallbackExpiresAt: Date | null
+    idSeed: WorkBuddyIdSeed
   },
 ): Promise<TokenRefreshResult> {
   const headers = buildRefreshHeaders({
@@ -160,8 +269,8 @@ async function attemptRefresh(
     uid: account.identity.uid,
     enterpriseId: account.identity.enterpriseId,
     domain: account.identity.domain,
-    machineId: deriveStableId('machine', account.rowUid),
-    sessionId: deriveStableId('session', account.rowUid),
+    machineId: deriveStableId('machine', account.idSeed),
+    sessionId: deriveStableId('session', account.idSeed),
     conversationRequestId: deriveConversationRequestId(),
     messageRequestId: randomHex32(),
   })
@@ -185,12 +294,13 @@ async function attemptRefresh(
       ? data['refreshToken'].trim()
       : null
   const expiresIn = typeof data['expiresIn'] === 'number' ? data['expiresIn'] : NaN
-  let expiresAt: Date
+  let expiresAt: Date | null
   if (Number.isFinite(expiresIn) && expiresIn > 0) {
     expiresAt = new Date(Date.now() + expiresIn * 1000)
   } else {
-    // 防刷新风暴:缺省/非正 → 沿用旧过期时刻;row 也没有则 now+24h
-    expiresAt = account.fallbackExpiresAt ?? new Date(Date.now() + 24 * 60 * 60 * 1000)
+    // 上游没给到期 ⇒ null(未知)。不沿用旧值:旧值可能已被收敛到过去(上游拒收),
+    // 沿用它会让"换票成功"当场又变成"已过期",也会把编造的未来时刻写回库里。
+    expiresAt = null
   }
   return { token: accessToken, refreshToken: newRefresh, expiresAt }
 }
@@ -202,14 +312,15 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
     const { realm, identity, login } = resolveAccount(ctx)
     const conversationRequestId = deriveConversationRequestId(req.conversationId)
     const messageRequestId = randomHex32()
+    const idSeed = idSeedFor(ctx.row)
     const headers = buildChatHeaders({
       realm,
       accessToken: login.accessToken,
       uid: identity.uid,
       enterpriseId: identity.enterpriseId,
       domain: identity.domain,
-      machineId: deriveStableId('machine', ctx.row.uid),
-      sessionId: deriveStableId('session', ctx.row.uid),
+      machineId: deriveStableId('machine', idSeed),
+      sessionId: deriveStableId('session', idSeed),
       conversationRequestId,
       messageRequestId,
     })
@@ -307,8 +418,7 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
           return await attemptRefresh(fetchImpl, `${chatBaseUrl(realm)}${path}`, refreshToken, {
             realm,
             identity,
-            rowUid: ctx.row.uid,
-            fallbackExpiresAt: ctx.row.tokenExpiresAt,
+            idSeed: idSeedFor(ctx.row),
           })
         } catch (e) {
           lastErr = e instanceof Error ? e : new Error(String(e))
@@ -357,6 +467,103 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
     if (!ids) throw new Error('workbuddy listModels 失败: models 结构非法')
     modelsCache.set(realm, { ids, at: Date.now() })
     return ids
+  },
+
+  /**
+   * 余额/权益按需点查(管理面点查;不进健康检查轮询,不消耗对话配额)。
+   *
+   * 上游证据(2026-10-27 真号实弹):summary 单请求带回全部资源包的容量/用量
+   * (字符串数字,协议层已归一),包级人名与到期字段上游不给 ⇒ packs 名如实用包码,
+   * 套餐语义取 data.SubscriptionPackageName;paid/free 明细接口对无官方码集的
+   * 请求体回 400 code 10001,不接(码集是官方客户端硬编码清单,不复制该脆弱面)。
+   * 基址随 realm/domain 变(global=www.workbuddy.ai,CN 按 domain 在
+   * codebuddy.cn / workbuddy.cn 之间二选一),Origin 必须等于本次请求 host。
+   * 永不抛:一切失败归 ok:false —— "取不到"不得被读成"余额为零"。
+   */
+  async getQuota(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult> {
+    try {
+      const { realm, identity, login } = resolveAccount(ctx)
+      if (!login.accessToken) return { ok: false, error: '账号无可用访问令牌(需重新登录)' }
+      const base = billingBaseUrl(realm, identity.domain)
+      const headers = buildBillingHeaders({
+        realm,
+        accessToken: login.accessToken,
+        uid: identity.uid,
+        enterpriseId: identity.enterpriseId,
+        domain: identity.domain,
+        origin: base,
+      })
+      const fetchImpl = resolveFetchImpl(opts)
+      const now = Date.now()
+
+      // 单请求 summary(2026-10-27 真号实证:paid/free 明细对无官方码集的请求体回
+      // HTTP 400 code 10001,码集是官方客户端硬编码清单,不复制该脆弱面;
+      // summary 的数字是字符串容量键、无包级人名与时间字段 ⇒ packs 名如实用包码,
+      // 面板套餐语义由 data.SubscriptionPackageName 提供)
+      const summaryRes = await postBilling(
+        fetchImpl,
+        base,
+        realm,
+        RESOURCE_SUMMARY_PATH,
+        {},
+        headers,
+      )
+      const responses: BillingResponse[] = [summaryRes]
+      const pkgs = packagesFrom(summaryRes, 'Packages', now)
+
+      if (pkgs.length === 0) {
+        // 鉴权失效按适配器自己量到的状态码/信封 code 判(10085 WAF 不算),供承载层自愈
+        const authFailed = responses.some(
+          (r) => r.status === 401 || r.status === 403 || isResourceUnauthorized(r.root),
+        )
+        const detail = responses
+          .map((r) => {
+            const msg = resourceErrorMessage(r.root)
+            return msg ? `${r.status}:${msg}` : `HTTP ${r.status}`
+          })
+          .join(' / ')
+        const hint =
+          identity.enterpriseId && !authFailed ? ';该账号带企业 ID,企业配额端点形状未取证' : ''
+        return {
+          ok: false,
+          ...(authFailed ? { authFailed: true } : {}),
+          error: `权益接口未给出可解析的资源包(${detail})${hint}`,
+        }
+      }
+
+      const sum = (pick: (p: WorkBuddyResourcePackage) => number | undefined): number =>
+        pkgs.reduce((acc, p) => acc + (pick(p) ?? 0), 0)
+      const total = sum((p) => p.total)
+      const remaining = sum((p) => p.remaining)
+      const used = sum((p) => p.used)
+      // resetsAt = 还有余量的包里最早到期的那个(不是第一枚 ⇒ 排序必须真做)
+      const resetsAt = pkgs
+        .filter((p) => (p.remaining ?? 0) > 0 && p.endAt)
+        .map((p) => p.endAt as string)
+        .sort()[0]
+      const sub = extractSubscriptionInfo(summaryRes.root)
+
+      return {
+        ok: true,
+        quota: {
+          total,
+          remaining,
+          used,
+          ...(total > 0 ? { ratio: Math.min(1, Math.max(0, used / total)) } : {}),
+          unit: 'WorkBuddy 积分',
+          ...(resetsAt ? { resetsAt } : {}),
+          ...(sub.subscriptionName ? { subscriptionName: sub.subscriptionName } : {}),
+          packs: pkgs.map((p) => ({
+            ...(p.name || p.code ? { name: p.name ?? p.code } : {}),
+            limit: p.total,
+            remaining: p.remaining,
+            ...(p.endAt ? { endAt: p.endAt } : {}),
+          })),
+        },
+      }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message.slice(0, 160) : '余额查询请求失败' }
+    }
   },
 
   isAuthFailure(statusCode: number, bodyText: string): boolean {

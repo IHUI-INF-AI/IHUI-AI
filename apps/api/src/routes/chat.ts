@@ -51,6 +51,10 @@ import {
   favoriteConversation,
   unfavoriteConversation,
   rateChatMessage,
+  // 2026-10-28(读完回):评分读面 + 撤销 —— 与 rateChatMessage 同一张表,同一把归属尺子
+  listMessageFeedbackRatings,
+  clearChatMessageRating,
+  type MessageRating,
   findFavoriteConversations,
   archiveConversation,
   unarchiveConversation,
@@ -384,20 +388,29 @@ function serializeConversationPublic(c: {
   }
 }
 
-function serializeMessage(m: {
-  id: string
-  conversationId: string
-  role: string
-  content: string
-  reasoning?: string | null
-  tokens: number | null
-  metadata: unknown
-  createdAt: Date
-  pinnedAt?: Date | null
-  bookmarkedAt?: Date | null
-  parentMessageId?: string | null
-  siblingIndex?: number | null
-}) {
+function serializeMessage(
+  m: {
+    id: string
+    conversationId: string
+    role: string
+    content: string
+    reasoning?: string | null
+    tokens: number | null
+    metadata: unknown
+    createdAt: Date
+    pinnedAt?: Date | null
+    bookmarkedAt?: Date | null
+    parentMessageId?: string | null
+    siblingIndex?: number | null
+  },
+  /**
+   * 2026-10-28(读完回):本人对这条消息的票,由调用方在取完整页后一次性批量查出
+   * (`listMessageFeedbackRatings`)再逐条传进来。省略 = 当前无票 —— 这个缺省只在
+   * "确实查过且没查到"时才可省略,不允许为了省一次查询而拿它冒充结果
+   * (那样读面就从"没有票"退化成"不知道有没有票",又回到本地态幻觉)。
+   */
+  rating: MessageRating | null = null,
+) {
   return {
     id: m.id,
     conversationId: m.conversationId,
@@ -412,6 +425,8 @@ function serializeMessage(m: {
     bookmarkedAt: m.bookmarkedAt ?? null,
     parentMessageId: m.parentMessageId ?? null,
     siblingIndex: m.siblingIndex ?? null,
+    // 2026-10-28:D49① 的票补上读面。null = 当前无票(可再投),'like'/'dislike' = 已表态。
+    rating,
   }
 }
 
@@ -1087,9 +1102,15 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           limit: pageSize,
           direction: dir,
         })
+        // 2026-10-28:整页一次取票(键 = messageId),不做逐条回查;map 必须走显式箭头,
+        // 直传 serializeMessage 会把 index 塞进第二个形参 —— 那等于给每条消息盖上假票。
+        const ratings = await listMessageFeedbackRatings(
+          userId,
+          result.messages.map((m) => m.id),
+        )
         return reply.send(
           success({
-            messages: result.messages.map(serializeMessage),
+            messages: result.messages.map((m) => serializeMessage(m, ratings.get(m.id) ?? null)),
             page,
             pageSize,
             // keyset 模式无需总数,固定 0 保持响应结构稳定(前端以 hasMore/nextCursor 判定)
@@ -1107,9 +1128,14 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         after,
       })
 
+      const ratings = await listMessageFeedbackRatings(
+        userId,
+        list.map((m) => m.id),
+      )
+
       return reply.send(
         success({
-          messages: list.map(serializeMessage),
+          messages: list.map((m) => serializeMessage(m, ratings.get(m.id) ?? null)),
           page,
           pageSize,
           total,
@@ -1261,11 +1287,19 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         direction: direction ?? 'newest',
       })
 
+      // 2026-10-28:history 是与 /messages 并列的第二个消息读面 —— 票必须同样从这里出来,
+      // 否则"翻页历史"里的消息一律显示未表态,同一个会话在同一屏上会有两套回显。
+      // 整页(各 turn 的消息拍平)一次取票,仍是一次查询。
+      const historyRatings = await listMessageFeedbackRatings(
+        userId,
+        result.turns.flatMap((t) => t.messages.map((m) => m.id)),
+      )
+
       return reply.send(
         success({
           turns: result.turns.map((t) => ({
             turnOrdinal: t.turnOrdinal,
-            messages: t.messages.map(serializeMessage),
+            messages: t.messages.map((m) => serializeMessage(m, historyRatings.get(m.id) ?? null)),
           })),
           limit,
           hasMore: result.hasMore,
@@ -1428,7 +1462,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         .status(exists ? 403 : 404)
         .send(error(exists ? 403 : 404, exists ? '无权修改该消息' : '消息不存在'))
     }
-    return reply.send(success({ message: serializeMessage(updated) }))
+    // 2026-10-28:这条响应会被客户端拿去**替换**本地那条消息,所以票必须取自库面 ——
+    // 缺省 null 会把用户已有的点赞在"钉一下"之后洗掉(写路由不是读面,更不该拿缺省冒充结果)。
+    const flagsRatings = await listMessageFeedbackRatings(userId, [updated.id])
+    return reply.send(success({ message: serializeMessage(updated, flagsRatings.get(updated.id) ?? null) }))
   })
 
   // POST /messages/:id/edit - 编辑一条 AI 消息 = 在同一版本族里落一个新 sibling 版本
@@ -1665,6 +1702,23 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '消息不存在或无权操作'))
     }
     return reply.send(success({ rated: true, rating: parsed.data.rating }))
+  })
+
+  // DELETE /messages/:id/feedback - 撤销一条消息的赞/踩(2026-10-28,读完回)
+  //
+  // 为什么需要它:rateChatMessage 是 upsert(一人一消息一票,改票覆盖),但"投了想收回"
+  // 此前无门 —— 用户只能把 dislike 改成 like,永远回不到"未表态"。撤销 = 删票行 +
+  // 连带撤回 D64⑤ 问卷附言(见 clearChatMessageRating 注释里的孤儿记录论证)。
+  // 幂等:本来就无票也回 200 —— 界面上"再点一次已选中的键"必须安静成功,
+  // 不能因为客户端时序撞了重复请求就把 404 顶给用户看(那不是"不存在",是"已经是目标态")。
+  // 归属判据仍在库层(消息存在 ∧ 会话属主),路由只做入参形状;不存在与无权对外同为 404。
+  server.delete('/messages/:id/feedback', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { id } = idParam.parse(request.params)
+    const result = await clearChatMessageRating(request.userId, id)
+    if (!result.ok) return reply.status(404).send(error(404, '消息不存在或无权操作'))
+    return reply.send(success({ rated: false, rating: null }))
   })
 
   // GET /favorites - 收藏对话列表

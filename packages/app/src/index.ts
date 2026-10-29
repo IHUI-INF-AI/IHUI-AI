@@ -54,6 +54,8 @@ export { WalletScreen } from './features/wallet/WalletScreen'
 export { CourseCatalogScreen } from './features/course-catalog/CourseCatalogScreen'
 export { PointHistoryScreen } from './features/point-history/PointHistoryScreen'
 export { NoteListScreen } from './features/note-list/NoteListScreen'
+export { QuickNotesScreen } from './features/notes/QuickNotesScreen'
+export type { QuickNotesScreenProps, QuickNoteDraft } from './features/notes/QuickNotesScreen'
 export { NoteDetailScreen } from './features/note-detail/NoteDetailScreen'
 export { ArticleListScreen } from './features/article-list/ArticleListScreen'
 export { AnnouncementScreen } from './features/announcement/AnnouncementScreen'
@@ -135,7 +137,6 @@ export { CertApplyScreen } from './features/cert-apply/CertApplyScreen'
 export { SettingsAccountScreen } from './features/settings-account/SettingsAccountScreen'
 export { LiveListScreen } from './features/live-list/LiveListScreen'
 export { CouponScreen } from './features/coupon/CouponScreen'
-export { FollowingScreen } from './features/following/FollowingScreen'
 export { RankingScreen } from './features/ranking/RankingScreen'
 export { PointsMallScreen } from './features/points-mall/PointsMallScreen'
 export { ExamScreen } from './features/exam/ExamScreen'
@@ -149,7 +150,6 @@ export { AgentMarketScreen } from './features/agent-market/AgentMarketScreen'
 export { AgentReviewListScreen } from './features/agent-review-list/AgentReviewListScreen'
 export { LiveScreen } from './features/live/LiveScreen'
 export { ActivityScreen } from './features/activity/ActivityScreen'
-export { FavoritesScreen } from './features/favorites/FavoritesScreen'
 export { CheckInScreen } from './features/check-in/CheckInScreen'
 /** 批次 15:消息/记录/关系类(私聊/群聊/系统/详情/积分/学习/收益/邀请/关注/收藏) */
 export { MessageDirectScreen } from './features/message-direct/MessageDirectScreen'
@@ -161,6 +161,9 @@ export { StudyRecordScreen } from './features/study-record/StudyRecordScreen'
 export { IncomeScreen } from './features/income/IncomeScreen'
 export { InviteScreen } from './features/invite/InviteScreen'
 export { FollowScreen } from './features/follow/FollowScreen'
+// 2026-10-28 跨端重复屏合并:following/FollowingScreen 与 favorites/FavoritesScreen 已删,
+// 上面两枚(FollowScreen / FavoriteScreen)是它们的超集(同端点、同意图、多 tab 筛选)。
+// 旧屏没有独立交互,不得再加回第二份渲染真相源(门 237 一页两声明即假精度)。
 export { FavoriteScreen } from './features/favorite/FavoriteScreen'
 /** 批次 18(2026-07-29):模型/AIGC 屏(模型广场/n8n 模型管理/模型编辑/AIGC 作品列表) */
 export { ModelPlazaScreen } from './features/model-plaza/ModelPlazaScreen'
@@ -410,8 +413,9 @@ export type {
 } from './features/cards'
 
 /** 跨端共享小组件。两条死载体已先后摘除,依据与判据同形(全仓零具名消费者):
- *  · SectionHeader —— 2026-09-30 摘除,小程序端渲染腿在 apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx,
- *    而 RN 侧区段头部至今**没有单一源**(9+ 屏各自自绘,见 packages/shared/src/ui/section-header-spec.ts)。
+ *  · SectionHeader —— 2026-09-30 摘除后又于 2026-10-27 重建为 RN 唯一渲染腿:几何取自
+ *    packages/shared/src/ui/section-header-spec.ts,小程序端腿在
+ *    apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx。
  *  · Selecter —— 2026-10-15 摘除(连同 packages/app 侧文件);小程序端腿是 adapters/Selecter.taro.tsx,
  *    RN 端用 apps/mobile-rn/src/components/ModelConfigDialog.tsx 自绘的 ModelSelecterDialog,本包那份无人取。
  *  历史同批:ColorfulLoader / PayButton 两条出口于 2026-09-26 摘除。 */
@@ -436,6 +440,10 @@ export type { WrapFocus, WrapFocusOptions } from './hooks/use-wrap-focus'
 /** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
+
+/** 区段头(标题 + 可选副标题 + 可选「更多」):RN 端唯一实现,几何取自 @ihui/shared/ui 单一源 */
+export { SectionHeader } from './components'
+export type { SectionHeaderProps } from './components'
 
 export { BackChevron } from './components'
 export type { BackChevronProps } from './components'
@@ -1241,4 +1249,40 @@ export type {
   PdfProcessOutcome,
   PdfToolsHubScreenProps,
 } from './features/tools/pdf/PdfToolsHubScreen'
+export { CirclePostScreen } from './features/community/CirclePostScreen'
+export type {
+  CircleOption,
+  CirclePostImage,
+  CirclePostScreenProps,
+} from './features/community/CirclePostScreen'
+export { InvitationsScreen } from './features/community/InvitationsScreen'
+export type {
+  InvitationStatus,
+  InvitationRowView,
+  InviteeRowView,
+  InvitationsScreenProps,
+} from './features/community/InvitationsScreen'
+export { LettersScreen } from './features/community/LettersScreen'
+export type { LetterConversationRow, LettersScreenProps } from './features/community/LettersScreen'
+export { LetterChatScreen } from './features/community/LetterChatScreen'
+export type {
+  LetterChatMessageRow,
+  LetterChatScreenProps,
+} from './features/community/LetterChatScreen'
+export { NewsCategoryScreen } from './features/community/NewsCategoryScreen'
+export type {
+  NewsCategoryArticleRow,
+  NewsCategoryScreenProps,
+} from './features/community/NewsCategoryScreen'
+export { SearchHistoryScreen } from './features/community/SearchHistoryScreen'
+export type {
+  SearchHistoryRowView,
+  SearchHistoryScreenProps,
+} from './features/community/SearchHistoryScreen'
+export { SignUpScreen } from './features/sign-up/SignUpScreen'
+export type {
+  SignUpRowView,
+  SignUpStatusView,
+  SignUpScreenProps,
+} from './features/sign-up/SignUpScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

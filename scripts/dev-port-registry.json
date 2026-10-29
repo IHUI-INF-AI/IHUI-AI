@@ -99,13 +99,32 @@
   },
   "_registered_ports_note": "本键是「哪些端口算已认领」的唯一清单(legal slot = 已占用 ∪ §2 明写的预留槽)。`scripts/check-port-registry.mjs` 必须从这里派生 REGISTERED_PORTS,**不得再在代码里手抄一份端口清单** —— 票 G-409 实测:手抄那份与 docs/port-management.md §2、本文件 `port_ranges` 三处各写各的,并且已经漂了一格(手抄面漏 8840,而 docs §2.5/§3.3 与本文件 extension 段起点都是 8840)。同一脚本另判 docs §2 表 ↔ 本清单**双向**对账(文档多报/漏报都点名),所以新增端口只有「改这一处 + 改 docs §2」一条路。`port_ranges` 仍是段位语义(给 start-dev/人读),不是认领清单。",
   "registered_ports": [
-    { "range": [8801, 8809], "why": "§2.1 应用服务段(8806 由 Desktop 废弃后改派 mobile-rn Expo Web 预览)" },
+    {
+      "range": [8801, 8809],
+      "why": "§2.1 应用服务段(8806 由 Desktop 废弃后改派 mobile-rn Expo Web 预览)"
+    },
     { "range": [8810, 8819], "why": "§2.2 基础设施段(8819 为 §2 明写的预留槽)" },
     { "range": [8820, 8829], "why": "§2.3 辅助工具段(8822-8829 为预留槽)" },
     { "range": [8830, 8839], "why": "§2.4 SaaS 部署段(8831-8839 为预留槽)" },
-    { "range": [8840, 8849], "why": "§2.5 CLI Agent(8841)+ 蓝绿部署预留(8840/8842-8849);段位起点 8840 见 §3.3" },
-    { "port": 8861, "why": "§2.6 桌面端「加载本地 web 构建」的 devUrl 覆盖口 —— 旧配方 .ihui-agent/tmp/desktop-dev-override.json 已失效(该文件仓内不存在,也无任何脚本生成它);现存覆盖流程 = pnpm dev:desktop:saas,scripts/desktop-dev-saas.mjs 运行时把 config 生成进 scratch 临时目录(用完即删)后经 tauri dev --config 注入(带 MSVC 工具链),其覆盖目标是 8801 而非本槽;本槽保留为「认领」,便于日后把覆盖口改指 8861 时落在已注册集合内。命令形态见该脚本头注。" },
-    { "port": 8877, "why": "§2.6 桌面遮罩 e2e 的私有 dev server —— 8850-8899 段内按 §3.1「认领」而非「豁免」的两枚之一" },
-    { "port": 8850, "why": "§2.7 本地 Keycloak SSO 源站 —— 分域 SSO 架构里 sso.aizhs.top 的隧道 ingress 指向它(原 Keycloak 默认口 8543,按端口铁律改认领);切换须 CF 控制台 ingress 与本机 Keycloak 同步,见 scripts/start-cloudflared-tunnel.ps1 头注" }
+    {
+      "range": [8840, 8849],
+      "why": "§2.5 CLI Agent(8841)+ 蓝绿部署预留(8840/8842-8849);段位起点 8840 见 §3.3"
+    },
+    {
+      "port": 8861,
+      "why": "§2.6 桌面端「加载本地 web 构建」的 devUrl 覆盖口 —— 旧配方 .ihui-agent/tmp/desktop-dev-override.json 已失效(该文件仓内不存在,也无任何脚本生成它);现存覆盖流程 = pnpm dev:desktop:saas,scripts/desktop-dev-saas.mjs 运行时把 config 生成进 scratch 临时目录(用完即删)后经 tauri dev --config 注入(带 MSVC 工具链),其覆盖目标是 8801 而非本槽;本槽保留为「认领」,便于日后把覆盖口改指 8861 时落在已注册集合内。命令形态见该脚本头注。"
+    },
+    {
+      "port": 8877,
+      "why": "§2.6 桌面遮罩 e2e 的私有 dev server —— 8850-8899 段内按 §3.1「认领」而非「豁免」的两枚之一"
+    },
+    {
+      "port": 8850,
+      "why": "§2.7 本地 Keycloak SSO 源站 —— 分域 SSO 架构里 sso.aizhs.top 的隧道 ingress 指向它(原 Keycloak 默认口 8543,按端口铁律改认领);切换须 CF 控制台 ingress 与本机 Keycloak 同步,见 scripts/start-cloudflared-tunnel.ps1 头注"
+    },
+    {
+      "port": 7864,
+      "why": "§2.8 号池网关单机档(relay-standalone)唯一对外入口 —— 88xx 铁律的「显式认领」例外(理由与边界写在 docs/port-management.md §2.8):对标竞品 workbuddy2api-panel 的固定对外口 7864,客户侧 base_url 的端口号属对外契约,换口即换契约;且它是部署态的宿主发布口,不是 dev/宿主开发映射口 —— 容器内部监听仍是 web 8801 / api 8802,88xx 段内语义未被侵占。认领而非豁免:走本清单 + docs §2 双向对账,不进 scripts/check-port-registry.mjs 的 EXEMPT_PORTS(那等于给整段开一张全仓通行证,同 §2.6 口径)。来源 deploy/relay-standalone/docker-compose.yml 的 gateway.ports: '${RELAY_STANDALONE_PORT:-7864}:7864';若该档改挂统一入口、撤掉独立发布口,须同笔删本条与 §2.8 那一行"
+    }
   ]
 }

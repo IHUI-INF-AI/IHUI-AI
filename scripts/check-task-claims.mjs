@@ -20,6 +20,7 @@
  *   node scripts/check-task-claims.mjs --json      # JSON 输出
  *   node scripts/check-task-claims.mjs --unclaimed  # 只列无人认领
  *   node scripts/check-task-claims.mjs --in-progress # 只列进行中(含持有者/年龄列)
+ *   node scripts/check-task-claims.mjs --claim-age   # 认领牌年龄**现读读数**(枚数 + 逐条内容锚点;只读数不判红)
  *   node scripts/check-task-claims.mjs --twins     # 列已闭环孪生旧行与"正文骨架相同"的未勾行组(不等同整行逐字节,见 DUP_GROUP_HEADING)
  *   node scripts/check-task-claims.mjs --check-gate [--json]  # 租约判据 CL1/CL2/CL3,违规 exit 1
  *   node scripts/check-task-claims.mjs --self-test # 纯函数夹具自检,不碰真 PROJECT_PLAN
@@ -57,6 +58,17 @@
  *   **向后兼容第一位**:旧的裸 `（进行中）` 一律只计数不判红 —— 落地当天把全仓既有
  *   标记判红 = 恒红门 = 逼人 `--no-verify` = 全部守门作废。到期**只判红只点名,
  *   绝不自动摘除标记**(摘别人的认领是越权,AGENTS §16)。全程只读,无任何 git 写操作。
+ *
+ * 2026-10-29 补 `--claim-age` **现读读数**(票:「`check-task-claims.mjs` 不报 CL1 计数,超龄牌类票
+ *   无法机器定性」,只读取证席实测):台账里有一族票要回答"此刻有多少枚超龄认领牌",而此前只有
+ *   `--check-gate` 那一档读得出 CL1 枚数 —— 它是**判红面**(违规 exit 1,还带 HEAD 棘轮的存量/新增
+ *   分桶),点名只给行号;默认档与 `--json` 的 `leases` 里根本没有超龄这一维(实测末行
+ *   `leases keys: ttlHours,legacy,unknown,holderNoDate`)⇒ 那类票机器上无法定性,只能人肉数。
+ *   读数档与判红档**分面**:只枚举枚数 + 逐条**内容锚点**(复合主键 = 编号 + 标题原文;§1 明令
+ *   禁止拿行号当证据指针 —— 行号一次 append 就挪位),**不据此判红**(判红仍走 `--check-gate`,
+ *   免得把别人欠的旧账变成又一堵恒红门,§12e)。年龄判据一字不复算:走本文件既有的
+ *   `scanTasks` + `analyzeLeases`(它已是 `strip-stale-claim-marks` / `plan-copy-row-purge` 共用的
+ *   "租约已过期"唯一出口),编号与题面走 `lib/plan-task-index.mjs` 的 `compositeKeyOf`/`keyOfRow`/`titleOf`。
  */
 
 import { readFileSync, existsSync } from 'node:fs'
@@ -80,8 +92,11 @@ import {
   CLAIM_SOURCE,
   claimMarkOf,
   codeSpanRangesOf,
+  compositeKeyOf,
   insideCodeSpan,
   isValidIsoDate,
+  keyOfRow,
+  titleOf,
 } from './lib/plan-task-index.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -161,6 +176,113 @@ function analyzeLeases(rows, { nowMs, ttlHours }) {
   }
   return { stale, missingHolder, legacyRows, counts: { legacy, unknown, holderNoDate } }
 }
+
+/**
+ * 一枚认领牌的**内容锚点**(2026-10-29 立)。读数档点名一律给「编号 + 标题原文」,
+ * **刻意不给行号** —— §1 明令「证据指针禁止行号:行号一次 append 就挪位」,而本票要结清的
+ * 正是"超龄牌类票无法机器定性",拿行号当锚等于把定性又交回人肉(数一遍还错位)。
+ * 主键与题面的取法全走 `lib/plan-task-index.mjs`(§0.6 单源,本器零复算):
+ *  - `compositeKeyOf` ⇒ `编号#标题前缀`(全仓唯一主键形,与门 130/203、归并器同一把尺);
+ *  - 主键不成(编号缺位或题面退化)⇒ 退到 `keyOfRow`/`titleOf` 的单侧,并如实标注**为什么不成**;
+ *  - 两侧都给不出 ⇒ 用整行预览兜底点名(宁可用不精确锚点并自称不精确,也不能静默丢那一枚:
+ *    丢了就是把"这一枚没人点名"写成"没有这一枚",§0.3 同型)。
+ */
+export function claimAnchorOf(row) {
+  const raw = String(row?.full ?? row?.text ?? '')
+  const composite = compositeKeyOf(raw)
+  if (composite) return { anchorKind: 'composite', anchor: composite }
+  const key = keyOfRow(raw)
+  const title = titleOf(raw)
+  if (key && title) return { anchorKind: 'composite-degenerate', anchor: `${key}#${title}` }
+  if (key) return { anchorKind: 'id-only', anchor: key }
+  if (title) return { anchorKind: 'title-only', anchor: title }
+  return {
+    anchorKind: 'none',
+    anchor: raw.replace(/^- \[[ xX]\]\s*/, '').slice(0, 80),
+  }
+}
+
+/**
+ * 认领牌年龄**现读读数**(纯函数,零副作用)。
+ *
+ * 与 `--check-gate` 的分工:那一档是**判红面**(违规 exit 1,并按 HEAD 存量棘轮把红分成
+ * 存量/新增),这一档是**读数面**(枚数 + 逐条锚点,恒 0 或 2,永不因"别人欠着旧账"而拦路)。
+ * 立因见文件头 2026-10-29 那段:此前超龄枚数只在判红面里出,默认档与 `--json` 的 `leases`
+ * 连这一维都没有。
+ *
+ * 年龄判据**不另写一遍**:`scanTasks` + `analyzeLeases` 就是 `strip-stale-claim-marks`(代摘器)
+ * 与 `plan-copy-row-purge`(批3 过期租约档)共用的同一个出口,本器只是把它的答案换个面打印。
+ *
+ * 三态(§0.3):被审面取不到由调用方(main)先 exit 2;这里再加两道"判死"防线 ——
+ *  ① 面上枚举到 0 条目行 ⇒ 分类器在这一面上是死的,读数不作数(不记绿也不报数);
+ *  ② 读数分桶与 `analyzeLeases` 自己给出的计数漂开 ⇒ 同一把尺子的两面不同形,读数不作数。
+ * @returns {{totals:Object, buckets:Object, undetermined:string[], ttlHours:number, nowIso:string}}
+ */
+export function buildClaimAgeReadout(content, { nowMs, ttlHours }) {
+  const { unclaimed, inProgress, completed } = scanTasks(content)
+  const { stale, missingHolder, legacyRows, counts } = analyzeLeases(inProgress, { nowMs, ttlHours })
+  const staleByLine = new Map(stale.map((v) => [v.line, v]))
+  const buckets = {
+    staleLease: [],
+    freshLease: [],
+    legacyMark: [],
+    halfLease: [],
+    holderNoDate: [],
+    unknown: [],
+  }
+  for (const r of inProgress) {
+    const item = {
+      ...claimAnchorOf(r),
+      format: r.format,
+      date: r.date ?? null,
+      holder: r.holder ?? null,
+      // 年龄只问 analyzeLeases 已经量到的那个数(超龄那一档才写 ageHours)—— 不在这里重算公式
+      ageHours: staleByLine.get(r.line)?.ageHours ?? r.ageHours ?? null,
+      // 除标记外没有正文的行(实测台账里确有"整行只剩一枚牌"的形态)预览留空会被读成"内容丢了",
+      // 显式写明白 —— 点名仍在这枚上,不静默。
+      preview: String(r.text ?? '').slice(0, 80) || '(本行除标记外无正文)',
+    }
+    if (staleByLine.has(r.line)) buckets.staleLease.push(item)
+    else if (r.format === 'legacy') buckets.legacyMark.push(item)
+    else if (r.format !== 'lease') buckets.unknown.push(item)
+    else if (r.date && !r.holder) buckets.halfLease.push(item)
+    else if (r.holder && !r.date) buckets.holderNoDate.push(item)
+    else buckets.freshLease.push(item)
+  }
+  const entryRows = unclaimed.length + inProgress.length + completed.length
+  const undetermined = []
+  if (entryRows === 0)
+    undetermined.push(
+      '被审面枚举到 0 条目行(未勾 / 进行中 / 已完成三态全空)⇒ 分类器在这一面上是死的,不记绿也不报数',
+    )
+  if (
+    counts.legacy !== buckets.legacyMark.length ||
+    counts.unknown !== buckets.unknown.length ||
+    counts.holderNoDate !== buckets.holderNoDate.length ||
+    stale.length !== buckets.staleLease.length ||
+    missingHolder.length !== buckets.halfLease.length
+  )
+    undetermined.push(
+      `读数分桶与 analyzeLeases 的计数漂开(桶 stale/legacy/half/holderNoDate/unknown = ${buckets.staleLease.length}/${buckets.legacyMark.length}/${buckets.halfLease.length}/${buckets.holderNoDate.length}/${buckets.unknown.length},计数 ${stale.length}/${counts.legacy}/${missingHolder.length}/${counts.holderNoDate}/${counts.unknown})⇒ 同一把尺子两面不同形,本次读数不作数`,
+    )
+  return {
+    ttlHours,
+    nowIso: new Date(nowMs).toISOString(),
+    totals: {
+      entryRows,
+      inProgress: inProgress.length,
+      staleLease: buckets.staleLease.length,
+      freshLease: buckets.freshLease.length,
+      legacyMark: buckets.legacyMark.length,
+      halfLease: buckets.halfLease.length,
+      holderNoDate: buckets.holderNoDate.length,
+      unknown: buckets.unknown.length,
+    },
+    buckets,
+    undetermined,
+  }
+}
+
 
 // `codeSpanRangesOf` / `insideCodeSpan` 的实现已上收到 `lib/plan-task-index.mjs`(§0.6 单源),
 // 本门从那里 import —— 挂牌判据必须先问"这个标记是在挂牌还是在叙述这个形态",
@@ -440,6 +562,8 @@ const BOOLEAN_FLAGS = new Set([
   '--unclaimed',
   '--in-progress',
   '--twins',
+  // 2026-10-29:认领牌年龄**现读读数**档(枚数 + 逐条内容锚点;只读数不判红,判红走 --check-gate)
+  '--claim-age',
   '--check-gate',
   '--self-test',
   '--staged',
@@ -448,6 +572,12 @@ const BOOLEAN_FLAGS = new Set([
   '--worktree',
 ])
 const VALUE_FLAGS = new Set(['--plan', '--ttl-hours'])
+/**
+ * 读数档与其余各档**互斥**的理由不是洁癖:`--check-gate` 是判红面(exit 1 = 门红)、
+ * `--unclaimed`/`--in-progress`/`--twins` 各出一张清单,而 `--claim-age` 出的是枚数读数。
+ * 同给时"哪一个决定退出码"没有答案 —— 静默选一个就是拿一面冒充另一面(§0.3)。
+ */
+const READOUT_EXCLUSIVE = ['--check-gate', '--unclaimed', '--in-progress', '--twins']
 
 /**
  * @param {string[]} argv
@@ -475,14 +605,23 @@ function parseArgs(argv) {
     if (!BOOLEAN_FLAGS.has(a)) return { ok: false, error: `未知开关: ${a}` }
     flags.add(a)
   }
+  if (flags.has('--claim-age')) {
+    const clash = READOUT_EXCLUSIVE.filter((f) => flags.has(f))
+    if (clash.length > 0)
+      return {
+        ok: false,
+        error: `--claim-age 与 ${clash.join(' / ')} 互斥(读数档与判红档/清单档各出一种结论,同给没有答案)`,
+      }
+  }
   return { ok: true, flags, plan, ttlHours }
 }
 
 const USAGE = [
-  '用法: node scripts/check-task-claims.mjs [--json|--unclaimed|--in-progress|--twins|--check-gate|--self-test]',
+  '用法: node scripts/check-task-claims.mjs [--json|--unclaimed|--in-progress|--twins|--claim-age|--check-gate|--self-test]',
   '      [--plan <file>] [--ttl-hours <n>] [--staged | --worktree]',
   `      租约年龄阈值亦可经 ${TTL_ENV} 覆盖(默认 ${DEFAULT_TTL_HOURS}h)。全程只读。`,
   '      判定面:默认 HEAD blob;--staged 判索引 blob;--worktree 人工磁盘档;两面旗同给 exit 2。',
+  '      --claim-age 是**读数档**(超龄枚数 + 逐条内容锚点,exit 0/2),与判红档 --check-gate 互斥。',
 ].join('\n')
 
 /**
@@ -796,6 +935,88 @@ function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel, c
   }
   process.exitCode = gate.violations.length > 0 ? 1 : 0
 }
+
+/**
+ * `--claim-age` 输出面(只读数、不判红:退出码只有 0 = 读数成立 / 2 = 未判定)。
+ * 想据此拦提交请走 `--check-gate` —— 把读数档做成判红档,等于给"别人欠的旧账"再加一堵
+ * 与本次提交内容无关的恒红门(§12e:唯一结局是逼人 `--no-verify`,连带约 190 道守门作废)。
+ */
+function runClaimAgeReadout(flags, content, { nowMs, ttlHours, ttlSource, faceLabel }) {
+  const ro = buildClaimAgeReadout(content, { nowMs, ttlHours })
+  const exit = ro.undetermined.length > 0 ? 2 : 0
+  if (flags.has('--json')) {
+    console.log(
+      JSON.stringify(
+        {
+          claimAgeReadout: true,
+          exit,
+          ttlHours,
+          ttlSource,
+          nowIso: ro.nowIso,
+          face: faceLabel,
+          totals: ro.totals,
+          buckets: ro.buckets,
+          undetermined: ro.undetermined,
+        },
+        null,
+        2,
+      ),
+    )
+    process.exitCode = exit
+    return
+  }
+  console.log(
+    `任务认领牌年龄现读(阈值 ${ttlHours}h,来源:${ttlSource};量取时刻 ${ro.nowIso})—— 本档只读数不判红,判红走 --check-gate`,
+  )
+  console.log(
+    `  超龄完整租约牌(年龄 > ${ttlHours}h): ${ro.totals.staleLease} 枚 · 裸「（进行中）」标记(无日期无持有者): ${ro.totals.legacyMark} 枚`,
+  )
+  console.log(
+    `  有效租约(未超龄) ${ro.totals.freshLease} 枚 · 半个租约(有日期无持有者) ${ro.totals.halfLease} 枚 · 有持有者无日期(年龄判不出 ⇒ 不猜) ${ro.totals.holderNoDate} 枚 · 形态不可辨 ${ro.totals.unknown} 枚`,
+  )
+  console.log(
+    `  挂牌合计 ${ro.totals.inProgress} 枚 / 三态条目行合计 ${ro.totals.entryRows} 枚(未勾 + 进行中 + 已完成)`,
+  )
+  const LIST_TITLES = [
+    ['staleLease', '超龄完整租约牌'],
+    ['legacyMark', '裸「（进行中）」标记'],
+    ['halfLease', '半个租约(有日期无持有者)'],
+    ['holderNoDate', '有持有者无日期(年龄判不出)'],
+    ['unknown', '形态不可辨'],
+  ]
+  for (const [key, label] of LIST_TITLES) {
+    const rows = ro.buckets[key]
+    if (rows.length === 0) continue
+    console.log(
+      `  逐条点名 · ${label}(${rows.length} 枚;锚点 = 复合主键 编号 + 标题原文,**刻意不给行号** —— 行号一次 append 就挪位,§1):`,
+    )
+    for (const r of rows) {
+      const age =
+        typeof r.ageHours === 'number' && key === 'staleLease' ? `  超龄 ${r.ageHours}h` : ''
+      const lease =
+        r.holder || r.date
+          ? `  持有者 ${r.holder ?? '—'} 认领于 ${r.date ?? '—'}${age}`
+          : '  牌面没有日期与持有者(旧写法)'
+      const anchorNote =
+        r.anchorKind === 'composite'
+          ? ''
+          : `  〔${ANCHOR_KIND_NOTE[r.anchorKind]} —— 该锚点不精确,可据此人工对齐,不得当主键用〕`
+      console.log(`    · ${r.anchor}${anchorNote}${lease}  「${r.preview}」`)
+    }
+  }
+  for (const u of ro.undetermined) console.log(`  ❌ **未判定**:${u}(不记绿也不冒红,§0.3)`)
+  console.log(`判定面:${faceLabel}`)
+  process.exitCode = exit
+}
+
+/** 主键不成时的如实标注(读数档不得把"给不出主键"洗成"没有这一枚",也不得冒充复合主键)。 */
+const ANCHOR_KIND_NOTE = {
+  'composite-degenerate': '题面退化 ⇒ 复合主键不成',
+  'id-only': '编号有、题面给不出 ⇒ 只按编号点名',
+  'title-only': '编号缺位 ⇒ 只按标题点名',
+  none: '编号与题面都给不出 ⇒ 按整行前 80 字兜底点名',
+}
+
 
 /**
  * 纯函数夹具自检(绝不含真 PROJECT_PLAN —— 它是多会话共写的活文档,自测行写进去
@@ -1268,11 +1489,95 @@ function selfTest(realNow = Date.now()) {
       '写全日期与持有者的牌被拦 ⇒ 这一档会把人推向"干脆不挂牌"',
     )
   })
+  /**
+   * S22(2026-10-29 立,票:「`check-task-claims.mjs` 不报 CL1 计数,超龄牌类票无法机器定性」):
+   * 读数档必须**现读枚数**并逐条点名,且点名走内容锚点(编号 + 标题原文)而不是行号。
+   * 每一臂都配一支阳性对照:阈值收紧即多计、锚点不成时仍点名、面上没有条目行时判死而非报 0。
+   */
+  check('S22 读数档:超龄/裸标记枚数现读,点名给复合主键不给行号,与判红档共用同一把尺', () => {
+    const doc = [
+      '- [ ]（进行中@2020-01-01/qa） G-771 超龄租约甲的题面',
+      '- [ ]（进行中@2020-01-02/dev） G-772 超龄租约乙的题面',
+      '- [ ]（进行中@2026-09-25/fresh） G-773 新鲜租约的题面',
+      '- [ ]（进行中） G-774 裸标记的题面',
+      '- [ ] G-775 无人认领的题面',
+      '- [x] ✅(2026-09-24) G-776 已闭环的题面',
+    ].join('\n')
+    const ro = buildClaimAgeReadout(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS })
+    eq(ro.undetermined.length, 0, `夹具健全却判未判定:${ro.undetermined.join(' / ')}`)
+    eq(ro.totals.staleLease, 2, '超龄完整租约牌枚数(本票要的就是这一格)')
+    eq(ro.totals.legacyMark, 1, '裸「（进行中）」标记枚数')
+    eq(ro.totals.freshLease, 1, '新鲜租约不得被算进超龄')
+    eq(ro.totals.entryRows, 6, '三态条目行合计应含已闭环与无人认领两族')
+    eq(ro.totals.inProgress, 4, '挂牌合计 = 甲乙丙丁四枚')
+    // 年龄只问 analyzeLeases 量到的那个数(不在读数档重算公式)
+    eq(ro.buckets.staleLease.every((v) => v.ageHours > DEFAULT_TTL_HOURS), true, '超龄臂必须带现读年龄')
+    eq(
+      ro.buckets.staleLease.every((v) => v.anchorKind === 'composite' && v.anchor.startsWith('G-77')),
+      true,
+      `锚点必须是「编号#标题」的复合主键形,实得 ${ro.buckets.staleLease.map((v) => v.anchorKind).join(',')}`,
+    )
+    // 行号绝不得当锚:读数档的每一项都不许携带 line 字段(§1「证据指针禁止行号」)
+    const allRows = Object.values(ro.buckets).flat()
+    eq(allRows.every((v) => !('line' in v)), true, '读数档里出现了行号字段 ⇒ 行号一次 append 就挪位,不能当锚')
+    eq(allRows.every((v) => typeof v.anchor === 'string' && v.anchor.length > 0), true, '有一枚牌没被点名(静默丢行)')
+    // 裸标记与"超龄"是两族:裸标记无日期 ⇒ 判不出年龄,绝不进超龄桶
+    eq(ro.buckets.legacyMark.every((v) => v.date === null && v.holder === null), true, '裸标记被当成了带日期的租约')
+    // 阳性对照①:阈值收到 1h ⇒ 那枚 12 小时的新鲜牌也进超龄(证明"超龄"这一维真在起作用)
+    eq(buildClaimAgeReadout(doc, { nowMs: NOW, ttlHours: 1 }).totals.staleLease, 3, '阈值收紧必须多计 ⇒ 否则超龄维是假的')
+    // 阳性对照②:把牌摘干净 ⇒ 两桶归零(读数档报 0 是"量出来的 0",不是判死)
+    const bare = buildClaimAgeReadout('- [ ] G-777 无人认领\n- [x] G-778 已闭环\n', {
+      nowMs: NOW,
+      ttlHours: DEFAULT_TTL_HOURS,
+    })
+    eq(bare.totals.staleLease + bare.totals.legacyMark, 0)
+    eq(bare.undetermined.length, 0, '面上有条目行却判未判定 ⇒ 判死防线过头,把量到的 0 也吞了')
+  })
+  /**
+   * S23 三态(§0.3):读数档的 0 与"判不出"必须分得开。
+   *  ① 面上枚举到 0 条目行 ⇒ 分类器在这一面上是死的,不记绿也不报数;
+   *  ② 编号与题面都给不出 ⇒ 仍必须点名(兜底锚点),并自称锚点不精确。
+   */
+  check('S23 读数档三态:0 条目行判未判定、给不出主键仍逐条兜底点名(不静默丢行)', () => {
+    const dead = buildClaimAgeReadout('这只是散文,没有任何登记行\n', {
+      nowMs: NOW,
+      ttlHours: DEFAULT_TTL_HOURS,
+    })
+    eq(dead.totals.entryRows, 0)
+    eq(dead.undetermined.length > 0, true, '枚举到 0 条目行却给出一个干净的读数 ⇒ 判死被写成通过')
+    eq(dead.nowIso.length > 0, true, '读数必须自带量取时刻(超龄是随时钟变的)')
+    const noKey = buildClaimAgeReadout('- [ ]（进行中@2020-03-03/x）\n', {
+      nowMs: NOW,
+      ttlHours: DEFAULT_TTL_HOURS,
+    })
+    eq(noKey.totals.staleLease, 1, '给不出主键的那一枚被静默丢了')
+    eq(noKey.buckets.staleLease[0].anchorKind, 'none', '主键不成时必须自称不成,不得冒充复合主键')
+    eq(typeof noKey.buckets.staleLease[0].anchor === 'string', true, '兜底锚点必须仍在(点名不得缺席)')
+    // 判红档与读数档同一把尺:读数桶必须等于 checkLeaseGate 量到的 stale 集(不另立阈值/公式)
+    const both = buildClaimAgeReadout('- [ ]（进行中@2020-01-01/qa） G-9 题面\n', {
+      nowMs: NOW,
+      ttlHours: DEFAULT_TTL_HOURS,
+    })
+    eq(both.totals.staleLease, checkLeaseGate('- [ ]（进行中@2020-01-01/qa） G-9 题面\n', { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS }).cl1.total, '读数档与判红档读出了两个数 ⇒ 又变成两把尺子')
+  })
+  /**
+   * S24 CLI 档:新读数开关必须被白名单接受,且与判红档/清单档互斥(同给时"谁决定退出码"没有答案)。
+   */
+  check('S24 parseArgs:--claim-age 入白名单,与 --check-gate/--unclaimed/--in-progress/--twins 互斥判死', () => {
+    eq(parseArgs(['--claim-age']).ok, true, '--claim-age 未进白名单 ⇒ 现读枚数这一档根本起不来')
+    eq(parseArgs(['--claim-age', '--json']).ok, true, '--json 是修饰档,不该被算成冲突')
+    eq(parseArgs(['--claim-age', '--ttl-hours', '1']).ok, true)
+    eq(parseArgs(['--claim-age', '--check-gate']).ok, false, '读数档与判红档同给必须判死')
+    eq(parseArgs(['--claim-age', '--check-gate']).error.includes('互斥'), true, '判死必须说明为什么')
+    for (const clash of ['--unclaimed', '--in-progress', '--twins'])
+      eq(parseArgs(['--claim-age', clash]).ok, false, `与 ${clash} 同给必须判死`)
+    eq(parseArgs(['--check-gate', '--unclaimed']).ok, true, '本次未改动的既有组合不得被顺手拦掉(向后兼容)')
+    eq(parseArgs(['--claim-ages']).ok, false, '拼错的开关必须仍走"未知开关"判死')
+  })
   for (const r of results) console.log(r)
   console.log(`--self-test: ${results.length - failures}/${results.length} 通过`)
   return failures
 }
-
 function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   const parsed = parseArgs(argv)
   if (!parsed.ok) {
@@ -1317,7 +1622,20 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   const ttl = resolveTtlHours(parsed.ttlHours, process.env[TTL_ENV])
   if (ttl.warn) console.warn(`⚠ ${ttl.source}`)
   const { unclaimed, inProgress, completed } = scanTasks(content)
-  const { counts: leaseCounts } = analyzeLeases(inProgress, { nowMs, ttlHours: ttl.ttlHours })
+  const leaseAnalysis = analyzeLeases(inProgress, { nowMs, ttlHours: ttl.ttlHours })
+  const { counts: leaseCounts } = leaseAnalysis
+
+  if (parsed.flags.has('--claim-age')) {
+    // 读数档:枚数 + 逐条内容锚点。放在 --check-gate 之前(parseArgs 已把两旗判互斥),
+    // 且不写任何文件、不摘任何牌(摘牌是 strip-stale-claim-marks 的职权)。
+    runClaimAgeReadout(parsed.flags, content, {
+      nowMs,
+      ttlHours: ttl.ttlHours,
+      ttlSource: ttl.source,
+      faceLabel,
+    })
+    return
+  }
 
   if (parsed.flags.has('--check-gate')) {
     /**
@@ -1422,7 +1740,15 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
             duplicateExtra: dupExtra,
             claimable: claimable.length,
           },
-          leases: { ttlHours: ttl.ttlHours, ...leaseCounts },
+          leases: {
+            ttlHours: ttl.ttlHours,
+            ...leaseCounts,
+            // 2026-10-29 补:此前 `leases` 只有 legacy/unknown/holderNoDate 三个桶,超龄这一维
+            // **在整个默认 JSON 档里不存在**(实测末行 `leases keys: ttlHours,legacy,unknown,holderNoDate`)。
+            // 只加键、不改既有键名与形态 ⇒ 既有调用方解析兼容。逐条锚点走 --claim-age --json。
+            stale: leaseAnalysis.stale.length,
+            missingHolder: leaseAnalysis.missingHolder.length,
+          },
         },
         null,
         2,
@@ -1442,6 +1768,11 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
 
   if (parsed.flags.has('--in-progress')) {
     console.log(`进行中任务 (${inProgress.length}):`)
+    // 附加行(2026-10-29):这一档逐行给了持有者/年龄,却**没有枚数合计** —— 超龄牌类票因此
+    // 只能人肉数。既有两行一字未动,只在中间插一行读数。
+    console.log(
+      `  读数:超龄完整租约牌 ${leaseAnalysis.stale.length} 枚 / 裸「（进行中）」标记 ${leaseCounts.legacy} 枚(逐条内容锚点见 --claim-age)`,
+    )
     for (const t of inProgress) console.log(`  L${t.line}: ${t.text}${claimDisplaySuffix(t)}`)
     console.log(`判定面:${faceLabel}`)
     return
@@ -1457,6 +1788,11 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   )
   console.log(
     `  进行中:    ${inProgress.length}(旧格式无租约 ${leaseCounts.legacy} / 形态不可辨 ${leaseCounts.unknown} / 有持有者无日期 ${leaseCounts.holderNoDate};租约到期判红见 --check-gate)`,
+  )
+  // 2026-10-29 补(只新增一行,上一行一字未动 ⇒ 既有解析面兼容):超龄枚数此前**只有** --check-gate
+  // 那一档读得出,而它是判红面;台账里"此刻有几枚超龄牌"这类票因此无法机器定性。
+  console.log(
+    `  认领牌年龄现读:超龄完整租约牌 ${leaseAnalysis.stale.length} 枚 / 裸「（进行中）」标记 ${leaseCounts.legacy} 枚(阈值 ${ttl.ttlHours}h;逐条内容锚点见 --claim-age)`,
   )
   console.log(`  已完成:    ${completed.length}`)
   console.log(`  合计:      ${unclaimed.length + inProgress.length + completed.length}`)
@@ -1527,5 +1863,13 @@ export const __test__ = {
   CLAIM_MARKER_OPTIONAL_RE,
   DEFAULT_TTL_HOURS,
   TTL_ENV,
+  /**
+   * 2026-10-29 补(读数档):镜像测试必须 import 这一份实现断言,**不得在测试里再数一遍**
+   * (§22c:两处算同一个枚数迟早漂成"一边报 27 一边报 0")。
+   */
+  buildClaimAgeReadout,
+  claimAnchorOf,
+  runClaimAgeReadout,
+  READOUT_EXCLUSIVE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

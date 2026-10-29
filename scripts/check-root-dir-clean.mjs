@@ -15,16 +15,33 @@
  * 并随 commit 一起提交,视为"显式审批"。禁止以「看起来无害」为由跳过白名单。
  *
  * 用法:
- *   node scripts/check-root-dir-clean.mjs --staged   (pre-commit 模式,违规 exit 1)
- *   node scripts/check-root-dir-clean.mjs             (报告模式,违规仍 exit 0)
+ *   node scripts/check-root-dir-clean.mjs --staged   (提交链档,三档退出码见下)
+ *   node scripts/check-root-dir-clean.mjs             (现场报告档,**不判红也不判绿** ⇒ 只报数,exit 0)
+ *
+ * 退出码(2026-10-27 把"红"与"未判定"拆成两个码位;此前两型挤在同一条输出流里,
+ * 归因层只从 blocking 红名单取红 ⇒ 门自报"未判定"时无人可指 ⇒ 应急档成了默认出口):
+ *   0 = 通过,或只剩"早在 HEAD 里的存量"(照点名、只报数,§12e)
+ *   1 = 判红:本次新入库(索引有 ∧ HEAD 无)的白名单外条目
+ *   2 = 未判定:白名单外条目**未被 git 跟踪** ⇒ 归属无从判定;本门没有对本枚提交下结论,
+ *       既不记绿也不冒红(AGENTS §0.3)。仍非零 ⇒ §28 的交付判据与 runner 照样拦得住。
+ *   1 与 2 同时在场 ⇒ **红优先取 1**,但末行必须把两档**分别报数并点名**(结论行不折叠,
+ *   见 resultLine);折叠就是把"未判定"偷偷折进"红",正是本票要杀的形态。
  *
  * 判定对象:一级目录(非递归)。二级目录内容(如 tmp/*、logs/*、node_modules/*)不在本
  * 守门范围,由 .gitignore 与各自的临时产物目录语义兜底。
+ *
+ * §22d 双形态入口:判据(归属分流、结论行)一律住在导出的纯函数里,`main()` 只在
+ * `isDirectRun` 时执行 —— 镜像测试 `import { __test__ }` 取的是**同一把尺子**,不是第二份。
  */
-import { readdirSync, statSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
+import { maskComments } from './lib/code-mask.mjs'
+// 结论行上的"未判定"结构化键与归因层认的那个键必须是**同一个字面量**(§0.6 单一真相源):
+// 门打一份、归因层认另一份 ⇒ 改一次措辞就静默失联。故从 lib 取常量,不在本文件写字面量。
+import { GATE_UNDETERMINED_MARK } from './lib/commit-gate-attribution.mjs'
 
 /**
  * 仓库根。生产路径 = 调用方所在目录(与本门历史上完全一致,不改语义);
@@ -45,8 +62,7 @@ function resolveRoot(argv) {
   return process.cwd()
 }
 
-const ROOT = resolveRoot(process.argv)
-const isStaged = process.argv.includes('--staged')
+const isStagedArg = (argv) => argv.includes('--staged')
 
 // ============================================================================
 // 归属面(G-268,2026-09-27 立)—— 本门的结论必须说清"它判的是哪一面"
@@ -73,15 +89,20 @@ const isStaged = process.argv.includes('--staged')
 // 实现与三档归属见 getHeadRootNames() 与下方归属分流。
 // 全量档(不带 --staged)一字未改:它今天就是报告档(exit 0),本门刻意不动它,
 // 免得顺手"修好"成一个谁碰谁红的档。
+// 〔更正@2026-10-27,上一条"全量档一字未改"按当次实现作废,原句逐字保留只作改判留痕〕:
+// 全量档**退出码**仍是一字未改(报告档 exit 0,P5 钉着),但它的**措辞**必须改 —— 它此前
+// 打印 `❌ 根目录整洁守门失败…` 却 exit 0,"报了什么"与"退出码说什么"在同一门体里相反。
+// 本档判的是磁盘现场(不属本枚提交、也非 HEAD blob),按 §0.3 它无权下"失败"结论 ⇒
+// 改成显式只报数措辞(不再出现 ❌ / 失败字样),红与未判定都在 --staged 档判。
 // ============================================================================
 
-/** 索引里出现过的根级条目名(含"目录下有已跟踪文件"的目录名)。git 问不到 ⇒ 空集(退回原拦截行为) */
-function getIndexedRootNames() {
+/** 索引里出现过的根级条目名(含"目录下有已跟踪文件"的目录名)。git 问不到 ⇒ null */
+function getIndexedRootNames(root) {
   try {
     // 2026-10-26 G-54:git 派生收口到 face-reader。老注释记的"刻意不 import face-reader"
     // 只针对当时"引二进制名而不引派生"的半接线档(守门 118);本票把派生本身收口,顾虑消解,
     // 绝对路径化欠账一并清掉。
-    const out = gitRaw(['ls-files', '-z'], ROOT)
+    const out = gitRaw(['ls-files', '-z'], root)
     const names = new Set()
     for (const p of out.split('\0')) {
       if (!p) continue
@@ -114,10 +135,10 @@ function getIndexedRootNames() {
  *  - 违规名 ∉ 索引 ⇒ 未跟踪 ⇒ 照旧 exit 2(归属无从判定);
  *  - 本函数返回 null(HEAD 问不到,如空仓/无提交)⇒ **不得**把存量算成零 ⇒ 退回旧的全量拦截。
  */
-function getHeadRootNames() {
+function getHeadRootNames(root) {
   try {
     // 2026-10-26 G-54:git 派生收口到 face-reader(§12g 的显式 stdio 接管由 gitRaw 内部保证)
-    const out = gitRaw(['ls-tree', '--name-only', '-z', 'HEAD'], ROOT)
+    const out = gitRaw(['ls-tree', '--name-only', '-z', 'HEAD'], root)
     const names = new Set()
     for (const p of out.split('\0')) {
       if (!p) continue
@@ -130,11 +151,8 @@ function getHeadRootNames() {
   }
 }
 
-// 逃生舱(应急跳过,默认不推荐,与 check-pwsh-version 等守门脚本一致)
-if (process.env.HUSKY_SKIP_ROOT_DIR_GUARD === '1') {
-  console.log('  ⏭  根目录整洁守门(HUSKY_SKIP_ROOT_DIR_GUARD=1, 跳过)')
-  process.exit(0)
-}
+// 逃生舱(应急跳过,默认不推荐,与 check-pwsh-version 等守门脚本一致)—— 判据在 main() 内取,
+// 不得留在顶层:顶层执行一次 import 就跑(P22d 的"双形态"红线,镜像测试 import 判据时会当场退出)。
 // ============================================================================
 // 白名单(一级目录合法条目,封闭集合)
 // ============================================================================
@@ -194,6 +212,30 @@ const ALLOWED_FILES = new Set([
 ])
 
 /** 根目录合法目录(monorepo 标准结构 + 运行时目录) */
+
+/**
+ * 外部程序写歪项**封口链接**(2026-10-28 立,治"同一个空目录反复出现且顶红全仓提交")。
+ *
+ * 立因(量的):NVIDIA 显示驱动按 **cwd** 在仓根建 `NVIDIA Corporation/umdlogs`,删一次 16:07、
+ * 再删 16:41 又出现(两次实测);而门 44 的 `--staged` 档对"未跟踪且白名单外"报 exit 2 ⇒
+ * **所有会话的提交都被顶成未判定**,safe-commit 只能走 --no-verify —— 守门被架空。
+ * §26 的既定正解是"写歪项封口改道":把那个名字换成指向批准落点的 junction,写盘因此落到仓外。
+ *
+ * 本函数只放行**链接**:lstat 是符号链接/junction 且解析后的目标在批准落点前缀内。
+ * 有人把它改回实体目录(真在仓里写) ⇒ 这条不成立,照旧判红。
+ */
+const SEALED_LINK_TARGETS = ['d:/devenv/temp/', 'd:/devenv/logs/']
+export function isSealedLink(abs) {
+  try {
+    if (!lstatSync(abs).isSymbolicLink()) return false
+    // 尾斜杠归一:realpath 返回的目标不带尾斜杠,而前缀带 —— 不补就永远匹配不上(正例恒假)。
+    const target = realpathSync(abs).replace(/\\/g, '/').toLowerCase() + '/'
+    return SEALED_LINK_TARGETS.some((p) => target.startsWith(p))
+  } catch {
+    return false
+  }
+}
+
 const ALLOWED_DIRS = new Set([
   'apps',
   'packages',
@@ -344,11 +386,11 @@ const ALLOWED_HIDDEN_DIRS = new Set([
 // ============================================================================
 
 /** git 已忽略的一级条目(.gitignore 覆盖 → 不参与跟踪,不该阻塞 commit) */
-function getIgnoredEntries(names) {
+function getIgnoredEntries(names, root) {
   try {
     // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 带 opts.input 时 stdio[0] 自动为 'pipe',
     // 喂入语义与原调用一致;无匹配 exit 1 经 err.status 抛 Undetermined,由下方 catch 兜住)
-    const out = gitRaw(['check-ignore', '--stdin', '-z'], ROOT, { input: names.join('\0') })
+    const out = gitRaw(['check-ignore', '--stdin', '-z'], root, { input: names.join('\0') })
     return new Set(out.split('\0').filter(Boolean))
   } catch {
     // check-ignore 无匹配时 exit 1;git 不可用同理 → 空集合(维持原拦截行为)
@@ -357,12 +399,12 @@ function getIgnoredEntries(names) {
 }
 
 /** git worktree 注册目录(仅取一级子目录,主 worktree 自身不计) */
-function getWorktreeDirNames() {
+function getWorktreeDirNames(root) {
   try {
     // 2026-10-26 G-54:git 派生收口到 face-reader(原 stderr 为 ignore,gitRaw 改捕获进异常对象,
     // 成功路径 stderr 本就为空,失败路径由下方 catch 吞掉 ⇒ 对外输出不变)
-    const out = gitRaw(['worktree', 'list', '--porcelain'], ROOT)
-    const rootPosix = ROOT.split('\\').join('/')
+    const out = gitRaw(['worktree', 'list', '--porcelain'], root)
+    const rootPosix = root.split('\\').join('/')
     const names = new Set()
     for (const line of out.split('\n')) {
       if (!line.startsWith('worktree ')) continue
@@ -379,16 +421,8 @@ function getWorktreeDirNames() {
 }
 
 // ============================================================================
-// 扫描
+// 扫描(判据住在 collectViolations,顶层不执行 —— §22d 双形态入口)
 // ============================================================================
-
-const entries = readdirSync(ROOT)
-const ignoredEntries = getIgnoredEntries(entries)
-const worktreeDirs = getWorktreeDirNames()
-
-const violations = []
-/** 被 git 忽略、但形态属 §28 禁令的根级临时产物(只告警) */
-const ignoredJunk = []
 
 /**
  * 根级"临时产物"形态判据(仅用于告警,见下方收集处的说明)。
@@ -411,44 +445,177 @@ function isRootJunkArtifact(name) {
   return ROOT_JUNK_PATTERNS.some((re) => re.test(name))
 }
 
-for (const name of entries) {
-  const isHidden = name.startsWith('.')
-  const isDir = statSync(join(ROOT, name)).isDirectory()
+/**
+ * 一级目录扫描(纯 IO + 白名单匹配,不做归属判定)。
+ * `readdirSync` 抛错**不在此吞**:那是"取不到被审面",由 main() 显式落 exit 2 未判定,
+ * 绝不回落另一个面(§0.4),也绝不枚举成 0 个候选后自称干净(§0.3)。
+ */
+function collectViolations(root) {
+  const entries = readdirSync(root)
+  const ignoredEntries = getIgnoredEntries(entries, root)
+  const worktreeDirs = getWorktreeDirNames(root)
 
-  // 精确豁免:git 已忽略的产物 / git worktree 注册目录(见上「精确豁免」注释)
-  if (ignoredEntries.has(name) || worktreeDirs.has(name)) {
-    // §28 规则 2 的禁令对**被 git 忽略**的根级产物零覆盖(上面直接 continue)。实测
-    // 2026-09-22 一次性翻出 14 个此类残留(_knip.log / .tmp-tsc.log / build-oidc.log /
-    // _i18n2.log …),守门恒绿、git status 也看不见,正是"静默累积"的那一类。
-    // 刻意只告警不阻塞:忽略产物常被后台进程/构建持有,阻塞会误伤并行会话。
-    if (!isDir && isRootJunkArtifact(name)) ignoredJunk.push(name)
-    continue
-  }
+  const violations = []
+  /** 被 git 忽略、但形态属 §28 禁令的根级临时产物(只告警) */
+  const ignoredJunk = []
 
-  if (isHidden) {
-    if (isDir) {
-      if (!ALLOWED_HIDDEN_DIRS.has(name)) violations.push({ name, kind: '隐藏目录' })
-    } else if (
-      !ALLOWED_HIDDEN_FILES.has(name) &&
-      // 2026-09-14 显式豁免:workbuddy「发布为应用」(genie-baas)插件在项目根写入的
-      // 应用配置标记,后缀为随机串(如 .wbapp_pXZ3aJucQJpY00VrF24uYs.genie),
-      // 由插件生成与消费,不入库;并行会话发布期间合法存在。
-      !/^\.wbapp_[A-Za-z0-9]+\.genie$/.test(name)
-    ) {
-      violations.push({ name, kind: '隐藏文件' })
+  for (const name of entries) {
+    const isHidden = name.startsWith('.')
+    const isDir = statSync(join(root, name)).isDirectory()
+
+    // 精确豁免:git 已忽略的产物 / git worktree 注册目录(见上「精确豁免」注释)
+    if (ignoredEntries.has(name) || worktreeDirs.has(name)) {
+      // §28 规则 2 的禁令对**被 git 忽略**的根级产物零覆盖(上面直接 continue)。实测
+      // 2026-09-22 一次性翻出 14 个此类残留(_knip.log / .tmp-tsc.log / build-oidc.log /
+      // _i18n2.log …),守门恒绿、git status 也看不见,正是"静默累积"的那一类。
+      // 刻意只告警不阻塞:忽略产物常被后台进程/构建持有,阻塞会误伤并行会话。
+      if (!isDir && isRootJunkArtifact(name)) ignoredJunk.push(name)
+      continue
     }
-  } else if (isDir) {
-    if (!ALLOWED_DIRS.has(name)) violations.push({ name, kind: '目录' })
-  } else if (!ALLOWED_FILES.has(name)) {
-    violations.push({ name, kind: '文件' })
+
+    if (isHidden) {
+      if (isDir) {
+        if (!ALLOWED_HIDDEN_DIRS.has(name)) violations.push({ name, kind: '隐藏目录' })
+      } else if (
+        !ALLOWED_HIDDEN_FILES.has(name) &&
+        // 2026-09-14 显式豁免:workbuddy「发布为应用」(genie-baas)插件在项目根写入的
+        // 应用配置标记,后缀为随机串(如 .wbapp_pXZ3aJucQJpY00VrF24uYs.genie),
+        // 由插件生成与消费,不入库;并行会话发布期间合法存在。
+        !/^\.wbapp_[A-Za-z0-9]+\.genie$/.test(name)
+      ) {
+        violations.push({ name, kind: '隐藏文件' })
+      }
+    } else if (isDir) {
+      if (!ALLOWED_DIRS.has(name) && !isSealedLink(join(root, name)))
+        violations.push({ name, kind: '目录' })
+    } else if (!ALLOWED_FILES.has(name)) {
+      violations.push({ name, kind: '文件' })
+    }
   }
+
+  return { violations, ignoredJunk }
 }
 
 // ============================================================================
-// 输出
+// 归属分流(判据单源:--staged 档的三档与全量档的两档都由下面的纯函数算)
 // ============================================================================
 
-if (ignoredJunk.length > 0) {
+/**
+ * 把违规按"哪一面认得它"分档。**不碰 git**(面由调用方取好传进来),所以镜像测试能直接
+ * import 它构造正反对照(§22c:判据只许一份,测试不许复制)。
+ *
+ * 三档归属(只在 --staged 档有意义):
+ *  · owned       = 索引有 ∧ HEAD 无 ⇒ 本次才入库 ⇒ 判红(exit 1)
+ *  · preexisting = 索引有 ∧ HEAD 有 ⇒ 存量 ⇒ 照点名、只报数(§12e)
+ *  · untracked   = 索引无 ⇒ 不属任何提交、也不在 HEAD ⇒ **未判定**(exit 2,§0.3)
+ *
+ * `indexed.size === 0` 与 `indexed === null` **同档**(2026-10-27 补):空仓 / 坏 gitfile 边界
+ * 会让 `git ls-files` 成功返回**空集**,而"索引里一条都没有"从来证明不了"这里没有我该拦的东西"
+ * —— 按 §0.3「枚举到 0 个候选判死不记绿」,这一面不可信时退回全量拦截(失效方向=多要一次
+ * 定向说明,绝不是多放一次跳门)。G-286 将 scratch 迁进 `.DevEnv` 后加了坏 gitfile 边界,
+ * 夹具现场正是"ls-files 空成功 ∧ ls-tree 抛",旧 P4 因此从 exit 1 漂成 exit 2(现读实测)。
+ */
+function partitionByFace(violations, indexed, headNames) {
+  if (indexed === null || indexed.size === 0) {
+    return {
+      owned: violations,
+      preexisting: [],
+      untracked: [],
+      why:
+        indexed === null
+          ? '  ⚠️  索引面问不到(git ls-files 失败)⇒ 无从区分归属,本门**退回全量拦截**:所有违规一律按本次的红计'
+          : '  ⚠️  索引面枚举到 0 条(空仓 / 坏 gitfile 边界 ⇒ 问到了但一份条目都没有)⇒ 这一面证明不了归属,' +
+            '本门**退回全量拦截**:所有违规一律按本次的红计(§0.3 枚举到 0 不读成"这里没有我要拦的东西")',
+    }
+  }
+  if (headNames === null) {
+    return {
+      owned: violations.filter((v) => indexed.has(v.name)),
+      preexisting: [],
+      untracked: violations.filter((v) => !indexed.has(v.name)),
+      why: '  ⚠️  HEAD 树问不到(git ls-tree 失败或尚无提交)⇒ 无从证明哪几枚是存量,本门**退回全量拦截**:所有已跟踪违规一律按本次的红计',
+    }
+  }
+  // 差值棘轮:只有"本次新入库"的那几枚算本次的红;早在 HEAD 里的照点名不判红(§12e)
+  return {
+    owned: violations.filter((v) => indexed.has(v.name) && !headNames.has(v.name)),
+    preexisting: violations.filter((v) => indexed.has(v.name) && headNames.has(v.name)),
+    untracked: violations.filter((v) => !indexed.has(v.name)),
+    why: null,
+  }
+}
+
+/**
+ * 三档 ⇒ **结论档名 + 退出码**的唯一映射。两档同时在场时红优先,但档位名必须是
+ * `red+undetermined`(不是将"未判定"折进红里,也不是将红折进未判定里)——
+ * 归因层与席面都靠这一行分辨"到底有几种结论",折叠就是本次要修的病灶。
+ */
+function decideOutcome({ owned, untracked, preexisting }) {
+  const hasRed = owned.length > 0
+  const hasUndetermined = untracked.length > 0
+  if (hasRed && hasUndetermined)
+    return { name: 'red+undetermined', code: 1, note: '红优先取 exit 1;两档分别报数,**未折叠**' }
+  if (hasRed) return { name: 'red', code: 1, note: '本次新入库的根级违规 ⇒ 判红' }
+  if (hasUndetermined)
+    return { name: 'undetermined', code: 2, note: '未判定(§0.3):既不记绿也不冒红,仍非零' }
+  if (preexisting.length > 0)
+    return { name: 'stock-only', code: 0, note: '只剩早在 HEAD 里的存量 ⇒ 只报数不判红(§12e)' }
+  return { name: 'clean', code: 0, note: '一级目录无白名单外条目' }
+}
+
+/** 点名简报(逐枚名字;空档写「无」,不得留空 —— 留空读起来像"漏了一档") */
+function briefNames(list) {
+  return list && list.length > 0 ? list.map((v) => v.name).join(' , ') : '无'
+}
+
+/**
+ * 末行结论(机读 + 人读共用一行)。三档**各自报数并点名**,一档也不折叠;
+ * 归因层读这一行就能知道"本门究竟下的是哪种结论"。
+ */
+function resultLine(outcome, { owned, untracked, preexisting }) {
+  const mark = outcome.code === 2 ? ` ${GATE_UNDETERMINED_MARK}` : ''
+  return (
+    `  结论[${outcome.name}] exit=${outcome.code}${mark} ` +
+    `本次新入库红=${owned.length}(点名:${briefNames(owned)}) ` +
+    `未判定=${untracked.length}(点名:${briefNames(untracked)}) ` +
+    `存量只报数=${preexisting.length}(点名:${briefNames(preexisting)}) —— ${outcome.note}`
+  )
+}
+
+/**
+ * 全量档(不带 --staged)的两档分档:本档判的是**磁盘现场**,它既不是本枚提交的内容面、
+ * 也不是 HEAD blob ⇒ 按 §0.3 无权下"失败"结论,只报数。
+ */
+function partitionForReport(violations, headNames) {
+  if (headNames === null)
+    return {
+      inHead: [],
+      offHead: violations,
+      why: '  ℹ️  HEAD 面问不到(git ls-tree 失败或尚无提交)⇒ 无法区分已入库/未入库,全部按现场只报数',
+    }
+  return {
+    inHead: violations.filter((v) => headNames.has(v.name)),
+    offHead: violations.filter((v) => !headNames.has(v.name)),
+    why: null,
+  }
+}
+
+/** 全量档末行:**不出现 ❌ / 失败字样**(那是 exit 1 专属措辞),也不出现"未判定 ⇒ 非零"的档名 */
+function reportResultLine({ inHead, offHead }) {
+  return (
+    `  结论[report-only] exit=0 ` +
+    `已入库存量=${inHead.length}(点名:${briefNames(inHead)}) ` +
+    `未入库现场=${offHead.length}(点名:${briefNames(offHead)}) —— ` +
+    '本档判磁盘现场,**不判红也不判绿**;提交链的红与归属未定项由 `--staged` 档判(exit 1 / exit 2)'
+  )
+}
+
+// ============================================================================
+// 执行(顶层不执行任何判定:§22d 双形态入口,守卫在文件末尾)
+// ============================================================================
+
+function emitJunkWarning(ignoredJunk) {
+  if (ignoredJunk.length === 0) return
   console.log('')
   console.log(
     `  ⚠️  根目录整洁守门[告警]:${ignoredJunk.length} 个被 git 忽略的根级临时产物(§28 规则 2 禁令对象,不计失败)`,
@@ -457,73 +624,305 @@ if (ignoredJunk.length > 0) {
   console.log('     处置:删除,或移入 tmp/ 与 logs/(一级目录只留白名单条目)')
 }
 
-if (violations.length === 0) {
-  console.log('  ✅ 根目录整洁守门通过:一级目录无白名单外条目')
-  process.exit(0)
-}
-
-// ── 归属分流(只在 --staged 档生效;全量档保持历史形态,见上方 G-268 注释)──
-let owned = violations
-let preexisting = []
-let untracked = []
-if (isStaged) {
-  const indexed = getIndexedRootNames()
-  const headNames = indexed === null ? null : getHeadRootNames()
-  if (indexed === null) {
-    console.error(
-      '  ⚠️  索引面问不到(git ls-files 失败)⇒ 无从区分归属,本门**退回全量拦截**:所有违规一律按本次的红计',
-    )
-  } else if (headNames === null) {
-    console.error(
-      '  ⚠️  HEAD 树问不到(git ls-tree 失败或尚无提交)⇒ 无从证明哪几枚是存量,本门**退回全量拦截**:所有已跟踪违规一律按本次的红计',
-    )
-    owned = violations.filter((v) => indexed.has(v.name))
-    untracked = violations.filter((v) => !indexed.has(v.name))
-  } else {
-    // 差值棘轮:只有"本次新入库"的那几枚算本次的红;早在 HEAD 里的照点名不判红(§12e)
-    owned = violations.filter((v) => indexed.has(v.name) && !headNames.has(v.name))
-    preexisting = violations.filter((v) => indexed.has(v.name) && headNames.has(v.name))
-    untracked = violations.filter((v) => !indexed.has(v.name))
-  }
-}
-
-if (preexisting.length > 0) {
-  console.log('')
-  console.log(
-    `  ⚠️  根目录整洁守门[存量]:${preexisting.length} 枚白名单外条目**早在 HEAD 里** ⇒ 与本次提交内容无关,只报数不判红(§12e;出路=按 §28 显式登记白名单或移进 tmp/ 与 logs/)`,
+function emitRemedyHint() {
+  console.error('')
+  console.error('  💡 处置(二选一):')
+  console.error('     1. 临时/垃圾产物 → 删除,或移入 tmp/ 或 logs/')
+  console.error(
+    '     2. 合法新增(新配置/新文档/新目录) → 加入 scripts/check-root-dir-clean.mjs 白名单后重新 commit',
   )
-  for (const v of preexisting) console.log(`     - ${v.name}  (${v.kind},已在 HEAD)`)
+  console.error('')
+  console.error('  禁止在一级目录随意生成 .log / .html / cookies / 截图 / ad-hoc 脚本。')
 }
 
-if (owned.length > 0) {
-  console.error('❌ 根目录整洁守门失败:一级目录存在白名单外条目')
-  for (const v of owned) {
-    console.error(`   - ${v.name}  (${v.kind})`)
+/**
+ * 判据自证(2026-10-27 立,票"门 44 输出与退出码三态化"·任务 C)。
+ * 全部走**导出的纯函数**(partitionByFace / decideOutcome / resultLine / partitionForReport /
+ * reportResultLine)—— 与 main() 同一把尺子,不复制第二份判据(§22c/§0.6),零 git、零磁盘写入。
+ * 夹具四例(票面口径)+ 存量/面失效/报告档三例 + 归因层形状锁:
+ *   S1 只红 ⇒ exit 1;S2 只未判定 ⇒ exit 2;S3 同在 ⇒ exit 1 且两档**分别点名不折叠**;
+ *   S4 两面同形(净根目录)⇒ exit 0 不红;S5 只剩存量 ⇒ exit 0 只报数(§12e);
+ *   S6 面问不到 ⇒ 提交链档退回全量拦截(失效方向=多要一次定向说明,绝不放开检测);
+ *   S7 现场报告档 ⇒ 只报数、不出现 ❌/失败(exit 0 专属措辞,报什么与退出码不得相反);
+ *   S8 形状锁 ⇒ 归因层必须存在「未判定 ⇒ 点名门 id」分支,并带反向对照(摘掉调用即翻红)。
+ * 失效方向:任何一条不过 ⇒ 非零退出并逐条点名(§0.3);自检取不到归因层源码同样不记绿。
+ */
+function selfTest() {
+  let pass = 0
+  let fail = 0
+  const assert = (cond, msg) => {
+    if (cond) pass++
+    else {
+      fail++
+      console.error(`  ❌ 根目录整洁守门自检失败:${msg}`)
+    }
   }
-}
-if (untracked.length > 0) {
-  // 未跟踪:它不在任何提交里,既不是"我这枚提交带的",也不属于 HEAD —— 归属无从判定。
-  // 照点名(让人能去找物主)、照非零(§28 的交付判据与 runner 都仍拦得住),但判 exit 2,
-  // 使归因层不得把它写成"这枚提交引入了红"。
-  console.error('⚠️ 根目录整洁守门[无法判定]:存在白名单外条目,但它们**未被 git 跟踪**,归属无从判定')
-  for (const v of untracked) {
-    console.error(`   - ${v.name}  (${v.kind},未跟踪 → 不属任何提交)`)
-  }
-  console.error('     处置:这些文件不在本次提交内容里,也不在 HEAD 里 ⇒ 不得据此判定本枚提交引入红')
-  console.error('           但根目录整洁仍要清偿 —— 找物主移进 tmp/ 或 logs/,或按 §28 加白名单。')
-}
-console.error('')
-console.error('  💡 处置(二选一):')
-console.error('     1. 临时/垃圾产物 → 删除,或移入 tmp/ 或 logs/')
-console.error(
-  '     2. 合法新增(新配置/新文档/新目录) → 加入 scripts/check-root-dir-clean.mjs 白名单后重新 commit',
-)
-console.error('')
-console.error('  禁止在一级目录随意生成 .log / .html / cookies / 截图 / ad-hoc 脚本。')
+  const V = (name, kind = '文件') => ({ name, kind })
+  const HEAD = new Set(['README.md'])
 
-if (!isStaged) process.exit(0)
-// exit 1 = 本次**新入库**的根级违规(差值棘轮超出锚点);exit 2 = 只剩"未跟踪、归属无从判定"那一档
-// (仍非零,仍拦得住);exit 0 = 只剩早在 HEAD 里的存量(照点名,§12e 只报数不判红)
-if (owned.length > 0) process.exit(1)
-process.exit(untracked.length > 0 ? 2 : 0)
+  // ── S1 只红(索引有 ∧ HEAD 无 = 本次新入库)⇒ exit 1 ──
+  const s1 = partitionByFace([V('stray.ps1')], new Set(['README.md', 'stray.ps1']), HEAD)
+  const o1 = decideOutcome(s1)
+  assert(
+    o1.code === 1 && o1.name === 'red',
+    `S1 只红必须 exit 1/name=red,实得 ${o1.code}/${o1.name}`,
+  )
+  const l1 = resultLine(o1, s1)
+  assert(
+    l1.includes('stray.ps1') && !l1.includes(GATE_UNDETERMINED_MARK),
+    `S1 结论行要点名红、不得挂未判定键(红不冒充未判定),实得:${l1}`,
+  )
+
+  // ── S2 只未判定(索引无 ⇒ 归属无从判定,§0.3)⇒ exit 2 ──
+  const s2 = partitionByFace([V('.uploads', '隐藏目录')], new Set(['README.md']), HEAD)
+  const o2 = decideOutcome(s2)
+  assert(
+    o2.code === 2 && o2.name === 'undetermined',
+    `S2 只未判定必须 exit 2(非零仍拦得住),实得 ${o2.code}/${o2.name}`,
+  )
+  const l2 = resultLine(o2, s2)
+  assert(
+    l2.includes(GATE_UNDETERMINED_MARK) && l2.includes('.uploads'),
+    `S2 结论行必须带自述键并点名未跟踪条目,实得:${l2}`,
+  )
+
+  // ── S3 红 ∧ 未判定同在 ⇒ 红优先 exit 1,两档**分别报数并点名**(折叠=本票病灶)──
+  const s3 = partitionByFace(
+    [V('stray.ps1'), V('.uploads', '隐藏目录')],
+    new Set(['README.md', 'stray.ps1']),
+    HEAD,
+  )
+  const o3 = decideOutcome(s3)
+  assert(
+    o3.code === 1 && o3.name === 'red+undetermined',
+    `S3 同在必须红优先且档名两栏齐,实得 ${o3.code}/${o3.name}`,
+  )
+  const l3 = resultLine(o3, s3)
+  assert(
+    /本次新入库红=1\(点名:stray\.ps1\)/.test(l3) && /未判定=1\(点名:\.uploads\)/.test(l3),
+    `S3 末行必须两档分别报数并点名,实得:${l3}`,
+  )
+
+  // ── S4 两面同形(净根目录)⇒ exit 0 不红 ──
+  const s4 = partitionByFace([], new Set(['README.md']), HEAD)
+  const o4 = decideOutcome(s4)
+  assert(o4.code === 0 && o4.name === 'clean', `S4 净面必须 exit 0,实得 ${o4.code}/${o4.name}`)
+
+  // ── S5 只剩存量(HEAD 锚点内)⇒ exit 0、照点名只报数(§12e 恒红门禁令)──
+  const s5 = partitionByFace(
+    [V('.stray-state', '隐藏目录')],
+    new Set(['README.md', '.stray-state']),
+    new Set(['README.md', '.stray-state']),
+  )
+  const o5 = decideOutcome(s5)
+  assert(
+    o5.code === 0 && o5.name === 'stock-only',
+    `S5 存量不得判红(与本次提交内容无关的红=逼人跳门),实得 ${o5.code}/${o5.name}`,
+  )
+  assert(resultLine(o5, s5).includes('.stray-state'), 'S5 存量也要点名(找得到物主才有出路)')
+
+  // ── S6 索引面问不到 ⇒ 退回全量拦截(与镜像测试 P4 同形;失效方向=多要一次定向说明)──
+  const s6 = partitionByFace([V('a.ps1')], null, null)
+  assert(
+    s6.owned.length === 1 && /退回全量拦截/.test(String(s6.why)) && decideOutcome(s6).code === 1,
+    'S6 索引面问不到必须退回全量拦截,不得放绿',
+  )
+  const s6b = partitionByFace([V('a.ps1')], new Set(), HEAD)
+  assert(
+    /枚举到 0 条/.test(String(s6b.why)) && decideOutcome(s6b).code === 1,
+    'S6b 索引枚举到 0 条与"问不到"同档(§0.3 枚举到 0 不读成"这里没有")',
+  )
+
+  // ── S7 现场报告档 ⇒ 只报数,不出现 ❌/失败(exit 0 档不得说失败话)──
+  const r7 = partitionForReport(
+    [V('stray.ps1'), V('.doc-autoupdate', '隐藏目录')],
+    new Set(['README.md', '.doc-autoupdate']),
+  )
+  const line7 = reportResultLine(r7)
+  assert(r7.inHead.length === 1 && r7.offHead.length === 1, 'S7 报告档须分已入库/未入库两栏报数')
+  assert(
+    !/❌/.test(line7) && !/失败/.test(line7),
+    `S7 报告档结论行不得出现 ❌/失败字样(本票缺陷①的形态),实得:${line7}`,
+  )
+  assert(line7.includes('stray.ps1') && line7.includes('.doc-autoupdate'), 'S7 两栏都要逐条点名')
+  const r7b = partitionForReport([V('a.ps1')], null)
+  assert(
+    r7b.offHead.length === 1 && /HEAD 面问不到/.test(String(r7b.why)),
+    'S7b HEAD 面问不到⇒全部按现场只报数,不得冒充已入库对照',
+  )
+
+  // ── S8 形状锁:归因层必须存在「未判定 ⇒ 点名门 id」分支(反向对照防锁空转)──
+  try {
+    const libPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      'lib',
+      'commit-gate-attribution.mjs',
+    )
+    const libSrc = maskComments(readFileSync(libPath, 'utf8'))
+    const bodyStart = libSrc.indexOf('export function classifyHookFailure')
+    const bodyEnd = libSrc.indexOf('export function verdictLine')
+    const body = bodyStart >= 0 && bodyEnd > bodyStart ? libSrc.slice(bodyStart, bodyEnd) : ''
+    const lockOk = (src) =>
+      src.includes('parseUndeterminedGates(') &&
+      /undeterminedGates:\s*undet/.test(src) &&
+      /\[\$\{g\.id\}\]/.test(src) &&
+      /kind:\s*'undetermined-red'/.test(src)
+    assert(
+      bodyStart >= 0 && bodyEnd > bodyStart,
+      'S8 取不到归因层 classifyHookFailure 段(锚点漂移)',
+    )
+    assert(
+      lockOk(body),
+      'S8 归因层缺「未判定 ⇒ 点名门 id」分支:门交付 exit 2 时若无门级点名,应急档就成了无人可问责的默认出口',
+    )
+    assert(
+      !lockOk(body.replace(/parseUndeterminedGates\(/g, 'void(')),
+      'S8 反向对照失效:摘掉 parseUndeterminedGates 调用后锁仍为真 ⇒ 这条锁是空转',
+    )
+  } catch (e) {
+    fail++
+    console.error(`  ❌ 根目录整洁守门自检 S8 取不到归因层源码(未判定不记绿):${e?.message ?? e}`)
+  }
+
+  console.log(`  ${fail === 0 ? '✅' : '❌'} 根目录整洁守门自检:pass ${pass}/fail ${fail}`)
+  return fail === 0 ? 0 : 1
+}
+
+function main(argv) {
+  // 判据自证必须排在逃生舱**之前**:逃生舱跳过的是"对仓库的判定",而自检验证的是"判定本身"
+  // —— 若开关先退 0,`--self-test` 就成了可以被人一键关掉的装饰(§0.9 判据必须在真跑它的一刻才成立)。
+  if (argv.includes('--self-test')) process.exit(selfTest())
+
+  // 逃生舱(应急跳过,默认不推荐,与 check-pwsh-version 等守门脚本一致)
+  if (process.env.HUSKY_SKIP_ROOT_DIR_GUARD === '1') {
+    console.log('  ⏭  根目录整洁守门(HUSKY_SKIP_ROOT_DIR_GUARD=1, 跳过)')
+    process.exit(0)
+  }
+
+  const ROOT = resolveRoot(argv)
+  const isStaged = isStagedArg(argv)
+
+  let collected = null
+  try {
+    collected = { root: ROOT, ...collectViolations(ROOT) }
+  } catch (e) {
+    // 取不到被审面(一级目录读不出)⇒ 显式未判定,不回落另一个面、不枚举成 0 后自称干净(§0.3/§0.4)
+    console.error(`⚠️ 根目录整洁守门[无法判定]:一级目录读不到(${ROOT}) —— ${e?.message ?? e}`)
+    console.error(
+      `  结论[undetermined] exit=2 ${GATE_UNDETERMINED_MARK} —— 取不到被审面,既不记绿也不冒红(§0.3)`,
+    )
+    process.exit(2)
+  }
+
+  const { violations, ignoredJunk } = collected
+  emitJunkWarning(ignoredJunk)
+
+  if (violations.length === 0) {
+    console.log('  ✅ 根目录整洁守门通过:一级目录无白名单外条目')
+    console.log('  结论[clean] exit=0 一级目录无白名单外条目')
+    process.exit(0)
+  }
+
+  // ── 全量档(报告档):只报数,不打 ❌、不判红也不记绿 ──
+  if (!isStaged) {
+    const rep = partitionForReport(violations, getHeadRootNames(ROOT))
+    if (rep.why) console.error(rep.why)
+    if (rep.inHead.length > 0) {
+      console.log('')
+      console.log(
+        `  ⚠️  根目录整洁守门[已入库存量·只报数]:${rep.inHead.length} 枚白名单外条目**在 HEAD 面上**` +
+          `(§28 的出路=按显式审批登记白名单,或移进 tmp/ 与 logs/)`,
+      )
+      for (const v of rep.inHead) console.log(`     - ${v.name}  (${v.kind},已在 HEAD)`)
+    }
+    if (rep.offHead.length > 0) {
+      console.log('')
+      console.log(
+        `  ⚠️  根目录整洁守门[未入库现场·只报数]:${rep.offHead.length} 枚白名单外条目**不在 HEAD 面上**` +
+          `(在飞 / 未跟踪 / 已暂存待入库皆有可能 —— 本档不查索引面,所以不下"哪一种"的结论;` +
+          `要红请跑 --staged)`,
+      )
+      for (const v of rep.offHead) console.log(`     - ${v.name}  (${v.kind},不在 HEAD)`)
+    }
+    emitRemedyHint()
+    console.error(reportResultLine(rep))
+    process.exit(0)
+  }
+
+  // ── 提交链档:三档归属 + 三档退出码 ──
+  const indexed = getIndexedRootNames(ROOT)
+  const headNames = indexed === null ? null : getHeadRootNames(ROOT)
+  const part = partitionByFace(violations, indexed, headNames)
+  const { owned, preexisting, untracked } = part
+  if (part.why) console.error(part.why)
+
+  if (preexisting.length > 0) {
+    console.log('')
+    console.log(
+      `  ⚠️  根目录整洁守门[存量]:${preexisting.length} 枚白名单外条目**早在 HEAD 里** ⇒ 与本次提交内容无关,只报数不判红(§12e;出路=按 §28 显式登记白名单或移进 tmp/ 与 logs/)`,
+    )
+    for (const v of preexisting) console.log(`     - ${v.name}  (${v.kind},已在 HEAD)`)
+  }
+
+  if (owned.length > 0) {
+    console.error('❌ 根目录整洁守门失败:一级目录存在白名单外条目')
+    for (const v of owned) {
+      console.error(`   - ${v.name}  (${v.kind})`)
+    }
+  }
+  if (untracked.length > 0) {
+    // 未跟踪:它不在任何提交里,既不是"我这枚提交带的",也不属于 HEAD —— 归属无从判定。
+    // 照点名(让人能去找物主)、照非零(§28 的交付判据与 runner 都仍拦得住),但判 exit 2,
+    // 使归因层不得把它写成"这枚提交引入了红"。
+    console.error(
+      '⚠️ 根目录整洁守门[无法判定]:存在白名单外条目,但它们**未被 git 跟踪**,归属无从判定',
+    )
+    for (const v of untracked) {
+      console.error(`   - ${v.name}  (${v.kind},未跟踪 → 不属任何提交)`)
+    }
+    console.error(
+      '     处置:这些文件不在本次提交内容里,也不在 HEAD 里 ⇒ 不得据此判定本枚提交引入红',
+    )
+    console.error('           但根目录整洁仍要清偿 —— 找物主移进 tmp/ 或 logs/,或按 §28 加白名单。')
+  }
+  emitRemedyHint()
+
+  const outcome = decideOutcome({ owned, preexisting, untracked })
+  // 末行现读:两档同时在场时**分别报数并点名**,红优先(绝不把未判定折进红,也绝不折进绿)
+  console.error(resultLine(outcome, { owned, preexisting, untracked }))
+  process.exit(outcome.code)
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  try {
+    main(process.argv)
+  } catch (e) {
+    // 脚本自身异常(非判据结论)⇒ 显式未判定,不冒红也不记绿(§0.3)
+    console.error(`❌ 根目录整洁守门自身异常:${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  }
+}
+
+/** §22c/§22d 约定:判据一律经 __test__ 暴露,镜像测试直接 import,不抄第二份 */
+export const __test__ = {
+  resolveRoot,
+  isSealedLink,
+  isStagedArg,
+  collectViolations,
+  partitionByFace,
+  partitionForReport,
+  decideOutcome,
+  resultLine,
+  reportResultLine,
+  briefNames,
+  isRootJunkArtifact,
+  selfTest,
+  ALLOWED_FILES,
+  ALLOWED_DIRS,
+  ALLOWED_HIDDEN_FILES,
+  ALLOWED_HIDDEN_DIRS,
+  main,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

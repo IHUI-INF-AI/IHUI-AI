@@ -2758,6 +2758,39 @@ def _is_restricted_model(model: str | None) -> bool:
     return any(m.startswith(p) for p in RESTRICTED_PREFIXES)
 
 
+def _retired_model_error(model: str | None) -> JSONResponse | None:
+    """入站显式指定已永久退役的 provider ⇒ 直接拒绝(2026-10-26 立)。
+
+    为什么这一层必须存在(实测依据,不是推演):
+    2026-10-26 生产现读发现,退役除名只在「默认模型解析」层(app/core/default_model.py
+    的 default_chat_model)设了守卫 —— 而**入站请求显式指定 model=stepfun/xxx** 这条路径
+    完全绕过了它:llm_gateway.complete() 的 `used_model = model` 分支照旧把退役档发往上游。
+    实测线上表现:ai-service 日志持续出现
+      `LLM 链路失败(provider=stepfun, status=5xx, model=stepfun/step-3.7-flash)`
+    且 Prometheus `ihui_llm_provider_errors_total{provider="stepfun",status="5xx"}`
+    持续增长(30 分钟 +18.5)⇒ 退役厂商仍在消耗真实调用额度并污染告警面。
+
+    与「默认模型解析」守卫的分工:
+      - 默认模型解析(core/default_model.py):候选档位命中退役 ⇒ 顺延到下一条可用腿。
+        方向 = 「多要一次定向说明」。
+      - 本函数(入站显式档):调用方点名要一个已永久退役的 provider ⇒ 明确拒绝并告知,
+        **不静默换成别的模型**(静默换档会让调用方拿到不是自己要的东西),
+        也不把它当「key 缺失/需要充值」—— 那是厂商账户状态,不在本路径的整改面。
+
+    返回 None 表示放行;返回 JSONResponse 表示应当直接回给调用方。
+    """
+    from ..core.default_model import is_retired_model
+
+    if not is_retired_model(model):
+        return None
+    return _error_json(
+        f"模型 {model} 已永久退役,不再提供调用;请改用模型列表中在架的档位。",
+        410,
+        errorCode="MODEL_RETIRED",
+        model=model,
+    )
+
+
 async def _ensure_restricted_model_access(request: Request, model: str | None) -> None:
     """受限模型仅系统管理员可用;非管理员抛 403。"""
     if not _is_restricted_model(model):
@@ -2937,6 +2970,11 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
     if req.model:
         req.model = to_official_model_name(req.model)
+    # 2026-10-26 立:入站显式指定已永久退役的 provider ⇒ 直接拒绝,不得发往上游。
+    # (守卫在默认模型解析层之外 —— 那层管的是"解析出哪一档",管不到"调用方点名要哪一档")
+    retired_err = _retired_model_error(req.model)
+    if retired_err is not None:
+        return retired_err
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
     # P3 3-4-A(2026-09-17 拍板):新用户免费试用额度检查(env USER_TRIAL_DAILY_TOKENS,0=关闭)
@@ -3477,6 +3515,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
     if req.model:
         req.model = to_official_model_name(req.model)
+    # 2026-10-26 立:与 /llm/complete 同源 —— 入站显式指定已永久退役的 provider ⇒ 直接拒绝。
+    # 流式端点必须在**进入流之前**拒绝(流一旦开始 yield,HTTP 状态码已锁定 200,
+    # 无法中途改成 410),故放在 StreamingResponse 构造之前。
+    retired_err = _retired_model_error(req.model)
+    if retired_err is not None:
+        return retired_err
     # D159 接手修复(2026-09-30):前一代理在本文件合入 D130 档位改动时**误删了这行初始化**,
     # 导致 complete_stream 全程 `name 'accumulated' is not defined`(stream gen 直接崩,
     # D158 的 4 个 grant 测试因此整片红)。恢复 HEAD 原形,位置与 HEAD 逐字一致。
@@ -6693,6 +6737,29 @@ async def post_session_goal(
 
     existing = store.get_thread_goal_state(thread_id) or {}
     now = time.time()
+    if action == "resume":
+        # 控制帧 `resume_goal` 的**共用实现**(2026-10-28 立)。本端点的 resume 分支与
+        # 帧面入口(`POST /llm/sessions/{id}/goal/resume`)共用同一份服务 ⇒ 状态机、
+        # 归属判定、广播三件事只有一份实现,改一处即可(否则两处必然漂移)。
+        from ..services.goal_resume import resume_goal
+
+        resumed = resume_goal(
+            session_id,
+            caller_uid,
+            elapsed_ms=body.get("elapsed_ms"),
+            token_usage=body.get("token_usage"),
+        )
+        # 不存在 / 非属主 / 未鉴权:这些情形 resume_goal 回 ok:False 且无 reason,
+        # 必须同形拒绝、不得泄漏归属差异(存在性预言机禁令,AGENTS §5)。
+        if not resumed.get("ok"):
+            return _rejected()
+        # 其余情形透传实际 accepted / reason:already_active / terminal / no_goal /
+        # goal_state_malformed / conflict 不是「失败」,而是这一条会话的确定答案;
+        # 端点调用方据此退回纯本地态,把它们压成 ok:false 会谎报「恢复失败」并丢掉 reason。
+        out = dict(resumed)
+        if "threadId" not in out:
+            out["threadId"] = thread_id
+        return out
     if action == "clear":
         new_state = None
         status = "cleared"
@@ -6747,6 +6814,91 @@ async def post_session_goal(
         "sessionId": session_id,
         "threadId": thread_id,
     }
+
+
+@router.post("/llm/sessions/{session_id}/goal/resume", response_model=None)
+async def post_session_goal_resume(
+    request: Request,
+    session_id: str,
+    body: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """控制帧 `resume_goal`(2026-10-28 立):把会话目标从「被暂停」恢复到 active。
+
+    ## 为什么是「一条独立入口」而不是只有 `action:"resume"`
+
+    D141 正本(§1.1 目标族)把 `resume_goal` 判成**真缺**,否证命令是
+    `git grep -inE "resumeGoal|resume_goal|恢复目标|continueGoal"` → 0 命中。
+    但 D152 那条 `POST /llm/sessions/{id}/goal` 的 `action` 集合里本来就有
+    `"resume"`(2026-09-29 立)—— 也就是说**能力早在,缺的是「以帧名命名的显式
+    入口」**:宿主/agent 不能指名调这一帧,只能猜 `action` 字符串。竞品原帧即
+    `request({type:"resume_goal"})`(D202 §2 表 B 的三字面量并集),
+    判据是「宿主显式调用 + 必须回报结果」。
+
+    所以本端点补的正是那一格,并且**必须回报结果**:只回一句「已恢复」等于把
+    静默失败包装成成功态 —— 目标压根没设、目标已结束、状态本来就 active,
+    三种情形长得一模一样。
+
+    ## 实现复用(不造第二份)
+
+    落点是 `services/goal_resume.py` 的 `resume_goal()`;上头那条 `action:"resume"`
+    分支**改为调同一份实现** ⇒ 状态机、归属判定、广播三件事只有一份实现,
+    改一处即可(两处实现必然漂移,AGENTS §22c 同族)。
+
+    ## 归属口径(AGENTS §5「认证不等于授权」)
+
+      1. principal **只取令牌主体**(`_resolve_owner_uuid` 读 request.state.user_id,
+         由 JWT 中间件注入),body 里自报的 userId **一律不读**;
+      2. 「没这条会话」与「不是你的」**同形回包**(HTTP 200 + ok:false/accepted:false),
+         端点因此不可能被当成存在性预言机;两种情形**都不写库、都不发帧**;
+      3. 未鉴权通道(principal 为 None)对**写面**一律拒绝。
+
+    ## 回包形状
+
+      - `{"ok": true, "accepted": true, "resumed": true, "status": "active", ...}`
+        —— 真的从可恢复档迁到了 active;
+      - `{"ok": true, "accepted": false, "resumed": false, "status": <当前档>,
+        "reason": "no_goal"|"terminal"|"already_active"|"not_resumable"|"no_objective"}`
+        —— **有结论但没恢复**。reason 只在「归属闸门已过」时出现:这属于调用方
+        自己那条会话的确定答案,不是可枚举的存在性信息;
+      - `{"ok": false, "accepted": false, "resumed": false, "sessionId": ...}`
+        —— 同形拒绝(不存在 / 非属主 / 未鉴权),**不带任何差异字段**。
+
+    Args:
+        request: 承载层已注入 `request.state.user_id`(JWT 中间件)。
+        session_id: 会话 id(conversationId),即路径里的 `{session_id}`。
+        body: 可选 `{elapsed_ms?, token_usage?}` —— 与端点 `action:"resume"` 同族;
+            形状不合法一律忽略并沿用既有值。
+
+    Returns:
+        上文三种形状之一。
+    """
+    from ..services.goal_resume import resume_goal
+
+    caller_uid = _resolve_owner_uuid(request)
+    payload = body if isinstance(body, dict) else {}
+    try:
+        # resume_goal 是同步函数、内部有 DB 读写;包进线程执行器避免阻塞事件循环
+        # (同仓 run_in_executor 写法),并兜住任何 DB / 属性异常,绝不让其抛栈成 500。
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: resume_goal(
+                session_id,
+                caller_uid,
+                elapsed_ms=payload.get("elapsed_ms"),
+                token_usage=payload.get("token_usage"),
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001 - 入口层兜底:异常转确定回包,不抛 500
+        logger.exception("resume_goal 帧面入口异常(session=%s):%s", session_id, exc)
+        return {
+            "ok": False,
+            "accepted": False,
+            "resumed": False,
+            "error": str(exc),
+            "sessionId": session_id,
+        }
+    return result
 
 
 @router.post("/llm/complete/stream/{session_id}/steer", response_model=None)

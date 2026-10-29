@@ -1,0 +1,26 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+#
+# 本机 -> 生产机 SSH 隧道配置的**规范片段**(模板,不是可直接部署的文件)。
+#
+# 用法: 把下面 Host 块追加到 C:/Users/<you>/.ssh/config,再把 <占位符> 换成实值。
+# 判据: node scripts/doctor-ssh-tunnel.mjs --fix   ← 唯一被允许的手改出口
+#
+# 【为什么必须是正斜杠 —— 2026-10-27 事故】
+# ProxyCommand 的取值要过一遍 shell 式 argv 拆词,反斜杠在那里是**转义符**。
+# 写成 C:\Windows\System32\... 会被吃成 C:WindowsSystem32...,ssh 只报
+#   exec: C:WindowsSystem32WindowsPowerShellv1.0powershell.exe: not found
+# 看上去像"生产机连不上",实际是本机配置被吃掉反斜杠。三种安全写法(实测):
+#   C:/Windows/System32/x.exe   正斜杠         ← 本模板用这个
+#   "C:\Windows\System32\x.exe" 双引号包裹
+#   C:\\Windows\\System32\\x.exe 双反斜杠
+# 只有"未加引号的单反斜杠"是坏的。全仓只留正斜杠一种形态,少一种写法就少一条腐烂路径。
+
+Host ssh.aizhs.top
+    HostName ssh.aizhs.top
+    User Administrator
+    IdentityFile C:/Users/<you>/.ssh/ihui_ssh
+    IdentitiesOnly yes
+    ConnectTimeout 30
+    ServerAliveInterval 30
+    ServerAliveCountMax 6
+    ProxyCommand C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:/DevEnv/secrets/cf-ssh-proxy.ps1 %h

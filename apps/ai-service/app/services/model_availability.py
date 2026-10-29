@@ -577,8 +577,15 @@ class ModelAvailabilityService:
         recharge_url = free_provider_registry.get_recharge_url(code)
 
         start = time.monotonic()
+        # ping 与同步(model_sync)同用一套出网判据:huggingface 等直连被网络封锁、
+        # 经代理可达,不接代理会被误判 DOWN+NETWORK_ERROR(2026-10-26 实测:
+        # HF 直连 curl 超时、走 SYNC_PROXY_URL 200)。判据单源:专用代理表→全局→直连。
+        _ping_proxy = (
+            (settings.sync_proxy_url_by_provider.get(code)
+             or settings.sync_proxy_url or "").strip()
+        ) or None
         try:
-            async with httpx.AsyncClient(timeout=PING_TIMEOUT_S) as client:
+            async with httpx.AsyncClient(timeout=PING_TIMEOUT_S, proxy=_ping_proxy) as client:
                 if balance_endpoint:
                     balance, currency, err_type, err_msg = await self._query_balance(
                         client, code, balance_endpoint, api_key

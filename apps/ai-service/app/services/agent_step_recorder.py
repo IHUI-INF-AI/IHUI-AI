@@ -16,6 +16,13 @@ Step 结构(append_step 入参缺省字段由 recorder 归一化):
     step_index / type(tool|message|plan|llm) / tool_name / input_summary /
     result_summary / status(ok|error) / tokens / tokens_in / tokens_out /
     duration_ms / cost / http_summary / at
+证据回指四要素(B04,2026-10-28 立):
+    invocation_id(账行编号;空 = 本次没交给派发腿,不编造) /
+    permission_decision / permission_cause / operator_id(令牌主体) ——
+    与明细账同一份事实源(循环侧算一次、两处引用),录制面用它回指
+    `tool_invocation_ledger` 那一行;**输入/输出哈希刻意不落本文件**:
+    inputDigest/outputDigest 的唯一实现住在服务端账行(digestToolArgsStructure +
+    canonicalStringify,§0.6),在录制侧自算第二份即漂移源,故只留回指编号。
 Prompt 缓存计量(P0-①,2026-09-18 立,对标 Codex Harness 的缓存可观测):
     cached_tokens(缓存读命中)/ cache_creation_tokens(缓存写,Anthropic 5min TTL)
     —— 主循环 LLM 步骤(type=llm)与工具内嵌 LLM 用量均透传此二字段,
@@ -90,6 +97,18 @@ STEP_RECORD_CAPS: dict[str, dict[str, Any]] = {
 }
 # 输入/结果摘要单条长度上限(历史名,= itemMaxChars.cap,防单条超大撑爆文件)
 SUMMARY_LIMIT = STEP_RECORD_CAPS["itemMaxChars"]["cap"]
+# B04 证据回指字段的单字段字符上限:取账表 schema 的 invocation_id 上限(160)。
+# 上限远长于权限枚举档(最长 16),截断不会把词汇截变成另一档;
+# 该值有镜像测试与 tool_invocation_ledger._MAX_INVOCATION_ID 对齐(漂移即红)。
+EVIDENCE_FIELD_MAX = 160
+# B04 证据回指四要素的字段名单一真源(2026-10-28):归一化白名单、按编号反查、
+# 时间线 meta 投影三处都从这里取键名,不各写一份字面量(§0.6)。
+EVIDENCE_FIELDS: tuple[str, ...] = (
+    "invocation_id",
+    "permission_decision",
+    "permission_cause",
+    "operator_id",
+)
 # 分页 page_size 上限
 PAGE_SIZE_MAX = 200
 
@@ -239,6 +258,14 @@ def _normalize_step(step: dict[str, Any], idx: int) -> dict[str, Any]:
         "cost": round(_to_num(step.get("cost")), 6),
         "http_summary": str(step.get("http_summary") or ""),
         "at": str(step.get("at") or _now_iso()),
+        # B04 证据回指四要素(2026-10-28 立):此前归一化白名单不含这四键,生产者
+        # 标注的账行编号/权限决策/操作者会在录制侧被丢弃 —— 与 chain(G-816021)、
+        # model(2026-09-09)同型事故,不重犯。空串 = 未标注/未派发,不编造。
+        # 键名取自 EVIDENCE_FIELDS(单一真源,按编号反查/时间线投影同一份)。
+        **{
+            name: str(step.get(name) or "")[:EVIDENCE_FIELD_MAX]
+            for name in EVIDENCE_FIELDS
+        },
         # 1-5 可解释性证据(2026-09-08 立):缺省回填;b76-04 票3 起超限有界化(诚实置位)
         "input": bounded_input,
         "decision": str(step.get("decision") or ""),
@@ -260,6 +287,7 @@ class AgentStepRecorder:
         steps = rec.replay("run-1")              # 全量(时间序)
         step  = rec.replay("run-1", step_index=2)  # 单步回看
         metrics = rec.get_run_metrics("run-1")
+        rec.finish_run("run-1", session_id="s1")  # 运行收尾:并入成本账本
     """
 
     def __init__(
@@ -365,6 +393,50 @@ class AgentStepRecorder:
             self._persist()
             return dict(normalized)
 
+    def finish_run(
+        self,
+        run_id: str,
+        *,
+        user_id: str = "",
+        session_id: str = "",
+        ledger: Any = None,
+    ) -> dict[str, Any]:
+        """运行收尾:把该 run 的全部步骤并入成本账本(recorder→账本接线的唯一出口)。
+
+        G-941(2026-10-27):`cost_ledger.sync_from_recorder` 此前在生产侧零调用方 ——
+        录好了不入账:recorder 口径的 token/缓存/耗时/成本一行都进不了账本,账本只
+        见那些直写账的生产者。收尾处必须显式调一次本方法。
+
+        刻意在 `append_step` 之外(不逐步自动入账):sync 是整 run 重放,每步调一次
+        是 O(n²)(MAX_STEPS_PER_RUN=2000 ⇒ 每 run 百万级条目回灌),且会把"录制"
+        这个可观测面变成每次工具调用都写盘的主链路负担。
+
+        入账幂等:同 run 重复收尾由 `sync_from_recorder` 走同一张方向表逐列合并,
+        第二次起 synced=0、skipped=步数(账不重复记)。
+
+        `ledger` 缺省取全局 `cost_ledger` 单例(延迟导入:cost_ledger 反向 import
+        本模块,顶层互引会成环)。入账失败只 warning 并如实返回 synced=0 ——
+        可观测面的故障不许反过来打断业务主链路,也不许把"没入账"说成"入账了"。
+        """
+        if ledger is None:
+            try:
+                from .cost_ledger import cost_ledger
+
+                ledger = cost_ledger
+            except Exception as e:  # noqa: BLE001 - 接线失败降级,不许打断收尾
+                logger.warning("运行收尾入账失败(未接线,降级): %s", e)
+                return {"run_id": run_id, "synced": 0, "skipped": 0, "error": str(e)}
+        try:
+            # 显式注解接一手:账本返回 Any,直接 return 会被 --strict 判 no-any-return
+            # (本仓 mypy 全库清零后不得回退一行)。
+            synced: dict[str, Any] = ledger.sync_from_recorder(
+                run_id, self, user_id=user_id, session_id=session_id
+            )
+            return synced
+        except Exception as e:  # noqa: BLE001 - 账本不可用时录制仍算完成
+            logger.warning("运行收尾入账失败(降级,不阻塞主链路): %s", e)
+            return {"run_id": run_id, "synced": 0, "skipped": 0, "error": str(e)}
+
     def reset_run(self, run_id: str) -> bool:
         """清空某运行的步骤记录。存在则删除并返回 True,不存在返回 False(幂等)。"""
         with self._lock:
@@ -409,6 +481,58 @@ class AgentStepRecorder:
                 return {"run_id": run_id, "step": None, "found": False}
             return {"run_id": run_id, "step": steps[idx], "found": True}
         return {"run_id": run_id, "steps": steps, "total": len(steps)}
+
+    def get_steps_by_invocation_id(
+        self, invocation_id: str, *, limit: int = PAGE_SIZE_MAX
+    ) -> dict[str, Any]:
+        """按账行编号反查录制步骤(B04 证据回指的查询面,2026-10-28 立)。
+
+        录制行与明细账行是同一事实的两处投影:循环侧算一次、两处引用,靠
+        `invocation_id` 对齐。此前只有"按 run 读"一个入口 —— 编号落盘之后**没有任何
+        读路径**(router 三个端点全按 run_id 寻址),于是"录制面回指账行"只写不读,
+        两个证据面仍然只能靠时间戳猜着对齐。本方法补的就是这一跳。
+
+        跨 run 扫(编号是全局幂等键,不保证与 run 同域):先按 run 逐个取该 run 的
+        命中,再按 run 起始时间升序拼、按 limit 截断;`total` 报截断**前**的命中数,
+        `list` 报本轮实数(与 get_run_steps 的 total/页长口径一致,不静默少报)。
+
+        空/全空白编号 ⇒ 不扫全表、found=False(`total` 恒 0):空串是"本次没交给
+        派发腿"的合法值,拿它去扫会把所有未标注步都当命中。
+        """
+        target = (invocation_id or "").strip()
+        if not target:
+            return {
+                "invocation_id": "",
+                "found": False,
+                "total": 0,
+                "list": [],
+                "scanned_runs": 0,
+            }
+        capped = min(max(1, int(limit or PAGE_SIZE_MAX)), PAGE_SIZE_MAX)
+        with self._lock:
+            self._load()
+            # 只取引用快照,出锁后再拷 step,避免长持锁
+            runs = [
+                (run_id, record.get("started_at") or "", list(record.get("steps") or []))
+                for run_id, record in self._data.items()
+            ]
+        runs.sort(key=lambda item: (item[1], item[0]))
+        matches: list[dict[str, Any]] = []
+        total = 0
+        for run_id, _started, steps in runs:
+            for step in steps:
+                if step.get("invocation_id") != target:
+                    continue
+                total += 1
+                if len(matches) < capped:
+                    matches.append({**dict(step), "run_id": run_id})
+        return {
+            "invocation_id": target,
+            "found": total > 0,
+            "total": total,
+            "list": matches,
+            "scanned_runs": len(runs),
+        }
 
     def get_run_metrics(self, run_id: str) -> dict[str, Any]:
         """聚合单运行指标:步数 / 成败 / 总 token / 总耗时 / 总成本。"""

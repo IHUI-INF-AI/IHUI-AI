@@ -103,7 +103,7 @@ from ..core.permission_mode import (
 from ..core.permission_mode import (
     tool_allowed_by_policy as _tool_allowed_by_policy,
 )
-from ..core.token_baseline import CHAIN_SUBAGENT
+from ..core.token_baseline import CHAIN_SUBAGENT, CHAIN_UNKNOWN_LABEL
 from ..core.turn_stop_reason import TurnStopReason
 from ..core.usage_cache import normalize_usage
 from .agent_checkpoint import (
@@ -152,17 +152,21 @@ from ..core.mcp_tool_approval import (
 from ..core.mcp_tool_approval import (
     requires_mcp_tool_approval as _requires_mcp_tool_approval,
 )
+
+# A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
+from ..core.retry_after import hint_from_error, resolve_retry_delay_s
+
 # P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
 from ..core.session_taint import TaintSource as _TaintSource
 from ..services.session_security import (
     args_contain_resolvable_vault as _args_contain_resolvable_vault,
+)
+from ..services.session_security import (
     get_session_taint_store as _get_session_taint_store,
-    get_vault_store as _get_vault_store,
+)
+from ..services.session_security import (
     taint_gate_requires_approval as _taint_gate_requires_approval,
 )
-
-# A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
-from ..core.retry_after import hint_from_error, resolve_retry_delay_s
 from .agent_security_prefs import (
     apply_prefs,
     get_agent_security_prefs,
@@ -198,6 +202,7 @@ from .llm_budget_governor import (
 from .plan_mode import is_readonly_tool
 from .security_config import get_security_config
 from .tool_input_scanner import HARD_SCAN_FLAGS
+from .tool_invocation_ledger import record_tool_invocation
 
 logger = logging.getLogger(__name__)
 
@@ -1167,6 +1172,40 @@ def _derive_step_decision(tr: ToolResult) -> tuple[str, str]:
     return "execute_tool", ""
 
 
+def _ledger_permission_facts(
+    tr: ToolResult, hint: tuple[str, str] | None
+) -> tuple[str, str | None]:
+    """B04(2026-10-27 立):把循环决策面映射到明细账权限词汇(只用既有枚举,零新造)。
+
+    输入是循环里已存在的两个事实源:`ToolResult.error_type` 与 `_decision_hints`
+    提示对;输出 `(permissionDecision, permissionCause)` 落在 apps/api
+    `tool-approval-audit.ts` 的封闭集(镜像于 `tool_invocation_ledger.py`)。
+    - 用户拒绝(error_type=user_rejected 或 hint=rejected_by_user)⇒ denied/prompt-declined;
+    - plan 拦截 / 审批超时 / 注入与扫描拦截 ⇒ denied 且**不带成因**:词汇四档
+      (no-prompt/prompt-declined/prompt-empty/prompt-error)没有对应档,不冒充;
+    - 免审批/绕过审批(auto/bypass_skip_approval)⇒ flag(策略级自动放行,
+      与 danger-gate `--allow-dangerous` 同义);
+    - 其余走到执行终态的(审批通过/persist 命中/guardian 复核/轴放行/无审批门)⇒ approved。
+    """
+    decision_hint = hint[0] if hint else None
+    if tr.error_type == "user_rejected" or decision_hint == "rejected_by_user":
+        return "denied", "prompt-declined"
+    if (
+        tr.error_type
+        in (
+            "approval_timeout",
+            "permission_denied",
+            ERROR_INJECTION_BLOCKED,
+            ERROR_SCAN_BLOCKED,
+        )
+        or decision_hint == "security_blocked"
+    ):
+        return "denied", None
+    if decision_hint in ("auto_skip_approval", "bypass_skip_approval"):
+        return "flag", None
+    return "approved", None
+
+
 # ---------------------------------------------------------------------------
 # 2-3 验证自愈集成(2026-09-12 立):run_command 出现失败 pytest 信号时,
 # agent loop 内联触发 self_healing 引擎(默认 off,见 _maybe_self_heal)。
@@ -2020,9 +2059,11 @@ class AgentLoopV2:
         # 不接入录制,默认路径与现状逐零差异;注入后每次工具调用 append 一步。
         recorder: Any | None = None,
         # G-816021(2026-10-14):本循环所属 context 链标签(main/subagent/workflow,…)。
-        # 随每条录制步骤透出,账本增量基线据此把同 session 的多链分开持基线;
-        # 缺省空串 = 未标注(账本侧与既有行为逐零一致)。
-        chain: str = "",
+        # 随每条录制步骤透出,账本增量基线据此把同 session 的多链分开持基线。
+        # G-941 写账侧收口(2026-10-26):缺省从「空串=未标注」收成「显式未判定」——
+        # None(漏传)不再是"和旧行为一样看不出来",而是当场点名 + 条目链别落"未判定"桶,
+        # 永不被读成主链;生产构造点必须显式给 CHAIN_MAIN / CHAIN_SUBAGENT / CHAIN_WORKFLOW。
+        chain: str | None = None,
         # 2026-09-18 第二批(对标 Codex model_reasoning 配置面):生成参数透传面
         # {temperature/top_p/max_tokens/reasoning_effort/...},每次 LLM 调用经
         # **kwargs 透传 llm_complete_fn(承载层闭包再透传 llm_gateway→litellm)。
@@ -2094,7 +2135,9 @@ class AgentLoopV2:
             recorder: AgentStepRecorder(或等价接口)实例,可选注入;None 时默认路径
                 与现状逐零差异(不产生任何 step 记录)。注入后每次工具调用 append 一步。
             chain: 本循环所属 context 链标签(G-816021;main/subagent/workflow,…),
-                随录制步骤透出供账本增量基线分链;缺省空串 = 未标注,逐零差异。
+                随录制步骤透出供账本增量基线分链。缺省 None = **漏传**,本实例当场
+                点名 warning 并把链别落成"未判定"(G-941 写账侧收口:显式未判定,
+                绝不静默并入主链);传空串同样按"未判定"处理。
             deny_tools: 调用方传入的基础负向集(G-998120;None = 无)。与轮次附加集
                 取并集后在本轮生效,本集合一个不少地保留(合并不做整体替换)。
             turn_denylist: 本轮派发来源的附加负向集(G-998120;None = 无)。只作用于
@@ -2415,8 +2458,22 @@ class AgentLoopV2:
         # G-816021(2026-10-14):上下文链标签(main/subagent/workflow,…;空=未标注)。
         # 本循环实例即一条 context 链;录制步骤带上链标签,账本读面的增量基线才能
         # 把同 session 内同为 tool_name="llm" 的主链与子代理分开持基线(不少计)。
-        # 缺省空串 = 未标注 = 账本侧退化为仅按 tool_name 分桶(与既有行为逐零一致)。
-        self._chain: str = str(chain or "")
+        # G-941 写账侧收口(2026-10-26):缺省 None = 漏传 ⇒ 显式落"未判定"桶并点名
+        # warning。账本读面(chain_bucket)对空串与"未判定"给同一个桶,所以这不改计量,
+        # 改的是"漏传到底存不存在"——以前看不出来,现在条目上写着"未判定"三个字。
+        _chain_arg = "" if chain is None else str(chain).strip()
+        if not _chain_arg:
+            if chain is None:
+                logger.warning(
+                    "AgentLoopV2 构造未传 chain => 本次 run(session=%s)的用量落「%s」桶,"
+                    "不计入主链;补传 CHAIN_MAIN/CHAIN_SUBAGENT/CHAIN_WORKFLOW 之一即出桶"
+                    "(G-941 写账侧)",
+                    self._session_id,
+                    CHAIN_UNKNOWN_LABEL,
+                )
+            self._chain: str = CHAIN_UNKNOWN_LABEL
+        else:
+            self._chain = _chain_arg
 
         # 1-5 事件流协作层(2026-09-08 立):run/_run_loop/审批等全部事件发射
         # 收敛到 AgentEventStream(fail-open 降级语义统一在层内)。
@@ -5480,6 +5537,10 @@ class AgentLoopV2:
             # 分支产出,历史成对性由批 53 normalize_history 兜底。
             for idx, (tc, item) in enumerate(zip(tool_calls, gathered_raw, strict=False)):
                 if isinstance(item, _LoopInterrupted):
+                    # B04(2026-10-28):上抛前补录同批**已完成**兄弟调用的证据行。
+                    # 中断的 raise 发生在下面第二轮录制循环之前 ⇒ 同批已执行完的工具
+                    # 此前一行证据都进不了账(一中断整批蒸发),与"每次工具调用"直接冲突。
+                    self._ingest_settled_siblings(tool_calls, gathered_raw)
                     with contextlib.suppress(Exception):
                         await self._events.emit_plan_step(
                             self._session_id or "", idx, tc.name, "aborted",
@@ -5656,6 +5717,70 @@ class AgentLoopV2:
         except Exception as e:
             logger.warning("agent LLM step 录制失败(降级,不阻塞): %s", e)
 
+    def _ingest_settled_siblings(
+        self, tool_calls: list[ToolCall], gathered: list[Any]
+    ) -> None:
+        """B04(2026-10-28):并行批内中断时,补录**已完成**兄弟调用的证据行。
+
+        只补证据面(`_maybe_ingest_tool_ledger`),不补 step 录制 / 交付清单:
+        后两者属于被中断的这一轮,语义上不该再产出;而被取消/抛中断的那一枚不写
+        任何行 —— 权限词汇是封闭集,给它编一个 decision 就是冒认事实。
+        自身 fail-open:证据面任何异常都不许影响中断照常上抛。
+        """
+        try:
+            for sib_tc, sib_item in zip(tool_calls, gathered, strict=False):
+                if isinstance(sib_item, BaseException):
+                    continue
+                self._maybe_ingest_tool_ledger(
+                    sib_tc, sib_item, self._decision_hints.pop(sib_tc.id, None)
+                )
+        except Exception as e:
+            logger.warning("b04 中断批补录工具账失败(降级,不影响中断): %s", e)
+
+    def _maybe_ingest_tool_ledger(
+        self, tc: ToolCall, tr: ToolResult, hint: tuple[str, str] | None
+    ) -> tuple[str, str | None, str]:
+        """B04(2026-10-27 立):每次工具调用终态落证据级明细账(有界、失败不拖主循环)。
+
+        账是证据面,不跟可观测录制开关走(`_pipeline_record_active` 关的是 step
+        录制,账行是审计证据),因此调用位在 `_maybe_record_step` 的短路**之前**。
+        invocation_id 每次调用 uuid4 现生成(账侧幂等键:重放被服务端 duplicate 吸收,
+        不双计);input/output 用既有摘要素材(`_summarize_step` 产物,原文不出进程,
+        includeRaw 不下发 ⇒ 服务端默认 false 只存摘要);权限词汇见
+        `_ledger_permission_facts`。派发腿本体同 D154 mcp_status(create_task + 5s
+        超时 + 吞异常计数);这里再包一层 try,保证证据面任何失败都不穿透主循环。
+
+        @returns `(permission_decision, permission_cause, invocation_id)` ——
+        2026-10-28 起把本次账行的事实投影交回调用方,供 step 录制面**回指同一行**
+        (此前 uuid4 现生成后即丢弃,两个证据面无法按编号对齐,"可追溯"只能靠
+        时间戳猜)。**只在派发腿收下这一行时**才返回 invocation_id;被拒(无 UUID
+        主体/词汇越界/无事件循环)降级空串 —— 录制面不得挂一个查不到账行的编号。
+        权限决策本身与派发成败无关(它是循环侧已发生的判定),故无论派发与否都返回;
+        整条链路异常时返回 `("", None, "")`,不冒充任何事实。
+        """
+        try:
+            decision, cause = _ledger_permission_facts(tr, hint)
+            invocation_id = str(uuid.uuid4())
+            dispatched = record_tool_invocation(
+                user_id=self._user_id,
+                session_id=self._session_id or "",
+                invocation_id=invocation_id,
+                tool_name=tr.name or tc.name or "",
+                permission_decision=decision,
+                permission_cause=cause,
+                state="settled",
+                ok=not tr.error,
+                input_summary=_summarize_step(tc.args),
+                output_summary=_summarize_step(
+                    {"error": tr.error} if tr.error else tr.result
+                ),
+                trace_id=self._trace_id,
+            )
+            return decision, cause, invocation_id if dispatched else ""
+        except Exception as e:
+            logger.warning("b04 工具账派发失败(降级,不阻塞): %s", e)
+            return "", None, ""
+
     def _maybe_record_step(self, tc: ToolCall, tr: ToolResult) -> None:
         """工具调用可观测录制(2026-09-03 立):每次工具执行后 append 一步。
 
@@ -5668,6 +5793,10 @@ class AgentLoopV2:
         # 1-1:先弹出决策提示(auto 免审批等不可见路径),无提示再从结果推导
         # (pop 必须在短路之前:提示表是 per-tc 的,不弹就会漏给下一个同名 tc)
         hint = self._decision_hints.pop(tc.id, None)
+        # B04:明细账摄入与 step 录制开关无关(证据面),挂在短路之前;内部有界 fail-open。
+        ledger_decision, ledger_cause, ledger_invocation_id = (
+            self._maybe_ingest_tool_ledger(tc, tr, hint)
+        )
         if rec is None or not self._pipeline_record_active:
             return
         run_id = getattr(rec, "run_id", None) or self._session_id or ""
@@ -5693,6 +5822,13 @@ class AgentLoopV2:
                     ),
                     "status": "error" if tr.error else "ok",
                     "duration_ms": round(float(tr.duration_ms or 0.0), 2),
+                    # B04(2026-10-28):证据四要素回指 —— 录制行与账行按同一编号对齐,
+                    # 权限决策/操作者身份与账行同源(循环侧算一次、两处引用);输入/输出
+                    # 哈希只住服务端账行(单源),录制侧刻意不自算第二份。
+                    "invocation_id": ledger_invocation_id,
+                    "permission_decision": ledger_decision,
+                    "permission_cause": ledger_cause or "",
+                    "operator_id": self._user_id or "",
                     **self._tool_llm_usage_fields(tr.result),
                     "input": tc.args,
                     "decision": decision,
@@ -6801,6 +6937,31 @@ async def run_converged_agent(
     ]
     result = await loop.run(messages)
     _replay_progress_events(result, progress_callback)
+
+    # G-941(2026-10-27):运行收尾把本 run 的全部步骤并入成本账本 —— `finish_run` 的**唯一生产
+    # 调用点**(此前只有定义/docstring/测试,recorder 口径的 token/成本一行都进不了账本)。
+    # 三个边界都照既有纪律写:
+    #  ① run_id 与 `_maybe_record_llm_step` 同一式子(recorder.run_id > loop 的 session > 入参),
+    #     两处不同源就会把收尾入到另一个 run 上;
+    #  ② 只在本轮真录制时调(recorder 在位 ∧ 档位开启),缺省路径与接线前逐字同形;
+    #  ③ 入账故障只 warning 降级 —— 可观测面的故障不许反过来打断业务主链路(finish_run 内部
+    #     已降级,这里再兜一层是因为 getattr/取 run_id 也可能抛)。
+    rec = getattr(loop, "_step_recorder", None)
+    if rec is not None and getattr(loop, "_pipeline_record_active", False):
+        try:
+            run_id = (
+                getattr(rec, "run_id", None)
+                or getattr(loop, "_session_id", None)
+                or session_id
+                or ""
+            )
+            rec.finish_run(
+                run_id,
+                user_id=str(user_id or ""),
+                session_id=str(session_id or ""),
+            )
+        except Exception as e:  # noqa: BLE001 - 收尾入账故障不许打断主链路
+            logger.warning("运行收尾入账失败(降级,不阻塞返回): %s", e)
 
     output = result.final_response or ""
     status = "completed" if result.success else "failed"

@@ -226,6 +226,16 @@ export function isSelfHealLine(line) {
 }
 
 /**
+ * 门体自报「未判定」的结构化键(2026-10-27 立,守门 44 三态化同批)。
+ *
+ * 门在结论行上打这个键、归因层认这个键 —— **两端必须共用同一字面量**(AGENTS §0.6 单一真相源):
+ * 门写一份、归因层认另一份,措辞一改就静默失联,而失联的表现永远是"安静"(§12f)。
+ * 键文本沿用本仓既有的「无法判定」字样(守门 44 历史输出、gate-failure-kind 的
+ * UNDETERMINED_MARKERS /无法判定/ 都吃它),不新造词汇。
+ */
+export const GATE_UNDETERMINED_MARK = '[无法判定]'
+
+/**
  * "这一行点名了 declared,且**带着内容错证据**吗?" —— 三种成立形态(G-1058649 判据 2):
  *  ① 命中行自己就是内容错(eslint `a.ts:12:5 error …`、prettier `[error] a.ts: SyntaxError: …`、
  *     tsc `a.ts(1,14): error TS2322`、mypy `a.py:32: error: …`);
@@ -276,7 +286,11 @@ function lineBlamesFile(lines, idx, declared) {
  * 步骤分开。哪天真出现列 0 的续行,后果是块尾早停(少摘),**失效方向是保守的**
  * —— 退回本票修之前的行为,不会把真 finding 摘掉。
  */
-const ECHO_BLOCK_OPENERS = [/📋\s*staged 文件清单审计/, /⏭\s*staged 文件清单审计/, /⋯\s*Running tasks for staged files/]
+const ECHO_BLOCK_OPENERS = [
+  /📋\s*staged 文件清单审计/,
+  /⏭\s*staged 文件清单审计/,
+  /⋯\s*Running tasks for staged files/,
+]
 
 /**
  * 摘掉「钩子/lint-staged 自己 echo 的回显块」,**返回新数组**(不改入参)。
@@ -410,7 +424,6 @@ export function lastHookRound(text) {
   return last ? clean.slice(last.index) : clean
 }
 
-
 /**
  * 批外步骤名 —— 只在"汇总已跑完且批内 0 blocking 失败"时才有意义。
  *
@@ -490,7 +503,7 @@ function containsPathSegment(hay, needle, allowSlashBefore) {
   for (let at = hay.indexOf(needle); at >= 0; at = hay.indexOf(needle, at + 1)) {
     const before = at === 0 ? '' : hay[at - 1]
     const after = at + needle.length >= hay.length ? '' : hay[at + needle.length]
-    if (before && (PATH_CHAR_BEFORE.test(before) && !(allowSlashBefore && before === '/'))) continue
+    if (before && PATH_CHAR_BEFORE.test(before) && !(allowSlashBefore && before === '/')) continue
     if (after && PATH_CHAR_AFTER.test(after)) continue
     return true
   }
@@ -534,10 +547,17 @@ export function baselineUsable(b) {
   if (b.status === null || b.status === undefined)
     return { ok: false, why: `基线面退出码取不到(${b.why || '被中断或超时'})` }
   if (b.status === 2)
-    return { ok: false, why: '基线面按本仓约定判"无法判定"(exit 2)—— 那是"没判",不是"判过且没问题"' }
+    return {
+      ok: false,
+      why: '基线面按本仓约定判"无法判定"(exit 2)—— 那是"没判",不是"判过且没问题"',
+    }
   if (BASELINE_UNUSABLE_OUT_RE.test(String(b.output ?? '')))
-    return { ok: false, why: `基线面在隔离面跑不通(缺依赖 / 非 git 检出 / 门按磁盘判),不得读成"存量"` }
-  if (b.ran !== true) return { ok: false, why: `基线面未声明 ran:true(实得 ${JSON.stringify(b.ran)})` }
+    return {
+      ok: false,
+      why: `基线面在隔离面跑不通(缺依赖 / 非 git 检出 / 门按磁盘判),不得读成"存量"`,
+    }
+  if (b.ran !== true)
+    return { ok: false, why: `基线面未声明 ran:true(实得 ${JSON.stringify(b.ran)})` }
   return { ok: true, why: null }
 }
 
@@ -748,6 +768,77 @@ export const REMOTE_STATE_MARK = '[judges-remote-state]'
 export const EXTERNAL_FS_MARK = '[judges-external-fs-state]'
 
 /**
+ * 门在**自己的 exit 2 结论行上打**的结构化键(2026-10-27 立,票"门 44 把红与未判定混在一条流里")。
+ *
+ * 为什么又是"门自声明 + 归因层只认键"(与 `SELF_HEAL_FIXED_MARK` / 上面两枚标记同一条设计):
+ * 归因层靠关键词猜"这道门是不是在喊没判头"必然随措辞腐烂,而猜宽的后果是把真红洗成未判定。
+ * 键由门与归因层**共用这一个字面量**(门体 `import { GATE_UNDETERMINED_MARK }`,不抄字符串),
+ * 门改了输出而没打键 ⇒ 归因层认不到 ⇒ 那一格退回旧口径(未归因),**不会**被读成"已通过"。
+ *
+ * 〔它标的是"这道门以未判定(§0.3)收口"这一型:既不冒红也不记绿,而**它本身就是有名字的红因**
+ * —— 旧口径里这一格既进不了 blocking 红名单(executor 把它单列成档),又没人给它名字,
+ * 于是席位读到的是"无红可指 ⇒ 走应急档",应急档成了无人可问责的默认出口。〕
+ * ⚠️ 门侧的自述键**单源在上方** `GATE_UNDETERMINED_MARK`(2026-10-27 同批由对席落仓,值 `[无法判定]`,
+ * 沿用门 44 历史输出与 gate-failure-kind 的 UNDETERMINED_MARKERS,不新造词汇)⇒ 此处不再声明第二份。
+ * 本常量是**归因侧的档名**:它要进留痕的 `kind`/`reason` 身份,所以必须与门侧键分开 ——
+ * 合用一个字符串的话,门改一次措辞就连带改掉台账身份,而台账按 `(类别,计数)` 去重(AGENTS 5e-1)。
+ */
+export const GATE_UNDETERMINED_NAME = 'gate-self-undetermined'
+
+/**
+ * 解析执行器汇总里的**未判定门清单**(2026-10-27 立)。
+ *
+ * 载体逐字取自 `scripts/lib/guardian-executor.mjs` 的打印段:
+ *   `❓ 1 道门**未判定**(取不到输入,§0.3)—— 与"判据判红"分开列:…`
+ *   `   · [44] 🧹 根目录整洁守门(一级目录白名单) —— <原因>(上面该门回显里有它点名的路径;复现:node scripts/check-root-dir-clean.mjs --staged)`
+ * 而"跑不起来(未判定)"那一族(`⚠️ N 道门**跑不起来(未判定)**`)是**另一个桶**(它批量 exit 1
+ * 且已由 crash 档点名),`**未判定**` 与 `**跑不起来(未判定)**` 在 `**` 位置上不同形,不会误并。
+ *
+ * ⚠️ 判 `parseGateSummary` 的既有锚点不动:红名单要"换行 + `单独复现:`",未判定名单是
+ * 同行 `复现:` —— 两族格式本就不同,归因层此前**只认前者**,所以后者在它手里一直是隐形的
+ * (这正是本票的病灶:应急档拿不到"有名字的原因")。这里补第二张表,不与红名单并桶。
+ */
+export function parseUndeterminedGates(text) {
+  const clean = stripAnsi(text)
+  if (!clean) return []
+  const lines = clean.split(/\r?\n/)
+  const out = []
+  const seen = new Set()
+  let inside = false
+  for (const line of lines) {
+    // 标题行:只认"未判定"清单段的**粗体键**形态,不认崩溃段,也不认批量收口那两行结论
+    if (/道门\*\*未判定\*\*/.test(line)) {
+      inside = true
+      continue
+    }
+    if (inside && !/^\s*·\s*\[/.test(line)) {
+      inside = false // 清单结束(下一段是判红名单 / 批量结论 / 空行)
+    }
+    if (!inside) continue
+    const m = /^\s*·\s*\[([^\]]+)\]\s*([^—\n]*)\s*——\s*(.*)$/.exec(line)
+    if (!m) continue
+    const id = m[1].trim()
+    if (seen.has(id)) continue
+    seen.add(id)
+    // reason 取 `——` 之后的自述,**只剥掉带"复现:"的那个尾括号段**(那是命令,不是原因;
+    // 台账按身份去重,把命令混进原因会让同一型门每轮读出不同身份,AGENTS 5e-1)。
+    // ⚠️ 不得"截到第一个左括号":门给的原因本身就带括号(逐字形态 `…门自己交付未判定(§0.3):无法判定`),
+    // 截断会把原因读成半句话,而半句话在留痕里看起来仍然像"已点名"—— 那是静默失效的形状。
+    const tail = m[3]
+    const cmdAt = tail.indexOf('复现:')
+    let reason = tail
+    if (cmdAt > 0) {
+      const open = tail.lastIndexOf('(', cmdAt)
+      if (open > 0) reason = tail.slice(0, open)
+    }
+    reason = reason.replace(/[;；,]\s*$/, '').trim()
+    const sm = /复现:node\s+scripts\/([^\s);]+)/.exec(tail)
+    out.push({ id, label: m[2].trim(), reason, script: sm ? sm[1].trim() : '' })
+  }
+  return out
+}
+
+/**
  * 归因主判据。
  * @param text        首次 commit 的 stdout+stderr(可含 ANSI)
  * @param fallbackText 可选:同一轮的钩子日志尾部(stdout 未带汇总时的第二输入源)
@@ -805,24 +896,91 @@ export function classifyHookFailure({
 }) {
   let parsed = parseGateSummary(text)
   let source = '钩子标准输出'
-  if (parsed.failed.length === 0 && fallbackText) {
-    const picked = pickLastSummaryRun(fallbackText, stagedFiles)
-    if (picked.text) {
-      const p2 = parseGateSummary(picked.text)
-      if (p2.failed.length > 0) {
-        parsed = p2
-        source = '同一轮钩子日志尾部(stdout 未带汇总;该轮 staged 清单已含本次声明集)'
-      }
+  let fallbackSummary = null
+  let fallbackTried = false
+  /** 第二输入源(钩子日志尾部)只经 `pickLastSummaryRun` 的**轮次绑定**才可用(惰性求值,两处共用) */
+  const pickFallback = () => {
+    if (fallbackTried) return fallbackSummary
+    fallbackTried = true
+    if (!fallbackText) return null
+    fallbackSummary = pickLastSummaryRun(fallbackText, stagedFiles).text
+    return fallbackSummary
+  }
+  if (parsed.failed.length === 0 && pickFallback()) {
+    const p2 = parseGateSummary(fallbackSummary)
+    if (p2.failed.length > 0) {
+      parsed = p2
+      source = '同一轮钩子日志尾部(stdout 未带汇总;该轮 staged 清单已含本次声明集)'
+    }
+  }
+  // ── 第二张表:执行器的**未判定门清单**(2026-10-27 立)──
+  // 红名单走 `parseGateSummary`(锚点=换行 + `单独复现:`),未判定名单是同行 `复现:` 的另一族格式,
+  // 此前归因层只看第一张表 ⇒ 批内 0 红 + N 道未判定时手里"无红可指"。两张表**不得并桶**。
+  let undet = parseUndeterminedGates(text)
+  let undetSource = '钩子标准输出'
+  if (undet.length === 0 && pickFallback()) {
+    const u2 = parseUndeterminedGates(fallbackSummary)
+    if (u2.length > 0) {
+      undet = u2
+      undetSource = '同一轮钩子日志尾部(该轮 staged 清单已含本次声明集)'
     }
   }
   const detail = [parsed.failed.length > 0 ? `失败门清单取材:${source}` : '']
+  // ── 态⑥(2026-10-27 立,票"门 44 把红与未判定混在一条输出流里")────────────────
+  // 批跑完、blocking 红 0,而 N 道门以 exit 2 收口 ⇒ 这一格**有名字**(`gate-self-undetermined`),
+  // 不再是"无红可指 ⇒ 走应急档"那种无人可问责的默认出口:
+  //   · 不折成红(不落 mine、不把未判定当缺陷派单);
+  //   · 不折成绿(kind 仍非 not-ours,措辞禁止"与本次无关");
+  //   · 逐道点名 id/label/该门自述的原因/复现命令,席位与事后读账的人都指得出是哪道门、缺哪一面。
+  // 排在 `outsideBatchStep` 支**之前**:批外步骤那一支的承诺是"批内 0 失败是量出来的",
+  // 而未判定门同样是量出来的门级结论 —— 先报它,才不会把"门判不了"洗成"批内没结论"。
+  if (
+    parsed.batchReported &&
+    !parsed.earlyAbort &&
+    parsed.failed.length === 0 &&
+    undet.length > 0
+  ) {
+    return {
+      kind: 'undetermined-red',
+      undeterminedName: GATE_UNDETERMINED_NAME,
+      ranFullBatch: true,
+      failed: [],
+      undeterminedGates: undet,
+      delta: {
+        introduced: 0,
+        stock: 0,
+        deltaUnknown: undet.length,
+        gateSelfUndetermined: undet.length,
+      },
+      detail: [
+        `未判定门清单取材:${undetSource}`,
+        ...undet.map(
+          (g) =>
+            `[${g.id}] ${g.label} —— 以 exit 2「未判定」收口${
+              g.script ? `(复现:node scripts/${g.script})` : ''
+            }:${g.reason}`,
+        ),
+        '这一格**不是**"无红可指":执行器把未判定单列成档(不进 blocking 红名单),而归因层此前只读红名单' +
+          ' ⇒ 门自报未判定时无红可指 ⇒ 应急档成了无人可问责的默认出口(本票修的正是这一格)',
+        `按 ${GATE_UNDETERMINED_NAME} 落地并留痕:未判定既不记绿也不冒红(§0.3)——` +
+          `不得读成"通过了守门",也不得读成"因他人代码"`,
+        '下一步:按上面逐道点名的取材面补齐输入(或清偿该门点名的归属现场),重跑本批即可拿到真结论',
+      ],
+      reason:
+        `${undet.length} 道门以 exit 2「未判定」收口(${undet.map((g) => g.id).join(',')};` +
+        `${GATE_UNDETERMINED_NAME}),批内 blocking 红 0 —— 那些门没对本枚提交下任何结论,` +
+        '既不折成红也不折成绿;这是**有名字的红因**,不是"无红可指"',
+    }
+  }
   if (parsed.batchReported && parsed.failed.length === 0) {
     const step = outsideBatchStep(text) ?? outsideBatchStep(fallbackText)
     if (step) {
       const tail = tailAfterSummary(text) ?? tailAfterSummary(fallbackText) ?? ''
       const tailLines = tail.split(/\r?\n/)
       // G-1018220 口径②:自愈动作行(带键)不参与点名;批外步骤的真失败点名照旧定责
-      const named = stagedFiles.filter((f) => tailLines.some((l) => !isSelfHealLine(l) && lineNamesFile(l, f)))
+      const named = stagedFiles.filter((f) =>
+        tailLines.some((l) => !isSelfHealLine(l) && lineNamesFile(l, f)),
+      )
       const batchLine = `批内结论:总检查数已跑完、blocking 失败 0(该结论此前被整块丢弃)`
       if (named.length > 0)
         return {
@@ -1022,7 +1180,8 @@ export function classifyHookFailure({
         ` ⇒ 它证明不了"我的面"是哪一轮索引态(声明集本应全在索引里)`
       : null
   const foreignOnFaceList = [...faceStagedNorm].filter((p) => !declaredNorm.has(p)).sort()
-  const foreignOnFaceBrief = foreignOnFaceList.slice(0, 5).join(' , ') + (foreignOnFaceList.length > 5 ? ' …' : '')
+  const foreignOnFaceBrief =
+    foreignOnFaceList.slice(0, 5).join(' , ') + (foreignOnFaceList.length > 5 ? ' …' : '')
   for (const g of parsed.failed) {
     let r = null
     try {
@@ -1084,7 +1243,13 @@ export function classifyHookFailure({
       // 取证行必须有名:`findingLines` 只认"路径:行号"形态,而这一族的红点是 `[项目外] ../tmp-probe/x.mjs`
       // 这种**不带行号的仓外路径** ⇒ 照原样用它会让"未差分"变成空引证。取不到判据形状的行走就退回
       // 原始输出的实线,红始终有名可查。
-      const ev = (lines.length ? lines : String(r.output ?? '').split(/\r?\n/).filter((x) => x.trim() !== '')).slice(0, 2)
+      const ev = (
+        lines.length
+          ? lines
+          : String(r.output ?? '')
+              .split(/\r?\n/)
+              .filter((x) => x.trim() !== '')
+      ).slice(0, 2)
       detail.push(
         `[${g.id}] ${g.label} —— 未差分:该门自声明判「仓库外文件系统状态」(${EXTERNAL_FS_MARK}),` +
           `红点在本枚内容面之外且**未点名本次文件**(取证行:${ev.join(' ⏎ ')});` +
@@ -1101,8 +1266,12 @@ export function classifyHookFailure({
     if (r.status === 2) {
       myFaceUndetermined++
       deltaUnknown++
+      // 门在自己输出里打了自述键 ⇒ 这一型有名有姓(`gate-self-undetermined`);没打也照退出码 2 认,
+      // 但措辞必须交代"依据是退出码,不是门的自述"(§0.3 取不到自述不折算成"它判过了")。
+      const keyed = String(r.output ?? '').includes(GATE_UNDETERMINED_MARK)
       detail.push(
         `[${g.id}] ${g.label} —— 复跑 exit 2:该门自己判"无法判定",未对本枚提交下任何结论` +
+          `(${keyed ? `门自打键 ${GATE_UNDETERMINED_MARK}` : '门未打自述键,按退出码 2 认这一型'})` +
           `(取证行:${lines.slice(0, 2).join(' ⏎ ')})`,
       )
       continue
@@ -1226,7 +1395,11 @@ export function classifyHookFailure({
         if (ext.state === 'moved') externalsMoved++
         else externalsUnobtainable++
         const ev = (
-          lines.length ? lines : String(r.output ?? '').split(/\r?\n/).filter((x) => x.trim() !== '')
+          lines.length
+            ? lines
+            : String(r.output ?? '')
+                .split(/\r?\n/)
+                .filter((x) => x.trim() !== '')
         ).slice(0, 2)
         detail.push(
           `[${g.id}] ${g.label} —— 未能差分:基线面(HEAD)exit 0 / 我的面 exit ${r.status} 这两枚读数` +
@@ -1330,8 +1503,13 @@ export function classifyHookFailure({
   }
   if (deltaUnknown > 0) {
     // 态④:未能差分。仍可落地(应急路径不能删),但措辞不得给出"与本次无关"这种它没证明过的结论。
+    // 「全部由门自报 exit 2 构成」是这一格里最需要**名字**的那一格(2026-10-27 本票立因):
+    // 它过去混在兜底措辞里,读起来与"基线面跑不出去"同形 ⇒ 席位只能得到"未能差分",
+    // 得不到"是哪一型、哪道门、缺哪一面" ⇒ 应急档于是成了无人可问责的默认出口。
+    const selfUndeterminedOnly = myFaceUndetermined > 0 && myFaceUndetermined === deltaUnknown
     return {
       kind: 'undetermined-red',
+      undeterminedName: selfUndeterminedOnly ? GATE_UNDETERMINED_NAME : null,
       ranFullBatch: !parsed.earlyAbort,
       failed: parsed.failed,
       detail,
@@ -1341,6 +1519,7 @@ export function classifyHookFailure({
         deltaUnknown,
         noBaselineOutlet,
         myFaceUndetermined,
+        gateSelfUndetermined: myFaceUndetermined,
         foreignFace,
         remoteState,
         externalFs,
@@ -1359,31 +1538,36 @@ export function classifyHookFailure({
             ? `${deltaUnknown} 道失败门自声明判「仓库外文件系统状态」([judges-external-fs-state]):` +
               '红点在本仓之外(项目父目录 / 盘根 / 他席探针),差分档在这道门上证明不了因果关系' +
               '(基线面与我的面读的是同一块盘,差别只在两跑之间别人写了什么)⇒ 归属未知,修法是把外部现场的归属查清,不是改本枚内容'
-            : externalsMoved + externalsUnobtainable === deltaUnknown
-              ? `${deltaUnknown} 道失败门仍红但未点名本次文件,而差分两侧未读自同一份外部状态快照:` +
-                (externalsMoved > 0
-                  ? `远端在两跑之间前移(或某一跑前后就不一致)⇒ 基线面 exit 0 / 我的面 exit 1 这两枚读数之间世界动过,` +
-                    '差分的因果前提不成立,'
-                  : '调用方取不到外部状态快照(未注入 / 问不到远端)⇒ 没有任何证据证明两跑之间世界没动,') +
-                '未能差分,归属未知 —— 不得据此判"本枚引入",也不得读成"与本次无关"(修法=在同一份外部状态下复跑差分)'
-              : replayFaceUnverified === deltaUnknown
-                ? `${deltaUnknown} 道失败门仍红但未点名本次文件,基线面(HEAD)不红、我的面红,本会判"本枚引入"——` +
-                  `但"我的面"未经自证(${faceUnverifiedWhy})⇒ 归属未经差分证明` +
-                  `(不得据此判"本枚引入",也不得读成"与本次无关";修法=把复跑面清单现读到本轮索引态)`
-                : replayForeignUndetermined === deltaUnknown
-                ? `${deltaUnknown} 道失败门仍红但未点名本次文件,基线面(HEAD)不红、我的面红,本会判"本枚引入"——` +
-                  `但差分复跑读的是还原后的共享索引,未绑到"本次声明集"这一轮索引态 ⇒ ` +
-                  `这一面含 ${foreignOnFaceList.length} 个非本票暂存项,归属未经差分证明` +
-                  `(点名:${foreignOnFaceBrief || '(调用方未给全清单)'};并发共享索引里的历史 blob 会把无关提交钉红 ——` +
-                  `不得据此判"本枚引入",也不得读成"与本次无关";修法=把复跑绑到本轮声明集的索引态,或构造他人面差分)`
-              : `${deltaUnknown} 道失败门仍红但未点名本次文件,而` +
-            (myFaceUndetermined > 0
-              ? `其中 ${myFaceUndetermined} 道**在本枚提交的面上就判"无法判定"(exit 2)**、基线面(HEAD)`
-              : '基线面(HEAD)') +
-            (noBaselineOutlet
-              ? '无从差分(调用方未注入 runGateBaseline)'
-              : '在隔离面跑不通(缺依赖 / 门按磁盘判 / exit 2)') +
-            ' ⇒ 未能差分,归属未知') +
+            : selfUndeterminedOnly
+              ? `${deltaUnknown} 道失败门**复跑即以 exit 2 收口(未判定)** —— 那些门自己没对本枚提交下任何结论` +
+                `(${GATE_UNDETERMINED_NAME}:取不到输入 / 归属无从判定,§0.3 既不冒红也不记绿)⇒ 这是` +
+                `**有名字的红因**,不是"无红可指":不得据此判"本枚引入",也不得读成"与本次无关"` +
+                `(修法=按门点名的输入面或归属现场清偿,不是改本枚内容)`
+              : externalsMoved + externalsUnobtainable === deltaUnknown
+                ? `${deltaUnknown} 道失败门仍红但未点名本次文件,而差分两侧未读自同一份外部状态快照:` +
+                  (externalsMoved > 0
+                    ? `远端在两跑之间前移(或某一跑前后就不一致)⇒ 基线面 exit 0 / 我的面 exit 1 这两枚读数之间世界动过,` +
+                      '差分的因果前提不成立,'
+                    : '调用方取不到外部状态快照(未注入 / 问不到远端)⇒ 没有任何证据证明两跑之间世界没动,') +
+                  '未能差分,归属未知 —— 不得据此判"本枚引入",也不得读成"与本次无关"(修法=在同一份外部状态下复跑差分)'
+                : replayFaceUnverified === deltaUnknown
+                  ? `${deltaUnknown} 道失败门仍红但未点名本次文件,基线面(HEAD)不红、我的面红,本会判"本枚引入"——` +
+                    `但"我的面"未经自证(${faceUnverifiedWhy})⇒ 归属未经差分证明` +
+                    `(不得据此判"本枚引入",也不得读成"与本次无关";修法=把复跑面清单现读到本轮索引态)`
+                  : replayForeignUndetermined === deltaUnknown
+                    ? `${deltaUnknown} 道失败门仍红但未点名本次文件,基线面(HEAD)不红、我的面红,本会判"本枚引入"——` +
+                      `但差分复跑读的是还原后的共享索引,未绑到"本次声明集"这一轮索引态 ⇒ ` +
+                      `这一面含 ${foreignOnFaceList.length} 个非本票暂存项,归属未经差分证明` +
+                      `(点名:${foreignOnFaceBrief || '(调用方未给全清单)'};并发共享索引里的历史 blob 会把无关提交钉红 ——` +
+                      `不得据此判"本枚引入",也不得读成"与本次无关";修法=把复跑绑到本轮声明集的索引态,或构造他人面差分)`
+                    : `${deltaUnknown} 道失败门仍红但未点名本次文件,而` +
+                      (myFaceUndetermined > 0
+                        ? `其中 ${myFaceUndetermined} 道**在本枚提交的面上就判"无法判定"(exit 2)**、基线面(HEAD)`
+                        : '基线面(HEAD)') +
+                      (noBaselineOutlet
+                        ? '无从差分(调用方未注入 runGateBaseline)'
+                        : '在隔离面跑不通(缺依赖 / 门按磁盘判 / exit 2)') +
+                      ' ⇒ 未能差分,归属未知') +
         (remoteState > 0 && remoteState < deltaUnknown
           ? `;其中 ${remoteState} 道自声明判「远端态」([judges-remote-state],红是同步态读数,不进差分)`
           : '') +
@@ -1443,14 +1627,19 @@ export function verdictLine(v) {
   //   ③ 仍然非零留痕、仍然不得读成"通过了守门"。
   if (v.kind === 'env-blocked')
     return `⚠️ 这一步是**环境性失败,不是你的红,也不是别人的红** —— ${v.reason};本枚按应急路径落地并留痕。下一步:①查并发 git/node 进程(tasklist | findstr /i "git node")后重跑本命令;②原样手工复跑那一步(EBUSY 是间歇病);③若仍红,看留痕 kind=env-blocked 的行${
-      v.downgradedFromMine ? ';**注意:这一格原先会被判 mine,现按 env-blocked 处理(判据纠偏,非拆防线)**' : ''
+      v.downgradedFromMine
+        ? ';**注意:这一格原先会被判 mine,现按 env-blocked 处理(判据纠偏,非拆防线)**'
+        : ''
     }${v.batchSelfRun ? '(safe-commit 自跑取证也未取得门级结论)' : ''}`
   // 态④:未能差分。它可以落地,但它**没有**证明"这道红不是我带的",所以措辞必须把
   // 这个差别喊出来 —— 禁止出现"不在本次提交内容里"(由镜像测试的反向锁钉死,不靠自觉)。
   if (v.kind === 'undetermined-red')
-    return `⚠️ ${v.reason} —— 按应急路径落地,已留痕;归属未经差分证明,请勿把它读成"通过了守门"或"因他人代码"${
-      v.batchSelfRun ? '(safe-commit 自跑取证也未取得门级结论)' : ''
-    }`
+    return `⚠️ ${v.undeterminedName ? `【${v.undeterminedName}】` : ''}${v.reason} —— 按应急路径落地,已留痕;归属未经差分证明,请勿把它读成"通过了守门"或"因他人代码"${
+      v.undeterminedName
+        ? ` —— 这一格**有名有姓**(${v.undeterminedName}):未判定是被量出来的门级结论,` +
+          `不是"无红可指",所以应急档在这里是**可问责的一条**(留痕 reason 里就带着是哪几道门以 exit 2 收口)`
+        : ''
+    }${v.batchSelfRun ? '(safe-commit 自跑取证也未取得门级结论)' : ''}`
   if (v.kind === 'not-ours' && v.outsideStep)
     return `✅ ${v.reason} —— 批内 0 失败这一条是**量出来的**,不是"没跑";批外那一步请随后清偿,别把它当成可以长期忽略的背景噪音`
   // 自跑那一轮的 not-ours:证据是真的,但**来源**必须点名 —— 钩子里那一轮从未跑到批量检查。
@@ -1697,6 +1886,222 @@ export function decideWithSelfRunBatch({
     blockerBeforeBatch: blocker,
     detail: [...(verdict.detail ?? []), sourceNote, provenance, `自跑那一轮的结论:${hinge.reason}`],
     reason: `${verdict.reason};safe-commit 自跑守门批后仍无法归因 —— 自跑也未成功(${hinge.reason})`,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  commit-msg 阶段的复跑:钩子在批量检查**之后**才跑,它的红此前完全不在归因射程内
+//  (2026-10-29 立;实测事故 = safe-commit-attestation 里 ts=2026-10-28T17:09:31.397Z 那条)
+//
+//  现场:三端改动、message 的 scope 写成 analytics,`.husky/commit-msg` 里的
+//  `scripts/check-commit-scope-consistency.mjs` 判 R3(≥3 个 apps 子目录 + scope 不在其中)
+//  并以 exit 1 阻断提交。safe-commit 复跑的是 `guardian-runner --staged`(pre-commit 批),
+//  31 道全绿 ⇒ 自跑分支把它升级成 `not-ours`、理由写成"红不在守门批(在批外那一步)",
+//  随后用 --no-verify 把一道**判得完全正确**的门跳掉。失效方向正好反了(§0.10):
+//  本该"多要一次定向说明",实际是"多放一次跳门"。
+//
+//  为什么"批全绿"证明不了这一阶段:pre-commit 与 commit-msg 是 git 的两个独立钩子,
+//  前者绿只说明前者的门绿;后者判的是"本次 message scope ⇄ 本次暂存集"这种**只可能属于
+//  本枚提交**的东西。所以判据是:逐条复跑 `.husky/commit-msg` 自己调用的那些检查,
+//  任一 blocking 检查以非零退出码复现 ⇒ 归因 = ours,禁止 --no-verify,并把脚本名与
+//  它点名的内容原样回显给人。
+//
+//  三条硬边界:
+//   ① 清单不另建 —— 从钩子**文本**里现读它调用了哪些 scripts/*.mjs、哪一条带 `|| true`
+//      (shell 语义:该步失败不阻断提交)。抄一张"commit-msg 阶段有哪些检查"的清单必然
+//      与钩子漂移(§0.6 单一真相源),而那正是本仓最常见的腐烂型。
+//   ② 取不到输入(钩子读不到 / 解析出 0 条 / 复跑出口缺失 / 复跑跑不动)⇒ 「未判定」,
+//      **绝不**折算成 not-ours —— 那是把"没判"写成"判过了"(§0.3)。
+//   ③ 只对 blocking 检查定责:`|| true` 的那几条即使红了也从没阻断过提交,把它判 mine
+//      等于替钩子改语义(style 验证门确实是 warn 档;要它拦人先改钩子,不是在归因层加戏)。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** commit-msg 阶段"未判定"档的名字(可机读,与 gate-self-undetermined 不得并桶) */
+export const COMMIT_MSG_UNDETERMINED_NAME = 'commit-msg-未判定'
+
+/** 钩子里被调用的检查脚本形态:`scripts/<name>.mjs`(含经 hook-run-hidden.vbs 包装那一层)。 */
+const COMMIT_MSG_CHECK_RE = /scripts\/[A-Za-z0-9._-]+\.mjs/g
+
+/**
+ * 从钩子文本里现读"它实际调用了哪些检查、哪一条是 blocking"。
+ *
+ * 为什么读文本而不是建清单:钩子是唯一的真相源;清单抄一份就必然出现"钩子新加了一道、
+ * 归因层看不见"的静默缺口(失效方向是安静,§12f)。注释行不算调用 —— 只在注释里出现的
+ * 路径是给人看的说明,不是复跑对象。
+ * @returns {{script:string, blocking:boolean}[]} script 为 `scripts/` 之后的文件名
+ */
+export function parseCommitMsgStageChecks(hookText) {
+  const clean = stripAnsi(hookText || '')
+  const checks = []
+  const seen = new Set()
+  for (const raw of clean.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    for (const m of line.matchAll(COMMIT_MSG_CHECK_RE)) {
+      const script = m[0].slice('scripts/'.length)
+      if (seen.has(script)) continue
+      seen.add(script)
+      // `|| true` 只在这一处出现时必须落在**同一行、该脚本之后**:Git Bash 的 `||` 串
+      // 逐命令生效,别处的 `|| true` 与本脚本的退出码无关。
+      const after = line.slice((m.index ?? 0) + m[0].length)
+      checks.push({ script, blocking: !/\|\|\s*true\b/.test(after) })
+    }
+  }
+  return checks
+}
+
+/** 复跑结果里给人看的原文摘录(原样,只剥 ANSI 与空行;超长截断并如实报总行数) */
+function excerptOf(output, max = 12) {
+  const lines = stripAnsi(output || '')
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+$/, ''))
+    .filter((l) => l.trim())
+  return { picked: lines.slice(0, max), total: lines.length, truncated: lines.length > max }
+}
+
+/** 逐条派生复跑;出口抛异常/返回怪形状一律折成"跑不动",绝不折成绿。 */
+function rerunCommitMsgChecks(checks, runCheck) {
+  const results = []
+  for (const c of checks) {
+    let r = null
+    try {
+      r = runCheck(c.script)
+    } catch (e) {
+      r = { ran: false, status: null, output: '', why: `复跑抛异常:${e?.message ?? e}` }
+    }
+    if (!r || typeof r !== 'object')
+      r = { ran: false, status: null, output: '', why: '复跑出口未返回结果' }
+    results.push({
+      ...c,
+      ran: r.ran === true,
+      status: r.status ?? null,
+      output: String(r.output ?? ''),
+      why: r.why ?? null,
+    })
+  }
+  return results
+}
+
+/**
+ * 把 commit-msg 阶段的复跑接进归因结论。
+ *
+ * @param verdict   前面几层(classifyHookFailure / decideWithSelfRunBatch)在钩子那一轮上的结论
+ * @param hookText  `.husky/commit-msg` 的**文本**(调用方读:本模块不碰 fs/git,保持纯判定)
+ * @param hookAbsent 钩子文件确实不存在 ⇒ 该阶段不存在(与"读不到"是两件事,不得混桶)
+ * @param hookWhy   读不到钩子的原因(给了它就该落未判定,不得当作"没有这个阶段")
+ * @param runCheck  (script) => {ran, status, output, why} —— 非纯的那一半由调用方提供;
+ *                  参数只有脚本名:commit-msg 钩子拿到的 `<commit-msg-file>` 由调用方补齐
+ * @returns 原 verdict 的**副本**,外加 `commitMsgStage`:
+ *          { state: 'skipped'|'absent'|'green'|'red'|'undetermined', checks, why? }
+ *          kind 只会在两种情况下被改写:blocking 检查复现红 ⇒ `mine`;复跑未判定 ⇒
+ *          `undetermined-red`(且带 undeterminedName),其余一律逐字段保留 —— 既有
+ *          批外/存量/非本票那一整套归因不在本层重算。
+ */
+export function decideWithCommitMsgStage({
+  verdict,
+  hookText = null,
+  hookAbsent = false,
+  hookWhy = null,
+  runCheck = null,
+}) {
+  const base =
+    verdict && typeof verdict === 'object' ? verdict : { kind: 'unattributed', detail: [] }
+  // 已判 mine ⇒ 出口是"拒绝跳门、exit 1",复跑只会多花几分钟而不改结论
+  // (与 needsBatchSelfRun 对 mine 的处置同一条理由)。
+  if (base.kind === 'mine')
+    return { ...base, commitMsgStage: { state: 'skipped', checks: [], why: '已判 mine,无需复跑' } }
+  const undetermined = (why, checks = []) => ({
+    ...base,
+    kind: 'undetermined-red',
+    undeterminedName: COMMIT_MSG_UNDETERMINED_NAME,
+    commitMsgStage: { state: 'undetermined', checks, why },
+    detail: [
+      ...(base.detail ?? []),
+      `commit-msg 阶段复跑未判定:${why}`,
+      '归因层不拿"没判到"冒充"与本次无关"(§0.3):该阶段有没有红没人量到 ⇒ 两个方向都不许下结论',
+      '下一步:按上面点名的原因人工复跑 commit-msg 阶段的那几条检查(它们只吃 commit message 与暂存集)',
+    ],
+    reason: `commit-msg 阶段复跑未判定(${why})—— 该阶段有没有红没人量到,既不是本枚的红、也不得写成"与本次无关"`,
+  })
+  if (hookAbsent)
+    return {
+      ...base,
+      commitMsgStage: { state: 'absent', checks: [], why: '.husky/commit-msg 不存在' },
+      detail: [
+        ...(base.detail ?? []),
+        '本仓没有 .husky/commit-msg 钩子 ⇒ commit-msg 阶段不存在,无检查可复跑',
+      ],
+    }
+  if (hookWhy) return undetermined(`读不到 .husky/commit-msg:${hookWhy}`)
+  if (!hookText) return undetermined('调用方没有提供 .husky/commit-msg 的文本')
+  const checks = parseCommitMsgStageChecks(hookText)
+  // 枚举到 0 条 = 钩子形态变了(或读错了文件)。此时"没有红"不是量出来的,不能算绿。
+  if (checks.length === 0)
+    return undetermined('从 .husky/commit-msg 里解析出 0 条 scripts/*.mjs 调用(钩子形态变了?)')
+  if (typeof runCheck !== 'function') return undetermined('未注入 commit-msg 阶段的复跑出口')
+  const results = rerunCommitMsgChecks(checks, runCheck)
+  if (results.length !== checks.length)
+    return undetermined(`复跑结果与检查条数不符(${results.length}/${checks.length})`, checks)
+  // 跑不动 ≠ 绿:blocking 检查任何一条没给出退出码,这一阶段就没有"复跑为绿"的证据。
+  const unjudged = results.filter((r) => r.blocking && (!r.ran || r.status === null))
+  if (unjudged.length)
+    return undetermined(
+      `blocking 检查复跑跑不动(${unjudged.map((r) => `${r.script}:${r.why || 'status 取不到'}`).join(' , ')})`,
+      checks,
+    )
+  const red = results.filter((r) => r.blocking && r.status !== 0)
+  const warnOnly = results.filter((r) => !r.blocking && r.status !== 0)
+  const digest = results.map((r) => `${r.script}=${r.status}`).join(' , ')
+  if (red.length > 0) {
+    // 钩子把 blocking 检查的退出码原样 `exit` 出去(.husky/commit-msg 末行即 `exit $_scope_rc`),
+    // 所以"复跑非零"就是"钩子那一轮以同一个码退出"的量到形态 —— 不再猜它是不是别人的红:
+    // 这一步判的内容(message scope ⇄ 暂存集)结构上只可能属于本枚提交。
+    return {
+      ...base,
+      kind: 'mine',
+      ranFullBatch: base.ranFullBatch === true,
+      commitMsgStage: {
+        state: 'red',
+        checks: results.map((r) => ({ script: r.script, blocking: r.blocking, status: r.status })),
+      },
+      detail: [
+        ...(base.detail ?? []),
+        `commit-msg 阶段复跑:${red.map((r) => `${r.script}(exit ${r.status})`).join(' , ')} —— 非零退出码复现`,
+        ...red.flatMap((r) => {
+          const ex = excerptOf(r.output)
+          return ex.picked
+            .map((l) => `  ${r.script}| ${l}`)
+            .concat(
+              ex.truncated
+                ? [`  ${r.script}| …(共 ${ex.total} 行,以上为前 ${ex.picked.length} 行)`]
+                : [],
+            )
+        }),
+        '这一步判的是本次这枚提交自己(message scope ⇄ 本次暂存集),不是别人挂在共享索引里的内容 ⇒ 归本次的红',
+        ...warnOnly.map(
+          (r) =>
+            `${r.script} 在钩子里是 \`|| true\`(warn 档),复跑 exit ${r.status} 不阻断提交,不据此定责`,
+        ),
+      ],
+      reason:
+        `commit-msg 阶段的检查 ${red.map((r) => `scripts/${r.script}(exit ${r.status})`).join(' , ')} 复现同一退出码,` +
+        '它点名的是本次 message scope 与本次暂存集不匹配 —— 这是本任务自己的红,改完再提,禁止 --no-verify',
+    }
+  }
+  return {
+    ...base,
+    commitMsgStage: {
+      state: 'green',
+      checks: results.map((r) => ({ script: r.script, blocking: r.blocking, status: r.status })),
+    },
+    detail: [
+      ...(base.detail ?? []),
+      `commit-msg 阶段复跑为绿(${digest || '无检查'})—— 该阶段的检查没有一行拦住本枚提交`,
+      ...warnOnly.map(
+        (r) =>
+          `${r.script} 复跑 exit ${r.status},但钩子里带 \`|| true\`(warn 档)⇒ 不阻断提交,只如实报数`,
+      ),
+    ],
   }
 }
 
@@ -2165,7 +2570,10 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
   })
   assert(d1.kind === 'mine', `D1 基线面绿而我的面红时必须判 mine,实得 ${d1.kind}`)
   assert(/禁止 --no-verify/.test(d1.reason), 'D1 的出口必须是"修",不是跳门')
-  assert(/差分:基线面\(HEAD\)不红/.test(d1.detail.join('\n')), 'D1 明细要写下两面读数,不得只给一个 kind')
+  assert(
+    /差分:基线面\(HEAD\)不红/.test(d1.detail.join('\n')),
+    'D1 明细要写下两面读数,不得只给一个 kind',
+  )
   // D1b 反向对照:同一份输入只把基线换成"同样红" ⇒ 不得再判 mine(证明 D1 是差分给的)
   const d1b = classifyHookFailure({
     text: SUMMARY + FAIL_29,
@@ -2186,10 +2594,19 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
 
   // --- D3 基线面跑不出去 ⇒ undetermined-red(仍可落地),措辞禁止冒充"已证明与本次无关" ---
   const undeterminedShapes = [
-    ['抽取树缺依赖', () => ({ ran: true, status: 1, output: "Error: Cannot find module 'typescript'", why: null })],
+    [
+      '抽取树缺依赖',
+      () => ({ ran: true, status: 1, output: "Error: Cannot find module 'typescript'", why: null }),
+    ],
     ['派生失败', () => ({ ran: false, status: null, output: '', why: '派生失败 ENOENT' })],
-    ['超时/被中断', () => ({ ran: true, status: null, output: 'partial', why: '被中断或超时(900000ms)' })],
-    ['门自判无法判定', () => ({ ran: true, status: 2, output: '无法判定:取不到被审面', why: null })],
+    [
+      '超时/被中断',
+      () => ({ ran: true, status: null, output: 'partial', why: '被中断或超时(900000ms)' }),
+    ],
+    [
+      '门自判无法判定',
+      () => ({ ran: true, status: 2, output: '无法判定:取不到被审面', why: null }),
+    ],
     ['未注入出口', null],
   ]
   for (const [name, mk] of undeterminedShapes) {
@@ -2228,12 +2645,18 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
     }),
     runGateBaseline: greenBaseline,
   })
-  assert(d4.kind === 'mine', `D4 基线绿而我的面红 ⇒ 即使门点的是别人文件也应判 mine,实得 ${d4.kind}`)
+  assert(
+    d4.kind === 'mine',
+    `D4 基线绿而我的面红 ⇒ 即使门点的是别人文件也应判 mine,实得 ${d4.kind}`,
+  )
 
   // --- D5 反斜杠 / 端内相对形态必须归一后判(与同文件 blameFromFailedStep 共用一份实现) ---
   // 真实形态取自本模块自带的 MYPY_REAL:门在端目录里跑,打的是 `app\services\x.py`。
   assert(
-    lineNamesFile('app\\services\\mcp_server.py:1954: error: boom', 'apps/ai-service/app/services/mcp_server.py'),
+    lineNamesFile(
+      'app\\services\\mcp_server.py:1954: error: boom',
+      'apps/ai-service/app/services/mcp_server.py',
+    ),
     'D5a 端内相对 + 反斜杠形态必须被认成点名(旧铰链在这一型上恒盲)',
   )
   assert(
@@ -2251,12 +2674,27 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
   )
 
   // --- D6 baselineUsable 的分支必须成对:能用的读数才算数,"跑过"不等于"能用" ---
-  assert(baselineUsable({ ran: true, status: 0, output: '', why: null }).ok === true, 'D6a exit 0 可用')
-  assert(baselineUsable({ ran: true, status: 1, output: 'x', why: null }).ok === true, 'D6b exit 1 可用(存量)')
+  assert(
+    baselineUsable({ ran: true, status: 0, output: '', why: null }).ok === true,
+    'D6a exit 0 可用',
+  )
+  assert(
+    baselineUsable({ ran: true, status: 1, output: 'x', why: null }).ok === true,
+    'D6b exit 1 可用(存量)',
+  )
   assert(baselineUsable(undefined).ok === false, 'D6c 没给出口不可用')
-  assert(baselineUsable({ ran: true, status: 0, output: "Cannot find module '@ihui/x'" }).ok === false, 'D6d 输出形态判不可用')
-  assert(baselineUsable({ ran: true, status: undefined, output: '' }).ok === false, 'D6e 退出码取不到不可用')
-  assert(baselineUsable({ ran: false, status: 0, output: '', why: '抽取失败' }).ok === false, 'D6f ran:false 时 exit 0 也不算数')
+  assert(
+    baselineUsable({ ran: true, status: 0, output: "Cannot find module '@ihui/x'" }).ok === false,
+    'D6d 输出形态判不可用',
+  )
+  assert(
+    baselineUsable({ ran: true, status: undefined, output: '' }).ok === false,
+    'D6e 退出码取不到不可用',
+  )
+  assert(
+    baselineUsable({ ran: false, status: 0, output: '', why: '抽取失败' }).ok === false,
+    'D6f ran:false 时 exit 0 也不算数',
+  )
 
   // --- D7 反向锁:不得为差分建"机器态门 id 清单"(AGENTS 明文:豁免清单必然腐烂) ---
   // ⚠️ 三个禁用名**只许以拼接形态**出现在本文件里:镜像测试 R5 的源码级 doesNotMatch 扫的是
@@ -2286,7 +2724,11 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
   // 这里钉的是另外四格:两跑之间前移 / 单跑前后就变了 / 取不到 / 未注入 —— 一律不得落
   // introduced,**也一律不得落 not-ours**(它同样没证明"与本次无关"),只能落态④ undetermined-red。
   const myRedStableSnapshot = myRedStable
-  const movedBetweenRuns = () => ({ status: 1, output: GATE55_REAL, externals: externalsAdvanced() })
+  const movedBetweenRuns = () => ({
+    status: 1,
+    output: GATE55_REAL,
+    externals: externalsAdvanced(),
+  })
   const driftWithinRun = () => ({
     ran: true,
     status: 0,
@@ -2332,8 +2774,10 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
       `D8[${name}] 反向锁:未差分不得冒充实证过的"与本次无关",实得:${line}`,
     )
     assert(/未经差分证明/.test(line), `D8[${name}] 必须明写"归属未经差分证明"`)
-    assert(sub === 'moved' ? /前移|前后就变了|两跑之间/.test(line) : /取不到/.test(line),
-      `D8[${name}] 措辞必须按亚型说清(${sub}),实得:${line}`)
+    assert(
+      sub === 'moved' ? /前移|前后就变了|两跑之间/.test(line) : /取不到/.test(line),
+      `D8[${name}] 措辞必须按亚型说清(${sub}),实得:${line}`,
+    )
   }
   // D8-正 有牙对照:同一批输入**只**把快照换回"同一份" ⇒ 必须翻成 mine。
   // 少了这一条,D8 四格可以靠"恒落未差分"空转 —— 那等于把态②整条拆掉(§12e 明令禁止削判据)。
@@ -2361,7 +2805,8 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
   )
   // D9 externalsDiffUsable 的分支必须成对(与 D6 同一条纪律:"跑过"不等于"能用")
   assert(
-    externalsDiffUsable({ externals: EXTERNALS_STABLE }, { externals: EXTERNALS_STABLE }).ok === true,
+    externalsDiffUsable({ externals: EXTERNALS_STABLE }, { externals: EXTERNALS_STABLE }).ok ===
+      true,
     'D9a 四枚逐字相等 ⇒ 差分可用',
   )
   assert(
@@ -2376,8 +2821,8 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
     'D9c 空串同样算取不到(空值不是"快照内容一致")',
   )
   assert(
-    externalsDiffUsable({ externals: externalsAdvanced() }, { externals: EXTERNALS_STABLE }).state ===
-      'moved',
+    externalsDiffUsable({ externals: externalsAdvanced() }, { externals: EXTERNALS_STABLE })
+      .state === 'moved',
     'D9d 跨侧不等 ⇒ moved(远端在两跑之间前移)',
   )
   assert(
@@ -2420,7 +2865,10 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
     d10a.kind === 'not-ours',
     `D10a 他人面仍红时必须判 not-ours(别人暂存的红不得钉成本枚引入),实得 ${d10a.kind}`,
   )
-  assert(/他人面/.test(d10a.reason), `D10a 措辞必须点名差分取材面是"同一份索引减去声明集",实得:${d10a.reason}`)
+  assert(
+    /他人面/.test(d10a.reason),
+    `D10a 措辞必须点名差分取材面是"同一份索引减去声明集",实得:${d10a.reason}`,
+  )
   assert(
     d10a.delta?.foreignFaceRed === 1 && d10a.delta?.introduced === 0,
     `D10a 计数必须可机读(foreignFaceRed=1/introduced=0),实得 ${JSON.stringify(d10a.delta)}`,
@@ -2464,7 +2912,11 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
   // ── D11 票 G-420①(2026-10-22 立):复跑面含非本票暂存项 ⇒ introduced 必须降级并明写原句 ──────
   // 实测形态(枚 924184043):首次 commit 失败 → 还原 staging → 逐道复跑,复跑读的是还原后的共享索引,
   // 里面躺着他人挂着的旧版本 blob ⇒ "HEAD 不红 / 我的面红"两枚读数之间隔着非本票暂存项。
-  const foreignOnFaceFixture = ['scripts/live-doc-edit.mjs', 'scripts/next-plan-id.mjs', 'PROJECT_PLAN.md']
+  const foreignOnFaceFixture = [
+    'scripts/live-doc-edit.mjs',
+    'scripts/next-plan-id.mjs',
+    'PROJECT_PLAN.md',
+  ]
   const d11 = classifyHookFailure({
     text: SUMMARY + FAIL_29,
     stagedFiles: DECL_ONE_TEST,
@@ -2489,7 +2941,10 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
     'D11 必须点名具体路径(G-24 票面:不得笼统拒绝)',
   )
   const line11 = verdictLine(d11)
-  assert(!/不在本次提交内容里/.test(line11), `D11 反向锁:降级档不得冒充实证过的"与本次无关",实得:${line11}`)
+  assert(
+    !/不在本次提交内容里/.test(line11),
+    `D11 反向锁:降级档不得冒充实证过的"与本次无关",实得:${line11}`,
+  )
   assert(!/引入了红|改红/.test(line11), 'D11 反向锁:降级档不得再喊"本枚引入"')
   assert(/^⚠️/.test(line11), 'D11 降级档必须以警示口吻开头,不得读起来像已过门')
   // D11b 反向对照(生死线):同一份输入把复跑面换成"恰是声明集" ⇒ introduced 照判 mine,守卫不得削判据
@@ -2515,7 +2970,12 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
     text: SUMMARY + FAIL_29,
     stagedFiles: DECL_ONE_TEST,
     runGate: myRedUnnamed,
-    runGateForeignFace: () => ({ ran: false, status: null, output: '', why: '临时索引不可写(EBUSY)' }),
+    runGateForeignFace: () => ({
+      ran: false,
+      status: null,
+      output: '',
+      why: '临时索引不可写(EBUSY)',
+    }),
     runGateBaseline: greenBaseline,
     myFaceStaged: [...DECL_ONE_TEST, ...foreignOnFaceFixture],
   })
@@ -2523,7 +2983,10 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
     d11d.kind === 'undetermined-red' && d11d.delta.replayForeignUndetermined === 1,
     `D11d 他人面跑不出去时不得笼统拒绝也不得假引入,实得 ${d11d.kind}`,
   )
-  assert(/他人面\(索引减去声明集\)不可用/.test(d11d.detail.join('\n')), 'D11d 回落必须留痕,不得静默换档')
+  assert(
+    /他人面\(索引减去声明集\)不可用/.test(d11d.detail.join('\n')),
+    'D11d 回落必须留痕,不得静默换档',
+  )
 
   // ── D12 自跑分支必须透传两个新出口(同一把铰链,不得给自跑另造一份口径)──────────────────
   const d12Seen = []
@@ -2546,6 +3009,104 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
     `D12 自跑轮的他人面读数必须参与归因,实得 ${d12.kind} ${JSON.stringify(d12.delta)}`,
   )
 
+  // ── D13(2026-10-27 立,票"门 44 把红与未判定混在一条输出流里")────────────────────────
+  // 这一族钉的是"未判定必须成为一个**有名字的红因**":批内 blocking 红 0、而 N 道门以 exit 2
+  // 收口时,归因层手里必须有那道门的名字(而非"无红可指 ⇒ 走应急档"那种无人可问责的默认出口),
+  // 且两个折算方向都不许发生 —— 折成红 = 假红死锁(§12e),折成绿 = 把"没判"写成"判过"(§0.3)。
+  // 夹具逐字取自 scripts/lib/guardian-executor.mjs 的打印段(未判定名单与崩溃名单**两族同形**,
+  // 并桶就把 crash 档也读成未判定,故成对留样)。
+  const UNDET_44 = `
+❓ 1 道门**未判定**(取不到输入,§0.3)—— 与"判据判红"分开列:**不许**按缺陷派单,但也不许当通过:
+   · [44] 🧹 根目录整洁守门(一级目录白名单) —— 取不到输入,门自己交付未判定(§0.3):无法判定(上面该门回显里有它点名的路径;复现:node scripts/check-root-dir-clean.mjs --staged)
+`
+  const CRASH_30 = `
+⚠️ 1 道门**跑不起来(未判定)**—— 与"判据判红"分开列,别按缺陷派单:
+   · [30] 💥 崩溃门 —— 超时(复现:node scripts/check-crash.mjs;下一步:重跑)
+`
+  const GREEN_BATCH = `
+🛡️ 守门脚本批量检查汇总
+  总检查数: 134(已执行 134)
+  通过: 132
+  警告: 0
+  失败: 0
+  跳过: 0
+  ❓ 未判定: 1(取不到输入,§0.3 不记绿也不冒红,见下方逐道点名)
+  总耗时: 9.0s
+`
+  const EARLY_ABORT_BATCH = `
+🛡️ 守门脚本批量检查汇总
+  总检查数: 134(已执行 60 ← 提前中止)
+  通过: 58
+  警告: 0
+  失败: 0
+  跳过: 0
+  ❓ 未判定: 2(取不到输入,§0.3 不记绿也不冒红,见下方逐道点名)
+`
+  const noRedGate = () => ({ status: 0, output: '' })
+  const d13 = classifyHookFailure({
+    text: GREEN_BATCH + UNDET_44,
+    stagedFiles: MY_FILES,
+    runGate: noRedGate,
+    runGateBaseline: stockBaseline,
+  })
+  assert(
+    d13.kind === 'undetermined-red' && d13.undeterminedName === GATE_UNDETERMINED_NAME,
+    `D13a 批内 0 红 + 未判定清单必须落"有名字的未判定",实得 ${d13.kind}/${d13.undeterminedName}`,
+  )
+  assert(
+    d13.delta?.gateSelfUndetermined === 1 && d13.failed.length === 0,
+    `D13b 未判定计数与"红门 0"必须同时可机读(未判定不得折进红),实得 ${JSON.stringify(d13.delta)}`,
+  )
+  assert(
+    (d13.undeterminedGates ?? [])[0]?.script === 'check-root-dir-clean.mjs',
+    `D13c 必须点名到那道门自己的复现命令(席位要指得出是谁),实得 ${JSON.stringify(d13.undeterminedGates)}`,
+  )
+  assert(
+    /门自己交付未判定\(§0\.3\):无法判定/.test((d13.undeterminedGates ?? [])[0]?.reason ?? ''),
+    `D13c2 原因里带括号时不得"截到第一个左括号"把话读成半句(半句在留痕里仍像已点名),` +
+      `实得:${JSON.stringify((d13.undeterminedGates ?? [])[0]?.reason)}`,
+  )
+  assert(
+    /\[44\]/.test(d13.detail.join('\n')),
+    `D13d 明细必须逐道点名门 id,实得:${d13.detail.join(' ⏎ ').slice(0, 200)}`,
+  )
+  assert(
+    needsBatchSelfRun(d13) === false,
+    'D13e 门级结论已在手(未判定就是结论)⇒ 不得再自跑整批补证据(那是"没结论"那一族的待遇)',
+  )
+  const line13 = verdictLine(d13)
+  assert(!/引入了红|改红/.test(line13), `D13f 反向锁:未判定不得被折成"本枚引入",实得:${line13}`)
+  assert(!/不在本次提交内容里/.test(line13), 'D13g 反向锁:未判定不得被折成"与本次无关"')
+  assert(/gate-self-undetermined/.test(line13), `D13h 措辞必须带上档名,实得:${line13}`)
+  // D13i 两族不并桶:崩溃名单(`**跑不起来(未判定)**`)不是未判定名单的成员
+  assert(
+    parseUndeterminedGates(GREEN_BATCH + UNDET_44 + CRASH_30).length === 1,
+    'D13i 未判定解析器把崩溃档并进来 ⇒ 同一格会被数两次,实得 ' +
+      JSON.stringify(parseUndeterminedGates(GREEN_BATCH + UNDET_44 + CRASH_30).map((g) => g.id)),
+  )
+  // D13j 反向对照:同一批**没有**未判定清单时,结论必须逐字退回旧口径(unattributed)
+  const d13j = classifyHookFailure({
+    text: GREEN_BATCH,
+    stagedFiles: MY_FILES,
+    runGate: noRedGate,
+    runGateBaseline: stockBaseline,
+  })
+  assert(
+    d13j.kind === 'unattributed' && d13j.undeterminedName === undefined,
+    `D13j 无未判定清单时不得凭空造一个名字,实得 ${d13j.kind}/${d13j.undeterminedName}`,
+  )
+  // D13k 提前中止时未判定清单不完整 ⇒ 不据此定档(保守退回未归因,绝不"多放一次跳门"变"多报一个名")
+  const d13k = classifyHookFailure({
+    text: EARLY_ABORT_BATCH + UNDET_44,
+    stagedFiles: MY_FILES,
+    runGate: noRedGate,
+    runGateBaseline: stockBaseline,
+  })
+  assert(
+    d13k.kind !== 'undetermined-red',
+    `D13k 提前中止的批次不得用半张未判定名单定档,实得 ${d13k.kind}`,
+  )
+
   return { parsedFixture: p }
 }
 
@@ -2558,6 +3119,7 @@ export const __test__ = {
   externalsDiffUsable,
   findingLines,
   parseGateSummary,
+  parseUndeterminedGates,
   pickLastSummaryRun,
   parseStagedEcho,
   outsideBatchStep,
@@ -2573,6 +3135,9 @@ export const __test__ = {
   blockedBeforeBatch,
   needsBatchSelfRun,
   decideWithSelfRunBatch,
+  parseCommitMsgStageChecks,
+  decideWithCommitMsgStage,
+  COMMIT_MSG_UNDETERMINED_NAME,
   SUMMARY,
   FAIL_29,
   MY_FILES,
@@ -2580,6 +3145,8 @@ export const __test__ = {
   externalsAdvanced,
   REMOTE_STATE_MARK,
   EXTERNAL_FS_MARK,
+  GATE_UNDETERMINED_MARK,
+  GATE_UNDETERMINED_NAME,
   SELF_HEAL_FIXED_MARK,
   isSelfHealLine,
 }

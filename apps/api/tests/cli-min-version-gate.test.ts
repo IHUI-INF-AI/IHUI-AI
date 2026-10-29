@@ -169,12 +169,15 @@ describe('app-version 既有端点 — 响应体逐字不变（等价回归）',
   })
 
   it('GET /check-update 无 latest 版本：payload 逐字（cli 与 web 两个平台同形）', async () => {
+    // 2026-10-28:CLI 最低版本闸把 `minimumVersion` 追加进该端点的 data（未配置恒为 null,
+    // 判据单源见 decideCliMinVersion)。它是**追加式**新增:既有四键的键序与取值一个没动,
+    // 所以本用例的立意(新闸不得改写既有形状)仍成立,只是期望串末尾多这一格。
     const web = await server.inject({
       method: 'GET',
       url: '/api/app-version/check-update?platform=web&version=1.0.0',
     })
     expect(web.payload).toBe(
-      '{"code":0,"message":"success","data":{"hasUpdate":false,"latestVersion":"1.0.0","forceUpdate":false,"downloadUrl":null}}',
+      '{"code":0,"message":"success","data":{"hasUpdate":false,"latestVersion":"1.0.0","forceUpdate":false,"downloadUrl":null,"minimumVersion":null}}',
     )
     const cli = await server.inject({
       method: 'GET',

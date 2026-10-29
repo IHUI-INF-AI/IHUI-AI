@@ -38,7 +38,7 @@ interface OrderRow extends EduShopOrderView {
   id: string
 }
 
-export function EduShopScreen() {
+function EduShopScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

@@ -450,6 +450,49 @@ export interface ScopeUsageLiveRow {
   uv: number
 }
 
+/**
+ * 近 24h 逐小时访问一行(2026-10-27 立)。
+ *
+ * 回答「一天里什么时段用得多」:此前大屏只有 api_logs 的今日分时**调用**曲线,
+ * 页面使用(visit_logs)在时间维度上一格没有 —— PV/UV/排行都是总量,看不出使用节奏。
+ * 窗口是**滚动 24h** ⇒ 每个 HH24 桶在窗口里各出现一次(跨夜两侧各半截),
+ * 24 个桶画满即为「按小时看的使用分布」;空桶是该小时真没人,不是"没到"(与
+ * 「今日分时调用」的截断语义不同,那条是当日累计、未来小时不得画 0 柱)。
+ */
+export interface PageHourlyRow {
+  /** 小时桶 '00'..'23'(Asia/Shanghai,与写入侧业务日界同一时区口径) */
+  hour: string
+  pv: number
+  uv: number
+}
+
+/**
+ * 把 SQL 原始行折成 `PageHourlyRow[]`(纯函数,零连接取证用)。
+ *
+ * PG 的 int4 经某些驱动回传字符串(本仓实测踩过,见 session-quality 测试 A3)⇒
+ * 数字一律过 Number + isFinite,取不到落 0;hour 钳成两位,升序排序由 SQL 侧保证,
+ * 这里只做归一不做排序(顺序是 SQL 的承诺,不在两处各排一次)。
+ */
+export function foldHourlyRows(
+  rows: ReadonlyArray<{
+    hour?: string | null
+    pv?: number | string | null
+    uv?: number | string | null
+  }>,
+): PageHourlyRow[] {
+  const num = (v: number | string | null | undefined): number => {
+    const n = Number(v)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  }
+  return rows.map((r) => ({
+    hour: String(r.hour ?? '')
+      .padStart(2, '0')
+      .slice(-2),
+    pv: num(r.pv),
+    uv: num(r.uv),
+  }))
+}
+
 /** 端标识:网站写裸路径,RN 写 `/rn/*`,小程序写 `/mp/*`,浏览器插件写 `/ex/*`(见各端埋点模块头注)。 */
 export type VisitPlatform = 'web' | 'rn' | 'mp' | 'ex'
 
@@ -578,6 +621,8 @@ export interface PageUsageLiveSnapshot {
   pv5m: number
   /** 近 24h 同口径总 PV(前端算占比) */
   totalPv: number
+  /** 近 24h 逐小时 PV/UV(上海小时桶,升序);回答「一天里什么时段用得多」 */
+  hourly: PageHourlyRow[]
   computedAtMs: number
 }
 
@@ -595,50 +640,62 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
   const uvExpr = sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`
   const scopeExpr = visitScopeCaseSql()
   const platformExpr = visitPlatformCaseSql()
-  const [topRows, scopeRows, platformRows, platformHistoryRows, onlineRows] = await Promise.all([
-    db
-      .select({ url: visitLogs.url, pv: pvExpr, uv: uvExpr })
-      .from(visitLogs)
-      .where(and(inWindow, isNotNull(visitLogs.url)))
-      .groupBy(visitLogs.url)
-      .orderBy(sql`count(*) desc`)
-      .limit(PAGE_USAGE_TOP_N),
-    db
-      .select({ scope: scopeExpr, pv: pvExpr, uv: uvExpr })
-      .from(visitLogs)
-      .where(inWindow)
-      .groupBy(scopeExpr)
-      .orderBy(sql`count(*) desc`),
-    db
-      .select({ platform: platformExpr, pv: pvExpr, uv: uvExpr })
-      .from(visitLogs)
-      .where(inWindow)
-      .groupBy(platformExpr)
-      .orderBy(sql`count(*) desc`),
-    // 端接入史(90 日):回答"这一端到底有没有在产数据"。零行的端与"今天没人用"在 24h 口径下
-    // 逐字同形,不补这一腿就只能靠人去猜(小程序/插件/RN 接入初期尤其如此)。
-    // 走 visit_date(有索引)而不是 created_at(无索引),字符串界与写入侧同用上海业务日。
-    db
-      .select({
-        platform: platformExpr,
-        pv90d: sql<number>`count(*)::int`,
-        lastSeenAt: sql<string | null>`max(${visitLogs.createdAt})::text`,
-      })
-      .from(visitLogs)
-      .where(
-        sql`${visitLogs.visitDate} >= to_char(now() - make_interval(days => ${PLATFORM_HISTORY_DAYS}) at time zone 'Asia/Shanghai', 'YYYY-MM-DD')`,
-      )
-      .groupBy(platformExpr)
-      .orderBy(sql`count(*) desc`),
-    // 实时在线:近 5 分钟的去重会话(UV 口径)与浏览量 —— 大屏"此刻多少人在用"
-    db
-      .select({
-        online: sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`,
-        pv: sql<number>`count(*)::int`,
-      })
-      .from(visitLogs)
-      .where(sql`${visitLogs.createdAt} >= now() - make_interval(mins => 5)`),
-  ])
+  // 分时桶:Asia/Shanghai 小时(与 ops-wallboard 的 api_logs 分时调用同一时区口径),
+  // 两处共用同一形态的 to_char ⇒ 大屏两条分时曲线横轴可对读。
+  const hourExpr = sql<string>`to_char(${visitLogs.createdAt} AT TIME ZONE 'Asia/Shanghai', 'HH24')`
+  const [topRows, scopeRows, platformRows, platformHistoryRows, onlineRows, hourlyRows] =
+    await Promise.all([
+      db
+        .select({ url: visitLogs.url, pv: pvExpr, uv: uvExpr })
+        .from(visitLogs)
+        .where(and(inWindow, isNotNull(visitLogs.url)))
+        .groupBy(visitLogs.url)
+        .orderBy(sql`count(*) desc`)
+        .limit(PAGE_USAGE_TOP_N),
+      db
+        .select({ scope: scopeExpr, pv: pvExpr, uv: uvExpr })
+        .from(visitLogs)
+        .where(inWindow)
+        .groupBy(scopeExpr)
+        .orderBy(sql`count(*) desc`),
+      db
+        .select({ platform: platformExpr, pv: pvExpr, uv: uvExpr })
+        .from(visitLogs)
+        .where(inWindow)
+        .groupBy(platformExpr)
+        .orderBy(sql`count(*) desc`),
+      // 端接入史(90 日):回答"这一端到底有没有在产数据"。零行的端与"今天没人用"在 24h 口径下
+      // 逐字同形,不补这一腿就只能靠人去猜(小程序/插件/RN 接入初期尤其如此)。
+      // 走 visit_date(有索引)而不是 created_at(无索引),字符串界与写入侧同用上海业务日。
+      db
+        .select({
+          platform: platformExpr,
+          pv90d: sql<number>`count(*)::int`,
+          lastSeenAt: sql<string | null>`max(${visitLogs.createdAt})::text`,
+        })
+        .from(visitLogs)
+        .where(
+          sql`${visitLogs.visitDate} >= to_char(now() - make_interval(days => ${PLATFORM_HISTORY_DAYS}) at time zone 'Asia/Shanghai', 'YYYY-MM-DD')`,
+        )
+        .groupBy(platformExpr)
+        .orderBy(sql`count(*) desc`),
+      // 实时在线:近 5 分钟的去重会话(UV 口径)与浏览量 —— 大屏"此刻多少人在用"
+      db
+        .select({
+          online: sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`,
+          pv: sql<number>`count(*)::int`,
+        })
+        .from(visitLogs)
+        .where(sql`${visitLogs.createdAt} >= now() - make_interval(mins => 5)`),
+      // 分时访问(2026-10-27):同一 24h 窗口按小时分桶 —— "什么时段用得多"。
+      // 窗口内每个 HH24 桶各出现一次,空桶不补行(前端按桶渲染,缺行即该小时 0)。
+      db
+        .select({ hour: hourExpr, pv: pvExpr, uv: uvExpr })
+        .from(visitLogs)
+        .where(inWindow)
+        .groupBy(hourExpr)
+        .orderBy(hourExpr),
+    ])
   return {
     top: topRows.map((r) => ({
       url: r.url ?? '',
@@ -656,6 +713,7 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
     online5m: Number(onlineRows[0]?.online ?? 0),
     pv5m: Number(onlineRows[0]?.pv ?? 0),
     totalPv: scopeRows.reduce((sum, r) => sum + Number(r.pv ?? 0), 0),
+    hourly: foldHourlyRows(hourlyRows),
     computedAtMs: Date.now(),
   }
 }

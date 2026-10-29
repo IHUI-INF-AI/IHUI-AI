@@ -33,6 +33,13 @@ export type { SelectedChannelKey }
 import { selectChannelCandidates, recordChannelResult } from './relay-channel-router.js'
 // 账号池回落(2026-10-22):无渠道候选时尝试第三方 AI IDE 账号池(trae/workbuddy/codearts)
 import { forwardToAccountPool } from './relay-account-forwarder.js'
+// 出网复检(SSRF 硬化,2026-10-28):渠道 base_url 保存时已校验,这里在"请求发出那一刻"再验一次,
+// 防保存后 DNS 改指内网 / 重绑定。档位与 relay-account-forwarder 同源(allowPrivate+allowCustomPort)。
+import { assertRelayEgressSafe, directEgressDispatcher } from '../utils/relay-egress-guard.js'
+import { isRelayOutboundProxyInstalled } from './relay-outbound-proxy.js'
+// 连接期守卫(守卫②)必须走包 undici 的 fetch:内置 globalThis.fetch 用自己那份 undici 实例,
+// npm undici 的 Agent 递进 dispatcher 会被拒(见 relay-account-forwarder.ts 同款注释)。
+import { fetch as undiciFetch } from 'undici'
 // 静默回落的可观测面(2026-10-26):计数走业务指标族的唯一出口,provider 归属走号池快照
 // (同一把 isRelayPoolRowSchedulable 尺子,带 5 秒缓存,只在回落这一格里才问一次)
 import { logger } from '../utils/logger.js'
@@ -341,7 +348,11 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
   for (const channel of candidates) {
     const started = startStopwatch()
     try {
-      const resp = await fetch(upstreamEndpointUrl(channel.baseUrl, endpoint), {
+      const targetUrl = upstreamEndpointUrl(channel.baseUrl, endpoint)
+      // 出网复检(SSRF 硬化):不安全的上游地址直接抛错,由下方 catch 走 failover 试下一候选;
+      // 判不出(空串/非法 URL)一律按不安全处理(失效方向多拦一次,绝不静默放行)。
+      await assertRelayEgressSafe(targetUrl)
+      const init = {
         method: 'POST',
         headers: applyUpstreamHeaderPlugins(plugins, {
           'Content-Type': 'application/json',
@@ -350,7 +361,16 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
         }),
         body: JSON.stringify(body),
         signal: req.signal,
-      })
+      }
+      // 守卫② 接线点(2026-10-29):①只问了一次解析,建连时 fetch 会再问一次,TTL=0 的 A 记录
+      // 能让"校验时公网、连接时内网"。直连分支交带 connect.lookup 钩子的 dispatcher 才堵得住。
+      // 已装配代理分流时全局 dispatcher 接管,此处不得覆盖,否则代理腿被绕掉(那一支由代理解析)。
+      const resp = isRelayOutboundProxyInstalled()
+        ? await fetch(targetUrl, init)
+        : ((await undiciFetch(targetUrl, {
+            ...init,
+            dispatcher: directEgressDispatcher(),
+          })) as unknown as Response)
       // 格②：到达即停表并交叉校验;不可信样本 elapsedMs=null,不喂熔断(计数在 elapsed-ms 与 router 两侧留痕)
       const sample = started.stop()
       const breakerLatency: number | null = sample.trustworthy ? sample.elapsedMs : null

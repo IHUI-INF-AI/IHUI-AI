@@ -2171,6 +2171,27 @@ IHUI-AI는 하나의 제품이 아니라 **오픈소스 인프라**입니다. �
 
 ---
 
+## 계정 킵얼라이브 센터(2026-10-26 추가 — 무관했던 두 개의 생존 확인을 하나의 답으로)
+
+발행 라인의 Cookie 탐지(`services/publish/cookie_refresh_daemon.py`)와 AI 플랫폼 체크인 자격 증명(`services/checkin_scheduler.py`)은 지금까지 각자의 스위치, 각자의 집계, 각자의 실패 표현을 가지고 있었기 때문에 "이 계정이 아직 살아 있는가"에 대해 **시스템 전체의 단일한 답이 없었습니다**. 본 센터(`apps/ai-service/app/services/keepalive/`, HTTP 계층은 `apps/ai-service/app/routers/keepalive.py`)는 Cookie 탐지, 자격 증명(api_key / oauth) 만료 감지, 체크인 JWT 건전성(`exp`만 읽고 재서명하지 않음)을 하나의 스케줄, 두 개의 테이블, 하나의 건강도 어휘, 하나의 알림 출구로 모읍니다.
+
+| 엔드포인트 | 메서드 | 무엇에 답하는가 |
+| ---------- | ------ | --------------- |
+| `/api/keepalive/status` | GET | 자기 진단: 정말 켜져 있는가(사유, 스케줄러 생존, 지난 라운드 요약, 탐침 목록). 설정을 읽어 추측하지 않음 |
+| `/api/keepalive/overview` | GET | 건강도 총람: 네 단계 건수, 출처별 분포, 조치 필요, 만료 임박, 최근 7일 성공률, 유효 설정 |
+| `/api/keepalive/accounts` | GET | 계정별 명세. `?source=` 와 `?health=` 로 필터 |
+| `/api/keepalive/events` | GET | 탐지 이력. `?ref=` 와 `?only_failures=true` 로 필터. `limit` 기본 50, 상한 500 |
+| `/api/keepalive/stats` | GET | `?days=`(1..90, 기본 7) 동안 출처별 ok / 실패 / 합계 / 성공률 |
+| `/api/keepalive/run` | POST | 한 라운드를 백그라운드로 시작하고 즉시 반환. `?ref=<source>:<id>` 로 단일 계정, `?force=true` 로 백오프 무시 |
+
+- **건강도 네 단계**는 한 곳(`policy.health_of`)에서만 판정합니다. 마지막 실패가 `expired` 이거나, 만료 시각이 지났거나, 연속 실패가 `ALERT_AFTER_FAILURES` 이상이면 `critical`. 연속 실패가 있거나, 만료 경고 구간 안이거나, 실패만 관측된 경우는 `warning`. 그 외는 `healthy`. 성공도 실패도 기록이 없으면 `unknown`. **클라이언트가 다시 계산해서는 안 됩니다**.
+- **실패 어휘**: `ok` / `expired` / `network` / `error` / `unsupported` / `skipped` 여섯 가지이며 정규화 진입점은 하나(`classify_message`)뿐입니다. 복호화되지 않는 암호문(`InvalidTag`, 키 불일치)은 항상 `expired` — 재시도 천 번도 같은 오류이고 오직 재등록만이 살립니다. `unsupported`(애초에 생존 확인이 불필요)는 성공도 실패도 아니며 `failed` 에 들어가지 않습니다. 그렇게 하지 않으면 "원래 필요 없는 것"이 진짜 빨강을 덮습니다. 백오프는 `base × 2^(n-1)` 을 `RETRY_CAP_SECONDS` 로 상한, 재시도는 `RETRY_MAX` 회까지. 성공하면 연속 실패 · 경고 도장 · 알림 도장을 함께 지웁니다.
+- **알림 출구**: 사이트 전체 `notifications` 테이블. **라운드당 소유자별 1건으로 집계**(19개가 동시에 만료돼도 19통을 보내지 않습니다 — 그러면 사용자가 알림을 꺼 버려 진짜 이상을 못 봅니다). `probe-user` 같은 비 uuid 소유자는 버리고 계수합니다(잘못된 owner 하나가 배치 INSERT 전체를 실패시킵니다). 테이블이 없으면 warning 을 남기고 건너뛰며, 전달된 척하지 않습니다. `KEEPALIVE_ALERT_WEBHOOK` 로 추가 발송 가능. 전체는 fail-open 이며 알림 실패가 킵얼라이브를 중단시키지 않습니다.
+- **스위치**: `KEEPALIVE_ENABLED`. 미설정 시 `COOKIE_REFRESH_ENABLED` / `CHECKIN_CRON_ENABLED` 에서 상속. `resolve_config()` 는 매 라운드 다시 해석하므로 `.env` 변경이 재시작 없이 다음 라운드부터 적용됩니다. 주요 기본값: `INTERVAL_HOURS`=6, `RETRY_MAX`=3, `RETRY_BASE_SECONDS`=300, `RETRY_CAP_SECONDS`=21600, `ALERT_AFTER_FAILURES`=3, `ALERT_REPEAT_HOURS`=24, `EXPIRE_WARN_DAYS`=3, `ALERT_INAPP`=true, `PROBE_CONCURRENCY`=4, `EVENT_RETENTION_DAYS`=90.
+- **경계**: 판정하는 것은 자격 증명의 생존뿐입니다. 발행은 발행 스케줄러, 일일 체크인은 `checkin_scheduler` 담당 그대로입니다(대행하면 같은 계정에 두 작성자가 동시에 접근합니다). 프런트는 `apps/web/src/components/publish/KeepaliveCenterPanel.tsx`(`/publish/accounts`), 클라이언트 래퍼는 `packages/api-client/src/endpoints/keepalive.ts`.
+
+---
+
 ## License
 
 [Apache License 2.0](LICENSE) — 자유 사용, 수정, 배포, 상업 사용, 카피레프트 없음.
@@ -2315,6 +2336,83 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:复位两条「能力不同物」的 aligned —— RN 全仓无 mfa/passkey,安全审计事件也零消费方 (8bbd938db43a)
 - 🚀 기능/개선:新增只读队列「aligned 却打不同后端域」—— 把 news 那类假对齐变成可复跑的一眼活 (2651d5e47f4b)
 - 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (60554209a256)
+**2026-10-29**
+- 🔧 기타:更正提交——重删退役归档器四件(上一枚 ba51496b4bf 落地后被收编器从工作树写回) (d47ff00d63)
+
+**2026-10-29**
+- 🔧 기타:删除退役归档器四件 + 修正 AGENTS.md 归档读数(「完成即删」收口第二枚) (ba51496b4b)
+
+**2026-10-29**
+- 🔧 기타:Z-1 归属标头前置 + 立 O68 侧车改判缺票 (6dd09343d0)
+- 📚 문서:再撤一次回潮的 Z-1 号池票 —— 前者按"严格模式"回落被拒,后者才是可达终态;本票前提已被正牌探针证伪 (96ddd2341d)
+- 🔧 기타:结清两条过期票 + O02 改归机主真机面 + 收编他席六条登记 (90bd9fcc8c)
+- 🐞 수정:BackChevron 壳补回 default 导出 —— 接线锁 ③ 在 HEAD 面 1/12 红(壳契约要求双导出),具名导出保留不破现有消费方 (bbf6cf1248)
+- 🐞 수정:BackChevron 壳补回 default 导出 —— 接线锁 ③ 在 HEAD 面 1/12 红(壳契约要求双导出),具名导出保留不破现有消费方 (51d8aca1e3)
+- 🚀 기능/개선:O02④ BottomActionBar 补 ⑧ 落屏 px 现算相等维 —— 档名在、单位/倍数折错时门 128 与 ⑥ 双盲,只有算式求值能发现 (73f25dcc07)
+
+**2026-10-29**
+- 🔧 기타:回退取号池 99→999 —— 配套面超出可安全范围,不在仓里留红 (963c5655da)
+- 🐞 수정:门 251 全量档改判 HEAD blob 并换成绝对判据 —— 共享树下"未判定"与"永远判不出红"两型一起收 (0b327e41b8)
+- 🐞 수정:ihui-api-bluegreen.ps1 补 3 字节 UTF-8 BOM —— 门 251 的 HEAD 面存量清零 (3ae446470e)
+- 🚀 기능/개선:门 10 补 [F] 同批性点名 —— 改路由没带产物这件事在提交链上原本结构看不见 (453b21908a)
+- 🐞 수정:提现 2FA 闸补桩 + Trae 导入丢模板真缺陷 + workbuddy 本机登录测试按统一脚本契约重写 (4f969cd751)
+- 🚀 기능/개선:声明式退场档 --retire-intent —— 解自写面/正文命中两族的退场死锁,并清退 66 枚存量孤儿记录 (67cba57784)
+
+**2026-10-29**
+- 🐞 수정:取号池 99 → 999 —— 两位数池已被引用面占满,三族令牌全灭;附夹具钉死口径 (816efd2412)
+
+**2026-10-29**
+- 🔧 기타:重派 ui-routes 产物钉 —— 门 105 报该产物落后于源(inputsSha256 9e64b0931a4d 对不上 HEAD 现算 a173057346f0) (ee34fad3b0)
+
+**2026-10-29**
+- 🐞 수정:OpenAPI Check 不再取消在飞 —— 与 knip.yml 同口径改 cancel-in-progress=false (23db1e6984)
+- 🔧 기타:写回本批面板改动的派生钉 —— apps/web 端 12 行(旁路落地不跑 pre-commit 登记表,故器点名手工补) 承接上一枚 f7c98f0f6f9:它改了 logs/models/account-pool/key-scheduling 四页并新增两枚组件,而 ui-routes 的写回档挂在 .husky/pre-commit 上、commit-tree 结构上不跑钩子 ⇒ 落地器当场照出"派生产物自述钉陈旧(G5)"并给出唯一出路 --heal-ui-routes --staged。现读:四端产物 4 份,已写回 1(apps/web 钉 4b07656ad085→b8648e74f9a6,行级变更 12)/ 拒绝写回 0 / 无需写回 3。 (1c6002cbbd)
+- 🐞 수정:W4 接进提交链——终结型钩子的同步形态会把下游整条链静默冻住 (eb7c91a3c4)
+- 🐞 수정:重封根护栏 —— 门 259 补回后的新内容(73da356c6774) (4333adf163)
+- 🐞 수정:补回被 chore(auto) 收编写回旧基线吞掉的门 259 + 重封根护栏 (99ea9d6c8d)
+- 🐞 수정:恢复被旧基线写回的末屏停留结算 + web 图标按钮 aria 兜底 (090f52d1d0)
+
+**2026-10-29**
+- 🐞 수정:契约产物再跟上路由面（净检出 @ee248c585f 重生成）—— CI OpenAPI Check 复红收口 (d76b7ad820)
+- 🚀 기능/개선:号池面板与运维可见性收口 —— 策略档只读卡片 / 日志详情抽屉 / 模型名复制 / 续期能力位标注 / 探针装车 / 非 git 夹具修复 (f7c98f0f6f)
+
+**2026-10-29**
+- 🐞 수정:复洁器维五补上"旁路落地型"那一格 —— 滞后副本现场两步判据同时失效,R4⑨ 已第三次回潮 (ee248c585f)
+- 📚 문서:补门 89 R4 —— 给已装车的 AASA 哨兵在 AGENTS.md 点名(与体积清偿同批收口) (7c74403489)
+- 🐞 수정:prebuild 重打 gradle 内存档 —— 512m 元空间实测 OOM 打死 daemon (da077b5d8b)
+- 📚 문서:门 207 体积清偿 —— 两组"多条合一条",96899→95398(省 1501,预算 96000) (6a903bb87d)
+- 🐞 수정:并发守卫的 onResponse 钩子是同步形态——它把线上整条响应链静默冻住 (5e9ea10ba7)
+- 📚 문서:撤销 Z-1 号池票 —— 同步远端裁决 d788019208d,本侧滞后副本摘行 (4b795c62ca)
+- 🔧 기타:登记 EX-C1-3 挂住 api-client 单文件行上限的 6 行越限 —— 拆分前置与到期追责写死 (10c2708882)
+- 🐞 수정:重封根护栏 —— 守门 259 装车后未重封,部署环 00:35:47 fail-closed (ade8233ceb)
+- 🐞 수정:2FA step-up 同族补两处漏接 —— agent 提现申请、创建 Key 分享(一次性出 shareToken) (b8b3fc6c7e)
+- 🐞 수정:web 蓝绿接线入库 —— 生产签出本地实现回收进 main(根治 O68 切流空窗) (dfc9b905b5)
+
+**2026-10-29**
+- 🔧 기타:登记 EX-C1-3 挂住 api-client 单文件行上限的 6 行越限 —— 拆分前置与到期追责写死 (10c2708882)
+
+**2026-10-29**
+- 📚 문서:Z-1 行形态修正 + 声明式改桶 actionable→owned-elsewhere —— 编号与题面之间不夹标头,复合主键才取得出 (dfca68aa11)
+
+**2026-10-29**
+- 📚 문서:登记取号池饱和票(Z-1) —— 顺带用新字母族验证"开新族"这条出路的可行性 (149f6c17a8)
+- 🐞 수정:两端 ui-routes 产物按 HEAD 面重派 —— 门 105 的 G5 自述钉由 stale 转 matched (85e15a629c)
+
+**2026-10-29**
+- 🐞 수정:补回被"整份写回旧态"吞掉的 auditFeedbackLoopClosure 六行(本枚走落地器出口②,理由与证据在下面) (7c5b1b90eb)
+
+**2026-10-29**
+- 🐞 수정:找回被 b966cb2167 整份写回旧态的 dev-stack 超时双形态修复 —— 门 98 由红转绿 (fbfae3f297)
+- 🐞 수정:zh-TW clearAuthHint「這一台」改「這一臺」—— 门 2b 简体残留归零 (bcad210fe7)
+- 📚 문서:本侧 README 对齐远端新版守门清单行,解掉 git-sync-converge 的零丢失自证停顿 (017f455c72)
+- 🐞 수정:上游转发器补守卫②连接期 dispatcher —— 首跳复检挡不住 DNS rebinding (a3facca58f)
+- 🐞 수정:蓝绿编排器参数化 —— web 蓝绿改走 Node 执行面 (8a4ff327f8)
+- 🐞 수정:scripts/ 面 mypy strict 35→0 + 修 2 处 GBK 日志静默丢行 (969d74b9a6)
+- 📚 문서:UI/样式 门清单行对齐远端形态 —— 本侧 790 字版是远端 1106 字版的**前缀**(已实证 B.startsWith(A)=true),远端仅在其后追加了 check-ui-spec-mirror.mjs(259) 等条目 ⇒ 取远端版对本侧零丢失。此前 git-sync-converge 因这行按整行比对判『README.md 未存活行』拒绝推进 HEAD,而语义上并无内容丢失。 (12b99cbc35)
+- 🚀 기능/개선:web 蓝绿双实例 + router 原子切流(根治 O68 切流空窗) (38d71cfb82)
+- 🚀 기능/개선:守门 259 装车 —— RN 壳↔小程序壳 spec 接线对账进提交链 (a02c39768b)
+
+- 🔧 기타:守护: 反馈闭环巡检挂进 tick(此前只挂 main,常驻守护永不到达) (c79806a4ad)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
@@ -2325,3 +2423,4 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star us on GitHub</a> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI/fork">Fork to build your own</a> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI/issues">Request a feature</a>
 </p>
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+

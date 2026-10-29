@@ -360,9 +360,15 @@ describe('G-921 ① 付费课时签名:签发侧与校验侧', () => {
     // 先按开发态密钥签出合法票,再切到"密钥缺失"的配置态
     const args = signArgs(USER_ID)
 
+    // 2026-10-28:档位要按 config 的**真实解析顺序**切 —— `ZCODE_RUNTIME_ENV` 优先级高于
+    // `NODE_ENV`(config/index.ts 的 resolveEffectiveNodeEnv),而 tests/setup-env.ts 把前者
+    // 钉成了 test。只改 NODE_ENV 的话解析结果仍是 test ⇒ 走开发兜底密钥 ⇒ 照样签出可播链接,
+    // 这条 fail-closed 用例就变成了摆设。两个都切,臂与实现同源。
     const prevNodeEnv = process.env.NODE_ENV
+    const prevRuntimeEnv = process.env.ZCODE_RUNTIME_ENV
     const prevSecret = process.env.VIDEO_SIGN_SECRET
     process.env.NODE_ENV = 'production'
+    process.env.ZCODE_RUNTIME_ENV = 'production'
     delete process.env.VIDEO_SIGN_SECRET
     try {
       const res = await app.inject({ method: 'GET', url: playUrl(args) })
@@ -372,6 +378,8 @@ describe('G-921 ① 付费课时签名:签发侧与校验侧', () => {
     } finally {
       if (prevNodeEnv === undefined) delete process.env.NODE_ENV
       else process.env.NODE_ENV = prevNodeEnv
+      if (prevRuntimeEnv === undefined) delete process.env.ZCODE_RUNTIME_ENV
+      else process.env.ZCODE_RUNTIME_ENV = prevRuntimeEnv
       if (prevSecret === undefined) delete process.env.VIDEO_SIGN_SECRET
       else process.env.VIDEO_SIGN_SECRET = prevSecret
     }

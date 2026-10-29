@@ -361,9 +361,19 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
     }, 15000)
 
     // 客户端断开时清理 listener + heartbeat
-    request.raw.on('close', () => {
+    // 信号源 = reply.raw，与本仓 O64(2026-10-22，见 ai-chat-stream.ts)同一结论：
+    // request.raw(IncomingMessage，Readable autoDestroy)的 'close' 在 Node≥16 请求体收全
+    // 即触发 —— GET 无请求体 ⇒ 要么注册时就已错过(永不触发 ⇒ heartbeat 与 sseEventBus
+    // listener 随每次访问累积泄漏)，要么刚注册就触发(流当场变哑，收不到任何事件)。
+    // 两种都是真故障，只有挂在响应侧才既及时又一次性。
+    reply.raw.on('close', () => {
       clearInterval(heartbeat)
       sseEventBus.off('agent-sse', listener)
+      try {
+        if (!reply.raw.writableEnded) reply.raw.end()
+      } catch {
+        /* 已断开的 socket 收尾失败不影响回收 */
+      }
     })
   })
 

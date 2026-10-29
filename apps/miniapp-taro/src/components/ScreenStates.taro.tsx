@@ -4,6 +4,7 @@
 
 import type { CSSProperties } from 'react'
 import { View, Text } from '@tarojs/components'
+import LineIcon, { type IconName } from './LineIcon'
 import './ScreenStates.taro.css'
 
 /**
@@ -125,7 +126,9 @@ export function ScreenSkeleton({
 /* ────────────────────────── 2. 空状态 ────────────────────────── */
 
 export interface EmptyStateProps {
-  glyph?: string
+  /** 顶部真图标名(见 LineIcon/icons.ts)。只接受已注册图标名,不接受 Unicode 字符,
+   *  关闭「字符当图标」通道(AGENTS §4)。不传则用默认中性图标(圆圈)。 */
+  icon?: IconName
   title: string
   desc?: string
   actionLabel?: string
@@ -134,7 +137,7 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({
-  glyph = '◍',
+  icon = 'circle',
   title,
   desc,
   actionLabel,
@@ -144,7 +147,7 @@ export function EmptyState({
   return (
     <View className={`ihui-state ${colorScheme === 'dark' ? 'ihui-state-dark' : ''}`}>
       <View className="ihui-state-glyph-circle">
-        <Text className="ihui-state-glyph">{glyph}</Text>
+        <LineIcon name={icon} size={52} color="var(--color-text-tertiary)" />
       </View>
       <Text className="ihui-state-title">{title}</Text>
       {desc ? <Text className="ihui-state-desc">{desc}</Text> : null}

@@ -19,6 +19,7 @@ import {
 } from '../services/order-service.js'
 import { feedbackInvite } from '../services/commission-service.js'
 import { billDateForYesterday } from '../services/reconciliation-service.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import {
   isWechatPayConfigured,
   jsapiPrepay,
@@ -300,6 +301,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
   // Webhook 原始请求体捕获(验签需要 raw body,与 tbox.ts 同模式)
   // 仅在本插件作用域内覆盖默认 JSON parser,其他路由不受影响
   // ==========================================================================
+  // 根实例已有自定义 application/json(server.ts)⇒ 先 remove 再 add,否则抛 ALREADY_PRESENT。
+  server.removeContentTypeParser('application/json')
   server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
     try {
       const raw = body.toString()
@@ -1866,6 +1869,11 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const { amount, bankAccount, bankName } = transferQuery.parse(request.query)
       const userId = request.userId!
+      // 2FA step-up 闸：已开 2FA 的账号，提现前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
+      const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+      if (!stepUp.ok) {
+        return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      }
       // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
       const balance = await getBalance(userId)
       if (amount > balance) return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
@@ -1909,6 +1917,11 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const { amount } = withdrawalQuery.parse(request.query)
       const userId = request.userId!
+      // 2FA step-up 闸：已开 2FA 的账号，提现前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
+      const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+      if (!stepUp.ok) {
+        return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      }
       // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
       const balance = await getBalance(userId)
       if (amount > balance) return reply.status(400).send(error(400, '提现金额不能超过可用余额'))

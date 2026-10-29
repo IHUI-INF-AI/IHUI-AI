@@ -106,7 +106,7 @@ async function flush() {
 describe('AppQrPanel 扫码登录落点', () => {
   it('admin 扫码确认 → 关弹窗并弹出大屏选择窗(不自动跳)', async () => {
     h.roleId = 1
-    render(<AppQrPanel refreshKey={0} />)
+    render(<AppQrPanel refreshKey={0} agreementAccepted />)
     await flush()
     expect(h.dialogState.close).toHaveBeenCalled()
     expect(h.requestChoice).toHaveBeenCalledWith('/admin/monitor/wallboard')
@@ -115,7 +115,7 @@ describe('AppQrPanel 扫码登录落点', () => {
 
   it('普通用户扫码确认 → 只关弹窗,不弹选择窗', async () => {
     h.roleId = 0
-    render(<AppQrPanel refreshKey={0} />)
+    render(<AppQrPanel refreshKey={0} agreementAccepted />)
     await flush()
     expect(h.dialogState.close).toHaveBeenCalled()
     expect(h.requestChoice).not.toHaveBeenCalled()

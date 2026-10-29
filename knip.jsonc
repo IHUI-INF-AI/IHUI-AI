@@ -20,7 +20,37 @@
   // 早已计入 09-15 基线(binaries 16 即含它),所以这不是新增死代码,是配置盲区新增第 2 次发作(+2 超基线)。
   // 只在本 root workspace 免检这两个名字;任一"端"真删了 playwright/drizzle-kit 声明,
   // dependencies/unlisted 判据仍会红,本行不会掩盖。
-  "ignoreBinaries": ["playwright", "drizzle-kit"],
+  //   ②2026-10-28(Knip 棘轮 binaries 16→20 归因席):同族第二类盲区 = knip 把「调用操作系统自带/
+  //   环境提供的可执行文件」一律记成 unlisted binary("未声明二进制"),但这类程序**结构上不可能**
+  //   出现在 package.json 依赖里(pwsh/tasklist/pgrep/where/rg/ffmpeg/pbcopy/… 都不是 npm 包)。
+  //   实测面:CI run 40679357487 的 `Unlisted binaries (20)` 与本机同面读数逐条同形(20/20 名字+文件
+  //   全等 —— 该类别实测**无本地↔CI 偏移**,与 exports/types 那两族的偏移不同,故本行按本机读数收口),
+  //   其中 19 枚属此族。逐条新增 ⇒ 逐条把基线抬高,等于给一类
+  //   永不消失的噪声装恒红门(§12e),所以在这里按名字收口判据,而不是让每个落地席位去消计数。
+  //   边界:只免「名字确在此清单内」的二进制;新增任何**其它**名字(含误拼的本族名字)照旧进计数、
+  //   照旧超基线即红;npm 包漏声明仍由 dependencies/unlisted 两维判红,本行掩盖不到。
+  //   唯一**不**收进清单者 = `appsai-service.venvScriptspython.exe`(root package.json 的 db:* 四条
+  //   以 Windows 相对路径直调本机 uv 生成的 venv 解释器;knip 把反斜杠吃掉后拼成这个畸形名字)。
+  //   按畸形字面量豁免即"会漂移的白名单"(§0.7),故留它在射程内可见,基线 binaries 因此收为 1。
+  "ignoreBinaries": [
+    "playwright",
+    "drizzle-kit",
+    "pwsh",
+    "pwsh.exe",
+    "where",
+    "where.exe",
+    "pgrep",
+    "tasklist",
+    "fsutil",
+    "rd",
+    "rg",
+    "ffmpeg",
+    "pbcopy",
+    "pbpaste",
+    "xclip",
+    "xsel",
+    "uv"
+  ],
   "workspaces": {
     "apps/api": {
       "entry": ["src/server.ts"],
@@ -42,7 +72,14 @@
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/extension": {
-      "entry": ["src/i18n/index.tsx"],
+      // 2026-10-26(Knip 棘轮归因):此前只把 src/i18n/index.tsx 当入口,漏了 wxt 的装载入口
+      // entrypoints/{background,content,popup,sidepanel} —— wxt 按目录约定装载这些文件(见
+      // apps/extension/entrypoints/ 与 package.json 的 `wxt` 脚本),knip 静态面看不见该装载形态,
+      // 于是「仅被 entrypoints import」的件整簇连带判成未引用文件(实测 entrypoints/popup/main.tsx
+      // 与 tests/visit-tracker.test.ts 都 import lib/visit-tracker.ts,却因入口缺位而不可达)。
+      // 这是修配置盲区,不是白名单遮盖:补入口后 knip 仍照常判「入口可达但没人用」的导出。
+      // 到期复核:启用 @knip/wxt 插件(能按 wxt 约定发现入口)后应删本条 entry 通配。
+      "entry": ["src/i18n/index.tsx", "entrypoints/**/*.{ts,tsx}"],
       "project": ["**/*.{ts,tsx}"]
     },
     "apps/mobile-rn": {
@@ -73,6 +110,53 @@
       "ignore": [
         "src/pkg-about/about/web-portal/index.tsx",
         "src/pkg-about/about/web-portal/index.config.ts",
+        "src/constants/web-portal.ts",
+        "src/pkg-user/fans/index.tsx",
+        "src/pkg-user/fans/index.config.ts",
+        "src/pkg-user/checkin-assistant/index.tsx",
+        "src/pkg-user/account-pool/index.tsx",
+        "src/pkg-user/account-pool/add-form.tsx",
+        "src/pkg-user/account-pool/pool-row.tsx",
+        "src/pkg-ai/dev-space/index.config.ts",
+        "src/components/ScreenStates.taro.tsx",
+        "src/components/ScrollJumpButton.tsx",
+        "src/pages/distribution/company/company-constants.ts",
+        "src/pkg-about/about/aboutSections.ts",
+        "src/components/Collapsible.tsx",
+        "src/components/Sheet.tsx",
+        "src/components/Tabs.tsx",
+        // 2026-10-26(Knip 棘轮 files 超基线,归因席 s27-knip 逐条现读后登记,分两族):
+        // 族① 14 枚页面 = Taro `app.config.ts` 的 pages/subPackages 按**字符串路径**装载,
+        // knip 静态 import 面看不见(与上面 2026-10-20/10-25 两批同族)。逐条核过登记面:
+        // 每页在 app.config.ts 内以 `<尾段>/index` 形态命中 1 次(如 'edu-shop/index'),
+        // 且 pkg-user/edu-child/records-page.tsx 实测有 10 个引用方(六枚 edu-child 页等),
+        // 它进 files 判定纯因引用它的页面本身不可达而连带。
+        // 族② 六枚地基组件(Card/Button/Switch/Input/Badge/VipBadge,入库 f885df8472 goal 地基批)
+        // 现读**零消费方**(全仓 import 语句命中 0,components/index.ts 也未再导出)——
+        // 属"先落组件、消费页未接"半成品族,对齐 apps/mobile-rn 的 AutomationCard/MetricCard 先例,
+        // 不是"被页面 import"那一族;到期复核若确认不接,应删除而非续挂白名单。
+        // 到期复核:启用能解析 Taro pages 字符串的插件后删族①;族② 复核期 2027-01-31。
+        "src/pkg-shop/edu-shop/index.tsx",
+        "src/pkg-user/edu-mgmt-attendance/index.tsx",
+        "src/pkg-user/edu-mgmt-finance/index.tsx",
+        "src/pkg-user/edu-mgmt-grades/index.tsx",
+        "src/pkg-user/edu-parent/index.tsx",
+        "src/pkg-user/llm-settings/index.tsx",
+        "src/pkg-user/user-public/index.tsx",
+        "src/pkg-about/about/agreement/index.tsx",
+        "src/pkg-user/edu-child/attendance/index.tsx",
+        "src/pkg-user/edu-child/bills/index.tsx",
+        "src/pkg-user/edu-child/grades/index.tsx",
+        "src/pkg-user/edu-child/meals/index.tsx",
+        "src/pkg-user/edu-child/schedule/index.tsx",
+        "src/pkg-user/edu-child/study-plans/index.tsx",
+        "src/pkg-user/edu-child/records-page.tsx",
+        "src/components/Badge.tsx",
+        "src/components/Button.tsx",
+        "src/components/Card.tsx",
+        "src/components/Input.tsx",
+        "src/components/Switch.tsx",
+        "src/components/VipBadge.tsx"
         "src/constants/web-portal.ts"
       ]
     },

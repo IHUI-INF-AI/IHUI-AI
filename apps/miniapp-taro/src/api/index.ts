@@ -97,6 +97,7 @@ import {
   loginByEmailCode as _loginByEmailCode,
   sendEmailCode as _sendEmailCode,
   sendSmsCode as _sendSmsCode,
+  confirmQrLogin as _confirmQrLogin,
   getBalance as _getBalance,
   createAlipayMiniappPayment as _createAlipayMiniappPayment,
 } from '@ihui/api-client'
@@ -168,6 +169,9 @@ export const sendEmailCode = (email: string) => unwrapApi(_sendEmailCode(email, 
 /** 邮箱验证码登录 — POST /auth/login/email (对齐 RN 端 loginByEmailCode) */
 export const loginByEmailCode = (email: string, code: string) =>
   unwrapApi(_loginByEmailCode(email, code)) as Promise<LoginResult>
+
+/** PC 扫码登录的移动端确认 — POST /auth/qr/confirm(需已登录态) */
+export const confirmQrLogin = (ticket: string) => unwrapApi(_confirmQrLogin(ticket))
 
 /** 手机号密码登录 — POST /auth/login/password (api-client 别名 loginByPhone) */
 export const loginByPassword = (phone: string, password: string) =>

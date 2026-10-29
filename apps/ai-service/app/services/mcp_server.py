@@ -32,6 +32,9 @@ if TYPE_CHECKING:
 # `agent_security_prefs.resolve_security_config(主体)` 解析 —— 进程默认 ⊕ 该用户显式覆盖。
 # 主体唯一来源是 `call_tool` 的 `user_id` 形参(承载层注入)与 agent_loop_v2 在执行工具前
 # 发布的作用域;**绝不**读 arguments 里的 `__user_id`(那是 handler 入参,模型可填的形状)。
+from app.core.internal_ticket import internal_service_headers
+from app.core.vault import filter_vault_env as _filter_vault_env
+
 from .agent_security_prefs import (
     current_security_principal,
     resolve_security_config,
@@ -58,12 +61,6 @@ from .merge3 import merge3_for_edit
 
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
 from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
-# P0-2 凭据保险库接线(2026-10-26):run_command 解析/脱敏/环境过滤经此单例
-from .session_security import (
-    get_session_vault as _get_session_vault,
-    get_vault_store as _get_vault_store,
-)
-from app.core.vault import filter_vault_env as _filter_vault_env
 
 # 批58(三十):敏感目录黑名单收敛为单一权威源(与 file_editor 共用同一常量与匹配函数)。
 # 此前本模块的路径校验完全不做敏感目录判定,导致三个写工具可写 .git/hooks/。
@@ -72,6 +69,14 @@ from .path_guard import find_sensitive_segment, sensitive_error_message
 # V3 #75 后半:懒索引护栏用**枚举层同一份**有界探测出口(该模块只依赖标准库,
 # 无重依赖、无回环,所以可以在顶层 import;函数内再 import 一次只会造成两个出处)。
 from .rg_fallback_parity import SizeProbe, probe_code_file_count
+
+# P0-2 凭据保险库接线(2026-10-26):run_command 解析/脱敏/环境过滤经此单例
+from .session_security import (
+    get_session_vault as _get_session_vault,
+)
+from .session_security import (
+    get_vault_store as _get_vault_store,
+)
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
@@ -10537,33 +10542,16 @@ _EDU_API_BASE_URL = os.environ.get("API_SERVICE_URL", "http://localhost:8802").r
 
 
 def _edu_internal_headers(user_id: Any) -> dict[str, str]:
-    """edu 工具调 api 的鉴权头:internal token + 真实用户 ID(契约同 codebase_indexer)。
-
-    api 侧 checkInternalServiceToken 校验 token 并把 X-User-Id 注入 request.userId,
-    随后 requireAnyPermission 的 RBAC 查询对该用户做权限兜底。
-
-    2026-09-29 回退到本函数原来那一份(不是"顺手简化",是它当时根本跑不通):枚 `f613fee296`
-    把下面三行换成 `from app.core.internal_ticket import internal_service_headers`,而
-    `app/core/internal_ticket.py` **在仓库任何一次提交里都不存在** —— 判据是
-    HEAD 树 0 条 + `git log --all --diff-filter=A -- '*internal_ticket*'` 0 命中(不是"我没找到")。
-    后果有两层,都不在编译期可见:① import 写在函数体内 ⇒ 只有真的调用一个 edu 工具才炸
-    ModuleNotFoundError,14 个 edu 工具静默不可用;② 本仓 mypy 守门带 `--ignore-missing-imports`,
-    它把"导入了不存在的模块"报成 `Returning Any`(no-any-return)而不是"找不到模块" ——
-    **一个为了让邻居在飞文件不红的开关,顺手把"幽灵导入"洗成了类型噪声**。
-    另有一格同时量到:守门 98(HEAD 悬空具名导入)只扫 JS/TS 系扩展名,**Python 的同类形态零判据**
-    —— 所以这一型既没有类型层也没有守门层拦它。
-
-    没有去"补一个 internal_ticket.py":那个模块的短期票语义我拿不到(仓库里既没有实现也没有
-    任何验证端 —— `apps/api/src/plugins/internal-service-token.ts` 现读只认
-    `x-internal-service-token`,全仓无 `x-internal-service-ticket` 的校验代码),凭空写一份
-    就是拿编造冒充恢复。要做短期票,正确形态是**模块与调用方同一枚提交入库**,并让 api 侧
-    验证函数同时认两种头(那才是"兼容窗口")。
-    """
+    """edu 工具调 api 的鉴权头:走 ``app/core/internal_ticket.py`` 的
+    ``internal_service_headers`` 唯一出口(默认 dual 档,旧 ``x-internal-service-token``
+    与新短期票 ``x-internal-service-ticket`` 同发);api 侧校验后把 X-User-Id 注入
+    request.userId 供 requireAnyPermission 的 RBAC 对真实用户兜底。
+    凭证或身份缺失返回 {},调用方不发请求。"""
     uid = str(user_id or "").strip()
     secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
     if not secret or not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
         return {}
-    return {"x-internal-service-token": secret, "x-user-id": uid}
+    return internal_service_headers(uid, "mcp-edu", legacy_token=secret)
 
 
 def _edu_query_params(args: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:

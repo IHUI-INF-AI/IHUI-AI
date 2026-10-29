@@ -58,7 +58,7 @@ vi.mock('../src/services/upload-integrity.js', async (importOriginal) => {
 
 vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi.fn().mockResolvedValue({
-    userId: 'mock-user-id',
+    userId: '00000000-0000-4000-8000-000000000fee',
     phone: '13800000000',
     familyId: '11111111-1111-4111-8111-111111111111',
     roleId: 1,
@@ -118,7 +118,9 @@ const SESSION = {
   uploadId: 'fixture-row-uploadId',
   status: 'uploading',
   totalChunks: 2,
-  fileMd5: createHash('md5').update(Buffer.concat([PART_A, PART_B])).digest('hex'),
+  fileMd5: createHash('md5')
+    .update(Buffer.concat([PART_A, PART_B]))
+    .digest('hex'),
 }
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))

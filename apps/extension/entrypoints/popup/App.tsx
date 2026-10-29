@@ -37,6 +37,8 @@ import { useI18n } from '../../src/i18n'
 import { sendMessage } from '../../lib/message-router'
 import { useSystemTheme } from '../../src/hooks/use-system-theme'
 import { useExtensionThirdPartyAuth } from '../../src/hooks/use-extension-third-party-auth'
+// 票 L28754:登录方式优先级按访客 IP 地区走,判据住在 @ihui/ui-react 的 planLoginRegion
+import { useExtensionLoginPlan } from '../../src/hooks/use-extension-login-plan'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { QuickActionButton } from '../components/QuickActionButton'
 import { NotificationBell } from '../components/NotificationBell'
@@ -89,6 +91,7 @@ export default function App() {
   // thirdParty 由 useExtensionThirdPartyAuth hook 注入 8 平台配置。
   const loginApiClient = useMemo(() => createExtensionLoginApiClient(), [])
   const thirdParty = useExtensionThirdPartyAuth()
+  const loginPlan = useExtensionLoginPlan(thirdParty.config.providers)
 
   useEffect(() => {
     // 2026-07-23 修复:原代码 initApi() reject 时 setReady(true) 永不触发 → popup 卡在 loading
@@ -193,6 +196,10 @@ export default function App() {
             // 而不是留一个看不见的缺省。web 那侧的写法才是判据的正解。
             canAutoSubmitCredentials={() => true}
             thirdParty={thirdParty.config}
+            tabs={loginPlan.plan.tabs}
+            thirdPartyFeaturedPlatform={loginPlan.plan.featuredPlatform}
+            thirdPartyFeaturedBackground={loginPlan.featuredBackground}
+            thirdPartyPriorityPlatforms={loginPlan.plan.priorityPlatforms}
             showAgreement
             agreementMode="notice-dialog"
             showRegisterLink

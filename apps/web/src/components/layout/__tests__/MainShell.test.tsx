@@ -36,6 +36,8 @@ vi.mock('@/components/common', async (importOriginal) => {
     ...actual,
     PWAInstallPrompt: () => null,
     PWAUpdatePrompt: () => null,
+    PwaUpdateWatcher: () => null,
+    AppVersionGatePrompt: () => null,
     NavigationProgress: () => null,
     UpdatePrompt: () => null,
   }

@@ -23,7 +23,7 @@
 
 🚀 四种使用方式
 ① 网页端：打开 https://aizhs.top → 手机号 / 邮箱 / 扫码登录 → 直接对话，无需安装
-② Android 最快装法（APK 直链，30 秒）：手机浏览器打开 https://file.aizhs.top/uploads/apk/zhihui-ai-0.0.5-release.apk → 下载 → 允许「未知来源」安装。不用留邮箱、不用等审核，装完直接登录用
+② Android 最快装法（官网 APK 下载页，30 秒）：手机浏览器打开 https://aizhs.top/download/android-apk → 点「立即下载」→ 允许「未知来源」安装。不用留邮箱、不用等审核，装完直接登录用
 ③ Android 商店内测（Google Play 渠道，为转正积累名额）：在 #内测申请·beta-testing 留 Gmail → 我把你加进 Google Play 封闭测试名单 → 打开 https://play.google.com/apps/testing/zh.ai.sq 点「参加测试」→ 安装「智汇AI」
 ④ 自行部署：git clone → pnpm install → 填 .env → docker compose up（Node 20.10+ / pnpm 9.15 / Python 3.12 / Docker 24+）
 
@@ -118,7 +118,7 @@ Web（Next.js 16）、桌面（Tauri 2）、Android / iOS（React Native + Expo�
 三条路自己挑：
 
 🔹 想先用起来 → https://aizhs.top （网页端，30 秒登录就能对话）
-🔹 想装 Android 版（最快）→ 手机直接下载 APK：https://file.aizhs.top/uploads/apk/zhihui-ai-0.0.5-release.apk → 允许「未知来源」安装，不用注册不用等
+🔹 想装 Android 版（最快）→ 手机打开官网 APK 下载页：https://aizhs.top/download/android-apk → 点「立即下载」→ 允许「未知来源」安装，不用注册不用等
 🔹 想走 Google Play 内测渠道 → #内测申请·beta-testing 留 Gmail，我加你进封闭测试名单后打开 https://play.google.com/apps/testing/zh.ai.sq 点「参加」
 🔹 想看代码 / 自己部署 → https://github.com/IHUI-INF-AI/IHUI-AI
 
@@ -137,9 +137,9 @@ Web（Next.js 16）、桌面（Tauri 2）、Android / iOS（React Native + Expo�
 ```
 # 🧪 Android 封闭测试 · 中文指引
 
-⚡ 只想马上装上试试？直接下 APK（30 秒，不用留邮箱不用等）：
-https://file.aizhs.top/uploads/apk/zhihui-ai-0.0.5-release.apk
-→ 下载 → 允许「未知来源」安装 → 登录即用。功能与商店版一致。
+⚡ 只想马上装上试试？官网 APK 下载页（30 秒，不用留邮箱不用等）：
+https://aizhs.top/download/android-apk
+→ 点「立即下载」→ 允许「未知来源」安装 → 登录即用。功能与商店版一致。
 
 📦 Google Play 渠道（重要：帮应用转正）：
 APK 直装不占封闭测试名额。应用要正式上架，Google 要求 12 名测试者通过 Play 渠道连续活跃 14 天。如果你愿意帮这个忙，请再走一遍下面流程（两分钟）：

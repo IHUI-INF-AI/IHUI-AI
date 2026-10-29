@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     // 测试环境启动前加载 .env.test(指向 ihui_test 库)
     setupFiles: ['./tests/setup-env.ts'],
-    // 默认跑 mock 测试:test/(单数) + tests/(复数) + src/{routes,services,jobs,plugins}/__tests__/ 下的 *.test.ts
+    // 默认跑 mock 测试:test/(单数) + tests/(复数) + src/{routes,services,jobs,plugins,utils}/__tests__/ 下的 *.test.ts
     include: [
       'test/**/*.test.ts',
       'tests/**/*.test.ts',
@@ -16,6 +16,8 @@ export default defineConfig({
       'src/services/__tests__/**/*.test.ts',
       'src/jobs/__tests__/**/*.test.ts',
       'src/plugins/__tests__/**/*.test.ts',
+      'src/utils/__tests__/**/*.test.ts',
+      'src/db/__tests__/**/*.test.ts',
     ],
     // 排除真实 DB 集成测试(用 vitest.real.config.ts 单独跑)
     // 2026-10-03(G-1018201)'**/.ihui-agent/**':.ihui-agent/tmp/ 里存着他人留下的 HEAD

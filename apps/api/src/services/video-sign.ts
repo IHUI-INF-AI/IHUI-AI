@@ -4,6 +4,7 @@
 
 import { createHmac, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
+import { resolveEffectiveNodeEnv } from '../config/index.js'
 
 /**
  * 视频签名 URL 服务。
@@ -28,7 +29,13 @@ function getDevEphemeralSecret(): string {
 
 function getSecret(): string {
   const env = process.env.VIDEO_SIGN_SECRET
-  if (process.env.NODE_ENV === 'production') {
+  // 判据在**请求期**求值,且复用 config 的唯一解析器 `resolveEffectiveNodeEnv`
+  // (不在本文件另写一份 `NODE_ENV === 'production'`,§22c)。
+  // 为什么不在加载期用 `isProductionGuard` 常量:那是启动瞬间冻结的 bool,于是"生产未配
+  // 密钥"这条 fail-closed 根本无法被驱动 —— 用例改 process.env 后再请求,读到的仍是
+  // 加载时的档位,走开发兜底密钥照样签出可播放链接。生产里两者恒等价(启动即 production),
+  // 差别只在于这一档现在真的能被证明。
+  if (resolveEffectiveNodeEnv() === 'production') {
     if (!env || env.length < 32 || env === 'ihui-video-sign-secret-change-me') {
       throw new Error(
         'VIDEO_SIGN_SECRET 未配置或强度不足(生产环境必须 ≥32 字符随机字符串),请在 .env 中配置后重启。',

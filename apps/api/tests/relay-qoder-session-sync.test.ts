@@ -4,66 +4,83 @@
 
 /**
  * Qoder 会话回灌判据锁(2026-10-28 立)。
- * 复灌决策本身走 relay-trae-session-sync.ts 的 decideSync(单一判据源,已由其测试覆盖);
- * 本文件只钉 Qoder 专属的 Cosy 设备头合并与 CLI 形状。不连库,不 spawn 真流程。
+ *
+ * 两件事:
+ *   ① 判据单源 —— trae/qoder 两条回灌腿必须 import 同一份 decideSync(§0.6),
+ *      本文件用"函数引用相等"钉死,复制一份判据会当场红;
+ *   ② 取数侧合并 mergeCosy 的形状锁(cosy 蛇形键 = qoder-adapter COSY_HEADERS 读取口径)。
  */
 import { describe, it, expect } from 'vitest'
-import { __test__ } from '../scripts/relay-qoder-session-sync.js'
+import { __test__ as qoderTest } from '../scripts/relay-qoder-session-sync.js'
+import { __test__ as traeTest } from '../scripts/relay-trae-session-sync.js'
+import { decideSync, parseIso } from '../src/services/relay-session-sync-decision.js'
 
-const { buildCosyPatch, parseArgs } = __test__
+const { mergeCosy, parseArgs } = qoderTest
 
-describe('buildCosyPatch · Cosy 设备头合并', () => {
-  it('客户端没给设备头 ⇒ null(不写,保留池内档)', () => {
-    expect(buildCosyPatch(null, {})).toBeNull()
-    expect(buildCosyPatch({ cosy: { machine_token: 'old' } }, { machineToken: '  ' })).toBeNull()
+describe('判据单源(§0.6)', () => {
+  it('trae 与 qoder 两条回灌腿共用 src/services 的同一枚 decideSync/parseIso', () => {
+    expect(traeTest.decideSync).toBe(decideSync)
+    expect(qoderTest.decideSync).toBe(decideSync)
+    expect(traeTest.parseIso).toBe(parseIso)
+    expect(qoderTest.parseIso).toBe(parseIso)
   })
 
-  it('同值 ⇒ null(幂等,不产生无意义写)', () => {
+  it('decideSync:同票/池更新/客户端更新 三态', () => {
+    const base = {
+      poolToken: 'pool',
+      poolTokenExpiresAt: new Date('2026-11-27T13:19:32.000Z'),
+      poolRefreshExpiresAt: new Date('2027-10-23T13:19:32.000Z'),
+      clientToken: 'client',
+      clientRefreshToken: 'client-rt',
+      clientExpiresAt: new Date('2026-11-28T00:00:00.000Z'),
+      clientRefreshExpiresAt: new Date('2027-10-24T00:00:00.000Z'),
+    }
+    expect(decideSync({ ...base, clientToken: 'pool' }).reason).toBe('same-token')
     expect(
-      buildCosyPatch(
-        { cosy: { machine_token: 'mt', version: '1.0' } },
-        { machineToken: 'mt', version: '1.0' },
-      ),
-    ).toBeNull()
-  })
-
-  it('新值 ⇒ 合并进旧档(旧键一个不丢)', () => {
-    expect(
-      buildCosyPatch(
-        { cosy: { machine_token: 'old', machine_code: 'mc' }, other: 1 },
-        { machineToken: 'new', machineType: 'x86_64_windows' },
-      ),
-    ).toEqual({ machine_token: 'new', machine_code: 'mc', machine_type: 'x86_64_windows' })
-  })
-
-  it('池内没有 cosy 档 ⇒ 以本次入参建整档(蛇形键,对齐 adapter 读取口径)', () => {
-    expect(buildCosyPatch({}, { machineToken: 'mt', machineCode: 'mc' })).toEqual({
-      machine_token: 'mt',
-      machine_code: 'mc',
-    })
-  })
-
-  it('池内 cosy 是坏形状(数组/字符串)⇒ 当作空档重建,不崩', () => {
-    expect(buildCosyPatch({ cosy: ['bad'] }, { machineToken: 'mt' })).toEqual({
-      machine_token: 'mt',
-    })
-    expect(buildCosyPatch({ cosy: 'bad' }, { machineToken: 'mt' })).toEqual({
-      machine_token: 'mt',
-    })
+      decideSync({ ...base, clientExpiresAt: new Date('2026-11-26T00:00:00.000Z') }).reason,
+    ).toBe('pool-newer')
+    expect(decideSync(base).reason).toBe('client-newer')
   })
 })
 
-describe('CLI 参数面(未判定不猜)', () => {
-  it('缺 --stdin ⇒ 报错(凭据必须走标准输入,不落盘)', () => {
-    expect(parseArgs([]).error).toContain('--stdin')
+describe('mergeCosy · 设备头合并', () => {
+  it('捕获侧一个设备字段都没有 ⇒ 不写 extraMetadata(null)', () => {
+    expect(mergeCosy({}, {})).toBeNull()
+    expect(mergeCosy(null, { machineToken: '  ' })).toBeNull()
   })
 
-  it('未知参数 ⇒ 报错;--stdin/--dry-run/--json 合法', () => {
-    expect(parseArgs(['--bogus']).error).toBe('未知参数: --bogus')
-    const ok = parseArgs(['--stdin', '--dry-run', '--json'])
-    expect(ok.error).toBeNull()
-    expect(ok.dryRun).toBe(true)
-    expect(ok.json).toBe(true)
+  it('保留既有键,cosy 写蛇形键并同步扁平键(历史行形态)', () => {
+    const merged = mergeCosy(
+      { cosy: { machine_token: 'old', extra: 'keep' }, phoneMask: { original: '***' } },
+      {
+        machineToken: 'mt-new',
+        machineCode: 'mc-new',
+        machineType: 'qoder-cn',
+        version: '0.34.0',
+      },
+    )
+    expect(merged).not.toBeNull()
+    expect((merged as Record<string, unknown>).phoneMask).toEqual({ original: '***' })
+    const cosy = (merged as Record<string, unknown>).cosy as Record<string, unknown>
+    expect(cosy.machine_token).toBe('mt-new')
+    expect(cosy.machine_code).toBe('mc-new')
+    expect(cosy.machine_type).toBe('qoder-cn')
+    expect(cosy.version).toBe('0.34.0')
+    expect(cosy.extra).toBe('keep')
+    expect((merged as Record<string, unknown>).machineToken).toBe('mt-new')
+  })
+})
+
+describe('parseArgs', () => {
+  it('默认无开关;--json/--dry-run/--help 各自识别', () => {
+    expect(parseArgs([])).toEqual({ dryRun: false, json: false, help: false, error: null })
+    expect(parseArgs(['--json', '--dry-run']).json).toBe(true)
+    expect(parseArgs(['--json', '--dry-run']).dryRun).toBe(true)
+    expect(parseArgs(['--help']).help).toBe(true)
+  })
+
+  it('未知参数 ⇒ error 点名(不退化成静默忽略)', () => {
+    expect(parseArgs(['--bogus']).error).toContain('--bogus')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

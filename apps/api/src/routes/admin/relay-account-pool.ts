@@ -29,8 +29,22 @@
  * 21. POST   /admin/relay/accounts/:id/checkin-resync — 单条重推签到同步(O64)
  * 22. POST   /admin/relay/account-pool/checkin-status — 批量点查签到状态(O64,≤20)
  * 23. POST   /admin/relay/accounts/:id/checkin-run — 立即签到(O64,转发 ai-service,429 透传)
+ * 24. POST   /admin/relay/accounts/:id/models — 按需点查可用模型清单(富契约优先,无实证通路 400)
+ * 25. POST   /admin/relay/accounts/:id/complete-phone — 人工补全手机号(掩码归位,前3后2吻合校验;
+ *            body.force=true 为机主换绑强制通道,via=owner_override)
+ * 26. POST   /admin/relay/account-pool/match-phone — 批量候选全号自动归位(双向唯一命中才改名)
+ * 27. POST   /admin/relay/accounts/:id/login-local — 把该号写进本机客户端登录态(支持 trae + 六平台,
+ *            文件级备份+原子写;其余平台 409 并点名无法离线重封的原因)
+ * 28. GET    /admin/relay/accounts/:id/tasks    — WorkBuddy 任务清单(O68,转发 ai-service;
+ *            unjudged 显式透传,不拿空列表冒充"判过")
+ * 29. POST   /admin/relay/accounts/:id/task-run — WorkBuddy 任务手动触发(O68,kind=growth/
+ *            travel/activity/blackcat,dryRun 预览;429/404 原样透传,转发纪律同 23 立即签到)
+ * 30. GET    /admin/relay/pool-policy      — 号池选号策略只读面(O93):八枚 IHUI_RELAY_POOL_*
+ *            钮的「env 名 / 当前生效值 / 默认值 / 是否偏离默认」整档视图。只读、mutable:false
+ *            (钮住在进程级 env,改完必须重启 api 进程;面板刻意不提供写入 —— 不做假旋钮)
  *
- * 加密:token/refreshToken/cookies 走 encryptField(AES-256-GCM),响应面永不回传密文/明文。
+ * 加密:token/refreshToken/cookies/账号级 proxyUrl 走 encryptField(AES-256-GCM),
+ * 响应面永不回传密文/明文(代理只回脱敏值)。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
@@ -44,11 +58,21 @@ import { paginationSchema, idParamSchema } from './_shared.js'
 import {
   importAccounts,
   decryptAccountCredentials,
+  completeAccountPhone,
+  matchPhoneCandidates,
   type ImportAccountInput,
 } from '../../services/relay-account-pool-service.js'
-import { isRelayProviderCode, RELAY_PROVIDERS } from '../../services/relay-account-format.js'
+import {
+  IMPORT_MAX_ACCOUNTS,
+  isRelayProviderCode,
+  recognizeImportShape,
+  RELAY_PROVIDERS,
+} from '../../services/relay-account-format.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
 import { healthStatusOf } from '../../services/relay-account-pool-scheduler.js'
+// 号池体检判据单源在 @ihui/shared(web 管理页与 CLI 同源,绝不各自抄一份枚举/阈值,§0.6)
+import { relayAccountIdleDays, resolveRelayAccountVerdict } from '@ihui/shared'
+import { markAccountAuthRejected } from '../../services/relay-account-pool-scheduler.js'
 import {
   buildPoolSyncAccount,
   checkinPlatformFor,
@@ -63,6 +87,13 @@ import {
   type PoolAccountState,
 } from '../../services/relay-account-pool-checkin-sync.js'
 import { refreshOne, sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
+import {
+  collectRelayTaskStates,
+  RELAY_POOL_TASKS,
+  runRelayTaskById,
+} from '../../services/relay-task-center.js'
+import { Queue } from 'bullmq'
+import { config } from '../../config/index.js'
 import { getAccountUsage, getAccountUsageSummaries } from '../../services/relay-account-usage.js'
 import {
   listProxies,
@@ -71,6 +102,9 @@ import {
   deleteProxy,
   getProxyById,
   markProxyChecked,
+  encryptAccountProxyUrl,
+  resolveAccountProxyUrl,
+  maskAccountProxyUrl,
   type UpdateProxyPatch,
 } from '../../services/relay-proxy-pool.js'
 import {
@@ -78,32 +112,150 @@ import {
   createModelCatalog,
   deleteModelCatalog,
 } from '../../services/relay-model-catalog.js'
+import { loginAccountLocal, LocalLoginError } from '../../services/relay-local-login.js'
+import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
+// 号池选号策略单一真相源:本端点只取其只读视图出口(不在路由层复算 env 解析,§0.6)
+import { relayPoolPolicyView } from '../../services/relay-pool-policy.js'
+
+/**
+ * 导入载荷的**结构**闸门(2026-10-27 立)。
+ *
+ * 立因:这里的 Zod 曾硬性要求每个账号有顶层 `token: z.string().min(1)`,而各平台原生
+ * 提取器产出的形状彼此不同 —— codex 的 `tokens.access_token`、opencode 的 `auth.key`、
+ * minimax 的 `accessToken`、zcode 的 `oauth:bigmodel:access_token`、loomy/doubao 的
+ * `value`、codearts 的 `securitytoken + accessKey + secretKey` ⇒ 12 平台里 10 个平台的
+ * 原生载荷在路由层就被挡掉(Web 拖拽导入全线不可用,只有 trae/workbuddy 的 `{token}`
+ * 能过);而 CLI 直调 importAccounts 不过 Zod ⇒ CLI 能导、Web 不能导,两套口径割裂。
+ *
+ * 现在路由只守**结构与体积**:每条一个对象、键数上限、字符串长度上限、键名防注入、
+ * 单批 500 上限。「凭据形状是否被本仓认得」下沉到 service 层
+ * (relay-account-format.recognizeImportShape,CLI 预检共用同一份判据)。
+ */
+const IMPORT_ACCOUNT_MAX_KEYS = 64
+const IMPORT_ACCOUNT_MAX_STRING = 8192
+const IMPORT_ACCOUNT_MAX_BYTES = 64 * 1024
+/** 键名白名单:字母数字与 _ . : @ - [ ](zcode 的 oauth:bigmodel:access_token 等原生键位) */
+const IMPORT_KEY_NAME_RE = /^[A-Za-z0-9_:.@\-[\]]{1,128}$/
+/** 原型链键一律拒收(防注入) */
+const IMPORT_FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 
 const importBodySchema = z.object({
-  providerCode: z.enum(RELAY_PROVIDERS),
-  accounts: z
-    .array(
-      z
-        .object({
-          name: z.string().max(128).optional(),
-          token: z.string().min(1),
-          refreshToken: z.string().optional(),
-          deviceId: z.string().max(128).optional(),
-          machineId: z.string().max(128).optional(),
-          enabled: z.boolean().optional(),
-          cookies: z.array(z.unknown()).optional(),
-          proxyUrl: z.string().max(512).optional(),
-        })
-        .passthrough(),
-    )
-    .min(1)
-    .max(500),
+  // 平台名判据交给 isRelayProviderCode(可读错误);Zod 只管"是个短字符串"。
+  providerCode: z.string().max(32),
+  accounts: z.array(z.record(z.string(), z.unknown())).min(1).max(IMPORT_MAX_ACCOUNTS),
+  /**
+   * 覆盖既有行时,本批未提供 refreshToken ⇒ 保留库内既有密文(不写 NULL)。
+   * 专供"网页一键重登":重登只换得到 access,不带它会把能自续的号抹成待重登死号。
+   * 缺省 false = 存量导入语义(缺字段即清空)。
+   */
+  preserveMissingRefresh: z.boolean().optional(),
 })
+
+interface ImportStructureIssue {
+  /** 出问题的条目下标(0 起) */
+  index: number
+  message: string
+}
+
+/**
+ * 找出超长字符串所在的键名(只报键名,绝不回显值;深度与节点数封顶防爆)。
+ */
+function findOversizeStringKeys(value: unknown, depth = 0, out: string[] = []): string[] {
+  if (depth > 6 || out.length >= 5) return out
+  if (Array.isArray(value)) {
+    for (const item of value.slice(0, 64)) findOversizeStringKeys(item, depth + 1, out)
+    return out
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value as Record<string, unknown>).slice(0, 64)) {
+      if (typeof item === 'string') {
+        if (item.length > IMPORT_ACCOUNT_MAX_STRING) out.push(key)
+        continue
+      }
+      findOversizeStringKeys(item, depth + 1, out)
+    }
+  }
+  return out
+}
+
+/**
+ * 导入载荷的结构校验:只管"这是不是一个账号条目",不管"凭据形状认不认得"。
+ * 形状判据在 service 层(recognizeImportShape)—— 路由抄一份就分叉一次。
+ */
+function checkImportStructure(accounts: Record<string, unknown>[]): ImportStructureIssue[] {
+  const issues: ImportStructureIssue[] = []
+  accounts.forEach((acc, index) => {
+    const keys = Object.keys(acc)
+    if (keys.length === 0) {
+      issues.push({ index, message: '账号条目是空对象(没有任何字段)' })
+      return
+    }
+    if (keys.length > IMPORT_ACCOUNT_MAX_KEYS) {
+      issues.push({
+        index,
+        message: `账号条目字段数超上限(${keys.length} > ${IMPORT_ACCOUNT_MAX_KEYS})`,
+      })
+    }
+    for (const key of keys) {
+      if (IMPORT_FORBIDDEN_KEYS.has(key) || !IMPORT_KEY_NAME_RE.test(key)) {
+        issues.push({ index, message: `账号条目字段名非法:${key.slice(0, 40)}` })
+      }
+    }
+    for (const key of keys) {
+      const value = acc[key]
+      if (typeof value === 'string') {
+        if (value.length > IMPORT_ACCOUNT_MAX_STRING) {
+          issues.push({
+            index,
+            message: `账号条目字段 ${key} 字符串超长(>${IMPORT_ACCOUNT_MAX_STRING})`,
+          })
+        }
+        continue
+      }
+      const nested = findOversizeStringKeys(value, 1)
+      if (nested.length > 0) {
+        issues.push({
+          index,
+          message: `账号条目字段 ${key} 内有超长字符串(${nested.join(',')})`,
+        })
+      }
+    }
+    let size = 0
+    try {
+      size = JSON.stringify(acc)?.length ?? 0
+    } catch {
+      size = IMPORT_ACCOUNT_MAX_BYTES + 1
+    }
+    if (size > IMPORT_ACCOUNT_MAX_BYTES) {
+      issues.push({ index, message: `账号条目体积超上限(>${IMPORT_ACCOUNT_MAX_BYTES} 字节)` })
+    }
+  })
+  return issues
+}
+
+/** 结构问题汇总成一句人话(只报键名与条目序号,不含任何凭据字符) */
+function formatImportStructureIssues(issues: ImportStructureIssue[]): string {
+  const head = issues.slice(0, 5).map((i) => `#${i.index + 1} ${i.message}`)
+  const more = issues.length > head.length ? ` 等 ${issues.length} 项` : ''
+  return `导入参数不合规:${head.join(';')}${more}`
+}
+
+/** Zod 层错误汇总成一句人话(带字段路径,别只回一句泛化失败) */
+function formatImportSchemaIssues(issues: { path: PropertyKey[]; message: string }[]): string {
+  const head = issues.slice(0, 5).map((i) => {
+    const p = i.path.length > 0 ? i.path.join('.') : '(顶层)'
+    return `${p}: ${i.message}`
+  })
+  const more = issues.length > head.length ? ` 等 ${issues.length} 项` : ''
+  return `导入参数不合规:${head.join(';')}${more}`
+}
 
 const listQuerySchema = paginationSchema.extend({
   provider: z.transform(emptyToUndefined).pipe(z.enum(RELAY_PROVIDERS).optional()),
   enabled: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
   health: z.transform(emptyToUndefined).pipe(z.enum(PROVIDER_HEALTH_STATUSES).optional()),
+  /** 账号代理管理页筛选用:true = 已配置账号级 proxyUrl,false = 直连(未配置) */
+  hasProxy: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
   /** ops = 运营池(默认,保持存量视图);all = 含用户个人池;其余按 ownerUserId 精确筛 */
   owner: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
 })
@@ -113,7 +265,37 @@ const updateBodySchema = z.object({
   priority: z.number().int().optional(),
   weight: z.number().int().min(1).optional(),
   tempUnschedulable: z.boolean().optional(),
-  proxyUrl: z.string().max(512).nullable().optional(),
+  // 账号级代理:仅允许 http(s)/socks5;空串按清除处理,避免无效值进库
+  proxyUrl: z
+    .string()
+    .trim()
+    .max(512)
+    .nullable()
+    .optional()
+    .transform((v) => (v === '' ? null : v))
+    .refine(
+      (v) => v === null || v === undefined || isSupportedProxyUrl(v),
+      '代理地址必须是 http(s)/socks5 协议',
+    ),
+})
+
+// --- 手机号补全(2026-10-28 立:号池统一名 = 官方绑定手机号全号) ---
+// 全号形态判据单源在 relay-account-format.CN_PHONE_RE,这里 Zod 只做同一条正则的
+// 入参闸门(掩码形态一律拒收,归位匹配是 match-phone 的职责)。
+const CN_PHONE_ZOD_RE = /^1[3-9]\d{9}$/
+const completePhoneBodySchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(CN_PHONE_ZOD_RE, '手机号必须是 11 位大陆全号(1[3-9] 开头),掩码形态请走 match-phone'),
+  /**
+   * 机主强制覆盖(2026-10-28 补):掩码是旧绑定号、新全号前3后2对不上的换绑场景,
+   * 带 force=true 放开掩码吻合闸门(via 落 owner_override 留痕)。already_full 不受影响。
+   */
+  force: z.boolean().optional(),
+})
+const matchPhoneBodySchema = z.object({
+  phones: z.array(z.string().trim().min(1)).min(1).max(200),
 })
 
 // --- 出口代理池(2026-10-22 补写入入口;管理员可见 proxyUrl 原样,含内嵌账密) ---
@@ -193,6 +375,12 @@ const safeProjection = {
   machineId: aiRelayAccountPool.machineId,
   tokenExpiresAt: aiRelayAccountPool.tokenExpiresAt,
   refreshExpiresAt: aiRelayAccountPool.refreshExpiresAt,
+  // 只回"有无 refreshToken"的布尔,永不 SELECT *Enc 值本身(脱敏投影不破;供 verdict 判
+  // expired-renewable / expired-dead 之分)。
+  hasRefreshToken:
+    sql<boolean>`case when ${aiRelayAccountPool.refreshTokenEnc} is not null and ${aiRelayAccountPool.refreshTokenEnc} <> '' then true else false end`.as(
+      'has_refresh_token',
+    ),
   priority: aiRelayAccountPool.priority,
   weight: aiRelayAccountPool.weight,
   isEnabled: aiRelayAccountPool.isEnabled,
@@ -208,6 +396,9 @@ const safeProjection = {
     sql<boolean>`case when ${aiRelayAccountPool.proxyUrl} is null then false else true end`.as(
       'has_proxy',
     ),
+  // 账号级 proxyUrl 落库为密文(encryptField);脱敏只能在服务端解密后做,
+  // 故此处取原值(密文)供 presentAccountRow 转换,响应前一律剥除。
+  proxyUrlEnc: aiRelayAccountPool.proxyUrl,
   totalCalls: aiRelayAccountPool.totalCalls,
   claimStatus: aiRelayAccountPool.claimStatus,
   claimedBy: aiRelayAccountPool.claimedBy,
@@ -227,6 +418,124 @@ const safeProjection = {
   updatedAt: aiRelayAccountPool.updatedAt,
 }
 
+/**
+ * 账号行响应投影:剥掉 proxyUrl 密文原值,换成脱敏展示值。
+ * 列表/详情统一走这里 —— 密文与明文账密都不进响应。
+ */
+function presentAccountRow<T extends { proxyUrlEnc: string | null }>(row: T) {
+  const { proxyUrlEnc, ...rest } = row
+  return { ...rest, proxyUrlMasked: maskAccountProxyUrl(proxyUrlEnc) }
+}
+
+// =============================================================================
+// O68 WorkBuddy 任务自动化(2026-10-29 立):转发纪律与 23 立即签到同款 ——
+// 号池行 → 签到平台映射(映射即拦截)→ pool-status 解析 ai-service 账号 id →
+// 转发 /api/checkin/accounts/{id}/tasks|task-run;429/404 原样透传,其余非 2xx 归 502;
+// 网络错误永不冒绿。unjudged 是显式三态之一:解析不出清单形状 = 未判定,不冒充空列表(§0.3)。
+// =============================================================================
+
+/** 任务自动化覆盖的签到平台(引擎侧只有 WorkBuddy;其余平台映射即拦截) */
+const TASK_AUTOMATION_PLATFORM = 'workbuddy'
+
+/** 任务触发 kind 白名单(与 ai-service task-run 契约逐字一致) */
+const TASK_RUN_KINDS = ['growth', 'travel', 'activity', 'blackcat'] as const
+
+const taskRunBodySchema = z.object({
+  kind: z.enum(TASK_RUN_KINDS),
+  /** 预览模式:引擎只报告将会执行的动作,不落实际副作用 */
+  dryRun: z.boolean().optional(),
+})
+
+/** 单条任务(响应面 camelCase 归一;null = 引擎没给,不是 0) */
+interface NormalizedTaskItem {
+  taskCode: string
+  title: string
+  progress: number | null
+  target: number | null
+  status: string | null
+  acceptStatus: string | null
+  rewardCredit: number | null
+  rewardEnergy: number | null
+  validTo: string | null
+}
+
+function numOrNull(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null
+}
+function strOrNull(v: unknown): string | null {
+  return typeof v === 'string' ? v : null
+}
+function strArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+}
+
+/** 上游 tasks 条目归一;非对象/无 task_code 的条目剔除(形状坏不冒充数据) */
+function normalizeTaskItem(raw: unknown): NormalizedTaskItem | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const r = raw as Record<string, unknown>
+  const taskCode = strOrNull(r.task_code) ?? strOrNull(r.taskCode)
+  if (!taskCode) return null
+  return {
+    taskCode,
+    title: strOrNull(r.title) ?? taskCode,
+    progress: numOrNull(r.progress),
+    target: numOrNull(r.target),
+    status: strOrNull(r.status),
+    acceptStatus: strOrNull(r.accept_status),
+    rewardCredit: numOrNull(r.reward_credit),
+    rewardEnergy: numOrNull(r.reward_energy),
+    validTo: strOrNull(r.valid_to),
+  }
+}
+
+/** 号池账号 → ai-service 签到账号 id 的解析结果(错误带 HTTP 状态,由调用方直发) */
+type TaskTargetResult =
+  { ok: true; checkinAccountId: number } | { ok: false; status: number; message: string }
+
+/**
+ * 解析任务自动化目标账号:号池行存在 ∧ 平台有任务引擎 ∧ 已同步到签到侧。
+ * 三态各自点名:404 不存在 / 400 平台无引擎 / 502 签到侧不可达 / 409 未同步。
+ */
+async function resolveWorkbuddyTaskTarget(poolAccountId: string): Promise<TaskTargetResult> {
+  const [row] = await dbRead
+    .select({
+      providerCode: aiRelayAccountPool.providerCode,
+      uid: aiRelayAccountPool.uid,
+    })
+    .from(aiRelayAccountPool)
+    .where(eq(aiRelayAccountPool.id, poolAccountId))
+    .limit(1)
+  if (!row) return { ok: false, status: 404, message: '账号不存在' }
+  const platform = checkinPlatformFor(row.providerCode)
+  if (platform !== TASK_AUTOMATION_PLATFORM) {
+    return {
+      ok: false,
+      status: 400,
+      message: `平台 ${row.providerCode} 无 WorkBuddy 任务自动化引擎,无法操作任务`,
+    }
+  }
+  const st = await fetchPoolStatus(platform, {
+    poolAccountId,
+    uid: row.uid ?? '',
+  })
+  if (!st.ok) {
+    return { ok: false, status: 502, message: st.error ?? '签到侧状态点查失败,无法解析任务账号' }
+  }
+  if (!st.found || st.accountId === null) {
+    return { ok: false, status: 409, message: '账号尚未同步到签到侧(或已被删除),无法操作任务' }
+  }
+  return { ok: true, checkinAccountId: st.accountId }
+}
+
+/** 上游非 2xx → 透传状态映射(429/404 原样,其余 502);detail/reason 择优带出 */
+function upstreamTaskErrorStatus(httpStatus: number): number {
+  return httpStatus === 404 || httpStatus === 429 ? httpStatus : 502
+}
+function upstreamTaskErrorDetail(body: Record<string, unknown> | null): string {
+  const detail = strOrNull(body?.detail) ?? strOrNull(body?.reason) ?? ''
+  return detail ? `: ${detail.slice(0, 200)}` : ''
+}
+
 const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
@@ -234,21 +543,39 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/relay/accounts/import', async (request, reply) => {
     const parsed = importBodySchema.safeParse(request.body)
     if (!parsed.success) {
+      return reply.status(400).send(error(400, formatImportSchemaIssues(parsed.error.issues)))
+    }
+    const { providerCode, accounts, preserveMissingRefresh } = parsed.data
+    if (!isRelayProviderCode(providerCode)) {
+      return reply.status(400).send(error(400, `不支持的平台:${providerCode}`))
+    }
+    const structureIssues = checkImportStructure(accounts)
+    if (structureIssues.length > 0) {
+      return reply.status(400).send(error(400, formatImportStructureIssues(structureIssues)))
+    }
+    // 形状闸门(单源判据 relay-account-format.recognizeImportShape,与 CLI 预检同源):
+    // 整批都认不出 ⇒ 整批拒绝并逐条点名缺哪个键;部分认不出 ⇒ 交给 service 逐条拒
+    // (好条目照常入库,坏条目带原因进结果表)。绝不静默丢弃,绝不塞无效账号。
+    const rejected = accounts
+      .map((acc, index) => ({ index, verdict: recognizeImportShape(providerCode, acc) }))
+      .filter((x) => !x.verdict.recognized)
+    if (rejected.length === accounts.length) {
+      const detail = rejected
+        .map((x) => `#${x.index + 1} ${x.verdict.reason ?? '凭据形状无法识别'}`)
+        .join(';')
       return reply
         .status(400)
         .send(
           error(
             400,
-            parsed.error.issues[0]?.message ?? '导入参数错误(需 providerCode + accounts[])',
+            `导入被拒:本批 ${accounts.length} 条账号都不是 ${providerCode} 的凭据形状。逐条原因:${detail}`,
           ),
         )
     }
-    const { providerCode, accounts } = parsed.data
-    if (!isRelayProviderCode(providerCode)) {
-      return reply.status(400).send(error(400, `不支持的平台: ${providerCode}`))
-    }
     try {
-      const result = await importAccounts(providerCode, accounts as ImportAccountInput[])
+      const result = await importAccounts(providerCode, accounts as ImportAccountInput[], null, {
+        preserveMissingRefresh,
+      })
       return reply.send(success(result))
     } catch (e) {
       request.log.error(e)
@@ -261,7 +588,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const q = listQuerySchema.safeParse(request.query)
     if (!q.success)
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
-    const { page, pageSize, search, provider, enabled, health, owner } = q.data
+    const { page, pageSize, search, provider, enabled, health, hasProxy, owner } = q.data
 
     const conds: SQL[] = []
     // 双池并存:运营号池页默认只显示运营池(存量视图零变化);owner=all 或指定用户 id 才扩面
@@ -271,6 +598,9 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     if (enabled === 'true') conds.push(eq(aiRelayAccountPool.isEnabled, true))
     if (enabled === 'false') conds.push(eq(aiRelayAccountPool.isEnabled, false))
     if (health) conds.push(eq(aiRelayAccountPool.healthStatus, health))
+    // proxyUrl 落库为密文,但"有无"判据与明文无关(非空即已配置),可直接在库侧筛
+    if (hasProxy === 'true') conds.push(isNotNull(aiRelayAccountPool.proxyUrl))
+    if (hasProxy === 'false') conds.push(isNull(aiRelayAccountPool.proxyUrl))
     const where = conds.length > 0 ? and(...conds) : undefined
 
     const searchCond = search
@@ -327,15 +657,31 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           ),
       ])
       const summaries = await getAccountUsageSummaries(list.map((r) => r.id))
-      const enriched = list.map((row) => ({
-        ...row,
-        expiresSoon:
-          row.tokenExpiresAt !== null &&
-          row.tokenExpiresAt.getTime() > now.getTime() &&
-          row.tokenExpiresAt.getTime() - now.getTime() <= EXPIRES_SOON_MS,
-        circuitBreakReason: deriveCircuitBreakReason(row),
-        usageSummary: summaries.get(row.id) ?? { calls24h: 0, tokens24h: 0, failRate24h: 0 },
-      }))
+      const enriched = list.map((row) => {
+        const verdict = resolveRelayAccountVerdict(
+          {
+            tokenExpiryMs: row.tokenExpiresAt ? row.tokenExpiresAt.getTime() : null,
+            hasCredential: true,
+            hasRefreshCredential: row.hasRefreshToken === true,
+          },
+          now.getTime(),
+        )
+        return {
+          ...presentAccountRow(row),
+          verdict: verdict.verdict,
+          tokenRemainingDays: verdict.tokenRemainingDays,
+          idleDays: relayAccountIdleDays(
+            { lastUsedAt: row.lastUsedAt, lastRefreshAt: row.lastRefreshAt },
+            now.getTime(),
+          ),
+          expiresSoon:
+            row.tokenExpiresAt !== null &&
+            row.tokenExpiresAt.getTime() > now.getTime() &&
+            row.tokenExpiresAt.getTime() - now.getTime() <= EXPIRES_SOON_MS,
+          circuitBreakReason: deriveCircuitBreakReason(row),
+          usageSummary: summaries.get(row.id) ?? { calls24h: 0, tokens24h: 0, failRate24h: 0 },
+        }
+      })
       const availableCount = availableRows[0]?.c ?? 0
       return reply.send(
         success({
@@ -367,7 +713,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(aiRelayAccountPool.id, p.data.id))
         .limit(1)
       if (!row) return reply.status(404).send(error(404, '账号不存在'))
-      return reply.send(success(row))
+      return reply.send(success(presentAccountRow(row)))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询账号详情失败'))
@@ -382,9 +728,10 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
     const patch: Record<string, unknown> = {}
-    for (const k of ['name', 'priority', 'weight', 'tempUnschedulable', 'proxyUrl'] as const) {
+    for (const k of ['name', 'priority', 'weight', 'tempUnschedulable'] as const) {
       if (b.data[k] !== undefined) patch[k] = b.data[k]
     }
+    if (b.data.proxyUrl !== undefined) patch.proxyUrl = b.data.proxyUrl
     try {
       const [existing] = await dbRead
         .select({
@@ -398,9 +745,19 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(aiRelayAccountPool.id, p.data.id))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, '账号不存在'))
-      const changed = Object.fromEntries(
-        Object.entries(patch).filter(([k, v]) => (existing as Record<string, unknown>)[k] !== v),
-      )
+      // proxyUrl 库内是密文:先解密再与明文入参比较,变更时才重新加密回写。
+      // 直接比密文会让每次保存都判为"有变更",且对比结果永不为真。
+      const existingProxyUrl = resolveAccountProxyUrl(existing.proxyUrl)
+      const changed: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(patch)) {
+        if (k === 'proxyUrl') {
+          if (v !== existingProxyUrl) {
+            changed.proxyUrl = encryptAccountProxyUrl(v as string | null)
+          }
+        } else if ((existing as Record<string, unknown>)[k] !== v) {
+          changed[k] = v
+        }
+      }
       if (Object.keys(changed).length === 0) return reply.send(success({ id: p.data.id }))
       const updated = await db
         .update(aiRelayAccountPool)
@@ -480,7 +837,9 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .send(error(400, `平台 ${row.providerCode} 适配器未注册,无法健康检查`))
       }
       const ctx = { row, credentials: decryptAccountCredentials(row) }
-      const outcome = await adapter.checkHealth(ctx, { proxyUrl: row.proxyUrl })
+      const outcome = await adapter.checkHealth(ctx, {
+        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
+      })
       const now = new Date()
       // 三态消费与调度器同源(healthStatusOf):未判定保留 unknown 不写 down,
       // 否则 5xx/网络抖动一次就把活号摘除(§0.3 取不到 ≠ 失效)。
@@ -574,6 +933,54 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // ===== 8b. GET /admin/relay/account-pool/tasks — 号池任务中心(观测聚合,2026-10-27) =====
+  // 四载体任务折一张表:上次执行/下次执行/成败/能否触发;读不到的状态源如实 indeterminate。
+  server.get('/admin/relay/account-pool/tasks', async (request, reply) => {
+    try {
+      const tasks = await collectRelayTaskStates({
+        connection: server.redisForQueue,
+        makeQueue: server.redisForQueue
+          ? (queue) => {
+              const q = new Queue(queue, { connection: server.redisForQueue! })
+              return {
+                getJobSchedulers: () => q.getJobSchedulers(),
+                getJobs: async (types, start, end) => {
+                  const jobs = await q.getJobs(types as never, start, end)
+                  return jobs.map((j) => ({
+                    name: j.name,
+                    timestamp: j.timestamp,
+                    failedReason: j.failedReason,
+                  }))
+                },
+              }
+            }
+          : undefined,
+        aiServiceUrl: config.AI_SERVICE_URL,
+      })
+      return reply.send(success({ tasks }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '任务状态聚合失败'))
+    }
+  })
+
+  // ===== 8c. POST /admin/relay/account-pool/tasks/:id/run — 手动触发(bullmq 族) =====
+  // 无触发口的任务回 400 + 真实出路(§0.8);触发结果永不冒绿。
+  server.post('/admin/relay/account-pool/tasks/:id/run', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const def = RELAY_POOL_TASKS.find((t) => t.id === p.data.id)
+    if (!def) return reply.status(404).send(error(404, `任务不存在: ${p.data.id}`))
+    const outcome = await runRelayTaskById(p.data.id)
+    if (!outcome) {
+      return reply
+        .status(400)
+        .send(error(400, `任务「${def.name}」无手动触发口。${def.note ?? '该载体不由本进程调度'}`))
+    }
+    if (!outcome.ok) return reply.status(500).send(error(500, outcome.detail))
+    return reply.send(success({ id: p.data.id, detail: outcome.detail }))
+  })
+
   // ===== 9. GET /admin/relay/account-pool/usage/:id?days=7 — 单账号用量 =====
   // limit 默认 500、服务层 clamp 上限 1000;offset >= 0。返回 detail + detailTotal。
   const usageQuerySchema = z.object({
@@ -625,7 +1032,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         refreshToken: credentials.refreshToken,
         credVersion: row.credVersion,
         enabled: row.isEnabled,
-        proxyUrl: row.proxyUrl,
+        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
         deviceId: row.deviceId,
         machineId: row.machineId,
         cosy: extractCosy(row.extraMetadata),
@@ -717,6 +1124,104 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     // 404(未同步)/429(冷却/限流)原样透传;502(网络)由 ai-service 不可达导致
     const status = r.httpStatus === 404 || r.httpStatus === 429 ? r.httpStatus : 502
     return reply.status(status).send(error(status, r.error ?? '触发签到失败'))
+  })
+
+  // ===== 28. GET /admin/relay/accounts/:id/tasks — WorkBuddy 任务清单(O68) =====
+  // 转发 ai-service /api/checkin/accounts/{id}/tasks(立即签到同款纪律):
+  // unjudged 显式透传;响应形状读不出清单 ⇒ ok:false + unjudged:true(不冒充空列表)。
+  server.get('/admin/relay/accounts/:id/tasks', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const target = await resolveWorkbuddyTaskTarget(p.data.id)
+    if (!target.ok) {
+      return reply.status(target.status).send(error(target.status, target.message))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/checkin/accounts/${target.checkinAccountId}/tasks`,
+        { signal: AbortSignal.timeout(30_000) },
+      )
+      const body = (await resp.json().catch(() => null)) as Record<string, unknown> | null
+      if (!resp.ok) {
+        const status = upstreamTaskErrorStatus(resp.status)
+        return reply
+          .status(status)
+          .send(
+            error(status, `任务清单获取失败 HTTP ${resp.status}${upstreamTaskErrorDetail(body)}`),
+          )
+      }
+      const rawTasks = Array.isArray(body?.tasks) ? (body!.tasks as unknown[]) : null
+      const listed = rawTasks !== null
+      const tasks = listed
+        ? rawTasks.map(normalizeTaskItem).filter((x): x is NormalizedTaskItem => x !== null)
+        : []
+      const engineOk = body !== null && body.ok === true
+      return reply.send(
+        success({
+          ok: engineOk && listed,
+          tasks,
+          reason: strOrNull(body?.reason),
+          // 引擎自报未判定 ∨ 形状读不出清单 ⇒ 未判定;两者都不是才算"判过"
+          unjudged: body?.unjudged === true || !listed || !engineOk,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, '任务清单服务暂不可用'))
+    }
+  })
+
+  // ===== 29. POST /admin/relay/accounts/:id/task-run — WorkBuddy 任务手动触发(O68) =====
+  // body {kind, dryRun?} → 上游 {kind, dry_run};429/404 原样透传;
+  // credit/energy delta 形状读不出 = null + unjudged,绝不用 0 冒充"没拿到"。
+  server.post('/admin/relay/accounts/:id/task-run', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const b = taskRunBodySchema.safeParse(request.body ?? {})
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    const target = await resolveWorkbuddyTaskTarget(p.data.id)
+    if (!target.ok) {
+      return reply.status(target.status).send(error(target.status, target.message))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/checkin/accounts/${target.checkinAccountId}/task-run`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ kind: b.data.kind, dry_run: b.data.dryRun ?? false }),
+          signal: AbortSignal.timeout(60_000),
+        },
+      )
+      const body = (await resp.json().catch(() => null)) as Record<string, unknown> | null
+      if (!resp.ok) {
+        const status = upstreamTaskErrorStatus(resp.status)
+        return reply
+          .status(status)
+          .send(error(status, `任务触发失败 HTTP ${resp.status}${upstreamTaskErrorDetail(body)}`))
+      }
+      // 2xx 但对象面读不出(ok 非布尔 / delta 族整体缺失)⇒ unjudged 如实标注
+      const engineOk = body !== null && typeof body.ok === 'boolean' ? (body.ok as boolean) : false
+      const shaped = body !== null && typeof body.ok === 'boolean'
+      return reply.send(
+        success({
+          ok: engineOk,
+          kind: b.data.kind,
+          accepted: strArray(body?.accepted),
+          claimed: strArray(body?.claimed),
+          creditDelta: numOrNull(body?.credit_delta),
+          energyDelta: numOrNull(body?.energy_delta),
+          reason: strOrNull(body?.reason),
+          unjudged: body?.unjudged === true || !shaped,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, '任务触发服务暂不可用'))
+    }
   })
 
   // ===== 10. POST /admin/relay/accounts/:id/claim — 认领账号 =====
@@ -1000,7 +1505,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       let live = row
       let outcome = await adapter.getQuota(
         { row: live, credentials: decryptAccountCredentials(live) },
-        { proxyUrl: live.proxyUrl },
+        { proxyUrl: resolveAccountProxyUrl(live.proxyUrl) },
       )
       let attemptedRefresh = false
       if (!outcome.ok && outcome.authFailed && adapter.refreshToken) {
@@ -1014,7 +1519,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         live = fresh ?? live
         outcome = await adapter.getQuota(
           { row: live, credentials: decryptAccountCredentials(live) },
-          { proxyUrl: live.proxyUrl },
+          { proxyUrl: resolveAccountProxyUrl(live.proxyUrl) },
         )
       }
       return reply.send(
@@ -1031,6 +1536,180 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '余额查询失败'))
+    }
+  })
+
+  // ===== 24. POST /admin/relay/accounts/:id/models — 按需点查可用模型清单 =====
+  // 形状统一:优先富契约 listModelsDetailed(qoder 走本机 CLI --list-models,scope=本机登录态),
+  // 否则回落既有 listModels(string[],trae/workbuddy/codearts/grokbot/lingma 等)逐名包装。
+  // 两者都无(如 minimax,模型清单端点未实证)⇒ 如实 400 未支持,绝不编造清单。
+  server.post('/admin/relay/accounts/:id/models', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    try {
+      const [row] = await dbRead
+        .select()
+        .from(aiRelayAccountPool)
+        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .limit(1)
+      if (!row) return reply.status(404).send(error(404, '账号不存在'))
+      const adapter = getRelayAdapter(row.providerCode)
+      if (!adapter) {
+        return reply
+          .status(400)
+          .send(error(400, `平台 ${row.providerCode} 适配器未注册,无法查模型清单`))
+      }
+      if (typeof adapter.listModelsDetailed === 'function') {
+        // qoder 通路:CLI 用本机登录态,不消费库凭据;结果 scope 原样透传(管理页须展示语义)
+        const outcome = await adapter.listModelsDetailed(
+          { row, credentials: decryptAccountCredentials(row) },
+          {},
+        )
+        return reply.send(
+          success({
+            id: row.id,
+            providerCode: row.providerCode,
+            ok: outcome.ok,
+            error: outcome.error ?? null,
+            scope: outcome.scope ?? null,
+            models: outcome.models ?? [],
+            queriedAt: new Date().toISOString(),
+          }),
+        )
+      }
+      if (typeof adapter.listModels === 'function') {
+        const names = await adapter.listModels(
+          { row, credentials: decryptAccountCredentials(row) },
+          { proxyUrl: resolveAccountProxyUrl(row.proxyUrl) },
+        )
+        return reply.send(
+          success({
+            id: row.id,
+            providerCode: row.providerCode,
+            ok: true,
+            error: null,
+            scope: 'upstream-account',
+            models: (Array.isArray(names) ? names : []).map((n) => ({ name: String(n) })),
+            queriedAt: new Date().toISOString(),
+          }),
+        )
+      }
+      return reply
+        .status(400)
+        .send(error(400, `平台 ${row.providerCode} 无已实证的模型清单通路(未支持)`))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '模型清单查询失败'))
+    }
+  })
+
+  // ===== 25. POST /admin/relay/accounts/:id/complete-phone — 人工补全手机号 =====
+  // 号池统一名 = 官方绑定手机号全号(2026-10-28 规约)。掩码名账号(如 Trae 的
+  // 180******69)由机主提供全号后在此归位:前3后2不吻合默认 400 拒收(带 force=true
+  // 走机主换绑强制通道,via=owner_override),现名已是全号且不一致 409(force 也不放开)。
+  // 改名联动 cred_version 前进 + 签到副本传播(判据单源 service)。
+  server.post('/admin/relay/accounts/:id/complete-phone', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const b = completePhoneBodySchema.safeParse(request.body)
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const force = b.data.force === true
+      const r = await completeAccountPhone(
+        p.data.id,
+        b.data.phone,
+        force ? 'owner_override' : 'manual',
+        { force },
+      )
+      if (r.code === 'not_found')
+        return reply.status(404).send(error(404, r.message ?? '账号不存在'))
+      if (r.code === 'invalid_phone' || r.code === 'mask_mismatch') {
+        return reply.status(400).send(error(400, r.message ?? '手机号不合规'))
+      }
+      if (r.code === 'already_full') {
+        return reply.status(409).send(error(409, r.message ?? '现名已是全号'))
+      }
+      return reply.send(
+        success({
+          id: r.id,
+          oldName: r.oldName,
+          name: r.name,
+          changed: r.changed,
+          message: r.message,
+          checkinSync: r.checkinSync,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '手机号补全失败'))
+    }
+  })
+
+  // ===== 26. POST /admin/relay/account-pool/match-phone — 批量候选号自动归位 =====
+  // 机主一次性给一组全号:前3后2 双向唯一命中才自动改名,歧义/无命中如实挂报告
+  // 待人工(绝不猜号归位)。响应零凭据,只含 id/名/候选号。
+  server.post('/admin/relay/account-pool/match-phone', async (request, reply) => {
+    const b = matchPhoneBodySchema.safeParse(request.body)
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const report = await matchPhoneCandidates(b.data.phones)
+      return reply.send(success(report))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '批量候选匹配失败'))
+    }
+  })
+
+  // ===== 27. POST /admin/relay/accounts/:id/login-local — 把该号写进本机客户端登录态 =====
+  // 支持 trae(重封 storage.json byteCrypto 信封)与 codex/opencode/minimax/zcode/
+  // codearts/qoder(scripts/local-login.mjs 重封各自存储);客户端登录态是整份会话(导入时
+  // 存成会话模板),用池内最新凭证打补丁后写回。写前必留同目录备份,失败可人工回滚。
+  // 其余平台返回 409 并点名「无法离线重封」的具体原因(见 LOCAL_LOGIN_UNSUPPORTED_REASONS)。
+  server.post('/admin/relay/accounts/:id/login-local', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    try {
+      const [row] = await dbRead
+        .select()
+        .from(aiRelayAccountPool)
+        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .limit(1)
+      if (!row) return reply.status(404).send(error(404, '账号不存在'))
+      const result = await loginAccountLocal(row)
+      return reply.send(success(result))
+    } catch (e) {
+      if (e instanceof LocalLoginError) {
+        return reply.status(e.status).send(error(e.status, e.message))
+      }
+      request.log.error(e)
+      return reply.status(500).send(error(500, '写入本机登录态失败'))
+    }
+  })
+
+  // ===== 30. GET /admin/relay/pool-policy — 号池选号策略只读面(O93) =====
+  // 立因:八枚 IHUI_RELAY_POOL_* 钮此前只活在代码里(改前实测 .env.example 零命中),
+  // 换机/排障无从发现,运维在面板上也看不到"当前生效档位到底是哪一档"。
+  // 判据零复算:整档视图来自 relayPoolPolicyView()(现读 process.env,与 forwarder
+  // 每请求现读走同一批 env 解析原语);路由不自己解析任何钮值(§0.6)。
+  // 鉴权形态与本文件其余 29 条逐字相同 = 插件级 preHandler=requireAdmin,其内部按
+  // `includeInternalChannel:false` 只认人用 JWT(内部服务令牌打不开 admin 面),不新造通道。
+  // mutable:false 是设计而非缺陷:钮住在进程级 env,运行时改不动;写端点只会造出
+  // "面板能点但改不动"的假旋钮(§0.9:判据必须真生效)。改档出路 = .env → 重启 api 进程。
+  server.get('/admin/relay/pool-policy', async (request, reply) => {
+    try {
+      const view = relayPoolPolicyView()
+      return reply.send(
+        success({
+          ...view,
+          mutable: false,
+          hint: '八枚钮的生效值来自 api 进程启动后读到的 IHUI_RELAY_POOL_*(见 apps/api/.env.example 与仓根 .env.example 的同名分节)。改档请写进 .env 后重启 apps/api 进程生效 —— env 是进程级读取,非热加载;本端点刻意只提供读面,不提供写入。',
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '选号策略读取失败'))
     }
   })
 }

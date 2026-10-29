@@ -32,7 +32,7 @@ if ((dotenvResult.error || !dotenvResult.parsed) && !process.env.IHUI_SETUP_ENV_
       ` (cwd=${process.cwd()} , 试过的两个落点=${resolve(process.cwd(), '.env.test')} / ${resolve(
         process.cwd(),
         'apps/api/.env.test',
-      ) })⇒ DATABASE_URL / JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY / REDIS_URL ` +
+      )})⇒ DATABASE_URL / JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY / REDIS_URL ` +
       '取的是本文件兜底值;若收集期出现 config 相关 TypeError 或 "Invalid environment variables",' +
       ' 先核对这些兜底值能否过 apps/api/src/config/index.ts 的 envSchema。',
   )
@@ -51,4 +51,11 @@ process.env.REDIS_URL ??= 'redis://localhost:8811/1'
 // (如 agents.ts 的 COZE_WEBHOOK_SECRET 拒绝启动)。与下面 NODE_ENV 同性质:强制,非补缺。
 process.env.ZCODE_RUNTIME_ENV = 'test'
 process.env.NODE_ENV = 'test'
+// 2026-10-28:管理员 TOTP 闸在测试档默认关掉。
+// 理由不是"懒得测",而是既有 admin 路由测试大量使用**顺序队列式**的 DB mock
+// (第 N 次 select 返回第 N 个夹具),TOTP 闸会多插一次 select ⇒ 整个队列错位、
+// 与业务断言无关的 16 例一起红。档位语义本身的覆盖在 tests/admin-totp-gate.test.ts
+// 里用 vi.mock(config) 显式跑 off/warn/enforce 三档,不依赖这个全局值。
+// 需要在这条链上测 TOTP 行为的新用例,请照那个文件的做法 mock config,不要改这里。
+process.env.ADMIN_TOTP_MODE = 'off'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

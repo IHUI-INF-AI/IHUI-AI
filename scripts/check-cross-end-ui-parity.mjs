@@ -1186,7 +1186,9 @@ export function iconAudit(pairs, text) {
  * 一端写 A 另一端写 B(或写同一枚数值)属同一档;键由 `specTierEquivalence` 单源算,本函数零复算。
  * 方向是单向的:**别名只许划掉假账,不许新报单侧**(理由与真仓实测见 specLegAudit 内注)。
  */
-export function specLegAudit(pairs, text, tiers) {
+export function specLegAudit(pairs, text, tiers, opts = {}) {
+  const coreExports = opts.coreExports ?? {}
+  const specFnTiers = opts.specFnTiers ?? {}
   const specNames = Object.keys(tiers ?? {}).filter((n) => !n.startsWith('geometry.'))
   if (!specNames.length) return []
   /**
@@ -1225,8 +1227,29 @@ export function specLegAudit(pairs, text, tiers) {
     const idsOf = (src) => new Set(src.match(/[A-Za-z_$][\w$]*/g) || [])
     const ia = idsOf(stripComments(a))
     const ib = idsOf(stripComments(b))
-    const onlyMiniapp = specNames.filter((n) => ia.has(n) && !ib.has(n) && !viaEquivalent(ib, n))
-    const onlyRn = specNames.filter((n) => ib.has(n) && !ia.has(n) && !viaEquivalent(ia, n))
+    /**
+     * **同源消费的两跳投影**(2026-10-28,O02 ④ 记的那条假账):
+     *   ① 腿里出现了某个 core 的**导出名** ⇒ 该 core 的标识符并入这条腿
+     *      (按导出名认、不按 import 说明符 —— 两端常从 barrel `@ihui/shared/ui` 引 core 组件);
+     *   ② 并入后若出现 spec 里 `export function` 的名字 ⇒ 该函数体引用的档也算这条腿消费。
+     * 立因:两端改走共享核心后档名只出现在 spec 函数体里,腿侧只剩组件/函数名 ⇒
+     * "两端同源"被读成"仅一侧引用"(BottomActionBar / NavBar 两族实测)。
+     * **方向铁律:投影只抵消对侧、绝不作为检出依据** —— 检出仍用原始 id,
+     * 否则"某腿经 core 取到某档"本身会多出一条新读数(实测会多出 SL ColorfulLoader(1) 假账)。
+     */
+    const expand = (raw) => {
+      const ids = new Set(raw)
+      for (const name of Object.keys(coreExports)) {
+        if (!ids.has(name)) continue
+        for (const id of idsOf(stripComments(coreExports[name]))) ids.add(id)
+      }
+      for (const fn of Object.keys(specFnTiers)) if (ids.has(fn)) for (const t of specFnTiers[fn]) ids.add(t)
+      return ids
+    }
+    const pa = expand(ia)
+    const pb = expand(ib)
+    const onlyMiniapp = specNames.filter((n) => ia.has(n) && !pb.has(n) && !viaEquivalent(pb, n))
+    const onlyRn = specNames.filter((n) => ib.has(n) && !pa.has(n) && !viaEquivalent(pa, n))
     // 同档异名配对:只划掉"其实是同一个几何档"的那两条假账,不新增任何单侧。
     const paired = new Set()
     for (const x of onlyMiniapp) for (const y of onlyRn) if (sameTier(x, y)) paired.add(x).add(y)
@@ -2525,6 +2548,66 @@ export function collect(
       `${FACE_TXT[face]}取不到 ${radiusPath} 或档位表解析为空,而配对组件在用圆角 ⇒ 圆角维判据失明`,
     )
   const tiers = specTiers(specSources)
+  /**
+   * SL 维的两张投影表(判据语义见 specLegAudit 同一段注):
+   *  · `specFnTiers` —— spec 里 `export function` 的函数体引用了哪些档。函数体按**括号配平**取整段,
+   *    不用正则截到第一个 `}`(模板串/对象字面量里的 `}` 会提前截断,那正是本仓记过的自证工具失效型);
+   *  · `coreExports` —— core 文件里每个导出名 → 该 core 源文本。第一跳按**导出名**认,
+   *    因为两端常从 barrel `@ihui/shared/ui` 引 core 组件(小程序 BottomActionBar 即如此),
+   *    按 import 说明符认会整条漏掉。列清单走本文件已 import 的 `gitRaw`
+   *    (**本文件没有 `execFileSync`** —— 写成它会抛 ReferenceError,被 catch 吞成"没有 core",gate 静默零变化)。
+   */
+  const specFnTiers = {}
+  for (const src of Object.values(specSources ?? {})) {
+    const code = String(src)
+    for (const m of code.matchAll(/export\s+function\s+([A-Za-z_$][\w$]*)\s*(?:<[^>]*>)?\s*\(/g)) {
+      const bodyStart = code.indexOf('{', m.index + m[0].length)
+      if (bodyStart < 0) continue
+      let depth = 0
+      let end = -1
+      for (let i = bodyStart; i < code.length; i++) {
+        const c = code[i]
+        if (c === '{') depth += 1
+        else if (c === '}') {
+          depth -= 1
+          if (depth === 0) {
+            end = i
+            break
+          }
+        }
+      }
+      if (end < 0) continue
+      const body = code.slice(bodyStart, end + 1)
+      const used = Object.keys(tiers).filter((n) => new RegExp(`\\b${n}\\b`).test(body))
+      if (used.length) specFnTiers[m[1]] = used
+    }
+  }
+  const coreExports = {}
+  const coreMissing = []
+  let coreFiles = []
+  try {
+    coreFiles = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', 'packages/shared/src/ui'], repoRoot, {
+      maxBuffer: 1 << 28,
+    })
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => /-core\.tsx$/.test(s))
+  } catch (e) {
+    coreMissing.push(`packages/shared/src/ui 列不出:${e?.message ?? e}`)
+    coreFiles = []
+  }
+  if (coreFiles.length) {
+    const coreSpecs = coreFiles.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
+    const gotCore = catBatch(repoRoot, coreSpecs, { maxBuffer: 1 << 28 })
+    coreFiles.forEach((rel, i) => {
+      const got = gotCore.get(coreSpecs[i])
+      if (got === null || got === undefined) {
+        coreMissing.push(rel)
+        return
+      }
+      for (const m of got.matchAll(/export\s+(?:function|const)\s+([A-Za-z_$][\w$]*)/g)) coreExports[m[1]] = got
+    })
+  }
   const geoDecl = hasGeo
     ? geometryDeclCheck(specSources[geoPath], specSources[geoDtsPath])
     : { skipped: true }
@@ -2547,6 +2630,9 @@ export function collect(
     webUnreachableLegs,
     webReachNote,
     text,
+    specFnTiers,
+    coreExports,
+    coreMissing,
     styles,
     blindClasses,
     // 类臂解析维(G-16(ii)):与 blindClasses 分开登记 —— 前者是"读不到",后者是"解不出/查无"。
@@ -4409,13 +4495,19 @@ export function main(argv, repoRoot = ROOT) {
    * 红条件与 IC 同形 = 该族单侧档数**超过它自己在 HEAD 的存量**;存量只报数 ——
    * 首次接通时 9 族全有单侧档,当场判红就是一台恒红门(§12e 同型)。
    */
-  const sl = specLegAudit(collected.pairs, collected.text, collected.tiers)
+  const sl = specLegAudit(collected.pairs, collected.text, collected.tiers, {
+    specFnTiers: collected.specFnTiers,
+    coreExports: collected.coreExports,
+  })
   let slRed = []
   if (sl.length) {
     if (face !== 'head') {
       const base = collect(repoRoot, 'head', { pairAll, aliases })
       const baseSl = new Map(
-        specLegAudit(base.pairs, base.text, base.tiers).map((x) => [
+        specLegAudit(base.pairs, base.text, base.tiers, {
+          specFnTiers: base.specFnTiers,
+          coreExports: base.coreExports,
+        }).map((x) => [
           x.name,
           x.onlyMiniapp.length + x.onlyRn.length,
         ]),

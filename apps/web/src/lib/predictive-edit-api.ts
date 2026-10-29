@@ -27,6 +27,21 @@ import { fetchApi } from '@ihui/api-client'
 /** ai-service 端点(web 同源反代;后端路径为 /api/llm/fim/edit-intent)。 */
 export const PREDICTIVE_EDIT_ENDPOINT = '/api/llm/fim/edit-intent'
 
+/**
+ * FIM 指标上报端点(与 CodeEditor 补全上报同一个后端入口,scene 分桶)。
+ * 反代路径与 edit-intent 同前缀(`/api/llm/:path*` → ai-service)。
+ */
+export const FIM_METRICS_ENDPOINT = '/api/llm/fim/metrics'
+
+/**
+ * 本场景在 model×scene 聚合里的场景字面量。**逐字**取自后端
+ * `apps/ai-service/app/routers/fim.py` 的 `FIMMetricsReport.scene` 字段说明
+ * (现读 213 行:"completion=补全 / edit_intent=编辑意图预测");后端
+ * `_normalize_scene` 只剥分隔符/截断,不做白名单,故拼错的值会静默落进
+ * 另一个桶而不是报错 —— 改动前必须回读后端。
+ */
+export const PREDICTIVE_EDIT_METRICS_SCENE = 'edit_intent'
+
 /** 对话输入区草稿的文件类型线索(后端只把它当语言提示,不参与区间坐标系)。 */
 export const PREDICTIVE_EDIT_LANGUAGE = 'markdown'
 
@@ -34,10 +49,10 @@ export const PREDICTIVE_EDIT_LANGUAGE = 'markdown'
  * 本次预测预算(ms)。后端 `resolve_budget_ms` 必有界(默认 1500 / 封顶 4000),
  * 这里给 2000:允许一次正常往返,又不会在网关退化时把输入区挂住。
  */
-export const PREDICTIVE_EDIT_TIMEOUT_MS = 2_000
+const PREDICTIVE_EDIT_TIMEOUT_MS = 2_000
 
 /** 编辑动作种类(与后端 `EDIT_ACTION_KINDS` 同一封闭集)。 */
-export type PredictiveEditActionKind = 'insert' | 'replace' | 'delete'
+type PredictiveEditActionKind = 'insert' | 'replace' | 'delete'
 
 /** 一条可执行动作;start/end 是**被审草稿**的绝对字符偏移(0 基,end 不含)。 */
 export interface PredictiveEditAction {
@@ -49,7 +64,7 @@ export interface PredictiveEditAction {
 }
 
 /** 后端 undetermined 的原因码(封闭集,逐项可分辨)。 */
-export type PredictiveEditUndeterminedReason =
+type PredictiveEditUndeterminedReason =
   | 'no_credentials'
   | 'model_unavailable'
   | 'model_timeout'
@@ -65,7 +80,14 @@ export type PredictiveEditUndeterminedReason =
  * 两者都不得折算成 `no_action`(模型明说没有编辑意图)—— 本仓最高频失效型。
  */
 export type PredictiveEditOutcome =
-  | { status: 'suggested'; actions: PredictiveEditAction[] }
+  | {
+      status: 'suggested'
+      actions: PredictiveEditAction[]
+      /** 实际使用的模型 id(响应缺该字段时为 undefined,上报侧按 'auto' 落桶)。 */
+      model?: string
+      /** 后端测得的预测延迟(ms;响应缺该字段时不上报延迟样本)。 */
+      latencyMs?: number
+    }
   | { status: 'no_action' }
   | { status: 'undetermined'; reason: PredictiveEditUndeterminedReason }
   | { status: 'failed'; reason: string }
@@ -89,6 +111,10 @@ interface PredictiveEditResponseData {
   disposition?: string
   reason?: string | null
   actions?: unknown
+  /** 实际使用的模型 id(后端 `finish(...)` 回显;缺失按 'auto' 上报)。 */
+  model?: string | null
+  /** 后端测得的本次预测延迟(ms,响应契约 `latency_ms`)。 */
+  latency_ms?: number | null
 }
 
 const ACTION_KINDS: readonly PredictiveEditActionKind[] = ['insert', 'replace', 'delete']
@@ -123,7 +149,14 @@ function mapResponseData(data: PredictiveEditResponseData | undefined): Predicti
   if (data.disposition === 'suggested') {
     const actions = Array.isArray(data.actions) ? data.actions.filter(isPredictiveEditAction) : []
     if (actions.length === 0) return { status: 'failed', reason: 'invalid_payload' }
-    return { status: 'suggested', actions }
+    return {
+      status: 'suggested',
+      actions,
+      ...(typeof data.model === 'string' && data.model ? { model: data.model } : {}),
+      ...(typeof data.latency_ms === 'number' && Number.isFinite(data.latency_ms)
+        ? { latencyMs: data.latency_ms }
+        : {}),
+    }
   }
   if (data.disposition === 'no_action') return { status: 'no_action' }
   if (data.disposition === 'undetermined') {
@@ -214,4 +247,56 @@ export function applyPredictedEditActions(
     previousStart = action.start
   }
   return result
+}
+
+/** 一次预测终点事件的指标增量(「应用/忽略」各算一次;见 `reportPredictiveEditMetric`)。 */
+export interface PredictiveEditMetricEvent {
+  /** true = 应用(acceptedCount+1);false = 忽略(dismissedCount+1)。 */
+  accepted: boolean
+  /** 实际使用的模型 id;缺省 'auto'(与后端 `FIMMetricsReport.model` 缺省同义)。 */
+  model?: string
+  /** 该条建议对应的预测延迟样本(ms);后端 `latencyMs` 是样本数组,这里包成单样本。 */
+  latencyMs?: number
+}
+
+/**
+ * 上报一条预测式编辑的接受/忽略增量到 `/api/llm/fim/metrics`(scene=edit_intent)。
+ *
+ * 立因:B01 票核实现仓唯一上报点 `CodeEditor.tsx:256` 的 body 不带 scene(落缺省
+ * completion 桶),而本条链路零上报 ⇒ 看板 summary 的 edit_intent 桶**没有生产者**、
+ * 接受率恒空(后端 `rate = accepted/suggestions`,suggestions 恒 0 ⇒ 恒 None)。
+ * 每条**展示过**的建议恰好终结于「应用」或「忽略」之一,故两个终点都带
+ * `suggestionCount:1` —— 分母与分子同批入账,接受率才可计算。
+ *
+ * 上报走 `fetchApi` 既有出口(§0.6,与 CodeEditor 补全腿同一端点,不自建第二套
+ * 请求层);失败一律静默(console.debug 一痕),绝不阻塞输入与发送 ——
+ * 同本文件头注的降级纪律。Promise.resolve 包裹:mock/异常实现返回非 Promise 也不抛
+ * (与 CodeEditor flushFimReport 同型防线)。
+ */
+export function reportPredictiveEditMetric(event: PredictiveEditMetricEvent): void {
+  const body = {
+    model: event.model || 'auto',
+    scene: PREDICTIVE_EDIT_METRICS_SCENE,
+    suggestionCount: 1,
+    acceptedCount: event.accepted ? 1 : 0,
+    dismissedCount: event.accepted ? 0 : 1,
+    ...(typeof event.latencyMs === 'number' && Number.isFinite(event.latencyMs)
+      ? { latencyMs: [event.latencyMs] }
+      : {}),
+  }
+  try {
+    void Promise.resolve(
+      fetchApi<unknown>(FIM_METRICS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    )
+      .then((result) => {
+        if (result && result.success === false) debugSilently('metric 上报失败', result.error)
+      })
+      .catch((error) => debugSilently('metric 上报异常', error))
+  } catch (error) {
+    debugSilently('metric 上报抛错(同步段)', error)
+  }
 }

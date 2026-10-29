@@ -24,6 +24,12 @@
     "noResult": "実行結果はまだありません",
     "rrule": "スケジュール (RRULE)",
     "timezone": "タイムゾーン",
+    "terminalReason": {
+      "manualPause": "手動で一時停止",
+      "failedPermanent": "恒久的な失敗",
+      "failedRetriesExhausted": "リトライ回数上限に到達",
+      "completed": "完了"
+    },
     "schedule": "実行タイミング"
   },
   "dashboard": {
@@ -756,6 +762,7 @@
         "retry": "再試行",
         "saveAudioOnly": "音声のみ保存",
         "insertToInput": "入力欄に挿入",
+        "cancel": "録音をキャンセル",
         "dismiss": "閉じる"
       },
       "searchPlaceholder": "ノートを検索",
@@ -946,6 +953,7 @@
     "version": "バージョン",
     "language": "言語",
     "theme": "テーマ",
+    "checkUpdateUnsupported": "このビルドではアプリ内更新を利用できません",
     "logoutConfirmBody": "このアカウントからログアウトしますか？"
   },
   "menu": {
@@ -6794,7 +6802,6 @@
     "usagePolicy": {
       "title": "使用政策",
       "lastUpdated": "最終更新"
-    },
     "backToHome": "ホームに戻る"
   },
   "agentEdit": {
@@ -6963,6 +6970,129 @@
     "unknownLecturer": "不明な講師",
     "viewCount": "{count} 回視聴"
   },
+  "quickNotes": {
+    "menuEntry": "クイックノート",
+    "title": "クイックノート",
+    "new": "新規ノート",
+    "search": "ノートを検索",
+    "insert": "チャットに挿入",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブ解除",
+    "archived": "アーカイブ済み",
+    "showArchived": "アーカイブを表示",
+    "empty": "ノートはまだありません",
+    "titlePlaceholder": "タイトル",
+    "contentPlaceholder": "本文",
+    "groupPlaceholder": "グループ(任意)"
+  "scanLogin": {
+    "menuTitle": "スキャン",
+    "title": "スキャンしてログイン",
+    "hint": "パソコン画面のQRコードを枠内に合わせてください",
+    "submitting": "確認中…",
+    "permissionHint": "スキャンにはカメラの権限が必要です",
+    "deniedHint": "カメラの権限が拒否されました。システム設定で許可してから再度お試しください。",
+    "grant": "カメラを許可",
+    "openSettings": "設定を開く",
+    "invalidCode": "このサイトのログイン用QRコードを読み取ってください",
+    "success": "ログインを確認しました",
+    "failed": "確認に失敗しました。もう一度お試しください。",
+    "needLogin": "スキャンの前にログインしてください"
+  "circlePostPage": {
+    "title": "コミュニティ",
+    "back": "戻る",
+    "cardTitle": "新規投稿",
+    "selectCircle": "サークルを選択",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "投稿タイトルを入力",
+    "contentLabel": "内容",
+    "contentPlaceholder": "投稿内容を入力",
+    "images": "画像",
+    "submit": "送信",
+    "cancel": "キャンセル",
+    "errorCircleRequired": "サークルを選択してください",
+    "errorTitleContentRequired": "タイトルと内容は必須です",
+    "error": "読み込み失敗"
+  "invitationsPage": {
+    "title": "APIテスト",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "generate": "招待コード生成",
+    "myCodes": "マイコード",
+    "invitees": "みユーザー",
+    "loading": "読み込み中...",
+    "emptyCodes": "コードがありません。をクリックして",
+    "emptyInvitees": "みユーザーがいません",
+    "user": "ユーザー",
+    "registeredAt": "登録時間",
+    "reward": "報酬",
+    "rewardValue": "+{inviter} / られる +{invitee} ポイント",
+    "expiresAt": "有効期限",
+    "copy": "コピー",
+    "copied": "コピーしました",
+    "statusUnused": "アクティブ",
+    "statusUsed": "使用済み",
+    "statusExpired": "期限切れ",
+    "back": "戻る",
+    "loginRequired": "先にログインしてください",
+    "error": "読み込み失敗"
+  "lettersPage": {
+    "title": "プライベートメッセージ",
+    "subtitle": "プラットフォームユーザーとの1対1のプライベートチャット",
+    "searchPlaceholder": "連絡先を検索...",
+    "loading": "読み込み中...",
+    "empty": "会話なし",
+    "error": "読み込み失敗",
+    "you": "私",
+    "send": "送信",
+    "sendPlaceholder": "メッセージを入力...",
+    "deleteConfirm": "このメッセージを削除しますか？",
+    "confirm": "確認",
+    "back": "戻る",
+    "loginRequired": "先にログインしてください"
+  "newsCategoryPage": {
+    "backToList": "るリスト",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "notFound": "つかりません",
+    "empty": "コンテンツはまだありません。おしみに",
+    "pinned": "ピンめ",
+    "publishedAt": "{date} に",
+    "viewCount": "{count}",
+    "total": "合計 {total} 篇",
+    "prev": "前のページ",
+    "next": "次のページ",
+    "loading": "読み込み中...",
+    "error": "読み込み失敗"
+  "searchHistoryPage": {
+    "title": "検索履歴",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "clearAll": "クリアて",
+    "loading": "読み込み中...",
+    "empty": "検索履歴はありません",
+    "resultCount": "検索結果 {count} 件",
+    "back": "戻る",
+    "loginRequired": "先にログインしてください",
+    "error": "読み込み失敗"
+  "signUpPage": {
+    "title": "マイ申込",
+    "empty": "データがありません",
+    "statusDraft": "審査待ち",
+    "statusPublished": "確認済み",
+    "statusRejected": "拒否",
+    "statusCompleted": "完了"
+  "appUpdate": {
+    "title": "新しいバージョンがあります",
+    "action": "更新",
+    "close": "閉じる",
+    "ready": "更新の準備ができました",
+    "installing": "再起動しています…",
+    "error": "更新に失敗しました",
+    "errorDesc": "ネットワークを確認して再試行してください",
+    "downloading": "アップデートをダウンロード中…",
+    "currentBundle": "現在実行中:{{bundle}}",
+    "bundleEmbedded": "内蔵パッケージ",
+    "bundleOta": "ホットアップデート",
+    "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。",
+    "installingHint": "アプリは自動的に再起動します（通常は数秒）。",
+    "restartNow": "今すぐ再起動"
   "skillsMarket": {
     "title": "スキルマーケット",
     "subtitle": "コミュニティスキルを探索・インストール",

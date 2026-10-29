@@ -93,6 +93,13 @@ vi.mock('@ihui/database', () => ({
 }))
 vi.mock('@ihui/types', () => ({
   PROVIDER_HEALTH_STATUSES: ['healthy', 'degraded', 'down', 'unknown'],
+  // 路由顶层经 @ihui/shared → packages/shared/src/sse/contract.ts 读取本表;
+  // mock 少一个导出会在 import 期抛错(整套件 collection 失败),故按真值补齐。
+  CHAT_SYNC_EVENT_NAMES: {
+    MESSAGE_CREATED: 'message:created',
+    MESSAGE_PATCHED: 'message:patched',
+    MESSAGE_TERMINAL: 'message:terminal',
+  },
 }))
 vi.mock('../../utils/logger.js', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -104,6 +111,24 @@ vi.mock('../../services/relay-account-pool-service.js', () => ({
     refreshToken: 'ref-1',
     cookies: [],
     secrets: {},
+  })),
+  // 手机号补全端点(2026-10-28)新增的两个 service 导出:mock 必须一并补齐,
+  // 否则本套件 collection 期就报「does not provide an export named」。
+  completeAccountPhone: vi.fn(async () => ({
+    code: 'ok',
+    message: null,
+    id: 'row-1',
+    oldName: null,
+    name: null,
+    changed: false,
+    checkinSync: { pushed: 0, pending: false, error: null },
+  })),
+  matchPhoneCandidates: vi.fn(async () => ({
+    scannedMasked: 0,
+    matched: [],
+    ambiguous: [],
+    unmatched: [],
+    rejected: [],
   })),
 }))
 vi.mock('../../services/relay-account-pool-scheduler.js', () => ({
@@ -124,6 +149,10 @@ vi.mock('../../services/relay-proxy-pool.js', () => ({
   deleteProxy: vi.fn(async () => ({})),
   getProxyById: vi.fn(async () => null),
   markProxyChecked: vi.fn(async () => ({})),
+  // 账号级代理密文/明文在本套件按直通处理(不测加密,只测签到编排)
+  encryptAccountProxyUrl: (u: string | null) => u,
+  resolveAccountProxyUrl: (u: string | null) => u,
+  maskAccountProxyUrl: () => null,
 }))
 vi.mock('../../services/relay-model-catalog.js', () => ({
   listModelCatalog: vi.fn(async () => ({})),

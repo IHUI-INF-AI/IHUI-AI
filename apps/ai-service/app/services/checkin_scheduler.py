@@ -42,6 +42,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.services import (
     checkin_credits,
@@ -52,6 +53,7 @@ from app.services import (
     checkin_store,
     checkin_workbuddy,
     checkin_workbuddy_local,
+    workbuddy_tasks,
 )
 from app.services.checkin_engine import client_for, status_check
 from app.services.checkin_outbound import (
@@ -98,6 +100,10 @@ _JOB_ID_PROBE = "checkin_daily_status_probe"
 # 本机客户端凭据同步(2026-10-24 立):第三方 access token 由客户端签发并自动刷新;
 # 客户端与 ai-service 同机时,直接取客户端刷新后的凭据写回,客户端登录在 ⇒ 平台侧不过期。
 _JOB_ID_LOCAL_SYNC = "checkin_local_creds_sync"
+# O68 WorkBuddy 任务赚积分巡检(2026-10-29 立):四族 growth/travel/activity/blackcat,
+# 双门控 WORKBUDDY_TASKS_ENABLED(节拍开关,默认 off)+ WORKBUDDY_TASKS_LIVE_RUN
+# (写侧开关,默认 off ⇒ 调度轮只 dry-run)。
+_JOB_ID_WB_TASKS = "workbuddy_task_sweep"
 # MiniMax OAuth 换票端点(2026-10-24 抓包确认,客户端不在时的服务端续期出口)
 _MINIMAX_TOKEN_URL = "https://account.minimax.cn/oauth2/token"
 
@@ -241,6 +247,17 @@ class CheckinScheduler:
             id=_JOB_ID_LOCAL_SYNC,
             replace_existing=True,
         )
+        # O68 WorkBuddy 任务赚积分巡检:独立开关(默认 off),节拍可调;写侧另由
+        # WORKBUDDY_TASKS_LIVE_RUN 把关,默认调度轮只 dry-run。
+        if settings.workbuddy_tasks_enabled:
+            self._scheduler.add_job(
+                self._workbuddy_task_sweep,
+                trigger=IntervalTrigger(
+                    minutes=max(5, int(settings.workbuddy_tasks_sweep_minutes))
+                ),
+                id=_JOB_ID_WB_TASKS,
+                replace_existing=True,
+            )
         self._scheduler.start()
         self._started = True
         logger.info(
@@ -715,6 +732,68 @@ class CheckinScheduler:
                 uid,
             )
 
+    async def _workbuddy_task_sweep(self) -> None:
+        """O68 WorkBuddy 任务赚积分巡检轮(四族)。
+
+        双门控已由 start() 把关(WORKBUDDY_TASKS_ENABLED);写侧再隔一层
+        WORKBUDDY_TASKS_LIVE_RUN=false ⇒ dry-run(引擎合同保证 dry_run 零写侧调用)。
+        冷却中账号跳过(与积分快照/状态探针同口径);单账号异常不中断整轮;
+        结果只进日志不落 checkin_records(做任务 ≠ 每日签到,语义不同不混表)。
+        """
+        if checkin_outbound_gate.paused_remaining() > 0:
+            logger.info("[checkin_scheduler] 出站限流暂停中,WorkBuddy 任务巡检本轮跳过")
+            return
+        loaded = await self._load_accounts_and_cooldowns("WB任务巡检")
+        if loaded is None:
+            return
+        accounts, cooldowns = loaded
+        targets = [a for a in accounts if str(a.get("platform") or "") == "workbuddy"]
+        if not targets:
+            return
+        dry_run = not bool(settings.workbuddy_tasks_live_run)
+        now = datetime.now(UTC)
+        summary: list[str] = []
+        for acc in targets:
+            cd_end = cooldowns.get(acc["id"])
+            if cd_end is not None and cd_end > now:
+                continue
+            device_map = dict(acc.get("device_map") or {})
+            for kind in ("growth", "travel", "activity", "blackcat"):
+                try:
+                    result = await workbuddy_tasks.run_family(
+                        kind, acc["jwt"], device_map, dry_run=dry_run
+                    )
+                except OutboundPaused:
+                    logger.warning("[checkin_scheduler] WB 任务巡检撞出站暂停,整轮中止")
+                    return
+                except Exception as e:
+                    logger.warning(
+                        "[checkin_scheduler] WB 任务巡检异常 account=%s kind=%s: %s",
+                        acc["id"],
+                        kind,
+                        e,
+                    )
+                    continue
+                summary.append(
+                    f"{acc['id']}/{kind}:ok={result.get('ok')} "
+                    f"accepted={len(result.get('accepted') or [])} "
+                    f"claimed={len(result.get('claimed') or [])} "
+                    f"unjudged={result.get('unjudged')}"
+                )
+                if result.get("unjudged"):
+                    logger.info(
+                        "[checkin_scheduler] WB 任务巡检未判定 account=%s kind=%s reason=%s",
+                        acc["id"],
+                        kind,
+                        result.get("reason"),
+                    )
+                await asyncio.sleep(random.uniform(2.0, 8.0))
+        logger.info(
+            "[checkin_scheduler] WB 任务巡检完成(dry_run=%s):%s",
+            dry_run,
+            "; ".join(summary) if summary else "无可用账号",
+        )
+
     async def _daily_run(self) -> None:
         """08:05 主窗口:遍历非 Qoder 账号(Qoder 账号走 10:05 独立窗口)。"""
         loaded = await self._load_accounts_and_cooldowns("主窗口")
@@ -983,7 +1062,13 @@ class CheckinScheduler:
         # O64:凭证回写号池(签到刷新 → 号池 CAS 回流;失败落 device_map.pool_pending_cred
         # 下次重试,故 dirty 时需再持久化一次)。maybe_writeback 自身不抛,外层 try 双保险。
         try:
-            dirty = await checkin_pool_writeback.maybe_writeback(device_map, cred_before)
+            dirty = await checkin_pool_writeback.maybe_writeback(
+                device_map,
+                cred_before,
+                # 票主体 = account 上的 owner(run_checkin_now 由入参补齐;批量调度
+                # 的 list_enabled_accounts 不 SELECT 该列 ⇒ None ⇒ 只发旧头)。
+                owner_user_id=account.get("owner_user_id"),
+            )
             if dirty:
                 try:
                     await checkin_store.save_device_map(account["id"], device_map)
@@ -1082,6 +1167,10 @@ class CheckinScheduler:
         account = await checkin_store.get_decrypted_jwt(account_id, owner_user_id)
         if account is None:
             raise LookupError(f"账号不存在: {account_id}")
+        # 号池凭证回写要内部票主体:owner 是本方法入参(承载层显式传入的真实值),
+        # 原样带进 account 往下传 —— checkin_store.get_decrypted_jwt 的 SELECT 不含
+        # 该列,故在调用点补齐,不在回写层编造/兜底身份。
+        account = {**account, "owner_user_id": owner_user_id}
         try:
             cooldowns = await checkin_store.get_active_cooldowns()
         except Exception as e:

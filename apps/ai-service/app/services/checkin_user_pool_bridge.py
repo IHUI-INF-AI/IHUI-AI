@@ -24,6 +24,7 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+from app.core.internal_ticket import internal_service_headers
 from app.core.logging import get_logger
 from app.services.api_tools_bridge import api_base_url
 from app.services.checkin_store import (
@@ -53,22 +54,35 @@ def _identity_of(platform: str, jwt: str, device_map: dict[str, Any]) -> str:
     return uid.strip() if isinstance(uid, str) and uid.strip() else ""
 
 
+def _auth_headers(secret: str, owner_user_id: str) -> dict[str, str]:
+    """反向同步请求鉴权头(经 internal_ticket 唯一出口构造,不再手拼常驻密钥头)。
+
+    dual 兼容窗:X-Internal-Service-Token 旧头照发(legacy_token = ai_callback_secret,
+    与既有机器凭据验真出口同源),x-internal-service-ticket 短期票同带 —— 主体绑定
+    payload 里的 ownerUserId(两个端点 upsert/delete 都带,是真实的 apps/api 用户 id)。
+    X-Internal-Secret 是本端点的机机凭据,与内部票两回事,经 extra 原样带上。
+    scope 取封闭集里"ai-service 回调写入 apps/api"那一档(ai-callback);若后续 api 侧
+    为 relay user-pool 端点声明更细的用途,须两侧同笔换档。
+    """
+    return internal_service_headers(
+        owner_user_id,
+        "ai-callback",
+        legacy_token=secret,
+        extra={"Content-Type": "application/json", "X-Internal-Secret": secret},
+    )
+
+
 async def _post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
     secret = settings.ai_callback_secret
     if not secret:
         raise RuntimeError("ai_callback_secret 未配置,无法反向同步个人号池")
     url = f"{api_base_url().rstrip('/')}{path}"
+    owner_user_id = str(payload.get("ownerUserId") or "").strip()
     async with httpx.AsyncClient(timeout=_BRIDGE_TIMEOUT) as client:
         resp = await client.post(
             url,
             json=payload,
-            headers={
-                "Content-Type": "application/json",
-                "X-Internal-Secret": secret,
-                # 网关 CSRF 的机器凭据验真出口(utils/internal-principal.ts 的
-                # isVerifiedInternalServiceCall);缺它写端点会被 403 拦在路由之前。
-                "X-Internal-Service-Token": secret,
-            },
+            headers=_auth_headers(secret, owner_user_id),
         )
     if resp.status_code >= 400:
         raise RuntimeError(f"个人号池 HTTP {resp.status_code}: {resp.text[:200]}")

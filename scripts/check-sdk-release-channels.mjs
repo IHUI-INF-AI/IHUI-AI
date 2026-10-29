@@ -136,6 +136,57 @@ export function validateStructure(manifest) {
   return errors
 }
 
+// ───────────────────────── npm org 名解析(台账是唯一真相源) ─────────────────────────
+
+/**
+ * 从通道台账的 `npm.coordinate` 解析 npm organization 名(scope)。
+ *
+ * 立因(2026-10-28 现读,票 L28576):`.github/scripts/npm-bootstrap-runner.mjs` 的
+ * `action=org_create` 把 org 名写成字面量 `ihui`,而包 scope 早已是 `@ihui-ai/sdk`
+ * (cd348dc320 那笔只改了包名,没改 org)⇒ 引导器会去建一个**与包名不同名**的 org,
+ * scoped 包照样发不出去。org 名的真相源是这张台账,不是 runner 里的字面量(§0.6:
+ * 同类取值实现全仓只许一份,第二份必然漂移 —— 这次的漂移已经发生并被本函数收口)。
+ *
+ * @param {unknown} manifest 已 parse 的台账
+ * @returns {string|null} `@scope/name` ⇒ scope;unscoped / 通道缺失 / 坐标为空 ⇒ null
+ *                        (交调用方显式「未判定」,不得回落成任何猜测值 —— §0.3)
+ */
+export function npmOrgScopeOf(manifest) {
+  const ch = Array.isArray(/** @type {{channels?: unknown}} */ (manifest)?.channels)
+    ? /** @type {Array<{id?: unknown, coordinate?: unknown}>} */ (manifest.channels).find((c) => c?.id === 'npm')
+    : undefined
+  const coordinate = typeof ch?.coordinate === 'string' ? ch.coordinate.trim() : ''
+  if (!coordinate.startsWith('@')) return null
+  const scope = coordinate.slice(1).split('/')[0].trim()
+  return scope.length > 0 ? scope : null
+}
+
+/**
+ * 读台账并解析 npm org 名 —— runner 侧的**唯一**调用出口。
+ * 不发网络请求、不判三态,只做「取不到即显式失败」,所以可被测试直接喂夹具路径。
+ *
+ * @param {string} [manifestPath] 台账路径(缺省 = 本仓 `config/sdk-release-channels.json`)
+ * @returns {string} org 名(如 `ihui-ai`)
+ * @throws {Error} 台账不可读 / 结构不合规 / npm 坐标不是 `@scope/name` ⇒ 一律显式「无从解析」
+ */
+export function resolveNpmOrgScope(manifestPath = DEFAULT_MANIFEST) {
+  let raw
+  try {
+    raw = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  } catch (err) {
+    throw new Error(`无法解析 npm org 名(台账不可读:${manifestPath} —— ${String(err?.message ?? err)})`)
+  }
+  const structErrors = validateStructure(raw)
+  if (structErrors.length > 0) {
+    throw new Error(`无法解析 npm org 名(台账结构不合规:${structErrors[0]})`)
+  }
+  const scope = npmOrgScopeOf(raw)
+  if (!scope) {
+    throw new Error(`无法解析 npm org 名(${manifestPath} 的 npm.coordinate 不是 @scope/name 形态 —— 不得凭猜测建 org)`)
+  }
+  return scope
+}
+
 // ───────────────────────── 判据聚合(纯函数) ─────────────────────────
 
 /**
@@ -151,7 +202,7 @@ export function validateStructure(manifest) {
  * **2026-09-26 收窄:只看会发布的那三个字段,不看 devDependencies。** 首版把 devDependencies
  * 一起扫了,那是判据错不是世界错 —— npm 发布时会**整个剥掉 devDependencies**,workspace 协议
  * 写在那里根本进不了 tarball。不收窄的后果可实测且是恒红:本仓每个包都带 workspace 形态的内部
- * devDeps(如 `@ihui/eslint-config`/`@ihui/tsconfig`),而**已经摘了 private 的 `@ihui/sdk`**
+ * devDeps(如 `@ihui/eslint-config`/`@ihui/tsconfig`),而**已经摘了 private 的 `@ihui-ai/sdk`**
  * 清单里就有两条 —— 按旧判据它从"摘 private 那一刻"起永远红,唯一出路是把内部依赖从 devDeps 里
  * 删掉,而删掉就打不到类型 ⇒ 逼人跳门。正确姿势正是本次 api-client 收口走的那条:内部包留在
  * devDependencies(供类型面 import type),运行时自实现/自带,于是 dependencies 为空。
@@ -491,4 +542,11 @@ if (isDirectRun) {
     process.exit(2)
   })
 }
+
+/**
+ * 供镜像测试 import 的核心判据出口(AGENTS.md §22c:禁止在测试里复制判据)。
+ * `npmOrgScopeOf` / `resolveNpmOrgScope` 同时是 `.github/scripts/npm-bootstrap-runner.mjs`
+ * 建 org 动作的**唯一** org 名来源 —— 台账改名,runner 自动跟着走,不再有任何字面量。
+ */
+export const __test__ = { npmOrgScopeOf, resolveNpmOrgScope, validateStructure }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

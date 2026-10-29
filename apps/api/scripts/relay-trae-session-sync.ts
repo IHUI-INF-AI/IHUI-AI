@@ -39,6 +39,15 @@ const { and, eq, sql } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { encryptField, decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
+// 判据 2026-10-28 提取到 src/services(§0.6:trae/qoder 两条回灌腿共用一份)
+const decision = await import('../src/services/relay-session-sync-decision.js')
+export const decideSync = decision.decideSync
+export const parseIso = decision.parseIso
+export type {
+  DecideInput,
+  SyncDecision,
+  SyncReason,
+} from '../src/services/relay-session-sync-decision.js'
 
 export interface SyncCandidate {
   uid: string
@@ -54,71 +63,14 @@ export interface SyncCandidate {
   devicePubPem?: string | null
   /** 客户端档案快照(2026-10-28):一键切号写回信封的原料(host/userRegion/tokenReleaseAt/account) */
   profile?: Record<string, unknown> | null
+  /** 会话模板(2026-10-27):本机当前登录号的账号资料(凭证已剔除),合并进 secretsEnc */
+  sessionTemplate?: Record<string, unknown> | null
 }
 
 export interface SyncInputPayload {
   providerCode: string
   accounts: SyncCandidate[]
   meta?: Record<string, unknown>
-}
-
-export interface DecideInput {
-  poolToken: string | null
-  poolTokenExpiresAt: Date | null
-  poolRefreshExpiresAt: Date | null
-  clientToken: string
-  clientRefreshToken: string | null
-  clientExpiresAt: Date | null
-  clientRefreshExpiresAt: Date | null
-}
-
-export type SyncReason = 'same-token' | 'pool-newer' | 'client-newer' | 'client-rotated' | 'apply'
-
-export interface SyncDecision {
-  apply: boolean
-  reason: SyncReason
-  next: {
-    token: string
-    /** null = 客户端没给 refreshToken,池内该列保持不动 */
-    refreshToken: string | null
-    tokenExpiresAt: Date | null
-    refreshExpiresAt: Date | null
-  }
-}
-
-/** 单一判据源:决定客户端票是否应写进池(详见文件头)。 */
-export function decideSync(input: DecideInput): SyncDecision {
-  const clientMs = input.clientExpiresAt?.getTime() ?? null
-  const poolMs = input.poolTokenExpiresAt?.getTime() ?? null
-  const next = {
-    token: input.clientToken,
-    refreshToken: input.clientRefreshToken,
-    tokenExpiresAt: input.clientExpiresAt ?? input.poolTokenExpiresAt,
-    refreshExpiresAt: input.clientRefreshExpiresAt ?? input.poolRefreshExpiresAt,
-  }
-  if (input.clientToken === input.poolToken) {
-    return { apply: false, reason: 'same-token', next }
-  }
-  if (clientMs !== null && poolMs !== null && clientMs < poolMs) {
-    // 池内更新:可能来自"票已过期后的兜底续期",客户端旧票绝不允许回写覆盖
-    return {
-      apply: false,
-      reason: 'pool-newer',
-      next: {
-        ...next,
-        token: input.poolToken ?? input.clientToken,
-        tokenExpiresAt: input.poolTokenExpiresAt,
-        refreshExpiresAt: input.poolRefreshExpiresAt,
-      },
-    }
-  }
-  const reason: SyncReason =
-    clientMs !== null && poolMs !== null && clientMs > poolMs
-      ? 'client-newer'
-      : clientMs !== null && poolMs !== null
-        ? 'client-rotated'
-        : 'apply'
-  return { apply: true, reason, next }
 }
 
 interface RowOutcome {
@@ -138,12 +90,6 @@ export interface SyncSummary {
   missing: number
   failed: number
   rows: RowOutcome[]
-}
-
-export function parseIso(value: string | null | undefined): Date | null {
-  if (value === null || value === undefined || value === '') return null
-  const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? null : d
 }
 
 async function readStdin(): Promise<string> {
@@ -220,6 +166,10 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
       // 设备材料随票回灌(客户端重新登录换机/换密钥时池侧自愈);缺任一项 → 不动原值。
       // 2026-10-28:secretsEnc 改为「读出旧档 → 合并 → 写回」——档案快照(profile)与设备密钥
       // 同住一档,任何一方缺位时不得把另一方抹掉(旧版整档覆盖,profile 会被设备写入清掉)。
+      // 设备材料与会话模板随票回灌(客户端重新登录换机/换密钥时池侧自愈)。
+      // 合并语义(2026-10-27):secretsEnc 是单列且还要装「登录本机」的会话模板,
+      // 这里若整列覆盖,每 10 分钟一次的回灌会把模板抹掉 ⇒ 以既有 secrets 为底,
+      // 只在本次确实提供时覆盖对应键。
       const deviceId = typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId : null
       const machineId = typeof acc.machineId === 'string' && acc.machineId ? acc.machineId : null
       const keyPem =
@@ -230,8 +180,15 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         acc.profile && typeof acc.profile === 'object' && !Array.isArray(acc.profile)
           ? (acc.profile as Record<string, unknown>)
           : null
+      const template =
+        acc.sessionTemplate &&
+        typeof acc.sessionTemplate === 'object' &&
+        !Array.isArray(acc.sessionTemplate) &&
+        Object.keys(acc.sessionTemplate).length > 0
+          ? acc.sessionTemplate
       let secretPatch: Record<string, unknown> | null = null
       let secretsChanged = false
+      if ((keyPem && pubPem) || profile || template) {
       if ((keyPem && pubPem) || profile) {
         let existing: Record<string, unknown> = {}
         if (row.secretsEnc) {
@@ -248,6 +205,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
           merged.devicePubPem = pubPem
         }
         if (profile) merged.profile = profile
+        if (template) merged.sessionTemplate = template
         secretsChanged = JSON.stringify(merged) !== JSON.stringify(existing)
         if (secretsChanged) secretPatch = merged
       }
@@ -278,6 +236,26 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         summary.rows.push({ uid, decision: final.reason, applied: false, error: 'dry-run 未写' })
         continue
       }
+      let secrets: Record<string, unknown> | null = null
+      if ((keyPem && pubPem) || template) {
+        let base: Record<string, unknown> = {}
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              base = parsed as Record<string, unknown>
+            }
+            /* 坏密文/密钥轮换 ⇒ 以本次提供为准重建 */
+        secrets = { ...base }
+          secrets.deviceKeyPem = keyPem
+          secrets.devicePubPem = pubPem
+        if (template) secrets.sessionTemplate = template
+      const secretsUpdate = secrets ? { secretsEnc: encryptField(JSON.stringify(secrets)) } : {}
+      const deviceUpdate =
+        keyPem && pubPem
+          ? {
+              ...secretsUpdate,
+              ...(deviceId ? { deviceId } : {}),
+              ...(machineId ? { machineId } : {}),
+            }
+          : secretsUpdate
       await db
         .update(aiRelayAccountPool)
         .set({

@@ -13,7 +13,7 @@ import {
   Text,
   View,
 } from 'react-native'
-import { ShoppingCart } from 'lucide-react-native'
+import { Package, ShoppingCart } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -138,7 +138,11 @@ export function EduShopScreen({
               colorScheme={colorScheme}
             />
           ) : courses.length === 0 && !coursesLoading ? (
-            <EmptyState glyph="◫" title={t('eduShop.emptyCourses')} colorScheme={colorScheme} />
+            <EmptyState
+              icon={<Package size={26} color={tk.text.tertiary} />}
+              title={t('eduShop.emptyCourses')}
+              colorScheme={colorScheme}
+            />
           ) : (
             <View style={styles.list}>
               {courses.map((c) => (
@@ -208,7 +212,7 @@ export function EduShopScreen({
             colorScheme={colorScheme}
           />
         ) : orders.length === 0 && !ordersLoading ? (
-          <EmptyState glyph="◍" title={t('eduShop.emptyOrders')} colorScheme={colorScheme} />
+          <EmptyState title={t('eduShop.emptyOrders')} colorScheme={colorScheme} />
         ) : (
           <View style={styles.list}>
             {orders.map((o) => (

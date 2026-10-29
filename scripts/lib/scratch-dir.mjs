@@ -18,6 +18,9 @@
 // `post-commit-*` ⇒ 由提交链上的 git-lock 抢占在夹具工作树里跑出来的。
 // 判据(只读、不判红、绝不代删)= `scripts/check-scratch-root-no-nesting.mjs`。
 
+import { spawnSync } from 'node:child_process'
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, parse, resolve, sep } from 'node:path'
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, parse, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -345,8 +348,34 @@ export function rmScratch(dir, opts = {}) {
     }
     return
   }
-  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
-  live.delete(dir)
+  try {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    live.delete(dir)
+  } catch (e) {
+    // 宿主 `node-safe-delete-shim.cjs` 会把 rmSync 转成 **trash(回收站)** 操作,而本机 trash 实测
+    // 会失败(`Error during a trash operation: Some operations were aborted`)。后果不是"删不掉"那么
+    // 简单:后端每次夹具清理都抛错,把测试的 hook / teardown 与环境判成失败 —— 2026-10-28 现读正是
+    // 这一型(2 个测试文件各红 1 条 + check-service-binary-paths 的 --self-test 红 1 条,而断言全过)。
+    //
+    // 临时夹具**不需要可恢复语义**,回收站是错的动作 ⇒ 降级为**改名**(本仓既有处方:rimraf 被守门
+    // 拦下时"用改名代替删除")。这不是把失败吞掉:
+    //   · 名字带 `.stale-<ts>` 后缀 ⇒ 原路径不再被占用,mkdtemp 不会撞、后续断言不受影响;
+    //   · 打一条 warn ⇒ 盘上留了什么、为什么留,当轮日志里看得见;
+    //   · 真正的腾空交给 §26 的每日 Temp 体检(按前缀识别并回收),不在这里静默膨胀。
+    const stale = `${dir}.stale-${Date.now()}`
+    try {
+      renameSync(dir, stale)
+      live.delete(dir)
+      console.warn(
+        `⚠ rmScratch: 删除被宿主拦下(${String(e?.message ?? e).slice(0, 100)})⇒ 已改名为 ${basename(stale)},交每日 Temp 体检回收`,
+      )
+    } catch (e2) {
+      // 连改名都失败 = 目录被占用/权限问题。这才是真该抛的错,不得与"环境 trash 坏了"并桶。
+      throw new Error(
+        `rmScratch 删除与改名都失败:${dir} —— 删:${String(e?.message ?? e).slice(0, 80)} / 改名:${String(e2?.message ?? e2).slice(0, 80)}`,
+      )
+    }
+  }
 }
 
 /**

@@ -173,7 +173,7 @@ class TestSwitchOnIngestion:
         )
         assert len(expected.children) == len(entries)
         assert embed.await_count == len(expected.children)
-        for entry, child in zip(entries, expected.children):
+        for entry, child in zip(entries, expected.children, strict=True):
             assert entry["content"] == child.text.strip()
             assert entry["rag_child_text"] == child.text.strip()
             assert entry["rag_parent_id"] == child.parent_id

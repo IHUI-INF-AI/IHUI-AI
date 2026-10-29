@@ -806,6 +806,8 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/knowledge/documents/upload',
     {
+      // 2026-10-28 DDoS P2:显式放开到上传上限+余量,脱离全局 2MiB 默认。精确闸在 handler 内。
+      bodyLimit: UPLOAD_MAX_SIZE + 1024 * 1024,
       schema: {
         description: '文件上传入库(multipart/form-data,≤10MB)',
         tags: ['Knowledge'],

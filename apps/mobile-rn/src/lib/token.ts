@@ -64,7 +64,9 @@ const memoryStore = createInMemoryTokenStore({
   },
   onSetRefreshToken: async (token) => {
     if (token) {
-      await setSecureItem(REFRESH_TOKEN_STORAGE_KEY, token)
+      // rejectPlaintext:refresh token 是长期凭据,SecureStore 不可用(原生平台)时
+      // 宁可本会话后不持久化,也不写进 AsyncStorage 明文(见 secure-store.ts 注记)
+      await setSecureItem(REFRESH_TOKEN_STORAGE_KEY, token, { rejectPlaintext: true })
     } else {
       await deleteSecureItem(REFRESH_TOKEN_STORAGE_KEY)
     }
@@ -414,7 +416,6 @@ export async function runWithFreshToken<T>(run: (token: string | null) => Promis
   }
 }
 
-
 /**
  * 主动续期(2026-10-26)。
  *
@@ -425,7 +426,7 @@ export async function runWithFreshToken<T>(run: (token: string | null) => Promis
  */
 let autoRefresh: TokenAutoRefreshHandle | null = null
 
-export function startTokenAutoRefresh(): void {
+function startTokenAutoRefresh(): void {
   if (autoRefresh) return
   autoRefresh = createTokenAutoRefresh({
     getToken,
@@ -433,11 +434,6 @@ export function startTokenAutoRefresh(): void {
     isSessionLoggedOut,
   })
   autoRefresh.start()
-}
-
-export function stopTokenAutoRefresh(): void {
-  autoRefresh?.stop()
-  autoRefresh = null
 }
 
 export function getToken(): string | null {
@@ -453,7 +449,7 @@ export function getRefreshToken(): string | null {
  * 再串行落盘(与 refreshAccessToken 的写入同一条链,不与登出清除交叉)。
  *
  * 登出标记与代次同点翻转:写入非空 access token ⇒ 会话重新开始 ⇒ 标记清除
- * (手动登录 / SSO 回跳 / 运营商一键登录全部经这条路,所以"记住登录"不被误伤);
+ * (手动登录 / SSO 回跳全部经这条路,所以"记住登录"不被误伤);
  * 写入 null 等价于结束会话 ⇒ 与 `clearToken()` 同处置。
  * 注意 `refreshAccessToken()` 走 `memoryStore.setToken`,不经本函数 —— 续期不是"新会话",
  * 而登出之后的续期在代次守卫上就已经写不进来,不需要在这里再翻一次标记。

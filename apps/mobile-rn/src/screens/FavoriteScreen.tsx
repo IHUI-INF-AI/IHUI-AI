@@ -2,17 +2,31 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/**
+ * Favorite 路由(mobile-rn 端 wrapper):收藏列表 —— 本仓收藏页的**唯一**取数与渲染入口。
+ *
+ * 2026-10-28 跨端重复屏合并:`packages/app/src/features/favorites/FavoritesScreen.tsx` 与
+ * `packages/app/src/features/favorite/FavoriteScreen.tsx` 打的是同一个端点
+ * (`GET /api/favorites`,取消收藏同一条 `DELETE /api/favorites/:resourceType/:resourceId`)、
+ * 同一套意图(标题都是「我的收藏」)、卡片字段与删除确认一字不差,唯一差别是后者多一排 tab 筛选
+ * ⇒ 前者是后者的真子集,已删除。`Favorites` 路由现在复用下面这份模型 + 同一枚共享屏,
+ * 不得再在任何 wrapper 里抄第二份取数或第二套列表 UI。
+ *
+ * 传输层字段名以 `packages/api-client/tests/favorites-field-contract.test.ts` 锁定的契约为准
+ * (后端列叫 resource*,共享视图模型 FavoriteItemRow 叫 target*),只在这一处边界转换。
+ */
 import { useCallback, useState } from 'react'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getFavorites } from '@ihui/api-client'
 import { FavoriteScreen as SharedFavoriteScreen } from '@ihui/rn-app'
-import type { FavoriteFilterTab, FavoriteItemRow } from '@ihui/types'
+import type { FavoriteFilterTab, FavoriteItemRow, FavoriteScreenProps } from '@ihui/types'
 import { deleteFavorite } from '../api/social'
 import { usePaginatedList, useRefreshOnFocus } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { formatShortDateWithYear } from '../utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -37,7 +51,8 @@ const UNIAPP_TEXT: Record<string, string> = {
   'favorite.deleteFailed': '删除失败',
 }
 
-export function FavoriteScreen() {
+/** 共享屏 FavoriteScreen 的完整 props(含 colorScheme);Favorite / Favorites 两条路由共用。 */
+export function useFavoriteScreenModel(): FavoriteScreenProps {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
@@ -71,7 +86,8 @@ export function FavoriteScreen() {
               targetType: f.resourceType,
               title: f.title ?? '',
               cover: null,
-              createdAt: f.createdAt,
+              // 展示文本在边界一次成型(原 favorites 屏即此口径):共享屏只渲染字符串
+              createdAt: formatShortDateWithYear(f.createdAt),
             })),
           },
         }
@@ -111,6 +127,28 @@ export function FavoriteScreen() {
     ])
   }
 
+  return {
+    t: uniappT,
+    items,
+    activeTab: tab,
+    onSelectTab,
+    loading,
+    refreshing,
+    loadingMore,
+    error,
+    onRefresh: refresh,
+    onLoadMore: loadMore,
+    onDelete,
+    onBack: () => navigation.goBack(),
+    colorScheme: resolvedTheme,
+    hasMore: items.length < total,
+    onGoDiscover: () => navigation.navigate('Home'),
+  }
+}
+
+export function FavoriteScreen() {
+  const model = useFavoriteScreenModel()
+  return <SharedFavoriteScreen {...model} />
   return (
     <SharedFavoriteScreen
       t={uniappT}

@@ -64,4 +64,39 @@ test('T6 装车锁:守卫必须真的接在主流程候选集之后(造好没装
   assert.match(src, /跳过滞后副本/, '跳过必须留痕点名')
   assert.match(src, /partitionStaleCopies,/, '__test__ 必须暴露生产判据供镜像测试复用')
 })
+
+/** dropStaleCopies 的探针注入面:每路径返回三个取字节动作 */
+const faceFor = (table) => (p) => ({
+  worktree: () => table[p]?.worktree ?? null,
+  head: () => table[p]?.head ?? null,
+  ancestors: () => table[p]?.ancestors ?? [],
+})
+
+// 事故回放(2026-10-29 现读):b44ab834609 把 a3facca58f3 早 4 分钟入库的 relay 守卫②整份写回旧版,
+// 入口正是旧的那条豁免 —— "别人暂存过就算明确意图"。可本器落地走 safe-commit 的 `git add -A`,
+// 提交出去的是**工作树字节**,与谁暂存过无关,所以这一格从来不是意图证明。
+test('T7 事故回放:被别席暂存过的滞后副本也必须拦', () => {
+  const r = __test__.dropStaleCopies(
+    ['x.ts'],
+    [{ path: 'x.ts', xy: 'M ' }],
+    faceFor({ 'x.ts': { worktree: 'p', head: 'h', ancestors: ['h', 'p'] } }),
+  )
+  assert.deepEqual(r, { kept: [], skipped: ['x.ts'] })
+})
+
+test('T8 反证:暂存过而内容确属新的 ⇒ 照收(取消豁免不等于一律不收)', () => {
+  const r = __test__.dropStaleCopies(
+    ['y.ts'],
+    [{ path: 'y.ts', xy: 'M ' }],
+    faceFor({ 'y.ts': { worktree: 'n', head: 'h', ancestors: ['h', 'p'] } }),
+  )
+  assert.deepEqual(r, { kept: ['y.ts'], skipped: [] })
+})
+
+test('T9 形状锁:dropStaleCopies 内不得再按"是否已暂存"划射程', () => {
+  const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
+  const fn = src.match(/\nfunction dropStaleCopies\([\s\S]*?\n\}\n/)?.[0] ?? ''
+  assert.ok(fn.length > 40, '必须取到 dropStaleCopies 函数体本身(防空串假绿)')
+  assert.doesNotMatch(fn, /unstaged/, '旧豁免一回来,b44ab834609 那一型就重新敞着')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

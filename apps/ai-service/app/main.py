@@ -37,6 +37,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from app import __version__
 from app.api.v1.router import api_v1_router
 from app.core.config import settings
+from app.core.conn_guard import WsConnGuardMiddleware, ws_conn_gate
 from app.core.jwt_auth import JWTAuthMiddleware
 from app.core.schema_check import check_schema, log_report
 from app.middleware.audit import setup_audit_middleware
@@ -402,7 +403,33 @@ async def lifespan(app: FastAPI) -> Any:
     # 随 lifespan 挂载,由 COOKIE_REFRESH_ENABLED 控制(默认 false,显式开启才跑),
     # 间隔 COOKIE_REFRESH_INTERVAL_HOURS 小时(默认 6)。未开启时本调用是 no-op。
     from app.services.publish.cookie_refresh_daemon import cookie_daemon
-    cookie_daemon.ensure_started()
+
+    # 账号保活中心(2026-10-26 立):把发布线 Cookie 探活、密钥到期检测、签到凭证
+    # 健康收敛成一套调度 / 一套状态表 / 一套健康度 / 一套告警。
+    # 与上面两条线的关系是"各管一段,不互相接管":业务动作(访问平台刷 cookie / 每日
+    # 签到)仍归各自调度器,本中心只回答"凭证还活着吗、什么时候到期、要不要喊人"。
+    # 建表 fail-open(失败只告警,不拦启动);启用判据见 resolve_config —— 未启用时
+    # 会以 warning 明确点名缺哪个键(不再静默)。
+    try:
+        from app.services.keepalive import store as keepalive_store
+
+        await keepalive_store.ensure_tables()
+        logger.info("[keepalive] keepalive_* 表确认/创建完成")
+    except Exception as e:
+        logger.warning("[keepalive] 建表异常(忽略,保活中心降级为不可用): %s", e)
+    from app.services.keepalive import keepalive_center
+    from app.services.keepalive import resolve_config as _keepalive_cfg
+
+    _keepalive_on = _keepalive_cfg().enabled
+    # 单一调度源:中心已接管 Cookie 探活时,旧守护自己的循环不再启动 ——
+    # 否则同一账号每轮被两处同时访问平台(既浪费,也会让"上次保活时间"互相覆盖)。
+    if not _keepalive_on:
+        cookie_daemon.ensure_started()
+    else:
+        logger.info(
+            "[keepalive] 中心已接管 Cookie 探活,旧守护循环不启动(避免同一账号被两处同时访问)"
+        )
+    keepalive_center.ensure_started()
 
     # 过期资源清扫守护(2026-10-15 立,goal 第 53 轮)。此前 debugger 与 agent_checkpoint 两处
     # cleanup_expired() **全仓零调用者**(agent_checkpoint 的注释还把"过期留给 cleanup_expired 清理"
@@ -838,6 +865,11 @@ async def lifespan(app: FastAPI) -> Any:
 
         await checkin_scheduler.stop()
 
+    async def _s_keepalive_center() -> None:
+        from app.services.keepalive import keepalive_center
+
+        await keepalive_center.stop()
+
     async def _s_video_worker() -> None:
         from app.services.video_generation import stop_video_worker
 
@@ -935,6 +967,7 @@ async def lifespan(app: FastAPI) -> Any:
         ("news_scheduler", _s_news_scheduler),
         ("db_sync_scheduler", _s_db_sync_scheduler),
         ("checkin_scheduler", _s_checkin_scheduler),
+        ("keepalive_center", _s_keepalive_center),
         ("video_worker", _s_video_worker),
         ("task_scheduler", _s_task_scheduler),
         ("screenshot_service", _s_screenshot),
@@ -1162,6 +1195,13 @@ def create_app() -> FastAPI:
     from app.routers import internal_checkin_pool as checkin_internal_router
     app.include_router(checkin_internal_router.router, tags=["checkin-internal"])
 
+    # 2026-10-26 立:账号保活中心(统一 Cookie / 密钥到期 / 签到凭证三条线的状态面)。
+    # router 自带 /api/keepalive 前缀,鉴权用 require_request_user_id。
+    # 落点必须在 app/routers/ —— 门 8 的注册面只枚举 app/routers/** 与 app/api/**,
+    # 放在 app/services/keepalive/ 里那 6 条端点对它是不可见的(只落"未判定"桶)。
+    from app.routers import keepalive as keepalive_router
+    app.include_router(keepalive_router.router, tags=["keepalive"])
+
     # W4(Phase 0):Plan Mode 计划模式端点族(对标 Claude Code Plan Mode,全新端点 /api/agent-plan*)
     from app.routers import agent_plan as agent_plan_router
     app.include_router(agent_plan_router.router, prefix="/api", tags=["agent-plan"])
@@ -1335,7 +1375,15 @@ register_handlers(sio)
 
 # 根 ASGI app: /socket.io/* → sio,其余 → fastapi_app(中间件栈保留)
 # 兼容历史 coze_zhs_py 客户端通过 Socket.IO 协议连接新 ai-service。
-app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
+#
+# 2026-10-28 DDoS 加固:fastapi_app 外面包一层按 IP 的 WebSocket 闸门。
+# 包在这一层而不是逐个 handler 改,是因为现成的限流中间件(input_sanitizer)只管 HTTP,
+# /api/engine/ws 与 /api/browser/ws 都不在其射程内;而 Socket.IO 走 sio 自己的 ASGI 分支,
+# 由 app/sio/handlers.py 的 connect 里接同一个 IpConnGate(见 sio_conn_gate)。
+app = socketio.ASGIApp(
+    sio,
+    other_asgi_app=WsConnGuardMiddleware(fastapi_app, ws_conn_gate, label="ws"),
+)
 
 
 if __name__ == "__main__":

@@ -7,14 +7,16 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
-import { COZE_PAGE_SIZE, COZE_EXPORT_COLUMNS, EMPTY_COZE } from './helpers'
+import { COZE_PAGE_SIZE, buildCozeExportColumns, EMPTY_COZE } from './helpers'
 import type { CozeAccount, CozeListData, CozeForm } from './types'
 
 export function useDeveloperCoze() {
   const qc = useQueryClient()
+  const t = useTranslations()
 
   const [cozeOpen, setCozeOpen] = React.useState(false)
   const [cozeEditing, setCozeEditing] = React.useState<CozeAccount | null>(null)
@@ -137,7 +139,7 @@ export function useDeveloperCoze() {
   function handleCozeExport() {
     exportToExcel(
       'Coze开发者账号',
-      COZE_EXPORT_COLUMNS,
+      buildCozeExportColumns(t),
       (cozeData?.list ?? []) as unknown as Record<string, unknown>[],
     )
   }

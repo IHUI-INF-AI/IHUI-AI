@@ -104,20 +104,6 @@ vi.mock('../src/lib/wechat', () => ({
   sendWechatAuth: vi.fn(async () => 'wx-code'),
 }))
 
-vi.mock('../src/lib/carrier-one-click', () => {
-  class CarrierOneClickError extends Error {}
-  return {
-    CARRIER_ERROR: { NOT_CONFIGURED: 'not_configured' },
-    CarrierOneClickError,
-    carrierLogin: vi.fn(async () => ({})),
-    getCarrierChannel: () => 'none',
-    getCarrierWebUrl: () => null,
-    getRecentPhone: () => null,
-    isCarrierAvailable: () => false,
-    resolveCarrierWebResult: vi.fn(),
-  }
-})
-
 vi.mock('../src/lib/oauth-redirect', () => ({
   loginByAlipayRedirect: vi.fn(),
   loginByDingtalkRedirect: vi.fn(),
@@ -158,6 +144,19 @@ function pressNonCancelButtons(): void {
   }
 }
 
+/**
+ * 协议闸(2026-10-28 起 `handleThirdPartyLogin` 先过 `checkAgreement`)。
+ * 未勾选协议时不再是"弹第三方引导文案",而是改弹「确认同意服务条款」的二次确认弹窗 ⇒
+ * 引导文案一次都不出现,`appAlertCalls` 为空。本套件判的是**同意之后**的引导内容,
+ * 所以先经子组件回调把 agreed 置真;协议闸本身(未同意不得发起 OAuth)由 LoginScreen
+ * 的协议用例与后端发起期落同意记录覆盖,不在本票射程内。
+ */
+function acceptAgreement(): void {
+  act(() => {
+    ;(latestSharedProps().onAgreedChange as (v: boolean) => void)(true)
+  })
+}
+
 describe('G-958 web(H5)登录引导不得指向被自己拒绝的死路', () => {
   beforeEach(() => {
     sharedPropsCaptured.length = 0
@@ -169,6 +168,7 @@ describe('G-958 web(H5)登录引导不得指向被自己拒绝的死路', () => 
 
   it('web 点 GitHub 登录:弹窗文案不再引导网页授权', () => {
     render(<LoginScreen />)
+    acceptAgreement()
     act(() => {
       ;(latestSharedProps().onThirdPartyLogin as (p: string) => void)('github')
     })
@@ -180,6 +180,7 @@ describe('G-958 web(H5)登录引导不得指向被自己拒绝的死路', () => 
 
   it('web 点 GitHub 登录:执行全部弹窗按钮后不触发 SSO、不出现自我拒绝错误', async () => {
     render(<LoginScreen />)
+    acceptAgreement()
     act(() => {
       ;(latestSharedProps().onThirdPartyLogin as (p: string) => void)('github')
     })
@@ -195,6 +196,7 @@ describe('G-958 web(H5)登录引导不得指向被自己拒绝的死路', () => 
 
   it('web 点微信登录:同样不得指向被拒绝的网页授权出路', () => {
     render(<LoginScreen />)
+    acceptAgreement()
     act(() => {
       ;(latestSharedProps().onThirdPartyLogin as (p: string) => void)('wechat')
     })
@@ -214,14 +216,15 @@ describe('G-958 web(H5)登录引导不得指向被自己拒绝的死路', () => 
 
   it('web 第三方引导文案必须给出 H5 上真实可行的出路', () => {
     render(<LoginScreen />)
+    acceptAgreement()
     act(() => {
       ;(latestSharedProps().onThirdPartyLogin as (p: string) => void)('feishu')
     })
     expect(appAlertCalls).toHaveLength(1)
     const message = appAlertCalls.at(-1)?.message ?? ''
-    // 文案已 token 化(2026-10-24 对齐):本套件 i18n mock 取键透传,上屏即键 ⇒ 键形断言;
-    // 「必须给出 H5 真实可行出路」的内容判据锚到词包真值(缺键或词里没出路 = 当场红)。
-    expect(message).toBe('login.webPreviewHint')
+    // 文案已 token 化(2026-10-24 对齐):本套件 i18n mock 对该键回真字典值(见顶部 mock 注),
+    // 上屏即真值 ⇒ 内容判据直接量上屏文案;词包真值另由下方 zhPack 断言钉住(同词族)。
+    expect(message).toMatch(/验证码|账号密码|账密/)
     const zhPack = JSON.parse(
       readFileSync(
         join(
@@ -293,6 +296,7 @@ describe('G-958 正向对照:原生平台(iOS/Android)的 SSO 入口必须在', 
   it('原生端第三方登录不再被 web 那句如实提示挡住(收窄严格限于 web)', async () => {
     mutablePlatform.OS = 'android'
     render(<LoginScreen />)
+    acceptAgreement()
     act(() => {
       ;(latestSharedProps().onThirdPartyLogin as (p: string) => void)('github')
     })

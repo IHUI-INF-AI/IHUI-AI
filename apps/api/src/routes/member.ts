@@ -8,6 +8,7 @@ import { hashPassword } from '../utils/password-crypto.js'
 import * as XLSX from '@e965/xlsx'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
+import { checkMagicNumber, extractExt } from '../utils/file-type-validator.js'
 import {
   findMembers,
   findUnauditedMembers,
@@ -368,6 +369,66 @@ interface ImportErrorItem {
   message: string
   memberName?: string
   memberMobile?: string
+}
+
+// ============================================================================
+// 会员批量导入的文件闸(2026-10-28 安全加固)
+//
+// 原实现:`/members/batch-import` 与 `/members/import/excel` 都是拿到 buffer 直接
+// `XLSX.read(buffer)`,**零大小上限、零类型校验、零行数上限**。两个后果:
+//   ① zip bomb —— xlsx 是 ZIP 容器,100MB(全局 multipart 上限)可解压成数十 GB,
+//      SheetJS 解析期直接吃满内存把进程打死;
+//   ② 任意二进制改名 `.xlsx` 就能进解析器,解析器漏洞面被无谓放大。
+// 这里只做"落解析器之前"的闸;解析后的行数上限在解析完成后单独判(见 MEMBER_IMPORT_MAX_ROWS)。
+// 魔数判据复用 utils/file-type-validator 的 checkMagicNumber(单一真相源),
+// 但**不**用 validateUploadFile —— 它的 MIME 一致性会把浏览器/RN 常见的
+// `application/vnd.ms-excel` / `text/plain` / 空 MIME 的 CSV 误伤。
+// ============================================================================
+/** 会员导入单文件上限 10MB(会员名册远小于此;更大应走数据导入通道) */
+const MEMBER_IMPORT_MAX_BYTES = 10 * 1024 * 1024
+/** 单次导入行数上限,防超大表把内存/数据库打爆 */
+const MEMBER_IMPORT_MAX_ROWS = 50_000
+/** 允许的导入格式 */
+const MEMBER_IMPORT_EXTS = new Set(['csv', 'xlsx', 'xls'])
+/** `/members/import/excel` 专用:该端点语义就是 Excel,不接受 CSV */
+const MEMBER_IMPORT_EXCEL_ONLY = new Set(['xlsx', 'xls'])
+
+/**
+ * 文件闸:返回中文错误文案,通过返回 null。
+ * CSV 是纯文本、无魔数,只做大小与扩展名判定;xlsx/xls 额外验容器头。
+ *
+ * 状态码统一 400:本文件 `reply.status` 的类型被收窄到 200/201/400/401/403/404/409,
+ * 且全文件既有校验一律 400 + 文案区分(项目用 `errorCode` 而非 HTTP 码分型),
+ * 这里跟随同一风格,不单独引 413/415 造第二种口径。
+ *
+ * `export` 仅为测试可达(上传闸回归锁),路由内部不对外暴露。
+ */
+export function guardMemberImportFile(
+  filename: string,
+  buffer: Buffer,
+  allowed: ReadonlySet<string> = MEMBER_IMPORT_EXTS,
+): string | null {
+  if (buffer.length > MEMBER_IMPORT_MAX_BYTES) {
+    const mb = (buffer.length / (1024 * 1024)).toFixed(1)
+    return `文件过大(${mb}MB),上限 ${MEMBER_IMPORT_MAX_BYTES / (1024 * 1024)}MB`
+  }
+  const ext = extractExt(filename)
+  if (!ext || !allowed.has(ext)) {
+    return `仅支持 ${[...allowed].map((e) => `.${e}`).join(' / ')},收到 .${ext || '未知'}`
+  }
+  // CSV 无魔数可验;Excel 两种容器必须验头,防"改名即入库"
+  if (ext !== 'csv' && !checkMagicNumber(ext, buffer)) {
+    return '文件内容与扩展名不一致(疑似改名文件)'
+  }
+  return null
+}
+
+/** 解析后的行数闸(两个端点共用,避免各写一份)。`export` 仅为测试可达。 */
+export function guardMemberImportRows(rowCount: number): string | null {
+  if (rowCount > MEMBER_IMPORT_MAX_ROWS) {
+    return `单次最多导入 ${MEMBER_IMPORT_MAX_ROWS} 行,当前 ${rowCount} 行,请拆分后重试`
+  }
+  return null
 }
 
 // Excel 中文表头 -> 英文字段名映射（与 CSV 字段保持一致）
@@ -1193,7 +1254,7 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
   // multipart/form-data 字段：file（必填，Excel 二进制）
   // 表头支持英文键名（与 CSV 一致）或中文别名（详见 HEADER_ALIASES）
   // 返回 { imported, failed, errors: ImportResultItem[] }
-  server.post('/members/import/excel', { schema: { response: R } }, async (request, reply) => {
+  server.post('/members/import/excel', { bodyLimit: MEMBER_IMPORT_MAX_BYTES + 1024 * 1024, schema: { response: R } }, async (request, reply) => {
     if (!request.isMultipart()) {
       return reply.status(400).send(error(400, '请求必须是 multipart/form-data'))
     }
@@ -1205,6 +1266,9 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
     if (buffer.length === 0) {
       return reply.status(400).send(error(400, '文件内容为空'))
     }
+    // 2026-10-28 安全加固:进解析器之前先过文件闸(大小/扩展名/Excel 容器头)
+    const fileGuard = guardMemberImportFile(data.filename ?? '', buffer, MEMBER_IMPORT_EXCEL_ONLY)
+    if (fileGuard) return reply.status(400).send(error(400, fileGuard))
 
     let workbook: XLSX.WorkBook
     try {
@@ -1226,6 +1290,9 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
       defval: '',
       raw: false,
     })
+    // 2026-10-28 安全加固:解析后再判一次行数,防单文件塞入超量行打爆内存/数据库
+    const rowGuard = guardMemberImportRows(rows.length)
+    if (rowGuard) return reply.status(400).send(error(400, rowGuard))
 
     // 表头映射 + 数值字段转换 + 注入 serialNum/rowNum
     const members: Array<Record<string, unknown>> = rows.map((row, idx) => {
@@ -1250,7 +1317,7 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
   // 根据文件扩展名自动选择解析方式：.csv → 文本解析;.xlsx/.xls → XLSX 解析
   // 表头支持英文键名（与 CSV 一致）或中文别名（详见 HEADER_ALIASES）
   // 返回 { imported, failed, errors: ImportResultItem[] }
-  server.post('/members/batch-import', { schema: { response: R } }, async (request, reply) => {
+  server.post('/members/batch-import', { bodyLimit: MEMBER_IMPORT_MAX_BYTES + 1024 * 1024, schema: { response: R } }, async (request, reply) => {
     if (!request.isMultipart()) {
       return reply.status(400).send(error(400, '请求必须是 multipart/form-data'))
     }
@@ -1263,6 +1330,11 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '文件内容为空'))
     }
     const filename = (data.filename || '').toLowerCase()
+    // 2026-10-28 安全加固:进解析器之前先过文件闸(大小/扩展名/Excel 容器头)。
+    // 同时堵掉一个静默失败:旧实现在扩展名不认识时两个分支都不进,members 保持 [],
+    // 直接回 `imported: 0` 的"成功" —— 用户以为导入了,其实什么都没发生。
+    const fileGuard = guardMemberImportFile(data.filename ?? '', buffer)
+    if (fileGuard) return reply.status(400).send(error(400, fileGuard))
 
     let members: Array<Record<string, unknown>> = []
 
@@ -1273,6 +1345,8 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
       if (!headerLine || lines.length < 2) {
         return reply.send(success({ imported: 0, failed: 0, errors: [] }))
       }
+      const rowGuard = guardMemberImportRows(lines.length - 1)
+      if (rowGuard) return reply.status(400).send(error(400, rowGuard))
       const headers = headerLine.split(',').map((h) => h.trim())
       members = lines.slice(1).map((line, idx) => {
         const values = line.split(',')
@@ -1308,6 +1382,8 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
         defval: '',
         raw: false,
       })
+      const rowGuard = guardMemberImportRows(rows.length)
+      if (rowGuard) return reply.status(400).send(error(400, rowGuard))
       members = rows.map((row, idx) => {
         const mapped: Record<string, unknown> = { serialNum: idx + 1, rowNum: idx + 2 }
         for (const [k, v] of Object.entries(row)) {

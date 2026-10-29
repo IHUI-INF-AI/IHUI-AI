@@ -21,13 +21,40 @@
  * - GET    /remote-device-tasks/pending — 待下发任务列表
  */
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, lt, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { remoteDevices, remoteDeviceTasks } from '@ihui/database'
-import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
+import { requireAdmin, requireAuth, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+
+// 2026-10-27 属主闸(单源):设备面此前对 读/心跳/任务状态 只判 requireAuth —— 任何登录
+// 用户可拖取全站设备清单与任务载荷、伪造他人设备心跳并覆写其网络属性、把他人任务改判
+// completed 并注入任意 result(jsonb 由下发端/看板消费 ⇒ 伪造执行结果 + 二次注入面)。
+// 管理员(isSystemAdmin,只认人用 JWT)看全站;普通用户的可见域 =
+// remoteDevices.userId == 令牌主体。设备代理侧改走设备令牌前,这是服务端唯一防线。
+const isPrivilegedViewer = (request: FastifyRequest): boolean =>
+  isSystemAdmin(request, { includeInternalChannel: false })
+
+/** 设备查询的属主条件;admin 返回 undefined(不加条件) */
+const deviceOwnerCond = (request: FastifyRequest) =>
+  isPrivilegedViewer(request) ? undefined : eq(remoteDevices.userId, request.userId!)
+
+/**
+ * 任务归属判定(任务表无 userId 列,归属经 deviceId → remoteDevices.userId)。
+ * 非属主 ⇒ null,调用方如实回 404 —— 不区分"不存在"与"不是你的",不新增探测差分。
+ */
+async function taskWithOwnership(taskId: string, request: FastifyRequest) {
+  const cond = deviceOwnerCond(request)
+  const rows = await db
+    .select({ task: remoteDeviceTasks })
+    .from(remoteDeviceTasks)
+    .innerJoin(remoteDevices, eq(remoteDeviceTasks.deviceId, remoteDevices.id))
+    .where(cond ? and(eq(remoteDeviceTasks.id, taskId), cond) : eq(remoteDeviceTasks.id, taskId))
+    .limit(1)
+  return rows[0]?.task ?? null
+}
 
 const registerDeviceSchema = z.object({
   deviceNo: z.string().min(1).max(100),
@@ -96,11 +123,13 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     const pageSize = query.pageSize
     const offset = (page - 1) * pageSize
     const conditions = []
+    const ownerCond = deviceOwnerCond(request)
+    if (ownerCond) conditions.push(ownerCond)
     if (query.status) conditions.push(eq(remoteDevices.status, query.status))
     const list = await db
       .select()
       .from(remoteDevices)
-      .where(conditions.length > 0 ? and(...conditions) : eq(remoteDevices.id, remoteDevices.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(remoteDevices.createdAt))
       .limit(pageSize)
       .offset(offset)
@@ -111,7 +140,12 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (reply.sent) return
     const { id } = idParam.parse(request.params)
-    const [device] = await db.select().from(remoteDevices).where(eq(remoteDevices.id, id)).limit(1)
+    const ownerCond = deviceOwnerCond(request)
+    const [device] = await db
+      .select()
+      .from(remoteDevices)
+      .where(ownerCond ? and(eq(remoteDevices.id, id), ownerCond) : eq(remoteDevices.id, id))
+      .limit(1)
     if (!device) return reply.status(404).send(error(404, '设备不存在'))
     return reply.send(success(device))
   })
@@ -166,6 +200,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const { id } = idParam.parse(request.params)
     const body = heartbeatBody.parse(request.body)
+    // 属主闸:此前任何登录用户可对**任意**设备 id 伪造心跳并覆写其网络属性
+    const ownerCond = deviceOwnerCond(request)
     const [device] = await db
       .update(remoteDevices)
       .set({
@@ -176,7 +212,7 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
         ipAddress: body.ipAddress,
         updatedAt: new Date(),
       })
-      .where(eq(remoteDevices.id, id))
+      .where(ownerCond ? and(eq(remoteDevices.id, id), ownerCond) : eq(remoteDevices.id, id))
       .returning()
     if (!device) return reply.status(404).send(error(404, '设备不存在'))
     return reply.send(success({ deviceId: id, status: 'online', timestamp: new Date() }))
@@ -189,6 +225,14 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     if (reply.sent) return
     const { id } = idParam.parse(request.params)
     const query = taskStatusQuery.parse(request.query)
+    // 属主闸:先按属主条件确认设备可见,再列其任务
+    const ownerCond = deviceOwnerCond(request)
+    const [device] = await db
+      .select({ id: remoteDevices.id })
+      .from(remoteDevices)
+      .where(ownerCond ? and(eq(remoteDevices.id, id), ownerCond) : eq(remoteDevices.id, id))
+      .limit(1)
+    if (!device) return reply.status(404).send(error(404, '设备不存在'))
     const conditions = [eq(remoteDeviceTasks.deviceId, id)]
     if (query.status) conditions.push(eq(remoteDeviceTasks.status, query.status))
     const list = await db
@@ -224,11 +268,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (reply.sent) return
     const { taskId } = taskIdParam.parse(request.params)
-    const [task] = await db
-      .select()
-      .from(remoteDeviceTasks)
-      .where(eq(remoteDeviceTasks.id, taskId))
-      .limit(1)
+    // 属主闸:任务载荷(payload/result)此前对任何登录用户可读
+    const task = await taskWithOwnership(taskId, request)
     if (!task) return reply.status(404).send(error(404, '任务不存在'))
     return reply.send(success(task))
   })
@@ -249,6 +290,9 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
       updates.completedAt = now
     if (parsed.data.result !== undefined) updates.result = parsed.data.result
     if (parsed.data.errorMessage !== undefined) updates.errorMessage = parsed.data.errorMessage
+    // 属主闸:此前任何登录用户可把**他人**任务改判 completed/failed 并注入任意 result
+    const owned = await taskWithOwnership(taskId, request)
+    if (!owned) return reply.status(404).send(error(404, '任务不存在'))
     const [task] = await db
       .update(remoteDeviceTasks)
       .set(updates)
@@ -282,19 +326,29 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     if (task.retryCount >= task.maxRetries) {
       return reply.status(400).send(error(400, `已达最大重试次数 ${task.maxRetries}`))
     }
+    // 上限判定必须落在 WHERE 里:上面那次 select 只是给"读后即答"的提示用,
+    // 两个并发重试会各自读到 retryCount=N-1、各自写 N+1 ⇒ 既吞一次计数,也**绕过 maxRetries
+    // 白送一次重试**(设备任务被重复下发)。库里加 `retry_count < max_retries` 守卫,
+    // 空集就是"这一次没抢到额度",如实回 409。
     const [updated] = await db
       .update(remoteDeviceTasks)
       .set({
         status: 'pending',
-        retryCount: task.retryCount + 1,
+        retryCount: sql`${remoteDeviceTasks.retryCount} + 1`,
         errorMessage: null,
         dispatchedAt: null,
         startedAt: null,
         completedAt: null,
         updatedAt: new Date(),
       })
-      .where(eq(remoteDeviceTasks.id, taskId))
+      .where(
+        and(
+          eq(remoteDeviceTasks.id, taskId),
+          lt(remoteDeviceTasks.retryCount, remoteDeviceTasks.maxRetries),
+        ),
+      )
       .returning()
+    if (!updated) return reply.status(409).send(error(409, '重试次数已达上限,未执行本次重试'))
     return reply.send(success(updated))
   })
 
@@ -311,14 +365,24 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     const page = query.page
     const pageSize = query.pageSize
     const offset = (page - 1) * pageSize
-    const list = await db
-      .select()
+    // 属主闸:待下发任务此前对任何登录用户可整站拖取
+    const ownerCond = deviceOwnerCond(request)
+    const base = db
+      .select({ task: remoteDeviceTasks })
       .from(remoteDeviceTasks)
-      .where(eq(remoteDeviceTasks.status, 'pending'))
-      .orderBy(desc(remoteDeviceTasks.priority), desc(remoteDeviceTasks.createdAt))
-      .limit(pageSize)
-      .offset(offset)
-    return reply.send(success({ list, page, pageSize }))
+      .innerJoin(remoteDevices, eq(remoteDeviceTasks.deviceId, remoteDevices.id))
+    const list = await (ownerCond
+      ? base
+          .where(and(eq(remoteDeviceTasks.status, 'pending'), ownerCond))
+          .orderBy(desc(remoteDeviceTasks.priority), desc(remoteDeviceTasks.createdAt))
+          .limit(pageSize)
+          .offset(offset)
+      : base
+          .where(eq(remoteDeviceTasks.status, 'pending'))
+          .orderBy(desc(remoteDeviceTasks.priority), desc(remoteDeviceTasks.createdAt))
+          .limit(pageSize)
+          .offset(offset))
+    return reply.send(success({ list: list.map((r) => r.task), page, pageSize }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

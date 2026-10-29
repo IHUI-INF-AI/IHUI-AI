@@ -57,6 +57,37 @@
  * 多出 `css` 后缀而永不配对,所以 `.ia-robot` 那类留在 CSS 里的端侧字面量对本门不可见;把它迁进本表
  * 反而会让本族单侧档读数从 9 涨到 10 而当场判红(构造面实测)—— 修法是该门补 CSS 腿,
  * 不该由端侧把数字留在暗处换取绿灯。
+ *
+ * ── O02 票④(第 ④ 格)收口证据:本族逐条归属(2026-10-28 现读)──────────────────
+ * 读数(`node scripts/check-cross-end-ui-parity.mjs --json`,HEAD 5121f499d0c309ba419e61edd3092667867845df):
+ *   findings[IntelligentAssistant] = diffCount 6 / radiusCount 1 / elementRadiusCount 0;
+ *   几何仅小程序 32;几何仅 RN 3·9·16·107·110;RD 仅 RN 4(端上实取 4/8);
+ *   SL IntelligentAssistant(8)= 仅小程序 IA_ROBOT_ICON_INK_PX + 仅 RN IA_ROBOT_DECOR_W/H/RIGHT、
+ *   IA_TEXT_INDENT、IA_RECHARGE_GAP、IA_RECHARGE_CAPSULE_PAD_X/Y。
+ *   负值档 IA_ROBOT_DECOR_TOP_PX(-8) 不进几何读数,归属仍是 RN 单端 ⇒ 本族**单端档实为 9 枚**
+ *   (门点名 8 + 负值 1;上面"9 涨到 10"那句数的是这 9 枚,不是 SL 的 8)。
+ *
+ * 20 枚导出档(19 枚 `_PX` + `IA_HEADING_FONT_WEIGHT`)逐条归属,三类:
+ *  A 一端根本没有该元素(往另一端补引用 = 往屏幕上加一个不存在的节点):
+ *    小程序 32        IA_ROBOT_ICON_INK_PX        行内矢量;RN 同一位置是 absolute 位图装饰,不同媒介
+ *    RN 107/110/9/-8  IA_ROBOT_DECOR_*            位图装饰布局盒与贴位;小程序无 absolute 装饰层
+ *    RN 10/3          IA_RECHARGE_CAPSULE_PAD_*   实底胶囊可见内衬;小程序是纯文字链,无胶囊本体
+ *    RN 4(圆角)      tokenButton `rnRadius.sm`    同上,胶囊本体小程序没有 ⇒ radiusCount 1
+ *  B 同一元素两端按**已裁决**的变体契约取不同档:本族 **0 枚** —— 11 枚两端共用档(10 枚 `_PX`
+ *    + IA_HEADING_FONT_WEIGHT)已全部引本表且同值,不存在"同元素取不同值"可收敛的档。
+ *    (充值"纯文字链 vs 实底胶囊"是设计定夺项,已登记在头注 waivers,不是 B 的取值分叉。)
+ *  C 同槽位留白,两端各由自身机制决定(量纲/机制不同,不是同一个量的两条写法):
+ *    RN 16  IA_TEXT_INDENT_PX   避让 absolute 装饰;小程序文本左缘由行内矢量 + `.ia-robot`
+ *                               `margin-right: 20rpx`(=10)的流内间隙撑出
+ *    RN 10  IA_RECHARGE_GAP_PX  值行左聚拢的固定间距;小程序 `.ia-token-row` 用
+ *                               `justify-content: space-between` 由容器宽度动态决定
+ *
+ * ⇒ 结论:本族**无可继续收敛项(0 处)**。两处"两端同值"的相邻数字都不是同一元素:小程序
+ *   `.ia-robot` 的 10 与 RN 的 10(胶囊内衬 / 值行间距)是三个不同槽位;小程序行距/顶偏移的 4
+ *   与 RN 胶囊圆角的 4,前者两端已同源、后者是胶囊独有。9 枚单端档**不得入表**:入表即新增 SL
+ *   单侧引用当场判红(本门 `specLegAudit` 只把基线已登记的单侧档降为只报数;input-area 族
+ *   2026-10-28 实测 `SL 36→37`)。单端档的正确去处 = 端内裸数字 + 本头注清单,归属由
+ *   `__tests__/intelligent-assistant-wiring.test.ts` 的登记表机器钉住(补引用 / 脱线都会红)。
  */
 
 /** 卡片外边距(四周,逻辑 px)。取值依据:规则 2 间距取较大端 —— max(小程序 8, RN 8/4/4)。 */

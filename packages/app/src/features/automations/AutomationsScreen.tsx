@@ -12,9 +12,16 @@ import {
   Text,
   TouchableOpacity,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native'
 import { rnRadius, type RnThemeTokens, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
+import {
+  deriveAutomationTerminalReason,
+  type AutomationTerminalReason,
+  type AutomationTerminalTone,
+} from '@ihui/shared/utils/automation-terminal-reason'
 
 /** 自动化调度类型(字段对齐 @ihui/api-client AutomationScheduleType) */
 export type AutomationScheduleType = 'once' | 'recurring'
@@ -37,6 +44,12 @@ export interface AutomationItem {
   nextRunText: string
   prompt: string
   lastResultSummary: string | null
+  /**
+   * G-241 终态成因(null = 无终态,仍在排或在跑)。
+   * 徽章文案与色调档由 @ihui/shared 的 deriveAutomationTerminalReason 统一推导,
+   * 本屏只负责渲染 —— 不各端各写一套 switch(单一真相源)。
+   */
+  terminalReason: AutomationTerminalReason | null
 }
 
 /** AutomationsScreen props(注入式:wrapper 保留 API/导航/主题与 RN 专属空态组件) */
@@ -77,18 +90,31 @@ export function AutomationsScreen({
   renderEmpty,
   cardExtra,
 }: AutomationsScreenProps) {
-  const styles = useMemo(() => createStyles(tk), [tk])
+  const { styles, terminalBadgeBg, terminalBadgeText } = useMemo(() => createStyles(tk), [tk])
 
-  const titleRow = (item: AutomationItem) => (
-    <View style={styles.cardHeaderRow}>
-      <Text style={styles.cardTitle} numberOfLines={1}>
-        {item.name}
-      </Text>
-      <View style={[styles.badge, item.active ? styles.badgeActive : styles.badgePaused]}>
-        <Text style={styles.badgeText}>{item.statusText}</Text>
+  const titleRow = (item: AutomationItem) => {
+    // 终态成因 ⇒ 徽章视图模型(文案键后缀 + 色调档),判据单源在 @ihui/shared
+    const terminal = deriveAutomationTerminalReason(item.terminalReason)
+    return (
+      <View style={styles.cardHeaderRow}>
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <View style={styles.badgeRow}>
+          <View style={[styles.badge, item.active ? styles.badgeActive : styles.badgePaused]}>
+            <Text style={styles.badgeText}>{item.statusText}</Text>
+          </View>
+          {terminal ? (
+            <View style={[styles.badge, terminalBadgeBg[terminal.tone]]}>
+              <Text style={[styles.badgeText, terminalBadgeText[terminal.tone]]}>
+                {t(`automations.terminalReason.${terminal.i18nSuffix}`)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </View>
-    </View>
-  )
+    )
+  }
 
   const rowOf = (label: string, value: string) => (
     <View style={styles.row}>
@@ -195,79 +221,106 @@ export function AutomationsScreen({
 }
 
 function createStyles(tk: RnThemeTokens) {
-  return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: tk.surface.bg,
-      paddingHorizontal: rnSpacing.lg,
-      paddingTop: rnSpacing.lg,
-    },
-    body: { gap: rnSpacing.md, paddingBottom: rnSpacing['2xl'] },
-    card: {
-      padding: rnSpacing.md,
-      borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      backgroundColor: tk.surface.light,
-    },
-    cardHeaderRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: rnSpacing.sm,
-    },
-    cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    badge: {
-      paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
-      borderRadius: rnRadius.md,
-      marginLeft: rnSpacing.sm,
-    },
-    badgeActive: { backgroundColor: tk.success.light },
-    badgePaused: { backgroundColor: tk.surface.muted },
-    badgeText: { fontSize: rnType.label.size, color: tk.text.primary },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: rnSpacing.sm,
-      marginBottom: rnSpacing.sm,
-    },
-    rowLabel: { width: 80, fontSize: rnType.label.size, color: tk.text.secondary },
-    rowValue: { flex: 1, fontSize: rnType.label.size, color: tk.text.primary },
-    miniRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: rnSpacing.sm,
-      marginBottom: rnSpacing.xs,
-    },
-    miniLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
-    miniValue: { fontSize: rnType.label.size, color: tk.text.primary },
-    block: { marginTop: rnSpacing.sm },
-    blockLabel: {
-      marginBottom: rnSpacing.xs,
-      fontSize: rnType.label.size,
-      color: tk.text.secondary,
-    },
-    blockValue: { fontSize: rnType.body.size, color: tk.text.primary },
-    summary: { fontSize: rnType.label.size, color: tk.text.secondary },
-    stateWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: rnSpacing['5xl'],
-      paddingHorizontal: rnSpacing['2xl'],
-      gap: rnSpacing.md,
-    },
-    stateText: { fontSize: rnType.body.size, color: tk.text.secondary },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    outlineBtn: {
-      paddingHorizontal: rnSpacing.lg,
-      paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
-      borderWidth: 1,
-      borderColor: tk.border.medium,
-      alignItems: 'center',
-    },
-    outlineBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
-  })
+  /**
+   * 终态徽章的色调档 → RN theme token 色值。
+   * 档名集合(neutral/danger/warning/success)归 @ihui/shared 的判据单源,
+   * 具体色值留在本端 theme token(同 badge-spec 规则 6:色值不下沉,允许两端不同形)。
+   */
+  const terminalBadgeBg: Record<AutomationTerminalTone, ViewStyle> = {
+    neutral: { backgroundColor: tk.surface.muted },
+    danger: { backgroundColor: tk.danger.light },
+    warning: { backgroundColor: tk.warning.amberLight },
+    success: { backgroundColor: tk.success.light },
+  }
+  const terminalBadgeText: Record<AutomationTerminalTone, TextStyle> = {
+    neutral: { color: tk.text.secondary },
+    danger: { color: tk.danger.DEFAULT },
+    warning: { color: tk.warning.amberText },
+    success: { color: tk.success.deepText },
+  }
+  return {
+    styles: StyleSheet.create({
+      screen: {
+        flex: 1,
+        backgroundColor: tk.surface.bg,
+        paddingHorizontal: rnSpacing.lg,
+        paddingTop: rnSpacing.lg,
+      },
+      body: { gap: rnSpacing.md, paddingBottom: rnSpacing['2xl'] },
+      card: {
+        padding: rnSpacing.md,
+        borderRadius: rnRadius.lg,
+        borderWidth: 1,
+        borderColor: tk.border.light,
+        backgroundColor: tk.surface.light,
+      },
+      cardHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: rnSpacing.sm,
+      },
+      cardTitle: {
+        flex: 1,
+        fontSize: rnType.title.size,
+        fontWeight: '600',
+        color: tk.text.primary,
+      },
+      badge: {
+        paddingHorizontal: rnSpacing.sm,
+        paddingVertical: 2,
+        borderRadius: rnRadius.md,
+        marginLeft: rnSpacing.sm,
+      },
+      badgeActive: { backgroundColor: tk.success.light },
+      badgePaused: { backgroundColor: tk.surface.muted },
+      badgeRow: { flexDirection: 'row', alignItems: 'center' },
+      badgeText: { fontSize: rnType.label.size, color: tk.text.primary },
+      row: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: rnSpacing.sm,
+        marginBottom: rnSpacing.sm,
+      },
+      rowLabel: { width: 80, fontSize: rnType.label.size, color: tk.text.secondary },
+      rowValue: { flex: 1, fontSize: rnType.label.size, color: tk.text.primary },
+      miniRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: rnSpacing.sm,
+        marginBottom: rnSpacing.xs,
+      },
+      miniLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
+      miniValue: { fontSize: rnType.label.size, color: tk.text.primary },
+      block: { marginTop: rnSpacing.sm },
+      blockLabel: {
+        marginBottom: rnSpacing.xs,
+        fontSize: rnType.label.size,
+        color: tk.text.secondary,
+      },
+      blockValue: { fontSize: rnType.body.size, color: tk.text.primary },
+      summary: { fontSize: rnType.label.size, color: tk.text.secondary },
+      stateWrap: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: rnSpacing['5xl'],
+        paddingHorizontal: rnSpacing['2xl'],
+        gap: rnSpacing.md,
+      },
+      stateText: { fontSize: rnType.body.size, color: tk.text.secondary },
+      errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+      outlineBtn: {
+        paddingHorizontal: rnSpacing.lg,
+        paddingVertical: rnSpacing.sm,
+        borderRadius: rnRadius.sm,
+        borderWidth: 1,
+        borderColor: tk.border.medium,
+        alignItems: 'center',
+      },
+      outlineBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
+    }),
+    terminalBadgeBg,
+    terminalBadgeText,
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

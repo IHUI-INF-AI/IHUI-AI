@@ -137,10 +137,14 @@ test('⑥ 任何输出面不得回显凭据明文(指纹只给 sha256 前缀,met
 })
 
 test('⑦ 落点候选:显式覆盖排在最前,且不从 cwd 推导', () => {
-  const dirs = T.traeUserDataDirs({ APPDATA: 'C:/Base/AppData', IHUI_TRAE_DIR: 'D:/Custom/Trae' })
+  const dirs = T.traeUserDataDirs({
+    APPDATA: 'C:/Base/AppData',
+    IHUI_TRAE_DIR: 'D:/Custom/Trae',
+    IHUI_TRAE_SCAN_USERS: '0',
+  })
   assert.equal(dirs[0], path.resolve('D:/Custom/Trae'))
   assert.ok(dirs.some((d) => d === path.resolve('C:/Base/AppData/Trae CN')))
-  const fallback = T.traeUserDataDirs({ APPDATA: 'C:/Base/AppData' })
+  const fallback = T.traeUserDataDirs({ APPDATA: 'C:/Base/AppData', IHUI_TRAE_SCAN_USERS: '0' })
   assert.equal(fallback[0], path.resolve('C:/Base/AppData/Trae CN'))
   assert.ok(
     fallback.every((d) => path.isAbsolute(d)),
@@ -148,10 +152,74 @@ test('⑦ 落点候选:显式覆盖排在最前,且不从 cwd 推导', () => {
   )
 })
 
-test('⑧ 编排器参数面:--from trae 已装车,未知来源仍算未判定', () => {
+test('⑬ 跨 profile 兜底:非登录用户 shell 下能在 <UsersRoot>\\<他席>\\AppData\\Roaming 命中真信封', () => {
+  const scratch = mkScratch('trae-auth-extract-userscan')
+  try {
+    // 造一个假 Users 根:sandbox(当前进程)里没信封,Administrator 席才有
+    const usersRoot = path.join(scratch, 'Users')
+    const other = path.join(usersRoot, 'Administrator', 'AppData', 'Roaming', 'Trae CN')
+    const file = path.join(other, 'User', 'globalStorage', 'storage.json')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        'iCubeAuthInfo://icube.cloudide': T.encryptEnvelope(JSON.stringify(SESSION)),
+      }),
+    )
+    const env = {
+      APPDATA: path.join(scratch, 'Sandbox', 'AppData', 'Roaming'), // 沙箱身份:此路无信封
+      SystemDrive: scratch,
+      USERPROFILE: path.join(usersRoot, 'Sandbox'),
+      IHUI_TRAE_DIR: '',
+    }
+    const homedir = path.join(usersRoot, 'Sandbox')
+    const roots = T.traeUsersRoots(env, homedir)
+    assert.ok(
+      roots.includes(path.resolve(usersRoot)),
+      'Users 根必须由 SystemDrive 给出(扫描面的输入)',
+    )
+    const dirs = T.traeUserDataDirs(env, homedir)
+    assert.ok(
+      dirs.includes(path.resolve(file.replace(/[\\/]User[\\/].*$/, ''))),
+      '扫描档必须把 Administrator/Trae CN 列进候选',
+    )
+    // 优先级锁:当前 %APPDATA% 档必须排在扫描档之前(永远不会拿别人 profile 压本机现役)
+    const appdataTrae = path.resolve(path.join(env.APPDATA, 'Trae CN'))
+    assert.ok(dirs.indexOf(appdataTrae) < dirs.indexOf(path.resolve(other)))
+    // 真提取:全链在默认候选(含扫描)下能打穿 —— 这正是 2026-10-26 首跑栽掉的那型
+    const out = extractTraeAccount({ dirs: dirs.filter((d) => d.startsWith(path.resolve(other))) })
+    assert.equal(out.accounts[0].uid, SESSION.userId)
+    // 关扫描档 ⇒ 只剩沙箱候选,该型按"未判定不猜"处理
+    const noScan = T.traeUserDataDirs({ ...env, IHUI_TRAE_SCAN_USERS: '0' }, homedir)
+    assert.equal(
+      noScan.some((d) => d.startsWith(path.resolve(usersRoot))),
+      false,
+      'IHUI_TRAE_SCAN_USERS=0 必须整体绕开扫描档',
+    )
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('⑧ 编排器参数面:登记面与未装车面分开点名(不再是笼统「暂不支持」)', () => {
   assert.deepEqual(Pool.parseArgs(['--from', 'trae']).error, null)
   assert.deepEqual(Pool.parseArgs(['--from', 'trae', '--dry-run']).options.from, 'trae')
-  assert.match(Pool.parseArgs(['--from', 'codearts']).error ?? '', /暂不支持/)
+  // 号池认的平台 parse 必须过,"未装车"的事实由 main() 运行期落 exit 2(未判定,不冒绿也不冒红)
+  assert.deepEqual(Pool.parseArgs(['--from', 'codearts']).error, null)
+  assert.deepEqual(Pool.parseArgs(['--from', 'qoder']).error, null)
+  assert.match(Pool.parseArgs(['--from', 'nosuch']).error ?? '', /未知来源/)
+  const R = Pool.FROM_PROVIDERS
+  assert.ok(R.trae?.module && R.workbuddy?.module, '已装车的两平台必须登记适配器模块')
+  assert.equal(
+    R.qoder?.module,
+    'qoder-auth-extract.mjs',
+    'qoder 提取器已装车(2026-10-27):必须登记适配器模块,不得再挂 null 口头账',
+  )
+  assert.equal(
+    R.codearts?.module,
+    'codearts-auth-extract.mjs',
+    'codearts 提取器已装车(2026-10-27):必须登记适配器模块,不得再挂 null 口头账',
+  )
 })
 
 test('⑨ 全链取号:夹具目录里的信封能被真提取出来', () => {
@@ -247,5 +315,34 @@ test('⑫ 全链取号带设备材料:账号对象带 deviceId/密钥对,meta �
   } finally {
     rmScratch(scratch)
   }
+})
+
+test('⑭ 会话模板:凭证整族剔除、账号资料原样、深拷贝(登录本机的重建底稿)', () => {
+  const session = {
+    ...SESSION,
+    userRegion: { region: 'cn', _aiRegion: 'cn' },
+    account: { username: 'someone', email: 'a@b.co', phone: '13800000000', avatar_url: 'x' },
+  }
+  const tpl = T.buildSessionTemplate(session)
+  for (const k of ['token', 'refreshToken', 'expiredAt', 'refreshExpiredAt']) {
+    assert.equal(k in tpl, false, `${k} 不得进模板(否则密文里躺着可被直接用的票)`)
+  }
+  for (const k of ['tokenReleaseAt', 'userId', 'host', 'userRegion', 'account']) {
+    assert.ok(k in tpl, `${k} 必须保留(重建整份登录态所需)`)
+  }
+  assert.deepEqual(tpl.account, session.account, '账号资料必须原样(头像/邮箱/组织靠它)')
+  assert.equal(JSON.stringify(tpl).includes(session.token), false)
+  // 深拷贝:改模板不得回头改上游 userInfo(否则同步回灌会把原件弄脏)
+  tpl.account.username = 'tampered'
+  assert.equal(session.account.username, 'someone')
+  // 非对象输入 ⇒ null(不抛错,调用方据 null 不写键)
+  assert.equal(T.buildSessionTemplate(null), null)
+  assert.equal(T.buildSessionTemplate([]), null)
+  assert.equal(T.buildSessionTemplate('nope'), null)
+  // 全链:toPoolAccount 必须带模板,且模板自身不含凭证
+  const acct = T.toPoolAccount(session)
+  assert.deepEqual(acct.accounts[0].sessionTemplate, T.buildSessionTemplate(session))
+  assert.equal('token' in acct.accounts[0].sessionTemplate, false)
+  assert.equal('refreshToken' in acct.accounts[0].sessionTemplate, false)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

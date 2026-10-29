@@ -22,7 +22,7 @@ const { mockVerifyAccessToken, mockVerifyRefreshToken, mockUser, mockPermissions
     mockVerifyAccessToken: vi.fn(),
     mockVerifyRefreshToken: vi.fn(),
     mockUser: {
-      id: 'user-001',
+      id: '00000000-0000-4000-8000-000000000c01',
       phone: '13800000001',
       email: 'test@example.com',
       nickname: 'Tester',
@@ -139,7 +139,7 @@ describe('G-656 sso_code 同码连 exchange 两次,第二次必失败(先烧再�
     redisStore.clear()
     mockVerifyAccessToken.mockReset()
     mockVerifyAccessToken.mockResolvedValue({
-      userId: 'user-001',
+      userId: '00000000-0000-4000-8000-000000000c01',
       phone: '13800000001',
       roleId: 0,
       familyId: 'fam-001',
@@ -204,3 +204,4 @@ describe('G-656 sso_code 同码连 exchange 两次,第二次必失败(先烧再�
     expect(JSON.stringify(body)).not.toContain('g656-access-token')
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

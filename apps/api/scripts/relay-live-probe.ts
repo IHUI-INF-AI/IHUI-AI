@@ -3,55 +3,48 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 反代号池真上游联调探针 —— CLI 入口(2026-10-22 立,env-gated)。
+ * 号池上游实弹探针的 CLI 入口(2026-10-29 立)。
  *
- * 用途:有真实账号时一条命令逐平台验证反代连通性
- *   (checkHealth → 最小 chat 非流式往返 1 token → 流式 SSE 首包);
- *   未设置 RELAY_LIVE_PROBE=1 时只打印提示即退出,零影响。
- *   探针逻辑全部在 src/services/relay-live-probe.ts(与 vitest 门控用例共用)。
+ * 为什么单独有这一枚文件:`src/services/relay-live-probe.ts` 早就导出
+ * `runLiveProbe` / `formatProbeReport` / `probeExitCode`,但全仓 **零 import** ——
+ * 判据造好却没装车就等于没有(AGENTS §0.9),运维想知道"trae/workbuddy/codearts 三平台
+ * 现在到底还通不通"时没有任何可发现的命令入口,只能去读源码猜 env 名。本文件把
+ * 既有判据接成一条可跑的命令,判据本身一律不在这里复算(§0.6 单一真相源)。
  *
- * 运行方法(PowerShell,仓库根或 apps/api 下均可):
- *   $env:RELAY_LIVE_PROBE='1'
- *   $env:RELAY_PROBE_TRAE_CRED='{"token":"<Trae Cloud-IDE-JWT>","model":"auto"}'
- *   $env:RELAY_PROBE_WORKBUDDY_CRED='{"token":"<access token>","model":"<模型 id>","extraMetadata":{"domain":"copilot.tencent.com"}}'
- *   $env:RELAY_PROBE_CODEARTS_CRED='{"token":"<security_token>","model":"<model_id>","secrets":{"accessKeyId":"...","secretAccessKey":"...","dpopPrivateKeyJwk":{...},"codeVerifier":"...","domainId":"..."}}'
- *   pnpm --filter @ihui/api exec tsx scripts/relay-live-probe.ts
- *
- * 凭据 JSON 字段:token 必填;uid / name / refreshToken / secrets /
- *   extraMetadata / proxyUrl / model / tokenExpiresAt 可选。
- *   Trae 的 model 缺省 "auto";WorkBuddy / CodeArts 必须在凭据里给 model。
- *   未设置对应凭据 env 的平台自动跳过并在报告中提示。
- * 可选:$env:RELAY_PROBE_TIMEOUT_MS='20000'(每请求超时上限,默认 20s)。
- *
- * 注意:适配器导入链会拉起 src/config 的环境校验,脚本先尽力加载 apps/api/.env
- *   (process.loadEnvFile),缺 .env 时需外部注入 DATABASE_URL 等必填项,
- *   否则启动即报「Invalid environment variables」并退出。
- * 退出码:任一执行平台失败 → 1;全通过 / 全跳过 / 未开启 → 0。
+ * 跑法:`pnpm --filter @ihui/api relay:live-probe`(凭据取自 apps/api/.env)
+ * 未开启 `RELAY_LIVE_PROBE=1` ⇒ 零网络调用,并显式声明"未判定"而不是"已验证"(§0.3)。
  */
-try {
-  process.loadEnvFile?.()
-} catch {
-  // .env 不存在:依赖外部已注入的环境变量
+import 'dotenv/config'
+import {
+  formatProbeReport,
+  probeExitCode,
+  PROBE_CRED_ENV,
+  PROBE_PROVIDERS,
+  runLiveProbe,
+} from '../src/services/relay-live-probe.js'
+
+async function main(): Promise<number> {
+  const report = await runLiveProbe(process.env)
+  console.log(formatProbeReport(report))
+  if (!report.enabled) {
+    console.log(
+      [
+        '本轮未发出任何真实请求:RELAY_LIVE_PROBE 未置 1 ⇒ 结论=未判定(不是"已验证")。',
+        `开启需同时给凭据 env:${PROBE_PROVIDERS.map((p) => PROBE_CRED_ENV[p]).join(' / ')}`,
+        '注意:探针只覆盖 ' + PROBE_PROVIDERS.join('/') + ' 三平台,其余平台无实弹判据。',
+      ].join('\n'),
+    )
+  }
+  return probeExitCode(report)
 }
 
-if (process.env.RELAY_LIVE_PROBE !== '1') {
-  console.log(
-    '[relay-live-probe] 未开启探针:需显式设置环境变量 RELAY_LIVE_PROBE=1 才会打真实上游。\n' +
-      '用法(PowerShell 示例):\n' +
-      "  $env:RELAY_LIVE_PROBE='1'\n" +
-      `  $env:RELAY_PROBE_TRAE_CRED='{"token":"...","model":"auto"}'   # 可选,缺该变量的平台跳过\n` +
-      `  $env:RELAY_PROBE_WORKBUDDY_CRED='{"token":"...","model":"..."}'\n` +
-      `  $env:RELAY_PROBE_CODEARTS_CRED='{"token":"...","model":"...","secrets":{...}}'\n` +
-      '  pnpm --filter @ihui/api exec tsx scripts/relay-live-probe.ts',
-  )
-  process.exit(0)
-}
-
-// 动态导入:确保上面的门控判断先于适配器/config 导入链执行
-const { runLiveProbe, formatProbeReport, probeExitCode } =
-  await import('../src/services/relay-live-probe.js')
-
-const report = await runLiveProbe(process.env)
-console.log(formatProbeReport(report))
-process.exit(probeExitCode(report))
+main()
+  .then((code) => {
+    process.exit(code)
+  })
+  .catch((err: unknown) => {
+    // 探针自己崩了不算"平台失败",算"没判出来" ⇒ exit 2 并点名原因,不记绿也不冒红
+    console.error(`探针执行异常(未判定):${err instanceof Error ? err.message : String(err)}`)
+    process.exit(2)
+  })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

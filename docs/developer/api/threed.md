@@ -43,7 +43,7 @@
 
 ### 代码示例
 
-**TypeScript(@ihui/sdk)**
+**TypeScript(@ihui-ai/sdk)**
 
 ```typescript
 const task = await client.threed.generations({

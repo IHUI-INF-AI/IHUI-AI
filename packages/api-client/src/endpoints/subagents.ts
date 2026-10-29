@@ -21,6 +21,10 @@
  *   后端 service(subagent-dispatch-service.ts)个别响应字段与 web/shared 契约存在漂移
  *   (stats 的 total/totalTokens、queue 条目的 dispatchId、per-dispatch stats 的
  *   totalDurationMs/totalTokens 等),漂移字段在本文件声明为可选,消费方用 `??` 兜底。
+ * - D08 ③(2026-10-27)Fleet 仪表盘增量:/subagents/all 的每一行可带
+ *   `conversationId`(会话归属 = chat_conversations.id)与 `metrics`(per-agent token/进度);
+ *   两者的声明面在 api 侧路由层(apps/api/src/routes/subagent-dispatch.ts),后端记录上还没有的
+ *   字段载荷里就不会有 ⇒ 消费方按「未判定」渲染,不得用常量顶替。
  */
 import { fetchApi } from '../client.js'
 
@@ -50,6 +54,38 @@ export interface SubagentDispatchInput {
   priority?: DispatchPriority
   /** 可选:关联 agent 主表 id,派单运行轨迹持久化到 agent_tasks */
   agentId?: string
+  /**
+   * 可选:会话归属 = chat_conversations.id(web chatStore.conversationId,D08 ③)。
+   * 语义:这次派单发生在哪个聊天会话里;后端落库后随派单记录回读。
+   */
+  conversationId?: string
+}
+
+/** 单个派单的步骤(逐 agent 的 token/耗时/状态;D08 ③) */
+export interface SubagentDispatchStep {
+  agent: string
+  status: 'ok' | 'failed' | 'quota_exceeded'
+  durationMs: number
+  attempt: number
+  tokenUsage: { prompt: number; completion: number; total: number }
+  error?: string
+}
+
+/**
+ * 单个派单的运行指标(D08 ③:per-agent token + 进度)。
+ * 载荷里**没有**该字段 ⇒ 视作「未判定」(不是 0),消费方按缺省渲染。
+ */
+export interface SubagentDispatchMetrics {
+  /** 该派单累计 token */
+  totalTokens: number
+  /** 已耗时(ms);未开跑 = 0 */
+  elapsedMs: number
+  /** 已产生的步骤明细 */
+  steps: SubagentDispatchStep[]
+  /** DAG 编排时:已完成节点数 */
+  dagDone?: number
+  /** DAG 编排时:节点总数 */
+  dagTotal?: number
 }
 
 /** 派单实例(输入字段 + 运行时状态字段) */
@@ -71,6 +107,13 @@ export interface SubagentDispatch {
   startedAt?: string
   completedAt?: string
   errorMessage?: string
+  /**
+   * 会话归属 = chat_conversations.id(D08 ③)。
+   * 后端派单记录上还没有该字段 ⇒ 载荷里就没有 ⇒ 消费方按「未归属会话」渲染。
+   */
+  conversationId?: string
+  /** 运行指标(per-agent token / 进度);没有 ⇒ 未判定 */
+  metrics?: SubagentDispatchMetrics
 }
 
 /** 派单结果 */

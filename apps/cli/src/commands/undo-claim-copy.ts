@@ -157,13 +157,13 @@ export const UNDO_FAILURE_LIST_KEYS = [
 ] as const;
 
 /** 单条成功改动的展示形状(只取渲染要的两列,不绑死 FileChange)。 */
-export interface UndoReportedChange {
+interface UndoReportedChange {
   readonly toolName: string;
   readonly filePath: string;
 }
 
 /** 成功清单入参。 */
-export interface UndoSucceededLinesInput {
+interface UndoSucceededLinesInput {
   readonly undoneSteps: number;
   readonly remaining: number;
   readonly changes: readonly UndoReportedChange[];
@@ -175,7 +175,7 @@ export interface UndoSucceededLinesInput {
  * `undoneSteps===0`(全失败 / 无步可撤)时返回空:此时印"✓ 已回滚 0 步"是把
  * 失败包装成成功清单,票面明确不许(全失败要么不印清单,要么明说 0 成功)。
  */
-export function renderUndoSucceededLines(input: UndoSucceededLinesInput, t: Translate): string[] {
+function renderUndoSucceededLines(input: UndoSucceededLinesInput, t: Translate): string[] {
   if (input.undoneSteps <= 0) return [];
   const lines = [
     t(UNDO_CLAIM_KEY_PREFIX + 'undoDone', {
@@ -190,7 +190,7 @@ export function renderUndoSucceededLines(input: UndoSucceededLinesInput, t: Tran
 }
 
 /** 失败清单入参(`failedFiles` 与 `failedReasons` 一一对应,由 undo-redo 保证)。 */
-export interface UndoFailureLinesInput {
+interface UndoFailureLinesInput {
   readonly failedFiles: readonly string[];
   readonly failedReasons: readonly string[];
   /**
@@ -207,7 +207,7 @@ export interface UndoFailureLinesInput {
  *
  * 空数组 ⇒ 空输出(全部成功时一个字也不多印,免得成功态反被失败标题干扰)。
  */
-export function renderUndoFailureLines(
+function renderUndoFailureLines(
   input: UndoFailureLinesInput,
   t: Translate,
   limit: number = UNDO_REPORT_LIST_LIMIT,

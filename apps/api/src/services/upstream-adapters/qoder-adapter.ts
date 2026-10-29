@@ -30,6 +30,7 @@
  * 接入号池的账号可被调度器续期/健康检查;转发链路调 chat 时按上述两条路径如实得到结果或错误。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import { isProductionGuard } from '../../config/index.js'
 import { extractTokenExpiry } from '../relay-account-format.js'
 import {
   describeQoderBridgeFailure,
@@ -40,8 +41,10 @@ import type {
   AdapterAccountContext,
   AdapterCallOptions,
   ChatExecuteOptions,
+  ModelListCallOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
+  RelayModelListResult,
   RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
@@ -56,13 +59,15 @@ import {
   qoderCliChatChunks,
   renderQoderPrompt,
 } from './qoder-cli-bridge.js'
+import { listQoderModels } from './qoder-models.js'
 
 // =============================================================================
 // 端点常量(实证值;非生产档允许 env 覆写指向假上游,供 tests 真跑协议线)
 // =============================================================================
 
 function endpoint(name: string, fallback: string): string {
-  if (process.env.NODE_ENV === 'production') return fallback
+  // 档位判定走 config 出口(守门语义见 config/index.ts 头注):production 下端点覆写不生效
+  if (isProductionGuard) return fallback
   const v = process.env[name]?.trim()
   if (!v || !/^https?:\/\//.test(v)) return fallback
   return v.replace(/\/$/, '')
@@ -115,7 +120,7 @@ export const QODER_CHAT_CONTRACT_UNVERIFIED =
   'QODER_CHAT_CONTRACT_UNVERIFIED: Qoder chat 必须经本机桥(executeChat)执行,三件套直连通道未实证'
 
 /** Qoder 上游非鉴权失败(带 HTTP 状态码;消息截断防泄漏) */
-export class QoderUpstreamError extends Error {
+class QoderUpstreamError extends Error {
   readonly statusCode: number
   constructor(statusCode: number, message: string) {
     super(message.slice(0, 500))
@@ -520,6 +525,35 @@ export const qoderAdapter: RelayUpstreamAdapter = {
         return { ok: false, error: 'quota 响应未含 addOnQuota.remaining ⇒ 未判定(不读成零)' }
       }
       return { ok: true, quota: { remaining, unit: 'Qoder credits' } }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  },
+
+  /**
+   * 富模型清单(2026-10-27 立;契约见 RelayModelListResult)。
+   * 调 listQoderModels(spawn 本机 CLI --list-models),永不抛,失败归 ok:false。
+   * ctx 不用于取凭据:CLI 用本机登录态(清单语义 = 本机 CLI 登录态的当前用户,
+   * 不是号池账号),scope 字段如实标注;取证:上游无 models HTTP 端点
+   * (docs/RELAY_QODER_LISTMODELS_EVIDENCE.md),CLI 是唯一客户端同源通路。
+   */
+  async listModelsDetailed(
+    _ctx: AdapterAccountContext,
+    _opts?: ModelListCallOptions,
+  ): Promise<RelayModelListResult> {
+    try {
+      const r = listQoderModels()
+      if (!r.ok) return { ok: false, error: r.error }
+      const models = [
+        ...(r.auto ? [{ name: 'auto' }] : []),
+        ...r.official.map((name) => ({ name, id: name })),
+        ...r.custom.map((c) => ({ name: c.name, id: c.idPrefix, idTruncated: true as const })),
+      ]
+      return {
+        ok: true,
+        scope: r.scope,
+        models,
+      }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }

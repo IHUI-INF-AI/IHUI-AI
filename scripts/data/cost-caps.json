@@ -4,9 +4,9 @@
   "issuesAt": "2026-10-25",
   "kinds": {
     "deploy": {
-      "perHour": 4,
-      "perDay": 40,
-      "minutesPerDay": 240
+      "perHour": 8,
+      "perDay": 60,
+      "minutesPerDay": 480
     },
     "session": {
       "perHour": 3,

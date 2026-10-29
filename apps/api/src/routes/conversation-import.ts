@@ -81,13 +81,13 @@ function parseTimestamp(value: string | undefined, fallback: Date): Date {
 // Route
 // =============================================================================
 
-/** /commit 路由级请求体上限,与 ai-service 侧上传上限一致(全局 bodyLimit 是 10MiB) */
+/** /commit 路由级请求体上限,与 ai-service 侧上传上限一致(全局 bodyLimit 已收到 2MiB,本路由显式放开) */
 const COMMIT_BODY_LIMIT_BYTES = 20 * 1024 * 1024
 
 /**
  * /parse 单文件读入上限(b75-3#4,2026-09-30,上游 SCRIPT_READ_MAX_BYTES 同型):
  * 超限**显式 413 拒绝**,不静默截断、不把超限 buffer 送进解析链。
- * 全局 bodyLimit(10MiB)是第一道闸;此常量兜"bodyLimit 被调宽后 /parse 仍有自己的读入上限",
+ * 全局 bodyLimit(已收到 2MiB)是 JSON 默认上限;/parse 现已显式放开到 PARSE_UPLOAD_MAX_BYTES,handler 内再按此常量精确闸,
  * 与 ai-service 侧 20MiB 上传上限对齐,上限集中在本常量一处可配。
  */
 export const PARSE_UPLOAD_MAX_BYTES = 20 * 1024 * 1024
@@ -107,7 +107,8 @@ export const conversationImportRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // 1. POST /conversation-import/parse — 转发 ai-service 解析
   // -------------------------------------------------------------------------
-  server.post('/conversation-import/parse', async (request, reply) => {
+  // 2026-10-28 DDoS P2:解析上传上限 20MB(PARSE_UPLOAD_MAX_BYTES),显式放开脱离全局 2MiB。
+  server.post('/conversation-import/parse', { bodyLimit: PARSE_UPLOAD_MAX_BYTES + 1024 * 1024 }, async (request, reply) => {
     const userId = request.userId!
 
     // 原样收集 multipart 各部分,重建 FormData 转发(字段 + 文件透传,解析逻辑在 ai-service)
@@ -167,7 +168,7 @@ export const conversationImportRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/conversation-import/commit',
     // 单会话 JSON 体可达数 MB(ai-service 侧按 20MiB 上传上限解析,但只按字符数收口),
-    // 全局 bodyLimit 10MiB 会让大会话直接 413 且前端只显示"导入失败",故为本路由放宽。
+    // 全局 bodyLimit 已收到 2MiB,会让大会话直接 413 且前端只显示"导入失败",故为本路由显式放开到 COMMIT_BODY_LIMIT_BYTES。
     { bodyLimit: COMMIT_BODY_LIMIT_BYTES },
     async (request, reply) => {
       const userId = request.userId!

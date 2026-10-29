@@ -515,6 +515,12 @@
     "noLogsHint": "(No logs yet — click on the page to see coordinate info)",
     "runJs": "Run JavaScript",
     "runJsPlaceholder": "document.title — enter JS then click Run (e.g. document.querySelector(\"button\").click())",
+    "browserTab": "Browser",
+    "home": "Go to home page",
+    "pickElement": "Pick element",
+    "picking": "Picking: click an element to select it; click the button again to cancel",
+    "devtools": "Developer tools",
+    "popout": "Open in a separate window",
     "run": "Run"
   },
   "a11y": {
@@ -922,6 +928,37 @@
       "panelVisitTransition": "Page transitions",
       "visitTransitionMoves": "{count} moves / 24h",
       "visitTransitionTop": "Most travelled paths (24h)",
+      "avgDwellSec": "stay {s}s",
+      "panelHourlyVisits": "Visits by Hour",
+      "hourlyVisitWindow": "Last 24h · hourly",
+      "visitHourlyPv": "Page views",
+      "visitHourlyUv": "Visitors",
+      "sessionQualityExitTop": "Exit page (sessions/single)",
+      "activeUsers7d": "Active (7d)",
+      "alertCountAtLeast": "Alerts ≥{count}",
+      "apiErrRateHint": "Scope: all of today's api_logs rows (complements the Prometheus 5xx rate in the header)",
+      "level0": "Normal",
+      "level1": "Silver",
+      "level2": "Gold",
+      "level3": "Diamond",
+      "levelDistTitle": "Level mix",
+      "noPoolRows": "No pool rows",
+      "poolBalanceLow": "Low balance",
+      "poolExpiring24h": "Expiring ≤24h",
+      "poolHealthDegraded": "Degraded",
+      "poolHealthDown": "Down",
+      "poolHealthHealthy": "Healthy",
+      "poolHealthUnknown": "Unknown",
+      "poolProviderAccountTitle": "Accounts by provider",
+      "poolProviderKeyTitle": "Keys by provider",
+      "stateDown": "Down",
+      "stateUnknown": "Unknown",
+      "stateUp": "Up",
+      "userGrowth14d": "User Growth (14d)",
+      "usersInvited": "Invited",
+      "usersInvited7d": "Invited (7d)",
+      "usersTrader": "Traders",
+      "usersVip": "VIP Users",
       "visitTransitionNoData": "No transitions in 24h"
     },
     "aboutUs": {
@@ -1418,6 +1455,19 @@
         "update": "Update",
         "warning": "Warning"
       },
+      "platforms": {
+        "cli": "CLI",
+        "desktop": "Desktop",
+        "extension": "Extension",
+        "miniapp": "Mini App",
+        "mobile-cap": "Mobile Capture",
+        "rn": "Mobile App",
+        "web": "Web"
+      },
+      "colPlatforms": "Platforms",
+      "fieldPlatforms": "Platforms",
+      "platformsAll": "All Platforms",
+      "platformsHint": "Leave all unchecked to show on every platform; only checked platforms will see it",
       "yes": "Yes"
     },
     "anomalies": {
@@ -1801,6 +1851,10 @@
       "statusExpired": "Expired",
       "statusInUse": "In Use",
       "statusUnused": "Unused",
+      "colAddress": "Address",
+      "colCreatedAt": "Created At",
+      "colCreator": "Creator",
+      "colSignNickname": "Sign Nickname",
       "total": "{total} items"
     },
     "developerLink": {
@@ -6225,6 +6279,244 @@
       "installerHint": "GitHub-side actor id (not a platform user)"
     },
     "smsReceive": "SMS Verification",
+    "relayTasks": {
+      "wbTitle": "WorkBuddy task automation",
+      "wbAccount": "Account",
+      "wbAccountEmpty": "No WorkBuddy account",
+      "wbDryRun": "Preview (dry run)",
+      "wbRefresh": "Refresh",
+      "wbNoAccount": "Select an account first",
+      "wbLoading": "Loading tasks…",
+      "wbReadFailed": "Failed to load",
+      "wbUnjudged": "Unjudged",
+      "wbNoTasks": "No runnable tasks",
+      "wbColTask": "Task",
+      "wbColProgress": "Progress",
+      "wbColStatus": "Status",
+      "wbColReward": "Reward",
+      "wbKindGrowth": "Growth",
+      "wbKindTravel": "Travel",
+      "wbKindActivity": "Activity",
+      "wbKindBlackcat": "Night owl",
+      "wbRunOk": "Task executed",
+      "wbRunFailed": "Execution failed",
+      "wbAccepted": "Accepted",
+      "wbClaimed": "Claimed",
+      "wbCreditDelta": "Credits",
+      "wbEnergyDelta": "Energy",
+      "wbNeverRun": "Not run yet"
+    },
+    "smsOperations": {
+      "page": {
+        "title": "SMS Channel Operations",
+        "loadingStatus": "Loading channel status…",
+        "tabStatus": "Channel status",
+        "tabSend": "Send",
+        "tabLogs": "Send ledger",
+        "tabUnsubscribes": "Unsubscribe blocklist"
+      },
+      "category": {
+        "notice": "Notification",
+        "marketing": "Marketing"
+      },
+      "provider": {
+        "tencent": "Tencent Cloud",
+        "aliyun": "Alibaba Cloud",
+        "proxy": "Self-hosted proxy",
+        "none": "No channel available"
+      },
+      "review": {
+        "approved": "Active",
+        "pending": "Under review",
+        "rejected": "Rejected",
+        "unknown": "Status unknown"
+      },
+      "template": {
+        "bindingSuccess": "Phone number linked",
+        "newDevice": "New device sign-in",
+        "passwordChanged": "Password changed",
+        "maintenance": "System maintenance notice",
+        "accountCancel": "Account deletion confirmed",
+        "membershipExpiry": "Membership expiring",
+        "paymentSuccess": "Payment received",
+        "contentReject": "Content review rejected",
+        "securityLimit": "Security risk control limit",
+        "serviceRestore": "Service restored",
+        "newFeature": "New feature launched",
+        "promo": "Promotional offer"
+      },
+      "error": {
+        "rateLimited": "Per-number rate limit hit",
+        "suppressedUnsubscribed": "Unsubscribed / delivery refused",
+        "unsubscribeCheckUnavailable": "Unsubscribe blocklist lookup failed (marketing is fail-closed)",
+        "noChannel": "No channel available (missing configuration)",
+        "notConfigured": "Template or channel not configured",
+        "notInMarketingWindow": "Outside the marketing sending window (08:00–21:00)",
+        "globalDailyCapReached": "Global daily marketing cap reached",
+        "sdkUnavailable": "Cloud SDK unavailable",
+        "aliyunSdkUnavailable": "Alibaba Cloud SDK unavailable",
+        "aliyunResponseUnparsable": "Alibaba Cloud response could not be parsed",
+        "proxyCallFailed": "Self-hosted proxy call failed",
+        "invalidTemplate": "Invalid template key",
+        "marketingDisabled": "Marketing master switch is off (SMS_MARKETING_ENABLED=0)",
+        "duplicate": "This business event was already sent (idempotency guard)"
+      },
+      "field": {
+        "phone": "Phone number",
+        "number": "Number",
+        "reason": "Reason",
+        "usage": "Purpose",
+        "template": "Template",
+        "category": "Category",
+        "channel": "Channel",
+        "status": "Status",
+        "source": "Source",
+        "time": "Time",
+        "templateId": "Template ID",
+        "bizType": "Business type",
+        "bizId": "Business ID",
+        "rawReply": "Original reply",
+        "updateTime": "Updated at",
+        "fallbackContent": "Fallback content (optional)",
+        "phoneInvalid": "Invalid phone number format (accepts 13800000000 / +8613800000000)"
+      },
+      "pager": {
+        "loading": "Loading…",
+        "prev": "Previous",
+        "next": "Next"
+      },
+      "status": {
+        "cardCurrentChannel": "Current channel",
+        "available": "Available",
+        "missingCredentials": "Missing credentials",
+        "configured": "Configured",
+        "notConfigured": "Not configured",
+        "autoModeHint": "In auto mode a channel whose template is backfilled wins; otherwise it falls back to the Alibaba Cloud notification template.",
+        "signName": "Signature",
+        "signReview": "Signature review",
+        "signId": "Signature ID",
+        "signIdNotRegistered": "No signature ID registered",
+        "region": "Region",
+        "codeTemplate": "Verification code · {code}",
+        "codeTemplateColumn": "Verification code template",
+        "notifyTemplate": "Notification template",
+        "noNotifyTemplateHint": "Without ALI_SMS_NOTIFY_TEMPLATE_CODE, notification messages whose Tencent template was not approved have no fallback channel.",
+        "cardCallbackCompliance": "Callback and compliance",
+        "callbackToken": "Callback token",
+        "callbackIpAllowlist": "Callback IP allowlist",
+        "unsubscribeFailClosed": "Unsubscribe blocklist fail-closed",
+        "marketingSwitch": "Marketing master switch",
+        "callbackPath": "Callback path",
+        "marketingWindow": "Marketing window",
+        "cardRateLimit": "Rate limits and quotas",
+        "noticePerNumber": "Per number (notice)",
+        "marketingPerNumber": "Per number (marketing)",
+        "perHourPerDay": "{hourly} per hour · {daily} per day",
+        "perDayPerMonth": "{daily} per day · {monthly} per month",
+        "perDay": "{count} per day",
+        "countUnit": "{count} messages",
+        "marketingGlobalDailyCap": "Global daily marketing cap",
+        "broadcastLimit": "Per-broadcast limit",
+        "unsubscribeCount": "Unsubscribe blocklist size",
+        "cardTemplateMatrix": "Template matrix",
+        "reviewSource": "Review status comes from Tencent Cloud, checked at {time}",
+        "reviewUnavailable": "Review status lookup is unavailable; only local backfill is shown",
+        "reviewUnavailableWithCode": "Review status lookup is unavailable ({code}); only local backfill is shown",
+        "colEnvKey": "Environment variable",
+        "colTencentTemplateId": "Tencent template ID",
+        "colBackfilled": "Backfill",
+        "colReviewStatus": "Review status",
+        "colReviewReply": "Review comment",
+        "backfilled": "Backfilled",
+        "notBackfilled": "Not backfilled"
+      },
+      "log": {
+        "exportFileName": "SMS send ledger",
+        "exported": "Exported {count} rows",
+        "exportLimitHint": "Exports at most the latest {limit} rows",
+        "allStatuses": "All statuses",
+        "totalCount": "{count} rows in total",
+        "loadFailed": "Ledger failed to load. What follows is not \"no records\" — nothing was retrieved.",
+        "empty": "No send records yet",
+        "pagination": "Page {page} · {size} rows per page · {total} rows in total",
+        "colSendTime": "Sent at",
+        "statusAccepted": "Accepted",
+        "statusDelivered": "Delivered",
+        "statusDeliveryFailed": "Delivery failed",
+        "statusFailed": "Send failed",
+        "statusSuppressed": "Suppressed",
+        "rawCode": "{code}"
+      },
+      "unsub": {
+        "sourceReply": "Replied to unsubscribe",
+        "sourceAdmin": "Blocked by admin",
+        "sourceManual": "Added manually",
+        "addedToast": "Added to the unsubscribe blocklist",
+        "restoredToast": "Delivery restored",
+        "restore": "Restore delivery",
+        "restoreDesc": "Remove {phone} from the unsubscribe blocklist? Only do this after the user has clearly agreed to receive messages again, otherwise it becomes harassment.",
+        "restoreAction": "Restore",
+        "addToList": "Add to blocklist",
+        "listSummary": "{total} people · page {page}/{totalPages}",
+        "reasonPlaceholder": "For example: the user complained by phone",
+        "empty": "No unsubscribe records"
+      },
+      "send": {
+        "cardSingle": "Single send",
+        "cardSingleDesc": "For support compensation and integration testing. Dry run by default, so no quota is consumed.",
+        "cardBroadcast": "Broadcast",
+        "cardBroadcastDesc": "Targets all users, taking the first N that have a phone number in registration order. By default it skips users who already received the same template within the last {days} days, so later batches advance naturally. Limit: {limit} messages per run.",
+        "dryRunLabel": "Dry run (do not send)",
+        "skipRateLimitLabel": "Skip per-number rate limit",
+        "submitLabel": "Send",
+        "submitBroadcastLabel": "Run broadcast",
+        "suffixRejected": "review rejected",
+        "fallbackPlaceholder": "Used as the Alibaba Cloud notification fallback when the Tencent template was not approved; max 35 characters",
+        "fallbackShortPlaceholder": "max 35 characters",
+        "fallbackCounter": "{n}/35 · not used once the Tencent template is approved",
+        "fallbackTooLong": "The Alibaba Cloud fallback content must not exceed 35 characters (variable length limit)",
+        "marketingOffBanner": "The marketing master switch is off (SMS_MARKETING_ENABLED=0): marketing messages can only be dry-run, and a real send is blocked by the backend; notification messages are unaffected.",
+        "marketingOffToast": "Marketing master switch is off; marketing messages can only be dry-run",
+        "marketingConstraint": "Marketing is limited by the unsubscribe blocklist, 2 messages per number per day and 4 per month, the global daily cap of {cap} messages, and the {window} sending window.",
+        "templateNotBackfilled": "This template has no backfilled ID. To send for real, backfill it first or provide fallback content to route through Alibaba Cloud.",
+        "templateRejected": "This template was rejected by the Tencent review. Provide fallback content and try again.",
+        "confirmWordRequired": "A real send requires the confirmation phrase {word}",
+        "confirmLabel": "Confirmation phrase (a real send happens only after you type <code>{word}</code>)",
+        "fillConfirmWord": "Fill confirmation phrase",
+        "limitLabel": "Amount for this run",
+        "limitInvalid": "The amount must be a whole number between 1 and {max}",
+        "excludeLabel": "Skip users reached in the last N days",
+        "excludeDaysInvalid": "The skip window must be a whole number between 0 and 30",
+        "excludeZeroHint": "0 = skip nobody",
+        "zeroDaysTitle": "Skip window is 0 days",
+        "zeroDaysDesc": "This broadcast will not exclude users who recently received the same template, so people who just got it may be disturbed again. Continue?",
+        "zeroDaysConfirm": "Continue with real send",
+        "dryRunDoneToast": "Dry run complete: {count} numbers matched",
+        "broadcastDoneToast": "Broadcast complete: {sent} succeeded / {failed} failed",
+        "dryRunPassed": "Dry run passed: the channel resolved to <badge>{channel}</badge> and no quota was consumed.",
+        "sentSuccess": "Sent · channel {channel} · template {template}",
+        "sendFailed": "Send failed: {reason}",
+        "dryRunSummary": "Dry run: {total} numbers matched · channel {channel} · template {template}",
+        "scopeSummary": "{scopeTotal} in scope · {excluded} already reached in the last {days} days · {eligible} sendable",
+        "scopeOffset": "start offset {offset}",
+        "samplePhones": "Sample numbers: {phones}",
+        "broadcastSummary": "{total} in total · <ok>{sent}</ok> succeeded · <bad>{failed}</bad> failed · {suppressed} suppressed"
+      }
+    },
+    "relayPoolPolicy": {
+      "title": "Relay pool selection policy (global defaults)",
+      "refresh": "Refresh",
+      "loading": "Loading policy…",
+      "loadFailed": "Failed to load",
+      "badgeAllDefault": "All defaults",
+      "badgeDeviated": "{n} deviated",
+      "badgeInvalid": "{n} fell back from invalid env",
+      "badgeRegistryBroken": "Registry incomplete",
+      "readOnlyHint": "Read-only: edit .env and restart apps/api",
+      "defaultIs": "default {v}",
+      "invalidFellBack": "invalid value fell back",
+      "registryDiff": "Unregistered knobs: {missing}; orphan entries: {orphan}"
+    },
     "sms": "SMS Templates"
   },
   "connectors": {
@@ -6868,6 +7160,8 @@
       "title": "Developer Center",
       "urlRequired": "URL is required",
       "webhooks": "Webhooks",
+      "permissionHint": "Choose which API permissions this key can access",
+      "permissionLabel": "Permissions",
       "whCreateSuccess": "Webhook created"
     },
     "dict": {
@@ -7538,6 +7832,8 @@
       "runningCount": "{count} Running",
       "title": "Background Agents",
       "total": "Total {count}",
+      "takeover": "Take over",
+      "tokens": "Tokens",
       "viewResult": "View Result"
     },
     "checkpointHistory": {
@@ -7749,7 +8045,7 @@
             "sourceMismatch": "Source mismatch: this action is only available for voice-delegated tasks"
           },
           "outcome": {
-            "deferred": "Message not sent; it is kept in the queue",
+            "deferred": "Message not sent; it has been removed from the queue. Please send it again.",
             "failed": "Message failed to send; please retry",
             "sent": "Message sent"
           },
@@ -8964,6 +9260,34 @@
           "title": "The request is too large",
           "action": "Reduce the content and retry"
         },
+        "MODEL_RETIRED": {
+          "title": "This model has been permanently retired",
+          "action": "Switch to an available model in the list"
+        },
+        "ALREADY_CLAIMED": {
+          "title": "This task has already been claimed",
+          "action": "Claim another task, or wait for the holder to release it"
+        },
+        "BOARD_FULL": {
+          "title": "Team task board is full",
+          "action": "Clear completed entries and try again"
+        },
+        "FORBIDDEN": {
+          "title": "You cannot update this task",
+          "action": "Claim the task first, or contact its current holder"
+        },
+        "INVALID_STATUS": {
+          "title": "Invalid task status",
+          "action": "Use pending, claimed, done, or blocked"
+        },
+        "TASK_CLOSED": {
+          "title": "This task is already closed or blocked",
+          "action": "Choose another task"
+        },
+        "TASK_NOT_FOUND": {
+          "title": "Task not found",
+          "action": "Refresh the task list and retry"
+        },
         "invalid_arguments": {
           "title": "The submitted information is invalid",
           "action": "Check it and retry"
@@ -9076,6 +9400,7 @@
           "browser": "Open the page in your default browser"
         }
       },
+      "injectionKindExpertPack": "Expert pack matched by intent",
       "promptPolish": {
         "entryLabel": "Polish",
         "ariaLabel": "Polish prompt",
@@ -9317,6 +9642,8 @@
       "unarchive": "Unarchive",
       "pin": "Pin",
       "unpin": "Unpin",
+      "exportSubmenu": "Export / Share",
+      "compressSubmenu": "Compress",
       "branchFromHere": "Branch from here"
     },
     "checkpoint": {
@@ -9525,6 +9852,10 @@
     "closeWorkPanel": "Close Work Panel",
     "toggleWorkPanel": "Toggle Work Panel",
     "user": "User",
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
+    "delete": "Delete",
+    "earlier": "Earlier",
     "org": {
       "title": "Organize conversation",
       "folderLabel": "Folder",
@@ -10413,6 +10744,11 @@
     "clear": "Clear",
     "cleared": "Goal cleared",
     "resetProgress": "Reset",
+    "resumeServerOk": "Goal resumed",
+    "resumeAlreadyActive": "Goal is already active, nothing to resume",
+    "resumeTerminal": "Goal is completed and cannot be resumed",
+    "resumeNoGoal": "No resumable goal in this session",
+    "resumeFailed": "Resume failed: {message}",
     "fullProgress": "Full"
   },
   "memoryCards": {
@@ -11351,6 +11687,7 @@
       "roleAssistant": "Assistant",
       "exportCard": "Share as image card",
       "shareCardUser": "User",
+      "compression": "Compress conversation",
       "exportPdf": "Export PDF"
     },
     "fallbackNotice": "Switched to backup model {backup} (primary model {primary} temporarily unavailable)",
@@ -11856,6 +12193,29 @@
       "tabSlash": "Commands",
       "tabTemplate": "Templates",
       "title": "Skill Library",
+      "reloadSkills": "Reload skills",
+      "reloadSkillsHint": "Rescan SKILL.md on disk so changes take effect immediately",
+      "reloadSkillsRunning": "Reloading…",
+      "reloadSkillsSuccess": "Reload complete",
+      "reloadSkillsFailed": "Reload failed",
+      "reloadSkillsAdded": "Added",
+      "reloadSkillsRemoved": "Removed",
+      "reloadSkillsChanged": "Changed",
+      "reloadSkillsUnchanged": "Unchanged",
+      "reloadSkillsTotal": "{count} skills in total",
+      "reloadSkillsNoChange": "No content changes in this reload",
+      "reloadSkillsAuto": "{count} from auto sources",
+      "tabAiSkills": "AI Skills",
+      "tabAll": "All",
+      "reloadPlugins": "Reload plugin surface",
+      "reloadPluginsHint": "Rescan the plugin surface and feed the latest command list back to the host",
+      "reloadPluginsRunning": "Reloading…",
+      "reloadPluginsSuccess": "Plugin surface reloaded",
+      "reloadPluginsFailed": "Plugin surface reload failed",
+      "reloadPluginsCommandCount": "{count} commands",
+      "reloadPluginsSkillCount": "{count} skills",
+      "reloadPluginsCommandList": "Latest command list",
+      "reloadPluginsNoCommand": "No commands available right now",
       "viewAll": "View all"
     },
     "sessionDiff": {
@@ -11948,6 +12308,7 @@
       "messageDeleted": "Message deleted",
       "operationFailed": "Operation failed",
       "regenerating": "Regenerating…",
+      "dislikeThanks": "Thanks — you can add details from the survey card",
       "branching": "Creating branch…"
     },
     "toolCallSkipped": "Skipped (duplicate call)",
@@ -12213,6 +12574,34 @@
     "reasoningEffortHigh": "Deep",
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
+    "workbenchSessions": "Sessions",
+    "feedbackLike": "Helpful",
+    "feedbackDislike": "Not helpful",
+    "workbenchHeroTitle": "AI Chat Workbench",
+    "workbenchHeroHint": "Type below to start a new conversation right here, or pick a session on the left to continue.",
+    "workbenchSplit": "Split panes",
+    "workbenchDropHere": "Drag a conversation here from the left",
+    "workbenchQuickStart": "Quick actions",
+    "bindIssueHint": "Link this conversation to a GitHub or Linear issue — handy for chats that track a bug or feature. Search, pick an issue, and a clickable badge appears next to the conversation. Skipping it changes nothing else.",
+    "searchIssueAction": "Search",
+    "reviewTargetGroupLabel": "Review target selection",
+    "reviewTargetLabel": "Review target",
+    "reviewTargetUncommitted": "Uncommitted changes",
+    "reviewTargetBranch": "Branch",
+    "reviewTargetBranchLabel": "Branch to compare against",
+    "reviewTargetBranchPlaceholder": "e.g. main or feature/login",
+    "reviewTargetCommit": "Commit",
+    "reviewTargetCommitLabel": "Commit SHA to review",
+    "reviewTargetCommitPlaceholder": "e.g. 9cb7c5a",
+    "reviewTargetFile": "Specific file",
+    "reviewTargetFileLabel": "File path to review",
+    "reviewTargetFilePlaceholder": "Workspace-relative path, e.g. src/app.ts",
+    "reviewTargetSnippet": "Pasted snippet",
+    "reviewTargetSnippetLabel": "Code snippet to review",
+    "reviewTargetSnippetPlaceholder": "Paste the code to review…",
+    "reviewTargetClear": "Clear review target",
     "analysisOpen": "View Scenario Analysis"
   },
   "chatHistory": {
@@ -14687,6 +15076,17 @@
       "toolFailures": "Tool Failures",
       "trigger": "Trigger",
       "triggerError": "Trigger failed",
+      "refresh": "Rescan memory source",
+      "refreshSuccess": "Memory source rescanned",
+      "refreshReadFailed": "Memory source read failed (previous memory kept)",
+      "refreshFailed": "Memory source rescan failed",
+      "refreshTotal": "{before} before → {after} after rescan",
+      "refreshLoadState": "Read state",
+      "refreshAdded": "Added",
+      "refreshRemoved": "Removed",
+      "refreshChanged": "Changed",
+      "refreshUnchanged": "Unchanged",
+      "refreshNoChange": "No content changes in this rescan",
       "triggerSuccess": "Triggered successfully"
     },
     "orch": {
@@ -16706,6 +17106,27 @@
       "settings": "Settings",
       "terminal": "Terminal"
     },
+    "agentsMd": {
+      "title": "AGENTS.md",
+      "hint": "Scan the current workspace to draft collaboration conventions. Generating does not write to disk; you will be asked once more before writing.",
+      "generate": "Generate AGENTS.md draft",
+      "generateConfirmTitle": "Generate an AGENTS.md draft?",
+      "generateConfirmContent": "The current workspace will be scanned and a draft produced. The draft is shown here only; nothing is written to disk.",
+      "generating": "Scanning workspace…",
+      "generateFailed": "Failed to generate draft",
+      "draftTitle": "AGENTS.md draft (editable; written only after confirmation)",
+      "draftNotice": "Draft not yet written to disk",
+      "write": "Write AGENTS.md",
+      "writeConfirmTitle": "Write AGENTS.md?",
+      "writeConfirmContent": "This writes the content above to AGENTS.md in the workspace root; an existing file with the same name will be overwritten.",
+      "writing": "Writing…",
+      "writeFailed": "Write failed",
+      "written": "AGENTS.md written",
+      "discard": "Discard draft",
+      "errorEmptyWorkspace": "Workspace path is empty",
+      "errorRequestFailed": "AI service request failed",
+      "errorNoDraft": "The tool did not return a draft"
+    },
     "viewSwitcher": {
       "groupSettings": "Settings",
       "groupTools": "Tools",
@@ -18041,6 +18462,11 @@
     "dashboardSuccessRate": "Success rate",
     "dashboardAvgLatency": "Avg latency",
     "dashboardNoData": "No data",
+    "clearAuth": "Revoke authorization",
+    "clearAuthHint": "Revoke the OAuth credential you granted to this server (this one only)",
+    "clearAuthSuccess": "Authorization for {name} revoked",
+    "clearAuthNoOauth": "{name} does not use the OAuth channel, nothing to revoke",
+    "clearAuthFailed": "Failed to revoke authorization for {name}",
     "dashboardLatency": "{value}s"
   },
   "member": {
@@ -19798,6 +20224,9 @@
     "editDeviceMapTitle": "Edit device fingerprint",
     "editDeviceMapDescription": "Edit the device fingerprint for the {platform} account (JSON object; leave empty to auto-generate on save).",
     "checkedInToday": "Checked in today",
+    "captureTraeWebWaiting": "The Trae sign-in page is open in the browser on the right work panel. Please sign in there (phone/QR); once the login state is detected, the account is imported automatically and you return to the check-in page.",
+    "captureTraeWebDone": "Trae web sign-in imported ({count} account(s))",
+    "captureTraeWebCancelled": "Trae web sign-in cancelled. Click \"Web sign-in\" to try again.",
     "rename": "Rename"
   },
   "accountPool": {
@@ -21339,7 +21768,6 @@
       "deleteConfirm": "Are you sure you want to delete this prompt?",
       "deleteFailed": "Failed to delete",
       "deleteSuccess": "Prompt deleted successfully",
-      "loadFailed": "Failed to load",
       "updateSuccess": "Updated successfully"
     },
     "rollback": "Rollback",
@@ -21753,6 +22181,31 @@
     "title": "Multi-Platform Publishing",
     "uploadFailed": "Upload failed",
     "uploadProgress": "Uploading",
+    "keepalive": {
+      "accountFallback": "Account #{id}",
+      "allHealthy": "All {total} accounts are healthy",
+      "disabledHint": "Set KEEPALIVE_ENABLED=true in apps/ai-service/.env and restart the service to enable it.",
+      "disabledTitle": "Account keep-alive is off",
+      "expiresAt": "Expires {time}",
+      "expiringSoon": "{count} expiring soon",
+      "failures": "{count} consecutive failures",
+      "healthCritical": "Expired",
+      "healthHealthy": "Healthy",
+      "healthUnknown": "Unchecked",
+      "healthWarning": "Attention",
+      "interval": "checks every {hours}h",
+      "loading": "Loading keep-alive status…",
+      "needsAttention": "{count} need attention",
+      "rate7d": "7-day success rate",
+      "rateUnknown": "No data",
+      "retry": "Retry",
+      "sourceCheckin": "Check-in credential",
+      "sourceCookie": "Platform session",
+      "sourceToken": "API credential",
+      "title": "Account keep-alive",
+      "triggerNow": "Check now",
+      "triggering": "Triggering…"
+    },
     "uploadSuccess": "Upload succeeded"
   },
   "publishMonitor": {
@@ -22910,6 +23363,18 @@
     "codeIndexEgressOptOutDesc": "Code snippets are never sent out for vector indexing",
     "autoMemoryOptOut": "Turn Off Auto Long-term Memory",
     "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences",
+    "expertRoute": {
+      "title": "Expert pack auto-routing",
+      "desc": "Detect the matching expert pack from this turn's intent, and choose how matches are handled.",
+      "default": "Default",
+      "envLockedNotice": "The deployment has disabled this capability through an environment variable, so it can only be viewed here and cannot be changed.",
+      "hint": "Hint only",
+      "hintDesc": "When a pack matches, only show which one matched in the reply; tools and system prompt are unchanged",
+      "auto": "Apply automatically",
+      "autoDesc": "When a pack matches, merge its tool allowlist and system prompt into this request",
+      "off": "Off",
+      "offDesc": "No intent detection and no hint"
+    },
     "navTiers": {
       "title": "Simplified sidebar",
       "desc": "Hides developer and operations entries from the sidebar by default. Turn on any group below when you need it.",
@@ -23182,6 +23647,9 @@
       "backToLogin": "Back to sign in",
       "sso_code": "SSO Code"
     },
+    "miniappHandoffTitle": "Authorization complete",
+    "miniappHandoffHint": "Your credentials were handed back to the mini program. Tap the back button to return and finish signing in.",
+    "miniappHandoffFailed": "Failed to hand off to the mini program. Please retry or go back manually.",
     "platform": "Platform"
   },
   "statistics": {
@@ -24601,7 +25069,6 @@
       "openSelected": "Open {name}",
       "opening": "Opening...",
       "parent": "Parent",
-      "refresh": "Refresh",
       "retry": "Retry",
       "rootHint": "Pick a drive at this level, or type a full path above",
       "rowOpenHint": "Open",
@@ -26950,6 +27417,12 @@
       "deleteFailed": "Delete failed"
     },
     "cancel": "Cancel",
+    "terminalReason": {
+      "manualPause": "Manually paused",
+      "failedPermanent": "Permanent failure",
+      "failedRetriesExhausted": "Retries exhausted",
+      "completed": "Completed"
+    },
     "save": "Save"
   },
   "mediaTasksPage": {
@@ -28936,7 +29409,6 @@
         "active": "Sending",
         "completed": "Sent",
         "following": "Waiting to send"
-      }
     }
   },
   "unifiedSuggestion": {
@@ -28991,6 +29463,30 @@
   "aiHub": {
     "title": "Agents and Models",
     "subtitle": "Chat history, memory, knowledge base, media tasks and workspace"
+  },
+  "appUpdate": {
+    "title": "New version available",
+    "body": "Refresh the page to get the latest version",
+    "action": "Update",
+    "close": "Close",
+    "ready": "Update ready",
+    "installing": "Restarting…",
+    "error": "Update failed",
+    "errorDesc": "Check your network and try again",
+    "gateTitle": "Update required",
+    "gateBody": "Version {version} is no longer supported. Please update to {latest} to continue.",
+    "gateForceBody": "A new version {latest} is available. This update is required.",
+    "gateReleaseNotes": "What's new",
+    "gateUpdateNow": "Update now",
+    "gateQuit": "Close page",
+    "gateQuitConfirm": "The update is not finished yet. Closing now will interrupt this session.",
+    "gateQuitFailed": "Could not close the page automatically. Please close this tab manually."
+  },
+  "pwaInstall": {
+    "title": "Install app",
+    "body": "Add to home screen for a better experience",
+    "action": "Install",
+    "close": "Close"
   },
   "personalHub": {
     "title": "Account",
