@@ -128,6 +128,7 @@ function headText(rel) {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 1 << 24,
+      windowsHide: true,
     })
   } catch {
     return null
@@ -146,6 +147,7 @@ export function facePages(face) {
       cwd: ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
       .split('\n')
       .filter((p) => p.endsWith('.tsx'))

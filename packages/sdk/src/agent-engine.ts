@@ -66,6 +66,7 @@ export const ENGINE_METHODS = [
   'thread.unsubscribe',
   'memory.status',
   'memory.reset',
+  'memory.refresh',
   'fs.watch',
   'fs.unwatch',
   'model.list',

@@ -77,6 +77,22 @@ from ..core.review_findings import (
 # 的那份投影,载体仍是 middleware 那一个 ContextVar);本路由不解析 traceparent、不自建 trace 上下文。
 from ..core.sse_frames import with_frame_trace_id
 
+# 工具名单的**唯一**来源:前端 TS 真相源 → scripts/gen-tool-name-sets.mjs →
+# app/data/tool_name_sets.json → app/core/tool_name_sets.py(导入期一次)。
+# 本文件**不得**再出现任何工具名字面量(§0.6:第二份清单必然漂移;2026-10-29 现读
+# 到过真漂移 —— 后端"文件修改"只有 2 枚、前端 5 枚,两边算出两个数,而用户看到前端那个)。
+# 生成物与 TS 源不同步 ⇒ `node scripts/gen-tool-name-sets.mjs --check` 与
+# `tests/test_tool_summary.py` 双双判红。
+from ..core.tool_name_sets import (
+    COMMAND_TOOLS,
+    FILE_CATEGORY_TOOLS,
+    FILE_MODIFY_TOOLS,
+    FILE_SEARCH_TOOLS,
+    FILE_WRITE_TOOLS,
+    PATH_ARG_KEYS,
+    WEB_SEARCH_TOOLS,
+)
+
 # G-403(2026-10-07):usage 帧补发缓存读/写两维 —— 归一层已产出统一键,
 # 发射面此前只写 prompt/completion/total/reasoning 四键,缓存两维断在帧构造。
 from ..core.usage_cache import extract_cache_metrics, has_cache_signals
@@ -1631,48 +1647,139 @@ def calculate_deleted_lines(tool_call: dict[str, Any]) -> int:
     return 0
 
 
+def _pick_path_arg(args: Any) -> str:
+    """从工具入参里取文件路径(按 `PATH_ARG_KEYS` 的**声明序**取第一个字符串值,trim 后返回)。
+
+    与前端 `packages/shared/src/chat/task-status.ts` 的 `pickFilePath` 逐字同口径:
+    键序有语义(同一入参若同时带 `path` 与 `file_path`,两侧必须取同一个),由生成物
+    `pathArgKeys` 原序承载 —— 这里**不得**改成排序后的集合。
+    """
+    if not isinstance(args, dict):
+        return ""
+    for key in PATH_ARG_KEYS:
+        value = args.get(key)
+        if isinstance(value, str):
+            return value.strip()
+    return ""
+
+
+def _file_dirname(path: str) -> str:
+    """路径所在目录(与前端 `fileDirname` 同口径,含两条容易漏抄的边界)。
+
+    - 先把 `\\` 归一成 `/`(Windows 路径跨端一致);
+    - `slash <= 0` ⇒ 返回空串:空路径、**裸文件名**(`a.ts`)、以及 `/x` 这种根下只有一段的写法
+      都算"没有目录"。`read_file("a.ts")` 若返回 `/`,目录数就会凭空多算一个;
+    - 目录部分恰好是盘根形态(`C:`) ⇒ 同样返回空串(截到根就没有"目录"可言)。
+
+    判据来源同上一条:前端 `fileDirname` 的注释逐字写明了这三种情形一致处理。
+    """
+    if not isinstance(path, str) or not path:
+        return ""
+    normalized = path.replace("\\", "/")
+    slash = normalized.rfind("/")
+    if slash <= 0:
+        return ""
+    directory = normalized[:slash]
+    # 盘根写法(C:/、D:/):截到根就没有"目录"可言。只认 ASCII 字母,与 /^[A-Za-z]:$/ 同值。
+    if (
+        len(directory) == 2
+        and directory[1] == ":"
+        and (("a" <= directory[0] <= "z") or ("A" <= directory[0] <= "Z"))
+    ):
+        return ""
+    return directory
+
+
+# tool-summary 的键集**单一登记处**:发帧面(本文件的 `_build_tool_summary`)与
+# 前端 `ToolCallSummary`(@ihui/types/ai)必须同集合。改这里要同笔改类型定义与渲染层。
+_TOOL_SUMMARY_KEYS: tuple[str, ...] = (
+    "filesSearched",
+    "webSearched",
+    "filesModified",
+    "linesAdded",
+    "linesDeleted",
+    "toolsByCategory",
+    "totalCalls",
+    "totalDurationMs",
+    "directories",
+    "edits",
+    "terminalCommands",
+)
+
+
 def _build_tool_summary(tool_calls_history: list[dict[str, Any]]) -> dict[str, Any] | None:
     """聚合本轮所有工具调用统计(用于 tool-summary SSE 事件)。
 
     Returns:
-        包含 filesSearched/webSearched/filesModified/linesAdded/linesDeleted/
-        toolsByCategory/totalCalls/totalDurationMs 的统计 dict,无工具调用时返回 None。
+        含 11 个键的统计 dict,无工具调用时返回 None。键与前端 `ToolCallSummary`
+        (`packages/types/src/ai.ts`)同集合:
+
+        既有 8 键
+          - ``filesSearched``:文件检索类调用**次数**(``FILE_SEARCH_TOOLS``)
+          - ``webSearched``:网页检索类调用**次数**(``WEB_SEARCH_TOOLS``)
+          - ``filesModified``:改动的**唯一文件数**(``FILE_MODIFY_TOOLS`` 的文件粒度口径)
+          - ``linesAdded`` / ``linesDeleted``:增删行数(``calculate_added_lines`` /
+            ``calculate_deleted_lines``,``FILE_MODIFY_TOOLS`` 命中才计)
+          - ``toolsByCategory``:工具名 → 调用次数
+          - ``totalCalls``:调用总数
+          - ``totalDurationMs``:耗时合计(ms)
+
+        新增 3 键(2026-10-29,与前端 `deriveToolSummary` 逐条对齐)
+          - ``directories``:文件类类目(``FILE_CATEGORY_TOOLS``)调用路径的**唯一目录集合大小**;
+            目录由 `_file_dirname` 求,**裸文件名 / 盘根**等"没有目录"的情形不计
+          - ``edits``:写类工具(``FILE_WRITE_TOOLS``)的**调用次数**,不是文件数 ——
+            与 ``filesModified`` 正交(同一文件改三次 ⇒ edits=3、filesModified=1)
+          - ``terminalCommands``:命令类工具(``COMMAND_TOOLS``)的调用次数
+
+    名单一律来自 `app/core/tool_name_sets.py`(前端 TS 真相源的生成物),
+    本函数内**不得**再写字面量工具名 —— 那正是 2026-10-29 修掉的漂移源。
     """
     if not tool_calls_history:
         return None
-    _FILE_SEARCH_TOOLS = frozenset({"read_file", "search_codebase", "file_search"})
-    _WEB_SEARCH_TOOLS = frozenset({"web_search", "search_web"})
-    _FILE_MODIFY_TOOLS = frozenset({"file_edit", "write_file"})
     files_modified: set[str] = set()
+    touched_dirs: set[str] = set()
     for tc in tool_calls_history:
-        if tc.get("toolName") in _FILE_MODIFY_TOOLS:
-            args = tc.get("args") or {}
+        name = tc.get("toolName")
+        args = tc.get("args")
+        if name in FILE_MODIFY_TOOLS:
             if isinstance(args, dict):
                 fp = args.get("file_path") or args.get("path")
                 if isinstance(fp, str) and fp:
                     files_modified.add(fp)
+        if name in FILE_CATEGORY_TOOLS:
+            directory = _file_dirname(_pick_path_arg(args))
+            if directory:
+                touched_dirs.add(directory)
     return {
         "filesSearched": sum(
-            1 for tc in tool_calls_history if tc.get("toolName") in _FILE_SEARCH_TOOLS
+            1 for tc in tool_calls_history if tc.get("toolName") in FILE_SEARCH_TOOLS
         ),
         "webSearched": sum(
-            1 for tc in tool_calls_history if tc.get("toolName") in _WEB_SEARCH_TOOLS
+            1 for tc in tool_calls_history if tc.get("toolName") in WEB_SEARCH_TOOLS
         ),
         "filesModified": len(files_modified),
         "linesAdded": sum(
             calculate_added_lines(tc)
             for tc in tool_calls_history
-            if tc.get("toolName") in _FILE_MODIFY_TOOLS
+            if tc.get("toolName") in FILE_MODIFY_TOOLS
         ),
         "linesDeleted": sum(
             calculate_deleted_lines(tc)
             for tc in tool_calls_history
-            if tc.get("toolName") in _FILE_MODIFY_TOOLS
+            if tc.get("toolName") in FILE_MODIFY_TOOLS
         ),
         "toolsByCategory": dict(Counter(tc.get("toolName", "") for tc in tool_calls_history)),
         "totalCalls": len(tool_calls_history),
         "totalDurationMs": sum(int(tc.get("durationMs", 0) or 0) for tc in tool_calls_history),
+        "directories": len(touched_dirs),
+        "edits": sum(
+            1 for tc in tool_calls_history if tc.get("toolName") in FILE_WRITE_TOOLS
+        ),
+        "terminalCommands": sum(
+            1 for tc in tool_calls_history if tc.get("toolName") in COMMAND_TOOLS
+        ),
     }
+
 
 
 def _format_tool_summary_event(tool_calls_history: list[dict[str, Any]]) -> str | None:

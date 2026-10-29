@@ -21,13 +21,13 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { exportToExcel, type ExportColumn } from '@/lib/export-utils'
+import { apiOrThrow } from '@/lib/api'
 import {
   BASE,
   CATEGORY_LABEL_KEYS,
   LOG_STATUS,
   PROVIDER_LABEL_KEYS,
   TEMPLATE_LABEL_KEYS,
-  api,
   codeLabel,
   fmtTime,
   logStatus,
@@ -81,7 +81,7 @@ export function LogPanel() {
   const params = buildQuery(status, PAGE_SIZE, offset)
   const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ['admin', 'sms-operations', 'logs', params],
-    queryFn: () => api<SmsLogsResponse>(`${BASE}/logs?${params}`),
+    queryFn: () => apiOrThrow<SmsLogsResponse>(`${BASE}/logs?${params}`),
   })
   const items = data?.items ?? []
   const total = data?.total ?? 0
@@ -92,7 +92,9 @@ export function LogPanel() {
   async function handleExport() {
     setExporting(true)
     try {
-      const all = await api<SmsLogsResponse>(`${BASE}/logs?${buildQuery(status, EXPORT_LIMIT, 0)}`)
+      const all = await apiOrThrow<SmsLogsResponse>(
+        `${BASE}/logs?${buildQuery(status, EXPORT_LIMIT, 0)}`,
+      )
       exportToExcel(
         t('log.exportFileName'),
         exportCols,

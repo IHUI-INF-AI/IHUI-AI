@@ -53,8 +53,8 @@ git commit
        ├─ 11 check-rounded-full        (阻塞)
        ├─ 11d check-no-divider         (阻塞,§4 分割线 divide-y/divide-x)
        ├─ 12 check-delivery-report     (阻塞)
-       ├─ 13b check-project-plan-size  (阻塞,<50KB)
-       ├─ 13c check-project-plan-archive (阻塞,防误删)
+       ├─ 13b check-project-plan-size  (warn-only,<50KB;runner mode:'warn' 现读)
+       ├─ 13c (已退役 2026-10-16,2026-10-29 摘净:门体与镜像测试均已移除,本行不提供可跑命令)
        ├─ 15 check-api-migration       (阻塞)
        ├─ 17 check-input-border-var    (阻塞)
        ├─ 18 check-native-title-tooltip (阻塞)
@@ -242,25 +242,25 @@ git commit
 | 豁免 | 讨论 AGENTS.md §11 本身的章节 / 本守门脚本章节 |
 | 立规依据 | [AGENTS.md §10](../AGENTS.md) |
 
-### 第 13b 项 check-project-plan-size.mjs(阻塞)
+### 第 13b 项 check-project-plan-size.mjs(warn-only)
 
 | 维度 | 说明 |
 |------|------|
 | 用途 | 防止 `PROJECT_PLAN.md` 膨胀超过 50KB 导致 AI 上下文窗口撑爆 |
 | 检测 | `PROJECT_PLAN.md` 文件体积 |
 | 失败原因 | 体积 > 50KB(约 1250 行) |
-| 修复 | 按 [AGENTS.md §1 归档精简规则](../AGENTS.md) 把已完成任务条目移到 `.ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD.md` + 留 `<!-- 已归档 -->` 占位注释 |
+| 修复 | 按 [AGENTS.md §1「完成即删」](../AGENTS.md) 把已结清的登记行整行删除(不留档、不写归档件、不留 `<!-- 已归档 -->` 占位注释);出口器 `scripts/live-doc-edit.mjs` 的写盘闸默认把翻勾转成删行(回退档 `LIVE_KEEP_CLOSED_ROW=1`),同题重复行归并走 `node scripts/plan-tasks-merge.mjs --heal --commit` |
 | 阈值 | 50KB |
 
-### 第 13c 项 check-project-plan-archive.mjs(阻塞)
+### 第 13c 项 check-project-plan-archive.mjs(已退役 2026-10-16,2026-10-29 摘净)
 
 | 维度 | 说明 |
 |------|------|
-| 用途 | 防止归档精简操作误删已完成任务条目 |
-| 检测 | `### XXX(已完成 ✅ ...)` 标题行被删除时,diff 中必须有 `<!-- 已归档` 占位注释 |
-| 失败原因 | 删除已完成任务条目但未留归档占位注释 |
-| 修复 | 在原位置留 `<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_*.md -->` |
-| 立规依据 | [AGENTS.md §1 归档精简强制规则](../AGENTS.md),CLI 配置导入任务条目历史上被两次误删 |
+| 用途 | 曾判"归档精简操作误删已完成任务条目";归档机制已于 2026-10-16 退役、2026-10-29 从 HEAD 摘净(门体、其镜像测试与自动归档器一并移除),不得恢复 |
+| 检测 | 无检测面:`scripts/guardian-runner.mjs` 只有 13b 注册条目,13c 条目已随机制删除;本节因此不再列出任何可执行命令 |
+| 失败原因 | 不适用 —— 未接线的门不可能判红;若提交链上再出现 13c,说明退役件被当"本机纯新增"回流,按 [AGENTS.md §1「归档机制(2026-10-16 退役,此行为留痕)」](../AGENTS.md) 处置(删除回流件,不恢复旧命令) |
+| 修复 | 无修复动作可执行。现行口径 = 结清即整行删除,不留档、不归档、不写占位注释;防误删那一维由守门 71 `scripts/check-plan-line-loss.mjs` 承接(未勾登记行照旧拦,已勾行出保护集、删之合法) |
+| 立规依据 | [AGENTS.md §1「完成即删」](../AGENTS.md);历史残余见 tag `backup/archive-removal-2026-10-16`,旧口径逐字底稿见 `.ihui-agent/archive/AGENTS_trim-2026-10-28.md` |
 
 ### 第 15 项 check-api-migration-completeness.mjs(阻塞)
 
@@ -529,8 +529,8 @@ if (!run('🔍 检查 xxx...', 'node scripts/check-xxx.mjs --staged')) {
 
 | 症状 | 守门项 | 修复命令 |
 |------|--------|----------|
-| 体积 > 50KB | 13b | 归档已完成任务到 `.ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD.md` + 留占位注释 |
-| 已完成任务被误删 | 13c | 在原位置留 `<!-- 已归档(YYYY-MM-DD):XXX 任务 -->` |
+| 体积 > 50KB | 13b(warn-only) | 按 [AGENTS.md §1「完成即删」](../AGENTS.md) 把已结清登记行整行删除(默认出口器 `scripts/live-doc-edit.mjs`;归并走 `node scripts/plan-tasks-merge.mjs --heal --commit`)。归档机制已于 2026-10-16 退役 ⇒ 不再写 `.ihui-agent/archive/`、不留占位注释 |
+| 已完成任务被误删 | 13c(已退役 2026-10-16,2026-10-29 摘净) | 该档已无守门(门体与镜像测试均已移除,不得恢复)。防误删现由 §1「完成即删」+ 门 71 `check-plan-line-loss.mjs`(未勾行保护)+ 门 229 `check-plan-closed-stock.mjs`(跨枚滞留)承担 |
 
 ### 8.5 push 失败
 

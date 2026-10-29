@@ -75,6 +75,7 @@ ENGINE_METHODS: tuple[str, ...] = (
     "thread.unsubscribe",
     "memory.status",
     "memory.reset",
+    "memory.refresh",
     "fs.watch",
     "fs.unwatch",
     "model.list",

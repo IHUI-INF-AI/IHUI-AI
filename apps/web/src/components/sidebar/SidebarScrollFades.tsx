@@ -13,8 +13,15 @@ import * as React from 'react'
  * 仅在确有溢出时显现 —— 顶部:已向下滚动(上方有被藏起的内容);底部:视口底没到内容底。
  * 静止顶/底时不显示,故不会淡掉静止态的首/尾项。
  *
- * 色值吃 shadcn 令牌 `hsl(var(--background) / a)`(与 tokens.css 同源),避免硬编码 rgb,
- * 也避免 `transparent` 关键字在渐变里产生灰带。
+ * 色值直接引用 tokens.css 的 `--color-background`(单一真相源,`@theme` 已序列化为 hsl 值),
+ * 透明端用 `color-mix(in srgb, ... 0%, transparent)` 而不是 `transparent` 关键字 ——
+ * 后者是 `rgba(0,0,0,0)`,与背景色插值时会产生灰带。
+ *
+ * 2026-10-29 修复:原写法 `hsl(var(--background) / a)` 有两处硬错 ——
+ * ① `--background` 全仓从未定义(正确令牌名是 `--color-background`);
+ * ② 即便定义了,`--color-background` 本身就已是 `hsl(...)` 值,Tailwind v4 下外层再包 hsl()
+ *    会变成 `hsl(hsl(...))` 非法值被浏览器静默丢弃 ⇒ 整个渐变失效、淡出遮罩完全不显示。
+ *    详见守门 `scripts/check-input-border-var.mjs`。
  *
  * 锚点:本组件是 `relative` 包裹层的子节点,绝对定位于菜单滚动视口的上/下边缘,**不随内容滚动**
  * (滚动由 nav 自身 overflow-y-auto 承担),故淡出始终钉在视口边缘。
@@ -61,7 +68,7 @@ export default function SidebarScrollFades({ navRef }: SidebarScrollFadesProps) 
           height: `${FADE_HEIGHT_PX}px`,
           opacity: topVisible ? 1 : 0,
           backgroundImage:
-            'linear-gradient(to bottom, hsl(var(--background) / 1) 0%, hsl(var(--background) / 1) 50%, hsl(var(--background) / 0) 100%)',
+            'linear-gradient(to bottom, var(--color-background) 0%, var(--color-background) 50%, color-mix(in srgb, var(--color-background) 0%, transparent) 100%)',
         }}
       />
       {/* 底部淡出:下边缘实底 → 向上透明,菜单下滑时先溶进背景 */}
@@ -72,7 +79,7 @@ export default function SidebarScrollFades({ navRef }: SidebarScrollFadesProps) 
           height: `${FADE_HEIGHT_PX}px`,
           opacity: bottomVisible ? 1 : 0,
           backgroundImage:
-            'linear-gradient(to top, hsl(var(--background) / 1) 0%, hsl(var(--background) / 1) 50%, hsl(var(--background) / 0) 100%)',
+            'linear-gradient(to top, var(--color-background) 0%, var(--color-background) 50%, color-mix(in srgb, var(--color-background) 0%, transparent) 100%)',
         }}
       />
     </>
