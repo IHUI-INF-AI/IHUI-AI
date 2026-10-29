@@ -229,7 +229,7 @@ async function runSwitch(options: {
   if (sw.isTraeRunning() && !options.force) {
     process.stderr.write(
       '❌ Trae 客户端正在运行 —— 它退出时会用内存态覆盖 storage.json,先完全退出 Trae 再切;\n' +
-        '   或加 --force 由脚本强杀(taskkill /IM "Trae CN.exe" /F /T)后写回。\n',
+        '   或加 --force 由脚本强杀(按进程 pid 逐个关,不是按映像名全杀)后写回。\n',
     )
     return 1
   }

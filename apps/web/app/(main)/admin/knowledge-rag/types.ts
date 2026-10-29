@@ -11,7 +11,6 @@ export type {
 
 /** 入库表单 */
 export interface IngestForm {
-  ownerUuid: string
   title: string
   collectionName: string
   text: string

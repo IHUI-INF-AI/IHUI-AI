@@ -61,6 +61,13 @@ AGENTS_PATHS = (
 CATCH_ALL_ENTRIES = ("/", "/api", "/api/")
 LEGITIMATE_ENTRY = "/api/health"
 
+# 成本面 / 调度状态面(2026-10-29 实测:代码默认值已收回,但部署 .env 的
+# JWT_PUBLIC_PATHS 是整串替换,一份陈旧 .env 就把它们静默重开了)
+COST_ENTRIES = (
+    "/api/admin/news/trigger-refresh",
+    "/api/admin/news/scheduler-status",
+)
+
 
 def _reference_rule(path: str, entries: tuple[str, ...]) -> bool:
     """测试侧独立匹配契约:非目录条目精确匹配,目录条目(以 / 结尾)才前缀匹配。"""
@@ -149,6 +156,28 @@ def test_agents_root_does_not_over_strip_other_entries() -> None:
 def test_catchall_entry_never_anonymous(entry: str) -> None:
     resolved = jwt_auth._resolve_public_paths(f"{LEGITIMATE_ENTRY},{entry}")
     assert entry not in resolved, f"catch-all 条目 {entry!r} 必须被剔除"
+
+
+@pytest.mark.parametrize("entry", COST_ENTRIES)
+def test_cost_surface_never_anonymous_even_if_configured(entry: str) -> None:
+    """.env 写回去也必须剔除:白名单是整串替换,一份陈旧 .env 就能重开成本面。"""
+    resolved = jwt_auth._resolve_public_paths(f"{LEGITIMATE_ENTRY},{entry}")
+    assert entry not in resolved, f"{entry} 必须被剔除,实得 {resolved}"
+    assert LEGITIMATE_ENTRY in resolved
+
+
+def test_cost_surface_strip_does_not_overreach() -> None:
+    """只精确匹配端点:同前缀的只读状态端点 /api/admin/news/status 是合法公开面,不得误伤。"""
+    resolved = jwt_auth._resolve_public_paths(
+        "/api/admin/news/trigger-refresh,/api/admin/news/scheduler-status,/api/admin/news/status"
+    )
+    assert "/api/admin/news/status" in resolved, resolved
+    assert not any(e in resolved for e in COST_ENTRIES), resolved
+
+
+def test_live_effective_whitelist_has_no_cost_surface() -> None:
+    for entry in COST_ENTRIES:
+        assert entry not in jwt_auth.PUBLIC_PATHS, f"生效名单混入成本面 {entry!r}"
 
 
 def test_live_effective_whitelist_has_no_privileged_root() -> None:

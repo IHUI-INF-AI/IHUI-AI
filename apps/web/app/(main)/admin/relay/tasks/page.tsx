@@ -7,7 +7,7 @@
 /**
  * 号池任务中心(2026-10-27 立,号池对标缺口清单第 4 项,机主定案「观测面+手动触发」)。
  *
- * 数据源 GET /api/admin/relay/account-pool/tasks(四载体聚合:bullmq×3/guardian×2/
+ * 数据源 GET /api/admin/relay/account-pool/tasks(四载体聚合:bullmq×4/guardian×2/
  * schtasks×1/apscheduler×1);不新造调度器、不落执行历史表(服务端 relay-task-center.ts
  * 边界定案)。每行:任务名/载体徽章/频率/上次执行(成败色)/下次执行/触发按钮;
  * 状态源读不到 ⇒ 黄条如实显示未判定原因(§0.3 不冒绿)。

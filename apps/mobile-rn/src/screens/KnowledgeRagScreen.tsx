@@ -9,7 +9,6 @@ import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-na
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useAuthStore } from '../stores/auth-store'
 import {
   deleteKnowledgeDoc,
   getKnowledgeDoc,
@@ -52,9 +51,6 @@ export function KnowledgeRagScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const user = useAuthStore((s) => s.user)
-  // ownerUuid 缺省兜底 'default'(与后端默认知识库对齐)
-  const ownerUuid = user?.id ?? 'default'
 
   // 文档列表状态
   const [items, setItems] = useState<KnowledgeDocSummary[]>([])
@@ -84,7 +80,7 @@ export function KnowledgeRagScreen() {
   const loadDocs = useCallback(async () => {
     setListError('')
     try {
-      const list = await listKnowledgeDocs(ownerUuid)
+      const list = await listKnowledgeDocs()
       setItems(list)
     } catch {
       setListError(t('knowledgeBase.loadFailed'))
@@ -92,7 +88,7 @@ export function KnowledgeRagScreen() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [ownerUuid, t])
+  }, [t])
 
   useEffect(() => {
     void loadDocs()
@@ -107,7 +103,7 @@ export function KnowledgeRagScreen() {
         onPress: async () => {
           setDeleting(true)
           try {
-            await deleteKnowledgeDoc(docItem.id, ownerUuid)
+            await deleteKnowledgeDoc(docItem.id)
             void loadDocs()
           } catch {
             appAlert(t('knowledgeBase.deleteFailed'))
@@ -131,7 +127,7 @@ export function KnowledgeRagScreen() {
     setSearching(true)
     setSearchError('')
     try {
-      const result = await searchKnowledge({ query: q, ownerUuid, topK: SEARCH_TOP_K })
+      const result = await searchKnowledge({ query: q, topK: SEARCH_TOP_K })
       setHits(result)
     } catch {
       setHits([])
@@ -139,7 +135,7 @@ export function KnowledgeRagScreen() {
     } finally {
       setSearching(false)
     }
-  }, [query, ownerUuid, t])
+  }, [query, t])
 
   const openDetail = useCallback(
     async (docId: number, back: ViewMode) => {
@@ -150,10 +146,10 @@ export function KnowledgeRagScreen() {
       setDocError('')
       setExpandedChunkIds(new Set())
       try {
-        const detail = await getKnowledgeDoc(docId, ownerUuid)
+        const detail = await getKnowledgeDoc(docId)
         setDoc(detail)
         try {
-          setChunks(await getKnowledgeDocChunks(docId, ownerUuid, CHUNK_LIMIT))
+          setChunks(await getKnowledgeDocChunks(docId, CHUNK_LIMIT))
         } catch {
           setChunks([])
         }
@@ -164,7 +160,7 @@ export function KnowledgeRagScreen() {
         setDocLoading(false)
       }
     },
-    [ownerUuid, t],
+    [t],
   )
 
   const toggleChunk = (chunkId: number) => {
