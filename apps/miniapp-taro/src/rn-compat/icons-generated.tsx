@@ -118,6 +118,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-clipboard-paste"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M11 14h10" />\n  <path d="M16 4h2a2 2 0 0 1 2 2v1.344" />\n  <path d="m17 18 4-4-4-4" />\n  <path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 1.793-1.113" />\n  <rect x="8" y="2" width="8" height="4" rx="1" />\n</svg>\n',
   Clock:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-clock"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <circle cx="12" cy="12" r="10" />\n  <path d="M12 6v6l4 2" />\n</svg>\n',
+  Cloud:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-cloud"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />\n</svg>\n',
   Code: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-code"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m16 18 6-6-6-6" />\n  <path d="m8 6-6 6 6 6" />\n</svg>\n',
   Coins:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-coins"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M13.744 17.736a6 6 0 1 1-7.48-7.48" />\n  <path d="M15 6h1v4" />\n  <path d="m6.134 14.768.866-.5 2 3.464" />\n  <circle cx="16" cy="8" r="6" />\n</svg>\n',
@@ -501,6 +503,7 @@ export const Clapperboard = makeIcon('Clapperboard', src('Clapperboard'))
 export const ClipboardList = makeIcon('ClipboardList', src('ClipboardList'))
 export const ClipboardPaste = makeIcon('ClipboardPaste', src('ClipboardPaste'))
 export const Clock = makeIcon('Clock', src('Clock'))
+export const Cloud = makeIcon('Cloud', src('Cloud'))
 export const Code = makeIcon('Code', src('Code'))
 export const Coins = makeIcon('Coins', src('Coins'))
 export const Compass = makeIcon('Compass', src('Compass'))
