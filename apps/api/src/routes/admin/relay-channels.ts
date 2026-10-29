@@ -41,6 +41,7 @@ import { persistableLatency } from '../../utils/latency-persistence.js'
 import { isUuidString } from '../../utils/uuid.js'
 // D172:traceparent → trace id 的唯一解析出口(不得在本文件另写 split)
 import { traceIdFromRequest } from '../../utils/trace-context.js'
+import { safeFetch } from '../../utils/ssrf-guard.js'
 import {
   getCircuitState,
   getRecentCalls,
@@ -146,7 +147,7 @@ async function pingUpstreamModels(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS)
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       method: 'GET',
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: controller.signal,
@@ -208,7 +209,7 @@ async function callUpstreamChat(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS)
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

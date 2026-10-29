@@ -5,6 +5,7 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import { parsePath } from '../utils/http-normalize.js'
+import { isPrivateIp } from '../services/ip-reputation.js'
 
 /**
  * 请求指标收集插件。
@@ -232,7 +233,13 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
   })
 
   // /metrics 端点(Prometheus 格式)
-  server.get('/metrics', async (_request, reply) => {
+  // 2026-10-27 加固:原 PUBLIC_PREFIXES 含 /api/metrics ⇒ 全网可达,泄露内部拓扑
+  // (请求量画像/SQL 耗时桶)。改为仅回环/内网可读 —— 本机 Prometheus(8815→8802)不受影响,
+  // 公网 403。isPrivateIp 覆盖 RFC1918/回环/链路本地。
+  server.get('/metrics', async (request, reply) => {
+    if (!isPrivateIp(request.ip)) {
+      return reply.status(403).send({ code: 403, message: 'Forbidden' })
+    }
     const lines: string[] = []
 
     // 请求总数

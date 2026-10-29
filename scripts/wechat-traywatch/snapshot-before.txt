@@ -1,0 +1,29 @@
+===== 微信黑窗排障 - 系统状态快照 =====
+生成时间: 2026-10-27 12:24:03
+
+--- 操作系统 ---
+Microsoft Windows 11 专业版 build 26200
+
+--- 显示适配器（虚拟显示器 / 物理屏）---
+  GameViewer Virtual Display Adapter  3840x2160
+  Intel(R) UHD Graphics 770  1920x1080
+
+--- 相关进程 ---
+  Weixin PID=18148 Start=10/27/2026 10:59:12
+  Weixin PID=20352 Start=10/27/2026 10:59:14
+  Weixin PID=25424 Start=10/27/2026 10:59:14
+  Weixin PID=26428 Start=10/27/2026 10:59:14
+  Weixin PID=28052 Start=10/27/2026 10:59:06
+  TranslucentTB : 无
+  GameViewer PID=16800 Start=10/27/2026 09:02:49
+  GameViewerServer PID=6012 Start=10/27/2026 08:56:26
+  GameViewerHealthd PID=6432 Start=10/27/2026 08:56:26
+
+--- GameViewerService 服务状态 ---
+  Status=Running StartType=Automatic
+
+--- 目标窗口 Qt51514WxTrayIconMessageWindowClass 可见性 ---
+  hwnd=263572 visible=False
+
+--- 看门狗计划任务状态 ---
+  Task=WeChatTrayWatchdog State=Running Enabled=True LastRun=10/27/2026 12:23:18
