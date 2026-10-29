@@ -3022,6 +3022,48 @@ export function nextTaskIdLabel(content, prefix) {
   return u === null ? null : u.template.replace('%d', String(u.max + 1))
 }
 
+/**
+ * 取号占用面的**减法档**(Y-2,2026-10-29 立):该族已用号集里剔除"已让位"的那几枚。
+ *
+ * 为什么是薄封装而不是第二把尺:`usedIdsOfPrefix` 是"什么算一个编号"的唯一实现,本函数**先拿
+ * 它的结果**再按号做集合差,不重扫正文、不另写编号语法(§22c)。让位裁决(哪些号可以退出占用面)
+ * 住在 `scripts/plan-pool-yield.mjs`,它把每一枚退出都落进机读台账 —— 本层只认一张号集,不判
+ * "该不该退"(判据留在裁决层,取号层只吃结论)。
+ *
+ * 三条形态约定:
+ *  - `exclude` 为空/取不到 ⇒ **原样返回**(与改动前逐字同形,旧调用方零感知);
+ *  - 剔完之后该族一枚不剩 ⇒ 原样返回:全族让位时按"一族还在"处理,免得取号侧读成
+ *    `no-such-family`(那会把"号码全放回池"误报成"族不存在",是两件事并桶);
+ *  - `max`/`template` 按**剩余号**重算(形状取剩余最大号自己的拼写,`G-05` 不掉零、`G5` 不添连字符),
+ *    否则让掉段尾号后 `max` 仍停在已让位号上,池外基准会照着旧 max 走。
+ * @returns 与 `usedIdsOfPrefix` 同形状(`{max,used,ids,template}`);该族现读为空 ⇒ null
+ */
+export function usedIdsOfPrefixExcluding(content, prefix, exclude = null) {
+  const u = usedIdsOfPrefix(content, prefix)
+  if (u === null) return null
+  const drop = exclude instanceof Set ? exclude : new Set(Array.isArray(exclude) ? exclude : [])
+  if (drop.size === 0) return u
+  const kept = []
+  for (const label of u.ids) {
+    const n = Number(/(\d+)$/.exec(String(label))?.[1] ?? Number.NaN)
+    if (Number.isFinite(n) && drop.has(n)) continue
+    kept.push(String(label))
+  }
+  if (kept.length === 0) return u
+  let maxLabel = kept[0]
+  for (const label of kept) {
+    const n = Number(/(\d+)$/.exec(label)?.[1] ?? Number.NaN)
+    const mn = Number(/(\d+)$/.exec(maxLabel)?.[1] ?? Number.NaN)
+    if (Number.isFinite(n) && (!Number.isFinite(mn) || n > mn)) maxLabel = label
+  }
+  return {
+    max: Number(/(\d+)$/.exec(maxLabel)?.[1] ?? u.max),
+    used: kept.length,
+    ids: kept,
+    template: maxLabel.replace(/\d+$/, '%d'),
+  }
+}
+
 export function auditPlan(content, { archivedKeys = null, fields = null } = {}) {
   const rows = parseTaskRows(content)
   const { groups, forks, dupOpen, dupDone } = findForks(content)

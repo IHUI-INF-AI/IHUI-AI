@@ -210,18 +210,34 @@
       }
     },
     {
-      "id": "grok-2",
-      "name": "Grok 2",
+      "id": "grok-4.7",
+      "name": "Grok 4.7 (xAI 旗舰)",
       "provider": "xai",
-      "context_length": 131072,
+      "context_length": 500000,
       "input_price": 2.0,
       "caps": {
         "supports_stream_usage": true,
         "supports_tools": true,
         "supports_vision": false,
-        "max_context": 131072,
+        "max_context": 500000,
         "protocol": "openai_chat"
-      }
+      },
+      "model_tier": "latest"
+    },
+    {
+      "id": "grok-4.3",
+      "name": "Grok 4.3 (百万上下文)",
+      "provider": "xai",
+      "context_length": 1000000,
+      "input_price": 1.25,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 1000000,
+        "protocol": "openai_chat"
+      },
+      "model_tier": "latest"
     },
     {
       "id": "command-r-plus",

@@ -29,6 +29,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { planBatch } from './gen-miniapp-mirror.mjs'
 import { walkClosure } from './lib/rn-shell-closure.mjs'
 import { CAPACITY_REL } from './lib/cross-end-subpackage-capacity.mjs'
+import { catBatch } from './lib/face-reader.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const RATIO = 0.65
@@ -52,31 +53,16 @@ function headFiles() {
 
 function readBatchOf(rels) {
   if (rels.length === 0) return new Map()
-  const buf = execFileSync('git', ['cat-file', '--batch'], {
-    cwd: ROOT,
-    maxBuffer: 1 << 28,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    input: rels.map((r) => `HEAD:${r}`).join('\n') + '\n',
-  })
+  // 批量取材走共享层(G-467 那一档):自拼 `cat-file --batch` 等于把 stdio[0]=pipe / maxBuffer /
+  // 头解析三处本仓都真踩过的坑各重写一遍 —— 棘轮测试「自拼 batch 却不走本层的门」按文件计数。
+  const raw = catBatch(
+    ROOT,
+    rels.map((r) => `HEAD:${r}`),
+  )
   const map = new Map()
-  let off = 0
   for (const rel of rels) {
-    if (off >= buf.length) {
-      map.set(rel, null)
-      continue
-    }
-    let nl = buf.indexOf(0x0a, off)
-    if (nl < 0) nl = buf.length
-    const header = buf.subarray(off, nl).toString('utf8')
-    off = nl + 1
-    const m = /^[0-9a-f]{40} (\w+) (\d+)$/.exec(header)
-    if (!m) {
-      map.set(rel, null)
-      continue
-    }
-    const size = Number(m[2])
-    map.set(rel, buf.subarray(off, off + size).toString('utf8'))
-    off += size + 1
+    const v = raw.get(`HEAD:${rel}`)
+    map.set(rel, typeof v === 'string' ? v : null)
   }
   return map
 }

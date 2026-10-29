@@ -669,6 +669,7 @@ if (watchMode) {
       }
     }
   };
+  reclaimForeignLegs();
   await tick();
   setInterval(tick, intervalMs);
   } else {
@@ -676,15 +677,123 @@ if (watchMode) {
   }
 }
 
+// ── 外来 dev 腿对账(2026-10-29 立,治"开机抢跑把回灌腿结构性打死")───────────────
+// 立因(本机现读):8801/8802/8803 曾被第三方 AI IDE 的沙箱以 NT AUTHORITY\SYSTEM 身份
+// 在开机后 27 秒抢跑,比 `IHUI-DevStack` 计划任务(09:31:24)早 2 秒。端口被占 ⇒ 本守护的
+// api/web 腿每 30s 一轮 EADDRINUSE 崩溃循环;更糟的是 SYSTEM 身份解不开当前用户的 DPAPI
+// 会话,号池"客户端→池"回灌腿每轮 code=2 未判定,池内票与客户端票从此各走各的。
+// 夺回判据三条同时成立,缺一无动作:① 端口属于本守护目标腿;② 占位进程命令行含本仓根路径
+// (即"同一台机上以别的身份跑着的本仓 dev 腿",不是任何别的服务);③ 占位身份 ≠ 当前用户
+// (同用户的手工实例绝不动 —— 那是别席的在飞交付)。取不到身份/命令行 ⇒ 一律不动(未判定)。
+// 关档:`DEV_STACK_NO_FOREIGN_LEG_PREEMPT=1`;只看不动:`node scripts/dev-stack.mjs --preempt-check`。
+const FOREIGN_LEG_DISABLED_FLAG = 'DEV_STACK_NO_FOREIGN_LEG_PREEMPT';
+
+function currentUser() {
+  return String(process.env.USERNAME || process.env.USER || '').trim().toLowerCase();
+}
+
+/** 纯判据(镜像测试直读):见上注三条 */
+function shouldPreemptForeignLeg({ repoRoot, holder, selfUser }) {
+  const cmd = String(holder?.cmdline ?? '');
+  const owner = String(holder?.ownerUser ?? '').trim().toLowerCase();
+  const me = String(selfUser ?? '').trim().toLowerCase();
+  const root = String(repoRoot ?? '').trim().toLowerCase();
+  if (!cmd || !owner || !me || !root) return false;
+  if (owner === me) return false;
+  return cmd.toLowerCase().includes(root);
+}
+
+function collectForeignLegHolders(ports) {
+  const ps = [
+    '$ErrorActionPreference="SilentlyContinue";',
+    '$out=@();',
+    `foreach($p in @(${ports.join(',')})){`,
+    '$c=Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue | Select-Object -First 1;',
+    'if($null -eq $c){continue};',
+    '$pr=Get-CimInstance Win32_Process -Filter "ProcessId=$($c.OwningProcess)" -ErrorAction SilentlyContinue;',
+    'if($null -eq $pr){continue};',
+    '$o=Invoke-CimMethod -InputObject $pr -MethodName GetOwner -ErrorAction SilentlyContinue;',
+    '$out+=[pscustomobject]@{port=[int]$p;pid=[int]$pr.ProcessId;user=(""+$o.User);cmdline=(""+$pr.CommandLine)}',
+    '};',
+    'ConvertTo-Json -InputObject $out -Compress',
+  ].join(' ');
+  const r = spawnSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps], {
+    encoding: 'utf8',
+    // §12g:派生必须显式接管 stdio(不给 stdin 用 ignore,stdout 要回读)
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    timeout: 45000,
+  });
+  if (r.error || r.status !== 0 || !r.stdout || !r.stdout.trim()) return null;
+  try {
+    const parsed = JSON.parse(r.stdout.trim());
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === 'object') return [parsed];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function reclaimForeignLegs({ dryRun = false } = {}) {
+  if (process.platform !== 'win32') return { ran: false, why: '非 Windows,不判', actions: [] };
+  const flag = String(process.env[FOREIGN_LEG_DISABLED_FLAG] || '').trim().toLowerCase();
+  if (['1', 'true', 'on'].includes(flag)) {
+    return { ran: false, why: `${FOREIGN_LEG_DISABLED_FLAG} 已设 ⇒ 不夺回`, actions: [] };
+  }
+  const ports = SERVICES.filter((s) => Number.isInteger(s.port)).map((s) => s.port);
+  const holders = collectForeignLegHolders(ports);
+  if (holders === null) {
+    console.warn('外来 dev 腿对账:未判定(取不到端口属主身份)⇒ 本守护不动任何进程');
+    return { ran: false, why: '未判定', actions: [] };
+  }
+  const me = currentUser();
+  const actions = [];
+  for (const h of holders) {
+    const holder = { pid: h.pid, port: h.port, ownerUser: h.user, cmdline: h.cmdline };
+    if (!shouldPreemptForeignLeg({ repoRoot: ROOT, holder, selfUser: me })) {
+      actions.push({ ...holder, act: '保留(同用户或非本仓进程或取不到身份)' });
+      continue;
+    }
+    if (dryRun) {
+      actions.push({ ...holder, act: '将会夺回(--preempt-check 只检不杀)' });
+      continue;
+    }
+    const k = spawnSync('taskkill', ['/F', '/T', '/PID', String(h.pid)], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 30000,
+    });
+    actions.push({ ...holder, act: k.status === 0 ? '已夺回' : `夺回失败 rc=${k.status}` });
+  }
+  const killed = actions.filter((a) => a.act === '已夺回').length;
+  console.log(
+    `外来 dev 腿对账:本守护目标端口占位 ${holders.length} 个 / 夺回 ${killed} 个(当前身份=${me || '?'})`,
+  );
+  for (const a of actions) console.log(`  · pid=${a.pid} :${a.port} 身份=${a.ownerUser || '?'} ⇒ ${a.act}`);
+  return { ran: true, holders: holders.length, killed, actions };
+}
+
 // §22d 双形态守卫:CLI 直跑才执行 main(),被 import(测试/工具)零副作用
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isDirectRun) {
+  if (process.argv.includes('--preempt-check')) {
+    // 只看不动:打印每个目标端口的占位者与本守护的裁决(运维取证口)
+    console.log(JSON.stringify(reclaimForeignLegs({ dryRun: true }), null, 2));
+    process.exit(0);
+  }
   main().catch((e) => {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`);
     process.exit(2);
   });
 }
 
-export const __test__ = { getVal, parsePositiveInt };
+export const __test__ = {
+  getVal,
+  parsePositiveInt,
+  shouldPreemptForeignLeg,
+  FOREIGN_LEG_DISABLED_FLAG,
+};
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
