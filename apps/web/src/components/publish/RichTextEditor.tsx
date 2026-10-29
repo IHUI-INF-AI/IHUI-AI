@@ -46,7 +46,8 @@ export interface RichTextEditorProps {
 type EditMode = 'markdown' | 'richtext'
 
 const DRAFT_KEY = 'ihui-publish-draft'
-const AUTO_SAVE_INTERVAL_MS = 30_000
+/** 停止输入后多久把草稿写进 localStorage(防抖;原先 30s 周期会被连续输入不断重建) */
+const AUTO_SAVE_DEBOUNCE_MS = 1_500
 
 /** 粘贴净化:去除危险标签(<script>/<iframe>/<style>/<object>/<embed>),保留结构 */
 function sanitizeHtml(html: string): string {
@@ -132,26 +133,61 @@ interface ToolbarAction {
   readonly labelKey: string
   readonly wrap: [string, string]
   readonly shortcut?: string
+  /** 富文本模式的执行档:命令名或本编辑器特判(image/table/code/link/h1..h3/blockquote)。
+   *  缺省 ⇒ 富文本模式下该按钮禁用 —— 原实现一律走 markdown 包裹(applyWrap),
+   *  而 richtext 分支根本没有 textarea,`if (!ta) return` 让 13 个按钮全部点了没反应。 */
+  readonly rich?: string
 }
 
 const ACTIONS: readonly ToolbarAction[] = [
-  { icon: Bold, labelKey: 'editor.bold', wrap: ['**', '**'], shortcut: 'Ctrl+B' },
-  { icon: Italic, labelKey: 'editor.italic', wrap: ['*', '*'], shortcut: 'Ctrl+I' },
-  { icon: Heading1, labelKey: 'editor.heading', wrap: ['\n# ', '\n'], shortcut: 'Ctrl+1' },
-  { icon: Heading2, labelKey: 'editor.heading', wrap: ['\n## ', '\n'], shortcut: 'Ctrl+2' },
-  { icon: Heading3, labelKey: 'editor.heading', wrap: ['\n### ', '\n'], shortcut: 'Ctrl+3' },
-  { icon: Link2, labelKey: 'editor.link', wrap: ['[', '](https://)'], shortcut: 'Ctrl+K' },
-  { icon: ImageIcon, labelKey: 'editor.image', wrap: ['![alt](', ')'] },
-  { icon: Code, labelKey: 'editor.code', wrap: ['`', '`'], shortcut: 'Ctrl+Shift+K' },
-  { icon: Quote, labelKey: 'editor.quote', wrap: ['\n> ', '\n'] },
-  { icon: List, labelKey: 'editor.list', wrap: ['\n- ', '\n'] },
-  { icon: ListOrdered, labelKey: 'editor.list', wrap: ['\n1. ', '\n'] },
+  { icon: Bold, labelKey: 'editor.bold', wrap: ['**', '**'], shortcut: 'Ctrl+B', rich: 'bold' },
+  { icon: Italic, labelKey: 'editor.italic', wrap: ['*', '*'], shortcut: 'Ctrl+I', rich: 'italic' },
+  {
+    icon: Heading1,
+    labelKey: 'editor.heading',
+    wrap: ['\n# ', '\n'],
+    shortcut: 'Ctrl+1',
+    rich: 'h1',
+  },
+  {
+    icon: Heading2,
+    labelKey: 'editor.heading',
+    wrap: ['\n## ', '\n'],
+    shortcut: 'Ctrl+2',
+    rich: 'h2',
+  },
+  {
+    icon: Heading3,
+    labelKey: 'editor.heading',
+    wrap: ['\n### ', '\n'],
+    shortcut: 'Ctrl+3',
+    rich: 'h3',
+  },
+  {
+    icon: Link2,
+    labelKey: 'editor.link',
+    wrap: ['[', '](https://)'],
+    shortcut: 'Ctrl+K',
+    rich: 'link',
+  },
+  { icon: ImageIcon, labelKey: 'editor.image', wrap: ['![alt](', ')'], rich: 'image' },
+  {
+    icon: Code,
+    labelKey: 'editor.code',
+    wrap: ['`', '`'],
+    shortcut: 'Ctrl+Shift+K',
+    rich: 'code',
+  },
+  { icon: Quote, labelKey: 'editor.quote', wrap: ['\n> ', '\n'], rich: 'blockquote' },
+  { icon: List, labelKey: 'editor.list', wrap: ['\n- ', '\n'], rich: 'insertUnorderedList' },
+  { icon: ListOrdered, labelKey: 'editor.list', wrap: ['\n1. ', '\n'], rich: 'insertOrderedList' },
   {
     icon: TableIcon,
     labelKey: 'editor.table',
     wrap: ['\n| 列1 | 列2 |\n| --- | --- |\n| ', ' | |\n'],
+    rich: 'table',
   },
-  { icon: Minus, labelKey: 'editor.quote', wrap: ['\n---\n', ''] },
+  { icon: Minus, labelKey: 'editor.quote', wrap: ['\n---\n', ''], rich: 'insertHorizontalRule' },
 ]
 
 /** 本编辑器自有 chord 的键位(从 ACTIONS 派生,与工具条标签同源不漂移) */
@@ -230,11 +266,65 @@ export function RichTextEditor({
     [applyWrap],
   )
 
-  // 富文本模式:input 事件 → Markdown
+  // 富文本模式的工具栏执行档。原实现 13 个按钮一律走 applyWrap(靠 taRef),而 richtext 分支
+  // 不渲染 textarea ⇒ `if (!ta) return` 把每次点击静默吞掉(按钮有态、正文无变化)。
+  const runRichAction = React.useCallback((act: ToolbarAction) => {
+    const ce = ceRef.current
+    if (!ce || !act.rich) return
+    ce.focus()
+    switch (act.rich) {
+      case 'image':
+        fileInputRef.current?.click()
+        return
+      case 'link':
+        document.execCommand('createLink', false, 'https://')
+        return
+      case 'table':
+        document.execCommand(
+          'insertHTML',
+          false,
+          '<table><tbody><tr><td>列1</td><td>列2</td></tr><tr><td></td><td></td></tr></tbody></table>',
+        )
+        return
+      case 'code': {
+        const sel = window.getSelection()?.toString() ?? ''
+        const escd = (sel || 'code')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+        document.execCommand('insertHTML', false, `<code>${escd}</code>`)
+        return
+      }
+      case 'h1':
+      case 'h2':
+      case 'h3':
+      case 'blockquote':
+        document.execCommand('formatBlock', false, `<${act.rich}>`)
+        return
+      default:
+        document.execCommand(act.rich, false)
+    }
+  }, [])
+
+  const runAction = React.useCallback(
+    (act: ToolbarAction) => {
+      if (mode === 'richtext') runRichAction(act)
+      else applyWrap(act.wrap)
+    },
+    [mode, runRichAction, applyWrap],
+  )
+
+  // 富文本模式:input 事件 → Markdown。
+  // richEmitRef 记录"这次 value 是编辑器自己发出来的"——同步 effect 据此跳过 DOM 重写,
+  // 否则每敲一个字都会把 innerHTML 整段覆盖、光标弹回开头(用户无法连续输入)。
+  const richEmitRef = React.useRef<string | null>(null)
+  const richInitRef = React.useRef(false)
   const handleRichInput = React.useCallback(
     (e: React.FormEvent<HTMLDivElement>) => {
       const html = (e.currentTarget as HTMLDivElement).innerHTML
-      onChange(htmlToMarkdown(html))
+      const md = htmlToMarkdown(html)
+      richEmitRef.current = md
+      onChange(md)
     },
     [onChange],
   )
@@ -268,6 +358,16 @@ export function RichTextEditor({
       if (!onImageUpload) return
       try {
         const url = await onImageUpload(file)
+        if (mode === 'richtext') {
+          // 富文本分支没有 textarea,applyWrap 会静默 return ⇒ 直接插 <img>
+          const ce = ceRef.current
+          if (!ce) return
+          ce.focus()
+          const safeSrc = String(url).replace(/"/g, '&quot;')
+          const safeAlt = file.name.replace(/"/g, '&quot;')
+          document.execCommand('insertHTML', false, `<img src="${safeSrc}" alt="${safeAlt}" />`)
+          return
+        }
         applyWrap([`![${file.name}](`, ')'])
         // 占位:用 url 替换最后一个 (https://) 占位
         onChange((value + '').replace(/\(https:\/\/\)$/, `(${url})`))
@@ -275,29 +375,57 @@ export function RichTextEditor({
         // 上传失败静默(由调用方 toast)
       }
     },
-    [onImageUpload, applyWrap, onChange, value],
+    [onImageUpload, applyWrap, onChange, value, mode],
   )
 
-  // 自动保存草稿
+  // 自动保存草稿(防抖)。原实现 setInterval 依赖 [value,mode] ⇒ 每敲一个字重建定时器,
+  // 连续输入时 30s 永不触发("已自动保存"从未真正写过盘);提示用的 setTimeout 也没清理。
+  const autoSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedHintTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   React.useEffect(() => {
-    if (mode !== 'markdown' || !value) return
-    const timer = setInterval(() => {
+    if (!value) {
+      // 内容清空 ⇒ 清掉旧草稿,避免下一篇新建时读到上一题的残留
+      try {
+        localStorage.removeItem(DRAFT_KEY)
+      } catch {
+        /* 隐私模式禁用 localStorage:静默 */
+      }
+      return
+    }
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(() => {
       try {
         localStorage.setItem(DRAFT_KEY, value)
         setAutoSaved(true)
-        setTimeout(() => setAutoSaved(false), 2000)
+        if (savedHintTimerRef.current) clearTimeout(savedHintTimerRef.current)
+        savedHintTimerRef.current = setTimeout(() => setAutoSaved(false), 2000)
       } catch {
         // localStorage 满或禁用,静默
       }
-    }, AUTO_SAVE_INTERVAL_MS)
-    return () => clearInterval(timer)
-  }, [value, mode])
-
-  // 模式切换时同步内容
-  React.useEffect(() => {
-    if (mode === 'richtext' && ceRef.current) {
-      ceRef.current.innerHTML = markdownToHtml(value)
+    }, AUTO_SAVE_DEBOUNCE_MS)
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     }
+  }, [value])
+  React.useEffect(
+    () => () => {
+      if (savedHintTimerRef.current) clearTimeout(savedHintTimerRef.current)
+    },
+    [],
+  )
+
+  // 模式切换时同步内容:只有"首次挂载/外部改值"才重建 DOM,输入路径绝不回写。
+  React.useEffect(() => {
+    if (mode !== 'richtext') {
+      richInitRef.current = false
+      return
+    }
+    const ce = ceRef.current
+    if (!ce) return
+    if (richInitRef.current && value === richEmitRef.current) return
+    ce.innerHTML = markdownToHtml(value)
+    richEmitRef.current = value
+    richInitRef.current = true
   }, [mode, value])
 
   return (
@@ -330,7 +458,8 @@ export function RichTextEditor({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => applyWrap(act.wrap)}
+                  onClick={() => runAction(act)}
+                  disabled={mode === 'richtext' && !act.rich}
                 >
                   <Icon className="h-3.5 w-3.5" />
                 </Button>
