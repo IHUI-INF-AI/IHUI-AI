@@ -14,7 +14,13 @@
  * 否则"把信息从散文搬进侧车"这一步自己就会改判,那正是本断言要拦的事。
  * 调用方一律 import 本件,不得各写一份(§0.6;同类漂移本仓已记过多次)。
  */
-import { bucketFromFields, claimMarkOf, dispositionOf, keyOfRow } from './plan-task-index.mjs'
+import {
+  bucketFromFields,
+  claimMarkOf,
+  declaredKeyOf,
+  dispositionOf,
+  keyOfRow,
+} from './plan-task-index.mjs'
 
 const OPEN_RE = /^\s*- \[ \]/
 const DONE_RE = /^\s*- \[[xX]\]/
@@ -72,6 +78,61 @@ export function todayIso() {
 }
 
 /**
+ * 窄「补号档」判据(2026-10-30 立,承票 RP-1:6 枚未取号登记行迁进 RP 族在器物层结构性不可达)。
+ *
+ * 立因(本席一手复现,不是推断):`live-doc-edit` 整行改写的「同题让号放行」臂按
+ * `extractTaskFingerprint` 比对,而该函数剥编号用的字面量 `/[A-Z]-?\d+/g` 与
+ * `/[a-z]{1,3}-?\d{2,}/g`(住 `check-plan-task-duplicates.mjs`)不认**两字母族+个位号**
+ * (`RP-7` 这种:前者只接单字母,后者要求 ≥2 位数字)⇒ 补号后指纹凭空多出 `rp7` 前缀,
+ * 两侧指纹永不相等 ⇒ 让号臂恒不触发 ⇒ 只剩「主键漂了:(无) → RP-N」一条拒写,RP-1 无出路。
+ * 改指纹定义面宽(波及 9 枚镜像与所有按指纹判同题的门),本档把放行收在**判据核**这一格:
+ * 与挂牌档 `addedMarkIsIsolated` 同型的最小差分证明 —— 放行当且仅当
+ *  ① 旧行 `keyOfRow` 读数为 null(窗口语义:整行没有**任何**编号,括注里的引用号也算"有号"
+ *     ⇒ 旧行有引用号而新行补声明号 = 换题面结构,不在本档,拒);
+ *  ② 新行 `keyOfRow` 非空 **且** `declaredKeyOf` 与之相同(新号必须落在本行声明位,
+ *     括注被引号不算补号 —— 两把尺都 import 单源,族合法性由 `TASK_ID_PATTERN` 一族口径
+ *     背书,本层不写第二份族正则,§0.6);
+ *  ③ 剥掉**那一枚**编号(连同其后至多一个水平空白)后的新行与旧行**逐字节相等**
+ *     —— 唯一差异 = 插入这枚号;顺带改题面/摘牌/多打空格/双写号全不满足,拒。
+ * 租约维与归属桶维**不因本档放行**(与挂牌档条件④同一条纪律):本函数只替主键维说话。
+ * @returns {{ok:true, token:string, at:number}|{ok:false, why:string}}
+ */
+export function idFillTransitionOf(oldLine, newLine) {
+  const o = String(oldLine ?? '')
+  const n = String(newLine ?? '')
+  const k0 = keyOfRow(o)
+  if (k0 !== null)
+    return { ok: false, why: `旧行窗口里已有编号 ${k0}(条件①:补号只认"整行本来无号";换号走同题让号额度)` }
+  const k1 = keyOfRow(n)
+  if (k1 === null) return { ok: false, why: '新行取不到编号(条件②:主键漂移的另一向,补号档不替它放行)' }
+  const dk = declaredKeyOf(n)
+  if (dk !== k1)
+    return {
+      ok: false,
+      why: `新行编号 ${k1} 不在本行声明位(declaredKeyOf=${dk ?? 'null'};条件②:括注被引号不算补号声明)`,
+    }
+  const esc = k1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(esc, 'g')
+  let m
+  let nearest = null
+  while ((m = re.exec(n)) !== null) {
+    const at = m.index
+    const tail = n.slice(at + k1.length)
+    const seg = /^[ \t]/.test(tail) ? 1 : 0
+    const stripped = n.slice(0, at) + n.slice(at + k1.length + seg)
+    if (stripped === o) return { ok: true, token: k1, at }
+    if (!nearest) nearest = { stripped, at }
+    if (at === re.lastIndex) re.lastIndex++
+  }
+  if (!nearest) return { ok: false, why: `新行正文里找不到编号 ${k1} 的字面出现(条件③:无从证明"只多了这枚号")` }
+  const d = firstDiffProbe(nearest.stripped, o)
+  return {
+    ok: false,
+    why: `剥掉那枚编号(含其后一个空白)后与旧行第 ${d.at} 个字起不再逐字节相等(旧行"${d.b}" ↔ 剥号后"${d.a}";条件③:顺带改题面/摘牌/双写号都不是补号)`,
+  }
+}
+
+/**
  * 租约形态迁移分档(2026-10-23 立,承「台账挂牌没有合法通道」票;同日晚补齐条件③;
  * 2026-10-26 本席补齐条件②的「日期不晚于今天」边界,承同一票 L28073 的放行面收窄条款)。
  * 放行档 = 「无牌 → 完整租约」,四个条件**同时**成立才算 `add-complete`;任一不成立就落到
@@ -115,6 +176,8 @@ export function leaseTransitionOf(oldLine, newLine) {
  * 唯一放行的形态变化 = 「旧行本来没牌 → 新行多一枚完整租约(日期不晚于今天),且除此之外逐字节不动」四条件全中
  * (AGENTS §1 要求的认领动作,不是代摘);摘牌、换持有者、改日期、裸牌/半牌、未来日期牌、加牌顺带改正文
  * 仍一律拒,且**逐条点名是哪一条件不满足**(§0.10)。分档判据见 `leaseTransitionOf`。
+ * 主键维另有一格窄放行 =「补号档」(旧行整行无号 → 新行声明位多一枚合法编号且除此之外逐字节不动,
+ * 见 `idFillTransitionOf`);它只替主键维说话,租约/归属桶维照常逐条判。
  */
 export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, newRec = null }) {
   const o = String(oldLine ?? '')
@@ -131,7 +194,15 @@ export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, 
   const v = []
   const k0 = keyOfRow(o)
   const k1 = keyOfRow(n)
-  if (k0 !== k1) v.push(`主键漂了:${k0 ?? '(无)'} → ${k1 ?? '(无)'}`)
+  if (k0 !== k1) {
+    // 窄「补号档」(2026-10-30,票 RP-1):「从(无)到一个合法号」这一格放行主键维,
+    // 三条件与逐字节证明见 `idFillTransitionOf`;租约维/归属桶维照旧逐条判,本档一条也不替它们放行。
+    const fill = idFillTransitionOf(o, n)
+    if (!fill.ok)
+      v.push(
+        `主键漂了:${k0 ?? '(无)'} → ${k1 ?? '(无)'}(补号档不成立:${fill.why};出路=整行唯一差异只能是"在声明位插入这枚编号(+其后一个空白)",其余逐字节不动,否则走同题让号额度=指纹逐字相同)`,
+      )
+  }
 
   const lease = leaseTransitionOf(o, n)
   if (lease === 'removed') {
@@ -249,6 +320,7 @@ export const __test__ = {
   assertRowRewriteConservation,
   addedMarkIsIsolated,
   bucketOf,
+  idFillTransitionOf,
   leaseTransitionOf,
   completeLeaseOf,
   leaseCarryOf,

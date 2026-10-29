@@ -84,6 +84,7 @@ import {
   FACE_NOTE,
 } from './lib/face-reader.mjs'
 import { maskComments } from './lib/code-mask.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const SKIP_ENV = 'HUSKY_SKIP_WARM_BORDER'
 // 2026-10-21 G-929:`--root <dir>` 显式指定**被审仓根**,缺省仍按脚本位置自推导 ⇒ 生产行为一字不变。
@@ -92,8 +93,12 @@ const SKIP_ENV = 'HUSKY_SKIP_WARM_BORDER'
 // "fatal: not a tree object" ⇒ 未判定 ⇒ 落地器 fail-closed 拒绝 ⇒ object-space-land 镜像
 // 套件 26 例整批红。判据本身与仓根无关(暖色描边是内容事实),换仓不该让它失明,失明更不该
 // 被当成"拒绝"。镜像用例 M16 钉这一档的三态。
-const rootArgAt = process.argv.indexOf('--root')
-const rootArg = rootArgAt >= 0 ? String(process.argv[rootArgAt + 1] ?? '').trim() : ''
+// G-322 第二十一批:取值走 `lib/flag-value.mjs` 单源。旧写法 `String(process.argv[at+1] ?? '')` 把
+// "给了 --root 却没给值"折成 `''`,而 `''` 在本文件里就是"未给出该旗标"的哨兵 ⇒ 静默回落到自推导根。
+// 错误只在此处**登记**,判死仍留在 main() 里(与既有 existsSync 那支同层)—— 模块顶层就 process.exit
+// 会把 import 本门的镜像测试一起带走(§22d)。
+const rootFlag = requireFlagValue(process.argv.slice(2), '--root', { noun: '被审仓目录参数' })
+const rootArg = (rootFlag.value ?? '').trim()
 const root = rootArg !== '' ? resolve(rootArg) : join(dirname(fileURLToPath(import.meta.url)), '..')
 const EXEMPTIONS_REL = 'scripts/data/warm-border-exemptions.json'
 
@@ -1149,6 +1154,13 @@ HEAD 面实测 90 处)—— 那是语义档,判它等于 §12e 禁的恒红门�
   }
   if (argv.includes('--self-test')) return runSelfTest()
 
+  // G-322:`--root` 给了却没跟值 ⇒ 用法错,exit 2 点名实得 token。**不得读成"未给出该旗标"** ——
+  // 那正是本票要消的形态(旧写法把结尾无值折成 `''`,与"没打 --root"同解 ⇒ 静默审自推导的主仓)。
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error} ⇒ 未判定(不猜要审哪个仓)`)
+    return 2
+  }
+
   // --root 显式给出但目录不存在 ⇒ 未判定(exit 2)。**不静默回落到自推导** ——
   // 那会把"指错了仓"读成"在主仓审过了",是 fail-open 的一种形态。
   if (rootArg !== '' && !existsSync(root)) {
@@ -1160,8 +1172,16 @@ HEAD 面实测 90 处)—— 那是语义档,判它等于 §12e 禁的恒红门�
   // 为什么必须有这一档:旁路通道(commit-tree + CAS)**结构上不跑 pre-commit**,
   // 而本仓大量落地走的是它 —— 只活在提交链的内容门对这条通道等于没装
   // (AGENTS:防它必须在它自己的判据源头接)。这一档审的是"将要落盘的那棵树",不是历史。
-  const revAt = argv.indexOf('--rev')
-  const revOid = revAt >= 0 ? String(argv[revAt + 1] ?? '').trim() : ''
+  // G-322 第二十一批:两支都接单源。改前实测 —— `--rev` 裸 ⇒ revOid='' ⇒ 整条审树档静默回落 HEAD 面
+  // 还照打"内容口径:HEAD blob"(rc=0),而这一档正是 object-space-land 的涉事判据 ⇒ 回落=盲绿;
+  // `--rev <oid> --only --all` ⇒ 把 `--all` 当一条声明路径收下,打印"只审 1 条声明路径"后 rc=0,
+  // 射程被吞值窄化成一条不存在的路径 = 假绿。oid 形态那支校验一字未动(不放宽判据)。
+  const revFlag = requireFlagValue(argv, '--rev', { noun: 'git oid 参数' })
+  if (revFlag.error) {
+    console.error(`❌ ${revFlag.error} ⇒ 未判定(审树档必须显式给出将要落盘的那棵树,不得静默回落 HEAD 面)`)
+    return 2
+  }
+  const revOid = (revFlag.value ?? '').trim()
   if (revOid && (argv.includes('--staged') || argv.includes('--worktree'))) {
     console.error('❌ --rev 与 --staged/--worktree 互斥(审树档只认显式给定的那棵树)')
     return 2
@@ -1170,8 +1190,12 @@ HEAD 面实测 90 处)—— 那是语义档,判它等于 §12e 禁的恒红门�
     console.error(`❌ --rev 取值不是合法 oid ⇒ 未判定(不猜要审哪棵树):${revOid.slice(0, 40)}`)
     return 2
   }
-  const onlyAt = argv.indexOf('--only')
-  const onlyRaw = onlyAt >= 0 ? String(argv[onlyAt + 1] ?? '') : ''
+  const onlyFlag = requireFlagValue(argv, '--only', { noun: '声明路径清单参数(a;b;c)' })
+  if (onlyFlag.error) {
+    console.error(`❌ ${onlyFlag.error} ⇒ 未判定(不得把下一个旗标当声明路径 —— 那会静默窄化射程出假绿)`)
+    return 2
+  }
+  const onlyRaw = onlyFlag.value ?? ''
   const only = onlyRaw ? new Set(onlyRaw.split(';').map((s) => s.trim()).filter(Boolean)) : null
 
   let face
