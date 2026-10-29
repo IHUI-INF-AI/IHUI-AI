@@ -38,6 +38,7 @@
 import { DESKTOP_FEED } from './desktop-feed.generated'
 import type { DesktopFeed, DesktopFeedAsset } from './desktop-feed.generated'
 import type { DesktopFeedPayload } from './desktop-feed-payload'
+import { getApkUrl } from './downloads.config'
 
 const RELEASE_PREFIX = 'desktop-v'
 const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
@@ -455,7 +456,27 @@ export function pickLatestApkRelease(
   return candidates[0] as { release: UpstreamRelease; asset: UpstreamReleaseAsset }
 }
 
-export async function resolveLiveAndroid(): Promise<LiveAndroidResolution> {
+/**
+ * 安卓包的运行期实时源。
+ *
+ * 2026-10-29 加的这道闸(线上实测):自有分发地址在位时**不得**再拿 GitHub release 资产当按钮链接。
+ * 现读事实是 `…/releases/download/nightly-40425910619/ihui-ai-latest.apk` 被当成了按钮 —— 两个问题:
+ * ① github.com 的 release 下载是国内最慢/最不稳的一条腿,用户点一下就卡死(与"这下载速度太慢了
+ *    这用户谁能等的起啊"同型);② 它是 nightly 流水线随手发的一枚,把页面展示的**版本与日期**一起
+ *    换成 nightly 的 tag,于是页面写的版本号与实际发出去的包不是同一枚(账面与实际分叉)。
+ * 环境变量的自有地址(NEXT_PUBLIC_DOWNLOAD_APK_URL,与下载按钮同一唯一取源)在位 ⇒ 走构建期快照,
+ * 不覆盖。取不到自有地址时保持旧行为(仍然可以拿 GitHub 源兜底),不制造新的"哪端都没链接"。
+ */
+export async function resolveLiveAndroid(
+  opts: { ownApkUrl?: string | null } = {},
+): Promise<LiveAndroidResolution> {
+  const own = opts.ownApkUrl !== undefined ? opts.ownApkUrl : getApkUrl()
+  if (own && own.trim().length > 0) {
+    return {
+      source: 'unavailable',
+      reason: `自有分发地址在位(${own.trim()}),不用 GitHub 资产覆写按钮`,
+    }
+  }
   const repo = process.env.GITHUB_REPOSITORY || DEFAULT_REPO
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github+json',
