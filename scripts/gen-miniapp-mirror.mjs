@@ -40,7 +40,8 @@
  * 新页文件写完后立即调 scripts/watermark.mjs inject + verify(process.execPath + 绝对路径;
  * 夹具仓里没有 watermark.mjs 时点名跳过)。
  *
- * 退出码:0 = 成功生成 / 合法跳过(点名依据);1 = 判定成立但拒绝落地(撞面/缺腿/冲突);
+ * 退出码:0 = 成功生成 / 合法跳过(点名依据)/ 判决台账已裁「不承载」的终态(它不是待办的红);
+ * 1 = 判定成立但拒绝落地(撞面/缺腿/冲突);
  * 2 = 未判定(取不到被审面、--screen 缺失、屏形制不符、分包归属推断不出 ⇒ 要一次定向说明)。
  *
  * Usage:
@@ -847,7 +848,9 @@ export function planGeneration(rootDir, opts, ctx = null) {
   const verdict = c.verdicts?.get?.(shape.spec)
   if (verdict && verdict.verdict === 'not-applicable') {
     return {
-      kind: 'refuse',
+      // 这不是"拒绝"——拒绝指本器物自己判出不该造;判决台账是**人已裁定的终态**,
+      // 混进 refused 会让批量档恒 exit 1,把"11 条合法终态"报成"11 条待办的红"(§12e/§0.3)。
+      kind: 'not-applicable',
       why: `判决台账已判「不承载」(${VERDICTS_PATH}):${String(verdict.evidence ?? '(未附证据)').slice(0, 200)}`,
     }
   }
@@ -1204,18 +1207,25 @@ async function runBatch(rootDir, { applyMode, subpackage, page }) {
     console.error(`❓ 未判定:${e?.message ?? e}`)
     return 2
   }
-  const { planned, skipped, refused, undetermined } = batch
+  const { planned, skipped, refused, notApplicable, undetermined } = batch
   console.log(
-    `共享屏判定汇总:可生成 ${planned.length} / 已存在跳过 ${skipped.length} / 拒绝 ${refused.length} / 未判定 ${undetermined.length}`,
+    `共享屏判定汇总:可生成 ${planned.length} / 已存在跳过 ${skipped.length} / 拒绝 ${refused.length} / 已判不承载 ${notApplicable.length} / 未判定 ${undetermined.length}`,
   )
+  // 汇总句与明细同基准:判决台账那批既要在汇总里有自己的桶,也要逐条点名(只报数等于没报成因)。
   for (const s of skipped.slice(0, 20)) console.log(`⏭ 跳过 ${s.spec}  ${s.why}`)
   if (skipped.length > 20) console.log(`⏭ 跳过(其余 ${skipped.length - 20} 条略)`)
   for (const r of refused) console.log(`⛔ 拒绝 ${r.spec}  ${r.why}`)
+  for (const na of notApplicable) console.log(`🚫 已判不承载 ${na.spec}  ${na.why}`)
   for (const u of undetermined) console.log(`❓ 未判定 ${u.spec}  ${u.why}`)
 
+  // 退出码三档(§0.3):未判定 ⇒ 2(既不记绿也不冒红);真拒绝 ⇒ 1;合法终态(已判不承载)⇒ 0。
+  const code = () => (undetermined.length > 0 ? 2 : refused.length > 0 ? 1 : 0)
+
   if (planned.length === 0) {
-    console.log('GEN-MIRROR-BATCH-RESULT planned=0 applied=0 refused=0 undetermined=' + undetermined.length)
-    return refused.length > 0 || undetermined.length > 0 ? 1 : 0
+    console.log(
+      `GEN-MIRROR-BATCH-RESULT planned=0 applied=0 refused=${refused.length} not_applicable=${notApplicable.length} undetermined=${undetermined.length}`,
+    )
+    return code()
   }
   console.log(`\n=== 将新建 ${planned.length} 个页面 ===`)
   for (const p of planned) {
@@ -1224,8 +1234,10 @@ async function runBatch(rootDir, { applyMode, subpackage, page }) {
 
   if (!applyMode) {
     console.log('\n(预演模式,未写盘;加 --apply 落地)')
-    console.log(`GEN-MIRROR-BATCH-RESULT planned=${planned.length} applied=0 refused=${refused.length} undetermined=${undetermined.length}`)
-    return refused.length > 0 || undetermined.length > 0 ? 1 : 0
+    console.log(
+      `GEN-MIRROR-BATCH-RESULT planned=${planned.length} applied=0 refused=${refused.length} not_applicable=${notApplicable.length} undetermined=${undetermined.length}`,
+    )
+    return code()
   }
 
   const results = applyBatch(rootDir, planned)
@@ -1248,8 +1260,10 @@ async function runBatch(rootDir, { applyMode, subpackage, page }) {
       console.log(`[ok] ${screen}  ${rs.filter((r) => r.state === 'applied').length} 接缝落地`)
     }
   }
-  console.log(`GEN-MIRROR-BATCH-RESULT planned=${planned.length} applied=${applied} skipped=${skippedN} refused=${refusedN} undetermined=${undetermined.length}`)
-  return refusedN > 0 || undetermined.length > 0 ? 1 : 0
+  console.log(
+    `GEN-MIRROR-BATCH-RESULT planned=${planned.length} applied=${applied} skipped=${skippedN} refused=${refusedN} not_applicable=${notApplicable.length} undetermined=${undetermined.length}`,
+  )
+  return undetermined.length > 0 ? 2 : refusedN > 0 ? 1 : 0
 }
 
 async function main() {
@@ -1293,6 +1307,10 @@ async function main() {
   if (plan.kind === 'undetermined') {
     console.error(`❓ 未判定(既不记绿也不冒红):${plan.why}`)
     return 2
+  }
+  if (plan.kind === 'not-applicable') {
+    console.log(`🚫 已判不承载(判决台账裁定的终态,不是拒绝、不是缺口):${plan.why}`)
+    return 0
   }
   if (plan.kind === 'refuse') {
     console.error(`⛔ 拒绝生成:${plan.why}`)
@@ -1348,11 +1366,12 @@ async function main() {
  *   重复的"选屏 → 预演 → 落地",每屏 4 个接缝,一次跑错就前功尽弃。
  *   批量档把"枚举 + 逐屏计划 + 汇总"变成一条命令,落地仍走同一套接缝落地器。
  *
- * 返回:{planned, skipped, refused, undetermined}
- *   planned[]      = kind==='plan' 的 plan 对象
- *   skipped[]      = kind==='skip'(已镜像/页面已存在)
- *   refused[]      = kind==='refuse'(判定成立但不该造)
- *   undetermined[] = kind==='undetermined'(取不到输入/形态不符 ⇒ 一次定向说明)
+ * 返回:{planned, skipped, refused, notApplicable, undetermined}
+ *   planned[]        = kind==='plan' 的 plan 对象
+ *   skipped[]        = kind==='skip'(已镜像/页面已存在)
+ *   refused[]        = kind==='refuse'(本器物判定成立但不该造)
+ *   notApplicable[]  = kind==='not-applicable'(判决台账已裁「不承载」的终态 ⇒ 不计红)
+ *   undetermined[]   = kind==='undetermined'(取不到输入/形态不符 ⇒ 一次定向说明)
  */
 export function planBatch(rootDir, opts = {}) {
   const screens = opts.screens || listSharedScreens(rootDir)
@@ -1361,6 +1380,7 @@ export function planBatch(rootDir, opts = {}) {
   const planned = []
   const skipped = []
   const refused = []
+  const notApplicable = []
   const undetermined = []
   for (const spec of screens) {
     const plan = planGeneration(
@@ -1371,9 +1391,10 @@ export function planBatch(rootDir, opts = {}) {
     if (plan.kind === 'plan') planned.push(plan)
     else if (plan.kind === 'skip') skipped.push({ spec, why: plan.why })
     else if (plan.kind === 'refuse') refused.push({ spec, why: plan.why })
+    else if (plan.kind === 'not-applicable') notApplicable.push({ spec, why: plan.why })
     else undetermined.push({ spec, why: plan.why })
   }
-  return { planned, skipped, refused, undetermined }
+  return { planned, skipped, refused, notApplicable, undetermined }
 }
 
 /** 枚举全部共享屏 spec(HEAD 面)。取不到 ⇒ 抛错(上层判未判定,不回落别的面)。 */

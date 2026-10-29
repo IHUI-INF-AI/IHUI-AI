@@ -6889,6 +6889,73 @@ export function sweepHandMirrorUpgrades(opts = {}) {
   return { ran: true, ok: true, ...res }
 }
 
+const RN_HOST_SHELL_INTERVAL_MS = Number(process.env.IHUI_RN_HOST_SHELL_INTERVAL_MS || 30 * 60 * 1000)
+
+/**
+ * 共享屏 → RN 宿主薄壳的自动补壳腿(2026-10-29 立)。
+ *
+ * 立因:`gen-rn-host-shell.mjs`(2026-10-28 立)把「接一枚新共享屏要手抄百行样板」变成一条命令,
+ * 但接线当刻全仓检索该器物只命中它自己 —— 零派发点,按 §0.9「造好没装车 = 没有」。
+ * 三段造页器(共享屏→RN 壳 / RN 壳→小程序页 / 缺页→镜像页)里只有第一格无人调度,
+ * 于是链条在**第一节**就断:新共享屏不出 RN 壳,而下游 gen-miniapp-mirror 的三腿判据要求
+ * 「HEAD 面有 RN 屏 import 该共享屏」⇒ 上游不动,下游每轮判「三腿不齐」拒产,整条链安静停摆。
+ *
+ * 失效方向:无待补壳 ⇒ 零写零推,只留一行读数;needs-manual(必填腿含端上事实)只点名不喊人
+ * (§5e-1:那是常态而非事故,收信人无事可做);结论行取不到 ⇒ 记未判定,绝不折成"无需补壳"(§0.3)。
+ * 判机器状态 ⇒ 不进提交链(§12e);不改守护退出码。
+ */
+export function sweepRnHostShells(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = RN_HOST_SHELL_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'rn-host-shell-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'gen-rn-host-shell.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ RN 薄壳补壳:器物不在位(scripts/gen-rn-host-shell.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const r =
+    typeof runner === 'function'
+      ? runner()
+      : runLegChild(
+          script,
+          ['--all', '--write', '--cap=2'],
+          Number(process.env.IHUI_RN_HOST_SHELL_TIMEOUT_MS || 10 * 60 * 1000),
+        )
+  stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''))
+  // 结论行是该器物的既有文本档形态,本腿只解析不改它:
+  // GEN-RN-HOST-SHELL state=preview|applied 目标=N 写出=N 跳过=N 需人工=N
+  const m = /GEN-RN-HOST-SHELL state=(\w+) 目标=(\d+) 写出=(\d+) 跳过=(\d+) 需人工=(\d+)/.exec(
+    String(r.stdout ?? ''),
+  )
+  if (!m) {
+    logger(
+      `⚠️ RN 薄壳补壳:结论取不到 ⇒ 本轮未判定(${
+        r.signal ? `子进程被 ${r.signal} 掐死(上限 ${Math.round((Number(process.env.IHUI_RN_HOST_SHELL_TIMEOUT_MS) || 600000) / 60000)} 分钟)` : `status=${r.status ?? '?'}`
+      })—— 这不等于"无需补壳"`,
+    )
+    return { ran: true, ok: false, state: 'undetermined', status: r.status, signal: r.signal }
+  }
+  const n = (v) => Number(v) || 0
+  const [, state, targets, wrote, skipped, manual] = m
+  logger(
+    `🧭 RN 薄壳补壳:${state} 待补 ${n(targets)} / 写出 ${n(wrote)} / 跳过 ${n(skipped)} / 需人工 ${n(manual)}`,
+  )
+  return {
+    ran: true,
+    ok: true,
+    state,
+    targets: n(targets),
+    wrote: n(wrote),
+    skipped: n(skipped),
+    manual: n(manual),
+  }
+}
+
 /**
  * 派生产物自走重生成的共用派发体(两族各一条腿,底下只有一件器物、一条落 HEAD 的接缝)。
  * 器物 = scripts/heal-derived-in-checkout.mjs:按当前 HEAD 建 detached 检出 → 在检出里重跑各端生成器
@@ -7666,6 +7733,8 @@ function main() {
     if (!CHECK_ONLY) healCrossEndMirror()
     if (!CHECK_ONLY) convergeCrossEndPortalVerdicts()
     if (!CHECK_ONLY) autoRegisterRnTokenPairs()
+    // 链条按依赖序派:先补 RN 薄壳,再落小程序页 —— 下游三腿判据要问的就是"RN 腿在不在"。
+    if (!CHECK_ONLY) sweepRnHostShells()
     if (!CHECK_ONLY) sweepCrossEndShellPages()
     if (!CHECK_ONLY) sweepHandMirrorUpgrades()
     if (!CHECK_ONLY) healI18nBundleLeg()

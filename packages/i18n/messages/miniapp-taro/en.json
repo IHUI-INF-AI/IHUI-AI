@@ -193,7 +193,18 @@
     "recommend": "Recommended for You",
     "navMenu": "Menu",
     "matDeletedOk": "Deleted",
-    "notLoggedIn": "Not signed in"
+    "notLoggedIn": "Not signed in",
+    "voiceUploadRetry": "Voice upload failed, please retry",
+    "fallbackFileName": "File",
+    "uploadedNameToast": "Uploaded: {name}",
+    "fileUploadFailed": "File upload failed",
+    "filePickRetry": "File selection failed, please retry",
+    "contentImage": "Image content",
+    "contentVideo": "Video content",
+    "contentText": "Text content",
+    "boolYes": "Yes",
+    "boolNo": "No",
+    "closePreview": "Close preview"
   },
   "course": {
     "learningProgress": "Progress",
@@ -1164,7 +1175,8 @@
     "statusUnknown": "Unknown",
     "noUrl": "No access URL",
     "loadFailed": "Load failed",
-    "openWorkflow": "Open workflow"
+    "openWorkflow": "Open workflow",
+    "gatewayRetry": "Retry {attempt} of {max}, continuing in {seconds}s"
   },
   "agentDialogue": {
     "sendFailed": "Send failed, please retry",
@@ -3587,7 +3599,12 @@
     "holdToSpeak": "Hold to speak",
     "addFile": "Add file",
     "document": "Document",
-    "video": "Video"
+    "video": "Video",
+    "compactSuccess": "Context compacted: {before} → {after} tokens (saved {saved})",
+    "compactTooFew": "Too few messages to compact",
+    "compactIncompressible": "Nothing left to compact in this context",
+    "compactFailed": "Compaction failed",
+    "compactNoSession": "Conversation not linked yet, compaction unavailable"
   },
   "toolbar": {
     "ai": "AI Chat"
@@ -3700,7 +3717,86 @@
     },
     "notes": {
       "loadFailShort": "Load failed"
-    }
+    },
+    "selectModel": "Select Model",
+    "inputPlaceholder": "Type a message...",
+    "flagFailed": "Failed to save marker",
+    "viewCard": "View card",
+    "closeCard": "Close card",
+    "imageDelete": "Delete image",
+    "webLinkPlaceholder": "Enter a web link (https://...)",
+    "micPermHint": "Cannot access the microphone. Check permission settings.",
+    "micInitFailed": "Failed to start recording. Please try again.",
+    "modelDegrade": "Model fallback: {from} → {to}",
+    "reconnecting": "Network unstable. Reconnecting ({attempt}), retry in {countdown}s",
+    "roundFailed": "Voice turn failed. Please try again.",
+    "ttsSuccess": "Voice generated ({voice})",
+    "favOpFail": "Favorite failed: {reason}",
+    "chatEmptyToast": "Current chat is empty",
+    "clearDialogTitle": "Clear chat",
+    "clearDialogBody": "Clear all messages in this chat?",
+    "clearOk": "Clear",
+    "exportEmptyTitle": "IHUI AI chat (empty)",
+    "exportHeader": "IHUI AI chat log",
+    "camSoonHint": "Camera capture coming soon. Upload from album first.",
+    "shareClaimed": "Claimed {points} points",
+    "shareClaimedOnce": "First-share reward already claimed",
+    "shareClaimFailed": "Claim failed. Try again later.",
+    "inviteShareBody": "Join the IHUI AI community — explore AI chat together!",
+    "matTypePrefix": "Type",
+    "matNoDetailHint": "Details not available for this material",
+    "loadDetailFail": "Failed to load details",
+    "netLoadFail": "Network error, load failed",
+    "linkCopied": "Link copied. Paste it in a browser.",
+    "historyLoadFail": "Failed to load chat history. Please try again.",
+    "delConvTitle": "Delete chat",
+    "delConvBody": "Delete this chat?",
+    "chatDeleteFail": "Delete failed. Please try again.",
+    "topBarMenu": "Open menu",
+    "topBarAgent": "Choose agent",
+    "topBarProfile": "Profile",
+    "topBarCommunity": "Join community",
+    "shareInviteNow": "Share invite now",
+    "fnTitle": "Features",
+    "sourceTitlePanel": "Knowledge sources",
+    "selectFile": "Select file",
+    "uploadingShort": "Uploading…",
+    "closeCardShort": "Close",
+    "viewCardShort": "View",
+    "cardWord": " card",
+    "matDeleteA11y": "Delete material",
+    "matFallback": "Material",
+    "sendLink": "Send link",
+    "imagePreviewA11y": "Image preview",
+    "menuAnnotateImage": "Annotate this image",
+    "chatDeleteFailed2": "Delete failed",
+    "loginToSend": "Please sign in before sending messages",
+    "vipOnlyModel": "VIP-only model. Subscribe to use.",
+    "openVipBtn": "Subscribe",
+    "reloginBtn": "Sign in again",
+    "connectFailRetry": "Connection failed. Please retry.",
+    "noMsgToTts": "No message to convert",
+    "ttsFailRetry": "Voice generation failed. Please retry.",
+    "noMsgToFav": "No message to favorite",
+    "favFailRetry": "Favorite failed. Try again later.",
+    "qrNeedPerm": "Photo permission required to save QR code",
+    "qrNotRendered": "QR not rendered yet. Try again later.",
+    "qrSaved": "QR code saved to album",
+    "qrSaveFail": "Save failed, please retry",
+    "favOn": "Favorited",
+    "favOff": "Unfavorited",
+    "annotAdded": "Annotation inserted into input",
+    "menuSwitchModel": "Switch model",
+    "menuClear": "Clear chat",
+    "menuExport": "Export chat",
+    "menuShare": "Share chat",
+    "menuToVoice": "To voice",
+    "menuFavorite": "Favorite",
+    "menuMaterial": "Materials",
+    "menuVoiceNote": "Voice notes",
+    "menuWebLink": "Web link",
+    "menuFileUpload": "Upload file",
+    "menuHistory": "History"
   },
   "tabBar": {
     "community": "Community",
@@ -6825,5 +6921,43 @@
     "title": "My Sign-ups",
     "loading": "Loading...",
     "empty": "No data yet"
+  },
+  "quickNotes": {
+    "menuEntry": "Quick notes",
+    "title": "Quick notes",
+    "new": "New note",
+    "edit": "Edit",
+    "search": "Search notes",
+    "insert": "Insert to chat",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archived": "Archived",
+    "showArchived": "Show archived",
+    "empty": "No notes yet"
+  },
+  "chatAlert": {
+    "compaction": {
+      "title": "Context Auto-Compacted",
+      "message": "{before} → {after} (removed {removed} messages)"
+    },
+    "loginBtn": "Log in",
+    "longPress": {
+      "myTitle": "My Message",
+      "aiTitle": "AI Message",
+      "message": "Screenshot generated",
+      "shareBtn": "Share"
+    }
+  },
+  "mat": {
+    "unknown": "Unknown error",
+    "deleteTitle": "Delete material",
+    "deleteBody": "Delete \"{title}\"?",
+    "detailLabel": "Material details"
+  },
+  "selectionAnnotations": {
+    "addAnnotation": "Add annotation"
+  },
+  "slashCmd": {
+    "statusToast": "Model {model} · {count} messages · {state}"
   }
 }
