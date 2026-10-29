@@ -117,7 +117,9 @@ export default function RegisterIndex() {
   }
 
   const codeBtnText =
-    form.countdown > 0 ? `${form.countdown}秒后重新获取` : tt('register.getCode', '发送验证码')
+    form.countdown > 0
+      ? tt('register.resendIn', `${form.countdown}s 后重发`, { countdown: form.countdown })
+      : tt('register.getCode', '发送验证码')
 
   return (
     <ThemeRoot className="container-ali">

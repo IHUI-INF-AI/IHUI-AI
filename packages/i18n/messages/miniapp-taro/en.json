@@ -2646,6 +2646,7 @@
     "defaultTitle": "Join us"
   },
   "register": {
+    "resendIn": "Resend in {{countdown}}s",
     "enterPhone": "Please enter your phone number",
     "codeSent": "Code sent",
     "incomplete": "Please fill in all fields",
