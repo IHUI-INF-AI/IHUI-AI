@@ -50,7 +50,6 @@ vi.mock('../../db/index.js', () => {
       delete: chainWrite,
       execute: vi.fn(async () => []),
     },
-    db: { update: chainWrite, insert: chainWrite, delete: chainWrite },
     dbRead: { select: chainWrite },
   }
 })
