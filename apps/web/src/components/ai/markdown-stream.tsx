@@ -1362,6 +1362,24 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
       )
       return blocks
     }
+    if (!v.appendOnly) {
+      // 非纯追加(stable 自身被改写,如上级回退/重放/编辑后重生成)。
+      //
+      // 2026-10-29 补(真浏览器验证发现的结构性缺口):这一型此前**既不告警也不换 epoch**
+      // —— 判据把"上游改写"合法地归为不可判(`appendOnly: false`),但调用方只覆盖了
+      // `appendOnly && !stable` 那一支,于是非追加时沿用旧 epoch 静默更新账本。
+      // 后果不是"判错",而是**该重挂的时候没重挂**:块内容已整体换过,序号 key 却不变,
+      // React 按旧下标复用节点 —— 段落张冠李戴、代码块折叠态与 mermaid 渲染结果串到新内容上。
+      //
+      // 处置:不可判 ≠ 可沿用。内容身份变了就必须换 epoch(结构性保险,不依赖判据判出漂移);
+      // 同时告警,因为"stable 回退"本身在纯追加流里不该发生,出现即值得看一眼。
+      const epoch = ledger.epoch + 1
+      blockLedgerRef.current = { source: stable, blocks, epoch }
+      console.warn(
+        `[markdown-stream] stable 非纯追加(上游改写)prev=${String(ledger.source.length)} next=${String(stable.length)} epoch=${String(epoch)}`,
+      )
+      return blocks
+    }
     blockLedgerRef.current = { source: stable, blocks, epoch: ledger.epoch }
     return blocks
   }, [stable])
