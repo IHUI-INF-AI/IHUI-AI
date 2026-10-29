@@ -50,6 +50,7 @@ const {
   mirrorDeclarations,
   buildSharedIndex,
   headMirroredSpecs,
+  sidecarCssPaths,
   MARK_RE,
   SHARED_DIR,
 } = __test__
@@ -305,6 +306,36 @@ test('N-桶守恒:直跑 --json,四桶之和必须等于全部未镜像屏,且"�
   assert.ok(
     j.stats.mirroredShared >= j.stats.strictOnlyCount,
     '宽尺镜像数不得少于旧硬路径尺(补形只认新形,不撤旧形)',
+  )
+})
+
+/**
+ * S 组:伴生样式表的载体面(2026-10-29 立)。
+ *
+ * 旧实现除了「同名 .css」还拼了一条「同目录 index.css」。对索引页两种拼法同值,对
+ * `dir/foo.tsx` 却把**目录主页面**的样式算成这一页的伴生样式 —— pages/member/index.css
+ * 头注写着「视觉唯一标准: RN …/vip/VipScreen.tsx」,于是 member/* 四页各自被读出一份
+ * 「镜像 VipScreen」声明。下游两处实测损害:
+ *   ① check-miniapp-mirror-fidelity 报「声明 VipScreen、承载 PointHistoryScreen」假红;
+ *   ② upgrade-miniapp-shell-pages 据此把 pages/member/coupon-list(领券中心,自有
+ *      getCouponList({status:'available'}) 取数)整页替换成 VipScreen(0fb91af8f8)。
+ * 失效方向必须钉成「少认一份载体」:目录级样式是视觉参照,不是这一页的镜像声明。
+ */
+test('S1 伴生样式表只认同名 .css:非索引页不得承接同目录 index.css', () => {
+  assert.deepEqual(
+    sidecarCssPaths('apps/x/pages/member/integral.tsx'),
+    ['apps/x/pages/member/integral.css'],
+    '非索引页只认同名 .css;把 member/index.css 算进来会凭空多出别的屏的镜像声明',
+  )
+  assert.deepEqual(
+    sidecarCssPaths('apps/x/pages/member/index.tsx'),
+    ['apps/x/pages/member/index.css'],
+    '索引页的伴生样式就是同目录 index.css(收窄不得把这一档也丢掉)',
+  )
+  assert.deepEqual(
+    sidecarCssPaths('apps/x/pages/member/foo.jsx'),
+    ['apps/x/pages/member/foo.css'],
+    '.jsx 页面与 .tsx 同尺(旧实现只 replace .tsx ⇒ jsx 页靠那条目录规则兜底)',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
