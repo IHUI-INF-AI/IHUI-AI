@@ -191,6 +191,11 @@ export interface LoginScreenProps {
   onSendPhoneCode?: () => void
   onLoginByPhoneCode?: () => void
 
+  // ===== 运营商一键登录(phone tab 内入口,wrapper 注?=====
+
+  /** 手机号 tab 内运营商一键登录入口节点(可?传则渲染在主登录按钮下方;未传不渲染) */
+  carrierOneClickEntry?: ReactNode
+
   // ===== QR 扫码登录(qr tab) =====
 
   /** QR 登录配置(传则渲染 QR 占位 + 状态文案;不传则 qr tab 显示"暂未启用") */
