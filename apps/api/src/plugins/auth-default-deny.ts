@@ -111,6 +111,12 @@ const PUBLIC_PREFIXES: readonly string[] = [
   '/api/feature-center/',
   '/api/ai-world/',
   '/api/cache/agent-category-dict/',
+  // 2026-10-29 切 enforce 后由 enforce-401 日志抓出的合法公开面:
+  // 客户端启动即调的版本检查(源码注释自述"公开"),以及新闻列表。
+  // 注意 /api/configs 刻意**不**加:ai-user-model-chat 那份实现要 request.userId,
+  // 匿名访问本就该 401。
+  '/api/app-version/',
+  '/api/news/',
 ]
 
 /** 兜底只看这两类前缀之外的路由(其余如 /uploads 静态面根本不进 Fastify 路由表)。 */
