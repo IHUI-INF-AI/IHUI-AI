@@ -43,8 +43,13 @@ export function paginatedSuccess<T>(
   })
 }
 
-export function error(code: number, message: string): ApiError {
-  return { code, message }
+/**
+ * 构造标准错误体。errorCode 可选(票 L7648):带 AppError.errorCode 的错误在
+ * 手工 catch 出栈时不再被剥掉(如 ACCOUNT_STATE_CHECK_FAILED / UPSTREAM_AUTH_FAILED),
+ * 端上据此分型而非按 HTTP 401 猜。传 undefined 时保持两参形状(不带 errorCode 键)。
+ */
+export function error(code: number, message: string, errorCode?: string): ApiError {
+  return errorCode === undefined ? { code, message } : { code, message, errorCode }
 }
 
 export function emptyToUndefined(v: unknown): unknown {
