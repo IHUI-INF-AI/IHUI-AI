@@ -19,8 +19,11 @@ import assert from 'node:assert/strict'
 
 import {
   bgStatusVisibleTo,
+  buildForwardHeaders,
   buildRejectionFrame,
   decideUpgradeAdmission,
+  normalizeIpLiteral,
+  resolveEdgeClientIp,
   resolveRouterMaxConnections,
 } from '../edge-admission.mjs'
 
@@ -225,3 +228,103 @@ test('连接数硬顶:非法值一律回落默认上限,绝不变成无上限', 
   assert.equal(resolveRouterMaxConnections(Infinity), 10_000)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ── 客户端 IP 归一(2026-10-29 第四层)────────────────────────────────────
+//
+// 这一族的错法同样是「安静」的:归一写反了(取最左而不是最右、或 match 时仍用 socket),
+// 站点照常 200,只是所有按 IP 的限流/风控/审计同时退化成"客户端自己说了算"。
+
+test('normalizeIpLiteral:带端口的 IPv4 / 带方括号的 IPv6 都要认', () => {
+  assert.equal(normalizeIpLiteral('1.2.3.4'), '1.2.3.4')
+  assert.equal(normalizeIpLiteral('1.2.3.4:8080'), '1.2.3.4')
+  assert.equal(normalizeIpLiteral('[::1]:443'), '::1')
+  assert.equal(normalizeIpLiteral('::1'), '::1')
+  assert.equal(normalizeIpLiteral('  1.2.3.4  '), '1.2.3.4')
+  // 反向对照:认不出的必须给空串,绝不能让非法字面量混进限流键。
+  assert.equal(normalizeIpLiteral('not-an-ip'), '')
+  assert.equal(normalizeIpLiteral('999.1.1.1'), '')
+  assert.equal(normalizeIpLiteral(''), '')
+  assert.equal(normalizeIpLiteral(undefined), '')
+})
+
+test('resolveEdgeClientIp 取 XFF 最右(最近一跳),不是最左(客户端整写)', () => {
+  // 最左 1.1.1.1 是攻击者伪造的;最右 2.2.2.2 才是 EdgeOne 追加的真实 IP。
+  assert.equal(resolveEdgeClientIp({ 'x-forwarded-for': '1.1.1.1, 2.2.2.2' }), '2.2.2.2')
+  assert.equal(resolveEdgeClientIp({ 'x-forwarded-for': '9.9.9.9' }), '9.9.9.9')
+  // 数组形态(Node 会把重复头收成数组)
+  assert.equal(resolveEdgeClientIp({ 'x-forwarded-for': ['1.1.1.1', '3.3.3.3'] }), '3.3.3.3')
+  // 尾部是垃圾 ⇒ 往前找合法段
+  assert.equal(resolveEdgeClientIp({ 'x-forwarded-for': '4.4.4.4, garbage' }), '4.4.4.4')
+  assert.equal(resolveEdgeClientIp({ 'x-forwarded-for': '' }), '')
+  assert.equal(resolveEdgeClientIp({}), '')
+  assert.equal(resolveEdgeClientIp(null), '')
+})
+
+test('off 档:请求头原样返回(未装闸必须零行为变化)', () => {
+  const headers = {
+    'x-forwarded-for': '1.1.1.1, 2.2.2.2',
+    'cf-connecting-ip': '9.9.9.9',
+    'x-real-ip': '8.8.8.8',
+  }
+  const out = buildForwardHeaders({
+    headers,
+    remoteAddress: '203.0.113.9',
+    edgeMode: 'off',
+    edgeReason: 'off',
+  })
+  assert.deepEqual(out, headers, 'off 档一个头都不许动')
+})
+
+test('match 档:采信 XFF 最右,注入 verified,并删掉其余伪造 IP 头', () => {
+  const out = buildForwardHeaders({
+    headers: {
+      'x-forwarded-for': '1.1.1.1, 203.0.113.7',
+      'cf-connecting-ip': '9.9.9.9',
+      'x-real-ip': '8.8.8.8',
+      'true-client-ip': '7.7.7.7',
+      forwarded: 'for=6.6.6.6',
+    },
+    remoteAddress: '10.0.0.1',
+    edgeMode: 'enforce',
+    edgeReason: 'match',
+  })
+  assert.equal(out['x-forwarded-for'], '203.0.113.7', '取最右 = EdgeOne 写的真实 IP')
+  assert.equal(out['x-ihui-client-ip'], '203.0.113.7')
+  assert.equal(out['x-ihui-edge-verified'], '1')
+  // 反向对照:伪造头必须全部消失,否则上游换一个头读就又回到"客户端说了算"。
+  assert.equal(out['cf-connecting-ip'], undefined)
+  assert.equal(out['x-real-ip'], undefined)
+  assert.equal(out['true-client-ip'], undefined)
+  assert.equal(out.forwarded, undefined)
+})
+
+test('match 但 XFF 缺失/全非法 ⇒ 回落 TCP 对端,绝不用伪造的 cf-connecting-ip', () => {
+  const out = buildForwardHeaders({
+    headers: { 'cf-connecting-ip': '9.9.9.9', 'x-forwarded-for': 'garbage' },
+    remoteAddress: '203.0.113.9',
+    edgeMode: 'enforce',
+    edgeReason: 'match',
+  })
+  assert.equal(out['x-ihui-client-ip'], '203.0.113.9')
+  assert.equal(out['x-forwarded-for'], '203.0.113.9')
+  assert.equal(out['cf-connecting-ip'], undefined)
+})
+
+test('未匹配(直连):只认 TCP 对端,且不注入 verified', () => {
+  const out = buildForwardHeaders({
+    headers: { 'x-forwarded-for': '1.2.3.4', 'cf-connecting-ip': '5.6.7.8' },
+    remoteAddress: '198.51.100.5',
+    edgeMode: 'observe',
+    edgeReason: 'missing',
+  })
+  assert.equal(out['x-ihui-client-ip'], '198.51.100.5', '直连伪造什么都不算数')
+  assert.equal(out['x-forwarded-for'], '198.51.100.5')
+  assert.equal(out['x-ihui-edge-verified'], undefined, '没验证就绝不发"已验证"标记')
+})
+
+test('buildForwardHeaders 不修改入参(纯函数,重试/多分支共用同一份 headers)', () => {
+  const headers = { 'x-forwarded-for': '1.1.1.1', 'cf-connecting-ip': '9.9.9.9' }
+  const snapshot = { ...headers }
+  buildForwardHeaders({ headers, remoteAddress: '203.0.113.9', edgeMode: 'enforce', edgeReason: 'match' })
+  assert.deepEqual(headers, snapshot, '入参被就地改掉会让重试拿到已被删过的头')
+})

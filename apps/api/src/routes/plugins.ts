@@ -223,12 +223,10 @@ export const pluginsRoutes: FastifyPluginAsync = async (server) => {
       // 游客
     }
 
-    // 提取 IP(用于反作弊分析,不做去重)
-    const xff = request.headers['x-forwarded-for']
-    const ip =
-      (typeof xff === 'string' ? xff.split(',')[0]?.trim() : undefined) ??
-      (request.ip as string | undefined) ??
-      null
+    // IP 一律取 request.ip(已按 server.ts 的 trustProxy 解析可信代理链)。
+    // 不手读 X-Forwarded-For:那是客户端可整写的字段,拿它当反作弊依据等于把风控交给攻击者
+    // (与 routes/callback-log.ts、services/security-service.ts 同一条纪律)。
+    const ip = (request.ip as string | undefined) ?? null
 
     void recordPluginEvent({ pluginId, eventType: 'click', userId, ip })
     return reply.send(success({ pluginId, recorded: true as const }))
