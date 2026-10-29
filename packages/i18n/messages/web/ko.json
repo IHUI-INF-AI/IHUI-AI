@@ -524,7 +524,13 @@
     "noLogsHint": "(로그 없음 — 페이지에서 클릭하면 좌표 정보가 표시됩니다)",
     "runJs": "JavaScript 실행",
     "runJsPlaceholder": "document.title — JS를 입력하고 실행을 누르세요 (예: document.querySelector(\"button\").click())",
-    "run": "실행"
+    "run": "실행",
+    "browserTab": "브라우저",
+    "home": "홈으로 이동",
+    "pickElement": "요소 선택",
+    "picking": "선택 중:페이지 요소를 클릭하면 선택, 다시 누르면 취소",
+    "devtools": "개발자 도구",
+    "popout": "별도 창에서 열기"
   },
   "a11y": {
     "previewLoadFailed": "미리 보기를 로드하지 못했습니다.",
@@ -1458,7 +1464,20 @@
         "update": "업데이트",
         "warning": "경고"
       },
-      "yes": "예"
+      "yes": "예",
+      "colPlatforms": "게시 플랫폼",
+      "fieldPlatforms": "게시 플랫폼",
+      "platforms": {
+        "cli": "CLI",
+        "desktop": "데스크톱",
+        "extension": "확장 프로그램",
+        "miniapp": "미니앱",
+        "mobile-cap": "모바일 수집",
+        "rn": "모바일 앱",
+        "web": "웹"
+      },
+      "platformsAll": "전체 플랫폼",
+      "platformsHint": "선택하지 않으면 모든 플랫폼에 표시됩니다. 선택한 플랫폼에만 표시됩니다"
     },
     "anomalies": {
       "colDetail": "상세",
@@ -7150,7 +7169,9 @@
       "title": "개발게중간마음",
       "urlRequired": "URL은 필수입니다",
       "webhooks": "웹훅들",
-      "whCreateSuccess": "Webhook이 생성되었습니다"
+      "whCreateSuccess": "Webhook이 생성되었습니다",
+      "permissionHint": "이 키가 액세스할 수 있는 API 권한을 선택",
+      "permissionLabel": "권한"
     },
     "dict": {
       "addItem": "추가프로젝트",
@@ -12587,16 +12608,6 @@
     "reasoningEffortUnsupported": "이 모델은 추론 강도를 선택할 수 없습니다",
     "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}",
     "analysisOpen": "시나리오 분석 보기",
-    "favorite": "즐겨찾기 추가",
-    "unfavorite": "즐겨찾기 해제",
-    "workbenchSessions": "세션",
-    "feedbackLike": "도움이 됨",
-    "feedbackDislike": "도움이 안 됨",
-    "workbenchHeroTitle": "AI 대화 워크벤치",
-    "workbenchHeroHint": "아래에 입력하면 새 대화가 바로 시작되고, 왼쪽에서 세션을 선택해 계속할 수도 있습니다.",
-    "workbenchSplit": "패널 분할",
-    "workbenchDropHere": "왼쪽에서 대화를 여기로 끌어다 놓기",
-    "workbenchQuickStart": "빠른 작업",
     "bindIssueHint": "이 대화를 GitHub 또는 Linear 이슈에 연결하세요 — 버그·요청 사항 추적이 있는 대화에 유용합니다. 검색해 선택하면 대화 옆에 클릭 가능한 배지가 표시됩니다. 연결하지 않아도 다른 기능에는 영향이 없습니다.",
     "searchIssueAction": "검색",
     "reviewTargetGroupLabel": "리뷰 대상 선택",
@@ -17127,6 +17138,27 @@
       "groupView": "보기",
       "noMatch": "일치 항목 없음",
       "searchPlaceholder": "보기 검색..."
+    },
+    "agentsMd": {
+      "title": "AGENTS.md",
+      "hint": "현재 워크스페이스를 스캔하여 협업 규칙 초안을 생성합니다. 생성 시 디스크에 쓰지 않으며, 쓰기 전에 한 번 더 확인합니다.",
+      "generate": "AGENTS.md 초안 생성",
+      "generateConfirmTitle": "AGENTS.md 초안을 생성할까요?",
+      "generateConfirmContent": "현재 워크스페이스를 스캔하여 초안을 생성합니다. 초안은 여기에만 표시되며 디스크에 쓰지 않습니다.",
+      "generating": "워크스페이스 스캔 중…",
+      "generateFailed": "초안 생성 실패",
+      "draftTitle": "AGENTS.md 초안(편집 가능, 확인 후에만 기록)",
+      "draftNotice": "초안이 아직 디스크에 기록되지 않았습니다",
+      "write": "AGENTS.md에 쓰기",
+      "writeConfirmTitle": "AGENTS.md에 쓸까요?",
+      "writeConfirmContent": "위 내용을 워크스페이스 루트의 AGENTS.md에 씁니다. 같은 이름의 파일은 덮어씁니다.",
+      "writing": "쓰는 중…",
+      "writeFailed": "쓰기 실패",
+      "written": "AGENTS.md에 기록했습니다",
+      "discard": "초안 버리기",
+      "errorEmptyWorkspace": "워크스페이스 경로가 비어 있습니다",
+      "errorRequestFailed": "AI 서비스 요청 실패",
+      "errorNoDraft": "도구가 초안을 반환하지 않았습니다"
     }
   },
   "imageGenPage": {
@@ -20218,7 +20250,10 @@
     "editDeviceMapTitle": "기기 지문 편집",
     "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨).",
     "checkedInToday": "오늘 출석 완료",
-    "rename": "이름 변경"
+    "rename": "이름 변경",
+    "captureTraeWebWaiting": "오른쪽 작업 패널의 브라우저에서 Trae 로그인 페이지를 열었습니다. 패널 안에서 로그인(전화번호/QR)하세요. 로그인 상태가 감지되면 계정을 자동으로 가져온 뒤 체크인 페이지로 돌아갑니다.",
+    "captureTraeWebDone": "Trae 웹 로그인 가져오기 완료(총 {count}개 계정)",
+    "captureTraeWebCancelled": "Trae 웹 로그인이 취소되었습니다. \"웹 로그인\"을 다시 누르면 재시도할 수 있습니다."
   },
   "accountPool": {
     "title": "내 계정 풀",
@@ -23368,6 +23403,18 @@
       "advancedAiDesc": "메모리, 하위 에이전트, 오케스트레이션, 컨텍스트 압축 등 에이전트 기능",
       "experimental": "실험적 기능",
       "experimentalDesc": "아직 검증 중인 기능으로, 이후 변경되거나 중단될 수 있습니다"
+    },
+    "expertRoute": {
+      "title": "전문가 팩 자동 라우팅",
+      "desc": "이번 사용자 의도에서 전문가 팩을 식별하고, 일치 시 처리 방식을 선택합니다.",
+      "default": "기본",
+      "envLockedNotice": "배포 측이 환경 변수로 이 기능을 비활성화했으므로 여기에서는 보기만 가능하고 변경할 수 없습니다.",
+      "hint": "힌트만",
+      "hintDesc": "일치 시 어떤 전문가 팩이 일치했는지만 답변에 표시하고, 도구와 시스템 프롬프트는 변경하지 않습니다",
+      "auto": "자동 적용",
+      "autoDesc": "일치 시 전문가 팩의 도구 허용 목록과 시스템 프롬프트를 이번 요청에 병합합니다",
+      "off": "끄기",
+      "offDesc": "의도 식별도, 힌트도 하지 않습니다"
     }
   },
   "shareContentPage": {
@@ -29473,14 +29520,5 @@
     "body": "홈 화면에 추가하면 더 편리하게 사용할 수 있습니다",
     "action": "설치",
     "close": "닫기"
-  },
-  "wsChannel": {
-    "reconnecting": "실시간 연결이 끊어져 {attempt}/{max}번째 재연결 중…",
-    "connectFailed": "실시간 연결에 실패했습니다. 재시도 중",
-    "connectError": "실시간 연결 오류",
-    "reconnectExhausted": "실시간 연결이 종료되었습니다({max}회 재시도). 콘텐츠 수신이 중단되었습니다. 수동으로 재시도할 수 있습니다",
-    "degradedNotice": "실시간 연결을 사용할 수 없어 호환 채널로 자동 전환하여 콘텐츠 수신을 계속합니다",
-    "fallbackUnavailable": "실시간 연결이 종료되었고 호환 채널도 사용할 수 없어 콘텐츠 수신이 중단되었습니다",
-    "fallbackFailed": "호환 채널도 중단되어 콘텐츠 수신이 중단되었습니다. 잠시 후 수동으로 재시도하세요"
   }
 }

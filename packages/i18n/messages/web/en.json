@@ -524,7 +524,13 @@
     "noLogsHint": "(No logs yet — click on the page to see coordinate info)",
     "runJs": "Run JavaScript",
     "runJsPlaceholder": "document.title — enter JS then click Run (e.g. document.querySelector(\"button\").click())",
-    "run": "Run"
+    "run": "Run",
+    "browserTab": "Browser",
+    "home": "Go to home page",
+    "pickElement": "Pick element",
+    "picking": "Picking: click an element to select it; click the button again to cancel",
+    "devtools": "Developer tools",
+    "popout": "Open in a separate window"
   },
   "a11y": {
     "previewLoadFailed": "Preview failed to load.",
@@ -1458,7 +1464,20 @@
         "update": "Update",
         "warning": "Warning"
       },
-      "yes": "Yes"
+      "yes": "Yes",
+      "colPlatforms": "Platforms",
+      "fieldPlatforms": "Platforms",
+      "platforms": {
+        "cli": "CLI",
+        "desktop": "Desktop",
+        "extension": "Extension",
+        "miniapp": "Mini App",
+        "mobile-cap": "Mobile Capture",
+        "rn": "Mobile App",
+        "web": "Web"
+      },
+      "platformsAll": "All Platforms",
+      "platformsHint": "Leave all unchecked to show on every platform; only checked platforms will see it"
     },
     "anomalies": {
       "colDetail": "Detail",
@@ -7150,7 +7169,9 @@
       "title": "Developer Center",
       "urlRequired": "URL is required",
       "webhooks": "Webhooks",
-      "whCreateSuccess": "Webhook created"
+      "whCreateSuccess": "Webhook created",
+      "permissionHint": "Choose which API permissions this key can access",
+      "permissionLabel": "Permissions"
     },
     "dict": {
       "addItem": "Add item",
@@ -12587,16 +12608,6 @@
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
     "analysisOpen": "View Scenario Analysis",
-    "favorite": "Add bookmark",
-    "unfavorite": "Remove bookmark",
-    "workbenchSessions": "Sessions",
-    "feedbackLike": "Helpful",
-    "feedbackDislike": "Not helpful",
-    "workbenchHeroTitle": "AI Chat Workbench",
-    "workbenchHeroHint": "Type below to start a new conversation right here, or pick a session on the left to continue.",
-    "workbenchSplit": "Split panes",
-    "workbenchDropHere": "Drag a conversation here from the left",
-    "workbenchQuickStart": "Quick actions",
     "bindIssueHint": "Link this conversation to a GitHub or Linear issue — handy for chats that track a bug or feature. Search, pick an issue, and a clickable badge appears next to the conversation. Skipping it changes nothing else.",
     "searchIssueAction": "Search",
     "reviewTargetGroupLabel": "Review target selection",
@@ -17124,6 +17135,27 @@
       "groupView": "View",
       "noMatch": "No match",
       "searchPlaceholder": "Search views..."
+    },
+    "agentsMd": {
+      "title": "AGENTS.md",
+      "hint": "Scan the current workspace to draft collaboration conventions. Generating does not write to disk; you will be asked once more before writing.",
+      "generate": "Generate AGENTS.md draft",
+      "generateConfirmTitle": "Generate an AGENTS.md draft?",
+      "generateConfirmContent": "The current workspace will be scanned and a draft produced. The draft is shown here only; nothing is written to disk.",
+      "generating": "Scanning workspace…",
+      "generateFailed": "Failed to generate draft",
+      "draftTitle": "AGENTS.md draft (editable; written only after confirmation)",
+      "draftNotice": "Draft not yet written to disk",
+      "write": "Write AGENTS.md",
+      "writeConfirmTitle": "Write AGENTS.md?",
+      "writeConfirmContent": "This writes the content above to AGENTS.md in the workspace root; an existing file with the same name will be overwritten.",
+      "writing": "Writing…",
+      "writeFailed": "Write failed",
+      "written": "AGENTS.md written",
+      "discard": "Discard draft",
+      "errorEmptyWorkspace": "Workspace path is empty",
+      "errorRequestFailed": "AI service request failed",
+      "errorNoDraft": "The tool did not return a draft"
     }
   },
   "imageGenPage": {
@@ -20215,7 +20247,10 @@
     "editDeviceMapTitle": "Edit device fingerprint",
     "editDeviceMapDescription": "Edit the device fingerprint for the {platform} account (JSON object; leave empty to auto-generate on save).",
     "checkedInToday": "Checked in today",
-    "rename": "Rename"
+    "rename": "Rename",
+    "captureTraeWebWaiting": "The Trae sign-in page is open in the browser on the right work panel. Please sign in there (phone/QR); once the login state is detected, the account is imported automatically and you return to the check-in page.",
+    "captureTraeWebDone": "Trae web sign-in imported ({count} account(s))",
+    "captureTraeWebCancelled": "Trae web sign-in cancelled. Click \"Web sign-in\" to try again."
   },
   "accountPool": {
     "title": "My Account Pool",
@@ -23365,6 +23400,18 @@
       "advancedAiDesc": "Memory, subagents, orchestration, context compaction and other agent framework features",
       "experimental": "Experimental features",
       "experimentalDesc": "Still in validation; these may change or be removed later"
+    },
+    "expertRoute": {
+      "title": "Expert pack auto-routing",
+      "desc": "Detect the matching expert pack from this turn's intent, and choose how matches are handled.",
+      "default": "Default",
+      "envLockedNotice": "The deployment has disabled this capability through an environment variable, so it can only be viewed here and cannot be changed.",
+      "hint": "Hint only",
+      "hintDesc": "When a pack matches, only show which one matched in the reply; tools and system prompt are unchanged",
+      "auto": "Apply automatically",
+      "autoDesc": "When a pack matches, merge its tool allowlist and system prompt into this request",
+      "off": "Off",
+      "offDesc": "No intent detection and no hint"
     }
   },
   "shareContentPage": {
@@ -29470,14 +29517,5 @@
     "body": "Add to home screen for a better experience",
     "action": "Install",
     "close": "Close"
-  },
-  "wsChannel": {
-    "reconnecting": "Realtime connection dropped — reconnecting ({attempt}/{max})…",
-    "connectFailed": "Realtime connection failed, retrying",
-    "connectError": "Realtime connection error",
-    "reconnectExhausted": "Realtime connection ended after {max} retries; content streaming stopped. You can retry manually.",
-    "degradedNotice": "Realtime connection unavailable — automatically switched to the compatible channel to keep streaming content",
-    "fallbackUnavailable": "Realtime connection ended and the compatible channel is unavailable; content streaming stopped",
-    "fallbackFailed": "The compatible channel also dropped; content streaming stopped. Please retry manually later."
   }
 }

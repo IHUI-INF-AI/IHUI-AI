@@ -524,7 +524,13 @@
     "noLogsHint": "(暫無記錄 — 在頁面上點擊操作後會顯示座標資訊)",
     "runJs": "執行 JavaScript",
     "runJsPlaceholder": "document.title  —  輸入 JS 後點執行(如: document.querySelector(\"button\").click())",
-    "run": "執行"
+    "run": "執行",
+    "browserTab": "瀏覽器",
+    "home": "回到首頁",
+    "pickElement": "元素點選",
+    "picking": "點選進行中,點擊頁面元素即選中;再點按鈕取消",
+    "devtools": "開發者工具",
+    "popout": "在獨立視窗中開啟"
   },
   "a11y": {
     "previewLoadFailed": "預覽載入失敗。",
@@ -1458,7 +1464,20 @@
         "update": "更新",
         "warning": "警告"
       },
-      "yes": "是"
+      "yes": "是",
+      "colPlatforms": "投放端",
+      "fieldPlatforms": "投放端",
+      "platforms": {
+        "cli": "命令列",
+        "desktop": "桌面端",
+        "extension": "瀏覽器插件",
+        "miniapp": "小程序",
+        "mobile-cap": "行動採集端",
+        "rn": "行動端 App",
+        "web": "網頁端"
+      },
+      "platformsAll": "全端",
+      "platformsHint": "不選擇任何端 = 全端通用顯示；勾選後僅所選端可見"
     },
     "anomalies": {
       "colDetail": "詳情",
@@ -7150,7 +7169,9 @@
       "title": "開發者中心",
       "urlRequired": "URL 不能為空",
       "webhooks": "Webhook",
-      "whCreateSuccess": "Webhook 創建成功"
+      "whCreateSuccess": "Webhook 創建成功",
+      "permissionHint": "選擇該金鑰可存取的 API 權限",
+      "permissionLabel": "權限點"
     },
     "dict": {
       "addItem": "添加數據項",
@@ -12587,16 +12608,6 @@
     "reasoningEffortUnsupported": "該模型不支援選擇推理強度",
     "reasoningEffortFallback": "推理強度已由後端調整為 {requested} → {effective}",
     "analysisOpen": "檢視場景分析",
-    "favorite": "加入收藏",
-    "unfavorite": "取消收藏",
-    "workbenchSessions": "會話",
-    "feedbackLike": "有幫助",
-    "feedbackDislike": "沒幫助",
-    "workbenchHeroTitle": "AI 對話工作臺",
-    "workbenchHeroHint": "在下方直接輸入即可開啟新會話，或從左側選擇會話繼續任務。",
-    "workbenchSplit": "拆分窗格",
-    "workbenchDropHere": "從左側把會話拖到這裡",
-    "workbenchQuickStart": "快捷動作",
     "bindIssueHint": "把這條對話綁定到 GitHub 或 Linear 的任務票上——適合跟進 bug、需求類聊天:搜尋並選中 Issue 即可關聯,之後會話旁會出現可跳轉的 Issue 徽章。不綁定也完全不影響使用。",
     "searchIssueAction": "搜尋",
     "reviewTargetGroupLabel": "審查對象選擇",
@@ -17128,6 +17139,27 @@
       "groupView": "視圖",
       "noMatch": "無匹配項",
       "searchPlaceholder": "搜索視圖..."
+    },
+    "agentsMd": {
+      "title": "AGENTS.md",
+      "hint": "掃描目前工作區產生協作約定草稿;產生不寫盤,寫入前還會再確認一次。",
+      "generate": "一鍵產生 AGENTS.md 草稿",
+      "generateConfirmTitle": "產生 AGENTS.md 草稿?",
+      "generateConfirmContent": "將掃描目前工作區並產生草稿。草稿只顯示在這裡,不會寫盤。",
+      "generating": "正在掃描工作區…",
+      "generateFailed": "產生草稿失敗",
+      "draftTitle": "AGENTS.md 草稿(可編輯,確認後才寫盤)",
+      "draftNotice": "草稿尚未寫盤",
+      "write": "寫入 AGENTS.md",
+      "writeConfirmTitle": "寫入 AGENTS.md?",
+      "writeConfirmContent": "將把上方內容寫入工作區根目錄的 AGENTS.md;同名檔案會被覆蓋。",
+      "writing": "正在寫入…",
+      "writeFailed": "寫入失敗",
+      "written": "已寫入 AGENTS.md",
+      "discard": "放棄草稿",
+      "errorEmptyWorkspace": "工作區路徑為空",
+      "errorRequestFailed": "AI 服務請求失敗",
+      "errorNoDraft": "工具未回傳草稿"
     }
   },
   "imageGenPage": {
@@ -20219,7 +20251,10 @@
     "editDeviceMapTitle": "編輯設備指紋",
     "editDeviceMapDescription": "為 {platform} 帳號編輯設備指紋（JSON 物件；留空儲存將自動產生）。",
     "checkedInToday": "今日已簽到",
-    "rename": "重新命名"
+    "rename": "重新命名",
+    "captureTraeWebWaiting": "已在右側工作區的瀏覽器開啟 Trae 登入頁,請在面板內完成登入(手機號/掃碼);偵測到登入狀態後會自動匯入帳號並回到簽到頁。",
+    "captureTraeWebDone": "Trae 網頁登入匯入完成(共 {count} 個帳號)",
+    "captureTraeWebCancelled": "已取消 Trae 網頁登入。重新點「網頁登入」可再試。"
   },
   "nav": {
     "accountPool": "個人號池",
@@ -23340,6 +23375,18 @@
       "advancedAiDesc": "記憶、子代理、編排、上下文壓縮等代理框架能力",
       "experimental": "實驗性功能",
       "experimentalDesc": "仍在驗證階段的功能，後續可能調整或下線"
+    },
+    "expertRoute": {
+      "title": "專家包自動路由",
+      "desc": "依本輪使用者意圖辨識專家包,並決定命中結果的處理方式。",
+      "default": "預設",
+      "envLockedNotice": "部署方已透過環境變數關閉此能力,此處僅供檢視,無法修改。",
+      "hint": "僅提示",
+      "hintDesc": "命中時只在回覆中提示命中的專家包,不改動工具與系統提示",
+      "auto": "自動套用",
+      "autoDesc": "命中時將專家包的工具白名單與系統提示併入本次請求",
+      "off": "關閉",
+      "offDesc": "不進行意圖辨識,也不提示"
     }
   },
   "shareContentPage": {
@@ -29474,14 +29521,5 @@
     "body": "加入主畫面,獲得更佳體驗",
     "action": "安裝",
     "close": "關閉"
-  },
-  "wsChannel": {
-    "reconnecting": "即時連線中斷,正在進行第 {attempt}/{max} 次重連…",
-    "connectFailed": "即時連線失敗,正在重試",
-    "connectError": "即時連線錯誤",
-    "reconnectExhausted": "即時連線已中斷(已重連 {max} 次),內容接收已停止,可手動重試",
-    "degradedNotice": "即時連線不可用,已自動切換至相容通道繼續接收內容",
-    "fallbackUnavailable": "即時連線已中斷,且相容通道不可用,內容接收已停止",
-    "fallbackFailed": "相容通道亦已中斷,內容接收已停止,可稍後手動重試"
   }
 }
