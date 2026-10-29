@@ -11,17 +11,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('../src/services/relay-account-pool-scheduler.js', () => ({
   sweepAccountPool: vi.fn(async () => ({
-    skipped: 0,
+    skipped: false,
     refreshed: 1,
     refreshFailed: 0,
     refreshSkipped: 0,
-    keepalive: 2,
     healthChecked: 3,
     healthRecovered: 1,
   })),
 }))
 vi.mock('../src/workers/relay-account-pool-worker.js', () => ({
   runTraeSessionSync: vi.fn(async () => ({ code: 0, applied: 2, skipped: 0, stderr: '' })),
+  runQoderSessionSync: vi.fn(async () => ({ code: 0, applied: 1, skipped: 0, stderr: '' })),
+  runWorkbuddySessionSync: vi.fn(async () => ({ code: 0, applied: 1, skipped: 0, stderr: '' })),
 }))
 vi.mock('../src/services/relay-pool-stats-service.js', () => ({
   refreshRelayPoolGaugesSafely: vi.fn(async () => undefined),
@@ -37,16 +38,22 @@ import {
 const stubDeps = (over: Partial<TaskProbeDeps>): Partial<TaskProbeDeps> => over
 
 describe('RELAY_POOL_TASKS 注册表(单一源)', () => {
-  it('四载体齐、7 任务、id 唯一', () => {
-    expect(RELAY_POOL_TASKS).toHaveLength(7)
+  it('四载体齐、9 任务、id 唯一', () => {
+    expect(RELAY_POOL_TASKS).toHaveLength(9)
     const carriers = new Set(RELAY_POOL_TASKS.map((t) => t.carrier))
     expect(carriers).toEqual(new Set(['bullmq', 'guardian', 'schtasks', 'apscheduler']))
     const ids = RELAY_POOL_TASKS.map((t) => t.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('可触发项(bullmq 三项)带 queue/schedulerId/jobName;不可触发项必带真实出路', () => {
-    const triggerableIds = new Set(['relay-pool-sweep', 'trae-session-sync', 'relay-pool-gauge'])
+  it('可触发项(bullmq 五项)带 queue/schedulerId/jobName;不可触发项必带真实出路', () => {
+    const triggerableIds = new Set([
+      'relay-pool-sweep',
+      'trae-session-sync',
+      'qoder-session-sync',
+      'workbuddy-session-sync',
+      'relay-pool-gauge',
+    ])
     for (const t of RELAY_POOL_TASKS) {
       if (triggerableIds.has(t.id)) {
         expect(t.triggerable, t.id).toBe(true)
@@ -132,24 +139,46 @@ describe('runRelayTaskById(触发分发,mock 执行体)', () => {
     expect(await runRelayTaskById('no-such-task')).toBeNull()
   })
 
-  it('sweep ⇒ 进程内直调执行体,结果摘要带 keepalive 等键', async () => {
+  it('sweep ⇒ 摘要只读产出面真有的键;锁被别席持有不得冒"完成"', async () => {
     const r = await runRelayTaskById('relay-pool-sweep')
     expect(r?.ok).toBe(true)
-    expect(r?.detail).toMatch(/保活=2/)
+    expect(r?.detail).toMatch(/刷新=1.*定级=3 恢复=1/)
+    expect(r?.detail).not.toMatch(/undefined/)
+
+    const { sweepAccountPool } = await import('../src/services/relay-account-pool-scheduler.js')
+    ;(sweepAccountPool as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      skipped: true,
+      refreshed: 0,
+      refreshFailed: 0,
+      refreshSkipped: 0,
+      healthChecked: 0,
+      healthRecovered: 0,
+    })
+    const skipped = await runRelayTaskById('relay-pool-sweep')
+    expect(skipped?.ok).toBe(false)
+    expect(skipped?.detail).toMatch(/未执行 ≠ 零结果/)
   })
 
-  it('trae-session-sync 退出码 0 ⇒ ok;非 0(未判定)⇒ ok:false 不冒绿', async () => {
-    const r = await runRelayTaskById('trae-session-sync')
-    expect(r?.ok).toBe(true)
-    const { runTraeSessionSync } = await import('../src/workers/relay-account-pool-worker.js')
-    ;(runTraeSessionSync as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      code: 2,
-      applied: 0,
-      skipped: 0,
-      stderr: 'no client',
-    })
-    const r2 = await runRelayTaskById('trae-session-sync')
-    expect(r2?.ok).toBe(false)
-    expect(r2?.detail).toMatch(/未判定/)
+  it('trae/qoder 回灌触发口:退出码 0 ⇒ ok;非 0(未判定)⇒ ok:false 不冒绿', async () => {
+    for (const [id, exportName] of [
+      ['trae-session-sync', 'runTraeSessionSync'],
+      ['qoder-session-sync', 'runQoderSessionSync'],
+      ['workbuddy-session-sync', 'runWorkbuddySessionSync'],
+    ] as const) {
+      const r = await runRelayTaskById(id)
+      expect(r?.ok, id).toBe(true)
+      expect(r?.detail, id).toMatch(/回灌完成:applied=/)
+
+      const mod = await import('../src/workers/relay-account-pool-worker.js')
+      mod[exportName].mockResolvedValueOnce({
+        code: 2,
+        applied: 0,
+        skipped: 0,
+        stderr: 'no client',
+      })
+      const r2 = await runRelayTaskById(id)
+      expect(r2?.ok, `${id} 未判定不得冒绿`).toBe(false)
+      expect(r2?.detail, id).toMatch(/未判定/)
+    }
   })
 })
