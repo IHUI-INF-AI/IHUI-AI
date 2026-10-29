@@ -6809,5 +6809,21 @@
     "prev": "上一頁",
     "next": "下一頁",
     "loading": "加載中..."
+  },
+  "searchHistoryPage": {
+    "title": "搜尋紀錄",
+    "subtitle": "最近的搜索記錄",
+    "clearAll": "清空",
+    "loading": "載入中...",
+    "empty": "暫無搜尋紀錄",
+    "resultCount": "共 {count} 筆",
+    "back": "返回",
+    "loginRequired": "請先登錄",
+    "error": "加載失敗"
+  },
+  "signUpPage": {
+    "title": "我的報名",
+    "loading": "加載中...",
+    "empty": "目前還沒有數據"
   }
 }

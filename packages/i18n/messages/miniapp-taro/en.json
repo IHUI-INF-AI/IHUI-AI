@@ -6809,5 +6809,21 @@
     "prev": "Previous",
     "next": "Next",
     "loading": "Loading..."
+  },
+  "searchHistoryPage": {
+    "title": "Search History",
+    "subtitle": "Your recent searches",
+    "clearAll": "Clear All",
+    "loading": "Loading...",
+    "empty": "No search history",
+    "resultCount": "{count} result(s)",
+    "back": "Back",
+    "loginRequired": "Please log in first",
+    "error": "Failed to load"
+  },
+  "signUpPage": {
+    "title": "My Sign-ups",
+    "loading": "Loading...",
+    "empty": "No data yet"
   }
 }

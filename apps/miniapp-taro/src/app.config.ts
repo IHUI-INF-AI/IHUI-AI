@@ -193,6 +193,7 @@ export default defineAppConfig({
         'lecturer-profile/index',
         'skill-market-detail/index',
         'skill-market-list/index',
+        'sign-up/index',
       ],
     },
     {
@@ -221,6 +222,7 @@ export default defineAppConfig({
         'invitations/index',
         'letter-chat/index',
         'letters/index',
+        'search-history/index',
       ],
     },
     {
