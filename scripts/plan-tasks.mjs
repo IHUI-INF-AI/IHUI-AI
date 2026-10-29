@@ -85,6 +85,10 @@ import {
   usedIdsOfPrefix,
   LEDGER_TTL_DAYS,
 } from './lib/plan-task-index.mjs'
+// F9 定级层(什么算"真撞号")的**单一实现**:台账层只分"声明位/引用/畸形"三档,
+// "已完成的题面还算不算撞号"这一层住在自己的模块里(见其头注:那一层只 import 台账既有导出、
+// 不新增台账导出 —— 台账层归 b25-poolG 席,本席不碰)。
+import { HISTORY_REASON, splitLiveCollisions } from './lib/plan-collision.mjs'
 import { FIELDS_REL, loadFields } from './lib/plan-fields.mjs'
 import { headAges } from './lib/plan-line-age.mjs'
 
@@ -789,13 +793,20 @@ function report(a, face) {
   console.log(`  同态重复(done 侧只报数): done ${c.dupDoneGroups} 组`)
   // ── F9 定级档:降为只报数的组必须报名 ──────────────────────────────────────
   const f9Settled = a.f9Settled ?? []
+  const f9Total = c.f9SettledGroups ?? f9Settled.length
+  // 成因拆分只在**量到了**的时候印(`?? 0` 会把"没带这个字段"印成"整组已完成 0 组"= 替人下结论)。
+  const f9Breakdown =
+    typeof c.f9SettledAllDone === 'number'
+      ? ` —— 其中整组都已完成 ${c.f9SettledAllDone} 组 / 只剩一个活题面 ${f9Total - c.f9SettledAllDone} 组`
+      : ''
   console.log(
-    `  F9 组内全已勾选(降为只报数、永不判红): ${c.f9SettledGroups ?? f9Settled.length} 组` +
+    `  F9 已完成历史行(降为只报数、永不判红): ${f9Total} 组` +
+      f9Breakdown +
       (f9Settled.length
         ? ` —— ${f9Settled.slice(0, 6).map(f9GroupLine).join(' / ')}` +
           (f9Settled.length > 6 ? ` (另 ${f9Settled.length - 6} 组见 --json 的 settled)` : '') +
-          ` —— 判据按**组**判:只要组内有一行未勾选就仍判红(HEAD 面混合组是这条的反向用例)`
-        : ' —— 本面没有"整组都勾选"的撞号组(这一句是"量到了 0",不是"没量")'),
+          ` —— 判据按**活题面数**判:一个题面名下还有一行未勾选就算活(G-455:已完成行改不掉,拿它判红即恒红门)`
+        : ' —— 本面没有"活题面 <2"的撞号组(这一句是"量到了 0",不是"没量")'),
   )
   // ── F9 另外两档:被从判据里挪出来的东西必须**报名**,否则"挪到报数档"与"没人看过"同形 ──
   const f9Refs = a.f9References ?? []
@@ -1202,51 +1213,49 @@ export function narrowCollisionsToIdPosition(content, collisions) {
 }
 
 /**
- * F9 **定级**:「组内每一行都已勾选」的撞号组**不进判红,降为只报数**(2026-10-06 立)。
+ * F9 **定级**:把"已完成历史行"从**判红面**剔出,降为只报数(2026-10-06 立 2026-10-29 改判据)。
  *
- * ## 为什么是"按组"而不是"按行"或"按号"
- * 这一族必须按**组**判,按行/按号判都会放过真活票:
- *  - **按行剔**(只把已完成行从组里摘出去)⇒ 组一旦还剩 ≥2 个标题就仍判红,而"剩下的行"正是**活票**,
- *    剔了等于没剔,反过来若把 done 行摘到只剩 <2 标题就整组消失 ⇒ 那时消失的是**只剩历史快照的组**,
- *    但按行实现同时会把"done 1 行 + open 1 行"的混合组误判成"无标题组"而一并放过 —— 混合组才是真活票所在;
- *  - **按号剔**(某号下全是 done 就放过该号)⇒ 组是按 (号, 题面) 分的,一个号下**可以同时**有
- *    "全 done 的历史快照组"与"含活票的组";按号判会把后者一起放过。
- *  - 正确形状只有一个:**一个组当且仅当它自己名下每一行都是 `- [x]`,才降为只报数**。
- *    实测该形状下的组正是"这件事当年留下的历史快照",而任何含一行 `- [ ]` 的组必须仍红
- *    (HEAD 面 21 个混合组就是这条的用例,自测里逐个钉住)。
+ * ## 判据(2026-10-29 G-455 收口后的一句话)
+ * **真撞号 = 同一编号下 ≥2 个「仍有未勾活行」的不同题面。**
+ * 实现**不在本文件**:单一实现在 `scripts/lib/plan-collision.mjs` 的 `splitLiveCollisions`
+ * (它只 import 台账层的 `parseTaskRows` / `f9Faces`,不抄任何一条编号正则)。本函数只做
+ * "旧签名 → 新实现"的适配,保留旧名是因为三个既有调用点(自测/镜像/收敛闸)都在用它。
+ *
+ * ## 改判据的理由(票面 G-455 + §12e)
+ * 旧判据是"组内**每一行**都已勾选才降档" ⇒ "done 1 行 + open 1 行"的**混合组**仍判红。
+ * 病在**不可清偿**:已完成行是历史快照,改号=改历史(G-312 明令禁止批量改号)、删行=抹掉已发生的事。
+ * 于是"两个题面同号、其中一个早已完成"这一形态一旦入库,红就与任何提交无关地恒亮 ——
+ * 唯一结局是全队跳钩子、连带全部守门作废(§12e 原句)。现判据按**活题面数**判:
+ * 只剩一个活题面时,活的那一行没有竞争者,不是"两件事抢一个号"。
+ *
+ * ## 为什么按"题面"而不是按"行"或按"号"
+ *  - **按行剔**:一个题面下"done 1 行 + open 1 行"(F1 的分叉形态)会被算成 0 个活题面 ⇒
+ *    真撞号被吃掉。本实现数的是**题面**,只要该题面名下还有一行 `- [ ]` 就整题面算活,不吃。
+ *  - **按号剔**:一个号下可以同时有"全 done 的历史组"与"两个活题面互撞的组",按号判会把后者一起放过。
+ *  - **按题面剔**:上面两型的失效方向都被堵住,且与票面那句判据逐字同形。
  *
  * ## 为什么这一刀是"定级"而不是"放过"
  * 判据覆盖面变窄,只有一条纪律兜底:**降档的组必须报名**(`counts.f9SettledGroups` +
  * `f9Settled` 名单 + 逐组文案),否则"从红路挪走"与"没人看过"同形 —— 本仓"报数不报名"记过多次
- * (守门 70/76/81/128 同族)。人读摘要与 `--json` 都给出这一档。
+ * (守门 70/76/81/128 同族)。人读摘要与 `--json` 都给出这一档,并按两种成因分开报名
+ * (`counts.f9SettledAllDone` = 整组已完成的那部分)。
  *
  * ## 削覆盖面这件事本身的红线
- * 这一族**只把"组内全 done"剔出红路**,不做任何"看起来像已完成"的推断(不认行内日期、不认
- * `【已完成】`装饰、不认"无未勾选行"这类近似)。放宽窗口/加近似条件是本族唯一禁止的改法:
+ * 这一族**只把"活题面 <2"的组剔出红路**,不做任何"看起来像已完成"的推断(不认行内日期、不认
+ * `【已完成】`装饰)。放宽窗口/加近似条件是本族唯一禁止的改法:
  * 豁免一旦变成放过真活票,差值棘轮就再也拦不住新增撞号(§12e/§12f)。
  *
  * ## fail-closed:读不到组内行 ⇒ 仍判红
- * 组明细里出现**取不到的行号**(面被换过、裁剪过)时**不得**当成"全 done":`every()` 遇缺行即 false,
- * 整组仍进红路。判据失效方向按票面:宁可多判。
+ * 组明细里出现**取不到的行号**(面被换过、裁剪过)时**不得**当成"没有活行":
+ * 只有"行号非空 ∧ 每一行都明确是 done"才认成历史题面,其余一律算活。判据失效方向按票面:宁可多判。
  *
  * @param content 被审面全文(必须与 groups 同一面同轮)
  * @param groups 已收窄到编号位的组集(`narrowCollisionsToIdPosition` 或 `f9Declared` 的产物)
  * @returns {{groups:Array, settled:Array}} `groups` = 仍判红的组;`settled` = 降为只报数的组(原样保留)
  */
 export function splitF9SettledGroups(content, groups) {
-  const list = groups ?? []
-  if (!list.length) return { groups: list, settled: [] }
-  const stateByLine = new Map()
-  for (const r of parseTaskRows(content)) stateByLine.set(r.line, r.state)
-  const kept = []
-  const settled = []
-  for (const g of list) {
-    const lines = (g.titles ?? []).flatMap((t) => t.lines ?? [])
-    // ⚠ 空组不得当成"全 done"(那是"没量到"而不是"量到全 done"):仍判红。
-    if (lines.length && lines.every((ln) => stateByLine.get(ln) === 'done')) settled.push(g)
-    else kept.push(g)
-  }
-  return { groups: kept, settled }
+  const { live, history } = splitLiveCollisions(content, groups)
+  return { groups: live, settled: history.map((h) => h.group) }
 }
 
 /**
@@ -1389,15 +1398,19 @@ export function narrowF9Face(a, content) {
           droppedGroups: wide - a.f9Declared.length,
         }
       : narrowCollisionsToIdPosition(content, a?.collisions)
-  // F9 定级(2026-10-06):"组内每一行都已勾选"的撞号组降为只报数。**按组判**,不按行也不按号
-  // (头注有三种形状的失效推演)。降档名单必须与判红组集**同批**落到面上,否则"组数"与"名单"分叉。
-  const split = splitF9SettledGroups(content, narrowed.groups)
+  // F9 定级(2026-10-06 立 / 2026-10-29 按 G-455 改判据):"还有没有两个活题面"决定去留。
+  // 判据本体在 `lib/plan-collision.mjs`(single source);这里只把两份名单落面。
+  // 降档名单必须与判红组集**同批**落到面上,否则"组数"与"名单"分叉。
+  const split = splitLiveCollisions(content, narrowed.groups)
+  const settled = split.history.map((h) => h.group)
   a.counts.f9WideGroups = wide
   a.counts.f9NonIdTitles = narrowed.droppedTitles
-  a.collisions = split.groups
-  a.counts.collisionGroups = split.groups.length
-  a.f9Settled = split.settled
-  a.counts.f9SettledGroups = split.settled.length
+  a.collisions = split.live
+  a.counts.collisionGroups = split.live.length
+  a.f9Settled = settled
+  a.counts.f9SettledGroups = settled.length
+  // 两种成因分开报数:整组已完成 / 只剩一个活题面。合成一个数就说不清"为什么这组不判红"。
+  a.counts.f9SettledAllDone = split.history.filter((h) => h.reason === HISTORY_REASON.ALL_DONE).length
   return a
 }
 
@@ -2847,30 +2860,45 @@ function selfTest() {
     f9Thin.counts.collisionGroups === 1 && f9Thin.collisions[0].titles.some((t) => t.title === 'D160补注'),
     `他号让位在"剥完给不出实质题面"时必须逐字退回原样(不许没收覆盖面),实测 ${JSON.stringify(f9Thin.collisions[0]?.titles?.map((t) => t.title))}`,
   )
-  // ── F9 定级(2026-10-06):「组内全已勾选」降为只报数,**按组判** ──────────────────
-  // 成对写:一条"必须降档"(正向)+ 一条"必须仍红"(反向锁)+ 一条"读不到行仍红"(fail-closed)。
-  // ⚠ 反向锁这一条最要紧:把判据改成"按行剔"或"按号剔"时,它**是唯一会变红的那条** ——
-  //   HEAD 面 21 个混合组正是它的真实样本,按行/按号实现会放过真活票(§12e:豁免变成放过即失效)。
+  // ── F9 定级(2026-10-06 立 / 2026-10-29 按 G-455 改判据):按**活题面数**判 ─────────
+  // 成对写:一条"已完成历史行必须降档"(正向)+ 一条"两个活题面必须仍红"(反向锁,也是**变异自证**)
+  // + 两条"读不到行仍红"(fail-closed)。反向锁这一条最要紧:任何"顺手放宽"的改法(按号剔、
+  // 按行剔、把活题面判成历史)都会让它变红 —— 它是本族唯一会变红的那条。
   const f9AllDone =
     '- [x] **G-610 历史快照甲**:当年的一件事。\n' +
     '- [x] **G-610 历史快照乙**:同一件事的另一份措辞(措辞随时间演进,不是逐字重复)。'
+  // 混合组:甲已完成、乙未勾。旧判据(组内每一行都 done 才降档)判红;G-455 的判据只认
+  // "还有没有两个活题面" ⇒ 只剩一个活题面,不判红、但必须报名。
   const f9Mixed =
     '- [x] **G-611 历史快照甲**:当年的一件事。\n' +
     '- [ ] **G-611 历史快照乙**:同一件事的另一份措辞。'
+  // 真撞号:两个题面各自都有未勾行 ⇒ 无论判据怎么收窄都必须仍红(变异自证用这一条)。
+  const f9LivePair =
+    '- [ ] **G-612 活票甲**:一件事。\n' +
+    '- [ ] **G-612 活票乙**:完全另一件事。'
   const f9SettledFace = narrowF9Face(auditPlan(f9AllDone), f9AllDone)
   ok(
     f9SettledFace.counts.collisionGroups === 0 &&
       f9SettledFace.collisions.length === 0 &&
       f9SettledFace.counts.f9SettledGroups === 1 &&
+      f9SettledFace.counts.f9SettledAllDone === 1 &&
       f9SettledFace.f9Settled[0]?.key === 'G-610',
-    `组内每一行都已勾选的撞号组必须降为只报数(且降档名单可定位),实测 ${JSON.stringify([f9SettledFace.counts.collisionGroups, f9SettledFace.counts.f9SettledGroups, f9SettledFace.f9Settled.map((g) => g.key)])}`,
+    `已完成历史行必须降为只报数(且降档名单与成因可定位),实测 ${JSON.stringify([f9SettledFace.counts.collisionGroups, f9SettledFace.counts.f9SettledGroups, f9SettledFace.counts.f9SettledAllDone, f9SettledFace.f9Settled.map((g) => g.key)])}`,
   )
   const f9MixedFace = narrowF9Face(auditPlan(f9Mixed), f9Mixed)
   ok(
-    f9MixedFace.counts.collisionGroups === 1 &&
-      f9MixedFace.collisions[0]?.key === 'G-611' &&
-      f9MixedFace.counts.f9SettledGroups === 0,
-    `反向锁:组内只要有一行未勾选就必须仍判红(按行剔/按号剔都会放过这一组真活票),实测 ${JSON.stringify([f9MixedFace.counts.collisionGroups, f9MixedFace.counts.f9SettledGroups, f9MixedFace.collisions.map((g) => g.key)])}`,
+    f9MixedFace.counts.collisionGroups === 0 &&
+      f9MixedFace.counts.f9SettledGroups === 1 &&
+      f9MixedFace.counts.f9SettledAllDone === 0 &&
+      f9MixedFace.f9Settled[0]?.key === 'G-611',
+    `G-455:只剩一个活题面的组不是"两件事抢一个号",降为只报数且必须报名(不得静默消失),实测 ${JSON.stringify([f9MixedFace.counts.collisionGroups, f9MixedFace.counts.f9SettledGroups, f9MixedFace.counts.f9SettledAllDone, f9MixedFace.f9Settled.map((g) => g.key)])}`,
+  )
+  const f9LiveFace = narrowF9Face(auditPlan(f9LivePair), f9LivePair)
+  ok(
+    f9LiveFace.counts.collisionGroups === 1 &&
+      f9LiveFace.collisions[0]?.key === 'G-612' &&
+      f9LiveFace.counts.f9SettledGroups === 0,
+    `变异自证(反向锁):两个题面各有未勾活行 ⇒ 必须仍判红。把本族改成"按号剔/按行剔/把活题面算历史"任一种,只有这一条会红,实测 ${JSON.stringify([f9LiveFace.counts.collisionGroups, f9LiveFace.counts.f9SettledGroups, f9LiveFace.collisions.map((g) => g.key)])}`,
   )
   ok(
     narrowCollisionsToIdPosition(f9Mixed, auditPlan(f9Mixed).collisions).groups.length === 1,
@@ -2878,19 +2906,19 @@ function selfTest() {
   )
   ok(
     splitF9SettledGroups(f9Mixed, [{ key: 'X-1', titleCount: 2, titles: [] }]).groups.length === 1,
-    'fail-closed:组明细里取不到任何行 ⇒ 那是"没量到"不是"量到全 done",必须仍判红',
+    'fail-closed:组明细里取不到任何题面 ⇒ 那是"没量到"不是"量到没有活行",必须仍判红',
   )
   ok(
     splitF9SettledGroups(f9Mixed, [
       { key: 'Y-1', titleCount: 2, titles: [{ title: '甲', lines: [999] }, { title: '乙', lines: [998] }] },
     ]).groups.length === 1,
-    'fail-closed:行号取不到对应行(面被换过/裁剪过)时必须仍判红,不得当成全 done 放过',
+    'fail-closed:行号取不到对应行(面被换过/裁剪过)时必须仍判红,不得当成历史行放过',
   )
   ok(
     splitF9SettledGroups(f9AllDone, [
       { key: 'Z-1', titleCount: 2, titles: [{ title: '甲', lines: [1] }, { title: '乙', lines: [2] }] },
     ]).settled.length === 1,
-    '纯函数自证:两条 `- [x]` 的组必须被认成全 done(否则上面那条正向用例是碰巧过的)',
+    '纯函数自证:两条 `- [x]` 的组必须被认成历史行(否则上面那条正向用例是碰巧过的)',
   )
   ok(
     narrowF9Face(auditPlan(f9AllDone), f9AllDone).counts.collisionGroups +
