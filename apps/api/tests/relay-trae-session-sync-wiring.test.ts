@@ -40,7 +40,12 @@ test('② 处理器分支先于 unknown-job 兜底', () => {
 
 test('③ spawn 指向编排脚本且显式 stdio + windowsHide', () => {
   assert.match(WORKER_SRC, /sync-trae-client-session\.mjs/)
-  const spawnBlock = WORKER_SRC.slice(WORKER_SRC.indexOf('function runClientSessionSync'))
+  // 2026-10-29 重锚:spawn 收进 trae/qoder 共用的 runClientSessionSync 助手
+  // (摘掉助手或去掉 stdio 仍翻红 ⇒ 判据面不变窄)
+  const spawnBlock = WORKER_SRC.slice(
+    WORKER_SRC.indexOf('async function runClientSessionSync'),
+    WORKER_SRC.indexOf('const worker = new Worker('),
+  )
   assert.match(
     spawnBlock,
     /stdio:\s*\['ignore',\s*'pipe',\s*'pipe'\]/,

@@ -25,14 +25,18 @@ import assert from 'node:assert/strict'
 
 import {
   YIELD_LEDGER_REL,
+  YIELD_LEDGER_REL_G,
+  YIELD_LEDGER_RELS,
   activeYields,
   appendYieldRecords,
   decideYield,
   planRecords,
   poolReading,
   readYieldLedger,
+  readYieldLedgers,
   traceOf,
   yieldedSetOf,
+  yieldLedgerRelOf,
 } from '../plan-pool-yield.mjs'
 import {
   usedIdsOfPrefix,
@@ -236,5 +240,135 @@ test('账本路径是机读单点:常量与 --apply 落点一致,且坏行不让
   assert.equal(led.records.length, 2)
   assert.equal(led.badLines, 1, '坏行必须计数,不许静默吞掉')
   assert.deepEqual([...activeYields(led.records).get('D')].sort(), [1, 2])
+})
+
+/**
+ * ⑥~⑬ 2026-10-29(goal-b25/b25-poolG)增补:**无登记位**号的可判让位路径。
+ *
+ * 立因(现读):G 族 1..99 有 44 枚在占用面上**只有正文引用、没有登记位**,旧实现一律落
+ * `no-declaration`(并入"判不出结清")⇒ 让位恒 0,而其中真有"早已归档出活面"的号。
+ * 补的是"活台账零引用 + 归档面有**这枚号本人**的归档墓碑"这一条,并且把"活台账仍引用"从
+ * "判不出"改判成"判过了不退" —— 后者同样是缺陷:**能把没判写成判过**。
+ */
+const tomb = (id, d = OLD) => `<!-- 已归档(${d}):[x] ✅(${d}) ${id} **归档件里的旧条目** -->`
+const refLine = (id) => `- 批次流水里的一句旧引用 ${id} 见前文`
+
+test('⑥ 无登记位 + 活台账零引用 + 本人归档墓碑(出窗)⇒ 让位,证据锚是归档件路径/行号/墓碑结清日', () => {
+  const f = face({ ledger: '## 批次流水\n', archives: [tomb('G-12') + '\n'] })
+  const d = decideYield({ face: f, families: ['G'], now: NOW })
+  assert.equal(d.yields.length, 1, `应让位 1 枚,实际 ${JSON.stringify(d.retained.map((r) => r.reasons))}`)
+  const y = d.yields[0]
+  assert.equal(y.num, 12)
+  assert.equal(y.basis, 'archive-tombstone', '让位路径必须留痕:走的是墓碑锚,不是登记位')
+  assert.equal(y.settledAt, OLD)
+  assert.ok(y.declarations[0].path.includes('.ihui-agent/archive/'), '证据必须带归档件路径')
+  assert.ok(y.declarations[0].line > 0, '证据必须带行号')
+})
+
+test('⑦ 无登记位但活台账仍有引用 ⇒ 不退,且要记成**判过了**的 live-ledger-ref(不进 undetermined)', () => {
+  const f = face({ ledger: ['## 批次流水', '', refLine('G-12')].join('\n'), archives: [tomb('G-12')] })
+  const d = decideYield({ face: f, families: ['G'], now: NOW })
+  assert.equal(d.yields.length, 0)
+  const r = d.retained.find((x) => x.num === 12)
+  assert.ok(r.reasons.includes('live-ledger-ref'), `实际理由:${r.reasons}`)
+  assert.ok(
+    !d.undetermined.some((u) => u.num === 12),
+    '活台账仍引用是**判得出**的结论,不得混进"判不出结清"',
+  )
+})
+
+test('⑧ 无登记位 + 活台账零引用 + 归档面也没有本人墓碑 ⇒ 真判不出(archive-unrecorded,不进让位集)', () => {
+  const f = face({ ledger: '## 批次流水\n', archives: [refLine('G-12')] })
+  const d = decideYield({ face: f, families: ['G'], now: NOW })
+  assert.equal(d.yields.length, 0)
+  const r = d.retained.find((x) => x.num === 12)
+  assert.ok(r.reasons.includes('archive-unrecorded'), `实际理由:${r.reasons}`)
+  assert.ok(d.undetermined.some((u) => u.num === 12), '判不出的必须单列')
+})
+
+test('⑨ 墓碑记的是别人的号(行内只是顺带提到本号)⇒ 不算本人墓碑:不把别人的结清算到自己头上', () => {
+  const f = face({
+    ledger: '## 批次流水\n',
+    archives: [`<!-- 已归档(${OLD}):[x] ✅(${OLD}) G-77 **正文里另提 G-12** -->`],
+  })
+  const d = decideYield({ face: f, families: ['G'], now: NOW })
+  assert.ok(!d.yields.some((y) => y.num === 12), '顺带提到的号不得借别人的墓碑让位')
+  assert.ok(d.retained.find((x) => x.num === 12).reasons.includes('archive-unrecorded'))
+})
+
+test('⑩ 墓碑结清日在窗内 ⇒ 不让位(刚归档的号还有在飞引用)', () => {
+  const f = face({ ledger: '## 批次流水\n', archives: [tomb('G-12', FRESH)] })
+  const d = decideYield({ face: f, families: ['G'], now: NOW, windowDays: 30 })
+  assert.equal(d.yields.length, 0)
+  assert.ok(d.retained.find((x) => x.num === 12).reasons.includes('within-window'))
+})
+
+test('⑪ 池外号的墓碑不让位:射程恒为 1..99,不发也不动 >99 的存量债', () => {
+  const f = face({ ledger: '## 批次流水\n', archives: [tomb('G-120')] })
+  const d = decideYield({ face: f, families: ['G'], now: NOW, poolMax: LEASE_POOL_MAX })
+  assert.equal(d.yields.length, 0)
+  assert.equal(d.retained.length, 0, '池外号连"保留"都不该占一行(它不在射程内)')
+})
+
+test('⑫ G 族落 G 本账本:分本落账 + 整套回读 + trace 可反查 + 幂等', () => {
+  assert.equal(YIELD_LEDGER_REL_G, '.ihui-agent/state/plan-pool-yield-g.jsonl')
+  assert.equal(yieldLedgerRelOf('G'), YIELD_LEDGER_REL_G)
+  assert.equal(yieldLedgerRelOf('D'), YIELD_LEDGER_REL, '非 G 族仍落主本,不改既有行为')
+  assert.deepEqual([...YIELD_LEDGER_RELS], [YIELD_LEDGER_REL, YIELD_LEDGER_REL_G])
+  const dir = mkdtempSync(join(tmpdir(), 'yield-g-'))
+  const mainBook = join(dir, YIELD_LEDGER_REL)
+  const gBook = join(dir, YIELD_LEDGER_REL_G)
+  const f = face({ ledger: '## 批次流水\n', archives: [tomb('G-12')] })
+  const d = decideYield({ face: f, families: ['G'], now: NOW })
+  const p1 = planRecords({ decision: d, records: readYieldLedgers([mainBook, gBook]).records, now: NOW })
+  assert.equal(p1.records.length, 1)
+  assert.equal(p1.records[0].via, 'archive-tombstone', '账本里必须留"凭什么退"这条')
+  for (const rec of p1.records) appendYieldRecords(join(dir, yieldLedgerRelOf(rec.family)), [rec])
+  assert.equal(readYieldLedger(mainBook).records.length, 0, 'G 事件不得写进主本')
+  const back = readYieldLedgers([mainBook, gBook])
+  assert.equal(back.records.length, 1)
+  assert.ok(activeYields(back.records).get('G').has(12), '整套回读必须看得见 G 本的让位')
+  const chain = traceOf(back.records, 'G', 12)
+  assert.equal(chain.length, 1)
+  assert.equal(chain[0].settledAt, OLD)
+  assert.equal(planRecords({ decision: d, records: back.records, now: NOW }).records.length, 0, '幂等')
+})
+
+test('⑬ 取号接线:无让位集 ⇒ pool-exhausted(scan-filter);有 G 让位集 ⇒ 发得出且号 ≤99', () => {
+  const archives = [
+    Array.from({ length: 99 }, (_, i) => (i + 1 === 12 ? tomb('G-12') : refLine(`G-${i + 1}`))).join('\n'),
+  ]
+  const ledger = ['## 批次流水', '', done('G-200', OLD, '建立族形状用的老条目'), ''].join('\n')
+  const text = [ledger, ...archives].join('\n')
+  const row = '- [ ] {{NEXT_ID:G}} **b25 让位接线探针(与真登记永不同题)**'
+  const blocked = resolveIdTokens([row], text, null, {})
+  assert.equal(blocked.ok, false)
+  assert.match(String(blocked.reason), /^pool-exhausted:G/)
+  assert.equal(blocked.exhaustion?.stage, 'scan-filter', '这一档的真成因是扫描面,不是池满')
+
+  const f = face({ ledger, archives })
+  const d = decideYield({ face: f, families: ['G'], now: NOW })
+  assert.deepEqual(d.yields.map((y) => y.num), [12], '只该让出 12 这一枚本人墓碑号')
+  const ok = resolveIdTokens([row], text, null, { yieldedIds: yieldedSetOf(d.yields) })
+  assert.equal(ok.ok, true, `让位后应发得出号:${ok.reason ?? ''}`)
+  const num = Number(/(\d+)/.exec(String(ok.lines[0]).replace(/^\s*-\s*\[ \]\s*/, ''))[1])
+  assert.equal(num, 12, `让位只放行账本点名的号,实际 ${num}`)
+  assert.ok(num >= 1 && num <= 99)
+  assert.ok((ok.yieldNotes ?? []).length > 0, '让位必须逐枚留痕')
+})
+
+test('⑭ D 族不回归:有登记位的号仍按原口径判(出窗让位 / 窗内与在册未勾不退)', () => {
+  const f = face({
+    ledger: [open('D-20', '在册未勾'), '', done('D-23', OLD, '活台账里还没搬走的已完成行')].join('\n'),
+    archives: [done('D-21', OLD, '早已结清且已归档') + '\n' + done('D-22', FRESH, '刚结清')],
+  })
+  const d = decideYield({ face: f, families: ['D'], now: NOW })
+  assert.deepEqual(d.yields.map((y) => y.num), [21])
+  assert.ok(d.retained.find((x) => x.num === 20).reasons.includes('open-row'))
+  assert.ok(d.retained.find((x) => x.num === 22).reasons.includes('within-window'))
+  assert.ok(
+    d.retained.find((x) => x.num === 23).reasons.includes('live-ledger-row'),
+    '活台账已勾行同样不让位(既有一阶口径不回归)',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
