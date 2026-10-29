@@ -8,9 +8,9 @@
  * 契约(按 apps/api/src/routes/knowledge-rag.ts 实读):
  *  - `GET /api/knowledge/docs` 返回 **数组**(不是分页对象),行字段只有
  *    id/title/sourceType/chunkCount/createdAt —— 没有 status、没有文件大小列,故本屏不渲染这两个假字段;
- *  - `DELETE /api/knowledge/docs/:id?ownerUuid=…` 软删除,返回 `{ deleted }`;
- *  - `POST /api/knowledge/docs/batch-delete` 入参 `{ docIds, ownerUuid }`,ownerUuid 的 schema 是
- *    `min(1)` —— web 端传空串会被 400,本屏传当前用户 id(取不到时才用 `default`)。
+ *  - `DELETE /api/knowledge/docs/:id` 软删除,返回 `{ deleted }`;
+ *  - `POST /api/knowledge/docs/batch-delete` 入参 `{ docIds }`;
+ *  - 归属由后端从登录凭据决定,请求里不再带 ownerUuid。
  *  - 端点不支持服务端搜索/分页,搜索与"加载更多"都在已取回的数组上做。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -40,7 +40,6 @@ import { NavChrome } from '../components/NavChrome'
 import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
-import { useAuthStore } from '../stores/auth-store'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -56,9 +55,6 @@ export default function KnowledgeRagManageScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const user = useAuthStore((s) => s.user)
-  // 与 KnowledgeRagScreen 同口径:ownerUuid 缺省兜底 'default'
-  const ownerUuid = user?.id ?? 'default'
 
   const [docs, setDocs] = useState<KnowledgeDocSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -83,7 +79,7 @@ export default function KnowledgeRagManageScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const list = await listKnowledgeDocs(ownerUuid)
+      const list = await listKnowledgeDocs()
       setDocs(list)
       setSelected((prev) => {
         const alive = new Set(list.map((d) => d.id))
@@ -95,7 +91,7 @@ export default function KnowledgeRagManageScreen() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [ownerUuid, t])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -150,7 +146,7 @@ export default function KnowledgeRagManageScreen() {
             setBusy(true)
             void (async () => {
               try {
-                await deleteKnowledgeDoc(doc.id, ownerUuid)
+                await deleteKnowledgeDoc(doc.id)
                 setFeedback({ type: 'success', text: t('knowledgeRagManage.deleteSuccess') })
                 await load()
               } catch {
@@ -180,7 +176,7 @@ export default function KnowledgeRagManageScreen() {
             setBusy(true)
             void (async () => {
               try {
-                const res = await batchDeleteKnowledgeDocs(ids, ownerUuid)
+                const res = await batchDeleteKnowledgeDocs(ids)
                 const removed = new Set(res.success)
                 setDocs((prev) => prev.filter((d) => !removed.has(d.id)))
                 setSelected((prev) => new Set([...prev].filter((id) => !removed.has(id))))

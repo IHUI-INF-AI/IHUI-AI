@@ -95,9 +95,10 @@ export function buildConversationTranscript(
   for (const m of messages) {
     const content = m.content?.trim()
     if (!content) continue
-    const ts = m.createdAt instanceof Date && !Number.isNaN(m.createdAt.getTime())
-      ? m.createdAt.toISOString()
-      : ''
+    const ts =
+      m.createdAt instanceof Date && !Number.isNaN(m.createdAt.getTime())
+        ? m.createdAt.toISOString()
+        : ''
     lines.push(ts ? `[${ts}] ${content}` : content)
   }
   return lines.join('\n')
@@ -367,21 +368,21 @@ class KnowledgeRagService {
     collectionName?: string
     topK?: number
     scoreThreshold?: number
-    ownerUuid?: string
+    /** 必填：检索范围只允许是调用者本人的知识库 */
+    ownerUuid: string
   }): Promise<SearchHit[]> {
-    const { query, collectionName = 'default', topK = 5, scoreThreshold = 0, ownerUuid = '' } = opts
+    const { query, collectionName = 'default', topK = 5, scoreThreshold = 0, ownerUuid } = opts
     const queryEmbedding = await getEmbedding(query)
 
     // 主路径:pgvector SQL 端 ANN 检索
     if (queryEmbedding && queryEmbedding.length === 1536) {
       try {
         const vectorLiteral = `[${queryEmbedding.join(',')}]`
-        // 条件用 drizzle sql template,ownerUuid 可选
         const whereParts = [
           sql`"collection_name" = ${collectionName}`,
           sql`"embedding" IS NOT NULL`,
+          sql`"owner_uuid" = ${ownerUuid}`,
         ]
-        if (ownerUuid) whereParts.push(sql`"owner_uuid" = ${ownerUuid}`)
 
         // 1 - (embedding <=> query) 作为 cosine 相似度 score
         const rows = (await db.execute(sql`
@@ -438,8 +439,10 @@ class KnowledgeRagService {
     scoreThreshold: number,
     ownerUuid: string,
   ): Promise<SearchHit[]> {
-    const conditions = [eq(knowledgeChunk.collectionName, collectionName)]
-    if (ownerUuid) conditions.push(eq(knowledgeChunk.ownerUuid, ownerUuid))
+    const conditions = [
+      eq(knowledgeChunk.collectionName, collectionName),
+      eq(knowledgeChunk.ownerUuid, ownerUuid),
+    ]
     const rows = await db
       .select({
         id: knowledgeChunk.id,
@@ -472,7 +475,8 @@ class KnowledgeRagService {
     query: string
     collectionName?: string
     topK?: number
-    ownerUuid?: string
+    /** 必填：上下文只允许取自调用者本人的知识库 */
+    ownerUuid: string
   }): Promise<string> {
     const results = await this.search(opts)
     if (results.length === 0) return ''
