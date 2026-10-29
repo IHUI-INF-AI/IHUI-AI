@@ -1,9 +1,9 @@
 {
   "$comment": "全量门耗时基线(票 G-217 尺子②:全量 check:all 120 秒预算)。读数每轮由 scripts/all-checks-runner.mjs 末尾现跑打印(总耗时=…ms / 门数=N / 预算=…ms / 判定=通过|超预算);本文件只记最近一次人工确认的实测值,供对照,不是合格证。超预算只在 `pnpm check:all:120`(--budget-strict)下 RC=1,默认 check:all 不因耗时顶红。更新基线须贴当轮「总耗时=」行;禁止为过门调高 budgetMs。",
   "budgetMs": 120000,
-  "baselineMs": 156711,
+  "baselineMs": 147067,
   "steps": 27,
-  "measuredAt": "2026-10-24",
+  "measuredAt": "2026-10-29",
   "command": "pnpm check:all:120",
-  "measurementNote": "2026-10-24 现跑:27 步 25 通过 / 2 失败(第 13 步 check:miniapp-generated、第 18 步 scan-dead-i18n-keys),耗时含这两步的判红时间;RC=1 同时受失败步与超预算影响。"
+  "measurementNote": "2026-10-29 严格档实跑:27 步 / 通过 27 / 失败 0,读数行「总耗时=147067ms / 门数=27 / 预算=120000ms / 判定=超预算」⇒ RC=1 只由超预算造成(判红路径本身正常,而这正是 45dd89e4e45 把 check:all:120 那行连块吞掉后一直缺的可执行证明)。同日对照:默认档 `pnpm check:all` 同 27 步全绿但 178130ms、负载更重的一轮 220633ms —— 差额是这台机上并发席与部署环的争用,不是成本回退:换同 command、同 pass 态(0 失败)量到的 147067ms 反而比旧基线 156711ms 少 9644ms。旧基线是 2026-10-24 的 25 通过/2 失败轮,把两步判红的时间也算在里面,与本数不同形。budgetMs 一字未动(该字段禁止为过门调高)。"
 }
