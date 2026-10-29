@@ -32,6 +32,7 @@ from typing import Any, Literal
 # 会被 tests/test_workflow_status_parity.py 的源码锁当场判红。
 WorkflowStatus = Literal["pending", "running", "completed", "failed", "cancelled"]
 
+from ..core.background_tasks import spawn
 from ..core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL
 from ..core.llm_gateway import llm_gateway
 from ..core.token_baseline import CHAIN_WORKFLOW
@@ -296,7 +297,7 @@ class WorkflowEngine:
         self._running_instances.add(workflow_id)
 
         # 后台异步执行
-        asyncio.create_task(self._execute_instance(inst, wf))
+        spawn(self._execute_instance(inst, wf), name="workflow-execute-instance")
         return inst
 
     def _log(self, instance_id: str, level: str, message: str) -> None:

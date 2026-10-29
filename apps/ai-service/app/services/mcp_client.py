@@ -32,6 +32,7 @@ from typing import Any, cast
 
 import httpx
 
+from app.core.background_tasks import spawn
 from app.core.exec_env import resolve_stdio_command
 from app.core.tunables import DEFAULT_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS
 from app.services import mcp_quality, mcp_status
@@ -484,7 +485,7 @@ class MCPClient:
             self._read_task = asyncio.create_task(self._stdio_read_loop())
             # 启动 stderr 日志读取(不阻塞)
             if self._process.stderr is not None:
-                asyncio.create_task(self._stderr_reader(self._process.stderr))
+                spawn(self._stderr_reader(self._process.stderr), name="mcp-stderr-reader")
             return True
         except Exception as e:
             logger.error("stdio 连接失败(%s): %s", self._config.command, e)
@@ -550,7 +551,7 @@ class MCPClient:
             was_connected = self._connected
             self._connected = False
             if was_connected and self._config.reconnect:
-                asyncio.create_task(self._reconnect())
+                spawn(self._reconnect(), name="mcp-reconnect")
 
     @staticmethod
     async def _stderr_reader(stderr: asyncio.StreamReader) -> None:
@@ -659,7 +660,7 @@ class MCPClient:
             was_connected = self._connected
             self._connected = False
             if was_connected and self._config.reconnect:
-                asyncio.create_task(self._reconnect())
+                spawn(self._reconnect(), name="mcp-reconnect")
 
     def _sse_feed_data(self, data: bytes) -> None:
         """解析 SSE 数据块。"""
@@ -1073,8 +1074,7 @@ class MCPClientManager:
         client = self._clients.pop(name, None)
         if client is not None:
             try:
-                asyncio.get_running_loop()
-                asyncio.create_task(client.disconnect())
+                spawn(client.disconnect(), name="mcp-client-disconnect")
             except RuntimeError:
                 # 无运行中的事件循环(同步上下文),不触发 disconnect
                 pass
