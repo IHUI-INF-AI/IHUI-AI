@@ -146,7 +146,7 @@ import { StudentCenterScreen } from '../screens/StudentCenterScreen'
 import { MyCommentsScreen } from '../screens/MyCommentsScreen'
 import { MyLessonsScreen } from '../screens/MyLessonsScreen'
 import { MyResourcesScreen } from '../screens/MyResourcesScreen'
-import { CloudRunScreen } from '../screens/CloudRunScreen'
+import { CloudRunsScreen } from '../screens/CloudRunsScreen'
 import { OfflineRecordsScreen } from '../screens/OfflineRecordsScreen'
 import { ToolsScreen } from '../screens/ToolsScreen'
 import { PdfToolsHubScreen } from '../screens/PdfToolsHubScreen'
@@ -1103,7 +1103,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="MyComments" component={MyCommentsScreen} />
             <RootStack.Screen name="MyLessons" component={MyLessonsScreen} />
             <RootStack.Screen name="MyResources" component={MyResourcesScreen} />
-            <RootStack.Screen name="CloudRun" component={CloudRunScreen} />
+            <RootStack.Screen name="CloudRun" component={CloudRunsScreen} />
             <RootStack.Screen name="OfflineRecords" component={OfflineRecordsScreen} />
             <RootStack.Screen name="Tools" component={ToolsScreen} />
             <RootStack.Screen name="PdfToolsHub" component={PdfToolsHubScreen} />
