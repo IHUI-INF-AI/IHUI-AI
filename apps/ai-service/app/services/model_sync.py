@@ -66,6 +66,7 @@ from typing import Any
 import httpx
 from prometheus_client import Counter, Gauge, Histogram
 
+from ..core.background_tasks import spawn
 from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 from ..core.default_model import RETIRED_PROVIDERS
@@ -97,6 +98,10 @@ _RETRY_BASE_DELAYS: tuple[float, ...] = (1.0, 2.0, 4.0)
 # F3.5 价格上限过滤(cents per 1k tokens,即 $1/1k tokens = $1000/1M tokens)
 # 超过此阈值的模型视为极端高价,跳过 INSERT 并 log warning
 MAX_PRICE_PER_1K_TOKENS = 100
+
+# xAI /v1/models 的 *_text_token_price 单位是 1e-10 USD/token(12500 = $1.25/1M)。
+# 换到 cents/1k:× 1e-10(→USD/token) × 1000(k) × 100(→cents)= × 1e-5
+_XAI_TOKEN_PRICE_TO_CENTS_PER_1K = 1e-5
 
 # F4.7 连续失败自动禁用阈值(N 次失败后标记 unhealthy,跳过后续同步)
 FAILURE_THRESHOLD = 3
@@ -523,7 +528,7 @@ class ModelSyncService:
         if not dry_run:
             try:
                 from .model_availability import model_availability
-                asyncio.create_task(model_availability._refresh_all_providers())
+                spawn(model_availability._refresh_all_providers())
             except Exception:
                 pass
 
@@ -608,7 +613,7 @@ class ModelSyncService:
             # 触发 ModelAvailabilityService 刷新
             try:
                 from .model_availability import model_availability
-                asyncio.create_task(model_availability._refresh_all_providers())
+                spawn(model_availability._refresh_all_providers())
             except Exception:
                 pass
 
@@ -2097,7 +2102,7 @@ class ModelSyncService:
                         if dry_run:
                             preview_new.append(aliased_id)
                         else:
-                            # 新模型:INSERT(is_relay_public=true 自动上架)
+                            # 新模型:INSERT(chat 档自动上架;图像/视频等媒体档默认不上架)
                             await self._insert_model(
                                 conn, config_id, aliased_id, display_name, ctx_len,
                                 input_price, output_price, model_tags,
@@ -2112,6 +2117,7 @@ class ModelSyncService:
                                 release_date=release_date,
                                 deprecation_date=deprecation_date,
                                 metadata=metadata_json,
+                                is_relay_public="chat" in model_tags,
                             )
                         new_count += 1
                     else:
@@ -2212,8 +2218,8 @@ class ModelSyncService:
         model_id: str,
         display_name: str,
         ctx_len: int,
-        input_price: int,
-        output_price: int,
+        input_price: float,
+        output_price: float,
         model_tags: list[str],
         tags_column_exists: bool,
         columns: dict[str, bool],
@@ -2227,11 +2233,14 @@ class ModelSyncService:
         release_date: str,
         deprecation_date: str,
         metadata: dict[str, Any] | None = None,
+        is_relay_public: bool = True,
     ) -> None:
         """F4.5 动态构造 INSERT SQL(根据列存在性决定写哪些字段)。
 
         新字段不存在时降级为只写存在的字段(类似 tags 的降级模式)。
         v4:metadata(jsonb,token6688 param_schema/capabilities/linkages 等富元数据)
+        is_relay_public:调用方按 model_tags 判定 —— 非 chat(图像/视频/embedding)默认不上架,
+        否则 /llm/models 会把用户选不了的模型塞进对话选择器。
         """
         # 基础字段(一定存在)
         fields = [
@@ -2239,9 +2248,12 @@ class ModelSyncService:
             "input_price_per_1k", "output_price_per_1k",
             "enabled", "is_relay_public", "relay_price_multiplier",
         ]
-        placeholders = ["$1", "$2", "$3", "$4", "$5", "$6", "true", "true", "'1.0000'"]
-        params: list[Any] = [config_id, model_id, display_name, ctx_len, input_price, output_price]
-        idx = 7  # 下一个 placeholder 编号
+        placeholders = ["$1", "$2", "$3", "$4", "$5", "$6", "true", "$7", "'1.0000'"]
+        params: list[Any] = [
+            config_id, model_id, display_name, ctx_len, input_price, output_price,
+            is_relay_public,
+        ]
+        idx = 8  # 下一个 placeholder 编号
 
         # tags 字段(v2 已有)
         if tags_column_exists:
@@ -2279,13 +2291,18 @@ class ModelSyncService:
             placeholders.append("now()")  # SQL 函数,不需要 placeholder
 
         # ON CONFLICT DO UPDATE:更新存在的字段
-        update_parts = ["is_relay_public = true", "enabled = true", "context_length = $4", "updated_at = now()"]
+        update_parts = [
+            "is_relay_public = excluded.is_relay_public",
+            "enabled = true",
+            "context_length = $4",
+            "updated_at = now()",
+        ]
         if tags_column_exists:
-            update_parts.append("tags = $7")
+            update_parts.append("tags = $8")
         # F4.5 新字段的 ON CONFLICT UPDATE
-        update_idx = 7
+        update_idx = 8
         if tags_column_exists:
-            update_idx = 8
+            update_idx = 9
         for col_name, _param_value in f4_5_fields:
             if columns.get(col_name, False):
                 update_parts.append(
@@ -2315,8 +2332,8 @@ class ModelSyncService:
         config_id: int,
         model_id: str,
         ctx_len: int,
-        input_price: int,
-        output_price: int,
+        input_price: float,
+        output_price: float,
         model_tags: list[str],
         tags_column_exists: bool,
         columns: dict[str, bool],
@@ -2585,13 +2602,16 @@ class ModelSyncService:
         return " ".join(out) if out else model_id
 
     @staticmethod
-    def _extract_pricing(provider_code: str, model: dict[str, Any]) -> tuple[int, int]:
+    def _extract_pricing(provider_code: str, model: dict[str, Any]) -> tuple[float, float]:
         """F3.2 多 provider pricing schema 适配。
 
-        返回 (input_price, output_price),单位 cents/1k tokens(整数)。
+        返回 (input_price, output_price),单位 cents/1k tokens。
         - OpenRouter: model.pricing.prompt / model.pricing.completion($/token 字符串)
         - Cloudflare: model.pricing.input / model.pricing.output($/token 浮点数)
         - NVIDIA NIM: model.metadata.input_cost_per_token / model.metadata.output_cost_per_token
+        - xAI: prompt_text_token_price / completion_text_token_price(单位 1e-10 USD/token,
+          如 12500 = $1.25/1M tokens);列是 numeric(18,6),不能像其它厂商那样取整,
+          否则 $1.25/1M(0.125 cents/1k)会被截断成 0 = 免费档
         - 其他: 无 pricing 字段 → (0, 0)
         """
         # OpenRouter
@@ -2615,6 +2635,20 @@ class ModelSyncService:
                 input_price = ModelSyncService._parse_price(metadata.get("input_cost_per_token"))
                 output_price = ModelSyncService._parse_price(metadata.get("output_cost_per_token"))
                 return (input_price, output_price)
+        # xAI(官方 /v1/models 带 prompt_text_token_price,单位 1e-10 USD/token)
+        if provider_code == "xai":
+            ip = model.get("prompt_text_token_price")
+            op = model.get("completion_text_token_price")
+            if not isinstance(ip, (int, float)) and not isinstance(op, (int, float)):
+                return (0.0, 0.0)
+            return (
+                round(float(ip) * _XAI_TOKEN_PRICE_TO_CENTS_PER_1K, 6)
+                if isinstance(ip, (int, float))
+                else 0.0,
+                round(float(op) * _XAI_TOKEN_PRICE_TO_CENTS_PER_1K, 6)
+                if isinstance(op, (int, float))
+                else 0.0,
+            )
         return (0, 0)
 
     @staticmethod
@@ -2690,6 +2724,23 @@ class ModelSyncService:
             tags.append("embedding")
         else:
             tags.append("chat")  # 默认标签
+
+        # 生成式媒体模型(2026-10-29 xai imagine 系列):带按张定价或 id 自述视频生成的,
+        # 属图像/视频档而非对话档 —— 默认 chat 标签会让它混进 /llm/models 对话选择器,
+        # 用户选中后必报错。证据取上游字段而不只靠名字:有的厂商给 price_per_image 但 id 无 image 字样
+        media_tag = ""
+        if "video" in mid and any(k in mid for k in ("imagine", "video-gen")):
+            media_tag = "video"
+        elif isinstance(raw_model.get("image_price"), (int, float)) or (
+            isinstance(raw_model.get("pricing"), list)
+            and any(
+                isinstance(p, dict) and isinstance(p.get("price_per_image"), (int, float))
+                for p in raw_model["pricing"]
+            )
+        ):
+            media_tag = "image"
+        if media_tag:
+            tags = [media_tag] + [t for t in tags if t != "chat"]
 
         return tags
 

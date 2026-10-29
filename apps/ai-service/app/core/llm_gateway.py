@@ -15,7 +15,6 @@ import hashlib
 import json
 import logging
 import os
-import random
 import re
 import time
 from collections.abc import AsyncIterator
@@ -2076,6 +2075,16 @@ class LLMGateway:
         if m.startswith("groq/"):
             cfg = settings.get_provider_config("groq")
             return cfg.api_key, cfg.api_base or None, model
+        # xAI(Grok 官方,OpenAI 兼容):裸名 grok-* 走 xai/ 的 env 配置;
+        # 必须补 openai/ 前缀,否则 LiteLLM 按裸名报 "LLM Provider NOT provided"
+        if m.startswith("grok-") or m.startswith("xai/"):
+            real_model = model.split("/", 1)[1] if "/" in model else model
+            cfg = settings.get_provider_config("xai")
+            return (
+                cfg.api_key or None,
+                cfg.api_base or "https://api.x.ai/v1",
+                f"openai/{real_model}",
+            )
         if m.startswith("gemini/"):
             # 2026-08-02 接入 Google AI Studio:走 OpenAI 兼容接口
             # api_base = https://generativelanguage.googleapis.com/v1beta/openai
