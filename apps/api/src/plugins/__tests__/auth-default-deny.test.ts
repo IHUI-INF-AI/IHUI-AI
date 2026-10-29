@@ -72,6 +72,19 @@ describe('鉴权默认拒绝兜底闸', () => {
       },
       async () => ({ ok: true }),
     )
+    // 上游 preHandler 直接 send(401) 后仍把链交给兜底闸 —— 生产实测过这一型:
+    // 兜底再 send 一次会抛 "Reply was already sent",被全局处理器收敛成 500。
+    app.get(
+      '/api/upstream-401',
+      {
+        preHandler: [
+          async (_request: FastifyRequest, reply: any) => {
+            reply.status(401).send({ code: 401, message: 'upstream-denied' })
+          },
+        ],
+      },
+      async () => ({ ok: true }),
+    )
     await app.ready()
   })
 
@@ -102,6 +115,13 @@ describe('鉴权默认拒绝兜底闸', () => {
   it('D2 enforce:路由已有鉴权(已写 userId)⇒ 放行且不重复认证', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/with-route-auth' })
     expect(res.statusCode).toBe(200)
+    expect(authCalls.n).toBe(0)
+  })
+
+  it('D2b 上游已 send(401) 时兜底闸不得二次 send —— 必须是 401 不是 500', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/upstream-401' })
+    expect(res.statusCode).toBe(401)
+    expect(res.json().message).toBe('upstream-denied')
     expect(authCalls.n).toBe(0)
   })
 

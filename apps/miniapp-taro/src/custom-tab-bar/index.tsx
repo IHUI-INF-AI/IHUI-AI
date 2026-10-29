@@ -35,6 +35,7 @@ import {
   TAB_BAR_INDICATOR_H,
   TAB_BAR_INDICATOR_INSET,
   TAB_BAR_GLOW_RADIUS_PX,
+  TAB_BAR_GLASS_BLUR,
   TAB_BAR_OCCUPIED_CSS,
 } from '@/constants/tab-bar-metrics'
 import { t as tGlobal } from '@/i18n'
@@ -55,9 +56,9 @@ const TABS: TabItem[] = [
   { pagePath: '/pages/share/index', labelKey: 'tabBar.share', icon: 'share-2' },
 ]
 
-/** 毛玻璃模糊半径(px):非圆角档位,与 mobile-rn TabBar.styles.ts 的同值模糊对齐。
- *  本端取名 *_PX 而非 *_RADIUS,避免圆角单源门 B2 把"喂给 blur() 的模糊半径"误当本地圆角常量。 */
-const GLASS_BLUR_PX = 24
+/** 毛玻璃模糊半径(px):单一源头 = @ihui/shared/ui/tab-bar-spec 的 TAB_BAR_GLASS_BLUR_PX。
+ *  2026-10-29 前本端自写一份 24、靠注释与 RN 对齐(两份副本,谁也拦不住单端改值),现改转发。 */
+const GLASS_BLUR_PX = TAB_BAR_GLASS_BLUR
 
 /** 选中态光晕:半径取单一源 TAB_BAR_GLOW_RADIUS_PX,颜色取 ink 同源的 rgba(0.85) ——
  *  与 RN TabBar.styles.ts 的 iconGlow 同档(同半径、同透明度、同色源),端内不出现裸 hex。
