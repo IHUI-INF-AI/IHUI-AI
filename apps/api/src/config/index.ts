@@ -188,6 +188,10 @@ const envSchema = z.object({
   // 管理员、TOTP 未绑)。存量管理员需先绑定才能进 admin 面;生产 .env 可显式写 warn
   // 作过渡(见 docs/SECURITY.md),但代码默认必须是安全的一档 —— 新部署不会再裸奔。
   ADMIN_TOTP_MODE: z.enum(['off', 'warn', 'enforce']).default('enforce'),
+  // 鉴权默认拒绝的兜底闸(见 plugins/auth-default-deny.ts)。
+  // 默认 observe:只记"不在公开名单且无凭据"的请求,不拦人 —— 名单不可能一次写全,
+  // 先观察真实流量再收紧。切 enforce 的前置:observe 满 24h 且日志里没有新的方法+路径。
+  AUTH_DEFAULT_DENY_MODE: z.enum(['off', 'observe', 'enforce']).default('observe'),
 
   // TBox webhook 签名密钥(可选,为空则不校验;配置后设备事件通知需带 X-Signature 头)
   TBOX_WEBHOOK_SECRET: z.string().default(''),

@@ -41,6 +41,7 @@ import authPlugin from './plugins/auth.js'
 // dbScoped() 查询才看得见"这次调用是谁 + 命中哪个能力"。
 import principalPlugin from './plugins/principal.js'
 import rlsContextPlugin from './plugins/rls-context.js'
+import authDefaultDenyPlugin from './plugins/auth-default-deny.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
 import apiLoggerPlugin from './plugins/api-logger.js'
@@ -680,6 +681,11 @@ async function registerPlugins(server: FastifyInstance) {
   // 请求上下文(RLS 会话变量 + 非超级用户断言):钩子经 onRoute 追加到各路由
   // preHandler 链末尾,严格晚于鉴权与能力闸;同时覆盖 /v1/*。
   await server.register(rlsContextPlugin)
+
+  // 鉴权默认拒绝兜底:同一招(onRoute 追加到 preHandler 链末尾),但排在 rls 之后注册
+  // ⇒ 同一数组内更靠后,见 request.userId 时前面的鉴权已经跑过。只兜"完全没人挂鉴权"
+  // 的路由;默认 observe 档只记日志不拦人。
+  await server.register(authDefaultDenyPlugin)
 
   // 多租户中间件：从 header/subdomain 解析租户, 装饰 request.tenantId
   await server.register(tenantPlugin)
