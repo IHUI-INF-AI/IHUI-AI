@@ -288,6 +288,18 @@ progress {
   --color-success-text: hsl(142 71% 28%);
   --color-warning-text: hsl(38 92% 30%);
   --color-danger-text: #b91c1c;
+
+  /* 以下 10 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-neutral-50: oklch(98.5% 0 none);
+  --color-neutral-100: oklch(97% 0 none);
+  --color-neutral-200: oklch(92.2% 0 none);
+  --color-neutral-300: oklch(87% 0 none);
+  --color-neutral-400: oklch(70.8% 0 none);
+  --color-neutral-500: oklch(55.6% 0 none);
+  --color-neutral-600: oklch(43.9% 0 none);
+  --color-neutral-700: oklch(37.1% 0 none);
+  --color-neutral-800: oklch(26.9% 0 none);
+  --color-neutral-900: oklch(20.5% 0 none);
 }
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
@@ -633,6 +645,18 @@ iframe#webpack-dev-server-client-overlay {
   --color-rank-top1-bg: rgba(245, 158, 11, 0.04);
   --color-payment-purple-start: #667eea;
   --color-payment-purple-end: #764ba2;
+
+  /* 以下 10 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-neutral-50: oklch(98.5% 0 none);
+  --color-neutral-100: oklch(97% 0 none);
+  --color-neutral-200: oklch(92.2% 0 none);
+  --color-neutral-300: oklch(87% 0 none);
+  --color-neutral-400: oklch(70.8% 0 none);
+  --color-neutral-500: oklch(55.6% 0 none);
+  --color-neutral-600: oklch(43.9% 0 none);
+  --color-neutral-700: oklch(37.1% 0 none);
+  --color-neutral-800: oklch(26.9% 0 none);
+  --color-neutral-900: oklch(20.5% 0 none);
 }
 .dark {
   --color-background: hsl(0 0% 14%);

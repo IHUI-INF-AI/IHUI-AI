@@ -9,6 +9,7 @@ import type { InviteInfo, InviteRecordItem, InviteScreenProps } from '@ihui/type
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 邀请记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { InviteInfo, InviteRecordItem, InviteScreenProps }
@@ -46,9 +47,7 @@ export function InviteScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && !info ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<InviteRecordItem>
           data={records}
@@ -87,11 +86,7 @@ export function InviteScreen({
               </View>
             ) : null
           }
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('invite.empty')}</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title={t('invite.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.titleRow}>
@@ -133,8 +128,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 14, paddingBottom: 32 },
     separator: { height: 8 },
     infoCard: {
@@ -151,14 +144,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     codeLabel: { fontSize: 14, color: tk.text.secondary },
     codeValue: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
-    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
-    // 读数 20px,最坏「¥99999.99」⇒ minWidth 112。
     statsRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       marginTop: 12,
     },
-    statItem: { flex: 1, minWidth: 112, alignItems: 'center' },
+    statItem: { flex: 1, alignItems: 'center', minWidth: 96 },
     statValue: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
     statLabel: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
     shareBtn: {

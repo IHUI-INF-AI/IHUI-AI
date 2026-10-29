@@ -46,6 +46,10 @@ const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16, DEFAULT: 6 }
 const miniText = () => headBlob(MINI) + headBlob(MINI_CSS)
 /** 换算支的"未判定"清单:走门自己的出口,测试不复算判据。 */
 const unread = (file, side = 'miniapp', tiers = {}) => src.readGeometry(file, side, tiers).unreadable
+/** 间距唯一源档表(生产出口原样喂给用例;§22c 测试零复制判据)。 */
+const SPACING = 'packages/design-tokens/src/spacing.ts'
+const spTiers = src.specTiers({ [SPACING]: headBlob(SPACING) })
+assert.equal(spTiers['rnSpacing.md'], 12, 'specTiers 没接间距腿(夹具与门不同形)')
 
 test('C1 正例:toRpx(44) 与 RN 侧的 44 判为同值 —— 假分叉消失', () => {
   const g = src.readGeometry(miniText(), 'miniapp')
@@ -72,14 +76,21 @@ test('C2 正例:toRpx(SP.md) 成员解析成功并参与比对;RD 的 toRpx(RD.s
   assert.ok(radiusSetOf(miniText(), tbl).includes(4), 'RD 维仍读不到 4 ⇒ "RD 仅 RN 4"没清')
 })
 
-test('C3 反例 A(不得变绿):min-height:400rpx(=200) 对 RN flex:1 是真差异,必须仍被报出', () => {
-  const g = src.readGeometry(miniText(), 'miniapp')
-  const r = src.readGeometry(headBlob(RN), 'rn')
+test('C3 反例 A(不得变绿):间距腿把假分叉折掉后,真差异 15/200 必须仍被报出', () => {
+  const g = src.readGeometry(miniText(), 'miniapp', spTiers)
+  const r = src.readGeometry(headBlob(RN), 'rn', spTiers)
   assert.ok(g.values.has(200), '伴生样式表的 min-height:400rpx 没折进集合(取材面回落)')
   assert.equal(r.values.has(200), false, 'RN 侧根本没写 200 —— 单端结构差异,不是同一元素双值')
+  assert.ok(
+    r.values.has(12) && r.values.has(16) && r.values.has(8) && r.values.has(32),
+    'rnSpacing.* 成员没折进 RN 腿(消费腿摘线)',
+  )
   const d = src.diffValues(g.values, r.values)
-  assert.deepEqual(d.onlyMiniapp, [200], `真差异被吞或被多报:${JSON.stringify(d.onlyMiniapp)}`)
-  assert.deepEqual(d.onlyRn, [], `假分叉未清:${JSON.stringify(d.onlyRn)}`)
+  // 旧假分叉 [8,16,32,64…] 全部由间距腿折清;余下两枚都是**实测两端异值**的真差异:
+  //   200 = 小程序 min-height:400rpx(=200px) vs RN flex:1(单端结构)
+  //   15  = 小程序腿样式实测取 15,RN 腿任何形态都没有同值(不是量具看不见)
+  assert.deepEqual(d.onlyRn, [], `间距腿引入的新报:${JSON.stringify(d.onlyRn)}`)
+  assert.deepEqual(d.onlyMiniapp, [15, 200], `真差异被吞或被假分叉混入:${JSON.stringify(d.onlyMiniapp)}`)
 })
 
 test('C4 反例 B:成员/算术解析不到 ⇒ 逐枚进"未判定"点名,不记 0、不记同值、不静默', () => {
@@ -164,19 +175,83 @@ test('C7 覆盖面纪律:换算器声明取不到 ⇒ 一条不采;倍率取不�
   assert.equal(src.readGeometry(half, 'miniapp').values.has(44), false, '取不到倍率却按恒等放过')
 })
 
-test('C8 端到端:audit 里 ScreenStates 只剩 200 一枚真差异,未判定同批交回机器面', () => {
+test('C8 端到端:audit 里 ScreenStates 只剩真差异 15/200,假分叉由间距腿清零,未判定同批交回机器面', () => {
   const pairs = { pairs: [{ name: 'ScreenStates', miniapp: MINI, rn: RN }] }
   const text = { [MINI]: headBlob(MINI), [RN]: headBlob(RN), [MINI_CSS]: headBlob(MINI_CSS) }
   const styles = { [MINI]: headBlob(MINI_CSS) }
-  const res = src.audit(pairs, text, {}, {}, tbl, styles)
+  const res = src.audit(pairs, text, {}, spTiers, tbl, styles)
   const f = res.findings.find((x) => x.name === 'ScreenStates')
   assert.ok(f, '这一族从 findings 消失 —— 假分叉清零后真差异也必须留痕(消失不等于销账)')
-  assert.deepEqual(f.geometry.onlyMiniapp, [200])
+  assert.deepEqual(f.geometry.onlyMiniapp, [15, 200])
   assert.deepEqual(f.geometry.onlyRn, [])
   assert.deepEqual(f.radius.onlyRn, [], `RD 仍有仅 RN 档:${f.radius.onlyRn.join('/')}`)
   assert.ok(
     Array.isArray(f.geoUnreadable) && f.geoUnreadable.every((s) => typeof s === 'string'),
     'geoUnreadable 没进 finding(未判定只在人读面有、机器面没有 = 下一票看不见)',
+  )
+})
+
+// ── 间距消费腿(2026-10-27 补)的专属锁:入账 / 包裹不双计 / 病态输入限时 / 档表缺员报名 ──
+test('C9 正例:裸成员 dot 与 braket-字符串两形态都按档表 dp 入账,并按命名空间名进 named', () => {
+  const file = [
+    "import { rnSpacing, rnSpacingFor } from '@ihui/design-tokens'",
+    'export const S = {',
+    '  a: { padding: rnSpacing.lg, gap: rnSpacing[\'3xl\'] },',
+    '  b: { marginBottom: rnSpacingFor.stack },',
+    '}',
+  ].join('\n')
+  const g = src.readGeometry(file, 'rn', spTiers)
+  assert.ok(g.values.has(16) && g.values.has(32), `裸成员没入集合:${JSON.stringify([...g.values])}`)
+  assert.equal(g.named['rnSpacing.lg'], 16, 'named 表没有按命名空间名登记(单侧具名档对账失明)')
+  assert.deepEqual(g.unreadable, [], '在档成员被误报未判定')
+})
+
+test('C10 纪律:换算器包住的成员**不由间距腿入账**(归换算采集支报名),同处不得两套口径', () => {
+  const file = [
+    'const toRpx = (px) => `${px * 2}rpx`',
+    "import { rnSpacing } from '@ihui/design-tokens'",
+    'export const S = { a: { padding: toRpx(rnSpacing.md) } }',
+  ].join('\n')
+  const g = src.readGeometry(file, 'rn', spTiers)
+  // 入账的只能是"成员解不到"的报名,或换算支自处;12(dp)绝不得静默进 values
+  assert.equal(g.values.has(12), false, '被 toRpx 包住的成员被间距腿按 dp 记上 = 真屏 24px 读成 12px(C5 那一型)')
+})
+
+test('C11 装车锁(摘了即红):门体必须带间距消费腿与括号配对区间扫描', () => {
+  const txt = readFileSync(GATE, 'utf8')
+  assert.ok(/rnSpacing(?:For)?\s*(?:\.\s*|\[\s*')/.test(txt), '间距消费腿被摘线 ⇒ ScreenStates 族假分叉立即回潮')
+  assert.ok(txt.includes('wrapRanges'), '包裹区间的括号配对扫描被摘 ⇒ 换算器形态与裸成员双计')
+  assert.ok(txt.includes('SPACING_STEPS'), 'specTiers 的间距源解析支被摘 ⇒ 档表整体失明')
+  assert.ok(txt.includes('间距维判据'), 'collect 缺表的失明判据被摘 ⇒ "取不到"会被读成"没引用"')
+})
+
+test('C12 对抗样本:接近而失败的病理输入必须 O(n) 返回(嵌套量词置换正则的 ReDoS 血案锁)', () => {
+  const near = 'const x = rpx(' + 'a'.repeat(200) + ' ' + 'b'.repeat(200) + ' NOTSPACING)'
+  const file = [
+    near,
+    "import { rnSpacing, rnSpacingFor } from '@ihui/design-tokens'",
+    'export const View = () => (',
+    "  <View style={{ padding: rnSpacing.xl, gap: rnSpacing['sm'], margin: rnSpacingFor.stack, height: toRpx(rnSpacing.md) }} />",
+    ')',
+  ].join('\n')
+  const t0 = performance.now()
+  const g = src.readGeometry(file, 'rn', spTiers)
+  const dt = performance.now() - t0
+  assert.ok(dt < 200, `病理输入用时 ${dt.toFixed(0)}ms —— 回溯型正则回潮(2026-10-27 实测:单样本冻结 >2 分钟)`)
+  assert.ok(g.values.has(20) && g.values.has(8) && g.values.has(16), `裸成员入账错:${JSON.stringify([...g.values])}`)
+  assert.equal(g.values.has(12), false, 'toRpx 包住的 md 被计入')
+})
+
+test('C13 档表读不到的成员 ⇒ 报名未判定,不静默入账(§0.3 没判不写判过)', () => {
+  const file = [
+    "import { rnSpacing } from '@ihui/design-tokens'",
+    'export const S = { a: { padding: rnSpacing.renamedYesterday } }',
+  ].join('\n')
+  const g = src.readGeometry(file, 'rn', spTiers)
+  assert.equal(g.values.has(0), false, '读不到的成员被记 0 入账')
+  assert.ok(
+    g.unreadable.some((u) => String(u.raw).includes('rnSpacing.renamedYesterday') && u.px === null && u.why),
+    `未判定没点名:${JSON.stringify(g.unreadable)}`,
   )
 })
 

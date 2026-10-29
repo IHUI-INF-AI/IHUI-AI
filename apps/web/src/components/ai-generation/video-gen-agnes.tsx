@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 
 // Agnes 视频模型(2026-10-10 /v1/models 实测仅 2.5 系列 2 个,v2.0 已下架;默认 agnes-video-2.5-flash 最新)
@@ -68,11 +68,12 @@ export function VideoGenAgnes() {
             image?: string
           },
     ) => {
-      const res = await api<{ taskId: string; status: string }>('/api/ai/agnes/video', {
+      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/agnes/video', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      return res
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: (data) => {
       setTaskId(data.taskId)
@@ -84,8 +85,9 @@ export function VideoGenAgnes() {
   const { data: task } = useQuery({
     queryKey: ['ai-task', taskId],
     queryFn: async () => {
-      const res = await api<AsyncTask>(`/api/ai/agnes/video/tasks/${taskId}`)
-      return res
+      const res = await fetchApi<AsyncTask>(`/api/ai/agnes/video/tasks/${taskId}`)
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     enabled: !!taskId,
     refetchInterval: (query) => {

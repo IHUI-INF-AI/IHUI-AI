@@ -315,7 +315,7 @@ function ensureDevEnvGitBoundary(root) {
 
 export function mkScratch(prefix) {
   const root = scratchRoot()
-  if (!isAllowedScratchRoot(root)) {
+  if (isInsideRepo(root) && !isApprovedDevEnvRoot(root)) {
     throw new Error(`scratch 落点不得在仓库树内: ${root}`)
   }
   // G-286:嵌套守卫必须在 mkdir 之前 —— 抛错本身就是结论,不得先建目录再报。

@@ -46,7 +46,6 @@ from typing import Any, cast
 
 from app.core.config import settings
 
-from ..core.background_tasks import spawn
 from ._load_lifecycle import (
     DECISION_BACKOFF as _DECISION_BACKOFF,
 )
@@ -595,7 +594,8 @@ class HookEngine:
     def _schedule_persist_hooks(self) -> None:
         """调度异步持久化(fire-and-forget,无事件循环时跳过)。"""
         try:
-            spawn(self._persist_hooks())
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._persist_hooks())
         except RuntimeError:
             # 没有运行中的事件循环(如模块加载时),跳过
             pass
@@ -603,7 +603,8 @@ class HookEngine:
     def _schedule_persist_log(self, hook_id: str, log_entry: dict[str, Any]) -> None:
         """调度异步日志持久化(fire-and-forget)。"""
         try:
-            spawn(self._persist_log(hook_id, log_entry))
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._persist_log(hook_id, log_entry))
         except RuntimeError:
             pass
 
@@ -1407,7 +1408,8 @@ class HookEngine:
                 from .orchestration_hub import orchestration_hub
                 severity = "warning" if status == "degraded" else "critical"
                 try:
-                    spawn(orchestration_hub.emit(
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(orchestration_hub.emit(
                         event_type="hook.health_degraded",
                         source_pillar="hook",
                         payload={

@@ -114,6 +114,16 @@ import {
   PIN_BEGIN,
   PIN_END,
 } from './lib/generated-input-pin.mjs'
+// 离线包输入清单的唯一构造规则(与生成器同一份 —— 两处各列一遍必然漂,2026-10-27 就漂过一回)
+import {
+  MESSAGES_REL,
+  baseSourceRel,
+  bundleInputRels,
+  carriedSourceRel,
+  overrideSourceRel,
+} from './lib/i18n-bundle-inputs.mjs'
+// 「盘上那份能不能覆盖」的三态判别也只有一份(lib/derived-copy-state.mjs)—— 写回档与检出档共用
+import { classifyCopyDelta, mayOverwrite } from './lib/derived-copy-state.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -124,7 +134,7 @@ const ICON_REGISTRY = `${APP}/src/components/LineIcon/icons.ts`
 const ICON_ASSET_DIR = `${APP}/src/static/images/icons`
 const TABBAR_ASSET_DIR = `${APP}/src/assets/tabbar`
 const TABBAR_GENERATOR = `${APP}/scripts/gen-tabbar-icons.mjs`
-const MESSAGE_ROOT = 'packages/i18n/messages'
+const MESSAGE_ROOT = MESSAGES_REL
 const REMOTE_LOCALES = ['en', 'ja', 'ko', 'zh-TW']
 
 /* ── G-816040:四端「AI 可导航路由」产物的生成器直接输入 ── */
@@ -344,10 +354,10 @@ function decodeBundle(bundleText) {
   return out
 }
 
-/** 源侧:shared ⊕ miniapp-taro 两份 JSON 合并后的叶子键值 */
+/** 源侧:shared ⊕ miniapp-taro 两份 JSON 合并后的叶子键值(离线包的前两层输入) */
 function readSourceLeaves(reader, locale) {
-  const sharedRel = `${MESSAGE_ROOT}/shared/${locale}.json`
-  const miniRel = `${MESSAGE_ROOT}/miniapp-taro/${locale}.json`
+  const sharedRel = baseSourceRel(locale)
+  const miniRel = overrideSourceRel(locale)
   const read = (rel) => {
     if (!reader.has(rel)) return null
     const t = reader.read(rel)
@@ -364,22 +374,41 @@ function readSourceLeaves(reader, locale) {
   return leafMap(mergeMessages(shared ?? {}, mini ?? {}))
 }
 
+/**
+ * 承载层(mobile-rn 词包)的叶子键集 —— **只用来把「合法的承载补键」从 B3 孤儿里摘出去**。
+ * 分工是有意为之:本门判"产物对不对得起端内两层源 + 钉",而"哪些可达键真的必须进包"由门 251 C10
+ * 用同一把闭包尺(lib/rn-carried-keys.mjs)判 —— 在这里重算一遍闭包就是第二份实现(§0.6),
+ * 而把整张 RN 词包当 B2 的分母更错:那会把"可达集之外的 RN 键"报成缺键,造一台假红门(§12e)。
+ * 取不到(面上没有 RN 词包)⇒ null ⇒ 退回两层口径,不猜。
+ */
+function readCarriedLeafKeys(reader, locale) {
+  const rel = carriedSourceRel(locale)
+  if (!reader.has(rel)) return null
+  const t = reader.read(rel)
+  if (t === null) return null
+  try {
+    return new Set(Object.keys(leafMap(JSON.parse(t))))
+  } catch {
+    return null // 词包坏了是词包自己的事;本门不因此把承载补键判成孤儿
+  }
+}
+
 /* ───────────────── G-680 生成物自述钉(离线包) ───────────────── */
 
 /**
- * 钉的输入清单:必须与生成器实际读的那 8 份**逐字同集**(路径同、无多无少)。
- * 两侧共用 lib/generated-input-pin.mjs 这一份哈希实现与字节归一 —— 门与生成器各算一遍必然漂,
- * 而漂出来的红比漏判更难查(本仓"两处算同一 key 必须共用一份实现"同型)。
+ * 钉的输入清单:必须与生成器实际读的**逐字同集**(路径同、无多无少)。
+ * 清单构造取自 lib/i18n-bundle-inputs.mjs 这一份规则(§0.6 单一真相源)——
+ * 2026-10-27 实测:承载层(mobile-rn 词包)加进生成器时门没跟,门按两层现算,
+ * 于是钉里那 4 条被报成「面上 ABSENT」⇒ 一台在完好仓库上无事可判的恒红门(§12e)。
+ * 两侧还共用 lib/generated-input-pin.mjs 那一份哈希实现与字节归一。
  * 关键口径:**从门正在审的那个面读**(全量=HEAD blob / --staged=索引 / --worktree=磁盘)。
  * 若清单来自磁盘而内容来自 git,就会产出一把自洽但基准错位的尺子(守门 101/118 同型)。
  */
 function readPinInputs(reader) {
-  return REMOTE_LOCALES.flatMap((locale) =>
-    [`${MESSAGE_ROOT}/shared/${locale}.json`, `${MESSAGE_ROOT}/miniapp-taro/${locale}.json`].map((rel) => ({
-      rel,
-      text: reader.has(rel) ? reader.read(rel) : null,
-    })),
-  )
+  return bundleInputRels(
+    REMOTE_LOCALES,
+    (rel) => reader.has(rel),
+  ).map((rel) => ({ rel, text: reader.has(rel) ? reader.read(rel) : null }))
 }
 
 /**
@@ -389,7 +418,7 @@ function readPinInputs(reader) {
  * 为什么 absent 不判红:HEAD 面上现存那份产物还没有钉,当场 blocking 就是一台
  * 与任何提交都无关的恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门(§12e 同型)。
  */
-function checkBundlePin({ reader, bundleText, push, undetermined, face }) {
+function checkBundlePin({ reader, bundleText, push, undetermined, face, blocking = true }) {
   const pin = parsePin(bundleText)
   if (!pin.present) {
     undetermined.pinState = 'absent'
@@ -415,7 +444,7 @@ function checkBundlePin({ reader, bundleText, push, undetermined, face }) {
   push(
     'G5',
     'missing',
-    true,
+    blocking,
     I18N_BUNDLE,
     `产物自述钉的 inputsSha256=${pin.digest.slice(0, 12)}… 与 ${face}面现算=${computed.digest.slice(0, 12)}… 不等 ⇒ 离线包陈旧(键集合可能一模一样而值是旧的)。不一致的输入:${named}`,
   )
@@ -894,6 +923,20 @@ const UI_ROUTES_ARTIFACTS = [
  * @param {{face:string, root:string, strict:boolean, group:string|null}} opts
  * @returns {{findings:Array, undetermined:Object, counts:Object}}
  */
+/**
+ * 四端 ui-routes 的「面上现算输入哈希」—— 唯一出口。判定档(G5)、写回档(healUiRoutes 的复量)、
+ * 检出档(heal-derived-in-checkout)都问它:两处各算一把尺,漂出来的红比漏判更难查(§0.6/§22c)。
+ * ⚠ 调用方必须先 prefetch(inputRels 补列的那一批),否则 read 返回 null 会被 digestInputs 折成
+ *   'ABSENT' —— 2026-10-27 离线包那一格恒红就是这个同型故障。
+ */
+export function faceDigestOfRels(reader, rels) {
+  return digestInputs(rels.map((rel) => ({ rel, text: reader.has(rel) ? reader.read(rel) : null })))
+}
+
+export function uiRoutesFaceDigest(art, reader) {
+  return faceDigestOfRels(reader, art.inputRels(reader))
+}
+
 function runCheck({ face, root, strict, group }) {
   const reader = makeReader(face, root)
   /** @type {Array<{code:string,dir:'missing'|'orphan'|'unreproducible',blocking:boolean,file:string,detail:string}>} */
@@ -940,10 +983,10 @@ function runCheck({ face, root, strict, group }) {
     ? allFiles.filter((p) => ARTIFACT_DIRS.some((d) => p.startsWith(`${d}/`)))
     : []
   if (!uiRoutesOnly) {
-    const localeRels = REMOTE_LOCALES.flatMap((l) => [
-      `${MESSAGE_ROOT}/shared/${l}.json`,
-      `${MESSAGE_ROOT}/miniapp-taro/${l}.json`,
-    ])
+    // 输入清单取自 lib/i18n-bundle-inputs.mjs 那一条规则(与生成器同一份)——
+    // 此前这里硬列两层,承载层没进 prefetch,于是 git 面 read() 取回 null 被 digestInputs 折成
+    // 'ABSENT',与"文件真不在面上"同形(2026-10-27 实测的正是这一格)。
+    const localeRels = bundleInputRels(REMOTE_LOCALES, (rel) => reader.has(rel))
     const singletonRels = [...new Set([I18N_BUNDLE, ICON_REGISTRY, TABBAR_GENERATOR])].filter((p) =>
       reader.has(p),
     )
@@ -964,7 +1007,10 @@ function runCheck({ face, root, strict, group }) {
     const bundleText = reader.read(I18N_BUNDLE)
     const bundle = decodeBundle(bundleText)
     // G5 自述钉先于逐键对账:钉不等 = 整包按旧输入生成,此时 B2/B3 的"少哪些键"是在拿旧账判新账。
-    checkBundlePin({ reader, bundleText, push, undetermined, face })
+    // 离线包这一维在提交链只拦"本次提交自己动了词包/产物"的那些场合(见 packAccountability 头注)。
+    const packOwn = packAccountability({ face, root, reader })
+    undetermined.packAccountability = packOwn
+    checkBundlePin({ reader, bundleText, push, undetermined, face, blocking: packOwn.blocking })
 
     for (const locale of REMOTE_LOCALES) {
       const src = readSourceLeaves(reader, locale)
@@ -972,17 +1018,18 @@ function runCheck({ face, root, strict, group }) {
       if (src === null) continue
       counts.bundleLocales += 1
       if (art === null) {
-        push('B1', 'missing', true, I18N_BUNDLE, `${locale}:源里有 ${Object.keys(src).length} 个键,离线包整块没有该语言`)
+        push('B1', 'missing', packOwn.blocking, I18N_BUNDLE, `${locale}:源里有 ${Object.keys(src).length} 个键,离线包整块没有该语言`)
         continue
       }
       const missing = Object.keys(src).filter((k) => !(k in art))
-      const orphans = Object.keys(art).filter((k) => !(k in src))
+      const carriedKeys = readCarriedLeafKeys(reader, locale)
+      const orphans = Object.keys(art).filter((k) => !(k in src) && !(carriedKeys && carriedKeys.has(k)))
       const wrongValue = Object.keys(src).filter((k) => k in art && !sameLeafValue(src[k], art[k]))
       if (missing.length) {
-        push('B2', 'missing', true, I18N_BUNDLE, `${locale}:包比源少 ${missing.length} 个键,如 ${missing.slice(0, 3).join(', ')}`)
+        push('B2', 'missing', packOwn.blocking, I18N_BUNDLE, `${locale}:包比源少 ${missing.length} 个键,如 ${missing.slice(0, 3).join(', ')}`)
       }
       if (wrongValue.length) {
-        push('B2', 'missing', true, I18N_BUNDLE, `${locale}:包与源同键但取值不一致 ${wrongValue.length} 个,如 ${wrongValue.slice(0, 3).join(', ')}`)
+        push('B2', 'missing', packOwn.blocking, I18N_BUNDLE, `${locale}:包与源同键但取值不一致 ${wrongValue.length} 个,如 ${wrongValue.slice(0, 3).join(', ')}`)
       }
       if (orphans.length) {
         push('B3', 'orphan', strict, I18N_BUNDLE, `${locale}:包里有 ${orphans.length} 个源已无的键,如 ${orphans.slice(0, 3).join(', ')}`)
@@ -1139,9 +1186,7 @@ function runCheck({ face, root, strict, group }) {
         state.detail = `钉读不出来:${pin.reason}`
         continue
       }
-      const computed = digestInputs(
-        art.inputRels(reader).map((rel) => ({ rel, text: reader.has(rel) ? reader.read(rel) : null })),
-      )
+      const computed = uiRoutesFaceDigest(art, reader)
       if (computed.digest !== pin.digest) {
         state.state = 'stale'
         const diffs = differingInputs(pin, computed.perInput)
@@ -1282,16 +1327,14 @@ function healUiRoutes({ face, root, log = (s) => console.log(s) }) {
     }
     // 输入清单来自同一轮取材(见函数开头的两段式 prefetch),不在这里二次枚举。
     const inputRels = inputSets.get(art.rel)
-    const computed = digestInputs(
-      inputRels.map((rel) => ({ rel, text: reader.has(rel) ? reader.read(rel) : null })),
-    )
+    const computed = faceDigestOfRels(reader, inputRels)
     if (computed.digest === pin.digest) {
       // 幂等锁:第二次跑本档必须一个字节都不写(登记表 failMode=block 的前置依据)。
       row.action = 'clean'
       row.note = `钉已与${face}面现算同值(${computed.digest.slice(0, 12)}…)⇒ 不写回`
       continue
     }
-    // 安全闸①:工作树副本必须与面副本同字节。不同 = 别人正拿着这份产物的在飞改动,门不得覆盖。
+    // 安全闸①:先取盘上那份(下面三态判别要用它比对)。盘上没有 = 有人在删,一律不动。
     const diskText = readWorktreeFile(root, art.rel)
     if (diskText === null) {
       row.action = 'refuse'
@@ -1299,11 +1342,20 @@ function healUiRoutes({ face, root, log = (s) => console.log(s) }) {
       refused += 1
       continue
     }
+    // 盘 ≠ 面时先问"这是谁的现场":三态判别只有一份实现(lib/derived-copy-state.mjs)。
+    // 直接以"≠"让路在本仓等于**永不干活**:旁路落地只推进 HEAD/索引、不写工作树,
+    // 派生件的工作树副本常年是该路径的历史旧版(2026-10-27 实测:守护跑一次 = 已写回 2 / 拒绝 2,
+    // 被拒的正是这两份)。真正要保护的是"别席正写着的内容",那一档才拦。
     if (normalizeInputBytes(diskText) !== normalizeInputBytes(faceText)) {
-      row.action = 'refuse'
-      row.note = `工作树副本 ≠ ${face}面副本 ⇒ 该产物上有别人的在飞改动,门不动它(未写回)`
-      refused += 1
-      continue
+      const delta = classifyCopyDelta({ rel: art.rel, face, root })
+      if (!mayOverwrite(delta)) {
+        row.action = 'refuse'
+        row.note =
+          `工作树副本 ≠ ${face}面副本(${delta.kind}:${delta.why ?? '不同形'})` +
+          '⇒ 该产物上有别人的在飞改动,门不动它(未写回)'
+        refused += 1
+        continue
+      }
     }
     const restore = () => writeFileSync(join(root, art.rel), diskText, 'utf8')
     // 安全闸②:生成器两面都得在位(面上没有 ⇒ cmd 跑到即失败,而不是"当成没有输入")。
@@ -1388,6 +1440,55 @@ function healUiRoutes({ face, root, log = (s) => console.log(s) }) {
   return { rows, code, healed, refused }
 }
 
+/**
+ * 离线包这一维在提交链里只拦"**这一枚提交自己动了词包或产物**"的场合(§12e 差值棘轮同一条口径)。
+ *
+ * 立因(2026-10-27 实测):离线包一次重生成是分钟级(闭包尺要扫 990 枚可达文件),
+ * 而本仓的词包由旁路落地链路(造页闭环腿)持续推进 —— 那条通道不跑钩子,所以"该重跑生成器"这件事
+ * 从来没有一次提交为它负责过;结果 G5/B2 的红挂在**下一枚毫不相干**的提交上,
+ * 而那枚提交的结构位置决定了它无论做什么都修不好(生成器比提交慢,且并发改动一直在追) ——
+ * 与提交内容无关的恒红门,唯一结局是逼人 --no-verify 连带废掉链上全部守门。
+ *
+ * 定级因此按"谁改的词包谁负责"分面:
+ *   · `--staged`(提交链):本次 staged 未碰到任一输入或产物 ⇒ warn(只报数点名,红由守护腿收敛);
+ *     碰过 ⇒ 照旧 blocking(你就是那个把包弄旧的人,必须同轮 `pnpm gen:i18n` 或被本门拦下);
+ *   · 全量档 / CI / 守护:恒 blocking —— CI 上是"交付前必须新"的问责,守护上是"腿有没有干活"的观测。
+ * 判据本身一字未改(同一条钉、同一把哈希),只改**为谁亮红**。
+ *
+ * @returns {{blocking:boolean, reason:string}}
+ */
+export function packAccountability({ face, root, reader }) {
+  if (face !== 'staged') return { blocking: true, reason: `${FACE_LABEL[face]} 档恒 blocking(CI/守护问责面)` }
+  const rels = new Set([...bundleInputRels(REMOTE_LOCALES, (rel) => reader.has(rel)), I18N_BUNDLE, ...GENERATOR_INPUT_HINTS])
+  let staged = []
+  try {
+    staged = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMRD'], root)
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  } catch (e) {
+    // 取不到暂存清单 ⇒ 不猜"没碰":保守按 blocking(失效方向必须是"多拦一次",不是"多放一次",§0.10)
+    return { blocking: true, reason: `暂存清单取不到(${String(e?.message ?? e).slice(0, 60)})⇒ 保守照拦` }
+  }
+  const hit = staged.filter((p) => rels.has(p))
+  return hit.length > 0
+    ? { blocking: true, reason: `本次提交动了离线包的输入/产物:${hit.slice(0, 3).join(', ')}` }
+    : { blocking: false, reason: '本次提交未动词包也未动产物 ⇒ 陈旧由守护检出档腿收敛,不拦无关提交(§12e)' }
+}
+
+/** 产物自己的落点(7 份)+ 生成器本身:动了它们同样要为包的陈旧负责 */
+const GENERATOR_INPUT_HINTS = [
+  'scripts/gen-i18n-compressed.mjs',
+  'scripts/lib/i18n-bundle-inputs.mjs',
+  'scripts/lib/rn-carried-keys.mjs',
+  'apps/miniapp-taro/src/i18n/generated/remote-locale-manifest.gen.ts',
+  'apps/miniapp-taro/src/i18n/generated/zh-cn-pack.gen.ts',
+  'apps/miniapp-taro/src/assets/remote-locales/en.b64.txt',
+  'apps/miniapp-taro/src/assets/remote-locales/ja.b64.txt',
+  'apps/miniapp-taro/src/assets/remote-locales/ko.b64.txt',
+  'apps/miniapp-taro/src/assets/remote-locales/zh-TW.b64.txt',
+]
+
 /* ─────────────────────────── 输出 ─────────────────────────── */
 
 function formatReport(result, face, opts) {
@@ -1423,6 +1524,12 @@ function formatReport(result, face, opts) {
     lines.push('     ⚠️ 未判定 ≠ 通过:产物没记自己从哪份输入生成,陈旧与否无从现算。')
   } else {
     lines.push(`  📌 离线包自述钉(G-680):${result.undetermined.pinState} —— ${result.undetermined.pinDetail}`)
+    // 定级依据必须与结论同屏:同一句"包陈旧",在提交链里可能是 warn(本次没动词包,红由守护腿收敛),
+    // 在 CI/守护档是 blocking(交付前必须新)。不写出为谁亮红,读日志的人就没法判断该不该拦这一枚。
+    if (result.undetermined.packAccountability) {
+      const pa = result.undetermined.packAccountability
+      lines.push(`  📌 离线包红向谁亮:${pa.blocking ? 'blocking' : 'warn'} —— ${pa.reason}`)
+    }
   }
   for (const s of result.undetermined.uiRoutesPins) {
     lines.push(`  📌 四端 ui-routes 自述钉(G-816040) ${s.rel}: ${s.state} —— ${s.detail}`)
@@ -2064,8 +2171,16 @@ export const __test__ = {
   sameLeafValue,
   decodeBundle,
   readSourceLeaves,
+  readCarriedLeafKeys,
   readPinInputs,
   checkBundlePin,
+  // 离线包红的定级依据(提交链只拦"本次自己动了词包"的那一枚)
+  packAccountability,
+  // 输入清单规则的唯一出口(镜像测试按它造夹具,不许在测试里再抄一遍路径 —— §22c)
+  bundleInputRels,
+  baseSourceRel,
+  overrideSourceRel,
+  carriedSourceRel,
   // G-680:钉的实现只有一份,门与生成器都引它 —— 导出给镜像测试做"不得有第二份"的形状锁
   pinKit: { digestInputs, parsePin, renderPin, maskGeneratedAt, PIN_BEGIN },
   assetRefToRepoRel,
@@ -2089,6 +2204,9 @@ export const __test__ = {
   TABBAR_GENERATOR,
   // G-816040:四端 ui-routes 对账规格与其源侧派生件(镜像测试锁形状用)
   UI_ROUTES_ARTIFACTS,
+  // 面上现算输入哈希的唯一出口(写回档/判定档/检出档三处共用)
+  faceDigestOfRels,
+  uiRoutesFaceDigest,
   evalTaroConfigText,
   taroPageList,
   // 四端输入面的锚点:镜像测试的 T21 装车锁要用它们复算真输入清单,再对账登记表的触发面

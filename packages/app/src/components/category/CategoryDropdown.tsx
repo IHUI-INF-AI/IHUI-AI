@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   BackHandler,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -18,9 +19,7 @@ import {
 } from 'react-native'
 import { Check, ChevronDown } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { rnRadius } from '@ihui/design-tokens'
-import { CategoryItemContent, categoryItemA11yLabel } from './category-bar-core'
-import { renderRnCategoryIcon, rnCategoryPrimitives } from './rn-primitives'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { CategoryItem, ColorSchemeName } from './types'
 
 export interface CategoryDropdownProps {
@@ -254,13 +253,14 @@ export function CategoryDropdown({
             ) : (
               items.map((item) => {
                 const active = item.id === selectedId
+                const Icon = item.icon
                 return (
                   <Pressable
                     key={item.id}
                     onPress={() => handleSelect(item.id)}
                     accessibilityRole="menuitem"
                     accessibilityState={{ checked: active }}
-                    accessibilityLabel={categoryItemA11yLabel(item)}
+                    accessibilityLabel={item.a11yLabel ?? item.label}
                   >
                     {({ pressed }) => (
                       <View
@@ -269,21 +269,23 @@ export function CategoryDropdown({
                           pressed ? styles.optionPressed : null,
                         ]}
                       >
-                        {/* 与横滑条同一份条目结构(核心 `CategoryItemContent`):
-                            图标 → 图片 → 文案 → 尾槽;这里只注入 RN 原语与选中勾。 */}
-                        <CategoryItemContent
-                          item={item}
-                          active={active}
-                          primitives={rnCategoryPrimitives}
-                          renderIcon={renderRnCategoryIcon}
-                          defaultIconSize={16}
-                          iconColor={tk.text.primary}
-                          activeIconColor={tk.brandAccent.deep}
-                          textStyle={styles.optionText}
-                          activeTextStyle={[styles.optionText, styles.optionTextActive]}
-                          imageStyle={styles.optionImage}
-                          trailing={active ? <Check size={16} color={tk.brandAccent.deep} /> : null}
-                        />
+                        {Icon ? (
+                          <Icon size={16} color={active ? tk.brandAccent.deep : tk.text.primary} />
+                        ) : item.image ? (
+                          <Image
+                            source={item.image}
+                            style={styles.optionImage}
+                            resizeMode="contain"
+                          />
+                        ) : null}
+                        <Text
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                          style={[styles.optionText, active ? styles.optionTextActive : null]}
+                        >
+                          {item.label}
+                        </Text>
+                        {active ? <Check size={16} color={tk.brandAccent.deep} /> : null}
                       </View>
                     )}
                   </Pressable>
@@ -301,7 +303,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     trigger: {
       height: 36,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -315,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     triggerText: {
       flex: 1,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     triggerTextPlaceholder: {
@@ -324,7 +326,7 @@ function createStyles(tk: AppThemeTokens) {
     countWrap: {
       height: 16,
       minWidth: 16,
-      paddingHorizontal: 4,
+      paddingHorizontal: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       alignItems: 'center',
       justifyContent: 'center',
@@ -354,13 +356,13 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     panelList: {
-      padding: 4,
+      padding: rnSpacing.xs,
       gap: 2,
     },
     panelTitle: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingTop: 6,
-      paddingBottom: 4,
+      paddingBottom: rnSpacing.xs,
       fontSize: 13,
       fontWeight: '600',
       color: tk.text.secondary,
@@ -371,10 +373,10 @@ function createStyles(tk: AppThemeTokens) {
     option: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
       minHeight: 36,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.md,
     },
     optionPressed: {
@@ -385,7 +387,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     optionText: {
       flex: 1,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '400',
       color: tk.text.primary,
     },

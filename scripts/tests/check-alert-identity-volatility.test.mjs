@@ -132,11 +132,7 @@ test('⑤ 量算仪射程:发信台账必须是它的源之一,取不到报 null
   // 落点漂移是最阴的一型:出口往 A 写、量的人读 B ⇒ 双方都"正常",账却是空的。
   const exitSrc = String(headBlob('apps/api/scripts/notify-deploy-failure.ts'))
   const fn = exitSrc.slice(exitSrc.indexOf('function defaultMailSendLedgerPath'), exitSrc.indexOf('function defaultMailSendLedgerPath') + 400)
-  // resolve() 的分段数组写法(…, '.ihui-agent', 'state', …)与斜杠字面量**同义**;
-  // 原判据只认逐字 `.ihui-agent/state`,把跨平台加固的形态读成"落点丢了"⇒ 假红。
-  // 归一化成斜杠路径再判:锁判的是**落点语义**,不是字面量拼法(文件名同形仍由下一臂逐字锁)。
-  const normalized = fn.replace(/'\s*,\s*'/g, '/')
-  assert.match(normalized, /\.ihui-agent\/state/, '出口台账必须落在 .ihui-agent/state/')
+  assert.match(fn, /\.ihui-agent\/state/, '出口台账必须落在 .ihui-agent/state/')
   assert.match(fn, /mail-send-ledger\.jsonl/, '出口写的文件名必须与量算仪读的那个逐字相同')
   assert.match(String(src), /join\(ROOT,\s*'\.ihui-agent',\s*'state',\s*'mail-send-ledger\.jsonl'\)/, '量算仪那一侧的落点字面量必须同形')
 })

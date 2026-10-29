@@ -35,7 +35,17 @@ vi.mock('expo-audio', () => ({
 // active-tokens 引 react-native-restart 这一条**不再在本文件 vi.mock**:2026-09-25 起由
 // vitest.config.ts 的 alias → tests/__mocks__/react-native-restart.ts 在配置层收口。
 // 留在这里就是"逐套件打补丁"那一型(每新触到 active-tokens 的套件都得各抄一份,漏一个即再破)。
-
+// RN 替身的 Platform 没有 select(屏文件 StyleSheet 顶层用 Platform.select 取等宽字体,
+// HEAD 即如此,只是此前没有测试 import 过本屏)。在替身对象上补一个 select,不改动共享 mock 文件。
+vi.mock('react-native', async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>()
+  const platform = mod['Platform'] as Record<string, unknown> | undefined
+  if (platform && typeof platform.select !== 'function') {
+    platform.select = (spec: Record<string, unknown>) =>
+      'web' in spec ? spec['web'] : (spec['android'] ?? Object.values(spec)[0])
+  }
+  return mod
+})
 // @react-navigation/native 真实包引 Platform.select(RN 替身没有)——与 agent-screen.test.tsx 同法截断
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({

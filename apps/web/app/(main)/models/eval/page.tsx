@@ -189,225 +189,229 @@ export default function EvalPage() {
       {!allow ? (
         <AuthGatePrompt message="请先登录后查看评测数据" />
       ) : (
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="datasets" className="gap-1.5">
-            <Database className="h-4 w-4" />
-            {t('eval.tabs.datasets')}
-          </TabsTrigger>
-          <TabsTrigger value="runs" className="gap-1.5">
-            <FlaskConical className="h-4 w-4" />
-            {t('eval.tabs.runs')}
-          </TabsTrigger>
-        </TabsList>
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList>
+            <TabsTrigger value="datasets" className="gap-1.5">
+              <Database className="h-4 w-4" />
+              {t('eval.tabs.datasets')}
+            </TabsTrigger>
+            <TabsTrigger value="runs" className="gap-1.5">
+              <FlaskConical className="h-4 w-4" />
+              {t('eval.tabs.runs')}
+            </TabsTrigger>
+          </TabsList>
 
-        {/* ========== DATASETS TAB ========== */}
-        <TabsContent value="datasets" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">{t('eval.datasets.title')}</h2>
-            <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-3.5 w-3.5" />
-              {t('eval.datasets.create')}
-            </Button>
-          </div>
+          {/* ========== DATASETS TAB ========== */}
+          <TabsContent value="datasets" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">{t('eval.datasets.title')}</h2>
+              <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-3.5 w-3.5" />
+                {t('eval.datasets.create')}
+              </Button>
+            </div>
 
-          <Card>
-            <CardContent className="px-0">
-              {datasetsQ.isLoading ? (
-                <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t('eval.datasets.loading')}
-                </div>
-              ) : datasetsQ.isError ? (
-                <div className="flex flex-col items-center gap-2 py-10 text-center">
-                  <p className="text-sm text-destructive">
-                    {datasetsQ.error instanceof Error
-                      ? datasetsQ.error.message
-                      : t('eval.datasets.messages.createFailed')}
-                  </p>
-                  <Button variant="outline" size="sm" onClick={() => datasetsQ.refetch()}>
-                    {t('retry')}
-                  </Button>
-                </div>
-              ) : datasets.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-10 text-center">
-                  <Database className="h-8 w-8 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{t('eval.datasets.empty')}</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    onClick={() => setCreateOpen(true)}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    {t('eval.datasets.create')}
-                  </Button>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-muted-foreground">
-                        <th className="px-4 py-2 font-medium">{t('eval.datasets.table.name')}</th>
-                        <th className="px-4 py-2 font-medium">
-                          {t('eval.datasets.table.description')}
-                        </th>
-                        <th className="px-4 py-2 font-medium">{t('eval.datasets.table.items')}</th>
-                        <th className="px-4 py-2 font-medium">
-                          {t('eval.datasets.table.createdAt')}
-                        </th>
-                        <th className="px-4 py-2 text-right font-medium">
-                          {t('eval.datasets.table.actions')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {datasets.map((ds: Dataset) => (
-                        <tr key={ds.name} className="text-xs hover:bg-muted/30">
-                          <td className="px-4 py-2.5 font-medium">{ds.name}</td>
-                          <td className="px-4 py-2.5 text-muted-foreground">
-                            {ds.description || '—'}
-                          </td>
-                          <td className="px-4 py-2.5 tabular-nums">
-                            {ds.item_count ?? ds.items.length}
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground">
-                            {ds.created_at ? timeFmt(ds.created_at) : '—'}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                onClick={() => setViewDataset(ds)}
-                                aria-label={t('eval.datasets.view')}
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => setDeleteName(ds.name)}
-                                aria-label={t('eval.datasets.delete')}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </td>
+            <Card>
+              <CardContent className="px-0">
+                {datasetsQ.isLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('eval.datasets.loading')}
+                  </div>
+                ) : datasetsQ.isError ? (
+                  <div className="flex flex-col items-center gap-2 py-10 text-center">
+                    <p className="text-sm text-destructive">
+                      {datasetsQ.error instanceof Error
+                        ? datasetsQ.error.message
+                        : t('eval.datasets.messages.createFailed')}
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => datasetsQ.refetch()}>
+                      {t('retry')}
+                    </Button>
+                  </div>
+                ) : datasets.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-10 text-center">
+                    <Database className="h-8 w-8 text-muted-foreground/40" />
+                    <p className="text-sm text-muted-foreground">{t('eval.datasets.empty')}</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => setCreateOpen(true)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {t('eval.datasets.create')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-muted-foreground">
+                          <th className="px-4 py-2 font-medium">{t('eval.datasets.table.name')}</th>
+                          <th className="px-4 py-2 font-medium">
+                            {t('eval.datasets.table.description')}
+                          </th>
+                          <th className="px-4 py-2 font-medium">
+                            {t('eval.datasets.table.items')}
+                          </th>
+                          <th className="px-4 py-2 font-medium">
+                            {t('eval.datasets.table.createdAt')}
+                          </th>
+                          <th className="px-4 py-2 text-right font-medium">
+                            {t('eval.datasets.table.actions')}
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                      </thead>
+                      <tbody>
+                        {datasets.map((ds: Dataset) => (
+                          <tr key={ds.name} className="text-xs hover:bg-muted/30">
+                            <td className="px-4 py-2.5 font-medium">{ds.name}</td>
+                            <td className="px-4 py-2.5 text-muted-foreground">
+                              {ds.description || '—'}
+                            </td>
+                            <td className="px-4 py-2.5 tabular-nums">
+                              {ds.item_count ?? ds.items.length}
+                            </td>
+                            <td className="px-4 py-2.5 text-muted-foreground">
+                              {ds.created_at ? timeFmt(ds.created_at) : '—'}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  onClick={() => setViewDataset(ds)}
+                                  aria-label={t('eval.datasets.view')}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setDeleteName(ds.name)}
+                                  aria-label={t('eval.datasets.delete')}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        {/* ========== RUNS TAB ========== */}
-        <TabsContent value="runs" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">{t('eval.runs.title')}</h2>
-            <Button size="sm" className="gap-1.5" onClick={() => setCreateRunOpen(true)}>
-              <Play className="h-3.5 w-3.5" />
-              {t('eval.runs.create')}
-            </Button>
-          </div>
+          {/* ========== RUNS TAB ========== */}
+          <TabsContent value="runs" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">{t('eval.runs.title')}</h2>
+              <Button size="sm" className="gap-1.5" onClick={() => setCreateRunOpen(true)}>
+                <Play className="h-3.5 w-3.5" />
+                {t('eval.runs.create')}
+              </Button>
+            </div>
 
-          <Card>
-            <CardContent className="px-0">
-              {runsQ.isLoading ? (
-                <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t('eval.runs.loading')}
-                </div>
-              ) : runsQ.isError ? (
-                <div className="flex flex-col items-center gap-2 py-10 text-center">
-                  <p className="text-sm text-destructive">
-                    {runsQ.error instanceof Error
-                      ? runsQ.error.message
-                      : t('eval.runs.messages.loadFailed')}
-                  </p>
-                  <Button variant="outline" size="sm" onClick={() => runsQ.refetch()}>
-                    {t('retry')}
-                  </Button>
-                </div>
-              ) : runs.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-10 text-center">
-                  <FlaskConical className="h-8 w-8 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{t('eval.runs.empty')}</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    onClick={() => setCreateRunOpen(true)}
-                  >
-                    <Play className="h-3.5 w-3.5" />
-                    {t('eval.runs.create')}
-                  </Button>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-muted-foreground">
-                        <th className="px-4 py-2 font-medium">{t('eval.runs.table.id')}</th>
-                        <th className="px-4 py-2 font-medium">{t('eval.runs.table.dataset')}</th>
-                        <th className="px-4 py-2 font-medium">{t('eval.runs.table.model')}</th>
-                        <th className="px-4 py-2 font-medium">{t('eval.runs.table.prompt')}</th>
-                        <th className="px-4 py-2 font-medium">{t('eval.runs.table.avgScore')}</th>
-                        <th className="px-4 py-2 font-medium">{t('eval.runs.table.duration')}</th>
-                        <th className="px-4 py-2 font-medium">{t('eval.runs.table.createdAt')}</th>
-                        <th className="px-4 py-2 text-right font-medium">
-                          {t('eval.runs.table.actions')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {runs.map((run: EvalRun) => (
-                        <tr key={run.id} className="text-xs hover:bg-muted/30">
-                          <td className="px-4 py-2.5 font-mono text-muted-foreground">
-                            {run.id.slice(0, 8)}
-                          </td>
-                          <td className="px-4 py-2.5 font-medium">{run.dataset_name}</td>
-                          <td className="px-4 py-2.5">{run.model}</td>
-                          <td className="px-4 py-2.5 text-muted-foreground">{run.prompt_name}</td>
-                          <td className="px-4 py-2.5">
-                            <span
-                              className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium ${scoreCls(run.avg_score)}`}
-                            >
-                              {(run.avg_score * 100).toFixed(0)}%
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 tabular-nums text-muted-foreground">
-                            {durationFmt(run.total_duration_ms)}
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground">
-                            {timeFmt(run.created_at)}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                onClick={() => setViewRun(run)}
-                                aria-label={t('eval.runs.view')}
-                              >
-                                <BarChart3 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </td>
+            <Card>
+              <CardContent className="px-0">
+                {runsQ.isLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('eval.runs.loading')}
+                  </div>
+                ) : runsQ.isError ? (
+                  <div className="flex flex-col items-center gap-2 py-10 text-center">
+                    <p className="text-sm text-destructive">
+                      {runsQ.error instanceof Error
+                        ? runsQ.error.message
+                        : t('eval.runs.messages.loadFailed')}
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => runsQ.refetch()}>
+                      {t('retry')}
+                    </Button>
+                  </div>
+                ) : runs.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-10 text-center">
+                    <FlaskConical className="h-8 w-8 text-muted-foreground/40" />
+                    <p className="text-sm text-muted-foreground">{t('eval.runs.empty')}</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => setCreateRunOpen(true)}
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                      {t('eval.runs.create')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-muted-foreground">
+                          <th className="px-4 py-2 font-medium">{t('eval.runs.table.id')}</th>
+                          <th className="px-4 py-2 font-medium">{t('eval.runs.table.dataset')}</th>
+                          <th className="px-4 py-2 font-medium">{t('eval.runs.table.model')}</th>
+                          <th className="px-4 py-2 font-medium">{t('eval.runs.table.prompt')}</th>
+                          <th className="px-4 py-2 font-medium">{t('eval.runs.table.avgScore')}</th>
+                          <th className="px-4 py-2 font-medium">{t('eval.runs.table.duration')}</th>
+                          <th className="px-4 py-2 font-medium">
+                            {t('eval.runs.table.createdAt')}
+                          </th>
+                          <th className="px-4 py-2 text-right font-medium">
+                            {t('eval.runs.table.actions')}
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                      </thead>
+                      <tbody>
+                        {runs.map((run: EvalRun) => (
+                          <tr key={run.id} className="text-xs hover:bg-muted/30">
+                            <td className="px-4 py-2.5 font-mono text-muted-foreground">
+                              {run.id.slice(0, 8)}
+                            </td>
+                            <td className="px-4 py-2.5 font-medium">{run.dataset_name}</td>
+                            <td className="px-4 py-2.5">{run.model}</td>
+                            <td className="px-4 py-2.5 text-muted-foreground">{run.prompt_name}</td>
+                            <td className="px-4 py-2.5">
+                              <span
+                                className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium ${scoreCls(run.avg_score)}`}
+                              >
+                                {(run.avg_score * 100).toFixed(0)}%
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 tabular-nums text-muted-foreground">
+                              {durationFmt(run.total_duration_ms)}
+                            </td>
+                            <td className="px-4 py-2.5 text-muted-foreground">
+                              {timeFmt(run.created_at)}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  onClick={() => setViewRun(run)}
+                                  aria-label={t('eval.runs.view')}
+                                >
+                                  <BarChart3 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       )}
 
       {/* ========== CREATE DATASET DIALOG ========== */}
@@ -892,7 +896,7 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
               <h4 className="mb-2 text-xs font-medium text-muted-foreground">
                 {t('eval.runs.detail.summary')}
               </h4>
-              <div className="grid grid-cols-2 gap-4 tablet:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
                   <p className="text-[10px] text-muted-foreground">
                     {t('eval.runs.detail.avgScore')}

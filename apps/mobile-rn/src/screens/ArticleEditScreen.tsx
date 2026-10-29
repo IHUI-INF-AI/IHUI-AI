@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -224,23 +224,28 @@ export default function ArticleEditScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 16, gap: 6, paddingBottom: 40 },
-    label: { fontSize: 14, color: tokens.text.secondary, marginTop: 10 },
+    body: { padding: rnSpacing.lg, gap: 6, paddingBottom: rnSpacing['4xl'] },
+    label: { fontSize: rnType.body.size, color: tokens.text.secondary, marginTop: 10 },
     input: {
       height: 44,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       backgroundColor: tokens.surface.card,
     },
-    contentInput: { height: 220, paddingTop: 12, paddingBottom: 12, textAlignVertical: 'top' },
+    contentInput: {
+      height: 220,
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing.md,
+      textAlignVertical: 'top',
+    },
     summaryInput: { height: 78, paddingTop: 10, paddingBottom: 10, textAlignVertical: 'top' },
-    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm, marginTop: rnSpacing.sm },
     chip: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 7,
       borderRadius: rnRadius.md,
       borderWidth: 1,
@@ -270,16 +275,20 @@ function makeStyles() {
     },
     submit: {
       height: 46,
-      marginTop: 20,
+      marginTop: rnSpacing.xl,
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
     submitDisabled: { opacity: 0.5 },
-    submitText: { fontSize: 16, fontWeight: '600', color: tokens.brand.ctaForeground },
-    muted: { fontSize: 14, color: tokens.text.secondary },
-    errorText: { fontSize: 14, color: tokens.danger.DEFAULT },
+    submitText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
+    muted: { fontSize: rnType.body.size, color: tokens.text.secondary },
+    errorText: { fontSize: rnType.body.size, color: tokens.danger.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

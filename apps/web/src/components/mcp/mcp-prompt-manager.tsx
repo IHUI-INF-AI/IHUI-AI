@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 
 import { McpResultPreview } from './mcp-result-preview'
 import { type McpToolParameter, McpToolParameterForm } from './mcp-tool-parameter-form'
@@ -56,16 +56,23 @@ export function McpPromptManager() {
   const { data: prompts, isLoading } = useQuery({
     queryKey: ['mcp', 'prompts'],
     queryFn: async () => {
-      return api<McpPrompt[]>('/api/ai/mcp/prompts')
+      const res = await fetchApi<McpPrompt[]>('/api/ai/mcp/prompts')
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
   })
 
   const execMutation = useMutation({
     mutationFn: async (input: { name: string; args: Record<string, unknown> }) => {
-      return api<unknown>(`/api/ai/mcp/prompts/${encodeURIComponent(input.name)}/execute`, {
-        method: 'POST',
-        body: JSON.stringify(input.args),
-      })
+      const res = await fetchApi<unknown>(
+        `/api/ai/mcp/prompts/${encodeURIComponent(input.name)}/execute`,
+        {
+          method: 'POST',
+          body: JSON.stringify(input.args),
+        },
+      )
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onError: (err: Error) => toast.error(err.message),
   })

@@ -9,6 +9,7 @@
  * SideMenu 是轻量级菜单列表(仅 key+label+icon)。
  * 平台特有:依赖 react-native Modal + Animated,不适合共享层。
  */
+import { rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { useEffect, useRef } from 'react'
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -118,30 +119,30 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: rnCssLight.black50,
   },
   container: {
     width: 220,
     backgroundColor: tk.surface.card,
     borderLeftWidth: 0,
-    paddingHorizontal: 12,
-    paddingBottom: 16,
+    paddingHorizontal: rnSpacing.md,
+    paddingBottom: rnSpacing.lg,
   },
   title: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tk.text.tertiary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    gap: 12,
+    paddingVertical: rnSpacing.md,
+    paddingHorizontal: rnSpacing.md,
+    gap: rnSpacing.md,
   },
   // 面层:撑满外框内容盒,横排与间距逐字承接 item 的声明,按压态只落在这一层。
   itemFace: {
@@ -149,14 +150,14 @@ const styles = StyleSheet.create({
     height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: rnSpacing.md,
   },
   icon: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     lineHeight: 20,
   },
   label: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     flex: 1,
   },
   labelActive: {

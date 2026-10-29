@@ -11,6 +11,25 @@ vi.mock('@ihui/api-client', () => ({
   executeAgentRuntimeStream: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('react-native', () => {
+  const mk = (name: string) =>
+    function MockComp(props: { children?: ReactNode }) {
+      return createElement(name, props, props.children)
+    }
+  return {
+    // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
+    // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
+    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    DevSettings: { reload: () => {} },
+    View: mk('View'),
+    Text: mk('Text'),
+    TextInput: mk('TextInput'),
+    Pressable: mk('Pressable'),
+    ScrollView: mk('ScrollView'),
+    ActivityIndicator: mk('ActivityIndicator'),
+  }
+})
+
 vi.mock('@ihui/ui-native', () => ({
   Input: (props: { value?: string; placeholder?: string; [k: string]: unknown }) =>
     createElement('input', { value: props.value ?? '', placeholder: props.placeholder }),

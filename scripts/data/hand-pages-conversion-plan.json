@@ -1,0 +1,898 @@
+[
+  {
+    "route": "pkg-about/about/index",
+    "spec": "packages/app/src/features/about/AboutScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateBack", "Taro.navigateTo", "Taro.showToast", "Taro.switchTab"],
+    "hooks": ["useDidShow"],
+    "lines": 241,
+    "reason": "共享屏 217 行已覆盖端内页 241 行内容面（端内多出业务键 3 个）；端内独有符号 [@/api, @/constants/web-portal, @/pages/webview/index, Taro.navigateTo, Taro.showToast, Taro.switchTab, useDidShow] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <AboutScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；3 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-ai/ai/agent-detail",
+    "spec": "packages/app/src/features/agent-detail/AgentDetailScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": [
+      "Taro.getStorageSync",
+      "Taro.navigateTo",
+      "Taro.redirectTo",
+      "Taro.setStorageSync",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow", "useRouter"],
+    "lines": 625,
+    "reason": "共享屏 146 行 vs 端内页 625 行（占 23%），端内页 56 个业务文案键在共享屏无对应（ai.agentList.categories.office, aiAgent.d1, aiAgent.d2, messageInput.document …）；端内数据腿 [key, cat, agent, permission, permLoading, tab, useCount, category] ⇒ 重写/新建 AgentDetailScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-ai/ai/agent",
+    "spec": "packages/app/src/features/agent-screen/AgentScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": ["Taro.getStorageSync", "Taro.navigateTo"],
+    "hooks": ["useDidShow"],
+    "lines": 577,
+    "reason": "共享屏 307 行 vs 端内页 577 行（占 53%），端内页 60 个业务文案键在共享屏无对应（ai.agentList.categories.office, aiAgent.d1, aiAgent.d2, messageInput.document …）；端内数据腿 [key, list, keyword, loading, activeType, activeCategory, showConfig, sortKey] ⇒ 补全 AgentScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-ai/ai-assistant-n8n/index",
+    "spec": "packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx",
+    "kind": "D_undetermined",
+    "taroApis": ["Taro.navigateTo", "Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 165,
+    "reason": "依赖不清：共享屏 AiAssistantN8nScreen 403 行两端都无人渲染 —— RN 壳 AiAssistantN8nScreen.tsx 2481 行自建流式会话，@ihui/rn-app 仅出现在注释(:30)，未 import 共享屏；端内页 165 行也自写。转壳前须先定「哪一端是这一屏的真相源」"
+  },
+  {
+    "route": "pkg-ai/ai-assistant/index",
+    "spec": "packages/app/src/features/ai-assistant/AiAssistantScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.navigateBack",
+      "Taro.navigateTo",
+      "Taro.previewImage",
+      "Taro.setClipboardData",
+      "Taro.setNavigationBarTitle",
+      "Taro.showModal",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow", "useRouter", "useShareAppMessage"],
+    "lines": 423,
+    "reason": "共享屏 257 行已覆盖端内页 423 行内容面（端内多出业务键 27 个）；端内独有符号 [@/api, @/components/BackChevron, @/utils/auth, Taro.navigateTo, Taro.previewImage, Taro.setClipboardData, Taro.setNavigationBarTitle, Taro.showToast] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <AiAssistantScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 27 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-ai/aigc/list",
+    "spec": "packages/app/src/features/aigc-list/AigcListScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.InnerAudioContext",
+      "Taro.createInnerAudioContext",
+      "Taro.previewImage",
+      "Taro.showToast",
+      "Taro.stopPullDownRefresh"
+    ],
+    "hooks": ["usePullDownRefresh", "useReachBottom"],
+    "lines": 419,
+    "reason": "共享屏 287 行已覆盖端内页 419 行内容面（端内多出业务键 10 个）；端内独有宿主 API [Taro.createInnerAudioContext]，另有 [@/api, Taro.InnerAudioContext, Taro.previewImage, Taro.showToast, useWaterfall]；转壳时须由端内薄壳注入到共享屏对应回调腿（无对应腿即能力丢失，验收必须逐条核对） ⇒ 页面改为渲染 <AigcListScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 10 个键与共享屏键集重叠 5（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-ai/aigc/publish",
+    "spec": "packages/app/src/features/aigc-publish/AigcPublishScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.chooseImage",
+      "Taro.getFileSystemManager",
+      "Taro.hideLoading",
+      "Taro.navigateBack",
+      "Taro.showLoading",
+      "Taro.showToast"
+    ],
+    "hooks": ["useRouter"],
+    "lines": 265,
+    "reason": "共享屏 363 行已覆盖端内页 265 行内容面（端内多出业务键 19 个）；端内独有宿主 API [Taro.chooseImage, Taro.getFileSystemManager]，另有 [@/api, @/lib/ui-field-registry, Taro.hideLoading, Taro.showLoading, Taro.showToast, useRouter]；转壳时须由端内薄壳注入到共享屏对应回调腿（无对应腿即能力丢失，验收必须逐条核对） ⇒ 页面改为渲染 <AigcPublishScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 19 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-ai/ai-group/index",
+    "spec": "packages/app/src/features/ai-group/AiGroupScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo"],
+    "hooks": ["useDidShow"],
+    "lines": 241,
+    "reason": "共享屏 424 行已覆盖端内页 241 行内容面（端内多出业务键 46 个）；端内独有符号 [@/api, Taro.navigateTo, useCount] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <AiGroupScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 46 个键与共享屏键集重叠 2（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-about/about/api-settings/index",
+    "spec": "packages/app/src/features/api-settings/ApiSettingsScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.getStorageSync",
+      "Taro.removeStorageSync",
+      "Taro.setClipboardData",
+      "Taro.setStorageSync",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow"],
+    "lines": 279,
+    "reason": "共享屏 274 行已覆盖端内页 279 行内容面（端内多出业务键 22 个）；端内独有符号 [硬编码正文 138 字不在该屏消费的键下(转壳会丢内容)] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <ApiSettingsScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 22 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-about/about/app-permission/index",
+    "spec": "packages/app/src/features/app-permission/AppPermissionScreen.tsx",
+    "kind": "C_miniapp_only",
+    "taroApis": ["Taro.getSetting", "Taro.openSetting"],
+    "hooks": ["useDidShow"],
+    "lines": 174,
+    "reason": "端内页 174 行按 6 个微信授权 scope（scope.writePhotosAlbum/camera/record/userLocation/notification，app-permission/index.tsx:48-52）调 Taro.getSetting(:66) 读授权态、Taro.openSetting 拉起授权页；授权 scope 是微信宿主私域，RN 无对应 API，共享屏 AppPermissionScreen 122 行只有静态说明卡 ⇒ 端内独有"
+  },
+  {
+    "route": "pkg-content/news/detail",
+    "spec": "packages/app/src/features/article-detail/ArticleDetailScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.getCurrentInstance",
+      "Taro.navigateTo",
+      "Taro.showShareMenu",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow", "useShareAppMessage", "useShareTimeline"],
+    "lines": 241,
+    "reason": "共享屏 107 行已覆盖端内页 241 行内容面（端内多出业务键 8 个）；端内独有符号 [@/api, @/components, Taro.showShareMenu, Taro.showToast, useShareAppMessage, useShareTimeline] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <ArticleDetailScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；8 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-content/news/list",
+    "spec": "packages/app/src/features/article-list/ArticleListScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": [
+      "Taro.getStorageSync",
+      "Taro.navigateTo",
+      "Taro.setStorageSync",
+      "Taro.showToast",
+      "Taro.stopPullDownRefresh"
+    ],
+    "hooks": ["usePullDownRefresh", "useReachBottom"],
+    "lines": 279,
+    "reason": "共享屏 148 行 vs 端内页 279 行（占 53%），端内页 14 个业务文案键在共享屏无对应（news.cat.announce, news.cat.activity, news.cat.tutorial, news.cat.info …）；端内数据腿 [list, loading, keyword, hasMore, activeCategory, readIds] ⇒ 补全 ArticleListScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pages/ask/create",
+    "spec": "packages/app/src/features/ask-create/AskCreateScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": [
+      "Taro.chooseImage",
+      "Taro.getStorageSync",
+      "Taro.navigateBack",
+      "Taro.removeStorageSync",
+      "Taro.setStorageSync",
+      "Taro.showToast"
+    ],
+    "hooks": [],
+    "lines": 358,
+    "reason": "共享屏 146 行 vs 端内页 358 行（占 41%），端内页 27 个业务文案键在共享屏无对应（askCreate.d1, askCreate.d2, pagesindexindex.d11, askCreate.d4 …）；端内数据腿 [form, submitting, showCategorySheet] ⇒ 补全 AskCreateScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pages/ask/detail",
+    "spec": "packages/app/src/features/ask-detail/AskDetailScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.getCurrentInstance", "Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 153,
+    "reason": "共享屏 130 行已覆盖端内页 153 行内容面（端内多出业务键 6 个）；端内独有符号 [@/api, Taro.showToast] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <AskDetailScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；6 个端内文案键需补进词包"
+  },
+  {
+    "route": "pages/ask/list",
+    "spec": "packages/app/src/features/ask-list/AskListScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo"],
+    "hooks": ["useReachBottom"],
+    "lines": 140,
+    "reason": "共享屏 120 行已覆盖端内页 140 行内容面（端内多出业务键 6 个）；端内独有符号 [@/api, useReachBottom] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <AskListScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；6 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-shop/cart/index",
+    "spec": "packages/app/src/features/cart/CartScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.showModal", "Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 230,
+    "reason": "共享屏 205 行已覆盖端内页 230 行内容面（端内多出业务键 6 个）；端内独有符号 [@/api, Taro.showToast] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <CartScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；6 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-user/user/password",
+    "spec": "packages/app/src/features/change-pwd/ChangePwdScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateBack", "Taro.navigateTo", "Taro.showToast"],
+    "hooks": [],
+    "lines": 180,
+    "reason": "共享屏 192 行已覆盖端内页 180 行内容面（端内多出业务键 16 个）；端内独有符号 [硬编码正文 123 字不在该屏消费的键下(转壳会丢内容)] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <ChangePwdScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 16 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-ai/ai/chat",
+    "spec": "packages/app/src/features/chat/ChatScreen.tsx",
+    "kind": "C_miniapp_only",
+    "taroApis": [
+      "Taro.getStorageSync",
+      "Taro.navigateTo",
+      "Taro.offUserCaptureScreen",
+      "Taro.onUserCaptureScreen",
+      "Taro.pageScrollTo",
+      "Taro.removeStorageSync",
+      "Taro.request",
+      "Taro.setClipboardData",
+      "Taro.setStorageSync",
+      "Taro.showActionSheet",
+      "Taro.showModal",
+      "Taro.showShareMenu",
+      "Taro.showToast",
+      "Taro.vibrateShort"
+    ],
+    "hooks": ["useDidHide", "useDidShow", "useRouter", "useShareAppMessage"],
+    "lines": 2246,
+    "reason": "端内页 2246 行：Taro.onUserCaptureScreen/offUserCaptureScreen 截屏监听（chat.tsx:678，命中即 toast ai.screenshotHint）+ Taro.request 流式会话；共享屏 ChatScreen 仅 314 行展示腿（messages/onSend/onStop），RN 壳 ChatScreen.tsx 4409 行另有独立流式实现 ⇒ 端内主路径是宿主截屏+SSE，不共享"
+  },
+  {
+    "route": "pages/circle/create",
+    "spec": "packages/app/src/features/circle-create/CircleCreateScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": [
+      "Taro.chooseImage",
+      "Taro.eventCenter",
+      "Taro.getStorageSync",
+      "Taro.navigateBack",
+      "Taro.navigateTo",
+      "Taro.previewImage",
+      "Taro.removeStorageSync",
+      "Taro.setStorageSync",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow"],
+    "lines": 403,
+    "reason": "共享屏 135 行 vs 端内页 403 行（占 33%），端内页 15 个业务文案键在共享屏无对应（circleCreate.d1, circleCreate.d2, circleCreate.d3, circle.create.contentRequired …）；端内数据腿 [form, hotTopics, aigcWorks, aigcOpen, submitting] ⇒ 补全 CircleCreateScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pages/circle/detail",
+    "spec": "packages/app/src/features/circle-detail/CircleDetailScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": [
+      "Taro.getCurrentInstance",
+      "Taro.navigateTo",
+      "Taro.previewImage",
+      "Taro.setClipboardData",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow"],
+    "lines": 387,
+    "reason": "共享屏 171 行 vs 端内页 387 行（占 44%），端内页 12 个业务文案键在共享屏无对应（circle.detail.followed, circle.detail.unfollowed, circle.detail.shareHint, circle.detail.copied …）；端内数据腿 [data, comments, commentTotal, liked, favorited, following, id, commentText] ⇒ 补全 CircleDetailScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-ai/ai/conversation-import",
+    "spec": "packages/app/src/features/conversation-import/ConversationImportScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.chooseMessageFile",
+      "Taro.navigateBack",
+      "Taro.navigateTo",
+      "Taro.showToast",
+      "Taro.uploadFile"
+    ],
+    "hooks": ["useDidShow"],
+    "lines": 409,
+    "reason": "共享屏 673 行已覆盖端内页 409 行内容面（端内多出业务键 6 个）；端内独有宿主 API [Taro.chooseMessageFile]，另有 [@/components/NavBar]；转壳时须由端内薄壳注入到共享屏对应回调腿（无对应腿即能力丢失，验收必须逐条核对） ⇒ 页面改为渲染 <ConversationImportScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；6 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-learn/course/detail",
+    "spec": "packages/app/src/features/course-detail/CourseDetailScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.showShareMenu", "Taro.showToast"],
+    "hooks": ["useRouter", "useShareAppMessage", "useShareTimeline"],
+    "lines": 348,
+    "reason": "共享屏 210 行已覆盖端内页 348 行内容面（端内多出业务键 24 个）；端内独有符号 [@/api, @/components, Taro.navigateTo, Taro.showShareMenu, Taro.showToast, useShareAppMessage, useShareTimeline] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <CourseDetailScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 24 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-learn/course/list",
+    "spec": "packages/app/src/features/course-tab/CourseTabScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.stopPullDownRefresh"],
+    "hooks": [
+      "usePullDownRefresh",
+      "useReachBottom",
+      "useRouter",
+      "useShareAppMessage",
+      "useShareTimeline"
+    ],
+    "lines": 184,
+    "reason": "共享屏 622 行已覆盖端内页 184 行内容面（端内多出业务键 7 个）；端内独有符号 [@/api, @/components/adapters, Taro.stopPullDownRefresh, usePullDownRefresh, useReachBottom, useRouter, useShareAppMessage, useShareTimeline] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <CourseTabScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；7 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-ai/dev-space/index",
+    "spec": "packages/app/src/features/developer/DeveloperScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.navigateTo",
+      "Taro.setClipboardData",
+      "Taro.setNavigationBarTitle",
+      "Taro.showToast"
+    ],
+    "hooks": [],
+    "lines": 207,
+    "reason": "共享屏 219 行已覆盖端内页 207 行内容面（端内多出业务键 5 个）；端内独有符号 [@/api, Taro.setNavigationBarTitle] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <DeveloperScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；5 个端内文案键需补进词包；登记表 rn 腿错绑 apps/mobile-rn/src/screens/DevEnterCoverScreen.tsx（仅注释提到），真壳 DeveloperScreen.tsx:12 已 import SharedDeveloperScreen"
+  },
+  {
+    "route": "pages/distribution/index",
+    "spec": "packages/app/src/features/distribution/DistributionScreen.tsx",
+    "kind": "C_miniapp_only",
+    "taroApis": [
+      "Taro.hideLoading",
+      "Taro.navigateTo",
+      "Taro.showLoading",
+      "Taro.showToast",
+      "Taro.switchTab"
+    ],
+    "hooks": ["useDidShow"],
+    "lines": 415,
+    "reason": "端内页 415 行用 api.getWxCode 取小程序码（distribution/index.tsx:72）+ saveImageToPhotosAlbum 存相册（:14 引 @/utils/save-album、:92 调用）；小程序码是微信宿主产物，RN 无 wxacode 能力，共享屏 DistributionScreen 只有 info/onWithdraw/onRefresh 三腿 ⇒ 端内独有"
+  },
+  {
+    "route": "pages/distribution/plan/index",
+    "spec": "packages/app/src/features/earn-commission/EarnCommissionScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.showModal"],
+    "hooks": ["useDidShow"],
+    "lines": 122,
+    "reason": "共享屏 228 行已覆盖端内页 122 行内容面（端内多出业务键 14 个）；端内独有符号 [硬编码正文 154 字不在该屏消费的键下(转壳会丢内容)] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <EarnCommissionScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 14 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pages/exam/answer",
+    "spec": "packages/app/src/features/exam-question/ExamQuestionScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.redirectTo", "Taro.showToast"],
+    "hooks": ["useRouter"],
+    "lines": 290,
+    "reason": "共享屏 184 行已覆盖端内页 290 行内容面（端内多出业务键 5 个）；端内独有符号 [@/api, @/lib/ui-field-registry, Taro.showToast, useUiField] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <ExamQuestionScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；5 个端内文案键需补进词包"
+  },
+  {
+    "route": "pages/exam/result",
+    "spec": "packages/app/src/features/exam-result/ExamResultScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": ["Taro.navigateBack", "Taro.redirectTo", "Taro.showShareMenu", "Taro.showToast"],
+    "hooks": ["useRouter", "useShareAppMessage"],
+    "lines": 288,
+    "reason": "共享屏 157 行 vs 端内页 288 行（占 55%），端内页 28 个业务文案键在共享屏无对应（exam.result.loadFailed, exam.result.shareTitle, exam.result.correct, exam.result.correctValue …）；端内数据腿 [info, reviews, loading] ⇒ 补全 ExamResultScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-user/favorites/index",
+    "spec": "packages/app/src/features/favorite/FavoriteScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.navigateTo",
+      "Taro.showModal",
+      "Taro.showToast",
+      "Taro.stopPullDownRefresh",
+      "Taro.switchTab"
+    ],
+    "hooks": ["useDidShow", "usePullDownRefresh", "useReachBottom"],
+    "lines": 351,
+    "reason": "共享屏 244 行已覆盖端内页 351 行内容面（端内多出业务键 18 个）；端内独有符号 [@/api/social, @/hooks/use-social-list, Taro.navigateTo, Taro.showToast, Taro.switchTab, useSocialList] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <FavoriteScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 18 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-user/following/index",
+    "spec": "packages/app/src/features/follow/FollowScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.showModal", "Taro.showToast", "Taro.stopPullDownRefresh", "Taro.switchTab"],
+    "hooks": ["useDidShow", "usePullDownRefresh", "useReachBottom"],
+    "lines": 243,
+    "reason": "共享屏 224 行已覆盖端内页 243 行内容面（端内多出业务键 15 个）；端内独有符号 [@/api/social, @/hooks/use-social-list, Taro.showToast, Taro.switchTab, useSocialList] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <FollowScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 15 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-about/about/help",
+    "spec": "packages/app/src/features/help/HelpScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": ["Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 247,
+    "reason": "共享屏 112 行 vs 端内页 247 行（占 45%），端内页 18 个业务文案键在共享屏无对应（about.help.usernamePlaceholder, about.help.phonePlaceholder, about.help.contextPlaceholder, about.help.nameRequired …）；端内数据腿 [list, keyword, opened, loading, form, feedbackState] ⇒ 补全 HelpScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-about/about/icp-record/index",
+    "spec": "packages/app/src/features/icp-record/IcpRecordScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": ["Taro.navigateTo", "Taro.setClipboardData", "Taro.setNavigationBarTitle"],
+    "hooks": ["useDidShow"],
+    "lines": 106,
+    "reason": "共享屏 60 行 vs 端内页 106 行（占 57%），端内页 15 个业务文案键在共享屏无对应（aboutIcprecord.p1, aboutIcprecord.r1, aboutIcprecord.r2, devEnter.modelEdit.targetGroupEnterprise …）；端内数据腿 [] ⇒ 补全 IcpRecordScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-user/user/realname",
+    "spec": "packages/app/src/features/identity-verify/IdentityVerifyScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": [
+      "Taro.chooseImage",
+      "Taro.hideLoading",
+      "Taro.navigateBack",
+      "Taro.showLoading",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow"],
+    "lines": 290,
+    "reason": "共享屏 152 行 vs 端内页 290 行（占 52%），端内页 26 个业务文案键在共享屏无对应（userRealname.q1, userRealname.q2, user.realname.uploadFailed, user.avatar.chooseFailed …）；端内数据腿 [realName, idCard, frontPhoto, backPhoto, frontUploading, backUploading, submitting, status] ⇒ 补全 IdentityVerifyScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-shop/wallet/commission/index",
+    "spec": "packages/app/src/features/income/IncomeScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo"],
+    "hooks": ["useReachBottom"],
+    "lines": 164,
+    "reason": "共享屏 339 行已覆盖端内页 164 行内容面（端内多出业务键 8 个）；端内独有符号 [@/api, @/components/adapters, Taro.navigateTo, useReachBottom] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <IncomeScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；8 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-learn/learn-develop/index",
+    "spec": "packages/app/src/features/learn-develop/LearnDevelopScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo"],
+    "hooks": ["useDidShow"],
+    "lines": 238,
+    "reason": "共享屏 182 行已覆盖端内页 238 行内容面（端内多出业务键 12 个）；端内独有符号 [@/api, @/constants/icon-urls, Taro.navigateTo, useDidShow, useNum, useNumIcon] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <LearnDevelopScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 12 个键与共享屏键集重叠 1（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-learn/teacher/detail",
+    "spec": "packages/app/src/features/lecturer-detail/LecturerDetailScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.showActionSheet", "Taro.showToast"],
+    "hooks": ["useDidShow", "useRouter"],
+    "lines": 344,
+    "reason": "共享屏 652 行已覆盖端内页 344 行内容面（端内多出业务键 9 个）；端内独有符号 [@/api, Taro.navigateTo, Taro.showActionSheet] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <LecturerDetailScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子"
+  },
+  {
+    "route": "pkg-learn/live/detail",
+    "spec": "packages/app/src/features/live-detail/LiveDetailScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.showToast"],
+    "hooks": ["useRouter", "useShareAppMessage", "useShareTimeline"],
+    "lines": 210,
+    "reason": "共享屏 360 行已覆盖端内页 210 行内容面（端内多出业务键 14 个）；端内独有符号 [@/api, Taro.showToast, useShareAppMessage, useShareTimeline] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <LiveDetailScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 14 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-learn/live/host/index",
+    "spec": "packages/app/src/features/live-host/LiveHostScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.setClipboardData", "Taro.showModal", "Taro.showToast"],
+    "hooks": [],
+    "lines": 284,
+    "reason": "共享屏 328 行已覆盖端内页 284 行内容面（端内多出业务键 20 个）；端内独有符号 [@/utils/api-bridge, Taro.setClipboardData, Taro.showModal, Taro.showToast] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <LiveHostScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 20 个键与共享屏键集重叠 8（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-learn/live/list",
+    "spec": "packages/app/src/features/live-list/LiveListScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.stopPullDownRefresh"],
+    "hooks": ["usePullDownRefresh", "useReachBottom", "useShareAppMessage", "useShareTimeline"],
+    "lines": 215,
+    "reason": "共享屏 186 行已覆盖端内页 215 行内容面（端内多出业务键 7 个）；端内独有符号 [@/api, Taro.navigateTo, useReachBottom, useShareAppMessage, useShareTimeline] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <LiveListScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；7 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-learn/live/history",
+    "spec": "packages/app/src/features/live-playback/LivePlaybackListScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.showToast", "Taro.stopPullDownRefresh"],
+    "hooks": ["usePullDownRefresh", "useReachBottom"],
+    "lines": 207,
+    "reason": "共享屏 120 行已覆盖端内页 207 行内容面（端内多出业务键 8 个）；端内独有符号 [@/api, Taro.showToast, useReachBottom] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <LivePlaybackListScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；8 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-user/message/index",
+    "spec": "packages/app/src/features/message-center/MessageCenterScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": ["Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 510,
+    "reason": "共享屏 288 行 vs 端内页 510 行（占 56%），端内页 33 个业务文案键在共享屏无对应（message.tabs.all, message.tabs.system, message.tabs.interaction, message.tabs.private …）；端内数据腿 [list, loading, keyword, bannerClosed, activeTab, showSettings, selectedPrivate, detailInput] ⇒ 补全 MessageCenterScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-ai/dev-enter/model-edit/index",
+    "spec": "packages/app/src/features/model-edit/ModelEditScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateBack", "Taro.showToast"],
+    "hooks": ["useDidShow", "useRouter"],
+    "lines": 397,
+    "reason": "共享屏 353 行已覆盖端内页 397 行内容面（端内多出业务键 45 个）；端内独有符号 [@/api, @/hooks/use-field-focus, Taro.showToast, useDidShow, useFieldFocus, useRouter] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <ModelEditScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 45 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-ai/developer/income",
+    "spec": "packages/app/src/features/model-income/ModelIncomeScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": [],
+    "hooks": ["useDidShow", "useReachBottom"],
+    "lines": 653,
+    "reason": "共享屏 383 行 vs 端内页 653 行（占 59%），端内页 31 个业务文案键在共享屏无对应（developer.income.noAvailable, developer.income.selectMethod, developer.income.invalidAmount, developer.income.exceedAvailable …）；端内数据腿 [title, settlement, buyInfo, loading, incomeList, page, total, loadingMore] ⇒ 补全 ModelIncomeScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-ai/model-plaza/index",
+    "spec": "packages/app/src/features/model-plaza/ModelPlazaScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.stopPullDownRefresh"],
+    "hooks": ["usePullDownRefresh", "useReachBottom"],
+    "lines": 356,
+    "reason": "共享屏 441 行已覆盖端内页 356 行内容面（端内多出业务键 16 个）；端内独有符号 [@/api, useReachBottom] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <ModelPlazaScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 16 个键与共享屏键集重叠 2（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-ai/dev-enter/n8n-model/index",
+    "spec": "packages/app/src/features/n8n-model/N8nModelScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": [
+      "Taro.chooseMessageFile",
+      "Taro.getFileSystemManager",
+      "Taro.navigateTo",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow"],
+    "lines": 571,
+    "reason": "共享屏 310 行 vs 端内页 571 行（占 54%），端内页 45 个业务文案键在共享屏无对应（aigc.list.catText, deventerN8nmodel.d1, deventerN8nmodel.d2, search.tabs.files …）；端内数据腿 [view, list, loading, avatar, name, description, n8nFileName, n8nFileData] ⇒ 补全 N8nModelScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pages/setting/notification",
+    "spec": "packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx",
+    "kind": "C_miniapp_only",
+    "taroApis": ["Taro.navigateTo", "Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 200,
+    "reason": "端内页 200 行调 requestPushSubscription（notification.tsx:8 引 @/utils/push-init、:87-93 处理订阅结果）；微信订阅消息需模板 ID+用户逐条授权（push-init.ts 头注），RN 侧无此机制，共享屏 NotificationSettingsScreen 148 行只有开关列表 ⇒ 端内独有"
+  },
+  {
+    "route": "pkg-shop/order/detail",
+    "spec": "packages/app/src/features/order-detail/OrderDetailScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.showModal", "Taro.showToast"],
+    "hooks": ["useRouter"],
+    "lines": 191,
+    "reason": "共享屏 105 行已覆盖端内页 191 行内容面（端内多出业务键 13 个）；端内独有符号 [@/api, Taro.navigateTo, Taro.showModal, Taro.showToast] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <OrderDetailScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；登记表 rn 腿错绑 apps/mobile-rn/src/screens/CartScreen.tsx（仅注释提到），真壳 OrderDetailScreen.tsx:13 已 import SharedOrderDetailScreen；该 13 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-shop/order/refund",
+    "spec": "packages/app/src/features/order-refund/OrderRefundScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateBack", "Taro.showToast"],
+    "hooks": ["useRouter"],
+    "lines": 237,
+    "reason": "共享屏 282 行已覆盖端内页 237 行内容面（端内多出业务键 25 个）；端内独有符号 [硬编码正文 129 字不在该屏消费的键下(转壳会丢内容)] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <OrderRefundScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 25 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-shop/order/list",
+    "spec": "packages/app/src/features/order/OrderScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.stopPullDownRefresh"],
+    "hooks": ["useDidShow", "usePullDownRefresh", "useReachBottom"],
+    "lines": 379,
+    "reason": "共享屏 288 行已覆盖端内页 379 行内容面（端内多出业务键 10 个）；端内独有符号 [@/api, Taro.navigateTo] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <OrderScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 10 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-shop/pay/result/index",
+    "spec": "packages/app/src/features/pay-result/PayResultScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.getCurrentInstance",
+      "Taro.navigateBack",
+      "Taro.navigateTo",
+      "Taro.redirectTo",
+      "Taro.switchTab"
+    ],
+    "hooks": [],
+    "lines": 204,
+    "reason": "共享屏 246 行已覆盖端内页 204 行内容面（端内多出业务键 4 个）；端内独有符号 [@/api, Taro.navigateTo, Taro.redirectTo, Taro.switchTab] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <PayResultScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；4 个端内文案键需补进词包"
+  },
+  {
+    "route": "pages/member/integral",
+    "spec": "packages/app/src/features/point-history/PointHistoryScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.showToast", "Taro.stopPullDownRefresh"],
+    "hooks": ["useDidShow", "usePullDownRefresh", "useReachBottom"],
+    "lines": 174,
+    "reason": "共享屏 134 行已覆盖端内页 174 行内容面（端内多出业务键 5 个）；端内独有符号 [@/api, useReachBottom] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <PointHistoryScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；5 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-content/community/create/index",
+    "spec": "packages/app/src/features/post-create/PostCreateScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.getCurrentInstance", "Taro.redirectTo"],
+    "hooks": [],
+    "lines": 238,
+    "reason": "共享屏 136 行已覆盖端内页 238 行内容面（端内多出业务键 2 个）；端内独有符号 [@/lib/ui-field-registry, useUiField] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <PostCreateScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；2 个端内文案键需补进词包"
+  },
+  {
+    "route": "pages/circle/detail",
+    "spec": "packages/app/src/features/post-detail/PostDetailScreen.tsx",
+    "kind": "D_undetermined",
+    "taroApis": [
+      "Taro.getCurrentInstance",
+      "Taro.navigateTo",
+      "Taro.previewImage",
+      "Taro.setClipboardData",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow"],
+    "lines": 387,
+    "reason": "账面 pair 不成立：页面正文只声明 circle-detail/CircleDetailScreen（circle/detail.tsx:5），post-detail 这条来自 pages/circle/detail.css 残留路径被 MARK_RE 命中；页面 387 行是圈子详情（circle.detail.* 12 键），非帖子详情 ⇒ 先删 css 残留再判"
+  },
+  {
+    "route": "pkg-about/about/privacy",
+    "spec": "packages/app/src/features/privacy/PrivacyScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": ["Taro.setNavigationBarTitle"],
+    "hooks": ["useDidShow"],
+    "lines": 591,
+    "reason": "共享屏 34 行 vs 端内页 591 行（占 6%），端内页 125 个业务文案键在共享屏无对应（about.privacy.title, about.privacy.overviewTitle, about.privacy.overviewP1, about.privacy.coreTitle …）；端内数据腿 [] ⇒ 重写/新建 PrivacyScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-user/user/profile",
+    "spec": "packages/app/src/features/profile/ProfileScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.chooseImage",
+      "Taro.hideLoading",
+      "Taro.navigateTo",
+      "Taro.showLoading",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow"],
+    "lines": 216,
+    "reason": "共享屏 215 行已覆盖端内页 216 行内容面（端内多出业务键 25 个）；端内独有宿主 API [Taro.chooseImage]，另有 [@/api, Taro.hideLoading, Taro.showLoading, Taro.showToast]；转壳时须由端内薄壳注入到共享屏对应回调腿（无对应腿即能力丢失，验收必须逐条核对） ⇒ 页面改为渲染 <ProfileScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 25 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-ai/ranking/detail",
+    "spec": "packages/app/src/features/ranking-detail/RankingDetailScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": ["Taro.redirectTo", "Taro.setClipboardData", "Taro.showToast"],
+    "hooks": ["useDidShow", "useRouter"],
+    "lines": 349,
+    "reason": "共享屏 123 行 vs 端内页 349 行（占 35%），端内页 21 个业务文案键在共享屏无对应（developer.index.published, rankingDetail.d1, rankingDetail.d2, ranking.generalHelper …）；端内数据腿 [data, loading, drawerVisible, drawerMode, relatedList] ⇒ 补全 RankingDetailScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-ai/ranking/index",
+    "spec": "packages/app/src/features/ranking/RankingScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.stopPullDownRefresh"],
+    "hooks": ["usePullDownRefresh", "useReachBottom"],
+    "lines": 245,
+    "reason": "共享屏 235 行已覆盖端内页 245 行内容面（端内多出业务键 11 个）；端内独有符号 [@/api, Taro.navigateTo, useReachBottom] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <RankingScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；登记表 rn 腿错绑 apps/mobile-rn/src/screens/RankingDetailScreen.tsx（仅注释提到），真壳 RankingScreen.tsx:11 已 import SharedRankingScreen；该 11 个键与共享屏键集重叠 1（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-shop/order/refund-list",
+    "spec": "packages/app/src/features/refund-history/RefundHistoryScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": ["Taro.navigateTo"],
+    "hooks": ["useDidShow"],
+    "lines": 291,
+    "reason": "共享屏 117 行 vs 端内页 291 行（占 40%），端内页 17 个业务文案键在共享屏无对应（order.refundList.tabAll, order.refundList.tabRefunding, order.refundList.tabRefunded, order.refundList.tabRejected …）；端内数据腿 [rawList, displayList, loading, refreshing, activeTab, expandedId, hasMore] ⇒ 补全 RefundHistoryScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pages/register/index",
+    "spec": "packages/app/src/features/register/RegisterScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.showToast"],
+    "hooks": [],
+    "lines": 230,
+    "reason": "共享屏 320 行已覆盖端内页 230 行内容面（端内多出业务键 15 个）；端内独有符号 [@/api, @/components/AuthButton, @/components/BackChevron, @/components/PasswordVisibilityToggle, @/components/PhoneAreaCodePicker, @/hooks/use-field-focus, @/utils/auth, Taro.showToast] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <RegisterScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 15 个键与共享屏键集重叠 8（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-content/search/index",
+    "spec": "packages/app/src/features/search/SearchScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateBack", "Taro.navigateTo", "Taro.switchTab"],
+    "hooks": [],
+    "lines": 283,
+    "reason": "共享屏 154 行已覆盖端内页 283 行内容面（端内多出业务键 1 个）；端内独有符号 [@/components/BackChevron, Taro.navigateTo] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <SearchScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；1 个端内文案键需补进词包"
+  },
+  {
+    "route": "pages/setting/index",
+    "spec": "packages/app/src/features/settings/SettingsScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.showModal", "Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 254,
+    "reason": "共享屏 440 行已覆盖端内页 254 行内容面（端内多出业务键 19 个）；端内独有符号 [@/api, @/utils/auth] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <SettingsScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 19 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pages/share/index",
+    "spec": "packages/app/src/features/share/ShareScreen.tsx",
+    "kind": "C_miniapp_only",
+    "taroApis": [
+      "Taro.eventCenter",
+      "Taro.getStorageSync",
+      "Taro.navigateTo",
+      "Taro.pageScrollTo",
+      "Taro.removeStorageSync",
+      "Taro.setClipboardData",
+      "Taro.setStorageSync",
+      "Taro.showModal",
+      "Taro.showToast",
+      "Taro.stopPullDownRefresh",
+      "Taro.switchTab"
+    ],
+    "hooks": [
+      "useDidShow",
+      "usePageScroll",
+      "usePullDownRefresh",
+      "useReachBottom",
+      "useShareAppMessage",
+      "useShareTimeline"
+    ],
+    "lines": 914,
+    "reason": "端内页 914 行「分享广场」（列表+历史+入口），共享屏 ShareScreen 仅 169 行单次分享表单（onCreate/onShare/onRemarkChange 三腿）；页面用 Taro.eventCenter.trigger('trigger-nav-click') 联动端内自定义 tabBar（share/index.tsx:377、:485），共享屏无广场/历史/入口腿 ⇒ 端内独有，不共享"
+  },
+  {
+    "route": "pages/study/plan",
+    "spec": "packages/app/src/features/study-plan/StudyPlanScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 211,
+    "reason": "共享屏 202 行已覆盖端内页 211 行内容面（端内多出业务键 9 个）；端内独有符号 [@/api, @/lib/ui-field-registry, Taro.showToast, useUiField] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <StudyPlanScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子"
+  },
+  {
+    "route": "pages/study/record",
+    "spec": "packages/app/src/features/study-record/StudyRecordScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo", "Taro.showToast", "Taro.stopPullDownRefresh"],
+    "hooks": ["usePullDownRefresh", "useReachBottom"],
+    "lines": 299,
+    "reason": "共享屏 235 行已覆盖端内页 299 行内容面（端内多出业务键 19 个）；端内独有符号 [@/api, Taro.navigateTo, Taro.showToast, useReachBottom] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <StudyRecordScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 19 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pkg-user/subscriptions/index",
+    "spec": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.showModal", "Taro.showToast", "Taro.stopPullDownRefresh"],
+    "hooks": ["useDidShow", "usePullDownRefresh", "useReachBottom"],
+    "lines": 140,
+    "reason": "共享屏 159 行已覆盖端内页 140 行内容面（端内多出业务键 4 个）；端内独有符号 [@/api/social, @/hooks/use-social-list, Taro.showToast, useSocialList] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <SubscriptionsScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；4 个端内文案键需补进词包"
+  },
+  {
+    "route": "pages/distribution/company/index",
+    "spec": "packages/app/src/features/team/TeamScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateTo"],
+    "hooks": ["useDidShow"],
+    "lines": 234,
+    "reason": "共享屏 316 行已覆盖端内页 234 行内容面（端内多出业务键 1 个）；端内独有符号 [Taro.navigateTo] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <TeamScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；1 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-shop/token/balance",
+    "spec": "packages/app/src/features/token-value/TokenValueScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.getStorageSync"],
+    "hooks": ["useDidShow", "useReachBottom"],
+    "lines": 249,
+    "reason": "共享屏 300 行已覆盖端内页 249 行内容面（端内多出业务键 9 个）；端内独有符号 [@/api, @/constants/storage, @/utils/auth, Taro.getStorageSync, useReachBottom] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <TokenValueScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；登记表无条目、端内页无镜像标记（pair 仅来自 css 残留），真壳 TokenValueScreen.tsx:19 已 import SharedTokenValueScreen"
+  },
+  {
+    "route": "pkg-content/topic/detail",
+    "spec": "packages/app/src/features/topic-detail/TopicDetailScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [
+      "Taro.getCurrentInstance",
+      "Taro.navigateTo",
+      "Taro.showToast",
+      "Taro.stopPullDownRefresh"
+    ],
+    "hooks": [
+      "useDidShow",
+      "usePullDownRefresh",
+      "useReachBottom",
+      "useShareAppMessage",
+      "useShareTimeline"
+    ],
+    "lines": 292,
+    "reason": "共享屏 224 行已覆盖端内页 292 行内容面（端内多出业务键 7 个）；端内独有符号 [@/api, @/components, useShareAppMessage, useShareTimeline] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <TopicDetailScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；7 个端内文案键需补进词包"
+  },
+  {
+    "route": "pages/study/video-detail/index",
+    "spec": "packages/app/src/features/video-player/VideoPlayerScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.getCurrentPages", "Taro.navigateTo", "Taro.showShareMenu", "Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 296,
+    "reason": "共享屏 178 行已覆盖端内页 296 行内容面（端内多出业务键 5 个）；端内独有宿主 API [Taro.getCurrentPages]，另有 [@/api, @/components, Taro.navigateTo, Taro.showShareMenu, useDidShow]；转壳时须由端内薄壳注入到共享屏对应回调腿（无对应腿即能力丢失，验收必须逐条核对） ⇒ 页面改为渲染 <VideoPlayerScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；5 个端内文案键需补进词包"
+  },
+  {
+    "route": "pages/member/benefits",
+    "spec": "packages/app/src/features/vip-benefit/VipBenefitScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": [],
+    "hooks": ["useDidShow"],
+    "lines": 408,
+    "reason": "共享屏 114 行已覆盖端内页 408 行内容面（端内多出业务键 4 个）；端内独有符号 [硬编码正文 292 字不在该屏消费的键下(转壳会丢内容)] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <VipBenefitScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；4 个端内文案键需补进词包"
+  },
+  {
+    "route": "pkg-shop/vip/details",
+    "spec": "packages/app/src/features/vip-compare/VipCompareScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": ["Taro.navigateTo"],
+    "hooks": [],
+    "lines": 254,
+    "reason": "共享屏 123 行 vs 端内页 254 行（占 48%），端内页 34 个业务文案键在共享屏无对应（vip.details.features.chatCount, vip.details.features.drawCount, vip.details.features.videoDuration, vip.details.features.modelAccess …）；端内数据腿 [selectedPlan] ⇒ 补全 VipCompareScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pkg-shop/vip/index",
+    "spec": "packages/app/src/features/vip/VipScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": [
+      "Taro.hideLoading",
+      "Taro.navigateTo",
+      "Taro.redirectTo",
+      "Taro.showLoading",
+      "Taro.showToast"
+    ],
+    "hooks": ["useDidShow"],
+    "lines": 538,
+    "reason": "共享屏 249 行 vs 端内页 538 行（占 46%），端内页 56 个业务文案键在共享屏无对应（vip.plan.monthly, vip.plan.monthlyPeriod, vip.plan.quarterly, vip.plan.quarterlyPeriod …）；端内数据腿 [info, benefits, priceOptions, selectedPlan, showBenefits, showPayConfirm, payMethod, autoRenew] ⇒ 补全 VipScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pages/member/index",
+    "spec": "packages/app/src/features/vip/VipScreen.tsx",
+    "kind": "B_new_screen",
+    "taroApis": ["Taro.navigateTo", "Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 448,
+    "reason": "共享屏 249 行 vs 端内页 448 行（占 56%），端内页 57 个业务文案键在共享屏无对应（member.benefit.unlimited, member.benefit.unlimitedDesc, member.benefit.advanced, member.benefit.advancedDesc …）；端内数据腿 [info, profile, benefits, loading, memberInfo] ⇒ 补全 VipScreen，props 需在现有腿之外补这些数据/回调；RN 同名壳已存在，补全后两端同时受益"
+  },
+  {
+    "route": "pages/member/benefits",
+    "spec": "packages/app/src/features/vip/VipScreen.tsx",
+    "kind": "D_undetermined",
+    "taroApis": [],
+    "hooks": ["useDidShow"],
+    "lines": 408,
+    "reason": "账面 pair 不成立：页面正文只声明 vip-benefit/VipBenefitScreen（member/benefits.tsx:5），vip/VipScreen 这条来自 member/benefits.css 残留；页面 408 行是权益目录（member.benefits.* 4 键）⇒ 先删 css 残留"
+  },
+  {
+    "route": "pages/member/integral",
+    "spec": "packages/app/src/features/vip/VipScreen.tsx",
+    "kind": "D_undetermined",
+    "taroApis": ["Taro.showToast", "Taro.stopPullDownRefresh"],
+    "hooks": ["useDidShow", "usePullDownRefresh", "useReachBottom"],
+    "lines": 174,
+    "reason": "账面 pair 不成立：页面正文只声明 point-history/PointHistoryScreen（member/integral.tsx:4），vip/VipScreen 这条来自 member/integral.css 残留；页面 174 行是积分明细（member.integral.* 5 键）⇒ 先删 css 残留"
+  },
+  {
+    "route": "pages/member/coupon",
+    "spec": "packages/app/src/features/vip/VipScreen.tsx",
+    "kind": "D_undetermined",
+    "taroApis": ["Taro.navigateBack", "Taro.navigateTo"],
+    "hooks": ["useDidShow"],
+    "lines": 110,
+    "reason": "账面 pair 不成立：页面已直载 @ihui/rn-app/features/coupon/CouponScreen（member/coupon.tsx:23，109 行薄页）并声明 coupon/CouponScreen；vip/VipScreen 这条来自 member/coupon.css 残留 ⇒ 该行 12 键缺口全属假账面"
+  },
+  {
+    "route": "pages/member/coupon-list",
+    "spec": "packages/app/src/features/vip/VipScreen.tsx",
+    "kind": "D_undetermined",
+    "taroApis": ["Taro.showToast", "Taro.stopPullDownRefresh"],
+    "hooks": ["useDidShow", "usePullDownRefresh"],
+    "lines": 134,
+    "reason": "账面 pair 不成立：页面 134 行无任何镜像声明（无 text 标记），vip/VipScreen 这条只来自 member/coupon-list.css 残留；真实归属应为 coupon 域（与 member/coupon.tsx 同源）⇒ 先补声明再判"
+  },
+  {
+    "route": "pkg-shop/vip-trader/index/index",
+    "spec": "packages/app/src/features/vip-trader/VipTraderScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.showModal", "Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 385,
+    "reason": "共享屏 348 行已覆盖端内页 385 行内容面（端内多出业务键 61 个）；端内独有符号 [@/api, Taro.showModal, Taro.showToast] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <VipTraderScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 61 个键与共享屏键集重叠 2（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pages/distribution/withdraw",
+    "spec": "packages/app/src/features/withdraw/WithdrawScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.navigateBack", "Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 141,
+    "reason": "共享屏 155 行已覆盖端内页 141 行内容面（端内多出业务键 10 个）；端内独有符号 [@/api, @/hooks/use-field-focus, Taro.showToast, useFieldFocus] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <WithdrawScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；该 10 个键与共享屏键集重叠 0（命名空间差异，非能力缺口，转壳前只复核词包映射）"
+  },
+  {
+    "route": "pages/exam/wrong-list/index",
+    "spec": "packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx",
+    "kind": "A_thin",
+    "taroApis": ["Taro.showModal", "Taro.showToast"],
+    "hooks": ["useDidShow"],
+    "lines": 191,
+    "reason": "共享屏 395 行已覆盖端内页 191 行内容面（端内多出业务键 2 个）；端内独有符号 [@/api, Taro.showModal, Taro.showToast] 全为取数/跳转/提示/常量/组件类，不含宿主独有能力，薄壳可直接承接 ⇒ 页面改为渲染 <WrongQuestionsScreen/>（约 20 行），保留 index.config.ts 与分享/导航钩子；2 个端内文案键需补进词包"
+  }
+]

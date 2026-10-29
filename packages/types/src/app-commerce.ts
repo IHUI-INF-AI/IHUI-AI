@@ -13,7 +13,6 @@
 
 import type { TFunction } from './app-shared.js'
 
-
 /**
  * 订单状态(用户端共享屏展示子集,与后端 /api/orders 契约对齐)。
  *
@@ -254,6 +253,14 @@ export interface CouponScreenProps {
   onRefresh: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /**
+   * 「立即使用」可用券的交互出口(2026-10-28 补,小程序 member/coupon 页迁壳的缺口)。
+   * **可选且不默认渲染**:宿主不传 ⇒ RN 现状零变化;传入 ⇒ 可用券卡片出现「立即使用」按钮。
+   * 文案走共享键 coupon.use(宿主词包须有 use/useHint/couponCenter 五语言值)。
+   */
+  onUseCoupon?: (item: CouponItem) => void
+  /** 底部「领券中心」入口(宿主传入才渲染;小程序侧跳 pages/member/coupon-list,RN 暂无对应页则不传)。 */
+  onOpenCouponCenter?: () => void
 }
 
 /** 收益记录(对齐 mobile-rn IncomeScreen CommissionItem) */

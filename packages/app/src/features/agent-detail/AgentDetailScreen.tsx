@@ -8,7 +8,7 @@ import { Star } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentDetailScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -22,6 +22,7 @@ export function AgentDetailScreen({
   error,
   onBack,
   onStartChat,
+  onEdit,
   colorScheme = 'light',
 }: AgentDetailScreenProps) {
   const tk = getTokens(colorScheme)
@@ -45,8 +46,16 @@ export function AgentDetailScreen({
     <ScrollView style={styles.container}>
       <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <View style={styles.head}>
-        <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.category}>{item.category}</Text>
+        <View style={styles.headMain}>
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.category}>{item.category}</Text>
+        </View>
+        {/* 编辑入口 — 对齐 web 详情页头右侧的编辑键(PageClient.tsx:193-198)，宿主未接线时不渲染 */}
+        {onEdit ? (
+          <TouchableOpacity style={styles.editBtn} onPress={onEdit} accessibilityRole="button">
+            <Text style={styles.editBtnText}>{t('agentEdit.entry')}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>{t('agentDetail.description')}</Text>
@@ -80,11 +89,33 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingBottom: rnSpacing['3xl'],
     },
-    head: { marginTop: 8, marginBottom: 12 },
-    name: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    category: { marginTop: 8, fontSize: 14, color: tk.brand.DEFAULT },
+    head: {
+      marginTop: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: rnSpacing.sm,
+    },
+    /* space-between 行内的可点读数必须先被压缩 ⇒ 锁 flexShrink:0，否则名称完整、编辑键被挤扁 */
+    headMain: { flex: 1, flexShrink: 1 },
+    editBtn: {
+      flexShrink: 0,
+      minHeight: 32,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.medium,
+      backgroundColor: tk.surface.light,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    editBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
+    name: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
+    category: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
@@ -92,18 +123,23 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    label: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
-    value: { marginTop: 8, fontSize: 16, color: tk.text.primary },
-    price: { marginTop: 8, fontSize: 20, fontWeight: '600', color: tk.brand.DEFAULT },
+    label: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
+    value: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
+    price: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.brand.DEFAULT,
+    },
     cta: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
       height: 50,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    ctaText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    ctaText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

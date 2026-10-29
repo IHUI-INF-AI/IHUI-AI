@@ -16,7 +16,7 @@
  * `filterNavItemsByTier`/`filterNavItemsByRole` 的实跑移除集为裁决。
  *
  * HEAD 面(= 合并时 HEAD commit 的 nd-ours 快照)标注普查(脚本现读,非手抄):
- *  advancedOnly 直标 32 枚 = developer 5 + relayOps 16 + experimental 10 + advancedAi 1(2026-10-24 b23f01cf219 个人号池 experimental 入册)
+ *  advancedOnly 直标 31 枚 = developer 5 + relayOps 16 + experimental 9 + advancedAi 1
  *  adminOnly 静态 18 行(17 个唯一 href,/admin/theme 父+子各一行)
  *  permission 'edu:manage' 10 枚
  * 结果面直标 27 枚 developer→1:被剥掉自标的 4 枚(/developer/api-docs、/developer/relay、
@@ -66,7 +66,6 @@ const HEAD_ADVANCED_DIRECT: Record<NavAdvancedTier, string[]> = {
   ],
   advancedAi: ['/memory'],
   experimental: [
-    '/account-pool',
     '/agent-canvas',
     '/agent-workbench',
     '/checkin',
@@ -192,7 +191,7 @@ const removedByTier = (facet: NavItem[], tier: NavAdvancedTier): string[] => {
 const sidebarFacet = () => NAV_GROUPS.flatMap((g) => g.items)
 
 describe('三方合并档位对账:advancedOnly', () => {
-  it('结果面直标普查:除记档的 4 枚 developer 转继承外,HEAD 32 枚直标一枚不少一枚不多', () => {
+  it('结果面直标普查:除记档的 4 枚 developer 转继承外,HEAD 31 枚直标一枚不少一枚不多', () => {
     const census = (tier: NavAdvancedTier) =>
       RESULT_ROWS.filter((i) => i.advancedOnly === tier)
         .map((i) => i.href)

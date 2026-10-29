@@ -219,11 +219,11 @@ GitHub Sponsors 通过 **Stripe** 收款，所以会要求连接 Stripe 账号�
    ```
 3. **Bio / Description**:
    ```
-   IHUI-AI is an open-source full-stack AI platform built with TypeScript Monorepo + 9-platform support (web/api/ai-service/desktop/extension/mobile-rn/mobile-cap/miniapp-taro/cli).
+   IHUI-AI is an open-source full-stack AI platform built with TypeScript Monorepo + 8-platform support (web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli).
    
    By sponsoring, you help me:
    - 🚀 Continue developing new features
-   - 🛠️ Maintain 9 platforms and 101+ LLM integrations
+   - 🛠️ Maintain 8 platforms and 176+ LLM integrations
    - 📚 Write documentation and tutorials
    - 🌍 Keep the project free and open-source
    

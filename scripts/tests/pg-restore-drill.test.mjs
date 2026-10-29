@@ -17,7 +17,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, parse, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 // 共用落点出口:2026-09-30 起本用例直接问它(不再只读它的源码形状)——
@@ -330,12 +330,13 @@ test('renderHuman:public 数对 public 数;全模式数必须另立并标明口�
 const REPO_FROM_TEST = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 /**
- * 期望值 oracle 取**根出口本身**(§0.6 单一真相源;2026-10-25 改)。
- * 原先这里按"仓内 .DevEnv 存在才选 > 盘根"独立重算,但该契约已变:仓内根必须带机器标记
- * (runtimes/tools/…)才算数,否则 scratch 自建的 `<repo>/.DevEnv/Temp` 空壳会把机器根顶掉。
- * 再抄一份旧次序 = 测试与出口各说一套;本用例要证的是"PG 落点跟随根出口",不是重判根出口。
+ * 期望值 oracle **刻意不 import 被测出口**(import 它来证明它 = 拿实现给自己发合格证,§22c)。
+ * 2026-10-05 按出口现行契约(G-814433 后双形态推导)独立重算:env 覆盖 > 仓内 .DevEnv(存在才选) > 盘根。
+ * —— 分支次序按出口文档重写,不引用其实现;老机器(无仓内 .DevEnv)自动落回盘根形态,两代布局都判得动。
  */
-const EXPECTED_DEVENV = devEnvRoot(REPO_FROM_TEST)
+const EXPECTED_DEVENV = existsSync(join(REPO_FROM_TEST, '.DevEnv'))
+  ? join(REPO_FROM_TEST, '.DevEnv')
+  : join(parse(REPO_FROM_TEST).root, 'DevEnv')
 
 test('P-落点1 真值不变:共用出口真值与"双形态 oracle"在真仓逐字同值(优先级按文档独立重算)', () => {
   // 本用例的原断言(2026-09-28):盘根锚定 = 数层式。G-814433(2026-09-30)把 DevEnv 搬入仓内后,

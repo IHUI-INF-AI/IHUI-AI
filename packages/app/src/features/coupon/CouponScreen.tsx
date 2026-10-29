@@ -3,20 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CouponItem, CouponScreenProps, CouponStatus } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 优惠券/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CouponItem, CouponScreenProps, CouponStatus }
@@ -46,6 +39,8 @@ export function CouponScreen({
   onRefresh,
   onBack,
   colorScheme = 'light',
+  onUseCoupon,
+  onOpenCouponCenter,
 }: CouponScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -96,21 +91,14 @@ export function CouponScreen({
       ) : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator />
-          <Text style={styles.emptyText}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<CouponItem>
           data={items}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('coupon.empty')}</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title={t('coupon.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardLeft}>
@@ -126,14 +114,30 @@ export function CouponScreen({
                 <Text style={styles.validText}>
                   {t('coupon.validUntil')}: {item.validUntil}
                 </Text>
-                <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
-                  <Text style={styles.statusText}>{t(TAB_KEYS[item.status as CouponStatus]!)}</Text>
-                </View>
+                {onUseCoupon && item.status === 'available' ? (
+                  <TouchableOpacity style={styles.useBtn} onPress={() => onUseCoupon(item)}>
+                    <Text style={styles.useBtnText}>{t('coupon.use')}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
+                    <Text style={styles.statusText}>
+                      {t(TAB_KEYS[item.status as CouponStatus]!)}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           )}
         />
       )}
+
+      {/* 底部「领券中心」:宿主传入 onOpenCouponCenter 才渲染(RN 暂无领券列表页 ⇒ 不传即零变化)。
+          absolute + alignSelf center 在 flex 容器内水平居中,不依赖具体屏宽。 */}
+      {onOpenCouponCenter ? (
+        <TouchableOpacity style={styles.couponCenterBtn} onPress={onOpenCouponCenter}>
+          <Text style={styles.couponCenterText}>{t('coupon.couponCenter')}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   )
 }
@@ -164,8 +168,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     retryText: { fontSize: 14, color: tk.success.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 32 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     listBody: { gap: 10, padding: 10, paddingBottom: 32 },
     card: {
       flexDirection: 'row',
@@ -195,6 +197,30 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
     },
     statusText: { fontSize: 11, color: tk.surface.light },
+    /* 可用券「立即使用」小按钮(对齐 miniapp member/coupon 端内形态;仅宿主传 onUseCoupon 时出现) */
+    useBtn: {
+      alignSelf: 'flex-start',
+      marginTop: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    useBtnText: { fontSize: 11, color: tk.brand.ctaForeground },
+    /* 底部「领券中心」通栏 CTA(仅宿主传 onOpenCouponCenter 时出现) */
+    couponCenterBtn: {
+      position: 'absolute',
+      bottom: 16,
+      alignSelf: 'center',
+      left: 16,
+      right: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: rnSpacing.md,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    couponCenterText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

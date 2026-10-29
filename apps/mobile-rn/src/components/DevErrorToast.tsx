@@ -22,7 +22,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { X } from 'lucide-react-native'
 
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 
 interface DevErrorEntry {
   id: number
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     marginTop: rnSpacing.sm,
     padding: rnSpacing.sm,
     borderRadius: rnRadius.md,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: rnCssLight.white15,
   },
   stackText: {
     fontSize: STACK_FONT_SIZE,

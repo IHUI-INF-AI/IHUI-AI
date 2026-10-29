@@ -12,7 +12,7 @@
  */
 
 import type { ReactNode } from 'react'
-import type { TFunction } from './app-shared.js'
+import type { ListPaginationProps, TFunction } from './app-shared.js'
 import type { CategoryItem } from './app-learning.js'
 
 /** 笔记列表项(平台注入,字段对齐 mobile-rn NoteListScreen Note) */
@@ -53,7 +53,7 @@ export interface ArticleListItem {
 }
 
 /** ArticleList 屏 props */
-export interface ArticleListScreenProps {
+export interface ArticleListScreenProps extends ListPaginationProps {
   t: TFunction
   items: ArticleListItem[]
   loading: boolean
@@ -261,6 +261,8 @@ export interface AskListScreenProps {
   refreshing: boolean
   error: string
   onRefresh: () => void
+  /** 上拉触底加载下一页(注入式,由平台层提供 loadMore 实现) */
+  onLoadMore?: () => void
   onPressItem: (id: string) => void
   onCreate: () => void
   onBack: () => void

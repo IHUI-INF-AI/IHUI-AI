@@ -15,7 +15,7 @@ import {
 } from 'react-native'
 import { Package, ShoppingCart } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState } from '../../components/ScreenStates'
 
@@ -399,7 +399,7 @@ function createStyles(tk: AppThemeTokens) {
     dangerBtnText: { fontSize: rnType.body.size, color: tk.surface.light, fontWeight: '600' },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: rnCssLight.black50,
       alignItems: 'center',
       justifyContent: 'center',
       padding: rnSpacing['2xl'],
