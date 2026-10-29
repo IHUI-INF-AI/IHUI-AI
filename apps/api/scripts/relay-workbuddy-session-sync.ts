@@ -30,7 +30,7 @@ const REPO_ROOT = resolvePath(API_DIR, '..', '..')
 import { config } from 'dotenv'
 config({ path: resolvePath(API_DIR, '.env') })
 
-const { and, eq } = await import('drizzle-orm')
+const { and, eq, isNull } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { encryptField, decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
@@ -127,7 +127,11 @@ export async function runSync(dryRun: boolean): Promise<WorkbuddySyncSummary> {
     .select()
     .from(aiRelayAccountPool)
     .where(
-      and(eq(aiRelayAccountPool.providerCode, 'workbuddy'), eq(aiRelayAccountPool.uid, tpl.uid)),
+      and(
+        eq(aiRelayAccountPool.providerCode, 'workbuddy'),
+        eq(aiRelayAccountPool.uid, tpl.uid),
+        isNull(aiRelayAccountPool.ownerUserId),
+      ),
     )
     .limit(1)
   if (!row) {
@@ -167,7 +171,11 @@ export async function runSync(dryRun: boolean): Promise<WorkbuddySyncSummary> {
       updatedAt: new Date(),
     })
     .where(
-      and(eq(aiRelayAccountPool.providerCode, 'workbuddy'), eq(aiRelayAccountPool.uid, tpl.uid)),
+      and(
+        eq(aiRelayAccountPool.providerCode, 'workbuddy'),
+        eq(aiRelayAccountPool.uid, tpl.uid),
+        isNull(aiRelayAccountPool.ownerUserId),
+      ),
     )
   summary.applied = true
   return summary
@@ -178,6 +186,8 @@ function parseArgs(argv: string[]): { dryRun: boolean; json: boolean; error: str
   for (const a of argv) {
     if (a === '--dry-run') options.dryRun = true
     else if (a === '--json') options.json = true
+    else if (a === '--')
+      continue // pnpm 透传的裸分隔符,不是参数
     else options.error = `未知参数: ${a}`
   }
   return options
