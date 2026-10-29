@@ -129,6 +129,15 @@ async function triggerAndMeasure(
   const loginDialog = page.getByTestId('login-dialog')
   await expect(loginDialog).toBeVisible({ timeout: 5000 })
 
+  // 3.5 2026-10-27 协议票(方案①)配套:国内 geo 下扫码 tab 是默认首屏,且"进入扫码面板即弹协议窗"
+  //   已生效 —— 本用例要量的是**提交路径**拦出的弹窗几何,自动弹窗若已在场会挡住切 tab 的点击。
+  //   按「不同意」关掉(协议态保持未同意,不影响第 6-7 步的提交门禁语义);未在场则跳过。
+  const autoDisagree = page.getByTestId('agreement-notice-disagree')
+  if (await autoDisagree.isVisible().catch(() => false)) {
+    await autoDisagree.click()
+    await expect(autoDisagree).toBeHidden({ timeout: 2000 })
+  }
+
   // 4. 切到密码登录 tab
   // 2026-08-26 修复:实际登录弹窗的 tab 是"邮箱/手机/账号/扫码",默认"账号"已是
   // 密码登录形态(共享 LoginForm 的 passwordLogin i18n 翻译为"账号")。
