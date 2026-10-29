@@ -84,12 +84,16 @@ export function OrderDetailScreen() {
         if (res.success) {
           // 重新拉取详情以反映真实状态
           await load()
+        } else {
+          // 失败必须出声:原实现只有 success 分支 ⇒ 取消/退款被后端拒了用户毫无感知,
+          // 以为已经取消成功。
+          appAlert(res.error || t('orderDetail.actionFailed'))
         }
       } finally {
         setActionLoading(null)
       }
     },
-    [id, order, load],
+    [id, order, load, t],
   )
 
   // 立即支付:直接走 createWechatAppPayment → openWeChatPayment → checkPaymentStatus 链路
@@ -179,11 +183,19 @@ export function OrderDetailScreen() {
       onPress: action,
       loading: actionLoading === key,
     })
+    // 破坏性动作(取消订单/申请退款)先确认再提交:原实现单击即发出,误触不可撤销。
+    const confirmThen = (titleKey: string, action: string) => () =>
+      appAlert(t(titleKey), undefined, [
+        { text: t('common.cancel'), style: 'cancel' as const },
+        {
+          text: t('common.confirm'),
+          style: 'destructive' as const,
+          onPress: () => void callOrderAction(action),
+        },
+      ])
     if (status === 'pending' || status === 'unpaid') {
       return [
-        wrap('cancel', () => {
-          void callOrderAction('cancel')
-        }),
+        wrap('cancel', confirmThen('orderDetail.cancelConfirmTitle', 'cancel')),
         {
           ...wrap('pay', () => {
             void handlePay()
@@ -195,9 +207,7 @@ export function OrderDetailScreen() {
     }
     if (status === 'paid' || status === 'shipped') {
       return [
-        wrap('refund', () => {
-          void callOrderAction('refund')
-        }),
+        wrap('refund', confirmThen('orderDetail.refundConfirmTitle', 'refund')),
         {
           ...wrap('contact', () => {
             handleContact()
