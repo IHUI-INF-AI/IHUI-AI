@@ -257,7 +257,7 @@
     "eslint": "catalog:",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.0.0",
-    "knip": "^6.31.0",
+    "knip": "^6.43.0",
     "lint-staged": "^17.3.0",
     "opencc-js": "^1.4.1",
     "prettier": "^3.9.6",
