@@ -58,6 +58,8 @@ const PARITY_DOC = 'docs/engineering/rn-miniapp-parity-matrix.md'
 // 壳声明件 —— 每落一枚承载页就多一条 @rn-shells 引用,不重生成 ⇒ 门 251 C9 直接红(下一枚提交就被它拦)
 const SHELL_DECL = 'apps/miniapp-taro/types/rn-shells.generated.d.ts'
 const DEFAULT_CAP = 5
+// 一轮里"装配 → 提交"最多试几次。节拍旋钮,不是容量判据(容量判据 = 单分包 2 MiB)。
+const LAND_ATTEMPTS = 3
 
 const git = (args, input) =>
   execFileSync('git', args, {
@@ -451,8 +453,16 @@ function capacityGate(planned, { cap, headOf = headBlob } = {}) {
   })
 }
 
-function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
-  const { planned, refused, undetermined } = planBatch(ROOT, { form: 'shell' })
+function runPages({
+  apply,
+  cap = DEFAULT_CAP,
+  headless = false,
+  landOf = null,
+  headOf = null,
+  planOf = null,
+  gateOf = null,
+} = {}) {
+  const { planned, refused, undetermined } = (planOf ?? (() => planBatch(ROOT, { form: 'shell' })))()
   if (!planned) return { state: 'undetermined', why: '批量计划读不到 planned 集' }
   if (planned.length === 0) {
     return {
@@ -467,7 +477,7 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
       note: '本轮没有可产的屏(缺口要么已落、要么被造页器按三腿判据拒/未判定)',
     }
   }
-  const gate = capacityGate(planned.slice(0, cap), { cap })
+  const gate = (gateOf ?? ((arr) => capacityGate(arr, { cap })))(planned.slice(0, cap))
   if (!gate.ok) return { state: 'blocked', why: gate.why, planned: planned.length, held: [] }
   const batch = gate.admitted
   const held = gate.held ?? []
@@ -487,9 +497,17 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
   // 一屏接缝失败不许拖死整批(2026-10-26 实测:home 的词包缺键落在嵌套子对象里,并键档不并
   // ⇒ 整批 blocked ⇒ 队列停在这一屏,和"单行 pages 数组"同一型的安静停摆)。做法:装配失败时
   // 只摘掉肇事那一屏,其余照落,被摘的逐条点名进 dropped —— 跳过必须可见,不许静默。
-  const { built, batch: finalBatch, dropped } = buildWithDrops(batch, (arr) =>
-    assembleBlobs(arr, { headOf: headBlob, watermarkOf: (n, t) => hashBytes(watermarkBytesOf(n, t)) }),
-  )
+  // 页正文不随 HEAD 移动 ⇒ 水印字节按「文件名+正文」记忆,重装配时不重复起子进程。
+  // readHead 可由调用方注入(自检要造"面在两次尝试之间被别席推进"这一形)。
+  const stampCache = new Map()
+  const stampOf = (name, text) => {
+    const k = `${name}\u0000${text}`
+    if (!stampCache.has(k)) stampCache.set(k, hashBytes(watermarkBytesOf(name, text)))
+    return stampCache.get(k)
+  }
+  const readHead = headOf ?? headBlob
+  const assemble = (arr) => assembleBlobs(arr, { headOf: readHead, watermarkOf: stampOf })
+  let { built, batch: finalBatch, dropped } = buildWithDrops(batch, assemble)
   if (!built.ok) return { state: 'blocked', why: built.why, planned: planned.length, held, dropped }
   if (finalBatch.length === 0) {
     return {
@@ -515,25 +533,92 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
   }
   const manifest = join(ROOT, '.ihui-agent', 'tmp', 'land-cross-end-shell-pages', 'blobs.json')
   mkdirSync(dirname(manifest), { recursive: true })
-  writeFileSync(manifest, JSON.stringify({ files: built.files }, null, 1), 'utf8')
-  const msg = [
-    `chore(cross-end): 自动落 ${finalBatch.length} 枚小程序壳承载页(共 ${planned.length} 枚待产)`,
-    '',
-    `器物:node scripts/land-cross-end-shell-pages.mjs --apply(cap=${cap},每轮节拍;容量判据 = 单分包 2 MiB,见 data/cross-end-subpackage-capacity.json)`,
-    '形制:端内零布局零样式 —— 渲染源 = packages/app 共享屏(经 src/rn-compat),数据与交互 = 同名 RN 壳。',
-    '接缝:app.config 路由行 + 跨端登记表 + 词包(两档:全新命名空间按行插,已在册转并键档,不覆盖既有值)。',
-    '内容构造法:全部 blob = git show HEAD:<file> ⊕ 本批行,由造页器自己的插入函数产;工作树一字节未读',
-    `(那是为了不在他人未提交改动上落我的行 —— §12 防吞现场;旁路落地不自跑钩子,故守门 251/128/237 在下一轮提交或巡检里复量)。`,
-    ...(moves.length
-      ? [
-          '',
-          `容量改道(${moves.length} 枚;语义分包装不下 ⇒ 按 overflowRoots 改道,接缝同批按新 root 建块):`,
-          ...moves.map((m) => `  ${m.spec} → ${m.from} ⇒ ${m.to}(约 ${m.estimate} B)`),
-        ]
-      : []),
-    '',
-    `页面:${finalBatch.map((p) => `${p.spec} → ${p.route}`).join('; ')}`,
-  ].join('\n')
+  // 撞车重装的上限只是**节拍**,不是容量判据。立因:装配到提交之间是分钟级窗口,而接缝面
+  // (app.config / 登记表 / 5 份词包)在本仓几乎每分钟都被别席推进一笔 ⇒ 「只试一次,下轮再试」
+  // 在这套节律下等价于结构性零产出。
+  const attempts = Math.max(1, Number(process.env.IHUI_CROSS_END_LAND_ATTEMPTS || LAND_ATTEMPTS))
+  let lastWhy = ''
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (attempt > 1) {
+      // 撞了就现读**新 HEAD** 重算接缝 blob:assembleBlobs 是纯函数、headBlob 无记忆,
+      // 所以重装的产物就是「新面 ⊕ 本批行」,不必重跑分钟级的 planBatch。
+      const again = buildWithDrops(batch, assemble)
+      built = again.built
+      finalBatch = again.batch
+      dropped = again.dropped
+      if (!built.ok)
+        return { state: 'blocked', why: built.why, planned: planned.length, held, moves, dropped }
+      if (finalBatch.length === 0)
+        return {
+          state: 'blocked',
+          planned: planned.length,
+          held,
+          moves,
+          dropped,
+          why: `第 ${attempt} 次重装配后本批被摘空(${dropped[0]?.why ?? '未附原因'})`,
+        }
+    }
+    writeFileSync(manifest, JSON.stringify({ files: built.files }, null, 1), 'utf8')
+    const msg = [
+      `chore(cross-end): 自动落 ${finalBatch.length} 枚小程序壳承载页(共 ${planned.length} 枚待产)`,
+      '',
+      `器物:node scripts/land-cross-end-shell-pages.mjs --apply(cap=${cap},每轮节拍;容量判据 = 单分包 2 MiB,见 data/cross-end-subpackage-capacity.json)`,
+      '形制:端内零布局零样式 —— 渲染源 = packages/app 共享屏(经 src/rn-compat),数据与交互 = 同名 RN 壳。',
+      '接缝:app.config 路由行 + 跨端登记表 + 词包(两档:全新命名空间按行插,已在册转并键档,不覆盖既有值)。',
+      '内容构造法:全部 blob = git show HEAD:<file> ⊕ 本批行,由造页器自己的插入函数产;工作树一字节未读',
+      `(那是为了不在他人未提交改动上落我的行 —— §12 防吞现场;旁路落地不自跑钩子,故守门 251/128/237 在下一轮提交或巡检里复量)。`,
+      ...(moves.length
+        ? [
+            '',
+            `容量改道(${moves.length} 枚;语义分包装不下 ⇒ 按 overflowRoots 改道,接缝同批按新 root 建块):`,
+            ...moves.map((m) => `  ${m.spec} → ${m.from} ⇒ ${m.to}(约 ${m.estimate} B)`),
+          ]
+        : []),
+      '',
+      `页面:${finalBatch.map((p) => `${p.spec} → ${p.route}`).join('; ')}`,
+    ].join('\n')
+    const r = (landOf ?? landViaObjectSpace)({ manifest, built, msg })
+    if (r.ok)
+      return {
+        state: 'landed',
+        planned: planned.length,
+        batch: finalBatch.map((p) => p.route),
+        held,
+        moves,
+        dropped,
+        blobs: built.files.length,
+        attempts: attempt,
+        note: 'CAS 成功且按被审面回读在树',
+      }
+    // 落地器没自证成功 ≠ 没落。先按被审面回读:本批页文件已在树上 ⇒ 判已落并**立即停手** ——
+    // 继续重试等于把同一批页再落一遍(重复提交)。失效方向恒为"少落一次",不多落。
+    if (finalBatch.every((p) => typeof readHead(p.pageRel) === 'string'))
+      return {
+        state: 'landed',
+        planned: planned.length,
+        batch: finalBatch.map((p) => p.route),
+        held,
+        moves,
+        dropped,
+        blobs: built.files.length,
+        attempts: attempt,
+        note: `落地器未自证成功(${r.why}),但按被审面回读本批 ${finalBatch.length} 枚页已在树上 ⇒ 判已落,不再重试`,
+      }
+    lastWhy = r.why
+  }
+  return {
+    state: 'undetermined',
+    why: `${attempts} 次尝试均未落地(最后一次:${lastWhy})⇒ 本轮既不算落也不算缺口清零`,
+    planned: planned.length,
+    held,
+    moves,
+    dropped,
+    attempts,
+  }
+}
+
+/** 真正调落地器那一步抽成出口:自检要注入假落地器,证明"撞一次会换新面重装"而不是只多喊一遍。 */
+function landViaObjectSpace({ manifest, built, msg }) {
   try {
     const out = execFileSync(process.execPath, [R('scripts', 'object-space-land.mjs')], {
       cwd: ROOT,
@@ -549,19 +634,11 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
         LAND_MSG: msg,
       },
     })
-    const ok = /CAS 成功|提交面回读/.test(out)
-    return {
-      state: ok ? 'landed' : 'undetermined',
-      planned: planned.length,
-      batch: finalBatch.map((p) => p.route),
-      held,
-      moves,
-      dropped,
-      blobs: built.files.length,
-      note: ok ? 'CAS 成功且按被审面回读在树' : `落地器输出未自证成功,末行:${out.split('\n').filter(Boolean).slice(-1)[0] ?? ''}`,
-    }
+    return /CAS 成功|提交面回读/.test(out)
+      ? { ok: true }
+      : { ok: false, why: `落地器输出未自证成功,末行:${out.split('\n').filter(Boolean).slice(-1)[0] ?? ''}` }
   } catch (error) {
-    return { state: 'undetermined', why: `落地失败:${String(error?.message ?? error).slice(0, 160)}`, planned: planned.length, held, moves }
+    return { ok: false, why: `落地失败:${String(error?.message ?? error).slice(0, 160)}` }
   }
 }
 
@@ -619,6 +696,92 @@ function selfTest() {
         const regAfter = first.ok ? git(['cat-file', 'blob', first.files.find((f) => f.path === REGISTRY).blob]) : null
         const after = { [MP_CONFIG]: cfgAfter, [REGISTRY]: regAfter }
         return assembleBlobs([fakePlan('selftestCc')], { headOf: (rel) => after[rel] ?? okHead(rel), watermarkOf: stamp }).ok
+      },
+    },
+    // ---------- 撞车重装腿(2026-10-29 立):装配到提交之间是分钟级窗口,而接缝面几乎每分钟被
+    // 别席推进一笔 ⇒ 「只试一次,下轮再试」在本仓节律下等价于结构性零产出。这三例把新行为钉住:
+    // ① 撞一次要按**新面**重算产物;② 已落则绝不重试(重试=把同一批页再落一遍);③ 撞不开就停在
+    // 上限并记未判定(不记绿,也不静默多跑)。
+    {
+      name: '落地器拒一次 ⇒ 第二轮现读新 HEAD 重装配(产物同含别席新字节与本批行)',
+      want: true,
+      got: () => {
+        const regFace0 = headBlob(REGISTRY)
+        const seen = []
+        const r = runPages({
+          apply: true,
+          cap: 1,
+          planOf: () => ({ planned: [fakePlan('selftestR2')], refused: [], undetermined: [] }),
+          gateOf: (arr) => ({ ok: true, admitted: arr, held: [], moves: [] }),
+          headOf: (rel) => {
+            if (rel === MP_CONFIG) return headBlob(MP_CONFIG)
+            if (rel === REGISTRY)
+              return seen.length === 0
+                ? regFace0
+                : regFace0.replace(/"comment"\s*:\s*"[^"]*"/, '"comment":"R2FACEPEER"')
+            return null
+          },
+          landOf: ({ built }) => {
+            seen.push(built.files.find((f) => f.path === REGISTRY)?.blob)
+            return seen.length >= 2 ? { ok: true } : { ok: false, why: '假 CAS 冲突' }
+          },
+        })
+        if (r.state !== 'landed' || r.attempts !== 2) return false
+        const first = git(['cat-file', 'blob', seen[0]])
+        const second = git(['cat-file', 'blob', seen[1]])
+        return (
+          !first.includes('R2FACEPEER') &&
+          second.includes('R2FACEPEER') &&
+          second.includes('pkg-user/selftestR2/index')
+        )
+      },
+    },
+    {
+      name: '落地器未自证成功而页已按被审面在树 ⇒ 判已落且**只调一次**(重试会变重复提交)',
+      want: true,
+      got: () => {
+        let calls = 0
+        const r = runPages({
+          apply: true,
+          cap: 1,
+          planOf: () => ({ planned: [fakePlan('selftestIdem')], refused: [], undetermined: [] }),
+          gateOf: (arr) => ({ ok: true, admitted: arr, held: [], moves: [] }),
+          headOf: (rel) => {
+            if (rel === MP_CONFIG || rel === REGISTRY) return headBlob(rel)
+            return rel.includes('selftestIdem') ? '// 已落在树上' : null
+          },
+          landOf: () => {
+            calls += 1
+            return { ok: false, why: '假:输出未自证成功' }
+          },
+        })
+        return r.state === 'landed' && calls === 1 && r.attempts === 1
+      },
+    },
+    {
+      name: '始终撞不开 ⇒ 停在上限、记未判定(次数被数出来,不静默多跑)',
+      want: true,
+      got: () => {
+        const prev = process.env.IHUI_CROSS_END_LAND_ATTEMPTS
+        process.env.IHUI_CROSS_END_LAND_ATTEMPTS = '2'
+        let calls = 0
+        try {
+          const r = runPages({
+            apply: true,
+            cap: 1,
+            planOf: () => ({ planned: [fakePlan('selftestCap')], refused: [], undetermined: [] }),
+            gateOf: (arr) => ({ ok: true, admitted: arr, held: [], moves: [] }),
+            headOf: (rel) => (rel === MP_CONFIG || rel === REGISTRY ? headBlob(rel) : null),
+            landOf: () => {
+              calls += 1
+              return { ok: false, why: '假:一直撞' }
+            },
+          })
+          return r.state === 'undetermined' && calls === 2 && r.attempts === 2
+        } finally {
+          if (prev === undefined) delete process.env.IHUI_CROSS_END_LAND_ATTEMPTS
+          else process.env.IHUI_CROSS_END_LAND_ATTEMPTS = prev
+        }
       },
     },
     // ---------- 账本自刷腿(注入替身:不为测试去跑真生成器,也不让测试碰真 HEAD) ----------
