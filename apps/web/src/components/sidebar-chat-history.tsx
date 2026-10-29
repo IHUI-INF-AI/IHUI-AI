@@ -140,7 +140,8 @@ import {
   resolveIssueBinding,
 } from '@/components/chat/issue-bind-dialog'
 
-interface ConversationItem {
+/** 导出供分桶单测构造夹具(与 SearchableConversation 同法)。 */
+export interface ConversationItem {
   id: string
   title: string
   model: string
@@ -170,24 +171,34 @@ async function fetchConversations(page = 1): Promise<ConversationsResponse> {
   return res.data
 }
 
-type GroupKey = 'today' | 'thisWeek' | 'thisMonth'
+type GroupKey = 'today' | 'thisWeek' | 'thisMonth' | 'earlier'
 
-function groupByDate(items: ConversationItem[]): { key: GroupKey; items: ConversationItem[] }[] {
+/** 纯函数:日历分桶(周一为周始,1 号为月起,缺时间戳/超界入「更早」)——导出供单测(与同文件 filterConversationsByKeyword 同法)。 */
+export function groupByDate(
+  items: ConversationItem[],
+): { key: GroupKey; items: ConversationItem[] }[] {
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const DAY = 24 * 60 * 60 * 1000
-  const startOfWeek = startOfToday - 7 * DAY
+  // 真日历边界(2026-10-25 判桶改判):原实现是"滚动 7 天 / 其余全部",标签却写着
+  // 今天/本周/本月 —— 数年前的会话也会落进「本月」;lastMessageAt 缺失者(t=0)同桶。
+  // 本周按周一为始(与 zh 周惯用一致);时间戳缺失一律入「更早」——不知道就不是"本月"。
+  const dow = (now.getDay() + 6) % 7 // 0=周一
+  const startOfWeek = startOfToday - dow * 24 * 60 * 60 * 1000
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
 
   const buckets: Record<GroupKey, ConversationItem[]> = {
     today: [],
     thisWeek: [],
     thisMonth: [],
+    earlier: [],
   }
   for (const item of items) {
-    const t = item.lastMessageAt ? new Date(item.lastMessageAt).getTime() : 0
-    if (t >= startOfToday) buckets.today.push(item)
+    const t = item.lastMessageAt ? new Date(item.lastMessageAt).getTime() : NaN
+    if (!Number.isFinite(t)) buckets.earlier.push(item)
+    else if (t >= startOfToday) buckets.today.push(item)
     else if (t >= startOfWeek) buckets.thisWeek.push(item)
-    else buckets.thisMonth.push(item)
+    else if (t >= startOfMonth) buckets.thisMonth.push(item)
+    else buckets.earlier.push(item)
   }
   return (Object.keys(buckets) as GroupKey[])
     .filter((k) => buckets[k].length > 0)
@@ -232,7 +243,7 @@ export function filterConversationsByKeyword<T extends SearchableConversation>(
  * - 操作按钮:MoreVertical 三点菜单 + DropdownMenu(重命名 / 归档 / 导出 / 压缩 / 删除)
  * - 删除确认:用 ConfirmDialog,删除成功/失败用 sonner toast 反馈
  * - 重命名:用 Dialog + Input
- * - 按时间分组:今天 / 本周(7天内)/ 本月(30天内)
+ * - 按时间分组:今天 / 本周(周一起)/ 本月(月 1 号起)/ 更早(含缺时间戳的会话)
  * - 空状态:图标 + 文案 + "新建任务"引导按钮
  * - 折叠态完全不渲染(避免无文字宽度)
  */
