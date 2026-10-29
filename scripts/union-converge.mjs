@@ -3065,6 +3065,7 @@ function recordSideLosses(lost, label, violations, caps, decl = null, credit = n
     const d = decl?.get?.(l)
     if (d) {
       credit?.push({ line: l, why: d.why, label })
+      continue
     }
     violations.push(`${label}:${String(l).slice(0, 60)}`)
   }
@@ -3380,8 +3381,8 @@ export function plan(
       ...ambiguousRows,
       ...stalePickRows,
       ...staleLossRows,
+      ...staleDocPicks,
     ],
-    bad: [...built.violations, ...blocked, ...vu, ...ambiguousRows, ...stalePickRows, ...staleDocPicks],
     // 两条路径的"少带份数"合流:两侧同改的丢行分流(built.caps)+ 活文档行 union(vu.pointerCaps)。
     // 只接其中一条 = 台账这一族恰好无人点名,而那正是本票要防的形状。
     caps: [
