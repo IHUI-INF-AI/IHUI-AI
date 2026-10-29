@@ -201,6 +201,8 @@ interface PhoneTabContentProps extends TabContentBaseProps {
   onPhoneCodeChange?: (text: string) => void
   onSendCode?: () => void
   onLogin: () => void
+  /** 运营商一键登录入口节点(可选;传则渲染在主登录按钮下方,未传不渲染) */
+  carrierOneClickEntry?: ReactNode
   /** 账号登录历史(输入框聚焦时下拉;2026-09-06 手机号 tab 对齐账号 tab) */
   loginHistory?: string[]
   /** 删除单条历史账号回调(可选;未传则不渲染 X) */
@@ -705,6 +707,7 @@ function PhoneTabContent({
   onPhoneCodeChange,
   onSendCode,
   onLogin,
+  carrierOneClickEntry,
   loading,
   agreed,
   onAgreedChange,
@@ -724,6 +727,17 @@ function PhoneTabContent({
   const hasNationSelector = !!nations && !!phoneHead && !!onToggleNationShow
   return (
     <View style={styles.tabContent}>
+      {/* 运营商一键登录:零输入成本的首选登录路径,置顶为第一 CTA(对齐主流 App 登录页);
+          未配置通道时 wrapper 不注入节点,整块隐藏走验证码降级 */}
+      {carrierOneClickEntry ? (
+        <>
+          {carrierOneClickEntry}
+          {/* 分隔:与下方验证码登录表单区分主次(复用第三方登录区居中「或」样式,§4 已清线) */}
+          <View style={styles.thirdPartyDivider}>
+            <Text style={styles.thirdPartyDividerText}>{t('auth.or')}</Text>
+          </View>
+        </>
+      ) : null}
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.phone')}</Text>
         {hasNationSelector ? (
@@ -1245,6 +1259,8 @@ export function LoginScreen(props: LoginScreenProps) {
     onPhoneCodeChange,
     onSendPhoneCode,
     onLoginByPhoneCode,
+    // 运营商一键登录入口(phone tab 内,可选)
+    carrierOneClickEntry,
     // tab 切换回调
     onTabChange,
     // qr
@@ -1425,6 +1441,7 @@ export function LoginScreen(props: LoginScreenProps) {
             onPhoneCodeChange={onPhoneCodeChange}
             onSendCode={onSendPhoneCode}
             onLogin={handlePhoneLogin}
+            carrierOneClickEntry={carrierOneClickEntry}
             loading={loading}
             loginHistory={loginHistory}
             onRemoveLoginHistory={onRemoveLoginHistory}
