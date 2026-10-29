@@ -114,6 +114,7 @@ function styleParity() {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 16 * 1024 * 1024,
+      windowsHide: true,
     })
     // --quiet 仅在有色值不一致时打印;走到这说明 exit 0 ⇒ 三端颜色令牌同步且通过
     return {
@@ -160,6 +161,7 @@ function tokenBreadth() {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
         maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
       })
       return r.split('\n').filter(Boolean).length
     } catch {

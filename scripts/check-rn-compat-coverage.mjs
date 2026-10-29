@@ -92,6 +92,7 @@ function makeReader(face) {
       encoding: 'utf8',
       maxBuffer: 1 << 26,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return out
       .trim()
