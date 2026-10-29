@@ -8,6 +8,7 @@ import * as React from 'react'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { QRCodeCanvas } from 'qrcode.react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
@@ -35,6 +36,9 @@ function SuccessContent() {
   const [status, setStatus] = React.useState<'pending' | 'paid' | 'timeout'>('pending')
   // 2026-10-15 登录态门:/api/orders/:orderNo = 当前用户的订单,未就绪/未登录不发起轮询
   const { allow } = useAuthGate()
+  // 支付成功必须让钱包缓存失效:全局 staleTime=5min 且不随窗口焦点重取,
+  // 否则回到钱包页看到的仍是充值前的余额与流水(用户以为钱没到账)。
+  const qc = useQueryClient()
 
   React.useEffect(() => {
     if (!allow) return
@@ -51,6 +55,7 @@ function SuccessContent() {
           const s = r.success ? r.data.order.status : undefined
           if (s === 'paid') {
             setStatus('paid')
+            void qc.invalidateQueries({ queryKey: ['wallet'] })
             return
           }
           if (s === 'cancelled' || s === 'closed' || s === 'refunded') {
@@ -67,7 +72,7 @@ function SuccessContent() {
     return () => {
       stop = true
     }
-  }, [orderNo, allow])
+  }, [orderNo, allow, qc])
 
   const isAlipay = method === 'alipay' && !!payUrl
 
