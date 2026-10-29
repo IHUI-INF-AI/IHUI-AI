@@ -180,16 +180,25 @@ export function ScrollView(props: { children?: ReactNode; [k: string]: unknown }
  * 放进列表的组件在测试里都渲染成空壳 —— 断言照常通过,覆盖率为 0(假绿)。
  * 分类条 CategoryInlineBar 换成 FlatList 横向条后,order.test 15 例断言不到 tab 文案,
  * 就是这条被暴露出来,而不是那条断言写错了。
+ *
+ * ListEmptyComponent(2026-10-29 补齐):真 RN 在 data 为空时渲这一位,而屏上三兄弟状态
+ * (骨架屏 / 加载失败+重试 / 空态)全走它上屏(CartScreen.tsx / TopicDetailScreen.tsx 的
+ * ListEmptyComponent=)。此前它随 rest 落到 DOM 上成 `listemptycomponent="[object Object]"`,
+ * 一条也渲不出 ⇒ cart/topic-detail 两套件各自 importOriginal 补了一份(§22c 反模式)。
+ * 与 flattenStyle 同一条规矩:共享替身必须覆盖真身 API 面,不得退回各套件各自 vi.mock。
+ * 容器挂 `data-role="flatlist"`(同 ScrollView 的 data-rn-scrollview 标记法),用例按列表区取文本。
  */
 export function FlatList(props: {
   data?: readonly unknown[]
   renderItem?: (info: { item: unknown; index: number }) => ReactNode
   keyExtractor?: (item: unknown, index: number) => string
+  ListEmptyComponent?: unknown
   style?: unknown
   onPress?: unknown
   [k: string]: unknown
 }) {
-  const { data, renderItem, keyExtractor, style, onPress, children, ...rest } = props
+  const { data, renderItem, keyExtractor, ListEmptyComponent, style, onPress, children, ...rest } =
+    props
   const rows = (data ?? []).map((item, index) =>
     createElement(
       'div',
@@ -197,10 +206,14 @@ export function FlatList(props: {
       renderItem ? renderItem({ item, index }) : null,
     ),
   )
+  const empty =
+    typeof ListEmptyComponent === 'function'
+      ? createElement(ListEmptyComponent as () => ReactNode)
+      : (ListEmptyComponent as ReactNode | undefined)
   return createElement(
     'div',
-    { ...rest, onClick: onPress, style: flattenStyle(style) },
-    rows.length ? rows : (children as ReactNode | undefined),
+    { ...rest, 'data-role': 'flatlist', onClick: onPress, style: flattenStyle(style) },
+    rows.length ? rows : (empty ?? (children as ReactNode | undefined) ?? null),
   )
 }
 export const TextInput = mk('input')
@@ -273,12 +286,36 @@ export const AppState = {
     AppState.currentState = 'active'
   },
 }
+/**
+ * loop/sequence(2026-10-29 补齐):ScreenStates.tsx 的 Shimmer 渲染期就调
+ * Animated.loop(Animated.sequence([...])) ⇒ 替身缺这两出口时骨架屏一上屏当场抛
+ * 「Animated.sequence is not a function」,于是 cart/topic-detail 各自 importOriginal
+ * 补了一份局部桩(§22c 反模式)。真 RN 语义:返回可 `start(cb)` 的句子,回调收到
+ * `{finished:true}`(保证 useEffect 清理路径可达),且可 `.stop()`。
+ */
+type AnimSentence = {
+  start: (cb?: (r: { finished: boolean }) => void) => AnimSentence
+  stop: () => void
+}
+const mkAnimSentence = (children: readonly { start?: (cb?: unknown) => void }[]): AnimSentence => {
+  const sentence: AnimSentence = {
+    start: (cb) => {
+      for (const a of children) a?.start?.()
+      cb?.({ finished: true })
+      return sentence
+    },
+    stop: () => {},
+  }
+  return sentence
+}
 export const Animated = {
   View: mk('div'),
   Text: mk('span'),
   createAnimatedComponent: (comp: unknown) => comp,
   timing: () => ({ start: () => {} }),
   spring: () => ({ start: () => {} }),
+  sequence: (anims: readonly { start?: (cb?: unknown) => void }[]) => mkAnimSentence(anims ?? []),
+  loop: (anim: { start?: (cb?: unknown) => void }) => mkAnimSentence([anim]),
   // 开合动画走 Animated.parallel([...]) —— 缺它同样必崩
   parallel: (anims: readonly { start: () => void }[]) => ({
     start: (cb?: unknown) => {
