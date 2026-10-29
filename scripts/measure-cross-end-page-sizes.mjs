@@ -21,7 +21,6 @@
  *   node scripts/measure-cross-end-page-sizes.mjs --write    # 写进容量表的 pageEstimates
  * 退出码:0 判出;2 取不到被审面(HEAD 面读不到 / 闭包解析不了的比例过高)
  */
-import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, posix } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -29,7 +28,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { planBatch } from './gen-miniapp-mirror.mjs'
 import { walkClosure } from './lib/rn-shell-closure.mjs'
 import { CAPACITY_REL } from './lib/cross-end-subpackage-capacity.mjs'
-import { catBatch } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const RATIO = 0.65
@@ -37,17 +36,8 @@ const MIN_BYTES = 12_000
 const MAX_BYTES = 4_000_000
 const CLOSURE_ROOTS = ['apps/mobile-rn/src', 'packages/app/src', 'packages/shared/src', 'packages/design-tokens/src']
 
-const git = (args, opts = {}) =>
-  execFileSync('git', args, {
-    cwd: ROOT,
-    encoding: opts.encoding ?? 'utf8',
-    maxBuffer: 1 << 28,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    input: opts.input,
-  })
-
 function headFiles() {
-  const out = git(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...CLOSURE_ROOTS])
+  const out = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...CLOSURE_ROOTS], ROOT)
   return new Set(out.split('\n').map((s) => s.trim()).filter(Boolean))
 }
 
@@ -98,7 +88,7 @@ export function measure({ rootDir = ROOT } = {}) {
     const shellRel = `apps/mobile-rn/src/screens/${base}`
     let shellText = null
     try {
-      shellText = git(['show', `HEAD:${shellRel}`])
+      shellText = gitRaw(['show', `HEAD:${shellRel}`], ROOT)
     } catch {
       shellText = null
     }
