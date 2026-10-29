@@ -839,7 +839,7 @@
     "taroApis": [],
     "hooks": ["useDidShow"],
     "lines": 408,
-    "reason": "账面 pair 不成立：页面正文只声明 vip-benefit/VipBenefitScreen（member/benefits.tsx:5），vip/VipScreen 这条来自 member/benefits.css 残留；页面 408 行是权益目录（member.benefits.* 4 键）⇒ 先删 css 残留"
+    "reason": "账面 pair 不成立：页面正文只声明 vip-benefit/VipBenefitScreen（member/benefits.tsx:5），vip/VipScreen 这条来自同目录 pages/member/index.css 的视觉参照注释（目录级样式表，头注「视觉唯一标准: …VipScreen.tsx」不是本页的镜像声明；判据 sidecarCssPaths 已按 2026-10-29 改为只认同名 .css）；页面 408 行是权益目录（member.benefits.* 4 键）⇒ 无需删任何 css，该 pair 本就不存在"
   },
   {
     "route": "pages/member/integral",
@@ -848,7 +848,7 @@
     "taroApis": ["Taro.showToast", "Taro.stopPullDownRefresh"],
     "hooks": ["useDidShow", "usePullDownRefresh", "useReachBottom"],
     "lines": 174,
-    "reason": "账面 pair 不成立：页面正文只声明 point-history/PointHistoryScreen（member/integral.tsx:4），vip/VipScreen 这条来自 member/integral.css 残留；页面 174 行是积分明细（member.integral.* 5 键）⇒ 先删 css 残留"
+    "reason": "账面 pair 不成立：页面正文只声明 point-history/PointHistoryScreen（member/integral.tsx:4），vip/VipScreen 这条来自同目录 pages/member/index.css 的视觉参照注释（目录级样式表，头注「视觉唯一标准: …VipScreen.tsx」不是本页的镜像声明；判据 sidecarCssPaths 已按 2026-10-29 改为只认同名 .css）；页面 174 行是积分明细（member.integral.* 5 键）⇒ 无需删任何 css，该 pair 本就不存在"
   },
   {
     "route": "pages/member/coupon",
@@ -857,7 +857,7 @@
     "taroApis": ["Taro.navigateBack", "Taro.navigateTo"],
     "hooks": ["useDidShow"],
     "lines": 110,
-    "reason": "账面 pair 不成立：页面已直载 @ihui/rn-app/features/coupon/CouponScreen（member/coupon.tsx:23，109 行薄页）并声明 coupon/CouponScreen；vip/VipScreen 这条来自 member/coupon.css 残留 ⇒ 该行 12 键缺口全属假账面"
+    "reason": "账面 pair 不成立：页面已直载 @ihui/rn-app/features/coupon/CouponScreen（member/coupon.tsx:23，109 行薄页）并声明 coupon/CouponScreen；vip/VipScreen 这条来自同目录 pages/member/index.css 的视觉参照注释（目录级样式表，头注「视觉唯一标准: …VipScreen.tsx」不是本页的镜像声明；判据 sidecarCssPaths 已按 2026-10-29 改为只认同名 .css） ⇒ 该行 12 键缺口全属假账面"
   },
   {
     "route": "pages/member/coupon-list",
@@ -866,7 +866,7 @@
     "taroApis": ["Taro.showToast", "Taro.stopPullDownRefresh"],
     "hooks": ["useDidShow", "usePullDownRefresh"],
     "lines": 134,
-    "reason": "账面 pair 不成立：页面 134 行无任何镜像声明（无 text 标记），vip/VipScreen 这条只来自 member/coupon-list.css 残留；真实归属应为 coupon 域（与 member/coupon.tsx 同源）⇒ 先补声明再判"
+    "reason": "账面 pair 不成立：页面 133 行正文与自有 coupon-list.css 均无镜像声明，vip/VipScreen 这条来自同目录 pages/member/index.css 的视觉参照注释（目录级样式表，头注「视觉唯一标准: …VipScreen.tsx」不是本页的镜像声明；判据 sidecarCssPaths 已按 2026-10-29 改为只认同名 .css）。该页是端内独有的「领券中心」：RN 与 web 都没有对应屏，后端也没有「可领取券」公开端点（promo_coupons 只有 admin 面 CRUD）⇒ 不转壳，保留端内实现"
   },
   {
     "route": "pkg-shop/vip-trader/index/index",
