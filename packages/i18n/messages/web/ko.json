@@ -129,6 +129,15 @@
     "creditLowTitle": "크레딧이 부족합니다",
     "creditLowDesc": "크레딧 잔액이 {min} 미만이면 모델을 사용할 수 없습니다. 충전해 주세요"
   },
+  "wsChannel": {
+    "reconnecting": "실시간 연결이 끊어져 {attempt}/{max}번째 재연결 중…",
+    "connectFailed": "실시간 연결에 실패했습니다. 재시도 중",
+    "connectError": "실시간 연결 오류",
+    "reconnectExhausted": "실시간 연결이 종료되었습니다({max}회 재시도). 콘텐츠 수신이 중단되었습니다. 수동으로 재시도할 수 있습니다",
+    "degradedNotice": "실시간 연결을 사용할 수 없어 호환 채널로 자동 전환하여 콘텐츠 수신을 계속합니다",
+    "fallbackUnavailable": "실시간 연결이 종료되었고 호환 채널도 사용할 수 없어 콘텐츠 수신이 중단되었습니다",
+    "fallbackFailed": "호환 채널도 중단되어 콘텐츠 수신이 중단되었습니다. 잠시 후 수동으로 재시도하세요"
+  },
   "treeSelect": {
     "placeholder": "선택하세요",
     "searchPlaceholder": "검색...",

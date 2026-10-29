@@ -129,6 +129,15 @@
     "creditLowTitle": "Not enough credits",
     "creditLowDesc": "Your credit balance is below {min}, so models are unavailable. Please top up."
   },
+  "wsChannel": {
+    "reconnecting": "Realtime connection dropped — reconnecting ({attempt}/{max})…",
+    "connectFailed": "Realtime connection failed, retrying",
+    "connectError": "Realtime connection error",
+    "reconnectExhausted": "Realtime connection ended after {max} retries; content streaming stopped. You can retry manually.",
+    "degradedNotice": "Realtime connection unavailable — automatically switched to the compatible channel to keep streaming content",
+    "fallbackUnavailable": "Realtime connection ended and the compatible channel is unavailable; content streaming stopped",
+    "fallbackFailed": "The compatible channel also dropped; content streaming stopped. Please retry manually later."
+  },
   "treeSelect": {
     "placeholder": "Select an option",
     "searchPlaceholder": "Search...",

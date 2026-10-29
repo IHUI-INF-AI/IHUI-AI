@@ -33,16 +33,10 @@
       "type": "standalone-tool",
       "reason": "i18n messages 变更后提示重启 dev server 的开发期提醒脚本,不判成败、不阻断提交"
     },
-    
     {
       "script": "check-p2-3-acceptance.mjs",
       "type": "standalone-tool",
       "reason": "P2-3 一次性验收脚本(历史里程碑),长期挂守门链无意义,人工按需复跑"
-    },
-    {
-      "script": "check-task-claims.mjs",
-      "type": "standalone-tool",
-      "reason": "AGENTS §1 把它定位为派单前的「扫描工具」(查 PROJECT_PLAN 三态认领),不是判据:代码无任何 exit(1),且计划文档常态数十项无人认领 ⇒ 红/绿语义不成立。"
     },
     {
       "script": "check-web-tokens-import.mjs",
