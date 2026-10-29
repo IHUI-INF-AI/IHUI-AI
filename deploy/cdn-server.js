@@ -167,6 +167,32 @@ const MIME = {
 function mimeFor(ext) {
   return MIME[ext.toLowerCase()] || 'application/octet-stream'
 }
+// 占位图只对图片扩展名生效。安装包缺文件时必须真 404:2026-10-29 实测
+// `/remote-images/download/ihui-ai-latest.apk` 缺文件时返回 200 + 156 字节 PNG,
+// 手机浏览器"下载成功"却装不上,而且全链路没有任何失败信号。
+const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.apng'])
+
+/**
+ * 安装包固定地址的指针:`<name>.apk` 旁边放 `<name>.apk.redirect.json` ⇒ 该请求转 302。
+ * 为什么要这一层:带版本号的包名可以长缓存(下面给 7 天),而用户记住的那一条地址必须
+ * 每次都指到最新包;把"新鲜度"压进一条几百字节的 no-cache 302,回源成本与包大小无关。
+ * 指针读不到/形态不合法一律不转(回落到"文件在就直发、缺就 404"),绝不打断下载成 500。
+ */
+function readApkPointer(text) {
+  try {
+    const j = JSON.parse(String(text))
+    const u = new URL(String(j && j.url))
+    if (u.protocol !== 'https:') return null
+    if (!/\.apk$/i.test(u.pathname)) return null
+    return {
+      url: u.href,
+      version: String(j.version || ''),
+      versionCode: String(j.versionCode || ''),
+    }
+  } catch (_) {
+    return null
+  }
+}
 
 // ====================== 路由 ======================
 function serveStatic(req, res, root) {
@@ -183,11 +209,29 @@ function serveStatic(req, res, root) {
     return res.end('Forbidden')
   }
 
+  if (path.extname(url).toLowerCase() === '.apk') {
+    const pointerPath = filePath + '.redirect.json'
+    if (fs.existsSync(pointerPath)) {
+      const ptr = readApkPointer(fs.readFileSync(pointerPath, 'utf8'))
+      if (ptr) {
+        res.writeHead(302, {
+          Location: ptr.url,
+          'Cache-Control': 'no-cache, must-revalidate',
+          'Access-Control-Allow-Origin': '*',
+          'X-Release-Version': ptr.version,
+          'X-Release-Version-Code': ptr.versionCode,
+        })
+        return res.end()
+      }
+      console.error('[cdn] 指针形态不合法,回落直发: ' + pointerPath)
+    }
+  }
+
   fs.readFile(filePath, (err, data) => {
     if (err) {
       // 404:尝试作为图片返回占位图
       const ext = path.extname(url)
-      if (MIME[ext]) {
+      if (IMAGE_EXT.has(ext.toLowerCase())) {
         const placeholder = getPlaceholder(url)
         if (placeholder) {
           res.writeHead(200, {
@@ -206,7 +250,7 @@ function serveStatic(req, res, root) {
     if (data.length === 0) {
       // 空文件:返回占位图
       const ext = path.extname(url)
-      if (MIME[ext]) {
+      if (IMAGE_EXT.has(ext.toLowerCase())) {
         const placeholder = getPlaceholder(url)
         if (placeholder) {
           res.writeHead(200, {
@@ -217,8 +261,9 @@ function serveStatic(req, res, root) {
           return res.end(placeholder)
         }
       }
-      res.writeHead(200)
-      return res.end()
+      // 空的可分发文件(如上传中断的 .apk)当作不存在:0 字节 200 只会让用户拿到装不上的包
+      res.writeHead(404)
+      return res.end(JSON.stringify({ missing: url, tip: '文件为 0 字节,请重新上传' }))
     }
     const ext = path.extname(filePath)
     const isTxt = ['.txt', '.md', '.json', '.js', '.css', '.html'].includes(ext)
