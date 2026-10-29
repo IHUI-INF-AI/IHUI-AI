@@ -9,7 +9,7 @@
  * ③数量增减真的改合计;④没有裸 i18n 键上屏。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createElement, type ReactElement, type ReactNode } from 'react'
+import { createElement } from 'react'
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { messages, getValueByPath, type Locale } from '../src/i18n'
 import type * as ApiClient from '@ihui/api-client'
@@ -33,44 +33,13 @@ vi.mock('@react-navigation/native', async () => {
 })
 
 /**
- * 两处「共享 RN 替身没武装到位」(均为环境缺件,不是被测缺陷;共享替身
- * tests/__mocks__/react-native.ts 是他人文件、波及其他套件 ⇒ 本席只按同端既有正解
- * app-root-background-focused-route.test.tsx:35 / chat-disclosure-tier-approval.test.tsx:33 的
- * importOriginal 扩展法在本套件补齐,不另造第三份替身):
- * ① FlatList 只真渲 data/renderItem(替身:184),`ListEmptyComponent` 随 rest 落到 DOM 上
- *   (实测渲成 listemptycomponent="[object Object]")⇒ 本屏三兄弟状态(骨架屏 / cart.loadFailed+重试 /
- *   cart.empty)全走 ListEmptyComponent 上屏(packages/app/src/features/cart/CartScreen.tsx:169),
- *   在测试里一条也渲不出。真 RN 的 FlatList 在 data 为空时渲这一位,故补齐;并给列表容器挂
- *   data-role="flatlist"(loading 段按它取文本 —— 此前 querySelector 恒取 null,那条断言靠 ?? '' 白过)。
- * ② Animated 缺 loop/sequence(替身只有 timing/spring/parallel),而 loading 态的 ScreenSkeleton
- *   = ScreenStates.tsx 的 Shimmer 渲染期就调 Animated.loop(Animated.sequence([...])) ⇒ 一旦 ①
- *   补齐、骨架屏真的上屏,当场抛「Animated.sequence is not a function」。真 RN 有这两个出口,故补齐。
+ * 2026-10-29:本套件曾按 importOriginal 局部补过两处「共享 RN 替身没武装到位」
+ * (① FlatList 不渲 ListEmptyComponent ⇒ 三兄弟状态骨架屏/加载失败+重试/空态一条也渲不出;
+ * ② Animated 缺 loop/sequence ⇒ 骨架屏 Shimmer 渲染期当场抛「Animated.sequence is not a
+ * function」)。两处已补进共享替身 tests/__mocks__/react-native.ts(单一出处,§22c),
+ * 局部复刻随之撤销;`data-role="flatlist"` 标记同样由共享替身供出。
+ * 本屏其余 vi.mock 只拦本套件的外部依赖(导航/取数/支付/弹层),RN 原语一律走共享替身。
  */
-vi.mock('react-native', async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>
-  const BaseFlatList = actual.FlatList as (props: Record<string, unknown>) => ReactElement
-  function FlatList(props: Record<string, unknown>): ReactElement {
-    const data = (props.data as readonly unknown[] | undefined) ?? []
-    if (data.length > 0) return BaseFlatList({ ...props, 'data-role': 'flatlist' })
-    const empty = props.ListEmptyComponent
-    const slot =
-      typeof empty === 'function' ? (empty as () => ReactNode)() : ((empty as ReactNode) ?? null)
-    return createElement('div', { 'data-role': 'flatlist' }, slot)
-  }
-  const anim = {
-    start: (cb?: (r: { finished: boolean }) => void) => {
-      cb?.({ finished: true })
-      return anim
-    },
-    stop: () => {},
-  }
-  const Animated = {
-    ...(actual.Animated as Record<string, unknown>),
-    loop: () => anim,
-    sequence: () => anim,
-  }
-  return { ...actual, Animated, FlatList }
-})
 
 // 图标素材不是本页判据;名单必须覆盖共享屏 + 薄壳两处 import,漏一个是运行时 export 缺失。
 vi.mock('lucide-react-native', () => {

@@ -11,7 +11,7 @@
  * 写法照 apps/mobile-rn/tests/about-screen-render.test.tsx。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createElement, type ReactNode } from 'react'
+import { createElement } from 'react'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { messages, getValueByPath, type Locale } from '../src/i18n'
 
@@ -22,98 +22,13 @@ const nav = vi.hoisted(() => ({
 }))
 const api = vi.hoisted(() => ({ fetchApi: vi.fn(), appAlert: vi.fn() }))
 
-vi.mock('react-native', () => {
-  const flat = (v: unknown): unknown =>
-    Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
-  type MockProps = {
-    children?: ReactNode | ((state: { pressed: boolean }) => ReactNode)
-    style?: unknown
-    onPress?: () => void
-    [k: string]: unknown
-  }
-  const mk = (tag: string) =>
-    function MockComp(props: MockProps) {
-      const { style, onPress, children, ...rest } = props
-      const kids = typeof children === 'function' ? children({ pressed: false }) : children
-      return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, kids)
-    }
-  type ListProps = MockProps & {
-    data?: readonly unknown[]
-    renderItem?: (arg: { item: unknown; index: number }) => ReactNode
-  }
-  function MockList(props: ListProps) {
-    const { data, renderItem, ListEmptyComponent, ListFooterComponent } = props
-    const items = (data ?? []).map((item, index) => renderItem?.({ item, index }))
-    const slot = (C: unknown): ReactNode =>
-      typeof C === 'function' ? (C as () => ReactNode)() : ((C as ReactNode) ?? null)
-    return createElement(
-      'div',
-      { 'data-role': 'flatlist' },
-      ...items,
-      slot(ListEmptyComponent),
-      slot(ListFooterComponent),
-    )
-  }
-  /**
-   * 屏幕状态四件套(ScreenStates,枚 d723f8bc9b37 起为共享屏的 Shimmer/按压动画)在渲染期
-   * 使用 Animated.loop/sequence/timing/spring/Value/View + Easing。内联 mock 缺这组导出
-   * ⇒ 整文件加载/渲染期抛「No "Animated" export is defined on the "react-native" mock」。
-   * 与真实 RN 的 Animated 面同形的 no-op 桩(start 回调带 finished:true,保证 useEffect 清理可达)。
-   */
-  const anim = {
-    start: (cb?: (r: { finished: boolean }) => void) => {
-      cb?.({ finished: true })
-      return anim
-    },
-    stop: () => {},
-  }
-  const mkAnimValue = () => ({
-    setValue: () => {},
-    interpolate: (cfg: { outputRange?: number[] }) => cfg.outputRange?.[0] ?? 1,
-  })
-  function AnimatedValue() {
-    return mkAnimValue()
-  }
-  const Animated = {
-    View: mk('div'),
-    Value: AnimatedValue,
-    timing: () => anim,
-    spring: () => anim,
-    loop: () => anim,
-    sequence: () => anim,
-    parallel: () => anim,
-  }
-  const Easing = {
-    ease: (t: number) => t,
-    linear: (t: number) => t,
-    in: (f: (t: number) => number) => f,
-    out: (f: (t: number) => number) => f,
-    inOut: (f: (t: number) => number) => f,
-  }
-  return {
-    Animated,
-    Easing,
-    // 共享返回键核心按字体缩放取档(packages/shared back-chevron-core → useFontMultiplier)
-    PixelRatio: {
-      getFontScale: () => 1,
-      getPixelSizeForLayoutSize: (n: number) => n,
-      roundToNearestPixel: (n: number) => n,
-    },
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    useColorScheme: () => 'light',
-    View: mk('div'),
-    Text: mk('span'),
-    ScrollView: mk('div'),
-    Pressable: mk('button'),
-    TouchableOpacity: mk('button'),
-    FlatList: MockList,
-    Image: () => createElement('img', { 'data-role': 'image' }),
-    ActivityIndicator: () => createElement('div', { 'data-role': 'activity' }),
-    RefreshControl: () => null,
-    StyleSheet: { create: <T extends object>(s: T) => s, flatten: (s: unknown) => s },
-    Platform: { OS: 'web', select: (o: Record<string, unknown>) => o.web ?? o.ios },
-  }
-})
+/**
+ * 2026-10-29:本套件曾整文件自带一份 react-native mock(MockList 渲 ListEmptyComponent/
+ * ListFooterComponent、Animated.loop/sequence 等),因为共享替身缺那两处能力。现已补进
+ * tests/__mocks__/react-native.ts(单一出处,§22c),局部复刻撤销,RN 原语一律走共享替身。
+ * 唯一保留的口径差:共享替身把 accessibilityLabel 归一成 aria-label(真身 API 在 DOM 侧的
+ * 唯一可检索形态),下方返回键查询随之改按 aria-label。
+ */
 
 vi.mock('@react-navigation/native', async () => {
   // TopicDetailScreen 经 useRefreshOnFocus 取 useFocusEffect;ESM 下 mock 缺出口 ⇒ 整文件加载即失败。
@@ -229,8 +144,10 @@ describe('TopicDetailScreen 渲染的是共享层那一份', () => {
       topicId: nav.routeId,
       topicName: 'AI 绘图',
     })
-    // BackChevron:label 只进 accessibilityLabel(无可见文字),矢量 SVG 上屏;点按钮本体
-    const backBtn = container.querySelector(`[accessibilitylabel="${val('common.back')}"]`)
+    // BackChevron:label 只进 accessibilityLabel(无可见文字),矢量 SVG 上屏;点按钮本体。
+    // 共享替身把 RN 的 accessibilityLabel 归一成 web 的 aria-label(__mocks__/react-native.ts
+    // 的 mk,原始属性名不落 DOM ⇒ 按 [accessibilitylabel=…] 查恒命中 0),故按 aria-label 取。
+    const backBtn = container.querySelector(`[aria-label="${val('common.back')}"]`)
     expect(backBtn, '返回键(accessibilityLabel)未上屏').not.toBeNull()
     expect(backBtn?.querySelector('svg'), '返回键非矢量载体').not.toBeNull()
     fireEvent.click(backBtn as Element)
