@@ -68,6 +68,7 @@ const git = (args, input) =>
     maxBuffer: 1 << 28,
     stdio: input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'],
     input,
+    windowsHide: true,
   })
 const headBlob = (rel) => git(['show', `HEAD:${rel}`])
 const hashBytes = (buf) => git(['hash-object', '-w', '--stdin'], Buffer.from(buf, 'utf8')).trim()
@@ -174,6 +175,7 @@ function watermarkBytesOf(name, text, ext = '.tsx') {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
   const bytes = readFileSync(p, 'utf8')
   rmSync(p, { force: true })
@@ -633,6 +635,7 @@ function landViaObjectSpace({ manifest, built, msg }) {
           'blob = git show HEAD:<file> ⊕ 本批行(逐条经造页器自己的插入函数产);页文件正文 = planBatch(form=shell).pageText + 临时件上注入的水印;任一插入 !ok 即整批不落',
         LAND_MSG: msg,
       },
+      windowsHide: true,
     })
     return /CAS 成功|提交面回读/.test(out)
       ? { ok: true }

@@ -46,6 +46,7 @@ const git = (args, input) =>
     maxBuffer: 1 << 28,
     stdio: input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'],
     input,
+    windowsHide: true,
   })
 
 /** 建"归一色值 → 候选档"表:覆盖面块优先(它就是源),再补 RN 表里已有的同名同值档。 */
