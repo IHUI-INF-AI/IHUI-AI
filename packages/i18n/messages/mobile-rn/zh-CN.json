@@ -1003,8 +1003,8 @@
     "vip": "会员中心",
     "vipBenefit": "会员权益",
     "vipCompare": "会员对比",
-    "coupon": "优惠券",
-    "promotion": "优惠券",
+    "coupon": "我的优惠券",
+    "promotion": "优惠券中心",
     "sectionPoints": "积分",
     "pointsMall": "积分商城",
     "pointsRecord": "智汇值明细",
@@ -1759,7 +1759,7 @@
     "empty": "暂无优惠券",
     "loadFailed": "加载失败",
     "minSpend": "满 {amount} 可用",
-    "title": "优惠券",
+    "title": "我的优惠券",
     "validUntil": "有效期至",
     "use": "立即使用",
     "useHint": "请前往商品页使用",
@@ -2203,7 +2203,7 @@
     "status_inactive": "未活跃"
   },
   "promotion": {
-    "title": "优惠券",
+    "title": "优惠券中心",
     "empty": "暂无可用优惠券",
     "minSpend": "满 ¥{minSpend} 可用",
     "expireDate": "有效期至",
@@ -3156,7 +3156,7 @@
     "status_rejected": "已驳回"
   },
   "distributionCompany": {
-    "title": "分销中心",
+    "title": "分销业绩",
     "refresh": "刷新",
     "loadFailed": "数据加载失败",
     "empty": "暂无佣金数据",
@@ -4284,7 +4284,7 @@
     "allowInvites": "允许被邀请"
   },
   "memberDashboard": {
-    "title": "会员中心",
+    "title": "会员概览",
     "level": "会员等级",
     "points": "我的积分",
     "coupons": "优惠券",

@@ -53,7 +53,6 @@ import {
   PenLine,
   BadgeCheck,
   Star,
-  Heart,
   MessageCircle,
   Bell,
   MailOpen,
@@ -252,7 +251,10 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'Favorites', labelKey: 'menu.favorites', icon: Star },
       // Following(2026-09-04 收敛):关注列表为 Follow(关注+粉丝双 Tab)子集,菜单入口并入 Follow
       { key: 'Follow', labelKey: 'menu.follow', icon: Handshake },
-      { key: 'Favorite', labelKey: 'menu.favorite', icon: Heart },
+      // 「我的收藏」曾在此再挂一条 Favorite(单数):两条路由渲染同一枚共享屏、共用同一份
+      // useFavoriteScreenModel(见 FavoriteScreen/FavoritesScreen 头注),菜单上就是同名的两条入口。
+      // 抽屉侧只挂 Favorites(drawer-nav 的「我的学习」父项也指向它),故按抽屉口径保留
+      // Favorites、删掉这一条;Favorite 路由本身保留(深层链接与既有指向不受影响)。
       { key: 'MessageCenter', labelKey: 'menu.messageCenter', icon: MessageCircle },
       { key: 'MessageSystem', labelKey: 'menu.messageSystem', icon: Bell, viaParent: true },
       { key: 'MessageDirect', labelKey: 'menu.messageDirect', icon: MailOpen, viaParent: true },
