@@ -338,7 +338,7 @@ const SERVICES = [
       }
       return child;
     },
-    hint: '浏览器打开 http://localhost:8806;手机 dev client 亦指向它(经 reverse tcp:8081 tcp:8806,单 Metro 铁律)。微信 SDK / 本地推送等平台独占能力会降级,真机仍需另验。看 .tmp-sync/dev-stack-web-preview.log',
+    hint: '浏览器打开 http://localhost:8806;手机 dev client 亦指向它(经 reverse tcp:8081 tcp:8806,单 Metro 铁律)。微信 SDK / 闪验 / 本地推送等平台独占能力会降级,真机仍需另验。看 .tmp-sync/dev-stack-web-preview.log',
   },
 ];
 

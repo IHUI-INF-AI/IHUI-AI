@@ -422,7 +422,7 @@ sha256sum ihui-windows-x64.zip
 | `app.config.js` `buildNumber` 号段 | ✅ | UTC `YYMMDDHH` 8 位号段 `[26010100, 2100000000]`,`IHUI_VERSION_CODE` 覆盖口越界抛错 |
 | `eas.json` `build.production` | ✅ | `autoIncrement:true` + `android.buildType:apk`(iOS 不锁 apk) |
 | `eas.json` `submit.production` | ✅ | 空配置(全量平台) |
-| 3 个 Expo config plugin | ✅ | `withWechat.cjs`(CFBundleURLTypes + AppDelegate WXApi 钩子)+ `withExpoImportFix.cjs` + `withSplash.cjs` |
+| 4 个 Expo config plugin | ✅ | `withWechat.cjs`(CFBundleURLTypes + AppDelegate WXApi 钩子)+ `withCarrier.cjs` + `withExpoImportFix.cjs` + `withSplash.cjs` |
 | `expo-notifications ~57.0.0` 已装 | ✅ | 推送能力就绪;`use-push.ts` 已注册到后端 `/push/devices/register` |
 | `assets/icon.png` / `splash-icon.png` / `adaptive-icon.png` | ✅ | `apps/mobile-rn/assets/` 就绪 |
 | Apple AASA 源文件 | ✅ | `apps/mobile-rn/public/.well-known/apple-app-site-association`(含 `TEAMID.ai.ihui.mobile` 占位) |
