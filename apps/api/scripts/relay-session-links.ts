@@ -261,7 +261,7 @@ export function planRebuild(
     const prev = ledger.links[conv]
     if (prev?.linkedBy === 'manual') continue // 人工标注不被机器重建覆盖
     const t = times[conv]
-    const after = t !== null && Date.parse(t) > sinceMs
+    const after = typeof t === 'string' && Date.parse(t) > sinceMs
     const next: LinkEntry = {
       accountId: after ? opts.accountId : null,
       linkedAt: now,
