@@ -56,6 +56,11 @@ const SITES: ReadonlyArray<{ anchor: string; site: string; label: string }> = [
     label: '手机验证码登录',
   },
   {
+    anchor: 'const apiRes = await loginByCarrierOneClick({',
+    site: "form.setError(apiFailureToText(apiRes, t('auth.loginFailed')))",
+    label: '运营商一键登录',
+  },
+  {
     anchor: 'const res = await loginByWechat(code)',
     site: "form.setError(apiFailureToText(res, t('auth.loginFailed')))",
     label: '微信 App 授权登录',
@@ -73,7 +78,7 @@ describe('LoginScreen:服务端失败分支逐站接唯一出口', () => {
     expect(source.slice(next, next + site.length)).toBe(site)
   })
 
-  it("五站之外不再残留任何 `res.error ?? 'auth.loginFailed'` 直塞(除刻意保留的 OAuth 站)", () => {
+  it("六站之外不再残留任何 `res.error ?? 'auth.loginFailed'` 直塞(除刻意保留的 OAuth 站)", () => {
     // 2026-10 i18n 清扫批(37522b95e74)把 OAuth 站直塞里的裸字面量包进 t():
     // 直塞语义未变(res.error 优先),正则随形态;仍钉"恰好一处且在 applyOAuthResult 之后"
     const raw = source.match(

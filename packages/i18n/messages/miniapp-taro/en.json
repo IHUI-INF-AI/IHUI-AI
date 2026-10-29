@@ -6959,5 +6959,25 @@
   },
   "slashCmd": {
     "statusToast": "Model {model} · {count} messages · {state}"
+  },
+  "cloudRuns": {
+    "title": "Cloud Agent Runs",
+    "subtitle": "View the run history and detailed output of cloud-hosted agents",
+    "refresh": "Refresh",
+    "loadFailed": "Failed to load",
+    "empty": "No runs yet",
+    "loading": "Loading…",
+    "back": "Back",
+    "detailTitle": "Run Details",
+    "runId": "Run ID",
+    "agentType": "Agent Type",
+    "sessionAlias": "Session Alias",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "task": "Task",
+    "output": "Final Output",
+    "runningHint": "Still running, no final output yet",
+    "noOutput": "No output",
+    "noTask": "No task description"
   }
 }
