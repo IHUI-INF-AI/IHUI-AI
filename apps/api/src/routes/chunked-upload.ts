@@ -82,12 +82,21 @@ const mergeBodySchema = z.object({
   uploadId: z.string().min(1, 'uploadId 不能为空'),
 })
 
+// 2026-10-29:uploadId 会被直接拼进磁盘路径(join(UPLOAD_DIR,'chunks',uploadId)),
+// 原先只校验非空 ⇒ 传 `../../..` 即可穿越。这里按服务端生成形态(randomUUID)收窄到
+// ASCII 字母数字与 - _;任何分隔符与 .. 在 parse 阶段就被拒。
+const uploadIdSchema = z
+  .string()
+  .min(1, 'uploadId 不能为空')
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/, 'uploadId 形态非法')
+
 const cancelBodySchema = z.object({
-  uploadId: z.string().min(1, 'uploadId 不能为空'),
+  uploadId: uploadIdSchema,
 })
 
 const statusQuerySchema = z.object({
-  uploadId: z.string().min(1, 'uploadId 不能为空'),
+  uploadId: uploadIdSchema,
 })
 
 // =============================================================================
@@ -148,12 +157,14 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         { userId, active: activeRows.length },
         'chunked-upload begin 拒绝:单用户活跃会话预算超档',
       )
-      return reply.status(429).send(
-        error(
-          429,
-          `并发上传会话数已达上限(${PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser}),请等既有上传完成或取消后重试`,
-        ),
-      )
+      return reply
+        .status(429)
+        .send(
+          error(
+            429,
+            `并发上传会话数已达上限(${PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser}),请等既有上传完成或取消后重试`,
+          ),
+        )
     }
 
     const uploadId = randomUUID()
@@ -221,7 +232,12 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     const rows = await db
       .select()
       .from(uploadSessions)
-      .where(eq(uploadSessions.uploadId, uploadIdStr))
+      .where(
+        and(
+          eq(uploadSessions.uploadId, uploadIdStr),
+          eq(uploadSessions.userId, request.userId ?? ''),
+        ),
+      )
       .limit(1)
 
     const session = rows[0]
@@ -287,7 +303,12 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         expiresAt: expiresAtFrom(new Date()),
         updatedAt: new Date(),
       })
-      .where(eq(uploadSessions.uploadId, uploadIdStr))
+      .where(
+        and(
+          eq(uploadSessions.uploadId, uploadIdStr),
+          eq(uploadSessions.userId, request.userId ?? ''),
+        ),
+      )
 
     return reply.send(
       success({
@@ -312,7 +333,9 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     const rows = await db
       .select()
       .from(uploadSessions)
-      .where(eq(uploadSessions.uploadId, uploadId))
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
       .limit(1)
 
     const session = rows[0]
@@ -342,7 +365,9 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     await db
       .update(uploadSessions)
       .set({ status: UPLOAD_SESSION_STATUS.merging, updatedAt: new Date() })
-      .where(eq(uploadSessions.uploadId, uploadId))
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
 
     const fileId = randomUUID()
     const finalPath = join(PUBLIC_UPLOAD_DIR, fileId)
@@ -407,7 +432,12 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
             await db
               .update(uploadSessions)
               .set({ status: STATUS_CHECKSUM_MISMATCH, updatedAt: new Date() })
-              .where(eq(uploadSessions.uploadId, uploadId))
+              .where(
+                and(
+                  eq(uploadSessions.uploadId, uploadId),
+                  eq(uploadSessions.userId, request.userId ?? ''),
+                ),
+              )
             request.log.error(
               {
                 uploadId,
@@ -463,7 +493,9 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         filePath: finalPath,
         updatedAt: new Date(),
       })
-      .where(eq(uploadSessions.uploadId, uploadId))
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
 
     return reply.send(
       success({
@@ -486,6 +518,20 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     }
     const { uploadId } = parsed.data
 
+    // 2026-10-29:先确认会话存在且属于当前用户,再动磁盘。
+    // 原实现拿到 uploadId 直接 join + rmSync(recursive) —— 任何登录用户传 `../../..`
+    // 即可递归删除任意可达目录,也能取消他人的上传。归属校验同时把 IDOR 一起堵上。
+    const ownerRows = await db
+      .select({ id: uploadSessions.id })
+      .from(uploadSessions)
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
+      .limit(1)
+    if (ownerRows.length === 0) {
+      return reply.status(404).send(error(404, '上传会话不存在'))
+    }
+
     // 删除 chunks 目录
     const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
     try {
@@ -498,7 +544,9 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     await db
       .update(uploadSessions)
       .set({ status: UPLOAD_SESSION_STATUS.cancelled, updatedAt: new Date() })
-      .where(eq(uploadSessions.uploadId, uploadId))
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
 
     return reply.send(success({ uploadId, cancelled: true }))
   })
@@ -516,7 +564,9 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     const rows = await db
       .select()
       .from(uploadSessions)
-      .where(eq(uploadSessions.uploadId, uploadId))
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
       .limit(1)
 
     const session = rows[0]
