@@ -162,6 +162,8 @@ interface IDEWorkspaceState {
   fetchDiffFiles: () => Promise<void>
   fetchGitLog: () => Promise<void>
   fetchGitBranches: () => Promise<void>
+  /** 行级揭示(review-findings 卡片点击跳转到 IDE 指定文件行);由 CodeEditorPane 挂载期注册,未注册时为 no-op */
+  revealAt?: (path: string, line: number, col?: number) => void
 }
 
 export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({

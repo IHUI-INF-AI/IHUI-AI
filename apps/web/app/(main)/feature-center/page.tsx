@@ -37,39 +37,43 @@ async function fetchStats(): Promise<FeatureStats> {
   return res.data
 }
 
+// 2026-10-29 修复:原 labelKey/descKey 用扁平键 (apisLabel/apisDesc),
+// 但 i18n 消息包 (5 语言一致) 里实际是 featureCenter.apis.title /
+// featureCenter.apis.description 嵌套键 → 键名不匹配导致整组翻译缺失、
+// 5 张卡片标题/描述全部回退成原始键名显示。对齐为嵌套键。
 const ENTRIES = [
   {
     key: 'apis',
-    labelKey: 'apisLabel',
-    descKey: 'apisDesc',
+    labelKey: 'apis.title',
+    descKey: 'apis.description',
     icon: Package,
     href: '/feature-center/apis',
   },
   {
     key: 'agents',
-    labelKey: 'agentsLabel',
-    descKey: 'agentsDesc',
+    labelKey: 'agents.title',
+    descKey: 'agents.description',
     icon: Bot,
     href: '/feature-center/agents',
   },
   {
     key: 'documents',
-    labelKey: 'documentsLabel',
-    descKey: 'documentsDesc',
+    labelKey: 'documents.title',
+    descKey: 'documents.description',
     icon: FileText,
     href: '/feature-center/documents',
   },
   {
     key: 'models',
-    labelKey: 'modelsLabel',
-    descKey: 'modelsDesc',
+    labelKey: 'models.title',
+    descKey: 'models.description',
     icon: Cpu,
     href: '/feature-center/models',
   },
   {
     key: 'sdks',
-    labelKey: 'sdksLabel',
-    descKey: 'sdksDesc',
+    labelKey: 'sdks.title',
+    descKey: 'sdks.description',
     icon: Code2,
     href: '/feature-center/sdks',
   },

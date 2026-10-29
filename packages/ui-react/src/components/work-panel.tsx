@@ -82,6 +82,13 @@ export interface WorkPanelProps {
   onReload: () => void
   onStop?: () => void
   onOpenExternal?: () => void
+  /** docked 浏览器模式(WIP,桌面端尚未接入):主页/拾取/开发者工具/弹出按钮 + 停止态 */
+  onHome?: () => void
+  onPickToggle?: () => void
+  onDevtools?: () => void
+  onPopout?: () => void
+  showStop?: boolean
+  isPicking?: boolean
   /** 导航能力 */
   canBack: boolean
   canForward: boolean

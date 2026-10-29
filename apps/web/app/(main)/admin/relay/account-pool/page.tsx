@@ -1189,7 +1189,7 @@ export default function AdminRelayAccountPoolPage() {
     setRelogin({ id: k.id, phase: 'waiting' })
     reloginDockTabRef.current = useWorkPanelStore
       .getState()
-      .openDockedTab(cap.loginUrl, cap.tabTitle)
+      .openDockedTab?.(cap.loginUrl, cap.tabTitle) ?? null
   }
 
   // 轮询探测(2.5s):ok ⇒ 关登录 Tab + 走导入通道覆盖凭证(preserveMissingRefresh 保住

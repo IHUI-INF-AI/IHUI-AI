@@ -321,6 +321,8 @@ interface WorkPanelState {
   forward: () => void
   reload: () => void
   stop: () => void
+  /** docked 浏览器模式(WIP,桌面端接入):在 docked 面板打开一个新 Tab,返回其 id;未实现时为 no-op */
+  openDockedTab?: (url: string, title?: string) => string | null
 
   /** 新建 Tab(可带初始 URL) */
   newTab: (url?: string) => void

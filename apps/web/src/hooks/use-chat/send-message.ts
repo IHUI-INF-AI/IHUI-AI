@@ -258,7 +258,7 @@ export function createSendMessage(
     // /goal 会话目标斜杠命令拦截(W24,2026-09-14 立):
     // - 纯 goal store 状态机操作,不需要登录,不调用 LLM,不创建会话
     // - 设定/查看/标记完成/清除,命中即清空输入框 + toast 反馈
-    if (!isRegenerate && tryHandleGoalSlash(text, t, chatStore)) {
+    if (!isRegenerate && tryHandleGoalSlash(text, t)) {
       sendInFlightRef.current = false
       return true
     }
@@ -266,7 +266,7 @@ export function createSendMessage(
     // /btw 临时侧聊斜杠命令拦截(W24,2026-09-14 立,对标 Claude Code 侧聊):
     // - 直调 REST 单副本问答,不走 LLM chat 流,不创建会话,不写主线历史
     // - 回答携带 meta.sidechat 标记,主线历史构建与持久化均过滤
-    if (!isRegenerate && (await tryHandleBtwSlash(text, t, chatStore))) {
+    if (!isRegenerate && (await tryHandleBtwSlash(text, t))) {
       sendInFlightRef.current = false
       return true
     }
@@ -274,7 +274,7 @@ export function createSendMessage(
     // /commit Smart Commit 斜杠命令拦截(W28,2026-09-14 立,对标 CodeBuddy AI 提交):
     // - AI 生成提交信息并自动 git add + commit,不走 LLM chat 流,不创建会话
     // - commit.before/after 钩子事件在此触发
-    if (!isRegenerate && (await tryHandleCommitSlash(text, t, chatStore))) {
+    if (!isRegenerate && (await tryHandleCommitSlash(text, t))) {
       sendInFlightRef.current = false
       return true
     }
@@ -282,7 +282,7 @@ export function createSendMessage(
     // D117 工具型斜杠命令拦截(2026-09-27 立,对标 Codex /diff /status /model /mcp /compact):
     // - 纯前端动作或直调 REST,不走 LLM chat 流,不创建会话
     // - /status 以 sidechat 消息回显;/diff 打开会话改动总览弹窗
-    if (!isRegenerate && (await tryHandleToolSlash(text, t, chatStore))) {
+    if (!isRegenerate && (await tryHandleToolSlash(text, t))) {
       sendInFlightRef.current = false
       return true
     }

@@ -140,7 +140,7 @@ import {
   resolveIssueBinding,
 } from '@/components/chat/issue-bind-dialog'
 
-interface ConversationItem {
+export interface ConversationItem {
   id: string
   title: string
   model: string
