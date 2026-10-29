@@ -193,11 +193,20 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
           rows.push(o[key])
           // f12-purge(2026-10-25,等条件禁令清偿批)与 f11-purge 同一条兜底射程:摘的是未勾行,
           // 回捞通道(收编器/union 行级回补)同一批,射程不同就会像 f11 立项前一样 100% 回潮。
+          // 〔2026-10-29 补第三型 producers〕`form === 'dropped'` 是**声明为删除**的具名终态(写口 =
+          // `lib/plan-drop-record.mjs` 的删除档,要求 `drop:true ∧ after:null ∧ 前像是未勾登记行`)。
+          // 为什么非补不可:逐字维只认整行等值,而守门 71 的回捞腿插回的是它自己从历史面采集的那份
+          // 字节形态(实测同一枚票 600 → 599),与被摘那一刻不同字 ⇒ 逐字维结构上命中不了,于是
+          // "正当摘除 ⇒ 建前向恢复提交补回"可以无限循环(当天两轮实测复现)。维三只认"声明为删除"
+          // 这一族,按**形态**取而不是按**生产者名字**枚举 —— 名字枚举正是每发现一次回潮就得补一个
+          // kind 的那一型漂移。翻勾前像(`form:'open'`)照旧不进维三:那行还在面上,只是改了勾选态,
+          // 给它题面级豁免等于把"没结清"写成"已处置"(§0.3/§0.10)。
           if (
             o.kind === 'f11-purge' ||
             o.seat === 'f11-purge-20261025' ||
             o.kind === 'f12-purge' ||
-            o.seat === 'f12-purge-20261025'
+            o.seat === 'f12-purge-20261025' ||
+            o.form === 'dropped'
           )
             dropRows.push(o[key])
         }
@@ -209,7 +218,8 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
     dropTitleFps: new Set(dropRows.map(titleFpOf).filter(Boolean)),
     // 题面指纹维的**证据面**(2026-10-26):判据仍是上面那个 Set,这里记"哪几条台账原文贡献了这个
     // 指纹"—— `union-converge` 扣行时必须逐条出示台账凭据(§0.10:删行的判定要能回答"凭哪条")。
-    // 只收与 `dropTitleFps` 同一批(f11/f12 族),两面的射程必须同形,否则证据会说成别的族。
+    // 只收与 `dropTitleFps` 同一批(声明为删除的那一族:f11/f12-purge ∧ `form:'dropped'`),两面的
+    // 射程必须同形,否则证据会说成别的族。
     dropTitleRows: (() => {
       const m = new Map()
       for (const raw of dropRows) {
