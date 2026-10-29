@@ -27,7 +27,7 @@
  *
  * 紧急跳过:HUSKY_SKIP_RUFF=1 git commit ...
  */
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -506,13 +506,8 @@ const FIXTURE_GIT_ID = [
 ]
 
 function gitRun(cwd, args) {
-  return execFileSync('git', args, {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生 git 必须显式接管 stdio
-    timeout: 120000,
-  })
+  // §12g 的 stdio 两态由层写死(不带 input ⇒ ignore),不再各自抄一遍。
+  return gitRaw(args, cwd, { timeout: 120000 })
 }
 
 function fixtureWrite(dir, rel, text) {
