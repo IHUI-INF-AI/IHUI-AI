@@ -116,6 +116,15 @@ const PROVIDERS: readonly WizardProvider[] = [
     signupUrl: 'https://console.groq.com/keys',
   },
   {
+    code: 'xai',
+    name: 'xAI Grok',
+    free: false,
+    apiFormat: 'openai_chat',
+    baseUrl: 'https://api.x.ai/v1',
+    defaultModelId: 'grok-4.7',
+    signupUrl: 'https://console.x.ai',
+  },
+  {
     code: 'siliconflow',
     name: 'SiliconFlow',
     free: false,
