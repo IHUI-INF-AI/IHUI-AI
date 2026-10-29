@@ -6959,5 +6959,25 @@
   },
   "slashCmd": {
     "statusToast": "모델 {model} · 메시지 {count}개 · {state}"
+  },
+  "cloudRuns": {
+    "title": "클라우드 에이전트 실행",
+    "subtitle": "클라우드 에이전트의 실행 기록과 상세 출력을 확인합니다",
+    "refresh": "새로고침",
+    "loadFailed": "로드 실패",
+    "empty": "실행 기록이 없습니다",
+    "loading": "로드 중…",
+    "back": "뒤로",
+    "detailTitle": "실행 상세",
+    "runId": "실행 ID",
+    "agentType": "에이전트 유형",
+    "sessionAlias": "세션 별칭",
+    "startTime": "시작 시간",
+    "endTime": "종료 시간",
+    "task": "작업",
+    "output": "최종 출력",
+    "runningHint": "아직 실행 중이며 최종 출력이 없습니다",
+    "noOutput": "출력 없음",
+    "noTask": "작업 설명 없음"
   }
 }
