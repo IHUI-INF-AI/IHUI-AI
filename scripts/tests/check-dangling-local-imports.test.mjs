@@ -879,8 +879,32 @@ test('D7-a 反向对照:TS 侧 `import("./x.js")` 实指 x.ts ⇒ 不得判红(�
   assert.ok(r2.rules.length >= 1, '拿掉真实模块后 a 维必须翻红')
 })
 
-test('D7 射程:单跳动态 import 不算聚合器 ⇒ files=0(覆盖面不得被 Promise.all 解构灌水)', () => {
-  const single = [
+/**
+ * 判据自伤锁(2026-10-29 实测):第一版在**原文**上 test、在**遮噪面**上 exec,
+ * 于是"注释里写着 `// const [a, b] = await Promise.all([...])`"的文件命中 test 却拿不到 exec ⇒
+ * `m[1]` 读 null,整道门 TypeError 崩在 rc=2(全量档现读复现)。
+ * test/exec 必须同面(§0.4):注释永远不构成射程。
+ */
+test('D7 判据自伤锁:形状只出现在注释里 ⇒ files=0 且绝不崩(与代码面那一支成对)', () => {
+  const commented = [
+    '// const [a, b] = await Promise.all([import("./lib/x.mjs"), import("./lib/y.mjs")])',
+    '/* const [c, d] = await Promise.all([require("./lib/x.mjs"), require("./lib/y.mjs")]) */',
+    'export const noop = 1',
+    '',
+  ].join('\n')
+  const r = d7Run('p/main.mjs', d7Fs({ 'p/main.mjs': commented }))
+  assert.equal(r.files, 0, '注释里的形状不得算"看过"')
+  assert.deepEqual(r.rules, [])
+  // 反向臂:同样内容挪出注释 ⇒ 必须立刻进射程(证明这一支不是靠"永远返回 0"蒙绿)
+  const real = commented
+    .split('\n')
+    .map((l) => l.replace(/^\/\/\s*/, '').replace(/^\/\*\s*/, '').replace(/\s*\*\/$/, ''))
+    .join('\n')
+  const r2 = d7Run('p/main.mjs', d7Fs({ 'p/main.mjs': `async function f(){\n${real}\n}\nconst k = await f()\nk.a()\n` }))
+  assert.equal(r2.files, 1, `挪出注释后必须进射程,实得 files=${r2.files}`)
+})
+
+test('D7 射程:单跳动态 import 不算聚合器 ⇒ files=0(覆盖面不得被 Promise.all 解构灌水)', () => {  const single = [
     'async function one() {',
     '  const [a] = await Promise.all([import("./lib/x.mjs")])',
     '  return a',
