@@ -2,16 +2,19 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { PointHistoryScreen as SharedPointHistoryScreen, type PointHistoryItem } from '@ihui/rn-app'
+import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+const PAGE_SIZE = 20
 
 /**
  * GET /api/points/transactions 的权威形状(逐处现读 HEAD):
@@ -63,10 +66,6 @@ export function PointHistoryScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const [items, setItems] = useState<PointHistoryItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState('')
 
   const formatTime = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(locale, {
@@ -82,23 +81,30 @@ export function PointHistoryScreen() {
     }
   }, [locale])
 
-  const load = useCallback(async () => {
-    setError('')
-    try {
-      const res = await fetchApi<PointTransactionsResponse>('/api/points/transactions')
-      if (!res.success) throw new Error(res.error)
-      setItems((res.data?.list ?? []).map((row) => toPointHistoryItem(row, formatTime)))
-    } catch {
-      setError(t('pointHistory.loadFailed'))
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [t, formatTime])
-
-  useEffect(() => {
-    void load()
-  }, [load])
+  // 后端 gamification.ts 回 success({ list, total, page, pageSize }) ⇒ 走 usePaginatedList 的
+  // total 支;行映射留在 fetcher 里(不把后端行整体当本屏类型用)。
+  const fetcher = useCallback(
+    async ({ page, pageSize }: { page: number; pageSize: number }) => {
+      try {
+        const res = await fetchApi<PointTransactionsResponse>(
+          `/api/points/transactions?page=${page}&pageSize=${pageSize}`,
+        )
+        if (!res.success) return { success: false as const, error: t('pointHistory.loadFailed') }
+        return {
+          success: true as const,
+          data: {
+            list: (res.data?.list ?? []).map((row) => toPointHistoryItem(row, formatTime)),
+            total: res.data?.total ?? 0,
+          },
+        }
+      } catch {
+        return { success: false as const, error: t('pointHistory.loadFailed') }
+      }
+    },
+    [t, formatTime],
+  )
+  const { items, loading, refreshing, loadingMore, error, refresh, loadMore } =
+    usePaginatedList<PointHistoryItem>(fetcher, PAGE_SIZE)
 
   return (
     <SharedPointHistoryScreen
@@ -107,10 +113,9 @@ export function PointHistoryScreen() {
       loading={loading}
       refreshing={refreshing}
       error={error}
-      onRefresh={() => {
-        setRefreshing(true)
-        void load()
-      }}
+      onRefresh={refresh}
+      onEndReached={loadMore}
+      loadingMore={loadingMore}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />
