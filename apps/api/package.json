@@ -113,7 +113,7 @@
     "mailparser": "^3.9.14",
     "rimraf": "catalog:",
     "smtp-server": "^3.19.2",
-    "tsx": "^4.23.5",
+    "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "ws": "^8.21.1"
