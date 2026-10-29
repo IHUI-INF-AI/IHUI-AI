@@ -3029,6 +3029,7 @@ function recordSideLosses(lost, label, violations, caps, decl = null, credit = n
     const d = decl?.get?.(l)
     if (d) {
       credit?.push({ line: l, why: d.why, label })
+      continue
     }
     violations.push(`${label}:${String(l).slice(0, 60)}`)
   }
@@ -3344,8 +3345,8 @@ export function plan(
       ...ambiguousRows,
       ...stalePickRows,
       ...staleLossRows,
+      ...staleDocPicks,
     ],
-    bad: [...built.violations, ...blocked, ...vu, ...ambiguousRows, ...stalePickRows, ...staleDocPicks],
     // 两条路径的"少带份数"合流:两侧同改的丢行分流(built.caps)+ 活文档行 union(vu.pointerCaps)。
     // 只接其中一条 = 台账这一族恰好无人点名,而那正是本票要防的形状。
     caps: [
@@ -4976,6 +4977,7 @@ function selfTest() {
           )
         } finally {
           rmScratch(d6, { bestEffort: true })
+        }
       }
       // ── 纯函数:影子候选名只认 .js/.cjs/.mjs → .ts/.tsx 这一个方向 ──
       ok(
@@ -5289,6 +5291,7 @@ async function main() {
       if (m.has(line)) {
         console.log(`❌ --declare-side-loss ${doc} 第 ${k + 1} 项与前一条同 line(一行两条裁定 ⇒ 歧义,拒绝执行)`)
         process.exit(2)
+      }
       m.set(line, { why: d.why.trim() })
     }
     declaredLoss.set(doc, m)
@@ -5539,6 +5542,7 @@ async function main() {
       ? `;声明式取代 ${supCredits.length} 行(--supersede 声明 + attestFoldPair 四问通过;逐条见 ${supCredits
           .map((s) => `${s.kind}←${String(s.dropped).slice(0, 24)}`)
           .join(' / ')})`
+      : '') +
     // 逐行声明放过的对侧少带必须进提交信息:落地闸只留下"过了",可追责的凭据在信息里(与上两格同纪律)。
     (lossCredits.length
       ? `;逐行声明放过的对侧少带 ${lossCredits.length} 行(--declare-side-loss 逐行声明 + 逐条带原因;` +
@@ -5616,6 +5620,7 @@ async function main() {
     } catch {
       /* 末行不是 JSON ⇒ 只报"没读到",不得把它当成对齐失败或成功 */
     }
+    console.log(
       `  🧹 落地后现场对齐:漂移 ${a.aligned ?? '?'} / 索引刷新 ${a.refreshed ?? '?'} / 落地欠回写 ${a.landingAligned ?? '?'}` +
         (a.landingHeld?.length ? ` —— 另有 ${a.landingHeld.length} 格证明不了归属,只报数不代裁` : ''),
     )
@@ -5623,6 +5628,7 @@ async function main() {
       console.log(
         `  ⚠️ 对齐子进程未完成(exit=${al.status ?? 'n/a'}${al.error ? ` / ${String(al.error.message).slice(0, 80)}` : ''})⇒ 不影响本轮结论,守护下一拍补`,
       )
+    }
   } catch (e) {
     console.log(`  ⚠️ 落地后对齐未派成(不影响本轮结论):${String(e?.message ?? e).slice(0, 160)}`)
   }
@@ -5643,6 +5649,8 @@ async function main() {
   if (affected.verdict === 2) {
     console.error(
       `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚合并已在 HEAD ${sha.slice(0, 11)}(不回滚),请人工复跑点名臂`,
+    )
+  }
   process.exit(lost.lost.length || affected.verdict === 1 ? 1 : affected.verdict === 2 ? 2 : 0)
 }
 
