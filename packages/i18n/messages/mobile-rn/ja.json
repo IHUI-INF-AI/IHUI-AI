@@ -1039,7 +1039,6 @@
     "sectionSocial": "ソーシャル",
     "favorites": "マイお気に入り",
     "follow": "フォローとフォロワー",
-    "favorite": "お気に入り",
     "messageCenter": "メッセージ",
     "messageSystem": "システム",
     "messageDirect": "ダイレクトメッセージ",
@@ -5451,10 +5450,6 @@
     "favoritesCount": "お気に入り",
     "joined": "登録日"
   },
-  "courseSwiper": {
-    "tabHotIntro": "人気入門講座",
-    "tabHotPick": "人気厳選講座"
-  },
   "llmSettings": {
     "title": "モデルプロバイダー",
     "empty": "プロバイダー未設定",
@@ -5818,12 +5813,6 @@
     "cycleUnitWeek": "週"
   },
   "news": {
-    "catAi": "AI",
-    "catMl": "機械学習",
-    "catCv": "コンピュータビジョン",
-    "catNlp": "自然言語",
-    "catChip": "AI チップ",
-    "catRec": "レコメンド",
     "title": "AI ニュース",
     "anonAuthor": "匿名",
     "netFail": "ネットワークエラー",
