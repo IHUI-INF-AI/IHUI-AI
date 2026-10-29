@@ -953,6 +953,7 @@
     "VideoPlayer": {
       "reason": "票 G-978049① 的复裁判据之二(带理由接管),不是为消红:舞台档三端已同值 —— 现读 `git show HEAD:apps/web/src/components/media/VideoPlayer.tsx` :122 `overflow-hidden rounded-lg`(=8)、`git show HEAD:apps/miniapp-taro/src/components/VideoPlayer.tsx` :69/:71 rounded-lg、`git show HEAD:apps/mobile-rn/src/components/VideoPlayer.tsx` :222 `borderRadius: rnRadius.lg`;本族 web 腿残档只有 4,来自 7 处自绘控制条 `rounded-sm`(:165/:180/:186/:193/:200/:207/:217),而小程序走原生 `<Video controls>`(同文件 controls 引用 4 处、rounded-sm 0 处)⇒ 结构上没有这些节点,与主腿 `waivers.VideoPlayer` 是同一条理由的两面,不是同一元素取了不同档。档集合实测 mp=[8] / web=[4,8] / rn=[8]。禁止为凑集合给小程序补一层自绘控件(那是拿假节点抵数字)。",
       "until": "2027-03-30"
+    },
     "VoiceInput": {
       "reason": "两端不是同一个界面元素,不是同元素取了不同档:小程序 apps/miniapp-taro/src/components/VoiceInput.tsx 是**占满一行的录音条**(:98 min-h-12 rounded-lg px-4 py-3;:18 WAVE_BARS 共 7 条;:116 条宽 w-1、间距 mx-[4rpx];动画 animate-pulse 固定高度脉冲),web apps/web/src/components/ai/voice-input.tsx 是**输入框旁的麦克风按钮 + 按钮内 4 条波形 + 状态徽章**(:347 h-8 w-8 rounded-sm;:357-360 [0,1,2,3] 四条、w-0.5、gap-0.5;animation voice-wave 逐条相位差 0.12s;:334 徽章 px-1.5 py-0.5 text-[10px])。条数/条宽/间距/高度包络/动画通道五项全不同形,补任何一端数字都是给不存在的节点描数。跨端同源那部分(小程序↔RN)住在 packages/shared/src/ui/voice-input-spec.ts,其头注列出的分叉项也是这两端,与本腿无关。",
       "until": "2027-03-30"
@@ -971,10 +972,12 @@
       "rn": "packages/app/src/components/category/CategoryInlineBar.tsx",
       "reason": "同一「统一分类条」的两份同形实现:小程序端头注原文写着「统一分类条 —— web @ihui/ui-react CategoryBar 与 RN CategoryInlineBar 的 Taro 同形实现」,两端文件名不同所以任何按名字的配对都看不见它",
       "until": "2027-03-27"
+    },
     "DrawerComponent": {
       "miniapp": "apps/miniapp-taro/src/components/DrawerComponent.tsx",
       "rn": "apps/mobile-rn/src/components/Drawer.tsx",
       "reason": "两侧头注各自点名同一份历史源文件:小程序端「对齐原项目 DrawerComponentall.vue」、RN 端「1:1 复刻历史 Uniapp DrawerComponentall.vue(顶部用户区 / 5 主菜单 / 历史对话分组 / 底部操作区)」—— 同一个侧滑抽屉,不同命名",
+      "until": "2027-03-27"
     }
   }
 }
