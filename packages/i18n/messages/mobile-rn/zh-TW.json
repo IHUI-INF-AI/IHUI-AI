@@ -129,7 +129,7 @@
     "modelSck": "知識庫",
     "matAll": "全部",
     "matText": "文本",
-    "inputPlaceholder": "請輸入您的問題，或長按說話",
+    "inputPlaceholder": "請輸入您的問題",
     "modelSelectTitle": "模型選擇",
     "modelSelectSearchCount": "搜索到 {count} 個模型",
     "modelSelectAgentCount": "共 {count} 個智能體",
