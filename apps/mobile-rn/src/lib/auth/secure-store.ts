@@ -47,13 +47,27 @@ async function probeSecureStore(): Promise<SecureStoreNative | null> {
     return null
   }
   try {
-    // 动态 import:测试环境无该依赖时直接走 fallback
-    const mod = (await import('expo-secure-store')) as Partial<SecureStoreNative>
+    // 必须同步取模块:动态 import() 在 dev bundle 里会被拆成 lazy chunk,Metro 对该 chunk
+    // 路径回 404(实测 node_modules/.pnpm/expo-secure-store@57…/SecureStore.bundle),
+    // Promise 就 reject ⇒ 静默退回 AsyncStorage 并拒写明文刷新令牌(冷启要重新登录)。
+    // require 同步打进主 bundle、不产生分块;测试环境取不到或求值抛错时仍由外层 catch 兜底。
+    // 行内豁免:此处 require 是刻意的(见上),仓内 GlobalFloatBox.tsx 有同型先例
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('expo-secure-store') as Partial<SecureStoreNative>
     if (typeof mod.getItemAsync !== 'function' || typeof mod.setItemAsync !== 'function') {
+      // 取到了模块对象但方法不全:同样要留痕,否则上层只看到"未加密后端"这句误判文案
+      if (typeof __DEV__ === 'undefined' || __DEV__) {
+        console.warn('[secure-store] probe: module loaded but methods missing', Object.keys(mod))
+      }
       return null
     }
     return mod as SecureStoreNative
-  } catch {
+  } catch (e) {
+    // 静默吞错会让"取不到模块"与"本该走 fallback"长得一样,排障时只能看到上层那句
+    // "native module missing is a build defect"的误判文案 —— dev 下把真实原因打出来。
+    if (typeof __DEV__ === 'undefined' || __DEV__) {
+      console.warn('[secure-store] probe failed:', e instanceof Error ? e.message : String(e))
+    }
     return null
   }
 }
@@ -66,7 +80,26 @@ function getBackend(): Promise<SecureBackend> {
       const secure = await probeSecureStore()
       if (secure) {
         return {
-          getItem: secure.getItemAsync,
+          // 一次性迁移:secure-store 修复前,令牌走的是降级后端(AsyncStorage 明文)或被直接
+          // 拒写。修复后读的是系统加密库,存量令牌不在里面 ⇒ 用户会被迫重登一次。
+          // 这里在"加密库没有、AsyncStorage 有"时搬过去并立刻删明文:对用户是零感知,
+          // 对安全面是只读一次旧明文随后清除,不新增任何明文落盘路径。
+          getItem: async (k) => {
+            const hit = await secure.getItemAsync(k)
+            if (hit !== null && hit !== undefined) return hit
+            const legacy = await AsyncStorage.getItem(k)
+            if (legacy === null || legacy === undefined) return null
+            try {
+              await secure.setItemAsync(k, legacy)
+              await AsyncStorage.removeItem(k)
+              if (typeof __DEV__ === 'undefined' || __DEV__) {
+                console.warn(`[secure-store] migrated legacy plaintext item into keystore: ${k}`)
+              }
+            } catch {
+              // 迁移失败不阻断读取:本次仍返回旧值,下次冷启再试
+            }
+            return legacy
+          },
           setItem: secure.setItemAsync,
           deleteItem: secure.deleteItemAsync,
           encrypted: true,

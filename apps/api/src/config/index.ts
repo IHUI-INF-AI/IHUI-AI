@@ -184,7 +184,10 @@ const envSchema = z.object({
   // 默认 warn 而非 enforce 的理由:enforce 一旦上线,所有未绑 TOTP 的管理员立刻失去
   // 管理后台访问权,属于"上线即锁死"的破坏面,必须先经 warn 期盘点存量账号。
   // 未知值落回 warn(拼错档位名不该静默把门关掉,也不该静默把门锁死)。
-  ADMIN_TOTP_MODE: z.enum(['off', 'warn', 'enforce']).default('warn'),
+  // 2026-10-29 由 warn 升 enforce:管理员只凭密码即可进后台是真实缺口(生产实测 1 个
+  // 管理员、TOTP 未绑)。存量管理员需先绑定才能进 admin 面;生产 .env 可显式写 warn
+  // 作过渡(见 docs/SECURITY.md),但代码默认必须是安全的一档 —— 新部署不会再裸奔。
+  ADMIN_TOTP_MODE: z.enum(['off', 'warn', 'enforce']).default('enforce'),
 
   // TBox webhook 签名密钥(可选,为空则不校验;配置后设备事件通知需带 X-Signature 头)
   TBOX_WEBHOOK_SECRET: z.string().default(''),

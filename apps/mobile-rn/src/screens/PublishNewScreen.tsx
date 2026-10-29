@@ -287,7 +287,7 @@ export default function PublishNewScreen() {
                       {t(FORMAT_KEY[f])}
                     </Text>
                   </TouchableOpacity>
-                ))}{' '}
+                ))}
               </View>
 
               {isText ? (

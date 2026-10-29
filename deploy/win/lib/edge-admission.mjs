@@ -232,12 +232,16 @@ export function resolveEdgeClientIp(headers) {
 /**
  * 构造发给上游的请求头。
  *
- * `edgeMode === 'off'` 时**原样返回** —— 未装闸就零行为变化,这是本项目对新开关的硬要求
- * (默认档必须是"什么都不做"),也避免关掉鉴权后上游突然拿不到真实 IP。
+ * 三档都做 IP 归一:出站 X-Forwarded-For 恒为**单段、不可伪造**的客户端 IP。
+ *   · 回源鉴权匹配    ⇒ 采信 EdgeOne 写进 XFF 的最近一跳;
+ *   · 对端为本机回环  ⇒ 采信 cloudflared 注入的 CF-Connecting-IP(隧道形态的唯一真源);
+ *   · 其余(直连源站) ⇒ 只认 TCP 对端。
+ * 注:off 档此前"原样返回"以维持"零行为变化",但原样透传等于让上游采信客户端自带的
+ * XFF(限流键与内网判据可被随意指定),故改为同样归一;off 档仍不做回源验证。
  *
  * 同时注入两个供 API 侧消费的头:
  *   · `x-ihui-client-ip`     —— 归一后的客户端 IP(WS 限流键用它);
- *   · `x-ihui-edge-verified` —— 仅当回源鉴权匹配时置 '1',否则不出现。
+ *   · `x-ihui-edge-verified` —— 仅当回源鉴权匹配时置 '1',否则**删除**(入站伪造值不透传)。
  * 这两个头不可被外部伪造:API 只监听 127.0.0.1,能连进来的只有本机 router。
  *
  * @param {object} input
@@ -247,13 +251,39 @@ export function resolveEdgeClientIp(headers) {
  * @param {string} input.edgeReason                   decideEdgeGuard 给出的 reason
  * @returns {Record<string, unknown>}
  */
-export function buildForwardHeaders({ headers, remoteAddress, edgeMode, edgeReason }) {
+export function buildForwardHeaders({
+  headers,
+  remoteAddress,
+  edgeMode,
+  edgeReason,
+  // 仅内部路由(只监听回环、上游只能来自可信公网路由)传 true:把公网路由 8801 经回源鉴权后
+  // 注入的 verified 标记原样透传,使"已验证"结论一路带到 API 上游实例 —— ai-service 的
+  // per-user 连接/握手限流要靠它拿到真实客户端 IP。
+  //   公网路由 8801 自身必须传 false —— 它的上游是开放互联网(cloudflared 在本机以 127.0.0.1
+  //   连入,故不能靠 isLoopback 区分),攻击者可在公网请求里自带 x-ihui-edge-verified 骗过,
+  //   所以 8801 只认自己比对的 secret,绝不信任入站该头。
+  // 角色判定由调用方按 LISTEN_HOST 给出(见 ihui-api-router.mjs),本函数只消费标志。
+  trustInboundVerified = false,
+}) {
   const out = { ...(headers ?? {}) }
-  if (edgeMode === 'off') return out
-
   const socketIp = typeof remoteAddress === 'string' && remoteAddress ? remoteAddress : 'unknown'
-  const trusted = edgeReason === 'match'
-  const clientIp = (trusted && resolveEdgeClientIp(headers)) || socketIp
+  const loopbackPeer = isLoopbackAddress(socketIp)
+
+  // 2026-10-29:cloudflared 隧道在本机以 127.0.0.1 连入(api / ssi / rdp 全走它),
+  // 对端恒为回环,真实客户端 IP 只存在于 CF-Connecting-IP。此前把它当"可伪造头"整体删除
+  // ⇒ 上游拿到的是 127.0.0.1 ⇒ isPrivateIp 判据失效(实测公网 api.aizhs.top/metrics 返回 200)、
+  // 全局限流退化成单桶。直连源站的对端是公网地址,同一个头就是攻击者可控的,故只在对端
+  // 为回环(只能来自本机 cloudflared)时采信。
+  const cfRaw = headers ? headers['cf-connecting-ip'] : undefined
+  const tunnelClientIp = loopbackPeer
+    ? normalizeIpLiteral(Array.isArray(cfRaw) ? cfRaw[0] : cfRaw)
+    : ''
+
+  // 入站已带 verified ⇒ 来自上游可信路由的真验证(本实例只监听回环时才成立)。
+  const inboundVerified = out['x-ihui-edge-verified'] === '1'
+  const trusted =
+    edgeMode !== 'off' && (edgeReason === 'match' || (trustInboundVerified && inboundVerified))
+  const clientIp = (trusted && resolveEdgeClientIp(headers)) || tunnelClientIp || socketIp
 
   for (const name of IP_HEADERS_TO_DROP) delete out[name]
   // 单段而不是链:上游要的是"这个请求的客户端是谁",不是"谁转发过它"。
@@ -261,6 +291,8 @@ export function buildForwardHeaders({ headers, remoteAddress, edgeMode, edgeReas
   out['x-ihui-client-ip'] = clientIp
   if (trusted) out['x-ihui-edge-verified'] = '1'
   else delete out['x-ihui-edge-verified']
+  // off 档同样做 IP 归一(不再原样返回):归一不是"闸",是身份语义修正 —— off 档下原样
+  // 透传等于让上游采信客户端自带的 X-Forwarded-For,那比"没装闸"更糟。回源验证仍不做。
   return out
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

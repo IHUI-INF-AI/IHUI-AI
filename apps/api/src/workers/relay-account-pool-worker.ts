@@ -40,6 +40,11 @@ interface ClientSyncOutcome {
   stderr: string
 }
 
+/** 供任务中心进程内直调(与 cron job 共用同一执行体,不另起第二份逻辑) */
+export function runTraeSessionSync(): Promise<ClientSyncOutcome> {
+  return runClientSessionSync('sync-trae-client-session.mjs')
+}
+
 /** 子进程跑回灌编排器;凭据只在父子进程管道里流动,输出面已由脚本脱敏 */
 async function runClientSessionSync(scriptName: string): Promise<ClientSyncOutcome> {
   const script = resolvePath(REPO_ROOT, 'scripts', scriptName)

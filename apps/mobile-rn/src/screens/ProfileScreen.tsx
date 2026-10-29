@@ -30,6 +30,7 @@ import { captureRef } from 'react-native-view-shot'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
+import { BlurTargetView } from 'expo-blur'
 import * as FileSystem from 'expo-file-system'
 import * as ImagePicker from 'expo-image-picker'
 import * as MediaLibrary from 'expo-media-library'
@@ -228,6 +229,8 @@ export function ProfileScreen() {
   // 返回顶部按钮(对齐 Uniapp user/index.vue toodown:滚动超过阈值显示,点击回顶)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const profileScrollRef = useRef<ScrollView>(null)
+  /** Android 真模糊:页面内容包进 BlurTargetView 供 TabBar 胶囊取样(缺 ref 则退 0.88 磨砂实底) */
+  const tabBarBlurTargetRef = useRef<View>(null)
   const handleProfileScroll = useCallback(
     (e: { nativeEvent: { contentOffset: { y: number } } }) => {
       setShowBackToTop(e.nativeEvent.contentOffset.y > 300)
@@ -569,150 +572,152 @@ export function ProfileScreen() {
 
   return (
     <>
-      <NavChrome>
-        <NavBar
-          title={t('profile.title')}
-          /* 抽屉菜单键在左:Home/Plaza/News 三个 tab 的菜单键都在左上,只有本页原在右上 —— 同一
-             手势语义的入口不能一份在左一份在右(真机确认的位置不一致)。右操作区只留页面自己的动作。 */
-          leftActions={[
+      <BlurTargetView ref={tabBarBlurTargetRef} style={{ flex: 1 }}>
+        <NavChrome>
+          <NavBar
+            title={t('profile.title')}
+            /* 抽屉菜单键在左:Home/Plaza/News 三个 tab 的菜单键都在左上,只有本页原在右上 —— 同一
+               手势语义的入口不能一份在左一份在右(真机确认的位置不一致)。右操作区只留页面自己的动作。 */
+            leftActions={[
+              {
+                icon: PanelLeftRounded,
+                a11yLabel: t('common.menu'),
+                onPress: () => setDrawerVisible(true),
+              },
+            ]}
+            rightActions={[
+              {
+                icon: SquarePen,
+                label: t('menu.feedback'),
+                onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never),
+              },
+            ]}
+          />
+        </NavChrome>
+        <ScrollView
+          ref={profileScrollRef}
+          style={styles.screenScroll}
+          contentContainerStyle={[
+            styles.screenScrollContent,
             {
-              icon: PanelLeftRounded,
-              a11yLabel: t('common.menu'),
-              onPress: () => setDrawerVisible(true),
+              paddingBottom: tabBarScrollReserve(insets.bottom) + TAB_BAR_FADE_CLEARANCE_PX,
             },
           ]}
-          rightActions={[
-            {
-              icon: SquarePen,
-              label: t('menu.feedback'),
-              onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never),
-            },
-          ]}
-        />
-      </NavChrome>
-      <ScrollView
-        ref={profileScrollRef}
-        style={styles.screenScroll}
-        contentContainerStyle={[
-          styles.screenScrollContent,
-          {
-            paddingBottom: tabBarScrollReserve(insets.bottom) + TAB_BAR_FADE_CLEARANCE_PX,
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleProfileScroll}
-        scrollEventThrottle={16}
-      >
-        {loading ? (
-          loadTimedOut ? (
-            <View style={styles.tabErrorWrap}>
-              <Text style={styles.tabErrorText}>{t('profile.loadTimeoutRetry')}</Text>
-              <TouchableOpacity
-                onPress={() => void loadProfileStats()}
-                style={styles.tabRetryBtn}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.tabRetryText}>{t('profile.clickRetry')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.loaderWrap}>
-              <ColorfulLoader size={48} />
-            </View>
-          )
-        ) : (
-          <>
-            {userInfoForCard ? (
-              <View style={styles.userInfoCardWrap}>
-                <UserInfoCard
-                  userInfo={userInfoForCard}
-                  showRechargeBtn
-                  onEdit={() => setEditProfileVisible(true)}
-                  onRecharge={() => rootNav?.navigate('Wallet')}
-                  onLogin={() => rootNav?.navigate('Login')}
-                  onUnsubscribe={() => setUnsubscribeVisible(true)}
-                  onLevelIntro={() => setLevelIntroVisible(true)}
-                />
-                {/* 等级介绍按钮(对齐 Uniapp level-intro popup,UserInfoCard 内部仅有简化等级 Modal,
-                    此处为完整 3 级体系介绍入口) */}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleProfileScroll}
+          scrollEventThrottle={16}
+        >
+          {loading ? (
+            loadTimedOut ? (
+              <View style={styles.tabErrorWrap}>
+                <Text style={styles.tabErrorText}>{t('profile.loadTimeoutRetry')}</Text>
                 <TouchableOpacity
-                  style={styles.levelIntroBtn}
+                  onPress={() => void loadProfileStats()}
+                  style={styles.tabRetryBtn}
                   activeOpacity={0.7}
-                  onPress={() => setLevelIntroVisible(true)}
-                  accessibilityLabel={t('profile.levelIntro')}
                 >
-                  <Text style={styles.levelIntroBtnText}>{t('profile.levelIntro')}</Text>
+                  <Text style={styles.tabRetryText}>{t('profile.clickRetry')}</Text>
                 </TouchableOpacity>
               </View>
-            ) : null}
-            <View style={styles.userCardWrap}>
-              <UserCard t={t} isLoggedIn={!!user} onPress={handleUserCardPress} />
-            </View>
-            {/* 会员权益(对齐 Uniapp memberBenefitsData 3 项:AI助手免费次数/部分课程免费/专属知识库) */}
-            {/* 折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits + 行 35-39 back.svg 箭头) */}
-            <TouchableOpacity
-              style={styles.membershipHeader}
-              onPress={() => setShowMembershipBenefits((v) => !v)}
-              activeOpacity={0.7}
-              accessibilityLabel={t('profile.switchBenefit')}
-              accessibilityRole="button"
-            >
-              <Text style={styles.membershipHeaderText}>{t('profile.membershipSection')}</Text>
-              <View
-                style={[
-                  styles.membershipArrow,
-                  showMembershipBenefits ? styles.membershipArrowExpanded : null,
-                ]}
+            ) : (
+              <View style={styles.loaderWrap}>
+                <ColorfulLoader size={48} />
+              </View>
+            )
+          ) : (
+            <>
+              {userInfoForCard ? (
+                <View style={styles.userInfoCardWrap}>
+                  <UserInfoCard
+                    userInfo={userInfoForCard}
+                    showRechargeBtn
+                    onEdit={() => setEditProfileVisible(true)}
+                    onRecharge={() => rootNav?.navigate('Wallet')}
+                    onLogin={() => rootNav?.navigate('Login')}
+                    onUnsubscribe={() => setUnsubscribeVisible(true)}
+                    onLevelIntro={() => setLevelIntroVisible(true)}
+                  />
+                  {/* 等级介绍按钮(对齐 Uniapp level-intro popup,UserInfoCard 内部仅有简化等级 Modal,
+                      此处为完整 3 级体系介绍入口) */}
+                  <TouchableOpacity
+                    style={styles.levelIntroBtn}
+                    activeOpacity={0.7}
+                    onPress={() => setLevelIntroVisible(true)}
+                    accessibilityLabel={t('profile.levelIntro')}
+                  >
+                    <Text style={styles.levelIntroBtnText}>{t('profile.levelIntro')}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              <View style={styles.userCardWrap}>
+                <UserCard t={t} isLoggedIn={!!user} onPress={handleUserCardPress} />
+              </View>
+              {/* 会员权益(对齐 Uniapp memberBenefitsData 3 项:AI助手免费次数/部分课程免费/专属知识库) */}
+              {/* 折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits + 行 35-39 back.svg 箭头) */}
+              <TouchableOpacity
+                style={styles.membershipHeader}
+                onPress={() => setShowMembershipBenefits((v) => !v)}
+                activeOpacity={0.7}
+                accessibilityLabel={t('profile.switchBenefit')}
+                accessibilityRole="button"
               >
-                <ChevronDown size={24} color={tokens.text.secondary} />
-              </View>
-            </TouchableOpacity>
-            {showMembershipBenefits ? (
-              <View style={styles.membershipBenefitsWrap}>
-                <UserMembershipBenefits
-                  level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
-                  benefits={MEMBERSHIP_BENEFITS.map<BenefitItem>((b) => ({
-                    id: b.id,
-                    icon: b.icon,
-                    title: t(b.titleKey),
-                    desc: t(b.descKey),
-                  }))}
-                  onPressUpgrade={() => setLevelIntroVisible(true)}
-                />
-              </View>
-            ) : null}
-            {/* 4 Tab 内容区(统一分类条 + 文本/图片/视频/音频)。
-                位置对齐 Uniapp:UserInfoCard/UserCard/会员权益下方(行 30 会员权益 → 行 59 分类 Tab 条) */}
-            <ProfileContentSection />
-            <SharedProfileScreen
-              t={t}
-              user={
-                user
-                  ? {
-                      id: user.id,
-                      nickname: user.nickname,
-                      avatar: user.avatar ?? null,
-                      email: user.email,
-                      phone: user.phone,
-                    }
-                  : null
-              }
-              stats={stats}
-              orderCount={orderCount}
-              loading={false}
-              error={error}
-              colorScheme={resolvedTheme}
-              menuSections={menuSections}
-              onNavigate={(key) => {
-                const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
-                if (item) onNavigate(item)
-              }}
-              onLogout={() => void logout()}
-              onBack={() => navigation.goBack()}
-            />
-          </>
-        )}
-      </ScrollView>
+                <Text style={styles.membershipHeaderText}>{t('profile.membershipSection')}</Text>
+                <View
+                  style={[
+                    styles.membershipArrow,
+                    showMembershipBenefits ? styles.membershipArrowExpanded : null,
+                  ]}
+                >
+                  <ChevronDown size={24} color={tokens.text.secondary} />
+                </View>
+              </TouchableOpacity>
+              {showMembershipBenefits ? (
+                <View style={styles.membershipBenefitsWrap}>
+                  <UserMembershipBenefits
+                    level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
+                    benefits={MEMBERSHIP_BENEFITS.map<BenefitItem>((b) => ({
+                      id: b.id,
+                      icon: b.icon,
+                      title: t(b.titleKey),
+                      desc: t(b.descKey),
+                    }))}
+                    onPressUpgrade={() => setLevelIntroVisible(true)}
+                  />
+                </View>
+              ) : null}
+              {/* 4 Tab 内容区(统一分类条 + 文本/图片/视频/音频)。
+                  位置对齐 Uniapp:UserInfoCard/UserCard/会员权益下方(行 30 会员权益 → 行 59 分类 Tab 条) */}
+              <ProfileContentSection />
+              <SharedProfileScreen
+                t={t}
+                user={
+                  user
+                    ? {
+                        id: user.id,
+                        nickname: user.nickname,
+                        avatar: user.avatar ?? null,
+                        email: user.email,
+                        phone: user.phone,
+                      }
+                    : null
+                }
+                stats={stats}
+                orderCount={orderCount}
+                loading={false}
+                error={error}
+                colorScheme={resolvedTheme}
+                menuSections={menuSections}
+                onNavigate={(key) => {
+                  const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
+                  if (item) onNavigate(item)
+                }}
+                onLogout={() => void logout()}
+                onBack={() => navigation.goBack()}
+              />
+            </>
+          )}
+        </ScrollView>
+      </BlurTargetView>
       <LoginPopUp
         visible={loginPromptVisible}
         title={t('profile.titleExpired')}
@@ -786,7 +791,7 @@ export function ProfileScreen() {
         onConfirm={handleConfirmUnsubscribe}
       />
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
-      <TabBar activeTab="mine" onChange={handleTabChange} />
+      <TabBar activeTab="mine" onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
     </>
   )
 }

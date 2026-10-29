@@ -43,7 +43,7 @@ import { RELAY_PROVIDERS, type RelayProviderCode } from '../src/services/relay-a
 // 带值旗标取值口径(G-322):紧邻 token 必须非空且不以 `-` 开头。本地副本与
 // scripts/lib/flag-value.mjs 的 isFlagValueToken 逐字同源 —— apps/api→repo-tooling 被
 // config/architecture-policy.yaml 禁止(D1/D2/D3),消依赖优先;语义变更须两处同改。
-function isFlagValueToken(token: unknown): boolean {
+function isFlagValueToken(token: unknown): token is string {
   return typeof token === 'string' && token !== '' && !token.startsWith('-')
 }
 
@@ -173,11 +173,10 @@ interface CliArgs {
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { provider: 'qoder', dryRun: false, health: true }
   for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
+    const a = argv[i] ?? ''
     // G-322:带值旗标的值被紧邻旗标顶掉(`--file --dry-run`)或结尾无值时,旧写法
     // `argv[++i]` 无条件吞掉并顺带跳过那枚旗标 —— 现在统一经 isFlagValueToken 校验,
     // 值无效即抛错点名(与"未知参数"同一退出档),禁复制判据(§22c 单源 flag-value.mjs)。
-    // @ts-expect-error scripts/*.mjs 无类型声明,apps/api tsconfig include 只收 src/**(脚本面不进 typecheck)
     const takeValue = (tok: string | undefined): string => {
       if (!isFlagValueToken(tok)) {
         throw new Error(
@@ -202,6 +201,8 @@ function parseArgs(argv: string[]): CliArgs {
         '用法: pnpm qoder:import [-- --file x.json | --session-file x.json | --provider <code> | --dry-run | --no-health]',
       )
       process.exit(0)
+    } else if (a === '--') {
+      continue // pnpm 透传的裸分隔符,不是参数
     } else {
       throw new Error(`未知参数: ${a}(--help 看用法)`)
     }

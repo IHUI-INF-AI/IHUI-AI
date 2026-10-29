@@ -7,14 +7,13 @@
  *
  * 2026-09-15 迁移:UI 与展示逻辑已下沉共享层 @ihui/rn-app KnowledgeBaseScreen,
  * 本 wrapper 仅保留平台特定职责:
- * - 数据:listKnowledgeDocs(ownerUuid=当前用户)+ deleteKnowledgeDoc(Alert 二次确认后删除)
+ * - 数据:listKnowledgeDocs + deleteKnowledgeDoc(Alert 二次确认后删除)
  * - 导航:goBack / KnowledgeDoc 详情 / KnowledgeCreate 新建;主题与 i18n 注入
  */
 import { useCallback, useEffect, useState } from 'react'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useAuthStore } from '../stores/auth-store'
 import { listKnowledgeDocs, deleteKnowledgeDoc, type KnowledgeDocSummary } from '@ihui/api-client'
 import { KnowledgeBaseScreen as SharedKnowledgeBaseScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -27,7 +26,6 @@ export function KnowledgeBaseScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const user = useAuthStore((s) => s.user)
   const [items, setItems] = useState<KnowledgeDocSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -37,7 +35,7 @@ export function KnowledgeBaseScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const list = await listKnowledgeDocs(user?.id ?? '')
+      const list = await listKnowledgeDocs()
       setItems(list)
     } catch {
       setError(t('knowledgeBase.loadFailed'))
@@ -45,7 +43,7 @@ export function KnowledgeBaseScreen() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [user?.id, t])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -60,7 +58,7 @@ export function KnowledgeBaseScreen() {
         onPress: async () => {
           setDeleting(true)
           try {
-            await deleteKnowledgeDoc(doc.id, user?.id ?? '')
+            await deleteKnowledgeDoc(doc.id)
             void load()
           } catch {
             appAlert(t('knowledgeBase.deleteFailed'))

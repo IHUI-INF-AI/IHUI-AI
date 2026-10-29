@@ -13,7 +13,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useAuthStore } from '../stores/auth-store'
 import { getKnowledgeDoc, getKnowledgeDocChunks } from '@ihui/api-client'
 import type { KnowledgeDocDetail, KnowledgeChunkPreview } from '@ihui/api-client'
 import { KnowledgeDocScreen as SharedKnowledgeDocScreen } from '@ihui/rn-app'
@@ -29,7 +28,6 @@ export function KnowledgeDocScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const route = useRoute<RouteProps>()
-  const user = useAuthStore((s) => s.user)
   const [doc, setDoc] = useState<KnowledgeDocDetail | null>(null)
   const [chunks, setChunks] = useState<KnowledgeChunkPreview[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,10 +36,10 @@ export function KnowledgeDocScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const detail = await getKnowledgeDoc(route.params.id, user?.id ?? '')
+      const detail = await getKnowledgeDoc(route.params.id)
       setDoc(detail)
       try {
-        const chunkList = await getKnowledgeDocChunks(route.params.id, user?.id ?? '', 10)
+        const chunkList = await getKnowledgeDocChunks(route.params.id, 10)
         setChunks(chunkList)
       } catch {
         setChunks([])
@@ -51,7 +49,7 @@ export function KnowledgeDocScreen() {
     } finally {
       setLoading(false)
     }
-  }, [route.params.id, user?.id, t])
+  }, [route.params.id, t])
 
   useEffect(() => {
     void load()

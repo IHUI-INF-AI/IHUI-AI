@@ -45,7 +45,6 @@ import { BackButton } from '@/components/common'
 
 export default function KnowledgeRagPage() {
   const qc = useQueryClient()
-  const [owner, setOwner] = React.useState('admin')
   const [ingestOpen, setIngestOpen] = React.useState(false)
   const [ingest, setIngest] = React.useState<IngestForm>(EMPTY_INGEST)
   const [search, setSearch] = React.useState<SearchForm>(EMPTY_SEARCH)
@@ -61,16 +60,14 @@ export default function KnowledgeRagPage() {
   })
 
   const docsQ = useQuery({
-    queryKey: ['knowledge', 'docs', owner],
-    queryFn: () => listKnowledgeDocs(owner),
-    enabled: !!owner,
+    queryKey: ['knowledge', 'docs'],
+    queryFn: () => listKnowledgeDocs(),
     refetchInterval: 30_000,
   })
 
   const ingestMut = useMutation({
     mutationFn: () =>
       ingestKnowledgeText({
-        ownerUuid: ingest.ownerUuid || owner,
         title: ingest.title,
         text: ingest.text,
         collectionName: ingest.collectionName || undefined,
@@ -91,12 +88,11 @@ export default function KnowledgeRagPage() {
         collectionName: search.collectionName || undefined,
         topK: search.topK,
         scoreThreshold: search.scoreThreshold,
-        ownerUuid: owner,
       }),
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: number) => deleteKnowledgeDoc(id, owner),
+    mutationFn: (id: number) => deleteKnowledgeDoc(id),
     onSuccess: () => {
       toast.success('已删除')
       qc.invalidateQueries({ queryKey: ['knowledge', 'docs'] })
@@ -105,7 +101,7 @@ export default function KnowledgeRagPage() {
   })
 
   const batchDeleteMut = useMutation({
-    mutationFn: (ids: number[]) => batchDeleteKnowledgeDocs(ids, owner),
+    mutationFn: (ids: number[]) => batchDeleteKnowledgeDocs(ids),
     onSuccess: (r) => {
       toast.success(`已删除 ${r.success.length} 个,失败 ${r.failed.length} 个`)
       setSelected(new Set())
@@ -119,7 +115,7 @@ export default function KnowledgeRagPage() {
     setChunksLoading(true)
     setChunks([])
     try {
-      const r = await getKnowledgeDocChunks(docId, owner, 20)
+      const r = await getKnowledgeDocChunks(docId, 20)
       setChunks(r)
     } catch (e) {
       toast.error((e as Error).message)
@@ -205,7 +201,7 @@ export default function KnowledgeRagPage() {
           <Database className="h-5 w-5 text-primary" />
           <div>
             <p className="text-sm font-semibold">{docs.length} 文档</p>
-            <p className="text-xs text-muted-foreground">当前 owner</p>
+            <p className="text-xs text-muted-foreground">我的知识库</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
@@ -217,20 +213,6 @@ export default function KnowledgeRagPage() {
             <p className="text-xs text-muted-foreground">总块数</p>
           </div>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2 rounded-lg border bg-card p-2">
-        <Label htmlFor="owner" className="text-xs">
-          Owner
-        </Label>
-        <Input
-          id="owner"
-          value={owner}
-          onChange={(e) => setOwner(e.target.value)}
-          className="h-8 w-40"
-          placeholder="owner uuid"
-        />
-        <span className="ml-auto text-xs text-muted-foreground">切换 owner 后自动刷新文档列表</span>
       </div>
 
       <div className="rounded-lg border bg-card">
@@ -419,23 +401,14 @@ export default function KnowledgeRagPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="ingest-owner">Owner UUID</Label>
+                <Label htmlFor="ingest-collection">集合</Label>
                 <Input
-                  id="ingest-owner"
-                  value={ingest.ownerUuid}
-                  onChange={(e) => setIngest({ ...ingest, ownerUuid: e.target.value })}
-                  placeholder="留空使用上方 owner"
+                  id="ingest-collection"
+                  value={ingest.collectionName}
+                  onChange={(e) => setIngest({ ...ingest, collectionName: e.target.value })}
+                  placeholder="default"
                 />
               </div>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="ingest-collection">集合</Label>
-              <Input
-                id="ingest-collection"
-                value={ingest.collectionName}
-                onChange={(e) => setIngest({ ...ingest, collectionName: e.target.value })}
-                placeholder="default"
-              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="ingest-text">正文 *</Label>

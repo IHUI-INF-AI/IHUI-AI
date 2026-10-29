@@ -302,15 +302,18 @@ export const CREW_TOOLS: CrewTool[] = [
         },
       },
     },
-    handler: async (params) => {
+    handler: async (params, ctx) => {
       const query = String(params.query ?? '')
       const topK = Number(params.top_k ?? 3)
+      const userId = ctx?.userId
+      if (!userId) {
+        return { success: false, error: '知识库检索需要登录身份', duration: 0 }
+      }
       try {
         const results = await knowledgeRagService.search({
           query,
           topK,
-          // 不限定 owner,检索全局知识库(含 system 种子文档)
-          ownerUuid: '',
+          ownerUuid: userId,
         })
         return {
           success: true,

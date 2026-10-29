@@ -45,3 +45,20 @@ logs/
 *.html
 *.cjs
 tmp/
+
+# 密钥与证书(2026-10-29 补:此前完全不排除,构成镜像层泄密面)
+# 构建上下文里现存在 .env / .env.bak-* / cert/apiclient_key.pem(微信支付私钥)/
+# cert/alipay/alipay_app_private_key.pem / apps/miniapp-taro/private.*.key(小程序上传私钥)/
+# .workbuddy/github-app.private-key.pem。任何 `COPY . .` 都会把它们写进镜像层 ——
+# 镜像被拉取、推送或扫描即全量泄露,删历史层也清不掉构建缓存里的副本。
+# 一律运行时注入(env / secrets / 挂载),构建期不携带任何真实密钥。
+**/.env
+**/.env.*
+.env
+.env.*
+**/cert/
+cert/
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
