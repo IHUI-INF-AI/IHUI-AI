@@ -11,8 +11,7 @@
  * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
  */
 
-import type { TFunction } from './app-shared.js'
-
+import type { ListPaginationProps, TFunction } from './app-shared.js'
 
 /** 直播回放列表项(平台注入,字段对齐 mobile-rn LivePlaybackListScreen Item) */
 export interface LivePlaybackItem {
@@ -26,7 +25,7 @@ export interface LivePlaybackItem {
 }
 
 /** LivePlaybackList 屏 props */
-export interface LivePlaybackListScreenProps {
+export interface LivePlaybackListScreenProps extends ListPaginationProps {
   t: TFunction
   items: LivePlaybackItem[]
   loading: boolean

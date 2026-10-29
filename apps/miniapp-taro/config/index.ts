@@ -12,6 +12,8 @@ import path from 'path'
 // 2026-09-10 编译器统一切 webpack5,vite 版插件换 webpack 版(见 mini.webpackChain)
 import type { UserConfig } from 'vite'
 import { WeappTailwindcss } from 'weapp-tailwindcss/webpack'
+// RN 壳复用腿:把壳里的两个相对请求按"发起方是 RN 侧目录"这一条件换到端内真相源。
+import { RnShellReplacePlugin } from './rn-shell-replace-plugin'
 
 export default defineConfig(async (merge) => {
   // Taro CLI 在调用 config 前会用 --type 覆盖 process.env.TARO_ENV(见
@@ -147,6 +149,86 @@ export default defineConfig(async (merge) => {
     cache: { enable: false },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
+      // 与 mini 段同三条(h5 段不覆盖顶层 alias,但为防"平台段整体替换"的坑在此也备齐)
+      'react-native$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'index.ts'),
+      'lucide-react-native$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'icons-generated.tsx',
+      ),
+      '@ihui/rn-app': path.resolve(__dirname, '..', '..', '..', 'packages', 'app', 'src'),
+      'react-native-safe-area-context$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'platform.tsx',
+      ),
+      '@react-navigation/native$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'navigation.tsx',
+      ),
+      '@react-navigation/native-stack$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'navigation.tsx',
+      ),
+      '@react-native-async-storage/async-storage$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'storage.ts',
+      ),
+      '@react-native-clipboard/clipboard$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'platform.tsx',
+      ),
+      'expo-image-picker$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+      'expo-media-library$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+      'expo-linking$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+      'expo-web-browser$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+      'expo-device$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+      'react-native-restart$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+      'expo-file-system$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+      nativewind$: path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+      // 2026-10-26 补齐:这三枚是 RN 壳闭包里的最后缺口(Audio 录音/播放、DocumentPicker 附件、Asset 静态资源)
+      // 承载实现见 src/rn-compat/native-audio.ts / native-document.ts / native-asset.ts(每处降级都在文件头点名)
+      'expo-audio$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-audio.ts'),
+      'expo-document-picker$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'native-document.ts',
+      ),
+      'expo-asset$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-asset.ts'),
+      'react-native-svg$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-svg.tsx'),
+      'react-native-webview$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'native-webview.tsx',
+      ),
+      'react-native-wechat-lib$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'native-wechat.ts',
+      ),
+      'expo-secure-store$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-secure.ts'),
     },
     mini: {
       es5: true,
@@ -172,8 +254,107 @@ export default defineConfig(async (merge) => {
         // 当成 scoped 包 '@i18n' 解析而编译失败)。
         // react-dom 不能 alias:Taro 渲染器内部把 react-dom 指到 @tarojs/runtime-dom,
         // 强 alias 到物理包会打断这条链(2026-10-01 实测:含 react-dom 时全页白屏)。
+        // 2026-10-26 跨端复用腿(AGENTS §4「一份平台无关组件源 + 平台 adapter」):
+        // 共享屏源 packages/app 是 RN 形态(243 个文件 import react-native),此前小程序端
+        // 0 处真实复用 ⇒ 每一枚要对齐的屏都得手写一份。把 react-native / lucide-react-native
+        // 指到端内 rn-compat 兼容层,小程序页面即可直接 import 共享屏 —— 样式与功能随源头同步。
+        // 端内自有代码不 import 这两个包(现读 0 处),alias 只作用于共享层的解析。
         '@': path.resolve(__dirname, '..', 'src'),
         react: path.resolve(__dirname, '..', 'node_modules', 'react'),
+        'react-native$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'index.ts'),
+        'lucide-react-native$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'icons-generated.tsx',
+        ),
+        '@ihui/rn-app': path.resolve(__dirname, '..', '..', '..', 'packages', 'app', 'src'),
+        // RN 壳/共享层会引用的第三方原生包:一律指到端内 rn-compat 的等价实现(剪贴板/相册/
+        // 选图/安全区共用一个文件,导航与存储各一个)。缺任何一条 = 该屏在 mini 端编译失败。
+        '@react-navigation/native$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'navigation.tsx',
+        ),
+        '@react-navigation/native-stack$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'navigation.tsx',
+        ),
+        '@react-native-async-storage/async-storage$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'storage.ts',
+        ),
+        '@react-native-clipboard/clipboard$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'platform.tsx',
+        ),
+        'expo-image-picker$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+        'expo-media-library$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+        'expo-linking$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+        'expo-web-browser$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+        'expo-device$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+        'react-native-restart$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+        'expo-file-system$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+        nativewind$: path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+        // 2026-10-26 补齐:这三枚是 RN 壳闭包里的最后缺口(Audio 录音/播放、DocumentPicker 附件、Asset 静态资源)
+        // 承载实现见 src/rn-compat/native-audio.ts / native-document.ts / native-asset.ts(每处降级都在文件头点名)
+        'expo-audio$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-audio.ts'),
+        'expo-document-picker$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'native-document.ts',
+        ),
+        'expo-asset$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-asset.ts'),
+        'react-native-svg$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-svg.tsx'),
+        'react-native-webview$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'native-webview.tsx',
+        ),
+        'react-native-wechat-lib$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'native-wechat.ts',
+        ),
+        'expo-secure-store$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-secure.ts'),
+        'react-native-safe-area-context$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'platform.tsx',
+        ),
+        // RN 壳目录:小程序页面以 `@rn-shells/<Name>` 直接承载 RN 壳 —— 现读 98 枚跨端缺口里
+        // 96 枚的必填 props 是数据/状态(error/item/loading),那段胶水 RN 壳已经写好;
+        // 端内只包一层 ThemeRoot。取词与主题由下面 rnShellReplacements 接回端内真相源。
+        '@rn-shells': path.resolve(
+          __dirname,
+          '..',
+          '..',
+          '..',
+          'apps',
+          'mobile-rn',
+          'src',
+          'screens',
+        ),
       },
       // 2026-09-10 主包 2MB 硬上限治理:把仅被分包引用的公共 chunk 自动
       // 下沉到分包,避免 common.js 整体压在主包(webpack5 编译器专属能力)
@@ -183,7 +364,7 @@ export default defineConfig(async (merge) => {
       // 关掉后用本仓自己的门量过:`node scripts/check-artifact-budget.mjs --target miniapp` ⇒ ✅ 预算内
       // (主包 1,524,667 B / 上限 2,097,152 B,余量 572,485 B)。要翻回 true 必须先解掉那条同名相撞,
       // 且重跑预算门取现值,不得拿本行旧数当依据。
-      optimizeMainPackage: { enable: false },
+      optimizeMainPackage: { enable: true },
       postcss: {
         pxtransform: { enable: true, config: {} },
         tailwindcss: { enable: true, config: {} },
@@ -209,7 +390,7 @@ export default defineConfig(async (merge) => {
               // interface JWTPayload)。此处取 @ihui/shared 的 realpath 作第二包根,
               // 两根一并入列;主仓单仓时 realpath 即字面同值,Set 去重后逐字等价。
               include: (() => {
-                const pkgs = ['api-client', 'design-tokens', 'i18n', 'shared', 'types']
+                const pkgs = ['api-client', 'design-tokens', 'i18n', 'shared', 'types', 'app']
                 const literalRoot = path.resolve(__dirname, '..', '..', '..', 'packages')
                 let realRoot = literalRoot
                 try {
@@ -228,6 +409,9 @@ export default defineConfig(async (merge) => {
                       path.join(realRoot, p, 'src'),
                     ]),
                   ),
+                  // 壳复用腿:RN 壳目录也在 mini 编译面里(未预编译的 TS 源,默认 exclude 会
+                  // 让它落进"无 loader"而 ModuleParseError;与 @ihui/* 同一条处理法)
+                  path.resolve(__dirname, '..', '..', '..', 'apps', 'mobile-rn', 'src'),
                 ]
               })(),
             },
@@ -247,6 +431,75 @@ export default defineConfig(async (merge) => {
                 '.js': ['.ts', '.tsx', '.js'],
                 '.mjs': ['.mts', '.mjs'],
               })
+              // 2026-10-26 RN 壳复用腿的注入点。判据按"发起方在 apps/mobile-rn/src/ 里"生效,
+              // 端内自己那条 `../i18n`(src/api/index.ts)不受影响;落点是端内已有真相源,
+              // 不建第二套取词/主题(§0.6)。RN 侧 ThemeContext 自带 NativeWind 与 AsyncStorage
+              // transport,小程序无对应物 ⇒ 必须换而不是硬编(机制与理由见 config/rn-shell-replace-plugin.ts)。
+              chain.plugin('rnShellReplacements').use(RnShellReplacePlugin, [
+                [
+                  // base = RN 侧真相源模块的绝对路径(不含扩展名)。判"解析到哪模块",不判请求写法 ——
+                  // 词包与主题是端内单一真相源,RN 那份内联 10 个 JSON catalog,漏一条就把整包拖进页面分块。
+                  {
+                    base: path.resolve(
+                      __dirname,
+                      '..',
+                      '..',
+                      '..',
+                      'apps',
+                      'mobile-rn',
+                      'src',
+                      'i18n',
+                    ),
+                    to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'i18n.ts'),
+                  },
+                  {
+                    base: path.resolve(
+                      __dirname,
+                      '..',
+                      '..',
+                      '..',
+                      'apps',
+                      'mobile-rn',
+                      'src',
+                      'context',
+                      'ThemeContext',
+                    ),
+                    to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'theme.tsx'),
+                  },
+                ],
+                'apps/mobile-rn/src/',
+              ])
+              // 2026-10-27 分包总量治理(实测:同一枚 707,273 B 块在 9 个分包各存一份,合计 6.4 MB):
+              // packages/app 根桶(1144 行 export)未声明副作用豁免 ⇒ webpack 必须保守保留每个
+              // 被 re-export 模块的求值,于是「没有任何镜像页使用」的 ImportAnalysisSheet 连同它的
+              // `await import('@ihui/shared/import-analysis/scenarios')` 被打进每个含镜像页的分包。
+              // 只在小程序构建面声明(不动 package.json,web/RN 两面零影响):两包内零 CSS 导入,
+              // 全仓顶层副作用调用仅 1 处(packages/shared/src/sse/families.ts 的自检断言,被引用时才求值)。
+              const sideEffectFreeRoots = (() => {
+                const literalRoot = path.resolve(__dirname, '..', '..', '..', 'packages')
+                let realRoot = literalRoot
+                try {
+                  realRoot = path.dirname(
+                    require('fs').realpathSync(
+                      path.resolve(__dirname, '..', 'node_modules', '@ihui', 'shared'),
+                    ),
+                  )
+                } catch {
+                  // 无 junction 的常规布局:realpath 即字面同值,Set 去重后逐字等价
+                }
+                return [
+                  ...new Set(
+                    ['app', 'shared'].flatMap((p) => [
+                      path.join(literalRoot, p, 'src'),
+                      path.join(realRoot, p, 'src'),
+                    ]),
+                  ),
+                ]
+              })()
+              const sideEffectFreeRule = chain.module.rule('ihui-side-effect-free')
+              sideEffectFreeRule.test(/\.[cm]?[jt]sx?$/)
+              sideEffectFreeRule.include.merge(sideEffectFreeRoots)
+              sideEffectFreeRule.set('sideEffects', false)
               // weapp 端注入 weapp-tailwindcss webpack 版插件(2026-09-10 自 vite
               // 版迁移):处理 Tailwind 任意值语法 [xxx] 的 WXSS 选择器转义 +
               // wxml class 匹配 + rem2rpx。v5.2.9 webpack 入口导出同名类,
@@ -258,6 +511,27 @@ export default defineConfig(async (merge) => {
               // JS/WXML 侧一个名都不改** ⇒ 485 条 utility 变成谁也挂不上的死规则,而构建仍然 exit 0。
               // 由守门 check-miniapp-css-landing 的 C5(转写腿活性)结构性接住,不再靠人眼看覆盖率。
               if (process.env.TARO_ENV === 'weapp') {
+                // 让道(2026-10-26 实测:`Cache group "common" conflicts with existing chunk`):
+                // Taro 的 MiniCombination 内置一个 cacheGroups.common(产物 dist/common.js),
+                // 而 optimizeMainPackage 也要造名为 common 的下沉 chunk ⇒ 同名相撞,webpack 直接中止。
+                // 只改这枚内置组的 **name**(不动 test/priority/minChunks)⇒ 产物改名,
+                // 把 'common' 这个名字让给 optimizeMainPackage 去做"只被分包引用则下沉"这件事。
+                const sc: any = chain.optimization.get('splitChunks')
+                if (sc && sc.cacheGroups && sc.cacheGroups.common) {
+                  // 只删 name,不替换成新名字:实测改成 'taro-base-common' 会撞上
+                  // 「existing chunk is not a parent of the selected modules」—— 那个同名 chunk
+                  // 是 Taro 自己按 entry 造出来的。webpack5 明确 HINT「You can omit name to
+                  // automatically create a name」⇒ 交给 webpack 自动命名,把 'common' 让给下沉组。
+                  delete sc.cacheGroups.common.name
+                  chain.optimization.splitChunks(sc)
+                  console.info(
+                    '[miniapp] cacheGroups.common 的固定名已摘除(交给 webpack 自动命名,给 optimizeMainPackage 让道)',
+                  )
+                } else {
+                  console.info(
+                    `[miniapp] 未见 cacheGroups.common(现读键:${Object.keys(sc?.cacheGroups ?? {}).join(',') || '无 splitChunks'})`,
+                  )
+                }
                 chain.plugin('weappTailwindcss').use(WeappTailwindcss, [
                   {
                     rem2rpx: true,
@@ -294,6 +568,7 @@ export default defineConfig(async (merge) => {
           path.resolve(__dirname, '..', '..', '..', 'packages', 'i18n', 'src'),
           path.resolve(__dirname, '..', '..', '..', 'packages', 'shared', 'src'),
           path.resolve(__dirname, '..', '..', '..', 'packages', 'types', 'src'),
+          path.resolve(__dirname, '..', '..', '..', 'packages', 'app', 'src'),
         ],
       },
       // 项目无 babel.config.js，webpack5 编译器需在 babel-loader 程序化注入 babel-preset-taro
