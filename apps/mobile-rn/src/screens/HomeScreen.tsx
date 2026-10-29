@@ -98,12 +98,9 @@ import {
   type HomeRecommendItem,
 } from '@ihui/rn-app'
 import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
-import type { CarouselItem } from '@ihui/ui-native'
 import type { AiModelData, AppIcon, ChatModelType } from '@ihui/types'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
-import Carousel from '../components/Carousel'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
-import CardWithList, { type CardWithListItem } from '../components/CardWithList'
 import AiModelCard from '../components/AiModelCard'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
 import PopularCourses, { type PopularCourse } from '../components/PopularCourses'
@@ -575,7 +572,7 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
   ],
 }
 
-// ── 对齐 Uniapp tools/index.vue(AI 应用商店)智能体列表相关 ──
+// ── 智能体条目映射(仅供输入区「技能」弹窗;商品列表由 AI 应用商店页承载) ──
 
 /** Agent → AgentShopItem 映射(2026-10-20 契约根治:主键是 agentId 而非 id,
  *  作者名取 userName(后端无 author 对象);点赞数后端无字段,省略由卡片显示 0 占位) */
@@ -589,7 +586,6 @@ function toAgentShopItem(a: Agent): AgentShopItem {
     collectCount: a.collectCount,
     usageCount: a.usageCount,
     userNickname: a.userName ?? undefined,
-    isVipExclusive: a.isVipExclusive,
   }
 }
 
@@ -1391,33 +1387,6 @@ export function HomeScreen() {
     void maybeTriggerFirstShareReward()
   }, [maybeTriggerFirstShareReward])
 
-  /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
-  const bannerItems: CarouselItem[] = useMemo(
-    () =>
-      // 仅取有封面图的推荐(对齐原 tools Carousel banner_carousel;无 cover 则不渲染空图轮播)
-      recommends
-        .filter((r) => Boolean(r.cover))
-        .slice(0, 5)
-        .map((r) => ({
-          img: r.cover ?? '',
-          title: r.title,
-          link: r.id,
-        })),
-    [recommends],
-  )
-
-  /** CardWithList 推荐课程横向列表(对齐 Uniapp 首页推荐区) */
-  const cardItems: CardWithListItem[] = useMemo(
-    () =>
-      recommends.slice(0, 6).map((r) => ({
-        id: r.id,
-        title: r.title,
-        subtitle: r.instructor,
-        icon: BookOpen,
-      })),
-    [recommends],
-  )
-
   /** KnowledgePlanet 知识星球卡片数据(对齐 Uniapp 首页知识星球入口) */
   const knowledgeItems = useMemo(() => toKnowledgeItems(recommends, t), [recommends, t])
 
@@ -1435,11 +1404,6 @@ export function HomeScreen() {
   // ── AiModelCard 交互接线(2026-10-15:收藏接真后端 / 警告跳反馈页 / 分享用 ShareSheet) ──
   const [assistantFavorited, setAssistantFavorited] = useState(false)
   const [assistantShareVisible, setAssistantShareVisible] = useState(false)
-  /** 分享面板内容(品牌卡缺省固定文案;智能体卡按 data 动态设置,2026-10-20 泛化) */
-  const [cardShareTarget, setCardShareTarget] = useState<{
-    title: string
-    description: string
-  } | null>(null)
 
   // 已登录时同步收藏状态(GET /favorites/check)
   useEffect(() => {
@@ -1507,7 +1471,6 @@ export function HomeScreen() {
 
   /** 分享 → ShareSheet(品牌卡:固定品牌文案) */
   const handleAssistantShare = useCallback(() => {
-    setCardShareTarget(null)
     setAssistantShareVisible(true)
   }, [])
 
@@ -1714,27 +1677,8 @@ export function HomeScreen() {
         <View style={shellStyles.bottomFigureWrap}>
           <BottomFigure items={carouselList.length > 0 ? carouselList : undefined} />
         </View>
-        {/* Carousel banner 轮播(对齐 Uniapp 首页轮播图) */}
-        {bannerItems.length > 0 ? (
-          <View style={shellStyles.carouselWrap}>
-            <Carousel
-              banner={bannerItems}
-              onItemPress={(item) => {
-                if (item.link) navigation.navigate('CourseDetail', { id: item.link })
-              }}
-            />
-          </View>
-        ) : null}
-        {/* CardWithList 推荐课程横向列表(对齐 Uniapp 首页推荐区) */}
-        {cardItems.length > 0 ? (
-          <View style={shellStyles.cardListWrap}>
-            <CardWithList
-              title={t('home.recommendCourses')}
-              items={cardItems}
-              onItemClick={(id) => navigation.navigate('CourseDetail', { id })}
-            />
-          </View>
-        ) : null}
+        {/* 课程封面轮播与横向推荐列表已下线(2026-10-29 机主定:首页不堆同数据源区块):
+         *  同一份 recommends 课程数据只由共享屏「推荐课程」区段渲染一次 */}
         {/* AiModelCard AI 模型卡片(对齐 Uniapp 首页 AI 模型入口;
             2026-10-15 全交互接线:收藏/举报/踩/详情/分享) */}
         <View style={shellStyles.aiModelWrap}>
@@ -2233,12 +2177,12 @@ export function HomeScreen() {
         onClose={closeRewardDialog}
         secondaryLabel={t('home.shareRewardLater')}
       />
-      {/* AiModelCard 分享面板(2026-10-15 接线;2026-10-20 泛化:智能体卡随卡设置标题/描述) */}
+      {/* AiModelCard 分享面板(2026-10-15 接线;品牌卡固定文案,与导航栏那枚的组件缺省不同键) */}
       <ShareSheet
         visible={assistantShareVisible}
         onClose={() => setAssistantShareVisible(false)}
-        shareTitle={cardShareTarget?.title ?? t('home.shareDefaultTitle')}
-        shareDescription={cardShareTarget?.description ?? t('home.shareDefaultDesc')}
+        shareTitle={t('home.shareDefaultTitle')}
+        shareDescription={t('home.shareDefaultDesc')}
         onNotify={(type, message) => showToast(type, message)}
       />
       {/* 分享面板(导航栏「分享」触发;微信原生分享 + web 复制链接降级,见组件头注释) */}
@@ -2346,14 +2290,6 @@ const shellStyles = {
   // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体底色由外层导航容器提供
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(120) } as const,
-  // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
-  carouselWrap: {
-    marginTop: rpx(18),
-    marginBottom: rpx(16),
-    borderRadius: rnRadius['2xl'],
-    overflow: 'hidden',
-  } as const,
-  cardListWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   aiModelWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   sectionWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   bottomFigureWrap: {
