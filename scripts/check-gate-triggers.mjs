@@ -68,7 +68,7 @@
  *       「未判定」同时写 stdout 与 stderr:runner 侧 detectUndetermined 只读 stderr,
  *       不写 stderr 的 exit 2 会被读成「判据判红(exit 2)」= 把"没判"说成"判过"(§0.3)。
  */
-import { execFileSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -84,15 +84,9 @@ const ROOT = resolve(import.meta.dirname, '..')
 
 function git(args, { cwd = ROOT } = {}) {
   try {
-    return execFileSync('git', args, {
-      cwd,
-      maxBuffer: 512 * 1024 * 1024,
-      encoding: 'utf8',
-      windowsHide: true,
-      // 门 193 硬要求:派生 git 必须显式接管 stdio,不写时本机 EBUSY 0/30。
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-  } catch (e) {
+    // 门 193 的 stdio 两态由层写死(不带 input ⇒ ignore),本器不再各抄一遍。
+    return gitRaw(args, cwd, { maxBuffer: 512 * 1024 * 1024 })
+  } catch {
     return null
   }
 }
@@ -361,7 +355,7 @@ function selfTest() {
   }
   const tmp = mk('gtrig-selftest-')
   const run = (args) =>
-    execFileSync('git', args, { cwd: tmp, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+    gitRaw(args, tmp, {})
   try {
     run(['init', '-q'])
     run(['config', 'user.email', 't@t'])
