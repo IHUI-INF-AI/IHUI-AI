@@ -193,7 +193,18 @@
     "recommend": "為你推薦",
     "navMenu": "菜單",
     "matDeletedOk": "已刪除",
-    "notLoggedIn": "未登入"
+    "notLoggedIn": "未登入",
+    "voiceUploadRetry": "語音上傳失敗，請重試",
+    "fallbackFileName": "檔案",
+    "uploadedNameToast": "已上傳：{name}",
+    "fileUploadFailed": "檔案上傳失敗",
+    "filePickRetry": "檔案選擇失敗，請重試",
+    "contentImage": "圖片內容",
+    "contentVideo": "視頻內容",
+    "contentText": "文本內容",
+    "boolYes": "是",
+    "boolNo": "否",
+    "closePreview": "關閉預覽"
   },
   "course": {
     "learningProgress": "學習進度",
@@ -1164,7 +1175,8 @@
     "statusUnknown": "未知",
     "noUrl": "暫無存取位址",
     "loadFailed": "載入失敗",
-    "openWorkflow": "開啟工作流"
+    "openWorkflow": "開啟工作流",
+    "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續"
   },
   "agentDialogue": {
     "sendFailed": "傳送失敗,請重試",
@@ -3587,7 +3599,12 @@
     "holdToSpeak": "按住說話",
     "addFile": "新增附件",
     "document": "文件",
-    "video": "影片"
+    "video": "影片",
+    "compactSuccess": "上下文已壓縮: {before} → {after} tokens(節省 {saved})",
+    "compactTooFew": "對話訊息太少,無需壓縮",
+    "compactIncompressible": "目前上下文已無可壓縮空間",
+    "compactFailed": "壓縮失敗",
+    "compactNoSession": "目前對話未關聯會話,暫無法壓縮"
   },
   "toolbar": {
     "ai": "AI對話"
@@ -3700,7 +3717,86 @@
     },
     "notes": {
       "loadFailShort": "載入失敗"
-    }
+    },
+    "selectModel": "選擇模型",
+    "inputPlaceholder": "輸入訊息...",
+    "flagFailed": "標記儲存失敗",
+    "viewCard": "查看卡片",
+    "closeCard": "關閉卡片",
+    "imageDelete": "刪除圖片",
+    "webLinkPlaceholder": "請輸入網頁連結（https://...）",
+    "micPermHint": "無法存取麥克風，請檢查權限設定",
+    "micInitFailed": "錄音啟動失敗，請重試",
+    "modelDegrade": "模型降級：{from} → {to}",
+    "reconnecting": "網路波動，正在第 {attempt} 次重新連線（{countdown}s 後）",
+    "roundFailed": "語音回合失敗，請重試",
+    "ttsSuccess": "語音生成成功（{voice}）",
+    "favOpFail": "收藏操作失敗：{reason}",
+    "chatEmptyToast": "目前對話為空",
+    "clearDialogTitle": "清空對話",
+    "clearDialogBody": "確認清空目前對話的所有訊息？",
+    "clearOk": "清空",
+    "exportEmptyTitle": "智匯AI 對話（空）",
+    "exportHeader": "智匯AI 對話記錄",
+    "camSoonHint": "相機拍攝待接入，請先用相簿上傳圖片",
+    "shareClaimed": "已領取 {points} 智匯值",
+    "shareClaimedOnce": "已領取過首次分享獎勵",
+    "shareClaimFailed": "領取失敗，請稍後重試",
+    "inviteShareBody": "智匯AI社群 — 邀請你加入，一起探索 AI 對話！",
+    "matTypePrefix": "類別",
+    "matNoDetailHint": "該素材暫不支持查看詳情",
+    "loadDetailFail": "載入詳情失敗",
+    "netLoadFail": "網路異常，載入失敗",
+    "linkCopied": "連結已複製到剪貼簿，可在瀏覽器貼上開啟",
+    "historyLoadFail": "載入歷史對話失敗，請重試",
+    "delConvTitle": "刪除對話",
+    "delConvBody": "確認刪除此對話？",
+    "chatDeleteFail": "刪除失敗，請重試",
+    "topBarMenu": "開啟選單",
+    "topBarAgent": "選擇 Agent",
+    "topBarProfile": "個人中心",
+    "topBarCommunity": "加入社群",
+    "shareInviteNow": "立即分享邀請好友",
+    "fnTitle": "功能",
+    "sourceTitlePanel": "知識來源",
+    "selectFile": "選擇檔案",
+    "uploadingShort": "上傳中…",
+    "closeCardShort": "關閉",
+    "viewCardShort": "查看",
+    "cardWord": "卡片",
+    "matDeleteA11y": "刪除素材",
+    "matFallback": "素材",
+    "sendLink": "發送連結",
+    "imagePreviewA11y": "圖片預覽",
+    "menuAnnotateImage": "標註此圖",
+    "chatDeleteFailed2": "刪除失敗",
+    "loginToSend": "請先登入後再發送訊息",
+    "vipOnlyModel": "該模型為 VIP 專屬,開通會員後可使用",
+    "openVipBtn": "開通會員",
+    "reloginBtn": "重新登入",
+    "connectFailRetry": "連線失敗,請重試",
+    "noMsgToTts": "暫無訊息可轉換",
+    "ttsFailRetry": "語音生成失敗,請重試",
+    "noMsgToFav": "暫無訊息可收藏",
+    "favFailRetry": "收藏失敗,請稍後重試",
+    "qrNeedPerm": "需要相簿權限才能儲存QR Code",
+    "qrNotRendered": "QR Code 未渲染,請稍後重試",
+    "qrSaved": "QR Code 已儲存到相簿",
+    "qrSaveFail": "保存失敗，請重試",
+    "favOn": "已收藏",
+    "favOff": "已取消收藏",
+    "annotAdded": "標註已加入輸入框",
+    "menuSwitchModel": "切換模型",
+    "menuClear": "清空對話",
+    "menuExport": "匯出對話",
+    "menuShare": "分享對話",
+    "menuToVoice": "轉語音",
+    "menuFavorite": "收藏",
+    "menuMaterial": "素材庫",
+    "menuVoiceNote": "語音筆記",
+    "menuWebLink": "網頁連結",
+    "menuFileUpload": "檔案上傳",
+    "menuHistory": "歷史對話"
   },
   "tabBar": {
     "community": "智匯社群",
@@ -6825,5 +6921,43 @@
     "title": "我的報名",
     "loading": "加載中...",
     "empty": "目前還沒有數據"
+  },
+  "quickNotes": {
+    "menuEntry": "快捷筆記",
+    "title": "快捷筆記",
+    "new": "新建筆記",
+    "edit": "編輯",
+    "search": "搜尋筆記",
+    "insert": "插入對話",
+    "archive": "封存",
+    "unarchive": "取消封存",
+    "archived": "已封存",
+    "showArchived": "顯示已封存",
+    "empty": "暫無筆記"
+  },
+  "chatAlert": {
+    "compaction": {
+      "title": "上下文已自動壓縮",
+      "message": "{before} → {after}(移除 {removed} 條歷史)"
+    },
+    "loginBtn": "去登入",
+    "longPress": {
+      "myTitle": "我的訊息",
+      "aiTitle": "AI 訊息",
+      "message": "截圖已生成",
+      "shareBtn": "分享"
+    }
+  },
+  "mat": {
+    "unknown": "未知錯誤",
+    "deleteTitle": "刪除素材",
+    "deleteBody": "確認刪除「{title}」？",
+    "detailLabel": "素材詳情"
+  },
+  "selectionAnnotations": {
+    "addAnnotation": "新增批註"
+  },
+  "slashCmd": {
+    "statusToast": "模型 {model} · 訊息 {count} 筆 · {state}"
   }
 }

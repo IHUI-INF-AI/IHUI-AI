@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-28T17:13:27.210Z",
+  "sealedAt": "2026-10-29T07:04:57.591Z",
   "sealedBy": "root-guard --seal",
-  "reason": "2026-10-29/生产席:修 b44ab834609(chore(auto) 收编)把门 259 注册块按旧基线写回 —— 该提交把 guardian-runner.mjs 整份换成 pre-259 副本(含同日 258 DDoS 文案改进),check-ui-spec-mirror 在 runner 面归零;现将 259 块按 a02c39768b5 原文补回并保留 258 新文案,node --check 通过、门号 259 唯一 1 处、被引用三件均在库。",
+  "reason": "2026-10-29 14:xx 生产席:部署环自 14:32 起 fail-closed 因清单绑 01:13 的 99ea9d6c8d8 版本(73da356c6774),此后 guardian-runner 经 6 枚正当演进入库(4ae653a merge / c65caf91 守门98 D7维 / 145020ae 合解修复 / af28a00f 门260 / 3855b3b+7d3501d 两次零丢失合并 / 3d99c2b3 边缘router补口)到 c8cd0136。复核:node --check 通过;门注册 254 条无丢门(runner 按列表遍历执行,id 自检仅打印不阻塞);唯一 id 复用为 260(ps1-bom 与 生产依赖advisories 同号,已存在且不丢门,归后落地会话让号)。dev 与 prod 的 runner 字节一致,故本次重封对生产侧直接生效。",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "73da356c67744ec9a844779c2d1cf0cbf087f9763da32961e16308dc8b7a86ed"
+      "sha256": "c8cd013655a9d773e9c1e1d264470151fe195299c13f7aae3080425c9a3426dc"
     },
     {
       "id": "judgement-libs",

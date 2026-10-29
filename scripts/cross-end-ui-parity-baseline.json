@@ -14,7 +14,6 @@
     "VideoPlayer": 5,
     "VoiceInput": 8,
     "SectionHeader": 1,
-    "CategoryBar": 1,
     "ScreenStates": 2
   },
   "radiusCounts": {
@@ -30,7 +29,6 @@
     "NavBar": 1,
     "UserInfoCard": 1,
     "VideoPlayer": 0,
-    "CategoryBar": 0,
     "SectionHeader": 0,
     "ScreenStates": 0,
     "VoiceInput": 3
@@ -48,7 +46,6 @@
     "NavBar": 0,
     "UserInfoCard": 0,
     "VideoPlayer": 0,
-    "CategoryBar": 0,
     "ScreenStates": 0,
     "SectionHeader": 0,
     "VoiceInput": 0
@@ -924,10 +921,6 @@
         }
       ]
     },
-    "CategoryBar": {
-      "reason": "两端同档 4,只是写法不同、门只读到一侧:RN 腿 packages/app/src/components/category/CategoryInlineBar.tsx 的 badge.paddingHorizontal 取 rnSpacing.xs(SPACING_STEPS.xs = 4,3d8a7a3355 token 化产物),小程序腿 apps/miniapp-taro/src/components/CategoryBar.css 的 .category-bar__badge 取 `padding: 0 8rpx`(=4px);本门几何维只解数字字面量 / 具名 *_PX 档 / geometry.*,不解析 rnSpacing 档表 ⇒ 只在小程序一侧读到 4。不是同元素取不同档,禁止给 RN 补裸数字(那会把 token 化退回去、并制造第二份真相)。复验:node scripts/check-cross-end-ui-parity.mjs --json 的 findings[CategoryBar].geometry.onlyMiniapp 应为 [4] 且 onlyRn 为空。",
-      "until": "2027-03-27"
-    },
     "VerifyCodeModal": {
       "reason": "小程序侧零引用孤儿副本(HEAD blob git grep VerifyCodeModal 除自身零命中)⇒ 端入口不可达被默认档配对射程剔除,该族只活在人工 --pair-all 档;RN 腿为 RegisterScreen 活体。两端已收编共享源 @ihui/shared/ui/verify-code-modal-spec,--pair-all 可见的几何仅 RN 1/24 = 隐藏键盘接收器(HIDDEN_INPUT_PX=1,G-978007)与右上 × 关闭钮盒(CLOSE_BOX_PX=24),均小程序侧不存在的单侧元素(spec 自注单侧档按规则6 登记),RE 维零判据不判红。了结判据:小程序侧接线注册流或删除孤儿副本,届时按默认档实测重新登记。",
       "until": "2027-03-27"
@@ -953,6 +946,7 @@
     "VideoPlayer": {
       "reason": "票 G-978049① 的复裁判据之二(带理由接管),不是为消红:舞台档三端已同值 —— 现读 `git show HEAD:apps/web/src/components/media/VideoPlayer.tsx` :122 `overflow-hidden rounded-lg`(=8)、`git show HEAD:apps/miniapp-taro/src/components/VideoPlayer.tsx` :69/:71 rounded-lg、`git show HEAD:apps/mobile-rn/src/components/VideoPlayer.tsx` :222 `borderRadius: rnRadius.lg`;本族 web 腿残档只有 4,来自 7 处自绘控制条 `rounded-sm`(:165/:180/:186/:193/:200/:207/:217),而小程序走原生 `<Video controls>`(同文件 controls 引用 4 处、rounded-sm 0 处)⇒ 结构上没有这些节点,与主腿 `waivers.VideoPlayer` 是同一条理由的两面,不是同一元素取了不同档。档集合实测 mp=[8] / web=[4,8] / rn=[8]。禁止为凑集合给小程序补一层自绘控件(那是拿假节点抵数字)。",
       "until": "2027-03-30"
+    },
     "VoiceInput": {
       "reason": "两端不是同一个界面元素,不是同元素取了不同档:小程序 apps/miniapp-taro/src/components/VoiceInput.tsx 是**占满一行的录音条**(:98 min-h-12 rounded-lg px-4 py-3;:18 WAVE_BARS 共 7 条;:116 条宽 w-1、间距 mx-[4rpx];动画 animate-pulse 固定高度脉冲),web apps/web/src/components/ai/voice-input.tsx 是**输入框旁的麦克风按钮 + 按钮内 4 条波形 + 状态徽章**(:347 h-8 w-8 rounded-sm;:357-360 [0,1,2,3] 四条、w-0.5、gap-0.5;animation voice-wave 逐条相位差 0.12s;:334 徽章 px-1.5 py-0.5 text-[10px])。条数/条宽/间距/高度包络/动画通道五项全不同形,补任何一端数字都是给不存在的节点描数。跨端同源那部分(小程序↔RN)住在 packages/shared/src/ui/voice-input-spec.ts,其头注列出的分叉项也是这两端,与本腿无关。",
       "until": "2027-03-30"
@@ -971,10 +965,12 @@
       "rn": "packages/app/src/components/category/CategoryInlineBar.tsx",
       "reason": "同一「统一分类条」的两份同形实现:小程序端头注原文写着「统一分类条 —— web @ihui/ui-react CategoryBar 与 RN CategoryInlineBar 的 Taro 同形实现」,两端文件名不同所以任何按名字的配对都看不见它",
       "until": "2027-03-27"
+    },
     "DrawerComponent": {
       "miniapp": "apps/miniapp-taro/src/components/DrawerComponent.tsx",
       "rn": "apps/mobile-rn/src/components/Drawer.tsx",
       "reason": "两侧头注各自点名同一份历史源文件:小程序端「对齐原项目 DrawerComponentall.vue」、RN 端「1:1 复刻历史 Uniapp DrawerComponentall.vue(顶部用户区 / 5 主菜单 / 历史对话分组 / 底部操作区)」—— 同一个侧滑抽屉,不同命名",
+      "until": "2027-03-27"
     }
   }
 }

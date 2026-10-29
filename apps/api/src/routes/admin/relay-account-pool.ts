@@ -72,7 +72,6 @@ import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
 import { healthStatusOf } from '../../services/relay-account-pool-scheduler.js'
 // 号池体检判据单源在 @ihui/shared(web 管理页与 CLI 同源,绝不各自抄一份枚举/阈值,§0.6)
 import { relayAccountIdleDays, resolveRelayAccountVerdict } from '@ihui/shared'
-import { markAccountAuthRejected } from '../../services/relay-account-pool-scheduler.js'
 import {
   buildPoolSyncAccount,
   checkinPlatformFor,
