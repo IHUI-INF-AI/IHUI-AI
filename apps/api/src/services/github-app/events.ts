@@ -114,6 +114,61 @@ export const installationEventSchema = z.object({
 })
 export type InstallationEventPayload = z.infer<typeof installationEventSchema>
 
+/**
+ * CI 三类事件(check_suite / workflow_run / check_run)的最小事件体。
+ *
+ * Y-13(2026-10-29)立:此前这三个事件名不在任何白名单里,`parseWebhook` 归到
+ * ignored/unsupported_event —— 自动化(评论触发/工单闭环)对这些事件**完全失聪**,
+ * 且失败后没有任何可核对的分支。这里只认定位维(id/status/conclusion/head_sha):
+ * 少一维就明确判 400 并把缺的字段名回给提供方(schema 诊断),多出来的字段一律放行 ——
+ * GitHub 的 CI 正文是提供方自由文本(提交说明、job 名),字段集合随版本增长,
+ * 按"全字段严格"校验会把更新后的合法投递判死(这正是本族 400 的另一半成因)。
+ */
+const ciCheckObjectSchema = z.object({
+  id: z.number().int().nonnegative(),
+  status: z.string(),
+  conclusion: z.string().nullable().optional(),
+  head_sha: z.string(),
+  head_branch: z.string().nullable().optional(),
+  name: z.string().optional(),
+})
+
+export const checkSuiteEventSchema = z.object({
+  action: z.string(),
+  repository: repositorySchema,
+  installation: installationSchema.optional(),
+  check_suite: ciCheckObjectSchema.extend({
+    app: z.object({ slug: z.string().optional(), name: z.string().optional() }).optional(),
+  }),
+})
+export type CheckSuiteEventPayload = z.infer<typeof checkSuiteEventSchema>
+
+export const workflowRunEventSchema = z.object({
+  action: z.string(),
+  repository: repositorySchema,
+  installation: installationSchema.optional(),
+  workflow_run: ciCheckObjectSchema,
+})
+export type WorkflowRunEventPayload = z.infer<typeof workflowRunEventSchema>
+
+export const checkRunEventSchema = z.object({
+  action: z.string(),
+  repository: repositorySchema,
+  installation: installationSchema.optional(),
+  check_run: ciCheckObjectSchema,
+})
+export type CheckRunEventPayload = z.infer<typeof checkRunEventSchema>
+
+/** 归一后的 CI 事件摘要(降级响应/日志只带这些,不回显提供方正文) */
+export interface CiEventSummary {
+  id: number
+  status: string
+  conclusion: string | null
+  headSha: string
+  headBranch: string | null
+  name: string | null
+}
+
 // ---------------------------------------------------------------------------
 // 显式列举的处理面(AGENTS §5 红线:禁止用参数正则兜底公开面)
 // ---------------------------------------------------------------------------
@@ -129,18 +184,34 @@ export type HandledGithubEvent = (typeof HANDLED_GITHUB_EVENTS)[number]
 export const PERSISTED_GITHUB_EVENTS = ['installation'] as const
 export type PersistedGithubEvent = (typeof PERSISTED_GITHUB_EVENTS)[number]
 
-/** parseWebhook 能辨认的全部事件名(处理面 ∪ 落库面) */
-export const KNOWN_GITHUB_EVENTS: readonly (HandledGithubEvent | PersistedGithubEvent)[] = [
+/**
+ * 能**辨认并校验**、但当前没有处理分支的 CI 事件名(Y-13)。
+ * 刻意不进 HANDLED_GITHUB_EVENTS:/health 那条清单是"会驱动动作的事件"契约,
+ * 这三类进来只会让运维以为 CI 事件已经接了业务。它们的落点是显式 200 + 忽略原因
+ * (`ci_event_not_subscribed`),而不是静默丢弃 —— 静默与失聪在 GitHub 侧读数上同形。
+ */
+export const OBSERVED_CI_EVENTS = ['check_suite', 'workflow_run', 'check_run'] as const
+export type ObservedCiEvent = (typeof OBSERVED_CI_EVENTS)[number]
+
+export type KnownGithubEvent = HandledGithubEvent | PersistedGithubEvent | ObservedCiEvent
+
+/** parseWebhook 能辨认的全部事件名(处理面 ∪ 落库面 ∪ CI 观察面) */
+export const KNOWN_GITHUB_EVENTS: readonly KnownGithubEvent[] = [
   ...HANDLED_GITHUB_EVENTS,
   ...PERSISTED_GITHUB_EVENTS,
+  ...OBSERVED_CI_EVENTS,
 ]
 
 /** 触发自动 review 的 pull_request action —— 白名单 */
 export const PR_REVIEW_ACTIONS = ['opened', 'synchronize', 'reopened', 'ready_for_review'] as const
 export type PrReviewAction = (typeof PR_REVIEW_ACTIONS)[number]
 
-function isKnownEvent(name: string): name is HandledGithubEvent | PersistedGithubEvent {
+function isKnownEvent(name: string): name is KnownGithubEvent {
   return (KNOWN_GITHUB_EVENTS as readonly string[]).includes(name)
+}
+
+function isObservedCiEvent(name: string): name is ObservedCiEvent {
+  return (OBSERVED_CI_EVENTS as readonly string[]).includes(name)
 }
 
 export function isPrReviewAction(action: string): action is PrReviewAction {
@@ -163,7 +234,7 @@ export function splitRepoFullName(fullName: string): { owner: string; repo: stri
 
 /** 与事件种类无关的信封字段,所有下游处理器都要用 */
 export interface WebhookEnvelope {
-  event: HandledGithubEvent | PersistedGithubEvent
+  event: KnownGithubEvent
   action: string
   /** X-GitHub-Delivery(GitHub 为每次投递生成的 UUID,重投时不变 => 幂等键) */
   deliveryId: string
@@ -178,6 +249,12 @@ export type ParsedWebhook =
   | { kind: 'pull_request'; envelope: WebhookEnvelope; payload: PullRequestEventPayload }
   | { kind: 'issue_comment'; envelope: WebhookEnvelope; payload: IssueCommentEventPayload }
   | { kind: 'installation'; envelope: WebhookEnvelope; payload: InstallationEventPayload }
+  | {
+      kind: 'ci_event'
+      envelope: WebhookEnvelope
+      event: ObservedCiEvent
+      summary: CiEventSummary
+    }
 
 /** 事件名不在白名单 / 缺事件头 —— 合法投递,只是不处理,按 200 返回 */
 export type WebhookIgnoreReason = 'missing_event_header' | 'unsupported_event'
@@ -194,11 +271,96 @@ function headerToString(header: string | string[] | undefined): string {
 }
 
 /**
+ * zod 失败 → 只回**字段路径**,不回取值。
+ * 理由与 agent-event-trigger 的 intakeInvalidFields 同款:错误响应会被 CI 打印、也会进日志,
+ * 而 CI 正文里是提交说明/job 名,不得成为请求体的回显通道。这一句就是 Y-13 要的
+ * "缺哪一维"的答案(例:`check_run 事件体不符合 schema(...: check_run.id, repository.full_name)`)。
+ */
+function invalidSchemaMessage(event: string, issues: readonly z.ZodIssue[]): string {
+  const paths = [...new Set(issues.map((issue) => issue.path.join('.') || '(root)'))].slice(0, 6)
+  return `${event} 事件体不符合 schema(缺字段或类型不符: ${paths.join(', ')})`
+}
+
+/** 三类 CI 事件解析后的统一形状(供 envelope + 摘要共用) */
+interface ParsedCiEvent {
+  action: string
+  repoFullName: string
+  installationId: number | null
+  summary: CiEventSummary
+}
+
+function toCiEvent(
+  action: string,
+  repository: { full_name: string },
+  installation: { id: number } | undefined,
+  subject: {
+    id: number
+    status: string
+    conclusion?: string | null
+    head_sha: string
+    head_branch?: string | null
+    name?: string
+  },
+): ParsedCiEvent {
+  return {
+    action,
+    repoFullName: repository.full_name,
+    installationId: installation?.id ?? null,
+    summary: {
+      id: subject.id,
+      status: subject.status,
+      conclusion: subject.conclusion ?? null,
+      headSha: subject.head_sha,
+      headBranch: subject.head_branch ?? null,
+      name: subject.name ?? null,
+    },
+  }
+}
+
+/**
+ * CI 三类事件的事件体校验(Y-13)。
+ * 三者的差别只在主体字段名(check_suite / workflow_run / check_run),故分开 safeParse、
+ * 共用同一个 toCiEvent 归一 —— 不用联合 schema 猜主体,猜错就把合法投递判 400。
+ */
+function parseCiEvent(
+  event: ObservedCiEvent,
+  payload: unknown,
+): ({ ok: true } & ParsedCiEvent) | { ok: false; message: string } {
+  if (event === 'check_suite') {
+    const parsed = checkSuiteEventSchema.safeParse(payload)
+    if (!parsed.success)
+      return { ok: false, message: invalidSchemaMessage(event, parsed.error.issues) }
+    const body = parsed.data
+    return {
+      ok: true,
+      ...toCiEvent(body.action, body.repository, body.installation, body.check_suite),
+    }
+  }
+  if (event === 'workflow_run') {
+    const parsed = workflowRunEventSchema.safeParse(payload)
+    if (!parsed.success)
+      return { ok: false, message: invalidSchemaMessage(event, parsed.error.issues) }
+    const body = parsed.data
+    return {
+      ok: true,
+      ...toCiEvent(body.action, body.repository, body.installation, body.workflow_run),
+    }
+  }
+  const parsed = checkRunEventSchema.safeParse(payload)
+  if (!parsed.success)
+    return { ok: false, message: invalidSchemaMessage(event, parsed.error.issues) }
+  const body = parsed.data
+  return { ok: true, ...toCiEvent(body.action, body.repository, body.installation, body.check_run) }
+}
+
+/**
  * 把 (事件头, 投递头, 已解析的 JSON 体) 归一成可判别联合。
  *
  * 设计要点:
- * - 事件名**必须**落在 HANDLED_GITHUB_EVENTS 里,否则 ignored(不猜测、不放行未知形态);
- * - 事件体不符 zod schema => invalid(路由回 400),绝不带病往下派发;
+ * - 事件名**必须**落在 KNOWN_GITHUB_EVENTS 里,否则 ignored(不猜测、不放行未知形态);
+ * - CI 三类事件(check_suite / workflow_run / check_run)辨认 + 校验后走 ci_event,
+ *   由路由回显式 200 + 忽略原因,不再落进 unsupported_event 那条静默通道(Y-13);
+ * - 事件体不符 zod schema => invalid(路由回 400 并把缺的字段名回给提供方),绝不带病往下派发;
  * - 缺 installation 不视为非法:仍返回 ok,由 installationId=null 让处理器自行跳过并给出原因。
  */
 export function parseWebhook(input: {
@@ -252,6 +414,26 @@ export function parseWebhook(input: {
           installationId: body.installation.id,
         },
         payload: body,
+      },
+    }
+  }
+
+  if (isObservedCiEvent(eventRaw)) {
+    const parsed = parseCiEvent(eventRaw, input.payload)
+    if (!parsed.ok) return { status: 'invalid', message: parsed.message }
+    return {
+      status: 'ok',
+      data: {
+        kind: 'ci_event',
+        event: eventRaw,
+        envelope: {
+          event: eventRaw,
+          action: parsed.action,
+          deliveryId,
+          repoFullName: parsed.repoFullName,
+          installationId: parsed.installationId,
+        },
+        summary: parsed.summary,
       },
     }
   }
