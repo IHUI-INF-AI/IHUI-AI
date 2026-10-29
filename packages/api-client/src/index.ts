@@ -131,11 +131,6 @@ export type {
   ReviewFindingSeverity,
   // G-425(2026-10-07 立,默认档"只提示"):done 帧的 finish/stop reason 透传事件
   FinishReasonEvent,
-  // D115(2026-10-23):review 模式结构化 finding 帧 + 其三档严重度域
-  ReviewFindingEvent,
-  ReviewFindingSeverity,
-  // D09(2026-10-24 立):专家包自动路由档位(web 设置项,封闭集)
-  ExpertAutoRouteMode,
   // G-998168 票5(2026-10-05 立):首帧耗时分段归因 —— 挂在首帧数据载荷的顶层可选字段
   // openTiming 上随流回传,**回传不落库(机主拍板⑥)**;端内经 extractOpenTiming 提取。
   StreamOpenTiming,
