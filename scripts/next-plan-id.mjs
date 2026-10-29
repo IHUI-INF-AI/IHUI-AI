@@ -154,6 +154,7 @@ import {
   leaseCursor,
   parseLeases,
   smallestFreeId,
+  remoteIdNumsOf,
   poolFreeList,
   poolBlocked,
   LEASE_POOL_MAX,
@@ -206,15 +207,28 @@ function headingReFor(family) {
 }
 
 /**
+ * 「同题已在册」查重(2026-10-24,第五条):把每一行喂给守门 194 的指纹判据,
+ * 命中即带回既有行号与既有号 —— "什么算同题"全在 `extractTaskFingerprint` 那一份里,
+ * 本函数只做遍历与取值(§22c:不另写一份标题归一化)。
+ * 关键词档用同一份归一化面(小写 + 去空白/标点/符号)做子串匹配。
  */
-}
-
-/**
- */
-}
-
-}
-
+const keywordKey = (raw) => String(raw ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '')
+function findSameTitleRows(body, { fp, keyword }) {
+  if (!fp && !keyword) return []
+  const hits = []
+  const lines = String(body ?? '').split('\n')
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i]
+    const rowFp = extractTaskFingerprint(raw)
+    if (!rowFp) continue
+    if (fp ? rowFp !== fp : !rowFp.includes(keyword)) continue
+    hits.push({
+      line: i + 1,
+      id: /^-\s*\[[ x]\]\s*(?:[（(〔][^）)〕]*[）)〕]\s*)*([A-Z]+-?\d+)/.exec(raw)?.[1] ?? null,
+      preview: raw.trim().slice(0, 120),
+    })
+  }
+  return hits
 }
 
 const argv = process.argv.slice(2)
@@ -262,9 +276,11 @@ if (familyFlag.value !== null && !/^[A-Za-z]$/.test(familyFlag.value)) {
 const FAMILY = (familyFlag.value ?? DEFAULT_FAMILY).toUpperCase()
 /** 标题判据的族实例(形状只有一份,换族见 headingReFor) */
 const HEADING_RE = headingReFor(FAMILY)
+/**
  * 数字段提取(族感知):算术**只有一份** —— 复用上面 `headingNum` 那颗 `^O(\d+)`:族名是单字母,
  * 把 key 的首字母换回 `O` 交同一份算术(`Z12附⑥ → O12附⑥ → 12`)。
  * 不另写一条 `^Z(\d+)`(§22c:两处算同一件事必漂移,而镜像 T6 只锁得住其中一份)。
+ */
 const headingNumOf = (key) => headingNum(`${DEFAULT_FAMILY}${String(key).slice(FAMILY.length)}`)
 
 if (flags.has('--help') || flags.has('-h')) {
@@ -286,7 +302,6 @@ if (flags.has('--help') || flags.has('-h')) {
 }
 
 for (const f of flags) {
-  if (!['--next-only', '--check', '--source'].includes(f)) {
   if (!['--next-only', '--check', '--source', '--family', '--title', '--keyword'].includes(f)) {
     console.error(`✗ 未知参数 ${f}(拒绝把它当编号继续跑;可用项见 --help)`)
     process.exit(2)
@@ -528,6 +543,16 @@ if (titleFp || kwKey) {
   }
 }
 const liveUsed = [...new Set([...poolUsed, ...scanHead, ...scanWork])]
+// ── G-454 ② 对齐(2026-10-25,票 G-35):远端那一维不能只交 max 给本器 ──────────────────────
+// `poolBlocked` 的远端避让只盖 `lowMax+1..baseMax` 这段"本地盲区";远端**低位**已占号
+// (本地面已让空 / 远端已推未并)落不进那一段 ⇒ `smallestFreeId` 会把它当空闲发出。
+// 第一出口(live-doc-edit 的 resolveIdTokens)自 2026-10-16 起已把远端号集从空闲清单里扣掉,
+// 本器当时没跟上 —— 两出口同一件事两种口径(§22c 漂移型)。现在 import 同一份投影
+// (lib/plan-id-lease.mjs 的 remoteIdNumsOf)把远端已用号集并进实时占用面,行为与第一出口对齐:
+// 远端与本地同号集时本行是恒等并(建议号与改动前逐字同形),只有远端多出本地看不见的号才顺延。
+// `--check` 不发号(在远端读取之前分岔)、`--source` 显式指面(不问远端)⇒ remote 为 null ⇒ 空数组。
+const remoteIdNums = remoteIdNumsOf(remote?.ids?.[FAMILY])
+if (remoteIdNums.length) liveUsed.push(...remoteIdNums)
 const nextNarrow = smallestFreeId({ usedNumbers: poolUsed, baseMax: remoteWide })
 const next = smallestFreeId({ usedNumbers: liveUsed, baseMax: remoteWide })
 // 「命中即换号」里被扫描顶掉的号:旧口径判空闲、全文件扫描判已占(撞号正病;走 stderr,
@@ -559,7 +584,6 @@ const { lowMax: poolLowMax, blocked: liveBlocked } = poolBlocked({
   usedNumbers: liveUsed,
   baseMax: remoteWide,
 })
-const { lowMax: poolLowMax } = poolBlocked({ usedNumbers: liveUsed, baseMax: remoteWide })
 // ── 租约窗读数(2026-10-23 立,只读不改分配)────────────────────────────────────────────
 // "发不出号"有两种完全不同的成因,旧措辞把它们一律念成"号池已满 ⇒ 先归档腾号":
 //  ① POOL_FULL = 池内一个空闲号都没有(这一型让位才真能腾出号);
@@ -671,6 +695,7 @@ if (remote) {
   console.log(
     `  号段基准(含远端):${remote.remote} ${remote.ref} 该族 max=${remoteWide === null ? '未判到' : fmt(remoteWide)} ${rel}`,
   )
+}
 if (freeList.length)
   console.log(
     `(池内空闲 ${freeList.length} 个,如实报:${freeList
@@ -692,12 +717,14 @@ if (dupRow.ok && dupRow.rowDups.length) {
   console.log(
     `⚠️  重号这一维未判定:${dupRow.reason} —— 建议号照常给,但不得把"没报"读成"没有重号"。`,
   )
+}
 if (dups.length) {
   console.log(
     `ℹ️  历史小节标题同 id ${dups.length} 组(${dups.map(([i, n]) => `${i}×${n}`).join(' ')}):` +
       `含逐字孪生副本 ${twinDups.length} 组(${twinDups.join(' ') || '无'}—— 该折,归活文档归并线既有折叠出口处置,不判相撞也不判绿)` +
       ` / 纯系列小节 ${seriesDups.length} 组(${seriesDups.join(' ') || '无'}—— 同一票下的正当复用)(G-927 分档 + G-955 两档读数)。`,
   )
+}
 console.log(`建议本次使用:${fmt(next)}`)
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -5856,7 +5856,7 @@ const checks = [
 
   // --- .ps1 BOM(差值棘轮)(1 项,blocking)---
   {
-    id: '260',
+    id: '251',
     label:
       '📄 .ps1 必须带 UTF-8 BOM(差值棘轮:只拦本次新增/弄掉的)',
     script: 'check-ps1-bom.mjs',
@@ -5880,7 +5880,7 @@ const checks = [
 
   // --- lint-staged stdio 三针盯针(1 项,warn:判机器状态 ⇒ §12e 只能 warn,与门 153 同型)---
   {
-    id: '261',
+    id: '252',
     label:
       '📌 lint-staged stdio 三针盯针(判机器状态:node_modules 里三针还在不在;§12e 只能 warn)',
     script: 'check-lint-staged-stdio-pin.mjs',
@@ -5903,7 +5903,7 @@ const checks = [
 
   // --- 门注册表射程声明(1 项,blocking)---
   {
-    id: '262',
+    id: '253',
     label:
       '📌 门注册表射程声明完备性(新增门必须写 stagedTriggers;摘射程判红;存量只报数)',
     script: 'check-gate-triggers.mjs',
@@ -5920,7 +5920,7 @@ const checks = [
     ].join('\n'),
   },
   {
-    id: '263',
+    id: '254',
     label: '🐍 Python ruff lint(拦 chore(auto)/旁路落地把 Python 欠账直带进 HEAD)—— 2026-10-27 补注册,接线与点名同批',
     script: 'check-ruff-python.mjs',
     args: [],
@@ -5935,9 +5935,9 @@ const checks = [
     ],
   },
 
-  // --- 跨端视觉原子 spec 覆盖率棘轮(阶段3,守门 264)---
+  // --- 跨端视觉原子 spec 覆盖率棘轮(阶段3,守门 256)---
   {
-    id: '264',
+    id: '256',
     label: '🔗 跨端视觉原子 spec 覆盖率棘轮(退化才拦;口径见 scripts/check-cross-end-spec-coverage.mjs)',
     script: 'check-cross-end-spec-coverage.mjs',
     args: ['--ratchet'],
@@ -5957,6 +5957,23 @@ const checks = [
       '     看差在哪:node scripts/check-cross-end-spec-coverage.mjs',
       '     基线:scripts/data/cross-end-spec-baseline.json(口径已校正:视觉原子 11 项含 button,collapsible 为 EXEMPT 不计分母)。',
       '     应急放行 HUSKY_SKIP_CROSS_END_SPEC_COVERAGE=1(仅限退化确属他人文件/并行谱系时,须在提交信息写明理由)。',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '257',
+    label:
+      '🌐 web↔RN 跨端对账(仅报告):web 新增路由/功能而 RN 缺承载时自动可见 —— 复用 check-web-rn-screen-parity 同一把尺,拦「web 有、RN 零承载」漂移回潮',
+    script: 'check-web-rn-parity.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_WEB_RN_PARITY',
+    stagedTriggers: ['apps/web/app/**', 'apps/mobile-rn/src/**', 'packages/app/src/**', 'scripts/data/web-rn-screen-map.jsonl', 'scripts/check-web-rn-parity.mjs'],
+    onFailHint: [
+      '',
+      '  💡 仅报告:web 有路由/能力而 RN 零承载。逐条看差在哪:node scripts/check-web-rn-parity.mjs',
+      '     映射表:scripts/data/web-rn-screen-map.jsonl(新增承载后请在表里登记)。',
+      '     应急放行 HUSKY_SKIP_WEB_RN_PARITY=1(须在提交信息写明理由)。',
       '',
     ].join('\n'),
   },

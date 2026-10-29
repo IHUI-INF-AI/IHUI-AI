@@ -132,6 +132,7 @@ import { CirclePostScreen } from '../screens/CirclePostScreen'
 import { InvitationsScreen } from '../screens/InvitationsScreen'
 import { LettersScreen } from '../screens/LettersScreen'
 import { LetterChatScreen } from '../screens/LetterChatScreen'
+import { NewsCategoryScreen } from '../screens/NewsCategoryScreen'
 import { SearchHistoryScreen } from '../screens/SearchHistoryScreen'
 import { AiWorldDetailScreen } from '../screens/AiWorldDetailScreen'
 import { AiWorldEditScreen } from '../screens/AiWorldEditScreen'
@@ -722,6 +723,7 @@ export type RootStackParamList = {
   LecturerList: undefined
   LecturerProfile: { id: string }
   NewsArticle: { id: string }
+  NewsCategory: { id: string }
   SkillMarketDetail: { name: string }
   SkillMarketList: undefined
   // M3 并行批次(2026-08-26)
@@ -1087,6 +1089,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Invitations" component={InvitationsScreen} />
             <RootStack.Screen name="Letters" component={LettersScreen} />
             <RootStack.Screen name="LetterChat" component={LetterChatScreen} />
+            <RootStack.Screen name="NewsCategory" component={NewsCategoryScreen} />
             <RootStack.Screen name="SearchHistory" component={SearchHistoryScreen} />
             <RootStack.Screen name="AiWorldDetail" component={AiWorldDetailScreen} />
             <RootStack.Screen name="AiWorldEdit" component={AiWorldEditScreen} />
