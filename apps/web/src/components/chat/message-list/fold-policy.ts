@@ -72,11 +72,15 @@ export interface FoldPolicyInput {
    * 独立 UI 的工具体量再大也不许被自动折叠(详见 `tool-category.ts` 的 `isNeverFoldTool`)。
    * 不传 ⇒ 只看三维阈值,既有调用方与用例零回归。
    *
-   * 接线状态(如实登记,2026-10-29):
+   * 接线状态(2026-10-29 二次登记,**两个消费面均已接**):
    *  - **已接**:类目卡(`tool-call-summary-card.tsx` 的 `CategoryCard`,传 `run.tools` 的工具名);
-   *  - **未接**:消息级「中间步骤」开关(`MessageItem.tsx` 的 `stepDims`)当时仍只喂三维 ——
-   *    该文件被他席未提交改动占用,本票禁改;它落地后只需把 `toolNames: m.toolCalls?.map(tc => tc.toolName)`
-   *    加进 `stepDims`,语义例外即在消息级生效,本模块无需再改。
+   *  - **已接**:消息级「中间步骤」开关(`MessageItem.tsx` 的 `stepDims`,
+   *    传 `(m.toolCalls ?? []).map(tc => tc.toolName)`)。
+   *    上一轮登记里这一步是"未接"(当时该文件被他席未提交改动占用、本票禁改);
+   *    2026-10-29 该文件已回到 HEAD 干净态,故补齐 —— **注释与事实不一致本身就是缺陷**,
+   *    这里如实改写而不是留旧登记。接线锁:
+   *    `message-list/__tests__/message-item-step-dims-wiring.test.tsx`(组件级读
+   *    `StreamGroup` trigger 的 `aria-expanded`,成对:含例外工具 ⇒ 展开 / 不含 ⇒ 折叠)。
    */
   toolNames?: readonly string[]
 }
