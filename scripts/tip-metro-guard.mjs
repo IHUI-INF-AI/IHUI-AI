@@ -231,6 +231,8 @@ async function main() {
       head = spawnSync('git', ['-C', TIP_WT, 'rev-parse', '--short', 'HEAD'], {
         encoding: 'utf8',
         windowsHide: true,
+        // §12g:派生 git 必须显式接管 stdio —— 不写在本机稳定 EBUSY(守门 193)
+        stdio: ['ignore', 'pipe', 'pipe'],
       }).stdout.trim();
     } catch {}
     console.log(`工作树: ${RN_TIP} (HEAD ${head})`);

@@ -339,6 +339,20 @@ overrides:
   #    对 katex 0.16 API 的假设。升 blocking 前置 = mermaid 上游切换。
   #  · zod 3.25.76(@expo/cli 构建期):上方既有注释已定档"强升 3→4 打爆 Expo 工具链";
   #    产品请求校验用 catalog ^4.6.6,不受此条影响。
+  # ===== 2026-10-29 依赖漏洞定向升级(李总"全部"指令)=====
+  # 10 个生产依赖图可达的 crit/high 包中,image-size/zod 已由 10-28 审计收口;
+  # 此处补其余 8 个真实 vuln 实例。同主版本线内补丁抬升;跨主版本项
+  # (protobufjs 6→7、terser 4→5、webpack-dev-middleware 6→7)按 selector 抬最新补丁版,
+  # 由 @ihui/api / @ihui/web build 同批验证,失败则回退并登记(参照 webpack 钉版 §0.6)。
+  json5@<1.0.2: ^1.0.2
+  minimatch@<3.1.5: ^3.1.5
+  minimatch@>=5.0.0 <5.1.9: ^5.1.9
+  nanoid@<3.3.18: ^3.3.18
+  protobufjs@<7.6.3: ^7.6.3
+  systeminformation@<5.33.16: ^5.33.16
+  tmp@<0.2.7: ^0.2.7
+  terser@<5.0.0: ^5.50.0
+  webpack-dev-middleware@<7.4.5: ^7.4.5
 
 # 原 package.json pnpm.peerDependencyRules 迁移至此:
 peerDependencyRules:
