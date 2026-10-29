@@ -229,6 +229,13 @@ export default defineConfig(async (merge) => {
         'native-wechat.ts',
       ),
       'expo-secure-store$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-secure.ts'),
+      'expo-modules-core$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'expo-modules-core.ts',
+      ),
     },
     mini: {
       es5: true,
@@ -335,6 +342,13 @@ export default defineConfig(async (merge) => {
           'native-wechat.ts',
         ),
         'expo-secure-store$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-secure.ts'),
+        'expo-modules-core$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'expo-modules-core.ts',
+        ),
         'react-native-safe-area-context$': path.resolve(
           __dirname,
           '..',
