@@ -231,6 +231,7 @@ async function main() {
       head = spawnSync('git', ['-C', TIP_WT, 'rev-parse', '--short', 'HEAD'], {
         encoding: 'utf8',
         windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
       }).stdout.trim();
     } catch {}
     console.log(`工作树: ${RN_TIP} (HEAD ${head})`);
