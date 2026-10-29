@@ -62,19 +62,23 @@ def _decode(raw: object) -> str:
     return str(raw)
 
 
-def _first_ip(value: str) -> str:
-    """X-Forwarded-For 取最左跳;空串一律返回空,由调用方继续回退。"""
-    return value.split(",")[0].strip()
-
-
 def client_ip_from_container(container: object) -> str:
     """从 ASGI scope 或 WSGI environ 两种形态里尽力取客户端 IP。
 
-    优先 CF-Connecting-IP(Cloudflare Tunnel 前置时这才是真源 IP),其次 X-Forwarded-For
-    最左跳,再次 scope["client"] / WSGI 环境变量。取不到返回 "unknown" 而不是空串 ——
-    空串会把所有取不到 IP 的连接并成同一个桶,反而把闸门拧成全局开关。
+    只信**边缘层(router)验证后注入**的结论,绝不读客户端可整写的 IP 类头
+    (cf-connecting-ip / x-forwarded-for / x-real-ip):本项目生产边缘是腾讯云 EdgeOne,
+    不是 Cloudflare —— EdgeOne 永不写 cf-connecting-ip,任何客户端自带该头都是伪造;
+    x-forwarded-for 最左值同样是客户端自己写进去的。拿它们当限流键,等于把
+    "每秒换一个假 IP" 的开关交给攻击者(每假 IP 各记 1 条 ⇒ 200 条并发上限形同虚设)。
 
-    这个值**只用于防御计量**,不得用作鉴权依据(头可被伪造,而鉴权另有 token 链路)。
+    取值优先级:
+      ① x-ihui-edge-verified == "1" 且 x-ihui-client-ip 存在
+         ⇒ 这是 router 经回源鉴权后写入的不可伪造真实 IP,由 api 透传进本服务;
+      ② 否则回落 TCP 对端(scope["client"][0] / WSGI REMOTE_ADDR);
+      ③ 都取不到 ⇒ "unknown" 哨兵(空串会把所有取不到 IP 的连接并成一个桶,
+        把闸门拧成全局开关)。
+
+    这个值**只用于防御计量**,不得用作鉴权依据。
     """
     if not isinstance(container, dict):
         return UNKNOWN_IP
@@ -90,21 +94,22 @@ def client_ip_from_container(container: object) -> str:
             key = _decode(name).lower()
             if key and key not in table:
                 table[key] = _decode(value)
-        for header in ("cf-connecting-ip", "x-forwarded-for"):
-            picked = _first_ip(table.get(header, ""))
-            if picked:
-                return picked
+        # ① 仅信边缘层验证结论:verified 标记存在 + 真实 IP 同时存在才采用。
+        #   单独有 x-ihui-client-ip 而无标记 ⇒ 仍可能是客户端自带,回落对端。
+        if table.get("x-ihui-edge-verified") == "1":
+            ip = table.get("x-ihui-client-ip", "").strip()
+            if ip:
+                return ip
 
+    # ② TCP 对端(不可伪造):ASGI scope["client"] 或 WSGI REMOTE_ADDR。
     client = container.get("client")
     if isinstance(client, (list, tuple)) and client:
         ip = _decode(client[0])
         if ip:
             return ip
-
-    for env_key in ("HTTP_CF_CONNECTING_IP", "HTTP_X_FORWARDED_FOR"):
-        picked = _first_ip(_decode(container.get(env_key)))
-        if picked:
-            return picked
+    remote = container.get("REMOTE_ADDR")
+    if isinstance(remote, str) and remote:
+        return remote
 
     return UNKNOWN_IP
 

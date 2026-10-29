@@ -14,6 +14,8 @@ vi.hoisted(() => {
   process.env.UPLOAD_DIR = `${process.env.TEMP || process.env.TMP || '/tmp'}/ihui-test-uploads`
 })
 
+/** select 调用的返回值队列:每调用一次 shift 一批,空则 [] —— 用来喂"会话存在/不存在"两态。 */
+const { dbState } = vi.hoisted(() => ({ dbState: { selectRows: [] as unknown[][] } }))
 vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi.fn().mockResolvedValue({
     userId: '00000000-0000-4000-8000-000000000fee',
@@ -66,7 +68,7 @@ vi.mock('../../db/index.js', () => {
   return {
     db: {
       execute: vi.fn().mockResolvedValue([]),
-      select: vi.fn(() => createChain()),
+      select: vi.fn(() => createChain(dbState.selectRows.shift() ?? [])),
       insert: vi.fn(() => createChain()),
       update: vi.fn(() => createChain()),
       delete: vi.fn(() => createChain()),
@@ -261,6 +263,7 @@ describe('Chunked Upload API', () => {
     })
 
     it('DELETE /api/chunked-upload/cancel 成功返回 200', async () => {
+      dbState.selectRows.push([{ id: 'test-upload-id' }])
       const res = await app.inject({
         method: 'DELETE',
         url: '/api/chunked-upload/cancel',
@@ -271,6 +274,40 @@ describe('Chunked Upload API', () => {
       const body = res.json()
       expect(body.code).toBe(0)
       expect(body.data.cancelled).toBe(true)
+    })
+
+    it('DELETE cancel 的 uploadId 含路径穿越 ⇒ 400,且一次库都不查(副作用没发生)', async () => {
+      dbState.selectRows.length = 0
+      for (const bad of ['../../etc', 'a/../../b', '..%2f..', 'x\\y', '.']) {
+        const res = await app.inject({
+          method: 'DELETE',
+          url: '/api/chunked-upload/cancel',
+          headers: AUTH_HEADERS,
+          body: { uploadId: bad },
+        })
+        expect(res.statusCode, `uploadId=${bad}`).toBe(400)
+      }
+      expect(dbState.selectRows.length).toBe(0)
+    })
+
+    it('DELETE cancel 传他人 uploadId(会话不属于当前用户)⇒ 404,不删任何目录', async () => {
+      dbState.selectRows.push([])
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/chunked-upload/cancel',
+        headers: AUTH_HEADERS,
+        body: { uploadId: 'someone-elses-id' },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('GET status 的 uploadId 含路径穿越 ⇒ 400', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/chunked-upload/status?uploadId=../..%2Fetc',
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(400)
     })
   })
 })

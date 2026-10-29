@@ -1,0 +1,35 @@
+# ai-service 构建上下文排除(构建上下文 = apps/ai-service,根 .dockerignore 不生效)
+#
+# 2026-10-29 立:本目录原先没有 .dockerignore,而 Dockerfile 末尾是 `COPY . .`
+# ⇒ 上下文里的 .env、.env.bak-*(两份历史备份)、私钥与测试缓存全部进入最终镜像层。
+# 密钥一律运行时注入,构建期不携带。
+
+# 密钥与证书(注意:dockerignore 的 `*` 不跨 `/`,`*.pem` 只匹配根层,
+# 子目录里的私钥会漏 ⇒ 一律用 `**/` 前缀。此条由 scripts/tests/dockerignore-secrets.test.mjs 钉住)
+.env
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/cert/
+
+# 依赖与缓存(镜像内重新安装)
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+**/*.egg-info/
+
+# 运行时数据与日志
+logs/
+**/logs/
+**/*.log
+data/
+**/.uploads/
+**/uploads/

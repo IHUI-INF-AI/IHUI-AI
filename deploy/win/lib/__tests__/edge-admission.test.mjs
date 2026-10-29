@@ -260,7 +260,10 @@ test('resolveEdgeClientIp 取 XFF 最右(最近一跳),不是最左(客户端整
   assert.equal(resolveEdgeClientIp(null), '')
 })
 
-test('off 档:请求头原样返回(未装闸必须零行为变化)', () => {
+test('off 档:仍做 IP 归一(客户端自带的 XFF 不被透传),但不做回源验证', () => {
+  // 2026-10-29 改判:原断言"一个头都不许动"让 off 档把客户端自带的 X-Forwarded-For
+  // 原样交给上游 —— 限流键与内网判据因此由攻击者指定,比"没装闸"更糟。IP 归一是身份
+  // 语义修正,不是闸门行为;off 档仍不做回源验证(不注入 verified)。
   const headers = {
     'x-forwarded-for': '1.1.1.1, 2.2.2.2',
     'cf-connecting-ip': '9.9.9.9',
@@ -272,7 +275,37 @@ test('off 档:请求头原样返回(未装闸必须零行为变化)', () => {
     edgeMode: 'off',
     edgeReason: 'off',
   })
-  assert.deepEqual(out, headers, 'off 档一个头都不许动')
+  assert.equal(out['x-forwarded-for'], '203.0.113.9', 'off 档也只认 TCP 对端')
+  assert.equal(out['x-ihui-client-ip'], '203.0.113.9')
+  assert.ok(!('x-ihui-edge-verified' in out), 'off 档不做回源验证')
+  assert.ok(!('x-real-ip' in out), 'x-real-ip 不透传')
+  assert.ok(!('cf-connecting-ip' in out), '非回环对端不采信 cf-connecting-ip')
+})
+
+test('回环对端(cloudflared 隧道):采信 CF-Connecting-IP,否则上游只看到 127.0.0.1', () => {
+  // api.aizhs.top 走本机 cloudflared,对端恒为回环;真实客户端 IP 只在 CF-Connecting-IP。
+  // 不采信它 ⇒ request.ip 恒 127.0.0.1 ⇒ isPrivateIp 失效(实测公网 /metrics 返回 200)、
+  // 全局限流退化为单桶。
+  const out = buildForwardHeaders({
+    headers: { 'cf-connecting-ip': '198.51.100.23', 'x-forwarded-for': '127.0.0.1' },
+    remoteAddress: '127.0.0.1',
+    edgeMode: 'observe',
+    edgeReason: 'no-secret',
+  })
+  assert.equal(out['x-forwarded-for'], '198.51.100.23')
+  assert.equal(out['x-ihui-client-ip'], '198.51.100.23')
+  assert.ok(!('x-ihui-edge-verified' in out), '隧道来源不等于回源鉴权匹配')
+})
+
+test('公网对端直连源站:同一个 CF 头不可采信(那是客户端自己写的)', () => {
+  const out = buildForwardHeaders({
+    headers: { 'cf-connecting-ip': '198.51.100.23' },
+    remoteAddress: '203.0.113.7',
+    edgeMode: 'observe',
+    edgeReason: 'no-secret',
+  })
+  assert.equal(out['x-forwarded-for'], '203.0.113.7')
+  assert.equal(out['x-ihui-client-ip'], '203.0.113.7')
 })
 
 test('match 档:采信 XFF 最右,注入 verified,并删掉其余伪造 IP 头', () => {
@@ -327,4 +360,63 @@ test('buildForwardHeaders 不修改入参(纯函数,重试/多分支共用同一
   const snapshot = { ...headers }
   buildForwardHeaders({ headers, remoteAddress: '203.0.113.9', edgeMode: 'enforce', edgeReason: 'match' })
   assert.deepEqual(headers, snapshot, '入参被就地改掉会让重试拿到已被删过的头')
+})
+
+// ── 内部路由透传 verified(2026-10-29 闭环变更 B)──────────────────────────────
+//
+// 链路:cloudflared → 8801(公网路由,验 secret 后置 verified)→ 8802(API 路由,只监听回环)
+// → API 应用 → ai-service-fetch.ts → ai-service。8802 的对端是回环,decideEdgeGuard 给它
+// 的 reason 是 'loopback' 而非 'match' —— 若 buildForwardHeaders 只认 'match',会在这一跳把
+// verified 抹掉,ai-service 的 conn_guard 永远回落 TCP 对端(=127.0.0.1),per-user 限流退化成
+// 全站共享一个桶(DoS 缺口未真正闭合)。故内部路由(trustInboundVerified=true)必须透传入站 verified。
+
+test('内部路由(只监听回环):透传上游 verified,per-user 限流能拿到真实 IP', () => {
+  const out = buildForwardHeaders({
+    headers: {
+      'x-forwarded-for': '203.0.113.99', // 8801 已归一为真实客户端 IP
+      'x-ihui-client-ip': '203.0.113.99',
+      'x-ihui-edge-verified': '1',
+    },
+    remoteAddress: '127.0.0.1', // 8802 的对端是 8801,回环
+    edgeMode: 'enforce',
+    edgeReason: 'loopback', // 8802 自己比对的是回环连接,结论是 loopback 而非 match
+    trustInboundVerified: true,
+  })
+  assert.equal(out['x-ihui-edge-verified'], '1', '内部路由必须把 8801 的验证结论透传下去')
+  assert.equal(out['x-ihui-client-ip'], '203.0.113.99', '真实客户端 IP 一路带到 ai-service')
+  assert.equal(out['x-forwarded-for'], '203.0.113.99')
+})
+
+test('公网路由(监听 0.0.0.0):绝不信任客户端自带的 verified,只认自己比对的 secret', () => {
+  const out = buildForwardHeaders({
+    headers: {
+      'x-forwarded-for': '1.1.1.1',
+      'x-ihui-client-ip': '1.1.1.1',
+      'x-ihui-edge-verified': '1', // 攻击者在公网请求里自带,企图骗过
+    },
+    remoteAddress: '203.0.113.7', // cloudflared 以公网 IP 连入 8801(实际本机但连接对端非回环语义)
+    edgeMode: 'enforce',
+    edgeReason: 'missing', // 没有合法 secret
+    trustInboundVerified: false, // 公网路由不信任入站该头
+  })
+  assert.equal(out['x-ihui-edge-verified'], undefined, '伪造的 verified 必须被抹掉')
+  assert.equal(out['x-ihui-client-ip'], '203.0.113.7', '只认 TCP 对端,不信伪造 IP')
+  assert.equal(out['x-forwarded-for'], '203.0.113.7')
+})
+
+test('反向对照:内部路由若也置 trustInboundVerified=false,会复现 8802 抹掉 verified 的断链', () => {
+  // 删掉透传能力 ⇒ 真实客户端 IP 退化成 127.0.0.1,正是变更 B 要修的 DoS 缺口。
+  const out = buildForwardHeaders({
+    headers: {
+      'x-forwarded-for': '203.0.113.99',
+      'x-ihui-client-ip': '203.0.113.99',
+      'x-ihui-edge-verified': '1',
+    },
+    remoteAddress: '127.0.0.1',
+    edgeMode: 'enforce',
+    edgeReason: 'loopback',
+    trustInboundVerified: false,
+  })
+  assert.equal(out['x-ihui-edge-verified'], undefined, '断链复现:verified 被抹 => conn_guard 回落 127.0.0.1')
+  assert.equal(out['x-ihui-client-ip'], '127.0.0.1', '断链复现:IP 退化成回环 => 全站共享一个限流桶')
 })
