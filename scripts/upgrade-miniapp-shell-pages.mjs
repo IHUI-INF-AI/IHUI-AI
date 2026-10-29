@@ -47,6 +47,7 @@ const git = (args) =>
     encoding: 'utf8',
     maxBuffer: 1 << 28,
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
 
 /** 自动落地的提交消息(纯函数,便于测试:每条 route/shell 必须能被回读)。 */
@@ -175,6 +176,7 @@ function main() {
         execFileSync(process.execPath, [join(ROOT, 'scripts', 'watermark.mjs'), 'inject', abs], {
           cwd: ROOT,
           stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
         })
       } catch {
         /* 水印注入失败不阻断:覆盖面门会在提交链上判它 */
@@ -216,6 +218,7 @@ function main() {
         execFileSync(process.execPath, [join(ROOT, 'scripts', 'gen-rn-shell-types.mjs'), '--head', '--write'], {
           cwd: ROOT,
           stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
         })
       } catch {
         /* 生成失败不阻断:声明件落后由门 251 C9 兜底 */
