@@ -18,7 +18,7 @@
  *
  * 安全:令牌只在两个进程的管道里流动,任何输出都不含凭据明文。
  */
-import fs from 'node:fs'
+import { resolveTsxCli } from './lib/tsx-cli.mjs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -34,6 +34,7 @@ export function parseArgs(argv) {
     if (a === '--dry-run') options.dryRun = true
     else if (a === '--json') options.json = true
     else if (a === '--help' || a === '-h') options.help = true
+    else if (a === '--') continue // pnpm 透传的裸分隔符,不是参数
     else options.error = `未知参数: ${a}`
   }
   return options
@@ -62,18 +63,8 @@ export function buildPayload(extracted) {
   return { providerCode: 'trae', accounts, meta: extracted?.meta ?? {} }
 }
 
-function resolveTsx() {
-  for (const candidate of [
-    path.join(API_DIR, 'node_modules', 'tsx', 'dist', 'cli.mjs'),
-    path.join(ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs'),
-  ]) {
-    if (fs.existsSync(candidate)) return candidate
-  }
-  return null
-}
-
 function runSyncTs(payloadText, dryRun) {
-  const tsx = resolveTsx()
+  const tsx = resolveTsxCli(ROOT)
   if (!tsx) {
     return Promise.resolve({
       code: 2,
