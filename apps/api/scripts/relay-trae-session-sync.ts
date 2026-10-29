@@ -48,6 +48,8 @@ export type {
   SyncDecision,
   SyncReason,
 } from '../src/services/relay-session-sync-decision.js'
+// re-export 不产生本地绑定;本文件第 78 行要用它做字段类型,必须另有一份 import。
+import type { SyncReason } from '../src/services/relay-session-sync-decision.js'
 
 export interface SyncCandidate {
   uid: string
