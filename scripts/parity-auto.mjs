@@ -30,7 +30,8 @@
  *
  * Usage:
  *   node scripts/parity-auto.mjs                    # 驾驶舱:全部阶段一趟跑完,只读(条数以 STAGES 现读为准)
- *   node scripts/parity-auto.mjs --fast             # 跳过慢门(128 / 237),日常高频用
+ *   node scripts/parity-auto.mjs --fast             # 只跳标了 slow 的门;结论行会点名"本轮未跑哪几道",
+ *                                                   # 覆盖不全时不得当「三端已对齐」的合格证
  *   node scripts/parity-auto.mjs --stage=tokens     # 只跑某组(sync / decl / gen / gate / all)
  *   node scripts/parity-auto.mjs --apply            # 派生态写回(安全档)
  *   node scripts/parity-auto.mjs --apply --apply-decl --apply-gen
@@ -233,6 +234,21 @@ export const STAGES = [
     wt: true,
     slow: true,
   },
+  {
+    id: 'gate-drift',
+    group: 'gate',
+    title: '跨端漂移哨兵(产物级缺陷绝对值出声)',
+    script: 'check-cross-end-parity-drift.mjs',
+    args: [],
+    applyArgs: [],
+    tier: null,
+    wt: false,
+    // 立因(2026-10-29 现读):驾驶舱 14 阶段全绿 rc=0 的同一时刻,本器报 STATE=regressed rc=1
+    // (1 对声明镜像 A 而承载是 B + 账本数字落后 21 屏)。它此前只挂 guardian 的 60 分钟轮,
+    // 不在驾驶舱射程内 ⇒ "管线全绿"与"三端已对齐"之间没有一句真话把两件事分开。
+    // **不标 slow**:它内部四把尺实测 26s,比门 128(40~90s)便宜,而它正是"宣布收口前必须过"
+    // 的那一维 —— 标 slow 等于把同一个盲区留给下一轮 `--fast`。
+  },
 ]
 
 /** 结论行抽取:优先取带结论语义的那行,否则取末行 —— 只做展示,不改任何判定。 */
@@ -242,7 +258,8 @@ export function summarize(stdout) {
     .map((line) => line.trim())
     .filter(Boolean)
   if (lines.length === 0) return ''
-  const keyed = lines.filter((line) => /结论|通过|失败|判定|缺口|可转|漂移/.test(line))
+  // `STATE=` 是漂移哨兵的结论行(它把 reason 逐条另起行,不含这些关键词)⇒ 加进来才不会被末行顶掉。
+  const keyed = lines.filter((line) => /结论|通过|失败|判定|缺口|可转|漂移|STATE=/.test(line))
   const pick = keyed.length > 0 ? keyed[keyed.length - 1] : lines[lines.length - 1]
   return pick.length > 120 ? `${pick.slice(0, 117)}…` : pick
 }
@@ -323,13 +340,22 @@ function runStage(stage, opts) {
   }
 }
 
-function selectStages(opts) {
+export function selectStages(opts) {
   const wanted = opts.stage === 'all' ? null : opts.stage.split(',').map((s) => s.trim())
-  return STAGES.filter((stage) => {
-    if (wanted && !wanted.includes(stage.group) && !wanted.includes(stage.id)) return false
-    if (opts.fast && stage.slow) return false
-    return true
-  })
+  const stages = []
+  const skipped = []
+  for (const stage of STAGES) {
+    if (wanted && !wanted.includes(stage.group) && !wanted.includes(stage.id)) {
+      skipped.push({ stage, why: `--stage=${wanted.join(',')}` })
+      continue
+    }
+    if (opts.fast && stage.slow) {
+      skipped.push({ stage, why: '--fast' })
+      continue
+    }
+    stages.push(stage)
+  }
+  return { stages, skipped }
 }
 
 /** 一条自检:只验编排自身的两处口径(状态映射 / 授权分档),不读仓库。 */
@@ -357,6 +383,38 @@ function selfTest() {
     [
       '链条三段齐:RN 薄壳 → 镜像页 → 壳页落地(缺一格则新屏无人产)',
       ['gen-rn-shell', 'gen-mirror', 'land-shells'].every((id) => STAGES.some((s) => s.id === id)),
+      true,
+    ],
+    [
+      '漂移哨兵在驾驶舱射程内(否则"全绿"可以盖住产物级缺陷)',
+      STAGES.some((s) => s.script === 'check-cross-end-parity-drift.mjs'),
+      true,
+    ],
+    [
+      '漂移哨兵不被 --fast 跳过(收口前最该问的就是它)',
+      !STAGES.find((s) => s.script === 'check-cross-end-parity-drift.mjs')?.slow,
+      true,
+    ],
+    [
+      '--fast 把没跑的阶段记进 skipped 而不是静默消失(缺这条则部分覆盖与全量同形)',
+      (() => {
+        const { stages, skipped } = selectStages({ fast: true, stage: 'all' })
+        return (
+          stages.length + skipped.length === STAGES.length &&
+          skipped.length > 0 &&
+          skipped.every((s) => s.why === '--fast' && s.stage.slow === true)
+        )
+      })(),
+      true,
+    ],
+    [
+      '全量档 skipped 为 0(跳过清单不能反过来把已跑的说成没跑)',
+      selectStages({ fast: false, stage: 'all' }).skipped.length === 0,
+      true,
+    ],
+    [
+      '漂移哨兵的红不计入"可机器自修"(它点的是产物级缺陷,写回腿抹不掉)',
+      !SELF_HEALABLE.has('gate-drift'),
       true,
     ],
   ]
@@ -408,7 +466,7 @@ function main() {
   }
   if (opts.selfTest) return selfTest()
 
-  const stages = selectStages(opts)
+  const { stages, skipped } = selectStages(opts)
   if (stages.length === 0) {
     console.error('✗ 选定阶段为 0 ⇒ 未判定(检查 --stage 拼写)')
     return 2
@@ -432,6 +490,15 @@ function main() {
         {
           at: new Date().toISOString(),
           writeTier: { apply: opts.apply, decl: opts.applyDecl, gen: opts.applyGen },
+          // 覆盖度必须随结论一起出去:此前汇总行只报"跑了的 N 个阶段全绿",消费方(看板/定时任务/
+          // 收口判据)无从分辨 `--fast` 的 11/15 与全量的 15/15 —— 2026-10-29 那次"据驾驶舱宣布
+          // 无后续建议"就栽在这格:同一时刻漂移哨兵报 regressed,而它压根没进那一轮。
+          coverage: {
+            ran: results.length,
+            total: STAGES.length,
+            partial: skipped.length > 0,
+            skipped: skipped.map((s) => ({ id: s.stage.id, why: s.why })),
+          },
           counts,
           results,
         },
@@ -444,8 +511,15 @@ function main() {
     console.log(renderTable(results))
     console.log('─'.repeat(72))
     console.log(
-      `阶段 ${results.length}:✅${counts.ok ?? 0} 🔴${counts.red ?? 0} 🟡${counts.undetermined ?? 0} ⚡${counts.error ?? 0}`,
+      `阶段 ${results.length}/${STAGES.length}:✅${counts.ok ?? 0} 🔴${counts.red ?? 0} 🟡${counts.undetermined ?? 0} ⚡${counts.error ?? 0}`,
     )
+    if (skipped.length > 0) {
+      // 部分覆盖必须自己喊出来:一行"✅N"在不点名缺谁时,与全量跑同形。
+      console.log(
+        `⏭ 本轮未跑 ${skipped.length} 道:${skipped.map((s) => `${s.stage.id}(${s.why})`).join(', ')}`,
+      )
+      console.log('   ⇒ 覆盖不全,本结论**不得**当「三端已对齐」的合格证;收口前跑无旗全量档。')
+    }
     console.log(
       ` · 红灯可机器自修(漂移态):${autoFixable.length}${autoFixable.length > 0 ? ` — ${autoFixable.map((r) => r.id).join(', ')}` : ''}`,
     )

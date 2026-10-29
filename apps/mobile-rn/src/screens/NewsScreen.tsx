@@ -335,7 +335,9 @@ export default function NewsScreenWrapper() {
         // id 查,两条腿跨了两个域,点击恒查不到。域统一到 news 后,详情才能真打开。
         const categoryId = selectedCategory === ALL_CATEGORY.id ? undefined : selectedCategory
         const res = await getNews(
-          categoryId ? { page: targetPage, pageSize: PAGE_SIZE, categoryId } : { page: targetPage, pageSize: PAGE_SIZE },
+          categoryId
+            ? { page: targetPage, pageSize: PAGE_SIZE, categoryId }
+            : { page: targetPage, pageSize: PAGE_SIZE },
         )
         if (res.success && res.data) {
           const list: ArticleItem[] = (res.data.list ?? []).map((n) => ({
@@ -388,7 +390,10 @@ export default function NewsScreenWrapper() {
       if (cancelled || !res.success || !res.data) return
       setCategories(
         (res.data.list ?? [])
-          .filter((c) => typeof c.name === 'string' && c.name !== '' && c.id !== undefined && c.id !== null)
+          .filter(
+            (c) =>
+              typeof c.name === 'string' && c.name !== '' && c.id !== undefined && c.id !== null,
+          )
           .map((c) => ({ id: String(c.id), name: String(c.name) })),
       )
     })()
@@ -436,10 +441,6 @@ export default function NewsScreenWrapper() {
     [categories, t],
   )
 
-  const handleBack = useCallback(() => {
-    navigation.goBack()
-  }, [navigation])
-
   /** 返回顶部(对齐 Uniapp backToTop → pageScrollTo,RN 端用列表 ref scrollToOffset) */
   const handleBackToTop = useCallback(() => {
     listRef.current?.scrollToOffset({ offset: 0, animated: true })
@@ -454,7 +455,7 @@ export default function NewsScreenWrapper() {
             title={t('news.title')}
             leftActions={leftActions}
             rightActions={rightActions}
-            onBack={handleBack}
+            // 同 PlazaScreen:根 tab 传 onBack 会与抽屉菜单键并列成两条返回键
           />
         </NavChrome>
         <SharedSquareScreen
