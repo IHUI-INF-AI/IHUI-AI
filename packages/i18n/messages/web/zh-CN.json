@@ -515,12 +515,6 @@
     "noLogsHint": "(暂无日志 — 在页面上点击操作后会显示坐标信息)",
     "runJs": "执行 JavaScript",
     "runJsPlaceholder": "document.title  —  输入 JS 后点执行(如: document.querySelector(\"button\").click())",
-    "browserTab": "浏览器",
-    "home": "回到主页",
-    "pickElement": "元素点选",
-    "picking": "点选进行中,点击页面元素即选中;再点按钮取消",
-    "devtools": "开发者工具",
-    "popout": "在独立窗口中打开",
     "run": "执行"
   },
   "a11y": {
@@ -928,38 +922,38 @@
       "trafficAggAge": "聚合于 {ago}前",
       "poolKey": "Key 池",
       "poolAccount": "账号池",
+      "wsConnections": "WS 长连接",
+      "alertCountAtLeast": "告警 ≥{count}",
+      "apiErrRateHint": "口径:业务库 api_logs 今日全量(与页头 5xx 的 Prometheus 口径互补)",
+      "stateUp": "正常",
+      "stateDown": "异常",
+      "stateUnknown": "未知",
+      "userGrowth14d": "用户增长·近14日",
+      "usersVip": "VIP 用户",
+      "usersTrader": "操盘手",
+      "usersInvited": "邀请注册",
+      "usersInvited7d": "近7日邀请",
+      "activeUsers7d": "近7日活跃",
+      "levelDistTitle": "等级分布",
+      "level0": "普通",
+      "level1": "白银",
+      "level2": "黄金",
+      "level3": "钻石",
       "avgDwellSec": "停留 {s}s",
       "panelHourlyVisits": "分时访问",
       "hourlyVisitWindow": "近 24h · 逐小时",
       "visitHourlyPv": "访问量",
       "visitHourlyUv": "访客数",
       "sessionQualityExitTop": "退出页(会话/单页)",
-      "activeUsers7d": "近7日活跃",
-      "alertCountAtLeast": "告警 ≥{count}",
-      "apiErrRateHint": "口径:业务库 api_logs 今日全量(与页头 5xx 的 Prometheus 口径互补)",
-      "level0": "普通",
-      "level1": "白银",
-      "level2": "黄金",
-      "level3": "钻石",
-      "levelDistTitle": "等级分布",
-      "noPoolRows": "号池无数据",
-      "poolBalanceLow": "余额不足 Key",
-      "poolExpiring24h": "24h内临期",
+      "poolHealthHealthy": "健康",
       "poolHealthDegraded": "降级",
       "poolHealthDown": "宕机",
-      "poolHealthHealthy": "健康",
       "poolHealthUnknown": "未知",
-      "poolProviderAccountTitle": "账号 · 按供应商",
+      "poolBalanceLow": "余额不足 Key",
+      "poolExpiring24h": "24h内临期",
       "poolProviderKeyTitle": "Key · 按供应商",
-      "stateDown": "异常",
-      "stateUnknown": "未知",
-      "stateUp": "正常",
-      "userGrowth14d": "用户增长·近14日",
-      "usersInvited": "邀请注册",
-      "usersInvited7d": "近7日邀请",
-      "usersTrader": "操盘手",
-      "usersVip": "VIP 用户",
-      "wsConnections": "WS 长连接"
+      "poolProviderAccountTitle": "账号 · 按供应商",
+      "noPoolRows": "号池无数据"
     },
     "aboutUs": {
       "add": "新增",
@@ -1455,19 +1449,6 @@
         "update": "更新",
         "warning": "警告"
       },
-      "platforms": {
-        "cli": "命令行",
-        "desktop": "桌面端",
-        "extension": "浏览器插件",
-        "miniapp": "小程序",
-        "mobile-cap": "移动采集端",
-        "rn": "移动端 App",
-        "web": "网页端"
-      },
-      "colPlatforms": "投放端",
-      "fieldPlatforms": "投放端",
-      "platformsAll": "全端",
-      "platformsHint": "不选择任何端 = 全端通用显示；勾选后仅所选端可见",
       "yes": "是"
     },
     "anomalies": {
@@ -1820,10 +1801,14 @@
     "developer": {
       "cancel": "取消",
       "colActions": "操作",
+      "colAddress": "地址",
       "colCozeId": "Coze ID",
+      "colCreatedAt": "创建时间",
+      "colCreator": "创建人",
       "colNickname": "昵称",
       "colPlatform": "平台",
       "colSignAccount": "签权账号",
+      "colSignNickname": "签权昵称",
       "colStatus": "状态",
       "cozeCreate": "新增账号",
       "cozeCreateTitle": "新增 Coze 账号",
@@ -1851,10 +1836,6 @@
       "statusExpired": "已过期",
       "statusInUse": "使用中",
       "statusUnused": "未使用",
-      "colAddress": "地址",
-      "colCreatedAt": "创建时间",
-      "colCreator": "创建人",
-      "colSignNickname": "签权昵称",
       "total": "共 {total} 条"
     },
     "developerLink": {
@@ -6279,6 +6260,21 @@
       "installerHint": "GitHub 侧操作者 id，非平台用户"
     },
     "smsReceive": "短信接码",
+    "sms": "短信模板",
+    "relayPoolPolicy": {
+      "title": "号池选号策略档(全局默认)",
+      "refresh": "刷新",
+      "loading": "读取策略档…",
+      "loadFailed": "读取失败",
+      "badgeAllDefault": "全部默认档",
+      "badgeDeviated": "偏离默认 {n} 枚",
+      "badgeInvalid": "脏值回落 {n} 枚",
+      "badgeRegistryBroken": "登记表不完整",
+      "readOnlyHint": "只读:改钮写 .env 后重启 apps/api 生效",
+      "defaultIs": "默认 {v}",
+      "invalidFellBack": "脏值已回落默认",
+      "registryDiff": "未登记钮:{missing};孤立登记:{orphan}"
+    },
     "relayTasks": {
       "wbTitle": "WorkBuddy 任务自动化",
       "wbAccount": "账号",
@@ -6502,22 +6498,7 @@
         "samplePhones": "样本号码:{phones}",
         "broadcastSummary": "共 {total} 条 · 成功 <ok>{sent}</ok> · 失败 <bad>{failed}</bad> · 拦截 {suppressed}"
       }
-    },
-    "relayPoolPolicy": {
-      "title": "号池选号策略档(全局默认)",
-      "refresh": "刷新",
-      "loading": "读取策略档…",
-      "loadFailed": "读取失败",
-      "badgeAllDefault": "全部默认档",
-      "badgeDeviated": "偏离默认 {n} 枚",
-      "badgeInvalid": "脏值回落 {n} 枚",
-      "badgeRegistryBroken": "登记表不完整",
-      "readOnlyHint": "只读:改钮写 .env 后重启 apps/api 生效",
-      "defaultIs": "默认 {v}",
-      "invalidFellBack": "脏值已回落默认",
-      "registryDiff": "未登记钮:{missing};孤立登记:{orphan}"
-    },
-    "sms": "短信模板"
+    }
   },
   "connectors": {
     "title": "中文连接器",
@@ -7160,8 +7141,6 @@
       "title": "开发者中心",
       "urlRequired": "URL 不能为空",
       "webhooks": "Webhook",
-      "permissionHint": "选择该密钥可访问的 API 权限",
-      "permissionLabel": "权限点",
       "whCreateSuccess": "Webhook 创建成功"
     },
     "dict": {
@@ -7830,10 +7809,10 @@
       "notifyCompletedTitle": "任务完成：{name}",
       "notifyFailedTitle": "任务失败：{name}",
       "runningCount": "{count} 运行中",
-      "title": "后台 Agent",
-      "total": "共 {count} 个",
       "takeover": "接管",
+      "title": "后台 Agent",
       "tokens": "Token 用量",
+      "total": "共 {count} 个",
       "viewResult": "查看结果"
     },
     "checkpointHistory": {
@@ -9260,9 +9239,9 @@
           "title": "请求内容过大",
           "action": "精简内容后重试"
         },
-        "MODEL_RETIRED": {
-          "title": "模型已永久退役,不再提供调用",
-          "action": "改用模型列表中在架的档位"
+        "invalid_arguments": {
+          "title": "提交的信息有误",
+          "action": "检查后重试"
         },
         "ALREADY_CLAIMED": {
           "title": "该任务已被他人认领",
@@ -9280,6 +9259,10 @@
           "title": "任务状态无效",
           "action": "改用 pending、claimed、done 或 blocked"
         },
+        "MODEL_RETIRED": {
+          "title": "模型已永久退役,不再提供调用",
+          "action": "改用模型列表中在架的档位"
+        },
         "TASK_CLOSED": {
           "title": "该任务已结束或受阻",
           "action": "选择其他任务"
@@ -9287,10 +9270,6 @@
         "TASK_NOT_FOUND": {
           "title": "未找到该任务",
           "action": "刷新任务列表后重试"
-        },
-        "invalid_arguments": {
-          "title": "提交的信息有误",
-          "action": "检查后重试"
         }
       },
       "worktree": {
@@ -9400,7 +9379,6 @@
           "browser": "使用默认浏览器打开网页"
         }
       },
-      "injectionKindExpertPack": "已按意图匹配专家包",
       "promptPolish": {
         "entryLabel": "润色",
         "ariaLabel": "润色提示词",
@@ -9419,7 +9397,8 @@
           "emptyDraft": "草稿为空，请先输入内容再润色。"
         },
         "restartHint": "润色服务需重启后生效，草稿已保留。"
-      }
+      },
+      "injectionKindExpertPack": "已按意图匹配专家包"
     },
     "permissionConfirm": {
       "allow": "允许",
@@ -9629,6 +9608,9 @@
     "title": "AI 生涯指导"
   },
   "aiChat": {
+    "favorite": "添加收藏",
+    "unfavorite": "取消收藏",
+    "delete": "删除",
     "bindIssue": "绑定 Issue",
     "actions": {
       "archive": "归档",
@@ -9637,13 +9619,13 @@
       "delete": "删除",
       "exportMd": "导出为 Markdown",
       "exportTxt": "导出为 TXT",
+      "exportSubmenu": "导出 / 分享",
+      "compressSubmenu": "压缩",
       "menu": "更多操作",
       "rename": "重命名",
       "unarchive": "取消归档",
       "pin": "置顶",
       "unpin": "取消置顶",
-      "exportSubmenu": "导出 / 分享",
-      "compressSubmenu": "压缩",
       "branchFromHere": "从此处分支"
     },
     "checkpoint": {
@@ -9829,6 +9811,7 @@
       "title": "PowerShell 终端"
     },
     "thisMonth": "本月",
+    "earlier": "更早",
     "thisWeek": "本周",
     "title": "AI任务",
     "toast": {
@@ -9852,10 +9835,6 @@
     "closeWorkPanel": "关闭工作展示区",
     "toggleWorkPanel": "切换工作展示区",
     "user": "用户",
-    "favorite": "添加收藏",
-    "unfavorite": "取消收藏",
-    "delete": "删除",
-    "earlier": "更早",
     "org": {
       "title": "整理会话",
       "folderLabel": "文件夹",
@@ -10717,6 +10696,11 @@
     "noAssessment": "暂无评估记录"
   },
   "goalCard": {
+    "resumeServerOk": "目标已恢复",
+    "resumeAlreadyActive": "目标已在进行中,无需恢复",
+    "resumeTerminal": "目标已结束,无法恢复",
+    "resumeNoGoal": "该会话没有可恢复的目标",
+    "resumeFailed": "恢复失败:{message}",
     "editAriaLabel": "编辑目标",
     "editSave": "保存",
     "editCancel": "取消",
@@ -10744,11 +10728,6 @@
     "clear": "清除",
     "cleared": "目标已清除",
     "resetProgress": "归零",
-    "resumeServerOk": "目标已恢复",
-    "resumeAlreadyActive": "目标已在进行中,无需恢复",
-    "resumeTerminal": "目标已结束,无法恢复",
-    "resumeNoGoal": "该会话没有可恢复的目标",
-    "resumeFailed": "恢复失败:{message}",
     "fullProgress": "置满"
   },
   "memoryCards": {
@@ -11687,8 +11666,8 @@
       "roleAssistant": "助手",
       "exportCard": "分享图片卡",
       "shareCardUser": "用户",
-      "compression": "压缩会话",
-      "exportPdf": "导出 PDF"
+      "exportPdf": "导出 PDF",
+      "compression": "压缩会话"
     },
     "fallbackNotice": "已切换到备用模型 {backup}(原模型 {primary} 暂时不可用)",
     "fallbackNoticeQuota": "本次由 {backup} 作答({primary} 所属厂商账号额度已用尽,已自动改道同族可用模型)",
@@ -12172,6 +12151,27 @@
       "noContent": "（无内容）",
       "openGitHub": "访问 GitHub",
       "promptPlaceholder": "Prompt 模板内容",
+      "reloadSkills": "重载技能",
+      "reloadSkillsHint": "重新扫描磁盘上的 SKILL.md，让改动立即生效",
+      "reloadSkillsRunning": "重载中…",
+      "reloadSkillsSuccess": "重载完成",
+      "reloadSkillsFailed": "重载失败",
+      "reloadSkillsAdded": "新增",
+      "reloadSkillsRemoved": "移除",
+      "reloadSkillsChanged": "更新",
+      "reloadSkillsUnchanged": "未变",
+      "reloadSkillsTotal": "共 {count} 个技能",
+      "reloadSkillsNoChange": "本次重载没有内容变化",
+      "reloadSkillsAuto": "auto 来源 {count} 个",
+      "reloadPlugins": "重载插件面",
+      "reloadPluginsHint": "重扫插件面，并把最新命令列表回灌给宿主",
+      "reloadPluginsRunning": "重载中…",
+      "reloadPluginsSuccess": "插件面已重载",
+      "reloadPluginsFailed": "插件面重载失败",
+      "reloadPluginsCommandCount": "命令 {count} 条",
+      "reloadPluginsSkillCount": "技能 {count} 个",
+      "reloadPluginsCommandList": "最新命令清单",
+      "reloadPluginsNoCommand": "当前没有可用命令",
       "save": "保存",
       "saving": "保存中…",
       "scenario": "场景",
@@ -12186,6 +12186,8 @@
       "sectionCustom": "我的自定义",
       "statusAvailable": "已上线",
       "statusComingSoon": "即将上线",
+      "tabAiSkills": "AI 技能",
+      "tabAll": "全部",
       "tabCustom": "自定义",
       "tabMcp": "MCP",
       "tabOpenclaw": "OpenClaw",
@@ -12193,29 +12195,6 @@
       "tabSlash": "命令",
       "tabTemplate": "模板",
       "title": "Skill 库",
-      "reloadSkills": "重载技能",
-      "reloadSkillsHint": "重新扫描磁盘上的 SKILL.md，让改动立即生效",
-      "reloadSkillsRunning": "重载中…",
-      "reloadSkillsSuccess": "重载完成",
-      "reloadSkillsFailed": "重载失败",
-      "reloadSkillsAdded": "新增",
-      "reloadSkillsRemoved": "移除",
-      "reloadSkillsChanged": "更新",
-      "reloadSkillsUnchanged": "未变",
-      "reloadSkillsTotal": "共 {count} 个技能",
-      "reloadSkillsNoChange": "本次重载没有内容变化",
-      "reloadSkillsAuto": "auto 来源 {count} 个",
-      "tabAiSkills": "AI 技能",
-      "tabAll": "全部",
-      "reloadPlugins": "重载插件面",
-      "reloadPluginsHint": "重扫插件面，并把最新命令列表回灌给宿主",
-      "reloadPluginsRunning": "重载中…",
-      "reloadPluginsSuccess": "插件面已重载",
-      "reloadPluginsFailed": "插件面重载失败",
-      "reloadPluginsCommandCount": "命令 {count} 条",
-      "reloadPluginsSkillCount": "技能 {count} 个",
-      "reloadPluginsCommandList": "最新命令清单",
-      "reloadPluginsNoCommand": "当前没有可用命令",
       "viewAll": "查看全部"
     },
     "sessionDiff": {
@@ -12305,10 +12284,10 @@
       "feedbackRecorded": "已记录反馈,感谢支持",
       "feedbackSaved": "反馈已记录",
       "feedbackFailed": "反馈提交失败",
+      "dislikeThanks": "已记录 —— 可通过反馈卡补充原因",
       "messageDeleted": "已删除消息",
       "operationFailed": "操作失败",
       "regenerating": "正在重新生成…",
-      "dislikeThanks": "已记录 —— 可通过反馈卡补充原因",
       "branching": "正在创建分支…"
     },
     "toolCallSkipped": "已跳过(重复调用)",
@@ -12574,6 +12553,7 @@
     "reasoningEffortHigh": "深思",
     "reasoningEffortUnsupported": "该模型不支持选择推理强度",
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
+    "analysisOpen": "查看场景分析",
     "favorite": "添加收藏",
     "unfavorite": "取消收藏",
     "workbenchSessions": "会话",
@@ -12601,8 +12581,7 @@
     "reviewTargetSnippet": "粘贴片段",
     "reviewTargetSnippetLabel": "要审查的代码片段",
     "reviewTargetSnippetPlaceholder": "粘贴要审查的代码片段…",
-    "reviewTargetClear": "清除审查对象",
-    "analysisOpen": "查看场景分析"
+    "reviewTargetClear": "清除审查对象"
   },
   "chatHistory": {
     "moveToGroup": "移动到分组",
@@ -15080,6 +15059,7 @@
       "toolFailures": "工具失败",
       "trigger": "手动触发",
       "triggerError": "触发失败",
+      "triggerSuccess": "触发成功",
       "refresh": "重新扫描记忆源",
       "refreshSuccess": "记忆源已重扫",
       "refreshReadFailed": "记忆源读取失败（已保留刷新前的记忆）",
@@ -15090,8 +15070,7 @@
       "refreshRemoved": "移除",
       "refreshChanged": "更新",
       "refreshUnchanged": "未变",
-      "refreshNoChange": "本次重扫没有内容变化",
-      "triggerSuccess": "触发成功"
+      "refreshNoChange": "本次重扫没有内容变化"
     },
     "orch": {
       "dashboard": "仪表盘",
@@ -17110,27 +17089,6 @@
       "settings": "设置",
       "terminal": "终端"
     },
-    "agentsMd": {
-      "title": "AGENTS.md",
-      "hint": "扫描当前工作区生成协作约定草稿;生成不写盘,写入前还会再确认一次。",
-      "generate": "一键生成 AGENTS.md 草稿",
-      "generateConfirmTitle": "生成 AGENTS.md 草稿?",
-      "generateConfirmContent": "将扫描当前工作区并生成草稿。草稿只显示在这里,不会写盘。",
-      "generating": "正在扫描工作区…",
-      "generateFailed": "生成草稿失败",
-      "draftTitle": "AGENTS.md 草稿(可编辑,确认后才写盘)",
-      "draftNotice": "草稿尚未写盘",
-      "write": "写入 AGENTS.md",
-      "writeConfirmTitle": "写入 AGENTS.md?",
-      "writeConfirmContent": "将把上方内容写入工作区根目录的 AGENTS.md;同名文件会被覆盖。",
-      "writing": "正在写入…",
-      "writeFailed": "写入失败",
-      "written": "已写入 AGENTS.md",
-      "discard": "放弃草稿",
-      "errorEmptyWorkspace": "工作区路径为空",
-      "errorRequestFailed": "AI 服务请求失败",
-      "errorNoDraft": "工具未返回草稿"
-    },
     "viewSwitcher": {
       "groupSettings": "设置",
       "groupTools": "工具",
@@ -18466,12 +18424,12 @@
     "dashboardSuccessRate": "成功率",
     "dashboardAvgLatency": "平均延迟",
     "dashboardNoData": "暂无数据",
+    "dashboardLatency": "{value}s",
     "clearAuth": "撤回授权",
     "clearAuthHint": "撤回你授予该 Server 的 OAuth 凭据(只撤这一台)",
     "clearAuthSuccess": "{name} 的授权已撤回",
     "clearAuthNoOauth": "{name} 未使用 OAuth 通道,没有可撤回的授权",
-    "clearAuthFailed": "{name} 撤回授权失败",
-    "dashboardLatency": "{value}s"
+    "clearAuthFailed": "{name} 撤回授权失败"
   },
   "member": {
     "feedback": {
@@ -20228,9 +20186,6 @@
     "editDeviceMapTitle": "编辑设备指纹",
     "editDeviceMapDescription": "为 {platform} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。",
     "checkedInToday": "今日已签到",
-    "captureTraeWebWaiting": "已在右侧工作区的浏览器里打开 Trae 登录页,请在面板内完成登录(手机号/扫码);检测到登录态后会自动导入账号并回到签到页。",
-    "captureTraeWebDone": "Trae 网页登录导入完成(共 {count} 个账号)",
-    "captureTraeWebCancelled": "已取消 Trae 网页登录。重新点「网页登录」可再试。",
     "rename": "重命名"
   },
   "accountPool": {
@@ -21998,6 +21953,31 @@
     "cooldownActive": "冷却中",
     "cooldownRemaining": "冷却剩余",
     "countdownRemaining": "剩余时间",
+    "keepalive": {
+      "accountFallback": "账号 #{id}",
+      "allHealthy": "全部 {total} 个账号状态正常",
+      "disabledHint": "在 apps/ai-service/.env 设置 KEEPALIVE_ENABLED=true 后重启服务即可启用。",
+      "disabledTitle": "账号保活未启用",
+      "expiresAt": "到期 {time}",
+      "expiringSoon": "即将到期 {count} 个",
+      "failures": "连续失败 {count} 次",
+      "healthCritical": "已失效",
+      "healthHealthy": "健康",
+      "healthUnknown": "未巡检",
+      "healthWarning": "需留意",
+      "interval": "每 {hours} 小时巡检",
+      "loading": "正在读取保活状态…",
+      "needsAttention": "需处理 {count} 个",
+      "rate7d": "近 7 天成功率",
+      "rateUnknown": "暂无数据",
+      "retry": "重试",
+      "sourceCheckin": "签到凭证",
+      "sourceCookie": "平台登录态",
+      "sourceToken": "密钥凭证",
+      "title": "账号保活",
+      "triggerNow": "立即保活",
+      "triggering": "触发中…"
+    },
     "editor": {
       "autoSaved": "已自动保存",
       "bold": "加粗",
@@ -22186,31 +22166,6 @@
     "title": "多平台一键发布",
     "uploadFailed": "上传失败",
     "uploadProgress": "上传中",
-    "keepalive": {
-      "accountFallback": "账号 #{id}",
-      "allHealthy": "全部 {total} 个账号状态正常",
-      "disabledHint": "在 apps/ai-service/.env 设置 KEEPALIVE_ENABLED=true 后重启服务即可启用。",
-      "disabledTitle": "账号保活未启用",
-      "expiresAt": "到期 {time}",
-      "expiringSoon": "即将到期 {count} 个",
-      "failures": "连续失败 {count} 次",
-      "healthCritical": "已失效",
-      "healthHealthy": "健康",
-      "healthUnknown": "未巡检",
-      "healthWarning": "需留意",
-      "interval": "每 {hours} 小时巡检",
-      "loading": "正在读取保活状态…",
-      "needsAttention": "需处理 {count} 个",
-      "rate7d": "近 7 天成功率",
-      "rateUnknown": "暂无数据",
-      "retry": "重试",
-      "sourceCheckin": "签到凭证",
-      "sourceCookie": "平台登录态",
-      "sourceToken": "密钥凭证",
-      "title": "账号保活",
-      "triggerNow": "立即保活",
-      "triggering": "触发中…"
-    },
     "uploadSuccess": "上传成功"
   },
   "publishMonitor": {
@@ -23368,18 +23323,6 @@
     "codeIndexEgressOptOutDesc": "代码切片不会外发用于向量化建索引",
     "autoMemoryOptOut": "关闭自动长期记忆",
     "autoMemoryOptOutDesc": "不会把对话提炼成跨会话的偏好或约定",
-    "expertRoute": {
-      "title": "专家包自动路由",
-      "desc": "按本轮用户意图识别专家包,并决定命中结果的处理方式。",
-      "default": "默认",
-      "envLockedNotice": "部署方已通过环境变量关闭该能力,此处只能查看,无法修改。",
-      "hint": "仅提示",
-      "hintDesc": "命中时只在回复中提示命中了哪个专家包,不改动工具与系统提示",
-      "auto": "自动应用",
-      "autoDesc": "命中时把专家包的工具白名单与系统提示并入本次请求",
-      "off": "关闭",
-      "offDesc": "不做意图识别,也不提示"
-    },
     "navTiers": {
       "title": "侧边栏简洁模式",
       "desc": "侧边栏默认隐藏开发者与运维向的功能入口。需要用到时，打开下面的开关即可显示。",
@@ -23606,6 +23549,9 @@
     "authorizeAndRedirect": "授权并跳转",
     "authorizing": "正在为 {clientId} 授权…",
     "desktopHandoffHint": "已交回桌面端完成登录，此页面可以关闭了。",
+    "miniappHandoffTitle": "授权成功",
+    "miniappHandoffHint": "已把登录凭据交回小程序。请点左上角「返回」回到小程序完成登录。",
+    "miniappHandoffFailed": "交接小程序失败，请重试或手动返回小程序。",
     "desktopHandoffTitle": "授权成功",
     "code": "验证码",
     "codePlaceholder": "请输入验证码",
@@ -23652,9 +23598,6 @@
       "backToLogin": "返回登录",
       "sso_code": "SSO 授權碼"
     },
-    "miniappHandoffTitle": "授权成功",
-    "miniappHandoffHint": "已把登录凭据交回小程序。请点左上角「返回」回到小程序完成登录。",
-    "miniappHandoffFailed": "交接小程序失败，请重试或手动返回小程序。",
     "platform": "平台"
   },
   "statistics": {
@@ -25074,6 +25017,7 @@
       "openSelected": "打开 {name}",
       "opening": "打开中...",
       "parent": "上级目录",
+      "refresh": "刷新",
       "retry": "重试",
       "rootHint": "在此电脑层级选择一个盘符,或在上方输入完整路径",
       "rowOpenHint": "打开",
@@ -27347,6 +27291,12 @@
     "pageSubtitle": "用户可编辑的规则集,在 agent 运行时按匹配条件动态注入到 system prompt"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "手动暂停",
+      "failedPermanent": "永久失败",
+      "failedRetriesExhausted": "重试次数已用尽",
+      "completed": "已完成"
+    },
     "delete": "删除",
     "title": "定时自动化",
     "subtitle": "到点自动执行你的 Agent 任务",
@@ -27422,12 +27372,6 @@
       "deleteFailed": "删除失败"
     },
     "cancel": "取消",
-    "terminalReason": {
-      "manualPause": "手动暂停",
-      "failedPermanent": "永久失败",
-      "failedRetriesExhausted": "重试次数已用尽",
-      "completed": "已完成"
-    },
     "save": "保存"
   },
   "mediaTasksPage": {
@@ -29414,6 +29358,7 @@
         "active": "发送中",
         "completed": "已发送",
         "following": "等待发送"
+      }
     }
   },
   "unifiedSuggestion": {
@@ -29469,6 +29414,10 @@
     "title": "智能体与模型",
     "subtitle": "对话历史、记忆、知识库、媒体任务与工作空间"
   },
+  "personalHub": {
+    "title": "个人中心",
+    "subtitle": "我的学习、账号安全、学员中心、反馈与帮助"
+  },
   "appUpdate": {
     "title": "有新版本可用",
     "body": "刷新页面以获取最新版本",
@@ -29493,8 +29442,13 @@
     "action": "安装",
     "close": "关闭"
   },
-  "personalHub": {
-    "title": "个人中心",
-    "subtitle": "我的学习、账号安全、学员中心、反馈与帮助"
+  "wsChannel": {
+    "reconnecting": "实时连接中断,正在进行第 {attempt}/{max} 次重连…",
+    "connectFailed": "实时连接失败,正在重试",
+    "connectError": "实时连接错误",
+    "reconnectExhausted": "实时连接已中断(已重连 {max} 次),内容接收已停止,可手动重试",
+    "degradedNotice": "实时连接不可用,已自动切换到兼容通道继续接收内容",
+    "fallbackUnavailable": "实时连接已中断,且兼容通道不可用,内容接收已停止",
+    "fallbackFailed": "兼容通道也已中断,内容接收已停止,可稍后手动重试"
   }
 }

@@ -515,12 +515,6 @@
     "noLogsHint": "(로그 없음 — 페이지에서 클릭하면 좌표 정보가 표시됩니다)",
     "runJs": "JavaScript 실행",
     "runJsPlaceholder": "document.title — JS를 입력하고 실행을 누르세요 (예: document.querySelector(\"button\").click())",
-    "browserTab": "브라우저",
-    "home": "홈으로 이동",
-    "pickElement": "요소 선택",
-    "picking": "선택 중:페이지 요소를 클릭하면 선택, 다시 누르면 취소",
-    "devtools": "개발자 도구",
-    "popout": "별도 창에서 열기",
     "run": "실행"
   },
   "a11y": {
@@ -928,38 +922,38 @@
       "panelVisitTransition": "페이지 이동",
       "visitTransitionMoves": "24시간 이동 {count}회",
       "visitTransitionTop": "가장 많이 이동한 경로(24시간)",
+      "visitTransitionNoData": "24시간 내 페이지 이동 없음",
+      "alertCountAtLeast": "알림 ≥{count}",
+      "apiErrRateHint": "기준: 오늘의 api_logs 전체 행(헤더의 Prometheus 5xx 비율과 상호 보완)",
+      "stateUp": "정상",
+      "stateDown": "비정상",
+      "stateUnknown": "미상",
+      "userGrowth14d": "사용자 증가·14일",
+      "usersVip": "VIP 사용자",
+      "usersTrader": "트레이더",
+      "usersInvited": "초대 가입",
+      "usersInvited7d": "초대(7일)",
+      "activeUsers7d": "활성(7일)",
+      "levelDistTitle": "레벨 분포",
+      "level0": "일반",
+      "level1": "실버",
+      "level2": "골드",
+      "level3": "다이아",
       "avgDwellSec": "체류 {s}s",
       "panelHourlyVisits": "시간대별 방문",
       "hourlyVisitWindow": "최근 24h · 시간대별",
       "visitHourlyPv": "페이지뷰",
       "visitHourlyUv": "방문자수",
-      "sessionQualityExitTop": "이탈 페이지(세션/단일)",
-      "activeUsers7d": "활성(7일)",
-      "alertCountAtLeast": "알림 ≥{count}",
-      "apiErrRateHint": "기준: 오늘의 api_logs 전체 행(헤더의 Prometheus 5xx 비율과 상호 보완)",
-      "level0": "일반",
-      "level1": "실버",
-      "level2": "골드",
-      "level3": "다이아",
-      "levelDistTitle": "레벨 분포",
-      "noPoolRows": "풀 행 없음",
-      "poolBalanceLow": "잔액 부족",
-      "poolExpiring24h": "24시간 내 만료",
+      "poolHealthHealthy": "정상",
       "poolHealthDegraded": "저하",
       "poolHealthDown": "다운",
-      "poolHealthHealthy": "정상",
       "poolHealthUnknown": "알 수 없음",
-      "poolProviderAccountTitle": "계정 · 공급자별",
+      "poolBalanceLow": "잔액 부족",
+      "poolExpiring24h": "24시간 내 만료",
       "poolProviderKeyTitle": "키 · 공급자별",
-      "stateDown": "비정상",
-      "stateUnknown": "미상",
-      "stateUp": "정상",
-      "userGrowth14d": "사용자 증가·14일",
-      "usersInvited": "초대 가입",
-      "usersInvited7d": "초대(7일)",
-      "usersTrader": "트레이더",
-      "usersVip": "VIP 사용자",
-      "visitTransitionNoData": "24시간 내 페이지 이동 없음"
+      "poolProviderAccountTitle": "계정 · 공급자별",
+      "noPoolRows": "풀 행 없음",
+      "sessionQualityExitTop": "이탈 페이지(세션/단일)"
     },
     "aboutUs": {
       "add": "추가",
@@ -1455,19 +1449,6 @@
         "update": "업데이트",
         "warning": "경고"
       },
-      "platforms": {
-        "cli": "CLI",
-        "desktop": "데스크톱",
-        "extension": "확장 프로그램",
-        "miniapp": "미니앱",
-        "mobile-cap": "모바일 수집",
-        "rn": "모바일 앱",
-        "web": "웹"
-      },
-      "colPlatforms": "게시 플랫폼",
-      "fieldPlatforms": "게시 플랫폼",
-      "platformsAll": "전체 플랫폼",
-      "platformsHint": "선택하지 않으면 모든 플랫폼에 표시됩니다. 선택한 플랫폼에만 표시됩니다",
       "yes": "예"
     },
     "anomalies": {
@@ -1820,10 +1801,14 @@
     "developer": {
       "cancel": "취소",
       "colActions": "작업",
+      "colAddress": "주소",
       "colCozeId": "코즈 ＩＤ",
+      "colCreatedAt": "생성 시간",
+      "colCreator": "작성자",
       "colNickname": "닉네임",
       "colPlatform": "플랫폼",
       "colSignAccount": "서명 계정",
+      "colSignNickname": "서명 닉네임",
       "colStatus": "상태",
       "cozeCreate": "계정 추가",
       "cozeCreateTitle": "Coze 계정 추가",
@@ -1851,10 +1836,6 @@
       "statusExpired": "만료됨",
       "statusInUse": "사용 중",
       "statusUnused": "미사용",
-      "colAddress": "주소",
-      "colCreatedAt": "생성 시간",
-      "colCreator": "작성자",
-      "colSignNickname": "서명 닉네임",
       "total": "총 {total}건"
     },
     "developerLink": {
@@ -6279,6 +6260,21 @@
       "installerHint": "GitHub 측 작업자 id(플랫폼 사용자 아님)"
     },
     "smsReceive": "SMS 인증번호",
+    "sms": "SMS 템플릿",
+    "relayPoolPolicy": {
+      "title": "풀 선택 정책(전역 기본값)",
+      "refresh": "새로고침",
+      "loading": "정책을 불러오는 중…",
+      "loadFailed": "불러오기 실패",
+      "badgeAllDefault": "모두 기본값",
+      "badgeDeviated": "기본값에서 {n}개 다름",
+      "badgeInvalid": "잘못된 값 폴백 {n}개",
+      "badgeRegistryBroken": "등록표 불완전",
+      "readOnlyHint": "읽기 전용: .env 수정 후 apps/api 재시작",
+      "defaultIs": "기본 {v}",
+      "invalidFellBack": "잘못된 값이 기본으로 복귀",
+      "registryDiff": "미등록 노브:{missing}; 고립 등록:{orphan}"
+    },
     "relayTasks": {
       "wbTitle": "WorkBuddy 작업 자동화",
       "wbAccount": "계정",
@@ -6502,22 +6498,7 @@
         "samplePhones": "샘플 번호: {phones}",
         "broadcastSummary": "총 {total}건 · 성공 <ok>{sent}</ok> · 실패 <bad>{failed}</bad> · 차단 {suppressed}"
       }
-    },
-    "relayPoolPolicy": {
-      "title": "풀 선택 정책(전역 기본값)",
-      "refresh": "새로고침",
-      "loading": "정책을 불러오는 중…",
-      "loadFailed": "불러오기 실패",
-      "badgeAllDefault": "모두 기본값",
-      "badgeDeviated": "기본값에서 {n}개 다름",
-      "badgeInvalid": "잘못된 값 폴백 {n}개",
-      "badgeRegistryBroken": "등록표 불완전",
-      "readOnlyHint": "읽기 전용: .env 수정 후 apps/api 재시작",
-      "defaultIs": "기본 {v}",
-      "invalidFellBack": "잘못된 값이 기본으로 복귀",
-      "registryDiff": "미등록 노브:{missing}; 고립 등록:{orphan}"
-    },
-    "sms": "SMS 템플릿"
+    }
   },
   "connectors": {
     "title": "중국 커넥터",
@@ -7160,8 +7141,6 @@
       "title": "개발게중간마음",
       "urlRequired": "URL은 필수입니다",
       "webhooks": "웹훅들",
-      "permissionHint": "이 키가 액세스할 수 있는 API 권한을 선택",
-      "permissionLabel": "권한",
       "whCreateSuccess": "Webhook이 생성되었습니다"
     },
     "dict": {
@@ -7830,10 +7809,10 @@
       "notifyCompletedTitle": "작업 완료: {name}",
       "notifyFailedTitle": "작업 실패: {name}",
       "runningCount": "{count} 실행 중",
-      "title": "백그라운드 에이전트",
-      "total": "총 {count}개",
       "takeover": "인계",
+      "title": "백그라운드 에이전트",
       "tokens": "토큰",
+      "total": "총 {count}개",
       "viewResult": "결과 보기"
     },
     "checkpointHistory": {
@@ -9260,9 +9239,9 @@
           "title": "요청 내용이 너무 큽니다",
           "action": "내용을 줄인 후 다시 시도"
         },
-        "MODEL_RETIRED": {
-          "title": "이 모델은 영구적으로 사용이 중단되었습니다",
-          "action": "목록의 제공 중 모델로 변경"
+        "invalid_arguments": {
+          "title": "제출한 정보에 오류가 있습니다",
+          "action": "확인한 후 다시 시도"
         },
         "ALREADY_CLAIMED": {
           "title": "이 작업은 이미 다른 에이전트가 인계했습니다",
@@ -9280,6 +9259,10 @@
           "title": "작업 상태가 잘못되었습니다",
           "action": "pending, claimed, done, blocked 중 하나로 변경하세요"
         },
+        "MODEL_RETIRED": {
+          "title": "이 모델은 영구적으로 사용이 중단되었습니다",
+          "action": "목록의 제공 중 모델로 변경"
+        },
         "TASK_CLOSED": {
           "title": "이 작업은 이미 종료되었거나 차단되었습니다",
           "action": "다른 작업을 선택하세요"
@@ -9287,10 +9270,6 @@
         "TASK_NOT_FOUND": {
           "title": "작업을 찾을 수 없습니다",
           "action": "작업 목록을 새로 고친 후 재시도"
-        },
-        "invalid_arguments": {
-          "title": "제출한 정보에 오류가 있습니다",
-          "action": "확인한 후 다시 시도"
         }
       },
       "worktree": {
@@ -9400,7 +9379,6 @@
           "browser": "기본 브라우저로 웹 페이지 열기"
         }
       },
-      "injectionKindExpertPack": "의도에 따라 전문가 팩을 적용했습니다",
       "promptPolish": {
         "entryLabel": "다듬기",
         "ariaLabel": "프롬프트 다듬기",
@@ -9419,7 +9397,8 @@
           "emptyDraft": "초안이 비어 있습니다. 내용을 입력한 뒤 다듬어 주세요."
         },
         "restartHint": "다시 시작한 뒤 적용됩니다. 초안은 그대로 보관되었습니다."
-      }
+      },
+      "injectionKindExpertPack": "의도에 따라 전문가 팩을 적용했습니다"
     },
     "permissionConfirm": {
       "allow": "허용",
@@ -9629,6 +9608,9 @@
     "title": "AI 진로 지도"
   },
   "aiChat": {
+    "favorite": "즐겨찾기 추가",
+    "unfavorite": "즐겨찾기 해제",
+    "delete": "삭제",
     "bindIssue": "이슈 연결",
     "actions": {
       "archive": "보관",
@@ -9637,13 +9619,13 @@
       "delete": "삭제",
       "exportMd": "Markdown으로 내보내기",
       "exportTxt": "TXT로 내보내기",
+      "exportSubmenu": "내보내기 / 공유",
+      "compressSubmenu": "압축",
       "menu": "더 보기",
       "rename": "이름 변경",
       "unarchive": "보관 해제",
       "pin": "상단 고정",
       "unpin": "상단 고정 해제",
-      "exportSubmenu": "내보내기 / 공유",
-      "compressSubmenu": "압축",
       "branchFromHere": "여기에서 분기"
     },
     "checkpoint": {
@@ -9829,6 +9811,7 @@
       "title": "PowerShell 터미널"
     },
     "thisMonth": "이번 달",
+    "earlier": "이전",
     "thisWeek": "이번 주",
     "title": "ai채팅",
     "toast": {
@@ -9852,10 +9835,6 @@
     "closeWorkPanel": "작업 패널 닫기",
     "toggleWorkPanel": "작업 패널 전환",
     "user": "사용자",
-    "favorite": "즐겨찾기 추가",
-    "unfavorite": "즐겨찾기 해제",
-    "delete": "삭제",
-    "earlier": "이전",
     "org": {
       "title": "대화 정리",
       "folderLabel": "폴더",
@@ -10717,6 +10696,11 @@
     "noAssessment": "평가 기록이 없습니다"
   },
   "goalCard": {
+    "resumeServerOk": "목표를 재개했습니다",
+    "resumeAlreadyActive": "목표가 이미 진행 중입니다. 재개할 필요가 없습니다",
+    "resumeTerminal": "목표가 완료되어 재개할 수 없습니다",
+    "resumeNoGoal": "이 세션에 재개할 수 있는 목표가 없습니다",
+    "resumeFailed": "재개에 실패했습니다: {message}",
     "editAriaLabel": "목표 편집",
     "editSave": "저장",
     "editCancel": "취소",
@@ -10744,11 +10728,6 @@
     "clear": "지우기",
     "cleared": "목표가 삭제되었습니다",
     "resetProgress": "초기화",
-    "resumeServerOk": "목표를 재개했습니다",
-    "resumeAlreadyActive": "목표가 이미 진행 중입니다. 재개할 필요가 없습니다",
-    "resumeTerminal": "목표가 완료되어 재개할 수 없습니다",
-    "resumeNoGoal": "이 세션에 재개할 수 있는 목표가 없습니다",
-    "resumeFailed": "재개에 실패했습니다: {message}",
     "fullProgress": "100%로 설정"
   },
   "memoryCards": {
@@ -11687,8 +11666,8 @@
       "roleAssistant": "어시스턴트",
       "exportCard": "이미지 카드 공유",
       "shareCardUser": "사용자",
-      "compression": "대화 압축",
-      "exportPdf": "PDF 내보내기"
+      "exportPdf": "PDF 내보내기",
+      "compression": "대화 압축"
     },
     "fallbackNotice": "백업 모델 {backup}(으)로 전환됨(원본 모델 {primary} 일시 사용 불가)",
     "fallbackNoticeQuota": "이번 답변은 {backup} 모델이 생성했습니다({primary} 모델의 제공사 계정 한도가 모두 소진되어 동일 계열의 사용 가능한 모델로 자동 전환했습니다).",
@@ -12172,6 +12151,27 @@
       "noContent": "(내용 없음)",
       "openGitHub": "GitHub 열기",
       "promptPlaceholder": "프롬프트 템플릿 내용",
+      "reloadSkills": "스킬 다시 불러오기",
+      "reloadSkillsHint": "디스크의 SKILL.md를 다시 스캔해 변경 사항을 즉시 반영합니다",
+      "reloadSkillsRunning": "불러오는 중…",
+      "reloadSkillsSuccess": "불러오기 완료",
+      "reloadSkillsFailed": "불러오기 실패",
+      "reloadSkillsAdded": "추가",
+      "reloadSkillsRemoved": "삭제",
+      "reloadSkillsChanged": "변경",
+      "reloadSkillsUnchanged": "변경 없음",
+      "reloadSkillsTotal": "총 {count}개 스킬",
+      "reloadSkillsNoChange": "이번 재로드에서 내용 변경이 없습니다",
+      "reloadSkillsAuto": "auto 소스 {count}개",
+      "reloadPlugins": "플러그인 면 다시 불러오기",
+      "reloadPluginsHint": "플러그인 면을 다시 스캔하고 최신 명령 목록을 호스트에 반영합니다",
+      "reloadPluginsRunning": "불러오는 중…",
+      "reloadPluginsSuccess": "플러그인 면을 다시 불러왔습니다",
+      "reloadPluginsFailed": "플러그인 면을 다시 불러오지 못했습니다",
+      "reloadPluginsCommandCount": "명령 {count}개",
+      "reloadPluginsSkillCount": "스킬 {count}개",
+      "reloadPluginsCommandList": "최신 명령 목록",
+      "reloadPluginsNoCommand": "현재 사용할 수 있는 명령이 없습니다",
       "save": "저장",
       "saving": "저장 중…",
       "scenario": "시나리오",
@@ -12186,6 +12186,8 @@
       "sectionCustom": "내 커스텀",
       "statusAvailable": "사용 가능",
       "statusComingSoon": "곧 출시",
+      "tabAiSkills": "AI 스킬",
+      "tabAll": "전체",
       "tabCustom": "커스텀",
       "tabMcp": "MCP",
       "tabOpenclaw": "OpenClaw",
@@ -12193,29 +12195,6 @@
       "tabSlash": "명령",
       "tabTemplate": "템플릿",
       "title": "Skill 라이브러리",
-      "reloadSkills": "스킬 다시 불러오기",
-      "reloadSkillsHint": "디스크의 SKILL.md를 다시 스캔해 변경 사항을 즉시 반영합니다",
-      "reloadSkillsRunning": "불러오는 중…",
-      "reloadSkillsSuccess": "불러오기 완료",
-      "reloadSkillsFailed": "불러오기 실패",
-      "reloadSkillsAdded": "추가",
-      "reloadSkillsRemoved": "삭제",
-      "reloadSkillsChanged": "변경",
-      "reloadSkillsUnchanged": "변경 없음",
-      "reloadSkillsTotal": "총 {count}개 스킬",
-      "reloadSkillsNoChange": "이번 재로드에서 내용 변경이 없습니다",
-      "reloadSkillsAuto": "auto 소스 {count}개",
-      "tabAiSkills": "AI 스킬",
-      "tabAll": "전체",
-      "reloadPlugins": "플러그인 면 다시 불러오기",
-      "reloadPluginsHint": "플러그인 면을 다시 스캔하고 최신 명령 목록을 호스트에 반영합니다",
-      "reloadPluginsRunning": "불러오는 중…",
-      "reloadPluginsSuccess": "플러그인 면을 다시 불러왔습니다",
-      "reloadPluginsFailed": "플러그인 면을 다시 불러오지 못했습니다",
-      "reloadPluginsCommandCount": "명령 {count}개",
-      "reloadPluginsSkillCount": "스킬 {count}개",
-      "reloadPluginsCommandList": "최신 명령 목록",
-      "reloadPluginsNoCommand": "현재 사용할 수 있는 명령이 없습니다",
       "viewAll": "전체 보기"
     },
     "sessionDiff": {
@@ -12305,10 +12284,10 @@
       "feedbackRecorded": "피드백이 기록되었습니다. 감사합니다",
       "feedbackSaved": "피드백이 기록되었습니다",
       "feedbackFailed": "피드백 제출 실패",
+      "dislikeThanks": "기록되었습니다 — 설문 카드에서 사유를 보충할 수 있습니다",
       "messageDeleted": "메시지 삭제됨",
       "operationFailed": "작업 실패",
       "regenerating": "재생성 중…",
-      "dislikeThanks": "기록되었습니다 — 설문 카드에서 사유를 보충할 수 있습니다",
       "branching": "분기 생성 중…"
     },
     "toolCallSkipped": "건너뜀(중복 호출)",
@@ -12574,6 +12553,7 @@
     "reasoningEffortHigh": "심층",
     "reasoningEffortUnsupported": "이 모델은 추론 강도를 선택할 수 없습니다",
     "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}",
+    "analysisOpen": "시나리오 분석 보기",
     "favorite": "즐겨찾기 추가",
     "unfavorite": "즐겨찾기 해제",
     "workbenchSessions": "세션",
@@ -12601,8 +12581,7 @@
     "reviewTargetSnippet": "붙여넣은 스니펫",
     "reviewTargetSnippetLabel": "리뷰할 코드 스니펫",
     "reviewTargetSnippetPlaceholder": "리뷰할 코드를 붙여넣으세요…",
-    "reviewTargetClear": "리뷰 대상 지우기",
-    "analysisOpen": "시나리오 분석 보기"
+    "reviewTargetClear": "리뷰 대상 지우기"
   },
   "chatHistory": {
     "moveToGroup": "그룹으로 이동",
@@ -15079,6 +15058,7 @@
       "toolFailures": "도구 실패",
       "trigger": "수동 트리거",
       "triggerError": "트리거 실패",
+      "triggerSuccess": "트리거 성공",
       "refresh": "기억 소스 다시 스캔",
       "refreshSuccess": "기억 소스를 다시 스캔했습니다",
       "refreshReadFailed": "기억 소스 읽기에 실패했습니다(재스캔 전 기억은 유지됩니다)",
@@ -15089,8 +15069,7 @@
       "refreshRemoved": "삭제",
       "refreshChanged": "변경",
       "refreshUnchanged": "변경 없음",
-      "refreshNoChange": "이번 재스캔에서 내용 변경이 없습니다",
-      "triggerSuccess": "트리거 성공"
+      "refreshNoChange": "이번 재스캔에서 내용 변경이 없습니다"
     },
     "orch": {
       "dashboard": "대시보드",
@@ -16986,6 +16965,7 @@
       "pullSuccess": "풀 성공",
       "push": "푸시",
       "pushSuccess": "푸시 성공",
+      "refresh": "새로고침",
       "stage": "스테이징",
       "staged": "스테이징됨 ({count})",
       "unstage": "스테이징 해제"
@@ -17107,27 +17087,6 @@
       "plus": "뷰 추가",
       "settings": "설정",
       "terminal": "터미널"
-    },
-    "agentsMd": {
-      "title": "AGENTS.md",
-      "hint": "현재 워크스페이스를 스캔하여 협업 규칙 초안을 생성합니다. 생성 시 디스크에 쓰지 않으며, 쓰기 전에 한 번 더 확인합니다.",
-      "generate": "AGENTS.md 초안 생성",
-      "generateConfirmTitle": "AGENTS.md 초안을 생성할까요?",
-      "generateConfirmContent": "현재 워크스페이스를 스캔하여 초안을 생성합니다. 초안은 여기에만 표시되며 디스크에 쓰지 않습니다.",
-      "generating": "워크스페이스 스캔 중…",
-      "generateFailed": "초안 생성 실패",
-      "draftTitle": "AGENTS.md 초안(편집 가능, 확인 후에만 기록)",
-      "draftNotice": "초안이 아직 디스크에 기록되지 않았습니다",
-      "write": "AGENTS.md에 쓰기",
-      "writeConfirmTitle": "AGENTS.md에 쓸까요?",
-      "writeConfirmContent": "위 내용을 워크스페이스 루트의 AGENTS.md에 씁니다. 같은 이름의 파일은 덮어씁니다.",
-      "writing": "쓰는 중…",
-      "writeFailed": "쓰기 실패",
-      "written": "AGENTS.md에 기록했습니다",
-      "discard": "초안 버리기",
-      "errorEmptyWorkspace": "워크스페이스 경로가 비어 있습니다",
-      "errorRequestFailed": "AI 서비스 요청 실패",
-      "errorNoDraft": "도구가 초안을 반환하지 않았습니다"
     },
     "viewSwitcher": {
       "groupSettings": "설정",
@@ -18464,12 +18423,12 @@
     "dashboardSuccessRate": "성공률",
     "dashboardAvgLatency": "평균 지연",
     "dashboardNoData": "데이터 없음",
+    "dashboardLatency": "{value}초",
     "clearAuth": "인증 취소",
     "clearAuthHint": "이 서버에 부여한 OAuth 자격 증명을 취소합니다(이 서버만)",
     "clearAuthSuccess": "{name}의 인증을 취소했습니다",
     "clearAuthNoOauth": "{name}은(는) OAuth 채널을 사용하지 않아 취소할 인증이 없습니다",
-    "clearAuthFailed": "{name}의 인증 취소에 실패했습니다",
-    "dashboardLatency": "{value}초"
+    "clearAuthFailed": "{name}의 인증 취소에 실패했습니다"
   },
   "member": {
     "feedback": {
@@ -20226,9 +20185,6 @@
     "editDeviceMapTitle": "기기 지문 편집",
     "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨).",
     "checkedInToday": "오늘 출석 완료",
-    "captureTraeWebWaiting": "오른쪽 작업 패널의 브라우저에서 Trae 로그인 페이지를 열었습니다. 패널 안에서 로그인(전화번호/QR)하세요. 로그인 상태가 감지되면 계정을 자동으로 가져온 뒤 체크인 페이지로 돌아갑니다.",
-    "captureTraeWebDone": "Trae 웹 로그인 가져오기 완료(총 {count}개 계정)",
-    "captureTraeWebCancelled": "Trae 웹 로그인이 취소되었습니다. \"웹 로그인\"을 다시 누르면 재시도할 수 있습니다.",
     "rename": "이름 변경"
   },
   "accountPool": {
@@ -21996,6 +21952,31 @@
     "cooldownActive": "쿨다운 중",
     "cooldownRemaining": "쿨다운 남음",
     "countdownRemaining": "남은 시간",
+    "keepalive": {
+      "accountFallback": "계정 #{id}",
+      "allHealthy": "{total}개 계정이 모두 정상입니다",
+      "disabledHint": "apps/ai-service/.env 에 KEEPALIVE_ENABLED=true 를 설정하고 서비스를 재시작하면 활성화됩니다.",
+      "disabledTitle": "계정 연결 유지가 꺼져 있습니다",
+      "expiresAt": "만료 {time}",
+      "expiringSoon": "{count}개 곧 만료",
+      "failures": "{count}회 연속 실패",
+      "healthCritical": "만료",
+      "healthHealthy": "정상",
+      "healthUnknown": "미점검",
+      "healthWarning": "주의",
+      "interval": "{hours}시간마다 점검",
+      "loading": "연결 유지 상태를 불러오는 중…",
+      "needsAttention": "{count}개 조치 필요",
+      "rate7d": "최근 7일 성공률",
+      "rateUnknown": "데이터 없음",
+      "retry": "재시도",
+      "sourceCheckin": "출석 체크 자격 증명",
+      "sourceCookie": "플랫폼 로그인 상태",
+      "sourceToken": "API 자격 증명",
+      "title": "계정 연결 유지",
+      "triggerNow": "지금 점검",
+      "triggering": "실행 중…"
+    },
     "editor": {
       "autoSaved": "자동 저장됨",
       "bold": "굵게",
@@ -22184,31 +22165,6 @@
     "title": "멀티 플랫폼 게시",
     "uploadFailed": "업로드 실패",
     "uploadProgress": "업로드 중",
-    "keepalive": {
-      "accountFallback": "계정 #{id}",
-      "allHealthy": "{total}개 계정이 모두 정상입니다",
-      "disabledHint": "apps/ai-service/.env 에 KEEPALIVE_ENABLED=true 를 설정하고 서비스를 재시작하면 활성화됩니다.",
-      "disabledTitle": "계정 연결 유지가 꺼져 있습니다",
-      "expiresAt": "만료 {time}",
-      "expiringSoon": "{count}개 곧 만료",
-      "failures": "{count}회 연속 실패",
-      "healthCritical": "만료",
-      "healthHealthy": "정상",
-      "healthUnknown": "미점검",
-      "healthWarning": "주의",
-      "interval": "{hours}시간마다 점검",
-      "loading": "연결 유지 상태를 불러오는 중…",
-      "needsAttention": "{count}개 조치 필요",
-      "rate7d": "최근 7일 성공률",
-      "rateUnknown": "데이터 없음",
-      "retry": "재시도",
-      "sourceCheckin": "출석 체크 자격 증명",
-      "sourceCookie": "플랫폼 로그인 상태",
-      "sourceToken": "API 자격 증명",
-      "title": "계정 연결 유지",
-      "triggerNow": "지금 점검",
-      "triggering": "실행 중…"
-    },
     "uploadSuccess": "업로드 성공"
   },
   "publishMonitor": {
@@ -23366,18 +23322,6 @@
     "codeIndexEgressOptOutDesc": "코드 조각은 벡터화 인덱싱을 위해 외부로 전송되지 않습니다",
     "autoMemoryOptOut": "자동 장기 기억 끄기",
     "autoMemoryOptOutDesc": "대화를 세션 간 선호나 규칙으로 자동 추출하지 않습니다",
-    "expertRoute": {
-      "title": "전문가 팩 자동 라우팅",
-      "desc": "이번 사용자 의도에서 전문가 팩을 식별하고, 일치 시 처리 방식을 선택합니다.",
-      "default": "기본",
-      "envLockedNotice": "배포 측이 환경 변수로 이 기능을 비활성화했으므로 여기에서는 보기만 가능하고 변경할 수 없습니다.",
-      "hint": "힌트만",
-      "hintDesc": "일치 시 어떤 전문가 팩이 일치했는지만 답변에 표시하고, 도구와 시스템 프롬프트는 변경하지 않습니다",
-      "auto": "자동 적용",
-      "autoDesc": "일치 시 전문가 팩의 도구 허용 목록과 시스템 프롬프트를 이번 요청에 병합합니다",
-      "off": "끄기",
-      "offDesc": "의도 식별도, 힌트도 하지 않습니다"
-    },
     "navTiers": {
       "title": "사이드바 간편 모드",
       "desc": "개발자 및 운영용 메뉴를 기본적으로 숨깁니다. 필요할 때 아래 스위치로 다시 표시할 수 있습니다.",
@@ -23604,6 +23548,9 @@
     "authorizeAndRedirect": "인증 및 리디렉션",
     "authorizing": "{clientId}에 대한 인증 진행 중…",
     "desktopHandoffHint": "데스크톱 앱으로 돌아가 로그인을 완료했습니다. 이 페이지는 닫아도 됩니다.",
+    "miniappHandoffTitle": "인증 완료",
+    "miniappHandoffHint": "로그인 자격증명을 미니프로그램에 전달했습니다. 왼쪽 위 '뒤로'를 눌러 미니프로그램으로 돌아가 로그인을 완료하세요.",
+    "miniappHandoffFailed": "미니프로그램 전달에 실패했습니다. 다시 시도하거나 직접 돌아가 주세요.",
     "desktopHandoffTitle": "인증 완료",
     "code": "인증 코드",
     "codePlaceholder": "인증 코드를 입력하세요",
@@ -23650,9 +23597,6 @@
       "backToLogin": "로그인으로 돌아가기",
       "sso_code": "SSO 인증 코드"
     },
-    "miniappHandoffTitle": "인증 완료",
-    "miniappHandoffHint": "로그인 자격증명을 미니프로그램에 전달했습니다. 왼쪽 위 '뒤로'를 눌러 미니프로그램으로 돌아가 로그인을 완료하세요.",
-    "miniappHandoffFailed": "미니프로그램 전달에 실패했습니다. 다시 시도하거나 직접 돌아가 주세요.",
     "platform": "플랫폼"
   },
   "statistics": {
@@ -27346,6 +27290,12 @@
     "pageSubtitle": "사용자가 편집할 수 있는 규칙 세트. agent 실행 시 조건에 따라 system prompt에 동적 주입"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "수동 일시정지",
+      "failedPermanent": "영구 실패",
+      "failedRetriesExhausted": "재시도 횟수 초과",
+      "completed": "완료"
+    },
     "delete": "삭제",
     "title": "자동화",
     "subtitle": "일정에 맞춰 에이전트 작업 실행",
@@ -27411,6 +27361,7 @@
       "created": "생성됨",
       "updated": "저장됨",
       "saveFailed": "저장 실패",
+      "loadFailed": "불러오기 실패",
       "runDone": "실행 완료",
       "runFailed": "실행 실패",
       "paused": "일시정지됨",
@@ -27420,12 +27371,6 @@
       "deleteFailed": "삭제 실패"
     },
     "cancel": "취소",
-    "terminalReason": {
-      "manualPause": "수동 일시정지",
-      "failedPermanent": "영구 실패",
-      "failedRetriesExhausted": "재시도 횟수 초과",
-      "completed": "완료"
-    },
     "save": "저장"
   },
   "mediaTasksPage": {
@@ -29412,6 +29357,7 @@
         "active": "보내는 중",
         "completed": "보냄",
         "following": "보내기 대기 중"
+      }
     }
   },
   "unifiedSuggestion": {
@@ -29467,6 +29413,10 @@
     "title": "에이전트와 모델",
     "subtitle": "채팅 기록, 메모리, 지식 베이스, 미디어 작업과 워크스페이스"
   },
+  "personalHub": {
+    "title": "계정관리",
+    "subtitle": "내 학습, 계정 보안, 학생 센터, 피드백과 도움말"
+  },
   "appUpdate": {
     "title": "새 버전이 있습니다",
     "body": "페이지를 새로고침하여 최신 버전을 받으세요",
@@ -29491,8 +29441,13 @@
     "action": "설치",
     "close": "닫기"
   },
-  "personalHub": {
-    "title": "계정관리",
-    "subtitle": "내 학습, 계정 보안, 학생 센터, 피드백과 도움말"
+  "wsChannel": {
+    "reconnecting": "실시간 연결이 끊어져 {attempt}/{max}번째 재연결 중…",
+    "connectFailed": "실시간 연결에 실패했습니다. 재시도 중",
+    "connectError": "실시간 연결 오류",
+    "reconnectExhausted": "실시간 연결이 종료되었습니다({max}회 재시도). 콘텐츠 수신이 중단되었습니다. 수동으로 재시도할 수 있습니다",
+    "degradedNotice": "실시간 연결을 사용할 수 없어 호환 채널로 자동 전환하여 콘텐츠 수신을 계속합니다",
+    "fallbackUnavailable": "실시간 연결이 종료되었고 호환 채널도 사용할 수 없어 콘텐츠 수신이 중단되었습니다",
+    "fallbackFailed": "호환 채널도 중단되어 콘텐츠 수신이 중단되었습니다. 잠시 후 수동으로 재시도하세요"
   }
 }

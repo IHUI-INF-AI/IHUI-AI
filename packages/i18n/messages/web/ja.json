@@ -515,12 +515,6 @@
     "noLogsHint": "(ログなし — ページ上でクリックすると座標情報が表示されます)",
     "runJs": "JavaScript 実行",
     "runJsPlaceholder": "document.title — JS を入力して実行をクリック(例: document.querySelector(\"button\").click())",
-    "browserTab": "ブラウザ",
-    "home": "ホームへ戻る",
-    "pickElement": "要素を選択",
-    "picking": "選択中:ページ要素をクリックで選択、もう一度押すと解除",
-    "devtools": "開発者ツール",
-    "popout": "別ウィンドウで開く",
     "run": "実行"
   },
   "a11y": {
@@ -928,38 +922,38 @@
       "panelVisitTransition": "ページ遷移",
       "visitTransitionMoves": "24時間 遷移 {count} 回",
       "visitTransitionTop": "よく踏む経路(24時間)",
+      "visitTransitionNoData": "24時間にページ遷移なし",
+      "alertCountAtLeast": "アラート ≥{count}",
+      "apiErrRateHint": "集計範囲:本日の api_logs 全件(ヘッダーの Prometheus 5xx 率とは補完関係)",
+      "stateUp": "正常",
+      "stateDown": "異常",
+      "stateUnknown": "不明",
+      "userGrowth14d": "ユーザー成長·14日",
+      "usersVip": "VIPユーザー",
+      "usersTrader": "トレーダー",
+      "usersInvited": "招待登録",
+      "usersInvited7d": "招待(7日)",
+      "activeUsers7d": "アクティブ(7日)",
+      "levelDistTitle": "等級分布",
+      "level0": "通常",
+      "level1": "シルバー",
+      "level2": "ゴールド",
+      "level3": "ダイヤ",
       "avgDwellSec": "滞在 {s}s",
       "panelHourlyVisits": "時間別アクセス",
       "hourlyVisitWindow": "直近 24h · 時間別",
       "visitHourlyPv": "アクセス数",
       "visitHourlyUv": "訪問者数",
-      "sessionQualityExitTop": "終了ページ(セッション/単一)",
-      "activeUsers7d": "アクティブ(7日)",
-      "alertCountAtLeast": "アラート ≥{count}",
-      "apiErrRateHint": "集計範囲:本日の api_logs 全件(ヘッダーの Prometheus 5xx 率とは補完関係)",
-      "level0": "通常",
-      "level1": "シルバー",
-      "level2": "ゴールド",
-      "level3": "ダイヤ",
-      "levelDistTitle": "等級分布",
-      "noPoolRows": "プール行なし",
-      "poolBalanceLow": "残高不足",
-      "poolExpiring24h": "24時間以内に期限",
+      "poolHealthHealthy": "正常",
       "poolHealthDegraded": "劣化",
       "poolHealthDown": "ダウン",
-      "poolHealthHealthy": "正常",
       "poolHealthUnknown": "不明",
-      "poolProviderAccountTitle": "アカウント・プロバイダ別",
+      "poolBalanceLow": "残高不足",
+      "poolExpiring24h": "24時間以内に期限",
       "poolProviderKeyTitle": "キー・プロバイダ別",
-      "stateDown": "異常",
-      "stateUnknown": "不明",
-      "stateUp": "正常",
-      "userGrowth14d": "ユーザー成長·14日",
-      "usersInvited": "招待登録",
-      "usersInvited7d": "招待(7日)",
-      "usersTrader": "トレーダー",
-      "usersVip": "VIPユーザー",
-      "visitTransitionNoData": "24時間にページ遷移なし"
+      "poolProviderAccountTitle": "アカウント・プロバイダ別",
+      "noPoolRows": "プール行なし",
+      "sessionQualityExitTop": "終了ページ(セッション/単一)"
     },
     "aboutUs": {
       "add": "追加",
@@ -1455,19 +1449,6 @@
         "update": "しい",
         "warning": "警告"
       },
-      "platforms": {
-        "cli": "CLI",
-        "desktop": "デスクトップ",
-        "extension": "拡張機能",
-        "miniapp": "ミニプログラム",
-        "mobile-cap": "モバイル収集",
-        "rn": "モバイルアプリ",
-        "web": "Web"
-      },
-      "colPlatforms": "配信先",
-      "fieldPlatforms": "配信先",
-      "platformsAll": "すべての端末",
-      "platformsHint": "未選択の場合は全端末に表示されます。選択した端末のみに表示されます",
       "yes": "はい"
     },
     "anomalies": {
@@ -1820,10 +1801,14 @@
     "developer": {
       "cancel": "キャンセル",
       "colActions": "操作",
+      "colAddress": "アドレス",
       "colCozeId": "Ｃｏｚｅ ＩＤ",
+      "colCreatedAt": "作成日時",
+      "colCreator": "作成者",
       "colNickname": "ニックネーム",
       "colPlatform": "プラットフォーム",
       "colSignAccount": "アカウント",
+      "colSignNickname": "ニックネーム",
       "colStatus": "ステータス",
       "cozeCreate": "アカウント",
       "cozeCreateTitle": "Coze アカウントを",
@@ -1851,10 +1836,6 @@
       "statusExpired": "期限切れ",
       "statusInUse": "使用中",
       "statusUnused": "未使用",
-      "colAddress": "アドレス",
-      "colCreatedAt": "作成日時",
-      "colCreator": "作成者",
-      "colSignNickname": "ニックネーム",
       "total": "{total}"
     },
     "developerLink": {
@@ -6279,6 +6260,21 @@
       "installerHint": "GitHub 側の操作者 id(プラットフォームユーザーではありません)"
     },
     "smsReceive": "SMS認証コード",
+    "sms": "SMSテンプレート",
+    "relayPoolPolicy": {
+      "title": "プール選定ポリシー(グローバル既定値)",
+      "refresh": "更新",
+      "loading": "ポリシーを読み込み中…",
+      "loadFailed": "読み込み失敗",
+      "badgeAllDefault": "すべて既定値",
+      "badgeDeviated": "{n} 件が既定値と異なる",
+      "badgeInvalid": "{n} 件が不正値のためフォールバック",
+      "badgeRegistryBroken": "登録表が不完全",
+      "readOnlyHint": "読み取り専用: .env を編集して apps/api を再起動",
+      "defaultIs": "既定 {v}",
+      "invalidFellBack": "不正値は既定に回落",
+      "registryDiff": "未登録ノブ:{missing} / 孤立登録:{orphan}"
+    },
     "relayTasks": {
       "wbTitle": "WorkBuddy タスク自動化",
       "wbAccount": "アカウント",
@@ -6502,22 +6498,7 @@
         "samplePhones": "サンプル番号：{phones}",
         "broadcastSummary": "全 {total} 件 · 成功 <ok>{sent}</ok> · 失敗 <bad>{failed}</bad> · ブロック {suppressed}"
       }
-    },
-    "relayPoolPolicy": {
-      "title": "プール選定ポリシー(グローバル既定値)",
-      "refresh": "更新",
-      "loading": "ポリシーを読み込み中…",
-      "loadFailed": "読み込み失敗",
-      "badgeAllDefault": "すべて既定値",
-      "badgeDeviated": "{n} 件が既定値と異なる",
-      "badgeInvalid": "{n} 件が不正値のためフォールバック",
-      "badgeRegistryBroken": "登録表が不完全",
-      "readOnlyHint": "読み取り専用: .env を編集して apps/api を再起動",
-      "defaultIs": "既定 {v}",
-      "invalidFellBack": "不正値は既定に回落",
-      "registryDiff": "未登録ノブ:{missing} / 孤立登録:{orphan}"
-    },
-    "sms": "SMSテンプレート"
+    }
   },
   "connectors": {
     "title": "中文コネクタ",
@@ -7160,8 +7141,6 @@
       "title": "センター",
       "urlRequired": "URLはです",
       "webhooks": "ウェブフックス",
-      "permissionHint": "このキーがアクセスできる API 権限を選択",
-      "permissionLabel": "権限",
       "whCreateSuccess": "Webhooksをしました"
     },
     "dict": {
@@ -7830,10 +7809,10 @@
       "notifyCompletedTitle": "タスク完了：{name}",
       "notifyFailedTitle": "タスク失敗：{name}",
       "runningCount": "{count} 実行中",
-      "title": "バックグラウンドエージェント",
-      "total": "合計 {count}",
       "takeover": "引き継ぐ",
+      "title": "バックグラウンドエージェント",
       "tokens": "トークン",
+      "total": "合計 {count}",
       "viewResult": "結果を表示"
     },
     "checkpointHistory": {
@@ -9260,9 +9239,9 @@
           "title": "リクエストの内容が大きすぎます",
           "action": "内容を減らしてから再試行"
         },
-        "MODEL_RETIRED": {
-          "title": "このモデルは永久に提供終了しました",
-          "action": "モデル一覧の提供中モデルに変更"
+        "invalid_arguments": {
+          "title": "送信された内容に誤りがあります",
+          "action": "確認してから再試行"
         },
         "ALREADY_CLAIMED": {
           "title": "このタスクはすでに他のエージェントに引き受けられています",
@@ -9280,6 +9259,10 @@
           "title": "タスクのステータスが無効です",
           "action": "pending、claimed、done、blocked のいずれかに変更してください"
         },
+        "MODEL_RETIRED": {
+          "title": "このモデルは永久に提供終了しました",
+          "action": "モデル一覧の提供中モデルに変更"
+        },
         "TASK_CLOSED": {
           "title": "このタスクはすでに完了またはブロックされています",
           "action": "別のタスクを選択してください"
@@ -9287,10 +9270,6 @@
         "TASK_NOT_FOUND": {
           "title": "タスクが見つかりません",
           "action": "タスク一覧を更新して再試行"
-        },
-        "invalid_arguments": {
-          "title": "送信された内容に誤りがあります",
-          "action": "確認してから再試行"
         }
       },
       "worktree": {
@@ -9400,7 +9379,6 @@
           "browser": "既定のブラウザーでウェブページを開く"
         }
       },
-      "injectionKindExpertPack": "意図に基づいてエキスパートパックを適用しました",
       "promptPolish": {
         "entryLabel": "推敲",
         "ariaLabel": "プロンプトを推敲",
@@ -9419,7 +9397,8 @@
           "emptyDraft": "下書きが空です。入力してから推敲してください。"
         },
         "restartHint": "再起動後に反映されます。下書きは保持されています。"
-      }
+      },
+      "injectionKindExpertPack": "意図に基づいてエキスパートパックを適用しました"
     },
     "permissionConfirm": {
       "allow": "許可",
@@ -9629,6 +9608,9 @@
     "title": "AI キャリア指導"
   },
   "aiChat": {
+    "favorite": "ブックマークに追加",
+    "unfavorite": "ブックマークを解除",
+    "delete": "削除",
     "bindIssue": "Issueを紐付け",
     "actions": {
       "archive": "アーカイブ",
@@ -9637,13 +9619,13 @@
       "delete": "削除",
       "exportMd": "Markdown形式でエクスポート",
       "exportTxt": "TXT形式でエクスポート",
+      "exportSubmenu": "エクスポート / 共有",
+      "compressSubmenu": "圧縮",
       "menu": "その他の操作",
       "rename": "名前変更",
       "unarchive": "アーカイブ解除",
       "pin": "ピン留め",
       "unpin": "ピン留め解除",
-      "exportSubmenu": "エクスポート / 共有",
-      "compressSubmenu": "圧縮",
       "branchFromHere": "ここから分岐"
     },
     "checkpoint": {
@@ -9829,6 +9811,7 @@
       "title": "PowerShell ターミナル"
     },
     "thisMonth": "今月",
+    "earlier": "それ以前",
     "thisWeek": "今週",
     "title": "aiチャット",
     "toast": {
@@ -9852,10 +9835,6 @@
     "closeWorkPanel": "ワークパネルを閉じる",
     "toggleWorkPanel": "ワークパネルを切り替える",
     "user": "ユーザー",
-    "favorite": "ブックマークに追加",
-    "unfavorite": "ブックマークを解除",
-    "delete": "削除",
-    "earlier": "それ以前",
     "org": {
       "title": "会話を整理",
       "folderLabel": "フォルダ",
@@ -10717,6 +10696,11 @@
     "noAssessment": "評価はまだありません"
   },
   "goalCard": {
+    "resumeServerOk": "目標を再開しました",
+    "resumeAlreadyActive": "目標は既に進行中です。再開の必要はありません",
+    "resumeTerminal": "目標は完了済みのため再開できません",
+    "resumeNoGoal": "このセッションに再開できる目標がありません",
+    "resumeFailed": "再開に失敗しました:{message}",
     "editAriaLabel": "目標を編集",
     "editSave": "保存",
     "editCancel": "キャンセル",
@@ -10744,11 +10728,6 @@
     "clear": "クリア",
     "cleared": "目標をクリアしました",
     "resetProgress": "リセット",
-    "resumeServerOk": "目標を再開しました",
-    "resumeAlreadyActive": "目標は既に進行中です。再開の必要はありません",
-    "resumeTerminal": "目標は完了済みのため再開できません",
-    "resumeNoGoal": "このセッションに再開できる目標がありません",
-    "resumeFailed": "再開に失敗しました:{message}",
     "fullProgress": "100% にする"
   },
   "memoryCards": {
@@ -11687,8 +11666,8 @@
       "roleAssistant": "アシスタント",
       "exportCard": "画像カードを共有",
       "shareCardUser": "ユーザー",
-      "compression": "会話を圧縮",
-      "exportPdf": "PDF をエクスポート"
+      "exportPdf": "PDF をエクスポート",
+      "compression": "会話を圧縮"
     },
     "fallbackNotice": "バックアップモデル {backup} に切り替えました(元モデル {primary} は一時的に利用不可)",
     "fallbackNoticeQuota": "今回の回答は {backup} が生成しました（{primary} を提供する事業者のアカウント利用枠が上限に達したため、同一系列の利用可能なモデルに自動で切り替えました）。",
@@ -12172,6 +12151,27 @@
       "noContent": "(内容なし)",
       "openGitHub": "GitHub を開く",
       "promptPlaceholder": "プロンプトテンプレート内容",
+      "reloadSkills": "スキルを再読み込み",
+      "reloadSkillsHint": "ディスク上の SKILL.md を再スキャンして変更を即時反映します",
+      "reloadSkillsRunning": "再読み込み中…",
+      "reloadSkillsSuccess": "再読み込み完了",
+      "reloadSkillsFailed": "再読み込みに失敗しました",
+      "reloadSkillsAdded": "追加",
+      "reloadSkillsRemoved": "削除",
+      "reloadSkillsChanged": "更新",
+      "reloadSkillsUnchanged": "変更なし",
+      "reloadSkillsTotal": "合計 {count} 件のスキル",
+      "reloadSkillsNoChange": "今回の再読み込みで内容の変更はありません",
+      "reloadSkillsAuto": "auto ソース {count} 件",
+      "reloadPlugins": "プラグイン面を再読み込み",
+      "reloadPluginsHint": "プラグイン面を再スキャンし、最新コマンド一覧をホストへ差し戻します",
+      "reloadPluginsRunning": "再読み込み中…",
+      "reloadPluginsSuccess": "プラグイン面を再読み込みしました",
+      "reloadPluginsFailed": "プラグイン面の再読み込みに失敗しました",
+      "reloadPluginsCommandCount": "コマンド {count} 件",
+      "reloadPluginsSkillCount": "スキル {count} 件",
+      "reloadPluginsCommandList": "最新コマンド一覧",
+      "reloadPluginsNoCommand": "現在利用可能なコマンドはありません",
       "save": "保存",
       "saving": "保存中…",
       "scenario": "シナリオ",
@@ -12186,6 +12186,8 @@
       "sectionCustom": "マイカスタム",
       "statusAvailable": "利用可能",
       "statusComingSoon": "近日公開",
+      "tabAiSkills": "AI スキル",
+      "tabAll": "すべて",
       "tabCustom": "カスタム",
       "tabMcp": "MCP",
       "tabOpenclaw": "OpenClaw",
@@ -12193,29 +12195,6 @@
       "tabSlash": "コマンド",
       "tabTemplate": "テンプレート",
       "title": "スキルライブラリ",
-      "reloadSkills": "スキルを再読み込み",
-      "reloadSkillsHint": "ディスク上の SKILL.md を再スキャンして変更を即時反映します",
-      "reloadSkillsRunning": "再読み込み中…",
-      "reloadSkillsSuccess": "再読み込み完了",
-      "reloadSkillsFailed": "再読み込みに失敗しました",
-      "reloadSkillsAdded": "追加",
-      "reloadSkillsRemoved": "削除",
-      "reloadSkillsChanged": "更新",
-      "reloadSkillsUnchanged": "変更なし",
-      "reloadSkillsTotal": "合計 {count} 件のスキル",
-      "reloadSkillsNoChange": "今回の再読み込みで内容の変更はありません",
-      "reloadSkillsAuto": "auto ソース {count} 件",
-      "tabAiSkills": "AI スキル",
-      "tabAll": "すべて",
-      "reloadPlugins": "プラグイン面を再読み込み",
-      "reloadPluginsHint": "プラグイン面を再スキャンし、最新コマンド一覧をホストへ差し戻します",
-      "reloadPluginsRunning": "再読み込み中…",
-      "reloadPluginsSuccess": "プラグイン面を再読み込みしました",
-      "reloadPluginsFailed": "プラグイン面の再読み込みに失敗しました",
-      "reloadPluginsCommandCount": "コマンド {count} 件",
-      "reloadPluginsSkillCount": "スキル {count} 件",
-      "reloadPluginsCommandList": "最新コマンド一覧",
-      "reloadPluginsNoCommand": "現在利用可能なコマンドはありません",
       "viewAll": "すべて表示"
     },
     "sessionDiff": {
@@ -12305,10 +12284,10 @@
       "feedbackRecorded": "フィードバックを記録しました。ご協力ありがとうございます",
       "feedbackSaved": "フィードバックを記録しました",
       "feedbackFailed": "フィードバックの送信に失敗しました",
+      "dislikeThanks": "記録しました —— アンケートカードで理由を補足できます",
       "messageDeleted": "メッセージを削除しました",
       "operationFailed": "操作に失敗しました",
       "regenerating": "再生成中…",
-      "dislikeThanks": "記録しました —— アンケートカードで理由を補足できます",
       "branching": "ブランチを作成中…"
     },
     "toolCallSkipped": "スキップ済み(重複呼び出し)",
@@ -12574,6 +12553,7 @@
     "reasoningEffortHigh": "熟考",
     "reasoningEffortUnsupported": "このモデルでは推論の深さを選択できません",
     "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}",
+    "analysisOpen": "シナリオ分析を見る",
     "favorite": "ブックマークに追加",
     "unfavorite": "ブックマークを解除",
     "workbenchSessions": "セッション",
@@ -12601,8 +12581,7 @@
     "reviewTargetSnippet": "貼り付けスニペット",
     "reviewTargetSnippetLabel": "レビューするコードスニペット",
     "reviewTargetSnippetPlaceholder": "レビューするコードを貼り付け…",
-    "reviewTargetClear": "レビュー対象をクリア",
-    "analysisOpen": "シナリオ分析を見る"
+    "reviewTargetClear": "レビュー対象をクリア"
   },
   "chatHistory": {
     "moveToGroup": "グループへ移動",
@@ -15079,6 +15058,7 @@
       "toolFailures": "ツール失敗",
       "trigger": "手動トリガー",
       "triggerError": "トリガー失敗",
+      "triggerSuccess": "トリガー成功",
       "refresh": "記憶ソースを再スキャン",
       "refreshSuccess": "記憶ソースを再スキャンしました",
       "refreshReadFailed": "記憶ソースの読み取りに失敗しました（再スキャン前の記憶は保持されます）",
@@ -15089,8 +15069,7 @@
       "refreshRemoved": "削除",
       "refreshChanged": "更新",
       "refreshUnchanged": "変更なし",
-      "refreshNoChange": "今回の再スキャンで内容の変更はありません",
-      "triggerSuccess": "トリガー成功"
+      "refreshNoChange": "今回の再スキャンで内容の変更はありません"
     },
     "orch": {
       "dashboard": "ダッシュボード",
@@ -17109,27 +17088,6 @@
       "settings": "設定",
       "terminal": "ターミナル"
     },
-    "agentsMd": {
-      "title": "AGENTS.md",
-      "hint": "現在のワークスペースをスキャンして協働ルールの下書きを生成します。生成時に書き込みは行わず、書き込み前にもう一度確認します。",
-      "generate": "AGENTS.md の下書きを生成",
-      "generateConfirmTitle": "AGENTS.md の下書きを生成しますか?",
-      "generateConfirmContent": "現在のワークスペースをスキャンして下書きを生成します。下書きはここに表示されるだけで、ディスクには書き込まれません。",
-      "generating": "ワークスペースをスキャン中…",
-      "generateFailed": "下書きの生成に失敗しました",
-      "draftTitle": "AGENTS.md の下書き(編集可能、確認後に書き込み)",
-      "draftNotice": "下書きはまだ書き込まれていません",
-      "write": "AGENTS.md に書き込む",
-      "writeConfirmTitle": "AGENTS.md に書き込みますか?",
-      "writeConfirmContent": "上記の内容をワークスペース直下の AGENTS.md に書き込みます。同名ファイルは上書きされます。",
-      "writing": "書き込み中…",
-      "writeFailed": "書き込みに失敗しました",
-      "written": "AGENTS.md を書き込みました",
-      "discard": "下書きを破棄",
-      "errorEmptyWorkspace": "ワークスペースのパスが空です",
-      "errorRequestFailed": "AI サービスへのリクエストに失敗しました",
-      "errorNoDraft": "ツールが下書きを返しませんでした"
-    },
     "viewSwitcher": {
       "groupSettings": "設定",
       "groupTools": "ツール",
@@ -18465,12 +18423,12 @@
     "dashboardSuccessRate": "成功率",
     "dashboardAvgLatency": "平均レイテンシ",
     "dashboardNoData": "データなし",
+    "dashboardLatency": "{value}秒",
     "clearAuth": "認可を取り消す",
     "clearAuthHint": "この Server に付与した OAuth 認証情報を取り消します(この 1 台のみ)",
     "clearAuthSuccess": "{name} の認可を取り消しました",
     "clearAuthNoOauth": "{name} は OAuth チャネルを使用していないため、取り消す認可はありません",
-    "clearAuthFailed": "{name} の認可取り消しに失敗しました",
-    "dashboardLatency": "{value}秒"
+    "clearAuthFailed": "{name} の認可取り消しに失敗しました"
   },
   "member": {
     "feedback": {
@@ -20227,9 +20185,6 @@
     "editDeviceMapTitle": "デバイスフィンガープリントを編集",
     "editDeviceMapDescription": "{platform} アカウントのデバイスフィンガープリントを編集します（JSON オブジェクト。空のまま保存すると自動生成されます）。",
     "checkedInToday": "本日は出席済み",
-    "captureTraeWebWaiting": "右側のワークパネルのブラウザで Trae のログインページを開きました。パネル内でログイン(電話番号/QR)してください。ログイン状態を検出すると自動でアカウントを取り込み、チェックインページに戻ります。",
-    "captureTraeWebDone": "Trae Web ログインの取り込みが完了しました(合計 {count} 件)",
-    "captureTraeWebCancelled": "Trae の Web ログインをキャンセルしました。「Web ログイン」を再度クリックするとやり直せます。",
     "rename": "名前を変更"
   },
   "accountPool": {
@@ -21997,6 +21952,31 @@
     "cooldownActive": "クールダウン中",
     "cooldownRemaining": "クールダウン残り",
     "countdownRemaining": "残り時間",
+    "keepalive": {
+      "accountFallback": "アカウント #{id}",
+      "allHealthy": "{total} 件のアカウントはすべて正常です",
+      "disabledHint": "apps/ai-service/.env に KEEPALIVE_ENABLED=true を設定してサービスを再起動すると有効になります。",
+      "disabledTitle": "アカウント・キープアライブは無効です",
+      "expiresAt": "失効 {time}",
+      "expiringSoon": "{count} 件がまもなく失効",
+      "failures": "{count} 回連続で失敗",
+      "healthCritical": "失効",
+      "healthHealthy": "正常",
+      "healthUnknown": "未確認",
+      "healthWarning": "要注意",
+      "interval": "{hours} 時間ごとにチェック",
+      "loading": "キープアライブ状態を読み込み中…",
+      "needsAttention": "{count} 件の対応が必要",
+      "rate7d": "直近 7 日の成功率",
+      "rateUnknown": "データなし",
+      "retry": "再試行",
+      "sourceCheckin": "チェックイン認証情報",
+      "sourceCookie": "プラットフォームのログイン状態",
+      "sourceToken": "API 認証情報",
+      "title": "アカウント・キープアライブ",
+      "triggerNow": "今すぐ確認",
+      "triggering": "実行中…"
+    },
     "editor": {
       "autoSaved": "自動保存済み",
       "bold": "太字",
@@ -22185,31 +22165,6 @@
     "title": "マルチプラットフォーム公開",
     "uploadFailed": "アップロード失敗",
     "uploadProgress": "アップロード中",
-    "keepalive": {
-      "accountFallback": "アカウント #{id}",
-      "allHealthy": "{total} 件のアカウントはすべて正常です",
-      "disabledHint": "apps/ai-service/.env に KEEPALIVE_ENABLED=true を設定してサービスを再起動すると有効になります。",
-      "disabledTitle": "アカウント・キープアライブは無効です",
-      "expiresAt": "失効 {time}",
-      "expiringSoon": "{count} 件がまもなく失効",
-      "failures": "{count} 回連続で失敗",
-      "healthCritical": "失効",
-      "healthHealthy": "正常",
-      "healthUnknown": "未確認",
-      "healthWarning": "要注意",
-      "interval": "{hours} 時間ごとにチェック",
-      "loading": "キープアライブ状態を読み込み中…",
-      "needsAttention": "{count} 件の対応が必要",
-      "rate7d": "直近 7 日の成功率",
-      "rateUnknown": "データなし",
-      "retry": "再試行",
-      "sourceCheckin": "チェックイン認証情報",
-      "sourceCookie": "プラットフォームのログイン状態",
-      "sourceToken": "API 認証情報",
-      "title": "アカウント・キープアライブ",
-      "triggerNow": "今すぐ確認",
-      "triggering": "実行中…"
-    },
     "uploadSuccess": "アップロード成功"
   },
   "publishMonitor": {
@@ -23367,18 +23322,6 @@
     "codeIndexEgressOptOutDesc": "コード断片はベクトル化インデックスのために外部へ送信されません",
     "autoMemoryOptOut": "自動長期メモリを無効化",
     "autoMemoryOptOutDesc": "会話をセッション横断の嗜好や規約に自動抽出しません",
-    "expertRoute": {
-      "title": "エキスパートパックの自動ルーティング",
-      "desc": "今回のユーザー意図からエキスパートパックを判定し、一致時の扱いを選択します。",
-      "default": "デフォルト",
-      "envLockedNotice": "デプロイ側が環境変数でこの機能を無効化しているため、ここでは表示のみで変更できません。",
-      "hint": "ヒントのみ",
-      "hintDesc": "一致時に、どのエキスパートパックに一致したかを返信内で示すだけで、ツールとシステムプロンプトは変更しません",
-      "auto": "自動適用",
-      "autoDesc": "一致時に、エキスパートパックのツール許可リストとシステムプロンプトを今回のリクエストに統合します",
-      "off": "オフ",
-      "offDesc": "意図判定もヒントも行いません"
-    },
     "navTiers": {
       "title": "サイドバー簡素モード",
       "desc": "開発者向け・運用向けの項目を既定で非表示にします。必要になったら下のスイッチで表示できます。",
@@ -23605,6 +23548,9 @@
     "authorizeAndRedirect": "してリダイレクト",
     "authorizing": "{clientId} へのをっています…",
     "desktopHandoffHint": "デスクトップアプリに戻り、ログインが完了しました。このページは閉じて構いません。",
+    "miniappHandoffTitle": "認証が完了しました",
+    "miniappHandoffHint": "ログイン資格をミニプログラムに引き渡しました。左上の「戻る」でミニプログラムに戻り、ログインを完了してください。",
+    "miniappHandoffFailed": "ミニプログラムへの引き渡しに失敗しました。再試行するか、手動で戻ってください。",
     "desktopHandoffTitle": "認証が完了しました",
     "code": "認証コード",
     "codePlaceholder": "認証コードを入力してください",
@@ -23651,9 +23597,6 @@
       "backToLogin": "ログインに戻る",
       "sso_code": "SSO 授權碼"
     },
-    "miniappHandoffTitle": "認証が完了しました",
-    "miniappHandoffHint": "ログイン資格をミニプログラムに引き渡しました。左上の「戻る」でミニプログラムに戻り、ログインを完了してください。",
-    "miniappHandoffFailed": "ミニプログラムへの引き渡しに失敗しました。再試行するか、手動で戻ってください。",
     "platform": "平台"
   },
   "statistics": {
@@ -25073,6 +25016,7 @@
       "openSelected": "{name} を開く",
       "opening": "開いています...",
       "parent": "親ディレクトリ",
+      "refresh": "更新",
       "retry": "再試行",
       "rootHint": "このレベルでドライブを選択するか、上に完全なパスを入力してください",
       "rowOpenHint": "開く",
@@ -27346,6 +27290,12 @@
     "pageSubtitle": "ユーザーが編集できるルールセット。agent 実行時にマッチ条件に応じて system prompt へ動的に注入されます"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "手動で一時停止",
+      "failedPermanent": "恒久的な失敗",
+      "failedRetriesExhausted": "リトライ回数上限に到達",
+      "completed": "完了"
+    },
     "delete": "削除",
     "title": "自動化",
     "subtitle": "予定通りエージェントタスクを実行",
@@ -27411,6 +27361,7 @@
       "created": "作成しました",
       "updated": "保存しました",
       "saveFailed": "保存に失敗",
+      "loadFailed": "読み込み失敗",
       "runDone": "実行完了",
       "runFailed": "実行に失敗",
       "paused": "一時停止しました",
@@ -27420,12 +27371,6 @@
       "deleteFailed": "削除に失敗"
     },
     "cancel": "キャンセル",
-    "terminalReason": {
-      "manualPause": "手動で一時停止",
-      "failedPermanent": "恒久的な失敗",
-      "failedRetriesExhausted": "リトライ回数上限に到達",
-      "completed": "完了"
-    },
     "save": "保存"
   },
   "mediaTasksPage": {
@@ -29412,6 +29357,7 @@
         "active": "送信中",
         "completed": "送信済み",
         "following": "送信待ち"
+      }
     }
   },
   "unifiedSuggestion": {
@@ -29467,6 +29413,10 @@
     "title": "エージェントとモデル",
     "subtitle": "チャット履歴、メモリ、ナレッジベース、メディアタスクとワークスペース"
   },
+  "personalHub": {
+    "title": "アカウント",
+    "subtitle": "マイ学習、アカウント、セキュリティ、学生センター、フィードバックとヘルプ"
+  },
   "appUpdate": {
     "title": "新しいバージョンがあります",
     "body": "ページを更新して最新バージョンを取得してください",
@@ -29491,8 +29441,13 @@
     "action": "インストール",
     "close": "閉じる"
   },
-  "personalHub": {
-    "title": "アカウント",
-    "subtitle": "マイ学習、アカウント、セキュリティ、学生センター、フィードバックとヘルプ"
+  "wsChannel": {
+    "reconnecting": "リアルタイム接続が切断されました。{attempt}/{max} 回目の再接続中…",
+    "connectFailed": "リアルタイム接続に失敗しました。再試行中",
+    "connectError": "リアルタイム接続エラー",
+    "reconnectExhausted": "リアルタイム接続が終了しました({max} 回再試行)。コンテンツの受信が停止しました。手動で再試行できます",
+    "degradedNotice": "リアルタイム接続を利用できないため、互換チャネルに自動切り替えしてコンテンツの受信を続けます",
+    "fallbackUnavailable": "リアルタイム接続が終了し、互換チャネルも利用できないため、コンテンツの受信が停止しました",
+    "fallbackFailed": "互換チャネルも停止したため、コンテンツの受信が停止しました。しばらくしてから手動で再試行してください"
   }
 }
