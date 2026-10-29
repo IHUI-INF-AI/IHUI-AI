@@ -26,6 +26,14 @@ import { DetailModeSwitcher } from './detail-mode-switcher'
 import { PictureInPictureSection } from '../picture-in-picture-section'
 import { applyConversationDetailMode } from './detail-mode-filter'
 import { usePaneConversationDetailModeStore } from '@/stores/conversation-detail-mode'
+// 轮次呈现投影层(2026-10-29 立,对标 Qoder 0.4.11 第六层):UI 不直接渲染 messages,
+// 先投影成 presentation rows 再按行语义分流。本文件是它的**唯一生产消费方**
+// (装车证明见 `__tests__/presentation-wiring.test.tsx`)。
+import { createPresentationCache, type PresentationCache } from './turn-presentation'
+// 投影行 → 渲染分组:窗口化坐标系(一条消息 = 一个窗口行)在这一层保持不变,
+// 投影只贡献"归属附注"与零布局影响的语义容器。理由见该文件头注 ①②③。
+import { buildPresentationGroups, groupIsExploring } from './presentation-units'
+import type { PresentationBlock } from './presentation-units'
 // 票64(2026-10-18 立):版本族读投影 —— regenerate/edit 的多版本 sibling
 // 只渲染激活版本,否则"点一次编辑出两个气泡"(纯函数在 @/lib/message-version-family)。
 // 票59 2/3(2026-10-22):投影吃用户手动切换态(activeVersionByRoot),并给出每条
@@ -278,6 +286,31 @@ export function MessageList({
     ownedFormMessageIdsRef.current = messages.map((m) => m.id)
   }, [conversationId, messages])
 
+  // ── 轮次呈现投影层装载(2026-10-29 立,`turn-presentation.ts` 的第一个生产消费方)──
+  // 立因:投影层交付时零生产消费(本仓 §0.9「造好没装车」= 没有)。此前渲染路径是
+  // `renderItems.map(m => <MessageItem/>)`,即"UI 直接渲染 messages 数组";接入后改由
+  // 投影层先给出 `PresentationRow[]`,渲染按行语义分流。
+  //
+  // cache 实例必须住 ref:**每渲染新建 = 零缓存**,而"源消息未变就不重算"正是本层存在的
+  // 唯一理由。用 useMemo 依赖 messages 数组来替代同样不行 —— store 每帧替换被追加的那一条
+  // 消息对象,数组引用随之每帧变,useMemo 每帧全量重算,失效形态与没有这层完全一样。
+  const presentationCacheRef = React.useRef<PresentationCache | null>(null)
+  if (presentationCacheRef.current === null) {
+    presentationCacheRef.current = createPresentationCache()
+  }
+  const presentationCache = presentationCacheRef.current
+  // 换会话时清一次缓存:引用判等本身已能防串会话(不同会话的消息对象完全不同 ⇒ 全段重算),
+  // 这里清的是**滞留** —— 不清的话上一会话的段表会一直握着它那批消息对象不放。
+  const presentationConversationRef = React.useRef(conversationId)
+  React.useEffect(() => {
+    if (presentationConversationRef.current === conversationId) return
+    presentationConversationRef.current = conversationId
+    presentationCache.reset()
+  }, [conversationId, presentationCache])
+  // 投影输入是 `visibleMessages`(已过版本族投影 + 详情档位过滤)——
+  // 渲染面看到哪一份消息,投影就必须吃哪一份,否则行会指向不存在的消息。
+  const presentation = presentationCache.project(visibleMessages)
+
   // ── Phase 19 集成(2026-07-28 立)────────────────────────────────────
   // ProgressJumpStore:PlanStep ↔ Message 双向跳转 + 联动高亮
   // 票60 残余(2026-10-21):这一份按窗格寻址 —— 根窗格仍是单例,非根窗格各一份,
@@ -452,19 +485,6 @@ export function MessageList({
     }
   }, [chatStore, jumpStore, paneId])
 
-  if (messages.length === 0) {
-    return (
-      <EmptyState
-        isLoading={isLoading}
-        loadingLabel={loadingLabel}
-        emptyTitle={emptyTitle}
-        emptyHint={emptyHint}
-        onTemplateSelect={onTemplateSelect}
-        t={t}
-      />
-    )
-  }
-
   // #7 虚拟滚动:窗口化渲染,仅挂载可见范围 + buffer,窗口外用占位高度顶住滚动条
   // - 未窗口化(消息数 <= WINDOW_THRESHOLD):全量渲染,保留原逻辑
   // - 窗口化:用 measureItem ref 测量真实高度,handleScroll 按 windowing.ts 的纯判据定区间
@@ -472,6 +492,9 @@ export function MessageList({
   // offsets,不再在这侧手算 `offsets[len] - offsets[end+1]`);容器与行上补三个 data-* 数值
   // 钩子(window-start/window-end/window-padding-*、window-index)——窗口化是否**真的生效**
   // 只能靠读挂载行数与占位高度来判,截图判不出来(也判不了"未生效 vs 被裁剪")。
+  //
+  // 2026-10-29:这一段整体上移到早退之前 —— 下面的投影分组/渲染块用到 useMemo/useCallback,
+  // 放在 `messages.length === 0` 早退之后就违反 Rules of Hooks(本仓 2026-08-16 同型事故)。
   const renderItems = enableVirtual
     ? visibleMessages.slice(visibleRange.start, visibleRange.end + 1)
     : visibleMessages
@@ -487,6 +510,105 @@ export function MessageList({
     : { paddingTop: 0, paddingBottom: 0 }
   const paddingTop = paddings.paddingTop
   const paddingBottom = paddings.paddingBottom
+
+  // 投影分组:输入是**本帧窗口内**的消息(`renderItems`,未窗口化时即全集),
+  // 输出只是"这些消息怎么分组"。窗口 count / offsets / measureItem 全部仍按消息算,
+  // 因此窗口化语义与接入前逐字节一致(兼容性论证见 `presentation-units.ts` 头注 ①)。
+  const presentationGroups = React.useMemo(
+    () => buildPresentationGroups(presentation.rows, renderItems),
+    [presentation, renderItems],
+  )
+  // 消息 → 它在整表里的下标。`isLast` / `isFocused` / 键盘导航都以这个下标为准,
+  // 与窗口化前的 `visibleRange.start + idx` 完全同义。
+  const realIndexById = React.useMemo(() => {
+    const map = new Map<string, number>()
+    for (let i = 0; i < visibleMessages.length; i += 1) {
+      const m = visibleMessages[i]
+      if (m) map.set(m.id, i)
+    }
+    return map
+  }, [visibleMessages])
+
+  // 单条消息块渲染 —— 与接入前的 `<MessageItem/> + BusinessFormSection` 逐 props 等价,
+  // 抽出来只为让"游离消息"与"容器内消息"共用同一份(不产生第二套渲染口径)。
+  const renderMessageBlock = React.useCallback(
+    (block: PresentationBlock) => {
+      const m = block.message
+      const realIdx = realIndexById.get(m.id) ?? -1
+      return (
+        <>
+          {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
+          <MessageItem
+            message={m}
+            isLast={realIdx === visibleMessages.length - 1}
+            isStreaming={isStreaming}
+            assistantLabel={assistantLabel}
+            onApplyDiff={onApplyDiff}
+            onRejectDiff={onRejectDiff}
+            onApplyPartialDiff={onApplyPartialDiff}
+            onApplyAllDiffs={onApplyAllDiffs}
+            onRejectAllDiffs={onRejectAllDiffs}
+            isHighlighted={highlightedMessageId === m.id}
+            isFocused={focusedIndex === realIdx}
+            linkedPlanStepId={messageToPlanStepIds[m.id]?.[0] ?? null}
+            onMessageHover={handleMessageHover}
+            isSearchMatch={searchResultSet.has(m.id)}
+            isSearchCurrent={searchCurrentId === m.id}
+            onContextMenu={(e) => {
+              contextMenu.setData(m)
+              contextMenu.contextMenuHandlers.onContextMenu(e)
+            }}
+            codeCollapseLines={codeCollapseLines}
+            versionInfo={versionInfoByMessageId.get(m.id)}
+            onSelectMessageVersion={onSelectMessageVersion}
+          />
+          {/* V3 #63(2026-09-27 立):该条 assistant 消息上的 form_request 宿主。
+              BusinessFormSection 内部无请求即整段返回 null(不占位),所以这里
+              对每条 assistant 消息都挂一次即可 —— 用户批准/拒绝经
+              postFormResponse 走同一条会话通道回传(与 tool-delegate 同族)。 */}
+          {m.role === 'assistant' ? <BusinessFormSection messageId={m.id} /> : null}
+          {/* Phase 19: 最后一个 assistant 消息下挂载 PlanStepsCard + SubAgentTaskTree
+            2026-08-01 Phase 4d:消息级 inline 后,仅当消息级数据为空时显示全局块(降级兼容旧后端)
+            2026-08-02 隐藏:对话流底部不再渲染 PlanStepsCard/SubAgentTaskTree(冗余可视化,与 主流 IDE 简洁风格不一致)
+            功能保留在右侧 AI 面板(PlanStepsCard + TimelineTab 独立入口) */}
+        </>
+      )
+    },
+    [
+      realIndexById,
+      visibleMessages.length,
+      isStreaming,
+      assistantLabel,
+      onApplyDiff,
+      onRejectDiff,
+      onApplyPartialDiff,
+      onApplyAllDiffs,
+      onRejectAllDiffs,
+      highlightedMessageId,
+      focusedIndex,
+      messageToPlanStepIds,
+      handleMessageHover,
+      searchResultSet,
+      searchCurrentId,
+      contextMenu,
+      codeCollapseLines,
+      versionInfoByMessageId,
+      onSelectMessageVersion,
+    ],
+  )
+
+  if (messages.length === 0) {
+    return (
+      <EmptyState
+        isLoading={isLoading}
+        loadingLabel={loadingLabel}
+        emptyTitle={emptyTitle}
+        emptyHint={emptyHint}
+        onTemplateSelect={onTemplateSelect}
+        t={t}
+      />
+    )
+  }
 
   // 2026-08-16 移除:DEBUG useEffect 在 early return 之后调用(违反 Rules of Hooks,
   // lint error),且 console.log 为调试残留——删除,虚拟滚动 padding 信息无需打印。
@@ -504,6 +626,12 @@ export function MessageList({
       className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
       data-testid="message-list-inline-panel"
       data-window-active={enableVirtual ? 'true' : 'false'}
+      // 投影结构版本号(生产可观测面):投影结果(行集合与行引用)真的变了才 +1。
+      // 流式中只改最后一条消息内容时,若段内该条被重算,版本会前进;整表原样重投影则不动。
+      // e2e/单测据此判"投影层在跑且缓存生效",不必读内部实现。
+      data-presentation-structure-revision={presentation.presentationStructureRevision}
+      data-presentation-reused-rows={presentation.stats.reusedRows}
+      data-presentation-recomputed-rows={presentation.stats.recomputedRows}
       data-window-start={enableVirtual ? visibleRange.start : 0}
       data-window-end={enableVirtual ? visibleRange.end : visibleMessages.length - 1}
       data-window-mounted={renderItems.length}
@@ -530,47 +658,55 @@ export function MessageList({
         )}
         {/* #7 虚拟滚动顶部占位(未渲染消息的高度填充) */}
         {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
-        {renderItems.map((m, idx) => {
-          const realIdx = enableVirtual ? visibleRange.start + idx : idx
-          return (
-            <React.Fragment key={m.id}>
-              <div ref={enableVirtual ? measureItem(m.id) : undefined}>
-                {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
-                <MessageItem
-                  message={m}
-                  isLast={realIdx === visibleMessages.length - 1}
-                  isStreaming={isStreaming}
-                  assistantLabel={assistantLabel}
-                  onApplyDiff={onApplyDiff}
-                  onRejectDiff={onRejectDiff}
-                  onApplyPartialDiff={onApplyPartialDiff}
-                  onApplyAllDiffs={onApplyAllDiffs}
-                  onRejectAllDiffs={onRejectAllDiffs}
-                  isHighlighted={highlightedMessageId === m.id}
-                  isFocused={focusedIndex === realIdx}
-                  linkedPlanStepId={messageToPlanStepIds[m.id]?.[0] ?? null}
-                  onMessageHover={handleMessageHover}
-                  isSearchMatch={searchResultSet.has(m.id)}
-                  isSearchCurrent={searchCurrentId === m.id}
-                  onContextMenu={(e) => {
-                    contextMenu.setData(m)
-                    contextMenu.contextMenuHandlers.onContextMenu(e)
-                  }}
-                  codeCollapseLines={codeCollapseLines}
-                  versionInfo={versionInfoByMessageId.get(m.id)}
-                  onSelectMessageVersion={onSelectMessageVersion}
-                />
-                {/* V3 #63(2026-09-27 立):该条 assistant 消息上的 form_request 宿主。
-                    BusinessFormSection 内部无请求即整段返回 null(不占位),所以这里
-                    对每条 assistant 消息都挂一次即可 —— 用户批准/拒绝经
-                    postFormResponse 走同一条会话通道回传(与 tool-delegate 同族)。 */}
-                {m.role === 'assistant' ? <BusinessFormSection messageId={m.id} /> : null}
-                {/* Phase 19: 最后一个 assistant 消息下挂载 PlanStepsCard + SubAgentTaskTree
-                  2026-08-01 Phase 4d:消息级 inline 后,仅当消息级数据为空时显示全局块(降级兼容旧后端)
-                  2026-08-02 隐藏:对话流底部不再渲染 PlanStepsCard/SubAgentTaskTree(冗余可视化,与 主流 IDE 简洁风格不一致)
-                  功能保留在右侧 AI 面板(PlanStepsCard + TimelineTab 独立入口) */}
+        {/* 轮次呈现投影(2026-10-29 装车):渲染按投影分组分流,而不是直接 map 消息数组。
+            - `group.container === null` ⇒ 游离消息(用户 / system / 不该聚合的助手消息),原样一行;
+            - `group.container !== null` ⇒ 一条助手轮次的 `thinkingAgent` 容器。它渲染成
+              `display:contents`(零盒模型 ⇒ 不改变 offsets 与视觉),内部每条消息仍各自
+              一个测高块 ⇒ **窗口化坐标系(一条消息 = 一个窗口行)一字不动**。
+              视觉壳仍是 MessageItem 内部的 StreamGroup,N 个步骤的折叠不在这里重造。
+            data-* 三件套给 e2e/单测判"投影层真的在生产路径上"(而不是只测纯函数)。 */}
+        {presentationGroups.map((group) => {
+          if (group.container === null) {
+            const block = group.blocks[0]
+            if (!block) return null
+            return (
+              <div
+                key={group.key}
+                ref={enableVirtual ? measureItem(block.messageId) : undefined}
+                data-presentation-row={group.key}
+                data-presentation-row-type="message"
+                data-presentation-exploring={block.isExploring ? 'true' : 'false'}
+              >
+                {renderMessageBlock(block)}
               </div>
-            </React.Fragment>
+            )
+          }
+          const exploring = groupIsExploring(group)
+          return (
+            <div
+              key={group.key}
+              // 零布局影响:容器只表达语义归属,不参与盒模型(见 presentation-units.ts 头注 ③)
+              className="contents"
+              data-presentation-row={group.key}
+              data-presentation-row-type="thinkingAgent"
+              data-presentation-turn={group.container.turnId}
+              data-presentation-message-count={group.blocks.length}
+              // isExploring 语义位落地(任务三):「正在探索」与「正在思考」两态在 DOM 上可判。
+              // 文案待 i18n 解锁(语言包被并行会话持有),故此处只给机器可读差异,不造半套文案。
+              data-presentation-exploring={exploring ? 'true' : 'false'}
+            >
+              {group.blocks.map((block) => (
+                <div
+                  key={block.messageId}
+                  ref={enableVirtual ? measureItem(block.messageId) : undefined}
+                  data-presentation-block={block.messageId}
+                  data-presentation-block-kind={block.activity ? 'activity-group' : 'message'}
+                  data-presentation-exploring={block.isExploring ? 'true' : 'false'}
+                >
+                  {renderMessageBlock(block)}
+                </div>
+              ))}
+            </div>
           )
         })}
         {/* #7 虚拟滚动底部占位 */}
