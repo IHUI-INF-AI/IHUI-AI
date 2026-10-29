@@ -163,4 +163,119 @@ test('R10 空输入不抛,且本文件不得长出第二份撞键判据(§22c)',
     '本文件里出现源脚本的内部分组符号 ⇒ 有人在测试里复刻判据(§22c 禁第二份真相)',
   )
 })
+
+/**
+ * N1–N5:生成腿的水印注入 + 原子落盘(g33-s11 @2026-10-29 立)。
+ *
+ * 立因是现读:`node scripts/gen-rn-compat.mjs --write` 只要走到"重写 route-map.generated.ts"
+ * 那一支就**必挂** —— `✓ 图标无变化` 照打,紧跟 `❌ 水印注入失败(…):Command failed: <命令本身>`
+ * 并 exit 2(连撞两轮可复现;取证夹具 `.ihui-agent/tmp/g33/s11/repro-watermark.mjs`)。
+ * 根因不在水印仪:共享工作区里这枚刚被写过的文件在头几百毫秒被并发会话/守护轮持有句柄,
+ * 谁 open 谁拿 `UNKNOWN: unknown error`(errno -4094),而**隔 2 秒再注即成功** ⇒ 瞬时争用。
+ * 旧实现一次不成就退、还把原因截成命令本身(§12f),于是门 251 的修复出口成了跑不通的出路(§0.8)。
+ * 失败分支一律走源脚本自己的注入面(`opts.spawn/sleep/die`,与 `lib/atomic-write.mjs` 的
+ * `fs`/`sleep` 同一条纪律),载荷完好性用 watermark.mjs 的生产实现判,本测试零复制判据(§22c)。
+ */
+const gen = await import('../gen-rn-compat.mjs')
+const wm = await import('../watermark.mjs')
+const inject = gen.__test__.injectWatermark
+const NO_PAYLOAD = '// 生成件正文夹具(无载荷)\nexport const X = 1\n'
+// injectText 的回给是 {text, action}(不是裸字符串)——拿错形态就是把 undefined 喂给载荷判据,
+// 表现为 "text.match is not a function" 的异步炸裂,而不是一句"夹具坏了"。
+const WITH_PAYLOAD = wm.__test__.injectText(NO_PAYLOAD, { rel: 'probe.ts' }).text
+assert.ok(wm.__test__.payloadIntact(WITH_PAYLOAD), '夹具前置:injectText 造出的载荷必须可解码')
+const unknownErr = (abs) => {
+  const e = new Error(`UNKNOWN: unknown error, open '${abs}'`)
+  e.code = 'UNKNOWN'
+  return e
+}
+/**
+ * 打靶全程不落盘(内容住在 `disk` 里,由 `opts.read` 供给):本仓 `.ihui-agent/tmp` 有并发清理轮,
+ * 实测探针件会在写后毫秒级被抹掉 ⇒ 用例红的是环境而不是判据(ENOENT)。注入面三件
+ * (`spawn`/`read`/`sleep`/`die`)都走源脚本自己的 opts,生产路径一行不改。
+ */
+const harness = (spawn, startText = NO_PAYLOAD) => {
+  const disk = { text: startText }
+  const state = { calls: 0, sleeps: [], died: null, disk }
+  try {
+    inject('apps/miniapp-taro/src/rn-compat/route-map.generated.ts', {
+      spawn: (abs) => {
+        state.calls++
+        return spawn(abs, state.calls, disk)
+      },
+      read: () => disk.text,
+      sleep: (ms) => state.sleeps.push(ms),
+      die: (message) => {
+        const err = new Error(message)
+        err.g33Died = true
+        state.died = err
+        throw err
+      },
+    })
+  } catch (err) {
+    // die 的哨兵在这里收口(生产是 process.exit,永不返回);别的异常一律原样抛
+    if (!err?.g33Died) throw err
+  }
+  return state
+}
+
+test('N1 命令返回 0 且回读到完好载荷 ⇒ 静默返回、只打一轮', () => {
+  const state = harness(() => undefined, WITH_PAYLOAD)
+  assert.equal(state.calls, 1, '成功路径不得多打一轮')
+  assert.equal(state.died, null, '成功不许叫 die')
+  assert.deepEqual(state.sleeps, [], '成功不该退避')
+})
+
+test('N2 前两轮 UNKNOWN 争用、第三轮注上 ⇒ 必须退避后成功(旧写法在这里直接 exit 2)', () => {
+  const state = harness((abs, call, disk) => {
+    if (call <= 2) throw unknownErr(abs)
+    disk.text = WITH_PAYLOAD
+  })
+  assert.equal(state.calls, 3, '必须打到第三轮(证明重试真在射程里,不是侥幸)')
+  assert.deepEqual(state.sleeps, [1500, 3000], '按轮次线性退避(实测 2 秒即过)')
+  assert.equal(state.died, null)
+})
+
+test('N3 四轮全失败 ⇒ 走 die 且把子进程 stderr 与 errno 原样点名(旧写法只念命令本身)', () => {
+  const state = harness((abs) => {
+    const e = unknownErr(abs)
+    e.stderr = '[watermark:inject] 写入被打断:句柄未释放\n'
+    throw e
+  })
+  assert.equal(state.calls, 4, '重试上限 4 轮')
+  assert.deepEqual(state.sleeps, [1500, 3000, 4500], '每轮之间都要退避')
+  const msg = state.died?.message ?? ''
+  assert.ok(state.died?.g33Died, '失败必须走 die(生产即 console.error + exit 2)')
+  assert.ok(msg.includes('写入被打断:句柄未释放'), `未把子进程 stderr 带出来:${msg}`)
+  assert.ok(msg.includes('errno=UNKNOWN'), `未点名 errno:${msg}`)
+  assert.ok(msg.includes('已试 4 轮'), `未报重试轮数:${msg}`)
+})
+
+test('N4 反向牙:命令返回 0 但盘上回读不到载荷 ⇒ 按未注入拒收,绝不记成功', () => {
+  const state = harness((abs, call, disk) => {
+    disk.text = NO_PAYLOAD // 命令"绿"了,载荷却没复位
+  })
+  assert.equal(state.calls, 4, '回读不过就要把轮数打满后表态')
+  assert.ok((state.died?.message ?? '').includes('回读不到完好载荷'), '必须点名"未注入"这一型(§13)')
+})
+
+test('N5 形状锁:--write 段落盘一律走 atomicWriteFileSync,且两处写完都紧随注入', () => {
+  const src = readFileSync(fileURLToPath(new URL('../gen-rn-compat.mjs', import.meta.url)), 'utf8')
+  const body = src.slice(src.indexOf('  if (write) {'))
+  assert.ok(body.length > 40 && body.startsWith('  if (write) {'), '锚点腐烂 ⇒ 本锁空转,先修锚')
+  assert.ok(
+    !/^\s*writeFileSync\(/m.test(body),
+    '--write 段里出现裸 writeFileSync ⇒ 又回到"覆盖已被持有的目标"(本轮实测 errno -4094 的落点)',
+  )
+  assert.equal(
+    (body.match(/atomicWriteFileSync\(/g) || []).length,
+    2,
+    '图标与路由映射两处正文必须各走一次原子替换出口',
+  )
+  assert.equal(
+    (body.match(/injectWatermark\(/g) || []).length,
+    2,
+    '两处正文写完都必须紧随注入(§5c:漏注 = 下一次提交链红在没人写过那行的地方)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

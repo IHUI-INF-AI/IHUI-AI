@@ -22,12 +22,16 @@
  *   node scripts/gen-rn-compat.mjs --check      # 已产出文件与现读全集对账(供守门 import)
  */
 /* eslint-disable no-console -- CLI 工具,需 console 输出预演/落地清单 */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { __test__ as lucide } from './gen-taro-lucide-icons.mjs'
+import { atomicWriteFileSync } from './lib/atomic-write.mjs'
+// 载荷完好性判据取 watermark.mjs 那一份(§0.6 单一真相源):本文件不得再抄第二个标记字面量。
+// 该模块受 isDirectRun 守卫(§22d),被 import 时不跑主流程。
+import { __test__ as watermark } from './watermark.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const R = (...p) => join(ROOT, ...p)
@@ -322,26 +326,81 @@ async function formatWithPrettier(relPath) {
     parser: relPath.endsWith('.tsx') ? 'typescript' : 'typescript',
     filepath: abs,
   })
-  writeFileSync(abs, formatted, 'utf8')
+  atomicWriteFileSync(abs, formatted, { encoding: 'utf8' })
 }
 
 /**
  * 生成物落盘后**紧随**注入溯源水印(§5c:生成器 writeFileSync 后必须注入,用 process.execPath +
  * 绝对路径)。不注入的后果不是"少一行注释":check-watermark-coverage 会把这一枚判成
  * 未覆盖/残迹,而它按被审面判 ⇒ 下一次提交链直接红,且红在没人写过这行的地方。
+ *
+ * 注入不是"派生一条命令返回 0 就算做完",三条同批(实测 g33-s11 @2026-10-29):
+ *  ① **退避重试**——本仓共享工作区里,刚写完盘的头几百毫秒这一枚文件常被并发会话/守护轮/
+ *     杀软持有,子进程 open 抛 `UNKNOWN: unknown error, open <file>`(errno -4094)。实测一轮
+ *     `--write` 走到"重写路由映射"那一支时 100% 栽在这里(连撞两次,而 `✓ 图标无变化` 照打,
+ *     看起来像偶发);**同一枚文件隔 2 秒再注即成功** ⇒ 争用是瞬时的,不重试就是
+ *     把 §0.8 禁止的"跑不通的出路"钉在门 251 的修复出口上(`gen-rn-compat.mjs --write`)。
+ *  ② **失败原因要出得来**——旧写法 `String(error.message).slice(0,140)` 截出来的整串只是
+ *     命令本身,一个字的原因都没有(§12f:失效的表现永远是安静);改取子进程 stderr,再兜 errno。
+ *  ③ **回读自证**(§13)——命令返回 0 也可能是"写了又没落全";载荷完好性直接问 watermark.mjs
+ *     自己的 `payloadIntact`,本文件零抄标记字面量(§0.6 单一真相源)。
+ * 三条的失效方向一致:证不了就 exit 2 点名未注入,绝不把"注了"说成做完。
+ * `opts` 是注入面(与 `lib/atomic-write.mjs` 的 `fs`/`sleep`/`tmpName` 同一条纪律):镜像测试
+ * 据此证真/证伪各条失败分支,不必真去把并发句柄争用造出来。生产调用一律走默认值。
  */
-function injectWatermark(relPath) {
-  try {
-    execFileSync(process.execPath, [R('scripts', 'watermark.mjs'), 'inject', R(relPath)], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+function injectWatermark(relPath, opts = {}) {
+  const abs = R(relPath)
+  const spawn =
+    opts.spawn ??
+    ((target) =>
+      execFileSync(process.execPath, [R('scripts', 'watermark.mjs'), 'inject', target], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 1 << 24,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      }))
+  const sleep =
+    opts.sleep ?? ((ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms))
+  // 回读面也留注入位:镜像测试打的是"命令返回 0 之后盘上到底有没有载荷"这一判序,
+  // 不需要真去和临时件清理轮抢一枚文件(实测探针件会在写后毫秒级被清掉 ⇒ 用例变红的是环境)
+  const read = opts.read ?? ((target) => readFileSync(target, 'utf8'))
+  const intact = opts.payloadIntact ?? ((text) => watermark.payloadIntact(text))
+  const die =
+    opts.die ??
+    ((message) => {
+      console.error(message)
+      process.exit(2)
     })
-  } catch (error) {
-    console.error(`❌ 水印注入失败(${relPath}):${String(error?.message ?? error).slice(0, 140)}`)
-    process.exit(2)
+  const attempts = 4
+  let last = '未执行'
+  for (let i = 1; i <= attempts; i++) {
+    let spawnFailed = false
+    try {
+      spawn(abs)
+    } catch (error) {
+      spawnFailed = true
+      last =
+        String(error?.stderr ?? '')
+          .trim()
+          .slice(0, 600) ||
+        String(error?.message ?? error)
+          .trim()
+          .slice(0, 600) ||
+        '子进程无输出'
+      if (error?.code) last += `(errno=${error.code})`
+    }
+    // 回读自证:命令绿了不算,载荷必须真在盘上(取 watermark.mjs 那一份判据,不抄第二份)
+    if (!spawnFailed) {
+      if (intact(read(abs))) return
+      last = '注入命令返回 0,但回读不到完好载荷(按未注入处理,不记成功)'
+    }
+    if (i < attempts) sleep(i * 1500)
   }
+  die(
+    `❌ 水印注入失败(${relPath},已试 ${attempts} 轮):注入子进程未成功或回读不到载荷` +
+      `(errno=-4094/UNKNOWN 一型属共享工作区的瞬时句柄争用);最后一手:${last}`,
+  )
 }
 
 async function main() {
@@ -431,10 +490,19 @@ async function main() {
     )
   }
   if (write) {
+    /**
+     * 落盘一律走 `lib/atomic-write.mjs`(工具层唯一出口),不再裸 `writeFileSync`:
+     * 实测(g33-s11 @2026-10-29,同一枚文件连撞三轮)——共享工作区里这些生成件常年被并发
+     * 会话 / 守护轮 / 杀软持有句柄,裸覆盖写的 `open(path,'w')`(O_TRUNC 那一步)直接抛
+     * `UNKNOWN: unknown error, open <file>`(errno -4094),子进程去 open 同一枚也是同一个码;
+     * `--write` 于是栽在"正文已换、水印未落"或"正文都没写进去"这两格并以 exit 2 收场 —— 即 §0.8 禁止的"文档写了跑不通的出路"(门 251 的修复出口
+     * 就是这条命令)。原子替换开的是**同目录新临时名**(不碰被占的目标),失败不留半成品、
+     * 也不截目标;退避用层里那一份,本文件不再写第二个重试器(§0.6)。
+     */
     if (iconsAlreadyCovered)
       console.log(`✓ 图标无变化(盘上生成物已覆盖现读全集 ${iconNamesNew.length} 名)`)
     else {
-      writeFileSync(outPath, next, 'utf8')
+      atomicWriteFileSync(outPath, next, { encoding: 'utf8' })
       await formatWithPrettier(OUT_REL)
       injectWatermark(OUT_REL)
       console.log(`✓ 已写 ${OUT_REL}(${rows.length} 个图标,已按仓库 prettier 配置归一并注入水印)`)
@@ -442,7 +510,7 @@ async function main() {
     if (routesAlreadyCovered)
       console.log(`✓ 路由映射无变化(盘上已覆盖现读 ${routeKeysNew.length} 条)`)
     else {
-      writeFileSync(routeOut, routeNext, 'utf8')
+      atomicWriteFileSync(routeOut, routeNext, { encoding: 'utf8' })
       await formatWithPrettier(ROUTE_OUT_REL)
       injectWatermark(ROUTE_OUT_REL)
       console.log(`✓ 已写 ${ROUTE_OUT_REL}(${routeInfo.map.size} 条路由,已归一 + 注水印)`)
@@ -461,5 +529,14 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { kebab, collectIconNames, buildTable, renderSource, OUT_REL }
+export const __test__ = {
+  kebab,
+  collectIconNames,
+  buildTable,
+  renderSource,
+  OUT_REL,
+  ROUTE_OUT_REL,
+  // 供镜像测试打真出口(§22c:测试 import 源脚本,禁复制注入逻辑)
+  injectWatermark,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
