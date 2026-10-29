@@ -1,6 +1,6 @@
 {
-  "okAtoms": 9,
-  "totalAtoms": 10,
+  "okAtoms": 11,
+  "totalAtoms": 11,
   "setAt": "2026-10-27",
-  "note": "阶段1/2 收官基线(口径已校正): 视觉原子 card/input/badge/tabs/dialog/tooltip/vip-badge/switch/sheet 双端消费 spec(9 OK); avatar=PARTIAL(web apps/web/src/components/data/Avatar.tsx 已吃 avatar-spec,但 packages/ui-native/src/avatar.tsx 仍用本地 sizeMap 未吃,他人在飞 WIP 遗留)。collapsible 重分类为 EXEMPT(行为包裹组件,无盒模型几何可单一源,仅共享 w-full,视觉对齐需功能动画对齐→阶段2),不计入分母与缺口。棘轮只拦退化、不拦存量。"
+  "note": "阶段1/2/3 收官基线(口径已校正):视觉原子 card/input/badge/tabs/dialog/tooltip/vip-badge/switch/sheet/avatar/button 双端消费各自单一源(avatar=RN 现吃 avatar-spec;button=共享 @ihui/design-tokens button-variants)。collapsible 重分类为 EXEMPT(行为包裹组件,无盒模型几何可单一源)不计入分母。棘轮只拦退化、不拦存量。"
 }

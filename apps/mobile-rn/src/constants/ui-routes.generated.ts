@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 50418afb2dba817a3a4d7133374d15cd13aa6086
-// inputsSha256: fc46ce14e3a46e3a3758d8fca98f1f9c3ba5a6884e8660433e6ceef0f6f871dc
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx f1d5baefb375d394cbf1feeb30543e8ad0ada9f3b4be06a400c2bedf8070c004
+// sourceCommit: da26b4adc7ff404d38b322dea50cdc63658dc7b3
+// inputsSha256: 94fa486f2592556efe5a5d320908b16500dfd93c02bd7ec04f93ca1cb6f2bc84
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 971678cc98f677e9651acfd0c561dcc29f5ce02369c166288573ba064fefc7b2
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-29T08:26:43.049Z
+// generatedAt: 2026-10-28T06:55:22.366Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 330 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 312 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -63,11 +63,6 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'RealNameAuth', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'IdentityVerify', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'SecuritySettings', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'SecurityAudit', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'MemberSettings', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'MemberDashboard', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'MyAgents', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'EduDashboard', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'SecurityCenter', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ApiKeys', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'DataRights', tab: false, requiresParams: false, requiredParams: [] },
@@ -119,18 +114,6 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'KnowledgeBaseEdit', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'MemoryNew', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'VoiceStt', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'AiWorkspaceProject', tab: false, requiresParams: true, requiredParams: ['id'] },
-  { name: 'CourseHomework', tab: false, requiresParams: true, requiredParams: ['id'] },
-  { name: 'EduGradeTrend', tab: false, requiresParams: true, requiredParams: ['studentId'] },
-  { name: 'EduTeacherStudyPlan', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'KnowledgeEntryReading', tab: false, requiresParams: true, requiredParams: ['id'] },
-  { name: 'KnowledgeBaseList', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'LecturerList', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'LecturerProfile', tab: false, requiresParams: true, requiredParams: ['id'] },
-  { name: 'NewsArticle', tab: false, requiresParams: true, requiredParams: ['id'] },
-  { name: 'NewsCategory', tab: false, requiresParams: true, requiredParams: ['id'] },
-  { name: 'SkillMarketDetail', tab: false, requiresParams: true, requiredParams: ['name'] },
-  { name: 'SkillMarketList', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ArticleEdit', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ArticleHot', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AskEdit', tab: false, requiresParams: false, requiredParams: [] },
@@ -153,6 +136,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
     requiresParams: true,
     requiredParams: ['memberId', 'memberName'],
   },
+  { name: 'NewsCategory', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'SearchHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AiWorldDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'AiWorldEdit', tab: false, requiresParams: true, requiredParams: ['id'] },
@@ -167,7 +151,6 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'MyComments', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'MyLessons', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'MyResources', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'CloudRun', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'OfflineRecords', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Tools', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'PdfToolsHub', tab: false, requiresParams: false, requiredParams: [] },
@@ -234,7 +217,6 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'AgentChat', tab: false, requiresParams: true, requiredParams: ['agentId', 'name'] },
   { name: 'AgentMarket', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgentCreate', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'AgentEdit', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'ArticleDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'ArticleList', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'PostDetail', tab: false, requiresParams: true, requiredParams: ['id'] },

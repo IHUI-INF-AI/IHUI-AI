@@ -1,5 +1,5 @@
 {
-  "$schemaNote": "守门 8「未判定(前缀假设命中)」两腿(主腿 assumptionUndetermined + BP 腿 bareAssumption)的裁决台账(唯一一份,票 G-962 续作 2026-10-22 立)。主腿按 method|path 全局去重 ⇒ 匹配键 leg=main 用 method|path;BP 腿按 method|path|file 去重 ⇒ 匹配键 leg=bare 用 method|path|file。verdict ∈ {alive,dead,human-review}:alive=经判据证实可达(如 next.config.ts rewrite 转发面),dead=真值面重建(index.ts 注册表×export 块归属,3567 条全路径)证实无此注册,human-review=静态判据天然失明、须人定档的形态(e2e 夹具、placeholder、拼接基址)。三型判红:AJ1 条目形状不全(leg/method/path/verdict/reason/owner/reviewBy 缺一不可,bare 另需 file)或 reason/owner 为空、reviewBy 非 YYYY-MM-DD ⇒ 红;AJ2 reviewBy 已过 ⇒ 红,该站点打回未判定桶;AJ3 台账有而本轮被审面(仅 head 整仓面;staged/worktree 记未判定不冒红)找不到对应键 ⇒ 清单腐烂红(站点已删/已改对必须了结本条)。禁消音:已裁条目不退回未判定桶,但必须在「已裁决(台账)」块逐条点名,一条都不能少。锚点用内容键不用行号(site 字段仅溯源展示用)。〔2026-10-23 批7:13 条逐条复核实读,verdict 分布仍 3 alive / 5 dead / 5 human-review,**零条可裁** —— 能真正出桶的三条路(改前端源文件 / 补后端腿 / 扩提取器豁免面)全在本席允许清单外;本轮刷新全部证据行号(知识图谱 rewrite 真行是 next.config.ts:488-489,原记 484-486 是注释),并把三条 alive 的「提取器盲区」与五条 dead 的「后端无通用代理入口」写进 reason。〕〔2026-10-24 批8(票 G-962 续作·收窗,只动 reviewBy/reason):复审窗按 verdict 分档并全部压进 30–60 天 —— dead 30 天 ⇒ 2026-11-23(真 404,三档最短)、human-review 34 天 ⇒ 2026-11-27(等端持有人动手,与本族已收窗两条同档)、alive 60 天 ⇒ 2026-12-23(只取决于 next.config.ts 那条 rewrite 存续,稳定配置取最长)。本批未增删条目、未改 verdict/leg/method/path/file/owner,条目数现读仍 13(3 alive / 5 dead / 5 human-review)。窗的消费方是守门 8 自身的 AJ2(reviewBy < today ⇒ 台账问题判红 + 站点退回未判定桶),守门 108 check-exemption-expiry.mjs 不读这本台账(它只扫行内 *-exempt 标记与 lint 抑制面)。〕〔2026-10-24 批9(票 G-962 收口):5 条 dead 的前端代理回退已删(third-party-config 五个 proxyPath 移除 + startLogin 无代理入口即报未配置),按 AJ3 了结本条 ⇒ 条目数 13→8(3 alive / 0 dead / 5 human-review)。〕〔2026-10-24 批10(同日引爆收形,票 G-962 续作·只动 5 条 human-review 的 reviewBy 并逐条补尾注):批8 把这 5 条压到同一天 2026-11-27,而 AJ2 的语义是「到期 ⇒ problems 判红 + 该站点退回未判定桶」,且 problems.length === 0 是门 8 exit 0 的必要条件 ⇒ 5 条同日 = 那一天全仓提交被同日拦爆(恒红门的形状,§12e)。本批按「复裁实际要动多少事」把 5 条错到 2026-11-23 / 11-28 / 12-03 / 12-08 / 12-15 五个不同日期(自 2026-10-24 起 30/35/40/45/52 天,全落在本族 30–60 天窗档内,不新造档位);3 条 alive 保留 2026-12-23 —— 它们的成立与否同取决于 apps/web/next.config.ts:488-489 那**一条** rewrite,复裁是一次核对而不是三件事,同日不构成交割负担。**AJ1/AJ2/AJ3 的语义一字未改**(到期照旧响 —— 失效方向必须是「多要一次定向说明」,绝不能是「多放一次跳门」,§0.10;守门 108 头注对「已过期」的既有立场也是无条件红、基线救不了它),要消的只是「同日引爆」这个形状。条目数现读仍 8(3 alive / 0 dead / 5 human-review),verdict/leg/method/path/file/owner 全部未动。〔批12 改判留痕@2026-10-24:本批当时写下的「提前点名已装车」是**假话** —— P13 维从未进过 HEAD blob、不在工作树、`git log --all -S\"assumptionLedgerDueSoon\"` 空(任何 ref 都不曾有),而 `check-ops-patrol.mjs --self-test` 当时的 97/97 正是「维不存在」的读数,不是「维做对了」的凭据(§0.9 造好没装车 = 没有)。原文逐字保留只作改判留痕读。〕提前点名**由批12 真装车**:`scripts/check-ops-patrol.mjs` 的 P13 维现读 **HEAD 面**本台账(只取 `HEAD:<本路径>` blob,取不到不回落磁盘副本),把 7 天内到期的条目逐条报数(条目键 + 剩余天数/已到期天数 + 出路「错峰或结清」;只报数不判红 —— 到期红归 AJ2 独判,两处各判 = 同一条债计两次;台账读不到/坏 JSON/形状变 ⇒ 落未判定,不拿 0 冒充「没有临期」),到期算式 import 守门 108 的 `dayDiff`/`isPast`/`DATE_RE`(§0.6 单一真相源,门内不复抄),派发 = git-guardian 的 `auditOpsPatrol` 每 15 分钟一轮(现读 `OPS_PATROL_INTERVAL_MS` 默认 15*60*1000),不进提交链;装车锁 `PATROL_WIRING` 已登记 P13 锚点,且该锁对「名单里没有这一维」当场判红点名(旧写法 filter 出空集 ⇒ 判假绿,P13 上次就是这么静默消失的)。〕〔2026-10-24 批11(同档 ≥3 天间隔收形 + P13 装车兑现,只动 4 条 reviewBy 并逐条补任务格式尾注):批10 后现读仍有两处不满足「同档内彼此至少差 3 天」—— alive 三条同压 2026-12-23、browser/ws 与 agent-ext/withdrawal(2026-11-27)只差 1 天。本批把 8 条重排为 2026-11-27 / 11-30 / 12-03 / 12-08 / 12-13 / 12-17 / 12-20 / 12-23 八个两两 ≥3 天的日期(自 2026-10-24 起 34–60 天,全部在本族 30–60 天窗内,不新造档位);verdict/leg/method/path/file/owner 与 AJ1/AJ2/AJ3 语义一字未动。批10 叙述里的「2026-11-23 / 30 天」与条目现值(agent-ext 留 2026-11-27 / 34 天)不符,以条目现值为准。批10 预告的提前点名 P13 维**并非由批11 落地兑现**(批11 自称「本批落地」与事实不符:该改动从未进过 HEAD,随脏树被洗掉;原文保留只作改判留痕)。真实装车在**批12(2026-10-24 同日重做)**:`scripts/check-ops-patrol.mjs` 现读 HEAD 面本台账,reviewBy 距今 ≤7 天逐条点名(条目键 + 剩余天数 + 建议「错峰或结清」),只报数不判红(到期红仍归 AJ2 独判);台账取不到落未判定,不拿 0 冒充「没有临期」;镜像测试 scripts/tests/check-ops-patrol.test.mjs 的 TAS1–TAS7 补例钉住三态与装车锁两臂(维在 ⇒ 锁绿 / 摘掉 add 或名单缺条 ⇒ 锁红并点名)。〕〔批13@2026-10-25(票 G-962 续作):BP 腿前缀假设 17 处中 --dump-undetermined 可见键的 10 处逐条裁决为 dead(后端 HEAD 面零字面注册,最近真路由逐条点名于 evidence;目标前端文件 apps/miniapp-taro 多枚此刻被别席在飞,删调用/补后端均不在本席允许清单,故按 AJ1 登记等端持有人),reviewBy 按 dead 30 天窗自 2026-10-25 错峰排 2026-11-24→2026-12-21(彼此 ≥3 天)。其余 7 处 --dump-undetermined 只报「其余 7 处」不给键 ⇒ 取不到输入按 §0.3 显式留未判定桶,不冒 0 不冒红。条目数 8→18(3 alive / 10 dead / 5 human-review)。〕",
+  "$schemaNote": "守门 8「未判定(前缀假设命中)」两腿(主腿 assumptionUndetermined + BP 腿 bareAssumption)的裁决台账(唯一一份,票 G-962 续作 2026-10-22 立)。主腿按 method|path 全局去重 ⇒ 匹配键 leg=main 用 method|path;BP 腿按 method|path|file 去重 ⇒ 匹配键 leg=bare 用 method|path|file。verdict ∈ {alive,dead,human-review}:alive=经判据证实可达(如 next.config.ts rewrite 转发面),dead=真值面重建(index.ts 注册表×export 块归属,3567 条全路径)证实无此注册,human-review=静态判据天然失明、须人定档的形态(e2e 夹具、placeholder、拼接基址)。三型判红:AJ1 条目形状不全(leg/method/path/verdict/reason/owner/reviewBy 缺一不可,bare 另需 file)或 reason/owner 为空、reviewBy 非 YYYY-MM-DD ⇒ 红;AJ2 reviewBy 已过 ⇒ 红,该站点打回未判定桶;AJ3 台账有而本轮被审面(仅 head 整仓面;staged/worktree 记未判定不冒红)找不到对应键 ⇒ 清单腐烂红(站点已删/已改对必须了结本条)。禁消音:已裁条目不退回未判定桶,但必须在「已裁决(台账)」块逐条点名,一条都不能少。锚点用内容键不用行号(site 字段仅溯源展示用)。〔2026-10-23 批7:13 条逐条复核实读,verdict 分布仍 3 alive / 5 dead / 5 human-review,**零条可裁** —— 能真正出桶的三条路(改前端源文件 / 补后端腿 / 扩提取器豁免面)全在本席允许清单外;本轮刷新全部证据行号(知识图谱 rewrite 真行是 next.config.ts:488-489,原记 484-486 是注释),并把三条 alive 的「提取器盲区」与五条 dead 的「后端无通用代理入口」写进 reason。〕〔2026-10-24 批8(票 G-962 续作·收窗,只动 reviewBy/reason):复审窗按 verdict 分档并全部压进 30–60 天 —— dead 30 天 ⇒ 2026-11-23(真 404,三档最短)、human-review 34 天 ⇒ 2026-11-27(等端持有人动手,与本族已收窗两条同档)、alive 60 天 ⇒ 2026-12-23(只取决于 next.config.ts 那条 rewrite 存续,稳定配置取最长)。本批未增删条目、未改 verdict/leg/method/path/file/owner,条目数现读仍 13(3 alive / 5 dead / 5 human-review)。窗的消费方是守门 8 自身的 AJ2(reviewBy < today ⇒ 台账问题判红 + 站点退回未判定桶),守门 108 check-exemption-expiry.mjs 不读这本台账(它只扫行内 *-exempt 标记与 lint 抑制面)。〕〔2026-10-24 批9(票 G-962 收口):5 条 dead 的前端代理回退已删(third-party-config 五个 proxyPath 移除 + startLogin 无代理入口即报未配置),按 AJ3 了结本条 ⇒ 条目数 13→8(3 alive / 0 dead / 5 human-review)。〕〔2026-10-24 批10(同日引爆收形,票 G-962 续作·只动 5 条 human-review 的 reviewBy 并逐条补尾注):批8 把这 5 条压到同一天 2026-11-27,而 AJ2 的语义是「到期 ⇒ problems 判红 + 该站点退回未判定桶」,且 problems.length === 0 是门 8 exit 0 的必要条件 ⇒ 5 条同日 = 那一天全仓提交被同日拦爆(恒红门的形状,§12e)。本批按「复裁实际要动多少事」把 5 条错到 2026-11-23 / 11-28 / 12-03 / 12-08 / 12-15 五个不同日期(自 2026-10-24 起 30/35/40/45/52 天,全落在本族 30–60 天窗档内,不新造档位);3 条 alive 保留 2026-12-23 —— 它们的成立与否同取决于 apps/web/next.config.ts:488-489 那**一条** rewrite,复裁是一次核对而不是三件事,同日不构成交割负担。**AJ1/AJ2/AJ3 的语义一字未改**(到期照旧响 —— 失效方向必须是「多要一次定向说明」,绝不能是「多放一次跳门」,§0.10;守门 108 头注对「已过期」的既有立场也是无条件红、基线救不了它),要消的只是「同日引爆」这个形状。条目数现读仍 8(3 alive / 0 dead / 5 human-review),verdict/leg/method/path/file/owner 全部未动。〔批12 改判留痕@2026-10-24:本批当时写下的「提前点名已装车」是**假话** —— P13 维从未进过 HEAD blob、不在工作树、`git log --all -S\"assumptionLedgerDueSoon\"` 空(任何 ref 都不曾有),而 `check-ops-patrol.mjs --self-test` 当时的 97/97 正是「维不存在」的读数,不是「维做对了」的凭据(§0.9 造好没装车 = 没有)。原文逐字保留只作改判留痕读。〕提前点名**由批12 真装车**:`scripts/check-ops-patrol.mjs` 的 P13 维现读 **HEAD 面**本台账(只取 `HEAD:<本路径>` blob,取不到不回落磁盘副本),把 7 天内到期的条目逐条报数(条目键 + 剩余天数/已到期天数 + 出路「错峰或结清」;只报数不判红 —— 到期红归 AJ2 独判,两处各判 = 同一条债计两次;台账读不到/坏 JSON/形状变 ⇒ 落未判定,不拿 0 冒充「没有临期」),到期算式 import 守门 108 的 `dayDiff`/`isPast`/`DATE_RE`(§0.6 单一真相源,门内不复抄),派发 = git-guardian 的 `auditOpsPatrol` 每 15 分钟一轮(现读 `OPS_PATROL_INTERVAL_MS` 默认 15*60*1000),不进提交链;装车锁 `PATROL_WIRING` 已登记 P13 锚点,且该锁对「名单里没有这一维」当场判红点名(旧写法 filter 出空集 ⇒ 判假绿,P13 上次就是这么静默消失的)。〕〔2026-10-24 批11(同档 ≥3 天间隔收形 + P13 装车兑现,只动 4 条 reviewBy 并逐条补任务格式尾注):批10 后现读仍有两处不满足「同档内彼此至少差 3 天」—— alive 三条同压 2026-12-23、browser/ws 与 agent-ext/withdrawal(2026-11-27)只差 1 天。本批把 8 条重排为 2026-11-27 / 11-30 / 12-03 / 12-08 / 12-13 / 12-17 / 12-20 / 12-23 八个两两 ≥3 天的日期(自 2026-10-24 起 34–60 天,全部在本族 30–60 天窗内,不新造档位);verdict/leg/method/path/file/owner 与 AJ1/AJ2/AJ3 语义一字未动。批10 叙述里的「2026-11-23 / 30 天」与条目现值(agent-ext 留 2026-11-27 / 34 天)不符,以条目现值为准。批10 预告的提前点名 P13 维**并非由批11 落地兑现**(批11 自称「本批落地」与事实不符:该改动从未进过 HEAD,随脏树被洗掉;原文保留只作改判留痕)。真实装车在**批12(2026-10-24 同日重做)**:`scripts/check-ops-patrol.mjs` 现读 HEAD 面本台账,reviewBy 距今 ≤7 天逐条点名(条目键 + 剩余天数 + 建议「错峰或结清」),只报数不判红(到期红仍归 AJ2 独判);台账取不到落未判定,不拿 0 冒充「没有临期」;镜像测试 scripts/tests/check-ops-patrol.test.mjs 的 TAS1–TAS7 补例钉住三态与装车锁两臂(维在 ⇒ 锁绿 / 摘掉 add 或名单缺条 ⇒ 锁红并点名)。〕〔批13@2026-10-25(票 G-962 续作):BP 腿前缀假设 17 处中 --dump-undetermined 可见键的 10 处逐条裁决为 dead(后端 HEAD 面零字面注册,最近真路由逐条点名于 evidence;目标前端文件 apps/miniapp-taro 多枚此刻被别席在飞,删调用/补后端均不在本席允许清单,故按 AJ1 登记等端持有人),reviewBy 按 dead 30 天窗自 2026-10-25 错峰排 2026-11-24→2026-12-21(彼此 ≥3 天)。其余 7 处 --dump-undetermined 只报「其余 7 处」不给键 ⇒ 取不到输入按 §0.3 显式留未判定桶,不冒 0 不冒红。条目数 8→18(3 alive / 10 dead / 5 human-review)。〕〔批14@2026-10-25(票 G-962 续作):带值旗标 --dump-undetermined=<路径> 落盘档给出 bareAssumptionUndetermined 全量 7 条(此前批次只读控制台截断面,误判为「其余 7 处无键」),逐条裁决 dead:ranking list/detail 单复数与 detail 漂移、plaza/need 无注册、live 参数形 unsubscribe 真身在 /api/legacy/live/unsubscribe、coupons/available 与 vip/price 零注册、auth/cancel-account 对真身 DELETE /auth/cancel 方法+路径双漂移(注销页运行时到不了后端,产品缺陷信号已写 evidence)。reviewBy 按 dead 30 天窗排 2026-11-25→12-13,与批13 日期互不重合且同档彼此 ≥3 天。条目数 18→25(3 alive / 17 dead / 5 human-review);本桶现读清零。〕〔批15-撤回@2026-10-25(票 G-962 续作):批15 曾把参数段覆盖主腿 20 条按 alive/dead/human-review 写进本台账,但门 8 的台账消费面只有前缀假设两腿(assumptionUndetermined / bareAssumptionUndetermined),参数段覆盖(paramSegmentCovered / bareParamSegmentCovered)结构上不读这本台账 ⇒ 20 条全部落 AJ3「台账条目在 head 整仓面的前缀假设桶里找不到对应站点」,门 RC 0→1。本席判错,判据无责;本枚整批撤回这 20 条,条目 45→25 与批14 版内容一致,仅多本条撤回留痕。参数段覆盖 82 条的正确出路:给门 8 增 param 腿台账消费(归门 8 持有人,AJ1/AJ2/AJ3 须一起设计),或维持未判定桶不冒绿。〕〔批16@2026-10-26(守门 8 存量代裁·两枚 A 档结清,按 AJ3 了结本二条):① GET /api/vip/price @ apps/miniapp-taro/src/pkg-shop/vip-trader/index/index.tsx —— 现读 HEAD 面 vip.ts 在册只有 /vip/levels(:210)、/vip/products(:215)、/vip-compare、/vip/my、/vip/purchase、/vip/faqs、/vip/order(:320)、/vip/order/:orderNo/payinfo、/vip/testimonials,零 /vip/price;ai-service 侧 grep '/vip' 零命中),而操盘手这一档在库里是真商品(vip_levels('操盘手', level_value=2, price 以分计,种子 packages/database/drizzle/0037_vip_captcha.sql:55-59;档位口径 -1游客/0普通/1VIP/2操盘手 见 routes/auth.ts:263 与 services/commission-service.ts:175)⇒ 改客户端接回真端点:打公开的 getVipLevels() 取 levelValue===2 的 price/100(与 pkg-shop/vip/index.tsx:172、vip/upgrade.tsx:41 同写法),取不到回落端内常量并如实 logger.error;不补后端(schema/迁移在禁止面且禁新增表,抄常量冒充服务端真值属 fabrication)。② POST /api/auth/cancel-account @ apps/miniapp-taro/src/pkg-user/account-cancel/index.tsx —— 真身不是批14 记的 DELETE /auth/cancel(auth-extended.ts:1111,仅 authenticate + cancelUserAccount 摘字面、无二次校验、全仓客户端零调用,接它等于新造一条削弱校验的通道),而是 POST /api/settings/delete-account(user/settings-routes.ts:383,经 user/index.ts:43 settingsRoutes → routes/index.ts:1081 missingUserRoutes prefix '/api';deleteAccountSchema:372-381 要求 code|password 至少其一,内置管理员 403,purgeUserPii 全量清 PII + 吊销 token),与 @ihui/api-client 的 deleteAccount()(packages/api-client/src/endpoints/system.ts:478)及 RN AccountCancelScreen:92 同一条路径 ⇒ 小程序是唯一打错的一腿,跨端按同源那条改:只上行 code(phone 由令牌主体在库侧 user.phone 解析后 verifyCode,§5 不信客户端自报;confirmText 后端不消费,留作端内二次确认),端内 5 道前置校验一字未减。残余交主席(射程外):①RN 腿把短信码塞进 password 字段(deleteAccount(smsCode, …) → body {password})⇒ 后端走 verifyPassword 分支必然 400,RN 注销结构上打不通,修法在 packages/api-client 或 apps/mobile-rn;②RN/共享屏把操盘手价写死成常量(TRADER_PRICE 9980 / TRADER_PRICE_CENTS 998000,packages/app/src/features/vip-trader/VipTraderScreen.tsx:69 与 apps/mobile-rn/src/screens/VipTraderScreen.tsx:22,两端零网络调用)与后端操盘手档(¥324/30 天)不是同一真值,小程序接回真端点后该漂移反而更显眼。原 owner 指向的「票 G-962 续作」在 HEAD 台账查无此票(git show HEAD:PROJECT_PLAN.md 现读零命中),是把活儿挂给不存在席位的僵尸裁决,依 2026-10-23/25 两道机主强制令由执行席按证据代裁并当场做完。条目数 25→23(3 alive / 15 dead / 5 human-review);两枚站点随源码改动同笔出桶 ⇒ AJ3 无条目可对,摘除与改码必须同一提交落地,分笔必冒清单腐烂红。〕",
   "items": [
     {
       "leg": "main",
@@ -96,6 +96,186 @@
       "reason": "结论(复裁 2026-10-23):裸根从不单独 fetch(全部 ${WITHDRAWAL_BASE}/...),且该组导出全仓源码零消费方(只有 packages/api-client/dist/*.d.ts 构建产物留名;src/index.ts:242 仍 export *)⇒ 非调用点、无 404 风险。不可裁原因:零消费方的正解是摘导出,但 agent.ts 不在本席允许清单。等 packages/api-client 端点持有人摘除或补消费方时复裁。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-11-27(自 2026-10-24 起 34 天)。为什么是这个窗:human-review 等的是端持有人动手(改 apps/** / packages/** 源文件,或给提取器加基址常量判据),本席与门都代做不了,所以比 dead 略长一档才不至于到期即无人能续;但「静态判据天然失明」这一格必须按月被重问,取 34 天 = 与本族已被前席收窗的两条(2026-11-27)同档,不放宽既有最严的一档。〕",
       "owner": "packages/api-client 端点持有人(票 G-962 续作代裁,复裁归该端)",
       "reviewBy": "2026-11-27"
+    },
+    {
+      "leg": "bare",
+      "method": "POST",
+      "path": "/api/ai/image",
+      "file": "apps/miniapp-taro/src/api/index.ts",
+      "site": "apps/miniapp-taro/src/api/index.ts(POST /api/ai/image)",
+      "verdict": "dead",
+      "evidence": "HEAD 面 git grep(2026-10-25):apps/api/src 全仓无 post 型 /ai/image 字面注册;图像生成真身在 apps/api/src/routes/other/image-gen-routes.ts 的 POST /image-gen/generate(见 index.ts 挂载区)。BP 腿命中仅为前缀假设。",
+      "reason": "逐条复核(2026-10-25 批13):后端真值面零字面注册,修法两条路:删前端死调用,或补后端腿;均不在本席允许清单(apps/miniapp-taro 此刻多文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-11-24"
+    },
+    {
+      "leg": "bare",
+      "method": "PUT",
+      "path": "/api/user/business-card",
+      "file": "apps/miniapp-taro/src/api/index.ts",
+      "site": "apps/miniapp-taro/src/api/index.ts(PUT /api/user/business-card)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:apps/api/src/routes/other/business-card-routes.ts 现读只有 GET /business-card/{stats,list,mine,favorites,:id} 与 POST/DELETE 形,无任何 PUT /business-card 开头注册 ⇒ PUT 形零注册。",
+      "reason": "逐条复核(2026-10-25 批13):后端真值面零字面注册,修法两条路:删前端死调用,或补后端腿;均不在本席允许清单(apps/miniapp-taro 此刻多文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-11-27"
+    },
+    {
+      "leg": "bare",
+      "method": "GET",
+      "path": "/api/pay/activity",
+      "file": "apps/miniapp-taro/src/api/index.ts",
+      "site": "apps/miniapp-taro/src/api/index.ts(GET /api/pay/activity)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:支付族四个路由(paymentGatewayRoutes/paymentUsdtRoutes/paymentExtendedRoutes/paymentRecurringRoutes,index.ts:724-947)内 activity 路径注册零命中,全仓 GET /activity 同样零命中。",
+      "reason": "逐条复核(2026-10-25 批13):后端真值面零字面注册,修法两条路:删前端死调用,或补后端腿;均不在本席允许清单(apps/miniapp-taro 此刻多文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-11-30"
+    },
+    {
+      "leg": "bare",
+      "method": "GET",
+      "path": "/api/operator/data-card",
+      "file": "apps/miniapp-taro/src/api/index.ts",
+      "site": "apps/miniapp-taro/src/api/index.ts(GET /api/operator/data-card)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:git grep data-card 对 apps/api/src/routes 零命中 ⇒ 该前缀下无任何路由族。",
+      "reason": "逐条复核(2026-10-25 批13):后端真值面零字面注册,修法两条路:删前端死调用,或补后端腿;均不在本席允许清单(apps/miniapp-taro 此刻多文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-12-03"
+    },
+    {
+      "leg": "bare",
+      "method": "GET",
+      "path": "/api/ai/my-creation",
+      "file": "apps/miniapp-taro/src/api/index.ts",
+      "site": "apps/miniapp-taro/src/api/index.ts(GET /api/ai/my-creation)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:/my-creation 在 apps/api/src 零命中;ai 族挂载区(index.ts:618-833)无对应注册。",
+      "reason": "逐条复核(2026-10-25 批13):后端真值面零字面注册,修法两条路:删前端死调用,或补后端腿;均不在本席允许清单(apps/miniapp-taro 此刻多文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-12-06"
+    },
+    {
+      "leg": "bare",
+      "method": "GET",
+      "path": "/api/aigc/my-works",
+      "file": "apps/miniapp-taro/src/pages/circle/create.tsx",
+      "site": "apps/miniapp-taro/src/pages/circle/create.tsx(GET /api/aigc/my-works)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:/aigc 注册只有 apps/api/src/routes/ai-education.ts 的 /aigc-tool(挂 /api/ai-education,index.ts:924-925),无 /aigc/my-works;全仓 /my-works 零命中。",
+      "reason": "逐条复核(2026-10-25 批13):后端真值面零字面注册,修法两条路:删前端死调用,或补后端腿;均不在本席允许清单(apps/miniapp-taro 此刻多文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-12-09"
+    },
+    {
+      "leg": "bare",
+      "method": "POST",
+      "path": "/api/circles/follow",
+      "file": "apps/miniapp-taro/src/pages/circle/detail.tsx",
+      "site": "apps/miniapp-taro/src/pages/circle/detail.tsx(POST /api/circles/follow)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:circle-mobile-routes.ts(挂 /api,index.ts:1106)只有 GET /circles/users/recommend(:39)与 GET /circles/topics/hot(:71);POST /follow 在 interactions.ts:104 且挂 /api/interactions(index.ts:595)⇒ /api/circles/follow 无注册。",
+      "reason": "逐条复核(2026-10-25 批13):后端真值面零字面注册,修法两条路:删前端死调用,或补后端腿;均不在本席允许清单(apps/miniapp-taro 此刻多文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-12-12"
+    },
+    {
+      "leg": "bare",
+      "method": "POST",
+      "path": "/api/circles/follow",
+      "file": "apps/miniapp-taro/src/pages/circle/index.tsx",
+      "site": "apps/miniapp-taro/src/pages/circle/index.tsx(POST /api/circles/follow)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:同上一条同判(circle-mobile-routes.ts 无 POST /circles/follow;interactions 的 /follow 挂在 /api/interactions)。BP 腿按 method+path+file 去重 ⇒ 与 detail.tsx 那条分立两枚。",
+      "reason": "逐条复核(2026-10-25 批13):后端真值面零字面注册,修法两条路:删前端死调用,或补后端腿;均不在本席允许清单(apps/miniapp-taro 此刻多文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-12-15"
+    },
+    {
+      "leg": "bare",
+      "method": "POST",
+      "path": "/api/developer/:param/subscribe",
+      "file": "apps/miniapp-taro/src/pkg-ai/developer/subscribe.tsx",
+      "site": "apps/miniapp-taro/src/pkg-ai/developer/subscribe.tsx(POST /api/developer/:param/subscribe)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:developer.ts(挂 /api/developer,index.ts:833)只有 POST /subscribe 平铺形(:454),无 :param/subscribe 参数形 ⇒ 字面 /api/developer/<id>/subscribe 无注册。",
+      "reason": "逐条复核(2026-10-25 批13):后端真值面零字面注册,修法两条路:删前端死调用,或补后端腿;均不在本席允许清单(apps/miniapp-taro 此刻多文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-12-18"
+    },
+    {
+      "leg": "bare",
+      "method": "POST",
+      "path": "/api/developer/:param/unsubscribe",
+      "file": "apps/miniapp-taro/src/pkg-ai/developer/subscribe.tsx",
+      "site": "apps/miniapp-taro/src/pkg-ai/developer/subscribe.tsx(POST /api/developer/:param/unsubscribe)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:developer.ts 现读仅 :454 一处 subscribe 注册,unsubscribe 零命中 ⇒ /api/developer/<id>/unsubscribe 无注册。",
+      "reason": "逐条复核(2026-10-25 批13):后端真值面零字面注册,修法两条路:删前端死调用,或补后端腿;均不在本席允许清单(apps/miniapp-taro 此刻多文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-12-21"
+    },
+    {
+      "leg": "bare",
+      "method": "GET",
+      "path": "/api/ranking/detail",
+      "file": "apps/miniapp-taro/src/pkg-ai/ranking/detail.tsx",
+      "site": "apps/miniapp-taro/src/pkg-ai/ranking/detail.tsx(GET /api/ranking/detail)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:ranking.ts(挂 /api/ranking,index.ts:829)全部注册仅 GET /users(:30) /agents(:67) /courses(:92) /lists(:116),无 /detail;全仓 GET /detail 于该前缀零命中。最近真身:GET /api/ranking/lists。",
+      "reason": "逐条复核(2026-10-25 批14):后端真值面无该字面注册,修法两条路:删前端死调用或对齐真身路径;均不在本席允许清单(apps/miniapp-taro 此刻多枚文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-11-25"
+    },
+    {
+      "leg": "bare",
+      "method": "GET",
+      "path": "/api/ranking/list",
+      "file": "apps/miniapp-taro/src/pkg-ai/ranking/index.tsx",
+      "site": "apps/miniapp-taro/src/pkg-ai/ranking/index.tsx(GET /api/ranking/list)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:同族 ranking.ts 注册仅 /users /agents /courses /lists,无单数 /list ⇒ 前后端单复数漂移。最近真身:GET /api/ranking/lists。",
+      "reason": "逐条复核(2026-10-25 批14):后端真值面无该字面注册,修法两条路:删前端死调用或对齐真身路径;均不在本席允许清单(apps/miniapp-taro 此刻多枚文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-11-28"
+    },
+    {
+      "leg": "bare",
+      "method": "POST",
+      "path": "/api/plaza/need",
+      "file": "apps/miniapp-taro/src/pkg-content/plaza/set-need/index.tsx",
+      "site": "apps/miniapp-taro/src/pkg-content/plaza/set-need/index.tsx(POST /api/plaza/need)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:plaza.ts(挂 /api/plaza,index.ts:697)注册仅 GET /list(:68) POST /(:119) GET/PUT/DELETE /:id(:153/:169/:213),无 POST /need 形。最近真身:POST /api/plaza(发帖走根路径,body 区分类型属产品语义,由持有席核实)。",
+      "reason": "逐条复核(2026-10-25 批14):后端真值面无该字面注册,修法两条路:删前端死调用或对齐真身路径;均不在本席允许清单(apps/miniapp-taro 此刻多枚文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-12-01"
+    },
+    {
+      "leg": "bare",
+      "method": "DELETE",
+      "path": "/api/live/:param/unsubscribe",
+      "file": "apps/miniapp-taro/src/pkg-learn/live/subscribe.tsx",
+      "site": "apps/miniapp-taro/src/pkg-learn/live/subscribe.tsx(DELETE /api/live/:param/unsubscribe)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:全仓无参数形 unsubscribe 注册;真身在 legacy-live.ts 的 DELETE /live/unsubscribe(:32)且挂 /api/legacy(index.ts:902)⇒ /api/legacy/live/unsubscribe,与前端的 /api/live/<id>/unsubscribe 路径形均不匹配。",
+      "reason": "逐条复核(2026-10-25 批14):后端真值面无该字面注册,修法两条路:删前端死调用或对齐真身路径;均不在本席允许清单(apps/miniapp-taro 此刻多枚文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-12-04"
+    },
+    {
+      "leg": "bare",
+      "method": "GET",
+      "path": "/api/coupons/available",
+      "file": "apps/miniapp-taro/src/pkg-shop/pay/index.tsx",
+      "site": "apps/miniapp-taro/src/pkg-shop/pay/index.tsx(GET /api/coupons/available)",
+      "verdict": "dead",
+      "evidence": "HEAD 面:全仓 /available 路由注册零命中;优惠券在册面只有 admin/coupons.js(管理面,index.ts:490),用户面 coupons 路由未见 register。",
+      "reason": "逐条复核(2026-10-25 批14):后端真值面无该字面注册,修法两条路:删前端死调用或对齐真身路径;均不在本席允许清单(apps/miniapp-taro 此刻多枚文件被别席在飞),按 AJ1 登记,等端持有人。",
+      "owner": "apps/miniapp-taro 端持有人(票 G-962 续作;复裁归该端)",
+      "reviewBy": "2026-12-07"
     }
   ]
 }
