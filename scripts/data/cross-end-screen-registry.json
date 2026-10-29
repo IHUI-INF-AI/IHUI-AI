@@ -188,7 +188,7 @@
     },
     {
       "shared": "packages/app/src/features/lecturer-list/LecturerListScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/LecturerListScreen.tsx",
+      "rn": null,
       "miniapp": "pkg-learn/teacher/list"
     },
     {
@@ -713,7 +713,7 @@
     },
     {
       "shared": "packages/app/src/features/course-screen/CourseScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/CourseScreen.tsx",
+      "rn": null,
       "miniapp": "pkg-mirror/course/index"
     },
     {
@@ -1098,7 +1098,7 @@
     },
     {
       "shared": "packages/app/src/features/assistant/AssistantScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AssistantScreen.tsx",
+      "rn": null,
       "miniapp": "pkg-user/assistant/index"
     },
     {
@@ -1268,7 +1268,7 @@
     },
     {
       "shared": "packages/app/src/features/community/NewsCategoryScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/NewsCategoryScreen.tsx",
+      "rn": null,
       "miniapp": "pkg-mirror/news-category/index"
     },
     {
