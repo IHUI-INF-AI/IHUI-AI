@@ -19,6 +19,14 @@
  *        事件不在白名单 → 200 accepted:false;事件体不合 schema → 400;
  *        delivery guid 重复 → 200 duplicate(内存 LRU 一级 + deliveries 表二级);
  *        否则按事件种类派发,处理完成后投递落表 processed(D15②)。
+ *
+ * 回调注册地址的腿位不变量(2026-10-29 实测立):GitHub App 的 `url` 必须登记成
+ * `https://api.aizhs.top/api/github-app/webhook`,**不得**用裸域或 `www.` 那两条 ——
+ * 二者都经 web 蓝绿 router,换流瞬间会对本入口连发 ECONNRESET(svc-web-router.log 里
+ * 19:47–21:23Z 共 10 条),GitHub 侧表现为 522/超时并在 1–3 分钟一次重试;而 api 腿由
+ * IHUI-API-ROUTER 单点接管、换流期不断流。仓内没有任何脚本写这个 url(只能经 GitHub
+ * API/控制台改),所以这条只能靠读这里的人遵守:改址前先 `GET /app/hook/config` 取现值,
+ * 换腿后用真实事件(不是重投——重投读到的可能是旧记录)核对投递落在哪条腿。
  */
 import type { FastifyBaseLogger, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 
