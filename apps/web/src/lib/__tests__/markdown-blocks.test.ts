@@ -144,12 +144,23 @@ describe('splitMarkdownBlocks · 碎片合并', () => {
     expect(blocks).toEqual([content])
   })
 
-  it('长块两侧的小块各自合并,长块不参与合并', () => {
+  it('累积封块:长块即封块点,两侧碎片一并吸收、长块自身不被拆开', () => {
+    // 2026-10-29 改判据后重写(判据见 MARKDOWN_BLOCK_MERGE_THRESHOLD 头注)。
+    // 旧用例期望 ['aa\n\nbb\n\n', long+'\n\n', 'cc\ndd'] 是**贪心式**("相邻两块都短才合并")
+    // 的产物,而那个判据已被实测证明不单调(已合并块长大越过阈值后又被拆回两块),已由
+    // b70cfde77b 换成累积式封块。本用例因此改为钉累积式的真实契约:
+    //   - 长块自身长度即越过阈值 ⇒ 它就是封块点,不会被单独切成一块;
+    //   - 它前面的碎片(aa/bb)累加到它身上,不会各自独立成块;
+    //   - 它后面的碎片(cc/dd)不足阈值,作为尾部残量独立成块。
+    // 块数从 3 降到 2 正是 §6.3「合并小块以降低提交帧率」的落点。
     const long = 'x'.repeat(MARKDOWN_BLOCK_MERGE_THRESHOLD + MARKDOWN_BLOCK_MERGE_THRESHOLD / 2)
     const content = `aa\n\nbb\n\n${long}\n\ncc\ndd`
     const { blocks } = splitMarkdownBlocks(content, 0)
+    // 不变量(Qoder §6.2 核心):块拼接必须逐字等于源
     expect(blocks.join('')).toBe(content)
-    expect(blocks).toEqual(['aa\n\nbb\n\n', `${long}\n\n`, 'cc\ndd'])
+    expect(blocks).toEqual([`aa\n\nbb\n\n${long}\n\n`, 'cc\ndd'])
+    // 长块整段落在同一块内(没被阈值切开)
+    expect(blocks.filter((block) => block.includes(long))).toHaveLength(1)
   })
 
   it('阈值是严格小于:恰好等于阈值的两块不合并', () => {
@@ -172,14 +183,12 @@ describe('splitMarkdownBlocks · 碎片合并', () => {
     const content = `甲\n\n${'x'.repeat(MARKDOWN_BLOCK_MERGE_THRESHOLD + 100)}\n\n乙`
     // 默认阈值:全文 < 1500 ⇒ 单块(不切)
     expect(splitMarkdownBlocks(content).blocks).toEqual([content])
-    // 阈值 0 ⇒ 切点生效;长块两侧的小块不合并
+    // 阈值 0 ⇒ 切点生效(本次改判据后:两侧碎片按累积式并入长块,不再是三块)
+    const long = 'x'.repeat(MARKDOWN_BLOCK_MERGE_THRESHOLD + 100)
     const { blocks } = splitMarkdownBlocks(content, 0)
+    // 不变量(Qoder §6.2 核心):块拼接必须逐字等于源
     expect(blocks.join('')).toBe(content)
-    expect(blocks).toEqual([
-      '甲\n\n',
-      `${'x'.repeat(MARKDOWN_BLOCK_MERGE_THRESHOLD + 100)}\n\n`,
-      '乙',
-    ])
+    expect(blocks).toEqual([`甲\n\n${long}\n\n`, '乙'])
   })
 })
 

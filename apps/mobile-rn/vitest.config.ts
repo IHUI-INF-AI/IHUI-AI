@@ -50,6 +50,74 @@ const SHARED_HOOKS_ALIASES = Object.fromEntries(
     ]),
 )
 
+/**
+ * 更长子路径排在更短之前:@rollup/plugin-alias 的字符串匹配要求 `pattern + '/'` 边界,
+ * 平铺目录内不会出现互相前缀,但**嵌套一旦长出来**(如 `tasks/__tests__` 之流被纳管)
+ * 就会变成"短 key 先命中 ⇒ 长 key 永不可达"的静默漏配。排序是零成本的形状锁。
+ */
+function byLongestKey(entries: [string, string][]): [string, string][] {
+  return entries.sort((a, b) => b[0].length - a[0].length)
+}
+
+const SHARED_CHAT_DIR = resolve(__dirname, '../../packages/shared/src/chat')
+/**
+ * 第四处应用(2026-10-29 实测漏配):chat 的**父别名指真实 barrel**(index.ts),而 barrel 是文件
+ * 不是目录 ⇒ 未被显式列出的子路径(`chat/business-forms` / `chat/form-request-frame` /
+ * `chat/voice-note`)被前缀吞成 `<...>/chat/index.ts/business-forms`,收集期 resolve 失败,
+ * 整份套件一条不跑(症状同 utils/hooks:账面只是"1 个文件失败")。逐条手写会漏 ⇒ 按目录派生;
+ * `index.ts` 不出条目,父路径那条显式别名就是它的出口。
+ */
+const SHARED_CHAT_ALIASES = Object.fromEntries(
+  byLongestKey(
+    readdirSync(SHARED_CHAT_DIR)
+      .filter((f) => /\.(ts|tsx)$/.test(f) && !/^index\./.test(f))
+      .map((f) => [
+        `@ihui/shared/chat/${f.replace(/\.(ts|tsx)$/, '')}`,
+        resolve(SHARED_CHAT_DIR, f),
+      ]),
+  ),
+)
+
+const SHARED_TASKS_DIR = resolve(__dirname, '../../packages/shared/src/tasks')
+/**
+ * 第五处应用(2026-10-29 实测):`tasks` 族此前只有 `tasks/dispatch` 一条手写替身条目,
+ * `tasks/delegation-approval`(src/hooks/useTaskReceiver.ts、src/components/TaskApprovalCard.tsx 取用)
+ * 没有任何条目,也没有派生表覆盖 ⇒ 被 `@ihui/shared` 兜底替身按前缀吞成 `<ihui-shared.ts>/tasks/…`,
+ * 收集期 resolve 失败。派生表按目录补齐真源码;替身条目(若有)写在展开**之后**,
+ * 靠对象键覆盖保住"替身优先于真身",展开在前只补键位不夺语义。
+ */
+const SHARED_TASKS_ALIASES = Object.fromEntries(
+  byLongestKey(
+    readdirSync(SHARED_TASKS_DIR)
+      .filter((f) => /\.(ts|tsx)$/.test(f) && !/^index\./.test(f))
+      .map((f) => [
+        `@ihui/shared/tasks/${f.replace(/\.(ts|tsx)$/, '')}`,
+        resolve(SHARED_TASKS_DIR, f),
+      ]),
+  ),
+)
+
+const SHARED_NOTIFICATIONS_DIR = resolve(__dirname, '../../packages/shared/src/notifications')
+/**
+ * 第六处应用(2026-10-29 实测):本族此前只有两条**深路径替身**条目(notification-store /
+ * use-notification-websocket),而 `src/hooks/index.ts:31` 按 barrel 父路径
+ * `@ihui/shared/notifications` 具名再导出 `useNotificationWebSocket` —— 父路径没条目,
+ * 被兜底替身吞成 `<ihui-shared.ts>/notifications` ⇒ 收集期 "Failed to resolve import",
+ * 凡触到 hooks barrel 的套件(实测 agent-screen)一条用例都不跑。
+ * 派生表补齐目录内其余文件(ws-notification-adapter)到真源码;两条既有的深路径替身条目
+ * 必须排在本展开**之后**(同键后者覆盖前者 ⇒ 保住替身语义不被换成真身)。
+ */
+const SHARED_NOTIFICATIONS_ALIASES = Object.fromEntries(
+  byLongestKey(
+    readdirSync(SHARED_NOTIFICATIONS_DIR)
+      .filter((f) => /\.(ts|tsx)$/.test(f) && !/^index\./.test(f))
+      .map((f) => [
+        `@ihui/shared/notifications/${f.replace(/\.(ts|tsx)$/, '')}`,
+        resolve(SHARED_NOTIFICATIONS_DIR, f),
+      ]),
+  ),
+)
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -224,6 +292,10 @@ export default defineConfig({
       // (@ihui/api-client 仅类型)",所以它不需要替身;各端的存储差异本来就靠注入
       // transport / tokenStore adapter 表达(内存版见 packages/shared/src/stores/transport.ts)。
       '@ihui/shared/stores': resolve(__dirname, '../../packages/shared/src/stores/index.ts'),
+      // 按目录派生(成因见文件头 `SHARED_NOTIFICATIONS_ALIASES` 注释)。顺序纪律:长 key 在前 ——
+      // 派生表只出深路径 key(不含 index.ts),既有的两条深路径替身条目排在展开之后,
+      // 靠同键覆盖保住"替身优先于真身";barrel 父条目排最后,免得它按前缀把深路径抢走。
+      ...SHARED_NOTIFICATIONS_ALIASES,
       '@ihui/shared/notifications/notification-store': resolve(
         __dirname,
         'tests/__mocks__/ihui-shared-notif-store.tsx',
@@ -232,10 +304,25 @@ export default defineConfig({
         __dirname,
         'tests/__mocks__/ihui-shared-notif-ws.ts',
       ),
+      // barrel 父路径的显式出口(派生表刻意不含 index.ts):指真实
+      // packages/shared/src/notifications/index.ts(它只再导出 ws-notification-adapter 与
+      // use-notification-websocket,不导含 JSX 的 notification-store —— 见该文件头注)。
+      '@ihui/shared/notifications': resolve(
+        __dirname,
+        '../../packages/shared/src/notifications/index.ts',
+      ),
+      // 按目录派生(成因见文件头 `SHARED_TASKS_ALIASES` 注释);dispatch 的替身条目排在展开之后
+      // 保住替身语义,delegation-approval 由派生表补成真源码(纯判据,给它写 mock 测的就是 mock)。
+      ...SHARED_TASKS_ALIASES,
       '@ihui/shared/tasks/dispatch': resolve(
         __dirname,
         'tests/__mocks__/ihui-shared-tasks-dispatch.ts',
       ),
+      // 票面缺口的最后一族(2026-10-29 实测):`src/screens/PlanDetailScreen.tsx` 按
+      // '@ihui/shared/plan' 取类型,而同名目录在 packages/shared/src/plan/ 是**纯目录 + index.ts**
+      // ⇒ 没有条目时被兜底替身吞成 <ihui-shared.ts>/plan。目录内除 index.ts 无其他文件,
+      // 故无需派生表,一条显式父别名即可。
+      '@ihui/shared/plan': resolve(__dirname, '../../packages/shared/src/plan/index.ts'),
       // 票 #27:storage key 的唯一真相。barrel 那一条别名此前指到端内替身(它手抄了一个子集,
       // 还把 FALLBACK_MODELS / SSO_CLIENT_IDS 刻意清空)——那正是 #32 同族的一格,本条已收口:
       // 真实 `packages/shared/src/constants/index.ts` 只做常量再导出(唯一的外部引用是
@@ -299,6 +386,10 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/chat/slash-command-ids.ts',
       ),
+      // 按目录派生(成因见文件头 `SHARED_CHAT_ALIASES` 注释):本族父别名指真实 barrel(index.ts),
+      // 未被显式列出的子路径会被前缀吞成 <...>/chat/index.ts/<模块>。派生表排在父别名之前
+      // (长 key 在前),且与上面各条同为真源码 —— 同键覆盖不改变语义。
+      ...SHARED_CHAT_ALIASES,
       '@ihui/shared/chat': resolve(__dirname, '../../packages/shared/src/chat/index.ts'),
       // O81 票③:shared 包新增 './ui' 子路径导出(barrel + 纯 spec 模块,无 DOM/RN 依赖),
       // 当时漏配别名 ⇒ 父别名 '@ihui/shared' 按 startsWith(pattern+'/') 吞掉 '@ihui/shared/ui',

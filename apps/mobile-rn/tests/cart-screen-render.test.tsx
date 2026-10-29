@@ -18,9 +18,28 @@ const nav = vi.hoisted(() => ({ navigate: vi.fn(), goBack: vi.fn() }))
 const appAlert = vi.hoisted(() => vi.fn())
 const selectGoods = vi.hoisted(() => vi.fn())
 
-vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ navigate: nav.navigate, goBack: nav.goBack }),
-}))
+vi.mock('@react-navigation/native', async () => {
+  // CartScreen 经 useRefreshOnFocus 取 useFocusEffect;ESM 下 mock 缺出口 ⇒ 整文件加载即失败。
+  // 语义照端内唯一实现 apps/miniapp-taro/src/rn-compat/navigation.tsx 的 useFocusEffect。
+  const { useEffect } = await import('react')
+  return {
+    useNavigation: () => ({ navigate: nav.navigate, goBack: nav.goBack }),
+    useFocusEffect: (effect: () => void | (() => void)) =>
+      useEffect(() => {
+        const cleanup = effect()
+        return () => cleanup?.()
+      }, [effect]),
+  }
+})
+
+/**
+ * 2026-10-29:本套件曾按 importOriginal 局部补过两处「共享 RN 替身没武装到位」
+ * (① FlatList 不渲 ListEmptyComponent ⇒ 三兄弟状态骨架屏/加载失败+重试/空态一条也渲不出;
+ * ② Animated 缺 loop/sequence ⇒ 骨架屏 Shimmer 渲染期当场抛「Animated.sequence is not a
+ * function」)。两处已补进共享替身 tests/__mocks__/react-native.ts(单一出处,§22c),
+ * 局部复刻随之撤销;`data-role="flatlist"` 标记同样由共享替身供出。
+ * 本屏其余 vi.mock 只拦本套件的外部依赖(导航/取数/支付/弹层),RN 原语一律走共享替身。
+ */
 
 // 图标素材不是本页判据;名单必须覆盖共享屏 + 薄壳两处 import,漏一个是运行时 export 缺失。
 vi.mock('lucide-react-native', () => {
@@ -71,6 +90,25 @@ const val = (k: string) => getValueByPath(zh, k) as string
 
 const okList = (list: unknown[]) => Promise.resolve({ success: true, data: { list } })
 
+/**
+ * 取钮口径与共享替身同一套(照同端正解样板 input-area-model-props.test.tsx:51 的 buttonByLabel
+ * 与其头注):替身把 RN 的 `accessibilityLabel` **归一成 web 的 `aria-label`**
+ * (__mocks__/react-native.ts:98,不映射则 React DOM 丢掉这个未知属性、RTL 的 getByLabelText
+ * 也检索不到),原始属性名根本不落 DOM ⇒ 按 `[accessibilitylabel=…]` 查恒命中 0(2026-10-29 三条红的成因)。
+ * 故主查 aria-label,兼容直通属性 accessibilityLabel,两者都取不到才算"没有这枚钮"。
+ * 本套件按"载体枚数"判据,所以在同一个助手里加计数出口,不写第二把尺子。
+ */
+function buttonsByLabel(container: HTMLElement, label: string): HTMLButtonElement[] {
+  return Array.from(container.querySelectorAll('button')).filter(
+    (el) =>
+      el.getAttribute('aria-label') === label || el.getAttribute('accessibilityLabel') === label,
+  )
+}
+
+function buttonByLabel(container: HTMLElement, label: string): HTMLButtonElement | undefined {
+  return buttonsByLabel(container, label)[0]
+}
+
 describe('CartScreen 渲染委托与内容', () => {
   beforeEach(() => {
     cleanup()
@@ -92,7 +130,7 @@ describe('CartScreen 渲染委托与内容', () => {
         { id: '2', name: '测试商品乙', amount: 7, num: 1 },
       ]),
     )
-    renderScreen()
+    const { container } = renderScreen()
     await waitFor(() => expect(screen.queryByText('测试商品甲')).not.toBeNull())
     expect(screen.getByText('测试商品乙')).toBeDefined() // normalizeCartGoods 的 name 兜底
     expect(screen.getByText('¥12.50')).toBeDefined()
@@ -105,22 +143,22 @@ describe('CartScreen 渲染委托与内容', () => {
     expect(screen.getByText(`${val('cart.checkout')}(3)`)).toBeDefined()
     // 图标载体按无障碍位计数(共享屏 lucide 组件在 packages/app 语境真渲染成 svg DOM,
     // 本套件的 vi.mock 只拦 mobile-rn 侧 import ⇒ 判据落在按钮载体而非图标节点名)
-    expect(document.querySelectorAll('button[accessibilitylabel="删除"]')).toHaveLength(2)
-    expect(document.querySelectorAll('button[accessibilitylabel="+"]')).toHaveLength(2)
-    expect(document.querySelectorAll('button[accessibilitylabel="-"]')).toHaveLength(2)
+    expect(buttonsByLabel(container, val('common.delete'))).toHaveLength(2)
+    expect(buttonsByLabel(container, '+')).toHaveLength(2)
+    expect(buttonsByLabel(container, '-')).toHaveLength(2)
     // 勾选位:2 行 + 全选
-    expect(document.querySelectorAll('button[accessibilityrole="checkbox"]')).toHaveLength(3)
+    expect(container.querySelectorAll('button[accessibilityrole="checkbox"]')).toHaveLength(3)
   })
 
   it('数量 +1 真的改合计(件数与总价同步)', async () => {
     selectGoods.mockImplementation(() =>
       okList([{ id: '1', title: '测试商品甲', price: 10, quantity: 1 }]),
     )
-    renderScreen()
+    const { container } = renderScreen()
     // 初值:行单价 ¥10.00 与底部合计 ¥10.00(10×1)各一枚
     await waitFor(() => expect(screen.getAllByText('¥10.00')).toHaveLength(2))
-    const plus = document.querySelector('button[accessibilitylabel="+"]')
-    expect(plus).not.toBeNull()
+    const plus = buttonByLabel(container, '+')
+    expect(plus ?? null).not.toBeNull()
     fireEvent.click(plus as Element)
     // 件数 1→2:行单价不变,合计变 ¥20.00,结算按钮件数同步
     await waitFor(() => expect(screen.getByText(`${val('cart.checkout')}(2)`)).toBeDefined())

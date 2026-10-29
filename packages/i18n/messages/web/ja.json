@@ -7872,6 +7872,44 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "hookFailures": {
+        "title": "Hook の実行に失敗しました",
+        "evidenceMissing": "最終結果が未記録:この実行は実行ログにもデッドレターキューにも存在しないため、成否を確認できません。",
+        "state": {
+          "succeeded": "成功",
+          "retryScheduled": "再試行を予定",
+          "failed": "失敗",
+          "timedOut": "タイムアウト",
+          "skipped": "スキップ",
+          "resultNotRecorded": "最終結果が未記録"
+        },
+        "aria": {
+          "card": "Hook 実行失敗の詳細",
+          "state": "状態:{state}",
+          "hookName": "Hook 名",
+          "event": "トリガーイベント",
+          "evidence": "証跡の詳細",
+            "dismiss": "このカードを閉じる"
+        },
+        "hint": {
+          "retryScheduled": "しばらくして自動的に再試行されます。操作は不要です。",
+          "failed": "この Hook は完了しませんでした。関連する自動化手順が反映されていない可能性があります。",
+          "timedOut": "制限時間を超えたため中断されました。Hook スクリプトまたはタイムアウト設定を確認してください。",
+          "resultNotRecorded": "この実行は実行ログにもデッドレターキューにも存在しないため、成否を確認できません。"
+        },
+        "field": {
+          "hookName": "Hook",
+          "event": "イベント",
+          "exitCode": "終了コード",
+          "command": "コマンド",
+          "durationMs": "所要時間",
+          "stderr": "エラー出力"
+        },
+        "action": {
+          "retry": "再試行",
+          "inspect": "設定で確認"
+        }
+      },
       "elementPack": {
         "backgroundTask": {
           "state": {
@@ -9505,6 +9543,12 @@
       "imageLoadFailed": "画像の読み込みに失敗しました",
       "moreItems": "... 残り {count} 件",
       "openInNewWindow": "新しいウィンドウで開く",
+      "copyVideoLink": "動画リンクをコピー",
+      "videoLinkCopied": "リンクをコピーしました",
+      "downloadVideo": "動画をダウンロード",
+      "videoDownloading": "ダウンロード中…",
+      "videoDownloaded": "ダウンロード済み",
+      "shareVideo": "共有",
       "pathCopied": "コピー済み",
       "plan": "計画 ({count})",
       "prompt": "プロンプト",
@@ -11294,9 +11338,32 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "duplicatePendingTitle": "同じ指示がまだ確認待ちです",
+    "duplicatePendingDesc": "サーバー側では既に実行された可能性があり、確認だけが届いていません。再送すると二重に実行される恐れがあります。",
+    "emptyAnswerFallback": "今回の応答は内容を返しませんでした",
     "favorite": "ブックマークに追加",
     "unfavorite": "ブックマークを解除",
     "activityExpandMore": "残り{n}件を表示",
+    "activityFoldCollapse": "まとめた手順を折りたたむ",
+    "activityFoldShowAll": "すべての手順を表示",
+    "foldReadFiles": "{n} 件のファイルを読み取り",
+    "foldWriteFiles": "{n} 件のファイルを書き込み",
+    "foldModifyFiles": "{n} 件のファイルを編集",
+    "foldDeleteFiles": "{n} 件のファイルを削除",
+    "foldSearchFiles": "{n} 回の検索",
+    "foldCommands": "{n} 件のコマンドを実行",
+    "foldPreviews": "{n} 回プレビューを開く",
+    "foldWebSearches": "{n} 回のウェブ検索",
+    "foldMcpCalls": "{n} 個の MCP ツールを呼び出し",
+    "foldSkillCalls": "{n} 個のスキルを呼び出し",
+    "foldTaskOps": "{n} 回のタスク操作",
+    "foldThinking": "{n} 回の分析",
+    "foldUserInteractions": "{n} 回の確認",
+    "foldImages": "{n} 枚の画像を生成",
+    "foldVideos": "{n} 本の動画を生成",
+    "foldEnvInits": "{n} 回の環境初期化",
+    "foldEnds": "{n} 回の締めくくり",
+    "foldOthers": "{n} 個のツールを呼び出し",
     "workbenchSessions": "セッション",
     "workbenchImmersiveEnter": "大画面モードに入る",
     "workbenchImmersiveExit": "大画面モードを終了",
@@ -11473,6 +11540,7 @@
       "title": "このターンの変更",
       "revert": "このターンに戻す",
       "noCheckpoints": "チェックポイントなし",
+      "expiredNote": "チェックポイントはディスク上に {hours} 時間保持され、期限が切れると自動的に削除されるため、ここからは元に戻せません。変更一覧は引き続き表示されます。",
       "revertConfirmWithTurns": "この AI 返信より前の会話とファイルに復元します：{count} 件のファイル変更が取り消され、このターン以降に影響する {turns} ターン分の変更も同時に取り消されます。タスク記録は削除されません。この操作は元に戻せません。",
       "revertConfirm": "この AI 返信より前の会話とファイルに復元します：{count} 件のファイル変更が取り消されます。タスク記録は削除されません。この操作は元に戻せません。",
       "changedFile": "ファイルを変更",
@@ -20291,7 +20359,6 @@
     "loginRequired": "ログインしてアカウントプールを管理"
   },
   "nav": {
-    "pdfTools": "PDF ツール",
     "accountPool": "マイアカウントプール",
     "checkin": "チェックイン",
     "monitorWallboard": "監視ウォールボード",

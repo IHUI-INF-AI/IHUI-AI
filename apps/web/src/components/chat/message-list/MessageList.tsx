@@ -44,6 +44,12 @@ import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
 import { FallbackBanner } from './FallbackBanner'
+// D71 十态轮次状态徽章(2026-10-29 装车):`TurnStatusLine` 自 2026-09-28 建好起
+// 零生产消费(`TurnStatusBadge` 建好、词包五语言齐、单测全绿,用户屏幕上仍是空白)。
+// 挂在**消息流尾部**而不是某条消息内部 —— 状态取自 store 的会话级事实
+// (`isStreaming` / 最后一条助手消息的工具态与错误态 / 审批待决),与"哪一条消息"无关:
+// 挂进 MessageItem 会变成"每条消息各挂一枚",同一次流式里 N 条历史消息同时声称自己在跑。
+import { TurnStatusLine } from './turn-status-line'
 // G-828(2026-10-04):窗口化的纯判据(区间 + 窗口外占位高度)单点住在 ../windowing,
 // 本组件不再手算 `offsets[len] - offsets[end+1]`。
 import { windowPaddings } from '../windowing'
@@ -718,6 +724,10 @@ export function MessageList({
         )}
         {/* D2(2026-09-18 立):流式骨架屏占位 —— 用户发消息后、AI 首帧到达前显示,首帧到达即卸载 */}
         {showSkeleton && <StreamingSkeleton />}
+        {/* D71 十态轮次状态徽章(2026-10-29 装车):流尾一行,只对**活跃轮次**出现
+            (判据 `shouldShowTurnStatusLine` 复用 shared 的 `isActiveTurnState`)。
+            空闲/已完成/已终止时整段不渲染 —— 历史消息不该满屏"已完成"。 */}
+        <TurnStatusLine />
         {/* D45(2026-09-24 立,G-54):ambient suggestions 环境建议条。
             消息列表尾部自有容器、常规文档流,不遮挡正文/不渐变遮罩/无原生 title。
             派生用原始 messages(建议独立于档位过滤的呈现粒度)。 */}

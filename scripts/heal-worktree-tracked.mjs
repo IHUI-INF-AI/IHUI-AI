@@ -27,6 +27,10 @@
  *   node scripts/heal-worktree-tracked.mjs --align-drift # 对齐"幻影漂移" + 恢复"旁路提交孤儿路径"(第四层)
  * 紧急跳过:IHUI_SKIP_WORKTREE_HEAL=1
  * 活工作保护窗:IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC(默认 600,0=关闭 —— 最近被写过的文件不判不还原)
+ * 活工作二审(2026-10-29 立,与上一条**互补**):即使内容逐字节等于某祖先版本,只要工作树那一份
+ *   比"HEAD 那一版被提交的时刻"更晚写下,就判为在飞编辑/正当恢复,不还原并逐条点名。
+ *   上一条挡的是"写完立刻被判"的窄缝(墙钟 600s),这一条不随任务时长失效 —— 事故根因见
+ *   splitLiveRestorePaths 头注(补回历史内容 == 幻影漂移,内容上同形)。
  *
  * 分层:第一层 findOrphanedDeletions+heal(` D` 外部删除)、第二/三层 refreshStaleIndex+alignDrifts
  * (` M ` 落后索引与幻影漂移)、第四层 restoreBypassOrphans(2026-09-26 补:HEAD 有 / 索引无 / 盘无,
@@ -458,6 +462,94 @@ function splitFreshWorktreePaths(repoRoot, paths, guardMs) {
     else judgeable.push(p)
   }
   return { fresh, judgeable }
+}
+
+/**
+ * 幻影漂移的**活工作二审**(2026-10-29 立,事故根治)。
+ *
+ * 立因是当日实测,不是假想:一个子任务"恢复被误删的历史功能",补回的内容**逐字节等于祖先
+ * 版本 `83321dbba3` 的 blob** —— 那正是恢复该做的(`git show <祖先>:<path>` 取回)。于是
+ * alignDrifts 的三条判据(① 索引==HEAD ∧ ② 工作区!=HEAD ∧ ③a 内容==某祖先)全部成立,
+ * 20:05:43 工作树被 restore 回 HEAD;该任务最后只能用 object-space-land 的 blob 模式
+ * (只写对象空间、不碰工作树)绕过去。同一枚路径当日 19:5x~20:05 期间还被 safe-commit 的
+ * `git reset HEAD` 清过一次共享索引 —— 索引归位 HEAD 之后,判据①也对它成立了。
+ *
+ * 为什么墙钟窗挡不住(现有活工作保护窗 = `IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC`,默认 600s):
+ * 它判的是"距离**现在**多久",而这类工作的耗时是**任务时长**,不是分钟级 —— 取祖先 blob、
+ * 逐块 StrReplace、跑一遍 vitest + typecheck,很轻松就超过 10 分钟;那一刻编辑既"刚写过"又
+ * 早已出窗,判据照旧把它证成回潮。把窗口调大只是把误伤推迟,并让真漂移越来越晚被清。
+ *
+ * 判据(单条,方向恒为**少误伤**):该路径工作树那份的 mtime **晚于** HEAD 上这一版被提交的
+ * 时刻(`git log -1 --format=%ct HEAD -- <path>`)。语义是"HEAD 这一版是先存的,盘上这份是
+ * 之后写的" ⇒ 要么是在飞编辑、要么是正当恢复;而真幻影漂移的成因是 HEAD 被并发推进
+ * (converge / 旁路落地)后工作树落后,盘上那份必然**早于** HEAD 那一版被提交的时刻。
+ *
+ * 时间基准为什么取"HEAD 这一版的提交时刻"而不是"HEAD 指针最后一次前进的时刻":后者会随并发
+ * 会话提交无关文件而抖动,判据跟着抖;前者只在该路径自己被提交时前进,与它自己有关。
+ *
+ * 为什么单看"内容==祖先"证明不了回潮(判据本身的缺口,今日事故的正身):恢复历史内容与
+ * 陈旧副本**在内容上完全同形** —— 两者都是"某个历史版本的逐字节副本"。机器能从 git 侧拿到的
+ * 唯一区别就是**写入先后**:回潮是"旧内容躺在盘上,HEAD 已经走远",恢复是"HEAD 走远之后,
+ * 有人把旧内容取回来"。时间轴是唯一能区分它们的证据面,故本判据落在时间轴上。
+ *
+ * 代价(照实写):真幻影漂移若在"HEAD 那一版被提交之后"才被写回盘上(例如手工
+ * `git show <祖先>:<f> > <f>` 造出来的回潮),本层会判活工作、不还原,只逐条点名。这是刻意
+ * 选的方向 —— 多留一份不丢内容;那类现场由提交时的门 84(判索引 blob==祖先)与本层点名
+ * 交给归属会话,不是无声放过。存量那族(converge / 旁路落地留下的落后副本;现读守护日志
+ * 累计清理 11082 次)盘上那份天然早于 HEAD 那一版的提交时刻,照旧被清。
+ *
+ * 取不到 mtime / 取不到提交时刻 ⇒ 进 `undetermined` 并点名,**既不还原也不记绿**(§0.3)。
+ *
+ * 实测成本:每枚候选一次 `git log -1 -- <path>`,本机现读 0.5–0.8s;候选集先经墙钟窗与索引
+ * 判据收窄(现读真仓 73 个脏路径里落进本层的通常个位数),且两条通道的历史遍历比它贵一个
+ * 量级 —— 故本层排在墙钟窗之后、历史遍历之前。
+ *
+ * @returns {{judgeable:string[], live:string[], undetermined:Array<{path:string,reason:string}>}}
+ */
+function splitLiveRestorePaths(repoRoot, g, paths) {
+  const judgeable = []
+  const live = []
+  const undetermined = []
+  for (const p of paths) {
+    let mtimeMs
+    try {
+      mtimeMs = statSync(resolve(repoRoot, p)).mtimeMs
+    } catch (e) {
+      undetermined.push({
+        path: p,
+        reason: `工作树 mtime 取不到:${String(e?.message ?? e).slice(0, 120)}`,
+      })
+      continue
+    }
+    let ctRaw = ''
+    try {
+      // `-1 HEAD -- <path>` 给的是"HEAD 上这一版是被哪一枚引入的"及其提交时刻。
+      // 无关提交推进 HEAD 不影响它(别人提交别的文件不会把这条判据搅乱),
+      // 所以它比"HEAD 指针最后前进的时刻"稳得多 —— 后者会让判据随并发提交抖动。
+      ctRaw = g(['log', '-1', '--format=%ct', 'HEAD', '--', p]).trim()
+    } catch (e) {
+      undetermined.push({
+        path: p,
+        reason: `HEAD 当前版的提交时刻取不到:${String(e?.message ?? e).slice(0, 120)}`,
+      })
+      continue
+    }
+    const ct = Number(ctRaw)
+    if (!ctRaw || !Number.isFinite(ct) || ct <= 0) {
+      undetermined.push({
+        path: p,
+        reason: 'git log 未给出该路径当前版的提交时刻(空/非数值)⇒ 不猜它是旧的',
+      })
+      continue
+    }
+    // 两侧都归到**秒**再比:git 的 `%ct` 只有秒级精度,拿毫秒级 mtime 直接比会让
+    // "同一秒内写完"因小数位被判成活工作(那是精度造成的假阳性,不是证据)。
+    // 同一秒的情形按**可判**处理 —— 那一格本来就由墙钟窗(默认 600s)兜着,不需要这里再猜。
+    const mtimeSec = Math.floor(mtimeMs / 1000)
+    if (mtimeSec > ct) live.push(p)
+    else judgeable.push(p)
+  }
+  return { judgeable, live, undetermined }
 }
 
 /**
@@ -1503,11 +1595,16 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   })
   /** 因"最近被写过"而本轮跳过判定的路径(活工作保护窗;见 alignFreshGuardMs 头注) */
   const recentSkips = []
+  /** 因"盘上那份晚于 HEAD 那一版被提交"而跳过判定的路径(活工作二审;见 splitLiveRestorePaths 头注) */
+  const liveSkips = []
   const head = () => ({
     refreshed: refreshed.refreshed,
     refreshDeferred: refreshed.deferred || [],
     refreshExempt: refreshed.exempt || [],
     recentlySkipped: recentSkips,
+    // 活工作二审的跳过名单(2026-10-29)。与 recentlySkipped 分字段:前者可由"等一会儿"自然消解,
+    // 后者不会 —— 它要的是归属会话收口(提交、或明确回滚),故读数里必须能分开看。
+    liveSkipped: liveSkips,
     ancestryUndetermined: refreshed.ancestryUndetermined || [],
     subsetUndetermined: refreshed.subsetUndetermined || [],
     landingAligned: landing.aligned,
@@ -1586,7 +1683,17 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     seenLoss.add(u.path)
     return true
   })
-  const paths = [...whole, ...composite]
+  // 活工作二审(2026-10-29 立):**只对两条通道已判为"内容==祖先"的路径**付这次 git log。
+  // 恢复历史内容与陈旧副本在内容上同形,唯一能分开它们的证据是写入先后 —— 盘上那份晚于
+  // HEAD 那一版被提交 ⇒ 是在飞编辑/正当恢复,不还原只点名(判据与代价见 splitLiveRestorePaths)。
+  // 排在这里而不是两条通道之前,是量出来的:每枚候选一次 `git log -1 -- <path>` 现读 0.5–0.8s,
+  // 而候选集(索引==HEAD ∧ 工作区!=HEAD)在真仓常有几十枚;放在命中之后,调用次数只等于
+  // "真正会被还原的那几枚"(常态个位数),给存量那族(converge/旁路落地留下的落后副本)付的钱不变。
+  const liveSplit = splitLiveRestorePaths(repoRoot, g, [...whole, ...composite])
+  liveSkips.push(...liveSplit.live)
+  for (const u of liveSplit.undetermined)
+    driftUndetermined.push({ path: u.path, channel: 'live-guard', reason: u.reason })
+  const paths = liveSplit.judgeable
   if (!paths.length || dryRun) {
     return {
       aligned: 0,
@@ -2262,14 +2369,24 @@ function selfTestRun() {
 
     // ⑥b/⑥c 活工作保护窗自身的成对锁(2026-10-23 补:护栏装车后 10 例红,却**没有任何一条
     //     用例钉住这条护栏**,于是"夹具全部落在窗内"与"护栏生效"两面都读不出来)。
-    //     ⑥b 窗内:刚写下的真漂移(与 ⑥ 同一判据面)必须**不写且点名** ——
+    //     ⑥b 窗内:落在墙钟窗里的真漂移(与 ⑥ 同一判据面)必须**不写且点名** ——
     //     摘掉 alignDrifts 里 splitFreshWorktreePaths 那一行,本条立刻红(aligned 会变成 1)。
-    //     ⑥c 窗外对照:同一现场只把窗口设 0 ⇒ 必须被对齐 —— 摘掉护栏的"窗口"取值或把它
+    //     ⑥c 对照:同一现场把窗口设 0 ⇒ 必须被对齐 —— 摘掉护栏的"窗口"取值或把它
     //     写成恒跳过,本条立刻红。两条互为正反面,单留任何一条都不构成守住。
+    //
+    //     2026-10-29 补:⑥b 的 mtime 已不再取"刚写完那一刻",而取**提交时刻前 5 秒**。
+    //     原因是新增的活工作二审(见 splitLiveRestorePaths)把"盘上那份晚于 HEAD 那一版被提交"
+    //     单独拿走了 —— 而 ⑥b 原先的现场(提交之后才写)恰好落在二审射程里,于是 ⑥b 的
+    //     aligned=0 会由二审造成而非墙钟窗造成,那两条断言就不再各自可归因。
+    //     拨到提交时刻之前 5 秒之后:对墙钟窗而言它仍是"刚写过的"(now-mtime ≈ 5s ≪ 600s),
+    //     对二审而言它是"旧的"(mtime < ct)⇒ 两个护栏各自射程内只剩自己。
+    const keepCt = Number(g(['log', '-1', '--format=%ct', 'HEAD', '--', 'keep.ts']).trim())
     writeFileSync(join(tmp, 'keep.ts'), 'v1\n')
+    const justBefore = new Date((keepCt - 5) * 1000)
+    utimesSync(join(tmp, 'keep.ts'), justBefore, justBefore)
     const dFresh = withFreshGuardSec(ALIGN_FRESH_GUARD_DEFAULT_MS / 1000, () => alignDrifts(tmp))
     check(
-      '⑥b 活工作保护窗:刚写下的漂移不判不写,且逐条点名到 recentlySkipped',
+      '⑥b 活工作保护窗:窗内的漂移不判不写,且逐条点名到 recentlySkipped',
       dFresh.aligned === 0 &&
         (dFresh.recentlySkipped || []).includes('keep.ts') &&
         readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v1\n',
@@ -3263,16 +3380,36 @@ function printSkipsAndLoss(o) {
     console.log(`⚠️ [${s.layer}] ${s.reason}${advice ? ' —— ' + advice : ''}${more}`)
   }
   const lost = o.driftUndetermined || []
-  if (lost.length) {
+  // 两族必须分开说:live-guard 是"证据取不到"(窗口/seen 这两个字段它根本没有),
+  // 混进同一句会让读数去核对一个不存在的祖先窗口 —— 账面错认比报数更糟。
+  const liveLost = lost.filter((u) => u.channel === 'live-guard')
+  const windowLost = lost.filter((u) => u.channel !== 'live-guard')
+  if (liveLost.length) {
     console.log(
-      `⚠️ ${lost.length} 个路径工作树内容与 HEAD 不等、祖先窗口**确证用尽**而窗内未命中 ⇒ 本轮判不出是否陈旧回写(既不覆写别人的现场,也不得被读成"无需对齐"):`,
+      `⚠️ ${liveLost.length} 个路径的**写入先后**判不出(mtime 或 HEAD 那一版的提交时刻取不到)⇒ 本轮不判不写(既不还原也不记绿):`,
     )
-    for (const u of lost.slice(0, 10))
-      console.log(
-        `   ⚠ 未判定 ${u.path}(窗口 ${u.window},窗内已取 ${u.seen} 枚${u.channel ? ',通道 ' + u.channel : ''})`,
-      )
+    for (const u of liveLost.slice(0, 10)) console.log(`   ⚠ 未判定 ${u.path}(${u.reason})`)
+    console.log(
+      '   出口:确认该路径归属后再定 —— 盘上那份是归属会话在飞/恢复就走 object-space-land 落地,确属陈旧回写才由归属会话 `git checkout HEAD -- <path>`',
+    )
+  }
+  if (windowLost.length) {
+    console.log(
+      `⚠️ ${windowLost.length} 个路径工作树内容与 HEAD 不等、祖先窗口**确证用尽**而窗内未命中 ⇒ 本轮判不出是否陈旧回写(既不覆写别人的现场,也不得被读成"无需对齐"):`,
+    )
+    for (const u of windowLost.slice(0, 10))
+      console.log(`   ⚠ 未判定 ${u.path}(窗口 ${u.window},窗内已取 ${u.seen} 枚)`)
     console.log(
       '   出口:逐条 `git log --format=%H --find-object=<工作树 blob> -- <path>` 问全深度后人工定性(本层刻意不跑无界遍历 —— 现测真仓热档一次全深度 log >120s,而本层每 2 分钟一轮);确属回写由归属会话 `git checkout HEAD -- <path>`',
+    )
+  }
+  // 活工作二审的跳过名单同样必须出声:它与"没有漂移"在 aligned=0 上同形,而处置完全不同
+  // (等一会儿 vs 找归属会话收口)。静默在这里就是 §5b 记过的"安静不是绿的同义词"。
+  if (o.liveSkipped?.length) {
+    console.log(
+      `ℹ️ ${o.liveSkipped.length} 个路径盘上那份**晚于 HEAD 那一版被提交** ⇒ 判为在飞编辑/正当恢复,本轮不还原(2026-10-29 立):` +
+        o.liveSkipped.slice(0, 10).join(', ') +
+        `${o.liveSkipped.length > 10 ? ' …' : ''}`,
     )
   }
   const anc = o.ancestryUndetermined || []
@@ -3545,6 +3682,9 @@ export const __test__ = {
   INDEX_LOCK_LIVE_MS,
   // 活工作保护窗的默认档(镜像测 T19 用它取窗口与回拨量,不得在测试里另抄 600 —— §22c)
   ALIGN_FRESH_GUARD_DEFAULT_MS,
+  // 活工作二审(2026-10-29 立):按"写入先后"而不是"距离现在多近"分堆,判据单源在此,
+  // 镜像测按行为断言(不另抄一份时间比较 —— §22c)
+  splitLiveRestorePaths,
   SKIP_ENV,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

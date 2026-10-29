@@ -42,6 +42,7 @@ from typing import Any
 
 import httpx
 
+from ..core.background_tasks import spawn
 from ..core.config import settings
 from ..core.default_model import is_retired_provider
 from ..middleware.llm_metrics import is_quota_exhaustion_error
@@ -376,7 +377,7 @@ class ModelAvailabilityService:
             return
         self._initialized = True
         # 后台跑首次 ping(不阻塞启动,首次 /llm/models 请求可能命中 PENDING 状态)
-        asyncio.create_task(self._refresh_all_providers())
+        spawn(self._refresh_all_providers(), name="model-availability-initial-refresh")
         # 启动定时刷新(每 5 分钟)
         self._refresh_task = asyncio.create_task(self._refresh_loop())
         logger.info("ModelAvailabilityService initialized (refresh interval: %ds)", REFRESH_INTERVAL_S)

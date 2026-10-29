@@ -16,6 +16,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
+from ..core.background_tasks import spawn
 from ..core.llm_gateway import llm_gateway
 from .skill_feedback import skill_feedback_tracker
 from .skills import skill_registry
@@ -198,8 +199,9 @@ class SkillScheduler:
         try:
             import os as _os
             if _os.environ.get("SELF_EVAL_ENABLED", "false").lower() == "true":
-                asyncio.create_task(
-                    self._trigger_self_eval(chain_result, steps)
+                spawn(
+                    self._trigger_self_eval(chain_result, steps),
+                    name="skill-self-eval",
                 )
         except Exception as e:
             logger.warning(
@@ -318,8 +320,9 @@ class SkillScheduler:
             }
             if error is not None:
                 feedback["failureReason"] = error
-            asyncio.create_task(
-                skill_feedback_tracker.record_usage(feedback)
+            spawn(
+                skill_feedback_tracker.record_usage(feedback),
+                name="skill-feedback-record",
             )
         except Exception as e:
             logger.warning(

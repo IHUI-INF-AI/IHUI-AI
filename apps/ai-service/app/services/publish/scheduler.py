@@ -29,6 +29,7 @@ from typing import Any
 
 import asyncpg
 
+from app.core.background_tasks import spawn
 from app.core.config import settings
 from app.core.db import get_db_conn
 from app.core.logging import get_logger
@@ -799,7 +800,7 @@ class PublishScheduler:
             and result.platform_content_id
             and platform == "zhihu"
         ):
-            asyncio.create_task(
+            spawn(
                 _survival_watch_zhihu(
                     scheduler=self,
                     task_id=task_id,
@@ -810,7 +811,8 @@ class PublishScheduler:
                     platform_config=platform_config,
                     adapter=adapter,
                     attempt=1,
-                )
+                ),
+                name="publish-survival-watch",
             )
             logger.info(
                 "[publish.scheduler] %s 存活看护已启动 task=%s content_id=%s",

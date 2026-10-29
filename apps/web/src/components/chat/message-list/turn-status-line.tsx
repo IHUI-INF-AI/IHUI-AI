@@ -24,7 +24,7 @@ import * as React from 'react'
 import { TurnStatusBadge } from '@/components/ai/turn-status-badge'
 import { useToolApprovalPending } from '@/components/ai/tool-approval-dialog'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
-import type { TurnState } from '@ihui/shared/chat/turn-status'
+import { isActiveTurnState, type TurnState } from '@ihui/shared/chat/turn-status'
 
 /** 投影输入:全部是 store 里已经存在的事实,本模块不引入任何新状态。 */
 export interface TurnFacts {
@@ -54,6 +54,33 @@ export function deriveTurnState(f: TurnFacts): TurnState | null {
   if (f.queuedSideQuestions > 0) return 'queued'
   if (f.lastAssistantErrored) return 'failed'
   return null
+}
+
+/**
+ * 渲染门:**只对活跃轮次显示**。判据复用 `@ihui/shared/chat/turn-status` 的
+ * `isActiveTurnState`(§0.6 单一真相源),端内不另写一张"哪些算活跃"的名单。
+ *
+ * 两条独立理由,缺一条都不行:
+ *   · `null` —— 没有本轮事实(见 `deriveTurnState` 注释),无从渲染;
+ *   · 终态(completed / failed / stopped) —— 历史消息里每轮都会挂一枚徽章,
+ *     满屏"已完成"会把状态位变成装饰,真正要看的活跃态反而被淹没。
+ *
+ * 宿主若直传 `stateOverride`(未来 store 落 `turnState` 字段的形态),同一道门照判 ——
+ * 数据面给出终态时同样不渲染。
+ */
+export function shouldShowTurnStatusLine(state: TurnState | null): state is TurnState {
+  return state !== null && isActiveTurnState(state)
+}
+
+export interface TurnStatusLineProps {
+  /**
+   * 轮次状态直传位。**当前生产侧恒不传**:store 里没有轮次状态字段
+   * (`turnState` / `turnStatus`),只有 `isStreaming` + 消息上的工具态/错误态,
+   * 故走 `deriveTurnState` 投影。等数据层落了字段,宿主传它即可,本组件无需再改。
+   */
+  stateOverride?: TurnState | null
+  /** 徽章附加类名(透传给 `TurnStatusBadge`) */
+  className?: string
 }
 
 /** 从 store 读出 TurnFacts(每个选择器都返回基元 ⇒ 不产生新的对象引用,不触发多余重渲染)。 */
@@ -86,13 +113,17 @@ function useTurnFacts(): TurnFacts {
   return { streaming, runningTool, awaitingApproval, queuedSideQuestions, lastAssistantErrored }
 }
 
-export function TurnStatusLine() {
+export function TurnStatusLine({
+  stateOverride,
+  className,
+}: TurnStatusLineProps): React.JSX.Element | null {
   const facts = useTurnFacts()
-  const state = deriveTurnState(facts)
-  if (!state) return null
+  // `undefined` = 宿主没给(当前生产形态,走投影);`null` = 宿主明确说"本轮无状态"。
+  const projected = stateOverride === undefined ? deriveTurnState(facts) : stateOverride
+  if (!shouldShowTurnStatusLine(projected)) return null
   return (
-    <div className="px-1 py-0.5" data-testid="turn-status-line">
-      <TurnStatusBadge state={state} />
+    <div className="px-1 py-0.5" data-testid="turn-status-line" data-turn-active="true">
+      <TurnStatusBadge state={projected} className={className} />
     </div>
   )
 }
