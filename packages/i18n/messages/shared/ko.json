@@ -2547,5 +2547,26 @@
         }
       }
     }
+  },
+  "streamErrors": {
+    "action": {
+      "retry": "다시 시도",
+      "waitAndRetry": "잠시 후 다시 시도",
+      "switchModel": "모델 변경",
+      "checkQuota": "할당량 확인",
+      "contactAdmin": "관리자에게 문의",
+      "relogin": "다시 로그인",
+      "upgradeApp": "앱 업데이트",
+      "trimContext": "컨텍스트 줄이기",
+      "none": "확인"
+    },
+    "admission": {
+      "tentative": "전송됨, 서버 확인 대기 중",
+      "admitted": "서버가 접수했습니다",
+      "queued": "현재 답변이 끝날 때까지 대기 중",
+      "rejected": "서버가 이 전송을 거부했습니다",
+      "unconfirmed": "서버 수신 여부를 확인할 수 없습니다. 다시 보내기 전에 확인하세요"
+    },
+    "nextStepLabel": "다음 단계"
   }
 }
