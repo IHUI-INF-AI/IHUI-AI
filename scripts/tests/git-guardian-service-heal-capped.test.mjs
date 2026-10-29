@@ -39,7 +39,7 @@
  * 判据一律 import 源脚本的 `healUnresponsiveServices`,本档不复制第二份(§22c)。
  */
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { after, test } from 'node:test'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -104,6 +104,11 @@ function run(tag, now, stdout) {
     cappedFile: path.join(scratch, `${tag}.capped-first.json`),
     offlistFile: path.join(scratch, `${tag}.offlist-first.json`),
     blindFile: path.join(scratch, `${tag}.blind-first.json`),
+    // 2026-10-29 起派发节奏会读自愈状态件判"带伤与否" —— 不注入就变成用例依赖真机状态(测试隔离禁令:
+    // 夹具的结论不得随本机此刻有没有故障而漂)。这里指向各用例自己的 scratch 路径(不存在 ⇒ 标称档)。
+    stateFile: path.join(scratch, `${tag}.heal-state.json`),
+    retryMs: 60_000,
+    retryWindowMs: 15 * 60_000,
     logger: (line) => logs.push(String(line)),
     notify: (name, detail, opts) => {
       mails.push({ name, detail, opts })
@@ -261,6 +266,63 @@ test('C14 重新量到 ⇒ 零封且起点被摘(否则下次真失明第一封�
   const { mails } = run('C14', T0 + 30 * 60_000, report({ actions: [HEALTHY] }))
   assert.equal(mails.length, 0)
   assert.equal(existsSync(path.join(scratch, 'C14.blind-first.json')), false, '起点没摘掉 ⇒ 下一次失明第一封就到 6-24h 档')
+})
+
+// ── C15~C18 带伤快档(2026-10-29 立)───────────────────────────────────────────
+// 立因(当晚实测):09:31:54 本机重启把 web 入口留在 Manual,09:33:15 自愈已看见它 down 并记到
+// strikes=1,但 `consecutiveRounds=2` 要下一轮才动手,而下一轮排在 30 分钟之后 ⇒ 站点从"已经发现"到
+// "真的去拉"要等半小时。确认轮数一颗不减(它就是防瞬时抖动),动的只是"一轮隔多久"。
+// 每一格都带成对反证:同一时刻、只差状态件内容,跑/不跑必须翻面。
+function cadenceRun(tag, stateText) {
+  const tick = path.join(scratch, `${tag}.tick.iso`)
+  const state = path.join(scratch, `${tag}.heal-state.json`)
+  writeFileSync(tick, new Date(T0).toISOString(), 'utf8') // 上一轮刚在 T0 跑过
+  writeFileSync(state, stateText, 'utf8')
+  const logs = []
+  const r = healUnresponsiveServices({
+    now: T0 + 60_000, // 距上一轮 60 秒
+    intervalMs: 30 * 60_000,
+    retryMs: 60_000,
+    retryWindowMs: 15 * 60_000,
+    tickFile: tick,
+    stateFile: state,
+    cappedFile: path.join(scratch, `${tag}.capped-first.json`),
+    offlistFile: path.join(scratch, `${tag}.offlist-first.json`),
+    blindFile: path.join(scratch, `${tag}.blind-first.json`),
+    logger: (line) => logs.push(String(line)),
+    notify: () => ({ sent: true }),
+    runner: () => ({ status: 0, stdout: report({ actions: [HEALTHY] }), stderr: '' }),
+  })
+  return { r, logs }
+}
+const struck = (ageMs) => JSON.stringify({ services: { 'IHUI-WEB-ROUTER': { strikes: 1, lastRestartMs: null, sinceMs: T0 - ageMs, lastVerdict: 'down' } }, restarts: [] })
+
+test('C15 带伤且开账未满窗 ⇒ 60 秒后必须再问一轮(retry 档);同一时刻只把状态换成已恢复就必须翻回不跑', () => {
+  const hurt = cadenceRun('C15a', struck(30_000))
+  assert.equal(hurt.r.ran, true, `带伤时必须跑到,现读 ran=${hurt.r.ran}(${hurt.r.why})`)
+  assert.equal(hurt.r.mode, 'retry')
+  const healed = cadenceRun('C15b', JSON.stringify({ services: { 'IHUI-WEB-ROUTER': { strikes: 0, lastRestartMs: null, sinceMs: null, lastVerdict: 'answering' } }, restarts: [] }))
+  assert.equal(healed.r.ran, false, '已恢复还加密 ⇒ 把快档变成常态(白烧派生成本,下一次真故障不再有加速可言)')
+  assert.equal(healed.r.mode, 'nominal')
+})
+
+test('C16 带伤但已开账 20 分钟(> 15 分钟窗口)⇒ 回标称档:快档必须有终态,不得永久加密', () => {
+  const { r } = cadenceRun('C16', struck(20 * 60_000))
+  assert.equal(r.ran, false)
+  assert.equal(r.mode, 'window-expired', `超窗必须点名已喊过人不再自行加密,现读 ${r.mode}`)
+})
+
+test('C17 状态件坏 JSON ⇒ 按标称档节流并记 undetermined(看不见不等于带伤,§0.3)', () => {
+  const { r } = cadenceRun('C17', '{这不是 JSON')
+  assert.equal(r.ran, false, '取不到判据输入不得反过来加密派发')
+  assert.equal(r.mode, 'undetermined')
+})
+
+test('C18 旧形态状态件(有 strikes 而无 sinceMs)⇒ 先给一次快档,下一轮由动作器补上开账时刻', () => {
+  const legacy = JSON.stringify({ services: { 'IHUI-WEB-ROUTER': { strikes: 1, lastRestartMs: null, lastVerdict: 'down' } }, restarts: [] })
+  const { r } = cadenceRun('C18', legacy)
+  assert.equal(r.ran, true, '升级前留下的链不能因为缺一个字段就被读成没带伤')
+  assert.equal(r.mode, 'retry')
 })
 
 after(() => rmScratch(scratch))
