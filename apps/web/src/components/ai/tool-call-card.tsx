@@ -12,6 +12,9 @@ import {
   ExternalLink,
   Copy,
   BarChart3,
+  Download,
+  Link2,
+  Share2,
   FilePlus2,
   FileDiff,
   FileX2,
@@ -734,6 +737,58 @@ function AudioResultBlock({ audioUrl, prompt }: { audioUrl: string; prompt?: str
 /** video_generation 工具结果渲染:视频播放器 + 提示词 + 新窗口打开链接 */
 function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: string }) {
   const t = useTranslations('ai.toolCall')
+  const { copy, copied } = useClipboard()
+  const [saving, setSaving] = React.useState(false)
+  const [saved, setSaved] = React.useState(false)
+  // 系统分享面板(桌面 Chrome/Edge 与移动端可用;不支持则整键隐藏,不留死按钮)
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
+  // 从直链取文件名(agnes 返回 task_xxx.mp4);取不到给通用名
+  const fileName = React.useMemo(() => {
+    try {
+      const seg = new URL(videoUrl).pathname.split('/').filter(Boolean).pop()
+      return seg && /\.mp4$|\.webm$|\.mov$/i.test(seg) ? seg : 'video.mp4'
+    } catch {
+      return 'video.mp4'
+    }
+  }, [videoUrl])
+
+  // 跨域直链的 download 属性会被浏览器忽略,用 blob 落盘;CORS 拒绝时回退新窗口打开
+  const handleDownload = React.useCallback(async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      const res = await fetch(videoUrl)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const blob = await res.blob()
+      const objUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(objUrl)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch {
+      window.open(videoUrl, '_blank', 'noopener')
+    } finally {
+      setSaving(false)
+    }
+  }, [videoUrl, fileName, saving])
+
+  const handleShare = React.useCallback(async () => {
+    try {
+      await navigator.share({ title: fileName, url: videoUrl })
+    } catch {
+      /* 用户取消分享面板,不算错误 */
+    }
+  }, [videoUrl, fileName])
+
+  const actionBtn =
+    'inline-flex items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
+
   return (
     <div className="space-y-2">
       {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
@@ -748,15 +803,59 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
         {/* AI 生成视频无字幕轨,空 track 满足 jsx-a11y/media-has-caption */}
         <track kind="captions" />
       </video>
-      <a
-        href={videoUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
-      >
-        <ExternalLink className="h-3.5 w-3.5" />
-        <span>{t('openInNewWindow')}</span>
-      </a>
+      <div className="flex flex-wrap items-center gap-2" data-testid="tool-media-video-actions">
+        <button
+          type="button"
+          onClick={() => void copy(videoUrl)}
+          data-testid="tool-media-video-copy"
+          className={actionBtn}
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-green-600" />
+          ) : (
+            <Link2 className="h-3.5 w-3.5" />
+          )}
+          <span>{copied ? t('videoLinkCopied') : t('copyVideoLink')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleDownload()}
+          disabled={saving}
+          data-testid="tool-media-video-download"
+          className={actionBtn}
+        >
+          {saving ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : saved ? (
+            <Check className="h-3.5 w-3.5 text-green-600" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+          <span>
+            {saving ? t('videoDownloading') : saved ? t('videoDownloaded') : t('downloadVideo')}
+          </span>
+        </button>
+        {canShare && (
+          <button
+            type="button"
+            onClick={() => void handleShare()}
+            data-testid="tool-media-video-share"
+            className={actionBtn}
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            <span>{t('shareVideo')}</span>
+          </button>
+        )}
+        <a
+          href={videoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          <span>{t('openInNewWindow')}</span>
+        </a>
+      </div>
     </div>
   )
 }
