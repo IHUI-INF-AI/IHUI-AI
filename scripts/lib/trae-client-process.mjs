@@ -1,6 +1,5 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 本机 Trae 客户端进程探测 / 优雅关闭 / 重新拉起(2026-10-28 立)。
@@ -247,14 +246,8 @@ export function closeProduct(product, opts = {}) {
     return false
   }
   if (waitOnce(waitMs)) return { wasRunning: true, closed: true, pids }
-  /**
-   * 后续轮次一律现场重枚举(2026-10-28 修):冷启动刚拉起的实例仍在初始化,
-   * 快照之后还会派生新子进程;只杀快照 pid 会留下漏网进程,waitOnce 永远归不了零,
-   * 把"其实关得掉"误报成 target-locked(实测复现)。主进程一旦强杀,子进程随之退出。
-   */
-  const freshPids = () => listProductPids(product, env) ?? pids
   // 托盘常驻/窗口收不到消息时再补一轮(覆盖"第一次消息被忽略"的情形),仍不退就交回人工
-  for (const pid of freshPids()) {
+  for (const pid of pids) {
     try {
       execFileSync('taskkill.exe', ['/PID', String(pid)], { windowsHide: true, timeout: 8000, env })
     } catch {
@@ -268,7 +261,7 @@ export function closeProduct(product, opts = {}) {
    * 在托盘常驻的机器上永远不可用(实测"点了没反应"的一大来源)。强杀反而更安全:
    * 客户端没机会执行退出落盘,不可能再覆写我们马上要写的 storage.json。
    */
-  for (const pid of freshPids()) {
+  for (const pid of pids) {
     try {
       execFileSync('taskkill.exe', ['/PID', String(pid), '/F'], { windowsHide: true, timeout: 8000, env })
     } catch {
@@ -279,64 +272,134 @@ export function closeProduct(product, opts = {}) {
 }
 
 /**
- * 以桌面用户身份重新拉起客户端。
- * - 非服务身份:detached spawn(与用户双击等价);
- * - 服务身份:run-as-user.ps1 -NoWait(CreateProcessAsUser + 用户环境块,立即返回)。
- * @returns {{launched:boolean, error:string}}
+ * 以桌面用户身份重新拉起客户端。三条通道,按顺序试,每条起完都**验进程活着**才算数:
+ *   1. 服务身份 → run-as-user.ps1 -NoWait(CreateProcessAsUser + 用户环境块);
+ *   2. 非服务身份 → detached spawn(带 exe 所在目录当 cwd);
+ *   3. 前两条**抛错**或发起了但 3 秒内量不到进程 → **shell 通道 `explorer.exe <exe>`**(等同人工双击)。
+ *
+ * 第 3 条不是兜底摆设:2026-10-28 实测 Loomy 在"由脚本/服务派生"的语境下,1、2 两条都会让它
+ * 在 Electron 主进程启动**之前**就退出码 0 消失(连它自己第一行启动日志都不写、无崩溃转储),
+ * 而同样的两条通道起 notepad 都能活着 ⇒ 不是通道起不了 GUI 进程,是这个客户端要 shell 语义的启动。
+ * 人"双击能打开、脚本打不开"就是这个差别的现场。
+ *
+ * 第 1/2 条**抛错**也必须落到第 3 条:助手在权限不足或脚本自身报错时抛异常,旧写法被外层
+ * catch 直接收成"拉不起来",于是"换一条通道再试"这格整条是空的(实测把 env 换成服务身份跑
+ * 一次 notepad 就复现:helper 抛 CreateProcessAsUser 失败,客户端一个都没试过第二条)。
+ * 但抛错之前先验一次进程 —— 包装器被杀而子进程已起是真实存在的一型,重复起等于给用户多开一个实例。
+ *
+ * 探测取不到(任务列表读不回)⇒ 按未判定放行,绝不把"没量到"读成"没起来"(§0.3)。
+ * @returns {{launched:boolean, error:string, via:string}}
  */
 export function launchProduct(exePath, opts = {}) {
   const env = opts.env ?? process.env
-  if (!exePath || !fs.existsSync(exePath)) return { launched: false, error: '拿不到客户端可执行文件路径' }
+  if (!exePath || !fs.existsSync(exePath)) return { launched: false, error: '拿不到客户端可执行文件路径', via: '' }
   const helper = opts.helperPath ?? ''
-  /** 起了没:给了产品名就等 3 秒再看一眼 pid 面(不然 spawn 成功被安全软件吃掉也会报"已重开") */
+  const run = opts.run ?? execFileSync
+  const waitMs = Number(opts.verifyWaitMs ?? 6000)
+  const product = String(opts.product ?? '').trim()
+  const probe = opts.probe ?? (() => listProductPids(product, env))
+  /**
+   * 起了没:给了产品名就在预算窗口内**反复**看 pid 面,看到就算数。
+   * 反复而不是"到点采一次":2026-10-28 实测真起 notepad 时,3 秒那一次采样扑空 ⇒ 判"没起来",
+   * 而进程紧接着就出现了 —— GUI 冷启动快慢差几倍,单次采样会把"起得慢"读成"没起来",
+   * 连带让下面第三条通道白跑一次(给用户多开一个实例)。
+   * 任一次采样读不回(null)⇒ 按未判定放行,绝不把"没量到"读成"没起来"(§0.3)。
+   */
   const verify = () => {
-    const product = String(opts.product ?? '').trim()
-    const wait = Number(opts.verifyWaitMs ?? 3000)
-    if (!product || !(wait > 0)) return { launched: true, error: '' }
-    sleepSync(wait)
-    const pids = listProductPids(product, env)
-    if (pids !== null && pids.length === 0) {
-      return { launched: false, error: '已发起启动,但 3 秒内没检测到客户端进程(可能被安全软件拦截)' }
+    if (!product || !(waitMs > 0)) return { launched: true, error: '' }
+    const deadline = Date.now() + waitMs
+    let unreadable = false
+    for (;;) {
+      const pids = probe()
+      if (pids === null) unreadable = true
+      else if (pids.length > 0) return { launched: true, error: '' }
+      const left = deadline - Date.now()
+      if (left <= 0) break
+      sleepSync(Math.min(300, left))
     }
-    return { launched: true, error: '' }
+    if (unreadable) return { launched: true, error: '' }
+    return { launched: false, error: `已发起启动,但 ${Math.round(waitMs / 1000)} 秒内没检测到客户端进程` }
+  }
+  /** 主通道(1 或 2)的统一收口:发起 → 验;抛错 → 先验(可能子进程已起)再判失败,失败原因点名是哪条通道 */
+  const verifiable = Boolean(product) && waitMs > 0
+  const primary = (kind, start) => {
+    let threw = null
+    try {
+      start()
+    } catch (e) {
+      threw = e instanceof Error ? e.message : String(e)
+    }
+    if (!verifiable) {
+      // 没有产品名可验时,抛错只能按失败如实回报 —— 不许把"没验"写成"起好了"(§0.3)
+      // 并且**不再试 shell**:验不到"到底起没起",再发起一次等于可能给用户多开一个实例
+      return threw
+        ? { launched: false, stopFallback: true, error: `主通道(${kind})发起失败:${threw}`, via: kind }
+        : { launched: true, error: '', via: kind }
+    }
+    const checked = verify()
+    if (checked.launched) return { launched: true, error: '', via: kind }
+    return { launched: false, error: threw ? `主通道(${kind})发起失败:${threw}` : checked.error, via: kind }
   }
   const serviceIdentity =
     /\\systemprofile(\\|$)/i.test(String(env.USERPROFILE ?? '')) ||
     /\\ServiceProfiles(\\|$)/i.test(String(env.USERPROFILE ?? '')) ||
     /(\$|^system$|^local service$|^network service$)/i.test(String(env.USERNAME ?? '').toLowerCase())
   try {
+    let first
     if (serviceIdentity && helper && fs.existsSync(helper)) {
-      execFileSync(
-        powershellPath(env),
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-ExecutionPolicy',
-          'Bypass',
-          '-File',
-          helper,
-          '-Exe',
-          exePath,
-          '-ArgJson',
-          '[]',
-          '-WorkingDirectory',
-          path.dirname(exePath),
-          '-NoWait',
-        ],
-        { windowsHide: true, timeout: 20_000, env },
+      first = primary('helper', () =>
+        run(
+          powershellPath(env),
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            helper,
+            '-Exe',
+            exePath,
+            '-ArgJson',
+            '[]',
+            '-WorkingDirectory',
+            path.dirname(exePath),
+            '-NoWait',
+          ],
+          { windowsHide: true, timeout: 20_000, env },
+        ),
       )
-      return verify()
+    } else {
+      first = primary('spawn', () => {
+        const child = spawn(exePath, [], {
+          cwd: path.dirname(exePath),
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: false,
+        })
+        child.unref()
+      })
     }
-    const child = spawn(exePath, [], {
-      cwd: path.dirname(exePath),
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: false,
-    })
-    child.unref()
-    return verify()
+    if (first.launched) return first
+    if (first.stopFallback) return { launched: false, error: first.error, via: first.via }
+    return viaShell(first.error)
   } catch (e) {
-    return { launched: false, error: e instanceof Error ? e.message : String(e) }
+    return { launched: false, error: e instanceof Error ? e.message : String(e), via: '' }
+  }
+
+  /** 第三条通道:交给 shell(explorer)起,语义等同人工双击;**起完照样验进程**,不认"发起成功" */
+  function viaShell(firstError) {
+    try {
+      run('explorer.exe', [exePath], { windowsHide: true, timeout: 15_000, env })
+    } catch (e) {
+      return {
+        launched: false,
+        error: `${firstError};shell 通道发起失败(${e instanceof Error ? e.message : String(e)})`,
+        via: 'primary+shell',
+      }
+    }
+    const second = verify()
+    if (second.launched) return { launched: true, error: '', via: 'shell' }
+    return { launched: false, error: `${firstError};${second.error}`, via: 'primary+shell' }
   }
 }
 

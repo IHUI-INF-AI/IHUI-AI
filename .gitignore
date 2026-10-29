@@ -124,6 +124,9 @@ dist.__lock
 # @import '../src/styles/animations.css' 当源码候选抽回 globals.css,
 # enhanced-resolve 以 web 根为上下文解析必炸(build:static/web build 非确定性失败)
 .next-h12*/
+# 2026-10-29 诊断构建 distDir(IHUI_BUILD_DIST=.next-diag,next build diagnostics 落点)。
+# 同 .next-e2e* 坑:Tailwind 4 会扫描构建产物,且本身是构建缓存不入库。
+.next-diag/
 .rollback/
 .turbo/
 # TypeScript 增量构建缓存
