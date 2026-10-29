@@ -97,6 +97,14 @@ export const tabBarStyles = {
    * 外层定位容器:绝对定位浮在内容之上,左右留边,底部贴齐后再由运行时注入
    * marginBottom 悬浮(marginBottom = 有效 safe-area 一半 + 4,见 TabBar.tsx 四稿)。
    */
+  /** 全宽定位根:悬浮胶囊与底部淡出遮罩的共同定位上下文(贴屏幕底部,横跨整屏宽) */
+  root: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  } satisfies ViewStyle,
+
   wrapper: {
     position: 'absolute',
     left: TAB_BAR_FLOAT_MARGIN_H,

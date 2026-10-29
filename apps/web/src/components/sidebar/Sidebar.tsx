@@ -21,6 +21,7 @@ import { SidebarUserRow } from './SidebarUserRow'
 import { NavGroupSection } from './NavGroupSection'
 import { CustomNavSection } from './CustomNavSection'
 import { SidebarHeader } from './SidebarHeader'
+import SidebarScrollFades from './SidebarScrollFades'
 import { SidebarQuickActions } from './SidebarQuickActions'
 import { useNavVisibilityFilter } from './use-nav-visibility'
 // 宽度常量保留在 barrel (../sidebar.tsx) 中,供 scripts/check-sidebar-width-consistency.mjs 守门脚本校验;
@@ -490,7 +491,12 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
           collapsed={effectiveCollapsed}
           onToggleCollapse={onToggleCollapse}
         />
-        {navContent(desktopNavId, navRef, 'desktop', effectiveCollapsed)}
+        {/* relative 包裹层:SidebarScrollFades 的绝对定位淡出锚定在菜单滚动视口的上/下边缘,
+            不随内容滚动;nav 自身 overflow-y-auto 承担滚动。 */}
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {navContent(desktopNavId, navRef, 'desktop', effectiveCollapsed)}
+          <SidebarScrollFades navRef={navRef} />
+        </div>
         {desktopFooter}
         {/* 右侧拖拽手柄:展开/折叠态均显示(折叠态可拖拽展开)。
             外层 w-2(8px)为透明命中区,right-[-4px] 让命中区居中跨越 aside 右边缘(左右各 4px)。
@@ -554,7 +560,11 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
           {/* collapsed 恒 false(2026-09-09 统一):抽屉 160px+ 宽恒展开布局,
               不接用户桌面折叠偏好;header mobile 分支本身忽略该值,此处显式传 false 保持语义一致 */}
           <SidebarHeaderMemo variant="mobile" collapsed={false} onCloseMobile={onCloseMobile} />
-          {navContent(mobileNavId, mobileNavRef, 'mobile', false)}
+          {/* 同桌面:relative 包裹层 + 滚动淡出(移动抽屉菜单同样需要上下边缘无硬切) */}
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            {navContent(mobileNavId, mobileNavRef, 'mobile', false)}
+            <SidebarScrollFades navRef={mobileNavRef} />
+          </div>
           {mobileFooter}
           {/* 移动端拖拽手柄(2026-07-31 第十五次新增):复用 desktop 同款结构
             - onPointerDown 兼容鼠标 + 触屏,无需额外 touch event listener
