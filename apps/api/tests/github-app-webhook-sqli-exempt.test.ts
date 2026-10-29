@@ -75,9 +75,14 @@ describe('github-app webhook 对 sqli-guard 的豁免(59 条 400 实测立锁)',
     expect(response.statusCode).toBe(400)
   })
 
-  it('带合法签名的同形态正文走完准入并按未知事件回 200(豁免没把投递打死)', async () => {
+  it('带合法签名的同形态正文走完准入并按 CI 事件回 200(豁免没把投递打死)', async () => {
     const server = await buildApp()
-    const body = JSON.stringify({ action: 'completed', note: INJECTIONISH })
+    const body = JSON.stringify({
+      action: 'completed',
+      repository: { full_name: 'octo/demo' },
+      workflow_run: { id: 1, status: 'completed', conclusion: 'success', head_sha: 'abc123' },
+      note: INJECTIONISH,
+    })
     const response = await server.inject({
       method: 'POST',
       url: `${BASE}${WEBHOOK_PATH}`,

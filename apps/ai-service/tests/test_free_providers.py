@@ -2,9 +2,9 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""14 个免费/试用 credits LLM provider 综合测试(2026-07-22 立,2026-07-24 扩展)。
+"""24 个免费/试用 credits LLM provider 综合测试(2026-07-22 立,2026-07-24 扩展)。
 
-覆盖 14 个 provider(参考 cheahjs/free-llm-api-resources):
+覆盖 24 个 provider(参考 cheahjs/free-llm-api-resources):
 - Cloudflare Workers AI / NVIDIA NIM / GitHub Models / Vercel AI Gateway
 - OpenCode Zen / Modal / Inference.net / NLP Cloud / Scaleway / Alibaba Cloud International
 - Cerebras / Mistral / Cohere / HuggingFace / Z.ai / Kilo / Pollinations / LLM7 / OVH / AI Horde
@@ -64,6 +64,27 @@ class TestResolveProvider:
         assert api_key == "nv-key"
         assert "integrate.api.nvidia.com" in api_base
         assert litellm_model == "openai/llama-3.1-nemotron-70b"
+
+    def test_resolve_xai_bare_grok_prefix(self, monkeypatch):
+        """裸 grok-* 必须补 openai/ 前缀 —— 否则 LiteLLM 报 LLM Provider NOT provided。"""
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "xai": {"api_key": "xai-test", "api_base": "https://api.x.ai/v1"},
+        }))
+        gw = LLMGateway()
+        api_key, api_base, litellm_model = gw._resolve_provider("grok-4.7")
+        assert api_key == "xai-test"
+        assert api_base == "https://api.x.ai/v1"
+        assert litellm_model == "openai/grok-4.7"
+
+    def test_resolve_xai_slash_prefix(self, monkeypatch):
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "xai": {"api_key": "xai-test", "api_base": "https://api.x.ai/v1"},
+        }))
+        gw = LLMGateway()
+        api_key, api_base, litellm_model = gw._resolve_provider("xai/grok-4.7")
+        assert api_key == "xai-test"
+        assert api_base == "https://api.x.ai/v1"
+        assert litellm_model == "openai/grok-4.7"
 
     def test_resolve_github(self, monkeypatch):
         monkeypatch.setattr(settings, "llm_providers", json.dumps({"github": {"api_key": "gh-token"}}))

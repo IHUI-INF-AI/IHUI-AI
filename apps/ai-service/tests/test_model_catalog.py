@@ -114,6 +114,23 @@ def test_version_tuple_compares_major_first() -> None:
     assert by_id["claude-opus-4-8"] == ModelTier.LEGACY.value
 
 
+def test_xai_grok_420_is_generation_4_2() -> None:
+    """xAI 的 grok-4.20 是 4.2 代(2026-03),不能按字面压过 4.7(2026-09 旗舰)。"""
+    models = [
+        _mk("grok-4.20-0309-reasoning", "xai"),
+        _mk("grok-4.20-0309-non-reasoning", "xai"),
+        _mk("grok-4.7", "xai"),
+        _mk("grok-4.3", "xai"),
+    ]
+    annotate_models(models, now=NOW)
+    by_id = {m["id"]: m["model_tier"] for m in models}
+    assert by_id["grok-4.7"] == ModelTier.LATEST.value
+    assert all(
+        by_id[i] != ModelTier.LATEST.value
+        for i in ("grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "grok-4.3")
+    )
+
+
 # ---------------------------------------------------------------------------
 # 3. 脏 release_date / 时间窗
 # ---------------------------------------------------------------------------

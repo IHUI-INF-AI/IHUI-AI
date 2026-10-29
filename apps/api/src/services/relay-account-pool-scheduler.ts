@@ -283,10 +283,19 @@ export async function markAccountAuthRejected(
     .catch(() => {})
 }
 
-/** 步骤 1「临期刷新」的 where(导出供镜像测试锁形状,查询与断言读同一个对象) */
+/**
+ * 步骤 1「临期刷新」的 where(导出供镜像测试锁形状,查询与断言读同一个对象)
+ *
+ * 2026-10-29 补一格:候选集过去只看 isEnabled ∧ 能再取凭据 ∧ 将到期,而 authRejected
+ * 那条路会把 `tokenExpiresAt` 收敛成"当下"(`markAccountAuthRejected`)⇒ 一枚已被巡检判死、
+ * 已被 tempUnschedulable 摘除的号**永远**满足将到期条件,每 5 分钟再打一次上游换票点。
+ * 现读凭据:池内 trae/18643389808 的失败计数已涨到 327(阈值 3)。死号天天打鉴权点正是
+ * 本仓反复点名的封号前兆型,且"能不能被调度选中"早已有一把单源谓词(见
+ * `accountSchedulableCondition` 头注),这里接上它而不是再抄一份条件。
+ */
 export function expiringRefreshWhere(deadline: Date) {
   return and(
-    eq(aiRelayAccountPool.isEnabled, true),
+    accountSchedulableCondition(),
     recredentialableCondition(),
     lte(aiRelayAccountPool.tokenExpiresAt, deadline),
   )

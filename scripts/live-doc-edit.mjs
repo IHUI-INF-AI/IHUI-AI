@@ -214,6 +214,7 @@ import {
 } from './lib/bypass-git.mjs'
 import {
   usedIdsOfPrefix,
+  usedIdsOfPrefixExcluding,
   keyOfRow,
   MALFORMED_ID_RE,
   MALFORMED_BODY_RE,
@@ -224,6 +225,9 @@ import {
   DISPOSITIONS,
 } from './lib/plan-task-index.mjs'
 import { collectIdFace, scanFamilyIdHits } from './lib/plan-id-face.mjs'
+// Y-2(2026-10-29):让位账本的**读口**只有一份(裁决器里),本器只调它的两个纯函数取号集 ——
+// 不在本器重算"哪些号让得",也不在本器解析 jsonl 语法(两处解析必漂)。
+import { YIELD_LEDGER_REL, activeYields, readYieldLedger } from './plan-pool-yield.mjs'
 
 // 结清留痕自动腿(2026-10-26 立):`- [ ]` → `- [x]` 的两形态逐字入 `plan-row-drop.jsonl`。
 // 写口/幂等/凭据判定只有一份实现(住 lib),本器只交事实(落地 sha / 父提交 / 当下 HEAD / 祖先关系)。
@@ -632,6 +636,37 @@ export function overClaimIdReadings(family, pool, scanReport) {
   }
 }
 
+/**
+ * Y-2(2026-10-29):读让位账本 → `Map<族, Set<号>>`。这是本器与裁决器之间**唯一**的接口面。
+ *
+ * 三条降级都不比改动前更堵(失效方向 = 旧行为 = 一个号都不让):
+ *  - 账本不在位 ⇒ 空集(等于没启用让位,旧行为);
+ *  - 账本读失败 / 有坏行 ⇒ 空集 + 出声(读成"零让位"只会更严,绝不会多发一枚号);
+ *  - 账本里某族某号的最后一条事件是 `reclaim` ⇒ 该号复归占用面(`activeYields` 一处判定);
+ *  - `path` 只是夹具注入点(让测试零副作用地指向临时账本),不构成降级档。
+ */
+export function loadYieldedIdSets({ root = null, path = null } = {}) {
+  const p = path ?? resolve(root ?? REPO_ROOT, YIELD_LEDGER_REL)
+  let led
+  try {
+    led = readYieldLedger(p)
+  } catch (e) {
+    console.error(
+      `⚠️ 让位账本读失败(${String(e?.message ?? e).split(/\r?\n/)[0].slice(0, 120)})⇒ 本轮不让位任何号(比改前更严,不会多发号)`,
+    )
+    return new Map()
+  }
+  if (led.unreadable) {
+    console.error(
+      `⚠️ 让位账本在位但读不出(${led.unreadable})⇒ 本轮不让位任何号(读成"零让位"只会更严)`,
+    )
+    return new Map()
+  }
+  if (led.badLines > 0)
+    console.error(`⚠️ 让位账本有 ${led.badLines} 行解析不了(已跳过;漏读的只会让本器更严)`)
+  return led.exists ? activeYields(led.records) : new Map()
+}
+
 export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const machineId =
     typeof opts?.machineId === 'string' && opts.machineId.trim() ? opts.machineId.trim() : null
@@ -651,13 +686,36 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const scanNotes = []
   const scanReport = []
   const dupTitleNotes = []
+  // Y-2:本次实际吃到的让位号(逐枚留痕 —— "号为什么是这个"必须能从报告读出来)。
+  const yieldNotes = []
+  /**
+   * Y-2 让位集:`Map<族, Set<号>>`。缺省(null/undefined)⇒ 与改动前逐字同形(不做任何减法);
+   * 形状容忍 Set / 数组(调用方可能从 JSON 里读出来)。**只读号集,不读证据** —— 证据留在
+   * `.ihui-agent/state/plan-pool-yield.jsonl`,`--trace` 可反查。
+   */
+  const yieldedIds =
+    opts?.yieldedIds instanceof Map
+      ? opts.yieldedIds
+      : opts?.yieldedIds && typeof opts.yieldedIds === 'object'
+        ? new Map(
+            Object.entries(opts.yieldedIds).map(([k, v]) => [
+              String(k).toUpperCase(),
+              new Set((Array.isArray(v) ? v : v instanceof Set ? [...v] : []).map(Number).filter(Number.isFinite)),
+            ]),
+          )
+        : null
   const famCtx = new Map() // f -> { localDeclared:Set<number>, remoteNums:Set<number>, scanned:Map, chosenMax:number }
   const numOf = (label) => {
     const m = /(\d+)$/.exec(String(label))
     return m ? Number(m[1]) : Number.NaN
   }
   for (const f of allFams) {
-    const used = usedIdsOfPrefix(baseContent, f)
+    // Y-2(2026-10-29):已完成条目"让位"后,该号退出占用面 —— 让位集由 `scripts/plan-pool-yield.mjs`
+    // 裁决并落 `.ihui-agent/state/plan-pool-yield.jsonl`(逐号证据 + append-only,可回滚)。
+    // 本器**只吃号集、不判该不该让**(判据在裁决器,取号层不写第二份)。减法仍走判据单源:
+    // `usedIdsOfPrefixExcluding` 是 `usedIdsOfPrefix` 的集合差,不重扫正文、不另写编号语法。
+    const yset = yieldedIds?.get?.(f) ?? null
+    const used = yset && yset.size ? usedIdsOfPrefixExcluding(baseContent, f, yset) : usedIdsOfPrefix(baseContent, f)
     if (used === null) {
       // 手填号所在族在底稿一条登记行都没有 ⇒ 该维判不出,行**原样保留**(族在底稿无行即无底稿撞号);
       // 令牌族保持旧口径:宁拒不发"<族>-1"。
@@ -727,6 +785,13 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     const skipped = []
     const keepIfFree = (n) => {
       rawFree.push(n)
+      // Y-2:该号已被裁决为"已完成条目让位" ⇒ 面上那些引用(归档件旧登记 / 台账占位注释 / 批次流水)
+      // 不再算占用。**只对账本点名的号生效**,且账本里每一枚都带着"全face每次出现都已结清且早于窗"
+      // 的证据 ⇒ 这不是"归档面不扫了"(那等于撤 G-14),而是逐号的、可反查的退出。
+      if (yset && yset.has(n)) {
+        yieldNotes.push(`${lbl(n)} 已让位(账本 ${YIELD_LEDGER_REL})⇒ 面引用不计占用;反查 node scripts/plan-pool-yield.mjs --trace ${lbl(n)}`)
+        return true
+      }
       const hit = scanned.get(n)
       if (!hit) return true
       skipped.push({ id: lbl(n), sites: hit.sites, fromWorktree: hit.fromWorktree === true })
@@ -1033,6 +1098,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     leaseClaims,
     leaseNotes,
     scanNotes,
+    yieldNotes,
     scanReport,
     dupTitleNotes,
   }
@@ -2555,6 +2621,9 @@ async function main() {
       vacating,
       manualCheck: !replacements,
       worktreeText,
+      // Y-2:让位账本每轮现读(与"号段基准每轮重算"同一条理由 —— HEAD 在动,账本也会随裁决推进;
+      // 提到循环外就把让位面烘成一次性读数)。账本缺位/读不出 ⇒ 空集,与改前逐字同形。
+      yieldedIds: loadYieldedIdSets({ root }),
     })
     if (!tok.ok) {
       if (tok.reason === 'duplicate-title') {
@@ -2636,6 +2705,7 @@ async function main() {
     for (const b of tok.basis ?? []) console.log(describeIdBasis(b, remote))
     // 租约读数逐条交出:段内连号还是新占段、段界在哪,报告必须能对上"号为什么是这一个"。
     for (const n of tok.leaseNotes ?? []) console.log(`ℹ ${n}`)
+    for (const n of tok.yieldNotes ?? []) console.log(`ℹ 号池让位:${n}`)
     for (const n of tok.scanNotes ?? []) console.log(`ℹ ${n}`)
     for (const n of tok.dupTitleNotes ?? []) console.log(`⚠️ 守门194:${n}`)
     {

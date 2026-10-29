@@ -28,6 +28,7 @@ import os
 from typing import Any
 
 from app.core.db import get_db_conn
+from app.providers.agnes_video_provider import AgnesVideoProvider
 from app.providers.alibaba_dashscope_provider import AlibabaDashscopeProvider
 from app.providers.base_provider import ProviderError
 from app.providers.jimeng_provider import JimengProvider
@@ -37,8 +38,8 @@ from app.providers.token6688_provider import Token6688Provider
 
 logger = logging.getLogger(__name__)
 
-# 默认 provider 优先级(可被 VIDEO_PROVIDER 覆盖);token6688 单 key 全模态,已配置则优先
-_DEFAULT_PRIORITY = ["token6688", "kling", "jimeng", "wan", "hunyuan"]
+# 默认 provider 优先级(可被 VIDEO_PROVIDER 覆盖);agnes 为聚合网关,凭据在 LLM_PROVIDERS 里,已配置则优先
+_DEFAULT_PRIORITY = ["agnes", "token6688", "kling", "jimeng", "wan", "hunyuan"]
 
 # ---------------------------------------------------------------------------
 # 凭据配置的播报去重(2026-10-18 立,治 5.2 万行/天的日志噪音)
@@ -95,6 +96,22 @@ def _configured_providers() -> list[tuple[str, Any]]:
 def _instantiate(name: str) -> Any | None:
     """按厂商名实例化 provider;未配置凭据返回 None。"""
     try:
+        if name in ("agnes", "agnes-ai"):
+            key = os.environ.get("AGNES_API_KEY", "").strip()
+            base = os.environ.get("AGNES_API_BASE", "").strip()
+            if not key:
+                try:
+                    from app.core.config import settings
+                    cfg = settings.get_provider_config("agnes")
+                    key = cfg.api_key or ""
+                    base = (cfg.api_base or "").strip()
+                except Exception:  # noqa: BLE001
+                    key = ""
+            if key:
+                _report_credential_state(name, True)
+                return AgnesVideoProvider(key, base or None)
+            _report_credential_state(name, False, "AGNES_API_KEY 或 LLM_PROVIDERS.agnes")
+            return None
         if name in ("token6688", "t6688", "tokengo"):
             key = os.environ.get("TOKEN6688_API_KEY") or ""
             if not key:

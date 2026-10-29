@@ -35,6 +35,7 @@ export interface PlatformTemplate {
     | 'bytedance'
     | 'stepfun'
     | 'groq'
+    | 'xai'
     | 'openrouter'
     | 'ollama'
     | 'local'
@@ -216,6 +217,20 @@ export const PLATFORM_TEMPLATES: PlatformTemplate[] = [
     isOfficial: true,
     docsUrl: 'https://console.groq.com/docs',
     signupUrl: 'https://console.groq.com/keys',
+  },
+  {
+    code: 'xai',
+    name: 'xAI Grok',
+    vendor: 'xai',
+    description: 'Grok 4.7 / 4.6 / 4.3(百万级上下文)',
+    baseUrl: 'https://api.x.ai/v1',
+    apiFormat: 'openai_chat',
+    defaultModelId: 'grok-4.7',
+    defaultContextLength: 500000,
+    modelsListPath: '/models',
+    isOfficial: true,
+    docsUrl: 'https://docs.x.ai',
+    signupUrl: 'https://console.x.ai',
   },
   {
     code: 'openrouter',

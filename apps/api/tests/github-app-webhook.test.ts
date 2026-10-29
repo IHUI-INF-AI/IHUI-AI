@@ -248,7 +248,7 @@ describe('github-app webhook:事件派发', () => {
     const { calls, transport } = makeTransport(() => PR_FILES_REPLY)
     const { server } = buildApp({ transport, deduper })
     await server.ready()
-    const response = await post(server, 'workflow_run', { action: 'completed' }, 'd-unsupported')
+    const response = await post(server, 'deployment_status', { action: 'created' }, 'd-unsupported')
     expect(response.statusCode).toBe(200)
     expect(response.json()).toMatchObject({
       code: 0,
@@ -578,6 +578,143 @@ describe('github-app webhook:事件派发', () => {
     expect(outcome.status).toBe('failed')
     expect(outcome.stage).toBe('diff')
     expect(outcome.message).not.toContain('Bad credentials')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Y-13(2026-10-29):CI 三类事件
+//
+// 票面读数:同一批 100 条外部投递里 check_suite / workflow_run 各 2 枚 400、check_run 一枚 500。
+// 400 侧已由 sqli-guard 路由豁免收口(github-app-webhook-sqli-exempt.test.ts 钉住);
+// 这里钉另外两件:①三类事件必须被 schema 认、必须有显式 200 + 忽略原因(不再 unsupported_event
+// 静默丢弃,那在 GitHub 读数上与"没收到"同形);②缺维体的 4xx 要说出缺的是哪一维;
+// ③处理链抛错只能出结构化 500(带 requestId/delivery 供对账),不回显异常正文。
+// ---------------------------------------------------------------------------
+function ciSubject(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 4001,
+    status: 'completed',
+    conclusion: 'failure',
+    head_sha: 'abc123',
+    head_branch: 'main',
+    name: 'ci',
+    ...overrides,
+  }
+}
+
+function ciPayload(event: 'check_suite' | 'workflow_run' | 'check_run'): Record<string, unknown> {
+  return {
+    action: 'completed',
+    repository: { full_name: 'octo/demo' },
+    installation: { id: 9001 },
+    [event]: ciSubject(),
+  }
+}
+
+describe('github-app webhook:CI 三类事件(Y-13)', () => {
+  let deduper: ReturnType<typeof createDeliveryDeduper>
+  beforeEach(() => {
+    deduper = createDeliveryDeduper()
+  })
+
+  it.each([
+    ['check_suite', 'check_suite'],
+    ['workflow_run', 'workflow_run'],
+    ['check_run', 'check_run'],
+  ] as const)(
+    '%s 合法体 → 200 + reason=ci_event_not_subscribed(显式忽略,不判 unsupported)',
+    async (event, subjectKey) => {
+      const { calls, transport } = makeTransport(() => PR_FILES_REPLY)
+      const { server } = buildApp({ transport, deduper })
+      await server.ready()
+      const response = await post(server, event, ciPayload(subjectKey), `d-ci-${event}`)
+      expect(response.statusCode).toBe(200)
+      expect(response.json()).toMatchObject({
+        code: 0,
+        data: {
+          accepted: false,
+          reason: 'ci_event_not_subscribed',
+          event,
+          action: 'completed',
+          ci: { status: 'completed', conclusion: 'failure', headSha: 'abc123' },
+        },
+      })
+      // 没有处理分支就不该去调 GitHub API
+      expect(calls).toHaveLength(0)
+    },
+  )
+
+  it.each([
+    ['check_suite', 'check_suite'],
+    ['workflow_run', 'workflow_run'],
+    ['check_run', 'check_run'],
+  ] as const)('%s 缺主体维 → 400,且响应点名缺的字段', async (event, subjectKey) => {
+    const { server } = buildApp({
+      transport: makeTransport(() => PR_FILES_REPLY).transport,
+      deduper,
+    })
+    await server.ready()
+    const payload = ciPayload(subjectKey)
+    delete payload[subjectKey]
+    const response = await post(server, event, payload, `d-ci-bad-${event}`)
+    expect(response.statusCode).toBe(400)
+    const body = response.json() as { code: number; message: string; data: unknown }
+    expect(body.code).toBe(400)
+    expect(body.data).toBeNull()
+    expect(body.message).toContain(event)
+    expect(body.message).toContain(subjectKey)
+  })
+
+  it('CI 事件缺 repository 维 → 400 且点名 repository(不是笼统 schema 报错)', async () => {
+    const { server } = buildApp({
+      transport: makeTransport(() => PR_FILES_REPLY).transport,
+      deduper,
+    })
+    await server.ready()
+    const payload = ciPayload('workflow_run')
+    delete payload['repository']
+    const response = await post(server, 'workflow_run', payload, 'd-ci-no-repo')
+    expect(response.statusCode).toBe(400)
+    const body = response.json() as { message: string }
+    expect(body.message).toContain('workflow_run')
+    expect(body.message).toContain('repository')
+  })
+
+  it('CI 正文里的自由文本(引号/分号/SQL 词)不进 4xx 判据:合法结构照 200', async () => {
+    const { server } = buildApp({
+      transport: makeTransport(() => PR_FILES_REPLY).transport,
+      deduper,
+    })
+    await server.ready()
+    const payload = ciPayload('check_run')
+    ;(payload['check_run'] as Record<string, unknown>)['name'] =
+      "ci ; SELECT id FROM posts WHERE author='bot' UNION SELECT 1 --"
+    const response = await post(server, 'check_run', payload, 'd-ci-freeform')
+    expect(response.statusCode).toBe(200)
+  })
+
+  it('处理链抛错 → 结构化 500(带 requestId/delivery),不回显异常正文', async () => {
+    const throwingDeduper = {
+      record: () => {
+        throw new Error('db boom: connect ECONNREFUSED 127.0.0.1:5432')
+      },
+      size: () => 0,
+      clear: () => {},
+    }
+    const { server } = buildApp({
+      transport: makeTransport(() => PR_FILES_REPLY).transport,
+      deduper: throwingDeduper,
+    })
+    await server.ready()
+    const response = await post(server, 'check_run', ciPayload('check_run'), 'd-ci-throw')
+    expect(response.statusCode).toBe(500)
+    const body = response.json() as { code: number; message: string; data: unknown }
+    expect(body.code).toBe(500)
+    expect(body.data).toBeNull()
+    expect(body.message).toContain('requestId=')
+    expect(body.message).toContain('d-ci-throw')
+    expect(body.message).not.toContain('ECONNREFUSED')
+    expect(body.message).not.toContain('db boom')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
