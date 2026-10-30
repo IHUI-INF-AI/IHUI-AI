@@ -13,7 +13,8 @@ import { refund, getOrderDetail, type Order } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
-import { ScreenSkeleton } from '@/components/ScreenStates.taro'
+import RefundHeader from './refund-header'
+import RefundOrderCard from './refund-order-card'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 
@@ -154,51 +155,13 @@ export default function OrderRefund() {
           输入框 2rpx 描边 / 圆角 24rpx / bg surface.muted,提交按钮 h100rpx 圆角 24rpx */}
       <View className="min-h-screen bg-background p-[20rpx] pb-[160rpx]">
         <View className="rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
-          <View className="text-[length:32rpx] font-semibold text-foreground mb-[24rpx]">
-            {tt('order.refund.title', '申请退款')}
-          </View>
-          {loading ? (
-            <ScreenSkeleton variant="list" count={4} />
-          ) : (
-            <View className="flex flex-col gap-[16rpx]">
-              <View className="flex items-start justify-between gap-[24rpx]">
-                <Text className="text-[length:28rpx] text-muted-foreground shrink-0">
-                  {tt('order.refund.orderNo', '订单号')}
-                </Text>
-                <Text className="text-[length:28rpx] text-muted-foreground text-right break-all">
-                  {orderNo}
-                </Text>
-              </View>
-              {order?.title ? (
-                <View className="flex items-start justify-between gap-[24rpx]">
-                  <Text className="text-[length:28rpx] text-muted-foreground shrink-0">
-                    {tt('order.refund.productLabel', '商品名称')}
-                  </Text>
-                  <Text className="text-[length:28rpx] text-foreground text-right break-all">
-                    {order.title}
-                  </Text>
-                </View>
-              ) : null}
-              <View className="flex items-start justify-between gap-[24rpx]">
-                <Text className="text-[length:28rpx] text-muted-foreground shrink-0">
-                  {tt('order.refund.amountLabel', '订单金额')}
-                </Text>
-                <Text className="text-[length:36rpx] font-semibold text-[var(--color-success)] text-right break-all">
-                  ¥{refundAmount.toFixed(2)}
-                </Text>
-              </View>
-              {order?.createTime ? (
-                <View className="flex items-start justify-between gap-[24rpx]">
-                  <Text className="text-[length:28rpx] text-muted-foreground shrink-0">
-                    {tt('order.refund.orderTimeLabel', '下单时间')}
-                  </Text>
-                  <Text className="text-[length:28rpx] text-foreground text-right break-all">
-                    {order.createTime}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          )}
+          <RefundHeader />
+          <RefundOrderCard
+            loading={loading}
+            order={order}
+            orderNo={orderNo}
+            refundAmount={refundAmount}
+          />
         </View>
 
         <View className="mt-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
