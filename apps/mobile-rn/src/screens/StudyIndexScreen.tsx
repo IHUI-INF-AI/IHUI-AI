@@ -68,7 +68,7 @@ import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import type { StudyVideoItem } from '@ihui/types'
 
@@ -938,7 +938,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   tipMyModel: {
     width: 72,
-    height: 28,
+    height: rnGeometry.tapBox,
     borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tk.brandAccent.deep,
