@@ -11,6 +11,7 @@ import { ShieldCheck, Loader2 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { OverviewError } from './OverviewError'
 
 interface ScoreItem {
   id: string
@@ -50,20 +51,27 @@ export function SecurityScore() {
   const t = useTranslations('settings')
   const [data, setData] = React.useState<ScoreData | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState(false)
   const { allow } = useAuthGate()
 
-  React.useEffect(() => {
+  const load = React.useCallback(() => {
     if (!allow) {
       setLoading(false)
       return
     }
+    setError(false)
+    setLoading(true)
     void fetchApi<ScoreData>('/api/user/security-score')
       .then((res) => {
         if (res.success && res.data) setData(res.data)
       })
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [allow])
+
+  React.useEffect(() => {
+    load()
+  }, [load])
 
   const circumference = 2 * Math.PI * 45
   const maxScore = data?.maxScore ?? 100
@@ -96,6 +104,8 @@ export function SecurityScore() {
           <div className="flex justify-center py-6">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
+        ) : error ? (
+          <OverviewError onRetry={load} />
         ) : data ? (
           <div className="flex flex-col gap-4 min-[640px]:flex-row min-[640px]:items-center">
             <div className="relative h-32 w-32 shrink-0">
