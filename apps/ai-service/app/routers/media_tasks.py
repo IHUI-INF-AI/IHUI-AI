@@ -595,4 +595,66 @@ async def stream_media_artifact(url: str, request: Request) -> Any:
     return StreamingResponse(_stream_body(), status_code=resp.status_code, headers=passthrough)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/media/image?url=<图片直链> —— 同源自适应图片代理(2026-10-30 立)
+#
+# 与 /media/download、/media/stream 同族:同源代理 + 同一道 SSRF 闸门(复用
+# screenshot_service._validate_url_ssrf,封死私有/环回/链路本地/元数据 IP)。
+# 但本端点**不碰数据库**:download/stream 只允许命中 media_tasks 表里平台自己
+# 记录过的产物 URL,而 markdown/用户贴入的图片来自不可枚举的任意公网域名,无法
+# 预先登记 —— 它们本就因前端透传 https: 外链,导致 img-src 必须放开 https: 这道
+# 外泄信道。本端点把"任意 SSRF 安全的公网直链"收口到同域 /api/media/image,
+# 浏览器只碰同源,img-src 可收窄回 'self' blob:,外泄信道面清零。
+# ─────────────────────────────────────────────────────────────────────────────
+@router.get("/media/image")
+async def proxy_image(url: str, request: Request) -> Any:
+    """按图片直链同源代理(内联显示,非下载);SSRF 闸门 + 任意安全公网 URL。
+
+    与 download/stream 不同:本端点不查 media_tasks 库,允许任何通过
+    _validate_url_ssrf 的公网直链 —— AI/markdown/用户图片来自不可枚举域名,
+    无法预先登记,只能靠 SSRF 防护而非白名单鉴权。无 Content-Disposition(内联)。
+    """
+    _user_scope(request)  # 401 未登录;本端点是 SSRF 收口,不做库内产物归属校验
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="url 必须是 http(s) 直链")
+
+    from ..services.screenshot_service import _validate_url_ssrf
+
+    ok, reason = _validate_url_ssrf(url)
+    if not ok:
+        raise HTTPException(status_code=400, detail=f"URL 不允许访问: {reason}")
+
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(20.0, read=60.0), follow_redirects=True
+    )
+    try:
+        resp = await client.send(client.build_request("GET", url), stream=True)
+    except Exception as e:  # noqa: BLE001
+        await client.aclose()
+        logger.warning("[media_tasks] 图片代理连接源站失败: %s", e)
+        raise HTTPException(status_code=502, detail=f"源站连接失败: {e}") from e
+    if resp.status_code >= 400:
+        status = resp.status_code
+        await resp.aclose()
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"源站返回 {status}")
+
+    ctype = resp.headers.get("content-type", "image/png") or "image/png"
+    passthrough: dict[str, str] = {"cache-control": "private, max-age=3600"}
+    clen = resp.headers.get("content-length")
+    if clen and clen.isdigit():
+        passthrough["Content-Length"] = clen
+
+    async def _body() -> Any:
+        try:
+            async for chunk in resp.aiter_bytes(chunk_size=65536):
+                yield chunk
+        finally:
+            await resp.aclose()
+            await client.aclose()
+
+    # 不显式传 status_code(默认 200);内容类型经 media_type 透传,不内联下载
+    return StreamingResponse(_body(), media_type=ctype, headers=passthrough)
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

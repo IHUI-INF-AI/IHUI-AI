@@ -34,6 +34,8 @@ import {
 import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+// CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 export interface RichTextEditorProps {
   readonly value: string
@@ -70,7 +72,10 @@ function htmlToMarkdown(html: string): string {
   s = s.replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '*$1*')
   s = s.replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, '*$1*')
   s = s.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)')
-  s = s.replace(/<img[^>]*src="([^"]*)"[^>]*\/?>/gi, '![]($1)')
+  s = s.replace(
+    /<img[^>]*src="([^"]*)"[^>]*\/?>/gi,
+    (_m, src: string) => '![](' + toMediaImageUrl(src) + ')',
+  )
   s = s.replace(
     /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi,
     (_m, c: string) =>
@@ -114,7 +119,10 @@ function markdownToHtml(md: string): string {
   s = s.replace(/\*([^\*]+)\*/g, '<em>$1</em>')
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>')
   s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-  s = s.replace(/!\[\]\(([^)]+)\)/g, '<img src="$1" alt="" />')
+  s = s.replace(
+    /!\[\]\(([^)]+)\)/g,
+    (_m, src: string) => '<img src="' + toMediaImageUrl(src) + '" alt="" />',
+  )
   s = s.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
   s = s.replace(/^---$/gm, '<hr/>')
   s = s.replace(/\n/g, '<br/>')
@@ -365,7 +373,11 @@ export function RichTextEditor({
           ce.focus()
           const safeSrc = String(url).replace(/"/g, '&quot;')
           const safeAlt = file.name.replace(/"/g, '&quot;')
-          document.execCommand('insertHTML', false, `<img src="${safeSrc}" alt="${safeAlt}" />`)
+          document.execCommand(
+            'insertHTML',
+            false,
+            `<img src="${toMediaImageUrl(safeSrc)}" alt="${safeAlt}" />`,
+          )
           return
         }
         applyWrap([`![${file.name}](`, ')'])
