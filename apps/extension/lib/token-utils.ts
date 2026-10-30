@@ -36,6 +36,26 @@ function ensureApiReady(): Promise<void> {
   return apiReadyPromise
 }
 
+/**
+ * 常驻续期监听 —— 必须由 background 在**模块顶层同步**调用。
+ *
+ * scheduleOnce 把 onAlarm 监听注册在"排程那一刻"的 Service Worker 生命周期内,而 MV3 的 SW
+ * 闲置约 30s 就会被回收 ⇒ 监听随实例消失;chrome.alarms 里的闹钟却是持久的:到点仍会唤醒 SW,
+ * 但没人处理这个 alarm(兜底的 setInterval 同样随 SW 死亡)。表现:闲置一段时间后再发消息或
+ * 查词,access token 已过期且不自动续期,用户撞 401 /「会话已过期」。
+ * 与 scheduleOnce 自己那份监听并不冲突:doRefresh 内部有 inFlight 去重。
+ */
+let refreshAlarmListenerInstalled = false
+export function installRefreshAlarmListener(): void {
+  if (refreshAlarmListenerInstalled) return
+  if (typeof chrome === 'undefined' || !chrome.alarms?.onAlarm) return
+  refreshAlarmListenerInstalled = true
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name !== REFRESH_ALARM_NAME) return
+    void doRefresh().catch(() => {})
+  })
+}
+
 export function scheduleRefreshAlarm(accessToken: string): void {
   const delayMs = computeRefreshDelay(accessToken)
   if (delayMs === null) return
