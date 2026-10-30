@@ -9,9 +9,11 @@
 
     parsed, warnings, truncated = parse_conversation_file("codex", "rollout.jsonl", raw)
 
-五个来源:Claude Code(`.jsonl`/`.json`)、Codex(rollout `.jsonl`)、Cursor
-(`state.vscdb`/agent 转写)、Aider(`.md`/`.json`)、微信(`聊天记录.txt` 或含它的
-`.zip`)。
+七个来源:Claude Code(`.jsonl`/`.json`)、Codex(rollout `.jsonl`)、Cursor
+(`state.vscdb`/agent 转写)、Aider(`.md`/`.json`)、ChatGPT 网页版
+(官方导出 `conversations.json`,mapping 树深度优先展开)、Claude.ai 网页版
+(导出目录内 `conversation-*.json`,chat_messages 正序)、微信(`聊天记录.txt`
+或含它的`.zip`)。
 
 约定:
 - `source` 不在 `SOURCES` 内 → 抛 `ValueError`(路由映射为 400)
@@ -30,18 +32,22 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from . import aider, claude_code, codex, cursor, wechat
+from . import aider, chatgpt, claude_ai, claude_code, codex, cursor, wechat
 from .ir import ParseResult, finalize
 
 __all__ = ["SOURCES", "parse_conversation_file"]
 
 _Parser = Callable[[bytes, str], ParseResult]
 
+# 注册顺序即 SOURCES 顺序:wechat 钉在最后(test_wechat_importer 断言 SOURCES[-1]),
+# 新来源一律插在它之前。
 _SOURCES: dict[str, _Parser] = {
     "claude_code": claude_code.parse,
     "codex": codex.parse,
     "cursor": cursor.parse,
     "aider": aider.parse,
+    "chatgpt": chatgpt.parse,
+    "claude_ai": claude_ai.parse,
     "wechat": wechat.parse,
 }
 

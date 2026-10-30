@@ -20,6 +20,9 @@ import {
 import { requireAdmin } from './require-permission.js'
 import { success, error } from '../utils/response.js'
 import { calculateCost } from '../services/pricing-service.js'
+import { resolvePrice, type ResolvedPrice } from '../services/pricing-engine.js'
+import { checkOrgSpendBudget } from '../services/org-policy-service.js'
+import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import {
   recordAiCallSample,
@@ -230,6 +233,15 @@ export async function checkBudget(
   scopeKey: string,
   model?: string,
 ): Promise<BudgetCheckResult> {
+  // G6 企业治理面(2026-10-30 立):ORG_POLICIES_ENABLED 开启时叠加组织日花费预算
+  // (org_policies.spend_budget_daily)。min(个人,组织)语义:两维各自独立判定、任一触顶即拒,
+  // 等效取更严的一档;无组织/无策略/开关关 ⇒ 逐字节旧行为(checkOrgSpendBudget 内部直通)。
+  if (scope === 'user' && config.ORG_POLICIES_ENABLED) {
+    const orgBudget = await checkOrgSpendBudget(scopeKey)
+    if (!orgBudget.allowed) {
+      return { allowed: false, reason: orgBudget.reason ?? '组织日预算已用尽' }
+    }
+  }
   const conditions = [eq(aiBudgets.scope, scope), eq(aiBudgets.scopeKey, scopeKey)]
   if (model) conditions.push(eq(aiBudgets.model, model))
 
@@ -348,6 +360,8 @@ export interface CostRecordInput {
   requestType?: string
   promptHash?: string
   metadata?: string
+  /** G4 用量维度:会员档位键(member/vip/svip),可空;落 ai_cost_records.tier */
+  tier?: string | null
   /**
    * 成本币种(ISO 4217)。仅供 Prometheus 标签如实标注:
    * 缺省取定价引擎返回的 currency(现值 CNY),再兜底 'CNY'。
@@ -434,19 +448,41 @@ async function resolveTenantIdForUser(userId: string): Promise<string | undefine
 export async function recordAiCost(input: CostRecordInput): Promise<void> {
   let cost = input.cost
   let costCurrency = input.currency
-  if (cost === undefined) {
-    const result = await calculateCost({
+  // G4 计费弹性(2026-10-30 立):开关开且未手动传 cost 时,优先按 pricing_rules
+  // 组合价(基础价 × 档位 × 错峰)解析;开关关 / 未命中规则 / 解析异常 ⇒
+  // pricing 为 null,走下方 calculateCost 既有路径,存量结算行为逐字节不变。
+  let pricing: ResolvedPrice | null = null
+  if (cost === undefined && config.PRICING_RULES_ENABLED) {
+    pricing = await resolvePrice({
+      mode: 'token',
       modelId: input.model,
-      inputTokens: input.promptTokens,
-      outputTokens: input.completionTokens,
+      tier: input.tier ?? null,
+      timestamp: new Date(),
     })
-    if (result.totalCost === 0) {
-      // 模型无定价配置: 回退 0 成本并记录 warning
-      logger.warn(`[ai-cost] 模型无定价配置,回退 0 成本: model=${input.model}`)
+  }
+  if (cost === undefined) {
+    if (pricing) {
+      // 组合价命中:unitPrice 为分/千 token,6 位小数 round 同 pricing-service 口径
+      cost =
+        Math.round(
+          ((input.promptTokens + input.completionTokens) / 1000) * pricing.unitPrice * 1e6,
+        ) / 1e6
+      // 币种口径跟规则走(货币码或 'credits'),与旧路径同源不在这里另拍一份
+      if (costCurrency === undefined) costCurrency = pricing.currency
+    } else {
+      const result = await calculateCost({
+        modelId: input.model,
+        inputTokens: input.promptTokens,
+        outputTokens: input.completionTokens,
+      })
+      if (result.totalCost === 0) {
+        // 模型无定价配置: 回退 0 成本并记录 warning
+        logger.warn(`[ai-cost] 模型无定价配置,回退 0 成本: model=${input.model}`)
+      }
+      cost = result.totalCost
+      // 币种口径跟定价引擎走,不在这里另拍一份(§0.6)
+      if (costCurrency === undefined) costCurrency = result.currency
     }
-    cost = result.totalCost
-    // 币种口径跟定价引擎走,不在这里另拍一份(§0.6)
-    if (costCurrency === undefined) costCurrency = result.currency
   }
   const tenantId =
     input.tenantId ?? (input.userId ? await resolveTenantIdForUser(input.userId) : undefined)
@@ -477,6 +513,11 @@ export async function recordAiCost(input: CostRecordInput): Promise<void> {
       requestType: input.requestType ?? 'chat',
       promptHash: input.promptHash,
       metadata: input.metadata,
+      // G4 用量维度 + 结算明细(未命中规则时全 null,与旧行形态一致)
+      tier: input.tier ?? null,
+      pricingRuleId: pricing?.ruleId ?? null,
+      pricingRuleVersion: pricing?.ruleVersion ?? null,
+      pricingDetail: pricing?.breakdown ?? null,
     })
   } catch (err) {
     // 成本落库失败 ⇒ 大屏上这条 AI 调用有计数但没有 DB 明细,必须留痕(不吞异常,原样上抛)

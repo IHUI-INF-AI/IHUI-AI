@@ -52,6 +52,8 @@ import {
   Database,
   FileUp,
   Menu,
+  MonitorSmartphone,
+  ListTodo,
 } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>
@@ -123,6 +125,9 @@ export default function SettingsScreen() {
     // 会员偏好(通知/隐私七开关):后端 /api/settings/notifications|privacy
     { key: 'MemberSettings', label: t('memberSettings.title') },
     { key: 'ApiKeys', label: t('apiKeys.title') },
+    // G1 跨设备互联用户面 + E1 审批收件箱(2026-10-30 立)
+    { key: 'Devices', label: t('devices.title') },
+    { key: 'PendingDecisions', label: t('pendingDecisions.title') },
     // 签到助手 / 个人号池(2026-10-23 立):与 Web /checkin 同一后端,移动端可管理
     { key: 'CheckinAssistant', label: t('checkinAssistant.title') },
     { key: 'AccountPool', label: t('accountPool.title') },
@@ -161,6 +166,9 @@ export default function SettingsScreen() {
     { key: 'SecurityCenter', label: t('securityCenter.title'), icon: ShieldCheck },
     { key: 'SecuritySettings', label: t('securitySettings.title'), icon: Shield },
     { key: 'ApiKeys', label: t('apiKeys.title'), icon: Key },
+    // G1 跨设备互联用户面 + E1 审批收件箱(2026-10-30 立)
+    { key: 'Devices', label: t('devices.title'), icon: MonitorSmartphone },
+    { key: 'PendingDecisions', label: t('pendingDecisions.title'), icon: ListTodo },
     { key: 'CheckinAssistant', label: t('checkinAssistant.title'), icon: CalendarCheck },
     { key: 'AccountPool', label: t('accountPool.title'), icon: Database },
     { key: 'Usage', label: t('usage.title'), icon: BarChart3 },

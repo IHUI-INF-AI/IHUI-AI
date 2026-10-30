@@ -19,6 +19,8 @@ export interface WsNotificationLike {
     content?: unknown
     createdAt?: unknown
     message?: { content?: string }
+    /** 通知的业务载荷(notifications.data jsonb:G2 自动化的 sessionId 等深链字段住在这里) */
+    data?: unknown
   } | null
 }
 
@@ -30,6 +32,8 @@ export interface BaseNotificationEntry {
   content: string
   isRead: boolean
   createdAt: string
+  /** 业务载荷原样透传(data.data 为普通对象时);各端按 type 自行取用(如 G2 的 sessionId) */
+  payload?: Record<string, unknown>
 }
 
 /**
@@ -42,6 +46,11 @@ export function transformWsNotification(
   if (!msg || msg.type !== 'notification' || !msg.data) return null
   const data = msg.data
   const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
+  // 业务载荷透传:只接受普通对象,数组/标量/undefined 一律不带(避免各端拿到半截形态)
+  const payload =
+    data.data && typeof data.data === 'object' && !Array.isArray(data.data)
+      ? (data.data as Record<string, unknown>)
+      : undefined
   return {
     id: str(data.id) ?? `${Date.now()}`,
     type: data.type,
@@ -49,6 +58,7 @@ export function transformWsNotification(
     content: str(data.content) ?? str(data.message?.content) ?? '',
     isRead: false,
     createdAt: str(data.createdAt) ?? new Date().toISOString(),
+    ...(payload ? { payload } : {}),
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

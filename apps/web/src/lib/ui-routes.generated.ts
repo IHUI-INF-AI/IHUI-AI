@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 72092781dd62bc34b0b41463abcdd8452ea31aea
-// inputsSha256: 0567441354fc6a948f2df220a36b7eb2320e73a6c075cf82fbc4f9d7c207f6b1
+// sourceCommit: 2311b94a492aef324038516334698020311c55a8
+// inputsSha256: d487b738fb621e9076aa9dd3555b54270eca6f67e1f8afec91e41cdae607f27c
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -33,14 +33,14 @@
 // input: apps/web/app/(main)/admin/agents/settlement/page.tsx cdfe0187d53420e28057335fc554f9954d6bb5ada53c0264cecc26cc4c228d8c
 // input: apps/web/app/(main)/admin/agreements/page.tsx 3dd482894368242d346524e29b81fb7de90ae33ac2715e23c5a34a9a665cab18
 // input: apps/web/app/(main)/admin/ai-cost/page.tsx a116f85da14476756eb33be4fd16ace735ccf94e6a7377c08c07311fe9f06847
-// input: apps/web/app/(main)/admin/ai-feed/page.tsx 0254d6d439e3d75bdee0dee31bde8ffe09b465b507ae6ee6c93a73e9fce2ba67
+// input: apps/web/app/(main)/admin/ai-feed/page.tsx fce028a502f45e80e0f6a6dd47233408728bb036ac35e6fcff4ea6bdd042b964
 // input: apps/web/app/(main)/admin/ai-gc/page.tsx 0a421c2f7a2e2417334b66c29ac9882e109685d7f370be6ef676206299ae02ee
 // input: apps/web/app/(main)/admin/ai-metrics/page.tsx 4b242efbe2d2fd309c43a2b5b00e4f2ae0ef97451dfc9ec8fa20825df0415526
 // input: apps/web/app/(main)/admin/ai-models/page.tsx d040f6a5dbc4d6e109d1a85a81bf0f752ebb754daf7ee52712c1f50f5e6420a5
 // input: apps/web/app/(main)/admin/ai-pricing/page.tsx 449d45ad21248ec02daba32e79d0659e19c067fdcb713de2ec33726e3ec7033f
 // input: apps/web/app/(main)/admin/ai-skills/page.tsx f7ecefd78d6ced58516553afe7995db1a76223756e45934c7162dae96ce8a79c
 // input: apps/web/app/(main)/admin/ai-world/sites/page.tsx 0af77c3deb73c30393cc4bb0a14d5547957661354d58a9d67a7ba9e884619487
-// input: apps/web/app/(main)/admin/announcements/page.tsx 2a781c5700689d4069fc87a44a8f1193291570e25eff25ca202d5e64b7363570
+// input: apps/web/app/(main)/admin/announcements/page.tsx 29100d1d2d2143b909c3f2aab861520ceda9565552681c0bd4bb23c61d774a3f
 // input: apps/web/app/(main)/admin/api-debug/page.tsx 9da5141c93e6e3634a2bb78fbbcda82b020a3ad5a2b4e0f6c3fd2c114c8c891a
 // input: apps/web/app/(main)/admin/api-groups/page.tsx 206b23e4863e80811d6d2e4cc16cc1396eb8ae978b9f918e7b59abb180fcb805
 // input: apps/web/app/(main)/admin/api-logs/page.tsx b85cd4a21156bfe629a7f1af409d6e7dfc38df8db2d7537b474e9b87c7bce600
@@ -57,9 +57,9 @@
 // input: apps/web/app/(main)/admin/auth-role/page.tsx 58689c07de3002493780dad858c6a43d40fb01ef378cc21ea6d209373ea8adfd
 // input: apps/web/app/(main)/admin/auth-user-vip/page.tsx 61e0c63b06bd9f31c8a4d5fc8aca72bcb55c4adb788136a4cf0017bdf44cfa90
 // input: apps/web/app/(main)/admin/auth-veri-codes/page.tsx 00d4aef40013866a9dae40c418d5627fb41c527b01932005b2250e4695e470be
-// input: apps/web/app/(main)/admin/backend-health/page.tsx f74047ee78e89c7fb20a916b6740401ce41b0c2e167152525575cc5da8348353
+// input: apps/web/app/(main)/admin/backend-health/page.tsx 46db7641d3c1b19eb5912de52895d86cae68246cefdfb8a78552605b72716b0a
 // input: apps/web/app/(main)/admin/backup-jobs/page.tsx a6c7a42167a74fe375bc7a8f73a81e3794ce6d1805c652f9b960ed35e3aa702f
-// input: apps/web/app/(main)/admin/behavior-analytics/page.tsx abc8f9d72ff5f0d0aea4469e796fcc40fdf429848d0e85f592d6fa09e6477a41
+// input: apps/web/app/(main)/admin/behavior-analytics/page.tsx e536c4f8835da331685882444291b56d52d5ad4f0de075186fb931689ae2e625
 // input: apps/web/app/(main)/admin/behavior/page.tsx d815d477b56149aa609b6de1e9ea72060075cb8f9e065d90b76a56ddd1e1170a
 // input: apps/web/app/(main)/admin/bi-dashboard/page.tsx 99a02b2aeb2881a78a7ca7046843d74835432954e5731c632b83485019f2f3a1
 // input: apps/web/app/(main)/admin/carousel/page.tsx 5b53ae2f2e57338156d64a1d917340df7a069c03819c5c8a1dd4a01071b1fd0d
@@ -94,9 +94,9 @@
 // input: apps/web/app/(main)/admin/developer/page.tsx e0e71857844a37eace323f1616763b5ca607dc77a1e1e16ce5cbb5c738898920
 // input: apps/web/app/(main)/admin/dict/page.tsx 7e2cde3eee7d029913d35a04f905e76762f724cba566e4a451639f0ef0fd6545
 // input: apps/web/app/(main)/admin/distribution/orders/page.tsx 33245dd731e85cb177b98ccc489079a4a7a496b6350cbcf861ec44514f2ebabf
-// input: apps/web/app/(main)/admin/distribution/page.tsx 4f3ff5013a91b0326f6b4b2fef88622338a3fa381af33d055b5aa08920ca1c6c
+// input: apps/web/app/(main)/admin/distribution/page.tsx dcc877dfd39b00f322530a54c796ac6a51d589df559649a39609be3992df974b
 // input: apps/web/app/(main)/admin/distribution/rules/page.tsx 0b78a7c8b8bd4c805f9411f8766958ad1ebda5134ddb3bcbc96b2fe4b41dca7a
-// input: apps/web/app/(main)/admin/distribution/settlements/page.tsx 8d2311835610f16ec7ca730c8c65e7db0277a0c4c0f3cb3db310d23b586eb696
+// input: apps/web/app/(main)/admin/distribution/settlements/page.tsx e965c01ae8c6e0bf13ce2b2d21a1babefa0d91561b03bcd55a81ec13b0fcbc31
 // input: apps/web/app/(main)/admin/distribution/withdrawals/page.tsx c3d5f2600e7189421b75c37c9e989be51142b6eb374fe32e53494142562a07ef
 // input: apps/web/app/(main)/admin/docs/page.tsx b586d735dd7dcb438d6d516ad7dd73da5bb011b7816633903c7fcc65fc867d0a
 // input: apps/web/app/(main)/admin/downloads/page.tsx 8819060090a817f13cc5f5a7dccc075694b0901af5f868996a1d0b7f943b0a05
@@ -178,14 +178,14 @@
 // input: apps/web/app/(main)/admin/home-schema/page.tsx 7437d156bebfc8651b725988cccf4fd69e1ad683f99335a7d359f3f26bc629bd
 // input: apps/web/app/(main)/admin/i18n-dashboard/compare/page.tsx 1bdf0d4e0d2bfc4969d91b8ecad6e2109ceb4dc3b1b9d77e1e9c4b92fb6d40ca
 // input: apps/web/app/(main)/admin/i18n-dashboard/missing/page.tsx ab0fee35316e5cd371bb9ea7331ab85b22d67abab39edf7574b06257252a4423
-// input: apps/web/app/(main)/admin/i18n-dashboard/page.tsx 5d246684ed3c4bc549f8e1cf181a5f3ae8c83e35e0075381f6b7c71ef67d6344
+// input: apps/web/app/(main)/admin/i18n-dashboard/page.tsx 9a880b4656e429495a967ab0d8a27a43287a286044085ef1cb5a64b439ac570e
 // input: apps/web/app/(main)/admin/identity-proportion/page.tsx 068b77325a5cbead9ef3e29f414e15fee26bd0ca780f8739a0a1a430c4d2eda5
 // input: apps/web/app/(main)/admin/im-channels/page.tsx 186fbc488dcad0bab1a1ad4b7c7ea52355a0dc43c16e5089c65ac6058a17f467
 // input: apps/web/app/(main)/admin/integrations/page.tsx 1310972c2dfc51b7706ac6006cc2dc11c59c525a63a7664effeb891664f0ce48
 // input: apps/web/app/(main)/admin/invoices/applications/page.tsx 409d3ce4869decba3de302531625b841b52e2e24d6004c98241cad2a8928b311
 // input: apps/web/app/(main)/admin/invoices/page.tsx 0b77dc0f15772eb9186a77c48b99567863f4901d837af148dfdfff57364cafca
 // input: apps/web/app/(main)/admin/invoices/titles/page.tsx 063ea99bdd2372e45bc096b7baf60c977d4ab868c129a7c509029a42a5c3c04d
-// input: apps/web/app/(main)/admin/knowledge-rag/page.tsx 081c558408c336acd0aab97be10fc7244db0603c9d1c3a50d6e1201b5134d9d0
+// input: apps/web/app/(main)/admin/knowledge-rag/page.tsx fbf5a31587aee14169f4434b4a366f81e8b86452212e798d214f13c0003ac00d
 // input: apps/web/app/(main)/admin/learn/categories/page.tsx ee11b7e3e23068a368f6ef5568737b2840723570f68922d2ef656b544d610495
 // input: apps/web/app/(main)/admin/learn/chapters/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/admin/learn/page.tsx 701818f754e8ca93bcbe9f58052a2f7b047e00430e624188494015b56e262c31
@@ -211,7 +211,7 @@
 // input: apps/web/app/(main)/admin/members/page.tsx 46269e89f869bf480359dd43520e3043a0168bc37aa0866322a15dd9b4e718d7
 // input: apps/web/app/(main)/admin/menu-permission/page.tsx 3ba55691bca785ff724a51ed76066e48347249700560d949fd55a82256c04e0b
 // input: apps/web/app/(main)/admin/menu/page.tsx 1c80bef4cf838bf2a7e8d9e8ddd4fa7d4821f6959fb89af2acfd6674821b8b69
-// input: apps/web/app/(main)/admin/message-overview/page.tsx 37a8533bf4d12ef87ca5014bad64afbeab0626bf7820bf744bf9beb5e032856e
+// input: apps/web/app/(main)/admin/message-overview/page.tsx 5752b0a44092025e987800f2d3b6cbb22db068feb3ef7c850f9ca6764ea7a2d9
 // input: apps/web/app/(main)/admin/message-templates/page.tsx a96dd0b049a43b162e0675ae722689e54b78bc60d06c8d629ec7120edbc40c5d
 // input: apps/web/app/(main)/admin/meta-learner/page.tsx 6fbce8ab9c0c6a00d104880446f73f249e93c169d957dc4fad101dada515b6ed
 // input: apps/web/app/(main)/admin/mobile-adapter/page.tsx 1ecdd2eb82de1867e2f77049b9969ca4cc39df480c824aed0d42cec90bac7c43
@@ -220,8 +220,8 @@
 // input: apps/web/app/(main)/admin/monitor/dashboard/page.tsx a3ff7e8790dbbad4bb5c6bd83bac609526193c0973f2a02f9bce51a0f40c3480
 // input: apps/web/app/(main)/admin/monitor/funnel/page.tsx 1adc5fd6bc5a2b70809fe4879a6f07fae5e46546d49cb12ff3138419d2715b78
 // input: apps/web/app/(main)/admin/monitor/panels/page.tsx 78dee2b618a5367727dba150e37770fee93facbeae4a9ed05a387f87f0a57c01
-// input: apps/web/app/(main)/admin/monitor/wallboard/page.tsx 45e98d348c8be32060505c32a0fea42871c8511a13e4d9d722327e83d8201c34
-// input: apps/web/app/(main)/admin/monitoring-dashboard/page.tsx 91ac016c4e35ef2fece61b47e45fb15a5da23f37210a465f36c5e48c316ce852
+// input: apps/web/app/(main)/admin/monitor/wallboard/page.tsx ac413dd3bb4cf9881fe7827fcafae1cc56f0e79edf27eadff44668e7cd96752f
+// input: apps/web/app/(main)/admin/monitoring-dashboard/page.tsx 157843c442927b134b6b0bf2b0df570dab04d1cb49f3767d5026d3e17871927d
 // input: apps/web/app/(main)/admin/news/categories/page.tsx df7652a304de4fe78c8db64324358b0ae2d622a8f119708be839ab8df9c17e5d
 // input: apps/web/app/(main)/admin/news/page.tsx 7d0127c4117f7c5168bc51fc4164aa98f9a249f01e700fbe4c7670f9bc5b9854
 // input: apps/web/app/(main)/admin/notification-channels/page.tsx e98b9b4db7e6f4e718961c4654956d600c2ae7fdf77e56e35ef445d8a2865090
@@ -236,6 +236,7 @@
 // input: apps/web/app/(main)/admin/online-users/page.tsx 8aa7823b2df39d02588350f5e5bf3f673cad255ec5de5ff50397e99d5d47173a
 // input: apps/web/app/(main)/admin/operlog/page.tsx e1e1a0837b9581914aeeae63da4c8af3b2714a7f2359d1633f022e73ebb867a8
 // input: apps/web/app/(main)/admin/orders/page.tsx 2a3ebca2eaf05134f4236f64f8478071bdd7e7df008e9a5f121aefdd8669649a
+// input: apps/web/app/(main)/admin/org-governance/page.tsx a7b11053a229708da09ee068918743cb72d2e062d519c136b3d3a83242826aee
 // input: apps/web/app/(main)/admin/oss-config/page.tsx 625b3c1ee16962c3a347a1c865523c8367b86f1108bea0d1df0b7721d4596dac
 // input: apps/web/app/(main)/admin/oss/files/page.tsx 968510b8b64d910f842848d295b387b63b422184f6710a2121dfa869d912be33
 // input: apps/web/app/(main)/admin/oss/page.tsx a4099f971b9efa8efaa2c82c23e715d7200839cd1ab4ac59335a3e09d1841011
@@ -266,10 +267,10 @@
 // input: apps/web/app/(main)/admin/relay/channels/page.tsx ee2621001ff5858411a40cc5c8d71dc36aece49b8278adb7947d53e8d860ca3e
 // input: apps/web/app/(main)/admin/relay/data-management/page.tsx 9eba9267ef4d4f8053e57254e7f1f0490e885c4366edb45cba9e996ff91ebf46
 // input: apps/web/app/(main)/admin/relay/discovery/page.tsx d3aa41665db9583e8b3227d4800cbbbe48b93f90865bafa0abd5b42d49de4b2c
-// input: apps/web/app/(main)/admin/relay/enterprise/page.tsx 6dfea213b1b3335e471dbc9bfe48b3540e0ae19b30f8c96bdafb527d6cc6f491
+// input: apps/web/app/(main)/admin/relay/enterprise/page.tsx d1afc3b69ec9a2b71d3b46fe84068d9d126aac87706965ea8fc4b117b2c9f627
 // input: apps/web/app/(main)/admin/relay/error-rules/page.tsx 43d14860fa5c1ed8bf049ccc1e226021f9084955efe0abe40ebd114a0cc68f5c
-// input: apps/web/app/(main)/admin/relay/insights/page.tsx 61ddece98567eb326813abbad1dbcaaba89c1674bfa99dcd036d82ca62563dfd
-// input: apps/web/app/(main)/admin/relay/key-pool/page.tsx b0d543dfc47afecbf83d782b7762464efc8eb4fccbede0dcaccf0f2c5ba943c1
+// input: apps/web/app/(main)/admin/relay/insights/page.tsx 8ca1cbe7294fa173596a5c1e90b0205ed6ace75b1b184c3cb3cecb9adef2a35d
+// input: apps/web/app/(main)/admin/relay/key-pool/page.tsx 1bca665c11a78e8f374521b272aaa428af5839da880758a6dfcc0719b1c11349
 // input: apps/web/app/(main)/admin/relay/key-scheduling/page.tsx a017b14b107ffaabd6875d9f925f5372982f7917fd36aff45978ff393d9beebd
 // input: apps/web/app/(main)/admin/relay/logs/page.tsx d65bd3efc84a99d01a95981d3987ddb210402006c0c8ffa49ab70fb9a5123ee3
 // input: apps/web/app/(main)/admin/relay/models/page.tsx adfb94cafa416cfbb5ba07acade744d0aa11d932918eed03e7b35dc51abfdcd1
@@ -278,7 +279,7 @@
 // input: apps/web/app/(main)/admin/relay/peak-pricing/page.tsx 1bf9ff2a6fa41c8f2172ede3a6e889d2d5c36073e289a4ab94e0c5cb716b8f13
 // input: apps/web/app/(main)/admin/relay/plugins/page.tsx f2c489e7a2fce2f01b53cc7a2273014b1efcd4f14f16b0e68303b6b43381632d
 // input: apps/web/app/(main)/admin/relay/prompt-audit/page.tsx 0af7f0dec90485cd9814af6abd713afbca8320d24b5f3a046b86f941588063c8
-// input: apps/web/app/(main)/admin/relay/tasks/page.tsx acf60f8967e7ee60c9cda034b1f893be4b2624ab192cac86328609056f5f1adb
+// input: apps/web/app/(main)/admin/relay/tasks/page.tsx f1b9c6aee38f158e75b611dd1cfa1caa833293846380fb521bae53e1ff0fc0c6
 // input: apps/web/app/(main)/admin/relay/user-attributes/page.tsx 43d93470aee50ec7618ccfd39a5b76436f8a017b70b9069f015659273e464f7a
 // input: apps/web/app/(main)/admin/resource-product/page.tsx 3e3f0fe50d3afc39991e7ca530634c996ca8496f42f7bca8b2608491b0027051
 // input: apps/web/app/(main)/admin/resource-tag/page.tsx 8713454be6610b3a9775d40217b653c2ee840d518a7251a0780065b258ef2b45
@@ -315,7 +316,7 @@
 // input: apps/web/app/(main)/admin/skill-versions/page.tsx c493386851d7f28c74a1fd134874040d25215fa6937f8f2b86d4c7ec7297b538
 // input: apps/web/app/(main)/admin/skills/page.tsx 430306a7968473f7ec0b93764700de97b39ae472d93971813ed2b8d880f3f8e2
 // input: apps/web/app/(main)/admin/sms-receive/page.tsx e0cd3fae2a950040d6dc0ce1ed3384f0a38b8917ae68dd48d6091628cc063aec
-// input: apps/web/app/(main)/admin/sms/operations/page.tsx 693c1ac278d3dad8c4f4192396cd38f8dee3f2f48defdf054efeac81e4b0905a
+// input: apps/web/app/(main)/admin/sms/operations/page.tsx 673368ded62e37409666876a76dbbf323e15bccdf563cf636f27c50ca289f8a8
 // input: apps/web/app/(main)/admin/sms/page.tsx cb772cd31d7dec775578e0797692be1f8204a44c6947091996996aca748960e5
 // input: apps/web/app/(main)/admin/statistics/page.tsx 63da93239f6dbf34e8d63105bee131f970c136c28e6031cfef92f6159dfea48c
 // input: apps/web/app/(main)/admin/system/login-logs/page.tsx 8232466920411a110c810e97acfdd0ac75d618ce782f690ded404032bc698964
@@ -349,10 +350,10 @@
 // input: apps/web/app/(main)/admin/users/page.tsx b56741efbad48ac8b0ab17b50fca5084190d82cf4c908a4002b862f538323be3
 // input: apps/web/app/(main)/admin/variables/page.tsx 5b7984cdbb2b5cf26a38909f39ee4b5ad6bfadcf355a2d3c60a92b7781173dbb
 // input: apps/web/app/(main)/admin/video-logs/page.tsx 5152ffc1d6a8d6fc1b144fa5ef7b3d5474e4011793c2db7a327518ab8291d748
-// input: apps/web/app/(main)/admin/visit-tracking/page.tsx 7b5eca7f564d6752b34fb78ab0699070677d74a1426289461f4d2ae9cbaadc1c
+// input: apps/web/app/(main)/admin/visit-tracking/page.tsx c5dcc7a41ddaf5c466e5ed52fb04da58eb54228824ed87e2ce99c4e495a404dc
 // input: apps/web/app/(main)/admin/visit-trend/page.tsx 489241d5c372cfff542ea832afaa36b95fd998fecc9163c2bb1e2f030fa0c01d
 // input: apps/web/app/(main)/admin/wallet/page.tsx 78ad624d2200933c17d122539c25ab9f5d2d666d9e6f77bfdb33ad0bb40d5d9d
-// input: apps/web/app/(main)/admin/withdrawal/page.tsx 7d83a7267c486252693e5f7d9f33ee628d5548703e553cb220faa72c33ef582b
+// input: apps/web/app/(main)/admin/withdrawal/page.tsx 62c21f5b41f5a68cfde030d1f8da4ff385a3ab94a7fdf626fb54965137aab092
 // input: apps/web/app/(main)/admin/workflows/page.tsx c6bf295bb43d4076341a37b109bdd1c63e1c40eeffe0118d791d4a7c1c4bd8f5
 // input: apps/web/app/(main)/admin/zhs-activity/page.tsx 5be84abca8364aec50d3907ec4104181559beb5fb644fcb3df458af8932c5461
 // input: apps/web/app/(main)/admin/zhs-agent/page.tsx 3be8bf47ad25765d52ab5f9ca9c3001d81d6f947db8fe3c45ba2a47cc35c4fd0
@@ -362,9 +363,9 @@
 // input: apps/web/app/(main)/agent-plan/page.tsx b9bfb43736fa7955ec0aef8ff68c5bf1122fd3eedbe520f3e5adac1361974473
 // input: apps/web/app/(main)/agent-plan/progress/page.tsx d46b6d6d6c7263934c99a36b077f4044d6e7ff849675d726fec05acee4050bb6
 // input: apps/web/app/(main)/agent-runtime/page.tsx 42166308a2a4d1989ea8eebc20d99238385ef4d9bdcd2c88610ddd8dda3acac2
-// input: apps/web/app/(main)/agent-step-recorder/page.tsx 45ebd017cbf5d281ec5dd63034dc7b83ce852539533e48c74f04489390664e4b
+// input: apps/web/app/(main)/agent-step-recorder/page.tsx deaa7ae5968442939c5e7feaf80059f40b82180fd3f17a625e9065ddedddfdfe
 // input: apps/web/app/(main)/agent-teams/page.tsx 31187390c8a6379974a3261bbc8be4562afae6ddfa44b3c5e4204d1cdf15bf9d
-// input: apps/web/app/(main)/agent-timeline/page.tsx 6c7eb1a23483b1505faf2ad002f2631ab28e129494e5b3b63f83b5704d8bf75d
+// input: apps/web/app/(main)/agent-timeline/page.tsx 69f2497b967c5406e33b30706bd6890c961596be184bfe985637b6ccc7fb1d3e
 // input: apps/web/app/(main)/agent-workbench/page.tsx 1ff81c8bf8483e9ba640934aafced9f4169da527e6779a8eaedaf9d9804f86d0
 // input: apps/web/app/(main)/agents/[id]/page.tsx aa87c22226e7b4f4618429c44041536bd60b8774b1a7109580b93eadb0363876
 // input: apps/web/app/(main)/agents/categories/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
@@ -391,7 +392,7 @@
 // input: apps/web/app/(main)/ai-world/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/ai-world/share/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/announcements/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
-// input: apps/web/app/(main)/announcements/page.tsx afe66ea6e9bbbb598cbde675dd679390bfb67582ee34755f7d44bba9a724b069
+// input: apps/web/app/(main)/announcements/page.tsx ba5e078eb93f70a81142ce56686263c8989644e5ea4fded269206835e3c31e8d
 // input: apps/web/app/(main)/api-test/page.tsx 8a511e7fcaa1610b369b4032a7bb22e9b45b62c33bca45689eae2243f98189ba
 // input: apps/web/app/(main)/app-permissions/page.tsx 5016d3200c07b40d6fe01ac3808d8e0592491e5f5da38d913d658a114a99a573
 // input: apps/web/app/(main)/article/page.tsx 3be8cc21f72dd604fb3eb6600b920077394f24997281f4444f6ea429ac8dd74d
@@ -399,6 +400,7 @@
 // input: apps/web/app/(main)/articles/edit/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/articles/hot/page.tsx c1a29f146eebf20715e720d0e5bde9c8db468f796f5b36c8a5c0ed3d80ae136c
 // input: apps/web/app/(main)/articles/page.tsx 52d3c0a836d8d55f4d8b477063d55401313cb0179528af9e69ec973da97b3d4b
+// input: apps/web/app/(main)/artifacts/page.tsx 37267be40c2706b8942bb96069708e20eca6f691adaee5fbdb904aeff588503a
 // input: apps/web/app/(main)/ask/page.tsx 78a7b752303eaca2fbdc8d28229eb7f3def29c9cf10b8c15119d06d5d05301d2
 // input: apps/web/app/(main)/asks/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/asks/edit/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
@@ -422,20 +424,20 @@
 // input: apps/web/app/(main)/certificate/verify/page.tsx 7ec8807178bba48c908101ce1b9156c0a07a4ebb9e52cc480890fb6af0c926c9
 // input: apps/web/app/(main)/channel-status/page.tsx cd96a600eeba925827c9f73793fb4458e3585216ee01365efaf23e47378b5319
 // input: apps/web/app/(main)/chat/favorites/page.tsx be5908fe3362784f9875de188bb7dc18c62af8990117eca418a1e5ba6ad69933
-// input: apps/web/app/(main)/chat/history/page.tsx 25ed71aa398e4b8551d47edf661e353cd24e464bf8258bf4aabf16c06ed2d15a
-// input: apps/web/app/(main)/chat/page.tsx cdd7abdac1010445b1b56a45313441eed2130c6af2a061ff43c6e12f850096f7
+// input: apps/web/app/(main)/chat/history/page.tsx 3a30f918b2a426f75e3432acc54d8d445dc5fa6eb0365a8eeb558abe18eb73d9
+// input: apps/web/app/(main)/chat/page.tsx 463252e36cfc5653c0f47e2b4c10097e52225cdadc364f654306a75b0056b972
 // input: apps/web/app/(main)/chat/settings/page.tsx 67d6c95fb2ac59cb7d2b01988a06c726698c226eef592a5fd189be4addd48b18
 // input: apps/web/app/(main)/chat/share/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/chat/templates/page.tsx 39e208297dfffae123ddc54deaeb8bce5429862cf0d9b15ffb21ef8b2bd7e246
 // input: apps/web/app/(main)/chat/workbench/page.tsx 3dd4663bd30d8ace8c95712a1c3aa323dc6ae8b80894cd68acacc35169669f60
-// input: apps/web/app/(main)/checkin/page.tsx fba931325b2179fabd10c97a5f9f9663aa3b48c87e5f878a3b55c65f5cd7e975
+// input: apps/web/app/(main)/checkin/page.tsx 751b5982cd5636062c883b89aeff919840cb2fe90ac0085886f945724ab38445
 // input: apps/web/app/(main)/circles/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/circles/page.tsx 5dc5b147cc4e060a352c51f9480deb7b0063dfeae971c07933cd0a4fbbfd9cdd
 // input: apps/web/app/(main)/circles/post/page.tsx b82f38759624befa67e2fd86cdef60b6f4d1130702bf5cc94d1bd40a179dad36
 // input: apps/web/app/(main)/cloud-agent/page.tsx d0fdf66eab368c19e4158b4427237157f60017c0e067d49447ddda6b398b49ae
 // input: apps/web/app/(main)/cloud-run/page.tsx 33ecf8d6d2bf8844eb45d5d7257fd2b6bbdc0c891acc33382a8bbf94ffbaa13c
 // input: apps/web/app/(main)/comments/page.tsx a1d70741fc1b8d1ec7dc78ea50aa12fcc3585ed4625dfd99d79e434f337afc46
-// input: apps/web/app/(main)/commission/plan/page.tsx 1742bf2916b8b8ba1c0e3820241b6bd9cd6c8136dd3a765f7ba7cb67e25f3ff0
+// input: apps/web/app/(main)/commission/plan/page.tsx 5440540ba5748874b66d6e3c34f88b952a6cfc3bfadbf6641308d971fffa7ac0
 // input: apps/web/app/(main)/compare/ihui-vs-autogen/page.tsx a421b6d7c596ea3c7c245ce15a2af9f12b36c86f3db6a44da0cd89a0a85c417c
 // input: apps/web/app/(main)/compare/ihui-vs-bolt-new/page.tsx d6422afa1ca4f55f5f22fe17b3276ec8f53cf75b967dbb70b460077a8b41f09f
 // input: apps/web/app/(main)/compare/ihui-vs-claude-code/page.tsx 44ebbfa729369e1f35ece8a6da185a4ccb282965ddecea0263289c4fb9f27fff
@@ -481,7 +483,7 @@
 // input: apps/web/app/(main)/context/mentions/page.tsx 64382d53fd6eca7eb0a97deb80fb4a6c9950831ec9bebb67fba2b152c66d325e
 // input: apps/web/app/(main)/context/page.tsx 03a75e516336b5a161503dff2a9ebd485f0da0ea12555c277e9a10fc263016bd
 // input: apps/web/app/(main)/context/visualization/page.tsx 126c49a7647363e0b61d9110396b734344bbb417418ba145a397b7f160b00f96
-// input: apps/web/app/(main)/cost-dashboard/page.tsx 1da98ca423dc3f9f5a4ece20154b2a04923e871a0c5185e18c766e844786701c
+// input: apps/web/app/(main)/cost-dashboard/page.tsx d1f46bb165ead4eca60ffd84e1dfbbf73c564b67e63faf23982dd2837f0bd515
 // input: apps/web/app/(main)/dashboard/page.tsx 811f42bce3ee198be01608c2232625759b6f1e8cb4f858cc2bd8de5c2dda9022
 // input: apps/web/app/(main)/deep-research/page.tsx eeab8462c437cc6e3e0013c0955f23928e058201313d424ce21dd4bd125df752
 // input: apps/web/app/(main)/design-system/page.tsx e2a38caae54802fe2145bc39ce0878275686ad755931024b87ba6f4dee417e97
@@ -490,7 +492,7 @@
 // input: apps/web/app/(main)/developer/billing/page.tsx 7abbb1e16ee7e10f570a77122955adef7fff2b31f5393440b9175c33b3e60f3d
 // input: apps/web/app/(main)/developer/capabilities/page.tsx 408bb101025192ac59d591272fed30fefe5ae11f401e1abf500ae39deb432039
 // input: apps/web/app/(main)/developer/conversations/page.tsx 505da5ee03be37c234b76b28560f71854efdbb6ede418933342e32e5ba92a953
-// input: apps/web/app/(main)/developer/enterprise/page.tsx 50e862dd7765dc64dabb5134e30cbebee71d5fe58eeac5fe73aaf701edbcd522
+// input: apps/web/app/(main)/developer/enterprise/page.tsx 79a25a692c71d0135555354dc958601d3265c2e330b4fba5def8ca53988ea712
 // input: apps/web/app/(main)/developer/error-codes/page.tsx d9e553018d8c80277a9c78081d06fb82cb55f94dc86200919e5789bbf26131e8
 // input: apps/web/app/(main)/developer/ide/page.tsx d736ab882ef1c6c4080135b303532359e67866559107a5de66d31746b001bf41
 // input: apps/web/app/(main)/developer/keys/page.tsx 8bf0974f97e53ca84fc5573315e81d69eb29e34fa3d929409fd1c68f77a3b0c4
@@ -511,16 +513,16 @@
 // input: apps/web/app/(main)/developer/versions/page.tsx b0e7126d654ddfe5dede6344a4e47dece4cccfe3b97eb5a663039f51c947d500
 // input: apps/web/app/(main)/developer/webhooks/page.tsx 0f46dbb3470ee7b8b382f8e32f34fc26fad7c88c3d7fe9d76cd76faa30cb70c3
 // input: apps/web/app/(main)/developers/page.tsx e4a6a847e564c28bb1671478df1925f636facf1e3373d3f391d398746b165fba
-// input: apps/web/app/(main)/distribution/commission/page.tsx 004d9566e8830b4fec39ac8507603d874e88d90fb40ef0a51b6e3959092d2ed7
-// input: apps/web/app/(main)/distribution/company/page.tsx ba7469f8e8fecd8455647698187595cf84d276bca96f06d33d71f96a4fb96e51
-// input: apps/web/app/(main)/distribution/orders/page.tsx 7a567b4916c0eaf6ba34d71c935113c1601b8977c1cd49ce98c7e89aaf37b13f
-// input: apps/web/app/(main)/distribution/page.tsx 59a98904decf57068e4afbae6652b80377d9857e329ebcf3bd678f4677656213
+// input: apps/web/app/(main)/distribution/commission/page.tsx 8348844a871a5a7dd5cafe8f1fff1534d5654c27da2eaa3889fe53c2194bf0c9
+// input: apps/web/app/(main)/distribution/company/page.tsx 74a43759691781bd23fef20158cd254d751925b769167948c8f777b3dd9aac69
+// input: apps/web/app/(main)/distribution/orders/page.tsx 7e55e34fb952077da949409bbd08b0fa55c56dc1ff21e61624323d55335acdf8
+// input: apps/web/app/(main)/distribution/page.tsx 0129a5d7277fca5ac248102f1287dd4805c615b2fe9b67dd94b6e745891e1abe
 // input: apps/web/app/(main)/distribution/referrer/page.tsx 3b49ca96276ff5feb35519505258b35db0b6a05364abedc36de703dbeee54544
 // input: apps/web/app/(main)/distribution/team/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
-// input: apps/web/app/(main)/distribution/team/page.tsx 0b4f2911578cf07395d662f95a08f2c04692cd5a3e4f2d1a6d7710ec210323d8
+// input: apps/web/app/(main)/distribution/team/page.tsx 7a35f79c56522326ffbae7746a21764b766d0b2b07e2e9fcedc798d5797f203e
 // input: apps/web/app/(main)/distribution/token/page.tsx a0f780e135b0e0de28f081499b9375fea67ef1858e6c1ce560b193697dae472b
-// input: apps/web/app/(main)/distribution/withdraw/page.tsx 29a6afe7fe16bc040cd3c01a455146efe6bdfc4846ff238be739662b790763c1
-// input: apps/web/app/(main)/distribution/withdraw/records/page.tsx bfe609b0e665e5e103d42b907646dabbb5961e5e430872fa8bb200e038525276
+// input: apps/web/app/(main)/distribution/withdraw/page.tsx fa3386f73fc29953c33194584c731bbe0cbd00c42fa12dfbedbe966db4ef71df
+// input: apps/web/app/(main)/distribution/withdraw/records/page.tsx 274442c1927a38c1440fc69378ba83118b397a675cfc7ab7c6dfc48980e1ce1c
 // input: apps/web/app/(main)/docs/agent/page.tsx 8ae3fba6db8c22ddc1b8164ab7b4317e2768883b463e2fc034d67229ce5cee75
 // input: apps/web/app/(main)/docs/api/page.tsx 51d81f4b479b1b750ca8415fa0576ce65d166506135c7f724f785efce98ec697
 // input: apps/web/app/(main)/docs/manual/account/page.tsx 5003d9c412d19bf27e2333101a77d15c0f745aa796b870e3ad2c3d08557d660d
@@ -577,7 +579,7 @@
 // input: apps/web/app/(main)/edu/edu-management/grades/trend/[studentId]/page.tsx bc6a04718ae14638d59ed11026b720cb0706d9b6b1009a08362b9486c21ff94a
 // input: apps/web/app/(main)/edu/edu-management/homework/page.tsx 8a544efa39c6f7c569f8ebba0a92c54a670ad7c29bb295ef6c88698a9a29dfba
 // input: apps/web/app/(main)/edu/edu-management/meal/page.tsx f80edc5914c91dd88a1ef30272aae875316e8f7890045055c59f10875838fe83
-// input: apps/web/app/(main)/edu/edu-management/procurement/page.tsx 898e8298e303076a3c6f5ebcf49879a76385a374661c29969d144cc6e54bb3ab
+// input: apps/web/app/(main)/edu/edu-management/procurement/page.tsx 0a7169e806054be6da0bc79b1d505cba857f4fd2691099366892a51ffbe0725c
 // input: apps/web/app/(main)/edu/edu-management/schedule/page.tsx a6f0939133b35b2b17ca0204bed329360fdb74fb5c113dd9581747f4238184ca
 // input: apps/web/app/(main)/edu/edu-management/scheduling/page.tsx 5ee1d0f6e76fb0e6bd806814d02a02d914c30a18f754e2def172d3c39a856864
 // input: apps/web/app/(main)/edu/edu-management/study-plan/page.tsx a694a3bcf917afe21dab9bf015fcc45374464695a31d9812080d144a00503899
@@ -592,9 +594,9 @@
 // input: apps/web/app/(main)/edu/parent/children/[childId]/grades/page.tsx 1dfff0a7ded915c98ab6af725586589c87f271ce319059cf48989e7179097589
 // input: apps/web/app/(main)/edu/parent/children/[childId]/meals/page.tsx 1dfff0a7ded915c98ab6af725586589c87f271ce319059cf48989e7179097589
 // input: apps/web/app/(main)/edu/parent/children/[childId]/study-plans/page.tsx 1dfff0a7ded915c98ab6af725586589c87f271ce319059cf48989e7179097589
-// input: apps/web/app/(main)/edu/parent/page.tsx 30f55c840242cb8b4cca31e504cc681b3a54a175c26b505dbf38835d0a32c385
+// input: apps/web/app/(main)/edu/parent/page.tsx 66f895da4ad3216b554ab3234b2572f97fa27485dedac2d2e1812659a5c01651
 // input: apps/web/app/(main)/edu/progress/page.tsx a08cfdb943a9d2daf3e371aafdf61d85c4056cd8ef5d1908216dc05737608b56
-// input: apps/web/app/(main)/edu/qa/page.tsx 8ce6381db40c0024877c8519629ffda24c462de5813838eb7bba90843c3bfcd7
+// input: apps/web/app/(main)/edu/qa/page.tsx 99b5e3a42a4ce3b52dfc843734a5fec13b2dc0fd99e8d68610ca6bc5d9c2b47e
 // input: apps/web/app/(main)/edu/schedule/page.tsx 0f49bae31c6b880aecd3e11a2702fa0ff73f02822a91bda4b110957b6f21325d
 // input: apps/web/app/(main)/edu/shop/page.tsx a3495c325315e34c3266e303fad361762511146477c375ef272b03c7b24ca279
 // input: apps/web/app/(main)/en/use-cases/ai-design/page.tsx 263f5d399f0d9d9dbce8c184ebef0de76fbb039af1cab41b56ea6f2f98ac991a
@@ -614,7 +616,7 @@
 // input: apps/web/app/(main)/feature-center/apis/page.tsx ad0b4eb11e49bc4fc494ec3840904d80b2bac3d3bec78cd6ba0eef9c786ad8a6
 // input: apps/web/app/(main)/feature-center/documents/page.tsx 2ce7e67ef26bea8de23d91e16ce1a2cdc5102ae31a299a70947980857d530336
 // input: apps/web/app/(main)/feature-center/models/page.tsx c7dea6c91b30310fd646b881e7ffec4ce0af71f4e8fb725e83eee8dadb32d5ee
-// input: apps/web/app/(main)/feature-center/page.tsx 68f2a2f0142c71dd38e34ecc42eea2dec54a4d74b1ece10f30e21da65f333783
+// input: apps/web/app/(main)/feature-center/page.tsx fe3b441c800063a553c89788054ea85053a2cf9bce3d36d9478903ea6f0440a0
 // input: apps/web/app/(main)/feature-center/sdks/page.tsx fdd8f6d0b5fe6c3c837d55b355d9fa344dc6344c648c2f042ece9fef5038a233
 // input: apps/web/app/(main)/feedback/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/feedback/page.tsx e15690927679e5461828bda020a9ee3cf115a6523c1b7f642222a1838e7d94f8
@@ -649,7 +651,7 @@
 // input: apps/web/app/(main)/knowledge-planet/page.tsx 95ed45d2892df6ad3d40a76573602a8394bda0d3196795c11d56c7b431d67115
 // input: apps/web/app/(main)/knowledge-rag/[id]/chunks/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/knowledge-rag/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
-// input: apps/web/app/(main)/knowledge-rag/manage/page.tsx f8ee3a99aad464308260f7eb654b1350b6ba0798357566446007c09683b5d268
+// input: apps/web/app/(main)/knowledge-rag/manage/page.tsx 827f84f7054a4dd7e489cabc70978f063bdd6ca5e5fa2a175a26a2d2e625cb7f
 // input: apps/web/app/(main)/knowledge-rag/page.tsx 6dfc4d7cc321632603972c3204042ba467caa290660e748886d9ef5166c8843c
 // input: apps/web/app/(main)/knowledge/page.tsx 6b1f20d5928c23db671cd532beb1209888dab8d135ddb11c8e53b559e5ac213d
 // input: apps/web/app/(main)/ko/use-cases/ai-design/page.tsx a5f7536cff6a0d2643b548732c81111ea332ad9b8e4bc21e2d8b83c8bab358fc
@@ -680,7 +682,7 @@
 // input: apps/web/app/(main)/live/page.tsx d1618c415ffabf9ce987acd79bc5ab356f7db81aabaf941a40ac4258889b3c59
 // input: apps/web/app/(main)/mcp-projects/page.tsx 8083d86a1ffdc43d0480d154482c92eeb73b0ea5ca834c4ff5d3811cc1194eca
 // input: apps/web/app/(main)/mcp-store/page.tsx 3801930b21799b9b5fdfda53588178b765ed08d5dcf53aedd69fa6f0591fae38
-// input: apps/web/app/(main)/media-tasks/page.tsx 92d6cd9ddc0e7e1f4b5cf1d5374d040d445b404930daccba6ce3b86a795ba3f6
+// input: apps/web/app/(main)/media-tasks/page.tsx 568fb0a5709cda726c8c5839f52a96ad14a5ece2ecc5b9b16c329c6e2b97ec12
 // input: apps/web/app/(main)/member/addresses/page.tsx 799f89bfa50f0469a63e0d1113a2d743f1bb8002b9c1114c7cbf3715c1cdb366
 // input: apps/web/app/(main)/member/benefits/page.tsx 5d34f24134ad8a89d3022266021936c3df22e8bb6627c4a1adc1fc123d7eb7aa
 // input: apps/web/app/(main)/member/coupons/page.tsx ea4b4071d8fefd439d7d3e141f19b481b48ab8a7b25e27ce37b76c8aa005bb4b
@@ -709,7 +711,7 @@
 // input: apps/web/app/(main)/models/channels/page.tsx 594ff458d743e9332b9b904df359a6edae2ca93c0b9b46f57432bc11d1e2272f
 // input: apps/web/app/(main)/models/chats/page.tsx b4a216a92e8200bc36be31cde9f0f78e5771c94e00eca0fc0e9d2099c5ced5c6
 // input: apps/web/app/(main)/models/contact/page.tsx 3f2dc0c6f30d8682ff60b3bb96a80de338f5e8b088addc00a69a5eca90e99709
-// input: apps/web/app/(main)/models/eval/page.tsx 687d24f307aad2a6720137111a6fded32af51fb65e56b7072f331f73679f0826
+// input: apps/web/app/(main)/models/eval/page.tsx f31a67a9f63df5439e61fcc01b8a473d5953412890c5f530254ea096b2668f93
 // input: apps/web/app/(main)/models/groups/page.tsx 35b16db05d8be703bfb569f6c9ca68521e25b42b1ec573375e9d4a50c979fbe8
 // input: apps/web/app/(main)/models/keys/page.tsx abdeabe644a8fee560ebb32b2b460d9d1098d776b771fbb8dface58431113b83
 // input: apps/web/app/(main)/models/logs/page.tsx 3f8cfef85e1d26c0a4acac4d0ebc4862226d63c2bb6eef198ff4da057186c8a2
@@ -785,25 +787,26 @@
 // input: apps/web/app/(main)/self-media/koubo/page.tsx 1c562f92a1d0caceed55946eb85dede399330de57404f30506d37eee47c8a072
 // input: apps/web/app/(main)/self-media/wechat/page.tsx debb0578c8144eaa8cac2da14ebf6554c17dff626b1ade430636be0420fc89bf
 // input: apps/web/app/(main)/services/page.tsx b54ca5c46d6700ea0fd78c5cac5efde5d04098a2be51feba7d745667d6dc7c8b
-// input: apps/web/app/(main)/settings/account-deletion/page.tsx c1d87c92d028c1d1760daddf43cd335d437049b5c6f3ece184388dcf314015dc
+// input: apps/web/app/(main)/settings/account-deletion/page.tsx 6c4aa17e8f506c1adbb4b6fa0d934080fa44d1df02d0b532431825ee1597b957
 // input: apps/web/app/(main)/settings/activity/page.tsx bd2d5934dc5d697f77d05b6240a9fdbeee9d448e2b0d3e4e27bc733c89cfc57b
 // input: apps/web/app/(main)/settings/agent-security/page.tsx 3e1a91132e20fc7bd3ae6b99774cdf8d93d7c26937edaceb5dc5407a4386aa45
 // input: apps/web/app/(main)/settings/api-keys/page.tsx 492e6b64711c856e20ec91c9ef5a74e42869c0127612dfca7cccb3476727083c
 // input: apps/web/app/(main)/settings/authorizations/page.tsx acc98c629b5c5069f804e1bbeae18fa87c48c84784f10fe3d5e04af92524e8d7
-// input: apps/web/app/(main)/settings/billing/page.tsx ef30cd0cb4bbec7fc77ca05bf75a16f0f198e3cf9e982644ab7f143b383a826e
+// input: apps/web/app/(main)/settings/billing/page.tsx 6b9a2046ea7ee37d24ac587c630d87f31b9e8376fbbef75a8a7d269db7bb2574
 // input: apps/web/app/(main)/settings/connected-accounts/page.tsx b0afd772ebcc305f5e8049fec1c59861291ef79bcf6d1d48b83572fc14338301
 // input: apps/web/app/(main)/settings/dashboard/page.tsx 9a3600e685ffcacd84130982a4ea40a2264a79d3eebe77329b8ef918535d36ca
 // input: apps/web/app/(main)/settings/data-export/page.tsx c2ca8e792b53309e3a65bc957de4222c6f9efbad420a800d141fed3605af66ce
 // input: apps/web/app/(main)/settings/data-rights/page.tsx 226c5f9c8db68d641455d439092dc3e090ad9c399938f404f9deda442023ecd7
+// input: apps/web/app/(main)/settings/devices/page.tsx 7b3be74403b941bb35059e69dd31bf2f4c642b38750015610a61c1202a9b6083
 // input: apps/web/app/(main)/settings/gateway/page.tsx 4eef35b03c2dbdef89ee8baff5d817d53877f8ba5b13218e177ea03a6fd1049e
 // input: apps/web/app/(main)/settings/icp-record/page.tsx 352ac1a3a83d9f8a996264639c8d1280bf667bd95f10dde71faa7acd91bd4cd1
 // input: apps/web/app/(main)/settings/import/page.tsx 1d4a7124cf1157a41650d821e146d3e0510765f9a8a121659cbd018ba84ac2c1
 // input: apps/web/app/(main)/settings/llm/page.tsx 33971a847f01d8bdf10692af698fe91335feac6e9ed338a50d259cc3d29ace13
 // input: apps/web/app/(main)/settings/login-security/page.tsx 10d923762ae80c83ad25b1471e24c833c8afe3145c2a352515dd2a0f88dc0b9f
 // input: apps/web/app/(main)/settings/model-record/page.tsx 14fbf795ca1be17902174485c347fbd5a968c8fef2c7e0a6f9f51f0f90cbabbc
-// input: apps/web/app/(main)/settings/notifications/page.tsx 0d55007275996e6dc6ae202244b7692f6ced73e2354eeabc864a0852606d4a29
+// input: apps/web/app/(main)/settings/notifications/page.tsx 9a440d5f1f5db78759b32f1e84e981d5507068d25b224e964d9d6d0079f3c238
 // input: apps/web/app/(main)/settings/page.tsx cd858cf8ddf233183ee7ac6eb877f7987436aed3099e0a34a92f6c0a7e867f27
-// input: apps/web/app/(main)/settings/preferences/page.tsx cd29e7d109a5406cb5db7fec4c05e74478b5d7a7a9d4a33a22b4f2c340d2f0a6
+// input: apps/web/app/(main)/settings/preferences/page.tsx d7fb42b7704272649bb9a92b968102931e530dc7bef651375519b20a2c17b179
 // input: apps/web/app/(main)/settings/privacy/page.tsx 49d1461e35d3cfe2d70a4a2757713f1fc3e0a1ac84e8c31e55703a93a4fda401
 // input: apps/web/app/(main)/settings/security-log/page.tsx 3bc34ec087b95c50f9d8eb89aa18ab9ae1ae973fa92023f9c63361cd6423e507
 // input: apps/web/app/(main)/settings/usage/page.tsx 5e7da09d44d1df492f41dc82b8aa04525dc3ba5982030172e8496abff8b557bc
@@ -891,19 +894,19 @@
 // input: apps/web/app/(main)/vip/page.tsx 580a7a463564b86a7720ba20e89a7716b7f74c43609013b6bb6a25408f61e71d
 // input: apps/web/app/(main)/vip/trader/page.tsx 7beea9a0dac78ab999e606a2ef42b9a7f09db1d6cf6efb1442e99ffab842fb0a
 // input: apps/web/app/(main)/voices/page.tsx 0f3b48f67c1b50a4d822b423d2d1823b74ed14b2e7021e20c0a0f44d9e0f2554
-// input: apps/web/app/(main)/wallet/page.tsx 4e847a6671bdfb00232a6f58a919cc15f99ac7fedb8e08be4f8973872f123a87
+// input: apps/web/app/(main)/wallet/page.tsx 5a623c687eafe1e5e35647a031ee7ae66c37e1ea08255b302011e044d66fdae1
 // input: apps/web/app/(main)/wallet/recharge/fail/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/wallet/recharge/page.tsx 27fa1d557fcdd7a0a79ca423deb8fbdacb4d0ed04c4b7137d48333210c03ba91
 // input: apps/web/app/(main)/wallet/recharge/success/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
-// input: apps/web/app/(main)/wallet/withdraw/page.tsx 79d84910f64e5f0f951cfe0c61978ac6e113f5c529eff29f4937e28df7c47e95
-// input: apps/web/app/(main)/wallet/withdraw/records/page.tsx 6e7779d04d5a17d8c8c901f024a6577f52586438259ca9f62d0dcc67b0b4af75
+// input: apps/web/app/(main)/wallet/withdraw/page.tsx 0c0db36bdfbcb77e6db11943dd875437652a7d4b1055cce5774efbec03274d83
+// input: apps/web/app/(main)/wallet/withdraw/records/page.tsx cf3cc9a09940d051124b6f3d234d047da1ac4c66d2aee901acb33a613866d69b
 // input: apps/web/app/(main)/web-tools/page.tsx 989fecd8617dd1e1cd29dffe42488823b7154a773231fa2d51286be28e0f4f03
 // input: apps/web/app/(main)/workbuddy-reset/page.tsx 87bfa8554c3f815d1094ae29887d7b1af53e6a0033b761f217fa45eac110ded7
 // input: apps/web/app/(main)/workflows/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/workflows/instances/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/workflows/page.tsx 04023d6b22d63b60eceb775e64e213bddfab0a02b4ad697969fb33d9a199ddfe
 // input: apps/web/app/(main)/workspace/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
-// input: apps/web/app/(main)/workspace/page.tsx 3b716362dac4912f7c2de603f9423b0e61f1cc9243d136b626ab16a2368fda30
+// input: apps/web/app/(main)/workspace/page.tsx 4dca34e5fd401c4719b82188e783decce8d8218eb54b8325abaa919d9ac72379
 // input: apps/web/app/(main)/workspace/permissions/page.tsx 7a2f58b691152a91e7e99fe4801d385a08951241bffe3dd3e845367f29350628
 // input: apps/web/app/(main)/zh-TW/use-cases/ai-design/page.tsx 968e3a59c964cbbe36456b1a0b785d248128d5b9e0a1f4f2339a9bcba43191bf
 // input: apps/web/app/(main)/zh-TW/use-cases/ai-edu/page.tsx 186a51dcf9e97017ac78ee4ef025f3ed404146d2358be881a71553ea41083385
@@ -911,6 +914,7 @@
 // input: apps/web/app/(main)/zh-TW/use-cases/ai-research/page.tsx 2f0815dc8fe7797fecf317e3275152e964d74d3dab59c17ce9780134e67095af
 // input: apps/web/app/(main)/zh-TW/use-cases/ai-translation/page.tsx aead2f28cc9f6b74152e8351aad8999356f4f0c4be570ef8edbdfbb4a58b3837
 // input: apps/web/app/(marketing)/page.tsx 8004f807b187bbd827d227e7bc43dff4efd301968e177cfdf807c1d700681c97
+// input: apps/web/app/(pilot)/shared-pilot/page.tsx 02826df6073715e3f627280ecf7af5ec12f405452498881153ed8669800080c4
 // input: apps/web/app/e2e-harness/markdown-stream/page.tsx de4c19c6bbcbb5b85568e71f90cd9cd9767947c698cc97c0c5c0c06495000081
 // input: apps/web/app/en/agents/page.tsx dbc52d72f94e290fddd12f28008fcdd12c312ddd8a7d17c5f44cbdec145f1fb5
 // input: apps/web/app/en/docs/page.tsx 439673e6796a965c8a7ed66fe54739c13d61f0a8d118b6590759ab1830297555
@@ -930,7 +934,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 8509c1bc6272c3e141461ae79a70c998d3f8298592eaf936a64bb9be2402b464
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-29T02:35:06.329Z
+// generatedAt: 2026-10-30T13:02:18.901Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1155,6 +1159,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/online-users', param: false, group: 'admin' },
   { path: '/admin/operlog', param: false, group: 'admin' },
   { path: '/admin/orders', param: false, group: 'admin' },
+  { path: '/admin/org-governance', param: false, group: 'admin' },
   { path: '/admin/oss', param: false, group: 'admin' },
   { path: '/admin/oss-config', param: false, group: 'admin' },
   { path: '/admin/oss/files', param: false, group: 'admin' },
@@ -1318,6 +1323,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/articles/:id', param: true, group: 'articles' },
   { path: '/articles/edit', param: false, group: 'articles' },
   { path: '/articles/hot', param: false, group: 'articles' },
+  { path: '/artifacts', param: false, group: 'artifacts' },
   { path: '/ask', param: false, group: 'ask' },
   { path: '/asks', param: false, group: 'asks' },
   { path: '/asks/:id', param: true, group: 'asks' },
@@ -1726,6 +1732,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/settings/dashboard', param: false, group: 'settings' },
   { path: '/settings/data-export', param: false, group: 'settings' },
   { path: '/settings/data-rights', param: false, group: 'settings' },
+  { path: '/settings/devices', param: false, group: 'settings' },
   { path: '/settings/gateway', param: false, group: 'settings' },
   { path: '/settings/icp-record', param: false, group: 'settings' },
   { path: '/settings/import', param: false, group: 'settings' },
@@ -1739,6 +1746,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/settings/usage', param: false, group: 'settings' },
   { path: '/share', param: false, group: 'share' },
   { path: '/share/:code', param: true, group: 'share' },
+  { path: '/shared-pilot', param: false, group: 'shared-pilot' },
   { path: '/skills', param: false, group: 'skills' },
   { path: '/skills-market', param: false, group: 'skills-market' },
   { path: '/skills-market/:id', param: true, group: 'skills-market' },

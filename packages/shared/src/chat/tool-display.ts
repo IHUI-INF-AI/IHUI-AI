@@ -45,6 +45,10 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   // #81 的报表工具在 HEAD 的 `_TOOLS`(`mcp_server.py:9869`)与五语言词表里都早已就位
   // (`taskStatus.toolGenerateReport` / `…Activity`),唯独这张映射漏了一行 ⇒ 界面上它退化成裸码名。
   generate_report: 'toolGenerateReport',
+  // G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具
+  create_artifact: 'toolCreateArtifact',
+  // G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化
+  create_automation: 'toolCreateAutomation',
   summarize_artifacts: 'toolSummarizeArtifacts',
   image_generation: 'toolImageGeneration',
   image_edit: 'toolImageEdit',

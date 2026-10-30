@@ -56,6 +56,8 @@ import {
   startAgentAutomationScheduler,
   stopAgentAutomationScheduler,
 } from './services/agent-automation-scheduler.js'
+// G2 结果推送(2026-10-30):把 server.pushNotification 注入自动化通知出口(调度器本身无 server)
+import { setAutomationNotificationPusher } from './services/automations/goal-loop.js'
 import { startPatrolScheduler, stopPatrolScheduler } from './services/patrol-scheduler.js'
 import { startQoderBridge, stopQoderBridge } from './services/qoder-bridge-client.js'
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
@@ -224,7 +226,7 @@ async function waitForSchedulerOwnership(log: {
  * 2026-10-28 从 start() 内联块提为模块级函数:启动时机改由 waitForSchedulerOwnership 判定
  * (蓝绿活跃色独占),内容与顺序逐字保留 —— 这些 stop* 在 shutdown 相位里的顺序与之对应。
  */
-function startBackgroundSchedulers(): void {
+function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer>>): void {
   // 启动 AI World 数据同步定时任务(每 12 小时一次,默认开启,ENABLE_AI_WORLD_SYNC=false 禁用)
   if (process.env.ENABLE_AI_WORLD_SYNC !== 'false') {
     startAiWorldSyncScheduler()
@@ -285,6 +287,9 @@ function startBackgroundSchedulers(): void {
   }
 
   // 启动用户侧 Agent 定时自动化调度器(60s tick,到点执行 active 的自动化任务)
+  // G2 结果推送(2026-10-30):先注 WS 出口再起调度器 —— 终态通知落库后同步推 WS,
+  // Web 侧栏 NotificationCenter 才能即时收到并带出「查看会话」深链(侧栏不读 REST 列表)。
+  setAutomationNotificationPusher((userId, payload) => server.pushNotification(userId, payload))
   startAgentAutomationScheduler()
 
   // 启动主动巡逻调度器(P3 #40,60s tick,到点执行 active 的巡检任务)
@@ -450,7 +455,7 @@ async function start() {
         '蓝绿角色判定失败 ⇒ 按 fail-open 启动进程内定时任务(可能与另一色短暂重复执行)',
       )
     }
-    startBackgroundSchedulers()
+    startBackgroundSchedulers(server)
   }
 
   // P1 修复(2026-08-02):改 on 为 once,避免重复触发 shutdown;二次信号走默认强制退出

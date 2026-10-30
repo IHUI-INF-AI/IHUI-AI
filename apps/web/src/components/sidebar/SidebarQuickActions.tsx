@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Plus, Package, Clock } from 'lucide-react'
+import { Plus, Package, Clock, PackageOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BTN_NEW_CONVERSATION_CLASS } from '@/lib/nav-styles'
 import { Tooltip } from '@/components/feedback'
@@ -15,7 +15,7 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 
 /**
- * 侧边栏顶部快捷操作区:新建任务 / 插件市场 / 自动化任务 三个按钮(展开态显示文字,折叠态只显图标)。
+ * 侧边栏顶部快捷操作区:新建任务 / 插件市场 / 自动化任务 / 产物中心 四个按钮(展开态显示文字,折叠态只显图标)。
  * 从原 Sidebar.navContent 抽出,主组件直接渲染 <SidebarQuickActions />。
  */
 export function SidebarQuickActions({
@@ -27,6 +27,8 @@ export function SidebarQuickActions({
 }) {
   const t = useTranslations('nav')
   const tchat = useTranslations('aiChat')
+  // 2026-10-30 G3 产物中心:入口文案放 artifacts.* 命名空间(与页面词同源,不动 nav)
+  const tart = useTranslations('artifacts')
   const pathname = usePathname()
   const aiPanelOpen = useAiPanelStore((s) => s.open)
   // 2026-08-29 迁移整合:AI 面板 header"新建任务"按钮已移除,能力统一到此按钮。
@@ -164,6 +166,44 @@ export function SidebarQuickActions({
           >
             <Clock className="h-5 w-5 shrink-0" />
             <span className="min-w-0 whitespace-nowrap text-left">{t('selfMediaAutomation')}</span>
+          </Link>
+        )}
+      </div>
+
+      {/* 产物中心按钮(2026-10-30 G3 新增,快捷区第4个)
+            - 样式与插件市场/自动化同款:默认透明仅 hover 出 bg-foreground/20,
+              active 态(/artifacts 路由命中)锁定;折叠态 36×36 图标按钮
+            - 文案取 artifacts.navEntry(与产物中心页面词同源) */}
+      <div className={cn('mb-1', collapsed && 'flex justify-center')}>
+        {collapsed ? (
+          <Tooltip content={tart('navEntry')} side="right">
+            <Link
+              href="/artifacts"
+              onClick={onCloseMobile}
+              aria-label={tart('navEntry')}
+              aria-current={pathname.startsWith('/artifacts') ? 'page' : undefined}
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-sm text-foreground transition-colors',
+                pathname.startsWith('/artifacts') ? 'bg-foreground/20' : 'hover:bg-foreground/20',
+              )}
+            >
+              <PackageOpen className="h-5 w-5" />
+            </Link>
+          </Tooltip>
+        ) : (
+          <Link
+            href="/artifacts"
+            onClick={onCloseMobile}
+            aria-current={pathname.startsWith('/artifacts') ? 'page' : undefined}
+            className={cn(
+              BTN_NEW_CONVERSATION_CLASS,
+              pathname.startsWith('/artifacts')
+                ? 'bg-foreground/20 text-foreground'
+                : 'text-foreground hover:bg-foreground/20',
+            )}
+          >
+            <PackageOpen className="h-5 w-5 shrink-0" />
+            <span className="min-w-0 whitespace-nowrap text-left">{tart('navEntry')}</span>
           </Link>
         )}
       </div>

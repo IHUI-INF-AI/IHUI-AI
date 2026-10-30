@@ -86,7 +86,7 @@ export function TaskApprovalCard({ task, deviceId, onAnswer, busy }: TaskApprova
             跨设备委派审批
           </Text>
         </View>
-        <View className={`flex-row items-center gap-1 px-2 py-0.5 rounded-full ${meta.badge}`}>
+        <View className={`flex-row items-center gap-1 px-2 py-0.5 rounded-md ${meta.badge}`}>
           <StateIcon size={12} color={meta.iconColor} />
           <Text className={`text-[11px] font-medium ${meta.text}`}>{meta.label}</Text>
         </View>

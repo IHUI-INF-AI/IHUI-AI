@@ -354,6 +354,15 @@ import { pushRoutes, adminPushRoutes } from './push.js'
 // 设备推送 token 注册表路由(2026-09-06 立):PUT/DELETE /api/devices/token
 import { devicesRoutes } from './devices.js'
 
+// G3 产物管线(2026-10-30 立):GET /api/artifacts/:id/download 按 id 直查+归属校验
+import { artifactRoutes } from './artifacts.js'
+
+// G4 计费弹性(2026-10-30 立):GET /api/pricing-rules + /api/admin/pricing-rules CRUD
+import { pricingRulesRoutes } from './pricing-rules.js'
+
+// G6 企业治理(2026-10-30 立):/api/org/billing/summary + /api/org/policies(组织管理员守卫)
+import { orgBillingRoutes } from './org-billing.js'
+
 // P1-4 补建：文件转码服务（FFmpeg 子进程封装）
 import { transcodeRoutes, adminTranscodeRoutes } from './transcode.js'
 
@@ -1152,6 +1161,12 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminPushRoutes, { prefix: '/api/admin' })
   // 设备推送 token 注册表(2026-09-06 立):PUT/DELETE /api/devices/token
   server.register(devicesRoutes, { prefix: '/api' })
+  // G3 产物管线(2026-10-30 立):GET /api/artifacts/:id/download
+  server.register(artifactRoutes, { prefix: '/api' })
+  // G4 计费弹性(2026-10-30 立):GET /api/pricing-rules + admin CRUD
+  server.register(pricingRulesRoutes, { prefix: '/api' })
+  // G6 企业治理(2026-10-30 立):组织统账+策略读写
+  server.register(orgBillingRoutes, { prefix: '/api' })
 
   // ===== P1-4 补建：文件转码服务（FFmpeg 子进程封装）=====
   server.register(transcodeRoutes, { prefix: '/api' })
