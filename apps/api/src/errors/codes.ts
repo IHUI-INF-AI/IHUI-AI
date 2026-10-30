@@ -17,6 +17,10 @@ export const ErrorCode = {
   LOCKED: { status: 423, code: 'LOCKED' },
   INTERNAL_ERROR: { status: 500, code: 'INTERNAL_ERROR' },
   UPSTREAM_FAILURE: { status: 502, code: 'UPSTREAM_FAILURE' },
+  // 票 B67(2026-10-30):上游"收得到但不回话"。此前与"上游不可达"同塌成 502,
+  // 事后只能靠 api_logs 里那一行状态码猜;504 = 上游在 deadline 内没回,重试可期,
+  // 与 503(连接层根本不通)是两档不同的自愈动作(前者等上游,后者看进程)。
+  GATEWAY_TIMEOUT: { status: 504, code: 'GATEWAY_TIMEOUT' },
   SERVICE_UNAVAILABLE: { status: 503, code: 'SERVICE_UNAVAILABLE' },
   MEMBER_EXISTS: { status: 409, code: 'MEMBER_EXISTS' },
   OPTIMISTIC_LOCK: { status: 409, code: 'OPTIMISTIC_LOCK' },
@@ -86,6 +90,8 @@ export const ERROR_CODE_CATEGORY: Record<ErrorCodeKey, ErrorCategory> = {
   UPSTREAM_FAILURE: 'upstream',
   SERVICE_UNAVAILABLE: 'upstream',
   CAPABILITY_UNAVAILABLE: 'upstream',
+  // 504:上游收到了却没在 deadline 内回话 —— 归属上游面,客户端退避重试即可。
+  GATEWAY_TIMEOUT: 'upstream',
   // 上游凭据失效(L7648):归属上游面,不是用户会话(auth 类别会误导端上弹登录)。
   UPSTREAM_AUTH_FAILED: 'upstream',
 
