@@ -10,7 +10,7 @@
  * ③回关真的发 POST 并弹提示;④空态/失败态/裸键三查。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createElement, type ReactNode } from 'react'
+import { createElement } from 'react'
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { messages, getValueByPath, type Locale } from '../src/i18n'
 import type * as ApiClient from '@ihui/api-client'
@@ -19,79 +19,27 @@ const nav = vi.hoisted(() => ({ navigate: vi.fn(), goBack: vi.fn() }))
 const appAlert = vi.hoisted(() => vi.fn())
 const fetchApi = vi.hoisted(() => vi.fn())
 
-vi.mock('react-native', () => {
-  const mk = (tag: string) =>
-    function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-      const { style, onPress, children, ...rest } = props
-      const flat = (v: unknown): unknown =>
-        Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
-      return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, children)
-    }
-  /**
-   * 屏幕状态四件套(ScreenStates,枚 d723f8bc9b37 起为共享屏的 Shimmer/按压动画)在渲染期
-   * 使用 Animated.loop/sequence/timing/spring/Value/View + Easing。内联 mock 缺这组导出
-   * ⇒ 整文件加载/渲染期抛「No "Animated" export is defined on the "react-native" mock」。
-   * 与真实 RN 的 Animated 面同形的 no-op 桩(start 回调带 finished:true,保证 useEffect 清理可达)。
-   */
-  const anim = {
-    start: (cb?: (r: { finished: boolean }) => void) => {
-      cb?.({ finished: true })
-      return anim
-    },
-    stop: () => {},
-  }
-  const mkAnimValue = () => ({
-    setValue: () => {},
-    interpolate: (cfg: { outputRange?: number[] }) => cfg.outputRange?.[0] ?? 1,
-  })
-  function AnimatedValue() {
-    return mkAnimValue()
-  }
-  const Animated = {
-    View: (props: { children?: ReactNode; style?: unknown }) =>
-      createElement('div', { 'data-role': 'shimmer' }, props.children),
-    Value: AnimatedValue,
-    timing: () => anim,
-    spring: () => anim,
-    loop: () => anim,
-    sequence: () => anim,
-    parallel: () => anim,
-  }
-  const Easing = {
-    ease: (t: number) => t,
-    linear: (t: number) => t,
-    in: (f: (t: number) => number) => f,
-    out: (f: (t: number) => number) => f,
-    inOut: (f: (t: number) => number) => f,
-  }
-  return {
-    Animated,
-    Easing,
-    // 共享返回键核心按字体缩放取档(packages/shared/src/ui/back-chevron-core → useFontMultiplier)
-    PixelRatio: {
-      getFontScale: () => 1,
-      getPixelSizeForLayoutSize: (n: number) => n,
-      roundToNearestPixel: (n: number) => n,
-    },
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    useColorScheme: () => 'light',
-    View: (props: { children?: ReactNode; style?: unknown }) =>
-      createElement('div', { 'data-role': 'shimmer' }, props.children),
-    Text: mk('span'),
-    Image: mk('div'),
-    ScrollView: (props: { children?: ReactNode; style?: unknown }) =>
-      createElement('div', { 'data-role': 'shimmer' }, props.children),
-    Pressable: mk('button'),
-    TouchableOpacity: mk('button'),
-    ActivityIndicator: () => createElement('div', { 'data-role': 'spinner' }),
-    StyleSheet: {
-      create: <T extends object>(s: T) => s,
-      flatten: (s: unknown) => s,
-      hairlineWidth: 0.5,
-    },
-    Platform: { OS: 'web', select: (o: Record<string, unknown>) => o.web ?? o.ios },
-  }
-})
+/**
+ * 2026-10-29:本套件曾整块 vi.mock('react-native') 复刻一份替身(§22c 反模式),逐项对账:
+ * ① Animated/Easing/PixelRatio/Appearance/useColorScheme/View/Text/Image/ScrollView/
+ *    Pressable/TouchableOpacity/ActivityIndicator/StyleSheet/Platform 全部键在共享替身
+ *    tests/__mocks__/react-native.ts 均有实现 ⇒ 本地整块删除,零 importOriginal 增量
+ *    (StyleSheet.flatten / Platform.select 只是本地防御性扩展,已 grep 本链
+ *    UserFansScreen 壳 + packages/app 屏 + BackChevron/MoreLink/ScreenStates/theme/
+ *    design-tokens:零使用)。
+ * ② 本地替身给 View/ScrollView/Animated.View 打 data-role="shimmer"、ActivityIndicator
+ *    打 data-role="spinner" —— 那是替身自造的形态(真 RN 不产出 data-role),原 loading
+ *    断言查的就是这份虚构;回归共享替身后改为行为判据(骨架上屏且无文案),同 cart-screen-render
+ *    的已迁样板。
+ * ③ 共享替身把 accessibilityLabel 归一成 aria-label(__mocks__/react-native.ts:98,
+ *    原始属性名不落 DOM)⇒ 取钮口径与 cart 同款 buttonsByLabel,计数语义不变。
+ */
+function buttonsByLabel(label: string): HTMLButtonElement[] {
+  return Array.from(document.querySelectorAll('button')).filter(
+    (el) =>
+      el.getAttribute('aria-label') === label || el.getAttribute('accessibilityLabel') === label,
+  )
+}
 
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: nav.navigate, goBack: nav.goBack }),
@@ -182,9 +130,8 @@ describe('UserFansScreen 渲染委托与内容', () => {
       screen.getAllByText(new RegExp(val('userFans.followedAt'))).length,
     ).toBeGreaterThanOrEqual(2)
     // 载体计数:回关按钮(CTA 载体)= 1,加载更多按钮 = 1(2<3)
-    expect(
-      document.querySelectorAll(`button[accessibilitylabel="${val('userFans.follow')}"]`),
-    ).toHaveLength(1)
+    // 取钮走 buttonsByLabel(共享替身把 accessibilityLabel 归一成 aria-label,口径同 cart)
+    expect(buttonsByLabel(val('userFans.follow'))).toHaveLength(1)
     expect(
       document.querySelectorAll('button[accessibilityrole="button"]').length,
     ).toBeGreaterThanOrEqual(3)
@@ -194,8 +141,8 @@ describe('UserFansScreen 渲染委托与内容', () => {
     fansOk()
     renderScreen()
     await waitFor(() => expect(screen.queryByText('甲粉一号')).not.toBeNull())
-    const btn = document.querySelector(`button[accessibilitylabel="${val('userFans.follow')}"]`)
-    expect(btn).not.toBeNull()
+    const btn = buttonsByLabel(val('userFans.follow'))[0]
+    expect(btn ?? null).not.toBeNull()
     fireEvent.click(btn as Element)
     await waitFor(() =>
       expect(fetchApi).toHaveBeenCalledWith('/api/follows/u1', { method: 'POST' }),
@@ -207,7 +154,16 @@ describe('UserFansScreen 渲染委托与内容', () => {
   it('空态三分支:loading 指示 → 空文案;接口失败 → 加载失败 + 重试', async () => {
     fetchApi.mockImplementation(() => new Promise(() => {})) // 挂起,首帧仍在加载
     const { unmount } = renderScreen()
-    expect(document.querySelector('[data-role="shimmer"]')).not.toBeNull()
+    // loading 态由共享层 ScreenSkeleton 骨架屏承载(骨架无文案)。原断言查
+    // [data-role="shimmer"] —— 该属性只由本套件旧本地替身自造(真 RN/共享替身都不产出,
+    // 测的是替身不是实现),回归共享替身后改行为判据:滚动容器(共享替身打
+    // data-rn-scrollview 标记)内骨架块已上屏,且不出现任何文案。
+    const scrollBody = document.querySelector('[data-rn-scrollview]')
+    expect(scrollBody).not.toBeNull()
+    expect((scrollBody as HTMLElement).childElementCount).toBeGreaterThan(0)
+    expect(scrollBody!.textContent).not.toMatch(/[一-龥]/)
+    expect(screen.queryByText(val('userFans.empty'))).toBeNull()
+    expect(screen.queryByText(val('userFans.loadFailed'))).toBeNull()
     unmount()
 
     cleanup()

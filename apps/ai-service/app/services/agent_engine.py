@@ -396,27 +396,17 @@ def _apply_sandbox(proc: Any) -> dict[str, Any]:
         return {"active": False, "reason": f"沙箱模块异常: {e}"}
 
 
-# 危险环境变量前缀(对标 Codex process-hardening:剥离 LD_PRELOAD/DYLD_* 等
-# 注入型变量,防子进程被环境劫持;Windows 生产为 no-op 但跨平台语义正确)
-_DANGEROUS_ENV_PREFIXES = ("LD_PRELOAD", "LD_AUDIT", "DYLD_")
-
-
 def _sanitized_child_env() -> dict[str, str]:
     """子进程环境消毒:剔除注入型危险变量(第十一批,对标 process-hardening)。
 
     第二十六批升级:再剥离 exec_env.NON_INHERITABLE_ENV_VARS(管理凭据/
     身份令牌类,如 IHUI_ADMIN_PASSWORD),模型可达子进程绝不继承。
+    差距⑦(2026-10-30):注入型前缀判据上收 core/exec_env.INJECTION_ENV_PREFIXES
+    单一权威源(与 mcp_server 执行面共用同一把尺子,不造第二套)。
     """
-    from app.core.exec_env import scrub_non_inheritable_env_vars
+    from app.core.exec_env import scrub_injection_env_vars, scrub_non_inheritable_env_vars
 
-    env = dict(os.environ)
-    for key in [
-        k
-        for k in env
-        if any(k.upper().startswith(p) for p in _DANGEROUS_ENV_PREFIXES)
-    ]:
-        env.pop(key, None)
-    return scrub_non_inheritable_env_vars(env)
+    return scrub_non_inheritable_env_vars(scrub_injection_env_vars(dict(os.environ)))
 # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher)
 _WATCH_INTERVAL = 2.0
 _WATCH_MAX_ENTRIES = 2000
@@ -6666,10 +6656,27 @@ class AgentEngine:
                     "error": f"持久会话数已达上限({_MAX_EXEC_SESSIONS}),"
                     "请复用 sessionId 或等待空闲回收"
                 }
+            # 差距⑦(2026-10-30,对标 Qoder node-repl moduleRoots 白名单):模型经
+            # 工具参数传入的 cwd 必须落在执行根白名单内,与 mcp_server run_command
+            # 的 cwd 校验同一把尺子(复用 `_validate_path_in_workspace`,不造第二套)。
+            # 合法根 = 全局工作区根 ⊕ 会话附加目录(D201) ⊕ 宿主侧线程工作区
+            # (thread.workspace 由 thread.start 客户端设定,属宿主注入上下文,
+            # 模型参数只能在其内收窄、不能借 cwd 逃逸到任意目录)。
             cwd = args.get("cwd")
-            resolved_cwd = (
-                cwd if isinstance(cwd, str) and cwd.strip() else thread.workspace
-            ) or os.getcwd()
+            resolved_cwd = thread.workspace or os.getcwd()
+            if isinstance(cwd, str) and cwd.strip():
+                from .mcp_server import _validate_path_in_workspace
+
+                _cwd_roots = tuple(thread.additional_directories or ())
+                if thread.workspace:
+                    _cwd_roots = _cwd_roots + (thread.workspace,)
+                ok_cwd, cwd_info = _validate_path_in_workspace(cwd, extra_roots=_cwd_roots)
+                if not ok_cwd:
+                    return {
+                        "error": f"cwd 不在工作区白名单: {cwd_info}",
+                        "errorCode": "PATH_NOT_ALLOWED",
+                    }
+                resolved_cwd = cwd_info
             new_id = f"shx_{uuid.uuid4().hex[:12]}"
             # shell 环境快照注入(2026-09-20 批 55 接线,对标 Codex
             # shell_snapshot.rs 复用语义):POSIX 会话 source 快照脚本重建

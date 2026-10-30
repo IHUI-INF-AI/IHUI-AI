@@ -292,72 +292,76 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
   }
 
   // 头像上传:内部校验 2MiB,整包还需 multipart 边界余量 → 吃全局 2MiB 会先 413
-  server.post('/:id/avatar', { bodyLimit: SMALL_IMAGE_UPLOAD_BODY_LIMIT }, async (request, reply) => {
-    try {
-      await authenticate(request)
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || '操作失败,请稍后重试'
-      return reply.status(statusCode).send(error(statusCode, message))
-    }
-
-    const { id } = z.object({ id: z.string() }).parse(request.params)
-    const currentUserId = request.userId!
-    const roleId = request.jwtPayload?.roleId ?? 0
-
-    // 仅本人或管理员可上传头像
-    if (id !== currentUserId && roleId < ADMIN_ROLE_ID) {
-      return reply.status(403).send(error(403, '无权修改他人头像'))
-    }
-
-    if (await isSystemAdminUser(id)) {
-      return reply.status(403).send(error(403, '系统内置管理员头像不可修改'))
-    }
-
-    const data = await request.file()
-    if (!data) {
-      return reply.status(400).send(error(400, '未检测到上传文件'))
-    }
-
-    const mimeType = data.mimetype ?? ''
-    if (!AVATAR_ALLOWED_TYPES.includes(mimeType)) {
-      return reply.status(400).send(error(400, '仅支持 JPG/PNG/WebP/GIF 格式'))
-    }
-
-    // 2026-07-24 安全加固:读取 buffer 后用 validateUploadFile 校验扩展名 + MIME 一致性 + magic number + 大小
-    // 防御 Content-Type 伪造(CWE-434):仅校验 data.mimetype 可被攻击者绕过,必须读文件头 magic number
-    const buffer = await data.toBuffer()
-    const filename = sanitizeFilename(data.filename ?? 'avatar.jpg')
-    const valid = validateUploadFile(buffer, filename, mimeType, AVATAR_MAX_SIZE)
-    if (!valid.ok) {
-      return reply.status(400).send(error(400, valid.reason))
-    }
-
-    if (!existsSync(AVATAR_DIR)) mkdirSync(AVATAR_DIR, { recursive: true })
-
-    const fileId = randomUUID()
-    const ext = AVATAR_EXT_MAP[mimeType] ?? extname(data.filename) ?? '.jpg'
-    const tmpPath = join(AVATAR_DIR, `${fileId}.tmp`)
-    const finalPath = join(AVATAR_DIR, `${fileId}${ext}`)
-
-    try {
-      await pipeline(Readable.from(buffer), createWriteStream(tmpPath))
-      renameSync(tmpPath, finalPath)
-    } catch (err) {
+  server.post(
+    '/:id/avatar',
+    { bodyLimit: SMALL_IMAGE_UPLOAD_BODY_LIMIT },
+    async (request, reply) => {
       try {
-        if (existsSync(tmpPath)) unlinkSync(tmpPath)
+        await authenticate(request)
       } catch (e) {
-        request.log.warn({ err: e }, '头像临时文件清理失败')
-        // ignore
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+        const message = (e as Error).message || '操作失败,请稍后重试'
+        return reply.status(statusCode).send(error(statusCode, message))
       }
-      request.log.error({ err }, '头像上传失败')
-      return reply.status(500).send(error(500, '头像上传失败'))
-    }
 
-    const avatarUrl = `/uploads/avatars/${fileId}${ext}`
-    const updated = await updateUser(id, { avatar: avatarUrl })
-    return reply.send(success({ user: publicUser(updated) }))
-  })
+      const { id } = z.object({ id: z.string() }).parse(request.params)
+      const currentUserId = request.userId!
+      const roleId = request.jwtPayload?.roleId ?? 0
+
+      // 仅本人或管理员可上传头像
+      if (id !== currentUserId && roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '无权修改他人头像'))
+      }
+
+      if (await isSystemAdminUser(id)) {
+        return reply.status(403).send(error(403, '系统内置管理员头像不可修改'))
+      }
+
+      const data = await request.file()
+      if (!data) {
+        return reply.status(400).send(error(400, '未检测到上传文件'))
+      }
+
+      const mimeType = data.mimetype ?? ''
+      if (!AVATAR_ALLOWED_TYPES.includes(mimeType)) {
+        return reply.status(400).send(error(400, '仅支持 JPG/PNG/WebP/GIF 格式'))
+      }
+
+      // 2026-07-24 安全加固:读取 buffer 后用 validateUploadFile 校验扩展名 + MIME 一致性 + magic number + 大小
+      // 防御 Content-Type 伪造(CWE-434):仅校验 data.mimetype 可被攻击者绕过,必须读文件头 magic number
+      const buffer = await data.toBuffer()
+      const filename = sanitizeFilename(data.filename ?? 'avatar.jpg')
+      const valid = validateUploadFile(buffer, filename, mimeType, AVATAR_MAX_SIZE)
+      if (!valid.ok) {
+        return reply.status(400).send(error(400, valid.reason))
+      }
+
+      if (!existsSync(AVATAR_DIR)) mkdirSync(AVATAR_DIR, { recursive: true })
+
+      const fileId = randomUUID()
+      const ext = AVATAR_EXT_MAP[mimeType] ?? extname(data.filename) ?? '.jpg'
+      const tmpPath = join(AVATAR_DIR, `${fileId}.tmp`)
+      const finalPath = join(AVATAR_DIR, `${fileId}${ext}`)
+
+      try {
+        await pipeline(Readable.from(buffer), createWriteStream(tmpPath))
+        renameSync(tmpPath, finalPath)
+      } catch (err) {
+        try {
+          if (existsSync(tmpPath)) unlinkSync(tmpPath)
+        } catch (e) {
+          request.log.warn({ err: e }, '头像临时文件清理失败')
+          // ignore
+        }
+        request.log.error({ err }, '头像上传失败')
+        return reply.status(500).send(error(500, '头像上传失败'))
+      }
+
+      const avatarUrl = `/uploads/avatars/${fileId}${ext}`
+      const updated = await updateUser(id, { avatar: avatarUrl })
+      return reply.send(success({ user: publicUser(updated) }))
+    },
+  )
 
   // POST /api/users/change-phone - 更换手机号(需旧+新手机号双验证码,新号有账号则合并)
   // 业务规则:
@@ -433,10 +437,13 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '目标账号为系统管理员,不可合并'))
       }
       try {
-        await mergeUserAccounts({
+        // 归属主体由承载层显式入参(§5 认证≠授权):userId 来自鉴权层,existingNew.id 来自库查询,
+        // 均不信客户端自报。mergeUserAccounts 现返回库确认回执(守门 134 格 2),回执异常=事务内抛错已回滚。
+        const mergeAck = await mergeUserAccounts({
           fromUserId: existingNew.id,
           toUserId: userId,
         })
+        request.log.info({ mergeAck }, '账号合并完成(库确认回执)')
       } catch (e) {
         request.log.error({ err: e }, '账号合并失败')
         return reply.status(500).send(error(500, '账号合并失败,请稍后重试'))

@@ -127,6 +127,9 @@ export const SSE_FAMILY_CROSS_REFERENCES: {
   // hook-failed 带六字段证据(hookName/hookEvent/command/stderr/exitCode/durationMs)
   // 且挂到某条 assistant 消息的 meta;error 是"这条回答失败"。不并,如实标 null。
   'hook-failed': null,
+  // 差距①(2026-10-30 立):发送准入回执帧是**对话流独有**的控制类帧(准入判定发生在
+  // 主对话流的流首,agent 任务流没有同义事件),如实标 null(与 hook-failed 先例一致)。
+  admission: null,
 }
 // 2026-10-05 更正:上面这行曾被 `d81011c4ec` 删掉,理由是"SSE_EVENTS.PARTIAL_DONE 已从
 // contract.ts 移除 ⇒ SSEEventName 联合里不再有它"。**该前提在当次面上不成立**:

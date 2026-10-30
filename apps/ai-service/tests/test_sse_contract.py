@@ -33,9 +33,12 @@ def test_sse_events_completeness() -> None:
     33 → 34 是 D115(2026-10-24,提交 2fc9ab9b55a)新增 `review-finding`(review 收尾
     投影)一帧 —— 该提交只改了被审代码没同步本计数,本用例在干净 HEAD 上红了 9 例
     之一;此处按演进链补记,不是行为变化。
+    34 → 35 是 `hook-failed`(提交 9bfb056a38)入契约时没同步本计数 —— 又一格记账
+    缺口,本票现读钉住,不是本票引入的行为变化。
+    35 → 36 是差距①(2026-10-30)新增 `admission`(发送准入回执)一帧。
     """
-    assert len(SSE_EVENTS) == 34
-    assert len(set(SSE_EVENTS)) == 34
+    assert len(SSE_EVENTS) == 36
+    assert len(set(SSE_EVENTS)) == 36
     # D151 的新帧必须真在集合里(光有计数会放过"删了别的、加了这个"):
     assert "terminal_interaction" in SSE_EVENTS
     # D152 同理 —— 计数只保证"没少",点名才保证"加的就是这一名":
@@ -44,6 +47,8 @@ def test_sse_events_completeness() -> None:
     assert "partial_done" in SSE_EVENTS
     # D115(2026-10-24):review 收尾投影帧 —— 计数只保证"没少",点名才保证"加的就是这一名"
     assert "review-finding" in SSE_EVENTS
+    # 差距①(2026-10-30):发送准入回执帧 —— 同上,点名钉住
+    assert "admission" in SSE_EVENTS
 
 
 def test_sse_events_p4_d1_steer_members() -> None:

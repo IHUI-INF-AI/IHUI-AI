@@ -313,5 +313,19 @@ describe('normalizeMcpInput / validateMcpConfig', () => {
     expect(r.errors).toEqual([])
     expect(r.valid).toHaveLength(1)
   })
+
+  it('validateMcpConfig:requestTimeoutMs 只收正整数毫秒', () => {
+    const r = validateMcpConfig({
+      servers: [
+        { name: 'ok-timeout', command: 'x', requestTimeoutMs: 300000 },
+        { name: 'zero', command: 'x', requestTimeoutMs: 0 },
+        { name: 'neg', command: 'x', requestTimeoutMs: -5 },
+        { name: 'float', command: 'x', requestTimeoutMs: 1.5 },
+        { name: 'str', command: 'x', requestTimeoutMs: '300000' },
+      ],
+    })
+    expect(r.valid.map((s) => s.name)).toEqual(['ok-timeout'])
+    expect(r.errors).toHaveLength(4)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

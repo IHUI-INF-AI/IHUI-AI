@@ -12,7 +12,7 @@ import { __test__ as scrubTool } from '../scrub-declared-removals.mjs'
 import { compositeKeyOf } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-const { scrub, declaredRows, buildDeclared, rowStateOf, main, LEDGERS } = scrubTool
+const { scrub, declaredRows, buildDeclared, rowStateOf, titleFpOf, main, LEDGERS } = scrubTool
 
 const ROW = '- [ ] G-900 已被台账摘除的登记行'
 const HEAD = ['- [ ] G-901 在册行', '- [x] G-902 已勾在册行'].join('\n')
@@ -334,3 +334,32 @@ function readSource() {
   return readFileSync(fileURLToPath(new URL('../scrub-declared-removals.mjs', import.meta.url)), 'utf8')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+  it('结清行被扫掉(stale-closed-sweep,前像已勾)⇒ 必须进维三;同 kind 的未勾前像仍不进', () => {
+    const dir = mkScratch('declared-sweep-done-')
+    try {
+      mkdirSync(path.join(dir, '.ihui-agent', 'state'), { recursive: true })
+      const closed = '- [x] ✅(2026-10-22) G-65 已结清的票要一直结着'
+      const open = '- [ ] G-66 还没结清的票不许被豁免'
+      writeFileSync(
+        path.join(dir, '.ihui-agent', 'state', 'drop.jsonl'),
+        [
+          JSON.stringify({ rowBefore: closed, kind: 'stale-closed-sweep', at: '2026-10-22T00:00:00.000Z' }),
+          JSON.stringify({ rowBefore: open, kind: 'stale-closed-sweep', at: '2026-10-22T00:00:00.000Z' }),
+        ].join('\n') + '\n',
+        'utf8',
+      )
+      const d = declaredRows(dir, ['.ihui-agent/state/drop.jsonl'])
+      assert.ok(
+        d.dropTitleFps.has(titleFpOf(closed)),
+        '前像已勾 ⇒ 属"声明为删除"凭据;缺这一维时 stale-closed-sweep(现读 1842 条)写的已勾前像两维都命中不了,扫掉的行会被无限回捞(实测 24h 834 次)',
+      )
+      assert.equal(
+        d.dropTitleFps.has(titleFpOf(open)),
+        false,
+        '前像未勾 ⇒ 照旧不进维三(否则"没结清"能被写成"已处置")',
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
