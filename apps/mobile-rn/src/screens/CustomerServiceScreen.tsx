@@ -30,8 +30,12 @@ export function CustomerServiceScreen() {
     void (async () => {
       try {
         const res = await fetchApi<CustomerServiceInfo>('/customer-service/info')
-        if (!res.success) throw new Error('http')
         if (cancelled) return
+        if (!res.success) {
+          // 透出后端 message(未登录/服务未开通等),而非一律「加载失败」。
+          setError(res.error || t('customerService.loadFailed'))
+          return
+        }
         setInfo(res.data ?? null)
       } catch {
         if (!cancelled) setError(t('customerService.loadFailed'))

@@ -30,7 +30,11 @@ export function HelpScreen() {
       // 后端 GET /help/articles 回 success({ list })(content.ts)，本屏把整个信封当数组
       // ⇒ 帮助中心永远空列表。
       const res = await fetchApi<{ list: HelpListItem[] }>('/help/articles')
-      if (!res.success) throw new Error('http')
+      if (!res.success) {
+        // 透出后端 message,而非一律「加载失败」。
+        setError(res.error || t('help.loadFailed'))
+        return
+      }
       setItems(res.data?.list ?? [])
     } catch {
       setError(t('help.loadFailed'))
