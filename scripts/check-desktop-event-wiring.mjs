@@ -1979,6 +1979,21 @@ for (const f of RUST_FILES) {
     rustSources.get(event).add(f)
     rustEmitHits++
   }
+  // 托盘动作的第二形态(09-28 起):`deliver_tray_action(app, "new_chat")`(lib.rs:735/755/763/776)。
+  // 它在实现体内经**常量** `TRAY_EVENT` 走 `w.emit(TRAY_EVENT, action)` —— 事件名不是字符串字面量,
+  // RUST_EMIT_RE 结构上抓不到 ⇒ 4 个生产点整批缺席,阈值 7 才报"扫描器疑似失效"。
+  // 认**投递调用点**而不是解析 Rust 常量表:调用点本身就是"谁在何时发哪个 action",语义比常量映射更正。
+  // 同一条纪律:扩扫描面,阈值一个不动。
+  for (const m of text.matchAll(/deliver_tray_action\(\s*[^,]+,\s*"([a-z_]+)"\s*\)/g)) {
+    const event = TRAY_ACTION_EVENT
+    if (!rustEmits.has(event)) {
+      rustEmits.set(event, new Set())
+      rustSources.set(event, new Set())
+    }
+    rustEmits.get(event).add(m[1])
+    rustSources.get(event).add(f)
+    rustEmitHits++
+  }
 }
 
 console.log(
@@ -2017,6 +2032,32 @@ const bridgeText = textOf(CONTENTS, BRIDGE_REL)
 
 // listen('xxx') 出现位置 → 块 = [当前位置, 下一个 listen 或文件末]
 const LISTEN_RE = /listen(?:<[^>]*>)?\(\s*'([a-z][a-z0-9-]*)'/g
+/**
+ * 一跳函数内联:listen 回调里是 `applyTrayAction(event.payload)` 这种**调本地函数**的形态时,
+ * 把该函数定义体也纳入这一块的计数。
+ * 立因(2026-10-30 现读):托盘四个动作 09-28 起抽进 `applyTrayAction`(use-desktop.ts:404),
+ * 而计数按 listen 位置切块 ⇒ 那 4 个 case / 多个派发落在**任何块之外**,读数掉成
+ * case 2(阈值 6)、dispatch 6(阈值 8),双双报"扫描器疑似失效"。
+ * 增的是**扫描面**不是阈值:阈值一个不动,让读数回到它本该有的数。
+ */
+function localFnBody(name) {
+  const byDecl = new RegExp(`(?:function\\s+${name}\\s*\\(|(?:const|let)\\s+${name}\\s*(?::[^=\\n]+)?=\\s*(?:async\\s*)?\\()`)
+  const m = byDecl.exec(bridgeText)
+  if (!m) return ''
+  const open = bridgeText.indexOf('{', m.index + m[0].length)
+  if (open < 0) return ''
+  let depth = 0
+  for (let i = open; i < bridgeText.length; i++) {
+    const ch = bridgeText[i]
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return bridgeText.slice(m.index, i + 1)
+    }
+  }
+  return ''
+}
+
 const listenPositions = [...bridgeText.matchAll(LISTEN_RE)].map((m) => ({
   event: m[1],
   index: m.index,
@@ -2027,10 +2068,21 @@ const bridge = new Map()
 let caseHits = 0
 let dispatchHits = 0
 
+const inlinedFns = new Set()
 for (let i = 0; i < listenPositions.length; i++) {
   const cur = listenPositions[i]
   const end = i + 1 < listenPositions.length ? listenPositions[i + 1].index : bridgeText.length
-  const block = bridgeText.slice(cur.index, end)
+  const rawBlock = bridgeText.slice(cur.index, end)
+  let extra = ''
+  for (const call of rawBlock.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) {
+    const fn = call[1]
+    if (inlinedFns.has(fn)) continue
+    const body = localFnBody(fn)
+    if (!body) continue
+    inlinedFns.add(fn)
+    extra += '\n' + body
+  }
+  const block = rawBlock + extra
   const entry = bridge.get(cur.event) ?? { cases: new Set(), dispatches: new Set() }
   for (const m of block.matchAll(/case\s*'([a-z_]+)':/g)) {
     entry.cases.add(m[1])

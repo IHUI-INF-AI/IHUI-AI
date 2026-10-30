@@ -41,7 +41,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, resolve, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { mkScratch } from '../lib/scratch-dir.mjs'
 
@@ -633,6 +633,37 @@ test('T-EXITID 记账身份必须交给唯一出口,且不得顺带开启出口�
   // 能力必须有人消费:argv 支持而调用点不传 ⇒ 台账里这一路永远"(无 alert-id)",量算仪只能按标题分桶
   assert.match(SRC, /d = await deliver\(title, desp, severity, mailAlertId\)/, '故障信没把身份交给出口 ⇒ 判据退化成标题分桶')
   assert.match(SRC, /'credential-health;channel-selftest'/, '通道自测那封也必须带身份,否则它会被并进故障桶里数成"同一故障 2 封"')
+})
+
+test('T-PICK 凭据窄出口三态 + 生产腿接线(自检 109 条里那三句曾指向一个从未存在的函数)', async () => {
+  const { pickKey } = await import(pathToFileURL(SRC_PATH).href)
+  const re = /^[0-9a-f]{32}$/
+  // 第一臂:取不到 ⇒ 空串而不是抛(2026-09-24 实测:GIT_KEY_DIR 不在本机 ⇒ 原实现 TypeError
+  // 打崩整轮巡检,心跳写不出、守护拉起崩在同一行 ⇒ 告警链双向静默)
+  assert.equal(pickKey(null, re), '', 'null 必须落空串,不得抛')
+  assert.equal(pickKey(undefined, re), '', 'undefined 同 null')
+  // 第二臂:形状不合 ⇒ 空(同步盘 _冲突文件_ 副本长得像 token 也不是 token)
+  assert.equal(pickKey('a97fghp_0123456789abcdef0123456789abcdef', re), '', '拼接过的假值不得当凭据返回')
+  assert.equal(pickKey('0'.repeat(31), re), '', '差一位也不算')
+  // 第三臂:形状合 ⇒ 去空白取原值
+  assert.equal(pickKey(' 0123456789abcdef0123456789abcdef\n', re), '0123456789abcdef0123456789abcdef')
+  // 能力必须有人消费(§0.9 造好没装车=没有):gitee 腿裸读原文时,纯函数测试全绿而生产照旧
+  // 把垃圾串拼进 GET 的 query —— 访问日志会原样记下,所以这一条是源码级接线锁而不是装饰。
+  assert.match(
+    SRC,
+    /const giteeToken = pickKey\(giteeRaw, \/\^\[0-9a-f\]\{32\}\$\/\)/,
+    'gitee 腿没接窄出口 ⇒ 判据写好了但没人吃',
+  )
+  assert.doesNotMatch(
+    SRC,
+    /access_token=' \+ encodeURIComponent\(giteeRaw\)/,
+    '原始文件内容被拼进 URL query ⇒ 形状不合的垃圾串会进 Gitee 访问日志',
+  )
+  assert.match(
+    SRC,
+    /if \(giteeRaw && !giteeToken\) \{[\s\S]{0,320}level: 'fail'/,
+    '取到东西但形状不合必须落一条 fail(静默跳过=把"没判"写成"判过",§0.3)',
+  )
 })
 
 function askedHasRepoNext(askedList) {
