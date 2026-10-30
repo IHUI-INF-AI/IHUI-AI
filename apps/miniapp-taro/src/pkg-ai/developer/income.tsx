@@ -44,10 +44,14 @@ interface IncomeItem {
   settlement?: string | number
   settleStatus?: string | number
   status?: string | number
-  /** 共享屏卡片同构字段:后端 GET /api/developer/income 目前只回流水行(id/title/time/amount),
-   *  订单号与分成比例尚未出网 ⇒ 本页按可选字段消费:回传即渲染,不回就不渲染(不编造数字)。 */
-  orderId?: string
-  rate?: number
+  /**
+   * 可达性复核(2026-10-30 取证):GET /api/developer/income 的响应体在
+   * apps/api/src/routes/developer.ts 的 GET /income 处理器里**固定映射**为
+   * { id, title, time, amount } 四键,rate/orderId 结构上不可能出现;
+   * 且底层 token_flows 表(packages/database/src/schema/wallet.ts)根本没有
+   * 分成比例列,无任何接口可按流水补 rate ⇒ 共享屏的 rateLabel 一支在本端
+   * 是死分支,已撤(宁可门报缺 1 键,不留假绿)。订单行退用流水 id 渲染(①可达)。
+   */
 }
 
 interface IncomeListResponse {
@@ -407,13 +411,13 @@ export default function DeveloperIncome() {
                     <View>
                       <Text className="income-item-title">{displayTitle(item)}</Text>
                       <Text className="income-item-time">{displayTime(item)}</Text>
-                      {/* 对齐 RN 共享屏卡片 meta:订单号(订单)与分成比例(rateLabel)。
-                          订单号缺失时退到本流水 id;分成比例无数据源时不渲染(不编造百分比)。 */}
+                      {/* 对齐 RN 共享屏卡片 meta 的订单行(modelIncome.orderLabel):
+                          后端 /api/developer/income 响应固定为 id/title/time/amount(developer.ts GET /income),
+                          订单号未出网 ⇒ 按本页既定口径退用流水 id,键可达。
+                          rateLabel(分成比例)一支因 token_flows 无比例列、接口无从供数,属结构死分支,
+                          2026-10-30 复核已撤 ⇒ 还原度门对本 route 报缺 modelIncome.rateLabel 是如实读数。 */}
                       <Text className="income-item-time" numberOfLines={1}>
-                        {tt('modelIncome.orderLabel', '订单')} {item.orderId ?? item.id}
-                        {typeof item.rate === 'number'
-                          ? ` · ${tt('modelIncome.rateLabel', '分成比例')} ${item.rate}%`
-                          : null}
+                        {tt('modelIncome.orderLabel', '订单')} {item.id}
                       </Text>
                     </View>
                     <View>

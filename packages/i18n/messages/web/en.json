@@ -8802,6 +8802,10 @@
           "title": "Account is restricted",
           "action": "Contact the administrator"
         },
+        "PROVIDER_BUSY": {
+          "title": "Provider busy",
+          "action": "Please try again later"
+        },
         "ALREADY_CLAIMED": {
           "title": "This task has already been claimed",
           "action": "Claim another task, or wait for the holder to release it"
