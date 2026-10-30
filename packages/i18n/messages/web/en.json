@@ -13454,6 +13454,7 @@
     "errorTitle": "Something went wrong",
     "remark": "Remark",
     "unknownError": "Unknown error",
+    "deleteFailed": "Failed to delete, please try again later",
     "reply": "Reply",
     "orderNoLabel": "Order No.",
     "clear": "Clear",
