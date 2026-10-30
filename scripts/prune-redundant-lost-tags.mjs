@@ -36,13 +36,15 @@
  *   2 — 未判定（取不到 tag 清单 / base 解析不出来 / 推远端网络失败且非 local-only）
  */
 /* eslint-disable no-console -- CLI 工具 */
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
 // 单一真相源(AGENTS §0.6):一律经共用层派生 git(绝对路径二进制 + quotepath + timeout +
 // 代理换腿)。本脚本自己拼 execFileSync 就等于又欠一份"裸 git 派生"的债,
 // face-reader.test 的型 B 棘轮会把它记进分母。
 import { gitRaw } from './lib/face-reader.mjs'
+// 存续层期望清单的读写出口(唯一一份住在 git-refs-heal;本器只问它要,不另抄形状)
+import { readManifest, saveManifest, REFS_MANIFEST_PATH } from './git-refs-heal.mjs'
 
 const ROOT = resolve(process.cwd())
 
@@ -251,6 +253,50 @@ try {
   git(['pack-refs', '--all', '--prune'], { timeout: 600_000 })
 } catch {
   /* 固化失败不影响结果 */
+}
+
+// ── 6. 摘除存续层的期望清单条目(不摘就会被离线重建)────────────────
+// 实测教训(2026-10-30):本器删完 8,093 枚远端 + 本地引用后,git-guardian 的「嵌套 ref 存续」层
+//   在 22:08 按 refs-manifest.json 把其中 **8,086 枚重建并固化进 packed-refs** —— 它照"期望清单"
+//   复活引用,不知道那是一次有意的删除(AGENTS §1 对活文档行写的是同一条纪律:摘除必须让重建那一层
+//   认账,否则"删了又回来"永远追不完)。
+// 读写与落点一律走 git-refs-heal 的出口(§0.6 单一真相源,本层零复算)。
+if (!APPLY) {
+  console.log('(dry-run) 存续层清单本轮不摘 —— 与引用删除同一批才有效,单摘等于自断存续')
+} else {
+  const manifestExists = existsSync(REFS_MANIFEST_PATH)
+  const manifestBytes = manifestExists ? statSync(REFS_MANIFEST_PATH).size : 0
+  if (!manifestExists || manifestBytes <= 2) {
+    // 读不到/空表 ⇒ 一条都不动:写 `{}` 等于清空整张存续层清单(所有期望值一起丢),比不摘更坏。
+    console.log(
+      `⚠️ 存续层清单未判定(存在=${manifestExists} 字节=${manifestBytes})⇒ 本轮不摘条目;` +
+        `被删的引用可能被下一轮 refs 自愈重建。出路:确认清单可读后重跑本器`,
+    )
+  } else {
+    const manifest = readManifest()
+    const before = Object.keys(manifest).length
+    if (before === 0) {
+      // 文件非空却解析出 0 条 ⇒ 判"读不到"(§0.3),绝不按"确实没有"落盘
+      console.log(`⚠️ 存续层清单 ${manifestBytes}B 解析出 0 条 ⇒ 视为读不到,本轮不写(不拿空表覆盖真清单)`)
+    } else {
+      let dropped = 0
+      for (const x of redundant) {
+        const key = `refs/tags/${x.name}`
+        if (Object.prototype.hasOwnProperty.call(manifest, key)) {
+          delete manifest[key]
+          dropped++
+        }
+      }
+      const after = Object.keys(manifest).length
+      if (saveManifest(manifest)) {
+        console.log(`存续层清单: ${before} → ${after}(本轮声明摘除 ${dropped}/${redundant.length} 条)`)
+      } else {
+        // 写失败 ⇒ 大声报,不静默:条目仍在期望清单里,引用会被重建回来
+        console.log('❌ 存续层清单写入失败 ⇒ 未摘除;删掉的引用会被 refs 自愈重建,请重跑本器')
+        process.exitCode = 1
+      }
+    }
+  }
 }
 
 writeFileSync(
