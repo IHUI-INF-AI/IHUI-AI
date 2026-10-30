@@ -136,7 +136,7 @@
 | 1 审批收件箱 | **推翻:此缺口不存在** | web 侧 `apps/web/src/components/feature-center/NotificationCenter.tsx` 已有 `pendingDecisions` 区块(含空态/条数/`myPendingDecisions` 文案)+ 测试 `__tests__/d193-decision-inbox.test.tsx`;RN 侧 `apps/mobile-rn/src/screens/PendingDecisionsScreen.tsx`(270 行)独立屏 + 30 分钟超时判据;数据源两侧同吃 `listPendingDecisions()`(packages/api-client/src/endpoints/chat.ts)。**残余只有一格**:收件箱里只能深链回源会话,不能当场结算(`onDecisionItemClick` 只做跳转)——而对照程序本来也是在会话内批准,故这一格不构成差距 |
 | 5 "批准即生成规则" | **推翻:后端已有** | `apps/ai-service/app/services/agent_loop_v2.py:682 grant_tool_approval_persist(approval_id, scope)` 支持 `session` / `always` 两级("批 53 persist 通道",注释自陈对标 codex PERSIST_SESSION/ALWAYS),契约侧 `packages/types/src/tool-contract.ts` 有 `TOOL_PERSIST_SCOPES`。**残余只在"UI 是否暴露该档"——本轮未取证,标 [未知]** |
 | 3 压缩默认不触发 | **半真** | `_compaction_context_limit_from_env()` 默认 `"0"` 确为"未配置=不压缩"(agent_loop_v2.py:1637-1643),但同处注释明写"生产按模型实际上下文窗口设置(如 128000)"⇒ 是否真不触发取决于 **生产 env**,本机只读到默认值,标 [未知];不得据默认值断言线上不压缩 |
-| 4 automation 执行腿 | **真** | `grep -rn automation_executor apps/ai-service/app` 除自身文件外**零命中**;`automation_thread.py` 同 |
+| 4 automation 执行腿 | **改判:不是"断腿",是"僵尸模块 + 覆盖窄"** | `automation_executor.py` 除自身外确零 import;但工具本身**真会执行**:`mcp_server.py:4845 _tool_configure_automation_task` 在 `execute=True`(默认)时按 `action` 分派到 `_tool_schedule_task` / `_tool_dispatch_subagent` / `httpx POST webhook`(:4903 起)。⇒ 真实问题两件:① `automation_executor.py`(180 行,含 retry/abort/fallback/on_success 与多步 trace)是**没被任何人调用**的重复实现;② 模型可编程的定时面只有 `schedule_task` 单动词,缺对照的 `CronCreate/CronList/CronDelete/ScheduleWakeup` **增删查看四件套** |
 | 2 目标机读预算 | **真** | `packages/database/src/schema/` 无任何 goal 表;`services/` 与 `core/` 对 `turnsUsed/turns_used/goal_turn_budget/maxTurns` **零命中**;只有 `services/goal_resume.py`(300 行,零消费)与 CLI 侧 `goal-verification.ts` |
 | 11 peer 权限边界 | **真** | `services/agent_teams.py` 内 `peer|teammate` **零命中**,连概念都没有 |
 | 6 钩子 14 vs 28 | **真** | `packages/types/src/agent-runtime.ts:37-52` 恰 14 值 |
@@ -146,7 +146,7 @@
 | 10 端侧契约消费 | **真** | `tool-contract`/`schema-projection` 仅 cli + ai-service import |
 | 7 模型可编程定时 | **真(入口有、执行腿断)** | 见第 4 行,同一根因 |
 
-**复核后的真实待办序**:④(automation 执行腿)> ②(goals 机读预算)> ⑪(12 档用途路由)> ⑥(钩子扩面)> ⑫(收件箱内结算,可选)> ①(作废)。**教训**:Top 榜也不可信到"照着开工"——本仓"造好没装车"与"装好了没人记得"两种形态同时存在,判"我方没有"必须先 `grep` 到消费点,而不是只 `grep` 到声明点。**第 1 行这条假缺口如果照单开工,就是给已交付的 D193 重做一遍。**
+**复核后的真实待办序**:②(goals 机读预算)> ⑪(12 档用途路由)> ⑥(钩子 14→28 扩面)> ⑦(定时四件套 + 清 `automation_executor` 僵尸)> ⑩(端侧契约消费)> ⑨(desktop 形态,最贵)>(可选)⑫ 收件箱内结算。**①作废、⑤只剩 UI 暴露面未取证、③需看生产 env。****教训**:Top 榜也不可信到"照着开工"——本仓"造好没装车"与"装好了没人记得"两种形态同时存在,判"我方没有"必须先 `grep` 到消费点,而不是只 `grep` 到声明点。**第 1 行这条假缺口如果照单开工,就是给已交付的 D193 重做一遍。**
 
 ## 4 我方不输/反超项(防单向自卑,每条同样给锚)
 
