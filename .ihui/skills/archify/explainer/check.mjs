@@ -156,7 +156,7 @@ export function checkExplainerHtml(html, { file = '<html>', checkNative = true }
       const directory=fs.mkdtempSync(path.join(os.tmpdir(),'archify-explainer-check-'));
       try {
         const artifactPath=path.join(directory,'child.html'); fs.writeFileSync(artifactPath,child.html);
-        const run=spawnSync(process.execPath,[fileURLToPath(new URL('../scripts/check-render-output.mjs',import.meta.url)),artifactPath],{encoding:'utf8',maxBuffer:8*1024*1024,timeout:60000});
+        const run=spawnSync(process.execPath,[fileURLToPath(new URL('../scripts/check-render-output.mjs',import.meta.url)),artifactPath],{encoding:'utf8',maxBuffer:8*1024*1024,timeout:60000,windowsHide:true});
         let receipt; try {receipt=JSON.parse(run.stdout);} catch {receipt=null;}
         childReceipts.push({id,receipt});
         if (run.status!==0 || !receipt?.ok || receipt.artifact?.sha256!==child.sha256 || receipt.composition?.profile!==(bundle?.quality || document?.meta?.quality_profile || 'standard')) issue('native-check',`Native diagram failed its existing composition checks: ${id}.`,'Fix the nested diagram using the native checker diagnostics.',ids.get(id),'diagram');

@@ -2265,6 +2265,7 @@ function runNode(args, options = {}) {
     encoding: 'utf8',
     stdio: options.stdio || 'inherit',
     maxBuffer: options.maxBuffer ?? DEFAULT_MAX_BUFFER,
+    windowsHide: true,
     env: options.env ? { ...process.env, ...options.env } : process.env,
   });
   // spawnSync can report a system failure after a child has exited zero. A

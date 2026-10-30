@@ -70,7 +70,7 @@ function safePath(document, value, pointer, component) {
 }
 
 function gitBytes(document, repoRoot, args, pointer, limit = MAX_CODE_BYTES) {
-  const result = spawnSync('git', ['--no-replace-objects', '-C', repoRoot, ...args], { maxBuffer: limit });
+  const result = spawnSync('git', ['--no-replace-objects', '-C', repoRoot, ...args], { maxBuffer: limit, windowsHide: true });
   if (result.error || result.status !== 0 || !Buffer.isBuffer(result.stdout) || result.stdout.length > limit) {
     fail(document, pointer, 'source', 'source-read', 'The pinned repository resource could not be read within the size limit.',
       'Use an available, readable source file smaller than 16 MiB.');
