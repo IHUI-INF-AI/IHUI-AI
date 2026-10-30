@@ -108,6 +108,11 @@ export default function MessageTypePage() {
         }))
       }
       const apiType = NOTI_API_TYPE[type as Exclude<MessageType, 'private-letter'>]
+      // 「赞」「收藏」两类的 apiType 是 like / favorite,而后端通知类型 enum 只有
+      // system / order / project / comment / mention / follow ⇒ querystring schema 直接判 400,
+      // 页面只剩一段技术错误文案,永远看不到内容。这两类目前没有数据来源,按空态处理,
+      // 不发一条注定失败的请求(将来有真数据源再回来接线,不要靠改映射蒙一个相近类型)。
+      if (apiType === 'like' || apiType === 'favorite') return []
       const res = await apiOrThrow<{ list: NotificationItem[] }>(
         `/api/notifications?type=${apiType}&page=1&pageSize=10`,
       )
