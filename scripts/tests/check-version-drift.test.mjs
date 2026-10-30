@@ -21,7 +21,7 @@ function baseline(over = {}) {
       bundle: { windows: { webviewInstallMode: { type: 'embedBootstrapper' } } },
     },
     desktopPkg: { version: '0.1.75' },
-    mobileAppJson: { version: '0.0.8' },
+    mobileAppJson: { expo: { version: '0.0.8' } },
     mobilePkg: { version: '0.0.8' },
     appConfigJs: 'const v = process.env.IHUI_MOBILE_VERSION || pkg.version',
     rnConfigTs:
@@ -54,6 +54,28 @@ describe('I 移动端双写一致(A 的移动端同型)', () => {
     // 现实形态(2026-10-27 现读):app.json=0.0.8 而 package.json 还停在 0.0.6 ——
     // 未注入 IHUI_MOBILE_VERSION 的构建回落成 0.0.6,包里显示的版本号落后两个版本。
     const v = findVersionDrift(baseline({ mobilePkg: { version: '0.0.6' } }))
+    assert.equal(v.length, 1)
+    assert.match(v[0], /移动端版本双写不一致/)
+  })
+
+  it('真实文件形状(expo 一层包裹)下漂开必须被抓 —— 2026-10-30 的失效点', () => {
+    // 真实 apps/mobile-rn/app.json 是 { expo: { version } };旧实现按顶层取 version 恒得
+    // undefined,于是判据从未生效(app.json=0.0.9 / package.json=0.0.5 仍判绿)。
+    // 这条用例锁的是"取到了值",不是"值等于几"。
+    const v = findVersionDrift(
+      baseline({
+        mobileAppJson: { expo: { version: '0.0.9' } },
+        mobilePkg: { version: '0.0.5' },
+      }),
+    )
+    assert.equal(v.length, 1)
+    assert.match(v[0], /移动端版本双写不一致/)
+  })
+
+  it('扁平形态仍被识别(兼容分支不许退化成只认 expo 包裹)', () => {
+    const v = findVersionDrift(
+      baseline({ mobileAppJson: { version: '0.0.8' }, mobilePkg: { version: '0.0.6' } }),
+    )
     assert.equal(v.length, 1)
     assert.match(v[0], /移动端版本双写不一致/)
   })
