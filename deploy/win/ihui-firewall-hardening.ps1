@@ -66,6 +66,115 @@ function Get-WanCidrExcludingLan {
 
 $WAN = Get-WanCidrExcludingLan
 
+# -----------------------------------------------------------------------------
+# 0. verify-first:规则「已达标即跳过」
+#
+# 立因(2026-10-30 实测):本脚本原先对每条规则无条件 `delete rule` + `add rule`,
+# **不是**「已达标就跳过」。本机 netsh 单调用 10~60s,一次完整重放(防火墙腿)实测
+# 11~13 分钟 —— 期间每条 DENY 都有一段「拆了还没建」的空窗,单条规则在该窗口内不存在。
+# 于是「缩短重放间隔 = 缩小篡改暴露窗」这个直觉是反的:间隔越短,空窗越多
+# (2026-10-30 已因此把看门狗间隔从 1h 收回 6h)。根修就是本段:先读,达标即跳过。
+#
+# 为什么读注册表而不是 Get-NetFirewallRule:本机 NetSecurity 模块被安全策略禁用,
+# `Get-NetFirewallRule` 直接报 "not recognized";netsh 输出是本地化文本(中文宿主 vs
+# 英文宿主字段名不同),按文本匹配必然漂移。注册表
+#   HKLM\...\FirewallPolicy\FirewallRules
+# 是语言中立的单一真相源,且 §5 的 -PruneAppRules 已经在用它。
+#
+# 真实编码(2026-10-30 实测,不是推测):
+#   v2.33|Action=Block|Active=TRUE|Dir=In|Protocol=6|LPort=8802|LPort=8803|...|RA4=0.0.0.0/192.0.0.0|...
+#   —— 端口每枚一个 LPort 字段;远端每枚一个 RA4 字段,且**写成「网络地址/点分掩码」**
+#      (`0.0.0.0/2` 存成 `0.0.0.0/192.0.0.0`),不是 CIDR 前缀长度 ⇒ 必须换算后比。
+#
+# 失效方向:任何一项读不到 / 对不上 / 同名多条 ⇒ $false(**重建**)。宁可多拆一次,
+# 不可少建一次 —— verify-first 只能在"确实已达标"时省,不能在"拿不准"时省。
+# -----------------------------------------------------------------------------
+$FW_RULES_REG = 'HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules'
+$MASK_OCTET = @{ 0 = 0; 1 = 128; 2 = 192; 3 = 224; 4 = 240; 5 = 248; 6 = 252; 7 = 254; 8 = 255 }
+
+function ConvertTo-MaskDotted {
+  # 前缀长度 → 点分掩码。查表实现,不用 -shl(Windows PowerShell 5.1 无位移运算符,
+  # 而本脚本可能被 powershell.exe 或 pwsh 点源)。
+  param([int]$Bits)
+  $octs = New-Object System.Collections.ArrayList
+  for ($i = 0; $i -lt 4; $i++) {
+    $take = $Bits - $i * 8
+    if ($take -lt 0) { $take = 0 }
+    if ($take -gt 8) { $take = 8 }
+    [void]$octs.Add($MASK_OCTET[$take])
+  }
+  return ($octs -join '.')
+}
+
+function ConvertTo-FwAddrToken {
+  # CIDR(`a.b.c.d/N`) → 注册表写法(`网络地址/点分掩码`)。入参已是规范网络地址。
+  param([string]$Cidr)
+  $parts = $Cidr.Split('/')
+  if ($parts.Count -ne 2) { return $Cidr }
+  $bits = 0
+  if (-not [int]::TryParse($parts[1], [ref]$bits)) { return $Cidr }
+  return ('{0}/{1}' -f $parts[0], (ConvertTo-MaskDotted -Bits $bits))
+}
+
+function Get-FwRuleValuesByName {
+  # 一次读完 936 条规则再内存分拣;每条规则各调一次 netsh 才是重放慢的全部原因。
+  param([Parameter(Mandatory)][string]$Name)
+  $out = New-Object System.Collections.ArrayList
+  $k = Get-ItemProperty -Path $FW_RULES_REG -ErrorAction SilentlyContinue
+  if ($null -eq $k) { return $out }
+  foreach ($p in $k.PSObject.Properties) {
+    if ($p.Name -match '^PS') { continue }
+    $v = [string]$p.Value
+    $m = [regex]::Match($v, '(?:\||^)Name=([^|]*)')
+    if ($m.Success -and $m.Groups[1].Value -eq $Name) { [void]$out.Add($v) }
+  }
+  return $out
+}
+
+function Test-FwRuleApplied {
+  # 已达标 ⇒ $true。任一维度不匹配 ⇒ $false(调用方随即重建)。
+  param(
+    [Parameter(Mandatory)][string]$Name,
+    [Parameter(Mandatory)][string]$Action,      # 'Allow' / 'Block'
+    [string]$LocalPorts = '',                   # '8801' / '135,137,...' (逗号分隔,集合比较)
+    [string]$RemoteCidrs = '',                  # '0.0.0.0/2,...'  (CIDR,集合比较)
+    [switch]$RequireAnyRemote                   # 要求规则不限远端(无 RA4 或 RA4=*)
+  )
+  $vals = @(Get-FwRuleValuesByName -Name $Name)
+  # 同名多条 = 历史残留(旧版脚本反复建过);交给重建去收敛,这里绝不算达标
+  if ($vals.Count -ne 1) { return $false }
+  $map = @{}
+  foreach ($f in ([string]$vals[0]).Split('|')) {
+    $eq = $f.IndexOf('=')
+    if ($eq -lt 1) { continue }
+    $kn = $f.Substring(0, $eq)
+    if ($kn -notin @('Action', 'Active', 'Dir', 'Protocol', 'LPort', 'RA4')) { continue }
+    if (-not $map.ContainsKey($kn)) { $map[$kn] = New-Object System.Collections.ArrayList }
+    [void]$map[$kn].Add($f.Substring($eq + 1))
+  }
+  $joined = { param($key) if ($map.ContainsKey($key)) { (@($map[$key]) -join ',') } else { '' } }
+  if ((& $joined 'Action')   -ne $Action) { return $false }
+  if ((& $joined 'Active')   -ne 'TRUE')  { return $false }
+  if ((& $joined 'Dir')      -ne 'In')    { return $false }
+  if ((& $joined 'Protocol') -ne '6')     { return $false }
+  if ($LocalPorts) {
+    $want = @($LocalPorts.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Sort-Object)
+    $cur = @($map['LPort'] | ForEach-Object { "$_".Trim() } | Sort-Object)
+    if (($cur -join ',') -ne ($want -join ',')) { return $false }
+  }
+  if ($RequireAnyRemote) {
+    $ra = @($map['RA4'] | ForEach-Object { "$_".Trim() } | Where-Object { $_ -and $_ -ne '*' })
+    if ($ra.Count -gt 0) { return $false }
+  }
+  if ($RemoteCidrs) {
+    $want = @($RemoteCidrs.Split(',') | ForEach-Object { ConvertTo-FwAddrToken $_.Trim() } |
+      Where-Object { $_ } | Sort-Object)
+    $cur = @($map['RA4'] | ForEach-Object { "$_".Trim() } | Sort-Object)
+    if (($cur -join ',') -ne ($want -join ',')) { return $false }
+  }
+  return $true
+}
+
 Write-Host "== IHUI-AI host hardening ==" -ForegroundColor Cyan
 Write-Host ("LAN preserved : " + ($LAN_ALLOW -join ', '))
 Write-Host ("WAN block set : {0} CIDR ranges" -f (($WAN -split ',').Count))
@@ -90,11 +199,15 @@ Write-Host "[1/5] firewall profiles enabled + drop logging on" -ForegroundColor 
 #    精确放行的规则必须由本脚本自己幂等重建。
 # -----------------------------------------------------------------------------
 if (-not $Verify) {
-  netsh advfirewall firewall delete rule name='IHUI-ALLOW-WWW-8801' 2>$null | Out-Null
-  netsh advfirewall firewall add rule name='IHUI-ALLOW-WWW-8801' dir=in action=allow `
-    protocol=TCP localport=8801 profile=any | Out-Null
+  if (Test-FwRuleApplied -Name 'IHUI-ALLOW-WWW-8801' -Action Allow -LocalPorts '8801' -RequireAnyRemote) {
+    Write-Host "[2/5] EdgeOne origin ingress 8801 already applied, skipped" -ForegroundColor DarkGray
+  } else {
+    netsh advfirewall firewall delete rule name='IHUI-ALLOW-WWW-8801' 2>$null | Out-Null
+    netsh advfirewall firewall add rule name='IHUI-ALLOW-WWW-8801' dir=in action=allow `
+      protocol=TCP localport=8801 profile=any | Out-Null
+    Write-Host "[2/5] EdgeOne origin ingress 8801 allowed (any remote)" -ForegroundColor Green
+  }
 }
-Write-Host "[2/5] EdgeOne origin ingress 8801 allowed (any remote)" -ForegroundColor Green
 
 # -----------------------------------------------------------------------------
 # 3. 公网 -> 系统服务端口 + IHUI 业务/中间件端口:显式 Block
@@ -128,9 +241,12 @@ if ($BlockRemoteAdmin) {
     }
     else {
       # 端口已迁移:只确保内网放行规则存在(幂等),不动 TermService。
-      netsh advfirewall firewall delete rule name='IHUI-ALLOW-LAN-RDP-53389' 2>$null | Out-Null
-      netsh advfirewall firewall add rule name='IHUI-ALLOW-LAN-RDP-53389' dir=in action=allow `
-        protocol=TCP localport=53389 remoteip='192.168.1.0/24' | Out-Null
+      # verify-first:同一条规则连着被「拆了再建」是重放空窗的典型来源,达标即跳过。
+      if (-not (Test-FwRuleApplied -Name 'IHUI-ALLOW-LAN-RDP-53389' -Action Allow -LocalPorts '53389' -RemoteCidrs '192.168.1.0/24')) {
+        netsh advfirewall firewall delete rule name='IHUI-ALLOW-LAN-RDP-53389' 2>$null | Out-Null
+        netsh advfirewall firewall add rule name='IHUI-ALLOW-LAN-RDP-53389' dir=in action=allow `
+          protocol=TCP localport=53389 remoteip='192.168.1.0/24' | Out-Null
+      }
     }
   }
   $rules += @{ Name = 'IHUI-DENY-WAN-RDP'; Ports = '3389,53389' }
@@ -138,6 +254,11 @@ if ($BlockRemoteAdmin) {
 }
 foreach ($r in $rules) {
   if (-not $Verify) {
+    # verify-first:达标就一行打点跳过,不进 delete→add 的拆建窗口(见 §0 头注)
+    if (Test-FwRuleApplied -Name $r.Name -Action Block -LocalPorts $r.Ports -RemoteCidrs $WAN) {
+      Write-Host ("[3/5] rule {0} -> {1} (already applied)" -f $r.Name, $r.Ports) -ForegroundColor DarkGray
+      continue
+    }
     netsh advfirewall firewall delete rule name="$($r.Name)" 2>$null | Out-Null
     netsh advfirewall firewall add rule name="$($r.Name)" dir=in action=block protocol=TCP `
       localport="$($r.Ports)" remoteip="$WAN" | Out-Null

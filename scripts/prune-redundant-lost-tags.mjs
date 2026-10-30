@@ -32,12 +32,15 @@
  *   2 — 未判定（取不到 tag 清单 / base 解析不出来 / 推远端网络失败且非 local-only）
  */
 /* eslint-disable no-console -- CLI 工具 */
-import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { writeFileSync, mkdirSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 
-const PROV_HEAD = `© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top`
-const PROV_LINE = `Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。`
+// 单一真相源(AGENTS §0.6):一律经共用层派生 git(绝对路径二进制 + quotepath + timeout +
+// 代理换腿)。本脚本自己拼 execFileSync 就等于又欠一份"裸 git 派生"的债,
+// face-reader.test 的型 B 棘轮会把它记进分母。
+import { gitRaw } from './lib/face-reader.mjs'
+
+const ROOT = resolve(process.cwd())
 
 const ROOTS = ['refs/tags/lost-commit', 'refs/tags/backup']
 const STATE_FILE = '.ihui-agent/state/prune-redundant-lost-tags.json'
@@ -47,12 +50,9 @@ const baseArgIdx = process.argv.indexOf('--base')
 const BASE = baseArgIdx > 0 ? process.argv[baseArgIdx + 1] : 'main'
 
 function git(args, opts = {}) {
-  return execFileSync('git', args, {
-    encoding: 'utf8',
-    maxBuffer: 512 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
+  return gitRaw(args, ROOT, {
     timeout: opts.timeout ?? 900_000,
-    ...opts,
+    maxBuffer: opts.maxBuffer ?? 512 * 1024 * 1024,
   })
 }
 
@@ -263,7 +263,4 @@ writeFileSync(
 
 console.log(`\n✅ 完成。剩 tag 总数 ${git(['tag']).split('\n').filter(Boolean).length}`)
 console.log(`   必留 ${essential.length} 枚（目标不在主线，继续防 gc）`)
-void PROV_HEAD
-void PROV_LINE
-void readFileSync
 process.exit(0)

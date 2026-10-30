@@ -75,8 +75,8 @@
  *   现由 `isDirectRun` 守卫执行,判定单元经 `export const __test__` 供测试取用。
  */
 import { pathToFileURL } from 'node:url'
-import { readFileSync, statSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import {
   batchExecFileSync,
   catBatchOids,
@@ -352,10 +352,59 @@ function treesForCommits(oids) {
  *
  * @returns {{fetched:string[], stillMissing:string[], networkFailed:boolean, reason:string}}
  */
+/**
+ * 「仅远端有、本地缺」的自愈节流(2026-10-30 立)。
+ *
+ * 这一档**不影响任何安全属性**:tag 在远端留着,对应 commit 就不可能被 gc;
+ * 本地缺一份副本只是少一个冗余,没有任何门据此判红(onlyRemote 只进 warn 段)。
+ * 但对 26k tag 的仓,`healMissingRemoteTags` 每轮补 400 个 = 8 次网络 fetch:
+ * 2026-10-30 实测本门整体 9 分 23 秒,其中 8 分钟全花在这里,而且**永远追不上**
+ * (别的机器 / CI 还在推新 tag,当轮本地缺 503 个,补 400 还剩 103)。
+ *
+ * 于是把「补副本」从每次提交的必经路径上摘下来:状态件记上次补拉时刻,
+ * 冷却窗(默认 6h)内只报一行 warn,窗过或显式 `IHUI_TAG_HEAL_COOLDOWN_MS=0` 才真补。
+ * 判定语义一字未改:onlyRemote 本来就不 blocking,这里只决定"要不要顺手补一份"。
+ */
+const HEAL_COOLDOWN_MS = Number(
+  process.env.IHUI_TAG_HEAL_COOLDOWN_MS === undefined
+    ? 6 * 3600_000
+    : process.env.IHUI_TAG_HEAL_COOLDOWN_MS,
+)
+const HEAL_STATE_FILE = join(ROOT, '.ihui-agent/state/commit-loss-heal.json')
+
+/** 冷却窗内 ⇒ true(跳过补拉)。状态件读不到按"从未补过"处理(fail-open:补一次无害)。 */
+function healCoolingDown() {
+  if (!Number.isFinite(HEAL_COOLDOWN_MS) || HEAL_COOLDOWN_MS <= 0) return false
+  try {
+    const st = JSON.parse(readFileSync(HEAL_STATE_FILE, 'utf8'))
+    return Date.now() - (Number(st.lastHealAt) || 0) < HEAL_COOLDOWN_MS
+  } catch {
+    return false
+  }
+}
+
+/** 补拉完成后落状态件;**只在真的 fetch 过之后写**,免得"没补"被记成"补过"。 */
+function noteHealDone(fetchedCount) {
+  try {
+    mkdirSync(dirname(HEAL_STATE_FILE), { recursive: true })
+    writeFileSync(
+      HEAL_STATE_FILE,
+      JSON.stringify({ lastHealAt: Date.now(), fetched: fetchedCount }) + '\n',
+      'utf8',
+    )
+  } catch {
+    /* 状态件写不进去只会让下一轮再补一次,不影响判定 */
+  }
+}
+
 function healMissingRemoteTags(names) {
-  const CHUNK = 50
+  // 批宽 50 → 20、单批超时 60s → 180s(2026-10-30 实测校准):
+  // 每批 50 个 refspec 的 fetch 在 ssh://ssh.github.com:443 上会整批超时 ⇒ fetched=0 ⇒
+  // 旧代码不写状态件 ⇒ 冷却窗永不生效 ⇒ 每轮再付一次完整超时(实测把本门拖到 9 分钟)。
+  // 单 tag fetch 实测 <60s 成功,所以不是"拉不动",是**一批塞太多**。
+  const CHUNK = 20
   const MAX = Number(process.env.IHUI_TAG_HEAL_MAX || 400)
-  const TIMEOUT = Number(process.env.IHUI_TAG_HEAL_TIMEOUT_MS || 60_000)
+  const TIMEOUT = Number(process.env.IHUI_TAG_HEAL_TIMEOUT_MS || 180_000)
   const target = names.slice(0, MAX)
   const fetched = []
   let networkFailed = false
@@ -1145,33 +1194,50 @@ async function main() {
     ? { onlyLocal: [], onlyRemote: [], both: [] }
     : compareTagSets(backups, remoteBackups)
 
-  // 「仅远端有、本地缺」→ 先自己 fetch 回来固化,拉不动才降级为警告(见 healMissingRemoteTags 注释)
+  // 「仅远端有、本地缺」→ 冷却窗外才 fetch 回来固化,拉不动降级为警告(见 healMissingRemoteTags 注释)。
+  // 冷却窗内跳过不改变任何判定:onlyRemote 本就只进 warn 段,补副本纯属冗余强化(见 HEAL_COOLDOWN_MS 头注)。
   let remoteHeal = { attempted: false, fetched: [], stillMissing: [], degraded: false, reason: '' }
   {
     const missing = [...lostTagDiff.onlyRemote, ...backupTagDiff.onlyRemote]
     if (missing.length && !remoteCheckSkipped) {
-      const r = healMissingRemoteTags(missing)
-      remoteHeal = {
-        attempted: true,
-        fetched: r.fetched,
-        stillMissing: r.stillMissing,
-        degraded: r.networkFailed,
-        reason: r.reason,
-      }
-      if (r.fetched.length) {
-        // 重取本地清单再对账(fetch 前拿的那份已经是旧的了)
-        try {
-          gitText(['pack-refs', '--all', '--prune'], {
-            allowFail: true,
-            timeout: SPAWN_DEFAULT_TIMEOUT_MS,
-          })
-        } catch {
-          /* 固化失败不改变判定,只是下次还得再拉 */
+      if (healCoolingDown()) {
+        remoteHeal = {
+          attempted: false,
+          coolingDown: true,
+          fetched: [],
+          stillMissing: missing,
+          degraded: false,
+          reason: `冷却窗内跳过补拉(窗宽 ${Math.round(HEAL_COOLDOWN_MS / 60000)} 分钟;远端留存即安全)`,
         }
-        const nl = listLostCommitTags()
-        const nb = listBackups()
-        lostTagDiff.onlyRemote = compareTagSets(nl, remoteLostTags).onlyRemote
-        backupTagDiff.onlyRemote = compareTagSets(nb, remoteBackups).onlyRemote
+      } else {
+        const r = healMissingRemoteTags(missing)
+        remoteHeal = {
+          attempted: true,
+          fetched: r.fetched,
+          stillMissing: r.stillMissing,
+          degraded: r.networkFailed,
+          reason: r.reason,
+        }
+        // 只要**真的尝试过**就落状态件:失败也必须退避。
+        // 反例(2026-10-30 实测踩到):原先只有 `fetched.length > 0` 才写状态 ⇒ 网络不通 /
+        // 全部拉失败时状态件不落 ⇒ 冷却窗永不生效 ⇒ 每轮重放再付一次完整网络超时(实测 8 分钟)。
+        // "补拉失败"本身不是判红项(onlyRemote 只进 warn),但让失败变成无限重试就是纯损耗。
+        noteHealDone(r.fetched.length)
+        if (r.fetched.length) {
+          // 重取本地清单再对账(fetch 前拿的那份已经是旧的了)
+          try {
+            gitText(['pack-refs', '--all', '--prune'], {
+              allowFail: true,
+              timeout: SPAWN_DEFAULT_TIMEOUT_MS,
+            })
+          } catch {
+            /* 固化失败不改变判定,只是下次还得再拉 */
+          }
+          const nl = listLostCommitTags()
+          const nb = listBackups()
+          lostTagDiff.onlyRemote = compareTagSets(nl, remoteLostTags).onlyRemote
+          backupTagDiff.onlyRemote = compareTagSets(nb, remoteBackups).onlyRemote
+        }
       }
     }
   }
@@ -1645,13 +1711,13 @@ async function main() {
   // tag 对象不可达 → 仍是 blocking(那是"备份指向的对象快被 gc 吃掉",是真丢)。
   if (lostTagDiff.onlyRemote.length > 0) {
     issues.push(
-      `${lostTagDiff.onlyRemote.length} 个 lost-commit tag 仅远端(本地缺失)${remoteHeal.degraded ? '—— fetch 未成功,已降级为警告' : ',需 fetch'}`,
+      `${lostTagDiff.onlyRemote.length} 个 lost-commit tag 仅远端(本地缺失)${remoteHeal.coolingDown ? '—— 冷却窗内未补拉(远端留存即安全,不影响判定)' : remoteHeal.degraded ? '—— fetch 未成功,已降级为警告' : ',需 fetch'}`,
     )
     if (!remoteHeal.degraded) blocking = true
   }
   if (backupTagDiff.onlyRemote.length > 0) {
     issues.push(
-      `${backupTagDiff.onlyRemote.length} 个 backup tag 仅远端(本地缺失)${remoteHeal.degraded ? '—— fetch 未成功,已降级为警告' : ',需 fetch'}`,
+      `${backupTagDiff.onlyRemote.length} 个 backup tag 仅远端(本地缺失)${remoteHeal.coolingDown ? '—— 冷却窗内未补拉(远端留存即安全,不影响判定)' : remoteHeal.degraded ? '—— fetch 未成功,已降级为警告' : ',需 fetch'}`,
     )
     if (!remoteHeal.degraded) blocking = true
   }

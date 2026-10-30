@@ -476,4 +476,33 @@ jobs:
           # 退出码 0 = 所有表存在且关键字段齐全;1 = 有表不存在或关键字段缺失
           exit $?
 
+  # ═════════════════ SBOM(软件物料清单,2026-10-30 接)═════════════════
+  # 立因:SECURITY.md「软件供应链」段一直写着「每个 Release 附带 SBOM,见 Release Assets」,
+  # 而本目录此前**一条 SBOM 生成步骤都没有**(实测 grep 零命中)—— 那是文档写了条跑不通的
+  # 出路(AGENTS §0.8)。本 job 把声明兑现成产物,而不是把声明删掉降承诺。
+  #
+  # 刻意**不装 node_modules**:scripts/gen-sbom.mjs 只解析 pnpm-lock.yaml(扁平 `name@version:`
+  # + resolution.integrity),零第三方依赖 ⇒ 这一步 30 秒内出结论,且不会因 install 抖动而红。
+  # 生成器自带覆盖率断言(解析出的组件必须覆盖 packages: 段,漏条即 exit 2),所以
+  # "SBOM 生成了"这件事本身带可信度,不是一句空话。
+  sbom:
+    name: SBOM (CycloneDX 1.5)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate SBOM from lockfile
+        run: node scripts/gen-sbom.mjs --out sbom/sbom.cdx.json
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: sbom/sbom.cdx.json
+          # 没有产物就是失败,不能"上传了 0 个文件还记绿"
+          if-no-files-found: error
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
