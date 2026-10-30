@@ -1633,4 +1633,44 @@ test('listFaceFiles:取不到被审面 ⇒ 抛 Undetermined(空仓无 HEAD,绝�
   }
 })
 
+/**
+ * 规格快路径(规格数 ≥ FASTPATH_MIN_SPECS 时 `catBatch` 先把规格折成 oid)的**索引面回归锁**。
+ *
+ * 立因(2026-10-30):`ls-files -s` 的列序是 `<mode> <oid> <stage>`,而 `ls-tree` 是
+ * `<mode> <type> <oid>`。两条腿共用"取 meta[2]"的解析器时,索引面拿到的是 stage `"0"`,
+ * 过不了 hex 校验 ⇒ 整张 oid 表恒空 ⇒ `--staged` 面**每一枚** blob 都被判"取不到",
+ * 门 47/194/221/254 全落未判定,把每枚提交逼向 `--no-verify`(RP-80)。全量档走 ls-tree,
+ * 所以病灶只藏在 staged 面 —— 这也是它此前一直没人发现的原因。
+ *
+ * 判据用**两条生产通路互相差分**:`catBatch` 经 `resolveSpecOids`(快路径),而
+ * `catBatchOids` 直喂 `cat-file --batch-check`、不经那条路 —— 同一个 `:path` 两条路必须
+ * 给同一批 oid。配负面对照(不存在的路径两侧都归 null),证明这条不是"永远非空"的假绿。
+ */
+test('规格快路径:索引面 :path 在 catBatch 与 catBatchOids 上给同一批 oid(取错列会让前者整表为空)', () => {
+  const root = join(here, '..', '..')
+  const listed = String(gitRaw(['ls-files', '-z', '--', 'scripts/'], root, { timeout: 120000 }))
+    .split('\u0000')
+    .filter(Boolean)
+    .filter((p) => p.endsWith('.mjs'))
+  const sample = listed.slice(0, 220)
+  assert.ok(
+    sample.length >= 200,
+    `索引面只取到 ${sample.length} 条 .mjs 样本(< 200 条压不到快路径触发线)⇒ 未判定,不记绿`,
+  )
+  const specs = sample.map((p) => `:${p}`)
+  const viaBatch = catBatch(root, specs, { maxBuffer: 1 << 28 })
+  const viaOids = catBatchOids(root, specs, { maxBuffer: 1 << 28 })
+  const broken = specs.filter(
+    (s) => viaBatch.get(s) === null || viaBatch.get(s) === undefined || !viaOids.get(s),
+  )
+  assert.deepEqual(
+    broken.slice(0, 3),
+    [],
+    `${broken.length}/${specs.length} 条索引面 :path 在快路径上取不到(对照 catBatchOids 有 oid)⇒ 索引面解析取错列`,
+  )
+  const ghost = ':__face_reader_no_such_path_6b1d__.mjs'
+  assert.equal(catBatch(root, [ghost], { maxBuffer: 1 << 20 }).get(ghost), null)
+  assert.equal(catBatchOids(root, [ghost], { maxBuffer: 1 << 20 }).get(ghost), null)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
