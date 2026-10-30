@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { bizDayKey, bizDaysAgoKey, bizMonthDayLabel, bizTodayKey } from '@/lib/biz-day'
 import { useQuery } from '@tanstack/react-query'
 import { Bell, Megaphone, Mail, Sparkles, Loader2, TrendingUp } from 'lucide-react'
 import { eduApi } from '@/lib/edu'
@@ -23,11 +24,11 @@ interface PageList<T> {
 }
 
 function toDateStr(s: string): string {
-  return s ? new Date(s).toISOString().slice(0, 10) : ''
+  // 业务日(Asia/Shanghai):与后端聚合同口径,见 lib/biz-day。
+  return s ? bizDayKey(new Date(s)) : ''
 }
 
 function buildTrend(items: NotifItem[]): { labels: string[]; data: number[] } {
-  const today = new Date()
   const labels: string[] = []
   const data: number[] = []
   const map = new Map<string, number>()
@@ -36,17 +37,16 @@ function buildTrend(items: NotifItem[]): { labels: string[]; data: number[] } {
     if (d) map.set(d, (map.get(d) ?? 0) + 1)
   }
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    const key = d.toISOString().slice(0, 10)
-    labels.push(`${d.getMonth() + 1}/${d.getDate()}`)
+    // 键与展示串同源,都按业务时区(原实现键取 UTC 日、展示取本地月/日,两套口径)
+    const key = bizDaysAgoKey(i)
+    labels.push(bizMonthDayLabel(key))
     data.push(map.get(key) ?? 0)
   }
   return { labels, data }
 }
 
 export default function MessageOverviewPage() {
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = bizTodayKey()
 
   const { data: notifData, isLoading: ln } = useQuery({
     queryKey: ['msg-overview', 'notifications'],

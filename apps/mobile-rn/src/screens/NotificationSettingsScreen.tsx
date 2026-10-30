@@ -30,9 +30,15 @@ export function NotificationSettingsScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetchApi<{ settings?: NotificationSettingsItem }>('/settings/notifications')
-        if (!res.success) throw new Error('http')
+        const res = await fetchApi<{ settings?: NotificationSettingsItem }>(
+          '/settings/notifications',
+        )
         if (cancelled) return
+        if (!res.success) {
+          // 透出后端 message,而非一律「加载失败」。
+          setError(res.error || t('notificationSettings.loadFailed'))
+          return
+        }
         setSettings(res.data?.settings ?? null)
       } catch {
         if (!cancelled) setError(t('notificationSettings.loadFailed'))
@@ -59,7 +65,11 @@ export function NotificationSettingsScreen() {
         method: 'PUT',
         body: JSON.stringify(settings),
       })
-      if (!res.success) throw new Error('http')
+      if (!res.success) {
+        // 保存失败要说明原因(未登录/入参非法/服务异常),否则用户只会反复点保存。
+        setError(res.error || t('notificationSettings.saveFailed'))
+        return
+      }
       setSuccess(t('notificationSettings.saved'))
     } catch {
       setError(t('notificationSettings.saveFailed'))
@@ -79,7 +89,8 @@ export function NotificationSettingsScreen() {
       onToggle={handleToggle}
       onSave={handleSave}
       onBack={() => navigation.goBack()}
-     colorScheme={resolvedTheme}/>
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

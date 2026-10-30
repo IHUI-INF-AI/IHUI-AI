@@ -335,6 +335,22 @@ export async function leaveActivity(activityId: string, userId: string): Promise
   return rows.length > 0
 }
 
+/**
+ * 当前用户是否已参与该活动 —— 详情页据此决定显示"报名"还是"取消报名"。
+ * 原先活动详情不返回这个字段:已报名用户重进页面仍看到「立即报名」,点下去拿到 409,
+ * 而「取消报名」入口永远不可达。
+ */
+export async function isActivityParticipant(activityId: string, userId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: activityParticipants.id })
+    .from(activityParticipants)
+    .where(
+      and(eq(activityParticipants.activityId, activityId), eq(activityParticipants.userId, userId)),
+    )
+    .limit(1)
+  return rows.length > 0
+}
+
 export async function findActivityParticipants(
   activityId: string,
   page: number,

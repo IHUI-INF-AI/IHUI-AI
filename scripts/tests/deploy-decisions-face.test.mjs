@@ -17,16 +17,17 @@ import { basename, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__ as face, LEDGER_BASENAME, candidatesFor, chooseDeployDecisionsFace } from '../lib/deploy-decisions-face.mjs'
-import { devEnvRoot } from '../seal-c-root-stray.mjs'
+import { prodCheckoutRoot } from '../lib/prod-checkout-root.mjs'
 
 // 独立正源:测试文件在 `<repo>/scripts/tests/` ⇒ 退两级就是仓库根,不硬编码盘符/绝对路径。
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const REPO_LEDGER = join(REPO_ROOT, '.ihui-agent', LEDGER_BASENAME)
 
-/** 生产 checkout 根的期望值;若本机落在 scratch 夹具里 devEnvRoot 会拒绝推导(照实报,不猜)。 */
+/** 生产 checkout 根的期望值 = 问单源本身（不再在测试里复刻拼法，§22c；
+ *  若本机落在 scratch 夹具里 devEnvRoot 会拒绝推导 ⇒ 照实报 null，不猜）。 */
 function expectedProdRoot() {
   try {
-    return join(devEnvRoot(REPO_ROOT), 'ihui-prod')
+    return prodCheckoutRoot(REPO_ROOT)
   } catch {
     return null
   }
@@ -50,15 +51,15 @@ describe('deploy-decisions-face 仓库根推导', () => {
     assert.equal(resolve(c.path).startsWith(resolve(join(REPO_ROOT, 'scripts')) + sep), false, '主仓候选不得落在 <repo>/scripts 下')
   })
 
-  it('生产候选 = devEnvRoot(仓库根)/ihui-prod(入参不是 <repo>/scripts)', () => {
+  it('生产候选 = 单源 prodCheckoutRoot(仓库根)（入参不是 <repo>/scripts，也不许自拼 devEnvRoot）', () => {
     const prod = expectedProdRoot()
     const cands = candidatesFor({ env: {} })
     const got = cands.find((c) => c.kind === 'prod-checkout')
     if (prod === null) {
-      assert.equal(got, undefined, 'devEnvRoot 拒绝推导时不得伪造生产候选')
+      assert.equal(got, undefined, '单源拒绝推导时不得伪造生产候选')
       return
     }
-    assert.ok(got, 'devEnvRoot 可推导时必须给出生产候选')
+    assert.ok(got, '单源可推导时必须给出生产候选')
     assert.equal(resolve(got.root), resolve(prod))
   })
 

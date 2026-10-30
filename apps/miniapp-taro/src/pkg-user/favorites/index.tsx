@@ -24,12 +24,16 @@ import { CATEGORY_TABS, tabLabel, type CategoryTab } from './tabs'
 const PAGE_SIZE = 20
 
 // 跳转路由映射
+// 前三档原先都多写一截 `/index`(如 /pkg-learn/course/detail/index),而 app.config 在册的
+// 是 `pkg-learn` 分包的 `course/detail` ⇒ 目标不存在,点任意一条收藏只弹"暂未支持跳转"。
+// post / aigc 两档的目标页形态还没核实清(在册只有 circle-post/index 与 aigc/list,参数契约
+// 未确认),保持原样并沿用既有失败提示,不靠猜路径把它改成一个"看起来对"的地址。
 const ROUTE_MAP: Record<string, string> = {
-  course: '/pkg-learn/course/detail/index?id=',
-  live: '/pkg-learn/live/detail/index?id=',
+  course: '/pkg-learn/course/detail?id=',
+  live: '/pkg-learn/live/detail?id=',
   post: '/pages/circle/detail/index?id=',
   aigc: '/pkg-ai/aigc/detail/index?id=',
-  news: '/pkg-content/news/detail/index?id=',
+  news: '/pkg-content/news/detail?id=',
 }
 
 export default function FavoritesPage() {

@@ -54,9 +54,12 @@ export default function EduExamTakePage() {
       apiOrThrow<{ recordId: string }>(`/api/edu/exam/${id}/submit`, {
         method: 'POST',
         body: JSON.stringify({
-          answers: Object.fromEntries(
-            Object.entries(answers).map(([k, v]) => [k, v.length === 1 ? v[0] : v]),
-          ),
+          // 后端 submitExamSchema 要的是 **数组** [{questionId, answer}](.min(1)),
+          // 原实现发对象 map ⇒ zod 判 answers 不是数组 ⇒ 交卷永远 400。
+          answers: Object.entries(answers).map(([questionId, v]) => ({
+            questionId,
+            answer: v.length === 1 ? v[0] : v,
+          })),
         }),
       }),
     onSuccess: (r: { recordId: string }) =>

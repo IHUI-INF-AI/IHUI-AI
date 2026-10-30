@@ -196,17 +196,36 @@ interface TrafficSnapshot {
 }
 
 interface RelayPoolSnapshot {
+  /** key 池:总行数 / 健康态可判定行数 / 可调度 / 异常(可调度与异常不互斥) */
   keyTotal: number | null
+  keyClassified?: number | null
   keySchedulable: number | null
   keyAbnormal: number | null
+  /** 异常 key 里仍能被选中的条数 */
+  keyAbnormalSchedulable?: number | null
+  /** 余额 < 5 元且非"无限"的可调度 key 条数 */
+  keyBalanceLow?: number | null
+  /** key 池脏健康态行数 */
+  keyRowsUnclassified?: number | null
+  /** 账号池:总行数 / 健康态可判定行数 / 可调度 / 不可调度 / 其中已过期 */
   accountsTotal: number | null
+  accountClassified?: number | null
   accountsSchedulable: number | null
+  accountsBlocked?: number | null
+  accountsBlockedExpired?: number | null
+  /** 账号池脏健康态行数 */
+  accountRowsUnclassified?: number | null
+  /** **可调度账号**里最短 token 临期(秒;负 = 已过期) */
   minTokenExpiresInSeconds: number | null
   /** 这份快照距今多少秒(后端 5 秒缓存 + 5 秒轮询 ⇒ 常为 0..5) */
   staleAgeSec: number | null
-  /** 账号最近一次刷新距今(秒);null = 没有任何账号带刷新戳 */
+  /** 全池**最久**未刷新的账号距今(秒);null = 没有任何账号带刷新戳 */
   accountRefreshAgeSec?: number | null
-  /** 健康态不在封闭词表内、无法折叠的行数(非 0 = 库里有脏值) */
+  /** 全池**最近一次**刷新距今(秒) */
+  accountLatestRefreshAgeSec?: number | null
+  /** 空闲保活窗口(天;null = 该档被 env 关闭) */
+  keepaliveIdleDays?: number | null
+  /** 两张池合计的脏健康态行数(旧后端只有这一个字段) */
   rowsUnclassified?: number | null
 }
 
@@ -465,11 +484,14 @@ function StatCell({
   value,
   unit,
   tone,
+  hint,
 }: {
   label: string
   value: string
   unit?: string
   tone?: StatusTone | 'accent'
+  /** 第二行小字:解释读数口径(如"其中仍可选中 2"),不参与配色判定 */
+  hint?: string
 }) {
   return (
     <div className="rounded-lg border border-border bg-muted/60 px-2.5 py-2">
@@ -491,6 +513,9 @@ function StatCell({
         {value}
         {unit ? <span className="ml-0.5 text-[11px] text-muted-foreground">{unit}</span> : null}
       </div>
+      {hint ? (
+        <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{hint}</div>
+      ) : null}
     </div>
   )
 }
@@ -685,6 +710,22 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const traffic = ov?.traffic ?? null
   const relayPool = ov?.relayPool ?? null
   const edge = ov?.edge ?? null
+
+  // 号池面板口径(2026-10-30):分母取"健康态可判定行数",脏值行单独成格(两池合计,
+  // 一格就能保证任何一侧出现脏值都亮)。老后端没有分池字段时分母回落到总行数 ——
+  // undefined 绝不能渲成 0(§0.3)。
+  const poolKeyDenom = isNum(relayPool?.keyClassified)
+    ? relayPool.keyClassified
+    : (relayPool?.keyTotal ?? null)
+  const poolAccountDenom = isNum(relayPool?.accountClassified)
+    ? relayPool.accountClassified
+    : (relayPool?.accountsTotal ?? null)
+  // "最久未刷新"的判色上限 = 空闲保活窗口(后端 env 单源)。取不到窗口就不判色:
+  // 刷新是"临期档(24h 内到期)+ 7 天空闲保活"的按需节奏,不是每小时刷全池,
+  // 用 1 小时之类的拍脑袋阈值会把正常闲置读成故障(旧版就是这么常黄的)。
+  const poolRefreshBudgetSec = isNum(relayPool?.keepaliveIdleDays)
+    ? relayPool.keepaliveIdleDays * 86_400
+    : null
 
   // 告警数 = Alertmanager 活跃 ∪ 库内 firing(按告警名去重):
   // 告警桥会把同一告警同步落库,两路直接相加会重复计数
@@ -2430,7 +2471,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             </div>
           </Panel>
 
-          {/* AI 号池:key 池 / 账号池 / token 临期(后端现读两张池表 + 5 秒缓存,取不到一律"—") */}
+          {/* AI 号池:key 池 / 账号池 / token 临期(后端现读两张池表 + 5 秒缓存,取不到一律"—")。
+              2026-10-30 口径修正:①「可调度」与调度侧同一把尺子(账号含 health≠down);
+              ②分母只算健康态可判定的行,脏值行单独成格;
+              ③临期只算可调度账号 —— 停用/摘除/判死的号不再把面板永久钉在"已过期";
+              ④"最久未刷新"按空闲保活窗口判色(旧版 1 小时阈值把正常闲置读成故障)。 */}
           <Panel
             title={t('panelRelayPool')}
             icon={<Sparkles className="h-3.5 w-3.5" />}
@@ -2450,11 +2495,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolKey')}
               </div>
-              <div className="wb-cells wb-cells-c3 grid gap-1.5">
+              <div className="wb-cells wb-cells-c4 grid gap-1.5">
                 <StatCell
                   label={t('poolKeySchedulable')}
-                  value={`${fmtInt(relayPool?.keySchedulable)} / ${fmtInt(relayPool?.keyTotal)}`}
-                  tone="accent"
+                  value={`${fmtInt(relayPool?.keySchedulable)} / ${fmtInt(poolKeyDenom)}`}
+                  tone={
+                    isNum(relayPool?.keySchedulable) && isNum(poolKeyDenom)
+                      ? relayPool.keySchedulable < poolKeyDenom
+                        ? 'warn'
+                        : 'accent'
+                      : 'unknown'
+                  }
                 />
                 <StatCell
                   label={t('poolKeyAbnormal')}
@@ -2462,7 +2513,23 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   tone={
                     !isNum(relayPool?.keyAbnormal)
                       ? 'unknown'
-                      : (relayPool?.keyAbnormal ?? 0) > 0
+                      : relayPool.keyAbnormal > 0
+                        ? 'warn'
+                        : 'ok'
+                  }
+                  hint={
+                    isNum(relayPool?.keyAbnormalSchedulable) && (relayPool?.keyAbnormal ?? 0) > 0
+                      ? t('poolKeyAbnormalHint', { count: relayPool.keyAbnormalSchedulable })
+                      : undefined
+                  }
+                />
+                <StatCell
+                  label={t('poolBalanceLow')}
+                  value={fmtInt(relayPool?.keyBalanceLow)}
+                  tone={
+                    !isNum(relayPool?.keyBalanceLow)
+                      ? 'unknown'
+                      : relayPool.keyBalanceLow > 0
                         ? 'warn'
                         : 'ok'
                   }
@@ -2473,7 +2540,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   tone={
                     !isNum(relayPool?.rowsUnclassified)
                       ? 'unknown'
-                      : (relayPool?.rowsUnclassified ?? 0) > 0
+                      : relayPool.rowsUnclassified > 0
                         ? 'warn'
                         : 'ok'
                   }
@@ -2484,11 +2551,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolAccount')}
               </div>
-              <div className="wb-cells wb-cells-c3 grid gap-1.5">
+              <div className="wb-cells wb-cells-c4 grid gap-1.5">
                 <StatCell
                   label={t('poolAccountSchedulable')}
-                  value={`${fmtInt(relayPool?.accountsSchedulable)} / ${fmtInt(relayPool?.accountsTotal)}`}
-                  tone="ok"
+                  value={`${fmtInt(relayPool?.accountsSchedulable)} / ${fmtInt(poolAccountDenom)}`}
+                  tone={
+                    isNum(relayPool?.accountsSchedulable) && isNum(poolAccountDenom)
+                      ? relayPool.accountsSchedulable < poolAccountDenom
+                        ? 'warn'
+                        : 'ok'
+                      : 'unknown'
+                  }
                 />
                 <StatCell
                   label={t('poolTokenExpiry')}
@@ -2508,6 +2581,23 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                           ? 'warn'
                           : 'ok'
                   }
+                  hint={t('poolTokenExpiryScope')}
+                />
+                <StatCell
+                  label={t('poolBlockedAccounts')}
+                  value={fmtInt(relayPool?.accountsBlocked)}
+                  tone={
+                    !isNum(relayPool?.accountsBlocked)
+                      ? 'unknown'
+                      : (relayPool?.accountsBlockedExpired ?? 0) > 0
+                        ? 'warn'
+                        : 'ok'
+                  }
+                  hint={
+                    isNum(relayPool?.accountsBlockedExpired) && relayPool.accountsBlockedExpired > 0
+                      ? t('poolBlockedExpiredHint', { count: relayPool.accountsBlockedExpired })
+                      : undefined
+                  }
                 />
                 <StatCell
                   label={t('accountRefreshAge')}
@@ -2517,11 +2607,25 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       : fmtDuration(relayPool.accountRefreshAgeSec)
                   }
                   tone={
-                    !isNum(relayPool?.accountRefreshAgeSec)
+                    !isNum(relayPool?.accountRefreshAgeSec) || poolRefreshBudgetSec === null
                       ? 'unknown'
-                      : relayPool.accountRefreshAgeSec >= 3600
+                      : relayPool.accountRefreshAgeSec >= poolRefreshBudgetSec
                         ? 'warn'
                         : 'ok'
+                  }
+                  hint={
+                    [
+                      isNum(relayPool?.accountLatestRefreshAgeSec)
+                        ? t('poolLatestRefreshHint', {
+                            ago: fmtDuration(relayPool.accountLatestRefreshAgeSec),
+                          })
+                        : null,
+                      isNum(relayPool?.keepaliveIdleDays)
+                        ? t('poolRefreshBudgetHint', { days: relayPool.keepaliveIdleDays })
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || undefined
                   }
                 />
               </div>
@@ -2641,6 +2745,12 @@ const WALLBOARD_CSS = `
 .wb-root { --wb-cell-min: 186px; }
 .wb-cells { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
 .wb-cells-c3 { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min), 1fr)); }
+/* 4 格一组(号池):固定 2×2。auto-fit(var(--wb-cell-min)) 在两栏各 ~570 时仍能排 3 列
+ * ⇒ 第 4 格单独成行留孤格;2 列让「12,345 / 67,890」这类复合读数和时长读数都有余量
+ * (守门 240 不许折不溢)。单格下限跟 --wb-cell-min 同源;容器不足以放两格时退回单列,
+ * 宁多一行也不让读数溢出(阈值复算 = 2×186 + 格间距6 + 面板内边距24 = 402,即面板 426)。 */
+.wb-cells-c4 { grid-template-columns: repeat(2, minmax(var(--wb-cell-min), 1fr)); }
+@container (max-width: 425px) { .wb-cells-c4 { grid-template-columns: minmax(0, 1fr); } }
 /* 6 格一组(Redis / 访客):auto-fit 在半宽面板里只能排 5 列 ⇒ 第 6 格单独一行。
  * 这里固定 3 列 ×2 行(总行数与 5+1 相同,但不再出现孤格);<480 落 2 列。 */
 .wb-cells-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }

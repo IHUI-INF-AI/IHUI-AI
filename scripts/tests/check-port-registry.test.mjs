@@ -391,12 +391,12 @@ test('staged 模式: staged 文件含违规端口 7777 → ⚠️ 报告', () =>
 // 全量审计会"绿着漏过"。现在失败必须**出声**并退到 staged 口径,同时不得声称"扫描通过"。
 test('非 git 环境 --all 模式: git ls-files 失败 → 显式告警并回退 staged,不静默判绿', () => {
   const dir = mkScratch('ihui-port-nogit-')
-  // 夹具前提自证(2026-10-29 补):G-158 之后 mkScratch 落在 `<repoRoot>/.DevEnv/Temp/…` 之下,
-  // 路径仍在主仓管辖内 ⇒ git 向上就能找到 .git ⇒ `ls-files` 返回 0 个文件而**不是失败** ⇒
-  // 本例要测的"回退分支"根本进不去(所以它此前在本地长期静默失效)。正解不是把 scratch 搬出
-  // 仓外(§15b 的落点是定死的),而是用 git 自带机制造出非 git 目录:GIT_CEILING_DIRECTORIES
-  // 让向上查找在此止步。本机实测:不置 ⇒ status 0;置(正/反斜杠皆可)⇒ status 128
-  // 「not a git repository」。
+  // 夹具前提自证 —— 2026-10-29 立「不置 ceiling 时 scratch 仍被主仓管辖(⇒ status 0)」,
+  // 2026-10-30 更正:那条断言写死了**当时的落点**(`<repoRoot>/.DevEnv/Temp/…`)。现读
+  // `scratchRoot()` 已把夹具放到系统临时目录(`os.tmpdir()/ihui-scratch/…`),不在任何仓
+  // 管辖内 ⇒ 裸跑 `git ls-files` 直接 128「not a git repository」⇒ 旧断言恒红(本机实测)。
+  // 布局是别人的实现细节,不该被当作本例的前提。本例**真正**依赖的只有一条:该目录不是
+  // git 工作树。ceiling 因此退化为「万一落点又回到仓内」时的保险,按需启用而非必置。
   const ceiling = dirname(dir)
   const probeGit = (isolate) =>
     spawnSync('git', ['ls-files'], {
@@ -406,15 +406,17 @@ test('非 git 环境 --all 模式: git ls-files 失败 → 显式告警并回退
       env: isolate ? { ...process.env, GIT_CEILING_DIRECTORIES: ceiling } : process.env,
     })
   try {
-    assert.equal(
-      probeGit(false).status,
-      0,
-      '前提破了:不置 ceiling 时 scratch 应当仍被主仓管辖(⇒ 本例必须显式造非 git)',
-    )
+    const bare = probeGit(false)
+    const isolated = bare.status === 0 ? probeGit(true) : bare
     assert.notEqual(
-      probeGit(true).status,
+      isolated.status,
       0,
-      `夹具自证失败:置 GIT_CEILING_DIRECTORIES=${ceiling} 后该目录仍被当成 git 仓`,
+      `夹具自证失败:${dir} 仍被当成 git 工作树(裸跑 status=${bare.status},按需置 ceiling 后 status=${isolated.status})`,
+    )
+    assert.match(
+      isolated.stderr,
+      /not a git repository/i,
+      `夹具自证:失败原因必须是"不是 git 仓",实际 stderr: ${isolated.stderr}`,
     )
     // 不 init git,直接跑 --all(此刻该目录已被 ceiling 显式隔离在主仓之外)
     const r = runScript(dir, ['--all'], { GIT_CEILING_DIRECTORIES: ceiling })

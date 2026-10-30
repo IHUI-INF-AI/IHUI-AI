@@ -6204,7 +6204,8 @@
     "uploadSelfie": "신분증을 든 셀카 업로드",
     "title": "본인 인증",
     "subtitle": "본인 인증을 완료해 계정 보안을 강화하세요",
-    "submitting": "제출 중..."
+    "submitting": "제출 중...",
+    "submit": "인증 제출"
   },
   "referrer": {
     "title": "추천인",

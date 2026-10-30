@@ -138,6 +138,8 @@ describe('isSSEEventName', () => {
  * 真·穷尽性在下面 UNION_MEMBER_BY_NAME,由 2026-09-28 D132 那票补上。
  */
 const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
+  // G-87 补链(2026-10-29):hook 执行失败帧(与 error 帧是两件事,见 contract.ts 成员注释)
+  HOOK_FAILED: 'hook-failed',
   CHUNK: 'chunk',
   REASONING: 'reasoning',
   TOOL_CALL_START: 'tool-call-start',
@@ -170,8 +172,6 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   GOAL_UPDATED: 'goal_updated',
   // D115(2026-10-23,G-229):review 模式结构化 finding 帧
   REVIEW_FINDING: 'review-finding',
-  // G-87 补链(2026-10-29):hook 执行失败帧(与 error 帧是两件事,见 contract.ts 成员注释)
-  HOOK_FAILED: 'hook-failed',
   // 差距①(2026-10-30 立):发送准入回执帧(载荷形状复用 chat/send-admission.ts)
   ADMISSION: 'admission',
   DONE: 'done',
@@ -199,6 +199,8 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
  * 上一段那张表管不住第一种,它只保证"映射值 ∈ 事件名集"。
  */
 const UNION_MEMBER_BY_NAME: Record<SSEEventName, SSEEventPayload['type']> = {
+  // G-87 补链(2026-10-29):hook 执行失败帧(判别联合成员见 contract.ts)
+  'hook-failed': 'hook-failed',
   budget: 'budget',
   chunk: 'chunk',
   citations: 'citations',
@@ -237,8 +239,6 @@ const UNION_MEMBER_BY_NAME: Record<SSEEventName, SSEEventPayload['type']> = {
   usage: 'usage',
   // D115(2026-10-23,G-229):review 模式结构化 finding 帧(判别联合成员见 contract.ts)
   'review-finding': 'review-finding',
-  // G-87 补链(2026-10-29):hook 执行失败帧(判别联合成员见 contract.ts)
-  'hook-failed': 'hook-failed',
   // 差距①(2026-10-30 立):发送准入回执帧(判别联合成员见 contract.ts,形状复用
   // chat/send-admission.ts 的 SendAdmissionReceipt)
   admission: 'admission',

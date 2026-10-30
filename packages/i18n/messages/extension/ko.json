@@ -356,6 +356,9 @@
     "sendAi": "AI에게 질문",
     "saveWord": "단어장에 저장",
     "saved": "저장됨",
+    "lookupFailed": "조회에 실패했습니다. 네트워크를 확인한 뒤 다시 시도하세요.",
+    "retry": "다시 시도",
+    "retrying": "조회 중…",
     "close": "닫기"
   },
   "page": {

@@ -73,6 +73,7 @@ import {
 import { logger } from '../utils/logger.js'
 import { assertRelayEgressSafe, directEgressDispatcher } from '../utils/relay-egress-guard.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
+import { accountSchedulableCondition } from './relay-account-pool-scheduler.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
 import {
   clearAccountCooldown,
@@ -330,8 +331,10 @@ async function selectAccountCandidates(
       and(
         ownerCond,
         inArray(aiRelayAccountPool.providerCode, providerCodes),
-        eq(aiRelayAccountPool.isEnabled, true),
-        eq(aiRelayAccountPool.tempUnschedulable, false),
+        // 「可用」判据单源(2026-10-30):巡检写 down 后选号当场不再选它。
+        // 此前这里自写 isEnabled ∧ ¬tempUnschedulable,与巡检的 accountSchedulableCondition
+        // 差一条 health≠down ⇒ 判死的号还能被选中一次(§0.6 两面各写一份必然漂移)。
+        accountSchedulableCondition(),
       ),
     )
     .orderBy(

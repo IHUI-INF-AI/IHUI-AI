@@ -67,7 +67,9 @@ export default function ActivityDetailPage() {
   })
 
   const joinMut = useMutation({
-    mutationFn: (id: string) => apiOrThrow(`/api/activities/${id}`, { method: 'POST' }),
+    // 报名端点是 POST /activities/:id/join(promotions.ts:277);
+    // 原实现 POST /activities/:id 落到的只有 GET/PATCH/DELETE ⇒ 必 404,"立即报名"永远失败。
+    mutationFn: (id: string) => apiOrThrow(`/api/activities/${id}/join`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['activities', slug] }),
   })
   const leaveMut = useMutation({

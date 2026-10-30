@@ -69,6 +69,7 @@ import {
   markAccountAuthRejected,
   refreshOne,
 } from '../relay-account-pool-scheduler.js'
+import { ACCOUNT_SCHEDULABLE_HEALTH_STATES } from '../relay-pool-stats-service.js'
 import { registerRelayAdapter } from '../relay-upstream-adapters.js'
 
 const UPSTREAM_EXPIRES_AT = '2026-11-15T08:00:00.000Z'
@@ -172,8 +173,11 @@ describe('巡检与调度同一判据(单源)', () => {
     expect(text).toContain('is_enabled')
     expect(text).toContain('temp_unschedulable')
     expect(text).toContain('health_status')
-    expect(text).toContain('<>')
-    expect(params).toContain('down')
+    // 白名单形态(2026-10-30):排除 down 由 ACCOUNT_SCHEDULABLE_HEALTH_STATES 表达 ——
+    // 这里 import 同一个常量断言,不复制第二份词表(§0.6/§22c)。刻意不用 ne 'down':
+    // 白名单对"未来新增但尚未在这里登记的健康档"是**不调度**,失效方向安全。
+    expect(params).not.toContain('down')
+    for (const state of ACCOUNT_SCHEDULABLE_HEALTH_STATES) expect(params).toContain(state)
   })
 
   it('调度选号引用同一函数(不另写一份「可用」判据)', () => {

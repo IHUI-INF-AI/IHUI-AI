@@ -28,7 +28,12 @@ export function ActivityScreen() {
       // 后端 GET /activities 回 success({ list })(promotions.ts)，web 侧读的正是 d.list；
       // 这里曾把整个信封当数组 ⇒ 列表永远空，不抛错。
       const res = await fetchApi<{ list: ActivityItem[] }>('/activities')
-      if (!res.success) throw new Error('http')
+      if (!res.success) {
+        // 透出后端 message:原先 `throw new Error('http')` 被 catch 压成一句通用「加载失败」⇒
+        // 用户看不到"未登录/服务异常"这类可行动的原因,只会反复下拉重试。
+        setError(res.error || t('activity.loadFailed'))
+        return
+      }
       setItems(res.data?.list ?? [])
     } catch {
       setError(t('activity.loadFailed'))

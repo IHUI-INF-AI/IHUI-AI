@@ -17,9 +17,11 @@
  *
  * 是否覆盖由 `relay-trae-session-sync.ts` 的 `decideSync` 判定(单一判据源,不复制规则):
  * - 同票 ⇒ 不写;池内到期时刻更新 ⇒ 不写;客户端更新/轮换 ⇒ 写。
+ * - 池内无此 uid(运营池)⇒ **自动入池**(2026-10-30 根治),复用 `relay-import-qoder.ts`
+ *   的构造与 `importAccounts` 落库出口;此前该支只报缺失无人接,新登录账号静默脱离保活/签到。
  *
  * 编排上游 = `scripts/sync-qoder-client-session.mjs`(提取本机 auth.v1.dat → stdin)。
- * 退出码:0 全部处理完(含 skip)/ 1 有行写入失败 / 2 参数·输入·环境未判定。
+ * 退出码:0 全部处理完(含 skip/自动入池)/ 1 有行写入失败 / 2 参数·输入·环境未判定。
  * 任何输出面不得含凭据明文。
  */
 import { dirname, resolve as resolvePath } from 'node:path'
@@ -54,6 +56,9 @@ export interface QoderSyncCandidate {
   machineCode?: string | null
   machineType?: string | null
   version?: string | null
+  /** 账号身份键(missing 自动入池时供 importAccounts 的统一名判据;任何输出面不回显) */
+  phone?: string | null
+  nickname?: string | null
 }
 
 export interface QoderSyncPayload {
@@ -107,6 +112,8 @@ export interface QoderSyncSummary {
   skipped: number
   missing: number
   failed: number
+  /** 本机新登录账号自动入池数(池内无行 → 走 importAccounts 建行;dry-run 只报不写) */
+  imported: number
   rows: RowOutcome[]
 }
 
@@ -139,6 +146,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
     skipped: 0,
     missing: 0,
     failed: 0,
+    imported: 0,
     rows: [],
   }
 
@@ -162,13 +170,60 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
         )
         .limit(1)
       if (!row) {
-        summary.missing++
-        summary.rows.push({
-          uid,
-          decision: 'apply',
-          applied: false,
-          error: '池内无此 uid(未导入?)',
+        // 缺行 ⇒ 自动入池(2026-10-30 根治):此前新登录的 Qoder 号只报「池内无此 uid」
+        // 且无人接 —— 保活/自动签到永远不覆盖它,静默漏到人工发现。现把本机会话交给
+        // 手动导入同一套构造(buildQoderImportAccount 判据单源,§0.6)与同一落库出口
+        // (importAccounts:运营池行 ownerUserId=null,部分唯一索引只圈运营池,
+        // 结构上碰不到个人池同 uid 行;凭证写入自带 credVersion 原子 +1,O64 推签到池)。
+        // 并发撞唯一索引(他席先建了行)按 failed 点名,绝不冒绿;下一轮回灌即命中现有行。
+        const { buildQoderImportAccount } = await import('./relay-import-qoder.js')
+        const { importAccounts } = await import('../src/services/relay-account-pool-service.js')
+        // QoderSyncCandidate 的可选键允许 null,QoderSession 用 undefined —— 归一后交构造
+        // (str() 对两种空值同样省略,零行为差;accessToken 别名兼容构造内已处理)
+        const autoInput = buildQoderImportAccount({
+          ...acc,
+          accessToken: acc.token,
+          refreshToken: acc.refreshToken ?? undefined,
+          expiresAt: acc.expiresAt ?? undefined,
+          refreshTokenExpiresAt: acc.refreshTokenExpiresAt ?? undefined,
+          deviceId: acc.deviceId ?? undefined,
+          machineId: acc.machineId ?? undefined,
+          machineToken: acc.machineToken ?? undefined,
+          machineCode: acc.machineCode ?? undefined,
+          machineType: acc.machineType ?? undefined,
+          version: acc.version ?? undefined,
+          phone: acc.phone ?? undefined,
+          nickname: acc.nickname ?? undefined,
         })
+        if (!autoInput) {
+          summary.missing++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: '本机会话构不成导入条目(不猜)',
+          })
+          continue
+        }
+        if (dryRun) {
+          summary.imported++
+          summary.rows.push({ uid, decision: 'auto-import', applied: false, error: 'dry-run 未写' })
+          continue
+        }
+        const res = await importAccounts('qoder', [autoInput], null)
+        const item = res.items[0]
+        if (item && (item.status === 'imported' || item.status === 'updated')) {
+          summary.imported++
+          summary.rows.push({ uid, decision: 'auto-import', applied: true })
+        } else {
+          summary.failed++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: (item?.reason ?? '导入未回报条目').slice(0, 200),
+          })
+        }
         continue
       }
       // 池内明文解不出(密钥轮换/坏密文)时当作"票不同"走 apply,让客户端票覆盖坏密文
@@ -322,7 +377,7 @@ export async function main(argv: string[]): Promise<number> {
     process.stdout.write(`${JSON.stringify(summary)}\n`)
   } else {
     process.stderr.write(
-      `回灌完成: applied=${summary.applied} skipped=${summary.skipped} missing=${summary.missing} failed=${summary.failed}${summary.dryRun ? '(dry-run 未写)' : ''}\n`,
+      `回灌完成: applied=${summary.applied} skipped=${summary.skipped} missing=${summary.missing} imported=${summary.imported} failed=${summary.failed}${summary.dryRun ? '(dry-run 未写)' : ''}\n`,
     )
     for (const r of summary.rows) {
       process.stderr.write(

@@ -6204,7 +6204,8 @@
     "uploadSelfie": "Upload a selfie with your ID",
     "title": "Identity Verification",
     "subtitle": "Verify your identity to secure your account",
-    "submitting": "Submitting..."
+    "submitting": "Submitting...",
+    "submit": "Submit"
   },
   "referrer": {
     "title": "Referrer",

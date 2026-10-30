@@ -39,6 +39,7 @@ import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { getQueryClient } from '@/lib/query-client'
 import { toast } from '@/components/common'
+import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
 
 /** 侧栏/历史页缓存里那一行的最小形状(只声明本文件真的读的字段,不抄端内那份完整 interface) */
 interface ConversationRowLike {
@@ -273,7 +274,7 @@ export function useConversationBroadcastSync(): {
     if (!token) return
     if (typeof window === 'undefined') return
     const config: UserBroadcastConfig = {
-      baseUrl: window.location.origin,
+      baseUrl: resolveWsApiBaseUrl(),
       tokenProvider: () => useAuthStore.getState().token,
     }
     const sub = subscribeUserBroadcast(config, {

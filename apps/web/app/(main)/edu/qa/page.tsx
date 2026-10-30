@@ -71,7 +71,15 @@ export default function EduQAPage() {
 
   const askMut = useMutation({
     mutationFn: () =>
-      apiOrThrow('/api/edu/qa', { method: 'POST', body: JSON.stringify({ question: askText }) }),
+      apiOrThrow('/api/edu/qa', {
+        method: 'POST',
+        // 后端 createQASchema 必填 title(z.string().min(1).max(200)),
+        // 原实现发 {question: …} ⇒ title 缺失,问题永远发不出去(必 400)。
+        body: JSON.stringify({
+          title: askText.trim().slice(0, 200),
+          content: askText.trim().length > 200 ? askText.trim() : undefined,
+        }),
+      }),
     onSuccess: () => {
       setAskText('')
       qc.invalidateQueries({ queryKey: ['edu', 'qa'] })
