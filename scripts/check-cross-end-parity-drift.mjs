@@ -151,6 +151,21 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
     // 绝不把"词包没读到"折成"零缺口"。
     fidelityPackAbsent:
       fidelity?.json?.packUndetermined === true ? null : (fidelity?.json?.packAbsentRows ?? null),
+    // 键级撤除台账三维(2026-10-30 立):免掉多少 / 台账里有多少行不成立 / 有多少行已不免除任何东西。
+    // 立因:还原度尺判"键在不在页面正文里",判不出可达性 ⇒ 「按后端出处撤掉死分支假绿键」这个正确
+    // 动作会把 missing 从 0 顶成 N,而本尺的 mirror-missing-increase 维只会喊"补回文案"——
+    // 照做等于把死分支补回去(f526a1a143 撤 6 枚键即此型)。撤除必须被台账记下来并带到期日,
+    // 而台账本身坏了/腐烂了也得出声,否则这条免检通道就成了一句空话(§0.7 豁免验过才免且会到期)。
+    fidelityRetracted: fidelity?.json?.totalRetracted ?? null,
+    fidelityRetractionTotal: fidelity?.json?.retractionTotal ?? null,
+    fidelityRetractionInvalid:
+      Array.isArray(fidelity?.json?.retractionRefused) &&
+      Array.isArray(fidelity?.json?.retractionBad)
+        ? fidelity.json.retractionRefused.length + fidelity.json.retractionBad.length
+        : null,
+    fidelityRetractionRot: Array.isArray(fidelity?.json?.retractionRot)
+      ? fidelity.json.retractionRot.length
+      : null,
     // 转换机会维(2026-10-27 接):落地器**只读预演**的结论 —— 有页可自动转壳承载时必须被机器看见。
     // 为什么不直接把 apply 挂守护轮:转换还要同批改 `rn-shell-types` 声明件(门 251 C9 判它),
     // 只落页不落声明件会把那道 blocking 门打红(§12e 恒红门),而那一步需要一个按 HEAD 面重生成的
@@ -224,6 +239,25 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
         ` ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看 ❌ 点名行,再从 messages/mobile-rn(基准侧)或 messages/shared 逐字搬该命名空间(勿代拟译文)${hit.length ? ` ⇒ 点名:${hit.join(' ｜ ')}` : ''}`,
     })
   }
+  // 撤除台账自身出问题必须出声,否则"有出处的撤除"会退化成一条没人看的免检通道:
+  // invalid = 行不成立(缺理由/出处/到期日或已到期)⇒ 那些键照原样算缺口,同时台账该补;
+  // rot = 行已不免除任何东西(键补回来了 / 页改了承载形 / 三元组对不上)⇒ §0.7 该删。
+  if (cur.fidelityRetractionInvalid > 0)
+    reasons.push({
+      dim: 'key-retraction-invalid',
+      detail:
+        `键级撤除台账有 ${cur.fidelityRetractionInvalid} 行不成立(读不出 / 缺 reason|evidence|expires / 出处短于 20 字 / 已到期)` +
+        ` ⇒ 这些行**不免除**任何缺口,且当前 missing 已把它们算进去了;出路:补全那几行的出处与到期日,或按 §0.10 撤掉这行` +
+        ` ⇒ node scripts/check-miniapp-mirror-fidelity.mjs(❌ 点名行)`,
+    })
+  if (cur.fidelityRetractionRot > 0)
+    reasons.push({
+      dim: 'key-retraction-rot',
+      detail:
+        `键级撤除台账有 ${cur.fidelityRetractionRot} 行现在不免除任何东西(§0.7 清单腐烂:豁免项消失同样算红)` +
+        ` ⇒ 要么那一格的裁决早已结清(该删行),要么 (页,屏,键) 三元组被改名而对不上(该改行)` +
+        ` ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs(⚠️ 点名行)+ 台账 scripts/data/miniapp-key-retractions.jsonl`,
+    })
   // 转换机会:"有页可转"不是倒退,但它是"少养一份端内实现"的窗口,现读到 >0 就出声
   // (身份按维去重 ⇒ 同一批机会不会每 60 分钟刷一封;明细抖动不换身份)。
   if (cur.conversionUpgradable > 0)
@@ -602,7 +636,12 @@ function selfTestMain() {
         verdictRows: [{ shared: 'a/X.tsx', verdict: 'not-applicable', at: '不是时刻' }],
       })
       const hit = (j) => j.reasons.some((r) => r.dim === 'mirrored-decrease')
-      return hit(noLedger) && hit(staleVerdict) && hit(badAt) && notApplicableSince(null, '2026-10-29') === 0
+      return (
+        hit(noLedger) &&
+        hit(staleVerdict) &&
+        hit(badAt) &&
+        notApplicableSince(null, '2026-10-29') === 0
+      )
     })(),
   })
   cases.push({
@@ -850,7 +889,8 @@ function main() {
     )
     if (result.why) console.log(`未判定原因:${result.why}`)
     for (const r of result.reasons || []) console.log(`· ${r.dim} —— ${r.detail}`)
-    for (const r of result.stale || []) console.log(`(派生文档滞后,不算倒退不喊人) ${r.dim} —— ${r.detail}`)
+    for (const r of result.stale || [])
+      console.log(`(派生文档滞后,不算倒退不喊人) ${r.dim} —— ${r.detail}`)
   }
   process.exit(result.state === 'regressed' ? 1 : result.state === 'undetermined' ? 2 : 0)
 }

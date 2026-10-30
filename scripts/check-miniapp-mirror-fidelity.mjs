@@ -94,6 +94,7 @@ import {
   mismatchedShellBinding,
 } from './lib/rn-shell-refs.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
+import { indexRetractions, readRetractions, retractionId } from './lib/key-retractions.mjs'
 import { extractUsedKeys, __test__ as gen } from './gen-miniapp-mirror.mjs'
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..')
@@ -153,7 +154,8 @@ export function localModuleRels(pageRel, pageText) {
     if (spec.includes('../')) continue
     const base = spec.replace(/^\.\//, '')
     if (/\.(tsx?|jsx?)$/.test(base)) out.add(`${dir}/${base}`)
-    else for (const ext of ['.tsx', '.ts', '/index.tsx', '/index.ts']) out.add(`${dir}/${base}${ext}`)
+    else
+      for (const ext of ['.tsx', '.ts', '/index.tsx', '/index.ts']) out.add(`${dir}/${base}${ext}`)
   }
   return [...out]
 }
@@ -335,6 +337,20 @@ export function hostingFormOf({ spec, pageText, readShell }) {
 }
 
 /**
+ * 一对镜像页的逐键缺口分解(纯函数,镜像测试直接用生产判据)。
+ * 撤除的键**出射程而不进 covered** —— 算成"已还原"就变回了本台账要治的假绿那一型。
+ * @param {{sharedKeys:string[], mpKeys:Set<string>, aliasSame:string[], retractedOf:(key:string)=>boolean}} a
+ */
+export function gapOfPair({ sharedKeys, mpKeys, aliasSame, retractedOf }) {
+  const aliasSet = new Set(aliasSame)
+  const unrecovered = sharedKeys.filter((k) => !mpKeys.has(k) && !aliasSet.has(k))
+  const retracted = unrecovered.filter((k) => retractedOf(k))
+  const missing = unrecovered.filter((k) => !retracted.includes(k))
+  const scope = sharedKeys.length - retracted.length
+  return { unrecovered, retracted, missing, scope, covered: scope - missing.length }
+}
+
+/**
  * 按给定面算全部镜像对的还原度。返回 { face, sharedCount, pairs, avg, totalMissing, hosted, hand, broken, rows }。
  * rows 每项 { spec, route, form, why, sharedKeys, covered, missing, fidelity }(|sharedKeys|=0 ⇒ fidelity=null)。
  * form ∈ hosted(委托共享源,按构造满还原)/ hand(端内手写,数键)/ other(承载的不是声明那一屏)/ broken(引了壳而链断,产物渲染不出)。
@@ -352,18 +368,16 @@ export function computeFidelity(face) {
   )
 
   // 手写页拆子模块时,文案消费散在同目录 ./xxx 里 ⇒ 同面批取一次,按页拼回载体面。
-  const moduleTexts = batchReadTexts(
-    face,
-    [...new Set(miniapp.flatMap((p) => (p.file ? localModuleRels(p.file, p.text) : [])))],
-  )
+  const moduleTexts = batchReadTexts(face, [
+    ...new Set(miniapp.flatMap((p) => (p.file ? localModuleRels(p.file, p.text) : []))),
+  ])
   const localModulesOf = (p) =>
     (p.file ? localModuleRels(p.file, p.text) : []).map((r) => moduleTexts.get(r) || '').join('\n')
 
   // 页面配置里的原生导航栏标题(小程序只能用 config 写标题,没有 t() 可用)
-  const configTexts = batchReadTexts(
-    face,
-    [...new Set(miniapp.map((p) => (p.file ? localConfigRel(p.file) : null)).filter(Boolean))],
-  )
+  const configTexts = batchReadTexts(face, [
+    ...new Set(miniapp.map((p) => (p.file ? localConfigRel(p.file) : null)).filter(Boolean)),
+  ])
   const pageExtraValuesOf = (p) => {
     const rel = p.file ? localConfigRel(p.file) : null
     const title = rel ? configTitleOf(configTexts.get(rel)) : null
@@ -400,7 +414,8 @@ export function computeFidelity(face) {
   const mpValues = flatOf(PACK_RELS[0])
   const sharedValues = flatOf(PACK_RELS[1])
   const rnValues = flatOf(PACK_RELS[2])
-  const valueOfSharedKey = (k) => (rnValues && rnValues[k]) || (sharedValues && sharedValues[k]) || null
+  const valueOfSharedKey = (k) =>
+    (rnValues && rnValues[k]) || (sharedValues && sharedValues[k]) || null
   const topsOf = (rel) => {
     const t = packTexts.get(rel)
     if (t === null || t === undefined) return null
@@ -413,6 +428,13 @@ export function computeFidelity(face) {
   const mpTops = topsOf(PACK_RELS[0])
   const shTops = topsOf(PACK_RELS[1])
   const packAvailable = mpTops && shTops ? new Set([...mpTops, ...shTops]) : null
+
+  // 键级撤除台账(§0.4 同面同轮:与被判正文取同一个面)。取不到 = 没人撤过 ⇒ active 为空,
+  // 缺口照原样数;绝不把"台账读不到"折成"全部免检"(那等于把判据做成白名单,§0.7)。
+  const retr = readRetractions(face, ROOT)
+  const retractionIndex = indexRetractions(retr.rows, retr.bad)
+  const retractedOf = (route, spec, key) =>
+    retractionIndex.active.has(retractionId({ page: route, spec, key }))
 
   const rows = []
   for (const s of shared) {
@@ -427,9 +449,7 @@ export function computeFidelity(face) {
       if (!p.file) continue
       if (!mirroredSpecs(p).has(s.spec)) continue
       const { form, why } = hostingFormOf({ spec: s.spec, pageText: p.text, readShell })
-      const mpKeys = consumedKeys(
-        `${p.text || ''}\n${p.cssText || ''}\n${localModulesOf(p)}`,
-      )
+      const mpKeys = consumedKeys(`${p.text || ''}\n${p.cssText || ''}\n${localModulesOf(p)}`)
       // 承载页的文案由共享源本体渲染 ⇒ 无键可缺;断链/手写页照旧逐键数,一分不宽。
       // 同值别名单独记一列并从缺口中扣除:两套命名空间同一句译文 = 页面真渲染了这句。
       const aliasSame =
@@ -442,9 +462,15 @@ export function computeFidelity(face) {
               mpValues,
               pageExtraValuesOf(p),
             ).filter((k) => !mpKeys.has(k))
-      const aliasSet = new Set(aliasSame)
-      const missing =
-        form === 'hosted' ? [] : sharedKeys.filter((k) => !mpKeys.has(k) && !aliasSet.has(k))
+      const { retracted, missing, scope, covered } =
+        form === 'hosted'
+          ? { retracted: [], missing: [], scope: sharedKeys.length, covered: sharedKeys.length }
+          : gapOfPair({
+              sharedKeys,
+              mpKeys,
+              aliasSame,
+              retractedOf: (k) => retractedOf(p.route, s.spec, k),
+            })
       const gap = packNamespaceGap({ usedKeys: sharedKeys, available: packAvailable })
       rows.push({
         spec: s.spec,
@@ -452,31 +478,48 @@ export function computeFidelity(face) {
         form,
         why,
         sharedKeys: sharedKeys.length,
-        covered: sharedKeys.length - missing.length,
+        scope,
+        covered,
         missing,
+        // 被撤除台账免掉的键单列:免了不等于没缺,账面必须能回答"这格为什么不算缺"
+        retracted,
         // 同值别名(译名不同、译文逐字相同)单列报数:它算已还原,但不等于该页做了这块 UI
         aliasSame,
-        fidelity: (sharedKeys.length - missing.length) / sharedKeys.length,
+        fidelity: scope === 0 ? null : (scope - missing.length) / scope,
         // 本端词包里根本不存在的那些命名空间(null ⇒ 词包取不到,这一维未判定,不折成空数组冒绿)
         packAbsent: gap,
       })
     }
   }
 
-  const totalShared = rows.reduce((a, r) => a + r.sharedKeys, 0)
+  const totalScope = rows.reduce((a, r) => a + r.scope, 0)
   const totalCovered = rows.reduce((a, r) => a + r.covered, 0)
   const totalMissing = rows.reduce((a, r) => a + r.missing.length, 0)
   const totalAliasSame = rows.reduce((a, r) => a + (r.aliasSame?.length ?? 0), 0)
+  // 台账腐烂:一条撤除现在不免除任何东西 = 这一格早已结清(键补回来了、页撤镜像了、
+  // 或路由/屏改了名而台账还指着旧三元组)。§0.7「豁免项消失同样算红」⇒ 必须点名,不得留成永久免检。
+  const usedRetractions = new Set(
+    rows.flatMap((r) =>
+      (r.retracted || []).map((k) => retractionId({ page: r.route, spec: r.spec, key: k })),
+    ),
+  )
   return {
     face,
     sharedCount: shared.length,
     pairs: rows.length,
-    avg: totalShared === 0 ? null : totalCovered / totalShared,
-    totalShared,
+    avg: totalScope === 0 ? null : totalCovered / totalScope,
+    totalShared: rows.reduce((a, r) => a + r.sharedKeys, 0),
+    totalScope,
     totalCovered,
     totalMissing,
     // 同值别名(译名不同、译文逐字相同)总数:已计入 covered,单列出来是为了让"缺多少"可解释
     totalAliasSame,
+    // 撤除台账四维:免掉多少 / 台账共多少 / 哪些行不成立(不免) / 哪些行已不免除任何东西(腐烂)
+    totalRetracted: rows.reduce((a, r) => a + (r.retracted?.length ?? 0), 0),
+    retractionTotal: retractionIndex.total,
+    retractionRefused: retractionIndex.refused,
+    retractionBad: retractionIndex.bad,
+    retractionRot: [...retractionIndex.active].filter((id) => !usedRetractions.has(id)),
     // 新维(2026-10-29):取不到词包 ⇒ packUndetermined 为真,由调用方落未判定档,
     // 绝不在这里把"没判"写成"零缺口"(§0.3)。
     packUndetermined: packAvailable === null,
@@ -631,6 +674,12 @@ function run() {
     packUndetermined: now.packUndetermined === true,
     packAbsentRows: now.packAbsentRows ?? 0,
     packAbsentNamespaces: now.packAbsentNamespaces ?? [],
+    // 键级撤除台账四维一起出去:漂移尺要能区分"没缺"与"缺而被裁掉",还要能看见腐烂行
+    retractionTotal: now.retractionTotal ?? 0,
+    totalRetracted: now.totalRetracted ?? 0,
+    retractionRefused: now.retractionRefused ?? [],
+    retractionBad: now.retractionBad ?? [],
+    retractionRot: now.retractionRot ?? [],
   }
 
   if (opts.json) {
@@ -638,8 +687,27 @@ function run() {
     return reg.length > 0 ? 1 : 0
   }
 
-  const head = `FIDELITY-RESULT face=${face} base=${baseLabel} pairs=${now.pairs} hosted=${now.hosted} hand=${now.hand} other=${now.other} broken=${now.broken} packAbsentRows=${now.packUndetermined === true ? '?' : (now.packAbsentRows ?? 0)} avg=${pct(now.avg)} missing=${now.totalMissing} aliasSame=${now.totalAliasSame ?? 0} regressions=${reg.length} state=${state}`
+  const head = `FIDELITY-RESULT face=${face} base=${baseLabel} pairs=${now.pairs} hosted=${now.hosted} hand=${now.hand} other=${now.other} broken=${now.broken} packAbsentRows=${now.packUndetermined === true ? '?' : (now.packAbsentRows ?? 0)} avg=${pct(now.avg)} missing=${now.totalMissing} aliasSame=${now.totalAliasSame ?? 0} retracted=${now.totalRetracted ?? 0}/${now.retractionTotal ?? 0} retractRefused=${(now.retractionRefused ?? []).length} retractBad=${(now.retractionBad ?? []).length} retractRot=${(now.retractionRot ?? []).length} regressions=${reg.length} state=${state}`
   console.log(head)
+  const idText = (id) => String(id).split('\u0000').join(' | ')
+  if ((now.retractionBad ?? []).length > 0) {
+    console.log(
+      `❌ 撤除台账有 ${(now.retractionBad ?? []).length} 行读不出来 ⇒ 这些行代表的裁决不生效(一律不免),逐条点名:`,
+    )
+    for (const b of now.retractionBad) console.log(`   ${b.why}:⇒ ${String(b.raw).slice(0, 90)}`)
+  }
+  if ((now.retractionRefused ?? []).length > 0) {
+    console.log(
+      `❌ 撤除台账有 ${(now.retractionRefused ?? []).length} 行不成立(缺理由/出处/到期日、出处过短、已到期或重复登记)⇒ 该键照原样算缺口:`,
+    )
+    for (const x of now.retractionRefused) console.log(`   ${idText(x.id)}:${x.why}`)
+  }
+  if ((now.retractionRot ?? []).length > 0) {
+    console.log(
+      `⚠️ 撤除台账有 ${(now.retractionRot ?? []).length} 行现在不免除任何东西(§0.7 清单腐烂:键已补回 / 页已改承载形 / 三元组对不上)⇒ 出路:核实后删该行,别留成永久免检:`,
+    )
+    for (const id of now.retractionRot) console.log(`   ${idText(id)}`)
+  }
   if (now.broken > 0) {
     console.log('❌ 壳承载断链(引了壳而链不成立 ⇒ 这一页在产物里渲染不出,比缺文案严重):')
     for (const r of now.rows)
@@ -722,6 +790,7 @@ export const __test__ = {
   businessKeys,
   consumedKeys,
   packNamespaceGap,
+  gapOfPair,
   hostingFormOf,
   computeFidelity,
   regressions,
