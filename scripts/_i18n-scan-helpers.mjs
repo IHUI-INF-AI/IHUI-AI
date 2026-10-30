@@ -329,6 +329,15 @@ export function isScannableRel(rel) {
 /** walkDir 的语义保持不变:剪掉排除目录后收集 .ts/.tsx —— 判据本体在 isScannableRel,不重复。 */
 export function walkDir(dir, out = []) {
   if (!fs.existsSync(dir)) return out
+  // 2026-10-30:端 scanTargets 允许**逐文件**目标。miniapp-taro 的 RN 宿主面是「承载闭包」
+  // (端内只承载 184/344 枚 RN 屏):整目录收 screens 会把 RN 专属屏的真死键算成本端存活,
+  // 而不收又会让壳自己的取词整片判死。文件目标按同一份 isScannableRel 剪枝后直接计入,
+  // 目录分支一字不动 —— 两种目标的排除规则仍是唯一那一份。
+  if (fs.statSync(dir).isFile()) {
+    const norm = path.relative(ROOT, dir).split(path.sep).join('/')
+    if (isScannableRel(norm)) out.push(dir)
+    return out
+  }
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (EXCLUDE_DIRS.has(entry.name)) continue
     const full = path.join(dir, entry.name)
