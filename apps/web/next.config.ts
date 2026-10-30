@@ -627,9 +627,17 @@ const nextConfig: NextConfig = {
         // 覆盖 token 签发端点(JWT 保护,前端 fetchAiServiceJson 带 Bearer)与签名 token
         // 文件访问端点(iframe 直接加载,无 Authorization header)。
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        // 2026-10-30 G3 产物中心收窄:枚举(GET /api/artifacts)与下载(/api/artifacts/:id/download)
+        // 改由 apps/api 8802 提供,原 /api/artifacts/:path* 整段通配会把这两条也吞到 8803 造成 404;
+        // 收窄为 token 精确匹配 + f/* 签名文件两条,其余 /api/artifacts 路径自然落入
+        // 后面的 /api/:path* → 8802 通配。
         {
-          source: '/api/artifacts/:path*',
-          destination: `${IHUI_AI_PROXY_TARGET}/api/artifacts/:path*`,
+          source: '/api/artifacts/token',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/artifacts/token`,
+        },
+        {
+          source: '/api/artifacts/f/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/artifacts/f/:path*`,
         },
         // 2026-09-03 新增:对标杀手锏四件套 + Computer Use 路由直连 ai-service 8803。
         // 原因:research / checkpoints / cloud-runs / context-compaction / computer-use

@@ -42,6 +42,17 @@ import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { listPendingDecisions } from '@ihui/api-client'
 
+/**
+ * 从 WS 通知条目的业务载荷里读会话深链 id(G2 自动化结果推送,2026-10-30)。
+ * 载荷来源:shared 的 transformWsNotification 把 `data.data` 原样透传为 `payload`;
+ * 字段缺失/形态不对时返回 null(侧栏只是不渲染深链,不因此丢整条通知)。
+ */
+function readNoticeSessionId(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null
+  const sid = (payload as Record<string, unknown>).sessionId
+  return typeof sid === 'string' && sid.length > 0 ? sid : null
+}
+
 /** 侧边栏底部用户区:头像 + 用户名 + 下拉菜单。
  *  2026-09-21 用户要求(Qoder 风格):原 SidebarActions 底部 5 按钮
  *  (语言 / 下载客户端 / 站内消息 / 主题切换 / 设置)全部收进本菜单,
@@ -134,7 +145,18 @@ export function SidebarUserRow({
     type: n.type === 'warning' || n.type === 'error' || n.type === 'success' ? n.type : 'info',
     read: n.isRead,
     createdAt: n.createdAt,
+    // G2 结果推送(2026-10-30):保留原始 type + 会话深链 —— WS 载荷的 data.sessionId
+    // 经 shared 适配器透传到 payload,侧栏据此渲染「查看会话」。
+    rawType: n.type,
+    sessionId: readNoticeSessionId(n.payload),
   }))
+
+  /** 点「查看会话」:切到该会话 + 关弹窗 + 收起移动端侧栏(与待决策条目同一套收尾)。 */
+  const handleNoticeSessionLink = (sessionId: string) => {
+    setConversationId(sessionId)
+    setMsgOpen(false)
+    onCloseMobile()
+  }
 
   // 原 SidebarActions 的 5 个工具项(除"设置"已有外,其余全部迁入):
   // 站内消息(未读徽标,点击弹 Modal)/ 语言(子菜单,当前项勾选)/
@@ -416,6 +438,7 @@ export function SidebarUserRow({
           onMarkAllRead={() => markAllAsRead()}
           pendingDecisions={pendingDecisions ?? undefined}
           onDecisionItemClick={handleDecisionItemClick}
+          onSessionLinkClick={handleNoticeSessionLink}
         />
       </Modal>
     </div>

@@ -11,6 +11,7 @@ import {
   boolean,
   numeric,
   text,
+  jsonb,
   index,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
@@ -36,6 +37,15 @@ export const aiCostRecords = pgTable(
     requestType: varchar('request_type', { length: 32 }).default('chat').notNull(),
     promptHash: varchar('prompt_hash', { length: 64 }),
     metadata: text('metadata'),
+    // ── G4 计费弹性(2026-10-30 立,全部可空,存量行 NULL、读取端零适配)──
+    /** 用量维度:会员档位键(member/vip/svip);model 维度由上方 model 列覆盖 */
+    tier: varchar('tier', { length: 32 }),
+    /** 结算明细:命中的 pricing_rules.id;走旧定价路径时为 null */
+    pricingRuleId: uuid('pricing_rule_id'),
+    /** 结算明细:命中规则的 version,供审计回溯 */
+    pricingRuleVersion: integer('pricing_rule_version'),
+    /** 结算明细:系数链(基础价 × 档位 × 错峰)快照 */
+    pricingDetail: jsonb('pricing_detail'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 93150d6ab16e2dfe2d5cab5b3ea6b4e6aac49a3a
-// inputsSha256: dbb8cf20bd2f44e837a576afbd37b0669a279880fcffeecca61cc9ba812e9d0d
+// sourceCommit: b2b5f5fceb8c276697bf5060f41eefd18620ed79
+// inputsSha256: 70a69c29ad0380900c54e01741f9610a7a56c53e6c46d0a563f7c8b48b9066aa
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -236,6 +236,7 @@
 // input: apps/web/app/(main)/admin/online-users/page.tsx 8aa7823b2df39d02588350f5e5bf3f673cad255ec5de5ff50397e99d5d47173a
 // input: apps/web/app/(main)/admin/operlog/page.tsx e1e1a0837b9581914aeeae63da4c8af3b2714a7f2359d1633f022e73ebb867a8
 // input: apps/web/app/(main)/admin/orders/page.tsx 2a3ebca2eaf05134f4236f64f8478071bdd7e7df008e9a5f121aefdd8669649a
+// input: apps/web/app/(main)/admin/org-governance/page.tsx a7b11053a229708da09ee068918743cb72d2e062d519c136b3d3a83242826aee
 // input: apps/web/app/(main)/admin/oss-config/page.tsx 625b3c1ee16962c3a347a1c865523c8367b86f1108bea0d1df0b7721d4596dac
 // input: apps/web/app/(main)/admin/oss/files/page.tsx 968510b8b64d910f842848d295b387b63b422184f6710a2121dfa869d912be33
 // input: apps/web/app/(main)/admin/oss/page.tsx a4099f971b9efa8efaa2c82c23e715d7200839cd1ab4ac59335a3e09d1841011
@@ -399,6 +400,7 @@
 // input: apps/web/app/(main)/articles/edit/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/articles/hot/page.tsx c1a29f146eebf20715e720d0e5bde9c8db468f796f5b36c8a5c0ed3d80ae136c
 // input: apps/web/app/(main)/articles/page.tsx 52d3c0a836d8d55f4d8b477063d55401313cb0179528af9e69ec973da97b3d4b
+// input: apps/web/app/(main)/artifacts/page.tsx 37267be40c2706b8942bb96069708e20eca6f691adaee5fbdb904aeff588503a
 // input: apps/web/app/(main)/ask/page.tsx 78a7b752303eaca2fbdc8d28229eb7f3def29c9cf10b8c15119d06d5d05301d2
 // input: apps/web/app/(main)/asks/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/asks/edit/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
@@ -790,11 +792,12 @@
 // input: apps/web/app/(main)/settings/agent-security/page.tsx 3e1a91132e20fc7bd3ae6b99774cdf8d93d7c26937edaceb5dc5407a4386aa45
 // input: apps/web/app/(main)/settings/api-keys/page.tsx 492e6b64711c856e20ec91c9ef5a74e42869c0127612dfca7cccb3476727083c
 // input: apps/web/app/(main)/settings/authorizations/page.tsx acc98c629b5c5069f804e1bbeae18fa87c48c84784f10fe3d5e04af92524e8d7
-// input: apps/web/app/(main)/settings/billing/page.tsx ef30cd0cb4bbec7fc77ca05bf75a16f0f198e3cf9e982644ab7f143b383a826e
+// input: apps/web/app/(main)/settings/billing/page.tsx 6b9a2046ea7ee37d24ac587c630d87f31b9e8376fbbef75a8a7d269db7bb2574
 // input: apps/web/app/(main)/settings/connected-accounts/page.tsx b0afd772ebcc305f5e8049fec1c59861291ef79bcf6d1d48b83572fc14338301
 // input: apps/web/app/(main)/settings/dashboard/page.tsx 9a3600e685ffcacd84130982a4ea40a2264a79d3eebe77329b8ef918535d36ca
 // input: apps/web/app/(main)/settings/data-export/page.tsx c2ca8e792b53309e3a65bc957de4222c6f9efbad420a800d141fed3605af66ce
 // input: apps/web/app/(main)/settings/data-rights/page.tsx 226c5f9c8db68d641455d439092dc3e090ad9c399938f404f9deda442023ecd7
+// input: apps/web/app/(main)/settings/devices/page.tsx 7b3be74403b941bb35059e69dd31bf2f4c642b38750015610a61c1202a9b6083
 // input: apps/web/app/(main)/settings/gateway/page.tsx 4eef35b03c2dbdef89ee8baff5d817d53877f8ba5b13218e177ea03a6fd1049e
 // input: apps/web/app/(main)/settings/icp-record/page.tsx 352ac1a3a83d9f8a996264639c8d1280bf667bd95f10dde71faa7acd91bd4cd1
 // input: apps/web/app/(main)/settings/import/page.tsx 1d4a7124cf1157a41650d821e146d3e0510765f9a8a121659cbd018ba84ac2c1
@@ -931,7 +934,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 8509c1bc6272c3e141461ae79a70c998d3f8298592eaf936a64bb9be2402b464
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-30T08:09:07.721Z
+// generatedAt: 2026-10-30T11:06:36.747Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1156,6 +1159,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/online-users', param: false, group: 'admin' },
   { path: '/admin/operlog', param: false, group: 'admin' },
   { path: '/admin/orders', param: false, group: 'admin' },
+  { path: '/admin/org-governance', param: false, group: 'admin' },
   { path: '/admin/oss', param: false, group: 'admin' },
   { path: '/admin/oss-config', param: false, group: 'admin' },
   { path: '/admin/oss/files', param: false, group: 'admin' },
@@ -1319,6 +1323,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/articles/:id', param: true, group: 'articles' },
   { path: '/articles/edit', param: false, group: 'articles' },
   { path: '/articles/hot', param: false, group: 'articles' },
+  { path: '/artifacts', param: false, group: 'artifacts' },
   { path: '/ask', param: false, group: 'ask' },
   { path: '/asks', param: false, group: 'asks' },
   { path: '/asks/:id', param: true, group: 'asks' },
@@ -1727,6 +1732,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/settings/dashboard', param: false, group: 'settings' },
   { path: '/settings/data-export', param: false, group: 'settings' },
   { path: '/settings/data-rights', param: false, group: 'settings' },
+  { path: '/settings/devices', param: false, group: 'settings' },
   { path: '/settings/gateway', param: false, group: 'settings' },
   { path: '/settings/icp-record', param: false, group: 'settings' },
   { path: '/settings/import', param: false, group: 'settings' },

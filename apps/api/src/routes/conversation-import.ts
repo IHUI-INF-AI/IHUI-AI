@@ -15,7 +15,7 @@
  *   → web 预览 → 逐会话调 /commit → 落 chat_conversations/chat_messages(保留原始时间戳)
  *   → 写 conversation_imports 批次记录 → 用户聊天侧栏立即可见新会话
  *
- * 支持的来源(source):claude_code | codex | cursor | aider | wechat
+ * 支持的来源(source):claude_code | codex | cursor | aider | chatgpt | claude_ai | wechat
  * (微信聊天记录导出同样走这条管道,/parse 的格式识别在 ai-service 侧)
  *
  * 设计要点:
@@ -43,8 +43,16 @@ import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 // Schemas
 // =============================================================================
 
-/** 外部工具来源枚举 */
-const importSourceSchema = z.enum(['claude_code', 'codex', 'cursor', 'aider', 'wechat'])
+/** 外部工具来源枚举(chatgpt/claude_ai 为 E2 网页导出扩展,与 ai-service SOURCES 同步) */
+const importSourceSchema = z.enum([
+  'claude_code',
+  'codex',
+  'cursor',
+  'aider',
+  'chatgpt',
+  'claude_ai',
+  'wechat',
+])
 
 /** 单条待导入消息(时间戳为 ISO 字符串,宽松校验,落库前统一解析) */
 const importedMessageSchema = z.object({
@@ -108,59 +116,70 @@ export const conversationImportRoutes: FastifyPluginAsync = async (server) => {
   // 1. POST /conversation-import/parse — 转发 ai-service 解析
   // -------------------------------------------------------------------------
   // 2026-10-28 DDoS P2:解析上传上限 20MB(PARSE_UPLOAD_MAX_BYTES),显式放开脱离全局 2MiB。
-  server.post('/conversation-import/parse', { bodyLimit: PARSE_UPLOAD_MAX_BYTES + 1024 * 1024 }, async (request, reply) => {
-    const userId = request.userId!
+  server.post(
+    '/conversation-import/parse',
+    { bodyLimit: PARSE_UPLOAD_MAX_BYTES + 1024 * 1024 },
+    async (request, reply) => {
+      const userId = request.userId!
 
-    // 原样收集 multipart 各部分,重建 FormData 转发(字段 + 文件透传,解析逻辑在 ai-service)
-    const formData = new FormData()
-    let hasFile = false
-    try {
-      for await (const part of request.parts()) {
-        if (part.type === 'file') {
-          const buffer = await part.toBuffer()
-          // b75-3#4:读超限文件显式拒绝(too large),不静默截断也不把半截数据送解析
-          if (buffer.byteLength > PARSE_UPLOAD_MAX_BYTES) {
-            request.log.warn(
-              { userId, fileName: part.filename, bytes: buffer.byteLength },
-              '[conversation-import] parse upload too large',
-            )
-            return reply.status(413).send(error(413, `会话导出文件 ${part.filename} 超过 ${Math.floor(PARSE_UPLOAD_MAX_BYTES / 1024 / 1024)}MiB 上限,已拒绝(不做截断解析)`))
+      // 原样收集 multipart 各部分,重建 FormData 转发(字段 + 文件透传,解析逻辑在 ai-service)
+      const formData = new FormData()
+      let hasFile = false
+      try {
+        for await (const part of request.parts()) {
+          if (part.type === 'file') {
+            const buffer = await part.toBuffer()
+            // b75-3#4:读超限文件显式拒绝(too large),不静默截断也不把半截数据送解析
+            if (buffer.byteLength > PARSE_UPLOAD_MAX_BYTES) {
+              request.log.warn(
+                { userId, fileName: part.filename, bytes: buffer.byteLength },
+                '[conversation-import] parse upload too large',
+              )
+              return reply
+                .status(413)
+                .send(
+                  error(
+                    413,
+                    `会话导出文件 ${part.filename} 超过 ${Math.floor(PARSE_UPLOAD_MAX_BYTES / 1024 / 1024)}MiB 上限,已拒绝(不做截断解析)`,
+                  ),
+                )
+            }
+            formData.append(part.fieldname, new Blob([new Uint8Array(buffer)]), part.filename)
+            hasFile = true
+          } else {
+            formData.append(part.fieldname, String(await part.value))
           }
-          formData.append(part.fieldname, new Blob([new Uint8Array(buffer)]), part.filename)
-          hasFile = true
-        } else {
-          formData.append(part.fieldname, String(await part.value))
         }
+      } catch (err) {
+        request.log.warn({ err, userId }, '[conversation-import] parse upload read failed')
+        return reply.status(400).send(error(400, `上传文件读取失败: ${(err as Error).message}`))
       }
-    } catch (err) {
-      request.log.warn({ err, userId }, '[conversation-import] parse upload read failed')
-      return reply.status(400).send(error(400, `上传文件读取失败: ${(err as Error).message}`))
-    }
 
-    if (!hasFile) {
-      return reply.status(400).send(error(400, '缺少上传的会话导出文件'))
-    }
-
-    try {
-      // 不手动设置 Content-Type:FormData 需 fetch 自动生成带 boundary 的头
-      const resp = await aiServiceFetch(request, '/api/session-import/parse', {
-        method: 'POST',
-        body: formData,
-      })
-      // 原样透传 ai-service 响应(状态码 + body + content-type)
-      const text = await resp.text()
-      const contentType = resp.headers.get('content-type')
-      if (contentType) {
-        reply.type(contentType)
-      } else {
-        reply.type('application/json; charset=utf-8')
+      if (!hasFile) {
+        return reply.status(400).send(error(400, '缺少上传的会话导出文件'))
       }
-      return reply.status(resp.status).send(text)
-    } catch (err) {
-      request.log.error({ err, userId }, '[conversation-import] parse forward failed')
-      return reply.status(502).send(error(502, '解析服务暂不可用,请稍后重试'))
-    }
-  })
+
+      try {
+        // 不手动设置 Content-Type:FormData 需 fetch 自动生成带 boundary 的头
+        const resp = await aiServiceFetch(request, '/api/session-import/parse', {
+          method: 'POST',
+          body: formData,
+        })
+        // 原样透传 ai-service 响应(状态码 + body + content-type)
+        const text = await resp.text()
+        const contentType = resp.headers.get('content-type')
+        if (contentType) {
+          reply.type(contentType)
+        } else {
+          reply.type('application/json; charset=utf-8')
+        }
+        return reply.status(resp.status).send(text)
+      } catch (err) {
+        request.log.error({ err, userId }, '[conversation-import] parse forward failed')
+        return reply.status(502).send(error(502, '解析服务暂不可用,请稍后重试'))
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // 2. POST /conversation-import/commit — 逐会话落库 + 写批次记录
