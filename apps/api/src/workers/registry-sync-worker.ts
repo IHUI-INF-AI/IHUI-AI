@@ -107,6 +107,7 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
       let synced = 0
       let failed = 0
       let skipped = 0
+      let deduped = 0
       // 批量 upsert 抛出的**真实**错误消息。必须落到 sync_log:此前只进 server.log.warn,
       // 而日志侧跑的是 pino-pretty —— err 字段被折行吃掉,表里只剩"N 个条目 upsert 失败",
       // 门 47 判红时报得出条数、报不出原因,每轮排查都要重演一次"看不见真因"(§0.3)。
@@ -133,6 +134,7 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         skipped = result.skipped
         failed = result.failed
         hashList = result.hashList
+        deduped = result.deduped ?? 0
 
         // d2:聚合 oldVersion(取第一个版本有变化的) + newVersion(取第一个非空)
         for (const ov of result.oldVersions) {
@@ -191,6 +193,15 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         }
       }
 
+      if (deduped > 0) {
+        // 上游分页重叠的可见性(2026-10-25 宕因):去重救了整批,但"上游在同一轮里换了序"
+        // 这件事必须留一行 —— 下次谁改这段,量得到它还会发生。
+        server.log.warn(
+          { jobId: job.id, deduped, fetched: items.length },
+          'registry-sync: 批内复合键去重(上游 offset 分页在同一轮出现重叠条目,后页覆盖前页)',
+        )
+      }
+
       server.log.info(
         {
           jobId: job.id,
@@ -198,6 +209,7 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
           failed,
           skipped,
           total: items.length,
+          deduped,
           durationMs: Date.now() - startedAt.getTime(),
         },
         'registry-sync: 同步任务完成',

@@ -6368,6 +6368,27 @@ const checks = [
     // 逃生:HUSKY_SKIP_I18N_DEAD_KEY=1(与原 pre-commit 段同一变量,语义不变)。
     skipEnv: 'HUSKY_SKIP_I18N_DEAD_KEY',
   },
+  // --- 共享样式工厂键集 ↔ 跨文件具名取用(1 项,blocking)(2026-10-30 立)---
+  {
+    // 编号 266:注册前已核 `git show HEAD:scripts/guardian-runner.mjs | grep -c "id: '266'"` 为 0;现值以本文件为准。
+    id: '266',
+    label:
+      '🧵 共享样式工厂键集 ↔ 跨文件具名取用对账(blocking;治"只暂存样式源、消费面留在未暂存区"被提交门读成绿 —— 两侧同面成对判,同文件本地 StyleSheet 一律放过)',
+    script: 'check-style-key-consumption.mjs',
+    // args 刻意留空:--staged 由 runner 在 staged 模式统一追加(runner 头注的硬规矩),
+    // 写死会让"不带 --staged 的全量审计"也只判索引面 ⇒ 全量档永远看不到 HEAD 的真形状。
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_STYLE_KEY_CONSUMPTION',
+    stagedTriggers: ['packages/app/', 'apps/mobile-rn/'],
+    onFailHint: [
+      '  💡 红的意思是:某处 `<id>.<KEY>` 按名取的键,不在它绑定的跨文件样式工厂的键集里。',
+      '     ① 看清单:node scripts/check-style-key-consumption.mjs --staged;',
+      '     ② 修法只有一条 —— **源与消费同批改**(两侧任一单独翻键名都会让 HEAD 变类型红,历史两枚 876c4cb418/bd41560d83 就是这么来的);',
+      '     ③ 判据本体:node scripts/check-style-key-consumption.mjs --self-test;',
+      '     禁止为消红把工厂标 partial(加 spread)或把消费面改成本地 StyleSheet 定义 —— 那是把尺子锯短(§12e)。',
+    ],
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===

@@ -25,6 +25,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 import {
   AdvancedParamsPanel,
   parseParamValues,
@@ -213,7 +214,12 @@ export function VideoGenSora2() {
               <p className="text-sm text-muted-foreground">{t('noResult')}</p>
             ) : null}
             {videos.map((url) => (
-              <video key={url} src={url} controls className="w-full rounded-md border">
+              <video
+                key={url}
+                src={toMediaStreamUrl(url)}
+                controls
+                className="w-full rounded-md border"
+              >
                 <track kind="captions" />
               </video>
             ))}

@@ -60,6 +60,10 @@ export function hasLocalBinding(rawText, name) {
     new RegExp(`[(,]\\s*\\{\\s*${n}\\b`),
     // 箭头单参:confirm => ...
     new RegExp(`\\b${n}\\s*=>`),
+    // 对象字面量方法简写 / 属性箭头:const Alert = { alert(t, m, bs) { … } } 或 { alert: (t) => … }
+    // (适配层把 RN Alert.alert 映射成微信 showModal 时就是这一形态;裸调用后面不会紧跟 `{`,故不会误放过)
+    new RegExp(`\\b${n}\\s*\\([^)\\n]*\\)\\s*\\{`),
+    new RegExp(`\\b${n}\\s*:\\s*(?:async\\s+)?\\(`),
   ]
   return linePats.some((re) => re.test(rawText))
 }

@@ -26,6 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 const MODELS = ['mystic', 'classic', 'realism'] as const
 
@@ -167,7 +168,7 @@ export function ImageGenFreepik() {
               {images.map((url) => (
                 <div key={url} className="space-y-1">
                   <Image
-                    src={url}
+                    src={toMediaImageUrl(url)}
                     alt={prompt}
                     width={800}
                     height={600}

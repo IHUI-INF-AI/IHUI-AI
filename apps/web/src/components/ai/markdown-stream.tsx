@@ -37,6 +37,8 @@ import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
 // D129:点开图片的唯一出口(外链 window.open / 其余进工作面板);助手侧与用户气泡共用一份判断
 import { openImageSource } from '@/lib/open-image-source'
+// CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { applyCodeBlockToFile } from '@/lib/apply-code-block'
 // D197:代码块「自动换行」偏好(zustand persist,跨会话记忆);D198:代码块「复制为图片」落盘
@@ -818,7 +820,7 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
             // G-738 纪律②:按资源重建节点(上游 key={displaySrc} 同判据)——React 复用
             // 同一 img 时,旧资源的异步事件可能命中新 src 的处理器;换 key 即换节点。
             key={srcStr}
-            src={srcStr}
+            src={toMediaImageUrl(srcStr)}
             alt={alt ?? ''}
             className={cn(
               'max-h-[400px] max-w-full object-contain',
@@ -841,7 +843,12 @@ function MarkdownVideo({ src }: { src?: string }) {
   const isVideo = /\.(mp4|webm|ogg|mov)(\?|$)/i.test(srcStr)
   if (!isVideo) return null
   return (
-    <video src={srcStr} controls className="my-0 max-w-full rounded-md" preload="metadata">
+    <video
+      src={toMediaStreamUrl(srcStr)}
+      controls
+      className="my-0 max-w-full rounded-md"
+      preload="metadata"
+    >
       <track kind="captions" />
     </video>
   )

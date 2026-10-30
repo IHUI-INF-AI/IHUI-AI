@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FileText, Loader2 } from 'lucide-react'
 import { Card } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import { ViewMoreLink } from '@/components/common/view-more-link'
 
 interface NewsItem {
@@ -68,7 +69,7 @@ export function NewsSection() {
               <div className="relative aspect-video overflow-hidden bg-muted">
                 {n.coverImage ? (
                   <Image
-                    src={n.coverImage}
+                    src={toMediaImageUrl(n.coverImage)}
                     alt={n.title}
                     fill
                     unoptimized

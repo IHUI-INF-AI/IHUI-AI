@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, FileText, type LucideIcon } from 'lucide-react'
 import { Card } from '@ihui/ui-react'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 export interface HomeItem {
   id: string
@@ -109,7 +110,7 @@ function ModuleItemCard({ item }: { item: HomeItem }) {
       <div className="relative aspect-video overflow-hidden bg-muted">
         {item.cover ? (
           <Image
-            src={item.cover}
+            src={toMediaImageUrl(item.cover)}
             alt={item.title}
             fill
             unoptimized

@@ -30,6 +30,8 @@ import { splitUserMessageParts } from '@ihui/shared/chat'
 
 // 点开图片的唯一出口(与助手侧共用一份"外链开新窗 / 其余进面板"的判断)
 import { openImageSource } from '@/lib/open-image-source'
+// 外部 http(s) 图片经同源代理走 /api/media/image,满足收窄后的 CSP img-src
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 
 export interface UserMessageBodyProps {
   content: string
@@ -85,7 +87,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
           {/* eslint-disable-next-line @next/next/no-img-element -- 用户附件图是任意来源 URL(点开走 openImageSource 看原图),next/image 需要逐 host 配远程域名白名单,不属本处范围 */}
           <img
             data-testid="user-message-image"
-            src={im.url}
+            src={toMediaImageUrl(im.url)}
             alt={im.alt}
             className="max-h-64 w-full bg-muted object-contain"
           />
@@ -96,7 +98,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
         <video
           key={`${url}-${i}`}
           data-testid="user-message-video"
-          src={url}
+          src={toMediaStreamUrl(url)}
           controls
           className="max-h-64 w-full rounded-lg bg-muted"
         >
