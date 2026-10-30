@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { bizDaysAgoKey } from '@/lib/biz-day'
 import { useQuery } from '@tanstack/react-query'
 import { Eye, Loader2, MapPin, RefreshCw, Search, Users } from 'lucide-react'
 import { eduApi, buildQs } from '@/lib/edu'
@@ -107,9 +108,8 @@ const PLATFORM_BADGE_CLASS: Record<PageUsageRow['platform'], string> = {
 }
 
 function daysAgo(n: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return d.toISOString().slice(0, 10)
+  // 业务日(Asia/Shanghai):与后端聚合同口径,见 lib/biz-day。
+  return bizDaysAgoKey(n)
 }
 
 const inputCls =
