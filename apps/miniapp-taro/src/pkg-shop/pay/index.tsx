@@ -145,9 +145,12 @@ export default function PayIndex() {
         () => null,
       ),
     ]).then(([wallet, orderRes, couponRes]) => {
-      // 钱包余额是元（token 数量，与 web 钱包页同一口径），本页统一折成分参与运算
+      // 钱包余额 getBalance → user_margins.token_quantity，单位就是**分**
+      // （充值回调 rechargeToken(order.amount) 落的是订单分金额、赠送按分入账，
+      //  见 services/order-service.ts 的 rechargeIfTokenOrder / creditTopupBonus），
+      // 与本页订单金额同尺度，直接比较，不要再乘 100。
       if (wallet && typeof wallet.balance === 'number') {
-        setBalance(Math.round(wallet.balance * 100))
+        setBalance(wallet.balance)
       }
       const order = orderRes?.order
       if (order) {
