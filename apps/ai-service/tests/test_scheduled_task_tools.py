@@ -235,4 +235,53 @@ async def test_admin_only_denies_plain_user(fake_scheduler: MagicMock) -> None:
     assert cancelled["errorCode"] == "PERMISSION_DENIED"
     fake_scheduler.list_tasks.assert_not_called()
     fake_scheduler.remove_task.assert_not_called()
+
+
+# =============================================================================
+# 5. schedule_task 落库的 conversation_id 必须是真会话 id(不是任务名)
+# =============================================================================
+
+
+async def test_schedule_records_real_session_id(
+    fake_scheduler: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """call_tool 注入的 __session_id 必须成为任务记录的 conversation_id。
+
+    2026-10-31 前这里写的是任务名 ⇒ list_scheduled_tasks 按会话过滤永远查不到
+    自建任务("看得见"补了也白补)。本条锁住映射本身。
+    """
+    fake_scheduler.add_task = AsyncMock(return_value={"ok": True, "next_run_at": None})
+    monkeypatch.setattr(mcp_server, "_persist_task_to_redis", lambda *a, **k: None)
+    out = await mcp_server.mcp_server.call_tool(
+        "schedule_task",
+        {
+            "name": "每日报告",
+            "prompt": "跑一遍",
+            "schedule": "once",
+            "run_at": "2030-01-01T00:00:00+00:00",
+        },
+        user_role=1,
+        session_id="sess-1",
+    )
+    assert out["ok"] is True
+    assert fake_scheduler.add_task.await_args.kwargs["conversation_id"] == "sess-1"
+
+
+async def test_schedule_without_session_falls_back_to_name(
+    fake_scheduler: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """无会话上下文(内部直调)时退回任务名,保持旧行为不突变。"""
+    fake_scheduler.add_task = AsyncMock(return_value={"ok": True, "next_run_at": None})
+    monkeypatch.setattr(mcp_server, "_persist_task_to_redis", lambda *a, **k: None)
+    await mcp_server.mcp_server.call_tool(
+        "schedule_task",
+        {
+            "name": "无会话任务",
+            "prompt": "跑一遍",
+            "schedule": "once",
+            "run_at": "2030-01-01T00:00:00+00:00",
+        },
+        user_role=1,
+    )
+    assert fake_scheduler.add_task.await_args.kwargs["conversation_id"] == "无会话任务"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
