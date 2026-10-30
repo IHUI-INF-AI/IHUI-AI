@@ -24,6 +24,7 @@ import InformationItem from './components/InformationItem'
 import NewTitle, { type NewTitleItem } from './components/NewTitle'
 import CenterItem, { type CenterItemData } from './components/CenterItem'
 import InterestTrackModal from './components/InterestTrackModal'
+import ShareCard from './components/ShareCard'
 import './index.css'
 import SearchBar from '@/components/SearchBar'
 import { aizhsUrl } from '@/constants/icon-urls'
@@ -770,6 +771,9 @@ export default function ShareIndexPage() {
           onSearch={onSearchConfirm}
           onClear={() => setKeyword('')}
         />
+
+        {/* 分享卡(对齐共享屏 ShareScreen 的备注/生成分享/链接·分享码·有效期/立即分享) */}
+        <ShareCard />
 
         {/* 热门资讯(NewTitle)— 对齐原项目 hot_data */}
         {hotList.length > 0 ? (

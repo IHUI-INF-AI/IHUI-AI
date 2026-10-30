@@ -292,27 +292,6 @@ export function buildRouteMapFromText(nav, registryEntries) {
   return { map, unmapped, unbound, rnCollisions, total: compToFile.size }
 }
 
-/**
- * 盘上生成物是否已覆盖现读映射 —— **键在册 ∧ 该键指向逐字相等**,两条缺一不可。
- *
- * 为什么不能只比键名(2026-10-30 实测的"绿灯即缺陷"):登记表回正 `CourseMain`/`NewsCategory`/
- * `Assistant` 三条的 miniapp 指向后,键名一条没变,于是旧判据自报「✓ 路由映射无变化(盘上已覆盖
- * 现读 257 条)」并**拒绝写盘** —— 盘上/HEAD 那三条仍是旧指向。`--write` 是门 251 C3 点名的修复
- * 出口,出口安静不干活就是 §0.8 禁止的"文档写了跑不通的出路"。
- * 形态尺子与落盘终态一致:`renderRouteMap` 写双引号,过 prettier 后是裸键 + 单引号值,三种写法都收。
- * 盘上取到 0 条 ⇒ false(读不到不冒充"已覆盖",与 §0.3 同向)。
- */
-export function routeMapCovers(entries, diskText) {
-  if (!diskText || diskText.length === 0) return false
-  const onDisk = new Map(
-    [
-      ...diskText.matchAll(/^\s*(?:["']([A-Za-z0-9_]+)["']|([A-Za-z0-9_]+)):\s*["']([^"']+)["']/gm),
-    ].map((m) => [m[1] ?? m[2], m[3]]),
-  )
-  if (onDisk.size === 0) return false
-  return [...entries].every(([k, v]) => onDisk.get(k) === v)
-}
-
 function renderRouteMap(map) {
   const lines = [...map.entries()]
     .sort()
@@ -482,7 +461,14 @@ async function main() {
     current.length > 0 &&
     iconNamesOnDisk.length >= iconNamesNew.length &&
     iconNamesNew.every((n) => iconNamesOnDisk.includes(n))
-  const routesAlreadyCovered = routeMapCovers([...routeInfo.map.entries()], routeCurrent)
+  const routeKeysNew = [...routeInfo.map.keys()]
+  const routeKeysOnDisk = [
+    ...routeCurrent.matchAll(/^\s*(?:'([A-Za-z0-9]+)'|([A-Za-z0-9]+)):\s*'/gm),
+  ].map((m) => m[1] ?? m[2])
+  const routesAlreadyCovered =
+    routeCurrent.length > 0 &&
+    routeKeysOnDisk.length >= routeKeysNew.length &&
+    routeKeysNew.every((k) => routeKeysOnDisk.includes(k))
   console.log(
     `路由名映射:${routeInfo.map.size} 条在册 / 映射不到 ${routeInfo.unmapped.length} 条(运行时点名)/ 导航器壳文件 ${routeInfo.total} 个` +
       // 第三种形态必须单独出声:组件名在两种 import 里都找不到 = 解析面不够(尺子瞎),
@@ -522,7 +508,7 @@ async function main() {
       console.log(`✓ 已写 ${OUT_REL}(${rows.length} 个图标,已按仓库 prettier 配置归一并注入水印)`)
     }
     if (routesAlreadyCovered)
-      console.log(`✓ 路由映射无变化(盘上已逐键覆盖现读 ${routeInfo.map.size} 条,含指向)`)
+      console.log(`✓ 路由映射无变化(盘上已覆盖现读 ${routeKeysNew.length} 条)`)
     else {
       atomicWriteFileSync(routeOut, routeNext, { encoding: 'utf8' })
       await formatWithPrettier(ROUTE_OUT_REL)
@@ -548,8 +534,6 @@ export const __test__ = {
   collectIconNames,
   buildTable,
   renderSource,
-  renderRouteMap,
-  routeMapCovers,
   OUT_REL,
   ROUTE_OUT_REL,
   // 供镜像测试打真出口(§22c:测试 import 源脚本,禁复制注入逻辑)

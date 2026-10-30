@@ -25,7 +25,7 @@
  * (切点只追加,但 active 晋升进 stable 时尾部仍在长)都要整段重 parse。现按**全部**
  * 安全切点(`collectSafeCutPoints`,与单刀同一把尺子)拆成有序块,渲染层每块一个
  * memo 容器 ⇒ 每帧只重解析最后一块。切点扫描器仍是同一份 —— `splitMarkdownStable`
- * 继续消费同一份切点表,只取最后一个。跨空行的链接定义 / 数学块两把尺子一起放弃切分。
+ * 继续消费同一份切点表,只取最后一个。链接定义、数学块、脚注与块级 HTML 命中则整段不切。
  */
 
 /** 内容短于该值不启用切分(与 MarkdownStream throttle 中档对齐)。 */
@@ -87,15 +87,25 @@ function isUndecidableListMarker(line: string): boolean {
  * 单刀(stable/active 两棵 ReactMarkdown)与块级切分共用这一闸:
  *  - 引用式链接定义 `[label]: url` —— 定义与 `[text][label]` 落到两棵树,
  *    引用退化成字面量,流结束结构不变,链接永久失效;
- *  - `$$` 数学块 —— 块内空行被当切点,公式被切成两半。
+ *  - `$$` 数学块 —— 块内空行被当切点,公式被切成两半;
+ *  - 脚注定义与 `[^id]` —— 定义和引用落到两棵树后,脚注永久失效;
+ *  - 块级原始 HTML —— 标签被从空行切开后,前后两棵树各解析一半。
  *
  * 错切比慢更糟:命中即整段不切,失效方向零劣化。
+ * 块边界单调性仍只由累积封块负责,本闸只决定「整段不切」。
  */
 const LINK_REFERENCE_DEFINITION_RE = /^\s{0,3}\[[^\]\n]+\]:/m
 const DISPLAY_MATH_OPEN_RE = /^\s{0,3}\$\$/m
+const FOOTNOTE_RE = /\[\^[^\]]+\]/
+const BLOCK_HTML_RE = /^ {0,3}(?:<\/?[A-Za-z][\w:-]*|<!--|<!\[CDATA\[|<!)/m
 
 function mustNotSplitAcrossParses(content: string): boolean {
-  return LINK_REFERENCE_DEFINITION_RE.test(content) || DISPLAY_MATH_OPEN_RE.test(content)
+  return (
+    LINK_REFERENCE_DEFINITION_RE.test(content) ||
+    DISPLAY_MATH_OPEN_RE.test(content) ||
+    FOOTNOTE_RE.test(content) ||
+    BLOCK_HTML_RE.test(content)
+  )
 }
 
 export interface MarkdownSplit {
@@ -389,3 +399,4 @@ export function judgeBlockStability(input: BlockStabilityInput): BlockStability 
     splitEnabled: false,
   }
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

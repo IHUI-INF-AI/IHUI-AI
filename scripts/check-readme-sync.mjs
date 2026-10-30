@@ -87,8 +87,7 @@
  * 只在结论行报出"窗口内动了这些面的文件数"。
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -106,6 +105,8 @@ import * as surface from './lib/readme-capability-surface.mjs'
 import { extractApiRegistrations } from './lib/route-registration-extract.mjs'
 import { SCAN_DIRS } from './lib/outbound-route-facts.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+// §15b:自检夹具唯一落点(禁 os.tmpdir —— 活进程 TEMP 可能仍钉在 C 盘)。
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120000
@@ -745,7 +746,7 @@ function selfTest() {
     )
   })
   t('㉚棘轮读不到/读不懂一律未判定,不静默当"没有基线"', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'readme-sync-bl-'))
+    const dir = mkScratch('readme-sync-bl-')
     try {
       // 不存在 ⇒ present:false 且无 error(旧语义,合法)
       const absent = loadBaseline(dir)
@@ -764,7 +765,7 @@ function selfTest() {
       const ok = loadBaseline(dir)
       return ok.present === true && ok.missing === 125
     } finally {
-      rmSync(dir, { recursive: true, force: true })
+      rmScratch(dir)
     }
   })
   const r = report()

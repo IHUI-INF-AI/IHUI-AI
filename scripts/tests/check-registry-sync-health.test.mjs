@@ -9,14 +9,16 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { mkScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as H } from '../check-registry-sync-health.mjs'
 import { __test__ as AUDIT } from '../lib/registry-sync-audit.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
+const SCRIPT = join(HERE, '..', 'check-registry-sync-health.mjs')
 const GUARDIAN_SRC = readFileSync(join(HERE, '..', 'git-guardian.mjs'), 'utf8')
 
 const H_OK = (startedAt) => ({ status: 'success', startedAt, err: '' })
@@ -259,5 +261,23 @@ test('T1 节流纯函数:差一秒不进窗口,满窗必进,tick 缺省 ⇒ 该�
   assert.equal(due(NOW, NaN), true)
   assert.equal(due(NOW + 30 * 60_000 - 1, NOW), false)
   assert.equal(due(NOW + 30 * 60_000, NOW), true)
+})
+
+// G-322 第十九批:带值旗标吞掉紧邻旗标 —— 旧副本 Number("--json")=NaN 照常进 DB 出结论,
+// 停顿哨兵既不点名也不拒;单源必须在解析层 exit 2 并点名实得 token(不连库)。
+test('G-322:--stale-hours / --limit 被下一个旗标顶值 ⇒ exit 2 各点名实得 token', () => {
+  for (const [flag, swallowed] of [
+    ['--stale-hours', '--json'],
+    ['--limit', '--json'],
+  ]) {
+    const r = spawnSync(process.execPath, [SCRIPT, flag, swallowed], {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    assert.equal(r.status, 2, `${flag} 吞值必须 exit 2,实际: ${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.ok(r.stderr.includes(flag), r.stderr)
+    assert.ok(r.stderr.includes(`"${swallowed}"`), r.stderr)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

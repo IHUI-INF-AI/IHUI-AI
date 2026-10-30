@@ -100,6 +100,8 @@ import { scanNativeLocks, countGitProcsFromTasklist } from './lib/git-native-loc
 // 进程身份三元组(pid + pidStart + host)。裸 pid 不足以回答"这个 pid 还是当初那个进程吗"
 // —— 2026-09-25 的 G-193 就是 meta.pid=888 被 nssm.exe 复用,判活恒真 ⇒ 部署环冻结 11h50m。
 import { identityFields, verifyHolder } from './lib/proc-identity.mjs'
+// 带值旗标取值判据单源(G-322,§0.6):旧副本 `args[i+1]` 会把紧邻的下一个旗标当值。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 function run(cmd, allowFail = false) {
   try {
@@ -1320,17 +1322,24 @@ export function tryAcquireSingleInstance({
 async function main() {
   const args = process.argv.slice(2)
   const cmd = args[0]
-  const getOpt = (name) => {
-    const i = args.indexOf(name)
-    return i >= 0 ? args[i + 1] : undefined
+  const getOpt = (name, noun) => {
+    // G-322 第十九批:取值判据单源。旧副本 `args[i+1]` 会把紧邻的下一个旗标当值:
+    // `--timeout --stale` ⇒ Number('--stale')=NaN ⇒ deadline=NaN ⇒ 等待循环永不超时;
+    // `--unit -x` ⇒ 把 '-x' 当写操作单元身份去比对/加锁。
+    const r = requireFlagValue(args, name, { noun })
+    if (r.error) {
+      console.error(`[git-lock] ❌ 无法判定(exit 2): ${r.error}`)
+      process.exit(2)
+    }
+    return r.value ?? undefined
   }
 
   try {
     if (cmd === 'acquire') {
       await acquire({
-        unitId: getOpt('--unit') ?? '',
-        timeoutMs: Number(getOpt('--timeout') ?? 120_000),
-        staleMs: Number(getOpt('--stale') ?? 300_000),
+        unitId: getOpt('--unit', '写操作单元 id') ?? '',
+        timeoutMs: Number(getOpt('--timeout', '毫秒数') ?? 120_000),
+        staleMs: Number(getOpt('--stale', '毫秒数') ?? 300_000),
         metricsFile: metricsFilePath(),
       })
       console.log('locked')
@@ -1338,16 +1347,17 @@ async function main() {
       // G-262:只检不删的原生锁读数 + git 进程数 + 锁等待 P95(账本累积)
       scanCommand()
     } else if (cmd === 'release') {
-      const r = release({ unitId: getOpt('--unit') ?? '', token: getOpt('--token') })
+      const r = release({ unitId: getOpt('--unit', '写操作单元 id') ?? '', token: getOpt('--token', '租约凭据') })
       console.log(r.released ? 'released' : `未释放:${r.why}`)
       if (!r.released && r.why !== '无锁目录') process.exit(1)
     } else if (cmd === 'check') {
       process.exit(check())
     } else if (cmd === 'heartbeat') {
+      const parentPid = getOpt('--parent-pid', '进程 pid')
       await heartbeat({
-        unitId: getOpt('--unit') ?? '',
-        intervalMs: Number(getOpt('--interval') ?? 5_000),
-        parentPid: getOpt('--parent-pid') ? Number(getOpt('--parent-pid')) : undefined,
+        unitId: getOpt('--unit', '写操作单元 id') ?? '',
+        intervalMs: Number(getOpt('--interval', '毫秒数') ?? 5_000),
+        parentPid: parentPid ? Number(parentPid) : undefined,
       })
     } else if (cmd === 'git-dir') {
       console.log(gitDir())

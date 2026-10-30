@@ -56,12 +56,16 @@ if (shared.length === 0 || mp.length === 0) {
   process.exit(2)
 }
 
-// 已镜像集合 —— **直接用门 128 的同一把尺子**(cov.mirroredSpecs),本文件零复算(§0.6)。
-// 为什么删掉本文件原先自己抄的那份 MARK_RE:两处正则必然漂移(标记行形态一变,这里就静默失明,
-// 而门 128 仍绿 ⇒ 缺口账本与守门尺对不上账)。单源化之后,标记形态的改动只需改门 128 一处。
+// 已镜像集合 —— **与门 237 同用那把宽尺**(cov.mirrorDeclarations,形1∪形2∪形3∪形4),本文件零复算(§0.6)。
+// 为什么不是 mirroredSpecs:那是旧硬路径尺(只认形1)。门 2026-10-27「未判定桶收缩」把识别面放宽时,
+// 只改了门体一处,账本仍按旧尺数 ⇒ 现读差 2 枚,守门绿而账本自述另一个数(哨兵的 doc-stale 就是这么响的)。
+// 两处必须同尺,否则"缺口账本"与"守门读数"永远对不上,而人只信其中一个。
 const mirrored = new Set()
+const sharedIndex = cov.buildSharedIndex(shared)
 for (const p of mp) {
-  for (const spec of cov.mirroredSpecs(p)) mirrored.add(spec)
+  if (!p.file) continue
+  const hay = `${p.text || ''}\n${p.cssText || ''}`
+  for (const spec of cov.mirrorDeclarations(hay, sharedIndex).specs) mirrored.add(spec)
 }
 
 // 判定台账:把"验过但没落地代码"的两档(missing / not-applicable)从"未判定"里剥出来。

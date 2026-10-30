@@ -11,18 +11,10 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { getUserInfo } from '@/utils/auth'
 import { TOKEN_BALANCE_DATA_KEY, USER_INFO_LEGACY_KEY } from '@/constants/storage'
 import ThemeRoot from '@/components/ThemeRoot'
+import TokenBalanceCard from './token-balance-card'
+import TokenPackages from './token-packages'
+import TokenRecord, { type ZhRecord } from './token-record'
 import './balance.css'
-
-interface ZhRecord {
-  id?: string
-  agentName?: string
-  title?: string
-  create_at?: string
-  createdAt?: string
-  time?: string
-  token?: number | string
-  amount?: number
-}
 
 interface RecordsResponse {
   list?: ZhRecord[]
@@ -33,6 +25,10 @@ interface BalanceInfo {
   amount?: number
   balance?: number
   token?: number
+  /** 小程序兼容端点 /token/balance 回传的冻结额 */
+  frozenBalance?: number
+  /** 该端点不回传 totalUsed;取不到时按已加载流水合计兜底 */
+  totalUsed?: number
 }
 
 type BarType = 'w' | 'm' | 'y' | 'a'
@@ -155,6 +151,11 @@ export default function TokenBalance() {
     getData(true)
   }
 
+  // 对齐共享屏 onRecharge:选中套餐进充值页(小程序端唯一充值入口 /pkg-shop/wallet/recharge/index)
+  const handleRecharge = useCallback(() => {
+    Taro.navigateTo({ url: '/pkg-shop/wallet/recharge/index' })
+  }, [])
+
   useDidShow(() => {
     // G-933 冷启动门控:智汇值余额/流水两枚需鉴权请求在判定落定前不发
     gate.waitUntilReady(() => {
@@ -167,15 +168,33 @@ export default function TokenBalance() {
     getData(false)
   })
 
-  const balanceValue = balance?.amount ?? balance?.balance ?? balance?.token ?? 0
+  const balanceValue = Number(balance?.amount ?? balance?.balance ?? balance?.token ?? 0)
+  const frozen = Number(balance?.frozenBalance ?? 0)
+  // 该端点不返回 totalUsed ⇒ 以已加载流水里 op_type=1(消费)的合计兜底
+  const loadedCost = zhList.reduce(
+    (sum, it) => (Number(it.opType) === 1 ? sum + Math.abs(Number(it.quantity ?? 0)) : sum),
+    0,
+  )
+  const totalCost = Number(balance?.totalUsed ?? loadedCost)
   const showEmpty = !loading && zhList.length === 0
 
   return (
     <View className="token-page">
-      <View className="balance-card">
-        <Text className="balance-label">{tt('token.balance.title', '我的智汇值')}</Text>
-        <Text className="balance-value">{balance === null ? '--' : balanceValue}</Text>
+      <View className="flex items-center px-[20rpx] pt-[24rpx]">
+        <Text className="text-[length:40rpx] font-semibold text-foreground">
+          {tt('tokenValue.title', '智汇值')}
+        </Text>
       </View>
+
+      <TokenBalanceCard
+        tt={tt}
+        ready={balance !== null}
+        balance={balanceValue}
+        frozen={frozen}
+        totalCost={totalCost}
+      />
+
+      <TokenPackages tt={tt} onSelect={handleRecharge} />
 
       <View className="func-bar">
         <View
@@ -208,28 +227,17 @@ export default function TokenBalance() {
       </View>
 
       <View className="records-section">
+        <Text className="block mb-[24rpx] text-[length:32rpx] font-semibold text-foreground">
+          {tt('tokenValue.recordsTitle', '交易记录')}
+        </Text>
         {showEmpty ? (
-          <Text className="empty-text">{tt('token.balance.empty', '暂无智汇值消耗记录')}</Text>
+          <Text className="empty-text">{tt('tokenValue.empty', '暂无数据')}</Text>
         ) : (
-          zhList.map((it, idx) => {
-            const title = it.agentName || it.title || tt('token.balance.agentConsume', '智能体消耗')
-            const time = it.create_at || it.createdAt || it.time || ''
-            const tokenNum = Number(it.token ?? it.amount ?? 0)
-            return (
-              <ThemeRoot key={it.id || idx}>
-                <View key={it.id || idx} className="record-item">
-                  <Text className="record-title">{title}</Text>
-                  <View className="record-content">
-                    <Text className="record-time">
-                      {tt('token.balance.costTime', '花费时间:')}
-                      {time}
-                    </Text>
-                    <Text className="record-count">{tokenNum > 0 ? `-${tokenNum}` : tokenNum}</Text>
-                  </View>
-                </View>
-              </ThemeRoot>
-            )
-          })
+          zhList.map((it, idx) => (
+            <ThemeRoot key={it.id || idx}>
+              <TokenRecord item={it} tt={tt} />
+            </ThemeRoot>
+          ))
         )}
         {loading && zhList.length > 0 ? (
           <View className="load-more">

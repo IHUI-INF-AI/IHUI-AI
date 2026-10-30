@@ -13,7 +13,8 @@ import { getExamResult, get } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
-import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { ReviewList, type ReviewQuestion } from './review-list'
 import './result.css'
 
 interface ExamResultInfo {
@@ -29,23 +30,14 @@ interface ExamResultInfo {
   totalScore?: number
 }
 
-interface ReviewQuestion {
-  id: string
-  title: string
-  type?: string
-  myAnswer?: string
-  correctAnswer?: string
-  analysis?: string
-  isCorrect: boolean
-  score: number
-}
-
 export default function ExamResult() {
   const tt = useTt()
   const router = useRouter()
   const [info, setInfo] = useState<ExamResultInfo>({ score: 0, pass: false })
   const [reviews, setReviews] = useState<ReviewQuestion[]>([])
   const [loading, setLoading] = useState(true)
+  // 加载失败态:与共享屏一致(ErrorState 承接 examResult.loadFailed),不再只弹一次 toast 就当无事
+  const [error, setError] = useState('')
   const { waitUntilReady } = useAuthReadyGate()
 
   // G-933 冷启动抢跑门控:成绩两支请求都需鉴权 ——
@@ -82,7 +74,8 @@ export default function ExamResult() {
         })
         .catch((e) => {
           logger.error('exam/result', '考试结果加载', e)
-          Taro.showToast({ title: tt('exam.result.loadFailed', '成绩加载失败'), icon: 'none' })
+          // 共享屏口径:失败由页面正文承接(examResult.loadFailed),不靠一次性 toast
+          setError(tt('examResult.loadFailed', '加载失败'))
           setLoading(false)
         })
     })
@@ -142,7 +135,7 @@ export default function ExamResult() {
         <ScrollView scrollY className="exam-result-body">
           {loading ? <ScreenSkeleton variant="list" count={4} /> : null}
 
-          {!loading ? (
+          {!loading && !error ? (
             <View>
               {/* 成绩展示 */}
               <View className={`exam-result-hero${info.pass ? ' passed' : ' failed'}`}>
@@ -165,8 +158,8 @@ export default function ExamResult() {
                 </View>
                 <Text className="exam-result-status">
                   {info.pass
-                    ? tt('exam.result.pass', '恭喜通过')
-                    : tt('exam.result.notPass', '未通过')}
+                    ? tt('examResult.passed', '已通过')
+                    : tt('examResult.failed', '未通过')}
                 </Text>
                 <Text className="exam-result-score">
                   {tt('exam.result.scoreValue', '{n} 分', { n: info.score })}
@@ -198,66 +191,15 @@ export default function ExamResult() {
                 ))}
               </View>
 
-              {/* 题目回顾 */}
-              <View className="exam-result-card">
-                <Text className="exam-result-card-title">
-                  {tt('exam.result.reviewTitle', '题目回顾')}
-                </Text>
-                {reviews.length > 0 ? (
-                  reviews.map((q, idx) => (
-                    <View key={q.id || idx} className="exam-result-review-item">
-                      <View className="exam-result-review-header">
-                        <Text className="exam-result-review-idx">
-                          {tt('exam.result.questionIdx', '第 {n} 题', { n: idx + 1 })}
-                        </Text>
-                        <Text
-                          className={`exam-result-review-status${q.isCorrect ? ' correct' : ' wrong'}`}
-                        >
-                          {q.isCorrect
-                            ? tt('exam.result.reviewCorrect', '正确')
-                            : tt('exam.result.reviewWrong', '错误')}
-                        </Text>
-                        <Text className="exam-result-review-score">
-                          {tt('exam.result.reviewScore', '{n} 分', { n: q.score })}
-                        </Text>
-                      </View>
-                      <Text className="exam-result-review-title">{q.title}</Text>
-                      {q.myAnswer ? (
-                        <View className="exam-result-review-row">
-                          <Text className="exam-result-review-label">
-                            {tt('exam.result.myAnswer', '我的答案')}:
-                          </Text>
-                          <Text
-                            className={`exam-result-review-answer${q.isCorrect ? ' correct' : ' wrong'}`}
-                          >
-                            {q.myAnswer}
-                          </Text>
-                        </View>
-                      ) : null}
-                      {q.correctAnswer ? (
-                        <View className="exam-result-review-row">
-                          <Text className="exam-result-review-label">
-                            {tt('exam.result.correctAnswer', '正确答案')}:
-                          </Text>
-                          <Text className="exam-result-review-answer correct">
-                            {q.correctAnswer}
-                          </Text>
-                        </View>
-                      ) : null}
-                      {q.analysis ? (
-                        <View className="exam-result-review-analysis">
-                          <Text className="exam-result-review-analysis-label">
-                            {tt('exam.result.analysis', '解析')}
-                          </Text>
-                          <Text className="exam-result-review-analysis-text">{q.analysis}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  ))
-                ) : (
-                  <EmptyState title={tt('exam.result.noReview', '暂无题目回顾')} />
-                )}
-              </View>
+              {/* 题目回顾(含错题段;同目录子模块,键与共享屏同源) */}
+              <ReviewList reviews={reviews} />
+            </View>
+          ) : null}
+
+          {/* 加载失败:共享屏口径是页面正文承接 ErrorState,而不是弹一次 toast 就当加载完了 */}
+          {!loading && error ? (
+            <View className="exam-result-card">
+              <Text className="exam-result-loading">{error}</Text>
             </View>
           ) : null}
         </ScrollView>

@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FileText, Loader2, RefreshCw } from 'lucide-react'
 import { Card } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import { ViewMoreLink } from '@/components/common/view-more-link'
 
 interface NewsItem {
@@ -53,7 +54,7 @@ function HeroCard({ item, tag }: { item: NewsItem; tag: string }) {
       <div className="absolute inset-0">
         {item.coverImage ? (
           <Image
-            src={item.coverImage}
+            src={toMediaImageUrl(item.coverImage)}
             alt={item.title}
             fill
             unoptimized
@@ -106,7 +107,7 @@ function SideCard({ item, tag }: { item: NewsItem; tag: string }) {
       <div className="relative h-24 w-full overflow-hidden bg-muted">
         {item.coverImage ? (
           <Image
-            src={item.coverImage}
+            src={toMediaImageUrl(item.coverImage)}
             alt={item.title}
             fill
             unoptimized
@@ -146,7 +147,7 @@ function MiniCard({ item }: { item: NewsItem }) {
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
         {item.coverImage ? (
           <Image
-            src={item.coverImage}
+            src={toMediaImageUrl(item.coverImage)}
             alt={item.title}
             fill
             unoptimized

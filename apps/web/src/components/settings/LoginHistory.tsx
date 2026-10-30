@@ -12,6 +12,7 @@ import { History, Loader2, ChevronRight } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { OverviewError } from './OverviewError'
 import { buildQs, type PageData } from '@/lib/edu'
 
 /**
@@ -33,6 +34,7 @@ export function LoginHistory() {
   const locale = useLocale()
   const [recent, setRecent] = React.useState<SecurityLogItem | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState(false)
   const { allow } = useAuthGate()
 
   const dateFmt = React.useMemo(
@@ -45,22 +47,26 @@ export function LoginHistory() {
     return Number.isNaN(d.getTime()) ? iso : dateFmt.format(d)
   }
 
-  React.useEffect(() => {
+  const load = React.useCallback(() => {
     if (!allow) {
       setLoading(false)
       return
     }
-    fetchApi<PageData<SecurityLogItem>>(
-      '/user/login-history' + buildQs({ page: 1, pageSize: 1 }),
-    )
+    setError(false)
+    setLoading(true)
+    fetchApi<PageData<SecurityLogItem>>('/user/login-history' + buildQs({ page: 1, pageSize: 1 }))
       .then((res) => {
         if (res.success && res.data.list?.length > 0) {
           setRecent(res.data.list[0] ?? null)
         }
       })
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [allow])
+
+  React.useEffect(() => {
+    load()
+  }, [load])
 
   return (
     <Card>
@@ -75,6 +81,8 @@ export function LoginHistory() {
           <div className="flex justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
+        ) : error ? (
+          <OverviewError onRetry={load} />
         ) : recent ? (
           <Link
             href="/settings/security-log"

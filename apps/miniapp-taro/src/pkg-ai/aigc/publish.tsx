@@ -4,19 +4,15 @@
 
 // 对齐目标(RN 共享屏): packages/app/src/features/aigc-publish/AigcPublishScreen.tsx
 import { useI18n } from '@/i18n'
-import { View, Text, Button, Image, ScrollView } from '@tarojs/components'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
+import { ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { publishAigc, uploadByBase64 } from '@/api'
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
-
-interface UpFile {
-  url: string
-  type: 'image' | 'video' | 'audio'
-}
+import { PublishForm } from './publish-form'
+import type { PublishWorkType, UpFile } from './publish-sections'
 
 const MAX_FILES = 5
 
@@ -44,15 +40,20 @@ export default function AigcPublish() {
   const [title, setTitle] = useState('')
   const [desc, setDesc] = useState('')
   const [prompt, setPrompt] = useState(params.prompt)
+  const [textContent, setTextContent] = useState('')
+  // 类型档:image = 素材上传(既有链路),text = 用户直写正文(对齐共享屏 showTextInput 分支)
+  const [workType, setWorkType] = useState<PublishWorkType>('image')
+  const [urlInput, setUrlInput] = useState('')
   const [fileList, setFileList] = useState<UpFile[]>(params.fileList)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   // AI 操控通道(2026-09-21):作品发布的三个文本字段(标题/简介/提示词)交出各自 setter。
   // 发布动作本身对外且不可撤回 → 不注册 onPress / submit,由用户自己点。
   useUiField({
     kind: 'input',
     label: t('aigc.publish.titleLabel'),
-    placeholder: t('aigc.publish.titlePlaceholder'),
+    placeholder: t('aigcPublish.placeholderTitle'),
     maxLength: 50,
     readValue: () => title,
     setValue: setTitle,
@@ -60,14 +61,14 @@ export default function AigcPublish() {
   useUiField({
     kind: 'textarea',
     label: t('aigc.publish.descLabel'),
-    placeholder: t('aigc.publish.descPlaceholder'),
+    placeholder: t('aigcPublish.placeholderDescription'),
     readValue: () => desc,
     setValue: setDesc,
   })
   useUiField({
     kind: 'textarea',
     label: t('aigc.publish.promptLabel'),
-    placeholder: t('aigc.publish.promptPlaceholder'),
+    placeholder: t('aigcPublish.placeholderPrompt'),
     readValue: () => prompt,
     setValue: setPrompt,
   })
@@ -77,29 +78,42 @@ export default function AigcPublish() {
     return img ? img.url : ''
   }, [fileList])
 
-  const chooseImage = useCallback(async () => {
-    if (fileList.length >= MAX_FILES) {
+  /** 单张上传:本地文件读成 base64 → 走端内既有上传接口;失败返回空串由调用方统一记一次 */
+  const uploadOne = useCallback(async (path: string): Promise<string> => {
+    const fileRes = (await Taro.getFileSystemManager().readFile({
+      filePath: path,
+      encoding: 'base64',
+    })) as unknown as { data: string }
+    const fileName = path.split('/').pop() || 'img.png'
+    const upRes = (await uploadByBase64({
+      base64: fileRes.data,
+      fileName,
+    })) as Record<string, unknown>
+    return (upRes.url as string) || (upRes.data as string) || ''
+  }, [])
+
+  const chooseFiles = useCallback(async () => {
+    if (uploading) return
+    const slots = MAX_FILES - fileList.length
+    if (slots <= 0) {
       Taro.showToast({ title: t('aigc.publish.maxFiles'), icon: 'none' })
       return
     }
     try {
-      const res = await Taro.chooseImage({ count: 1, sourceType: ['album', 'camera'] })
-      const path = res.tempFilePaths[0]
-      if (!path) return
+      const res = await Taro.chooseImage({ count: slots, sourceType: ['album', 'camera'] })
+      const paths = res.tempFilePaths || []
+      if (!paths.length) return
       setUploading(true)
-      Taro.showLoading({ title: t('common.uploading') })
-      const fileRes = (await Taro.getFileSystemManager().readFile({
-        filePath: path,
-        encoding: 'base64',
-      })) as unknown as { data: string }
-      const fileName = path.split('/').pop() || 'img.png'
-      const upRes = (await uploadByBase64({
-        base64: fileRes.data,
-        fileName,
-      })) as Record<string, unknown>
-      const url = (upRes.url as string) || (upRes.data as string) || ''
-      if (url) {
-        setFileList((prev) => [...prev, { url, type: 'image' }])
+      setUploadProgress(0)
+      const added: UpFile[] = []
+      // 上传中词条带 {progress}:这里取「已完成张数 / 本次选材张数」的真实占比,不做估算动画
+      for (let i = 0; i < paths.length; i++) {
+        const url = await uploadOne(paths[i])
+        if (url) added.push({ url, type: 'image' })
+        setUploadProgress(Math.round(((i + 1) / paths.length) * 100))
+      }
+      if (added.length) {
+        setFileList((prev) => [...prev, ...added])
         Taro.showToast({ title: t('aigc.publish.uploadOk'), icon: 'success' })
       } else {
         Taro.showToast({ title: t('aigc.publish.uploadFail'), icon: 'none' })
@@ -108,16 +122,36 @@ export default function AigcPublish() {
       Taro.showToast({ title: t('aigc.publish.uploadFail'), icon: 'none' })
     } finally {
       setUploading(false)
-      Taro.hideLoading()
+      setUploadProgress(0)
     }
-  }, [fileList.length, t])
+  }, [uploading, fileList.length, uploadOne, t])
+
+  /** 对齐 RN onAddFileByUrl:链接直填进素材位,与选图同一条提交链路 */
+  const addByUrl = useCallback(() => {
+    const url = urlInput.trim()
+    if (!url) {
+      Taro.showToast({ title: t('aigcPublish.placeholderUrl'), icon: 'none' })
+      return
+    }
+    if (fileList.length >= MAX_FILES) {
+      Taro.showToast({ title: t('aigc.publish.maxFiles'), icon: 'none' })
+      return
+    }
+    setFileList((prev) => [...prev, { url, type: 'image' }])
+    setUrlInput('')
+  }, [urlInput, fileList.length, t])
 
   const removeFile = useCallback((idx: number) => {
     setFileList((prev) => prev.filter((_, i) => i !== idx))
   }, [])
 
   const validate = useCallback((): boolean => {
-    if (fileList.length === 0) {
+    if (workType === 'text') {
+      if (!textContent.trim()) {
+        Taro.showToast({ title: t('aigcPublish.placeholderTextContent'), icon: 'none' })
+        return false
+      }
+    } else if (fileList.length === 0) {
       Taro.showToast({ title: t('aigc.publish.needFile'), icon: 'none' })
       return false
     }
@@ -129,12 +163,12 @@ export default function AigcPublish() {
       Taro.showToast({ title: t('aigc.publish.descRequired'), icon: 'none' })
       return false
     }
-    if (!prompt.trim()) {
+    if (workType !== 'text' && !prompt.trim()) {
       Taro.showToast({ title: t('aigc.publish.promptRequired'), icon: 'none' })
       return false
     }
     return true
-  }, [fileList.length, title, desc, prompt, t])
+  }, [workType, textContent, fileList.length, title, desc, prompt, t])
 
   const onSubmit = useCallback(async () => {
     if (!validate()) return
@@ -142,11 +176,15 @@ export default function AigcPublish() {
     try {
       await publishAigc({
         contextId: params.contextId,
+        gcType: workType,
         title: title.trim(),
         subtitle: desc.trim(),
         coverUrl,
         fileUrl: fileList[0]?.url || '',
-        problem: prompt.trim(),
+        // 文本作品没有独立的提示词位:正文走 problem 槽。理由是 /aigc/publish 的 zod 白名单只有
+        // title/subtitle/coverUrl/fileUrl/problem 五个字符串位(无 textContent 槽),另设提示词
+        // 输入口会让用户写下的正文无处落库 —— 宁可少一格输入,不可静默丢内容。
+        problem: (workType === 'text' ? textContent : prompt).trim(),
       })
       Taro.showToast({ title: t('aigc.publish.published'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
@@ -155,108 +193,47 @@ export default function AigcPublish() {
     } finally {
       setSubmitting(false)
     }
-  }, [validate, params.contextId, title, desc, coverUrl, fileList, prompt, t])
+  }, [
+    validate,
+    workType,
+    textContent,
+    params.contextId,
+    title,
+    desc,
+    coverUrl,
+    fileList,
+    prompt,
+    t,
+  ])
 
   return (
     /* 对齐 RN shared AigcPublishScreen container(surface.light 明暗恒白在暗色下不可读,
        按语义修正为 var(--color-card);paddingHorizontal 10 → 20rpx) */
     <ThemeRoot className="min-h-screen bg-[var(--color-card)] flex flex-col">
       <ScrollView scrollY className="flex-1 box-border px-[20rpx] pt-[16rpx] pb-[32rpx]">
-        {/* 对齐 RN title(22dp → 44rpx semibold) */}
-        <Text className="block mt-[16rpx] text-[length:44rpx] font-semibold text-foreground">
-          {t('aigc.publish.title')}
-        </Text>
-
-        {/* 对齐 RN label(marginTop 14 → 28rpx,14dp → 28rpx,text.secondary,marginBottom 6 → 12rpx) */}
-        <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
-          {t('aigc.publish.workLabel')}
-        </Text>
-        {/* 对齐 RN fileGrid(gap 10 → 20rpx) */}
-        <View className="flex flex-wrap gap-[20rpx]">
-          {fileList.map((f, i) => (
-            <View
-              key={i}
-              className="relative w-[152rpx] h-[152rpx] rounded-xl overflow-hidden bg-[var(--color-border)]"
-            >
-              <Image className="w-full h-full" src={f.url} mode="aspectFill" />
-              {/* 对齐 RN fileRemove(44rpx 圆形,error 红底白 ×) */}
-              <View
-                className="absolute -top-[12rpx] -right-[12rpx] w-[44rpx] h-[44rpx] bg-[var(--color-danger)] rounded-full flex items-center justify-center"
-                onClick={() => removeFile(i)}
-                hoverClass="opacity-60"
-              >
-                <Text className="text-[var(--color-surface-light)] text-[length:28rpx] font-bold leading-none">
-                  ×
-                </Text>
-              </View>
-            </View>
-          ))}
-          {fileList.length < MAX_FILES ? (
-            /* 对齐 RN fileAdd(76dp → 152rpx,dashed border.light,bg muted) */
-            <View
-              className="w-[152rpx] h-[152rpx] bg-[var(--color-muted)] border-[length:2rpx] border-dashed border-[var(--color-border)] rounded-xl flex flex-col items-center justify-center"
-              onClick={chooseImage}
-              hoverClass="opacity-60"
-            >
-              <Text className="text-[length:48rpx] text-[var(--color-text-tertiary)] leading-[52rpx]">
-                +
-              </Text>
-              <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[16rpx]">
-                {t('aigc.publish.addImage')}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        {/* 标题:对齐 RN input(px 12 → 24rpx,py 10 → 20rpx,radius 24rpx,bg muted,16dp → 32rpx) */}
-        <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
-          {t('aigc.publish.titleLabel')}
-        </Text>
-        <FocusInput
-          className="w-full h-[84rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] text-[length:32rpx] text-foreground box-border"
-          maxlength={50}
-          placeholder={t('aigc.publish.titlePlaceholder')}
-          value={title}
-          onInput={(e) => setTitle(e.detail.value)}
+        <PublishForm
+          workType={workType}
+          files={fileList}
+          maxFiles={MAX_FILES}
+          urlInput={urlInput}
+          textContent={textContent}
+          title={title}
+          description={desc}
+          prompt={prompt}
+          uploading={uploading}
+          progress={uploadProgress}
+          submitting={submitting}
+          onWorkTypeChange={setWorkType}
+          onUrlChange={setUrlInput}
+          onAddByUrl={addByUrl}
+          onPick={chooseFiles}
+          onRemove={removeFile}
+          onTextContentChange={setTextContent}
+          onTitleChange={setTitle}
+          onDescriptionChange={setDesc}
+          onPromptChange={setPrompt}
+          onSubmit={onSubmit}
         />
-
-        {/* 简介:对齐 RN textarea(minHeight 88 → 176rpx) */}
-        <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
-          {t('aigc.publish.descLabel')}
-        </Text>
-        <FocusTextarea
-          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[length:32rpx] text-foreground box-border"
-          placeholder={t('aigc.publish.descPlaceholder')}
-          value={desc}
-          onInput={(e) => setDesc(e.detail.value)}
-        />
-
-        {/* 提示词 */}
-        <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
-          {t('aigc.publish.promptLabel')}
-        </Text>
-        <FocusTextarea
-          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[length:32rpx] text-foreground box-border"
-          placeholder={t('aigc.publish.promptPlaceholder')}
-          value={prompt}
-          onInput={(e) => setPrompt(e.detail.value)}
-        />
-
-        {/* 对齐 RN submitBtn(marginTop 24 → 48rpx,py 14 → 28rpx,radius 24rpx;禁用态 bg text.tertiary) */}
-        <Button
-          className={`w-full text-[length:32rpx] font-semibold rounded-sm mt-[48rpx] ${
-            submitting || uploading
-              ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]'
-              : 'bg-primary text-[var(--color-primary-foreground)]'
-          }`}
-          loading={submitting || uploading}
-          disabled={submitting || uploading}
-          onClick={onSubmit}
-        >
-          {t('aigc.publish.publish')}
-        </Button>
-        {/* 对齐 RN 底部占位(height 32 → 64rpx) */}
-        <View className="h-[64rpx]" />
       </ScrollView>
     </ThemeRoot>
   )

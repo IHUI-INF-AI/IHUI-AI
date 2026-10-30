@@ -122,7 +122,7 @@ export function UpdatePrompt(): React.JSX.Element | null {
         <View style={styles.titleWrap}>
           <Text style={styles.title}>{t('appUpdate.title')}</Text>
           <Text style={styles.body}>
-            {downloading ? `${t('appUpdate.downloading')} ${progress}%` : t('appUpdate.body')}
+            {downloading ? `${t('appUpdate.downloading')} ${progress}%` : t('appUpdate.readyBody')}
           </Text>
         </View>
         <Pressable

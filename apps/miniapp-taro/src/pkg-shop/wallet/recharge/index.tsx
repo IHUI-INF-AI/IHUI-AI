@@ -9,13 +9,7 @@ import { FocusInput } from '@/components/FocusField'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
-import {
-  createRecharge,
-  createAlipayMiniappPayment,
-  getActivity,
-  getProfile,
-  type UserInfo,
-} from '@/api'
+import { createRecharge, createAlipayMiniappPayment, getProfile, type UserInfo } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
@@ -24,12 +18,6 @@ import './index.css'
 const PRESET_AMOUNTS = [10, 50, 100, 500, 1000]
 const TOKEN_RATE = 10
 type PayMethod = 'wechat' | 'alipay'
-
-interface ActivityData {
-  activityRule?: string
-  backgroundImage?: string
-  computing?: number
-}
 
 const priceFmt = new Intl.NumberFormat('zh-CN', {
   minimumFractionDigits: 2,
@@ -41,8 +29,6 @@ export default function RechargePage() {
   const tt = useTt()
 
   const [user, setUser] = useState<UserInfo | null>(null)
-  const [activity, setActivity] = useState<ActivityData | null>(null)
-  const [activityAmount, setActivityAmount] = useState('')
   const [loading, setLoading] = useState(true)
 
   const [preset, setPreset] = useState(100)
@@ -53,21 +39,21 @@ export default function RechargePage() {
 
   const customNum = Number(custom) || 0
   const finalAmount = useCustom ? customNum : preset
-  const tokenRate = activity?.computing ?? TOKEN_RATE
+  const tokenRate = TOKEN_RATE
 
   // G-933 冷启动门控：getProfile → /user/profile 需鉴权（miniapp-compat-routes.ts:2247 checkAuth），
-  // 与 getActivity(/pay/activity，本轮注册面取证不足) 共用一次 Promise.all 与同一次 setLoading，
-  // 拆支会改回填语义 ⇒ 整块延后到鉴权判定落定；顺带补上原先缺失的 cleanup（取消未落定的订阅）。
+  // 整块延后到鉴权判定落定；顺带保留原先的 cleanup（取消未落定的订阅）。
+  // (2026-10-30 g35-s8:原并列的 getActivity(/pay/activity) 腿已摘除——该路径经两面判据
+  //  复核在两台后端均零注册,活动区 JSX 恒不渲染,摘除后本屏行为逐字节不变。)
   const { waitUntilReady } = useAuthReadyGate()
   useEffect(() => {
     return waitUntilReady(() => {
-      Promise.all([getProfile().catch(() => null), getActivity().catch(() => null)]).then(
-        ([u, a]) => {
+      getProfile()
+        .then((u) => {
           if (u) setUser(u)
-          if (a && (a as ActivityData).activityRule) setActivity(a as ActivityData)
           setLoading(false)
-        },
-      )
+        })
+        .catch(() => setLoading(false))
     })
   }, [waitUntilReady])
 
@@ -141,22 +127,6 @@ export default function RechargePage() {
     }
   }, [finalAmount, payMethod, payOrder, tt])
 
-  const onActivitySubmit = useCallback(async () => {
-    const amt = Number(activityAmount) || 0
-    if (!amt || amt < 1) {
-      Taro.showToast({ title: tt('wallet.recharge.invalidAmount', '请输入有效金额'), icon: 'none' })
-      return
-    }
-    setSubmitting(true)
-    try {
-      await payOrder(amt, payMethod)
-    } catch {
-      Taro.redirectTo({ url: '/pkg-shop/pay/result/index?orderNo=&status=failed' })
-    } finally {
-      setSubmitting(false)
-    }
-  }, [activityAmount, payMethod, payOrder, tt])
-
   if (loading) {
     return (
       <ThemeRoot>
@@ -224,40 +194,6 @@ export default function RechargePage() {
           </View>
           <Text className="rc-token-tip">{t('wallet.recharge.tokenRate', { n: tokenRate })}</Text>
         </View>
-
-        {activity && (
-          <View className="rc-activity">
-            {activity.backgroundImage && (
-              <Image className="rc-activity-bg" src={activity.backgroundImage} mode="aspectFill" />
-            )}
-            <View className="rc-activity-body">
-              <Text className="rc-activity-title">
-                {tt('wallet.recharge.activityTitle', '限时活动')}
-              </Text>
-              {activity.activityRule && (
-                <Text className="rc-activity-rule">{activity.activityRule}</Text>
-              )}
-              <Text className="rc-activity-rate">
-                {t('wallet.recharge.tokenRate', { n: activity.computing ?? TOKEN_RATE })}
-              </Text>
-              <FocusInput
-                className="rc-input rc-activity-input"
-                type="digit"
-                placeholder={tt('wallet.recharge.activityPlaceholder', '请输入活动充值金额')}
-                value={activityAmount}
-                onInput={(e) => setActivityAmount(e.detail.value)}
-              />
-              <Button
-                className="rc-activity-btn"
-                loading={submitting}
-                disabled={submitting || !activityAmount}
-                onClick={onActivitySubmit}
-              >
-                {tt('wallet.recharge.activitySubmit', '限时 优惠充值')}
-              </Button>
-            </View>
-          </View>
-        )}
 
         <View className="rc-card">
           <Text className="rc-section-title">{tt('wallet.recharge.method', '充值方式')}</Text>

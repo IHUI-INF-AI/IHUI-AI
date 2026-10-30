@@ -133,6 +133,14 @@ SSE_EVENTS: frozenset[str] = frozenset(
         #   use-agent-stream.ts 的 'token' 消费分支为死分支,同批拆除。
         "injection_applied",
         "retry_scheduled",
+        # G-87 补链(2026-10-29 立):hook 执行失败帧。生产点 = llm.py 主对话流的
+        # `_drain_hook_failure_frames`(源头 `hook_engine._broadcast_hook_failed`)。
+        # 载荷 {type, hookName, hookEvent, state, error, durationMs, failedAt,
+        # sessionId?, messageId?, command?, stderr?, exitCode?} —— 后三个**只在该动作
+        # 类型/该失败档真能取到时才出现**(缺席 ≠ 空串 ≠ 0)。
+        # 消费:apps/web 的 store 落 `meta.hookFailures` → HookFailureCard 六态卡。
+        # **刻意不并进 `error` 帧**:那是"这条回答失败",本帧是"某个 hook 动作失败"。
+        "hook-failed",
     }
 )
 
@@ -419,6 +427,20 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # 客户端解析层对它静默返回 null —— 半截回答与完整回答在端上完全同形。
     # 消费:api-client onPartialDone → web send-message.ts 告知截断。
     SSEEventContract("partial_done", ("fallback_applied", "reason", "model")),
+    # G-87 补链(2026-10-29):hook 执行失败帧。字段集与 llm.py
+    # `_hook_failure_frame` 恒产出的键逐字一致(hookName/hookEvent/state/durationMs/
+    # failedAt 恒在;command/stderr/exitCode 只在真取到时出现,故不列进本清单 ——
+    # 列进来会让"该帧必然带这些键"变成一条假声明)。
+    SSEEventContract(
+        "hook-failed",
+        (
+            "state",
+            "hookName",
+            "hookEvent",
+            "durationMs",
+            "failedAt",
+        ),
+    ),
 )
 
 

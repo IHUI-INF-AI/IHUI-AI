@@ -414,6 +414,58 @@ test('P3 动态拼键:整段是模板的(${ns})跳过,"固定 ns + 动态 leaf"�
   assert.deepEqual(gap, ['legalDocs', 'realPage'])
 })
 
+test('T21 载体面:同目录相对 import 的模块必须计入(拆子模块的页否则被读成缺 16 键)', () => {
+  const rels = gate.localModuleRels(
+    'apps/miniapp-taro/src/a/b.tsx',
+    "import { X } from './b-parts'\nimport Y from './b-core.ts'\nimport Z from '@/x'\nimport W from '../w'",
+  )
+  assert.ok(rels.includes('apps/miniapp-taro/src/a/b-parts.tsx'), '缺 .tsx 候选')
+  assert.ok(rels.includes('apps/miniapp-taro/src/a/b-core.ts'), '已带扩展名的不得再补第二次')
+  assert.ok(!rels.some((r) => r.endsWith('/w.tsx')), '../ 越目录的一律不取')
+  assert.ok(!rels.some((r) => r.includes('@/x')), '别名 import 不是相对路径,不取')
+})
+
+test('T22 装车锁:computeFidelity 的 mpKeys 必须并入同目录模块(只读主文件 = 拆模块页恒假缺口)', () => {
+  const src = gate
+    .batchReadTexts('worktree', ['scripts/check-miniapp-mirror-fidelity.mjs'])
+    .get('scripts/check-miniapp-mirror-fidelity.mjs')
+  assert.ok(/localModulesOf\(p\)/.test(src || ''), 'mpKeys 未并入同目录模块,载体面退回只读主文件')
+})
+
+test('T23 同值别名:两套命名空间同一句译文 ⇒ 记已还原;译文不同或取不到值 ⇒ 一律不减免', () => {
+  const values = { 'settings.version': '版本', 'settings.logoutConfirm': '确认退出当前账号?', 'settings.x': '' }
+  const mp = { 'setting.version': '版本', 'setting.logoutConfirm': '确定要退出登录吗?', 'setting.y': '版本 ' }
+  const hit = gate.aliasSameKeys(
+    ['settings.version', 'settings.logoutConfirm', 'settings.x', 'settings.unknown'],
+    new Set(['setting.version', 'setting.logoutConfirm', 'setting.y']),
+    (k) => values[k] || null,
+    mp,
+  )
+  assert.deepEqual(hit, ['settings.version'], '只认逐字相同;空值与词包缺键都不减免')
+  assert.deepEqual(gate.aliasSameKeys(['a.b'], new Set(['x.y']), () => 'v', null), [], '词包取不到 ⇒ 零减免')
+})
+
+test('T24 flattenPack:嵌套命名空间按点拼回,与 t 的键形态一致', () => {
+  const flat = gate.flattenPack({ settings: { version: '版本', pwd: { tooShort: '太短' } }, top: '顶' })
+  assert.equal(flat['settings.version'], '版本')
+  assert.equal(flat['settings.pwd.tooShort'], '太短')
+  assert.equal(flat.top, '顶')
+})
+
+test('T25 原生标题载体:config 的 navigationBarTitleText 也是页面真实文案', () => {
+  assert.equal(gate.localConfigRel('apps/miniapp-taro/src/pages/study/plan.tsx'), 'apps/miniapp-taro/src/pages/study/plan.config.ts')
+  assert.equal(gate.configTitleOf("export default definePageConfig({\n  navigationBarTitleText: '学习计划',\n})"), '学习计划')
+  assert.equal(gate.configTitleOf('export default {}'), null, '没有标题 ⇒ null,不减免')
+  const hit = gate.aliasSameKeys(
+    ['studyPlan.title'],
+    new Set(['common.back']),
+    () => '学习计划',
+    { 'common.back': '返回' },
+    ['学习计划'],
+  )
+  assert.deepEqual(hit, ['studyPlan.title'], '标题在 config 里也应当算作页面已还原')
+})
+
 test('P4 并集语义:住在 messages/shared 里的命名空间不算缺(少算它会凭空报出 200+)', () => {
   const gap = gate.packNamespaceGap({
     usedKeys: ['settings.pwdTooShort', 'profile.logout'],
