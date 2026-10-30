@@ -227,6 +227,8 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
           ref={ref}
           type="button"
           disabled={disabled}
+          aria-expanded={open}
+          aria-haspopup="tree"
           onClick={() => setOpen((p) => !p)}
           className={cn(
             'flex h-9 w-full items-center justify-between whitespace-nowrap rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-50',
@@ -238,7 +240,7 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
             className={cn('h-4 w-4 shrink-0 opacity-50 transition-transform', open && 'rotate-180')}
           />
         </button>
-        {open && (
+        {open && !disabled && (
           <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-popover ui-popover rounded-md border bg-popover text-popover-foreground shadow-md">
             <div className="px-2 py-1.5">
               <SearchInput
