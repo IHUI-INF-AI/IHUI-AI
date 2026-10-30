@@ -28,6 +28,7 @@ import { eq } from 'drizzle-orm'
 
 import { aiRelayAccountPool } from '@ihui/database'
 import { db } from '../src/db/index.js'
+import { decryptAccountCredentials } from '../src/services/relay-account-pool-service.js'
 import { loginAccountLocal } from '../src/services/relay-local-login.js'
 
 // scripts/lib/*.mjs 无 .d.ts:动态 import 是 apps/api/scripts 既有模式
@@ -50,10 +51,56 @@ const CONTINUITY_FACE: Partial<Record<string, string>> = {
   codex: 'codex',
   zcode: 'zcode',
   opencode: 'opencode',
+  workbuddy: 'workbuddy',
+  codearts: 'codearts',
+  loomy: 'loomy',
 }
 
 /** 池票最小形(loginAccountLocal 只吃这一张面;测试注入免真库) */
 type PoolRowLike = Parameters<typeof loginAccountLocal>[0]
+
+/**
+ * 「无会话模板 ⇒ 静默兜底到本机当前会话」的平台,判据来自 scripts/local-login.mjs 的写回基底:
+ * qoder `template ?? current`、codearts `template ?? row.session`、minimax/opencode `template ?? prev`。
+ * 这些平台没模板时凭证照样换,但账号资料(user/userId/邮箱等)仍是本机旧号的
+ * ⇒ 用户看到「切了号却显示旧号资料」。这里只告警,不拦写回(凭证写回本身是有效的)。
+ *
+ * 不在列的原因(逐平台读过写回配方):workbuddy 无模板且跨号时显式 409 no-template,不会静默沿用;
+ * codex auth.json 只存 tokens 不含账号资料;zcode 认 secrets.credentialMap、doubao 认 cookies;
+ * loomy 无模板是「资料缺字段」而非「带回旧号资料」,与本源缺陷不同型。
+ */
+export const TEMPLATE_FALLBACK_PROVIDERS: ReadonlySet<string> = new Set([
+  'qoder',
+  'codearts',
+  'minimax',
+  'opencode',
+])
+
+/**
+ * 该池票是否采到会话模板(读 secretsEnc 解密后的 sessionTemplate)。
+ * 解不开/无 secretsEnc 一律按「缺失」:失效方向是多提示一次,不是漏提示。
+ */
+export function hasSessionTemplate(row: PoolRowLike): boolean {
+  try {
+    const template = decryptAccountCredentials(row).secrets.sessionTemplate
+    return (
+      Boolean(template) &&
+      typeof template === 'object' &&
+      !Array.isArray(template) &&
+      Object.keys(template as Record<string, unknown>).length > 0
+    )
+  } catch {
+    return false
+  }
+}
+
+/** 模板缺失告警(人类可读行与 --json 的 notes 同一份文案) */
+export function templateMissingNote(providerCode: string): string {
+  return (
+    '模板缺失:该票导入时未采集会话模板,写回后客户端账号资料仍沿用旧号;' +
+    `建议先跑 node scripts/relay-account-pool.mjs --from ${providerCode} 重新导入后再切`
+  )
+}
 
 /** 默认选票:真库。测试经 opts.loadRow 注入,绝不连生产库(§5 测试隔离铁律) */
 async function loadPoolRow(provider: string, uid?: string): Promise<PoolRowLike> {
@@ -114,14 +161,22 @@ export async function runVerifiedSwitch(opts: {
   snapshot?: typeof snapshotApp
   /** 测试注入:替换 compare */
   compare?: typeof compareSnapshots
+  /** 测试注入:替换「该票有无会话模板」判据(默认解密 secretsEnc,零真库) */
+  hasTemplate?: typeof hasSessionTemplate
 }): Promise<VerifiedSwitchResult> {
   const doLoad = opts.loadRow ?? loadPoolRow
   const doWrite = opts.writeBack ?? loginAccountLocal
   const doSnap = opts.snapshot ?? snapshotApp
   const doCompare = opts.compare ?? compareSnapshots
+  const hasTemplate = opts.hasTemplate ?? hasSessionTemplate
   const notes: string[] = []
 
   const row = await doLoad(opts.provider, opts.uid)
+
+  // 切号前就把「无模板会沿用旧号资料」说清楚(dry-run 也照报:用户该先知道再决定切不切)
+  if (TEMPLATE_FALLBACK_PROVIDERS.has(row.providerCode) && !hasTemplate(row)) {
+    notes.push(templateMissingNote(row.providerCode))
+  }
 
   const face = CONTINUITY_FACE[opts.provider]
   const before = face ? doSnap(face) : null
@@ -173,23 +228,50 @@ export async function runVerifiedSwitch(opts: {
   }
 }
 
-function argValue(argv: string[], flag: string): string | undefined {
+export function argValue(argv: string[], flag: string): string | undefined {
   const idx = argv.indexOf(flag)
   if (idx === -1) return undefined
   return argv[idx + 1]
 }
 
-export function main(argv: string[]): number {
+/** CLI 面 IO 注入(测试注入假 exit,绝不真退进程;四腿可选,缺省走真 stdout/stderr/process.exit) */
+export interface MainIo {
+  exit?: (code: number) => void
+  /** stderr 面 */
+  write?: (text: string) => void
+  /** stdout 面 */
+  log?: (text: string) => void
+  /** 测试注入:替换切号腿(默认真库真写回) */
+  run?: typeof runVerifiedSwitch
+}
+
+/**
+ * 唯一退出出口:pg 连接池 keep-alive 会挂住进程,凡「设 exitCode 后只 return」的路径
+ * 都会让子进程活到被外层超时杀掉(2026-10-31 实测失败分支 120s 不退)。
+ * 先写 stderr 再 exit,与 relay-account-import / relay-minimax-session-sync 同款写法。
+ */
+export function exitWith(code: number, message: string | null, io: MainIo = {}): void {
+  const exit = io.exit ?? process.exit
+  const write = io.write ?? ((text: string) => void process.stderr.write(text))
+  if (message) write(message.endsWith('\n') ? message : `${message}\n`)
+  exit(code)
+}
+
+export function main(argv: string[], io: MainIo = {}): number {
   const provider = argValue(argv, '--provider')
   if (!provider) {
-    console.error(
+    exitWith(
+      2,
       '用法:relay-login-local-verified.ts --provider <code> [--uid <池票uid>] [--dry-run] [--json]',
+      io,
     )
-    return 2
+    return 2 // 仅注入假 exit 时可达;真 process.exit 不返回
   }
   const uid = argValue(argv, '--uid')
   const dryRun = argv.includes('--dry-run')
-  runVerifiedSwitch({ provider, uid, dryRun })
+  const run = io.run ?? runVerifiedSwitch
+  const log = io.log ?? ((text: string) => void console.log(text))
+  run({ provider, uid, dryRun })
     .then((r) => {
       const lines = [
         `票: provider=${r.provider} uid=${r.uid}`,
@@ -209,14 +291,15 @@ export function main(argv: string[]): number {
         ...r.notes.map((n) => `  · ${n}`),
         `SWITCH-VERIFIED state=${r.verdict}`,
       ].filter(Boolean)
-      if (argv.includes('--json')) console.log(JSON.stringify(r, null, 1))
-      else console.log(lines.join('\n'))
+      // --json 打整份结果 ⇒ notes(含模板缺失告警)在两条产出面上都可见
+      if (argv.includes('--json')) log(JSON.stringify(r, null, 1))
+      else log(lines.join('\n'))
       // pg 连接池 keep-alive 会挂住进程 ⇒ CLI 面显式退出(退出码按 verdict)
-      process.exit(r.verdict === 'continuity-broken' ? 1 : 0)
+      exitWith(r.verdict === 'continuity-broken' ? 1 : 0, null, io)
     })
     .catch((e: { code?: string; message?: string }) => {
-      console.error(`未判定: [${e?.code ?? 'switch-failed'}] ${e?.message ?? String(e)}`)
-      process.exitCode = 2
+      // 失败分支同样必须显式退出:只设 exitCode 会被 pg 句柄挂住(2026-10-31 实测 120s 不退)
+      exitWith(2, `未判定: [${e?.code ?? 'switch-failed'}] ${e?.message ?? String(e)}`, io)
     })
   return 0
 }
@@ -224,5 +307,13 @@ export function main(argv: string[]): number {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main(process.argv.slice(2))
 
-export const __test__ = { CONTINUITY_FACE, runVerifiedSwitch, main }
+export const __test__ = {
+  CONTINUITY_FACE,
+  TEMPLATE_FALLBACK_PROVIDERS,
+  hasSessionTemplate,
+  templateMissingNote,
+  exitWith,
+  runVerifiedSwitch,
+  main,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
