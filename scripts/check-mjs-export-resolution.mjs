@@ -43,7 +43,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import ts from 'typescript'
 
-import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import {
+  catBatch,
+  describeProbe,
+  probeFaceSpec,
+  readWorktreeFile,
+  selectFace,
+} from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SCOPE_DIR = 'scripts'
@@ -436,7 +442,13 @@ function runFace() {
   const contents = reader.readMany(files)
   const missingScope = files.filter((f) => contents.get(f) === null || contents.get(f) === undefined)
   if (missingScope.length > 0) {
-    console.log(`❌ 未判定:${missingScope.length} 枚射程内正文取不到(首 3:${missingScope.slice(0, 3).join(', ')})`)
+    // RP-47 可观测腿(2026-10-30):未判定文案必须带**实际命令 + rc + stderr 首行**,
+    // 否则"取不到"在三种故障下逐字同句(索引缺路径 / 索引被并发锁 / exec 崩),没人能定位。
+    const spec = `${face === 'staged' ? ':' : 'HEAD:'}${missingScope[0]}`
+    console.log(
+      `❌ 未判定:${missingScope.length} 枚射程内正文取不到(首 3:${missingScope.slice(0, 3).join(', ')})` +
+        `;取证:${describeProbe(probeFaceSpec(ROOT, spec))}`,
+    )
     return 2
   }
   // 基线面(--staged 档取 HEAD,全量档取 HEAD^):只为 D2 的"上一面出口集"取数。

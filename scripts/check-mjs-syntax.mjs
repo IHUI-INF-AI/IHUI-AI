@@ -61,7 +61,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   Undetermined,
   catBatch,
+  describeProbe,
   gitRaw,
+  probeFaceSpec,
   readWorktreeFile,
   selectFace,
   spawnViaTempStdinFile,
@@ -204,8 +206,11 @@ function collectFaceFiles(root, face) {
   const map = catBatch(root, paths.map((p) => specOf(face, p)))
   const missing = paths.filter((p) => map.get(specOf(face, p)) === null || map.get(specOf(face, p)) === undefined)
   if (missing.length) {
+    // RP-47 可观测腿(2026-10-30):只说"N 枚取不到"时,三种完全不同的故障逐字同句(索引没这路径 /
+    // 并发写者锁住索引 / exec 崩)⇒ 现补一次探针,把**实际命令 + rc + stderr 首行**打进未判定文案。
     throw new Undetermined(
-      `${face} 面 ${missing.length}/${paths.length} 枚 blob 取不到(如 ${missing[0]})⇒ 未判定,绝不按"剩下的"记绿`,
+      `${face} 面 ${missing.length}/${paths.length} 枚 blob 取不到(如 ${missing[0]})⇒ 未判定,绝不按"剩下的"记绿` +
+        `;取证:${describeProbe(probeFaceSpec(root, specOf(face, missing[0])))}`,
     )
   }
   return paths.map((p) => ({ p, s: map.get(specOf(face, p)) }))

@@ -46,6 +46,8 @@ import {
   batchExecFileSync,
   bareGitCountOf,
   hideComments,
+  probeFaceSpec,
+  describeProbe,
 } from '../lib/face-reader.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -1671,6 +1673,26 @@ test('规格快路径:索引面 :path 在 catBatch 与 catBatchOids 上给同一
   const ghost = ':__face_reader_no_such_path_6b1d__.mjs'
   assert.equal(catBatch(root, [ghost], { maxBuffer: 1 << 20 }).get(ghost), null)
   assert.equal(catBatchOids(root, [ghost], { maxBuffer: 1 << 20 }).get(ghost), null)
+})
+
+test('probeFaceSpec:取不到时把 命令/rc/stderr 一起带回(RP-47 可观测腿)', () => {
+  const root = join(here, '..', '..')
+  const ok = probeFaceSpec(root, 'HEAD:package.json')
+  assert.equal(ok.ok, true, '存在的 spec 应判可取')
+  assert.equal(ok.type, 'blob')
+  assert.equal(ok.rc, 0)
+  const bad = probeFaceSpec(root, ':__no_such_spec_rp47__.mjs')
+  assert.equal(bad.ok, false, '不存在的索引路径必须判取不到')
+  assert.notEqual(bad.rc, undefined, 'rc 必须带回(哪怕是 null 也要显式给出)')
+  assert.ok(bad.stderr.length > 0, 'stderr 必须带回,否则未判定文案还是没法归因')
+  const line = describeProbe(bad)
+  assert.match(line, /^git cat-file -t /, '取证串必须点名实际命令')
+  assert.match(line, /rc=(\d+|null)/, '取证串必须带退出码')
+  assert.match(line, /stderr="/, '取证串必须带 stderr')
+  // 造好必须装车:两门都得把这条腿接在未判定分支里(否则就是本仓反复记过的"造好没装车")
+  for (const f of ['check-mjs-syntax.mjs', 'check-mjs-export-resolution.mjs']) {
+    assert.match(read(f), /describeProbe\(probeFaceSpec\(/, `${f} 未把可观测腿接进未判定文案`)
+  }
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
