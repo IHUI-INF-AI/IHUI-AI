@@ -120,11 +120,12 @@ export default function DevSpace() {
     (key: string): void => {
       void Taro.setClipboardData({
         data: key,
-        success: () => Taro.showToast({ title: tt('common.copied', '已复制'), icon: 'none' }),
-        fail: () => Taro.showToast({ title: tt('common.copyFailed', '复制失败'), icon: 'none' }),
+        success: () =>
+          Taro.showToast({ title: t('devSpace.linkCopied'), icon: 'none', duration: 2000 }),
+        fail: () => Taro.showToast({ title: t('devSpace.linkCopyFailed'), icon: 'none' }),
       })
     },
-    [tt],
+    [t],
   )
 
   /** 信息卡行表:与共享屏 buildInfoRows 同序;申请信息块按有无整块出现,无值用排字符号占位 */

@@ -118,6 +118,8 @@
     "more": "More",
     "discountAmount": "Discount",
     "loadFailed": "Failed to load"
+,
+    "operationFailed": "Operation failed"
   },
   "login": {
     "loginSuccess": "Login successful",
@@ -5245,6 +5247,8 @@
       "absent": "Absent",
       "leave": "Leave"
     }
+,
+    "student": "Student"
   },
   "eduMgmt": {
     "attendanceTitle": "Attendance",
@@ -7406,6 +7410,8 @@
     "newPassword": "New Password",
     "language": "Language",
     "theme": "Theme"
+,
+    "version": "Version"
   },
   "liveList": {
     "subtitle": "Great streams you won't want to miss",
@@ -7573,5 +7579,35 @@
     "feature": "Feature",
     "premium": "Premium",
     "title": "VIP Compare"
+  }
+,
+  "coupon": {
+    "useHint": "Please use it on the product page"
+  },
+  "eduChildBills": {
+    "arrears": "Arrears",
+    "className": "Class",
+    "paid": "Paid",
+    "term": "Term",
+    "total": "Total"
+  },
+  "eduChildMeals": {
+    "date": "Date",
+    "dish": "Dish",
+    "ingredients": "Ingredients",
+    "mealType": "Meal",
+    "nutrition": "Nutrition"
+  },
+  "eduChildStudyPlans": {
+    "planType": "Type",
+    "range": "Period",
+    "title2": "Plan"
+  },
+  "eduSchedule": {
+    "classroom": "Room",
+    "course": "Course",
+    "teacher": "Teacher",
+    "time": "Time",
+    "weekdayTitle": "Day"
   }
 }

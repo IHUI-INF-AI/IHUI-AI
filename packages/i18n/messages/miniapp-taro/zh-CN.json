@@ -118,6 +118,8 @@
     "more": "更多",
     "discountAmount": "优惠",
     "loadFailed": "加载失败"
+,
+    "operationFailed": "操作失败"
   },
   "login": {
     "loginSuccess": "登录成功",
@@ -5245,6 +5247,8 @@
       "absent": "缺勤",
       "leave": "请假"
     }
+,
+    "student": "学生"
   },
   "eduMgmt": {
     "attendanceTitle": "考勤管理",
@@ -7406,6 +7410,8 @@
     "newPassword": "新密码",
     "language": "语言",
     "theme": "主题"
+,
+    "version": "版本"
   },
   "liveList": {
     "subtitle": "精彩直播,不见不散",
@@ -7573,5 +7579,35 @@
     "feature": "功能",
     "premium": "高级",
     "title": "会员对比"
+  }
+,
+  "coupon": {
+    "useHint": "请前往商品页使用"
+  },
+  "eduChildBills": {
+    "arrears": "欠费",
+    "className": "班级",
+    "paid": "已付",
+    "term": "学期",
+    "total": "总额"
+  },
+  "eduChildMeals": {
+    "date": "日期",
+    "dish": "菜品",
+    "ingredients": "食材",
+    "mealType": "餐类",
+    "nutrition": "营养"
+  },
+  "eduChildStudyPlans": {
+    "planType": "类型",
+    "range": "周期",
+    "title2": "计划"
+  },
+  "eduSchedule": {
+    "classroom": "教室",
+    "course": "课程",
+    "teacher": "教师",
+    "time": "时段",
+    "weekdayTitle": "星期"
   }
 }
