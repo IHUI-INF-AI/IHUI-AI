@@ -32,15 +32,20 @@ const INITIAL_DATA: IncomeData = {
   list: [],
 }
 
-/** 本地日期 YYYY-MM-DD(与后端 daySummary.dateStr 对齐;时区差异下未命中则当日按 0) */
+/**
+ * 业务日(Asia/Shanghai)的 YYYY-MM-DD —— 与后端 daySummary.dateStr 对齐。
+ * 后端那条聚合计的是 `to_char(created_at, 'YYYY-MM-DD')`,而库会话时区实测 Asia/Shanghai
+ * (now() 带 +08)⇒ 服务端按 +08 切日。原实现用**设备本地日**,设备不在 +08 时同一份
+ * daySummary 里永远找不到"今天"这一行,"今日收益"恒显示 0。中国无夏令时,UTC+8 可直接加偏移。
+ */
 function todayKey(): string {
-  const d = new Date()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${m}-${day}`
+  const d = new Date(Date.now() + 8 * 3600_000)
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${d.getUTCFullYear()}-${m}-${day}`
 }
 
-function mapRecord(r: CommissionRecord, tr: (key: string) => string): IncomeCommissionItem {
+function mapRecord(r: CommissionRecord, t: (key: string) => string): IncomeCommissionItem {
   // 后端 /distribution/list 返回 commission_flows 原始行:status 数字 0=invalid 1=active,
   // amount 单位「分」。数据模型无「待结算/已结算」独立状态:
   // status=1(active)=佣金生效中,展示为「待结算」;status=0(invalid)=佣金无效,映射「取消结算」;
@@ -48,7 +53,7 @@ function mapRecord(r: CommissionRecord, tr: (key: string) => string): IncomeComm
   const status = String(r.status ?? '')
   return {
     id: r.id,
-    title: r.userNickname || r.orderId || tr('income.commissionDefault'),
+    title: r.userNickname || r.orderId || t('income.commissionDefault'),
     amount: (r.amount ?? r.commissionAmount ?? 0) / 100,
     time: r.createdAt,
     settled: false,
@@ -61,11 +66,11 @@ function mapRecord(r: CommissionRecord, tr: (key: string) => string): IncomeComm
 /** 提现记录 → 已结算条目(对齐 Uniapp accumulation「已结算=已提现」语义;仅 completed(status=2)计入) */
 function mapWithdrawRecord(
   r: CommissionWithdrawRecord,
-  tr: (key: string) => string,
+  t: (key: string) => string,
 ): IncomeCommissionItem {
   return {
     id: r.id,
-    title: r.accountType === 'bank' ? tr('income.withdrawBank') : tr('income.withdrawRecord'),
+    title: r.accountType === 'bank' ? t('income.withdrawBank') : t('income.withdrawRecord'),
     amount: (r.amount ?? 0) / 100,
     time: r.processedAt ?? r.createdAt,
     settled: true,
@@ -74,7 +79,7 @@ function mapWithdrawRecord(
   }
 }
 
-export function IncomeScreen() {
+function IncomeScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
