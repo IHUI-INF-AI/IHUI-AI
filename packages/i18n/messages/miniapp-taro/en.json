@@ -269,8 +269,7 @@
     "studentUnit": "Learners",
     "moreTitle": "More courses",
     "studentCount": "{count} learners",
-    "empty": "No courses yet"
-,
+    "empty": "No courses yet",
     "player": "The video will play once loaded",
     "progress": "Progress",
     "progressLessons": "{completed}/{total} lessons completed",
@@ -369,7 +368,16 @@
     "titleRequired": "Please enter a stream title",
     "startFailed": "Failed to start live",
     "endFailed": "Failed to end live",
-    "copySuccess": "Copied to clipboard"
+    "copySuccess": "Copied to clipboard",
+    "copyHint": "Copied",
+    "previewActive": "Preview active",
+    "previewIdle": "Preview idle",
+    "productAddBtn": "Add product",
+    "statRecvBytes": "Recv bytes",
+    "statSendBytes": "Send bytes",
+    "statViewers": "Viewers",
+    "stats": "Stats",
+    "title": "Live Host"
   },
   "order": {
     "title": "Orders",
@@ -484,8 +492,7 @@
     "title": "My Wallet",
     "totalRecharge": "Total recharge",
     "totalWithdraw": "Total withdrawal",
-    "withdraw": "Withdraw"
-,
+    "withdraw": "Withdraw",
     "points": "Points"
   },
   "community": {
@@ -511,8 +518,7 @@
     "m2": "AI App Store",
     "m3": "Enter agent name to search",
     "y1": "{p1} duration",
-    "y2": "Buy agent: {p1}"
-,
+    "y2": "Buy agent: {p1}",
     "follow": "Following",
     "follower": "Followers"
   },
@@ -524,8 +530,7 @@
   "agent": {
     "title": "Agents",
     "empty": "No agents yet",
-    "uses": "Times"
-,
+    "uses": "Times",
     "config": "Config"
   },
   "setting": {
@@ -1141,7 +1146,14 @@
     "failed4": "Copy failed, please retry",
     "text5": "Chat page not configured",
     "confirm6": "Delete this conversation?",
-    "title": "Share"
+    "title": "Share",
+    "code": "Share code",
+    "create": "Create share",
+    "expireAt": "Valid until",
+    "remark": "Remark",
+    "remarkPlaceholder": "Enter a remark",
+    "shareNow": "Share now",
+    "url": "URL"
   },
   "aiGroup": {
     "title": "Agent plaza",
@@ -1194,8 +1206,7 @@
     "noUrl": "No access URL",
     "loadFailed": "Load failed",
     "openWorkflow": "Open workflow",
-    "gatewayRetry": "Retry {attempt} of {max}, continuing in {seconds}s"
-,
+    "gatewayRetry": "Retry {attempt} of {max}, continuing in {seconds}s",
     "placeholder": "Enter your question",
     "streaming": "Generating..."
   },
@@ -1621,8 +1632,7 @@
     "pendingSettle": "Pending Settlement",
     "withdrawn": "Withdrawn",
     "myTeam": "My Team",
-    "columnTitle": "Distribution Orders"
-,
+    "columnTitle": "Distribution Orders",
     "retry": "Retry",
     "empty": "No data",
     "subtitle": "Promote products and earn commissions",
@@ -2385,8 +2395,7 @@
     "faqGuideDesc": "Create agents, configure models and submit for review",
     "faqGuideBtn": "Learn more",
     "contactHeading": "Still have questions?",
-    "contactDesc": "Contact support for one-on-one guidance"
-,
+    "contactDesc": "Contact support for one-on-one guidance",
     "copy": "Copy"
   },
   "developer": {
@@ -2672,12 +2681,13 @@
       "contentTitle": "Details",
       "loadFailed": "Get detail"
     },
-    "noData": "No Ranking Data"
-,
+    "noData": "No Ranking Data",
     "subtitle": "See where you rank this week",
     "retry": "Retry",
     "me": "Me",
-    "studyHours": "{count} hrs studied"
+    "studyHours": "{count} hrs studied",
+    "anonymous": "Anonymous",
+    "title": "Ranking"
   },
   "recruitment": {
     "title": "Trader Program",
@@ -2707,10 +2717,11 @@
     "submitting": "Signing up…",
     "agreePrefix": "I have read and agree to",
     "userAgreement": "《User Agreement》",
-    "privacyPolicy": "《Privacy Policy》"
-,
+    "privacyPolicy": "《Privacy Policy》",
     "sendCodeFailed": "Failed to send code, please retry",
-    "registering": "Signing up..."
+    "registering": "Signing up...",
+    "confirmPassword": "Confirm password",
+    "confirmPasswordPlaceholder": "Confirm your password"
   },
   "message": {
     "tabs": {
@@ -2832,7 +2843,7 @@
     },
     "couponList": {
       "received": "Claimed",
-        "receiveFailed": "Failed to claim",
+      "receiveFailed": "Failed to claim",
       "unit": "CNY",
       "coupon": "Coupon",
       "receive": "Claim",
@@ -3036,7 +3047,8 @@
       "searchPlaceholder": "Search instructors",
       "courseCount": "{n} courses",
       "studentCount": "{n} students",
-      "empty": "No instructors"
+      "empty": "No instructors",
+      "title": "Instructors"
     },
     "detail": {
       "courses": "Courses",
@@ -3303,8 +3315,7 @@
     "subscribe": "Subscribe",
     "subscribeTitle": "Subscription Package",
     "subscribed": "Subscribed Successfully",
-    "verified": "Verified"
-,
+    "verified": "Verified",
     "title": "VIP Trader",
     "subtitle": "Exclusive trader benefits",
     "badge": "Trader Exclusive",
@@ -3476,8 +3487,7 @@
       "aiAnalysisDesc": "Intelligently analyze various data reports",
       "aiChat": "AI Smart Chat",
       "aiChatDesc": "Smart assistant answers all kinds of questions"
-    }
-,
+    },
     "retry": "Retry",
     "subtitle": "Unlock membership and enjoy more benefits",
     "currentLevel": "Current Level",
@@ -3486,7 +3496,10 @@
     "empty": "No membership levels available",
     "currentBadge": "Current",
     "duration": "{days} days",
-    "benefitsCount": "{count} exclusive benefits"
+    "benefitsCount": "{count} exclusive benefits",
+    "daysRemaining": "{count} days remaining",
+    "purchase": "Become VIP",
+    "title": "VIP Center"
   },
   "learnDevelop": {
     "title": "Learning & development",
@@ -3498,8 +3511,7 @@
     "loadFailed": "Load failed",
     "teacher": "Instructor",
     "free": "Free",
-    "rankEntry": "Study leaderboard"
-,
+    "rankEntry": "Study leaderboard",
     "contactLabel": "Contact Mr. Li directly"
   },
   "settingPrivacy": {
@@ -3866,8 +3878,7 @@
     "menuVoiceNote": "Voice notes",
     "menuWebLink": "Web link",
     "menuFileUpload": "Upload file",
-    "menuHistory": "History"
-,
+    "menuHistory": "History",
     "modelLabel": "Model",
     "stop": "Stop",
     "thinking": "Thinking...",
@@ -4183,7 +4194,9 @@
     "d17": "Explore the human condition after AI awakens; generate a short philosophical essay.",
     "d18": "AI awakening, consciousness, coexistence",
     "d19": "Echoes of Deep Space",
-    "r1": "In the data flood, we use code as pen and algorithms as ink, depicting poetry and horizons of the digital age. Every piece of text is an extension of thought, and every generation is the beginning of creation."
+    "r1": "In the data flood, we use code as pen and algorithms as ink, depicting poetry and horizons of the digital age. Every piece of text is an extension of thought, and every generation is the beginning of creation.",
+    "playAudio": "Play audio",
+    "publish": "Publish"
   },
   "aiAgentdetail": {
     "q1": "Get agent details",
@@ -4284,8 +4297,7 @@
   "askCreate": {
     "d1": "Tech",
     "d2": "Product",
-    "d4": "Operations"
-,
+    "d4": "Operations",
     "title": "Ask a Question",
     "titlePlaceholder": "Summarize your question in one line",
     "contentLabel": "Details",
@@ -4305,8 +4317,7 @@
     "d4": "Not as described",
     "d5": "Other reasons",
     "y1": "Note: {p1}",
-    "y2": "Contact: {p1}"
-,
+    "y2": "Contact: {p1}",
     "subtitle": "Select an order and submit your request",
     "retry": "Retry",
     "empty": "No refundable orders",
@@ -4348,8 +4359,7 @@
   },
   "rankingDetail": {
     "d1": "Testing",
-    "d2": "Offline"
-,
+    "d2": "Offline",
     "points": "Points",
     "rank": "Rank",
     "studyHours": "Study Hours",
@@ -4377,7 +4387,13 @@
   "circleCreate": {
     "d1": "Public",
     "d2": "Friends only",
-    "d3": "Private"
+    "d3": "Private",
+    "descPlaceholder": "Enter circle description",
+    "description": "Description",
+    "name": "Circle name",
+    "namePlaceholder": "Enter circle name",
+    "submit": "Create",
+    "title": "Create Circle"
   },
   "learndevelop": {
     "d1": "Frontend Engineer",
@@ -4793,8 +4809,7 @@
     "userCard": {
       "loginRequired": "Please log in first"
     },
-    "notLoggedIn": "Not signed in"
-,
+    "notLoggedIn": "Not signed in",
     "nickname": "No nickname yet",
     "logout": "Log Out",
     "myFavorites": "My favorites",
@@ -6099,8 +6114,7 @@
     "submitting": "Submitting..."
   },
   "identityVerify": {
-    "loadFailed": "Failed to load"
-,
+    "loadFailed": "Failed to load",
     "uploadFront": "Upload the front of your ID",
     "uploadBack": "Upload the back of your ID",
     "uploadSelfie": "Upload a selfie with your ID",
@@ -6251,12 +6265,20 @@
   },
   "agentScreen": {
     "loadFailed": "Failed to load agent",
-    "title": "Agent"
+    "title": "Agent",
+    "rating": "Rating",
+    "useCount": "Use count"
   },
   "aiAssistant": {
     "startChat": "Start Chat",
     "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "copyOkToast": "Link copied to clipboard",
+    "empty": "No agents available",
+    "favoriteCount": "{count} favorites",
+    "searchPlaceholder": "Search agents",
+    "subtitle": "Select an agent to start",
+    "title": "AI Assistant",
+    "useCount": "{count} uses"
   },
   "resources": {
     "loadMore": "Load more"
@@ -7148,7 +7170,21 @@
     "noTask": "No task description"
   },
   "aigcPublish": {
-    "typeText": "Text"
+    "typeText": "Text",
+    "fileAddText": "Tap to add file",
+    "labelTextContent": "Text content",
+    "labelType": "Type",
+    "labelUpload": "Upload",
+    "pickFromAlbum": "Pick from album",
+    "placeholderDescription": "Enter description",
+    "placeholderPrompt": "Enter prompt",
+    "placeholderTextContent": "Enter text content",
+    "placeholderTitle": "Enter title",
+    "placeholderUrl": "Enter URL",
+    "subtitle": "Share your AI-created work",
+    "uploading": "Uploading {progress}%...",
+    "uploadingShort": "Uploading",
+    "urlAddBtn": "Add URL"
   },
   "chatWorkbenchPage": {
     "title": "Chat",
@@ -7350,8 +7386,7 @@
     "markSuccess": "Marked as resolved",
     "markFailed": "Failed to mark",
     "loadMore": "Load more"
-  }
-,
+  },
   "settings": {
     "oldPassword": "Current Password",
     "confirmPassword": "Confirm New Password",
@@ -7368,13 +7403,175 @@
     "notification": "Notifications",
     "account": "Account & Security",
     "changePassword": "Change Password",
-    "newPassword": "New Password"
+    "newPassword": "New Password",
+    "language": "Language",
+    "theme": "Theme"
   },
   "liveList": {
     "subtitle": "Great streams you won't want to miss",
-    "retry": "Retry"
+    "retry": "Retry",
+    "lecturer": "Lecturer",
+    "startAt": "Start time",
+    "viewerCount": "Viewers"
   },
   "withdraw": {
-    "availableBalance": "Available Balance (CNY)"
+    "availableBalance": "Available Balance (CNY)",
+    "amount": "Amount",
+    "bankCard": "Bank card",
+    "bankCardPlaceholder": "Select a bank card",
+    "feeHint": "Withdrawal fee {fee}%",
+    "submit": "Submit",
+    "submitting": "Submitting...",
+    "title": "Withdraw"
+  },
+  "agentDetail": {
+    "creator": "Creator",
+    "description": "Description",
+    "free": "Free",
+    "loadFailed": "Failed to load agent details",
+    "price": "Price",
+    "rating": "Rating",
+    "uses": "Uses"
+  },
+  "articleDetail": {
+    "loadFailed": "Failed to load article",
+    "views": "Views"
+  },
+  "articleList": {
+    "empty": "No articles",
+    "title": "Articles",
+    "views": "Views"
+  },
+  "circleDetail": {
+    "join": "Join",
+    "leave": "Leave",
+    "members": "Members",
+    "membersAction": "Members",
+    "post": "Post",
+    "posts": "Posts"
+  },
+  "examResult": {
+    "loadFailed": "Failed to load",
+    "passed": "Passed",
+    "wrongQuestions": "Wrong questions",
+    "yourAnswer": "Your answer"
+  },
+  "favorite": {
+    "tab_aigc": "AI Works",
+    "tab_all": "All",
+    "tab_course": "Courses",
+    "tab_live": "Live",
+    "tab_news": "News",
+    "tab_post": "Posts"
+  },
+  "help": {
+    "empty": "No help articles"
+  },
+  "liveDetail": {
+    "chat": "Chat",
+    "chatEmpty": "No messages yet. Be the first!",
+    "chatPlaceholder": "Say something...",
+    "chatSend": "Send",
+    "empty": "Live session not found or has ended",
+    "intro": "About",
+    "lecturer": "Lecturer",
+    "ongoing": "Live",
+    "subscribe": "Reserve Live",
+    "subscribed": "Reserved",
+    "subscribing": "Reserving...",
+    "upcoming": "Upcoming",
+    "viewerCount": "{count} viewers"
+  },
+  "messageCenter": {
+    "conversations": "Conversations",
+    "title": "Messages",
+    "type": {
+      "course": "Course",
+      "order": "Order"
+    }
+  },
+  "modelEdit": {
+    "labelAudience": "Audience",
+    "labelCategory": "Category",
+    "labelCycle": "Settlement cycle",
+    "labelDiscount": "Discount",
+    "labelFreeDur": "Free duration",
+    "labelSaleType": "Sale type",
+    "submit": "Save",
+    "submitting": "Submitting..."
+  },
+  "modelIncome": {
+    "accumulated": "Total earnings",
+    "empty": "No earnings records",
+    "orderLabel": "Order",
+    "rateLabel": "Share ratio",
+    "retry": "Retry",
+    "tip": "Earnings data updates daily",
+    "title": "Earnings",
+    "withdrawModal": {
+      "confirm": "Confirm",
+      "moreMethods": "More methods",
+      "title": "Withdrawal method",
+      "wechat": "WeChat"
+    },
+    "withdrawable": "Withdrawable",
+    "withdrawn": "Withdrawn"
+  },
+  "n8nModel": {
+    "actionEdit": "Edit",
+    "actionStart": "Start",
+    "actionStop": "Stop",
+    "calls": "Calls",
+    "running": "Running",
+    "searchPlaceholder": "Search models",
+    "stopped": "Stopped",
+    "title": "n8n Models"
+  },
+  "orderDetail": {
+    "amount": "Amount",
+    "loadFailed": "Failed to load order",
+    "paidAt": "Paid at",
+    "product": "Product"
+  },
+  "privacy": {
+    "sectionCookie": "Cookie usage",
+    "sectionCookieBody": "We use cookies to remember your preferences and login status to provide a better browsing experience. You can disable cookies in your browser settings, but some features may not work as expected.",
+    "sectionData": "Data collection",
+    "sectionDataBody": "We collect information you actively provide when using the platform, including account info, learning history, and interactions, to deliver personalized services and improve the product experience.",
+    "sectionThirdParty": "Third-party sharing",
+    "sectionThirdPartyBody": "We do not sell your personal information. We may share necessary information with trusted partners when required by law or to provide our services, but we ensure they adhere to equally strict data protection standards.",
+    "subtitle": "We value your privacy"
+  },
+  "studyPlan": {
+    "deadline": "Deadline",
+    "lessons": "Lessons",
+    "progress": "Progress",
+    "status": {
+      "overdue": "Overdue",
+      "paused": "Paused"
+    }
+  },
+  "tokenValue": {
+    "balanceLabel": "Token balance",
+    "bonus": "Bonus",
+    "empty": "No data",
+    "frozen": "Frozen",
+    "packagesTitle": "Top-up packages",
+    "popular": "Popular",
+    "recordsTitle": "Records",
+    "tab": {
+      "cost": "Cost",
+      "recharge": "Recharge"
+    },
+    "title": "Token Value",
+    "tokenUnit": "tokens",
+    "totalCost": "Total cost"
+  },
+  "vipCompare": {
+    "basic": "Basic",
+    "enterprise": "Enterprise",
+    "feature": "Feature",
+    "premium": "Premium",
+    "title": "VIP Compare"
   }
 }
