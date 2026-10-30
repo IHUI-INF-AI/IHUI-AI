@@ -506,6 +506,31 @@ describe('rollbackAuth / runLinkedSessionSwap 单元', () => {
     expect(sha12(paths.authFile)).toBe(preSwitchSha)
   })
 
+  it('runLinkedSessionSwap: 账号不在台账 ⇒ 保留 auth(不回滚),并点出补台账出路', () => {
+    mkdirSync(join(paths.authFile, '..'), { recursive: true })
+    writeFileSync(paths.authFile, authBody('当前', { uid: OLD_UID }))
+    seedSnapshot('workbuddy-desktop.notinledger.info', authBody('目标', { uid: NEW_UID }))
+    const plan = planSwitch(paths, 'workbuddy-desktop.notinledger.info')
+    applySwitch(plan)
+    const switchedSha = sha12(paths.authFile)
+    const mp = moveFixture()
+    writeManifest(mp, new Date()) // 当日快照在位
+    writeLedger(mp, [OLD_UID], {}) // 台账在,但不覆盖目标账号 ⇒ planSwap 抛「账号不在台账」
+
+    const res = runLinkedSessionSwap(plan, {
+      movePaths: mp,
+      now: new Date(),
+      runningProcs: [],
+    })
+    expect(res.status).toBe('skipped-not-in-ledger')
+    expect(res.message).toContain('账号不在台账')
+    // auth 保留切换结果 —— 台账缺失不该把整次切号回滚掉
+    expect(sha12(paths.authFile)).toBe(switchedSha)
+    expect(sha12(paths.authFile)).toBe(
+      sha12(join(paths.backupsDir, 'workbuddy-desktop.notinledger.info')),
+    )
+  })
+
   it('runLinkedSessionSwap: 目标缺 uid → no-target-uid(不换桶、不回滚)', () => {
     mkdirSync(join(paths.authFile, '..'), { recursive: true })
     writeFileSync(paths.authFile, authBody('当前', { uid: OLD_UID }))
