@@ -173,6 +173,11 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
     const handleSelect = (id: string) => {
       onChange(id)
       setOpen(false)
+      // 面板一关焦点就掉到 <body>:键盘用户要继续 Tab 得从页面顶部重来。
+      // 选中后把焦点交还触发按钮(容器里第一个 button 就是它)。
+      requestAnimationFrame(() =>
+        containerRef.current?.querySelector<HTMLButtonElement>('button')?.focus(),
+      )
     }
 
     const renderNodes = (nodes: TreeNodeBuilt[], depth: number): React.ReactNode =>
