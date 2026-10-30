@@ -97,6 +97,35 @@
       "obligations": "待补登记:① 生成器应在产物注释里落 lucide 版本(否则每条素材的 revision 永远不可考);② 若后续批量入库现有工作树图标,须一并补登记。"
     },
     {
+      "id": "lucide-minus-svg",
+      "kind": "copied",
+      "name": "lucide 图标 minus.svg",
+      "purpose": "miniapp-taro 端的 UI 图标素材(AGENTS §4 规定小程序图标取自 lucide 风格 SVG),按 scripts/gen-taro-lucide-icons.mjs 从 lucide 提取。与本目录另一条 lucide-triangle-alert-svg 同源、同版本、同许可,分两条登记的原因见 attributionBoundary。",
+      "upstream": {
+        "project": "lucide",
+        "repository": "https://github.com/lucide-icons/lucide",
+        "acquisition": "node scripts/gen-taro-lucide-icons.mjs <name> 生成;该生成器的模板串里写死归属注释 \"<!-- @license lucide-static v1.31.0 - ISC -->\"(内容锚点:scripts/gen-taro-lucide-icons.mjs 内 `const svg = \\`<!-- @license lucide-static`),版本锚点即从产物里这行注释实测取得",
+        "version": "1.31.0",
+        "gitRevision": null,
+        "gitRevisionNote": "上游锚点是 npm 包 lucide-static 的版本号 1.31.0(生成器写进产物的归属注释),不是 git commit;故 gitRevision 显式 null:本条主张图形源自 lucide-static@1.31.0 的 minus,不主张等于该包内某个 commit。"
+      },
+      "license": {
+        "spdx": "ISC",
+        "texts": [
+          {
+            "form": "externalOnly",
+            "fetchUrl": "https://raw.githubusercontent.com/lucide-icons/lucide/main/LICENSE",
+            "note": "ISC 原文未入库;SVG 产物本身不携带 SPDX 头,只有产物里的归属注释行(lucide 上游即如此)。"
+          }
+        ]
+      },
+      "roots": ["apps/miniapp-taro/src/static/images/icons/minus.svg"],
+      "modification": "unmodified-copy",
+      "modificationNote": "生成器只做名称/别名解析与 stroke 颜色改写(端内约定 stroke 用 #6366F1 或原值 #000),几何路径未手改。与同目录 triangle-alert.svg 的形态差异如实记录:minus.svg 是**多行文件、归属注释在首行**(与当前生成器模板同形);triangle-alert.svg 是单行文件、注释在尾行(早期生成器产物)。",
+      "attributionBoundary": "本条只覆盖 minus.svg。同目录还有一枚 triangle-alert.svg,由 lucide-triangle-alert-svg 那条覆盖;两条合计 = 该目录全部跟踪文件(实测 git ls-tree HEAD 该目录 = 2 枚)。**那一条的 attributionBoundary 里\"该目录当前只有这 1 个跟踪文件(git ls-files 计数 1)\"已过时**,本次未就地改写它:落地器的 JSON 结构判据要求「基线数组元素多重集必须是落地内容的子集」,改写既有条目会让整条被算成\"旧元素消失\"而拒落 —— 于是以本条为准把旧描述纠正过来,两条并存不矛盾。其余只存在于工作树、未入库的图标不构成台账对象。",
+      "obligations": "① 升级 lucide-static 时必须**同笔**改本条与 lucide-triangle-alert-svg 那条的 version / gitRevisionNote(同源两条各写一份,只改一处会让版本锚点一半新一半旧);② 若后续批量入库该目录其余图标,逐枚追加 roots 并在此交叉登记,只把文件塞进目录不登记会被门 107 的 P2 当场判红;③ 待补登记:生成器应在产物注释里落 lucide 版本(当前是模板串写死 1.31.0,升版需改代码)。"
+    },
+    {
       "id": "qoder-checkin-contract",
       "kind": "copied",
       "name": "Qoder 每日领取 Credits 的 API 契约平移(checkin_qoder.py)",
