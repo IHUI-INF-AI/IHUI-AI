@@ -4110,6 +4110,155 @@ export function sweepBannedBuckets(opts = {}) {
   return { ran: true, judged: state !== null, ok: state !== null, state }
 }
 
+/**
+ * 暴露凭据主动轮换派发腿(2026-10-30 立,goal-b35 s6)。
+ *
+ * 立因:取票/续票能力早有(scripts/lib/trae-auth-extract.mjs 取、refreshOne 续、
+ * sync-trae-client-session.mjs 回灌),但**续票是被动的**(撞 401 / 临期才换)。凭据一旦被
+ * 误提交入库(2026-10-25 那枚 1.8MB Trae 会话导出附件,34036e6a83 已从跟踪摘除、历史 blob 仍在),
+ * 没有任何腿主动把它换掉 ⇒ 泄露的旧值在被动的下一次 401 之前一直是活的。这一格是功能缺口,
+ * 不是"去控制台点一下"的运维活。
+ *
+ * 器物:`scripts/rotate-exposed-upstream-credentials.mjs`(清单↔号池对账 → 走既有 refresh 通道
+ * 轮换 → 自证旧值不再被接受;判据一律 import 单源,本腿零复算)。
+ *
+ * 三态与到人(§5e-1「可整改性」):
+ * - clean / rotated ⇒ **静默**,只留日志(换成功不该喊人);
+ * - fake-rotation(换成功但旧值仍被上游接受 = 最危险那一型)/ failed ⇒ 判红到人;
+ * - undetermined(取不到清单/旧值无法自证/库不在线)⇒ 到人,但绝不记绿(§0.3)。
+ * 去重身份 = `exposed-credential-rotation;<state>`:明细(uid/fp/条数)一律不进指纹,否则同一场
+ * 停摆每轮重寄(§5e-3 / 守门 224 同族)。
+ *
+ * 空转零写零推零派生:pending==0 那一档由器物自己短路(不连库、不打上游),本腿只写节流台账。
+ * 判机器状态 ⇒ 绝不进提交链(§12e)。
+ */
+const EXPOSED_CRED_INTERVAL_MS = Number(process.env.IHUI_EXPOSED_CRED_INTERVAL_MS || 30 * 60 * 1000)
+
+export function sweepExposedCredentialRotation(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = EXPOSED_CRED_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'exposed-credential-rotation-last.json'),
+    logger = log,
+    runner = null,
+    notify = notifyGuardRed,
+  } = opts
+  const script = join(
+    dirname(fileURLToPath(import.meta.url)),
+    'rotate-exposed-upstream-credentials.mjs',
+  )
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 暴露凭据轮换:器物不在位(scripts/rotate-exposed-upstream-credentials.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '器物不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(
+      `⚠️ 暴露凭据轮换:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+    )
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // 1 = 假轮换/换票失败,2 = 未判定;两种都不是"尺子坏了",结论整份在输出里
+            return {
+              ok: false,
+              out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
+              err: String(e?.stderr ?? e?.message ?? e),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const text = String(r.out ?? r.stdout ?? '')
+  const m = text
+    .split(/\r?\n/)
+    .map((l) => (l.match(/ROTATE-RESULT\s+state=([A-Za-z-]+)(.*)$/) ?? null))
+    .find(Boolean)
+  const state = m ? m[1] : null
+  const tail = m ? String(m[2]) : ''
+  const kv = (key) => {
+    const mm = tail.match(new RegExp(`\\b${key}=(\\S+)`))
+    return mm ? mm[1] : null
+  }
+  if (state === null) {
+    logger(
+      `⚠️ 暴露凭据轮换:未取到结论行(ROTATE-RESULT)⇒ 本轮读数未判定,不等于"没有暴露条目"(§0.3)`,
+    )
+    notify('暴露凭据轮换未判定', `轮换器没有交出结论行。\nstderr 前 200:${String(r.err ?? '').slice(0, 200) || '(空)'}`, {
+      severity: 'warning',
+      dedupKey: 'exposed-credential-rotation;no-result-line',
+      logger,
+    })
+    return { ran: true, ok: false, state: 'no-result-line' }
+  }
+  const counts = `entries=${kv('entries') ?? '?'} matched=${kv('matched') ?? '?'} rotated=${kv('rotated') ?? '?'} dead=${kv('dead') ?? '?'} alive=${kv('alive') ?? '?'} absent=${kv('absent') ?? '?'} unjudged=${kv('unjudged') ?? '?'} failed=${kv('failed') ?? '?'}`
+  if (state === 'clean' || state === 'preflight') {
+    logger(`✅ 暴露凭据轮换:${state === 'clean' ? '无未结清暴露条目(零派生零写入)' : '预演档'}(${counts})`)
+    return { ran: true, ok: true, state }
+  }
+  if (state === 'rotated') {
+    logger(`✅ 暴露凭据轮换:已换票并自证旧值被上游拒死(dead=${kv('dead') ?? '?'};${counts})`)
+    return { ran: true, ok: true, state }
+  }
+  const named = text
+    .split(/\r?\n/)
+    .filter((l) => /点名|未判定|❌|⚠/.test(l))
+    .slice(-6)
+    .join('\n')
+    .slice(0, 1500)
+  if (state === 'fake-rotation') {
+    logger(`❌ 暴露凭据轮换:假轮换(alive=${kv('alive') ?? '?'})——换了票但旧值仍被上游接受 ⇒ 已到人`)
+    notify(
+      '暴露凭据轮换无效(假轮换)',
+      `轮换器判定:换票成功而**旧值仍被上游接受**,即暴露的那一枚凭据还活着。\n${counts}\n\n点名行:\n${named || '(器物未附点名行)'}\n\n可执行下一步:① node scripts/rotate-exposed-upstream-credentials.mjs --list 看清单与终态;② 手工跑一轮看它为何判 rotated-alive(多为该型凭据上游本就不即时失效,需按 --retire --reason 结清或补对应平台的撤销通道)。`,
+      { severity: 'error', dedupKey: 'exposed-credential-rotation;fake-rotation', logger },
+    )
+    return { ran: true, ok: false, state, counts }
+  }
+  if (state === 'failed') {
+    logger(`❌ 暴露凭据轮换:换票失败(failed=${kv('failed') ?? '?'})⇒ 已到人`)
+    notify(
+      '暴露凭据轮换失败',
+      `清单里有暴露条目,但换票这一动作为否。\n${counts}\n\n点名行:\n${named || '(器物未附点名行)'}\n\n可执行下一步:node scripts/rotate-exposed-upstream-credentials.mjs(看它点名的 uid 与 errorKind;refreshOne=false 多为适配器无该平台续期通道)。`,
+      { severity: 'error', dedupKey: 'exposed-credential-rotation;failed', logger },
+    )
+    return { ran: true, ok: false, state, counts }
+  }
+  logger(
+    `⚠️ 暴露凭据轮换:未判定(unjudged=${kv('unjudged') ?? '?'} rot=${kv('rot')} why=${kv('why') ?? '-'})⇒ 本轮没判,不等于"没有暴露"`,
+  )
+  notify(
+    '暴露凭据轮换未判定',
+    `清单与号池对账后仍有条目取不到输入(库不在线 / 密文解不出 / 旧值无法自证 / 清单腐烂)。\n${counts}\n\n点名行:\n${named || '(器物未附点名行)'}\n\n可执行下一步:① node scripts/rotate-exposed-upstream-credentials.mjs --list;② 若清单行本身坏了,按 parseLedger 点名的行号修 scripts/data/exposed-credentials.jsonl(只住 fp,不得写回凭据原文)。`,
+    { severity: 'warning', dedupKey: 'exposed-credential-rotation;undetermined', logger },
+  )
+  return { ran: true, ok: false, state: 'undetermined', counts }
+}
+
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -4277,6 +4426,113 @@ export function sweepStaleClaimMarks(opts = {}) {
     summary: line,
     reading,
   }
+}
+
+const DANGLING_AUTOTAG_INTERVAL_MS = Number(
+  process.env.IHUI_DANGLING_AUTOTAG_INTERVAL_MS || 15 * 60 * 1000,
+)
+
+/**
+ * 悬空 commit 自动保活腿(2026-10-30 立,goal-b35 g35-s1;器物 = scripts/lib/dangling-commit-autotag.mjs)。
+ *
+ * 立因是本会话实测三次的结构性缺口:守门 30a(blocking)的「悬空 commit 30 天窗」维反复红 ——
+ * 手工打 10 枚 `lost-commit/<name>` tag 把它修绿,几十分钟后又冒 2 枚新的未备份,于是每台机器周期性
+ * 重新制造「所有人被迫 `--no-verify`」那一型(AGENTS §12e)。§22/§29 早就写明处置 = `git tag
+ * lost-commit/<name> <hash>`(加法、不改历史),但**没有任何自动腿在悬空出现的当下做它**。本条把
+ * 这一格补上:判据零复算(直接吃 30a 自己的 `--list-unbacked` 机读清单,那条旗的存在理由正是
+ * "喂给 git tag 的清单"),只加不减,超窗只报数,取不到 ⇒ 未判定不记绿(§0.3)。
+ *
+ * 为什么节流 15 分钟而不是同族清扫器的 5 分钟:本腿每轮要跑一整趟 30a(fsck + 1.8 万枚悬空对象的
+ * subject/date 批量派生 + 2.4 万枚 tag 的 for-each-ref),门体头注实测 2~5 分钟;5 分钟节流等于
+ * 让守护常驻烧全仓 fsck。而悬空 commit 的产生速率是"分钟级偶发"(reset / 旁路落地被取代),
+ * 15 分钟既压得住 30a 的下一次问责(提交链自带 30 分钟结论缓存,两档同量级),又不至于把
+ * 巡检轮的预算吃光。真撞上门时人是被 30a 自己拦住的,不靠本腿提速。
+ *
+ * 三条硬要求的落点:① 器物只做 `git tag`,**永不删 tag / 永不 GC**(§29 归人工);
+ * ② 30a 未判定或清单与自报枚数对不上 ⇒ `state=undetermined`,一个 tag 也不打;
+ * ③ `state=clean`(窗内未备份 0 枚)⇒ 本层连日志行都不写,器物侧零留痕零推送(§5e-1:
+ *    只在能整改/真失败时才占到人通道)。
+ * 判机器状态 ⇒ 不进提交链(§12e)。
+ */
+export function sweepDanglingCommitAutotag(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = DANGLING_AUTOTAG_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'dangling-autotag-last.json'),
+    logger = log,
+    runner = null,
+    scriptFile = null,
+    notify = notifyGuardRed,
+  } = opts
+  const script =
+    scriptFile ??
+    join(dirname(fileURLToPath(import.meta.url)), 'lib', 'dangling-commit-autotag.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 悬空 commit 保活:器物不在位(scripts/lib/dangling-commit-autotag.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  // 子进程上限必须大于器物内部超时之和(30a 一趟 20min + 推送一趟 10min ⇒ 最坏 30min),
+  // 被掐死时 stdout 是半截、结论行解析不出 ⇒ 每轮白判一次(与 healStaleMiniappDist 同一条教训)。
+  const r =
+    typeof runner === 'function'
+      ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
+      : runLegChild(script, ['--apply', '--json'], 32 * 60 * 1000)
+  let res = null
+  try {
+    const lastLine = String(r.stdout ?? '')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .pop()
+    res = JSON.parse(lastLine ?? '')
+  } catch {
+    /* 下面统一按"未判定"报 */
+  }
+  if (!res || typeof res !== 'object' || typeof res.state !== 'string') {
+    logger(
+      `⚠️ 悬空 commit 保活:结论行解析不出(status=${r.status})⇒ 本轮未判定(不等于"没有悬空待备份"),下轮重试 ${String(
+        r.stderr ?? '',
+      ).slice(0, 120)}`,
+    )
+    return { ran: true, ok: false, state: 'undetermined', why: '结论解析失败', status: r.status }
+  }
+  // 空转零写零推零日志:clean 那一档不占守护日志、更不占到人通道(§5e-1)
+  if (res.state === 'clean') return { ran: true, ok: true, ...res }
+  logger(
+    `${res.state === 'tagged' ? '✅' : '⚠️'} 悬空 commit 保活轮:state=${res.state} 打上=${res.tagged ?? '?'} ` +
+      `窗内未备份=${res.unbacked ?? '?'} 超窗只报数=${res.outOfWeek ?? '?'} 已在册=${res.already ?? '?'} ` +
+      `撞名=${res.conflicts ?? '?'} 让位=${res.deferred ?? '?'} 失败=${res.failed ?? '?'} 推送=${res.push ?? '?'}${
+        res.why ? ` —— ${String(res.why).slice(0, 160)}` : ''
+      }`,
+  )
+  // 到人只在"收信人能做什么"那一档:未判定(30a 取不到判据面)/ 撞名(要人改名处置)/
+  // 打上但推送失败(远端备份没落地)/ 一枚也没打上 ⇒ 其余只写日志(§5e-1)。
+  // 身份 = state + 计数族,明细不进指纹,否则同一场停摆每轮重寄(§5e-3 / 守门 224 同族)。
+  const needsHuman =
+    res.state === 'undetermined' ||
+    res.state === 'conflict' ||
+    res.state === 'refused' ||
+    (res.state === 'tagged' && res.push === 'failed')
+  if (needsHuman) {
+    notify(
+      `悬空 commit 保活腿:${res.state}`,
+      `器物 scripts/lib/dangling-commit-autotag.mjs 本轮 state=${res.state} ` +
+        `tagged=${res.tagged} unbacked=${res.unbacked} conflicts=${res.conflicts} push=${res.push}\n` +
+        `${String(res.why || '').slice(0, 400)}\n` +
+        `可整改动作:① 未判定 ⇒ 先让 node scripts/check-commit-loss-guard.mjs --filter-stash 能跑通` +
+        `(fsck 判定面取不到即此型);② 撞名 ⇒ 该枚仍未保活,人工给一枚不同名的 lost-commit/<name> tag` +
+        `(本器绝不覆盖别人的 tag);③ push=failed ⇒ 后台补推 ` +
+        `IHUI_TAG_PUSH_CHUNK=20 node scripts/sync-lost-commit-tags.mjs --auto-push --force。` +
+        `本器只加不减:绝不删 tag、绝不 git gc(AGENTS §29 把 GC 归人工)。`,
+      {
+        dedupKey: `dangling-autotag;state=${res.state};push=${res.push};conflicts=${res.conflicts > 0 ? 'yes' : 'no'}`,
+      },
+    )
+  }
+  return { ran: true, ok: res.state !== 'undetermined', ...res }
 }
 
 const SWEEP_LIVENESS_INTERVAL_MS = Number(process.env.IHUI_SWEEP_LIVENESS_INTERVAL_MS || 30 * 60 * 1000)
@@ -8165,6 +8421,16 @@ function main() {
     // 复翻席不走提交链 ⇒ F11/F12 基线棘轮拦不到"主动写回";本层派发 strip-banned-buckets
     // 自动摘 HEAD 面违禁未勾行并留痕,循环回潮 5 分钟级自动收敛(判据 import 单源,零复算)。
     if (!CHECK_ONLY) sweepBannedBuckets()
+    // 暴露凭据主动轮换(2026-10-30 立):空转那一档器物自己短路(不连库、不打上游),
+    // 所以本腿每 30 分钟派得起;有未结清靶时才真动(§5e-1 换成功静默、失败/未判定才到人)。
+    if (!CHECK_ONLY) sweepExposedCredentialRotation()
+    // 悬空 commit 自动保活(2026-10-30 立):守门 30a 的「30 天窗」维是 blocking,而此前**没有任何
+    // 自动腿**在悬空出现的当下给它打 lost-commit/<name> tag —— 手工打 10 枚修绿、几十分钟后再冒 2 枚,
+    // 于是这台机器周期性重新制造「人人 --no-verify」那一型(§12e)。判据零复算:吃 30a 自己的
+    // --list-unbacked 机读清单;只加不减、超窗只报数、取不到落未判定、空转零写零推(§29 GC 归人工)。
+    // 挂在这一族同格(健康轮次早退之前 + !CHECK_ONLY)与本文件既有的清扫器一致 —— 挂在后面的长任务
+    // 串里等于永不执行(该教训在上一层注释里已写过两次)。
+    if (!CHECK_ONLY) sweepDanglingCommitAutotag()
     // 盘根封口同理:重启会清掉 junction,而第三方重建真目录只需要一次启动。
     if (!CHECK_ONLY) healRootSeal()
     // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
@@ -9349,6 +9615,12 @@ export const __test__ = {
   sweepStaleClosedRows,
   sweepBannedBuckets,
   sweepStaleClaimMarks,
+  // 暴露凭据主动轮换派发腿(2026-10-30 接线;镜像测试 rotate-exposed-upstream-credentials
+  // 按名 import 判据,不复制 §22c;不登记进本台账 ⇒ 接线锁打不到这一格)。
+  sweepExposedCredentialRotation,
+  // 悬空 commit 自动保活派发腿(2026-10-30 立;镜像测试 dangling-commit-autotag-dispatch 按名 import,
+  // 不复制判据 §22c;此条不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
+  sweepDanglingCommitAutotag,
   // AI 自进化调度层派发点(2026-10-26 导出):镜像测试据此逐条钉「节流 / 无票不 spawn /
   // 预算耗尽不 spawn / 锁在让路 / 结论不可解析落未判定」—— 不导出的话只能读源码字符串,
   // 钉不住行为,而这一族的失效形态全是安静(多 spawn 一次 = 多派一个会话)。
