@@ -117,8 +117,7 @@
     "user": "사용자",
     "more": "더 보기",
     "discountAmount": "할인",
-    "loadFailed": "로드 실패"
-,
+    "loadFailed": "로드 실패",
     "operationFailed": "작업에 실패했습니다"
   },
   "login": {
@@ -211,7 +210,20 @@
     "contentText": "텍스트 내용",
     "boolYes": "예",
     "boolNo": "아니요",
-    "closePreview": "미리보기 닫기"
+    "closePreview": "미리보기 닫기",
+    "addCamera": "카메라",
+    "addAlbum": "앨범",
+    "addLocalFile": "로컬파일",
+    "addWxFile": "위챗파일",
+    "closeBtn": "닫기",
+    "linkCopiedBrowser": "링크가 복사되었습니다. 브라우저에서 여세요",
+    "albumPermRequired": "이미지 저장을 위해 사진 접근 권한이 필요합니다",
+    "imgSavedAlbum": "앨범에 저장했습니다",
+    "btnConfirm": "확인",
+    "camSoonHint": "카메라 촬영은 준비 중, 앨범 업로드를 먼저 이용해 주세요",
+    "imgUploadedHint": "이미지 업로드 완료, 전송 후 대화에서 사용 가능합니다",
+    "imgUploadFailed": "이미지 업로드 실패",
+    "imgPickRetry": "이미지 선택 실패, 다시 시도해 주세요"
   },
   "course": {
     "learningProgress": "학습 진행도",
@@ -1109,6 +1121,11 @@
       "subagent": {
         "title": "하위 작업"
       }
+    },
+    "pane": {
+      "branch": {
+        "ariaLabel": "대화 분기"
+      }
     }
   },
   "share": {
@@ -1168,7 +1185,28 @@
     "tabEducation": "교육",
     "tabLife": "생활",
     "loadFailed": "로딩 실패",
-    "useCount": "{n}명 사용"
+    "useCount": "{n}명 사용",
+    "join": {
+      "title": "그룹 가입",
+      "message": "「{name}」 가입을 신청했습니다"
+    },
+    "cardMembers": "멤버",
+    "detailEnter": "채팅 입장",
+    "detailMembers": "멤버",
+    "detailRecent": "최근",
+    "enterChat": {
+      "message": "이 그룹에 입장하시겠습니까?",
+      "title": "알림"
+    },
+    "enterDiscover": "탐색",
+    "enterMine": "내 그룹",
+    "memberRole": "역할",
+    "metaActive": "활성",
+    "metaMessages": "메시지",
+    "previewHello": "안녕하세요",
+    "previewMine": "내가 만듦",
+    "subtitle": "AI 그룹 어시스턴트",
+    "searchPlaceholder": "AI 어시스턴트 검색"
   },
   "aiCircle": {
     "title": "AI 서클",
@@ -1210,7 +1248,29 @@
     "openWorkflow": "워크플로우 열기",
     "gatewayRetry": "{attempt}/{max}회 재시도, {seconds}초 후 계속합니다",
     "placeholder": "질문을 입력하세요",
-    "streaming": "생성 중..."
+    "streaming": "생성 중...",
+    "emptyNoAgent": "워크플로가 연결된 에이전트를 먼저 선택해 주세요",
+    "send": "보내기",
+    "callFailed": "호출에 실패했습니다. 다시 시도해 주세요",
+    "toolCalls": "도구 호출",
+    "toolStatusRunning": "실행 중",
+    "toolStatusSuccess": "성공",
+    "toolStatusError": "실패",
+    "toolArgs": "인수",
+    "toolResult": "출력",
+    "planSteps": "실행 계획",
+    "planStatusPending": "대기 중",
+    "planStatusInProgress": "진행 중",
+    "planStatusCompleted": "완료",
+    "terminalTasks": "터미널 작업",
+    "terminalIsolation": "명령은 격리된 샌드박스에서 실행되며 기본적으로 네트워크에 접근하지 않습니다",
+    "terminalStatusRunning": "실행 중",
+    "terminalStatusCompleted": "완료",
+    "terminalStatusFailed": "실패",
+    "terminalExitCode": "종료 코드",
+    "terminalOutput": "출력",
+    "terminalTruncated": "…(잘림, 전체 {total}자)",
+    "compactionToast": "컨텍스트가 자동 압축되었습니다({before} → {after} tokens)"
   },
   "agentDialogue": {
     "sendFailed": "전송 실패, 재시도",
@@ -2689,7 +2749,9 @@
     "me": "나",
     "studyHours": "{count}시간 학습",
     "anonymous": "익명 사용자",
-    "title": "순위"
+    "title": "순위",
+    "histFallback": "기록 대화",
+    "visitorName": "랭킹 게스트"
   },
   "recruitment": {
     "title": "트레이더 계획",
@@ -3884,7 +3946,12 @@
     "modelLabel": "모델",
     "stop": "중지",
     "thinking": "생각 중...",
-    "title": "IHUI AI"
+    "title": "IHUI AI",
+    "untitledChat": "제목 없는 대화",
+    "terminal": {
+      "waitingInput": "입력 대기",
+      "mobileUnsupported": "모바일 터미널 미지원"
+    }
   },
   "tabBar": {
     "community": "커뮤니티",
@@ -4395,7 +4462,9 @@
     "name": "서클 이름",
     "namePlaceholder": "서클 이름 입력",
     "submit": "생성",
-    "title": "서클 만들기"
+    "title": "서클 만들기",
+    "nameRequired": "이름을 입력하세요",
+    "saveFailed": "생성 실패"
   },
   "learndevelop": {
     "d1": "프론트엔드 엔지니어",
@@ -4816,7 +4885,19 @@
     "logout": "로그아웃",
     "myFavorites": "내 즐겨찾기",
     "myOrders": "내 주문",
-    "editProfile": "프로필 편집"
+    "editProfile": "프로필 편집",
+    "downloadFailRetry": "다운로드 실패, 다시 시도해 주세요",
+    "shareBtn": "공유",
+    "n8nHideAnswer": "답변 숨기기",
+    "n8nShowAnswer": "답변 보기",
+    "n8nThinking": "사고 과정",
+    "n8nCopyAnswer": "답변 복사",
+    "n8nDownloadImg": "이미지 다운로드",
+    "n8nCopyOk": "복사 성공",
+    "n8nCopyFail": "복사 실패",
+    "n8nShareFail": "공유 실패",
+    "n8nGenBadge": "AI 생성 · 포인트 사용:",
+    "n8nHoldToTalk": "길게 눌러 질문 말하기"
   },
   "verify": {
     "phoneEmpty": "휴대폰 번호가 비어 있습니다",
@@ -5246,8 +5327,7 @@
       "late": "지각",
       "absent": "결석",
       "leave": "조퇴"
-    }
-,
+    },
     "student": "학생"
   },
   "eduMgmt": {
@@ -6265,7 +6345,8 @@
     "loadFailed": "워크플로우를 불러오지 못했습니다"
   },
   "menu": {
-    "sectionDiscover": "발견"
+    "sectionDiscover": "발견",
+    "ranking": "순위"
   },
   "agentScreen": {
     "loadFailed": "에이전트 불러오기 실패",
@@ -7139,7 +7220,9 @@
       "aiTitle": "AI 메시지",
       "message": "스크린샷이 생성되었습니다",
       "shareBtn": "공유"
-    }
+    },
+    "errorTitle": "요청 오류",
+    "errorRetry": "재시도"
   },
   "mat": {
     "unknown": "알 수 없는 오류",
@@ -7409,8 +7492,7 @@
     "changePassword": "비밀번호 변경",
     "newPassword": "새 비밀번호",
     "language": "언어",
-    "theme": "테마"
-,
+    "theme": "테마",
     "version": "버전"
   },
   "liveList": {
@@ -7454,7 +7536,8 @@
     "members": "멤버",
     "membersAction": "멤버",
     "post": "게시물 작성",
-    "posts": "게시물"
+    "posts": "게시물",
+    "loadFailed": "불러오기 실패"
   },
   "examResult": {
     "loadFailed": "불러오기 실패",
@@ -7579,8 +7662,7 @@
     "feature": "기능",
     "premium": "프리미엄",
     "title": "회원 비교"
-  }
-,
+  },
   "coupon": {
     "useHint": "상품 페이지에서 사용해 주세요"
   },
@@ -7609,5 +7691,15 @@
     "teacher": "담당",
     "time": "시간",
     "weekdayTitle": "요일"
+  },
+  "taskStatus": {
+    "addedCount": "+{n}",
+    "removedCount": "-{n}"
+  },
+  "drawer": {
+    "claimFree": "무료 자료 받기"
+  },
+  "studyIndex": {
+    "receiveFreeBody": "링크가 클립보드에 복사되었습니다. 브라우저에서 붙여넣어 여세요"
   }
 }

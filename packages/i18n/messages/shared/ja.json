@@ -80,6 +80,8 @@
     "toolAudioTranscription": "音声を書き起こし",
     "toolVisionAnalyze": "画像を解析",
     "toolDispatchSubagent": "サブエージェントを派遣",
+    "toolInitAgentsMd": "エージェント文書の初期化",
+    "toolTeamTask": "チームタスク",
     "toolScheduleTask": "定期タスクを作成",
     "toolBgTaskStatus": "バックグラウンドタスクを確認",
     "toolUiDescribe": "ページのコントロールを読み取り",
