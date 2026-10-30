@@ -27,6 +27,7 @@ import {
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { computeBackupPlan, applyBackup } from './relay-session-backup.js'
 import {
   appendOps,
   applyTransfers,
@@ -454,6 +455,56 @@ export function fmtTarget(t: SwitchTarget): string {
   return `${t.name}  ${t.nickname ?? '(无昵称)'}${phone}  domain=${t.domain ?? '?'}  令牌过期=${exp}${t.expired ? '(已过期)' : ''}  形态=${t.tokenShape}  sha=${t.sha12}${flag}`
 }
 
+/** 同步从 stdin 读一行(仅 TTY 有效;非 TTY 返回空串,绝不阻塞) */
+function readLineSync(promptText: string): string {
+  if (!process.stdin.isTTY) return ''
+  process.stdout.write(promptText)
+  try {
+    return readFileSync(0, 'utf8').split(/\r?\n/)[0]?.trim() ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 一键模式前置:确保「当日会话库快照」存在(session-move swap 红线的硬性前提)。
+ * 已有任意 manifest 即满足;否则自动建一个(只读源 + 写快照,安全)。
+ */
+function ensureSessionBackup(
+  now: Date,
+  home = homedir(),
+): { ok: boolean; path?: string; error?: string } {
+  const backupsDir = join(home, '.wb-switch', 'backups', 'sessions')
+  if (existsSync(backupsDir)) {
+    const hasManifest = readdirSync(backupsDir).some((d) => {
+      try {
+        return existsSync(join(backupsDir, d, 'manifest.json'))
+      } catch {
+        return false
+      }
+    })
+    if (hasManifest) return { ok: true }
+  }
+  const plan = computeBackupPlan(
+    join(home, '.workbuddy', 'workspace', 'sessions'),
+    join(home, '.workbuddy', 'projects'),
+    now,
+  )
+  let lock: { release: () => void } | null = null
+  try {
+    lock = acquireSessionLock(
+      join(home, '.wb-switch', 'relay', SESSION_STORE_LOCK_NAME),
+      'one-click-backup',
+    )
+    applyBackup(plan, { sessionsRoot: plan.sessionsRoot, projectsRoot: plan.projectsRoot })
+    return { ok: true, path: plan.destDir }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  } finally {
+    lock?.release()
+  }
+}
+
 export function main(
   argv: string[],
   pathsOverride?: SwitchPaths,
@@ -462,21 +513,55 @@ export function main(
   const paths = pathsOverride ?? defaultSwitchPaths()
   const toIdx = argv.indexOf('--to')
   const apply = argv.includes('--apply')
-  // --with-sessions 仅与 --apply 同时生效;不带 --apply 时只是预告,绝不写盘
-  const withSessions = argv.includes('--with-sessions')
+  const oneClick = argv.includes('--one-click')
+  // --one-click 隐含换桶(带对话过去 + 自动建会话库快照);否则沿用显式 --with-sessions
+  const withSessions = argv.includes('--with-sessions') || oneClick
   const lines: string[] = []
+  let targetName: string | undefined
   if (toIdx === -1) {
     const { current, targets } = listSwitchTargets(paths)
-    lines.push(`当前 auth 文件: ${paths.authFile}`)
-    if (current) lines.push(fmtTarget(current))
-    else lines.push('(当前文件不存在或不可解析)')
-    lines.push(`快照库: ${paths.backupsDir}(${targets.length} 份,新→旧)`)
-    for (const t of targets) lines.push(fmtTarget(t))
-    lines.push('切换: relay:switch-account --to <快照名> [--apply](不带 --apply 只出计划)')
-    console.log(lines.join('\n'))
-    return 0
+    if (!oneClick) {
+      lines.push(`当前 auth 文件: ${paths.authFile}`)
+      if (current) lines.push(fmtTarget(current))
+      else lines.push('(当前文件不存在或不可解析)')
+      lines.push(`快照库: ${paths.backupsDir}(${targets.length} 份,新→旧)`)
+      for (const t of targets) lines.push(fmtTarget(t))
+      lines.push('切换: relay:switch-account --to <快照名> [--apply](不带 --apply 只出计划)')
+      console.log(lines.join('\n'))
+      return 0
+    }
+    if (targets.length === 0) {
+      console.error('快照库为空,无可切换账号;先让目标账号登录过以生成快照')
+      return 2
+    }
+    if (process.stdin.isTTY) {
+      console.log(`可切换账号(${targets.length}):`)
+      targets.forEach((t, i) => console.log(`  [${i + 1}] ${fmtTarget(t)}`))
+      const ans = readLineSync('输入序号或快照名切到: ').trim()
+      if (!ans) {
+        console.error('未选择,已取消')
+        return 2
+      }
+      const byNum = Number(ans)
+      if (Number.isInteger(byNum) && byNum >= 1 && byNum <= targets.length) {
+        targetName = targets[byNum - 1]?.name
+      } else {
+        const hit = targets.find((t) => t.name === ans)
+        if (!hit) {
+          console.error(`未匹配到快照: ${ans}`)
+          return 2
+        }
+        targetName = hit.name
+      }
+    } else {
+      console.log('一键模式需指定目标: relay:switch-account --one-click --to <快照名> --apply')
+      console.log(`或在本机终端运行以交互选择。当前快照库(${targets.length} 份):`)
+      for (const t of targets) console.log(fmtTarget(t))
+      return 2
+    }
+  } else {
+    targetName = argv[toIdx + 1]
   }
-  const targetName = argv[toIdx + 1]
   if (!targetName) {
     console.error('--to 需要快照名')
     return 2
@@ -488,13 +573,30 @@ export function main(
     console.error(e instanceof Error ? e.message : String(e))
     return 2
   }
+  // 一键模式会自动换桶,移除计划里"会话面不会自动跟随"的误导提示
+  if (oneClick) {
+    plan.warnings = plan.warnings.filter((w) => !w.includes('会话面不会自动跟随'))
+  }
   lines.push(
     `计划: ${plan.authFile}\n  ← ${plan.targetName}\n  备份当前 → ${plan.backupPath}`,
     ...plan.warnings.map((w) => `  ⚠ ${w}`),
   )
+  // 一键 + apply:先确保当日会话库快照(换桶红线的硬性前提),失败即中止(不改动登录态)
+  if (oneClick && apply) {
+    const ensured = ensureSessionBackup(deps.now ?? new Date())
+    if (!ensured.ok) {
+      console.error(`⚠ 一键模式: 建立会话库快照失败,中止(未改动任何登录态): ${ensured.error}`)
+      return 1
+    }
+    lines.push(`会话库快照已就绪: ${ensured.path ?? '(已有当日快照)'}`)
+  }
   if (!apply) {
     if (withSessions) {
-      lines.push('(联动换桶: 加 --apply 后 auth 切换成功即自动换会话桶;换桶失败回滚 auth)')
+      lines.push(
+        oneClick
+          ? '(一键模式: 加 --apply 即自动建会话库快照并切号+换桶)'
+          : '(联动换桶: 加 --apply 后 auth 切换成功即自动换会话桶;换桶失败回滚 auth)',
+      )
     }
     lines.push('(dry-run,未写盘;确认后加 --apply)')
     console.log(lines.join('\n'))
@@ -510,7 +612,7 @@ export function main(
     console.log([...lines, switchedLine].join('\n'))
     return 0
   }
-  // --with-sessions:auth 已切 ⇒ 联动换桶(失败回滚 auth)
+  // --with-sessions / 一键:auth 已切 ⇒ 联动换桶(失败回滚 auth)
   const swapDeps = {
     movePaths: deps.movePaths ?? defaultMovePaths(),
     now: deps.now ?? new Date(),
