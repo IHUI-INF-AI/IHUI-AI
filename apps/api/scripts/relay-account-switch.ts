@@ -34,6 +34,7 @@ import {
   applyTransfers,
   defaultMovePaths,
   detectClientProcesses,
+  findTodaySnapshot,
   planSwap,
   type MovePaths,
   type MovePlan,
@@ -480,19 +481,15 @@ function ensureSessionBackup(
   home = homedir(),
 ): { ok: boolean; path?: string; error?: string } {
   const backupsDir = join(home, '.wb-switch', 'backups', 'sessions')
-  if (existsSync(backupsDir)) {
-    const hasManifest = readdirSync(backupsDir).some((d) => {
-      try {
-        return existsSync(join(backupsDir, d, 'manifest.json'))
-      } catch {
-        return false
-      }
-    })
-    if (hasManifest) return { ok: true }
-  }
+  const sessionsRoot = join(home, '.workbuddy', 'workspace', 'sessions')
+  const projectsRoot = join(home, '.workbuddy', 'projects')
+  // 判据必须与换桶前置同一份(planSwap 的「当日 + source 根匹配」manifest):
+  // 此前用"任意子目录有 manifest 即算就绪" ⇒ 昨天有快照、今天没跑备份时这里放行,
+  // 切完 auth 才被 swap 以"当日快照缺失"拒绝 ⇒ 白忙一场再回滚(2026-10-30 代码复核实测)。
+  if (findTodaySnapshot(backupsDir, sessionsRoot, projectsRoot, now)) return { ok: true }
   const plan = computeBackupPlan(
-    join(home, '.workbuddy', 'workspace', 'sessions'),
-    join(home, '.workbuddy', 'projects'),
+    sessionsRoot,
+    projectsRoot,
     now,
     // 目的地跟随 home(测试注入临时 home 时绝不落到真实 ~/.wb-switch)
     join(backupsDir, backupStampOf(now)),
