@@ -135,6 +135,20 @@ async def test_register_invalid_transport(ac):
     assert "transport" in res.json()["error"]
 
 
+@pytest.fixture(autouse=True)
+def _stdio_gate_preconditions(monkeypatch):
+    """本文件测的是外部 server 的注册/归属/状态语义,不是 stdio 那两道新闸。
+
+    2026-10-31 起 stdio 注册要过"管理员角色 + 部署级可执行文件白名单"两道(缺陷与
+    正反例在 test_mcp_stdio_registration_gates.py)。这里只是把两个前置条件摆好,
+    让下面的用例继续测它们本来要测的东西 —— 不复制判据,只替换"调用方是谁"。
+    """
+    from app.routers import mcp as mcp_router
+
+    monkeypatch.setattr(mcp_router, "resolve_request_role_id", lambda request: 1)
+    monkeypatch.setenv("MCP_STDIO_COMMAND_ALLOWLIST", "echo,rm")
+
+
 @pytest.mark.asyncio
 async def test_register_stdio_missing_command(ac):
     """stdio 模式缺少 command 返回 400 错误。"""
