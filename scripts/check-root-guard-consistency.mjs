@@ -232,7 +232,8 @@ export function runFace(root, face) {
     throw e
   }
   const out = evaluateTargets({ manifest, readFile: makeTargetReader(readTarget, root), root })
-  return { ...out, why: '' }
+  // 必须带 base:face 只在 base 上,漏了它会让人读输出印成 face=undefined(2026-10-30 实测)。
+  return { ...base, ...out, why: '' }
 }
 
 /** 人读输出:判红逐条点名 + 唯一那条修法;未判定点名缺了哪个输入。 */
