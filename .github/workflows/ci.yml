@@ -111,7 +111,10 @@ jobs:
 
       # WXT 生成 apps/extension/.wxt/tsconfig.json(extension 的 tsconfig 继承它)。
       # 缺此步 -> TS5083 读不到文件, 连带 200+ 个路径解析/自动导入错误(2026-09-10 实测)。
-      # 本地由 apps/extension 的 postinstall 兜底, CI 显式前置保证确定性。
+      # 本地兜底腿(2026-10-30 改):`pnpm --filter @ihui/extension typecheck` 自带 `wxt prepare`,
+      # 而 `wxt dev` / `wxt build` 经 rebuild.mjs 的 generateWxtDir 自动补类型;install 期不再跑
+      # prepare —— 那时 workspace 包的 dist 还没构建,干净检出上必然解析失败(见 ci-monorepo.yml 同条注记)。
+      # CI 显式前置保证确定性。
       - name: Prepare WXT types (extension)
         id: wxt-prepare
         run: pnpm --filter @ihui/extension exec wxt prepare
@@ -503,6 +506,5 @@ jobs:
           path: sbom/sbom.cdx.json
           # 没有产物就是失败,不能"上传了 0 个文件还记绿"
           if-no-files-found: error
-
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
