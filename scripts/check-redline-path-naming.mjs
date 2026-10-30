@@ -963,16 +963,23 @@ export function runProbe(root, headSha, probe, staticVerdict, opts = {}) {
   // 本次造出的 commit 的处置账(返回体里带出去,报告要打印 —— 处置失败不许静默)
   const residue = { tagged: [], alreadyTagged: [], failures: [] }
   const cleanup = () => {
-    // ⚠ 顺序是硬约束:保活必须在 worktree remove 之前。removed 之后 diff 基点没了,
-    // 且 commit 已不可达 —— 那时再补 tag 只是把症状按住,不是修根因。
+    // ⚠ 顺序是硬约束(两条,方向都是"先让前置条件真成立,再做依赖它的那一步"):
+    //  ① 保活必须在 worktree remove 之前:removed 之后 diff 基点没了,且 commit 已不可达
+    //     —— 那时再补 tag 只是把症状按住,不是修根因。
+    //  ② prune 必须排在 rmScratch **之后**(2026-10-30 立):`worktree remove --force` 会失败
+    //     (目录被占用 / 含未跟踪件),此时注册表条目仍指向一个活目录 ⇒ prune 结构上摘不掉;
+    //     目录真没了之后 prune 才摘得掉。顺序颠倒的后果是**每条探针**都永久多一条 prunable
+    //     条目,而编辑器 SCM 把 `git worktree list` 的每一条都当独立仓 ⇒ 变更数合计爆表
+    //     (与 safe-commit.mjs 三处同型,同一根因、同一修法)。
+    //     另:prune 的 cwd 必须是**仓根**而非 wt —— wt 已被删时 `-C wt` 连目录都进不去。
     Object.assign(residue, retainProbeCommits(root, wt, headSha, probe))
     gitIn(wt, ['worktree', 'remove', '--force', wt], root)
-    gitIn(wt, ['worktree', 'prune'], root)
     try {
       rmScratch(scratch)
     } catch {
       /* §26 每日 Temp 体检兜 */
     }
+    gitIn(root, ['worktree', 'prune'], root)
   }
   if (!opts.keepScratch) process.on('exit', cleanup)
   const add = spawnSync(

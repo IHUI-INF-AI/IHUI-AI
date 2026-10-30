@@ -28,7 +28,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-port-registry.mjs')
 //   extension 段起点都是 8840 —— 三副本今天确实漂了这一格,漂的正是无人对账的那一份(见 T-DRIFT)。
 // - EXEMPT_PORTS:5432/6379/443/80/22 等(基础设施/CI/第三方);9997 = Xinference 自托管出厂口
 // - EXEMPT_PATH_PATTERNS:docs/ / .github/workflows/ / apps/api/tests/ 等
-// - warn-only:违规时 exit 1(仅供 runner 计 warning,不阻塞 commit),通过 stdout 区分 ✅ / ⚠️
+// - warn-only:违规时 exit 0(只提醒、不阻塞;2026-10-30 改判,原 exit 1 会让 CI 直跑该步骤变红),通过 stdout 区分 ✅ / ⚠️
 // - 两种模式:默认(staged) / --all(git ls-files 全量 tracked)
 // - P1 对账(同一票新增):docs §2 表端口 ↔ 派生集**双向**比较,文档多报/注册表多认领都点名
 
@@ -177,10 +177,12 @@ function assertPass(r) {
   assert.match(r.stdout, /✅.*无违规端口/, `stdout 应含 ✅ 无违规端口\nstdout: ${r.stdout}`)
 }
 
-// ─── 辅助:断言违规提醒(warn-only 违规 exit 1 + stdout 含 ⚠️ 提醒) ───
-// 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-port-registry.mjs:266-270 注释 + runner id 24b mode=warn)
+// ─── 辅助:断言违规提醒(warn-only 违规 exit 0 + stdout 含 ⚠️ 提醒) ───
+// 2026-10-30 改判:warn-only 的唯一合法含义是「提醒到位、不以失败收场」。旧口径 exit 1 是为让
+// guardian-runner 计 warned,但同一个退出码又被 CI 的 port-registry-check(`--all` 直跑)读成作业失败
+// ⇒ 一处提醒把整条 CI 钉红(§12e 形态)。现一致 exit 0;违规仍逐处打印,靠下面的 stdout 断言防静默过滤。
 function assertWarn(r) {
-  assert.equal(r.status, 1, `warn-only 违规应 exit 1,实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+  assert.equal(r.status, 0, `warn-only 违规应 exit 0(只提醒),实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
   assert.match(r.stdout, /⚠️.*端口注册表守门提醒/, `stdout 应含 ⚠️ 提醒\nstdout: ${r.stdout}`)
 }
 
@@ -365,6 +367,58 @@ test('豁免: apps/api/tests/ 路径含违规端口 7777 → 不扫描', () => {
   }
 })
 
+// ─── 12b. 逐文件豁免(2026-10-30 立):三条"像端口、其实不是监听口"的示例地址 ───
+// 命中处原文都逐行读过:记忆正文 / 测试夹具 / e2e 写库样例,均不是本仓会占口的 dev/宿主映射端口。
+test('豁免:记忆正文 / 账号代理测试夹具 / e2e 写库样例里的示例地址不判违规', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(
+      dir,
+      'apps/ai-service/app/skills/content_engine/已发布内容记忆.json',
+      '{"changes":"本机挂了 127.0.0.1:50749 代理,不清除则页面返回空文档"}\n',
+    )
+    stageFile(
+      dir,
+      'apps/web/app/(main)/admin/relay/account-proxy/__tests__/page.test.tsx',
+      "const socks = 'socks5://127.0.0.1:1080'\nconst ftp = 'ftp://127.0.0.1:21'\n",
+    )
+    stageFile(dir, 'apps/web/e2e/admin-relay-account-proxy.spec.ts', "const PROBE_URL = 'http://127.0.0.1:18080'\n")
+    // 豁免文件不计 scannedCount,补一个合规文件让 ✅ 行真的打印出来(否则"零扫描"也会绿)
+    stageFile(dir, 'apps/web/ok.ts', "const API = 'http://localhost:8801/api'\n")
+    const r = runScript(dir, ['--all'])
+    assertPass(r)
+    assert.doesNotMatch(
+      r.stdout,
+      /127\.0\.0\.1:(50749|1080|18080|21)\b/,
+      `逐文件豁免未生效(示例地址仍被报)\nstdout: ${r.stdout}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 12c. 豁免边界(反向对照):同目录兄弟文件里的同类引用仍判 ⚠️ ───
+// 证明上一条不是"整目录放行"——豁免必须逐文件点名,否则 e2e/测试目录里日后真起服务的口会被静默吞掉。
+test('豁免边界:同目录兄弟文件里的同类引用仍判 ⚠️(豁免按文件,不按目录)', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'apps/ai-service/app/skills/content_engine/other.json', '{"note":"127.0.0.1:50749"}\n')
+    stageFile(
+      dir,
+      'apps/web/app/(main)/admin/relay/account-proxy/__tests__/other.test.tsx',
+      "const v = 'http://127.0.0.1:1080'\n",
+    )
+    stageFile(dir, 'apps/web/e2e/other.spec.ts', "const u = 'http://127.0.0.1:18080'\n")
+    const r = runScript(dir, ['--all'])
+    assertWarn(r)
+    assert.match(r.stdout, /other\.json:1\s+127\.0\.0\.1:50749/, `other.json 未被报\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /other\.test\.tsx:1\s+127\.0\.0\.1:1080/, `other.test.tsx 未被报\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /other\.spec\.ts:1\s+127\.0\.0\.1:18080/, `other.spec.ts 未被报\nstdout: ${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ============================================================
 // 检查 8:模式 —— 默认 staged 模式 vs --all 模式
 // ============================================================
@@ -391,12 +445,12 @@ test('staged 模式: staged 文件含违规端口 7777 → ⚠️ 报告', () =>
 // 全量审计会"绿着漏过"。现在失败必须**出声**并退到 staged 口径,同时不得声称"扫描通过"。
 test('非 git 环境 --all 模式: git ls-files 失败 → 显式告警并回退 staged,不静默判绿', () => {
   const dir = mkScratch('ihui-port-nogit-')
-  // 夹具前提自证 —— 2026-10-29 立「不置 ceiling 时 scratch 仍被主仓管辖(⇒ status 0)」,
-  // 2026-10-30 更正:那条断言写死了**当时的落点**(`<repoRoot>/.DevEnv/Temp/…`)。现读
-  // `scratchRoot()` 已把夹具放到系统临时目录(`os.tmpdir()/ihui-scratch/…`),不在任何仓
-  // 管辖内 ⇒ 裸跑 `git ls-files` 直接 128「not a git repository」⇒ 旧断言恒红(本机实测)。
-  // 布局是别人的实现细节,不该被当作本例的前提。本例**真正**依赖的只有一条:该目录不是
-  // git 工作树。ceiling 因此退化为「万一落点又回到仓内」时的保险,按需启用而非必置。
+  // 夹具前提自证(2026-10-29 补):G-158 之后 mkScratch 落在 `<repoRoot>/.DevEnv/Temp/…` 之下,
+  // 路径仍在主仓管辖内 ⇒ git 向上就能找到 .git ⇒ `ls-files` 返回 0 个文件而**不是失败** ⇒
+  // 本例要测的"回退分支"根本进不去(所以它此前在本地长期静默失效)。正解不是把 scratch 搬出
+  // 仓外(§15b 的落点是定死的),而是用 git 自带机制造出非 git 目录:GIT_CEILING_DIRECTORIES
+  // 让向上查找在此止步。本机实测:不置 ⇒ status 0;置(正/反斜杠皆可)⇒ status 128
+  // 「not a git repository」。
   const ceiling = dirname(dir)
   const probeGit = (isolate) =>
     spawnSync('git', ['ls-files'], {
@@ -406,17 +460,15 @@ test('非 git 环境 --all 模式: git ls-files 失败 → 显式告警并回退
       env: isolate ? { ...process.env, GIT_CEILING_DIRECTORIES: ceiling } : process.env,
     })
   try {
-    const bare = probeGit(false)
-    const isolated = bare.status === 0 ? probeGit(true) : bare
-    assert.notEqual(
-      isolated.status,
+    assert.equal(
+      probeGit(false).status,
       0,
-      `夹具自证失败:${dir} 仍被当成 git 工作树(裸跑 status=${bare.status},按需置 ceiling 后 status=${isolated.status})`,
+      '前提破了:不置 ceiling 时 scratch 应当仍被主仓管辖(⇒ 本例必须显式造非 git)',
     )
-    assert.match(
-      isolated.stderr,
-      /not a git repository/i,
-      `夹具自证:失败原因必须是"不是 git 仓",实际 stderr: ${isolated.stderr}`,
+    assert.notEqual(
+      probeGit(true).status,
+      0,
+      `夹具自证失败:置 GIT_CEILING_DIRECTORIES=${ceiling} 后该目录仍被当成 git 仓`,
     )
     // 不 init git,直接跑 --all(此刻该目录已被 ceiling 显式隔离在主仓之外)
     const r = runScript(dir, ['--all'], { GIT_CEILING_DIRECTORIES: ceiling })

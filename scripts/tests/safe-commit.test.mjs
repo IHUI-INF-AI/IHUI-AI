@@ -396,3 +396,23 @@ test('G-1118437 一次真实的 safe-commit 提交 ⇒ 留痕含 gates-then-comm
   assert.equal(r.rows[0].normal, 1, `统计器没把这枚读成 normal:${JSON.stringify(r.detail)}`)
   assert.equal(r.rows[0].unknown, 0)
 })
+
+
+test('收尾顺序锁:prune 必须排在 rmScratch 之后(旧形态每轮提交永久留一条 prunable worktree)', () => {
+  const src = readFileSync(join(HERE, '..', 'safe-commit.mjs'), 'utf8')
+  const prunes = [...src.matchAll(/gitStep\(\['worktree', 'prune'\]/g)].map((m) => m.index)
+  assert.ok(prunes.length >= 3, `prune 调用点少于预期(${prunes.length}),锁失效`)
+  for (const i of prunes) {
+    const before = src.slice(Math.max(0, i - 600), i)
+    assert.match(
+      before,
+      /rmScratch\(scratch\)/,
+      `prune@${i} 之前必须先删目录:目录还在时 prune 结构上清不到,目录一删条目就变 prunable 且再无人处理 ⇒ 每轮提交永久多一条,编辑器 SCM 把它们当独立仓合计成 10K/20K 徽标`,
+    )
+  }
+  assert.equal(
+    /gitStep\(\['worktree', 'prune'\][^\n]*\n\s*try \{\n\s*rmScratch\(/.test(src),
+    false,
+    '旧形态(prune → rmScratch)不得回来',
+  )
+})
