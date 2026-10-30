@@ -259,6 +259,8 @@
     "sourceCodex": "Codex CLI 的 rollout 會話日誌",
     "sourceCursor": "Cursor 導出的 chat JSON / state.vscdb(SQLite) / cursor-agent 轉寫",
     "sourceAider": "Aider 寫在倉庫內的 chat markdown 記錄",
+    "sourceChatgpt": "ChatGPT 網頁版官方匯出(conversations.json)",
+    "sourceClaudeAi": "Claude.ai 網頁版匯出目錄內的 conversation-*.json",
     "invalidSource": "無效的會話來源: {valueValue}",
     "validValues": "  有效值: {values}",
     "sourcesHint": "  查看各來源說明: ihui import sessions sources",
@@ -540,5 +542,18 @@
     "instanceShowDesc": "查看實例詳情(含 tasks)",
     "cancelDesc": "取消運行中實例",
     "unknownValue": "(未知)"
+  },
+  "cliWiki": {
+    "description": "編譯式知識引擎(知識卡片與 wiki,對接 ai-service)",
+    "compileDescription": "從程式碼索引與跨工作階段記憶編譯知識卡片和 wiki",
+    "statusDescription": "列出專案目前有效(未過期)的知識卡片",
+    "projectOption": "專案 ID(預設取目前目錄名)",
+    "dryRunOption": "只計算,不寫入檔案",
+    "jsonOption": "以 JSON 格式輸出完整回應",
+    "compileDone": "✓ 編譯完成:{cards} 張卡片、{wikiFiles} 個 wiki 檔案、拒絕 {rejected} 條",
+    "dryRunDone": "✓ 試運行完成:{cards} 張卡片、拒絕 {rejected} 條(未寫入)",
+    "rejectedTitle": "被拒絕條目:",
+    "statusTitle": "有效知識卡片({total} 張):",
+    "statusEmpty": "(尚無有效知識卡片,請先執行 ihui wiki compile)"
   }
 }

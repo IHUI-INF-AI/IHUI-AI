@@ -259,6 +259,8 @@
     "sourceCodex": "Codex CLI rollout session logs",
     "sourceCursor": "Cursor exported chat JSON / state.vscdb (SQLite) / cursor-agent transcripts",
     "sourceAider": "Aider chat markdown written into the repository",
+    "sourceChatgpt": "ChatGPT web official export (conversations.json)",
+    "sourceClaudeAi": "Claude.ai web export conversation-*.json files",
     "invalidSource": "Invalid session source: {valueValue}",
     "validValues": "  Valid values: {values}",
     "sourcesHint": "  Inspect each source with: ihui import sessions sources",
@@ -540,5 +542,18 @@
     "instanceShowDesc": "Show instance details (including tasks)",
     "cancelDesc": "Cancel a running instance",
     "unknownValue": "(unknown)"
+  },
+  "cliWiki": {
+    "description": "Compiled knowledge engine (wiki cards & status, backed by ai-service)",
+    "compileDescription": "Compile knowledge cards and wiki from codebase index and cross-session memory",
+    "statusDescription": "List active (non-expired) knowledge cards for the project",
+    "projectOption": "Project ID (defaults to current directory name)",
+    "dryRunOption": "Compute only, do not write files",
+    "jsonOption": "Print the full response as JSON",
+    "compileDone": "✓ Compile done: {cards} cards, {wikiFiles} wiki files, {rejected} rejected entries",
+    "dryRunDone": "✓ Dry run done: {cards} cards, {rejected} rejected entries (nothing written)",
+    "rejectedTitle": "Rejected entries:",
+    "statusTitle": "Active knowledge cards ({total}):",
+    "statusEmpty": "(No active knowledge cards. Run: ihui wiki compile)"
   }
 }

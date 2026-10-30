@@ -259,6 +259,8 @@
     "sourceCodex": "Codex CLI の rollout セッションログ",
     "sourceCursor": "Cursor が出力した chat JSON / state.vscdb(SQLite) / cursor-agent 転写",
     "sourceAider": "Aider がリポジトリ内に書き込む chat markdown 記録",
+    "sourceChatgpt": "ChatGPT Web 公式エクスポート(conversations.json)",
+    "sourceClaudeAi": "Claude.ai Web エクスポート内の conversation-*.json ファイル",
     "invalidSource": "無効なセッション来源: {valueValue}",
     "validValues": "  有効な値: {values}",
     "sourcesHint": "  各来源の説明は次で確認: ihui import sessions sources",
@@ -540,5 +542,18 @@
     "instanceShowDesc": "インスタンス詳細を表示(tasks 含む)",
     "cancelDesc": "実行中のインスタンスをキャンセル",
     "unknownValue": "(不明)"
+  },
+  "cliWiki": {
+    "description": "コンパイル型ナレッジエンジン(ナレッジカードと wiki、ai-service 連携)",
+    "compileDescription": "コードインデックスとセッション横断メモリからナレッジカードと wiki をコンパイル",
+    "statusDescription": "プロジェクトの有効(期限切れでない)ナレッジカードを一覧表示",
+    "projectOption": "プロジェクト ID(省略時は現在のディレクトリ名)",
+    "dryRunOption": "計算のみ、ファイル書き込みなし",
+    "jsonOption": "完全なレスポンスを JSON で出力",
+    "compileDone": "✓ コンパイル完了:カード {cards} 件、wiki ファイル {wikiFiles} 件、拒否 {rejected} 件",
+    "dryRunDone": "✓ ドライラン完了:カード {cards} 件、拒否 {rejected} 件(書き込みなし)",
+    "rejectedTitle": "拒否されたエントリ:",
+    "statusTitle": "有効なナレッジカード({total} 件):",
+    "statusEmpty": "(有効なナレッジカードがありません。まず ihui wiki compile を実行してください)"
   }
 }
