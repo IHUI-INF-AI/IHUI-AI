@@ -36,7 +36,8 @@
     "relay:session-export": "tsx scripts/relay-session-export.ts",
     "relay:session-ops": "tsx scripts/relay-session-ops.ts",
     "relay:qoder-sessions": "tsx scripts/relay-session-qoder.ts",
-    "relay:qoder-models": "tsx scripts/relay-qoder-models.ts"
+    "relay:qoder-models": "tsx scripts/relay-qoder-models.ts",
+    "relay:login-local-verified": "tsx --env-file=.env scripts/relay-login-local-verified.ts"
   },
   "dependencies": {
     "@alicloud/dysmsapi20170525": "^4.6.0",
