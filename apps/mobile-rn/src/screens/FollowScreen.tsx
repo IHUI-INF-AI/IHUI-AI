@@ -68,7 +68,8 @@ export function FollowScreen() {
   const onSelectTab = (next: FollowTab) => {
     if (next === tab) return
     setTab(next)
-    setTimeout(refresh, 0)
+    // fetcher 已随 tab 变化触发 usePaginatedList 的自动重取;这里再 refresh 一次
+    // 调的是**上一次渲染**的闭包(绑旧 tab)⇒ 两个请求竞速,旧结果后到会覆盖新 tab 的列表。
   }
 
   // 取关确认弹窗:uni.showModal → RN Alert(取消/取消关注·destructive)

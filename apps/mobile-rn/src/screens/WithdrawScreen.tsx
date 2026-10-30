@@ -47,7 +47,14 @@ export function WithdrawScreen() {
           accountType: 'bank_card',
         }),
       })
-      if (!resp.success) throw new Error('http')
+      if (!resp.success) {
+        // 透出后端 message:开了两步验证的账号会收到 STEP_UP_REQUIRED 的明确指引
+        // (「该操作需要二次验证:请先提交当前 TOTP 验证码」),而原先一律
+        // `throw new Error('http')` 被 catch 压成一句"提现失败" ⇒ 用户只知道反复点提交,
+        // 不知道去哪一步验证。step-up 的输入流程本屏未实现(需跨端 TOTP 面板),如实透出即可。
+        setError(resp.error || t('withdraw.failed'))
+        return
+      }
       setSuccess(t('withdraw.success'))
       setAmount('')
       setBankCardId('')
