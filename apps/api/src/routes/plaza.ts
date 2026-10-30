@@ -9,6 +9,11 @@ import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
+import {
+  USER_PREFERENCE_GROUPS,
+  findUserPreferences,
+  upsertUserPreference,
+} from '../db/user-preferences-queries.js'
 
 // =============================================================================
 // 查询参数
@@ -148,6 +153,42 @@ export const plazaRoutes: FastifyPluginAsync = async (server) => {
       .returning()
     if (!created) return reply.status(500).send(error(500, '发布需求失败'))
     return reply.status(201).send(success(created))
+  })
+
+  // GET/POST /need — 「我的需求偏好」(小程序 pkg-content/plaza/set-need)
+  // 这是登录用户的私有偏好,不是广场公开条目;落 user_preferences(group='plaza_need')。
+  const plazaNeedSchema = z.object({
+    categories: z.array(z.string().max(32)).max(20).default([]),
+    level: z.string().max(32).default(''),
+    budget: z.string().max(32).default(''),
+  })
+
+  server.get('/need', async (request, reply) => {
+    const { list } = await findUserPreferences(request.userId!, USER_PREFERENCE_GROUPS.plazaNeed)
+    const row = list.find((p) => p.key === 'profile')
+    let profile: unknown = {}
+    if (row?.value) {
+      try {
+        profile = JSON.parse(row.value)
+      } catch {
+        profile = {}
+      }
+    }
+    return reply.send(success(profile))
+  })
+
+  server.post('/need', async (request, reply) => {
+    const parsed = plazaNeedSchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    await upsertUserPreference(
+      request.userId!,
+      USER_PREFERENCE_GROUPS.plazaNeed,
+      'profile',
+      JSON.stringify(parsed.data),
+    )
+    return reply.send(success(parsed.data))
   })
 
   server.get('/:id', async (request, reply) => {
