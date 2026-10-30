@@ -1270,6 +1270,11 @@
       "shared": "packages/app/src/features/ranking-detail/RankingDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/RankingDetailScreen.tsx",
       "miniapp": "pkg-user/ranking-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/ranking/RankingScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RankingScreen.tsx",
+      "miniapp": "pkg-mirror/ranking/index"
     }
   ]
 }
