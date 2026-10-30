@@ -29,6 +29,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 interface AigcRecord {
   recordId: string
@@ -84,7 +85,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
       case 'image':
         return (
           <Image
-            src={url}
+            src={toMediaImageUrl(url)}
             alt={record.prompt}
             width={800}
             height={600}
@@ -195,7 +196,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                   <div className="relative flex h-24 items-center justify-center overflow-hidden rounded bg-muted">
                     {record.type === 'image' && record.resultUrl ? (
                       <Image
-                        src={record.resultUrl}
+                        src={toMediaImageUrl(record.resultUrl)}
                         alt={record.prompt}
                         fill
                         unoptimized

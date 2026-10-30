@@ -23,6 +23,7 @@ import {
 
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 import type { ReferenceType, ReferenceItem } from '@/hooks/use-message-references'
 
@@ -87,7 +88,7 @@ export function ContextReferencePanel({
                   {/* 图片/视频缩略图优先显示(覆盖默认图标) */}
                   {hasThumbnail && ref.type === 'image' ? (
                     <Image
-                      src={ref.thumbnail as string}
+                      src={toMediaImageUrl(ref.thumbnail as string)}
                       alt={ref.label}
                       width={40}
                       height={40}
@@ -202,7 +203,7 @@ export function ContextReferencePanel({
                     {ref.type === 'image' ? (
                       <div className="relative h-64 w-full">
                         <Image
-                          src={ref.thumbnail as string}
+                          src={toMediaImageUrl(ref.thumbnail as string)}
                           alt={ref.label}
                           fill
                           className="rounded-md object-contain"

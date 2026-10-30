@@ -26,6 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 const SIZES = ['1024x1024', '1365x1024', '1024x1365'] as const
 const MODELS = ['recraftv3', 'recraft20b'] as const
@@ -146,7 +147,7 @@ export function ImageGenRecraft() {
           {images.map((url) => (
             <div key={url} className="space-y-1">
               <Image
-                src={url}
+                src={toMediaImageUrl(url)}
                 alt={prompt}
                 width={800}
                 height={600}
