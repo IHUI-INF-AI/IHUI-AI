@@ -67,6 +67,16 @@ export type { SectionHeaderProps } from '../../../../packages/app/src/components
 // hook(零平台依赖),替身化等于把被测语义换成假货。
 export { useScreenReappear } from '../../../../packages/app/src/hooks/use-screen-reappear'
 export type { ScreenReappearAdapter } from '../../../../packages/app/src/hooks/use-screen-reappear'
+// 2026-10-31:聚焦描边唯一实现(守门 212)住在共享层 `use-wrap-focus`,端内 LoginScreen 的 2FA
+// 输入框与 MessageInput 的描边都从 @ihui/rn-app 取它。替身漏这组出口 ⇒ 消费屏挂载即
+// `No "useWrapFocus" export is defined on the "@ihui/rn-app" mock`(实测 g958 / login-region 两套件
+// 共 12 例因此红)。同上方纪律:直连真源码,不做假替身 —— 它判的就是"墨档从哪来"。
+export {
+  useWrapFocus,
+  wrapFocusBorder,
+  wrapFocusInk,
+} from '../../../../packages/app/src/hooks/use-wrap-focus'
+export type { WrapFocus, WrapFocusOptions } from '../../../../packages/app/src/hooks/use-wrap-focus'
 export { OrderScreen } from '../../../../packages/app/src/features/order/OrderScreen'
 export { PaymentScreen } from '../../../../packages/app/src/features/payment/PaymentScreen'
 export { WalletScreen } from '../../../../packages/app/src/features/wallet/WalletScreen'

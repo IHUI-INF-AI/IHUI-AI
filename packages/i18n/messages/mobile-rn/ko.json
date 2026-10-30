@@ -952,6 +952,7 @@
     "logoutConfirmBody": "이 계정에서 로그아웃하시겠어요?"
   },
   "menu": {
+    "artifacts": "산출물 센터",
     "about": "회사 소개",
     "feedback": "피드백",
     "privacy": "개인정보처리방침",

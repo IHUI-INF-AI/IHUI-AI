@@ -37,7 +37,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
 import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 export type { StudyTrackCategory, StudyVideoItem }
 
 /** 赛道分类 */
@@ -623,7 +623,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     tipMyModel: {
       width: 72,
-      height: 28,
+      height: rnGeometry.tapBox,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,

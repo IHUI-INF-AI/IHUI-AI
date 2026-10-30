@@ -157,7 +157,7 @@ export function FeedbackScreen({
                     <TouchableOpacity
                       onPress={() => handleRemoveImage(index)}
                       style={styles.imageRemove}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       accessibilityLabel={t('common.remove')}
                     >
                       <Text style={styles.imageRemoveText}>×</Text>

@@ -142,7 +142,7 @@ export function AigcPublishScreen({
             {files.map((f) => (
               <View key={f.id} style={styles.fileItem}>
                 <Image source={{ uri: f.url }} style={styles.fileImage} resizeMode="cover" />
-                <TouchableOpacity style={styles.fileRemove} onPress={() => onRemoveFile(f.id)}>
+                <TouchableOpacity hitSlop={7} style={styles.fileRemove} onPress={() => onRemoveFile(f.id)}>
                   <Text style={styles.fileRemoveText}>×</Text>
                 </TouchableOpacity>
               </View>

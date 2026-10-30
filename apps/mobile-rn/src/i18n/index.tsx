@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { LOCALE_STORAGE_KEY } from '@ihui/shared/constants'
 import { mergeMessages, translate, getValueByPath } from '@ihui/i18n/loader'
 import { DEFAULT_LOCALE, type Locale, type Messages } from '@ihui/i18n/types'
@@ -100,15 +100,34 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return () => registerLocaleSetter(null)
   }, [])
 
-  const t = (key: string, params?: Record<string, string | number>): string => {
-    const resolvedKey = key === 'course.pay' ? 'courseDetail.pay' : key
-    return translate(messages[locale], resolvedKey, {
-      fallback: messages[DEFAULT_LOCALE],
-      params,
-    })
-  }
+  // 2026-10-31 定身恢复(30565b6f8e 的 mobile-rn 侧被 9fdbc207ba 回退,同枚第五票):
+  // t 包 useCallback + value 走 useMemo —— 内联字面量每次渲染都新建 ⇒ 依赖 value/t 的
+  // effect 全部跟着重跑。回归锁 tests/i18n-provider-value-identity.test.tsx。
+  const t = useCallback(
+    (key: string, params?: Record<string, string | number>): string => {
+      const resolvedKey = key === 'course.pay' ? 'courseDetail.pay' : key
+      return translate(messages[locale], resolvedKey, {
+        fallback: messages[DEFAULT_LOCALE],
+        params,
+      })
+    },
+    [messages, locale],
+  )
 
-  return <I18nContext.Provider value={{ locale, setLocale, t }}>{children}</I18nContext.Provider>
+  const setLocaleStable = useCallback(
+    async (next: Locale) => {
+      await transport.setItem(LOCALE_STORAGE_KEY, next)
+      setLocaleState(next)
+    },
+    [],
+  )
+
+  const value = useMemo<I18nContextValue>(
+    () => ({ locale, setLocale: setLocaleStable, t }),
+    [locale, setLocaleStable, t],
+  )
+
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 
 export function useI18n(): I18nContextValue {

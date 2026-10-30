@@ -316,7 +316,7 @@ export function VoiceInput({
         <Pressable
           style={styles.clearBtn}
           onPress={handleClear}
-          hitSlop={4}
+          hitSlop={6}
           accessibilityRole="button"
           accessibilityLabel={t('voice.clearResult')}
         >
