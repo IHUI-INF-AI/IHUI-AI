@@ -29,6 +29,14 @@ export type TypeStep = {
 }
 
 export const TYPE_STEPS = {
+  /**
+   * 计数徽章 / 缩略图角标 10:**不是新造一档** —— web 侧「数字计数徽章模板」(AGENTS §4)早就强制
+   * `text-[10px] font-semibold leading-none tabular-nums`,而本表一直没有这一档,于是 RN 端内
+   * 86 处裸写 `fontSize: 10`(没有地方落档),另有 11 处写得更小(9px,手机上已不可读)。
+   * 把 web 既成事实的 10 落进表,端内的裸数字才有合法去处;**低于本档的字号三端一律不再合法**。
+   * 取值:10(web 模板现值)/ 行高 12(size×1.2,徽章是单行贴边文字,套 1.4 会把徽章盒子撑高)/ 字重 600(web 模板 `font-semibold`)。
+   */
+  badge: { size: 10, lineHeight: 12, weight: 600 },
   /** 辅助说明 / 日期分组(对齐 geometry.textCaption=11) */
   caption: { size: 11, lineHeight: 16, weight: 400 },
   /** 标签 / 空态文案(对齐 geometry.textLabel=12) */

@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 9,
+    fontSize: rnType.badge.size,
     fontWeight: '700',
     color: tokens.text.primary,
   },
