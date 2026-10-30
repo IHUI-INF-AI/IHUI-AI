@@ -48,7 +48,12 @@ const deleteWatchQuery = z.object({
   id: z.uuid({ error: '无效的 ID' }),
 })
 
-const clearWatchQuery = z.object({})
+// G-261 形状闸:清空范围只认令牌主体(§5 认证不等于授权),但**非法的 ?userId= 必须 400**,
+// 不能悄悄把它当垃圾参数丢掉后回 200 —— 那正是"500/200 掩盖 400"那一型的镜像:
+// 客户端拿到 200 会以为"按这个会员清过了",实际一位没清。
+// 2026-10-30 的安全强化把它改成了 z.object({}),闸就此消失,而路由 schema 里的注释
+// 仍写着"uuid 由 clearWatchQuery(Zod)校验" —— 注释与实现脱节比缺闸更难查。
+const clearWatchQuery = z.object({ userId: z.uuid({ error: 'userId 格式不正确' }).optional() })
 
 const likeCountsSchema = z.object({
   resourceType: z.string().min(1).max(50),
