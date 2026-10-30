@@ -9109,25 +9109,49 @@ async def _tool_bg_task_status(arguments: dict[str, Any]) -> dict[str, Any]:
     """bg_task_status:查询单个后台任务状态,或不传 task_id 时列出某用户的任务。"""
     from .background_tasks import background_task_manager
 
+    host_user_id = arguments.get("__user_id")
+    if not isinstance(host_user_id, str) or not host_user_id:
+        return {
+            "ok": False,
+            "error": "缺少宿主注入的调用者身份",
+            "errorCode": "PRINCIPAL_REQUIRED",
+        }
+
     task_id = arguments.get("task_id")
     if task_id:
         status = await background_task_manager.get_status(str(task_id))
-        if status is None:
+        # 非本人的任务与"不存在"同形返回:否则 task_id 就是他人任务的枚举面
+        # (任务名、状态、result 原文一并读出)。
+        if status is None or status.get("user_id") != host_user_id:
             return {"ok": False, "error": f"任务不存在: {task_id}"}
         return {"ok": True, "task": status}
 
-    # 列表模式:user_id 可选过滤(来自调用者身份,或显式传入)
-    user_id = arguments.get("user_id") or arguments.get("__user_id")
+    # 列表模式的过滤主体只认宿主注入值。原写法 `arguments.get("user_id") or __user_id`
+    # 把模型自填的 user_id 排在前面 ⇒ 模型报一个他人 uuid 就能列他人正在跑的任务,
+    # 直接违反 packages/types/src/tool-contract.ts 的 ROUTING_IDENTITY_KEYS(含 user_id)
+    # "宿主绑定、禁入模型参数"契约。
     limit = int(arguments.get("limit", 20))
-    tasks = await background_task_manager.list_tasks(user_id=user_id, limit=limit)
+    tasks = await background_task_manager.list_tasks(user_id=host_user_id, limit=limit)
     return {"ok": True, "tasks": tasks, "count": len(tasks)}
 
 
 # 工具注册表
 async def _tool_context_recall(arguments: dict[str, Any]) -> dict[str, Any]:
     """context_recall: 语义检索回捞被压缩丢弃的旧消息(只读,不修改任何状态)。"""
+    # 身份只认宿主注入的 __user_id(call_tool 从 FastAPI request 透传,LLM 不可控);
+    # 模型自填的 user_id/session_id 一律不作归属依据 —— 原写法连 user 维都不接,
+    # 等于任何人可捞任何人的压缩原文。
+    host_user_id = arguments.get("__user_id")
+    if not isinstance(host_user_id, str) or not host_user_id:
+        return {
+            "ok": False,
+            "error": "缺少宿主注入的调用者身份",
+            "errorCode": "PRINCIPAL_REQUIRED",
+        }
+    host_session_id = arguments.get("__session_id")
+    model_session_id = arguments.get("session_id")
+    session_id = host_session_id if isinstance(host_session_id, str) and host_session_id else model_session_id
     query = arguments.get("query", "")
-    session_id = arguments.get("session_id")
     top_k = arguments.get("top_k", 8)
     if not isinstance(top_k, int) or top_k <= 0:
         top_k = 8
@@ -9136,6 +9160,7 @@ async def _tool_context_recall(arguments: dict[str, Any]) -> dict[str, Any]:
             session_id=session_id if isinstance(session_id, str) else None,
             query=query if isinstance(query, str) else "",
             top_k=top_k,
+            user_id=host_user_id,
         )
     except Exception as e:
         logger.warning("context_recall 工具执行异常: %s", e)
@@ -10996,10 +11021,9 @@ _TOOLS: list[MCPTool] = [
                     "type": "string",
                     "description": "查询指定任务状态(不传则进入列表模式)",
                 },
-                "user_id": {
-                    "type": "string",
-                    "description": "列表模式下按用户过滤(可选,默认取调用者身份)",
-                },
+                # user_id 已从本工具的对外 schema 摘除(2026-10-31):它是路由身份键
+                # (ROUTING_IDENTITY_KEYS),只能由宿主注入 __user_id,不得作为模型可填参数
+                # 存在 —— 只要还暴露在 schema 里,就必然再被某条 handler 读回去。
                 "limit": {
                     "type": "integer",
                     "description": "列表返回上限(默认 20)",
