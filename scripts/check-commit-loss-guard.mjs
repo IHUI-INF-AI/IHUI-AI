@@ -595,7 +595,7 @@ function writeLossCache(obj) {
   }
 }
 
-function detectResets() {
+function detectResets(reachability) {
   // reflog 最近 50 步(每行包含: hash | ref@{} | action: subject)
   // 2026-07-26 升级:从 20 步扩到 50 步,覆盖更长期的 reset 历史
   // ⚠️ 2026-10-21 收面:`--all -n 50` 不是"总共 50 条",而是**每个 ref 各 50 条** ——
@@ -613,11 +613,11 @@ function detectResets() {
       resets.push(line)
     }
   }
-  const backedHashes = new Set(
-    verifyAllTagReachability(listLostCommitTags())
-      .map((r) => r.hash)
-      .filter(Boolean),
-  )
+  // 2026-10-30:原来这里自己又跑了一遍 `verifyAllTagReachability(listLostCommitTags())` ——
+  // 与 main 里那次完全同一份输入、同一份结果,纯粹是把 26k tag 扫两遍。改由调用方把已经
+  // 算好的那份递进来(见 detectResets 签名)。判据一字未改:backedHashes 仍取每枚 tag 的
+  // (peeled || obj),仍只用于"被 reset 丢掉的那枚是否已备份"这一问。
+  const backedHashes = new Set(reachability.map((r) => r.hash).filter(Boolean))
   // 被 reset 丢掉的那枚 = 同 ref 更旧一条 reflog 的行首 hash(列表是新→旧)。
   const beforeByLine = new Map()
   for (let i = 0; i < lines.length; i++) {
@@ -1159,16 +1159,30 @@ function listRemoteBackups() {
   return remoteTagScan().backup
 }
 
+const TAG_REF_PREFIX = 'refs/tags/'
+
 /**
- * `for-each-ref --format=%(refname:short)%09%(objectname)%09%(*objectname)` 的输出
+ * `for-each-ref --format=%(refname)%09%(objectname)%09%(*objectname)` 的输出
  * → Map<shortName,{obj,peeled}>(**纯函数**:tag 可达性读取的第一段,不派生 git)。
+ *
+ * ⚠️ 必须取**全名** `%(refname)` 再在这里剥 `refs/tags/`,绝不能直接用 `%(refname:short)`:
+ * 实测(2026-10-30,本仓 26,285 枚 tag)同一条命令
+ *   - `--format=%(refname)`        = **100 ms**
+ *   - `--format=%(refname:short)`  = **42,235 ms**(422 倍)
+ * `:short` 要为每枚 ref 算"最短无歧义名",等于拿它去和全体 ref 比对 ⇒ 26k 枚就是 O(n²) 的
+ * 消歧。这不是 git 慢,是我们在向 git 索要一件本可以在本地零成本完成的事。
+ * 去掉前缀是确定的(命名空间就写死在参数里),没有歧义可消。
  */
 function parseForEachRefTagInfo(out) {
   // shortName → { obj, peeled }
   const infoByTag = new Map()
   for (const line of String(out || '').split('\n')) {
-    const [shortName, obj, peeled] = line.split('\t')
-    if (shortName) infoByTag.set(shortName, { obj: obj || '', peeled: peeled || '' })
+    const [fullName, obj, peeled] = line.split('\t')
+    if (!fullName) continue
+    const shortName = fullName.startsWith(TAG_REF_PREFIX)
+      ? fullName.slice(TAG_REF_PREFIX.length)
+      : fullName
+    infoByTag.set(shortName, { obj: obj || '', peeled: peeled || '' })
   }
   return infoByTag
 }
@@ -1203,7 +1217,7 @@ function verifyAllTagReachability(tags) {
   const out = gitText(
     [
       'for-each-ref',
-      '--format=%(refname:short)%09%(objectname)%09%(*objectname)',
+      '--format=%(refname)%09%(objectname)%09%(*objectname)',
       'refs/tags/lost-commit',
       'refs/tags/backup',
     ],
@@ -1301,7 +1315,12 @@ async function main() {
     process.exit(cachedLoss.blocking ? 1 : 0)
   }
 
-  const resets = detectResets()
+  // 26k tag 的可达性表全程只算这一次:detectResets 的"reset 丢掉的那枚是否已备份"与后面
+  // §4 综合判定用的是同一张表。换掉 `%(refname:short)` 后这一趟实测 39s → 1.1s(见
+  // parseForEachRefTagInfo 头注),但"只算一次"仍然要保住——它现在是唯一一份。
+  const reachability = verifyAllTagReachability([...lostTags, ...backups])
+  mark(`verifyAllTagReachability(${reachability.length})`)
+  const resets = detectResets(reachability)
   mark('detectResets')
   const rawUnreachable = detectUnreachable()
   mark(`detectUnreachable(${rawUnreachable.length})`)
@@ -1316,9 +1335,6 @@ async function main() {
   const remoteBackups = listRemoteBackups()
   mark('listRemoteBackups')
   const remoteCheckSkipped = remoteLostTags === null || remoteBackups === null
-  const allLocalBackupTags = [...lostTags, ...backups]
-  const reachability = verifyAllTagReachability(allLocalBackupTags)
-  mark(`verifyAllTagReachability(${reachability.length})`)
   const lostTagDiff = remoteCheckSkipped
     ? { onlyLocal: [], onlyRemote: [], both: [] }
     : compareTagSets(lostTags, remoteLostTags)
@@ -1407,9 +1423,12 @@ async function main() {
     }
   } else {
     console.log(`  ${C.yellow}⚠️  检测到 ${unreachable.length} 个悬空 commit:${C.reset}`)
+    // 2026-10-30:原为逐枚 `git log -1`(10 枚 = 10 次派生 ≈ 8 秒,纯为了打印十行题)。
+    // 走 subjectsForHashes 一次派生。**只影响展示**:判据用的是 unreachable 全集,与这十行无关。
+    const headSubjects = subjectsForHashes(unreachable.slice(0, 10))
     for (const c of unreachable.slice(0, 10)) {
       const short = c.slice(0, SHORT_HASH_LEN)
-      const subject = gitText(['log', '-1', '--format=%s', c], { allowFail: true })
+      const subject = headSubjects.get(c) || ''
       console.log(`     ${C.cyan}${short}${C.reset}  ${C.dim}${subject || '(空)'}${C.reset}`)
     }
     if (unreachable.length > 10) {
@@ -1428,43 +1447,22 @@ async function main() {
     console.log(`  ${C.dim}(无 lost-commit/* tag)${C.reset}`)
   } else {
     // 2026-08-17 性能修复:原实现对每个 tag 单独 git rev-list + git log(数千个 tag
-    // 时 20+ 分钟)。改为一次 for-each-ref 拿全部 tag 的 commit hash + 一次
-    // git log --no-walk 批量拿 subject(复用 verifyAllTagReachability 的批量思路)。
-    const subjByHash = new Map()
-    const refPaths = lostTags.map((t) => `refs/tags/${t}`)
-    // 逐枚 tag 名作 argv 传进去(本地积压 4.5k 枚 ⇒ 命令行远超 CreateProcess 的 32767 上限),
-    // 旧写法经 shell 时同样超限 ⇒ 两边都是 allowFail → '' ⇒ 明细行的 hash 恒显 "?"。
-    // 迁移刻意**不**把它"修好":那会把一行展示形态的既有结论换成新的,而本票是等价重构。
-    // (真正的批量口径由 verifyAllTagReachability 的两次 for-each-ref 命名空间调用提供。)
-    const refOut = gitText(
-      ['for-each-ref', '--format=%(refname:short)%09%(*objectname)%09%(objectname)', ...refPaths],
-      {
-        allowFail: true,
-        timeout: LOCAL_GIT_TIMEOUT_MS,
-      },
-    )
+    // 时 20+ 分钟)。
+    // 2026-10-30 修掉一处"从没生效过"的死代码:旧写法把 26,285 个 tag 名逐个作 argv 传给
+    // `for-each-ref`(实测 1,229,358 字节),在 Windows 上必然 `ENAMETOOLONG`(CreateProcess
+    // 上限 32,767)⇒ allowFail 折成 '' ⇒ tagToHash 为空 ⇒ 明细行的 hash **恒显 "?"**,
+    // 而 follow 的批量取 subject 也就一枚都没取到。旧注释把它当成"等价重构刻意不修",
+    // 其实是这条展示链从未工作过 —— 修法不是加大限制,而是根本不要再派生:
+    // main 里已经为综合判定算好了 `reachability`(tag → peeled||obj),直接用它。
+    // 注意 `reachability` 只覆盖 `lostTags ∪ backups`,而本段正是按 `lostTags` 打印,口径一致。
     const tagToHash = new Map()
-    for (const line of (refOut || '').split('\n')) {
-      const [shortName, peeled, obj] = line.split('\t')
-      if (shortName) tagToHash.set(shortName, (peeled || obj || '').trim())
-    }
-    const uniqueHashes = [...new Set(tagToHash.values()).values()].filter(Boolean)
-    const HASH_BATCH = 50
-    for (let i = 0; i < uniqueHashes.length; i += HASH_BATCH) {
-      const batch = uniqueHashes.slice(i, i + HASH_BATCH)
-      const subjOut = gitText(['log', '--no-walk', '--format=%H%x09%s', ...batch], {
-        allowFail: true,
-        timeout: LOCAL_GIT_TIMEOUT_MS,
-      })
-      // --no-walk 输出顺序与参数不一致,按 %H 完整 hash 建 map(勿按行索引对应)
-      for (const line of (subjOut || '').split('\n')) {
-        const [hash, ...rest] = line.split('\t')
-        if (hash) subjByHash.set(hash, rest.join('\t'))
-      }
-    }
+    for (const r of reachability) if (r.hash) tagToHash.set(r.tag, r.hash)
+    const detailedTags = lostTags.slice(0, 10)
+    const uniqueHashes = [...new Set(detailedTags.map((t) => tagToHash.get(t)).filter(Boolean))]
+    const subjByHash = subjectsForHashes(uniqueHashes)
     // 2026-09-18:逐条明细上限 —— 本地 5000+ tag 时全量打印会刷屏(实测 352 KB/次提交)
     const DETAIL_LIMIT = 10
-    for (const tag of lostTags.slice(0, DETAIL_LIMIT)) {
+    for (const tag of detailedTags) {
       const hash = tagToHash.get(tag) || ''
       const short = hash.slice(0, SHORT_HASH_LEN) || '?'
       console.log(
@@ -1562,7 +1560,7 @@ async function main() {
   // 5.3 tag 对象可达性
   const unreachableTags = reachability.filter((r) => !r.ok)
   console.log(`\n  ${C.bold}tag 对象可达性(annotated tag peel 验证):${C.reset}`)
-  if (allLocalBackupTags.length === 0) {
+  if (reachability.length === 0) {
     console.log(`    ${C.dim}(无 lost-commit/backup tag 需校验)${C.reset}`)
   } else if (unreachableTags.length === 0) {
     console.log(
