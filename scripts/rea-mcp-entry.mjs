@@ -21,8 +21,8 @@ function resolveGlobalReaCli() {
   try {
     const probe =
       process.platform === 'win32'
-        ? spawnSync('cmd.exe', ['/d', '/c', 'npm', 'root', '-g'], { encoding: 'utf8' })
-        : spawnSync('npm', ['root', '-g'], { encoding: 'utf8' })
+        ? spawnSync('cmd.exe', ['/d', '/c', 'npm', 'root', '-g'], { encoding: 'utf8', windowsHide: true })
+        : spawnSync('npm', ['root', '-g'], { encoding: 'utf8', windowsHide: true })
     const root = probe.stdout?.trim()
     if (probe.status !== 0 || !root) return null
     const pkgDir = path.join(root, 'rea-agents')

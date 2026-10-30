@@ -504,7 +504,7 @@ function stageCaptureMaxBuffer(env = process.env) {
 
 function defaultRunner({ cliPath, args, cwd, env }) {
   return new Promise((resolve) => {
-    execFile(process.execPath, [cliPath, ...args], { cwd, env, encoding: 'utf8', maxBuffer: stageCaptureMaxBuffer(env) }, (error, stdout, stderr) => {
+    execFile(process.execPath, [cliPath, ...args], { cwd, env, encoding: 'utf8', windowsHide: true, maxBuffer: stageCaptureMaxBuffer(env) }, (error, stdout, stderr) => {
       resolve({
         status: error ? (Number.isInteger(error.code) ? error.code : 1) : 0,
         stdout,
