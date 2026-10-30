@@ -92,9 +92,13 @@ const aiGroup = NAV_GROUPS.find((g) => g.label === 'aiGroupLabel')!
 const personalGroup = NAV_GROUPS.find((g) => g.label === 'personalGroup')!
 
 /** 收敛前(2026-10-23 06:33 现读 aiGroupLabel flatten)href 多重集逐字快照,53 条。
- *  其中 /memory 与 /knowledge-base 各以"父项+子菜单首子项"出现 2 次 —— 收敛后照原样带走。 */
+ *  其中 /memory 与 /knowledge-base 各以"父项+子菜单首子项"出现 2 次 —— 收敛后照原样带走。
+ *  〔2026-10-30 增记〕+1 条 `/account-pool`(号池后台,`nav-data.ts` 里带 `advancedOnly:'experimental'`,
+ *  页面 `app/(main)/account-pool/page.tsx` 在位)。这是收敛**之后**新增的入口,不是收敛丢了/造了项,
+ *  故按"新入口登记"加进快照:守恒维仍逐字比对(不丢项不造新),③ 的重复 href 反向锁照旧拦。 */
 const AI_PRE_CONVERGENCE_SNAPSHOT = [
   '/a2a',
+  '/account-pool',
   '/agent-canvas',
   '/agent-teams',
   '/agent-workbench',
@@ -294,11 +298,12 @@ describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
     expect(NAV_GROUPS).toHaveLength(9)
     expect(NAV_GROUPS.reduce((n, g) => n + g.items.length, 0)).toBe(30)
     // 条目没被删,只是不再平铺:域清单顶层条目数 == 收敛前两分组顶层条目数
-    expect(AI_HUB_ITEMS).toHaveLength(14)
+    // 〔2026-10-30〕AI 域 +1(收敛后新入口 `/account-pool`,见上方快照注记)
+    expect(AI_HUB_ITEMS).toHaveLength(15)
     expect(PERSONAL_HUB_ITEMS).toHaveLength(5)
   })
 
-  it('② href 多重集逐字守恒(AI 53 条 / 个人 22 条,不丢项不造新)', () => {
+  it('② href 多重集逐字守恒(AI 54 条 / 个人 22 条,不丢项不造新)', () => {
     expect(
       flattenNavItems(AI_HUB_ITEMS)
         .map((i) => i.href)
@@ -370,8 +375,8 @@ describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
       ['developer', 'relayOps', 'advancedAi', 'experimental'],
     )
     expect(flattenNavItems(allHidden)).toHaveLength(13)
-    // 正向对照:不藏时 53 项全在 —— 否则上面的 not.toContain 会因为"项压根不在"而空过
-    expect(flattenNavItems(sidebarStyleFilter(AI_HUB_ITEMS, false, [], []))).toHaveLength(53)
+    // 正向对照:不藏时 54 项全在 —— 否则上面的 not.toContain 会因为"项压根不在"而空过
+    expect(flattenNavItems(sidebarStyleFilter(AI_HUB_ITEMS, false, [], []))).toHaveLength(54)
     // role 层对两域无差别:admin 与普通用户看到的一样多(permission 层没被拿来当降噪用)
     expect(flattenNavItems(sidebarStyleFilter(AI_HUB_ITEMS, true, ['*:*:*'], [])).length).toBe(
       flattenNavItems(sidebarStyleFilter(AI_HUB_ITEMS, false, [], [])).length,
@@ -414,7 +419,8 @@ describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
     setPersona({ id: 'u1', roleId: 0, permissions: [] }, ['relayOps', 'advancedAi', 'experimental'])
     const simpleAi = domainHubHrefs(AI_HUB_ITEMS)
     expect(simpleAi.length).toBeLessThan(fullAi.length)
-    expect(fullAi).toHaveLength(51)
+    // 52 = flatten 54 去重后(两对"父项+子菜单"各少 1);〔2026-10-30〕随 `/account-pool` 同步 +1
+    expect(fullAi).toHaveLength(52)
     // 个人域在任何档位组合下都不该掉项(本域一项都没标档)
     setPersona({ id: 'u1', roleId: 0, permissions: [] }, [
       'developer',
