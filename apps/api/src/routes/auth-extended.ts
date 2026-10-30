@@ -675,7 +675,7 @@ const loginByUsernameSchema = z.object({
 
 const emailCodeSchema = z.object({
   email: z.email(),
-  scene: z.enum(['register', 'login', 'reset']).default('login'),
+  scene: z.enum(['register', 'login', 'reset', 'bind']).default('login'),
 })
 
 const smsCodeSchema = z.object({
