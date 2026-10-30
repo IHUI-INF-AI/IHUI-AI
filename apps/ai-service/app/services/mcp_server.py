@@ -18,7 +18,7 @@ import os
 import re
 import shlex
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
@@ -5208,6 +5208,46 @@ _ADVERTISED_DESCRIPTION_PROVIDERS: dict[str, Callable[[], str]] = {
 }
 
 
+def _dispatch_tool_surface_kwargs(
+    arguments: Mapping[str, object],
+) -> tuple[dict[str, list[str]], str | None]:
+    """聊天 SSE 把模型入参原样交给 dispatch_subagent。
+
+    allowedTools / disallowedTools 两键都缺时返回空 dict,派发参数与从前相同。
+    名单不是字符串数组时返回字段名,调用方回 INVALID_PARAMS,不派发。
+    合法时只把真正收窄的键放进 dict。父线程白名单不在这条入参里,
+    按 resolve_subagent_tool_surface 的「父级没有白名单」处理。
+    """
+    if "allowedTools" not in arguments and "disallowedTools" not in arguments:
+        return {}, None
+    from .subagent_spawn_policy import (
+        SubagentToolListError,
+        parse_optional_tool_list,
+        resolve_subagent_tool_surface,
+    )
+
+    try:
+        call_allow = (
+            parse_optional_tool_list(arguments.get("allowedTools"), "allowedTools")
+            if "allowedTools" in arguments
+            else None
+        )
+        call_deny = (
+            parse_optional_tool_list(arguments.get("disallowedTools"), "disallowedTools")
+            if "disallowedTools" in arguments
+            else None
+        )
+    except SubagentToolListError as err:
+        return {}, err.field
+    allow, deny = resolve_subagent_tool_surface(None, [], call_allow, call_deny)
+    extra: dict[str, list[str]] = {}
+    if allow is not None:
+        extra["tool_allow"] = allow
+    if deny:
+        extra["tool_deny"] = deny
+    return extra, None
+
+
 async def _tool_dispatch_subagent(
     arguments: dict[str, Any],
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
@@ -5263,6 +5303,15 @@ async def _tool_dispatch_subagent(
             "errorCode": "DUAL_MODE",
         }
 
+    surface_extra, surface_field = _dispatch_tool_surface_kwargs(arguments)
+    if surface_field is not None:
+        return {
+            "tool": "dispatch_subagent",
+            "ok": False,
+            "error": f"{surface_field} 须为非空字符串组成的数组",
+            "errorCode": "INVALID_PARAMS",
+        }
+
     # 并行模式:tasks 数组 → invoke_parallel
     if has_tasks:
         if not isinstance(tasks, list):
@@ -5297,7 +5346,9 @@ async def _tool_dispatch_subagent(
                 try:
                     result = await asyncio.wait_for(
                         orchestrator.invoke_parallel(
-                            tasks=tasks, max_concurrency=max_concurrency
+                            tasks=tasks,
+                            max_concurrency=max_concurrency,
+                            **surface_extra,
                         ),
                         timeout=_get_subagent_timeout(),
                     )
@@ -5373,6 +5424,7 @@ async def _tool_dispatch_subagent(
                         agent_name=name,
                         user_input=task,
                         session_id=session_id,
+                        **surface_extra,
                     ),
                     timeout=_get_subagent_timeout(),
                 )
@@ -9707,6 +9759,21 @@ _TOOLS: list[MCPTool] = [
                     "type": "integer",
                     "description": "并行模式最大并发数(默认 5)",
                     "default": 5,
+                },
+                "allowedTools": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "可选。非空时是子代理工具硬边界。"
+                        "省略或空数组表示不额外收窄。"
+                    ),
+                },
+                "disallowedTools": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "可选。并入子代理禁止名单;同一名字同时被允许和禁止时,禁止优先。"
+                    ),
                 },
             },
         },
