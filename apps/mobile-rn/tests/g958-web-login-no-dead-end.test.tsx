@@ -27,6 +27,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createElement } from 'react'
 import { Platform } from 'react-native'
+import type * as I18nModule from '../src/i18n'
 
 const { sharedPropsCaptured, appAlertCalls, ssoLib } = vi.hoisted(() => ({
   sharedPropsCaptured: [] as Array<Record<string, unknown>>,
@@ -86,7 +87,7 @@ vi.mock('react-native-webview', () => ({
 // 本文件不另写第二份查词实现(§22c 单一真相源)。locale 仍钉 'zh-CN'(本票只判 H5 文案内容,
 // 不判端上的异步 hydrate,故仍不走真 Provider)。
 vi.mock('../src/i18n', async () => {
-  const actual = await vi.importActual<typeof import('../src/i18n')>('../src/i18n')
+  const actual = await vi.importActual<typeof I18nModule>('../src/i18n')
   const { translate } = await import('@ihui/i18n/loader')
   const zhCN = actual.messages['zh-CN']
   return {
