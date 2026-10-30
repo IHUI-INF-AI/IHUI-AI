@@ -21,6 +21,7 @@
     "capabilities:export": "pnpm --filter @ihui/api exec tsx scripts/export-capabilities.ts",
     "capabilities:check": "pnpm --filter @ihui/api exec tsx scripts/export-capabilities.ts --check",
     "warm:routes:all": "node scripts/warm-dev-routes.mjs --all",
+    "sbom": "node scripts/gen-sbom.mjs",
     "build": "turbo run build",
     "build:desktop:saas": "node scripts/desktop-build-saas.mjs",
     "dev:desktop:saas": "node scripts/desktop-dev-saas.mjs",
