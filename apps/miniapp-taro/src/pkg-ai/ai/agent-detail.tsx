@@ -302,7 +302,7 @@ export default function AgentDetailPage() {
     } finally {
       setPermLoading(false)
     }
-  }, [router.params.id, t, tt])
+  }, [router.params.id, tt])
 
   useDidShow(() => {
     load()
