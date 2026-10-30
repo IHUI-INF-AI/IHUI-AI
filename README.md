@@ -40373,3 +40373,22 @@ A: Yes. ~14839+ tests / 3213 test files / 67 e2e spec / 4561 API 路由 / 608 �
 对外关键数字声明(与本页生成块同源,均现算):**611 张表 · 4538 API 路由 · 25 个 WebSocket 端点 ·
 |                   | AI 服务             | FastAPI + LangGraph + LiteLLM + MCP + A2A / **200+ services**(Glob 实测)/ **23 routers** / **18 LLM Providers**(openai/anthropic/gemini/qwen/dashscope/doubao/volcengine/zhipu/hunyuan/stepfun/kling/jimeng/ollama/lmstudio/llama_cpp/openrouter/luyala/xai)/ **24 MCP 工具** / **38 发布适配器** / 215+ 端点 / 31+ provider 适配(含 22 免费 provider 内化)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 - 计划/台账: `check-plan-dup-pointer-ratchet.mjs` `check-plan-sha-resolvable.mjs` `check-plan-sha-form.mjs` `check-baseline-freshness.mjs` `check-agents-doc-size.mjs` `check-plan-id-pool.mjs` `check-plan-closed-stock.mjs` `check-plan-claims-vs-head.mjs` `check-plan-archive-monotonic.mjs`(门 239,2026-10-24 由撞号 237 改号;已归档✅票复活成未勾活行/逐字孪生回插即红,stagedTriggers=PROJECT_PLAN.md) `check-live-doc-archive-reinflation.mjs`(门体已造、尚未纳入 runner 注册表) `check-task-claims.mjs` `check-plan-fields.mjs` `check-sweeper-liveness.mjs`(2026-10-23 立:清扫背离巡检只读探针——派发在动 ∧ 留痕静默 >2h ∧ 可清存量 >0 ⇒ 器物空转;不走提交链,派发层 = git-guardian 的 `auditSweeperLiveness`) `check-head-recall-stock.mjs`(门 268,2026-10-30 立,机主令「把计划任务文档跳跃彻底根治」:判「摘除台账已声明删除的登记行又被带回被审面」的枚数变多,--staged 判索引 blob、差值棘轮只拦新增、存量不担责 §12e;判据 import scripts/lib/head-recall.mjs 单源零复算;跳过 HUSKY_SKIP_HEAD_RECALL_STOCK=1;兜底清扫 = scripts/strip-head-recall-rows.mjs,由 git-guardian 巡检腿 sweepHeadRecallRows 每 5 分钟派发,留痕 form:dropped 且自带推送腿;自检 6 组 + 镜像 20 例)
+- 后端装配: `check-api-route-uniqueness.mjs`(门 269,2026-10-31 立:同一 `(method,path)` 被注册两次只在 Fastify 装配期抛,提交链零判据 ⇒ 本门按 `METHOD 对外真实路径` 判"≥2 个不同站点",`--staged` 判索引 blob、差值棘轮只拦新增、三档剔除(fallback/动态前缀/内联别名塌陷)报数不判红;判据单源 `scripts/lib/api-route-uniqueness.mjs` 复用 `route-registration-extract` 挂载图,零复算;跳过 `HUSKY_SKIP_API_ROUTE_UNIQUENESS=1`)
+- 只读尺子/哨兵与判据源(R4 补点名 2026-10-31;逐条判据、自检例数、跳过变量见各门体头注,此处只尽点名义务):
+`check-aasa-public-health.mjs`(AASA 两腿公网可达且与单源同构,只读哨兵,6h 轮)
+`check-analytics-page-coverage.mjs`(埋点覆盖面只读尺,连不到库 exit 2)
+`check-asset-path-health.mjs`(受管 `.env` 绝对路径可达性 + 证书到期,6h 轮)
+`check-cross-end-spec-coverage.mjs`(跨端视觉原子 spec 覆盖率棘轮,`--ratchet`)
+`check-ddos-guard-wiring.mjs`(DDoS 防护接线对账)
+`check-e2e-coverage-gap.mjs`(射程内模块无对应测试,warn 差值棘轮)
+`check-gate-triggers.mjs`(注册门缺 `stagedTriggers` 射程)
+`check-lint-staged-stdio-pin.mjs`(只读盯 `patch-lint-staged-stdio.mjs` 三针在位)
+`check-live-doc-merge-recall.mjs`(普通 merge 把已结清登记行带回的探测,接 `.husky/post-merge`)
+`check-miniapp-mirror-fidelity.mjs`(小程序镜像页还原度对账,CI `--base` 问责腿)
+`check-mjs-export-resolution.mjs`(`scripts/` 相对具名导入必须真存在于目标出口面,D1/D2/D3)
+`check-origin-guard-liveness.mjs`(源站守卫存续哨兵,只读)
+`check-plan-truncated-rows.mjs`(台账残行只读尺 + 基线棘轮)
+`check-prod-dep-advisories.mjs`(生产可达 critical/high 必须为 0)
+`check-rn-compat-coverage.mjs`(小程序复用共享屏源的覆盖面对账 C1/C2/C3)
+`check-ruff-python.mjs`(Python lint 接进提交链,pin 唯一源 `apps/ai-service/pyproject.toml`)
+`check-web-rn-screen-parity.mjs`(web→RN 功能覆盖账本,只读报表)

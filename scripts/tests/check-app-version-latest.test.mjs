@@ -22,6 +22,7 @@ import {
   parseArgs,
   runCheck,
   probeAdminList,
+  selfTest,
   PINNED_DOWNLOAD_URL,
 } from '../check-app-version-latest.mjs'
 
@@ -333,6 +334,7 @@ test('parseArgs 默认与覆盖;未知参数抛错', () => {
   const a = parseArgs([])
   assert.equal(a.baseUrl, 'https://www.aizhs.top')
   assert.equal(a.platform, 'android')
+  assert.equal(a.selfTest, false, '--self-test 默认关(直跑不得静默变自检)')
   const b = parseArgs([
     '--base-url',
     'https://api.aizhs.top/',
@@ -346,6 +348,13 @@ test('parseArgs 默认与覆盖;未知参数抛错', () => {
   assert.equal(b.platform, 'ios')
   assert.equal(b.adminToken, 't')
   assert.equal(b.json, true)
+  assert.equal(parseArgs(['--self-test']).selfTest, true)
   assert.throws(() => parseArgs(['--nope']))
+})
+
+test('--self-test 构造面全绿且例数不退化(摘掉判据这一档才翻红)', () => {
+  const { failed, cases } = selfTest({ quiet: true })
+  assert.equal(failed, 0, `self-test 有 ${failed} 例失败`)
+  assert.ok(cases.length >= 20, `self-test 例数 ${cases.length} < 20 ⇒ 判据被削`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
