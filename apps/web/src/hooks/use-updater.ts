@@ -15,6 +15,7 @@ import {
   type UpdateProgress,
 } from '@/lib/tauri-bridge'
 import { isDesktopDevShell } from '@/lib/api-base-url'
+import { useTauriIpcReady } from './use-desktop'
 
 /** 更新状态机:idle → checking → available → downloading → installing → done / up-to-date / error */
 export type UpdateStatus =
@@ -132,6 +133,11 @@ function createMockSession(): UpdateSession {
  * 浏览器端 isTauri()=false,此 hook 不执行任何副作用,返回 idle 状态。
  */
 export function useUpdater() {
+  // 托盘「检查更新」的监听必须等 IPC 就绪再注册:同步 isTauri() 在 IPC 尚未注入的那一帧
+  // 读到 false,而 effect 依赖里没有能让它重跑的东西 ⇒ 整场会话都不注册监听
+  // (真机表现:托盘点「检查更新」永远没反应)。同仓 useDesktopEvents 已因同一成因改判,
+  // 这条腿当时漏改。
+  const ipcReady = useTauriIpcReady()
   const [state, setState] = React.useState<UpdaterState>(INITIAL_STATE)
   const mountedRef = React.useRef(true)
   /** 自动重试计数(错误后自动重试,最多 3 次)。 */
@@ -400,11 +406,11 @@ export function useUpdater() {
   // 改为非静默(silent=false):已是最新 → up-to-date 提示弹窗;检查失败 → error 弹窗;
   // 有更新 → autoInstall 自动下载安装(与启动静默检查同一强制更新链路)。
   React.useEffect(() => {
-    if (!isTauri() && !isDevUpdateTest()) return
+    if (!ipcReady && !isDevUpdateTest()) return
     const handler = () => void checkForUpdate(false, true)
     window.addEventListener('desktop-check-update', handler)
     return () => window.removeEventListener('desktop-check-update', handler)
-  }, [checkForUpdate])
+  }, [checkForUpdate, ipcReady])
 
   // up-to-date(已是最新)提示自动消失:4 秒后回到 idle,无需用户关闭
   React.useEffect(() => {
