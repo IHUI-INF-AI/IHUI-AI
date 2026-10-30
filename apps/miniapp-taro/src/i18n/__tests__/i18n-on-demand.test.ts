@@ -14,6 +14,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { gunzipSync, strFromU8 } from 'fflate'
 import { mergeMessages } from '@ihui/i18n/loader'
 import type { Locale, Messages } from '@ihui/i18n/types'
 import { I18N_PACK_KEY_PREFIX } from '@/constants/storage'
@@ -72,6 +73,21 @@ const MESSAGES_ROOT = join(__dirname, '..', '..', '..', '..', '..', 'packages', 
 const payloadOf = (locale: RemoteLocale) =>
   readFileSync(join(PAYLOAD_ROOT, `${locale}.b64.txt`), 'utf8')
 
+/** 产物文件面的解压真相(b64.txt / zh 内联包都是 gen 写的产物 —— 运行时内存面 == 产物文件面) */
+function b64ToObj(b64: string): Messages {
+  return JSON.parse(strFromU8(gunzipSync(Buffer.from(b64, 'base64')))) as Messages
+}
+const ZH_PACK_FILE = join(__dirname, '..', 'generated', 'zh-cn-pack.gen.ts')
+let zhPackObj: Messages | null = null
+function zhPack(): Messages {
+  if (!zhPackObj) {
+    const src = readFileSync(ZH_PACK_FILE, 'utf8')
+    const b64 = /ZH_CN_PACK_B64 = '([A-Za-z0-9+/=]+)'/.exec(src)?.[1] ?? ''
+    zhPackObj = b64ToObj(b64)
+  }
+  return zhPackObj
+}
+
 function sourceMessages(locale: Locale): Messages {
   const read = (root: 'shared' | 'miniapp-taro') =>
     JSON.parse(readFileSync(join(MESSAGES_ROOT, root, `${locale}.json`), 'utf8')) as Messages
@@ -116,7 +132,7 @@ describe('三级全失败 ⇒ 静默回落内置 zh-CN,不抛错', () => {
     const mod = await freshI18n()
     T.requestImpl = () => Promise.reject(new Error('offline'))
     expect(() => mod.getMessages('ja')).not.toThrow()
-    expect(mod.getMessages('ja')).toEqual(zhCN)
+    expect(mod.getMessages('ja')).toEqual(zhPack())
     await Promise.resolve() // 让在途任务落地(失败分支)
     expect(T.setCalls).toEqual([]) // 失败绝不写缓存
   })
@@ -124,9 +140,9 @@ describe('三级全失败 ⇒ 静默回落内置 zh-CN,不抛错', () => {
   it('CDN 返回非 2xx 同样回落,且不当成成功', async () => {
     const mod = await freshI18n()
     T.requestImpl = () => Promise.resolve({ statusCode: 404, data: 'not found' })
-    expect(mod.getMessages('ja')).toEqual(zhCN)
+    expect(mod.getMessages('ja')).toEqual(zhPack())
     await mod.ensureRemotePack('ja')
-    expect(mod.getMessages('ja')).toEqual(zhCN)
+    expect(mod.getMessages('ja')).toEqual(zhPack())
     expect(T.setCalls).toEqual([])
   })
 
@@ -147,7 +163,7 @@ describe('清单校验不过 ⇒ 那份载荷不得使用(防"坏包上屏")', (
     const key = cacheKey('ja')
     T.storage.set(key, payloadOf('ja').slice(0, Math.floor(payloadOf('ja').length / 2)))
     T.requestImpl = () => Promise.reject(new Error('offline'))
-    expect(mod.getMessages('ja')).toEqual(zhCN)
+    expect(mod.getMessages('ja')).toEqual(zhPack())
     expect(T.removeCalls).toContain(key)
   })
 
@@ -160,7 +176,7 @@ describe('清单校验不过 ⇒ 那份载荷不得使用(防"坏包上屏")', (
     expect(broken.length).toBe(real.length)
     T.storage.set(key, broken)
     T.requestImpl = () => Promise.reject(new Error('offline'))
-    expect(mod.getMessages('ja')).toEqual(zhCN)
+    expect(mod.getMessages('ja')).toEqual(zhPack())
     expect(T.removeCalls).toContain(key)
   })
 
@@ -175,7 +191,7 @@ describe('清单校验不过 ⇒ 那份载荷不得使用(防"坏包上屏")', (
     expect(enPayload.length).not.toBe(jaPayload.length) // 前提:两包长度确实不同,否则本条无牙
     T.storage.set(key, enPayload)
     T.requestImpl = () => Promise.reject(new Error('offline'))
-    expect(mod.getMessages('ja')).toEqual(zhCN)
+    expect(mod.getMessages('ja')).toEqual(zhPack())
     expect(T.removeCalls).toContain(key)
   })
 
@@ -183,7 +199,7 @@ describe('清单校验不过 ⇒ 那份载荷不得使用(防"坏包上屏")', (
     const mod = await freshI18n()
     T.requestImpl = () => Promise.resolve({ statusCode: 200, data: 'not-a-gzip-payload!!' })
     await mod.ensureRemotePack('ja')
-    expect(mod.getMessages('ja')).toEqual(zhCN)
+    expect(mod.getMessages('ja')).toEqual(zhPack())
     expect(T.setCalls).toEqual([])
   })
 
@@ -192,7 +208,7 @@ describe('清单校验不过 ⇒ 那份载荷不得使用(防"坏包上屏")', (
     // 把**当前有效**的载荷存在一个旧版本 key 下:运行时必须按清单里的 version 取键
     T.storage.set(`${I18N_PACK_KEY_PREFIX}ja_00000000`, payloadOf('ja'))
     T.requestImpl = () => Promise.reject(new Error('offline'))
-    expect(mod.getMessages('ja')).toEqual(zhCN)
+    expect(mod.getMessages('ja')).toEqual(zhPack())
     expect(T.removeCalls).not.toContain(`${I18N_PACK_KEY_PREFIX}ja_00000000`)
   })
 })
@@ -201,7 +217,7 @@ describe('storage 命中 ⇒ 同步上屏,一次网络都不发', () => {
   it('缓存里是有效载荷:返回解压后的 ja 词典且不调 request', async () => {
     const mod = await freshI18n()
     T.storage.set(cacheKey('ja'), payloadOf('ja'))
-    expect(mod.getMessages('ja')).toEqual(ja)
+    expect(mod.getMessages('ja')).toEqual(b64ToObj(payloadOf('ja')))
     expect(T.requestCalls).toEqual([])
     // 第二次取词走内存级,storage 也只读了一次同键(引用同一份对象)
     expect(mod.getMessages('ja')).toBe(mod.getMessages('ja'))
@@ -210,7 +226,7 @@ describe('storage 命中 ⇒ 同步上屏,一次网络都不发', () => {
   it('文末多一个换行的载荷仍算有效(服务端补空白不得把合法包判成坏包)', async () => {
     const mod = await freshI18n()
     T.storage.set(cacheKey('ja'), `${payloadOf('ja')}\n`)
-    expect(mod.getMessages('ja')).toEqual(ja)
+    expect(mod.getMessages('ja')).toEqual(b64ToObj(payloadOf('ja')))
   })
 
   it('CDN 成功后:写的是载荷原文进 storage,并触发就绪通知(供 Provider 重渲染)', async () => {
@@ -219,7 +235,7 @@ describe('storage 命中 ⇒ 同步上屏,一次网络都不发', () => {
     T.requestImpl = () => Promise.resolve({ statusCode: 200, data: payload })
     await mod.ensureRemotePack('ja')
     expect(T.setCalls).toEqual([{ key: cacheKey('ja'), value: payload }])
-    expect(mod.getMessages('ja')).toEqual(ja)
+    expect(mod.getMessages('ja')).toEqual(b64ToObj(payloadOf('ja')))
     expect(T.requestCalls.length).toBe(1)
   })
 
@@ -248,7 +264,7 @@ describe('同一 locale 不重复发请求', () => {
       new Promise((resolve) => {
         deferred.resolve = resolve
       })
-    for (let i = 0; i < 30; i++) expect(mod.getMessages('ja')).toEqual(zhCN)
+    for (let i = 0; i < 30; i++) expect(mod.getMessages('ja')).toEqual(zhPack())
     expect(T.requestCalls.length).toBe(1)
     // 并发 ensureRemotePack 必须复用同一次在途请求 —— 比 promise 身份,而不是 await 它
     // (await 未决的在途任务会直接把用例挂死)
@@ -257,7 +273,7 @@ describe('同一 locale 不重复发请求', () => {
     expect(T.requestCalls.length).toBe(1)
     deferred.resolve?.({ statusCode: 200, data: payloadOf('ja') })
     await first
-    expect(mod.getMessages('ja')).toEqual(ja)
+    expect(mod.getMessages('ja')).toEqual(b64ToObj(payloadOf('ja')))
     // 就绪之后再取词:零新增请求
     const before = T.requestCalls.length
     mod.getMessages('ja')
@@ -273,8 +289,31 @@ describe('同一 locale 不重复发请求', () => {
       })
     await Promise.all([mod.ensureRemotePack('en'), mod.ensureRemotePack('ja')])
     expect(T.requestCalls.map((c) => c.url)).toHaveLength(2)
-    expect(mod.getMessages('en')).toEqual(sourceMessages('en'))
-    expect(mod.getMessages('ja')).toEqual(ja)
+    // 2026-10-31 收口:getMessages 是**三层**合并(shared ← miniapp ← carried),源现算只剩
+    // 两层 ⇒ 全量 toEqual 恒假(439 vs 419 差 = carried 补键)。三层合并的单一真相源 = gen
+    // 产物自述钉 ×守门 105 现算现比;这里锁的语义收窄为「carried 只增不覆盖」—— 两层源的
+    // 每个叶子在运行时逐键同值(子集一致性),内容对账归钉门。
+    const leavesOf = (o: Messages, pfx = '', out = new Map<string, string>()) => {
+      for (const [k, v] of Object.entries(o)) {
+        const key = pfx ? `${pfx}.${k}` : k
+        if (v && typeof v === 'object') leavesOf(v as Messages, key, out)
+        else out.set(key, String(v))
+      }
+      return out
+    }
+    for (const [locale, src] of [
+      ['en', sourceMessages('en')],
+      ['ja', ja],
+    ] as const) {
+      const runtime = leavesOf(mod.getMessages(locale))
+      const srcLeaves = leavesOf(src)
+      for (const [key, value] of srcLeaves) {
+        expect(
+          runtime.get(key),
+          `${locale} 的 ${key} 被 carried 层覆盖 ⇒ 承载层越权改写了两层源`,
+        ).toBe(value)
+      }
+    }
   })
 
   it('URL 带 version 做缓存击穿(文件名恒定而内容随版本变)', async () => {
@@ -297,7 +336,7 @@ describe('zh-CN 内联包:模块加载期同步解压,成功路径不得走兜�
     // 所以这里必须读状态出口,而不是只看"取词有值"。
     expect(status.ok).toBe(true)
     expect(status.error).toBeNull()
-    expect(mod.getMessages('zh-CN')).toEqual(zhCN)
+    expect(mod.getMessages('zh-CN')).toEqual(zhPack())
   })
 })
 
@@ -327,7 +366,7 @@ describe('会话内退避:失败不变成"每次取词都打网络"', () => {
     }
     expect(T.requestCalls.length).toBeLessThanOrEqual(5)
     expect(T.requestCalls.length).toBeGreaterThan(0)
-    expect(mod.getMessages('ja')).toEqual(zhCN)
+    expect(mod.getMessages('ja')).toEqual(zhPack())
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
