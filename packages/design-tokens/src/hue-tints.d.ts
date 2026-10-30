@@ -7,13 +7,16 @@
  * 取值依据与各族漂移的实测成因写在 hue-tints.js 头注。
  */
 
-/** 色相族名(与 hue-tints.js 的 FAMILIES 键一致;守门按单行解析本联合,不得换行拆档) */
-export type HueFamily = 'sky' | 'blue' | 'indigo' | 'violet' | 'purple' | 'fuchsia' | 'rose' | 'amber' | 'emerald' | 'orange' | 'slate' | 'zinc' | 'neutral' | 'tailwindGray' | 'red' | 'green'
+/** 带前景的色相族(与 hue-tints.js 的 FAMILIES 键一致;守门按单行解析本联合,不得换行拆档) */
+export type HueFamily = 'sky' | 'blue' | 'indigo' | 'violet' | 'purple' | 'fuchsia' | 'rose' | 'amber' | 'emerald' | 'orange' | 'slate' | 'zinc' | 'tailwindGray'
 
-/** 一族的可用档:前景/深前景/圆点按族是否被消费而可选,tint 两档每族都算得出 */
+/** 只有底档的三族:前景已由语义档承载(rnTokens.text.tertiary / warning.amber)或仓内无消费方 */
+export type HueTintOnlyFamily = 'neutral' | 'red' | 'green'
+
+/** 一族的可取档 */
 export interface HueEntry {
   /** 该族 -600 前景 */
-  fg?: string
+  fg: string
   /** 该族 -700 前景(plan 域实测取此档) */
   fgStrong?: string
   /** 该族 -500 圆点/墨迹 */
@@ -24,15 +27,27 @@ export interface HueEntry {
   tintStrong: string
 }
 
+/** 纯底档族:没有 fg —— 消费表若标注 `fg: string` 会当场编不过,那是诚实的拦法 */
+export interface HueTintOnlyEntry {
+  tint: string
+  tintStrong: string
+}
+
 /** 展平后的消费入口:`rnHue.emerald.fg` / `rnHue.emerald.tint` */
 export declare const rnHue: Record<HueFamily, HueEntry>
 
-/** 族名清单(驱动"每族都必须有消费方"这类对账时用) */
+/** 纯底档族入口:`rnHueTintOnly.red.tintStrong` */
+export declare const rnHueTintOnly: Record<HueTintOnlyFamily, HueTintOnlyEntry>
+
+/** 带前景族名清单(驱动"每族都必须有消费方"这类对账时用) */
 export declare function hueFamilies(): HueFamily[]
 
-/** 函数形态:族名来自变量时用 */
-export declare function hueTint(name: HueFamily): string
+/** 纯底档族名清单 */
+export declare function hueTintOnlyFamilies(): HueTintOnlyFamily[]
+
+/** 函数形态:族名来自变量时用,两型都认 */
+export declare function hueTint(name: HueFamily | HueTintOnlyFamily): string
 
 /** 函数形态,强档 */
-export declare function hueTintStrong(name: HueFamily): string
+export declare function hueTintStrong(name: HueFamily | HueTintOnlyFamily): string
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

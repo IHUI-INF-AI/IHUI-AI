@@ -30,16 +30,26 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-import { rnHue, hueFamilies, hueTint, hueTintStrong } from '../../packages/design-tokens/src/hue-tints.js'
+import {
+  rnHue,
+  rnHueTintOnly,
+  hueFamilies,
+  hueTintOnlyFamilies,
+  hueTint,
+  hueTintStrong,
+} from '../../packages/design-tokens/src/hue-tints.js'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const require_ = createRequire(import.meta.url)
 
 const TABLE_FAMILIES = hueFamilies()
+const BASE_ONLY = hueTintOnlyFamilies()
+const EVERY_FAMILY = [...TABLE_FAMILIES, ...BASE_ONLY]
+const entriesOf = (f) => (TABLE_FAMILIES.includes(f) ? rnHue[f] : rnHueTintOnly[f])
 
 test('① 形状:tint 两档的 alpha 必须是两位小数', () => {
-  for (const f of TABLE_FAMILIES) {
-    for (const [key, value] of Object.entries(rnHue[f])) {
+  for (const f of EVERY_FAMILY) {
+    for (const [key, value] of Object.entries(entriesOf(f))) {
       if (key !== 'tint' && key !== 'tintStrong') continue
       assert.match(value, /^rgba\(\d{1,3},\d{1,3},\d{1,3},0\.\d{2}\)$/, `${f}.${key} 形态不合约定:${value}`)
     }
@@ -67,8 +77,8 @@ test('② 表内不得登记已由 tokens.css 派生承载的色值(防新造第
   )
 
   const duplicated = []
-  for (const f of TABLE_FAMILIES)
-    for (const [key, value] of Object.entries(rnHue[f]))
+  for (const f of EVERY_FAMILY)
+    for (const [key, value] of Object.entries(entriesOf(f)))
       if (value.startsWith('#') && Object.hasOwn(flatHexes, value.toLowerCase()))
         duplicated.push(`${f}.${key}=${value}`)
   assert.deepEqual(
@@ -79,14 +89,19 @@ test('② 表内不得登记已由 tokens.css 派生承载的色值(防新造第
 })
 
 test('③ 族名禁用裸 gray,禁用未登记的族', () => {
-  assert.ok(!TABLE_FAMILIES.includes('gray'), '族名 gray 与本仓 gray.* 档(Tailwind neutral 系)同字不同值,禁止使用')
-  for (const f of TABLE_FAMILIES) assert.equal(typeof rnHue[f].tint, 'string', `${f} 缺 tint 档`)
+  assert.ok(!EVERY_FAMILY.includes('gray'), '族名 gray 与本仓 gray.* 档(Tailwind neutral 系)同字不同值,禁止使用')
+  for (const f of EVERY_FAMILY) assert.equal(typeof entriesOf(f).tint, 'string', `${f} 缺 tint 档`)
+  // 两型必须互不相交:同一族既在带前景型又在纯底档型,消费方就无从判断有没有 fg
+  assert.equal(EVERY_FAMILY.length, new Set(EVERY_FAMILY).size, '两型族名有交集')
+  for (const f of TABLE_FAMILIES) assert.equal(typeof rnHue[f].fg, 'string', `${f} 在带前景型里却没有 fg`)
+  for (const f of BASE_ONLY)
+    assert.equal(rnHue[f], undefined, `${f} 不该出现在带前景的 rnHue 里(它在 ${BASE_ONLY.join('/')})`)
 })
 
 test('④ 覆盖面:packages/app 在册抄本每条色值都要能从表里取到同值', () => {
   const tableValues = new Set()
-  for (const f of TABLE_FAMILIES)
-    for (const v of Object.values(rnHue[f])) if (typeof v === 'string') tableValues.add(v.toLowerCase())
+  for (const f of EVERY_FAMILY)
+    for (const v of Object.values(entriesOf(f))) if (typeof v === 'string') tableValues.add(v.toLowerCase())
 
   // 抄本里凡"已由语义档承载"的色值(#737373 = text.tertiary、#f59e0b = warning.amber)
   // 也算有出处 —— 收编时那些枚取语义档而不是 rnHue,所以可接受集 = 色相表 ∪ 令牌表
@@ -158,9 +173,13 @@ test('⑥ 装车腿:dist 里必须真拿得到这张表,且值与源逐字相同
   }
   const dist = require_(distPath)
   const distHue = dist.rnHue ?? dist.default?.rnHue
+  const distTintOnly = dist.rnHueTintOnly ?? dist.default?.rnHueTintOnly
   assert.ok(distHue, 'dist 里的 hue-tints 取不到 rnHue 导出')
+  assert.ok(distTintOnly, 'dist 里取不到 rnHueTintOnly ⇒ 分型后的导出没装上构建')
   for (const f of TABLE_FAMILIES)
     assert.deepEqual(distHue[f], rnHue[f], `dist 与源的 ${f} 族不同形 ⇒ 派生态落后`)
+  for (const f of BASE_ONLY)
+    assert.deepEqual(distTintOnly[f], rnHueTintOnly[f], `dist 与源的 ${f} 底档族不同形 ⇒ 派生态落后`)
   assert.match(
     readFileSync(join(ROOT, 'packages/design-tokens/scripts/copy-assets.mjs'), 'utf8'),
     /FIXED_FILES[\s\S]*'hue-tints\.js'[\s\S]*'hue-tints\.d\.ts'/,

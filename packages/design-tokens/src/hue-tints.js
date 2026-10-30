@@ -55,16 +55,25 @@ const FAMILIES = {
   orange: { rgb: [249, 115, 22], fg: '#ea580c' },
   slate: { rgb: [100, 116, 139], fg: '#475569', dot: '#64748b' },
   zinc: { rgb: [115, 115, 115], fg: '#52525b' },
-  // neutral 只留底档:它的前景 #737373 **已经**由 tokens.css 派生进 RN 令牌表
-  // (rnDarkTokens.text.tertiary ← --color-text-tertiary),在这里再写一枚就等于新造
-  // 守门 93 R8 明令禁止的第二真相。消费方取前景一律走语义档 tk.text.tertiary。
-  // 同理 amber 的圆点取 rnTokens.warning.amber(#f59e0b),不在本表登字面量。
-  neutral: { rgb: [115, 115, 115] },
   tailwindGray: { rgb: [107, 114, 128], fg: '#6b7280' },
-  // red / green 两族是 Tailwind 的另一组同名色:support 的驳回底用 red-500(107 通道族),
-  // AgentCard 的图标底用 green-500(34,197,94),而**本仓的 danger/success 档是 #dc2626/#22c55e**
-  // —— 同语义不同族,正是"看起来是绿、实际不是同一张表"的成因。这里按现网实取的 rgb 落档,
-  // 前景暂不登记(仓内没有消费方;§4 明令新档须同笔有消费者)。
+}
+
+/**
+ * 只有底档、没有前景的三族。
+ *  - neutral 的前景 #737373 **已经**由 tokens.css 派生进 RN 令牌表
+ *    (rnDarkTokens.text.tertiary ← --color-text-tertiary),在这里再写一枚就是
+ *    守门 93 R8 明令禁止的第二真相,消费方取前景一律走语义档 tk.text.tertiary;
+ *  - red / green 是 Tailwind 的另一组同名色:support 的驳回底用 red-500(239,68,68)、
+ *    AgentCard / CourseCard 的图标底用 green-500(34,197,94),而本仓的 danger/success 档是
+ *    #dc2626/#22c55e —— 同语义不同族,正是"看着是绿、其实不是同一张表"的成因;这两族的前景
+ *    在仓内没有消费方(§4 明令新档须同笔有消费者),故刻意不登记。
+ *
+ * 分成两型不是为了分类洁癖:消费方的调色表常带 `Record<…, { bg: string; fg: string }>` 这类
+ * 显式标注。把"可能没有前景"的族和"必有前景"的族塞进同一个 Record,要么让类型说谎(fg 全标明
+ * string 却存在没有 fg 的族),要么在每个取用处写非空断言。ArtifactsScreen 收编时正撞上这格。
+ */
+const BASE_ONLY_FAMILIES = {
+  neutral: { rgb: [115, 115, 115] },
   red: { rgb: [239, 68, 68] },
   green: { rgb: [34, 197, 94] },
 }
@@ -77,32 +86,45 @@ const rgba = ([r, g, b], alpha) => `rgba(${r},${g},${b},${alpha.toFixed(2)})`
  * 展平后的消费入口,与 `rnGeometry` 同形:`rnHue.emerald.fg` / `rnHue.emerald.tint`。
  * 族名取自本表,不得在端内再写 `const *_TINT = 'rgba(…)'`(geometry.js 头注同一条禁令)。
  */
-export const rnHue = Object.fromEntries(
-  Object.entries(FAMILIES).map(([name, f]) => [
-    name,
-    {
-      ...(f.fg ? { fg: f.fg } : {}),
-      ...(f.fgStrong ? { fgStrong: f.fgStrong } : {}),
-      ...(f.dot ? { dot: f.dot } : {}),
-      tint: rgba(f.rgb, ALPHA_TINT),
-      tintStrong: rgba(f.rgb, ALPHA_TINT_STRONG),
-    },
-  ]),
-)
+const expand = (map) =>
+  Object.fromEntries(
+    Object.entries(map).map(([name, f]) => [
+      name,
+      {
+        ...(f.fg ? { fg: f.fg } : {}),
+        ...(f.fgStrong ? { fgStrong: f.fgStrong } : {}),
+        ...(f.dot ? { dot: f.dot } : {}),
+        tint: rgba(f.rgb, ALPHA_TINT),
+        tintStrong: rgba(f.rgb, ALPHA_TINT_STRONG),
+      },
+    ]),
+  )
+
+export const rnHue = expand(FAMILIES)
+
+/** 纯底档族(没有 fg)。把它们混进 rnHue 会让 `fg: string` 类型的消费表要么编译不过、要么类型说谎。 */
+export const rnHueTintOnly = expand(BASE_ONLY_FAMILIES)
 
 /** 函数形态(族名来自变量时用,如分类配置表驱动渲染) */
 export function hueFamilies() {
   return Object.keys(FAMILIES)
 }
 
+/** 只有底档的族名清单 */
+export function hueTintOnlyFamilies() {
+  return Object.keys(BASE_ONLY_FAMILIES)
+}
+
+const lookup = (name) => rnHue[name] ?? rnHueTintOnly[name]
+
 export function hueTint(name) {
-  const entry = rnHue[name]
+  const entry = lookup(name)
   if (!entry) throw new Error(`hueTint:色相族 ${name} 不在表内(要加族请在本表落档,不得端内自立)`)
   return entry.tint
 }
 
 export function hueTintStrong(name) {
-  const entry = rnHue[name]
+  const entry = lookup(name)
   if (!entry) throw new Error(`hueTintStrong:色相族 ${name} 不在表内`)
   return entry.tintStrong
 }
