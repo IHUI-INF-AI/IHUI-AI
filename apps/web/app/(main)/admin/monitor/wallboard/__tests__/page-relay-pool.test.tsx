@@ -73,6 +73,16 @@ const liveRelayPool = {
   accountLatestRefreshAgeSec: 5 * 3_600 + 46 * 60,
   keepaliveIdleDays: 7,
   rowsUnclassified: 0,
+  keyHealth: { unknown: 0, healthy: 12, degraded: 2, down: 0 },
+  keyByProvider: [
+    { provider: 'stepfun', total: 1, schedulable: 1, abnormal: 1 },
+    { provider: 'deepseek', total: 1, schedulable: 1, abnormal: 0 },
+  ],
+  accountByProvider: [
+    { provider: 'qoder', total: 5, schedulable: 5 },
+    { provider: 'codearts', total: 1, schedulable: 0 },
+  ],
+  accountExpiring24h: 1,
 }
 
 function overviewWith(relayPool: unknown) {
@@ -160,7 +170,6 @@ describe('大屏「AI 号池」读数口径', () => {
     expect(within(at('可调度账号')).getByText('13 / 14')).toBeTruthy()
     // 临期只读可调度号(68,400s = 19 小时);死号的"已过期"不再冒充池子最短临期
     expect(within(at('最短令牌临期')).getByText('19小时')).toBeTruthy()
-    expect(within(at('最短令牌临期')).getByText('仅可调度号')).toBeTruthy()
     expect(within(view.container).queryByText('已过期')).toBeNull()
     // 死号仍然可见,但归到"停用·摘除号"这一格
     expect(within(at('停用·摘除号')).getByText('1')).toBeTruthy()
@@ -168,6 +177,24 @@ describe('大屏「AI 号池」读数口径', () => {
     // 最久未刷新 + 最近一次刷新 + 保活窗口上限
     expect(within(at('最久未刷新')).getByText('2天17小时')).toBeTruthy()
     expect(within(at('最久未刷新')).getByText('最近一次 5小时46分前 · 保活上限 7天')).toBeTruthy()
+
+    // 汇总格只说"异常 2",答不出是降级还是宕机 —— 四态计数与「异常」同源折叠
+    // 四态 chip 的数字单独着色(两层元素),按 RTL 口径取标签元素再读整行文本
+    const chip = (label: string) => within(view.container).getAllByText(label)[0]?.textContent
+    expect(chip('健康')).toBe('健康 12')
+    expect(chip('降级')).toBe('降级 2')
+    expect(chip('宕机')).toBe('宕机 0')
+    expect(chip('未知')).toBe('未知 0')
+    // 脏值行分池点名(合计格只给一个数,查不到是哪张表)
+    expect(within(at('未归类健康态(两池)')).getByText('密钥池 0 · 账号池 0')).toBeTruthy()
+    // 24h 内临期的可调度账号数,挂在「最短令牌临期」同一格读
+    expect(within(at('最短令牌临期')).getByText('仅可调度号 · 24h内临期 1')).toBeTruthy()
+    // 按供应商:一家全灭在汇总面上只掉一个数,这里必须逐家看得见
+    const stepfun = within(view.container).getAllByText('stepfun')[0]?.parentElement
+    expect(stepfun?.textContent).toContain('1 / 1')
+    expect(stepfun?.textContent).toContain('异常 Key 1')
+    const codearts = within(view.container).getAllByText('codearts')[0]?.parentElement
+    expect(codearts?.textContent).toContain('0 / 1')
 
     view.unmount()
   })

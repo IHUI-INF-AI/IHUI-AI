@@ -311,6 +311,19 @@ interface RelayPoolSnapshot {
   keepaliveIdleDays?: number | null
   /** 两张池合计的脏健康态行数(旧后端只有这一个字段) */
   rowsUnclassified?: number | null
+  /** Key 健康四态计数(与「异常/可调度」同一把尺子折叠出来的分档) */
+  keyHealth?: { unknown: number; healthy: number; degraded: number; down: number } | null
+  /** Key 按供应商分布(可调度/异常口径与汇总字段同源) */
+  keyByProvider?: Array<{
+    provider: string
+    total: number
+    schedulable: number
+    abnormal: number
+  }> | null
+  /** 账号池按供应商分布 */
+  accountByProvider?: Array<{ provider: string; total: number; schedulable: number }> | null
+  /** access token 将在 24 小时内过期的**可调度**账号条数(含已过期) */
+  accountExpiring24h?: number | null
 }
 
 interface ActiveAlert {
@@ -3200,7 +3213,43 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         ? 'warn'
                         : 'ok'
                   }
+                  hint={
+                    isNum(relayPool?.keyRowsUnclassified) &&
+                    isNum(relayPool?.accountRowsUnclassified)
+                      ? `${t('poolKey')} ${fmtInt(relayPool.keyRowsUnclassified)} · ${t('poolAccount')} ${fmtInt(relayPool.accountRowsUnclassified)}`
+                      : undefined
+                  }
                 />
+              </div>
+              {/* 健康四态:汇总格只说"异常 2",说不清是降级还是宕机、有多少还没被测过。
+                  四档计数与「异常」同源折叠,2026-10-30 接线(此前字段一直回、界面无一格)。 */}
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {(
+                  [
+                    ['healthy', t('poolHealthHealthy')],
+                    ['degraded', t('poolHealthDegraded')],
+                    ['down', t('poolHealthDown')],
+                    ['unknown', t('poolHealthUnknown')],
+                  ] as const
+                ).map(([state, label]) => (
+                  <span
+                    key={state}
+                    className="wb-num rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                  >
+                    {label}{' '}
+                    <span
+                      className={
+                        state === 'down'
+                          ? 'text-danger-text'
+                          : state === 'degraded'
+                            ? 'text-warning-text'
+                            : 'text-foreground'
+                      }
+                    >
+                      {fmtInt(relayPool?.keyHealth?.[state])}
+                    </span>
+                  </span>
+                ))}
               </div>
             </div>
             <div>
@@ -3237,7 +3286,14 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                           ? 'warn'
                           : 'ok'
                   }
-                  hint={t('poolTokenExpiryScope')}
+                  hint={[
+                    t('poolTokenExpiryScope'),
+                    isNum(relayPool?.accountExpiring24h) && (relayPool?.accountExpiring24h ?? 0) > 0
+                      ? `${t('poolExpiring24h')} ${fmtInt(relayPool?.accountExpiring24h)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 />
                 <StatCell
                   label={t('poolBlockedAccounts')}
@@ -3284,6 +3340,47 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       .join(' · ') || undefined
                   }
                 />
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('poolProviderKeyTitle')}
+              </div>
+              <div className="space-y-1">
+                {(relayPool?.keyByProvider ?? []).map((p) => (
+                  <MeterRow
+                    key={`k:${p.provider}`}
+                    label={p.provider}
+                    value={`${fmtInt(p.schedulable)} / ${fmtInt(p.total)}`}
+                    note={
+                      p.abnormal > 0 ? `${t('poolKeyAbnormal')} ${fmtInt(p.abnormal)}` : undefined
+                    }
+                  />
+                ))}
+                {relayPool !== null && (relayPool.keyByProvider ?? []).length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('noPoolRows')}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('poolProviderAccountTitle')}
+              </div>
+              <div className="space-y-1">
+                {(relayPool?.accountByProvider ?? []).map((p) => (
+                  <MeterRow
+                    key={`a:${p.provider}`}
+                    label={p.provider}
+                    value={`${fmtInt(p.schedulable)} / ${fmtInt(p.total)}`}
+                  />
+                ))}
+                {relayPool !== null && (relayPool.accountByProvider ?? []).length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('noPoolRows')}
+                  </div>
+                ) : null}
               </div>
             </div>
           </Panel>
