@@ -20,14 +20,40 @@
  *   - opencode:主库 opencode.db 的 session/message **0 行**(5.4GB 皆为空闲页,实测),
  *     会话可见面 = storage/plugin/history-snip/ses_*.json 文件族 ⇒ fileSet 形态清单钉。
  *
- * 分族口径(为什么不是只有 sqlite,也为什么不接某些平台):
- *   - **对话正库在本机**(可对账):qoder / minimax / codex / zcode / opencode(文件族)。
- *   - **对话在云端账号下**(刻意不接,接了恒"未装/零会话"误导):workbuddy / codearts /
- *     loomy / doubao —— 本地无会话正库(2026-10-30 逐机实测无大库),切号后 UI 列表
- *     跟账号走是产品行为;出路 = 官方导出口或"对话交接续接",不是本地迁移。
- *   - **trae / trae-solo 不在本对账器**:正库是 SQLCipher 加密库,携对话腿
- *     (trae-chat-carry)自带解密-重绑-重加密三道自证,不造第二把解密尺(§0.6)。
- *   - lingma / grokbot 本机未安装,无数据面可取证,不虚设条目(装上后按此先取证再登记)。
+ * 分族口径(2026-10-31 按新取证整段重写;旧口径"workbuddy/codearts/loomy 本地无会话正库"
+ * 已被本机实测推翻,不留旧文。下列计数均本机当日现读,只作形态证据,绝对值以现读为准):
+ *
+ *   A. **对话正库在本机、sqlite 表族**(按 session 表行数打分挑最富者):
+ *      qoder / minimax / codex / zcode。
+ *   B. **对话正库在本机、但是文件族/键族**(清单钉 = 文件或主键集合,一个字节正文都不读):
+ *      - opencode:history-snip/ses_*.json 单层文件族(现读 63 份)。
+ *      - workbuddy:~/.workbuddy/projects/<项目>/<会话>.jsonl,**两层** 91 份 / 365.7MiB。
+ *        同目录 workbuddy.db 的 sessions 90 行 **deleted_at 全部非空**(软删)⇒ 不能当会话面。
+ *        再往下递归会捞到 <会话>/subagents/agent-*.jsonl 等子代理流水(深扫 370 份),
+ *        它们不是独立会话、由主会话派生 ⇒ depth 钉死在 2,不用 deep。
+ *      - codearts:%APPDATA%\codearts-agent\User\workspaceStorage\<hash>\chatSessions\*.jsonl
+ *        (现读 45 份 / 120 行)。workspaceStorage 下会有别家扩展写的非会话 jsonl ⇒
+ *        递归 + 只认路径里恰有 chatSessions 这一段(不是子串匹配)。
+ *        旁证 ~/.codeartsdoer/codearts-data/opencode.db(session 1 / message 2 / part 2)
+ *        是另一产品的残库,不作正式面。
+ *      - loomy:%APPDATA%\Loomy\IndexedDB\file__0.indexeddb.leveldb(1.28MB)。
+ *        IndexedDB 是 append-only .log/.ldb,**文件数不随会话增减**,钉文件清单只能做粗检;
+ *        故改钉**主键**:用 leveldb-log 的只读重放器(与 local-login 同一读取实现)取活键,
+ *        再按 IDB 记录键布局解出字符串主键、只数 ses_ 前缀。
+ *        现读:51 条活键(全 store,0 份解析失败)/ 历史上写过 27 枚会话主键,最终态 = 2 枚有数据、
+ *        25 枚是 tombstone(客户端已删)。
+ *        同一枚会话主键会同时落在数据 store 与另一 store 的短记录里(2 枚会话 ⇒ 4 条命中)⇒ 必须去重。
+ *        局限(结构决定,不是实现偷懒):活日志正被客户端追加写,本器无锁只读,
+ *        尾部半条记录被 parseLogRecords 当坏头丢掉 ⇒ **只承诺"同法两次快照的差集"**,
+ *        不承诺绝对条数;IDB 主键编码随 Chromium 版本变 ⇒ 解不成一律跳过不猜。
+ *   C. **云端缓存,不算正库**(刻意不接,接了恒"零会话/未判定"误导):
+ *      - doubao:%LOCALAPPDATA%\Doubao\User Data\Default\IndexedDB\chrome_doubao-chat_*
+ *        (现读 4.4MB / 211 条活键,库内 store 名只有 '' 与 sidebar-skills-v2:zh,
+ *        值里 156 处 downlink_body —— 全是云端下行回包缓存,没有本地消息主表)。
+ *        数它数的是"最近从云端拉过哪些会话",不是"本地存了哪些会话"。
+ *   D. **不造第二把尺**:trae / trae-solo 正库是 SQLCipher 加密库,携对话腿
+ *      (trae-chat-carry)自带解密-重绑-重加密三道自证(§0.6)。
+ *   E. lingma / grokbot 本机未安装,无数据面可取证,不虚设条目(装上后按此先取证再登记)。
  *
  * 纪律:只读输入(对副本 checkpoint WAL,不碰在跑客户端的活库);清单只含 id 哈希与计数,
  * 绝不含消息正文/token;compare 的差集按会话 id 点名,供人工/后续腿判断。
@@ -38,6 +64,9 @@ import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { createRequire } from 'node:module'
+// 只借"读"这一半:Loomy 的 IndexedDB 与 local-login 写的 Local Storage 同为 LevelDB 物理格式,
+// 同一份读取实现避免第二把解析尺(§0.6);本器不 import 它的写回端任何东西。
+import { readLevelDbEntries, decodeVarint } from './leveldb-log.mjs'
 
 const require = createRequire(import.meta.url)
 const { DatabaseSync } = require('node:sqlite')
@@ -82,6 +111,38 @@ export const APPS = Object.freeze({
     },
     accountCols: [],
   },
+  workbuddy: {
+    label: 'WorkBuddy',
+    // workbuddy.db 的 sessions 90 行 deleted_at 全非空(软删)⇒ 会话面只能取 JSONL 文件族。
+    // depth 2 = projects/<项目>/<会话>.jsonl;更深一层是子代理流水(深扫 370 份 vs 两层 91 份),不是独立会话。
+    fileSet: {
+      root: 'C:/Users/Administrator/.workbuddy/projects',
+      ext: '.jsonl',
+      depth: 2,
+    },
+    accountCols: [],
+  },
+  codearts: {
+    label: 'CodeArts Agent',
+    // workspaceStorage 下还有别家扩展写的 jsonl ⇒ 递归但只认路径里恰有 chatSessions 段
+    // (workspaceStorage/<hash>/chatSessions/<会话>.jsonl,现读 45 份)
+    fileSet: {
+      root: 'C:/Users/Administrator/AppData/Roaming/codearts-agent/User/workspaceStorage',
+      ext: '.jsonl',
+      deep: true,
+      segment: 'chatSessions',
+    },
+    accountCols: [],
+  },
+  loomy: {
+    label: 'Loomy',
+    // IndexedDB:文件数恒定(append-only .log/.ldb)⇒ 钉文件只能粗检;改数活主键(ses_ 前缀)
+    keyCount: {
+      root: 'C:/Users/Administrator/AppData/Roaming/Loomy/IndexedDB/file__0.indexeddb.leveldb',
+      keyPrefix: 'ses_',
+    },
+    accountCols: [],
+  },
 })
 
 export class CheckError extends Error {
@@ -108,8 +169,10 @@ export function locateDbAll(appKey, env = process.env) {
     }
   }
   const home = os.homedir().replace(/\\/g, '/')
-  // fileSet 形态:候选是「目录」而非库文件(opencode history-snip 同理,跨 profile 兜底同法)
-  const candidates = spec.dbCandidates ?? (spec.fileSet ? [spec.fileSet.root] : [])
+  // fileSet / keyCount 形态:候选是「目录」而非库文件(opencode history-snip、Loomy IndexedDB 同理)
+  const candidates =
+    spec.dbCandidates ?? [spec.fileSet?.root ?? spec.keyCount?.root].filter(Boolean)
+  // 库文件形态里 `C:/Users/<名>/` 之后才是 profile 内相对路径;目录形态同法
   for (const c of candidates) {
     push(c.replace('C:/Users/Administrator', home))
     push(c)
@@ -132,21 +195,96 @@ export function locateDbAll(appKey, env = process.env) {
 }
 
 /**
- * 定位"本机现役会话面":候选按本应用会话表行数打分,取最大者;
- * fileSet 形态按命中文件数打分(opencode);
- * 全 0 ⇒ {file:null, cands}(调用方如实报"存在库文件但零会话",不冒充未装)。
+ * fileSet 清单:返回相对 id(去扩展名、正斜杠),排序后即清单钉。
+ *   - depth(默认 1)= 从 root 往下最多走几层目录:1 只数 root 直属文件(opencode 形态不动),
+ *     2 = root/<项目>/<会话>.jsonl(workbuddy;再深是子代理流水,不是独立会话)。
+ *   - deep:true = 任意深度(codearts 的 <hash>/chatSessions/*.jsonl 层级随产品变)。
+ *   - segment = 只认相对路径里**恰有**这一段目录名的文件(workspaceStorage 下有别家扩展的 jsonl,
+ *     子串匹配会把 chatSessions2 也算进来)。纯数据字段,调用方与测试可任意注入。
+ * 符号链接/junction 一律跳过:递归穿 junction 会跑出 root(§26)。
+ */
+export function listFileSet(dir, fileSet) {
+  const ext = fileSet.ext
+  const maxDepth = fileSet.deep
+    ? Infinity
+    : Number.isFinite(fileSet.depth)
+      ? Number(fileSet.depth)
+      : 1
+  const out = []
+  const walk = (cur, relDir, depth) => {
+    let entries
+    try {
+      entries = fs.readdirSync(cur, { withFileTypes: true })
+    } catch {
+      return // 某层读不动 ⇒ 该子树不计,不猜
+    }
+    for (const e of entries) {
+      if (e.isSymbolicLink()) continue
+      const relPath = relDir ? `${relDir}/${e.name}` : e.name
+      if (e.isDirectory()) {
+        if (depth < maxDepth) walk(path.join(cur, e.name), relPath, depth + 1)
+        continue
+      }
+      if (!e.isFile() || !e.name.endsWith(ext)) continue
+      if (fileSet.segment && !relDir.split('/').includes(fileSet.segment)) continue
+      out.push(relPath.slice(0, -ext.length))
+    }
+  }
+  walk(dir, '', 1)
+  return out.sort()
+}
+
+/**
+ * IndexedDB 记录键 ⇒ 字符串主键。布局(Chromium IDB leveldb,本机实测):
+ *   \x00 \x01 \x02 <storeId> \x01 <varint 字符数> <UTF-16BE 字节>
+ * 解不成(库元数据键 / 索引键 / 非字符串主键 / 编码随版本漂移)⇒ null,由调用方跳过。
+ */
+export function decodeIdbStringKey(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 7) return null
+  if (buf[0] !== 0x00 || buf[1] !== 0x01 || buf[2] !== 0x02 || buf[4] !== 0x01) return null
+  const n = decodeVarint(buf, 5)
+  if (!n) return null
+  const chars = Number(n.value)
+  if (!Number.isSafeInteger(chars) || chars <= 0 || n.next + chars * 2 > buf.length) return null
+  const body = Buffer.from(buf.subarray(n.next, n.next + chars * 2))
+  body.swap16()
+  return body.toString('utf16le')
+}
+
+/**
+ * keyCount 形态(Loomy IndexedDB):只读重放 .log/.ldb ⇒ 取活键(同键后写为准,tombstone 即删)
+ * ⇒ 解字符串主键 ⇒ 只留 keyPrefix 前缀 ⇒ **按主键去重**。
+ * 去重不是洁癖:同一枚会话主键会同时存在于"数据记录"与另一 store 的短记录里
+ * (2026-10-31 现读:2 枚会话 ⇒ 4 条命中),不去重会把 2 场数成 4 场。
+ * 活日志正被客户端追加写而本器不加锁:尾部半条记录会被丢弃 ⇒ 这里数的是"此刻可读到的活会话",
+ * 对账只比较同法两次快照的差集。
+ */
+export function listKeyCountIds(dir, spec) {
+  const { entries } = readLevelDbEntries(dir, fs, path)
+  const ids = new Set()
+  for (const k of entries.keys()) {
+    const s = decodeIdbStringKey(Buffer.from(k, 'latin1'))
+    if (s && s.startsWith(spec.keyPrefix)) ids.add(s)
+  }
+  return [...ids].sort()
+}
+
+/**
+ * 定位"本机现役会话面":候选按本应用会话数打分,取最大者;
+ * 目录形态文件族按命中文件数、键族按活主键数(opencode/workbuddy/codearts/loomy);
+ * 全 0 ⇒ {file:null, cands}(调用方如实报"存在会话面但零会话",不冒充未装)。
  */
 export function pickRichestDb(appKey, env = process.env) {
   const spec = APPS[appKey]
   const cands = locateDbAll(appKey, env)
   const scored = []
-  if (spec.fileSet) {
+  if (spec.fileSet || spec.keyCount) {
     for (const d of cands) {
       let n = -1
       try {
-        n = fs
-          .readdirSync(d, { withFileTypes: true })
-          .filter((e) => e.isFile() && e.name.endsWith(spec.fileSet.ext)).length
+        n = spec.fileSet
+          ? listFileSet(d, spec.fileSet).length
+          : listKeyCountIds(d, spec.keyCount).length
       } catch {
         /* 该候选读不成 ⇒ 记 -1 不猜 */
       }
@@ -212,8 +350,8 @@ export function snapshotApp(appKey, opts = {}) {
   const env = opts.env ?? process.env
   const spec = APPS[appKey]
   if (!spec) throw new CheckError(`不认识的应用:${appKey}(可用 = ${Object.keys(APPS).join('/')})`, 'bad-app')
-  // fileSet 形态(opencode):清单钉 = 目录内会话文件名集合(基名排序后哈希,零正文)
-  if (spec.fileSet) {
+  // 目录形态(fileSet 文件族 / keyCount 键族):清单钉 = 相对 id 集合(排序后哈希,零正文)
+  if (spec.fileSet || spec.keyCount) {
     const pickedDir = opts.dbPath ?? pickRichestDb(appKey, env).file
     if (!pickedDir) {
       const scored = opts.dbPath ? [{ file: opts.dbPath, sessions: -1 }] : pickRichestDb(appKey, env).scored
@@ -222,16 +360,22 @@ export function snapshotApp(appKey, opts = {}) {
         state: 'undetermined',
         why:
           scored.length > 0
-            ? `找到 ${scored.length} 个候选目录但 0 份会话文件(可能从未用过):${scored.map((s) => `${s.file}=${s.sessions}`).join(' | ')}`
+            ? `找到 ${scored.length} 个候选目录但 0 份会话(可能从未用过):${scored.map((s) => `${s.file}=${s.sessions}`).join(' | ')}`
             : '本机找不到该应用的会话面目录(未装/未登录/路径变了)',
       }
     }
-    const names = fs
-      .readdirSync(pickedDir, { withFileTypes: true })
-      .filter((e) => e.isFile() && e.name.endsWith(spec.fileSet.ext))
-      .map((e) => e.name.slice(0, -spec.fileSet.ext.length))
-      .sort()
-    const h = crypto.createHash('sha1').update(names.join('\n')).digest('hex')
+    const ids = spec.fileSet
+      ? listFileSet(pickedDir, spec.fileSet)
+      : listKeyCountIds(pickedDir, spec.keyCount)
+    // 目录在、清单 0 ⇒ 未判定(§0.3):"读成空"与"没装"都不是"切号后完好"
+    if (ids.length === 0) {
+      return {
+        app: appKey,
+        state: 'undetermined',
+        why: `会话面目录存在但数出 0 份会话(客户端清空/编码变了/尚未产生对话):${pickedDir}`,
+      }
+    }
+    const h = crypto.createHash('sha1').update(ids.join('\n')).digest('hex')
     return {
       app: appKey,
       label: spec.label,
@@ -239,11 +383,11 @@ export function snapshotApp(appKey, opts = {}) {
       dbFile: pickedDir,
       walMerged: null,
       takenAt: new Date().toISOString(),
-      sessions: { count: names.length, digest: h.slice(0, 16) },
+      sessions: { count: ids.length, digest: h.slice(0, 16) },
       messageRows: null,
       sessionsWithMessages: null,
       accountDigests: [],
-      sessionIds: names.map(fp),
+      sessionIds: ids.map(fp),
     }
   }
   const picked = opts.dbPath ? { file: opts.dbPath, scored: [{ file: opts.dbPath, sessions: -1 }] } : pickRichestDb(appKey, env)
@@ -336,6 +480,9 @@ export const __test__ = {
   CheckError,
   locateDbAll,
   pickRichestDb,
+  listFileSet,
+  listKeyCountIds,
+  decodeIdbStringKey,
   digestSet,
   snapshotApp,
   compareSnapshots,
