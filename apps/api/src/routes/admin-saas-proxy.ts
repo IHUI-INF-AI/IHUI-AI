@@ -30,8 +30,32 @@ const METHODS_WITH_BODY = new Set(['POST', 'PATCH', 'PUT'])
 
 async function proxyToAdminApi(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   // 解析路径(去掉 /api/admin-saas/ 前缀)
-  const path = request.url.replace(/^\/api\/admin-saas\//, '')
-  const targetUrl = `${ADMIN_API_URL}/admin/api/${path}`
+  const rest = request.url.replace(/^\/api\/admin-saas\//, '')
+  const qIndex = rest.indexOf('?')
+  const rawPath = qIndex === -1 ? rest : rest.slice(0, qIndex)
+  const rawQuery = qIndex === -1 ? '' : rest.slice(qIndex)
+
+  // 路径必须收在 /admin/api/ 之下:原写法直接拼进目标 URL,持有 admin 会话者可用
+  // `/api/admin-saas/../anything`(%2e%2e%2f 同形)借服务器注入的 x-admin-api-key
+  // 打到该内网主机 /admin/api/ 之外的任意路径。
+  let decodedPath: string
+  try {
+    decodedPath = decodeURIComponent(rawPath)
+  } catch {
+    return reply.status(400).send(error(400, '无效的代理路径', 'INVALID_SAAS_PROXY_PATH'))
+  }
+  const segments = decodedPath.split('/')
+  if (
+    decodedPath.startsWith('/') ||
+    decodedPath.includes('\\') ||
+    segments.some((s) => s === '..' || s === '.') ||
+    segments.some((s) => s.includes(':')) ||
+    decodedPath.includes('//')
+  ) {
+    return reply.status(400).send(error(400, '无效的代理路径', 'INVALID_SAAS_PROXY_PATH'))
+  }
+
+  const targetUrl = `${ADMIN_API_URL}/admin/api/${rawPath}${rawQuery}`
 
   // 构造 headers
   const headers: Record<string, string> = {
