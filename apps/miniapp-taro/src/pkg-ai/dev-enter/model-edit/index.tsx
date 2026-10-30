@@ -10,7 +10,7 @@ import { useFieldFocus } from '@/hooks/use-field-focus'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { get, post } from '@/api'
+import { get } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const CATEGORIES = [
@@ -186,37 +186,30 @@ export default function ModelEdit() {
     </ThemeRoot>
   )
 
-  const onSubmit = async () => {
+  // 取证@2026-10-30(可达性复核 ②:撤死分支)。本席程 c6d8b7648b 把 ce93d01c09 那笔「如实报错」
+  // 修复洗回了旧形态,现按现读证据复位:
+  // ① 提交的 POST /developer/agents/:id/charge 在两后端注册面 0 命中
+  //    (apps/api/src 与 apps/ai-service/app 全量 grep '/developer/agents' 无结果)。
+  // ② 名字最接近的 POST /api/agents/charge(apps/api/src/routes/miniapp-compat-routes.ts:2210)
+  //    是**买家侧**购买流水:体形 {agentId: uuid, price: number 必填, duration: int,
+  //    discount: 0..1} 落 zhsAgentBuy,与本屏 saleType/chargePeriod/limitedDuration/
+  //    targetGroup/discount(枚举串)语义不通;这些字段名在两后端也从不出现
+  //    (全仓 saleType/chargePeriod/limitedDuration 0 命中;targetGroup 只在 edu/tour 无关用途)。
+  // ⇒ 请求必然 404:原 try 支的「提交成功」(devEnter.modelEdit.submitSuccess)是**永不达分支**,
+  //   而 catch 支又用 icon:'success' + navigateBack 把"一条都没落库"渲染成"提交成功"并带用户
+  //   离开表单(§30:没有终态不许渲染成完成)。现不发这条注定失败的请求,如实报错、留在本页。
+  //   in-flight 位随之不再置真 ⇒ modelEdit.submitting 那一句三元按设计不可达(共享屏结构键,
+  //   源码保留引用以免镜像对账反掉;接上真端点时它自然复活)。
+  const onSubmit = () => {
     if (submitting) return
-    setSubmitting(true)
-    const formData = {
-      agentId,
-      agentName: agentInfo.name,
-      categories: categories.join(','),
-      department: DEPARTMENTS[deptIndex],
-      saleType,
-      chargePeriod: saleType === 'free' ? '' : chargePeriod,
-      limitedDuration: saleType === 'limited' ? limitedDuration : '',
-      targetGroup,
-      discount: saleType === 'free' ? '' : discount,
-      price: saleType === 'paid' ? price : '',
-    }
-    try {
-      await post(`/developer/agents/${agentId}/charge`, formData)
-      Taro.showToast({
-        title: tt('devEnter.modelEdit.submitSuccess', '提交成功'),
-        icon: 'success',
-      })
-    } catch (e) {
-      logger.error('model-edit', t('deventerModeledit.q7'), e)
-      Taro.showToast({
-        title: tt('devEnter.modelEdit.mockSuccess', '接口暂未开放,已模拟提交'),
-        icon: 'success',
-      })
-    } finally {
-      setSubmitting(false)
-      setTimeout(() => Taro.navigateBack(), 1200)
-    }
+    setSubmitting(false)
+    Taro.showToast({
+      // 取五语言齐备且语义如实的既成键(pkg-ai/ai/chat.tsx:1915 同键先例,不新造文案键)。
+      // 注:词包里 devEnter.modelEdit.mockSuccess 现值是「接口暂未开放,已模拟提交」——本屏
+      // 既没开放也没有"模拟",那句话不符实况;词包面在本案程射程外,已写进交付报告。
+      title: tt('ai.businessForms.status.failed', '提交失败,请重试'),
+      icon: 'error',
+    })
   }
 
   return (
@@ -309,7 +302,12 @@ export default function ModelEdit() {
             </Text>
             {renderOpts(saleTypeOpts, saleType, (v) => setSaleType(v as SaleType))}
 
-            {/* 4. 收费周期 + 价格 (付费/限时免费时显示) — 对齐 RN paidCard:mt12/p12/r12 + surface.muted,无边框;时限/折扣同移卡内(RN 同构) */}
+            {/* 4. 收费周期 + 价格 (付费/限时免费时显示) — 对齐 RN paidCard:mt12/p12/r12 + surface.muted,无边框;时限/折扣同移卡内(RN 同构)
+                标签↔字段对账@2026-10-30:modelEdit.labelCycle(「结算周期」)驱动的是 chargePeriod 这一维
+                (monthly/quarterly/yearly),值域就是周期,共享屏同键配的也是周期选择器
+                (packages/app/src/features/model-edit/ModelEditScreen.tsx:156 + PAY_CYCLE_OPTIONS:40-44)
+                ⇒ 新标签不与字段语义冲突;端内旧标签 devEnter.modelEdit.chargePeriodLabel(「收费周期」)
+                词面更贴,是否换回归产品定夺,本席不改渲染(换了 labelCycle 就掉出镜像对账的 12 键)。 */}
             {saleType !== 'free' ? (
               <View className="mt-[24rpx] p-[24rpx] rounded-xl bg-muted">
                 <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">

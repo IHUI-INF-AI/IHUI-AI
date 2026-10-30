@@ -9,7 +9,7 @@ import { View, Text } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { updatePassword } from '@/api'
+import { changePassword } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 
 export default function Password() {
@@ -58,12 +58,19 @@ export default function Password() {
     }
     setSubmitting(true)
     try {
-      await updatePassword(oldPwd, newPwd)
+      /* 端点契约 = `PUT /api/auth/password { oldPassword, newPassword }`
+         (apps/api/src/routes/auth.ts:1768-1786)。此前走 `updatePassword(oldPwd,newPwd)`
+         → `POST /api/user/password` 发 `{ oldPwd, newPwd }`(api/index.ts:1028),与该
+         handler 的 zod 字段名不符(miniapp-compat-routes.ts:2490-2497)⇒ 必 400,
+         `user.password.success` 那一支从来渲染不出来。 */
+      await changePassword({ oldPassword: oldPwd, newPassword: newPwd })
       Taro.showToast({ title: tt('user.password.success', '密码修改成功'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/password', '修改密码', e)
-      Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
+      /* `common.failed` 五语言词条是「加载失败」,用在提交失败处是说谎文案;
+         取已在册且语义精确的 `settings.pwdChangeFailed`(与设置页密码弹层同一句)。 */
+      Taro.showToast({ title: t('settings.pwdChangeFailed'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }

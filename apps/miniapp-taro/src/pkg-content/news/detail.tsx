@@ -8,22 +8,13 @@ import { logger } from '@/utils/logger'
 import { View, Text, Image, RichText } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
-import * as api from '@/api'
-import { getNewsDetail, type News } from '@/api'
+import { getNewsDetail, getRelatedNews, likeNews, type News } from '@/api'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import { PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import NewsState from './news-state'
+import { normalizeArticle } from './news-mapper'
 import LineIcon from '@/components/LineIcon'
-
-// 防御式扩展:likeNews / getRelatedNews 当前 @/api 未导出,运行时若存在则调用,否则静默 fallback
-type NewsApiExt = {
-  likeNews?: (id: string | number) => Promise<{ liked?: boolean } | void>
-  getRelatedNews?: (
-    id: string | number,
-    params?: { page?: number; pageSize?: number },
-  ) => Promise<{ list?: News[]; total?: number } | News[]>
-}
 
 export default function NewsDetailPage() {
   const tt = useTt()
@@ -41,22 +32,22 @@ export default function NewsDetailPage() {
     setLoading(true)
     setFailed(false)
     try {
+      // 详情载荷为 { article: 原始行 }(news.ts:371),原始行字段是 viewCount/publishedAt 口径,
+      // 统一经 normalizeArticle 归一后再上屏(阅读数真来自端点,非恒 0)
       const data = await getNewsDetail(id)
-      setNews(data)
+      const article = normalizeArticle(data)
+      setNews(article)
       const ext = data as News & { likes?: number; comments?: number; isLiked?: boolean }
       setLikes(ext.likes || 0)
       setComments(ext.comments || 0)
       setLiked(Boolean(ext.isLiked))
-      const relFn = (api as unknown as NewsApiExt).getRelatedNews
-      if (typeof relFn === 'function') {
-        try {
-          const res = await relFn(id)
-          if (Array.isArray(res)) setRelated(res)
-          else if (res?.list) setRelated(res.list)
-        } catch (e) {
-          logger.error('news/detail', '获取相关推荐', e)
-          setRelated([])
-        }
+      try {
+        const res = await getRelatedNews(id)
+        if (Array.isArray(res)) setRelated(res.map(normalizeArticle))
+        else if (res?.list) setRelated(res.list.map(normalizeArticle))
+      } catch (e) {
+        logger.error('news/detail', '获取相关推荐', e)
+        setRelated([])
       }
     } catch (e) {
       logger.error('news/detail', '获取资讯详情', e)
@@ -81,10 +72,12 @@ export default function NewsDetailPage() {
     const next = !liked
     setLiked(next)
     setLikes((c) => Math.max(0, c + (next ? 1 : -1)))
-    const fn = (api as unknown as NewsApiExt).likeNews
-    if (typeof fn !== 'function') return
     try {
-      await fn(id)
+      // POST /news/articles/:id/like 回 {liked, likeCount}(news.ts:428-431,
+      // resource_likes 真值):服务端计数到达时以它为准,乐观值只作首帧占位
+      const res = await likeNews(id)
+      if (typeof res?.likeCount === 'number') setLikes(res.likeCount)
+      if (typeof res?.liked === 'boolean') setLiked(res.liked)
     } catch (e) {
       logger.error('news/detail', '点赞接口', e)
       setLiked(!next)
