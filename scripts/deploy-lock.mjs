@@ -147,6 +147,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 2026-10-02(补齐部署锁机制票):acquire --with-heartbeat 与 run 子命令都要**派生进程**
 // (常驻心跳 + 被包装的真命令)。§5b/守门 52:凡派生控制台程序必带 windowsHide,否则用户桌面反复弹黑窗。
 import { spawn } from 'node:child_process'
+// 带值旗标取值的唯一出口(G-322):`--lock-dir` 吞值不得再静默退回默认锁目录。
+import { flagValue, describeFlagToken } from './lib/flag-value.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -3139,7 +3141,7 @@ async function runSelfTest() {
     t(
       'AH1 派生 argv 逐字钉死:必须带 --lock-dir 且指向**这把锁自己的**目录(漏了它心跳会去刷项目根的真锁)',
       argvOf.args.includes('--lock-dir') &&
-        argvOf.args[argvOf.args.indexOf('--lock-dir') + 1] === resolve(planDir) &&
+        flagValue(argvOf.args, '--lock-dir').value === resolve(planDir) &&
         argvOf.file === process.execPath,
       argvOf.args.join(' '),
     )
@@ -3350,11 +3352,24 @@ async function runSelfTest() {
 async function main() {
   const args = process.argv.slice(2)
   const cmd = args[0]
+  // G-322(带值旗标吞值):取值形状归单源 `lib/flag-value.mjs`,本文件不写第二份。
+  //   旧写法 `args[i + 1]` 把"值被吞"与"没给旗标"读成同一件事,后果按选项分两档:
+  //   · `--lock-dir` 收尾 / 被下一枚旗标顶掉 ⇒ 回 undefined ⇒ **静默退回项目根那把锁** ——
+  //     运维以为在查/释放 A 目录的锁,实际读写的却是根锁(§0.10:失效方向绝不能是"多放一次");
+  //   · `--timeout/--stale/--interval` 等继续沿用调用方各自的 `??` 默认档(形态一字未变)。
+  //   故本处只把 `--lock-dir` 升为"给了就必须有合法值"(exit 2 点名),其余保持既有语义。
   const getOpt = (name) => {
-    const i = args.indexOf(name)
-    return i >= 0 ? args[i + 1] : undefined
+    const f = flagValue(args, name)
+    return f.present ? (f.token ?? undefined) : undefined
   }
-  const dir = getOpt('--lock-dir') ? resolve(getOpt('--lock-dir')) : undefined
+  const dirFlag = flagValue(args, '--lock-dir')
+  if (dirFlag.present && !dirFlag.valid) {
+    console.error(
+      `❌ --lock-dir 需要一个目录 —— 紧邻的 token 实得:${describeFlagToken(dirFlag)}(不得静默退回默认锁目录)`,
+    )
+    process.exit(2)
+  }
+  const dir = dirFlag.value ? resolve(dirFlag.value) : undefined
 
   try {
     if (cmd === '--self-test' || args.includes('--self-test')) {

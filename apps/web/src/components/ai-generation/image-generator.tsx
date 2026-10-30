@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import { Image as ImageIcon, Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
@@ -67,7 +68,7 @@ export function ImageGenerator({ onGenerate }: ImageGeneratorProps) {
         result.status === 'success' && result.data ? (
           <div className="space-y-2">
             <Image
-              src={result.data}
+              src={toMediaImageUrl(result.data)}
               alt={prompt}
               width={800}
               height={600}

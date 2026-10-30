@@ -12,6 +12,7 @@ import { toast } from '@/components/common'
 
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { generateTotp } from './totp'
 
@@ -243,7 +244,7 @@ export function TwoFactorAuth() {
             <p className="text-sm text-muted-foreground">{t('twofa.scanQR')}</p>
             <div className="flex justify-center">
               <Image
-                src={setup.qrCodeUrl}
+                src={toMediaImageUrl(setup.qrCodeUrl)}
                 alt="2FA QR"
                 width={160}
                 height={160}

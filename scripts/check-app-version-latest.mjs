@@ -26,6 +26,11 @@
  * 退出码:0 全绿 / 1 有红 / 2 未判定(取不到输入,或有项 undetermined 而无红)。
  * 纪律:取不到输入一律 undetermined 并点名原因,**绝不为过门放宽判据**。
  *
+ * 接线(2026-10-30,Y-14):本尺子**不进提交链** —— 判的是公网端点与线上表里的数据,
+ * 提交者结构上改不了那一格,挂上即恒堵门(§12e)。唯一调度器 = `scripts/git-guardian.mjs`
+ * 的 `auditAppVersionLatest`(6h 节流;红发信并给 `register-app-version-latest.mjs` 那一步,
+ * undetermined 只写日志不喊人,§0.3)。手工入口就是下面这两条命令。
+ *
  * 用法:
  *   node scripts/check-app-version-latest.mjs
  *   node scripts/check-app-version-latest.mjs --base-url https://www.aizhs.top --platform android

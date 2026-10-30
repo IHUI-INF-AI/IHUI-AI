@@ -302,6 +302,8 @@ export interface BatchUpsertResult {
   updated: number
   skipped: number
   failed: number
+  /** 批内复合键去重丢掉的重复行数(见 batchUpsertRegistryItems 头注) */
+  deduped: number
   oldVersions: Array<{
     sourceType: string
     source: string
@@ -320,6 +322,13 @@ export interface BatchUpsertResult {
  * 幂等检查:非 force 且 existing.version === raw.version → skipped,不加入 upsert 批次
  * (跳过时不更新 latestSyncedAt,避免无变更条目产生虚假同步时间)
  *
+ * **批内复合键去重(2026-10-25 立,实测宕因)**:mcp.so/smithery 的 offset 分页在上游重排时
+ * 会把同一 (source_type, source, source_id) 送进两页(实测一轮 760 条里 122 个键重复)⇒
+ * 单条 `INSERT .. ON CONFLICT DO UPDATE` 对同一行影响两次会被 PG 以 21000 拒绝并**整批回滚**
+ * —— 症状正是 12:00 那轮 `synced=0 failed=760`:上游数据一条没落库,日志只留一行 WARN。
+ * 去重住在这条唯一写出口的入口(后位覆盖前位:后一页是上游重排后的新态),任何调用方都自动受保;
+ * 计数如实进返回值 `deduped`(§134 同族:请求侧数字不得冒充落库侧,这里量的是"丢掉的重复请求行")。
+ *
  * 返回每条的 oldVersion 供 sync_log 聚合。
  */
 export async function batchUpsertRegistryItems(
@@ -327,11 +336,19 @@ export async function batchUpsertRegistryItems(
   options?: { force?: boolean },
 ): Promise<BatchUpsertResult> {
   if (items.length === 0) {
-    return { inserted: 0, updated: 0, skipped: 0, failed: 0, oldVersions: [], hashList: [] }
+    return { inserted: 0, updated: 0, skipped: 0, failed: 0, oldVersions: [], hashList: [], deduped: 0 }
   }
 
+  // 0. 批内去重(见头注宕因);Map 保留每个复合键的**最后一次**出现
+  const byKey = new Map<string, (typeof items)[number]>()
+  for (const item of items) {
+    byKey.set(`${item.raw.sourceType}:${item.raw.source}:${item.raw.sourceId}`, item)
+  }
+  const uniqueItems = [...byKey.values()]
+  const deduped = items.length - uniqueItems.length
+
   // 1. 批量查 existing(inArray 不支持多列,用 OR 拼接复合键条件)
-  const conditions = items.map((item) =>
+  const conditions = uniqueItems.map((item) =>
     and(
       eq(registryItems.sourceType, item.raw.sourceType),
       eq(registryItems.source, item.raw.source),
@@ -366,7 +383,7 @@ export async function batchUpsertRegistryItems(
   let skipped = 0
   const now = new Date()
 
-  for (const item of items) {
+  for (const item of uniqueItems) {
     const key = `${item.raw.sourceType}:${item.raw.source}:${item.raw.sourceId}`
     const existing = existingMap.get(key)
     const oldVersion = existing?.version ?? null
@@ -437,7 +454,7 @@ export async function batchUpsertRegistryItems(
       })
   }
 
-  return { inserted, updated, skipped, failed: 0, oldVersions, hashList }
+  return { inserted, updated, skipped, failed: 0, oldVersions, hashList, deduped }
 }
 
 // =============================================================================

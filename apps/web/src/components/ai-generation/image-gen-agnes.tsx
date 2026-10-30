@@ -26,6 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import { ModelSelect, NumImagesSelect, useVendorModels } from './vendor-models'
 
 // Agnes 生图模型 fallback(动态拉取失败时使用):agnes-image-2.5-flash(最新,默认)/ 2.1(2026-10-10 实测仅存这 2 个)
@@ -203,7 +204,7 @@ export const ImageGenAgnes = React.memo(function ImageGenAgnes() {
               {images.map((url) => (
                 <div key={url} className="space-y-1">
                   <Image
-                    src={url}
+                    src={toMediaImageUrl(url)}
                     alt={prompt}
                     width={800}
                     height={600}

@@ -177,6 +177,25 @@ describe('ToolCallCard image rendering', () => {
     expect(img.getAttribute('src')).toBe('data:image/png;base64,xxx')
   })
 
+  it('image_generation 工具 + 外部 http(s) imageUrl 时走同源媒体代理渲染', () => {
+    render(
+      <ToolCallCard
+        toolName="image_generation"
+        args={{ prompt: '一只猫' }}
+        imageUrl="https://cdn.example.com/cat.png"
+        status="success"
+      />,
+    )
+    // 展开卡片
+    fireEvent.click(rowOf('image_generation'))
+    // img 存在 + 经 /api/media/image 同源代理(CSP img-src 收窄后外部图必须走代理)
+    const img = screen.getByAltText('一只猫')
+    expect(img).toBeTruthy()
+    const src = img.getAttribute('src') ?? ''
+    expect(src.startsWith('/api/media/image?url=')).toBe(true)
+    expect(src).toContain('https%3A%2F%2Fcdn.example.com%2Fcat.png')
+  })
+
   it('image_generation 工具无 imageUrl 时回退到 JSON 渲染', () => {
     render(
       <ToolCallCard toolName="image_generation" args={{ prompt: '一只猫' }} status="success" />,
@@ -309,7 +328,10 @@ describe('ToolCallCard media rendering (music/video)', () => {
     fireEvent.click(rowOf('music_generation'))
     const audio = screen.getByTestId('tool-media-audio')
     expect(audio).toBeTruthy()
-    expect(audio.getAttribute('src')).toBe('https://cdn.example.com/song.mp3')
+    // 音频源经同源代理(/api/media/stream),外部 http(s) 直链被 CSP media-src 拦截
+    expect(audio.getAttribute('src')).toBe(
+      `/api/media/stream?url=${encodeURIComponent('https://cdn.example.com/song.mp3')}`,
+    )
   })
 
   it('voice_tts + data URI audioUrl 时渲染 <audio> 播放器(edge-tts 产物)', () => {

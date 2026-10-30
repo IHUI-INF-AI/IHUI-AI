@@ -8,6 +8,7 @@ import * as React from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import { Badge } from '@/components/data'
 
 type OrderStatus = 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded'
@@ -87,7 +88,7 @@ function OrderItemImpl({
       <div className="flex items-center gap-3 py-3">
         {product.image && (
           <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-            <Image src={product.image} alt={product.name} fill className="object-cover" />
+            <Image src={toMediaImageUrl(product.image)} alt={product.name} fill className="object-cover" />
           </div>
         )}
         <div className="min-w-0 flex-1">

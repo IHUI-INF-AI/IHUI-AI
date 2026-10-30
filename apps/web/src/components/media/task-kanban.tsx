@@ -9,6 +9,8 @@ import Link from 'next/link'
 import { ExternalLink, Loader2, Music, Trash2, Video, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+// 外部 http(s) 图片经同源代理走 /api/media/image,满足收窄后的 CSP img-src
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 import {
   COLUMN_RUNNING_STATUSES,
@@ -210,7 +212,7 @@ function TaskKanbanCard({
       {imageThumb && (
         // eslint-disable-next-line @next/next/no-img-element -- 动态远程图片降级用 img
         <img
-          src={imageThumb}
+          src={toMediaImageUrl(imageThumb)}
           alt={task.message || 'media'}
           className="max-h-24 w-full rounded-sm border border-border/50 object-cover"
         />

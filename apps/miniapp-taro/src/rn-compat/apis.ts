@@ -52,7 +52,8 @@ export const Platform = {
 
 /** RN Alert.alert → 微信 showModal:按钮文案与顺序按 RN 语义映射(cancel 在前、destructive 为确认) */
 export const Alert = {
-  alert(
+  // 具名函数表达式而非方法简写:让守门 47 的 bare 判据能认出本文件的 `alert(` 是方法定义(适配层),不是浏览器裸调用
+  alert: function alert(
     title?: string,
     message?: string,
     buttons?: Array<{
