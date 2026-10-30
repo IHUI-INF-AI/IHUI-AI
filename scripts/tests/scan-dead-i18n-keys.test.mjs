@@ -51,6 +51,10 @@ import {
   isScannableRel,
 } from '../_i18n-scan-helpers.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
+// 端面的单一出处与壳引用判据:测试从它们派生期望,不手抄清单、不复制正则(§0.6 / §22c)
+import { TARGETS } from '../lib/i18n-scan-targets.mjs'
+import { RN_SCREENS_DIR, shellRefsOf, shellTargetRel } from '../lib/rn-shell-refs.mjs'
+import { carriedKeysFromRepo } from '../lib/rn-carried-keys.mjs'
 // §26:临时夹具唯一出口(禁止 os.tmpdir() —— 活进程 TEMP 可能仍钉在 C 盘)
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
@@ -64,6 +68,24 @@ const SCRIPT_PATH = path.resolve(__dirname, '../scan-dead-i18n-keys.mjs')
 const TARGETS_PATH = path.resolve(__dirname, '../lib/i18n-scan-targets.mjs')
 const HELPERS_PATH = path.resolve(__dirname, '../_i18n-scan-helpers.mjs')
 const HOOK_PATH = path.resolve(__dirname, '../lib/pre-commit-hook.js')
+const REPO_ROOT = path.resolve(__dirname, '../..')
+
+/** 枚举真仓工作树里的 `.tsx/.ts`(只为派生期望面;判据与取值仍由源脚本提供)。 */
+function walkRepoFiles(dir, out = []) {
+  let entries
+  try {
+    entries = fs.readdirSync(path.join(REPO_ROOT, dir), { withFileTypes: true })
+  } catch {
+    return out
+  }
+  for (const entry of entries) {
+    if (['node_modules', '__tests__', 'tests', 'dist', '.next', '.swc'].includes(entry.name)) continue
+    const rel = `${dir}/${entry.name}`
+    if (entry.isDirectory()) walkRepoFiles(rel, out)
+    else if (/\.(tsx|ts)$/.test(entry.name)) out.push(rel)
+  }
+  return out
+}
 
 let tmpDir
 
@@ -505,6 +527,60 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     })
     const { status, stdout } = runCli(['--target', 'cli', '--dry-run', '--exit', '1'])
     assert.equal(status, 0, `跨包动态拼键应判活,实际:\n${stdout}`)
+  })
+
+  test('场景 20:miniapp-taro 面必须含壳承载的宿主面,且不得整目录倒灌 RN 专属屏', () => {
+    // 立因(2026-10-30 现读,CI run 41059553644):小程序页已壳化 —— `@rn-shells/*` 落
+    // apps/mobile-rn/src/screens/*,壳再经 `@ihui/rn-app` 渲染 packages/app 的共享屏;运行时
+    // rn-shell-replace-plugin 把 RN 侧 `../i18n` 换成本端 `@/i18n`,所以这两处的 t() 取的是
+    // **本端词包**。旧面只有 apps/miniapp-taro/src + packages/shared/src ⇒ 2505 枚报名里
+    // 2100 枚有活消费者(83.8%)被误判成死键。
+    // 反向约束同批钉住:整目录收 apps/mobile-rn/src/screens 会把 RN 专属屏的真死键(实测 197 枚,
+    // 如 login.platformWechat)算成本端存活 —— 那是削判据换绿,不是补面。
+    const face = new Set(TARGETS['miniapp-taro'].scanTargets)
+    assert.ok(face.has('packages/app/src'), '共享屏面必须在:壳渲染的正是 packages/app 的屏')
+
+    const refs = new Set()
+    for (const rel of walkRepoFiles('apps/miniapp-taro/src')) {
+      const text = fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8')
+      for (const name of shellRefsOf(text)) refs.add(name)
+    }
+    assert.ok(
+      refs.size > 100,
+      `端内承载壳枚举异常(现读 ${refs.size} 枚):取不到输入不得当绿,也不得让面静默缩回`,
+    )
+    for (const name of refs) {
+      assert.ok(
+        face.has(shellTargetRel(name)),
+        `承载壳 ${name} 的落点 ${shellTargetRel(name)} 不在 miniapp-taro 取词面内(整片会被判死)`,
+      )
+    }
+
+    assert.ok(!face.has(RN_SCREENS_DIR), '不得整目录收 RN 屏目录:RN 专属屏的键会被算成本端存活')
+    // 面的 RN 侧必须**恰好落在承载闭包内**:闭包由门 251/词包生成器同一算式算出(import 而非复制)。
+    // 不在闭包里的 RN 文件一旦进面,就是"把 apps/mobile-rn 自己的真死键混进 miniapp 的账"。
+    const readRepoRel = (rel) => {
+      try {
+        return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8')
+      } catch {
+        return null
+      }
+    }
+    const { files: closureFiles } = carriedKeysFromRepo({
+      readFile: readRepoRel,
+      listFiles: (dir) => walkRepoFiles(dir),
+    })
+    const reachable = new Set(closureFiles)
+    const faceRn = [...face].filter((rel) => rel.startsWith('apps/mobile-rn/'))
+    assert.ok(faceRn.length > 100, `RN 宿主面枚举异常(现读 ${faceRn.length} 枚),不得静默缩面`)
+    for (const rel of faceRn) {
+      assert.ok(reachable.has(rel), `${rel} 不在承载闭包里,却进了取词面(RN 专属键会被倒灌成本端存活)`)
+    }
+    // 反向样本:RN 专属登录屏只被 RootNavigator 引用、端内零承载 —— 它在面里就是有人把整目录收回来了。
+    const loginScreen = `${RN_SCREENS_DIR}/LoginScreen.tsx`
+    if (!reachable.has(loginScreen)) {
+      assert.ok(!face.has(loginScreen), `${loginScreen} 未被端内承载,却进了取词面`)
+    }
   })
 })
 
