@@ -19,13 +19,17 @@ interface ToolItem {
   [key: string]: unknown
 }
 
-interface ListResponse {
-  list: ToolItem[]
-  total?: number
-}
-
 /** 文件类型 tab:全部(0)/文本(1)/音频(2)/图片(3)/视频(4) */
 type FileType = 0 | 1 | 2 | 3 | 4
+
+/** tab → ai_world_categories.slug(库内 12 类里与画幅对应的四类;文本档取对话助手) */
+const TOOL_CATEGORY_BY_TAB: Record<FileType, string | undefined> = {
+  0: undefined,
+  1: 'chat',
+  2: 'audio',
+  3: 'image',
+  4: 'video',
+}
 
 const FILE_TABS = (tt: TtFn): { key: FileType; labelKey: string; fallback: string }[] => [
   { key: 0, labelKey: 'common.all', fallback: tt('common.all', '全部') },
@@ -64,31 +68,25 @@ export default function RankingIndex() {
     async (curPage: number, ft: FileType, kw: string): Promise<boolean> => {
       setFailed(false)
       try {
-        const res = (await api.get('/ranking/list', {
-          fileType: ft,
-          page: curPage,
-          pageSize: PAGE_SIZE,
-          keyword: kw,
-        })) as ListResponse | undefined
-        const newList = res?.list || []
+        // 数据源 = AI World 工具库(ai_world_items kind='tool');原 /ranking/list 后端从未注册,
+        // 兜底 getRankingList() 打的是用户积分榜,业务对象不同 ⇒ 整屏恒空/错数据
+        const res = (await api.get('/ai-world/tools', {
+          category: TOOL_CATEGORY_BY_TAB[ft],
+          limit: PAGE_SIZE,
+          offset: (curPage - 1) * PAGE_SIZE,
+          search: kw || undefined,
+          order: 'hot',
+        })) as { items?: ToolItem[]; total?: number } | undefined
+        const newList = res?.items || []
         setList((prev) => (curPage === 1 ? newList : [...prev, ...newList]))
         const total = res?.total ?? newList.length
         const more = newList.length >= PAGE_SIZE && curPage * PAGE_SIZE < total
         setHasMore(more)
         return more
       } catch {
-        // 兜底:走现有 getRankingList(无分页,只取首页)
-        if (curPage === 1) {
-          try {
-            const res = (await api.getRankingList()) as ListResponse | undefined
-            setList(res?.list || [])
-            setHasMore(false)
-          } catch {
-            setList([])
-            setHasMore(false)
-            setFailed(true)
-          }
-        }
+        setList([])
+        setHasMore(false)
+        setFailed(true)
         return false
       }
     },
@@ -190,7 +188,7 @@ export default function RankingIndex() {
         <View className="p-[28rpx] pb-[64rpx]">
           {list.map((item) => {
             const raw = item as Record<string, unknown>
-            const logo = pick(raw, ['logo', 'avatar', 'icon', 'field1'])
+            const logo = pick(raw, ['logo', 'avatar', 'icon', 'coverImage', 'field1'])
             const name = pick(raw, ['name', 'title'])
             const desc = pick(raw, ['desc', 'description', 'intro', 'summary'])
             const attention = pick(raw, ['attention', 'viewCount', 'collectCount'])
