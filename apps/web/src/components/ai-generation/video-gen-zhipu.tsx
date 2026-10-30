@@ -26,6 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 
 const SIZES = ['1920x1080', '1080x1920', '1024x1024'] as const
 const MODELS = ['cogvideox-3', 'cogvideox-2', 'cogvideox'] as const
@@ -193,7 +194,12 @@ export function VideoGenZhipu() {
               <p className="text-sm text-muted-foreground">{t('noResult')}</p>
             ) : null}
             {videos.map((url) => (
-              <video key={url} src={url} controls className="w-full rounded-md border">
+              <video
+                key={url}
+                src={toMediaStreamUrl(url)}
+                controls
+                className="w-full rounded-md border"
+              >
                 <track kind="captions" />
               </video>
             ))}
