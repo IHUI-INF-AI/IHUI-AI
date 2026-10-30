@@ -24,8 +24,15 @@
  * 两类红点分别报:`未接线(漏传 colorScheme)` / `写死字面量(colorScheme="light|dark")`。
  * 顶层 `{...spread}` 转发:能解析回同文件 `const props[: XxxProps] = {…}` 的,按该 props
  * 对象的**顶层 colorScheme** 判三态(传了=ok / 写死字面量=红 / 没传=红);解析不出的
- * (函数形参、跨文件、对象内继续展开、多展开源)单列为「不确定」并如实报数,由人工核。
+ * (函数形参、与形参/import 同名而作用域存疑、跨文件、对象内继续展开、多展开源)单列为
+ * 「不确定」并如实报数,由人工核。
  * 属性表达式内部的 `{ ...a, ...b }`(setState 合并)不是整标签转发,不得计入不确定。
+ *
+ * ③ `spread-unknown` 口径(2026-10-30 复核):这一档是**判不出**,既不算通过也不判红。
+ *   全仓实测 2 处都是 `{...model}`(hook 返回值),静态上定位不到**哪一份**对象;
+ *   要真正覆盖必须先给端内 wrapper 的 props 建立类型事实,属独立改造。
+ *   在此之前维持「如实报数」:stdout 逐站点名 + 计数,并以「不计通过」措辞进结论行 ——
+ *   **不得**改成静默 ok,也不得把不确定混进红(那会逼人 --no-verify)。
  *
  * ⚠️ 假阳性的唯一来源是**同名不同物**:apps/mobile-rn/src/components 下有 NavBar / TabBar /
  * Carousel / UserInfoCard … 端内自绘版(它们根本不吃 colorScheme)。首跑不限定说明符时
@@ -505,6 +512,54 @@ export function findLocalComponentDecls(src) {
   return set
 }
 
+/** 按**顶层**逗号切分参数表/列表(嵌套括号、花括号、串内逗号不切) */
+function splitTopLevelCommas(text) {
+  const out = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === "'" || c === '"' || c === '`') {
+      i = skipStrOr(text, i)
+      continue
+    }
+    if (c === '(' || c === '{' || c === '[') depth++
+    else if (c === ')' || c === '}' || c === ']') depth--
+    else if (c === ',' && depth === 0) {
+      out.push(text.slice(start, i))
+      start = i + 1
+    }
+  }
+  out.push(text.slice(start))
+  return out
+}
+
+/**
+ * 本文件里**函数形参名**的集合(保守扫描,只服务一条防假绿判据)。
+ *
+ * 为什么需要:`{...props}` 转发最常见的形态就是"形参直转"。而形参在函数体内**无条件遮蔽**
+ * 外层的同名 `const`,于是"同文件恰有一个 `const props = {…}`"完全不代表渲染点用的是它。
+ * 旧判据只看声明唯一性,不做作用域判定 ⇒ 形参转发可被无关对象静默升级成 ok / 红(假绿)。
+ *
+ * 覆盖 `function f(a, b)` / `(a, b) =>` / `x =>`;带默认值调用的参数表、方法简写等形态
+ * 可能漏收 —— 漏收的方向是"仍按旧口径判定",不是多报,故不额外放宽。
+ * 单参箭头用 `(?:^|[^\w$.])` 锚左界,避免把 `a.b =>` 之类误认成形参。
+ */
+export function collectFunctionParamNames(src) {
+  const clean = stripComments(src)
+  const names = new Set()
+  const take = (list) => {
+    for (const raw of splitTopLevelCommas(list)) {
+      const m = /^\s*(?:\.\.\.)?\s*([A-Za-z_$][\w$]*)\s*(?:[:=?,]|$)/.exec(raw)
+      if (m) names.add(m[1])
+    }
+  }
+  for (const m of clean.matchAll(/\bfunction\b[^(]*\(([^()]*)\)/g)) take(m[1])
+  for (const m of clean.matchAll(/\(([^()]*)\)\s*=>/g)) take(m[1])
+  for (const m of clean.matchAll(/(?:^|[^\w$.])([A-Za-z_$][\w$]*)\s*=>/g)) names.add(m[1])
+  return names
+}
+
 /**
  * 端内 wrapper 的 props **类型事实**:同文件里
  *   `const props: XxxScreenProps = { … }`(或 `const props = { … }`)
@@ -513,16 +568,24 @@ export function findLocalComponentDecls(src) {
  *  - 含,值为 'light'/'dark' ⇒ literal(与写死字面量同罪)
  *  - 含,值为表达式/简写 ⇒ ok(值由调用方解析)
  *  - 不含 ⇒ missing(形参默认值 'light' 静默生效)
- * 判不出的(非裸标识符、声明不唯一、对象字面量内还有展开、let/var 再赋值)
- * 一律返回 undefined ⇒ 上层继续如实报 spread-unknown,绝不猜。
+ * 判不出的(非裸标识符、声明不唯一、对象字面量内还有展开、let/var 再赋值、
+ * **与函数形参或 import 绑定同名而作用域存疑**)一律返回 undefined ⇒ 上层继续如实报
+ * spread-unknown,绝不猜。作用域存疑那一条是 2026-10-30 补的:形参在其函数体内遮蔽外层
+ * `const`,不查它就会拿一份**渲染点看不到的对象**给出 ok/红(假绿/假红双向都错)。
  */
 export function resolveSpreadObject(src, expr) {
   const name = expr.trim()
   if (!/^[A-Za-z_$][\w$]*$/.test(name)) return undefined
   const clean = stripComments(src)
+  // 形参/import 与展开源同名 ⇒ 同文件那份 `const` 未必是渲染点实际用的 ⇒ 判不出
+  // (失效方向恒为"多要一次人工核",绝不按无关对象给绿)
+  if (collectFunctionParamNames(src).has(name)) return undefined
+  if (parseImports(src).has(name)) return undefined
   const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const decls = [
-    ...clean.matchAll(new RegExp(`(?:^|[^\\w$.])(?:const|let|var)\\s+${esc}\\s*(?::[^=;\\n]*)?=\\s*\\{`, 'g')),
+    ...clean.matchAll(
+      new RegExp(`(?:^|[^\\w$.])(?:const|let|var)\\s+${esc}\\s*(?::[^=;\\n]*)?=\\s*\\{`, 'g'),
+    ),
   ]
   // 声明不唯一 ⇒ 无法确定渲染点用的是哪一份
   if (decls.length !== 1) return undefined
@@ -929,7 +992,7 @@ function runOnFace(options, face, root) {
   }
   if (unknown.length > 0) {
     console.warn(
-      `⚠️ 判不出(整标签走 {...} 转发):${unknown.length} 处 —— 本门不判红也不静默放过,请人工确认被转发对象确含 ${THEME_PROP}`,
+      `⚠️ 判不出(整标签走 {...} 转发):${unknown.length} 处 —— 这一档不算通过也不判红,本门逐站点名、不静默放过;请人工确认被转发对象确含 ${THEME_PROP}`,
     )
     for (const v of unknown) console.warn(`   ${v.file}:${v.line}:${v.col} <${v.component}>`)
   }
@@ -943,6 +1006,7 @@ function runOnFace(options, face, root) {
         '     ② 字面量 "light"/"dark" 永远错:形参默认值会把它当合法值,',
         '        整棵子树按该档案渲染,而 app chrome 跟着真主题走 ⇒ 同一屏幕两套档案(真机实测 #1a1a1a vs #f5f5f5);',
         `     ③ 漏传同理(静默落到 'light' 默认值),故本门把"漏传"当红。`,
+        `     ④ 整标签 {...spread} 判不出时只报数、不算通过;要静态覆盖须先给端内 wrapper 建 props 类型事实(独立改造)。`,
         `     存量已冻结于 ${path.basename(BASELINE_PATH)}(棘轮只减不增);全量口径重跑:node scripts/check-theme-prop-wiring.mjs --update-baseline`,
         '     看未冻结的全部缺口:--strict;自检:--self-test;机读:--json',
         `     紧急跳过(不推荐):${SKIP_ENV}=1 git commit ...`,
@@ -955,7 +1019,7 @@ function runOnFace(options, face, root) {
     `✅ 主题透线守门通过(${reader.label};${filesScanned} 渲染点文件 / ${components.size} 组件,0 处新增未接线、0 处新增写死字面量` +
       `${ratcheted.grandfathered > 0 ? `;存量 ${ratcheted.grandfathered} 处已冻结于基线` : ''}` +
       `${skippedLine ? `;同名但解析不到共享包而未判:${skippedLine}` : ''}` +
-      `${unknown.length > 0 ? `;${unknown.length} 处 {...} 转期待人工核` : ''})`,
+      `${unknown.length > 0 ? `;${unknown.length} 处 {...} 转发判不出(不计通过,待人工核)` : ''})`,
   )
   return 0
 }
@@ -981,6 +1045,12 @@ function Private({ colorScheme = 'light' }) {
 
 export const Shadow = ({ nested: { colorScheme } }: any) => <View />
 
+// 阳性对照:顶层真有 colorScheme、旁边还挂着嵌套解构 ⇒ 必须入集
+// (用来证明上面 Shadow 那条"嵌套不算"不是扫描器整片失明)
+export const Mixed = ({ colorScheme, nested }: { colorScheme?: string; nested?: { x: number } }) => (
+  <View />
+)
+
 export function UserInfoCard({
   colorScheme = 'light',
 }: { colorScheme?: string }) {
@@ -997,6 +1067,7 @@ import { NavBar, Wrapped, UserInfoCard as SharedUserCard } from '@ihui/rn-app'
 import { Carousel } from '../components/Carousel'
 
 function Screen({ resolvedTheme }: { resolvedTheme: 'light' | 'dark' }) {
+  const themeProps = { colorScheme: resolvedTheme }
   return (
     <>
       <NavBar title="a" colorScheme={resolvedTheme} />
@@ -1014,6 +1085,8 @@ function Screen({ resolvedTheme }: { resolvedTheme: 'light' | 'dark' }) {
         <NavBar colorScheme={resolvedTheme} icon={<Wrapped colorScheme={resolvedTheme} />} />
       </Pressable>
       <Forwarded {...rest} />
+      <Wrapped {...themeProps} />
+      <Wrapped {...rest} />
     </>
   )
 }
@@ -1036,6 +1109,8 @@ export function selfTest() {
     !derived.includes('Shadow'),
     'colorScheme 只在嵌套解构里(顶层无该绑定)不得入集 —— 调用方传顶层 prop 也救不了它',
   )
+  // 阳性对照:上一条"嵌套不算"必须证明扫描器认得出 colorScheme,只是判顶层 —— 否则该否定恒真
+  assert(derived.includes('Mixed'), '顶层有 colorScheme 且旁边挂嵌套解构的组件必须入集(阳性对照)')
   assert(
     topLevelBindingNames('{ a, b = 1, c: { colorScheme } }').join() === 'a,b,c',
     '顶层绑定名提取',
@@ -1095,6 +1170,9 @@ export function A() {
   let reassigned = { colorScheme: resolvedTheme }
   reassigned = { t }
 }
+export function FromParam(props: FooProps) {
+  return props
+}
 `
   assert(resolveSpreadObject(PROPS_SRC, 'withTheme')?.kind === 'ok', '展开源传了真主题 = ok')
   assert(
@@ -1107,12 +1185,44 @@ export function A() {
   )
   assert(resolveSpreadObject(PROPS_SRC, 'forwarded') === undefined, '对象内继续展开 = 判不出')
   assert(resolveSpreadObject(PROPS_SRC, 'reassigned') === undefined, '再赋值 = 判不出')
-  assert(resolveSpreadObject(PROPS_SRC, 'propsFromParam') === undefined, '形参来源 = 判不出')
+  // 阳性对照在 PROPS_SRC 里真有一个形参 `props`(否则这条"判不出"是空断言)
+  assert(
+    collectFunctionParamNames(PROPS_SRC).has('props'),
+    '形参名必须真被扫到(否则下一条判不出恒真)',
+  )
+  assert(resolveSpreadObject(PROPS_SRC, 'props') === undefined, '形参来源 = 判不出')
+  // 作用域遮蔽成对:同形态去掉形参 ⇒ 必须解析成 ok;加上形参 ⇒ 必须判不出(不得按无关 const 给绿)
+  const UNSHADOWED_SRC = `
+export function Screen() {
+  const props = { t, colorScheme: resolvedTheme }
+  return <NavBar {...props} />
+}
+`
+  const SHADOWED_SRC = `
+function unrelated() {
+  const props = { t, colorScheme: resolvedTheme }
+  return props
+}
+export function Screen(props: FooProps) {
+  return <NavBar {...props} />
+}
+`
+  assert(
+    resolveSpreadObject(UNSHADOWED_SRC, 'props')?.kind === 'ok',
+    '阳性对照:无同名形参时,同文件唯一的 const props 仍照旧解析 = ok',
+  )
+  assert(
+    resolveSpreadObject(SHADOWED_SRC, 'props') === undefined,
+    '形参在同一文件遮蔽同名 const ⇒ 必须判不出(否则危险 spread 被无关对象静默升级成 ok)',
+  )
   assert(
     verdictOf(' colorScheme={c} onPress={() => a > b} ') === 'ok',
     '属性表达式不得干扰 colorScheme 识别',
   )
-  assert(verdictOf(' data-colorScheme="light" ') !== 'literal', '同尾缀的别的属性不得误判')
+  assert(
+    verdictOf(' data-colorScheme="light" ') === 'missing',
+    '同尾缀的别的属性不得误判(它不算本属性 ⇒ 等同漏传)',
+  )
   // --- 说明符解析(假阳性的唯一来源:端内与共享包**同名**自绘组件)---
   const imp = parseImports(
     `import { NavBar, Wrapped as W, type NavBarAction } from '@ihui/rn-app'\nimport Carousel from '../components/Carousel'\nimport * as App from '@ihui/rn-app'\nimport type { Foo } from 'x'`,
@@ -1201,10 +1311,42 @@ export function A() {
     `端内同名 Carousel 必须被解析层挡掉并如实计数,实得 ${JSON.stringify(e2e.skipped)}`,
   )
   assert(kinds.length === 5, `端到端应只判 5 处违规(正确接线不入 violations),实得 ${kinds.length}`)
+  // spread-unknown 通道的成对取证:能静态定位的展开源不进 unknown,定位不到的必须进 unknown
+  assert(
+    e2e.unknown.length === 1,
+    `端到端应有且仅有 1 处 spread-unknown({...rest} 定位不到),实得 ${JSON.stringify(e2e.unknown.map((v) => v.component))}`,
+  )
+  const themePropsLine = FIXTURE_CALLS.slice(
+    0,
+    FIXTURE_CALLS.indexOf('<Wrapped {...themeProps} />'),
+  ).split('\n').length
+  assert(
+    !e2e.unknown.some((v) => v.line === themePropsLine),
+    '阴性对照:{...themeProps} 已静态解析成 ok,不得混进 unknown',
+  )
+  assert(
+    e2e.unknown.filter((v) => v.component === 'Wrapped').length === 1,
+    '阳性对照:定位不到的 {...rest} 必须点名进 unknown(不许静默算过)',
+  )
   // --- 反假绿护栏:空组件集必须被 run() 识别为判据失效 ---
   assert(
     collectThemeDrivenComponents(makeFaceReader('head')).size > 50,
     '真仓应推导出大量主题驱动组件(否则推导失效)',
+  )
+  // --- 棘轮:结论行那句"0 处新增"来自 applyRatchet,必须先证明它**报得出**新增 ---
+  const ratchetSample = [
+    { file: 'x.tsx', kind: 'missing' },
+    { file: 'x.tsx', kind: 'literal' },
+  ]
+  const fresh = applyRatchet(ratchetSample, { counts: {} })
+  assert(
+    fresh.over.length === 2 && fresh.listed.length === 2,
+    `阳性对照:空基线下 2 处必须全部报新增(否则"0 处新增"恒真)`,
+  )
+  const frozen = applyRatchet(ratchetSample, { counts: { 'x.tsx': { missing: 1, literal: 1 } } })
+  assert(
+    frozen.over.length === 0 && frozen.grandfathered === 2,
+    '基线足额时才允许"0 处新增",存量须如实计入 grandfathered',
   )
   faceSelfTest(assert)
   console.log('✅ check-theme-prop-wiring self-test 全部通过')
@@ -1295,6 +1437,15 @@ function faceSelfTest(ok) {
     )
 
     // ---- F4:退化不得静默 ----
+    // 阳性对照:先证明同一个面**能**取到内容,否则下面"抛错"可能来自读取器整体失效(恒真)
+    const r4probe = makeFaceReader('staged', dir)
+    r4probe.prefetch([SITE])
+    const probed = r4probe.read(SITE)
+    ok(
+      typeof probed === 'string' && probed.includes('NavBar'),
+      'F4 阳性对照:prefetch 后 read 必须取回内容(证明抛错源于"未取证"而非读取器坏死)',
+    )
+    // 反例:另起一个未 prefetch 的 reader —— 它必须抛
     const r4 = makeFaceReader('staged', dir)
     let threw = false
     try {
@@ -1310,6 +1461,11 @@ function faceSelfTest(ok) {
       threwFace = e instanceof Undetermined
     }
     ok(threwFace, 'F4 未知判定面必须抛 Undetermined,不得默认回落到磁盘')
+    // 阳性对照:已知面必须构造得出来 —— 否则上一条的"抛错"可能来自构造器整体坏死
+    ok(
+      typeof makeFaceReader('worktree', dir).read === 'function',
+      'F4 阳性对照:已知面必须能构造(证明抛错源于"未知面"而非构造器失效)',
+    )
   } finally {
     rmScratch(dir)
   }
@@ -1361,6 +1517,7 @@ export const __test__ = {
   parseImports,
   isSharedSpecifier,
   findLocalComponentDecls,
+  collectFunctionParamNames,
   resolveRenderedName,
   collectThemeDrivenComponents,
   judgeFile,
