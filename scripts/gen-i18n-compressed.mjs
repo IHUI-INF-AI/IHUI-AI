@@ -47,32 +47,26 @@
 //      结构性校验(解码失败一律回落,不进缓存)。
 
 import { createRequire } from 'node:module'
-import { writeFileSync, mkdirSync, readFileSync, readdirSync, existsSync } from 'node:fs'
+import { existsSync, writeFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 // 正解 = 把本生成器搬到根 scripts/(与 sync-miniapp-tokens.mjs 同一条先例;D2 只比 rank,
 // 所以只改说明符照样红),前置 = 等两台机的分叉裁决定后再搬,避免刚搬完就被并回旧路径。
 // 在这之前这条边**不能撤**:守门 105 的镜像 T14 断言"门与生成器都必须引那份唯一实现",
 // 撤掉即变成两处各算一遍哈希 —— 正是本仓记过两次的漂移成因。
 import { renderPin, sha256Hex } from './lib/generated-input-pin.mjs'
+// 输入清单的唯一构造规则(与守门 105 的现算同一份):此前这里自列两层,承载层没进,
+// 钉与门现算的哈希结构性不等 ⇒ 门 105 的 G5 在完好仓库上恒 stale(2026-10-30 实测两哈希逐位不等)。
+import { bundleInputRels, carriedSourceRel } from './lib/i18n-bundle-inputs.mjs'
+// 承载层(mobile-rn 词包)的**补键算式**只有一份:可达键集 + "只补端内没有的键"都在这里,
+// 生成器写盘、门 251 判定共用(§0.6)。自己另写一遍 mergeMessages 全量合并就是"承载层覆盖端内措辞"
+// ——那会让门 105 的 B2(同键取值不一致)在完好仓库上红。
+import { carriedKeysFromRepo, subsetMissing } from './lib/rn-carried-keys.mjs'
 // 取材面的解析与读取一律复用守门那一份实现(§22c:同一件事不写第二套)——
 // `catBatch` 是"清单与内容同面同轮"的批量出口,`readWorktreeFile` 是磁盘面的 sanctioned 读法。
-import { catBatch, readWorktreeFile, FACE_LABEL, listFaceFiles } from './lib/face-reader.mjs'
-// 承载层可达键的**唯一算式**(门 251 判"键可解析"时 import 同一份,§0.6)
-import { carriedKeysFromRepo, subsetMissing } from './lib/rn-carried-keys.mjs'
-// 离线包钉输入清单的**唯一构造规则**(守门 105 现算钉时 import 同一份,§0.6)——
-// 2026-10-27 实测:本生成器加承载层第三层输入而门没跟,门把钉里那 4 条判成"面上 ABSENT"⇒ 恒红门。
-// 清单只在这里列一次,末尾还有"实际读到的 == 规则说应有的"那道自证锁(读漏/读多都不出合格证)。
-import {
-  MESSAGES_REL,
-  baseSourceRel,
-  bundleInputRels,
-  carriedSourceRel,
-  carriedSourceRelsOf,
-  overrideSourceRel,
-} from './lib/i18n-bundle-inputs.mjs'
+import { catBatch, readWorktreeFile, FACE_LABEL, gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 // 脚本在根 scripts/,仓库根在其上 1 级;消息源在 packages/i18n/messages
@@ -82,7 +76,8 @@ const repoRoot = resolve(__dirname, '..')
 const { gzipSync, strToU8 } = createRequire(
   resolve(repoRoot, 'apps/miniapp-taro/package.json'),
 )('fflate')
-// 消息源的仓库相对根由 lib/i18n-bundle-inputs.mjs 单点持有(与守门 105 同一份,§0.6)
+// 消息源的仓库相对根:只在这里写一次,INPUT_RELS 与 loadJson 的钉 rel 都从它拼(两处各拼必然漂移)
+const MESSAGES_REL = 'packages/i18n/messages'
 const outDir = resolve(repoRoot, 'apps/miniapp-taro/src/i18n/generated')
 const outFile = resolve(outDir, 'remote-locales.gen.ts')
 const manifestFile = resolve(outDir, 'remote-locale-manifest.gen.ts')
@@ -112,15 +107,21 @@ if (faceFlags.length > 1) {
 }
 const FACE = faceFlags[0] ? faceFlags[0][1] : 'worktree'
 const specOf = (rel) => (FACE === 'staged' ? `:${rel}` : `HEAD:${rel}`)
-const INPUT_RELS = REMOTE_LOCALES.flatMap((locale) => [baseSourceRel(locale), overrideSourceRel(locale)])
-// zh-CN 两层必需输入(产物④):与 remote 同一取材面、同一批量读 —— 缺一份就 exit 2,
+// 存在性判断必须在**同一个被审面**上(lib 头注:两侧各列一遍清单必然漂)。
+const faceHas = (rel) => {
+  if (FACE === 'worktree') return existsSync(join(repoRoot, rel))
+  try {
+    gitRaw(['cat-file', '-e', specOf(rel)], repoRoot)
+    return true
+  } catch {
+    return false
+  }
+}
+const INPUT_RELS = bundleInputRels(REMOTE_LOCALES, faceHas)
+// zh-CN 两份输入(产物④):与 remote 8 份同一取材面、同一批量读 —— 缺一份就 exit 2,
 // 绝不回落另一个面(否则 ④ 的钉会说自己是从没读全的输入派生的,§0.3 同型)。
-const ZH_INPUT_RELS = [baseSourceRel('zh-CN'), overrideSourceRel('zh-CN')]
-// 承载层源(mobile-rn 词包)是**增强层**:面上没有它不能让构建死,但它必须在**这一轮就被看见**。
-// 此前它根本不在批量读清单里 ⇒ --head/--staged 面永远取不到它 ⇒ 承载补键被静默跳过、
-// 钉里少 4 条输入,而磁盘面却带着它们:同一份产物在两把尺子下两种基准(守门 118「少扫不红」同型)。
-const CARRY_RELS = [...carriedSourceRelsOf(REMOTE_LOCALES), carriedSourceRel('zh-CN')]
-const ALL_INPUT_RELS = [...INPUT_RELS, ...ZH_INPUT_RELS, ...CARRY_RELS]
+const ZH_INPUT_RELS = bundleInputRels(['zh-CN'], faceHas)
+const ALL_INPUT_RELS = [...INPUT_RELS, ...ZH_INPUT_RELS]
 // 非磁盘面:一次批量读满。逐份 `git show` 会让并行会话在第 3 份和第 4 份之间推进 HEAD,
 // 产出自洽却错位的钉(守门 118 的"少扫不红"同型)。
 let FACE_BATCH = null
@@ -148,21 +149,6 @@ if (FACE !== 'worktree') {
 //   ③ 字节归一(剥 BOM + CRLF→LF)只在 lib 里有一份实现,生成器与门共用 —— 否则 Windows
 //      检出带 CRLF 的磁盘算出的哈希,会和门在 HEAD blob(LF)上算出的永不相等,门恒红。
 
-// 存在性全集(2026-10-27 立):闭包解析按 TS 惯例对每条说明符探 9 个候选(`x` / `x.ts|.tsx|.js|.jsx`
-// / `x/index.*`),**绝大多数候选本来就不存在**。此前"暖批没命中 ⇒ 单份补读"给每一个不存在的候选
-// 起一个 git 进程(一轮 ~8 万次 ⇒ 实测 59 分 23 秒),窗口长到任何并发提交都会把它跨过去,
-// 于是自愈腿永远追不上词包 churn。一次 ls-tree 读满整棵树,不在树上的候选直接算"没有",零派生。
-let FACE_TREE_CACHE = null
-function faceTreeSet() {
-  if (FACE_TREE_CACHE) return FACE_TREE_CACHE
-  try {
-    FACE_TREE_CACHE = new Set(listFaceFiles(repoRoot, FACE, { timeout: 180000 }))
-  } catch {
-    FACE_TREE_CACHE = new Set() // 取不到全集 ⇒ 退回逐份补读(慢但不改口径),绝不让构建死在这一步
-  }
-  return FACE_TREE_CACHE
-}
-
 // 与 @ihui/i18n/loader#mergeMessages 语义完全一致:
 // 浅拷贝 base,遍历 override 的 key;当双方都是普通对象(非数组)时递归合并,否则 override 覆盖。
 function isPlainObject(v) {
@@ -185,8 +171,11 @@ function mergeMessages(base, override) {
 /** 读一份消息源:同时把它按「仓库根相对路径 + 原始文本」记进指定钉的输入清单 */
 const pinInputs = []
 const zhPinInputs = []
-function loadJsonInto(pinList, ...parts) {
-  const rel = `${MESSAGES_REL}/${parts.join('/')}`
+/**
+ * 按**仓库根相对路径**读一份消息源。承载层的 rel 必须取自 lib 的 carriedSourceRel(单源),
+ * 所以「拼 rel」与「读 rel」在这里分成两层:拼仍只此一处(loadJsonInto),承载层直接给 rel。
+ */
+function loadJsonRel(pinList, rel) {
   let text
   if (FACE === 'worktree') {
     text = readWorktreeFile(repoRoot, rel)
@@ -201,143 +190,179 @@ function loadJsonInto(pinList, ...parts) {
     )
     process.exit(2)
   }
+  // 每份**实际加载过**的源都进钉:钉与门现算必须在同一集合上比(门按 bundleInputRels 现算)。
   pinList.push({ rel, text })
   return JSON.parse(text)
+}
+function loadJsonInto(pinList, ...parts) {
+  return loadJsonRel(pinList, `${MESSAGES_REL}/${parts.join('/')}`)
 }
 function loadJson(...parts) {
   return loadJsonInto(pinInputs, ...parts)
 }
 
-// ── 承载层(2026-10-26 立)──────────────────────────────────────────────────
-// 小程序端承载 RN 壳/共享屏的页面会用到的 i18n 键,由闭包尺算出(`scripts/lib/rn-carried-keys.mjs`
-// 与门 251 的判据同一份实现,§0.6)。此前这些键只在 `mobile-rn/*.json` 里,端内包取不到;
-// 它们"看起来有字"靠的是把 RN 词包整包内联进每一页(实测每页 +1.36 MB)——那是用体积换文字。
-// 现在:可达键作为第三层并入 ⇒ 只补端内没有的键(端内包是译文真相源,顺序不能反),零新译。
-const faceReadSource = (rel) => {
-  if (FACE === 'worktree') {
-    // 闭包解析要"探路"(同一个 rel 会被当目录、当无扩展名基名反复试);readWorktreeFile 对
-    // 目录/特殊文件是抛错而非返回 null,这里必须把它折算成 null,否则判据尺一遇目录就整轮崩。
+/* ─────────────── 承载层(mobile-rn 词包):补键算式 + 面读取器 ───────────────
+ *
+ * 语义唯一出处 = lib/i18n-bundle-inputs.mjs 头注:承载层是**增强层**,"承载页可达而端内没有的键
+ * 从这里补";面上没有 RN 词包时它**不算一份输入**,生成器显式跳过并在产物里记 `carried:skipped`。
+ * 补哪些键由 lib/rn-carried-keys.mjs 的闭包尺算(与门 251 同一份),本器不另立规则:
+ *   · 可达键集 = 承载页 import 闭包 + 共享特性屏整片(见该 lib 的第二格注释);
+ *   · subsetMissing 只保留"端内已有取不到"的键 ⇒ **已有措辞一律不被承载层覆盖**。
+ * 三层优先级因此是:基础层 shared → 端内覆盖 miniapp-taro → 承载层 mobile-rn **补缺**。
+ */
+const SOURCE_TEXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/
+/** 磁盘枚举:与守门 105 的 walkDir 同一组跳过项(构建产物与依赖树里没有"源") */
+const CARRIED_SKIP_DIRS = new Set([
+  'node_modules',
+  'dist',
+  'dist-alipay',
+  '.swc',
+  '.turbo',
+  '.git',
+  'coverage',
+])
+
+function listDiskFiles(prefix) {
+  const out = []
+  const walk = (rel) => {
+    let ents
     try {
-      return readWorktreeFile(repoRoot, rel)
+      ents = readdirSync(resolve(repoRoot, rel), { withFileTypes: true })
     } catch {
-      return null
+      return // 目录不存在 ⇒ 该前缀零文件(闭包尺按"这一支不走"处理)
+    }
+    for (const e of ents) {
+      if (CARRIED_SKIP_DIRS.has(e.name)) continue
+      if (e.isSymbolicLink()) continue // junction/软链不穿透(§26:递归枚举会顺着改道链接跑出仓外)
+      const child = `${rel}/${e.name}`
+      if (e.isDirectory()) walk(child)
+      else if (e.isFile()) out.push(child)
     }
   }
-  const spec = specOf(rel)
-  if (FACE_BATCH.has(spec)) return FACE_BATCH.get(spec) ?? null
-  const warm = closureBatch()
-  if (warm && warm.has(spec)) return warm.get(spec) ?? null
-  // 这一面上根本没有这个路径 ⇒ 直接算"没有"。闭包探路的候选绝大多数是这种,给它们各起一个
-  // git 进程就是本轮 59 分钟的全部来历。
-  if (!faceTreeSet().has(rel)) return null
-  // 兜底:仍按**同一个面**就地单份补读(绝不回落磁盘面,§0.4)。走到这里的应当极少:
-  // 暖批已一次读满闭包可能探到的全部源码根,全集又证明确实有这个路径 ⇒ 只有"探到根外"的少数。
-  try {
-    return catBatch(repoRoot, [spec], { timeout: 60000 }).get(spec) ?? null
-  } catch {
-    return null
-  }
+  walk(prefix.replace(/\/+$/, ''))
+  return out
 }
 
 /**
- * 一批候选一次问完(与门 251 的 `readBatch: (rels) => rd.readMany(rels)` 同一形状):
- * 暖批/全集能答的不开进程,答不了又确实在树上的,整批合并成一次 cat-file --batch。
+ * 承载键集的 git 面读取器:一次列清单 + 一次 `cat-file --batch` 读满源码面。
+ * 闭包尺要反复探路(每说明符 9 个候选),逐份派生 git 在本仓是上千次进程 —— 那会让
+ * `--head` 档从秒级变成分钟级,等于没装(§12g 的性能面同型);批量版由 lib 的
+ * makeBatchResolver 消费(它一次问完 9 个候选)。
  */
-function faceReadBatch(rels) {
-  const out = new Map()
-  const need = []
-  const warm = closureBatch()
-  for (const rel of rels) {
-    const spec = specOf(rel)
-    if (FACE_BATCH.has(spec)) out.set(rel, FACE_BATCH.get(spec) ?? null)
-    else if (warm && warm.has(spec)) out.set(rel, warm.get(spec) ?? null)
-    else if (!faceTreeSet().has(rel)) out.set(rel, null)
-    else need.push(rel)
+function makeGitSourceReader() {
+  const listArgs =
+    FACE === 'staged'
+      ? ['ls-files', '--full-name', '-z']
+      : ['ls-tree', '-r', '--name-only', 'HEAD', '-z']
+  let tracked
+  try {
+    tracked = gitRaw(listArgs, repoRoot, { timeout: 120000 }).split('\0').filter(Boolean)
+  } catch (e) {
+    console.error(
+      `❌ [gen:i18n] ${FACE_LABEL[FACE]} 列不出源码清单 ⇒ 承载键集判不了,exit 2(不回落磁盘面):${e?.message ?? e}`,
+    )
+    process.exit(2)
   }
-  if (need.length > 0) {
-    let got = null
+  const srcFace = tracked.filter(
+    (p) => /^(apps|packages)\/[^/]+\/src\//.test(p) && SOURCE_TEXT_RE.test(p),
+  )
+  if (srcFace.length === 0) {
+    console.error(
+      `❌ [gen:i18n] ${FACE_LABEL[FACE]} 在 (apps|packages)/*/src 下枚举到 0 份源码 ⇒ 承载键集判不了,exit 2(§0.3:枚举到 0 不许记绿)`,
+    )
+    process.exit(2)
+  }
+  let map = null
+  const load = () => {
+    if (map) return map
+    let batch
     try {
-      got = catBatch(repoRoot, need.map(specOf), { timeout: 120000, maxBuffer: 1 << 26 })
-    } catch {
-      got = null
+      batch = catBatch(repoRoot, srcFace.map(specOf), { timeout: 180000 })
+    } catch (e) {
+      console.error(
+        `❌ [gen:i18n] ${FACE_LABEL[FACE]} 批量读取源码面失败(${srcFace.length} 份)⇒ 承载键集判不了,exit 2:${e?.message ?? e}`,
+      )
+      process.exit(2)
     }
-    for (const rel of need) out.set(rel, got ? (got.get(specOf(rel)) ?? null) : faceReadSource(rel))
+    map = new Map(srcFace.map((rel) => [rel, batch.get(specOf(rel)) ?? null]))
+    return map
+  }
+  return {
+    listFiles: (prefix) => srcFace.filter((p) => p.startsWith(prefix)),
+    readFile: (rel) => load().get(rel) ?? null,
+    readBatch: (rels) => {
+      const m = load()
+      return new Map(rels.map((r) => [r, m.get(r) ?? null]))
+    },
+  }
+}
+
+let carriedKeySet = null
+function carriedKeysOf() {
+  if (carriedKeySet) return carriedKeySet
+  const readers =
+    FACE === 'worktree'
+      ? { listFiles: listDiskFiles, readFile: (rel) => readWorktreeFile(repoRoot, rel) }
+      : makeGitSourceReader()
+  const t0 = Date.now()
+  const r = carriedKeysFromRepo(readers)
+  carriedKeySet = {
+    keys: r.keys,
+    carriers: r.carriers.length,
+    files: r.files.length,
+    featureFiles: r.featureFiles,
+    ms: Date.now() - t0,
+  }
+  return carriedKeySet
+}
+
+/** 摊成点分叶子 → 值的表(只用于"已有键一个不许被动"的机器断言) */
+function leafPairs(obj, prefix = '', out = new Map()) {
+  for (const [k, v] of Object.entries(obj)) {
+    const p = prefix ? `${prefix}.${k}` : k
+    if (isPlainObject(v)) leafPairs(v, p, out)
+    else out.set(p, v)
   }
   return out
 }
 
 /**
- * 闭包源的一次性批量预取(2026-10-27 立):此前逐份补读实测要 10 分钟以上
- * (承载页闭包 ~990 枚可达文件,每份一次 git 派生),窗口长到**任何并发提交都会把它跨过去** ——
- * 产物按 A 面生成、门按 A+1 面判,于是自愈腿永远追不上(实测连续两轮都这样失败)。
- * 一次 cat-file --batch 读满整棵源树 = 同一轮、同一面、几十秒;取不到不回落磁盘面,只退回逐份补读。
+ * 第三层:承载层补缺。
+ * @param {object} base 两层合并结果(shared ⊕ miniapp-taro)
+ * @param {string} locale
+ * @param {Array} pinList 该组产物自己的钉清单(remote 与 zh-CN 各一份,不得互串)
+ * @param {string[]} presentRels 该组语言在**被审面**上的输入清单(bundleInputRels 的产物)
+ * @returns {{merged:object, carried:'present'|'skipped', addedKeys:number, rnLeafKeys:number}}
  */
-let CLOSURE_BATCH = null
-const CLOSURE_ROOTS = ['apps/miniapp-taro/src', 'packages/app/src', 'apps/mobile-rn/src', 'packages/shared/src', 'packages/types/src', 'packages/i18n/src']
-function closureBatch() {
-  if (CLOSURE_BATCH) return CLOSURE_BATCH
-  try {
-    const rels = new Set()
-    for (const root0 of CLOSURE_ROOTS) {
-      for (const r of listFaceFiles(repoRoot, FACE, { paths: [root0] })) {
-        if (/.(t|j)sx?$/.test(r)) rels.add(r)
-      }
-    }
-    CLOSURE_BATCH = catBatch(repoRoot, [...rels].map(specOf), { timeout: 300000, maxBuffer: 1 << 28 })
-  } catch {
-    CLOSURE_BATCH = new Map() // 暖批失败 ⇒ 退回逐份补读(慢但不改口径),绝不让构建死在预取上
-  }
-  return CLOSURE_BATCH
-}
-/** 这一份被审面上有没有这个路径(承载层是可选输入,存在性必须在**同一个面**上问,§0.4) */
-const faceHas = (rel) => (FACE === 'worktree' ? existsSync(resolve(repoRoot, rel)) : FACE_BATCH.get(specOf(rel)) !== null && FACE_BATCH.get(specOf(rel)) !== undefined)
-
-const faceListSources = (prefix) => {
-  if (FACE === 'worktree') {
-    const out = []
-    const walk = (dir) => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name)
-        if (e.isDirectory()) walk(p)
-        else out.push(relative(repoRoot, p).replace(/\\/g, '/'))
-      }
-    }
-    walk(join(repoRoot, prefix))
-    return out
-  }
-  return listFaceFiles(repoRoot, FACE, { paths: [prefix] })
-}
-const CARRIED_T0 = Date.now()
-const CARRIED = carriedKeysFromRepo({
-  readFile: faceReadSource,
-  // 磁盘面逐文件读很便宜,不必换批量出口;git 面必须用批量(否则探路的 9 个候选= 9 次派生)。
-  readBatch: FACE === 'worktree' ? null : faceReadBatch,
-  listFiles: faceListSources,
-})
-console.log(`[gen:i18n] 承载层闭包耗时 ${((Date.now() - CARRIED_T0) / 1000).toFixed(1)}s`)
-// 承载层是**增强层**:它的源(mobile-rn/*.json)在被审面上缺席时,不能让整轮构建死在增强层上
-// (那是"文档写了出路却跑不通");改成显式跳过 + 在产物里记 carried:skipped,由门 251 C10 判缺键。
-function carriedSourceFor(locale, pinList) {
+function mergeCarried(base, locale, pinList, presentRels) {
   const rel = carriedSourceRel(locale)
-  const text = faceReadSource(rel)
-  if (text === null || text === undefined) return null
-  pinList.push({ rel, text })
-  return JSON.parse(text)
-}
-function carriedSubsetFor(locale, haveRoots, pinList) {
-  const rn = carriedSourceFor(locale, pinList)
-  if (rn === null) {
-    carriedSkipped.push(locale)
-    return {}
+  // 面上没有 RN 词包 ⇒ 这一层不算一份输入(lib 头注),显式跳过并记 carried:skipped
+  if (!presentRels.includes(rel))
+    return { merged: base, carried: 'skipped', addedKeys: 0, rnLeafKeys: 0 }
+  const rnPack = loadJsonRel(pinList, rel)
+  const ks = carriedKeysOf()
+  const add = subsetMissing([base], ks.keys, rnPack)
+  const merged = mergeMessages(base, add)
+  // 硬红线机器化:承载层只许补缺 —— 两层里已有的叶子键一个都不许消失、也不许改值。
+  // 若 subsetMissing 的口径被后人改坏(或某语的词包结构把标量盖成对象),这里当场 exit 2,
+  // 绝不让"承载层覆盖了端内措辞"的产物写盘(那会让门 105 的 B2 在完好仓库上红)。
+  const before = leafPairs(base)
+  const after = leafPairs(merged)
+  for (const [p, v] of before) {
+    if (!after.has(p) || JSON.stringify(after.get(p)) !== JSON.stringify(v)) {
+      console.error(
+        `❌ [gen:i18n] 承载层覆盖了端内已有键 ${rel} · ${p} ⇒ exit 2(承载层只许补缺,已有措辞不得被覆盖)`,
+      )
+      process.exit(2)
+    }
   }
-  return subsetMissing(haveRoots, CARRIED.keys, rn)
+  return {
+    merged,
+    carried: 'present',
+    addedKeys: leafPairs(add).size,
+    rnLeafKeys: leafPairs(rnPack).size,
+  }
 }
-const carriedSkipped = []
-const countLeaves = (o) => Object.values(o).reduce((a, v) => a + (isPlainObject(v) ? countLeaves(v) : 1), 0)
-const carriedLog = []
-console.log(
-  `[gen:i18n] 承载层:承载页 ${CARRIED.carriers.length} 枚 / 可达文件 ${CARRIED.files.length} 枚 / 可达键 ${CARRIED.keys.size} 个(闭包尺现读)`,
-)
 
 console.log(
   `[gen:i18n] 取材面 = ${FACE_LABEL[FACE]}(${ALL_INPUT_RELS.length} 份输入${FACE === 'worktree' ? ',逐份读磁盘' : ',一次批量读满'})`,
@@ -362,14 +387,17 @@ if (FACE !== 'worktree') {
 const REMOTE_LOCALE_B64 = {}
 let totalOriginal = 0
 let totalB64 = 0
+/** 逐语承载层读数(进产物自述钉的 extraLines:补了几个键 / 是否跳过 —— 与输入清单同块自述) */
+const CARRIED_SUMMARY = []
 
 for (const locale of REMOTE_LOCALES) {
   const shared = loadJson('shared', `${locale}.json`)
   const miniapp = loadJson('miniapp-taro', `${locale}.json`)
-  // 第三层 = 承载页可达而端内缺失的键(取自 mobile-rn 包,逐语同键 ⇒ 零新译;已有键一律不覆盖)
-  const carried = carriedSubsetFor(locale, [shared, miniapp], pinInputs)
-  const merged = mergeMessages(mergeMessages(shared, miniapp), carried)
-  carriedLog.push(`${locale} +${countLeaves(carried)}`)
+  // 三层优先级:基础层 shared → 端内覆盖 miniapp-taro → 承载层 mobile-rn **只补缺**
+  const twoLayer = mergeMessages(shared, miniapp)
+  const carried = mergeCarried(twoLayer, locale, pinInputs, INPUT_RELS)
+  const merged = carried.merged
+  CARRIED_SUMMARY.push({ locale, carried: carried.carried, addedKeys: carried.addedKeys })
   const json = JSON.stringify(merged) // 无缩进,与运行时 JSON.parse 对称
   // mtime:0 强制确定性(否则 fflate 默认写入当前时间戳到 gzip 头,跨进程运行产物不一致)
   const gz = gzipSync(strToU8(json), { level: 9, mtime: 0 })
@@ -381,28 +409,29 @@ for (const locale of REMOTE_LOCALES) {
   totalOriginal += originalKB
   totalB64 += b64KB
   console.log(
-    `[gen:i18n] ${locale}: ${originalKB.toFixed(1)}KB (JSON) → ${b64KB.toFixed(1)}KB (b64, gzip${(gz.length / 1024).toFixed(1)}KB)`,
+    `[gen:i18n] ${locale}: ${originalKB.toFixed(1)}KB (JSON) → ${b64KB.toFixed(1)}KB (b64, gzip${(gz.length / 1024).toFixed(1)}KB)` +
+      ` · 承载层 ${carried.carried}${carried.carried === 'present' ? `,补 ${carried.addedKeys} 个叶子键(RN 包 ${carried.rnLeafKeys} 键)` : '(面上无 RN 词包,不算一份输入)'}`,
   )
 }
 
+if (carriedKeySet) {
+  // 这一行是"第三层真的跑了"的读数:承载层若被整体跳过,这里一个字都不会有。
+  console.log(
+    `[gen:i18n] 承载键集:可达键 ${carriedKeySet.keys.size} 个(承载页 ${carriedKeySet.carriers} / 闭包文件 ${carriedKeySet.files} / 共享特性屏 ${carriedKeySet.featureFiles},耗时 ${carriedKeySet.ms}ms,面=${FACE_LABEL[FACE]})`,
+  )
+}
 console.log(
   `[gen:i18n] 合计: 原始 ${totalOriginal.toFixed(1)}KB → b64 ${totalB64.toFixed(1)}KB (净省 ${(totalOriginal - totalB64).toFixed(1)}KB)`,
 )
-console.log(`[gen:i18n] 承载层补键(remote 各语):${carriedLog.join(' / ') || '无'} —— 只补端内没有的键,已有措辞一律不覆盖`)
-if (carriedSkipped.length > 0) {
-  console.log(
-    `[gen:i18n] ⚠️ 承载层在 ${carriedSkipped.join(', ')} 上被跳过:${FACE_LABEL[FACE]} 取不到 mobile-rn 词包 ⇒ 本产物不含可达补键` +
-      `(构建继续,但门 251 C10 会按差值棘轮判这些缺键;等该面词包入库后重跑本脚本即自动补上)`,
-  )
-}
 
 // ── 产物④:zh-CN 内联包(回落语 ⇒ 随包内联,不走 CDN;选项 A,2026-10-15)──
 // 合并口径与 remote 各语言完全一致(shared 为 base,miniapp-taro 覆盖),b64 规约也一致
 // (gzip level 9 + mtime:0 ⇒ 跨进程逐字节确定)。
 const zhShared = loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json')
 const zhMiniapp = loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json')
-const zhCarried = carriedSubsetFor('zh-CN', [zhShared, zhMiniapp], zhPinInputs)
-const zhMerged = mergeMessages(mergeMessages(zhShared, zhMiniapp), zhCarried)
+const zhTwoLayer = mergeMessages(zhShared, zhMiniapp)
+const zhCarried = mergeCarried(zhTwoLayer, 'zh-CN', zhPinInputs, ZH_INPUT_RELS)
+const zhMerged = zhCarried.merged
 const zhJson = JSON.stringify(zhMerged) // 无缩进,与运行时 JSON.parse 对称
 const zhGz = gzipSync(strToU8(zhJson), { level: 9, mtime: 0 })
 const zhB64 = Buffer.from(zhGz).toString('base64')
@@ -411,7 +440,8 @@ for (const ns of ZH_CN_CRITICAL_NAMESPACES) {
   if (isPlainObject(zhMerged[ns])) zhCritical[ns] = zhMerged[ns]
 }
 console.log(
-  `[gen:i18n] zh-CN(内联): ${(zhJson.length / 1024).toFixed(1)}KB (JSON) → ${(zhB64.length / 1024).toFixed(1)}KB (b64, gzip ${(zhGz.length / 1024).toFixed(1)}KB) · 兜底键集 ${JSON.stringify(zhCritical).length}B`,
+  `[gen:i18n] zh-CN(内联): ${(zhJson.length / 1024).toFixed(1)}KB (JSON) → ${(zhB64.length / 1024).toFixed(1)}KB (b64, gzip ${(zhGz.length / 1024).toFixed(1)}KB) · 兜底键集 ${JSON.stringify(zhCritical).length}B` +
+    ` · 承载层 ${zhCarried.carried}${zhCarried.carried === 'present' ? `,补 ${zhCarried.addedKeys} 个叶子键` : ''}`,
 )
 
 // 运行时清单:version = 载荷 sha256(storage 缓存 key 与失效判据),bytes = 载荷字节数
@@ -429,12 +459,10 @@ for (const locale of REMOTE_LOCALES) {
 // 不参与陈旧判据(判据只认 inputsSha256),所以「git 此刻不可用」绝不允许变成生成失败。
 function readSourceCommit() {
   try {
-    return execFileSync('git', ['-c', 'safe.directory=*', '-C', repoRoot, 'rev-parse', 'HEAD'], {
-      encoding: 'utf8',
-      windowsHide: true, // §5b:派生控制台程序必须带,否则弹可见窗口
-      timeout: 15000, // 守门 80:钩子/守护链可达的 git 只读调用必须有界
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带绝对路径 git + safe.directory
+    // + core.quotepath=false + -C repoRoot + windowsHide + 显式 stdio,原显式 -c/-C 剥掉避免重复;
+    // timeout 15000 按守门 80"钩子/守护链可达的 git 只读调用必须有界"显式保留)
+    return gitRaw(['rev-parse', 'HEAD'], repoRoot, { timeout: 15000 })
       .trim()
       .split('\n')[0]
   } catch {
@@ -442,33 +470,23 @@ function readSourceCommit() {
   }
 }
 
-// 自证锁:实际进钉的输入集必须等于 lib/i18n-bundle-inputs.mjs 在这一面上算出的集合。
-// 不等 ⇒ 门 105 按同一条规则现算必然对不上 ⇒ 一台在完好仓库上无事可判的恒红门
-// (2026-10-27 实录:承载层第三层只加在生成器上,门按两层现算,把钉里那 4 条报成"面上 ABSENT")。
-// 失效方向 = 不出合格证(exit 2),绝不"少一份也照样写产物"——那份产物一到 CI 就顶红。
-function assertPinSet(pinList, locales, label) {
-  const expected = bundleInputRels(locales, faceHas).sort()
-  const actual = pinList.map((i) => i.rel).sort()
-  const dupes = actual.filter((rel, i) => i > 0 && actual[i - 1] === rel)
-  const missing = expected.filter((rel) => !actual.includes(rel))
-  const extra = actual.filter((rel) => !expected.includes(rel))
-  if (dupes.length === 0 && missing.length === 0 && extra.length === 0) return
-  console.error(
-    `❌ [gen:i18n] ${label} 的钉输入集与共享规则(lib/i18n-bundle-inputs.mjs)在这一面上算出的不一致 ⇒ exit 2\n` +
-      `   重复: ${dupes.join(', ') || '无'} / 规则说有而没读进钉: ${missing.join(', ') || '无'} / 读了但规则不认: ${extra.join(', ') || '无'}\n` +
-      `   出路:生成器与守门 105 共用那条规则 —— 加/减一层只改 lib 一处,两侧同改;在这里单方面多读一份,门必然恒判陈旧。`,
-  )
-  process.exit(2)
-}
-assertPinSet(pinInputs, REMOTE_LOCALES, 'remote 离线包')
-assertPinSet(zhPinInputs, ['zh-CN'], 'zh-CN 内联包')
-
 // 自述钉两份产物共用同一份(同批输入 + 同一时刻行 ⇒ 幂等性对两份产物同时成立)
+// extraLines 是**非判据**自述行:承载层到底补了没补、补了几个键 —— 与输入清单同块,
+// 读钉的人一眼能看出"这包是三层合出来的"还是"承载层被跳过了",不用去猜(补 0 个也照实写)。
+const carriedState = CARRIED_SUMMARY.every((s) => s.carried === 'present')
+  ? 'present'
+  : CARRIED_SUMMARY.some((s) => s.carried === 'present')
+    ? 'partial'
+    : 'skipped'
 const pinLines = renderPin({
   generator: GENERATOR_REL,
   sourceCommit: readSourceCommit(),
   inputs: pinInputs,
   generatedAt: new Date().toISOString(),
+  extraLines: [
+    `carried: ${carriedState}`,
+    `carriedKeys: ${CARRIED_SUMMARY.map((s) => `${s.locale}=${s.addedKeys}`).join(' ')}`,
+  ],
 })
 
 const lines = [
@@ -490,25 +508,7 @@ lines.push('}')
 lines.push('')
 
 mkdirSync(outDir, { recursive: true })
-// 2026-10-31 加写盘重试:Windows 实时扫描(Defender/索引器)会短暂独占高频重写的生成物,
-// writeFileUtf8 撞上即报 UNKNOWN(实测全量 turbo 连续三轮稳定红在同一文件;单跑又恒过 =
-// 与 build 的并行窗口相关的毫秒级瞬态锁)。重试 5 次退避 400ms,锁为毫秒级必释放。
-function writeFileWithRetry(path, data, options) {
-  let lastErr
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      writeFileSync(path, data, options)
-      return
-    } catch (err) {
-      lastErr = err
-      const code = err && typeof err === 'object' ? err.code : ''
-      if (code !== 'UNKNOWN' && code !== 'EPERM' && code !== 'EBUSY') throw err
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400)
-    }
-  }
-  throw lastErr
-}
-writeFileWithRetry(outFile, lines.join('\n'), 'utf8')
+writeFileSync(outFile, lines.join('\n'), 'utf8')
 
 // 产物③:运行时轻量清单(进主包,约 0.5KB)。与 ① 同钉,保证"缓存 key/字节校验的判据"
 // 与"离线真相"出自同一批输入 —— 两份产物任何一份单独重生成都会被 G5 钉门点名为陈旧。
@@ -529,7 +529,7 @@ for (const locale of REMOTE_LOCALES) {
 }
 manifestLines.push('}')
 manifestLines.push('')
-writeFileWithRetry(manifestFile, manifestLines.join('\n'), 'utf8')
+writeFileSync(manifestFile, manifestLines.join('\n'), 'utf8')
 
 // 产物②:CDN 部署载荷(与 ① 的 b64 逐字节相同,无换行尾巴 —— 运行时按清单 bytes 粗校验)。
 // 部署动作属运维既有通道:把本目录拷进 cdn-server.js 的 server-root(与 remote-images 同法)。
@@ -545,6 +545,7 @@ const zhPinLines = renderPin({
   sourceCommit: readSourceCommit(),
   inputs: zhPinInputs,
   generatedAt: new Date().toISOString(),
+  extraLines: [`carried: ${zhCarried.carried}`, `carriedKeys: zh-CN=${zhCarried.addedKeys}`],
 })
 const zhLines = [
   '// GENERATED FILE — DO NOT EDIT. 由 scripts/gen-i18n-compressed.mjs 生成(pnpm gen:i18n)',
@@ -559,7 +560,7 @@ const zhLines = [
   `export const ZH_CN_CRITICAL: Record<string, unknown> = ${JSON.stringify(zhCritical)}`,
   '',
 ]
-writeFileWithRetry(zhPackFile, zhLines.join('\n'), 'utf8')
+writeFileSync(zhPackFile, zhLines.join('\n'), 'utf8')
 
 // 溯源水印:生成产物同样是 git 跟踪文件,受 `scripts/check-watermark-coverage.mjs` 门禁约束。
 // 此前生成器不写横幅 → 该文件长期缺失水印,使 pre-commit 与 CI 的 watermark 门禁必红。

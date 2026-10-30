@@ -307,6 +307,9 @@ test('T11 推导失败必须落「未判定」而不是安静少扫两个根', (
     tmp: '/tmp/alive',
     exists: () => false,
     platform: 'win32',
+    // 2026-10-30:推导链现在是"先 scratchRoot(),失败才回退 devEnvRoot()"。
+    // 只注入后者会让前者用真值成功 ⇒ 本条测的"推导失败"根本没发生(既有的假绿)。
+    deriveScratchRoot: () => null,
     deriveDevEnv: () => {
       throw new Error('仓库根本身位于 scratch 夹具内')
     },
@@ -734,6 +737,31 @@ test('T26 scratch 腿成对:静默超时的夹具进候选,刚写过的必须跳
     assert.equal(r.skipped.notOurs, 1, '点开头的条目不归本腿管')
     assert.ok(r.candidates[0].files >= 1 && r.candidates[0].bytes > 0, '字节与文件数必须量到')
     assert.ok(r.candidates[0].idleHours >= 6, 'idleHours 必须报出来(人要看"静默多久"才敢删)')
+    // 空目录夹具(2026-10-30 现读 76 个全卡在"读不到"):没有后代 ≠ 读不到,按条目自身 mtime 判龄。
+    const emptyStale = join(scratch, 'empty-stale-AAA')
+    mkdirSync(emptyStale, { recursive: true })
+    touchOld(emptyStale, 10)
+    const strayFile = join(scratch, 'stale-orphan.bin')
+    writeFileSync(strayFile, 'x')
+    touchOld(strayFile, 10)
+    const r2 = scanScratchFixtures({ root, now: Date.now() })
+    assert.ok(
+      r2.candidates.some((c) => c.name === 'empty-stale-AAA'),
+      '静默 10 天的空骨架必须进候选,不得停在"读不到"里永远没人收',
+    )
+    assert.ok(
+      r2.candidates.some((c) => c.name === 'stale-orphan.bin' && c.dir === false),
+      '散文件同样"没有后代可判龄",必须按自身 mtime 判龄并标 dir:false(否则永远停在"读不到")',
+    )
+    const emptyFresh = join(scratch, 'empty-fresh-BBB')
+    mkdirSync(emptyFresh, { recursive: true })
+    const r3 = scanScratchFixtures({ root, now: Date.now() })
+    assert.equal(r3.skipped.fresh, 2, '刚建的空目录必须与活夹具同档跳过(LIVE + empty-fresh)')
+    assert.equal(
+      r3.candidates.some((c) => c.name === 'empty-fresh-BBB'),
+      false,
+      '刚建的条目一条都不许进候选',
+    )
     // 清扫腿的真实动作就是"先删 scratch 根**里面**的条目" ⇒ 夹具里那个同名的二阶根得先自行拆掉,
     // 否则 rmScratch 的二阶根闸会(正确地)拒绝整棵删除。守卫本身由 scratch-dir 的镜像档负责。
     rmSync(scratch, { recursive: true, force: true })
@@ -767,11 +795,79 @@ test('T29 缺失形状与装车锁:没有 scratch 目录时判"跳过"而非"已
     assert.match(line, /跳过/, '必须报名跳过,不得只报数')
     assert.ok(!/已删/.test(line), '没跑的东西不得写成已删')
     const src = readFileSync(join(HERE, '..', 'scrub-temp-fixtures.mjs'), 'utf8')
-    assert.match(src, /scanScratchFixtures\(\{ root, minAgeHours: minAgeDays \* 24, now \}\)/, '主流程没调第三腿')
+    // 2026-10-30:`minAgeDays * 24` 把 6 小时族档抬成 168 小时(守护每轮传 --older-than 7 ⇒ 永不删),
+    // 锁改成"独立账龄参数",再出现"拿天数乘 24 冒充小时"就会翻红
+    assert.match(src, /scanScratchFixtures\(\{ root, minAgeHours: scratchMinAgeHours, now \}\)/, '主流程没调第三腿')
+    assert.match(src, /--scratch-older-than-hours/, 'scratch 腿必须有独立账龄参数')
+    assert.equal(/minAgeDays \* 24/.test(src), false, '不许再把 --older-than 的"天"直接乘 24 当 scratch 的"小时"')
     assert.match(src, /formatScratchReport\(s, \{ apply \}\)/, '主流程没打印第三腿报告')
     assert.match(src, /del\(resolve\(s\.scratchRoot\), s\.candidates\)/, '第三腿必须走同一个删除出口 del(),不得另开删法')
     assert.ok(!/scanScratchFixtures/.test('const x = 1'), '取判据锁失效(整份源码被当成函数体了)')
   } finally {
+    rmScratch(root)
+  }
+})
+
+test('T30 超预算必须单列"没判完",不得并进"读不到";遍历预算被锁在能覆盖现实的量级', () => {
+  const root = mkScratch('scrub-t30')
+  const scratch = join(root, SCRATCH_DIR_NAME)
+  try {
+    mkdirSync(scratch, { recursive: true })
+    const big = join(scratch, 'over-budget-old')
+    mkdirSync(big, { recursive: true })
+    for (let i = 0; i < 12; i++) writeFileSync(join(big, `f${i}.bin`), 'x')
+    touchOldTree(big, 10)
+    // 注入 5 条预算 ⇒ 这棵 12 条目的老树"没判完":不许当成立即删除,
+    // 不许当 unreadable(并有"读不动",会静默永远不可判),也不许当 fresh(会漏删)。
+    const r = scanScratchFixtures({ root, now: Date.now(), walkBudget: 5 })
+    assert.equal(r.candidates.length, 0, '没走完的树不得下删除决定')
+    assert.equal(r.skipped.overBudget, 1, '必须单列"超预算"这一档')
+    assert.equal(r.skipped.unreadable, 0, '超预算不是读不到(2026-10-30 现读:这一并桶让大树永远不进候选)')
+    assert.equal(r.skipped.fresh, 0)
+    assert.match(formatScratchReport(r, { apply: false }).join('\n'), /超预算 1/, '报告必须点名报数')
+    // 生产默认预算下同一棵树必须能完整判龄 —— 这就是"抬预算"这条修复的行为证明
+    const r2 = scanScratchFixtures({ root, now: Date.now() })
+    assert.deepEqual(r2.candidates.map((c) => c.name), ['over-budget-old'])
+    assert.equal(r2.skipped.overBudget, 0)
+    const src = readFileSync(join(HERE, '..', 'scrub-temp-fixtures.mjs'), 'utf8')
+    const m = /const NEWEST_WALK_BUDGET = (\d+)/.exec(src)
+    assert.ok(
+      m && Number(m[1]) >= 100000,
+      `单轮遍历预算不得回退到 ${m ? m[1] : '缺失'}(2026-10-30 实测:38320 条目的 5 天前整仓副本被 20000 判成"读不到"⇒ 永不删)`,
+    )
+    rmSync(scratch, { recursive: true, force: true })
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('T31 保护区命中必须在 scratch 腿点名(名字/命中路径/体积),否则"交人核"是哑的', () => {
+  const root = mkScratch('scrub-t31')
+  const scratch = join(root, SCRATCH_DIR_NAME)
+  try {
+    mkdirSync(scratch, { recursive: true })
+    const dir = join(scratch, 'gate-with-backups')
+    mkdirSync(join(dir, 'src', 'backups'), { recursive: true })
+    writeFileSync(join(dir, 'src', 'backups', 'keep.txt'), Buffer.alloc(2048, 1))
+    touchOldTree(dir, 10)
+    const r = scanScratchFixtures({ root, now: Date.now() })
+    assert.equal(r.candidates.length, 0, '收着备份目录的整条不得进候选')
+    assert.equal(r.skipped.protected, 1)
+    assert.equal(r.protectedPaths.length, 1, '只报数不点名 = 人没法核,必须逐条列出')
+    assert.match(r.protectedPaths[0].hit.replace(/\\/g, '/'), /backups$/)
+    assert.ok(r.protectedPaths[0].bytes > 0, '被挡的条也要量体积(否则"保护区 1"看起来无害)')
+    const line = formatScratchReport(r, { apply: false }).join('\n')
+    assert.match(line, /整条不删/, '必须给出为什么没删')
+    assert.match(line, /gate-with-backups/, '必须点出是哪一条')
+    assert.match(line, /命中 .*backups/, '必须点出命中了哪个名字')
+    assert.equal(existsSync(join(dir, 'src', 'backups', 'keep.txt')), true, 'dry-run 不得动它')
+  } finally {
+    // 先拆测试自己造的二阶 scratch 根,否则 rmScratch 的正确守卫会拒绝整棵删除(T26 同款)。
+    try {
+      rmSync(scratch, { recursive: true, force: true })
+    } catch {
+      /* 清理失败不得改写判据结论 */
+    }
     rmScratch(root)
   }
 })

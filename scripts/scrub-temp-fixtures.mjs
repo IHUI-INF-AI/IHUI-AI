@@ -49,6 +49,9 @@
  * 用法:
  *   node scripts/scrub-temp-fixtures.mjs                 # 只报告(默认扫多根并集,见下)
  *   node scripts/scrub-temp-fixtures.mjs --older-than 3  # 改账龄(族档是**下限**,调不穿)
+ *   node scripts/scrub-temp-fixtures.mjs --scratch-older-than-hours 6 # scratch 腿**独立**账龄
+ *     (2026-10-30:此前直接拿 `--older-than 7` 乘 24 当静默闸 ⇒ 文档宣称的 6 小时族档被抬到 168 小时,
+ *      守护每轮都传 7 ⇒ 这一腿事实上永不删。两条腿的生命周期不同,账龄必须分开传)
  *   node scripts/scrub-temp-fixtures.mjs --apply         # 真删(显式要求)
  *   node scripts/scrub-temp-fixtures.mjs --apply --dry-run  # 预演:显式覆盖 --apply ⇒ 零删除
  *   node scripts/scrub-temp-fixtures.mjs --root <dir>[;<dir>…] # 显式只扫这些根(测试夹具通道,生产不带)
@@ -577,7 +580,16 @@ export const SCRATCH_DIR_NAME = 'ihui-scratch'
 export const SCRATCH_MIN_AGE_HOURS_DEFAULT = 6
 export const SCRATCH_ROUND_CAP = 2000
 const HOUR_MS = 3600000
-const NEWEST_WALK_BUDGET = 20000
+/**
+ * 单棵夹具子树的条目预算。**不是判据,只是遍历上限**;撞上限的条目单独报数,不得并进"读不到"。
+ *
+ * 2026-10-30 现读取值(原 20000):`D:\DevEnv\Temp\ihui-scratch` 里 `g1222561-head`(25163 项,
+ * 整仓副本)与 `g1222561-pytest`(38320 项,pytest worker)都**超过旧预算** ⇒ 每轮判成"读不到"、
+ * 结构上永不进候选 —— 这与"陈旧副本只增不减"是同一病灶换了个桶名。抬到 200000 后两枚可完整判龄。
+ * 超新预算的树仍一律不删(同 `SCRATCH_ROUND_CAP` 的方向:判据被读成海量删除时少删一次),
+ * 但必须在报告里点名叫 `overBudget`,不许再与"读不动"混成一档。
+ */
+const NEWEST_WALK_BUDGET = 200000
 
 export function scratchEffectiveMinAgeHours(requestedHours = SCRATCH_MIN_AGE_HOURS_DEFAULT) {
   const req = Number(requestedHours)
@@ -585,11 +597,28 @@ export function scratchEffectiveMinAgeHours(requestedHours = SCRATCH_MIN_AGE_HOU
 }
 
 /**
- * 子树里最新的 mtime。取不到(读不动 / 超预算)**不猜**:返回 null ⇒ 该条判"读不到"、
- * 绝不进入候选(§0.3:量不到就不删,方向是少删一次)。
+ * scratch 腿的**单次**子树遍历:同时量「子树最新 mtime」与「文件数 / 字节 / 链接 / 保护区命中」。
+ *
+ * 为什么并成一次(2026-10-30):此前先 `newestMtimeMs()` 再 `measure()` —— 同一个老夹具要走
+ * 两遍全子树 lstat。实测 7 个根并集一轮 783 秒,而守护的硬上限只有 300 秒 ⇒ 每轮必被掐死,
+ * 清扫器在账面上"存在",事实上**从未删掉一条**(`.ihui-agent/state/git-guardian.log` 连续三次
+ * `ETIMEDOUT` 就是这一型)。并成一次 + 活夹具早退后,同机实测降到秒级。
+ *
+ * 早退(不改变结论,只省读数):任一后代 mtime 落在静默闸内 ⇒ 立刻判 `fresh`,
+ * 活着的夹具不必再量体积(它本来就不进候选)。
+ * 三态而非两态:读不动 ⇒ null(判"读不到");条目数超预算 ⇒ `{overBudget:true}`(判"没判完")。
+ * 两态会把"树太大"静默说成"读不到",于是大树永远不进候选 —— 2026-10-30 现读就是这样漏掉两枚
+ * 5 天前的整仓副本。两种都**绝不进候选**(§0.3 方向是少删一次)。
+ *
+ * @returns {null | {overBudget:true,spent:number} | {fresh:boolean,newest:number|null,files:number,bytes:number,links:number,protectedHit:string|null}}
  */
-function newestMtimeMs(target, budget = NEWEST_WALK_BUDGET) {
+function scratchTreeStats(target, { nowMs, minAgeMs, budget = NEWEST_WALK_BUDGET, selfMtimeMs = 0 } = {}) {
+  const freshAfter = nowMs - minAgeMs
   let newest = 0
+  let files = 0
+  let bytes = 0
+  let links = 0
+  let protectedHit = null
   let spent = 0
   const stack = [target]
   while (stack.length) {
@@ -601,26 +630,52 @@ function newestMtimeMs(target, budget = NEWEST_WALK_BUDGET) {
       return null
     }
     for (const e of entries) {
-      if (++spent > budget) return null
+      if (++spent > budget) return { overBudget: true, spent: spent - 1 }
       const f = join(d, e.name)
+      let st
       try {
-        const st = lstatSync(f)
-        if (st.mtimeMs > newest) newest = st.mtimeMs
-        if (st.isDirectory() && !st.isSymbolicLink()) stack.push(f)
+        st = lstatSync(f)
       } catch {
         return null
       }
+      if (st.mtimeMs > newest) newest = st.mtimeMs
+      if (st.mtimeMs >= freshAfter) return { fresh: true }
+      if (isProtected(e.name)) {
+        // 记下命中但**不 continue**:同 `scan()` 侧 T3 的教训 —— 被保护闸挡住的条也必须量出体积,
+        // 否则报告里 11 GB 的残留会显示成 0.00 GB,读起来像"保护区里没什么东西"。
+        // 它仍然整条不进候选(判据照旧),重解析点由下面的分支继续拦住。
+        protectedHit = protectedHit || f
+      }
+      if (st.isSymbolicLink()) {
+        links++
+        continue // 绝不穿透(§26:递归删除穿过 junction 会清空真实目标)
+      }
+      if (st.isDirectory()) stack.push(f)
+      else {
+        files++
+        bytes += st.size
+      }
     }
   }
-  return newest || null
+  // 空目录(一个后代都没有):没有后代可判龄 ≠ 读不到。用条目自身 mtime 作最后活动时间,
+  // 否则这类"测试建了没写就退出"的空骨架会永远停在"读不到 76"这一档里(2026-10-30 现读)。
+  if (spent === 0) {
+    const self = Number.isFinite(selfMtimeMs) && selfMtimeMs > 0 ? selfMtimeMs : null
+    if (self === null) return { fresh: false, newest: null, files: 0, bytes: 0, links: 0, protectedHit: null }
+    return { fresh: self >= freshAfter, newest: self, files: 0, bytes: 0, links: 0, protectedHit: null }
+  }
+  return { fresh: false, newest: newest || null, files, bytes, links, protectedHit }
 }
 
-export function scanScratchFixtures({ root, minAgeHours = SCRATCH_MIN_AGE_HOURS_DEFAULT, now = Date.now() } = {}) {
+export function scanScratchFixtures({ root, minAgeHours = SCRATCH_MIN_AGE_HOURS_DEFAULT, now = Date.now(), walkBudget = NEWEST_WALK_BUDGET } = {}) {
   const scratchRoot = join(resolve(root), SCRATCH_DIR_NAME)
   const minAge = scratchEffectiveMinAgeHours(minAgeHours)
-  const skipped = { fresh: 0, protected: 0, link: 0, unreadable: 0, notOurs: 0 }
+  const skipped = { fresh: 0, protected: 0, link: 0, unreadable: 0, overBudget: 0, notOurs: 0 }
   const candidates = []
-  const base = { scratchRoot, minAgeHours: minAge, candidates, skipped, cap: SCRATCH_ROUND_CAP, capTripped: false }
+  // 保护区命中必须**点名**(名字 + 命中路径 + 体积),否则"交人核"这条唯一出路是哑的:
+  // 2026-10-30 现读,两条 5 天前的残留被名字闸挡住,而报告只有一句"保护区 2",没人能核。
+  const protectedPaths = []
+  const base = { scratchRoot, minAgeHours: minAge, candidates, protectedPaths, skipped, cap: SCRATCH_ROUND_CAP, capTripped: false }
   let st0
   try {
     st0 = lstatSync(scratchRoot)
@@ -655,26 +710,41 @@ export function scanScratchFixtures({ root, minAgeHours = SCRATCH_MIN_AGE_HOURS_
       skipped.link++ // 链接本体也只报数:断链与否归持有者(同 `scan()` 的口径)
       continue
     }
-    const newest = newestMtimeMs(full)
-    if (newest === null) {
+    // 散文件与空目录都"没有后代可判龄" —— 它们不是"读不到",按条目自身 mtime 判龄
+    // (2026-10-30 现读:scratch 根里 3 枚散文件 + 76 个空骨架全卡在"读不到",永远没人收)。
+    const info = st.isDirectory()
+      ? scratchTreeStats(full, { nowMs: now, minAgeMs: minAge * HOUR_MS, selfMtimeMs: st.mtimeMs, budget: walkBudget })
+      : { fresh: now - st.mtimeMs < minAge * HOUR_MS, newest: st.mtimeMs, files: 1, bytes: st.size, links: 0, protectedHit: null }
+    if (info === null) {
       skipped.unreadable++
       continue
     }
-    if (now - newest < minAge * HOUR_MS) {
+    // 超预算 = "没判完",不是"读不动":单列一档,否则大树会静默永远不进候选(2026-10-30 现读)。
+    if (info.overBudget) {
+      skipped.overBudget++
+      continue
+    }
+    if (info.fresh) {
       skipped.fresh++
       continue
     }
-    const m = st.isDirectory() ? measure(full) : { files: 1, bytes: st.size, links: 0, protectedHit: null }
-    if (m.protectedHit) {
+    if (info.newest === null) {
+      skipped.unreadable++
+      continue
+    }
+    if (info.protectedHit) {
       skipped.protected++
+      protectedPaths.push({ name: e.name, path: full, hit: info.protectedHit, files: info.files, bytes: info.bytes })
       continue
     }
     candidates.push({
       name: e.name,
       path: full,
       dir: st.isDirectory(),
-      idleHours: Math.round(((now - newest) / HOUR_MS) * 10) / 10,
-      ...m,
+      idleHours: Math.round(((now - info.newest) / HOUR_MS) * 10) / 10,
+      files: info.files,
+      bytes: info.bytes,
+      links: info.links,
     })
   }
   if (candidates.length > SCRATCH_ROUND_CAP) {
@@ -707,10 +777,15 @@ export function formatScratchReport(r, { apply } = {}) {
     `scratch 夹具清扫 · root=${r.scratchRoot} · 静默闸 ${r.minAgeHours}h · 条目 ${r.totalEntries} → 候选 ${r.candidates.length}(文件 ${files} · ${(bytes / 1048576).toFixed(1)} MB)`,
   )
   p(
-    `  跳过(不判但报数):静默未到 ${r.skipped.fresh} · 保护区 ${r.skipped.protected} · 重解析点 ${r.skipped.link} · 读不到 ${r.skipped.unreadable} · 非夹具 ${r.skipped.notOurs}`,
+    `  跳过(不判但报数):静默未到 ${r.skipped.fresh} · 保护区 ${r.skipped.protected} · 重解析点 ${r.skipped.link} · 读不到 ${r.skipped.unreadable} · 超预算 ${r.skipped.overBudget} · 非夹具 ${r.skipped.notOurs}`,
   )
   for (const c of r.candidates.slice(0, 8))
     p(`  · ${String(c.idleHours).padStart(5)}h  ${c.dir ? '目录' : '文件'} ${c.name}(${c.files} 文件 / ${(c.bytes / 1048576).toFixed(2)} MB)`)
+  for (const x of (r.protectedPaths || []).slice(0, 8))
+    p(
+      `  ⛔ 整条不删(夹具内收着凭据/备份目录,交人核): ${x.name} · ${x.files} 文件 · ${(x.bytes / 1073741824).toFixed(2)} GB · 命中 ${x.hit}`,
+    )
+  if ((r.protectedPaths || []).length > 8) p(`  ⛔ … 另 ${r.protectedPaths.length - 8} 条保护区命中`)
   if (r.candidates.length > 8) p(`  … 另 ${r.candidates.length - 8} 条(${apply ? '--apply 时逐条执行' : '预演'})`)
   p(apply ? `  本腿删除入口已开(--apply);实际删除仍只走 del()` : `  本轮未删除任何东西;要删请加 --apply`)
   return L
@@ -750,6 +825,16 @@ if (isDirectRun) {
   const minAgeDays = Number(arg('--older-than') || DEFAULT_MIN_AGE_DAYS)
   if (!Number.isFinite(minAgeDays) || minAgeDays < 0) {
     console.log(`❌ --older-than 需要非负数字,得到 ${arg('--older-than')}`)
+    process.exit(2)
+  }
+  // scratch 腿的账龄与 `--older-than`(顶部残留,7 天)是两件事:夹具的生命周期是"一轮测试",
+  // 不是"一份构建产物"。不传则按族档 6 小时(仍由 scratchEffectiveMinAgeHours 兜底,调不穿)。
+  const scratchArg = arg('--scratch-older-than-hours')
+  const scratchMinAgeHours = scratchEffectiveMinAgeHours(
+    scratchArg === null ? SCRATCH_MIN_AGE_HOURS_DEFAULT : Number(scratchArg),
+  )
+  if (scratchArg !== null && (!Number.isFinite(Number(scratchArg)) || Number(scratchArg) < 0)) {
+    console.log(`❌ --scratch-older-than-hours 需要非负数字,得到 ${scratchArg}`)
     process.exit(2)
   }
   const apply0 = has('--apply')
@@ -819,7 +904,7 @@ if (isDirectRun) {
     }
     // ── 第三腿:本项目自己的 scratch 夹具(同一批根、同一个删除出口、同一份汇总)──
     // 根必须是 scratch 目录本身:del() 判 `path.startsWith(root)`,给 TEMP 根会放过越界检查。
-    const s = scanScratchFixtures({ root, minAgeHours: minAgeDays * 24, now })
+    const s = scanScratchFixtures({ root, minAgeHours: scratchMinAgeHours, now })
     for (const l of formatScratchReport(s, { apply })) console.log(l)
     if (s.error) {
       errs++
