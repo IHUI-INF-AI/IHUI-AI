@@ -270,6 +270,12 @@
     "moreTitle": "もっと見る",
     "studentCount": "{count} 人が学習",
     "empty": "コースはまだありません"
+,
+    "player": "動画の読み込み後に再生できます",
+    "progress": "進捗",
+    "progressLessons": "{completed}/{total} 節修了",
+    "completed": "修了済み",
+    "complete": "修了にする"
   },
   "live": {
     "viewers": "{n} 人視聴",
@@ -479,6 +485,8 @@
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
     "withdraw": "出金"
+,
+    "points": "トークン"
   },
   "community": {
     "posts": "投稿",
@@ -504,6 +512,9 @@
     "m3": "検索するエージェント名を入力",
     "y1": "{p1}時間",
     "y2": "エージェント購入:{p1}"
+,
+    "follow": "フォロー",
+    "follower": "フォロワー"
   },
   "action": {
     "like": "いいね",
@@ -514,6 +525,8 @@
     "title": "エージェント",
     "empty": "エージェントはまだありません",
     "uses": "回"
+,
+    "config": "設定"
   },
   "setting": {
     "hint": "ヒント",
@@ -1182,6 +1195,9 @@
     "loadFailed": "読み込み失敗",
     "openWorkflow": "ワークフローを開く",
     "gatewayRetry": "{attempt}/{max} 回目を再試行中、{seconds} 秒後に続けます"
+,
+    "placeholder": "質問を入力してください",
+    "streaming": "生成中..."
   },
   "agentDialogue": {
     "sendFailed": "送信に失敗しました、再試行してください",
@@ -1606,6 +1622,17 @@
     "withdrawn": "引出済み",
     "myTeam": "マイチーム",
     "columnTitle": "流通注文"
+,
+    "retry": "再試行",
+    "empty": "データなし",
+    "subtitle": "商品を宣伝してコミッションを獲得",
+    "level": "販売レベル",
+    "commissionRate": "コミッション率",
+    "totalEarnings": "累計収益",
+    "pending": "決済待ち",
+    "withdrawMin": "¥{amount} 以上で出金できます",
+    "products": "販売商品",
+    "sales": "{count} 件販売"
   },
   "about": {
     "ctaDesc": "登録で 1,000 クレジットを獲得、全モデル無料体験、クレジットカート不要。",
@@ -2359,6 +2386,8 @@
     "faqGuideBtn": "詳しく見る",
     "contactHeading": "その他の質問はありますか?",
     "contactDesc": "サポートに連絡して1対1の回答を得る"
+,
+    "copy": "コピー"
   },
   "developer": {
     "withdrawal": {
@@ -2644,6 +2673,11 @@
       "loadFailed": "詳細の取得失敗"
     },
     "noData": "ランキングデータなし"
+,
+    "subtitle": "学習ランキング。自分の順位をチェック!!",
+    "retry": "再試行",
+    "me": "自分",
+    "studyHours": "{count} 時間学習"
   },
   "recruitment": {
     "title": "トレーダー計画",
@@ -2674,6 +2708,9 @@
     "agreePrefix": "読み同意しました",
     "userAgreement": "《利用規約》",
     "privacyPolicy": "《プライバシーポリシー》"
+,
+    "sendCodeFailed": "認証コードの送信に失敗しました",
+    "registering": "登録中..."
   },
   "message": {
     "tabs": {
@@ -3267,6 +3304,17 @@
     "subscribeTitle": "サービスパックを購読",
     "subscribed": "購読完了",
     "verified": "認証済み"
+,
+    "title": "VIP トレーダー",
+    "subtitle": "トレーダー専用権益をご利用いただけます",
+    "badge": "トレーダー専用",
+    "heroDesc": "期間限定 ¥{price} で開通、{power} の計算力を贈呈、大量売上と専用カスタマイズ権益を楽しめます",
+    "entryTeam": "マイチーム",
+    "entryStats": "収益統計",
+    "entryWithdraw": "出金する",
+    "benefits": "専用権益",
+    "benefitCount": "全 {count} 項目",
+    "lifetime": "永久有効"
   },
   "vip": {
     "benefitList": {
@@ -3429,6 +3477,16 @@
       "aiChat": "AIスマート対話",
       "aiChatDesc": "スマートアシスタントが各種質問に回答"
     }
+,
+    "retry": "再試行",
+    "subtitle": "会員を開通して、より多くの権益を",
+    "currentLevel": "現在のレベル",
+    "expireAt": "有効期限",
+    "levelsTitle": "会員レベル",
+    "empty": "会員レベル情報はありません",
+    "currentBadge": "現在のレベル",
+    "duration": "{days} 日",
+    "benefitsCount": "{count} 個の専用権益"
   },
   "learnDevelop": {
     "title": "学習・開発",
@@ -3441,6 +3499,8 @@
     "teacher": "講師",
     "free": "無料",
     "rankEntry": "学習ランキング"
+,
+    "contactLabel": "直接 李総 に連絡"
   },
   "settingPrivacy": {
     "systemPermissions": "システム権限",
@@ -3807,6 +3867,11 @@
     "menuWebLink": "Webリンク",
     "menuFileUpload": "ファイルアップロード",
     "menuHistory": "会話履歴"
+,
+    "modelLabel": "モデル",
+    "stop": "停止",
+    "thinking": "考え中...",
+    "title": "IHUI AI"
   },
   "tabBar": {
     "community": "コミュニティ",
@@ -4220,6 +4285,14 @@
     "d1": "技術",
     "d2": "製品",
     "d4": "運営"
+,
+    "title": "質問を投稿",
+    "titlePlaceholder": "質問を一言でまとめてください",
+    "contentLabel": "内容",
+    "contentPlaceholder": "質問を詳しく説明してください",
+    "tagsLabel": "タグ",
+    "tagsPlaceholder": "複数のタグはカンマで区切ります",
+    "submit": "投稿"
   },
   "liveCalendar": {
     "d1": "今すぐ視聴",
@@ -4233,6 +4306,11 @@
     "d5": "その他の理由",
     "y1": "説明:{p1}",
     "y2": "連絡先:{p1}"
+,
+    "subtitle": "注文を選択して返金を申請します",
+    "retry": "再試行",
+    "empty": "返金可能な注文はありません",
+    "reasonPlaceholder": "返金理由を入力してください"
   },
   "settingTheme": {
     "d1": "システム設定に応じてライト/ダークを自動切替",
@@ -4271,6 +4349,11 @@
   "rankingDetail": {
     "d1": "テスト中",
     "d2": "停止済み"
+,
+    "points": "ポイント",
+    "rank": "ランキング",
+    "studyHours": "学習時間",
+    "levelDesc": "レベル"
   },
   "EmptyIllustration": {
     "d1": "関連コンテンツが見つかりません",
@@ -4711,6 +4794,12 @@
       "loginRequired": "先にログインしてください"
     },
     "notLoggedIn": "未ログアウト"
+,
+    "nickname": "ニックネーム未設定",
+    "logout": "ログアウト",
+    "myFavorites": "お気に入り",
+    "myOrders": "マイ注文",
+    "editProfile": "プロフィール編集"
   },
   "verify": {
     "phoneEmpty": "電話番号が入力されていません",
@@ -6011,6 +6100,13 @@
   },
   "identityVerify": {
     "loadFailed": "認証の読み込みに失敗"
+,
+    "uploadFront": "身分証の肖像面をアップロード",
+    "uploadBack": "身分証の国章面をアップロード",
+    "uploadSelfie": "身分証を手に持った写真をアップロード",
+    "title": "本人確認",
+    "subtitle": "本人確認を完了してアカウントの安全を確保",
+    "submitting": "送信中..."
   },
   "referrer": {
     "title": "紹介者",
@@ -7254,5 +7350,31 @@
     "markSuccess": "習得済みにしました",
     "markFailed": "更新に失敗しました",
     "loadMore": "さらに読み込む"
+  }
+,
+  "settings": {
+    "oldPassword": "現在のパスワード",
+    "confirmPassword": "新しいパスワードの確認",
+    "icpRecord": "ICP備案",
+    "pwdFieldsRequired": "パスワード情報をすべて入力してください",
+    "pwdTooShort": "新しいパスワードは 6 文字以上にしてください",
+    "pwdNotMatch": "入力したパスワードが一致しません",
+    "pwdChanged": "パスワードを変更しました",
+    "pwdChangeFailed": "パスワード変更に失敗しました。再試行してください",
+    "logoutConfirm": "ログアウトしますか?",
+    "notifPush": "プッシュ通知",
+    "notifMessage": "サイト内メッセージ",
+    "notifEmail": "メール通知",
+    "notification": "メッセージ通知",
+    "account": "アカウントとセキュリティ",
+    "changePassword": "パスワード変更",
+    "newPassword": "新しいパスワード"
+  },
+  "liveList": {
+    "subtitle": "素晴らしいライブをお見逃しなく",
+    "retry": "再試行"
+  },
+  "withdraw": {
+    "availableBalance": "引き出し可能額(元)"
   }
 }

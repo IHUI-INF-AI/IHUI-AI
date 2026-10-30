@@ -270,6 +270,12 @@
     "moreTitle": "更多课程",
     "studentCount": "{count} 人学过",
     "empty": "暂无课程"
+,
+    "player": "视频加载后即可播放",
+    "progress": "学习进度",
+    "progressLessons": "已学 {completed}/{total} 节",
+    "completed": "已学完",
+    "complete": "标记学完"
   },
   "live": {
     "viewers": "{n} 人观看",
@@ -479,6 +485,8 @@
     "totalRecharge": "累计充值",
     "totalWithdraw": "累计提现",
     "withdraw": "提现"
+,
+    "points": "智汇值"
   },
   "community": {
     "posts": "帖子",
@@ -504,6 +512,9 @@
     "m3": "请输入查找的智能体名称",
     "y1": "{p1}时长",
     "y2": "购买智能体:{p1}"
+,
+    "follow": "关注",
+    "follower": "粉丝"
   },
   "action": {
     "like": "点赞",
@@ -514,6 +525,8 @@
     "title": "智能体",
     "empty": "暂无智能体",
     "uses": "次"
+,
+    "config": "配置"
   },
   "setting": {
     "hint": "提示",
@@ -1182,6 +1195,9 @@
     "loadFailed": "加载失败",
     "openWorkflow": "打开工作流",
     "gatewayRetry": "第 {attempt}/{max} 次重试,{seconds} 秒后继续"
+,
+    "placeholder": "请输入您的问题",
+    "streaming": "正在生成..."
   },
   "agentDialogue": {
     "sendFailed": "发送失败,请重试",
@@ -1606,6 +1622,17 @@
     "withdrawn": "已提现",
     "myTeam": "我的团队",
     "columnTitle": "分销订单"
+,
+    "retry": "重试",
+    "empty": "暂无数据",
+    "subtitle": "推广商品,赚取佣金",
+    "level": "分销等级",
+    "commissionRate": "佣金比例",
+    "totalEarnings": "累计收益",
+    "pending": "待结算",
+    "withdrawMin": "满 ¥{amount} 方可提现",
+    "products": "分销商品",
+    "sales": "已售 {count} 件"
   },
   "about": {
     "ctaDesc": "注册即得 1000 积分,全模型免费试用,无需信用卡。",
@@ -2359,6 +2386,8 @@
     "faqGuideBtn": "去了解",
     "contactHeading": "其他问题?",
     "contactDesc": "咨询客服,获得多对一在线答疑"
+,
+    "copy": "复制"
   },
   "developer": {
     "withdrawal": {
@@ -2644,6 +2673,11 @@
       "loadFailed": "获取详情"
     },
     "noData": "暂无排行数据"
+,
+    "subtitle": "学习排行榜,看看你排第几",
+    "retry": "重试",
+    "me": "我",
+    "studyHours": "学习 {count} 小时"
   },
   "recruitment": {
     "title": "操盘手计划",
@@ -2674,6 +2708,9 @@
     "agreePrefix": "我已阅读并同意",
     "userAgreement": "《用户协议》",
     "privacyPolicy": "《隐私政策》"
+,
+    "sendCodeFailed": "验证码发送失败,请重试",
+    "registering": "注册中..."
   },
   "message": {
     "tabs": {
@@ -3267,6 +3304,17 @@
     "subscribeTitle": "订阅服务包",
     "subscribed": "订阅成功",
     "verified": "认证"
+,
+    "title": "VIP 操盘手",
+    "subtitle": "尊享操盘手专属权益",
+    "badge": "操盘手专属",
+    "heroDesc": "限时 ¥{price} 开通,赠送 {power} 算力,尊享大额分销与专属定制权益",
+    "entryTeam": "我的团队",
+    "entryStats": "收益统计",
+    "entryWithdraw": "去提现",
+    "benefits": "专属权益",
+    "benefitCount": "共 {count} 项",
+    "lifetime": "终身有效"
   },
   "vip": {
     "benefitList": {
@@ -3429,6 +3477,16 @@
       "aiChat": "AI智能对话",
       "aiChatDesc": "智能助手解答各类问题"
     }
+,
+    "retry": "重试",
+    "subtitle": "开通会员,尊享更多权益",
+    "currentLevel": "当前等级",
+    "expireAt": "到期时间",
+    "levelsTitle": "会员等级",
+    "empty": "暂无会员等级信息",
+    "currentBadge": "当前等级",
+    "duration": "{days} 天",
+    "benefitsCount": "{count} 项专属权益"
   },
   "learnDevelop": {
     "title": "学习发展",
@@ -3441,6 +3499,8 @@
     "teacher": "讲师",
     "free": "免费",
     "rankEntry": "学习排行榜"
+,
+    "contactLabel": "直接联系李总"
   },
   "settingPrivacy": {
     "systemPermissions": "系统权限",
@@ -3807,6 +3867,11 @@
     "menuWebLink": "网页链接",
     "menuFileUpload": "文件上传",
     "menuHistory": "历史对话"
+,
+    "modelLabel": "模型",
+    "stop": "停止",
+    "thinking": "思考中...",
+    "title": "IHUI AI"
   },
   "tabBar": {
     "community": "智汇社区",
@@ -4220,6 +4285,14 @@
     "d1": "技术",
     "d2": "产品",
     "d4": "运营"
+,
+    "title": "发布提问",
+    "titlePlaceholder": "一句话概括你的问题",
+    "contentLabel": "内容",
+    "contentPlaceholder": "详细描述你的问题",
+    "tagsLabel": "标签",
+    "tagsPlaceholder": "多个标签用逗号分隔",
+    "submit": "发布"
   },
   "liveCalendar": {
     "d1": "立即观看",
@@ -4233,6 +4306,11 @@
     "d5": "其他原因",
     "y1": "说明:{p1}",
     "y2": "联系:{p1}"
+,
+    "subtitle": "选择订单,提交退款申请",
+    "retry": "重试",
+    "empty": "暂无可退款的订单",
+    "reasonPlaceholder": "请填写退款原因"
   },
   "settingTheme": {
     "d1": "根据系统设置自动切换浅色或深色",
@@ -4271,6 +4349,11 @@
   "rankingDetail": {
     "d1": "测试中",
     "d2": "已下线"
+,
+    "points": "积分",
+    "rank": "排名",
+    "studyHours": "学习时长",
+    "levelDesc": "等级"
   },
   "EmptyIllustration": {
     "d1": "未找到相关内容",
@@ -4711,6 +4794,12 @@
       "loginRequired": "请先登录"
     },
     "notLoggedIn": "未登录"
+,
+    "nickname": "未设置昵称",
+    "logout": "退出登录",
+    "myFavorites": "我的收藏",
+    "myOrders": "我的订单",
+    "editProfile": "编辑资料"
   },
   "verify": {
     "phoneEmpty": "手机号为空",
@@ -6011,6 +6100,13 @@
   },
   "identityVerify": {
     "loadFailed": "加载认证失败"
+,
+    "uploadFront": "上传身份证人像面",
+    "uploadBack": "上传身份证国徽面",
+    "uploadSelfie": "上传手持身份证照片",
+    "title": "身份认证",
+    "subtitle": "完成身份认证,保障账户安全",
+    "submitting": "提交中..."
   },
   "referrer": {
     "title": "推荐人",
@@ -7254,5 +7350,31 @@
     "markSuccess": "已标记为掌握",
     "markFailed": "标记失败",
     "loadMore": "加载更多"
+  }
+,
+  "settings": {
+    "oldPassword": "旧密码",
+    "confirmPassword": "确认新密码",
+    "icpRecord": "ICP 备案",
+    "pwdFieldsRequired": "请填写完整的密码信息",
+    "pwdTooShort": "新密码至少 6 位",
+    "pwdNotMatch": "两次输入的密码不一致",
+    "pwdChanged": "密码修改成功",
+    "pwdChangeFailed": "密码修改失败,请重试",
+    "logoutConfirm": "确认退出当前账号?",
+    "notifPush": "推送通知",
+    "notifMessage": "站内消息",
+    "notifEmail": "邮件通知",
+    "notification": "消息通知",
+    "account": "账号与安全",
+    "changePassword": "修改密码",
+    "newPassword": "新密码"
+  },
+  "liveList": {
+    "subtitle": "精彩直播,不见不散",
+    "retry": "重试"
+  },
+  "withdraw": {
+    "availableBalance": "可提现金额(元)"
   }
 }
