@@ -30,6 +30,10 @@
  *   (真直连 000,Clash 5 轮 1 通≈20%)——直连 0% ⇒ 走代理严格更优,航空线拥塞是线路
  *   质量问题(换节点/升套餐可提升,非代码可解);llm7 两条路都不通(上游自身抖)
  *   刻意不进名单——API 服务直连反而时通。
+ * - 2026-10-30 复测(Agnes 视频生产化本票):apihub.agnes-ai.com 与 apihub.agnes-ai.cn 当日
+ *   直连 GET /v1/models 均 200,与当年 000 相反;但**不把该条目摘掉**——摘它需要 ≥20 次成组
+ *   对照(AGENTS §12g),单日一次通过不构成"直连恒通"的证据,而线路会抖。付费 Agnes 链路
+ *   现走 api.agnes-ai.cn(不在本名单=直连),本名单只影响挂代理时的分流,不影响那条腿。
  *
  * 实现走 undici 公开 API:`Agent.compose(interceptor)` 返回正规 ComposedDispatcher,
  * 拦截器只按 origin 换 dispatcher,不碰 body/handler;fetch 对全局 dispatcher 只调
