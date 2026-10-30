@@ -23,6 +23,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { encryptEnvelope, traeUserDataDirs } from './trae-auth-extract.mjs'
+import { listProductPids } from './trae-client-process.mjs'
 
 /** storage.json 里 IDE 会话凭据键(与 trae-auth-extract 的 pickAuthEnvelopeKeys 同键面) */
 export const AUTH_KEY = 'iCubeAuthInfo://icube.cloudide'
@@ -162,6 +163,31 @@ export function findStorageFile(env = process.env, homedir = os.homedir()) {
   return null
 }
 
+/**
+ * 按产品指定的 storage.json 落点(2026-10-30 立,SOLO 携对话切号):
+ * 目录名(大小写不敏感)命中 product 且 storage.json 存在;多 profile 命中 ⇒ 取候选序第一个
+ * (traeUserDataDirs 的次序 = 显式覆盖 > 当前用户 > 跨 profile,优先级不在这里复写第二份)。
+ * 无命中 ⇒ null(未判定,绝不回落到"别的产品的那份")。
+ */
+export function findStorageFileForProduct(product, env = process.env, homedir = os.homedir()) {
+  const want = String(product ?? '').trim().toLowerCase()
+  if (!want) return null
+  for (const dir of traeUserDataDirs(env, homedir)) {
+    if (path.basename(dir).toLowerCase() !== want) continue
+    const file = path.join(dir, 'User', 'globalStorage', 'storage.json')
+    if (fs.existsSync(file)) return file
+  }
+  return null
+}
+
+/**
+ * 某产品在跑吗(产品名 → `<product>.exe`;查询失败按 null=未知返回,调用方不得当成"没在跑")。
+ * 判据住 trae-client-process.listProductPids(§0.6 单一真相源,本模块 import 它不重写 tasklist 解析)。
+ */
+export function isProductRunning(product, env = process.env) {
+  return listProductPids(String(product ?? '').trim(), env)
+}
+
 /** 原子写:先备份 .pre-switch.bak,再写临时文件 rename 覆盖;返回备份路径 */
 export function writeStorageAtomic(file, store) {
   const bak = `${file}.pre-switch.bak`
@@ -257,6 +283,8 @@ export const __test__ = {
   buildClientUserInfo,
   buildStoragePatch,
   findStorageFile,
+  findStorageFileForProduct,
+  isProductRunning,
   writeStorageAtomic,
   isTraeRunning,
   listTraeProcesses,
