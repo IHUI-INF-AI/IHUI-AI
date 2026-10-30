@@ -172,6 +172,39 @@ test('⑪ R4 点名义务:README 的守门索引里有本门名(文档面读 HEA
   )
 })
 
+test('⑬ 反馈判据认原语默认态:把 TouchableOpacity 的自带变暗算成缺反馈 = 957 枚误报', () => {
+  const { hasNativeFeedback } = __test__
+  assert.equal(hasNativeFeedback('TouchableOpacity', ' style={{}} '), true, '默认 activeOpacity=0.2 就是反馈')
+  assert.equal(hasNativeFeedback('TouchableOpacity', ' activeOpacity={1} '), false, '显式关掉才算关')
+  assert.equal(hasNativeFeedback('TouchableHighlight', ' '), true)
+  assert.equal(hasNativeFeedback('TouchableWithoutFeedback', ' '), false, '类名自述无反馈')
+  assert.equal(hasNativeFeedback('Pressable', ' '), false, 'Pressable 没有默认按压态')
+  // 反向对照(误报回归哨兵):判据被改回"只数 onPressIn"时,HEAD 面会从三位数涨回四位数。
+  // 这里刻意用**上界**而不是等值 —— 存量在减,钉死一个数就成了一枚会自己腐烂的钉。
+  const out = run([]).stdout
+  const m = /无按压反馈: (\d+) 处/.exec(out)
+  assert.ok(m, `结论行读不到反馈计数:${out.slice(0, 200)}`)
+  assert.ok(
+    Number(m[1]) < 700,
+    `无按压反馈读到 ${m[1]} 处 ⇒ 原语默认态那一条判据大概是被人删了(957 枚 TouchableOpacity 会被误报)`,
+  )
+})
+
+test('⑭ 注册表文案不钉移动量:runner 的 label 里不得写死存量数字', () => {
+  // 为什么反向钉:上一版这里比的是"label 写的处数 == 门现读的处数",而存量是一条一直在减的
+  // 移动量 —— 任何人修好一枚 H2,这条锁就把一次**进步**判成文案漂移(§0.2 同型:会自己腐烂的钉
+  // 只会逼人跳门)。现值由门自己在结论行打印,文案只写口径。
+  const label = maskComments(RUNNER)
+  const at = label.indexOf("script: 'check-rn-interaction-hygiene.mjs'")
+  assert.ok(at > 0)
+  const block = label.slice(Math.max(0, at - 900), at + 1400)
+  assert.match(block, /存量只报数/, 'label 应写口径,不写数字')
+  assert.doesNotMatch(
+    block,
+    /\d+ 处存量|棘轮\(\d+ 处/,
+    'label 里写了死数字 ⇒ 下一次清理就会把进步判成文案漂移(别把移动量钉成健康期望)',
+  )
+})
 test('⑫ 射程枚举与门体常量同源(三根 src 都在枚举里)', () => {
   assert.deepEqual(
     [...SRC_RELS].sort(),
