@@ -9,13 +9,7 @@ import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon, { type IconName } from '@/components/LineIcon'
-
-// 权益对比数据(AI 平台场景)
-interface Benefit {
-  label: string
-  normal: string
-  vip: string
-}
+import CompareTable from './compare-table'
 
 // 套餐方案(对标原 vip/details.vue 月度¥39.9/30天 + 年度¥299/365天)
 interface VipPlan {
@@ -33,16 +27,6 @@ export default function VipDetailsPage() {
     return v === key ? fallback : v
   }
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly')
-
-  const BENEFITS: Benefit[] = [
-    { label: t('vip.details.features.chatCount'), normal: '有限', vip: '无限' },
-    { label: t('vip.details.features.drawCount'), normal: '5次/天', vip: '100次/天' },
-    { label: t('vip.details.features.videoDuration'), normal: '5分钟', vip: '60分钟' },
-    { label: t('vip.details.features.modelAccess'), normal: '基础模型', vip: '全部模型' },
-    { label: t('vip.details.features.prioritySupport'), normal: '—', vip: '✓ 专属' },
-    { label: t('vip.details.features.exclusiveGroup'), normal: '—', vip: '✓' },
-    { label: t('vip.details.features.adExperience'), normal: '有广告', vip: '免广告' },
-  ]
 
   // 权益详情(对标原 vip/details.vue 权益图标 + 标题 + 描述)
   const BENEFIT_DETAILS = [
@@ -213,32 +197,12 @@ export default function VipDetailsPage() {
         </View>
       </View>
 
-      {/* 权益对比表(对齐 RN VipCompareScreen table:m32/border2/r24,表头与隔行 muted,cell 22) */}
-      <View className="m-[32rpx] border-[length:2rpx] border-border rounded-xl overflow-hidden">
-        <View className="flex items-stretch bg-muted">
-          <Text className="flex-[1.2] py-[20rpx] px-[20rpx] text-left text-foreground font-semibold text-[length:22rpx]">
-            {t('vip.details.feature')}
-          </Text>
-          <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[length:22rpx]">
-            {t('vip.details.normal')}
-          </Text>
-          <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[length:22rpx]">
-            {t('vip.details.vipColumn')}
-          </Text>
-        </View>
-        {BENEFITS.map((b, i) => (
-          <View key={b.label} className={`flex items-stretch ${i % 2 === 1 ? 'bg-muted' : ''}`}>
-            <Text className="flex-[1.2] py-[20rpx] px-[20rpx] text-left text-foreground font-semibold text-[length:22rpx]">
-              {b.label}
-            </Text>
-            <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[length:22rpx]">
-              {b.normal}
-            </Text>
-            <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[length:22rpx]">
-              {b.vip}
-            </Text>
-          </View>
-        ))}
+      {/* 会员对比表(镜像 RN VipCompareScreen 的 table:四列表头 + 后端三档取值,同目录 ./compare-table) */}
+      <View className="mx-[32rpx] my-[32rpx]">
+        <Text className="block text-[length:32rpx] font-bold text-foreground mb-[16rpx]">
+          {t('vipCompare.title')}
+        </Text>
+        <CompareTable />
       </View>
 
       <Button

@@ -6,7 +6,7 @@
 import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { getTeacherDetail, get, post, type Teacher } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -91,6 +91,14 @@ export default function TeacherDetail() {
   useDidShow(() => {
     load()
   })
+
+  // 原生导航栏标题对齐共享屏 Header:有讲师名用讲师名,没有则回落 teacher.list.title
+  // (本页无自绘标题栏,原生导航栏就是共享屏 Header 的承载位)
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: teacher?.name || tt('teacher.list.title', '讲师') }).catch(
+      () => {},
+    )
+  }, [teacher?.name, tt])
 
   const onToggleFollow = useCallback(async () => {
     if (!teacher) return

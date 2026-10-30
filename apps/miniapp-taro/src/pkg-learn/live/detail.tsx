@@ -3,35 +3,43 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/live-detail/LiveDetailScreen.tsx
-import { useI18n, useTt } from '@/i18n'
+import { useI18n } from '@/i18n'
 import { View, Text, Video } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getLiveDetail, subscribeLive, type Live } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
-import { ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { LiveChat, LiveIntro } from './detail-sections'
 
-const STATUS_KEY: Record<Live['status'], { key: string; fb: string }> = {
-  living: { key: 'live.liveNow', fb: '直播中' },
-  upcoming: { key: 'live.preview', fb: '预告' },
-  ended: { key: 'live.ended', fb: '已结束' },
-}
+/**
+ * 后端直播频道带 intro(api-client 的 Live 契约有该字段),端内 `Live` 投影只取了
+ * title/封面/状态等展示字段 ⇒ 介绍正文这一处按契约补读,不改端内 api 面。
+ */
+type LiveWithIntro = Live & { intro?: string | null }
 
 export default function LiveDetail() {
   const { t } = useI18n()
-  const tt = useTt()
   const router = useRouter()
   const [live, setLive] = useState<Live | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [subscribed, setSubscribed] = useState(false)
+  const [subscribing, setSubscribing] = useState(false)
 
   const loadDetail = useCallback(
     async (id: string | number) => {
+      setLoading(true)
+      setError('')
       try {
         const res = await getLiveDetail(id)
         setLive(res)
       } catch {
-        Taro.showToast({ title: t('live.detail.loadFailed'), icon: 'none' })
+        // 对齐 RN:错误态统一由 ErrorState 呈现(message 取 error,缺省落 liveDetail.empty)
+        setError(t('live.detail.loadFailed'))
+      } finally {
+        setLoading(false)
       }
     },
     [t],
@@ -39,7 +47,11 @@ export default function LiveDetail() {
 
   useEffect(() => {
     const id = router.params.id || ''
-    if (id) loadDetail(id)
+    if (!id) {
+      setLoading(false)
+      return
+    }
+    loadDetail(id)
   }, [router.params.id, loadDetail])
 
   useShareAppMessage(() => ({
@@ -66,27 +78,39 @@ export default function LiveDetail() {
   }, [live, t])
 
   const handleSubscribe = useCallback(async () => {
-    if (!live || subscribed) return
+    if (!live || subscribed || subscribing) return
+    setSubscribing(true)
     try {
       await subscribeLive(live.id)
       setSubscribed(true)
       Taro.showToast({ title: t('live.subscribe.subscribeSuccess'), icon: 'success' })
     } catch {
       Taro.showToast({ title: t('live.subscribe.loadFailed'), icon: 'none' })
+    } finally {
+      setSubscribing(false)
     }
-  }, [live, subscribed, t])
+  }, [live, subscribed, subscribing, t])
 
   if (!live) {
     return (
       <ThemeRoot>
         <View className="min-h-screen bg-[var(--color-background)]">
-          <ScreenSkeleton variant="list" count={4} />
+          {loading ? (
+            <ScreenSkeleton variant="list" count={4} />
+          ) : (
+            <ErrorState
+              message={error || t('liveDetail.empty')}
+              onRetry={() => {
+                const id = router.params.id || ''
+                if (id) loadDetail(id)
+              }}
+              retryLabel={t('common.retry')}
+            />
+          )}
         </View>
       </ThemeRoot>
     )
   }
-
-  const statusCfg = STATUS_KEY[live.status]
 
   return (
     <ThemeRoot>
@@ -109,20 +133,24 @@ export default function LiveDetail() {
               }`}
             >
               <Text className="text-[length:22rpx] text-[var(--color-primary-foreground)]">
-                {tt(statusCfg.key, statusCfg.fb)}
+                {live.status === 'living'
+                  ? t('liveDetail.ongoing')
+                  : live.status === 'upcoming'
+                    ? t('liveDetail.upcoming')
+                    : t('live.ended')}
               </Text>
             </View>
             {live.anchor && (
               <View className="px-[16rpx] py-[4rpx] ui-chip rounded-md bg-[var(--color-card)]">
                 <Text className="text-[length:22rpx] text-muted-foreground">
-                  {t('live.detail.anchor', { name: live.anchor })}
+                  {t('liveDetail.lecturer')}:{live.anchor}
                 </Text>
               </View>
             )}
             {live.watchCount !== undefined ? (
               <View className="px-[16rpx] py-[4rpx] ui-chip rounded-md bg-[var(--color-card)]">
                 <Text className="text-[length:22rpx] text-muted-foreground">
-                  {t('live.viewers', { n: live.watchCount })}
+                  {t('liveDetail.viewerCount', { count: live.watchCount })}
                 </Text>
               </View>
             ) : null}
@@ -186,22 +214,28 @@ export default function LiveDetail() {
                     → color 同 token;line-height 对 mask 载体无效故不保留。 */}
                 <LineIcon name="check" size={28} color="var(--color-success-deep-text)" />
                 <Text className="ml-[8rpx] text-[length:28rpx] text-[var(--color-success-deep-text)]">
-                  {t('live.subscribe.subscribed')}
+                  {t('liveDetail.subscribed')}
                 </Text>
               </View>
             </View>
           ) : live.status === 'upcoming' ? (
             <View
-              className="px-[20rpx] py-[20rpx] rounded-xl bg-primary flex items-center justify-center"
+              className={`px-[20rpx] py-[20rpx] rounded-xl bg-primary flex items-center justify-center ${
+                subscribing ? 'opacity-50' : ''
+              }`}
               onClick={handleSubscribe}
               hoverClass="opacity-60"
             >
               <Text className="text-[length:32rpx] font-semibold text-[var(--color-primary-foreground)]">
-                {t('live.subscribe.subscribe')}
+                {subscribing ? t('liveDetail.subscribing') : t('liveDetail.subscribe')}
               </Text>
             </View>
           ) : null}
         </View>
+
+        {/* 对齐 RN introSection / chatSection(介绍 + 互动区,见 ./detail-sections) */}
+        <LiveIntro intro={(live as LiveWithIntro).intro} />
+        <LiveChat liveId={live.id} />
       </View>
     </ThemeRoot>
   )

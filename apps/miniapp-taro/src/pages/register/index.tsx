@@ -22,7 +22,7 @@ import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
 import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
-import LineIcon from '@/components/LineIcon'
+import AgreementRow from './agreement-row'
 import './index.css'
 
 /** 把共享 hook 返回的通用错误 key(auth.*)映射到本页 register.* 文案(仅本页面用) */
@@ -36,8 +36,6 @@ function mapRegisterErrorKey(e: string, phone: string): { key: string; fb: strin
     return { key: 'register.incomplete', fb: t('distribution.index.fillInfo') }
   if (e === 'auth.invalidPassword')
     return { key: 'register.pwdLength', fb: t('register.pwdLength') }
-  if (e === 'auth.agreeRequired')
-    return { key: 'register.agreeFirst', fb: t('register.agreeFirst') }
   return null
 }
 
@@ -60,12 +58,13 @@ export default function RegisterIndex() {
   const ffPhone = useFieldFocus()
   const ffCode = useFieldFocus()
   const ffPwd = useFieldFocus()
+  const ffConfirm = useFieldFocus()
 
   // 用 @ihui/shared useRegisterForm 替代本地 useState + onSendCode + onSubmit
   const form = useRegisterForm({
     type: 'phone',
     enableCode: true,
-    enableConfirmPassword: false,
+    enableConfirmPassword: true,
     enableAgreement: true,
     maxPasswordLength: 20,
     phoneRegex: /^1\d{10}$/,
@@ -82,7 +81,7 @@ export default function RegisterIndex() {
         await sendSmsCode(v.phone.trim())
         return { success: true }
       } catch {
-        return { success: false, error: '' }
+        return { success: false, error: 'register.sendCodeFailed' }
       }
     },
     onSuccess: () => {
@@ -91,10 +90,11 @@ export default function RegisterIndex() {
   })
 
   useEffect(() => {
-    if (form.error) {
-      const mapped = mapRegisterErrorKey(form.error, form.values.phone)
-      Taro.showToast({ title: mapped ? tt(mapped.key, mapped.fb) : t(form.error), icon: 'none' })
-    }
+    if (!form.error) return
+    // 验证码发送失败 / 未勾协议:共享屏用行内红字,这里同样走行内,不弹 toast(同一错误不提示两次)
+    if (form.error === 'register.sendCodeFailed' || form.error === 'auth.agreeRequired') return
+    const mapped = mapRegisterErrorKey(form.error, form.values.phone)
+    Taro.showToast({ title: mapped ? tt(mapped.key, mapped.fb) : t(form.error), icon: 'none' })
   }, [form.error, form.values.phone, t, tt])
 
   useEffect(() => {
@@ -171,6 +171,11 @@ export default function RegisterIndex() {
               <Text className="reg-codebtn-text">{codeBtnText}</Text>
             </View>
           </View>
+          {form.error === 'register.sendCodeFailed' ? (
+            <Text className="block mt-[12rpx] text-[length:26rpx] text-[color:var(--color-danger)]">
+              {t('register.sendCodeFailed')}
+            </Text>
+          ) : null}
 
           {/* 密码输入框 + 可见性切换 */}
           <Text className="reg-label">{tt('register.password', '密码')}</Text>
@@ -192,35 +197,38 @@ export default function RegisterIndex() {
             />
           </View>
 
-          {/* 协议同意行(对齐 RN agreementRow) */}
-          <View className="reg-agreement">
-            <View className="reg-agreement-main">
-              <View
-                className={`reg-checkbox ${form.agreed ? 'reg-checkbox-checked' : ''}`}
-                hoverClass="opacity-60"
-                onClick={() => form.setAgreed(!form.agreed)}
-              >
-                {/* 勾选符:原勾字符 → LineIcon。取值即该字符实际渲染档位:
-                    index.css 的 .reg-checkmark 记 font-size 22rpx / color var(--color-card)
-                    (该规则只剩排版属性,已随之删除,故类名不再挂);
-                    居中由父级 .reg-checkbox 的 flex 负责,与原先字符同位。 */}
-                {form.agreed ? <LineIcon name="check" size={22} color="var(--color-card)" /> : null}
-              </View>
-              <Text className="reg-agreement-text">
-                {tt('register.agreePrefix', '我已阅读并同意')}
-                <Text className="reg-agreement-link" onClick={() => openAgreement('user')}>
-                  {tt('register.userAgreement', '《用户协议》')}
-                </Text>
-                <Text className="reg-agreement-link" onClick={() => openAgreement('privacy')}>
-                  {tt('register.privacyPolicy', '《隐私政策》')}
-                </Text>
-              </Text>
-            </View>
+          {/* 确认密码(对齐共享屏 confirmPassword:同款输入盒 + 占位符) */}
+          <Text className="reg-label">{tt('register.confirmPassword', '确认密码')}</Text>
+          <View className="reg-input-box" style={ffConfirm.focusStyle}>
+            <Input
+              className="reg-input"
+              {...ffConfirm.spread}
+              password
+              maxlength={20}
+              placeholder={tt('register.confirmPasswordPlaceholder', '请再次输入密码')}
+              placeholderStyle="color: var(--color-text-tertiary);"
+              value={form.values.confirmPassword}
+              onInput={(e) => form.setConfirmPassword(e.detail.value)}
+            />
           </View>
+
+          {/* 协议同意行(对齐 RN agreementRow) */}
+          <AgreementRow
+            agreed={form.agreed}
+            showError={form.error === 'auth.agreeRequired'}
+            onToggle={() => {
+              form.setAgreed(!form.agreed)
+              if (form.error) form.clearError()
+            }}
+            onOpenTerms={() => openAgreement('user')}
+            onOpenPrivacy={() => openAgreement('privacy')}
+          />
 
           {/* 注册按钮(对齐 RN submitBtn:品牌灰蓝底) */}
           <AuthButton onClick={form.register} disabled={form.submitting} variant="register">
-            {form.submitting ? tt('register.submitting', '注册中…') : tt('register.submit', '注册')}
+            {form.submitting
+              ? tt('register.registering', '注册中...')
+              : tt('register.submit', '注册')}
           </AuthButton>
         </View>
       </View>

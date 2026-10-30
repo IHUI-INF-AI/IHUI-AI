@@ -12,6 +12,8 @@ import { useUiField } from '@/lib/ui-field-registry'
 import { get, post } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
+import N8nListView from './list-view'
+import type { WorkflowCardItem } from './workflow-card'
 import './index.css'
 
 type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
@@ -58,6 +60,7 @@ export default function N8nModel() {
   const [view, setView] = useState<'list' | 'create'>('list')
   // 列表态
   const [list, setList] = useState<Record<string, unknown>[]>([])
+  const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(false)
   // 创建表单态
   const [avatar, setAvatar] = useState('')
@@ -125,6 +128,18 @@ export default function N8nModel() {
 
   const onItemClick = (id: string) => {
     Taro.navigateTo({ url: `/pkg-ai/ai-assistant-n8n/index?id=${id}` })
+  }
+
+  /** 启停:复用 n8n 面唯一存在的启停端点(与 RN toggleN8nWorkflow 同一条腿,后端回读真值) */
+  const onToggleStatus = async (item: WorkflowCardItem) => {
+    if (!item.id) return
+    try {
+      await post(`/ai/n8n/workflows/${item.id}/toggle`, { active: !item.active })
+      await loadList()
+    } catch (e) {
+      logger.error('n8n-model', '切换n8n工作流状态', e)
+      Taro.showToast({ title: tt('common.operationFailed', '操作失败'), icon: 'none' })
+    }
   }
 
   const resetForm = () => {
@@ -431,40 +446,16 @@ export default function N8nModel() {
     return (
       <ThemeRoot>
         <View className="nm-page">
-          <View className="nm-header">
-            <Text className="nm-title">{t('devEnter.n8nModel.title')}</Text>
-            <Text className="nm-create-btn" onClick={onCreate}>
-              {tt('devEnter.n8nModel.create', '新建')}
-            </Text>
-          </View>
-          <View className="nm-content">
-            {loading ? (
-              <Text className="nm-empty">{t('common.loading')}</Text>
-            ) : list.length ? (
-              list.map((item) => (
-                <View
-                  key={(item.id as string) || (item.name as string)}
-                  className="nm-list-item"
-                  onClick={() => onItemClick(item.id as string)}
-                  hoverClass="opacity-60"
-                >
-                  <Text className="nm-list-name ihui-ellipsis">
-                    {(item.name as string) ||
-                      (item.title as string) ||
-                      t('devEnter.n8nModel.defaultName')}
-                  </Text>
-                  {/* 对齐 RN cardDesc: 有描述时展示,两行截断 */}
-                  {(item.description as string) ? (
-                    <Text className="nm-list-desc text-ellipsis-2">
-                      {item.description as string}
-                    </Text>
-                  ) : null}
-                </View>
-              ))
-            ) : (
-              <Text className="nm-empty">{t('devEnter.n8nModel.empty')}</Text>
-            )}
-          </View>
+          <N8nListView
+            list={list}
+            keyword={keyword}
+            loading={loading}
+            onKeywordChange={setKeyword}
+            onCreate={onCreate}
+            onOpen={(it) => onItemClick(it.id)}
+            onToggle={(it) => void onToggleStatus(it)}
+            onEdit={(it) => onItemClick(it.id)}
+          />
         </View>
       </ThemeRoot>
     )
