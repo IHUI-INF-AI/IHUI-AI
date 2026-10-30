@@ -10,6 +10,7 @@ import { db, dbRead } from '../db/index.js'
 import { commissionFlows, withdrawalFlows, users, systemConfigs } from '@ihui/database'
 import {
   listCommissionFlows,
+  listDistributionOrders,
   listSubordinates,
   listTeamMembers,
   getTeamMember,
@@ -335,7 +336,17 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
     // 2FA step-up 闸：已开 2FA 的账号，敏感操作前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
     const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
     if (!stepUp.ok) {
-      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            stepUp.code === 'STEP_UP_REQUIRED'
+              ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            stepUp.code,
+          ),
+        )
     }
     const body = z
       .object({
@@ -391,6 +402,32 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
         monthNew: team.monthNew,
       }),
     )
+  })
+
+  // GET /distribution/orders — 我的分销订单(小程序「分销-我的订单」页的数据源)
+  //
+  // 为什么现在才注册:`listDistributionOrders` 早在 2026-10-25 就为这个页面补建好了
+  // (见 db/commission-queries.ts 该函数上方那段口径注释),但**从未挂到任何路由上**
+  // (现读:全仓只有定义、零调用)。小程序那页一直在调 GET /distribution/orders,
+  // 而 routes/distribution.ts 里没有它 ⇒ 恒 404,页面 catch 把 404 吞成"暂无订单",
+  // 用户以为自己没有分销订单。这里把已有的查询接上,不新造口径:
+  //  · 主体只取 request.userId(beneficiaryId),不接受客户端传的 userId(§5 认证≠授权);
+  //  · status 是**订单状态过滤**(tab 用),与 withdrawal 一样由前端按需传;
+  //  · 金额单位是分,端上 formatPrice 统一转元,这里不二次换算。
+  server.get('/distribution/orders', async (request, reply) => {
+    const parsed = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+        status: z.string().trim().min(1).optional(),
+      })
+      .safeParse(request.query ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, status } = parsed.data
+    const result = await listDistributionOrders(request.userId!, page, pageSize, status)
+    return reply.send(success({ list: result.items, total: result.total, page, pageSize }))
   })
 
   // GET /distribution/list — 佣金流水列表(从 commission-routes 迁移)
