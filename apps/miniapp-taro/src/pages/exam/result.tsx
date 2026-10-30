@@ -55,7 +55,10 @@ export default function ExamResult() {
   // 走查询参数(score=…)的那一支不发任何请求,原样照走,不挡。
   useEffect(() => {
     const params = router.params
-    if (params.score) {
+    // 交卷后 answer.tsx 只带 score / pass 两个快捷参数(**不带** correct / wrong / 未答 / 用时),
+    // 而这一支原先照单构造 info 且一个请求都不发 ⇒ 成绩页"答题数/对/错/未答/用时"五项全 0、
+    // 题目回顾永久空白。有 recordId(id) 时以服务端结果为准,查询参数只作缺 id 时的兜底。
+    if (!params.id && params.score) {
       setInfo({
         score: Number(params.score),
         pass: params.pass === 'true',
