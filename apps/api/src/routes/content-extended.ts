@@ -29,11 +29,7 @@ const paginationQuery = {
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 }
 
-function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
-  const page = Math.max(1, Math.floor(Number(q.page) || 1))
-  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-  return { page, pageSize }
-}
+import { parsePaging } from '../utils/paging.js'
 
 const createActivitySchema = z.object({
   title: z.string().min(1, '标题不能为空').max(255),

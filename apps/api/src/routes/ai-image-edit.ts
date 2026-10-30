@@ -38,11 +38,7 @@ async function fetchWithTimeout(
   }
 }
 
-function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
-  const page = Math.max(1, Math.floor(Number(q.page) || 1))
-  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-  return { page, pageSize }
-}
+import { parsePaging } from '../utils/paging.js'
 
 // =============================================================================
 // Zod schemas
@@ -168,215 +164,233 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /ai-image/doubao/edit - 豆包图片编辑
   // -------------------------------------------------------------------------
-  server.post('/ai-image/doubao/edit', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = doubaoEditSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { imageUrl, prompt, model, strength, size } = parsed.data
-    const apiKey = process.env.DOUBAO_API_KEY
-    const useModel = model ?? 'doubao-image-edit-2.0'
+  server.post(
+    '/ai-image/doubao/edit',
+    { bodyLimit: MEDIA_BASE64_BODY_LIMIT },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = doubaoEditSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { imageUrl, prompt, model, strength, size } = parsed.data
+      const apiKey = process.env.DOUBAO_API_KEY
+      const useModel = model ?? 'doubao-image-edit-2.0'
 
-    if (!apiKey) {
-      return reply
-        .status(503)
-        .send(error(503, '豆包图片编辑服务未配置（需设置 DOUBAO_API_KEY 环境变量）'))
-    }
-
-    try {
-      const resp = await fetchWithTimeout('https://ark.cn-beijing.volces.com/api/v3/images/edits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: useModel,
-          image: imageUrl,
-          prompt,
-          strength: strength ?? 0.5,
-          size: size ?? '1024x1024',
-        }),
-      })
-
-      if (!resp.ok) {
-        return reply.status(502).send(error(502, '豆包图片编辑服务调用失败'))
+      if (!apiKey) {
+        return reply
+          .status(503)
+          .send(error(503, '豆包图片编辑服务未配置（需设置 DOUBAO_API_KEY 环境变量）'))
       }
 
-      const result = (await resp.json()) as Record<string, unknown>
-      const outputImageUrl = (result.data as { url?: string }[])?.[0]?.url ?? ''
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'doubao',
-        action: 'edit',
-        inputImageUrl: imageUrl,
-        outputImageUrl,
-        prompt,
-        model: useModel,
-        status: 'success',
-        rawData: result,
-      })
-      return reply.send(
-        success({
-          imageUrl: outputImageUrl,
+      try {
+        const resp = await fetchWithTimeout(
+          'https://ark.cn-beijing.volces.com/api/v3/images/edits',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: useModel,
+              image: imageUrl,
+              prompt,
+              strength: strength ?? 0.5,
+              size: size ?? '1024x1024',
+            }),
+          },
+        )
+
+        if (!resp.ok) {
+          return reply.status(502).send(error(502, '豆包图片编辑服务调用失败'))
+        }
+
+        const result = (await resp.json()) as Record<string, unknown>
+        const outputImageUrl = (result.data as { url?: string }[])?.[0]?.url ?? ''
+        const historyId = await saveHistory({
+          userId: request.userId!,
+          vendor: 'doubao',
+          action: 'edit',
+          inputImageUrl: imageUrl,
+          outputImageUrl,
           prompt,
           model: useModel,
           status: 'success',
-          historyId,
-          raw: result,
-        }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '豆包图片编辑失败'))
-    }
-  })
+          rawData: result,
+        })
+        return reply.send(
+          success({
+            imageUrl: outputImageUrl,
+            prompt,
+            model: useModel,
+            status: 'success',
+            historyId,
+            raw: result,
+          }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '豆包图片编辑失败'))
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // POST /ai-image/doubao/inpaint - 豆包图片修复
   // -------------------------------------------------------------------------
-  server.post('/ai-image/doubao/inpaint', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = doubaoInpaintSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { imageUrl, maskUrl, prompt, model } = parsed.data
-    const apiKey = process.env.DOUBAO_API_KEY
-    const useModel = model ?? 'doubao-image-edit-2.0'
+  server.post(
+    '/ai-image/doubao/inpaint',
+    { bodyLimit: MEDIA_BASE64_BODY_LIMIT },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = doubaoInpaintSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { imageUrl, maskUrl, prompt, model } = parsed.data
+      const apiKey = process.env.DOUBAO_API_KEY
+      const useModel = model ?? 'doubao-image-edit-2.0'
 
-    if (!apiKey) {
-      return reply
-        .status(503)
-        .send(error(503, '豆包图片修复服务未配置（需设置 DOUBAO_API_KEY 环境变量）'))
-    }
-
-    try {
-      const resp = await fetchWithTimeout('https://ark.cn-beijing.volces.com/api/v3/images/edits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: useModel,
-          image: imageUrl,
-          mask: maskUrl,
-          prompt,
-        }),
-      })
-
-      if (!resp.ok) {
-        return reply.status(502).send(error(502, '豆包图片修复服务调用失败'))
+      if (!apiKey) {
+        return reply
+          .status(503)
+          .send(error(503, '豆包图片修复服务未配置（需设置 DOUBAO_API_KEY 环境变量）'))
       }
 
-      const result = (await resp.json()) as Record<string, unknown>
-      const outputImageUrl = (result.data as { url?: string }[])?.[0]?.url ?? ''
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'doubao',
-        action: 'inpaint',
-        inputImageUrl: imageUrl,
-        outputImageUrl,
-        prompt,
-        model: useModel,
-        status: 'success',
-        rawData: result,
-      })
-      return reply.send(
-        success({
-          imageUrl: outputImageUrl,
+      try {
+        const resp = await fetchWithTimeout(
+          'https://ark.cn-beijing.volces.com/api/v3/images/edits',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: useModel,
+              image: imageUrl,
+              mask: maskUrl,
+              prompt,
+            }),
+          },
+        )
+
+        if (!resp.ok) {
+          return reply.status(502).send(error(502, '豆包图片修复服务调用失败'))
+        }
+
+        const result = (await resp.json()) as Record<string, unknown>
+        const outputImageUrl = (result.data as { url?: string }[])?.[0]?.url ?? ''
+        const historyId = await saveHistory({
+          userId: request.userId!,
+          vendor: 'doubao',
+          action: 'inpaint',
+          inputImageUrl: imageUrl,
+          outputImageUrl,
           prompt,
           model: useModel,
           status: 'success',
-          historyId,
-          raw: result,
-        }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '豆包图片修复失败'))
-    }
-  })
+          rawData: result,
+        })
+        return reply.send(
+          success({
+            imageUrl: outputImageUrl,
+            prompt,
+            model: useModel,
+            status: 'success',
+            historyId,
+            raw: result,
+          }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '豆包图片修复失败'))
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // POST /ai-image/tongyi/edit - 通义图片编辑
   // -------------------------------------------------------------------------
-  server.post('/ai-image/tongyi/edit', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = tongyiEditSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { imageUrl, prompt, model, n, size } = parsed.data
-    const apiKey = process.env.DASHSCOPE_API_KEY
-    const useModel = model ?? 'wanx-v1'
+  server.post(
+    '/ai-image/tongyi/edit',
+    { bodyLimit: MEDIA_BASE64_BODY_LIMIT },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = tongyiEditSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { imageUrl, prompt, model, n, size } = parsed.data
+      const apiKey = process.env.DASHSCOPE_API_KEY
+      const useModel = model ?? 'wanx-v1'
 
-    if (!apiKey) {
-      return reply
-        .status(503)
-        .send(error(503, '通义图片编辑服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
-    }
-
-    try {
-      const resp = await fetchWithTimeout(
-        `${DASHSCOPE_BASE}/services/aigc/image-generation/generation`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-            'X-DashScope-Async': 'enable',
-          },
-          body: JSON.stringify({
-            model: useModel,
-            input: {
-              image_url: imageUrl,
-              prompt,
-            },
-            parameters: {
-              n: n ?? 1,
-              size: size ?? '1024*1024',
-            },
-          }),
-        },
-      )
-
-      if (!resp.ok) {
-        return reply.status(502).send(error(502, '通义图片编辑服务调用失败'))
+      if (!apiKey) {
+        return reply
+          .status(503)
+          .send(error(503, '通义图片编辑服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
       }
 
-      const result = (await resp.json()) as Record<string, unknown>
-      const outputImages = ((result.output as { images?: { url?: string }[] })?.images ?? []).map(
-        (img) => img.url ?? '',
-      )
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'tongyi',
-        action: 'edit',
-        inputImageUrl: imageUrl,
-        outputImageUrl: outputImages[0] ?? '',
-        prompt,
-        model: useModel,
-        status: 'success',
-        rawData: result,
-      })
-      return reply.send(
-        success({
-          images: outputImages,
+      try {
+        const resp = await fetchWithTimeout(
+          `${DASHSCOPE_BASE}/services/aigc/image-generation/generation`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+              'X-DashScope-Async': 'enable',
+            },
+            body: JSON.stringify({
+              model: useModel,
+              input: {
+                image_url: imageUrl,
+                prompt,
+              },
+              parameters: {
+                n: n ?? 1,
+                size: size ?? '1024*1024',
+              },
+            }),
+          },
+        )
+
+        if (!resp.ok) {
+          return reply.status(502).send(error(502, '通义图片编辑服务调用失败'))
+        }
+
+        const result = (await resp.json()) as Record<string, unknown>
+        const outputImages = ((result.output as { images?: { url?: string }[] })?.images ?? []).map(
+          (img) => img.url ?? '',
+        )
+        const historyId = await saveHistory({
+          userId: request.userId!,
+          vendor: 'tongyi',
+          action: 'edit',
+          inputImageUrl: imageUrl,
+          outputImageUrl: outputImages[0] ?? '',
           prompt,
           model: useModel,
           status: 'success',
-          historyId,
-          raw: result,
-        }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '通义图片编辑失败'))
-    }
-  })
+          rawData: result,
+        })
+        return reply.send(
+          success({
+            images: outputImages,
+            prompt,
+            model: useModel,
+            status: 'success',
+            historyId,
+            raw: result,
+          }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '通义图片编辑失败'))
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // POST /ai-image/tongyi/text-to-image - 通义文生图
@@ -460,80 +474,84 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /ai-image/tongyi/image-to-image - 通义图生图
   // -------------------------------------------------------------------------
-  server.post('/ai-image/tongyi/image-to-image', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = tongyiImageToImageSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { imageUrl, prompt, model, strength, n, size } = parsed.data
-    const apiKey = process.env.DASHSCOPE_API_KEY
-    const useModel = model ?? 'wanx-v1'
+  server.post(
+    '/ai-image/tongyi/image-to-image',
+    { bodyLimit: MEDIA_BASE64_BODY_LIMIT },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = tongyiImageToImageSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { imageUrl, prompt, model, strength, n, size } = parsed.data
+      const apiKey = process.env.DASHSCOPE_API_KEY
+      const useModel = model ?? 'wanx-v1'
 
-    if (!apiKey) {
-      return reply
-        .status(503)
-        .send(error(503, '通义图生图服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
-    }
-
-    try {
-      const resp = await fetchWithTimeout(
-        `${DASHSCOPE_BASE}/services/aigc/image-generation/generation`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-            'X-DashScope-Async': 'enable',
-          },
-          body: JSON.stringify({
-            model: useModel,
-            input: {
-              image_url: imageUrl,
-              prompt,
-            },
-            parameters: {
-              n: n ?? 1,
-              size: size ?? '1024*1024',
-              strength: strength ?? 0.5,
-            },
-          }),
-        },
-      )
-
-      if (!resp.ok) {
-        return reply.status(502).send(error(502, '通义图生图服务调用失败'))
+      if (!apiKey) {
+        return reply
+          .status(503)
+          .send(error(503, '通义图生图服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
       }
 
-      const result = (await resp.json()) as Record<string, unknown>
-      const taskId = (result.output as { task_id?: string })?.task_id
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'tongyi',
-        action: 'image-to-image',
-        inputImageUrl: imageUrl,
-        outputImageUrl: null,
-        prompt,
-        model: useModel,
-        status: 'pending',
-        rawData: result,
-      })
-      return reply.send(
-        success({
-          taskId,
+      try {
+        const resp = await fetchWithTimeout(
+          `${DASHSCOPE_BASE}/services/aigc/image-generation/generation`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+              'X-DashScope-Async': 'enable',
+            },
+            body: JSON.stringify({
+              model: useModel,
+              input: {
+                image_url: imageUrl,
+                prompt,
+              },
+              parameters: {
+                n: n ?? 1,
+                size: size ?? '1024*1024',
+                strength: strength ?? 0.5,
+              },
+            }),
+          },
+        )
+
+        if (!resp.ok) {
+          return reply.status(502).send(error(502, '通义图生图服务调用失败'))
+        }
+
+        const result = (await resp.json()) as Record<string, unknown>
+        const taskId = (result.output as { task_id?: string })?.task_id
+        const historyId = await saveHistory({
+          userId: request.userId!,
+          vendor: 'tongyi',
+          action: 'image-to-image',
+          inputImageUrl: imageUrl,
+          outputImageUrl: null,
           prompt,
           model: useModel,
           status: 'pending',
-          historyId,
-          raw: result,
-          message: '任务已提交,请通过 taskId 轮询查询结果',
-        }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '通义图生图失败'))
-    }
-  })
+          rawData: result,
+        })
+        return reply.send(
+          success({
+            taskId,
+            prompt,
+            model: useModel,
+            status: 'pending',
+            historyId,
+            raw: result,
+            message: '任务已提交,请通过 taskId 轮询查询结果',
+          }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '通义图生图失败'))
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // GET /ai-image/history - 编辑历史列表
@@ -716,142 +734,150 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /ai-image/tongyi/style-transfer - 通义风格迁移
   // -------------------------------------------------------------------------
-  server.post('/ai-image/tongyi/style-transfer', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = tongyiStyleTransferSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { imageUrl, styleRefUrl, model } = parsed.data
-    const apiKey = process.env.DASHSCOPE_API_KEY
-    const useModel = model ?? 'wanx-style-transfer'
-
-    if (!apiKey) {
-      return reply
-        .status(503)
-        .send(error(503, '通义风格迁移服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
-    }
-
-    try {
-      const resp = await fetchWithTimeout(
-        `${DASHSCOPE_BASE}/services/aigc/image-generation/style-transfer`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-            'X-DashScope-Async': 'enable',
-          },
-          body: JSON.stringify({
-            model: useModel,
-            input: {
-              image_url: imageUrl,
-              style_ref_url: styleRefUrl,
-            },
-          }),
-        },
-      )
-      if (!resp.ok) {
-        return reply.status(502).send(error(502, '通义风格迁移服务调用失败'))
+  server.post(
+    '/ai-image/tongyi/style-transfer',
+    { bodyLimit: MEDIA_BASE64_BODY_LIMIT },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = tongyiStyleTransferSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const result = (await resp.json()) as Record<string, unknown>
-      const taskId = (result.output as { task_id?: string })?.task_id
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'tongyi',
-        action: 'style-transfer',
-        inputImageUrl: imageUrl,
-        outputImageUrl: null,
-        prompt: `style-ref: ${styleRefUrl}`,
-        model: useModel,
-        status: 'pending',
-        rawData: result,
-      })
-      return reply.send(
-        success({
-          taskId,
+      const { imageUrl, styleRefUrl, model } = parsed.data
+      const apiKey = process.env.DASHSCOPE_API_KEY
+      const useModel = model ?? 'wanx-style-transfer'
+
+      if (!apiKey) {
+        return reply
+          .status(503)
+          .send(error(503, '通义风格迁移服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
+      }
+
+      try {
+        const resp = await fetchWithTimeout(
+          `${DASHSCOPE_BASE}/services/aigc/image-generation/style-transfer`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+              'X-DashScope-Async': 'enable',
+            },
+            body: JSON.stringify({
+              model: useModel,
+              input: {
+                image_url: imageUrl,
+                style_ref_url: styleRefUrl,
+              },
+            }),
+          },
+        )
+        if (!resp.ok) {
+          return reply.status(502).send(error(502, '通义风格迁移服务调用失败'))
+        }
+        const result = (await resp.json()) as Record<string, unknown>
+        const taskId = (result.output as { task_id?: string })?.task_id
+        const historyId = await saveHistory({
+          userId: request.userId!,
+          vendor: 'tongyi',
+          action: 'style-transfer',
+          inputImageUrl: imageUrl,
+          outputImageUrl: null,
+          prompt: `style-ref: ${styleRefUrl}`,
           model: useModel,
           status: 'pending',
-          historyId,
-          raw: result,
-          message: '任务已提交,请通过 taskId 轮询查询结果',
-        }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '通义风格迁移失败'))
-    }
-  })
+          rawData: result,
+        })
+        return reply.send(
+          success({
+            taskId,
+            model: useModel,
+            status: 'pending',
+            historyId,
+            raw: result,
+            message: '任务已提交,请通过 taskId 轮询查询结果',
+          }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '通义风格迁移失败'))
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // POST /ai-image/tongyi/background-generation - 通义背景生成
   // -------------------------------------------------------------------------
-  server.post('/ai-image/tongyi/background-generation', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = tongyiBackgroundGenerationSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { imageUrl, prompt, model } = parsed.data
-    const apiKey = process.env.DASHSCOPE_API_KEY
-    const useModel = model ?? 'wanx-background-generation-v2'
-
-    if (!apiKey) {
-      return reply
-        .status(503)
-        .send(error(503, '通义背景生成服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
-    }
-
-    try {
-      const resp = await fetchWithTimeout(
-        `${DASHSCOPE_BASE}/services/aigc/image-generation/background-generation`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-            'X-DashScope-Async': 'enable',
-          },
-          body: JSON.stringify({
-            model: useModel,
-            input: {
-              image_url: imageUrl,
-              prompt: prompt ?? '',
-            },
-          }),
-        },
-      )
-      if (!resp.ok) {
-        return reply.status(502).send(error(502, '通义背景生成服务调用失败'))
+  server.post(
+    '/ai-image/tongyi/background-generation',
+    { bodyLimit: MEDIA_BASE64_BODY_LIMIT },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = tongyiBackgroundGenerationSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const result = (await resp.json()) as Record<string, unknown>
-      const taskId = (result.output as { task_id?: string })?.task_id
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'tongyi',
-        action: 'background-generation',
-        inputImageUrl: imageUrl,
-        outputImageUrl: null,
-        prompt: prompt ?? '',
-        model: useModel,
-        status: 'pending',
-        rawData: result,
-      })
-      return reply.send(
-        success({
-          taskId,
+      const { imageUrl, prompt, model } = parsed.data
+      const apiKey = process.env.DASHSCOPE_API_KEY
+      const useModel = model ?? 'wanx-background-generation-v2'
+
+      if (!apiKey) {
+        return reply
+          .status(503)
+          .send(error(503, '通义背景生成服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
+      }
+
+      try {
+        const resp = await fetchWithTimeout(
+          `${DASHSCOPE_BASE}/services/aigc/image-generation/background-generation`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+              'X-DashScope-Async': 'enable',
+            },
+            body: JSON.stringify({
+              model: useModel,
+              input: {
+                image_url: imageUrl,
+                prompt: prompt ?? '',
+              },
+            }),
+          },
+        )
+        if (!resp.ok) {
+          return reply.status(502).send(error(502, '通义背景生成服务调用失败'))
+        }
+        const result = (await resp.json()) as Record<string, unknown>
+        const taskId = (result.output as { task_id?: string })?.task_id
+        const historyId = await saveHistory({
+          userId: request.userId!,
+          vendor: 'tongyi',
+          action: 'background-generation',
+          inputImageUrl: imageUrl,
+          outputImageUrl: null,
+          prompt: prompt ?? '',
           model: useModel,
           status: 'pending',
-          historyId,
-          raw: result,
-          message: '任务已提交,请通过 taskId 轮询查询结果',
-        }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '通义背景生成失败'))
-    }
-  })
+          rawData: result,
+        })
+        return reply.send(
+          success({
+            taskId,
+            model: useModel,
+            status: 'pending',
+            historyId,
+            raw: result,
+            message: '任务已提交,请通过 taskId 轮询查询结果',
+          }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '通义背景生成失败'))
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // POST /ai-image/tongyi/virtual-try-on - 通义虚拟试衣
