@@ -29,6 +29,7 @@ function runGit(repoRoot, args) {
   const result = spawnSync('git', ['--no-replace-objects', '-C', repoRoot, ...args], {
     encoding: 'utf8',
     maxBuffer: MAX_SOURCE_BYTES,
+    windowsHide: true,
     // Older Git may ignore NO_LAZY_FETCH; no transport is needed for local reads.
     env: { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: '' },
   });
@@ -61,6 +62,7 @@ function readBatchObjects(repoRoot, objects, includeContent) {
   const result = spawnSync('git', ['--no-replace-objects', '-C', repoRoot, 'cat-file', mode], {
     input: objects.join('\n') + '\n',
     maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true,
     env: { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: '' },
   });
   if (result.error || result.status !== 0 || !Buffer.isBuffer(result.stdout)) return null;
