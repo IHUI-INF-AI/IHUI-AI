@@ -35,6 +35,7 @@ import {
   defaultMovePaths,
   detectClientProcesses,
   findTodaySnapshot,
+  isAccountNotInLedgerError,
   planSwap,
   type MovePaths,
   type MovePlan,
@@ -318,10 +319,17 @@ export interface LinkedSwapResult {
    * - swapped:auth 已切 + 会话已换桶(ops 已记)
    * - skipped-same-account:目标=当前同账号,无需换桶(auth 保留切换结果)
    * - no-target-uid:目标快照缺 uid,无从换桶(auth 保留切换结果,已显式报)
+   * - skipped-not-in-ledger:会话台账未覆盖目标账号,会话面不动(auth 保留切换结果)
    * - rolled-back:换桶失败/被闸挡下,auth 已用 pre-switch 回滚
    * - rollback-failed:换桶失败且回滚也失败(最严重,必须人工介入)
    */
-  status: 'swapped' | 'skipped-same-account' | 'no-target-uid' | 'rolled-back' | 'rollback-failed'
+  status:
+    | 'swapped'
+    | 'skipped-same-account'
+    | 'no-target-uid'
+    | 'skipped-not-in-ledger'
+    | 'rolled-back'
+    | 'rollback-failed'
   message: string
   swap?: SwapPlan
 }
@@ -388,6 +396,15 @@ export function runLinkedSessionSwap(
       // authFileOverride = pre-switch 快照 ⇒ planSwap 读到的是「旧账号」,与新账号形成换桶对
       swapPlan = planSwap(targetUid, deps.movePaths, deps.now, plan.backupPath)
     } catch (e) {
+      // 台账没覆盖这个账号 ≠ 数据危险:auth 切换本身是成功的,回滚它只会让机主白忙一场
+      // (2026-10-30 真机:台账缺目标账号 ⇒ 切号被整枚回滚,一键永远失败)。
+      // 与 no-target-uid 同档:保留 auth 结果、会话面不动、把补台账的出处说清楚。
+      if (isAccountNotInLedgerError(e)) {
+        return {
+          status: 'skipped-not-in-ledger',
+          message: `${(e as Error).message};auth 保留切换结果,会话面未动`,
+        }
+      }
       const rb = rollbackAuth(plan)
       const base = `换桶计划失败(${(e as Error).message})`
       return rb.ok
@@ -857,7 +874,9 @@ export function main(
       ? `✅ 会话联动: ${res.message}`
       : res.status === 'skipped-same-account'
         ? `ℹ 会话联动: ${res.message}`
-        : `⚠ 会话联动: ${res.message}`
+        : res.status === 'skipped-not-in-ledger'
+          ? `ℹ 会话联动: ${res.message}(补台账:pnpm relay:session-links rebuild --auto,再 relay:session-move swap --to <uid>)`
+          : `⚠ 会话联动: ${res.message}`
   console.log([...lines, switchedLine, tail].join('\n'))
   return finish(0)
 }
