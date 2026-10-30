@@ -168,6 +168,14 @@ import type { GoalHardCriterion, GoalVerification } from '@ihui/api-client';
 // G-815977 收编:AgentStopReason 与回合终态封闭集同族的档位从 canonical 派生(见下方联合)
 import type { AgentTurnStopReason } from '@ihui/types';
 import type { ToolResultDisplaySource } from '@ihui/types';
+// §30 状态词汇一等契约(2026-10-31 立):失败结局二分 + 停摆位置的唯一词表。
+// 播报一律经 i18n 出口取词条(§19 禁端内硬编码中文),键集由词表成员推导,端内不抄第二份档名。
+import {
+  AGENT_FAILURE_NOTICE_KEY,
+  agentFailureOutcomeLabelKey,
+  agentFailureOutcomeOf,
+  agentStallStageLabelKey,
+} from '@ihui/types';
 import {
   renderMermaid,
   extractMermaidBlocks,
@@ -2686,6 +2694,26 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       }, { signal: opts.signal });
     }
     stopReason = applyGoalVerificationToStopReason(stopReason, verification);
+  }
+
+  if (stopReason === 'error' || stopReason === 'doom_loop') {
+    // §30 一等契约(2026-10-31):失败结局 + 停摆位置到人可见的一行,档位一律查词表。
+    // CLI 这条路径今天**没有**类型化的错误族出口(samplerResult.error 与 catch 到的都是散文),
+    // 所以 outcome 只能记 undetermined —— 判不出不许读成"重试没用"(§0.3);等错误族出口立起来
+    // 后把 cliErrorFamily 换成现读的族名即可,本处不需要改判据。
+    const cliErrorFamily: string | null = null;
+    const cliOutcome = agentFailureOutcomeOf(cliErrorFamily);
+    const cliStallStage = stopReason === 'doom_loop' ? 'doom_loop_guard' : 'undetermined';
+    const outcomeLabelKey = agentFailureOutcomeLabelKey(cliOutcome) ?? '';
+    const stageLabelKey = agentStallStageLabelKey(cliStallStage) ?? '';
+    console.error(
+      chalk.dim(
+        `\n${t(AGENT_FAILURE_NOTICE_KEY, {
+          outcome: outcomeLabelKey ? t(outcomeLabelKey) : cliOutcome,
+          stage: stageLabelKey ? t(stageLabelKey) : cliStallStage,
+        })}\n`,
+      ),
+    );
   }
 
   if (stopReason === 'error') {
