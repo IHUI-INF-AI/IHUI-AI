@@ -139,9 +139,17 @@ async function handleApiProxy(payload: ApiProxyPayload): Promise<unknown> {
     body: payload.body !== undefined ? JSON.stringify(payload.body) : undefined,
   })
   if (!res.ok) {
-    throw new Error(
-      `proxy ${payload.method} ${payload.path} failed: ${res.status} ${res.text.slice(0, 200)}`,
+    // 面向用户的文案只报状态码分型;上游原文(可能是整屏 HTML 片段或内部 JSON)只进 SW 日志,
+    // 原实现把它拼进 Error.message,经 replyError → sendMessage reject 原样显示在侧栏提示条里,
+    // 普通用户读不懂也无从操作,还把内部细节推到了 UI。
+    console.error(
+      '[IHUI AI] proxy failed:',
+      payload.method,
+      payload.path,
+      res.status,
+      String(res.text).slice(0, 200),
     )
+    throw new Error(`proxy ${payload.method} ${payload.path} failed: ${res.status}`)
   }
   // 尝试解包 { code, message, data } 格式
   if (res.data && typeof res.data === 'object' && 'data' in (res.data as Record<string, unknown>)) {
