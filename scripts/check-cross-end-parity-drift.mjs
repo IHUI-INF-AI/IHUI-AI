@@ -159,6 +159,8 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
     conversionRefused: conversion?.json?.refused ?? null,
   }
   const reasons = []
+  // 派生文档滞后档:点名、可追,但不算倒退(不进 state、不进退出码)。
+  const stale = []
   const missing = []
   for (const [k, v] of Object.entries(cur)) if (v === null || v === undefined) missing.push(k)
   if (!coverage.ok) missing.push('coverage')
@@ -294,13 +296,17 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
   const docMismatch =
     docCur.mirrored !== null && cur.mirrored !== null ? docCur.mirrored !== cur.mirrored : null
   if (docMismatch)
-    reasons.push({
+    // 账本是**纯派生文档**:它滞后不代表三端对齐变坏(对齐本身由上面各维量)。混进 reasons
+    // 的后果是"文档没跟着重生成"被当成倒退寄邮件给机主(§5e-1 可整改性准入:喊人的那一维必须
+    // 是能让人动手修的东西)。这里单独出一档 stale —— 照样逐条点名、照样进 json 与人读面,只是不响警报。
+    stale.push({
       dim: 'doc-stale',
       detail: `账本文档自述 ${docCur.mirrored},现读 ${cur.mirrored} ⇒ 重跑 node scripts/report-rn-miniapp-gaps.mjs --write ${DOC_PATH}`,
     })
 
   return {
     state: reasons.length > 0 ? 'regressed' : 'ok',
+    stale,
     cur,
     prev: prev ?? null,
     reasons,
@@ -405,7 +411,7 @@ function selfTestMain() {
     })(),
   })
   cases.push({
-    name: 'T4 文档数字与现读不等 ⇒ doc-stale(可整改,给出重跑命令)',
+    name: 'T4 文档数字与现读不等 ⇒ doc-stale 单列滞后档(带重跑命令,但不算倒退)',
     pass: (() => {
       const j = judge({
         conversion: mkConv(),
@@ -415,7 +421,11 @@ function selfTestMain() {
         doc: '- 已被小程序显式镜像: **79**',
         prev: { mirrored: 91 },
       })
-      return j.reasons.some((r) => r.dim === 'doc-stale' && /report-rn-miniapp-gaps/.test(r.detail))
+      return (
+        j.state === 'ok' &&
+        j.stale.some((r) => r.dim === 'doc-stale' && /report-rn-miniapp-gaps/.test(r.detail)) &&
+        !j.reasons.some((r) => r.dim === 'doc-stale')
+      )
     })(),
   })
   cases.push({
@@ -593,6 +603,35 @@ function selfTestMain() {
       })
       const hit = (j) => j.reasons.some((r) => r.dim === 'mirrored-decrease')
       return hit(noLedger) && hit(staleVerdict) && hit(badAt) && notApplicableSince(null, '2026-10-29') === 0
+    })(),
+  })
+  cases.push({
+    name: 'T23 账本滞后只出 stale 档 ⇒ state 不因此变红;混有实质倒退时仍 regressed 且 stale 照样点名',
+    pass: (() => {
+      const doc = '- 已被小程序显式镜像: **256**'
+      const onlyStale = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc,
+        prev: null,
+      })
+      const withRot = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 1, 0),
+        webParity: mk(91, 0, 0),
+        doc,
+        prev: null,
+      })
+      return (
+        onlyStale.state === 'ok' &&
+        (onlyStale.stale || []).some((r) => r.dim === 'doc-stale') &&
+        !(onlyStale.reasons || []).some((r) => r.dim === 'doc-stale') &&
+        withRot.state === 'regressed' &&
+        (withRot.stale || []).some((r) => r.dim === 'doc-stale')
+      )
     })(),
   })
   cases.push({
@@ -811,6 +850,7 @@ function main() {
     )
     if (result.why) console.log(`未判定原因:${result.why}`)
     for (const r of result.reasons || []) console.log(`· ${r.dim} —— ${r.detail}`)
+    for (const r of result.stale || []) console.log(`(派生文档滞后,不算倒退不喊人) ${r.dim} —— ${r.detail}`)
   }
   process.exit(result.state === 'regressed' ? 1 : result.state === 'undetermined' ? 2 : 0)
 }
