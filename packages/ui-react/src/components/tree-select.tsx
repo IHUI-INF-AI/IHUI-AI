@@ -173,6 +173,11 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
     const handleSelect = (id: string) => {
       onChange(id)
       setOpen(false)
+      // 面板一关焦点就掉到 <body>:键盘用户要继续 Tab 得从页面顶部重来。
+      // 选中后把焦点交还触发按钮(容器里第一个 button 就是它)。
+      requestAnimationFrame(() =>
+        containerRef.current?.querySelector<HTMLButtonElement>('button')?.focus(),
+      )
     }
 
     const renderNodes = (nodes: TreeNodeBuilt[], depth: number): React.ReactNode =>
@@ -184,15 +189,30 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
           <div key={node.id} role="group">
             <div
               role="treeitem"
+              tabIndex={0}
               aria-selected={value === node.id}
               aria-expanded={hasChildren ? isExpanded : undefined}
               aria-level={depth + 1}
               className={cn(
-                'flex cursor-default select-none items-center gap-1 rounded-sm py-1.5 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
+                'flex cursor-default select-none items-center gap-1 rounded-sm py-1.5 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                 value === node.id && 'bg-accent text-accent-foreground',
               )}
               style={{ paddingLeft: `${depth * 16 + 8}px` }}
               onClick={() => handleSelect(node.id)}
+              onKeyDown={(e) => {
+                // 原先节点是裸 div:键盘与读屏都到不了(只能靠鼠标)。补最小可用键位 ——
+                // Enter/空格选中,有子节点时 →/← 展开与收起。
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleSelect(node.id)
+                } else if (hasChildren && e.key === 'ArrowRight' && !isExpanded) {
+                  e.preventDefault()
+                  toggleExpand(node.id)
+                } else if (hasChildren && e.key === 'ArrowLeft' && isExpanded) {
+                  e.preventDefault()
+                  toggleExpand(node.id)
+                }
+              }}
             >
               {hasChildren ? (
                 <button
@@ -227,6 +247,8 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
           ref={ref}
           type="button"
           disabled={disabled}
+          aria-expanded={open}
+          aria-haspopup="tree"
           onClick={() => setOpen((p) => !p)}
           className={cn(
             'flex h-9 w-full items-center justify-between whitespace-nowrap rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-50',
@@ -238,7 +260,7 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
             className={cn('h-4 w-4 shrink-0 opacity-50 transition-transform', open && 'rotate-180')}
           />
         </button>
-        {open && (
+        {open && !disabled && (
           <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-popover ui-popover rounded-md border bg-popover text-popover-foreground shadow-md">
             <div className="px-2 py-1.5">
               <SearchInput

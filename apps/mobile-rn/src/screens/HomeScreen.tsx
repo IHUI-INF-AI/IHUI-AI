@@ -1271,6 +1271,13 @@ export function HomeScreen() {
   const handlePlusAlbum = async (): Promise<void> => {
     setPlusPanelVisible(false)
     try {
+      // 先问权限:被拒 / iOS「仅限所选照片」受限档时,原实现直接调 launchImageLibraryAsync,
+      // 面板关掉后什么也不发生(不报错、不引导) ⇒ 用户以为没点上,反复点。
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (perm.status !== 'granted') {
+        showToast('info', t('home.pubPermAlbumImage'))
+        return
+      }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: false,

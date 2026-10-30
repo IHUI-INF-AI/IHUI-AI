@@ -236,7 +236,11 @@ IHUI-AI 在多层级实施了安全防护:
 
 - **依赖锁定**:`pnpm-lock.yaml` 提交到仓库,所有依赖版本固定
 - **依赖审计**:`pnpm audit --prod` 在 CI 中运行,High/Critical 漏洞阻塞合并
-- **SBOM**:每个 Release 附带 SBOM(Software Bill of Materials),见 Release Assets
+- **SBOM**:`pnpm sbom`(等价 `node scripts/gen-sbom.mjs`)直接从 `pnpm-lock.yaml` 生成
+  CycloneDX 1.5 物料清单(现读 4,500+ 组件,逐个带 SHA-512 完整性哈希 + npm purl),
+  产物默认落 `outputs/sbom/sbom.cdx.json`;CI 的 `sbom` job 每次运行都会产出
+  `sbom-cyclonedx` artifact。生成器内置覆盖率断言(解析漏条即非零退出),
+  所以这份清单不是"生成过"的一句空话。
 - **签名**:Release assets 使用 sigstore 签名(规划中)
 - **CodeQL**:GitHub CodeQL 自动扫描(见 `.github/workflows/ci.yml`)
 

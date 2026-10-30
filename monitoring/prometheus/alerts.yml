@@ -48,7 +48,7 @@ groups:
       - alert: ApiSlowResponse
         expr: |
           histogram_quantile(0.95,
-            rate(http_response_time_bucket{job="api"}[5m])
+            rate(http_response_time_ms_bucket{job="api"}[5m])
           ) > 1000
         for: 5m
         labels:

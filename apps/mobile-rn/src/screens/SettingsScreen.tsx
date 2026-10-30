@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
@@ -14,7 +14,7 @@ import type {
   SharedMenuItem,
   SharedNotificationToggles,
 } from '@ihui/rn-app'
-import { updatePassword } from '@ihui/api-client'
+import { fetchApi, updatePassword } from '@ihui/api-client'
 import SideMenu, { type SideMenuItem } from '../components/SideMenu'
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
@@ -71,6 +71,22 @@ export default function SettingsScreen() {
     email: false,
   })
   const [drawerVisible, setDrawerVisible] = useState(false)
+
+  // 进页回读真实偏好:原实现直接拿硬编码默认值渲染(push:true/message:true/email:false),
+  // 用户看到的开关状态与后端里的实际配置无关。
+  useEffect(() => {
+    void fetchApi<{ pushEnabled?: boolean; inAppEnabled?: boolean; emailEnabled?: boolean }>(
+      '/notifications/preferences',
+    ).then((r) => {
+      if (!r.success || !r.data) return
+      const p = r.data
+      setNotifications({
+        push: p.pushEnabled ?? true,
+        message: p.inAppEnabled ?? true,
+        email: p.emailEnabled ?? false,
+      })
+    })
+  }, [])
 
   // 右侧菜单按钮(对齐 Uniapp settings 使用 ☰ 触发 Drawer 集成)
   const rightActions: ReadonlyArray<NavBarAction> = [
@@ -183,8 +199,25 @@ export default function SettingsScreen() {
     appAlert(t('settings.themeChanged'))
   }
 
-  const onToggleNotification = (key: keyof SharedNotificationToggles, value: boolean) => {
+  const onToggleNotification = async (key: keyof SharedNotificationToggles, value: boolean) => {
+    // 原先只 setState:既不落库也不回读,离开再进就复位成硬编码的默认值,
+    // 用户以为关了推送其实没关(同端 小程序 settings 也是同一型)。
+    // 后端真接口是 GET/PUT /api/notifications/preferences(updatePreferencesSchema:
+    // pushEnabled / inAppEnabled / emailEnabled),按 key 映射;失败回滚并与 web 通知页同口径。
+    const field = key === 'push' ? 'pushEnabled' : key === 'email' ? 'emailEnabled' : 'inAppEnabled'
+    const previous = notifications
     setNotifications((prev) => ({ ...prev, [key]: value }))
+    try {
+      const r = await fetchApi('/notifications/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      })
+      if (!r.success) throw new Error(r.error)
+    } catch {
+      setNotifications(previous)
+      appAlert(t('common.failed'))
+    }
   }
 
   const onChangePassword = async (oldPwd: string, newPwd: string): Promise<boolean> => {

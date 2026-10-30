@@ -30,7 +30,11 @@ export function ReferrerScreen() {
       try {
         const resp = await fetchApi<ReferrerInfo>('/user/referrer')
         if (cancelled) return
-        if (!resp.success) throw new Error('http')
+        if (!resp.success) {
+          // 透出后端 message,而非一律「加载失败」。
+          setError(resp.error || t('referrer.loadFailed'))
+          return
+        }
         setInfo(resp.data ?? { referrerName: null, referrerCode: null })
       } catch {
         if (!cancelled) setError(t('referrer.loadFailed'))
@@ -56,8 +60,11 @@ export function ReferrerScreen() {
         method: 'POST',
         body: JSON.stringify({ code }),
       })
-      if (!resp.success) throw new Error('http')
-      setInfo({ referrerName: code, referrerCode: code })
+      if (!resp.success) {
+        // 绑定失败要说明原因(推荐码不存在/已绑定他人/不能绑自己),否则用户只能盲试。
+        setError(resp.error || t('referrer.bindFailed'))
+        return
+      }
       setSuccess(t('referrer.bindSuccess'))
       setCode('')
     } catch {
@@ -79,7 +86,8 @@ export function ReferrerScreen() {
       onCodeChange={setCode}
       onSubmit={handleBind}
       onBack={() => navigation.goBack()}
-     colorScheme={resolvedTheme}/>
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

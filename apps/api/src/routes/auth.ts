@@ -11,7 +11,8 @@ import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { transparentlyUpgradePasswordHash } from '../services/login-hash-upgrade.js'
 import { config } from '../config/index.js'
 import { verifyRefreshToken, createFamilyId, type JWTPayload } from '@ihui/auth'
-import { authenticate } from '../plugins/auth.js'
+import { authenticate, revokeAccessToken } from '../plugins/auth.js'
+import { decodeJwt } from 'jose'
 import { issueTokenPair } from '../services/token-service.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
 import {
@@ -1691,6 +1692,30 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         const record = await findRefreshToken(token)
         if (record && !record.revokedAt) {
           revokedIds = await revokeRefreshToken(token, 'logout')
+        }
+      }
+
+      // 2026-10-30:登出同时吊销**随请求带来的 access token**。
+      // 此前只吊销 refresh ⇒ 被偷的 access token 在剩余有效期内(默认 15 分钟)仍可调全部接口。
+      // 只吊销"这一枚"而不是该用户全部 token(踢下线另有 revokeUserTokens 通道)。
+      // 解析失败/已过期都不加:过期 token 本来就进不来。
+      const bearerHeader = request.headers.authorization
+      const bearerToken =
+        typeof bearerHeader === 'string' && bearerHeader.startsWith('Bearer ')
+          ? bearerHeader.slice('Bearer '.length).trim()
+          : ''
+      const cookieAccessToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+        ?.auth_token
+      const accessToken = bearerToken || cookieAccessToken
+      if (accessToken && !accessToken.startsWith('ihui_')) {
+        try {
+          const claims = decodeJwt(accessToken)
+          const exp = typeof claims.exp === 'number' ? claims.exp : 0
+          if (exp > Math.floor(Date.now() / 1000)) {
+            await revokeAccessToken(accessToken, new Date(exp * 1000))
+          }
+        } catch {
+          // 解析不了就跳过:这不是登出的结论,不影响下面的 refresh 吊销
         }
       }
 

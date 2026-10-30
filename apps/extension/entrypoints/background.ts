@@ -14,7 +14,12 @@
  * 6. 转发 chrome.action.onClicked 打开 sidePanel
  */
 import { initApi, getRefreshToken, getToken, clearAllTokens } from '../lib/token'
-import { doRefresh, startAutoRefresh, scheduleRefreshAlarm } from '../lib/token-utils'
+import {
+  doRefresh,
+  installRefreshAlarmListener,
+  startAutoRefresh,
+  scheduleRefreshAlarm,
+} from '../lib/token-utils'
 import type { ExtMessage, ExtResponse, ApiProxyPayload } from '../lib/message-router'
 import { getApiBaseUrl } from '../lib/config'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
@@ -32,6 +37,11 @@ import extEn from '@ihui/i18n/messages/extension/en.json'
 import extJa from '@ihui/i18n/messages/extension/ja.json'
 import extKo from '@ihui/i18n/messages/extension/ko.json'
 import extZhTW from '@ihui/i18n/messages/extension/zh-TW.json'
+
+// SW 每次唤醒都会重跑本模块顶层 ⇒ 续期闹钟的常驻监听在这里恢复。
+// 不这样做的话,scheduleOnce 注册的监听会随上一次 SW 回收一起消失,闹钟到点无人处理
+// (成因与"为什么不能只靠 scheduleOnce"写在 token-utils 的 installRefreshAlarmListener 上)。
+installRefreshAlarmListener()
 
 const platform = createChromePlatform()
 
@@ -129,9 +139,17 @@ async function handleApiProxy(payload: ApiProxyPayload): Promise<unknown> {
     body: payload.body !== undefined ? JSON.stringify(payload.body) : undefined,
   })
   if (!res.ok) {
-    throw new Error(
-      `proxy ${payload.method} ${payload.path} failed: ${res.status} ${res.text.slice(0, 200)}`,
+    // 面向用户的文案只报状态码分型;上游原文(可能是整屏 HTML 片段或内部 JSON)只进 SW 日志,
+    // 原实现把它拼进 Error.message,经 replyError → sendMessage reject 原样显示在侧栏提示条里,
+    // 普通用户读不懂也无从操作,还把内部细节推到了 UI。
+    console.error(
+      '[IHUI AI] proxy failed:',
+      payload.method,
+      payload.path,
+      res.status,
+      String(res.text).slice(0, 200),
     )
+    throw new Error(`proxy ${payload.method} ${payload.path} failed: ${res.status}`)
   }
   // 尝试解包 { code, message, data } 格式
   if (res.data && typeof res.data === 'object' && 'data' in (res.data as Record<string, unknown>)) {
@@ -182,8 +200,10 @@ async function handleVocabLookup(payload: {
   } catch {
     // ignore — fallback below
   }
-  // fallback:本地直译(不调 API)
-  return { word, translation: word, definitions: ['离线模式:无法连接服务器'] }
+  // fallback:本地直译(不调 API)。
+  // translation 不再回填原词 —— 弹层会把 translation 当译文渲染,用户读成"这个词就是这个意思";
+  // 留空并靠 definitions 里那句离线说明交代失败原因(与"取不到就说取不到"同口径)。
+  return { word, translation: '', definitions: ['离线模式:无法连接服务器'] }
 }
 
 function parseVocabContent(content: string): {
@@ -533,7 +553,9 @@ export default defineBackground(() => {
       }
     })
     .catch(() => {
-      console.warn('[IHUI AI] initApi failed at SW start; skip refresh scheduling, keep stored tokens')
+      console.warn(
+        '[IHUI AI] initApi failed at SW start; skip refresh scheduling, keep stored tokens',
+      )
     })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

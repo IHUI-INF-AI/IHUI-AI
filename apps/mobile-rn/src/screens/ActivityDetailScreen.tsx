@@ -35,7 +35,12 @@ export function ActivityDetailScreen() {
     try {
       // 后端 GET /activities/:id 回 success({ activity })(promotions.ts),web 侧读 d.activity。
       const res = await fetchApi<{ activity: ActivityDetailItem }>(`/activities/${id}`)
-      if (!res.success) throw new Error('http')
+      if (!res.success) {
+        // 透出后端 message:原实现 throw 一个 'http'、再由 catch 换成通用文案 ⇒
+        // 用户只知道"加载失败",看不到"活动不存在/未登录"这类可行动的原因。
+        setError(res.error || t('activity.loadFailed'))
+        return
+      }
       setItem(res.data?.activity ?? null)
     } catch {
       setError(t('activity.loadFailed'))

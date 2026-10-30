@@ -20,7 +20,10 @@
  * 语义与原 .ps1 逐条对齐,不新增判据:
  *   0. 状态自愈:active 色不健康而另一色健康 ⇒ 改写 active(开机只有 blue 自启的场景)
  *   1. 目标色 = auto ? 非活跃色 : 显式色
- *   2. 起目标色(已在跑则先停再起,否则加载的是旧代码)
+ *   2. 起目标色(判据 = 该色跑的是不是本次代码;不是就先停再起,否则加载的是旧代码)
+ *      判据落地:运行记录 <state-file 去 .json>-runtime.json 存各色上次过门禁时的 git sha,
+ *      与本次 HEAD 一致才跳过启动。sha 判不出(服务环境无 git)⇒ 保守重起,失效方向是
+ *      多一次冷启动,绝不是"新代码静默不上"。
  *   3. 健康门禁:轮询 http://127.0.0.1:<port>/api/health 直到 "status":"ok"
  *   4. 原子写状态文件(tmp + rename),router 1s 内切上游(8802 始终有监听)
  *   5. 排空 DrainSec 秒,让旧色上的 in-flight 请求与 WS 自然结束
@@ -47,7 +50,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const NSSM =
   process.env.IHUI_NSSM || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'nssm.exe')
@@ -149,6 +152,11 @@ function startService(name) {
     if (!waitService(name, 'SERVICE_STOPPED', 30000)) {
       throw new Error(`服务 ${name} 30 秒内未停止,放弃切换`)
     }
+    // 2026-10-30 修:原实现只"停"不"再起" ⇒ 服务被留在 STOPPED,后续健康门禁直接判不健康、
+    // 不切流,表现为"目标色永远起不来"。停完必须再发一次 START 才能加载新代码。
+    log('INFO', `重新启动服务 ${name}(加载新代码)`)
+    const r2 = nssmDo('start', name)
+    if (!r2.ok) log('WARN', `nssm start ${name} 返回非 0(${r2.why.trim()}),以服务状态为准继续等待`)
   } else if (st === 'SERVICE_START_PENDING') {
     // 上一次启动还没落地(例如外部刚触发):不重复下 START,直接等状态,免得把
     // "START 控制在 PENDING 上火"当失败(实测 nssm 会回
@@ -266,6 +274,89 @@ function writeStateAtomic(active, ports) {
   fs.renameSync(tmp, args.stateFile)
 }
 
+// ── 目标色"跑的是不是本次代码"────────────────────────────────────────────────
+// 立因(2026-10-30 同型第二面):换流脚本按"端口健康"判目标色是否已就绪,而端口健康只说明
+// **有个本色的进程在服务**,不说明它加载的是本次到达的代码。63ff277f03 先用"web 形态一律
+// 先停再起"堵住 web 侧;api 形态当时以"避免二次 start 撞端口"为由保留幂等跳过 ⇒ 同一型
+// 漏洞在 api 侧继续存在(目标色是上一轮起好却没切流的好实例时,代码换完它照样在跑旧的,
+// 日志只留一行"跳过启动",其余结论全绿)。这里把判据换成可核验的事实:运行记录里存着
+// 该色上次通过健康门禁时的 git sha,与本次 HEAD 一致才允许跳过。
+const RUNTIME_FILE = args.stateFile.replace(/\.json$/i, '') + '-runtime.json'
+
+/** 本次代码的 sha(判不出就是空串 —— 调用方必须把它当"未判定",失效方向是多一次冷启动)。 */
+function currentCodeSha() {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+  // 候选顺序:显式覆盖 → PATH 里的 git → 本机安装位的绝对路径。nssm 以 SYSTEM 起服务,
+  // PATH 未必带 Git\cmd;这一层不是"猜 sha",只是换一个 bin 去问同一个问题。
+  const candidates = [
+    process.env.IHUI_GIT,
+    'git',
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'cmd', 'git.exe'),
+  ].filter(Boolean)
+  for (const gitBin of candidates) {
+    try {
+      const sha = execFileSync(gitBin, ['-C', root, 'rev-parse', 'HEAD'], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 20000,
+      })
+        .trim()
+        .toLowerCase()
+      if (/^[0-9a-f]{40,64}$/.test(sha)) return sha
+    } catch {
+      /* 换下一个候选 */
+    }
+  }
+  // 全部候选都问不出来 —— 一律返回空串,由 decideColorStart 走"保守重起"。
+  // 绝不猜一个 sha 出来:猜对了省一次冷启动,猜错了就是"新代码静默不上"。
+  log('WARN', '本次代码 sha 未判定(所有 git 候选都不可用)⇒ 目标色按保守口径重起')
+  return ''
+}
+
+function readRuntime() {
+  try {
+    const j = JSON.parse(fs.readFileSync(RUNTIME_FILE, 'utf8'))
+    return j && typeof j === 'object' && !Array.isArray(j) ? j : {}
+  } catch {
+    return {}
+  }
+}
+
+/** 原子写(同 writeStateAtomic 语义):租到一半崩掉也不会留下半个 JSON 误导下一轮判定。 */
+function writeRuntime(record) {
+  try {
+    fs.mkdirSync(path.dirname(RUNTIME_FILE), { recursive: true })
+    const tmp = `${RUNTIME_FILE}.tmp-${process.pid}`
+    fs.writeFileSync(tmp, JSON.stringify(record, null, 2), 'utf8')
+    fs.renameSync(tmp, RUNTIME_FILE)
+  } catch (e) {
+    // 记录写不进不影响本轮切换对不对,但必须留痕:下一轮会因此重起一次本色。失效方向可接受。
+    log('WARN', `运行记录写入失败(不影响切换,下一轮将重起一次本色):${e.message}`)
+  }
+}
+
+/**
+ * 目标色要不要(重)起。纯函数,判定矩阵由 deploy/tests/ihui-api-bluegreen.test.mjs 锁住。
+ * @param {{isWebForm:boolean, portHealthy:boolean, recordedSha:string, currentSha:string}} input
+ * @returns {{start:boolean, reason:string}}
+ */
+export function decideColorStart({ isWebForm, portHealthy, recordedSha, currentSha }) {
+  if (!portHealthy) return { start: true, reason: '目标色端口无健康应答' }
+  if (isWebForm) {
+    return { start: true, reason: 'web 形态:前台阻塞进程,非活跃色先停再起才能加载本次构建' }
+  }
+  if (!currentSha) {
+    return { start: true, reason: '本次代码 sha 未判定 ⇒ 保守重起(失效方向是多一次冷启动)' }
+  }
+  if (recordedSha && String(recordedSha).toLowerCase() === currentSha) {
+    return { start: false, reason: `目标色记录的代码 sha=${currentSha} 与本次一致` }
+  }
+  return {
+    start: true,
+    reason: `目标色在服务但记录的代码 sha=${recordedSha || '缺失'} ≠ 本次 ${currentSha}`,
+  }
+}
+
 async function main() {
   const ports = { blue: PORTS.blue, green: PORTS.green }
   let state = readState()
@@ -304,12 +395,23 @@ async function main() {
   }
 
   // ── 2. 起目标色 ────────────────────────────────────────────────────────────
-  // 幂等:目标色已在健康服务(上一轮已起好但没切流)就不再重启它 —— 重启一次要多等一次冷启动,
-  // 且在 wrapper 形态下还可能因 STOPPED/RUNNING 判断把好实例停掉。
-  if (await probeHealthy(targetPort)) {
-    log('INFO', `目标色 ${target}(${targetPort}) 已在健康服务,跳过启动`)
-  } else {
+  // 2026-10-30 修(实测事故):原实现只看端口健康就跳过启动,不校验目标色跑的是不是**本次构建**。
+  // green 自 15:16 就在跑旧构建 ⇒ 部署判 pass 但含修复的 CSS 块 404,新构建永远加载不上。
+  // 63ff277f03 的修法只覆盖 web 形态;api 形态仍留着"端口健康就跳过",同一个洞换个形态还在。
+  // 现在两形态统一问同一个问题:该色跑的是不是本次代码(见 decideColorStart)。
+  const isWebForm = args.healthPath === '/'
+  const currentSha = currentCodeSha()
+  const decision = decideColorStart({
+    isWebForm,
+    portHealthy: await probeHealthy(targetPort),
+    recordedSha: (readRuntime()[target] || {}).sha,
+    currentSha,
+  })
+  if (decision.start) {
+    log('INFO', `起目标色 ${target}(${targetPort}):${decision.reason}`)
     startService(targetSvc)
+  } else {
+    log('INFO', `跳过启动 ${targetSvc}:${decision.reason}`)
   }
 
   // ── 3. 健康门禁 ────────────────────────────────────────────────────────────
@@ -321,6 +423,13 @@ async function main() {
     return 1
   }
   log('INFO', `${targetSvc} 健康检查通过`)
+  // 只有"健康门禁真过了"才落运行记录 —— 记录的意义是"这个色此刻在用这份代码答话",
+  // 没通过门禁的进程写进去,下一轮就会拿它当"已是最新"而跳过重启。
+  {
+    const rec = readRuntime()
+    rec[target] = { sha: currentSha, at: new Date(Date.now() + 8 * 3600_000).toISOString().replace('Z', '+08:00') }
+    writeRuntime(rec)
+  }
 
   // ── 4. 原子切流 ────────────────────────────────────────────────────────────
   if (target !== oldColor) {
@@ -355,5 +464,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { makeProbe, parseArgs, probeHealthy }
+export const __test__ = { makeProbe, parseArgs, probeHealthy, decideColorStart, currentCodeSha }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

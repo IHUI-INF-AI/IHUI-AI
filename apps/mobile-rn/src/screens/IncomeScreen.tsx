@@ -32,12 +32,17 @@ const INITIAL_DATA: IncomeData = {
   list: [],
 }
 
-/** 本地日期 YYYY-MM-DD(与后端 daySummary.dateStr 对齐;时区差异下未命中则当日按 0) */
+/**
+ * 业务日(Asia/Shanghai)的 YYYY-MM-DD —— 与后端 daySummary.dateStr 对齐。
+ * 后端那条聚合计的是 `to_char(created_at, 'YYYY-MM-DD')`,而库会话时区实测 Asia/Shanghai
+ * (now() 带 +08)⇒ 服务端按 +08 切日。原实现用**设备本地日**,设备不在 +08 时同一份
+ * daySummary 里永远找不到"今天"这一行,"今日收益"恒显示 0。中国无夏令时,UTC+8 可直接加偏移。
+ */
 function todayKey(): string {
-  const d = new Date()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${m}-${day}`
+  const d = new Date(Date.now() + 8 * 3600_000)
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${d.getUTCFullYear()}-${m}-${day}`
 }
 
 function mapRecord(r: CommissionRecord, t: (key: string) => string): IncomeCommissionItem {
@@ -103,7 +108,15 @@ function IncomeScreen() {
         getWithdrawList({ page: 1, pageSize: 50 }),
       ])
       if (!overviewRes.success || !listRes.success || !dayMonthRes.success) {
-        throw new Error('http')
+        // 三个请求任一失败原先只抛一句通用错误 ⇒ 用户看不到"未登录/服务异常"。
+        // 按顺序取第一个失败响应的后端 message。
+        const why = !overviewRes.success
+          ? overviewRes.error
+          : !listRes.success
+            ? listRes.error
+            : dayMonthRes.error
+        setError(why || t('income.loadFailed'))
+        return
       }
       // 「已结算」= 已成功提现的记录(completed status=2);佣金行与提现记录无字段关联,无法逐条标记
       const settledItems = withdrawRes.success

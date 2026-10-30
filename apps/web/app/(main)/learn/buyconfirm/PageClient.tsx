@@ -75,10 +75,19 @@ function BuyConfirmContent() {
         throw new Error('free course')
       }
       const body: Record<string, unknown> = {
-        type: courseType === 'vip' ? 'vip' : 'course',
+        // 后端 createOrderSchema 的必填键是 orderType(z.string().min(1).max(32)),
+        // 原实现发 `type` ⇒ orderType 缺失直接 400,一张课都买不出去。
+        orderType: courseType === 'vip' ? 'vip' : 'course',
         targetId: courseId,
+        targetTitle: course?.title ?? null,
+        payAmount: String(price),
+        originalPrice: String(originalPrice ?? price),
+        discountAmount: String(Math.max(0, (originalPrice ?? price) - price)),
+        payType: payMethod,
       }
-      if (couponCode.trim()) body.couponId = couponCode.trim()
+      // 后端不消费 couponId 键(zod 静默剥掉) ⇒ 原先填了优惠码等于没填。
+      // 先把用户输入落到 remark 保留下来,不再假装它生效。
+      if (couponCode.trim()) body.remark = `优惠码: ${couponCode.trim()}`
       return apiOrThrow<OrderCreateResp>('/api/orders', {
         method: 'POST',
         body: JSON.stringify(body),

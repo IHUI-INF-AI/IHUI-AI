@@ -43,7 +43,10 @@ export default function Orders() {
   const statusText = (s: string) => (STATUS_KEY[s] ? t(STATUS_KEY[s]) : s)
 
   const load = useCallback(
-    async (reset = false) => {
+    async (reset = false, statusOverride?: string) => {
+      // 切 tab 时 React 还没重渲染,闭包里的 status 是**上一个** tab ⇒ 列表按旧筛选查询。
+      // 调用方显式把新状态传进来,不依赖渲染后的闭包。
+      const effStatus = statusOverride ?? status
       if (loading) return
       let curPage = page
       let curList = list
@@ -56,7 +59,7 @@ export default function Orders() {
       if (!hasMore && !reset) return
       setLoading(true)
       try {
-        const res = await getOrderList({ page: curPage, pageSize, status })
+        const res = await getOrderList({ page: curPage, pageSize, status: effStatus })
         const newList = [...curList, ...(res.list || [])]
         setList(newList)
         setHasMore(newList.length < res.total)
@@ -72,7 +75,7 @@ export default function Orders() {
 
   function switchStatus(s: string) {
     setStatus(s)
-    setTimeout(() => load(true), 0)
+    void load(true, s)
   }
 
   function handlePay(item: Order) {

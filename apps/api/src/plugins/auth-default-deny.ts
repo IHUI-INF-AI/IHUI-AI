@@ -117,6 +117,28 @@ const PUBLIC_PREFIXES: readonly string[] = [
   // 匿名访问本就该 401。
   '/api/app-version/',
   '/api/news/',
+  // 2026-10-30 enforce 实测补全:以下 33 条被兜底闸 401 的路径里,逐条按语义分两类。
+  // 归"公开内容"的放行(前端匿名页面与埋点),归"个人/权限/执行面"的保持拦截:
+  //   · 保持 401:chat/conversations*、subagents/*、workspace/permission-*、
+  //     agent-control/capability、settings/contact、configs、knowledge/search
+  '/api/news',
+  '/api/articles',
+  '/api/tools',
+  '/api/help/',
+  '/api/ai-feed/',
+  '/api/live/',
+  '/api/vip/levels',
+  '/api/circles',
+  '/api/relay/models/public',
+  '/api/relay/monitor/',
+  '/api/model-leaderboard',
+  '/api/learn/',
+  '/api/exam/papers',
+  // 匿名埋点:未登录访客也要上报浏览,否则漏斗整段缺失
+  '/api/analytics/track',
+  '/api/visit-tracking/',
+  // 探活:路由自身已显式豁免,兜底闸必须同面(否则监控误报)
+  '/api/knowledge/health',
 ]
 
 /** 兜底只看这两类前缀之外的路由(其余如 /uploads 静态面根本不进 Fastify 路由表)。 */

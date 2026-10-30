@@ -37,6 +37,21 @@ const nextBin = path.join(webRoot, 'node_modules', 'next', 'dist', 'bin', 'next'
 // - cdn:小程序图标 CDN,直读 deploy/server-root,依赖 Node fs
 // - uploads:用户上传文件,直读 apps/api/uploads/public,依赖 Node fs
 const RUNTIME_ONLY_ROUTE_DIRS = ['cdn', 'uploads']
+
+/**
+ * 静态导出必须整体移出的**顶层文件**(2026-10-30 立)。
+ *
+ * 为什么:`proxy.ts`(Next 16 起 middleware 的正式名)承担源站直连守卫 + 后台鉴权 307 重定向,
+ * 并在 2026-10-30 接上了逐请求 CSP nonce。它只能在服务端模式跑,而 Next 对
+ * `output: 'export'` + middleware/proxy 是**硬报错**:
+ *   "Middleware cannot be used with output: export"
+ * 静态产物没有请求期,nonce 与鉴权在那一侧本就没有语义(与 cdn/uploads 那两个依赖 Node fs
+ * 的运行时路由同理)。沿用既有的"构建期移出、finally 恢复"机制,不新增机制。
+ *
+ * ⚠️ 若将来 GH Pages / Tauri 侧也需要 CSP,正确做法是在托管层(nginx / Pages 的 `_headers`)
+ * 配**静态**策略,而不是把 proxy 塞回静态构建 —— 那里没有 per-request 可言。
+ */
+const STATIC_EXCLUDED_TOP_FILES = ['proxy.ts']
 const appDir = path.join(webRoot, 'app')
 const stashDir = path.join(webRoot, '.static-excluded')
 
@@ -51,6 +66,21 @@ function excludeRuntimeRoutes() {
     }
   }
   mkdirSync(stashDir, { recursive: true })
+  // 顶层文件:崩溃自愈同上,先还原再移出
+  for (const name of STATIC_EXCLUDED_TOP_FILES) {
+    const stashed = path.join(stashDir, name)
+    const active = path.join(webRoot, name)
+    if (existsSync(stashed) && !existsSync(active)) {
+      cpSync(stashed, active, { preserveTimestamps: true })
+      rmSync(stashed, { force: true })
+    }
+  }
+  for (const name of STATIC_EXCLUDED_TOP_FILES) {
+    const active = path.join(webRoot, name)
+    if (!existsSync(active)) continue
+    cpSync(active, path.join(stashDir, name), { preserveTimestamps: true })
+    rmSync(active, { force: true })
+  }
   for (const name of RUNTIME_ONLY_ROUTE_DIRS) {
     const active = path.join(appDir, name)
     // 目录不存在则跳过(如路由被移除);缺失时 cpSync 会抛 ENOENT 导致 CI 构建全挂(2026-09-01 事故)
@@ -61,6 +91,14 @@ function excludeRuntimeRoutes() {
 
 /** 恢复被移出的路由目录(幂等) */
 function restoreRuntimeRoutes() {
+  for (const name of STATIC_EXCLUDED_TOP_FILES) {
+    const stashed = path.join(stashDir, name)
+    const active = path.join(webRoot, name)
+    if (existsSync(stashed) && !existsSync(active)) {
+      cpSync(stashed, active, { preserveTimestamps: true })
+      rmSync(stashed, { force: true })
+    }
+  }
   for (const name of RUNTIME_ONLY_ROUTE_DIRS) {
     const stashed = path.join(stashDir, name)
     const active = path.join(appDir, name)

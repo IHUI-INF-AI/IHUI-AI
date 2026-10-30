@@ -76,6 +76,7 @@ import {
   __test__ as sharedState,
   tryAcquireSharedLock,
 } from '../src/services/relay-account-shared-state.js'
+import { ACCOUNT_SCHEDULABLE_HEALTH_STATES } from '../src/services/relay-pool-stats-service.js'
 import { registerRelayAdapter } from '../src/services/relay-upstream-adapters.js'
 
 function sweepRow(overrides: Record<string, unknown> = {}): unknown {
@@ -162,7 +163,10 @@ describe('sweepAccountPool 分布式锁', () => {
     accountRows = [sweepRow()]
     const out = await sweepAccountPool()
     expect(out.skipped).toBe(false)
-    expect(out.refreshSkipped).toBe(1) // 临期候选无 refreshToken 适配器能力 → 跳过
+    // mock 的 select 不执行 where ⇒ 同一行会同时被「临期刷新」与「空闲保活」两档捞到,
+    // 两档都在 shouldDeferRefresh 处跳过(trae client-first 且票未过期)⇒ 2。
+    // 2026-10-30 对齐:保活档 2026-10-26 上线后本断言一直停在旧值(HEAD 上本用例就是红的)。
+    expect(out.refreshSkipped).toBe(2)
     expect(out.healthChecked).toBe(1) // unknown → checkHealth 定级
     await vi.waitFor(() => expect(updateCalls.length).toBeGreaterThan(0))
     expect(updateCalls.some((s) => s.healthStatus === 'healthy')).toBe(true)
@@ -252,7 +256,8 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
     accountRows = [sweepRow({ tokenExpiresAt: new Date(Date.now() + 5 * 60_000) })]
     const out = await sweepAccountPool()
     expect(out.refreshed).toBe(0)
-    expect(out.refreshSkipped).toBe(1)
+    // 临期档 + 空闲保活档各跳过一次(两档同源 shouldDeferRefresh;mock 不筛查询)
+    expect(out.refreshSkipped).toBe(2)
     expect(refreshToken).not.toHaveBeenCalled()
   })
 
@@ -265,9 +270,10 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
     registerRelayAdapter(adapterWithRefresh(refreshToken) as never)
     accountRows = [sweepRow({ tokenExpiresAt: new Date(Date.now() - 60_000) })]
     const out = await sweepAccountPool()
-    expect(out.refreshed).toBe(1)
-    // mock 的 select 对三档查询返回同一行:该行同时命中"临期刷新"与"down 恢复"两档 ⇒ 2 次
-    expect(refreshToken).toHaveBeenCalledTimes(2)
+    // 票已过期 ⇒ 临期档放行(1)+ 空闲保活档放行(1);down 恢复档的那次记进 healthRecovered
+    expect(out.refreshed).toBe(2)
+    // mock 的 select 不执行 where:同一行同时命中临期/保活/down 恢复三档 ⇒ 3 次调用
+    expect(refreshToken).toHaveBeenCalledTimes(3)
   })
 
   it('阳性对照:workbuddy 临期未过期 ⇒ 照旧刷新(server 策略不受影响)', async () => {
@@ -289,9 +295,10 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
       sweepRow({ providerCode: 'workbuddy', tokenExpiresAt: new Date(Date.now() + 5 * 60_000) }),
     ]
     const out = await sweepAccountPool()
-    expect(out.refreshed).toBe(1)
-    // 同上:mock 不筛查询,临期 + down 恢复各命中一次
-    expect(refreshToken).toHaveBeenCalledTimes(2)
+    // server 策略不延迟 ⇒ 临期档 + 空闲保活档各刷一次;down 恢复档记进 healthRecovered
+    expect(out.refreshed).toBe(2)
+    // 同上:mock 不筛查询,临期 + 保活 + down 恢复三档各命中一次
+    expect(refreshToken).toHaveBeenCalledTimes(3)
   })
 })
 
@@ -400,7 +407,10 @@ describe('可再取凭据的候选谓词(cookie 通道必须在内)', () => {
     expect(text).toContain(render(m.accountSchedulableCondition()).text)
     expect(text).toContain('health_status')
     expect(text).toContain('temp_unschedulable')
-    expect(params).toContain('down')
+    // 白名单单源(2026-10-30):排除 down 由 ACCOUNT_SCHEDULABLE_HEALTH_STATES 表达 ——
+    // 这里 import 同一个常量断言,不在测试里复制第二份词表(§0.6/§22c)。
+    expect(params).not.toContain('down')
+    for (const state of ACCOUNT_SCHEDULABLE_HEALTH_STATES) expect(params).toContain(state)
     // 反向牙:排除只发生在「临期主动刷」这一档。down 恢复档若也被这条接缝拦死,
     // 等于把判死的号彻底遗忘 —— 那是另一类缺陷(摘了就再也回不来)。
     expect(render(m.downRecoveryWhere()).text).not.toContain('temp_unschedulable')

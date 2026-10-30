@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { toast } from '@/components/common'
 import { confirmDialog } from '@/components/feedback'
 
 export interface CrudField {
@@ -96,8 +97,16 @@ export function useCrudResource<T extends { id: string }>(opts: {
   const removeMut = useMutation({
     mutationFn: async (id: string) => fetchApi(`${opts.basePath}/${id}`, { method: 'DELETE' }),
     onSuccess: (r) => {
-      if (!r.success) setErr(r.error)
-      else invalidate()
+      if (!r.success) {
+        // 删除是从**列表页**发起的,而 err 只渲染在 CrudFormDialog 里(此刻弹层是关着的)
+        // ⇒ 原实现下用户点完确认、行还在原地、一句错误都不显示,只会反复点。
+        setErr(r.error)
+        toast.error(r.error)
+      } else invalidate()
+    },
+    onError: (e: Error) => {
+      setErr(e.message)
+      toast.error(e.message)
     },
   })
 
@@ -179,8 +188,13 @@ export function CrudFormDialog(props: {
     const out: Record<string, unknown> = {}
     for (const f of props.fields) {
       const raw = values[f.key] ?? ''
-      if (f.type === 'number') out[f.key] = raw === '' ? 0 : Number(raw)
-      else if (f.type === 'datetime') out[f.key] = raw || null
+      if (f.type === 'number') {
+        // 留空 ≠ 0。原实现把空值写成 0 ⇒ 管理员清掉「兑换积分」再保存,商品就变成 0 积分
+        // 免费兑换;清空库存同理直接归零,而界面上没有任何提示。文本字段的既有口径是 null,
+        // 数值字段对齐到同一口径 —— 必填与否交后端判,前端不替用户发明一个 0。
+        const n = raw === '' ? null : Number(raw)
+        out[f.key] = n === null || Number.isNaN(n) ? null : n
+      } else if (f.type === 'datetime') out[f.key] = raw || null
       else out[f.key] = raw === '' ? null : raw
     }
     props.onSubmit(out)

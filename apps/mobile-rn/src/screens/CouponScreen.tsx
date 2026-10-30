@@ -81,7 +81,8 @@ export function CouponScreen() {
     const next = tab as CouponTab
     if (next === statusTab) return
     setStatusTab(next)
-    setTimeout(refresh, 0)
+    // fetcher 已随 statusTab 变化触发 usePaginatedList 的自动重取;这里再 refresh 一次
+    // 调的是**上一次渲染**的闭包(绑旧 tab)⇒ 两个请求竞速,旧结果后到会覆盖新 tab 的列表。
   }
 
   return (

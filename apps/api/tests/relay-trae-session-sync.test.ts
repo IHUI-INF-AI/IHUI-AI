@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest'
 import { __test__ } from '../scripts/relay-trae-session-sync.js'
 
-const { decideSync, parseIso, parseArgs } = __test__
+const { decideSync, parseIso, parseArgs, buildTraeAutoImportInput } = __test__
 
 const base = {
   poolToken: 'pool-jwt',
@@ -86,6 +86,61 @@ describe('CLI 参数面(未判定不猜)', () => {
     expect(parseIso('2026-11-07T02:27:01.600Z')?.getTime()).toBe(
       Date.parse('2026-11-07T02:27:01.600Z'),
     )
+  })
+})
+
+describe('buildTraeAutoImportInput · missing 自动入池构造(2026-10-30 立)', () => {
+  it('缺 uid 或 token ⇒ null(构不成条目时报缺失,不造无名空票号)', () => {
+    expect(buildTraeAutoImportInput({ uid: '', token: 't' } as never)).toBeNull()
+    expect(buildTraeAutoImportInput({ uid: 'u', token: '' } as never)).toBeNull()
+    expect(buildTraeAutoImportInput({ uid: 'u' } as never)).toBeNull()
+    expect(buildTraeAutoImportInput(null as never)).toBeNull()
+  })
+
+  it('refreshExpiresAt 按导入侧键名 refreshTokenExpiresAt 回填(service 只认这个键)', () => {
+    const input = buildTraeAutoImportInput({
+      uid: 'u1',
+      token: 'jwt-1',
+      refreshToken: 'rt-1',
+      expiresAt: '2026-11-08T00:00:00Z',
+      refreshExpiresAt: '2027-04-22T00:00:00Z',
+    })
+    expect(input).not.toBeNull()
+    expect(input!['refreshTokenExpiresAt']).toBe('2027-04-22T00:00:00Z')
+    expect(input!['refreshExpiresAt']).toBeUndefined()
+    expect(input!.uid).toBe('u1')
+    expect(input!.token).toBe('jwt-1')
+    expect(input!.refreshToken).toBe('rt-1')
+    expect(input!.expiresAt).toBe('2026-11-08T00:00:00Z')
+  })
+
+  it('设备材料四键随条目带走(缺它换票被 10101 拒);缺位不带键', () => {
+    const full = buildTraeAutoImportInput({
+      uid: 'u1',
+      token: 'jwt-1',
+      deviceId: 'dev-1',
+      machineId: 'mid-1',
+      deviceKeyPem: '-----BEGIN KEY-----',
+      devicePubPem: '-----BEGIN PUB-----',
+    })
+    expect(full!.deviceId).toBe('dev-1')
+    expect(full!.machineId).toBe('mid-1')
+    expect(full!.deviceKeyPem).toBe('-----BEGIN KEY-----')
+    expect(full!.devicePubPem).toBe('-----BEGIN PUB-----')
+    const bare = buildTraeAutoImportInput({ uid: 'u1', token: 'jwt-1' })
+    expect(Object.keys(bare!).sort()).toEqual(['token', 'uid'])
+  })
+
+  it('形状锁:name/profile/sessionTemplate 刻意不进条目(统一名单源;模板由下一轮 skip 分支补种)', () => {
+    const input = buildTraeAutoImportInput({
+      uid: 'u1',
+      token: 'jwt-1',
+      profile: { host: 'x' },
+      sessionTemplate: { edition: 'y' },
+    } as never)
+    expect(input!['name']).toBeUndefined()
+    expect(input!['profile']).toBeUndefined()
+    expect(input!['sessionTemplate']).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

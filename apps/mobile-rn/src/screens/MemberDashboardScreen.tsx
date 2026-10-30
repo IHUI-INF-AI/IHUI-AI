@@ -12,7 +12,7 @@ import {
   type MemberCardKey,
   type MemberOrderRow,
 } from '@ihui/rn-app'
-import { formatPrice } from '@ihui/shared/utils'
+import { formatMoney } from '@ihui/shared/utils'
 
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
@@ -75,7 +75,8 @@ export function MemberDashboardScreen() {
           (orders.data?.list ?? []).map((o: Order) => ({
             orderNo: o.orderNo,
             title: o.targetTitle,
-            amountText: formatPrice(o.payAmount),
+            // payAmount 是元(numeric 10,2);formatPrice 按"分"除 100 ⇒ 99.00 会显示成 0.99
+            amountText: formatMoney(Number(o.payAmount)),
             statusText: t(`memberDashboard.status.${o.status}`) || String(o.status),
             createdAt: fmtDate(o.createdAt) ?? '',
           })),

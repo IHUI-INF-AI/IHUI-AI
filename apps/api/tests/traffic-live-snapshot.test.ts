@@ -204,14 +204,59 @@ describe('号池实时快照', () => {
     expect(snap.keyTotal).toBe(5)
     // 启用的 4 条(含脏值那条,它按"健康态无法判定"只计脏值,不参与可调度/异常)
     expect(snap.keySchedulable).toBe(3)
+    expect(snap.keyClassified).toBe(4) // 分母不含脏值行
     expect(snap.keyAbnormal).toBe(2) // degraded + down
+    // 可调度 ≠ 健康:两条异常 key 都没被停用/摘除,选路照样会选中它们
+    expect(snap.keyAbnormalSchedulable).toBe(2)
     expect(RELAY_POOL_ABNORMAL_MIN_VALUE).toBe(2)
+    expect(snap.keyRowsUnclassified).toBe(1)
     expect(snap.rowsUnclassified).toBe(1)
     expect(snap.accountsTotal).toBe(2)
+    expect(snap.accountClassified).toBe(2)
     expect(snap.accountsSchedulable).toBe(1) // 第二条被 tempUnschedulable 摘掉
-    // 最短临期取的是已过期那条(负值必须原样报出,不能钳 0)
-    expect(snap.minTokenExpiresInSeconds).toBeLessThan(0)
+    expect(snap.accountsBlocked).toBe(1)
+    expect(snap.accountsBlockedExpired).toBe(1)
+    // 临期只读**可调度账号**:被摘除那条的过期票单独计数,不再冒充"池子最短临期"
+    expect(snap.minTokenExpiresInSeconds).toBeGreaterThan(0)
+    expect(snap.minTokenExpiresInSeconds).toBeLessThanOrEqual(3_600)
+    // 双向前瞻:最近一次刷新 ≈120s,最久未刷新 ≈600s —— 两个读数各答各的问题
+    expect(snap.minRefreshAgeSeconds).toBeGreaterThanOrEqual(100)
+    expect(snap.minRefreshAgeSeconds).toBeLessThanOrEqual(180)
     expect(snap.maxRefreshAgeSeconds).toBeGreaterThanOrEqual(590)
+  })
+
+  it('health=down 但尚未置 temp 的账号也不计可调度(与选号 SQL 同一把尺子)', async () => {
+    h.state.queue = [
+      [],
+      [
+        {
+          healthStatus: 'down',
+          isEnabled: true,
+          tempUnschedulable: false,
+          consecutiveFailures: 2,
+          totalCalls: 1,
+          tokenExpiresAt: new Date(Date.now() + 3_600_000),
+          lastRefreshAt: null,
+        },
+        {
+          healthStatus: 'degraded',
+          isEnabled: true,
+          tempUnschedulable: false,
+          consecutiveFailures: 1,
+          totalCalls: 1,
+          tokenExpiresAt: new Date(Date.now() + 7_200_000),
+          lastRefreshAt: null,
+        },
+      ],
+    ]
+    const snap = await computeRelayPoolLiveSnapshot()
+    expect(snap.accountsTotal).toBe(2)
+    expect(snap.accountsSchedulable).toBe(1) // 只有 degraded 可选;down 已被巡检判死
+    expect(snap.accountsBlocked).toBe(1)
+    // down 那条的票还没过期 ⇒ 不记"已过期";临期读数只取可调度号的 2h
+    expect(snap.accountsBlockedExpired).toBe(0)
+    expect(snap.minTokenExpiresInSeconds).toBeGreaterThan(7_000)
+    expect(snap.minTokenExpiresInSeconds).toBeLessThanOrEqual(7_200)
   })
 
   it('查询失败上抛,不返回"空池"', async () => {
