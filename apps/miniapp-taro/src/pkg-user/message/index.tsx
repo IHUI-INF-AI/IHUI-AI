@@ -25,7 +25,6 @@ import {
   NavBar,
   MessageTabs,
   SystemNotice,
-  InteractionMessage,
   PrivateMessageList,
   MessageDetail,
   UnreadBadge,
@@ -34,7 +33,6 @@ import {
   SearchBar,
   type MessageTabItem,
   type SystemNoticeItem,
-  type InteractionItem,
   type PrivateMessageItem,
   type MessageDetailItem,
   type NotificationSettingItem,
@@ -100,38 +98,6 @@ export default function MessageIndex() {
       enabled: false,
     },
   ])
-
-  const defaultInteraction = useMemo<InteractionItem[]>(
-    () => [
-      {
-        id: 'i1',
-        type: 'like',
-        userName: t('message.demo.zhangsan'),
-        content: t('message.demo.likeNote'),
-        targetTitle: t('message.demo.targetReact'),
-        createdAt: '2026-07-13 14:20',
-        read: false,
-      },
-      {
-        id: 'i2',
-        type: 'comment',
-        userName: t('message.demo.lisi'),
-        content: t('message.demo.replyComment'),
-        targetTitle: t('message.demo.targetAi'),
-        createdAt: '2026-07-13 11:00',
-        read: false,
-      },
-      {
-        id: 'i3',
-        type: 'follow',
-        userName: t('message.demo.wangwu'),
-        content: t('message.demo.followYou'),
-        createdAt: '2026-07-12 16:30',
-        read: true,
-      },
-    ],
-    [t],
-  )
 
   const loadAggregate = useCallback(async () => {
     try {
@@ -358,14 +324,14 @@ export default function MessageIndex() {
       )
     }
     if (activeTab === 'interaction') {
+      // 原先这里渲染三条**写死的演示互动**(张三赞了你的笔记 / 李四回复 / 王五关注,
+      // 日期硬编码 2026-07-13):用户会把它们当成真实消息。互动端点尚未接入,
+      // 按同页 announcements / private 的真数据轨道口径落空态。
       return (
         <ThemeRoot>
-          <InteractionMessage
-            list={defaultInteraction}
-            onClick={(item) =>
-              Taro.showToast({ title: `${item.userName}:${item.content}`, icon: 'none' })
-            }
-          />
+          <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
+            {t('message.empty')}
+          </Text>
         </ThemeRoot>
       )
     }
