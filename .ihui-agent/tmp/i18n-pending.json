@@ -1,0 +1,308 @@
+{
+  "generatedAt": "2026-10-28T06:44:29.218Z",
+  "target": "shared",
+  "messagesDir": "packages/i18n/messages/shared",
+  "baseLang": "zh-CN",
+  "targetLangs": [
+    "en",
+    "ja",
+    "ko",
+    "zh-TW"
+  ],
+  "stats": {
+    "total": 0,
+    "reviewCount": 22
+  },
+  "pending": {},
+  "reviewAscii": {
+    "ja": [
+      {
+        "key": "auth.enterpriseWechat",
+        "type": "asciiFallback",
+        "sourceValue": "企业微信",
+        "enValue": "WeCom",
+        "currentValue": "WeCom"
+      },
+      {
+        "key": "auth.feishuLogin",
+        "type": "asciiFallback",
+        "sourceValue": "飞书",
+        "enValue": "Feishu",
+        "currentValue": "Feishu"
+      },
+      {
+        "key": "auth.githubLogin",
+        "type": "asciiFallback",
+        "sourceValue": "GitHub",
+        "enValue": "GitHub",
+        "currentValue": "GitHub"
+      },
+      {
+        "key": "auth.wechatLogin",
+        "type": "asciiFallback",
+        "sourceValue": "微信",
+        "enValue": "WeChat",
+        "currentValue": "WeChat"
+      },
+      {
+        "key": "common.colToken",
+        "type": "asciiFallback",
+        "sourceValue": "Token",
+        "enValue": "Token",
+        "currentValue": "Token"
+      },
+      {
+        "key": "modelIncome.withdrawModal.wechat",
+        "type": "asciiFallback",
+        "sourceValue": "微信",
+        "enValue": "WeChat",
+        "currentValue": "WeChat"
+      },
+      {
+        "key": "tokenValue.tokenUnit",
+        "type": "asciiFallback",
+        "sourceValue": "Token",
+        "enValue": "Token",
+        "currentValue": "Token"
+      },
+      {
+        "key": "byokWizard.apiKeyLabel",
+        "type": "asciiFallback",
+        "sourceValue": "API Key",
+        "enValue": "API Key",
+        "currentValue": "API Key"
+      }
+    ],
+    "ko": [
+      {
+        "key": "auth.enterpriseWechat",
+        "type": "asciiFallback",
+        "sourceValue": "企业微信",
+        "enValue": "WeCom",
+        "currentValue": "WeCom"
+      },
+      {
+        "key": "auth.feishuLogin",
+        "type": "asciiFallback",
+        "sourceValue": "飞书",
+        "enValue": "Feishu",
+        "currentValue": "Feishu"
+      },
+      {
+        "key": "auth.githubLogin",
+        "type": "asciiFallback",
+        "sourceValue": "GitHub",
+        "enValue": "GitHub",
+        "currentValue": "GitHub"
+      },
+      {
+        "key": "auth.wechatLogin",
+        "type": "asciiFallback",
+        "sourceValue": "微信",
+        "enValue": "WeChat",
+        "currentValue": "WeChat"
+      },
+      {
+        "key": "common.colToken",
+        "type": "asciiFallback",
+        "sourceValue": "Token",
+        "enValue": "Token",
+        "currentValue": "Token"
+      },
+      {
+        "key": "byokWizard.apiKeyLabel",
+        "type": "asciiFallback",
+        "sourceValue": "API Key",
+        "enValue": "API Key",
+        "currentValue": "API Key"
+      }
+    ],
+    "zh-TW": [
+      {
+        "key": "auth.appLogin",
+        "type": "asciiFallback",
+        "sourceValue": "App",
+        "enValue": "App",
+        "currentValue": "App"
+      },
+      {
+        "key": "auth.githubLogin",
+        "type": "asciiFallback",
+        "sourceValue": "GitHub",
+        "enValue": "GitHub",
+        "currentValue": "GitHub"
+      },
+      {
+        "key": "common.colToken",
+        "type": "asciiFallback",
+        "sourceValue": "Token",
+        "enValue": "Token",
+        "currentValue": "Token"
+      },
+      {
+        "key": "feedback.typeBug",
+        "type": "asciiFallback",
+        "sourceValue": "Bug",
+        "enValue": "Bug",
+        "currentValue": "Bug"
+      },
+      {
+        "key": "modelPlaza.input",
+        "type": "asciiFallback",
+        "sourceValue": "Input",
+        "enValue": "Input",
+        "currentValue": "Input"
+      },
+      {
+        "key": "modelPlaza.output",
+        "type": "asciiFallback",
+        "sourceValue": "Output",
+        "enValue": "Output",
+        "currentValue": "Output"
+      },
+      {
+        "key": "tokenValue.tokenUnit",
+        "type": "asciiFallback",
+        "sourceValue": "Token",
+        "enValue": "Token",
+        "currentValue": "Token"
+      },
+      {
+        "key": "byokWizard.apiKeyLabel",
+        "type": "asciiFallback",
+        "sourceValue": "API Key",
+        "enValue": "API Key",
+        "currentValue": "API Key"
+      }
+    ]
+  },
+  "glossary": {
+    "brands": {
+      "智谱清言": "Zhipu AI",
+      "智谱清音": "Zhipu AI",
+      "百度文心": "Baidu ERNIE",
+      "宇树科技": "Unitree",
+      "火山引擎": "Volcengine",
+      "阿里云": "Alibaba Cloud",
+      "腾讯云": "Tencent Cloud",
+      "九章智算云": "JiuZhang",
+      "百度智能云": "Baidu Cloud",
+      "华为云": "Huawei Cloud",
+      "致远互联": "Seeyon",
+      "字节跳动": "ByteDance",
+      "微博": "Weibo",
+      "抖音": "Douyin",
+      "微软": "Microsoft",
+      "谷歌": "Google",
+      "亚马逊": "Amazon",
+      "苹果": "Apple",
+      "Meta": "Meta",
+      "OpenAI": "OpenAI",
+      "Anthropic": "Anthropic",
+      "DeepSeek": "DeepSeek",
+      "Moonshot": "Moonshot AI",
+      "智谱": "Zhipu AI",
+      "智汇 AI": "IHUI AI",
+      "智汇": "IHUI",
+      "商汤": "SenseTime",
+      "旷视": "Megvii",
+      "云从": "CloudWalk",
+      "依图": "Yitu",
+      "出门问问": "Mobvoi",
+      "思必驰": "AISpeech",
+      "云知声": "Unisound",
+      "捷通华声": "Hanwang",
+      "科大讯飞": "iFlytek",
+      "思岚科技": "Slamtec",
+      "优必选": "UBTECH",
+      "达闼科技": "CloudMinds",
+      "小i机器人": "Xiao-i",
+      "追一科技": "Zhuiyi",
+      "竹间智能": "Emotibot",
+      "三角兽": "SanjiaoShou",
+      "智融集团": "SmartFintech",
+      "滴滴": "DiDi",
+      "美团": "Meituan",
+      "小米": "Xiaomi",
+      "华为": "Huawei",
+      "中兴": "ZTE",
+      "联想": "Lenovo",
+      "OPPO": "OPPO",
+      "vivo": "vivo",
+      "海康威视": "Hikvision",
+      "大华": "Dahua",
+      "京东方": "BOE",
+      "比亚迪": "BYD",
+      "蔚来": "NIO",
+      "小鹏": "XPeng",
+      "理想": "Li Auto",
+      "钉钉": "DingTalk",
+      "语雀": "Yuque",
+      "飞书": "Lark",
+      "微信公众号": "WeChat Official Account",
+      "视频号": "WeChat Channels"
+    },
+    "fonts": {
+      "宋体": "SimSun",
+      "黑体": "SimHei",
+      "楷体": "KaiTi",
+      "微软雅黑": "Microsoft YaHei",
+      "仿宋": "FangSong",
+      "华文宋体": "STSong",
+      "华文黑体": "STHeiti",
+      "华文楷体": "STKaiti",
+      "华文仿宋": "STFangsong",
+      "华文中宋": "STZhongsong",
+      "华文行楷": "STXingkai",
+      "华文新魏": "STXinwei",
+      "华文彩云": "STCaiyun",
+      "华文琥珀": "STHupo",
+      "华文隶书": "STLiti",
+      "华文细黑": "STXihei",
+      "苹方": "PingFang SC",
+      "冬青黑体": "Hiragino Sans GB",
+      "思源黑体": "Source Han Sans",
+      "思源宋体": "Source Han Serif",
+      "思源等宽": "Source Han Mono"
+    },
+    "terms": {
+      "物联网": "IoT",
+      "人工智能": "AI",
+      "大模型": "LLM",
+      "机器学习": "Machine Learning",
+      "深度学习": "Deep Learning",
+      "神经网络": "Neural Network",
+      "自然语言处理": "NLP",
+      "计算机视觉": "Computer Vision",
+      "增强现实": "AR",
+      "虚拟现实": "VR",
+      "混合现实": "MR",
+      "元宇宙": "Metaverse",
+      "区块链": "Blockchain",
+      "云计算": "Cloud Computing",
+      "边缘计算": "Edge Computing",
+      "大数据": "Big Data",
+      "数据中台": "Data Middle Platform",
+      "业务中台": "Business Middle Platform"
+    }
+  },
+  "workflow": {
+    "description": "AI agent 自主翻译流水线(零 LLM API 调用,翻译能力由 AI 编程 agent 自带)",
+    "steps": [
+      "1. 读取本文件 .ihui-agent/tmp/i18n-pending.json",
+      "2. AI agent 自己翻译(结合 glossary 字段保证品牌名/术语一致)",
+      "3. 写入 .ihui-agent/tmp/i18n-translations.json,结构 { target: \"shared\", messagesDir: \"packages/i18n/messages/shared\", translations: { [lang]: { [key]: translatedValue } } } —— target/messagesDir 从本清单原样抄过去,i18n-apply 会据此拒写错端",
+      "4. 运行 node scripts/i18n-apply.mjs --target=shared 应用翻译",
+      "5. 运行 node scripts/check-i18n-keys.mjs --target=shared 验证 parity(api 端尚无该守门,详见本脚本 TARGET_CONFIG 注释)"
+    ],
+    "translationRules": [
+      "品牌名优先用 glossary.brands 中的 canonical 英文名(如 智谱清言→Zhipu AI)",
+      "字体名优先用 glossary.fonts 中的英文系统名(如 宋体→SimSun)",
+      "技术术语优先用 glossary.terms 中的英文国际通用词(如 物联网→IoT)",
+      "占位符 {var} / {{var}} 必须原样保留",
+      "zh-TW 必须用繁体字形(opencc cn→tw),禁止简体字残留",
+      "ko 禁止中文残留,ja 日文汉字词允许(如 登録/確認)",
+      "en 禁止中文残留,禁止破碎机翻英文(如 AgentDevPlatform)"
+    ]
+  }
+}
