@@ -290,10 +290,7 @@ function closureBatch() {
   return CLOSURE_BATCH
 }
 /** 这一份被审面上有没有这个路径(承载层是可选输入,存在性必须在**同一个面**上问,§0.4) */
-const faceHas = (rel) =>
-  FACE === 'worktree'
-    ? existsSync(resolve(repoRoot, rel))
-    : (FACE_BATCH.get(specOf(rel)) ?? null) !== null
+const faceHas = (rel) => (FACE === 'worktree' ? existsSync(resolve(repoRoot, rel)) : FACE_BATCH.get(specOf(rel)) !== null && FACE_BATCH.get(specOf(rel)) !== undefined)
 
 const faceListSources = (prefix) => {
   if (FACE === 'worktree') {
@@ -493,7 +490,25 @@ lines.push('}')
 lines.push('')
 
 mkdirSync(outDir, { recursive: true })
-writeFileSync(outFile, lines.join('\n'), 'utf8')
+// 2026-10-31 加写盘重试:Windows 实时扫描(Defender/索引器)会短暂独占高频重写的生成物,
+// writeFileUtf8 撞上即报 UNKNOWN(实测全量 turbo 连续三轮稳定红在同一文件;单跑又恒过 =
+// 与 build 的并行窗口相关的毫秒级瞬态锁)。重试 5 次退避 400ms,锁为毫秒级必释放。
+function writeFileWithRetry(path, data, options) {
+  let lastErr
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      writeFileSync(path, data, options)
+      return
+    } catch (err) {
+      lastErr = err
+      const code = err && typeof err === 'object' ? err.code : ''
+      if (code !== 'UNKNOWN' && code !== 'EPERM' && code !== 'EBUSY') throw err
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400)
+    }
+  }
+  throw lastErr
+}
+writeFileWithRetry(outFile, lines.join('\n'), 'utf8')
 
 // 产物③:运行时轻量清单(进主包,约 0.5KB)。与 ① 同钉,保证"缓存 key/字节校验的判据"
 // 与"离线真相"出自同一批输入 —— 两份产物任何一份单独重生成都会被 G5 钉门点名为陈旧。
