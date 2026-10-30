@@ -195,7 +195,16 @@ function setLinkHidden(link, wantHidden) {
         '-Command',
         `Get-ChildItem -LiteralPath '${dir.replace(/'/g, "''")}' -Force | Where-Object Name -eq '${name.replace(/'/g, "''")}' | ForEach-Object { $_.Attributes }`,
       ],
-      { encoding: 'utf8', windowsHide: true, timeout: 30000, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] },
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 30000,
+        /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: [
+          'ignore',
+          'pipe',
+          'pipe',
+        ],
+      },
     ).trim()
     return wantHidden ? /Hidden/i.test(listed) : !/Hidden/i.test(listed)
   } catch {
@@ -213,7 +222,16 @@ function parentListing(dir) {
       '-Command',
       `Get-ChildItem -LiteralPath '${String(dir).replace(/'/g, "''")}' -Force | ForEach-Object { "{0}={1}" -f $_.Name, $_.Attributes }`,
     ],
-    { encoding: 'utf8', windowsHide: true, timeout: 30000, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] },
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30000,
+      /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: [
+        'ignore',
+        'pipe',
+        'pipe',
+      ],
+    },
   )
 }
 
@@ -243,11 +261,21 @@ export function isHiddenInParentListing(lines, name) {
  * 这批 junction 永判 FOREIGN-LINK ⇒ 恒红 + 自愈 touch-nothing 死锁(guardian 每轮 ⚠)。
  * 现 acceptableTargets 传"新旧两根"候选,匹配任一即 SEALED;真·别处才 FOREIGN-LINK。
  */
-export function classifyEntry({ exists, isLink, linkTarget, expectedTarget, isDir, acceptableTargets }) {
+export function classifyEntry({
+  exists,
+  isLink,
+  linkTarget,
+  expectedTarget,
+  isDir,
+  acceptableTargets,
+}) {
   if (!exists) return 'MISSING'
   if (isLink) {
     if (!linkTarget) return 'UNREADABLE-LINK'
-    const candidates = [...(Array.isArray(acceptableTargets) ? acceptableTargets : []), expectedTarget].filter(Boolean)
+    const candidates = [
+      ...(Array.isArray(acceptableTargets) ? acceptableTargets : []),
+      expectedTarget,
+    ].filter(Boolean)
     if (candidates.some((c) => resolve(c) === resolve(linkTarget))) return 'SEALED'
     return 'FOREIGN-LINK'
   }
@@ -260,9 +288,15 @@ export function classifyEntry({ exists, isLink, linkTarget, expectedTarget, isDi
  *  —— 判现存 junction 是否合法,绝不往旧根新写。scratch 夹具形态与 devEnvRoot 同拒。 */
 export function devEnvTargetRoots(repoRoot = REPO) {
   if (countScratchSegments(repoRoot) > 0)
-    throw new Error(`devEnvTargetRoots 拒绝推导:仓库根在 scratch 夹具内(${repoRoot})—— 先修调用方 ROOT 推导`)
+    throw new Error(
+      `devEnvTargetRoots 拒绝推导:仓库根在 scratch 夹具内(${repoRoot})—— 先修调用方 ROOT 推导`,
+    )
   const inRepo = join(repoRoot, '.DevEnv')
   const legacy = join(parse(repoRoot).root, 'DevEnv')
+  // G-50 收口(2026-10-31):旧根已退役 —— 实体目录删除、备份卷改道 D:\DevEnv、junction 全指仓内。
+  // 旧根不存在时不再把它留在候选里:否则 acceptableTargets 永远认一个不存在的落点,
+  // "过渡双根"会变成永久双根(devenv-migrate 步骤 6 的判据正是这一格)。
+  if (!existsSync(legacy)) return [inRepo]
   return resolve(inRepo) === resolve(legacy) ? [inRepo] : [inRepo, legacy]
 }
 
@@ -458,7 +492,9 @@ export function run(opts = {}) {
   const root = opts.root ?? 'C:'
   const devEnv = opts.devEnv ?? devEnvRoot()
   const mode = opts.mode ?? 'check'
-  const sealed = SEALED_DIRS.map((e) => sealOne(e, root, devEnv, mode !== 'apply', devEnvTargetRoots()))
+  const sealed = SEALED_DIRS.map((e) =>
+    sealOne(e, root, devEnv, mode !== 'apply', devEnvTargetRoots()),
+  )
   const orphans = mode === 'apply' ? removeOrphans(root, false) : probeOrphans(root)
   const needsAction =
     sealed.some((s) => !s.ok || s.action !== 'skip') || orphans.some((o) => o.action === 'present')
@@ -522,7 +558,10 @@ function selfTest() {
         isLink: true,
         linkTarget: 'D:\\DevEnv\\Temp\\c-root-tmp',
         expectedTarget: 'D:\\IHUI-AI\\.DevEnv\\Temp\\c-root-tmp',
-        acceptableTargets: ['D:\\IHUI-AI\\.DevEnv\\Temp\\c-root-tmp', 'D:\\DevEnv\\Temp\\c-root-tmp'],
+        acceptableTargets: [
+          'D:\\IHUI-AI\\.DevEnv\\Temp\\c-root-tmp',
+          'D:\\DevEnv\\Temp\\c-root-tmp',
+        ],
         isDir: false,
       }),
       'SEALED',
