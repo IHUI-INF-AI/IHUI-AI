@@ -256,7 +256,7 @@ export async function deviceTaskComplete(
   return fetchDeviceApi<DeviceTaskRow>(
     deviceToken,
     `/api/devices/tasks/${encodeURIComponent(taskId)}/complete`,
-    { method: 'POST', body: JSON.stringify(summary != null ? { summary } : {}) },
+    { method: 'POST', body: JSON.stringify(summary !== null ? { summary } : {}) },
   )
 }
 
@@ -274,7 +274,7 @@ export async function deviceTaskFail(
       method: 'POST',
       body: JSON.stringify({
         ...(error ? { error } : {}),
-        ...(summary != null ? { summary } : {}),
+        ...(summary !== null ? { summary } : {}),
       }),
     },
   )
