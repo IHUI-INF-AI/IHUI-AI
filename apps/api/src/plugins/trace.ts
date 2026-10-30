@@ -89,6 +89,10 @@ const tracePluginInner: FastifyPluginAsync = async (server: FastifyInstance) => 
         traceId: request.trace.traceId,
         spanId: request.trace.spanId,
         endpoint: 'api',
+        // 2026-10-30 补:onError 原本只记 message,线上出现每小时 240 条
+        // "Cannot write headers after they are sent" 却无法定位是哪条请求 —— 补方法+URL。
+        method: request.method,
+        url: request.url,
         error: error.message,
       },
       'trace error',

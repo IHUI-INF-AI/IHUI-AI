@@ -96,6 +96,16 @@
 |------|------|------|----------|------------|
 | 8850 | 本地 Keycloak SSO 源站(分域 SSO:sso.aizhs.top 的隧道 ingress 指向它;刻意不用 Keycloak 默认 8543,端口铁律,2026-10-19 立) | — | `scripts/start-cloudflared-tunnel.ps1:21` ingress 注释 + Cloudflare 控制台 tunnel「ihui-local」路由(仓外,切换须三处同步,见该脚本头注) | —(第三方 IdP,非本仓 dev server) |
 
+### 2.8 号池网关单机档(88xx 铁律的**具名例外**,显式认领)
+
+| 端口 | 服务 | 端 | 配置文件 | strictPort |
+|------|------|------|----------|------------|
+| 7864 | 号池网关单机档(relay-standalone)唯一对外入口 —— 对标竞品 `workbuddy2api-panel` 的固定对外口,客户侧 `base_url` 里的端口号属**对外契约**,换口即换契约;它是部署态的宿主发布口,不是 dev/宿主开发映射口(容器内部仍监听 web 8801 / api 8802,88xx 段内语义未被侵占) | deploy/relay-standalone | `deploy/relay-standalone/docker-compose.yml` 的 `gateway.ports: '${RELAY_STANDALONE_PORT:-7864}:7864'`,同文件的 `healthz` 探针与 `CORS_ORIGIN` 默认值也都钉在这个口上 | ✅(容器内 nginx 固定 7864,单一入口) |
+
+**为什么是"认领"而不是"豁免"**:这一条与 §2.6 同一口径 —— 走「注册表 `registered_ports` + 本节表格 + 同笔更新」的双向对账,而**不进** `scripts/check-port-registry.mjs` 的 `EXEMPT_PORTS`;后者的射程是整段,等于给 78xx/88xx 全段开一张全仓通行证,以后谁在这些口上起服务都不会被拦。
+
+**双向锚点(改一处必须同笔改另一处)**:若该档改挂统一入口、撤掉独立发布口,必须**同笔**删掉 `scripts/dev-port-registry.json` 里 `port: 7864` 那一条与本节这一行 —— 只删一侧会让 P1 双向对账当场点名(文档多报 / 注册表多认领)。
+
 ---
 
 ## 3. 端口分配规则(强制)

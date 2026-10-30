@@ -61,6 +61,12 @@ export { MoreLink } from '../../../../packages/app/src/components/MoreLink'
 // 替身必须镜像真实导出面,否则渲染到即 "Element type is invalid: got: undefined"。
 export { SectionHeader } from '../../../../packages/app/src/components/SectionHeader'
 export type { SectionHeaderProps } from '../../../../packages/app/src/components/SectionHeader'
+// 2026-10-30(票 L30756):回屏/回前台重取收口到共享层后,`useRefreshOnFocus` 薄壳从本包入口取
+// `useScreenReappear`。替身若漏这条出口,薄壳拿到 undefined ⇒ 20 枚消费屏挂载即崩。照上方
+// MoreLink/SectionHeader 同一条纪律:替身镜像真实导出面;但这一条**直连真源码**——它是纯 React
+// hook(零平台依赖),替身化等于把被测语义换成假货。
+export { useScreenReappear } from '../../../../packages/app/src/hooks/use-screen-reappear'
+export type { ScreenReappearAdapter } from '../../../../packages/app/src/hooks/use-screen-reappear'
 export { OrderScreen } from '../../../../packages/app/src/features/order/OrderScreen'
 export { PaymentScreen } from '../../../../packages/app/src/features/payment/PaymentScreen'
 export { WalletScreen } from '../../../../packages/app/src/features/wallet/WalletScreen'
