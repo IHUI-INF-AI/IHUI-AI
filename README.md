@@ -106,28 +106,28 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 612 | `dbTables` |
-| schema 文件 | 237 | `dbSchemaFiles` |
-| API 路由 | 4616 | `apiRoutes` |
-| 路由文件 | 651 | `apiRouteFiles` |
-| AI 服务路由 | 613 | `aiServiceRoutes` |
+| 数据库表 | 617 | `dbTables` |
+| schema 文件 | 240 | `dbSchemaFiles` |
+| API 路由 | 4653 | `apiRoutes` |
+| 路由文件 | 656 | `apiRouteFiles` |
+| AI 服务路由 | 624 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 67 | `cliCommandFiles` |
-| CLI 工具文件 | 72 | `cliToolFiles` |
+| CLI 命令文件 | 68 | `cliCommandFiles` |
+| CLI 工具文件 | 73 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3607 | `testFiles` |
-| CI 工作流 | 50 | `ciWorkflows` |
+| 测试文件 | 3694 | `testFiles` |
+| CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 299 | `guardianGates` |
-| — blocking | 273 | `guardianBlocking` |
+| 工程守门 | 305 | `guardianGates` |
+| — blocking | 279 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 17728 | `trackedFiles` |
+| 跟踪文件 | 18165 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-30。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -892,6 +892,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 ### 💬 对话体验(Web 端王牌)
 - **全局 docked AI 面板**:任意页面右侧常驻对话,不占独立路由,深链可分享
 - **丝滑流式**:SSE + 断点续传 · 消息排队 · Steer 中途引导(对标 Codex / Cursor)
+- **预测式编辑(对标 Trae CUE)**:编辑意图预测器(服务端三态 suggested/no_action/undetermined + 结构化动作 + 重叠区间冲突与锚点内容比对)· 聊天输入区与编辑器内建议条双场景 · 逐条勾选选择性应用 + 悬停区间预览 · 接受率按 model×scene 分桶看板
 - **富渲染**:流式 Markdown + KaTeX 公式 + Mermaid 图 + 代码高亮 + 可运行代码块 + Artifact 画布
 - **多模型工作台**:模型选择(按厂商分组 + 自动档)· 推理强度 · 采样参数 · 发送前成本预估
 - **工具可见可控**:工具调用可视化(实时耗时 / 来源徽章)· 人工审批闸门 · 代码 diff 单文件 / 批量审批
@@ -5565,6 +5566,16 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-31**
+- 🚀 新功能/改进:预测式编辑建议条五语词表(编辑器场景 CUE 对齐批次) (9c9e338469)
+- ♻️ 重构:门户维收敛候选集编排抽成纯函数,段级族可被构造面钉住 (182440479b)
+- 🔧 工程/其他:派生产物按最新 HEAD 面重生成 —— 补 webViewPortal.artifacts 词条,离线包与两枚路由钉同步 (bdd9129d40)
+- 🐞 修复:qoder 导入补齐会话模板 —— 模板此前在导入面被静默丢弃,池票永远 tpl=NULL (185987e308)
+- 🐞 修复:rn-compat 图标出口按 HEAD 面重生成 —— 补 ListTodo/MonitorSmartphone 两枚,门 251 C2 缺口清零 (16124c3b04)
+- 🐞 修复:清偿门 39 三条 HEAD 存量红(0e875130c0 旁路落地带回的未迁移形态) (577b3364ac)
+- 🚀 新功能/改进:web→RN 对齐链最后一枚缺口 artifacts 清零 —— 产物中心进 web-portal 门户(两端 WebView 承载, sso cookie 链路) (6ff6f36887)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b88b1080c5)
+
 **2026-10-30**
 - 🐞 修复:registry-sync 批量失败时把真实错误写进 sync_log —— 门 47 现在只报得出条数 (a3d7f7f2bf)
 - 🔧 工程/其他:归档件补溯源水印 —— 销 10-29 归档留下的 HEAD 面欠账(门 47 复跑点名) (d05bdf123d)
@@ -5778,25 +5789,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:工具摘要三档维度五语言词包(directories/edits/terminalCommands) (1dfe9bb132)
 - 🚀 新功能/改进:活动级几何虚拟化 + 工具摘要三档维度补齐 (80d97436e2)
 - 🚀 新功能/改进:轮次呈现投影层建立并装车 —— 消灭「造好没装车」 (1f3e7bd27b)
-
-**2026-10-29**
-- 🐞 修复:「我的」页菜单「会员中心」撞名 + 抽屉键错位 + 底部条目被淡出遮罩压暗 (3ac7b5859b)
-- 🐞 修复:增强跨端无硬边淡出遮罩强度 (dd34b4bbfa)
-- 🐞 修复:屏幕侧配对前景键词序写反 —— filterChip/chip/tab 三键按样式工厂约定回正 (876c4cb418)
-- 🚀 新功能/改进:D05设计稿落地现状对齐 + 清偿器补守门130落地前自查(F4/F4b/F9三维,g30 s9/s2) (316beddb12)
-- 🔧 工程/其他:登记会话导出件族豁免 —— 门 47 缺口归零 (599baad8fa)
-- 🐞 修复:补回富文本锚点 link 族的 <a href> 渲染 —— 事故提交 9fdbc207ba 把 renderLink 当残留删掉导致 role=link 全失效 (8fa512f9bb)
-- 🐞 修复:修复 spacing 受管块压塌全站 max-w 命名档 —— AI 面板 32px 塌缩回归 (4394b6b490)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (20dc73c828)
-- 🔧 工程/其他:goal-b25 结清四票并补 G-07 进展注记 —— 门8未判定桶/F9判据/基线差值矛盾/滞台副本末枚 (427938a586)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3355d2fb25)
-- 🐞 修复:智汇AI 首页移除与 AI 应用商店重复的四块内容 (f571b65018)
-- 🐞 修复:结清 L28260 api-client 假绿灯票——判死现读 0,清账链 bd5ce8a101 已在 HEAD (a781529720)
-- 🐞 修复:部署环 ff 竞态锁正则跟上实现演进 + 门 11h 评分星补实心填充 + 水印复注 (2c6838d169)
-- 🐞 修复:结清三票(G-109四格全闭合/G-924死键已清零/G-689 stderr尾缓冲已装车) (5d9d115a2f)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3e240a1407)
-- 🐞 修复:结清两枚前提腐烂票(dot-source传递闭包3d31e4c499已装车/六屏下沉411646ee58等已全量) (13c1bdaec1)
-- 🐞 修复:结清 L5646 门116型B行——前提已腐烂(该文件裸git派生实测0,清偿枚949195bcb5早已是祖先) (b8ede2328e)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
