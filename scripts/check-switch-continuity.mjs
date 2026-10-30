@@ -20,7 +20,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as C from './lib/switch-continuity-check.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const STATE_DIR = path.join(HERE, '.ihui-agent', 'state', 'switch-continuity')
+// 状态落点 = 仓根 .ihui-agent/state/(§15 唯一落点)。此前是 HERE 少一层 `..` ⇒ 快照写进
+// scripts/.ihui-agent/ 里(2026-10-30 实测 12 枚),既不在 gitignore 的唯一状态目录下,也不被任何
+// 巡检看见。ROOT 一律按脚本自身位置推导,不用 process.cwd()(共享工作区 cwd 不可靠)。
+const STATE_DIR = path.join(HERE, '..', '.ihui-agent', 'state', 'switch-continuity')
 
 const USAGE =
   '用法:\n' +
