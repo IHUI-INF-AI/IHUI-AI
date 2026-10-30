@@ -583,6 +583,9 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 不带任何归属过滤、remove_task 也无归属校验 ⇒ 放给 role 0 就是跨用户枚举 + 任意撤销,
     # 与 schedule_task 已限定 admin 的口径不一致即漏洞(defense-in-depth,同 screenshot_url)。
     "list_scheduled_tasks", "cancel_scheduled_task",
+    # 2026-10-31:延迟唤醒同档。add_task 无归属校验、任务记录无归属字段,
+    # 与 schedule_task/list/cancel 口径不一致即漏洞(defense-in-depth)。
+    "schedule_wakeup",
 }
 
 # agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
@@ -8853,6 +8856,93 @@ async def _tool_cancel_scheduled_task(arguments: dict[str, Any]) -> dict[str, An
     }
 
 
+async def _tool_schedule_wakeup(arguments: dict[str, Any]) -> dict[str, Any]:
+    """schedule_wakeup: 延迟唤醒(对标 Codex ScheduleWakeup 的"稍后叫我")。
+
+    定时工具面此前只有建/查/撤三动词,模型没有"过 N 秒再跑一次"的最小表达;
+    本工具就是 schedule_task(once) 的一格特化:入参只有 delay_seconds + prompt。
+
+    调度参数与派发回调一律经 `_build_scheduler_params` 构造(schedule="once" → date 触发 +
+    与 schedule_task 同一 callback),本层不另写一份判据 —— 第二份必然与 schedule_task 漂移。
+    """
+    import uuid
+    from datetime import UTC, datetime, timedelta
+
+    prompt = str(arguments.get("prompt") or "").strip()
+    if not prompt:
+        return {
+            "tool": "schedule_wakeup", "ok": False,
+            "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
+        }
+
+    raw_delay = arguments.get("delay_seconds")
+    delay_seconds: int | None = None
+    # bool 是 int 子类:int(True) == 1 会把"任意真值"静默读成 1 秒后,先排除;
+    # 非整数(float/数字串带小数)落地成整数等于静默改参,同样按非法处理。
+    if raw_delay is not None and not isinstance(raw_delay, bool):
+        try:
+            delay_seconds = int(raw_delay)
+        except (TypeError, ValueError):
+            delay_seconds = None
+        if delay_seconds is not None:
+            try:
+                if float(raw_delay) != delay_seconds:
+                    delay_seconds = None
+            except (TypeError, ValueError, OverflowError):
+                delay_seconds = None
+    if delay_seconds is None or delay_seconds <= 0:
+        return {
+            "tool": "schedule_wakeup", "ok": False,
+            "error": "delay_seconds 必须为正整数(秒)", "errorCode": "INVALID_PARAMS",
+        }
+
+    task_id = uuid.uuid4().hex
+    name = str(arguments.get("name") or f"wakeup-{task_id}")
+    wake_at = (datetime.now(UTC) + timedelta(seconds=delay_seconds)).isoformat()
+    # 只填 _build_scheduler_params 认的字段(schedule/run_at/prompt/task_id/webhook_url 留空
+    # ⇒ 走 mcp_tool 回调),调度判据全在它那里。
+    task: dict[str, Any] = {
+        "task_id": task_id, "name": name, "prompt": prompt,
+        "schedule": "once", "run_at": wake_at, "webhook_url": "",
+    }
+    try:
+        trigger_type, trigger_config, callback = _build_scheduler_params(task)
+        from app.services.scheduler_service import task_scheduler
+
+        # conversation_id 与 schedule_task 同口径(2026-10-31):承载层注入的 __session_id
+        # 优先,无会话上下文(内部直调)才退回任务名。
+        sched_result = await task_scheduler.add_task(
+            task_id, trigger_type, trigger_config, callback,
+            conversation_id=str(arguments.get("__session_id") or name),
+        )
+    except Exception as e:
+        logger.warning("[schedule_wakeup] 注册到 task_scheduler 失败(task_id=%s): %s", task_id, e)
+        return {
+            "tool": "schedule_wakeup", "ok": False, "errorCode": "SCHEDULER_ERROR",
+            "task_id": task_id, "wake_at": wake_at,
+            "message": f"延迟唤醒注册失败: {e}",
+        }
+    if not sched_result.get("ok", True):
+        return {
+            "tool": "schedule_wakeup", "ok": False,
+            "errorCode": str(sched_result.get("errorCode") or "SCHEDULER_ERROR"),
+            "task_id": task_id, "wake_at": wake_at,
+            "message": str(sched_result.get("message") or "延迟唤醒注册被调度器拒绝"),
+        }
+
+    result: dict[str, Any] = {
+        "tool": "schedule_wakeup", "ok": True, "task_id": task_id,
+        "name": name, "delay_seconds": delay_seconds, "wake_at": wake_at,
+        "message": f"已安排在 {wake_at} 唤醒(delay_seconds={delay_seconds})",
+    }
+    # 调度器回填的真实 next_run_at 优先;stub 模式(未配 redis_url)没有真实 job,如实透出
+    if sched_result.get("next_run_at"):
+        result["next_run_at"] = sched_result["next_run_at"]
+    if sched_result.get("stub"):
+        result["stub"] = True
+    return result
+
+
 async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any]:
     """proactive_suggestion: 基于当前会话上下文主动建议后续工作(对标 Codex Proactive work proposals)。
 
@@ -10491,6 +10581,27 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="schedule_wakeup",
+        description=(
+            "延迟唤醒:delay_seconds 秒后把 prompt 再跑一次(对标 Codex ScheduleWakeup)。"
+            "落地为 task_scheduler 的 date 触发,回调与 schedule_task 同一个派发形态。"
+            "admin 专属工具:底层 add_task 无归属校验,与 schedule_task 同档。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "delay_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "延迟秒数(必填,正整数)",
+                },
+                "prompt": {"type": "string", "description": "到点后执行的提示词(必填)"},
+                "name": {"type": "string", "description": "任务名(可选,缺省 wakeup-<task_id>)"},
+            },
+            "required": ["delay_seconds", "prompt"],
+        },
+    ),
+    MCPTool(
         name="proactive_suggestion",
         description=(
             "基于当前会话上下文,主动建议后续工作(follow_up/refactor/test/improve/explore)。"
@@ -11723,6 +11834,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # 放给 role 0 = 跨用户枚举 + 任意撤销,比"看不见"更糟。
     "list_scheduled_tasks": _tool_list_scheduled_tasks,
     "cancel_scheduled_task": _tool_cancel_scheduled_task,
+    "schedule_wakeup": _tool_schedule_wakeup,
+    # 延迟唤醒(2026-10-31):定时面第四个动词"稍后叫我";入参只有 delay_seconds + prompt,
+    # 调度判据仍走 _build_scheduler_params 单源,不另写一份。
     "proactive_suggestion": _tool_proactive_suggestion,
     # ===== P0 新增工具(2026-09-01,竞品对标:图表生成 + 文档解析)=====
     "generate_chart": _generate_chart,
