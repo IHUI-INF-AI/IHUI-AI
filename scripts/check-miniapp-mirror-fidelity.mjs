@@ -137,6 +137,28 @@ export function batchReadTexts(face, rels) {
 }
 
 /**
+ * 页面拆分子模块时,文案消费落在同目录 `./xxx` 模块里(实测 conversation-import 拆了
+ * parts/analysis/core/transport 四个,16 个真实消费的键全在 parts 里) ⇒ 载体面必须含它们。
+ * 只认 `./` 且不越目录:`../` 一律不取 —— 父目录/兄弟页不是本页的载体,取了会把别人的键
+ * 算成本页已还原(那是"多放",失效方向与 §0.10 相反)。扩展名按 TS 工程惯例补候选。
+ */
+export function localModuleRels(pageRel, pageText) {
+  const rel = String(pageRel || '').replace(/\\/g, '/')
+  const slash = rel.lastIndexOf('/')
+  if (slash < 0) return []
+  const dir = rel.slice(0, slash)
+  const out = new Set()
+  for (const m of String(pageText || '').matchAll(/from\s+['"](\.\/[^'"]+)['"]/g)) {
+    const spec = m[1]
+    if (spec.includes('../')) continue
+    const base = spec.replace(/^\.\//, '')
+    if (/\.(tsx?|jsx?)$/.test(base)) out.add(`${dir}/${base}`)
+    else for (const ext of ['.tsx', '.ts', '/index.tsx', '/index.ts']) out.add(`${dir}/${base}${ext}`)
+  }
+  return [...out]
+}
+
+/**
  * 通道 ②:键表数组里声明的键。命中 0 是合法的(人工改写后的页没有这些块),
  * 所以**不做「取不到即未判定」**——它不是必选输入,是并集的一条腿。
  */
@@ -277,6 +299,14 @@ export function computeFidelity(face) {
     shared.map((s) => s.spec).filter((spec) => paired.has(spec)),
   )
 
+  // 手写页拆子模块时,文案消费散在同目录 ./xxx 里 ⇒ 同面批取一次,按页拼回载体面。
+  const moduleTexts = batchReadTexts(
+    face,
+    [...new Set(miniapp.flatMap((p) => (p.file ? localModuleRels(p.file, p.text) : [])))],
+  )
+  const localModulesOf = (p) =>
+    (p.file ? localModuleRels(p.file, p.text) : []).map((r) => moduleTexts.get(r) || '').join('\n')
+
   // 壳承载要判「@rn-shells/<X> 指过去的那个壳在不在面上、引的是不是这一屏」⇒ 一次批取全部壳正文
   // (同名壳文件逐枚 faceRead 会把本门推到分钟级,慢到没人日常跑 = 等于没装车)。
   const shellRels = [
@@ -319,7 +349,9 @@ export function computeFidelity(face) {
       if (!p.file) continue
       if (!mirroredSpecs(p).has(s.spec)) continue
       const { form, why } = hostingFormOf({ spec: s.spec, pageText: p.text, readShell })
-      const mpKeys = consumedKeys(`${p.text || ''}\n${p.cssText || ''}`)
+      const mpKeys = consumedKeys(
+        `${p.text || ''}\n${p.cssText || ''}\n${localModulesOf(p)}`,
+      )
       // 承载页的文案由共享源本体渲染 ⇒ 无键可缺;断链/手写页照旧逐键数,一分不宽。
       const missing = form === 'hosted' ? [] : sharedKeys.filter((k) => !mpKeys.has(k))
       const gap = packNamespaceGap({ usedKeys: sharedKeys, available: packAvailable })
@@ -583,6 +615,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   batchReadTexts,
+  localModuleRels,
   extractDeclaredKeys,
   isBusinessKey,
   businessKeys,
