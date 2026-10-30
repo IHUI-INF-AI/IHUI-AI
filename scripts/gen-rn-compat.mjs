@@ -292,6 +292,122 @@ export function buildRouteMapFromText(nav, registryEntries) {
   return { map, unmapped, unbound, rnCollisions, total: compToFile.size }
 }
 
+/**
+ * 盘上生成物是否已覆盖现读映射 —— **键在册 ∧ 该键指向逐字相等**,两条缺一不可。
+ *
+ * 为什么不能只比键名(2026-10-30 实测的"绿灯即缺陷"):登记表回正 `CourseMain`/`NewsCategory`/
+ * `Assistant` 三条的 miniapp 指向后,键名一条没变,于是旧判据自报「✓ 路由映射无变化(盘上已覆盖
+ * 现读 257 条)」并**拒绝写盘** —— 盘上/HEAD 那三条仍是旧指向。`--write` 是门 251 C3 点名的修复
+ * 出口,出口安静不干活就是 §0.8 禁止的"文档写了跑不通的出路"。
+ * 形态尺子与落盘终态一致:`renderRouteMap` 写双引号,过 prettier 后是裸键 + 单引号值,三种写法都收。
+ * 盘上取到 0 条 ⇒ false(读不到不冒充"已覆盖",与 §0.3 同向)。
+ */
+export function routeMapCovers(entries, diskText) {
+  if (!diskText || diskText.length === 0) return false
+  const onDisk = new Map(
+    [
+      ...diskText.matchAll(/^\s*(?:["']([A-Za-z0-9_]+)["']|([A-Za-z0-9_]+)):\s*["']([^"']+)["']/gm),
+    ].map((m) => [m[1] ?? m[2], m[3]]),
+  )
+  if (onDisk.size === 0) return false
+  return [...entries].every(([k, v]) => onDisk.get(k) === v)
+}
+
+/**
+ * 图标表的幂等判据 —— 与 routeMapCovers 同一把尺:**名在册 ∧ 该名的 SVG 取值逐字相等**。
+ *
+ * 为什么不能只比名(2026-10-30 审计确证):产物 `icons-generated.tsx` 的 `const S` 里，每个名字的**值是
+ * 现算的 SVG data URI**;lucide 升版或某个图标的路径改动时，名字集合一条不变 ⇒ 旧判据打「✓ 图标无变化」
+ * 并拒绝写盘，端上继续用旧字形而没有任何一门看得见(门 251 C2 也只比名)。与路由腿那一枚同型，
+ * 所以两腿共用同一形态：解码后比值，不比字节。
+ * 值两侧都先**解码**再比：`buildTable` 出 JSON 双引号形态，prettier 归一后可能是单引号形态，
+ * 拿字面串直接比会把同一内容读成"有变化"(每轮都重写 = 改动面被噪声长期占用)。
+ * 盘上取到 0 条 ⇒ false(读不到不冒充"已覆盖",§0.3)。
+ */
+export function iconTableCovers(rows, diskText) {
+  if (!diskText || diskText.length === 0) return false
+  const disk = parseIconTable(diskText)
+  if (disk.size === 0) return false
+  return rows.every((r) => {
+    const m = /^  (?:'([A-Za-z0-9_]+)'|"([A-Za-z0-9_]+)"|([A-Za-z0-9_]+)):\s*(.+?),\s*$/.exec(r)
+    if (!m) return false
+    return disk.get(m[1] ?? m[2] ?? m[3]) === decodeJsString(stripQuotes(m[4]))
+  })
+}
+
+/**
+ * 扫 `const S = { … }` 块，按**转义感知**逐条取 `键 → 解码后的值`。
+ *
+ * 为什么不能用正则按行切：prettier 会把长值折到键的下一行（实测产物里 `Activity:` 与它的
+ * SVG 串分处两行），单行正则要么漏条、要么把值截断 ⇒ 判据假阴性 ⇒ 每轮白重写一次；
+ * 而值里本身含逗号（`data:image/svg+xml,…`），按逗号切同样不成立。
+ */
+function parseIconTable(text) {
+  const out = new Map()
+  const start = text.indexOf('const S')
+  if (start < 0) return out
+  let i = text.indexOf('{', start)
+  if (i < 0) return out
+  const isId = (c) => c !== undefined && /[A-Za-z0-9_]/.test(c)
+  const skipWs = () => {
+    while (i < text.length && /\s/.test(text[i])) i++
+  }
+  i++
+  while (i < text.length) {
+    while (i < text.length && /[\s,]/.test(text[i])) i++
+    if (i >= text.length || text[i] === '}') break
+    let key = ''
+    if (text[i] === "'" || text[i] === '"') {
+      const q = text[i++]
+      while (i < text.length && text[i] !== q) key += text[i++]
+      i++
+    } else {
+      while (isId(text[i])) key += text[i++]
+    }
+    skipWs()
+    if (text[i] !== ':') break
+    i++
+    skipWs()
+    const q = text[i]
+    if (q !== "'" && q !== '"') break
+    i++
+    let raw = ''
+    while (i < text.length) {
+      const c = text[i]
+      if (c === '\\') {
+        raw += c + (text[i + 1] ?? '')
+        i += 2
+        continue
+      }
+      if (c === q) {
+        i++
+        break
+      }
+      raw += c
+      i++
+    }
+    out.set(key, decodeJsString(raw))
+  }
+  return out
+}
+
+/** 去掉一层外层引号（值字面量两侧的 `'`/`"`），保留内部转义交给 decodeJsString。 */
+function stripQuotes(s) {
+  const t = s.trim()
+  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+    return t.slice(1, -1)
+  }
+  return t
+}
+
+/** 解 JS 字符串转义里会真实出现的几种；`\uXXXX` 一并还原，其余原样保留（宁可判"有变化"也不误判相等）。 */
+function decodeJsString(raw) {
+  return raw.replace(/\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)/g, (_, e) => {
+    if (e[0] === 'u' || e[0] === 'x') return String.fromCharCode(parseInt(e.slice(1), 16))
+    return { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v', 0: '\0' }[e] ?? e
+  })
+}
+
 function renderRouteMap(map) {
   const lines = [...map.entries()]
     .sort()
@@ -455,20 +571,8 @@ async function main() {
 
   // 幂等判据取**语义档**(名字集合/映射键集合),不取字节:落盘内容会先过 prettier 再注水印,
   // 拿未格式化的稿与盘上副本比字节必然永不相等 ⇒ 每轮都"有变化",改动面被无意义的重写长期占用。
-  const iconNamesNew = rows.map((r) => /^  '?([A-Za-z0-9]+)'?:/.exec(r)?.[1]).filter(Boolean)
-  const iconNamesOnDisk = [...current.matchAll(/^export const ([A-Za-z0-9]+) =/gm)].map((m) => m[1])
-  const iconsAlreadyCovered =
-    current.length > 0 &&
-    iconNamesOnDisk.length >= iconNamesNew.length &&
-    iconNamesNew.every((n) => iconNamesOnDisk.includes(n))
-  const routeKeysNew = [...routeInfo.map.keys()]
-  const routeKeysOnDisk = [
-    ...routeCurrent.matchAll(/^\s*(?:'([A-Za-z0-9]+)'|([A-Za-z0-9]+)):\s*'/gm),
-  ].map((m) => m[1] ?? m[2])
-  const routesAlreadyCovered =
-    routeCurrent.length > 0 &&
-    routeKeysOnDisk.length >= routeKeysNew.length &&
-    routeKeysNew.every((k) => routeKeysOnDisk.includes(k))
+  const iconsAlreadyCovered = iconTableCovers(rows, current)
+  const routesAlreadyCovered = routeMapCovers([...routeInfo.map.entries()], routeCurrent)
   console.log(
     `路由名映射:${routeInfo.map.size} 条在册 / 映射不到 ${routeInfo.unmapped.length} 条(运行时点名)/ 导航器壳文件 ${routeInfo.total} 个` +
       // 第三种形态必须单独出声:组件名在两种 import 里都找不到 = 解析面不够(尺子瞎),
@@ -500,7 +604,7 @@ async function main() {
      * 也不截目标;退避用层里那一份,本文件不再写第二个重试器(§0.6)。
      */
     if (iconsAlreadyCovered)
-      console.log(`✓ 图标无变化(盘上生成物已覆盖现读全集 ${iconNamesNew.length} 名)`)
+      console.log(`✓ 图标无变化(盘上生成物已逐名覆盖现读全集 ${rows.length} 名,含 SVG 取值)`)
     else {
       atomicWriteFileSync(outPath, next, { encoding: 'utf8' })
       await formatWithPrettier(OUT_REL)
@@ -508,7 +612,7 @@ async function main() {
       console.log(`✓ 已写 ${OUT_REL}(${rows.length} 个图标,已按仓库 prettier 配置归一并注入水印)`)
     }
     if (routesAlreadyCovered)
-      console.log(`✓ 路由映射无变化(盘上已覆盖现读 ${routeKeysNew.length} 条)`)
+      console.log(`✓ 路由映射无变化(盘上已逐键覆盖现读 ${routeInfo.map.size} 条,含指向)`)
     else {
       atomicWriteFileSync(routeOut, routeNext, { encoding: 'utf8' })
       await formatWithPrettier(ROUTE_OUT_REL)
@@ -534,6 +638,9 @@ export const __test__ = {
   collectIconNames,
   buildTable,
   renderSource,
+  renderRouteMap,
+  routeMapCovers,
+  iconTableCovers,
   OUT_REL,
   ROUTE_OUT_REL,
   // 供镜像测试打真出口(§22c:测试 import 源脚本,禁复制注入逻辑)

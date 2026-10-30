@@ -6389,6 +6389,46 @@ const checks = [
       '     禁止为消红把工厂标 partial(加 spread)或把消费面改成本地 StyleSheet 定义 —— 那是把尺子锯短(§12e)。',
     ],
   },
+  // --- 根护栏清单 ↔ 被审面内容对账(1 项,blocking)(2026-10-30 立)---
+  {
+    // 编号 267:注册前已核本文件 `id: '267'` 为 0;现值以本文件为准。
+    // 立因(一夜复发两次的同一型):有人改了 scripts/guardian-runner.mjs 入库却没同批重封清单,
+    // 于是「清单绑旧值 ↔ 规则文件已是新值」进了 HEAD —— 三处签出(本机/生产/远端)的 root-guard
+    // --check 全判红、部署环每轮 fail-closed 连 fetch 都走不到。器物只在运行时喊「请人工复核」,
+    // 提交链上零门拦「这枚提交把不一致写进了仓库」⇒ 只能靠人记得。本门把这条判据从运行时搬进提交口。
+    id: '267',
+    label:
+      '🧯 根护栏清单 ↔ 被审面内容对账(warn 档起步;治"改了规则文件没同批重封清单 ⇒ 部署环在所有签出 fail-closed" —— 判据与取值一律走 root-guard 那一份 hashTarget,本门零自写尺子)',
+    script: 'check-root-guard-consistency.mjs',
+    // args 刻意留空:--staged 由 runner 在 staged 模式统一追加(写死会让全量审计也只判索引面,
+    // 而本门要守的恰是「HEAD 里那份清单与 HEAD 里那份规则文件是否同源」)。
+    args: [],
+    // 档位沿革:2026-10-30 立档当天先挂 warn —— 当时 AGENTS.md 铁律段被多席分钟级重写,
+    // 同一时刻 HEAD/索引/磁盘可以是三个不同值,挂 blocking 就是恒红门(§0.2/§12e)。
+    // 同日升 blocking 的依据:本批把清单按 **HEAD 面**重封到与 AGENTS 一致(值由 hashTarget 现算,
+    // 非手填),自洽成为常态;此后「改 AGENTS/改 runner 不重封」在提交口即被拦,修法一条命令。
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ROOT_GUARD_CONSISTENCY',
+    // 射程 = 清单本体 + 清单登记的每一个 target + 门体自身:漏一个就等于给那一路开后门。
+    stagedTriggers: [
+      'scripts/data/root-guard-manifest.json',
+      'scripts/guardian-runner.mjs',
+      'scripts/lib/judgement-libs.json',
+      'AGENTS.md',
+      'scripts/check-root-guard-consistency.mjs',
+      'scripts/root-guard.mjs',
+    ],
+    onFailHint: [
+      '  💡 红的意思是:清单里某个 target 的 sha256 与被审面对不上 ⇒ 合并后 root-guard --check 必红、部署环 fail-closed。',
+      '     ① 先看是不是你要交的改动:node scripts/check-root-guard-consistency.mjs --staged;',
+      '     ② 复核被审面那处改动(不是"有人改了规则",常见成因是清单落后于已入库内容):',
+      '        git show HEAD:scripts/data/root-guard-manifest.json 对比 git show HEAD:<target path>;',
+      '     ③ 修法唯一:node scripts/root-guard.mjs --seal --reason "<写清这次为什么重封>"',
+      '        **并把清单与被改的规则文件同枚提交并推送** —— 只 seal 不提交 = 下一次还是红的(本机 2026-10-29 实测);',
+      '     禁止为消红去手改清单里的 sha256 数字(那是伪造凭据:账面绿而内容仍不一致),',
+      '     也不要去 --unlock 挂长期豁免(§0.7 豁免必须验过才免且会到期)。',
+    ],
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===

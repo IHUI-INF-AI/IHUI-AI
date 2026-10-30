@@ -92,8 +92,8 @@ const SUPPLY_FACE = [
   {
     key: 'E2E_USER_PASSWORD',
     tier: 'leg-user',
-    repoDefault: '(fixtures.ts 内的仓内字面量,本脚本不复述)',
-    note: '普通用户腿;requireEnv 只管 admin 那一键',
+    repoDefault: '(无,env-only)',
+    note: '普通用户腿;2026-10-30 起 fixtures/seed 也走 env-only(此前仓内公开字面量已清除)',
   },
   {
     key: 'PLAYWRIGHT_BASE_URL',
@@ -226,9 +226,7 @@ export function parseArgs(argv) {
   opts.pwArgs = split >= 0 ? rest.slice(split + 1) : []
   // `--` 之前的未知旗标一律点名(静默吞掉会让人以为自己在带条件跑,实际跑的是裸档)。
   // 比旗标名时先剥 `=值`,否则 `--base-url=…` 会被自己的闸误报成未知旗标。
-  opts.unknown = head.filter(
-    (a) => a.startsWith('--') && !KNOWN.has(a.split('=')[0]) && a !== '--',
-  )
+  opts.unknown = head.filter((a) => a.startsWith('--') && !KNOWN.has(a.split('=')[0]) && a !== '--')
   return opts
 }
 
@@ -247,9 +245,7 @@ export function buildChildEnv(env, fileValues, baseUrl) {
 }
 
 function printSupplyFace(env, file, fileValues, baseUrl) {
-  console.log(
-    `本机 e2e 最小供给面(文件:${SUPPLY_FILE} ${file.exists ? '在盘' : '不存在'})`,
-  )
+  console.log(`本机 e2e 最小供给面(文件:${SUPPLY_FILE} ${file.exists ? '在盘' : '不存在'})`)
   console.log('  tier         key                        取值出处                 现值')
   for (const spec of SUPPLY_FACE) {
     const r = resolveValue(spec.key, env, fileValues)
@@ -267,7 +263,9 @@ function printSupplyFace(env, file, fileValues, baseUrl) {
       `\n  ✗ ${m.key} 无供给 ⇒ 凡 import './fixtures' 的 spec 模块加载即抛(不是产品红,是缺键)。`,
     )
     console.log(`    出路二选一:① 命令行显式给 ${m.key}=<测试专用口令> 再跑本脚本;`)
-    console.log(`    ② 生成一份只对本机隔离库有效的口令并 seed:--provision-admin(需 E2E_DATABASE_URL)。`)
+    console.log(
+      `    ② 生成一份只对本机隔离库有效的口令并 seed:--provision-admin(需 E2E_DATABASE_URL)。`,
+    )
   }
   if (baseUrl) {
     console.log(`\n  web 供给面:${baseUrl}`)
@@ -284,26 +282,28 @@ async function modeCheck(env, opts) {
       p.state === 'answered'
         ? `  web 探活:HTTP ${p.status} ⇒ 该端口的服务在应答(不保证是本席所起;别席服务 ⇒ 失败不可归因)`
         : `  web 探活:不可达(${p.why}) ⇒ 先起本席 web,例:` +
-          ` IHUI_DEV_PORT=<本席端口> IHUI_BUILD_DIST=.next-e2e-<本席短名> node scripts/dev-with-warmup.mjs --no-backend`,
+            ` IHUI_DEV_PORT=<本席端口> IHUI_BUILD_DIST=.next-e2e-<本席短名> node scripts/dev-with-warmup.mjs --no-backend`,
     )
   } else {
     console.log('\n  ℹ --base-url 未给 ⇒ web 可达性**未判定**(不猜端口归属)。')
   }
   const cli = resolvePlaywrightCli()
-  console.log(
-    cli.ok ? `  playwright CLI:${cli.cli}` : `  playwright CLI:未判定(${cli.why})`,
-  )
+  console.log(cli.ok ? `  playwright CLI:${cli.cli}` : `  playwright CLI:未判定(${cli.why})`)
   if (!cli.ok) return 2
   return missing.length > 0 ? 2 : 0
 }
 
 async function modeRun(env, opts) {
   if (opts.unknown.length > 0) {
-    console.error(`✗ 未识别的旗标(在 -- 之前):${opts.unknown.join(' ')} ⇒ 不猜意图,静默吞旗标比报错更坏。`)
+    console.error(
+      `✗ 未识别的旗标(在 -- 之前):${opts.unknown.join(' ')} ⇒ 不猜意图,静默吞旗标比报错更坏。`,
+    )
     return 2
   }
   if (!opts.baseUrl) {
-    console.error('✗ --run 必须显式给 --base-url(不默认 8801:那台常年是别席 dev 进程,失败不可归因)。')
+    console.error(
+      '✗ --run 必须显式给 --base-url(不默认 8801:那台常年是别席 dev 进程,失败不可归因)。',
+    )
     return 2
   }
   const cli = resolvePlaywrightCli()
@@ -392,9 +392,7 @@ async function modeProbeLogin(env, opts) {
     return 2
   }
   const r = await probeLogin(opts.apiUrl, account, password)
-  console.log(
-    `管理员腿探测 account=${account} 口令=${maskSecret(password)} ⇒ ${JSON.stringify(r)}`,
-  )
+  console.log(`管理员腿探测 account=${account} 口令=${maskSecret(password)} ⇒ ${JSON.stringify(r)}`)
   console.log(
     r.state === 'ok'
       ? '  ✓ admin 登录腿在**这台 API 当前连的那枚库**上成立。'

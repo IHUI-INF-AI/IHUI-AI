@@ -12,6 +12,20 @@
 @plugin '@tailwindcss/typography';
 @plugin 'tailwindcss-animate';
 @source '../../../packages/ui-react/src';
+/* 2026-10-30 修复 CSS 解析失败(Delim('\u{1a}')):把构建产物目录从 Tailwind v4 的
+   内容扫描面里摘掉。自动扫描按 .gitignore 裁剪,而蓝绿/回滚目录(.next-blue/.next-green/
+   .next-rollback)此前没被忽略 ⇒ 它们被当源码扫描。实测:在 .next-blue 里放一个探针
+   组件,其类名会出现在生成的 CSS 里;旧产物里还留着源码已删除的类名(部署失败那版
+   CSS 中的 max-[767px]:left-3 在全仓源码与现存产物里都找不到,只可能来自被扫到的历史
+   构建产物);这些目录里的 Turbopack 持久缓存 .sst/.meta 携带裸 0x1A 字节,是整棵
+   apps/web 里唯一存在 0x1A 的地方 —— 一旦被扫进 CSS 就是 Delim 解析失败。
+   这里显式排除(不依赖 .gitignore,净面检出/换机同样成立),扫描面收敛到真源码。 */
+@source not '../.next-blue';
+@source not '../.next-green';
+@source not '../.next-rollback';
+@source not '../.rollback';
+@source not '../out';
+@source not '../tmp';
 @import '../src/styles/animations.css';
 @import '../src/styles/transitions.css';
 @import '../src/styles/theme-presets.css';
