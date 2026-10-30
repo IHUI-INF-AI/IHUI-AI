@@ -66,15 +66,22 @@ export function buildCsp({ nonce, dev }: BuildCspOptions): string {
     // 的运行时 <style> 与组件内联 style 依赖它;上 nonce 需要全链路改造(样式属性无法带 nonce),
     // 收益与成本不成比例。这是一处**明确接受**的残余风险,不是遗漏。
     "style-src 'self' 'unsafe-inline'",
-    // 2026-10-28 评估后**保留** https: 通配,不按 images.remotePatterns 收窄:
-    // AI 返回的图片 URL 来自模型输出、用户头像来自第三方 OAuth,域名不可枚举。
-    // 收窄会直接打断功能(见 next.config.ts 同处注释)。已知残余风险:https 图片可被
-    // 当作数据外泄信道。正确解法是后端图片代理 + 域名白名单,属跨端改造。
-    "img-src 'self' data: blob: https:",
+    // 2026-10-30 收口(沿用当日已落地的收紧,不得回退成 `https:` 通配):
+    // AI 对话 / 文章 / 用户附件里的图现在全部经同源代理 /api/media/image 加载
+    // (浏览器同源、自动带 httpOnly auth cookie,源站 CDN 不再被直连),
+    // 于是外部域名不再进入 CSP 评估面 —— 原先"https 图片可当数据外泄信道"的残余风险就此清零。
+    // 保留的 7 个域名与 `images.remotePatterns` 完全一致:那是 next/image 已约束的
+    // 头像/图标信任边界,同尺收窄,不引入新信任面。
+    // ⚠️ 有人把这行改回 `https:` 就等于把上面那次收口推翻,且不会报错 —— 只会静默放开外泄面。
+    "img-src 'self' data: blob: https://aizhs.top https://*.aizhs.top https://api.dicebear.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://platform-lookaside.fbsx.com https://api.qrserver.com https://test-for-dp.oss-cn-guangzhou.aliyuncs.com",
     "font-src 'self' data:",
     dev
       ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
       : "connect-src 'self' https: wss: http://ipc.localhost https://ipc.localhost",
+    // 2026-10-30 末已根治收紧:视频/音频全部走同源代理(<video src="/api/media/stream?url=…">,
+    // 经 web rewrites 同源访问,浏览器自动带 httpOnly auth cookie),故不需要 https: 通配;
+    // 后端复用下载代理的 SSRF 闸门并透传 Range(播放器可拖拽 seek)。blob: 保留 —— 下载按钮
+    // 走 fetch→ObjectURL 落盘,正是 blob: 源。
     "media-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
