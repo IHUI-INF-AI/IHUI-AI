@@ -9,6 +9,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { User, Clock, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import { ProgressBar } from '@/components/common'
 
 interface CourseCardProps {
@@ -53,7 +54,7 @@ function CourseCardImpl({
       <div className="relative aspect-video overflow-hidden bg-muted">
         {cover ? (
           <Image
-            src={cover}
+            src={toMediaImageUrl(cover)}
             alt={title}
             fill
             className="object-cover transition-transform group-hover:scale-105"
