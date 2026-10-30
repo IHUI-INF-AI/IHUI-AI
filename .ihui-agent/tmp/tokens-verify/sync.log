@@ -1,0 +1,13 @@
+✔ T1 幂等:连跑两次 --write,第二次零字节;--check 一致 exit 0 (223.337ms)
+✔ T2 差异检出:手改受管块一个值 ⇒ --check exit 1 且点名那一档 (157.1871ms)
+✔ T3 受管块缺失:--check 判 1;--write 插在 @theme 内,块外字节逐字不变 (104.8426ms)
+✔ T4 未判定 exit 2:源缺失 / 表里有表达式 / 受管块被移出 @theme (274.0666ms)
+✔ T5 纯函数面:解析只认字面量 / diff 三方向 / 渲染字节稳定 (1.6409ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 838.4065

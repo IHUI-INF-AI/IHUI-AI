@@ -1,0 +1,240 @@
+==== 2026/10/28 22:13:55 :: scripts/lib/pre-commit-hook.js ====
+⚡ 专项档:本次改动只含工具/文档路径 ⇒ 跳过判业务代码的专项守门(强制全跑:IHUI_SPECIAL_SCOPE=full)
+[git-lock] 已抢占悬挂锁:被抢的持有者 = unit=safe-commit-26856-1793196815981 pid=21636 ts=2026-10-28T14:13:52.410Z;判死理由:clean:持有者 pid=21636 已退出。现场=D:\IHUI-AI\.worktrees\wt-tokens\.DevEnv\backups\git\ihui-git-write.lock.stale-19732-1793196835661-v5e8
+🧹 已清理 1 个 stale 锁:
+   - ihui-git-write.lock(unit=safe-commit-26856-1793196815981 pid=21636 dead)
+✅ staged 文件数 9 ≤ 阈值 10(正常)
+
+📋 staged 文件清单审计(2026-08-06 立,防同目录文件级污染,共 9 个文件):
+   📁 (root)/
+      - AGENTS.md
+      - package.json
+   📁 packages/design-tokens/src/styles/
+      - tokens.css
+   📁 scripts/
+      - check-cross-end-tokens.mjs
+      - guardian-runner.mjs
+      - sync-css-tokens.mjs
+      - sync-miniapp-tokens.mjs
+   📁 scripts/tests/
+      - check-cross-end-tokens.test.mjs
+      - sync-css-tokens.test.mjs
+   ⚠️  目录 (root)/ 有 2 个文件 — 请确认是否都是本任务文件(同目录多文件是最常见污染模式)
+   ⚠️  目录 scripts/ 有 4 个文件 — 请确认是否都是本任务文件(同目录多文件是最常见污染模式)
+   ⚠️  目录 scripts/tests/ 有 2 个文件 — 请确认是否都是本任务文件(同目录多文件是最常见污染模式)
+      如果混入了其他 agent 改动,请用 node scripts/safe-commit.mjs 重新提交:
+      node scripts/safe-commit.mjs -m "fix(web): ..." -- apps/web/foo.tsx
+      (safe-commit 会 git reset HEAD 清空暂存区 + 只 add 声明文件 + 校验)
+   ⚠️  staged 文件数 9 > 5 — 多 agent 并行时容易混入其他 agent 改动
+      强烈建议用 node scripts/safe-commit.mjs -m "..." -- <files> 重新提交
+
+🎨 运行 lint-staged...
+⋯ Preparing lint-staged…
+✔ Done preparing lint-staged!
+⋯ Running tasks for staged files…
+    package.json — 9 files
+      *.{ts,tsx,js,jsx,mjs,cjs} — 6 files
+        ⋯ eslint --fix --ignore-pattern '**/migration-final-review/**' --ignore-pattern '**/migration-audit/**' --ignore-pattern '**/migration-audit-report/**' --ignore-pattern '**/public/**' --ignore-pattern '**/e2e/**' --ignore-pattern '**/next-env.d.ts'
+      *.{ts,tsx,js,jsx,json,md,yml,yaml,css,scss} — 3 files
+        ⋯ prettier --write
+
+✔ prettier --write
+✔ eslint --fix --ignore-pattern '**/migration-final-review/**' --ignore-pattern '**/migration-audit/**' --ignore-pattern '**/migration-audit-report/**' --ignore-pattern '**/public/**' --ignore-pattern '**/e2e/**' --ignore-pattern '**/next-env.d.ts'
+
+✔ Done running tasks for staged files!
+⋯ Staging changes from tasks…
+✔ Done staging changes from tasks!
+npm warn Unknown env config "store-dir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "shamefully-hoist". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "strict-peer-dependencies". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "auto-install-peers". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "prefer-workspace-packages". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+⚠ Skipping backup because `--no-stash` was used. This might result in data loss.
+
+⏭  design-tokens → 各端 CSS 副本自动同步(HUSKY_SKIP_TOKENS_SYNC=1, 跳过)
+⏭  README 数字生成块自动同步(HUSKY_SKIP_README_NUMBERS=1, 跳过)
+⏭  README 最近更新小节自动同步(HUSKY_SKIP_README_RECENT=1, 跳过)
+⏳ 守门批量检查本机实测约 9~15 分钟,期间本进程无输出属正常;逐门实时进度: tail -f .ihui-agent/state/hook-logs/gates-progress.log
+⚡ 快档:仅跑快门(重型门由 post-commit 后台补跑);全量请设 IHUI_GATE_FAST=0
+🛡️ 运行守门脚本批量检查...
+⚡ 元门档:本地元门档:全量守门归 CI(含业务路径 1 个,业务判据归 CI) ⇒ 只跑 30/292 道工具/仓库状态门(业务门本轮与改动无关,已跳过;强制全量:IHUI_GATE_SCOPE=full)
+🧮 并发诊断:parMax=8 guardianSerial=false checks=30 池内=26 fastMode=true 预算=35000ms
+⏭  [30a] 🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)(快档跳过:重型门由 post-commit 补跑;要全量设 IHUI_GATE_FAST=0)
+[16c] 🛡️  staged-typecheck 源/测镜像同步(blocking,AGENTS.md §22b 镜像同步义务)...
+[19] ⚠️  staged 污染预警(warn-only)...
+[44] 🧹 根目录整洁守门(一级目录白名单)...
+⏭  [47] 💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区)(快档跳过:重型门由 post-commit 补跑;要全量设 IHUI_GATE_FAST=0)
+⏭  [71] 🈲 计划登记行防丢(blocking,PROJECT_PLAN.md 已入库的 G-/D/P/W 编号行不得整行消失)(暂存区未触及:PROJECT_PLAN.md,跳过)
+[80] ⏱  热路径 git 只读调用必须带 timeout(blocking,拦无界挂起拖死守门链)...
+[79] 🔀 提交内容含 Git 冲突标记(blocking,成对 <<<<====>>>> 标记一旦入树即拦)...
+⏭  [89] 🔌 守门接线层对账(blocking,R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据)(快档跳过:重型门由 post-commit 补跑;要全量设 IHUI_GATE_FAST=0)
+[95] 🔏 水印载荷/横幅行语法对账(blocking,零宽必须被注释包裹)...
+[99] 🗑️ 暂存删除存续性对账(blocking,被删文件必须无人引用且无替代路径)...
+[101] 🔐 清单↔锁 specifier 对账(blocking,拦"本地全绿、生产构建必炸"的依赖真值)...
+[118] 🧬 门脚本取材面纪律对账(blocking,本次改动动过的门必须经统一取材层;全量档只报数)...
+⏭  [151] 子智能体/后台任务状态词汇跨语言与端内抄本对账(六档是落库/REST/SSE 三重对外契约)(暂存区未触及:packages/types/src/ / apps/ai-service/app/services/ / apps/web/src/components/ / apps/cli/src/,跳过)
+[154] 临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)...
+[158] 🛡️ 凭据在场即豁免对账(blocking,拦「安全钩子里只要带了某个头就直接跳过校验」—— 票#23 CSRF 现场收口后无人看守的那一型)...
+⏭  [173] 对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红)(暂存区未触及:README.md / README.en.md,跳过)
+[194] 🧯 §22d 入口守卫对账:scripts/**.mjs 不得顶层裸 main()(存量以 node scripts/check-direct-run-guard.mjs 末行现读为准,差值棘轮只拦本次新增)...
+⏭  [203] 🧾 台账同题多号差值棘轮:PROJECT_PLAN.md 索引面不得比 HEAD 面多出「同一件事的第二次登记」(换了个编号也算,2026-10-13 机主拍板根治)(暂存区未触及:PROJECT_PLAN.md / scripts/check-plan-task-duplicates.mjs / scripts/live-doc-edit.mjs,跳过)
+⏭  [211] 🧮 PROJECT_PLAN 号池对账(声明位号 >99 按重数差值棘轮;R2 发号路径点名)(暂存区未触及:PROJECT_PLAN.md,跳过)
+[221] 🧾 .mjs 语法对账(被审面全量纯解析,只解析不执行;--staged 差值棘轮只拦本次带进来的,存量只报数——上线当刻 HEAD 面实测 1 枚存量,定级与清偿见门体头注)...
+⏭  [226] 钩子装载形态对账(.husky 钩子必须 sh 薄壳,node 正文只能在 scripts/lib)(暂存区未触及:.husky/,跳过)
+⏭  [234] 计划台账侧车字段一致性(新增行有侧车 ∧ 标头==侧车投影)(暂存区未触及:PROJECT_PLAN.md,跳过)
+[32m✅ 源/测 export 锚点一致, 无漂移[0m
+[2m   source  export const __test__           ✓[0m
+[2m   source  keys: getOriginalInclude           ✓[0m
+[2m   source  keys: normalizePath                 ✓[0m
+[2m   source  keys: filterTscOutputForStagedFiles ✓[0m
+[2m   test    import { __test__ } from ...         ✓[0m
+[2m   source  isDirectRun 入口守护             ✓[0m
+  [2m⏱  7155ms[0m
+
+[33m[1m⚠️  Staged 污染预警 (warn-only, 不阻塞)[0m
+[2m依据: AGENTS.md §16 Push 阶段跨 Agent 改动保护规则[0m
+
+[33m检测到 staged 文件 9 个, 跨 4 个一级子目录 (≥ 4 或 >15+≥3)[0m
+[33m这可能是污染事故的征兆:[0m
+[2m  多 agent 并行时, 如果误把其他 agent 改动一起 commit,[0m
+[2m  会导致"污染事故"(commit 历史不清晰, 但已落地无法回退).[0m
+
+[1mStaged 文件分布:[0m
+  [36mAGENTS.md[0m [2m(1 个)[0m
+    [2m+ AGENTS.md[0m
+  [36mpackage.json[0m [2m(1 个)[0m
+    [2m+ package.json[0m
+  [36mpackages/design-tokens[0m [2m(1 个)[0m
+    [2m+ packages/design-tokens/src/styles/tokens.css[0m
+  [36mscripts[0m [2m(6 个)[0m
+    [2m+ scripts/check-cross-end-tokens.mjs[0m
+    [2m+ scripts/guardian-runner.mjs[0m
+    [2m+ scripts/sync-css-tokens.mjs[0m
+    [2m+ scripts/sync-miniapp-tokens.mjs[0m
+    [2m+ scripts/tests/check-cross-end-tokens.test.mjs[0m
+    [2m... 还有 1 个[0m
+
+[1m建议预检 (commit 前可手动跑):[0m
+  [2mnode scripts/guard-push-other-agent-changes.mjs <本任务文件1> <本任务文件2> ...[0m
+  [2m# 白名单模式, 检测 staged 是否仅含本任务文件 (阻塞 + 给修复建议)[0m
+
+[2m若确认这些文件确实属于本任务 (如跨端同步开发), 可忽略此警告直接 commit.[0m
+[2m若发现污染, 修复方法: git restore --staged <违规文件> (非破坏, working tree 保留)[0m
+
+  [2m⏱  7035ms[0m
+  ✅ 根目录整洁守门通过:一级目录无白名单外条目
+  [2m⏱  7134ms[0m
+git 只读派生调用 timeout 对账(判定面:索引 blob):热文件 37 个 / 判红 0 处 / 写动词不判 5 处 / 包装器不判 5 处 / 动词非字面量不判 0 处
+✅ 热路径只读 git 调用均已封顶
+  [2m⏱  2565ms[0m
+🔀 冲突标记守门(pre-commit:索引内容):判定 9 个内容源(候选 9)
+✅ 未检出成对 Git 冲突标记(P1),也没有带 ours/theirs/HEAD 词尾的孤立标记(P4)
+  [2m⏱  5878ms[0m
+[check:watermark-syntax] 取材=--staged 暂存区 清单=9 可注入=8 (工作区副本 0 / blob 回退 0 / 取不到内容 0)
+全部通过: 载荷/横幅行均注释包裹(字符串/模板/正则字面量内的命中不计), XML 声明位置正确。
+  [2m⏱  5894ms[0m
+[staged-deletions] ✅ 无暂存删除,判据未触发(口径=索引 blob)
+  [2m⏱  830ms[0m
+🔍 lock↔manifest specifier 对账 [--staged] | 判定面: 索引 blob(git show :<path>) —— 盘上随后改对不算修好:提交进去的仍是索引这一份
+   对账恒为全量(某包破损与"本次改了什么"无关),但内容一律取自上述单一面,不混读盘
+扫描包 26 / 声明条目 531 / 违规 0 / 孤儿记账 0(R3 自 2026-10-18 起并入违规判红,此数为测量)
+维度 A overrides 表 50 条(父作用域 > 形态 0 条不参与直接声明比对) / 因 override 目标值放过 19 条 / 维度 B peer 只验条目在位(不比 specifier)3 条
+维度 R6 段位置对账:核 521 条非 peer 声明键(逐段比清单段↔锁段) / 段位置违规 0 / 同一名字双声明、pnpm 只折一条落段而放过 0 条 / peer 声明 10 条不参与本维(实测 lock 的 importer 段集 = [dependencies×17, devDependencies×23, optionalDependencies×1],无 peerDependencies 段可比)
+未判定 0 条(段/值判不准,既不记绿也不冒红;默认档只报数) —— 本维全部判出结论
+✅ specifier 全部一致、段位置违规 0(孤儿记账 0 条 —— R3 已并入违规,本行可达时必为 0;override 放过 19 条、peer 放过 3 条、双声明折段放过 0 条不计红)
+  [2m⏱  3502ms[0m
+✅ 本次改动:经取材层 1 / 散写 0(其中存量同档不判红 0) / 判不了(疑临时夹具) 0 / 不读内容 1 / 取不到 0 / 在飞未入库 0
+  [2m⏱  4620ms[0m
+[scratch-root] 被扫的根:D:\IHUI-AI\.worktrees\wt-tokens\.DevEnv\Temp\ihui-scratch(盘上存在)
+✅ ok:扫过 1929 个目录 / 1139 个文件(深度 ≤ 4,跳过重解析点 0),未发现二阶 scratch 根 / 二阶盘级落点。
+  射程:N1 只看深度 ≤ 4 的目录段(超出即看不见,不是"没有");N2 只看 scratch 根的直接子项;条目预算 400000。
+结论:ok(退出码 0;本门只告警,清理与修复归人)
+  [2m⏱  298ms[0m
+[gate-presence-exemption] 面:head · 扫描 219 文件 · 命中 0 / 放过 4 / 判不出 0 · 不适用即继续 0 · 带豁免 0 · 配平失败 0
+↩️ 本次暂存集里没有本门射程内的文件 ⇒ 回退 HEAD 全量面(不是"没判")
+✅ 无新增。存量命中 0 处按"该文件 HEAD 自身存量"棘轮只报数(现值以本行为准,勿引用文档旧数)
+  [2m⏱  5523ms[0m
+[36m[direct-run-guard] 判定面=staged 根=D:/IHUI-AI/.worktrees/wt-tokens[0m
+  [33m· 存量(只报数不判红):scripts/relay-reencrypt-keys.mjs 命中 1[0m
+[32m[direct-run-guard] 判定面=staged:命中 1(本次新增 0,存量 1)/ 放过 551 / 未判定 0 / 不在射程 288 / 射程内枚举 840 / 台账豁免 0[0m
+  [2m⏱  5580ms[0m
+✅ .mjs 语法对账(staged 面):1801 枚逐一经 vm.SourceTextModule 编译通过(只解析未执行),存量 0 枚
+  [2m⏱  4679ms[0m
+[236] tracked-but-ignored 新增拦截(gitignored 的东西不得进版本控制)...
+[tracked-ignored] 面=staged 新增 2 条 / 命中 ignore 0 条 / 存量(只报数)18 条
+  [2m⏱  1269ms[0m
+⏭  [239] 🈲 计划归档单调性(PROJECT_PLAN.md 已归档✅的票不得复活成未勾活行/逐字孪生回插)(暂存区未触及:PROJECT_PLAN.md,跳过)
+[23] 📋 staged 文件清单(info)...
+⏭  [172] 🛡  跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增)(快档跳过:重型门由 post-commit 补跑;要全量设 IHUI_GATE_FAST=0)
+⏭  [196] 📎 PROJECT_PLAN.md 短 sha 出处指针防回潮(新增行裸短 sha 须走台账/声明前缀/文件名通道,warn)(暂存区未触及:PROJECT_PLAN.md / scripts/data/plan-sha-noncommit.json,跳过)
+[13d] 🚫 PROJECT_PLAN.md 重复登记副本指针棘轮...
+⏭  [229] 🧹 PROJECT_PLAN.md 完成即删守门(拦跨枚滞留的已勾登记行;全量档只报数)(暂存区未触及:PROJECT_PLAN.md,跳过)
+  ℹ️  staged 文件清单(9 个):
+     - AGENTS.md
+     - package.json
+     - packages/design-tokens/src/styles/tokens.css
+     - scripts/check-cross-end-tokens.mjs
+     - scripts/guardian-runner.mjs
+     - scripts/sync-css-tokens.mjs
+     - scripts/sync-miniapp-tokens.mjs
+     - scripts/tests/check-cross-end-tokens.test.mjs
+     - scripts/tests/sync-css-tokens.test.mjs
+  [2m⏱  332ms[0m
+[32m✅ 指针棘轮:[0m本次提交未新增指针注记(0 → 0;当前面存量 0 行只报数)
+[32m✅ F10 差值:[0m同题不同编号可折重复登记 24 → 24(不增;F4/F4b 维归守门 130,不在此重复设门)
+  [2m⏱  682ms[0m
+⏱  快档延后 4 门(清单:D:\IHUI-AI\.worktrees\wt-tokens\.ihui-agent\state\hook-logs\gates-deferred.json)
+   补跑:node scripts/guardian-runner.mjs --staged   全量:IHUI_GATE_FAST=0
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 30(已执行 30)
+  [32m通过: 15[0m
+  [33m警告: 1[0m
+  [31m失败: 0[0m
+  [2m跳过: 14[0m
+  总耗时: 16.1s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=5029be8e72b8…,selfSkipped=0,undeclaredSkipHits=0)[0m
+⏭  i18n 死 key 扫描(已移入守门并行池 70b,此处不重复跑)
+⏭  4 端 i18n 死 key 扫描(warn-only,已延后到 post-commit;要在此跑:HUSKY_SKIP_I18N_DEAD_KEY_OTHER=0)
+⏭  miniapp-taro 跨端样式一致性守门(HUSKY_SKIP_MINIAPP_PARITY=1, 跳过)
+⏭  auth refresh 单例守门(HUSKY_SKIP_AUTH_REFRESH=1, 跳过)
+⏭  staged typecheck 闸门(HUSKY_SKIP_STAGED_TYPECHECK=1, 跳过)
+⏭  条件 database 重建闸门(无 packages/database/src staged 改动, 跳过)
+🔍 RN global.css 同步守门...
+[check-rn-global-css-sync] Checking mobile-rn/global.css vs design-tokens/tokens.css(取材面:索引 blob(本次提交会带走的那一份))...
+[check-rn-global-css-sync] All 215 个受管档逐位同值且无缺档(另有 26 个端内自立 --color-* 档,只报数不判红)(取材面:索引 blob(本次提交会带走的那一份))
+⏭  条件 miniapp-taro dist 清理提示(无相关 staged 改动, 跳过)
+⏭  条件 miniapp-taro ICU 反模式扫描(无 apps/miniapp-taro/src staged 改动, 跳过)
+🔗 跨端 storage-adapter parity 守门(判定面=索引 blob)...
+[cross-store-parity] 扫描 4 端 storage-adapter + shared 工厂一致性…(判定面:索引 blob)
+
+[cross-store-parity] 端点:
+  - web             apps/web/src/stores/storage-adapter.ts
+  - mobile-rn       apps/mobile-rn/src/stores/storage-adapter.ts
+  - miniapp-taro    apps/miniapp-taro/src/stores/storage-adapter.ts
+  - extension       apps/extension/src/stores/storage-adapter.ts
+
+[cross-store-parity] ✅ 4 端 storage-adapter + shared 工厂一致性校验通过(8/8 项)
+⏭  button 文字换行守门(HUSKY_SKIP_BUTTON_WRAP_CHECK=1, 跳过)
+⏭  SiteFooter 守门(HUSKY_SKIP_FOOTER_GUARD=1, 跳过)
+⏭  createPortal 定位守门(HUSKY_SKIP_PORTAL_GUARD=1, 跳过)
+📏 Button 高度/宽度覆盖守门(必须走 size 档位, 2026-09-07 立)...
+✅ Button 高度/宽度守门:staged 面无 tsx/jsx 变更(0 个候选,无违规)
+⏭  凭据前缀一致性守门(HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD=1, 跳过)
+🐧 PowerShell 版本声明守门(.ps1 必须 #requires -Version 7)...
+[FACE] 取材面 = staged —— 索引 blob(git show :<path>)
+[EXEMPT] deploy/** 豁免面(本门**不判**，仅如实报数): 0 个 .ps1，其中 0 个缺 `#requires -Version 7`
+[CALLER] 代码面裸 powershell 调用 deploy/**.ps1 的站点: 0 个(判据：遮掉注释后，同一行含 `powershell[.exe] -<参数>` + deploy 路径，且无 pwsh、无 .vbs)
+  覆盖面：JS/TS 系(.mjs/.cjs/.js/.jsx/.ts/.tsx，遮注释+字符串)与脚本系(.ps1/.sh/.bash/.bat/.cmd/
+        .vbs，按各语言词法只遮注释：PS `#`/`<# #>`、shell `#`(词首)、batch `REM`/`::`、VBS `'`)。
+        脚本系自 2026-09-28(G-391②)起在判；其**字符串刻意不遮** —— 那里引号内就是真调用
+        (`objShell.Run "powershell -File deploy\…"` 是 §26 的 wscript 包装形态)。
+        仍未遮的一格如实登记：脚本文件里的**变量拼接**(`& $exe -File "deploy\x.ps1"` 之类)判不
+        出来，属"看不见"而不是"已确认没有"。
+  默认档只报数点名、不判红;问责跑 --strict。升提交链 blocking 的前置 = 真仓 HEAD 现读为 0。
+[OK] 已判面全部合规：0 个非豁免 .ps1 均已声明 `#requires -Version 7`(deploy/** 豁免面 0 个未判，见上方 [EXEMPT] 行；调用侧见 [CALLER] 行)
+⏭  Agent Engine 协议 parity 守门(HUSKY_SKIP_AGENT_ENGINE_PARITY=1, 跳过)
+⏭  工具注册表完整性守门(HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY=1, 跳过)
+⏭  能力矩阵对账守门(HUSKY_SKIP_CAPABILITY_MATRIX=1, 跳过)
+⏭  桌面端事件链路接线守门(HUSKY_SKIP_DESKTOP_EVENT_WIRING=1, 跳过)
+✅ Pre-commit 检查通过
