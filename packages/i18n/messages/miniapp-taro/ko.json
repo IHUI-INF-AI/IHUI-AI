@@ -2399,6 +2399,7 @@
       "deleteParam": "삭제",
       "create": "새로 만들기",
       "createSuccess": "에이전트가 생성되었습니다",
+      "mockSuccess": "API가 아직 열리지 않았습니다. 모의 생성 완료",
       "submitting": "생성 중…",
       "submit": "에이전트 생성",
       "fileSizeExceeded": "파일은 10MB를 초과할 수 없습니다",
@@ -2434,7 +2435,8 @@
       "discountFull": "전체 참여",
       "submitting": "제출 중…",
       "submit": "심사 제출",
-      "mockSuccess": "API가 아직 열리지 않았습니다. 제출되지 않았습니다"
+      "submitSuccess": "제출 완료",
+      "mockSuccess": "API가 아직 열리지 않았습니다. 모의 제출 완료"
     }
   },
   "devSpace": {
@@ -4568,7 +4570,8 @@
     "q3": "운영부",
     "q4": "마케팅부",
     "q5": "영업부",
-    "q6": "에이전트 로드"
+    "q6": "에이전트 로드",
+    "q7": "유료 설정 제출"
   },
   "modelplaza": {
     "r1": "알리바바 클라우드",
@@ -4694,7 +4697,6 @@
   "utilsMiniapplogin": {
     "q1": "미니 프로그램에서 로그인해 주세요",
     "q2": "로그인 인증 코드가 비어 있습니다",
-    "alipayUnsupported": "Alipay 로그인은 아직 지원되지 않습니다. 전화번호로 로그인하세요",
     "p1": "사용자",
     "alipayUser": "알리페이"
   },
@@ -5008,7 +5010,7 @@
     "modelRecord": "모델 비안",
     "examSignUps": "시험 신청",
     "buyConfirm": "구매 확인",
-    "distributionWithdrawRecords": "分销 출금 기록",
+    "distributionWithdrawRecords": "유통 출금 기록",
     "pluginMarket": "플러그인 마켓",
     "skillsMarket": "스킬 마켓",
     "memoryManager": "메모리 관리대",
@@ -5025,7 +5027,6 @@
     "voices": "음성 리소스",
     "webTools": "웹 도구",
     "letters": "쪽지",
-    "artifacts": "산출물 센터",
     "invitations": "초대 관리",
     "eduPoints": "교육 포인트",
     "knowledgeBase": "지식 베이스",
@@ -6203,8 +6204,7 @@
     "uploadSelfie": "신분증을 든 셀카 업로드",
     "title": "본인 인증",
     "subtitle": "본인 인증을 완료해 계정 보안을 강화하세요",
-    "submitting": "제출 중...",
-    "submit": "인증 제출"
+    "submitting": "제출 중..."
   },
   "referrer": {
     "title": "추천인",

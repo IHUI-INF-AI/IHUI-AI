@@ -21,12 +21,14 @@
  *        exit 2**,绝不回落成"空清单"或任何旧的手抄表(那等于把尺子调成恒绿)。
  *     P1 `docs/port-management.md §2` 表格里出现的端口(含 §2 明写的预留槽)与派生集**双向**
  *        对账:文档多报(§2 写了而注册表没认领)/ 注册表多认领(认领了而 §2 没写)都点名。
- *   定级:本门在 runner(id 24b)是 warn-only,所以 P1 的偏差按 warn 口径 exit 1 并逐条报名;
+ *   定级:本门在 runner(id 24b)是 warn-only,所以端口引用违规(本头注下文称"提醒档")一律
+ *   exit 0 逐条打印;P1 偏差(注册表与 docs §2 谁没认领谁)是实质分歧,保留 exit 1 并逐条报名;
  *   要单独问责跑 `--parity`(该档把 P1 当唯一判据:偏差 exit 1、输入取不到 exit 2,不记通过)。
  *   现读(HEAD 面,2026-09-28):文档侧与派生集**同为 50 槽、双向差集均为 0**;而被删掉的那份
  *   手抄表是 49 槽(漏 8840) —— 即三副本今天确实已漂一格,漂的正是无人对账的那一份。
  *
- * 集成位置:pre-commit 第 24 项(warn-only,不阻塞 commit)
+ * 集成位置:pre-commit 第 24 项(warn-only,不阻塞 commit);CI(ci-monorepo port-registry-check)
+ * 以 `--all` 直跑同一脚本 —— 提醒档必须 exit 0,否则"提醒"会把 CI 作业长期钉红(2026-10-30 根治)。
  *
  * 用法:
  *   node scripts/check-port-registry.mjs           # 扫描 staged 文件
@@ -254,6 +256,12 @@ const EXEMPT_PATH_PATTERNS = [
   /\.env\.example$/, // 环境变量模板(包含第三方工具端口示例)
   /PROJECT_PLAN\.md$/, // 项目计划文档(历史记录)
   /\.ihui-agent\/archive\//, // 归档文档(历史快照,不修改)
+  // 2026-10-30 立:--all 扫出的 6 处"看起来像端口、其实不是本仓 dev/宿主映射端口"的引用。
+  // 边界:逐文件精确点名,**不**按目录整片放行 —— 同一目录下日后真起服务的非 88xx 口必须照旧被报
+  // (镜像测试有成对反例:同目录兄弟文件里的同类引用仍判 ⚠️)。三条都读过命中行原文才免(§0.7):
+  /^apps\/ai-service\/app\/skills\/content_engine\/已发布内容记忆\.json$/, // 124 行是历史记忆正文「本机挂了 127.0.0.1:50749 代理」——业务数据,非运行时配置,禁改数据
+  /^apps\/web\/app\/\(main\)\/admin\/relay\/account-proxy\/__tests__\/page\.test\.tsx$/, // 测试夹具:99/110 行 socks5://127.0.0.1:1080 示例、121 行 ftp://127.0.0.1:21 不支持的协议示例
+  /^apps\/web\/e2e\/admin-relay-account-proxy\.spec\.ts$/, // e2e 夹具:PROBE_URL / PROBE_MASKED 的 http://127.0.0.1:18080 是写库样例(无 listen/createServer),不是监听口
 ]
 
 // ============================================================
@@ -570,7 +578,7 @@ function main() {
     return 0
   }
 
-  console.log('⚠️  端口注册表守门提醒(warn-only,不阻塞 commit)')
+  console.log('⚠️  端口注册表守门提醒(warn-only,不阻塞 commit;exit 0,违规只提醒)')
   console.log(`   扫描 ${scannedCount} 个文件,发现 ${warnings.length} 处端口引用需确认:${skippedNote}`)
   console.log()
 
@@ -588,10 +596,17 @@ function main() {
   console.log('   💡 如确需使用非 88xx 端口(如 CI/容器内部),请确认属于豁免场景')
   console.log()
 
-  // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
-  // (原本 exit 0 会让违规被 guardian-runner 静默吞掉,统计不可信;
-  //  warn-only 不阻塞 commit,exit 1 仅供统计)
-  return 1
+  // 2026-10-30 修正(退出码语义 bug 根治):本门定级是 warn-only(runner id 24b mode=warn),
+  // 而 warn-only 的唯一合法含义是「提醒到位、不以失败收场」。旧写法在这里 exit 1,原意是
+  // 让 guardian-runner 计入 warned 计数(2026-08-19 立),但同一个退出码又被 CI 的
+  // port-registry-check 步骤(ci-monorepo,`--all` 直跑)读成"作业失败" ⇒ 一处提醒把整条 CI 钉红,
+  // 与本次提交内容无关的恒红(§12e 形态)。现改为 exit 0:
+  //   · 违规仍**逐处**打印在 stdout(⚠️ 行 + 文件:行号 + 原因),不静默过滤;
+  //   · CI 作业不再因提醒失败;runner 会把它记为通过(不再计入 warned 计数)—— 这是为
+  //     "warn-only 不冒红"付出的统计口径代价,如实记在这里,不在 runner 侧造第二套判据。
+  // P1 登记表对账偏差(parityRed)不在此档:那是"注册表与 docs §2 谁没认领谁"的实质分歧,
+  // 仍按上方既有口径 exit 1,不随本档放宽。
+  return 0
 }
 
 // §22d isDirectRun 守卫:本文件同时是 CLI(钩子/手动跑)与判据源(镜像测试 import 纯函数),

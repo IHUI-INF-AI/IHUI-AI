@@ -730,6 +730,16 @@ export async function removeWorktree(wtPath: string): Promise<void> {
         // fallback 到 rm -rf
         fs.rmSync(wtPath, { recursive: true, force: true })
       }
+      // prune 必须排在"目录真删掉之后"(2026-10-30 立):worktree remove 失败时注册表条目
+      // 仍指向活目录 ⇒ 先 prune 结构上摘不掉;目录没了之后 prune 才摘得掉。漏了这一步,
+      // 每次 fallback 都永久留一条 prunable 条目,而编辑器 SCM 把 `git worktree list`
+      // 每条都当独立仓 ⇒ 变更数合计爆表。
+      spawnSync('git', ['worktree', 'prune'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: sourceRepo,
+        encoding: 'utf-8',
+        windowsHide: true,
+      })
     } else {
       // standalone worktree、无 .git、或解析失败:直接 rm -rf
       fs.rmSync(wtPath, { recursive: true, force: true })
