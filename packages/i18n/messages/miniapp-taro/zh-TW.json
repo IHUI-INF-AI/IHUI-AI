@@ -117,8 +117,7 @@
     "user": "使用者",
     "more": "更多",
     "discountAmount": "優惠",
-    "loadFailed": "載入失敗"
-,
+    "loadFailed": "載入失敗",
     "operationFailed": "操作失敗"
   },
   "login": {
@@ -5246,8 +5245,7 @@
       "late": "遲到",
       "absent": "缺勤",
       "leave": "請假"
-    }
-,
+    },
     "student": "學生"
   },
   "eduMgmt": {
@@ -7409,8 +7407,7 @@
     "changePassword": "修改密碼",
     "newPassword": "新密碼",
     "language": "語言",
-    "theme": "主題"
-,
+    "theme": "主題",
     "version": "版本"
   },
   "liveList": {
@@ -7579,8 +7576,7 @@
     "feature": "功能",
     "premium": "高級",
     "title": "會員對比"
-  }
-,
+  },
   "coupon": {
     "useHint": "請前往商品頁使用"
   },

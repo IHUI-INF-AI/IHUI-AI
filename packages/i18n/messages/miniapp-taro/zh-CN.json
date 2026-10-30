@@ -117,8 +117,7 @@
     "user": "用户",
     "more": "更多",
     "discountAmount": "优惠",
-    "loadFailed": "加载失败"
-,
+    "loadFailed": "加载失败",
     "operationFailed": "操作失败"
   },
   "login": {
@@ -5246,8 +5245,7 @@
       "late": "迟到",
       "absent": "缺勤",
       "leave": "请假"
-    }
-,
+    },
     "student": "学生"
   },
   "eduMgmt": {
@@ -7409,8 +7407,7 @@
     "changePassword": "修改密码",
     "newPassword": "新密码",
     "language": "语言",
-    "theme": "主题"
-,
+    "theme": "主题",
     "version": "版本"
   },
   "liveList": {
@@ -7579,8 +7576,7 @@
     "feature": "功能",
     "premium": "高级",
     "title": "会员对比"
-  }
-,
+  },
   "coupon": {
     "useHint": "请前往商品页使用"
   },
