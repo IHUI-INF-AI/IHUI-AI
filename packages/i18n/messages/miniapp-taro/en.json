@@ -2399,7 +2399,6 @@
       "deleteParam": "Delete",
       "create": "New",
       "createSuccess": "Agent created successfully",
-      "mockSuccess": "API not yet available. Mock creation completed",
       "submitting": "Creating…",
       "submit": "Create Agent",
       "fileSizeExceeded": "File cannot exceed 10MB",
@@ -2435,8 +2434,7 @@
       "discountFull": "Fully eligible",
       "submitting": "Submitting…",
       "submit": "Submit for review",
-      "submitSuccess": "Submitted successfully",
-      "mockSuccess": "API not yet available. Mock submission completed"
+      "mockSuccess": "API not yet available. Nothing was submitted"
     }
   },
   "devSpace": {
@@ -4570,8 +4568,7 @@
     "q3": "Operations",
     "q4": "Marketing",
     "q5": "Sales",
-    "q6": "Load agent",
-    "q7": "Submit paid config"
+    "q6": "Load agent"
   },
   "modelplaza": {
     "r1": "Alibaba Cloud",
@@ -4697,6 +4694,7 @@
   "utilsMiniapplogin": {
     "q1": "Please log in within the mini program",
     "q2": "Login auth code is empty",
+    "alipayUnsupported": "Alipay sign-in is not available yet. Please log in with your phone number",
     "p1": "User",
     "alipayUser": "Alipay"
   },
