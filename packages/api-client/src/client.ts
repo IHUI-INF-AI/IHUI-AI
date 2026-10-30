@@ -3928,6 +3928,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasToolDelegate = typeof opts.onToolDelegate === 'function'
     // V3 #58(2026-09-26 立):主对话流工具审批请求解析开关(onToolApproval 注册才解析)
     const hasToolApproval = typeof opts.onToolApproval === 'function'
+    // D115(2026-10-23 立):review-finding 结构化发现帧解析开关(onReviewFinding 注册才解析)
+    const hasReviewFinding = typeof opts.onReviewFinding === 'function'
     // W1(2026-09-12 立):plan / terminal SSE 事件能力检测
     const hasPlanUpdate = typeof opts.onPlanUpdate === 'function'
     const hasTerminal =
@@ -4412,6 +4414,68 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         })
       } catch {
         /* 非 JSON 或非 tool-approval 事件忽略 */
+      }
+    }
+
+    /** D115(2026-10-23 立):解析 review-finding SSE 帧(review 模式结构化发现,一 finding 一帧)。
+     *  - 契约:ReviewFindingEvent(定义在本包,零依赖包边界);wire 形 camelCase 直通
+     *  - 畸形帧(缺 findingId/severity/file 等 key 字段或 severity 越域)一律不发回调 ——
+     *    与 tool-approval「缺 id 不弹窗」同口径:半截帧上屏只会渲染出坏行
+     *  - 未注册 onReviewFinding 时不解析(hasReviewFinding 首道守护,与其余 per-field 同口径) */
+    const tryParseReviewFinding = (line: string): void => {
+      if (!hasReviewFinding) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'review-finding') return
+        const findingId = json.findingId
+        const severity = json.severity
+        const file = json.file
+        const title = json.title
+        if (
+          typeof findingId !== 'string' ||
+          findingId === '' ||
+          (severity !== 'P1' && severity !== 'P2' && severity !== 'Nit') ||
+          typeof file !== 'string' ||
+          file === '' ||
+          typeof title !== 'string'
+        ) {
+          return
+        }
+        const index = json.index
+        const total = json.total
+        const line0 = json.line
+        if (
+          typeof index !== 'number' ||
+          !Number.isFinite(index) ||
+          typeof total !== 'number' ||
+          !Number.isFinite(total) ||
+          typeof line0 !== 'number' ||
+          !Number.isFinite(line0)
+        ) {
+          return
+        }
+        opts.onReviewFinding!({
+          findingId,
+          index,
+          total,
+          severity,
+          file,
+          line: line0,
+          title,
+          detail: typeof json.detail === 'string' ? json.detail : '',
+          suggestion: typeof json.suggestion === 'string' ? json.suggestion : '',
+          ...(typeof json.target === 'string' && json.target !== '' ? { target: json.target } : {}),
+        })
+      } catch {
+        /* 非 JSON 或非 review-finding 事件忽略 */
       }
     }
 
@@ -5371,6 +5435,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           // "没人订阅" 在端上完全同形(本仓最高频的失效形态)。
           case 'hook-failed':
             return 'hook_failed'
+          // D115:review 模式结构化发现帧 —— 同 hook-failed 口径,必须显式分流。
+          case 'review-finding':
+            return 'review_finding'
           default:
             return null
         }
@@ -5397,6 +5464,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         await tryParseToolDelegate(line)
       } else if (route === 'tool_approval') {
         tryParseToolApproval(line)
+      } else if (route === 'review_finding') {
+        tryParseReviewFinding(line)
       } else if (route === 'plan') {
         tryParsePlanUpdate(line)
       } else if (route === 'terminal') {
@@ -5461,6 +5530,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseTerminal(line)
         await tryParseToolDelegate(line)
         tryParseToolApproval(line)
+        tryParseReviewFinding(line)
         tryParseCitations(line)
         tryParseUsage(line)
         tryParseMemoryUpdates(line)

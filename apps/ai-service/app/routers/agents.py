@@ -22,6 +22,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+# §30 状态词汇一等契约(2026-10-31 立):done 帧的「失败结局 + 停摆位置」两键判定全在词表模块,
+# 本路由只搬运已取到的**类型化**信号(最后一个带 error_type 的工具结果),不从 error 散文反推。
+from ..core.agent_failure_vocabulary import failure_signal as _failure_signal
 from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
 from ..core.sse_buffer import REPLAY_HIT, sse_buffer
 
@@ -1798,6 +1801,23 @@ async def execute_agent_stream(
                     # 落点)。今天全部生产者的取值都在集内 ⇒ 逐零差异;未来任何一处直接
                     # 写裸字面量而不先登记,在此抛错点名,而不是静默放行第 4 份档位。
                     frame_stop_reason = ensure_turn_stop_reason(frame_stop_reason)
+                    # §30(2026-10-31):done 帧带出「失败结局 + 停摆位置」。输入只取**类型化**
+                    # 信号 —— 倒着找最后一个真的带 error_type 的工具结果(那是循环里唯一
+                    # 一处会显式盖章的失败族);找不到就交 None,判定模块据此记 undetermined,
+                    # 绝不拿 result.error 的中文散文去猜档(§禁止文本判流程)。
+                    _last_error_family: str | None = None
+                    for _iter in reversed(list(getattr(result, "iterations", None) or [])):
+                        for _tr in reversed(list(getattr(_iter, "tool_results", None) or [])):
+                            _et = getattr(_tr, "error_type", None)
+                            if isinstance(_et, str) and _et:
+                                _last_error_family = _et
+                                break
+                        if _last_error_family is not None:
+                            break
+                    _failure_keys = _failure_signal(
+                        success=frame_success,
+                        last_error_family=_last_error_family,
+                    )
                     # 结果事件(唯一 done,含 success/stop_reason/output)
                     # 2026-09-17 修复:去掉 [:2000] 截断——长回复被静默截断,
                     # 前端拿不到完整 final_response;SSE 行大小由网关层保证。
@@ -1807,6 +1827,10 @@ async def execute_agent_stream(
                         "session_id": session_id,
                         "success": frame_success,
                         "stop_reason": frame_stop_reason,
+                        # 失败结局二分 + 停摆位置(词表封闭集;成功回合两键为 null,
+                        # 判不出为 "undetermined" —— 消费方不得把它读成"重试没用")。
+                        "failure_outcome": _failure_keys["failure_outcome"],
+                        "stall_stage": _failure_keys["stall_stage"],
                         "output": getattr(result, "final_response", ""),
                         # W9#7(2026-09-18):done 回传 checkpoint_id —— 前端无需再
                         # 二次查询 /checkpoints 即可定位可回滚点(paused/cancelled/

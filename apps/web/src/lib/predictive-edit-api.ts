@@ -22,6 +22,8 @@
  * 只影响"这次没有建议",不得弹错、不得阻塞用户输入或发送。
  */
 
+import * as React from 'react'
+
 import { fetchApi } from '@ihui/api-client'
 
 /** ai-service 端点(web 同源反代;后端路径为 /api/llm/fim/edit-intent)。 */
@@ -299,4 +301,71 @@ export function reportPredictiveEditMetric(event: PredictiveEditMetricEvent): vo
   } catch (error) {
     debugSilently('metric 上报抛错(同步段)', error)
   }
+}
+
+// ---------------------------------------------------------------------------
+// 终点结算器(2026-10-31 从 web-input-core 抽出,§0.6 单一真相源)
+//
+// 判据(与 predictive-edit-metrics.test.tsx 钉住的行为逐字等价):
+// 每条**展示过**的建议恰好终结于「应用」或「忽略」之一,两个终点各上报一次。
+// 建议条从展示中消失(草稿变了/被清掉/输入区进入流式)且未被应用 ⇒ dismissed;
+// 「应用」路径必须先登记为 accepted 终点,防紧随的消失 effect 把同一条记成忽略。
+// ---------------------------------------------------------------------------
+
+/** 一次终点结算上报所需的载荷字段(预测响应回显的 model/latencyMs)。 */
+export interface PredictiveEditSettlementPayload {
+  model?: string
+  latencyMs?: number
+}
+
+export function createPredictiveEditMetricSettler() {
+  let pending: PredictiveEditSettlementPayload | null = null
+  return {
+    /** 建议开始展示:登记为待结算(同一条目重复登记幂等)。 */
+    shown(payload: PredictiveEditSettlementPayload): void {
+      pending = payload
+    },
+    /** 以「应用」终结核对条目;未在展示中的条目照样上报(调用方已自行核对可用)。 */
+    settledAsAccepted(payload: PredictiveEditSettlementPayload): void {
+      if (pending === payload) pending = null
+      reportPredictiveEditMetric({
+        accepted: true,
+        model: payload.model,
+        latencyMs: payload.latencyMs,
+      })
+    },
+    /** 展示结束且未被应用 ⇒ 忽略;无待结算条目时零上报。 */
+    settleDismissedPending(): void {
+      if (!pending) return
+      const ended = pending
+      pending = null
+      reportPredictiveEditMetric({
+        accepted: false,
+        model: ended.model,
+        latencyMs: ended.latencyMs,
+      })
+    },
+  }
+}
+
+/**
+ * React 侧终点结算:`(visible, prediction)` 驱动 shown/dismissed,
+ * 返回的 `settleAccepted` 由「应用」路径调用(引用等值才撤销待结算)。
+ * `prediction` 必须在两次渲染间保持引用稳定(来自 state,不现场构造)。
+ */
+export function usePredictiveEditMetricSettlement(
+  prediction: PredictiveEditSettlementPayload | null,
+  visible: boolean,
+): (payload: PredictiveEditSettlementPayload) => void {
+  const settlerRef = React.useRef<ReturnType<typeof createPredictiveEditMetricSettler> | null>(null)
+  if (settlerRef.current === null) settlerRef.current = createPredictiveEditMetricSettler()
+  React.useEffect(() => {
+    const settler = settlerRef.current
+    if (!settler) return
+    if (visible && prediction) settler.shown(prediction)
+    else settler.settleDismissedPending()
+  }, [visible, prediction])
+  return React.useCallback((payload: PredictiveEditSettlementPayload) => {
+    settlerRef.current?.settledAsAccepted(payload)
+  }, [])
 }

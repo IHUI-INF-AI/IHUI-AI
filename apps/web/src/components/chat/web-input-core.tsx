@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import {
   applyPredictedEditActions,
   fetchPredictiveEdit,
-  reportPredictiveEditMetric,
+  usePredictiveEditMetricSettlement,
   PREDICTIVE_EDIT_LANGUAGE,
   type PredictiveEditAction,
 } from '@/lib/predictive-edit-api'
@@ -173,35 +173,18 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     // 接受率埋点(B01 票挖出的缺口,2026-10-27 接线):看板的 edit_intent 桶此前**没有生产者**
     // (全仓唯一上报点 CodeEditor.tsx:256 不带 scene ⇒ 全落缺省 completion 桶),
     // 因后端 `rate = accepted/suggestions` 且 suggestions 恒 0 ⇒ 预测器接受率恒空。
-    // 每条展示过的建议恰好终结于「应用」(applyPrediction 内报 accepted)或
-    // 「忽略」(建议条消失且未被应用 ⇒ 本 effect 报 dismissed),两个终点各上报一次。
-    const pendingMetricRef = React.useRef<typeof prediction>(null)
+    // 终点结算(2026-10-31 抽共享):每条展示过的建议恰好终结于「应用」或「忽略」,
+    // 两个终点各上报一次;判据唯一实现在 lib/predictive-edit-api 的结算器,
+    // 编辑器内建议条(CUE 对齐)复用同一份,两处不许各写一套。
     const predictionVisible = prediction !== null && prediction.document === text && !isStreaming
-    React.useEffect(() => {
-      if (predictionVisible && prediction) {
-        pendingMetricRef.current = prediction
-      } else if (pendingMetricRef.current) {
-        const ended = pendingMetricRef.current
-        pendingMetricRef.current = null
-        reportPredictiveEditMetric({
-          accepted: false,
-          model: ended?.model,
-          latencyMs: ended?.latencyMs,
-        })
-      }
-    }, [predictionVisible, prediction])
+    const settleAccepted = usePredictiveEditMetricSettlement(prediction, predictionVisible)
     const applyPrediction = () => {
       if (!prediction || prediction.document !== text) return
       const next = applyPredictedEditActions(prediction.document, prediction.actions)
       setPrediction(null)
       if (next !== null && next !== text) {
-        // 先消费掉待报条目再上报:否则紧随的隐藏 effect 会把同一条记成「忽略」。
-        pendingMetricRef.current = null
-        reportPredictiveEditMetric({
-          accepted: true,
-          model: prediction.model,
-          latencyMs: prediction.latencyMs,
-        })
+        // 先以「应用」终结核对条目:否则紧随的隐藏结算会把同一条记成「忽略」。
+        settleAccepted(prediction)
         onTextChange(next)
       }
     }
