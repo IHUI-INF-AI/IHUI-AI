@@ -8,7 +8,7 @@ import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
-import { getCourseDetail, post, type Course } from '@/api'
+import { get, getCourseDetail, post, type Course } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import {
@@ -37,7 +37,8 @@ export default function CourseDetail() {
   const [showRating, setShowRating] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showComplete, setShowComplete] = useState(false)
-  const [learningProgress, setLearningProgress] = useState(35)
+  // 真实学习进度:原先硬编码 35 ⇒ 进度环、"已看 N 课时"、"当前课时"与统计数字全是编的。
+  const [learningProgress, setLearningProgress] = useState(0)
   const [noteContent, setNoteContent] = useState('')
 
   const loadDetail = useCallback(
@@ -45,6 +46,15 @@ export default function CourseDetail() {
       try {
         const res = await getCourseDetail(id)
         setCourse(res)
+        // GET /edu/courses/:id/progress 返回 { progress };未报名时 404 ⇒ 按 0 处理(不弹错)。
+        try {
+          const p = await get<{ progress?: number }>(
+            `/edu/courses/${encodeURIComponent(id)}/progress`,
+          )
+          setLearningProgress(typeof p.progress === 'number' ? p.progress : 0)
+        } catch {
+          setLearningProgress(0)
+        }
       } catch {
         Taro.showToast({ title: t('course.loadFailed'), icon: 'none' })
       }
