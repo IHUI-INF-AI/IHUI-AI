@@ -164,6 +164,90 @@ describe('agent-extended IDOR 防护', () => {
     })
   })
 
+  // ===== 票「非会话 401 被当成会话死亡」(2026-10-30 代裁落地)=====
+  // 会话死亡分支的唯一触发键是 HTTP 401 —— packages/api-client/src/client.ts 里
+  // `result.status === 401 && !isAuthEndpoint(normalizedUrl)` 那一格(→ 静默续期 →
+  // notifyUnauthorized → 端上弹「重新登录」并清登录态)。本仓判据不在测试里复刻(§22c),
+  // 所以这里钉的是**出栈状态码与包络形状**这一唯一契约面:
+  //   正向:未标注原因的抛出不得以 401 出栈(那会把服务侧故障说成用户掉线);
+  //   反向:真会话结论(注销/未登录/查无此人)必须仍是 401,否则用户永远等不到登录屏。
+  describe('非会话失败不得被读成会话死亡(preHandler catch 双通道收敛)', () => {
+    it('requireActiveUser 抛未标注异常 → 502 + ACCOUNT_STATE_CHECK_FAILED,绝不以 401 出栈', async () => {
+      asRegular(USER_A)
+      mocks.requireActiveUser.mockRejectedValue(new Error('getaddrinfo ENOTFOUND pg-primary'))
+      const res = await server.inject({ method: 'GET', url: `/withdrawal/${REC_ID}` })
+      expect(res.statusCode).toBe(502)
+      expect(res.statusCode).not.toBe(401)
+      const body = res.json()
+      expect(body.code).toBe(502)
+      expect(body.errorCode).toBe('ACCOUNT_STATE_CHECK_FAILED')
+      // 短路语义不变:preHandler 拒了就不会碰 handler,更不会查库
+      expect(mocks.dbSelect).not.toHaveBeenCalled()
+    })
+
+    it('未标注异常的原文只进日志、不进响应体(依赖故障/SQL 细节不得回显)', async () => {
+      asRegular(USER_A)
+      mocks.requireActiveUser.mockRejectedValue(
+        new Error('relation "zhs_agent_withdrawal_detail" does not exist -- token=secret'),
+      )
+      const res = await server.inject({ method: 'GET', url: `/withdrawal/${REC_ID}` })
+      expect(res.statusCode).toBe(502)
+      expect(res.json().message).toBe('操作失败,请稍后重试')
+      expect(res.body).not.toContain('does not exist')
+      expect(res.body).not.toContain('secret')
+    })
+
+    it('反向对照:账号已注销(status=3)仍是 401 + 原文案,包络形状逐字不变', async () => {
+      asDeactivated(USER_A)
+      const res = await server.inject({ method: 'GET', url: `/withdrawal/${REC_ID}` })
+      expect(res.statusCode).toBe(401)
+      const body = res.json()
+      expect(body).toEqual({ code: 401, message: '账号已注销' })
+      // 无 errorCode 的既有结论不得被凭空补出键来(补了就是改变契约形状)
+      expect('errorCode' in body).toBe(false)
+    })
+
+    it('反向对照:未登录与查无此人这两型真会话结论仍按 401 出栈', async () => {
+      for (const message of ['Authentication required', 'User not found']) {
+        asRegular(USER_A)
+        const err = new Error(message) as Error & { statusCode: number }
+        err.statusCode = 401
+        mocks.requireActiveUser.mockRejectedValue(err)
+        const res = await server.inject({ method: 'GET', url: `/withdrawal/${REC_ID}` })
+        expect(res.statusCode).toBe(401)
+        expect(res.json().message).toBe(message)
+      }
+    })
+
+    it('带 statusCode 的结论(502)保留状态码,并把 errorCode 透出(此前在这一步被剥掉)', async () => {
+      asRegular(USER_A)
+      const err = new Error('操作失败,请稍后重试') as Error & {
+        statusCode: number
+        errorCode: string
+      }
+      err.statusCode = 502
+      err.errorCode = 'ACCOUNT_STATE_CHECK_FAILED'
+      mocks.requireActiveUser.mockRejectedValue(err)
+      const res = await server.inject({ method: 'GET', url: `/withdrawal/${REC_ID}` })
+      expect(res.statusCode).toBe(502)
+      expect(res.json()).toEqual({
+        code: 502,
+        message: '操作失败,请稍后重试',
+        errorCode: 'ACCOUNT_STATE_CHECK_FAILED',
+      })
+    })
+
+    it('权限类结论(403)同样逐字透传,不被本票的收敛改成 502', async () => {
+      asRegular(USER_A)
+      const err = new Error('CSRF 校验失败') as Error & { statusCode: number }
+      err.statusCode = 403
+      mocks.requireActiveUser.mockRejectedValue(err)
+      const res = await server.inject({ method: 'GET', url: `/withdrawal/${REC_ID}` })
+      expect(res.statusCode).toBe(403)
+      expect(res.json().message).toBe('CSRF 校验失败')
+    })
+  })
+
   // ===== Bug 2:PUT /withdrawal/:id ownership + status 剥离 =====
   describe('Bug 2:PUT /withdrawal/:id', () => {
     it('非 admin 改他人提现 → 403(不触发 update)', async () => {

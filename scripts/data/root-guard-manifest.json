@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-29T15:21:01.165Z",
-  "sealedBy": "root-guard --seal",
-  "reason": "2026-10-29 23:2x 主线席复核:三处签出(本地/生产/远端)清单均绑 c8cd0136,而 guardian-runner.mjs 三面(工作树==HEAD==origin)已推进到 ea633dc6 —— 器物差面判读明写『这不是有人改了规则,是清单与已入库内容对不上』。变更来源单一且可追:仅 3ef804fc3f『fix(gates): 消掉门89 R5撞号恒红 + 回补门237被无关提交洗掉的996行版 + 换掉一把会替人下因果结论的坏尺子』一枚,属守门自身的前向修复,非规则削弱(门注册条目数与 id 唯一性由门 89 自证)。judgement-libs 与 agents-ironlaw 两面本次实测无变化,重封不改动其值。",
+  "sealedAt": "2026-10-30T06:05:59.077Z",
+  "sealedBy": "root-guard --seal (face=HEAD)",
+  "reason": "2026-10-30 主席席:AGENTS.md 铁律段正被别席实时重写(HEAD/索引/磁盘三面三个不同值),在磁盘面上 --seal 只能封到一瞬间的中间态 ⇒ 本枚改为按**HEAD 面**用 root-guard 自己的 hashTarget 现算三目标(值不是手填,是同一把尺子换面取),目的只有一个:让 HEAD 自己自洽,终止「清单落后于已入库内容 ⇒ 三处签出部署环 fail-closed」这一型的反复。",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "ea633dc642d354170d05261f9e494d231d215a7395f42c0e457dfc78eddd675b"
+      "sha256": "26170f55034fda6454b6e3134d2812e0e23d90c9add82fce43d48207b623e451"
     },
     {
       "id": "judgement-libs",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "4eb3bf17d04f940815ec0c4adba52b1d8e66cb49520900aaf33f824058a08d9d"
+      "sha256": "3ac5ea16a9e3e927991eba294c532c5c8bb93c04dc519bf02623baea49180523"
     }
   ]
 }

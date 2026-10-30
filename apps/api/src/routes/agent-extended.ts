@@ -201,9 +201,27 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       await requireActiveUser(request)
     } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || '账号已注销'
-      return reply.status(statusCode).send(error(statusCode, message))
+      const err = e as Error & { statusCode?: number; errorCode?: string }
+      // 票「非会话 401 被当成会话死亡」(2026-10-30 按 §24 代裁落地,原"须用户确认"流程已作废):
+      // 这一格此前是 `(e).statusCode ?? 401` 的双通道 catch —— 把"没查明原因"(内部异常、
+      // 依赖故障、requireActiveUser 未来新增的未标注抛出)一路盖成 401。而 api-client 的会话
+      // 判定只看 HTTP 401(client.ts 的 `result.status === 401 && !isAuthEndpoint(...)` →
+      // 静默续期 → notifyUnauthorized),于是端上弹「登录已过期,请重新登录」并清登录态,
+      // 真实原因却在我方服务侧。口径与 plugins/auth.ts 的 authenticate / requireActiveUser
+      // 完全一致:显式带 statusCode 的才是**鉴权结论**,按原状态与原文案逐字出栈;
+      // 不带的一律"未判定" ⇒ 502 + 具名 errorCode(与 requireActiveUser 查状态失败同桶),
+      // 原文只进日志不进响应体(防把 SQL/依赖细节带进 body,先例见 auth.ts O17 注)。
+      if (typeof err.statusCode !== 'number') {
+        request.log.error({ err }, 'agent-extended 账号状态校验未判定(已脱敏为 502)')
+        return reply
+          .status(502)
+          .send(error(502, '操作失败,请稍后重试', 'ACCOUNT_STATE_CHECK_FAILED'))
+      }
+      // errorCode 此前在这一步被剥掉(error 只传两参),端上只能按 HTTP 状态猜"是哪种失败";
+      // 按 utils/response.ts 的三参形状透传 ⇒ 真 401 仍是真 401,502 那族带上可分型的稳定码。
+      return reply
+        .status(err.statusCode)
+        .send(error(err.statusCode, err.message || '账号已注销', err.errorCode))
     }
   })
 
