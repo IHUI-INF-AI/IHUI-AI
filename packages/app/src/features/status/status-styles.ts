@@ -2,19 +2,20 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnTokens } from '@ihui/design-tokens'
+import { rnHue, rnRadius, rnTokens } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
 /** 状态语义色板(与 web 端 emerald/amber/rose/sky 同源,固定语义色,不随主题换档)。
- *  amber / danger 两档直接取 design-tokens(单一真相源),不再手抄同值 hex。 */
+ *  amber / danger 两档直接取 design-tokens(单一真相源),不再手抄同值 hex;
+ *  色相族底/前景/圆点唯一真相源 = packages/design-tokens/src/hue-tints.js 的 rnHue 表(2026-10-31 收编)。 */
 export const STATUS_PALETTE = {
-  operational: { bg: 'rgba(16,185,129,0.10)', fg: '#059669', dot: '#10b981' },
-  degraded: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: rnTokens.warning.amber },
-  outage: { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48', dot: '#f43f5e' },
-  minor: { bg: 'rgba(14,165,233,0.10)', fg: '#0284c7', dot: '#0ea5e9' },
-  major: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: rnTokens.warning.amber },
-  critical: { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48', dot: '#f43f5e' },
+  operational: { bg: rnHue.emerald.tint, fg: rnHue.emerald.fg, dot: rnHue.emerald.dot },
+  degraded: { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg, dot: rnTokens.warning.amber },
+  outage: { bg: rnHue.rose.tintStrong, fg: rnHue.rose.fg, dot: rnHue.rose.dot },
+  minor: { bg: rnHue.sky.tint, fg: rnHue.sky.fg, dot: rnHue.sky.dot },
+  major: { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg, dot: rnTokens.warning.amber },
+  critical: { bg: rnHue.rose.tintStrong, fg: rnHue.rose.fg, dot: rnHue.rose.dot },
 } as const
 
 export function createStatusStyles(tk: AppThemeTokens) {
