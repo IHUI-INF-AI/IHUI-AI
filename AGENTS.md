@@ -415,3 +415,8 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **207 体积清偿第四批(2026-10-31)**:44 行「R4 登记补记」与同族重复副本已整行移入 `.ihui-agent/archive/AGENTS_trim-2026-10-31.md`(规则条款一条未减:每类判据至少存活一份);R4 的点名义务同期改由 README「守门脚本点名索引」承担(补 17 枚门名)。现读 95,121 / 96,000。
 - **门名点名索引**(按主题归堆;编号与档位以 runner 现值为准):**已整体迁 `README.md` 的「守门脚本点名索引」节**(R4 的文档面本就含 README,本文不再重复抄一份;2026-10-25 守门 207 清偿第二刀,原 9 行逐字在 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`)。
 - **非色档三族同源(2026-10-28 立)**:间距 `SPACING_STEPS` / 字号 `TYPE_STEPS`+`FONT_WEIGHTS` / 阴影 `ELEVATION_CSS` 是唯一真源,由 `scripts/sync-css-tokens.mjs` 生成到 tokens.css 的 `css-tokens:managed` 受管块(`@theme` 内末尾,47 档),web 由此获得 `p-md` / `text-body` / `shadow-elevation-md` 这类工具类(写进 `:root` 则 v4 一条工具类都不产出,见脚本头注 §二实测)。受管块是**派生态禁止手改**:改值改 TS 源后跑 `node scripts/sync-css-tokens.mjs --write`;守门 93 的 R9/R10/R11 判受管块与 TS 源逐值同源(缺档/漂移/多档三方向都红),`pnpm check:tokens-css` 可单跑。圆角仍走 `radius.js` 单源,不重复生成(同值两名生产者 = 漂移)。
+<!--
+-->
+- **结构与守护**:活 gitdir 形态按当次实测(本机 2026-10-31 现读 = 工作区 `.git` 是 28 字节 **gitfile**,内容 `gitdir: D:/IHUI-AI-git-repo` ⇒ 活 gitdir 在工作区外,该目录实体存在且承载 packed-refs / refs-manifest.json;`.git-backup-20260912` 是另一形态的遗留,二者均禁删清)。守护 = `git-guardian.mjs`(daemon + 计划任务 `IHUI-AI git-guardian` 每 2 分钟),分层自愈 `指针→环境→HEAD→嵌套 ref→本地备份→远端`,破坏性覆盖前先归档到 `gitArchiveDir()`(现 `D:\DevEnv\backups\git\`),**手工抢修也不得把 `.git*` 归档 mv 到工作区根**。诊断:`node scripts/git-guardian.mjs --status|--check`;日志 `.ihui-agent/state/git-guardian.log`。
+- **207 体积清偿**:被移出的重复副本与 R4 补记逐字存于 `.ihui-agent/archive/AGENTS_trim-2026-10-31.md`(§0–§29 条款一条未减:每类判据至少存活一份);R4 点名义务由 README「守门脚本点名索引」承担。
+- **结构与守护**:同上 §5b 首条(当次实测:`.git` 是 28 字节 gitfile、活 gitdir 在 `D:/IHUI-AI-git-repo` 实体目录,二者均禁删清)。
