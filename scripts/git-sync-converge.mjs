@@ -688,6 +688,65 @@ export const DECLARATION_FLAGS = Object.freeze([
   '--supersede',
 ])
 
+/**
+ * 旗标闸的存在理由(2026-10-30 实测病,不是设防想象):本器原先**没有 `--help`**,
+ * 一名会话为了"查用法"敲 `node scripts/git-sync-converge.mjs --help` —— 未知旗被静默忽略,
+ * 于是被当成默认动作**直接开跑真实索引层收敛**,并在崩溃前留下 16 项 `index≠HEAD ∧ worktree==HEAD`
+ * 的中间态(事后逐路径 reset 归零,并证明未进任何提交)。旁路收敛是会动索引与 refs 的仓库级动作,
+ * "未知旗静默按默认档执行"对它而言就是最坏的失效方向。
+ * 同族既有纪律:`check-verbatim-resurrection.mjs` 头注「未认识的旗标一律用法错 exit 2
+ * (本仓登记过『对自称只读的档发未知旗会真跑主流程』那一型)」;`plan-tasks.mjs`「未知/残缺开关
+ * 静默掉进默认分支,是本仓登记过的失效型」。失效方向恒定 = 多要一次定向说明(§0.10),
+ * 绝不静默执行仓库级动作。
+ * 清单只此一份:头注、USAGE 与镜像测试都指回这里(§0.6 不得两处各写一份旗名单)。
+ */
+/** 带值旗:值本身是位置 token,不得被当成"未知旗"或下一个开关重复校验。 */
+export const VALUE_FLAGS = Object.freeze(['--branch', '--rounds', ...DECLARATION_FLAGS])
+/** 本器认识的全部旗 = 动作档 ∪ 带值档(两份不得各自演进,否则正当用法被自己拦死 —— 本枚写完即被镜像锁抓到过)。 */
+export const KNOWN_FLAGS = Object.freeze([
+  '--self-test',
+  '--dry-run',
+  '--no-proxy',
+  '--status',
+  '--align-only',
+  '--help',
+  ...VALUE_FLAGS,
+])
+
+export const USAGE = [
+  '用法: node scripts/git-sync-converge.mjs [--branch main] [--rounds 3] [--dry-run]',
+  '      node scripts/git-sync-converge.mjs --status        # 只读看对齐停摆台账,零副作用',
+  '      node scripts/git-sync-converge.mjs --align-only    # 只补对齐态,不做合并',
+  '      node scripts/git-sync-converge.mjs --no-proxy      # 本轮 git 网络走直连(临时,不改配置)',
+  '      node scripts/git-sync-converge.mjs --self-test     # 回归自检',
+  '      node scripts/git-sync-converge.mjs --help|-h       # 本用法(rc=0,不执行任何动作)',
+  '      声明旗(可重复,原样转发给 union-converge): ' + DECLARATION_FLAGS.join(' '),
+  '退出码: 0 正常/只读档/用法打印 · 1 业务失败 · 2 用法错(含未知旗标)或环境不能',
+]
+
+/**
+ * 纯校验:返回第一枚不认识的旗(字符串),全合法 ⇒ null。不 process.exit,好被镜像测试直接问。
+ * 认 `--x=v` 等号形;`-h` 单独放行;不带 `-` 的 token 视为某个旗的值/位置参数,一律放行。
+ */
+export function findUnknownFlag(argv = process.argv) {
+  const list = Array.isArray(argv) ? argv.slice(2) : []
+  for (let i = 0; i < list.length; i++) {
+    const a = String(list[i])
+    if (!a.startsWith('-')) continue
+    if (a === '-h' || a === '--') continue
+    const key = a.includes('=') ? a.slice(0, a.indexOf('=')) : a
+    if (!KNOWN_FLAGS.includes(key)) return a
+    // 带值旗把紧随其后的非旗 token 当值吃掉,不参与下一轮旗校验(值恰好长得像旗的情况
+    // 由 declarationArgs 既有规则处理:它只认不以 -- 开头的值,所以这里同样只吃非旗值)。
+    if (VALUE_FLAGS.includes(key) && !a.includes('=')) {
+      const v = list[i + 1]
+      if (v !== undefined && !String(v).startsWith('-')) i++
+    }
+  }
+  return null
+}
+
+
 export function declarationArgs(argv = process.argv) {
   const list = Array.isArray(argv) ? argv : []
   const out = []
@@ -1830,6 +1889,18 @@ function selfTest() {
 // ─── 主流程(§22d:仅 direct-run 执行,被 import 时零副作用) ──
 function main() {
   const argv = process.argv.slice(2)
+  // 旗标闸排在**一切动作之前**(含 --self-test 与默认档收敛):未知旗必须由它裁,
+  // 而不是让"我不认识的那个旗"悄悄落进默认档去开跑真实索引层收敛(2026-10-30 实测踩过)。
+  const badFlag = findUnknownFlag(process.argv)
+  if (badFlag) {
+    console.error(`❌ 未认识的旗标 ${badFlag} —— 本器会动索引与 refs,不做"未知旗静默按默认档跑真收敛"那一型`)
+    console.error(USAGE.join('\n'))
+    process.exit(2)
+  }
+  if (argv.includes('--help') || argv.includes('-h')) {
+    console.log(USAGE.join('\n'))
+    process.exit(0)
+  }
   if (argv.includes('--self-test')) process.exit(selfTest() ? 0 : 1)
   const getOpt = (name, dflt) => {
     const i = argv.indexOf(name)
