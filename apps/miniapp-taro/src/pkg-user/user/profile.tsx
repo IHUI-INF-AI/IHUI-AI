@@ -9,8 +9,11 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, updateUserAvatar, type UserInfo } from '@/api'
+import { fetchApi } from '@ihui/api-client'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import ProfileStatsGrid, { type ProfileStats } from './profile-stats'
+import ProfileLogoutButton from './profile-logout'
 import './profile.css'
 import LineIcon from '@/components/LineIcon'
 
@@ -19,6 +22,8 @@ export default function Profile() {
   const tt = useTt()
   const gate = useAuthReadyGate()
   const [form, setForm] = useState<Partial<UserInfo>>({})
+  const [stats, setStats] = useState<ProfileStats | null>(null)
+  const [orderCount, setOrderCount] = useState(0)
   const [uploading, setUploading] = useState(false)
 
   const load = useCallback(async () => {
@@ -27,6 +32,17 @@ export default function Profile() {
     } catch (e) {
       logger.error('user/profile', '获取用户信息', e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
+    }
+    // 个人中心统计(对齐共享屏 statsGrid):失败静默 —— 共享屏在 stats 缺失时同样按 0 渲染
+    try {
+      const [statsRes, orderRes] = await Promise.all([
+        fetchApi<ProfileStats>('/api/statistics/user-center'),
+        fetchApi<{ total: number }>('/api/orders/me', { params: { page: 1, pageSize: 1 } }),
+      ])
+      if (statsRes.success) setStats(statsRes.data)
+      if (orderRes.success) setOrderCount(orderRes.data.total ?? 0)
+    } catch {
+      // 静默:统计不是本页主内容,失败不打断资料展示
     }
   }, [t])
 
@@ -73,7 +89,7 @@ export default function Profile() {
     {
       label: t('user.profile.nickname'),
       path: '/pkg-user/user/nickname',
-      value: form.nickname || t('user.profile.notSet'),
+      value: form.nickname || t('profile.nickname'),
     },
     {
       label: t('user.profile.phone'),
@@ -126,6 +142,9 @@ export default function Profile() {
             ) : null}
           </View>
         </View>
+
+        {/* 个人中心统计六格(对齐共享屏 statsGrid:课程/收藏/关注/粉丝/订单/智汇值) */}
+        <ProfileStatsGrid stats={stats} orderCount={orderCount} />
 
         {/* 头像 section */}
         <View className="pf-section">
@@ -208,6 +227,9 @@ export default function Profile() {
             </View>
           </View>
         </View>
+
+        {/* 退出登录(对齐共享屏 logoutBtn) */}
+        <ProfileLogoutButton />
       </View>
     </ThemeRoot>
   )

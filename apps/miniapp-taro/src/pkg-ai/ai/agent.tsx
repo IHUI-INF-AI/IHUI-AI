@@ -298,6 +298,12 @@ export default function AgentPage() {
 
   return (
     <View className="min-h-screen bg-background">
+      {/* 页头:共享屏 AgentScreen 的 title 区(本端原生导航栏另写 config 标题,故不加返回键,避免双返回) */}
+      <View className="px-[20rpx] pt-[20rpx]">
+        <Text className="block text-[length:36rpx] font-bold text-foreground">
+          {t('agentScreen.title')}
+        </Text>
+      </View>
       {/* ===== 轮播图(对齐原项目 tools/index.vue 的 Carousel 组件;本屏只留外边距,
           圆角归组件根单点声明。旧注释把 RN 侧的圆角写成另一个数,那是抄来的、不是档位表上的)===== */}
       <View className="px-[20rpx] pt-[18rpx] pb-[8rpx]">
@@ -524,13 +530,13 @@ export default function AgentPage() {
                             className="mr-[6rpx]"
                           />
                           <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                            {rating.toFixed(1)}
+                            {t('agentScreen.rating')} {rating.toFixed(1)}
                           </Text>
                         </View>
                       )}
                       {agent.uses !== undefined && (
                         <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                          {t('ai.agentList.useCount', { n: agent.uses })}
+                          {t('agentScreen.useCount')} {agent.uses}
                         </Text>
                       )}
                     </View>

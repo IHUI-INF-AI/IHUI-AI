@@ -11,7 +11,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 // 屏幕状态四件套的小程序镜像件(对齐 RN 端 packages/app/src/components/ScreenStates.tsx)
-import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 /** AI 工具榜单条目(后端字段命名不统一,pick 函数兼容多命名) */
 interface ToolItem {
@@ -53,6 +53,8 @@ export default function RankingIndex() {
 
   const [list, setList] = useState<ToolItem[]>([])
   const [loading, setLoading] = useState(false)
+  /** 首屏两条腿都取不到 ⇒ 错误态;此前静默落成"暂无数据",把网络失败说成空榜单 */
+  const [failed, setFailed] = useState(false)
   const [fileType, setFileType] = useState<FileType>(0)
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
@@ -60,6 +62,7 @@ export default function RankingIndex() {
 
   const fetchPage = useCallback(
     async (curPage: number, ft: FileType, kw: string): Promise<boolean> => {
+      setFailed(false)
       try {
         const res = (await api.get('/ranking/list', {
           fileType: ft,
@@ -83,6 +86,7 @@ export default function RankingIndex() {
           } catch {
             setList([])
             setHasMore(false)
+            setFailed(true)
           }
         }
         return false
@@ -235,7 +239,23 @@ export default function RankingIndex() {
         </View>
       ) : null}
 
-      {!loading && !list.length ? <EmptyState title={tt('ranking.empty', '暂无数据')} /> : null}
+      {/* 首屏取不到(主腿 + 兜底腿都失败)⇒ 错误态 + 重试(对齐 RN RankingScreen 的 ErrorState
+          retryLabel=ranking.retry);此前一律落"暂无数据",失败与空榜混成一桶 */}
+      {failed && !list.length ? (
+        <View className="p-[20rpx]">
+          <ErrorState
+            message={tt('common.failed', '加载失败')}
+            onRetry={() => {
+              void reload(fileType, keyword)
+            }}
+            retryLabel={tt('ranking.retry', '重试')}
+          />
+        </View>
+      ) : null}
+
+      {!loading && !failed && !list.length ? (
+        <EmptyState title={tt('ranking.empty', '暂无数据')} />
+      ) : null}
 
       {loading ? <ScreenSkeleton variant="list" count={5} /> : null}
     </View>

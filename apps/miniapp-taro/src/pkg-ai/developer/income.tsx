@@ -44,6 +44,10 @@ interface IncomeItem {
   settlement?: string | number
   settleStatus?: string | number
   status?: string | number
+  /** 共享屏卡片同构字段:后端 GET /api/developer/income 目前只回流水行(id/title/time/amount),
+   *  订单号与分成比例尚未出网 ⇒ 本页按可选字段消费:回传即渲染,不回就不渲染(不编造数字)。 */
+  orderId?: string
+  rate?: number
 }
 
 interface IncomeListResponse {
@@ -77,6 +81,7 @@ export default function DeveloperIncome() {
   const [settlement, setSettlement] = useState('')
   const [buyInfo, setBuyInfo] = useState<BuyInfo | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [incomeList, setIncomeList] = useState<IncomeItem[]>([])
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
@@ -92,17 +97,19 @@ export default function DeveloperIncome() {
 
   const getUuid = useCallback(() => getUserInfo()?.uuid || '', [])
 
-  const loadBuyInfo = useCallback(async () => {
+  const loadBuyInfo = useCallback(async (): Promise<boolean> => {
     try {
       const res = (await getBuyInfo({ uuid: getUuid() })) as BuyInfo
       setBuyInfo(res)
+      return true
     } catch {
-      // ignore
+      // 失败由调用方合成错误态(共享屏 ErrorState + 重试)
+      return false
     }
   }, [getUuid])
 
   const fetchIncomeList = useCallback(
-    async (p: number, st: string, append: boolean) => {
+    async (p: number, st: string, append: boolean): Promise<boolean> => {
       if (append) setLoadingMore(true)
       try {
         const res = (await getBuyList({
@@ -115,8 +122,9 @@ export default function DeveloperIncome() {
         setIncomeList((prev) => (append ? [...prev, ...items] : items))
         setTotal(res?.total ?? items.length)
         setPage(p)
+        return true
       } catch {
-        // ignore
+        return false
       } finally {
         setLoadingMore(false)
       }
@@ -143,11 +151,18 @@ export default function DeveloperIncome() {
   // 未落定期间不去翻加载态(该枚 loading 初值本就是 true,等待期仍显示既有"加载中"文案)。
   // loadCashList(GET /api/developer/withdrawals,同组 requireAuth)由点击"提现明细"触发,
   // 不属挂载抢跑,原样不动。
+  // 共享屏的 ErrorState + 重试(modelIncome.retry):两路取数任一失败即挂错误条,重试原样重跑
+  // 首屏那一组请求 —— 门控语义不变(仍由 useAuthReadyGate 准入,setLoading 仍在门后)。
+  const reload = useCallback(() => {
+    setLoading(true)
+    setError(false)
+    void Promise.all([loadBuyInfo(), fetchIncomeList(1, '', false)])
+      .then(([infoOk, listOk]) => setError(!infoOk || !listOk))
+      .finally(() => setLoading(false))
+  }, [fetchIncomeList, loadBuyInfo])
+
   useDidShow(() => {
-    gate.waitUntilReady(() => {
-      setLoading(true)
-      Promise.all([loadBuyInfo(), fetchIncomeList(1, '', false)]).finally(() => setLoading(false))
-    })
+    gate.waitUntilReady(reload)
   })
 
   useReachBottom(() => {
@@ -274,7 +289,7 @@ export default function DeveloperIncome() {
   const headerTitle =
     title === 'detail'
       ? tt('developer.income.titleDetail', '提现明细')
-      : tt('developer.income.titleIncome', '智能体收入')
+      : tt('modelIncome.title', '收益管理')
 
   const hasMore = incomeList.length < total
   const tabs = [
@@ -290,16 +305,30 @@ export default function DeveloperIncome() {
           <Text className="income-title">{headerTitle}</Text>
         </View>
 
+        {error ? (
+          <View className="mx-[20rpx] mt-[16rpx] px-[20rpx] py-[16rpx] rounded-lg bg-[var(--color-danger-tint)] flex items-center justify-between">
+            <Text className="text-[length:24rpx] text-[var(--color-danger)]">
+              {tt('common.failed', '加载失败')}
+            </Text>
+            <Text
+              className="text-[length:24rpx] font-semibold text-[var(--color-danger)]"
+              onClick={reload}
+            >
+              {tt('modelIncome.retry', '重试')}
+            </Text>
+          </View>
+        ) : null}
+
         {title === 'income' ? (
           <View>
             <View className="income-card-wrap">
               <View className="income-card">
                 <View className="income-card-top">
                   <Text className="income-acc-label">
-                    {tt('developer.income.accumulatedYuan', '累积收入')}
+                    {tt('modelIncome.accumulated', '累计收入')}
                   </Text>
                   <Text className="income-acc-value">{loading ? '--' : accumulated}</Text>
-                  <Text className="income-acc-unit">{tt('developer.income.yuan', '元')}</Text>
+                  <Text className="income-acc-unit">{tt('modelIncome.yuan', '元')}</Text>
                   <Text className="income-withdraw-btn" onClick={openIncomePopup}>
                     {tt('developer.income.withdrawPopup', '提现')}
                   </Text>
@@ -307,13 +336,13 @@ export default function DeveloperIncome() {
                 <View className="income-stats-row">
                   <View className="income-stat-item">
                     <Text className="income-stat-label">
-                      {tt('developer.income.withdrawableYuan', '可提现金额(元)')}
+                      {tt('modelIncome.withdrawable', '可提现')}
                     </Text>
                     <Text className="income-stat-value">{loading ? '--' : available}</Text>
                   </View>
                   <View className="income-stat-item">
                     <Text className="income-stat-label">
-                      {tt('developer.income.withdrawnAmountYuan', '已提现金额(元)')}
+                      {tt('modelIncome.withdrawn', '已提现')}
                     </Text>
                     <Text className="income-stat-value">{loading ? '--' : withdrawn}</Text>
                   </View>
@@ -345,6 +374,13 @@ export default function DeveloperIncome() {
               </View>
             </View>
 
+            {/* 对齐 RN 共享屏 summaryCard 下方那行 tip(modelIncome.tip):收益数据的更新节律 */}
+            <View className="px-[24rpx] mt-[12rpx]">
+              <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                {tt('modelIncome.tip', '收益数据每日更新')}
+              </Text>
+            </View>
+
             <View className="income-fee-tip">
               <Text>{tt('developer.income.feeTip', '平台限时不收取任何服务费')}</Text>
             </View>
@@ -371,6 +407,14 @@ export default function DeveloperIncome() {
                     <View>
                       <Text className="income-item-title">{displayTitle(item)}</Text>
                       <Text className="income-item-time">{displayTime(item)}</Text>
+                      {/* 对齐 RN 共享屏卡片 meta:订单号(订单)与分成比例(rateLabel)。
+                          订单号缺失时退到本流水 id;分成比例无数据源时不渲染(不编造百分比)。 */}
+                      <Text className="income-item-time" numberOfLines={1}>
+                        {tt('modelIncome.orderLabel', '订单')} {item.orderId ?? item.id}
+                        {typeof item.rate === 'number'
+                          ? ` · ${tt('modelIncome.rateLabel', '分成比例')} ${item.rate}%`
+                          : null}
+                      </Text>
                     </View>
                     <View>
                       <Text className="income-item-amount">+¥{displayAmount(item)}</Text>
@@ -381,7 +425,7 @@ export default function DeveloperIncome() {
                   </View>
                 ))
               ) : (
-                <Text className="income-empty">{tt('developer.income.empty', '暂无收入记录')}</Text>
+                <Text className="income-empty">{tt('modelIncome.empty', '暂无收益记录')}</Text>
               )}
               {incomeList.length > 0 && !hasMore ? (
                 <Text className="income-empty">{tt('developer.income.noMore', '没有更多了')}</Text>
@@ -441,11 +485,11 @@ export default function DeveloperIncome() {
                   ¥
                 </Text>
                 <Text className="income-popup-title">
-                  {tt('developer.income.selectMethod', '请选择提现方式')}
+                  {tt('modelIncome.withdrawModal.title', '选择提现方式')}
                 </Text>
               </View>
               <Text className="income-popup-sub" style={{ marginBottom: '28rpx' }}>
-                {tt('developer.income.moreMethod', '更多提现方式可使用官方APP')}
+                {tt('modelIncome.withdrawModal.moreMethods', '更多提现方式')}
               </Text>
               <View
                 className="income-popup-sub"
@@ -479,7 +523,7 @@ export default function DeveloperIncome() {
                   微
                 </Text>
                 <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-foreground)' }}>
-                  {tt('developer.income.wechat', '微信')}
+                  {tt('modelIncome.withdrawModal.wechat', '微信提现')}
                 </Text>
                 {/* 勾选位宽槽沿用原 Text 的 36rpx(未选时同样占位,行宽不跳);
                     槽内改 flex 居中 —— 原 textAlign:center 只对文字生效,挂在 mask 载体上无效。 */}
@@ -638,7 +682,9 @@ export default function DeveloperIncome() {
                       fontWeight: 600,
                     }}
                   >
-                    {submitting ? tt('common.loading', '加载中…') : tt('common.confirm', '确认')}
+                    {submitting
+                      ? tt('common.loading', '加载中…')
+                      : tt('modelIncome.withdrawModal.confirm', '确认提现')}
                   </Text>
                 </View>
               </View>
