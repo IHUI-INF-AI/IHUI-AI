@@ -11,12 +11,16 @@
 //   · 落地枚数/声明件标记必须进日志(否则"自动落了几个"只能靠翻 git)。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { sweepHandMirrorUpgrades } from '../git-guardian.mjs'
 import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const tickIn = (dir) => join(dir, 'hand-upgrade.json')
+// 起点账必须注入夹具目录:2026-10-30 之前这四例没传 undetFile ⇒ 跑测试会拿真
+// .ihui-agent/state/cross-end-hand-upgrade-undetermined-first.json 当对象,把别人正在累计的连击账清掉。
+const undetIn = (dir) => join(dir, 'undet-hand-upgrade.json')
 
 test('D1 未到节流窗口 ⇒ 不派发(第一轮建台账,第二轮窗口内不跑)', () => {
   const dir = mkScratch('hand-upgrade-')
@@ -25,7 +29,13 @@ test('D1 未到节流窗口 ⇒ 不派发(第一轮建台账,第二轮窗口内�
     calls++
     return JSON.stringify({ ok: true, upgradable: 0, batch: [], landed: null })
   }
-  const opts = { intervalMs: 60_000, tickFile: tickIn(dir), logger: () => {}, runner }
+  const opts = {
+    intervalMs: 60_000,
+    tickFile: tickIn(dir),
+    undetFile: undetIn(dir),
+    logger: () => {},
+    runner,
+  }
   const first = sweepHandMirrorUpgrades({ ...opts, now: 1_000_000 })
   assert.equal(first.ran, true, '首轮应派发并建台账')
   const second = sweepHandMirrorUpgrades({ ...opts, now: 1_000_000 + 30_000 })
@@ -46,6 +56,7 @@ test('D2 到点 ⇒ 派发一次并报出可落地/落地枚数', () => {
     now: 2_000_000,
     intervalMs: 60_000,
     tickFile: tickIn(dir),
+    undetFile: undetIn(dir),
     logger: (m) => logs.push(String(m)),
     runner: () => JSON.stringify(payload),
   })
@@ -55,6 +66,8 @@ test('D2 到点 ⇒ 派发一次并报出可落地/落地枚数', () => {
   assert.match(line, /可落地=1/)
   assert.match(line, /落地=1/)
   assert.match(line, /声明件/)
+  // 拿到确定结论 ⇒ 连击账必须被清(settle),且清的是注入的那枚,不是仓库里真在累计的那枚
+  assert.equal(existsSync(undetIn(dir)), false, '确定结论仍留连击账 ⇒ 到人升级永远起算不了')
 })
 
 test('D3 结论行解析不出 ⇒ 记未判定(不静默成功)', () => {
@@ -64,12 +77,15 @@ test('D3 结论行解析不出 ⇒ 记未判定(不静默成功)', () => {
     now: 3_000_000,
     intervalMs: 60_000,
     tickFile: tickIn(dir),
+    undetFile: undetIn(dir),
     logger: (m) => logs.push(String(m)),
     runner: () => 'not-json-at-all',
   })
   assert.equal(r.ran, true)
   assert.equal(r.ok, false)
   assert.match(logs.join('\n'), /未判定/)
+  // 未判定 ⇒ 起点账必须落到注入的那枚(这一型此前一次都没 note 过,连击永远起不来)
+  assert.equal(existsSync(undetIn(dir)), true, '未判定却没建起点账 ⇒ 180 分钟到人这条腿是空的')
 })
 
 test('D4 落地失败(err)⇒ 日志点名,不冒充成功', () => {
@@ -79,6 +95,7 @@ test('D4 落地失败(err)⇒ 日志点名,不冒充成功', () => {
     now: 4_000_000,
     intervalMs: 60_000,
     tickFile: tickIn(dir),
+    undetFile: undetIn(dir),
     logger: (m) => logs.push(String(m)),
     runner: () =>
       JSON.stringify({ ok: true, upgradable: 1, batch: [{}], landed: { ok: false, pages: 1, err: 'CAS 冲突' } }),
@@ -86,5 +103,7 @@ test('D4 落地失败(err)⇒ 日志点名,不冒充成功', () => {
   assert.equal(r.ok, true)
   assert.match(logs.join('\n'), /CAS 冲突/)
   assert.match(logs.join('\n'), /落地=0/)
+  // err 是"结论取到但没落成"= 确定结论 ⇒ 不许留连击账(否则把别人的失败算成通道停摆)
+  assert.equal(existsSync(undetIn(dir)), false)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

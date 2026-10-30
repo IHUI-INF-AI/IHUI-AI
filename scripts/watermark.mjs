@@ -392,6 +392,11 @@ export function injectText(text, { rel = '', style = null, reseatTail = false } 
   const src = String(text ?? '')
   const st = style ?? (rel ? styleFor(rel) : null)
   if (!st) return { text: src, action: 'skip-type' }
+  const hadBom = src.startsWith('\uFEFF')
+  // BOM 只在处理期剥掉(否则 shebang 检测失败),回写必须按原样补回:
+  // .ps1 被 powershell.exe(5.1) 调起时按 ANSI 读无 BOM 文件 ⇒ 中文乱码/整条隧道断(AGENTS §27)。
+  // 带 shebang 的文件不补(BOM 在 `#!` 前会让 `./x.mjs` 直接执行失败,那种形态本就该去掉 BOM)。
+  const restoreBom = (t) => (hadBom && !t.startsWith('#!') ? `\uFEFF${t}` : t)
   let body = src.replace(/^\uFEFF/, '') // strip BOM, 避免 shebang 检测失败
   // 载荷存在**且可解码** → 通常就是"已完成"。但"在而不对"有两种,旧实现在这里直接返回,
   // 于是它们永远不会被修:
@@ -407,7 +412,7 @@ export function injectText(text, { rel = '', style = null, reseatTail = false } 
     const seated = reseatText(body, st)
     return seated === null
       ? { text: src, action: 'reseat-refused' }
-      : { text: seated, action: 'reseated' }
+      : { text: restoreBom(seated), action: 'reseated' }
   }
   // 残迹态(只有横幅文本、载荷被剥离)与**载荷损坏**(存在但解码不符)统一走清洗重注。
   // 2026-09-22 补第三类触发:横幅文本存在但**从未有过载荷**(裸两行版权头)。旧实现只在
@@ -442,7 +447,7 @@ export function injectText(text, { rel = '', style = null, reseatTail = false } 
   // 那行既不再是"独立隐写行",而清洗它时会连带把粘在后面的正文一起吃掉(实测把条目标题弄丢)。
   const sep = body.startsWith('\n') ? '' : '\n'
   const outBody = (shebang + xmlDecl + banner + sep + body).replace(/\r?\n$/, '')
-  return { text: outBody + '\n' + tail + '\n', action: 'injected' }
+  return { text: restoreBom(outBody + '\n' + tail + '\n'), action: 'injected' }
 }
 
 function injectFile(absPath, { reseatTail = false } = {}) {

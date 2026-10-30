@@ -2,28 +2,74 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 直播详情页的两个附加区块 —— 对齐 RN 共享屏
-// packages/app/src/features/live-detail/LiveDetailScreen.tsx 的 introSection / chatSection。
+// 直播详情页附加区块 —— 对齐 RN 共享屏
+// packages/app/src/features/live-detail/LiveDetailScreen.tsx 的 introSection。
 // 拆到同目录子模块只为守住「单页 < 250 行」;门会读同目录 `./` 模块里的文案键。
-import { useCallback, useEffect, useState } from 'react'
-import { View, Text, ScrollView } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { get, post } from '@/api'
-import { useI18n } from '@/i18n'
-import { getToken } from '@/utils/auth'
-import { EmptyState } from '@/components/ScreenStates.taro'
-import { FocusInput } from '@/components/FocusField'
-import { formatTimeOnly } from '@/utils/time'
+//
+// 互动区(chatSection / LiveChat)已整块下线(假绿清偿@2026-10-31,取证):
+//   GET/POST `/live/:id/messages` 确已注册(mobile-chat-routes.ts:224/:240,挂在
+//   routes/index.ts:1121 的 `/api` 前缀下,方法/字段 id·nickname·content·createdAt 全对上),
+//   但其 :id 走 `Number.parseInt(id, 10)` 并要求有限数 —— 而 live_channels.id 是 **uuid**
+//   (packages/database/src/schema/live.ts:58;本频道详情面 live.ts:453 亦强制 z.uuid()),
+//   live_comment.channel_id 又是 integer(live-extended.ts:48)。uuid 过 parseInt 恒 NaN ⇒
+//   本页任何可达频道的聊天历史恒拉不到、发送恒发不出(聊天块整块 = 假功能)⇒ 按纪律撤,
+//   不用假数据顶绿。后端把 channel_id 与频道 id 同型(uuid)或提供 uuid 兼容端点后,
+//   可按本文件 git 历史原样接回(键 liveDetail.chat / chatEmpty / chatPlaceholder / chatSend)。
 
-/** 直播间消息行:后端 GET/POST `/live/:id/messages` 投影(与 /ws/live-chat 同表同口径) */
-interface LiveChatRow {
+import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
+import type { Live } from '@/api'
+
+// ---------------------------------------------------------------------------
+// 详情数据腿投影(供 detail.tsx 使用;拆到本模块同为「单页 < 250 行」)
+//
+// 数据腿 = `GET /live/channels/:id`(apps/api/src/routes/live.ts:238,公开在册端点,
+// 返回整行 LiveChannel)。不用 `GET /live/:id`(同文件 :453):那条投影只回
+// id/title/status/anchor/playUrl/watchCount 六字段,没有 intro/startTime/coverImage
+// ⇒ 介绍区恒 '—'、分享封面恒兜底、预约时间恒不显示(键在正文、数据恒缺 = 假绿)。
+// ---------------------------------------------------------------------------
+
+export interface LiveChannelRow {
   id: string
-  nickname: string
-  content: string
-  createdAt: string
+  title: string
+  coverImage: string | null
+  intro: string | null
+  lecturerName: string | null
+  playUrl: string | null
+  startTime: string | null
+  isLive: boolean
+  viewCount: number
 }
 
-/** 直播介绍区(对齐 RN introSection:标题 + 正文,空正文落 '—') */
+export type LiveDetail = Live & { intro?: string | null }
+
+/**
+ * 状态按整行真值现判:isLive → living;开播时间未到 → upcoming;其余 → ended。
+ * 后端 `deriveLiveStatus(live.ts:196)` 只认 isLive/isPublished 两列,公开详情面又
+ * 只服务已发布频道 ⇒ 「已发布未开播」恒被读成 ended,预约链路(POST /live/:id/subscribe
+ * 在册可用)会因此结构性死亡 ⇒ 这里按 startTime 现判,不改任何在册判据。
+ */
+function deriveStatus(c: LiveChannelRow): Live['status'] {
+  if (c.isLive) return 'living'
+  if (c.startTime && new Date(c.startTime).getTime() > Date.now()) return 'upcoming'
+  return 'ended'
+}
+
+export function projectChannel(c: LiveChannelRow): LiveDetail {
+  return {
+    id: c.id,
+    title: c.title,
+    coverUrl: c.coverImage ?? '',
+    status: deriveStatus(c),
+    startTime: c.startTime ?? undefined,
+    anchor: c.lecturerName ?? undefined,
+    playUrl: c.playUrl ?? undefined,
+    watchCount: c.viewCount,
+    intro: c.intro,
+  }
+}
+
+/** 直播介绍区(对齐 RN introSection:标题 + 正文,空正文落 '—';数据腿见上注) */
 export function LiveIntro({ intro }: { intro?: string | null }) {
   const { t } = useI18n()
   return (
@@ -34,120 +80,6 @@ export function LiveIntro({ intro }: { intro?: string | null }) {
       <Text className="block text-[length:28rpx] text-[var(--color-text-medium)]">
         {intro || '—'}
       </Text>
-    </View>
-  )
-}
-
-/**
- * 互动区(对齐 RN chatSection + inputRow)。
- *
- * 数据腿:小程序端走既有的移动端聊天端点 `/live/:id/messages`(GET 最近 50 条历史、
- * POST 发送,数据源 live_comment 与 `/ws/live-chat` 同一张表 —— 见
- * apps/api/src/routes/mobile-chat-routes.ts 头注)。实时广播归 WS 面,本区块不新开第二条真相。
- */
-export function LiveChat({ liveId }: { liveId: string | number }) {
-  const { t } = useI18n()
-  const channelId = Number.parseInt(String(liveId), 10)
-  const chatable = Number.isFinite(channelId)
-  const [messages, setMessages] = useState<LiveChatRow[]>([])
-  const [input, setInput] = useState('')
-  const [loaded, setLoaded] = useState(false)
-  const [sending, setSending] = useState(false)
-
-  useEffect(() => {
-    // 游客不发这一枪:/live/:id/messages 是登录态端点,空凭据请求只会换回一次 401(§鉴权面)
-    if (!chatable || !getToken()) {
-      setLoaded(true)
-      return
-    }
-    let cancelled = false
-    get<LiveChatRow[]>(`/live/${channelId}/messages`)
-      .then((rows) => {
-        if (!cancelled) setMessages(Array.isArray(rows) ? rows : [])
-      })
-      .catch(() => {
-        // 历史拉取失败只留空态:发送腿独立可用,不在此处二次弹提示
-      })
-      .finally(() => {
-        if (!cancelled) setLoaded(true)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [chatable, channelId])
-
-  const send = useCallback(async () => {
-    const text = input.trim()
-    if (!text || sending || !chatable) return
-    if (!getToken()) {
-      Taro.showToast({ title: t('chat.loginToSend'), icon: 'none' })
-      return
-    }
-    setSending(true)
-    try {
-      const row = await post<LiveChatRow>(`/live/${channelId}/messages`, { content: text })
-      setMessages((prev) => [...prev, row])
-      setInput('')
-    } catch {
-      Taro.showToast({ title: t('liveChat.sendFailed'), icon: 'none' })
-    } finally {
-      setSending(false)
-    }
-  }, [input, sending, chatable, channelId, t])
-
-  const disabled = !input.trim() || sending
-
-  return (
-    <View className="px-[20rpx] pb-[24rpx]">
-      <Text className="block text-[length:30rpx] font-semibold text-foreground mb-[16rpx]">
-        {t('liveDetail.chat')}
-      </Text>
-      {messages.length === 0 ? (
-        <EmptyState title={loaded ? t('liveDetail.chatEmpty') : t('common.loading')} />
-      ) : (
-        <ScrollView scrollY className="h-[420rpx] rounded-xl bg-[var(--color-muted)] p-[16rpx]">
-          {messages.map((m) => (
-            <View key={m.id} className="mb-[16rpx] p-[16rpx] rounded-xl bg-[var(--color-card)]">
-              <View className="flex items-center justify-between gap-[16rpx]">
-                <Text className="flex-1 ihui-ellipsis text-[length:22rpx] text-muted-foreground">
-                  {m.nickname}
-                </Text>
-                <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                  {formatTimeOnly(m.createdAt)}
-                </Text>
-              </View>
-              <Text className="block mt-[8rpx] text-[length:28rpx] text-foreground">
-                {m.content}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
-      )}
-      <View className="flex items-center gap-[16rpx] mt-[16rpx]">
-        <FocusInput
-          className="flex-1 h-[72rpx] px-[16rpx] rounded-md bg-[var(--color-muted)] text-[length:28rpx] text-foreground"
-          value={input}
-          placeholder={t('liveDetail.chatPlaceholder')}
-          confirmType="send"
-          onInput={(e) => setInput(e.detail.value)}
-          onConfirm={() => {
-            void send()
-          }}
-        />
-        <View
-          className={`px-[24rpx] h-[72rpx] rounded-md flex items-center justify-center bg-primary ${
-            disabled ? 'opacity-50' : ''
-          }`}
-          onClick={() => {
-            void send()
-          }}
-          hoverClass="opacity-60"
-        >
-          <Text className="text-[length:28rpx] font-semibold text-[var(--color-primary-foreground)]">
-            {t('liveDetail.chatSend')}
-          </Text>
-        </View>
-      </View>
     </View>
   )
 }
