@@ -139,7 +139,7 @@
 | 4 automation 执行腿 | **改判:不是"断腿",是"僵尸模块 + 覆盖窄"** | `automation_executor.py` 除自身外确零 import;但工具本身**真会执行**:`mcp_server.py:4845 _tool_configure_automation_task` 在 `execute=True`(默认)时按 `action` 分派到 `_tool_schedule_task` / `_tool_dispatch_subagent` / `httpx POST webhook`(:4903 起)。⇒ 真实问题两件:① `automation_executor.py`(180 行,含 retry/abort/fallback/on_success 与多步 trace)是**没被任何人调用**的重复实现;② 模型可编程的定时面只有 `schedule_task` 单动词,缺对照的 `CronCreate/CronList/CronDelete/ScheduleWakeup` **增删查看四件套** |
 | 2 目标机读预算 | **真** | `packages/database/src/schema/` 无任何 goal 表;`services/` 与 `core/` 对 `turnsUsed/turns_used/goal_turn_budget/maxTurns` **零命中**;只有 `services/goal_resume.py`(300 行,零消费)与 CLI 侧 `goal-verification.ts` |
 | 11 peer 权限边界 | **真** | `services/agent_teams.py` 内 `peer|teammate` **零命中**,连概念都没有 |
-| 6 钩子 14 vs 28 | **真** | `packages/types/src/agent-runtime.ts:37-52` 恰 14 值 |
+| 6 钩子 14 vs 28 | **真,且比原判更糟:我们是两套互不相干的钩子** | ① TS 侧 `packages/types/src/agent-runtime.ts:37-52` 恰 14 值(CLI hook 配置面);② Python 侧另有 `apps/ai-service/app/core/hook_runtime.py`,其 `HookKind` **只有 6 个挂载点**(`session_start / user_prompt_submit / pre_tool_use / pre_compact / post_compact / stop`,L40-48),消费方是 `agent_loop_v2.py:6400`。两套**没有共享枚举、没有映射表**——同一件事两个真相源,比"少了 14 个事件"严重。⇒ 扩面前必须先合并成一个事件集(TS∪Py 并集单源),否则加多少都是第三套 |
 | 8 工作流可重放 | **真,但有一半等价** | CLI `subagents/state-store.ts` 的 `resumeFrom` 是**子代理断点续跑**,不是对照那种"`agent()` 调用按 (prompt,opts) 命中缓存、改哪段只重跑哪段"的编排级重放 |
 | 9 桌面端 2 文件 | **真** | `apps/desktop/src/` 现读 2 文件 |
 | 12 按用途 12 档路由 | **真** | 全仓 `MODEL_PURPOSE|model_purpose` 零命中 |
@@ -187,6 +187,18 @@
 | "`agent_engine.py` 7774 行零消费方 = 僵尸" | S5 席僵尸清单 | **改判**:它被 `routers/engine.py:38` import,挂在 `POST /api/engine/rpc` + `WS /api/engine/ws`(main.py:1282-1285),有 `tests/test_agent_engine.py` 与 conn_guard 加固 —— 真实形态是**"协议面已实现、仓内零客户端、2026-09-30 立票记'客户端已放弃'"**;判它"死码"会掩盖"挂着对外端点却没人接"这个更要紧的问题 |
 | 同清单里 `capability_market/llm_metrics/mcp_tool_aggregator/token_compaction/model_router/agent_run_control/doom_loop` 等标"零消费" | S5 席(其扫描面刻意排除 `routers/`) | **逐条复算推翻**:llm_metrics 4 处、mcp_tool_aggregator 3 处(均在 routers/agents.py)、token_compaction 2 处(llm_gateway+llm 路由)、capability_market 2 处(routers/mcp.py:19-20)、model_router/llm_call_log_writer 各经 llm_gateway 内懒 import。⇒ 凡引用"零消费方"结论,**必须声明扫描面含不含 routers/** |
 | "本地索引是我方优势" | 上一册口径 | **重写**:两边索引都在服务端;真实差是"请求带不带工作区画像 + 用户能不能控制索引"(§2 第 14/15 行) |
+
+## 7b 本轮已落地的修复(2026-10-31,两席并行 + 主席复核改判)
+
+| 项 | 做了什么 | 证据 |
+| --- | --- | --- |
+| ⑦ 定时四件套(部分) | 服务层早有 `list_tasks`/`remove_task`,缺的是工具面投影 ⇒ 新增 **`list_scheduled_tasks` / `cancel_scheduled_task`** 两枚 MCP 工具,handler 直接委托既有单例方法,零第二份调度判据 | `apps/ai-service/app/services/mcp_server.py`(工具声明 + `_TOOL_HANDLERS` 双键);`apps/ai-service/tests/test_scheduled_task_tools.py` 16 例 |
+| 安全改判(主席裁) | 底层 `list_tasks(None)` **无归属过滤**、`remove_task` **无归属校验**,而创建动词 `schedule_task` 本就是 admin 专属 ⇒ 两个新动词一并进 `_ADMIN_ONLY_TOOLS`;测试锁「role 0 被拒 ∧ handler 零副作用」 | 同文件 `_ADMIN_ONLY_TOOLS` 注释 + `test_admin_only_denies_plain_user` |
+| ② run 三维机读计数 | `agent_run_control` 新增 `_RunBudget` + `note_turn` / `can_continue` / `budget_snapshot`;在 `AgentLoopV2` **每轮唯一挂点**累计 turns/time,**credits 维取不到真实值故显式留空不编造** | `apps/ai-service/app/services/agent_run_control.py`;`agent_loop_v2.py` 迭代循环内 +10 行(带 try/except 降级,计数失败不影响主循环);`tests/test_run_budget_counter.py` 5 例 |
+| 顺带 | 归正 `mcp_server.py` 里 **HEAD 既有**的 import 块 I001(不归正则含该文件的任何提交都会撞 ruff 门) | `ruff check` 0 错 |
+
+**验证现读**:`pytest tests/test_scheduled_task_tools.py tests/test_run_budget_counter.py tests/test_api_tools_bridge.py` 连跑两轮 **54 passed**;串行单跑该文件 16 passed。  
+**我抓到的两处席级缺陷**(留痕,防复发):① 执行席的反向自证**没还原干净**——`cancel_scheduled_task` 的 `_TOOL_HANDLERS` 注册键被删掉后未加回,导致"声明了没接线"恰好被它自己的测试抓住;② 席按其自定判据把新工具放在非 admin 面,与创建动词不同档 —— 由主席按安全口径改判。
 
 ## 8 下一步(已按 AGENTS §24 代裁,不是请示)
 

@@ -36,6 +36,7 @@
  *   node scripts/check-app-version-latest.mjs --base-url https://www.aizhs.top --platform android
  *   node scripts/check-app-version-latest.mjs --admin-token "$JWT"   # 额外区分"无行" vs "有行但 status≠latest"
  *   node scripts/check-app-version-latest.mjs --json
+ *   node scripts/check-app-version-latest.mjs --self-test   # 构造面正反对照,不触网
  */
 import { pathToFileURL } from 'node:url'
 
@@ -407,6 +408,183 @@ export async function probeAdminList({
 }
 
 // =============================================================================
+// 自检(--self-test:不触网的构造面正反对照)
+// =============================================================================
+
+/**
+ * 每一例都是「同一输入改一个维度 ⇒ 结论必须翻面」的成对夹具。
+ * 只断言判据函数,不发请求、不读盘 ⇒ 任何一台机器、任何网络状态下都能跑。
+ * 返回 { failed, cases } 而不是直接 throw:调用方(CLI / 镜像测试)各取所需。
+ */
+export function selfTest({ quiet = false } = {}) {
+  const log = (s) => {
+    if (!quiet) console.log(s)
+  }
+  const cases = []
+  const add = (name, run, want) => cases.push({ name, run, want })
+  const stateOf = (items) => items.map((i) => i.state).join(',')
+
+  // ---- ① 空 data vs 读不到:这条区分就是票面的全部要害 ----
+  add(
+    '线上空 data ⇒ 端点 pass + latest-row fail',
+    () => stateOf(judgeLatestPayload({ code: 0, message: 'success', data: {} }).items),
+    'pass,fail',
+  )
+  add(
+    '响应不是 JSON 对象 ⇒ 全 undetermined(不得冒充无行)',
+    () => stateOf(judgeLatestPayload(null).items),
+    'undetermined',
+  )
+  add(
+    'code=500 ⇒ undetermined 且不含 fail',
+    () => {
+      const s = summarize(judgeLatestPayload({ code: 500, message: 'boom' }).items)
+      return `${s.state}/${s.red.length}`
+    },
+    'undetermined/0',
+  )
+  add(
+    'code=0 但缺 data ⇒ undetermined',
+    () => stateOf(judgeLatestPayload({ code: 0 }).items),
+    'undetermined',
+  )
+  add(
+    '有 latest 行 ⇒ 端点 pass + latest-row pass',
+    () =>
+      stateOf(
+        judgeLatestPayload({
+          code: 0,
+          data: { latest: { version: '0.0.9', buildNumber: 26102816 } },
+        }).items,
+      ),
+    'pass,pass',
+  )
+
+  // ---- ② 行形状:三向腐烂各翻一次 ----
+  const row = { version: '0.0.9', platform: 'android', buildNumber: 26102816, status: 'latest' }
+  add('合法行 ⇒ pass', () => stateOf(judgeRow(row)), 'pass')
+  add('platform 换成 ios ⇒ fail', () => stateOf(judgeRow({ ...row, platform: 'ios' })), 'fail')
+  add('status 换成 history ⇒ fail', () => stateOf(judgeRow({ ...row, status: 'history' })), 'fail')
+  add(
+    'buildNumber 换字符串 ⇒ fail',
+    () => stateOf(judgeRow({ ...row, buildNumber: '26102816' })),
+    'fail',
+  )
+
+  // ---- ③ 自有腿:同一 URL 只改一维即翻面 ----
+  add('票面固定地址 ⇒ 自有腿 ok', () => String(judgeOwnLegUrl(PINNED_DOWNLOAD_URL).ok), 'true')
+  add(
+    'host 换成 dl.aizhs.top ⇒ 不 ok',
+    () =>
+      String(judgeOwnLegUrl('https://dl.aizhs.top/remote-images/download/ihui-ai-latest.apk').ok),
+    'false',
+  )
+  add(
+    '协议换成 http ⇒ 不 ok',
+    () => String(judgeOwnLegUrl(PINNED_DOWNLOAD_URL.replace('https:', 'http:')).ok),
+    'false',
+  )
+  add(
+    'path 换成 /other/ ⇒ 不 ok',
+    () => String(judgeOwnLegUrl('https://www.aizhs.top/other/ihui-ai-latest.apk').ok),
+    'false',
+  )
+  add('空串 ⇒ 不 ok', () => String(judgeOwnLegUrl('').ok), 'false')
+
+  // ---- ④ 下载探针三元 + Content-Type ----
+  const present = {
+    state: 'present',
+    status: 206,
+    contentType: 'application/vnd.android.package-archive',
+    hops: 2,
+    finalUrl: 'https://www.aizhs.top/remote-images/download/ihui-ai-0.0.9-26102816.apk',
+  }
+  add('206 + apk ⇒ pass', () => judgeDownloadProbe(present).state, 'pass')
+  add(
+    '206 + text/html ⇒ fail(占位页)',
+    () => judgeDownloadProbe({ ...present, contentType: 'text/html' }).state,
+    'fail',
+  )
+  add(
+    'absent ⇒ fail',
+    () => judgeDownloadProbe({ state: 'absent', detail: 'HTTP 404' }).state,
+    'fail',
+  )
+  add(
+    'undetermined ⇒ undetermined',
+    () => judgeDownloadProbe({ state: 'undetermined', detail: 'ETIMEDOUT' }).state,
+    'undetermined',
+  )
+  add('null ⇒ undetermined', () => judgeDownloadProbe(null).state, 'undetermined')
+
+  // ---- ⑤ 版本标记一致性 ----
+  const probe = { state: 'present', releaseVersion: '0.0.9', releaseVersionCode: '26102816' }
+  add('标记一致 ⇒ pass', () => judgeVersionConsistency(row, probe).state, 'pass')
+  add(
+    'version-code 差 1 ⇒ fail',
+    () => judgeVersionConsistency(row, { ...probe, releaseVersionCode: '26102815' }).state,
+    'fail',
+  )
+  add(
+    '缺 x-release-* ⇒ undetermined(不算包同版)',
+    () => judgeVersionConsistency(row, { state: 'present' }).state,
+    'undetermined',
+  )
+
+  // ---- ⑥ 退出码优先级:红压过未判定 ----
+  add('全 pass ⇒ 0', () => String(summarize([item('a', 'pass', '')]).exitCode), '0')
+  add(
+    'pass + undetermined ⇒ 2',
+    () => String(summarize([item('a', 'pass', ''), item('b', 'undetermined', '')]).exitCode),
+    '2',
+  )
+  add(
+    'undetermined + fail ⇒ 1(红优先)',
+    () => String(summarize([item('b', 'undetermined', ''), item('c', 'fail', '')]).exitCode),
+    '1',
+  )
+
+  // ---- ⑦ 参数面:默认值 + 未知旗标必须硬错(不得静默落默认) ----
+  add(
+    'parseArgs 默认调制品',
+    () => `${parseArgs([]).baseUrl}|${parseArgs([]).platform}`,
+    'https://www.aizhs.top|android',
+  )
+  add(
+    'parseArgs 覆盖',
+    () => `${parseArgs(['--platform', 'ios']).platform}|${parseArgs(['--json']).json}`,
+    'ios|true',
+  )
+  add(
+    '未知旗标 ⇒ 抛错',
+    () => {
+      try {
+        parseArgs(['--nope'])
+        return 'no-throw'
+      } catch {
+        return 'threw'
+      }
+    },
+    'threw',
+  )
+
+  let failed = 0
+  for (const c of cases) {
+    let got
+    try {
+      got = c.run()
+    } catch (e) {
+      got = `threw:${String((e && e.message) || e).slice(0, 80)}`
+    }
+    const ok = got === c.want
+    if (!ok) failed += 1
+    log(`${ok ? 'PASS' : 'FAIL'}  ${c.name} —— want=${c.want} got=${got}`)
+  }
+  log(`\nself-test: pass ${cases.length - failed} / fail ${failed} (共 ${cases.length} 例)`)
+  return { failed, cases }
+}
+
+// =============================================================================
 // CLI
 // =============================================================================
 
@@ -416,6 +594,7 @@ export function parseArgs(argv) {
     platform: EXPECTED_PLATFORM,
     adminToken: '',
     json: false,
+    selfTest: false,
     help: false,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -424,6 +603,7 @@ export function parseArgs(argv) {
     else if (a === '--platform') out.platform = argv[++i] ?? EXPECTED_PLATFORM
     else if (a === '--admin-token') out.adminToken = argv[++i] ?? ''
     else if (a === '--json') out.json = true
+    else if (a === '--self-test') out.selfTest = true
     else if (a === '--help' || a === '-h') out.help = true
     else throw new Error(`未知参数: ${a}`)
   }
@@ -532,10 +712,15 @@ async function main() {
   }
   if (args.help) {
     console.log(
-      '用法: node scripts/check-app-version-latest.mjs [--base-url <url>] [--platform android] [--admin-token <JWT>] [--json]',
+      '用法: node scripts/check-app-version-latest.mjs [--base-url <url>] [--platform android] [--admin-token <JWT>] [--json] [--self-test]',
     )
     console.log('退出码: 0 全绿 / 1 有红(现状即红时如实打印) / 2 未判定')
+    console.log('--self-test: 只跑构造面正反对照,不触网(任何机器可复跑)')
     return 0
+  }
+  if (args.selfTest) {
+    const { failed } = selfTest()
+    return failed === 0 ? 0 : 1
   }
   const result = await runCheck({
     baseUrl: args.baseUrl,
