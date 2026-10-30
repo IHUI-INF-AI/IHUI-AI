@@ -438,6 +438,14 @@ export type { TextFieldProps } from './components'
 export { useWrapFocus, wrapFocusBorder, wrapFocusInk } from './hooks/use-wrap-focus'
 export type { WrapFocus, WrapFocusOptions } from './hooks/use-wrap-focus'
 
+/**
+ * 回屏 / 回前台即重取 —— 共享层唯一实现(票 L30756),平台原语由 adapter 注入(§3 禁平台分支进共享层)。
+ * RN 档 adapter 在 `apps/mobile-rn/src/hooks/screen-reappear-adapter.ts`;无原语平台用
+ * `NOOP_SCREEN_REAPPEAR_ADAPTER`(行为与"只有挂载取数"一致,绝不伪造事件)。
+ */
+export { useScreenReappear, NOOP_SCREEN_REAPPEAR_ADAPTER } from './hooks/use-screen-reappear'
+export type { ScreenReappearAdapter } from './hooks/use-screen-reappear'
+
 /** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
