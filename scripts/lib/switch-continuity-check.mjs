@@ -3,14 +3,31 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 切号前后可见性对账 —— Qoder CN / MiniMax Code 桌面端本地会话清单的快照与 diff。
+ * 切号前后可见性对账 —— 各平台本地会话清单的快照与 diff。
  *
  * 立因(2026-10-30,继 Trae 携对话切号后的两支线):
- *   取证实证两端的对话正库**按工作区/设备组织、不含账号字段**
+ *   取证实证对话正库**按工作区/设备组织、不含账号字段**
  *   (Qoder main.sqlite:chat_sessions/chat_session_messages 全库仅 3 表含 account 列,
  *    会话零绑定;MiniMax runtime-state.sqlite:53 会话 record_json 顶层无 user/account 键)
  *   ⇒ 机制上切号"天然随行";真正要答的问题是**产品 UI 登录新号后会不会换列表口径**
  *   (云端同步覆盖/隐藏)。答案不靠猜:切号前后各跑一次 snapshot,compare 给出逐条差集。
+ *
+ * 2026-10-30 全平台收口扩容(判据均本机当日现读):
+ *   - codex:~/.codex/thread_history_1.sqlite 的 thread_items 按 thread_id 组织、无账号列,
+ *     "会话" = DISTINCT thread_id(实测 1398 item / 32 thread);文件名带 schema 版本号
+ *     (_1),上游升版会换名 ⇒ 届时在此追加候选,旧候选失效自动落"未装"不冒绿。
+ *   - zcode:~/.zcode/cli/db/db.sqlite 的 session/message 表、无账号列(实测 35/3743 行)。
+ *   - opencode:主库 opencode.db 的 session/message **0 行**(5.4GB 皆为空闲页,实测),
+ *     会话可见面 = storage/plugin/history-snip/ses_*.json 文件族 ⇒ fileSet 形态清单钉。
+ *
+ * 分族口径(为什么不是只有 sqlite,也为什么不接某些平台):
+ *   - **对话正库在本机**(可对账):qoder / minimax / codex / zcode / opencode(文件族)。
+ *   - **对话在云端账号下**(刻意不接,接了恒"未装/零会话"误导):workbuddy / codearts /
+ *     loomy / doubao —— 本地无会话正库(2026-10-30 逐机实测无大库),切号后 UI 列表
+ *     跟账号走是产品行为;出路 = 官方导出口或"对话交接续接",不是本地迁移。
+ *   - **trae / trae-solo 不在本对账器**:正库是 SQLCipher 加密库,携对话腿
+ *     (trae-chat-carry)自带解密-重绑-重加密三道自证,不造第二把解密尺(§0.6)。
+ *   - lingma / grokbot 本机未安装,无数据面可取证,不虚设条目(装上后按此先取证再登记)。
  *
  * 纪律:只读输入(对副本 checkpoint WAL,不碰在跑客户端的活库);清单只含 id 哈希与计数,
  * 绝不含消息正文/token;compare 的差集按会话 id 点名,供人工/后续腿判断。
@@ -41,6 +58,30 @@ export const APPS = Object.freeze({
     messages: { table: 'local_runtime_message_rows', idCol: 'id', sessionCol: 'session_id' },
     accountCols: [],
   },
+  codex: {
+    label: 'Codex CLI',
+    dbCandidates: ['C:/Users/Administrator/.codex/thread_history_1.sqlite'],
+    // "会话"= thread_id(thread_items 按 thread 多行堆叠,必须 DISTINCT;2026-10-30 实测 32/1398)
+    sessions: { table: 'thread_items', idCol: 'thread_id', distinct: true },
+    messages: { table: 'thread_items', idCol: 'item_id' },
+    accountCols: [],
+  },
+  zcode: {
+    label: '智谱 ZCode',
+    dbCandidates: ['C:/Users/Administrator/.zcode/cli/db/db.sqlite'],
+    sessions: { table: 'session', idCol: 'id' },
+    messages: { table: 'message', idCol: 'id', sessionCol: 'session_id' },
+    accountCols: [],
+  },
+  opencode: {
+    label: 'OpenCode CLI',
+    // 主库 session/message 0 行(2026-10-30 实测)⇒ 清单钉取 history-snip 插件文件族(fileSet 形态)
+    fileSet: {
+      root: 'C:/Users/Administrator/.local/share/opencode/storage/plugin/history-snip',
+      ext: '.json',
+    },
+    accountCols: [],
+  },
 })
 
 export class CheckError extends Error {
@@ -67,7 +108,9 @@ export function locateDbAll(appKey, env = process.env) {
     }
   }
   const home = os.homedir().replace(/\\/g, '/')
-  for (const c of spec.dbCandidates) {
+  // fileSet 形态:候选是「目录」而非库文件(opencode history-snip 同理,跨 profile 兜底同法)
+  const candidates = spec.dbCandidates ?? (spec.fileSet ? [spec.fileSet.root] : [])
+  for (const c of candidates) {
     push(c.replace('C:/Users/Administrator', home))
     push(c)
     if (env.APPDATA) {
@@ -79,7 +122,7 @@ export function locateDbAll(appKey, env = process.env) {
   const usersRoot = 'C:/Users'
   if (String(env.IHUI_TRAE_SCAN_USERS ?? '').trim() !== '0' && fs.existsSync(usersRoot)) {
     for (const u of fs.readdirSync(usersRoot)) {
-      for (const c of spec.dbCandidates) {
+      for (const c of candidates) {
         const rel = c.replace(/^C:\/Users\/[^/]+\//, '')
         push(`${usersRoot}/${u}/${rel}`)
       }
@@ -90,29 +133,44 @@ export function locateDbAll(appKey, env = process.env) {
 
 /**
  * 定位"本机现役会话面":候选按本应用会话表行数打分,取最大者;
+ * fileSet 形态按命中文件数打分(opencode);
  * 全 0 ⇒ {file:null, cands}(调用方如实报"存在库文件但零会话",不冒充未装)。
  */
 export function pickRichestDb(appKey, env = process.env) {
   const spec = APPS[appKey]
   const cands = locateDbAll(appKey, env)
   const scored = []
-  for (const f of cands) {
-    let n = -1
-    let h = null
-    try {
-      h = new DatabaseSync(f, { readOnly: true })
-      const t = h.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((r) => String(r.name))
-      if (t.includes(spec.sessions.table)) n = Number(h.prepare(`SELECT COUNT(*) c FROM "${spec.sessions.table}"`).get().c)
-    } catch {
-      /* 该候选读不成(被占/非 SQLite)⇒ 记 -1 不猜 */
-    } finally {
+  if (spec.fileSet) {
+    for (const d of cands) {
+      let n = -1
       try {
-        h?.close()
+        n = fs
+          .readdirSync(d, { withFileTypes: true })
+          .filter((e) => e.isFile() && e.name.endsWith(spec.fileSet.ext)).length
       } catch {
-        /* ignore */
+        /* 该候选读不成 ⇒ 记 -1 不猜 */
       }
+      scored.push({ file: d, sessions: n })
     }
-    scored.push({ file: f, sessions: n })
+  } else {
+    for (const f of cands) {
+      let n = -1
+      let h = null
+      try {
+        h = new DatabaseSync(f, { readOnly: true })
+        const t = h.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((r) => String(r.name))
+        if (t.includes(spec.sessions.table)) n = Number(h.prepare(`SELECT COUNT(*) c FROM "${spec.sessions.table}"`).get().c)
+      } catch {
+        /* 该候选读不成(被占/非 SQLite)⇒ 记 -1 不猜 */
+      } finally {
+        try {
+          h?.close()
+        } catch {
+          /* ignore */
+        }
+      }
+      scored.push({ file: f, sessions: n })
+    }
   }
   scored.sort((a, b) => b.sessions - a.sessions)
   const best = scored[0]
@@ -152,6 +210,42 @@ export function digestSet(db, sql, params = []) {
 
 export function snapshotApp(appKey, opts = {}) {
   const env = opts.env ?? process.env
+  const spec = APPS[appKey]
+  if (!spec) throw new CheckError(`不认识的应用:${appKey}(可用 = ${Object.keys(APPS).join('/')})`, 'bad-app')
+  // fileSet 形态(opencode):清单钉 = 目录内会话文件名集合(基名排序后哈希,零正文)
+  if (spec.fileSet) {
+    const pickedDir = opts.dbPath ?? pickRichestDb(appKey, env).file
+    if (!pickedDir) {
+      const scored = opts.dbPath ? [{ file: opts.dbPath, sessions: -1 }] : pickRichestDb(appKey, env).scored
+      return {
+        app: appKey,
+        state: 'undetermined',
+        why:
+          scored.length > 0
+            ? `找到 ${scored.length} 个候选目录但 0 份会话文件(可能从未用过):${scored.map((s) => `${s.file}=${s.sessions}`).join(' | ')}`
+            : '本机找不到该应用的会话面目录(未装/未登录/路径变了)',
+      }
+    }
+    const names = fs
+      .readdirSync(pickedDir, { withFileTypes: true })
+      .filter((e) => e.isFile() && e.name.endsWith(spec.fileSet.ext))
+      .map((e) => e.name.slice(0, -spec.fileSet.ext.length))
+      .sort()
+    const h = crypto.createHash('sha1').update(names.join('\n')).digest('hex')
+    return {
+      app: appKey,
+      label: spec.label,
+      state: 'ok',
+      dbFile: pickedDir,
+      walMerged: null,
+      takenAt: new Date().toISOString(),
+      sessions: { count: names.length, digest: h.slice(0, 16) },
+      messageRows: null,
+      sessionsWithMessages: null,
+      accountDigests: [],
+      sessionIds: names.map(fp),
+    }
+  }
   const picked = opts.dbPath ? { file: opts.dbPath, scored: [{ file: opts.dbPath, sessions: -1 }] } : pickRichestDb(appKey, env)
   if (!picked.file) {
     const exists = picked.scored.length > 0
@@ -164,18 +258,18 @@ export function snapshotApp(appKey, opts = {}) {
     }
   }
   const dbFile = picked.file
-  const spec = APPS[appKey]
   const { db, dir, merged: walMerged } = openReadOnlyCopy(dbFile)
   try {
     const s = spec.sessions
     const where = s.where ? ` WHERE ${s.where}` : ''
-    const sess = digestSet(db, `SELECT "${s.idCol}" FROM "${s.table}"${where}`)
+    const distinctKw = s.distinct ? 'DISTINCT ' : ''
+    const sess = digestSet(db, `SELECT ${distinctKw}"${s.idCol}" FROM "${s.table}"${where}`)
     let msgs = null
     if (spec.messages) {
       const m = spec.messages
       msgs = digestSet(db, `SELECT "${m.idCol}" FROM "${m.table}"`)
     }
-    const perSession = sess.count > 0 && spec.messages
+    const perSession = sess.count > 0 && spec.messages?.sessionCol
       ? db.prepare(`SELECT COUNT(DISTINCT "${spec.messages.sessionCol}") c FROM "${spec.messages.table}"`).get()
       : null
     const acc = (spec.accountCols || []).map((ac) => {

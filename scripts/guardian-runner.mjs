@@ -3531,11 +3531,12 @@ const checks = [
     stagedTriggers: ['scripts/'],
     onFailHint: [
       '  💡 两维:D1 = 本枚改动的文件里有人按名取用而目标不再导出;D2 = 本枚改动/删除的文件削掉了某个仍被按名取用的出口。',
-      '     ① 看清单:node scripts/check-mjs-export-resolution.mjs --staged(全量档只报存量,不拦提交);',
+      '     ① 看清单:node scripts/check-mjs-export-resolution.mjs --staged(全量档逐条点名存量,--stock 给全部,不拦提交);',
       '     ② 修法二选一,不许两边都不选:',
       '        · 能力仍在用 ⇒ 把出口连实现补回生产方(逐字回补可参考 HEAD^ 面,补完 node --check + import 自证);',
       '        · 能力确已退役 ⇒ 同批把消费方的取用一起摘掉(删者须答 §7 三问,不得只删一半留个崩口)。',
-      '     ③ 判据本体:node scripts/check-mjs-export-resolution.mjs --self-test(11 例,含 D2 正控/反向对照/新建面不判)。',
+      '     ③ 判据本体:node scripts/check-mjs-export-resolution.mjs --self-test(现读 22 例;含 D2 正控/反向对照/新建面不判、D4 __test__ 键与命名空间属性取用正控)。',
+      '     D4(2026-10-30 立):`import { __test__ as G }` + `G.x()` / `import * as Ns` + `Ns.x()` 的 x 不在目标出口面 ⇒ 红 —— 当日 15:41 合车洗掉 gen-miniapp-mirror 的 4 枚出口 + __test__ 同名键,消费方全是属性取用,D1/D2 双盲、5 件器物链接期即抛。',
       '     立因实测:9fdbc207ba2e 删 lib/gitdir.mjs 的 brokenRefsFromSnapshot 而 git-guardian.mjs 未动 ⇒ 守护实例化期抛、任何档起不来,巡检腿全停。',
     ]
   },
