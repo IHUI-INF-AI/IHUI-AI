@@ -270,6 +270,12 @@
     "moreTitle": "강의 더보기",
     "studentCount": "{count}명 학습",
     "empty": "강좌가 없습니다"
+,
+    "player": "동영상 로드 후 재생할 수 있습니다",
+    "progress": "진도",
+    "progressLessons": "{completed}/{total}강 수강 완료",
+    "completed": "수강 완료",
+    "complete": "수강 완료로 표시"
   },
   "live": {
     "viewers": "{n}명 시청",
@@ -479,6 +485,8 @@
     "totalRecharge": "누적 충전",
     "totalWithdraw": "누적 출금",
     "withdraw": "출금"
+,
+    "points": "포인트"
   },
   "community": {
     "posts": "게시물",
@@ -504,6 +512,9 @@
     "m3": "검색할 에이전트 이름 입력",
     "y1": "{p1} 시간",
     "y2": "에이전트 구매:{p1}"
+,
+    "follow": "팔로우",
+    "follower": "팔로워"
   },
   "action": {
     "like": "좋아요",
@@ -514,6 +525,8 @@
     "title": "에이전트",
     "empty": "에이전트가 아직 없습니다",
     "uses": "회"
+,
+    "config": "설정"
   },
   "setting": {
     "hint": "알림",
@@ -1182,6 +1195,9 @@
     "loadFailed": "로딩 실패",
     "openWorkflow": "워크플로우 열기",
     "gatewayRetry": "{attempt}/{max}회 재시도, {seconds}초 후 계속합니다"
+,
+    "placeholder": "질문을 입력하세요",
+    "streaming": "생성 중..."
   },
   "agentDialogue": {
     "sendFailed": "전송 실패, 재시도",
@@ -1606,6 +1622,17 @@
     "withdrawn": "출금 완료",
     "myTeam": "내 팀",
     "columnTitle": "유통 주문"
+,
+    "retry": "재시도",
+    "empty": "데이터 없음",
+    "subtitle": "상품을 홍보하고 커미션을 받으세요",
+    "level": "유통 등급",
+    "commissionRate": "커미션 비율",
+    "totalEarnings": "누적 수익",
+    "pending": "정산 대기",
+    "withdrawMin": "¥{amount} 이상부터 출금 가능",
+    "products": "유통 상품",
+    "sales": "{count}개 판매됨"
   },
   "about": {
     "ctaDesc": "가입 즉시 1,000 크레딧 제공, 모든 모델 무료 체험, 신용 카드 불필요.",
@@ -2359,6 +2386,8 @@
     "faqGuideBtn": "살펴보기",
     "contactHeading": "다른 질문이 있으신가요?",
     "contactDesc": "고객 센터에 문의해 1:1 상담을 받으세요"
+,
+    "copy": "복사"
   },
   "developer": {
     "withdrawal": {
@@ -2644,6 +2673,11 @@
       "loadFailed": "상세 가져오기"
     },
     "noData": "랭킹 데이터 없음"
+,
+    "subtitle": "학습 랭킹, 자신의 순위를 확인하세요",
+    "retry": "재시도",
+    "me": "나",
+    "studyHours": "{count}시간 학습"
   },
   "recruitment": {
     "title": "트레이더 계획",
@@ -2674,6 +2708,9 @@
     "agreePrefix": "읽고 동의합니다",
     "userAgreement": "《이용약관》",
     "privacyPolicy": "《개인정보처리방침》"
+,
+    "sendCodeFailed": "인증 코드 전송 실패, 다시 시도하세요",
+    "registering": "가입 중..."
   },
   "message": {
     "tabs": {
@@ -3267,6 +3304,17 @@
     "subscribeTitle": "서비스 패키지 구독",
     "subscribed": "구독 완료",
     "verified": "인증됨"
+,
+    "title": "VIP 트레이더",
+    "subtitle": "트레이더 전용 혜택을 누리세요",
+    "badge": "트레이더 전용",
+    "heroDesc": "한정 ¥{price}에 개통하고 {power} 컴퓨팅 파워 증정, 대량 유통과 맞춤형 혜택 제공",
+    "entryTeam": "내 팀",
+    "entryStats": "수익 통계",
+    "entryWithdraw": "출금하기",
+    "benefits": "전용 혜택",
+    "benefitCount": "총 {count}개",
+    "lifetime": "평생 유효"
   },
   "vip": {
     "benefitList": {
@@ -3429,6 +3477,16 @@
       "aiChat": "AI 스마트 대화",
       "aiChatDesc": "스마트 어시스턴트가 다양한 질문에 답변"
     }
+,
+    "retry": "재시도",
+    "subtitle": "멤버십을 개통하고 더 많은 혜택을 누리세요",
+    "currentLevel": "현재 등급",
+    "expireAt": "만료 시간",
+    "levelsTitle": "멤버십 등급",
+    "empty": "멤버십 등급 정보가 없습니다",
+    "currentBadge": "현재 등급",
+    "duration": "{days}일",
+    "benefitsCount": "{count}개 전용 혜택"
   },
   "learnDevelop": {
     "title": "학습 및 개발",
@@ -3441,6 +3499,8 @@
     "teacher": "강사",
     "free": "무료",
     "rankEntry": "학습 랭킹"
+,
+    "contactLabel": "이 대표에게 직접 문의"
   },
   "settingPrivacy": {
     "systemPermissions": "시스템 권한",
@@ -3807,6 +3867,11 @@
     "menuWebLink": "웹 링크",
     "menuFileUpload": "파일 업로드",
     "menuHistory": "대화 기록"
+,
+    "modelLabel": "모델",
+    "stop": "중지",
+    "thinking": "생각 중...",
+    "title": "IHUI AI"
   },
   "tabBar": {
     "community": "커뮤니티",
@@ -4220,6 +4285,14 @@
     "d1": "기술",
     "d2": "제품",
     "d4": "운영"
+,
+    "title": "질문 작성",
+    "titlePlaceholder": "질문을 한 줄로 요약해 주세요",
+    "contentLabel": "내용",
+    "contentPlaceholder": "질문을 자세히 설명해 주세요",
+    "tagsLabel": "태그",
+    "tagsPlaceholder": "여러 태그는 쉼표로 구분",
+    "submit": "작성"
   },
   "liveCalendar": {
     "d1": "지금 시청",
@@ -4233,6 +4306,11 @@
     "d5": "기타 사유",
     "y1": "설명:{p1}",
     "y2": "연락처:{p1}"
+,
+    "subtitle": "주문을 선택하고 환불을 신청하세요",
+    "retry": "재시도",
+    "empty": "환불 가능한 주문이 없습니다",
+    "reasonPlaceholder": "환불 사유를 입력하세요"
   },
   "settingTheme": {
     "d1": "시스템 설정에 따라 라이트/다크 자동 전환",
@@ -4271,6 +4349,11 @@
   "rankingDetail": {
     "d1": "테스트 중",
     "d2": "종료됨"
+,
+    "points": "포인트",
+    "rank": "순위",
+    "studyHours": "학습 시간",
+    "levelDesc": "레벨"
   },
   "EmptyIllustration": {
     "d1": "관련 콘텐츠를 찾을 수 없음",
@@ -4711,6 +4794,12 @@
       "loginRequired": "먼저 로그인하세요"
     },
     "notLoggedIn": "미로그인"
+,
+    "nickname": "닉네임 미설정",
+    "logout": "로그아웃",
+    "myFavorites": "내 즐겨찾기",
+    "myOrders": "내 주문",
+    "editProfile": "프로필 편집"
   },
   "verify": {
     "phoneEmpty": "휴대폰 번호가 비어 있습니다",
@@ -6011,6 +6100,13 @@
   },
   "identityVerify": {
     "loadFailed": "인증 불러오기 실패"
+,
+    "uploadFront": "신분증 앞면 업로드",
+    "uploadBack": "신분증 뒷면 업로드",
+    "uploadSelfie": "신분증을 든 셀카 업로드",
+    "title": "본인 인증",
+    "subtitle": "본인 인증을 완료해 계정 보안을 강화하세요",
+    "submitting": "제출 중..."
   },
   "referrer": {
     "title": "추천인",
@@ -7254,5 +7350,31 @@
     "markSuccess": "습득 완료로 표시했습니다",
     "markFailed": "표시하지 못했습니다",
     "loadMore": "더 불러오기"
+  }
+,
+  "settings": {
+    "oldPassword": "기존 비밀번호",
+    "confirmPassword": "새 비밀번호 확인",
+    "icpRecord": "ICP 신고",
+    "pwdFieldsRequired": "비밀번호 정보를 모두 입력하세요",
+    "pwdTooShort": "새 비밀번호는 최소 6자 이상이어야 합니다",
+    "pwdNotMatch": "두 번 입력한 비밀번호가 일치하지 않습니다",
+    "pwdChanged": "비밀번호가 변경되었습니다",
+    "pwdChangeFailed": "비밀번호 변경에 실패했습니다. 다시 시도해 주세요",
+    "logoutConfirm": "로그아웃하시겠습니까?",
+    "notifPush": "푸시 알림",
+    "notifMessage": "사이트 메시지",
+    "notifEmail": "이메일 알림",
+    "notification": "메시지 알림",
+    "account": "계정 및 보안",
+    "changePassword": "비밀번호 변경",
+    "newPassword": "새 비밀번호"
+  },
+  "liveList": {
+    "subtitle": "다양한 라이브, 놓치지 마세요",
+    "retry": "재시도"
+  },
+  "withdraw": {
+    "availableBalance": "출금 가능 금액(원)"
   }
 }

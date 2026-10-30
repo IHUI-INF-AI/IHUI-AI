@@ -270,6 +270,12 @@
     "moreTitle": "More courses",
     "studentCount": "{count} learners",
     "empty": "No courses yet"
+,
+    "player": "The video will play once loaded",
+    "progress": "Progress",
+    "progressLessons": "{completed}/{total} lessons completed",
+    "completed": "Completed",
+    "complete": "Mark Complete"
   },
   "live": {
     "viewers": "{n} viewers",
@@ -479,6 +485,8 @@
     "totalRecharge": "Total recharge",
     "totalWithdraw": "Total withdrawal",
     "withdraw": "Withdraw"
+,
+    "points": "Points"
   },
   "community": {
     "posts": "Posts",
@@ -504,6 +512,9 @@
     "m3": "Enter agent name to search",
     "y1": "{p1} duration",
     "y2": "Buy agent: {p1}"
+,
+    "follow": "Following",
+    "follower": "Followers"
   },
   "action": {
     "like": "Like",
@@ -514,6 +525,8 @@
     "title": "Agents",
     "empty": "No agents yet",
     "uses": "Times"
+,
+    "config": "Config"
   },
   "setting": {
     "hint": "Hint",
@@ -1182,6 +1195,9 @@
     "loadFailed": "Load failed",
     "openWorkflow": "Open workflow",
     "gatewayRetry": "Retry {attempt} of {max}, continuing in {seconds}s"
+,
+    "placeholder": "Enter your question",
+    "streaming": "Generating..."
   },
   "agentDialogue": {
     "sendFailed": "Send failed, please retry",
@@ -1606,6 +1622,17 @@
     "withdrawn": "Withdrawn",
     "myTeam": "My Team",
     "columnTitle": "Distribution Orders"
+,
+    "retry": "Retry",
+    "empty": "No data",
+    "subtitle": "Promote products and earn commissions",
+    "level": "Level",
+    "commissionRate": "Commission Rate",
+    "totalEarnings": "Total Earnings",
+    "pending": "Pending",
+    "withdrawMin": "Minimum ¥{amount} to withdraw",
+    "products": "Products",
+    "sales": "{count} sold"
   },
   "about": {
     "ctaDesc": "Sign up and get 1,000 credits, free trial of all models, no credit card required.",
@@ -2359,6 +2386,8 @@
     "faqGuideBtn": "Learn more",
     "contactHeading": "Still have questions?",
     "contactDesc": "Contact support for one-on-one guidance"
+,
+    "copy": "Copy"
   },
   "developer": {
     "withdrawal": {
@@ -2644,6 +2673,11 @@
       "loadFailed": "Get detail"
     },
     "noData": "No Ranking Data"
+,
+    "subtitle": "See where you rank this week",
+    "retry": "Retry",
+    "me": "Me",
+    "studyHours": "{count} hrs studied"
   },
   "recruitment": {
     "title": "Trader Program",
@@ -2674,6 +2708,9 @@
     "agreePrefix": "I have read and agree to",
     "userAgreement": "《User Agreement》",
     "privacyPolicy": "《Privacy Policy》"
+,
+    "sendCodeFailed": "Failed to send code, please retry",
+    "registering": "Signing up..."
   },
   "message": {
     "tabs": {
@@ -3267,6 +3304,17 @@
     "subscribeTitle": "Subscription Package",
     "subscribed": "Subscribed Successfully",
     "verified": "Verified"
+,
+    "title": "VIP Trader",
+    "subtitle": "Exclusive trader benefits",
+    "badge": "Trader Exclusive",
+    "heroDesc": "Open for ¥{price} and get {power} computing power, plus exclusive distribution and customization benefits",
+    "entryTeam": "My Team",
+    "entryStats": "Earnings Stats",
+    "entryWithdraw": "Withdraw",
+    "benefits": "Exclusive Benefits",
+    "benefitCount": "{count} items",
+    "lifetime": "Lifetime access"
   },
   "vip": {
     "benefitList": {
@@ -3429,6 +3477,16 @@
       "aiChat": "AI Smart Chat",
       "aiChatDesc": "Smart assistant answers all kinds of questions"
     }
+,
+    "retry": "Retry",
+    "subtitle": "Unlock membership and enjoy more benefits",
+    "currentLevel": "Current Level",
+    "expireAt": "Expires",
+    "levelsTitle": "Membership Levels",
+    "empty": "No membership levels available",
+    "currentBadge": "Current",
+    "duration": "{days} days",
+    "benefitsCount": "{count} exclusive benefits"
   },
   "learnDevelop": {
     "title": "Learning & development",
@@ -3441,6 +3499,8 @@
     "teacher": "Instructor",
     "free": "Free",
     "rankEntry": "Study leaderboard"
+,
+    "contactLabel": "Contact Mr. Li directly"
   },
   "settingPrivacy": {
     "systemPermissions": "System permissions",
@@ -3807,6 +3867,11 @@
     "menuWebLink": "Web link",
     "menuFileUpload": "Upload file",
     "menuHistory": "History"
+,
+    "modelLabel": "Model",
+    "stop": "Stop",
+    "thinking": "Thinking...",
+    "title": "IHUI AI"
   },
   "tabBar": {
     "community": "Community",
@@ -4220,6 +4285,14 @@
     "d1": "Tech",
     "d2": "Product",
     "d4": "Operations"
+,
+    "title": "Ask a Question",
+    "titlePlaceholder": "Summarize your question in one line",
+    "contentLabel": "Details",
+    "contentPlaceholder": "Describe your question in detail",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Separate tags with commas",
+    "submit": "Post"
   },
   "liveCalendar": {
     "d1": "Watch now",
@@ -4233,6 +4306,11 @@
     "d5": "Other reasons",
     "y1": "Note: {p1}",
     "y2": "Contact: {p1}"
+,
+    "subtitle": "Select an order and submit your request",
+    "retry": "Retry",
+    "empty": "No refundable orders",
+    "reasonPlaceholder": "Tell us why you want a refund"
   },
   "settingTheme": {
     "d1": "Auto switch between light and dark based on system settings",
@@ -4271,6 +4349,11 @@
   "rankingDetail": {
     "d1": "Testing",
     "d2": "Offline"
+,
+    "points": "Points",
+    "rank": "Rank",
+    "studyHours": "Study Hours",
+    "levelDesc": "Level"
   },
   "EmptyIllustration": {
     "d1": "No matching content found",
@@ -4711,6 +4794,12 @@
       "loginRequired": "Please log in first"
     },
     "notLoggedIn": "Not signed in"
+,
+    "nickname": "No nickname yet",
+    "logout": "Log Out",
+    "myFavorites": "My favorites",
+    "myOrders": "My Orders",
+    "editProfile": "Edit Profile"
   },
   "verify": {
     "phoneEmpty": "Phone number is empty",
@@ -6011,6 +6100,13 @@
   },
   "identityVerify": {
     "loadFailed": "Failed to load"
+,
+    "uploadFront": "Upload the front of your ID",
+    "uploadBack": "Upload the back of your ID",
+    "uploadSelfie": "Upload a selfie with your ID",
+    "title": "Identity Verification",
+    "subtitle": "Verify your identity to secure your account",
+    "submitting": "Submitting..."
   },
   "referrer": {
     "title": "Referrer",
@@ -7254,5 +7350,31 @@
     "markSuccess": "Marked as resolved",
     "markFailed": "Failed to mark",
     "loadMore": "Load more"
+  }
+,
+  "settings": {
+    "oldPassword": "Current Password",
+    "confirmPassword": "Confirm New Password",
+    "icpRecord": "ICP Record",
+    "pwdFieldsRequired": "Please fill in all password fields",
+    "pwdTooShort": "Password must be at least 6 characters",
+    "pwdNotMatch": "Passwords do not match",
+    "pwdChanged": "Password changed",
+    "pwdChangeFailed": "Failed to change password, please retry",
+    "logoutConfirm": "Confirm logout?",
+    "notifPush": "Push Notifications",
+    "notifMessage": "In-App Messages",
+    "notifEmail": "Email Notifications",
+    "notification": "Notifications",
+    "account": "Account & Security",
+    "changePassword": "Change Password",
+    "newPassword": "New Password"
+  },
+  "liveList": {
+    "subtitle": "Great streams you won't want to miss",
+    "retry": "Retry"
+  },
+  "withdraw": {
+    "availableBalance": "Available Balance (CNY)"
   }
 }
