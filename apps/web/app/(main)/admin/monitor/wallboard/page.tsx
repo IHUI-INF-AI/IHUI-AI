@@ -22,12 +22,21 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
   AlertTriangle,
+  ArrowRight,
+  BarChart3,
   Bell,
   Clock3,
   Cpu,
   Database,
   Gauge,
   Globe,
+  Layers,
+  LineChart,
+  MousePointerClick,
+  Route,
+  Share2,
+  UserRoundCheck,
+  Waypoints,
   HardDrive,
   Maximize2,
   Minimize2,
@@ -193,6 +202,81 @@ interface TrafficSnapshot {
   /** 这份快照距今多少秒(后端 5 秒缓存 + 5 秒轮询 ⇒ 常为 0..5);null = 整块取不到 */
   aggregationAgeSec: number | null
   truncated: boolean | null
+  /** 近 24h 页面访问排行(visit_logs 口径);null = 页面热度腿取不到 */
+  pageTop?: TrafficPageRow[] | null
+  /** 近 24h 同口径总 PV(排行的占比分母);null = 同一条腿取不到 */
+  pageTotalPv?: number | null
+  /** 近 24h 各访问面(前台/后台/登录页);null = 同一条腿取不到 */
+  scopeSplit?: Array<{ scope: string; pv: number; uv: number }> | null
+  /** 近 24h 各端(web/rn/mp/ex);null = 同一条腿取不到 */
+  platformSplit?: TrafficPlatformRow[] | null
+  /** 近 5 分钟去重会话数(实时在线近似);null = 同一条腿取不到 */
+  online5m?: number | null
+  pv5m?: number | null
+  /** 近 24h 逐小时 PV/UV(滚动窗口,24 个桶);null = 同一条腿取不到 */
+  pageHourly?: Array<{ hour: string; pv: number; uv: number }> | null
+  /** 近 24h 会话质量;null = 同一条腿取不到 */
+  sessionQuality?: SessionQuality | null
+  /** 近 24h 访问来源;null = 同一条腿取不到 */
+  visitSource?: VisitSource | null
+  /** 近 24h 相邻页对;null = 同一条腿取不到 */
+  visitTransition?: VisitTransition | null
+  /** 近 24h 各页平均停留;null = 同一条腿取不到 */
+  pageDwell?: Array<{ url: string; avgDwellSec: number | null; samples: number }> | null
+}
+
+interface TrafficPageRow {
+  url: string
+  scope: string
+  platform: string
+  pv: number
+  uv: number
+}
+
+interface TrafficPlatformRow {
+  platform: string
+  pv: number
+  uv: number
+  /** 近 90 日 PV —— 把"这端从没上报过"与"今天恰好没人用"分开 */
+  pv90d: number
+  lastSeenAt: string | null
+}
+
+interface SessionQuality {
+  sessions: number
+  singlePageSessions: number
+  singlePageRate: number | null
+  avgPvPerSession: number | null
+  depth: Array<{ bucket: string; sessions: number }>
+  entryPages: Array<{ url: string; sessions: number; singlePageSessions: number }>
+  exitPages: Array<{ url: string; sessions: number; singlePageSessions: number }>
+}
+
+interface VisitSource {
+  totalPv: number
+  buckets: Array<{ kind: string; pv: number }>
+  hosts: Array<{ host: string; kind: string; pv: number }>
+  splitInternal: boolean
+}
+
+interface VisitTransition {
+  totalMoves: number
+  distinctPairs: number
+  top: Array<{ fromUrl: string; toUrl: string; n: number }>
+}
+
+interface EngagementSnapshot {
+  events: Array<{ event: string; n: number }>
+  clickTop: Array<{ label: string; n: number }>
+  avgPageTimeSec: number | null
+  totalEvents: number
+}
+
+interface AudienceSnapshot {
+  newUv: number
+  returningUv: number
+  activeUv: number
+  returningRate: number | null
 }
 
 interface RelayPoolSnapshot {
@@ -277,6 +361,10 @@ interface OverviewPayload {
   events: EventItem[] | null
   traffic?: TrafficSnapshot | null
   relayPool?: RelayPoolSnapshot | null
+  /** 交互热度(analytics_events 聚合);null/undefined = 取不到,读数落「—」 */
+  engagement?: EngagementSnapshot | null
+  /** 访客构成(新访客/回访/回访率);null/undefined = 取不到,读数落「—」 */
+  audience?: AudienceSnapshot | null
   edge: EdgeSnapshot | null
 }
 
@@ -520,6 +608,55 @@ function StatCell({
   )
 }
 
+/**
+ * 面板内的「标签 + 读数」一行。label 与 value 必须是同一父节点下的纯文本元素 ——
+ * 面板测试按 `parentElement.textContent` 逐行断言(如「新访客28」),中间不能夹包装层。
+ * `note` 是行内状态标记(如「今日静默」),不参与读数。
+ */
+function MeterRow({
+  label,
+  value,
+  note,
+  tone,
+}: {
+  label: string
+  /** 复合读数(如 `4,200 / 300`)请拆成多个元素传进来:面板测试按**精确文本**取单个数字 */
+  value: React.ReactNode
+  note?: string
+  tone?: StatusTone
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-md bg-muted/50 px-2 py-1">
+      <span className="min-w-0 truncate text-[10px] text-foreground">{label}</span>
+      {note ? <span className="shrink-0 text-[9px] text-muted-foreground">{note}</span> : null}
+      <span
+        className={cn(
+          'wb-num ml-auto shrink-0 text-[10px]',
+          tone === 'bad'
+            ? 'text-danger-text'
+            : tone === 'warn'
+              ? 'text-warning-text'
+              : 'text-info-text',
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * 页面排行里的端前缀(四端同表):web 写裸路径,RN/小程序/插件按埋点前缀拆出来单独着色 ——
+ * 否则「这个页面是谁在用」在大屏上读不出来。
+ */
+function platformPrefixOf(url: string): { prefix: string | null; rest: string; tone: string } {
+  if (url.startsWith('/rn/')) return { prefix: '/rn/', rest: url.slice(4), tone: 'text-violet-400' }
+  if (url.startsWith('/mp/')) return { prefix: '/mp/', rest: url.slice(4), tone: 'text-amber-400' }
+  if (url.startsWith('/ex/'))
+    return { prefix: '/ex/', rest: url.slice(4), tone: 'text-emerald-400' }
+  return { prefix: null, rest: url, tone: '' }
+}
+
 /** 图表空数据占位(数据源无样本/未启用时盖在画布上,避免「空白=坏了」的误读)。 */
 function ChartEmpty({ text }: { text: string }) {
   return (
@@ -709,6 +846,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const events = ov?.events ?? null
   const traffic = ov?.traffic ?? null
   const relayPool = ov?.relayPool ?? null
+  const engagement = ov?.engagement ?? null
+  const audience = ov?.audience ?? null
   const edge = ov?.edge ?? null
 
   // 号池面板口径(2026-10-30):分母取"健康态可判定行数",脏值行单独成格(两池合计,
@@ -1113,6 +1252,53 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       ],
     }
   }, [trend?.hourlyCalls, isDark, nowHour, t, locale])
+
+  /**
+   * 分时访问(滚动 24h,visit_logs 口径):与上面「今日分时调用」不是同一条腿 ——
+   * 那条是当日累计、未来小时不得画 0 柱;这条窗口内 24 个桶各出现一次,
+   * 空桶是该小时真没人(服务端不出空桶 ⇒ 只画回来的桶)。
+   */
+  const visitsHourlyOption = React.useMemo<EChartsOption>(() => {
+    const rows = traffic?.pageHourly ?? []
+    return {
+      grid: { left: 36, right: 12, top: 18, bottom: 20 },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
+      },
+      legend: {
+        top: 0,
+        right: 0,
+        itemWidth: 8,
+        itemHeight: 8,
+        textStyle: { color: chartText(isDark), fontSize: 10 },
+        data: [t('visitHourlyPv'), t('visitHourlyUv')],
+      },
+      xAxis: { type: 'category', data: rows.map((r) => r.hour), ...AXIS(isDark) },
+      yAxis: { type: 'value', ...AXIS(isDark) },
+      series: [
+        {
+          name: t('visitHourlyPv'),
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          data: rows.map((r) => r.pv),
+          lineStyle: { width: 1.5 },
+          areaStyle: { opacity: 0.12 },
+        },
+        {
+          name: t('visitHourlyUv'),
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          data: rows.map((r) => r.uv),
+          lineStyle: { width: 1.5 },
+        },
+      ],
+    }
+  }, [traffic?.pageHourly, isDark, t])
 
   const modelOption = React.useMemo<EChartsOption>(() => {
     const models = [...(biz?.llmTopModels ?? [])].reverse()
@@ -2469,6 +2655,476 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 ) : null}
               </div>
             </div>
+          </Panel>
+
+          {/* 页面访问热度(2026-10-30 接线):访问面分桶 + 页面排行。
+              排行带端前缀与占比条 —— 四端同表,不拆前缀就读不出"这页是谁在用";
+              占比分母取 pageTotalPv,取不到时**不画条**(画条等于把"没判"画成"零")。 */}
+          <Panel
+            title={t('panelPageUsage')}
+            icon={<BarChart3 className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md order-1"
+            right={
+              traffic === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : isNum(traffic.online5m) ? (
+                <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <Dot tone="ok" />
+                  {t('onlineNow', { count: fmtInt(traffic.online5m) })}
+                </span>
+              ) : null
+            }
+            bodyClassName="wb-split overflow-y-auto"
+          >
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('pageUsageScope')}
+              </div>
+              <div className="space-y-1">
+                {(
+                  [
+                    ['public', t('scopePublic')],
+                    ['admin', t('scopeAdmin')],
+                    ['auth', t('scopeAuth')],
+                  ] as const
+                ).map(([scope, label]) => {
+                  const known = traffic?.scopeSplit !== null && traffic?.scopeSplit !== undefined
+                  const row = known
+                    ? (traffic?.scopeSplit ?? []).find((r) => r.scope === scope)
+                    : null
+                  return (
+                    <MeterRow
+                      key={scope}
+                      label={label}
+                      value={
+                        known ? (
+                          <>
+                            <span>{fmtInt(row?.pv ?? 0)}</span> /{' '}
+                            <span>{fmtInt(row?.uv ?? 0)}</span>
+                          </>
+                        ) : (
+                          '— / —'
+                        )
+                      }
+                    />
+                  )
+                })}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('pageUsageTop')}
+              </div>
+              <div className="space-y-1">
+                {(traffic?.pageTop ?? []).slice(0, 8).map((row) => {
+                  const { prefix, rest, tone } = platformPrefixOf(row.url)
+                  const pct =
+                    isNum(traffic?.pageTotalPv) && (traffic?.pageTotalPv ?? 0) > 0
+                      ? Math.round((row.pv / (traffic?.pageTotalPv ?? 1)) * 100)
+                      : null
+                  const dwell = (traffic?.pageDwell ?? []).find((d) => d.url === row.url)
+                  const dwellSec = isNum(dwell?.avgDwellSec) ? Math.round(dwell.avgDwellSec) : null
+                  return (
+                    <div
+                      key={`${row.platform}:${row.url}`}
+                      className="rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        {prefix ? (
+                          <span className={cn('shrink-0 text-[10px] font-semibold', tone)}>
+                            {prefix}
+                          </span>
+                        ) : null}
+                        <span className="min-w-0 truncate text-[10px] text-foreground">{rest}</span>
+                        <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                          {fmtInt(row.pv)} / {fmtInt(row.uv)}
+                        </span>
+                      </div>
+                      {pct !== null || dwellSec !== null ? (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          {pct === null ? (
+                            <div className="flex-1" />
+                          ) : (
+                            <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                              <div
+                                className="h-full rounded-full bg-info/70"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          )}
+                          {dwellSec === null ? null : (
+                            <span className="shrink-0 text-[9px] text-muted-foreground">
+                              {t('avgDwellSec', { s: dwellSec })}
+                            </span>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+                {traffic !== null &&
+                traffic.pageTop !== null &&
+                traffic.pageTop !== undefined &&
+                traffic.pageTop.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('pageUsageNoData')}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Panel>
+
+          {/* 分时访问(2026-10-30 接线):滚动 24h 逐小时,与「今日分时调用」的截断语义不同 */}
+          <Panel
+            title={t('panelHourlyVisits')}
+            icon={<LineChart className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md order-1"
+            right={
+              <span className="text-[10px] text-muted-foreground">{t('hourlyVisitWindow')}</span>
+            }
+            bodyClassName="flex flex-col gap-1"
+          >
+            <div className="relative">
+              <EChart
+                option={visitsHourlyOption}
+                height={150}
+                merge
+                ariaLabel={t('panelHourlyVisits')}
+              />
+              {traffic === null || traffic.pageHourly === null ? (
+                <ChartEmpty text={t('sourceUnreachable')} />
+              ) : (traffic.pageHourly ?? []).length === 0 ? (
+                /* 空数组 = 窗口内真的一次访问都没有;null 才是"腿取不到"(上面那档) */
+                <ChartEmpty text={t('noTrafficData')} />
+              ) : null}
+            </div>
+          </Panel>
+
+          {/* 各端使用量:四端同表。"零量"必须分两种说法(今日静默 / 90日未上报) */}
+          <Panel
+            title={t('panelPlatforms')}
+            icon={<Layers className="h-3.5 w-3.5" />}
+            className="wb-c3"
+            bodyClassName="overflow-y-auto"
+          >
+            {(traffic?.platformSplit ?? []).length === 0 ? (
+              <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                {t('platformNoData')}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {(traffic?.platformSplit ?? []).map((row) => (
+                  <MeterRow
+                    key={row.platform}
+                    label={
+                      row.platform === 'rn'
+                        ? t('platformRn')
+                        : row.platform === 'mp'
+                          ? t('platformMp')
+                          : row.platform === 'ex'
+                            ? t('platformEx')
+                            : t('platformWeb')
+                    }
+                    value={`${fmtInt(row.pv)} / ${fmtInt(row.uv)}`}
+                    note={
+                      row.pv90d === 0
+                        ? t('platformNever')
+                        : row.pv === 0
+                          ? t('platformQuiet')
+                          : undefined
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          {/* 访客构成:新访客 / 回访 / 回访率。取不到一律「—」,不折成 0 */}
+          <Panel
+            title={t('panelAudience')}
+            icon={<UserRoundCheck className="h-3.5 w-3.5" />}
+            className="wb-c3"
+            right={
+              audience === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : isNum(audience.activeUv) ? (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('audienceTotal', { count: fmtInt(audience.activeUv) })}
+                </span>
+              ) : null
+            }
+            bodyClassName="overflow-y-auto"
+          >
+            <div className="space-y-1">
+              <MeterRow label={t('audienceNew')} value={fmtInt(audience?.newUv)} />
+              <MeterRow label={t('audienceReturning')} value={fmtInt(audience?.returningUv)} />
+              <MeterRow
+                label={t('audienceRevisitRate')}
+                value={
+                  isNum(audience?.returningRate)
+                    ? `${Math.round((audience?.returningRate ?? 0) * 100)}%`
+                    : '—'
+                }
+              />
+            </div>
+          </Panel>
+
+          {/* 会话质量:单页占比 / 人均页数 / 深度四档 / 落地页 + 退出页(两头都有才看得出断在哪) */}
+          <Panel
+            title={t('panelSessionQuality')}
+            icon={<Waypoints className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md order-1"
+            right={
+              isNum(traffic?.sessionQuality?.sessions) ? (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('sessionQualitySessions', {
+                    count: fmtInt(traffic?.sessionQuality?.sessions),
+                  })}
+                </span>
+              ) : null
+            }
+            bodyClassName="flex flex-col gap-2 overflow-y-auto"
+          >
+            <div className="wb-cells">
+              <StatCell
+                label={t('sessionQualitySinglePage')}
+                value={
+                  isNum(traffic?.sessionQuality?.singlePageRate)
+                    ? `${Math.round((traffic?.sessionQuality?.singlePageRate ?? 0) * 100)}%`
+                    : '—'
+                }
+                tone={
+                  traffic?.sessionQuality === undefined || traffic?.sessionQuality === null
+                    ? 'unknown'
+                    : 'accent'
+                }
+              />
+              <StatCell
+                label={t('sessionQualityAvgPv')}
+                value={
+                  isNum(traffic?.sessionQuality?.avgPvPerSession)
+                    ? (traffic?.sessionQuality?.avgPvPerSession ?? 0).toFixed(1)
+                    : '—'
+                }
+                tone={
+                  traffic?.sessionQuality === undefined || traffic?.sessionQuality === null
+                    ? 'unknown'
+                    : 'ok'
+                }
+              />
+            </div>
+            <div>
+              <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('sessionQualityDepth')}
+              </div>
+              <div className="space-y-1">
+                {(traffic?.sessionQuality?.depth ?? []).map((d) => (
+                  <MeterRow
+                    key={d.bucket}
+                    label={
+                      d.bucket === '1'
+                        ? t('sessionDepth1')
+                        : d.bucket === '2-3'
+                          ? t('sessionDepth23')
+                          : d.bucket === '4-7'
+                            ? t('sessionDepth47')
+                            : t('sessionDepth8Plus')
+                    }
+                    value={fmtInt(d.sessions)}
+                  />
+                ))}
+                {traffic?.sessionQuality === null && traffic !== null ? (
+                  <div className="px-2 py-2 text-center text-[11px] text-muted-foreground">
+                    {t('sessionQualityNoData')}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="wb-split">
+              <div>
+                <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
+                  {t('sessionQualityEntryTop')}
+                </div>
+                <div className="space-y-1">
+                  {(traffic?.sessionQuality?.entryPages ?? []).map((row) => (
+                    <MeterRow
+                      key={`in:${row.url}`}
+                      label={row.url}
+                      value={`${fmtInt(row.sessions)} / ${fmtInt(row.singlePageSessions)}`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
+                  {t('sessionQualityExitTop')}
+                </div>
+                <div className="space-y-1">
+                  {(traffic?.sessionQuality?.exitPages ?? []).map((row) => (
+                    <MeterRow
+                      key={`out:${row.url}`}
+                      label={row.url}
+                      value={`${fmtInt(row.sessions)} / ${fmtInt(row.singlePageSessions)}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Panel>
+
+          {/* 交互热度:事件分布 / 热门点击 / 平均停留(analytics_events 口径) */}
+          <Panel
+            title={t('panelEngagement')}
+            icon={<MousePointerClick className="h-3.5 w-3.5" />}
+            className="wb-c3"
+            right={
+              isNum(engagement?.avgPageTimeSec) ? (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('engagementAvgStay')} {fmtDuration(engagement?.avgPageTimeSec)}
+                </span>
+              ) : null
+            }
+            bodyClassName="flex flex-col gap-2 overflow-y-auto"
+          >
+            <div>
+              <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('engagementEvents')}
+              </div>
+              <div className="space-y-1">
+                {(engagement?.events ?? []).slice(0, 6).map((e) => (
+                  <MeterRow key={e.event} label={e.event} value={fmtInt(e.n)} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('engagementClicks')}
+              </div>
+              <div className="space-y-1">
+                {(engagement?.clickTop ?? []).slice(0, 6).map((c) => (
+                  <MeterRow key={c.label} label={c.label} value={fmtInt(c.n)} />
+                ))}
+                {engagement !== null && (engagement.events ?? []).length === 0 ? (
+                  <div className="px-2 py-2 text-center text-[11px] text-muted-foreground">
+                    {t('engagementNoData')}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Panel>
+
+          {/* 访问来源:四类来源 + 主机榜。取不到时**一个来源格都不画**(画 0 = 把"没判"说成"没有流量") */}
+          <Panel
+            title={t('panelVisitSource')}
+            icon={<Share2 className="h-3.5 w-3.5" />}
+            className="wb-c3"
+            right={
+              isNum(traffic?.visitSource?.totalPv) ? (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('visitSourceTotal', { count: fmtInt(traffic?.visitSource?.totalPv) })}
+                </span>
+              ) : null
+            }
+            bodyClassName="flex flex-col gap-2 overflow-y-auto"
+          >
+            {traffic?.visitSource === null || traffic?.visitSource === undefined ? (
+              <div className="flex justify-center px-2 py-3">
+                <SourceGap text={t('sourceUnreachable')} />
+              </div>
+            ) : (
+              <>
+                <div>
+                  <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
+                    {t('visitSourceBuckets')}
+                  </div>
+                  <div className="space-y-1">
+                    {(traffic.visitSource.buckets ?? []).map((b) => (
+                      <MeterRow
+                        key={b.kind}
+                        label={
+                          b.kind === 'local'
+                            ? t('visitSourceLocal')
+                            : b.kind === 'internal'
+                              ? t('visitSourceInternal')
+                              : b.kind === 'external'
+                                ? t('visitSourceExternal')
+                                : t('visitSourceDirect')
+                        }
+                        value={fmtInt(b.pv)}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
+                    {t('visitSourceHosts')}
+                  </div>
+                  <div className="space-y-1">
+                    {(traffic.visitSource.hosts ?? []).slice(0, 6).map((h) => (
+                      <MeterRow key={h.host} label={h.host} value={fmtInt(h.pv)} />
+                    ))}
+                    {traffic.visitSource.buckets.length === 0 ? (
+                      <div className="px-2 py-2 text-center text-[11px] text-muted-foreground">
+                        {t('visitSourceNoData')}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </>
+            )}
+          </Panel>
+
+          {/* 页面流转:相邻页对(从哪页走到哪页 + 次数) —— 排行只说"哪页热",这格答"走到哪一步" */}
+          <Panel
+            title={t('panelVisitTransition')}
+            icon={<Route className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md order-1"
+            right={
+              isNum(traffic?.visitTransition?.totalMoves) ? (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('visitTransitionMoves', {
+                    count: fmtInt(traffic?.visitTransition?.totalMoves),
+                  })}
+                </span>
+              ) : null
+            }
+            bodyClassName="overflow-y-auto"
+          >
+            {traffic?.visitTransition === null || traffic?.visitTransition === undefined ? (
+              <div className="flex justify-center px-2 py-3">
+                <SourceGap text={t('sourceUnreachable')} />
+              </div>
+            ) : (
+              <div>
+                <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
+                  {t('visitTransitionTop')}
+                </div>
+                <div className="space-y-1">
+                  {(traffic.visitTransition.top ?? []).slice(0, 8).map((t2) => (
+                    <div
+                      key={`${t2.fromUrl}>${t2.toUrl}`}
+                      className="flex items-center gap-1.5 rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      <span className="min-w-0 truncate text-[10px] text-foreground">
+                        {t2.fromUrl}
+                      </span>
+                      <ArrowRight className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 truncate text-[10px] text-foreground">
+                        {t2.toUrl}
+                      </span>
+                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtInt(t2.n)}
+                      </span>
+                    </div>
+                  ))}
+                  {(traffic.visitTransition.top ?? []).length === 0 ? (
+                    <div className="px-2 py-2 text-center text-[11px] text-muted-foreground">
+                      {t('visitTransitionNoData')}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
           </Panel>
 
           {/* AI 号池:key 池 / 账号池 / token 临期(后端现读两张池表 + 5 秒缓存,取不到一律"—")。
