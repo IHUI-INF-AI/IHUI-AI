@@ -88,6 +88,39 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# 取消、到上限、已达成都不再跑。未达成且账本未收口才再跑一轮。
+_GOAL_NO_RERUN_STOPS = frozenset(
+    {
+        TurnStopReason.CANCELLED.value,
+        TurnStopReason.CANCELED.value,
+        TurnStopReason.PAUSED.value,
+        TurnStopReason.ERROR.value,
+        TurnStopReason.MAX_ITERATIONS.value,
+        TurnStopReason.BUDGET_EXCEEDED.value,
+        TurnStopReason.BUDGET_LIMITED.value,
+        TurnStopReason.GOAL_BLOCKED.value,
+    }
+)
+
+
+def _should_goal_rerun(result: Any, decision: Any) -> bool:
+    """目标未达成且 goal_round_state 仍有余量时才再跑一轮。"""
+    if getattr(decision, "allowed_complete", False):
+        return False
+    if getattr(decision, "goal_status", "") != "not_achieved":
+        return False
+    stop = str(getattr(result, "stop_reason", "") or "")
+    if stop in _GOAL_NO_RERUN_STOPS:
+        return False
+    state = getattr(decision, "round_state", None)
+    if state is None or bool(getattr(state, "blocked", False)):
+        return False
+    budget = getattr(state, "token_budget", None)
+    spent = getattr(state, "tokens_spent", None)
+    if isinstance(budget, int) and isinstance(spent, int) and spent >= budget:
+        return False
+    return True
+
 
 async def _closing_event_stream(
     gen: AsyncIterator[str], *, label: str
@@ -1699,13 +1732,69 @@ async def execute_agent_stream(
                                 "max_consecutive_failures": 0,
                             }
                         else:
-                            verification_payload = (
-                                dict(decision.payload) if decision.payload else None
-                            )
-                            if not decision.allowed_complete:
-                                frame_success = False
-                                if decision.stop_reason:
-                                    frame_stop_reason = decision.stop_reason
+                            skip_apply = False
+                            if _should_goal_rerun(result, decision) and not getattr(
+                                loop, "_cancel_requested", False
+                            ):
+                                result = await loop.run(
+                                    [{"role": "user", "content": req.goal}]
+                                )
+                                frame_success = result.success
+                                frame_stop_reason = result.stop_reason
+                                for evt, q in subs.items():
+                                    while True:
+                                        try:
+                                            payload = q.get_nowait()
+                                        except asyncio.QueueEmpty:
+                                            break
+                                        if (
+                                            payload.get("session_id") or payload.get("run_id")
+                                        ) not in (session_id, ""):
+                                            continue
+                                        sse_evt = {
+                                            "type": map_hook_event_to_sse(evt),
+                                            "session_id": session_id,
+                                            "payload": payload,
+                                        }
+                                        eid_extra = sse_buffer.append(task_id, sse_evt)
+                                        yield _format_sse(eid_extra, sse_evt)
+                                try:
+                                    decision = await gate_goal_completion(
+                                        session_id=session_id,
+                                        specs=[c.to_spec() for c in req.hard_criteria],
+                                        iterations=result.iterations,
+                                        final_response=result.final_response,
+                                        executor_model=req.model,
+                                        loop_success=result.success,
+                                        loop_stop_reason=result.stop_reason,
+                                    )
+                                except Exception as exc:  # noqa: BLE001 - 判不了就等于没达成
+                                    logger.exception("goal 独立校验闸门调用失败(按未判定处理)")
+                                    frame_success = False
+                                    frame_stop_reason = STOP_VERIFICATION_UNDETERMINED
+                                    verification_payload = {
+                                        "status": "not_run",
+                                        "goal_status": "undetermined",
+                                        "treat_as_complete": False,
+                                        "criteria": [],
+                                        "independent_request_made": False,
+                                        "judge_model": None,
+                                        "unavailable_reason": (
+                                            f"独立校验闸门调用失败: {type(exc).__name__}: {exc}"
+                                        ),
+                                        "independence_warnings": [],
+                                        "consecutive_failures": 0,
+                                        "max_consecutive_failures": 0,
+                                    }
+                                    skip_apply = True
+                            if not skip_apply:
+                                verification_payload = (
+                                    dict(decision.payload) if decision.payload else None
+                                )
+                                if not decision.allowed_complete:
+                                    frame_success = False
+                                    if decision.stop_reason:
+                                        frame_stop_reason = decision.stop_reason
                     # G-815977 回合终态值域闭合判据:done 帧的 stop_reason 只允许封闭集
                     # 内的档位(上游 turn-machine.transition() 对非法相位 throw 的同构
                     # 落点)。今天全部生产者的取值都在集内 ⇒ 逐零差异;未来任何一处直接

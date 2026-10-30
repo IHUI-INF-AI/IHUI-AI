@@ -844,6 +844,14 @@ const nextConfig: NextConfig = {
           isDev
             ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
             : "connect-src 'self' https: wss: http://ipc.localhost https://ipc.localhost",
+          // 2026-10-30 一度放行 https:/data:(与 img-src 同型取舍);2026-10-30 末已根治收紧:
+          //  - 视频/音频现全部走同源代理 —— 前端 <video src="/api/media/stream?url=…">
+          //    经 web rewrites(/api/media/* → 8803)同源访问,浏览器自动带 httpOnly auth cookie
+          //    鉴权,源站 CDN 不再被浏览器直接触达,故无需 https: 通配;
+          //  - 后端 /api/media/stream 复用下载代理的 SSRF 闸门(URL 必须命中平台登记产物)
+          //    并透传 Range,使播放器可拖拽 seek;
+          //  - blob: 保留:下载按钮走 fetch→ObjectURL 落盘,正是 blob: 源。
+          // 剩余风险(已清零):外部 CDN 直链不再进入 CSP 评估面,https: 媒体外泄信道已去除。
           "media-src 'self' blob:",
           "object-src 'none'",
           "base-uri 'self'",

@@ -640,9 +640,9 @@
     {
       "path": "packages/desktop/src",
       "status": "windowed",
-      "files": 265,
-      "read": 98,
-      "notes": "host 11/47、main a-m 19/104、main n-z+browserView 27/84、index.ts+遥测族 14/14(W3-4 全读完该切片)。剩余 processResource*/resourceManager* ≈25、cua*/windows* ≈20、chromeCookie*/browserData* ≈8、desktopMainIpc* 3、autoUpdater/forceUpdate* ≈5。",
+      "files": 264,
+      "read": 97,
+      "notes": "host 11/47、main a-m 19/104、main n-z+browserView 27/84、index.ts+遥测族 14/14(W3-4 全读完该切片)。剩余 processResource*/resourceManager* ≈25、cua*/windows* ≈20、chromeCookie*/browserData* ≈8、desktopMainIpc* 3、autoUpdater/forceUpdate* ≈5。〔10-30 g35-s15:index.ts 已拆出为子片，本串中「index.ts+遥测族 14/14」那枚改由子片记账。〕",
       "tickets": ["G-379"],
       "evidence": [
         "packages/desktop/src/scheduler/index.ts:88-118",
@@ -657,7 +657,7 @@
         "packages/desktop/src/main/browserView/browserPlaywrightTimeout.ts:11-12",
         "packages/desktop/src/host/hostResourceTelemetryEnvironment.ts:5-7"
       ],
-      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 15 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 2 枚,指针 4 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第六十六批具名回填:本区 +8 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 15 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 2 枚,指针 4 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第六十六批具名回填:本区 +8 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。 ｜10-30 g35-s15 入账:packages/desktop/src/main/index.ts 独立成子片(deep 1/1)⇒ 本片 files 265→264、read 98→97，该枚的出处与读量改由子片承载，父子不再同计一枚。",
       "readFiles": [
         {
           "p": "packages/desktop/src/main/appLaunchGate.ts",
@@ -18923,6 +18923,32 @@
         }
       ],
       "notes": "Read 主 handler:分流 image/video/pdf(能力按执行模型 inputFormat 现判,resolveModelContract 动态注入 PDF 描述行与 pages schema、resolveTimeoutBudgetMs 仅 PDF+pages 给 150s 档)否则文本;readFileState 缓存键含 offset/limit,新鲜判定与写前校验同一整数毫秒归一策略,命中回 file_unchanged「Wasted call」stub(免内容回灌);isPartialView 只在 truncatedByTokenCap 为真时置位(range view≠partial view,Write/Edit 必须拒截断视图);输入预检失败包成 <tool_use_error> 而非裸 ZodError JSON;PDF pages 语义约束提到 validateInput 防错调用穿过 hook/权限才炸;图片/视频 tool result 只留媒体 block(尺寸提示拼进会让 provider-visible content 随缩放漂移);missing file 附同 stem/编辑距离≤3 建议;fallbackReadFileStates WeakMap 兜无端口宿主。"
+    },
+    {
+      "path": "packages/desktop/src/main/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/src/main/index.ts:2",
+        "packages/desktop/src/main/index.ts:276-278",
+        "packages/desktop/src/main/index.ts:999-1095",
+        "packages/desktop/src/main/index.ts:1252-1304",
+        "packages/desktop/src/main/index.ts:1410-1423",
+        "packages/desktop/src/main/index.ts:2326-2328",
+        "packages/desktop/src/main/index.ts:2197-2203",
+        "packages/desktop/src/main/index.ts:2223-2249",
+        "packages/desktop/src/host/index.ts:2271-2290"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/index.ts",
+          "lines": 2384
+        }
+      ],
+      "notes": "装配主入口(2384 行,本席整读到体)。六格可迁移判据:①L2 `/* eslint-disable max-lines */` 把体积上限整文件关掉——与票面 P0③「400 行上限被突破」同源,上游的解法是豁免而非拆分(现量:desktop/main 35 枚>400L、ui/lib 10 枚);②L276-278 仅挂 unhandledRejection(只记日志不退出),全文件无 uncaughtException 落点,而同包 host 进程 L2271-2290 有 uncaughtException→disposeHostResources→exit(1)——即 main 崩时不走 L999-1095 那道 prepareAppQuit 屏障,而 L1087-1090 自述「不等 host 清理完就退,agent 会被 init 接管成残留进程」,所以崩溃路径恰好绕开它自己论证过的必要屏障;③遥测的 configure* 全套在 L2203 `ZCODE_TELEMETRY_ENABLED && ZCODE_ARMS_RUM_ENDPOINT` 闸内,而 register*(L2228/2229/2231/2233/2249,含 IPC 与窗口聚合器)在闸外无条件接线——「配不配」与「接不接」两条口径不同,消费方是否自带开关须读那 11 枚 register* 本体(不在本席落点);④L2197 `await armsInitPromise` 把 APM SDK 初始化放在首窗创建之前(注释理由:dom-ready 早于 SDK 注册即无上报)——遥测可用性挡首屏,与我方「声明必须有消费者/埋点不得挡渲染」同族判据;⑤L1410-1423+L2326-2328 跨进程临时全局态(快捷键录制标志)的收口不依赖 renderer 合作,而在窗口 closed 与 render-process-gone 两条宿主事件上按 owner 复位,幂等——正是我方「钩子无终态不得渲染成完成」「登出标记必须比凭据活得久」的上游同型解法;⑥L1252-1304 Windows 更新前按「命令行引用安装目录」实时扫描进程树强杀(不是按退出前记录的 PID,注释理由 PID 可能已复用)+ 可写探针,是我方 Tauri 更新器同类「文件被占用导致半更新」问题的唯一成形解法(归属:apps/desktop 与 scripts 侧,不在本席落点)。上游 main/index.ts 无任何单测/E2E 引用(grep 全库仅 tsup.config.ts 提到该路径),接线=package.json main=out/main/index.js。｜10-30 g35-s15 入账:本枚由 g33-s2 席位整读产出(path 键在 871 片中无同路径项 ⇒ 作新片插入；readFiles.lines=2384 与父片 notes「index.ts+遥测族 14/14」同值；verified 保持 agent，未经主会话复验不得当已证事实派单)。"
     }
   ],
   "ticketIndex": {
