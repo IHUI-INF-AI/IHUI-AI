@@ -11,21 +11,27 @@ import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
-/** 分佣比例表 —— 与共享屏 RATE_TABLE 同源(共享源这三组是字面量,不是词条,故此处同样不取词) */
-const RATE_TABLE = [
-  { level: 'VIP 会员', rate: '20%', desc: '好友开通 VIP 会员费的 20%' },
-  { level: 'SVIP 会员', rate: '25%', desc: '好友开通 SVIP 会员费的 25%' },
-]
+/** 分佣比例卡 —— 真值接 GET /distribution/commission-rates(distributionRoutes 在册的
+ *  「佣金比例配置」端点,读 system_configs category='distribution')。
+ *  原 VIP 20% / SVIP 25% 两行是与后端结算口径不同的硬编错文案:后端实算比例在
+ *  identity_proportions(管理端可配,vip_proportion 等字段,无 SVIP 档),
+ *  共享屏 EarnCommissionScreen 的 RATE_TABLE 同为字面量,不可作取信源。 */
+interface RateRow {
+  level: string
+  rate: string
+}
 
 export default function DistributionPlan() {
   const tt = useTt()
   const gate = useAuthReadyGate()
   const [totalEarnings, setTotalEarnings] = useState(0)
   const [inviteCount, setInviteCount] = useState(0)
+  const [rateRows, setRateRows] = useState<RateRow[]>([])
 
   // G-933 冷启动抢跑门控:两发 GET /api/distribution/overview 与
   // GET /api/distribution/invited-users 都由 distributionRoutes 的统一 preHandler 守
   // (`apps/api/src/routes/distribution.ts:24` addHook authenticate)⇒ 需鉴权,整块挡到门后。
+  // commission-rates 同挂该 preHandler,一并挡门后。
   useDidShow(() => {
     gate.waitUntilReady(() => {
       api
@@ -40,6 +46,17 @@ export default function DistributionPlan() {
           setInviteCount(res.total ?? 0)
         })
         .catch(() => {})
+      api
+        .get<{ rates?: Record<string, string> }>('/distribution/commission-rates')
+        .then((res) => {
+          const rates = res?.rates ?? {}
+          setRateRows(
+            Object.entries(rates).map(([level, value]) => ({ level, rate: String(value ?? '') })),
+          )
+        })
+        .catch(() => {
+          setRateRows([])
+        })
     })
   })
 
@@ -119,12 +136,13 @@ export default function DistributionPlan() {
         ))}
       </View>
 
-      {/* 对齐 RN sectionCard(分佣比例):档位 → 比例 → 说明,共享屏同一信息结构 */}
+      {/* 分佣比例:档位/比例逐行取自 GET /distribution/commission-rates 的在册配置;
+          未配置时该面为空,如实渲染空态,不再以硬编数字顶位 */}
       <View className="bg-card ui-card rounded-lg p-[28rpx] mt-[24rpx] flex flex-col gap-[24rpx]">
         <Text className="block text-[length:32rpx] font-semibold text-foreground text-center">
           {tt('earnCommission.rateTitle', '分佣比例')}
         </Text>
-        {RATE_TABLE.map((row) => (
+        {rateRows.map((row) => (
           <View
             key={row.level}
             className="flex flex-row items-center gap-[24rpx] bg-[var(--color-muted)] rounded-sm px-[24rpx] py-[20rpx]"
@@ -135,9 +153,13 @@ export default function DistributionPlan() {
             <Text className="text-[length:32rpx] font-bold text-[var(--color-primary)] min-w-[88rpx]">
               {row.rate}
             </Text>
-            <Text className="flex-[2] text-[length:28rpx] text-muted-foreground">{row.desc}</Text>
           </View>
         ))}
+        {!rateRows.length ? (
+          <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[16rpx]">
+            {tt('common.empty', '暂无数据')}
+          </Text>
+        ) : null}
       </View>
 
       <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[28rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card">

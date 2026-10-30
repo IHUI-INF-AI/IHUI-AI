@@ -3,6 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 智汇值充值套餐:对齐 packages/app/src/features/token-value/TokenValueScreen.tsx 的 PACKAGES + pkgCard 段
+// 可达性取证(2026-10-30):后端**无**在册智汇值套餐端点(全仓 server.get/post 只命中
+// /finance/margin/recharge 与 /recharge/records,均不产出套餐表),共享屏 PACKAGES 同为端内静态常量;
+// 下面四档与 TokenValueScreen 的 PACKAGES 逐字段同值(tokens/price/bonus/popular),
+// 因此本卡组按「同形常量」保留 —— 数值不冒充后端真值,共享屏改档时必须同批改这里。
 import { View, Text, ScrollView } from '@tarojs/components'
 import type { TtFn } from '@/i18n'
 
@@ -32,7 +36,8 @@ export function formatTokenValue(n: number): string {
 
 interface TokenPackagesProps {
   tt: TtFn
-  onSelect: (pkg: TokenPackage) => void
+  /** 点击进统一充值页;后端无在册「按套餐下单」端点,故不冒充携带选中态 */
+  onSelect: () => void
 }
 
 /** 充值套餐横滑卡组(热门徽章 / 智汇值单位 / 赠送奖励 / 价格,对齐 RN pkgCard 同信息结构) */
@@ -51,7 +56,7 @@ export default function TokenPackages({ tt, onSelect }: TokenPackagesProps) {
                 p.popular ? 'border-brand-accent-deep bg-muted' : 'border-border bg-background'
               }`}
               hoverClass="opacity-60"
-              onClick={() => onSelect(p)}
+              onClick={onSelect}
             >
               <View className="h-[32rpx] flex items-center justify-center">
                 {p.popular ? (

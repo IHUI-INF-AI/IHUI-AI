@@ -56,7 +56,7 @@ cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 | `CREDENTIALS_ENCRYPTION_KEY` | 凭证加密密钥(≥32 字符) | - | 是 |
 | `CORS_ORIGIN` | CORS 允许来源 | `http://localhost:8801` | 是 |
 | `STEPFUN_API_KEY` / `STEPFUN_API_BASE` | StepFun LLM(默认 provider) | - / `https://api.stepfun.com/step_plan/v1` | 否(空则 stub) |
-| `AGNES_API_KEY` / `AGNES_API_BASE` | Agnes AI LLM(备用) | - / `https://apihub.agnes-ai.com/v1` | 否 |
+| `AGNES_API_KEY` / `AGNES_API_BASE` (+可选 `AGNES_VIDEO_API_KEY` / `AGNES_VIDEO_API_BASE`) | Agnes AI LLM(备用;视频通道可另挂一对 key,不配即沿用前者) | - / `https://api.agnes-ai.cn/v1` | 否 |
 | `GROQ_API_KEY` / `GEMINI_API_KEY` / `OPENROUTER_API_KEY` | 免费 provider 备选 | 空 | 否 |
 | `FEISHU_APP_ID` / `FEISHU_APP_SECRET` | 飞书 OAuth | 空 | 否 |
 | `COZE_OAUTH_APP_ID` / `COZE_PUBLIC_KEY_ID` / `COZE_PRIVATE_KEY` | Coze OAuth(JWT 模式) | 空 | 否 |
@@ -120,7 +120,7 @@ cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 | `DATABASE_URL` | DB 连接串 | `postgres://postgres:postgres@localhost:5432/ihui_ai` | 是 |
 | `REDIS_URL` | Redis 连接串 | `redis://localhost:6379` | 是 |
 | `STEPFUN_API_KEY` / `STEPFUN_API_BASE` | StepFun LLM | - / `https://api.stepfun.com/step_plan/v1` | 否(空则 stub) |
-| `AGNES_API_KEY` / `AGNES_API_BASE` | Agnes AI | - / `https://apihub.agnes-ai.com/v1` | 否 |
+| `AGNES_API_KEY` / `AGNES_API_BASE` | Agnes AI | - / `https://api.agnes-ai.cn/v1` | 否 |
 | `GROQ_API_KEY` / `GEMINI_API_KEY` / `OPENROUTER_API_KEY` | 免费 provider | 空 | 否 |
 | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Workers AI | 空 | 否 |
 | `NVIDIA_API_KEY` | NVIDIA NIM | 空 | 否 |

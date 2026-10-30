@@ -126,6 +126,10 @@ export default function LiveHost() {
   const stats: { label: string; value: string }[] = [
     { label: tt('liveHost.duration', '直播时长'), value: formatDuration(duration) },
     { label: tt('liveHost.statViewers', '在线人数'), value: String(viewers) },
+    // 字节统计两行的数据腿 = POST /srs/streams 返回整行的 recvBytes/sendBytes
+    // (packages/database/src/schema/srs.ts:49-50 在册列,默认 0)。现读 apps/api 无任何
+    // 采集方更新这两列 ⇒ 展示恒 '0 B' —— 属「在册字段待接采集源」,不是「字段不存在」,
+    // 也不是端内造假:量到多少显示多少(同在线人数纪律,接通 SRS 回调/轮询后自动变真)。
     {
       label: tt('liveHost.statRecvBytes', '下行流量'),
       value: formatBytes(stream?.recvBytes ?? null),
