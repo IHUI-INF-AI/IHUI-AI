@@ -219,6 +219,21 @@ test('⑭ 注册表文案不钉移动量:runner 的 label 里不得写死存量�
     'label 里写了死数字 ⇒ 下一次清理就会把进步判成文案漂移(别把移动量钉成健康期望)',
   )
 })
+test('⑯ H3 目前是普查维度:区间配不平就不判,且提交链不得因它红', () => {
+  const { scanKeyboard, elementRange } = __test__
+  // 未闭合的区间不可信 ⇒ 必须读成盲区,不能把"后面全部文件"当成子树(上一版就是这么误报 HomeScreen 的)
+  assert.equal(scanKeyboard('<ScrollView><View><TextInput /></View>').length, 0, '闭标签没配平却判了违规')
+  assert.equal(scanKeyboard('<ScrollView>{children}</ScrollView>').length, 1)
+  const r = elementRange('<ScrollView a={1}>{x}</ScrollView>', 0, 'ScrollView')
+  assert.equal(r.closed, true)
+  assert.equal(elementRange('<ScrollView a={1}>{x}', 0, 'ScrollView').closed, false)
+  // 提交链口径里不得出现 r.h3 —— H3 只在结论行报数,升级它的前置是逐屏复核过那 34 处候选(§0.2)
+  const staged = GATE_SRC.slice(GATE_SRC.indexOf('// staged 档'))
+  assert.ok(staged.length > 200, '读不到提交链那段 ⇒ 结构变了,这条锁要跟着重写而不是删')
+  assert.doesNotMatch(staged, /r\.h3/, 'H3 已进提交链 ⇒ 候选还没逐屏核过就把门变红,那是逼人跳门')
+  assert.match(run([]).stdout, /只报数不判红/, '结论行必须自己说清 H3 的档位')
+})
+
 test('⑫ 射程枚举与门体常量同源(三根 src 都在枚举里)', () => {
   assert.deepEqual(
     [...SRC_RELS].sort(),
