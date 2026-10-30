@@ -66,24 +66,56 @@ function normalizeGuardTarget(raw: string): string {
   return embeddedIpv4FromV6(stripped) ?? stripped
 }
 
+/**
+ * IPv4 字面量判定(数值化 + 进制还原)—— **本仓唯一实现**(2026-10-31 收口)。
+ *
+ * 来历:embed-proxy.ts 与 url-preview.ts 各带一份逐字相同的实现,而本文件的点分十进制
+ * 分支只认 `a.b.c.d` ⇒ `http://2130706433/`(= 127.0.0.1)与 `http://0x7f.1/` 这类
+ * 写法在本仓**规范出口**上读成公网地址。收进来不是为了合并代码,是因为三份里两份比这份强,
+ * 而调用方一律以为吃的是最强的那一档。
+ *
+ * 只接受两种可无歧义还原的形式,其余一律 fail-closed:
+ *  1) 严格点分十进制 a.b.c.d
+ *  2) 纯整数(十进制/0x十六进制),还原为 32 位地址
+ * 经典绕过(0x7f.1 / 0177.0.0.1 等混合进制)因无法无歧义归一而直接拒绝。
+ */
+export function isPrivateIPv4Literal(ip: string): boolean {
+  let parts: number[]
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+    // 前导零点分段(0177.0.0.1)在 BSD 语义里是**八进制**,而 Number() 按十进制读成 177 ⇒
+    // 127.0.0.1 会被算成 177.0.0.1 这格公网地址。两份旧副本的注释都写"混合进制直接拒绝",
+    // 实际没拒 —— 这里补上:任何一段带前导零 ⇒ 无法无歧义归一 ⇒ fail-closed。
+    const octets = ip.split('.')
+    if (octets.some((s) => s.length > 1 && s.startsWith('0'))) return true
+    parts = octets.map(Number)
+  } else if (/^(0[xX][0-9a-fA-F]+|\d+)$/.test(ip)) {
+    const n = Number(ip)
+    if (!Number.isInteger(n) || n < 0 || n > 0xffffffff) return true
+    parts = [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]
+  } else {
+    return true
+  }
+  if (parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true
+  const [a = -1, b = -1] = parts
+  if (a === 0 || a === 10 || a === 127) return true
+  if (a === 169 && b === 254) return true
+  if (a === 172 && b >= 16 && b <= 31) return true
+  if (a === 192 && b === 168) return true
+  if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
+  if (a >= 224) return true // 组播/保留
+  return false
+}
+
 /** 检查 IP 是否为内网/保留地址 */
 export function isPrivateOrReservedIp(ip: string): boolean {
   // 处理 IPv4-mapped IPv6 (::ffff:x.x.x.x)
   const normalizedIp = normalizeGuardTarget(ip)
-  // IPv4 数字格式逐段判定(更精确,与 ai-feed-service.ts 行为一致)
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(normalizedIp)) {
-    const parts = normalizedIp.split('.').map(Number)
-    if (parts.length !== 4 || parts.some((p) => p < 0 || p > 255)) return true
-    const [a, b] = parts as [number, number, number, number]
-    if (a === 0) return true // 0.0.0.0/8
-    if (a === 10) return true // 10.0.0.0/8
-    if (a === 127) return true // 127.0.0.0/8 loopback
-    if (a === 169 && b === 254) return true // 169.254.0.0/16 link-local(含云元数据)
-    if (a === 172 && b >= 16 && b <= 31) return true // 172.16.0.0/12
-    if (a === 192 && b === 168) return true // 192.168.0.0/16
-    if (a === 100 && b >= 64 && b <= 127) return true // 100.64.0.0/10 CGN
-    if (a >= 224 && a <= 239) return true // 224.0.0.0/4 multicast
-    return false
+  // IPv4 形态(点分十进制 / 纯整数 / 十六进制 / 任何"每一段都是数字或 0x 数字"的写法)
+  // 统一走上面那一份实现。此前只认严格点分十进制 ⇒ 2130706433 这类整数写法掉到下面的
+  // 正则兜底档,被读成公网放行;而 0x7f.1 / 0177.0.0.1 是同一格的变体。
+  // 判据刻意要求**每一段**都是数字或 0x 数字,纯字母主机名(dead.beef 之类)不受影响。
+  if (/^(?:0[xX][0-9a-fA-F]+|\d+)(?:\.(?:0[xX][0-9a-fA-F]+|\d+))*$/.test(normalizedIp)) {
+    return isPrivateIPv4Literal(normalizedIp)
   }
   // 正则兜底(覆盖 IPv6 简写 / 主机名形式)
   if (PRIVATE_IP_PATTERNS.some((p) => p.test(normalizedIp))) return true
