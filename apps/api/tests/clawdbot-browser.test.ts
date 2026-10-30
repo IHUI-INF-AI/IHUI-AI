@@ -13,6 +13,13 @@ vi.mock('../src/utils/ssrf-guard.js', () => ({
   ensureSafeFetchUrl: vi.fn().mockResolvedValue(undefined),
   assertSafeFetchUrl: vi.fn().mockResolvedValue({ safe: true }),
   isPrivateOrReservedIp: vi.fn().mockReturnValue(false),
+  // src/services/clawdbot/browser.ts 现在经 safeFetch 出站(逐跳复检的那一档)。
+  // mock 不列这一名 ⇒ vitest 直接报 "No safeFetch export is defined on the mock",
+  // 19 条用例在 HEAD 面上恒红(门不读真值,只是装载面缺名)。
+  // 出口按测试原意转发到 global.fetch —— 各用例正是通过 stub global.fetch 来断言的。
+  safeFetch: vi.fn((input: string | URL, init?: RequestInit) =>
+    globalThis.fetch(input as string | URL, init),
+  ),
 }))
 
 import { BrowserAutomation, getBrowserAutomation } from '../src/services/clawdbot/browser.js'
