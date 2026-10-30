@@ -63,6 +63,26 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, cast
 
+from ..core.agent_failure_vocabulary import (
+    RETRYABLE_ERROR_FAMILY_SET,
+)
+
+# 逆向-复现-超越 §0.11(2026-10-31 立):失败结局二分 + 停摆位置的声明式词表(§30 一等契约)。
+# 本文件是它的**生产消费面**:retry 闸取可重试族名单,错误上报与 llm.retry 事件带出
+# failure_outcome / stall_stage 两键(此前这两维在仓里根本没有词,只有笼统的 error)。
+from ..core.agent_failure_vocabulary import (
+    AgentStallStage as _AgentStallStage,
+)
+from ..core.agent_failure_vocabulary import (
+    agent_failure_outcome_of as _agent_failure_outcome_of,
+)
+from ..core.agent_failure_vocabulary import (
+    ensure_agent_stall_stage as _ensure_agent_stall_stage,
+)
+from ..core.agent_failure_vocabulary import (
+    stall_stage_for_error_family as _stall_stage_for_error_family,
+)
+
 # 79 号票(2026-10-18 立):权限双轴消费面的**唯一**接线点。三个名字都取进来:
 # 解析在路由层做(routers/agents.py),执行面只负责判定,判定权不落两处。
 from ..core.permission_axis_gate import (
@@ -217,9 +237,11 @@ _pending_closure_tasks: set[asyncio.Task[Any]] = set()
 
 # L5-2 错误恢复:工具瞬时失败自动重试的错误分类(2026-08-12 立)。
 # 只重试网络/超时类瞬时故障(重试语义安全);http_4xx 业务错误与 unknown 不重试。
-_TOOL_RETRYABLE_ERRORS: frozenset[str] = frozenset(
-    {"timeout", "connection", "http_5xx"}
-)
+# 2026-10-31(逆向-复现-超越 §0.11):这份名单从**本地字面量**改为取源
+# app/core/agent_failure_vocabulary.py 的声明式词表 —— "哪些错误族可重试"此前只活在这条
+# if 里,除本处之外任何一层(审计/done 帧/前端)都读不到"可重试 vs 终局"这个事实。
+# 成员逐字不变(与 AGENT_RETRYABLE_ERROR_FAMILIES 等值由 pytest 钉),故重试行为零差异。
+_TOOL_RETRYABLE_ERRORS: frozenset[str] = frozenset(RETRYABLE_ERROR_FAMILY_SET)
 
 # 可观测录制:step 入参/结果摘要的截断上限(2026-09-03 立)
 _STEP_SUMMARY_LIMIT = 800
@@ -4167,6 +4189,14 @@ class AgentLoopV2:
                             "attempt": attempt + 1,
                             "max_attempts": self.llm_retry_max,
                             "error_type": self._classify_error(e),
+                            # §30 一等契约:这一帧本来就答"模型流断了正在重试",现在把
+                            # **为什么还能不能重试**与**停在哪儿**一并说成词表里的档位,
+                            # 而不是让消费方去猜(第 2 条 retry 事件里 outcome 恒 retryable
+                            # 是错的:耗尽后这一帧仍会发,所以必须按错误族现判,判不出记 undetermined)。
+                            "failure_outcome": _agent_failure_outcome_of(
+                                self._classify_error(e)
+                            ),
+                            "stall_stage": _AgentStallStage.LLM_REQUEST.value,
                             "message": str(e)[:300],
                             "backoff_seconds": round(backoff, 2),
                             "rate_limited": "429" in str(e)
@@ -4218,10 +4248,23 @@ class AgentLoopV2:
             return "http_4xx"
         return "unknown"
 
-    def _report_agent_error(self, iteration: int, error: str, error_type: str) -> None:
+    def _report_agent_error(
+        self,
+        iteration: int,
+        error: str,
+        error_type: str,
+        stall_stage: str | None = None,
+    ) -> None:
         """Agent 循环错误结构化上报(错误恢复可观测性,2026-08-12 立)。
 
         写 audit_service(内存缓冲),供审计查询与排障;失败降级不阻塞主流程。
+
+        2026-10-31(§30 状态词汇一等契约):明细里新增两键,都由**声明式词表**算出,不在本处拼字符串:
+        - ``failure_outcome``:错误族 ∈ 可重试名单 ⇒ retryable;∈ 终局名单 ⇒ terminal;
+          **其余(含 ``unknown`` 与宿主未登记码)⇒ undetermined** —— 没判不许读成"重试没用"(§0.3);
+        - ``stall_stage``:由现场显式传入(本函数被 LLM 重试路径调用时传 llm_request);
+          没传时只认错误族自带环节的那一档(``approval_timeout`` ⇒ approval_wait),余下记 undetermined,
+          **不**从错误文本反推环节。
         """
         try:
             from .audit_service import audit_service
@@ -4233,6 +4276,12 @@ class AgentLoopV2:
                     "iteration": iteration,
                     "error": error[:500],
                     "error_type": error_type,
+                    "failure_outcome": _agent_failure_outcome_of(error_type),
+                    "stall_stage": _ensure_agent_stall_stage(
+                        stall_stage
+                        or _stall_stage_for_error_family(error_type)
+                        or _AgentStallStage.UNDETERMINED.value
+                    ),
                 },
             )
         except Exception:
