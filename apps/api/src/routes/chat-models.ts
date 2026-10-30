@@ -88,16 +88,28 @@ async function streamSSE(
     Connection: 'keep-alive',
   })
 
+  // 出站生命周期三件事必须同住一个作用域:①总超时(deadline)②客户端离开③reader 归还。
+  // 旧实现 `clearTimeout(timer)` 紧跟在拿到响应头之后 ⇒ 主体阶段**没有任何期限**:
+  // 上游发完 header 就 stall 时,这条 Fastify reply 与一个 undici socket 被永久占住
+  // (finally 只有在读到字节或抛错时才轮到);同时这里从不监听连接关闭,
+  // 移动端/代理断连后我方继续消费上游、继续烧 token。
+  // 对照正确实现:routes/ai-chat-stream.ts:591-602,961-965(raw.on('close') + finally 清定时器)。
+  const controller = new AbortController()
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+  let clientGone = false
+  const onClose = (): void => {
+    clientGone = true
+    controller.abort()
+  }
+  reply.raw.on('close', onClose)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),
       signal: controller.signal,
     })
-    clearTimeout(timer)
 
     if (!resp.ok || !resp.body) {
       const errText = await resp.text().catch(() => '')
@@ -107,7 +119,7 @@ async function streamSSE(
       return
     }
 
-    const reader = resp.body.getReader()
+    reader = resp.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
     for (;;) {
@@ -122,12 +134,25 @@ async function streamSSE(
     }
     if (buffer.trim()) reply.raw.write(`data: ${buffer}\n\n`)
   } catch (e) {
-    const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
-    reply.raw.write(`data: ${JSON.stringify({ error: msg })}\n\n`)
+    // 客户端先走不算我方故障:对已关的连接写错误帧没意义,也不该记成超时。
+    if (!clientGone) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
+      reply.raw.write(`data: ${JSON.stringify({ error: msg })}\n\n`)
+    }
   } finally {
+    clearTimeout(timer)
+    reply.raw.off('close', onClose)
+    // 早退路径也必须归还上游流,否则 undici 的连接一直被判"在用"
+    await reader?.cancel().catch(() => undefined)
     reply.raw.end()
   }
 }
+
+/**
+ * 机读出口(§22c):deadline 与客户端中止这两格由 tests/chat-models-sse-lifecycle.test.ts
+ * 直接驱动本函数,不在测试里重抄一份判据。
+ */
+export const __test__ = { streamSSE }
 
 /** 同步 JSON 代理:POST 上游并返回 JSON。失败时发送错误响应并返回 null。 */
 async function proxyJSON(
@@ -592,11 +617,21 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
           body = { model, messages: [{ role: 'user', content: raw }], stream: true }
         }
 
+        // WS 这一腿此前**完全没有期限也没有中止**:裸 fetch + socket.on('close') 只记一个
+        // 断连指标 ⇒ 客户端早已离开的会话仍在逐块读上游(既继续烧 token,也占着连接)。
+        // 与 streamSSE 同一纪律:deadline + 连接关闭中止 + finally 归还 reader。
+        const wsController = new AbortController()
+        let wsReader: ReadableStreamDefaultReader<Uint8Array> | null = null
+        const WS_DEADLINE_MS = 60_000
+        const wsTimer = setTimeout(() => wsController.abort(), WS_DEADLINE_MS)
+        const abortOnClose = (): void => wsController.abort()
+        socket.on('close', abortOnClose)
         try {
           const resp = await fetch(DEEPSEEK_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
             body: JSON.stringify(body),
+            signal: wsController.signal,
           })
           if (!resp.ok || !resp.body) {
             const errText = await resp.text().catch(() => '')
@@ -611,11 +646,11 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
             )
             return
           }
-          const reader = resp.body.getReader()
+          wsReader = resp.body.getReader()
           const decoder = new TextDecoder()
           let buffer = ''
           for (;;) {
-            const { done, value } = await reader.read()
+            const { done, value } = await wsReader.read()
             if (done) break
             buffer += decoder.decode(value, { stream: true })
             const lines = buffer.split('\n')
@@ -626,7 +661,14 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
           }
           if (buffer.trim()) socket.send(buffer)
         } catch (e) {
-          socket.send(JSON.stringify({ type: 'error', data: { message: (e as Error).message } }))
+          // 客户端先走 ⇒ 不再往已关的 socket 写,也不再把它记成一次故障
+          if (!wsController.signal.aborted) {
+            socket.send(JSON.stringify({ type: 'error', data: { message: (e as Error).message } }))
+          }
+        } finally {
+          clearTimeout(wsTimer)
+          socket.off('close', abortOnClose)
+          await wsReader?.cancel().catch(() => undefined)
         }
       })
       socket.on('close', () => {
@@ -677,7 +719,10 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.post(
     '/kling/video/image-to-video',
-    { bodyLimit: MEDIA_BASE64_BODY_LIMIT, config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
     async (request, reply) => {
       if (!(await checkAuth(request, reply))) return
       const parsed = klingI2VSchema.safeParse(request.body)
