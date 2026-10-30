@@ -96,6 +96,14 @@
 |------|------|------|----------|------------|
 | 8850 | 本地 Keycloak SSO 源站(分域 SSO:sso.aizhs.top 的隧道 ingress 指向它;刻意不用 Keycloak 默认 8543,端口铁律,2026-10-19 立) | — | `scripts/start-cloudflared-tunnel.ps1:21` ingress 注释 + Cloudflare 控制台 tunnel「ihui-local」路由(仓外,切换须三处同步,见该脚本头注) | —(第三方 IdP,非本仓 dev server) |
 
+### 2.8 号池网关单机档(88xx 段外显式认领)
+
+| 端口 | 服务 | 端 | 配置文件 | strictPort |
+|------|------|------|----------|------------|
+| 7864 | 号池网关单机档(relay-standalone)唯一对外入口 —— 对标 workbuddy2api-panel 的固定对外口 7864:客户侧 `base_url` 里的端口号属**对外契约**,换口即换契约;它是**部署态宿主发布口**,不是 dev/宿主开发映射口(容器内部监听仍是 web 8801 / api 8802,88xx 段语义未被侵占) | 仓外独立部署件(本仓无 `apps/relay-standalone`) | `scripts/dev-port-registry.json` 的 `registered_ports` 内 7864 条(含完整认领理由与边界) | —(宿主发布口) |
+
+> **为什么落在 §2 而不是进豁免面**(2026-10-30 补齐双向对账):`scripts/check-port-registry.mjs` 的 P1 判据是「派生认领集 ↔ 本文件 §2」两侧逐槽对账,注册表认领了 7864 而本节此前没有对应行 ⇒ 派生 53 槽 vs 文档 52 槽不一致(门只报 ⚠️ 不判红,但双向对账就不成立)。按 §3.1 走「填端口 + 服务名 + 配置文件 + 同 commit 更新本文件」才是正解;把 7864 塞进 `EXEMPT_PORTS` 等于给一段开全仓通行证。7864 在 88xx 段**外**,本条只声明它与本仓 dev 端口不冲突,不放宽 88xx 铁律。
+
 ---
 
 ## 3. 端口分配规则(强制)
