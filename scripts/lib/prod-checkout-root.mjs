@@ -61,4 +61,35 @@ export function prodCheckoutRoot(repoRoot = REPO, exists = existsSync, env = pro
 export function prodDeployLoopLog(repoRoot = REPO, exists = existsSync, env = process.env) {
   return join(prodCheckoutRoot(repoRoot, exists, env), 'deploy/win/deploy-loop.log')
 }
+
+/** web 蓝绿态状态文件(部署环每轮写),用于判「此刻哪一色在服务」。 */
+export function prodWebBlueGreenStatePath(prodRoot) {
+  return join(prodRoot, 'deploy', 'run', 'web-bluegreen.json')
+}
+
+/**
+ * 线上 web 构建标记 `IHUI_BUILD_SHA` 的候选落点(按优先级,第一个读到非空的算)。
+ *
+ * 立因(2026-10-30 现读):停摆尺子原先硬读 `apps/web/.next/IHUI_BUILD_SHA`,而 web 早已是蓝绿
+ * 双目录 —— 活环只写 `.next-blue` / `.next-green`,`.next` 那一份在活环形态下根本不存在 ⇒
+ * 每次读空 ⇒ 把「21:43:01 刚部署成功、活跃色标记逐字等于生产 HEAD」判成
+ * `level=fail 线上无构建标记` 并送进 critical 到人通道。落点是形态事实而非判据松紧,
+ * 所以修在取材层,由这一处单源供给。
+ *
+ * 不猜色:状态文件读不到 / JSON 坏 / active 不在 blue|green 封闭词表 ⇒ 只回落 `.next/` 那一档,
+ * 由调用方按「取不到 = 缺标记」处理(§0.3),绝不返回一个没有依据的色目录。
+ */
+export function prodWebBuildShaCandidates(prodRoot, readText) {
+  const out = []
+  let color = ''
+  try {
+    const parsed = JSON.parse(readText(prodWebBlueGreenStatePath(prodRoot)))
+    if (parsed && (parsed.active === 'blue' || parsed.active === 'green')) color = parsed.active
+  } catch {
+    color = ''
+  }
+  if (color) out.push(join(prodRoot, 'apps', 'web', `.next-${color}`, 'IHUI_BUILD_SHA'))
+  out.push(join(prodRoot, 'apps', 'web', '.next', 'IHUI_BUILD_SHA'))
+  return out
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
