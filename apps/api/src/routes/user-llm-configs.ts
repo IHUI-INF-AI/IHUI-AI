@@ -10,6 +10,7 @@ import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { aiModelConfig } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { safeFetch } from '../utils/ssrf-guard.js'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
 import {
   PLATFORM_TEMPLATES,
@@ -188,9 +189,11 @@ async function fetchUpstreamModels(row: {
   }
 
   // 大多数 OpenAI 兼容端点: GET {baseUrl}/models
+  // baseUrl 由用户提供 ⇒ 走 SSRF 守卫出口(否则服务器会被指向内网/元数据地址,
+  // 且失败时把响应体前 200 字节回显给请求者,构成回显 SSRF)。
   const url = `${row.baseUrl.replace(/\/$/, '')}/models`
   try {
-    const resp = await fetch(url, {
+    const resp = await safeFetch(url, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${apiKey}`,

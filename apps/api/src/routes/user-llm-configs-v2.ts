@@ -52,6 +52,7 @@ import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { aiModelConfig } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { safeFetch } from '../utils/ssrf-guard.js'
 import { normalizeModelId } from '@ihui/shared'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
 import { AppError } from '../errors/AppError.js'
@@ -280,9 +281,10 @@ async function fetchUpstreamModels(row: {
       ],
     }
   }
+  // baseUrl 由用户提供 ⇒ 走 SSRF 守卫出口(裸 fetch 可被指向内网/元数据地址并回显响应体)
   const url = `${row.baseUrl.replace(/\/$/, '')}/models`
   try {
-    const resp = await fetch(url, {
+    const resp = await safeFetch(url, {
       method: 'GET',
       headers: { Authorization: `Bearer ${apiKey}`, 'x-api-key': apiKey },
     })
