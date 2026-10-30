@@ -80,6 +80,18 @@ describe('I 移动端双写一致(A 的移动端同型)', () => {
     assert.match(v[0], /移动端版本双写不一致/)
   })
 
+  it('app.json 声明静态 android.versionCode 要被抓(无消费者的死值)', () => {
+    // 构建用的是 app.config.js 的 resolveBuildNumber() 派生值;app.json 那份静态号没人读,
+    // 唯一效果是与真实版本号漂开(2026-10-30 实测 26102802 vs 实产 26103001)。
+    const v = findVersionDrift(
+      baseline({
+        mobileAppJson: { expo: { version: '0.0.8', android: { versionCode: 41503032 } } },
+      }),
+    )
+    assert.equal(v.length, 1)
+    assert.match(v[0], /I2 app\.json 声明了静态 android\.versionCode/)
+  })
+
   it('两处一致时必须零违规(不许把这一维做成恒红)', () => {
     assert.deepEqual(findVersionDrift(baseline()), [])
   })

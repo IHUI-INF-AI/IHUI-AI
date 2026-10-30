@@ -134,6 +134,19 @@ export function findVersionDrift(input) {
     )
   }
 
+  // I2 静态 versionCode 是死值(2026-10-30 立,实测咬到):构建读的是 app.config.js 的
+  // resolveBuildNumber() 派生值,app.json 里那份静态号**没有任何消费者** —— 于是它必然与真实
+  // 版本漂开(实测 app.json=26102802 而当日实产 26103001)。这正是本门头注要消灭的那类字符串:
+  // 看起来像版本号、却不被任何东西驱动。
+  const staticVc = mobileAppJson?.expo?.android?.versionCode
+  if (staticVc !== undefined && staticVc !== null) {
+    v.push(
+      `I2 app.json 声明了静态 android.versionCode=${staticVc}:构建实际用 app.config.js 的 ` +
+        'resolveBuildNumber() 派生值,这份声明没有消费者,只会与真实版本号漂开(要固定号段请改 ' +
+        'resolveBuildNumber,不要写静态声明)',
+    )
+  }
+
   // B RN 原生版本可追溯
   if (appConfigJs !== null) {
     if (!/IHUI_MOBILE_VERSION/.test(appConfigJs)) {
