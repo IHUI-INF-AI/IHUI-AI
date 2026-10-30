@@ -49,6 +49,9 @@ import { resolveRemoteHead } from './lib/face-reader.mjs'
 // 实测连寄四天"部署停摆 97.7 小时"假警报(仓内标记停在 10-13 10:32,线上标记 11:36 刚写 cf3d5fc6e0)。
 // 解析器不在此重写(§0.6 单一真相源;同一条 10-15 的修法已住在 check-ops-patrol 的 prodCheckoutRoot 里)。
 import { prodCheckoutRoot, prodDeployLoopLog } from './check-ops-patrol.mjs'
+// 线上 web 标记的落点解析走**新抽的那一份单源**(scripts/lib/prod-checkout-root.mjs)——
+// 它按蓝绿活跃色给候选路径,本器不再自己拼 `.next` 字面量(§0.6)。
+import { prodWebBuildShaCandidates } from './lib/prod-checkout-root.mjs'
 import { redactAlertDetail, redactChildOutput } from './lib/secret-shape-redact.mjs'
 import { resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
 // .env 解析复用现役实现(该脚本有 §22d isDirectRun 守卫,被 import 时不触发 CLI 副作用)
@@ -425,13 +428,27 @@ function readText(p) {
   }
 }
 
-export function judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs, thresholdMin, inFlight = false }) {
+export function judgeStall({
+  liveSha,
+  tipSha,
+  lastSuccessIso,
+  nowMs,
+  thresholdMin,
+  inFlight = false,
+  shaProbed = '',
+}) {
   if (!tipSha) return { level: 'unknown', why: '取不到 origin/main tip,不判定' }
   // 部署环**正在跑这一轮**时不得判停摆:2026-09-23 14:05 实测假阳性 —— 14:02 起在构建,
   // 14:06:21 就成功了,而我按"距上次成功 > 阈值"判红并真发了一封邮件。
   // 告警器乱叫就会被静音(误报越多,值班越容易忽略真故障),所以这一条是硬护栏。
   if (inFlight) return { level: 'unknown', why: '部署环正在跑这一轮(日志有新活动且非失败态),不判定' }
-  if (!liveSha) return { level: 'fail', why: `线上无构建标记(.next/IHUI_BUILD_SHA 缺失),最近成功部署=${lastSuccessIso || '未知'}` }
+  if (!liveSha)
+    return {
+      level: 'fail',
+      // 落点清单必须出口:说"缺标记"却不报读过哪几处,收信人就分不出是线上真没写,
+      // 还是尺子读错了目录(2026-10-30 那封误报即后者 —— 标记在 `.next-blue` 里好好躺着)。
+      why: `线上无构建标记(IHUI_BUILD_SHA 在这些落点都读空:${shaProbed || '取材层未给落点清单'}),最近成功部署=${lastSuccessIso || '未知'}`,
+    }
   if (liveSha === tipSha) return { level: 'ok', why: '线上构建 == origin/main tip' }
   if (!lastSuccessIso) return { level: 'fail', why: `线上 ${liveSha.slice(0, 9)} ≠ tip ${tipSha.slice(0, 9)},且日志里找不到一次成功部署` }
   const mins = (nowMs - Date.parse(lastSuccessIso)) / 60000
@@ -685,7 +702,20 @@ export function collectStallInputs({
         return ''
       }
     })
-  const liveSha = prodRootExists ? readFileText(join(prodRoot, 'apps', 'web', '.next', 'IHUI_BUILD_SHA')).trim() : ''
+  // 线上 web 标记的落点按**活跃色**取(单源在 lib/prod-checkout-root.mjs):原先硬读
+  // `apps/web/.next/…`,而活环只写 `.next-blue` / `.next-green` ⇒ 每轮读空 ⇒ 把一次
+  // 刚成功的部署说成「线上无构建标记」并送进 critical 到人通道(2026-10-30 实测)。
+  const shaCandidates = prodRootExists ? prodWebBuildShaCandidates(prodRoot, readFileText) : []
+  let liveSha = ''
+  let liveShaFrom = ''
+  for (const p of shaCandidates) {
+    const v = readFileText(p).trim()
+    if (v) {
+      liveSha = v
+      liveShaFrom = p
+      break
+    }
+  }
   const tipQuery =
     remoteTip || (() => resolveRemoteHead('main', { root: repo, fetchedNow: false }))
   let tipSha = ''
@@ -769,6 +799,10 @@ export function collectStallInputs({
   if (!logExists) missingInputs.push(`lastSuccess(${logPath.replace(/\\/g, '/')} 不存在或读不到 ⇒ 成功史无从取证,不等于"没有成功过")`)
   return {
     liveSha,
+    // 读到标记的那一处,以及"没读到时都试过哪几处"—— 缺标记的邮件必须把落点说出口,
+    // 否则收信人只能猜是线上没写,还是尺子读错了目录(2026-10-30 那一封就是后者)。
+    liveShaFrom,
+    shaProbed: shaCandidates.join(' ; '),
     tipSha,
     tipSource,
     // 键名保持 `lastSuccessIso`/`thresholdMin` 不变(派发层与镜像测试按这两个名字读),
@@ -846,6 +880,7 @@ export function judgeStallReadout(input = {}) {
       nowMs: input.nowMs,
       thresholdMin: input.thresholdMin,
       inFlight: Boolean(input.inFlight),
+      shaProbed: input.shaProbed || '',
     })
     level = judged.level === 'unknown' ? 'unjudged' : judged.level
     const srcNote = input.tipSource && String(input.tipSource).includes('当次未确认') ? `(tip 来源:${input.tipSource})` : ''

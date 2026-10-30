@@ -20,7 +20,9 @@ const REPO = resolve(HERE, '..', '..')
 const LIB_REL = 'scripts/lib/prod-checkout-root.mjs'
 const libPath = join(REPO, ...LIB_REL.split('/'))
 
-const { prodCheckoutRoot, prodDeployLoopLog, PROD_CHECKOUT_BASENAME } = await import(pathToFileURL(libPath).href)
+const { prodCheckoutRoot, prodDeployLoopLog, prodWebBuildShaCandidates, PROD_CHECKOUT_BASENAME } = await import(
+  pathToFileURL(libPath).href
+)
 
 const runWithDevEnv = (v, body) => {
   const prev = process.env.IHUI_DEVENV_ROOT
@@ -120,5 +122,42 @@ test('门体只薄再导出：check-ops-patrol 从 lib 取并再导出，自身�
   assert.match(gate, /export \{[^}]*prodCheckoutRoot[^}]*\}/, '门体没再导出 ⇒ 既有 import 面(check-credential-health)会断')
   assert.doesNotMatch(gate, /const fallback = join\(parse\(/, '门体里还留着第二份回落实现')
   assert.equal(typeof prodCheckoutRoot, 'function')
+})
+
+// ── 线上 web 构建标记的落点(2026-10-30 补)────────────────────────────────
+// 立因:停摆尺子硬读 `apps/web/.next/IHUI_BUILD_SHA`,而活环只写 `.next-blue`/`.next-green`
+// ⇒ 每轮读空 ⇒ 把一次刚成功的部署判成 level=fail 并送进 critical 到人通道。
+// 这一族用例钉的是"落点按活跃色取"与"读不到状态件时绝不猜色"两个方向。
+const WB_STATE = join('deploy', 'run', 'web-bluegreen.json')
+const readerOf = (activeJson) => (p) => (p.endsWith(WB_STATE) ? activeJson : '')
+
+test('T-WEB-1 active=blue ⇒ 首候选是 .next-blue 的标记,且非活跃色一律不出现在候选里', () => {
+  const cands = prodWebBuildShaCandidates(join('X:', 'prod'), readerOf(JSON.stringify({ active: 'blue' })))
+  assert.equal(cands[0], join('X:', 'prod', 'apps', 'web', '.next-blue', 'IHUI_BUILD_SHA'))
+  assert.ok(!cands.some((p) => p.includes('.next-green')), '把非活跃色列进候选 ⇒ 会读到上一色的陈旧标记')
+  assert.equal(cands[cands.length - 1], join('X:', 'prod', 'apps', 'web', '.next', 'IHUI_BUILD_SHA'))
+})
+
+test('T-WEB-2 active=green ⇒ 候选序整体翻转(成对夹具:只测 blue 等于没测色是从状态件读的)', () => {
+  const cands = prodWebBuildShaCandidates(join('X:', 'prod'), readerOf(JSON.stringify({ active: 'green' })))
+  assert.equal(cands[0], join('X:', 'prod', 'apps', 'web', '.next-green', 'IHUI_BUILD_SHA'))
+  assert.ok(!cands.some((p) => p.includes('.next-blue')))
+})
+
+test('T-WEB-3 状态件坏 / active 不在封闭词表 ⇒ 不猜色,只留 .next 一档(§0.3)', () => {
+  for (const body of ['', 'not json', JSON.stringify({ active: 'purple' }), JSON.stringify({})]) {
+    const cands = prodWebBuildShaCandidates(join('X:', 'prod'), readerOf(body))
+    assert.deepEqual(cands, [join('X:', 'prod', 'apps', 'web', '.next', 'IHUI_BUILD_SHA')], `坏态 "${body}" 不得产出一个没依据的色目录`)
+  }
+})
+
+test('T-WEB-4 覆盖面锁:线上标记落点不得再被第二处自拼 —— 除 lib 定义处,全仓源码里 .next/IHUI_BUILD_SHA 的字面拼接恰 0 处', () => {
+  const libSrc = readCode(LIB_REL)
+  assert.equal((libSrc.match(/'IHUI_BUILD_SHA'/g) || []).length, 2, 'lib 里该字面量应恰在两处候选拼接(色目录 + .next 回落)')
+  const consumers = ['scripts/check-credential-health.mjs', 'scripts/check-ops-patrol.mjs', 'scripts/lib/deploy-decisions-face.mjs']
+  for (const rel of consumers) {
+    assert.doesNotMatch(readCode(rel), /'IHUI_BUILD_SHA'/, `${rel} 又自拼线上标记落点 ⇒ 第二份必然与蓝绿形态漂开(§0.6)`)
+  }
+  assert.match(readCode('scripts/check-credential-health.mjs'), /prodWebBuildShaCandidates\(/, '取材层没接单源 = 造好没装车(§0.9)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
