@@ -34,7 +34,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { FACE_LABEL, Undetermined, catBatchOids, selectFace } from './lib/face-reader.mjs'
+import { FACE_LABEL, Undetermined, catBatchOids, gitBinary, selectFace } from './lib/face-reader.mjs'
 import { PIN_BEGIN, digestInputs, parsePin } from './lib/generated-input-pin.mjs'
 // 判据只有一份:输入清单构造来自 lib/i18n-bundle-inputs.mjs,而"门怎么看这个面"直接复用守门 105 的
 // makeReader/readPinInputs(§22c:第二份实现必然与第一份漂,2026-10-27 那起 G5 恒红就是这么来的)。
@@ -65,7 +65,7 @@ export const MAX_CHANGED_BYTES = 2_500_000
 const specPrefix = (face) => (face === 'staged' ? ':' : 'HEAD:')
 
 function gitRun(args, cwd = ROOT) {
-  return execFileSync('git', ['-c', 'safe.directory=*', '-C', cwd, ...args], {
+  return execFileSync(gitBinary(), ['-c', 'safe.directory=*', '-C', cwd, ...args], {
     encoding: 'utf8',
     windowsHide: true, // §5b:漏了这个,守护(计划任务,session 0)下会弹控制台窗
     timeout: 120000, // 守门 80:热路径派生一律带上限
