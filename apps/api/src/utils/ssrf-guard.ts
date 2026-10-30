@@ -106,6 +106,35 @@ export function isPrivateIPv4Literal(ip: string): boolean {
   return false
 }
 
+/**
+ * IPv6 字面量判定 —— **本仓唯一实现**(2026-10-31 收口,与 IPv4 同一刀)。
+ *
+ * 来历:embed-proxy.ts 与 url-preview.ts 各带一份逐字相同的实现(只差一行注释),
+ * 覆盖面比本文件的旧 IPv6 分支更广:`ff00::/8` 组播、`100::/64` discard、NAT64 `64:ff9b::/96`、
+ * 以及"`::ffff:` 前缀但不是点分"一律禁止。旧分支只认回环/ULA/link-local ⇒ 上面四族在
+ * 规范出口上读成公网。收进来后两路副本删除,判据只住这一处(§0.6)。
+ */
+export function isPrivateIPv6Literal(ip: string): boolean {
+  const v = ip.toLowerCase()
+  if (v === '::' || v === '::1') return true
+  const mapped = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
+  if (mapped?.[1]) return isPrivateIPv4Literal(mapped[1])
+  if (v.startsWith('::ffff:')) return true // mapped 但非点分 → 一律禁止
+  if (v.startsWith('fc') || v.startsWith('fd')) return true // fc00::/7 unique-local
+  // fe80::/10 链路本地:按前四位取 fe8/fe9/fea/feb(旧分支的覆盖面,合并时不缩)
+  if (
+    v.startsWith('fe80:') ||
+    v.startsWith('fe8') ||
+    v.startsWith('fe9') ||
+    v.startsWith('fea') ||
+    v.startsWith('feb')
+  )
+    return true
+  if (v.startsWith('ff')) return true // 组播
+  if (v.startsWith('64:ff9b:') || v.startsWith('100::')) return true // NAT64 / 保留
+  return false
+}
+
 /** 检查 IP 是否为内网/保留地址 */
 export function isPrivateOrReservedIp(ip: string): boolean {
   // 处理 IPv4-mapped IPv6 (::ffff:x.x.x.x)
@@ -117,23 +146,11 @@ export function isPrivateOrReservedIp(ip: string): boolean {
   if (/^(?:0[xX][0-9a-fA-F]+|\d+)(?:\.(?:0[xX][0-9a-fA-F]+|\d+))*$/.test(normalizedIp)) {
     return isPrivateIPv4Literal(normalizedIp)
   }
-  // 正则兜底(覆盖 IPv6 简写 / 主机名形式)
+  // 正则兜底(覆盖 IPv6 简写 / 主机名形式),必须排在下面 v6 委托之前
   if (PRIVATE_IP_PATTERNS.some((p) => p.test(normalizedIp))) return true
-  // IPv6 链路本地 fe80::/10 完整判定
-  if (normalizedIp.includes(':')) {
-    const lower = normalizedIp.toLowerCase()
-    if (lower === '::1' || lower === '::') return true
-    if (lower.startsWith('fc') || lower.startsWith('fd')) return true // fc00::/7 unique-local
-    if (
-      lower.startsWith('fe80:') ||
-      lower.startsWith('fe8') ||
-      lower.startsWith('fe9') ||
-      lower.startsWith('fea') ||
-      lower.startsWith('feb')
-    )
-      return true
-    return false
-  }
+  // IPv6 字面量统一走上面那一份实现(旧块只认回环/ULA/link-local,
+  // 漏 v6 组播 ff00::/8、NAT64 64:ff9b::/96、discard-only 100::/64 与"::ffff: 非点分")
+  if (normalizedIp.includes(':')) return isPrivateIPv6Literal(normalizedIp)
   // 主机名形式:localhost + 常见内部域名
   const lower = normalizedIp.toLowerCase()
   if (
