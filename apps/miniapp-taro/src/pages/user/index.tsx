@@ -472,7 +472,12 @@ export default function UserIndex() {
       void handleScanLogin()
       return
     }
-    Taro.navigateTo({ url: path })
+    // 跳失败必须出声:原先无 fail 分支,目标路径不在册时用户点了毫无反应,
+    // 连"这一跳没执行"都看不到(同源的一批死链就是这么长期活下来的)。
+    Taro.navigateTo({
+      url: path,
+      fail: () => Taro.showToast({ title: t('common.failed'), icon: 'none' }),
+    })
   }
 
   function handleLogout() {
