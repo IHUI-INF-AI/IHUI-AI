@@ -63,6 +63,7 @@ import {
   encodeMessageCursor,
   decodeMessageCursor,
   findHistoryTurnPage,
+  findHistoryTurnWindow,
   encodeHistoryCursor,
   decodeHistoryCursor,
   findMessagesForShare,
@@ -250,6 +251,11 @@ const historyListSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().min(1).max(512).optional(),
   direction: z.enum(['newest', 'older', 'newer']).optional(),
+  /** 差距⑤(2026-10-30 立):居中窗口 —— 以该 turnOrdinal 为中心前后各 window 轮。
+   *  与 cursor/direction 互斥(同传时 around 优先,分页参数被忽略);
+   *  turn 不存在 ⇒ 404(明确语义,客户端降级开会话顶部,不猜位置)。 */
+  around: z.coerce.number().int().optional(),
+  window: z.coerce.number().int().min(1).max(50).default(5),
 })
 
 // POST /compact 请求体(2026-09-02 立):最简契约,仅 conversationId,无 messageRange 等可选参数
@@ -1248,6 +1254,14 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
               description:
                 'newest=取最新 N turn;older=断点之前;newer=断点之后(增量续读;服务端 Zod 校验)',
             },
+            around: {
+              type: 'string',
+              description: '差距⑤:居中窗口中心 turnOrdinal(整数;服务端 Zod 校验;不存在回 404)',
+            },
+            window: {
+              type: 'string',
+              description: '差距⑤:around 前后各取几轮(1-50,默认 5;服务端 Zod 校验)',
+            },
           },
         },
         response: buildResponseSchema(400, 401, 403, 404),
@@ -1270,7 +1284,46 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { limit, cursor, direction } = parsed.data
+      const { limit, cursor, direction, around, window } = parsed.data
+
+      // 差距⑤(2026-10-30 立):around 居中窗口 —— 优先于 cursor/direction 分页形态。
+      // 响应复用既有分页形状:hasMore/nextCursor 保持「向上翻」口径(旧客户端拿
+      // direction:'older' + nextCursor 可无缝续翻),向下断点经 prevCursor/hasMoreAfter
+      // 表达(双向 cursor;prevCursor 字段名与 B 路客户端类型对齐)。
+      // turn 不存在 ⇒ 404(客户端降级开会话顶部,不猜位置)。
+      if (around !== undefined) {
+        const win = await findHistoryTurnWindow(id, { around, window })
+        if (!win) {
+          return reply.status(404).send(error(404, 'turn 不存在'))
+        }
+        const aroundRatings = await listMessageFeedbackRatings(
+          userId,
+          win.turns.flatMap((t) => t.messages.map((m) => m.id)),
+        )
+        const beforeCursor = win.beforeCursor ? encodeHistoryCursor(win.beforeCursor) : null
+        return reply.send(
+          success({
+            turns: win.turns.map((t) => ({
+              turnOrdinal: t.turnOrdinal,
+              messages: t.messages.map((m) => serializeMessage(m, aroundRatings.get(m.id) ?? null)),
+            })),
+            around,
+            window,
+            hasMore: win.hasMoreBefore,
+            nextCursor: beforeCursor,
+            beforeCursor,
+            // 字段名与 B 路客户端 ConversationHistoryResult.prevCursor 对齐
+            // (2026-10-30 集成裁定:反向/更新方向断点;值 = 窗口内最大轮,配 direction:'newer')
+            prevCursor: win.afterCursor ? encodeHistoryCursor(win.afterCursor) : null,
+            hasMoreBefore: win.hasMoreBefore,
+            hasMoreAfter: win.hasMoreAfter,
+            // 中心轮由锚点探测确认在场;本次不消费翻页游标 ⇒ 存续性语义恒 ok
+            // (与 findHistoryTurnPage 的「未消费游标 ⇒ ok」同一口径,不是"断点已验")。
+            cursorState: { status: 'ok' as const },
+            projectionState: owned.conversation.historyProjectionState ?? null,
+          }),
+        )
+      }
 
       let cursorTurnOrdinal: number | null = null
       if (cursor !== undefined) {
@@ -1465,7 +1518,9 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     // 2026-10-28:这条响应会被客户端拿去**替换**本地那条消息,所以票必须取自库面 ——
     // 缺省 null 会把用户已有的点赞在"钉一下"之后洗掉(写路由不是读面,更不该拿缺省冒充结果)。
     const flagsRatings = await listMessageFeedbackRatings(userId, [updated.id])
-    return reply.send(success({ message: serializeMessage(updated, flagsRatings.get(updated.id) ?? null) }))
+    return reply.send(
+      success({ message: serializeMessage(updated, flagsRatings.get(updated.id) ?? null) }),
+    )
   })
 
   // POST /messages/:id/edit - 编辑一条 AI 消息 = 在同一版本族里落一个新 sibling 版本

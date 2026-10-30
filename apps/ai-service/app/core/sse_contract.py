@@ -17,6 +17,7 @@ apps/ai-service/tests/test_sse_contract_self_description.py 现读核(声明数 
 新增/删除 import 点时必须同步改上面那个数。
 """
 
+import time
 from dataclasses import dataclass, field
 
 # SSE 事件名集合(单一事实源)。值即实际 wire 上的事件判别名。
@@ -107,6 +108,13 @@ SSE_EVENTS: frozenset[str] = frozenset(
         "usage",
         "compaction",
         "steer",
+        # 差距①(2026-10-30 立):发送准入回执帧。形状权威 = packages/shared/src/chat/
+        # send-admission.ts L40-74(camelCase 逐字):必需 inputId/disposition,可选
+        # messageId/reason。生产点 llm.py gen() 准入判定完成后、首个内容帧之前;
+        # 本期只产 accepted/duplicate(queued 留差距③ Phase3;rejected 的拒收发生在
+        # 流前 HTTP 429/422,流未开、无帧可发,档位本身在契约面照登)。
+        # 必须与 packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
+        "admission",
         "budget",
         # G-815976(2026-10-04 收口入契约):流式中断标记。生产点 llm_gateway.py
         # astream 异常中断分支(已发过 chunk、不可换 provider/重试);消费
@@ -364,6 +372,10 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # 该条引导未消费的显式回报,点名该条目,不再静默丢弃);kind 为条目类型轴
     # (guide=普通引导可 inline / control=设置轮不可 inline,吸收循环遇它即停)。
     SSEEventContract("steer", ("phase", "text", "timestamp", "messageId", "kind")),
+    # 差距①(2026-10-30 立):发送准入回执。只有 inputId/disposition 是必需字段 ——
+    # messageId/reason 缺席读作"服务端没说明",不得列进本清单(列了 = 让 `_sse()`
+    # 诊断对合法帧恒告警,与 traceId/capabilities 先例同纪律)。形状权威见 SSE_EVENTS 注释。
+    SSEEventContract("admission", ("inputId", "disposition")),
     # V3 #58(2026-09-26):主聊天流工具审批帧(与 agent 任务流 tool-approval 同形,
     # 前端同一弹窗消费;approval_id 为流内唯一标识,decision 回传走流级端点)
     #
@@ -475,6 +487,22 @@ ACTION_RESUBSCRIBE: str = "resubscribe"
 ACTION_REJECT_NO_BASE: str = "reject-no-base"
 ACTION_DEFER_RECOVERY: str = "defer-recovery"
 ACTION_REJECT_INVALID_FRAME: str = "reject-invalid-frame"
+
+# ── 差距②(2026-10-30 立):帧水位四维的生产侧接线件 ──────────────────────────
+#
+# 进程级日志纪元:单点定义,重启即换新值(消费侧见 epoch-change 走整段重同步,
+# 不猜增量)。取启动毫秒戳,单调、非负,与 apply_frame 的 log_epoch 判序兼容。
+PROCESS_LOG_EPOCH: int = int(time.time() * 1000)
+
+#: 水位四字段在帧载荷上的**线格式键名**(camelCase)。与
+#: packages/api-client/src/frame-watermark.ts L17-23 的 FrameWatermark 逐字一致 ——
+#: 这是本机制唯一硬耦合点,字段名错一格 = 消费侧 readFrameWatermark 恒 undetermined。
+SSE_WATERMARK_PAYLOAD_KEYS: tuple[str, str, str, str] = (
+    "subscriptionId",
+    "logEpoch",
+    "fromSeq",
+    "toSeq",
+)
 
 
 @dataclass
@@ -645,6 +673,43 @@ def apply_frame(
     )
 
 
+def watermark_payload_fault(payload: object) -> list[str]:
+    """灰度兼容的帧水位校验:四字段**全缺席 ⇒ 放行**;出现任意一个就必须四字段齐全且合法。
+
+    合法判据与消费侧 readFrameWatermark(frame-watermark.ts L50-74)同序:
+    subscriptionId 非空串;logEpoch/fromSeq/toSeq 非负 int;toSeq >= fromSeq。
+    "半有"也判坏:只带两格的水位比不带更糟 —— 消费侧按缺字段回落 undetermined 是运气,
+    不是契约,校验层不能替它把畸形形状放行成"合法缺席"。
+    """
+    if not isinstance(payload, dict):
+        return []
+    present = [k for k in SSE_WATERMARK_PAYLOAD_KEYS if k in payload]
+    if not present:
+        return []
+    issues: list[str] = []
+    missing = [k for k in SSE_WATERMARK_PAYLOAD_KEYS if k not in payload]
+    if missing:
+        issues.append(f"水位字段不齐:出现 {present} 却缺 {missing}(只允许'全无',不允许'半有')")
+    subscription_id = payload.get("subscriptionId")
+    if not isinstance(subscription_id, str) or not subscription_id:
+        issues.append(f"subscriptionId 必须是非空字符串,实得 {subscription_id!r}")
+    for key in ("logEpoch", "fromSeq", "toSeq"):
+        value = payload.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            issues.append(f"{key} 必须是非负整数,实得 {value!r}")
+    from_seq = payload.get("fromSeq")
+    to_seq = payload.get("toSeq")
+    if (
+        isinstance(from_seq, int)
+        and isinstance(to_seq, int)
+        and not isinstance(from_seq, bool)
+        and not isinstance(to_seq, bool)
+        and to_seq < from_seq
+    ):
+        issues.append(f"区间倒挂:toSeq({to_seq}) < fromSeq({from_seq}),任何情况下不得应用")
+    return issues
+
+
 # ── b76-13 票2(2026-09-30 立):帧的字段级 schema + 装饰载荷的降级隔离 ─────────
 #
 # 出站侧的**结构不变量**判据(纯函数,不承担序列化):枚举闭合、必要字段对、
@@ -672,6 +737,9 @@ SSE_DECORATIVE_FIELDS: frozenset[str] = frozenset(
 #: 枚举闭合判据:frame -> (字段, 合法值集)
 SSE_FRAME_ENUMS: dict[str, tuple[str, tuple[str, ...]]] = {
     "terminal_end": ("status", ("completed", "failed")),
+    # 差距①(2026-10-30 立):disposition 四档与 send-admission.ts ADMISSION_DISPOSITIONS
+    # 逐字同集。本期生产侧不产 queued,但契约面登记全档 —— 尺子只判形状,不替排期背书。
+    "admission": ("disposition", ("accepted", "queued", "rejected", "duplicate")),
 }
 
 #: 必要字段对判据:frame -> (条件字段, 条件成立时必须同时在场的字段, 该字段的合法型)
@@ -718,6 +786,13 @@ def sse_frame_schema_fault(event: str, payload: object) -> list[str]:
             issues.append(
                 f"{event}.{cond_field}=true 必须携带 {required_field}(必要字段对)"
             )
+
+    if event == "admission":
+        # 差距①(2026-10-30 立):inputId 是回执配对的唯一锚(send-admission.ts 纪律 1:
+        # 不符即 matched:false),空串/坏型等于把回执变成无主帧,判坏不判过。
+        input_id = payload.get("inputId")
+        if not isinstance(input_id, str) or not input_id:
+            issues.append(f"admission.inputId: 必须是非空字符串,实得 {input_id!r}")
 
     if event == "form_response":
         action = payload.get("action")

@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { Download, Maximize2, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 // CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
-import { toMediaImageUrl } from '@/lib/media-proxy'
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 import { OfficeViewer } from './OfficeViewer'
 import { PDFViewer } from './PDFViewer'
@@ -119,7 +119,7 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
           />
         )}
         {kind === 'video' && (
-          <video src={url} controls className="h-full w-full">
+          <video src={toMediaStreamUrl(url)} controls className="h-full w-full">
             <track kind="captions" />
           </video>
         )}

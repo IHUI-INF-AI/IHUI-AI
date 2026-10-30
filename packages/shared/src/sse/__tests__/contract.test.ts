@@ -29,13 +29,15 @@ import {
   type SSEEventPayload,
   type SSEEventName,
 } from '../contract'
+// 差距①(2026-10-30 立):admission 事件名与载荷形状的唯一真相源
+import { SSE_ADMISSION_EVENT } from '../../chat/send-admission'
 
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 35 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction;D152: + goal_updated;D115: + review-finding;G-87: + hook-failed)', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(35)
-    expect(SSE_EVENT_NAMES).toHaveLength(35)
+  it('包含全部 36 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction;D152: + goal_updated;D115: + review-finding;G-87: + hook-failed;差距①: + admission)', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(36)
+    expect(SSE_EVENT_NAMES).toHaveLength(36)
     // 光有计数会放过"删了别的、加了这个",新帧必须点名在位:
     expect(SSE_EVENTS.TERMINAL_INTERACTION).toBe('terminal_interaction')
     // D152(2026-09-29):目标状态单帧(cleared 由 status 承载,无 goal_cleared 第二帧)
@@ -46,6 +48,10 @@ describe('SSE_EVENTS 事件名集合', () => {
     expect(SSE_EVENTS.REVIEW_FINDING).toBe('review-finding')
     // G-87 补链(2026-10-29):hook 执行失败帧入契约(此前判定层 2026-09-24 交付后零数据源)
     expect(SSE_EVENTS.HOOK_FAILED).toBe('hook-failed')
+    // 差距①(2026-10-30 立):发送准入回执帧入契约。事件名与 send-admission.ts 的
+    // SSE_ADMISSION_EVENT 必须同值(两处各写一遍就是"同一事实两份真相")。
+    expect(SSE_EVENTS.ADMISSION).toBe('admission')
+    expect(SSE_EVENTS.ADMISSION).toBe(SSE_ADMISSION_EVENT)
     expect(SSE_EVENT_NAMES as readonly string[]).not.toContain('goal_cleared')
   })
 
@@ -166,6 +172,8 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   REVIEW_FINDING: 'review-finding',
   // G-87 补链(2026-10-29):hook 执行失败帧(与 error 帧是两件事,见 contract.ts 成员注释)
   HOOK_FAILED: 'hook-failed',
+  // 差距①(2026-10-30 立):发送准入回执帧(载荷形状复用 chat/send-admission.ts)
+  ADMISSION: 'admission',
   DONE: 'done',
   ERROR: 'error',
   COMPACTION: 'compaction',
@@ -231,6 +239,9 @@ const UNION_MEMBER_BY_NAME: Record<SSEEventName, SSEEventPayload['type']> = {
   'review-finding': 'review-finding',
   // G-87 补链(2026-10-29):hook 执行失败帧(判别联合成员见 contract.ts)
   'hook-failed': 'hook-failed',
+  // 差距①(2026-10-30 立):发送准入回执帧(判别联合成员见 contract.ts,形状复用
+  // chat/send-admission.ts 的 SendAdmissionReceipt)
+  admission: 'admission',
 }
 
 describe('SSEEventPayload 判别联合对齐', () => {

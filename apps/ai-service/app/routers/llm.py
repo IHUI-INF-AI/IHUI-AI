@@ -75,7 +75,14 @@ from ..core.review_findings import (
 
 # D174:帧级 traceId 注入点只有一份实现,住在 `core/sse_frames.py`(取值经 core/trace_context
 # 的那份投影,载体仍是 middleware 那一个 ContextVar);本路由不解析 traceparent、不自建 trace 上下文。
-from ..core.sse_frames import with_frame_trace_id
+# 差距②(2026-10-30):帧水位四维同址 —— begin/end_stream_watermark 在流开/收处挂接每流序列态,
+# with_frame_watermark 与 traceId 注入同在 `_sse()` 单点出帧前推进,本路由不自建水位计数。
+from ..core.sse_frames import (
+    begin_stream_watermark,
+    end_stream_watermark,
+    with_frame_trace_id,
+    with_frame_watermark,
+)
 
 # 工具名单的**唯一**来源:前端 TS 真相源 → scripts/gen-tool-name-sets.mjs →
 # app/data/tool_name_sets.json → app/core/tool_name_sets.py(导入期一次)。
@@ -97,6 +104,7 @@ from ..core.tool_name_sets import (
 # 发射面此前只写 prompt/completion/total/reasoning 四键,缓存两维断在帧构造。
 from ..core.usage_cache import extract_cache_metrics, has_cache_signals
 from ..services.agent_events import (
+    SSE_ADMISSION,
     SSE_CHUNK,
     SSE_CONTENT_BLOCK_DELTA,
     SSE_CONTENT_BLOCK_START,
@@ -219,6 +227,10 @@ _DELEGATE_TIMEOUT = 60  # 秒
 # 不再静默丢弃(客户端早已拿到"入队成功"ACK,必须有下文)。
 _steer_sessions: dict[str, list[dict[str, Any]]] = {}
 _STEER_QUEUE_LIMIT = 8  # 单流引导队列上限,超限 steer 端点返回 429(防刷)
+# 差距③(2026-10-30):已被 drain 注入的 steer 条目 queuedAt 留痕 —— `_drain_inlineable_steers`
+# 是唯一消费出口,pop 时在此登记;withdraw 端点据此区分"已注入"(already_injected)与
+# "从未入队"(not_found),不猜。与 _steer_sessions 同桶,流收口 `_report_dropped_steers` 一并清理。
+_steer_consumed_at: dict[str, set[str]] = {}
 
 # G-815975:steer 条目 kind 枚举。
 # - guide:普通引导,可 inline 注入当前轮(既有语义,缺省档);
@@ -244,7 +256,11 @@ def _drain_inlineable_steers(session_id: str | None) -> list[dict[str, Any]]:
         return []
     consumed: list[dict[str, Any]] = []
     while queue and str(queue[0].get("kind") or "guide") in _STEER_INLINE_KINDS:
-        consumed.append(queue.pop(0))
+        item = queue.pop(0)
+        # 差距③:消费即留痕(queuedAt),供 withdraw 端点回报 already_injected
+        if item.get("queuedAt"):
+            _steer_consumed_at.setdefault(session_id, set()).add(str(item["queuedAt"]))
+        consumed.append(item)
     return consumed
 
 
@@ -276,6 +292,7 @@ def _report_dropped_steers(session_id: str | None) -> list[dict[str, Any]]:
     if not session_id:
         return []
     remaining = _steer_sessions.pop(session_id, None) or []
+    _steer_consumed_at.pop(session_id, None)  # 差距③:与队列同桶清理
     return [_steer_dropped_frame(item) for item in remaining]
 
 
@@ -312,6 +329,97 @@ def _capabilities_payload(session_id: str | None) -> dict[str, bool]:
     )
 
     return {SSE_CAPABILITY_INTERJECTION_KEY: _interjection_capable(session_id)}
+
+
+# ── 差距①(2026-10-30):发送准入回执(admission 帧)留痕 ──────────────────────────
+#
+# duplicate 的判据是"该 inputId 在本会话已被准入过"—— 服务端按 conversationId 留痕
+# (dict 保序即 FIFO,逐会话封顶,防无界增长);未见过 ⇒ accepted 并登记。
+# rejected 本期无流内产出点:配额/参数拒收发生在**开流之前**(HTTP 429/422),
+# 流未开则无帧可发 —— 不造一条永远发不出的档位冒充覆盖。
+# 帧形状权威:packages/shared/src/chat/send-admission.ts L40-74(camelCase)。
+_admission_seen: dict[str, dict[str, None]] = {}
+_ADMISSION_SEEN_LIMIT = 256  # 单会话 inputId 留痕上限(FIFO 逐出)
+
+
+def _admission_disposition(conversation_id: str | None, input_id: str) -> str:
+    """准入判定唯一出口:本会话见过该 inputId ⇒ duplicate;否则 accepted 并留痕。
+
+    conversation_id 缺席(旧客户端不带 metadata.conversationId)⇒ 无从配对留痕,
+    恒 accepted 且不登记 —— 降级方向是现状(不冒充判过 duplicate)。
+    """
+    if conversation_id:
+        seen = _admission_seen.setdefault(conversation_id, {})
+        if input_id in seen:
+            return "duplicate"
+        seen[input_id] = None
+        while len(seen) > _ADMISSION_SEEN_LIMIT:
+            seen.pop(next(iter(seen)))
+    return "accepted"
+
+
+def _admission_unseen(conversation_id: str | None, input_id: str) -> None:
+    """差距③(2026-10-30):rejected 档撤销留痕 —— 拒收不是准入。
+
+    duplicate 的判据是"已被准入过";队列满/等待超时两条 rejected 出口都没准入,
+    不撤痕则同一 inputId 稍后重试会被误判 duplicate(方向恰好相反:那条明明没执行过)。
+    """
+    if conversation_id:
+        seen = _admission_seen.get(conversation_id)
+        if seen is not None:
+            seen.pop(input_id, None)
+
+
+# ── 差距③(2026-10-30):queued 上 wire —— 会话级流道(lane)+ FIFO 队列 ──────────────
+# 勘察结论(动工前现读):同会话第二个流请求今天是**直接并行执行**的 —— 网关按
+# replayKey=conversationId:messageId 登记流会话(不同消息不同键,无同会话闸),
+# ai-service 亦无跨流互感。本节把「排队中」从纯本地概念升级为服务端确认:
+# 新流到达且同 conversationId 有活跃流 ⇒ 不并行执行,产出
+# admission{disposition:'queued', inputId 回显, queuedTurnId:<服务端生成>} 并进入
+# FIFO 队列;当前流收口后出队,在**同一条 HTTP 流**上自动执行(无需网关重发)。
+# 只有带 inputId 的流参与 lane(旧客户端无 inputId 保持并行现状,零行为变化)。
+# 注册姿势抄 _steer_sessions(流首注册、finally 注销);防刷上限抄 _STEER_QUEUE_LIMIT;
+# 等待期 keepalive 姿势抄审批/表单的分段等待(防前端 30s 读超时掐流)。
+_conv_lanes: dict[str, dict[str, Any]] = {}  # convId -> {"active": token|None, "waiting": [entry]}
+_CONV_QUEUE_LIMIT = 8  # 与 _STEER_QUEUE_LIMIT 同量级(防刷)
+_CONV_QUEUE_WAIT_TIMEOUT = 600  # 秒:队首等待上限;超时 ⇒ admission{rejected, queue_wait_timeout},不冒充执行
+_CONV_QUEUE_KEEPALIVE_INTERVAL = 15  # 秒:同 _APPROVAL_KEEPALIVE_INTERVAL(其定义在后,不前置引用)
+
+
+def _conv_lane(conversation_id: str) -> dict[str, Any]:
+    lane = _conv_lanes.get(conversation_id)
+    if lane is None:
+        lane = {"active": None, "waiting": []}
+        _conv_lanes[conversation_id] = lane
+    return lane
+
+
+def _conv_lane_release(
+    conversation_id: str, turn_token: str, waiting_entry: dict[str, Any] | None
+) -> None:
+    """本流收口时释放会话 lane:注销 active / 未获晋升则摘除自身排队项 / 晋升队首。
+
+    纯同步(单事件循环内原子),GeneratorExit/CancelledError 收尾路径可安全调用
+    (不 yield)。幂等:晋升后 waiting 条目已被摘除,重复 remove 静默跳过。
+    """
+    if not conversation_id or not turn_token:
+        return
+    lane = _conv_lanes.get(conversation_id)
+    if lane is None:
+        return
+    if lane["active"] == turn_token:
+        lane["active"] = None
+    if waiting_entry is not None:
+        try:
+            lane["waiting"].remove(waiting_entry)
+        except ValueError:
+            pass  # 已被晋升摘除
+    if lane["active"] is None and lane["waiting"]:
+        nxt = lane["waiting"].pop(0)
+        lane["active"] = nxt["turn"]
+        nxt["event"].set()
+    if lane["active"] is None and not lane["waiting"]:
+        _conv_lanes.pop(conversation_id, None)
 
 
 # =============================================================================
@@ -1433,6 +1541,8 @@ def _sse_contract_enabled() -> bool:
 # 官方 MCP 流)也要走同一份,不能在各自路由里再抄一遍判序 —— 抄开的症状是"主对话流的帧带 trace、
 # 任务流的帧不带"。这里保留原函数名作为别名,既有调用点与用例一字未改。
 _with_frame_trace_id = with_frame_trace_id
+# 差距②(2026-10-30):帧水位注入同址别名,与 traceId 同纪律(判序只在 `_sse()` 一处)。
+_with_frame_watermark = with_frame_watermark
 
 
 def _sse(evt: str, payload: Any) -> str:
@@ -1440,23 +1550,31 @@ def _sse(evt: str, payload: Any) -> str:
 
     批58(接线):开关开启时经 sse_contract 做跨端契约漂移诊断(仅告警)。
     D174(2026-09-30):帧级 traceId 在这里注入一次(判序见 `_with_frame_trace_id`)。
+    差距②(2026-10-30):帧水位四维也在这里注入一次(单点,见 `core/sse_frames.py`);
+    开关开启时按灰度兼容判据校验**上线后**的载荷 —— 四字段全缺席放行,出现即须齐全合法。
     """
+    frame_payload = _with_frame_watermark(evt, _with_frame_trace_id(evt, payload))
     if _sse_contract_enabled():
         try:
-            from app.core.sse_contract import SSE_EVENT_CONTRACTS
+            from app.core.sse_contract import (  # 运行时 import 点(见 sse_contract 头注的 SSE-CONTRACT-IMPORT-SITES)
+                SSE_EVENT_CONTRACTS,
+                watermark_payload_fault,
+            )
 
             contract = next((c for c in SSE_EVENT_CONTRACTS if c.name == evt), None)
             if contract is None:
                 _sse_contract_warn(f"SSE 事件未在契约清单中登记: {evt}")
-            elif isinstance(payload, dict):
-                missing = [f for f in contract.payload_fields if f not in payload]
+            elif isinstance(frame_payload, dict):
+                missing = [f for f in contract.payload_fields if f not in frame_payload]
                 if missing:
                     _sse_contract_warn(
                         f"SSE 事件 {evt} 缺少契约字段 {missing}",
                     )
+            for fault in watermark_payload_fault(frame_payload):
+                _sse_contract_warn(f"SSE 事件 {evt} 帧水位非法: {fault}")
         except Exception as e:  # noqa: BLE001 - 契约诊断失败不影响帧产出
             _sse_contract_warn(f"SSE 契约诊断异常(降级跳过): {e}")
-    return f"event: {evt}\ndata: {json.dumps(_with_frame_trace_id(evt, payload), ensure_ascii=False)}\n\n"
+    return f"event: {evt}\ndata: {json.dumps(frame_payload, ensure_ascii=False)}\n\n"
 
 
 def _sse_contract_warn(msg: str) -> None:
@@ -2917,6 +3035,12 @@ class LLMCompleteRequest(BaseModel):
     streamSessionId: str | None = Field(
         None, description="调用方预生成的流会话 ID,steer(中途引导)入队寻址用"
     )
+    # 差距①(2026-10-30 立):客户端生成的稳定输入 ID(重发同值)。可选 ⇒ 旧客户端零行为变化;
+    # 缺席 ⇒ 不发 admission 帧。在场 ⇒ 首个内容帧之前原样回显一帧准入回执(形状权威
+    # packages/shared/src/chat/send-admission.ts L40-74)。
+    inputId: str | None = Field(
+        None, description="客户端生成的稳定输入 ID,admission 帧原样回显用于发送侧配对"
+    )
     # V3 #58(2026-09-26 立):工作区权限模式档位,透传自前端 ai-panel store
     # ('default'/'accept-edits'/'bypass-permissions'/'plan')。工具审批门据此决定
     # 高危工具执行前是否弹审批:bypass 不拦截;accept-edits 放行文件编辑类(medium)。
@@ -4026,24 +4150,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         _stream_started = time.perf_counter()
         _first_token_ts: float | None = None
 
-        # D34(2026-09-22,G-40):上下文注入交代帧必须是**流上最早的业务帧**(先于任何 chunk/工具帧),
-        # 前端才能把它排在"本轮开始"处;每帧补 messageId,与 plan_updated/terminal_* 同一守卫口径。
-        for _inj in injection_frames:
-            yield _sse(SSE_INJECTION_APPLIED, {**_inj, "messageId": message_id})
-
-        def _mark_first_token() -> None:
-            """记录首个正文(chunk)增量时间戳(幂等,仅首次调用生效)。"""
-            nonlocal _first_token_ts
-            if _first_token_ts is None:
-                _first_token_ts = time.perf_counter()
-
-        # MCP 工具调用取消闭环(2026-09-19 立):本流 in-flight 工具任务追踪器。
-        # dispatch_subagent / call_tool 等工具任务创建时登记,流收尾(finally,
-        # 覆盖正常 done / error / 客户端断开取消 / GeneratorExit)统一 cancel,
-        # 防孤儿工具任务在客户端已断开后继续跑完(浪费额度/留脏状态)。
-        _inflight_tool_tasks = _InflightToolTasks()
-
         # 阶段 2:浏览器端工具委托 session_id(workspace_context 模式下生成)
+        # 差距①/②(2026-10-30):本块自注入交代帧循环之后**上移**至此 —— admission 判定与
+        # 帧水位都必须从流上第一帧起生效(注册/挂水位晚于首帧 = 首帧没水位,是机制性缺口)。
         session_id: str | None = None
         if req.streamSessionId:
             # Steer(2026-09-19 立):优先使用调用方(网关)预生成的流会话 ID ——
@@ -4057,6 +4166,42 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # steer 端点据此区分 200(流活跃,入队)/404(流不存在或已结束)。
         if session_id:
             _steer_sessions[session_id] = []
+            # 差距②(2026-10-30):挂上本流帧水位上下文(subscription=会话流身份);
+            # 无 session 的流不挂 —— 没有订阅身份就不造值冒充,线格式逐字节保持现状。
+            begin_stream_watermark(session_id)
+
+        # D34(2026-09-22,G-40):上下文注入交代帧必须是**流上最早的业务帧**(先于任何 chunk/工具帧),
+        # 前端才能把它排在"本轮开始"处;每帧补 messageId,与 plan_updated/terminal_* 同一守卫口径。
+        for _inj in injection_frames:
+            yield _sse(SSE_INJECTION_APPLIED, {**_inj, "messageId": message_id})
+
+        # 差距①(2026-10-30):发送准入回执(admission)—— 客户端凭 inputId 配对
+        # "这条输入被收了/是重发"。位置:准入判定完成(session 注册已执行)、首个内容帧之前;
+        # D34 的"注入帧=最早业务帧"约束不变。inputId 缺席 ⇒ 整帧不发(旧客户端零变化);
+        # 产出异常 ⇒ 降级为不发帧,绝不拖主流(前端回落无回执路径,与现状同形)。
+        # 差距③(2026-10-30):admission 块整体**下移进下方 try** —— lane 注册/排队等待
+        # 必须在 finally 收口的保护范围内(注册后、try 前被 GeneratorExit 掐断 = lane
+        # 永久卡在已死流的 active 上,后来者全部排队到超时)。判定纪律不变:
+        # 仍在注入交代帧之后、首个内容帧(compaction/chunk)之前。
+        # lane 三元组状态先置 None,让 finally 在"未参与 lane"的路径上也能安全引用。
+        _conv_lane_id: str | None = None
+        _conv_turn_token: str | None = None
+        _queued_entry: dict[str, Any] | None = None
+
+        def _mark_first_token() -> None:
+            """记录首个正文(chunk)增量时间戳(幂等,仅首次调用生效)。"""
+            nonlocal _first_token_ts
+            if _first_token_ts is None:
+                _first_token_ts = time.perf_counter()
+
+        # MCP 工具调用取消闭环(2026-09-19 立):本流 in-flight 工具任务追踪器。
+        # dispatch_subagent / call_tool 等工具任务创建时登记,流收尾(finally,
+        # 覆盖正常 done / error / 客户端断开取消 / GeneratorExit)统一 cancel,
+        # 防孤儿工具任务在客户端已断开后继续跑完(浪费额度/留脏状态)。
+        _inflight_tool_tasks = _InflightToolTasks()
+
+        # 阶段 2:session_id 解析与 steer 注册已上移到注入交代帧之前(差距①/②,2026-10-30);
+        # 此处只剩 D690 重放对已注册 session 的消费。
         # D690(方案 A,2026-10-22 机主授权代拍板;承 D131 取证、D1047 diff②):断线重连
         # 时重放仍待决的审批弹窗。只在调用方**复用上一流会话 id**(streamSessionId)重连
         # 时查待决表 —— 每轮新生成的 id 表必空,这一查对非重连流恒零帧。重放出的条目
@@ -4154,6 +4299,109 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # UnboundLocalError(except/finally 引用了只在 try 内赋值的局部量)。
         _native_fc_stream: AsyncIterator[dict[str, Any]] | None = None
         try:
+            # 差距①/③(2026-10-30):发送准入回执(admission)。同会话有活跃流 ⇒ 不并行
+            # 执行:产出 queued + queuedTurnId 入 FIFO lane,等当前流收口晋升后发开始执行帧
+            # (accepted + 同 queuedTurnId,落库关联凭据)再进正文。队列满 ⇒ rejected(防刷,
+            # 抄 steer 429 语义);等待超时 ⇒ rejected(queue_wait_timeout,不冒充执行)。
+            if req.inputId:
+                _admission_payload: dict[str, Any] | None = None
+                try:
+                    _admission_conv_id = (
+                        str((req.metadata or {}).get("conversationId") or "") or None
+                    )
+                    _disposition = _admission_disposition(_admission_conv_id, req.inputId)
+                    _admission_payload = {
+                        "type": SSE_ADMISSION,
+                        "inputId": req.inputId,
+                        "disposition": _disposition,
+                    }
+                    if _disposition == "accepted" and _admission_conv_id:
+                        _lane = _conv_lane(_admission_conv_id)
+                        _conv_lane_id = _admission_conv_id
+                        _conv_turn_token = str(uuid.uuid4())
+                        if _lane["active"] is not None:
+                            if len(_lane["waiting"]) >= _CONV_QUEUE_LIMIT:
+                                _admission_payload["disposition"] = "rejected"
+                                _admission_payload["reason"] = "conversation_queue_full"
+                                _admission_unseen(_admission_conv_id, req.inputId)
+                                _conv_lane_id = None
+                                _conv_turn_token = None
+                            else:
+                                _queued_turn_id = str(uuid.uuid4())
+                                _queued_entry = {
+                                    "turn": _conv_turn_token,
+                                    "queuedTurnId": _queued_turn_id,
+                                    "event": asyncio.Event(),
+                                }
+                                _lane["waiting"].append(_queued_entry)
+                                _admission_payload["disposition"] = "queued"
+                                _admission_payload["queuedTurnId"] = _queued_turn_id
+                        else:
+                            _lane["active"] = _conv_turn_token
+                    if message_id:
+                        _admission_payload["messageId"] = message_id
+                except Exception:  # noqa: BLE001 - 附加交代帧坏了不拖主流
+                    logger.warning("admission 帧产出失败(降级跳过)", exc_info=True)
+                    _admission_payload = None
+                if _admission_payload is not None:
+                    yield _sse(SSE_ADMISSION, _admission_payload)
+                    if _admission_payload["disposition"] == "rejected":
+                        return
+                    if _queued_entry is not None:
+                        # 排队等待:分段等待 + keepalive 注释行(姿势抄审批/表单等待)。
+                        # 晋升由前流 finally 的 _conv_lane_release 完成(set event)。
+                        _conv_waited = 0.0
+                        _conv_promoted = False
+                        while _conv_waited < _CONV_QUEUE_WAIT_TIMEOUT:
+                            _conv_remain = _CONV_QUEUE_WAIT_TIMEOUT - _conv_waited
+                            try:
+                                await asyncio.wait_for(
+                                    _queued_entry["event"].wait(),
+                                    timeout=min(
+                                        _CONV_QUEUE_KEEPALIVE_INTERVAL, _conv_remain
+                                    ),
+                                )
+                            except TimeoutError:
+                                _conv_waited += _CONV_QUEUE_KEEPALIVE_INTERVAL
+                                if _conv_waited < _CONV_QUEUE_WAIT_TIMEOUT:
+                                    yield ": keep-alive (waiting conversation turn)\n\n"
+                                continue
+                            _conv_promoted = True
+                            break
+                        # 超时与晋升竞态复核:release 是同步段(pop+set 一体),event 已置位
+                        # 即视为已晋升(哪怕本协程先被 TimeoutError 唤醒)。
+                        if not _conv_promoted:
+                            _conv_promoted = bool(_queued_entry["event"].is_set())
+                        if _conv_promoted:
+                            _start_payload: dict[str, Any] = {
+                                "type": SSE_ADMISSION,
+                                "inputId": req.inputId,
+                                "disposition": "accepted",
+                                "queuedTurnId": str(_queued_entry["queuedTurnId"]),
+                            }
+                            if message_id:
+                                _start_payload["messageId"] = message_id
+                            yield _sse(SSE_ADMISSION, _start_payload)
+                        else:
+                            # 等待超时:摘除自身排队项 + 撤痕后显式拒收,不冒充"排到了再执行"。
+                            _conv_lane_release(
+                                _conv_lane_id or "", _conv_turn_token or "", _queued_entry
+                            )
+                            _admission_unseen(_conv_lane_id, req.inputId)
+                            _conv_lane_id = None
+                            _conv_turn_token = None
+                            _queued_entry = None
+                            yield _sse(
+                                SSE_ADMISSION,
+                                {
+                                    "type": SSE_ADMISSION,
+                                    "inputId": req.inputId,
+                                    "disposition": "rejected",
+                                    "reason": "queue_wait_timeout",
+                                },
+                            )
+                            return
+
             # 若发生压缩(或压缩已撞到上限),通过 SSE 首事件通知调用方
             _compaction_sse = _compaction_frame(compaction_info)
             if _compaction_sse:
@@ -6439,6 +6687,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             if message_id:
                                 _drop_evt["messageId"] = message_id
                             yield _sse(SSE_STEER, _drop_evt)
+            # 差距③(2026-10-30):会话流道收口 —— 注销本流 active;排队中被掐/已晋升
+            # 未跑完,两条路径都摘除自身并晋升队首(队列输入在同链路自动执行)。
+            # 纯同步(不 yield),GeneratorExit/取消作用域内安全。
+            if _conv_lane_id and _conv_turn_token:
+                _conv_lane_release(_conv_lane_id, _conv_turn_token, _queued_entry)
             # 审批授权缓存(V3 #58,2026-09-28 两次改):收尾**只收本轮桶**。
             # 改前这里无条件 pop session_id,当时所有桶都是本轮的(网关每轮换 id),
             # 所以那一行同时干了"声明的寿命"与"内存回收"两件事。归属升成会话级之后
@@ -6552,6 +6805,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 raise
             except Exception as _usage_err:  # 计量帧绝不影响主链路
                 logger.warning("usage frame emit failed: %s", _usage_err)
+            finally:
+                # 差距②(2026-10-30):摘除本流帧水位上下文(与 gen() 首部的 begin 成对)。
+                # 挂在计量帧 try 的 finally 上,连 GeneratorExit 自 usage yield 复升的路径
+                # 也覆盖;dropped/usage 帧仍在本流水位内出帧(摘除晚于它们的 yield)。
+                end_stream_watermark()
 
         # 流结束后异步回调(仅当 metadata 含关联键且无错误时)
         # 客户端已断开则不触发 callback(避免 POST 到已废弃 URL)
@@ -7214,12 +7472,91 @@ async def post_steer_message(session_id: str, body: dict[str, Any] = Body(...)) 
             status_code=429,
             content={"ok": False, "error": "steer queue full"},
         )
+    queued_at = datetime.now(UTC).isoformat()
     queue.append({
         "text": text[:4000],  # 截断防超长注入撑爆上下文
-        "queuedAt": datetime.now(UTC).isoformat(),
+        "queuedAt": queued_at,
         "kind": kind,  # G-815975:类型轴(control 不可 inline,吸收在它面前停)
     })
-    return {"ok": True, "queued": len(queue), "kind": kind}
+    # 差距③(2026-10-30 补):回传撤回凭据 queuedAt —— withdraw 端点按它匹配未消费
+    # 条目,入队不回传则调用方永远拿不到撤回键(端到端断链)。additive,旧客户端忽略。
+    return {"ok": True, "queued": len(queue), "kind": kind, "queuedAt": queued_at}
+
+
+@router.post("/llm/complete/stream/{session_id}/steer/withdraw", response_model=None)
+async def withdraw_steer_message(session_id: str, body: dict[str, Any] = Body(...)) -> Any:
+    """差距③(2026-10-30 立):撤回一条尚未注入的 steer —— 撤回凭据是入队时刻 queuedAt。
+
+    从 _steer_sessions[session_id] 按 queuedAt 精确匹配**未消费**条目并移除。
+    竞态不猜:条目若已被 `_drain_inlineable_steers` 消费(注入),经 _steer_consumed_at
+    留痕回报 already_injected;其余未命中一律 not_found(不冒充"撤回成功")。
+    闸门与 post_steer_message 同语义:session 不在册(流不存在/已结束)⇒ 404。
+    状态码:422 queuedAt 缺失/为空;404 流不存在或已结束;200 三态回报。
+    """
+    queued_at = str(body.get("queuedAt", "")).strip()
+    if not queued_at:
+        return JSONResponse(
+            status_code=422,
+            content={"ok": False, "error": "queuedAt required"},
+        )
+    queue = _steer_sessions.get(session_id)
+    if queue is None:
+        return JSONResponse(
+            status_code=404,
+            content={"ok": False, "error": "session not found or expired"},
+        )
+    for i, item in enumerate(queue):
+        if str(item.get("queuedAt") or "") == queued_at:
+            queue.pop(i)
+            return {"ok": True, "status": "withdrawn"}
+    if queued_at in _steer_consumed_at.get(session_id, ()):
+        return {"ok": True, "status": "already_injected"}
+    return {"ok": True, "status": "not_found"}
+
+
+@router.post("/llm/complete/stream/{session_id}/steer/reorder", response_model=None)
+async def reorder_steer_queue(session_id: str, body: dict[str, Any] = Body(...)) -> Any:
+    """差距③遗留最后一项(2026-10-30 立):steer 队列重排(Qoder mutateQueue 语义)。
+
+    按 body.order(queuedAt 序列)重排 _steer_sessions[session_id] 的**未消费**条目。
+    精确覆盖:order 经竞态豁免后必须与队列现存条目一一对应 —— 多/少/未知 id/重复
+    ⇒ 422,不猜。竞态豁免:客户端视图天然滞后,order 里已被 `_drain_inlineable_steers`
+    消费(凭 _steer_consumed_at 留痕)的条目从校验中豁免(条目出队的唯一合法出路就是
+    drain),响应回报实际生效的 orderApplied。闸门抄 withdraw:session 不在册 ⇒ 404;
+    order 缺失/非字符串数组 ⇒ 422。并发纪律:校验与重排之间无 await,事件循环内
+    原子(与 withdraw/drain 互斥,同纪律)。
+    """
+    order = body.get("order")
+    if not isinstance(order, list) or not all(isinstance(x, str) and x.strip() for x in order):
+        return JSONResponse(
+            status_code=422,
+            content={"ok": False, "error": "order must be a list of queuedAt strings"},
+        )
+    queue = _steer_sessions.get(session_id)
+    if queue is None:
+        return JSONResponse(
+            status_code=404,
+            content={"ok": False, "error": "session not found or expired"},
+        )
+    consumed = _steer_consumed_at.get(session_id, ())
+    pending_order = [q.strip() for q in order if q.strip() not in consumed]
+    queue_ids = [str(item.get("queuedAt") or "") for item in queue]
+    if (
+        len(pending_order) != len(set(pending_order))
+        or len(pending_order) != len(queue)
+        or set(pending_order) != set(queue_ids)
+    ):
+        return JSONResponse(
+            status_code=422,
+            content={"ok": False, "error": "order must exactly cover all pending queue entries"},
+        )
+    by_id: dict[str, dict[str, Any]] = dict(zip(queue_ids, queue, strict=True))
+    queue[:] = [by_id[q] for q in pending_order]
+    return {
+        "ok": True,
+        "queued": len(queue),
+        "orderApplied": [str(item.get("queuedAt") or "") for item in queue],
+    }
 
 
 # =============================================================================

@@ -78,9 +78,26 @@ vi.mock('react-native-webview', () => ({
   WebView: () => createElement('div', null),
 }))
 
-vi.mock('../src/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'zh-CN' }),
-}))
+// 2026-10-30 收口(替身缺口,非判据缺口):本工厂此前把 t 写成 `(key) => key`,而第 5 条用例的
+// 注释明写"本套件 i18n mock 对该键回真字典值 ⇒ 上屏即真值,内容判据直接量上屏文案"。替身回的是
+// 键名,那条 `toMatch(/验证码|账号密码|账密/)` 便结构上不可能通过(取到的恒是 'login.webPreviewHint',
+// 现读:单跑 1 failed | 8 passed,与机器负载无关)。正解不是放宽断言,而是让替身真的去取词:
+// 词典取真实出口的 `messages`,解析函数取真实出口 `translate`(与本端 Provider 同一个符号),
+// 本文件不另写第二份查词实现(§22c 单一真相源)。locale 仍钉 'zh-CN'(本票只判 H5 文案内容,
+// 不判端上的异步 hydrate,故仍不走真 Provider)。
+vi.mock('../src/i18n', async () => {
+  const actual = await vi.importActual<typeof import('../src/i18n')>('../src/i18n')
+  const { translate } = await import('@ihui/i18n/loader')
+  const zhCN = actual.messages['zh-CN']
+  return {
+    ...actual,
+    useI18n: () => ({
+      locale: 'zh-CN' as const,
+      t: (key: string, params?: Record<string, string | number>) =>
+        translate(zhCN, key, { fallback: zhCN, params }),
+    }),
+  }
+})
 
 vi.mock('../src/context/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),

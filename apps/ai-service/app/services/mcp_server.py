@@ -2529,7 +2529,15 @@ def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
     """构建 subprocess env:复制 os.environ,合并用户 env(禁止覆盖 PATH/HOME)。
 
     2026-07-24 流式升级:支持 env 参数透传,但不允许覆盖 PATH/HOME(防劫持命令查找)。
+
+    差距⑦(2026-10-30,对标 Qoder「宿主注入上下文不可被工具参数覆盖」+
+    process-hardening):出口统一剥离两类变量 —— 继承值与用户 override 同判,
+    判据取 core/exec_env 单一权威源,与 agent_engine._sanitized_child_env 同尺:
+    - NON_INHERITABLE_ENV_VARS(管理凭据/身份令牌,如 IHUI_ADMIN_PASSWORD);
+    - 注入型前缀(LD_PRELOAD/LD_AUDIT/DYLD_*,防子进程被环境劫持)。
     """
+    from app.core.exec_env import scrub_injection_env_vars, scrub_non_inheritable_env_vars
+
     env = dict(os.environ)
     if isinstance(user_env, dict):
         for k, v in user_env.items():
@@ -2539,7 +2547,9 @@ def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
                 continue  # 不允许覆盖 PATH/HOME
             env[k] = str(v)
     # P0-2 凭据保险库:剔除凭据形环境变量(绝不外带给子进程)
-    return _filter_vault_env(env, _get_vault_store())
+    env = _filter_vault_env(env, _get_vault_store())
+    # 差距⑦:凭据/身份令牌与注入型变量在**出口**剥离(用户 override 也剥)
+    return scrub_non_inheritable_env_vars(scrub_injection_env_vars(env))
 
 
 _COMMAND_POLICY_DEFAULT: dict[str, Any] = {
@@ -3103,7 +3113,11 @@ async def _tool_run_command(
             "prompt", "title", "path", "assoc", "ftype",
         }
         args = shlex.split(command, posix=sys.platform != "win32")
-        env_for_proc = _build_subprocess_env(user_env) if user_env else None
+        # 差距⑦(2026-10-30):原先 user_env 缺省时传 env=None 让子进程**裸继承**
+        # os.environ —— vault 过滤与凭据/注入型变量剥离全部旁路,"不带 env 参数"
+        # 反而成了消毒豁免面。改为恒走消毒出口(None 与 {} 同形,行为差异只有
+        # 被剥的那两类键)。
+        env_for_proc = _build_subprocess_env(user_env)
 
         # D151(2026-09-29,用户批"默认开 + 单次等待 300s"):交互代答只在"宿主给了 push
         # 通道"时才开 —— 没有承载面的等待等于凭空挂住一条命令。

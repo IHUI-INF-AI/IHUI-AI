@@ -123,5 +123,23 @@ export function groupIsExploring(group: PresentationGroup): boolean {
   return group.blocks.some((block) => block.isExploring)
 }
 
+/**
+ * 差距⑥(2026-10-30 立):该块是否为回合内的**过程叙述文本段**。
+ *
+ * 判据只取投影既有形状:`thinkingAgent` 容器按消息时序聚合本轮全部助手消息
+ * (`turn-presentation.ts` 的 `ThinkingAgentRow.messages`),**末条**的正文即
+ * 终态定稿前的最终答复;容器内非末条 = 最终答复定稿前的中间过程叙述。
+ * 游离消息(用户 / system / 不聚合的失败轮)天然不是过程段。
+ *
+ * 本函数只回答"是不是过程段",不判折叠 —— 折叠判定唯一源 `./fold-policy`
+ * (差距⑥追加类目 `resolveProcessTextInitialOpen`)。
+ */
+export function blockIsProcessNarration(block: PresentationBlock): boolean {
+  const container = block.container
+  if (!container || container.messages.length === 0) return false
+  const last = container.messages[container.messages.length - 1]
+  return last !== undefined && block.message !== last
+}
+
 export const __test__ = { buildPresentationGroups }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
