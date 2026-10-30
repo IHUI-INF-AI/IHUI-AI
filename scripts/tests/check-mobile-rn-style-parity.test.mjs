@@ -88,6 +88,28 @@ test('② 装车证明:guardian-runner 注册块存在(blocking + skipEnv + stag
     /stagedTriggers:\s*\[[^\]]*apps\/mobile-rn\/src\//,
     '触发面必须圈住 apps/mobile-rn/src/(数组形态,漏了就等于提交链上永不执行)',
   )
+  /**
+   * 扩面锁(2026-10-31,本门射程从单根扩到两根时补):触发面与门体枚举**必须同批成对**。
+   * 只改一半是实测过的静默失效形态 —— runner 圈住 packages/app/src 而门体不枚举它 ⇒
+   * 该层被 staged 档扫到却恒判"无 hex";反过来门体枚举了而触发面没登记 ⇒ 提交链上永不执行。
+   * 所以两根在两边各断言一次,断掉任何一边都翻红。
+   */
+  const gateSource = readFileSync(
+    new URL('../check-mobile-rn-style-parity.mjs', import.meta.url),
+    'utf8',
+  )
+  for (const scope of ['apps/mobile-rn/src', 'packages/app/src']) {
+    assert.match(
+      block,
+      new RegExp(`stagedTriggers:\\s*\\[[^\\]]*${scope.replace('/', '\\/')}/`),
+      `runner 触发面漏了 ${scope}/ ⇒ 该层的提交永不送进本门`,
+    )
+    assert.match(
+      gateSource,
+      new RegExp(`SRC_RELS[\\s\\S]{0,160}'${scope.replace('/', '\\/')}`),
+      `门体枚举漏了 ${scope} ⇒ 触发面圈住了它,内容却永不入列(第二半失效)`,
+    )
+  }
   assert.match(
     block,
     /stagedTriggers:\s*\[[^\]]*rn-style-parity-baseline\.json/,

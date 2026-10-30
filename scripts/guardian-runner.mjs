@@ -5198,7 +5198,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_RN_STYLE_PARITY',
-    stagedTriggers: ['apps/mobile-rn/src/', 'scripts/rn-style-parity-baseline.json'],
+    stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/', 'scripts/rn-style-parity-baseline.json'],
     onFailHint: [
       '',
       '  改法:把 #hex 换成 @ihui/design-tokens(rnLightTokens/rnDarkTokens)的 token 引用,不要新造近似色。',
