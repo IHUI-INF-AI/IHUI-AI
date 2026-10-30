@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnTokens } from '@ihui/design-tokens'
+import { rnHue, rnRadius, rnTokens } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -10,21 +10,23 @@ import type { AppThemeTokens } from '../../theme/tokens'
  * 工单状态语义色板(与 web helpers.ts STATUS_BADGE 同源:
  * pending=灰 / open=amber / resolved=emerald / closed=orange / rejected=red,
  * 固定语义色,不随主题换档 —— 与 status-styles.ts STATUS_PALETTE 同一先例)。
+ * 底色/前景一律取色相族唯一真相源 rnHue(端内不得再手抄 rgba/#hex 字面量);
+ * alpha 按本屏原取值选档(0.10→tint、0.12→tintStrong),收编前后字符串逐字节相同。
  */
 export const TICKET_STATUS_PALETTE = {
-  pending: { bg: 'rgba(107,114,128,0.12)', fg: '#6b7280' },
-  open: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706' },
-  resolved: { bg: 'rgba(16,185,129,0.10)', fg: '#059669' },
-  closed: { bg: 'rgba(249,115,22,0.12)', fg: '#ea580c' },
-  rejected: { bg: 'rgba(239,68,68,0.12)', fg: rnTokens.danger.DEFAULT },
+  pending: { bg: rnHue.tailwindGray.tintStrong, fg: rnHue.tailwindGray.fg },
+  open: { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg },
+  resolved: { bg: rnHue.emerald.tint, fg: rnHue.emerald.fg },
+  closed: { bg: rnHue.orange.tintStrong, fg: rnHue.orange.fg },
+  rejected: { bg: rnHue.red.tintStrong, fg: rnTokens.danger.DEFAULT },
 } as const
 
-/** 优先级色板(与 web 端 amber/sky/red 语义同源)。 */
+/** 优先级色板(与 web 端 amber/sky/red 语义同源;取档同上,值来自 rnHue)。 */
 export const TICKET_PRIORITY_PALETTE = {
-  low: { bg: 'rgba(107,114,128,0.12)', fg: '#6b7280' },
-  medium: { bg: 'rgba(14,165,233,0.10)', fg: '#0284c7' },
-  high: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706' },
-  urgent: { bg: 'rgba(239,68,68,0.12)', fg: rnTokens.danger.DEFAULT },
+  low: { bg: rnHue.tailwindGray.tintStrong, fg: rnHue.tailwindGray.fg },
+  medium: { bg: rnHue.sky.tint, fg: rnHue.sky.fg },
+  high: { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg },
+  urgent: { bg: rnHue.red.tintStrong, fg: rnTokens.danger.DEFAULT },
 } as const
 
 /** 服务评价星标琥珀色(web fill-amber-500 同源,取 design-tokens 的 warning.amber 单一真相源)。 */
