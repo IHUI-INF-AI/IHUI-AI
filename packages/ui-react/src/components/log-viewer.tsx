@@ -67,7 +67,13 @@ export function LogViewer({
       onOpenChange={setOpen}
       className={cn('rounded-lg border bg-card', className)}
     >
-      <CollapsibleTrigger className="gap-2 px-3 py-2 transition-colors hover:bg-accent/50">
+      {/* 行数不够折叠阈值时,展开/折叠两种状态的可视内容完全相同(showToggle=false 时
+          visibleLines 两态同值),但原实现仍把它渲染成能点、有 hover、aria-expanded 会翻转的
+          按钮 ⇒ 用户点了"一个字都不变",判定这控件坏了。此时置为不可交互。 */}
+      <CollapsibleTrigger
+        disabled={!showToggle}
+        className={cn('gap-2 px-3 py-2 transition-colors', showToggle && 'hover:bg-accent/50')}
+      >
         <StatusIcon className={cn('h-4 w-4 shrink-0', statusClassName)} />
         {title !== undefined && (
           <span className="flex-1 truncate text-sm font-medium">{title}</span>
