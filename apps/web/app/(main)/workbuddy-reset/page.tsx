@@ -523,7 +523,7 @@ export default function WorkbuddyResetPage() {
                 {progress.done}/{progress.total}
               </span>
             </div>
-            <div className="bg-secondary h-1.5 w-full overflow-hidden rounded-full">
+            <div className="bg-secondary h-1.5 w-full overflow-hidden rounded-xs">
               <div
                 className="bg-primary h-full transition-all"
                 style={{
@@ -577,7 +577,11 @@ export default function WorkbuddyResetPage() {
             <CardDescription>{qNotice || t('quarantineDesc')}</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refreshSide()} disabled={qBusy}>
-            {qBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {qBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
             {t('quarantineRefresh')}
           </Button>
         </CardHeader>

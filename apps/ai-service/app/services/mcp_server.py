@@ -32,6 +32,18 @@ if TYPE_CHECKING:
 # `agent_security_prefs.resolve_security_config(主体)` 解析 —— 进程默认 ⊕ 该用户显式覆盖。
 # 主体唯一来源是 `call_tool` 的 `user_id` 形参(承载层注入)与 agent_loop_v2 在执行工具前
 # 发布的作用域;**绝不**读 arguments 里的 `__user_id`(那是 handler 入参,模型可填的形状)。
+# 读侧登记 + 编辑前脏判定(2026-10-31,逆向-复现-超越 §0.11;对标 Trae
+# `cc_file_read_state_cache` / Qoder `file-history`,并在"本仓多会话共写一棵树"这一轴上
+# 超越):read_file 成功后登记 (会话, 路径) → 内容指纹;file_edit 落盘前判一次脏 ——
+# 默认只在返回体点名(fresh/stale/never_read/undetermined 四档不并桶),显式严格档才拒写。
+# 会话身份只取 call_tool 覆盖注入的 `__session_id`(承载层写入,模型自报会被覆盖);
+# 判据本体在 app/core/file_read_state.py,本模块只接线、不复算(§0.6)。
+from app.core.file_read_state import (
+    judge_read_state,
+    read_state_field,
+    record_read,
+    record_self_write,
+)
 from app.core.internal_ticket import internal_service_headers
 from app.core.vault import filter_vault_env as _filter_vault_env
 
