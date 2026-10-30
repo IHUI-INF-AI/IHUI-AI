@@ -25,6 +25,8 @@
  *   node scripts/sync-prometheus-live-config.mjs --check     # 零副作用,只报会改什么
  *   node scripts/sync-prometheus-live-config.mjs --live-dir <目录>
  *   node scripts/sync-prometheus-live-config.mjs --reload    # 写回后 POST /-/reload 让线上生效
+ * 退出码:0=一致(或写回成功且 --reload 确认生效/未要求 --reload);1=--check 量到落后;
+ *   2=未判定(仓库源缺、运行副本目录取不到、或 --reload 生效未确认 —— 绝不把没确认写成绿,§0.3)。
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -74,7 +76,9 @@ export function deriveLiveConfig(srcYaml, repoRulesPath) {
     .split('\n')
     .filter((l) => !/^\s*#/.test(l))
     .join('\n')
-  const placeholder = scannable.match(/(?:password|passwd|secret|token|api_?key)\s*:\s*['"]?(__[A-Z0-9_]+__|CHANGEME|REPLACE[_A-Z]*|TBD|your[-_][A-Za-z0-9_-]*)/i)
+  const placeholder = scannable.match(
+    /(?:password|passwd|secret|token|api_?key)\s*:\s*['"]?(__[A-Z0-9_]+__|CHANGEME|REPLACE[_A-Z]*|TBD|your[-_][A-Za-z0-9_-]*)/i,
+  )
   if (placeholder) {
     throw new Error(
       `拒绝派生:配置里有占位符凭据 —— ${placeholder[0].trim()}\n` +
@@ -89,7 +93,8 @@ export function deriveLiveConfig(srcYaml, repoRulesPath) {
   // 而 reload 仍返回 200、账面"热加载成功",规则组却静默不装载(比报错更贵:没人知道)。
   // 现在逐条映射成绝对路径,列表长度与仓库同源;注释与其余文本逐字保留。
   const rulesDir = repoRulesPath.replace(/[\\/][^\\/]+$/, '')
-  const absolutize = (p) => (/^[A-Za-z]:[\\/]/.test(p) || p.startsWith('/') ? p : `${rulesDir}\\${p.replace(/\//g, '\\')}`)
+  const absolutize = (p) =>
+    /^[A-Za-z]:[\\/]/.test(p) || p.startsWith('/') ? p : `${rulesDir}\\${p.replace(/\//g, '\\')}`
   const mapped = []
   let inBlock = false
   let blockAt = -1
@@ -103,15 +108,22 @@ export function deriveLiveConfig(srcYaml, repoRulesPath) {
     }
     if (inBlock) {
       const item = line.match(/^\s*-\s+['"]([^'"]+)['"]\s*$/)
-      if (item) { mapped.push(absolutize(item[1])); continue }
-      if (/^\s+#/.test(line)) { out.push(line); continue } // 块内缩进注释:保留,不算出块
+      if (item) {
+        mapped.push(absolutize(item[1]))
+        continue
+      }
+      if (/^\s+#/.test(line)) {
+        out.push(line)
+        continue
+      } // 块内缩进注释:保留,不算出块
       inBlock = false
     }
     out.push(line)
   }
   for (let k = 0; k < mapped.length; k++) out.splice(blockAt + 1 + k, 0, `  - '${mapped[k]}'`)
   const missing = mapped.length === 0 || blockAt < 0
-  if (missing) throw new Error('prometheus.yml 里找不到 rule_files 列表 —— 拒绝产出一份没有规则的文件')
+  if (missing)
+    throw new Error('prometheus.yml 里找不到 rule_files 列表 —— 拒绝产出一份没有规则的文件')
   return out.join('\n') + (srcYaml.endsWith('\n') ? '\n' : '')
 }
 
@@ -121,12 +133,23 @@ function findLiveDir(override) {
   return null
 }
 
-export const __test__ = { parseArgs, findLiveDir, deriveLiveConfig, ROOT, REPO_DIR, CONFIG_SRC, RULES_IN_REPO, CANDIDATE_LIVE_DIRS }
+export const __test__ = {
+  parseArgs,
+  findLiveDir,
+  deriveLiveConfig,
+  ROOT,
+  REPO_DIR,
+  CONFIG_SRC,
+  RULES_IN_REPO,
+  CANDIDATE_LIVE_DIRS,
+}
 
 function main() {
   const args = parseArgs(process.argv.slice(2))
   if (args.help) {
-    console.info('用法: node scripts/sync-prometheus-live-config.mjs [--check|--reload|--live-dir <目录>]')
+    console.info(
+      '用法: node scripts/sync-prometheus-live-config.mjs [--check|--reload|--live-dir <目录>]',
+    )
     return 0
   }
   if (!existsSync(CONFIG_SRC)) {
@@ -136,8 +159,18 @@ function main() {
   const liveDir = findLiveDir(args.liveDir)
   if (!liveDir) {
     // 取不到 = 无法判定,绝不静默"通过"(本仓口径:把没判写成判过了是最高频失效型)
-    console.error('⚠️ 未判定:找不到部署机的 prometheus 运行副本目录(试过:' + CANDIDATE_LIVE_DIRS.join(', ') + ')')
-    console.error('   本机若不是部署机,这一格按设计不适用;若确实是部署机,先确认 D:\\DevEnv\\monitor\\prometheus 在位')
+    console.error(
+      '⚠️ 未判定:找不到部署机的 prometheus 运行副本目录(试过:' +
+        CANDIDATE_LIVE_DIRS.join(', ') +
+        ')',
+    )
+    // 出路行不得钉他机盘符(票 G-584 格③同型@2026-10-31 g38-s1 修):旧写法在这里写死
+    // `D:\DevEnv\monitor\prometheus`,而上一行"试过:"点名的是 devEnvRoot() 按当次实测推导的
+    // 落点(本机现读 G:\IHUI-AI\.DevEnv\...)—— 两句自相矛盾,照第二句去找目录的人永远找不着。
+    // 正解 = 只指回上一行点名的真实候选 + --live-dir 逃生舱,不出现任何写死盘符。
+    console.error(
+      '   本机若不是部署机,这一格按设计不适用;若确实是部署机,先确认上面点名的候选目录在位(落点由 devEnvRoot() 共用出口推导,换机即变,勿按他机盘符找);运行副本在别处时用 --live-dir <目录> 显式指定',
+    )
     return 2
   }
   const liveConfig = join(liveDir, 'prometheus.yml')
@@ -151,7 +184,10 @@ function main() {
     const jobsOf = (t) => [...t.matchAll(/job_name:\s*'?([A-Za-z0-9_-]+)'?/g)].map((m) => m[1])
     const missing = [...new Set(jobsOf(want))].filter((j) => !jobsOf(have).includes(j))
     const extra = [...new Set(jobsOf(have))].filter((j) => !jobsOf(want).includes(j))
-    if (missing.length) console.info('   线上缺的抓取 job:' + missing.join(', ') + '  ⇒ 依赖这些 job 的 Down 类告警恒不成立')
+    if (missing.length)
+      console.info(
+        '   线上缺的抓取 job:' + missing.join(', ') + '  ⇒ 依赖这些 job 的 Down 类告警恒不成立',
+      )
     if (extra.length) console.info('   线上多出的抓取 job:' + extra.join(', '))
     return 1
   } else {
@@ -161,9 +197,12 @@ function main() {
       renameSync(liveConfig, join(liveDir, 'pre-sync-backups', `prometheus.yml.${stamp}`))
     }
     writeFileSync(liveConfig, want, 'utf8')
-    console.info('✅ 已按仓库源重写运行副本(旧副本存于 pre-sync-backups/prometheus.yml.' + stamp + ')')
+    console.info(
+      '✅ 已按仓库源重写运行副本(旧副本存于 pre-sync-backups/prometheus.yml.' + stamp + ')',
+    )
   }
 
+  let reloadConfirmed = true
   if (args.reload) {
     // 热加载而非重启服务:失败时 prometheus 保留上一份好配置继续跑,不会把监控打断
     try {
@@ -181,18 +220,30 @@ function main() {
           'POST',
           DEFAULT_RELOAD_URL,
         ],
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         { windowsHide: true, encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] },
       )
         .toString()
         .trim()
       if (code === '200') console.info('✅ 已通知线上热加载(POST /-/reload = 200)')
-      else console.warn(`⚠️ 热加载返回 ${code || '空'} —— 复跑 --check 核配置,必要时人工重启该服务`)
+      else {
+        // 生效未确认 ⇒ 未判定,不记绿(票 G-584 格③"缺服务时静默记绿"同型@2026-10-31 g38-s1 修):
+        // 文件写回只是"盘上事实",POST 没回 200 = 运行实例仍拿着旧配置。旧写法此处 warn 后仍 return 0,
+        // 而下游 check-ops-patrol P1 用 /热加载|reload/ && rc===0 定案 ⇒ "没生效"被读成"已修复"。
+        reloadConfirmed = false
+        console.error(
+          `❌ 未判定:热加载返回 ${code || '空'} —— 配置已写回但"生效"未确认;复跑 --check 核配置,必要时人工重启该服务`,
+        )
+      }
     } catch (e) {
-      console.error('⚠️ 热加载调用失败(不影响配置文件已写回):' + String(e && e.message ? e.message : e).slice(0, 160))
+      reloadConfirmed = false
+      console.error(
+        '❌ 未判定:热加载调用失败(不影响配置文件已写回,但运行实例未确认生效):' +
+          String(e && e.message ? e.message : e).slice(0, 160),
+      )
     }
   }
-  return 0
+  return reloadConfirmed ? 0 : 2
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
