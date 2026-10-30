@@ -478,6 +478,64 @@ def _safe_filename(url: str, kind: str | None) -> str:
     return name
 
 
+# ── 同源代理响应加固(2026-10-30 补;修实测确认的高危同源 XSS) ──────────────────
+# 立因:/media/image、/media/stream、/media/download 三个端点是**同源**端点,而修前
+# 都把源站 content-type 原样转发。攻击者构造
+#     /api/media/image?url=https://evil.example/x.html
+# 浏览器就会在**同源**下把攻击者 HTML 当文档渲染并执行其中脚本 —— 同源 XSS:可读
+# 同源 localStorage、可带 httpOnly auth_token cookie 发同源请求(等于账号接管)。
+# 修前实测:该 URL 返回 200 + `content-type: text/html`,既无 nosniff 也无 CSP。
+#
+# 三道防线(纵深防御,缺一不可):
+#   ① **content-type 白名单**:非白名单一律 415,绝不把源站类型原样转发;
+#   ② **显式拒绝 image/svg+xml**:SVG 可内嵌 <script>,同源直接导航即 XSS
+#      (在 <img> 上下文虽安全,但攻击者能直接导航,不能指望渲染上下文);
+#   ③ 一律加 `X-Content-Type-Options: nosniff` + CSP `default-src 'none'; sandbox`
+#      —— 即便类型判断被绕过或旧浏览器忽略 nosniff,该文档也不加载任何子资源、不执行脚本。
+_IMAGE_CT_ALLOW = frozenset({
+    "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp",
+    "image/avif", "image/bmp", "image/tiff", "image/x-icon", "image/vnd.microsoft.icon",
+    # 部分图床不写具体类型;octet-stream 浏览器不会内联渲染成文档,配合 nosniff 安全。
+    "application/octet-stream", "binary/octet-stream",
+})
+# 「可渲染成文档 / 可执行」的类型:即便将来误加进白名单,也先被这张表拦下。
+_CT_RENDERABLE_DENY = frozenset({
+    "text/html", "application/xhtml+xml", "text/xml", "application/xml",
+    "image/svg+xml", "text/plain", "text/css",
+    "application/javascript", "text/javascript", "application/json",
+})
+_MEDIA_CT_PREFIXES = ("video/", "audio/")
+_MEDIA_CT_EXACT = frozenset({
+    "application/octet-stream", "binary/octet-stream",
+    "application/mp4", "application/ogg", "application/vnd.apple.mpegurl",
+    "application/x-mpegurl", "application/dash+xml",
+})
+
+
+def _normalize_ctype(raw: str | None) -> str:
+    """取 media type 主值(去参数、小写、去空白)。"""
+    return (raw or "").split(";", 1)[0].strip().lower()
+
+
+def _proxy_hardening_headers() -> dict[str, str]:
+    """同源代理通用安全响应头:禁嗅探 + 禁一切子资源/脚本。"""
+    return {
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
+    }
+
+
+def _raise_unsafe_ctype(ctype: str, kind: str) -> None:
+    """内容类型不合规时抛 415(附可读原因,便于排障)。"""
+    raise HTTPException(
+        status_code=415,
+        detail=(
+            f"{kind}代理拒绝该内容类型({ctype or '未声明'}):"
+            "只允许安全的图片/音视频类型,避免同源端点被用作任意 HTML 托管(同源 XSS)"
+        ),
+    )
+
+
 @router.get("/media/download")
 async def download_media_artifact(url: str, request: Request) -> Any:
     """按产物直链代理下载(带 Content-Disposition: attachment)。
@@ -524,6 +582,9 @@ async def download_media_artifact(url: str, request: Request) -> Any:
             await client.aclose()
 
     headers = {"Content-Disposition": f'attachment; filename="{fname}"'}
+    # 纵深防御:attachment 已强制下载不渲染,再加 nosniff + CSP 兜住
+    # 「浏览器忽略 attachment / 被中间层改写」这类极端情况。
+    headers.update(_proxy_hardening_headers())
     if clen and clen.isdigit():
         headers["Content-Length"] = clen
     return StreamingResponse(_body(), media_type=ctype, headers=headers)
@@ -540,8 +601,9 @@ async def download_media_artifact(url: str, request: Request) -> Any:
 #  - **透传浏览器 Range 请求**到源站,原样回传 200/206 + Content-Range +
 #    Accept-Ranges,使播放器可拖拽进度、可 seek(不转发 Range 则进度条拖不动、
 #    部分浏览器全屏异常);
-#  - 不返回 Content-Disposition,头部透传上游 content-type(视频格式由源站决定,
-#    切勿用 media_type 覆盖,否则浏览器按 octet-stream 处理);
+#  - 不返回 Content-Disposition,透传上游 content-type —— 但**先过类型白名单**
+#    (2026-10-30 补:仅 video/*、audio/* 与少数容器类型放行,其余 415;否则
+#    /media/stream?url=<任意HTML> 会在同源渲染攻击者页面 = 同源 XSS)。
 #  - 浏览器经 web rewrites(/api/media/* → 8803)同源访问,自动带 httpOnly
 #    auth_token cookie,无需在 <video src> 里拼 token,也无需 CSP 放开 https:
 #    ⇒ media-src 可收窄回 'self' blob:,外泄信道面清零(根治 img-src 同型遗留)。
@@ -589,6 +651,17 @@ async def stream_media_artifact(url: str, request: Request) -> Any:
         v = resp.headers.get(k)
         if v:
             passthrough[k] = v
+
+    # 同源代理加固:只放行音视频类型,绝不把源站 text/html 之类原样转发
+    # (修前 /media/stream?url=<任意HTML> 会返回 200 + text/html ⇒ 同源 XSS)。
+    raw_ct = _normalize_ctype(passthrough.get("content-type"))
+    if raw_ct in _CT_RENDERABLE_DENY or not (
+        raw_ct.startswith(_MEDIA_CT_PREFIXES) or raw_ct in _MEDIA_CT_EXACT
+    ):
+        await resp.aclose()
+        await client.aclose()
+        _raise_unsafe_ctype(raw_ct, "音视频")
+    passthrough.update(_proxy_hardening_headers())
 
     async def _stream_body() -> Any:
         try:
@@ -646,8 +719,18 @@ async def proxy_image(url: str, request: Request) -> Any:
         await client.aclose()
         raise HTTPException(status_code=502, detail=f"源站返回 {status}")
 
-    ctype = resp.headers.get("content-type", "image/png") or "image/png"
+    # 同源代理加固(核心):本端点是同源端点,修前把源站类型原样转发 ⇒
+    # /media/image?url=<任意HTML> 返回 200 + text/html,浏览器同源渲染攻击者页面。
+    # 只放行图片白名单类型;空类型/可渲染类型一律 415,绝不原样透传。
+    raw_ct = _normalize_ctype(resp.headers.get("content-type"))
+    if raw_ct in _CT_RENDERABLE_DENY or raw_ct not in _IMAGE_CT_ALLOW:
+        await resp.aclose()
+        await client.aclose()
+        _raise_unsafe_ctype(raw_ct, "图片")
+    ctype = raw_ct
+
     passthrough: dict[str, str] = {"cache-control": "private, max-age=3600"}
+    passthrough.update(_proxy_hardening_headers())
     clen = resp.headers.get("content-length")
     if clen and clen.isdigit():
         passthrough["Content-Length"] = clen
@@ -660,7 +743,7 @@ async def proxy_image(url: str, request: Request) -> Any:
             await resp.aclose()
             await client.aclose()
 
-    # 不显式传 status_code(默认 200);内容类型经 media_type 透传,不内联下载
+    # 透传上游 content-type(已过白名单校验),不内联下载
     return StreamingResponse(_body(), media_type=ctype, headers=passthrough)
 
 
