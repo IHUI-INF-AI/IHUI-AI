@@ -315,12 +315,17 @@ test('T21 同 spec 双路由:锚点按 spec+route 配对,一张 hosted 一张 ha
   const base = rows('hand', ['settings.title'], 'hosted', [])
   const now = rows('hand', ['settings.title'], 'hosted', [])
   assert.deepEqual(gate.regressions(now, base), [])
-  assert.equal(gate.regressions(rows('hand', ['settings.title', 'settings.new'], 'hosted', []), base).length, 1)
+  assert.equal(
+    gate.regressions(rows('hand', ['settings.title', 'settings.new'], 'hosted', []), base).length,
+    1,
+  )
 })
 
 test('T22 新增的镜像页是端内手写形制 ⇒ 判红(不许再写第二份重复实现)', () => {
   const base = { rows: [] }
-  const now = { rows: [{ spec: SPEC, route: 'pages/new/index', form: 'hand', missing: ['settings.title'] }] }
+  const now = {
+    rows: [{ spec: SPEC, route: 'pages/new/index', form: 'hand', missing: ['settings.title'] }],
+  }
   const reg = gate.regressions(now, base)
   assert.equal(reg.length, 1)
   assert.equal(reg[0].kind, 'new-hand')
@@ -433,8 +438,16 @@ test('T22 装车锁:computeFidelity 的 mpKeys 必须并入同目录模块(只�
 })
 
 test('T23 同值别名:两套命名空间同一句译文 ⇒ 记已还原;译文不同或取不到值 ⇒ 一律不减免', () => {
-  const values = { 'settings.version': '版本', 'settings.logoutConfirm': '确认退出当前账号?', 'settings.x': '' }
-  const mp = { 'setting.version': '版本', 'setting.logoutConfirm': '确定要退出登录吗?', 'setting.y': '版本 ' }
+  const values = {
+    'settings.version': '版本',
+    'settings.logoutConfirm': '确认退出当前账号?',
+    'settings.x': '',
+  }
+  const mp = {
+    'setting.version': '版本',
+    'setting.logoutConfirm': '确定要退出登录吗?',
+    'setting.y': '版本 ',
+  }
   const hit = gate.aliasSameKeys(
     ['settings.version', 'settings.logoutConfirm', 'settings.x', 'settings.unknown'],
     new Set(['setting.version', 'setting.logoutConfirm', 'setting.y']),
@@ -442,19 +455,34 @@ test('T23 同值别名:两套命名空间同一句译文 ⇒ 记已还原;译文
     mp,
   )
   assert.deepEqual(hit, ['settings.version'], '只认逐字相同;空值与词包缺键都不减免')
-  assert.deepEqual(gate.aliasSameKeys(['a.b'], new Set(['x.y']), () => 'v', null), [], '词包取不到 ⇒ 零减免')
+  assert.deepEqual(
+    gate.aliasSameKeys(['a.b'], new Set(['x.y']), () => 'v', null),
+    [],
+    '词包取不到 ⇒ 零减免',
+  )
 })
 
 test('T24 flattenPack:嵌套命名空间按点拼回,与 t 的键形态一致', () => {
-  const flat = gate.flattenPack({ settings: { version: '版本', pwd: { tooShort: '太短' } }, top: '顶' })
+  const flat = gate.flattenPack({
+    settings: { version: '版本', pwd: { tooShort: '太短' } },
+    top: '顶',
+  })
   assert.equal(flat['settings.version'], '版本')
   assert.equal(flat['settings.pwd.tooShort'], '太短')
   assert.equal(flat.top, '顶')
 })
 
 test('T25 原生标题载体:config 的 navigationBarTitleText 也是页面真实文案', () => {
-  assert.equal(gate.localConfigRel('apps/miniapp-taro/src/pages/study/plan.tsx'), 'apps/miniapp-taro/src/pages/study/plan.config.ts')
-  assert.equal(gate.configTitleOf("export default definePageConfig({\n  navigationBarTitleText: '学习计划',\n})"), '学习计划')
+  assert.equal(
+    gate.localConfigRel('apps/miniapp-taro/src/pages/study/plan.tsx'),
+    'apps/miniapp-taro/src/pages/study/plan.config.ts',
+  )
+  assert.equal(
+    gate.configTitleOf(
+      "export default definePageConfig({\n  navigationBarTitleText: '学习计划',\n})",
+    ),
+    '学习计划',
+  )
   assert.equal(gate.configTitleOf('export default {}'), null, '没有标题 ⇒ null,不减免')
   const hit = gate.aliasSameKeys(
     ['studyPlan.title'],
@@ -472,6 +500,51 @@ test('P4 并集语义:住在 messages/shared 里的命名空间不算缺(少算�
     available: new Set(['settings', 'profile']), // 调用方传的是 本端包 ∪ shared
   })
   assert.deepEqual(gap, [])
+})
+
+// ── 键级撤除台账(gapOfPair)──────────────────────────────────────────────
+const G4 = {
+  sharedKeys: ['a.one', 'a.two', 'a.three', 'a.four'],
+  mpKeys: new Set(['a.one']),
+}
+
+test('G1 三档互斥:页面有键=还原;同值别名=还原;撤除=出射程;剩下的才是缺', () => {
+  const r = gate.gapOfPair({
+    ...G4,
+    aliasSame: ['a.two'],
+    retractedOf: (k) => k === 'a.three',
+  })
+  assert.deepEqual(r.missing, ['a.four'])
+  assert.deepEqual(r.retracted, ['a.three'])
+  // 撤除那一枚既不在 missing 也不在 covered:它出射程。写成 covered 就是本台账要治的假绿。
+  assert.equal(r.scope, 3)
+  assert.equal(r.covered, 2)
+  assert.equal(r.scope - r.covered - r.missing.length, 0)
+})
+
+test('G2 方向锁:台账不认(返 false)⇒ 一分不宽,那一枚照旧算缺', () => {
+  const r = gate.gapOfPair({ ...G4, aliasSame: [], retractedOf: () => false })
+  assert.deepEqual(r.missing, ['a.two', 'a.three', 'a.four'])
+  assert.equal(r.scope, 4)
+  assert.equal(r.covered, 1)
+})
+
+test('G3 撤除不能盖掉页面真有的键:retractedOf 只对"未还原"那一集生效', () => {
+  const r = gate.gapOfPair({ ...G4, aliasSame: [], retractedOf: () => true })
+  assert.deepEqual(r.missing, [])
+  assert.deepEqual(r.retracted, ['a.two', 'a.three', 'a.four'], 'a.one 页面自己有,不进撤除集')
+  assert.equal(r.scope, 1)
+})
+
+test('G4 同值别名优先于撤除:别名已经算还原的键不该被台账"再免一次"而虚增射程', () => {
+  const r = gate.gapOfPair({
+    ...G4,
+    aliasSame: ['a.two'],
+    retractedOf: () => true,
+  })
+  assert.deepEqual(r.retracted, ['a.three', 'a.four'])
+  assert.equal(r.scope, 2)
+  assert.equal(r.covered, 2, 'a.one 真还原 + a.two 同值别名')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
