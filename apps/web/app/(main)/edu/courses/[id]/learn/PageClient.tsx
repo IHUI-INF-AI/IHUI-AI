@@ -97,7 +97,12 @@ export default function EduCourseLearnPage() {
     mutationFn: () =>
       apiOrThrow(`/api/edu/courses/${id}/qa`, {
         method: 'POST',
-        body: JSON.stringify({ question: qaText }),
+        // 同一个 createQASchema:必填 title(max 200)。原实现发 {question: …} ⇒ 必 400,
+        // 用户在课程学习页的提问一直发不出去。
+        body: JSON.stringify({
+          title: qaText.trim().slice(0, 200),
+          content: qaText.trim().length > 200 ? qaText.trim() : undefined,
+        }),
       }),
     onSuccess: () => {
       setQaText('')

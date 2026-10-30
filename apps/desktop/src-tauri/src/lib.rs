@@ -731,11 +731,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
         .show_menu_on_left_click(matches!(prefs.tray_single_click, TraySingleClick::Menu))
         .on_menu_event(|app, event| match event.id().as_ref() {
             "tray.new_chat" => {
-                // emit 事件给前端,前端处理新建对话(切到 /agents + 重置 chat store)
+                // 动作统一走闸门投递(渲染端未就绪则入队,就绪后补投);窗口显隐与投递解耦
+                deliver_tray_action(app, "new_chat");
                 if let Some(window) = app.get_webview_window("main") {
-                    if let Err(e) = window.emit("desktop-tray-action", "new_chat") {
-                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
-                    }
                     log::info!("[window-show] site=tray_menu_new_chat trigger=用户点托盘菜单「新建对话」");
                     let _ = window.show();
                     let _ = window.set_focus();
@@ -754,22 +752,16 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 }
             }
             "tray.theme" => {
-                // emit 事件给前端,前端切换主题(light/dark)
+                deliver_tray_action(app, "toggle_theme");
                 if let Some(window) = app.get_webview_window("main") {
-                    if let Err(e) = window.emit("desktop-tray-action", "toggle_theme") {
-                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
-                    }
                     log::info!("[window-show] site=tray_menu_theme trigger=用户点托盘菜单「切换主题」");
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
             }
             "tray.settings" => {
-                // emit 事件给前端,前端跳转 /settings
+                deliver_tray_action(app, "open_settings");
                 if let Some(window) = app.get_webview_window("main") {
-                    if let Err(e) = window.emit("desktop-tray-action", "open_settings") {
-                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
-                    }
                     log::info!("[window-show] site=tray_menu_settings trigger=用户点托盘菜单「设置」");
                     let _ = window.show();
                     let _ = window.set_focus();
@@ -780,11 +772,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 // (auto_refresh::check_app_update)若有在飞的下载/结果回调,
                 // 按 checkId 作废;新检查一旦开始,旧回调没有消费价值。
                 auto_refresh::invalidate_inflight_update_checks();
-                // emit 事件给前端,前端调 updater plugin 检查更新(带 UI 反馈)
+                // 动作走闸门投递:检查更新是"点了就该有反馈"的动作,冷启动期丢失尤其明显
+                deliver_tray_action(app, "check_update");
                 if let Some(window) = app.get_webview_window("main") {
-                    if let Err(e) = window.emit("desktop-tray-action", "check_update") {
-                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
-                    }
                     log::info!("[window-show] site=tray_menu_update trigger=用户点托盘菜单「检查更新」");
                     let _ = window.show();
                     let _ = window.set_focus();
@@ -2748,6 +2738,251 @@ pub(crate) fn reset_deep_link_gate_for_navigation(label: &str) {
     );
 }
 
+// ================== 托盘动作就绪闸门(2026-10-30 立 · 「未就绪不丢,就绪后补投」)==================
+//
+// 立因(冷启动点托盘「新建对话/切换主题/设置/检查更新」,用户表现"点了没反应,再点一次又好了"):
+// 托盘菜单点击抵达 Rust 的时刻,早于 webview 里 `listen('desktop-tray-action')` 注册的时刻。
+// 旧实现是 4 处各自 `if let Some(window) = … { window.emit(…) }`:
+//   ① 窗口在、渲染端还没订阅 ⇒ emit 返回 Ok 而无人接收,动作静默蒸发(emit 成功 ≠ 送达);
+//   ② 窗口不在 ⇒ 整条回调什么都不做,连一行日志都没有;
+//   ③ 四份重复的 emit+log 各自漂移,改一处忘三处(本仓 §0.6 同一条禁令)。
+// 机制与深链闸门同构:未投递的动作进**有上限**的 pending 队列并打日志;渲染端注册完监听后调
+// `take_pending_tray_actions` 一次性取回(取即清)并把闸门标成就绪,此后抵达才走直投。
+//
+// 与深链闸门唯一的刻意差别:动作**不按内容去重**。用户连点两次「切换主题」就是要切两次,
+// 按动作串去重会把第二次吃掉;深链按 URL 去重是因为同一个 sso_code 只能换一次 token。
+
+/// 托盘动作的唯一投递目标窗口 label。take 命令按它绑定,别的窗口取不走。
+const TRAY_TARGET_LABEL: &str = "main";
+/// 事件名 —— 与 `use-desktop.ts` 的 `listen('desktop-tray-action')` 逐字同名。
+const TRAY_EVENT: &str = "desktop-tray-action";
+/// 前端取回积压的命令名 —— 与 `invoke_handler!` 注册项、`use-desktop.ts` 的 `invoke(...)` 逐字同名。
+const TRAY_TAKE_COMMAND: &str = "take_pending_tray_actions";
+/// pending 队列上限。动作不去重 ⇒ 只靠上限兜底;溢出丢最旧的并计数(静默变短等于伪造完整性)。
+const TRAY_PENDING_CAP: usize = 16;
+
+/// 有上限的待补投动作队列。丢弃必须计数 + warn。
+#[derive(Default)]
+struct TrayActionPending {
+    actions: VecDeque<String>,
+    /// 因溢出被丢弃的条数
+    dropped: usize,
+}
+
+impl TrayActionPending {
+    fn push(&mut self, action: &str) -> bool {
+        self.actions.push_back(action.to_string());
+        while self.actions.len() > TRAY_PENDING_CAP {
+            let lost = self.actions.pop_front().unwrap_or_default();
+            self.dropped += 1;
+            log::warn!(
+                "[tray-action] pending 超上限 {} ⇒ 丢弃最旧一条(累计丢弃 {} 条): {}",
+                TRAY_PENDING_CAP,
+                self.dropped,
+                lost
+            );
+        }
+        true
+    }
+
+    /// 取回并清空(取即清 ⇒ 同一个动作不会被补投两次)。
+    fn take_all(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.actions).into_iter().collect()
+    }
+
+    fn clear(&mut self) -> usize {
+        let n = self.actions.len();
+        self.actions.clear();
+        n
+    }
+}
+
+#[derive(Default)]
+struct TrayGateState {
+    /// 渲染端是否已注册监听 —— 由 take_pending_tray_actions 置真;目标窗口销毁**或导航发起**时复位。
+    target_ready: bool,
+    pending: TrayActionPending,
+}
+
+static TRAY_GATE: LazyLock<Mutex<TrayGateState>> =
+    LazyLock::new(|| Mutex::new(TrayGateState::default()));
+
+/// 取闸门。投递路径上不得因锁中毒而 panic —— 那会把"这一次点击"变成真的丢掉。
+fn tray_gate() -> std::sync::MutexGuard<'static, TrayGateState> {
+    match TRAY_GATE.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::warn!("[tray-action] 闸门锁中毒(前一持有者 panic),仍取回其内容继续投递");
+            poisoned.into_inner()
+        }
+    }
+}
+
+/// 托盘动作的唯一投递入口:就绪且窗口在 ⇒ 直投;否则(或直投失败)入队等前端取回。
+/// 绝不静默返回 —— 每个出口都有日志。
+fn deliver_tray_action(app: &tauri::AppHandle, action: &str) {
+    let window = app.get_webview_window(TRAY_TARGET_LABEL);
+    // 先只读判据、马上放锁:emit 会同步派发 IPC,若在前端回调里再 invoke take,
+    // 持锁跨 emit 就是一次自死锁(std Mutex 不可重入)。
+    let target_ready = { tray_gate().target_ready && window.is_some() };
+
+    if target_ready {
+        if let Some(w) = window.as_ref() {
+            match w.emit(TRAY_EVENT, action) {
+                Ok(_) => {
+                    log::info!("[tray-action] 直投 {} (渲染端已就绪)", action);
+                    return;
+                }
+                Err(e) => {
+                    log::warn!("[tray-action] {} emit 失败 ⇒ 回填 pending 等前端取回: {}", action, e);
+                }
+            }
+        }
+    } else {
+        let block_reason = if window.is_none() {
+            "main 窗口尚未创建"
+        } else {
+            "渲染端尚未注册监听(冷启动窗口期)"
+        };
+        log::warn!(
+            "[tray-action] {} 无法直投({}) ⇒ 暂存待补投(前端就绪后经 {} 取回)",
+            action,
+            block_reason,
+            TRAY_TAKE_COMMAND
+        );
+    }
+
+    let mut gate = tray_gate();
+    gate.pending.push(action);
+    let pending_now = gate.pending.actions.len();
+    drop(gate);
+    log::info!("[tray-action] 队列现有 {} 条待补投", pending_now);
+}
+
+/// 前端在 `listen('desktop-tray-action')` 注册成功之后立刻调用:一次性取回积压并清账,
+/// 同时把闸门标为"已就绪"(此后抵达才允许直投)。
+/// 语义:①**取即清** ⇒ 同一动作不会被补投两次;②按 label 绑定 ⇒ 非目标窗口一律空手而归。
+#[tauri::command]
+fn take_pending_tray_actions(window: tauri::WebviewWindow) -> Vec<String> {
+    if window.label() != TRAY_TARGET_LABEL {
+        log::warn!(
+            "[tray-action] 窗口 {} 试图取回目标窗口 {} 的托盘积压 —— 已拒绝(防串窗)",
+            window.label(),
+            TRAY_TARGET_LABEL
+        );
+        return Vec::new();
+    }
+    let mut gate = tray_gate();
+    let first_take = !gate.target_ready;
+    gate.target_ready = true;
+    let backlog = gate.pending.take_all();
+    drop(gate);
+    log::info!(
+        "[tray-action] 渲染端就绪(本次点亮就绪标记: {}) —— 补投 {} 条,队列已清空",
+        first_take,
+        backlog.len()
+    );
+    backlog
+}
+
+/// 目标窗口销毁 ⇒ 闸门清账并复位就绪标记(不留跨会话残留)。
+fn reset_tray_gate_on_destroy(label: &str) {
+    if label != TRAY_TARGET_LABEL {
+        return;
+    }
+    let mut gate = tray_gate();
+    let cleared = gate.pending.clear();
+    gate.target_ready = false;
+    drop(gate);
+    if cleared > 0 {
+        log::warn!(
+            "[tray-action] {} 窗口销毁:清掉 {} 条未消费的托盘动作,就绪标记已复位",
+            TRAY_TARGET_LABEL,
+            cleared
+        );
+    }
+}
+
+/// 导航发起处(auto_refresh.rs 的 location.href / reload 各站点)必须先调用本函数:
+/// 页面重载期间渲染端不存在,此时若按"曾经就绪过"直投,动作会打在没有监听者的 webview 上
+/// 静默消失 —— 与冷启动丢动作同型,只是换了触发面。队列保留(那是未兑现的补投债务)。
+pub(crate) fn reset_tray_gate_for_navigation(label: &str) {
+    if label != TRAY_TARGET_LABEL {
+        return;
+    }
+    let mut gate = tray_gate();
+    let was_ready = gate.target_ready;
+    gate.target_ready = false;
+    let kept = gate.pending.actions.len();
+    drop(gate);
+    log::info!(
+        "[tray-action] 导航发起:就绪标记已复位(原值 {}) —— 导航期间的动作转入队,既有 {} 条补投债务保留",
+        was_ready,
+        kept
+    );
+}
+
+#[cfg(test)]
+mod tray_gate_tests {
+    use super::{TrayActionPending, TRAY_PENDING_CAP};
+
+    fn actions(n: usize) -> Vec<String> {
+        (0..n).map(|i| format!("a{}", i)).collect()
+    }
+
+    /// 与深链闸门的**刻意差别**:动作按内容不去重。
+    /// 用户连点两次「切换主题」就是要切两次;照抄深链的 URL 去重会把第二次吃掉。
+    /// 变异对照:给 push 加一句"已在队里则跳过",本用例立刻红。
+    #[test]
+    fn 同一动作连点两次必须排队两条() {
+        let mut pending = TrayActionPending::default();
+        pending.push("toggle_theme");
+        pending.push("toggle_theme");
+        assert_eq!(
+            pending.take_all(),
+            vec!["toggle_theme".to_string(), "toggle_theme".to_string()],
+            "动作不去重:两次点击必须补投两次,否则用户觉得托盘时灵时不灵"
+        );
+    }
+
+    /// 取即清 ⇒ 同一个动作结构上不可能被补投两次。
+    #[test]
+    fn 取即清_第二次取回为空() {
+        let mut pending = TrayActionPending::default();
+        for a in actions(3) {
+            pending.push(&a);
+        }
+        assert_eq!(pending.take_all().len(), 3);
+        assert!(pending.take_all().is_empty(), "取即清:同一动作不得被补投两次");
+    }
+
+    /// 溢出必须丢最旧并计数 —— 静默变短等于伪造完整性。
+    #[test]
+    fn 超上限丢最旧并计数() {
+        let mut pending = TrayActionPending::default();
+        for a in actions(TRAY_PENDING_CAP + 2) {
+            pending.push(&a);
+        }
+        let got = pending.take_all();
+        assert_eq!(got.len(), TRAY_PENDING_CAP, "队列长度必须被硬限住");
+        assert_eq!(pending.dropped, 2, "丢弃必须计数");
+        assert_eq!(got.first().map(String::as_str), Some("a2"), "丢的是最旧两条");
+        let last_expected = format!("a{}", TRAY_PENDING_CAP + 1);
+        assert_eq!(got.last().map(String::as_str), Some(last_expected.as_str()));
+    }
+
+    /// 窗口销毁清账:返回清掉的条数,且清完队列为空(不留跨会话残留)。
+    #[test]
+    fn 清账返回清理条数() {
+        let mut pending = TrayActionPending::default();
+        for a in actions(4) {
+            pending.push(&a);
+        }
+        assert_eq!(pending.clear(), 4);
+        assert!(pending.take_all().is_empty());
+    }
+}
+
 #[cfg(test)]
 mod deep_link_gate_tests {
     use super::{
@@ -3496,6 +3731,8 @@ pub fn run() {
                 // 2026-09-26 A10C-1:深链闸门的目标窗口销毁 ⇒ 清账 + 复位就绪标记,
                 // 否则积压的 sso_code 会活到下一次冷启动、被投给另一次会话的渲染端。
                 reset_deep_link_gate_on_destroy(&label);
+                // 2026-10-30:托盘动作闸门同源清账 —— 会话终结后残留的动作不得被下一次冷启动消费
+                reset_tray_gate_on_destroy(&label);
             }
         })
         // 本地 git/diff 通道：授权根/允许基目录/git 候选都存在这份宿主状态里，
@@ -3858,6 +4095,7 @@ pub fn run() {
             resolve_close_choice,
             set_desktop_badge,
             take_pending_deep_links,
+            take_pending_tray_actions,
             // 2026-10-09 签到捕获(WP-C):7 条命令,判据与执行都在 checkin_capture.rs,这里只注册。
             checkin_capture::checkin_detect_trae_dir,
             checkin_capture::checkin_capture_jwts,

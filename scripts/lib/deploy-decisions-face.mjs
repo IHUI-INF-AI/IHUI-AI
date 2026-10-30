@@ -24,7 +24,7 @@
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve as resolvePath } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { devEnvRoot } from '../seal-c-root-stray.mjs'
+import { prodCheckoutRoot } from './prod-checkout-root.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // 本文件住在 `scripts/lib/`,仓库根要退两级(`scripts/lib` → `scripts` → `<repo>`)。
@@ -40,7 +40,14 @@ export function candidatesFor({ repoRoot = REPO, env = process.env } = {}) {
   if (override) return [{ kind: 'env', root: dirname(override), path: override }]
   let prodDir = null
   try {
-    prodDir = join(devEnvRoot(repoRoot), 'ihui-prod')
+    // 生产候选一律问单源（2026-10-30，RP-90）：此前这里自己 `join(devEnvRoot(...),'ihui-prod')`，
+    // 在"仓内 .DevEnv 在、ihui-prod 留盘根侧"的机器上该候选恒缺 ⇒ 链子静默回落主仓影子账 ——
+    // 正是本文件头注立项要治的"各处各钉主仓影子账"那一格的残留形态。
+    // ⚠️ 这里**故意不把 exists 透给单源**：candidatesFor 的职责是"列出候选"，存在性裁决属于
+    // chooseDeployDecisionsFace 那一层；一旦候选生成也吃调用方注入的 fs，就会出现"期望值用真值面
+    // 算、候选用假值面生成"的撕裂（2026-10-30 实测被自家测试抓住一次）。单源在真值面上自选根，
+    // 形态并集照样生效。
+    prodDir = prodCheckoutRoot(repoRoot)
   } catch {
     prodDir = null
   }

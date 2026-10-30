@@ -3161,6 +3161,26 @@ pub fn checkin_reset_device_ids(
         "重置设备标识",
         "将重置本机设备指纹(可含 Machine GUID/浏览器 Cookie/MAC)。确认执行?",
     )?;
+    reset_device_ids_core(include_machine_guid, clean_browser_cookies, deep_reset, reset_mac)
+}
+
+/// 原生确认闸**之内**的本体。
+///
+/// 2026-10-30 抽出:`checkin_reset_device_ids` 自 fa6586a19b(10-27「破坏性命令加原生确认闸」)
+/// 起多了一个 `app: tauri::AppHandle` 形参,而 `#[cfg(test)]` 的真机实测仍在按四个实参调用 ——
+/// `#[ignore]` 只拦运行、不拦编译,于是 `cargo test --lib` 自那时起 E0061 恒编译不过
+/// (整 crate 一条测试都跑不了,包括与之无关的托盘闸门单测)。
+///
+/// 抽本体的理由:确认闸需要真实 AppHandle 且是交互式的,测试两种都拿不到;而真机实测要验的
+/// 是**重置本体**(reset_device_ids 的全部参数与副作用),不该被 UI 闸门挡在门外。
+/// 真机实测因此改为「本体同款」而非「UI 按钮同款」—— 唯一差别是少了那一次人工确认弹窗,
+/// 而弹窗本身由 require_native_confirm 自己的单测覆盖。
+fn reset_device_ids_core(
+    include_machine_guid: bool,
+    clean_browser_cookies: bool,
+    deep_reset: bool,
+    reset_mac: Option<bool>,
+) -> Result<ResetReport, IpcError> {
     let dir = require_trae_dir()?;
     // kill_running 恒 true:用户点重置=授权自动关闭 TRAE(2026-10-09 用户指令「别让用户操作」)
     // reset_mac 向后兼容:已部署生产页不传 ⇒ None ⇒ 默认关(层⑬记 skip)
@@ -5564,8 +5584,9 @@ mod tests {
 
 
     // ── 9d. 真机实测(#[ignore]:显式跑;硬护栏=G:/trae-real-test-backup 备份齐备)──
-    // 在本机真实 TRAE 现场(已全量备份)上真跑 UI 按钮同款胶水 checkin_reset_device_ids,
-    // 断言双现场 machineid 翻新 + 深度现场全灭。备份缺失即拒跑。
+    // 在本机真实 TRAE 现场(已全量备份)上真跑 UI 按钮同款的**重置本体** reset_device_ids_core
+    // (2026-10-30 前它就是 checkin_reset_device_ids 的正文,因加原生确认闸需要 AppHandle 而抽出;
+    //  差别仅少了那一次人工确认弹窗),断言双现场 machineid 翻新 + 深度现场全灭。备份缺失即拒跑。
     #[cfg(windows)]
     #[test]
     #[ignore]
@@ -5602,7 +5623,7 @@ mod tests {
         }
         eprintln!("[real] flags: guid={reset_guid} browser={reset_browser} deep=true kill=true mac={reset_mac}");
         let report =
-            checkin_reset_device_ids(reset_guid, reset_browser, true, Some(reset_mac))
+            reset_device_ids_core(reset_guid, reset_browser, true, Some(reset_mac))
                 .expect("胶水调用失败");
         assert_eq!(report.layers.len(), 14, "层报告数应为 14");
         for l in &report.layers {

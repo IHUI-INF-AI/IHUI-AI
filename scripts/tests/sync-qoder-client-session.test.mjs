@@ -87,4 +87,20 @@ test('⑤ 可选字段缺失 ⇒ 载荷不带该键(ts 侧据此保留池内列)
   const payload = S.buildPayload([{ uid: 'u1', accessToken: 'dt-1' }])
   assert.deepEqual(Object.keys(payload.accounts[0]).sort(), ['token', 'uid'])
 })
+
+test('⑥ 身份键族:phone/nickname 在场 ⇒ 载荷带上(missing 自动入池的统一名判据用,2026-10-30)', () => {
+  const payload = S.buildPayload([
+    { uid: 'u1', accessToken: 'dt-1', phone: ' 13800000000 ', nickname: ' 大帅哥 ' },
+  ])
+  assert.equal(payload.accounts[0].phone, '13800000000')
+  assert.equal(payload.accounts[0].nickname, '大帅哥')
+})
+
+test('⑦ phone/nickname 空串/纯空白 ⇒ 不带该键(不拿脏名喂导入判据)', () => {
+  const payload = S.buildPayload([
+    { uid: 'u1', accessToken: 'dt-1', phone: '', nickname: '   ' },
+  ])
+  assert.equal('phone' in payload.accounts[0], false)
+  assert.equal('nickname' in payload.accounts[0], false)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

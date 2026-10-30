@@ -28,6 +28,7 @@ import {
   nativePrepay,
   buildJsapiSign,
   verifyCallbackSignature,
+  consumeNotifyNonce,
   decryptCallback,
   queryOrder as wxQueryOrder,
   closeOrder as wxCloseOrder,
@@ -632,6 +633,15 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         recordPaymentException('wechat', 'sign_verify')
         return reply.code(400).send({ code: 'FAIL', message: '签名验证失败' })
       }
+      // 2026-10-30:报文级一次性去重(防时间窗内重放)。验签通过后再消费 —— 签名不对的报文
+      // 不该占用 nonce。Redis 不可用 ⇒ fail-closed(500),由微信按重试曲线重投。
+      const nonceVerdict = await consumeNotifyNonce('pay', timestamp, nonce)
+      if (nonceVerdict === 'replayed') {
+        return reply.send({ code: 'SUCCESS', message: '重复通知' })
+      }
+      if (nonceVerdict === 'unavailable') {
+        return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
+      }
       const resource = (
         body as { resource?: { ciphertext: string; nonce: string; associated_data: string } }
       ).resource
@@ -770,6 +780,14 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         (request as FastifyRequest & { rawBody?: string }).rawBody ?? JSON.stringify(body)
       if (!verifyCallbackSignature(timestamp, nonce, rawBody, signature)) {
         return reply.code(400).send({ code: 'FAIL', message: '签名验证失败' })
+      }
+      // 2026-10-30:退款回调同样补报文级一次性去重(此前 refundOrder 只靠订单状态守卫)
+      const refundNonceVerdict = await consumeNotifyNonce('refund', timestamp, nonce)
+      if (refundNonceVerdict === 'replayed') {
+        return reply.send({ code: 'SUCCESS', message: '重复通知' })
+      }
+      if (refundNonceVerdict === 'unavailable') {
+        return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
       }
       const resource = (
         body as { resource?: { ciphertext: string; nonce: string; associated_data: string } }

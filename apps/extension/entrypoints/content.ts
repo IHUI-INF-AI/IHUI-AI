@@ -152,14 +152,28 @@ async function handleTranslate() {
       type: 'vocab.lookup',
       payload: { word: text, source: 'selection' },
       requestId: `tx-${Date.now()}`,
-    })) as { translation?: string }
+    })) as { translation?: string; definitions?: string[] }
     translated = res?.translation || ''
     if (translated) {
       translationCache.set(key, translated)
       insertTranslation(text, translated)
+      return
     }
+    // 取不到译文时"点了没反应"是最差的反馈：改为弹失败层，给出原因与重试入口。
+    showContextResultPopup(
+      {
+        word: text,
+        translation: '',
+        definitions: res?.definitions ?? [t('content.lookupFailed')],
+      },
+      lastSelectionRect,
+    )
   } catch (err) {
     console.warn('[IHUI AI] translate failed:', err)
+    showContextResultPopup(
+      { word: text, translation: '', definitions: [t('content.lookupFailed')] },
+      lastSelectionRect,
+    )
   }
 }
 
@@ -333,15 +347,23 @@ function showContextResultPopup(payload: CtxVocabResult, rect: RectLike | null) 
   }
   popup.appendChild(head)
 
+  // 失败态：background 取不到译文时回 translation=''，说明放在 definitions[0]。
+  // 改前一律把 translation 当正文渲染 ⇒ 失败时弹层是一片空白（或压根不出弹层）。
+  const failed = !payload.translation
   const tr = document.createElement('div')
   tr.className = 'ihui-ctx-translation'
-  tr.textContent = payload.translation
+  tr.textContent = failed
+    ? (payload.definitions?.[0] ?? t('content.lookupFailed'))
+    : payload.translation
+  if (failed) tr.setAttribute('data-ihui-failed', '1')
   popup.appendChild(tr)
 
-  if (payload.definitions && payload.definitions.length > 0) {
+  // 失败时那句说明已经占用 definitions[0]，不再重复列一遍
+  const defs = failed ? [] : (payload.definitions ?? [])
+  if (defs.length > 0) {
     const ul = document.createElement('ul')
     ul.className = 'ihui-ctx-defs'
-    for (const d of payload.definitions.slice(0, 5)) {
+    for (const d of defs.slice(0, 5)) {
       const li = document.createElement('li')
       li.textContent = d
       ul.appendChild(li)
@@ -351,29 +373,66 @@ function showContextResultPopup(payload: CtxVocabResult, rect: RectLike | null) 
 
   const actions = document.createElement('div')
   actions.className = 'ihui-ctx-actions'
-  const saveBtn = document.createElement('button')
-  saveBtn.type = 'button'
-  saveBtn.className = 'ihui-ctx-btn'
-  saveBtn.textContent = t('content.saveWord')
-  saveBtn.addEventListener('click', async () => {
-    try {
-      const { addWord } = await import('../src/idb/vocab-db')
-      await addWord({
-        word: payload.word,
-        translation: payload.translation,
-        source: 'context-menu',
-      })
-      saveBtn.textContent = t('content.saved')
-    } catch (err) {
-      console.warn('[IHUI AI] save word failed:', err)
-    }
-  })
+  if (failed) {
+    // 没有译文就没有可存的东西：把"保存到生词本"换成"重试"，
+    // 让失败是一个可操作的终态，而不是要用户自己重新划一次词。
+    const retryBtn = document.createElement('button')
+    retryBtn.type = 'button'
+    retryBtn.className = 'ihui-ctx-btn'
+    retryBtn.textContent = t('content.retry')
+    retryBtn.addEventListener('click', async () => {
+      retryBtn.disabled = true
+      retryBtn.textContent = t('content.retrying')
+      try {
+        const res = (await sendMessage({
+          type: 'vocab.lookup',
+          payload: { word: payload.word, source: 'context-menu' },
+          requestId: `vc-${Date.now()}`,
+        })) as CtxVocabResult
+        showContextResultPopup(
+          {
+            word: res?.word || payload.word,
+            translation: res?.translation || '',
+            phonetic: res?.phonetic,
+            definitions: res?.definitions,
+          },
+          rect,
+        )
+        return
+      } catch (err) {
+        console.warn('[IHUI AI] vocab retry failed:', err)
+      }
+      retryBtn.disabled = false
+      retryBtn.textContent = t('content.retry')
+    })
+    actions.appendChild(retryBtn)
+  } else {
+    const saveBtn = document.createElement('button')
+    saveBtn.type = 'button'
+    saveBtn.className = 'ihui-ctx-btn'
+    saveBtn.textContent = t('content.saveWord')
+    saveBtn.addEventListener('click', async () => {
+      try {
+        const { addWord } = await import('../src/idb/vocab-db')
+        await addWord({
+          word: payload.word,
+          translation: payload.translation,
+          source: 'context-menu',
+        })
+        saveBtn.textContent = t('content.saved')
+      } catch (err) {
+        console.warn('[IHUI AI] save word failed:', err)
+      }
+    })
+    actions.appendChild(saveBtn)
+  }
   const closeBtn = document.createElement('button')
   closeBtn.type = 'button'
   closeBtn.className = 'ihui-ctx-btn'
   closeBtn.textContent = t('content.close')
   closeBtn.addEventListener('click', () => popup.remove())
-  actions.append(saveBtn, closeBtn)
+  // 保存/重试按钮已按失败态各自 append 过，这里只补关闭
+  actions.appendChild(closeBtn)
   popup.appendChild(actions)
 
   document.body.appendChild(popup)
@@ -475,7 +534,9 @@ export default defineContentScript({
         return true
       }
       // 右键菜单触发的查询结果 → 弹 popup
-      if (m.type === 'vocab.result' && m.payload?.word && m.payload?.translation) {
+      // 只要带回词就出弹层：失败时 background 回的是 translation='' + 说明（离线/不可达）。
+      // 原条件要求 translation 非空 ⇒ 失败整条静默，用户以为右键没生效、反复重试。
+      if (m.type === 'vocab.result' && m.payload?.word) {
         showContextResultPopup(
           {
             word: m.payload.word,

@@ -78,11 +78,52 @@ import { evaluateOriginHostGuard } from '@/lib/origin-direct-host-guard'
 // `['/admin/:path*', '/edu/edu-management/:path*']` 的命中集,不多不少)。
 // 2026-10-26:判据迁到 lib/protected-paths 单一源 —— /sso/login 的自动回跳要问同一件事。
 import { isProtectedPath } from '@/lib/protected-paths'
+import { buildCsp } from '@/config/csp'
+import { isPublicCacheablePath } from '@/config/public-html-cache'
 
 const AUTH_COOKIE = 'auth_token'
 const REFRESH_COOKIE = 'refresh_token'
 const LOGIN_PATH = '/sso/login'
 const UNAUTHORIZED_PATH = '/admin/unauthorized'
+
+const isDev = process.env.NODE_ENV === 'development'
+
+/**
+ * 这些路径上的响应不是 HTML(或是不需要策略的静态资产),不参与 nonce 分发。
+ * 判据刻意保守:只有明确的资产前缀与带扩展名的文件名走这条,其余一律按 HTML 处理 ——
+ * 漏发 nonce 的代价是白屏,多发一次的代价只是几十字节。
+ */
+function isNonHtmlPath(pathname: string): boolean {
+  if (pathname.startsWith('/_next/')) return true
+  if (pathname.startsWith('/__nextjs')) return true
+  const lastSegment = pathname.slice(pathname.lastIndexOf('/') + 1)
+  return lastSegment.includes('.')
+}
+
+/**
+ * 逐请求 CSP nonce(2026-10-30 立)。
+ *
+ * 为什么必须在这里:nonce 的整个价值在于**每条响应都不一样**,而 `next.config.ts` 的
+ * `headers()` 是构建期常量。Next 又从**请求头**的 `content-security-policy` 里读 nonce
+ * 并给自己生成的 inline bootstrap script 打上它 —— 能在请求期改请求头的地方只有本文件
+ * (Next 16 起 middleware 的正式文件名就是 proxy.ts)。
+ *
+ * ⚠️ 两条动一下就白屏的约束:
+ *   ① 请求头与响应头必须写**同一条字符串**(Next 按请求头打 nonce,浏览器按响应头校验);
+ *   ② nonce 分支必须不带 `'unsafe-inline'`(CSP3 下它会被忽略,留着只会误导排查的人)。
+ *   两条都住在 `src/config/csp.ts`,这里只负责"分发"。
+ *
+ * 与公开可缓存页的关系:那批页面走 `next.config.ts` 那一份(无 nonce、可 s-maxage 共享缓存)。
+ * per-request nonce 与共享缓存互斥(缓存件里的 nonce 会被跨用户复用),取舍全文见
+ * `src/config/public-html-cache.ts` 头注。这里对它们原样放行,不加第二份策略。
+ */
+function makeNonce(): string {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  let binary = ''
+  for (const b of bytes) binary += String.fromCharCode(b)
+  return btoa(binary)
+}
 
 export async function proxy(request: NextRequest) {
   // 源站直连守卫:只拒「Host 为裸公网 IP 字面量」;空/畸形/域名/私网一律放行。
@@ -94,19 +135,39 @@ export async function proxy(request: NextRequest) {
 
   const { pathname, search } = request.nextUrl
 
+  // ── CSP nonce 分发(2026-10-30,机制与取舍见 makeNonce 头注)──
+  // 两类路径不发 nonce:非 HTML 资产(纯浪费,还会污染 CDN 缓存键)、
+  // 公开可缓存页(per-request nonce 与 s-maxage 共享缓存互斥)。
+  let nonce: string | null = null
+  let csp: string | null = null
+  if (!isNonHtmlPath(pathname) && !isPublicCacheablePath(pathname)) {
+    nonce = makeNonce()
+    csp = buildCsp({ nonce, dev: isDev })
+  }
+  // 所有"放行"出口都走这里:请求头带 nonce 供 Next 给自己的脚本打标,响应头带同一份策略供浏览器校验。
+  const pass = (): NextResponse => {
+    if (!csp || !nonce) return NextResponse.next()
+    const reqHeaders = new Headers(request.headers)
+    reqHeaders.set('x-nonce', nonce)
+    reqHeaders.set('content-security-policy', csp)
+    const res = NextResponse.next({ request: { headers: reqHeaders } })
+    res.headers.set('content-security-policy', csp)
+    return res
+  }
+
   // matcher 已扩为全站:非鉴权射程的请求在此原样放行(行为与旧窄 matcher 等价)
   if (!isProtectedPath(pathname)) {
-    return NextResponse.next()
+    return pass()
   }
 
   // 不阻塞 /admin/unauthorized(让用户看到无权限页)
   if (pathname === UNAUTHORIZED_PATH) {
-    return NextResponse.next()
+    return pass()
   }
 
   const token = request.cookies.get(AUTH_COOKIE)?.value
   if (token && (await verifyAccessTokenEdge(token))) {
-    return NextResponse.next()
+    return pass()
   }
 
   // access JWT 只有 15 分钟,cookie 却活 30 天:过期是**常态**,不是登出。
@@ -116,14 +177,16 @@ export async function proxy(request: NextRequest) {
   // 静默刷新并续种 auth_token(后端 /auth/refresh 会 setAuthCookies)。
   // 没有 refresh 的匿名访问照旧 307 —— 守卫不失效;数据面仍由 API 验签兜底。
   if (request.cookies.get(REFRESH_COOKIE)?.value) {
-    return NextResponse.next()
+    return pass()
   }
 
   // 无 token 且无 refresh → 307 重定向到 SSO 登录页
   const loginUrl = request.nextUrl.clone()
   loginUrl.pathname = LOGIN_PATH
   loginUrl.search = `?redirect=${encodeURIComponent(pathname + search)}`
-  return NextResponse.redirect(loginUrl, 307)
+  const redirectRes = NextResponse.redirect(loginUrl, 307)
+  if (csp) redirectRes.headers.set('content-security-policy', csp)
+  return redirectRes
 }
 
 export const config = {

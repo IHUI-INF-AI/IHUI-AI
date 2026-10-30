@@ -19,34 +19,39 @@ export interface UserCardProps {
 /** UserCard 组件 — 对齐原项目 user_cards.vue（订单/公司/智汇值/钱包卡片） */
 export default function UserCard({ onGoPage }: UserCardProps) {
   const tt = useTt()
+  // 四处 path 原先指向 app.config 里**根本不存在**的页面(/pages/user_order_list/index、
+  // /pagesA/distribution/index、/pages/tools/token_value、/pagesA/top-up/index)⇒ 四张卡点了
+  // 毫无反应,且父页 goPage 无 fail 分支,连提示都没有。按 app.config 在册路由逐个改正:
+  //   pkg-user 分包 user/orders / pages 分包 distribution/index / pkg-shop 的
+  //   token/balance 与 wallet/recharge/index。
   const items = [
     {
       key: 'order',
       icon: dingdanIcon,
       title: tt('order.list.title', '我的订单'),
       desc: tt('userUserCard.view1', '查看相关订单'),
-      path: '/pages/user_order_list/index',
+      path: '/pkg-user/user/orders',
     },
     {
       key: 'distribution',
       icon: gerenIcon,
       title: tt('distribution.company.title', '我的公司'),
       desc: tt('userUserCard.view2', '查看员工与业绩'),
-      path: '/pagesA/distribution/index',
+      path: '/pages/distribution/index',
     },
     {
       key: 'token',
       icon: xianLabelIcon,
       title: tt('token.balance.title', '我的智汇值'),
       desc: tt('userUserCard.text3', '智汇消耗信息'),
-      path: '/pages/tools/token_value',
+      path: '/pkg-shop/token/balance',
     },
     {
       key: 'money',
       icon: shezhiIcon,
       title: tt('wallet.title', '我的钱包'),
       desc: tt('userUserCard.view4', '查看余额与充值'),
-      path: '/pagesA/top-up/index',
+      path: '/pkg-shop/wallet/recharge/index',
     },
   ]
   return (

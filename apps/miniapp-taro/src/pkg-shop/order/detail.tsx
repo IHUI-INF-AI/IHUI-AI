@@ -153,7 +153,8 @@ export default function OrderDetail() {
                 {t('orderDetail.amount')}
               </Text>
               <Text className="mt-[16rpx] block text-[length:44rpx] font-bold text-[var(--color-success)]">
-                ¥{order.amount}
+              {/* orders.amount 是「分」(见 vip_levels.price 种 3990=¥39.90)，直接渲染会放大 100 倍 */}
+              ¥{(order.amount / 100).toFixed(2)}
               </Text>
               {paidAt ? (
                 <>

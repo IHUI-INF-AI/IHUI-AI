@@ -472,7 +472,12 @@ export default function UserIndex() {
       void handleScanLogin()
       return
     }
-    Taro.navigateTo({ url: path })
+    // 跳失败必须出声:原先无 fail 分支,目标路径不在册时用户点了毫无反应,
+    // 连"这一跳没执行"都看不到(同源的一批死链就是这么长期活下来的)。
+    Taro.navigateTo({
+      url: path,
+      fail: () => Taro.showToast({ title: t('common.failed'), icon: 'none' }),
+    })
   }
 
   function handleLogout() {
@@ -651,10 +656,11 @@ export default function UserIndex() {
 
   // 处理反馈按钮点击（对齐原项目 @feedback-click → handleFeedbackClick）
   function handleFeedbackClick() {
-    // 对齐原项目 /pagesA/fankui/index?pageType=list
+    // 反馈页在 pkg-user 分包(user/feedback)。原写法 /pages/feedback/index 在主包从未存在过,
+    // 且 fail 回退到同一条坏路径 ⇒ 三处悬浮按钮 + 本页反馈项点了全无反应。
     Taro.navigateTo({
-      url: '/pages/feedback/index?pageType=list',
-      fail: () => Taro.navigateTo({ url: '/pages/feedback/index' }),
+      url: '/pkg-user/user/feedback?pageType=list',
+      fail: () => Taro.showToast({ title: '反馈页打开失败,请稍后重试', icon: 'none' }),
     })
   }
 

@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { bizDaysAgoKey } from '@/lib/biz-day'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useLocale } from 'next-intl'
@@ -55,9 +56,9 @@ const QUICK_LINKS = [
 ]
 
 function daysAgo(n: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return d.toISOString().slice(0, 10)
+  // 业务日(Asia/Shanghai):原实现"本地日减 n 再 toISOString"是两层错叠加,
+  // 北京时间 0–8 点整体偏一天。统一走 lib/biz-day 单一源。
+  return bizDaysAgoKey(n)
 }
 
 /**

@@ -145,6 +145,23 @@ const RTF_CACHE = new Map<string, Intl.RelativeTimeFormat>()
  * 纯 JS 相对时间 fallback(React Native Hermes 引擎无 Intl.RelativeTimeFormat,2026-08-15 立)。
  * 语义对齐 Intl.RelativeTimeFormat zh-CN numeric:'auto' 的常用输出(刚刚 / X 分钟前 / …)。
  */
+function localParts(input: string | number | Date | null | undefined): { y: number; m: number; d: number } | null {
+  if (input === null || input === undefined || input === '') return null
+  const date = input instanceof Date ? input : new Date(input)
+  if (!Number.isFinite(date.getTime())) return null
+  return { y: date.getFullYear(), m: date.getMonth() + 1, d: date.getDate() }
+}
+
+export function localMonthKey(input: string | number | Date | null | undefined): string | null {
+  const p = localParts(input)
+  return p ? `${p.y}-${String(p.m).padStart(2, '0')}` : null
+}
+
+export function localDayKey(input: string | number | Date | null | undefined): string | null {
+  const p = localParts(input)
+  return p ? `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}` : null
+}
+
 function relativeTimeFallback(diffSec: number, locale: string): string {
   const zh = locale.toLowerCase().startsWith('zh')
   const abs = Math.abs(diffSec)

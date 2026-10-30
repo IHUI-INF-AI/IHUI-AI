@@ -50,11 +50,6 @@ const ARGON2ID_OPTIONS = {
  * 与 apps/api/scripts/seed-test-users.ts 同一口径:缺失即拒绝执行,不回落到仓内字面量。
  */
 const TEST_USER_PASSWORD = process.env.E2E_USER_PASSWORD ?? ''
-if (!TEST_USER_PASSWORD) {
-  throw new Error(
-    '[database/seed/users] 缺少环境变量 E2E_USER_PASSWORD:测试用户口令只从环境注入,仓库内不提供默认值。',
-  )
-}
 
 interface DefaultUser {
   email: string
@@ -114,6 +109,14 @@ export async function seedUsers() {
       '[packages/database/seed/users.ts] argon2 包未安装且库中无用户。' +
         'packages/database 是底层包不强依赖 argon2,请先运行 ' +
         'pnpm --filter @ihui/api run seed:test-users',
+    )
+  }
+
+  // 惰性校验(2026-10-30):口令仍只从环境注入,但校验必须延迟到真正种用户时——
+  // 放在模块顶层会让 --only=13,14(不种用户)这类 seed 也在 import 阶段抛错。
+  if (!TEST_USER_PASSWORD) {
+    throw new Error(
+      '[database/seed/users] 缺少环境变量 E2E_USER_PASSWORD:测试用户口令只从环境注入,仓库内不提供默认值。',
     )
   }
 

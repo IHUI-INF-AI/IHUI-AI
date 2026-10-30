@@ -85,7 +85,11 @@ import {
   pushPoolSync,
   type PoolAccountState,
 } from '../../services/relay-account-pool-checkin-sync.js'
-import { refreshOne, sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
+import {
+  markAccountAuthRejected,
+  refreshOne,
+  sweepAccountPool,
+} from '../../services/relay-account-pool-scheduler.js'
 import {
   collectRelayTaskStates,
   RELAY_POOL_TASKS,
@@ -1520,6 +1524,12 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           { row: live, credentials: decryptAccountCredentials(live) },
           { proxyUrl: resolveAccountProxyUrl(live.proxyUrl) },
         )
+      }
+      // 上游**当场明确拒收**凭据(刷新后仍 401,或压根没有自救通道)⇒ 必须收敛到期列并判死,
+      // 与巡检共用 markAccountAuthRejected 这一个实现。否则管理面拿到了硬证据却不落库:
+      // 过期票继续冒充可用,该号继续被刷新与选中(2026-10-30 大屏"已过期"常红的成因之一)。
+      if (!outcome.ok && outcome.authFailed) {
+        await markAccountAuthRejected(live.id, outcome.error ?? null)
       }
       return reply.send(
         success({

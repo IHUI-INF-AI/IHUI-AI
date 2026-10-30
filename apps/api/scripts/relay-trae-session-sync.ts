@@ -20,6 +20,10 @@
  * - 客户端没给 refreshToken(web 号)⇒ 保留池内该列不动。
  * - skip 分支同样会把 profile 档案快照/设备材料种进 secretsEnc(仅档变才写,2026-10-28;
  *   一键切号写回信封要这两样,票未轮换时不种就永远缺档)。
+ * - 池内无此 uid(运营池)⇒ **自动入池**(2026-10-30 根治,与 Qoder 腿同型):走
+ *   `buildTraeAutoImportInput` 构造 + `importAccounts` 落库出口;此前该支只报缺失无人接,
+ *   本机新登录 Trae 号静默脱离保活。profile/sessionTemplate 首轮不携带 —— 行建好后
+ *   下一轮 skip 分支照 2026-10-28 口径补种(最终一致,不另写第二条模板通道)。
  *
  * 编排上游 = `scripts/sync-trae-client-session.mjs`(提取本机信封 → stdin 喂进来)。
  * 退出码:0 全部处理完(含 skip)/ 1 有行写入失败 / 2 参数·输入·环境未判定。
@@ -43,8 +47,11 @@ const { db } = await import('../src/db/index.js')
 const decision = await import('../src/services/relay-session-sync-decision.js')
 export const decideSync = decision.decideSync
 export const parseIso = decision.parseIso
-// 本地作用域也要这个名字(RowOutcome.decision);export type from 只交出出口,不建本地绑定
+// 本地作用域也要这个名字(RowOutcome.decision);export type from 只交出出口,不建本地绑定。
+// 2026-10-30 收口:此前的双份 import type 是 HEAD 就有的 tsc 重复声明(10-29 的「可转译锁」
+// 只钉 esbuild 声明面,tsc 的 TS2300 一直没被看到)——全文件只留这一份,零语义改动。
 import type { SyncReason } from '../src/services/relay-session-sync-decision.js'
+import type { ImportAccountInput } from '../src/services/relay-account-pool-service.js'
 export type {
   DecideInput,
   SyncDecision,
@@ -77,7 +84,8 @@ export interface SyncInputPayload {
 
 interface RowOutcome {
   uid: string
-  decision: SyncReason
+  /** 'auto-import' = 池内缺行时自动入池支(不属于 decideSync 的判定结果) */
+  decision: SyncReason | 'auto-import'
   applied: boolean
   error?: string
 }
@@ -91,7 +99,37 @@ export interface SyncSummary {
   skipped: number
   missing: number
   failed: number
+  /** 本机新登录账号自动入池数(池内无行 → 走 importAccounts 建行;dry-run 只报不写) */
+  imported: number
   rows: RowOutcome[]
+}
+
+/**
+ * 回灌候选 → 自动入池的导入条目(2026-10-30 立,纯函数,不连库可测)。
+ * 只在「运营池无此 uid」时被消费;字段口径对齐 importAccounts 的取键面:
+ * - refreshExpiresAt 按导入侧认的键名 refreshTokenExpiresAt 回填(service 只读该键);
+ * - 设备材料四键原样带给 mapTraeImport(桌面渠道换票必需,缺它票进池也刷不动);
+ * - name 刻意不给 —— 统一名判据单源 resolveRelayAccountName(取不到手机号退 uid 前 8 位,
+ *   管理页可就地改名,与旧版捕获导入同形态);
+ * - profile/sessionTemplate 刻意不带:建行后下一轮 skip 分支按 2026-10-28 口径补种。
+ * 任何输出面不回显条目内容(凭据只在 stdin 管道)。
+ */
+export function buildTraeAutoImportInput(acc: SyncCandidate): ImportAccountInput | null {
+  if (typeof acc?.uid !== 'string' || acc.uid === '') return null
+  if (typeof acc.token !== 'string' || acc.token === '') return null
+  const input: Record<string, unknown> = { uid: acc.uid, token: acc.token }
+  if (typeof acc.refreshToken === 'string' && acc.refreshToken) {
+    input.refreshToken = acc.refreshToken
+  }
+  if (typeof acc.expiresAt === 'string' && acc.expiresAt) input.expiresAt = acc.expiresAt
+  if (typeof acc.refreshExpiresAt === 'string' && acc.refreshExpiresAt) {
+    input.refreshTokenExpiresAt = acc.refreshExpiresAt
+  }
+  for (const k of ['deviceId', 'machineId', 'deviceKeyPem', 'devicePubPem'] as const) {
+    const v = acc[k]
+    if (typeof v === 'string' && v) input[k] = v
+  }
+  return input as ImportAccountInput
 }
 
 async function readStdin(): Promise<string> {
@@ -123,6 +161,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
     skipped: 0,
     missing: 0,
     failed: 0,
+    imported: 0,
     rows: [],
   }
 
@@ -146,13 +185,43 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         )
         .limit(1)
       if (!row) {
-        summary.missing++
-        summary.rows.push({
-          uid,
-          decision: 'apply',
-          applied: false,
-          error: '池内无此 uid(未导入?)',
-        })
+        // 缺行 ⇒ 自动入池(2026-10-30 根治,与 Qoder 腿同型):此前该支只报「池内无此 uid」
+        // 且无人接 —— 本机新登录的 Trae 号静默脱离保活直到人工发现。现把本机会话交给与
+        // 手动导入同一个落库出口 importAccounts(运营池行 ownerUserId=null,部分唯一索引
+        // 只圈运营池,结构上碰不到个人池同 uid 行;credVersion 原子 +1,O64 推签到池;
+        // 推送断链落 pending 不阻塞)。并发撞唯一索引(他席先建了行)按 failed 点名,
+        // 绝不冒绿(§0.3);下一轮回灌即命中现有行走正常凭证覆盖。
+        const { importAccounts } = await import('../src/services/relay-account-pool-service.js')
+        const autoInput = buildTraeAutoImportInput(acc)
+        if (!autoInput) {
+          summary.missing++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: '本机会话构不成导入条目(不猜)',
+          })
+          continue
+        }
+        if (dryRun) {
+          summary.imported++
+          summary.rows.push({ uid, decision: 'auto-import', applied: false, error: 'dry-run 未写' })
+          continue
+        }
+        const res = await importAccounts('trae', [autoInput], null)
+        const item = res.items[0]
+        if (item && (item.status === 'imported' || item.status === 'updated')) {
+          summary.imported++
+          summary.rows.push({ uid, decision: 'auto-import', applied: true })
+        } else {
+          summary.failed++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: (item?.reason ?? '导入未回报条目').slice(0, 200),
+          })
+        }
         continue
       }
       // 池内明文解不出(密钥轮换/坏密文)时当作"票不同"走 apply,让客户端票覆盖坏密文
@@ -363,7 +432,7 @@ export async function main(argv: string[]): Promise<number> {
     process.stdout.write(`${JSON.stringify(summary)}\n`)
   } else {
     process.stderr.write(
-      `回灌完成: applied=${summary.applied} skipped=${summary.skipped} missing=${summary.missing} failed=${summary.failed}${summary.dryRun ? '(dry-run 未写)' : ''}\n`,
+      `回灌完成: applied=${summary.applied} skipped=${summary.skipped} missing=${summary.missing} imported=${summary.imported} failed=${summary.failed}${summary.dryRun ? '(dry-run 未写)' : ''}\n`,
     )
     for (const r of summary.rows) {
       process.stderr.write(
@@ -384,5 +453,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { decideSync, parseIso, parseArgs }
+export const __test__ = { decideSync, parseIso, parseArgs, buildTraeAutoImportInput }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

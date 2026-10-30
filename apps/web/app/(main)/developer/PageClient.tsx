@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { bizTodayKey } from '@/lib/biz-day'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
@@ -112,7 +113,9 @@ export default function DeveloperHomePageClient() {
   // 今日成本:复用 /api/developer/relay/usage(groupBy=day + startDate=今天)。
   // 该接口仅返回 totalCostCents(实付/平台计费),无"官方价折算"字段,
   // 故按任务规则展示实付单值 + 说明文案,不臆造字段。
-  const today = new Date().toISOString().slice(0, 10)
+  // 「今天」按业务时区(Asia/Shanghai)取:原实现用 toISOString() 的 UTC 日,
+  // 北京时间 00:00–07:59 会拿昨天起算的窗口当"今日成本",见 lib/biz-day。
+  const today = bizTodayKey()
   const todayUsageQ = useQuery({
     queryKey: ['developer', 'dashboard', 'usage', 'today', today],
     queryFn: () =>

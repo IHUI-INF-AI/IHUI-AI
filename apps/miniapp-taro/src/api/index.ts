@@ -1524,7 +1524,11 @@ export const getBusinessCard = async () => {
   return { ...card, qrcode: (card['qrCode'] as string) ?? '' }
 }
 
-export const updateBusinessCard = (data: unknown) => put('/user/business-card', data)
+// 名片保存 —— 对齐后端**唯一**的写入口 `POST /api/business-card/:id`(按 request.userId 做
+// upsert,路径里的 id 被忽略 ⇒ 传 `me` 即可)。web 端 `business-card/edit/PageClient.tsx:130-138`
+// 对这条契约有逐字记录:旧写法 `PUT /business-card/:id` **全仓零注册**、`POST /business-card`(空 id)
+// 也没有 ⇒ 本端原先的 `put('/user/business-card')` 是必然 404 的过期路径(改前实测 404)。
+export const updateBusinessCard = (data: unknown) => post('/business-card/me', data)
 
 /* ============ 知识星球 ============ */
 export const getKnowledgePlanetInfo = () => get('/knowledge-planet/info')

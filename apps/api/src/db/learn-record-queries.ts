@@ -166,7 +166,7 @@ export async function checkAutoComplete(recordId: string): Promise<LessonRecord 
     const updated = await db
       .update(lessonRecords)
       .set({ status: 2, completedAt: new Date(), updatedAt: new Date() })
-  // status-guard-exempt: 入向终态(完成置 2),前置 meetProgress/meetDuration 判定后才写
+      // status-guard-exempt: 入向终态(完成置 2),前置 meetProgress/meetDuration 判定后才写
       .where(eq(lessonRecords.id, recordId))
       .returning()
     return updated[0]
@@ -436,32 +436,34 @@ export async function getProgressOverview(userId: string): Promise<ProgressOverv
   }))
 
   // 4. 最近7天每周学习时长(从 lessonRecordLogs 读取)
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
-  sevenDaysAgo.setHours(0, 0, 0, 0)
+  // 业务日按 Asia/Shanghai:原实现 SQL 用 to_char(created_at::date)(= 会话时区),
+  // 而 JS 生成 7 个 key 用 toISOString()(= UTC 日)⇒ 两侧错位 8 小时,北京时间 0–8 点
+  // 学习的时长会挂在 +08 的"今天"、却在 UTC 键表里找不到,那一格恒 0。
+  // 现在两侧都显式写 +08(不依赖会话默认),窗口下界也用 +08 零点。
+  const bizDay = (ms: number): string => new Date(ms + 8 * 3600_000).toISOString().slice(0, 10)
+  const sevenDaysAgo = new Date(Date.now() - 6 * 86400_000)
+  const windowStart = `${bizDay(sevenDaysAgo.getTime())} 00:00:00+08`
   const logRows = await db
     .select({
-      date: sql<string>`to_char(${lessonRecordLogs.createdAt}::date, 'YYYY-MM-DD')`,
+      date: sql<string>`to_char(${lessonRecordLogs.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`,
       duration: sql<number>`COALESCE(sum(${lessonRecordLogs.duration})::int, 0)`,
     })
     .from(lessonRecordLogs)
     .where(
       and(
         eq(lessonRecordLogs.userId, userId),
-        sql`${lessonRecordLogs.createdAt} >= ${sevenDaysAgo.toISOString()}::timestamptz`,
+        sql`${lessonRecordLogs.createdAt} >= ${windowStart}::timestamptz`,
       ),
     )
-    .groupBy(sql`to_char(${lessonRecordLogs.createdAt}::date, 'YYYY-MM-DD')`)
-    .orderBy(sql`to_char(${lessonRecordLogs.createdAt}::date, 'YYYY-MM-DD')`)
+    .groupBy(sql`to_char(${lessonRecordLogs.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`)
+    .orderBy(sql`to_char(${lessonRecordLogs.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`)
   const logMap = new Map<string, number>()
   for (const r of logRows) {
     logMap.set(r.date, Math.round((r.duration / 3600) * 10) / 10)
   }
   const weeklyHours: { date: string; hours: number }[] = []
   for (let i = 6; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    const dateStr = d.toISOString().slice(0, 10)
+    const dateStr = bizDay(Date.now() - i * 86400_000)
     weeklyHours.push({ date: dateStr, hours: logMap.get(dateStr) ?? 0 })
   }
 
