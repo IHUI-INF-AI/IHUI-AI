@@ -123,7 +123,15 @@ test('④ 覆盖面:packages/app 在册抄本每条色值都要能从表里取�
       if (!inTable) uncovered.push(`${norm} ← ${rel.split('/').pop()}`)
     }
   }
-  assert.ok(seen > 50, `抄本面只扫到 ${seen} 条取值,尺子可能在空转(清单或正则失效)`)
+  // 空转保护不能钉死一个绝对阈值:收编进行中抄本会变少(实测从 84 条降到只剩未收编那几个文件)。
+  // 口径改成两态:还有抄本 ⇒ 逐条必须有出处;抄本清零 ⇒ 必须证明这张表真有消费方(否则是死档)。
+  if (seen === 0) {
+    const consuming = copied.filter((rel) => readFileSync(join(ROOT, rel), 'utf8').includes('rnHue.'))
+    assert.ok(
+      consuming.length > 0,
+      '抄本已清零而这几个文件一处都不取用 rnHue ⇒ 表成了死档(判据存在而无人 import = 没有)',
+    )
+  }
   assert.deepEqual(uncovered, [], `这些色值在表里取不到 ⇒ 有人抄了表里没有的族,须先落档: ${uncovered.join(', ')}`)
 
   // 反向对照:同一条尺子喂一个表外值,必须判不过(否则"零缺口"是坏尺)
@@ -132,6 +140,31 @@ test('④ 覆盖面:packages/app 在册抄本每条色值都要能从表里取�
     [...tableValues].some((v) => v.replace(/\s+/g, '') === broken),
     false,
     '反向对照失效:表外值被判成覆盖',
+  )
+})
+
+test('⑥ 装车腿:dist 里必须真拿得到这张表,且值与源逐字相同', () => {
+  // 立因:上一枚把表写进 src 并加了包根出口,却没登记 copy-assets 的 FIXED_FILES ——
+  // 干净重建后 dist 里没有 hue-tints,而 dist/index.js 已在 `export { rnHue } from './hue-tints.js'`,
+  // 于是每个消费屏在运行时直接 ERR_MODULE_NOT_FOUND。"源码里有"不等于"装上车"。
+  const distPath = join(ROOT, 'packages/design-tokens/dist/hue-tints.js')
+  let distText
+  try {
+    distText = readFileSync(distPath, 'utf8')
+  } catch {
+    assert.fail(
+      'dist 里没有 hue-tints.js ⇒ 包构建清单没登记它(packages/design-tokens/scripts/copy-assets.mjs 的 FIXED_FILES),表造好但装不上车',
+    )
+  }
+  const dist = require_(distPath)
+  const distHue = dist.rnHue ?? dist.default?.rnHue
+  assert.ok(distHue, 'dist 里的 hue-tints 取不到 rnHue 导出')
+  for (const f of TABLE_FAMILIES)
+    assert.deepEqual(distHue[f], rnHue[f], `dist 与源的 ${f} 族不同形 ⇒ 派生态落后`)
+  assert.match(
+    readFileSync(join(ROOT, 'packages/design-tokens/scripts/copy-assets.mjs'), 'utf8'),
+    /FIXED_FILES[\s\S]*'hue-tints\.js'[\s\S]*'hue-tints\.d\.ts'/,
+    'copy-assets 清单里没登记 hue-tints 两枚 ⇒ 下次干净构建又会缺件',
   )
 })
 
