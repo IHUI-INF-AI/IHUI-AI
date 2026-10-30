@@ -1,6 +1,6 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​​​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍‌​‌‌​‌​‌‍‍‌​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍‌‌‌​‌​​​‍‍​‌‌​‌‌‌‌‍‍‌​‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​‌​​‌‍‍​‌‌​​‌‌‌​‍​‌​​‌‌​‍‍​‌​​‌‌‌​‍‍‌​‌‌​‌‌‌‍‍​‌​​‌​​‌‍‍‌​‌‌‌​‌‌​⁠
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 """同源媒体代理的内容类型白名单 + 响应头加固(2026-10-30,修实测确认的同源 XSS)。
 
@@ -85,6 +85,7 @@ def authed(monkeypatch):
     _FakeClient.content_type = "image/png"
     _FakeClient.status = 200
     _FakeClient.extra_headers = None
+    _FakeClient.body = b"\x89PNG\r\n\x1a\nfake"
     return _FakeClient
 
 
@@ -242,3 +243,50 @@ async def test_all_proxies_still_block_ssrf(authed, path, url):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         resp = await ac.get(path, params={"url": url})
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# 压缩响应不得透传 content-length(httpx 自动解压 ⇒ 上游长度是压缩后长度)
+# 实测:httpbin/gzip header=198 bytes,解压后 252 bytes;透传长度会让浏览器截断/挂起
+# ---------------------------------------------------------------------------
+
+
+async def test_compressed_response_does_not_leak_content_length(authed):
+    """上游声明 gzip 且给了压缩后的 content-length → 绝不透传该长度。"""
+    authed.content_type = "image/png"
+    authed.extra_headers = {"content-encoding": "gzip", "content-length": "198"}
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.get("/api/media/image", params={"url": "https://example.com/a.png"})
+    assert resp.status_code == 200
+    # 不透传:k 要么缺失,要么与实际体长一致(绝不等于谎报的 198)
+    assert resp.headers.get("content-length") != "198"
+
+
+async def test_identity_encoding_keeps_content_length(authed):
+    """未压缩(或显式 identity)时仍应正常透传长度。"""
+    authed.content_type = "image/png"
+    authed.body = b"\x89PNG" + b"x" * 100
+    authed.extra_headers = {"content-length": str(len(authed.body))}
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.get("/api/media/image", params={"url": "https://example.com/a.png"})
+    assert resp.status_code == 200
+    assert resp.headers["content-length"] == str(len(authed.body))
+    assert len(resp.content) == len(authed.body)
+
+
+async def test_stream_compressed_does_not_leak_content_length(authed):
+    authed.content_type = "video/mp4"
+    authed.extra_headers = {"content-encoding": "br", "content-length": "999"}
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.get("/api/media/stream", params={"url": "https://example.com/a.mp4"})
+    assert resp.status_code == 200
+    assert resp.headers.get("content-length") != "999"
+
+
+async def test_upstream_client_requests_identity_encoding():
+    """三个端点都必须以 accept-encoding: identity 请求上游(防自动解压错配)。"""
+    assert mt_router._UPSTREAM_NO_COMPRESSION == {"accept-encoding": "identity"}
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
