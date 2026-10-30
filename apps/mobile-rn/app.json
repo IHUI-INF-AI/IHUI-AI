@@ -38,8 +38,7 @@
       },
       "config": {
         "usesNonExemptEncryption": false
-      },
-      "versionCode": 26102802
+      }
     },
     "plugins": [
       [
