@@ -6,7 +6,7 @@ import { useTt } from '@/i18n'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
-import { getCircleList, get, post, type Circle } from '@/api'
+import { getCircleList, get, post, del, type Circle } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import './index.css'
@@ -152,7 +152,8 @@ export default function CircleIndexPage() {
     const prev = !!u.followed
     setRecommendUsers((list) => list.map((x) => (x.id === u.id ? { ...x, followed: !prev } : x)))
     try {
-      await post('/circles/follow', { userId: u.id })
+      if (prev) await del(`/interactions/follow/${u.id}`)
+      else await post('/interactions/follow', { userId: u.id })
     } catch {
       setRecommendUsers((list) => list.map((x) => (x.id === u.id ? { ...x, followed: prev } : x)))
     }

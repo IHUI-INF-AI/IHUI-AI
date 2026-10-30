@@ -40,7 +40,7 @@ interface RankingRawItem {
 }
 
 interface RankingListResponse {
-  list: RankingRawItem[]
+  items?: RankingRawItem[]
   total?: number
 }
 
@@ -82,39 +82,43 @@ export default function RankingDetailPage() {
       return
     }
     try {
-      // 优先尝试 /ranking/detail 单条接口,失败则降级到列表 find
+      // 数据源 = AI World 工具库详情(原 /ranking/detail 与 /ranking 兜底都不是工具库,前者未注册)
       let raw: Record<string, unknown> = {}
       try {
-        const res = (await api.get('/ranking/detail', { id })) as
-          Record<string, unknown> | undefined
-        const candidate = (res?.detail || res?.data || res) as Record<string, unknown> | undefined
-        if (candidate && typeof candidate === 'object' && Object.keys(candidate).length > 0) {
-          raw = candidate
-        }
+        const res = (await api.get(`/ai-world/items/${id}`)) as Record<string, unknown> | undefined
+        if (res && typeof res === 'object' && Object.keys(res).length > 0) raw = res
       } catch {
-        // 单条接口不存在,降级到列表 find
+        // 详情取不到,降级到列表 find
       }
-      if (Object.keys(raw).length === 0) {
-        const res = (await api.getRankingList()) as RankingListResponse | undefined
-        const list = res?.list || []
-        const item = list.find((it) => String(it.id) === String(id))
-        raw = (item || {}) as Record<string, unknown>
-        setRelatedList(list.filter((it) => String(it.id) !== String(id)).slice(0, 20))
-      } else {
-        // 单条接口成功,同时拉取列表用于抽屉
+      const fetchRelated = async () => {
         try {
-          const res = (await api.getRankingList()) as RankingListResponse | undefined
+          const res = (await api.get('/ai-world/tools', {
+            limit: 100,
+            order: 'hot',
+          })) as RankingListResponse | undefined
           setRelatedList(
-            (res?.list || []).filter((it) => String(it.id) !== String(id)).slice(0, 20),
+            (res?.items || []).filter((it) => String(it.id) !== String(id)).slice(0, 20),
           )
         } catch {
           // ignore
         }
       }
+      if (Object.keys(raw).length === 0) {
+        const res = (await api.get('/ai-world/tools', {
+          limit: 100,
+          order: 'hot',
+        })) as RankingListResponse | undefined
+        const list = res?.items || []
+        const item = list.find((it) => String(it.id) === String(id))
+        raw = (item || {}) as Record<string, unknown>
+        setRelatedList(list.filter((it) => String(it.id) !== String(id)).slice(0, 20))
+      } else {
+        await fetchRelated()
+      }
       const statusVal = raw.status ?? raw.state
       setData({
         id: raw.id as string | number,
-        logo: pick(raw, ['logo', 'avatar', 'icon', 'field1']),
+        logo: pick(raw, ['logo', 'avatar', 'icon', 'coverImage', 'field1']),
         name: pick(raw, ['name', 'title']),
         intro: pick(raw, ['intro', 'desc', 'description', 'summary']),
         attention: pick(raw, ['attention', 'viewCount', 'collectCount']),

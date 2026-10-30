@@ -1246,8 +1246,31 @@ export const getChatHistory = (params?: { page?: number; pageSize?: number }) =>
     list: Array<{ id: string; title: string; time: string; messages: ChatMessage[] }>
     total: number
   }>('/ai/history', params)
-export const generateImage = (data: { prompt: string; size?: string }) =>
-  post<{ url: string }>('/ai/image', data)
+/** 页面画幅 → Agnes 档位(后端 agnesImageBody 推荐 1K/2K/3K/4K + ratio,不收 512x512 这类像素值) */
+const AGNES_IMAGE_DIAL: Record<string, { size: string; ratio: string }> = {
+  '512x512': { size: '1K', ratio: '1:1' },
+  '1024x1024': { size: '1K', ratio: '1:1' },
+  '1024x1792': { size: '2K', ratio: '9:16' },
+}
+const AGNES_IMAGE_DEFAULT = AGNES_IMAGE_DIAL['1024x1024']!
+export const generateImage = async (data: { prompt: string; size?: string }) => {
+  // 后端无通用 /ai/image:同栈里只有 Agnes 是同步出图,其余厂商返回异步 taskId(本页只处理单次结果)
+  const dial = AGNES_IMAGE_DIAL[data.size ?? ''] ?? AGNES_IMAGE_DEFAULT
+  const res = await post<{
+    taskId?: string
+    status?: string
+    raw?: { data?: Array<{ url?: string; b64_json?: string }> }
+  }>('/ai/agnes/image', {
+    prompt: data.prompt,
+    model: 'agnes-image-2.5-flash',
+    size: dial.size,
+    ratio: dial.ratio,
+  })
+  const first = res?.raw?.data?.[0]
+  const url = first?.url ?? (first?.b64_json ? `data:image/png;base64,${first.b64_json}` : '')
+  if (!url) throw new Error('image generation returned no url')
+  return { url }
+}
 export const voiceChat = (data: { audio: string }) =>
   post<{ ai_text?: string; reply?: string; audio?: string }>('/api/ai/audio/chat', {
     audio_base64: data.audio,

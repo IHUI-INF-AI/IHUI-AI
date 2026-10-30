@@ -108,7 +108,9 @@ export default function AigcPublish() {
       const added: UpFile[] = []
       // 上传中词条带 {progress}:这里取「已完成张数 / 本次选材张数」的真实占比,不做估算动画
       for (let i = 0; i < paths.length; i++) {
-        const url = await uploadOne(paths[i])
+        const path = paths[i]
+        if (!path) continue
+        const url = await uploadOne(path)
         if (url) added.push({ url, type: 'image' })
         setUploadProgress(Math.round(((i + 1) / paths.length) * 100))
       }
