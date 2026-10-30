@@ -26,6 +26,7 @@ import type {
 } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 import { markStreamError } from '@ihui/shared/chat'
+import { settleSubagentOnParentTurnEnd } from '@ihui/shared/subagents/parent-turn-settle'
 // G-704(2026-09-29 立):值等价比较器只能有共享层那一份实现(端内不得再抄一份近似品)
 import { areRecordValuesEqual } from '@ihui/shared/utils/deep-equal-records'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
@@ -1459,14 +1460,28 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     }),
 
   markAllAgentStreamsDone: () =>
-    set((s) => ({
-      subAgentActivities: s.subAgentActivities.map((a) => ({
-        ...a,
-        streamingDone: true,
-        status: a.status === 'running' || a.status === 'thinking' ? 'completed' : a.status,
-        currentStep: a.status === 'running' || a.status === 'thinking' ? '' : a.currentStep,
-      })),
-    })),
+    set((s) => {
+      const settle = (agent: SubAgentActivity): SubAgentActivity => {
+        const next = settleSubagentOnParentTurnEnd(agent.status)
+        if (next.status === agent.status && agent.streamingDone === true) return agent
+        return { ...agent, status: next.status, streamingDone: true }
+      }
+      let messages = s.messages
+      const nextMessages = s.messages.map((message) => {
+        const list = message.subagentActivities
+        if (!list || list.length === 0) return message
+        const settled = list.map(settle)
+        if (settled.every((agent, index) => agent === list[index])) return message
+        return { ...message, subagentActivities: settled }
+      })
+      if (nextMessages.some((message, index) => message !== s.messages[index])) {
+        messages = nextMessages
+      }
+      return {
+        subAgentActivities: s.subAgentActivities.map(settle),
+        messages,
+      }
+    }),
 
   resetSubAgentActivities: () => set({ subAgentActivities: [] }),
 
@@ -2289,5 +2304,4 @@ export function createChatStore(persistName: string = 'ihui-chat') {
 
 /** 默认单例:既有全部消费面的入口,行为与工厂化前分毫不变 */
 export const useChatStore = createChatStore()
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

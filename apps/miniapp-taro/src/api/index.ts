@@ -1701,8 +1701,6 @@ export const uploadByBase64 = (data: unknown) => post('/files/upload/base64', da
 export const getInformationCategory = () => get('/news/categories')
 /** 商品选择列表 */
 export const selectGoods = (params: ApiParams) => get('/goods/select', params)
-/** 支付活动 */
-export const getActivity = () => get('/pay/activity')
 /** 商品详情 */
 export const getProduct = (id: string) => get(`/goods/${id}`)
 
