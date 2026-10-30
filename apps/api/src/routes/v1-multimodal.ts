@@ -608,6 +608,129 @@ export async function listPendingImageTasks(): Promise<ImageTask[]> {
   return out
 }
 
+/**
+ * 视频生成:vendor → 内部路由 path + 请求体字段适配(2026-10-30 自 handler 内匿名 if/else 链抽取)。
+ *
+ * 为什么必须是导出纯函数而不是留在 handler 里:这条链的**默认分支是 sora2 兜底**,
+ * 于是一枚没登记的 vendor(agnes 曾经就是)不会报错,而是静默由另一个厂商出片 ——
+ * 计费按 agnes、出片按 sora2,两头都对不上且账面全绿。链匿名写在 handler 里 ⇒ 任何
+ * 一条分支都测不到,同型回归只能靠人肉看代码。抽出来 + 逐厂商钉 path 才是可判的锁。
+ *
+ * 行为与抽取前逐字等值(含各厂商的字段适配与 agnes 的 duration 剥离)。
+ * 入参 body 不被改写:返回的是适配后的副本(纯函数,可安全断言)。
+ */
+export function resolveVideoVendorRoute(
+  vendor: string | undefined,
+  input: Record<string, unknown>,
+): { path: string; body: Record<string, unknown> } {
+  const v = (vendor ?? 'sora2').trim().toLowerCase()
+  const body: Record<string, unknown> = { ...input }
+  // 三个厂商把 image 改名(先取出值再删键 —— 原写法读的是 handler 的局部变量)
+  const image = body.image
+  let path: string
+  if (v === 'dashscope') path = '/api/ai/dashscope/video'
+  else if (v === 'doubao') path = '/api/ai/doubao/video'
+  else if (v === 'gemini') path = '/api/ai/gemini/video'
+  // 2026-09-21 补:以下厂商内部端点均已存在(ai-vendors/proxy-extended-media*.ts),
+  // 请求体按各厂商官方字段做最小适配(与既有 dashscope/doubao/gemini 同构:提交返回 taskId 走轮询)。
+  else if (v === 'minimax') {
+    path = '/api/ai/minimax/video'
+    if (image) {
+      delete body.image // MiniMax 官方字段为 first_frame_image
+      body.first_frame_image = image
+    }
+  } else if (v === 'kling') {
+    path = '/api/ai/kling/generate'
+    if (body.duration) body.duration = String(body.duration) // 可灵官方 duration 为字符串 "5"/"10"
+  } else if (v === 'vidu') {
+    path = '/api/ai/vidu/generate'
+    if (image) {
+      delete body.image // Vidu 官方 images 为 URL 数组(端点内包装为 [{url}])
+      body.images = [image]
+    }
+  } else if (v === 'runway') {
+    path = '/api/ai/runway/generate' // image/duration 字段与官方同构,无需适配
+  } else if (v === 'luma') {
+    path = '/api/ai/luma/generate'
+    if (body.duration) body.duration = `${body.duration}s` // Luma 官方为 "5s" 字符串
+  } else if (v === 'pixverse') {
+    path = '/api/ai/pixverse/generate' // image/duration 字段与官方同构,无需适配
+  } else if (v === 'zhipu') {
+    path = '/api/ai/zhipu/video'
+    if (image) {
+      delete body.image // 智谱 CogVideoX 官方字段为 image_url
+      body.image_url = image
+    }
+  } else if (v === 'agnes') {
+    // Agnes 视频(2026-10-30 立):此前 vendor='agnes' 会静默落到下面的 sora2 兜底
+    // ——用户按 agnes 计价提交、由 sora2 出片,是计费与出片两头都对不上的静默错路由。
+    // 内部端点 /api/ai/agnes/video 已存在(Proxy 上游 POST /v1/videos),mode/size 由它补默认;
+    // 顶层 duration 上游不认(2.5 系列输出时长由 num_frames/frame_rate 决定)⇒ 不透传,定价按 'call'。
+    path = '/api/ai/agnes/video'
+    delete body.duration
+  } else path = '/api/ai/sora2/generate'
+  return { path, body }
+}
+
+/**
+ * 图像生成:vendor → 内部路由 path + 请求体字段适配(2026-10-30 立,与视频侧 resolveVideoVendorRoute 同形)。
+ *
+ * 为什么也必须抽出来:与视频同型 —— 这条链的默认分支是 tongyi 兜底,一枚没登记的 vendor
+ * 不会报错,而是静默由另一家出片(计费按请求方、出片按 tongyi),两头对不上而账面全绿。
+ *
+ * agnes 分支(2026-10-30 立):内部端点 /api/ai/agnes/image 已存在(proxy-llm.ts),
+ * 同步出图(实测 40-50s),上游 OpenAI images 协议同构。
+ * n>1 显式拒绝而不是静默截断成 1 张:实测上游对本账号 n>1 直接回 429
+ * (需平台实名认证才放开 rpm),静默截断会变成「按 n 计费、只出 1 张」= 计费与出片两头对不上。
+ *
+ * 既有五家(dashscope/doubao/gemini/recraft/tongyi)的 path 与 body 逐字不变;
+ * 唯一行为变化是 vendor 串两侧空白再比(原先 ' agnes ' 会落到 tongyi 兜底)。
+ */
+export function resolveImageVendorRoute(
+  vendor: string | undefined,
+  input: { prompt: string; model: string; n?: number; size?: string; style?: string },
+): { path: string; body: Record<string, unknown>; reject?: string } {
+  const v = (vendor ?? 'tongyi').trim().toLowerCase()
+  const { prompt, model, n, size, style } = input
+  if (v === 'dashscope') return { path: '/api/ai/dashscope/image', body: { prompt, model, size } }
+  if (v === 'doubao') return { path: '/api/ai/doubao/image', body: { prompt, model, size } }
+  if (v === 'gemini') return { path: '/api/ai/gemini/image', body: { prompt, model } }
+  if (v === 'recraft') {
+    // 2026-09-21 补:Recraft 内部端点(/api/ai/recraft/generate)为 OpenAI images 兼容
+    // (prompt/model/size/style/n 同构透传),同步返回 data:[{url}]。
+    return { path: '/api/ai/recraft/generate', body: { prompt, model, n, size, style } }
+  }
+  if (v === 'agnes') {
+    if (n !== undefined && n > 1) {
+      return {
+        path: '',
+        body: {},
+        reject: 'Agnes 生图当前仅支持 n=1(上游按 rpm 限制,多张需平台实名认证)',
+      }
+    }
+    return { path: '/api/ai/agnes/image', body: { prompt, model, size, n: 1 } }
+  }
+  // tongyi(默认)
+  return { path: '/api/ai-image/tongyi/text-to-image', body: { prompt, model, n, size } }
+}
+
+/**
+ * 同步出图响应取图数组(2026-10-30 立)。
+ * 既有形态:{images:[…]} 或 {data:[…]};agnes 形态:内部端点把上游包了一层
+ * {taskId, status, raw:{data:[{url,…}]}} ⇒ 图在 raw.data 里,不取则「已出图但回不出地址」。
+ * 只对 agnes 认 raw 形态,避免把别家的 {raw:…} 误当产出。
+ */
+export function extractSyncImages(vendor: string | undefined, payload: unknown): unknown[] | null {
+  const d = asObj(payload)
+  const direct = Array.isArray(d.images) ? d.images : Array.isArray(d.data) ? d.data : null
+  if (direct) return direct
+  if ((vendor ?? '').trim().toLowerCase() === 'agnes') {
+    const raw = asObj(d.raw)
+    return Array.isArray(raw.data) ? raw.data : null
+  }
+  return null
+}
+
 // =============================================================================
 // 路由插件
 // =============================================================================
@@ -1168,27 +1291,19 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const v = (vendor ?? 'tongyi').toLowerCase()
-      let path: string
-      let body: Record<string, unknown>
-      if (v === 'dashscope') {
-        path = '/api/ai/dashscope/image'
-        body = { prompt, model, size }
-      } else if (v === 'doubao') {
-        path = '/api/ai/doubao/image'
-        body = { prompt, model, size }
-      } else if (v === 'gemini') {
-        path = '/api/ai/gemini/image'
-        body = { prompt, model }
-      } else if (v === 'recraft') {
-        // 2026-09-21 补:Recraft 内部端点(/api/ai/recraft/generate)为 OpenAI images 兼容
-        // (prompt/model/size/style/n 同构透传),同步返回 data:[{url}]。
-        path = '/api/ai/recraft/generate'
-        body = { prompt, model, n, size, style: parsed.data.style }
-      } else {
-        // tongyi(默认)
-        path = '/api/ai-image/tongyi/text-to-image'
-        body = { prompt, model, n, size }
+      // vendor → path + 字段适配的唯一实现见 resolveImageVendorRoute(模块级导出,可测)
+      const route = resolveImageVendorRoute(vendor, {
+        prompt,
+        model,
+        n,
+        size,
+        style: parsed.data.style,
+      })
+      if (route.reject) {
+        return reply.status(400).send(error(400, route.reject))
       }
+      const path = route.path
+      const body = route.body
 
       // 1. 提交生成任务(可能直接返回 images,也可能返回 taskId)
       const result = await callInternal(path, jsonInit(body), userId)
@@ -1201,7 +1316,8 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       const d = asObj(result.data)
 
       // 2. 同步路径:已有 images → 直接返回 OpenAI 同步格式 data:[{url}]
-      const imagesArray = Array.isArray(d.images) ? d.images : Array.isArray(d.data) ? d.data : null
+      //    取图数组的唯一实现见 extractSyncImages(agnes 形态在 raw.data 里)
+      const imagesArray = extractSyncImages(v, d)
       if (imagesArray && imagesArray.length > 0) {
         // 按张计费(2026-09-13):成功产出多少张扣多少张
         chargeMultimodal(request, {
@@ -1555,45 +1671,13 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { model, prompt, image, duration, vendor } = parsed.data
-      const v = (vendor ?? 'sora2').toLowerCase()
-      let path: string
-      const body: Record<string, unknown> = { prompt, model }
-      if (image) body.image = image
-      if (duration) body.duration = duration
-      if (v === 'dashscope') path = '/api/ai/dashscope/video'
-      else if (v === 'doubao') path = '/api/ai/doubao/video'
-      else if (v === 'gemini') path = '/api/ai/gemini/video'
-      // 2026-09-21 补:以下厂商内部端点均已存在(ai-vendors/proxy-extended-media*.ts),
-      // 请求体按各厂商官方字段做最小适配(与既有 dashscope/doubao/gemini 同构:提交返回 taskId 走轮询)。
-      else if (v === 'minimax') {
-        path = '/api/ai/minimax/video'
-        if (image) {
-          delete body.image // MiniMax 官方字段为 first_frame_image
-          body.first_frame_image = image
-        }
-      } else if (v === 'kling') {
-        path = '/api/ai/kling/generate'
-        if (duration) body.duration = String(duration) // 可灵官方 duration 为字符串 "5"/"10"
-      } else if (v === 'vidu') {
-        path = '/api/ai/vidu/generate'
-        if (image) {
-          delete body.image // Vidu 官方 images 为 URL 数组(端点内包装为 [{url}])
-          body.images = [image]
-        }
-      } else if (v === 'runway') {
-        path = '/api/ai/runway/generate' // image/duration 字段与官方同构,无需适配
-      } else if (v === 'luma') {
-        path = '/api/ai/luma/generate'
-        if (duration) body.duration = `${duration}s` // Luma 官方为 "5s" 字符串
-      } else if (v === 'pixverse') {
-        path = '/api/ai/pixverse/generate' // image/duration 字段与官方同构,无需适配
-      } else if (v === 'zhipu') {
-        path = '/api/ai/zhipu/video'
-        if (image) {
-          delete body.image // 智谱 CogVideoX 官方字段为 image_url
-          body.image_url = image
-        }
-      } else path = '/api/ai/sora2/generate'
+      const seedBody: Record<string, unknown> = { prompt, model }
+      if (image) seedBody.image = image
+      if (duration) seedBody.duration = duration
+      // vendor → path + 字段适配的唯一实现见 resolveVideoVendorRoute(模块级导出,可测)
+      const route = resolveVideoVendorRoute(vendor, seedBody)
+      const path = route.path
+      const body = route.body
       // 视频计费(2026-09-13):提交成功即按次/按秒扣费(乐观计费防漏损),
       // 任务 failed 由 GET /v1/videos/tasks/:id 触发全额退款。
       // taskId 由 mapper 闭包捕获(forwardInternal 仅在提交成功时调用 mapper)。
@@ -1629,12 +1713,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // ===== 16. GET /videos/tasks/:id — 视频任务查询(sora2→jimeng4 回退) =====
+  // ===== 16. GET /videos/tasks/:id — 视频任务查询(sora2→jimeng4→agnes 回退) =====
   server.get(
     '/videos/tasks/:id',
     {
       schema: {
-        description: '视频任务查询(sora2→jimeng4 回退)',
+        description: '视频任务查询(sora2→jimeng4→agnes 回退)',
         tags: ['Multimodal'],
         params: {
           type: 'object',
@@ -1723,6 +1807,25 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         }
         const httpStatus = jimeng4.status >= 400 && jimeng4.status < 600 ? jimeng4.status : 502
         if (jimeng4.status === 404) {
+          // jimeng4 404 → 回退 agnes(2026-10-30 立):不回退则 agnes 任务永远查不到,
+          // 而提交侧是乐观扣费、failed 的退款点只挂在下面各探测分支 ⇒ 「查不到」等于「失败也不退」。
+          const agnes = await callInternal(
+            `/api/ai/agnes/video/tasks/${encodeURIComponent(id)}`,
+            { method: 'GET' },
+            userId,
+          )
+          if (agnes.ok) {
+            const mapped = tryMap(agnes.data)
+            // 视频任务失败退款(同上,幂等)
+            if (mapped.status === 'failed') void refundTaskCall(id)
+            return reply.send(mapped)
+          }
+          if (agnes.status !== 404) {
+            const agnesStatus = agnes.status >= 400 && agnes.status < 600 ? agnes.status : 502
+            return reply
+              .status(agnesStatus as 200 | 400 | 401 | 404 | 500 | 502 | 503)
+              .send(error(agnesStatus, agnes.message || `Internal service error (${agnes.status})`))
+          }
           return reply.status(404).send(error(404, `Video task not found: ${id}`))
         }
         return reply

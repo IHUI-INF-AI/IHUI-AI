@@ -5,7 +5,6 @@
 
 import { useTt, useI18n, type TtFn, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
-import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getAgentList } from '@/api'
@@ -113,14 +112,6 @@ const FAVORITE_KEY = 'ai_agent_favorites'
 /** 智能体最近使用本地存储 key(按时间倒序,最多 20 条) */
 const RECENT_KEY = 'ai_agent_recent'
 
-/** 根据 uses 数推算评分(原项目 RateController 提供真实评分,API 未返回时降级估算) */
-function estimateRating(uses: number | undefined): number {
-  if (!uses || uses <= 0) return 0
-  if (uses < 50) return 3.5 + Math.min(1, uses / 50) * 0.5
-  if (uses < 500) return 4 + Math.min(1, (uses - 50) / 450) * 0.5
-  return 4.5 + Math.min(0.5, (uses - 500) / 1000)
-}
-
 /** 读取本地收藏 id 列表 */
 function readFavorites(): string[] {
   try {
@@ -197,15 +188,9 @@ export default function AgentPage() {
       // 原项目按 createdAt 倒序,API 未返回时按列表顺序倒序近似
       arr = arr.slice().reverse()
     } else {
-      // hot:综合 uses + 评分
-      arr = arr
-        .slice()
-        .sort(
-          (a, b) =>
-            (b.uses ?? 0) +
-            estimateRating(b.uses) * 10 -
-            ((a.uses ?? 0) + estimateRating(a.uses) * 10),
-        )
+      // hot:按真实 usageCount 降序。agents 表没有评分列(现读 packages/database/src/schema/
+      // agents-extended.ts),后端也不出 per-agent 评分 ⇒ 不再用 uses 反推假评分参与排序。
+      arr = arr.slice().sort((a, b) => (b.uses ?? 0) - (a.uses ?? 0))
     }
     return arr
   }, [list, keyword, activeType, activeCategory, sortKey, quickTab, favoriteIds, recentIds])
@@ -483,7 +468,6 @@ export default function AgentPage() {
             {t('ai.agent.count', { n: filtered.length })}
           </Text>
           {filtered.map((agent) => {
-            const rating = estimateRating(agent.uses)
             return (
               <ThemeRoot key={agent.id}>
                 {/* 卡片对齐 RN SharedAgentScreen card:row/居中/内边距28rpx/圆角24rpx/白卡面/1px 描边 */}
@@ -520,19 +504,6 @@ export default function AgentPage() {
                         <Text className="text-[length:20rpx] px-[8rpx] py-[2rpx] mr-[12rpx] rounded-sm bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]">
                           {t(CATEGORY_KEY[agent.category] ?? 'ai.agentList.categories.other')}
                         </Text>
-                      )}
-                      {rating > 0 && (
-                        <View className="flex flex-row items-center mr-[12rpx]">
-                          <LineIcon
-                            name="star-fill"
-                            size={22}
-                            color="var(--color-text-tertiary)"
-                            className="mr-[6rpx]"
-                          />
-                          <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                            {t('agentScreen.rating')} {rating.toFixed(1)}
-                          </Text>
-                        </View>
                       )}
                       {agent.uses !== undefined && (
                         <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">

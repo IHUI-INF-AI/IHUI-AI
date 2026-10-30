@@ -11,16 +11,10 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { BASE_URL } from '@/utils/api-config'
-import { get, post } from '@/api'
+import { post } from '@/api'
 import { COZE_DEFAULT_BASE_URL, COZE_DEFAULT_TIMEOUT } from '@ihui/shared/constants'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
-
-interface ApiConfig {
-  version: string
-  environment: string
-  timeout: string
-}
 
 const STORAGE_TOKEN_KEY = 'coze_token'
 const STORAGE_WORKFLOW_KEY = 'coze_workflow_id'
@@ -47,11 +41,6 @@ export default function ApiSettings() {
     },
     [t],
   )
-  const [config, setConfig] = useState<ApiConfig>({
-    version: '-',
-    environment: '-',
-    timeout: '-',
-  })
   const [apiToken, setApiToken] = useState('')
   const [workflowId, setWorkflowId] = useState('')
   // 共享屏 Coze 配置的三项(接口地址 / Bot ID / 超时):本页原先只有令牌与工作流 ID,
@@ -73,16 +62,6 @@ export default function ApiSettings() {
   const [testing, setTesting] = useState<TestState>('idle')
 
   const load = useCallback(async () => {
-    try {
-      // 真身 = Coze 通道自检读数(GET /api/cozeZhsApi/agents/test/auth-config);
-      // 原 /about/api-config 全仓零注册 ⇒ 「运行环境」这一行永远只有 '-'
-      const res = await get<{ apiBaseUrl?: string }>('/cozeZhsApi/agents/test/auth-config')
-      if (res?.apiBaseUrl) {
-        setConfig((prev) => ({ ...prev, environment: res.apiBaseUrl as string }))
-      }
-    } catch (e) {
-      logger.error('about/api-settings', '获取 API 配置', e)
-    }
     const savedToken = Taro.getStorageSync(STORAGE_TOKEN_KEY) || ''
     const savedWorkflow = Taro.getStorageSync(STORAGE_WORKFLOW_KEY) || ''
     setApiToken(savedToken)
@@ -140,12 +119,13 @@ export default function ApiSettings() {
     })
   }, [tt])
 
+  // 连通性诊断打**在册**的 Coze 通道自检端点 POST /api/cozeZhsApi/agents/test/fetch-details
+  // (服务端用自己的 COZE 凭据打远端,回 hasRemote + cozeError)。原 /about/api-test 全仓零注册
+  // ⇒ testSuccess 分支永不可达 = 假绿,且会把令牌明文交给一条不存在的路径;现接回真身,
+  // 请求体只带 bot_id(不带令牌),无 botId 时直接如实报失败。
   const testConnection = useCallback(async () => {
     setTesting('testing')
     try {
-      // 真身 = POST /api/cozeZhsApi/agents/test/fetch-details(服务端用自己的 COZE 凭据打远端,
-      // 回 hasRemote + cozeError);原 /about/api-test 全仓零注册,这颗按钮今天怎么点都是"失败",
-      // 而且旧写法还把令牌明文交给了一条不存在的路径
       if (!botId) {
         setTesting('failed')
         Taro.showToast({ title: t('apiSettings.testFailed'), icon: 'none' })
@@ -198,22 +178,6 @@ export default function ApiSettings() {
             </Text>
             <Text className="text-[length:28rpx] text-foreground max-w-[60%] text-right break-all">
               {BASE_URL}
-            </Text>
-          </View>
-          <View className="flex justify-between items-center py-[16rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
-              {tt('about.apiSettings.apiVersion', 'API 版本')}
-            </Text>
-            <Text className="text-[length:28rpx] text-foreground max-w-[60%] text-right break-all">
-              {config.version}
-            </Text>
-          </View>
-          <View className="flex justify-between items-center py-[16rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
-              {tt('about.apiSettings.environment', '运行环境')}
-            </Text>
-            <Text className="text-[length:28rpx] text-foreground max-w-[60%] text-right break-all">
-              {config.environment}
             </Text>
           </View>
         </View>
