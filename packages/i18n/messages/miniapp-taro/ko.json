@@ -118,6 +118,8 @@
     "more": "더 보기",
     "discountAmount": "할인",
     "loadFailed": "로드 실패"
+,
+    "operationFailed": "작업에 실패했습니다"
   },
   "login": {
     "loginSuccess": "로그인 성공",
@@ -5245,6 +5247,8 @@
       "absent": "결석",
       "leave": "조퇴"
     }
+,
+    "student": "학생"
   },
   "eduMgmt": {
     "attendanceTitle": "출석 관리",
@@ -7406,6 +7410,8 @@
     "newPassword": "새 비밀번호",
     "language": "언어",
     "theme": "테마"
+,
+    "version": "버전"
   },
   "liveList": {
     "subtitle": "다양한 라이브, 놓치지 마세요",
@@ -7573,5 +7579,35 @@
     "feature": "기능",
     "premium": "프리미엄",
     "title": "회원 비교"
+  }
+,
+  "coupon": {
+    "useHint": "상품 페이지에서 사용해 주세요"
+  },
+  "eduChildBills": {
+    "arrears": "미납",
+    "className": "학급",
+    "paid": "납부",
+    "term": "학기",
+    "total": "총액"
+  },
+  "eduChildMeals": {
+    "date": "날짜",
+    "dish": "메뉴",
+    "ingredients": "재료",
+    "mealType": "식사",
+    "nutrition": "영양"
+  },
+  "eduChildStudyPlans": {
+    "planType": "유형",
+    "range": "기간",
+    "title2": "계획"
+  },
+  "eduSchedule": {
+    "classroom": "교실",
+    "course": "과목",
+    "teacher": "담당",
+    "time": "시간",
+    "weekdayTitle": "요일"
   }
 }
