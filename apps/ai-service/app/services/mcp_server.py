@@ -8759,9 +8759,12 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
         from app.services.scheduler_service import task_scheduler
 
         trigger_type, trigger_config, callback = _build_scheduler_params(task)
+        # 2026-10-31:此前这里写的是任务名(conversation_id=name),按会话过滤永远查不到
+        # 自己建的任务。__session_id 由 call_tool 在派发前覆盖注入(模型伪造会被覆盖),
+        # 无会话上下文(内部直调)才退回 name 以保持旧行为。
         sched_result = await task_scheduler.add_task(
             task_id, trigger_type, trigger_config, callback,
-            conversation_id=name,
+            conversation_id=str(arguments.get("__session_id") or name),
         )
         if sched_result.get("next_run_at"):
             task["next_run_at"] = sched_result["next_run_at"]
