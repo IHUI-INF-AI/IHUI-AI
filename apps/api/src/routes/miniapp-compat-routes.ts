@@ -57,7 +57,6 @@ import {
   zhsAgentBuy,
   zhsAiUserModelChatHistory,
   userMargins,
-  userTokenBalance,
   tokenFlows,
   commissionFlows,
   withdrawalFlows,
@@ -2887,41 +2886,28 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       )
     }
     const orderNo = `ord_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`
-    // 查询 user_token_balance 余额
-    // 修前:副本读余额 → JS 判够不够 → **无守卫**的 `balance = balance - price` 回写。
-    // 并发两笔可同时通过判定 ⇒ balance 扣成负数;流水里的 balanceAfter 又是拿陈旧读数
-    // 算的、还套了一层 Math.max(0,…) ⇒ 账面既不平也看不出哪一笔越了额。
-    // 现在:够才扣的单条条件语句 + RETURNING 取回真实新值,判定与扣减之间没有窗口。
-    let paidBalance: string | null = null
-    await db.transaction(async (tx) => {
-      // changed 形态(门 198 豁免出口):够才扣的条件语句保证扣成必变(balance sql 表达式)。
-      const changed = { balance: sql`${userTokenBalance.balance} - ${coursePrice}` }
-      const [deducted] = await tx
-        .update(userTokenBalance)
-        .set({ ...changed, updatedAt: new Date() })
-        .where(
-          and(
-            eq(userTokenBalance.userUuid, userId),
-            // balance 是 numeric(20,4) ⇒ Drizzle 侧类型是 string,比较值必须同型传(传 number 直接不匹配重载)
-            gte(userTokenBalance.balance, String(coursePrice)),
-          ),
-        )
-        .returning({ balance: userTokenBalance.balance })
-      if (!deducted) {
-        // 0 行 = 余额不足或该用户还没有余额行 —— 一律按"没扣成"处理,不写流水、不给 paid 回执
-        paidBalance = null
-        return
+    // 余额账户只有一份真相源：user_margins（充值回调 rechargeToken、提现 applyWithdrawal、
+    // 佣金结算全都写它），单位「分」——充值落的是 orders.amount，而 orders.amount 是分。
+    //
+    // 修前这里读 user_token_balance：那张表在本仓除本节外**零引用**，没有任何入账写入点
+    // （充值不进它、佣金不进它）⇒ 对普通用户永远是空行，买课恒回 402「余额不足」，
+    // 哪怕钱包里明明有钱。即便有行，比较值与扣减量用的都是元（coursePrice）而余额是分，
+    // 也会少扣 99%。
+    //
+    // 现复用仓内那份守卫式原子扣减（条件 UPDATE 内联 token_quantity >= quantity + RETURNING，
+    // 同事务写流水），不再在本路由保留第二套算法（§0.6 单一真相源）。
+    const priceCents = Math.round(coursePrice * 100)
+    let paidBalance: number | null = null
+    try {
+      const deducted = await deductToken(userId, priceCents, `course buy: ${course.title}`, orderNo)
+      paidBalance = deducted.balanceAfter
+    } catch (e) {
+      const message = (e as Error).message || ''
+      if (!message.includes('Token 余额不足')) {
+        request.log.error({ err: e, userId, courseId: course.id }, '课程购买扣减失败')
       }
-      paidBalance = deducted.balance
-      await tx.insert(tokenFlows).values({
-        userId,
-        opType: 1,
-        quantity: Math.round(coursePrice),
-        balanceAfter: Math.round(Number(deducted.balance)),
-        remark: `course buy: ${course.title}`,
-        relatedOrderNo: orderNo,
-      })
-    })
+      paidBalance = null
+    }
     if (paidBalance === null) return reply.status(402).send(error(402, '余额不足'))
     return reply.send(
       success({
