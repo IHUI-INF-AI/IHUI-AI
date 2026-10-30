@@ -12,8 +12,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { join, sep } from 'node:path'
 import { gunzipSync, strFromU8 } from 'fflate'
-import { mergeMessages } from '@ihui/i18n/loader'
-import type { Locale, Messages } from '@ihui/i18n/types'
+import type { Messages } from '@ihui/i18n/types'
 import { REMOTE_LOCALE_B64 } from '@/i18n/generated/remote-locales.gen'
 import {
   REMOTE_LOCALE_MANIFEST,
@@ -33,8 +32,6 @@ const REMOTE_LOCALES: RemoteLocale[] = ['en', 'ja', 'ko', 'zh-TW']
 const SRC_ROOT = join(__dirname, '..', '..')
 const PAYLOAD_ROOT = join(SRC_ROOT, 'assets', 'remote-locales')
 const GENERATED_ROOT = join(SRC_ROOT, 'i18n', 'generated')
-const MESSAGES_ROOT = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'i18n', 'messages')
-const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..', '..')
 
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64)
