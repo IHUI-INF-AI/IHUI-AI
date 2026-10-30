@@ -6,21 +6,21 @@
 // 非中文语言包离线 gzip+base64 内联,运行时经 fflate 解压,数据与源 JSON 无损等价(见 __tests__/i18n-compressed.test.ts)
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: b38803a09a49aeab346b538502cb88496ff681f0
-// inputsSha256: 10c69df155260f0b24e25dbfae42f4598078dee24d19689199fc74e8e765cb7b
+// sourceCommit: 4af3734988f437a37a2118dce0537468d7289d11
+// inputsSha256: 8db6ed4bc080fb0f3bd00c95e12a8be4a4b2c908a425cef44d53437e6437f53b
 // input: packages/i18n/messages/miniapp-taro/en.json d304accc98184b593245e9b53073d0afebda2576a4d53af2d28d646779e6dc1d
 // input: packages/i18n/messages/miniapp-taro/ja.json 9f3b93ac0512e06ca07bd0d6135e83a790bffc6488501452fb07546e1029d21f
 // input: packages/i18n/messages/miniapp-taro/ko.json 18b8b9f55bc6ed609b81df16ecac25c5d43cf86db1f1176ff43046a360b566f6
 // input: packages/i18n/messages/miniapp-taro/zh-TW.json eff634962a0f124cfab0faa138e57a72ef21e0d2a92a5d14f28965c904935e33
-// input: packages/i18n/messages/mobile-rn/en.json aac0fee7d9ab822042b1af5187e69c5133abdcd8dccc4ed9acb5ff311b72bae1
-// input: packages/i18n/messages/mobile-rn/ja.json 946265caf87a25eb93fd70bf0ef30ee7dd1f215eb5dda487cbeb7e07ec20e886
-// input: packages/i18n/messages/mobile-rn/ko.json 445ecfa0547c672912271c10561432c2ddb3a0149529c750f44c3b62c5deb58a
-// input: packages/i18n/messages/mobile-rn/zh-TW.json e56662fa013c6c6a69cc8b11f4e2654e26211701a8e547981dd36dde62993751
+// input: packages/i18n/messages/mobile-rn/en.json 565e86ecbfff8e354511d917562276d4792ff3524d6b4d2ec95fb4625130cad7
+// input: packages/i18n/messages/mobile-rn/ja.json 6c2639a463628b2a0631aebebad9dc70514753f7c2e9b29118283eb2451257c3
+// input: packages/i18n/messages/mobile-rn/ko.json 625e36cb4731c10250dd860b13be6fac9e915930c6003273f248abd8deefb738
+// input: packages/i18n/messages/mobile-rn/zh-TW.json da05c464824e075e6e1bb811d5af06f795bbf320c9de52bf2548382ca9f931bd
 // input: packages/i18n/messages/shared/en.json 589e3c9f6ce3cb79fe15f6d72b0f1b13d2848af24c7556e1e56268186fa65ebd
 // input: packages/i18n/messages/shared/ja.json d2bf46fbdfe435f6809c9577eeac23d003a1f38fa1d4ecf28801e125aa2eb761
 // input: packages/i18n/messages/shared/ko.json edd039a47a61019080f02a6c7ffa46dbc2e5ee33478ced6ea75b1cc74931bb6d
 // input: packages/i18n/messages/shared/zh-TW.json cb996ba73e7351af8afda1979770c1395f455d1f829224a8931d93b2d5c31e5b
-// generatedAt: 2026-10-30T01:08:58.189Z
+// generatedAt: 2026-10-30T03:11:43.140Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_B64: Record<RemoteLocale, string> = {
