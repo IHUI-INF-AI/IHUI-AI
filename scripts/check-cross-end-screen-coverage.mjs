@@ -47,6 +47,8 @@ import { existsSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+// 裁决台账单源(§0.6):"该屏小程序本就不承载"是验过的结论,棘轮不该把它当倒退。
+import { indexVerdicts, readVerdicts } from './lib/cross-end-verdicts.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = join(HERE, '..')
@@ -411,6 +413,17 @@ function mirrorDeclarations(hay, idx) {
   return { specs, forms, ambiguous }
 }
 
+/**
+ * R3 棘轮候选:锚点里有、当前面没了、且**没有被裁决台账判为小程序不承载**的共享屏。
+ * 第三项是 2026-10-30 补的:撤掉一条挂错屏的假声明是纠正,不是倒退;判过 not-applicable
+ * 的屏(带证据)不再参与该判定。台账取不到时调用方传空集 ⇒ 照旧判红(失效方向不放松)。
+ */
+export function lostMirroredSpecs(anchorSpecs, nowMirrored, notApplicable) {
+  const now = new Set(nowMirrored || [])
+  const exempt = notApplicable instanceof Set ? notApplicable : new Set(notApplicable || [])
+  return [...(anchorSpecs || [])].filter((x) => !now.has(x) && !exempt.has(x))
+}
+
 /** 小程序页是否**硬路径**镜像了某共享屏 —— R1 登记表凭据(旧口径,不含新形) */
 function mirroredSpecs(mp) {
   const found = new Set()
@@ -561,7 +574,10 @@ function run() {
   for (const e of registry.entries || []) {
     const { shared: sp, rn: rf, miniapp: mr } = e || {}
     if (!sp || !rf || !mr) {
-      r1Red.push({ entry: e, why: '登记项缺 shared/rn/miniapp 三键之一' })
+      r1Red.push({
+        entry: e,
+        why: '登记项缺 shared/rn/miniapp 三键之一(置 null 不等于"无 rn 腿":全仓无 RN 屏 import 该 shared 符号 ⇒ 删该条目才是恢复口径;有而漏登 ⇒ 补该 rn 路径)',
+      })
       continue
     }
     if (faceRead(FACE, sp) === null) {
@@ -600,7 +616,25 @@ function run() {
       `HEAD 面锚点载体 ${anchorWidth.size} 枚全部取不到正文 ⇒ 棘轮无输入,不折成空锚点冒绿(§0.3)`,
     )
   }
-  const lostMirrored = [...anchor.specs].filter((x) => !nowMirrored.includes(x))
+  // 裁决台账里显式判过 not-applicable 的屏,不参与「镜像被撤」判定 —— 那种屏小程序本就不该承载,
+// 撤掉假声明是纠正而不是倒退。台账取不到 ⇒ 一条不豁免(失效方向恒为照旧判红,§0.3/§0.10)。
+  let notApplicable = new Set()
+  let verdictsReadable = false
+  try {
+    // readVerdicts 返回 {text, rows, bad};形状取错会让 indexVerdicts 静默得到空表(实测过一版),
+    // 所以这里显式取 .rows 并在拿到非空数组时才置可读位。
+    const read = readVerdicts(FACE, ROOT)
+    const rows = Array.isArray(read?.rows) ? read.rows : null
+    verdictsReadable = rows !== null
+    notApplicable = new Set(
+      [...indexVerdicts(rows || []).values()]
+        .filter((r) => r?.verdict === 'not-applicable' && typeof r.shared === 'string')
+        .map((r) => r.shared),
+    )
+  } catch {
+    /* 取不到台账:不豁免任何一条 */
+  }
+  const lostMirrored = lostMirroredSpecs(anchor.specs, nowMirrored, notApplicable)
   const lostDelegated = [...headDelegatedRn()].filter((x) => !nowDelegated.includes(x))
 
   // --- 未判定桶逐类拆解(报数 + 逐枚取证;判定尺度一寸未动) ---
@@ -959,6 +993,7 @@ const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process
 
 /** §22c:判据单一出口 —— 取证测试 import 这份,禁止在测试里另抄一份面读取器/检测形正则 */
 export const __test__ = {
+  lostMirroredSpecs,
   faceRead,
   faceList,
   collectShared,

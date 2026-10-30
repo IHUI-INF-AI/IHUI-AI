@@ -115,7 +115,7 @@ export default function AppPermission() {
     <ThemeRoot>
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx] flex flex-col gap-[24rpx]">
         <Text className="block text-[length:28rpx] text-muted-foreground leading-[44rpx] px-[8rpx] py-[8rpx]">
-          {t('about.appPermission.intro')}
+          {t('appPermission.intro')}
         </Text>
 
         {permissions.map((p) => (

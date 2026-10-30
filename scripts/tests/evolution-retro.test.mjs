@@ -16,12 +16,12 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   FAILURE_ACTIONS,
   MAX_SUMMARY_LINES,
@@ -101,7 +101,7 @@ test('摘要 ≤8 行且机器行单行可 grep 可解析', () => {
 })
 
 test('台账:只追加、坏行不作废整本、24h 去重可读', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'evo-retro-'))
+  const dir = mkScratch('evo-retro-')
   try {
     const ledger = join(dir, 'state', 'evolution-retro.jsonl')
     const item = {
@@ -121,12 +121,12 @@ test('台账:只追加、坏行不作废整本、24h 去重可读', () => {
     assert.equal(rows[0].action, 'dispatched')
     assert.equal(rows[0].bucket, 'rollback|web')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir, { bestEffort: true })
   }
 })
 
 test('CLI 真跑:达阈落盘 / dry-run 不落盘 / 缺台账 exit 2 / 非整数参数 exit 2', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'evo-cli-'))
+  const dir = mkScratch('evo-cli-')
   try {
     const decisions = join(dir, 'decisions.jsonl')
     const ledger = join(dir, 'retro.jsonl')
@@ -154,7 +154,7 @@ test('CLI 真跑:达阈落盘 / dry-run 不落盘 / 缺台账 exit 2 / 非整数
     const badArg = spawnSync(process.execPath, [SCRIPT, '--decisions', decisions, '--ledger', ledger, '--min-count', 'x'], { encoding: 'utf8' })
     assert.equal(badArg.status, 2, badArg.stdout)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir, { bestEffort: true })
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

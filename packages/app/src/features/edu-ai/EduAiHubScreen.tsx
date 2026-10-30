@@ -34,6 +34,7 @@ import type { TFunction } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { createEduAiStyles, EDU_AI_PALETTE, type EduAiTone } from './edu-ai-styles'
+import { useWrapFocus } from '../../hooks/use-wrap-focus'
 
 /** 与 web /edu-ai 四目录页同构的四个入口(aigc-tools / certification / courses / policy)。 */
 export type EduAiTab = 'aigc' | 'cert' | 'courses' | 'policy'
@@ -496,6 +497,45 @@ function Pager({
 }
 
 /**
+ * 搜索框(图标 + 输入，描边铺在**容器**上)。
+ *
+ * 为什么单独立一个组件而不是留在 `searchBox` 闭包里：聚焦态必须是**每个盒子自己**的 ——
+ * 父组件里调一次 `useWrapFocus` 会把同一份 `focusBorder` 铺到四个 tab 的盒子上，
+ * 任一格聚焦时其余三格一起高亮。这也是那条「裸 TextInput 必须带 onFocus/focused」普查锁
+ * 点名本文件的原因（此前的裸 `<TextInput>` 完全没有聚焦反馈）。
+ */
+function EduAiSearchBox({
+  tk,
+  placeholder,
+  value,
+  onChangeText,
+}: {
+  tk: AppThemeTokens
+  placeholder: string
+  value: string
+  onChangeText: (v: string) => void
+}) {
+  const styles = useMemo(() => createEduAiStyles(tk), [tk])
+  const ff = useWrapFocus(tk)
+  return (
+    <View style={[styles.searchBox, ff.focusBorder]}>
+      <Search size={15} color={tk.text.tertiary} strokeWidth={2} />
+      <TextInput
+        style={styles.searchInput}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={tk.text.tertiary}
+        accessibilityLabel={placeholder}
+        returnKeyType="search"
+        onFocus={ff.onFocus}
+        onBlur={ff.onBlur}
+      />
+    </View>
+  )
+}
+
+/**
  * edu-ai 教育 AI 目录中心共享屏(Wave2 2026-10-26,edu-ai 域四路由一屏四入口)。
  *
  * 结构对齐 web apps/web/app/(main)/edu-ai/{aigc-tools,certification,courses,policy}:
@@ -521,18 +561,12 @@ export function EduAiHubScreen({
   const styles = useMemo(() => createEduAiStyles(tk), [tk])
 
   const searchBox = (tab: EduAiTab, placeholder: string, value: string) => (
-    <View style={styles.searchBox}>
-      <Search size={15} color={tk.text.tertiary} strokeWidth={2} />
-      <TextInput
-        style={styles.searchInput}
-        value={value}
-        onChangeText={(v) => onKeywordChange(tab, v)}
-        placeholder={placeholder}
-        placeholderTextColor={tk.text.tertiary}
-        accessibilityLabel={placeholder}
-        returnKeyType="search"
-      />
-    </View>
+    <EduAiSearchBox
+      tk={tk}
+      placeholder={placeholder}
+      value={value}
+      onChangeText={(v) => onKeywordChange(tab, v)}
+    />
   )
 
   const listShell = <T extends { id: string }>(

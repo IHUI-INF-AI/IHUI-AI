@@ -16,8 +16,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -146,7 +145,7 @@ test('登记通道:live-doc-edit 唯一入口 + 取号令牌(不得自己拼号)
 })
 
 test('CLI 真跑:离线读数 exit 0,坏读数/缺文件 exit 2', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'dep-radar-'))
+  const dir = mkScratch('dep-radar-')
   try {
     const good = join(dir, 'audit.json')
     writeFileSync(good, auditDoc([adv()]), 'utf8')
@@ -162,7 +161,7 @@ test('CLI 真跑:离线读数 exit 0,坏读数/缺文件 exit 2', () => {
 
     assert.equal(spawnSync(process.execPath, [SCRIPT, '--audit-json', join(dir, 'missing.json'), '--ledger', join(dir, 'l.jsonl')], { encoding: 'utf8' }).status, 2)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir, { bestEffort: true })
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

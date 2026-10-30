@@ -13,14 +13,14 @@
  *  ⑤ 接线面:部署环必须真调本模块、回滚必须带 -CanaryRollback、回滚后不得刷绿色态,
  *     且 ihui-deploy.ps1 不得在成功分支把 .rollback 删掉(否则自动回滚无包可退)。
  */
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   CanaryShapeError,
   EXIT_FAIL,
@@ -71,9 +71,17 @@ const rec = (endpoint, verdict, ms, kind = 'origin') => ({
   ts: '',
 })
 
+// §15b 唯一落点:夹具走 scratch-dir,不用进程 TEMP(活进程 %TEMP% 可能仍钉在 C 盘)。
+// 用完即删由模块级 after() 统一收口(两处调用点都不必各自 try/finally)。
+const scratchDirs = []
 function tmpDir() {
-  return mkdtempSync(join(tmpdir(), 'canary-verdict-'))
+  const dir = mkScratch('canary-verdict-')
+  scratchDirs.push(dir)
+  return dir
 }
+after(() => {
+  for (const dir of scratchDirs) rmScratch(dir, { bestEffort: true })
+})
 
 test('① 策略面:真实策略可加载,缺 origin 腿拒绝,坏形状全抛', () => {
   const real = loadPolicy(readFileSync(POLICY_PATH, 'utf8'))

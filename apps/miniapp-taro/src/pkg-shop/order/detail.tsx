@@ -11,6 +11,13 @@ import { useState, useEffect, useMemo } from 'react'
 import { getOrderDetail, closeOrder, type Order } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { ErrorState } from '@/components/ScreenStates.taro'
+
+/**
+ * 端内 `Order` 投影只取了展示字段(orderNo/amount/type/title/status/createTime),支付时间
+ * 按 api-client Order 契约补读(与 live/detail 的 LiveWithIntro 同手法),不改端内 api 面。
+ */
+type OrderWithPaidAt = Order & { paidAt?: string | null }
 
 const STATUS_KEYS: Record<string, string> = {
   pending: 'order.status.pending',
@@ -28,18 +35,24 @@ export default function OrderDetail() {
   const gate = useAuthReadyGate()
   const [order, setOrder] = useState<Order>({} as Order)
   const [canceling, setCanceling] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const statusText = useMemo(
     () => (STATUS_KEYS[order.status] ? t(STATUS_KEYS[order.status] as string) : order.status),
     [order.status, t],
   )
 
+  /** 支付时间:未支付订单为空 ⇒ 该行整块不渲染(与 RN `{item.paidAt ? … : null}` 同语义) */
+  const paidAt = (order as OrderWithPaidAt).paidAt
+
   const reload = (id: string | number) => {
+    setLoadFailed(false)
     getOrderDetail(id)
       .then((data) => setOrder(data))
       .catch((e) => {
         logger.error('unknown', '订单详情加载', e)
-        Taro.showToast({ title: t('order.loadFailed'), icon: 'none' })
+        // 对齐 RN SharedOrderDetailScreen:加载失败由 ErrorState 常驻呈现(orderDetail.loadFailed)
+        setLoadFailed(true)
       })
   }
 
@@ -92,40 +105,69 @@ export default function OrderDetail() {
           卡片 padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白卡;字段 label 22rpx tertiary + value 32rpx,金额 44rpx/700 success */}
       <View className="min-h-screen bg-background pb-[140rpx]">
         <View className="p-[20rpx]">
-          <View className="rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
-            <Text className="block text-[length:32rpx] text-foreground">{order.title}</Text>
-            <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-              {t('order.orderNo')}
-            </Text>
-            <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
-              {order.orderNo}
-            </Text>
-            <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-              {t('order.createTime')}
-            </Text>
-            <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
-              {order.createTime}
-            </Text>
-            <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-              {t('order.orderType')}
-            </Text>
-            <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
-              {order.type}
-            </Text>
-            <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-              {t('order.orderStatus')}
-            </Text>
-            <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
-              {statusText}
-            </Text>
-            <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
-              {t('order.orderAmount')}
-            </Text>
-            <Text className="mt-[16rpx] block text-[length:44rpx] font-bold text-[var(--color-success)]">
+          {loadFailed && !order.orderNo ? (
+            /* 对齐 RN SharedOrderDetailScreen 的错误态:message 取 orderDetail.loadFailed,
+               重试重发同一个详情请求(端内可自愈,不必像 RN 那样退回上一屏) */
+            <ErrorState
+              message={t('orderDetail.loadFailed')}
+              onRetry={() => {
+                const id = router.params.id
+                if (id) reload(id)
+              }}
+              retryLabel={t('common.retry')}
+            />
+          ) : (
+            <View className="rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
+              {/* 对齐 RN orderDetail.product 标签 + productName:端内 Order.title 即 targetTitle */}
+              <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                {t('orderDetail.product')}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
+                {order.title}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                {t('order.orderNo')}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
+                {order.orderNo}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                {t('order.createTime')}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
+                {order.createTime}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                {t('order.orderType')}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
+                {order.type}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                {t('order.orderStatus')}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
+                {statusText}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                {t('orderDetail.amount')}
+              </Text>
+              <Text className="mt-[16rpx] block text-[length:44rpx] font-bold text-[var(--color-success)]">
               {/* orders.amount 是「分」(见 vip_levels.price 种 3990=¥39.90)，直接渲染会放大 100 倍 */}
               ¥{(order.amount / 100).toFixed(2)}
-            </Text>
-          </View>
+              </Text>
+              {paidAt ? (
+                <>
+                  <Text className="mt-[16rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                    {t('orderDetail.paidAt')}
+                  </Text>
+                  <Text className="mt-[16rpx] block text-[length:32rpx] text-foreground">
+                    {paidAt}
+                  </Text>
+                </>
+              ) : null}
+            </View>
+          )}
         </View>
       </View>
 
@@ -173,7 +215,7 @@ export default function OrderDetail() {
             </Text>
           </View>
         )}
-        {order.status !== 'pending' && order.status !== 'paid' && (
+        {!loadFailed && order.status !== 'pending' && order.status !== 'paid' && (
           <View
             className="h-[88rpx] flex-1 items-center justify-center rounded-lg bg-primary"
             hoverClass="opacity-80"

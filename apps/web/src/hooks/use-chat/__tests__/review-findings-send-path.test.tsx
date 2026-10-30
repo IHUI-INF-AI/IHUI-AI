@@ -153,9 +153,7 @@ describe('D115 首答主路径:review-finding 帧接线', () => {
     expect(useChatStore.getState().reviewFindingsByMessageId[id]?.map((f) => f.findingId)).toEqual([
       'rf-1',
     ])
-    renderAssistant(
-      useChatStore.getState().messages.find((m) => m.id === id) as ChatMessage,
-    )
+    renderAssistant(useChatStore.getState().messages.find((m) => m.id === id) as ChatMessage)
     expect(screen.getByTestId(`message-review-findings-${id}`)).toBeTruthy()
     expect(screen.getByTestId('review-group-P1')).toBeTruthy()
     expect(screen.getByTestId('review-finding-rf-1')).toBeTruthy()
@@ -176,9 +174,7 @@ describe('D115 首答主路径:review-finding 帧接线', () => {
       useChatStore.getState().reviewFindingsByMessageId[secondId]?.map((f) => f.findingId),
     ).toEqual(['rf-9'])
 
-    renderAssistant(
-      useChatStore.getState().messages.find((m) => m.id === secondId) as ChatMessage,
-    )
+    renderAssistant(useChatStore.getState().messages.find((m) => m.id === secondId) as ChatMessage)
     expect(screen.queryByTestId('review-finding-rf-1')).toBeNull()
     expect(screen.getByTestId('review-finding-rf-9')).toBeTruthy()
   })

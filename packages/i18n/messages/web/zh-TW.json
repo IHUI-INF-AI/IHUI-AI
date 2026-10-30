@@ -8802,6 +8802,10 @@
           "title": "帳戶受限",
           "action": "聯絡管理員"
         },
+        "PROVIDER_BUSY": {
+          "title": "服務提供商繁忙",
+          "action": "請稍後重試"
+        },
         "ALREADY_CLAIMED": {
           "title": "該任務已被他人認領",
           "action": "改領其他任務，或等對方釋放後再試"
@@ -9549,6 +9553,12 @@
       "videoDownloading": "下載中…",
       "videoDownloaded": "已下載",
       "shareVideo": "分享",
+      "copyImageLink": "複製圖片連結",
+      "imageLinkCopied": "連結已複製",
+      "downloadImage": "下載圖片",
+      "imageDownloading": "下載中…",
+      "imageDownloaded": "已下載",
+      "shareImage": "分享圖片",
       "pathCopied": "已複製",
       "plan": "計劃 ({count})",
       "prompt": "提示詞",
@@ -11364,6 +11374,7 @@
     "foldEnvInits": "初始化環境 {n} 次",
     "foldEnds": "收尾 {n} 次",
     "foldOthers": "呼叫 {n} 個工具",
+    "processNarrationGroup": "過程敘述",
     "workbenchSessions": "會話",
     "workbenchImmersiveEnter": "進入大屏模式",
     "workbenchImmersiveExit": "退出大屏模式",
@@ -11850,6 +11861,8 @@
       "saveAsNewVersion": "儲存為新版本",
       "share": "分享",
       "shareLinkCopied": "已複製內容與連結",
+      "shareTurn": "分享此回合",
+      "shareTurnCopied": "回合連結已複製",
       "showContent": "顯示內容",
       "stopReadAloud": "停止朗讀",
       "toggleMetadata": "切換元數據",
@@ -20332,6 +20345,7 @@
     "captureTraeWebCancelled": "已取消 Trae 網頁登入。重新點「網頁登入」可再試。"
   },
   "nav": {
+    "pdfTools": "PDF 工具",
     "accountPool": "個人號池",
     "checkin": "簽到助手",
     "monitorWallboard": "監控大屏",

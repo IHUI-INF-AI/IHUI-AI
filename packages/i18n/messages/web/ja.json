@@ -8802,6 +8802,10 @@
           "title": "アカウントが制限されています",
           "action": "管理者に連絡"
         },
+        "PROVIDER_BUSY": {
+          "title": "プロバイダーが混雑しています",
+          "action": "後でもう一度お試しください"
+        },
         "ALREADY_CLAIMED": {
           "title": "このタスクはすでに他のエージェントに引き受けられています",
           "action": "別のタスクを引き受けるか、相手が解放するのを待ってから再試行してください"
@@ -9549,6 +9553,12 @@
       "videoDownloading": "ダウンロード中…",
       "videoDownloaded": "ダウンロード済み",
       "shareVideo": "共有",
+      "copyImageLink": "画像リンクをコピー",
+      "imageLinkCopied": "リンクをコピーしました",
+      "downloadImage": "画像をダウンロード",
+      "imageDownloading": "ダウンロード中…",
+      "imageDownloaded": "ダウンロード済み",
+      "shareImage": "画像を共有",
       "pathCopied": "コピー済み",
       "plan": "計画 ({count})",
       "prompt": "プロンプト",
@@ -11364,6 +11374,7 @@
     "foldEnvInits": "{n} 回の環境初期化",
     "foldEnds": "{n} 回の締めくくり",
     "foldOthers": "{n} 個のツールを呼び出し",
+    "processNarrationGroup": "過程の説明",
     "workbenchSessions": "セッション",
     "workbenchImmersiveEnter": "大画面モードに入る",
     "workbenchImmersiveExit": "大画面モードを終了",
@@ -11850,6 +11861,8 @@
       "saveAsNewVersion": "新しいバージョンとして保存",
       "share": "共有",
       "shareLinkCopied": "コンテンツとリンクをコピーしました",
+      "shareTurn": "このターンを共有",
+      "shareTurnCopied": "ターンリンクをコピーしました",
       "showContent": "コンテンツを表示",
       "stopReadAloud": "読み上げ停止",
       "toggleMetadata": "メタデータ切替",
@@ -20360,6 +20373,7 @@
     "loginRequired": "ログインしてアカウントプールを管理"
   },
   "nav": {
+    "pdfTools": "PDF ツール",
     "accountPool": "マイアカウントプール",
     "checkin": "チェックイン",
     "monitorWallboard": "監視ウォールボード",

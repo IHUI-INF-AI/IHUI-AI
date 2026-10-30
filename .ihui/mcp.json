@@ -1,0 +1,16 @@
+{
+  "servers": [
+    {
+      "name": "rea",
+      "transport": "stdio",
+      "command": "node",
+      "args": ["scripts/rea-mcp-entry.mjs"],
+      "framing": "content-length",
+      "requestTimeoutMs": 300000,
+      "env": {
+        "GHIDRA_INSTALL_DIR": "D:\\DevEnv\\ghidra_12.1.4",
+        "JAVA_HOME": "C:\\Program Files\\Java\\jdk-21-temp\\jdk-21.0.2+13"
+      }
+    }
+  ]
+}

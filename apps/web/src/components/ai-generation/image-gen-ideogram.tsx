@@ -26,6 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 const ASPECT_RATIOS = ['ASPECT_1_1', 'ASPECT_16_9', 'ASPECT_9_16'] as const
 const MODELS = ['V_3', 'V_3_TURBO', 'V_2_TURBO'] as const
@@ -129,7 +130,7 @@ export function ImageGenIdeogram() {
           {images.map((url) => (
             <div key={url} className="space-y-1">
               <Image
-                src={url}
+                src={toMediaImageUrl(url)}
                 alt={prompt}
                 width={800}
                 height={600}

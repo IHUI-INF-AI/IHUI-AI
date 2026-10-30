@@ -19,27 +19,9 @@ import CategoryBar from '@/components/CategoryBar'
 import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import LineIcon from '@/components/LineIcon'
 import SearchBar from '@/components/SearchBar'
+import { CATEGORY_TABS, tabLabel, type CategoryTab } from './tabs'
 
 const PAGE_SIZE = 20
-
-type CategoryTab = 'all' | 'course' | 'live' | 'post' | 'aigc' | 'news'
-
-interface CategoryDef {
-  key: CategoryTab
-  labelKey: string
-  fallback: string
-  resourceType: string
-}
-
-// 分类 Tab:全部/课程/直播/帖子/AI作品/资讯
-const CATEGORY_TABS: CategoryDef[] = [
-  { key: 'all', labelKey: 'common.all', fallback: '全部', resourceType: '' },
-  { key: 'course', labelKey: 'favorites.tabCourse', fallback: '课程', resourceType: 'course' },
-  { key: 'live', labelKey: 'favorites.tabLive', fallback: '直播', resourceType: 'live' },
-  { key: 'post', labelKey: 'favorites.tabPost', fallback: '帖子', resourceType: 'post' },
-  { key: 'aigc', labelKey: 'favorites.tabAigc', fallback: 'AI作品', resourceType: 'aigc' },
-  { key: 'news', labelKey: 'favorites.tabNews', fallback: '资讯', resourceType: 'news' },
-]
 
 // 跳转路由映射
 // 前三档原先都多写一截 `/index`(如 /pkg-learn/course/detail/index),而 app.config 在册的
@@ -213,7 +195,7 @@ export default function FavoritesPage() {
         onChange={(id) => setActiveTab(id as CategoryTab)}
         items={CATEGORY_TABS.map((tab) => ({
           id: tab.key,
-          label: tt(tab.labelKey, tab.fallback),
+          label: tabLabel(tab.key, tt),
         }))}
       />
 

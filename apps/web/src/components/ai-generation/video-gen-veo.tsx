@@ -25,6 +25,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 
 const ASPECT_RATIOS = ['16:9', '9:16'] as const
 const MODELS = ['veo-3.1-generate-preview', 'veo-3.1-fast-generate-preview'] as const
@@ -169,7 +170,12 @@ export function VideoGenVeo() {
               <p className="text-sm text-muted-foreground">{t('noResult')}</p>
             ) : null}
             {videos.map((url) => (
-              <video key={url} src={url} controls className="w-full rounded-md border">
+              <video
+                key={url}
+                src={toMediaStreamUrl(url)}
+                controls
+                className="w-full rounded-md border"
+              >
                 <track kind="captions" />
               </video>
             ))}

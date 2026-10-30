@@ -9,6 +9,7 @@ import { Video, Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 import type { VideoProvider } from '../ai/types'
 
 interface VideoGeneratorProps {
@@ -77,7 +78,7 @@ export function VideoGenerator({ onGenerate }: VideoGeneratorProps) {
       result={
         result.status === 'success' && result.data ? (
           <div className="space-y-2">
-            <video src={result.data} controls className="max-w-full rounded-md">
+            <video src={toMediaStreamUrl(result.data)} controls className="max-w-full rounded-md">
               <track kind="captions" />
             </video>
             <a

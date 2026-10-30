@@ -54,9 +54,7 @@ export function LoginHistory() {
     }
     setError(false)
     setLoading(true)
-    fetchApi<PageData<SecurityLogItem>>(
-      '/user/login-history' + buildQs({ page: 1, pageSize: 1 }),
-    )
+    fetchApi<PageData<SecurityLogItem>>('/user/login-history' + buildQs({ page: 1, pageSize: 1 }))
       .then((res) => {
         if (res.success && res.data.list?.length > 0) {
           setRecent(res.data.list[0] ?? null)

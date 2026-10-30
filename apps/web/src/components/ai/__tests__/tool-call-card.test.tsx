@@ -177,6 +177,25 @@ describe('ToolCallCard image rendering', () => {
     expect(img.getAttribute('src')).toBe('data:image/png;base64,xxx')
   })
 
+  it('image_generation 工具 + 外部 http(s) imageUrl 时走同源媒体代理渲染', () => {
+    render(
+      <ToolCallCard
+        toolName="image_generation"
+        args={{ prompt: '一只猫' }}
+        imageUrl="https://cdn.example.com/cat.png"
+        status="success"
+      />,
+    )
+    // 展开卡片
+    fireEvent.click(rowOf('image_generation'))
+    // img 存在 + 经 /api/media/image 同源代理(CSP img-src 收窄后外部图必须走代理)
+    const img = screen.getByAltText('一只猫')
+    expect(img).toBeTruthy()
+    const src = img.getAttribute('src') ?? ''
+    expect(src.startsWith('/api/media/image?url=')).toBe(true)
+    expect(src).toContain('https%3A%2F%2Fcdn.example.com%2Fcat.png')
+  })
+
   it('image_generation 工具无 imageUrl 时回退到 JSON 渲染', () => {
     render(
       <ToolCallCard toolName="image_generation" args={{ prompt: '一只猫' }} status="success" />,
@@ -309,7 +328,10 @@ describe('ToolCallCard media rendering (music/video)', () => {
     fireEvent.click(rowOf('music_generation'))
     const audio = screen.getByTestId('tool-media-audio')
     expect(audio).toBeTruthy()
-    expect(audio.getAttribute('src')).toBe('https://cdn.example.com/song.mp3')
+    // 音频源经同源代理(/api/media/stream),外部 http(s) 直链被 CSP media-src 拦截
+    expect(audio.getAttribute('src')).toBe(
+      `/api/media/stream?url=${encodeURIComponent('https://cdn.example.com/song.mp3')}`,
+    )
   })
 
   it('voice_tts + data URI audioUrl 时渲染 <audio> 播放器(edge-tts 产物)', () => {
@@ -353,7 +375,9 @@ describe('ToolCallCard media rendering (music/video)', () => {
     fireEvent.click(rowOf('video_generation'))
     const video = screen.getByTestId('tool-media-video')
     expect(video).toBeTruthy()
-    expect(video.getAttribute('src')).toBe('https://cdn.example.com/clip.mp4')
+    // 视频源经同源代理(/api/media/stream),由后端转发源站并透传 Range、SSRF 闸门拦截未登记 URL
+    expect(video.getAttribute('src')).toContain('/api/media/stream?url=')
+    expect(video.getAttribute('src')).toContain('clip.mp4')
   })
 
   it('music_generation 无 audioUrl(任务未完成)时回退 JSON 渲染', () => {
@@ -438,11 +462,7 @@ describe('ToolCallCard effect summary (D134 两族结构化摘要)', () => {
 
   it('删除族 delete_file:结构化摘要出现且含目标路径', () => {
     render(
-      <ToolCallCard
-        toolName="delete_file"
-        args={{ path: 'src/legacy/old.js' }}
-        status="success"
-      />,
+      <ToolCallCard toolName="delete_file" args={{ path: 'src/legacy/old.js' }} status="success" />,
     )
     fireEvent.click(rowOf('delete_file'))
     const block = screen.getByTestId('tool-call-delete-summary')

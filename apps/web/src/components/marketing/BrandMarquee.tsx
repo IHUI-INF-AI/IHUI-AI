@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Sparkles } from 'lucide-react'
 import { Tooltip } from '@/components/feedback'
 import { IMG_LAZY, MARQUEE_BRANDS, SCHOOL_BRANDS } from './footer-data'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 /**
  * 品牌跑马灯 — 复用 SiteFooter 已配置的 logo 图片
@@ -89,7 +90,7 @@ function MarqueeRow({
             <Tooltip key={`${loopKey}-${brand.nameKey}-${idx}`} content={label}>
               <div className={box}>
                 <Image
-                  src={brand.src}
+                  src={toMediaImageUrl(brand.src)}
                   alt={label}
                   width={shape === 'wide' ? 144 : 36}
                   height={shape === 'wide' ? 40 : 36}

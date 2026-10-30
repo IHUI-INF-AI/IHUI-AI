@@ -44,6 +44,9 @@
    这与本源文件既有的未分层兜底同一手法。
    为何不用 @utility:实测全量构建会把两条声明合并进同一条 .leading-none,并把主题生成的
    var(--spacing-none) 排在本块之后 ⇒ 仍 0px(孤立探针与全量构建行为不一致,不可依赖)。
+   修法:用未分层(unlayered)普通规则把 leading-none 钉回 line-height:1(并同步重置 --tw-leading)。
+   按 CSS 级联规范,未分层声明恒胜 @layer utilities 内的工具类,不受 Tailwind 合并/排序影响。
+   var(--spacing-none) 排在本块之后 ⇒ 仍 0px,不可依赖。
    根因档 none 在 web 端 p-none/m-none/gap-none/size-none 零使用、RN/小程序亦零消费,
    保留 --spacing-none 不影响布局;本修复仅钉回被误覆盖的行高语义。 */
 .leading-none {

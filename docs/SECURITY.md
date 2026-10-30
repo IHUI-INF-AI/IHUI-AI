@@ -4,7 +4,6 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-
 # 安全策略(Security Policy)
 
 本文件描述 IHUI-AI 项目的安全策略,包括漏洞报告流程、响应时间承诺、支持版本范围、
@@ -455,6 +454,43 @@ EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形�
 
 ---
 
+### 10.9 主机侧敞口清点(2026-10-29 二次实测,三项当场处置)
+
+1. **SMB 共享 `Users` → `C:\Users`,权限 `Everyone, FULL`** —— 已拆。它不是 Windows 默认共享
+   (默认只有 `C$/D$/ADMIN$/IPC$`),却把 `~/.ssh/id_ed25519`、`~/.npmrc`(发布令牌)、
+   `~/.git-credentials` 整片摊给局域网任意主体,且 FULL 是可写(可直接往启动目录投毒)。
+   拆前实测 `net session` 无活动会话,默认管理共享保留 ⇒ 管理员远程能力未减。
+   留痕 `.ihui-agent/state/smb-users-share-before.txt`。
+
+2. **`node.exe` 按程序全网放行 12 条 `remote=Any`** —— 全部 `enable=no`;同批删掉 ChatGPT 客户端
+   留下的 `8081-8112`/`3128-3159`/`1455`/`1457` 全网放行(实测均无监听)。这种"按程序放行"把入站
+   控制权交给了"哪个端口恰好有 node 在听",与 `IHUI-DENY-WAN-SERVICES` 的按端口收口是两套口径。
+   留痕 `.ihui-agent/state/fw-rules-node-chatgpt-before.txt`。复核业务零中断:公网 `www` 200、
+   `www/api/health` 200、api 经代理 200、本机 8802 200、直连 8801 仍 403。
+
+3. **Keycloak 启动命令行明文带 PG 密码与 bootstrap admin 密码** —— 已脱出命令行。
+   `kc-run-production.bat` 改用官方 `KC_*` 环境变量映射(`set /p KC_DB_PASSWORD=<secrets 文件`),
+   明文落 `D:\DevEnv\secrets\keycloak-{db,bootstrap-admin}-password.txt` 并收紧 ACL 为
+   SYSTEM 只读 + Administrators 完全(服务身份 = LocalSystem)。成因:进程命令行对任何能读
+   进程列表的主体可见。重启后实测 8850 在听、`/realms/master` 返 `"realm":"master"`、公网 SSO 200。
+
+**两格均已处置(2026-10-29 当日闭环,读数与判据如下)**:
+
+- **防病毒** —— 原状态:Defender 是被**整体移除**而非禁用(`C:\Program Files\Windows Defender\` 与
+  `C:\ProgramData\Microsoft\Windows Defender\` 两个目录都不在,`WinDefend` 服务注册表不存在,
+  `wscsvc`/`SecurityHealthService` 也一并没了 ⇒ 安全中心组件被精简,DISM 修不回)。
+  处置:装火绒安全软件 **6.0.1.3**(winget id `XPDNH1FMW7NB40`,落 `C:\Program Files\Huorong\Sysdiag`,
+  带 `uninst.exe` 可回退),`HipsDaemon` Automatic + Running、`HipsTray` 在跑。
+  **能力用 EICAR 实测过,不是看进程列表**:写入时不拦、**读取/执行时立即删除**(惰性扫描 ⇒ 构建写入零拖慢);
+  自我保护在岗(外部 `Stop-Process` 被拒)。未做:信任区排除项没有命令入口(配置在 `config.db` 的
+  `UserConfig` BLOB 里,无明文键,全表 13 行杂项)—— 若部署环出现明显变慢,再把 `D:\IHUI-AI` 与
+  `D:\DevEnv` 加进火绒信任区。
+- **`git-guardian` daemon 档自拉起腿** —— 已补(提交 `cca0a95e4f6b47daf8fe3c4111cdd9f86d113a60`)。
+  病因是 exit 0 不触发 SCM 的 failure action,而它在服务自愈台账里又被 excluded(重启自己 = 自杀)
+  ⇒ 两条路都堵死。新腿挂在**计划任务那一侧**(在服务外),判据只读 SCM 现值:STOPPED 且 AUTO_START
+  才代拉,轮询到终态,拿不到路径/状态一律判未判定、不动作。镜像 16 例 + 两次真停服务的变异自证
+  (首版在 START_PENDING 就断言失败,正是被自证抓出来改掉的)。
+
 ### 10.9 P0 — 2026-10-29 二轮加固:未授权面 / 本地文件面 / 边缘 IP 身份
 
 > 五组修复,全部有代码级回归锁,且在生产实测闭环。本节只记"改了什么 + 怎么验",
@@ -519,10 +555,11 @@ EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形�
   此前"绑定期内 admin 面仍可被单密码进入"这条已知风险**已关闭**。提示:绑定后登录除密码外
   还须输入 Authenticator 上的 **6 位验证码**,恢复码请离线保管(仅在换机/丢失设备时使用)。
 
-**⑥ 鉴权默认拒绝兜底闸 —— 2026-10-29 已切 enforce**
+**⑥ 鉴权默认拒绝兜底闸 —— observe 档已上线**
 
-api 的鉴权此前是"每路由手挂 `authenticate`",没有根级默认;新增路由忘挂即裸奔。
-本轮补了 `apps/api/src/plugins/auth-default-deny.ts`:用 `onRoute` 把一道兜底 preHandler
+api 的鉴权此前是"每路由手挂 `authenticate`",没有根级默认;新增路由忘挂即裸奔
+(实测 `developer-relay-keys-admin` 恒 401 属碰巧 fail-closed)。本轮补了
+`apps/api/src/plugins/auth-default-deny.ts`:用 `onRoute` 把一道兜底 preHandler
 **追加到每个路由 preHandler 链末尾** —— 前面的路由级/插件级鉴权先跑并写 `request.userId`,
 兜底见 `userId` / `apiKey` / `openCapability` 任一存在即放行(**不重复查库**),
 只兜"完全没人管"的路由。
@@ -556,46 +593,24 @@ router 按 `D:\DevEnv\ihui-prod\deploy\run\api-bluegreen.json` 的 `active` 转�
 (本轮就踩过:改了代码只重启 blue,而 active 是 green,线上跑了两小时旧代码。)
 `ihui-api-bluegreen.ps1` 自 2026-10-28 起**已被该 `.mjs` 取代**:本机 `sc.exe` 被程序黑名单
 封死、嵌套 powershell 连 `Test-Path` 都加载不出,不得再把它接回部署面。
+三档:`off` / `observe`(默认) / `enforce`。**当前生产 = observe**:只记
+`[auth-default-deny] <METHOD> <path> 无凭据且不在公开名单`,不拦人。
+上线 5 分钟即抓到一条真实流量:`POST /api/github-app/webhook`(HMAC 验签,匿名)——
+直接切 enforce 会打断 CI 回调,已补进名单。这条实例本身就是"为什么必须先 observe"的证据。
+
+**切 enforce 的前置**:observe 满 24h 且 `D:\DevEnv\logs\svc-api-blue-nssm.log` 里
+不再出现新的 `auth_default_deny_observe` 路径。反向(先 enforce)遇到漏列公开面就是
+整站 401,比没有这道闸更糟。
 
 现状读数(立案时盘点):341 个路由文件 / 3470 个注册点 / 188 个插件级 preHandler /
 1450 处鉴权调用。
 
 ### 10.10 主机侧敞口清点(2026-10-29 二次实测,三项当场处置)
 
-1. **SMB 共享 `Users` → `C:\Users`,权限 `Everyone, FULL`** —— 已拆。它不是 Windows 默认共享
-   (默认只有 `C$/D$/ADMIN$/IPC$`),却把 `~/.ssh/id_ed25519`、`~/.npmrc`(发布令牌)、
-   `~/.git-credentials` 整片摊给局域网任意主体,且 FULL 是可写(可直接往启动目录投毒)。
-   拆前实测 `net session` 无活动会话,默认管理共享保留 ⇒ 管理员远程能力未减。
-   留痕 `.ihui-agent/state/smb-users-share-before.txt`。
 
-2. **`node.exe` 按程序全网放行 12 条 `remote=Any`** —— 全部 `enable=no`;同批删掉 ChatGPT 客户端
-   留下的 `8081-8112`/`3128-3159`/`1455`/`1457` 全网放行(实测均无监听)。这种"按程序放行"把入站
-   控制权交给了"哪个端口恰好有 node 在听",与 `IHUI-DENY-WAN-SERVICES` 的按端口收口是两套口径。
-   留痕 `.ihui-agent/state/fw-rules-node-chatgpt-before.txt`。复核业务零中断:公网 `www` 200、
-   `www/api/health` 200、api 经代理 200、本机 8802 200、直连 8801 仍 403。
 
-3. **Keycloak 启动命令行明文带 PG 密码与 bootstrap admin 密码** —— 已脱出命令行。
-   `kc-run-production.bat` 改用官方 `KC_*` 环境变量映射(`set /p KC_DB_PASSWORD=<secrets 文件`),
-   明文落 `D:\DevEnv\secrets\keycloak-{db,bootstrap-admin}-password.txt` 并收紧 ACL 为
-   SYSTEM 只读 + Administrators 完全(服务身份 = LocalSystem)。成因:进程命令行对任何能读
-   进程列表的主体可见。重启后实测 8850 在听、`/realms/master` 返 `"realm":"master"`、公网 SSO 200。
 
-**两格均已处置(2026-10-29 当日闭环,读数与判据如下)**:
 
-- **防病毒** —— 原状态:Defender 是被**整体移除**而非禁用(`C:\Program Files\Windows Defender\` 与
-  `C:\ProgramData\Microsoft\Windows Defender\` 两个目录都不在,`WinDefend` 服务注册表不存在,
-  `wscsvc`/`SecurityHealthService` 也一并没了 ⇒ 安全中心组件被精简,DISM 修不回)。
-  处置:装火绒安全软件 **6.0.1.3**(winget id `XPDNH1FMW7NB40`,落 `C:\Program Files\Huorong\Sysdiag`,
-  带 `uninst.exe` 可回退),`HipsDaemon` Automatic + Running、`HipsTray` 在跑。
-  **能力用 EICAR 实测过,不是看进程列表**:写入时不拦、**读取/执行时立即删除**(惰性扫描 ⇒ 构建写入零拖慢);
-  自我保护在岗(外部 `Stop-Process` 被拒)。未做:信任区排除项没有命令入口(配置在 `config.db` 的
-  `UserConfig` BLOB 里,无明文键,全表 13 行杂项)—— 若部署环出现明显变慢,再把 `D:\IHUI-AI` 与
-  `D:\DevEnv` 加进火绒信任区。
-- **`git-guardian` daemon 档自拉起腿** —— 已补(提交 `cca0a95e4f6b47daf8fe3c4111cdd9f86d113a60`)。
-  病因是 exit 0 不触发 SCM 的 failure action,而它在服务自愈台账里又被 excluded(重启自己 = 自杀)
-  ⇒ 两条路都堵死。新腿挂在**计划任务那一侧**(在服务外),判据只读 SCM 现值:STOPPED 且 AUTO_START
-  才代拉,轮询到终态,拿不到路径/状态一律判未判定、不动作。镜像 16 例 + 两次真停服务的变异自证
-  (首版在 START_PENDING 就断言失败,正是被自证抓出来改掉的)。
 
 ### 10.10.1 外部可达面实测(2026-10-29,第三方多点探测)
 

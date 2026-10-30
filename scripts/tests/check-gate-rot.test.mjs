@@ -15,8 +15,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -42,7 +41,7 @@ const normalize = (p) => String(p).replace(/\\/g, '/')
 const REGISTRY = ['const checks = [', '  {', "    id: '1',", "    label: 'a',", "    script: 'check-a.mjs',", '  },', ']'].join('\n')
 
 function makeRoot() {
-  const dir = mkdtempSync(join(tmpdir(), 'gate-rot-'))
+  const dir = mkScratch('gate-rot-')
   mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
   writeFileSync(join(dir, 'scripts', 'guardian-runner.mjs'), REGISTRY, 'utf8')
   writeFileSync(join(dir, 'scripts', 'lib', 'judgement-libs.json'), '["scripts/lib/a.mjs"]', 'utf8')
@@ -136,7 +135,7 @@ test('CLI 真跑:三档退出码 0/1/2 与 --json 形状', () => {
     const undJson = JSON.parse(und.stdout.trim().split(/\r?\n/).pop())
     assert.equal(undJson.overall, 'undetermined')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir, { bestEffort: true })
   }
 })
 

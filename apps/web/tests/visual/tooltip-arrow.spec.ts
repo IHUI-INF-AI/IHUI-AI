@@ -134,14 +134,25 @@ async function assertTooltipArrowNotClipped(page: Page, tag: string, theme: 'lig
         outsideRight: r.left > cRect.right - 1,
         outsideTop: r.bottom < cRect.top + 1,
         outsideBottom: r.top > cRect.bottom - 1,
-        fullyInside: r.top >= cRect.top && r.bottom <= cRect.bottom && r.left >= cRect.left && r.right <= cRect.right,
+        fullyInside:
+          r.top >= cRect.top &&
+          r.bottom <= cRect.bottom &&
+          r.left >= cRect.left &&
+          r.right <= cRect.right,
       }
     }
     return {
       overflow: cs.overflow,
       overflowY: cs.overflowY,
       arrow: arrowInfo,
-      arrowTag: arrowEl ? arrowEl.tagName + (arrowEl.getAttribute('data-radix-tooltip-arrow') !== null ? '[arrow]' : arrowEl.getAttribute('data-radix-popper-arrow') !== null ? '[popper]' : '') : null,
+      arrowTag: arrowEl
+        ? arrowEl.tagName +
+          (arrowEl.getAttribute('data-radix-tooltip-arrow') !== null
+            ? '[arrow]'
+            : arrowEl.getAttribute('data-radix-popper-arrow') !== null
+              ? '[popper]'
+              : '')
+        : null,
       debugHtml,
     }
   })

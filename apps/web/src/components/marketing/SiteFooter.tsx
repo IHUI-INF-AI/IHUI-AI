@@ -25,6 +25,7 @@ import {
 import { AgreementDialog } from './AgreementDialog'
 import { ContactDialog } from './ContactDialog'
 import { Tooltip } from '@/components/feedback'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 /**
  * SiteFooter — 公司信息 + 生态平台 + 推广平台 + 二维码 + 协议/联系弹窗
@@ -101,7 +102,7 @@ function PlatformIcon({
   const filter = mono ? ` ${MONO_FILTER}` : darkInvert ? ` ${DARK_INVERT_FILTER}` : ''
   const img = (
     <Image
-      src={src}
+      src={toMediaImageUrl(src)}
       alt={name}
       width={14}
       height={14}
@@ -129,7 +130,7 @@ function PlatformIcon({
 function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'footer'>> }) {
   const img = (
     <Image
-      src={qr.src}
+      src={toMediaImageUrl(qr.src)}
       alt={t(qr.altKey)}
       width={64}
       height={64}
@@ -214,7 +215,7 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
         <div className="rounded-md border bg-popover p-3 shadow-lg">
           <div className="h-[240px] w-[240px] overflow-hidden rounded-sm bg-zinc-900 p-3">
             <Image
-              src={qr.src}
+              src={toMediaImageUrl(qr.src)}
               alt={t(qr.altKey)}
               width={240}
               height={240}

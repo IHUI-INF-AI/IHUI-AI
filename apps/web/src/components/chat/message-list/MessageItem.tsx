@@ -29,6 +29,7 @@ import {
   Bookmark,
   BookmarkCheck,
   MessagesSquare,
+  Link2,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
@@ -113,6 +114,7 @@ import { useTts } from '@/hooks/use-tts'
 // D60(2026-09-23 渲染位):失败轮草稿保留提示与 toast 同源取词,不另立文案/状态
 import { resolvePersistTexts } from '@/hooks/use-chat/persistence'
 import { fetchApi } from '@/lib/api'
+import { buildTurnDeepLinkUrl } from '@/lib/turn-deeplink'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -139,6 +141,7 @@ import {
 import {
   readFoldPolicyMode,
   resolveInitialStepsOpen,
+  resolveProcessTextInitialOpen,
   FOLD_POLICY_EVENT,
   type FoldPolicyMode,
 } from './fold-policy'
@@ -212,6 +215,17 @@ interface MessageItemProps {
   }
   /** 票59 2/3:切换版本族激活版本(rootId + 目标消息 id),由宿主转交 store */
   onSelectMessageVersion?: (rootId: string, messageId: string) => void
+  /** 差距⑤(2026-10-30):该消息所属轮次序号(1 起,服务端 createMessage 口径)。
+   *  由 MessageList 按 `projectTurnOrdinals` 统一算出后透传;null = 序号不可推导
+   *  (窗口/截断页),此时不渲染「分享此回合」入口 —— 宁可无入口,不猜号。 */
+  turnOrdinal?: number | null
+  /** 差距⑥(2026-10-30 立):该消息是否为回合内的**过程叙述文本段**
+   *  (thinkingAgent 容器非末条,判据 `presentation-units.blockIsProcessNarration`,
+   *  由 MessageList 透传)。缺省 false ⇒ 折叠策略差距⑥类目不触发,渲染与接入前逐格一致。 */
+  isProcessText?: boolean
+  /** 差距⑥:该回合终态是否已确认(流收口 ∧ 本轮无正在流式的消息,既有 store 事实投影)。
+   *  仅 `isProcessText` 为真时被类目读取;缺省 false ⇒ 进行中语义(不折叠)。 */
+  turnFinalTextConfirmed?: boolean
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -233,6 +247,9 @@ const MessageItem = React.memo(function MessageItem({
   codeCollapseLines,
   versionInfo,
   onSelectMessageVersion,
+  turnOrdinal = null,
+  isProcessText = false,
+  turnFinalTextConfirmed = false,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   // D125:评论开关按钮取词走既有 `comments` 顶层命名空间(零新增键)
@@ -411,6 +428,45 @@ const MessageItem = React.memo(function MessageItem({
     window.addEventListener(FOLD_POLICY_EVENT, sync)
     return () => window.removeEventListener(FOLD_POLICY_EVENT, sync)
   }, [stepDims])
+  // ─── 差距⑥(2026-10-30 立):终态确认后过程文本折叠 ───────────────────────
+  // 追加类目 `resolveProcessTextInitialOpen` 的消费位(判据不在本组件复算):
+  //   · 回合进入终态(`turnFinalTextConfirmed` 由 MessageList 从既有 store 事实投影)
+  //     ⇒ 过程叙述段默认折进**既有折叠载体** StreamGroup(不造新 UI 形态);
+  //   · 流式进行中不折叠(活动块纪律保持);
+  //   · 用户显式展开/收起登记 override(与 D21 规则①同款纪律),回合生命周期内保持,
+  //     策略重解析(配置变更/终态翻转)不覆盖用户选择。
+  // D21 阈值类目(`showSteps` 一族)与本块互不读写对方状态 —— 并列分域,零行为交叉。
+  const processTextOverrideRef = React.useRef<boolean | null>(null)
+  const [processTextOpen, setProcessTextOpenState] = React.useState<boolean>(() =>
+    resolveProcessTextInitialOpen(foldPolicyMode, {
+      isProcessText,
+      finalTextConfirmed: turnFinalTextConfirmed,
+    }),
+  )
+  const setProcessTextOpen = React.useCallback((action: boolean | ((prev: boolean) => boolean)) => {
+    if (typeof action === 'function') {
+      setProcessTextOpenState((prev) => {
+        const next = action(prev)
+        processTextOverrideRef.current = next
+        return next
+      })
+    } else {
+      processTextOverrideRef.current = action
+      setProcessTextOpenState(action)
+    }
+  }, [])
+  // 无 override 时按(用户档位 ∧ 终态位)重解析:配置广播与"流收口瞬间"都走这条;
+  // 有 override 时保持用户选择(规则①)。foldPolicyMode 由上方 D21 事件同步 effect 更新。
+  React.useEffect(() => {
+    if (processTextOverrideRef.current === null) {
+      setProcessTextOpenState(
+        resolveProcessTextInitialOpen(foldPolicyMode, {
+          isProcessText,
+          finalTextConfirmed: turnFinalTextConfirmed,
+        }),
+      )
+    }
+  }, [foldPolicyMode, isProcessText, turnFinalTextConfirmed])
   // Copy 按钮短暂"已复制"状态(2026-07-28 立),1.5s 后自动隐藏
   const [copied, setCopied] = React.useState(false)
   const copyTimerRef = React.useRef<number | null>(null)
@@ -725,6 +781,39 @@ const MessageItem = React.memo(function MessageItem({
       }
     },
     [m.content, t, chatStore],
+  )
+
+  // 差距⑤(2026-10-30):「分享此回合」— 生成 <origin>/chat?conversationId=X&turn=N
+  // 深链并复制(与上方会话快照短链是两条独立通道,互不混用)。
+  // 序号由 MessageList 投影透传;会话未落库(无 conversationId)时静默不响应。
+  const handleShareTurn = React.useCallback(
+    async (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+      const convId = chatStore.getState().conversationId
+      if (!convId) return
+
+      try {
+        const turnUrl = buildTurnDeepLinkUrl(window.location.origin, convId, turnOrdinal as number)
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(turnUrl)
+        } else {
+          const ta = document.createElement('textarea')
+          ta.value = turnUrl
+          ta.setAttribute('readonly', '')
+          ta.style.position = 'absolute'
+          ta.style.left = '-9999px'
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          document.body.removeChild(ta)
+        }
+        toast.success(t('message.shareTurnCopied'))
+      } catch {
+        toast.error(t('copyFailed'))
+      }
+    },
+    [turnOrdinal, t, chatStore],
   )
 
   // 回复(对应原项目 replyToMessage)— 预留事件
@@ -1044,6 +1133,44 @@ const MessageItem = React.memo(function MessageItem({
   // 取舍:锚点消息走 RichAnchorText(白名单 → 组件映射),不做 markdown 重排 —— 这类正文是
   // 状态/动作行,样式语义由锚点表承担,不引第二套解析。
   const richAnchorsPresent = hasRichAnchors(m.content)
+
+  // 差距⑥(2026-10-30 立):正文块抽出为单一构造点 —— 过程段要折进 StreamGroup、
+  // 非过程段原样直出,两处**共用同一份 JSX**(不产生第二套正文渲染口径,§0.6)。
+  const answerBody = (
+    <ReplyAnnotationLayer messageId={m.id} conversationId={conversationId}>
+      {/* G-825:消息级 markdown 边界。降级形态是 pre-wrap 纯文本 ⇒ 内容还在,只是不格式化
+          (刻意零文案:要写一句"渲染失败"就得新增 i18n 键,而语言包此刻由并行会话持有)。 */}
+      <ErrorBoundary
+        resetKeys={markdownResetKeys(markdownGuard)}
+        fallback={
+          <pre
+            data-testid={`message-markdown-fallback-${m.id}`}
+            className="whitespace-pre-wrap break-words px-3 py-2 text-sm leading-relaxed"
+          >
+            {m.content}
+          </pre>
+        }
+        onError={() => {
+          // 结构化 warn:只报量,正文一个字符都不进日志(markdownRenderFailureFacts 的契约)
+          console.warn(MARKDOWN_RENDER_FAILURE_EVENT, markdownRenderFailureFacts(markdownGuard))
+        }}
+      >
+        {richAnchorsPresent ? (
+          <RichAnchorText
+            text={m.content}
+            className="whitespace-pre-wrap break-words px-3 py-2 text-[15px] leading-relaxed"
+            data-testid={`message-rich-anchors-${m.id}`}
+          />
+        ) : (
+          <MarkdownStream
+            content={m.content}
+            isStreaming={streamingThis}
+            collapseLines={codeCollapseLines}
+          />
+        )}
+      </ErrorBoundary>
+    </ReplyAnnotationLayer>
+  )
 
   return (
     <div
@@ -1439,42 +1566,27 @@ const MessageItem = React.memo(function MessageItem({
                 </div>
               </StreamGroup>
             )}
-            <ReplyAnnotationLayer messageId={m.id} conversationId={conversationId}>
-              {/* G-825:消息级 markdown 边界。降级形态是 pre-wrap 纯文本 ⇒ 内容还在,只是不格式化
-                  (刻意零文案:要写一句"渲染失败"就得新增 i18n 键,而语言包此刻由并行会话持有)。 */}
-              <ErrorBoundary
-                resetKeys={markdownResetKeys(markdownGuard)}
-                fallback={
-                  <pre
-                    data-testid={`message-markdown-fallback-${m.id}`}
-                    className="whitespace-pre-wrap break-words px-3 py-2 text-sm leading-relaxed"
-                  >
-                    {m.content}
-                  </pre>
-                }
-                onError={() => {
-                  // 结构化 warn:只报量,正文一个字符都不进日志(markdownRenderFailureFacts 的契约)
-                  console.warn(
-                    MARKDOWN_RENDER_FAILURE_EVENT,
-                    markdownRenderFailureFacts(markdownGuard),
-                  )
-                }}
+            {/* 差距⑥(2026-10-30 立):过程叙述文本段在回合终态确认后折进既有折叠载体
+                (StreamGroup,与「中间步骤」同一可展开形态,不造新 UI)。
+                gate:`isProcessText` ∧ 正文非空 —— 空内容消息不套折叠壳(空组头是纯噪音);
+                非过程段(最终答复/游离消息)直出 `answerBody`,渲染树与接入前逐格一致。
+                `active` 恒 false:过程段本身不再流式(正在流式的是本轮末条答复段),
+                组头不亮"正在做"动效,与活动块纪律同一口径。 */}
+            {isProcessText && m.content.length > 0 ? (
+              <StreamGroup
+                active={false}
+                stepCount={0}
+                headline={t('processNarrationGroup')}
+                open={processTextOpen}
+                onOpenChange={setProcessTextOpen}
+                testId={`message-process-text-group-${m.id}`}
+                className="mt-1"
               >
-                {richAnchorsPresent ? (
-                  <RichAnchorText
-                    text={m.content}
-                    className="whitespace-pre-wrap break-words px-3 py-2 text-[15px] leading-relaxed"
-                    data-testid={`message-rich-anchors-${m.id}`}
-                  />
-                ) : (
-                  <MarkdownStream
-                    content={m.content}
-                    isStreaming={streamingThis}
-                    collapseLines={codeCollapseLines}
-                  />
-                )}
-              </ErrorBoundary>
-            </ReplyAnnotationLayer>
+                {answerBody}
+              </StreamGroup>
+            ) : (
+              answerBody
+            )}
             {/* D33 消息级降级交代行:顶部 FallbackBanner 是瞬态,历史态由水合把 metadata.fallback
                 挂到消息上(见 stores/chat.ts 的 fallback 字段注释),词与横幅同源(chat ns 既有两键)。 */}
             {!isUser && m.fallback && (
@@ -1535,7 +1647,9 @@ const MessageItem = React.memo(function MessageItem({
             {/* Steer(中途引导,2026-09-19 立):流式期间用户注入的引导记录提示条。
                 数据来自 SSE steer 事件回执(tool loop 边界已生效确认,store 旁路,
                 不落 ChatMessage 字段),展开可回看每条引导文本预览。 */}
-            {steerNotices && steerNotices.length > 0 && <SteerNoticeBar notices={steerNotices} />}
+            {steerNotices && steerNotices.length > 0 && (
+              <SteerNoticeBar notices={steerNotices} messageId={m.id} />
+            )}
             {/* D115 review 结论卡:一 finding 一帧累积在 store,按 P1/P2/Nit 分组;
                 点击落点由卡片自己走 IDE 出口(行级揭示经 revealAt);每条可一键派发修复。 */}
             {!isUser && reviewFindings && reviewFindings.length > 0 && (
@@ -1775,6 +1889,21 @@ const MessageItem = React.memo(function MessageItem({
                   className={ACTION_BTN_CLASS}
                 >
                   <Share2 className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
+            )}
+            {/* 差距⑤(2026-10-30):AI 消息「分享此回合」深链。序号不可推导(null)时
+                整钮不渲染 —— 验收「无序号可取的消息不渲染入口,不猜」。 */}
+            {!isUser && typeof turnOrdinal === 'number' && (
+              <Tooltip content={t('message.shareTurn')} side="top">
+                <button
+                  type="button"
+                  onClick={handleShareTurn}
+                  data-testid={`message-share-turn-${m.id}`}
+                  aria-label={t('message.shareTurn')}
+                  className={ACTION_BTN_CLASS}
+                >
+                  <Link2 className="h-4 w-4" aria-hidden />
                 </button>
               </Tooltip>
             )}

@@ -13,11 +13,11 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   DECISION_ACTIONS,
   DECISION_VERDICTS,
@@ -82,7 +82,7 @@ test('③ 未判定语义:坏 sha 标 undetermined,未给 sha 保持空串;reaso
 })
 
 test('④ 台账只追加:坏行不参与统计,机器行单行可解析', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'deploy-decision-'))
+  const dir = mkScratch('deploy-decision-')
   try {
     const ledger = join(dir, 'nested', 'decisions.jsonl')
     const a = buildDecision({ action: 'pass', sha: 'c05ca0d5' }, OPT)
@@ -101,12 +101,12 @@ test('④ 台账只追加:坏行不参与统计,机器行单行可解析', () =>
     assert.ok(line.startsWith('DEPLOY-DECISION '))
     assert.ok(!line.includes('\n'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir, { bestEffort: true })
   }
 })
 
 test('⑤ CLI:非法参数 rc=2、--dry-run 不落盘、正常 rc=0 且落盘', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'deploy-decision-cli-'))
+  const dir = mkScratch('deploy-decision-cli-')
   try {
     const ledger = join(dir, 'decisions.jsonl')
     const bad = spawnSync(process.execPath, [SCRIPT, '--action', 'auto-heal', '--ledger', ledger], { encoding: 'utf8' })
@@ -133,7 +133,7 @@ test('⑤ CLI:非法参数 rc=2、--dry-run 不落盘、正常 rc=0 且落盘', 
     assert.equal(rows[0].action, 'rollback')
     assert.deepEqual(rows[0].failDims, ['web', 'llm'])
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir, { bestEffort: true })
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

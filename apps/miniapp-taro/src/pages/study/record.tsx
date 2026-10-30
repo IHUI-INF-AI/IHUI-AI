@@ -4,52 +4,32 @@
 
 // 对齐目标(RN 共享屏): packages/app/src/features/study-record/StudyRecordScreen.tsx
 import { useTt } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getStudyRecords, getStudyInfo, type StudyRecord } from '@/api'
+import { get, getStudyRecords } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { clampPercent } from '@ihui/shared/utils/clamp-percent'
+import { useUserStore } from '@/stores/user'
 import ThemeRoot from '@/components/ThemeRoot'
-import {
-  EmptyState,
-  ErrorState,
-  PressableCard,
-  ScreenSkeleton,
-} from '@/components/ScreenStates.taro'
+import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { RecordStats, type StudyStats } from './record-stats'
+import { RecordCard, statusOf, type RecordStatus, type StudyRecordRow } from './record-card'
 
-type FilterTab = 'all' | 'learning' | 'completed' | 'abandoned'
-
-/** 扩展 StudyRecord,兼容后端可能返回的 coverUrl 字段 */
-type StudyRecordRow = StudyRecord & { coverUrl?: string }
-
-interface StudyInfo {
-  totalMinutes: number
-  continuousDays: number
-  courses: number
-  todayMinutes: number
-}
+type FilterTab = 'all' | RecordStatus
 
 const PAGE_SIZE = 20
 
-const STATUS_BASE = 'text-[length:20rpx] font-semibold py-[8rpx] px-[16rpx] rounded-sm'
 const TAB_BASE =
   'flex-1 flex items-center justify-center h-[96rpx] text-[length:28rpx] rounded-xl text-muted-foreground'
 const TAB_ACTIVE = 'bg-cta text-cta-foreground font-semibold'
 const STATE_TEXT = 'block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]'
 
-/** 学习记录派生状态:基于 progress 推断 */
-const deriveStatus = (progress: number): FilterTab => {
-  if (progress >= 100) return 'completed'
-  if (progress > 0) return 'learning'
-  return 'abandoned'
-}
-
 export default function StudyRecord() {
   const tt = useTt()
   const { waitUntilReady } = useAuthReadyGate()
+  const user = useUserStore((s) => s.user)
 
-  const [info, setInfo] = useState<StudyInfo | null>(null)
+  const [stats, setStats] = useState<StudyStats | null>(null)
   const [rawList, setRawList] = useState<StudyRecordRow[]>([])
   const [displayList, setDisplayList] = useState<StudyRecordRow[]>([])
   const [activeTab, setActiveTab] = useState<FilterTab>('all')
@@ -94,14 +74,18 @@ export default function StudyRecord() {
     [tt],
   )
 
-  const loadInfo = useCallback(async () => {
+  // 统计卡数据源 = GET /study/statistics(RN 容器 getStudyStatistics 的同一个聚合端点),
+  // 与列表各自降级:统计取不到不阻塞记录列表。
+  const loadStats = useCallback(async () => {
     try {
-      const data = await getStudyInfo()
-      setInfo({
-        totalMinutes: Number(data.totalMinutes ?? 0),
+      const data = await get<StudyStats>('/study/statistics')
+      setStats({
+        totalDuration: Number(data.totalDuration ?? 0),
+        totalCourses: Number(data.totalCourses ?? 0),
+        completedCourses: Number(data.completedCourses ?? 0),
+        totalLessons: Number(data.totalLessons ?? 0),
+        completedLessons: Number(data.completedLessons ?? 0),
         continuousDays: Number(data.continuousDays ?? 0),
-        courses: Number(data.courses ?? 0),
-        todayMinutes: Number(data.todayMinutes ?? 0),
       })
     } catch {
       /* 统计卡降级为空,不阻塞列表 */
@@ -109,7 +93,7 @@ export default function StudyRecord() {
   }, [])
 
   usePullDownRefresh(() => {
-    Promise.all([loadInfo(), load(true)]).finally(() => Taro.stopPullDownRefresh())
+    Promise.all([loadStats(), load(true)]).finally(() => Taro.stopPullDownRefresh())
   })
 
   useReachBottom(() => {
@@ -117,98 +101,45 @@ export default function StudyRecord() {
   })
 
   useEffect(() => {
-    // G-933 冷启动抢跑门控:GET /api/study/records(`routes/user/index.ts:36` 组级
-    // userAuthPreHandler)与 GET /api/study/info(`miniapp-compat-routes.ts:758` inline
-    // checkAuth)全需鉴权 ⇒ 整块挡到门后;卸载即注销,不留悬空订阅。
+    // G-933 冷启动抢跑门控:GET /api/study/records(user 插件组级 userAuthPreHandler)与
+    // GET /api/study/statistics(同插件 authenticate)全需鉴权 ⇒ 整块挡到门后;卸载即注销,不留悬空订阅。
     return waitUntilReady(() => {
-      void loadInfo()
+      void loadStats()
       void load(true)
     })
-  }, [waitUntilReady, load, loadInfo])
+  }, [waitUntilReady, load, loadStats])
 
-  // 客户端筛选:基于 progress 派生 status
+  // 客户端筛选:三态与 RN 共享屏同义(completed / in_progress / paused)
   useEffect(() => {
-    if (activeTab === 'all') {
-      setDisplayList(rawList)
-    } else {
-      setDisplayList(rawList.filter((r) => deriveStatus(r.progress) === activeTab))
-    }
+    setDisplayList(
+      activeTab === 'all' ? rawList : rawList.filter((r) => statusOf(r.progress) === activeTab),
+    )
   }, [rawList, activeTab])
 
   const goCourse = useCallback((courseId: string) => {
     if (courseId) Taro.navigateTo({ url: `/pkg-learn/course/detail?id=${courseId}` })
   }, [])
 
-  const statusLabel = (s: FilterTab): string => {
-    if (s === 'completed') return tt('study.recordPage.statusDone', '已完成')
-    if (s === 'learning') return tt('study.recordPage.statusLearning', '学习中')
-    return tt('study.recordPage.statusAbandon', '已放弃')
-  }
-
-  const statusClass = (s: FilterTab): string => {
-    // 对齐 RN statusStyle:completed=success.light / in_progress=warning.light;abandoned 对应 paused 语义,用 muted 保证可读
-    if (s === 'completed') return `${STATUS_BASE} bg-[var(--color-success-light)] text-foreground`
-    if (s === 'abandoned') return `${STATUS_BASE} bg-muted text-muted-foreground`
-    return `${STATUS_BASE} bg-[var(--color-warning-light)] text-foreground`
-  }
-
-  const stats: Array<{ key: string; num: number; label: string; unit?: string }> = [
-    {
-      key: 'total',
-      num: info?.totalMinutes ?? 0,
-      label: tt('study.recordPage.statTotal', '累计学习'),
-      unit: tt('study.recordPage.unitMin', '分钟'),
-    },
-    {
-      key: 'days',
-      num: info?.continuousDays ?? 0,
-      label: tt('study.recordPage.statDays', '连续打卡'),
-      unit: tt('study.recordPage.unitDay', '天'),
-    },
-    {
-      key: 'courses',
-      num: info?.courses ?? 0,
-      label: tt('study.recordPage.statCourses', '完成课程'),
-      unit: tt('study.recordPage.unitCourse', '门'),
-    },
-    {
-      key: 'points',
-      num: (info?.totalMinutes ?? 0) * 10,
-      label: tt('study.recordPage.statPoints', '获得积分'),
-      unit: tt('study.recordPage.unitPoint', '分'),
-    },
-  ]
-
   const tabs: Array<{ key: FilterTab; label: string }> = [
     { key: 'all', label: tt('study.recordPage.tabAll', '全部') },
-    { key: 'learning', label: tt('study.recordPage.tabLearning', '学习中') },
-    { key: 'completed', label: tt('study.recordPage.tabCompleted', '已完成') },
-    { key: 'abandoned', label: tt('study.recordPage.tabAbandoned', '已放弃') },
+    { key: 'in_progress', label: tt('studyRecord.statusInProgress', '进行中') },
+    { key: 'completed', label: tt('studyRecord.statusCompleted', '已完成') },
+    { key: 'paused', label: tt('studyRecord.statusPaused', '已暂停') },
   ]
+
+  // 副标题取登录用户昵称(RN 容器同源:user?.nickname ?? user?.username)
+  const displayName = user?.nickname || user?.username || ''
 
   return (
     // 对齐 RN StudyRecordScreen(共享屏):容器 bg surface.bg,listBody p14dp→28rpx/pb32dp→64rpx
     <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx] box-border">
-      {/* 学习统计卡对齐 RN statsCard:p14dp→28rpx / radius 12dp→24rpx / border light / bg card;数值 20dp→40rpx/700 text.primary,标签 11dp→22rpx secondary */}
-      <View className="flex bg-card border border-border rounded-lg p-[28rpx] gap-[12rpx] mb-[24rpx]">
-        {stats.map((s) => (
-          <View key={s.key} className="flex-1 flex flex-col items-center">
-            <View className="flex items-baseline justify-center">
-              <Text className="text-[length:40rpx] font-bold text-foreground leading-[1.2]">
-                {s.num}
-              </Text>
-              {s.unit && (
-                <Text className="text-[length:22rpx] text-muted-foreground ml-[4rpx] font-normal">
-                  {s.unit}
-                </Text>
-              )}
-            </View>
-            <Text className="mt-[16rpx] text-[length:22rpx] text-muted-foreground text-center">
-              {s.label}
-            </Text>
-          </View>
-        ))}
-      </View>
+      {/* 对齐 RN header:标题由原生导航栏承担(record.config.ts),副标题「{昵称} 的学习记录」留在页内 */}
+      <Text className="block text-[length:24rpx] text-muted-foreground mb-[20rpx]">
+        {tt('studyRecord.subtitle', '{name} 的学习记录', { name: displayName })}
+      </Text>
+
+      {/* 学习统计卡对齐 RN statsCard:6 指标 2 行(累计时长/课程总数/已完成课程/课时总数/已完成课时/连续天数) */}
+      <RecordStats stats={stats} />
 
       {/* 状态筛选 tab(业务保留):视觉对齐 RN tab 语言,激活 bg brand + 对比字 */}
       <View className="flex gap-[12rpx] mb-[24rpx]">
@@ -224,62 +155,20 @@ export default function StudyRecord() {
         ))}
       </View>
 
-      {/* 记录卡片对齐 RN card:p14dp→28rpx / radius 12dp→24rpx / border light;标题 16dp→32rpx/700;时间 11dp→22rpx text.tertiary;进度 fill 对齐 RN success */}
+      {/* 记录卡片对齐 RN card:p14dp→28rpx / radius 12dp→24rpx / border light;标题 16dp→32rpx/700,进度 fill 对齐 RN success */}
       {displayList.length > 0 && (
         <View className="flex flex-col gap-[16rpx]">
-          {displayList.map((r) => {
-            const st = deriveStatus(r.progress)
-            return (
-              <ThemeRoot key={r.id}>
-                <PressableCard
-                  className="flex bg-card border border-border rounded-lg p-[28rpx]"
-                  onClick={() => goCourse(r.courseId)}
-                >
-                  {r.coverUrl ? (
-                    <Image
-                      className="w-[160rpx] h-[120rpx] rounded-lg bg-muted flex-shrink-0"
-                      src={r.coverUrl}
-                      mode="aspectFill"
-                    />
-                  ) : (
-                    <View className="w-[160rpx] h-[120rpx] rounded-lg bg-muted flex-shrink-0 flex items-center justify-center text-[length:22rpx] text-muted-foreground">
-                      <Text>{tt('study.recordPage.coverFallback', '课程')}</Text>
-                    </View>
-                  )}
-                  <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
-                    <Text className="text-[length:32rpx] font-bold text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
-                      {r.courseTitle}
-                    </Text>
-                    <View className="mt-[12rpx]">
-                      <View className="h-[8rpx] bg-muted rounded-xs overflow-hidden">
-                        <View
-                          className="h-full bg-success rounded-xs"
-                          style={{ width: `${clampPercent(r.progress)}%` }}
-                        />
-                      </View>
-                    </View>
-                    <View className="mt-[10rpx] flex items-center justify-between">
-                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                        {tt('study.recordPage.lastTime', '上次学习')}: {r.time}
-                      </Text>
-                      <Text className={statusClass(st)}>{statusLabel(st)}</Text>
-                    </View>
-                    <View className="mt-[12rpx] self-end py-[16rpx] px-[32rpx] bg-primary rounded-xl">
-                      <Text className="text-[length:28rpx] font-semibold text-primary-foreground leading-[1.4]">
-                        {tt('study.recordPage.continue', '继续学习')}
-                      </Text>
-                    </View>
-                  </View>
-                </PressableCard>
-              </ThemeRoot>
-            )
-          })}
+          {displayList.map((r) => (
+            <ThemeRoot key={r.id}>
+              <RecordCard row={r} onOpen={() => goCourse(r.courseId)} />
+            </ThemeRoot>
+          ))}
         </View>
       )}
 
       {/* 状态文案 */}
       {displayList.length === 0 && !loading && !error && (
-        <EmptyState title={tt('study.recordPage.empty', '暂无学习记录')} />
+        <EmptyState title={tt('studyRecord.empty', '暂无学习记录')} />
       )}
       {error && !loading && (
         <ErrorState

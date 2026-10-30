@@ -11,6 +11,7 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
+import { TraderHero, TraderEntries, BenefitsHead } from './trader-sections'
 import './index.css'
 
 // (2026-10-26 守门 8 代裁)原 `interface VipPriceData { amount: number }` 随死调用一并摘除:
@@ -218,6 +219,9 @@ export default function VipTraderIndexPage() {
     <ThemeRoot>
       <View className="vip-trader-page">
         <ScrollView scrollY className="trader-scroll">
+          {/* 共享屏页头 + hero(title/subtitle/badge/heroDesc/lifetime,2026-10-29 还原度补齐) */}
+          <TraderHero amount={amount} />
+
           {/* 操盘手头部:头像 + 姓名 + 头衔 + 认证徽章 + 会员价 */}
           <View className="trader-header">
             <View className="trader-header-main">
@@ -241,6 +245,9 @@ export default function VipTraderIndexPage() {
               </View>
             </View>
           </View>
+
+          {/* 共享屏三入口:我的团队 / 收益统计 / 去提现(指向端内分销子包页) */}
+          <TraderEntries />
 
           {/* 操盘手简介(展开/收起) */}
           <View className="trader-section">
@@ -298,9 +305,9 @@ export default function VipTraderIndexPage() {
             </View>
           </View>
 
-          {/* 操盘手权益(对标 trader.vue features) */}
+          {/* 操盘手权益(对标 trader.vue features;区头取共享屏 benefits/benefitCount) */}
           <View className="trader-section">
-            <Text className="section-title">{tt('vipTrader.featureSection', '操盘手权益')}</Text>
+            <BenefitsHead count={TRADER_FEATURES.length} />
             <View className="feature-list">
               {TRADER_FEATURES.map((f) => (
                 <View key={f.key} className="feature-item">

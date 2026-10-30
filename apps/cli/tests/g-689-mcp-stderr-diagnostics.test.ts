@@ -149,6 +149,27 @@ describe('G-689 stdio 诊断:有界 stderr 尾缓冲 + error/exit 监听', () =>
     expect(message).not.toMatch(/MCP 请求超时/);
   });
 
+  it('正例⑤ 票面验收组合断言:`no-such-bin-xyz` ⇒ 同一消息**既含 stderr 尾段、又不含 token**(canary 种进 server.env 作阳性对照)', async () => {
+    // 阳性对照设计:canary token 写进 server.env(buildMcpChildEnv 会把显式声明键注入子进程环境)——
+    // 若任何实现路径把配置面/环境原样转储进 error.message,下面的 not.toContain 必抓到原值。
+    // 与正例①成对:那边 token 从 **stderr** 进来、必须走共享脱敏出口;这边 token 从 **配置** 进来、根本不该出现在消息里。
+    const CANARY_TOKEN = 'g689CanaryTOKENshouldNeverLeak98765';
+    const err: unknown = await connectMcpServer({
+      name: 'missing-bin',
+      transport: 'stdio',
+      command: 'no-such-bin-xyz',
+      env: { IHUI_CANARY_TOKEN: CANARY_TOKEN },
+    }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    const message = (err as Error).message;
+    // ① 票面"含 stderr 尾":ENOENT 路径下尾必然为空,但诊断段必须真实呈现(不得省略、不得假装有内容)
+    expect(message).toMatch(/stderr 尾=<空>/);
+    // ② 票面"不含 token":canary 一个字符都不许出现在错误消息里
+    expect(message).not.toContain(CANARY_TOKEN);
+    // ③ 真因仍是 spawn 失败而非超时伪装(与正例④同判据,把验收两条断言钉在同一用例里)
+    expect(message).not.toMatch(/MCP 请求超时/);
+  });
+
   it('反例④ 断连后本文件挂上去的 stderr/error/exit 监听器**成对摘除**(不留悬挂闭包)', async () => {
     const conn = await connectMcpServer(fakeMcpServer('noisy', 32));
     const proc = conn.process;

@@ -26,6 +26,7 @@ import type {
 } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 import { markStreamError } from '@ihui/shared/chat'
+import { settleSubagentOnParentTurnEnd } from '@ihui/shared/subagents/parent-turn-settle'
 // G-704(2026-09-29 立):值等价比较器只能有共享层那一份实现(端内不得再抄一份近似品)
 import { areRecordValuesEqual } from '@ihui/shared/utils/deep-equal-records'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
@@ -174,6 +175,12 @@ export interface SteerNotice {
   text: string
   /** 入队时间(ISO,来自 steer 端点) */
   timestamp?: string
+  /** 差距③(2026-10-30 立):queued=闪电入队后待注入(可撤回) / injected=tool loop
+   *  边界已注入确认。缺省(老数据与 SSE 回执未带 phase 时)按 injected 兼容。 */
+  phase?: 'queued' | 'injected'
+  /** 差距③:服务端队列定位串(withdrawSteer 三元组之一;SSE injected 帧的 timestamp
+   *  即回显此值,appendSteerNotice 据此把乐观 queued 条目就地提升而非重复追加)。 */
+  queuedAt?: string
 }
 
 /**
@@ -260,6 +267,11 @@ export interface ChatMessage extends Omit<
    *  siblingIndex 非 null 的行,live 链不受影响。null = 服务端确认非族成员。 */
   parentMessageId?: string | null
   siblingIndex?: number | null
+  /** 差距⑤补全(2026-10-30 立):回合深链用轮次序号,三态(投影见 lib/turn-deeplink projectTurnOrdinals):
+   *  number = 已盖章(around 窗口服务端盖章 / 完整页按服务端 user 开轮口径计数);
+   *  null = 已加载但序号未知(截断页/翻页更早行,污染推导);
+   *  undefined = live 本地行(仅在可推导列表上续算)。 */
+  turnOrdinal?: number | null
 }
 
 /** 自动压缩上下文状态(2026-08-16 立)
@@ -342,6 +354,14 @@ export interface ChatState {
    *  刻意**不持久化**:消息 id 是会话局部坐标,刷新后服务端重新水合,旧 id 必悬空;
    *  把它写进 localStorage 只会把上一会话的选择带进下一会话。 */
   activeVersionByRoot: Record<string, string>
+  /**
+   * 差距⑤补全(2026-10-30 立):当前 messages 列表是否来自 around 窗口(回合深链)。
+   * 为什么必须单列标志而不是看数据形状:around 窗口锚在 turn 1 时与完整页**不可区分**,
+   * 而窗口尾部续聊的 live 行若按"从头计数"推导会猜错序号(验收「不猜」)。
+   * 消费点唯一:MessageList 的 projectTurnOrdinals 入参。会话局部坐标,不进 partialize、
+   * 与 chatSyncGapMessageIds 同命(载入路径逐支显式赋值,见 ai-side-panel/chat-pane-body)。
+   */
+  messagesTurnWindowed: boolean
   /**
    * 票71(V2 #23)第二切片(2026-10-24):消息面房间同步的**判据面**(chat-sync 契约内核的状态)。
    *
@@ -745,6 +765,14 @@ export interface ChatState {
   /** Steer(中途引导,2026-09-19 立):追加某条助手消息的引导注入确认(SSE steer 事件触发)。
    * 单消息上限 8 条(对齐后端 _STEER_QUEUE_LIMIT),超出静默丢弃。 */
   appendSteerNotice: (messageId: string, notice: SteerNotice) => void
+  /** 差距③(2026-10-30 立):撤回成功(withdrawn 回执)后按 queuedAt 移除仍排队的引导条目。 */
+  removeSteerNotice: (messageId: string, queuedAt: string) => void
+  /** 差距③:already_injected 回执 —— 同 queuedAt 的本地 queued 条目提升为 injected(已不可撤)。 */
+  markSteerInjected: (messageId: string, queuedAt: string) => void
+  /** 差距③ mutateQueue(2026-10-30 立):按 order(queuedAt 目标序列)乐观重排排队中的
+   * 引导条目 —— 只动 phase='queued' 且有 queuedAt 的条目,injected/存量条目原位不动。
+   * order 与当前排队集合不匹配(并发变更)⇒ 放弃(不猜);reorder 被拒时调用方以旧 order 回滚。 */
+  reorderSteerNotices: (messageId: string, order: readonly string[]) => void
   /** D115:追加某条助手消息的审查结论(SSE review-finding 事件触发)。
    *  index=1 是新一轮审查的首帧 ⇒ 先清旧列表;同 findingId 重放幂等丢弃。 */
   appendReviewFinding: (messageId: string, finding: ReviewFinding) => void
@@ -890,6 +918,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   messages: [],
   // 票59 2/3:手动切换态默认空 = 各族显示最新 sibling(投影默认判据)
   activeVersionByRoot: {},
+  // 差距⑤补全:非窗口(完整页/空列表)默认 false;载入路径逐支显式赋值,不持久化
+  messagesTurnWindowed: false,
   // 2026-08-06 立:默认值改为 'auto',与 model-selector.tsx 的 AUTO_OPTION 一致,
   // 体现"零配置即可用"理念,后端 llm_gateway 会自动选最优模型。
   // 历史:step-router-v1 是 Step 厂家路由(仅 Step 内部),违背"自动切换所有可用模型"语义。
@@ -1163,6 +1193,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       reviewFindingsByMessageId: {},
       // 票59 2/3:版本切换态是会话局部坐标(消息 id),新建对话必须一起清
       activeVersionByRoot: {},
+      // 差距⑤补全:窗口标志同为会话局部坐标,新建对话复位(空列表按非窗口口径)
+      messagesTurnWindowed: false,
     }),
   /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
   setMessages: (messages: ChatMessage[]) => set({ messages }),
@@ -1459,14 +1491,28 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     }),
 
   markAllAgentStreamsDone: () =>
-    set((s) => ({
-      subAgentActivities: s.subAgentActivities.map((a) => ({
-        ...a,
-        streamingDone: true,
-        status: a.status === 'running' || a.status === 'thinking' ? 'completed' : a.status,
-        currentStep: a.status === 'running' || a.status === 'thinking' ? '' : a.currentStep,
-      })),
-    })),
+    set((s) => {
+      const settle = (agent: SubAgentActivity): SubAgentActivity => {
+        const next = settleSubagentOnParentTurnEnd(agent.status)
+        if (next.status === agent.status && agent.streamingDone === true) return agent
+        return { ...agent, status: next.status, streamingDone: true }
+      }
+      let messages = s.messages
+      const nextMessages = s.messages.map((message) => {
+        const list = message.subagentActivities
+        if (!list || list.length === 0) return message
+        const settled = list.map(settle)
+        if (settled.every((agent, index) => agent === list[index])) return message
+        return { ...message, subagentActivities: settled }
+      })
+      if (nextMessages.some((message, index) => message !== s.messages[index])) {
+        messages = nextMessages
+      }
+      return {
+        subAgentActivities: s.subAgentActivities.map(settle),
+        messages,
+      }
+    }),
 
   resetSubAgentActivities: () => set({ subAgentActivities: [] }),
 
@@ -2095,10 +2141,42 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // Steer(中途引导,2026-09-19 立):SSE steer 事件确认注入后按 messageId 累积。
   // 单消息上限 8 条对齐后端 _STEER_QUEUE_LIMIT(超限后端已拒绝入队,双保险),
   // 引导未生效或空文本由调用方(onSteer 回调)过滤,此处只管落库。
+  // 差距③(2026-10-30 立):injected 回执先匹配本地乐观 queued 条目(同 queuedAt,
+  // 或 queuedAt 未对齐时同文本且仍排队)⇒ 就地提升为 injected,不重复追加;
+  // queued 入队幂等(同 queuedAt 已存在则丢弃)。上限只约束追加路径。
   appendSteerNotice: (messageId, notice) =>
     set((s) => {
       if (!messageId || !notice?.text) return s
       const existing = s.steerNoticesByMessageId[messageId] ?? []
+      if (notice.phase === 'queued') {
+        if (
+          notice.queuedAt &&
+          existing.some((n) => n.phase === 'queued' && n.queuedAt === notice.queuedAt)
+        ) {
+          return s
+        }
+      } else {
+        const idx = existing.findIndex(
+          (n) =>
+            n.phase === 'queued' &&
+            ((notice.queuedAt !== undefined && n.queuedAt === notice.queuedAt) ||
+              (notice.timestamp !== undefined && n.queuedAt === notice.timestamp) ||
+              n.text === notice.text),
+        )
+        if (idx >= 0) {
+          const upgraded = [...existing]
+          const prev = existing[idx]!
+          upgraded[idx] = {
+            ...notice,
+            phase: 'injected',
+            timestamp: notice.timestamp ?? prev.queuedAt ?? prev.timestamp,
+            queuedAt: notice.queuedAt ?? prev.queuedAt,
+          }
+          return {
+            steerNoticesByMessageId: { ...s.steerNoticesByMessageId, [messageId]: upgraded },
+          }
+        }
+      }
       if (existing.length >= STEER_NOTICE_MAX_PER_MESSAGE) return s
       return {
         steerNoticesByMessageId: {
@@ -2106,6 +2184,53 @@ const buildChatState: ChatStateCreator = (set, get) => ({
           [messageId]: [...existing, notice],
         },
       }
+    }),
+
+  // 差距③(2026-10-30 立):withdrawn 回执落地 —— 只移除仍排队的同 queuedAt 条目,
+  // 已提升为 injected 的不动(撤回语义只覆盖未注入项)。
+  removeSteerNotice: (messageId, queuedAt) =>
+    set((s) => {
+      const existing = s.steerNoticesByMessageId[messageId]
+      if (!messageId || !existing?.length) return s
+      const next = existing.filter((n) => !(n.phase === 'queued' && n.queuedAt === queuedAt))
+      if (next.length === existing.length) return s
+      return { steerNoticesByMessageId: { ...s.steerNoticesByMessageId, [messageId]: next } }
+    }),
+
+  // 差距③:already_injected 回执落地 —— 同 queuedAt 的本地 queued 条目提升为 injected。
+  markSteerInjected: (messageId, queuedAt) =>
+    set((s) => {
+      const existing = s.steerNoticesByMessageId[messageId]
+      if (!messageId || !existing?.length) return s
+      const idx = existing.findIndex((n) => n.phase === 'queued' && n.queuedAt === queuedAt)
+      if (idx < 0) return s
+      const next = [...existing]
+      next[idx] = { ...next[idx]!, phase: 'injected', timestamp: next[idx]!.timestamp ?? queuedAt }
+      return { steerNoticesByMessageId: { ...s.steerNoticesByMessageId, [messageId]: next } }
+    }),
+
+  // 差距③ mutateQueue(2026-10-30 立):乐观重排排队中的引导条目。
+  // 只重排 phase='queued' 且有 queuedAt 的条目(它们占用的槽位序列不变,injected/
+  // 存量条目原位不动);order 必须与当前排队集合精确一一对应,不匹配(并发变更/
+  // 重复/未知 id)⇒ 放弃返回原 state —— 与服务端 422 同纪律,本地也不猜。
+  reorderSteerNotices: (messageId, order) =>
+    set((s) => {
+      const existing = s.steerNoticesByMessageId[messageId]
+      if (!messageId || !existing?.length) return s
+      const queued = existing.filter((n) => n.phase === 'queued' && n.queuedAt)
+      if (
+        order.length !== queued.length ||
+        new Set(order).size !== order.length ||
+        !order.every((q) => queued.some((n) => n.queuedAt === q))
+      ) {
+        return s
+      }
+      const byId = new Map(queued.map((n) => [n.queuedAt as string, n]))
+      let k = 0
+      const next = existing.map((n) =>
+        n.phase === 'queued' && n.queuedAt ? (byId.get(order[k++] as string) ?? n) : n,
+      )
+      return { steerNoticesByMessageId: { ...s.steerNoticesByMessageId, [messageId]: next } }
     }),
 
   // D115:审查结论累积。index=1 是生产端(1-based)新一轮审查的首帧 ——
@@ -2289,5 +2414,4 @@ export function createChatStore(persistName: string = 'ihui-chat') {
 
 /** 默认单例:既有全部消费面的入口,行为与工厂化前分毫不变 */
 export const useChatStore = createChatStore()
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

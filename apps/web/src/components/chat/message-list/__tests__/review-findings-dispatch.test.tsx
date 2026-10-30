@@ -116,9 +116,7 @@ describe('ReviewFindingsCard 一键派发修复(D06/D115)', () => {
 
   it('line=0 是整文件级 ⇒ 正文只写文件,不补 :0', () => {
     const whole = finding({ findingId: 'rf-2', line: 0, detail: '', suggestion: '' })
-    expect(buildFixDispatchPrompt(whole)).toBe(
-      '修复审查发现(P1):src/a.ts\n问题:空指针风险',
-    )
+    expect(buildFixDispatchPrompt(whole)).toBe('修复审查发现(P1):src/a.ts\n问题:空指针风险')
   })
 
   it('派单预填值只投影该条:文件行进 affectedFiles,严重度进 priority', () => {
@@ -129,8 +127,12 @@ describe('ReviewFindingsCard 一键派发修复(D06/D115)', () => {
       constraints: '只修 src/a.ts:42 这一处,不改无关代码,不引入新依赖',
       deliverables: '修复该 finding,并自验(typecheck / lint / 相关用例)通过',
     })
-    expect(buildFixDispatchPreset(finding({ findingId: 'x', severity: 'P2' })).priority).toBe('high')
-    expect(buildFixDispatchPreset(finding({ findingId: 'y', severity: 'Nit' })).priority).toBe('low')
+    expect(buildFixDispatchPreset(finding({ findingId: 'x', severity: 'P2' })).priority).toBe(
+      'high',
+    )
+    expect(buildFixDispatchPreset(finding({ findingId: 'y', severity: 'Nit' })).priority).toBe(
+      'low',
+    )
   })
 
   it('反斜杠路径归一成正斜杠(S 端与 file-chips 同口径)', () => {

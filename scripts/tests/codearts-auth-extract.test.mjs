@@ -19,9 +19,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as Q, extractCodeartsAccounts } from '../lib/codearts-auth-extract.mjs'
 import { __test__ as C } from '../relay-account-pool.mjs'
 
@@ -64,7 +64,7 @@ test('① v10 密文形状锁:同形状密文解回原对象;密文被改/非 v1
 })
 
 test('② Local State 形状锁:缺 os_crypt 键 / 缺 DPAPI 前缀必须 throw 未判定', () => {
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'codearts-extract-'))
+  const scratch = mkScratch('codearts-extract-')
   try {
     const bad1 = path.join(scratch, 'ls1.json')
     fs.writeFileSync(bad1, JSON.stringify({ os_crypt: {} }))
@@ -76,7 +76,7 @@ test('② Local State 形状锁:缺 os_crypt 键 / 缺 DPAPI 前缀必须 throw 
     )
     assert.throws(() => Q.readAesKeyFromLocalState(bad2), /DPAPI/)
   } finally {
-    fs.rmSync(scratch, { recursive: true, force: true })
+    rmScratch(scratch, { bestEffort: true })
   }
 })
 
@@ -125,13 +125,13 @@ test('⑤ 装车面:FROM_PROVIDERS.codearts 登记 + 秘密行键逐字锁定(�
     '秘密行键前缀 = 2026-10-27 取证结论;华为改键名 ⇒ 本条先红,重取证后才许改',
   )
   // 未登录态(临时空目录当 roaming):须落未判定而不是静默空
-  const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'codearts-empty-'))
+  const empty = mkScratch('codearts-empty-')
   try {
     await assert.rejects(
       () => extractCodeartsAccounts({ roamingDir: empty }),
       (e) => typeof e.code === 'string' && e.code.startsWith('CODEARTS_'),
     )
   } finally {
-    fs.rmSync(empty, { recursive: true, force: true })
+    rmScratch(empty, { bestEffort: true })
   }
 })
