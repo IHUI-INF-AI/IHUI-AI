@@ -6672,7 +6672,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - **真机验证(2026-10-18)**:96DPI 还原态 HTML 图标 cy=126.5 / 原生 min=126、max=close=126.5;最大化态 HTML cy=26 / 原生 min=26、max=close=26.5(差 ≤0.5px);144DPI(150%)几何正确缩放(207×48、y=18,随 ScaleFactor 重排);在线浅页深字形、离线深页白字形、close hover 纯红 C42B1C 白×、min/max 浅灰、E923 叠框还原、四点击全部生效;日志 `[window-chrome] 已启用` 与 `window-show` 同帧或之前。已构建 14,027,776 字节并部署到 `D:\智汇AI\ihui-desktop.exe`(旧版备份 `ihui-desktop.exe.bak-20261018-nativebuttons`),`cargo check --release` rc=0。
 ## P1 侧边栏收敛(2026-10-19 立,平台独占:apps/web,AGENTS.md §9 显式标注)
 > AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/web/src/components/sidebar/**`、`apps/web/src/lib/path-labels.ts`、`apps/web/app/(main)/settings/helpers.ts`、`apps/web/e2e/**` 与 `packages/i18n/messages/web/*.json`(文案侧),不参与 api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli 跨端**契约**同步。⚠️ 但 **P3 跨端视觉对齐尚未豁免**,届时须按 §9 同步 miniapp-taro/mobile-rn 并过门 128。
-- [ ] `--allow-dangerous` 确认旁路仍在调用方(`apps/cli/src/commands/agent.ts`、`apps/cli/src/server/agent-core.ts`)——本行为 2026-10-22 压缩批的截断残行(守门尺 check-plan-truncated-rows R2 现读命中),正文余句不可逐字恢复,接手续写不得凭猜补(§0.3)
 ## 2026-10-19 发布前任务矩阵收口(6 项)
 用户指令「都要完成」,本票 6 项逐条落点:
 **docs/RELEASE.md 发布状态表已同步**(任务 1/2/3/4/5/6 收口);mobile-rn 段已补「iOS 端可行性评估」子节;miniapp-taro 段已补「当前状态(2026-10-19,任务 3 收口)」。
