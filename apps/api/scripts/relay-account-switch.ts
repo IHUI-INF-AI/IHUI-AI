@@ -533,11 +533,65 @@ function sleepSync(ms: number): void {
 
 const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
+/**
+ * 只读枚举:按映像名取**当前在跑的 PID**(`tasklist /FI`)。
+ * 取不到一律给空数组 ⇒ 调用方据此拒绝动手,绝不回落成"按名扫全场"。
+ */
+export function listPidsByImage(imageName: string): number[] {
+  try {
+    const out = execFileSync('tasklist', ['/FI', `IMAGENAME eq ${imageName}`, '/FO', 'CSV', '/NH'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+      timeout: 15_000,
+    })
+    return parseTasklistCsvPids(out)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * `tasklist /FO CSV /NH` 的取 PID 判据(抽成纯函数:本机 tasklist 输出**是本地化的**,
+ * 中文宿主里"没有运行的任务"那行是 `信息: ...` 而不是英文,靠文案匹配去排除等于没排除)。
+ * 所以只认两件事:①行以 `"` 开头(CSV 数据行的形状)②第 2 列必须是正整数。
+ * 其余一行都不进候选 —— 解析不出 PID 就是"枚举不到",由调用方拒杀。
+ */
+export function parseTasklistCsvPids(out: string): number[] {
+  return out
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('"'))
+    .map((line) => Number(line.split('","')[1]))
+    .filter((n) => Number.isInteger(n) && n > 0)
+}
+
+/** 按 PID 结束进程:命中面就是刚刚枚举出来的那一批,而不是"所有叫这个名字的进程"。 */
+function killPid(pid: number, force: boolean): void {
+  try {
+    execFileSync('taskkill', force ? ['/F', '/PID', String(pid)] : ['/PID', String(pid)], {
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+  } catch {
+    // 无窗口的渲染/子进程对不带 /F 的 taskkill 报"只能强制终止"并以非零退出 ⇒ 那不代表关闭失败;
+    // 真死活由下面的 probe 轮询判定,退出码不作判据(判序沿用原实现)。
+  }
+}
+
 /** 客户端生命周期依赖面(测试全部注入,绝不真关/真开本机程序) */
 export interface ClientLifecycle {
   probe?: () => string[]
   close?: (imageName: string) => void
   forceClose?: (imageName: string) => void
+  /**
+   * 按映像名枚举**当前**在跑的 PID。默认实现走 `tasklist /FI`,只读不杀。
+   * 为什么要它:`taskkill /IM <名>` 的参数只能是裸文件名、不接受路径,一发下去命中的是
+   * "所有叫这个名字的进程" —— 本机 WorkBuddy 就有国内版与国际版两套不同安装(不同身份/不同
+   * 数据目录),按名杀会连带关掉本不该动的实例(守门 52 的 N1 维立的正是这一型)。
+   * 改成"先枚举、再逐个 /PID 杀"之后:杀的对象与日志里的对象是同一批,枚举不到就拒绝动手。
+   */
+  listPids?: (imageName: string) => number[]
   launch?: (exe: string) => { ok: boolean; error?: string }
   resolveExe?: () => ResolvedClientExe
   intervalMs?: number
@@ -594,13 +648,18 @@ export function closeClientAndWait(opts: ClientLifecycle = {}): CloseClientResul
         error: '仅 Windows 支持自动关闭客户端,请手动退出 WorkBuddy 后重试',
       }
     }
-    try {
-      // 不带 /T、不带 /F:向同名主窗口发 WM_CLOSE。同名渲染/子进程没有窗口,
-      // taskkill 会对它们报"只能强制终止"并以非零退出 —— 那不代表关闭失败,退出码不作判据。
-      execFileSync('taskkill', ['/IM', image], { stdio: 'ignore', windowsHide: true })
-    } catch {
-      // 见上:退出码不作判据
+    const targets = (opts.listPids ?? listPidsByImage)(image)
+    if (targets.length === 0) {
+      // 枚举不到就不杀 —— 宁可失败并中止切换(登录态一个字节都没动),也不按映像名扫全场
+      return {
+        runningBefore: before.length,
+        ok: false,
+        waitedMs: 0,
+        error: `枚举不到 "${image}" 的 PID ⇒ 拒绝按映像名杀进程(taskkill /IM 只收裸文件名、不接受路径,一发会命中所有同名安装;本机 WorkBuddy 国内版/国际版即此型)`,
+      }
     }
+    // 不带 /T、不带 /F:逐个 PID 发 WM_CLOSE(原写法 /IM 会把同名进程一次全扫,见 listPidsByImage 注)
+    for (const pid of targets) killPid(pid, false)
   }
 
   const pollUntil = (deadlineMs: number): void => {
@@ -616,15 +675,13 @@ export function closeClientAndWait(opts: ClientLifecycle = {}): CloseClientResul
   pollUntil(gracefulMs)
 
   let forced = false
-  // 注入 forceClose 时允许测试覆盖强制腿;生产两者都不注入 ⇒ 默认 taskkill /F
+  // 注入 forceClose 时允许测试覆盖强制腿;生产两者都不注入 ⇒ 默认按 PID 强制关闭
   if (alive.length > 0 && (opts.forceClose || !opts.close)) {
     forced = true
-    try {
-      if (opts.forceClose) opts.forceClose(image)
-      else execFileSync('taskkill', ['/F', '/IM', image], { stdio: 'ignore', windowsHide: true })
-    } catch {
-      // 同上:退出码不作判据,靠轮询
-    }
+    // 强制腿**重新枚举**:优雅腿之后还活着的那些才是目标(按名杀会连刚起的同名新进程一起扫,
+    // 所以这里同样只认列出来的 PID)。
+    if (opts.forceClose) opts.forceClose(image)
+    else for (const pid of (opts.listPids ?? listPidsByImage)(image)) killPid(pid, true)
     pollUntil(gracefulMs + (opts.forceWaitMs ?? 8_000))
   }
 
