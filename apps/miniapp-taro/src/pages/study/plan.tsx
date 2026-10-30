@@ -120,7 +120,8 @@ export default function StudyPlan() {
                     {t('study.planPage.completed', { n: p.minutes ?? 0 })}
                   </Text>
                   {/* 状态徽章对齐 RN statusBadge(10dp→20rpx/600/px6→12rpx/py4→8rpx/radius 4dp→8rpx),
-                      四档 active/paused/completed/overdue 与共享屏同一词表;完成带 ✓ */}
+                      三档 active/completed/overdue 由进度与截止日推出(共享屏词表的「暂停」在本端
+                      结构上取不到数据源,已撤,理由见 ./plan-card 头注);完成带 ✓ */}
                   <Text
                     className={`text-[length:20rpx] font-semibold px-[12rpx] py-[8rpx] rounded-sm flex-shrink-0 ${statusClass(statusOf(p))}`}
                   >
