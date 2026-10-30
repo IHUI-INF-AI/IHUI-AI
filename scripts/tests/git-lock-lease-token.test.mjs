@@ -18,9 +18,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, existsSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as gl } from '../git-lock.mjs'
+
+const SCRIPT = fileURLToPath(new URL('../git-lock.mjs', import.meta.url))
 
 function fixture(t, name) {
   const scratch = mkScratch(`git-lock-lease-token-${name}`)
@@ -84,5 +87,18 @@ test('G-397 ④ 阳性对照:持有者同进程 acquire⇒release 必须成功(�
   const out = gl.release({ unitId: 'holder-397-self', dir })
   assert.equal(out.released, true, `持有者自释被拒: ${JSON.stringify(out)}`)
   assert.equal(existsSync(dir), false, 'release 成功后锁目录应消失')
+})
+
+// G-322 第十九批:带值旗标吞掉紧邻旗标 —— 旧副本把 "-x" 当写操作单元 identity 去比对(实测 rc=1,
+// 归因成"非持有者"而不是用法错);单源必须在解析层 exit 2 并点名实得 token,不触碰锁目录。
+test('G-322:--unit 被下一个旗标顶值 ⇒ exit 2 点名 "-x"(解析层即拒,不比对/不动锁)', () => {
+  const r = spawnSync(process.execPath, [SCRIPT, 'release', '--unit', '-x'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  assert.equal(r.status, 2, `旗标吞值必须 exit 2,实际: ${r.status}\n${r.stdout}\n${r.stderr}`)
+  assert.ok(r.stderr.includes('--unit'), r.stderr)
+  assert.ok(r.stderr.includes('"-x"'), r.stderr)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

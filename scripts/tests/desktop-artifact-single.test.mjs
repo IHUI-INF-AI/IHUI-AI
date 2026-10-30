@@ -235,4 +235,18 @@ test('临时 config 只关 createUpdaterArtifacts,不碰其他任何发版形态
   assert.ok(path.isAbsolute(raw) && raw.startsWith(REPO), raw)
   assert.ok(raw.includes('desktop-build-saas'), `临时 config 须落在本入口独占的那一格,实际 ${raw}`)
 })
+
+// G-322 第十九批:带值旗标吞掉紧邻旗标 —— 旧副本把 "--expect" 当目录,不存在即 return 0,
+// 整道产物校验静默通过(改前实测 rc=0 无输出);单源判据必须 exit 2 并点名实得 token。
+test('G-322:--dir 被下一个旗标顶值 ⇒ exit 2 点名 "--expect",不得静默跳过校验', () => {
+  const r = spawnSync(process.execPath, [HOOK, '--dir', '--expect', CUR], {
+    encoding: 'utf8',
+    windowsHide: true,
+    env: envFor(null),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  assert.equal(r.status, 2, `旗标吞值必须 exit 2,实际: ${r.status}\n${r.stdout}\n${r.stderr}`)
+  assert.ok(r.stderr.includes('--dir'), r.stderr)
+  assert.ok(r.stderr.includes('"--expect"'), r.stderr)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
