@@ -40380,3 +40380,5 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 `check-ruff-python.mjs`(Python lint 接进提交链,pin 唯一源 `apps/ai-service/pyproject.toml`)
 `check-web-rn-screen-parity.mjs`(web→RN 功能覆盖账本,只读报表)
 - 后端装配: `check-api-route-uniqueness.mjs`(门 269,2026-10-31 立:同一 `(method,path)` 被注册两次只在 Fastify 装配期抛,提交链零判据 ⇒ 本门按 `METHOD 对外真实路径` 判"≥2 个不同站点",`--staged` 判索引 blob、差值棘轮只拦新增、三档剔除(fallback/动态前缀/内联别名塌陷)报数不判红;判据单源 `scripts/lib/api-route-uniqueness.mjs` 复用 `route-registration-extract` 挂载图,零复算;跳过 `HUSKY_SKIP_API_ROUTE_UNIQUENESS=1`)
+**RN 样式裸数字回潮锁** `scripts/check-token-literal-debt.mjs`(门 270,差值棘轮):只拦本次把
+- 跨端/产物 CI 问责(2026-10-31 接线): `check-miniapp-build-artifacts.mjs`(小程序产物结构对账:入口三件套/页面/分包/tabBar 引用全在位,构建产物只在构后存在 ⇒ CI 构后是唯一正确落点) `check-mrn-vitest-mock-alias-surface.mjs`(mobile-rn vitest 手写替身面观测,按门体契约恒 RC=0 只报名)

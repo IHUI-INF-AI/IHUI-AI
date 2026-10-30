@@ -6390,6 +6390,48 @@ const checks = [
     stagedTriggers: ['apps/api/'],
     skipEnv: 'HUSKY_SKIP_API_ROUTE_UNIQUENESS',
   },
+  // --- RN 样式裸数字回潮锁(2026-10-31 复登:2026-10-25 runner 条目被截断事故中整段丢失,门体一直在盘上)---
+  {
+    // 编号 270:注册前已核本文件 `id: '270'` 为 0;原头注自称门 247,该号现被 asyncio 后台任务门占用,故改号。
+    id: '270',
+    label:
+      '🔢 RN 样式裸数字回潮锁(blocking,差值棘轮:只拦本次把可自动对档的裸数字加回来 —— 261 屏 3720 处已转档,不锁住就会重新漂移)',
+    script: 'check-token-literal-debt.mjs',
+    args: [],
+    mode: 'blocking',
+    // 判据单源 = scripts/tokens-migrate.mjs 的 migrateText(本门零复算);--staged 判索引 blob vs HEAD blob,
+    // 增量 > 0 才红;全量档只报数(存量 55 文件,按 §12e 不做成恒红门)。
+    stagedTriggers: ['packages/app/src/', 'apps/mobile-rn/src/'],
+    skipEnv: 'HUSKY_SKIP_TOKEN_LITERAL_DEBT',
+    onFailHint: [
+      '',
+      '  💡 裸数字(padding: 16 / fontSize: 14)应走 rnSpacing / rnType 档位;本次新增处数 > 该文件 HEAD 面自身处数才判红。',
+      '     修复:node scripts/tokens-migrate.mjs <file> --apply(恰在档才换,杂值不动)。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_TOKEN_LITERAL_DEBT=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // --- 全端杀手锏常量二次写死锁(2026-10-31 复登:门体/自检/豁免表一直在盘上,四路调度点皆无)---
+  {
+    // 编号 271:注册前已核本文件 `id: '271'` 为 0;现值以本文件为准。
+    id: '271',
+    label:
+      '🔪 全端杀手锏常量同构(blocking,差值棘轮:只拦本次把 tunables/constants 的值二次写死绕过单源 import)',
+    script: 'check-killer-parity-ends.mjs',
+    args: [],
+    mode: 'blocking',
+    // 判据:真源 apps/ai-service/app/core/tunables.py ↔ TS 镜像 packages/shared/src/constants.ts;
+    // --staged 只扫暂存区 TS 文件(实测 0.7s),白名单 2 条带理由;现读违例 0。
+    stagedTriggers: ['apps/', 'packages/'],
+    skipEnv: 'HUSKY_SKIP_KILLER_PARITY_ENDS',
+    onFailHint: [
+      '',
+      '  💡 杀手锏常量只许从 packages/shared/src/constants.ts 取用,不得在端内二次写死同值。',
+      '     豁免须在脚本白名单里带 reason;自检 12/12,违例清零后才可 blocking。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_KILLER_PARITY_ENDS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
   {
     id: '70b',
     label: '🌐 i18n 死 key 扫描(blocking,判定面=索引 blob;2026-10-22 从 pre-commit 移入并行池)',

@@ -18,10 +18,32 @@ vi.hoisted(() => {
 
 import { __test__ } from '../scripts/relay-login-local-verified.js'
 import type { VerifiedSwitchResult } from '../scripts/relay-login-local-verified.js'
+import { encryptField } from '../src/utils/crypto.js'
 
-const { CONTINUITY_FACE, runVerifiedSwitch } = __test__
+const {
+  CONTINUITY_FACE,
+  TEMPLATE_FALLBACK_PROVIDERS,
+  hasSessionTemplate,
+  templateMissingNote,
+  exitWith,
+  runVerifiedSwitch,
+  main,
+} = __test__
 
 const FAKE_ROW = { id: 'pool-x', uid: 'auto:testuid', providerCode: 'minimax' } as never
+
+/** 真库票形(secretsEnc 用真加密器造):证明默认判据走「解密 secrets」这一面,不是猜形状 */
+const rowWithSecrets = (providerCode: string, secrets: Record<string, unknown>) =>
+  ({
+    id: 'pool-x',
+    uid: 'auto:testuid',
+    providerCode,
+    tokenEnc: encryptField('tok'),
+    secretsEnc: encryptField(JSON.stringify(secrets)),
+  }) as never
+
+/** 等 main() 里那条 promise 链落地(它本身同步返回 0) */
+const tick = () => new Promise((r) => setImmediate(r))
 
 const snapOk = (n: number) => ({
   app: 'minimax',
@@ -105,10 +127,10 @@ describe('runVerifiedSwitch(全注入,零真库零真写)', () => {
     expect(r.ok).toBe(false)
   })
 
-  it('无对账面(workbuddy,对话在云端)⇒ no-continuity-face、写回照常执行、不冒 continuity', async () => {
+  it('无对账面(豆包,对话是云端回包缓存)⇒ no-continuity-face、写回照常执行、不冒 continuity', async () => {
     let snapped = 0
     const r = await runVerifiedSwitch({
-      provider: 'workbuddy',
+      provider: 'doubao',
       loadRow: async () => FAKE_ROW,
       writeBack: async () => ({ ok: true, notes: [], targetFile: 'X', backupFile: 'X' }) as never,
       snapshot: () => {
@@ -139,15 +161,191 @@ describe('runVerifiedSwitch(全注入,零真库零真写)', () => {
 })
 
 describe('CONTINUITY_FACE 映射(与 switch-continuity-check APPS 同源口径)', () => {
-  it('本地正库五平台齐:qoder/minimax/codex/zcode/opencode', () => {
-    for (const k of ['qoder', 'minimax', 'codex', 'zcode', 'opencode']) {
+  it('本地正库八平台齐:qoder/minimax/codex/zcode/opencode + workbuddy/codearts/loomy(2026-10-31 取证推翻旧口径)', () => {
+    for (const k of [
+      'qoder',
+      'minimax',
+      'codex',
+      'zcode',
+      'opencode',
+      'workbuddy',
+      'codearts',
+      'loomy',
+    ]) {
       expect(CONTINUITY_FACE[k]).toBe(k)
     }
   })
-  it('云端对话/携对话自证/未装平台一律不映射(接了会冒充可对账)', () => {
-    for (const k of ['workbuddy', 'codearts', 'loomy', 'doubao', 'trae', 'lingma', 'grokbot']) {
+  it('云端缓存/携对话自证/未装平台一律不映射(接了会冒充可对账)', () => {
+    for (const k of ['doubao', 'trae', 'lingma', 'grokbot']) {
       expect(CONTINUITY_FACE[k]).toBeUndefined()
     }
+  })
+})
+
+describe('会话模板缺失告警(切号产出面必须可见,但绝不拦写回)', () => {
+  const fakeWrite = async () =>
+    ({ ok: true, notes: [], targetFile: 'X:\\auth.v1.dat', backupFile: 'X:\\auth.bak' }) as never
+
+  it('默认判据读 secretsEnc 解密后的 sessionTemplate(形状猜不出模板)', () => {
+    expect(hasSessionTemplate(rowWithSecrets('qoder', { sessionTemplate: { userId: 'u1' } }))).toBe(
+      true,
+    )
+    expect(hasSessionTemplate(rowWithSecrets('qoder', { sessionTemplate: {} }))).toBe(false)
+    expect(hasSessionTemplate(rowWithSecrets('qoder', { recordKey: 'k' }))).toBe(false)
+    // 无 secretsEnc / 加密面坏 ⇒ 按缺失(失效方向 = 多提示一次,不是漏提示)
+    expect(hasSessionTemplate(FAKE_ROW)).toBe(false)
+  })
+
+  it('兜底平台清单 = local-login.mjs 里 `template ?? current/prev/row.session` 那四家', () => {
+    for (const k of ['qoder', 'codearts', 'minimax', 'opencode']) {
+      expect(TEMPLATE_FALLBACK_PROVIDERS.has(k)).toBe(true)
+    }
+    // workbuddy 无模板且跨号时显式 409;codex 无账号资料面;doubao 认 cookies、loomy 只建值
+    for (const k of ['workbuddy', 'codex', 'doubao', 'loomy', 'zcode']) {
+      expect(TEMPLATE_FALLBACK_PROVIDERS.has(k)).toBe(false)
+    }
+  })
+
+  it('qoder 票无模板 ⇒ notes 带模板缺失告警(且文案点名重新导入出口)', async () => {
+    const r = await runVerifiedSwitch({
+      provider: 'qoder',
+      loadRow: async () => rowWithSecrets('qoder', { recordKey: 'k' }),
+      writeBack: fakeWrite,
+      snapshot: () => snapOk(3),
+      compare: fakeCompare(0),
+    })
+    const note = r.notes.find((n) => n.includes('模板缺失'))
+    expect(note).toBeDefined()
+    expect(note).toContain('仍沿用旧号')
+    expect(note).toContain('relay-account-pool.mjs --from qoder')
+    // 只告警不拦写回:凭证写回本身有效
+    expect(r.wroteBack).toBe(true)
+    expect(r.verdict).toBe('continuity-ok')
+  })
+
+  it('模板在场 ⇒ 无该告警', async () => {
+    const r = await runVerifiedSwitch({
+      provider: 'qoder',
+      loadRow: async () => rowWithSecrets('qoder', { sessionTemplate: { userId: 'auto:testuid' } }),
+      writeBack: fakeWrite,
+      snapshot: () => snapOk(3),
+      compare: fakeCompare(0),
+    })
+    expect(r.notes.some((n) => n.includes('模板缺失'))).toBe(false)
+  })
+
+  it('注入 hasTemplate=false 同样告警(测试免真库的唯一入口)', async () => {
+    const r = await runVerifiedSwitch({
+      provider: 'minimax',
+      loadRow: async () => FAKE_ROW,
+      hasTemplate: () => false,
+      writeBack: fakeWrite,
+      snapshot: () => snapOk(1),
+      compare: fakeCompare(0),
+    })
+    expect(r.notes.some((n) => n.includes('模板缺失'))).toBe(true)
+  })
+
+  it('非兜底平台(workbuddy)无模板不告警:那家在跨号时显式 409,不会静默沿用旧号', async () => {
+    const r = await runVerifiedSwitch({
+      provider: 'workbuddy',
+      loadRow: async () => rowWithSecrets('workbuddy', {}),
+      writeBack: fakeWrite,
+      snapshot: () => snapOk(0),
+      compare: fakeCompare(0),
+    })
+    expect(r.notes.some((n) => n.includes('模板缺失'))).toBe(false)
+  })
+
+  it('dry-run 也带告警(切之前就该知道,而不是切完才发现)', async () => {
+    const r = await runVerifiedSwitch({
+      provider: 'qoder',
+      dryRun: true,
+      loadRow: async () => rowWithSecrets('qoder', {}),
+      snapshot: () => snapOk(3),
+    })
+    expect(r.dryRun).toBe(true)
+    expect(r.notes.some((n) => n.includes('模板缺失'))).toBe(true)
+  })
+
+  it('告警文案点名当前平台(不串号)', () => {
+    expect(templateMissingNote('codearts')).toContain('--from codearts')
+    expect(templateMissingNote('codearts')).not.toContain('--from qoder')
+  })
+})
+
+describe('CLI 退出路径(失败必须显式 exit,只设 exitCode 会被 pg 句柄挂住)', () => {
+  const fakeResult = (verdict: VerifiedSwitchResult['verdict']): VerifiedSwitchResult => ({
+    ok: verdict !== 'continuity-broken',
+    provider: 'minimax',
+    uid: 'auto:testuid',
+    dryRun: false,
+    wroteBack: true,
+    continuityFace: true,
+    before: null,
+    after: null,
+    verdict,
+    compare: null,
+    writeBack: null,
+    notes: [],
+  })
+
+  it('exitWith:先写 stderr(补换行)再按码退出', () => {
+    const exit = vi.fn()
+    const write: string[] = []
+    exitWith(2, 'boom', { exit, write: (t) => write.push(t) })
+    expect(exit).toHaveBeenCalledTimes(1)
+    expect(exit).toHaveBeenCalledWith(2)
+    expect(write.join('')).toBe('boom\n')
+  })
+
+  it('缺 --provider ⇒ 显式 exit(2) 并打用法', () => {
+    const exit = vi.fn()
+    const write: string[] = []
+    expect(main([], { exit, write: (t) => write.push(t) })).toBe(2)
+    expect(exit).toHaveBeenCalledWith(2)
+    expect(write.join('')).toContain('用法')
+  })
+
+  it('切号失败 ⇒ exit(2) 且 NODE 错误码先落 stderr(缺陷 1 回归锁:不许只设 exitCode)', async () => {
+    const exit = vi.fn()
+    const write: string[] = []
+    main(['--provider', 'minimax', '--uid', '__no_such_uid__'], {
+      exit,
+      write: (t) => write.push(t),
+      log: () => {},
+      run: () =>
+        Promise.reject(
+          Object.assign(new Error('池内无 uid=__no_such_uid__ 的 minimax 票(未判定)'), {
+            code: 'NO_SUCH_UID',
+          }),
+        ),
+    })
+    await tick()
+    expect(exit).toHaveBeenCalledTimes(1)
+    expect(exit).toHaveBeenCalledWith(2)
+    expect(write.join('')).toContain('未判定')
+    expect(write.join('')).toContain('NO_SUCH_UID')
+  })
+
+  it('成功面:no-continuity-face ⇒ exit(0)、continuity-broken ⇒ exit(1)', async () => {
+    const okExit = vi.fn()
+    main(['--provider', 'minimax'], {
+      exit: okExit,
+      log: () => {},
+      run: async () => fakeResult('no-continuity-face'),
+    })
+    await tick()
+    expect(okExit).toHaveBeenCalledWith(0)
+
+    const brokenExit = vi.fn()
+    main(['--provider', 'minimax'], {
+      exit: brokenExit,
+      log: () => {},
+      run: async () => fakeResult('continuity-broken'),
+    })
+    await tick()
+    expect(brokenExit).toHaveBeenCalledWith(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
