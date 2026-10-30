@@ -206,6 +206,7 @@
     "check:zcode-matrix": "node scripts/zcode-absorption-matrix.mjs --strict",
     "check:dispatch-board": "node scripts/dispatch-board.mjs --seats 6",
     "check:lint-staged-pin": "node scripts/check-lint-staged-stdio-pin.mjs",
+    "check:origin-guard": "node scripts/check-origin-guard-liveness.mjs",
     "qoder:import": "pnpm --filter @ihui/api qoder:import",
     "relay:inspect": "pnpm --filter @ihui/api relay:inspect",
     "relay:sessions": "pnpm --filter @ihui/api relay:sessions",
