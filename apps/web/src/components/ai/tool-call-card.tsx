@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { getArtifactToken } from '@ihui/api-client'
 import { fetchApi, fetchRaw } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 // CSP img-src 收窄后,图片必须走同源代理 /api/media/image 渲染;下载走 /api/media/download
 import { toMediaImageUrl, toMediaDownloadUrl, toMediaStreamUrl } from '@/lib/media-proxy'
