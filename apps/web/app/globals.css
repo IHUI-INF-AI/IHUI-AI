@@ -1674,6 +1674,14 @@ button[data-state='closed']:focus-visible {
 .ihui-breakpoint-glyph:hover {
   transform: scale(1.15);
 }
+/* ============================================================
+ * 预测式编辑(编辑意图预测)悬停预览装饰(Trae CUE 对齐,2026-10-31)
+ * CodeEditor 建议条 hover 某条动作时,把该条涉及的区间画成
+ * 淡强调底色(替换/删除为行内段,插入为整行提示)。
+ * 用 brandAccent.light 档,不取墨档(§4 描边不得取墨档)。 */
+.ihui-edit-intent-preview {
+  background: color-mix(in oklab, var(--color-brand-accent, hsl(212 92% 52%)) 16%, transparent);
+}
 /* glyph margin 空槽位 hover 提示可点击 */
 .monaco-editor .margin-view-overlays .cgmr {
   cursor: pointer;

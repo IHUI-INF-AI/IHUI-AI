@@ -40382,3 +40382,31 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 - 后端装配: `check-api-route-uniqueness.mjs`(门 269,2026-10-31 立:同一 `(method,path)` 被注册两次只在 Fastify 装配期抛,提交链零判据 ⇒ 本门按 `METHOD 对外真实路径` 判"≥2 个不同站点",`--staged` 判索引 blob、差值棘轮只拦新增、三档剔除(fallback/动态前缀/内联别名塌陷)报数不判红;判据单源 `scripts/lib/api-route-uniqueness.mjs` 复用 `route-registration-extract` 挂载图,零复算;跳过 `HUSKY_SKIP_API_ROUTE_UNIQUENESS=1`)
 **RN 样式裸数字回潮锁** `scripts/check-token-literal-debt.mjs`(门 270,差值棘轮):只拦本次把
 - 跨端/产物 CI 问责(2026-10-31 接线): `check-miniapp-build-artifacts.mjs`(小程序产物结构对账:入口三件套/页面/分包/tabBar 引用全在位,构建产物只在构后存在 ⇒ CI 构后是唯一正确落点) `check-mrn-vitest-mock-alias-surface.mjs`(mobile-rn vitest 手写替身面观测,按门体契约恒 RC=0 只报名)
+| 数据库表 | 617 | `dbTables` |
+| schema 文件 | 240 | `dbSchemaFiles` |
+| API 路由 | 4653 | `apiRoutes` |
+| 路由文件 | 656 | `apiRouteFiles` |
+| AI 服务路由 | 624 | `aiServiceRoutes` |
+| CLI 命令文件 | 68 | `cliCommandFiles` |
+| CLI 工具文件 | 73 | `cliToolFiles` |
+| 测试文件 | 3694 | `testFiles` |
+| CI 工作流 | 51 | `ciWorkflows` |
+| 工程守门 | 305 | `guardianGates` |
+| — blocking | 279 | `guardianBlocking` |
+| 跟踪文件 | 18165 | `trackedFiles` |
+- **预测式编辑(对标 Trae CUE)**:编辑意图预测器(服务端三态 suggested/no_action/undetermined + 结构化动作 + 重叠区间冲突与锚点内容比对)· 聊天输入区与编辑器内建议条双场景 · 逐条勾选选择性应用 + 悬停区间预览 · 接受率按 model×scene 分桶看板
+**2026-10-31**
+- 🚀 新功能/改进:预测式编辑建议条五语词表(编辑器场景 CUE 对齐批次) (9c9e338469)
+- ♻️ 重构:门户维收敛候选集编排抽成纯函数,段级族可被构造面钉住 (182440479b)
+- 🔧 工程/其他:派生产物按最新 HEAD 面重生成 —— 补 webViewPortal.artifacts 词条,离线包与两枚路由钉同步 (bdd9129d40)
+- 🐞 修复:qoder 导入补齐会话模板 —— 模板此前在导入面被静默丢弃,池票永远 tpl=NULL (185987e308)
+- 🐞 修复:rn-compat 图标出口按 HEAD 面重生成 —— 补 ListTodo/MonitorSmartphone 两枚,门 251 C2 缺口清零 (16124c3b04)
+- 🐞 修复:清偿门 39 三条 HEAD 存量红(0e875130c0 旁路落地带回的未迁移形态) (577b3364ac)
+- 🚀 新功能/改进:web→RN 对齐链最后一枚缺口 artifacts 清零 —— 产物中心进 web-portal 门户(两端 WebView 承载, sso cookie 链路) (6ff6f36887)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b88b1080c5)
+| 测试文件 | 3690 | `testFiles` |
+| 跟踪文件 | 18156 | `trackedFiles` |
+| **切号携对话闭环 CLI**      | `pnpm relay:login-local-verified -- --provider <code> [--uid] [--dry-run]` | `apps/api/scripts/relay-login-local-verified.ts`(2026-10-30 立,2026-10-31 收口):一条命令完成「池里选票 → 切号前拍连续性快照 → 池票写回本机客户端(关端/写/拉起,写前同目录备份)→ 切号后再拍 → compare」;**本地正库对账面八平台** qoder/minimax/codex/zcode/opencode/workbuddy/codearts/loomy(平台全集与 `check-switch-continuity` 同源;2026-10-31 本机取证推翻「云端平台本地无正库」旧口径:WorkBuddy `~/.workbuddy/projects` 两层 JSONL 91 场、CodeArts `workspaceStorage/**/chatSessions` 45 场、Loomy IndexedDB 键族 2 场);对话是云端回包缓存的豆包如实 `no-continuity-face` 不冒对账;qoder/codearts/minimax/opencode 无会话模板时显式告警「账号资料仍沿用旧号」但不拦写回;失败路径统一走 `exitWith(2)` 显式退出(原只设 exitCode 会被 pg 池挂住);多票不点名 exit 2 绝不猜票;输出零凭据;退出码 0 ok/1 broken(切号真丢了会话)/2 未判定 |
+| **统一切号入口**            | `pnpm switch:client -- --list｜--current｜--to <uid|名称> --provider <p>` | `scripts/switch-client-account.mjs`(2026-10-31 立):trae/trae-solo 转 `scripts/switch-trae-client-with-chat.mjs`(SOLO 自动补 `--product "TRAE SOLO CN"`),其余九平台转 `relay-login-local-verified`;平台名归一与参数映射为纯函数(`__test__`),未知 provider exit 2 并列全支持集;`--list/--current` 仅 Trae 系原生支持,其余如实指向号池巡检入口 |
+| **MiniMax 会话回灌**        | BullMQ `minimax-session-sync` 每 10 分钟 / `node scripts/sync-minimax-client-session.mjs [--dry-run]` | `scripts/sync-minimax-client-session.mjs` + `apps/api/scripts/relay-minimax-session-sync.ts`(2026-10-31 立):读 `~/.minimax/auth/prod/<region>/mcode-public/auth.json`(明文)回流号池;判据走 Trae 的 `decideSync` 单源;取证实证 uid 随票旋转而变 ⇒ **uid > recordKey 两级匹配**(否则轮换后每轮新建行、旧行永久 down);adapter 无公开刷新端点 ⇒ 健康态只凭「新票未过期且与池内不同」上行、绝不下行;零凭据回显;退出码 0 全部处理/1 落库失败/2 未判定 |
+- 📚 文档:切号条目口径按 2026-10-31 取证更正 + 补登统一入口与 MiniMax 回灌 (772eb33cca)
