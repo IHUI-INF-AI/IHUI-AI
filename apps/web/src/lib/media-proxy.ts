@@ -61,3 +61,20 @@ export function toMediaDownloadUrl(url?: string | null): string {
   }
   return url
 }
+
+/**
+ * 媒体(视频/音频)流式播放同源代理路径(2026-10-30 立,随图片代理同源收口补齐)。
+ *
+ * 后端 /api/media/stream 透传 Range、支持 seek、复用 _validate_url_ssrf 闸门;
+ * 与图片代理不同,这里**无 whitelist 直连分支**——CSP 的 media-src 是
+ * `'self' blob:`(无 https: 通配),任意外部 http(s) 媒体直链都必须走同源代理,
+ * 否则被 media-src 直接拦截。data: 媒体 URI 亦不在 media-src 白名单(本代理无法
+ * 代理 data:,原样返回,沿用既有行为);same-origin / blob: 原样返回。
+ */
+export function toMediaStreamUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string') return ''
+  if (/^https?:\/\//i.test(url)) {
+    return `/api/media/stream?url=${encodeURIComponent(url)}`
+  }
+  return url
+}
