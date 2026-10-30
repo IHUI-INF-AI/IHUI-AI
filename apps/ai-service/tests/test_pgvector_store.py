@@ -29,7 +29,14 @@ from app.services.pgvector_store import (
 
 
 @pytest.fixture(autouse=True)
-def _fresh_state() -> Any:
+def _fresh_state(monkeypatch: pytest.MonkeyPatch) -> Any:
+    # 全局 conftest 的 vector_memory 隔离夹具会给**每条**用例设
+    # IHUI_PGVECTOR_DISABLE=1(tests/conftest.py:530),而 pgvector_store 的入口把它当
+    # "本能力未启用"直接早退 ⇒ 本文件此前 4 条红不是代码坏了,是被上级夹具整片关掉;
+    # 另两条(test_extension_missing / circuit_breaker)则是"因为早退才绿"——假绿。
+    # 本模块自己判的是 fake pool 的 SQL 形状,必须在这一格里把该 env 撤掉。
+    # 同型先例:tests/test_vector_memory.py:939。
+    monkeypatch.delenv("IHUI_PGVECTOR_DISABLE", raising=False)
     _reset_circuit()
     yield
     _reset_circuit()

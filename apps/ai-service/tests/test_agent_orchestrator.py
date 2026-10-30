@@ -338,7 +338,15 @@ class TestInvokeParallel:
     @pytest.mark.asyncio
     async def test_invoke_parallel_success(self, monkeypatch):
         """3 个 task 全成功(用 mock invoke)。"""
-        async def mock_invoke(agent_name, user_input, session_id=None, model_override=None, progress_callback=None):
+        async def mock_invoke(
+            agent_name,
+            user_input,
+            session_id=None,
+            model_override=None,
+            progress_callback=None,
+            tool_allow=None,
+            tool_deny=None,
+        ):
             return AgentStepResult(
                 agent_name=agent_name,
                 input=user_input,
@@ -366,7 +374,15 @@ class TestInvokeParallel:
     @pytest.mark.asyncio
     async def test_invoke_parallel_partial_failure(self, monkeypatch):
         """1 个失败(mock invoke 抛异常),其他成功。"""
-        async def mock_invoke(agent_name, user_input, session_id=None, model_override=None, progress_callback=None):
+        async def mock_invoke(
+            agent_name,
+            user_input,
+            session_id=None,
+            model_override=None,
+            progress_callback=None,
+            tool_allow=None,
+            tool_deny=None,
+        ):
             if agent_name == "debugger":
                 raise RuntimeError("模拟调试失败")
             return AgentStepResult(
@@ -403,7 +419,15 @@ class TestInvokeParallel:
     @pytest.mark.asyncio
     async def test_invoke_parallel_unknown_agent(self, monkeypatch):
         """含未知 agent name,该 task 标记 failed,其他成功。"""
-        async def mock_invoke(agent_name, user_input, session_id=None, model_override=None, progress_callback=None):
+        async def mock_invoke(
+            agent_name,
+            user_input,
+            session_id=None,
+            model_override=None,
+            progress_callback=None,
+            tool_allow=None,
+            tool_deny=None,
+        ):
             return AgentStepResult(
                 agent_name=agent_name,
                 input=user_input,
@@ -435,7 +459,15 @@ class TestInvokeParallel:
         current = 0
         max_seen = 0
 
-        async def mock_invoke(agent_name, user_input, session_id=None, model_override=None, progress_callback=None):
+        async def mock_invoke(
+            agent_name,
+            user_input,
+            session_id=None,
+            model_override=None,
+            progress_callback=None,
+            tool_allow=None,
+            tool_deny=None,
+        ):
             nonlocal current, max_seen
             current += 1
             max_seen = max(max_seen, current)
