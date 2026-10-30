@@ -269,8 +269,7 @@
     "studentUnit": "名受講",
     "moreTitle": "もっと見る",
     "studentCount": "{count} 人が学習",
-    "empty": "コースはまだありません"
-,
+    "empty": "コースはまだありません",
     "player": "動画の読み込み後に再生できます",
     "progress": "進捗",
     "progressLessons": "{completed}/{total} 節修了",
@@ -369,7 +368,16 @@
     "titleRequired": "配信タイトルを入力してください",
     "startFailed": "配信開始に失敗しました",
     "endFailed": "配信終了に失敗しました",
-    "copySuccess": "クリップボードにコピーしました"
+    "copySuccess": "クリップボードにコピーしました",
+    "copyHint": "コピーしました",
+    "previewActive": "プレビュー中",
+    "previewIdle": "プレビュー未開始",
+    "productAddBtn": "商品を追加",
+    "statRecvBytes": "受信バイト",
+    "statSendBytes": "送信バイト",
+    "statViewers": "視聴者数",
+    "stats": "統計",
+    "title": "ライブ配信者"
   },
   "order": {
     "title": "注文",
@@ -484,8 +492,7 @@
     "title": "マイウォレット",
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
-    "withdraw": "出金"
-,
+    "withdraw": "出金",
     "points": "トークン"
   },
   "community": {
@@ -511,8 +518,7 @@
     "m2": "AIアプリストア",
     "m3": "検索するエージェント名を入力",
     "y1": "{p1}時間",
-    "y2": "エージェント購入:{p1}"
-,
+    "y2": "エージェント購入:{p1}",
     "follow": "フォロー",
     "follower": "フォロワー"
   },
@@ -524,8 +530,7 @@
   "agent": {
     "title": "エージェント",
     "empty": "エージェントはまだありません",
-    "uses": "回"
-,
+    "uses": "回",
     "config": "設定"
   },
   "setting": {
@@ -1141,7 +1146,14 @@
     "failed4": "コピー失敗、再試行してください",
     "text5": "会話ページ未設定",
     "confirm6": "この会話を削除しますか?",
-    "title": "共有"
+    "title": "共有",
+    "code": "共有コード",
+    "create": "共有を作成",
+    "expireAt": "有効期限",
+    "remark": "備考",
+    "remarkPlaceholder": "備考を入力",
+    "shareNow": "今すぐ共有",
+    "url": "URL"
   },
   "aiGroup": {
     "title": "エージェント広場",
@@ -1194,8 +1206,7 @@
     "noUrl": "アクセスURLなし",
     "loadFailed": "読み込み失敗",
     "openWorkflow": "ワークフローを開く",
-    "gatewayRetry": "{attempt}/{max} 回目を再試行中、{seconds} 秒後に続けます"
-,
+    "gatewayRetry": "{attempt}/{max} 回目を再試行中、{seconds} 秒後に続けます",
     "placeholder": "質問を入力してください",
     "streaming": "生成中..."
   },
@@ -1621,8 +1632,7 @@
     "pendingSettle": "決済待ち",
     "withdrawn": "引出済み",
     "myTeam": "マイチーム",
-    "columnTitle": "流通注文"
-,
+    "columnTitle": "流通注文",
     "retry": "再試行",
     "empty": "データなし",
     "subtitle": "商品を宣伝してコミッションを獲得",
@@ -2385,8 +2395,7 @@
     "faqGuideDesc": "エージェント作成、モデル設定、審査提出",
     "faqGuideBtn": "詳しく見る",
     "contactHeading": "その他の質問はありますか?",
-    "contactDesc": "サポートに連絡して1対1の回答を得る"
-,
+    "contactDesc": "サポートに連絡して1対1の回答を得る",
     "copy": "コピー"
   },
   "developer": {
@@ -2672,12 +2681,13 @@
       "contentTitle": "詳細紹介",
       "loadFailed": "詳細の取得失敗"
     },
-    "noData": "ランキングデータなし"
-,
+    "noData": "ランキングデータなし",
     "subtitle": "学習ランキング。自分の順位をチェック!!",
     "retry": "再試行",
     "me": "自分",
-    "studyHours": "{count} 時間学習"
+    "studyHours": "{count} 時間学習",
+    "anonymous": "匿名ユーザー",
+    "title": "ランキング"
   },
   "recruitment": {
     "title": "トレーダー計画",
@@ -2707,10 +2717,11 @@
     "submitting": "登録中…",
     "agreePrefix": "読み同意しました",
     "userAgreement": "《利用規約》",
-    "privacyPolicy": "《プライバシーポリシー》"
-,
+    "privacyPolicy": "《プライバシーポリシー》",
     "sendCodeFailed": "認証コードの送信に失敗しました",
-    "registering": "登録中..."
+    "registering": "登録中...",
+    "confirmPassword": "パスワードを確認",
+    "confirmPasswordPlaceholder": "パスワードを再入力"
   },
   "message": {
     "tabs": {
@@ -2832,7 +2843,7 @@
     },
     "couponList": {
       "received": "受け取り成功",
-        "receiveFailed": "受け取りに失敗しました",
+      "receiveFailed": "受け取りに失敗しました",
       "unit": "元",
       "coupon": "クーポン",
       "receive": "今すぐ受け取る",
@@ -3036,7 +3047,8 @@
       "searchPlaceholder": "講師を検索",
       "courseCount": "{n} コース",
       "studentCount": "{n} 人",
-      "empty": "講師なし"
+      "empty": "講師なし",
+      "title": "講師"
     },
     "detail": {
       "courses": "コース",
@@ -3303,8 +3315,7 @@
     "subscribe": "購読",
     "subscribeTitle": "サービスパックを購読",
     "subscribed": "購読完了",
-    "verified": "認証済み"
-,
+    "verified": "認証済み",
     "title": "VIP トレーダー",
     "subtitle": "トレーダー専用権益をご利用いただけます",
     "badge": "トレーダー専用",
@@ -3476,8 +3487,7 @@
       "aiAnalysisDesc": "各種データレポートをスマートに分析",
       "aiChat": "AIスマート対話",
       "aiChatDesc": "スマートアシスタントが各種質問に回答"
-    }
-,
+    },
     "retry": "再試行",
     "subtitle": "会員を開通して、より多くの権益を",
     "currentLevel": "現在のレベル",
@@ -3486,7 +3496,10 @@
     "empty": "会員レベル情報はありません",
     "currentBadge": "現在のレベル",
     "duration": "{days} 日",
-    "benefitsCount": "{count} 個の専用権益"
+    "benefitsCount": "{count} 個の専用権益",
+    "daysRemaining": "残り {count} 日",
+    "purchase": "会員になる",
+    "title": "会員センター"
   },
   "learnDevelop": {
     "title": "学習・開発",
@@ -3498,8 +3511,7 @@
     "loadFailed": "読み込み失敗",
     "teacher": "講師",
     "free": "無料",
-    "rankEntry": "学習ランキング"
-,
+    "rankEntry": "学習ランキング",
     "contactLabel": "直接 李総 に連絡"
   },
   "settingPrivacy": {
@@ -3866,8 +3878,7 @@
     "menuVoiceNote": "ボイスメモ",
     "menuWebLink": "Webリンク",
     "menuFileUpload": "ファイルアップロード",
-    "menuHistory": "会話履歴"
-,
+    "menuHistory": "会話履歴",
     "modelLabel": "モデル",
     "stop": "停止",
     "thinking": "考え中...",
@@ -4183,7 +4194,9 @@
     "d17": "AI覚醒後の人類の状況を探り、短い哲学的エッセイを生成。",
     "d18": "AI覚醒 意識 共存",
     "d19": "深空のこだま",
-    "r1": "データの奔流の中で、コードを筆に、アルゴリズムをインクにして、デジタル時代の詩と遠い地平を描く。すべての文章は思考の延長であり、すべての生成は創造の始まりである。"
+    "r1": "データの奔流の中で、コードを筆に、アルゴリズムをインクにして、デジタル時代の詩と遠い地平を描く。すべての文章は思考の延長であり、すべての生成は創造の始まりである。",
+    "playAudio": "音声を再生",
+    "publish": "公開"
   },
   "aiAgentdetail": {
     "q1": "エージェント詳細を取得",
@@ -4284,8 +4297,7 @@
   "askCreate": {
     "d1": "技術",
     "d2": "製品",
-    "d4": "運営"
-,
+    "d4": "運営",
     "title": "質問を投稿",
     "titlePlaceholder": "質問を一言でまとめてください",
     "contentLabel": "内容",
@@ -4305,8 +4317,7 @@
     "d4": "説明と不一致",
     "d5": "その他の理由",
     "y1": "説明:{p1}",
-    "y2": "連絡先:{p1}"
-,
+    "y2": "連絡先:{p1}",
     "subtitle": "注文を選択して返金を申請します",
     "retry": "再試行",
     "empty": "返金可能な注文はありません",
@@ -4348,8 +4359,7 @@
   },
   "rankingDetail": {
     "d1": "テスト中",
-    "d2": "停止済み"
-,
+    "d2": "停止済み",
     "points": "ポイント",
     "rank": "ランキング",
     "studyHours": "学習時間",
@@ -4377,7 +4387,13 @@
   "circleCreate": {
     "d1": "公開",
     "d2": "友達のみ",
-    "d3": "非公開"
+    "d3": "非公開",
+    "descPlaceholder": "サークル説明を入力",
+    "description": "説明",
+    "name": "サークル名",
+    "namePlaceholder": "サークル名を入力",
+    "submit": "作成",
+    "title": "サークルを作成"
   },
   "learndevelop": {
     "d1": "フロントエンドエンジニア",
@@ -4793,8 +4809,7 @@
     "userCard": {
       "loginRequired": "先にログインしてください"
     },
-    "notLoggedIn": "未ログアウト"
-,
+    "notLoggedIn": "未ログアウト",
     "nickname": "ニックネーム未設定",
     "logout": "ログアウト",
     "myFavorites": "お気に入り",
@@ -6099,8 +6114,7 @@
     "submitting": "送信中..."
   },
   "identityVerify": {
-    "loadFailed": "認証の読み込みに失敗"
-,
+    "loadFailed": "認証の読み込みに失敗",
     "uploadFront": "身分証の肖像面をアップロード",
     "uploadBack": "身分証の国章面をアップロード",
     "uploadSelfie": "身分証を手に持った写真をアップロード",
@@ -6251,12 +6265,20 @@
   },
   "agentScreen": {
     "loadFailed": "エージェントの読み込みに失敗",
-    "title": "エージェント"
+    "title": "エージェント",
+    "rating": "評価",
+    "useCount": "利用回数"
   },
   "aiAssistant": {
     "startChat": "チャット開始",
     "vendorOther": "その他",
-    "copyOkToast": "リンクをクリップボードにコピーしました"
+    "copyOkToast": "リンクをクリップボードにコピーしました",
+    "empty": "エージェントがありません",
+    "favoriteCount": "{count} 件のお気に入り",
+    "searchPlaceholder": "エージェントを検索",
+    "subtitle": "エージェントを選んで対話を開始",
+    "title": "AIアシスタント",
+    "useCount": "{count} 回使用"
   },
   "resources": {
     "loadMore": "もっと読み込む"
@@ -7148,7 +7170,21 @@
     "noTask": "タスクの説明なし"
   },
   "aigcPublish": {
-    "typeText": "テキスト"
+    "typeText": "テキスト",
+    "fileAddText": "タップしてファイルを追加",
+    "labelTextContent": "テキスト内容",
+    "labelType": "タイプ",
+    "labelUpload": "アップロード",
+    "pickFromAlbum": "アルバムから選択",
+    "placeholderDescription": "説明を入力",
+    "placeholderPrompt": "プロンプトを入力",
+    "placeholderTextContent": "テキスト内容を入力",
+    "placeholderTitle": "タイトルを入力",
+    "placeholderUrl": "URLを入力",
+    "subtitle": "AI 作品を共有",
+    "uploading": "アップロード中 {progress}%...",
+    "uploadingShort": "アップロード中",
+    "urlAddBtn": "URLを追加"
   },
   "chatWorkbenchPage": {
     "title": "会話",
@@ -7350,8 +7386,7 @@
     "markSuccess": "習得済みにしました",
     "markFailed": "更新に失敗しました",
     "loadMore": "さらに読み込む"
-  }
-,
+  },
   "settings": {
     "oldPassword": "現在のパスワード",
     "confirmPassword": "新しいパスワードの確認",
@@ -7368,13 +7403,175 @@
     "notification": "メッセージ通知",
     "account": "アカウントとセキュリティ",
     "changePassword": "パスワード変更",
-    "newPassword": "新しいパスワード"
+    "newPassword": "新しいパスワード",
+    "language": "言語",
+    "theme": "テーマ"
   },
   "liveList": {
     "subtitle": "素晴らしいライブをお見逃しなく",
-    "retry": "再試行"
+    "retry": "再試行",
+    "lecturer": "講師",
+    "startAt": "開始時刻",
+    "viewerCount": "視聴者数"
   },
   "withdraw": {
-    "availableBalance": "引き出し可能額(元)"
+    "availableBalance": "引き出し可能額(元)",
+    "amount": "出金額",
+    "bankCard": "銀行口座",
+    "bankCardPlaceholder": "銀行口座を選択",
+    "feeHint": "出金手数料 {fee}%",
+    "submit": "送信",
+    "submitting": "送信中...",
+    "title": "出金"
+  },
+  "agentDetail": {
+    "creator": "作成者",
+    "description": "紹介",
+    "free": "無料",
+    "loadFailed": "エージェント詳細の読み込みに失敗",
+    "price": "価格",
+    "rating": "評価",
+    "uses": "利用回数"
+  },
+  "articleDetail": {
+    "loadFailed": "記事の読み込みに失敗",
+    "views": "閲覧数"
+  },
+  "articleList": {
+    "empty": "記事がありません",
+    "title": "記事",
+    "views": "閲覧数"
+  },
+  "circleDetail": {
+    "join": "参加",
+    "leave": "退出",
+    "members": "メンバー",
+    "membersAction": "メンバー管理",
+    "post": "投稿",
+    "posts": "投稿"
+  },
+  "examResult": {
+    "loadFailed": "読み込みに失敗",
+    "passed": "合格",
+    "wrongQuestions": "誤答問題",
+    "yourAnswer": "あなたの回答"
+  },
+  "favorite": {
+    "tab_aigc": "AI作品",
+    "tab_all": "すべて",
+    "tab_course": "コース",
+    "tab_live": "ライブ",
+    "tab_news": "ニュース",
+    "tab_post": "投稿"
+  },
+  "help": {
+    "empty": "ヘルプがありません"
+  },
+  "liveDetail": {
+    "chat": "チャット",
+    "chatEmpty": "まだメッセージはありません。最初の投稿をしましょう",
+    "chatPlaceholder": "何か話してください...",
+    "chatSend": "送信",
+    "empty": "ライブが見つからないか、終了しました",
+    "intro": "ライブ紹介",
+    "lecturer": "講師",
+    "ongoing": "配信中",
+    "subscribe": "ライブを予約",
+    "subscribed": "予約済み",
+    "subscribing": "予約中...",
+    "upcoming": "予定",
+    "viewerCount": "{count} 人が視聴中"
+  },
+  "messageCenter": {
+    "conversations": "会話",
+    "title": "メッセージ",
+    "type": {
+      "course": "コース",
+      "order": "注文"
+    }
+  },
+  "modelEdit": {
+    "labelAudience": "対象",
+    "labelCategory": "カテゴリ",
+    "labelCycle": "決算サイクル",
+    "labelDiscount": "割引",
+    "labelFreeDur": "無料時間",
+    "labelSaleType": "販売タイプ",
+    "submit": "保存",
+    "submitting": "送信中..."
+  },
+  "modelIncome": {
+    "accumulated": "累計収入",
+    "empty": "収益記録なし",
+    "orderLabel": "注文",
+    "rateLabel": "分配比率",
+    "retry": "再試行",
+    "tip": "収益データは毎日更新されます",
+    "title": "収益管理",
+    "withdrawModal": {
+      "confirm": "確認",
+      "moreMethods": "他の出金方法",
+      "title": "出金方法",
+      "wechat": "WeChat"
+    },
+    "withdrawable": "出金可能",
+    "withdrawn": "出金済み"
+  },
+  "n8nModel": {
+    "actionEdit": "編集",
+    "actionStart": "開始",
+    "actionStop": "停止",
+    "calls": "呼び出し回数",
+    "running": "実行中",
+    "searchPlaceholder": "モデルを検索",
+    "stopped": "停止済み",
+    "title": "n8n モデル"
+  },
+  "orderDetail": {
+    "amount": "金額",
+    "loadFailed": "注文詳細の読み込みに失敗",
+    "paidAt": "支払日時",
+    "product": "商品"
+  },
+  "privacy": {
+    "sectionCookie": "Cookie の使用",
+    "sectionCookieBody": "当社は、より良い閲覧体験を提供するため、Cookie を使用して設定やログイン状態を記憶しています。ブラウザ設定で Cookie を無効にすることもできますが、一部の機能が正常に動作しない可能性があります。",
+    "sectionData": "データ収集",
+    "sectionDataBody": "当社は、プラットフォームのご利用中に、お客様が積極的に提供する情報(アカウント情報、学習履歴、インタラクションなど)を収集し、パーソナライズされたサービスの提供と製品体験の向上のために利用します。",
+    "sectionThirdParty": "第三者との共有",
+    "sectionThirdPartyBody": "当社は個人情報を販売しません。法律で要求される場合、またはサービス提供に必要な場合、信頼できるパートナーと必要最小限の情報を共有することがありますが、同等の厳格なデータ保護基準を遵守することを保証します。",
+    "subtitle": "お客様のプライバシーを尊重します"
+  },
+  "studyPlan": {
+    "deadline": "締切",
+    "lessons": "レッスン数",
+    "progress": "進捗",
+    "status": {
+      "overdue": "期限超過",
+      "paused": "一時停止"
+    }
+  },
+  "tokenValue": {
+    "balanceLabel": "トークン残高",
+    "bonus": "ボーナス",
+    "empty": "データなし",
+    "frozen": "凍結",
+    "packagesTitle": "チャージパッケージ",
+    "popular": "人気",
+    "recordsTitle": "取引履歴",
+    "tab": {
+      "cost": "消費",
+      "recharge": "チャージ"
+    },
+    "title": "トークン",
+    "tokenUnit": "トークン",
+    "totalCost": "総消費"
+  },
+  "vipCompare": {
+    "basic": "ベーシック",
+    "enterprise": "エンタープライズ",
+    "feature": "機能",
+    "premium": "プレミアム",
+    "title": "会員比較"
   }
 }
