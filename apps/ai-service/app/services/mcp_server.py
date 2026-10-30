@@ -1259,6 +1259,38 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "index_codebase", "ok": False, "error": str(e)[:300]}
 
 
+def _git_check_ignore(root: Path, rels: list[str]) -> set[str]:
+    """用这份仓库自己的 gitignore 丢掉路径。不是 git 仓或 git 失败则一条都不丢。"""
+    if not rels:
+        return set()
+    import subprocess
+
+    from .process_tree import CREATE_NO_WINDOW
+
+    payload = "\n".join(rel.replace("\\", "/") for rel in rels) + "\n"
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "check-ignore", "--stdin"],
+            input=payload,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            creationflags=CREATE_NO_WINDOW,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return set()
+    if proc.returncode not in (0, 1):
+        return set()
+    ignored: set[str] = set()
+    for line in (proc.stdout or "").splitlines():
+        norm = line.strip().strip('"').replace("\\", "/")
+        if norm:
+            ignored.add(norm)
+    return ignored
+
+
 async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     """search_codebase: 代码符号搜索(真实文件系统)。
 
@@ -1415,9 +1447,30 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
 
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
+            dir_rels = [
+                os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
+                for d in dirnames
+            ]
+            file_rels = [
+                os.path.relpath(os.path.join(dirpath, fname), root).replace("\\", "/")
+                for fname in filenames
+            ]
+            ignored = _git_check_ignore(root, dir_rels + file_rels)
+            if ignored:
+                dirnames[:] = [
+                    d
+                    for d in dirnames
+                    if os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
+                    not in ignored
+                ]
             for fname in filenames:
                 if count >= max_results:
                     break
+                rel_posix = os.path.relpath(
+                    os.path.join(dirpath, fname), root
+                ).replace("\\", "/")
+                if rel_posix in ignored:
+                    continue
                 # pattern 或扩展名过滤
                 if patterns:
                     if not any(fnmatch.fnmatch(fname, p) for p in patterns):
@@ -2002,6 +2055,22 @@ def set_terminal_stream_context(**ctx: Any) -> contextvars.Token[dict[str, Any] 
 def reset_terminal_stream_context(token: contextvars.Token[dict[str, Any] | None]) -> None:
     """恢复终端输出事件上下文(与 set 配对使用,防跨工具泄漏)。"""
     _terminal_stream_ctx.reset(token)
+
+
+# 工具执行取消事件:agent 循环在调用执行器前写入,run_command 据此杀掉子进程。
+_TOOL_CANCEL_EVENT: contextvars.ContextVar[asyncio.Event | None] = contextvars.ContextVar(
+    "ihui_tool_cancel_event", default=None
+)
+
+
+def set_tool_cancel_event(event: asyncio.Event) -> contextvars.Token[asyncio.Event | None]:
+    """把本轮工具取消事件放进当前任务上下文。"""
+    return _TOOL_CANCEL_EVENT.set(event)
+
+
+def reset_tool_cancel_event(token: contextvars.Token[asyncio.Event | None]) -> None:
+    """与 set_tool_cancel_event 配对复位。"""
+    _TOOL_CANCEL_EVENT.reset(token)
 
 
 async def _emit_terminal_delta(command: str, stream_name: str, text: str) -> None:
@@ -2808,7 +2877,9 @@ def revoke_exec_prefix(prefix: list[str]) -> bool:
     return existed
 
 
-async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
+async def _tool_run_command(
+    arguments: dict[str, Any], cancel: asyncio.Event | None = None
+) -> dict[str, Any]:
     """run_command: 运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,长命令不超时)。
 
     出于安全考虑,仅允许只读/查询类命令,禁止任何修改/删除/网络写入操作。
@@ -3021,6 +3092,8 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": f"命令 '{cmd_name}' 不在白名单中(允许: {', '.join(sorted(_ALLOWED_PREFIXES))})",
         }
 
+    _killer: asyncio.Task[None] | None = None
+    proc: asyncio.subprocess.Process | None = None
     try:
         import shlex
         import sys
@@ -3063,6 +3136,16 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                 stderr=asyncio.subprocess.PIPE,
                 limit=PROTOCOL_FRAME_LIMIT_BYTES,  # 同上,见 _drain_stream 注释
             )
+
+        cancel_event = cancel if cancel is not None else _TOOL_CANCEL_EVENT.get()
+        if cancel_event is not None:
+
+            async def _kill_on_cancel() -> None:
+                await cancel_event.wait()
+                with contextlib.suppress(ProcessLookupError, OSError):
+                    proc.kill()
+
+            _killer = asyncio.create_task(_kill_on_cancel())
 
         # 流式逐行读取 stdout/stderr(并发 drain,防长输出阻塞)
         # P0-B(2026-09-18):逐行经 terminal.delta 实时透出(4 行/帧节流,
@@ -3114,6 +3197,10 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                 except Exception as e:
                     logger.warning("mcp_server proc.wait 失败: %s", e, exc_info=True)
         finally:
+            if _killer is not None:
+                _killer.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await _killer
             if _watcher is not None:
                 _watcher.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -3184,8 +3271,11 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
     except asyncio.CancelledError:
         # P0-B(2026-09-18):外部取消(agent 循环内 abort)时 kill 进程防泄漏,
         # 再原样传播 CancelledError(交由上层中断链路处理)
-        with contextlib.suppress(ProcessLookupError, OSError):
-            proc.kill()
+        if _killer is not None:
+            _killer.cancel()
+        if proc is not None:
+            with contextlib.suppress(ProcessLookupError, OSError):
+                proc.kill()
         raise
     except Exception as e:
         return {

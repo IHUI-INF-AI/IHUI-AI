@@ -137,7 +137,7 @@ async def test_run_no_tools():
 
 
 async def test_run_parallel_tools():
-    """同一轮 2 个 tool_calls 并行执行:两工具 start_time 接近。"""
+    """同一轮 2 个只读 tool_calls 并行执行:两工具 start_time 接近。"""
     starts: list[float] = []
 
     async def slow_tool(args):
@@ -147,13 +147,13 @@ async def test_run_parallel_tools():
 
     tools = [
         ToolDefinition(
-            name="t_a",
+            name="read_file",
             description="a",
             parameters={"type": "object", "properties": {"x": {"type": "integer"}}},
             executor=slow_tool,
         ),
         ToolDefinition(
-            name="t_b",
+            name="search_codebase",
             description="b",
             parameters={"type": "object", "properties": {"x": {"type": "integer"}}},
             executor=slow_tool,
@@ -169,8 +169,8 @@ async def test_run_parallel_tools():
             return {
                 "content": "并行执行",
                 "tool_calls": [
-                    {"id": "p1", "name": "t_a", "args": {"x": 1}},
-                    {"id": "p2", "name": "t_b", "args": {"x": 2}},
+                    {"id": "p1", "name": "read_file", "args": {"x": 1}},
+                    {"id": "p2", "name": "search_codebase", "args": {"x": 2}},
                 ],
             }
         return {"content": "完成", "tool_calls": None}
@@ -185,8 +185,8 @@ async def test_run_parallel_tools():
     assert abs(starts[1] - starts[0]) < 0.05
     # 结果正确
     results = {tr.name: tr.result for tr in result.iterations[0].tool_results}
-    assert results["t_a"]["x"] == 1
-    assert results["t_b"]["x"] == 2
+    assert results["read_file"]["x"] == 1
+    assert results["search_codebase"]["x"] == 2
 
 
 # =============================================================================
