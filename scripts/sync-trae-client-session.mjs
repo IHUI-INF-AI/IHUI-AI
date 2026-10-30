@@ -158,7 +158,7 @@ async function main(argv) {
   } else if (result.json) {
     const s = result.json
     process.stderr.write(
-      `回灌完成: applied=${s.applied} skipped=${s.skipped} missing=${s.missing} failed=${s.failed}${s.dryRun ? '(dry-run 未写)' : ''}\n`,
+      `回灌完成: applied=${s.applied} skipped=${s.skipped} missing=${s.missing} imported=${s.imported ?? 0} failed=${s.failed}${s.dryRun ? '(dry-run 未写)' : ''}\n`,
     )
     for (const r of s.rows ?? []) {
       process.stderr.write(
