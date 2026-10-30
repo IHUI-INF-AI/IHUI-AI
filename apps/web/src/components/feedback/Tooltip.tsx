@@ -52,7 +52,10 @@ export function Tooltip({
           align={align}
           sideOffset={4}
           className={cn(
-            'z-popover overflow-hidden rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md',
+            // 不带 overflow-hidden:Radix 把 Arrow 包在 translateY(100%) 的外溢 wrapper 里,
+            // 裁剪会把箭头整枚切掉。同源的 package/ui-react 已在 batch-7 实证并修复(8801 现网 7/7
+            // 悬停样本箭头落在气泡盒外被判裁,气泡与目标之间留一段空白、相邻图标看不出指哪一个)。
+            'z-popover rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md',
             'data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 duration-(--duration-unified) ease-unified',
             className,
           )}
