@@ -3253,7 +3253,13 @@ export function ChatScreen() {
         animationType="fade"
         onRequestClose={() => setUrlInputVisible(false)}
       >
-        <Pressable style={styles.modalMask} onPress={() => setUrlInputVisible(false)}>
+        <KeyboardAvoidingView
+          style={styles.modalMask}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          {/* 外层由 Pressable 换成避让层后,点遮罩关闭的手势下移到这枚满屏 Pressable
+              (与 BottomPops / VerifyCodeModal 同一形态),否则"点空白处关掉"会静默失效。 */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setUrlInputVisible(false)} />
           <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>网页链接</Text>
@@ -3289,7 +3295,7 @@ export function ChatScreen() {
               </Pressable>
             </View>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* P1.5 文件上传 Modal(expo-document-picker 已装,DocumentPicker + uploadFileMultipart 真实上传) */}
@@ -3498,7 +3504,11 @@ export function ChatScreen() {
         animationType="slide"
         onRequestClose={() => setFangdaVisible(false)}
       >
-        <View style={styles.fangdaContainer}>
+        {/* 放大输入是 multiline 输入框,没有避让层时键盘会把输入区与发送键一起盖住 */}
+        <KeyboardAvoidingView
+          style={styles.fangdaContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.fangdaHeader}>
             <Text style={styles.fangdaTitle}>放大输入</Text>
             <Pressable
@@ -3530,7 +3540,7 @@ export function ChatScreen() {
               <Text style={styles.fangdaSendBtnText}>发送</Text>
             </Pressable>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* 消息图片全屏预览(对齐 Uniapp ai_index2 previewImage) */}
