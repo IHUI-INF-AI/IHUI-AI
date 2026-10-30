@@ -7,22 +7,17 @@ import { useI18n } from '@/i18n'
 import { View, Text, Video } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
-import { getLiveDetail, subscribeLive, type Live } from '@/api'
+import { get, subscribeLive } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
-import { LiveChat, LiveIntro } from './detail-sections'
-
-/**
- * 后端直播频道带 intro(api-client 的 Live 契约有该字段),端内 `Live` 投影只取了
- * title/封面/状态等展示字段 ⇒ 介绍正文这一处按契约补读,不改端内 api 面。
- */
-type LiveWithIntro = Live & { intro?: string | null }
+import { formatDate } from '@/utils/time'
+import { LiveIntro, projectChannel, type LiveChannelRow, type LiveDetail } from './detail-sections'
 
 export default function LiveDetail() {
   const { t } = useI18n()
   const router = useRouter()
-  const [live, setLive] = useState<Live | null>(null)
+  const [live, setLive] = useState<LiveDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [subscribed, setSubscribed] = useState(false)
@@ -33,8 +28,8 @@ export default function LiveDetail() {
       setLoading(true)
       setError('')
       try {
-        const res = await getLiveDetail(id)
-        setLive(res)
+        const res = await get<{ channel: LiveChannelRow }>(`/live/channels/${id}`)
+        setLive(projectChannel(res.channel))
       } catch {
         // 对齐 RN:错误态统一由 ErrorState 呈现(message 取 error,缺省落 liveDetail.empty)
         setError(t('live.detail.loadFailed'))
@@ -137,7 +132,7 @@ export default function LiveDetail() {
                   ? t('liveDetail.ongoing')
                   : live.status === 'upcoming'
                     ? t('liveDetail.upcoming')
-                    : t('live.ended')}
+                    : t('live.detail.ended')}
               </Text>
             </View>
             {live.anchor && (
@@ -195,7 +190,7 @@ export default function LiveDetail() {
                   </Text>
                   {live.startTime && (
                     <Text className="mt-[16rpx] text-[length:24rpx] text-[var(--color-surface-light)] opacity-80">
-                      {live.startTime}
+                      {formatDate(live.startTime)}
                     </Text>
                   )}
                 </View>
@@ -233,9 +228,8 @@ export default function LiveDetail() {
           ) : null}
         </View>
 
-        {/* 对齐 RN introSection / chatSection(介绍 + 互动区,见 ./detail-sections) */}
-        <LiveIntro intro={(live as LiveWithIntro).intro} />
-        <LiveChat liveId={live.id} />
+        {/* 对齐 RN introSection(介绍区;互动区聊天腿已按假绿纪律下线,见 ./detail-sections 头注) */}
+        <LiveIntro intro={live.intro} />
       </View>
     </ThemeRoot>
   )

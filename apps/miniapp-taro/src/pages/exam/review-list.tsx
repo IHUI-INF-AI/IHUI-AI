@@ -31,12 +31,16 @@ export function ReviewList({ reviews }: { reviews: ReviewQuestion[] }) {
       <Text className="exam-result-card-title">{tt('exam.result.reviewTitle', '题目回顾')}</Text>
       {reviews.length > 0 ? (
         <>
-          <View className="exam-result-review-header">
-            <Text className="exam-result-review-status wrong">
-              {tt('examResult.wrongQuestions', '错题')}
-            </Text>
-            <Text className="exam-result-review-idx">{wrongCount}</Text>
-          </View>
+          {/* 错题计数行:与共享屏同判据(ExamResultScreen 的 `wrongQuestions.length > 0` 才出这一段),
+              全对的卷子不再渲染出「错题 0」这种自相矛盾的文案 */}
+          {wrongCount > 0 ? (
+            <View className="exam-result-review-header">
+              <Text className="exam-result-review-status wrong">
+                {tt('examResult.wrongQuestions', '错题')}
+              </Text>
+              <Text className="exam-result-review-idx">{wrongCount}</Text>
+            </View>
+          ) : null}
           {reviews.map((q, idx) => (
             <View key={q.id || idx} className="exam-result-review-item">
               <View className="exam-result-review-header">

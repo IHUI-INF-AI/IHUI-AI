@@ -69,7 +69,9 @@ const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     apiFormat: 'openai_chat',
   },
   agnes: {
-    // 2026-10-10:境外域名不可达,切国内网关(api.agnes-ai.cn,新key A/B 实测 200/401)
+    // 2026-10-10:切国内网关(api.agnes-ai.cn,新key A/B 实测 200/401)。
+    // 2026-10-30 复测更正:当年「境外域名不可达」已过时——apihub.agnes-ai.{cn,com} 当日直连均 200,
+    // 但只认旧 key;两域按账号互不认账,故本预设仍留 api.agnes-ai.cn(与新 key 成对)。
     baseUrl: 'https://api.agnes-ai.cn/v1',
     defaultModel: 'agnes-2.5-flash',
     apiFormat: 'openai_chat',

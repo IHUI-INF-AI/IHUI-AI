@@ -291,7 +291,7 @@ add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" alway
 | 服务 | 用途 | 端点 | 故障影响 | 降级方案 |
 |------|------|------|----------|----------|
 | StepFun LLM API | AI 对话 / 推理 | https://api.stepfun.com | AI 功能不可用 | 提示用户稍后重试 |
-| Agnes AI API | AI 多模态生成 | https://apihub.agnes-ai.com | AI 生成功能不可用 | 提示用户稍后重试 |
+| Agnes AI API | AI 多模态生成 | https://api.agnes-ai.cn(主队列,认新 key)/ https://apihub.agnes-ai.cn(备份队列,只认旧 key;两域按账号互不认账,2026-10-30 四组合直连实测) | AI 生成功能不可用 | 提示用户稍后重试 |
 | 微信支付 API | 支付下单 / 回调 | https://api.mch.weixin.qq.com | 支付功能不可用 | 关闭支付入口 + 公告 |
 | 阿里云 OSS (后续) | 用户上传文件存储 | https://oss-cn-hangzhou.aliyuncs.com | 上传功能不可用 | 提示用户稍后重试 |
 | 飞书开放平台 | OAuth 登录 | https://open.feishu.cn | 飞书登录不可用 | 引导其他登录方式 |

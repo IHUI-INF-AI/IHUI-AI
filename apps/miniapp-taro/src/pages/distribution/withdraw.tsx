@@ -18,15 +18,15 @@ export default function DistributionWithdraw() {
   const gate = useAuthReadyGate()
   const [available, setAvailable] = useState(0)
   const [amount, setAmount] = useState('')
-  // 收款银行卡(对齐共享屏 WithdrawScreen 的 bankCardId 受控字段)。
-  // 端内 /distribution/withdraw 当前契约只有 { amount, method },withdrawal_flows.account_info
-  // 列存在但路由尚未读入参 ⇒ 本端先按同一信息结构采集,入参接线待后端契约补齐。
-  const [bankCardId, setBankCardId] = useState('')
+  // 收款银行卡输入口(镜像补全 2026-10-30):对齐 RN WithdrawScreen 的 withdraw.bankCard /
+  // withdraw.bankCardPlaceholder。后端 /distribution/withdraw 契约当前只读 { amount, method },
+  // 该字段仍是"填了也丢"的假输入口,但跨端镜像保真要求页面消费共享屏的 i18n 键。
+  const [bankCard, setBankCard] = useState('')
   const [payType, setPayType] = useState('wechat')
   const [submitting, setSubmitting] = useState(false)
   // 提现金额输入盒的运行时聚焦档(描边在盒子上,不在 Input 上)
   const ffAmount = useFieldFocus()
-  // 银行卡输入盒同上(小程序无 :focus 伪类,聚焦态只能运行时切换)
+  // 收款银行卡输入盒的运行时聚焦档(描边在盒子上,不在 Input 上)
   const ffBankCard = useFieldFocus()
   const availableRef = useRef(0)
 
@@ -121,10 +121,8 @@ export default function DistributionWithdraw() {
             {t('distribution.withdraw.all')}
           </Button>
         </View>
-        {/* 对齐 RN 第二组输入:收款银行卡(同档标签 28rpx + 同形输入盒) */}
-        <Text className="block mt-[24rpx] text-[length:28rpx] text-muted-foreground">
-          {t('withdraw.bankCard')}
-        </Text>
+        {/* 对齐 RN WithdrawScreen withdraw.bankCard 字段(镜像补全):标签 + 描边输入盒 */}
+        <Text className="text-[length:28rpx] text-muted-foreground mt-[24rpx]">{t('withdraw.bankCard')}</Text>
         <View
           className="mt-[16rpx] flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]"
           style={ffBankCard.focusStyle}
@@ -132,8 +130,8 @@ export default function DistributionWithdraw() {
           <Input
             className="flex-1 text-[length:32rpx] text-foreground"
             {...ffBankCard.spread}
-            value={bankCardId}
-            onInput={(e) => setBankCardId(e.detail.value)}
+            value={bankCard}
+            onInput={(e) => setBankCard(e.detail.value)}
             placeholder={t('withdraw.bankCardPlaceholder')}
             placeholder-style="color: var(--color-text-tertiary)"
           />
