@@ -71,6 +71,8 @@ vi.mock('../src/services/wechat-pay.js', () => ({
   nativePrepay: vi.fn(),
   buildJsapiSign: vi.fn(),
   verifyCallbackSignature: mockVerifyCallbackSignature,
+  // 2026-10-30:回调报文级去重新增协作方;工厂式 mock 缺它 = 该导出在测试里 undefined。
+  consumeNotifyNonce: vi.fn().mockResolvedValue('ok'),
   decryptCallback: mockDecryptCallback,
   queryOrder: mockWxQueryOrder,
   closeOrder: mockWxCloseOrder,

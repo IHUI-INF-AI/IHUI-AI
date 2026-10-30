@@ -33,6 +33,7 @@ import {
 import { placeOrder } from '../services/order-service.js'
 import {
   verifyCallbackSignature,
+  consumeNotifyNonce,
   isWechatPayConfigured,
   jsapiPrepay,
   buildJsapiSign,
@@ -111,6 +112,19 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
         } else if (env.NODE_ENV === 'production') {
           request.log.warn('withdrawal callback missing required headers in production')
           return reply.code(400).send({ code: 'FAIL', message: '缺少必要回调头' })
+        }
+
+        // 2026-10-30:报文级一次性去重。提现此前靠"事务 + SELECT FOR UPDATE + 只处理 status 0/1"
+        // 天然幂等,但那是业务层;这里补报文层,让同一份回调根本进不到第二遍。
+        // DEV 环境可能没有 wechatpay-* 头(上面已放行),此时跳过而不返回 500。
+        if (timestamp && nonce) {
+          const withdrawalNonceVerdict = await consumeNotifyNonce('withdrawal', timestamp, nonce)
+          if (withdrawalNonceVerdict === 'replayed') {
+            return reply.send({ code: 'SUCCESS', message: '重复通知' })
+          }
+          if (withdrawalNonceVerdict === 'unavailable') {
+            return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
+          }
         }
 
         // P2 并发安全修复(2026-08-02):原代码状态检查与更新无事务,并发回调可能同时通过

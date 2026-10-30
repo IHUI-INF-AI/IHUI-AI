@@ -12,7 +12,8 @@ import type {
 import fp from 'fastify-plugin'
 import jwtPlugin from '@fastify/jwt'
 import { decodeJwt } from 'jose'
-import { verifyAccessToken, type JWTPayload } from '@ihui/auth'
+import { verifyAccessToken, createBlacklist, type JWTPayload } from '@ihui/auth'
+import IORedis from 'ioredis'
 import type { AuthenticatedApiKey } from '@ihui/types'
 import { config } from '../config/index.js'
 import { AppError } from '../errors/AppError.js'
@@ -20,6 +21,8 @@ import { getUserStatus } from '../db/usercenter-queries.js'
 import { isUuidString } from '../utils/uuid.js'
 import { error } from '../utils/response.js'
 import { hasApiKeyCredential } from '../utils/capability-guard.js'
+import { logger } from '../utils/logger.js'
+import { checkUserRateLimit } from '../services/user-rate-limit.js'
 import type { OpenCapabilityGrant } from '../config/open-capability-registry.js'
 
 declare module 'fastify' {
@@ -40,6 +43,49 @@ declare module 'fastify' {
 declare module '@fastify/jwt' {
   interface FastifyJWT {
     payload: JWTPayload
+  }
+}
+
+/**
+ * access token 吊销(2026-10-30 立)。
+ *
+ * 缺陷:登出/踢下线只吊销 refresh,access token 在剩余 15 分钟内仍可调用全部接口 ——
+ * 被偷的 token 等于没被吊销。这里补 Redis 黑名单(`@ihui/auth` 的 TokenBlacklist):
+ * 每个请求一次 EXISTS(单次 RTT),命中即 401。
+ *
+ * 失败方向:**放行**(`has` 默认 fail-open)+ error 日志。理由与 account-lockout 同口径 ——
+ * Redis 是限流/缓存/队列的共同依赖,它挂时系统已大面积降级;为了一项吊销把全站打成 401,
+ * 代价远大于它挡的威胁(那窗口本来就只有 15 分钟)。Redis 恢复后吊销立即生效。
+ * 多实例:键在共享 Redis,天然一致。
+ */
+let tokenBlacklist: ReturnType<typeof createBlacklist> | null = null
+let tokenBlacklistInitFailed = false
+
+function getTokenBlacklist(): ReturnType<typeof createBlacklist> | null {
+  if (tokenBlacklist) return tokenBlacklist
+  if (tokenBlacklistInitFailed) return null
+  try {
+    const redis = new IORedis(config.REDIS_URL, { maxRetriesPerRequest: 1 })
+    redis.on('error', (err) => {
+      logger.error('[auth] blacklist redis error', { err: (err as Error).message })
+    })
+    tokenBlacklist = createBlacklist(redis)
+    return tokenBlacklist
+  } catch (e) {
+    tokenBlacklistInitFailed = true
+    logger.error('[auth] blacklist 初始化失败,access 吊销检查停用', { err: (e as Error).message })
+    return null
+  }
+}
+
+/** 供 logout / 踢下线调用:把一枚 access token 加入黑名单(TTL = 剩余有效期,过期自动清理)。 */
+export async function revokeAccessToken(token: string, expiresAt: Date): Promise<void> {
+  const blacklist = getTokenBlacklist()
+  if (!blacklist) return
+  try {
+    await blacklist.add(token, expiresAt)
+  } catch (e) {
+    logger.error('[auth] 写 access 黑名单失败', { err: (e as Error).message })
   }
 }
 
@@ -183,6 +229,15 @@ async function authenticateInner(request: FastifyRequest): Promise<JWTPayload> {
     throw err
   }
 
+  // 2026-10-30:吊销检查 —— 登出/踢下线后 access token 必须立即失效,不等自然过期。
+  // 放在验签与 challenge 闸之后:前面已经否掉的 token 不必再查 Redis。
+  const blacklist = getTokenBlacklist()
+  if (blacklist && (await blacklist.has(token))) {
+    const err = new Error('Token has been revoked')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
+
   // 形状闸(2026-10-28 立,与 internal-service 腿 `injectVerifiedUser` 同型、同判据):
   // `users.id` 是 uuid 列,非 uuid 主体(如 utils/system-access-token.ts 铸的
   // `sub='system-worker'`)会让 `eq(users.id, …)` 在 Postgres 抛 22P02
@@ -237,6 +292,13 @@ async function authenticateInner(request: FastifyRequest): Promise<JWTPayload> {
 
   request.userId = payload.userId
   request.jwtPayload = payload
+
+  // 2026-10-30:按用户再计一层(补 IP 桶在 NAT/回环下的失真,见 services/user-rate-limit.ts)。
+  // 放在最后:只有真正通过全部校验的请求才计数,失败请求不占额度。
+  if (!(await checkUserRateLimit(payload.userId))) {
+    throw new AppError('请求过于频繁,请稍后再试', 429, 'USER_RATE_LIMITED')
+  }
+
   return payload
 }
 
