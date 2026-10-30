@@ -78,7 +78,7 @@ import {
   createReadStream,
   utimesSync,
 } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, parse, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 import { scratchRoot } from './lib/scratch-dir.mjs'
@@ -1010,12 +1010,28 @@ export function checkUndeliveredAlertDebt({
  *
  * 语义守恒:根不存在(别人那台机没有这个形态)⇒ 调用方必须落**未判定**并点名,不得折成红或绿。
  */
-export function prodCheckoutRoot(repoRoot = REPO) {
-  return join(devEnvRoot(repoRoot), 'ihui-prod')
+export function prodCheckoutRoot(repoRoot = REPO, exists = existsSync, env = process.env) {
+  const candidate = join(devEnvRoot(repoRoot), 'ihui-prod')
+  if (exists(candidate)) return candidate
+  // 显式覆盖 = 调用方（含测试夹具）对"哪一个根"的强声明，解析器不得越权改它的主张。
+  // 这一条不是防御性冗余：没有它，夹具声明"生产根不存在"时会被真机另一侧的 ihui-prod 找回输入，
+  // 把本该"未判定"的维度判成有读数 —— check-credential-health T17 锁的正是这一格(实测踩通过)。
+  if ((env.IHUI_DEVENV_ROOT || '').trim()) return candidate
+  // 双形态并集回落(2026-10-30 实测补):G-814433 只把 `backups`/`Temp` 搬进仓内 `.DevEnv`,
+  // `ihui-prod` 仍留在盘根侧(本机实测 D:/DevEnv/ihui-prod 存在 · D:/IHUI-AI/.DevEnv/ihui-prod 不存在);
+  // 而 devEnvRoot 选的粒度是"仓内 .DevEnv 这个**根目录**在不在"——根在、目标子路径不在 ⇒ 本函数
+  // 恒指一个不存在的根 ⇒ 两条"线上此刻"oracle(部署环心跳台账 / .next/IHUI_BUILD_SHA)在这种机器上
+  // 永远读"未判定",哨兵装了却不看路(§0.9"造好没装车=没有"同族)。正解是并集探测,不是放宽判据
+  // (先例口径见 scrub-temp-fixtures:"出口只能是并集,不是放宽判据")。
+  // 失效方向逐字不变:两候选都不存在 ⇒ 仍返回主候选,由调用方按既有语义落**未判定**并点名根路径,
+  // 既不冒红也不记绿(§0.3)。
+  const fallback = join(parse(repoRoot).root, 'DevEnv', 'ihui-prod')
+  if (fallback !== candidate && exists(fallback)) return fallback
+  return candidate
 }
 
-export function prodDeployLoopLog(repoRoot = REPO) {
-  return join(prodCheckoutRoot(repoRoot), 'deploy/win/deploy-loop.log')
+export function prodDeployLoopLog(repoRoot = REPO, exists = existsSync, env = process.env) {
+  return join(prodCheckoutRoot(repoRoot, exists, env), 'deploy/win/deploy-loop.log')
 }
 
 export function heartbeatRows({ now, devEnv, databases, execCands = EXEC_CANDIDATES }) {
@@ -3545,6 +3561,11 @@ if (isDirectRun) {
 
 export const __test__ = {
   measureDir,
+  // "线上此刻"两条 oracle 的取材根解析器(2026-10-30 补挂):此前**零测试覆盖**，于是
+  // devEnvRoot 双形态把 prod checkout 挡在探测面外时没人发现 —— 镜像测试用这里的实现判，
+  // 不得在测试里再抄一份候选序(§22c)。
+  prodCheckoutRoot,
+  prodDeployLoopLog,
   growthRow,
   SCRUB_TEMP_FIXTURES_ROUTE,
   SYSTEM32_SUBDIR,

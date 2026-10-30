@@ -1012,4 +1012,157 @@ test('TS1 巡检发信必须过持续性门槛(风暴型尖峰不寄信),且未�
     rmScratch(base)
   }
 })
+
+// ────────────────────────────────────────────────────────────────────────────────
+// prodCheckoutRoot 双形态并集（2026-10-30 形状锁）
+// 病根（实测挖出，不是设想）：`devEnvRoot` 选形态的粒度是"仓内 `.DevEnv` **根目录**在不在"
+// （seal-c-root-stray.mjs:101-103），而 G-814433 只把 `backups`/`Temp` 搬进仓内，`ihui-prod`
+// 仍留在盘根侧 ⇒ 根在、目标子路径不在 ⇒ 解析器恒指一个不存在的根 ⇒ check-credential-health 的
+// "部署停摆"与 check-ops-patrol 的部署环心跳两条"线上此刻"oracle 在这类机器上**永远读未判定**
+// （§0.9"造好没装车 = 没有"同族）。此前这两枚解析器不在 __test__ 出口内、零断言，所以瞎了无人发现。
+// 这里锁的是**选根方向 + 失效方向 + 短路形状**，摆虚拟坐标，不碰真盘、不依赖时刻。
+// 单独起 import 行而不是改上面既有那行 —— 既有用例的字节面不许被动（同 P7 那次的做法）。
+import { existsSync as existsReal } from 'node:fs'
+import { parse as parsePath } from 'node:path'
+
+// 判据一律取源文件那一份（§22c）：这里只 import，不在测试里重写候选序或存在性判定。
+// 坐标也经同一个出口算（同 lib/deploy-decisions-face.test.mjs 的做法），不另抄一遍优先序。
+import { devEnvRoot as devEnvRootUnderTest } from '../seal-c-root-stray.mjs'
+
+const { prodCheckoutRoot, prodDeployLoopLog } = mod.__test__
+
+const runWithDevEnv = (v, body) => {
+  const prev = process.env.IHUI_DEVENV_ROOT
+  try {
+    process.env.IHUI_DEVENV_ROOT = v
+    return body()
+  } finally {
+    if (prev === undefined) delete process.env.IHUI_DEVENV_ROOT
+    else process.env.IHUI_DEVENV_ROOT = prev
+  }
+}
+
+// 「无显式覆盖」那一臂：并集回落只在没被强声明根时才允许发生。
+const runWithoutDevEnv = (body) => {
+  const prev = process.env.IHUI_DEVENV_ROOT
+  try {
+    delete process.env.IHUI_DEVENV_ROOT
+    return body()
+  } finally {
+    if (prev === undefined) delete process.env.IHUI_DEVENV_ROOT
+    else process.env.IHUI_DEVENV_ROOT = prev
+  }
+}
+
+{
+  const VROOT = 'X:/vroot/.DevEnv'
+  const VREPO = 'X:/virtual/IHUI-AI'
+  const norm = (p) => resolve(p)
+  const CAND = norm(join(VROOT, 'ihui-prod'))
+  const ALT = norm(join(parsePath(VREPO).root, 'DevEnv', 'ihui-prod'))
+
+  // 无显式覆盖时的两形态坐标，由真仓经同一个出口算出来（不在测试里另抄优先序）。
+  // 若机器形态让两候选同根，并集那两格就不适用 ⇒ 照实记，不伪造通过（同 deploy-decisions-face 口径）。
+  let realCand = null
+  let realAlt = null
+  runWithoutDevEnv(() => {
+    try {
+      realCand = norm(join(devEnvRootUnderTest(REPO), 'ihui-prod'))
+      realAlt = norm(join(parsePath(REPO).root, 'DevEnv', 'ihui-prod'))
+    } catch {
+      realCand = null
+      realAlt = null
+    }
+  })
+  const twoForms = Boolean(realCand && realAlt && realCand !== realAlt)
+
+  test('prodCheckoutRoot ①主候选在 → 用主候选（回落不得改写优先级）', () => {
+    runWithDevEnv(VROOT, () => {
+      const set = new Set([CAND, ALT])
+      const exists = (p) => set.has(norm(p))
+      assert.equal(norm(prodCheckoutRoot(VREPO, exists)), CAND)
+    })
+  })
+
+  test('prodCheckoutRoot ②无覆盖·主候选缺·盘根侧在 → 必须取回落（这一格就是原先被修瞎的病）', () => {
+    if (!twoForms) {
+      assert.ok(true, `本机两形态同根(${realCand}) ⇒ 并集格不适用，如实跳过而非伪造通过`)
+      return
+    }
+    runWithoutDevEnv(() => {
+      const exists = (p) => norm(p) === realAlt
+      assert.equal(norm(prodCheckoutRoot(REPO, exists)), realAlt)
+      // 变异对照：退回"无回落"的旧形状时这一格返回 realCand ⇒ 必先翻红
+      assert.notEqual(realCand, realAlt, '两形态必须可区分，否则本锁是纸锁')
+    })
+  })
+
+  test('prodCheckoutRoot ⑤显式 IHUI_DEVENV_ROOT 是强声明 → 主候选缺也不许越权回落（夹具隔离边界）', () => {
+    runWithDevEnv(VROOT, () => {
+      // 被显式声明的那个根里没有 ihui-prod，盘根侧"存在"也不许去把它找回来：
+      // check-credential-health T17 就是靠"生产根不存在 ⇒ 未判定"成立的，越权回落会把它判成有输入。
+      const exists = (p) => norm(p) === ALT
+      assert.equal(norm(prodCheckoutRoot(VREPO, exists)), CAND)
+    })
+  })
+
+  test('prodCheckoutRoot ③两候选都不在 → 仍交主候选给调用方点名（失效方向=未判定，不折红不折绿）', () => {
+    runWithoutDevEnv(() => {
+      const exists = () => false
+      const got = prodCheckoutRoot(REPO, exists)
+      assert.equal(norm(got), realCand ?? norm(join(devEnvRootUnderTest(REPO), 'ihui-prod')))
+      assert.notEqual(norm(got), '', '两候选都不在时也必须给出一个可点名的根，不得返回空让调用方无从报因')
+    })
+  })
+
+  test('prodCheckoutRoot ④同根形态只探测一次（短路形状：回落排在主候选之后）', () => {
+    runWithDevEnv(parsePath(VREPO).root + 'DevEnv', () => {
+      let calls = 0
+      const exists = (p) => {
+        calls += 1
+        return norm(p) === ALT
+      }
+      assert.equal(norm(prodCheckoutRoot(VREPO, exists)), ALT)
+      assert.equal(calls, 1, `同根时探测次数必须=1（实得 ${calls}）⇒ 出现第二次探测就是候选序被改了`)
+    })
+  })
+
+  test('prodDeployLoopLog 随解析器换根（日志腿不得另拼一条路径）', () => {
+    if (!twoForms) {
+      assert.ok(true, `本机两形态同根 ⇒ 换腿格不适用，如实跳过`)
+      return
+    }
+    runWithoutDevEnv(() => {
+      const exists = (p) => norm(p) === realAlt
+      assert.equal(
+        norm(prodDeployLoopLog(REPO, exists)),
+        norm(join(realAlt, 'deploy/win/deploy-loop.log')),
+      )
+    })
+  })
+}
+
+test('prodCheckoutRoot 装车锁：两枚解析器必须挂在 __test__ 出口（§22c 镜像可 import）', () => {
+  for (const fn of ['prodCheckoutRoot', 'prodDeployLoopLog']) {
+    assert.equal(typeof mod.__test__[fn], 'function', `${fn} 未挂测试出口 ⇒ 镜像判据无从 import`)
+  }
+})
+
+test('prodCheckoutRoot 真机形态锁：本机只要任一形态真有生产根，解析结果就必须真的存在', () => {
+  let derived
+  try {
+    derived = prodCheckoutRoot(REPO)
+  } catch (e) {
+    // 工作树落在 scratch 夹具内时 devEnvRoot 拒绝推导 ⇒ 照实跳过，不伪造通过（deploy-decisions-face 同口径）
+    assert.match(String(e?.message ?? ''), /scratch|夹具/, `拒推导的原因不是夹具闸：${e?.message}`)
+    return
+  }
+  const alt = join(parsePath(REPO).root, 'DevEnv', 'ihui-prod')
+  if (existsReal(derived) || existsReal(alt)) {
+    assert.ok(
+      existsReal(derived),
+      `本机存在生产根却解析到不存在的 "${derived}" ⇒ 形态并集失效，"线上此刻"两条 oracle 会重新变瞎`,
+    )
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
