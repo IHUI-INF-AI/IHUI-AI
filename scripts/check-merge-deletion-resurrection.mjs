@@ -866,7 +866,6 @@ async function main() {
   assertRepoRoot(ROOT, '本门')
   const strict = argv.includes('--strict')
   const today = new Date().toISOString().slice(0, 10)
-  const revIdx = argv.indexOf('--rev')
   const limitIdx = argv.indexOf('--limit')
   // G-322:--limit 给旗标不给值一律 exit 2 点名 —— 旧写法 Number(undefined)=NaN 把"回看 N 枚"
   // 窗口静默吞成"审计全部",scope 行还照印"回看 NaN 枚"。(漏值非空但被顶值时同样死在域校验。)
@@ -880,12 +879,17 @@ async function main() {
     process.exit(2)
   }
   let res
-  if (revIdx >= 0) {
-    const sha = argv[revIdx + 1]
-    if (!sha) {
-      console.error('❌ 无法判定:--rev 需要一个提交规格')
-      process.exit(2)
-    }
+  // G-322(本站,blocking 腿):`--rev` 的取值交单源出口。旧写法 `argv[revIdx + 1]` 只挡"收尾无值"
+  // 那一型,被旗标顶值(`--rev --all` / `--rev --strict`)时把下一枚旗标当提交规格直喂 git ——
+  // 实测 `--rev --all` 会照 git 的语义审计**另一批提交**(scope 行还印"口径=单枚 --all")并 exit 0,
+  // 即"判的是别人"却报绿。现在:给了 `--rev` 就必须有合法值,否则 exit 2 点名实得的是什么。
+  const revFlag = requireFlagValue(argv, '--rev', { noun: '提交规格' })
+  if (revFlag.error) {
+    console.error(`❌ ${revFlag.error}`)
+    process.exit(2)
+  }
+  if (revFlag.present) {
+    const sha = revFlag.value
     const parents = parentsFromLine(git(['rev-list', '--parents', '-n', '1', sha], ROOT))
     const one = auditMerge(sha, parents, ROOT)
     const allow = readAllowlist(ROOT, face)
