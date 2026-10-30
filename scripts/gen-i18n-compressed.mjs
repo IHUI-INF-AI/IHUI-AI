@@ -290,7 +290,10 @@ function closureBatch() {
   return CLOSURE_BATCH
 }
 /** 这一份被审面上有没有这个路径(承载层是可选输入,存在性必须在**同一个面**上问,§0.4) */
-const faceHas = (rel) => (FACE === 'worktree' ? existsSync(resolve(repoRoot, rel)) : FACE_BATCH.get(specOf(rel)) !== null && FACE_BATCH.get(specOf(rel)) !== undefined)
+const faceHas = (rel) =>
+  FACE === 'worktree'
+    ? existsSync(resolve(repoRoot, rel))
+    : (FACE_BATCH.get(specOf(rel)) ?? null) !== null
 
 const faceListSources = (prefix) => {
   if (FACE === 'worktree') {

@@ -87,8 +87,22 @@ function stagedIsToolOnly() {
     // 本文件是 CJS,import 不了 .mjs,所以读 JSON —— 从此两边不会漂移(§0.6)。
     // 入库口径与复核命令见 gate-scope.mjs 头注。
     const JUDGEMENT_LIBS = new Set(require('./judgement-libs.json'))
-    if (paths.some((p) => JUDGEMENT_LIBS.has(p.replace(/\\/g, '/')))) return false
-    return true
+    const norm = paths.map((p) => p.replace(/\\/g, '/'))
+    if (norm.some((p) => JUDGEMENT_LIBS.has(p))) return false
+    // 2026-10-30 修:判据从"没碰判据库"改成"**真的只动工具/文档**"。
+    // 旧实现只有上面那一行,于是**纯业务提交**(apps/** 改页面/路由/token)同样落专项档 ⇒
+    // 12 段业务专项守门静默不跑(desktop 接线 / portal 定位 / 按钮换行 / footer / portal /
+    // tokens / miniapp parity / auth-refresh / agent-engine / tool-registry / capability-matrix …),
+    // 而各段 else 又把成因打成 "(HUSKY_SKIP_*=1, 跳过)" ⇒ 读日志的人会以为有人在跳门。
+    // 翻转前置已满足:被掩盖的门逐道全量档现读 **10/10 绿**(其中 portal 定位与 desktop 接线的
+    // 两道误报已在同一轮修掉,阈值一个没动)。业务前缀一旦出现就全跑;不认识的路径也全跑(失效方向=多跑)。
+    if (norm.some((p) => /^(?:apps|packages|deploy)\//.test(p))) return false
+    return norm.every(
+      (p) =>
+        /^(?:scripts|docs|tests?|tools?|\.ihui-agent|\.github|\.husky)\//.test(p) ||
+        /^[^/]+$/.test(p) ||
+        /\.(?:md|json|jsonl|ya?ml|txt)$/.test(p),
+    )
   } catch {
     return false
   }
@@ -96,8 +110,19 @@ function stagedIsToolOnly() {
 const TOOL_ONLY = process.env.IHUI_SPECIAL_SCOPE === 'full' ? false : stagedIsToolOnly()
 if (TOOL_ONLY) {
   console.log(
-    '⚡ 专项档:本次改动只含工具/文档路径 ⇒ 跳过判业务代码的专项守门' +
+    '⚡ 专项档:本次未碰判据库文件 ⇒ 跳过判业务代码的专项守门' +
       '(强制全跑:IHUI_SPECIAL_SCOPE=full)',
+  )
+  // 文案如实两件事(2026-10-30 补):
+  // ① 这一档的判据是"staged 里没有判据库文件",不是"只含工具/文档路径"——纯业务提交
+  //    (apps/** 改页面/路由)同样落进这一档,所以"专项档"三个字对业务席是误导;缺陷本身
+  //    已登记工单,翻转判据的前置 = 被这一档掩盖的存量红先归零(§12e,否则当场变成恒红拦路门)。
+  // ② 下文各段 else 分支打的是 "(HUSKY_SKIP_XXX=1, 跳过)" —— 本轮只要这一行出现过,
+  //    那些 ⏭ 的**成因就是专项档**,不是有人设了应急变量。把两种成因写成分开的文案是后续
+  //    工单的另一格;在这里先说破,是因为"日志里到处是跳门"会让人以为守门已被人为作废
+  //    (归因失真比少跑几道门更贵:它会让人不去查到底是哪道门没跑)。
+  console.log(
+    '   ↳ 本轮下文出现的 "(HUSKY_SKIP_*=1, 跳过)" 均属专项档成因,非应急变量;逐道是否该跑由工单处置',
   )
 }
 

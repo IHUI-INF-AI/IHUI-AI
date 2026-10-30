@@ -26,7 +26,7 @@
  *   node scripts/check-portal-fixed.mjs             (全量扫描报告, exit 0)
  */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
@@ -60,8 +60,83 @@ function listStagedFiles() {
   }
 }
 
+/**
+ * 常量引用解析(把 `style={{ ...PANEL_STYLE, top }}` 这种**引用**追到含 position 的字面量)。
+ * 与守门 8 的"一跳常量解析"同一条思路:判据看不见合法形制时,该扩的是扫描面,不是阈值。
+ * 立因(2026-10-30 现读):`components/feedback/portal-panel.tsx` 的定位来自
+ * `PORTAL_PANEL_POSITION_STYLE = { position: 'fixed' }`(lib/portal-panel-position.ts:34),
+ * 而旧判据只认 JSX snippet 里的字面 `position:'fixed'` ⇒ 把这一形判成 FAIL。
+ * 窗口取 600 字符:样式常量在本仓都是十几行的短对象,窗口法不必做完整 AST 也能命中;
+ * 追不到 ⇒ 如实返回 false 落 WARN 档(交人工),绝不冒充"已确认"。
+ */
+const FILE_TEXT_CACHE = new Map()
+function readTextCached(abs) {
+  if (FILE_TEXT_CACHE.has(abs)) return FILE_TEXT_CACHE.get(abs)
+  let t = ''
+  try {
+    t = readFileSync(abs, 'utf8')
+  } catch {
+    t = ''
+  }
+  FILE_TEXT_CACHE.set(abs, t)
+  return t
+}
+
+/** `@/lib/x` / `./x` / `../x` → 绝对文件路径(补 .ts/.tsx,取第一个存在的) */
+function resolveImportFile(fromAbs, spec) {
+  const base = spec.startsWith('./') || spec.startsWith('../') ? join(dirname(fromAbs), spec) : null
+  const atWebSrc = fromAbs.replace(/\\/g, '/').match(/^(.*\/apps\/web\/)src\//)
+  const viaAlias = spec.startsWith('@/') && atWebSrc ? join(atWebSrc[1], 'src', spec.slice(2)) : null
+  const cand = base || viaAlias
+  if (!cand) return ''
+  for (const ext of ['.ts', '.tsx', '/index.ts', '/index.tsx']) {
+    const p = cand + ext
+    if (existsSync(p)) return p
+  }
+  return ''
+}
+
+/**
+ * 在 fileText 里找 `IDENT` 的定义窗口,返回窗口内是否已含显式定位;
+ * 窗口里出现别的 `...OTHER` 时顺 import 再跳一层(深度上限 3,带 seen 防环)。
+ */
+function symbolImpliesFixed(fileText, abs, ident, depth, seen) {
+  if (depth > 3 || !fileText) return false
+  const key = `${abs}#${ident}`
+  if (seen.has(key)) return false
+  seen.add(key)
+  // 名字与 `=` 之间允许类型注解(`const panelStyle: React.CSSProperties = coords`)——
+  // 少了这一档,带注解的常量一律搜不到,解析会静默退化成"人工确认"(2026-10-30 实测踩到)。
+  const defIdx = fileText.search(new RegExp(`(const|let|var)\\s+${ident}\\b[^=\\n]*=`))
+  if (defIdx < 0) return false
+  const win = fileText.slice(defIdx, defIdx + 600)
+  if (/position:\s*['"](fixed|absolute)['"]/.test(win)) return true
+  for (const m of win.matchAll(/\.\.\.([A-Za-z_][\w.]*)/g)) {
+    const name = m[1].split('.').pop()
+    // 同文件先找,再顺 import 说明符跳
+    if (symbolImpliesFixed(fileText, abs, name, depth + 1, seen)) return true
+    for (const imp of fileText.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*'([^']+)'/g)) {
+      if (!imp[1].split(',').map((s) => s.trim().split(/\s+as\s+/).pop()).includes(name)) continue
+      const target = resolveImportFile(abs, imp[2])
+      if (target && symbolImpliesFixed(readTextCached(target), target, name, depth + 1, seen)) return true
+    }
+  }
+  return false
+}
+
+/** 从 JSX snippet 的 style 属性里抽出被引用的标识符(含对象字面量内的 spread) */
+function styleIdentsOf(snippet) {
+  const out = new Set()
+  const direct = snippet.match(/style=\{\s*([A-Za-z_][\w.]*)\s*\}/)
+  if (direct) out.add(direct[1].split('.').pop())
+  const obj = snippet.match(/style=\{\{([\s\S]{0,400}?)\}\s*\}/)
+  if (obj) for (const m of obj[1].matchAll(/\.\.\.([A-Za-z_][\w.]*)/g)) out.add(m[1].split('.').pop())
+  return [...out]
+}
+
 /** 判断 createPortal(<div 开始于 lineIdx) 的该元素是否显式定位 */
-function checkPortalElement(lines, startIdx, relPath, findings) {
+/** 判断 createPortal(<div 开始于 lineIdx) 的该元素是否显式定位 */
+function checkPortalElement(lines, startIdx, relPath, findings, absPath) {
   // 在 createPortal( 之后的 12 行内寻找首个 <div(或 <section 等容器)
   for (let i = startIdx; i < Math.min(startIdx + 12, lines.length); i++) {
     const line = lines[i]
@@ -72,8 +147,12 @@ function checkPortalElement(lines, startIdx, relPath, findings) {
       (snippet.match(/className=\{?[`'"]([^`'"]*)/)?.[1] ?? '')
     )
     const hasInlinePosition = /position:\s*['"](fixed|absolute)['"]/.test(snippet)
-    const styleRefOnly =
-      /style=\{[A-Za-z_][\w.]*\}/.test(snippet) && !hasFixedClass && !hasInlinePosition
+    // 引用形制(`style={{ ...PANEL_STYLE, top }}` / `style={panelStyle}`)先做常量解析:
+    // 追到字面量里确有 position 就是**真凭据**(不进 findings,也不挂"请人工确认"的虚账);
+    // 追不到才落 WARN —— 失效方向是"多要一次人工确认",绝不是"多放一次 FAIL 误报"。
+    const idents = hasFixedClass || hasInlinePosition ? [] : styleIdentsOf(snippet)
+    if (idents.some((id) => symbolImpliesFixed(readTextCached(absPath), absPath, id, 0, new Set()))) return
+    const styleRefOnly = idents.length > 0
     if (!hasFixedClass && !hasInlinePosition) {
       findings.push({
         file: relPath,
@@ -101,7 +180,7 @@ function scanFile(absPath, relPath, findings) {
       // 第一参为变量引用(如 createPortal(overlay, ...))时跳过:
       // overlay 定义处与 createPortal 调用相距太远,静态追踪不可靠(人工 review)
       if (/createPortal\(\s*[A-Za-z_$][\w$]*\s*,/.test(line)) return
-      checkPortalElement(lines, idx, relPath, findings)
+      checkPortalElement(lines, idx, relPath, findings, absPath)
     }
   })
 }
@@ -147,4 +226,12 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { checkPortalElement, scanFile, walk, SCAN_EXTS }
+export const __test__ = {
+  checkPortalElement,
+  scanFile,
+  walk,
+  SCAN_EXTS,
+  styleIdentsOf,
+  resolveImportFile,
+  symbolImpliesFixed,
+}
