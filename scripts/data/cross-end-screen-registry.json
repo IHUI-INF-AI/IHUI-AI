@@ -37,11 +37,6 @@
       "miniapp": "pkg-ai/ai-career/index"
     },
     {
-      "shared": "packages/app/src/features/ai-group/AiGroupScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AiGroupScreen.tsx",
-      "miniapp": "pkg-ai/ai-group/index"
-    },
-    {
       "shared": "packages/app/src/features/ai-skill/AiSkillDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AiSkillDetailScreen.tsx",
       "miniapp": "pkg-ai/ai-skill/detail/index"
