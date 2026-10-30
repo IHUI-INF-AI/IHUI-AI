@@ -190,6 +190,20 @@ test('⑬ 反馈判据认原语默认态:把 TouchableOpacity 的自带变暗算
   )
 })
 
+test('⑮ 遮罩不当"缺反馈":半透黑底按下去就是关层,要求变暗等于制造全屏闪', () => {
+  const { isScrim, isTranslucentBlack, scrimByStyle } = __test__
+  assert.equal(isScrim(' className="flex-1 bg-black/20" activeOpacity={1}'), true)
+  assert.equal(isScrim(" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}"), true)
+  assert.equal(isScrim(" style={{ backgroundColor: '#000000' }}"), false, '不透明黑不是遮罩')
+  assert.equal(isTranslucentBlack('#000000'), false)
+  assert.equal(isTranslucentBlack('#00000080'), true)
+  const table = __test__.styleTable(
+    "const styles = StyleSheet.create({ scrim: { backgroundColor: 'rgba(0,0,0,0.5)' }, card: { backgroundColor: '#ffffff' } })",
+  )
+  assert.equal(scrimByStyle(' style={styles.scrim} ', table), true)
+  assert.equal(scrimByStyle(' style={styles.card} ', table), false, '白底卡片不得被当成遮罩(否则遮罩成了消红通道)')
+})
+
 test('⑭ 注册表文案不钉移动量:runner 的 label 里不得写死存量数字', () => {
   // 为什么反向钉:上一版这里比的是"label 写的处数 == 门现读的处数",而存量是一条一直在减的
   // 移动量 —— 任何人修好一枚 H2,这条锁就把一次**进步**判成文案漂移(§0.2 同型:会自己腐烂的钉
