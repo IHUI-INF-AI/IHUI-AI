@@ -121,13 +121,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3690 | `testFiles` |
+| 测试文件 | 3694 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 305 | `guardianGates` |
 | — blocking | 279 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 18156 | `trackedFiles` |
+| 跟踪文件 | 18165 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-30。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -149,7 +149,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | [`readme-05-quickstart-api-data`](./docs/engineering/readme-05-quickstart-api-data.md)                   | 快速开始 / API / 数据 | 快速开始 · REST/WebSocket API 与能力目录 · 模型自动同步 · IM 多平台远程控制 · 数据库                                                                                        |
 | [`readme-06-security-observability-gates`](./docs/engineering/readme-06-security-observability-gates.md) | 安全 / 可观测 / 守门  | 可观测性 · 安全设计 · 根目录守门服务 · 工程守门全表 · Commit 丢失防护 · 工程质量证据 · AI 编程协作声明 · 测试 · 部署 · CI 工作流 · 国际化 · LLM 字典化 · 守门补登与对账登记 |
 
-**RN 样式裸数字回潮锁** `scripts/check-token-literal-debt.mjs`(门 270,差值棘轮):只拦本次把
+**RN 样式裸数字回潮锁** `scripts/check-token-literal-debt.mjs`(门 240,差值棘轮):只拦本次把
 可自动对档的裸数字(`padding: 16` / `fontSize: 14`)加回来,存量只报数;修复出口
 `node scripts/tokens-migrate.mjs <file> --apply`(恰在档才换,杂值不动),目录档可一次扫
 `packages/app/src apps/mobile-rn/src`。
@@ -892,6 +892,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 ### 💬 对话体验(Web 端王牌)
 - **全局 docked AI 面板**:任意页面右侧常驻对话,不占独立路由,深链可分享
 - **丝滑流式**:SSE + 断点续传 · 消息排队 · Steer 中途引导(对标 Codex / Cursor)
+- **预测式编辑(对标 Trae CUE)**:编辑意图预测器(服务端三态 suggested/no_action/undetermined + 结构化动作 + 重叠区间冲突与锚点内容比对)· 聊天输入区与编辑器内建议条双场景 · 逐条勾选选择性应用 + 悬停区间预览 · 接受率按 model×scene 分桶看板
 - **富渲染**:流式 Markdown + KaTeX 公式 + Mermaid 图 + 代码高亮 + 可运行代码块 + Artifact 画布
 - **多模型工作台**:模型选择(按厂商分组 + 自动档)· 推理强度 · 采样参数 · 发送前成本预估
 - **工具可见可控**:工具调用可视化(实时耗时 / 来源徽章)· 人工审批闸门 · 代码 diff 单文件 / 批量审批
@@ -2030,9 +2031,6 @@ IHUI-AI/
 | **号池账号体检速查 CLI**    | `pnpm relay:inspect -- --file x.json｜--local`                | `apps/api/scripts/relay-account-inspect.ts`(2026-10-26 立):把「这枚号还能不能用、还剩多久、下一步做什么」折成一行话,零 DB / 零上游请求 / **输出永不回显凭据明文**;六态结论 `usable` / `expiring-soon`(≤1 天) / `expired-renewable`(过期但带 refreshToken,进号池即由调度救回) / `expired-dead`(过期且无续期通道,只能重新登录重导) / `envelope-only`(值是 WorkBuddy 5.6 `$wbEncrypted` 信封:仅同机可解回,查积分/签到/跨机皆不可用,**不冒判过期也不冒判能用**) / `indeterminate`(三段读不到到期≠已失效,§0.3);`--local` 直读本机 `workbuddy-desktop{,-ai}.info` 当前登录态;退出码 `0` 全可用 / `1` 有需要处理 / `2` 未判定                                                               |
 | **账号池用量台账**          | `GET /admin/relay/account-pool/usage/:id?days=7`              | 表 `ai_relay_account_usage_ledger`:每次转发调用(成功与失败)由 recordAccountUsage 落一行,fire-and-forget(台账异常只记 warn,不影响转发主链路);list 侧批量聚合近 24h calls/tokens/failRate;本端点给 24h 汇总 + 按 days 窗口的分页明细与总条数;超保留期行由调度轮清理(24h 节流)                                                                                                                                                                                                                                                                       |
 | **补池认领工作流**          | `POST /admin/relay/accounts/:id/claim` + `:id/release`        | 运营认领账号维护:claimStatus unclaimed/claimed + claimedBy/claimedAt/claimNote;已被他人认领 ⇒ 409(点名认领人);释放默认只允许本人(非本人 409),`force=true` 供运维强制释放并留 warn 记录                                                                                                                                                                                                                                                                                                                                                            |
-| **切号携对话闭环 CLI**      | `pnpm relay:login-local-verified -- --provider <code> [--uid] [--dry-run]` | `apps/api/scripts/relay-login-local-verified.ts`(2026-10-30 立,2026-10-31 收口):一条命令完成「池里选票 → 切号前拍连续性快照 → 池票写回本机客户端(关端/写/拉起,写前同目录备份)→ 切号后再拍 → compare」;**本地正库对账面八平台** qoder/minimax/codex/zcode/opencode/workbuddy/codearts/loomy(平台全集与 `check-switch-continuity` 同源;2026-10-31 本机取证推翻「云端平台本地无正库」旧口径:WorkBuddy `~/.workbuddy/projects` 两层 JSONL 91 场、CodeArts `workspaceStorage/**/chatSessions` 45 场、Loomy IndexedDB 键族 2 场);对话是云端回包缓存的豆包如实 `no-continuity-face` 不冒对账;qoder/codearts/minimax/opencode 无会话模板时显式告警「账号资料仍沿用旧号」但不拦写回;失败路径统一走 `exitWith(2)` 显式退出(原只设 exitCode 会被 pg 池挂住);多票不点名 exit 2 绝不猜票;输出零凭据;退出码 0 ok/1 broken(切号真丢了会话)/2 未判定 |
-| **统一切号入口**            | `pnpm switch:client -- --list｜--current｜--to <uid|名称> --provider <p>` | `scripts/switch-client-account.mjs`(2026-10-31 立):trae/trae-solo 转 `scripts/switch-trae-client-with-chat.mjs`(SOLO 自动补 `--product "TRAE SOLO CN"`),其余九平台转 `relay-login-local-verified`;平台名归一与参数映射为纯函数(`__test__`),未知 provider exit 2 并列全支持集;`--list/--current` 仅 Trae 系原生支持,其余如实指向号池巡检入口 |
-| **MiniMax 会话回灌**        | BullMQ `minimax-session-sync` 每 10 分钟 / `node scripts/sync-minimax-client-session.mjs [--dry-run]` | `scripts/sync-minimax-client-session.mjs` + `apps/api/scripts/relay-minimax-session-sync.ts`(2026-10-31 立):读 `~/.minimax/auth/prod/<region>/mcode-public/auth.json`(明文)回流号池;判据走 Trae 的 `decideSync` 单源;取证实证 uid 随票旋转而变 ⇒ **uid > recordKey 两级匹配**(否则轮换后每轮新建行、旧行永久 down);adapter 无公开刷新端点 ⇒ 健康态只凭「新票未过期且与池内不同」上行、绝不下行;零凭据回显;退出码 0 全部处理/1 落库失败/2 未判定 |
 | **模型别名目录**            | `/admin/relay/model-catalog` + `ai_relay_model_catalog` 表    | 上游模型(providerCode/upstreamModel)→ 平台别名(alias/displayName)映射的 list / 新建 / 删除;别名冲突 400、待删记录不存在 404                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **出口代理池**              | `/admin/relay/proxy-pool` + `ai_relay_proxy_pool` 表          | 每账号独立出口 IP 降风控:proxyUrl 限 http/https/socks5 协议、重复新增 409;list 分页 + status(active/dead/exhausted)过滤、PATCH 更新 status/boundAccountId/proxyUrl、DELETE 删除、`POST :id/check` 人工标记活性(markProxyChecked);管理员可见 proxyUrl 原样(含内嵌账密)                                                                                                                                                                                                                                                                             |
 | **账号上游余额点查**        | `POST /admin/relay/accounts/:id/quota`                        | 按需点查上游余额/积分(2026-10-23 立),**不进调度轮询**——只在 admin 点击时发一次上游请求,回包带 queriedAt;仅已实证余额端点的平台可用(现 trae / qoder / workbuddy 适配器实现 getQuota;2026-10-27 扩容八平台 codex/opencode/minimax/zcode/loomy/doubao/lingma/grokbot 适配器已注册,余额端点形状均未实证 ⇒ getQuota 一律如实未判定(401/403 回 authFailed,200 回响应键名清单,不猜字段)——workbuddy 2026-10-27 真号实弹闭环 billing summary;codearts 套餐/积分余额**无接口**(官方明细只在控制台 personal-usage 页,免费额度按月重置),适配器只挂了限时福利 balance 端点(opengw.developer…/api/v1/user/tokens/balance,2026-10-27 取证),其响应形状未实证 ⇒ 面板点查如实回未判定并带响应键名清单),未注册平台同样 400;取不到的一律留 null,不拿 0 冒充(0 在面板读成积分耗尽)                                                                                                                                                                                                                                                   |
@@ -5569,7 +5567,14 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-31**
-- 📚 文档:切号条目口径按 2026-10-31 取证更正 + 补登统一入口与 MiniMax 回灌 (772eb33cca)
+- 🚀 新功能/改进:预测式编辑建议条五语词表(编辑器场景 CUE 对齐批次) (9c9e338469)
+- ♻️ 重构:门户维收敛候选集编排抽成纯函数,段级族可被构造面钉住 (182440479b)
+- 🔧 工程/其他:派生产物按最新 HEAD 面重生成 —— 补 webViewPortal.artifacts 词条,离线包与两枚路由钉同步 (bdd9129d40)
+- 🐞 修复:qoder 导入补齐会话模板 —— 模板此前在导入面被静默丢弃,池票永远 tpl=NULL (185987e308)
+- 🐞 修复:rn-compat 图标出口按 HEAD 面重生成 —— 补 ListTodo/MonitorSmartphone 两枚,门 251 C2 缺口清零 (16124c3b04)
+- 🐞 修复:清偿门 39 三条 HEAD 存量红(0e875130c0 旁路落地带回的未迁移形态) (577b3364ac)
+- 🚀 新功能/改进:web→RN 对齐链最后一枚缺口 artifacts 清零 —— 产物中心进 web-portal 门户(两端 WebView 承载, sso cookie 链路) (6ff6f36887)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b88b1080c5)
 
 **2026-10-30**
 - 🐞 修复:registry-sync 批量失败时把真实错误写进 sync_log —— 门 47 现在只报得出条数 (a3d7f7f2bf)
@@ -15553,9 +15558,27 @@ A: Yes. ~14839+ tests / 3607 test files / 67 e2e spec / 4616 API 路由 / 612 �
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs`
 - i18n/文案: `check-i18n-locale-content-language.mjs` `scan-web-dead-i18n-keys.mjs` `scan-desktop-dead-i18n-keys.mjs` `scan-extension-dead-i18n-keys.mjs` `scan-miniapp-taro-dead-i18n-keys.mjs` `scan-mobile-rn-dead-i18n-keys.mjs` `check-cli-i18n-parity.mjs` `check-i18n-duplicate-namespaces.mjs` `check-i18n-broken-en.mjs` `check-i18n-keys.mjs` `scan-i18n-zh-residue.mjs` `scan-hardcoded-zh.mjs` `check-miniapp-replace-antipattern.mjs` `check-bare-decode-uri.mjs`(241,差值棘轮:裸 decodeURIComponent 遇孤立 % 抛 URIError,渲染求值路径整页崩;唯一出口 safeDecodeURIComponent @ihui/shared/utils/safe-decode-uri,行内豁免 bare-decode-uri-exempt 须带原因)
 - CLI/工具契约: `check-tool-exec-budget.mjs` `check-tool-family-registered.mjs` `check-tool-schema-projection.mjs` `check-file-write-safety.mjs` `check-mention-engine-wired.mjs` `check-slash-command-wired.mjs` `check-lsp-language-table.mjs` `check-doom-loop-parity.mjs` `check-guardian-review-wired.mjs` `check-turn-ordinal-lock.mjs` `check-truncation-accounting.mjs` `check-list-cap-honesty.mjs` `check-compaction-denominator.mjs` `check-load-state-loaded-marks.mjs` `check-load-state-projection-parity.mjs` `check-mobile-api-base-bake.mjs` `check-mobile-version-code.mjs` `check-v3-62-conversation-mount.mjs` `check-ai-panel-mount-guards.mjs` `check-crash-report-redaction.mjs` `check-diagnostic-redaction.mjs` `check-digest-name-reality.mjs` `check-image-placeholders.mjs` `check-upload-budget.mjs` `check-lock-manifest-consistency.mjs` `check-orphan-deletion-refs.mjs` `check-process-exit-attribution.mjs` `check-wire-strictness.mjs` `check-dangling-local-imports.mjs` `check-event-closure-leak.mjs` `check-test-paths.mjs` `check-verify-tmp-files.mjs` `check-workspace-hygiene.mjs` `check-scratch-root-no-nesting.mjs` `check-fixture-tmpdir.mjs` `check-disk-root-hygiene.mjs` `check-disk-root-write.mjs` `check-c-drive-paths.mjs` `check-c-drive-pollution.mjs` `check-pwsh-version.mjs` `check-root-dir-clean.mjs` `check-readme-sync.mjs` `check-readme-table-integrity.mjs` `check-delivery-report-consistency.mjs` `check-multi-end-sync.mjs` `check-prompt-injection-registry.mjs` `check-declared-policy-has-consumer.mjs` `check-desktop-event-wiring.mjs` `check-service-binary-paths.mjs` `check-public-path-probe.mjs` `check-staged-typecheck.mjs`
-- 跨端/产物 CI 问责(2026-10-31 接线): `check-miniapp-build-artifacts.mjs`(小程序产物结构对账:入口三件套/页面/分包/tabBar 引用全在位,构建产物只在构后存在 ⇒ CI 构后是唯一正确落点) `check-mrn-vitest-mock-alias-surface.mjs`(mobile-rn vitest 手写替身面观测,按门体契约恒 RC=0 只报名)
 - 只读尺子/派生器/核验器(不在 runner,不进提交链,也不进守护巡检轮): `check-temp-landing.mjs` `check-dispatch-premise.mjs` `check-alertmanager-live-config.mjs` `check-monitor-runtime-parity.mjs` `check-tunnel-leg-health.mjs` `check-prod-checkout-foreign-work.mjs`(git-guardian 巡检轮派生,`--json` 只判不修;未跟踪洪水只计数不判定) `check-index-unmerged-age.mjs`(2026-10-24 立,index 烂尾哨兵:unmerged 条目按路径集指纹计龄,同批滞留 ≥15 分钟即到人;立因 = 凌晨违规 stash+rebase+pop 冲突逃逸挂了 2 枚 unmerged + 91 个被删文件 12 小时无人察觉;不走提交链,派发层 = git-guardian 的 `auditIndexUnmerged`;镜像 `check-index-unmerged-age.test.mjs`) `verify-panel-data.mjs` `verify-panel-logql.mjs` `verify-grafana-panel-data.mjs` `verify-grafana-logql-panels.mjs` `sync-panel-live-provisioning.mjs` `sync-grafana-live-provisioning.mjs`(仓内 provisioning 是唯一真相 ⇒ 派生到部署机运行副本,连不上的源不写入并点名原因;幂等 + `pre-sync-backups/` 退路;`--check` 零副作用;大屏核验五档 有数/全零/空板/失败/未判定,全零 ≠ 空板,不许接提交门) `strip-stale-closed-rows.mjs` `strip-stale-claim-marks.mjs` `env-backfill-model-keys.mjs` `quarantine-disk-root-strays.mjs` `git-refs-heal.mjs` `git-backup-refresh.mjs` `git-sync-converge.mjs` `git-push-converge.mjs` `git-push-guard.mjs` `heal-worktree-tracked.mjs` `sync-lost-commit-tags.mjs`
 - 计划/台账: `check-plan-dup-pointer-ratchet.mjs` `check-plan-sha-resolvable.mjs` `check-plan-sha-form.mjs` `check-baseline-freshness.mjs` `check-agents-doc-size.mjs` `check-plan-id-pool.mjs` `check-plan-closed-stock.mjs` `check-plan-claims-vs-head.mjs` `check-plan-archive-monotonic.mjs`(门 239,2026-10-24 由撞号 237 改号;已归档✅票复活成未勾活行/逐字孪生回插即红,stagedTriggers=PROJECT_PLAN.md) `check-live-doc-archive-reinflation.mjs`(门体已造、尚未纳入 runner 注册表) `check-task-claims.mjs` `check-plan-fields.mjs` `check-sweeper-liveness.mjs`(2026-10-23 立:清扫背离巡检只读探针——派发在动 ∧ 留痕静默 >2h ∧ 可清存量 >0 ⇒ 器物空转;不走提交链,派发层 = git-guardian 的 `auditSweeperLiveness`) `check-head-recall-stock.mjs`(门 268,2026-10-30 立,机主令「把计划任务文档跳跃彻底根治」:判「摘除台账已声明删除的登记行又被带回被审面」的枚数变多,--staged 判索引 blob、差值棘轮只拦新增、存量不担责 §12e;判据 import scripts/lib/head-recall.mjs 单源零复算;跳过 HUSKY_SKIP_HEAD_RECALL_STOCK=1;兜底清扫 = scripts/strip-head-recall-rows.mjs,由 git-guardian 巡检腿 sweepHeadRecallRows 每 5 分钟派发,留痕 form:dropped 且自带推送腿;自检 6 组 + 镜像 20 例)
+- 后端装配: `check-api-route-uniqueness.mjs`(门 269,2026-10-31 立:同一 `(method,path)` 被注册两次只在 Fastify 装配期抛,提交链零判据 ⇒ 本门按 `METHOD 对外真实路径` 判"≥2 个不同站点",`--staged` 判索引 blob、差值棘轮只拦新增、三档剔除(fallback/动态前缀/内联别名塌陷)报数不判红;判据单源 `scripts/lib/api-route-uniqueness.mjs` 复用 `route-registration-extract` 挂载图,零复算;跳过 `HUSKY_SKIP_API_ROUTE_UNIQUENESS=1`)
+- 只读尺子/哨兵与判据源(R4 补点名 2026-10-31;逐条判据、自检例数、跳过变量见各门体头注,此处只尽点名义务):
+`check-aasa-public-health.mjs`(AASA 两腿公网可达且与单源同构,只读哨兵,6h 轮)
+`check-analytics-page-coverage.mjs`(埋点覆盖面只读尺,连不到库 exit 2)
+`check-asset-path-health.mjs`(受管 `.env` 绝对路径可达性 + 证书到期,6h 轮)
+`check-cross-end-spec-coverage.mjs`(跨端视觉原子 spec 覆盖率棘轮,`--ratchet`)
+`check-ddos-guard-wiring.mjs`(DDoS 防护接线对账)
+`check-e2e-coverage-gap.mjs`(射程内模块无对应测试,warn 差值棘轮)
+`check-gate-triggers.mjs`(注册门缺 `stagedTriggers` 射程)
+`check-lint-staged-stdio-pin.mjs`(只读盯 `patch-lint-staged-stdio.mjs` 三针在位)
+`check-live-doc-merge-recall.mjs`(普通 merge 把已结清登记行带回的探测,接 `.husky/post-merge`)
+`check-miniapp-mirror-fidelity.mjs`(小程序镜像页还原度对账,CI `--base` 问责腿)
+`check-mjs-export-resolution.mjs`(`scripts/` 相对具名导入必须真存在于目标出口面,D1/D2/D3)
+`check-origin-guard-liveness.mjs`(源站守卫存续哨兵,只读)
+`check-plan-truncated-rows.mjs`(台账残行只读尺 + 基线棘轮)
+`check-prod-dep-advisories.mjs`(生产可达 critical/high 必须为 0)
+`check-rn-compat-coverage.mjs`(小程序复用共享屏源的覆盖面对账 C1/C2/C3)
+`check-ruff-python.mjs`(Python lint 接进提交链,pin 唯一源 `apps/ai-service/pyproject.toml`)
+`check-web-rn-screen-parity.mjs`(web→RN 功能覆盖账本,只读报表)
 - API/后端/DB: `check-credential-leak-in-message.mjs` `check-egress-ip-drift.mjs` `check-credential-presence-bypass.mjs` `check-principal-consumed.mjs` `check-public-exposure-list.mjs` `check-public-admin-default.mjs`(G-875,2026-10-24 立:仓内不得再出现可登录的公开 admin 默认口令;运行面口令一律环境变量注入,历史散列由失效迁移统一作废) `check-capability-field-not-client-supplied.mjs` `check-authorization-column-isolation.mjs` `check-migration-immutable.mjs` `check-db-blind-updatedat-set.mjs` `check-sequence-lag.mjs` `check-error-code-not-text-matching.mjs` `check-error-attribution-single-source.mjs` `check-error-message-bounded.mjs` `check-inbound-schema-strict.mjs` `check-nested-additional-properties.mjs` `check-enum-default-widening.mjs` `check-enum-fallback-terminal.mjs` `check-txn-cancel-boundary.mjs` `check-dockerfile-copy-paths.mjs` `check-edu-arrears-single-source.mjs` `check-sse-frame-watermark.mjs` `check-python-import-landed.mjs` `check-python-import-resolvable.mjs` `check-mode-permission-matrix.mjs` `check-subagent-permission-inherited.mjs` `check-csrf-exemption-shape.mjs` `check-batch-write-count-honesty.mjs` `check-prod-bundle-shadow.mjs` `check-env-drift.mjs`
 
 ### 常驻工具(不在 runner,勿当没装车)
@@ -40349,23 +40372,11 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 - 🐞 修复:消掉门 89 的 R5 撞号恒红 + 回补门 237 被无关提交洗掉的 996 行版 + 换掉一把会替人下因果结论的坏尺子 (3ef804fc3f9)
 - 🔧 工程/其他:撤销 1442baa1e0e 的整条移除——补回运营商一键登录的注册腿与消费腿 (b09e82f82c8)
 - 计划/台账: `check-plan-dup-pointer-ratchet.mjs` `check-plan-sha-resolvable.mjs` `check-plan-sha-form.mjs` `check-baseline-freshness.mjs` `check-agents-doc-size.mjs` `check-plan-id-pool.mjs` `check-plan-closed-stock.mjs` `check-plan-claims-vs-head.mjs` `check-plan-archive-monotonic.mjs`(门 239,2026-10-24 由撞号 237 改号;已归档✅票复活成未勾活行/逐字孪生回插即红,stagedTriggers=PROJECT_PLAN.md) `check-live-doc-archive-reinflation.mjs`(门体已造、尚未纳入 runner 注册表) `check-task-claims.mjs` `check-plan-fields.mjs` `check-sweeper-liveness.mjs`(2026-10-23 立:清扫背离巡检只读探针——派发在动 ∧ 留痕静默 >2h ∧ 可清存量 >0 ⇒ 器物空转;不走提交链,派发层 = git-guardian 的 `auditSweeperLiveness`)
-- 只读尺子/哨兵与判据源(R4 补点名 2026-10-31;逐条判据、自检例数、跳过变量见各门体头注,此处只尽点名义务):
-`check-aasa-public-health.mjs`(AASA 两腿公网可达且与单源同构,只读哨兵,6h 轮)
-`check-analytics-page-coverage.mjs`(埋点覆盖面只读尺,连不到库 exit 2)
-`check-asset-path-health.mjs`(受管 `.env` 绝对路径可达性 + 证书到期,6h 轮)
-`check-cross-end-spec-coverage.mjs`(跨端视觉原子 spec 覆盖率棘轮,`--ratchet`)
-`check-ddos-guard-wiring.mjs`(DDoS 防护接线对账)
-`check-e2e-coverage-gap.mjs`(射程内模块无对应测试,warn 差值棘轮)
-`check-gate-triggers.mjs`(注册门缺 `stagedTriggers` 射程)
-`check-lint-staged-stdio-pin.mjs`(只读盯 `patch-lint-staged-stdio.mjs` 三针在位)
-`check-live-doc-merge-recall.mjs`(普通 merge 把已结清登记行带回的探测,接 `.husky/post-merge`)
-`check-miniapp-mirror-fidelity.mjs`(小程序镜像页还原度对账,CI `--base` 问责腿)
-`check-mjs-export-resolution.mjs`(`scripts/` 相对具名导入必须真存在于目标出口面,D1/D2/D3)
-`check-origin-guard-liveness.mjs`(源站守卫存续哨兵,只读)
-`check-plan-truncated-rows.mjs`(台账残行只读尺 + 基线棘轮)
-`check-prod-dep-advisories.mjs`(生产可达 critical/high 必须为 0)
-`check-rn-compat-coverage.mjs`(小程序复用共享屏源的覆盖面对账 C1/C2/C3)
-`check-ruff-python.mjs`(Python lint 接进提交链,pin 唯一源 `apps/ai-service/pyproject.toml`)
-`check-web-rn-screen-parity.mjs`(web→RN 功能覆盖账本,只读报表)
-- 后端装配: `check-api-route-uniqueness.mjs`(门 269,2026-10-31 立:同一 `(method,path)` 被注册两次只在 Fastify 装配期抛,提交链零判据 ⇒ 本门按 `METHOD 对外真实路径` 判"≥2 个不同站点",`--staged` 判索引 blob、差值棘轮只拦新增、三档剔除(fallback/动态前缀/内联别名塌陷)报数不判红;判据单源 `scripts/lib/api-route-uniqueness.mjs` 复用 `route-registration-extract` 挂载图,零复算;跳过 `HUSKY_SKIP_API_ROUTE_UNIQUENESS=1`)
-**RN 样式裸数字回潮锁** `scripts/check-token-literal-debt.mjs`(门 240,差值棘轮):只拦本次把
+**RN 样式裸数字回潮锁** `scripts/check-token-literal-debt.mjs`(门 270,差值棘轮):只拦本次把
+- 跨端/产物 CI 问责(2026-10-31 接线): `check-miniapp-build-artifacts.mjs`(小程序产物结构对账:入口三件套/页面/分包/tabBar 引用全在位,构建产物只在构后存在 ⇒ CI 构后是唯一正确落点) `check-mrn-vitest-mock-alias-surface.mjs`(mobile-rn vitest 手写替身面观测,按门体契约恒 RC=0 只报名)
+| 测试文件 | 3690 | `testFiles` |
+| 跟踪文件 | 18156 | `trackedFiles` |
+| **切号携对话闭环 CLI**      | `pnpm relay:login-local-verified -- --provider <code> [--uid] [--dry-run]` | `apps/api/scripts/relay-login-local-verified.ts`(2026-10-30 立,2026-10-31 收口):一条命令完成「池里选票 → 切号前拍连续性快照 → 池票写回本机客户端(关端/写/拉起,写前同目录备份)→ 切号后再拍 → compare」;**本地正库对账面八平台** qoder/minimax/codex/zcode/opencode/workbuddy/codearts/loomy(平台全集与 `check-switch-continuity` 同源;2026-10-31 本机取证推翻「云端平台本地无正库」旧口径:WorkBuddy `~/.workbuddy/projects` 两层 JSONL 91 场、CodeArts `workspaceStorage/**/chatSessions` 45 场、Loomy IndexedDB 键族 2 场);对话是云端回包缓存的豆包如实 `no-continuity-face` 不冒对账;qoder/codearts/minimax/opencode 无会话模板时显式告警「账号资料仍沿用旧号」但不拦写回;失败路径统一走 `exitWith(2)` 显式退出(原只设 exitCode 会被 pg 池挂住);多票不点名 exit 2 绝不猜票;输出零凭据;退出码 0 ok/1 broken(切号真丢了会话)/2 未判定 |
+| **统一切号入口**            | `pnpm switch:client -- --list｜--current｜--to <uid|名称> --provider <p>` | `scripts/switch-client-account.mjs`(2026-10-31 立):trae/trae-solo 转 `scripts/switch-trae-client-with-chat.mjs`(SOLO 自动补 `--product "TRAE SOLO CN"`),其余九平台转 `relay-login-local-verified`;平台名归一与参数映射为纯函数(`__test__`),未知 provider exit 2 并列全支持集;`--list/--current` 仅 Trae 系原生支持,其余如实指向号池巡检入口 |
+| **MiniMax 会话回灌**        | BullMQ `minimax-session-sync` 每 10 分钟 / `node scripts/sync-minimax-client-session.mjs [--dry-run]` | `scripts/sync-minimax-client-session.mjs` + `apps/api/scripts/relay-minimax-session-sync.ts`(2026-10-31 立):读 `~/.minimax/auth/prod/<region>/mcode-public/auth.json`(明文)回流号池;判据走 Trae 的 `decideSync` 单源;取证实证 uid 随票旋转而变 ⇒ **uid > recordKey 两级匹配**(否则轮换后每轮新建行、旧行永久 down);adapter 无公开刷新端点 ⇒ 健康态只凭「新票未过期且与池内不同」上行、绝不下行;零凭据回显;退出码 0 全部处理/1 落库失败/2 未判定 |
+- 📚 文档:切号条目口径按 2026-10-31 取证更正 + 补登统一入口与 MiniMax 回灌 (772eb33cca)

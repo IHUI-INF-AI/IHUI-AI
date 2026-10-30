@@ -134,7 +134,22 @@
       "storePlaintext": "MCP 凭据当前以明文存于 {path}（本机降级）",
       "storeEncrypted": "MCP 凭据已加密存储（后端：{backend}）",
       "migrationFailed": "凭据迁移未完成，已保留原文件且未覆盖（{reason}）"
-    }
+    },
+    "agentFailureTerminated": "本次终止:结局={outcome}｜停摆位置={stage}",
+    "failureOutcomeRetryable": "可重试",
+    "failureOutcomeTerminal": "终局(重试无意义)",
+    "failureOutcomeUndetermined": "未判定",
+    "agentStallLlmRequest": "模型请求",
+    "agentStallToolExecution": "工具执行",
+    "agentStallApprovalWait": "审批等待",
+    "agentStallElicitationWait": "追问等待",
+    "agentStallStreamChannel": "流式通道",
+    "agentStallQueueDispatch": "编排队列",
+    "agentStallPermissionGate": "权限闸",
+    "agentStallBudgetGovernance": "预算治理",
+    "agentStallHookPipeline": "钩子链",
+    "agentStallDoomLoopGuard": "死循环守护",
+    "agentStallUndetermined": "未判定"
   },
   "waiting": {
     "agent": {
