@@ -170,7 +170,14 @@ export function buildDeclared(rowTexts) {
     if (!closed.has(ck)) closed.set(ck, [])
     closed.get(ck).push({ raw: s, body })
   }
-  return { set, closed, keyIndex, open, closedDeclared: seenClosed.size, openDeclared: seenOpen.size }
+  return {
+    set,
+    closed,
+    keyIndex,
+    open,
+    closedDeclared: seenClosed.size,
+    openDeclared: seenOpen.size,
+  }
 }
 
 /** 摘除声明集合:

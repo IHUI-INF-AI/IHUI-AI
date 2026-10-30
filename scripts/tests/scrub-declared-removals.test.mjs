@@ -19,7 +19,8 @@ const HEAD = ['- [ ] G-901 在册行', '- [x] G-902 已勾在册行'].join('\n')
 
 // 维二(正文等值维)夹具:复刻 2026-10-23 现读的 G-878 型 —— 台账留的是**已勾带结清注记**那一版,
 // 滞后工作树带回的是**剥掉 ✅(日期) 与结清注记的旧形态**;两行既不同勾选态又不同正文 ⇒ 逐字比对必然对不上。
-const CLOSED = '- [x] ✅(2026-10-23) G-878 原生弹窗逐页清偿:判据重写后现读 45 处 —— **已结清**:45 处全部换成 useConfirm()'
+const CLOSED =
+  '- [x] ✅(2026-10-23) G-878 原生弹窗逐页清偿:判据重写后现读 45 处 —— **已结清**:45 处全部换成 useConfirm()'
 const RESURFACED = '- [ ] G-878 原生弹窗逐页清偿:判据重写后现读 45 处'
 const REWRITTEN = '- [ ] G-878 原生弹窗逐页清偿:判据重写后现读 45 处(题面已被别人改写)'
 const HEAD_LIVE = '- [ ] G-878 原生弹窗逐页清偿:判据重写后现读 45 处(别人本轮在册的另一版)'
@@ -28,7 +29,8 @@ describe('维六:未勾形态的"装饰改写回潮"(2026-10-29 立)', () => {
   // 真例复刻:台账存的是被摘那一刻的未勾原文;带回时被收编器加了 `〔归:…〕` 表头 ⇒ 维一逐字不中,
   // 而维二/维四只吃已勾形态。实测两形态的 compositeKeyOf 相等、正文一方是另一方的前缀。
   const OPEN = '- [ ] G-903 腾讯云短信第二通道已接线:处于未配置态,应用与凭据均已核实'
-  const BACK = '- [ ] 〔归:机主短信资质面〕 G-903 腾讯云短信第二通道已接线:处于未配置态,应用与凭据均已核实(后加的尾巴)'
+  const BACK =
+    '- [ ] 〔归:机主短信资质面〕 G-903 腾讯云短信第二通道已接线:处于未配置态,应用与凭据均已核实(后加的尾巴)'
   const OTHER = '- [ ] G-903 腾讯云短信第二通道已接线:完全另一套正文,与台账那条毫无关系'
   const d = (rows) => buildDeclared(rows)
 
@@ -42,20 +44,30 @@ describe('维六:未勾形态的"装饰改写回潮"(2026-10-29 立)', () => {
     const headLive = '- [ ] G-903 腾讯云短信第二通道已接线:处于未配置态,应用与凭据均已核实(在册版)'
     const r = scrub(BACK, headLive, d([OPEN]))
     assert.equal(r.dropped.length, 0)
-    assert.ok(r.held.some((h) => String(h.why).includes('HEAD 面仍有同主键行')), '必须点名让路原因')
+    assert.ok(
+      r.held.some((h) => String(h.why).includes('HEAD 面仍有同主键行')),
+      '必须点名让路原因',
+    )
   })
 
   it('反证二:带认领牌 ⇒ 不剔(在干活的席位一律让路)', () => {
-    const claimed = '- [ ] 〔归:机主短信资质面〕（进行中@2026-10-29/某席） G-903 腾讯云短信第二通道已接线:处于未配置态,应用与凭据均已核实(后加的尾巴)'
+    const claimed =
+      '- [ ] 〔归:机主短信资质面〕（进行中@2026-10-29/某席） G-903 腾讯云短信第二通道已接线:处于未配置态,应用与凭据均已核实(后加的尾巴)'
     const r = scrub(claimed, '', d([OPEN]))
     assert.equal(r.dropped.length, 0)
-    assert.ok(r.held.some((h) => String(h.why).includes('认领牌')), '必须点名"席位在飞"')
+    assert.ok(
+      r.held.some((h) => String(h.why).includes('认领牌')),
+      '必须点名"席位在飞"',
+    )
   })
 
   it('反证三:同主键但正文完全不是一回事(实测 D03 型:只共享 16 字)⇒ 不剔,交人工', () => {
     const r = scrub(OTHER, '', d([OPEN]))
     assert.equal(r.dropped.length, 0, '同键不同事不得按"回潮"删掉')
-    assert.ok(r.held.some((h) => String(h.why).includes('正文不等')), '必须点名让路原因')
+    assert.ok(
+      r.held.some((h) => String(h.why).includes('正文不等')),
+      '必须点名让路原因',
+    )
   })
 
   it('反证四:台账里没有该主键的未勾形态 ⇒ 这一维不动手(输入是台账,不是"长得像旧的")', () => {
@@ -115,7 +127,14 @@ describe('scrub-declared-removals 判据(单源 import,不在本文件复算)', 
     const dir = mkScratch('scrub-mirror')
     try {
       const abs = path.join(dir, 'led.jsonl')
-      writeFileSync(abs, JSON.stringify({ rowBefore: ROW }) + '\n' + JSON.stringify({ title: ROW }) + '\n坏的 JSON\n', 'utf8')
+      writeFileSync(
+        abs,
+        JSON.stringify({ rowBefore: ROW }) +
+          '\n' +
+          JSON.stringify({ title: ROW }) +
+          '\n坏的 JSON\n',
+        'utf8',
+      )
       const d = declaredRows(dir, ['led.jsonl'])
       assert.equal(d.set.size, 1, `实收 ${d.set.size}`)
       assert.equal(d.malformed, 1, `坏行计数 ${d.malformed}`)
@@ -153,7 +172,11 @@ describe('维二:正文等值(2026-10-23 补,治"已结清票以未勾形态复�
     assert.equal(r.dropped.length, 1)
     assert.equal(r.text.includes('G-878'), false)
     assert.match(String(r.via.get(RESURFACED)), /^body:/, '必须记为正文维命中')
-    assert.equal(HEAD.split('\n').some((l) => compositeKeyOf(l) === compositeKeyOf(RESURFACED)), false, '前提:HEAD 无同主键行')
+    assert.equal(
+      HEAD.split('\n').some((l) => compositeKeyOf(l) === compositeKeyOf(RESURFACED)),
+      false,
+      '前提:HEAD 无同主键行',
+    )
     assert.equal(r.text.includes('G-903'), true, '本轮真新增行一字不动')
   })
 
@@ -180,12 +203,20 @@ describe('维二:正文等值(2026-10-23 补,治"已结清票以未勾形态复�
     assert.equal(d.closed.size, 0, '维二的输入面必须仍然为空(未勾形态一条都不许进 closed)')
     const r = scrub(`${HEAD}\n${RESURFACED}`, HEAD, d)
     assert.equal(r.dropped.length, 1, '维六(2026-10-29 立)负责这一格')
-    assert.match(String(r.via.get(r.dropped[0])), /^open:/, '归因必须是 open 桶,不许伪装成维二 body')
+    assert.match(
+      String(r.via.get(r.dropped[0])),
+      /^open:/,
+      '归因必须是 open 桶,不许伪装成维二 body',
+    )
   })
 
   it('(c4) 台账未收的编号 / 散文行 ⇒ 维二一条不碰', () => {
     const d = buildDeclared([CLOSED])
-    const r = scrub(`${HEAD}\n- [ ] G-899 台账没声明过的行\n说明 G-878 原生弹窗逐页清偿:判据重写后现读 45 处`, HEAD, d)
+    const r = scrub(
+      `${HEAD}\n- [ ] G-899 台账没声明过的行\n说明 G-878 原生弹窗逐页清偿:判据重写后现读 45 处`,
+      HEAD,
+      d,
+    )
     assert.equal(r.dropped.length, 0)
   })
 
@@ -234,16 +265,25 @@ describe('维二:正文等值(2026-10-23 补,治"已结清票以未勾形态复�
 
   it('形状锁:形态解析必须 import 单源,本器不得再写一份"什么算登记行正文"', () => {
     const src = readSource()
-    assert.match(src, /import \{ bodyOfRow, claimMarkOf, compositeKeyOf, parseTaskRows \} from '\.\/lib\/plan-task-index\.mjs'/)
+    assert.match(
+      src,
+      /import \{ bodyOfRow, claimMarkOf, compositeKeyOf, parseTaskRows \} from '\.\/lib\/plan-task-index\.mjs'/,
+    )
     assert.match(src, /export function rowStateOf\(line\)[\s\S]{0,200}parseTaskRows\(/)
     assert.match(src, /export function buildDeclared\(/, '维二输入的唯一构造出口必须在位')
-    assert.ok(typeof scrubTool.buildDeclared === 'function' && typeof scrubTool.rowStateOf === 'function')
+    assert.ok(
+      typeof scrubTool.buildDeclared === 'function' && typeof scrubTool.rowStateOf === 'function',
+    )
   })
 
   it('题面前缀维:f11-purge 声明的同题行让号/改号后仍剔', () => {
     const base = '- [ ] G-63 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证'
     const variant = '- [ ] G-87 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证'
-    const declared = { set: new Set([base]), closed: new Map(), dropTitleFps: new Set([titleFpOf(base)]) }
+    const declared = {
+      set: new Set([base]),
+      closed: new Map(),
+      dropTitleFps: new Set([titleFpOf(base)]),
+    }
     const r = scrub(`${HEAD}\n${variant}`, HEAD, declared)
     assert.equal(r.dropped.length, 1)
     assert.equal(r.via.get(variant), 'title')
@@ -252,7 +292,11 @@ describe('维二:正文等值(2026-10-23 补,治"已结清票以未勾形态复�
   it('题面前缀维反证:HEAD 仍有同题键 ⇒ 不剔', () => {
     const base = '- [ ] G-63 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证'
     const variant = '- [ ] G-87 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证'
-    const declared = { set: new Set([base]), closed: new Map(), dropTitleFps: new Set([titleFpOf(base)]) }
+    const declared = {
+      set: new Set([base]),
+      closed: new Map(),
+      dropTitleFps: new Set([titleFpOf(base)]),
+    }
     const r = scrub(`${HEAD}\n${variant}`, `${HEAD}\n${variant}`, declared)
     assert.equal(r.dropped.length, 0)
   })
@@ -307,7 +351,11 @@ describe('维二:正文等值(2026-10-23 补,治"已结清票以未勾形态复�
         path.join(dir, '.ihui-agent', 'state', 'drop.jsonl'),
         [
           JSON.stringify({ rowBefore: f11, kind: 'f11-purge', at: '2026-10-25T00:00:00.000Z' }),
-          JSON.stringify({ rowBefore: other, kind: 'stale-closed-sweep', at: '2026-10-25T00:00:00.000Z' }),
+          JSON.stringify({
+            rowBefore: other,
+            kind: 'stale-closed-sweep',
+            at: '2026-10-25T00:00:00.000Z',
+          }),
         ].join('\n') + '\n',
         'utf8',
       )
@@ -331,35 +379,46 @@ function writeLedgerFixture(dir, rowText) {
 
 /** 读本器源码(形状锁用):按 import.meta.url 定位,不吃 cwd(§15 ROOT 由脚本自身位置推导)。 */
 function readSource() {
-  return readFileSync(fileURLToPath(new URL('../scrub-declared-removals.mjs', import.meta.url)), 'utf8')
+  return readFileSync(
+    fileURLToPath(new URL('../scrub-declared-removals.mjs', import.meta.url)),
+    'utf8',
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-  it('结清行被扫掉(stale-closed-sweep,前像已勾)⇒ 必须进维三;同 kind 的未勾前像仍不进', () => {
-    const dir = mkScratch('declared-sweep-done-')
-    try {
-      mkdirSync(path.join(dir, '.ihui-agent', 'state'), { recursive: true })
-      const closed = '- [x] ✅(2026-10-22) G-65 已结清的票要一直结着'
-      const open = '- [ ] G-66 还没结清的票不许被豁免'
-      writeFileSync(
-        path.join(dir, '.ihui-agent', 'state', 'drop.jsonl'),
-        [
-          JSON.stringify({ rowBefore: closed, kind: 'stale-closed-sweep', at: '2026-10-22T00:00:00.000Z' }),
-          JSON.stringify({ rowBefore: open, kind: 'stale-closed-sweep', at: '2026-10-22T00:00:00.000Z' }),
-        ].join('\n') + '\n',
-        'utf8',
-      )
-      const d = declaredRows(dir, ['.ihui-agent/state/drop.jsonl'])
-      assert.ok(
-        d.dropTitleFps.has(titleFpOf(closed)),
-        '前像已勾 ⇒ 属"声明为删除"凭据;缺这一维时 stale-closed-sweep(现读 1842 条)写的已勾前像两维都命中不了,扫掉的行会被无限回捞(实测 24h 834 次)',
-      )
-      assert.equal(
-        d.dropTitleFps.has(titleFpOf(open)),
-        false,
-        '前像未勾 ⇒ 照旧不进维三(否则"没结清"能被写成"已处置")',
-      )
-    } finally {
-      rmScratch(dir)
-    }
-  })
+it('结清行被扫掉(stale-closed-sweep,前像已勾)⇒ 必须进维三;同 kind 的未勾前像仍不进', () => {
+  const dir = mkScratch('declared-sweep-done-')
+  try {
+    mkdirSync(path.join(dir, '.ihui-agent', 'state'), { recursive: true })
+    const closed = '- [x] ✅(2026-10-22) G-65 已结清的票要一直结着'
+    const open = '- [ ] G-66 还没结清的票不许被豁免'
+    writeFileSync(
+      path.join(dir, '.ihui-agent', 'state', 'drop.jsonl'),
+      [
+        JSON.stringify({
+          rowBefore: closed,
+          kind: 'stale-closed-sweep',
+          at: '2026-10-22T00:00:00.000Z',
+        }),
+        JSON.stringify({
+          rowBefore: open,
+          kind: 'stale-closed-sweep',
+          at: '2026-10-22T00:00:00.000Z',
+        }),
+      ].join('\n') + '\n',
+      'utf8',
+    )
+    const d = declaredRows(dir, ['.ihui-agent/state/drop.jsonl'])
+    assert.ok(
+      d.dropTitleFps.has(titleFpOf(closed)),
+      '前像已勾 ⇒ 属"声明为删除"凭据;缺这一维时 stale-closed-sweep(现读 1842 条)写的已勾前像两维都命中不了,扫掉的行会被无限回捞(实测 24h 834 次)',
+    )
+    assert.equal(
+      d.dropTitleFps.has(titleFpOf(open)),
+      false,
+      '前像未勾 ⇒ 照旧不进维三(否则"没结清"能被写成"已处置")',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
