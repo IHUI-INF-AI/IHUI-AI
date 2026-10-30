@@ -19,11 +19,11 @@ import {
   FileDiff,
   FileX2,
 } from 'lucide-react'
-import { getArtifactToken } from '@ihui/api-client'
-import { fetchApi, fetchRaw } from '@/lib/api'
+import { getArtifactToken, fetchMediaDownload } from '@ihui/api-client'
+import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 // CSP img-src 收窄后,图片必须走同源代理 /api/media/image 渲染;下载走 /api/media/download
-import { toMediaImageUrl, toMediaDownloadUrl, toMediaStreamUrl } from '@/lib/media-proxy'
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
@@ -677,14 +677,11 @@ function ImageResultBlock({
       setTimeout(() => setSaved(false), 2000)
     }
     try {
-      const { token } = useAuthStore.getState()
-      const res = await fetch(toMediaDownloadUrl(imageUrl), {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (res.ok) {
-        saveBlob(await res.blob())
-        return
-      }
+      // 同源代理(主路径):走共享层 @ihui/api-client.fetchMediaDownload(自动带 Bearer / 30s 超时 /
+      // 401 续期),满足「端内必须走 @ihui/api-client」守门 73,不再被端内直连后端判据命中。
+      const blob = await fetchMediaDownload(imageUrl)
+      saveBlob(blob)
+      return
     } catch {
       /* 代理不可用,走回退 */
     }
@@ -898,10 +895,10 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
       setTimeout(() => setSaved(false), 2000)
     }
     try {
-      // ① 同源代理(主路径)。走共享层 fetchRaw(自动带 Bearer / X-Requested-With /
-      //    设备指纹 / 30s 超时 / 401 续期),替代裸 fetch —— 满足「端内必须走
+      // ① 同源代理(主路径)。走共享层 @ihui/api-client.fetchMediaDownload(自动带 Bearer /
+      //    X-Requested-With / 设备指纹 / 30s 超时 / 401 续期),满足「端内必须走
       //    @ihui/api-client」守门 73,不再被端内直连后端判据命中。
-      const blob = await fetchRaw(`/api/media/download?url=${encodeURIComponent(videoUrl)}`)
+      const blob = await fetchMediaDownload(videoUrl)
       saveBlob(blob)
       return
     } catch {
