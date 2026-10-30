@@ -158,6 +158,25 @@ export function localModuleRels(pageRel, pageText) {
   return [...out]
 }
 
+/**
+ * 页面同名的页面配置:`pages/study/plan.tsx` → `pages/study/plan.config.ts`。
+ * 小程序的页面标题只能写在 config 的 navigationBarTitleText 里(没有 t() 可用),
+ * 所以标题类文案的载体面必须含它 —— 实测 12 个缺口键正是这样被原生导航栏承担。
+ */
+export function localConfigRel(pageRel) {
+  const rel = String(pageRel || '').replace(/\\/g, '/')
+  const slash = rel.lastIndexOf('/')
+  if (slash < 0) return null
+  const name = rel.slice(slash + 1).replace(/\.(tsx?|jsx?)$/, '')
+  return `${rel.slice(0, slash)}/${name}.config.ts`
+}
+
+/** 从页面配置正文取原生导航栏标题;取不到返回 null(判不出就不减免)。 */
+export function configTitleOf(text) {
+  const m = String(text || '').match(/navigationBarTitleText\s*:\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/)
+  return m ? m[2] : null
+}
+
 /** 词包 JSON → 扁平 key→译文。嵌套命名空间按点拼回,与 t('a.b') 的键形态一致。 */
 export function flattenPack(obj, prefix = '', out = {}) {
   for (const [k, v] of Object.entries(obj || {})) {
@@ -174,13 +193,15 @@ export function flattenPack(obj, prefix = '', out = {}) {
  * 只按 zh-CN 判:这是"这句文案在不在"的存在性证据,不是译文质量判据(五语对齐另有门 133/19)。
  * 值取不到(词包缺该键)一律不算 —— 判不出就不减免(§0.3)。
  */
-export function aliasSameKeys(sharedKeys, pageKeys, valueOfSharedKey, mpValues) {
+export function aliasSameKeys(sharedKeys, pageKeys, valueOfSharedKey, mpValues, extraValues = []) {
   if (!mpValues) return []
   const pageValues = new Set()
   for (const u of pageKeys || []) {
     const v = mpValues[u]
     if (v) pageValues.add(String(v).trim())
   }
+  // 非 t() 载体:原生导航栏标题(config)、以及调用方认定的其它页面内文案
+  for (const v of extraValues || []) if (v) pageValues.add(String(v).trim())
   const out = []
   for (const k of sharedKeys || []) {
     const v = valueOfSharedKey(k)
@@ -338,6 +359,17 @@ export function computeFidelity(face) {
   const localModulesOf = (p) =>
     (p.file ? localModuleRels(p.file, p.text) : []).map((r) => moduleTexts.get(r) || '').join('\n')
 
+  // 页面配置里的原生导航栏标题(小程序只能用 config 写标题,没有 t() 可用)
+  const configTexts = batchReadTexts(
+    face,
+    [...new Set(miniapp.map((p) => (p.file ? localConfigRel(p.file) : null)).filter(Boolean))],
+  )
+  const pageExtraValuesOf = (p) => {
+    const rel = p.file ? localConfigRel(p.file) : null
+    const title = rel ? configTitleOf(configTexts.get(rel)) : null
+    return title ? [title] : []
+  }
+
   // 壳承载要判「@rn-shells/<X> 指过去的那个壳在不在面上、引的是不是这一屏」⇒ 一次批取全部壳正文
   // (同名壳文件逐枚 faceRead 会把本门推到分钟级,慢到没人日常跑 = 等于没装车)。
   const shellRels = [
@@ -403,9 +435,13 @@ export function computeFidelity(face) {
       const aliasSame =
         form === 'hosted'
           ? []
-          : aliasSameKeys(sharedKeys, mpKeys, valueOfSharedKey, mpValues).filter(
-              (k) => !mpKeys.has(k),
-            )
+          : aliasSameKeys(
+              sharedKeys,
+              mpKeys,
+              valueOfSharedKey,
+              mpValues,
+              pageExtraValuesOf(p),
+            ).filter((k) => !mpKeys.has(k))
       const aliasSet = new Set(aliasSame)
       const missing =
         form === 'hosted' ? [] : sharedKeys.filter((k) => !mpKeys.has(k) && !aliasSet.has(k))
@@ -677,6 +713,8 @@ if (isDirectRun) {
 export const __test__ = {
   batchReadTexts,
   localModuleRels,
+  localConfigRel,
+  configTitleOf,
   flattenPack,
   aliasSameKeys,
   extractDeclaredKeys,
