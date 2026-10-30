@@ -14,7 +14,12 @@
  * 6. 转发 chrome.action.onClicked 打开 sidePanel
  */
 import { initApi, getRefreshToken, getToken, clearAllTokens } from '../lib/token'
-import { doRefresh, startAutoRefresh, scheduleRefreshAlarm } from '../lib/token-utils'
+import {
+  doRefresh,
+  installRefreshAlarmListener,
+  startAutoRefresh,
+  scheduleRefreshAlarm,
+} from '../lib/token-utils'
 import type { ExtMessage, ExtResponse, ApiProxyPayload } from '../lib/message-router'
 import { getApiBaseUrl } from '../lib/config'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
@@ -32,6 +37,11 @@ import extEn from '@ihui/i18n/messages/extension/en.json'
 import extJa from '@ihui/i18n/messages/extension/ja.json'
 import extKo from '@ihui/i18n/messages/extension/ko.json'
 import extZhTW from '@ihui/i18n/messages/extension/zh-TW.json'
+
+// SW 每次唤醒都会重跑本模块顶层 ⇒ 续期闹钟的常驻监听在这里恢复。
+// 不这样做的话,scheduleOnce 注册的监听会随上一次 SW 回收一起消失,闹钟到点无人处理
+// (成因与"为什么不能只靠 scheduleOnce"写在 token-utils 的 installRefreshAlarmListener 上)。
+installRefreshAlarmListener()
 
 const platform = createChromePlatform()
 
@@ -533,7 +543,9 @@ export default defineBackground(() => {
       }
     })
     .catch(() => {
-      console.warn('[IHUI AI] initApi failed at SW start; skip refresh scheduling, keep stored tokens')
+      console.warn(
+        '[IHUI AI] initApi failed at SW start; skip refresh scheduling, keep stored tokens',
+      )
     })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
