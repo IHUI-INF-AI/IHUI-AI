@@ -120,7 +120,12 @@ export function findVersionDrift(input) {
   // app.config.js 的 version 取 `IHUI_MOBILE_VERSION || pkg.version`,而未注入时的兜底值就是
   // apps/mobile-rn/package.json —— 它若与 app.json 的 version 漂开,包里显示的就是旧号。
   // 实测现成事故形态:package.json=0.0.6、app.json=0.0.8、README=0.0.7 三处各说一套。
-  const appJsonV = mobileAppJson?.version
+  // 2026-10-30 修:此前取的是顶层 `mobileAppJson?.version`,而真实 app.json 是
+  // `{ expo: { version } }`(Expo 的 schema 一层包裹)⇒ 左值恒 undefined ⇒ `A && B` 恒假,
+  // 判据静默失效。实测:app.json=0.0.9 而 package.json=0.0.5,本门照判 PASS。
+  // 平行的自测也按同一错误假设写(夹具用扁平 `{ version }`),两边互相"验证"了错误。
+  // 现两种形态都认(expo 包裹优先),缺一侧仍不判 —— 那是本门既有契约,不改。
+  const appJsonV = mobileAppJson?.expo?.version ?? mobileAppJson?.version
   const mobilePkgV = mobilePkg?.version
   if (appJsonV && mobilePkgV && appJsonV !== mobilePkgV) {
     v.push(
