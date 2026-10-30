@@ -2399,7 +2399,6 @@
       "deleteParam": "刪除",
       "create": "新建",
       "createSuccess": "智慧體建立成功",
-      "mockSuccess": "介面暫未開放,已模擬建立",
       "submitting": "建立中…",
       "submit": "建立智慧體",
       "fileSizeExceeded": "檔案不能超過10MB",
@@ -2435,8 +2434,7 @@
       "discountFull": "全部參與",
       "submitting": "提交中…",
       "submit": "提交審核",
-      "submitSuccess": "提交成功",
-      "mockSuccess": "介面暫未開放,已模擬提交"
+      "mockSuccess": "介面暫未開放,未提交"
     }
   },
   "devSpace": {
@@ -4570,8 +4568,7 @@
     "q3": "運營部",
     "q4": "市場部",
     "q5": "銷售部",
-    "q6": "載入智能體",
-    "q7": "提交收費配置"
+    "q6": "載入智能體"
   },
   "modelplaza": {
     "r1": "阿里雲",
@@ -4697,6 +4694,7 @@
   "utilsMiniapplogin": {
     "q1": "請在小程式中使用本登入",
     "q2": "登入授權碼為空",
+    "alipayUnsupported": "支付寶登入尚未開通,請改以手機號碼登入",
     "p1": "用戶",
     "alipayUser": "支付寶"
   },
