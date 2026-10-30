@@ -37,8 +37,15 @@ test('B1 壳只有具名导出 ⇒ 产出具名取用(默认导入会让运行�
     shellText: 'export function DashboardScreen() {}\n',
   })
   assert.equal(typeof out, 'string')
-  assert.match(out, /import \{ DashboardScreen as DashboardScreenShell \} from '@rn-shells\/DashboardScreen'/)
-  assert.equal(/^import DashboardScreenShell from/m.test(out), false, '壳没有默认导出时不得再写默认导入')
+  assert.match(
+    out,
+    /import \{ DashboardScreen as DashboardScreenShell \} from '@rn-shells\/DashboardScreen'/,
+  )
+  assert.equal(
+    /^import DashboardScreenShell from/m.test(out),
+    false,
+    '壳没有默认导出时不得再写默认导入',
+  )
   assert.match(out, /<DashboardScreenShell \/>/, 'JSX 必须引用实际绑定到的那个名字')
 })
 
@@ -75,7 +82,11 @@ test('B4 接线:承载体选择在射程内、判据是"真的以 JSX 渲染"、
   )
   assert.match(SRC, /shellText: rnMap\.get\(shellRel\)/, '壳文必须来自现读面,不许留空串默认值')
   assert.match(SRC, /from '\.\/lib\/rn-shell-refs\.mjs'/, '导出形态判据不得在本器里再写一份')
-  assert.equal(/function shellExportShapeOf\s*\(/.test(SRC), false, '本器不得自带第二份壳出口形态判据')
+  assert.equal(
+    /function shellExportShapeOf\s*\(/.test(SRC),
+    false,
+    '本器不得自带第二份壳出口形态判据',
+  )
 })
 
 /**
@@ -97,15 +108,28 @@ test('B5 判过「不承载」的屏不许被重造;没有判决时不走这一�
     closureCache: new Map(),
     taroCfgText: '',
   }
-  const r = planGeneration(REPO, { screenRel: spec, form: 'shell' }, {
-    ...base,
-    verdicts: new Map([[spec, { shared: spec, verdict: 'not-applicable', evidence: '机主定档:端上不该有登录页' }]]),
-  })
-  assert.equal(r.kind, 'refuse')
+  const r = planGeneration(
+    REPO,
+    { screenRel: spec, form: 'shell' },
+    {
+      ...base,
+      verdicts: new Map([
+        [spec, { shared: spec, verdict: 'not-applicable', evidence: '机主定档:端上不该有登录页' }],
+      ]),
+    },
+  )
+  // 现行契约(2026-10-30 重锚):台账裁过「不承载」是一枚**终态**,不是拒绝生成的通用 refuse ⇒
+  // 消费方按 kind==='not-applicable' 归进"已判不承载 N 枚"计数(gen-miniapp-mirror.mjs:1316/:1399)。
+  // 断言的两件事不变:① 这一屏不得被造出来;② 拒绝理由必须把台账证据带出来,人才复核得了。
+  assert.equal(r.kind, 'not-applicable')
   assert.match(r.why, /不承载/)
   assert.match(r.why, /机主定档/, '拒绝理由必须把台账里的证据带出来,人才复核得了')
 
-  const r2 = planGeneration(REPO, { screenRel: spec, form: 'shell' }, { ...base, verdicts: new Map() })
+  const r2 = planGeneration(
+    REPO,
+    { screenRel: spec, form: 'shell' },
+    { ...base, verdicts: new Map() },
+  )
   assert.doesNotMatch(String(r2.why ?? ''), /不承载/, '无判决时不许凭空拒这一支')
 })
 
@@ -120,7 +144,9 @@ const canon = (o) => `${JSON.stringify(o, null, 2)}\n`
 
 test('M1 并键档:新增顶层标量键并入,既有值一律不动', () => {
   const text = canon({ profile: { title: '既有标题', keep: 1 } })
-  const r = G.mergeJsonMembers(text, [{ ns: 'profile', obj: { title: '新标题会被忽略', addedKey: '新值' } }])
+  const r = G.mergeJsonMembers(text, [
+    { ns: 'profile', obj: { title: '新标题会被忽略', addedKey: '新值' } },
+  ])
   assert.equal(r.ok, true, r.why)
   const out = JSON.parse(r.text)
   assert.equal(out.profile.title, '既有标题', '既有键不许被覆盖')
@@ -129,7 +155,9 @@ test('M1 并键档:新增顶层标量键并入,既有值一律不动', () => {
 
 test('M2 并键档:新增嵌套子树(旧档正是卡死在这一支)⇒ 现在并入且仍可解析', () => {
   const text = canon({ profile: { home: { existing: 'a' } } })
-  const r = G.mergeJsonMembers(text, [{ ns: 'profile', obj: { home: { existing: 'b', fresh: { deep: 'v' } } } }])
+  const r = G.mergeJsonMembers(text, [
+    { ns: 'profile', obj: { home: { existing: 'b', fresh: { deep: 'v' } } } },
+  ])
   assert.equal(r.ok, true, `不该再因"嵌套不并"而拒:${r.why}`)
   const out = JSON.parse(r.text)
   assert.equal(out.profile.home.existing, 'a', '既有叶子不许被覆盖')
@@ -138,7 +166,9 @@ test('M2 并键档:新增嵌套子树(旧档正是卡死在这一支)⇒ 现在�
 
 test('M3 反向对照:同路径类型打架仍拒,并把键路径点名', () => {
   const text = canon({ profile: { banner: '我是字符串' } })
-  const r = G.mergeJsonMembers(text, [{ ns: 'profile', obj: { banner: { title: '我要变成对象' } } }])
+  const r = G.mergeJsonMembers(text, [
+    { ns: 'profile', obj: { banner: { title: '我要变成对象' } } },
+  ])
   assert.equal(r.ok, false, '类型打架必须拒,不能静默覆盖')
   assert.match(r.why, /profile\.banner/, '拒写要能指出是哪一条路径打架')
 })
@@ -149,7 +179,11 @@ test('M4 幂等与形态闸:键全在册⇒内容不变;非 canonical 输入⇒�
   assert.equal(idem.ok, true)
   assert.equal(idem.text, text, '幂等档必须逐字节不改写')
   const notCanon = '{ "profile": { "a": 1 } }'
-  assert.equal(G.mergeJsonMembers(notCanon, [{ ns: 'profile', obj: { b: 2 } }]).ok, false, '非 canonical 形态重渲染会排他人文件,须拒')
+  assert.equal(
+    G.mergeJsonMembers(notCanon, [{ ns: 'profile', obj: { b: 2 } }]).ok,
+    false,
+    '非 canonical 形态重渲染会排他人文件,须拒',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -160,7 +194,11 @@ test('B5 页已落判据:只有「文件在 ∧ 路由在册」才算真落地',
     'plan',
     '页在而路由没进 app.config = 旧轮次半落地,必须继续补接缝(2026-10-27 实测 5 枚)',
   )
-  assert.equal(G.pageSeamVerdict({ pageOnDisk: false, routeRegistered: true }), 'plan', '路由在册但文件没了 ⇒ 重新造页')
+  assert.equal(
+    G.pageSeamVerdict({ pageOnDisk: false, routeRegistered: true }),
+    'plan',
+    '路由在册但文件没了 ⇒ 重新造页',
+  )
   assert.equal(G.pageSeamVerdict({ pageOnDisk: false, routeRegistered: false }), 'plan')
 })
 
@@ -176,7 +214,6 @@ test('B6 接线锁:planGeneration 必须走同一判据,不得回退成「文件
     '无条件跳过那版让「页在而链路不通」的 5 枚页永远补不上接缝',
   )
 })
-
 
 test('B7 承载体判据只认「具名导入的本地绑定出现在 JSX」,不认「文件里出现过这个名字」', () => {
   // 正例:平台侧薄壳给共享屏起别名,再用别名渲染
@@ -223,9 +260,12 @@ test('B8 不同名承载体:页面按壳名取用,并用壳的真导出形态', 
   assert.equal(typeof out, 'string', '不同名承载体必须能产出页面')
   assert.match(out, /import \{ PlanScreen as PlanScreenShell \} from '@rn-shells\/PlanScreen'/)
   assert.match(out, /<PlanScreenShell \/>/)
-  assert.match(out, /RN 壳 apps\/mobile-rn\/src\/screens\/PlanScreen\.tsx/, '头注要写真实承载体文件,不写被承载屏的名字')
+  assert.match(
+    out,
+    /RN 壳 apps\/mobile-rn\/src\/screens\/PlanScreen\.tsx/,
+    '头注要写真实承载体文件,不写被承载屏的名字',
+  )
 })
-
 
 test('B9 路由占用:同 kebab 路径的页不镜像本屏 ⇒ 改道镜像分包,不判"已落"', () => {
   // 2026-10-27 实测:FavoritesScreen / PublishScreen 都有 RN 承载方,却因 pkg-user/favorites 与
@@ -238,4 +278,3 @@ test('B9 路由占用:同 kebab 路径的页不镜像本屏 ⇒ 改道镜像分�
   )
   assert.match(SRC, /不产重名路由/, '镜像分包也占满时必须拒造并点名,不得产重名路由')
 })
-
