@@ -248,7 +248,8 @@ _REGISTRY: list[FreeProvider] = [
         signup_url="https://agnes-ai.com",
         free_quota="plan 套餐(已配置)",
         rate_limit="无限制(plan 套餐)",
-        # 2026-10-10:境外 apihub.agnes-ai.com 不可达,切国内域名(A/B 实测 200/401)
+        # 2026-10-10:切国内域名(A/B 实测 200/401)。2026-10-30 复测:apihub.agnes-ai.{cn,com}
+        # 当日直连均 200,但只认旧 key —— 域名与 key 按账号成对绑定,拆开必然 401。
         default_base_url="https://api.agnes-ai.cn/v1",
         key_env_vars=["AGNES_API_KEY"],
         # 2026-08-02 修复:agnes 是自有模型平台(非 OpenAI 中转),

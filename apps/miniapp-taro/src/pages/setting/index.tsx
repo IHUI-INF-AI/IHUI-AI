@@ -16,8 +16,6 @@ import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { RowsSection, NotificationSection, PasswordModal, type SettingRow } from './parts'
 
-const VERSION = '1.0.0'
-
 export default function SettingIndexPage() {
   const { t } = useI18n()
   const gate = useAuthReadyGate()
@@ -25,6 +23,11 @@ export default function SettingIndexPage() {
   // 资料是否真的取到:未登录 / 取失败时不渲染用户卡(与 RN 侧 `user && onEditProfile` 同判)
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [pwdVisible, setPwdVisible] = useState(false)
+  /* 版本号取端上真实来源(与「关于我们」页 api/index.ts getAboutInfo 同一口径):
+     `miniProgram.version` 只有线上版非空,开发/体验版为空串 ⇒ 空串时整行不渲染,
+     对齐 RN 侧 `appVersion ? <Text>{t('settings.version')} {appVersion}</Text> : null`。
+     此处此前写死 '1.0.0' —— 屏上那个数字与任何构建都没有关系,是编出来的。 */
+  const appVersion = Taro.getAccountInfoSync?.()?.miniProgram?.version ?? ''
 
   // 本地 fallback:t(key) 未命中时返回 fb,保证页面可用(主 agent 补 i18n key 后自动切换)
   const tt = useCallback(
@@ -196,10 +199,13 @@ export default function SettingIndexPage() {
           {t('profile.logout')}
         </Button>
 
-        {/* versionText 对齐 RN: 独立居中行 + 12dp→24rpx + text.tertiary + marginTop 4dp→8rpx */}
-        <Text className="mt-[8rpx] block text-center text-[length:24rpx] text-[color:var(--color-text-tertiary)]">
-          {t('settings.version')} {VERSION}
-        </Text>
+        {/* versionText 对齐 RN: 独立居中行 + 12dp→24rpx + text.tertiary + marginTop 4dp→8rpx;
+            且同 RN 的 `appVersion ? … : null` —— 拿不到真实版本号时这一行不出现 */}
+        {appVersion ? (
+          <Text className="mt-[8rpx] block text-center text-[length:24rpx] text-[color:var(--color-text-tertiary)]">
+            {t('settings.version')} {appVersion}
+          </Text>
+        ) : null}
 
         {/* 修改密码弹层:对齐 RN 共享屏内置 Modal(三输入 + 校验 + 成败提示) */}
         <PasswordModal visible={pwdVisible} onClose={() => setPwdVisible(false)} />

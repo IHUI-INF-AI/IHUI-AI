@@ -46,6 +46,18 @@ export default function CompareTable() {
 
   const cell = 'flex-1 py-[20rpx] px-[16rpx] text-center text-muted-foreground text-[length:22rpx]'
 
+  /**
+   * /vip-compare 的 feature 值 = vip_levels.benefits 里的机器键(生产现读形如
+   * ["unlimitedChat",…],vip.ts:240-247 原样透出)。译名复用端内同一张表
+   * `vip.benefitList.*`(与 api/index.ts getVipPrivilege 的口径逐字同源);
+   * 未登记译名的键原样透出(§19:不在代码层拼中文),不新造文案键。
+   */
+  const featureLabel = (k: string) => {
+    const key = `vip.benefitList.${k}`
+    const v = t(key)
+    return v === key ? k : v
+  }
+
   let body = null
   if (error) {
     body = (
@@ -82,7 +94,7 @@ export default function CompareTable() {
             className={`flex items-stretch ${idx % 2 === 1 ? 'bg-muted' : ''}`}
           >
             <Text className="flex-[1.2] py-[20rpx] px-[16rpx] text-left text-foreground font-semibold text-[length:22rpx]">
-              {row.feature}
+              {featureLabel(row.feature)}
             </Text>
             <Text className={cell}>{row.basic}</Text>
             <Text className={cell}>{row.premium}</Text>

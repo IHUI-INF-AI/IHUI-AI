@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/vip-trader/VipTraderScreen.tsx
-import { useI18n, t } from '@/i18n'
+import { useI18n, useTt, t } from '@/i18n'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -11,7 +11,7 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
-import { TraderHero, TraderEntries, BenefitsHead } from './trader-sections'
+import { TraderHero, TraderEntries, BenefitsHead, isLifetimeDuration } from './trader-sections'
 import './index.css'
 
 // (2026-10-26 守门 8 代裁)原 `interface VipPriceData { amount: number }` 随死调用一并摘除:
@@ -25,6 +25,10 @@ interface TraderProfile {
 }
 
 const DEFAULT_AMOUNT = 1999
+// 端内兜底有效期(天):同 DEFAULT_AMOUNT 口径,只在 GET /vip/levels 取不到真值时用。
+// 兜底值取种子登记的操盘手档 duration_days=30
+// (packages/database/drizzle/0037_vip_captcha.sql:60),真值到手即以服务端为准。
+const DEFAULT_DURATION_DAYS = 30
 const DEFAULT_AVATAR = '/static/default-avatar.png'
 
 const TRADER_PROFILE: TraderProfile = {
@@ -91,6 +95,12 @@ const TRADER_FEATURES = [
   {
     icon: 'lightbulb',
     key: 'free_computing_power',
+    // ⚠️ 取证@2026-10-30:后端权益面**没有这一项** —— 权益目录 apps/api/src/routes/landing.ts:376-392
+    // (15 个 benefit key)与操盘手档实值 benefits(0037_vip_captcha.sql:60,10 项)都不含算力项,
+    // 档位配额列也只有 aiBudgetDefaults/apiQps/maxConcurrency/modelWhitelist
+    // (20260728120000_vip_levels_quota_fields.sql:25-34)。此行与 heroDesc 的 {power}=1600W 同源,
+    // 是共享屏那份营销文案的镜像(VipTraderScreen.tsx:88),不是服务端权益真值;
+    // 要变成真值须先由后端立 benefit key(已写入本轮交付报告,归后端/词包席)。
     title: t('viptrader.d23'),
     desc: t('viptrader.d24'),
   },
@@ -148,14 +158,11 @@ const USER_REVIEWS = [
 
 export default function VipTraderIndexPage() {
   const { t } = useI18n()
-  const tt = useCallback(
-    (k: string, fb: string) => {
-      const v = t(k)
-      return v === k ? fb : v
-    },
-    [t],
-  )
+  // 内联 tt 改取共享出口 useTt(i18n/index.tsx:464,本文件旧内联版不收 params):
+  // 有效期那一句要用 vip.duration 的 {days},不经插值就会把占位符原样渲染到屏上。
+  const tt = useTt()
   const [amount, setAmount] = useState(DEFAULT_AMOUNT)
+  const [durationDays, setDurationDays] = useState(DEFAULT_DURATION_DAYS)
   const [introExpanded, setIntroExpanded] = useState(false)
 
   const load = useCallback(async () => {
@@ -173,8 +180,15 @@ export default function VipTraderIndexPage() {
       // 库里没有该档 / 值非正 / 请求失败 ⇒ 保留端内兜底常量 DEFAULT_AMOUNT 并如实记日志:
       // 兜底值不冒充服务端真值,失败也不静默吞掉。
       const res = await api.getVipLevels()
+      // level_value=2 在库内唯一:只有 0037 那一支种子往 vip_levels 插过数据
+      // (packages/database/drizzle/0037_vip_captcha.sql:55-60),且 level_name 已加唯一约束
+      // (packages/database/drizzle/20260921200000_vip_levels_dedupe_unique.sql)⇒ 命中即操盘手档。
+      // 同一行还带 duration_days(有效期真值),一并取,不再靠文案断言"终身"。
       const trader = (res.items || []).find((lv) => lv.levelValue === 2 && lv.price > 0)
-      if (trader) setAmount(trader.price / 100)
+      if (trader) {
+        setAmount(trader.price / 100)
+        setDurationDays(trader.durationDays)
+      }
     } catch (e) {
       logger.error('vip-trader', t('viptrader.q1'), e)
     }
@@ -182,6 +196,12 @@ export default function VipTraderIndexPage() {
 
   useDidShow(load)
 
+  // ⚠️ 取证@2026-10-30(可达性复核,非本轮键):openPopup / handleSubscribe / handleConsult 三个
+  // 出口**一个请求都不发**(函数体内无任何 api 调用),却把 toast 报成「开通成功」「订阅成功」
+  // 「已为您接通顾问」并以 icon:'success' 收口 —— 那等于把"一笔都没成"渲染成"已完成"(§30 同一条禁令,
+  // 与 pkg-ai/dev-enter/model-edit 那笔同型、已于本轮在 model-edit 侧撤掉)。真出口 =
+  // POST /api/vip/purchase(apps/api/src/routes/vip.ts:268,入参 vipLevelId+paymentMethod,需鉴权),
+  // 本屏尚未接;接通是支付链路改动(钱路径),不在本案程可达性射程内,已写入交付报告由主会话定夺。
   const openPopup = useCallback(() => {
     Taro.showModal({
       title: tt('vipTrader.openTitle', '开通会员'),
@@ -219,8 +239,9 @@ export default function VipTraderIndexPage() {
     <ThemeRoot>
       <View className="vip-trader-page">
         <ScrollView scrollY className="trader-scroll">
-          {/* 共享屏页头 + hero(title/subtitle/badge/heroDesc/lifetime,2026-10-29 还原度补齐) */}
-          <TraderHero amount={amount} />
+          {/* 共享屏页头 + hero(title/subtitle/badge/heroDesc/lifetime,2026-10-29 还原度补齐;
+              lifetime 一句 2026-10-30 改按后端 duration_days 真值出话) */}
+          <TraderHero amount={amount} durationDays={durationDays} />
 
           {/* 操盘手头部:头像 + 姓名 + 头衔 + 认证徽章 + 会员价 */}
           <View className="trader-header">
@@ -239,7 +260,9 @@ export default function VipTraderIndexPage() {
                   <Text className="trader-price">{amount}</Text>
                   <Text className="trader-price-suffix">
                     {tt('vipTrader.oncePay', '一次性支付,')}
-                    {tt('vipTrader.lifetimeUse', '终身使用')}
+                    {isLifetimeDuration(durationDays)
+                      ? tt('vipTrader.lifetimeUse', '终身使用')
+                      : tt('vip.duration', '{days} 天', { days: durationDays })}
                   </Text>
                 </View>
               </View>

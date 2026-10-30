@@ -36,6 +36,10 @@ function mapRegisterErrorKey(e: string, phone: string): { key: string; fb: strin
     return { key: 'register.incomplete', fb: t('distribution.index.fillInfo') }
   if (e === 'auth.invalidPassword')
     return { key: 'register.pwdLength', fb: t('register.pwdLength') }
+  // auth.passwordMismatch 不在小程序五语言包里 ⇒ 不映射会把裸键 "auth.passwordMismatch"
+  // 直接弹给用户;按既有跨命名空间取词口径(login.phonePlaceholder 同型)指到包内现成键。
+  if (e === 'auth.passwordMismatch')
+    return { key: 'user.password.mismatch', fb: t('user.password.mismatch') }
   return null
 }
 
@@ -72,8 +76,11 @@ export default function RegisterIndex() {
       try {
         await register({ phone: v.phone.trim(), code: v.code.trim(), password: v.password })
         return { success: true }
-      } catch {
-        return { success: false, error: '' }
+      } catch (e) {
+        // error 置空串会把 '' 写进 form.error ⇒ falsy ⇒ 本页 effect 直接 return ⇒ 注册失败
+        // 按钮"没反应"。透传后端真实错误文案(t() 对词典外键原样返回),取不到再落通用失败键。
+        const msg = e instanceof Error ? e.message.trim() : ''
+        return { success: false, error: msg || 'common.failed' }
       }
     },
     sendCodeApi: async (v: RegisterFormValues): Promise<SendCodeApiResult> => {

@@ -8,6 +8,7 @@ import { View, Text, Image, ScrollView, Video } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAigcList } from '@/api'
+import { formatDate } from '@/utils/time'
 import './list.css'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
@@ -23,7 +24,6 @@ interface AigcItem {
   fileUrl: string
   fileType: number
   content: string
-  context: string
   prompt: string
   time: string
   likes: number
@@ -48,19 +48,40 @@ function asNumber(v: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback
 }
 
+/** 后端 aiGcContent.gcType → 本页 fileType 的映射(0=图片 1=视频 3=音频 4=文本) */
+const GC_TYPE_TO_FILE_TYPE: Record<string, number> = { image: 0, video: 1, audio: 3, text: 4 }
+
+/**
+ * /content/aigc/list 直出 aiGcContent 原始列(content-extended.ts:385),顶层没有
+ * fileType/title/coverUrl —— 作品元信息住在 content 列的 JSON 串里(落库形见
+ * miniapp-compat-routes.ts /aigc/publish:{title,subtitle,coverUrl,fileUrl,problem})。
+ * 旧实现按 raw['fileType']/raw['title'] 取值,那些键在响应里根本不存在 ⇒ 全部素材卡
+ * 恒走「未命名作品」、文本/音频/视频分支永不渲染;这里按真实列面摊平。
+ */
 function normalizeItem(raw: Record<string, unknown>): AigcItem {
   const id = raw['id'] as string | number | undefined
+  const gcType = asString(raw['gcType'])
+  let meta: Record<string, unknown> | null = null
+  try {
+    const parsed = JSON.parse(asString(raw['content'])) as unknown
+    if (parsed && typeof parsed === 'object') meta = parsed as Record<string, unknown>
+  } catch {
+    // content 非 JSON:老式 POST /content/aigc 自由文本入库形,文本档时正文即原文
+  }
   return {
     id: id ?? Math.random().toString(36).slice(2),
-    title: asString(raw['title']) || asString(raw['subtitle']),
+    title: meta ? asString(meta['title']) || asString(meta['subtitle']) : '',
     author: asString(raw['author']) || asString(raw['nickname']),
-    coverUrl: asString(raw['coverUrl']) || asString(raw['fileUrl']),
-    fileUrl: asString(raw['fileUrl']),
-    fileType: asNumber(raw['fileType'] ?? raw['file_type'], 0),
-    content: asString(raw['content']) || asString(raw['field1']),
-    context: asString(raw['context']) || asString(raw['field2']),
-    prompt: asString(raw['prompt']) || asString(raw['field3']),
-    time: asString(raw['time']) || asString(raw['createTime']) || asString(raw['createdAt']),
+    coverUrl: meta ? asString(meta['coverUrl']) || asString(meta['fileUrl']) : '',
+    fileUrl: meta ? asString(meta['fileUrl']) : '',
+    fileType: GC_TYPE_TO_FILE_TYPE[gcType] ?? 0,
+    // 文本档正文 = meta.problem(发布页文本档把正文写进 problem 槽);非 JSON 的老行退回原文
+    content: gcType === 'text' ? (meta ? asString(meta['problem']) : asString(raw['content'])) : '',
+    // 对齐 RN AigcListScreen textCard 的 prompt 行:共享屏用 item.prompt 单独承载用户提示词。
+    // 后端文本档正文落 problem 槽、无独立提示词列 ⇒ 当前 meta 无 prompt 键,该行恒不渲染;
+    // 一旦后端补回提示词即可与 RN 同构自然呈现。
+    prompt: meta ? asString(meta['prompt']) : '',
+    time: asString(raw['createdAt']) || asString(raw['created_at']),
     likes: asNumber(raw['likes'], 0),
     duration: asNumber(raw['duration'], 0),
   }
@@ -336,18 +357,24 @@ export default function AigcList() {
           <View className="media-grid">{grouped.imageVideo.map(renderImageVideoCard)}</View>
         ) : (
           <View className="list-layout">
-            {/* 文本卡片(对齐 RN textCard):card-header(标题+时间) + prompt(提示词) + 正文 */}
+            {/* 文本卡片(对齐 RN textCard):card-header(标题+时间) + 提示词(promptLabel) + 正文;
+                对齐 RN promptText 行:仅当 item.prompt 有值才渲染(后端文本档正文落 problem 槽、
+                暂无独立提示词列 ⇒ 当前 prompt 恒空、该行不显;后端补回提示词即同构呈现) */}
             {grouped.text.map((item) => (
               <View key={String(item.id)} className="aigc-text-card">
                 <View className="card-header">
                   <Text className="card-title">
                     {item.title || tt('aigc.list.untitled', '文本内容')}
                   </Text>
-                  {item.time ? <Text className="card-time">{item.time}</Text> : null}
+                  {/* 后端 createdAt 是 ISO 串,上屏前必须折成日期(禁裸 ISO) */}
+                  {item.time ? (
+                    <Text className="card-time">{formatDate(item.time, 'YYYY-MM-DD')}</Text>
+                  ) : null}
                 </View>
-                {item.context ? (
-                  <Text className="prompt-text">
-                    {tt('aigcList.promptLabel', '提示词:')} {item.context}
+                {/* 对齐 RN textCard promptText:标签 + 提示词本体,仅在有提示词时呈现 */}
+                {item.prompt ? (
+                  <Text className="mt-[8rpx] text-[length:28rpx] text-[color:var(--color-primary)]">
+                    {t('aigcList.promptLabel')} {item.prompt}
                   </Text>
                 ) : null}
                 {item.content ? <Text className="content-text">{item.content}</Text> : null}

@@ -6,7 +6,7 @@
 import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useSocialList } from '@/hooks/use-social-list'
@@ -23,17 +23,13 @@ import { CATEGORY_TABS, tabLabel, type CategoryTab } from './tabs'
 
 const PAGE_SIZE = 20
 
-// 跳转路由映射
-// 前三档原先都多写一截 `/index`(如 /pkg-learn/course/detail/index),而 app.config 在册的
-// 是 `pkg-learn` 分包的 `course/detail` ⇒ 目标不存在,点任意一条收藏只弹"暂未支持跳转"。
-// post / aigc 两档的目标页形态还没核实清(在册只有 circle-post/index 与 aigc/list,参数契约
-// 未确认),保持原样并沿用既有失败提示,不靠猜路径把它改成一个"看起来对"的地址。
+// 跳转路由映射(可达面取证@2026-10-31):收藏表只会存后端枚举在册的七型
+// (apps/api/src/routes/social.ts FAVORITE_RESOURCE_TYPES),其中本端有承接页的仅 post;
+// course/live/aigc/news 既存不进记录、pkg-ai 也没有 aigc/detail 页(app.config.ts:50-51),
+// 原四条映射是恒不可达的死分支,已撤。其余在册类型(agent/aiworld 等)走
+// favorites.unsupported 提示兜底(该分支由 ROUTE_MAP 未命中路径保证可达)。
 const ROUTE_MAP: Record<string, string> = {
-  course: '/pkg-learn/course/detail?id=',
-  live: '/pkg-learn/live/detail?id=',
-  post: '/pages/circle/detail/index?id=',
-  aigc: '/pkg-ai/aigc/detail/index?id=',
-  news: '/pkg-content/news/detail?id=',
+  post: '/pages/circle/detail?id=',
 }
 
 export default function FavoritesPage() {
@@ -41,27 +37,40 @@ export default function FavoritesPage() {
   const gate = useAuthReadyGate()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
 
+  const [activeTab, setActiveTab] = useState<CategoryTab>('all')
+  // 分类筛选走服务端(GET /favorites?resourceType=… 后端在册支持,favoritesListQuery
+  // 的 resourceType 枚举);此前是"只在已加载页里客户端过滤",翻页外内容一点必漏 = 假筛选。
+  const activeResourceType = CATEGORY_TABS.find((c) => c.key === activeTab)?.resourceType ?? ''
+
   const { items, loading, hasMore, load, removeItem } = useSocialList<FavoriteItem>({
     pageSize: PAGE_SIZE,
-    fetch: (params) => getFavorites(params),
+    fetch: (params) =>
+      activeResourceType
+        ? getFavorites({ ...params, resourceType: activeResourceType })
+        : getFavorites(params),
   })
 
-  const [activeTab, setActiveTab] = useState<CategoryTab>('all')
+  const loadRef = useRef(load)
+  loadRef.current = load
+  const tabInitRef = useRef(true)
+  useEffect(() => {
+    // 切 tab 重新从第 1 页拉;首挂载不重复拉(冷启动那一枪由 useDidShow 的鉴权门控发)
+    if (tabInitRef.current) {
+      tabInitRef.current = false
+      return
+    }
+    void loadRef.current(true)
+  }, [activeResourceType])
+
   const [searchText, setSearchText] = useState('')
   const [manageMode, setManageMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const totalCount = items.length
 
-  // 客户端:分类过滤 + 关键词搜索(后端仅支持 resourceType,前端兜底 keyword)
+  // 客户端:关键词搜索(后端仅支持 resourceType 筛选,keyword 端内兜底已注释在册)
   const displayList = useMemo(() => {
     let list = [...items]
-    if (activeTab !== 'all') {
-      const tab = CATEGORY_TABS.find((c) => c.key === activeTab)
-      if (tab && tab.resourceType) {
-        list = list.filter((it) => it.resourceType === tab.resourceType)
-      }
-    }
     const kw = searchText.trim().toLowerCase()
     if (kw) {
       list = list.filter(
@@ -71,7 +80,7 @@ export default function FavoritesPage() {
       )
     }
     return list
-  }, [items, activeTab, searchText])
+  }, [items, searchText])
 
   const handleCancel = useCallback(
     (item: FavoriteItem) => {
