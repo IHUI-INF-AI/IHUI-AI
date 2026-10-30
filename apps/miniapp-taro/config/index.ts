@@ -195,7 +195,10 @@ export default defineConfig(async (merge) => {
         'platform.tsx',
       ),
       'expo-image-picker$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
-      'expo-blur$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+      // 2026-10-31 补:RN 壳屏(Home/Course/Live/News/Plaza/Profile)与 TabBar 都 import expo-blur,
+      // 无替身时解析到真身 ⇒ 其 `BlurView → NativeBlurModule → expo-modules-core(src/index.ts)`
+      // 把未编译 TS 拖进构建,整轮死在 ModuleParseError(5:7)。承载实现见 rn-compat/expo-blur.tsx。
+      'expo-blur$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'expo-blur.tsx'),
       'expo-media-library$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
       'expo-linking$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
       'expo-web-browser$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
@@ -302,7 +305,9 @@ export default defineConfig(async (merge) => {
           'platform.tsx',
         ),
         'expo-image-picker$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
-        'expo-blur$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+        // 同顶层 alias:expo-blur 必须指到端内承载面,否则其入口再引 expo-modules-core 的未编译
+        // TS(`main: src/index.ts`)⇒ weapp webpack 无 loader 处理,整轮 ModuleParseError(5:7)。
+        'expo-blur$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'expo-blur.tsx'),
         'expo-media-library$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
         'expo-linking$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
         'expo-web-browser$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
