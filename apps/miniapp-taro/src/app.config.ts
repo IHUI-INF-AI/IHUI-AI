@@ -365,6 +365,7 @@ export default defineAppConfig({
         'news-category/index',
         'ai-assistant-n8n/index',
         'ai-group/index',
+        'ranking/index',
       ],
     },
     {
