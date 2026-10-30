@@ -36,7 +36,11 @@
  *    这正是 RN 原先把 gap 抬到 8 的来历(无箭头时用距离代替视觉补位),裁定见 GAP_PX。
  *  - `animate-in` / `data-[state=closed]:animate-out` / `data-[side=…]:slide-in-*`(web:25):仅 web,
  *    依赖 CSS 动画 + Radix 的 data-attr 通道;RN 进出场走 `Animated.timing` + `ANIM_DURATION`(JS 通道)。
- *  - `overflow-hidden`(web:24):仅 web。RN 气泡在 Modal 内绝对定位,不经父容器裁剪。
+ *  - 裁剪:两端**都不裁**。web 原先挂 `overflow-hidden`,而 Radix 的 Arrow 住在内容盒之外
+ *    (`position:absolute` + `translateY(100%)` 的 wrapper)⇒ 箭头整枚被切掉,气泡与目标之间
+ *    留一段空白、一排相邻图标看不出提示的是哪个。本机无头实测现网构建:7/7 悬停样本的箭头
+ *    落在内容盒外被裁(bottom 6 / right 1)。RN 气泡在 Modal 内绝对定位,不经父容器裁剪 ⇒
+ *    这一项已由"平台专属差异"收敛为两端同形。
  *  - `border-border`(RN:96)vs 裸 `border`(web:24):nativewind 不继承 web tokens 的边框默认色。
  *  - 字色落点:web 落在 Content 根(`text-popover-foreground`,web:24);RN 落在内层 `Text`(RN:97)。
  *  - 类名字面量:两端都写 Tailwind 风格类,但**字面量必须留在两端壳里** —— spec 文件不在

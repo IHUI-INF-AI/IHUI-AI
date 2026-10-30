@@ -23,6 +23,7 @@ const ipSchema = z.union([z.ipv4(), z.ipv6()])
  */
 export function IpWhitelist() {
   const t = useTranslations('settings')
+  const tc = useTranslations('common')
   const [ips, setIps] = React.useState<string[]>([])
   const [newIp, setNewIp] = React.useState('')
   const [error, setError] = React.useState<string | null>(null)
@@ -72,7 +73,13 @@ export function IpWhitelist() {
       if (res.success) {
         setIps((prev) => [...prev, parsed.data])
         setNewIp('')
+      } else {
+        // 原先只有 success 分支:POST 失败(403/校验/限流/断网)时界面一点动静都没有,
+        // 输入框留着那串 IP、列表不变 ⇒ 用户以为已经加进去了,换网络后被挡在门外。
+        setError(res.error || tc('unknownError'))
       }
+    } catch {
+      setError(tc('unknownError'))
     } finally {
       setAdding(false)
     }
@@ -87,10 +94,10 @@ export function IpWhitelist() {
       if (res.success) {
         setIps((prev) => prev.filter((x) => x !== ip))
       } else {
-        toast.error('删除失败')
+        toast.error(res.error || tc('deleteFailed'))
       }
     } catch {
-      toast.error('删除失败')
+      toast.error(tc('deleteFailed'))
     } finally {
       setRemoving(null)
     }
