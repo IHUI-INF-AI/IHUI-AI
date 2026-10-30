@@ -90,7 +90,7 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
 | 安全头 | 值 | 作用 |
 |---|---|---|
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | HSTS,强制 HTTPS |
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'unsafe-inline'; ...` | CSP,限制资源加载 |
+| `Content-Security-Policy` | 唯一源 `apps/web/src/config/csp.ts`(2026-10-30 抽出)。线上现读:`script-src 'self' 'nonce-<每请求随机>' 'strict-dynamic' + 显式域清单` —— **`unsafe-inline` 已从 script-src 摘掉**,改为逐请求 nonce;`img-src` 按域名白名单(图片经同源 `/api/media/image` 代理,不再需要 `https:` 通配),`media-src 'self' blob:`(音视频走同源代理并透传 Range)。`style-src` **仍保留 `'unsafe-inline'`**:内联 style 属性结构上无法携带 nonce,这是一处**明确接受的残余风险**,不是遗漏(依据写在该文件同处注释里) | CSP,限制资源加载 |
 | `X-Content-Type-Options` | `nosniff` | 禁止 MIME 嗅探 |
 | `X-Frame-Options` | `DENY` | 禁止 iframe 嵌入(防点击劫持) |
 | `X-XSS-Protection` | `1; mode=block` | 浏览器 XSS 过滤(兼容旧版) |
