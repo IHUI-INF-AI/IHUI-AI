@@ -5,14 +5,16 @@
 // 镜像 packages/app/src/features/profile/ProfileScreen.tsx
 import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getProfile, updateUserAvatar, type UserInfo } from '@/api'
+import { getProfile, type UserInfo } from '@/api'
+import { getUserInfo } from '@/utils/auth'
 import { fetchApi } from '@ihui/api-client'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import ProfileStatsGrid, { type ProfileStats } from './profile-stats'
+import ProfileAvatar from './profile-avatar'
 import ProfileLogoutButton from './profile-logout'
 import './profile.css'
 import LineIcon from '@/components/LineIcon'
@@ -23,8 +25,8 @@ export default function Profile() {
   const gate = useAuthReadyGate()
   const [form, setForm] = useState<Partial<UserInfo>>({})
   const [stats, setStats] = useState<ProfileStats | null>(null)
-  const [orderCount, setOrderCount] = useState(0)
-  const [uploading, setUploading] = useState(false)
+  const [orderCount, setOrderCount] = useState<number | null>(null)
+  const [realnameVerified, setRealnameVerified] = useState<boolean | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -33,50 +35,26 @@ export default function Profile() {
       logger.error('user/profile', '获取用户信息', e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-    // 个人中心统计(对齐共享屏 statsGrid):失败静默 —— 共享屏在 stats 缺失时同样按 0 渲染
+    // 附加读数三枚各自独立:取不到留 null(渲染 '--' / 不出值),不把「没取到」说成「就是 0 / 没认证」。
+    // /user/profile 不回统计也不回 realName ⇒ 计数走 /api/statistics/user-center + /api/orders/me,
+    // 实名态走在册端点 /api/auth/realname/my(auth-identity.ts 回 authStatus)。
     try {
-      const [statsRes, orderRes] = await Promise.all([
+      const [statsRes, orderRes, realnameRes] = await Promise.all([
         fetchApi<ProfileStats>('/api/statistics/user-center'),
         fetchApi<{ total: number }>('/api/orders/me', { params: { page: 1, pageSize: 1 } }),
+        fetchApi<{ authStatus?: string | null }>('/api/auth/realname/my'),
       ])
       if (statsRes.success) setStats(statsRes.data)
-      if (orderRes.success) setOrderCount(orderRes.data.total ?? 0)
-    } catch {
-      // 静默:统计不是本页主内容,失败不打断资料展示
+      if (orderRes.success) setOrderCount(Number(orderRes.data?.total ?? 0))
+      if (realnameRes.success) setRealnameVerified(realnameRes.data?.authStatus === 'approved')
+    } catch (e) {
+      logger.error('user/profile', '获取个人中心统计', e)
     }
   }, [t])
 
   function navigate(url: string) {
     Taro.navigateTo({ url })
   }
-
-  // 头像更换:点击头像 → 选图 → 上传 → 更新显示(对标原 account.vue onEditAvatar)
-  const chooseAvatar = useCallback(() => {
-    if (uploading) return
-    Taro.chooseImage({
-      count: 1,
-      sizeType: ['compressed'],
-      success: async (res) => {
-        const path = res.tempFilePaths[0]!
-        const prevAvatar = form.avatar
-        try {
-          setUploading(true)
-          Taro.showLoading({ title: t('user.profile.avatarUploading') })
-          setForm((prev) => ({ ...prev, avatar: path }))
-          await updateUserAvatar(path)
-          Taro.hideLoading()
-          Taro.showToast({ title: t('user.avatar.updateSuccess'), icon: 'success' })
-        } catch (e) {
-          logger.error('user/profile', '更新头像', e)
-          setForm((prev) => ({ ...prev, avatar: prevAvatar }))
-          Taro.hideLoading()
-          Taro.showToast({ title: t('user.profile.avatarUpdateFailed'), icon: 'none' })
-        } finally {
-          setUploading(false)
-        }
-      },
-    })
-  }, [uploading, form.avatar, t])
 
   useDidShow(() => {
     // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
@@ -103,6 +81,15 @@ export default function Profile() {
     },
   ]
 
+  // GET /user/profile 的 SELECT 里没有 realName ⇒ 旧判定 form.realName 恒假(永远显示「未认证」);
+  // 改走在册端点 /api/auth/realname/my 的 authStatus。未判定(请求失败)时不出值,不猜成「未认证」。
+  const realnameValue =
+    realnameVerified === null
+      ? ''
+      : realnameVerified
+        ? t('user.profile.verified')
+        : t('user.profile.unverified')
+
   const securityRows = [
     {
       label: t('user.profile.password'),
@@ -112,7 +99,7 @@ export default function Profile() {
     {
       label: t('user.profile.realname'),
       path: '/pkg-user/user/realname',
-      value: form.realName ? t('user.profile.verified') : t('user.profile.unverified'),
+      value: realnameValue,
     },
     {
       label: t('checkinAssistant.title'),
@@ -126,6 +113,11 @@ export default function Profile() {
     },
   ]
 
+  // 身份徽章的 roleId 取本机登录时落盘的用户体:GET /user/profile 不回 roleId,而登录响应
+  // (api-client AuthUser.roleId ← 后端 auth.ts 的 buildTokenPair/序列化)带它。
+  // 它是登录时刻的快照,不随会话中途改角色刷新 —— 纯展示,不参与任何鉴权判定。
+  const roleId = getUserInfo()?.roleId ?? 0
+
   return (
     <ThemeRoot>
       <View className="pf-page">
@@ -134,10 +126,8 @@ export default function Profile() {
           <Text className="pf-identity-label">{t('user.identity')}</Text>
           <View className="pf-identity-tags">
             {form.isVip ? <Text className="pf-tag pf-tag-vip">{t('user.vipMember')}</Text> : null}
-            {(form.roleId ?? 0) >= 1 ? (
-              <Text className="pf-tag pf-tag-admin">{t('user.admin')}</Text>
-            ) : null}
-            {!form.isVip && (form.roleId ?? 0) < 1 ? (
+            {roleId >= 1 ? <Text className="pf-tag pf-tag-admin">{t('user.admin')}</Text> : null}
+            {!form.isVip && roleId < 1 ? (
               <Text className="pf-tag pf-tag-normal">{t('user.normalUser')}</Text>
             ) : null}
           </View>
@@ -146,28 +136,11 @@ export default function Profile() {
         {/* 个人中心统计六格(对齐共享屏 statsGrid:课程/收藏/关注/粉丝/订单/智汇值) */}
         <ProfileStatsGrid stats={stats} orderCount={orderCount} />
 
-        {/* 头像 section */}
-        <View className="pf-section">
-          <Text className="pf-section-title">{t('user.profile.avatar')}</Text>
-          <View className="pf-section-card">
-            <View className="pf-item pf-item-avatar" hoverClass="opacity-60" onClick={chooseAvatar}>
-              <View className="pf-avatar-wrap">
-                <Image
-                  className="pf-avatar-img"
-                  src={form.avatar || '/static/default-avatar.png'}
-                  mode="aspectFill"
-                />
-                <View className="pf-avatar-edit-tip">
-                  <Text>{tt('user.profile.changeAvatar', '更换')}</Text>
-                </View>
-              </View>
-              <Text className="pf-avatar-hint">
-                {tt('user.profile.clickToChange', '点击更换头像')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-          </View>
-        </View>
+        {/* 头像 section:选图 → 上传 → PUT 服务端 URL(见 ./profile-avatar 的取证注) */}
+        <ProfileAvatar
+          avatar={form.avatar}
+          onAvatarSaved={(url) => setForm((prev) => ({ ...prev, avatar: url }))}
+        />
 
         {/* 账号信息 section */}
         <View className="pf-section">

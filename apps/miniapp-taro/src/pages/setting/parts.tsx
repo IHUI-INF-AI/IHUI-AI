@@ -10,7 +10,7 @@ import { logger } from '@/utils/logger'
 import Taro from '@tarojs/taro'
 import { View, Text, Switch } from '@tarojs/components'
 import { useState, useCallback, useEffect } from 'react'
-import { getNotificationSettings, updateNotificationSettings, updatePassword } from '@/api'
+import { changePassword, getNotificationSettings, updateNotificationSettings } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { FocusInput } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
@@ -156,8 +156,12 @@ function PwdField({
 
 /**
  * 修改密码弹层:对齐 RN 共享屏内置的密码 Modal(三输入 + 三条校验 + 成败提示)。
- * 提交走 `updatePassword` → `POST /api/user/password { oldPwd, newPwd }`
- * (apps/miniapp-taro/src/api/index.ts:1023,与 pkg-user/user/password 同一接口)。
+ * 提交走 `changePassword` → `PUT /api/auth/password { oldPassword, newPassword }`
+ * (端点与入参名 = apps/api/src/routes/auth.ts:1768-1786,该处注释自述"小程序别名(修改密码)")。
+ * 此前调 `updatePassword(oldPwd,newPwd)` → `POST /api/user/password` 发 `{ oldPwd, newPwd }`
+ * (api/index.ts:1028),而该 handler 的 zod 要 `oldPassword`/`newPassword`
+ * (miniapp-compat-routes.ts:2490-2497;契约取证 g134-batch1-updated-created-ack.test.ts:204
+ * 用这两个键拿到 200)⇒ 每次必 400:`settings.pwdChanged` 那一支结构上渲染不出来(假绿)。
  */
 export function PasswordModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useI18n()
@@ -190,7 +194,7 @@ export function PasswordModal({ visible, onClose }: { visible: boolean; onClose:
     }
     setSubmitting(true)
     try {
-      await updatePassword(oldPwd, newPwd)
+      await changePassword({ oldPassword: oldPwd, newPassword: newPwd })
       close()
       Taro.showToast({ title: t('settings.pwdChanged'), icon: 'success' })
     } catch (e) {
