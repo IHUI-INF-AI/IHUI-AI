@@ -30,8 +30,10 @@ import {
   agentMultimodalMemory,
   agentSessionSummary,
   agentWorkingMemoryCompression,
+  agents,
 } from '@ihui/database'
 import { checkAuthOrInternalService } from '../plugins/auth.js'
+import { isSystemAdminUser } from '../db/queries.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
@@ -297,8 +299,25 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    // 面板传 agentId 作 user_id;归属校验缺失属已知残段(见批 4a 处置报告),先按传值过滤。
-    const userId = parsed.data.user_id ?? request.userId!
+    // 身份只认承载层注入的主体(§5「认证不等于授权」)。
+    // 旧口径 `parsed.data.user_id ?? request.userId` 让**客户端参数优先**,于是任一登录用户
+    // 改一个 ?user_id= 就能读别人(或任意 agent)的四层记忆**内容本体**(摘要文本、多模态
+    // caption、元经验教训标题与正文)——注释里自称"已知残段",但四张表的谓词确实只由它决定。
+    // 现在只承认三种格:等于本人 / 是本人名下的 agent(必须查 agents 归属证明) / 系统管理员。
+    // 拒绝时回 404 而不是 403:403 等于替人确认"这个 id 确实存在",id 就变成可枚举资源。
+    const principal = request.userId!
+    const requestedScope = parsed.data.user_id
+    let userId = principal
+    if (requestedScope && requestedScope !== principal) {
+      const ownedAgent = await db
+        .select({ agentId: agents.agentId })
+        .from(agents)
+        .where(and(eq(agents.agentId, requestedScope), eq(agents.userId, principal)))
+        .limit(1)
+      const allowed = ownedAgent.length > 0 || (await isSystemAdminUser(principal))
+      if (!allowed) return reply.status(404).send(error(404, '记忆数据不存在'))
+      userId = requestedScope
+    }
     const since = new Date(Date.now() - parseRangeMs(parsed.data.range))
 
     const wCond = and(
