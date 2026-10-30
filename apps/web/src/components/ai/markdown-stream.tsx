@@ -50,6 +50,7 @@ import {
   splitMarkdownStable,
   judgeBlockStability,
 } from '@/lib/markdown-stable-split'
+import { healIncompleteMarkdown } from '@/lib/markdown-incomplete-heal'
 // 2026-10-29(对标 Qoder §6.6):静态长文档块级虚拟化 —— 流式已完且 ≥16384 字符时
 // 只挂可视区块 + overscan,窗口外不进 React 树(用上下占位撑住总高)。
 // 刻意**不用** content-visibility / contain-intrinsic-size(AGENTS G-828 明文禁恢复)。
@@ -954,12 +955,6 @@ function MarkdownLink({
   )
 }
 
-// 检测未闭合的代码块围栏(奇数个 ``` 表示未闭合,流式中的常见情况)
-function hasUnclosedFence(content: string): boolean {
-  const matches = content.match(/```/g)
-  return matches !== null && matches.length % 2 === 1
-}
-
 /**
  * 观感档⑦:本实例"已渲染过的完整代码文本"登记簿(跨 stable 晋升 remount 移交展开态)。
  * 先记后判的出口:重复文本 delete 再 add,挪到 FIFO 队尾(长代码块逐拍入簿时,
@@ -985,7 +980,7 @@ function noteStreamedCodeText(set: Set<string>, text: string): void {
  * 相对各自 parse 输入(stable 切片 / active 切片)的起点,跨树比较必错位
  * (⑦ 初版用全局行号对 active 恰好可用、对 stable 恒假 —— ⑧ 逐块化后 stable 侧
  * 也要判,行号法不再安全,2026-10-29 自查换为内容判据)。
- * 与 hasUnclosedFence 计数粗判分工:粗判管虚拟闭合(奇偶即可),本函数给块体;
+ * 与 healIncompleteMarkdown 的围栏奇偶分工:补全管虚拟闭合,本函数给块体;
  * 粗判真而本函数 null(行内 ``` 噪声造成)的罕见分歧 ⇒ 调用侧回退旧粗判,失效方向无害。
  */
 function lastOpenFenceBody(content: string): string | null {
@@ -1126,13 +1121,13 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   const isStreamingRef = React.useRef(isStreaming)
   isStreamingRef.current = isStreaming
   const parseContent = React.useMemo(() => {
-    const unclosed = hasUnclosedFence(throttledContent)
-    isStreamingCodeRef.current = unclosed
+    const healed = healIncompleteMarkdown(throttledContent)
+    isStreamingCodeRef.current = healed.fenceHealed
     // ⑦ 簿籍侧输入:在写尾块的开栏行号 + "本会话出现过未闭合围栏"闸。
     // ref 写入对同一 throttledContent 幂等(与上方 G-737 ref 同型),双调用评估无碍。
-    streamingFenceBodyRef.current = unclosed ? lastOpenFenceBody(throttledContent) : null
-    if (unclosed) sessionStreamedRef.current = true
-    return unclosed ? throttledContent + '\n```\n' : throttledContent
+    streamingFenceBodyRef.current = healed.fenceHealed ? lastOpenFenceBody(throttledContent) : null
+    if (healed.fenceHealed) sessionStreamedRef.current = true
+    return healed.healed
   }, [throttledContent])
 
   // components memo:无依赖(主题感知在 ThemedCodeBlock 内部 useTheme 处理)
