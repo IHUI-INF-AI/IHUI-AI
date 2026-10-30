@@ -2444,7 +2444,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 </span>
               ) : null
             }
-            bodyClassName="wb-split-c3"
+            bodyClassName="wb-split wb-split-c3"
           >
             <div>
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
@@ -2631,9 +2631,14 @@ const WALLBOARD_CSS = `
 /* 均匀列网格:列数由容器宽决定,不再用视口断点(实测容器宽与视口不同步)。
  * 104 = 实测最大标签需求 99px + 余量;135 = 反算自原设计(容器 914 时 6 栏、gap 10 ⇒ 6×135+5×10=860≤882)。
  * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。 */
-/* 读数单行列宽下限的唯一源头(五语言最坏 143):.wb-cells-c3 与两栏阈值都按它复算。
- * 这两层曾各写各的数字(裸档 96 + 620 阈值)⇒ 实测「6天19小时」被切成两行、卡片被撑高。 */
-.wb-root { --wb-cell-min: 143px; }
+/* 读数单行列宽下限的唯一源头:.wb-cells-c3 与两栏阈值都按它复算。
+ * 这两层曾各写各的数字(裸档 96 + 620 阈值)⇒ 实测「6天19小时」被切成两行、卡片被撑高。
+ * 取值 = 真浏览器实测「单行不溢出所需列宽」(含卡片 px-2.5 内边距与 1px 边框)的最大者:
+ *   时长读数五语言最坏「6일 19시간」121px(上一版取 143 已覆盖这一族);
+ *   复合读数「12,345 / 67,890」186px —— 号池两组各有一枚 fmtInt(a) 斜杠 fmtInt(b) 的复合读数,
+ *   fmtInt 走 toLocaleString 会带千分位。下限小于读数宽时,加了 nowrap 之后不是折行而是
+ *   **溢出压邻格**(实测 143 下限三列时把「12345 / 67890」压出卡片 21px),那比折行更糟。 */
+.wb-root { --wb-cell-min: 186px; }
 .wb-cells { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
 .wb-cells-c3 { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min), 1fr)); }
 /* 6 格一组(Redis / 访客):auto-fit 在半宽面板里只能排 5 列 ⇒ 第 6 格单独一行。
@@ -2676,9 +2681,14 @@ const WALLBOARD_CSS = `
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
-/* 长读数两栏面板:阈值按 --wb-cell-min 复算(2×(3×143+2×6)+8=890),不沿用 .wb-split 的 620 ——
- * 620 时每栏约 300、3 格各 ~96 < 单行需求 143 ⇒ 时长读数必断行。窄于 890 就单列,宁少一栏不折读。 */
-@container (min-width: 890px) {
+/* 长读数两栏面板:阈值按 --wb-cell-min 复算(2×(3×186+2×6)+8=1148),不沿用 .wb-split 的 620 ——
+ * 620 时每栏约 300、3 格各 ~96 < 单行需求 ⇒ 读数必断行。窄于 1148 就单列,宁少一栏不折读。
+ * 620–1147 段要显式按回单列:上面那条同断点的 .wb-split 会先给这层套两栏,两类选择器
+ * (.wb-split.wb-split-c3)才压得住它(同特异度靠源码顺序会漂,不能赌)。 */
+@container (min-width: 620px) and (max-width: 1147px) {
+  .wb-split.wb-split-c3 { grid-template-columns: minmax(0, 1fr); }
+}
+@container (min-width: 1148px) {
   .wb-split-c3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container (max-width: 1149px) {

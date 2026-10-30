@@ -15,13 +15,7 @@
  * 否则"0 命中"可能只是尺子坏了。
  */
 
-import {
-  existsSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-  mkdirSync,
-} from 'node:fs'
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 // §26/G-284 最后一格:临时夹具唯一落点是 scratch-dir,不走活进程 TEMP(它可能仍钉 C 盘)。
@@ -553,7 +547,10 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 本轮基线不动。现读暂 19(+1 系他席 `e8f27d3ac9` 新增 check-analytics-page-coverage.mjs 一处裸,
 // 该文件已被他席 staged 删除中——analytics-coverage 重构在飞,与门 184 红同源;删除收敛⇒回 18)。
 // 本席不抬基线纳他席债、不碰他席在飞文件。
-const BARE_GIT_BASELINE = 42 // 紧贴现读(2026-10-30 第 10 轮 18→42:10-26 定基线后 scripts/ 又走了 854 次提交,存量回涨 24 枚;本轮净增 0 —— 本席新增的 prune-redundant-lost-tags/gen-sbom 都已走层出口。第 9 轮 19→18;第 8 轮 36→19;第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
+// 2026-10-30 起:裸 git 棘轮由"一个数字"改成"具名债务清单 + 到期日"(定义见下方
+// BARE_GIT_DEBT;基线 = 清单长度,单一真相源)。历史沿革续记在此行:2026-10-26 第 9 轮 19→18;
+// 第 8 轮 36→19;第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;
+// 第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行"。
 // 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
 // benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
 // check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。
@@ -561,6 +558,349 @@ const BARE_GIT_BASELINE = 42 // 紧贴现读(2026-10-30 第 10 轮 18→42:10-26
 // 行尾注记形态系落地守门"复活行"判别所需(本行`= 9`与祖先 0c6198cc44 逐字相同会误判复活),行为零变化。
 const PATH_BOUND_GIT_BASELINE = 3 // 紧贴现读(2026-10-22 实测 9→3:三枚剩余见测试提示)
 const SELF_BATCH_BASELINE = 0
+
+/**
+ * 裸 git 型 A 的**具名债务清单**(2026-10-30 立,治"数字棘轮看不见是谁加的")。
+ *
+ * 为什么从"一个数字"换成"逐文件清单"(上一版注释写的是"刻意不持有名单表",此处显式推翻):
+ * 2026-10-26 定基线 18(c96927ac8b)之后,四种新器物族在 4 天内把 HEAD 面推到 **42**,
+ * 而数字棘轮只会打一句"18 涨到 42" —— 它既点不出是谁带的,也让每个路过的人以为自己背锅;
+ * 更糟的是**清单内文件偷偷加码**这一型它根本看不见(实测 `feedback-loop-status.mjs` 1→2、
+ * `safe-commit.mjs` 8→9 都发生过,文件数不变 ⇒ 不动声色)。所以清单里带 `count`,
+ * 判据对**每一枚出现**判"只减不增";新增文件、新增次数都能当场拦停。
+ *
+ * 三档判定(judgeBareGitDebt,本例与构造反例共用同一实现):
+ *  · `unlisted`  —— 文件不在清单里 ⇒ **红**(新增;请改用 lib/face-reader.mjs 的 gitRaw);
+ *  · `countGrew` —— 文件在清单里但次数变多 ⇒ **红**(同一型,藏在已登记文件内部);
+ *  · `expired`   —— `due` 已过仍在 ⇒ **红**(债务不是豁免,到期必须结清;`due: null` 只给
+ *    已逐字论证"层无对应形态、不可迁"的那几处,理由写在 `why`)。
+ * 结清(`settled`,清单里有、现读已无)只打印提示并给出摘条指引,不判红 —— 与既有的
+ * "存量降到 X,请一并下调"同一语义,否则刚迁完一枚的人会被自己的清账动作判红。
+ *
+ * 账目:**18 枚基线内**(≤ c96927ac8b,上一枚基线提交)+ **24 枚 2026-10-26 之后新增**
+ * (逐枚 `addedBy` 指向引入它的提交,空串 = 基线内)。取证脚本与逐条归因见
+ * `.ihui-agent/tmp/g39/s10/report.md`;现读合计 42 枚 / 见 `BARE_GIT_DEBT_TOTAL_OCCURRENCES`。
+ */
+const BARE_GIT_DEBT = [
+  // ── 基线内(早于 c96927ac8b 定 18 的那批)────────────────────────────────────────────
+  // 已逐字论证"不可迁"(层无 env / fd / stderr 形态)的三处留 `due: null`,理由在 why。
+  {
+    file: 'scripts/check-gate-face-discipline.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/check-git-read-timeout.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/check-no-visible-spawn.mjs',
+    count: 20,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(自检夹具大量样本)',
+  },
+  {
+    file: 'scripts/check-spawn-stdio.mjs',
+    count: 20,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(自检夹具大量样本)',
+  },
+  {
+    file: 'scripts/check-staged-files-count.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/check-watermark-coverage.mjs',
+    count: 2,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/feedback-loop-status.mjs',
+    count: 2,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(定基线时 1 处,后又加 1 处 —— 数字棘轮的盲区实例)',
+  },
+  {
+    file: 'scripts/git-push-guard.mjs',
+    count: 2,
+    addedBy: '',
+    due: null,
+    why: '不可迁:push 是写操作+网络透传,stdio[0] inherit 供凭证交互、显式 env 透传;checkDanglingRefs 的坏 ref 只活在 stderr',
+  },
+  {
+    file: 'scripts/git-sync-converge.mjs',
+    count: 3,
+    addedBy: '',
+    due: null,
+    why: '不可迁:mktree 要数字 fd 作 stdin、ggit 要剥 GIT_CONFIG_* 复刻现场、merge-tree catch 依赖 e.stdout 取完整冲突清单(层无 env/fd/stdout-on-fail 形态)',
+  },
+  {
+    file: 'scripts/guard-push-other-agent-changes.mjs',
+    count: 2,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/guardian-runner.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/guardian-utils.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/lib/pre-commit-hook.js',
+    count: 4,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(CJS 钩子层)',
+  },
+  {
+    file: 'scripts/lib/staging-snapshot.js',
+    count: 4,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(CJS 钩子层)',
+  },
+  {
+    file: 'scripts/merge-live-doc.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/plan-tasks-merge.mjs',
+    count: 2,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/plan-union-merge.mjs',
+    count: 9,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(9 处)',
+  },
+  {
+    file: 'scripts/safe-commit.mjs',
+    count: 9,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(定基线时 8 处,后又加 1 处 —— 数字棘轮的盲区实例)',
+  },
+  // ── 2026-10-26 之后新增的 24 枚(18 → 42),addedBy = 引入该处裸派生的提交 ──────────────
+  {
+    file: 'scripts/add-web-portal-entries.mjs',
+    count: 1,
+    addedBy: '92f364dc925dc51b9de04d7c5d1d773840901faf',
+    due: '2026-12-31',
+    why: '门户批次器物化(2026-10-28)',
+  },
+  {
+    file: 'scripts/check-cross-end-parity-drift.mjs',
+    count: 1,
+    addedBy: '9fdbc207ba2ea5536812f8b965d7a9218bb28785',
+    due: '2026-12-31',
+    why: '跨端漂移哨兵:git show HEAD:<doc>(2026-10-25)',
+  },
+  {
+    file: 'scripts/check-i18n-cross-end-wording.mjs',
+    count: 1,
+    addedBy: '1454b5a5ac38e7efb19668bac165c070f4484d81',
+    due: '2026-12-31',
+    why: '跨端文案裁定尺:git show <face>:<rel>(2026-10-30)',
+  },
+  {
+    file: 'scripts/check-mjs-export-resolution.mjs',
+    count: 3,
+    addedBy: 'a4256e1a82f4efdd02556d29030dc957872d113b',
+    due: '2026-12-31',
+    why: '门 253 三维取证(2026-10-26)',
+  },
+  {
+    file: 'scripts/check-rn-compat-coverage.mjs',
+    count: 1,
+    addedBy: '8cc5c831128db329a8d71307aa78b1e1dd6d1ceb',
+    due: '2026-12-31',
+    why: 'C1/C2/C3 覆盖面(2026-10-26)',
+  },
+  {
+    file: 'scripts/check-style-key-consumption.mjs',
+    count: 1,
+    addedBy: 'e80bc950b32aa203c0898f50dd6a529516176a92',
+    due: '2026-12-31',
+    why: '门 266 取用对账(2026-10-30)',
+  },
+  {
+    file: 'scripts/check-verbatim-resurrection.mjs',
+    count: 1,
+    addedBy: '47d6d441aff8b5f1696b67ef236841082ba776dd',
+    due: '2026-12-31',
+    why: '逐字回潮尺(2026-10-29)',
+  },
+  {
+    file: 'scripts/check-web-rn-parity.mjs',
+    count: 1,
+    addedBy: '777923eb0c57a57999f4a25b95aafcf7eeff1362',
+    due: '2026-12-31',
+    why: 'web↔RN 对账(git grep HEAD)(2026-10-28)',
+  },
+  {
+    file: 'scripts/convert-declared-to-reuse.mjs',
+    count: 1,
+    addedBy: '5bafc199de75aa381fe9f1c36a1ae8c5d8ccee18',
+    due: '2026-12-31',
+    why: '声明不复用转换器(2026-10-26)',
+  },
+  {
+    file: 'scripts/fix-rn-color-literals.mjs',
+    count: 1,
+    addedBy: 'b853339941982e20c4a4539f0ace4ee8ae23f740',
+    due: '2026-12-31',
+    why: '色值字面量替换器(2026-10-26)',
+  },
+  {
+    file: 'scripts/gen-i18n-compressed.mjs',
+    count: 1,
+    addedBy: '01d08e988912dcb3aee0f9145f2a131e7fb6d841',
+    due: '2026-12-31',
+    why: 'i18n 生成器 rev-parse HEAD(2026-10-07,旧账晚于基线才被纳入枚举面)',
+  },
+  {
+    file: 'scripts/gen-rn-compat.mjs',
+    count: 3,
+    addedBy: 'd1dc35c331ae0550591c555e6d79cc0a7a7523df',
+    due: '2026-12-31',
+    why: '复用腿生成器 grep/show HEAD(2026-10-26)',
+  },
+  {
+    file: 'scripts/gen-rn-host-shell.mjs',
+    count: 1,
+    addedBy: 'f83bf2cf12da48e7ca093d83bca49090c65b6d51',
+    due: '2026-12-31',
+    why: '宿主壳生成器(2026-10-28)',
+  },
+  {
+    file: 'scripts/gen-rn-shell-page.mjs',
+    count: 1,
+    addedBy: '5e32a106d5a03c9bd62ee4925aefe4770b862e43',
+    due: '2026-12-31',
+    why: '壳页生成器(2026-10-26)',
+  },
+  {
+    file: 'scripts/gen-rn-shell-types.mjs',
+    count: 2,
+    addedBy: 'bdf93938b7e6670d439a2285c0fba8103c9f05a5',
+    due: '2026-12-31',
+    why: '壳类型生成器 show/ls-files(2026-10-26)',
+  },
+  {
+    file: 'scripts/heal-derived-in-checkout.mjs',
+    count: 1,
+    addedBy: '977cc1847014aa8927435c690171498769a3b0dd',
+    due: '2026-12-31',
+    why: '派生自愈腿(2026-10-27)',
+  },
+  {
+    file: 'scripts/land-cross-end-shell-pages.mjs',
+    count: 1,
+    addedBy: 'e91d8c38ed969128406db997974bd2afc50b08b6',
+    due: '2026-12-31',
+    why: '壳页落地器(2026-10-26)',
+  },
+  {
+    file: 'scripts/lib/cross-end-verdicts.mjs',
+    count: 1,
+    addedBy: '2cbb8b843512ad17e46eaf299037c4b698d7fb88',
+    due: '2026-12-31',
+    why: '判决台账读面(2026-10-25)',
+  },
+  {
+    file: 'scripts/lib/derived-copy-state.mjs',
+    count: 1,
+    addedBy: '977cc1847014aa8927435c690171498769a3b0dd',
+    due: '2026-12-31',
+    why: '派生态判定(2026-10-27)',
+  },
+  {
+    file: 'scripts/lib/land-derived-blobs.mjs',
+    count: 2,
+    addedBy: '977cc1847014aa8927435c690171498769a3b0dd',
+    due: '2026-12-31',
+    why: 'blob 落地接缝(2026-10-27)',
+  },
+  {
+    file: 'scripts/lib/orphan-backup.mjs',
+    count: 1,
+    addedBy: '4468747144b2e21f1c3a27a3f9a62d453fc6780d',
+    due: '2026-12-31',
+    why: '悬空提交备份腿(2026-10-29)',
+  },
+  {
+    file: 'scripts/plan-rn-token-pairing.mjs',
+    count: 1,
+    addedBy: '7f204dbe34127e4df7dedb46ffa27e950e149acd',
+    due: '2026-12-31',
+    why: 'RN 色档配对发现器(2026-10-27)',
+  },
+  {
+    file: 'scripts/report-rn-shell-readiness.mjs',
+    count: 3,
+    addedBy: '728747bef0741e7e0809e797faf45a16793de51d',
+    due: '2026-12-31',
+    why: '就绪尺 ls-tree/show(2026-10-26)',
+  },
+  {
+    file: 'scripts/upgrade-miniapp-shell-pages.mjs',
+    count: 1,
+    addedBy: 'ae81c346494e9c0fc2fa85b66df5ff02add12ea7',
+    due: '2026-12-31',
+    why: '壳承载降级器物(2026-10-27)',
+  },
+]
+/** 基线 = 清单长度(单一真相源:不许在别处再写一个数字,两处必然漂移) */
+const BARE_GIT_BASELINE = BARE_GIT_DEBT.length
+
+/**
+ * 三档判定的**唯一实现**:本例与构造反例都调它(§0.6 单一真相源;测试里另抄一份判据必然漂移)。
+ * 返回 `{ unlisted, countGrew, expired, settled }` 四组,每组都是 `scripts/…` 路径或条目。
+ * `todayIso` 由调用方注入(不读系统时钟,构造反例才能钉死到期语义)。
+ */
+export function judgeBareGitDebt(hits, counts, debt, todayIso) {
+  const byFile = new Map(debt.map((d) => [d.file, d]))
+  const unlisted = hits.filter((p) => !byFile.has(p))
+  const countGrew = hits
+    .filter((p) => byFile.has(p) && (counts[p] ?? 0) > byFile.get(p).count)
+    .map((p) => `${p}(${byFile.get(p).count}→${counts[p]})`)
+  const expired = hits.filter((p) => {
+    const d = byFile.get(p)
+    return Boolean(d) && typeof d.due === 'string' && d.due < todayIso
+  })
+  const settled = debt.map((d) => d.file).filter((f) => !hits.includes(f))
+  return { unlisted, countGrew, expired, settled }
+}
 
 /**
  * 枚举与取材一律走 **HEAD**,不读工作树。
@@ -573,8 +913,6 @@ const SELF_BATCH_BASELINE = 0
  * 代价如实说明:未入库的违规本棘轮看不见 —— 但它一旦提交就会撞上门 80 / 编译期 / 本棘轮,
  * 由提交者负责,而不是由别人替他平账。
  */
-
-
 
 /**
  * 型 B:变量被**初始化成**裸 'git'(直接赋值,或 `|| 'git'` / `?? 'git'` / 三元兜底),
@@ -619,11 +957,9 @@ export function headDerivationScan(root) {
   // ls-tree 走层(gitRaw:绝对 git + stdio 接管 + EBUSY 兜底)—— 2026-10-02 实测病窗里
   // 默认 stdio(三管道)的 spawnSync 100% EBUSY(status=null),三条棘轮集体"取材失败",
   // 而这把扫描器自己就是层的消费者,没有理由例外。
-  const listed = gitRaw(
-    ['ls-tree', '-r', '--name-only', 'HEAD', '--', 'scripts/'],
-    root,
-    { timeout: 120000 },
-  )
+  const listed = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', 'scripts/'], root, {
+    timeout: 120000,
+  })
   const rel = String(listed || '')
     .split('\n')
     .filter(Boolean)
@@ -649,6 +985,14 @@ export function headDerivationScan(root) {
     total: files.length,
     unreadable: files.filter((f) => typeof f.text !== 'string').length,
     bareGit: hitsOf((t) => bareGitCountOf(t) > 0),
+    // 逐文件**出现次数**:文件数棘轮看不见"清单内文件偷偷加码"这一型(实测发生过两例),
+    // 具名债务清单按次数判"只减不增"才堵得住。与 bareGit 同面同轮、同一把 hideComments。
+    bareGitCounts: Object.fromEntries(
+      files
+        .filter((f) => typeof f.text === 'string')
+        .map((f) => [`scripts/${f.rel}`, bareGitCountOf(hideComments(f.text))])
+        .filter(([, n]) => n > 0),
+    ),
     pathBoundGit: hitsOf((t) => pathBoundGitCountOf(t) > 0).filter(
       (p) => p !== 'scripts/lib/face-reader.mjs',
     ),
@@ -855,25 +1199,101 @@ test('型 B:常量绑到裸 git 的生产文件数只减不增(型 A 的尺子�
   }
 })
 
-test('裸 git 派生的生产文件数只减不增(存量记在基线,新增拦停)', () => {
+test('裸 git 派生的生产文件数只减不增(存量逐枚记在具名债务清单,新增拦停)', () => {
   const root = join(here, '..', '..')
-  const hits = headDerivationScan(root).bareGit
+  const scan = headDerivationScan(root)
+  const hits = scan.bareGit
+  const today = new Date().toISOString().slice(0, 10)
+  const { unlisted, countGrew, expired, settled } = judgeBareGitDebt(
+    hits,
+    scan.bareGitCounts,
+    BARE_GIT_DEBT,
+    today,
+  )
+  // ① 新增文件:一句话点名,不再让人对着"存量前 8 个"猜是谁带的(旧提示的误读教训)
+  assert.deepEqual(
+    unlisted,
+    [],
+    `新增 ${unlisted.length} 处裸 git 派生(不在具名债务清单里):${unlisted.join(', ')}\n` +
+      '  新增者请改用 scripts/lib/face-reader.mjs 的 gitRaw(绝对路径 git + quotepath + timeout + stdio 两态)。\n' +
+      '  存量逐枚归因见 BARE_GIT_DEBT 与 .ihui-agent/tmp/g39/s10/sites.json。',
+  )
+  // ② 已登记文件内部加码:文件数棘轮的历史盲区(feedback-loop-status 1→2、safe-commit 8→9 都发生过)
+  assert.deepEqual(
+    countGrew,
+    [],
+    `已登记文件内的裸 git 派生变多(只减不增):${countGrew.join(', ')} —— 同样改用 gitRaw。`,
+  )
+  // ③ 到期未结清:债务不是豁免,`due` 一过仍在即红(§0.7 豁免必须"验过才免"且会到期)
+  assert.deepEqual(
+    expired,
+    [],
+    `以下裸 git 债务已过期仍未结清(due < ${today}):${expired.join(', ')}\n` +
+      '  出路只有两条:迁 gitRaw,或用新证据重写该条的 due/why(不许只把日期往后推)。',
+  )
   assert.ok(
     hits.length <= BARE_GIT_BASELINE,
-    `裸 git 派生的生产文件从基线 ${BARE_GIT_BASELINE} 涨到 ${hits.length} —— ` +
-      '新增者请改用 scripts/lib/face-reader.mjs 的 gitRaw(绝对路径 git + quotepath + timeout)。\n' +
-      // ⚠️ 措辞即判据:曾经这里写"本次新增候选:<前 8 个>",但前 8 个是**按路径序的存量**,
-      // 与"新增"无关 —— 本棘轮刻意不持有静态清单(清单会腐烂),所以它报不出是谁新增的。
-      // 2026-09-25 那次 82→83 就是这样被误读了十几分钟。现在直接把求差命令写进提示。
-      `下面列出的是按路径序的前 8 个存量文件,**不是**新增清单:\n  ${hits.slice(0, 8).join('\n  ')}\n` +
-      '要定位新增者,拿"定基线那枚提交"与本枚结果求差:\n' +
-      '  git grep -lE "(execFileSync|execSync|spawnSync|spawn)\\(([\'\\"])git" <该提交> -- scripts/ | grep -v /tests/\n' +
-      '  (本判据判 **HEAD blob**:未提交的改动不进分母,见 headDerivationScan 的头注)',
+    `裸 git 派生的生产文件从基线 ${BARE_GIT_BASELINE} 涨到 ${hits.length}(与清单求差见上一条断言)`,
   )
-  if (hits.length < BARE_GIT_BASELINE) {
+  if (settled.length) {
     console.log(
-      `◽ 裸 git 存量已降到 ${hits.length}(基线 ${BARE_GIT_BASELINE})—— 收口有效,请把基线一并下调`,
+      `◽ ${settled.length} 条债务已结清:${settled.join(', ')}\n` +
+        '  —— 请从 BARE_GIT_DEBT 摘除(基线 = 清单长度,摘即降;留条会被下一位读成"还在欠")。',
     )
+  }
+})
+
+test('构造面反例:同一判据对"新文件裸派生"与"已登记文件加码"都当场判红(证明尺子有牙)', () => {
+  // 不往真仓 HEAD 塞文件(那是提交,不是本例该做的事):在临时仓里构造同样的三种形态,
+  // 跑的是**同一个** headDerivationScan + judgeBareGitDebt,不是另抄一份判据。
+  const dir = mkScratch('ratchet-debt-')
+  try {
+    const g = (...a) =>
+      spawnSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    g('init', '-q', '-b', 'main')
+    g('config', 'user.email', 't@t')
+    g('config', 'user.name', 't')
+    mkdirSync(join(dir, 'scripts'), { recursive: true })
+    writeFileSync(join(dir, 'scripts', 'known.mjs'), "execFileSync('git', ['status'])\n", 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'base')
+    const debt = [{ file: 'scripts/known.mjs', count: 1, addedBy: '', due: '2099-01-01', why: 't' }]
+    // ① 基线态:清单覆盖现读 ⇒ 三档全空(否则下面两条"红"可能是尺子恒红)
+    let scan = headDerivationScan(dir)
+    let r = judgeBareGitDebt(scan.bareGit, scan.bareGitCounts, debt, '2026-10-30')
+    assert.deepEqual(
+      [r.unlisted, r.countGrew, r.expired, r.settled],
+      [[], [], [], []],
+      '基线态本该干净 —— 这一条不成立,下面两条"判红"就没有意义',
+    )
+    // ② 别人再加一处裸派生(新文件)⇒ 必须点名到那一枚
+    writeFileSync(join(dir, 'scripts', 'fresh.mjs'), "spawnSync('git', ['ls-files'])\n", 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'add one bare derivation')
+    scan = headDerivationScan(dir)
+    r = judgeBareGitDebt(scan.bareGit, scan.bareGitCounts, debt, '2026-10-30')
+    assert.deepEqual(r.unlisted, ['scripts/fresh.mjs'], '新文件裸派生怕是没有被判红')
+    // ③ 已登记文件内部再加一处 ⇒ 文件数不变,也必须判红(旧尺的盲区)
+    writeFileSync(
+      join(dir, 'scripts', 'known.mjs'),
+      "execFileSync('git', ['status'])\nexecFileSync('git', ['diff'])\n",
+      'utf8',
+    )
+    g('add', '-A')
+    g('commit', '-qm', 'grow inside a listed file')
+    scan = headDerivationScan(dir)
+    r = judgeBareGitDebt(scan.bareGit, scan.bareGitCounts, debt, '2026-10-30')
+    assert.deepEqual(r.countGrew, ['scripts/known.mjs(1→2)'], '文件数没变就不判红 = 盲区还在')
+    // ④ 到期:同一条债换个"今天"就必须红(证明 due 不是装饰)
+    r = judgeBareGitDebt(scan.bareGit, scan.bareGitCounts, debt, '2099-01-02')
+    assert.ok(r.expired.includes('scripts/known.mjs'), 'due 过了还不判红 ⇒ 债务永不到期')
+  } finally {
+    rmScratch(dir)
   }
 })
 
@@ -898,15 +1318,26 @@ test('packByBytes 的非法参数一律拒,不许退化成"空结果"', () => {
   assert.throws(() => packByBytes(['a'], () => 1, { maxBytes: 0 }), /maxBytes/)
   assert.throws(() => packByBytes(['a'], () => 1, { maxCount: 0 }), /maxCount/)
   assert.throws(() => packByBytes(['a'], () => 1, { maxBytes: NaN }), /maxBytes/)
-  assert.deepEqual(packByBytes([], () => 1, { maxBytes: 10, maxCount: 10 }), [], '空输入才是唯一的空输出')
+  assert.deepEqual(
+    packByBytes([], () => 1, { maxBytes: 10, maxCount: 10 }),
+    [],
+    '空输入才是唯一的空输出',
+  )
 })
 
 test('spawnCauseText:缓冲区溢出不得被折成"git 无输出",超时与溢出两支要分得开', () => {
   const enobufs = spawnCauseText({ code: 'ENOBUFS', stderr: '' }, 64 << 20, '块 4/23')
   assert.match(enobufs, /maxBuffer/, 'ENOBUFS 必须报成缓冲区不足')
-  assert.ok(!enobufs.includes('无输出'), '把缓冲区溢出说成"git 无输出"正是 09-25 误诊十几分钟的成因')
+  assert.ok(
+    !enobufs.includes('无输出'),
+    '把缓冲区溢出说成"git 无输出"正是 09-25 误诊十几分钟的成因',
+  )
   assert.match(enobufs, /块 4\/23/, '要带是哪一块,否则无法定位输入形态')
-  const tmo = spawnCauseText({ code: 'ETIMEDOUT', signal: 'SIGTERM', stderr: '' }, 64 << 20, '块 1/1')
+  const tmo = spawnCauseText(
+    { code: 'ETIMEDOUT', signal: 'SIGTERM', stderr: '' },
+    64 << 20,
+    '块 1/1',
+  )
   assert.match(tmo, /超时/, 'ETIMEDOUT 才是超时')
   assert.ok(!tmo.includes('maxBuffer'), '超时不得报成缓冲区(两者处置动作不同)')
   // 反向:真正的零命中仍必须是层那个常量串(守门 99 与本文件都按它逐字对账)
@@ -967,14 +1398,14 @@ test('自拼 cat-file --batch 却不走本层的门,数量只减不增', () => {
   }
 })
 
-
 // ── 第四型尺子:判"远端在哪"只许走层(§5b 的引用清理病理) ──────────────────
 test('判"远端在哪"只许走层:生产文件不得拿会被清理层删掉的跟踪 ref 落槌', () => {
-  // 先拿构造面证明这把尺子**有牙**(阳性必抓、两种正确写法不得误报),再扫真仓 —— 
+  // 先拿构造面证明这把尺子**有牙**(阳性必抓、两种正确写法不得误报),再扫真仓 ——
   // 顺序反了就是一支恒红或恒绿的尺子。
   const usesLayer = (s) => /from '\.\.?\/?lib\/face-reader\.mjs'/.test(s)
   const asksServer = (s) => /ls-remote/.test(s)
-  const decidesOnTrackingRef = (s) => /rev-parse[^\n]{0,40}(refs\/remotes\/origin|['"`]origin\/)/.test(s)
+  const decidesOnTrackingRef = (s) =>
+    /rev-parse[^\n]{0,40}(refs\/remotes\/origin|['"`]origin\/)/.test(s)
   const violates = (s) => decidesOnTrackingRef(s) && !usesLayer(s) && !asksServer(s)
   assert.equal(
     violates("const s = git(['rev-parse', 'refs/remotes/origin/main'])"),
@@ -982,12 +1413,16 @@ test('判"远端在哪"只许走层:生产文件不得拿会被清理层删掉�
     '阳性对照:纯跟踪 ref 当决策输入必须被抓到',
   )
   assert.equal(
-    violates("import { resolveRemoteHead } from './lib/face-reader.mjs'\nconst s = resolveRemoteHead('main', { root })"),
+    violates(
+      "import { resolveRemoteHead } from './lib/face-reader.mjs'\nconst s = resolveRemoteHead('main', { root })",
+    ),
     false,
     '反向对照:走层的不得误报',
   )
   assert.equal(
-    violates("const a = git(['ls-remote', 'origin', 'refs/heads/main'])\nconst b = git(['rev-parse', 'origin/main'])"),
+    violates(
+      "const a = git(['ls-remote', 'origin', 'refs/heads/main'])\nconst b = git(['rev-parse', 'origin/main'])",
+    ),
     false,
     '反向对照:ls-remote 之后的离线兜底是允许的(git-push-guard / check-push-sync 就是这个形状)',
   )
@@ -1038,7 +1473,10 @@ test('batchExecFileSync:非零退出照 execFileSync 形状抛(带 status),非 E
   // 非零退出:rev-parse 一个不存在的 ref,git 回 128 —— 包装器必须把 status 带上来,
   // 调用方的 catch(区分"git 说没有"与"git 没跑成")才不会退化成 parse 字符串。
   assert.throws(
-    () => batchExecFileSync(GIT, ['-C', root, 'rev-parse', '--verify', 'definitely-not-a-ref-815981'], { cwd: root }),
+    () =>
+      batchExecFileSync(GIT, ['-C', root, 'rev-parse', '--verify', 'definitely-not-a-ref-815981'], {
+        cwd: root,
+      }),
     (e) => {
       assert.equal(e.status, 128, `非零退出的 status 没带上: ${e.status}`)
       return true
@@ -1099,14 +1537,14 @@ test('parseBatchBuffers:与 parseBatch 同构(值=Buffer/missing=null/截断抛)
   const ok = Buffer.concat([head, body, Buffer.from('\n')])
   const m = parseBatchBuffers(ok, [oid])
   assert.ok(Buffer.isBuffer(m.get(oid)) && m.get(oid).equals(body), 'Buffer 值面漂了')
-  assert.equal(parseBatchBuffers(Buffer.from(`${oid} missing\n`), [oid]).get(oid), null, 'missing 未归 null')
+  assert.equal(
+    parseBatchBuffers(Buffer.from(`${oid} missing\n`), [oid]).get(oid),
+    null,
+    'missing 未归 null',
+  )
   // 截断构造:两条规格只回一条头 —— 读第二条 needing header 时越界,必须抛(绝不静默少扫)
   const oid2 = 'fedcba9876543210fedcba9876543210fedcba98'
-  assert.throws(
-    () => parseBatchBuffers(head, [oid, oid2]),
-    /截断/,
-    '截断必须抛(绝不静默少扫)',
-  )
+  assert.throws(() => parseBatchBuffers(head, [oid, oid2]), /截断/, '截断必须抛(绝不静默少扫)')
   // 同输入走 utf8 纯函数:值必须是等值字符串 —— 两出口的唯一差异就是解码这一步
   assert.equal(parseBatch(ok, [oid]).get(oid), 'abc')
 })
@@ -1125,7 +1563,10 @@ function seedFaceRepo() {
   // 含空格的路径:用来证明清单是 NUL 分帧取的,不经 core.quotepath 转义
   writeFileSync(join(root, 'a', 'with space.ts'), 'export const b = 2\n')
   gitRaw(['add', '-A'], root)
-  gitRaw(['-c', 'user.email=t@t.local', '-c', 'user.name=t', 'commit', '--quiet', '-m', 'seed'], root)
+  gitRaw(
+    ['-c', 'user.email=t@t.local', '-c', 'user.name=t', 'commit', '--quiet', '-m', 'seed'],
+    root,
+  )
   // 只在索引面:HEAD 档必须看不见,索引档必须看得见
   writeFileSync(join(root, 'a', 'staged.ts'), 'export const c = 3\n')
   gitRaw(['add', 'a/staged.ts'], root)

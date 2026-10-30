@@ -104,8 +104,13 @@ async def test_steer_endpoint_stores_kind_and_defaults_guide():
     """端点:缺省 kind=guide;显式 control 原样入队(ACK 带 kind)。"""
     _steer_sessions["s7"] = []  # 桶由流生成器在流首创建,端点只往里追加
     resp_default = await post_steer_message("s7", {"text": "a"})
-    assert resp_default == {"ok": True, "queued": 1, "kind": "guide"}
+    # 差距③(2026-10-30):ACK additive 回传撤回凭据 queuedAt —— 其余键仍精确钉住
+    assert resp_default["ok"] is True and resp_default["queued"] == 1
+    assert resp_default["kind"] == "guide"
+    assert resp_default["queuedAt"] == _steer_sessions["s7"][0]["queuedAt"]
     resp_control = await post_steer_message("s7", {"text": "b", "kind": "control"})
-    assert resp_control == {"ok": True, "queued": 2, "kind": "control"}
+    assert resp_control["ok"] is True and resp_control["queued"] == 2
+    assert resp_control["kind"] == "control"
+    assert resp_control["queuedAt"] == _steer_sessions["s7"][1]["queuedAt"]
     assert [item["kind"] for item in _steer_sessions["s7"]] == ["guide", "control"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

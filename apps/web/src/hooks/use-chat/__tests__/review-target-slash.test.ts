@@ -30,7 +30,11 @@ vi.mock('@/stores/chat', () => ({
 }))
 vi.mock('@/stores/ai-panel', () => ({
   useAiPanelStore: {
-    getState: () => ({ activeWorkspace: null, pendingPermissionMode: null, setPendingFullAccess: vi.fn() }),
+    getState: () => ({
+      activeWorkspace: null,
+      pendingPermissionMode: null,
+      setPendingFullAccess: vi.fn(),
+    }),
   },
 }))
 vi.mock('@ihui/api-client', async (importOriginal) => {

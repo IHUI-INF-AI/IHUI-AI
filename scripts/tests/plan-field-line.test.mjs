@@ -7,8 +7,12 @@
  *
  * 标头是侧车的**投影**,不是第二份真相。所以要钉的是三件事:
  *  ① 形态是契约(分隔符与顺序变了,门与所有已渲染行一起漂);
- *  ② 不截断时 render∘parse 必须回到同一份语义(幂等);
- *  ③ 截断时**如实报"读不回"**而不是假装能解 —— 权威在侧车,标头只是给人看的那一眼。
+ *  ② 渲染必须**无损**(2026-10-25 改判,`f9c1514b30`):投影写出的每一行都要能被 parse 读回同一份
+ *     语义(幂等)。旧实现按 `MAX` 截断并追加 `…`,而 parse 对 `…` 一律判 malformed —— 两者叠加
+ *     = 任何 owner 逼近上限的记录投影进台账后**永久** malformed(门 234 A2 恒红,实测 G-47/G-71),
+ *     故 `MAX` 现在只用于诊断文案 clip,不再参与渲染;
+ *  ③ 面上**已存在**的 `…` 截断形态(历史遗留或手写)仍如实报"读不回"、不猜被截掉的字符 ——
+ *     权威在侧车,但"给人看的那一眼"也不许假装无损。
  * 另两条防误伤:反引号内的标头形态是叙述不算数;stripHeader 只许剥自己那一段。
  */
 import { describe, it } from 'node:test'
@@ -37,16 +41,35 @@ describe('plan-field-line 投影层', () => {
     assert.equal(H.renderHeader(R({ owner: undefined, waiting: 'none', blocking: '' })), '〔归:—〕')
   })
 
-  it('超预算 ⇒ 截断显示,且 parse 如实报"读不回"(权威在侧车,标头不许假装无损)', () => {
-    const h = H.renderHeader(R({ owner: 'x'.repeat(200) }))
-    assert.ok([...h].length <= H.MAX + 2, `标头长度 ${[...h].length} 超上限 ${H.MAX}`)
-    assert.ok(h.includes('…'), '超预算却没截断')
+  it('长 owner 也必须完整渲染且可往返(投影无损;截断会造出永久 malformed 的台账行)', () => {
+    // 反向牙:旧断言钉的是"超预算 ⇒ 截断显示",那是 `c362cda2d8` 的口径,已被 `f9c1514b30`
+    // (2026-10-25)改判为**不得截断** —— 截断写出的 `…` 会被 parseHeader 一律判 malformed,
+    // 于是投影器物每轮都产出门 234 A2 永久红的行。这里钉的是"任何长度都无损"。
+    const long = 'x'.repeat(200)
+    const h = H.renderHeader(R({ owner: long }))
+    assert.ok(!h.includes('…'), '渲染不得用省略号截断(parse 对 … 一律 malformed)')
+    assert.ok([...h].length > H.MAX, `标头被诊断档 MAX=${H.MAX} 顶住了,说明又在截断`)
     const p = H.parseHeader('- [ ] ' + h + ' 标题')
+    assert.equal(p.malformed, false, '无损投影不该读不回')
+    assert.equal(p.rec.owner, long)
+    assert.equal(H.renderHeader(p.rec), h, 'render∘parse∘render 逐字相同')
+
+    // 现实形态(ASCII 段混排 + 等段)同样必须无损往返
+    const real = '端口注册表门 + ai-service ruff + 受保护检查 lint-typecheck-test 持有人'
+    const hr = H.renderHeader(R({ owner: real }))
+    const pr = H.parseHeader('- [ ] ' + hr + ' 标题')
+    assert.equal(pr.malformed, false)
+    assert.equal(pr.rec.owner, real)
+    assert.equal(pr.rec.blocking, '容器运行时')
+  })
+
+  it('手写/历史遗留的 … 截断标头仍如实报"读不回"(不猜被截掉的字符)', () => {
+    const p = H.parseHeader('- [ ] 〔归:甲…〕 标题')
     assert.equal(p.malformed, true)
     assert.equal(p.rec, null)
   })
 
-  it('未截断时 render∘parse∘render 幂等', () => {
+  it('render∘parse∘render 幂等(投影已无"截断"分支,短 owner 也照旧逐字回得来)', () => {
     const once = H.renderHeader(R({}))
     const p = H.parseHeader('- [ ] ' + once + ' 标题某件活')
     assert.equal(p.malformed, false)

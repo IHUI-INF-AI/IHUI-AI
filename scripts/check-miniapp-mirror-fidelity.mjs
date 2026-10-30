@@ -94,6 +94,7 @@ import {
   mismatchedShellBinding,
 } from './lib/rn-shell-refs.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
+import { indexRetractions, readRetractions, retractionId } from './lib/key-retractions.mjs'
 import { extractUsedKeys, __test__ as gen } from './gen-miniapp-mirror.mjs'
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..')
@@ -137,6 +138,81 @@ export function batchReadTexts(face, rels) {
 }
 
 /**
+ * 页面拆分子模块时,文案消费落在同目录 `./xxx` 模块里(实测 conversation-import 拆了
+ * parts/analysis/core/transport 四个,16 个真实消费的键全在 parts 里) ⇒ 载体面必须含它们。
+ * 只认 `./` 且不越目录:`../` 一律不取 —— 父目录/兄弟页不是本页的载体,取了会把别人的键
+ * 算成本页已还原(那是"多放",失效方向与 §0.10 相反)。扩展名按 TS 工程惯例补候选。
+ */
+export function localModuleRels(pageRel, pageText) {
+  const rel = String(pageRel || '').replace(/\\/g, '/')
+  const slash = rel.lastIndexOf('/')
+  if (slash < 0) return []
+  const dir = rel.slice(0, slash)
+  const out = new Set()
+  for (const m of String(pageText || '').matchAll(/from\s+['"](\.\/[^'"]+)['"]/g)) {
+    const spec = m[1]
+    if (spec.includes('../')) continue
+    const base = spec.replace(/^\.\//, '')
+    if (/\.(tsx?|jsx?)$/.test(base)) out.add(`${dir}/${base}`)
+    else
+      for (const ext of ['.tsx', '.ts', '/index.tsx', '/index.ts']) out.add(`${dir}/${base}${ext}`)
+  }
+  return [...out]
+}
+
+/**
+ * 页面同名的页面配置:`pages/study/plan.tsx` → `pages/study/plan.config.ts`。
+ * 小程序的页面标题只能写在 config 的 navigationBarTitleText 里(没有 t() 可用),
+ * 所以标题类文案的载体面必须含它 —— 实测 12 个缺口键正是这样被原生导航栏承担。
+ */
+export function localConfigRel(pageRel) {
+  const rel = String(pageRel || '').replace(/\\/g, '/')
+  const slash = rel.lastIndexOf('/')
+  if (slash < 0) return null
+  const name = rel.slice(slash + 1).replace(/\.(tsx?|jsx?)$/, '')
+  return `${rel.slice(0, slash)}/${name}.config.ts`
+}
+
+/** 从页面配置正文取原生导航栏标题;取不到返回 null(判不出就不减免)。 */
+export function configTitleOf(text) {
+  const m = String(text || '').match(/navigationBarTitleText\s*:\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/)
+  return m ? m[2] : null
+}
+
+/** 词包 JSON → 扁平 key→译文。嵌套命名空间按点拼回,与 t('a.b') 的键形态一致。 */
+export function flattenPack(obj, prefix = '', out = {}) {
+  for (const [k, v] of Object.entries(obj || {})) {
+    const key = prefix ? `${prefix}.${k}` : k
+    if (v && typeof v === 'object' && !Array.isArray(v)) flattenPack(v, key, out)
+    else out[key] = String(v ?? '')
+  }
+  return out
+}
+
+/**
+ * 同值别名:页面用的键与共享屏的键**译文逐字相同** ⇒ 同一句文案,页面确实渲染了它,
+ * 只是两套命名空间各起了一个名(实测 setting.version / settings.version 同为「版本」)。
+ * 只按 zh-CN 判:这是"这句文案在不在"的存在性证据,不是译文质量判据(五语对齐另有门 133/19)。
+ * 值取不到(词包缺该键)一律不算 —— 判不出就不减免(§0.3)。
+ */
+export function aliasSameKeys(sharedKeys, pageKeys, valueOfSharedKey, mpValues, extraValues = []) {
+  if (!mpValues) return []
+  const pageValues = new Set()
+  for (const u of pageKeys || []) {
+    const v = mpValues[u]
+    if (v) pageValues.add(String(v).trim())
+  }
+  // 非 t() 载体:原生导航栏标题(config)、以及调用方认定的其它页面内文案
+  for (const v of extraValues || []) if (v) pageValues.add(String(v).trim())
+  const out = []
+  for (const k of sharedKeys || []) {
+    const v = valueOfSharedKey(k)
+    if (v && pageValues.has(String(v).trim())) out.push(k)
+  }
+  return out
+}
+
+/**
  * 通道 ②:键表数组里声明的键。命中 0 是合法的(人工改写后的页没有这些块),
  * 所以**不做「取不到即未判定」**——它不是必选输入,是并集的一条腿。
  */
@@ -164,6 +240,29 @@ export function consumedKeys(text) {
   for (const k of extractUsedKeys(text)) set.add(k)
   for (const k of extractDeclaredKeys(text)) set.add(k)
   return set
+}
+
+/**
+ * 端词包命名空间齐全性(2026-10-29 立,纯函数零 IO)。
+ *
+ * 立因:`hosted` 行的文案由**共享源本体**渲染 ⇒ 本门按构造判它 100%、无键可缺;而逐键那把尺
+ * 数的是"键在不在页面文本里",壳页文本里本来就没有键。**两把尺对同一件事同时失明**:
+ * 共享源取词用的是本端词包,若那一整块命名空间从没搬进 `messages/miniapp-taro/`,这一屏
+ * 每一句话都取不到词条,而账面一路是绿的。实测撞出来的两例:`pdfToolsPage`(54 键 × 5 语言全缺)
+ * 与随后同族扫出的 16 个命名空间 —— 都发生在「还原度 74.9%、断链 0、声明不符 0」的读数为绿期间。
+ *
+ * 动态拼键(`t(\`x.${id}\`)`)的命名空间在这一维里量不到 ⇒ 逐条排除并另计,不混进缺陷数。
+ * `available` 取不到 ⇒ 返回 null 由调用方记未判定,绝不折成"无缺口"(§0.3)。
+ */
+export function packNamespaceGap({ usedKeys, available }) {
+  if (!available || !(available instanceof Set) || available.size === 0) return null
+  const absent = new Set()
+  for (const k of usedKeys || []) {
+    const ns = String(k).split('.')[0]
+    if (!ns || ns.includes('$')) continue
+    if (!available.has(ns)) absent.add(ns)
+  }
+  return [...absent].sort()
 }
 
 /**
@@ -238,6 +337,20 @@ export function hostingFormOf({ spec, pageText, readShell }) {
 }
 
 /**
+ * 一对镜像页的逐键缺口分解(纯函数,镜像测试直接用生产判据)。
+ * 撤除的键**出射程而不进 covered** —— 算成"已还原"就变回了本台账要治的假绿那一型。
+ * @param {{sharedKeys:string[], mpKeys:Set<string>, aliasSame:string[], retractedOf:(key:string)=>boolean}} a
+ */
+export function gapOfPair({ sharedKeys, mpKeys, aliasSame, retractedOf }) {
+  const aliasSet = new Set(aliasSame)
+  const unrecovered = sharedKeys.filter((k) => !mpKeys.has(k) && !aliasSet.has(k))
+  const retracted = unrecovered.filter((k) => retractedOf(k))
+  const missing = unrecovered.filter((k) => !retracted.includes(k))
+  const scope = sharedKeys.length - retracted.length
+  return { unrecovered, retracted, missing, scope, covered: scope - missing.length }
+}
+
+/**
  * 按给定面算全部镜像对的还原度。返回 { face, sharedCount, pairs, avg, totalMissing, hosted, hand, broken, rows }。
  * rows 每项 { spec, route, form, why, sharedKeys, covered, missing, fidelity }(|sharedKeys|=0 ⇒ fidelity=null)。
  * form ∈ hosted(委托共享源,按构造满还原)/ hand(端内手写,数键)/ other(承载的不是声明那一屏)/ broken(引了壳而链断,产物渲染不出)。
@@ -254,6 +367,23 @@ export function computeFidelity(face) {
     shared.map((s) => s.spec).filter((spec) => paired.has(spec)),
   )
 
+  // 手写页拆子模块时,文案消费散在同目录 ./xxx 里 ⇒ 同面批取一次,按页拼回载体面。
+  const moduleTexts = batchReadTexts(face, [
+    ...new Set(miniapp.flatMap((p) => (p.file ? localModuleRels(p.file, p.text) : []))),
+  ])
+  const localModulesOf = (p) =>
+    (p.file ? localModuleRels(p.file, p.text) : []).map((r) => moduleTexts.get(r) || '').join('\n')
+
+  // 页面配置里的原生导航栏标题(小程序只能用 config 写标题,没有 t() 可用)
+  const configTexts = batchReadTexts(face, [
+    ...new Set(miniapp.map((p) => (p.file ? localConfigRel(p.file) : null)).filter(Boolean)),
+  ])
+  const pageExtraValuesOf = (p) => {
+    const rel = p.file ? localConfigRel(p.file) : null
+    const title = rel ? configTitleOf(configTexts.get(rel)) : null
+    return title ? [title] : []
+  }
+
   // 壳承载要判「@rn-shells/<X> 指过去的那个壳在不在面上、引的是不是这一屏」⇒ 一次批取全部壳正文
   // (同名壳文件逐枚 faceRead 会把本门推到分钟级,慢到没人日常跑 = 等于没装车)。
   const shellRels = [
@@ -261,6 +391,50 @@ export function computeFidelity(face) {
   ]
   const shellTexts = batchReadTexts(face, shellRels)
   const readShell = (rel) => shellTexts.get(rel) ?? null
+
+  // 端可得词包 = 本端包 ∪ shared(两端取词都算得到;少算 shared 会把 200+ 个正常命名空间读成缺口)。
+  // 只读 zh-CN 顶层键:命名空间存在性五语言同构,键集对齐另有 check-i18n-parity 那道门管。
+  // 本模块没有 faceRead,一律走自己的 batchReadTexts(§0.4 同面同轮:与被判正文取同一个面)。
+  const PACK_RELS = [
+    'packages/i18n/messages/miniapp-taro/zh-CN.json',
+    'packages/i18n/messages/shared/zh-CN.json',
+    // 共享屏的键住在 RN 包 ⇒ 同值对账要拿它当"这句文案本来该长什么样"的取值面。
+    'packages/i18n/messages/mobile-rn/zh-CN.json',
+  ]
+  const packTexts = batchReadTexts(face, PACK_RELS)
+  const flatOf = (rel) => {
+    const t = packTexts.get(rel)
+    if (t === null || t === undefined) return null
+    try {
+      return flattenPack(JSON.parse(t))
+    } catch {
+      return null
+    }
+  }
+  const mpValues = flatOf(PACK_RELS[0])
+  const sharedValues = flatOf(PACK_RELS[1])
+  const rnValues = flatOf(PACK_RELS[2])
+  const valueOfSharedKey = (k) =>
+    (rnValues && rnValues[k]) || (sharedValues && sharedValues[k]) || null
+  const topsOf = (rel) => {
+    const t = packTexts.get(rel)
+    if (t === null || t === undefined) return null
+    try {
+      return Object.keys(JSON.parse(t))
+    } catch {
+      return null
+    }
+  }
+  const mpTops = topsOf(PACK_RELS[0])
+  const shTops = topsOf(PACK_RELS[1])
+  const packAvailable = mpTops && shTops ? new Set([...mpTops, ...shTops]) : null
+
+  // 键级撤除台账(§0.4 同面同轮:与被判正文取同一个面)。取不到 = 没人撤过 ⇒ active 为空,
+  // 缺口照原样数;绝不把"台账读不到"折成"全部免检"(那等于把判据做成白名单,§0.7)。
+  const retr = readRetractions(face, ROOT)
+  const retractionIndex = indexRetractions(retr.rows, retr.bad)
+  const retractedOf = (route, spec, key) =>
+    retractionIndex.active.has(retractionId({ page: route, spec, key }))
 
   const rows = []
   for (const s of shared) {
@@ -275,33 +449,85 @@ export function computeFidelity(face) {
       if (!p.file) continue
       if (!mirroredSpecs(p).has(s.spec)) continue
       const { form, why } = hostingFormOf({ spec: s.spec, pageText: p.text, readShell })
-      const mpKeys = consumedKeys(`${p.text || ''}\n${p.cssText || ''}`)
+      const mpKeys = consumedKeys(`${p.text || ''}\n${p.cssText || ''}\n${localModulesOf(p)}`)
       // 承载页的文案由共享源本体渲染 ⇒ 无键可缺;断链/手写页照旧逐键数,一分不宽。
-      const missing = form === 'hosted' ? [] : sharedKeys.filter((k) => !mpKeys.has(k))
+      // 同值别名单独记一列并从缺口中扣除:两套命名空间同一句译文 = 页面真渲染了这句。
+      const aliasSame =
+        form === 'hosted'
+          ? []
+          : aliasSameKeys(
+              sharedKeys,
+              mpKeys,
+              valueOfSharedKey,
+              mpValues,
+              pageExtraValuesOf(p),
+            ).filter((k) => !mpKeys.has(k))
+      const { retracted, missing, scope, covered } =
+        form === 'hosted'
+          ? { retracted: [], missing: [], scope: sharedKeys.length, covered: sharedKeys.length }
+          : gapOfPair({
+              sharedKeys,
+              mpKeys,
+              aliasSame,
+              retractedOf: (k) => retractedOf(p.route, s.spec, k),
+            })
+      const gap = packNamespaceGap({ usedKeys: sharedKeys, available: packAvailable })
       rows.push({
         spec: s.spec,
         route: p.route,
         form,
         why,
         sharedKeys: sharedKeys.length,
-        covered: sharedKeys.length - missing.length,
+        scope,
+        covered,
         missing,
-        fidelity: (sharedKeys.length - missing.length) / sharedKeys.length,
+        // 被撤除台账免掉的键单列:免了不等于没缺,账面必须能回答"这格为什么不算缺"
+        retracted,
+        // 同值别名(译名不同、译文逐字相同)单列报数:它算已还原,但不等于该页做了这块 UI
+        aliasSame,
+        fidelity: scope === 0 ? null : (scope - missing.length) / scope,
+        // 本端词包里根本不存在的那些命名空间(null ⇒ 词包取不到,这一维未判定,不折成空数组冒绿)
+        packAbsent: gap,
       })
     }
   }
 
-  const totalShared = rows.reduce((a, r) => a + r.sharedKeys, 0)
+  const totalScope = rows.reduce((a, r) => a + r.scope, 0)
   const totalCovered = rows.reduce((a, r) => a + r.covered, 0)
   const totalMissing = rows.reduce((a, r) => a + r.missing.length, 0)
+  const totalAliasSame = rows.reduce((a, r) => a + (r.aliasSame?.length ?? 0), 0)
+  // 台账腐烂:一条撤除现在不免除任何东西 = 这一格早已结清(键补回来了、页撤镜像了、
+  // 或路由/屏改了名而台账还指着旧三元组)。§0.7「豁免项消失同样算红」⇒ 必须点名,不得留成永久免检。
+  const usedRetractions = new Set(
+    rows.flatMap((r) =>
+      (r.retracted || []).map((k) => retractionId({ page: r.route, spec: r.spec, key: k })),
+    ),
+  )
   return {
     face,
     sharedCount: shared.length,
     pairs: rows.length,
-    avg: totalShared === 0 ? null : totalCovered / totalShared,
-    totalShared,
+    avg: totalScope === 0 ? null : totalCovered / totalScope,
+    totalShared: rows.reduce((a, r) => a + r.sharedKeys, 0),
+    totalScope,
     totalCovered,
     totalMissing,
+    // 同值别名(译名不同、译文逐字相同)总数:已计入 covered,单列出来是为了让"缺多少"可解释
+    totalAliasSame,
+    // 撤除台账四维:免掉多少 / 台账共多少 / 哪些行不成立(不免) / 哪些行已不免除任何东西(腐烂)
+    totalRetracted: rows.reduce((a, r) => a + (r.retracted?.length ?? 0), 0),
+    retractionTotal: retractionIndex.total,
+    retractionRefused: retractionIndex.refused,
+    retractionBad: retractionIndex.bad,
+    retractionRot: [...retractionIndex.active].filter((id) => !usedRetractions.has(id)),
+    // 新维(2026-10-29):取不到词包 ⇒ packUndetermined 为真,由调用方落未判定档,
+    // 绝不在这里把"没判"写成"零缺口"(§0.3)。
+    packUndetermined: packAvailable === null,
+    packAbsentRows: rows.filter((r) => Array.isArray(r.packAbsent) && r.packAbsent.length > 0)
+      .length,
+    packAbsentNamespaces: [
+      ...new Set(rows.flatMap((r) => (Array.isArray(r.packAbsent) ? r.packAbsent : []))),
+    ].sort(),
     hosted: rows.filter((r) => r.form === 'hosted').length,
     hand: rows.filter((r) => r.form === 'hand').length,
     other: rows.filter((r) => r.form === 'other').length,
@@ -436,12 +662,24 @@ function run() {
     avgPct: pct(now.avg),
     totalShared: now.totalShared,
     totalMissing: now.totalMissing,
+    totalAliasSame: now.totalAliasSame ?? 0,
     hosted: now.hosted,
     hand: now.hand,
     other: now.other,
     broken: now.broken,
     regressions: reg,
     rows: now.rows,
+    // 新维随 json 一起出去,由漂移尺按"绝对值出声"接走(与 broken/other 同一链路),
+    // 本尺的退出码口径不动 —— 它历来只把"倒退"折进 rc。
+    packUndetermined: now.packUndetermined === true,
+    packAbsentRows: now.packAbsentRows ?? 0,
+    packAbsentNamespaces: now.packAbsentNamespaces ?? [],
+    // 键级撤除台账四维一起出去:漂移尺要能区分"没缺"与"缺而被裁掉",还要能看见腐烂行
+    retractionTotal: now.retractionTotal ?? 0,
+    totalRetracted: now.totalRetracted ?? 0,
+    retractionRefused: now.retractionRefused ?? [],
+    retractionBad: now.retractionBad ?? [],
+    retractionRot: now.retractionRot ?? [],
   }
 
   if (opts.json) {
@@ -449,8 +687,27 @@ function run() {
     return reg.length > 0 ? 1 : 0
   }
 
-  const head = `FIDELITY-RESULT face=${face} base=${baseLabel} pairs=${now.pairs} hosted=${now.hosted} hand=${now.hand} other=${now.other} broken=${now.broken} avg=${pct(now.avg)} missing=${now.totalMissing} regressions=${reg.length} state=${state}`
+  const head = `FIDELITY-RESULT face=${face} base=${baseLabel} pairs=${now.pairs} hosted=${now.hosted} hand=${now.hand} other=${now.other} broken=${now.broken} packAbsentRows=${now.packUndetermined === true ? '?' : (now.packAbsentRows ?? 0)} avg=${pct(now.avg)} missing=${now.totalMissing} aliasSame=${now.totalAliasSame ?? 0} retracted=${now.totalRetracted ?? 0}/${now.retractionTotal ?? 0} retractRefused=${(now.retractionRefused ?? []).length} retractBad=${(now.retractionBad ?? []).length} retractRot=${(now.retractionRot ?? []).length} regressions=${reg.length} state=${state}`
   console.log(head)
+  const idText = (id) => String(id).split('\u0000').join(' | ')
+  if ((now.retractionBad ?? []).length > 0) {
+    console.log(
+      `❌ 撤除台账有 ${(now.retractionBad ?? []).length} 行读不出来 ⇒ 这些行代表的裁决不生效(一律不免),逐条点名:`,
+    )
+    for (const b of now.retractionBad) console.log(`   ${b.why}:⇒ ${String(b.raw).slice(0, 90)}`)
+  }
+  if ((now.retractionRefused ?? []).length > 0) {
+    console.log(
+      `❌ 撤除台账有 ${(now.retractionRefused ?? []).length} 行不成立(缺理由/出处/到期日、出处过短、已到期或重复登记)⇒ 该键照原样算缺口:`,
+    )
+    for (const x of now.retractionRefused) console.log(`   ${idText(x.id)}:${x.why}`)
+  }
+  if ((now.retractionRot ?? []).length > 0) {
+    console.log(
+      `⚠️ 撤除台账有 ${(now.retractionRot ?? []).length} 行现在不免除任何东西(§0.7 清单腐烂:键已补回 / 页已改承载形 / 三元组对不上)⇒ 出路:核实后删该行,别留成永久免检:`,
+    )
+    for (const id of now.retractionRot) console.log(`   ${idText(id)}`)
+  }
   if (now.broken > 0) {
     console.log('❌ 壳承载断链(引了壳而链不成立 ⇒ 这一页在产物里渲染不出,比缺文案严重):')
     for (const r of now.rows)
@@ -462,6 +719,22 @@ function run() {
     )
     for (const r of now.rows)
       if (r.form === 'other') console.log(`   ${r.spec} → ${r.route}:${r.why}`)
+  }
+  if (now.packUndetermined === true) {
+    console.log(
+      '⚠️ 端词包命名空间这一维**未判定**:取不到 messages/miniapp-taro 或 messages/shared 的顶层键' +
+        ' ⇒ 不记"零缺口",也不冒红(§0.3)',
+    )
+  } else if ((now.packAbsentRows ?? 0) > 0) {
+    console.log(
+      '❌ 端词包缺整块命名空间(壳承载页的文案由共享源渲染,而它取词用的是本端词包 ⇒ 这些屏每句话都取不到词条;' +
+        '逐键那把尺对 hosted 行按构造判 100%,两把尺同时看不见这一型):',
+    )
+    for (const r of now.rows)
+      if (Array.isArray(r.packAbsent) && r.packAbsent.length)
+        console.log(
+          `   ${r.spec} → ${r.route} [${r.form}] 缺 ns: ${r.packAbsent.slice(0, 6).join(', ')}${r.packAbsent.length > 6 ? ' …' : ''}`,
+        )
   }
   if (reg.length > 0) {
     console.log('❌ 还原度倒退(本次丢掉的键 / 新增的端内手写镜像页):')
@@ -507,10 +780,17 @@ if (isDirectRun) {
 
 export const __test__ = {
   batchReadTexts,
+  localModuleRels,
+  localConfigRel,
+  configTitleOf,
+  flattenPack,
+  aliasSameKeys,
   extractDeclaredKeys,
   isBusinessKey,
   businessKeys,
   consumedKeys,
+  packNamespaceGap,
+  gapOfPair,
   hostingFormOf,
   computeFidelity,
   regressions,

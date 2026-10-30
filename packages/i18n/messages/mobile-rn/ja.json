@@ -1039,7 +1039,6 @@
     "sectionSocial": "ソーシャル",
     "favorites": "マイお気に入り",
     "follow": "フォローとフォロワー",
-    "favorite": "お気に入り",
     "messageCenter": "メッセージ",
     "messageSystem": "システム",
     "messageDirect": "ダイレクトメッセージ",
@@ -3597,7 +3596,14 @@
     "termsOfService": "利用規約",
     "thirdPartyLogin": "他の方法でログイン",
     "ssoFailed": "Web認証ログインに失敗しました。再試行するか、アカウントとパスワードでログインしてください。",
-    "loginFailed": "ログインに失敗しました。再試行"
+    "loginFailed": "ログインに失敗しました。再試行",
+    "twoFactorTitle": "二段階認証",
+    "twoFactorHint": "認証アプリに表示される6桁のコード、またはバックアップコードを入力してください。",
+    "twoFactorPlaceholder": "コードまたはバックアップコード",
+    "twoFactorError": "6文字以上で入力してください",
+    "twoFactorSubmit": "認証してログイン",
+    "twoFactorCancel": "キャンセル",
+    "twoFactorCancelled": "二段階認証をキャンセルしました"
   },
   "bookmark": {
     "empty": "しおりがありません",
@@ -4318,7 +4324,7 @@
     "modelRecord": "モデル届出",
     "examSignUps": "試験申込",
     "buyConfirm": "購入確認",
-    "distributionWithdrawRecords": "分销出金履歴",
+    "distributionWithdrawRecords": "代理販売の出金履歴",
     "pluginMarket": "プラグインマーケット",
     "skillsMarket": "スキルマーケット",
     "memoryManager": "メモリ管理台",
@@ -5462,10 +5468,6 @@
     "favoritesCount": "お気に入り",
     "joined": "登録日"
   },
-  "courseSwiper": {
-    "tabHotIntro": "人気入門講座",
-    "tabHotPick": "人気厳選講座"
-  },
   "llmSettings": {
     "title": "モデルプロバイダー",
     "empty": "プロバイダー未設定",
@@ -5829,12 +5831,6 @@
     "cycleUnitWeek": "週"
   },
   "news": {
-    "catAi": "AI",
-    "catMl": "機械学習",
-    "catCv": "コンピュータビジョン",
-    "catNlp": "自然言語",
-    "catChip": "AI チップ",
-    "catRec": "レコメンド",
     "title": "AI ニュース",
     "anonAuthor": "匿名",
     "netFail": "ネットワークエラー",

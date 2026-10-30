@@ -396,27 +396,17 @@ def _apply_sandbox(proc: Any) -> dict[str, Any]:
         return {"active": False, "reason": f"沙箱模块异常: {e}"}
 
 
-# 危险环境变量前缀(对标 Codex process-hardening:剥离 LD_PRELOAD/DYLD_* 等
-# 注入型变量,防子进程被环境劫持;Windows 生产为 no-op 但跨平台语义正确)
-_DANGEROUS_ENV_PREFIXES = ("LD_PRELOAD", "LD_AUDIT", "DYLD_")
-
-
 def _sanitized_child_env() -> dict[str, str]:
     """子进程环境消毒:剔除注入型危险变量(第十一批,对标 process-hardening)。
 
     第二十六批升级:再剥离 exec_env.NON_INHERITABLE_ENV_VARS(管理凭据/
     身份令牌类,如 IHUI_ADMIN_PASSWORD),模型可达子进程绝不继承。
+    差距⑦(2026-10-30):注入型前缀判据上收 core/exec_env.INJECTION_ENV_PREFIXES
+    单一权威源(与 mcp_server 执行面共用同一把尺子,不造第二套)。
     """
-    from app.core.exec_env import scrub_non_inheritable_env_vars
+    from app.core.exec_env import scrub_injection_env_vars, scrub_non_inheritable_env_vars
 
-    env = dict(os.environ)
-    for key in [
-        k
-        for k in env
-        if any(k.upper().startswith(p) for p in _DANGEROUS_ENV_PREFIXES)
-    ]:
-        env.pop(key, None)
-    return scrub_non_inheritable_env_vars(env)
+    return scrub_non_inheritable_env_vars(scrub_injection_env_vars(dict(os.environ)))
 # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher)
 _WATCH_INTERVAL = 2.0
 _WATCH_MAX_ENTRIES = 2000
@@ -2671,7 +2661,7 @@ class AgentEngine:
             "model": thread.model,
             "permission_mode": thread.permission_mode,
             "max_iterations": thread.max_iterations,
-            "tool_names": list(thread.tool_names) if thread.tool_names else None,
+            "tool_names": None if thread.tool_names is None else list(thread.tool_names),
             "workspace": thread.workspace,
             "approval_policies": dict(thread.approval_policies) or None,
             "model_params": dict(thread.model_params) or None,
@@ -3146,6 +3136,7 @@ class AgentEngine:
         queues = self._subscribe_events()
         forwarder = asyncio.ensure_future(self._forward_events(thread, emit, queues))
         started = time.perf_counter()
+        loop: Any = None
         try:
             loop = await self._loop_factory(_spec(thread), host_tools)
             thread.loop = loop
@@ -3216,6 +3207,13 @@ class AgentEngine:
             # 异常由各子方法隔离,主流程照常返回 payload。
             await self._enrich_turn_telemetry(thread, emit)
             return payload
+        except asyncio.CancelledError:
+            # 取消发生在 loop.run 内部时,finally 会先摘掉 thread.loop。
+            # 在那之前把 cancel() 排进独立任务,子循环正在跑的工具才能看到取消标志。
+            cancel_running = getattr(loop, "cancel", None)
+            if cancel_running is not None and not getattr(loop, "_cancel_requested", False):
+                asyncio.get_running_loop().create_task(cancel_running())
+            raise
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
             # 批 44 steer 竞态兜底:提交时回合在 running 但主循环已过最后注入点
@@ -5449,11 +5447,35 @@ class AgentEngine:
                     "type": "integer",
                     "description": "可选,子代理最大迭代(默认 6,上限 12)",
                 },
+                "allowedTools": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "可选。非空时是硬边界:子代理只能调用这些工具,且不能超出父线程白名单。"
+                        "省略或空数组表示沿用父线程默认权限。"
+                    ),
+                },
+                "disallowedTools": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "可选。与父线程已有禁止名单取并集;同一名字同时被允许和禁止时,禁止优先。"
+                    ),
+                },
             },
             "required": ["prompt"],
         }
 
         async def _exec(args: dict[str, Any]) -> Any:
+            from .agent_loop_v2 import TEAM_RELAY_SUMMARY_MAX
+            from .subagent_spawn_policy import (
+                SubagentToolListError,
+                parent_visible_subagent_response,
+                parse_optional_tool_list,
+                remember_subagent_transcript,
+                resolve_subagent_tool_surface,
+            )
+
             prompt = args.get("prompt")
             if not isinstance(prompt, str) or not prompt.strip():
                 return {"error": "spawn_subagent 需要非空 prompt"}
@@ -5466,14 +5488,30 @@ class AgentEngine:
                 return {
                     "error": f"role 非法: {role!r},须为 {sorted(_AGENT_ROLE_TEMPLATES)} 之一"
                 }
-            # G-742:同一形状的第二处 —— 内置 `spawn_subagent` 每轮都派生一条**持久**线程。
-            # 与 `_handle_thread_review` 共用 `_identity_of` 那一份实现,不在此重抄键名判断。
+            try:
+                call_allow = parse_optional_tool_list(args.get("allowedTools"), "allowedTools")
+                call_deny = parse_optional_tool_list(
+                    args.get("disallowedTools"), "disallowedTools"
+                )
+            except SubagentToolListError as err:
+                return {"error": f"{err.field} 须为非空字符串组成的数组"}
+            allow, deny = resolve_subagent_tool_surface(
+                thread.tool_names,
+                list(thread.deny_tools),
+                call_allow,
+                call_deny,
+            )
+            # 子线程只收到本次任务文本,不复制父线程消息(密钥与未交出的上下文留在父侧)。
             sub_params: dict[str, Any] = {
                 "input": prompt.strip(),
                 "permissionMode": thread.permission_mode,
                 "maxIterations": max(1, min(int(args.get("maxIterations") or 6), 12)),
                 **_identity_of(thread),
             }
+            if allow is not None:
+                sub_params["tools"] = allow
+            if deny:
+                sub_params["denyTools"] = deny
             if role is not None:
                 sub_params["role"] = role
             model = args.get("model")
@@ -5494,14 +5532,16 @@ class AgentEngine:
                 },
             )
             started = await self._handle_thread_start(sub_params, _noop_emitter)
-            sub_thread = self._threads.get(started["threadId"])
+            child_id = started["threadId"]
+            sub_thread = self._threads.get(child_id)
             if sub_thread is not None:
                 sub_thread.depth = thread.depth + 1
-            result = await self._handle_thread_prompt(
-                {**sub_params, "threadId": started["threadId"]}, _noop_emitter
-            )
-            with contextlib.suppress(Exception):
-                thread_obj = self._threads.pop(started["threadId"], None)
+            try:
+                result = await self._handle_thread_prompt(
+                    {**sub_params, "threadId": child_id}, _noop_emitter
+                )
+            finally:
+                thread_obj = self._threads.pop(child_id, None)
                 if thread_obj is not None:
                     thread_obj.status = "closed"
             # SubagentStop(第十二批,对标 Codex SubagentStop 钩子)
@@ -5515,21 +5555,41 @@ class AgentEngine:
                     "success": result.get("success"),
                 },
             )
-            return {
-                "threadId": started["threadId"],
+            full_text = str(result.get("finalResponse") or "")
+            visible, truncated = parent_visible_subagent_response(
+                full_text, limit=TEAM_RELAY_SUMMARY_MAX
+            )
+            if truncated:
+                store = getattr(self, "_subagent_transcripts", None)
+                order = getattr(self, "_subagent_transcript_order", None)
+                if not isinstance(store, dict) or not isinstance(order, list):
+                    store = {}
+                    order = []
+                    self._subagent_transcripts = store
+                    self._subagent_transcript_order = order
+                remember_subagent_transcript(store, order, child_id, full_text)
+            payload: dict[str, Any] = {
+                "threadId": child_id,
                 "role": role,
                 "success": result.get("success"),
-                "response": result.get("finalResponse"),
+                "response": visible,
                 "iterations": result.get("iterations"),
                 "usage": result.get("usage"),
             }
+            if truncated:
+                payload["responseTruncated"] = True
+                payload["responseChars"] = len(full_text)
+            return payload
 
         return ToolDefinition(
             name="spawn_subagent",
             description=(
                 "派生一个一次性子代理独立完成任务并返回其最终答复"
-                "(适合需要隔离上下文的子任务);可用 role 指定内置角色模板"
-                "(implementer/reviewer/researcher/tester/planner);嵌套深度有上限。"
+                "(适合需要隔离上下文的子任务;父线程消息不会交给子代理)。"
+                "可用 role 指定内置角色模板"
+                "(implementer/reviewer/researcher/tester/planner);"
+                "allowedTools / disallowedTools 收窄子代理工具面;嵌套深度有上限。"
+                "回传正文超过接力摘要预算时只交摘要,全文不进入父上下文。"
             ),
             parameters=parameters,
             executor=_exec,
@@ -6596,10 +6656,27 @@ class AgentEngine:
                     "error": f"持久会话数已达上限({_MAX_EXEC_SESSIONS}),"
                     "请复用 sessionId 或等待空闲回收"
                 }
+            # 差距⑦(2026-10-30,对标 Qoder node-repl moduleRoots 白名单):模型经
+            # 工具参数传入的 cwd 必须落在执行根白名单内,与 mcp_server run_command
+            # 的 cwd 校验同一把尺子(复用 `_validate_path_in_workspace`,不造第二套)。
+            # 合法根 = 全局工作区根 ⊕ 会话附加目录(D201) ⊕ 宿主侧线程工作区
+            # (thread.workspace 由 thread.start 客户端设定,属宿主注入上下文,
+            # 模型参数只能在其内收窄、不能借 cwd 逃逸到任意目录)。
             cwd = args.get("cwd")
-            resolved_cwd = (
-                cwd if isinstance(cwd, str) and cwd.strip() else thread.workspace
-            ) or os.getcwd()
+            resolved_cwd = thread.workspace or os.getcwd()
+            if isinstance(cwd, str) and cwd.strip():
+                from .mcp_server import _validate_path_in_workspace
+
+                _cwd_roots = tuple(thread.additional_directories or ())
+                if thread.workspace:
+                    _cwd_roots = _cwd_roots + (thread.workspace,)
+                ok_cwd, cwd_info = _validate_path_in_workspace(cwd, extra_roots=_cwd_roots)
+                if not ok_cwd:
+                    return {
+                        "error": f"cwd 不在工作区白名单: {cwd_info}",
+                        "errorCode": "PATH_NOT_ALLOWED",
+                    }
+                resolved_cwd = cwd_info
             new_id = f"shx_{uuid.uuid4().hex[:12]}"
             # shell 环境快照注入(2026-09-20 批 55 接线,对标 Codex
             # shell_snapshot.rs 复用语义):POSIX 会话 source 快照脚本重建

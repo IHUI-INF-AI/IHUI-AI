@@ -125,6 +125,49 @@ export function resolveInitialStepsOpen(mode: FoldPolicyMode, input: FoldPolicyI
   return !shouldCollapseSteps(input)
 }
 
+// ─── 差距⑥ 追加类目:终态确认后过程文本折叠(2026-10-30 立,对标 Qoder
+//     finalTextConfirmed→process_text 折叠规则;Qoder-vs-IHUI-深度对比.md §3-6)──
+//
+// **追加,不是替换**:本类目不进入 `resolveInitialStepsOpen` / `shouldCollapseSteps`
+// 的判定链 —— D21 三维阈值类目的判定顺序与行为零变化(任务书红线:阈值模式是
+// IHUI 用户可配项,Qoder 无此形态)。两条类目在策略链上的组合方式是**并列分域**:
+//   · D21 阈值类目管「中间步骤区」(工具卡/plan/终端任务/子代理)的开合;
+//   · 本类目管「过程叙述文本段」(最终答复定稿前的中间过程叙述)的开合。
+// 判定的对象不同,互不改写对方的读数与结论;共享的是 D21 规则①/②的纪律 ——
+// 用户显式操作(消费侧 override,规则①)永远最优先,用户配置档位(规则②)压过
+// 类目默认。顺序裁定(读码结论):类目射程门 > 用户档位 > 终态位 ——
+// 最终答复段不在本类目射程内(与 D21 只折"中间步骤"、从不折正文同一口径),
+// 故 'collapsed' 档也不会把最终答复折起来。
+
+/** 差距⑥ 过程文本折叠类目的输入 */
+export interface ProcessTextFoldInput {
+  /** 该段是否为**过程叙述文本**(回合内非最终答复的助手消息段;最终答复段恒 false) */
+  isProcessText: boolean
+  /**
+   * 回合终态是否已确认(finalTextConfirmed 对位)。
+   * 信号源用 IHUI 既有事实,不造新状态:流收口(store `isStreaming` 为假,
+   * 即 done/错误/中断收尾后)且本轮不再有正在流式的消息 ——
+   * 接线判据见 MessageList `renderMessageBlock` 与 MessageItem 的 `streamingThis` 注释。
+   */
+  finalTextConfirmed: boolean
+}
+
+/**
+ * 过程文本折叠类目:回合进入终态后,过程叙述段默认折叠;流式进行中不折叠
+ * (活动块纪律保持 —— 未确认时恒展开,与 Qoder `unconfirmed_text` 同一语义)。
+ * 用户手动展开/收起态由消费侧 override 承载(回合生命周期内保持,规则①),
+ * 本纯函数只回答"没有 override 时的默认开合"。
+ */
+export function resolveProcessTextInitialOpen(
+  mode: FoldPolicyMode,
+  input: ProcessTextFoldInput,
+): boolean {
+  if (!input.isProcessText) return true
+  if (mode === 'expanded') return true
+  if (mode === 'collapsed') return false
+  return !input.finalTextConfirmed
+}
+
 // ─── D58 工具类目聚合层接入(2026-09-23 · G-71/G-72) ─────────────────
 // 不新建第二套分组逻辑:类目映射与纯函数全部来自唯一入口 tool-category.ts,
 // 此处仅做"展开策略与 D21 折叠策略联动"的整合,供 tool-call-summary-card.tsx 复用。

@@ -242,6 +242,17 @@ class EnvironmentVariablePattern:
         return f"EnvPattern({self._pattern!r}, ci={self.case_insensitive})"
 
 
+# 注入型危险变量前缀(对标 Codex process-hardening:LD_PRELOAD/LD_AUDIT/DYLD_*
+# 会把任意 so/dylib 注入子进程,防环境劫持执行;Windows 生产为 no-op 但跨平台
+# 语义正确)。单一权威源在此,执行面一律经本模块判据,不在各服务里各抄一份。
+INJECTION_ENV_PREFIXES: tuple[str, ...] = ("LD_PRELOAD", "LD_AUDIT", "DYLD_")
+
+
+def is_injection_env_var(name: str) -> bool:
+    upper = name.upper()
+    return any(upper.startswith(p) for p in INJECTION_ENV_PREFIXES)
+
+
 def is_non_inheritable_env_var(name: str) -> bool:
     upper = name.upper()
     return any(restricted.upper() == upper for restricted in NON_INHERITABLE_ENV_VARS)
@@ -250,6 +261,11 @@ def is_non_inheritable_env_var(name: str) -> bool:
 def scrub_non_inheritable_env_vars(env: Mapping[str, str]) -> dict[str, str]:
     """从环境映射剥离不可继承变量(连显式 override 也剥,Codex 同款)。"""
     return {k: v for k, v in env.items() if not is_non_inheritable_env_var(k)}
+
+
+def scrub_injection_env_vars(env: Mapping[str, str]) -> dict[str, str]:
+    """从环境映射剥离注入型危险变量(继承值与工具参数 override 同剥)。"""
+    return {k: v for k, v in env.items() if not is_injection_env_var(k)}
 
 
 @dataclass

@@ -31,6 +31,17 @@
     读整块 -> 备份 -> 只动目标键 -> **逐条逐字节比对其余项全等**才写 -> 写回后再读再比 ->
     不等即从备份整块还原。任何一步不成立都不落地。
 
+  射程声明(§0.8「文档不得写跑不通的出路」,票 G-584 g35-s13 补):本脚本不负责建服务 ——
+  它只把已存在、且**确由 nssm 托管**的那台服务的环境块按事务式改写;服务不在位、或在位但不是
+  nssm 托管(注册表里连 Parameters 子键都没有,Image Path 是 cmd.exe /c "cd /d …" 这种 SCM 直装
+  形态)⇒ 一律 exit 2 点名形状,不去猜、不去造。本机 2026-10-30 现读 IHUI-API 正是后一档,所以
+  在这台机上跑本脚本按设计就该停在形状闸上,而**不是**"配置坏了"。要重建服务定义,读
+  scripts/data/service-inventory.json 的 services[].provisioning(imageTemplate 已按 ${REPO_ROOT}
+  归一,不钉盘符)与 scripts/data/service-provisioning-gaps.json 里那条债;要补建服脚本,参照
+  deploy/win/install-deploy-loop-service.ps1 的幂等写法(仓根从 $PSScriptRoot 推导)。
+  这一句不是注释:scripts/check-service-inventory.mjs 的 findUndeclaredRewriteScopes 会拿它当
+  凭据 —— 仓里对某台在册服务只做 `nssm set` 却没有这句声明的文件,当场判 SCOPE-RED。
+
   凭据卫生(§5d/§5e):密钥唯一落点是 §5d 权威根下的用途子目录(与既有 db-backup/ 同族),
   本脚本**绝不把密钥内容打进 stdout / 日志 / 命令行参数**;要判"是不是同一把"只打印
   长度 + SHA-256 摘要前 12 位(沿用 scripts/check-credential-health.mjs 的 fingerprint 口径)。
@@ -233,8 +244,7 @@ function Resolve-NssmPath {
     [string[]] $Candidates,
     [string] $Override,
     [scriptblock] $Exists = { param($p) Test-Path -LiteralPath $p }
-  )
-  # 判活交给注入的 $Exists ⇒ 纯函数,自检能构造"装了但不在第一候选"的现场,
+  )  # 判活交给注入的 $Exists ⇒ 纯函数,自检能构造"装了但不在第一候选"的现场,
   # 不必真在测试机上装 nssm(§22c:镜像测试不得只复读实现)。
   if ($Override) {
     # 显式指了却指不到 ⇒ 如实 null。不许"降级去试候选":那会把人指错的路径
@@ -244,6 +254,36 @@ function Resolve-NssmPath {
   }
   foreach ($c in $Candidates) { if (& $Exists $c) { return $c } }
   return $null
+}
+
+# =============================================================================
+# 形状闸(纯函数 + 一次只读探测)—— 本脚本不负责建服务，先把这一格判清楚再往下走
+# =============================================================================
+
+function Resolve-ServiceTargetShape {
+  param(
+    [bool] $ServiceExists,
+    [bool] $HasParametersKey
+  )
+  # 三档不并桶:Missing(这台机上根本没有这个服务键)/ NotNssmManaged(在位但不是 nssm 托管,
+  # 注册表里没有 Parameters 子键,Image Path 是 SCM 直装的 cmd.exe /c 包装)/ NssmManaged(才归本脚本管)。
+  # 把 NotNssmManaged 当"块是空的"继续往下走 = 拿着 nssm 去改一个 nssm 不认识的服务,
+  # 现象是"命令跑通了、什么都没生效",而 config 是启动快照 ⇒ 人以为 webhook 已开通。
+  if (-not $ServiceExists) { return 'Missing' }
+  if (-not $HasParametersKey) { return 'NotNssmManaged' }
+  return 'NssmManaged'
+}
+
+function Get-ServiceTargetShape {
+  param([string] $Service)
+  # 只读:Get-Service / Test-Path 都不写盘、不写注册表、不碰 nssm。
+  $exists = $null -ne (Get-Service -Name $Service -ErrorAction SilentlyContinue)
+  $hasParams = Test-Path -LiteralPath ("HKLM:\SYSTEM\CurrentControlSet\Services\$Service\Parameters")
+  [pscustomobject]@{
+    Shape         = (Resolve-ServiceTargetShape -ServiceExists $exists -HasParametersKey $hasParams)
+    Exists        = $exists
+    ParametersKey = $hasParams
+  }
 }
 
 # =============================================================================
@@ -590,6 +630,18 @@ function Invoke-SelfTest {
   Assert-That '**-NssmPath 指对 ⇒ 用它,即便所有候选都不在位**' (
     (Resolve-NssmPath -Candidates $c1 -Override 'Z:\ok\nssm.exe' -Exists $ovOnly) -ceq 'Z:\ok\nssm.exe')
 
+  # --- 6. 形状闸(本脚本不负责建服务:三档不并桶,缺一档就会把"不适用"读成"没配好") ---
+  Assert-That '形状:服务不在位 ⇒ Missing' (
+    (Resolve-ServiceTargetShape -ServiceExists $false -HasParametersKey $false) -ceq 'Missing')
+  Assert-That '形状:在位但无 Parameters 子键 ⇒ NotNssmManaged(本机 IHUI-API 现读就是这一档)' (
+    (Resolve-ServiceTargetShape -ServiceExists $true -HasParametersKey $false) -ceq 'NotNssmManaged')
+  Assert-That '形状:在位且有 Parameters 子键 ⇒ NssmManaged(唯一放行档)' (
+    (Resolve-ServiceTargetShape -ServiceExists $true -HasParametersKey $true) -ceq 'NssmManaged')
+  Assert-That '反向对照:Parameters 判 True 而服务不在位 ⇒ 仍 Missing,不许越过存在性' (
+    (Resolve-ServiceTargetShape -ServiceExists $false -HasParametersKey $true) -ceq 'Missing')
+  Assert-That '射程声明句在正文里(§0.8 出路闸的文本凭据 = check-service-inventory 的 REWRITE_SCOPE_MARKER)' (
+    ((Get-Content -LiteralPath $PSCommandPath -Raw) -match '本脚本不负责建服务'))
+
   Write-Host ''
   Write-Host ("[selftest] 通过 {0} / 失败 {1}" -f $script:Pass, $script:Fail)
   return $script:Fail
@@ -604,7 +656,22 @@ function Invoke-Enable {
   Write-Host "[enable] 模式 = $mode(不带 -Apply 一律零写入)"
   Write-Host "[enable] 服务 = $ServiceName   目标键 = $EnvKey   仓库根 = $RepoRoot"
 
-  # ---- 1) 先确认"这台机是不是部署机" ----------------------------------
+  # ---- 0) 先问形状:服务在不在位、是不是 nssm 托管 ----------------------
+  # 顺序本身就是防线:这一步在"探 nssm 二进制"之前。本机 2026-10-30 现读 IHUI-API 属
+  # NotNssmManaged(无 Parameters 子键),过去要等 nssm 候选全落空才报错,报的还是"本机不是部署机"
+  # —— 那是把"这脚本对这台机结构上跑不通"误诊成环境问题(§12f:判据失效的表现永远是安静)。
+  $shape = Get-ServiceTargetShape -Service $ServiceName
+  if ($shape.Shape -ne 'NssmManaged') {
+    Write-Host "[enable] 形状闸:$ServiceName ⇒ $($shape.Shape)(在位=$($shape.Exists) / Parameters 子键=$($shape.ParametersKey))" -ForegroundColor Red
+    Write-Host '         本脚本不负责建服务,也不改非 nssm 托管的服务 ⇒ 到此为止,一个字节都不写(含凭据目录)。'
+    Write-Host '         退出码 2 = 这台机上不适用/未判定,不是"配置坏了"。出路二选一:'
+    Write-Host '           ① 在真正 nssm 托管该服务的那台机上跑(候选之外时用 -NssmPath 指一次);'
+    Write-Host '           ② 按仓内清单重建服务:定义见 scripts/data/service-inventory.json 的 services[].provisioning,'
+    Write-Host '              "缺建法"这条债见 scripts/data/service-provisioning-gaps.json,建服腿照 deploy/win/install-deploy-loop-service.ps1。'
+    return 2
+  }
+
+  # ---- 1) 再确认"这台机是不是部署机" ----------------------------------
   # 问凭据根之前先问这个:凭据根可能就是网盘同步目录,在一台没有服务的机器上
   # 一路往下走,到 -Apply 时会往网盘里落一把新密钥。判据先到,顺序本身就是防线。
   $cands = Get-NssmCandidates -SystemRoot $env:SystemRoot

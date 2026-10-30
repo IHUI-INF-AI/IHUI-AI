@@ -8802,6 +8802,10 @@
           "title": "账户受限",
           "action": "联系管理员"
         },
+        "PROVIDER_BUSY": {
+          "title": "服务提供商繁忙",
+          "action": "请稍后重试"
+        },
         "ALREADY_CLAIMED": {
           "title": "该任务已被他人认领",
           "action": "改领其他任务，或等对方释放后再试"
@@ -9549,6 +9553,12 @@
       "videoDownloading": "下载中…",
       "videoDownloaded": "已下载",
       "shareVideo": "分享",
+      "copyImageLink": "复制图片链接",
+      "imageLinkCopied": "链接已复制",
+      "downloadImage": "下载图片",
+      "imageDownloading": "下载中…",
+      "imageDownloaded": "已下载",
+      "shareImage": "分享图片",
       "pathCopied": "已复制",
       "plan": "计划 ({count})",
       "prompt": "提示词",
@@ -11364,6 +11374,7 @@
     "foldEnvInits": "初始化环境 {n} 次",
     "foldEnds": "收尾 {n} 次",
     "foldOthers": "调用 {n} 个工具",
+    "processNarrationGroup": "过程叙述",
     "workbenchSessions": "会话",
     "workbenchImmersiveEnter": "进入大屏模式",
     "workbenchImmersiveExit": "退出大屏模式",
@@ -11850,6 +11861,8 @@
       "saveAsNewVersion": "保存为新版本",
       "share": "分享",
       "shareLinkCopied": "已复制内容与链接",
+      "shareTurn": "分享此回合",
+      "shareTurnCopied": "回合链接已复制",
       "showContent": "显示内容",
       "stopReadAloud": "停止朗读",
       "toggleMetadata": "切换元数据",
@@ -20361,6 +20374,7 @@
     "loginRequired": "登录后管理你的个人号池"
   },
   "nav": {
+    "pdfTools": "PDF 工具",
     "accountPool": "个人号池",
     "checkin": "签到助手",
     "monitorWallboard": "监控大屏",

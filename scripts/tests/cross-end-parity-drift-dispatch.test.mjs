@@ -52,7 +52,23 @@ const webParity = (over = {}) => ({
 /** 还原度维的夹具(与 check-miniapp-mirror-fidelity --json 同形;2026-10-27 接进漂移尺) */
 const fidelity = (over = {}) => ({
   ok: true,
-  json: { hosted: 114, hand: 99, totalMissing: 646, broken: 0, other: 0, ...over },
+  json: {
+    hosted: 114,
+    hand: 99,
+    totalMissing: 646,
+    broken: 0,
+    other: 0,
+    // 2026-10-29 的词包维与 2026-10-30 的撤除台账维必须同批在夹具里:少一维 ⇒
+    // 整轮被 null 扫描读成 undetermined,而这些用例断言的是"到人/身份",红得毫无信息量。
+    packUndetermined: false,
+    packAbsentRows: 0,
+    totalRetracted: 0,
+    retractionTotal: 0,
+    retractionRefused: [],
+    retractionBad: [],
+    retractionRot: [],
+    ...over,
+  },
 })
 
 /** 转换机会预演的夹具(与 upgrade-miniapp-shell-pages 机读档同形;默认"本轮没机会"= 现读真实状态) */

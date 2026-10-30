@@ -72,9 +72,10 @@ curl http://localhost:8803/api/llm/models
 或通过 API:
 
 ```bash
+# 口令只从环境变量注入(仓库内不保存任何可登录口令的默认值;先 export E2E_USER_PASSWORD=…)
 TOKEN=$(curl -s -X POST http://localhost:8801/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"account":"test@aizhs.top","password":"Test@123456"}' | \
+  -d "{\"account\":\"test@aizhs.top\",\"password\":\"$E2E_USER_PASSWORD\"}" | \
   jq -r '.data.accessToken')
 
 curl -X POST http://localhost:8802/api/ai/chat \

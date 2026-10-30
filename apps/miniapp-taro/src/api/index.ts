@@ -311,6 +311,11 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 
   images?: string[]
   /** 视频 URL 列表(对标原 ai_assistant.vue videoUrlList) */
   videos?: string[]
+  /** 音频 URL(对标原 ai_assistant.vue 语音消息字段;ChatMessageItem 语音气泡的播放腿,
+   *  正文抽取补齐时由 answer-media-extract 写入首条 —— 字段住基类,渲染守卫照旧) */
+  audioUrl?: string
+  /** 语音时长(秒,可选;与 audioUrl 同族) */
+  audioDuration?: number
   /** token 消耗(对标原 ai_assistant.vue total_tokens) */
   tokenCount?: number
   /** 代码块内容(对标原 ai_assistant.vue content_code) */
@@ -852,6 +857,49 @@ export const getCouponList = (params?: { status?: string }) =>
     })),
     total: r.total,
   }))
+
+/**
+ * 领券中心:现在可领的券模板(承 GET /api/coupons/available)。
+ *
+ * 后端**刻意不返回 code** —— 券码是「按码领取」那条入口的凭据,公开列表里带上它等于
+ * 把入口连同凭据发给所有人。因此本页只能走 claimAvailableCoupon 的按 id 领取,
+ * 不能复用 developer-relay 的按码入口。
+ */
+export const getAvailableCoupons = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{
+      id: string
+      name: string
+      type: string
+      value: number | null
+      minSpend: number | null
+      perUserLimit: number
+      startsAt: string
+      expiresAt: string
+      remaining: number | null
+    }>
+    total: number
+    page: number
+    pageSize: number
+  }>('/api/coupons/available', params).then((r) => ({
+    // title/threshold/expireTime 是本端展示键,映射只在这一层(与 getCouponList 同法)
+    list: (r.list ?? []).map((row) => ({
+      id: row.id,
+      title: row.name,
+      amount: row.value ?? 0,
+      threshold: row.minSpend ?? 0,
+      expireTime: row.expiresAt,
+      remaining: row.remaining ?? null,
+    })),
+    total: r.total ?? 0,
+  }))
+
+/** 领券中心:按券模板 id 领取。归属主体由后端取自鉴权结果,前端不传 userId。 */
+export const claimAvailableCoupon = (couponId: string) =>
+  post<{ id: string; couponId: string; status: string }>(
+    `/api/coupons/${encodeURIComponent(couponId)}/claim`,
+    {},
+  )
 
 /* ============ 支付 / 订单 ============ */
 
@@ -1662,8 +1710,6 @@ export const uploadByBase64 = (data: unknown) => post('/files/upload/base64', da
 export const getInformationCategory = () => get('/news/categories')
 /** 商品选择列表 */
 export const selectGoods = (params: ApiParams) => get('/goods/select', params)
-/** 支付活动 */
-export const getActivity = () => get('/pay/activity')
 /** 商品详情 */
 export const getProduct = (id: string) => get(`/goods/${id}`)
 

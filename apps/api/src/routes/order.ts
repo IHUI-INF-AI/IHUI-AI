@@ -44,6 +44,7 @@ import {
   zhsOrder,
 } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { batchWriteOutcome } from '../utils/batch-outcome.js'
 import { completeOrderWithSaga } from '../services/order-service.js'
 import { logAction } from '../services/audit-service.js'
 
@@ -1072,24 +1073,43 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
         }
         cancellableIds.push(id)
       }
+      // 守门 134 计数诚实性(格 1):cancelled 必须由两表 `.returning({id})` 回库确认且**双侧都命中**
+      // 的集合派生,不得取循环拼出的 cancellableIds.length(请求侧自算 = "改了 0 行"与"改成功"同形)。
+      // 计数与 missedIds 走唯一出口 utils/batch-outcome.ts,不在端内复算。
+      const confirmedIds: string[] = []
       if (cancellableIds.length > 0) {
-        await db
+        const eduReturned = await db
           .update(eduOrders)
           .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
           .where(inArray(eduOrders.id, cancellableIds))
+          .returning({ id: eduOrders.id })
         // Phase 3: 同步批量取消到统一 orders 表
-        await db
+        const unifiedReturned = await db
           .update(ordersTable)
           .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
           .where(inArray(ordersTable.id, cancellableIds))
+          .returning({ id: ordersTable.id })
+        const eduSet = new Set(eduReturned.map((r) => r.id))
+        const unifiedSet = new Set(unifiedReturned.map((r) => r.id))
+        for (const id of cancellableIds) {
+          if (eduSet.has(id) && unifiedSet.has(id)) confirmedIds.push(id)
+        }
       }
+      const outcome = batchWriteOutcome(ids, confirmedIds)
       await logAction({
         userId: request.userId,
         action: 'order.batch_cancel',
         resourceType: 'order',
-        details: { requested: ids.length, cancelled: cancellableIds.length, skipped },
+        details: {
+          requested: ids.length,
+          cancelled: outcome.affected,
+          missed: outcome.missedIds.length,
+          skipped,
+        },
       })
-      return reply.send(success({ cancelled: cancellableIds.length, skipped }))
+      return reply.send(
+        success({ cancelled: outcome.affected, skipped, missedIds: outcome.missedIds }),
+      )
     },
   )
 

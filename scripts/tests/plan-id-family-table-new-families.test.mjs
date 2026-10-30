@@ -44,6 +44,14 @@ const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..')
 /** 本次补表新增的字母(按票面 Z-1 结清的现读;测试只问族表本身,不自立第二份清单)。 */
 const NEW_LETTERS = ['Z', 'Y', 'Q', 'K']
 
+/**
+ * Z-1 之后按 goal-b25 追加的族(RP)。单字母已无可用位,理由写在族表旁注里:唯一未被占用的单字母
+ * E 在现读宽面上池内命中 40/99、连续 10 号干净窗 0 个(命中全是十六进制提交前缀)⇒ 补 E 等于把
+ * 本批要治的 SCAN_FACE_FULL 复制一遍。这里只钉"它是**追加**、不是插队":族表前缀顺序逐字不变。
+ */
+const APPENDED_FAMILIES = ['RP']
+
+
 /** 该族在夹具底稿里的实占声明位行(与 usedIdsOfPrefix 同形)。 */
 const claimed = (fam, nums, sep = '-') =>
   nums.map((n) => `- [ ] ${fam}${sep}${n} 夹具占位登记${n}。`).join('\n')
@@ -55,7 +63,11 @@ test('T1 新字母追加在表尾:候选字母表含 Z/Y/Q/K,G 仍居首(挑族�
     assert.ok(fams.includes(L), `族表未解析出 ${L}:${fams.join('/')}`)
   assert.equal(fams[0], 'G', 'G 居首 = 2026-10-26 接线时的顺序,补族不得把既有优先级搅动')
   assert.deepEqual(fams.slice(0, 10), ['G', 'D', 'O', 'B', 'P', 'W', 'WP', 'A', 'H', 'V'])
-  assert.deepEqual(fams.slice(10), NEW_LETTERS, '新族必须整批落在表尾(插在中间=改挑族顺序)')
+  assert.deepEqual(
+    fams.slice(10),
+    [...NEW_LETTERS, ...APPENDED_FAMILIES],
+    '新族必须整批落在表尾(插在中间=改挑族顺序)',
+  )
   assert.ok(fams.every((f) => /^[A-Za-z]+$/.test(f)), `令牌族只吃字母:${fams.join('/')}`)
 })
 

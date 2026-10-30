@@ -12,6 +12,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { planArtifactInvariant } from './lib/desktop-artifact-invariant.mjs'
 // 未签名豁免开关的常量与判据单源(§0.6):本文件只 import,不重抄(原本地副本已删)。
 import { ALLOW_UNSIGNED_ENV, allowUnsignedFrom } from './lib/desktop-unsigned-config.mjs'
+// 带值旗标取值判据单源(G-322,§0.6):旧副本 `argv[i+1]` 会把紧邻的下一个旗标当值收下。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const CONF = path.join(ROOT, 'apps/desktop/src-tauri/tauri.conf.json')
@@ -52,13 +54,17 @@ function partitionViolations(files, exeName, allowUnsigned) {
 
 async function main() {
   const argv = process.argv.slice(2)
-  const flag = (name) => {
-    const i = argv.indexOf(name)
-    return i >= 0 ? argv[i + 1] : undefined
+  // 给了旗标就必须给一个值:旧副本 `--dir --expect x.exe` 会把 "--expect" 当目录,
+  // 而 `!existsSync(nsisDir) ⇒ return 0` 会让整道产物校验静默通过(实测旧 rc=0 无输出)。
+  const dirOpt = requireFlagValue(argv, '--dir', { noun: '目录路径' })
+  const expectOpt = requireFlagValue(argv, '--expect', { noun: '安装包文件名' })
+  if (dirOpt.error || expectOpt.error) {
+    console.error(`[artifact-single] ❌ 无法判定(exit 2): ${dirOpt.error ?? expectOpt.error}`)
+    return 2
   }
   // --dir / --expect 只为把判据放进临时目录做负向对照;默认走真实构建产物目录。
-  const nsisDir = flag('--dir') ?? path.join(ROOT, 'apps/desktop/src-tauri/target/release/bundle/nsis')
-  const expected = flag('--expect')
+  const nsisDir = dirOpt.value ?? path.join(ROOT, 'apps/desktop/src-tauri/target/release/bundle/nsis')
+  const expected = expectOpt.value ?? undefined
   const allowUnsigned = allowUnsignedFrom(process.env)
 
   if (!existsSync(nsisDir)) return 0

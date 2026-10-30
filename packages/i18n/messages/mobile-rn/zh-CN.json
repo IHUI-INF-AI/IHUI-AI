@@ -1039,7 +1039,6 @@
     "sectionSocial": "社交",
     "favorites": "我的收藏",
     "follow": "关注与粉丝",
-    "favorite": "我的收藏",
     "messageCenter": "消息",
     "messageSystem": "系统消息",
     "messageDirect": "私信",
@@ -1576,7 +1575,7 @@
   },
   "about": {
     "heroBadge": "关于智汇 AI",
-    "heroTitle": "一码九端,一站 AI",
+    "heroTitle": "一码六端,一站 AI",
     "heroSubtitle": "智汇 AI(IHUI AI)是开源的全栈 AI 操作系统,把 Agent 设计、知识库、多模型调度、跨端协作和团队运营装进同一个平台。",
     "storyBadge": "我们的故事",
     "storyTitle": "为什么做智汇 AI?",
@@ -1584,10 +1583,10 @@
     "storyP2": "于是我们做了智汇 AI:开源、统一、跨端、可私有化。把 12-18 个月的自研时间,压缩到 30 分钟开通账号。",
     "valueOpenTitle": "完全开源",
     "valueOpenDesc": "Apache 2.0 协议,核心代码公开,商业可用,Self-host 零成本。",
-    "valueCrossTitle": "九端同源",
-    "valueCrossDesc": "Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor / CLI,一套代码,一次发布,全端触达。",
+    "valueCrossTitle": "六端同源",
+    "valueCrossDesc": "Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI,一套代码,一次发布,全端触达。",
     "valueFreeTitle": "个人版永久免费",
-    "valueFreeDesc": "每月 1000 积分,全模型可用,九端同发。Pro 版 ¥49/月起,企业版支持私有化。",
+    "valueFreeDesc": "每月 1000 积分,全模型可用,六端同发。Pro 版 ¥49/月起,企业版支持私有化。",
     "valueEnterpriseTitle": "企业级安全",
     "valueEnterpriseDesc": "SSO/OAuth、审计日志、角色权限、私有化部署,服务多家上市公司。",
     "platformTitle": "全栈 AI 操作系统",
@@ -3597,7 +3596,14 @@
     "termsOfService": "服务条款",
     "thirdPartyLogin": "第三方登录",
     "ssoFailed": "网页授权登录失败,请重试或使用账密登录",
-    "loginFailed": "登录失败，请重试"
+    "loginFailed": "登录失败，请重试",
+    "twoFactorTitle": "两步验证",
+    "twoFactorHint": "请输入身份验证器（Authenticator）中的 6 位动态码，或使用备用码。",
+    "twoFactorPlaceholder": "动态码或备用码",
+    "twoFactorError": "请输入至少 6 位验证码",
+    "twoFactorSubmit": "验证并登录",
+    "twoFactorCancel": "取消",
+    "twoFactorCancelled": "已取消两步验证"
   },
   "bookmark": {
     "empty": "暂无收藏",
@@ -5462,10 +5468,6 @@
     "favoritesCount": "收藏",
     "joined": "加入于"
   },
-  "courseSwiper": {
-    "tabHotIntro": "爆款入门课程",
-    "tabHotPick": "爆款精选课程"
-  },
   "llmSettings": {
     "title": "模型服务商",
     "empty": "还没有配置服务商",
@@ -5829,12 +5831,6 @@
     "cycleUnitWeek": "周"
   },
   "news": {
-    "catAi": "人工智能",
-    "catMl": "机器学习",
-    "catCv": "计算机视觉",
-    "catNlp": "自然语言",
-    "catChip": "AI 芯片",
-    "catRec": "智能推荐",
     "title": "AI资讯",
     "anonAuthor": "佚名",
     "netFail": "网络异常",

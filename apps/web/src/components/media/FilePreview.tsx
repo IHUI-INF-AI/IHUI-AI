@@ -34,6 +34,9 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchGatedBlob } from '@/lib/gated-blob-fetch'
 import { downloadFilenameFor } from '@/lib/file-preview-attachment'
+// 外部 http(s) 图片经同源代理走 /api/media/image,满足收窄后的 CSP img-src
+// 外部 http(s) 音视频经 /api/media/stream(CSP media-src 为 'self' blob:,无 https: 通配)
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { OfficeViewer } from './OfficeViewer'
 import { PDFViewer } from './PDFViewer'
 import {
@@ -541,7 +544,7 @@ function ImagePreview({
                 onError={() => setVideoState('unsupported')}
                 onLoadedMetadata={() => setVideoState('ready')}
                 ref={videoRef}
-                src={current.url}
+                src={toMediaStreamUrl(current.url)}
               >
                 {/* a11y:media-has-caption 要求媒体带 track;用户上传视频无字幕源,空 captions track 为规范允许的最小清偿 */}
                 <track kind="captions" />
@@ -550,7 +553,7 @@ function ImagePreview({
           )
         ) : (
           <Image
-            src={current.url}
+            src={toMediaImageUrl(current.url)}
             alt={current.name ?? 'preview'}
             width={800}
             height={600}

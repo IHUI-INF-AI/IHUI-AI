@@ -83,6 +83,11 @@ const formatViews = (n: number): string => {
 export default function NewsListPage() {
   const tt = useTt()
 
+  // 屏标题对齐 RN ArticleListScreen 的 header:小程序由原生导航栏承载,随语言切换重设
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: tt('articleList.title', '文章') })
+  }, [tt])
+
   const [list, setList] = useState<NewsExt[]>([])
   const [loading, setLoading] = useState(false)
   const [keyword, setKeyword] = useState('')
@@ -218,7 +223,7 @@ export default function NewsListPage() {
             <View className="pinned-meta">
               <Text className="pinned-time">{pinned.createTime}</Text>
               <Text className="pinned-views">
-                {tt('news.readCount', '{n}阅读', { n: formatViews(Number(pinned.views ?? 0)) })}
+                {tt('articleList.views', '阅读量')} {formatViews(Number(pinned.views ?? 0))}
               </Text>
               {pinned.source ? <Text className="pinned-source">{pinned.source}</Text> : null}
             </View>
@@ -246,9 +251,7 @@ export default function NewsListPage() {
                     <View className="meta">
                       <Text className="time">{n.createTime}</Text>
                       <Text className="views">
-                        {tt('news.readCount', '{n}阅读', {
-                          n: formatViews(Number(n.views ?? 0)),
-                        })}
+                        {tt('articleList.views', '阅读量')} {formatViews(Number(n.views ?? 0))}
                       </Text>
                     </View>
                     {n.source ? <Text className="source">{n.source}</Text> : null}
@@ -262,7 +265,7 @@ export default function NewsListPage() {
 
       {/* 状态 */}
       {!loading && !pinnedVisible && visibleList.length === 0 ? (
-        <EmptyState title={tt('news.empty', '暂无资讯')} />
+        <EmptyState title={tt('articleList.empty', '暂无文章')} />
       ) : null}
 
       {loading && visibleList.length === 0 ? <ScreenSkeleton variant="list" count={4} /> : null}

@@ -76,7 +76,11 @@ interface StubConv {
 // 与"该行渲染出的置顶标记",缺其一就验不出「UI 说没变、数据已经变了」那一型。
 vi.mock('@ihui/rn-app', async () => {
   const { createElement: h } = await import('react')
+  // 2026-10-30(票 L30756):useRefreshOnFocus 薄壳经本包入口取 useScreenReappear;本文件局部
+  // mock 了整个包 ⇒ 必须补这条出口(纯 React hook,直连真源码),否则屏挂载即报缺导出。
+  const { useScreenReappear } = await import('../../../packages/app/src/hooks/use-screen-reappear')
   return {
+    useScreenReappear,
     SearchInput: () => h('input', null),
     MessageCenterScreen: ({
       conversations,
@@ -146,6 +150,8 @@ vi.mock('react-native', async () => {
     // 主题单例(active-tokens)求值期读 Appearance.getColorScheme,两者缺一整文件加载即炸。
     Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    // AppState(2026-10-30):useRefreshOnFocus 的 RN adapter 挂载期订阅;本套件不测回前台。
+    AppState: { currentState: 'active' as const, addEventListener: () => ({ remove() {} }) },
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })

@@ -361,4 +361,188 @@ describe('登记行改写三维守恒', () => {
     )
   })
 })
+
+// ---------------------------------------------------------------------------
+// 窄「补号档」双向锁(2026-10-30 立,承票 RP-1:g34-s7 一手复现)
+//
+// 立因(复现读数,不是推断):RP-1 要求把 6 枚「未取号」登记行迁进 RP 族(两字母族+个位号)。
+// `live-doc-edit` 整行改写的「同题让号放行」臂按 `extractTaskFingerprint` 比对,其剥编号的
+// 两处族字面量 `/[A-Z]-?\d+/g` 与 `/[a-z]{1,3}-?\d{2,}/g` 都不认 `RP-7`(前者只接单字母、
+// 后者要求 ≥2 位数字)⇒ 补号后指纹凭空多出 `rp7` 前缀,实测两侧
+// fp=`冷启动腿整族迁入新字母族` vs `rp7冷启动腿整族迁入新字母族` ⇒ 让号臂恒不触发
+// ⇒ 整行只剩「主键漂了:(无) → RP-7」一条拒写,RP-1 的出路在器物层结构性不可达。
+// 补号档把放行收在判据核这一格(改指纹定义会波及 9 枚镜像与所有按指纹判同题的门),
+// 三条件与挂牌档 `addedMarkIsIsolated` 同型:① 旧行整行无号 ② 新行声明位有合法号
+// (两把尺都 import 单源 keyOfRow/declaredKeyOf,族合法性由 TASK_ID_PATTERN 背书)
+// ③ 剥掉那枚号(含其后一个空白)后与旧行逐字节相等。**只替主键维放行**,租约/归属桶维照判。
+// 成对钉:纯补号放行(带空格/不带空格/粗体外三形)对 括注被引号/旧行有号(换号)/双写号/
+// 族外假号/顺带改桶/顺带改题面/顺带挂牌/多打空格 全拒,每条点名是哪一条件不满足(§0.10)。
+// ---------------------------------------------------------------------------
+describe('窄补号档(从(无)到一个合法号)', () => {
+  const O = '- [ ] 标题 —— 现状'
+
+  it('正控:声明位纯补 RP-7(号+一个空格)⇒ 放行', () => {
+    assert.deepEqual(
+      C.assertRowRewriteConservation({ oldLine: O, newLine: '- [ ] RP-7 标题 —— 现状', oldRec: null, newRec: null }),
+      [],
+    )
+  })
+
+  it('正控:号后不带空格 / 补在粗体外 / 补其它在册族(G-42)⇒ 同样放行(档不认族,认逐字节)', () => {
+    for (const [oldLine, newLine] of [
+      [O, '- [ ] RP-7标题 —— 现状'],
+      ['- [ ] **标题** —— 现状', '- [ ] RP-7 **标题** —— 现状'],
+      [O, '- [ ] G-42 标题 —— 现状'],
+    ]) {
+      assert.deepEqual(
+        C.assertRowRewriteConservation({ oldLine, newLine, oldRec: null, newRec: null }),
+        [],
+        `${newLine} ⇒ 唯一差异只是插入这枚声明位编号,必须放行`,
+      )
+    }
+  })
+
+  it('反向①a:号写在**行首装饰括注**里 ⇒ 条件②拒(declaredKeyOf 与 keyOfRow 不同形,被引号不算补号声明)', () => {
+    const v = C.assertRowRewriteConservation({
+      oldLine: O,
+      newLine: '- [ ]（原RP-7）标题 —— 现状',
+      oldRec: null,
+      newRec: null,
+    })
+    assert.ok(
+      v.some((x) => /主键漂了/.test(x) && /不在本行声明位/.test(x) && /条件②/.test(x)),
+      JSON.stringify(v),
+    )
+  })
+
+  it('反向①b:旧行已有号(G-7→RP-7 换号)⇒ 条件①拒,仍走同题让号额度', () => {
+    const v = C.assertRowRewriteConservation({
+      oldLine: '- [ ] G-7 标题 —— 现状',
+      newLine: '- [ ] RP-7 标题 —— 现状',
+      oldRec: null,
+      newRec: null,
+    })
+    assert.ok(
+      v.some((x) => /主键漂了:G-7 → RP-7/.test(x) && /条件①/.test(x)),
+      JSON.stringify(v),
+    )
+  })
+
+  it('反向①c:双写同号 ⇒ 条件③拒(剥掉一枚还剩一枚,不是"唯一差异=插入")', () => {
+    const v = C.assertRowRewriteConservation({
+      oldLine: O,
+      newLine: '- [ ] RP-7 RP-7 标题 —— 现状',
+      oldRec: null,
+      newRec: null,
+    })
+    assert.ok(
+      v.some((x) => /主键漂了/.test(x) && /条件③/.test(x)),
+      JSON.stringify(v),
+    )
+  })
+
+  it('反向①d:族外假号(QQ-7 被窗口尺读成 Q-7)⇒ 剥号后剩孤儿字符,条件③拒', () => {
+    const v = C.assertRowRewriteConservation({
+      oldLine: O,
+      newLine: '- [ ] QQ-7 标题 —— 现状',
+      oldRec: null,
+      newRec: null,
+    })
+    assert.ok(
+      v.some((x) => /主键漂了:\(无\) → Q-7/.test(x) && /条件③/.test(x)),
+      JSON.stringify(v),
+    )
+  })
+
+  it('反向②:补号同时把「归属:…」句子换了 ⇒ 主键维放行但归属桶维仍拒(补号档不替桶维说话)', () => {
+    const v = C.assertRowRewriteConservation({
+      oldLine: '- [ ] 标题 —— 归属:web 线',
+      newLine: '- [ ] RP-7 标题 —— 一句现状',
+      oldRec: null,
+      newRec: null,
+    })
+    // 剥号后正文确实变了(归属句没了)⇒ 条件③同拒;而即便有人构造"补号+桶经侧车改判"
+    // 的合法补号形态,桶维也独立点名(见下面侧车用例)。
+    assert.ok(
+      v.some((x) => /归属判定会漂/.test(x)),
+      JSON.stringify(v),
+    )
+    const v2 = C.assertRowRewriteConservation({
+      oldLine: '- [ ] 标题 —— 现状',
+      newLine: '- [ ] RP-7 标题 —— 现状',
+      oldRec: null,
+      newRec: { key: 'RP-7#标题', owner: '某人', waiting: 'env', blocking: '等环境' },
+    })
+    assert.ok(
+      v2.some((x) => /归属判定会漂/.test(x)),
+      `补号后新行侧车把桶改了 ⇒ 必须仍拒,实际:${JSON.stringify(v2)}`,
+    )
+  })
+
+  it('反向③:补号同时改题面 ⇒ 条件③拒并给出行内分歧位置(§0.10 定向说明)', () => {
+    const v = C.assertRowRewriteConservation({
+      oldLine: O,
+      newLine: '- [ ] RP-7 标题改字 —— 现状',
+      oldRec: null,
+      newRec: null,
+    })
+    assert.ok(
+      v.some((x) => /主键漂了/.test(x) && /不再逐字节相等/.test(x)),
+      JSON.stringify(v),
+    )
+  })
+
+  it('反向④:补号同时挂牌 ⇒ 双维各点名(主键条件③ + 租约 add-attached),不放行任何一维', () => {
+    const v = C.assertRowRewriteConservation({
+      oldLine: O,
+      newLine: `- [ ]（进行中@${C.todayIso()}/乙） RP-7 标题 —— 现状`,
+      oldRec: null,
+      newRec: null,
+    })
+    assert.ok(
+      v.some((x) => /主键漂了/.test(x)),
+      JSON.stringify(v),
+    )
+    assert.ok(
+      v.some((x) => /加牌这一步顺带改了别的东西/.test(x)),
+      `补号+挂牌必须两笔分开,实际:${JSON.stringify(v)}`,
+    )
+  })
+
+  it('反向⑤:补号多打一个空格 ⇒ 条件③拒(与挂牌档同一条逐字节纪律,不做空格启发式)', () => {
+    const v = C.assertRowRewriteConservation({
+      oldLine: O,
+      newLine: '- [ ]  RP-7 标题 —— 现状',
+      oldRec: null,
+      newRec: null,
+    })
+    assert.ok(
+      v.some((x) => /主键漂了/.test(x) && /条件③/.test(x)),
+      JSON.stringify(v),
+    )
+  })
+
+  it('形状锁:拒写文案仍以「主键漂了:」开头(live-doc-edit 同题让号臂的 filter 锚),且带出路', () => {
+    const v = C.assertRowRewriteConservation({
+      oldLine: O,
+      newLine: '- [ ] RP-7 标题 —— 现状改一个字',
+      oldRec: null,
+      newRec: null,
+    })
+    assert.equal(v.length, 1, JSON.stringify(v))
+    assert.ok(v[0].startsWith('主键漂了:'), `让号臂按 startsWith 过滤,前缀被改即失明,实际:${v[0]}`)
+    assert.match(v[0], /出路=/)
+    assert.match(v[0], /补号档不成立/)
+  })
+
+  it('idFillTransitionOf 直读:ok 档交出 token/at;新行无号 ⇒ 未成立并点名(主键漂移的另一向不被本档掩盖)', () => {
+    const good = C.idFillTransitionOf(O, '- [ ] RP-7 标题 —— 现状')
+    assert.equal(good.ok, true)
+    assert.equal(good.token, 'RP-7')
+    assert.equal(typeof good.at, 'number')
+    const noKey = C.idFillTransitionOf(O, '- [ ] 标题 —— 现状(改了尾巴)')
+    assert.equal(noKey.ok, false)
+    assert.match(noKey.why, /条件②/)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -15,7 +15,12 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveList, type Live } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 // 屏幕状态四件套的小程序镜像件(对齐 RN 端 packages/app/src/components/ScreenStates.tsx)
-import { EmptyState, PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '@/components/ScreenStates.taro'
 
 const STATUS_KEY: Record<Live['status'], string> = {
   living: 'live.liveNow',
@@ -28,6 +33,7 @@ export default function LiveList() {
   const tt = useTt()
   const [list, setList] = useState<Live[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [status, setStatus] = useState('')
   const pageRef = useRef(1)
   const hasMoreRef = useRef(true)
@@ -66,8 +72,10 @@ export default function LiveList() {
       setList((prev) => (reset ? more : [...prev, ...more]))
       hasMoreRef.current = lenRef.current < res.total
       pageRef.current++
+      setLoadFailed(false)
     } catch {
-      // 统一提示
+      // 对齐 RN:失败但已有内容时保留列表,只在空列表上落错误态(重试取 liveList.retry)
+      setLoadFailed(true)
     } finally {
       loadingRef.current = false
       setLoading(false)
@@ -111,6 +119,10 @@ export default function LiveList() {
       {/* 对齐 RN LiveScreen container(tk.surface.bg → var(--color-background))
           + listBody(paddingHorizontal 10 → 20rpx, paddingVertical 16 → 32rpx) */}
       <View className="min-h-screen bg-[var(--color-background)] px-[20rpx] pt-[32rpx] pb-[32rpx]">
+        {/* 对齐 RN header 的副标题(标题由小程序原生导航栏承担) */}
+        <Text className="block mb-[24rpx] text-[length:26rpx] text-muted-foreground">
+          {t('liveList.subtitle')}
+        </Text>
         <View className="flex mb-[24rpx] gap-[16rpx]">
           <View
             className="flex-1 bg-primary rounded-xl py-[20rpx] flex items-center justify-center"
@@ -151,6 +163,16 @@ export default function LiveList() {
           ))}
         </View>
 
+        {loadFailed && list.length === 0 ? (
+          <View className="mb-[24rpx]">
+            <ErrorState
+              message={t('common.failed')}
+              onRetry={() => load(true)}
+              retryLabel={t('liveList.retry')}
+            />
+          </View>
+        ) : null}
+
         {list.length > 0 && (
           <View>
             {list.map((item) => (
@@ -181,21 +203,17 @@ export default function LiveList() {
                 {/* 对齐 RN lecturer 行(marginTop 6 → 12rpx, 14px → 28rpx, text.medium) */}
                 {item.anchor ? (
                   <Text className="block mt-[12rpx] text-[length:28rpx] text-[var(--color-text-medium)]">
-                    {item.anchor}
+                    {t('liveList.lecturer')}: {item.anchor}
                   </Text>
                 ) : null}
                 {/* 对齐 RN metaRow:开始时间 + 观看人数两端对齐(marginTop 8 → 16rpx, 12px → 24rpx, text.tertiary) */}
                 <View className="flex items-center justify-between mt-[16rpx]">
-                  {item.startTime ? (
-                    <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
-                      {item.startTime}
-                    </Text>
-                  ) : (
-                    <Text />
-                  )}
+                  <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                    {t('liveList.startAt')}: {item.startTime || '—'}
+                  </Text>
                   {item.watchCount !== undefined && (
                     <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
-                      {t('live.viewers', { n: item.watchCount })}
+                      {t('liveList.viewerCount')} {item.watchCount}
                     </Text>
                   )}
                 </View>
@@ -204,7 +222,7 @@ export default function LiveList() {
           </View>
         )}
 
-        {!loading && list.length === 0 && <EmptyState title={t('live.empty')} />}
+        {!loading && !loadFailed && list.length === 0 && <EmptyState title={t('live.empty')} />}
 
         {loading && <ScreenSkeleton variant="list" count={4} />}
       </View>

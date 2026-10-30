@@ -30,9 +30,25 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useMounted } from '@/hooks/use-mounted'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { clearTurnDeepLink, parseTurnParam, setTurnDeepLink } from '@/lib/turn-deeplink'
+import { usePaneSplitStore } from '@/stores/pane-split'
+import { ROOT_PANE_ID, collectPaneLeaves } from '@ihui/shared/chat/multi-pane'
 import { Button } from '@ihui/ui-react'
 
 import WorkAreaHomePage from '../home/page'
+
+/**
+ * 差距⑤遗留边界2(2026-10-30):深链目标窗格解析 —— 布局树里已有**非根叶**承载该会话
+ * ⇒ 深链落那一叶(不动根窗格的全局会话);没有 ⇒ null(根窗格,既有行为)。
+ * 默认单窗格树只有一个未登记的根叶,恒回落 null ⇒ 单窗格场景逐字节不变。
+ */
+function resolveDeepLinkPaneId(conversationId: string): string | null {
+  const leaves = collectPaneLeaves(usePaneSplitStore.getState().tree)
+  const hit = leaves.find(
+    (leaf) => leaf.id !== ROOT_PANE_ID && leaf.conversationId === conversationId,
+  )
+  return hit ? hit.id : null
+}
 
 /**
  * 多会话并行(2026-08-30 立):/chat?conversationId=xxx 深链跳转。
@@ -44,8 +60,29 @@ function ChatConversationSync() {
   const searchParams = useSearchParams()
   React.useEffect(() => {
     const convId = searchParams.get('conversationId')
-    if (!convId) return
-    // 已在该会话则跳过,避免冗余重载
+    // 差距④(2026-10-30 立):?turn=<turnOrdinal> 深链锚点。目标必须在
+    // setConversationId **之前**写入 —— conversationId 变更触发的 loadHistory effect
+    // 要能 peek 到它,改走 around 居中窗口。无 turn 参数即清:URL 是目标的唯一权威,
+    // 陈旧目标不得泄漏进常规打开。
+    // 差距⑤遗留边界(2026-10-30 补):已在该会话时换 turn 会重锚 —— set/clear 广播
+    // 版本号,承载窗格(根 = ai-side-panel,非根 = chat-pane-body)的历史 effect 订阅后重跑;
+    // 目标归属非根窗格时不动根窗格的全局会话(见 resolveDeepLinkPaneId)。
+    const turn = parseTurnParam(searchParams.get('turn'))
+    if (!convId) {
+      clearTurnDeepLink()
+      return
+    }
+    if (turn === null) clearTurnDeepLink()
+    else {
+      const paneId = resolveDeepLinkPaneId(convId)
+      setTurnDeepLink(convId, turn, paneId)
+      if (paneId !== null) {
+        // 会话已由目标窗格承载:只开面板,不切根窗格的全局会话;重锚由该窗格消费目标完成
+        useAiPanelStore.getState().openPanel()
+        return
+      }
+    }
+    // 已在该会话则跳过,避免冗余重载(换 turn 的重锚由版本号驱动,不走这条)
     if (useChatStore.getState().conversationId === convId) return
     useChatStore.getState().setConversationId(convId)
     useAiPanelStore.getState().openPanel()

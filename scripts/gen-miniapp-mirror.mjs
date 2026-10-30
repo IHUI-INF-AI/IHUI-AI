@@ -1007,7 +1007,7 @@ function listSharedScreens(rootDir) {
  */
 export function applyBatch(rootDir, plans) {
   const results = []
-  const ctx = makeContext(rootDir)
+  const _ctx = makeContext(rootDir)
   // ① 页面文件:每屏一份,互不共享 ⇒ 逐屏写
   for (const plan of plans) {
     const headHas = faceReadMap(rootDir, [plan.pageRel]).get(plan.pageRel)

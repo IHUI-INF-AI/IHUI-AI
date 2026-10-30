@@ -28,7 +28,6 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS } from '../sandbox/index.js';
-import * as fs from 'node:fs';
 // MCP 协议版本单一真源(packages/shared 镜像 ai-service tunables.py;
 // GAP-PLAN P0-1 收敛:此前此处二次写死旧版 '2024-11-05' 造成跨端漂移)
 import { DEFAULT_PROTOCOL_VERSION } from '@ihui/shared';
@@ -36,7 +35,8 @@ import { assertSafeFetchUrl, formatSsrfRejection, type SelfHostedTrust } from '@
 // G-689:脱敏走共享层的**唯一出口**(票面点名)。不另写一套正则 ——
 // 对端 stderr 是任意内容,原样拼进 error.message 就等于把它泄进日志/上报链路。
 import { sanitizeEvidenceText } from '@ihui/shared/utils/redact';
-import { getMcpConfigPath, type McpServer } from '../commands/mcp-config.js';
+import { loadMcpConfig, type McpServer, type McpStdioFraming } from '../commands/mcp-config.js';
+import { createStdioFrameDecoder, encodeContentLength, encodeNdjson } from './mcp-stdio-framing.js';
 // G-690:进程树回收的**制造者**已经存在于 util/spawn-isolated.ts(机制 + export 都在那里,
 // 且它的注释就点名了"调用端配合条件:detached 只在 Unix 侧有意义")。
 // 这里只做**装车**:不另抄一份 taskkill/kill(-pid) 逻辑 —— 两处算同一件事必漂移。
@@ -366,6 +366,26 @@ interface StdioDispatcher {
 }
 
 const stdioDispatchers = new WeakMap<ChildProcess, StdioDispatcher>();
+const stdioFraming = new WeakMap<ChildProcess, McpStdioFraming>();
+
+function stdioFramingOf(proc: ChildProcess): McpStdioFraming {
+  return stdioFraming.get(proc) ?? 'ndjson';
+}
+
+function encodeStdioMessage(proc: ChildProcess, value: unknown): string {
+  return stdioFramingOf(proc) === 'content-length' ? encodeContentLength(value) : encodeNdjson(value);
+}
+
+function deliverStdioMessage(
+  pending: Map<number, StdioPendingEntry>,
+  parsed: { id?: number; error?: { message?: string }; result?: unknown },
+): void {
+  if (parsed.id === undefined) return;
+  const entry = pending.get(parsed.id);
+  if (!entry) return;
+  pending.delete(parsed.id);
+  entry.onFrame(parsed);
+}
 
 /** 惰性挂载该子进程的 stdout 分派器(幂等):首个 RPC 到来时装上,断连时摘下。 */
 function ensureStdioDispatcher(proc: ChildProcess): StdioDispatcher {
@@ -373,7 +393,28 @@ function ensureStdioDispatcher(proc: ChildProcess): StdioDispatcher {
   if (existing) return existing;
 
   const pending = new Map<number, StdioPendingEntry>();
+  const contentLengthDecoder =
+    stdioFramingOf(proc) === 'content-length' ? createStdioFrameDecoder() : undefined;
   function onData(data: Buffer): void {
+    if (contentLengthDecoder) {
+      let messages: unknown[];
+      try {
+        messages = contentLengthDecoder.push(data);
+      } catch (cause) {
+        const error = cause instanceof Error ? cause : new Error(String(cause));
+        for (const entry of pending.values()) entry.fail(error);
+        pending.clear();
+        return;
+      }
+      for (const message of messages) {
+        if (!message || typeof message !== 'object') continue;
+        deliverStdioMessage(
+          pending,
+          message as { id?: number; error?: { message?: string }; result?: unknown },
+        );
+      }
+      return;
+    }
     const text = data.toString();
     for (const line of text.split('\n')) {
       if (!line.trim()) continue;
@@ -383,11 +424,7 @@ function ensureStdioDispatcher(proc: ChildProcess): StdioDispatcher {
       } catch {
         continue; // 忽略非 JSON 行
       }
-      if (parsed.id === undefined) continue;
-      const entry = pending.get(parsed.id);
-      if (!entry) continue; // 未知 id 的帧(notification / 迟到已超时请求)不投递
-      pending.delete(parsed.id);
-      entry.onFrame(parsed);
+      deliverStdioMessage(pending, parsed);
     }
   }
 
@@ -415,7 +452,7 @@ export async function sendStdioRpc(
       return;
     }
     const id = nextId();
-    const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n';
+    const msg = encodeStdioMessage(proc, { jsonrpc: '2.0', id, method, params });
 
     // G-689:错误消息必须带诊断尾(stderr 尾 / 退出码 / spawn 失败原因),
     // 否则只剩一句"请求超时",排查时无从下手。
@@ -489,7 +526,7 @@ function sendStdioNotification(
   if (!proc.stdin) {
     throw new Error('子进程 stdin 不可用');
   }
-  const msg = JSON.stringify({ jsonrpc: '2.0', method, params }) + '\n';
+  const msg = encodeStdioMessage(proc, { jsonrpc: '2.0', method, params });
   proc.stdin.write(msg);
 }
 
@@ -929,6 +966,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
     if (transport === 'stdio') {
       if (!server.command) throw new Error('stdio transport 需要 command');
       const proc = spawn(server.command, server.args ?? [], {
+        cwd: server.cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
         // 票B:白名单基底 + server.env 显式声明(单键重注)—— 新增密钥名默认不可达,
         // 只有写在该 server 配置 env 里的键才进第三方子进程(过滤与声明的构造在 buildMcpChildEnv)
@@ -943,12 +981,13 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       // 失败从此有真因可报,而不是等满 10s 计时器报"请求超时")。
       ensureStdioDiagnostics(proc);
       conn.process = proc;
+      stdioFraming.set(proc, server.framing === 'content-length' ? 'content-length' : 'ndjson');
 
       await sendStdioRpc(proc, 'initialize', {
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
         clientInfo: { name: 'ihui-cli', version: '1.0.0' },
         capabilities: {},
-      });
+      }, server.requestTimeoutMs ?? 10_000);
       sendStdioNotification(proc, 'notifications/initialized', {});
     } else if (transport === 'http') {
       if (!server.url) throw new Error('http transport 需要 url');
@@ -961,7 +1000,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
         clientInfo: { name: 'ihui-cli', version: '1.0.0' },
         capabilities: {},
-      }, headers, 10_000, mcpConfigTrust(server));
+      }, headers, server.requestTimeoutMs ?? 10_000, mcpConfigTrust(server));
     } else if (transport === 'sse') {
       if (!server.url) throw new Error('sse transport 需要 url');
       // 认证 headers 由 resolveMcpAuthHeaders 解析(支持静态 token / OAuth / 无认证三条路径)
@@ -1073,9 +1112,10 @@ async function sendRpc(
   params: Record<string, unknown>,
 ): Promise<{ result?: unknown }> {
   const transport = conn.transport;
+  const timeoutMs = conn.server.requestTimeoutMs ?? 10_000;
   if (transport === 'stdio') {
     if (!conn.process) throw new Error('stdio 连接未建立');
-    const result = await sendStdioRpc(conn.process, method, params);
+    const result = await sendStdioRpc(conn.process, method, params, timeoutMs);
     return { result };
   } else if (transport === 'sse') {
     const result = await sendSseRpc(conn, method, params);
@@ -1087,7 +1127,7 @@ async function sendRpc(
       method,
       params,
       conn.headers ?? {},
-      10_000,
+      timeoutMs,
       mcpConfigTrust(conn.server),
     );
     return { result };
@@ -1402,17 +1442,14 @@ export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
   };
 }
 
-export async function loadMcpTools(_ctx: ToolContext): Promise<Tool[]> {
-  const configPath = getMcpConfigPath();
-  if (!fs.existsSync(configPath)) return [];
-
+export async function loadMcpTools(ctx: ToolContext): Promise<Tool[]> {
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { servers: McpServer[] };
+    const config = loadMcpConfig(ctx.workspacePath);
     const allTools: Tool[] = [];
 
     for (const server of config.servers ?? []) {
       try {
-        const conn = await connectMcpServer(server);
+        const conn = await connectMcpServer({ ...server, cwd: ctx.workspacePath });
         for (const mcpTool of conn.tools) {
           allTools.push(mcpToolToTool(conn, mcpTool));
         }
@@ -1432,17 +1469,14 @@ export async function loadMcpTools(_ctx: ToolContext): Promise<Tool[]> {
  * 供 hub mcp-adapter 路径使用:adapter 直接基于 McpConnection 注册 ToolHandle 到 hub。
  * 单个 server 连接失败不阻塞其他(只 log warn 由调用方决定)。
  */
-export async function loadMcpConnections(_ctx: ToolContext): Promise<McpConnection[]> {
-  const configPath = getMcpConfigPath();
-  if (!fs.existsSync(configPath)) return [];
-
+export async function loadMcpConnections(ctx: ToolContext): Promise<McpConnection[]> {
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { servers: McpServer[] };
+    const config = loadMcpConfig(ctx.workspacePath);
     const conns: McpConnection[] = [];
 
     for (const server of config.servers ?? []) {
       try {
-        const conn = await connectMcpServer(server);
+        const conn = await connectMcpServer({ ...server, cwd: ctx.workspacePath });
         conns.push(conn);
       } catch {
         // 单个 server 连接失败不阻塞其他

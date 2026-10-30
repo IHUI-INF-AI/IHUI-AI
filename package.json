@@ -10,6 +10,7 @@
   "scripts": {
     "postinstall": "node scripts/fix-expo-metro-junction.mjs",
     "dev": "turbo run dev",
+    "rea": "npx -y rea-agents@6.4.0",
     "dev:safe": "node scripts/run-start-dev.mjs",
     "dev:safe:fast": "node scripts/run-start-dev.mjs -Fast",
     "dev:safe:status": "node scripts/run-start-dev.mjs -Status",
@@ -68,6 +69,8 @@
     "check:plan-undisposed": "node scripts/plan-tasks.mjs --undisposed",
     "check:plan-sha": "node scripts/check-plan-sha-resolvable.mjs",
     "check:service-paths": "node scripts/check-service-binary-paths.mjs",
+    "check:service-inventory": "node scripts/check-service-inventory.mjs",
+    "check:service-inventory:self-test": "node scripts/check-service-inventory.mjs --self-test",
     "check:public-path": "node scripts/check-public-path-probe.mjs --snapshot",
     "check:public-admin-default": "node scripts/check-public-admin-default.mjs",
     "check:status-vocabulary": "node scripts/check-agent-status-vocabulary-parity.mjs --strict",

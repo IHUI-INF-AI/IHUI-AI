@@ -178,6 +178,8 @@ deploy/prod-bundle/cloudflared/*.local.txt
 # 但 .ihui/skills/*.md 是团队共享的 skill 定义,允许入库
 .ihui/*
 !.ihui/skills/
+# 项目级 REA 登记（无密钥，只有本地 stdio 命令）。密钥仍只许写在 ~/.ihui/mcp.json。
+!.ihui/mcp.json
 **/.ihui/plans/
 
 # ============================================================================

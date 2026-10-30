@@ -37,6 +37,10 @@ export interface ConversationCacheEntry {
   messages: ChatMessage[]
   hasMore: boolean
   oldestCursor: string | null
+  /** 差距⑤补全(2026-10-30 立):这批消息是否来自 around 窗口(回合深链)——
+   *  窗口 provenance 必须随快照带走,否则切回后 live 行按完整页口径续算会猜错序号。
+   *  可选:老持久化条目无此键 ⇒ 读出 undefined,消费侧按 false(非窗口)处理。 */
+  turnWindowed?: boolean
 }
 
 const KEY_SEPARATOR = '::'

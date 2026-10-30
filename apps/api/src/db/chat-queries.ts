@@ -799,6 +799,40 @@ export async function historyTurnAnchorExists(
 }
 
 /**
+ * 按给定轮次序号集合一次取回全部消息行,并**按传入序号顺序**分组输出(无消息行的轮次剔除)。
+ * findHistoryTurnPage 的第二步与 findHistoryTurnWindow 共用 —— 取数与分组口径同源,
+ * 不维护第二份(同轮内顺序仍由 (created_at, id) 决胜,与消息级分页同款)。
+ */
+async function loadTurnGroups(
+  conversationId: string,
+  ordinals: readonly number[],
+): Promise<HistoryTurnGroup[]> {
+  if (ordinals.length === 0) return []
+  const rows = await db
+    .select()
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.conversationId, conversationId),
+        inArray(chatMessages.turnOrdinal, [...ordinals]),
+      ),
+    )
+    .orderBy(asc(chatMessages.turnOrdinal), asc(chatMessages.createdAt), asc(chatMessages.id))
+
+  const byTurn = new Map<number, ChatMessage[]>()
+  for (const row of rows) {
+    // eslint eqeqeq:== null(含 undefined)改显式双判,语义不变
+    if (row.turnOrdinal === null || row.turnOrdinal === undefined) continue
+    const list = byTurn.get(row.turnOrdinal)
+    if (list) list.push(row)
+    else byTurn.set(row.turnOrdinal, [row])
+  }
+  return ordinals
+    .map((turnOrdinal) => ({ turnOrdinal, messages: byTurn.get(turnOrdinal) ?? [] }))
+    .filter((g) => g.messages.length > 0)
+}
+
+/**
  * turn 分片 keyset 分页(D35 第一段):
  * 1. 先用 DISTINCT turn_ordinal 的 keyset 窗口选出本页的 turn 集合(limit+1 判 hasMore);
  * 2. 再按 (turn_ordinal, created_at, id) 一次性取回这批 turn 的全部消息行,内存分组
@@ -889,32 +923,10 @@ export async function findHistoryTurnPage(
   }
 
   // ---- 第二步:一次取回本页 turn 的全部消息,按 turn 分组 ----
-  const rows = await db
-    .select()
-    .from(chatMessages)
-    .where(
-      and(
-        convEq,
-        inArray(
-          chatMessages.turnOrdinal,
-          turnRows.map((t) => t.turnOrdinal),
-        ),
-      ),
-    )
-    // 与消息级分页同款决胜:(created_at, id) 保证同轮内顺序稳定
-    .orderBy(asc(chatMessages.turnOrdinal), asc(chatMessages.createdAt), asc(chatMessages.id))
-
-  const byTurn = new Map<number, ChatMessage[]>()
-  for (const row of rows) {
-    // eslint eqeqeq:== null(含 undefined)改显式双判,语义不变
-    if (row.turnOrdinal === null || row.turnOrdinal === undefined) continue
-    const list = byTurn.get(row.turnOrdinal)
-    if (list) list.push(row)
-    else byTurn.set(row.turnOrdinal, [row])
-  }
-  const turns: HistoryTurnGroup[] = turnRows
-    .map((t) => ({ turnOrdinal: t.turnOrdinal, messages: byTurn.get(t.turnOrdinal) ?? [] }))
-    .filter((g) => g.messages.length > 0)
+  const turns = await loadTurnGroups(
+    conversationId,
+    turnRows.map((t) => t.turnOrdinal),
+  )
 
   let nextCursor: { turnOrdinal: number } | null = null
   if (hasMore && turns.length > 0) {
@@ -935,6 +947,94 @@ export async function findHistoryTurnPage(
     // 走到这里:要么本次没消费游标,要么锚点探测已经通过 —— 两种都记 ok,
     // 但含义由上面的 cursorConsumed 决定,不由这里伪造"已验证"。
     cursorState: evaluateHistoryCursorState({ cursorConsumed, anchorExists: true }),
+  }
+}
+
+export interface FindHistoryTurnWindowOpts {
+  /** 中心轮次序号(turnId);路由层已校验为整数 */
+  around: number
+  /** 中心前后各取几轮;路由层已夹取,这里再兜底夹取 */
+  window: number
+}
+
+export interface FindHistoryTurnWindowResult {
+  /** turnOrdinal 升序,含中心轮 */
+  turns: HistoryTurnGroup[]
+  /** 该方向窗口外是否还有轮次(true ⇒ 对应 cursor 可续翻) */
+  hasMoreBefore: boolean
+  hasMoreAfter: boolean
+  /** 向上翻页断点(窗口内最小轮,配 direction:'older');null = 头部已到头 */
+  beforeCursor: { turnOrdinal: number } | null
+  /** 向下翻页断点(窗口内最大轮,配 direction:'newer');null = 尾部已到尾 */
+  afterCursor: { turnOrdinal: number } | null
+}
+
+/**
+ * 居中窗口拉取(差距⑤网关侧,2026-10-30 立):以 around 轮为中心,前后各 window 轮。
+ * 窗口折叠与边沿探测复用 `selectHistoryTurnWindow` 的 'older'/'newer' 两条既有判据
+ * (DESC/ASC 各取 window+1,多出的那条只探边),不发明第二份窗口实现;
+ * 锚点探测复用 `historyTurnAnchorExists` —— turn 不存在 ⇒ 返回 null(路由层转 404,
+ * 客户端降级开会话顶部,不猜位置)。
+ */
+export async function findHistoryTurnWindow(
+  conversationId: string,
+  opts: FindHistoryTurnWindowOpts,
+): Promise<FindHistoryTurnWindowResult | null> {
+  const around = Math.trunc(opts.around)
+  const window = Math.min(Math.max(Math.trunc(opts.window) || 1, 1), 50)
+
+  const anchorExists = await historyTurnAnchorExists(conversationId, around)
+  if (!anchorExists) return null
+
+  const convEq = eq(chatMessages.conversationId, conversationId)
+  const turnNotNull = isNotNull(chatMessages.turnOrdinal)
+
+  // 上侧:断点之前 DESC 取 window+1(降序候选),'older' 折叠出升序窗口
+  const behind = await db
+    .selectDistinct({ turnOrdinal: chatMessages.turnOrdinal })
+    .from(chatMessages)
+    .where(and(convEq, turnNotNull, lt(chatMessages.turnOrdinal, around)))
+    .orderBy(desc(chatMessages.turnOrdinal))
+    .limit(window + 1)
+  const beforeWin = selectHistoryTurnWindow(
+    behind.map((r) => Number(r.turnOrdinal)),
+    window,
+    'older',
+  )
+
+  // 下侧:断点之后 ASC 取 window+1,'newer' 折叠(本就升序,不反转)
+  const ahead = await db
+    .selectDistinct({ turnOrdinal: chatMessages.turnOrdinal })
+    .from(chatMessages)
+    .where(and(convEq, turnNotNull, gt(chatMessages.turnOrdinal, around)))
+    .orderBy(asc(chatMessages.turnOrdinal))
+    .limit(window + 1)
+  const afterWin = selectHistoryTurnWindow(
+    ahead.map((r) => Number(r.turnOrdinal)),
+    window,
+    'newer',
+  )
+
+  const turns = await loadTurnGroups(conversationId, [
+    ...beforeWin.ordinals,
+    around,
+    ...afterWin.ordinals,
+  ])
+
+  // cursor 只指向真正进了本页的轮:hasMore 为真而窗口为空不可能共存(候选即页),
+  // 但头/尾 turn 的窗口侧为空时 hasMore 恒假 ⇒ null,两端各自到头。
+  return {
+    turns,
+    hasMoreBefore: beforeWin.hasMore,
+    hasMoreAfter: afterWin.hasMore,
+    beforeCursor:
+      beforeWin.hasMore && beforeWin.ordinals.length > 0
+        ? { turnOrdinal: beforeWin.ordinals[0] as number }
+        : null,
+    afterCursor:
+      afterWin.hasMore && afterWin.ordinals.length > 0
+        ? { turnOrdinal: afterWin.ordinals[afterWin.ordinals.length - 1] as number }
+        : null,
   }
 }
 
