@@ -16,13 +16,13 @@
  * `usedIdsOfPrefix` / `scanFamilyIdHits` / `ID_HEAD_RE`,取号减法必须走
  * `usedIdsOfPrefixExcluding`(它是 `usedIdsOfPrefix` 的集合差,不重扫正文)。
  */
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   YIELD_LEDGER_REL,
   YIELD_LEDGER_REL_G,
@@ -57,7 +57,18 @@ const face = ({ ledger = '', archives = [] } = {}) => ({
   archives: archives.map((a, i) => ({ path: `.ihui-agent/archive/PROJECT_PLAN_${i}.md`, text: a })),
 })
 
-const tmpLedger = () => join(mkdtempSync(join(tmpdir(), 'yield-ledger-')), 'ledger.jsonl')
+// §15b 唯一落点:让位台账夹具走 scratch-dir,不用进程 TEMP(活进程 %TEMP% 可能仍钉在 C 盘)。
+// 用完即删由模块级 after() 统一收口(4 个调用点不必各自 try/finally)。
+const scratchDirs = []
+const scratchDir = (prefix) => {
+  const dir = mkScratch(prefix)
+  scratchDirs.push(dir)
+  return dir
+}
+after(() => {
+  for (const dir of scratchDirs) rmScratch(dir, { bestEffort: true })
+})
+const tmpLedger = () => join(scratchDir('yield-ledger-'), 'ledger.jsonl')
 
 test('① 在册未勾行的号一枚都不让 —— 哪怕同号在归档件里已结清且早已出窗', () => {
   const f = face({
@@ -315,7 +326,7 @@ test('⑫ G 族落 G 本账本:分本落账 + 整套回读 + trace 可反查 + �
   assert.equal(yieldLedgerRelOf('G'), YIELD_LEDGER_REL_G)
   assert.equal(yieldLedgerRelOf('D'), YIELD_LEDGER_REL, '非 G 族仍落主本,不改既有行为')
   assert.deepEqual([...YIELD_LEDGER_RELS], [YIELD_LEDGER_REL, YIELD_LEDGER_REL_G])
-  const dir = mkdtempSync(join(tmpdir(), 'yield-g-'))
+  const dir = scratchDir('yield-g-')
   const mainBook = join(dir, YIELD_LEDGER_REL)
   const gBook = join(dir, YIELD_LEDGER_REL_G)
   const f = face({ ledger: '## 批次流水\n', archives: [tomb('G-12')] })
