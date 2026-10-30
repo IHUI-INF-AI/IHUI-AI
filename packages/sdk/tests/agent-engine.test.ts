@@ -712,6 +712,7 @@ describe('协议常量(与引擎 handler 表 parity)', () => {
       'thread.unsubscribe',
       'memory.status',
       'memory.reset',
+      'memory.refresh',
       'fs.watch',
       'fs.unwatch',
       'model.list',
