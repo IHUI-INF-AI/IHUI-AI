@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-30T07:08:23.130Z",
-  "sealedBy": "root-guard --seal (face=HEAD, 含本批 runner 改动)",
-  "reason": "2026-10-30 主席席:同批两件事 —— ① 把守门 267 由 warn 升 blocking;② 清单按落地后 HEAD 面重封(runner 取本批新版,另两目标取 HEAD)。升 blocking 的前提就是本批让清单自洽成为常态;此后改 AGENTS/runner 不重封会在提交口被 267 拦下,修法 = node scripts/root-guard.mjs --seal --reason \"...\" 并同枚提交。",
+  "sealedAt": "2026-10-30T07:45:26.758Z",
+  "sealedBy": "root-guard --seal",
+  "reason": "2026-10-30 生产席:HEAD 已与 origin/main 同版(9acb812),但清单里 agents-ironlaw 仍绑上一版(3ac5ea16),而 HEAD 面 AGENTS 实际是 4eb3bf17 —— 器物差面判读自证为清单与已入库内容对不上,非本地篡改。按 HEAD 面重封并同枚提交,恢复本签出自洽。",
   "targets": [
     {
       "id": "guardian-runner",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "3ac5ea16a9e3e927991eba294c532c5c8bb93c04dc519bf02623baea49180523"
+      "sha256": "4eb3bf17d04f940815ec0c4adba52b1d8e66cb49520900aaf33f824058a08d9d"
     }
   ]
 }
