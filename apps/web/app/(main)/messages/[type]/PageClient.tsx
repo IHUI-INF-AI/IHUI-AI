@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useParams } from 'next/navigation'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Bell, Heart, Star, MessageSquare, Users, Mail } from 'lucide-react'
 import { apiOrThrow } from '@/lib/api'
@@ -14,6 +14,7 @@ import { Avatar } from '@/components/data'
 import { cn } from '@/lib/utils'
 import type { NotificationItem } from '@ihui/types'
 import { BackButton } from '@/components/common'
+import { Button } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
@@ -85,47 +86,60 @@ export default function MessageTypePage() {
   const t = useTranslations('messages')
   const tp = useTranslations('privateMessages')
   const tGate = useTranslations('chatHistory')
+  const tc = useTranslations('common')
   const { allow } = useAuthGate()
 
   const isValid = VALID_TYPES.includes(type)
   const isPrivateLetter = type === 'private-letter'
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['messages-type', type],
-    enabled: allow && isValid,
-    queryFn: async (): Promise<UnifiedItem[]> => {
-      if (isPrivateLetter) {
-        const res = await apiOrThrow<{ list: Conversation[] }>(
-          `/api/messages/list?page=1&pageSize=10`,
+  const PAGE_SIZE = 10
+  // 分页:原实现固定 page=1&pageSize=10 且页面上没有任何"加载更多" ⇒ 第 11 条起永远看不到,
+  // 用户会以为更早的消息不存在了。改 useInfiniteQuery,按后端 total 判是否还有下一页。
+  const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: ['messages-type', type],
+      enabled: allow && isValid,
+      initialPageParam: 1,
+      queryFn: async ({ pageParam }): Promise<{ items: UnifiedItem[]; hasMore: boolean }> => {
+        const page = pageParam
+        if (isPrivateLetter) {
+          const res = await apiOrThrow<{ list: Conversation[] }>(
+            `/api/messages/list?page=${page}&pageSize=${PAGE_SIZE}`,
+          )
+          const items = (res.list ?? []).map((c): UnifiedItem => ({
+            id: c.id,
+            title: c.peerName,
+            content: c.lastMessage,
+            avatar: c.peerAvatar,
+            isRead: c.unread === 0,
+            createdAt: c.lastTime,
+          }))
+          // 私信接口不回 total ⇒ 以"这一页是否满"作为可能还有下一页的判据
+          return { items, hasMore: items.length === PAGE_SIZE }
+        }
+        const apiType = NOTI_API_TYPE[type as Exclude<MessageType, 'private-letter'>]
+        // 「赞」「收藏」两类的 apiType 是 like / favorite,而后端通知类型 enum 只有
+        // system / order / project / comment / mention / follow ⇒ querystring schema 直接判 400,
+        // 页面只剩一段技术错误文案,永远看不到内容。这两类目前没有数据来源,按空态处理,
+        // 不发一条注定失败的请求(将来有真数据源再回来接线,不要靠改映射蒙一个相近类型)。
+        if (apiType === 'like' || apiType === 'favorite') return { items: [], hasMore: false }
+        const res = await apiOrThrow<{ list: NotificationItem[]; total?: number }>(
+          `/api/notifications?type=${apiType}&page=${page}&pageSize=${PAGE_SIZE}`,
         )
-        return (res.list ?? []).map((c): UnifiedItem => ({
-          id: c.id,
-          title: c.peerName,
-          content: c.lastMessage,
-          avatar: c.peerAvatar,
-          isRead: c.unread === 0,
-          createdAt: c.lastTime,
+        const items = (res.list ?? []).map((n): UnifiedItem => ({
+          id: n.id,
+          title: n.title,
+          content: n.content ?? '',
+          avatar: null,
+          isRead: n.isRead,
+          createdAt: n.createdAt,
         }))
-      }
-      const apiType = NOTI_API_TYPE[type as Exclude<MessageType, 'private-letter'>]
-      // 「赞」「收藏」两类的 apiType 是 like / favorite,而后端通知类型 enum 只有
-      // system / order / project / comment / mention / follow ⇒ querystring schema 直接判 400,
-      // 页面只剩一段技术错误文案,永远看不到内容。这两类目前没有数据来源,按空态处理,
-      // 不发一条注定失败的请求(将来有真数据源再回来接线,不要靠改映射蒙一个相近类型)。
-      if (apiType === 'like' || apiType === 'favorite') return []
-      const res = await apiOrThrow<{ list: NotificationItem[] }>(
-        `/api/notifications?type=${apiType}&page=1&pageSize=10`,
-      )
-      return (res.list ?? []).map((n): UnifiedItem => ({
-        id: n.id,
-        title: n.title,
-        content: n.content ?? '',
-        avatar: null,
-        isRead: n.isRead,
-        createdAt: n.createdAt,
-      }))
-    },
-  })
+        const total = res.total ?? items.length
+        return { items, hasMore: page * PAGE_SIZE < total }
+      },
+      getNextPageParam: (last, all) => (last.hasMore ? all.length + 1 : undefined),
+    })
+  const items = data?.pages.flatMap((p) => p.items) ?? []
 
   const readMut = useMutation({
     mutationFn: (id: string) => {
@@ -154,7 +168,6 @@ export default function MessageTypePage() {
   }
 
   const Icon = TYPE_ICON[type]
-  const items = data ?? []
   const headerLabel = isPrivateLetter ? tp('title') : t(TAB_LABEL_KEY[type] ?? 'tab.unknown')
 
   return (
@@ -214,6 +227,19 @@ export default function MessageTypePage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {items.length > 0 && hasNextPage && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isFetchingNextPage}
+            onClick={() => void fetchNextPage()}
+          >
+            {isFetchingNextPage ? tc('loading') : tc('viewMore')}
+          </Button>
+        </div>
       )}
     </div>
   )
