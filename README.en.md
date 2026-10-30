@@ -88,7 +88,7 @@ Headline claims (same source as the table below, all live-computed): **611 table
 | 工程守门 | 299 | `guardianGates` |
 | — blocking | 273 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 17704 | `trackedFiles` |
+| 跟踪文件 | 17709 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-30。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -99,6 +99,17 @@ Headline claims (same source as the table below, all live-computed): **611 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-30**
+- 🐞 Fix:check-prod-checkout-foreign-work 装未知旗标闸 + 15 例镜像补齐（RP-79 第二枚落地件） (51b66c3a61)
+- 🔧 Chore/Other:收口本地积压（hook-window-guard/check-ops-patrol/deploy-decisions-face 改进 + 新 prod-checkout-root + desktop checkin_capture + i18n 派生重生成） (21b66ff087)
+- 🐞 Fix:资讯分类屏按共享屏真实契约接回，此前整屏恒空 (67234f694d)
+- ⚡ Perf:face-reader 规格快路径 + git-sync-converge 未知旗闸；收口本地积压 (d6db2333fe)
+- 🐞 Fix:补回被误删的 localMonthKey/localDayKey —— miniapp 首页 import 悬空,push 门 typecheck 恒红 (26e62feeee)
+- 🐞 Fix:买 VIP 不再被当成 token 充值白送余额 (1484b7bd9d)
+- 📚 Docs:登记 RP 族第三票——git-sync-converge 无 --help，未知旗标被当默认动作直接开跑真实索引层收敛（本日实测踩中并留下 16 项中间态，已 reset 清零且证明未进提交）；连同 union-converge 同族一并改为未知旗标显式拒绝并补镜像锁；只加一行不动他票 (5ea3ccc628)
+- 📚 Docs:登记 RP 族第二票——AGENTS §5b gitdir 形态描述与实测相反（真 gitdir = 工作区外 D:/IHUI-AI-git-repo，现读 .git 为 gitfile），照旧文处置即删库事故；并硬记门 207 余量仅 51 字节 ⇒ 本枚须等长/净减改法；只加一行不动他票 (663b83881e)
+- 🔧 Chore/Other:落地本地未提交改动（Tauri 桌面端 + 文档重生成 + i18n 派生 + face-reader 超时可配） (33deba819e)
+
 **2026-10-30**
 - 🐞 Fix:prodCheckoutRoot 装"形态并集回落 + 显式 IHUI_DEVENV_ROOT 不越权"，线上态两条 oracle 不再恒未判定 (e7e35d307da)
 - 🚀 Feature/Improvement:补 mobile-rn 提现两步验证文案（五语） (4de978b0e49)
@@ -491,47 +502,6 @@ Headline claims (same source as the table below, all live-computed): **611 table
 
 **2026-10-29**
 - 🐞 Fix:补齐 9fdbc207ba2 那批「清理功能回退残留」抹掉的实现(api-client 两导出 + 四个 store/hook 面) (c51a00fd0bf)
-
-**2026-10-29**
-- 🐞 Fix:恢复 chat store 被 c7476ff89b1 整份回退的实现(契约测试 96/96 钉住) (91cef71b0ed)
-- ♻️ Refactor:收口新增集里盘上干净的三枚裸 git(棘轮新增 24→21)—— check-ps1-bom(1 生产 + 2 自检夹具,后者写临时仓/无 ps 目录,respectively 传 tmp/noPs 作根)、tip-metro-guard(rev-parse)、check-index-unmerged-age(ls-files -u -z)改走 face-reader 的 gitRaw。三处各有不能照抄的地方,如实记:① ps1-bom 的 git() 下游要 Buffer(subarray + 前 3 字节 hex 判 BOM),故用 { binary: true } 而非默认 utf8 串,原 .toString("utf8") 调用点一个不删;② tip-metro-guard 原来读的是 spawnSync 的 .stdout,且两支失败语义不同 —— git 跑起来非零退出时 stdout 为空串(打印成 "HEAD "),spawn 层失败才吞掉、保持初值 "?";gitRaw 一律抛,故用异常上的 e.status 是不是 number 还原这两支,静默 catch 会把它压成一支、把非零退出错报成 "?";③ check-index-unmerged-age 头注原写「不挂 face-reader 取材层」,迁移后成半真:改成「派生已统一走 gitRaw;判的是 index 元数据而非仓库内容,故仍不走 listFaceFiles/catBatch 那条取材面」,原解释的不按仓库锚点读内容的实质信息保留。验证都是真跑:check-ps1-bom --self-test 判据 + 端到端全 PASS(含面取不到 exit=2 与真零不空扫两向)、check-index-unmerged-age 现读「index 无未合并条目」rc=0、eslint 三文件 0 error(14 warning 全存量 no-console)、where.mjs 三文件均 0 处。范围如实:本批只动新增集里盘上干净的 3 枚;另 3 枚(check-cross-end-screen-coverage / check-web-rn-parity / gen-rn-host-shell)正被别席改(补 windowsHide 治门 193),按纪律未碰;gen-i18n-compressed 盘上已被别席清空;剩 17 枚属「HEAD 有、盘上已删未提交」,随删除落地自消;基线 18 枚是刻意存量(含 spawn 夹具件与钩子内 env 注入那一族),本批不碰。故棘轮在删除落地前仍红,落地后 39-17-3(他席)-1 = 18 = 基线。 (e17454a7ded)
-- 🐞 Fix:D58 类目卡接回 D21 折叠策略——修「判据在、消费者为 0」 (01ea49c5f26)
-- 🚀 Feature/Improvement:对话框里能真出视频了 —— 视频工具接进普通对话 + agnes 免费档提交/取件闭环 (f1f0a373423)
-- 🐞 Fix:流式 markdown 块边界单调性——修两级真 bug + 新增跨拍判据 (b70cfde77b3)
-- 🐞 Fix:补回 chat.ts 被整行替换吞掉的 steerNoticesByMessageId 两处初始值 (418ac6aef67)
-- 🐞 Fix:收口被整块重复的登记(F6 块级判据的修复出口) (6313f42b140)
-- 🚀 Feature/Improvement:WS 失败终态可见可归因（G-86 前置半格） (202de101487)
-- 🐞 Fix:补回被「清理功能回退残留」删掉的伴生导出 —— 解 web 构建恒红 (53e6c362f6a)
-- ♻️ Refactor:三处裸 git 迁移到 face-reader 的 gitRaw(棘轮 48→45)—— check-ruff-python 的 gitRun、check-gate-triggers 的 git 包装与其自检夹具 run、root-guard 的 headHashOf,三处都只是把「execFileSync 裸 git + 各自抄一遍 stdio 两态」换成层出口;§12g 的 stdio 两态由 gitRaw 写死,调用方不再复算。首推被 lint-staged 挡下两次并都点名本任务文件(未使用的 execFileSync 导入、catch 的 e 变为未使用),均已修后重发;现读 eslint 0 error。验证:ruff 自检 11/11、gate-triggers 自检九例+端到端七例、root-guard 无悬空标识符(execFileSync 残留 0)。范围如实:本批只收敛 3 枚,该棘轮仍红 —— 48 个命中里 20 个盘上已不存在(属 HEAD 存续而工作树已删未提交的 373 枚那一族),它们要么随删除落地自动从分母消失、要么需先恢复再迁,不在本批射程;另 check-index-unmerged-age 头注明写「判的不是仓库内容故不挂 face-reader」,按其既有决策不硬迁。 (52c88a32cf6)
-- 🐞 Fix:两处派生 git 显式接管 stdio,解除 push 门 193 (7916748b793)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a54821ee506)
-- 🐞 Fix:客户端 IP 归属收口 —— 边缘归一 + 三处手读 XFF 清除 (e5dce1709df)
-- 🔧 Chore/Other:goal-b24 结清四票并补三票进展注记 —— 部署停摆升档/号池让位/公网腿归因/webhook 三类事件 (5a1fdcc51d6)
-- 🔧 Chore/Other:摘净嫁接带回的 9 枚退役/零消费者件,并更正 1fe3a2b42d 的两处不实陈述 (1250480412b)
-- 🔧 Chore/Other:撤销 systeminformation 豁免 —— override 已把它锁到修复版 (e9704d597db)
-- 🐞 Fix:流式引用不再被切散,遥测收流对齐结束时刻 (444ca2abc1f)
-- 🐞 Fix:发现器读数去重口径 + 闭环三处真缺陷（门槛单源/票号边界/同 sha 裁决） (9f2dfb3a648)
-- 🐞 Fix:补齐锁文件缺失的 workspace 依赖 —— 解生产 frozen-lockfile 安装失败 (7f3924a5ade)
-- 🚀 Feature/Improvement:安卓 latest 只读对账 + 幂等登记腿 + 公网腿分阶段时延尺 (0b2a21d3148)
-- 🚀 Feature/Improvement:金丝雀观察窗从不可验变成本机可复现实测 + 修分流器契约缺失即整进程崩 (ebbac969af4)
-- 🐞 Fix:重封根护栏 —— 门脚本六枚正当演进后清单过期(部署环 fail-closed) (f933451ec5e)
-- 🚀 Feature/Improvement:停摆静默阈值改由日志实测分布派生 + 落后且停写时定向升级一次 (89c0980a95e)
-- 🚀 Feature/Improvement:大屏指挥台二轮 —— 主导航隐藏 + 速率火花线 + 块级增量 Markdown + 工具卡窗口化 (71a5e026d65)
-- ♻️ Refactor:两个自拼 cat-file batch 的工具改走共享层 —— 棘轮测试「自拼 batch 却不走本层的门」现读 0 涨到 2(audit-aligned-domain-drift / measure-cross-end-page-sizes),而自拼一件要把 stdio[0]=pipe / maxBuffer / 头解析三处本仓都真踩过的坑各重写一遍。改法:两处批量取材改调 lib/face-reader.mjs 的 catBatch(键即 rev 串,HEAD 面用 HEAD:path);顺带修掉 audit 那处索引面的空前缀,原实现把裸路径当对象规格喂进去,取不到只静默记 null。两脚本在盘上是已删未提交态(HEAD 面仍在),按 §7 先从 HEAD 恢复再改;真跑 rc=0。本轮首推被 lint-staged 挡下并点名本文件(execFileSync 迁走后成未使用导入),已修;eslint 现读 0 error 5 warning(均为存量 no-console)。仅收敛存量维 2→0;另一维裸 git 派生 18→49 未动,那需要逐文件迁 gitRaw,属另一条线。 (68a70876650)
-- 🐞 Fix:合并把基础契约取成本侧旧版、消费方却是新版 —— api 端 36 条 TS 红按面逐条归位 (ad0a290626a)
-- 🚀 Feature/Improvement:驾驶舱补出「小程序壳绑定块 ← RN 壳」这一格读数,并摘掉文档里会腐烂的阶段计数 (91dabc0193f)
-- 🐞 Fix:让 xAI Grok 真的出现在模型选择器首屏 —— 探测腿代理 + 4.20 版本归一 (ec788c8d929)
-- 🐞 Fix:门户维收敛落账 —— 5 条过期 gap 判定由 portal 行取代,并摘 1 条已作废的重复判定 (ee0b0c61dac)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b945ead980e)
-- 🚀 Feature/Improvement:链条三段补齐调度 + 清掉自动补屏引入的 emoji 图标红 (072ce45ea5d)
-- 🐞 Fix:回补 410f749036 洗掉的 5 条 gap 登记 —— 本票上一枚用滞后工作树副本整文件提交，吞了别席在册条目 (0a1180c78d2)
-- 🐞 Fix:清偿 CategoryBar 的钉值与已不再命中的豁免 —— 门恢复判定后唯一的红就是这笔腐烂清单 (b7c072c9638)
-- 🔧 Chore/Other:兼容层图标/路由映射与词包派生件按 HEAD 面重生成 —— 门 251 的 C2/C10 两维从判红转绿 (a05684b04a9)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a83ab9c96a4)
-- 🐞 Fix:根桶补回 25 个出口 + 清掉 FavoriteScreen 的合解死块 —— 移动端 36 条 TS2305/2304 清零 (0de6e9f4f3d)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b6f0a1e7c9f)
-- 🔧 Chore/Other:壳声明件跟随新落承载页(175 条说明符) (d0e43db6e5e)
-- 🔧 Chore/Other:自动落 1 枚小程序壳承载页(共 1 枚待产) (fba6247f597)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

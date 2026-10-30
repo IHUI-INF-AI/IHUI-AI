@@ -13458,6 +13458,7 @@
     "errorTitle": "出错了",
     "remark": "备注",
     "unknownError": "未知错误",
+    "deleteFailed": "删除失败,请稍后重试",
     "reply": "回复",
     "orderNoLabel": "订单号",
     "clear": "清空",

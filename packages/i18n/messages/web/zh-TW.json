@@ -13458,6 +13458,7 @@
     "errorTitle": "出錯了",
     "remark": "備註",
     "unknownError": "未知錯誤",
+    "deleteFailed": "刪除失敗,請稍後重試",
     "reply": "回覆",
     "orderNoLabel": "訂單編號",
     "clear": "清空",

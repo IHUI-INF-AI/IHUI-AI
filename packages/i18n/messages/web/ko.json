@@ -13457,6 +13457,7 @@
     "errorTitle": "오류가 발생했습니다",
     "remark": "비고",
     "unknownError": "알 수 없는 오류",
+    "deleteFailed": "삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     "reply": "답장",
     "orderNoLabel": "주문 번호",
     "clear": "지우기",

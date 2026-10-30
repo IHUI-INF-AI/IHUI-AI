@@ -127,7 +127,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 299 | `guardianGates` |
 | — blocking | 273 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 17704 | `trackedFiles` |
+| 跟踪文件 | 17709 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-30。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5553,6 +5553,17 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-30**
+- 🐞 修复:check-prod-checkout-foreign-work 装未知旗标闸 + 15 例镜像补齐（RP-79 第二枚落地件） (51b66c3a61)
+- 🔧 工程/其他:收口本地积压（hook-window-guard/check-ops-patrol/deploy-decisions-face 改进 + 新 prod-checkout-root + desktop checkin_capture + i18n 派生重生成） (21b66ff087)
+- 🐞 修复:资讯分类屏按共享屏真实契约接回，此前整屏恒空 (67234f694d)
+- ⚡ 性能:face-reader 规格快路径 + git-sync-converge 未知旗闸；收口本地积压 (d6db2333fe)
+- 🐞 修复:补回被误删的 localMonthKey/localDayKey —— miniapp 首页 import 悬空,push 门 typecheck 恒红 (26e62feeee)
+- 🐞 修复:买 VIP 不再被当成 token 充值白送余额 (1484b7bd9d)
+- 📚 文档:登记 RP 族第三票——git-sync-converge 无 --help，未知旗标被当默认动作直接开跑真实索引层收敛（本日实测踩中并留下 16 项中间态，已 reset 清零且证明未进提交）；连同 union-converge 同族一并改为未知旗标显式拒绝并补镜像锁；只加一行不动他票 (5ea3ccc628)
+- 📚 文档:登记 RP 族第二票——AGENTS §5b gitdir 形态描述与实测相反（真 gitdir = 工作区外 D:/IHUI-AI-git-repo，现读 .git 为 gitfile），照旧文处置即删库事故；并硬记门 207 余量仅 51 字节 ⇒ 本枚须等长/净减改法；只加一行不动他票 (663b83881e)
+- 🔧 工程/其他:落地本地未提交改动（Tauri 桌面端 + 文档重生成 + i18n 派生 + face-reader 超时可配） (33deba819e)
+
+**2026-10-30**
 - 🐞 修复:prodCheckoutRoot 装"形态并集回落 + 显式 IHUI_DEVENV_ROOT 不越权"，线上态两条 oracle 不再恒未判定 (e7e35d307da)
 - 🚀 新功能/改进:补 mobile-rn 提现两步验证文案（五语） (4de978b0e49)
 - 🚀 新功能/改进:提现补两步验证面板（TOTP 注入后自动重试提现） (24a35d957e4)
@@ -5949,9 +5960,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:给门 89 的 R4 补上 check-web-portal-label-keys 的点名行(走对象空间,不吃别席的行) (0b6f24f7297)
 - 🐞 修复:消掉门 89 的 R5 撞号恒红 + 回补门 237 被无关提交洗掉的 996 行版 + 换掉一把会替人下因果结论的坏尺子 (3ef804fc3f9)
 - 🔧 工程/其他:撤销 1442baa1e0e 的整条移除——补回运营商一键登录的注册腿与消费腿 (b09e82f82c8)
-
-**2026-10-29**
-- 🐞 修复:补齐 9fdbc207ba2 那批「清理功能回退残留」抹掉的实现(api-client 两导出 + 四个 store/hook 面) (c51a00fd0bf)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:

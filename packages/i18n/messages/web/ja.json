@@ -13457,6 +13457,7 @@
     "errorTitle": "エラーが発生しました",
     "remark": "備考",
     "unknownError": "不明なエラー",
+    "deleteFailed": "削除に失敗しました。しばらくしてから再試行してください",
     "reply": "返信",
     "orderNoLabel": "注文番号",
     "clear": "クリア",
