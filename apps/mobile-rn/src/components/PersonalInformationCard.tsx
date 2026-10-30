@@ -145,6 +145,7 @@ export function PersonalInformationCard({
             整份内联样式静默消失。withdrawBtn 只有定尺寸与居中(无底色/描边/圆角,即无绘制),
             故布局档以静态对象形态留在外层,只把按压态 opacity 下移到子 View。 */}
         <Pressable
+        hitSlop={7}
           onPress={onWithdraw}
           accessibilityRole="button"
           accessibilityLabel={t('menu.withdraw')}
