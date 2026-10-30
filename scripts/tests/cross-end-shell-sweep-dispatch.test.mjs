@@ -18,6 +18,9 @@
  *   T6 装车锁:定义在、调用挂在巡检轮体内(与同族腿同函数,邻接判据 —— 两端各被提及不算接线)、
  *       在 __test__ 出口里、节流可由 env 覆盖。
  *   C1 契约锁:调度器读的 summary 键,必须真存在于造页器 `--json` 现读出口(不手抄形状)。
+ *   S6(2026-10-30)自报 undetermined 的形状锁:起点不得被 settle 清掉(摘掉新分支即翻红,
+ *      配对对照 blocked 仍清账)。
+ *   S7(2026-10-30)手写页升级腿(hand-upgrade)在册 + 未判定记连击 + 确定结论清账。
  */
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
@@ -25,7 +28,12 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
 
-import { sweepCrossEndShellPages, noteCrossEndUndetermined, settleCrossEndLeg } from '../git-guardian.mjs'
+import {
+  sweepCrossEndShellPages,
+  sweepHandMirrorUpgrades,
+  noteCrossEndUndetermined,
+  settleCrossEndLeg,
+} from '../git-guardian.mjs'
 import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const LANDER = resolve(import.meta.dirname, '..', 'land-cross-end-shell-pages.mjs')
@@ -255,6 +263,103 @@ test('S5 装车锁:三条腿的"记连击"与"撤起点"必须在各自函数体
     assert.match(body, /settleCrossEndLeg\(/, `${fn}:取到结论不清起点 = 下一轮必假报警`)
   }
   assert.match(HEAD_SRC, /IHUI_CROSS_END_UNDET_HORIZON_MS/, '门槛必须可由 env 覆盖(值守场景要能调)')
+})
+
+/**
+ * S6(2026-10-30 立,起点不得被清的形状锁):造页器**自报 state=undetermined** 时,
+ * 原实现只闸"summary.state 是不是字符串",未判定照样落进 settleCrossEndLeg 清账 ——
+ * 实测 08:49 一轮「undetermined 待产 7」,起点件 `cross-end-shell-land-undetermined-first.json`
+ * 却不存在,存续性门槛(连满 3 小时到人)对这一型结构上永远走不到。
+ * (a) note 被调:horizon=0 ⇒ 自报未判定当场寄信;
+ * (b) settle 未被调:起点件必须还在;
+ * (c) 摘掉新分支(改回无条件 settle)⇒ 两断言同时翻红;配对正向对照:blocked 是确定结论,
+ *     必须仍走 settle 清账(证明 (b) 不是"起点件永远擦不掉"的假锁)。
+ */
+test('S6 造页器自报 undetermined ⇒ 记连击不清起点;blocked(确定结论)⇒ 照清(成对)', () => {
+  const f = fixture()
+  const { logger } = logsOf()
+  const mails = []
+  const notify = (title, message, opts) => mails.push({ title, message, opts })
+  const r = sweepCrossEndShellPages({
+    ...f,
+    logger,
+    notify,
+    undetHorizonMs: 0,
+    runner: runnerOf({
+      summary: {
+        state: 'undetermined',
+        planned: 7,
+        batch: 0,
+        blobs: 0,
+        refused: 0,
+        cap: 2,
+        why: '生成器未返回结论',
+      },
+    }),
+    now: 1_700_000_000_000,
+  })
+  assert.equal(r.state, 'undetermined')
+  assert.ok(existsSync(f.undetFile), '(b) 自报未判定 ⇒ 起点件必须落下,不许被 settle 清掉')
+  assert.equal(mails.length, 1, '(a) 自报未判定必须走 note 这条路;改回无条件 settle ⇒ 0 封,本条翻红')
+  assert.match(String(mails[0].opts?.dedupKey), /shell-land/, '身份要认得出是哪条腿')
+  assert.match(mails[0].message, /自动造页这一格是瞎的/)
+  // 配对对照:同一条腿取到**确定**结论(blocked=跑完了且拒因明确)⇒ 起点必须被清
+  sweepCrossEndShellPages({
+    ...f,
+    logger,
+    notify,
+    undetHorizonMs: 0,
+    runner: runnerOf({ summary: { state: 'blocked', planned: 0, batch: 0, cap: 2, why: '他席在飞' } }, 1),
+    now: 1_700_000_000_000 + 31 * 60 * 1000,
+  })
+  assert.ok(!existsSync(f.undetFile), '真拿到确定结论才许 settle((b) 的阳性对照)')
+})
+
+/**
+ * S7(2026-10-30 立):手写页升级腿(hand-upgrade)此前 ①不在 CROSS_END_LEGS 在册(未知腿
+ * 分支连起点件都不写)、②"结论行解析不出"那一支一次都没记连击 —— 实测 08:49 起整轮
+ * 「结论行解析不出 ⇒ 本轮未判定」而账面无声。本条用行为钉住注册与两分支(不抄源码判据,§22c)。
+ */
+test('S7 手写页升级腿:解析不出⇒记连击到人;确定结论⇒清起点;未知腿对照臂不写起点', () => {
+  const dir = mkScratch('hand-upgrade-leg-')
+  const f = { tickFile: join(dir, 'tick.json'), undetFile: join(dir, 'undet.json') }
+  const mails = []
+  const notify = (title, message, opts) => mails.push({ title, message, opts })
+  const base = {
+    intervalMs: 0,
+    tickFile: f.tickFile,
+    undetFile: f.undetFile,
+    logger: () => {},
+    notify,
+    undetHorizonMs: 0,
+  }
+  const r = sweepHandMirrorUpgrades({
+    ...base,
+    now: 1_700_000_000_000,
+    runner: () => 'not-json-at-all',
+  })
+  assert.equal(r.ran, true)
+  assert.equal(r.ok, false)
+  assert.ok(existsSync(f.undetFile), '解析不出结论行 ⇒ 起点件必须落下(腿名不在册时未知腿分支连文件都不写)')
+  assert.equal(mails.length, 1, '跨门槛必须走 note 寄信;腿名没登记进 CROSS_END_LEGS ⇒ 0 封,本条翻红')
+  assert.match(String(mails[0].opts?.dedupKey), /hand-upgrade/, '身份要认得出是哪条腿')
+  // 配对对照:下一轮取到确定结论(哪怕"零可落地")⇒ settle 必须清账(证明上一条不是"擦不掉"的假锁)
+  const r2 = sweepHandMirrorUpgrades({
+    ...base,
+    now: 1_700_000_000_000 + 31 * 60 * 1000,
+    runner: () => JSON.stringify({ ok: true, upgradable: 0, batch: [], landed: null }),
+  })
+  assert.equal(r2.ok, true)
+  assert.ok(!existsSync(f.undetFile), '确定结论 ⇒ 起点必须被撤,不背着旧账到人')
+  // 未知腿阳性对照:同 helper 未登记腿名 ⇒ mailed:false 且连起点都不写
+  const shadow = join(dir, 'undet-shadow.json')
+  const g = noteCrossEndUndetermined('hand-upgrade-not-a-leg', 'shadow probe', {
+    logger: () => {},
+    notify: () => {},
+    file: shadow,
+  })
+  assert.equal(g.mailed, false)
+  assert.ok(!existsSync(shadow), '未知腿那一臂不该写起点件(否则"在册"断言没有阳性对照)')
 })
 
 test('C1 契约锁:调度器读的 summary 键真存在于造页器 --json 现读出口', () => {

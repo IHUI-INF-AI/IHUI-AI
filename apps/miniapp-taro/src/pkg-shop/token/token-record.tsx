@@ -25,6 +25,12 @@ export interface ZhRecord {
   amount?: number
 }
 
+/** 净增口径与后端聚合同源(packages/database/src/schema/wallet.ts 表注 + user-extras 的
+ *  getTokenFlowTotals):op_type ∈ {0 充值,3 退款,4 佣金,5 管理员调整,6 配额发放} 为净增,
+ *  1 扣减 / 2 过期为净耗。旧判定只认 op_type===0,把退款/佣金/调整渲染成「消费 -N」= 错文案。
+ *  缺字段(Number→NaN)仍按净耗收口(与旧页一致,不猜成净增)。 */
+const GAIN_OP_TYPES = new Set([0, 3, 4, 5, 6])
+
 interface TokenRecordProps {
   item: ZhRecord
   tt: TtFn
@@ -32,8 +38,7 @@ interface TokenRecordProps {
 
 /** 单条流水:类型徽章(充值/消费)+ 标题 + 时间 + 金额,与共享屏同信息层级 */
 export default function TokenRecord({ item, tt }: TokenRecordProps) {
-  // 后端口径:op_type 0=充值、1=消费、3~6=获得/调整;缺字段时按消费算(与旧页一致)
-  const isRecharge = Number(item.opType) === 0
+  const isRecharge = GAIN_OP_TYPES.has(Number(item.opType))
   const qty = Math.abs(Number(item.quantity ?? item.token ?? item.amount ?? 0))
   const typeLabel = isRecharge
     ? tt('tokenValue.tab.recharge', '充值')

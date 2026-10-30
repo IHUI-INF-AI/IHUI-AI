@@ -158,4 +158,26 @@ test('D2 取不到正文 / 政策豁免 / 类型不在口径:三档不并桶(ref
   assert.deepEqual(r.injected, [])
   assert.equal(r.blobs.get('a.ts'), 'oid-a', '未判定的路径保持原 oid(不猜一个新 blob 出来)')
 })
+
+test('E BOM:带 BOM 的 .ps1 注入后必须保留 BOM,shebang 文件相反不得前置 BOM', () => {
+  const ps = '\uFEFF#requires -Version 7\nWrite-Host "你好"\n'
+  const r = WM.injectText(ps, { rel: 'scripts/demo.ps1' })
+  assert.equal(r.action, 'injected')
+  assert.ok(
+    r.text.startsWith('\uFEFF'),
+    '注入不得吃掉 UTF-8 BOM(否则 powershell.exe 5.1 按 ANSI 读,中文全乱)',
+  )
+  assert.ok(WM.payloadIntact(r.text), '载荷仍须可解码')
+  assert.ok(r.text.includes('#requires -Version 7'), '正文必须原样保留')
+
+  const sh = '\uFEFF#!/usr/bin/env node\nexport const a = 1\n'
+  const r2 = WM.injectText(sh, { rel: 'scripts/demo.mjs' })
+  assert.equal(r2.action, 'injected')
+  assert.ok(!r2.text.startsWith('\uFEFF'), 'shebang 文件不得前置 BOM(会让 ./x.mjs 直接执行失败)')
+  assert.ok(r2.text.startsWith('#!/usr/bin/env node'))
+
+  const again = WM.injectText(r.text, { rel: 'scripts/demo.ps1' })
+  assert.equal(again.action, 'skip-done')
+  assert.ok(again.text.startsWith('\uFEFF'), '幂等路径也不得抹掉 BOM')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

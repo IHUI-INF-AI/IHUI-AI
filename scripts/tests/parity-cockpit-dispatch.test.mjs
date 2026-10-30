@@ -19,6 +19,8 @@
  *   T6 装车锁:挂点在 !CHECK_ONLY 分支 + 函数在 __test__ 出口 + 节流可由 env 覆盖;
  *   T7 只读契约:派发 argv 里一个 --apply* 都不许出现(守护自动写盘是另一量级的事);
  *   T8 覆盖不全必须出声(否则「部分覆盖的绿」从派发面再犯一次同样的事故)。
+ *   T10(2026-10-30 立)起点不得被清的形状锁:有未判定/坏掉阶段 ⇒ 走 note 记连击、
+ *      不许 settle;全绿(确定结论)⇒ settle 清账(摘掉新分支即翻红,正反成对)。
  *
  * 夹具契约(§22c):阶段总数按 `STAGES.length` 现读、跳过的档按 `selectStages` 自己算,
  * 不在测试里手抄数字或复刻判据。
@@ -37,7 +39,8 @@ const SRC = readFileSync(GUARDIAN, 'utf8')
 
 const fixture = () => {
   const dir = mkScratch('parity-cockpit-')
-  return { tickFile: join(dir, 'tick.json') }
+  // undetFile 必须注入临时目录:否则测试会往真 .ihui-agent/state 写/清起点件(污染存续性判定)
+  return { tickFile: join(dir, 'tick.json'), undetFile: join(dir, 'undet.json') }
 }
 
 /**
@@ -139,10 +142,11 @@ test('T2 有阶段红 ⇒ 汇总面不重复寄信,但日志点名是哪几道',
   assert.match(logs.join('\n'), new RegExp(`红 1 道.*${STAGES[0].id}`))
 })
 
-test('T3 有阶段未判定 ⇒ 本轮不得记绿(§0.3)', () => {
+test('T3 有阶段未判定 ⇒ 本轮不得记绿(§0.3),且起点必须落下(2026-10-30 改判:原实现先 settle 清账,门槛永远走不到)', () => {
   resetCalls()
   const logs = []
   const mails = []
+  const fx = fixture()
   const results = STAGES.map((s, i) => ({
     id: s.id,
     group: s.group,
@@ -150,7 +154,8 @@ test('T3 有阶段未判定 ⇒ 本轮不得记绿(§0.3)', () => {
   }))
   const r = sweepParityCockpit({
     now: Date.parse('2026-10-29T00:00:00Z'),
-    tickFile: fixture().tickFile,
+    tickFile: fx.tickFile,
+    undetFile: fx.undetFile,
     logger: (m) => logs.push(String(m)),
     notify: (t, d) => mails.push({ t, d }),
     runner: runnerWith(
@@ -165,6 +170,7 @@ test('T3 有阶段未判定 ⇒ 本轮不得记绿(§0.3)', () => {
   assert.equal(r.ok, false, '有阶段没判 ⇒ 不得记绿')
   assert.match(logs.join('\n'), /不得记绿/)
   assert.equal(mails.length, 0, '单个阶段未判定多半是并发争用,不到存续门槛不喊人')
+  assert.ok(existsSync(fx.undetFile), '有阶段未判定 ⇒ 起点件必须落下(改判前这一支先 settle,起点当场被清)')
 })
 
 test('T4 结论取不到 ⇒ 写进「在册腿」的未判定起点台账(未知腿分支当场吞掉,连起点都不写)', () => {
@@ -265,6 +271,7 @@ test('T9 台账里的 state 是三态定档的结果,不是抄机读档里不存
   sweepParityCockpit({
     now: Date.parse('2026-10-29T00:00:00Z'),
     tickFile: fx.tickFile,
+    undetFile: fx.undetFile,
     logger: () => {},
     notify: () => {},
     runner: runnerWith(
@@ -281,6 +288,7 @@ test('T9 台账里的 state 是三态定档的结果,不是抄机读档里不存
   sweepParityCockpit({
     now: Date.parse('2026-10-29T00:00:00Z'),
     tickFile: fx2.tickFile,
+    undetFile: fx2.undetFile,
     logger: () => {},
     notify: () => {},
     runner: runnerWith(
@@ -296,6 +304,63 @@ test('T9 台账里的 state 是三态定档的结果,不是抄机读档里不存
   })
   const k = JSON.parse(readFileSync(fx2.tickFile, 'utf8'))
   assert.equal(k.state, 'undetermined', '§0.3:有阶段没判 ⇒ 不得让"有红"把它读成已判定')
+})
+
+/**
+ * T10 起点不得被清的形状锁(2026-10-30 立):`others>0` 那一支原先**先 settle 再打印
+ * "本轮不得记绿"** —— 实测 08:53:07 一轮「15/15 阶段 · 未判定/坏掉 2 道」而起点件
+ * `cross-end-parity-cockpit-undetermined-first.json` 不存在 ⇒ "连续未判定满门槛到人"
+ * 对这条腿结构上永远走不到。本条三段成对:
+ *   ① 有未判定阶段 ⇒ 写起点、不到门槛不寄信;
+ *   ② horizon=0 再来一轮 ⇒ 寄信且身份含 parity-cockpit(把新分支摘掉改回 settle ⇒ 0 封,本条翻红);
+ *   ③ 全绿 = 确定结论 ⇒ settle 必须清账(阳性对照,证明 ② 不是"起点擦不掉"的假锁)。
+ */
+test('T10 有未判定阶段 ⇒ 记连击、起点不得被 settle 清;全绿才清(成对)', () => {
+  resetCalls()
+  const fx = fixture()
+  const mails = []
+  const notify = (t, d, o) => mails.push({ t, d, o })
+  const undetVerdict = verdict({
+    counts: { ok: STAGES.length - 2, undetermined: 1, error: 1 },
+    results: STAGES.map((s, i) => ({
+      id: s.id,
+      group: s.group,
+      status: i === 0 ? 'undetermined' : i === 1 ? 'error' : 'ok',
+    })),
+  })
+  const base = {
+    tickFile: fx.tickFile,
+    undetFile: fx.undetFile,
+    logger: () => {},
+    notify,
+    intervalMs: 0,
+  }
+  const first = sweepParityCockpit({
+    ...base,
+    now: Date.parse('2026-10-29T00:00:00Z'),
+    runner: runnerWith(undetVerdict),
+  })
+  assert.equal(first.state, 'undetermined')
+  assert.ok(existsSync(fx.undetFile), '① 未判定/坏掉阶段 ⇒ 起点件必须落下,不许被清')
+  assert.equal(mails.length, 0, '① 默认门槛未跨 ⇒ 只记连击不喊人')
+  const second = sweepParityCockpit({
+    ...base,
+    now: Date.parse('2026-10-29T00:31:00Z'),
+    undetHorizonMs: 0,
+    runner: runnerWith(undetVerdict),
+  })
+  assert.equal(second.state, 'undetermined')
+  assert.ok(mails.length >= 1, `② 连击跨门槛必须到人;摘掉新分支(改回 settle)⇒ 0 封,本条翻红`)
+  assert.match(String(mails[0].o?.dedupKey), /parity-cockpit/, '身份要认得出是哪条腿')
+  assert.ok(existsSync(fx.undetFile), '② 起点必须仍在(note 的 mailed 分支不清账)')
+  const third = sweepParityCockpit({
+    ...base,
+    now: Date.parse('2026-10-29T01:02:00Z'),
+    undetHorizonMs: 0,
+    runner: runnerWith(verdict()),
+  })
+  assert.equal(third.state, 'ok')
+  assert.ok(!existsSync(fx.undetFile), '③ 真拿到确定结论 ⇒ settle 清账(阳性对照)')
 })
 
 test('T8 覆盖不全必须从派发面点名(防「部分覆盖的绿」再被读成合格证)', () => {

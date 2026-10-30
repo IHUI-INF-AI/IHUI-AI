@@ -26,10 +26,33 @@ const mkCov = ({ mirrored = 91, reds = 0, entries = 90, sharedTotal = 218 } = {}
     red: new Array(reds).fill({ rule: 'R1' }),
   },
 })
-const mkWeb = ({ rot = 0, aligned = 150, unmapped = 270 } = {}) => ({
-  ok: true,
-  json: { rot: new Array(rot).fill({ line: 1 }), aligned, unmapped },
-})
+// webParity 夹具:形状与尺子 check-web-rn-screen-parity.mjs --json 逐字同形。
+// 2026-10-30 起多两组字段:① 承载面去重计数 alignedUnique —— 承载面是"一组 web 键",不是台账行数;
+// ② 段级豁免四维 prefixContradicted / staleCountAssertions / missingExpiry.items / duplicateWebKeys。
+// `omit` 用于构造"尺子那一维取不到"(字段整个不在)⇒ 哨兵必须判未判定(不冒红、也不折成 0)。
+const mkWeb = ({
+  rot = 0,
+  aligned = 150,
+  alignedUnique = aligned,
+  unmapped = 270,
+  prefixContradicted = [],
+  staleCountAssertions = [],
+  missingExpiry = [],
+  duplicateWebKeys = 0,
+  omit = [],
+} = {}) => {
+  const json = { rot: new Array(rot).fill({ line: 1 }), aligned, unmapped }
+  if (!omit.includes('alignedUnique')) json.alignedUnique = alignedUnique
+  if (!omit.includes('prefixContradicted')) json.prefixContradicted = prefixContradicted
+  if (!omit.includes('staleCountAssertions')) json.staleCountAssertions = staleCountAssertions
+  if (!omit.includes('missingExpiry')) {
+    // 尺子真身:missingExpiry 是**数组本身**(逐条点名),未判定另走 missingExpiryUndetermined
+    json.missingExpiry = missingExpiry
+    json.missingExpiryUndetermined = []
+  }
+  if (!omit.includes('duplicateWebKeys')) json.duplicateWebKeys = duplicateWebKeys
+  return { ok: true, json }
+}
 
 // judge() 的输入面在 2026-10-27/29 长到了 12 维(fidelity 8 + conversion 2 + coverage/web 各外),
 // 而本文件的夹具只给 coverage+webParity ⇒ 每一格都被 null 扫描记成"取不到输入" ⇒
@@ -228,6 +251,130 @@ test('C13 方向锁:fidelity 少了撤除维(上游改字段名)⇒ 未判定,�
   assert.equal(j.state, 'undetermined')
   assert.ok(j.missing.includes('fidelityRetracted'))
   assert.ok(j.missing.includes('fidelityRetractionRot'))
+})
+
+/* ---------- 承载面口径(2026-10-30 立):比去重 web 键,不比台账行数 ---------- */
+
+test('D1 台账折叠同键重复行(行数掉、承载面不变)⇒ **不**报"RN 承载被拆"', () => {
+  const j = J({
+    coverage: mkCov(),
+    webParity: mkWeb({ aligned: 143, alignedUnique: 150 }),
+    doc: '',
+    prev: { mirrored: 91, aligned: 150, alignedUnique: 150 },
+  })
+  assert.equal(
+    j.reasons.some((r) => r.dim === 'web-aligned-decrease'),
+    false,
+    `折叠重复行不是承载被拆,不该出声:实得 ${JSON.stringify(j.reasons)}`
+  )
+  assert.equal(j.state, 'ok')
+})
+
+test('D2 承载面真掉 ⇒ regressed/web-aligned-decrease(去重口径仍抓真倒退)', () => {
+  const j = J({
+    coverage: mkCov(),
+    webParity: mkWeb({ aligned: 140, alignedUnique: 140 }),
+    doc: '',
+    prev: { mirrored: 91, aligned: 150, alignedUnique: 150 },
+  })
+  assert.equal(j.state, 'regressed')
+  const r = j.reasons.find((x) => x.dim === 'web-aligned-decrease')
+  assert.ok(r, `承载面掉了必须出声:实得 ${JSON.stringify(j.reasons)}`)
+  assert.match(r.detail, /承载面 150 → 140/)
+})
+
+test('D3 上轮基线没有去重口径(旧快照)⇒ 本维未判定:不产假告警,但要可追', () => {
+  const j = J({
+    coverage: mkCov(),
+    webParity: mkWeb({ aligned: 143, alignedUnique: 150 }),
+    doc: '',
+    prev: { mirrored: 91, aligned: 150 },
+  })
+  assert.equal(j.reasons.some((r) => r.dim === 'web-aligned-decrease'), false)
+  assert.ok(
+    (j.stale || []).some((s) => s.dim === 'web-aligned-uncompared'),
+    `未判定要可追(点名不响):实得 stale=${JSON.stringify(j.stale)}`
+  )
+})
+
+/* ---------- 段级豁免四维装车(2026-10-30 立):§0.9「造好没装车」= 没有 ---------- */
+
+test('D4 四维净增 ⇒ 各自出一条理由(带可执行出路),存量只报数不喊人', () => {
+  const base = { mirrored: 91, prefixContradicted: 0, staleCountAssertions: 0, missingExpiry: 0, duplicateWebKeys: 0 }
+  const grown = J({
+    coverage: mkCov(),
+    webParity: mkWeb({
+      prefixContradicted: [{}, {}, {}],
+      staleCountAssertions: [{}, {}],
+      missingExpiry: [{}, {}, {}, {}],
+      duplicateWebKeys: 1,
+    }),
+    doc: '',
+    prev: base,
+  })
+  for (const dim of [
+    'web-prefix-contradicted-increase',
+    'web-stale-count-increase',
+    'web-expiry-missing-increase',
+    'web-duplicate-key-increase',
+  ])
+    assert.ok(grown.reasons.some((r) => r.dim === dim), `缺 ${dim}:${JSON.stringify(grown.reasons.map((r) => r.dim))}`)
+  for (const r of grown.reasons) assert.match(r.detail, /出路:/, '每一维都要给可执行下一步')
+  // 存量不变 ⇒ 不喊人(§12e 棘轮)
+  const flat = J({
+    coverage: mkCov(),
+    webParity: mkWeb({
+      prefixContradicted: [],
+      staleCountAssertions: [],
+      missingExpiry: [],
+      duplicateWebKeys: 0,
+    }),
+    doc: '',
+    prev: base,
+  })
+  assert.equal(flat.state, 'ok', JSON.stringify(flat.reasons))
+})
+
+test('D5 四维取不到(字段整个不在)⇒ 该维未判定:不冒红、不折成 0、不产出理由', () => {
+  const j = J({
+    coverage: mkCov(),
+    webParity: mkWeb({
+      omit: ['prefixContradicted', 'staleCountAssertions', 'missingExpiry', 'duplicateWebKeys', 'alignedUnique'],
+    }),
+    doc: '',
+    prev: { mirrored: 91, prefixContradicted: 0, staleCountAssertions: 0, missingExpiry: 0, duplicateWebKeys: 0 },
+  })
+  assert.equal(
+    j.reasons.filter((r) => r.dim.startsWith('web-') && r.dim.includes('increase')).length,
+    0,
+    '取不到不是"没涨",不得出声'
+  )
+  assert.equal(j.extras.prefixContradicted, null)
+  assert.equal(j.extras.missingExpiry, null)
+  assert.equal(j.extras.alignedUnique, null)
+})
+
+test('D6 上轮基线没有这一维 ⇒ 本轮首次量到**不是净增**(别把"没有基线"读成"基线是零")', () => {
+  const j = J({
+    coverage: mkCov(),
+    webParity: mkWeb({
+      prefixContradicted: [{}, {}, {}],
+      staleCountAssertions: [{}, {}],
+      missingExpiry: [{}],
+      duplicateWebKeys: 2,
+    }),
+    doc: '',
+    // 上轮快照是旧格式:这四维压根不在 ⇒ 无基线可比
+    prev: { mirrored: 91, aligned: 301 },
+  })
+  assert.equal(
+    j.reasons.filter((r) => r.dim.includes('increase')).length,
+    0,
+    `没有基线不得当"净增"喊出去:实得 ${JSON.stringify(j.reasons.map((r) => r.dim))}`
+  )
+  // 但本轮读到的数必须进快照面,下一轮起才可比
+  assert.equal(j.extras.prefixContradicted, 3)
+  assert.equal(j.extras.missingExpiry, 1)
 })
 
 let bad = 0

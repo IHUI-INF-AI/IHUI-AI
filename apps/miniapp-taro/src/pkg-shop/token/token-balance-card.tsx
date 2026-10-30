@@ -9,17 +9,15 @@ import { formatTokenValue } from './token-packages'
 
 interface TokenBalanceCardProps {
   tt: TtFn
-  /** 余额是否已到手(未到手显示占位符,不假装 0) */
-  ready: boolean
-  balance: number
-  frozen: number
-  totalCost: number
+  /** 三枚读数各自可为 null:取不到时渲染 '--',不用 0 冒充「就是 0」(余额未取到 ≠ 余额为 0) */
+  balance: number | null
+  frozen: number | null
+  totalCost: number | null
 }
 
 /** 余额主数 + 冻结 / 总消费两格副指标(与共享屏 balanceMeta 同信息层级) */
 export default function TokenBalanceCard({
   tt,
-  ready,
   balance,
   frozen,
   totalCost,
@@ -31,13 +29,13 @@ export default function TokenBalanceCard({
   return (
     <View className="balance-card">
       <Text className="balance-label">{tt('tokenValue.balanceLabel', '智汇值余额')}</Text>
-      <Text className="balance-value">{ready ? formatTokenValue(balance) : '--'}</Text>
+      <Text className="balance-value">{balance === null ? '--' : formatTokenValue(balance)}</Text>
       <View className="flex items-start mt-[24rpx] gap-[48rpx]">
         {metas.map((m) => (
           <View key={m.key} className="flex flex-col">
             <Text className="text-[length:22rpx] text-cta-foreground">{m.label}</Text>
             <Text className="mt-[12rpx] text-[length:32rpx] font-semibold text-cta-foreground">
-              {formatTokenValue(m.value)}
+              {m.value === null ? '--' : formatTokenValue(m.value)}
             </Text>
           </View>
         ))}

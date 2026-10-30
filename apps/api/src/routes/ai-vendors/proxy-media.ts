@@ -11,6 +11,10 @@ import { buildSchema } from '../../utils/swagger.js'
 import {
   requireAuth,
   callVendor,
+  callVendorWithKey,
+  resolveAgnesVideoChannel,
+  agnesVideoPollUrl,
+  pickAgnesVideoUrl,
   recordUsage,
   createTask,
   requireVendorKey,
@@ -330,10 +334,17 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
             frame_rate: rest.frame_rate ?? 24,
             ...(image ? { image } : {}),
           }
-      const data = await callVendor('agnes', 'https://api.agnes-ai.cn/v1/videos', reply, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
+      const channel = resolveAgnesVideoChannel()
+      if (!channel) {
+        return reply.status(503).send(error(503, `${VENDORS.agnes!.name} 服务未配置`))
+      }
+      const data = await callVendorWithKey(
+        'agnes',
+        `${channel.baseUrl}/videos`,
+        reply,
+        { method: 'POST', body: JSON.stringify(payload) },
+        channel.key,
+      )
       if (data === null) return
       const task = createTask(request.userId!, 'agnes', 'video', data)
       recordUsage(request.userId!, 'agnes')
@@ -368,12 +379,25 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       // 从创建响应提取上游 ID:创建响应形如 {id: "task_*", video_id: "video_*", status: "queued"}
       const raw = (task.result ?? {}) as { video_id?: string; id?: string }
       const upstreamId = raw.video_id || raw.id || ''
-      const pollUrl = upstreamId.startsWith('task_')
-        ? `https://api.agnes-ai.cn/v1/videos/${encodeURIComponent(upstreamId)}`
-        : `https://api.agnes-ai.cn/agnesapi?video_id=${encodeURIComponent(upstreamId)}`
-      const upstream = await callVendor('agnes', pollUrl, reply, { method: 'GET' })
+      const channel = resolveAgnesVideoChannel()
+      if (!channel) {
+        return reply.status(503).send(error(503, `${VENDORS.agnes!.name} 服务未配置`))
+      }
+      const pollUrl = agnesVideoPollUrl(channel.baseUrl, upstreamId)
+      const upstream = await callVendorWithKey(
+        'agnes',
+        pollUrl,
+        reply,
+        { method: 'GET' },
+        channel.key,
+        60_000,
+      )
       if (upstream) {
-        task.result = upstream
+        const rec = upstream as Record<string, unknown>
+        // 上游把成片地址散在 metadata.url / url / output_url / result.video_url 五处,
+        // 而 v1 网关的 tryMap 只认顶层 video_url ⇒ 在这里归一化一份,否则任务 completed 也回不出地址。
+        const finishedUrl = pickAgnesVideoUrl(rec)
+        task.result = finishedUrl ? { ...rec, video_url: finishedUrl } : rec
         // 上游状态映射:queued/in_progress → running,completed → succeeded,failed → failed
         const status = (upstream as { status?: string }).status
         if (status === 'completed') task.status = 'succeeded'
