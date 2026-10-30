@@ -3588,7 +3588,14 @@
     "termsOfService": "Terms of Service",
     "thirdPartyLogin": "Continue with",
     "ssoFailed": "Web authorization sign-in failed. Please retry or use your account and password.",
-    "loginFailed": "Login failed. Please try again."
+    "loginFailed": "Login failed. Please try again.",
+    "twoFactorTitle": "Two-factor authentication",
+    "twoFactorHint": "Enter the 6-digit code from your authenticator app, or use a backup code.",
+    "twoFactorPlaceholder": "Code or backup code",
+    "twoFactorError": "Please enter at least 6 characters.",
+    "twoFactorSubmit": "Verify and sign in",
+    "twoFactorCancel": "Cancel",
+    "twoFactorCancelled": "Two-factor authentication cancelled"
   },
   "bookmark": {
     "empty": "No bookmarks",
