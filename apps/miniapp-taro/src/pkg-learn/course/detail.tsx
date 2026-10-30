@@ -81,14 +81,23 @@ export default function CourseDetail() {
     const courseId = course?.id
     if (courseId === null || courseId === undefined) return
     try {
-      const res = await post<{ orderId?: string; orderNo?: string; amount?: number }>(
-        '/courses/buy',
-        { courseId },
-      )
-      const orderId = res?.orderId || res?.orderNo || ''
+      const res = await post<{
+        orderId?: string
+        orderNo?: string
+        amount?: number
+        status?: string
+      }>('/courses/buy', { courseId })
+      // 支付页只读 `router.params.orderNo`(pkg-shop/pay/index.tsx:79,且 no 为空时 onPay 直接
+      // 返回并弹「订单异常」),而原实现把订单号当 orderId 传 ⇒ 课程购买点下去永远付不了。
+      // 免费课后端返回 orderNo='' + status='free',没有支付单可付,如实提示。
+      const orderNo = res?.orderNo || res?.orderId || ''
       const amount = res?.amount ?? course?.price ?? 0
+      if (!orderNo) {
+        Taro.showToast({ title: t('course.buyDeveloping'), icon: 'none' })
+        return
+      }
       Taro.navigateTo({
-        url: `/pkg-shop/pay/index?orderId=${orderId}&amount=${amount}`,
+        url: `/pkg-shop/pay/index?orderNo=${encodeURIComponent(orderNo)}&amount=${amount}`,
       })
     } catch {
       // 后端无购买端点,toast 提示 + mock
