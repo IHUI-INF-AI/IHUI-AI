@@ -210,7 +210,20 @@
     "contentText": "文本内容",
     "boolYes": "是",
     "boolNo": "否",
-    "closePreview": "关闭预览"
+    "closePreview": "关闭预览",
+    "addCamera": "拍照",
+    "addAlbum": "相册",
+    "addLocalFile": "本地文件",
+    "addWxFile": "微信文件",
+    "closeBtn": "关闭",
+    "linkCopiedBrowser": "链接已复制，请在浏览器中打开",
+    "albumPermRequired": "需要相册权限才能保存图片",
+    "imgSavedAlbum": "图片已保存到相册",
+    "btnConfirm": "确认",
+    "camSoonHint": "相机拍摄待接入，请先用相册上传图片",
+    "imgUploadedHint": "图片已上传，发送后可在对话中使用",
+    "imgUploadFailed": "图片上传失败",
+    "imgPickRetry": "图片选择失败，请重试"
   },
   "course": {
     "learningProgress": "学习进度",
@@ -1108,6 +1121,11 @@
       "subagent": {
         "title": "子任务"
       }
+    },
+    "pane": {
+      "branch": {
+        "ariaLabel": "对话分支"
+      }
     }
   },
   "share": {
@@ -1167,7 +1185,28 @@
     "tabEducation": "教育",
     "tabLife": "生活",
     "loadFailed": "加载失败",
-    "useCount": "{n}人使用"
+    "useCount": "{n}人使用",
+    "join": {
+      "title": "加入群组",
+      "message": "已申请加入「{name}」"
+    },
+    "cardMembers": "成员",
+    "detailEnter": "进入群聊",
+    "detailMembers": "群成员",
+    "detailRecent": "最近消息",
+    "enterChat": {
+      "message": "确定要进入该群聊?",
+      "title": "提示"
+    },
+    "enterDiscover": "发现",
+    "enterMine": "我的",
+    "memberRole": "角色",
+    "metaActive": "活跃",
+    "metaMessages": "消息",
+    "previewHello": "你好",
+    "previewMine": "我创建的",
+    "subtitle": "AI 群聊助手",
+    "searchPlaceholder": "搜索AI助手"
   },
   "aiCircle": {
     "title": "AI 圈子",
@@ -1209,7 +1248,29 @@
     "openWorkflow": "打开工作流",
     "gatewayRetry": "第 {attempt}/{max} 次重试,{seconds} 秒后继续",
     "placeholder": "请输入您的问题",
-    "streaming": "正在生成..."
+    "streaming": "正在生成...",
+    "emptyNoAgent": "请先选择已绑定工作流的智能体",
+    "send": "发送",
+    "callFailed": "调用失败,请稍后重试",
+    "toolCalls": "工具调用",
+    "toolStatusRunning": "运行中",
+    "toolStatusSuccess": "成功",
+    "toolStatusError": "失败",
+    "toolArgs": "参数",
+    "toolResult": "输出",
+    "planSteps": "执行计划",
+    "planStatusPending": "待开始",
+    "planStatusInProgress": "进行中",
+    "planStatusCompleted": "已完成",
+    "terminalTasks": "终端任务",
+    "terminalIsolation": "命令在隔离沙箱中执行，默认不开放网络",
+    "terminalStatusRunning": "运行中",
+    "terminalStatusCompleted": "已完成",
+    "terminalStatusFailed": "失败",
+    "terminalExitCode": "退出码",
+    "terminalOutput": "输出",
+    "terminalTruncated": "…(已截断,共 {total} 字符)",
+    "compactionToast": "上下文已自动压缩({before} → {after} tokens)"
   },
   "agentDialogue": {
     "sendFailed": "发送失败,请重试",
@@ -2688,7 +2749,9 @@
     "me": "我",
     "studyHours": "学习 {count} 小时",
     "anonymous": "匿名用户",
-    "title": "排行榜"
+    "title": "排行榜",
+    "histFallback": "历史会话",
+    "visitorName": "排行榜访客"
   },
   "recruitment": {
     "title": "操盘手计划",
@@ -3883,7 +3946,12 @@
     "modelLabel": "模型",
     "stop": "停止",
     "thinking": "思考中...",
-    "title": "IHUI AI"
+    "title": "IHUI AI",
+    "untitledChat": "未命名对话",
+    "terminal": {
+      "waitingInput": "等待输入",
+      "mobileUnsupported": "终端功能暂不支持移动端"
+    }
   },
   "tabBar": {
     "community": "智汇社区",
@@ -4394,7 +4462,9 @@
     "name": "圈子名称",
     "namePlaceholder": "请输入圈子名称",
     "submit": "创建",
-    "title": "创建圈子"
+    "title": "创建圈子",
+    "nameRequired": "请输入圈子名称",
+    "saveFailed": "创建失败"
   },
   "learndevelop": {
     "d1": "前端工程师",
@@ -4815,7 +4885,19 @@
     "logout": "退出登录",
     "myFavorites": "我的收藏",
     "myOrders": "我的订单",
-    "editProfile": "编辑资料"
+    "editProfile": "编辑资料",
+    "downloadFailRetry": "下载失败,请重试",
+    "shareBtn": "分享",
+    "n8nHideAnswer": "隐藏回答",
+    "n8nShowAnswer": "显示回答",
+    "n8nThinking": "思考过程",
+    "n8nCopyAnswer": "复制回答",
+    "n8nDownloadImg": "下载图片",
+    "n8nCopyOk": "复制成功",
+    "n8nCopyFail": "复制失败",
+    "n8nShareFail": "分享失败",
+    "n8nGenBadge": "智汇AI生成 消耗智汇值:",
+    "n8nHoldToTalk": "按住说出你的问题"
   },
   "verify": {
     "phoneEmpty": "手机号为空",
@@ -6263,7 +6345,8 @@
     "loadFailed": "工作流加载失败"
   },
   "menu": {
-    "sectionDiscover": "发现"
+    "sectionDiscover": "发现",
+    "ranking": "排行榜"
   },
   "agentScreen": {
     "loadFailed": "加载智能体失败",
@@ -7137,7 +7220,9 @@
       "aiTitle": "AI 消息",
       "message": "截图已生成",
       "shareBtn": "分享"
-    }
+    },
+    "errorTitle": "请求出错",
+    "errorRetry": "重试"
   },
   "mat": {
     "unknown": "未知错误",
@@ -7451,7 +7536,8 @@
     "members": "成员",
     "membersAction": "成员管理",
     "post": "发布帖子",
-    "posts": "帖子"
+    "posts": "帖子",
+    "loadFailed": "加载失败"
   },
   "examResult": {
     "loadFailed": "加载失败",
@@ -7605,5 +7691,15 @@
     "teacher": "教师",
     "time": "时段",
     "weekdayTitle": "星期"
+  },
+  "taskStatus": {
+    "addedCount": "+{n}",
+    "removedCount": "-{n}"
+  },
+  "drawer": {
+    "claimFree": "领取免费资料"
+  },
+  "studyIndex": {
+    "receiveFreeBody": "链接已复制到剪贴板,可在浏览器粘贴打开"
   }
 }
