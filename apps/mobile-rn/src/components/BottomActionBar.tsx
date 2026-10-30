@@ -32,6 +32,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type GestureResponderEvent,
   type ImageStyle,
   type StyleProp,
   type TextStyle,
@@ -76,8 +77,52 @@ import {
   // 发送/停止槽字形(2026-10-15 再裁决:web 发送簇 ArrowUp/Square 均 h-4 = 16,glyphSm 箭头档)
   BOTTOM_ACTION_BAR_SEND_GLYPH_PX,
 } from '@ihui/shared/ui/bottom-action-bar-spec'
+// O02 票④(2026-10-31 接线):发送方块控件走共享核心 BottomActionBarControl —— 方块边长唯一源
+// 在核心(boxPx),本壳只供视觉(底色/圆角/禁用态)与 RN 原语注入;与小程序壳同一份核心。
+import { BottomActionBarControl, type BottomActionBarPlatform } from '@ihui/shared/ui'
 
 // ── 兼容旧 API:简单按钮列表 ──
+
+/** RN 平台原语注入(与小程序壳 miniPlatform 同一契约):RN 单位是 dp,与逻辑 px 1:1 恒等;
+ *  字形走 lucide-react-native(square=发送中停止语义实心方块,arrow-up=发送);盒子按压态样式由
+ *  原语内部落栈(数组形态),调用方视觉样式经 style 压在盒几何之上。 */
+const rnPlatform: BottomActionBarPlatform<number, ViewStyle, GestureResponderEvent> = {
+  toUnit: (px) => px,
+  glyphUnit: (px) => px,
+  View: ({ boxStyle, style, children }) => <View style={[boxStyle, style]}>{children}</View>,
+  Text: ({ style, color, children }) => (
+    <Text style={[style, color ? { color } : null]}>{children}</Text>
+  ),
+  Pressable: ({
+    onActivate,
+    disabled,
+    boxStyle,
+    style,
+    disabledStyle,
+    accessibilityLabel,
+    children,
+  }) => (
+    <Pressable
+      style={({ pressed }) => [
+        boxStyle,
+        style,
+        disabled ? disabledStyle : null,
+        pressed ? styles.sendBtnPressed : null,
+      ]}
+      onPress={onActivate}
+      disabled={disabled}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      {children}
+    </Pressable>
+  ),
+  Glyph: ({ name, size, color }) => {
+    if (name === 'square') return <Square size={size} color={color} fill={color} />
+    return <ArrowUp size={size} color={color} />
+  },
+}
 
 export interface BottomActionBarAction {
   key: string
@@ -685,29 +730,21 @@ function ChatInputBar(props: BottomActionBarProps) {
         ) : null}
 
         {onSend !== undefined ? (
-          <Pressable
-            style={[styles.sendBtn, isLoading ? styles.sendBtnDisabled : null]}
-            onPress={onSend}
+          /* O02 票④(2026-10-31):发送方块走共享核心 BottomActionBarControl —— 方块边长(boxPx)
+             由核心供出,字形切换(发送中=Square 实心停止语义 / 平时=ArrowUp,与 web 发送簇同形)
+             由 glyph name 表达;本壳只供视觉(sendBtnTone:底色/圆角/禁用透明度)。 */
+          <BottomActionBarControl
+            platform={rnPlatform}
+            boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
+            glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
+            glyph={isLoading ? 'square' : 'arrow-up'}
+            glyphColor={tokens.brand.ctaForeground}
+            onActivate={onSend}
             disabled={isLoading}
-            hitSlop={4}
-            accessibilityRole="button"
-            accessibilityLabel={t('chat.send')}
-          >
-            {isLoading ? (
-              /* 流式/发送中 = 停止语义:与 web 发送簇 Square(实心方块)同形,
-                 不再用 ActivityIndicator 充当图标(AGENTS §4 矢量铁律)。 */
-              <Square
-                size={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
-                color={tokens.brand.ctaForeground}
-                fill={tokens.brand.ctaForeground}
-              />
-            ) : (
-              /* 发送字形 2026-10-15 再裁决:与 web 发送簇 ArrowUp 同形同档(h-4 = 16),
-                 告别旧裁决的 lucide `Send` 纸飞机(墨迹 14);档源 BOTTOM_ACTION_BAR_SEND_GLYPH_PX。
-                 此前更早的形态是文字「发送」胶囊(硬编码中文,三端唯一的文字胶囊)。 */
-              <ArrowUp size={BOTTOM_ACTION_BAR_SEND_GLYPH_PX} color={tokens.brand.ctaForeground} />
-            )}
-          </Pressable>
+            label={t('chat.send')}
+            style={styles.sendBtn}
+            disabledStyle={styles.sendBtnDisabled}
+          />
         ) : null}
       </View>
 
@@ -1131,15 +1168,17 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
     includeFontPadding: false,
   } as TextStyle,
-  // 发送可见方块:档源在共享 spec(= web `message-input.tsx` 的 `h-8 w-8` = 32)。
-  // 可点区不减:`hitSlop`(本文件多处已在用)把命中区扩到 40,可见盒与小程序端逐档同值。
+  // 发送方块视觉(底色/圆角/居中):方块边长唯一源 = 共享核心 BottomActionBarControl 的
+  // boxPx(= web `message-input.tsx` 的 `h-8 w-8` = 32,与小程序端逐档同值),本壳不再自写
+  // width/height(写了就是端内第二份 32,wiring 判据 ④ 会点名)。可点区不减:hitSlop 在原语内。
   sendBtn: {
-    width: BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
-    height: BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
     borderRadius: INPUT_BORDER_RADIUS,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
+  } as ViewStyle,
+  sendBtnPressed: {
+    opacity: 0.85,
   } as ViewStyle,
   sendBtnDisabled: {
     opacity: 0.6,
