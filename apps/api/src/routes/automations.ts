@@ -178,10 +178,8 @@ export interface RepairAdminRoutesOptions {
   guard?: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
 }
 
-async function requireAdminGuardLazy(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const { requireAdmin } = await import('../plugins/require-permission.js')
-  return requireAdmin(request, reply)
-}
+/** requireAdminGuardLazy 的唯一实现住在 plugins/lazy-admin-guard.ts(§0.6) */
+import { requireAdminGuardLazy } from '../plugins/lazy-admin-guard.js'
 
 export const repairAdminRoutes: FastifyPluginAsync<RepairAdminRoutesOptions> = async (
   server,
