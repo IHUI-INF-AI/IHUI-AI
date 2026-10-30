@@ -104,14 +104,8 @@ function formatTokenDisplay(count: number): string {
   return String(count)
 }
 
-/** ChatMessage 可选音频扩展(对标原 ai_assistant.vue 语音消息字段) */
-interface ChatMessageWithAudio extends ChatMessage {
-  audioUrl?: string
-  audioDuration?: number
-}
-
-/** 类型守卫:判断消息是否包含音频字段 */
-function hasAudio(msg: ChatMessage): msg is ChatMessageWithAudio {
+/** 运行时判"这条消息带不带音频字段"(字段本身住 ChatMessage 基类,这里不再声明第二份形状) */
+function hasAudio(msg: ChatMessage): boolean {
   return 'audioUrl' in msg || 'audioDuration' in msg
 }
 
