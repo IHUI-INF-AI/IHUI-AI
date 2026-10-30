@@ -212,9 +212,19 @@ const MECHANISMS = [
 ]
 
 /** GA1:整格文本箭头(含左向 `‹`/`←` —— 2026-09-25 随小程序端返回键收口一起纳进来:
- *  该门立项时只管右向「更多」箭头,于是 `NavBar.tsx` 与 7 个页面头把 `‹` 当返回图标长期无人拦) */
-const BARE_GLYPH_RE = /^[›»→》‹←>]$/
-const BRACED_GLYPH_RE = /^\{\s*(['"`])([›»→》‹←>])\1\s*\}$/
+ *  该门立项时只管右向「更多」箭头,于是 `NavBar.tsx` 与 7 个页面头把 `‹` 当返回图标长期无人拦)
+ *
+ *  2026-10-31 扩**关闭/勾选族** `×✕✖✓✔`(同判据结构,只是字形集窄了):
+ *  AGENTS §4 早就写了"图标一律图标库…箭头必须矢量图标",但字形集只列了箭头族,于是
+ *  「拿 `×` 当关闭钮」在全仓 30+ 处长期不响(RN 端 LoginPopUp/VerifyCodeModal 各一处,
+ *  而小程序端同族组件走的是文字钮/矢量 X —— 同一动作三端三张脸)。
+ *  安全边界:GA1 要求的仍是「整格唯一子内容 + 附近有可点证据」,所以正文里的
+ *  "2×3"、"3✓" 这类散文用法结构上不会命中;裸 `>` 与本族共用同一条豁免通道
+ *  (glyph-arrow-exempt,须带原因),不开第二条口子。 */
+const BARE_GLYPH_RE = /^[›»→》‹←>×✕✖✓✔]$/
+const BRACED_GLYPH_RE = /^\{\s*(['"`])([›»→》‹←>×✕✖✓✔])\1\s*\}$/
+/** 关闭/勾选族:与箭头族共用判据结构,但**出路不同**(矢量 X/Check,不是 chevron) */
+const CLOSE_CHECK_GLYPHS = new Set(['×', '✕', '✖', '✓', '✔'])
 /** affordance 证据:事件/角色属性 */
 const HANDLER_ATTR_RE =
   /\bon(?:Click|Press|LongPress|PressIn|PressOut|Tap|Change|Select)\b|\b(?:role|accessibilityRole)\s*=\s*['"]button['"]/
@@ -931,7 +941,13 @@ export function auditFile(rel, text) {
         rule: 'GA1',
         file: rel,
         line: h.line,
-        msg: `文本字形「${h.glyph}」当 chevron 图标(<${h.tag}> 的唯一子内容,${h.via})—— 须改用矢量图标:共享 MoreLink / lucide chevron-right|chevron-left / Taro LineIcon / 小程序 BackChevron`,
+        // 出路必须按字形族给:把 `×` 当关闭钮的地方正确改法是 lucide X(小程序端 LineIcon
+        // 同族素材或文字钮),给它写"改用 chevron-right"就是把人引向错方向 —— 判据文案也是判据的一部分。
+        msg: `文本字形「${h.glyph}」当${CLOSE_CHECK_GLYPHS.has(h.glyph) ? '关闭/勾选' : 'chevron'}图标(<${h.tag}> 的唯一子内容,${h.via})—— 须改用矢量图标:${
+          CLOSE_CHECK_GLYPHS.has(h.glyph)
+            ? 'RN/共享层 lucide-react-native 的 X / Check;web lucide-react 的 X / Check;小程序端 LineIcon 同族素材或既有文字钮(参照 apps/miniapp-taro/src/components/LoginPopUp.tsx 的关闭位形态)'
+            : '共享 MoreLink / lucide chevron-right|chevron-left / Taro LineIcon / 小程序 BackChevron'
+        }`,
       })
     }
     for (const h of findBackLabelChildren(code, strMask)) {
