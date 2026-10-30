@@ -204,6 +204,49 @@ test('parsePorcelainZ:重命名条目吃掉双 NUL 段,目的路径为准', () =
   assert.deepEqual(es, [{ status: 'R ', path: 'new.txt' }, { status: ' M', path: 'b.txt' }])
 })
 
+test('旗标闸(纯函数面):未知旗必须点名,合法清单/带值/等号形不误杀', () => {
+  assert.equal(P.findUnknownFlag(['--self-test']), '--self-test', '本器没有 selfTest,必须拒而不是静默按默认档跑真探测')
+  assert.equal(P.findUnknownFlag(['--delete-all']), '--delete-all')
+  assert.equal(P.findUnknownFlag([]), null)
+  assert.equal(P.findUnknownFlag(['--json']), null)
+  assert.equal(P.findUnknownFlag(['--prod-root', 'D:/somewhere/ihui-prod']), null, '带值旗的值不得被当成未知旗复检')
+  assert.equal(P.findUnknownFlag(['--prod-root=D:/x']), null, '等号形必须认识')
+  assert.equal(P.findUnknownFlag(['--json', '--prod-root', 'x', '--json']), null, '重复合法旗不炸')
+  assert.deepEqual([...P.PROD_FOREIGN_KNOWN_FLAGS], ['--json', '--prod-root'])
+  // 清单与头注同源:头注 L74 若印了一枚清单外的旗,就是"文档写了跑不通的出路"(§0.8)
+  const src = readFileSync(new URL('../check-prod-checkout-foreign-work.mjs', import.meta.url), 'utf8')
+  const usageLine = (src.match(/用法:node scripts\/check-prod-checkout-foreign-work\.mjs .*/) || [''])[0]
+  for (const f of usageLine.match(/--[a-z-]+/g) || []) {
+    assert.ok(P.PROD_FOREIGN_KNOWN_FLAGS.includes(f), `头注印了 ${f} 却不在 KNOWN 面 ⇒ ${usageLine}`)
+  }
+})
+
+test('旗标闸(接线面):真跑未知旗 rc=2 且一处探测都不许做', () => {
+  const script = new URL('../check-prod-checkout-foreign-work.mjs', import.meta.url).pathname.replace(/^\/(\w:)/, '$1')
+  const r = spawnSync(process.execPath, [script, '--self-test'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 30000,
+  })
+  assert.equal(r.status, 2, `未知旗必须 rc=2(实得 ${r.status};out=${String(r.stdout).slice(0, 80)})`)
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.match(out, /未认识的旗标 --self-test/, '必须点名是哪枚旗')
+  assert.doesNotMatch(out, /PROBE-RESULT/, '拒收这一趟绝不能已经跑了真探测(零副作用)')
+  assert.doesNotMatch(out, /\[root\]|\[foreign\]|\[evidence\]/, '任何探测明细行都不该出现')
+})
+
+test('旗标闸装车锁:闸必须排在扫描动作之前(§0.9 造好没装车=没有)', () => {
+  const src = readFileSync(new URL('../check-prod-checkout-foreign-work.mjs', import.meta.url), 'utf8')
+  const iGuard = src.indexOf('const badFlag = findUnknownFlag(argv)')
+  const iSurvey = src.indexOf('const survey = surveyProdCheckouts(')
+  const iJson = src.indexOf("const json = argv.includes('--json')")
+  assert.ok(iGuard > 0, 'main 里没接上闸 ⇒ 清单只是注释')
+  assert.ok(iSurvey > iGuard, '闸必须排在任何扫描动作之前')
+  assert.ok(iGuard > iJson, '闸只排在 json 取值之后即可(取值是纯读,扫描才是动作)')
+  assert.equal([...src.matchAll(/export function findUnknownFlag/g)].length, 1, '闸实现全仓只许一份')
+})
+
 // —— runner ——
 let failed = 0
 setup()

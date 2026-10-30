@@ -885,9 +885,44 @@ export function verdictFromSurvey(survey, opts = {}) {
   }
 }
 
+/** 本器认识的旗标（唯一清单；头注 L74 的用法行与之同源，§0.6 不得两处各写）。 */
+export const PROD_FOREIGN_KNOWN_FLAGS = Object.freeze(['--json', '--prod-root'])
+
+/**
+ * 纯校验：第一枚不认识的旗（字符串），全合法 ⇒ null。不 exit，好被镜像测试直接问。
+ * 立因（2026-10-30 实测）：本器原先没有这道闸，又**没有 selfTest**，于是有人敲
+ * `node scripts/check-prod-checkout-foreign-work.mjs --self-test` 以为在跑自检，
+ * 实际被静默忽略并按默认档跑了一整轮生产签出扫描（几万发 git ls-tree 那种）。
+ * 同族纪律：`check-verbatim-resurrection.mjs` 头注「未认识的旗标一律用法错 exit 2」、
+ * `git-sync-converge.mjs` 的 arg guard（RP-79）。失效方向 = 多要一次定向说明（§0.10），
+ * 绝不"不认识就当没问"进而静默执行默认档动作。
+ */
+export function findUnknownFlag(argvList = []) {
+  const list = Array.isArray(argvList) ? argvList : []
+  for (let i = 0; i < list.length; i++) {
+    const a = String(list[i])
+    if (!a.startsWith('-') || a === '--') continue
+    const key = a.includes('=') ? a.slice(0, a.indexOf('=')) : a
+    if (!PROD_FOREIGN_KNOWN_FLAGS.includes(key)) return a
+    if (key === '--prod-root' && !a.includes('=')) {
+      const v = list[i + 1]
+      if (v !== undefined && !String(v).startsWith('-')) i++
+    }
+  }
+  return null
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   const json = argv.includes('--json')
+  const badFlag = findUnknownFlag(argv)
+  if (badFlag) {
+    console.error(
+      `用法错误：未认识的旗标 ${badFlag}（本器不做"未知旗静默忽略后按默认档跑真探测"；` +
+        `本器只认 ${PROD_FOREIGN_KNOWN_FLAGS.join(' / ')}，用法见文件头注 L74）`,
+    )
+    process.exit(2)
+  }
   const pr = requireFlagValue(argv, '--prod-root', { noun: '路径' })
   if (pr.error) {
     console.error(`用法错误:${pr.error}(§0.8 出路必须真跑得通,不给值不当"没指定")`)
@@ -925,6 +960,8 @@ if (isDirectRun) {
 }
 
 export const __test__ = {
+  PROD_FOREIGN_KNOWN_FLAGS,
+  findUnknownFlag,
   PROD_SERVICE,
   ORIGIN_REF,
   REG_SERVICES_KEY,
