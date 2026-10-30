@@ -226,6 +226,7 @@ jobs:
         run: |
           echo "E2E_ADMIN_ACCOUNT=e2e_admin" >> "$GITHUB_ENV"
           echo "E2E_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "E2E_USER_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
 
       - name: Seed E2E 测试用户(test@aizhs.top)
         # browser_hub 全部端点都要鉴权(routers/browser_hub.py 每个 handler 都
