@@ -12,8 +12,8 @@
 
 - 判定面: **HEAD blob**
 - 共享屏(真相源): **271**
-- 已被小程序显式镜像: **254**
-- 缺口合计: **17**(其中已判定 17 / 未判定 0)
+- 已被小程序显式镜像: **256**
+- 缺口合计: **15**(其中已判定 15 / 未判定 0)
 - 判定台账: **112** 行 — 路径与口径单源 `scripts/lib/cross-end-verdicts.mjs`
 - 台账三档: **缺页待造 0** / **已造页待补数据钩子 94** / **不承载 18**
 > ⚠ 已造页 94 条**已计入上面的覆盖率**,但数据钩子/交互尚未按共享屏补齐 ⇒ 覆盖率不等于功能对齐(§0.3「造好没装车 = 没有」);待补清单见文末「已造页·待补数据钩子」单。
@@ -33,14 +33,12 @@
 | 9 | `finance/FinanceScreen` | ★EduFinanceScreen | pkg-user/edu-mgmt-finance/index | 🚫 不承载(已判定) | 全仓零渲染消费:apps/mobile-rn/src/screens 无任何屏渲染 <FinanceScreen(全量扫 0 命中;RN 的 EduFinanceScreen 用 ConsoleTableScreen),web 的财务页 apps/web/app/(main)/edu/edu-management/finance/page.tsx 对应 EduFinanceScreen(缴费记录)而非本屏四卡汇总,小程序仅 pkg-user/edu-mgmt-finance 注释里提到对齐目标 ⇒ 镜像它会产出无数据腿的重复页,判不承载;本屏候选下线(零消费)。 |
 | 10 | `following/FollowingScreen` | — | pkg-user/following/index | 🚫 不承载(已判定) | RN 端关注列表由 follow/FollowScreen 承载:apps/mobile-rn/src/screens/FollowScreen.tsx 渲染 <FollowScreen>(含关注/粉丝 Tab、取消关注),小程序 pkg-user/following/index.tsx 头注写「对齐目标(RN 共享屏): packages/app/src/features/follow/FollowScreen.tsx」但现读是端内手写页(自带 @tarojs/components + @/api/social + useDidShow/useReachBottom)，非镜像 ⇒ 它属手写页待转化面，不是已镜像;本屏在 RN 端零渲染方(全量扫 <FollowingScreen 0 命中)⇒ 镜像它会产出无数据腿的重复页,判不承载。web /following 与 FollowScreen 的等价性另记 web→RN 台账 gap(键空间 following.* vs follow.*)。 |
 | 11 | `help-detail/HelpDetailScreen` | ActivityDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🚫 不承载(已判定) | RN 端以列表内联展开承载同一阅读目的:packages/app/src/features/help/HelpScreen.tsx:63-65(expandedId 命中即渲染 item.answer),宿主 apps/mobile-rn/src/screens/HelpScreen.tsx:60-78 注入 expandedId/onToggle;本屏是 web 独立详情页(help/[slug]/PageClient.tsx)的投影,RN 端零渲染方(全量扫 <HelpDetailScreen 0 命中)⇒ 小程序镜像它 = 再造一个重复入口,判不承载。 |
-| 12 | `legal-doc/LegalDocScreen` | ★LegalDocScreen / KnowledgeDocScreen | pkg-user/legal-docs-hub/index / pkg-mirror/knowledge-doc/index | 🚫 不承载(已判定) | 头注自述为通用静态页(隐私政策/用户协议/Cookie 政策等,packages/app/src/features/legal-doc/LegalDocScreen.tsx:16),是多页共用杠杆而非具体页面,RN 侧亦无壳;小程序端每个具体法律页各有专属共享屏并已镜像(apps/miniapp-taro/src/pkg-about/about/privacy.tsx:4 镜像 privacy)=> 不由小程序端单独承载 |
-| 13 | `login/LoginScreen` | ★LoginScreen / ★ScanLoginScreen | — | 🚫 不承载(已判定) | 机主定档小程序端不该有登录页,login 页已整个删除,登录只剩我的 tab 上的弹窗一个宿主(apps/miniapp-taro/src/app.config.ts:17);共享屏是 RN 端 4-tab 完整版(packages/app/src/features/login/LoginScreen.tsx:43),本就不由小程序承载 => not-applicable |
-| 14 | `mcp-store/McpStoreScreen` | ★McpStoreScreen | — | 🚫 不承载(已判定) | 该屏是 MCP Server 管理与安装能力,对应 Web /mcp-store(apps/mobile-rn/src/screens/McpStoreScreen.tsx:24),RN 侧入口全在开发者工作台屏(PatrolScreen/RepoWikiScreen/SelfHealingScreen/TeamMemoryScreen),小程序端无对应工作台域,apps/miniapp-taro/src/api/index.ts 无 mcp 端点 => 桌面/开发端专属 |
-| 15 | `ranking-detail/RankingDetailScreen` | ★RankingDetailScreen / ActivityDetailScreen | pkg-ai/ranking/detail / pkg-ai/ai/agent-detail | 🚫 不承载(已判定) | 本端该路由是工具详情(名称/机构/价格/链接),声明的共享屏是学员积分详情(积分/排名/学习时长/等级说明)(2026-10-30 逐页核:本端路由接口与渲染字段 vs 共享屏 t() 字段;本端路由承载的业务需产品定档才可改造,不在撤声明这一格里) |
-| 16 | `ranking/RankingScreen` | ★RankingDetailScreen / ★RankingScreen | pkg-ai/ranking/index / pkg-ai/ranking/detail | 🚫 不承载(已判定) | 本端该路由是 AI 工具榜(get /ranking/list + 分类/价格/搜索 AI 工具),声明的共享屏是学习积分榜(昵称/匿名/我/学习时长)(2026-10-30 逐页核:本端路由接口与渲染字段 vs 共享屏 t() 字段;本端路由承载的业务需产品定档才可改造,不在撤声明这一格里) |
-| 17 | `switch-prefs/SwitchPrefsScreen` | — | — | 🚫 不承载(已判定) | 头注自述为通用杠杆屏:packages/app/src/features/switch-prefs/SwitchPrefsScreen.tsx:13-14「通用开关偏好屏 —— 开关型设置页(developer/notifications、developer/settings、settings/preferences 等)的规模化杠杆…本屏纯 UI」;RN 端无同名屏,只有薄壳 apps/mobile-rn/src/screens/DeveloperSettingsScreen.tsx:107 与 DeveloperNotificationsScreen.tsx:90 传 items,故该通用组件屏不该由小程序单页承载。 |
+| 12 | `login/LoginScreen` | ★LoginScreen / ★ScanLoginScreen | — | 🚫 不承载(已判定) | 机主定档小程序端不该有登录页,login 页已整个删除,登录只剩我的 tab 上的弹窗一个宿主(apps/miniapp-taro/src/app.config.ts:17);共享屏是 RN 端 4-tab 完整版(packages/app/src/features/login/LoginScreen.tsx:43),本就不由小程序承载 => not-applicable |
+| 13 | `mcp-store/McpStoreScreen` | ★McpStoreScreen | — | 🚫 不承载(已判定) | 该屏是 MCP Server 管理与安装能力,对应 Web /mcp-store(apps/mobile-rn/src/screens/McpStoreScreen.tsx:24),RN 侧入口全在开发者工作台屏(PatrolScreen/RepoWikiScreen/SelfHealingScreen/TeamMemoryScreen),小程序端无对应工作台域,apps/miniapp-taro/src/api/index.ts 无 mcp 端点 => 桌面/开发端专属 |
+| 14 | `ranking-detail/RankingDetailScreen` | ★RankingDetailScreen / ActivityDetailScreen | pkg-ai/ranking/detail / pkg-ai/ai/agent-detail | 🚫 不承载(已判定) | 本端该路由是工具详情(名称/机构/价格/链接),声明的共享屏是学员积分详情(积分/排名/学习时长/等级说明)(2026-10-30 逐页核:本端路由接口与渲染字段 vs 共享屏 t() 字段;本端路由承载的业务需产品定档才可改造,不在撤声明这一格里) |
+| 15 | `switch-prefs/SwitchPrefsScreen` | — | — | 🚫 不承载(已判定) | 头注自述为通用杠杆屏:packages/app/src/features/switch-prefs/SwitchPrefsScreen.tsx:13-14「通用开关偏好屏 —— 开关型设置页(developer/notifications、developer/settings、settings/preferences 等)的规模化杠杆…本屏纯 UI」;RN 端无同名屏,只有薄壳 apps/mobile-rn/src/screens/DeveloperSettingsScreen.tsx:107 与 DeveloperNotificationsScreen.tsx:90 传 items,故该通用组件屏不该由小程序单页承载。 |
 
-> 合计 17 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。
+> 合计 15 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。
 > 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页);**🏗 已造页** = 页已按声明链造出,数据钩子待补。
 
 ## 已造页 · 待补数据钩子(已计入覆盖率,功能尚未跟上)
