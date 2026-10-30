@@ -11,8 +11,8 @@
  *    在用它 —— **有档、有消费方、零判据**。新写一枚 24×24 的图标钮不会编译报错、不会红任何门,
  *    只有用户点不中才发现。立门当轮已把现读存量 **22 处清零**(故 H1 才敢用绝对零容忍)。
  *  - H2 按压反馈:触屏没有 hover,"按下去什么都不变"就等于告诉用户"我没点上"。现读 HEAD 面
- *    = **352 处**(337 枚 `Pressable` 没有默认按压态 + 13 枚把默认反馈关掉的
- *    `TouchableOpacity activeOpacity={1}` + 2 枚 `TouchableWithoutFeedback`);此前**无人看守**。
+ *    = **342 处**(337 枚 `Pressable` 没有默认按压态 + 显式关掉默认变暗且**不是遮罩**的那几枚 +
+ *    2 枚 `TouchableWithoutFeedback`);此前**无人看守**。
  *
  * 判据刻意保守(误报的代价是逼人跳门,连带废掉全部守门 §12e,所以宁窄勿宽):
  *  H1 只判**宽高都是显式数字**且「较小者 + 2×hitSlop」< 档位 的可点元素。hitSlop 按补足量算,
@@ -30,6 +30,9 @@
  *      `TouchableWithoutFeedback` 类名自述没有 ⇒ 判;`Pressable` 无默认态 ⇒ 必须有四形态之一
  *      (onPressIn/onPressOut、children 函数形态 `{({ pressed })`、className `active:`、
  *      props 区出现 `pressed` 的函数形态 style)。
+ *      **遮罩不算缺反馈**:半透黑底(bg-black/α、rgba(0,0,0,α<1)、带 alpha 的 8 位 hex、
+ *      tk.overlay.* 档)按下去的动作就是关层,再让它变暗等于全屏闪一下 —— 证据必须写在
+ *      该元素自己的 props 或同文件样式键里,不透明黑底不算遮罩(否则遮罩就成了消红通道)。
  *      上一版把 957 枚 TouchableOpacity 一并算成"无反馈"—— 那是拿误报逼人补冗余代码。
  *
  * 档位取 36 不取 44:本仓既定档就是 `tapBox: 36`(geometry.js 注明对齐 web 顶栏 `w-9`,
@@ -141,8 +144,53 @@ function tagRegion(text, start) {
   return { props: text.slice(start, start + 3000), end: start + 3000 }
 }
 
-/**
- * 一个对象体(已剥掉最外层花括号)的**顶层** width/height 数字。
+/** 一个对象体里的顶层 `backgroundColor` 字符串字面量(遮罩证据要在自己的样式里,不越过标签去看别人)。 */
+function topColors(body) {
+  const out = []
+  let depth = 0
+  let str = null
+  let line = ''
+  for (let i = 0; i <= body.length; i++) {
+    const ch = i < body.length ? body[i] : ','
+    if (str) {
+      line += ch
+      if (ch === '\\') {
+        const nx = body[i + 1]
+        if (nx !== undefined) {
+          line += nx
+          i++
+        }
+        continue
+      }
+      if (ch === str) str = null
+      continue
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      str = ch
+      line += ch
+      continue
+    }
+    if (ch === '{' || ch === '(' || ch === '[') {
+      depth++
+      continue
+    }
+    if (ch === '}' || ch === ')' || ch === ']') {
+      if (depth > 0) depth--
+      continue
+    }
+    if (depth > 0) continue
+    if (ch === ',') {
+      const m = /^\s*backgroundColor\s*:\s*(["'`][^"'`]*["'`])\s*$/.exec(line)
+      if (m) out.push(m[1].slice(1, -1))
+      line = ''
+      continue
+    }
+    line += ch
+  }
+  return out
+}
+
+/** 一个对象体(已剥掉最外层花括号)的**顶层** width/height 数字。
  * 嵌套 `{}`/`[]`/`()内` 整体跳过:RN 的 `shadowOffset: { width: 0, height: 0 }` 是投影偏移,
  * 不是命中尺寸;把它当尺寸就会给每张带阴影的卡片凭空造一枚违规。
  */
@@ -212,12 +260,17 @@ function styleTable(code) {
         if (entryClose < 0) break
         if (km) {
           const dims = topDims(code.slice(i + 1, entryClose))
+          const bg = topColors(code.slice(i + 1, entryClose))
           const prev = map.get(km[1])
           map.set(
             km[1],
             prev
-              ? { w: [...prev.w, ...dims.w], h: [...prev.h, ...dims.h] }
-              : { w: dims.w, h: dims.h },
+              ? {
+                  w: [...prev.w, ...dims.w],
+                  h: [...prev.h, ...dims.h],
+                  bg: [...prev.bg, ...bg],
+                }
+              : { w: dims.w, h: dims.h, bg },
           )
         }
         i = entryClose + 1
@@ -335,6 +388,43 @@ function resolveStyle(props, table) {
 const FEEDBACK_RE = /onPressIn\s*=|onPressOut\s*=|\bpressed\b|active:\w/
 
 /**
+ * 遮罩(scrim)不算"缺按压反馈":它按下去的**结果就是关掉整层**,若再让半透黑底跟着变暗,
+ * 用户看到的是全屏闪一下 —— 那是观感缺陷,不是反馈。2026-10-31 现读 13 枚 `activeOpacity={1}`
+ * 里 12 枚正是这种遮罩(`bg-black/20…50` + `onPress` 关层 + 内层 stopPropagation)。
+ * 认定只按**元素自己的** props 区里的半透明黑底,证据要在 props 里,不越过标签去看别人:
+ *  - NativeWind:`bg-black/<alpha>`;
+ *  - RN 内联:`rgba(0,0,0,<alpha<1)` / `#000…` 带 alpha 的 8 位 hex / 取 `tk.overlay.*` 档。
+ */
+function isTranslucentBlack(color) {
+  if (typeof color !== 'string') return false
+  const rgba = /rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*(0?\.\d+|1(?:\.0+)?)\s*\)/.exec(color)
+  if (rgba && Number(rgba[1]) < 1) return true
+  const hex8 = /^#000000([0-9a-fA-F]{2})$/.exec(color.trim())
+  if (hex8 && parseInt(hex8[1], 16) < 255) return true
+  return false
+}
+
+/** props 区自己写得出的半透明黑底(两种书写语言都认)。 */
+function isScrim(props) {
+  if (/className\s*=\s*"[^"]*\bbg-black\/\d+/.test(props)) return true
+  if (/\b(?:tk|tokens)\.overlay\./.test(props)) return true
+  const rgba = /rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*(0?\.\d+|1(?:\.0+)?)\s*\)/.exec(props)
+  if (rgba && Number(rgba[1]) < 1) return true
+  const hex8 = /#000000([0-9a-fA-F]{2})\b/.exec(props)
+  if (hex8 && parseInt(hex8[1], 16) < 255) return true
+  return false
+}
+
+/** props 里引用了哪个 styles.KEY,且那个键自己写着半透明黑底 ⇒ 也是遮罩。 */
+function scrimByStyle(props, table) {
+  for (const m of props.matchAll(/styles\.([A-Za-z_$][\w$]*)/g)) {
+    const e = table.get(m[1])
+    if (e && Array.isArray(e.bg) && e.bg.some(isTranslucentBlack)) return true
+  }
+  return false
+}
+
+/**
  * 按压反馈是否"由原语自带"。判错方向的代价不对称:
  *  - 把自带反馈的算成缺(上一版就是这么错的):1296 处里 957 处是 `TouchableOpacity`,
  *    它默认 `activeOpacity=0.2` ⇒ 按下即变暗,**本来就有反馈**。照判就是逼人补冗余
@@ -383,7 +473,9 @@ function scanText(text, minTap, rel = '') {
     }
     if (!r.hit) skipped.push(r.why)
     const after = stripped.slice(end, end + 160)
+    const scrim = isScrim(props) || scrimByStyle(props, table)
     if (
+      !scrim &&
       !hasNativeFeedback(tag, props) &&
       !FEEDBACK_RE.test(props) &&
       !/\{\s*\(\s*\{/.test(after)
@@ -566,6 +658,23 @@ function runSelfTest() {
   ok(live !== null, `阳性对照失效:现读 ${GEO_REL} 读不出 ${TIER_KEY}`)
   ok(live === T, `档位必须取自 geometry.js 的 ${TIER_KEY}(现读 ${live},夹具 ${T})`)
 
+  // 遮罩(scrim)按下去的动作就是关层,不该再要变暗;但**不透明**黑底不算遮罩。
+  const scrimCls = scan(
+    '<TouchableOpacity className="flex-1 bg-black/20" activeOpacity={1} onPress={close} />',
+  )
+  ok(scrimCls.h2.length === 0, 'H2 过头:半透黑遮罩按下去就是关层,让全屏变暗反而是闪屏')
+  const scrimSheet = scan(
+    'const styles = StyleSheet.create({\n  pickerOverlay: { flex: 1, backgroundColor: \'rgba(0,0,0,0.4)\' },\n})\n' +
+      '<Pressable style={styles.pickerOverlay} activeOpacity={1} onPress={close} />',
+  )
+  ok(scrimSheet.h2.length === 0, 'H2 过头:遮罩证据写在同文件样式键里也要认')
+  const scrimHex = scan(
+    '<Pressable style={{ backgroundColor: \'#00000080\' }} onPress={close} />',
+  )
+  ok(scrimHex.h2.length === 0, 'H2 过头:8 位 hex 带 alpha 的半透黑也是遮罩')
+  const solidBlack = scan('<Pressable style={{ backgroundColor: \'#000000\' }} onPress={go} />')
+  ok(solidBlack.h2.length === 1, 'H2 失守:不透明黑底不是遮罩(拿它当遮罩就等于给任何黑钮发免检)')
+
   if (fails.length) {
     for (const f of fails) console.error(`[SELF-TEST FAIL] ${f}`)
     return 1
@@ -739,6 +848,9 @@ export const __test__ = {
   tagRegion,
   styleTable,
   hasNativeFeedback,
+  isScrim,
+  isTranslucentBlack,
+  scrimByStyle,
   runSelfTest,
   SKIP_ENV,
   SRC_RELS,
