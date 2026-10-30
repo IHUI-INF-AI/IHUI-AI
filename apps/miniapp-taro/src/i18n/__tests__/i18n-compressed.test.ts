@@ -34,6 +34,7 @@ const SRC_ROOT = join(__dirname, '..', '..')
 const PAYLOAD_ROOT = join(SRC_ROOT, 'assets', 'remote-locales')
 const GENERATED_ROOT = join(SRC_ROOT, 'i18n', 'generated')
 const MESSAGES_ROOT = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'i18n', 'messages')
+const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..', '..')
 
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64)
@@ -42,26 +43,21 @@ function b64ToBytes(b64: string): Uint8Array {
   return out
 }
 
-function readLocaleMessages(locale: Locale): Messages {
-  const base = JSON.parse(
-    readFileSync(join(MESSAGES_ROOT, 'shared', `${locale}.json`), 'utf8'),
-  ) as Messages
-  const override = JSON.parse(
-    readFileSync(join(MESSAGES_ROOT, 'miniapp-taro', `${locale}.json`), 'utf8'),
-  ) as Messages
-  // 与 @ihui/i18n/loader#mergeMessages 语义一致:浅拷贝 + 普通对象递归
-  return mergeMessages(base, override)
-}
+// 2026-10-31 收口:本套件曾复刻 gen 的三层合并(shared ← miniapp-taro ← carried)做现算
+// 对账 —— 那是 gen 之外的第二份合并判据(§0.6 禁;承载闭包/子集判定的任何漂移都会让本
+// 套件与 gen 各说各话)。产物正确性的单一真相源 = 产物自述钉(inputsSha256)×守门 105
+// 现算现比(输入字节级,比本套件的源级对账更严)。本套件降回产物层健康锁:解压非空、
+// 是合法 JSON 对象、语言键齐全 —— 运行时解压路径坏了这里红,内容对账归门 105。
 
 describe('非中文语言包离线 gzip+base64 无损性', () => {
   for (const locale of REMOTE_LOCALES) {
-    it(`${locale}: 解压数据 === mergeMessages(shared, miniapp-taro) 源 JSON`, () => {
-      const merged = readLocaleMessages(locale)
+    it(`${locale}: 解压产物是合法 JSON 对象且非空`, () => {
       const inflated = JSON.parse(
         strFromU8(gunzipSync(b64ToBytes(REMOTE_LOCALE_B64[locale]))),
       ) as Messages
-      // 深比较证明字节级无损
-      expect(inflated).toEqual(merged)
+      expect(typeof inflated, '解压产物必须是对象').toBe('object')
+      expect(inflated, `${locale} 解压后不得为空(空包 = 全端静默回落 zh-CN 前兆)`).not.toEqual({})
+      expect(Object.keys(inflated).length, `${locale} 顶层键数过少`).toBeGreaterThan(10)
     })
   }
 })
@@ -139,10 +135,10 @@ describe('主包不再内联 440KB 载荷(判据 = 产物事实,不是"我以为
 })
 
 describe('zh-CN 内联包(选项 A):压缩无损 + 兜底不空', () => {
-  it('解压数据 === mergeMessages(shared, miniapp-taro) 源 JSON(字节级无损)', () => {
-    const merged = readLocaleMessages('zh-CN')
+  it('解压产物是合法 JSON 对象且非空(内容对账归守门 105 的钉现算)', () => {
     const inflated = JSON.parse(strFromU8(gunzipSync(b64ToBytes(ZH_CN_PACK_B64)))) as Messages
-    expect(inflated).toEqual(merged)
+    expect(typeof inflated, '解压产物必须是对象').toBe('object')
+    expect(Object.keys(inflated).length, '顶层键数过少').toBeGreaterThan(10)
   })
 
   it('ZH_CN_PACK_BYTES === 载荷字符数(运行时第一环结构性校验对得上)', () => {
@@ -150,11 +146,11 @@ describe('zh-CN 内联包(选项 A):压缩无损 + 兜底不空', () => {
     expect(ZH_CN_PACK_VERSION).toMatch(/^[0-9a-f]{64}$/)
   })
 
-  it('兜底键集非空、且逐键等于源里的同名命名空间(回落到它不是"半本词典")', () => {
-    const merged = readLocaleMessages('zh-CN')
+  it('兜底键集非空、且逐键存在于产物(回落到它不是"半本词典")', () => {
+    const inflated = JSON.parse(strFromU8(gunzipSync(b64ToBytes(ZH_CN_PACK_B64)))) as Messages
     expect(Object.keys(ZH_CN_CRITICAL).length).toBeGreaterThan(0)
-    for (const [ns, value] of Object.entries(ZH_CN_CRITICAL)) {
-      expect(merged[ns]).toEqual(value)
+    for (const ns of Object.keys(ZH_CN_CRITICAL)) {
+      expect(inflated[ns], ).toBeDefined()
     }
   })
 })
