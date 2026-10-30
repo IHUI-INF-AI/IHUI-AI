@@ -1237,6 +1237,12 @@ export { MyLessonsScreen } from './features/student/MyLessonsScreen'
 export type { MyLessonsScreenProps, MyLessonItem } from './features/student/MyLessonsScreen'
 export { MyResourcesScreen } from './features/student/MyResourcesScreen'
 export type { MyResourcesScreenProps, MyResourceItem } from './features/student/MyResourcesScreen'
+export {
+  ArtifactsScreen,
+  formatArtifactCreated,
+  ARTIFACT_KIND_PALETTE,
+} from './features/artifacts/ArtifactsScreen'
+export type { ArtifactsScreenProps, ArtifactItem } from './features/artifacts/ArtifactsScreen'
 export { OfflineRecordsScreen } from './features/student/OfflineRecordsScreen'
 export type {
   OfflineRecordsScreenProps,
