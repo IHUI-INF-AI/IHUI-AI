@@ -32,6 +32,8 @@ import { spawnSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { psqlArgsFromDsn, readDsn } from './check-db-migration-gaps.mjs'
+// 带值旗标取值判据单源(G-322,§0.6):旧副本把紧邻的 '--json' 当小时数/条数,Number ⇒ NaN。
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { locatePsqlClient } from './lib/psql-client-locate.mjs'
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -161,10 +163,25 @@ export function parseRows(stdout) {
 function main() {
   const args = process.argv.slice(2)
   const json = args.includes('--json')
-  const staleIdx = args.indexOf('--stale-hours')
-  const staleHours = staleIdx >= 0 ? Number(args[staleIdx + 1]) : DEFAULT_STALE_HOURS
-  const limitIdx = args.indexOf('--limit')
-  const limit = limitIdx >= 0 ? Number(args[limitIdx + 1]) : DEFAULT_LIMIT
+  // G-322 第十九批:取值判据单源。旧副本 `Number(args[i+1])` 会把紧邻的 '--json' 当值:
+  // --stale-hours ⇒ NaN ⇒ 陈旧档比较恒假(停更哨兵静默假绿);--limit ⇒ NaN ⇒ buildSql 静默回落默认。
+  const staleOpt = requireFlagValue(args, '--stale-hours', { noun: '小时数' })
+  const limitOpt = requireFlagValue(args, '--limit', { noun: '条数' })
+  const usageError = staleOpt.error ?? limitOpt.error
+  if (usageError) {
+    console.error(`❌ 无法判定(exit 2): ${usageError}`)
+    process.exit(2)
+  }
+  const staleHours = staleOpt.present ? Number(staleOpt.value) : DEFAULT_STALE_HOURS
+  if (staleOpt.present && (!Number.isFinite(staleHours) || staleHours <= 0)) {
+    console.error(`❌ 无法判定(exit 2): --stale-hours 需要正数小时 —— 实得:${JSON.stringify(staleOpt.value)}`)
+    process.exit(2)
+  }
+  const limit = limitOpt.present ? Number(limitOpt.value) : DEFAULT_LIMIT
+  if (limitOpt.present && (!Number.isInteger(limit) || limit < 1 || limit > 200)) {
+    console.error(`❌ 无法判定(exit 2): --limit 需要 1..200 的整数 —— 实得:${JSON.stringify(limitOpt.value)}`)
+    process.exit(2)
+  }
   const emit = (obj, code) => {
     if (json) console.log(JSON.stringify(obj))
     else
