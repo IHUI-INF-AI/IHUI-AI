@@ -1,9 +1,14 @@
 {
-  "$comment": "本机 Windows 服务运行配置的入库真相源(票 G-584 归口)。射程 = 注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services 下名字匹配 ^(IHUI|Keycloak)$ 的服务;四键 application/appParameters/appDirectory/appStdout 仅 nssmManaged=true 时有值。秘密只存脱敏形态(前6***后2 (len=N)),原始凭据永不入仓。重建方式:node scripts/check-service-inventory.mjs --snapshot 重定向覆写本文件;不得手改单条。",
-  "generatedAt": "2026-10-29T22:34:53.903Z",
+  "$comment": "本机 Windows 服务运行配置的入库真相源(票 G-584 归口)。射程 = 注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services 下名字匹配 ^(IHUI|Keycloak)$ 的服务;四键 application/appParameters/appDirectory/appStdout 仅 nssmManaged=true 时有值。秘密只存脱敏形态(前6***后2 (len=N)),原始凭据永不入仓。services[].provisioning 是**仓内侧**读数(建服源/使用源/通道/盘符无关模板),回答\"这服务是谁建的\";repoNameRoster + reverseGaps 是**反向面**(仓里点名而本机未装)。重建方式:node scripts/check-service-inventory.mjs --snapshot 重定向覆写本文件;不得手改单条。声明性的\"缺建法\"债住 scripts/data/service-provisioning-gaps.json(带 reviewBy,会到期),不在本文件里手抄。",
+  "generatedAt": "2026-10-30T00:07:46.492Z",
   "host": "lichunchuan",
   "nssmBinaryPresent": false,
   "comparisonBasis": "脱敏后逐字节等值;两侧同基准归一化",
+  "repoRoot": {
+    "live": "G:\\IHUI-AI",
+    "drive": "G:",
+    "note": "当次实测的仓库根(§0 现读),只作本次对账输入,不作跨机判据"
+  },
   "services": [
     {
       "name": "IHUI-AI-SERVICE",
@@ -16,7 +21,16 @@
       "appDirectory": null,
       "appStdout": null,
       "referencedByRepoNssmScripts": false,
-      "repoNssmRefFiles": []
+      "repoNssmRefFiles": [],
+      "provisioning": {
+        "channel": "scm-cmd-wrapper",
+        "imageTemplate": "cmd.exe /c \"cd /d ${REPO_ROOT}\\apps\\ai-service && ${REPO_ROOT}\\apps\\ai-service\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8803\"",
+        "bakedRepoPathHits": 2,
+        "repoCreateSources": [],
+        "repoRewriteOnlySources": [],
+        "repoUseSources": ["deploy/win/ihui-monitor.ps1"],
+        "truthStatus": "no-repo-provisioning-source"
+      }
     },
     {
       "name": "IHUI-API",
@@ -29,9 +43,19 @@
       "appDirectory": null,
       "appStdout": null,
       "referencedByRepoNssmScripts": true,
-      "repoNssmRefFiles": [
-        "deploy/win/ihui-enable-unattended-intake.ps1"
-      ]
+      "repoNssmRefFiles": ["deploy/win/ihui-enable-unattended-intake.ps1"],
+      "provisioning": {
+        "channel": "scm-cmd-wrapper",
+        "imageTemplate": "cmd.exe /c \"cd /d ${REPO_ROOT}\\apps\\api && C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe --require ${REPO_ROOT}\\node_modules\\.pnpm\\tsx@4.23.12\\node_modules\\tsx\\dist\\preflight.cjs --import file:///${REPO_ROOT}/node_modules/.pnpm/tsx@4.23.12/node_modules/tsx/dist/loader.mjs src/index.ts\"",
+        "bakedRepoPathHits": 3,
+        "repoCreateSources": [],
+        "repoRewriteOnlySources": ["deploy/win/ihui-enable-unattended-intake.ps1"],
+        "repoUseSources": [
+          "deploy/win/ihui-enable-unattended-intake.ps1",
+          "deploy/win/ihui-monitor.ps1"
+        ],
+        "truthStatus": "no-repo-provisioning-source"
+      }
     },
     {
       "name": "IHUI-WEB",
@@ -44,7 +68,425 @@
       "appDirectory": null,
       "appStdout": null,
       "referencedByRepoNssmScripts": false,
-      "repoNssmRefFiles": []
+      "repoNssmRefFiles": [],
+      "provisioning": {
+        "channel": "scm-cmd-wrapper",
+        "imageTemplate": "cmd.exe /c \"cd /d ${REPO_ROOT}\\apps\\web && node ${REPO_ROOT}\\apps\\web\\node_modules\\next\\dist\\bin\\next dev --turbopack -p 8801\"",
+        "bakedRepoPathHits": 2,
+        "repoCreateSources": [],
+        "repoRewriteOnlySources": [],
+        "repoUseSources": ["deploy/win/ihui-deploy.ps1"],
+        "truthStatus": "no-repo-provisioning-source"
+      }
+    }
+  ],
+  "repoNameRoster": {
+    "files": [
+      "scripts/data/service-auto-restart.json",
+      "scripts/data/expected-stopped-services.json",
+      "scripts/data/service-definitions.json"
+    ],
+    "unreadable": [],
+    "names": [
+      {
+        "name": "IHUI-API-ROUTER",
+        "in": [
+          "scripts/data/service-auto-restart.json",
+          "scripts/data/expected-stopped-services.json"
+        ]
+      },
+      {
+        "name": "IHUI-API-GREEN",
+        "in": [
+          "scripts/data/service-auto-restart.json",
+          "scripts/data/expected-stopped-services.json"
+        ]
+      },
+      {
+        "name": "IHUI-API-BLUE",
+        "in": [
+          "scripts/data/service-auto-restart.json",
+          "scripts/data/expected-stopped-services.json"
+        ]
+      },
+      {
+        "name": "IHUI-WEB-ROUTER",
+        "in": [
+          "scripts/data/service-auto-restart.json",
+          "scripts/data/expected-stopped-services.json"
+        ]
+      },
+      {
+        "name": "IHUI-WEB-GREEN",
+        "in": [
+          "scripts/data/service-auto-restart.json",
+          "scripts/data/expected-stopped-services.json"
+        ]
+      },
+      {
+        "name": "IHUI-WEB-BLUE",
+        "in": [
+          "scripts/data/service-auto-restart.json",
+          "scripts/data/expected-stopped-services.json"
+        ]
+      },
+      {
+        "name": "IHUI-WEB",
+        "in": [
+          "scripts/data/service-auto-restart.json",
+          "scripts/data/expected-stopped-services.json",
+          "scripts/data/service-definitions.json"
+        ]
+      },
+      {
+        "name": "IHUI-AI-SERVICE",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "Keycloak",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "IHUI-IMAGE-CDN",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "ihui-alertmanager",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "ihui-alert-bridge",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "IHUI-PG",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "IHUI-REDIS",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "IHUI-PG-BACKUP",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "IHUI-GIT-GUARD",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "IHUI-DEPLOYLOOP",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "IHUI-MONITOR",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "ihui-prometheus",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "ihui-loki",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "ihui-promtail",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "ihui-pg-exporter",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "ihui-redis-exporter",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "ihui-windows-exporter",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "IHUI-RSSHUB",
+        "in": ["scripts/data/service-auto-restart.json", "scripts/data/service-definitions.json"]
+      },
+      {
+        "name": "IHUI-API",
+        "in": [
+          "scripts/data/expected-stopped-services.json",
+          "scripts/data/service-definitions.json"
+        ]
+      },
+      {
+        "name": "IHUI-OLLAMA",
+        "in": ["scripts/data/service-definitions.json"]
+      }
+    ]
+  },
+  "reverseGaps": [
+    {
+      "name": "ihui-alert-bridge",
+      "bucket": "not-installed-installable",
+      "detail": "本机没装；建服源 monitoring/alertbridge/README.md",
+      "createSources": ["monitoring/alertbridge/README.md"],
+      "useSources": ["deploy/scripts/prod-bundle/alert-webhook-bridge.cjs"],
+      "declaredGap": null
+    },
+    {
+      "name": "ihui-alertmanager",
+      "bucket": "not-installed-installable",
+      "detail": "本机没装；建服源 monitoring/alertbridge/README.md",
+      "createSources": ["monitoring/alertbridge/README.md"],
+      "useSources": [],
+      "declaredGap": null
+    },
+    {
+      "name": "IHUI-API-BLUE",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-api-bluegreen.ps1,deploy/win/ihui-deploy.ps1,deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/win/ihui-api-bluegreen.ps1",
+        "deploy/win/ihui-deploy.ps1",
+        "deploy/win/ihui-monitor.ps1"
+      ],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-API-GREEN",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-api-bluegreen.ps1,deploy/win/ihui-deploy.ps1,deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/win/ihui-api-bluegreen.ps1",
+        "deploy/win/ihui-deploy.ps1",
+        "deploy/win/ihui-monitor.ps1"
+      ],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-API-ROUTER",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": ["deploy/win/ihui-monitor.ps1"],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-DEPLOYLOOP",
+      "bucket": "not-installed-installable",
+      "detail": "本机没装；建服源 deploy/win/install-deploy-loop-service.ps1",
+      "createSources": ["deploy/win/install-deploy-loop-service.ps1"],
+      "useSources": [
+        "deploy/win/ihui-deploy-loop.ps1",
+        "deploy/win/ihui-enable-unattended-intake.ps1"
+      ],
+      "declaredGap": null
+    },
+    {
+      "name": "IHUI-GIT-GUARD",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「数据/基建承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-IMAGE-CDN",
+      "bucket": "not-installed-installable",
+      "detail": "本机没装；建服源 deploy/win/install-image-cdn-service.ps1",
+      "createSources": ["deploy/win/install-image-cdn-service.ps1"],
+      "useSources": [],
+      "declaredGap": null
+    },
+    {
+      "name": "ihui-loki",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「监控承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-MONITOR",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/scripts/prod-bundle/monitor.ps1,deploy/win/ihui-monitor.ps1,monitoring/alertbridge/README.md——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/scripts/prod-bundle/monitor.ps1",
+        "deploy/win/ihui-monitor.ps1",
+        "monitoring/alertbridge/README.md"
+      ],
+      "declaredGap": null
+    },
+    {
+      "name": "IHUI-OLLAMA",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「数据/基建承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-PG",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「数据/基建承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-PG-BACKUP",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「数据/基建承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-pg-exporter",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「监控承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-prometheus",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「监控承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-promtail",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「监控承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-REDIS",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「数据/基建承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-redis-exporter",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「监控承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-RSSHUB",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「数据/基建承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-WEB-BLUE",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": ["deploy/win/ihui-monitor.ps1"],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-WEB-GREEN",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": ["deploy/win/ihui-monitor.ps1"],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-WEB-ROUTER",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-deploy.ps1,deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": ["deploy/win/ihui-deploy.ps1", "deploy/win/ihui-monitor.ps1"],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-windows-exporter",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「监控承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "Keycloak",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「数据/基建承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
     }
   ]
 }
