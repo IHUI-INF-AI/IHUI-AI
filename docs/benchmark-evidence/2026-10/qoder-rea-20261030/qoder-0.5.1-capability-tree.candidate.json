@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "diagram_type": "tree",
+  "meta": {
+    "title": "Qoder CN 0.5.1 能力地图 × IHUI-AI 差距(2026-10-30 REA 取证)",
+    "subtitle": "六层能力树。每个叶子副标签 = 我方判定:[真缺] [部分] [对等] [我方强]。证据锚点见 docs/benchmark-evidence/2026-10/qoder-rea-20261030/",
+    "output": "docs/benchmark-evidence/2026-10/qoder-rea-20261030/qoder-0.5.1-capability-tree.html",
+    "quality_profile": "standard",
+    "visual_preset": "blueprint"
+  },
+  "layout": { "direction": "down", "gapY": 34, "nodeMaxW": 260 },
+  "nodes": [
+    { "id": "root", "label": "Qoder CN 0.5.1", "sublabel": "worker 1.1.79-hotfix.7 · 包体 196,831,317B" },
+
+    { "id": "l0", "parent": "root", "label": "L0 交付与版本层", "sublabel": "多版本共存 + 原子切版" },
+    { "id": "l0a", "parent": "l0", "label": ".qoder-versions + Launcher state.ini", "sublabel": "[真缺] 我方无多版本共存与原子回滚" },
+    { "id": "l0b", "parent": "l0", "label": "fast-update 868 条逐文件 sha + Authenticode .cat", "sublabel": "[真缺] 无装机级完整性校验面" },
+
+    { "id": "l1", "parent": "root", "label": "L1 进程与宿主层", "sublabel": "自研 Electron 壳(非 VS Code fork)" },
+    { "id": "l1a", "parent": "l1", "label": "electronMain 19.5MB + pluginHost + 3 子进程", "sublabel": "[真缺] apps/desktop 实测仅 2 个文件" },
+    { "id": "l1b", "parent": "l1", "label": "插件视图沙箱 pluginViewRuntime 2.6MB / Diagram 5.1MB", "sublabel": "[真缺] 无第三方 UI 承载体" },
+    { "id": "l1c", "parent": "l1", "label": "node-repl 内核 + tree-sitter wasm 647KB", "sublabel": "[部分] 我方 CLI 有 run_command,无常驻求值核" },
+    { "id": "l1d", "parent": "l1", "label": "resources/bin 原生件(剪贴板/通知/热键/麦克风)", "sublabel": "[不追] 硬件绑定,合规敏感" },
+
+    { "id": "l2", "parent": "root", "label": "L2 扩展平台层", "sublabel": "Qoder 作为平台的核心" },
+    { "id": "l2a", "parent": "l2", "label": "catalog.v1.json 86.8KB,逐文件 sha256", "sublabel": "[真缺] 无插件清单与对账门" },
+    { "id": "l2b", "parent": "l2", "label": "contributes: views / filePreviewers / mentionProviders", "sublabel": "[真缺] 全仓 contributes 零命中(阳性对照 10/3/3)" },
+    { "id": "l2c", "parent": "l2", "label": "14 类能力令牌 chat.* / files.* / mcp.registerInProcess", "sublabel": "[真缺 令牌维] 我方只有一份字符串集合" },
+    { "id": "l2d", "parent": "l2", "label": "市场 known_marketplaces + autoUpdate + 8 版本并存", "sublabel": "[部分] 有能力清单,无市场与自动更新" },
+
+    { "id": "l3", "parent": "root", "label": "L3 Agent 运行时", "sublabel": "qoderclicn 同源 worker 34.8MB" },
+    { "id": "l3a", "parent": "l3", "label": "38 内置工具 + 9 把运行期属性", "sublabel": "[对等] 我方 92 MCP + ~100 CLI;缺 isOpenWorld/interruptBehavior" },
+    { "id": "l3b", "parent": "l3", "label": "28 钩子事件 × 4 handler 型(含隔离 prompt/agent)", "sublabel": "[部分] 我方恰 14 事件,缺 PermissionRequest/TeammateIdle 等 14 项" },
+    { "id": "l3c", "parent": "l3", "label": "6 档权限模式 + Tool(glob) 规则 + 批准即生成规则", "sublabel": "[真缺 两档] 无 dontAsk/auto,无放行规则持久化" },
+    { "id": "l3d", "parent": "l3", "label": "审批到人界面 + PermissionDenied 钩子", "sublabel": "[真缺 最便宜] 后端已聚合,零端收件箱" },
+    { "id": "l3e", "parent": "l3", "label": "压缩流水线 partial/micro + 独立压缩模型 + 6 阈值", "sublabel": "[放量无] 我方 context_limit 默认 0 ⇒ 实际不触发" },
+    { "id": "l3f", "parent": "l3", "label": "Workflow + resumeFromRunId 命中缓存重放", "sublabel": "[真缺] 无调用键缓存的确定性重放" },
+    { "id": "l3g", "parent": "l3", "label": "子代理 fork 语义 + StructuredOutput + worktree 隔离", "sublabel": "[对等偏我细] 我方 4 档 CapabilityMode;缺 fork" },
+    { "id": "l3h", "parent": "l3", "label": "Cron* + ScheduleWakeup + 真 PTY 三件套 + 生图生视频", "sublabel": "[部分] 定时入口在,执行器零消费" },
+    { "id": "l3i", "parent": "l3", "label": "peer 权限边界铁律(会话隔离)", "sublabel": "[真缺 一条判据] 我方无此不变量" },
+
+    { "id": "l4", "parent": "root", "label": "L4 协议层", "sublabel": "chat.proto 322 行 + WIRE 1.5.0" },
+    { "id": "l4a", "parent": "l4", "label": "QoderModelPurpose 12 档用途→模型路由", "sublabel": "[真缺] 我方 MODEL_PURPOSE 零命中" },
+    { "id": "l4b", "parent": "l4", "label": "ChatPatch 改历史消息与工具 schema", "sublabel": "[真缺] 无请求级 patch 通道" },
+    { "id": "l4c", "parent": "l4", "label": "cache_id / cache_control(1h,global) 缓存锚", "sublabel": "[部分] 有 usage 细分,无显式锚" },
+    { "id": "l4d", "parent": "l4", "label": "Advisor{name,model,max_uses} 单工具换模型", "sublabel": "[真缺] 无对位结构" },
+    { "id": "l4e", "parent": "l4", "label": "WorkspaceMetadata{file_count,languages,status,data_policy}", "sublabel": "[部分] 索引两边都在服务端,差在画像进请求" },
+    { "id": "l4f", "parent": "l4", "label": "BYOK CustomModelConfig 带 style + 能力元数据", "sublabel": "[部分] 号池强,无 style 适配层" },
+
+    { "id": "l5", "parent": "root", "label": "L5 用户态与数据层", "sublabel": "~/.qoder-cn + main.sqlite 709MB" },
+    { "id": "l5a", "parent": "l5", "label": "file-history 逐版本原字节(1.58GB)", "sublabel": "[对等] 我方 hunk 级 checkpoint 默认开" },
+    { "id": "l5b", "parent": "l5", "label": "memory/MEMORY.md 索引 + 分类前缀 + 迁移台账", "sublabel": "[我方强] 五表族 + 衰减 + 图谱" },
+    { "id": "l5c", "parent": "l5", "label": "goals/<id>.json 三维预算(turns/time/credits)", "sublabel": "[真缺 机读] 我方靠散文 ≤20 轮" },
+    { "id": "l5d", "parent": "l5", "label": "mcp-router.json 本地 127.0.0.1 聚合路由进程", "sublabel": "[真缺] 我方直连各 server" },
+    { "id": "l5e", "parent": "l5", "label": "logs/runs/<id>/manifest.json + latest 软链", "sublabel": "[部分] 服务端指标强,客户端运行清单缺" },
+    { "id": "l5f", "parent": "l5", "label": "external-commands 平台分桶远程 exe 表", "sublabel": "[真缺] 无按平台取二进制的注册载体" },
+    { "id": "l5g", "parent": "l5", "label": "加密边界:会话/模型目录密文,provider key 明文", "sublabel": "[反向参照] 我方 §5d 更严" }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "本轮被推翻的判断(取证纪律)",
+      "items": [
+        "pending 文件名 ≠ 未生效:0.5.1 已激活(12 进程起于根位 + 包体哈希相等)",
+        "Qoder 不是 VS Code fork:无 out/vs、渲染层 Vite、IPC 字面通道 0",
+        "worker 不必另解 tgz:全盘无该件,循环体就是 unpacked 那颗 34.8MB",
+        "agent_engine 非死码:挂在 /api/engine/rpc+ws,真问题是仓内零客户端",
+        "零消费方结论必须声明扫描面含不含 routers/(S5 那 9 条已被复算推翻)"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "真缺 Top 4(便宜且可感知)",
+      "items": [
+        "① 审批收件箱页面(后端 decisions 已聚合,零 UI)",
+        "② goals 机读预算计数器(turns/time/credits 三维)",
+        "③ 上下文压缩放量(trigger 0.85 但 limit 默认 0 ⇒ 不触发)",
+        "④ automation 执行腿(executor/thread 零消费)"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "取证边界(静态证不到的)",
+      "items": [
+        "REA coverage=partial:semantic 预算仅剩 10,145B;58,323 unknowns 里 84.6% 是截断",
+        "preload/contextBridge/native_addon 报 0,盘上实有 9 文件 6.25MB + 9 枚 .node ⇒ 零值 ≠ 没有",
+        "端点面 490/492 观测来自 pdf.worker.min.mjs 的 PDF 字典键 ⇒ 静态会造假 API 面",
+        "9 枚 dll/exe 声明哈希 ≠ 实测;Authenticode 核验腿本机 unsupported_host ⇒ 未判定"
+      ]
+    }
+  ]
+}
