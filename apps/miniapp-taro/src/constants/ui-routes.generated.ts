@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 4d3c55e7c28966652e4311e8e443e58b7bc4f5b8
-// inputsSha256: a10cd907870c368211a78919962fa7ef541054399b021de17862606d8fe369b0
+// sourceCommit: f526a1a14385dad262d7692a1cf8370aefa70629
+// inputsSha256: 63b0357866808cfbde7b51e71b629a837fa084c969f229d6eafc5d87a76e66c8
 // input: apps/miniapp-taro/src/api/index.ts 788ecb97c052bdc9aaab9eb8ce7eb3d388584e260c33ff57d50684d183ac64ca
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
 // input: apps/miniapp-taro/src/app.config.ts 4019ffde6ab149cc95c4dedb9156b2341a8ee4fd52314c4d3b9c0a51716c8666
@@ -209,10 +209,10 @@
 // input: apps/miniapp-taro/src/pages/member/coupon.config.ts d83efc601fc5eebe298d45ec22d6a0409a6a60c6cd2d48e0c13949d7ea58cfe5
 // input: apps/miniapp-taro/src/pages/member/coupon.tsx fc9542b17cec27b66aa5ccf773832b92ca55cc752e70f03cdfca8b66fb34c6b8
 // input: apps/miniapp-taro/src/pages/member/index.config.ts 7d2fc52c2f148e0415404703bc82f0b4fe005aec6bcae6eefd83a92d5c81f2cd
-// input: apps/miniapp-taro/src/pages/member/index.tsx 560bfb0750ef46796d589e13ce784922b227b5095bbb3bbc74153814818867ca
+// input: apps/miniapp-taro/src/pages/member/index.tsx bdb28e4fad48bfeb60170d2a3eb3052fd0f206182efd609f01184ff0b2a7a69c
 // input: apps/miniapp-taro/src/pages/member/integral.config.ts d861114a6a4c200774307885be334d203dd6b5ba417fa3798a74e1e24df5e614
 // input: apps/miniapp-taro/src/pages/member/integral.tsx 99c5dcca228ba9b07c6ce544ecf19f168299cd78ca7ca3009a2fb6d90f714345
-// input: apps/miniapp-taro/src/pages/member/vip-levels.tsx 9cffdee92fc362172bf14c775fd9b67bd9235c795b7302aabe1159f9f1747bcf
+// input: apps/miniapp-taro/src/pages/member/vip-levels.tsx 1cc019b5cc18aac0f4523447c4d0bf99ca9ad42fa5f3c2c9386f92efbab1d479
 // input: apps/miniapp-taro/src/pages/plaza/index/index.config.ts d7a460d6e1fceed207c004c5423b5156c0d30ee204cfcbb4210a1bc13251c511
 // input: apps/miniapp-taro/src/pages/plaza/index/index.tsx a60c54cb91b05f9f88eeb7a171f0b1b5f3aae676ce3049848b834824e3c51525
 // input: apps/miniapp-taro/src/pages/register/agreement-row.tsx a440c689d8810f649e5dd2c7c0cfb9d57d666d3cb8caed9e4a11d4a956547253
@@ -245,14 +245,14 @@
 // input: apps/miniapp-taro/src/pages/study/index.config.ts cd8a66d545f693451b7429eb5d0b12a0445218a95e2cc492fa9f395dd092b0ca
 // input: apps/miniapp-taro/src/pages/study/index.tsx 96935c9fff06923040a6606d2d469013e9af52827b0645485c9ed0c3cb6e36f4
 // input: apps/miniapp-taro/src/pages/study/my-study/index.tsx 86c6667c2450c98c7f034e64154fac105fd79ee31461e123c53f318b45399882
-// input: apps/miniapp-taro/src/pages/study/plan-card.tsx 8a854414d90d70f936365384d4fed4a954d57b24aa9650a81ca885d63712083b
+// input: apps/miniapp-taro/src/pages/study/plan-card.tsx 0a5b5da25edcc4cf0aaa46538d2aa42eba8539e1539c6135c4544f5120099026
 // input: apps/miniapp-taro/src/pages/study/plan.config.ts f47344130ad99c366e974002f7f7b0cde29bec15721895d229f72e6ded3ac4dc
-// input: apps/miniapp-taro/src/pages/study/plan.tsx 33907b7d17531b49459d0ed1ffa4be7d84631726d53e4a6f3c90f854bc83e138
+// input: apps/miniapp-taro/src/pages/study/plan.tsx e4c74775dfcb814dbd12bb5f2cbda341e33ba14a265e68d81f766feaec77e8d9
 // input: apps/miniapp-taro/src/pages/study/publish/index.config.ts ffdeab8b1b44c4b6b20c517752dbe8932d4138588732ac0546d5279f4af26e42
 // input: apps/miniapp-taro/src/pages/study/publish/index.tsx 985efc5f725c17794bf5a7b43812dd1fd07203b54cf717d6caebcb907748d2ee
 // input: apps/miniapp-taro/src/pages/study/rank.config.ts b9c9479d2e81a5c36b31b9367c2037a665e6d6c81be0172b510a3abf7afbd78c
 // input: apps/miniapp-taro/src/pages/study/rank.tsx 345ea3854ad8096027a52214ecad90c5c1f8efae4c013f9a179eefde905777bb
-// input: apps/miniapp-taro/src/pages/study/record-card.tsx e13614d4350eab2717158d009272028273abb3b5231f53444e61aa6ac1332cbf
+// input: apps/miniapp-taro/src/pages/study/record-card.tsx 137b5757b167ddaabbe83d9fca0231245b786ffbfb62d0411aa39fc14af5bd40
 // input: apps/miniapp-taro/src/pages/study/record-stats.tsx e7378252df4dfe214026e9342151886bf24978aa4289242a07779fe210df8611
 // input: apps/miniapp-taro/src/pages/study/record.config.ts 63199eca9fc79561731df66d1c2a8b150d77a569236769edb40b588708013270
 // input: apps/miniapp-taro/src/pages/study/record.tsx 120fa3864772f7ce502ce695f1b0bf079844a5803ff63508a60328bb350e1397
@@ -357,10 +357,10 @@
 // input: apps/miniapp-taro/src/pkg-ai/dev-enter/model-edit/index.tsx b7323ab09c0b38bcfc1b683f869b603d4c88bca5fbcb5164364811e5eb030406
 // input: apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/index.tsx 9c683b46549d9b71c47a29a4dbbde505a2b2ebc0948b2e122b9cee6aeec9a9a3
 // input: apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/list-view.tsx 2f12070b80f8c14f994503750188ebcccd9b0f8113f9d6cec8c078738f28d376
-// input: apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/workflow-card.tsx 864276cb5792fd147dea599d8bc2a8fa27a1479752da44700decef631c2ca97d
+// input: apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/workflow-card.tsx 10c9e7cbea541d196de722d1ed9229f13402c3e64fd4f98f72be42d35ea75df4
 // input: apps/miniapp-taro/src/pkg-ai/dev-space/index.config.ts 4534b270069ad0a5e887bb1aa196d42dbf6f57407769360d1b9d72f9b5583d98
 // input: apps/miniapp-taro/src/pkg-ai/dev-space/index.tsx 54fc4a5130c9a25571a67289fe085874c63de1a23a8b5b7fe0b22c809d3b9077
-// input: apps/miniapp-taro/src/pkg-ai/developer/income.tsx cee2fe0b50df4adfbfd36da3d04f8dae63fbd0bd47b66427b3d69357631b2c94
+// input: apps/miniapp-taro/src/pkg-ai/developer/income.tsx 90d930063c7e48129cc1e7b75405cd506ac870c4f4c309dd4f67602017418892
 // input: apps/miniapp-taro/src/pkg-ai/developer/index.tsx 51a1ecf76410d8d14cf717daa63e69bd7df5c828ba93c004418b80604cd9bfe7
 // input: apps/miniapp-taro/src/pkg-ai/developer/subscribe.tsx d4d55606b10f5dc291f8886df66d0e2365f2b499159c9d0646cde635daa2974a
 // input: apps/miniapp-taro/src/pkg-ai/developer/withdrawal.tsx b80c7540d04437252f0de4a2fe0b0b71974975effe6c14b96caa36af030f34b2
@@ -411,7 +411,7 @@
 // input: apps/miniapp-taro/src/pkg-learn/course-planet/index.tsx 923b2657f86b87c0beeca34617293af27f55efeb5590b7c867b2a4855c05b8fd
 // input: apps/miniapp-taro/src/pkg-learn/course/detail-sections.tsx 97995c28ef96ce9f121653d65eaae93694d0f3fed09649e22e1fa2b75491bac8
 // input: apps/miniapp-taro/src/pkg-learn/course/detail.config.ts b9c8acdd8b76e754305e30be809e0b0ab393f67d11467895e563b58e48c2b26c
-// input: apps/miniapp-taro/src/pkg-learn/course/detail.tsx b118332161bdf266c8d654447734e97f67a55d44632832b6f518de41fc3c58a5
+// input: apps/miniapp-taro/src/pkg-learn/course/detail.tsx 9cb85c8b0e1ea4dfb3f5aefe98223c9ecb4520a5b45fc2acb39fb0ec8fe09d8a
 // input: apps/miniapp-taro/src/pkg-learn/course/list.config.ts 92547aaf062806dd63ce73d01a4d76cb7cba26864c64a4b8811b12f97dac1e29
 // input: apps/miniapp-taro/src/pkg-learn/course/list.tsx 06ececcae9a3191450d5fd9774c6ddf62e58b02fe5ac1ffdb22568bc0f77b920
 // input: apps/miniapp-taro/src/pkg-learn/learn-develop/index.tsx 6b0eca43dc0c3ba462e2157a42e1080f574420cfb22aed2037a8d4a4975c831f
@@ -543,17 +543,17 @@
 // input: apps/miniapp-taro/src/pkg-shop/vip/details.config.ts 3e21dfea43471eeb141ac1a9c7024455fd3329e635a9f33707c7e1c048c552c4
 // input: apps/miniapp-taro/src/pkg-shop/vip/details.tsx 47b9f541b9cd13dc11eccef684deae3b4d338d0942762f92bbfe37cd73feff10
 // input: apps/miniapp-taro/src/pkg-shop/vip/index.config.ts 3e85d1c1dca88b4dec0de412829bb51329f98ca8c51e72a44f86ccd254999716
-// input: apps/miniapp-taro/src/pkg-shop/vip/index.tsx 554065a6ad120c928bf0f67fd1f908e04e47bd4490721efa9c079df01c20e4d7
-// input: apps/miniapp-taro/src/pkg-shop/vip/levels-section.tsx 60614e6af29c98b4f902b3b61dda37f4e8c2cc2c7d0c6deb27afec6d3a12c308
+// input: apps/miniapp-taro/src/pkg-shop/vip/index.tsx cc149dd398ba4ee4ebf97504502b1d1e2c04265ee8cacbd1bdc093b9bd7a0056
+// input: apps/miniapp-taro/src/pkg-shop/vip/levels-section.tsx 6dfac612388c9863fa84d978c901d4b3de12e69e5d97bd2ce1b3248c389aa9fc
 // input: apps/miniapp-taro/src/pkg-shop/vip/privilege.config.ts d6d46f97a788e7b920c0f7e6f0bc87f5225f779c822082834c9e7507ec1ed99d
 // input: apps/miniapp-taro/src/pkg-shop/vip/privilege.tsx 9d50e5353e9d6023f1c5b53f37b6798537bcac7f8c07f674c61f7889bd31464e
 // input: apps/miniapp-taro/src/pkg-shop/vip/success.config.ts ed1ea0fb4b99fa4d1f87ce0683d3fb539f32fb6a9f03d350dd034cc56dbbca53
 // input: apps/miniapp-taro/src/pkg-shop/vip/success.tsx 3279e2379d18425270abce8edfadb0e08aca76e13a093dba0750376c29f7a9ad
 // input: apps/miniapp-taro/src/pkg-shop/vip/upgrade.config.ts a8f2c7ee41ece975ab58f3ffd9160370ff8aeff6aaf5f01e3a626a0b7fbc7805
 // input: apps/miniapp-taro/src/pkg-shop/vip/upgrade.tsx 81d2df30e17556b121ba9f8ab29cad939264b7aefe58594c6dc625c5d70441dc
-// input: apps/miniapp-taro/src/pkg-shop/wallet/commission/income-item.tsx be47b3285f75fe485941147687e01888543a4363173805e84b897d9bfbc20104
+// input: apps/miniapp-taro/src/pkg-shop/wallet/commission/income-item.tsx 8aadd4148ce820a4a2a3846700721e356189d76d5b0b1ffe080c4d5b7f129903
 // input: apps/miniapp-taro/src/pkg-shop/wallet/commission/index.config.ts 0830b236b2974c46f1f836ecd6a17ca7f6061f856e5184b9dc920db6cf647626
-// input: apps/miniapp-taro/src/pkg-shop/wallet/commission/index.tsx 26f1ef4ec58f9deb806668364fcae032e45d32b7740d3df37151afa8b930c484
+// input: apps/miniapp-taro/src/pkg-shop/wallet/commission/index.tsx e3ac269d97e6832be03b6ccbacf218202a430061ec15f57f96040c4e71f4aed8
 // input: apps/miniapp-taro/src/pkg-shop/wallet/index.tsx 00720bce7d4b7f05faca562f30f73f55d96e7512e4c781baeb6711149f58a44c
 // input: apps/miniapp-taro/src/pkg-shop/wallet/recharge/index.config.ts 0462f815844c78c9ab87cb4e1732fb4bf8e5bc2701ea1e5aaf1f3b32daf6ad38
 // input: apps/miniapp-taro/src/pkg-shop/wallet/recharge/index.tsx 964ae4b230a10206b189376aedc3ec4dbc4754d611632db4df15095370191a77
@@ -736,7 +736,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 600 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=204(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-30T07:20:52.802Z
+// generatedAt: 2026-10-30T07:34:19.501Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
