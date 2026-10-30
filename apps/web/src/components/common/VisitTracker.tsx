@@ -23,6 +23,7 @@ import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { stripUrlCredentialSegments } from '@ihui/shared/utils/sanitize-url'
 import { useAuthStore } from '@/stores/auth'
+import { bizTodayKey } from '@/lib/biz-day'
 
 const REPORT_API = '/api/visit-tracking/visit-log' // method: POST
 
@@ -74,7 +75,9 @@ export function VisitTracker() {
       referer: stripUrlCredentialSegments(document.referrer?.slice(0, 500) ?? '') || undefined,
       sessionId: getSessionId(),
       userId: userId ?? undefined,
-      visitDate: new Date().toISOString().slice(0, 10),
+      // 业务日(Asia/Shanghai):原实现取 UTC 日 ⇒ 北京时间 00:00–07:59 的访问会被记到前一天,
+      // 而管理端报表按 +08 口径读同一条记录,两边对不上。口径单源见 lib/biz-day。
+      visitDate: bizTodayKey(),
     })
 
     const send = () => {
