@@ -24,7 +24,12 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 # deploy/win/ihui-pg-backup.ps1 的既有探测样板同纪律(G-298 落点解析 + 2026-10-25 P0 候选链):
 # 环境变量优先,否则按仓根所在盘符派生。换机后旧写死值(备份卷 D:\DevEnv、工具卷 D:\ihui-pg\16
 # 与 D:\DevEnv\runtimes\pgsql)整卷失踪,写死只让守卫永远报"请更新本文件路径"。
-$DevEnvRoot = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $RepoRoot) + '\DevEnv' }
+# G-50 收口(2026-10-31):备份卷统一收敛到 §15b 批准落点 D:\DevEnv,不再跟随工作区盘符
+# (本机实测旧口径派生到 G:\DevEnv 盘根,与"DevEnv 搬入仓内"的收尾相斥)。
+$DevEnvRoot = if ($env:IHUI_DEVENV_BACKUP_ROOT) { $env:IHUI_DEVENV_BACKUP_ROOT }
+elseif ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT }
+elseif (Test-Path 'D:/DevEnv/backups') { 'D:/DevEnv' }
+else { (Split-Path -Qualifier $RepoRoot) + '\DevEnv' }
 $BackupDir = Join-Path $DevEnvRoot 'backups\pg'
 $Retain = 7
 
