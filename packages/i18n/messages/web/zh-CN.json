@@ -8802,6 +8802,10 @@
           "title": "账户受限",
           "action": "联系管理员"
         },
+        "PROVIDER_BUSY": {
+          "title": "服务提供商繁忙",
+          "action": "请稍后重试"
+        },
         "ALREADY_CLAIMED": {
           "title": "该任务已被他人认领",
           "action": "改领其他任务，或等对方释放后再试"
