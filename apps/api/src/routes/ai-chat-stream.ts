@@ -47,6 +47,8 @@ import {
 import { persistMessageArchive } from '../utils/conversation-archive.js'
 import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
 import { loadKnowledgeContext } from '../services/knowledge-chat-context.js'
+// G6 企业治理面(2026-10-30 立):模型准入检查点(ORG_POLICIES_ENABLED 关=直通,行为逐字节不变)
+import { guardModelAdmission } from '../services/org-policy-service.js'
 import {
   abortConversationStreams,
   createSession,
@@ -1174,6 +1176,19 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      // G6 企业治理面(2026-10-30 立):模型准入检查点(/chat/stream)。
+      // 组织 model_allowlist 命中禁用 ⇒ 403 errorCode='ORG_MODEL_BLOCKED',请求不进执行;
+      // 开关关/无组织/无策略/治理面异常 ⇒ 直通(guardModelAdmission 返回 null),旧行为不变。
+      const admission = await guardModelAdmission(metadata?.userId ?? request.userId, resolvedModel)
+      if (admission) {
+        return reply.code(admission.statusCode).send({
+          code: admission.statusCode,
+          message: admission.message,
+          errorCode: admission.errorCode,
+          data: { model: admission.model },
+        })
+      }
+
       // Token 预算三态分档(2026-09-19 立):block 时 checkTokenBudget 已发 429 直接返回;
       // warning/critical 放行,经流首 budget 命名帧软提醒用量进度;allow 无动作。
       const budgetGate = await checkTokenBudget(
@@ -1459,6 +1474,17 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             void persistMessageArchive(conversationId, messages)
           }
         }
+      }
+
+      // G6 企业治理面(2026-10-30 立):模型准入检查点(/chat/answer,与 /chat/stream 同型)。
+      const admission = await guardModelAdmission(userId, resolvedModel)
+      if (admission) {
+        return reply.code(admission.statusCode).send({
+          code: admission.statusCode,
+          message: admission.message,
+          errorCode: admission.errorCode,
+          data: { model: admission.model },
+        })
       }
 
       // Token 预算三态分档(2026-09-19 立):block 时 checkTokenBudget 已发 429 直接返回;

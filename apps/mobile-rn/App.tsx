@@ -114,6 +114,9 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   WrongQuestions: (t) => t.surface.chrome,
   Plaza: (t) => t.surface.chrome,
   News: (t) => t.surface.chrome,
+  // G1 设备互联 / E1 审批收件箱(2026-10-30 立):两屏均渲染 <NavBar>,按上表判据取 chrome 档
+  Devices: (t) => t.surface.chrome,
+  PendingDecisions: (t) => t.surface.chrome,
   ProfileMain: (t) => t.surface.chrome,
   AiMain: (t) => t.surface.chrome,
   Agent: (t) => t.surface.chrome,

@@ -83,6 +83,7 @@ import { attachChatSubcommands } from './commands/chat-subcommands.js';
 import { registerContextCommand } from './commands/context.js';
 import { registerDeveloperCommand, registerPlaygroundCommand } from './commands/developer.js';
 import { registerKnowledgeCommand, registerRagCommand } from './commands/knowledge.js';
+import { registerWikiCommand } from './commands/wiki.js';
 import { registerMcpMarketCommand } from './commands/mcp-market.js';
 import { registerModelsCommand } from './commands/models.js';
 import { registerSecurityCommand } from './commands/security.js';
@@ -867,6 +868,9 @@ registerKnowledgeCommand(program);
 
 // rag 子命令组 — 对齐 Web 端 /knowledge-rag(search/index)
 registerRagCommand(program);
+
+// G5 编译式知识引擎 — wiki 子命令组(compile/status,对接 ai-service /api/knowledge/*)
+registerWikiCommand(program);
 
 // mcp-market 子命令组 — 对齐 Web 端 /mcp-projects(list/search/show/install/remove)
 registerMcpMarketCommand(program);

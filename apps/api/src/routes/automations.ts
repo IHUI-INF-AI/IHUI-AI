@@ -22,8 +22,12 @@ import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { userAutomations, chatConversations } from '@ihui/database'
-import type { AutomationTerminalReason } from '@ihui/database'
+import type { AutomationLastResult, AutomationTerminalReason } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
+import {
+  checkInternalServiceToken,
+  hasInternalServiceToken,
+} from '../plugins/internal-service-token.js'
 import { success, error } from '../utils/response.js'
 import {
   DEFAULT_SCHEDULE_TIMEZONE,
@@ -31,6 +35,7 @@ import {
   executeAutomation,
   claimAutomationRun,
 } from '../services/agent-automation-scheduler.js'
+import { GOAL_DEFAULT_MAX_RUNS, GOAL_MAX_RUNS_CAP } from '../services/automations/goal-loop.js'
 import type { AutomationRepairService } from '../services/automation-repair-service.js'
 import { buildRepairService } from '../services/automation-repair-service.js'
 import { describeScanItemKeyIssue } from '../services/automations/scan-item-key.js'
@@ -59,6 +64,14 @@ const createSchema = z
     timezone: z.string().max(64).optional(),
     /** D12:可选绑定聊天会话(执行复用该线程;须为当前用户自己的会话) */
     conversationId: z.string().uuid().nullable().optional(),
+    /** G2(2026-10-30 立):可选 Goal 自评迭代配置。存 last_result jsonb 的 goal 键
+     *  (schema 冻结零迁移);maxRuns 默认 3、硬上限 10,越界直接 400(拒收比静默收窄诚实)。 */
+    goal: z
+      .object({
+        target: z.string().min(1, '目标描述不能为空').max(2000),
+        maxRuns: z.number().int().min(1).max(GOAL_MAX_RUNS_CAP).optional(),
+      })
+      .optional(),
   })
   .refine((v) => (v.scheduleType === 'once' ? v.scheduledAt !== undefined : true), {
     message: '一次性计划必须提供 scheduledAt',
@@ -109,6 +122,8 @@ interface CreateInput {
   timezone?: string
   /** D12:可选绑定聊天会话 */
   conversationId?: string | null
+  /** G2:可选 Goal 自评迭代配置(maxRuns 已在 zod 边界缺省为 undefined,落库时补默认) */
+  goal?: { target: string; maxRuns?: number }
 }
 
 /**
@@ -228,7 +243,15 @@ export const repairAdminRoutes: FastifyPluginAsync<RepairAdminRoutesOptions> = a
 // =============================================================================
 
 const automationsRoutes: FastifyPluginAsync = async (server) => {
-  server.addHook('preHandler', async (request) => {
+  server.addHook('preHandler', async (request, reply) => {
+    // G2(2026-10-30 立)对话式创建:ai-service create_automation 工具经内部凭证腿调用本端点
+    // (edu 工具先例)。带 X-Internal-Service-Token/Ticket 任一头即走内部校验并注入
+    // request.userId(checkInternalServiceToken 的 injectVerifiedUser 语义);
+    // 不带 ⇒ 人 JWT 链路原样不变。checkInternalServiceToken 失败自行发 401,这里直接 return。
+    if (hasInternalServiceToken(request)) {
+      await checkInternalServiceToken(request, reply)
+      return
+    }
     await authenticate(request)
   })
 
@@ -280,6 +303,21 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
         status: 'active',
         nextRunAt,
         ...(input.conversationId !== undefined ? { conversationId: input.conversationId } : {}),
+        // G2:goal 配置嵌 last_result jsonb 的 goal 键(schema 冻结零迁移);
+        // 形状与 services/automations/goal-loop.ts 的 readGoalState 解析器严格对齐。
+        ...(input.goal
+          ? {
+              lastResult: {
+                goal: {
+                  config: {
+                    target: input.goal.target,
+                    maxRuns: input.goal.maxRuns ?? GOAL_DEFAULT_MAX_RUNS,
+                  },
+                  runs: 0,
+                },
+              } as unknown as AutomationLastResult,
+            }
+          : {}),
       })
       .returning()
     return reply.status(201).send(success(row))

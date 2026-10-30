@@ -238,6 +238,7 @@ interface AdminNavItem {
     | 'aiCost'
     | 'pricing'
     | 'agentGovernance'
+    | 'orgGovernance'
     | 'adminRelayOverview'
     | 'adminRelayModels'
     | 'adminRelayKeyPool'
@@ -297,6 +298,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   // P3-9 模型定价看板(labelKey 复用 web nav.pricing 存量键,清孤儿键)
   { href: '/admin/model-pricing', labelKey: 'pricing', icon: BadgeDollarSign },
   { href: '/admin/agent-governance', labelKey: 'agentGovernance', icon: Gauge },
+  // G6 企业治理控制台(2026-10-30 立):组织统账 + 策略编辑/留痕(/api/org/*)
+  { href: '/admin/org-governance', labelKey: 'orgGovernance', icon: Building2 },
   // [2026-10-17 收敛] monitoring-dashboard / backend-health 与 Grafana monitor_health
   // 重复约 85%(三胞胎:monitor/dashboard、monitoring-dashboard、backend-health),
   // 观察期隐藏;恢复 = 取消注释。裁决依据:.ihui-agent/tmp/ai-monitor/web-wallboard-brief.md
@@ -1090,6 +1093,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   aiCost: 'nav.aiCost',
   pricing: 'nav.pricing',
   agentGovernance: 'nav.agentGovernance',
+  orgGovernance: 'nav.orgGovernance',
   adminRelayOverview: 'nav.adminRelayOverview',
   adminRelayModels: 'nav.adminRelayModels',
   adminRelayKeyPool: 'nav.adminRelayKeyPool',

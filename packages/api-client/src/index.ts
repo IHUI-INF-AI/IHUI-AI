@@ -342,6 +342,8 @@ export {
 export * from './endpoints/downloads.js'
 // 设备推送令牌 API(2026-09-06 立,mobile-cap 推送链路,跨端共享)
 export * from './endpoints/devices.js'
+// G4 组合定价规则 API(2026-10-30 立,用户面价格公示 + 管理面 CRUD)
+export * from './endpoints/pricing-rules.js'
 // 挣钱中心仪表盘 API(2026-07-31 立,P0 挣钱核心,跨端共享)
 export * from './endpoints/earnings.js'
 export * from './endpoints/edu.js'

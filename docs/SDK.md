@@ -40,6 +40,8 @@
 | .NET | `packages/sdk/dotnet/` | NuGet `dotnet add package aizhs.top` | `Client/` + `Models/` + `Modules/`(13 Api) | .NET 8 (net8.0) | 0.1.0 | Beta |
 
 > "Beta" 表示 API 表面已稳定,但语义化版本尚未到 1.0,允许补丁版本内做不兼容的字段调整。
+>
+> **发布通道现状**:`sdk-v*` tag → `release-sdk.yml` 已接通 5 语言发布通道(npm / PyPI / Go / Maven / NuGet),但截至本文档更新时,`@ihui-ai/sdk` 与 `ihui-ai` **尚未发布到公开注册表**。是否已发布以 [RELEASE.md](./RELEASE.md) 的"发布状态"表为唯一真相源;下文安装命令在对应包公开发布后即可直接使用,当前阶段请从仓库源码集成(workspace 引用 / `go get` 私有模块 / 本地构建)。
 
 ---
 
@@ -853,6 +855,30 @@ services.AddSingleton<IhuiClient>(_ =>
 ### 变更日志
 
 SDK 变更记录见根 [docs/CHANGELOG.md](./CHANGELOG.md) 的 `packages/sdk` 段落;每个语言 SDK 目录下也有独立的 `README.md`(`packages/sdk/{python,go,java,dotnet}/README.md`)记录语言特定说明。
+
+---
+
+## 公开分发与差异化叙事
+
+### 分发通道与节奏
+
+| 通道 | 载体 | 触发 | 当前状态 |
+| --- | --- | --- | --- |
+| npm | `@ihui-ai/sdk` | `sdk-v*` tag → `release-sdk.yml` | 通道已接通,包未发布 |
+| PyPI | `ihui-ai` | 同上 | 通道已接通,包未发布 |
+| Go module | `github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go` | git tag | 通道已接通,tag 未打 |
+| Maven | `com.ihui:ihui-ai-java` | 同上 | **暂缓**(见下) |
+| NuGet | `aizhs.top` | 同上 | 通道已接通,包未发布 |
+
+- 首次公开发布随 `sdk-v0.1.0` tag 进行,5 语言(除 Java)同步发版、版本号一致;发布前后以 [RELEASE.md](./RELEASE.md) "发布状态"表回读注册表为准,不以本文档口径为准。
+- **Java SDK 暂缓**:实现已随仓库分发(`packages/sdk/java/`),公开 Maven 通道待 API 表面锁定 1.0 后与其他语言一并评估,避免 0.x 字段调整期对外发出不稳定构件。
+- 示例站(接入样例)随首次公开发布上线,当前示例以本文档各语言章节代码块为准。
+
+### 差异化叙事(对外口径)
+
+- **兼容性是特性,实现自主是底线**。IHUI SDK 的 `chat/completions` 遵循 OpenAI SSE 线协议、Agent 协议面与 Claude 生态同构——这是全行业事实标准,可直接复用 OpenAI / Anthropic 客户端生态;但 IHUI 的实现为自有代码,不内化任何上游分发件。
+- **可检验性**:本 SDK 允许任何人做包级取证比对(错误文案、传输层、协议面);我们的对外话术建立在"经得起同样检验"的前提上,不使用无法自证的"全栈自研"表述。
+- **合规纪律**:所有源码文件保留版权头与 NOTICE(Apache-2.0 要求),构建产物带溯源水印;对外分发同样附带 `LICENSE` + `NOTICE`,不得剥离。
 
 ---
 

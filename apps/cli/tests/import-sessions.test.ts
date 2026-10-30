@@ -130,11 +130,13 @@ afterAll(async () => {
 });
 
 describe('来源与参数解析', () => {
-  it('isSessionSource 只认后端枚举的五个来源', () => {
+  it('isSessionSource 只认后端枚举的七个来源', () => {
     expect(isSessionSource('claude_code')).toBe(true);
     expect(isSessionSource('codex')).toBe(true);
     expect(isSessionSource('cursor')).toBe(true);
     expect(isSessionSource('aider')).toBe(true);
+    expect(isSessionSource('chatgpt')).toBe(true);
+    expect(isSessionSource('claude_ai')).toBe(true);
     expect(isSessionSource('wechat')).toBe(true);
     expect(isSessionSource('claude-cli')).toBe(false);
     expect(isSessionSource('')).toBe(false);
@@ -264,6 +266,34 @@ describe('本地导出文件自动发现', () => {
     expect(await discoverSessionFiles('cursor', path.join(tmpRoot, 'ghost'), 10)).toEqual([]);
   });
 
+  it('ChatGPT:只收 conversations.json,同目录其余 .json 不进候选', async () => {
+    const dir = path.join(tmpRoot, 'chatgpt-dl');
+    const target = await makeFixture(path.join('chatgpt-dl', 'conversations.json'), '[]');
+    await makeFixture(path.join('chatgpt-dl', 'package-lock.json'), '{}');
+    expect(await discoverSessionFiles('chatgpt', dir, 10)).toEqual([target]);
+    // 显式传非规范命名的 .json:namePattern 同样拦下,不给假候选
+    const other = await makeFixture('chatgpt-other/export.json', '{}');
+    expect(await discoverSessionFiles('chatgpt', other, 10)).toEqual([]);
+  });
+
+  it('Claude.ai:glob 收 conversation-*.json,不收 conversations.json 与其他 .json', async () => {
+    const dir = path.join(tmpRoot, 'claude-dl');
+    const older = await makeFixture(
+      path.join('claude-dl', 'conversation-2026-01-01.json'),
+      '{}',
+      new Date('2026-01-01'),
+    );
+    const newer = await makeFixture(
+      path.join('claude-dl', 'nested', 'conversation-2026-09-02.json'),
+      '{}',
+      new Date('2026-09-02'),
+    );
+    await makeFixture(path.join('claude-dl', 'conversations.json'), '[]');
+    await makeFixture(path.join('claude-dl', 'user.json'), '{}');
+    const found = await discoverSessionFiles('claude_ai', dir, 10);
+    expect(found).toEqual([newer, older]);
+  });
+
   it('微信:roots 为空时无 --path 必然扫不到,但不抛异常且不误捡无关文件', async () => {
     // 微信导出目录不可预测 ⇒ 默认扫描恒为空。这是刻意的:猜「下载/文件接收」目录
     // 会把同后缀(.txt)的图片/安装包清单塞进候选,比扫不到更有害。
@@ -333,11 +363,11 @@ describe('文件定位与候选选择', () => {
 });
 
 describe('sessions sources / discover', () => {
-  it('sources 列出五个来源与各自可接受后缀', async () => {
+  it('sources 列出七个来源与各自可接受后缀', async () => {
     const spy = captureConsole();
     expect(await runSessionsSources()).toBe(true);
     const out = spy.info.join('\n');
-    for (const s of ['claude_code', 'codex', 'cursor', 'aider', 'wechat']) expect(out).toContain(s);
+    for (const s of ['claude_code', 'codex', 'cursor', 'aider', 'chatgpt', 'claude_ai', 'wechat']) expect(out).toContain(s);
     expect(out).toContain('.jsonl');
     expect(out).toContain('.vscdb');
     expect(out).toContain('.md');

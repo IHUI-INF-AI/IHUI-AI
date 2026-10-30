@@ -2454,6 +2454,27 @@
       "when": 1793332800000,
       "tag": "20261030120000_relay_qoder_public_market",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 354,
+      "when": 1793343600000,
+      "tag": "20261030150000_g1_device_delegation",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 355,
+      "when": 1793350800000,
+      "tag": "20261030160000_g4_pricing_rules",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 356,
+      "when": 1793354400000,
+      "tag": "20261030170000_g6_org_policies",
+      "breakpoints": true
     }
 
   ]
