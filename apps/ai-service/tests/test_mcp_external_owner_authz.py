@@ -56,6 +56,17 @@ async def _clients(manager: MCPClientManager):
 _BODY = {"name": "svr1", "transport": "stdio", "command": "echo"}
 
 
+@pytest.fixture(autouse=True)
+def _stdio_gate_preconditions(monkeypatch):
+    """本文件测跨属主读写边界;stdio 两道闸(管理员角色 + 命令白名单)的正反例在
+    test_mcp_stdio_registration_gates.py。这里只把"调用方是管理员、命令在白名单内"
+    这两个前置条件摆好 —— 两个属主都按管理员走,归属判定本身不受影响。"""
+    from app.routers import mcp as mcp_router
+
+    monkeypatch.setattr(mcp_router, "resolve_request_role_id", lambda request: 1)
+    monkeypatch.setenv("MCP_STDIO_COMMAND_ALLOWLIST", "echo,rm")
+
+
 def _same_template(payload: object, name: str) -> object:
     """把响应里**调用方自己提交的那段名字**归一掉,只比模板。
 
