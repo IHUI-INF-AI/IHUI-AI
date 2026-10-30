@@ -105,6 +105,19 @@ from app.core.retained_context import (  # 批58:宿主事实账本(对标 codex
     RetainedContext,
     RetainedUserMessage,
 )
+from app.core.sandbox_metrics import (
+    CATEGORY_FILE,
+    CATEGORY_POLICY,
+    DECISION_UNDETERMINED,
+    GUARD_STATE_UNDETERMINED,
+    RULE_PATCH_ASK_USER,
+    RULE_PATCH_JUDGMENT_UNDETERMINED,
+    RULE_PATCH_PROTECTED_METADATA,
+    RULE_PATCH_REJECTED,
+    record_block,
+    record_decision,
+    record_guard_state,
+)
 from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
 from app.core.thread_originator import (
     effective_originator_value,
@@ -387,12 +400,18 @@ _CODE_MAX_NESTED_TOOL_CALLS = 50
 
 
 def _apply_sandbox(proc: Any) -> dict[str, Any]:
-    """子进程 OS 级沙箱统一入口(第八批,对标 execpolicy 内核层;失败静默降级)。"""
+    """子进程 OS 级沙箱统一入口(第八批,对标 execpolicy 内核层;失败静默降级)。
+
+    计量与降级同批(2026-10-31,§5e-3):模块本身 import 不到 ⇒ 记 **undetermined**
+    而不是 degraded —— 这一格的意思是"护栏装没装上都没量出来",与"量出来是没装上"
+    是两件事,并桶会把埋点坏了读成沙箱降级(§0.3)。
+    """
     try:
         from app.core.proc_sandbox import apply_job_sandbox
 
         return apply_job_sandbox(proc)
     except Exception as e:  # noqa: BLE001 - 沙箱绝不阻塞主流程
+        record_guard_state(GUARD_STATE_UNDETERMINED, "sandbox_module_unavailable")
         return {"active": False, "reason": f"沙箱模块异常: {e}"}
 
 
@@ -5783,6 +5802,7 @@ class AgentEngine:
                     target_rel.replace("\\", "/")
                 ).parts[0] if target_rel else ""
                 if _first_component in _PROTECTED_METADATA_PATH_NAMES:
+                    record_block(RULE_PATCH_PROTECTED_METADATA, CATEGORY_FILE)
                     return {
                         "error": (
                             f"受保护路径不可被补丁修改: {target_rel}"
@@ -5817,13 +5837,25 @@ class AgentEngine:
                         sandbox_available=True,
                     )
                     if _verdict.outcome == "reject":
-                        return {"error": f"patch rejected: {_verdict.reason or 'outside project'}"}
+                        record_block(RULE_PATCH_REJECTED, CATEGORY_POLICY)
+                        return {
+                            "error": f"patch rejected: {_verdict.reason or 'outside project'}"
+                        }
                     if _verdict.outcome == "ask_user":
+                        record_block(RULE_PATCH_ASK_USER, CATEGORY_POLICY)
                         return {
                             "error": f"patch requires approval: {_verdict.reason or 'outside writable roots'}",
                             "requires_approval": True,
                         }
                 except Exception as _ps_err:  # noqa: BLE001 — 判定失败降级放行
+                    # 降级放行的那一格**不得记成 allow**:判据没跑成就是没判成(§0.3)。
+                    # 对照程序有 block_risk_unknown_count 这一枚,本仓把它落成 undetermined
+                    # 而不是 drop 计数 —— 放行与丢弃是两回事,冒充成任一边都是撒谎。
+                    record_decision(
+                        RULE_PATCH_JUDGMENT_UNDETERMINED,
+                        CATEGORY_POLICY,
+                        DECISION_UNDETERMINED,
+                    )
                     logger.debug("patch_safety 判定异常(降级放行): %s", _ps_err)
                 created = section["old_path"].strip() == "/dev/null"
                 deleted = section["new_path"].strip() == "/dev/null"
@@ -5886,6 +5918,7 @@ class AgentEngine:
                         return {"error": f"路径越出工作区,拒绝应用: {old_rel}"}
                     _old_first = PurePosixPath(old_rel.replace("\\", "/")).parts[0] if old_rel else ""
                     if _old_first in _PROTECTED_METADATA_PATH_NAMES:
+                        record_block(RULE_PATCH_PROTECTED_METADATA, CATEGORY_FILE)
                         return {
                             "error": (
                                 f"受保护路径不可被补丁修改: {old_rel}"

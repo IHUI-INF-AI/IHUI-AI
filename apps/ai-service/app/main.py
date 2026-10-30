@@ -325,6 +325,25 @@ async def lifespan(app: FastAPI) -> Any:
 
     log_capability_matrix()
 
+    # 沙箱策略版本开机发布(2026-10-31 立,§5e-3「量与拦同批」的版本腿):
+    # ihui_sandbox_policy_info 必须与拦截计数同一批存在,否则"按哪一版策略拦的"
+    # 永远问不出来。算不出来时这条时序照样发,标签是 status="undetermined" ——
+    # 少一条时序与一条自称"没判出来"的时序,对大屏是两件事(前者会被读成"没跑过")。
+    try:
+        from app.core.sandbox_metrics import publish_policy_info
+
+        _sbx = publish_policy_info()
+        logger.info(
+            "[sandbox-policy] 生效策略版本=%s 状态=%s 参与投影符号=%s",
+            _sbx["versionId"],
+            _sbx["status"],
+            _sbx["symbols"],
+        )
+        if _sbx["status"] != "ok":
+            logger.warning("[sandbox-policy] 版本未判定(不冒绿): %s", _sbx["reason"])
+    except Exception as e:  # noqa: BLE001 - 版本发布坏了不阻塞启动,但要出声
+        logger.warning("[sandbox-policy] 策略版本发布异常(忽略): %s", e)
+
     # G-649(2026-10-01 立):供应商能力/entitlement 快照开机播种 —— 账号上游源的
     # 生产面唯一注册点 + 首发布一轮,让"snapshot 恒为 None"不再是合法稳态。
     # 刻意排在 DB 相关步骤之前:整条链只读 env,库没起来也必须能播种。
