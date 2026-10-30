@@ -4301,6 +4301,16 @@ class AgentLoopV2:
 
             self._current_iteration = i
 
+            # 机读轮次/耗时计数:每轮唯一挂点。上限投影自本循环的 max_iterations,
+            # 不在别处另立一套;记账属观测面,失败降级不得影响主循环。
+            if self._session_id:
+                try:
+                    from .agent_run_control import note_turn as _note_run_turn
+
+                    await _note_run_turn(self._session_id, max_turns=self.max_iterations)
+                except Exception as e:  # noqa: BLE001 - 计数失败不得中断本轮
+                    logger.warning("run 预算计数失败(降级跳过): %s", e)
+
             # 1-6 token 治理:每轮 LLM 调用前预算硬约束检查(与暂停/取消检查并列)
             if self._budget_enabled:
                 (
