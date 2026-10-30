@@ -43,6 +43,9 @@ export interface HistoryMessageRecord {
    *  siblingIndex 非 null 的行(live addMessage 不写它),见 lib/message-version-family.ts。 */
   parentMessageId?: string | null
   siblingIndex?: number | null
+  /** 差距⑤补全(2026-10-30 立):回合深链轮次序号,三态见 stores/chat ChatMessage.turnOrdinal。
+   *  around 窗口拍平时盖 number;截断页由调用方标 null;getMessages 完整页调用方按口径计数。 */
+  turnOrdinal?: number | null
 }
 
 /**
@@ -374,6 +377,9 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     // 多版本会在消息列表里全部渲染("点一次编辑出两个气泡"的根因)。
     parentMessageId: row.parentMessageId ?? null,
     siblingIndex: row.siblingIndex ?? null,
+    // 差距⑤补全:轮次序号透传 —— 同样受"逐字段列清单"纪律约束,不列即静默丢掉,
+    // 于是「分享此回合」入口在历史回放后消失。undefined/null/number 三态原样带走。
+    turnOrdinal: row.turnOrdinal,
   }
 }
 

@@ -31,7 +31,6 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { toast } from '@/components/common'
 import { collabTierLabelKey } from './collab-parts'
-import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
 
 const INVITATIONS_QUERY_KEY = ['chat', 'collab-invitations'] as const
 
@@ -52,7 +51,7 @@ export function CollabInvitationInbox() {
   React.useEffect(() => {
     if (typeof window === 'undefined') return
     const config: UserBroadcastConfig = {
-      baseUrl: resolveWsApiBaseUrl(),
+      baseUrl: window.location.origin,
       tokenProvider: () => useAuthStore.getState().token,
     }
     const sub = subscribeUserBroadcast(config, {

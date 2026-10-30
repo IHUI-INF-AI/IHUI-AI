@@ -98,22 +98,35 @@ export function serializeSkillsFrontmatter(fm: SkillFrontmatter): string {
  * 三种结局各有名字:missing 是"这不是一份带 frontmatter 的 skill",unterminated 是
  * "你删掉了闭合行"。
  */
+function watermarkSkipLines(lines: string[]): number {
+  if ((lines[0] ?? '').trim() !== '<!--') return 0;
+  const end = lines.findIndex((line, index) => index > 0 && line.trim() === '-->');
+  if (end < 0) return 0;
+  const banner = lines.slice(0, end + 1).join('\n');
+  if (!banner.includes('IHUI-AI-PROVENANCE')) return 0;
+  let start = end + 1;
+  while ((lines[start] ?? '').trim() === '') start += 1;
+  return start;
+}
+
 export function parseSkillsFrontmatter(content: string): SkillsFrontmatterParseResult {
   const lines = content.split(/\r?\n/);
-  if ((lines[0] ?? '').trim() !== SKILL_FRONTMATTER_DELIMITER) {
+  const skipped = watermarkSkipLines(lines);
+  const bodyLines = lines.slice(skipped);
+  if ((bodyLines[0] ?? '').trim() !== SKILL_FRONTMATTER_DELIMITER) {
     return {
       ok: false,
       reason: 'missing_frontmatter',
       detail: 'file does not start with a `---` frontmatter fence',
     };
   }
-  for (let i = 1; i < lines.length; i += 1) {
-    if (lines[i]!.trim() === SKILL_FRONTMATTER_DELIMITER) {
+  for (let i = 1; i < bodyLines.length; i += 1) {
+    if (bodyLines[i]!.trim() === SKILL_FRONTMATTER_DELIMITER) {
       return {
         ok: true,
-        front: lines.slice(1, i).join('\n'),
-        body: lines.slice(i + 1).join('\n'),
-        bodyLineOffset: i + 1,
+        front: bodyLines.slice(1, i).join('\n'),
+        body: bodyLines.slice(i + 1).join('\n'),
+        bodyLineOffset: skipped + i + 1,
       };
     }
   }

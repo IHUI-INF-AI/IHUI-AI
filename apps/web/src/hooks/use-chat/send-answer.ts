@@ -26,6 +26,9 @@ import {
   type WorkspacePermissionMode,
   // G-425:done 帧携带上游 finish/stop reason(截断提示数据源)
   type FinishReasonEvent,
+  // 对标 Qoder 借鉴清单第 9 项(2026-10-30):准入两格(inputId / 回执回调)已由
+  // api-client StreamChatOptions 正式导出(B 路到场,dist 已重建),桥接类型已收编删除。
+  type StreamChatOptions,
 } from '@ihui/api-client'
 import { logger } from '@/lib/logger'
 // G-248/G-916415 R1 web 腿:帧级 traceId 的错误上报消费点(与 send-message.ts 对称)
@@ -195,7 +198,10 @@ export function createSendAnswer(
     chatStore.getState().setMessageStreamCompleted(assistantId, false)
     // Qoder 第 9 项:本轮的准入跟踪器。inputId 在这里生成(发送前),随后随请求上行;
     // 服务端若回执则按同一 inputId 配对(见 onResponse/onDelta 的 noteEvidence 与最终 settle)。
-    const admission = createSendAdmissionTracker({ inputId: createInputId(), messageId: assistantId })
+    const admission = createSendAdmissionTracker({
+      inputId: createInputId(),
+      messageId: assistantId,
+    })
     /** 把准入态落到消息 meta(唯一写点;值等价时 store 侧等价即不写,见其注释)。 */
     const flushAdmission = (): void => {
       chatStore.getState().updateMessageMeta(assistantId, admission.metaPatch())
@@ -236,7 +242,7 @@ export function createSendAnswer(
       // P1-7(2026-09-13 立):续答同样应用会话级高级参数(与 sendMessage 对称)
       const samplingParams = getSamplingParams(store.conversationId)
 
-      await streamChat({
+      const streamOpts: StreamChatOptions = {
         model: effectiveModel,
         messages: history,
         path: '/ai/chat/answer',
@@ -276,6 +282,12 @@ export function createSendAnswer(
           conversationId: store.conversationId ?? undefined,
           userId,
           messageId: assistantId,
+        },
+        // Qoder 第 9 项(2026-10-30,与 send-message.ts 同谱):本轮稳定输入标识随请求上行,
+        // 服务端准入回执按同一 inputId 配对(不配对的回执由 tracker 内部丢弃)。
+        inputId: admission.inputId,
+        onSendAdmissionReceipt: (receipt) => {
+          if (admission.accept(receipt).changed) flushAdmission()
         },
         // 2026-08-15 立:显式声明流式,后端 detectStreamUsage 依赖 stream===true 才启用 usage chunk。
         stream: true,
@@ -580,9 +592,7 @@ export function createSendAnswer(
           if (disposition) {
             // 有处置表就**只有**这一支:标题/建议取该码的词条,按钮按可重试性给或不给。
             // 具体建议优先于原始报错文本(码本身已说清是什么事,原始文本退为附注)。
-            const detail = disposition.detail
-              ? `${disposition.detail} · ${toastDesc}`
-              : toastDesc
+            const detail = disposition.detail ? `${disposition.detail} · ${toastDesc}` : toastDesc
             const isAuth = disposition.action === 'relogin'
             const retryAction =
               disposition.retryable && lastSentAnswerRef.current
@@ -626,7 +636,8 @@ export function createSendAnswer(
             })
           }
         },
-      })
+      }
+      await streamChat(streamOpts)
     } catch (err) {
       // #9 catch 前先 flush 累积 token
       contentBatcher.flush()

@@ -40,7 +40,7 @@ function todayKey(): string {
   return `${d.getFullYear()}-${m}-${day}`
 }
 
-function mapRecord(r: CommissionRecord, tr: (key: string) => string): IncomeCommissionItem {
+function mapRecord(r: CommissionRecord, t: (key: string) => string): IncomeCommissionItem {
   // 后端 /distribution/list 返回 commission_flows 原始行:status 数字 0=invalid 1=active,
   // amount 单位「分」。数据模型无「待结算/已结算」独立状态:
   // status=1(active)=佣金生效中,展示为「待结算」;status=0(invalid)=佣金无效,映射「取消结算」;
@@ -48,7 +48,7 @@ function mapRecord(r: CommissionRecord, tr: (key: string) => string): IncomeComm
   const status = String(r.status ?? '')
   return {
     id: r.id,
-    title: r.userNickname || r.orderId || tr('income.commissionDefault'),
+    title: r.userNickname || r.orderId || t('income.commissionDefault'),
     amount: (r.amount ?? r.commissionAmount ?? 0) / 100,
     time: r.createdAt,
     settled: false,
@@ -61,11 +61,11 @@ function mapRecord(r: CommissionRecord, tr: (key: string) => string): IncomeComm
 /** 提现记录 → 已结算条目(对齐 Uniapp accumulation「已结算=已提现」语义;仅 completed(status=2)计入) */
 function mapWithdrawRecord(
   r: CommissionWithdrawRecord,
-  tr: (key: string) => string,
+  t: (key: string) => string,
 ): IncomeCommissionItem {
   return {
     id: r.id,
-    title: r.accountType === 'bank' ? tr('income.withdrawBank') : tr('income.withdrawRecord'),
+    title: r.accountType === 'bank' ? t('income.withdrawBank') : t('income.withdrawRecord'),
     amount: (r.amount ?? 0) / 100,
     time: r.processedAt ?? r.createdAt,
     settled: true,
@@ -74,7 +74,7 @@ function mapWithdrawRecord(
   }
 }
 
-export function IncomeScreen() {
+function IncomeScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()

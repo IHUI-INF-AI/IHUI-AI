@@ -507,6 +507,13 @@ export interface GetConversationHistoryParams {
    * 为一个类型引入 `@ihui/shared` 会把共享层拖进发布物依赖(见 client.ts 头注同一处置)。
    */
   direction?: 'newest' | 'older' | 'newer'
+  /**
+   * 差距⑤(2026-10-30 立):以该 turn 为锚取居中窗口(跳转/定位场景),
+   * 映射到服务端 query `around`。与 cursor/direction 互斥由服务端裁决,本包只透传。
+   */
+  aroundTurnId?: string
+  /** 差距⑤:锚点窗口半径(turn 数),映射到服务端 query `window`;缺省由服务端定。 */
+  aroundWindow?: number
 }
 
 /** 一个 turn 分片(一轮 user→assistant 交互),messages 按 (createdAt,id) 稳定升序。 */
@@ -540,6 +547,12 @@ export interface ConversationHistoryResult {
    * 调用方必须整段重锚。缺省 = 本次请求没带游标 / 服务端未升级 —— **不等于**"断点已被验证"。
    */
   cursorState?: ConversationHistoryCursorState | null
+  /**
+   * 差距⑤(2026-10-30 立):反向(更新方向)断点 —— around 居中窗口与 newer 续读时,
+   * 服务端同时给出 prevCursor 供双向翻页;由服务端生成、客户端透明回传(同 nextCursor)。
+   * 缺省 = 服务端未升级 / 本次响应无反向窗口。
+   */
+  prevCursor?: string | null
 }
 
 /** D35 turn 分片拉取 — GET /api/chat/conversations/:id/history */
@@ -548,6 +561,10 @@ export function getConversationHistory(id: string, params: GetConversationHistor
   if (params.limit !== undefined) qs.set('limit', String(params.limit))
   if (params.cursor) qs.set('cursor', params.cursor)
   if (params.direction) qs.set('direction', params.direction)
+  // 差距⑤(2026-10-30 立):锚点窗口透传 —— 服务端 query 名是 around/window,
+  // 客户端参数名带 TurnId/Window 后缀避免与既有 cursor/limit 语义撞名。
+  if (params.aroundTurnId) qs.set('around', params.aroundTurnId)
+  if (params.aroundWindow !== undefined) qs.set('window', String(params.aroundWindow))
   return fetchApi<ConversationHistoryResult>(
     `/api/chat/conversations/${encodeURIComponent(id)}/history?${qs.toString()}`,
   )
@@ -745,6 +762,10 @@ export interface SteerChatStreamResult {
   ok: boolean
   /** 入队后队列长度(仅 ok=true 时有意义) */
   queued?: number
+  /** 条目类型轴(G-815975):guide=可 inline;control=不可 inline */
+  kind?: string
+  /** 撤回凭据(差距③ 2026-10-30 additive 回传):withdrawSteer 按它匹配未消费条目 */
+  queuedAt?: string
 }
 
 /**
@@ -765,6 +786,59 @@ export function steerChatStream(input: {
   // /api/ai/chat/steer(与 use-chat.ts 的 /api/ai/chat/abort 同前缀),此前写
   // /api/chat/steer 会 404(normalizeUrl 对 /api/ 开头路径原样透传,不重写)。
   return fetchApi<SteerChatStreamResult>('/api/ai/chat/steer', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** 差距③ Phase1(2026-10-30 立):steer 撤回结果三档 —— 撤回成功 / 已被注入(不可撤) / 未找到 */
+export interface WithdrawSteerResult {
+  ok: boolean
+  status: 'withdrawn' | 'already_injected' | 'not_found'
+}
+
+/**
+ * Steer 撤回(差距③ Phase1,2026-10-30 立):闪电注入尚未被 tool loop drain 时撤回。
+ *
+ * 凭 conversationId+messageId+queuedAt 三元组定位队列项;已被注入的返回
+ * already_injected(不硬撤),不在队列的返回 not_found。路径前缀坑位同
+ * steerChatStream:网关插件 prefix=/api/ai,实际注册于 /api/ai/chat/steer/withdraw。
+ */
+export function withdrawSteer(input: {
+  conversationId: string
+  messageId: string
+  queuedAt: string
+}) {
+  return fetchApi<WithdrawSteerResult>('/api/ai/chat/steer/withdraw', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** 差距③(2026-10-30 立):steer 队列重排结果 —— orderApplied 为上游实际生效顺序
+ *  (已 drain 条目被竞态豁免,不在其列);422(覆盖不符)走 ApiResult 失败信封。 */
+export interface ReorderSteerQueueResult {
+  ok: boolean
+  /** 重排后队列长度(仅 ok=true 时有意义) */
+  queued?: number
+  /** 实际生效的 queuedAt 序列(回报竞态豁免后的结果) */
+  orderApplied?: string[]
+}
+
+/**
+ * Steer 队列重排(差距③ mutateQueue,2026-10-30 立):重排运行中流 steer 队列的
+ * 未消费条目。
+ *
+ * order = 目标 queuedAt 序列(本地 queued 条目视图);上游精确校验覆盖,期间被
+ * tool loop drain 的条目凭留痕豁免并回报 orderApplied。422(覆盖不符)⇒ 调用方
+ * 必须回滚本地乐观顺序。路径前缀坑位同 withdrawSteer:/api/ai/chat/steer/reorder。
+ */
+export function reorderSteerQueue(input: {
+  conversationId: string
+  messageId: string
+  order: string[]
+}) {
+  return fetchApi<ReorderSteerQueueResult>('/api/ai/chat/steer/reorder', {
     method: 'POST',
     body: JSON.stringify(input),
   })

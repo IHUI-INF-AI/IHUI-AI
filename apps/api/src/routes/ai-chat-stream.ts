@@ -172,6 +172,10 @@ const chatStreamSchema = z.object({
     )
     .min(1),
   sessionId: z.string().optional(),
+  /** 差距①(2026-10-30 立,发送准入上 wire 网关侧):客户端预生成的输入 ID,
+   *  上游 admission 帧按它原样回显配对。不在此声明会被 zod strip 静默丢弃
+   *  (与 workspaceContext/mode/permissionMode 同型断链)。可选 ⇒ 旧客户端零破坏。 */
+  inputId: z.string().min(1).max(128).optional(),
   model: z.string().optional(),
   modelId: z.string().optional(), // 向后兼容,优先使用 model
   agentId: z.string().optional(),
@@ -371,6 +375,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     finalMessages: ChatMessage[],
     opts: {
       sessionId?: string
+      /** 差距①(2026-10-30 立):客户端预生成的输入 ID,原样透传给上游
+       *  (admission 帧按它回显配对);undefined 时 JSON.stringify 省略不注入。 */
+      inputId?: string
       resolvedModel?: string
       agentId?: string
       materialContent?: string
@@ -666,6 +673,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         body: JSON.stringify({
           messages: finalMessages,
           sessionId: opts.sessionId,
+          // 差距①(2026-10-30 立):inputId 原样透传,上游 admission 帧按它回显配对
+          // (undefined 时 JSON.stringify 自动省略,旧客户端零变化)。
+          inputId: opts.inputId,
           // Steer(2026-09-19 立):流会话 ID 透传,ai-service 以此为键注册 steer 队列
           // (_steer_sessions[session_id],优先于 workspace_context 自生成 id);
           // 工具循环每轮 LLM 调用前 drain 注入。null 时省略不注入(降级流)。
@@ -1005,6 +1015,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       const {
         messages: rawMessages,
         sessionId,
+        // 差距①(2026-10-30 立):inputId —— 不在这里解构就会被静默留在 parsed.data 里
+        // ⇒ 上游收不到而界面看着正常(同 D130/sandboxMode 那一型)。
+        inputId,
         model,
         modelId,
         agentId,
@@ -1194,6 +1207,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         finalMessages,
         {
           sessionId,
+          // 差距①(2026-10-30 立):inputId 经上游请求体同名键透传
+          inputId,
           resolvedModel,
           agentId,
           materialContent,
@@ -1665,6 +1680,105 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(resp.status).send(data)
     } catch (e) {
       request.log.error({ err: e, conversationId, messageId }, 'steer proxy failed')
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // POST /chat/steer/withdraw — 撤回一条尚未注入的 steer 引导(差距③ Phase1 网关侧,2026-10-30 立)
+  // 与 /chat/steer 同闸门语义:凭 replayKey = `${conversationId}:${messageId}` 反查
+  // upstreamSessionId,转发 ai-service `/llm/complete/stream/{session_id}/steer/withdraw`
+  // (body 只带 queuedAt 定位队列条目)。反查不到活动流 ⇒ 404(流不存在/已结束,与 steer 同判);
+  // 上游三态结论 {ok, status:'withdrawn'|'already_injected'|'not_found'} 原样回传,网关不判读。
+  const steerWithdrawSchema = z.object({
+    conversationId: z.string().min(1),
+    messageId: z.string().min(1),
+    /** 队列条目定位键:steer 入队时上游回显的 queuedAt(number=epoch ms / string=ISO,原样转发) */
+    queuedAt: z.union([z.number(), z.string().min(1)]),
+  })
+
+  server.post('/chat/steer/withdraw', async (request, reply) => {
+    const parsed = steerWithdrawSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, messageId, queuedAt } = parsed.data
+    const session = findSession(`${conversationId}:${messageId}`)
+    if (!session || session.finished || !session.upstreamSessionId) {
+      // 与 /chat/steer 同闸门:活动流反查不到 ⇒ 404,不打到上游(条目随流消亡,无处可撤)
+      request.log.info(
+        { conversationId, messageId },
+        '[ChatSteerWithdraw] stream not found or finished',
+      )
+      return reply.status(404).send(error(404, '流不存在或已结束'))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/llm/complete/stream/${session.upstreamSessionId}/steer/withdraw`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: request.headers.authorization ?? '',
+          },
+          body: JSON.stringify({ queuedAt }),
+        },
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      // 三态(withdrawn/already_injected/not_found)与非 2xx 一律原样回传,网关不折叠语义
+      return reply.status(resp.status).send(data)
+    } catch (e) {
+      request.log.error({ err: e, conversationId, messageId }, 'steer withdraw proxy failed')
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // POST /chat/steer/reorder — steer 队列重排(差距③ mutateQueue 网关侧,2026-10-30 立)
+  // 姿势抄 /chat/steer/withdraw:凭 replayKey = `${conversationId}:${messageId}` 反查
+  // upstreamSessionId,转发 ai-service `/llm/complete/stream/{session_id}/steer/reorder`
+  // (body 只带 order = queuedAt 目标序列)。反查不到活动流 ⇒ 404(与 withdraw 同判);
+  // 上游 {ok, queued, orderApplied} 与 422(覆盖不符)一律原样回传,网关不判读 ——
+  // 竞态豁免(已 drain 条目出 order 校验)由上游单点判定。
+  const steerReorderSchema = z.object({
+    conversationId: z.string().min(1),
+    messageId: z.string().min(1),
+    /** 目标顺序:queuedAt 序列(须精确覆盖未消费条目,已 drain 条目由上游豁免) */
+    order: z.array(z.string().min(1)),
+  })
+
+  server.post('/chat/steer/reorder', async (request, reply) => {
+    const parsed = steerReorderSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, messageId, order } = parsed.data
+    const session = findSession(`${conversationId}:${messageId}`)
+    if (!session || session.finished || !session.upstreamSessionId) {
+      // 与 withdraw 同闸门:活动流反查不到 ⇒ 404,不打到上游(队列随流消亡,无处可排)
+      request.log.info(
+        { conversationId, messageId },
+        '[ChatSteerReorder] stream not found or finished',
+      )
+      return reply.status(404).send(error(404, '流不存在或已结束'))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/llm/complete/stream/${session.upstreamSessionId}/steer/reorder`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: request.headers.authorization ?? '',
+          },
+          body: JSON.stringify({ order }),
+        },
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      // 生效结果(orderApplied)与非 2xx 一律原样回传,网关不折叠语义
+      return reply.status(resp.status).send(data)
+    } catch (e) {
+      request.log.error({ err: e, conversationId, messageId }, 'steer reorder proxy failed')
       return reply.status(502).send(error(502, (e as Error).message))
     }
   })

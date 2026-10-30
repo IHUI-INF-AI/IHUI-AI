@@ -21,6 +21,8 @@ export default [
       'packages/*/node_modules/**',
       '**/.turbo/**',
       '**/coverage/**',
+      // 本地 IDE 技能目录(第三方技能包 + 生成物 + vendor 压缩产物),非本仓源码,不 lint
+      '**/.ihui/**',
     ],
   },
   // lint-staged 兜底:注册 web 包使用的插件,使 eslint-disable 注释生效

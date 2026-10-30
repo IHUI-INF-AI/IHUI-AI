@@ -48,6 +48,11 @@ SSE_STEER = "steer"          # 中途引导注入确认(2026-09-19 立,前端 us
                              # {"type":"steer","phase":"injected","text":"用户引导文本",
                              #  "timestamp":"ISO(入队时间)","messageId":"assistant 消息 ID"}
                              # tool loop 每轮 LLM 调用前 drain 注入 messages 时发出
+SSE_ADMISSION = "admission"  # 发送准入回执(差距①,2026-10-30 立,前端 SendAdmissionTracker 消费):
+                             # {"type":"admission","inputId":"回显客户端生成的稳定输入标识",
+                             #  "disposition":"accepted|rejected|duplicate","messageId?","reason?"}
+                             # 形状权威 packages/shared/src/chat/send-admission.ts L40-74(camelCase);
+                             # llm.py gen() 准入判定完成后、首个内容帧之前产出(本期不产 queued)
 SSE_INJECTION_APPLIED = "injection_applied"
                              # 本轮"到底给模型注入了什么"的交代帧(D34,2026-09-22 立,G-40):
                              # {"type":"injection_applied","kind":"environments|agents_md|

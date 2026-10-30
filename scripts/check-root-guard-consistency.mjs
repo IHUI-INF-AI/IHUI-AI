@@ -79,6 +79,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // §0.6 判据单源:哈希口径与 section 区间求法只有 root-guard.mjs 这一份,本文件不重写。
 // (sha256Of / extractSection 只被**自检夹具**用来造封条;判据本体走 hashTarget,见 ST15 形状锁。)
 import {
+  ADVISORY_TARGET_IDS,
   MANIFEST_PATH,
   REQUIRED_TARGET_IDS,
   extractSection,
@@ -155,15 +156,17 @@ export function evaluateTargets({ manifest, readFile, root = ROOT }) {
       })
       continue
     }
+    // advisory(文档面,见 root-guard 的 ADVISORY_TARGET_IDS 头注):不一致只告警,不参与 exit。
+    const mismatchAdvisory = h.sha256 !== t.sha256 && ADVISORY_TARGET_IDS.has(t.id)
     rows.push({
       id: t.id,
       path: t.path,
       mode: t.mode,
-      state: h.sha256 === t.sha256 ? 'pass' : 'fail',
+      state: h.sha256 === t.sha256 ? 'pass' : mismatchAdvisory ? 'warn' : 'fail',
       expected: t.sha256,
       actual: h.sha256,
       bytes: h.bytes,
-      why: '',
+      why: mismatchAdvisory ? 'advisory:文档面高频修订,不一致只告警不 fail-closed' : '',
     })
   }
   // 射程缩水:root-guard 自己声明的必备 id 在清单里没了 ⇒ 那一面从此无人封条(与漏封同罪,判红)。
@@ -242,8 +245,20 @@ export function formatReport(out) {
   const lines = []
   const fails = out.rows.filter((r) => r.state === 'fail')
   const unknowns = out.rows.filter((r) => r.state === 'unknown')
+  const warns = out.rows.filter((r) => r.state === 'warn')
   if (out.exit === EXIT_OK) {
-    lines.push(`✅ ${head} 清单 ${out.rows.length} 条与被审面逐条一致`)
+    lines.push(
+      warns.length
+        ? `✅ ${head} 硬判据目标逐条一致;另 ${warns.length} 项 advisory 未重封(只告警,不卡部署)`
+        : `✅ ${head} 清单 ${out.rows.length} 条与被审面逐条一致`,
+    )
+    for (const r of warns) {
+      lines.push(
+        `   ⚠ ${r.id}  ${r.path} (mode=${r.mode}) 清单=${r.expected.slice(0, SHA_HEAD)} 被审面=${(r.actual ?? '-').slice(0, SHA_HEAD)} —— ${r.why}`,
+      )
+    }
+    if (warns.length)
+      lines.push('   想消掉这条告警:node scripts/root-guard.mjs --seal --reason "<为什么重封>" 并同枚提交。')
   } else if (out.exit === EXIT_BREACH) {
     lines.push(`❌ ${head} 根护栏清单与被审面对不上 ⇒ 部署环将 fail-closed`)
     for (const r of fails) {
@@ -267,7 +282,7 @@ export function formatReport(out) {
     lines.push('   为什么不判绿也不判红:取不到输入按 §0.3 只能是「未判定」(§12e:恒红门的唯一结局是逼人 --no-verify)。')
   }
   lines.push(
-    `[root-guard-consistency] 面=${out.face} 清单条数=${out.rows.length} / 一致=${out.rows.filter((r) => r.state === 'pass').length} / 不等=${fails.length} / 未判定=${unknowns.length} / 必备缺席=${out.missingRequired.length}`,
+    `[root-guard-consistency] 面=${out.face} 清单条数=${out.rows.length} / 一致=${out.rows.filter((r) => r.state === 'pass').length} / advisory=${warns.length} / 不等=${fails.length} / 未判定=${unknowns.length} / 必备缺席=${out.missingRequired.length}`,
   )
   return lines.join('\n')
 }
@@ -426,8 +441,10 @@ export function selfTest() {
     commitTree(root, { 'AGENTS.md': MD_BASE.replace('\nA\nB\n', '\nA\nB 改一字\n') })
     const out = judged(root)
     ok(
-      'ST5 改铁律段**之内**一个字 ⇒ exit 1 且点名 agents-ironlaw',
-      out.exit === 1 && out.rows.some((r) => r.id === 'agents-ironlaw' && r.state === 'fail'),
+      'ST5 改铁律段之内一个字 ⇒ advisory:exit 0 但点名 agents-ironlaw=warn(文档面不卡部署)',
+      out.exit === 0 &&
+        out.rows.some((r) => r.id === 'agents-ironlaw' && r.state === 'warn') &&
+        !out.rows.some((r) => r.state === 'fail'),
       JSON.stringify({ exit: out.exit, rows: out.rows.map((r) => [r.id, r.state]) }),
     )
   }, good)

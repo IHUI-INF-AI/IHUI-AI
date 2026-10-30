@@ -11,7 +11,6 @@ import {
 } from '@ihui/shared/notifications/use-notification-websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useConversationBroadcastSync } from '@/hooks/use-conversation-broadcast-sync'
-import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
 import type {
   WSNotification,
   AIResponseNotification,
@@ -34,7 +33,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const token = useAuthStore((s) => s.token)
   const config = useMemo(
     () => ({
-      baseUrl: resolveWsApiBaseUrl(),
+      baseUrl: typeof window !== 'undefined' ? window.location.origin : '',
       tokenProvider: () => useAuthStore.getState().token,
     }),
     [],

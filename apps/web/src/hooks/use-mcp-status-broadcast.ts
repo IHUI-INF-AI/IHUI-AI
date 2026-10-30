@@ -25,7 +25,6 @@ import { subscribeUserBroadcast, type UserBroadcastConfig } from '@ihui/api-clie
 import type { McpConnectionState, McpStatusEvent } from '@ihui/types'
 
 import { useAuthStore } from '@/stores/auth'
-import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
 
 /** 界面上的一行(一个 server 只有一行) */
 export interface McpStatusEntry {
@@ -133,7 +132,7 @@ export function useMcpStatusBroadcast(): {
     if (!token) return
     if (typeof window === 'undefined') return
     const config: UserBroadcastConfig = {
-      baseUrl: resolveWsApiBaseUrl(),
+      baseUrl: window.location.origin,
       tokenProvider: () => useAuthStore.getState().token,
     }
     const sub = subscribeUserBroadcast(config, {
