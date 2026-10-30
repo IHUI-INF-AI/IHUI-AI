@@ -1561,7 +1561,9 @@ export const getKnowledgePlanetNews = (page = 1) => get('/knowledge-planet/news'
 export const getCoursePlanet = () => get('/course-planet')
 
 /* ============ 多登录方式 ============ */
-export const loginByAlipay = (code: string) => post('/auth/alipay/login', { code })
+// 支付宝小程序登录未建:后端只有 GET /auth/alipay/pc/wxCode(换厂商身份),
+// 没有发本站 accessToken/refreshToken 的出口 ⇒ 原先的 post('/auth/alipay/login') 必然 404,
+// 该调用与它的死导出一起摘掉,登录入口在 utils/miniapp-login.ts 当场说明并降级手机号。
 export const register = (data: unknown) => post('/auth/register', data)
 export const changePassword = (data: unknown) => put('/auth/password', data)
 export const accountCancel = () => del('/auth/account')

@@ -799,6 +799,7 @@ export async function startPreview(options) {
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: process.platform !== 'win32',
+      windowsHide: true,
     });
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');

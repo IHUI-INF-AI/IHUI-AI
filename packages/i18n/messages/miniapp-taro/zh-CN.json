@@ -2399,7 +2399,6 @@
       "deleteParam": "删除",
       "create": "新建",
       "createSuccess": "智能体创建成功",
-      "mockSuccess": "接口暂未开放,已模拟创建",
       "submitting": "创建中…",
       "submit": "创建智能体",
       "fileSizeExceeded": "文件不能超过10MB",
@@ -2435,8 +2434,7 @@
       "discountFull": "全部参与",
       "submitting": "提交中…",
       "submit": "提交审核",
-      "submitSuccess": "提交成功",
-      "mockSuccess": "接口暂未开放,已模拟提交"
+      "mockSuccess": "接口暂未开放,未提交"
     }
   },
   "devSpace": {
@@ -4570,8 +4568,7 @@
     "q3": "运营部",
     "q4": "市场部",
     "q5": "销售部",
-    "q6": "加载智能体",
-    "q7": "提交收费配置"
+    "q6": "加载智能体"
   },
   "modelplaza": {
     "r1": "阿里云",
@@ -4697,6 +4694,7 @@
   "utilsMiniapplogin": {
     "q1": "请在小程序中使用本登录",
     "q2": "登录授权码为空",
+    "alipayUnsupported": "支付宝登录尚未开通,请改用手机号登录",
     "p1": "用户",
     "alipayUser": "支付宝"
   },

@@ -99,7 +99,7 @@ export interface SendEmailResult {
   reasons?: EmailNotSentReason[]
 }
 
-export type EmailCodeScene = 'register' | 'login' | 'reset'
+export type EmailCodeScene = 'register' | 'login' | 'reset' | 'bind'
 
 // nodemailer 的最小类型描摹(避免未安装时类型解析失败)
 interface NodemailerTransporter {
@@ -464,6 +464,7 @@ export async function sendVerificationEmail(
     register: '【智汇AI】注册验证码',
     login: '【智汇AI】登录验证码',
     reset: '【智汇AI】重置密码验证码',
+    bind: '【智汇AI】邮箱绑定验证码',
   }
   return sendEmail({
     to: email,

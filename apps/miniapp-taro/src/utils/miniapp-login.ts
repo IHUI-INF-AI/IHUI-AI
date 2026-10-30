@@ -22,7 +22,7 @@ import {
   isWeapp,
   isAlipay,
 } from '../platform'
-import { loginByWechat, loginByAlipay } from '../api'
+import { loginByWechat } from '../api'
 import { setToken, setRefreshToken, setUserInfo, type UserInfo, type LoginResult } from './auth'
 import { useUserStore } from '../stores/user'
 import { requireLoginSession, type LoginSessionReply } from './login-session'
@@ -62,7 +62,10 @@ export async function miniAppLogin(options: MiniAppLoginOptions = {}): Promise<M
   if (platform === 'weapp') {
     result = await loginByWechat(code)
   } else {
-    result = (await loginByAlipay(code)) as LoginResult
+    // 支付宝这一腿后端只有"换厂商身份"(GET /auth/alipay/pc/wxCode 回 openId/unionId + 厂商令牌),
+    // 没有发本站 accessToken/refreshToken 的出口 ⇒ 原 post('/auth/alipay/login') 必然 404,
+    // 而失败会被 requireLoginSession 念成一句含糊的"登录失败"。当场说清并让调用方降级手机号登录。
+    throw new Error(t('utilsMiniapplogin.alipayUnsupported'))
   }
   // 与 utils/wechat-login.ts 同一把尺子:未绑定 openid 的答复里没有 user,判在任何读取与落盘之前。
   requireLoginSession(result as LoginSessionReply, {

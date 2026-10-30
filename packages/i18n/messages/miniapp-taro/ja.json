@@ -2399,7 +2399,6 @@
       "deleteParam": "削除",
       "create": "新規作成",
       "createSuccess": "エージェントが作成されました",
-      "mockSuccess": "APIは未対応です。モック作成が完了しました",
       "submitting": "作成中…",
       "submit": "エージェント作成",
       "fileSizeExceeded": "ファイルは10MBを超えることはできません",
@@ -2435,8 +2434,7 @@
       "discountFull": "全て参加",
       "submitting": "送信中…",
       "submit": "審査に提出",
-      "submitSuccess": "送信完了",
-      "mockSuccess": "APIは未対応です。モック送信が完了しました"
+      "mockSuccess": "APIは未対応です。送信されませんでした"
     }
   },
   "devSpace": {
@@ -4570,8 +4568,7 @@
     "q3": "運営部",
     "q4": "マーケティング部",
     "q5": "営業部",
-    "q6": "エージェントを読み込み",
-    "q7": "有料設定を送信"
+    "q6": "エージェントを読み込み"
   },
   "modelplaza": {
     "r1": "阿里雲",
@@ -4697,6 +4694,7 @@
   "utilsMiniapplogin": {
     "q1": "ミニプログラム内でログインしてください",
     "q2": "ログイン認証コードが空です",
+    "alipayUnsupported": "Alipay ログインは未対応です。電話番号でログインしてください",
     "p1": "ユーザー",
     "alipayUser": "Alipay"
   },
