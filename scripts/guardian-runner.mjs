@@ -6374,6 +6374,22 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_HEAD_RECALL_STOCK',
   },
   {
+    id: '269',
+    label: '🧭 API 路由唯一性(同一 (method,path) 注册两次只在装配期抛;--staged 判索引 blob,差值棘轮只拦新增)',
+    script: 'check-api-route-uniqueness.mjs',
+    args: [],
+    mode: 'blocking',
+    // 2026-10-31 立(票面自带事故):`/api/coupons/available` 被 06:43 领券中心(`36f6c451f8`)与 15:26 支付链
+    // (`4c51d614ee`)各注册一次 ⇒ IHUI-API-BLUE 19:08/19:53 两轮各等满 120s 未就绪,18:16 之后 API 再没上新代码。
+    // 仓内 `find-route-conflicts.mjs` 早已存在但两条业务分支都 `process.exit(0)`(只报数不判红)且零调度 ⇒
+    // 结构上不成判据。判据单源 = `scripts/lib/api-route-uniqueness.mjs`(复用 `route-registration-extract`
+    // 挂载图,零复算 §0.6/§22c)。定档 = 差值棘轮(锚点 = 基线面自身重复数):现读真实重复 0,只拦新增;
+    // 三档剔除(fallback 前缀是猜的 / dynamic-prefix / 内联别名塌陷)报数不判红 —— 那 6 条塌陷正是票面
+    // 点名的假阳性,不剔除会造成存量 3 红(§12e)。
+    stagedTriggers: ['apps/api/'],
+    skipEnv: 'HUSKY_SKIP_API_ROUTE_UNIQUENESS',
+  },
+  {
     id: '70b',
     label: '🌐 i18n 死 key 扫描(blocking,判定面=索引 blob;2026-10-22 从 pre-commit 移入并行池)',
     script: 'scan-dead-i18n-keys.mjs',
