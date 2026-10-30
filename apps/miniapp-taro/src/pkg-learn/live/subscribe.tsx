@@ -66,7 +66,7 @@ export default function LiveSubscribe() {
   const onUnsubscribe = useCallback(
     async (id: string | number) => {
       try {
-        await del(`/live/${id}/unsubscribe`)
+        await del(`/live/${id}/subscribe`)
         setList((prev) => prev.filter((l) => l.id !== id))
         Taro.showToast({
           title: tt('live.subscribe.unsubscribed', '已取消订阅'),
