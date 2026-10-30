@@ -15,8 +15,11 @@ import {
   getLspDiagnostics,
   getLspHover,
 } from '@ihui/api-client'
+import { applyPredictedEditActions } from '@/lib/predictive-edit-api'
 import { cn } from '@/lib/utils'
 import { useDebugStore } from '@/stores/debug'
+import { EditIntentBar } from './edit-intent-bar'
+import { useEditorEditIntent } from './use-edit-intent'
 
 // 2026-07-31 self-host Monaco Editor(对标 主流 IDE,避免 CDN/CSP/网络问题)
 // 默认从 cdn.jsdelivr.net 加载,GFW/网络/CSP 经常导致 vs/loader.js 加载失败。
@@ -82,6 +85,8 @@ type MonacoEditorInstance = {
       options: {
         isWholeLine?: boolean
         glyphMarginClassName?: string
+        /** 行内高亮类(编辑意图悬停预览装饰用) */
+        className?: string
       }
     }>,
   ): string[]
@@ -137,9 +142,13 @@ type MonacoWordRange = {
 type MonacoModel = {
   getLanguageId(): string
   getLineContent(lineNumber: number): string
+  /** 模型当前全文(编辑意图动作应用前整体校验用) */
+  getValue(): string
   getWordUntilPosition(position: MonacoPosition): MonacoWordRange
   /** 光标位置 → 全文偏移(FIM 全文前缀/后缀切分用) */
   getOffsetAt(position: MonacoPosition): number
+  /** 全文偏移 → 光标位置(编辑意图动作区间落成 Monaco range 用) */
+  getPositionAt(offset: number): MonacoPosition
   /** 模型 uri(definition/references provider 返回同文件跳转目标用) */
   uri: { toString(): string }
 }
@@ -586,6 +595,98 @@ export function CodeEditor({
     [consumePendingReveal],
   )
   React.useImperativeHandle(ref, () => ({ revealAt }), [revealAt])
+
+  // ---- 预测式编辑(编辑意图预测,Trae CUE 对齐,2026-10-31) ----
+  // 触发/展示/终点结算全在 useEditorEditIntent;这里只做两件 Monaco 侧的事:
+  // ① 悬停预览:把 hovered 动作的区间画成高亮装饰(insert 无区间,整行提示);
+  // ② 应用:勾选动作按 start 倒序 executeEdits 一次原子提交(保留撤销栈),
+  //    应用前用 applyPredictedEditActions 做整体校验 —— 任何一条越界/锚点不符
+  //    即整体不动(「不部分应用」与输入区同一判据,判据单源在 lib)。
+  const getCursorOffset = React.useCallback(() => {
+    const e = editorRef.current
+    const model = e?.getModel()
+    if (!e || !model) return 0
+    const selection = e.getSelection()
+    return model.getOffsetAt({
+      lineNumber: selection.endLineNumber,
+      column: selection.endColumn,
+    })
+  }, [])
+  const {
+    prediction: editIntent,
+    predictionVisible: editIntentVisible,
+    dismiss: dismissEditIntent,
+    settleAccepted: settleEditIntentAccepted,
+  } = useEditorEditIntent({
+    text: value,
+    getCursorOffset,
+    language,
+    enabled: !readOnly && typeof onChange === 'function',
+  })
+  const [editIntentPreview, setEditIntentPreview] = React.useState<number | null>(null)
+  const editIntentDecosRef = React.useRef<string[]>([])
+  React.useEffect(() => {
+    const e = editorRef.current
+    if (!e) return
+    const action =
+      editIntentPreview !== null && editIntent ? editIntent.actions[editIntentPreview] : undefined
+    if (!action) {
+      editIntentDecosRef.current = e.deltaDecorations(editIntentDecosRef.current, [])
+      return
+    }
+    const model = e.getModel()
+    if (!model) return
+    const startPos = model.getPositionAt(action.start)
+    const endPos = action.kind === 'insert' ? startPos : model.getPositionAt(action.end)
+    editIntentDecosRef.current = e.deltaDecorations(editIntentDecosRef.current, [
+      {
+        range: {
+          startLineNumber: startPos.lineNumber,
+          startColumn: startPos.column,
+          endLineNumber: endPos.lineNumber,
+          endColumn: endPos.column,
+        },
+        options: {
+          isWholeLine: action.kind === 'insert',
+          className: 'ihui-edit-intent-preview',
+        },
+      },
+    ])
+  }, [editIntentPreview, editIntent])
+  const applySelectedEditIntents = React.useCallback(
+    (indices: number[]) => {
+      if (!editIntent) return
+      const e = editorRef.current
+      const model = e?.getModel()
+      if (!e || !model) return
+      const current = model.getValue()
+      const actions = indices
+        .map((index) => editIntent.actions[index])
+        .filter((a): a is NonNullable<typeof a> => Boolean(a))
+      if (actions.length === 0) return
+      // 整体校验(越界/倒序/重叠/锚点不符 ⇒ 不部分应用),判据单源在 lib。
+      if (applyPredictedEditActions(current, actions) === null) return
+      const ordered = [...actions].sort((a, b) => b.start - a.start)
+      const edits = ordered.map((action) => {
+        const startPos = model.getPositionAt(action.start)
+        const endPos = action.kind === 'insert' ? startPos : model.getPositionAt(action.end)
+        return {
+          range: {
+            startLineNumber: startPos.lineNumber,
+            startColumn: startPos.column,
+            endLineNumber: endPos.lineNumber,
+            endColumn: endPos.column,
+          },
+          text: action.kind === 'delete' ? null : action.text,
+        }
+      })
+      if (!e.executeEdits('ihui-edit-intent', edits)) return
+      settleEditIntentAccepted(editIntent)
+      dismissEditIntent()
+      setEditIntentPreview(null)
+    },
+    [editIntent, settleEditIntentAccepted, dismissEditIntent],
+  )
 
   /** LSP 请求失败(503 lsp-unavailable / 网络 / 超时)静默降级:不弹窗不阻塞,仅控制台一次性提示可改用 codegraph */
   const noteLspUnavailable = React.useCallback(
@@ -1112,6 +1213,14 @@ export function CodeEditor({
           cursorSmoothCaretAnimation: 'on',
         }}
       />
+      {editIntentVisible && editIntent && !readOnly && (
+        <EditIntentBar
+          prediction={editIntent}
+          onApplySelected={applySelectedEditIntents}
+          onDismiss={dismissEditIntent}
+          onPreviewIndexChange={setEditIntentPreview}
+        />
+      )}
       {placeholder && !value && (
         <div className="pointer-events-none absolute left-3 top-2 z-10 text-sm text-muted-foreground/60">
           {placeholder}
