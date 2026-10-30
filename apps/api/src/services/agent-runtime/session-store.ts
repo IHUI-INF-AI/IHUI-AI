@@ -108,14 +108,21 @@ export async function persistSession(session: Session): Promise<void> {
 }
 
 // 内存 miss 时从 DB 恢复;不存在返回 null
-export async function loadSessionFromDb(id: string): Promise<Session | null> {
+/**
+ * 按 id 取一条持久化会话。
+ * `userId` 是**必传**归属谓词(§5「认证不等于授权」):会话是归属型记录,承载层必须把
+ * 令牌主体传进来,存储层不提供"按 id 裸取"这一档 —— 2026-10-31 现读本函数原先只按 id 查,
+ * 于是 /api/agent-runtime/sessions/{id} 与 /execute 任一登录用户可读写他人完整对话。
+ * 不是本人 ⇒ 返回 null(与"不存在"同形,不给 sessionId 枚举线索)。
+ */
+export async function loadSessionFromDb(id: string, userId: string): Promise<Session | null> {
   const db = await getDb()
   if (!db) return null
   try {
     const rows = await db
       .select()
       .from(agentRuntimeSessions)
-      .where(eq(agentRuntimeSessions.id, id))
+      .where(and(eq(agentRuntimeSessions.id, id), eq(agentRuntimeSessions.userId, userId)))
       .limit(1)
     if (rows.length === 0) return null
     return toSession(rows[0]!)
@@ -188,17 +195,19 @@ export interface SessionPage {
   readonly fetchedCount: number | null
 }
 
-/** 列出持久化会话并如实交代截断(恰满也交代,不留盲区)。 */
-export async function listPersistedSessionPage(filter?: {
+/** 列出持久化会话并如实交代截断(恰满也交代,不留盲区)。
+ * `filter.userId` 必传:归属谓词与 id 取数同一纪律,不给"无主全表读"留出口。 */
+export async function listPersistedSessionPage(filter: {
+  userId: string
   status?: SessionStatus
   limit?: number
 }): Promise<SessionPage> {
-  const appliedLimit = appliedSessionListLimit(filter?.limit)
+  const appliedLimit = appliedSessionListLimit(filter.limit)
   const db = await getDb()
   if (!db) return { sessions: [], truncated: false, appliedLimit, fetchedCount: null }
   try {
-    const conds: SQL[] = []
-    if (filter?.status) conds.push(eq(agentRuntimeSessions.status, filter.status))
+    const conds: SQL[] = [eq(agentRuntimeSessions.userId, filter.userId)]
+    if (filter.status) conds.push(eq(agentRuntimeSessions.status, filter.status))
     const query = db.select().from(agentRuntimeSessions)
     const rows = await (conds.length > 0 ? query.where(and(...conds)) : query)
       .orderBy(desc(agentRuntimeSessions.updatedAt))
@@ -220,7 +229,8 @@ export async function listPersistedSessionPage(filter?: {
 // 列出持久化的会话(重启后 GET /sessions 不再返回空列表)。
 // 本函数是 listPersistedSessionPage 的投影,只取 sessions —— 需要知道
 // 「是否还有下一条」的调用方必须走 page 出口,不得在这里再算一遍截断。
-export async function listPersistedSessions(filter?: {
+export async function listPersistedSessions(filter: {
+  userId: string
   status?: SessionStatus
   limit?: number
 }): Promise<Session[]> {
