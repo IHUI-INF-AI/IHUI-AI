@@ -353,7 +353,9 @@ describe('ToolCallCard media rendering (music/video)', () => {
     fireEvent.click(rowOf('video_generation'))
     const video = screen.getByTestId('tool-media-video')
     expect(video).toBeTruthy()
-    expect(video.getAttribute('src')).toBe('https://cdn.example.com/clip.mp4')
+    // 视频源经同源代理(/api/media/stream),由后端转发源站并透传 Range、SSRF 闸门拦截未登记 URL
+    expect(video.getAttribute('src')).toContain('/api/media/stream?url=')
+    expect(video.getAttribute('src')).toContain('clip.mp4')
   })
 
   it('music_generation 无 audioUrl(任务未完成)时回退 JSON 渲染', () => {
@@ -438,11 +440,7 @@ describe('ToolCallCard effect summary (D134 两族结构化摘要)', () => {
 
   it('删除族 delete_file:结构化摘要出现且含目标路径', () => {
     render(
-      <ToolCallCard
-        toolName="delete_file"
-        args={{ path: 'src/legacy/old.js' }}
-        status="success"
-      />,
+      <ToolCallCard toolName="delete_file" args={{ path: 'src/legacy/old.js' }} status="success" />,
     )
     fireEvent.click(rowOf('delete_file'))
     const block = screen.getByTestId('tool-call-delete-summary')
