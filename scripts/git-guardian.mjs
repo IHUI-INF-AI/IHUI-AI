@@ -5576,6 +5576,140 @@ export function auditAasaPublicHealth(opts = {}) {
   }
 }
 
+// ─── App 内更新卡「latest 行」对账(2026-10-30 接线,Y-14;尺子本体 2026-10-29 立) ───
+const APP_VER_TICK = join(WORKTREE, '.ihui-agent', 'state', 'app-version-latest-tick.ts')
+const APP_VER_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'app-version-latest-first.json')
+const APP_VER_LAST = join(WORKTREE, '.ihui-agent', 'state', 'app-version-latest-last.json')
+const APP_VER_INTERVAL_MS = Number(
+  process.env.IHUI_APP_VERSION_LATEST_INTERVAL_MS || 6 * 60 * 60 * 1000,
+)
+const APP_VER_TIMEOUT_MS = Number(process.env.IHUI_APP_VERSION_LATEST_TIMEOUT_MS || 120_000)
+
+/**
+ * App 内更新卡「latest 行」对账的**常驻**派发点(尺子 = `scripts/check-app-version-latest.mjs`)。
+ *
+ * 立因(Y-14,2026-10-30):那把尺子 2026-10-29 造好当天,五处权威点零命中、本守护也不调度 ——
+ * 线上 `GET /api/app-version/latest?platform=android` 回 `{"data":{}}` 这件事没有任何器物在盯。
+ * 用户侧表现是「更新卡没有可点的下载按钮」,监控侧却永远是一条 200;§0.9「造好没装车 = 没有」。
+ *
+ * 按 §12e 它**刻意不进提交链**:判的是公网端点与线上表里的数据,提交者结构上改不了那一格,
+ * 挂上即恒堵门。唯一调度器就是这里;手工入口 = `node scripts/check-app-version-latest.mjs`。
+ *
+ * 三态:fail 发信(正文给**可整改的那一步** —— 登记器物 `register-app-version-latest.mjs`
+ * 已在仓内;它属 OWNER-ONLY:`requireAdmin` 只认人用 JWT,或生产机上走 `--via db`)、
+ * undetermined 只写日志不喊人(§0.3 网络抖动不是缺陷)、pass 清欠账。
+ * 身份按红项条数档折叠(守门 224):具体项名会随整改位移,写死进 dedupKey 就是下一场风暴。
+ */
+export function auditAppVersionLatest(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = APP_VER_INTERVAL_MS,
+    tickFile = APP_VER_TICK,
+    firstFile = APP_VER_FIRST,
+    lastFile = APP_VER_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-app-version-latest.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ App 更新卡对账:尺子脚本不在位(scripts/check-app-version-latest.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: APP_VER_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    // 尺子的 `state` 三态(pass/fail/undetermined)与退出码 0/1/2 同源;读 state 不读退出码,
+    // 因为 exit 1 也可能夹带"有红项 + 有未判定"的混合结论,退出码折不出红几条。
+    if (!parsed || typeof parsed.state !== 'string') {
+      logger(
+        `⚠️ App 更新卡对账未产出结论(未判定,不记为已探测):rc=${call.status} ` +
+          `${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(0, 200)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性,不影响告警本身 */
+    }
+    const red = Array.isArray(parsed.red) ? parsed.red : []
+    if (parsed.state === 'fail') {
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      notify(
+        `App 更新卡取不到安卓包:latest 行对账红 ${red.length} 项`,
+        [
+          '线上 GET /api/app-version/latest?platform=android 的只读对账不达标(逐条来自尺子 JSON 的 red 数组):',
+          ...red.slice(0, 10).map((r) => `· ${r?.id ?? '?'}: ${r?.detail ?? ''}`),
+          '',
+          '可整改的那一步(登记器物已在仓内,幂等,默认 dry-run):',
+          '  node scripts/register-app-version-latest.mjs                      # 先看计划',
+          '  node scripts/register-app-version-latest.mjs --apply --via api --admin-token "<管理员JWT>"',
+          '属 OWNER-ONLY:requireAdmin 只认人用 JWT;或在生产机上走 --via db。不得手改生产库。',
+        ].join('\n'),
+        {
+          severity: 'warning',
+          dedupKey: `verdict=fail;red=${alertCountTier(red.length)};held=${held.tier}`,
+        },
+      )
+      logger(`❌ App 更新卡对账红 ${red.length} 项(已按身份去重发信)`)
+      return { ran: true, judged: true, reds: red.length }
+    }
+    if (parsed.state === 'undetermined') {
+      // 未判定既不续命也不清零(§0.3):取不到输入既不是坏也不是好
+      const un = Array.isArray(parsed.undetermined) ? parsed.undetermined.length : 0
+      logger(`ℹ️ App 更新卡对账:未判定 ${un} 项 —— 不喊人(网络抖动不是缺陷)`)
+      return { ran: true, judged: false, undetermined: un }
+    }
+    clearUndeterminedStreak(firstFile)
+    logger('✅ App 更新卡对账:latest 行在位且下载地址指向自有腿')
+    return { ran: true, judged: true, reds: 0 }
+  } catch (e) {
+    logger(
+      '⚠️ App 更新卡对账派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160),
+    )
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 /** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
@@ -8578,6 +8712,11 @@ function main() {
     // 新 CVE 要等下一个人恰好提交且恰好跑全量档才会被发现,等于没守。
     // red 发信(critical)/ 临期发提醒(warning)/ 未判定只写日志不喊人(§0.3,网络抖动不是缺陷)。
     if (!CHECK_ONLY) auditProdDepAdvisories()
+    // App 内更新卡「latest 行」对账(2026-10-30 接线,Y-14;尺子 = check-app-version-latest.mjs,6h 节流):
+    // 立因 = 尺子造好当天五处权威点零命中,而它守的是「线上 app_versions 有没有 android 的 latest 行」——
+    // 那一格红了用户侧是"更新卡没有可点的按钮",监控侧却是一条 200,提交链上结构上无人能看见。
+    // 判公网与线上数据 ⇒ 不进提交链(§12e),唯一调度器就是这里;红项正文直接给登记器物那一步(OWNER-ONLY)。
+    if (!CHECK_ONLY) auditAppVersionLatest()
     // 逐字回潮巡检(2026-10-29 立,尺子 = scripts/check-verbatim-resurrection.mjs,6h 节流):立因 =
     // 同日的嫁接枚 1fe3a2b42d 把 9 枚已声明删除的路径带回主线,而 168 要 ≥2 个父、旁路落地不跑钩子、
     // 238 只管文档面 —— 这型在提交链上结构上无人能看见,只能由常驻班次在"一切面"上判。
@@ -9693,6 +9832,8 @@ export const __test__ = {
   auditSweeperLiveness,
   auditIndexUnmerged,
   auditLintStagedPins,
+  // App 更新卡 latest 行对账派发腿(2026-10-30 接线,Y-14;镜像测试按名 import,不复制判据 §22c)。
+  auditAppVersionLatest,
   sweepStaleClosedRows,
   sweepBannedBuckets,
   sweepStaleClaimMarks,
