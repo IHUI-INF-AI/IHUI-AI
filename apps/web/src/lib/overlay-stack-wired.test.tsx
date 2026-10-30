@@ -12,6 +12,21 @@
  *    (稳定 overlayId 传给 PortalPanel 统一注册,组件自有 Esc 与 PortalPanel
  *    统一 Esc 共用同一 isTopOverlay 判定)。
  * 解阻判据:三层叠开按一次 Esc 只关最上层,其余层保持打开。
+ *
+ * 判别力凭据(2026-10-30 现跑变异档,证本文件"有牙"而非恒绿 —— 改
+ * `packages/ui-react/src/lib/overlay-stack.ts` 的 `isTopOverlay` 函数体后跑
+ * `cd apps/web && npx vitest run src/lib/overlay-stack.test.ts
+ * src/lib/overlay-stack-three-layer.test.tsx src/lib/overlay-stack-wired.test.tsx`,
+ * 跑完按开工前的磁盘原字节还原并核验 `git hash-object` == HEAD blob):
+ *   · 基线(HEAD 字节)          ⇒ 20 passed / 0 failed
+ *   · 恒真 `return true`(过度放行)⇒ **10 failed / 10 passed**,本文件的
+ *     「三层叠开按一次 Esc 只关最上层,关闭后下层仍响应下一次 Esc」与
+ *     「自绘层 TerminalHistorySearch:…非栈顶不吃 Esc」都在红名单里。
+ *   · 恒假 `return false`(过度拦截)⇒ 17 failed / 3 passed。
+ * 两向都翻红 ⇒ 变异确实经 `@ihui/ui-react` 的 `main: ./src/index.ts` 直达测试图,
+ * 且本文件的断言打在**本仓那一层**(自绘组件自己的 `isTopOverlay` 守卫)而非 Radix 内建。
+ * 这直接否证了 `e2e/esc-overlay-stack.spec.ts` 头部旧注记的"过度放行那一维要咬住必须
+ * 有登录态"——真机维仍未证,但组件维在本文件已咬住(见该文件 2026-10-30 更正)。
  */
 
 import * as React from 'react'
