@@ -8,7 +8,13 @@ import { logger } from '@/utils/logger'
 import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getProfile, logout, type UserInfo } from '@/api'
+import {
+  getNotificationPreferences,
+  getProfile,
+  logout,
+  updateNotificationPreferences,
+  type UserInfo,
+} from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { clearAuth } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -44,11 +50,24 @@ export default function Settings() {
     } catch (e) {
       logger.error('user/settings', '获取用户信息', e)
     }
+    // 通知开关的真值在后端(/notifications/preferences 的 pushEnabled)。
+    // 原先只读本机 storage(messageNotificationEnabled),而全仓没有第二个消费方 ⇒ 界面显示的
+    // 开关状态与服务端实际配置无关。后端取不到时才退回本机缓存,不把"取不到"读成"关闭"。
     try {
-      const saved = Taro.getStorageSync(NOTIFICATION_KEY)
-      setNotifEnabled(saved !== false)
+      const prefs = await getNotificationPreferences()
+      setNotifEnabled(prefs.pushEnabled)
+      try {
+        Taro.setStorageSync(NOTIFICATION_KEY, prefs.pushEnabled)
+      } catch {
+        // 本地缓存写不进不影响真值
+      }
     } catch {
-      // 默认开启
+      try {
+        const saved = Taro.getStorageSync(NOTIFICATION_KEY)
+        setNotifEnabled(saved !== false)
+      } catch {
+        // 默认开启
+      }
     }
   }, [])
 
@@ -61,11 +80,26 @@ export default function Settings() {
 
   async function onNotifChange(e: { detail: { value: boolean } }) {
     const value = e.detail.value
+    const previous = notifEnabled
     setNotifEnabled(value)
     try {
       Taro.setStorageSync(NOTIFICATION_KEY, value)
     } catch {
       // ignore
+    }
+    // 落库失败要回滚并出声:原实现只写本机 storage(全仓无消费方)⇒ 用户以为关了推送,
+    // 服务端照推。真接口是 PUT /notifications/preferences(pushEnabled)。
+    try {
+      await updateNotificationPreferences({ pushEnabled: value })
+    } catch {
+      setNotifEnabled(previous)
+      try {
+        Taro.setStorageSync(NOTIFICATION_KEY, previous)
+      } catch {
+        // 本地缓存写不进不影响真值
+      }
+      Taro.showToast({ title: tt('common.failed', '保存失败,请重试'), icon: 'none' })
+      return
     }
     if (value) {
       try {
