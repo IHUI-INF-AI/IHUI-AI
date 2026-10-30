@@ -1,28 +1,28 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-30T07:45:26.758Z",
+  "sealedAt": "2026-10-30T16:33:20.350Z",
   "sealedBy": "root-guard --seal",
-  "reason": "2026-10-30 生产席:HEAD 已与 origin/main 同版(9acb812),但清单里 agents-ironlaw 仍绑上一版(3ac5ea16),而 HEAD 面 AGENTS 实际是 4eb3bf17 —— 器物差面判读自证为清单与已入库内容对不上,非本地篡改。按 HEAD 面重封并同枚提交,恢复本签出自洽。",
+  "reason": "fea7830303 补门 268 时只改了 guardian-runner(+17)与 judgement-libs(+1)未同批重封清单;按本器差面判读复核为清单漂移(工作树==HEAD 面),非规则越权。重新封存并把清单与规则文件同枚提交",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "84dce084e15a562c8b20914ed9a81639df879fd0fdf117121f9bd8332f9604e6"
+      "sha256": "60595e48fbfc5ff8dc917f049cfa4e58f563aa9cb8468abc74ba52d75a596a03"
     },
     {
       "id": "judgement-libs",
       "path": "scripts/lib/judgement-libs.json",
       "mode": "file",
-      "sha256": "265c3669b514884e1f07fa72a7a0e2b9889ead9b490ff51319f4b1e84b45ae5f"
+      "sha256": "619674c0ebb424165919bedee340ef0229e3d2067e12516ea61e04c3fb478a3c"
     },
     {
       "id": "agents-ironlaw",
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "4eb3bf17d04f940815ec0c4adba52b1d8e66cb49520900aaf33f824058a08d9d"
+      "sha256": "3ac5ea16a9e3e927991eba294c532c5c8bb93c04dc519bf02623baea49180523"
     }
   ]
 }
