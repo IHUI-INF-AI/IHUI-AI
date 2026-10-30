@@ -46,7 +46,17 @@ import { rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
  */
 import { tokens } from '../theme/active-tokens'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Modal, Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type ViewStyle,
+} from 'react-native'
 
 export interface VerifyCodeModalProps {
   visible: boolean
@@ -129,7 +139,14 @@ export function VerifyCodeModal({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={styles.root}>
+      {/* root 换成键盘避让层:本屏的输入是一枚隐藏接收器(1×1、opacity 0),真正给用户看的
+          是上方 6 个码格 —— 没有避让层时键盘弹起正好盖住那 6 格,用户看不见自己打到第几位。
+          Modal 是独立原生窗,避让必须住在它内部才生效,所以改这一层而不是在外侧包。
+          Android 交 adjustResize,与端内其余 KAV 同一写法。 */}
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.center}>
           <View style={styles.card}>
@@ -201,7 +218,7 @@ export function VerifyCodeModal({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }

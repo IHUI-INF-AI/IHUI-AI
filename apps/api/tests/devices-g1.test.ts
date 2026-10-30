@@ -13,7 +13,7 @@
  * 解释执行,行锁语义由 JS 单线程串行天然模拟(两并发 claim 恰一个拿到)。
  * 测试文件豁免 any(mock 类型断言必需,AGENTS.md §3)。
  */
- 
+
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import Fastify, { type FastifyInstance } from 'fastify'
@@ -83,7 +83,7 @@ vi.mock('../src/db/index.js', async () => {
     const parts: string[] = []
     const params: unknown[] = []
     const walk = (c: unknown): void => {
-      if (c == null) return
+      if (c === null || c === undefined) return
       if (Array.isArray(c)) {
         c.forEach(walk)
         return
@@ -141,7 +141,7 @@ vi.mock('../src/db/index.js', async () => {
   function matches(row: any, preds: Array<{ key: string; op: string; value?: unknown }>): boolean {
     return preds.every(({ key, op, value }) => {
       const rv = row[key]
-      if (op === 'is null') return rv == null
+      if (op === 'is null') return rv === null || rv === undefined
       if (op === '=') return String(rv) === String(value)
       if (op === '>') return new Date(rv).getTime() > new Date(value as never).getTime()
       if (op === '<') return new Date(rv).getTime() < new Date(value as never).getTime()

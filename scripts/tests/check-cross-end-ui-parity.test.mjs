@@ -1207,6 +1207,123 @@ test('T32 阳性对照(真仓 HEAD Carousel):参数解构 + 平台宿主 import 
 })
 
 /**
+ * T32b —— 本地定义追一跳(2026-10-31):同文件委托/复用层(`export default function X(){
+ * return <XNew/> }` + `function XNew(){…}`)是正当架构形态,旧判据一概报"间接" ⇒ RN 腿
+ * 整族"没看"(BottomActionBar/UserInfoCard 的实仓成因)。追跳后根是宿主元素 ⇒ 必须判出;
+ * 追跳后的根若仍是**业务 import** 组件 ⇒ 合成文本里的 import 区必须照旧生效,不得把
+ * 代渲染误判成宿主根(否则 T32 的反向用例会在追跳路径上被绕过)。
+ */
+test('T32b 根槽位追跳:同文件本地代渲染必须追到宿主根;追跳后的业务 import 仍判读不出', () => {
+  const tbl = { sm: 4, lg: 8 }
+  // 委托壳 → 本地 XNew → 宿主 View(根档 8 在壳标签上,XNew 根无档)
+  const shell = [
+    "import { View, Text } from 'react-native'",
+    "import { Helper } from './helper'",
+    'export default function Foo(props: { a?: string }) {',
+    '  return <FooNew {...props} />',
+    '}',
+    'function FooNew(props: { a?: string }) {',
+    '  if (!props.a) {',
+    '    return (',
+    '      <View style={s.logged}>',
+    '        <Text>login</Text>',
+    '      </View>',
+    '    )',
+    '  }',
+    '  return (',
+    '    <View style={s.card} className="rounded-lg">',
+    '      <Helper />',
+    '    </View>',
+    '  )',
+    '}',
+  ].join('\n')
+  const jumped = src.rootSlotRadiiOf(shell, tbl, 'Foo')
+  assert.deepEqual(
+    [jumped.anchored, jumped.indirect, jumped.tiers],
+    [true, false, [8]],
+    '同文件本地代渲染必须追一跳到宿主根(仍报间接 ⇒ BottomActionBar/UserInfoCard 型致盲回归)',
+  )
+  // 追跳后的根若来自业务 import(不在本地定义、import 自相对路径)⇒ 仍必须"读不出":
+  // 放宽成"读得出"就会把代渲染组件的内层当根槽位比(G-629 立票的那次投诉原样复发)。
+  const viaImport = [
+    "import { View } from 'react-native'",
+    "import { Proxy } from './proxy'",
+    'export default function Bar() {',
+    '  return <BarNew />',
+    '}',
+    'function BarNew() {',
+    '  return <Proxy className="rounded-lg" />',
+    '}',
+  ].join('\n')
+  const stillIndirect = src.rootSlotRadiiOf(viaImport, tbl, 'Bar')
+  assert.deepEqual(
+    [stillIndirect.anchored, stillIndirect.indirect, stillIndirect.tiers],
+    [true, true, null],
+    '追跳终点的业务 import 组件被当成宿主根 ⇒ 代渲染误判(放宽即 T32 反向用例在追跳路径失守)',
+  )
+  // 防环:两个本地组件互相委托必须在限深处如实"读不出",不得栈溢出也不得误判。
+  const cyclic = [
+    "import { View } from 'react-native'",
+    'export default function C() {',
+    '  return <D />',
+    '}',
+    'function D() {',
+    '  return <C className="rounded-lg" />',
+    '}',
+  ].join('\n')
+  const cycled = src.rootSlotRadiiOf(cyclic, tbl, 'C')
+  assert.equal(cycled.anchored, true, '循环委托仍必须锚得到')
+  assert.equal(cycled.indirect, true, '循环委托必须如实"读不出"(限深防环)')
+})
+
+/**
+ * T32c —— 跨端同源核心构造判定(2026-10-31):两端壳的根都是**同一个共享核心组件**
+ * (import 说明符逐字相同且非相对路径 ⇒ 同一物理文件)⇒ 根档按构造一致,审计层判"同源"
+ * 而不是"未判定"(BackChevron 两端壳都吐 @ihui/shared/ui 的 BackChevronCore 就是这一型)。
+ * 反向:说明符不同(一端包路径一端相对路径)⇒ 不得判同源,仍进未判定。
+ */
+test('T32c 同源核心:两端根=同一共享核心 ⇒ 判 rootAliasSame;说明符不同 ⇒ 仍未判定', () => {
+  const tbl = { lg: 8 }
+  const mkShell = (importSpec) =>
+    [
+      `import { View } from 'react-native'`,
+      `import { FooCore } from '${importSpec}'`,
+      'export default function Shell() {',
+      '  return <FooCore title="x" />',
+      '}',
+    ].join('\n')
+  const pairs = [
+    {
+      name: 'SameCore',
+      miniapp: 'apps/miniapp-taro/src/components/SameCore.tsx',
+      rn: 'apps/mobile-rn/src/components/SameCore.tsx',
+    },
+    {
+      name: 'DiffCore',
+      miniapp: 'apps/miniapp-taro/src/components/DiffCore.tsx',
+      rn: 'apps/mobile-rn/src/components/DiffCore.tsx',
+    },
+  ]
+  const text = {
+    'apps/miniapp-taro/src/components/SameCore.tsx': mkShell('@ihui/shared/ui/foo-core'),
+    'apps/mobile-rn/src/components/SameCore.tsx': mkShell('@ihui/shared/ui/foo-core'),
+    'apps/miniapp-taro/src/components/DiffCore.tsx': mkShell('@ihui/shared/ui/foo-core'),
+    'apps/mobile-rn/src/components/DiffCore.tsx': mkShell('./foo-core-local'),
+  }
+  // rootSlotAudit 的第一参是 **{pairs:[…]}**(collect 的产出形态),不是裸数组。
+  const rs = src.rootSlotAudit({ pairs }, text, tbl)
+  assert.deepEqual(
+    (rs.rootAliasSame ?? []).map((a) => a.name),
+    ['SameCore'],
+    '两端同一共享核心必须判同源(报未判定 ⇒ BackChevron 型永远没看)',
+  )
+  assert.ok(
+    rs.undetermined.some((u) => u.name === 'DiffCore'),
+    '说明符不同的两腿不得判同源(相对路径两端各指各的文件,构造一致性不成立)',
+  )
+})
+
+/**
  * T33 —— 同批登记的读数矛盾(G-629 票面"14 与 20 不在档位表内"):
  * 现读实测 14/20 只出现在**几何维**(text-sm/text-xl 字号折 px),圆角集合两侧都与 14/20 无关;
  * 人读面之所以被误读成"圆角档",是几何段没有维度前缀而 RD 段有。修法是给几何段加 `几何` 前缀

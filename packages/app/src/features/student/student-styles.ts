@@ -12,16 +12,17 @@
  * - rejected rose   → 资源已驳回(status=3)
  * 品牌色(进度条/进行中数值/快捷入口图标底)一律走 tk.brand token,不硬编码。
  */
-import { rnDarkTokens, rnRadius } from '@ihui/design-tokens'
+import { rnDarkTokens, rnHue, rnRadius } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
-/** 状态语义色板(固定语义色,不随主题换档;与 STATUS_PALETTE 同档同源)。 */
+/** 状态语义色板(固定语义色,不随主题换档;与 STATUS_PALETTE 同档同源,
+ *  色相族底/前景唯一真相源 = packages/design-tokens/src/hue-tints.js 的 rnHue 表,2026-10-31 收编)。 */
 export const STUDENT_PALETTE = {
-  pending: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706' },
-  completed: { bg: 'rgba(16,185,129,0.10)', fg: '#059669' },
-  muted: { bg: 'rgba(115,115,115,0.12)', fg: rnDarkTokens.text.tertiary },
-  rejected: { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48' },
+  pending: { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg },
+  completed: { bg: rnHue.emerald.tint, fg: rnHue.emerald.fg },
+  muted: { bg: rnHue.zinc.tintStrong, fg: rnDarkTokens.text.tertiary },
+  rejected: { bg: rnHue.rose.tintStrong, fg: rnHue.rose.fg },
 } as const
 
 export type StudentTone = keyof typeof STUDENT_PALETTE

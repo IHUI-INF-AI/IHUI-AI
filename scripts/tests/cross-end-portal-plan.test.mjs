@@ -329,4 +329,65 @@ test('N5 两族同路由命中 ⇒ 逐条族优先且两视图同源同序', () 
     '逐条族优先(更具体的判定赢)',
   )
 })
+
+test('N6 本批为空但有取代清单 ⇒ 仍须清掉旧判定行(D1 边界)', () => {
+  // 场景:工作树已有 portal X、HEAD 还有 gap X ⇒ 本批产出为空(幂等跳过 X),
+  // 但 X 的旧判定行必须被清掉。若写盘层"本批为空就提前返回",这一轮永远清不掉 ⇒
+  // 台账里 X 永远落两行(旧 gap + portal)。
+  const sets = portalPlan.effectiveWebSets([
+    perRow('X', 'gap'),
+    perRow('X', 'portal'),
+  ])
+  const out = portalPlan.planPortalConverge({
+    mapRows: [perRow('X', 'gap')],
+    portalCarried: new Set(['X']),
+    effectiveAnyWebs: sets.all,
+    effectivePortalWebs: sets.portal,
+    prefixItems: [],
+    enabled: true,
+    today: TODAY,
+  })
+  assert.equal(out.rows.length, 0, '本批为空(幂等跳过)')
+  assert.deepEqual(out.supersede, ['X'], '但取代清单里必须有 X')
+  // 形状锁:写盘层的提前返回条件必须**同时**看本批与取代清单。
+  const src = readFileSync(resolve(import.meta.dirname, '..', 'auto-register-cross-end.mjs'), 'utf8')
+  const i = src.indexOf('function appendMapRows')
+  const body = src.slice(i, i + 1200)
+  assert.doesNotMatch(
+    body,
+    /if \(rows\.length === 0\) return 0/,
+    '提前返回只看本批 ⇒ 本批为空时取代清单被丢弃 ⇒ 旧判定行永远清不掉(D1 边界)',
+  )
+  assert.match(
+    body,
+    /supersedeOnly/,
+    '提前返回条件必须把"只有取代、没有新产出"这一情形也算进来',
+  )
+})
+
+test('N7 档未开启 ⇒ 不读工作树台账、不带他腿未判定理由(D6)', () => {
+  // 「本腿没开启」却报出"工作树台账取不到"这类与门户维无关的理由 ⇒
+  // state=off 的腿带非空 undetermined,读的人以为这一格出过事。
+  const out = portalPlan.planPortalConverge({
+    mapRows: [perRow('a/b', 'gap')],
+    portalCarried: new Set(['a/b']),
+    effectiveAnyWebs: new Set(),
+    effectivePortalWebs: new Set(),
+    prefixItems: [],
+    enabled: false,
+    today: TODAY,
+  })
+  assert.equal(out.rows.length, 0, '档未开启 ⇒ 不产候选')
+  assert.deepEqual(out.undetermined, [], '档未开启 ⇒ 不带未判定理由')
+  assert.deepEqual(out.supersede, [], '档未开启 ⇒ 不带取代清单(否则会误删在册行)')
+  // 形状锁:调用侧读工作树台账的那段必须在 convergePortal 闸内。
+  const src = readFileSync(resolve(import.meta.dirname, '..', 'auto-register-cross-end.mjs'), 'utf8')
+  const i = src.indexOf('const workMapRows = (() => {')
+  const body = src.slice(i, i + 400)
+  assert.match(
+    body,
+    /if \(!convergePortal\) return \[\]/,
+    '档未开启时不得读工作树台账(否则会带出他腿的未判定理由)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -2786,7 +2786,7 @@ function matchParenAt(text, open) {
  * @param {Record<string, number>|null} table `radiusLookup` 的档位表
  * @returns {{anchored:boolean, indirect:boolean, tiers:number[]|null}}
  */
-export function rootSlotRadiiOf(src, table, name = null) {
+export function rootSlotRadiiOf(src, table, name = null, hop = 0, ancestors = null) {
   // 注释遮罩必须**等长**(pad):下面的取材按同一套下标 slice 原文,删注释会让下标左移。
   const mat = stripComments(String(src ?? ''), true)
   const code = maskStringsForDepth(mat)
@@ -2804,7 +2804,7 @@ export function rootSlotRadiiOf(src, table, name = null) {
     const m = named.exec(code)
     if (m) defAt = m.index
   }
-  if (defAt < 0) return { anchored: false, indirect: false, tiers: null }
+  if (defAt < 0) return { anchored: false, indirect: false, tiers: null, rootTag: null, rootImportSrc: null }
   /**
    * `export default` 后面是什么,决定这一维**有没有得看**:
    *  - 具名/匿名函数、类、箭头函数 ⇒ 组件体在本文内,根槽位可判;
@@ -2922,12 +2922,36 @@ export function rootSlotRadiiOf(src, table, name = null) {
   if (!tagName) return { anchored: true, indirect: true, tiers: null }
   /**
    * 根元素是**本地定义的组件**(`function Foo(){…}` 且顶层 return 吐 `<Foo />`,或 `const Foo=…`)
-   * ⇒ 真正渲染出来的那个盒在它的定义里,本文的根槽位对它零判据。
-   * 宿主元素(`View` / `div` / `Text` / `Image` …)不在本地声明表里 ⇒ 就是根槽位本身。
+   * ⇒ 真正渲染出来的那个盒在它的定义里。本地定义**追一跳**(2026-10-31,G-629 后续):同文件
+   * 的委托/复用层(`export default function X(){ return <XNew/> }` + `function XNew(){…}`)与
+   * 多模式分派(`return <SimpleButtonBar/>`)是本仓正当架构形态,旧判据在这里一概报"间接",
+   * 于是 BottomActionBar/UserInfoCard 等 RN 腿整族"没看"。合成文本 = 原 import 区 + `export default `
+   * + 从定义起的切片,递归自调(hop 限深防环);追到的根若仍是业务 import 组件 ⇒ 合成文本里
+   * 的 import 区照旧生效,不会把代渲染误判成宿主根。追不动(无定义/HOC 包裹/超深)才如实报
+   * indirect,绝不退化成"根上没有档"。
    */
-  if (isLocallyDeclaredComponent(code, tagName, src))
-    return { anchored: true, indirect: true, tiers: null }
-  if (!table) return { anchored: true, indirect: false, tiers: null }
+  // ancestors = 追跳链上已见过的本地组件名(含锚名)。切片合成文本丢掉了祖先定义,
+  // 链上名字若不补判,循环委托(C↔D)会把对侧误判成宿主根(2026-10-31 T32b 反例)。
+  const known = new Set([...(ancestors ?? []), ...(name ? [name] : [])])
+  if (isLocallyDeclaredComponent(code, tagName, src) || known.has(tagName)) {
+    if (hop >= 2) return { anchored: true, indirect: true, tiers: null, rootTag: tagName, rootImportSrc: importSourceOf(src, tagName) }
+    const dm = new RegExp(
+      `\\b(?:export\\s+)?(?:async\\s+)?function\\s+${tagName}\\b|\\b(?:export\\s+)?const\\s+${tagName}\\s*=`,
+    ).exec(code)
+    if (!dm) return { anchored: true, indirect: true, tiers: null, rootTag: tagName, rootImportSrc: importSourceOf(src, tagName) }
+    // **matchAll** 不是 match:`.match(/g/)` 返回字符串数组,m[0]/m[2] 会退化成**字符索引**
+    // (实测 import 区被拼成 "i\ni"),必须用 matchAll 拿捕获组。
+    const importBlock = [...stripComments(String(src ?? '')).matchAll(IMPORT_STMT_RE)]
+      .filter((m) => !/^[.]/.test(m[2]) || m[2].includes('/'))
+      .map((m) => m[0])
+      .join('\n')
+    // 切片必须取 **mat**(字符串完整、注释遮空格且与 code 等长下标):dm.index 是遮罩面下标,
+    // 而取材走原文 —— 用遮罩后的 code 切片会把定义里的 className="rounded-*" 抹成空格,取材失明。
+    const synthetic = `${importBlock}\nexport default ${mat.slice(dm.index).replace(/^\s*export\s+/, '')}`
+    return rootSlotRadiiOf(synthetic, table, tagName, hop + 1, [...known])
+  }
+  const rootImportSrc = importSourceOf(src, tagName)
+  if (!table) return { anchored: true, indirect: false, tiers: null, rootTag: tagName, rootImportSrc }
   /**
    * 取材走**未遮字符串的原文**(`mat`:字符串完整、注释遮成空格且与 `code` 等长下标):圆角档就写在
    * `className="rounded-lg"` 的**引号内**,用遮罩后的文本读会把它抹成空格(判据失明);而用删除式
@@ -2940,6 +2964,8 @@ export function rootSlotRadiiOf(src, table, name = null) {
     anchored: true,
     indirect: false,
     tiers: [...new Set(pxs.filter((p) => Number.isFinite(p) && p > 0))].sort((a, b) => a - b),
+    rootTag: tagName,
+    rootImportSrc: importSourceOf(src, tagName),
   }
 }
 
@@ -3000,6 +3026,19 @@ function isLocallyDeclaredComponent(code, tagName, raw) {
 }
 
 /**
+ * 根 tagName 的 import 来源说明符(找不到 ⇒ null)。与 isLocallyDeclaredComponent 的
+ * import 分支同一套"整词命中"纪律:`View` 不得被 `ViewGroup` 骗过。用途有二:
+ * ① 追跳后把"根由谁代渲染"带回读数(rootTag/rootImportSrc);② 消费层判"两端根是同一个
+ * 跨端共享核心"(import 说明符逐字相同且非相对路径 ⇒ 同一物理文件 ⇒ 根档按构造一致)。
+ */
+function importSourceOf(raw, tagName) {
+  const bound = new RegExp(`(?:^|[\\s,{])${tagName}(?![\\w$])`)
+  for (const m of stripComments(String(raw ?? '')).matchAll(IMPORT_STMT_RE))
+    if (bound.test(m[1])) return m[2]
+  return null
+}
+
+/**
  * RS 逐对比对:两端**根槽位**上的圆角档是否逐字相同。
  *
  * 三态与 `rootSlotRadiiOf` 一一对应,**在配对层就要分开** ——
@@ -3011,6 +3050,7 @@ function isLocallyDeclaredComponent(code, tagName, raw) {
 export function rootSlotAudit(pairs, text, table, styles = {}) {
   const findings = []
   const undetermined = []
+  const aliasCore = []
   /**
    * 锚名两次尝试:先按**族名**，再按**该文件自己的组件名**(文件 stem)。
    * 为什么必须有第二次:ALIAS 跨名配对的成立前提就是"两端文件名不同"(CategoryBar.tsx ↔ CategoryInlineBar.tsx)，
@@ -3040,6 +3080,21 @@ export function rootSlotAudit(pairs, text, table, styles = {}) {
       })
       continue
     }
+    // 两腿都间接、但根是**同一个跨端共享核心**(import 说明符逐字相同且非相对路径 ⇒ 同一物理
+    // 文件)⇒ 根档按构造一致(同 mirror-fidelity 的 hosted 分桶先例:构造一致性不靠逐腿重读)。
+    // BackChevron 两端壳都吐 packages/shared/src/ui/back-chevron-core 就是这一型。
+    if (
+      ra.indirect &&
+      rb.indirect &&
+      ra.rootTag &&
+      ra.rootTag === rb.rootTag &&
+      ra.rootImportSrc &&
+      ra.rootImportSrc === rb.rootImportSrc &&
+      !ra.rootImportSrc.startsWith('.')
+    ) {
+      aliasCore.push({ name: p.name, tag: ra.rootTag, via: ra.rootImportSrc })
+      continue
+    }
     if (ra.tiers === null || rb.tiers === null) {
       undetermined.push({
         name: p.name,
@@ -3052,7 +3107,7 @@ export function rootSlotAudit(pairs, text, table, styles = {}) {
     if (String(ra.tiers) === String(rb.tiers)) continue
     findings.push({ name: p.name, miniapp: ra.tiers, rn: rb.tiers })
   }
-  return { findings, undetermined }
+  return { findings, undetermined, rootAliasSame: aliasCore }
 }
 
 /**
@@ -4092,6 +4147,7 @@ export function main(argv, repoRoot = ROOT) {
         rootSlot: {
           findings: rs.findings,
           undetermined: rs.undetermined,
+          rootAliasSame: rs.rootAliasSame ?? [],
           red: rsRed.map((x) => x.name),
         },
         /**
@@ -4621,6 +4677,16 @@ export function main(argv, repoRoot = ROOT) {
     for (const u of rs.undetermined.slice(0, 6)) console.log(`     · ${u.name} —— ${u.why}`)
     if (rs.undetermined.length > 6)
       console.log(`     · 其余 ${rs.undetermined.length - 6} 条同上(不静默省略计数)`)
+  }
+  // 同源核心判定不得静默:判为"两端同一共享文件的同一根"的每一族都点名(构造一致,可复核)。
+  if ((rs.rootAliasSame ?? []).length && !argv.includes('--json')) {
+    console.log(
+      `  ✓ RS 同源核心 ${(rs.rootAliasSame ?? []).length} 族 —— 两端根是同一共享文件的同一组件,根档按构造一致:`,
+    )
+    for (const a of (rs.rootAliasSame ?? []).slice(0, 6))
+      console.log(`     · ${a.name} ← ${a.tag}(${a.via})`)
+    if ((rs.rootAliasSame ?? []).length > 6)
+      console.log(`     · 其余 ${(rs.rootAliasSame ?? []).length - 6} 条同上`)
   }
   /*
    * ── PAIR 拆对声明对账 ───────────────────────────────────────────
