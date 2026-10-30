@@ -145,6 +145,12 @@ export type {
   SteerEvent,
   InjectionAppliedEvent,
   RetryScheduledEvent,
+  // 差距①(2026-10-30 立):发送受理回执(admission 帧)的收据类型与 disposition 封闭集。
+  // 显式命名清单纪律同上 D106:onSendAdmissionReceipt 回调的入参类型必须能从入口点到。
+  // 形状真相源在 @ihui/shared/chat/send-admission,本包为零运行时依赖做同形镜像
+  // (client.ts 镜像处注明),漂移由 stream-chat-admission 测试与 shared 对账拦截。
+  SendAdmissionReceipt,
+  AdmissionDisposition,
   // D130(2026-09-30 立,F1 补刀 2026-09-29):推理强度档位被后端钉回时的回落通知类型。
   // 本包入口是**显式命名清单**,漏一条端内拿到 undefined —— 而 `apps/web/next.config.ts` 的
   // `typescript.ignoreBuildErrors: true` 吞掉 TS2724、打包器按 `exports → dist/index.js` 解析,

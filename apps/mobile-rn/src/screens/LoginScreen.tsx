@@ -42,7 +42,12 @@ import {
 } from '@ihui/api-client'
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { apiFailureToText } from '@ihui/shared/utils'
-import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
+import {
+  LoginScreen as SharedLoginScreen,
+  getTokens,
+  useWrapFocus,
+  type NationOption,
+} from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
 import {
   OAUTH_BRAND_COLORS,
@@ -398,6 +403,8 @@ export function LoginScreen() {
   const [pending2faVisible, setPending2faVisible] = useState(false)
   const [twoFactorCode, setTwoFactorCode] = useState('')
   const [twoFactorErr, setTwoFactorErr] = useState('')
+  // 2FA 输入框的聚焦描边走容器级唯一实现(墨档,亮纯黑/暗纯白),不自挑色值
+  const ff2fa = useWrapFocus(tokens)
   const pending2faResolve = useRef<((code: string) => void) | null>(null)
   const request2faCode = useCallback(
     (_challengeToken: string) =>
@@ -1324,7 +1331,7 @@ export function LoginScreen() {
             <View style={styles.agreementModalBody}>
               <Text style={styles.agreementModalText}>{t('auth.twoFactorHint')}</Text>
               <TextInput
-                style={styles.twoFactorInput}
+                style={[styles.twoFactorInput, ff2fa.focusBorder]}
                 value={twoFactorCode}
                 onChangeText={(v) => {
                   setTwoFactorCode(v)
@@ -1338,6 +1345,8 @@ export function LoginScreen() {
                 maxLength={12}
                 returnKeyType="done"
                 onSubmitEditing={submit2fa}
+                onFocus={ff2fa.onFocus}
+                onBlur={ff2fa.onBlur}
               />
               {twoFactorErr ? <Text style={styles.twoFactorErr}>{twoFactorErr}</Text> : null}
             </View>

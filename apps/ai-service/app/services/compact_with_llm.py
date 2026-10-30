@@ -55,6 +55,22 @@ from .decision_chain import extract_head_messages
 
 logger = logging.getLogger(__name__)
 
+
+class CompactCancelledError(RuntimeError):
+    """G-815970(2026-10-31):取消通道命中时压缩主动放弃摘要调用的信号。
+
+    上游形状(codex `core/src/runtime/methods/turn-loop.ts`)是 **signal 当参数传进压缩
+    内部**,而不是"压缩跑完之后再检查一次":调用方把取消判定作为 `cancel_check` 传入,
+    `_summarize_head` 在**发起 LLM 调用之前**问一次 ⇒ 取消后不再花一整次摘要调用,
+    摘要异常时也不再发起"当前模型重试轮"。
+
+    仅在 `cancel_check` 被显式传入且返回真值时才抛出;默认(`cancel_check=None`)
+    永不抛出 ⇒ 既有调用方行为逐零差异。宿主故障标记判据
+    (:func:`should_retry_compact_with_current_model`)按类型短路认它为不可重试,
+    行内文本标记 "cancelled" 亦命中兜底,双保险不会把取消读成"值得再烧一次"。
+    """
+
+
 # 摘要消息识别桥(2026-09-19 第三十七批接线,对标 Codex is_summary_message):
 # ① 本仓历史摘要消息以 SUMMARY_MARKER("[上下文摘要")开头(context_compaction 体系);
 # ② Codex 语义摘要以 SUMMARY_PREFIX + "\n" 开头(local_compact 规范源)。
@@ -164,6 +180,7 @@ async def _summarize_head(
     llm_complete_fn: Callable[..., Any],
     compact_instruction: str,
     summary_budget_tokens: int,
+    cancel_check: Callable[[], bool] | None = None,
 ) -> str:
     """调用 LLM 把 head 段压缩为语义摘要正文。
 
@@ -172,7 +189,16 @@ async def _summarize_head(
     失败(异常/空/超预算截断后为空)一律返回空串,由调用方降级为规则压缩。
     防嵌套(2026-09-19 第三十七批接线,判定=is_compaction_summary):head 段中
     已是压缩摘要的消息不重复送入 LLM(其正文已收敛,重复送入浪费预算且污染交接)。
+
+    G-815970(2026-10-31):`cancel_check` 为调用方注入的取消通道(可选,**默认 None
+    ⇒ 零行为变化**)。判定时机在**发起 LLM 调用之前**:命中即抛
+    :class:`CompactCancelledError`,绝不把这一次摘要调用发出去——用户按停止后
+    系统不该再花一整次模型调用才回头处理取消。
     """
+    if cancel_check is not None and cancel_check():
+        raise CompactCancelledError(
+            "取消信号在摘要 LLM 调用发起前命中(compact_with_llm)"
+        )
     filtered_head = [
         m for m in head if not is_compaction_summary(_message_plain_text(m))
     ]
@@ -212,6 +238,7 @@ async def compact_with_llm(
         compact_instruction: str = DEFAULT_COMPACT_INSTRUCTION,
         prepend_codex_prefix: bool = False,
         fallback_reason: str = "context_limit",
+        cancel_check: Callable[[], bool] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """上下文超阈值时自动调 LLM 生成语义摘要再压缩。
 
@@ -231,6 +258,14 @@ async def compact_with_llm(
             CompactionReason 词表:user_requested | context_limit |
             model_downshift | comp_hash_changed);默认 context_limit(本函数
             的默认触发源即上下文超限)。仅在摘要异常且触发重试时透出。
+        cancel_check: 取消通道(G-815970,2026-10-31 立)——调用方提供的零参判定,
+            返回真值表示本回合已被取消/暂停。**默认 None ⇒ 与接入前逐零差异**
+            (一次都不问,永不抛 CompactCancelledError)。传入后有两处判定时机:
+            ① 每次摘要 LLM 调用**发起前**(含重试轮),命中即抛
+            :class:`CompactCancelledError`,绝不发这一次请求;
+            ② 摘要异常后、决定是否"用当前模型重试"之前,命中则直接抛出,
+            **不发起重试轮**。抛出即中断本函数(不降级跑规则压缩),
+            由上层(agent_loop_v2._maybe_compact_context)转成循环内中断信号。
 
     Returns:
         (compressed_messages, info),与 compress_messages_if_needed 契约一致:

@@ -69,6 +69,7 @@ import {
   addMcpServer,
   removeMcpServer,
   getMcpConfigPath,
+  listMcpConfigSources,
 } from './commands/mcp-config.js';
 import { registerCapabilitiesCommand } from './commands/capabilities.js';
 import { registerLoginCommand } from './commands/login.js';
@@ -752,7 +753,16 @@ mcpCmd
     const config = loadMcpConfig();
     if (config.servers.length > 0) {
       console.info(chalk.cyan(t('cliEntry.mcpLocalHeader')));
-      console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: getMcpConfigPath() })));
+      // 显示实际参与合并的源(高→低),而不是只报家目录那一个——
+      // 多源扫描下"配置文件: ~/.ihui/mcp.json"会误导子目录里的用户。
+      const sources = listMcpConfigSources();
+      if (sources.length > 0) {
+        for (const p of sources) {
+          console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: p })));
+        }
+      } else {
+        console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: getMcpConfigPath() })));
+      }
       for (const s of config.servers) {
         const transport = s.transport ?? 'stdio';
         if (transport === 'stdio') {

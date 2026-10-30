@@ -35,7 +35,6 @@ import { toast } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
 import { PERMISSION_MODE_WIRE_VALUES } from '@ihui/types'
 import { collabStatusLabelKey, collabTierLabelKey, type CollabTierWire } from './collab-parts'
-import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
 
 export interface CollabManagePanelProps {
   conversationId: string
@@ -81,7 +80,7 @@ export function CollabManagePanel({ conversationId }: CollabManagePanelProps) {
   React.useEffect(() => {
     if (!open || typeof window === 'undefined') return
     const config: UserBroadcastConfig = {
-      baseUrl: resolveWsApiBaseUrl(),
+      baseUrl: window.location.origin,
       tokenProvider: () => useAuthStore.getState().token,
     }
     const sub = subscribeUserBroadcast(config, {

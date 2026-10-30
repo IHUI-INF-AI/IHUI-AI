@@ -11,6 +11,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { tryParseJson, isRecord } from '../util/json.js';
+import { findRepoRoot } from '../skills/index.js';
 
 export type MCPTransport = 'stdio' | 'http' | 'sse';
 
@@ -38,11 +39,25 @@ export interface McpOAuthConfig {
   scope: string[];
 }
 
+export type McpStdioFraming = 'ndjson' | 'content-length';
+
 export interface McpServer {
   name: string;
   command?: string;
   args?: string[];
   env?: Record<string, string>;
+  /**
+   * stdio 帧格式。缺省 `ndjson`（本仓原有服务器）。
+   * 官方 MCP stdio（含 REA）用 `content-length`。
+   */
+  framing?: McpStdioFraming;
+  /**
+   * 单次 RPC(tools/call 等)的超时毫秒数,缺省 10_000。
+   * 重计算型 server(如 REA 的 Ghidra 反编译)需要放宽。
+   */
+  requestTimeoutMs?: number;
+  /** 仅运行时：相对 command/args 相对这个目录解析。不写入 mcp.json。 */
+  cwd?: string;
   transport?: MCPTransport;
   url?: string;
   headers?: Record<string, string>;
@@ -132,11 +147,22 @@ export function validateMcpConfig(config: unknown): McpValidationResult {
         err('env 必须是字符串键值 map');
         continue;
       }
+      if (s.framing !== undefined && s.framing !== 'ndjson' && s.framing !== 'content-length') {
+        err("framing 只能是 'ndjson' 或 'content-length'");
+        continue;
+      }
     } else {
       if (typeof s.url !== 'string' || !s.url.trim()) {
         err(`transport='${transport}' 要求非空 url`);
         continue;
       }
+    }
+    if (
+      s.requestTimeoutMs !== undefined &&
+      (!Number.isSafeInteger(s.requestTimeoutMs) || s.requestTimeoutMs <= 0)
+    ) {
+      err('requestTimeoutMs 必须是正整数毫秒');
+      continue;
     }
     if (s.auth?.type === 'oauth') {
       const o = s.oauth;
@@ -157,15 +183,29 @@ export function validateMcpConfig(config: unknown): McpValidationResult {
   return result;
 }
 
-/** 多源扫描目录(高→低):workspace 三级 → home 三级 */
+/** 多源扫描目录(每个根源下的高→低顺序):.ihui → .claude → .cursor */
 const MCP_SOURCE_DIRS = ['.ihui', '.claude', '.cursor'];
 
+/**
+ * 扫描根源(高→低):cwd → 仓库根(从 cwd 向上找 .git,与 skills 加载器同源)→ home。
+ * 仓库代理运行时传的是 workspacePath(仓库根),而 `ihui mcp list` 等在任意子目录执行时
+ * cwd 是子目录;不向上找仓库根的话,项目级 <repo-root>/.ihui/mcp.json 在子目录静默不可见。
+ * 根源去重:cwd 即仓库根(或 home)时只扫一层,避免同一文件重复合并。
+ */
 function listMcpConfigPaths(cwd: string): string[] {
-  const home = os.homedir();
+  const resolvedCwd = path.resolve(cwd);
+  const roots = [resolvedCwd, findRepoRoot(resolvedCwd), path.resolve(os.homedir())];
+  const uniqueRoots = roots.filter((r, i) => roots.indexOf(r) === i);
   const paths: string[] = [];
-  for (const d of MCP_SOURCE_DIRS) paths.push(path.join(cwd, d, 'mcp.json'));
-  for (const d of MCP_SOURCE_DIRS) paths.push(path.join(home, d, 'mcp.json'));
+  for (const root of uniqueRoots) {
+    for (const d of MCP_SOURCE_DIRS) paths.push(path.join(root, d, 'mcp.json'));
+  }
   return paths;
+}
+
+/** 实际存在、会参与本次合并的 mcp.json 源文件清单(优先级 高→低)。 */
+export function listMcpConfigSources(cwd: string = process.cwd()): string[] {
+  return listMcpConfigPaths(cwd).filter((p) => fs.existsSync(p));
 }
 
 /**
@@ -185,12 +225,12 @@ export function getMcpConfigPath(): string {
 
 /**
  * 多源加载 mcp.json,按优先级深合并(高优先级覆盖低优先级同名 server)。
- * 扫描顺序(高→低):<cwd>/.{ihui,claude,cursor} → ~/.{ihui,claude,cursor}。
+ * 扫描顺序(高→低):<cwd>/.{ihui,claude,cursor} → <repo-root>/.{ihui,claude,cursor} → ~/.{ihui,claude,cursor}。
  * 每个文件先经 normalizeMcpInput 归一化,兼容 IHUI 原生 {servers:[]} 与
  * Claude/Cursor 外部 {mcpServers:{}} 两种格式。
  */
-export function loadMcpConfig(): McpConfig {
-  const paths = listMcpConfigPaths(process.cwd());
+export function loadMcpConfig(cwd: string = process.cwd()): McpConfig {
+  const paths = listMcpConfigPaths(cwd);
   let acc: McpConfig = { servers: [] };
   for (const p of [...paths].reverse()) {
     if (!fs.existsSync(p)) continue;

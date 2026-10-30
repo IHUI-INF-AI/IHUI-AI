@@ -22,7 +22,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import dynamic from 'next/dynamic'
 
-import { getConversation, getMessages } from '@ihui/api-client'
+import { getConversation, getConversationHistory, getMessages } from '@ihui/api-client'
 import { toast } from '@/components/common'
 import { ImportProvenanceSlot } from '@/components/ai/import-source-banner'
 import { MessageInput } from '@/components/chat/message-input'
@@ -36,6 +36,18 @@ import { noteRuntimeCapabilities } from '@/hooks/use-chat/runtime-capabilities'
 import { useApplyDiff } from '@/hooks/use-apply-diff'
 import { judgePageAdvance } from '@/lib/pagination-stall'
 import { parsePendingQuestion } from '@/lib/pending-question'
+// 差距⑤补全(2026-10-30 立):回合深链盖号(与根窗格 ai-side-panel 同一把尺)
+// 差距⑤遗留边界2:窗格化深链消费面(peek 按窗格归属命中 / around 锚点 / 版本号订阅)
+import {
+  consumeTurnDeepLink,
+  getTurnDeepLinkVersionForPane,
+  markPageTurnOrdinals,
+  peekTurnDeepLink,
+  pickTurnAnchorMessageId,
+  stampCompletePageTurnOrdinals,
+  subscribeTurnDeepLink,
+} from '@/lib/turn-deeplink'
+import { getProgressJumpStoreForPane } from '@/stores/progress-jump-store'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { usePaneModeStore } from '@/stores/mode'
 import type { ImportProvenance } from '@ihui/shared/import-analysis'
@@ -124,44 +136,22 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
   // P1-6 续接(片3,2026-10-21):与根主体共用同一份编排出口 useResumeBranch ——
   // 捕获/结算后续接/中止三条时序只在一处实现(§0.6),本窗格只负责在历史 effect 里挂三个点。
   const resume = useResumeBranch(chatStore, paneId, t)
+  // 差距⑤遗留边界1+2(2026-10-30):订阅"归属本窗格"的深链目标版本号 —— ?turn= 变化
+  // (含同会话换 turn 重锚)即进下方历史 effect 依赖重跑;归属别窗格/根窗格的目标
+  // 不动本快照(恒 0),本窗格不为无关目标空重放。与根主体 ai-side-panel 同一形态。
+  const turnDeepLinkVersion = React.useSyncExternalStore(
+    subscribeTurnDeepLink,
+    () => getTurnDeepLinkVersionForPane(paneId),
+    () => getTurnDeepLinkVersionForPane(paneId),
+  )
 
   React.useEffect(() => {
     const seq = ++requestSeqRef.current
     let cancelled = false
-    const prevConversationId = chatStore.getState().conversationId
-    const switching = prevConversationId !== conversationId
-    // 命中本窗格缓存 ⇒ 同步恢复(不闪空列表、不进 loadingHistory),后台仍复核最新页;
-    // 未命中才清空 —— 切到另一条会话时避免把上一窗格内容当成新会话的基线,
-    // 同一会话重挂载则保留(可能是流式中途的本地消息),下面的守卫会防止覆盖。
-    const cached = readCache(conversationId)
-    const restoredMessages = cached
-      ? cached.messages
-      : switching
-        ? []
-        : chatStore.getState().messages
-    chatStore.setState(
-      switching
-        ? { conversationId, messages: restoredMessages, error: null, isStreaming: false }
-        : { conversationId, messages: restoredMessages, error: null },
-    )
-    setImportProvenance(null)
-    resetPager(cached ? cached.oldestCursor : null, cached ? cached.hasMore : false)
-    setLoadingHistory(cached === null)
-    // G-935 缺口B:窗格 store 的 recentMessages(半截流快照)先回填,再捕获续接候选。
-    // 根主体同口径(ai-side-panel.tsx:803-814);缓存命中不覆盖(内存 LRU 更新)。
-    const currentStore = chatStore.getState()
-    const recent = currentStore.recentMessages
-    if (recent && shouldPrefillRecentMessages(currentStore, conversationId, cached !== null)) {
-      chatStore.setState({
-        messages: recent.messages,
-        error: null,
-      })
-    }
-    const localBefore = chatStore.getState().messages
-    // 续接候选在远端快照覆盖 messages 之前捕获(未落库的本地助手消息不在快照里)
-    resume.capture(conversationId)
 
-    void (async () => {
+    // 最新页拉取(常规路径的异步半程;around 降级支与常规支共用一份实现,§0.6)
+    const runLatestFetch = async (): Promise<void> => {
+      const localBefore = chatStore.getState().messages
       try {
         const [convRes, msgRes] = await Promise.all([
           getConversation(conversationId),
@@ -169,16 +159,21 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
         ])
         if (cancelled || seq !== requestSeqRef.current) return
         if (!convRes.success || !msgRes.success) return
-        const hydrated = hydrateHistoryMessages(msgRes.data.messages)
-        // 拉取期间窗格内已有本地写入(流式首帧/新消息)时不覆盖。
+        // 差距⑤补全:最新页盖号(完整页计数 / 截断页整页 null,与根窗格同一把尺)
+        const hydrated = hydrateHistoryMessages(
+          markPageTurnOrdinals(msgRes.data.messages, msgRes.data.hasMore),
+        )
+        // 拉取期间窗格内已有本地写入(流式首帧/新消息)时不覆盖;
+        // 窗口标志与消息同进同出(守卫失败时列表还是旧来源,provenance 不得单独改写)。
         if (chatStore.getState().messages === localBefore) {
-          chatStore.setState({ messages: hydrated, error: null })
+          chatStore.setState({ messages: hydrated, messagesTurnWindowed: false, error: null })
         }
         resetPager(msgRes.data.nextCursor, msgRes.data.hasMore)
         writeCache(conversationId, {
           messages: hydrated,
           hasMore: msgRes.data.hasMore,
           oldestCursor: msgRes.data.nextCursor,
+          turnWindowed: false,
         })
         const meta = convRes.data.conversation.metadata as { pendingQuestion?: unknown } | null
         noteRuntimeCapabilities(meta)
@@ -197,13 +192,151 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
           resume.runAfterHistory(conversationId)
         }
       }
-    })()
+    }
+
+    // 差距⑤遗留边界2(2026-10-30):窗格化深链 —— 目标 paneId 命中本窗格时**绕缓存**直走
+    // around 居中窗口(缓存装的是"上次落点",与分享链接指向的轮次无关;与根主体
+    // ai-side-panel 同一把尺)。锚点跳转投递**本窗格**的 ProgressJumpStore 实例
+    // (MessageList 经 useProgressJumpStoreForPane 消费,通道现成,不另造第二条事件总线)。
+    // 降级同根主体口径:turn 不存在(404)/拉取失败 ⇒ 静默消费目标、就地取最新页。
+    const aroundTarget = peekTurnDeepLink(conversationId, paneId)
+    if (aroundTarget) {
+      chatStore.setState({ conversationId, error: null })
+      setLoadingHistory(true)
+      const localBefore = chatStore.getState().messages
+      resume.capture(conversationId)
+      void (async () => {
+        try {
+          const [convRes, histRes] = await Promise.all([
+            getConversation(conversationId),
+            getConversationHistory(conversationId, {
+              aroundTurnId: String(aroundTarget.turnOrdinal),
+              aroundWindow: 5,
+            }),
+          ])
+          if (cancelled || seq !== requestSeqRef.current) return
+          if (histRes.success) {
+            const hydrated = hydrateHistoryMessages(
+              histRes.data.turns.flatMap((turn) =>
+                turn.messages.map((msg) => ({ ...msg, turnOrdinal: turn.turnOrdinal })),
+              ),
+            )
+            // 在途消息守卫与常规路径同一把尺
+            if (chatStore.getState().messages === localBefore) {
+              chatStore.setState({
+                messages: hydrated,
+                messagesTurnWindowed: true,
+                error: null,
+              })
+            }
+            if (convRes.success) {
+              const meta = convRes.data.conversation.metadata as {
+                pendingQuestion?: unknown
+              } | null
+              noteRuntimeCapabilities(meta)
+              const pending = parsePendingQuestion(meta?.pendingQuestion)
+              if (pending) chatStore.getState().setPendingQuestion(pending)
+              else chatStore.getState().clearPendingQuestion()
+              const prov = readImportProvenance(convRes.data.conversation.metadata, hydrated)
+              setImportProvenance(prov.kind === 'imported' ? prov.provenance : null)
+            }
+            resetPager(null, false)
+            writeCache(conversationId, {
+              messages: hydrated,
+              hasMore: false,
+              oldestCursor: null,
+              turnWindowed: true,
+            })
+            const anchorMessageId = pickTurnAnchorMessageId(
+              histRes.data.turns,
+              aroundTarget.turnOrdinal,
+            )
+            if (anchorMessageId) {
+              getProgressJumpStoreForPane(paneId).getState().requestJumpToMessage(anchorMessageId)
+            }
+            setLoadingHistory(false)
+            resume.runAfterHistory(conversationId)
+            return
+          }
+          consumeTurnDeepLink()
+        } catch {
+          consumeTurnDeepLink()
+        }
+        if (cancelled || seq !== requestSeqRef.current) return
+        setLoadingHistory(false)
+        // 不 return 到外面:降级就地取最新页(不经缓存恢复,避免旧落点闪现);
+        // runLatestFetch 的 finally 会补结算后续接
+        void runLatestFetch()
+      })()
+      return () => {
+        cancelled = true
+        resume.abort()
+      }
+    }
+
+    const prevConversationId = chatStore.getState().conversationId
+    const switching = prevConversationId !== conversationId
+    // 命中本窗格缓存 ⇒ 同步恢复(不闪空列表、不进 loadingHistory),后台仍复核最新页;
+    // 未命中才清空 —— 切到另一条会话时避免把上一窗格内容当成新会话的基线,
+    // 同一会话重挂载则保留(可能是流式中途的本地消息),下面的守卫会防止覆盖。
+    const cached = readCache(conversationId)
+    const restoredMessages = cached
+      ? cached.messages
+      : switching
+        ? []
+        : chatStore.getState().messages
+    // 差距⑤补全:窗口 provenance 随快照恢复;未命中缓存且非切换(同会话重挂载)时
+    // 消息与标志都不动 —— 标志必须与列表实际来源一致。
+    chatStore.setState(
+      switching
+        ? {
+            conversationId,
+            messages: restoredMessages,
+            messagesTurnWindowed: cached?.turnWindowed ?? false,
+            error: null,
+            isStreaming: false,
+          }
+        : cached
+          ? {
+              conversationId,
+              messages: restoredMessages,
+              messagesTurnWindowed: cached.turnWindowed ?? false,
+              error: null,
+            }
+          : { conversationId, messages: restoredMessages, error: null },
+    )
+    setImportProvenance(null)
+    resetPager(cached ? cached.oldestCursor : null, cached ? cached.hasMore : false)
+    setLoadingHistory(cached === null)
+    // G-935 缺口B:窗格 store 的 recentMessages(半截流快照)先回填,再捕获续接候选。
+    // 根主体同口径(ai-side-panel.tsx:803-814);缓存命中不覆盖(内存 LRU 更新)。
+    const currentStore = chatStore.getState()
+    const recent = currentStore.recentMessages
+    if (recent && shouldPrefillRecentMessages(currentStore, conversationId, cached !== null)) {
+      chatStore.setState({
+        messages: recent.messages,
+        error: null,
+      })
+    }
+    // 续接候选在远端快照覆盖 messages 之前捕获(未落库的本地助手消息不在快照里)
+    resume.capture(conversationId)
+
+    void runLatestFetch()
 
     return () => {
       cancelled = true
       resume.abort()
     }
-  }, [conversationId, chatStore, readCache, writeCache, resetPager, resume])
+  }, [
+    conversationId,
+    chatStore,
+    readCache,
+    writeCache,
+    resetPager,
+    resume,
+    paneId,
+    turnDeepLinkVersion,
+  ])
 
   // #11 LRU 缓存同步(G-935 缺口B,与根主体 ai-side-panel.tsx:882-885 同一口径):
   // messages 变化(流式增量/新消息/续接回写)时同步回写本窗格缓存桶,
@@ -219,7 +352,8 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
     try {
       const res = await getMessages(conversationId, { cursor, direction: 'older', pageSize: 50 })
       if (!res.success) return
-      const older = hydrateHistoryMessages(res.data.messages)
+      // 差距⑤补全:更早页序号未知 ⇒ 整页 null(翻到底时整体重盖,见下)
+      const older = hydrateHistoryMessages(markPageTurnOrdinals(res.data.messages, true))
       const advance = judgePageAdvance({
         requestCursor: cursor,
         responseCursor: res.data.nextCursor,
@@ -234,10 +368,25 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
         return
       }
       if (older.length === 0) {
+        // 差距⑤补全:空尾批 + hasMore=false 同样是"已翻到底"事件 ⇒ 整体重盖(与根窗格同口径)
+        if (res.data.hasMore === false) {
+          chatStore.setState((s) => ({
+            messages: stampCompletePageTurnOrdinals(s.messages),
+            messagesTurnWindowed: false,
+          }))
+        }
         resetPager(null, false)
         return
       }
-      chatStore.setState((s) => ({ messages: [...older, ...s.messages] }))
+      // 差距⑤补全:翻到最早页 ⇒ 整表自 turn 1 完整,按服务端口径整体重盖;未到底维持 null(不猜)
+      if (res.data.hasMore === false) {
+        chatStore.setState((s) => ({
+          messages: stampCompletePageTurnOrdinals([...older, ...s.messages]),
+          messagesTurnWindowed: false,
+        }))
+      } else {
+        chatStore.setState((s) => ({ messages: [...older, ...s.messages] }))
+      }
       resetPager(res.data.nextCursor, res.data.hasMore)
       patchCache(conversationId, chatStore.getState().messages)
     } finally {

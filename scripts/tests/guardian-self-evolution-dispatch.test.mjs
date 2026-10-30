@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import os from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   dispatchDeployOutcomeIntake,
   dispatchDeployFeedback,
@@ -71,15 +71,21 @@ test('接通后真执行注入的 runner(装车行为钉死,且不写仓库 tick
     called = true
     return { ok: true, out: 'produced 3 incident-signals' }
   }
-  const tmpTick = path.join(os.tmpdir(), `guardian-test-${Date.now()}-${Math.random().toString(16).slice(2)}.json`)
-  const r = dispatchDeployOutcomeIntake({
-    exists: () => true,
-    now: Date.now() + 10 ** 12,
-    tickFile: tmpTick,
-    runner,
-  })
-  assert.equal(called, true, 'runner 未被调用 ⇒ 未真接通派发')
-  assert.equal(r.ran, true)
-  assert.equal(r.ok, true)
+  // tick 真被 stampDispatchTick 写盘 ⇒ 落 §15b 唯一夹具出口,用完即删(不随进程 TEMP 走)。
+  const dir = mkScratch('guardian-tick-')
+  try {
+    const tmpTick = path.join(dir, 'tick.json')
+    const r = dispatchDeployOutcomeIntake({
+      exists: () => true,
+      now: Date.now() + 10 ** 12,
+      tickFile: tmpTick,
+      runner,
+    })
+    assert.equal(called, true, 'runner 未被调用 ⇒ 未真接通派发')
+    assert.equal(r.ran, true)
+    assert.equal(r.ok, true)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

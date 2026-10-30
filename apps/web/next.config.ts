@@ -217,10 +217,6 @@ const nextConfig: NextConfig = {
     // (lightningcss,与 Turbopack/webpack 无关)偶发在此巨行上报假性 "Unexpected token
     // Delim('\u{1a}')" 中断冷构建(成功可达但概率失败)。此为缓解项不保证根治;
     // 真正的可靠性由 ihui-deploy.ps1 的「冷构建 + 多轮重试」兜底。
-    // 2026-10-30 补注:这条巨行(TypeScript 侧再量一次 = 生产态单行 426KB)是 **Tailwind 自己**
-    // 在生产态做的压缩产物(optimizeCss 关不掉它),而 0x1A 在整棵 apps/web 里只存在于构建产物
-    // 目录的 Turbopack 持久缓存 `.sst/.meta`;那些目录当时没被 .gitignore 忽略 ⇒ 落在 Tailwind v4
-    // 的自动扫描面里。根治见 app/globals.css 的 `@source not ...`(扫描面收敛到真源码)。
     optimizeCss: false,
     // 2026-08-04 生产构建排障:SWC memory allocation of 7.5GB failed
     // (next build 反复 0xC0000409 崩溃,根因=webpack 峰值内存过高)。

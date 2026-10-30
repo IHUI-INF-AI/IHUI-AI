@@ -26,15 +26,16 @@
  *    不得被后续隐式证据洗白。
  *
  * ## 与 wire 契约的关系(必读,别把本文件当已接线)
- * 事件名常量 `SSE_ADMISSION_EVENT` 与载荷形状在本文件**只作声明**,**尚未**注册进
- * `packages/shared/src/sse/contract.ts` 的 `SSE_EVENTS` 与 Python 镜像
- * `apps/ai-service/app/core/sse_contract.py` 的 `SSE_EVENTS`(那两份文件的改动属并行
- * 工作流面)。因此:
- * - 服务端**当前不产出**该帧 ⇒ 线上每条消息都停在隐式证据档;
- * - 解析层不会把该帧分派进来 ⇒ `accept()` 的调用方目前只能来自测试或未来的接线;
- * - 接线需同批改两处契约 + `apps/api` 网关 schema + `api-client` 分派,**四件缺一不可**。
- * 在完成之前,本模块的价值是:隐式证据档能把"发出去了"与"服务端收下了"在数据上分开,
- * 而不是让两者共用同一个布尔。
+ * 2026-10-30 差距① TS 侧收口:事件名 `SSE_ADMISSION_EVENT` 与载荷形状已注册进
+ * `packages/shared/src/sse/contract.ts`(SSE_EVENTS.ADMISSION + 判别联合成员直接复用
+ * 本文件的 `SendAdmissionReceipt`)与 `sse/families.ts`(交叉表标 null,对话流独有控制帧),
+ * `packages/api-client` 的 `streamChat` 已接分派(`onSendAdmissionReceipt`,严格解析
+ * 与本文件 `readSendAdmissionReceipt` 同规则)+ 请求体可选 `inputId` 上行。仍然开着的:
+ * - Python 镜像 `apps/ai-service/app/core/sse_contract.py` 与**服务端产出**该帧属并行
+ *   工作流面(未同步前 parity 门对 admission 点名红,是预期状态);
+ * - `apps/api` 网关 schema 需声明 `inputId` 透传(否则 zod strip 静默丢弃,链路掐断);
+ * - 服务端不产出期间,线上每条消息仍停在隐式证据档 —— 本模块的价值不变:隐式证据档
+ *   能把"发出去了"与"服务端收下了"在数据上分开,而不是让两者共用同一个布尔。
  */
 
 /** 准入回执的 wire 事件名(声明用;见头注「与 wire 契约的关系」)。 */
@@ -61,7 +62,10 @@ export function isAdmissionDisposition(value: unknown): value is AdmissionDispos
  * 只有 `inputId` + `disposition` 是必需的:其余字段缺席时读作"服务端没说明",
  * **不得**据此编造(尤其 `queuedTurnId` 缺席不等于"没排队")。
  */
-export interface SendAdmissionReceipt {
+// 2026-10-30(差距① TS 侧):从 interface 改为 type 别名 —— 语义逐字不变,
+// 但 sse/contract.ts 的 `SSEEventWithMeta<T extends Record<string, unknown>>`
+// 只接受有隐式索引签名的对象字面量类型(interface 没有),别名形态才进得了判别联合。
+export type SendAdmissionReceipt = {
   /** 客户端生成的稳定输入标识,必须与本条发送时带的那个逐字相等 */
   readonly inputId: string
   readonly disposition: AdmissionDisposition
@@ -95,7 +99,8 @@ export function readSendAdmissionReceipt(raw: unknown): SendAdmissionReceipt | n
   const messageId = v['messageId']
   if (typeof messageId === 'string' && messageId.length > 0) receipt.messageId = messageId
   const queuedTurnId = v['queuedTurnId']
-  if (typeof queuedTurnId === 'string' && queuedTurnId.length > 0) receipt.queuedTurnId = queuedTurnId
+  if (typeof queuedTurnId === 'string' && queuedTurnId.length > 0)
+    receipt.queuedTurnId = queuedTurnId
   const reason = v['reason']
   if (typeof reason === 'string' && reason.length > 0) receipt.reason = reason
   return receipt
@@ -207,7 +212,11 @@ export function createSendAdmissionTracker(input: {
    * 迁移的唯一出口。返回值 `changed` 是"这次真的变了",不是"这次调用过" ——
    * 渲染层靠它决定要不要写盘,写错方向会让高频证据帧把 store 打成每帧一次重渲。
    */
-  const move = (next: AdmissionPhase, matched: boolean, nextReceipt?: SendAdmissionReceipt): AdmissionResolution => {
+  const move = (
+    next: AdmissionPhase,
+    matched: boolean,
+    nextReceipt?: SendAdmissionReceipt,
+  ): AdmissionResolution => {
     const changed = next !== phase
     if (changed) phase = next
     if (nextReceipt) receipt = nextReceipt
@@ -290,7 +299,9 @@ export function createSendAdmissionTracker(input: {
  * 读不到或不认 ⇒ `null`(**不回落 `tentative`**):老消息根本没有这一格,
  * 把它读成"未确认"等于给历史每条消息加一个不存在的告警。
  */
-export function readAdmissionPhaseFromMeta(meta: Record<string, unknown> | undefined): AdmissionPhase | null {
+export function readAdmissionPhaseFromMeta(
+  meta: Record<string, unknown> | undefined,
+): AdmissionPhase | null {
   if (!meta) return null
   const admission = meta['admission']
   if (typeof admission !== 'object' || admission === null) return null

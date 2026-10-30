@@ -32,13 +32,20 @@ import { usePaneConversationDetailModeStore } from '@/stores/conversation-detail
 import { createPresentationCache, type PresentationCache } from './turn-presentation'
 // 投影行 → 渲染分组:窗口化坐标系(一条消息 = 一个窗口行)在这一层保持不变,
 // 投影只贡献"归属附注"与零布局影响的语义容器。理由见该文件头注 ①②③。
-import { buildPresentationGroups, groupIsExploring } from './presentation-units'
+import {
+  blockIsProcessNarration,
+  buildPresentationGroups,
+  groupIsExploring,
+} from './presentation-units'
 import type { PresentationBlock } from './presentation-units'
 // 票64(2026-10-18 立):版本族读投影 —— regenerate/edit 的多版本 sibling
 // 只渲染激活版本,否则"点一次编辑出两个气泡"(纯函数在 @/lib/message-version-family)。
 // 票59 2/3(2026-10-22):投影吃用户手动切换态(activeVersionByRoot),并给出每条
 // 消息的版本位置(versionFamilyPosition)供气泡上的版本菜单渲染。
 import { projectActiveMessages, versionFamilyPosition } from '@/lib/message-version-family'
+// 差距⑤(2026-10-30):「分享此回合」深链的轮次序号投影 —— id → turnOrdinal 的
+// 唯一计算点在本组件(与版本族位置同一处置),MessageItem 只消费透传的序号。
+import { projectTurnOrdinals } from '@/lib/turn-deeplink'
 import { useFocusArtifactScroll } from '@/components/media/artifact-turn-badge'
 import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
@@ -159,6 +166,8 @@ export function MessageList({
   const detailMode = detailStore((s) => s.mode)
   // 票59 2/3:版本族手动切换态(按窗格寻址 —— 两窗格各看各的选择)
   const activeVersionByRoot = chatStore((s) => s.activeVersionByRoot)
+  // 差距⑤:当前列表是否来自 around 居中窗口(窗口头部不是 turn 1 ⇒ 未盖章行不给号)
+  const messagesTurnWindowed = chatStore((s) => s.messagesTurnWindowed)
   const visibleMessages = React.useMemo(
     () =>
       applyConversationDetailMode(projectActiveMessages(messages, activeVersionByRoot), detailMode),
@@ -193,6 +202,13 @@ export function MessageList({
     }
     return map
   }, [messages])
+
+  // 差距⑤(2026-10-30):id → turnOrdinal 投影(口径见 @/lib/turn-deeplink)。
+  // 吃全量 messages(而非 detailMode 过滤后的可见行),续算不被过滤打断。
+  const turnOrdinalById = React.useMemo(
+    () => projectTurnOrdinals(messages, { windowed: messagesTurnWindowed }),
+    [messages, messagesTurnWindowed],
+  )
 
   // 切换只改读投影的激活版本,不写库、不发请求(判族口径在 lib/message-version-family.ts)
   const onSelectMessageVersion = React.useCallback(
@@ -541,6 +557,20 @@ export function MessageList({
     (block: PresentationBlock) => {
       const m = block.message
       const realIdx = realIndexById.get(m.id) ?? -1
+      // 差距⑥(2026-10-30 立):过程文本折叠类目的两个事实位,全部由投影既有形状 +
+      // 既有 store 事实(`isStreaming`/消息位序)投影,不新增状态源。
+      // 终态判据:本轮**不再有任何正在流式的消息**即为流收口 ——
+      // 回合内只有末条消息可能处于流式中(流式追加只动整表最后一条),
+      // 故 `isStreaming ∧ 容器末条=整表末条` 成立 ⇒ 本轮进行中,否则终态已确认。
+      const isProcessText = blockIsProcessNarration(block)
+      const containerLast = block.container
+        ? block.container.messages[block.container.messages.length - 1]
+        : undefined
+      const turnFinalTextConfirmed = !(
+        isStreaming &&
+        containerLast !== undefined &&
+        realIndexById.get(containerLast.id) === visibleMessages.length - 1
+      )
       return (
         <>
           {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
@@ -567,6 +597,9 @@ export function MessageList({
             codeCollapseLines={codeCollapseLines}
             versionInfo={versionInfoByMessageId.get(m.id)}
             onSelectMessageVersion={onSelectMessageVersion}
+            turnOrdinal={turnOrdinalById.get(m.id) ?? null}
+            isProcessText={isProcessText}
+            turnFinalTextConfirmed={turnFinalTextConfirmed}
           />
           {/* V3 #63(2026-09-27 立):该条 assistant 消息上的 form_request 宿主。
               BusinessFormSection 内部无请求即整段返回 null(不占位),所以这里
@@ -600,6 +633,7 @@ export function MessageList({
       codeCollapseLines,
       versionInfoByMessageId,
       onSelectMessageVersion,
+      turnOrdinalById,
     ],
   )
 
