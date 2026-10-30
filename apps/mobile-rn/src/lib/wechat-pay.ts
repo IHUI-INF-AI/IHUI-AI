@@ -14,6 +14,7 @@
  */
 import type { WechatAppPaySignData } from '@ihui/api-client'
 import type * as WeChatMod from 'react-native-wechat-lib'
+import appJson from '../../app.json'
 
 // 动态 require + try-catch:react-native-wechat-lib 入口顶层执行
 // `wrapRegisterApp(WeChat.registerApp)`,Expo Go 中 NativeModules.WeChat 为 undefined,
@@ -26,10 +27,13 @@ try {
   console.warn('[wechat-pay] react-native-wechat-lib 不可用(Expo Go,需 EAS Build):', e)
 }
 
-// 微信开放平台移动应用 AppID(从历史项目复用,application.yml wx.app.appid)
-const APP_ID = process.env.EXPO_PUBLIC_WECHAT_APP_ID || ''
+// 微信开放平台移动应用 AppID(取值链:构建期 env → app.json extra,见 wechat.ts 同名说明)
+const APP_ID = process.env.EXPO_PUBLIC_WECHAT_APP_ID || appJson.expo.extra.WX_APP_APPID || ''
 // iOS Universal Link(微信支付完成后回到 app,需在 apple-app-site-association 配置)
-const UNIVERSAL_LINK = process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || 'https://file.aizhs.top/'
+// 注意:此前此处默认值是 file.aizhs.top,与 app.json / app.config.js 登记的 aizhs.top 不一致
+// —— 同一微信应用注册两个 Universal Link 会导致支付回调落空,统一以 app.json 为唯一源。
+const UNIVERSAL_LINK =
+  process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || appJson.expo.extra.WX_UNIVERSAL_LINK
 
 let registered = false
 
@@ -38,7 +42,7 @@ export async function registerWeChat(): Promise<void> {
   if (registered) return
   if (!WeChat) throw new Error('WECHAT_NATIVE_UNAVAILABLE')
   if (!APP_ID) {
-    throw new Error('EXPO_PUBLIC_WECHAT_APP_ID 未配置,请在 apps/mobile-rn/.env 设置')
+    throw new Error('微信 AppID 缺失:请检查 apps/mobile-rn/app.json 的 extra.WX_APP_APPID')
   }
   try {
     await WeChat.registerApp(APP_ID, UNIVERSAL_LINK)
