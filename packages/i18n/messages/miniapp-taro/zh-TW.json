@@ -210,7 +210,20 @@
     "contentText": "文本內容",
     "boolYes": "是",
     "boolNo": "否",
-    "closePreview": "關閉預覽"
+    "closePreview": "關閉預覽",
+    "addCamera": "拍照",
+    "addAlbum": "相冊",
+    "addLocalFile": "本地文件",
+    "addWxFile": "微信文件",
+    "closeBtn": "關閉",
+    "linkCopiedBrowser": "連結已複製，請在瀏覽器開啟",
+    "albumPermRequired": "需要相簿權限才能儲存圖片",
+    "imgSavedAlbum": "圖片已儲存到相簿",
+    "btnConfirm": "確定",
+    "camSoonHint": "相機拍攝開發中，請先從相簿上傳圖片",
+    "imgUploadedHint": "圖片已上傳，送出後可在對話中使用",
+    "imgUploadFailed": "圖片上傳失敗",
+    "imgPickRetry": "圖片選擇失敗，請重試"
   },
   "course": {
     "learningProgress": "學習進度",
@@ -1108,6 +1121,11 @@
       "subagent": {
         "title": "子任務"
       }
+    },
+    "pane": {
+      "branch": {
+        "ariaLabel": "對話分支"
+      }
     }
   },
   "share": {
@@ -1167,7 +1185,28 @@
     "tabEducation": "教育",
     "tabLife": "生活",
     "loadFailed": "載入失敗",
-    "useCount": "{n}人使用"
+    "useCount": "{n}人使用",
+    "join": {
+      "title": "加入群組",
+      "message": "已申請加入「{name}」"
+    },
+    "cardMembers": "成員",
+    "detailEnter": "進入群聊",
+    "detailMembers": "群組成員",
+    "detailRecent": "最近訊息",
+    "enterChat": {
+      "message": "確定要進入該群聊?",
+      "title": "提示"
+    },
+    "enterDiscover": "發現",
+    "enterMine": "我的",
+    "memberRole": "角色",
+    "metaActive": "活躍",
+    "metaMessages": "訊息",
+    "previewHello": "你好",
+    "previewMine": "我建立的",
+    "subtitle": "AI 群聊助手",
+    "searchPlaceholder": "搜尋AI助手"
   },
   "aiCircle": {
     "title": "AI 圈子",
@@ -1209,7 +1248,29 @@
     "openWorkflow": "開啟工作流",
     "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續",
     "placeholder": "請輸入您的問題",
-    "streaming": "正在生成..."
+    "streaming": "正在生成...",
+    "emptyNoAgent": "請先選擇已綁定工作流的智能體",
+    "send": "發送",
+    "callFailed": "呼叫失敗,請稍後重試",
+    "toolCalls": "工具調用",
+    "toolStatusRunning": "執行中",
+    "toolStatusSuccess": "成功",
+    "toolStatusError": "失敗",
+    "toolArgs": "參數",
+    "toolResult": "輸出",
+    "planSteps": "執行計劃",
+    "planStatusPending": "待開始",
+    "planStatusInProgress": "進行中",
+    "planStatusCompleted": "已完成",
+    "terminalTasks": "終端任務",
+    "terminalIsolation": "命令在隔離沙箱中執行，預設不開放網路",
+    "terminalStatusRunning": "執行中",
+    "terminalStatusCompleted": "已完成",
+    "terminalStatusFailed": "失敗",
+    "terminalExitCode": "結束代碼",
+    "terminalOutput": "輸出",
+    "terminalTruncated": "…(已截斷,共 {total} 字符)",
+    "compactionToast": "上下文已自動壓縮({before} → {after} tokens)"
   },
   "agentDialogue": {
     "sendFailed": "傳送失敗,請重試",
@@ -2688,7 +2749,9 @@
     "me": "我",
     "studyHours": "學習 {count} 小時",
     "anonymous": "匿名用戶",
-    "title": "排行榜"
+    "title": "排行榜",
+    "histFallback": "歷史會話",
+    "visitorName": "排行榜訪客"
   },
   "recruitment": {
     "title": "操盤手計劃",
@@ -3883,7 +3946,12 @@
     "modelLabel": "模型",
     "stop": "停止",
     "thinking": "思考中...",
-    "title": "IHUI AI"
+    "title": "IHUI AI",
+    "untitledChat": "未命名對話",
+    "terminal": {
+      "waitingInput": "等待輸入",
+      "mobileUnsupported": "終端功能暫不支持行動端"
+    }
   },
   "tabBar": {
     "community": "智匯社群",
@@ -4394,7 +4462,9 @@
     "name": "圈子名稱",
     "namePlaceholder": "請輸入圈子名稱",
     "submit": "建立",
-    "title": "建立圈子"
+    "title": "建立圈子",
+    "nameRequired": "請輸入圈子名稱",
+    "saveFailed": "建立失敗"
   },
   "learndevelop": {
     "d1": "前端工程師",
@@ -4815,7 +4885,19 @@
     "logout": "登出",
     "myFavorites": "我的收藏",
     "myOrders": "我的訂單",
-    "editProfile": "編輯資料"
+    "editProfile": "編輯資料",
+    "downloadFailRetry": "下載失敗,請重試",
+    "shareBtn": "分享",
+    "n8nHideAnswer": "隱藏回答",
+    "n8nShowAnswer": "顯示回答",
+    "n8nThinking": "思考過程",
+    "n8nCopyAnswer": "複製回答",
+    "n8nDownloadImg": "下載圖片",
+    "n8nCopyOk": "複製成功",
+    "n8nCopyFail": "複製失敗",
+    "n8nShareFail": "分享失敗",
+    "n8nGenBadge": "智匯AI生成 消耗智匯值:",
+    "n8nHoldToTalk": "長按說出您的問題"
   },
   "verify": {
     "phoneEmpty": "手機號碼為空",
@@ -6263,7 +6345,8 @@
     "loadFailed": "工作流載入失敗"
   },
   "menu": {
-    "sectionDiscover": "發現"
+    "sectionDiscover": "發現",
+    "ranking": "排行榜"
   },
   "agentScreen": {
     "loadFailed": "載入智慧體失敗",
@@ -7137,7 +7220,9 @@
       "aiTitle": "AI 訊息",
       "message": "截圖已生成",
       "shareBtn": "分享"
-    }
+    },
+    "errorTitle": "請求出錯",
+    "errorRetry": "重試"
   },
   "mat": {
     "unknown": "未知錯誤",
@@ -7451,7 +7536,8 @@
     "members": "成員",
     "membersAction": "成員管理",
     "post": "發布貼文",
-    "posts": "貼文"
+    "posts": "貼文",
+    "loadFailed": "載入失敗"
   },
   "examResult": {
     "loadFailed": "載入失敗",
@@ -7605,5 +7691,15 @@
     "teacher": "教師",
     "time": "時段",
     "weekdayTitle": "星期"
+  },
+  "taskStatus": {
+    "addedCount": "+{n}",
+    "removedCount": "-{n}"
+  },
+  "drawer": {
+    "claimFree": "領取免費資料"
+  },
+  "studyIndex": {
+    "receiveFreeBody": "連結已複製到剪貼板,可在瀏覽器粘貼打開"
   }
 }
