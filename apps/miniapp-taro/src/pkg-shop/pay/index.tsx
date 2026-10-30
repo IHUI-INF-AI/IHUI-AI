@@ -224,7 +224,10 @@ export default function PayIndex() {
     Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${no}` })
   }
 
-  const payDisabled = submitting || expired || (payMethod === 'balance' && balanceInsufficient)
+  // 无单号必须一起禁用:从某些入口(如学习页的支付弹窗)进来时没有 orderNo,
+  // 原实现按钮照常可点,用户点下去才得到一句"订单异常",且页面照常渲染金额与订单卡片。
+  const payDisabled =
+    submitting || expired || !orderNo || (payMethod === 'balance' && balanceInsufficient)
 
   const methodBase = 'py-method'
   const methodActive = 'py-method--active'
@@ -236,9 +239,11 @@ export default function PayIndex() {
       <View className="py-page">
         <View className={`py-countdown${expired ? ' py-countdown--expired' : ''}`}>
           <Text className="py-countdown-text">
-            {expired
-              ? tt('pay.orderExpired', '订单已超时')
-              : t('pay.countdownTip', { time: formatTime(remaining) })}
+            {!orderNo
+              ? tt('pay.orderAbnormal', '订单异常')
+              : expired
+                ? tt('pay.orderExpired', '订单已超时')
+                : t('pay.countdownTip', { time: formatTime(remaining) })}
           </Text>
         </View>
 
