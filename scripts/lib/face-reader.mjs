@@ -59,8 +59,9 @@ export const FACE_NOTE = {
 export class Undetermined extends Error {}
 
 const GIT = resolveGitBin() || 'git'
-const GIT_TIMEOUT = 60000
-const BATCH_TIMEOUT = 120000
+// 临时可经环境变量抬高(不改默认值;仅 IHUI-AI 收敛遇多会话争锁时由调用方设高,跑完即还原)
+const GIT_TIMEOUT = Number(process.env.IHUI_GIT_TIMEOUT_MS) || 60000
+const BATCH_TIMEOUT = Number(process.env.IHUI_BATCH_TIMEOUT_MS) || 120000
 /** 64MB:真仓单文件最大已实测 >1MB,默认 1MB 会把大 blob 截成"取不到" */
 const GIT_MAX_BUFFER = 64 << 20
 /**
