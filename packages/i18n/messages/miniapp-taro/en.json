@@ -117,8 +117,7 @@
     "user": "User",
     "more": "More",
     "discountAmount": "Discount",
-    "loadFailed": "Failed to load"
-,
+    "loadFailed": "Failed to load",
     "operationFailed": "Operation failed"
   },
   "login": {
@@ -5246,8 +5245,7 @@
       "late": "Late",
       "absent": "Absent",
       "leave": "Leave"
-    }
-,
+    },
     "student": "Student"
   },
   "eduMgmt": {
@@ -7409,8 +7407,7 @@
     "changePassword": "Change Password",
     "newPassword": "New Password",
     "language": "Language",
-    "theme": "Theme"
-,
+    "theme": "Theme",
     "version": "Version"
   },
   "liveList": {
@@ -7579,8 +7576,7 @@
     "feature": "Feature",
     "premium": "Premium",
     "title": "VIP Compare"
-  }
-,
+  },
   "coupon": {
     "useHint": "Please use it on the product page"
   },

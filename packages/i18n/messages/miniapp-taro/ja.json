@@ -117,8 +117,7 @@
     "user": "ユーザー",
     "more": "もっと見る",
     "discountAmount": "割引",
-    "loadFailed": "読み込みに失敗しました"
-,
+    "loadFailed": "読み込みに失敗しました",
     "operationFailed": "操作に失敗しました"
   },
   "login": {
@@ -5246,8 +5245,7 @@
       "late": "遅刻",
       "absent": "欠席",
       "leave": "休み"
-    }
-,
+    },
     "student": "生徒"
   },
   "eduMgmt": {
@@ -7409,8 +7407,7 @@
     "changePassword": "パスワード変更",
     "newPassword": "新しいパスワード",
     "language": "言語",
-    "theme": "テーマ"
-,
+    "theme": "テーマ",
     "version": "バージョン"
   },
   "liveList": {
@@ -7579,8 +7576,7 @@
     "feature": "機能",
     "premium": "プレミアム",
     "title": "会員比較"
-  }
-,
+  },
   "coupon": {
     "useHint": "商品ページでご利用ください"
   },

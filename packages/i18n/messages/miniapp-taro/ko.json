@@ -117,8 +117,7 @@
     "user": "사용자",
     "more": "더 보기",
     "discountAmount": "할인",
-    "loadFailed": "로드 실패"
-,
+    "loadFailed": "로드 실패",
     "operationFailed": "작업에 실패했습니다"
   },
   "login": {
@@ -5246,8 +5245,7 @@
       "late": "지각",
       "absent": "결석",
       "leave": "조퇴"
-    }
-,
+    },
     "student": "학생"
   },
   "eduMgmt": {
@@ -7409,8 +7407,7 @@
     "changePassword": "비밀번호 변경",
     "newPassword": "새 비밀번호",
     "language": "언어",
-    "theme": "테마"
-,
+    "theme": "테마",
     "version": "버전"
   },
   "liveList": {
@@ -7579,8 +7576,7 @@
     "feature": "기능",
     "premium": "프리미엄",
     "title": "회원 비교"
-  }
-,
+  },
   "coupon": {
     "useHint": "상품 페이지에서 사용해 주세요"
   },
