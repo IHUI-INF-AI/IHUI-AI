@@ -106,14 +106,16 @@ describe('守门 267:根护栏清单 ↔ 被审面内容对账', () => {
     assert.match(src, /REQUIRED_TARGET_IDS/, '必备目标集必须来自 root-guard 那一份,不在本门另立名单')
   })
 
-  it('⑦ 注册成套:267 恰一枚、blocking、skipEnv 成套、射程覆盖清单与每个被登记目标', () => {
+  it('⑦ 注册成套:267 恰一枚、档位在册、skipEnv 成套、射程覆盖清单与每个被登记目标', () => {
     const runner = readFileSync('scripts/guardian-runner.mjs', 'utf8')
     const ids = [...runner.matchAll(/^\s*id:\s*(['"`])(.*?)\1/gm)].map((m) => m[2])
     assert.equal(ids.filter((x) => x === '267').length, 1, 'id 267 应恰出现 1 次(R5/R13 型)')
     const at = runner.search(/script:\s*(['"])check-root-guard-consistency\.mjs\1/)
     assert.ok(at > 0, '新门没进注册表 = 造好没装车(§0.9)')
     const block = runner.slice(Math.max(0, at - 900), at + 1500)
-    assert.ok(block.includes("mode: 'blocking'"), '本门必须 blocking(判的是能否部署的一致性)')
+    // 档位:warn 是立档当天的既定起点(AGENTS 三面不一致窗口),升 blocking 是既定路线 ⇒
+    // 这里只锁"在册且是这两个合法档之一",不把升档动作判成红。
+    assert.match(block, /mode: '(warn|blocking)'/, '档位必须显式登记为 warn 或 blocking')
     assert.ok(block.includes(`skipEnv: '${GATE.SELF_SKIP}'`), 'skipEnv 必须与门体常量同字成套')
     const trig = block.match(/stagedTriggers:\s*\[([\s\S]*?)\]/)
     assert.ok(trig, '缺 stagedTriggers ⇒ 提交通道与落地通道两义(守门 253)')
