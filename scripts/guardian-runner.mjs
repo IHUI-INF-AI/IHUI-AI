@@ -6462,6 +6462,33 @@ const checks = [
     ].join('\n'),
   },
   {
+    // 编号 274:注册前已核本文件与 HEAD 面 `id: '274'` 均为 0;现值以本文件为准(撞号由门 89 R5/R13 反查)。
+    id: '274',
+    label:
+      '🔤 RN 字号可读地板对账(blocking;T1 字面量 fontSize 低于档位表最小档 ⇒ 绝对零容忍(立门当轮 97→0);T2「有档不取档」只报数;地板现读 typography.ts 的 TYPE_STEPS 最小 size,不写死 10)',
+    script: 'check-rn-type-floor.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/mobile-rn/src/',
+      'packages/app/src/',
+      'packages/ui-native/src/',
+      'packages/design-tokens/src/typography.ts',
+    ],
+    skipEnv: 'HUSKY_SKIP_RN_TYPE_FLOOR',
+    onFailHint: [
+      '',
+      '  💡 取档:`rnType.<档>.size`(表内最小档就是地板 —— 现为 badge 10,对应 web 早已强制的',
+      '     10px 计数徽章模板;caption 11 / label 12 / body 14 …)。',
+      '  💡 需要更小字号**不是**豁免理由:先回答"这行字用户能不能读"。要真的新档位在 TYPE_STEPS',
+      '     落档(带取值依据)→ 跑 node scripts/sync-css-tokens.mjs --write → 门 93 R10 复核,三端同动。',
+      '  💡 字符串/计算式形态、小程序与 web 两腿不射程内(门头注已点名,别把本门的绿读成三端都绿)。',
+      '  💡 自检:node scripts/check-rn-type-floor.mjs --self-test | 存量口径:--strict',
+      '  💡 紧急跳过(不推荐,须留痕):HUSKY_SKIP_RN_TYPE_FLOOR=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  {
     // 编号 271:注册前已核本文件 `id: '271'` 为 0;现值以本文件为准。
     id: '271',
     label:

@@ -554,12 +554,12 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     gridCoverTitle: {
       flex: 1,
-      fontSize: 9,
+      fontSize: rnType.badge.size,
       fontWeight: '700',
       color: tk.text.primary,
     } as TextStyle,
     gridCoverDate: {
-      fontSize: 9,
+      fontSize: rnType.badge.size,
       fontWeight: '700',
       color: tk.text.primary,
       marginLeft: rnSpacing.sm,
@@ -582,7 +582,7 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: rnSpacing.sm,
     } as ImageStyle,
     gridAuthor: {
-      fontSize: 9,
+      fontSize: rnType.caption.size,
       fontWeight: '700',
       color: tk.overlay.modal,
       flex: 1,
