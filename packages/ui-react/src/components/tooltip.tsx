@@ -47,7 +47,10 @@ const TooltipContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-popover overflow-hidden border bg-popover text-popover-foreground',
+        // 不带 overflow-hidden:Radix 把 Arrow 包在 translateY(100%) 的外溢 wrapper 里,
+        // 裁剪会把箭头整枚切掉。本机无头实测 8801 现网构建:7/7 个悬停样本箭头落在
+        // 气泡盒外被判裁(bottom 6 / right 1),气泡与目标之间留一段空白。
+        'z-popover border bg-popover text-popover-foreground',
         RADIUS_CLASS[TOOLTIP_RADIUS_TIER],
         PADDING_X_CLASS[TOOLTIP_PADDING_X_PX],
         PADDING_Y_CLASS[TOOLTIP_PADDING_Y_PX],
