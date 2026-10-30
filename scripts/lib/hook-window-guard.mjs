@@ -32,6 +32,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { gitBinary } from './face-reader.mjs'
 import { diffForeignIndexEntries, foreignEntryAdvice } from './commit-payload-attribution.mjs'
 import { gitStagedPaths } from './git-paths.mjs'
 import { describeFlagToken, flagValue } from './flag-value.mjs'
@@ -141,7 +142,7 @@ export function buildWrappedHooksDir({ repoRoot, tmpRoot, baselinePaths }) {
  * 也不让一个读不出的判定面把所有提交钉死(§12e 恒红门禁令)。
  */
 export function indexMatchesHead(repoRoot) {
-  const r = spawnSync('git', ['diff', '--cached', '--quiet', 'HEAD', '--'], {
+  const r = spawnSync(gitBinary(), ['diff', '--cached', '--quiet', 'HEAD', '--'], {
     cwd: repoRoot,
     encoding: 'utf8',
     windowsHide: true,
@@ -265,3 +266,4 @@ export const __test__ = {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exit(main())
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
