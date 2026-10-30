@@ -227,11 +227,17 @@ export function collect(opts = {}) {
   }
 }
 
+/**
+ * 追加一行台账。flag 必须是 `'a'` —— 写成 `'append'` 会让 writeFileSync 抛
+ * `Invalid string flag`,而失败若被静默吞掉,表面看仍是"读数正常",实际跨轮趋势无账可对
+ * (2026-10-30 实测踩过:派发腿日志一切正常,台账文件从未存在过)。
+ * 失败**不静默**:返回 null 由调用方点名。
+ */
 export function writeLedger(entry, root = ROOT) {
   const file = join(root, LEDGER_REL)
-  mkdirSync(dirname(file), { recursive: true })
   try {
-    writeFileSync(file, `${JSON.stringify(entry)}\n`, { flag: 'append' })
+    mkdirSync(dirname(file), { recursive: true })
+    writeFileSync(file, `${JSON.stringify(entry)}\n`, { flag: 'a' })
     return file
   } catch {
     return null
@@ -245,21 +251,26 @@ function main() {
   const r = collect()
   const code = r.liveness.state === 'ok' ? 0 : r.liveness.state === 'breach' ? 1 : 2
 
+  let ledgerWritten = false
   if (r.probes) {
-    writeLedger({
-      at: new Date().toISOString(),
-      state: r.liveness.state,
-      mode: r.liveness.mode || null,
-      externalDistinct: r.probes.externalDistinct,
-      events: r.probes.events,
-      windowHours: r.probes.windowHours,
-      truncated: r.truncated || false,
-    })
+    ledgerWritten =
+      writeLedger({
+        at: new Date().toISOString(),
+        state: r.liveness.state,
+        mode: r.liveness.mode || null,
+        externalDistinct: r.probes.externalDistinct,
+        events: r.probes.events,
+        windowHours: r.probes.windowHours,
+        truncated: r.truncated || false,
+      }) !== null
   }
 
   if (asJson) {
-    console.log(JSON.stringify({ ...r, code }, null, 2))
+    console.log(JSON.stringify({ ...r, ledgerWritten, code }, null, 2))
   } else {
+    if (r.probes && !ledgerWritten) {
+      console.error('⚠️ 探测台账未落盘:读数照给,但跨轮趋势无法对账(§0.3 不得把"没写成"当"没发生")')
+    }
     const p = r.probes
     console.log(`守卫自述档位=${r.liveness.mode || r.liveness.why} 判定=${r.liveness.state}`)
     if (r.liveness.state === 'breach') {
@@ -276,7 +287,9 @@ function main() {
           ` —— 只报数不喊人(§12e:扫描噪声天天有,做进告警就是恒红)`,
       )
     }
-    console.log(`ORIGIN-GUARD state=${r.liveness.state} code=${code}`)
+    console.log(
+      `ORIGIN-GUARD state=${r.liveness.state} code=${code} ledger=${ledgerWritten ? 'written' : r.probes ? 'FAILED' : 'none'}`,
+    )
   }
   return code
 }
