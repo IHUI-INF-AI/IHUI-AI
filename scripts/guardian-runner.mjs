@@ -6403,11 +6403,11 @@ const checks = [
     // args 刻意留空:--staged 由 runner 在 staged 模式统一追加(写死会让全量审计也只判索引面,
     // 而本门要守的恰是「HEAD 里那份清单与 HEAD 里那份规则文件是否同源」)。
     args: [],
-    // 档位说明(2026-10-30 立档当天):先 warn。AGENTS.md 正被多席实时重写,同一时刻
-    // HEAD/索引/磁盘可以是三个不同值 ⇒ 此刻把它挂 blocking 就是恒红门(§0.2/§12e),
-    // 唯一结局是逼人 --no-verify 连带废掉全部守门。升 blocking 的前置 = 清单按 HEAD 面
-    // 自洽成为常态(存量归零);升档动作本身不需要改判据,只改这一行。
-    mode: 'warn',
+    // 档位沿革:2026-10-30 立档当天先挂 warn —— 当时 AGENTS.md 铁律段被多席分钟级重写,
+    // 同一时刻 HEAD/索引/磁盘可以是三个不同值,挂 blocking 就是恒红门(§0.2/§12e)。
+    // 同日升 blocking 的依据:本批把清单按 **HEAD 面**重封到与 AGENTS 一致(值由 hashTarget 现算,
+    // 非手填),自洽成为常态;此后「改 AGENTS/改 runner 不重封」在提交口即被拦,修法一条命令。
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_ROOT_GUARD_CONSISTENCY',
     // 射程 = 清单本体 + 清单登记的每一个 target + 门体自身:漏一个就等于给那一路开后门。
     stagedTriggers: [
