@@ -156,7 +156,12 @@ export async function completeOrder(
  * 失败时抛出,由调用方(支付回调)触发 paymentIdempotency.fail 释放锁让平台重试。
  */
 async function rechargeIfTokenOrder(order: Order): Promise<void> {
-  if ((order.orderType === 2 || order.orderType === 3) && order.userId) {
+  // 2026-10-30 修:orderType=2 被两义共用 —— payment-queries 的 CreateOrderInput 注释写
+  // 「2=token 充值」,而 vip.ts 下单同样传 orderType=2 且 productId=vipLevelId。
+  // 原判据只看 orderType,于是「用微信/支付宝买 VIP」会走 rechargeToken(order.amount)
+  // 白送等额余额,再叠加 activateOrderSubscription 发卡 ⇒ 付一次钱得两样东西。
+  // 判据补 !productId:充值订单是用户自定义金额(productId 为空),VIP/套餐订单必有商品 id。
+  if ((order.orderType === 2 || order.orderType === 3) && order.userId && !order.productId) {
     await rechargeToken(order.userId, order.amount, order.orderNo, '充值')
     // P2-20(2026-08-06):充值赠送接线 —— 主充值到账后再发放赠送 token
     await creditTopupBonus(order)
@@ -174,7 +179,8 @@ async function rechargeIfTokenOrder(order: Order): Promise<void> {
  * @returns 实际赠送的 token 数量(分);无赠送或非 token 充值订单返回 0。
  */
 async function creditTopupBonus(order: Order): Promise<number> {
-  if (order.orderType !== 2 || !order.userId) return 0
+  // 2026-10-30:同样补 !productId —— 赠送只属于「自定义金额充值」,VIP 购买不是充值
+  if (order.orderType !== 2 || !order.userId || order.productId) return 0
   const amountYuan = order.amount / 100
   const { actualCredit } = await calculateTopupBonus(amountYuan, order.paymentMethod ?? '')
   const bonusCents = Math.round((actualCredit - amountYuan) * 100)
@@ -390,7 +396,9 @@ export async function completeOrderWithSaga(
       execute: async () => {
         // B1: token 充值订单(orderType=2)/活动订单(orderType=3)支付成功后加 token
         // rechargeToken 内部 (related_order_no, op_type) unique 索引保证幂等
-        if (order.orderType === 2 || order.orderType === 3) {
+        // 2026-10-30:补 !productId —— orderType=2 同时被 VIP 购买复用(vip.ts 传 productId=vipLevelId),
+        // 只看 orderType 会把买 VIP 的订单当充值,白送等额余额(与 rechargeIfTokenOrder 同一处判据)
+        if ((order.orderType === 2 || order.orderType === 3) && !order.productId) {
           if (!order.userId) return { amount: 0, bonusAmount: 0, orderNo }
           await rechargeToken(order.userId, order.amount, orderNo, '充值')
           // P2-20(2026-08-06):充值赠送接线 —— 赠送 token 以 bonus:${orderNo} 为幂等键
