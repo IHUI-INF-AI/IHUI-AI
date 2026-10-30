@@ -294,7 +294,9 @@ export default function N8nModel() {
       ),
     }
     try {
-      await post('/developer/n8n-agents', formData)
+      // 真身 = miniapp-compat 的 POST /workflows/n8n/create(api/index.ts 里的 createN8nAgent 同一腿);
+      // 旧写法 /developer/n8n-agents 全仓零注册,而 catch 还把失败念成"已模拟创建"
+      await post('/workflows/n8n/create', formData)
       Taro.showToast({
         title: tt('devEnter.n8nModel.createSuccess', '智能体创建成功'),
         icon: 'success',
@@ -302,8 +304,8 @@ export default function N8nModel() {
     } catch (e) {
       logger.error('n8n-model', '创建N8N智能体', e)
       Taro.showToast({
-        title: tt('devEnter.n8nModel.mockSuccess', '接口暂未开放,已模拟创建'),
-        icon: 'success',
+        title: tt('common.failed', '操作失败'),
+        icon: 'none',
       })
     } finally {
       setSubmitting(false)

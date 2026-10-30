@@ -10,7 +10,7 @@ import { useFieldFocus } from '@/hooks/use-field-focus'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { get, post } from '@/api'
+import { get } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const CATEGORIES = [
@@ -189,34 +189,15 @@ export default function ModelEdit() {
   const onSubmit = async () => {
     if (submitting) return
     setSubmitting(true)
-    const formData = {
-      agentId,
-      agentName: agentInfo.name,
-      categories: categories.join(','),
-      department: DEPARTMENTS[deptIndex],
-      saleType,
-      chargePeriod: saleType === 'free' ? '' : chargePeriod,
-      limitedDuration: saleType === 'limited' ? limitedDuration : '',
-      targetGroup,
-      discount: saleType === 'free' ? '' : discount,
-      price: saleType === 'paid' ? price : '',
-    }
-    try {
-      await post(`/developer/agents/${agentId}/charge`, formData)
-      Taro.showToast({
-        title: tt('devEnter.modelEdit.submitSuccess', '提交成功'),
-        icon: 'success',
-      })
-    } catch (e) {
-      logger.error('model-edit', t('deventerModeledit.q7'), e)
-      Taro.showToast({
-        title: tt('devEnter.modelEdit.mockSuccess', '接口暂未开放,已模拟提交'),
-        icon: 'success',
-      })
-    } finally {
-      setSubmitting(false)
-      setTimeout(() => Taro.navigateBack(), 1200)
-    }
+    // 后端没有「模型收费配置」这条腿:`/developer/agents/:id/charge` 全仓零注册,而可落库的
+    // 只有 PUT /agents/:id 的 price/isFree 两列,本表单其余 7 项(分类/部门/收费周期/限时/
+    // 目标群体/折扣)在库里没有归宿 ⇒ 既不打必然 404 的路径,也不再把失败念成"已模拟提交"。
+    logger.warn('model-edit', '收费配置提交', '接口未开放,本次未提交')
+    Taro.showToast({
+      title: tt('devEnter.modelEdit.mockSuccess', '接口暂未开放,未提交'),
+      icon: 'none',
+    })
+    setSubmitting(false)
   }
 
   return (

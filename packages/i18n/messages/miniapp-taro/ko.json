@@ -2399,7 +2399,6 @@
       "deleteParam": "삭제",
       "create": "새로 만들기",
       "createSuccess": "에이전트가 생성되었습니다",
-      "mockSuccess": "API가 아직 열리지 않았습니다. 모의 생성 완료",
       "submitting": "생성 중…",
       "submit": "에이전트 생성",
       "fileSizeExceeded": "파일은 10MB를 초과할 수 없습니다",
@@ -2435,8 +2434,7 @@
       "discountFull": "전체 참여",
       "submitting": "제출 중…",
       "submit": "심사 제출",
-      "submitSuccess": "제출 완료",
-      "mockSuccess": "API가 아직 열리지 않았습니다. 모의 제출 완료"
+      "mockSuccess": "API가 아직 열리지 않았습니다. 제출되지 않았습니다"
     }
   },
   "devSpace": {
@@ -4570,8 +4568,7 @@
     "q3": "운영부",
     "q4": "마케팅부",
     "q5": "영업부",
-    "q6": "에이전트 로드",
-    "q7": "유료 설정 제출"
+    "q6": "에이전트 로드"
   },
   "modelplaza": {
     "r1": "알리바바 클라우드",
@@ -4697,6 +4694,7 @@
   "utilsMiniapplogin": {
     "q1": "미니 프로그램에서 로그인해 주세요",
     "q2": "로그인 인증 코드가 비어 있습니다",
+    "alipayUnsupported": "Alipay 로그인은 아직 지원되지 않습니다. 전화번호로 로그인하세요",
     "p1": "사용자",
     "alipayUser": "알리페이"
   },
