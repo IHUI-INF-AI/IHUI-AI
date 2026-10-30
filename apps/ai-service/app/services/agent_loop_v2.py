@@ -1645,6 +1645,38 @@ def _compaction_context_limit_from_env() -> int:
         return 0
 
 
+# ---------------------------------------------------------------------------
+# 输入上下文溢出应急压缩(2026-10-30 立,对齐 Qoder/Trae):判据见 core/context_overflow.py
+# ---------------------------------------------------------------------------
+
+#: 单次 run 内最多救几次。溢出后压缩必见收益(头部整段折成摘要),两次仍救不回
+#: 说明载荷本身就装不下(如单条巨型工具结果),再压只会继续丢历史 ⇒ 收手报原始错误。
+MAX_OVERFLOW_RECOVERY_ATTEMPTS = 2
+
+#: 应急腿的触发/目标占用率,都比主动腿的 0.85/0.6 更狠。
+#: 为什么不能填 0:``compress_messages_if_needed`` 的 trigger_ratio 同时充当
+#: 「这次压缩算不算真见效」的地板(见 core/context_compaction.py 防循环保护 ——
+#: 压缩后仍 >= trigger_threshold 就判 incompressible 并拒绝返回)。填 0 等于把见效
+#: 地板设成 0,任何结果都算"没见效",应急腿会一次也压不动(本票首版就栽在这)。
+#: 0.6 的含义是「既然上游说装不下,那就压到窗口的六成以下再试」——留出四成余量,
+#: 因为本地估算器与提供方不同口径(工具 schema/图片/各家分词),我们只知道超限了,
+#: 不知道超了多少。
+OVERFLOW_RECOVERY_TRIGGER_RATIO = 0.6
+OVERFLOW_RECOVERY_TARGET_RATIO = 0.45
+
+
+def _overflow_recovery_hard_off() -> bool:
+    """应急腿是否被压缩灰度总闸关掉(env AGENT_COMPACTION_MODE=off)。
+
+    刻意**不新增 env**:`AGENT_COMPACTION_MODE` 已在能力矩阵登记为"彻底关闭压缩"的
+    唯一总闸(见 core/capability_matrix.py 灰度类条目),应急腿尊重同一个闸,运维
+    就只有一个要记的开关。MODE 未设置/ratio/full 时应急腿工作 —— 注意这与主动腿
+    不同:主动腿未放量即不压(避免线上突变),应急腿只在「提供方已明时装不下、
+    这一请求必然失败」的路径上生效,不放它就等于把失败留给用户。
+    """
+    return os.environ.get("AGENT_COMPACTION_MODE", "").strip().lower() == "off"
+
+
 def _build_reasoning_effort_pin_from_env() -> Any | None:
     """构造推理努力档位钉扎(批58十九,对标 codex state/session.rs ReasoningEffortPin)。
 
@@ -2377,6 +2409,8 @@ class AgentLoopV2:
             else max(0, int(compaction_context_limit))
         )
         self._compaction_llm_enabled: bool = _compaction_llm_enabled_from_env()
+        # 输入上下文溢出应急压缩:本次 run 剩余的救赎次数(在 run 入口重置)。
+        self._overflow_recovery_left: int = MAX_OVERFLOW_RECOVERY_ATTEMPTS
         # 批58(十九):推理努力档位钉扎(对标 codex reasoning_effort.rs)——开关关闭或
         # 未配置模型白名单时为 None,采样请求参数与现状逐零差异(不注入覆盖)。
         self._reasoning_effort_pin: Any | None = _build_reasoning_effort_pin_from_env()
@@ -2589,6 +2623,9 @@ class AgentLoopV2:
         self._last_checkpoint_id = None
         # 1-8 上下文压缩:每次 run 重置事件列表(避免跨 run 残留)
         self._compaction_events = []
+        # 输入溢出应急压缩:次数按 run 计,不按 loop 实例生命周期计(跨 run 累积
+        # 会让一个长会话的后期请求彻底失去救赎机会,而那时恰恰最容易超限)。
+        self._overflow_recovery_left = MAX_OVERFLOW_RECOVERY_ATTEMPTS
         # 1-3 压缩生产指标:每次 run 重置指标关联标识
         self._compaction_run_id = uuid.uuid4().hex
         # 1-7 团队接力:每次 run 重置注入元信息(避免跨 run 残留)
@@ -2668,6 +2705,50 @@ class AgentLoopV2:
             )
         except Exception as e:  # noqa: BLE001 - 指标上报绝不影响主链路
             logger.debug("compaction run outcome 上报失败: %s", e)
+
+    def _compact_for_overflow_recovery(
+        self, messages: list[dict[str, Any]]
+    ) -> list[dict[str, Any]] | None:
+        """提供方已明示「装不下」时,按模型窗口强制确定性压缩一次。
+
+        与主动腿 ``_maybe_compact_context`` 的三点差别,逐条都是刻意设计:
+        ① 目标压到窗口的六成以下(主动腿是 85% 触发 / 60% 目标)—— 上游只说
+           "装不下",没说超了多少,留出四成余量才可能在本地估算器与提供方口径
+           不一致时仍然救回;取值理由见 ``OVERFLOW_RECOVERY_TRIGGER_RATIO`` 头注;
+        ② 不走 LLM 语义压缩 —— 刚被拒的就是这条网关,再拿它做一次补全属于把
+           故障面扩大一倍;确定性压缩零调用、零额外成本、可离线复现;
+        ③ 不受灰度 MODE=ratio/full 放量影响(只尊重总闸 off)—— 见
+           ``_overflow_recovery_hard_off`` 头注。
+
+        Returns:
+            压缩后的消息列表;任何"压不动/不该压"的情形返回 None,调用方据此
+            走原始失败路径(与本次改动之前逐字节相同)。
+        """
+        if self._overflow_recovery_left <= 0:
+            return None
+        if self._compaction_context_limit <= 0:
+            return None
+        if _overflow_recovery_hard_off():
+            return None
+        try:
+            from app.core.context_compaction import compress_messages_if_needed
+
+            compressed, info = compress_messages_if_needed(
+                messages,
+                self._compaction_context_limit,
+                trigger_ratio=OVERFLOW_RECOVERY_TRIGGER_RATIO,
+                target_ratio=OVERFLOW_RECOVERY_TARGET_RATIO,
+                keep_recent=DEFAULT_COMPACTION_KEEP_RECENT,
+            )
+        except Exception as e:  # noqa: BLE001 - 压不动就照原样失败,绝不因救火添新错
+            logger.warning("输入溢出应急压缩异常(降级为原始失败): %s", e)
+            return None
+        if not info.get("compressed"):
+            # 判不动(消息太少/全落尾部配对组)⇒ 重试同样载荷必然再撞,直接报原始错误。
+            return None
+        info["trigger"] = "input_overflow_recovery"
+        self._compaction_events.append(info)
+        return compressed
 
     async def _maybe_compact_context(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """1-8 上下文超限压缩(2026-09-07 立):占用 ≥ context_limit*0.85 时压缩旧消息。
@@ -3948,7 +4029,12 @@ class AgentLoopV2:
                     extra_params = {**extra_params, "executed_tool_calls_metadata": _etcm}
             except Exception as e:  # noqa: BLE001 - 回灌失败降级跳过
                 logger.debug("executed_tool_calls 回灌失败(降级跳过): %s", e)
-        for attempt in range(self.llm_retry_max + 1):
+        # 循环上界额外留出溢出救赎名额:溢出腿的 continue 排在
+        # ``attempt >= llm_retry_max`` 的 break **之前**,所以这些名额只有真发生
+        # 「上游明示装不下且本地压得动」时才走得到;普通瞬时故障的退避重试次数
+        # 与本次改动之前逐字节相同(llm_retry_max=0 的调用方遇到溢出也能救回一次,
+        # 而按旧上界它连一次重试名额都没有 —— 那是必死路径)。
+        for attempt in range(self.llm_retry_max + 1 + MAX_OVERFLOW_RECOVERY_ATTEMPTS):
             # G-200:每次尝试重置 finish_reason(重试轮新开请求,旧值不能留);
             # sink 按引用共享,网关在请求面写、此处成功后读。
             self._last_finish_reason = None
@@ -3986,6 +4072,28 @@ class AgentLoopV2:
                 raise
             except Exception as e:
                 last_exc = e
+                # 输入上下文溢出应急压缩(2026-10-30 立):上游已经明说这一载荷装不下,
+                # 原样退避重试必然同样失败(还白烧几轮配额)。先按模型窗口强制压一次,
+                # 压得动就立刻用压缩后的载荷重试(不退避 —— 这不是瞬时故障,退避无意义);
+                # 压不动则一行都不改地走下面的既有路径,失败形态与本次改动之前完全相同。
+                # 排在 attempt>=llm_retry_max 的 break **之前**:llm_retry_max=0 的调用方
+                # 今天遇到溢出是必死,而"少带一次上下文再试"与该调用方要的结果同向。
+                if self._overflow_recovery_left > 0:
+                    from app.core.context_overflow import is_context_overflow_error
+
+                    if is_context_overflow_error(e):
+                        _recovered = self._compact_for_overflow_recovery(messages)
+                        if _recovered is not None:
+                            self._overflow_recovery_left -= 1
+                            _saved = len(messages) - len(_recovered)
+                            messages = _recovered
+                            logger.warning(
+                                "上游明示输入超出上下文窗口:已强制压缩(净减 %d 条消息,"
+                                "本次 run 剩 %d 次救赎)",
+                                _saved,
+                                self._overflow_recovery_left,
+                            )
+                            continue
                 if attempt >= self.llm_retry_max:
                     break
                 # L5-12(2026-08-12):LLM 重试指标埋点
