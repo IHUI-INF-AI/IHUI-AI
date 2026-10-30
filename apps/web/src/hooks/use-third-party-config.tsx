@@ -11,6 +11,7 @@ import { Building2, type LucideIcon } from 'lucide-react'
 
 import { useThirdPartyAuth } from './use-third-party-auth'
 import type { ThirdPartyConfig, ThirdPartyPlatform, ThirdPartyProvider } from '@ihui/ui-react'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 /**
  * 8 平台 provider 静态定义(对标共享 ThirdPartyLoginButtons 3x3 网格铺排)
@@ -127,7 +128,7 @@ export function useThirdPartyConfig(): ThirdPartyConfig {
         icon:
           typeof def.icon === 'string' ? (
             <Image
-              src={def.icon}
+              src={toMediaImageUrl(def.icon)}
               alt=""
               aria-hidden="true"
               width={16}

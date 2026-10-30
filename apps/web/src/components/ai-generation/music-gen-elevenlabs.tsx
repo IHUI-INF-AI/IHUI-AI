@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 
 const LENGTHS = ['30000', '60000', '120000'] as const
 const MODELS = ['music_v1', 'music_v1_5'] as const
@@ -124,7 +125,7 @@ export function MusicGenElevenlabs() {
           <p className="text-sm text-destructive">{(mutation.error as Error).message}</p>
         ) : null}
         {audio ? (
-          <audio src={audio} controls className="w-full">
+          <audio src={toMediaStreamUrl(audio)} controls className="w-full">
             <track kind="captions" />
           </audio>
         ) : null}

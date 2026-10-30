@@ -9,6 +9,7 @@ import { Music, Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 
 interface AudioGeneratorProps {
   onGenerate?: (prompt: string, voice: string) => Promise<string>
@@ -51,7 +52,7 @@ export function AudioGenerator({ onGenerate }: AudioGeneratorProps) {
       result={
         result.status === 'success' && result.data ? (
           <div className="space-y-2">
-            <audio src={result.data} controls className="w-full">
+            <audio src={toMediaStreamUrl(result.data)} controls className="w-full">
               <track kind="captions" />
             </audio>
             <a

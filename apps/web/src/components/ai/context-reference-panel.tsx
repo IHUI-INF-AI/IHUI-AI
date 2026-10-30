@@ -23,6 +23,7 @@ import {
 
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 import type { ReferenceType, ReferenceItem } from '@/hooks/use-message-references'
 
@@ -87,7 +88,7 @@ export function ContextReferencePanel({
                   {/* 图片/视频缩略图优先显示(覆盖默认图标) */}
                   {hasThumbnail && ref.type === 'image' ? (
                     <Image
-                      src={ref.thumbnail as string}
+                      src={toMediaImageUrl(ref.thumbnail as string)}
                       alt={ref.label}
                       width={40}
                       height={40}
@@ -95,7 +96,7 @@ export function ContextReferencePanel({
                     />
                   ) : hasThumbnail && ref.type === 'video' ? (
                     <video
-                      src={ref.thumbnail}
+                      src={toMediaStreamUrl(ref.thumbnail)}
                       className="h-10 w-10 shrink-0 rounded-md border bg-black object-cover"
                       muted
                       preload="metadata"
@@ -202,7 +203,7 @@ export function ContextReferencePanel({
                     {ref.type === 'image' ? (
                       <div className="relative h-64 w-full">
                         <Image
-                          src={ref.thumbnail as string}
+                          src={toMediaImageUrl(ref.thumbnail as string)}
                           alt={ref.label}
                           fill
                           className="rounded-md object-contain"
@@ -210,7 +211,7 @@ export function ContextReferencePanel({
                       </div>
                     ) : (
                       <video
-                        src={ref.thumbnail}
+                        src={toMediaStreamUrl(ref.thumbnail)}
                         className="max-h-64 w-full rounded-md"
                         controls
                         preload="metadata"

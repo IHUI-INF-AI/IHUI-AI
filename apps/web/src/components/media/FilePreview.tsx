@@ -34,6 +34,8 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchGatedBlob } from '@/lib/gated-blob-fetch'
 import { downloadFilenameFor } from '@/lib/file-preview-attachment'
+// 外部 http(s) 图片经同源代理走 /api/media/image,满足收窄后的 CSP img-src
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import { OfficeViewer } from './OfficeViewer'
 import { PDFViewer } from './PDFViewer'
 import {
@@ -550,7 +552,7 @@ function ImagePreview({
           )
         ) : (
           <Image
-            src={current.url}
+            src={toMediaImageUrl(current.url)}
             alt={current.name ?? 'preview'}
             width={800}
             height={600}

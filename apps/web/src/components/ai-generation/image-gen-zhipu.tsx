@@ -26,6 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 const SIZES = ['1024x1024', '1280x720', '720x1280'] as const
 const MODELS = ['cogview-4-250304', 'cogview-4', 'cogview-3-flash'] as const
@@ -140,7 +141,7 @@ export function ImageGenZhipu() {
           {images.map((url) => (
             <div key={url.slice(-24)} className="space-y-1">
               <Image
-                src={url}
+                src={toMediaImageUrl(url)}
                 alt={prompt}
                 width={800}
                 height={600}

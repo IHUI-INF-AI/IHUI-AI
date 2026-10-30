@@ -135,7 +135,7 @@ if [[ ! -f "$WEB_ENV_FILE" ]] || [[ "$FORCE_REGEN" == "true" ]]; then
 # Android APK:站点 CDN 腿的固定地址(cdn-server 读旁边 ihui-ai-latest.apk.redirect.json 转出 no-cache 302,
 # 真正长缓存的是带版本号那份;由 scripts/publish-mobile-apk.mjs 每次出包自动翻指针)
 NEXT_PUBLIC_DOWNLOAD_APK_URL=https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk
-# 备用(CF 橙云腿,跨境限速随其策略变):https://dl.aizhs.top/ihui-ai-latest.apk
+# (COS/CF 备用腿 dl.aizhs.top 已于 2026-10-30 整桶下线:按外网下行流量计费且比站点腿慢两个数量级)
 # 下面两行是下载页展示值,不产生任何分发效果 —— 真实版本以指针文件为准
 NEXT_PUBLIC_DOWNLOAD_APK_VERSION=0.0.0
 NEXT_PUBLIC_DOWNLOAD_APK_RELEASE_DATE=1970-01-01
