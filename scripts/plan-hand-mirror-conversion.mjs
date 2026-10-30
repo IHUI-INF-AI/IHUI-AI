@@ -136,6 +136,17 @@ export function hardcodedCjkCount(text) {
 /** 硬编码正文阈值:只看**未在词包里**的中文字符数(正文类页面实测 317/242 字,普通页中位数 0)。 */
 export const HARDCODED_TEXT_LIMIT = 100
 
+/**
+ * 硬编码正文这一族的**稳定账名**(2026-10-30 立)。
+ * 立因:`why` 里带每页字数(「硬编码正文 244 字…」),而频次表按页聚合 ⇒ 同一个族被稀释成
+ * 12 个唯一 token、每个恒计 1,这一族在 blockers 经济账里看起来像"没人卡"。
+ * 账必须住在 `extras`(清单面,唯一真相源),`why` 只是给人读的投影(§0.6)。
+ */
+export const HARDCODED_TEXT_TOKEN = '硬编码正文不在该屏消费的键下'
+
+/** 账名缺失的兜底档:某条 page-only-capability 出路没写 extras 时,它进这一档并被逐条点名,而不是静默消失。 */
+export const UNLEDGERED_TOKEN = '(拦路清单缺失:该型未写 extras)'
+
 /** 小程序词包(壳承载后文案的唯一来源) —— 与页面按同一面读。 */
 export const MESSAGES_REL = 'packages/i18n/messages/miniapp-taro/zh-CN.json'
 
@@ -762,6 +773,11 @@ export function judgeConversion({
     return {
       spec,
       kind: 'page-only-capability',
+      // 这一型也必须写进 extras:它是 page-only-capability 的第二条出路,不写就意味着
+      // "按 extras 算账"的每个消费者都会把这批页读成「卡 0 项 ⇒ 立即可转」(实测 12 页即此型)。
+      // 这一型也必须写进 extras:它是 page-only-capability 的第二条出路,不写就意味着
+      // "按 extras 算账"的每个消费者都会把这批页读成「卡 0 项 ⇒ 立即可转」(实测 12 页即此型)。
+      extras: [HARDCODED_TEXT_TOKEN],
       why: `这一页带着共享屏/壳没有的能力:硬编码正文 ${missingCjk} 字不在该屏消费的键下(转壳会丢内容)`,
     }
   // "只设导航标题"的生命周期钩子可以由壳承载页原样保留(见 titleOnlyLifecycle),不计私有能力
@@ -849,6 +865,28 @@ export function judgeConversion({
   }
 }
 
+/**
+ * 拦路账的聚合(纯函数,单源)—— 只从 `extras` 取。
+ * 旧写法从给人读的 `why` 里切 ', ':既漏第 9 条起的阻塞(why 截 8 条),又把带字数的
+ * 「硬编码正文 N 字」稀释成每页一个唯一 tok ⇒ 整族恒计 1,经济账把 12 页读成"没人卡"。
+ * 某条 page-only-capability 出路没写 extras ⇒ 不折成"没卡",计入 UNLEDGERED 并逐条点名(§0.3)。
+ */
+export function blockedFrequency(rows) {
+  const freq = new Map()
+  const unledgered = []
+  for (const r of rows || []) {
+    if (r.kind !== 'page-only-capability') continue
+    const toks = Array.isArray(r.extras) && r.extras.length > 0 ? r.extras : null
+    if (!toks) {
+      unledgered.push(r.route)
+      freq.set(UNLEDGERED_TOKEN, (freq.get(UNLEDGERED_TOKEN) || 0) + 1)
+      continue
+    }
+    for (const tok of toks) freq.set(tok, (freq.get(tok) || 0) + 1)
+  }
+  return { freq, unledgered }
+}
+
 /** 现算整份计划:只判 form==='hand' 的对(承载页无需转;断链页归造页腿)。 */
 export function plan({ face = 'head' } = {}) {
   const res = computeFidelity(face)
@@ -904,14 +942,8 @@ export function plan({ face = 'head' } = {}) {
   const bucket = (k) => rows.filter((x) => x.kind === k)
   // 拒转符号的**频次**表:这就是"改一处解锁 N 页"的经济账 —— 每个高频符号只要在共享层/兼容层
   // 补一次承载,对应那批页才可能自动转;没有这张表,转换就只能一页一页人工判(= 目标要消掉的东西)。
-  const freq = new Map()
-  for (const r of rows)
-    for (const tok of String(r.why || '')
-      .replace(/^.*能力:/, '')
-      .split(', ')) {
-      if (!tok || r.kind !== 'page-only-capability') continue
-      freq.set(tok, (freq.get(tok) || 0) + 1)
-    }
+  // 聚合判据单源 = blockedFrequency(镜像测试 import 同一份,§22c)。
+  const { freq, unledgered } = blockedFrequency(rows)
   return {
     face,
     pairs: res.pairs,
@@ -935,6 +967,8 @@ export function plan({ face = 'head' } = {}) {
       0,
     ),
     blockers: [...freq.entries()].sort((a, b) => b[1] - a[1]),
+    // 未入账的页逐条点名(非空就说明判据产出的形态又不全了,得补账名而不是让它继续隐身)
+    unledgered,
     rows,
   }
 }
@@ -1232,6 +1266,70 @@ function main(argv) {
         '<BackChevron onPress={onBack} />',
       ),
     ], [['返回键'], [], []])
+    // S25/S26:拦路账的**清单面**形状锁。立因是现读撞出来的:硬编码正文那条出路只写 why、
+    // 不写 extras ⇒ 231 对里 12 页在任何按 extras 算账的消费者眼里等于"卡 0 项⇒立即可转";
+    // 而按 why 切 ', ' 聚合又会被每页字数稀释成唯一 tok,整族恒计 1。两边都得钉住。
+    P(
+      'S25 硬编码正文超标也必须写进 extras，且账名不带每页字数（同族要能聚起来）',
+      (() => {
+        const mk = (n) =>
+          judgeConversion({
+            spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+            pageText: `const copy = '${'隐'.repeat(n)}'`,
+            shellText: `import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){return null}`,
+            sharedText: `export function DemoScreen(){ return t('demo.body') }`,
+            messagesText: '{"other":{"note":"x"}}',
+          })
+        const a = mk(120)
+        const b = mk(150)
+        // 夹具本身不许炸:账名缺失时要干净报 false,而不是把整个自检进程抛掉
+        return [
+          a.kind,
+          Array.isArray(a.extras),
+          a.extras === undefined ? null : a.extras,
+          Array.isArray(b.extras) && b.extras.length === 1 && b.extras[0] === a.extras?.[0],
+        ]
+      })(),
+      ['page-only-capability', true, [HARDCODED_TEXT_TOKEN], true],
+    )
+    P(
+      'S26 账按 extras 聚合：同族多页计 >1；未写 extras 的出路进未入账档并逐条点名',
+      (() => {
+        const { freq, unledgered } = blockedFrequency([
+          {
+            kind: 'page-only-capability',
+            route: 'a',
+            extras: ['X'],
+            why: '这一页带着共享屏/壳没有的能力:硬编码正文 120 字不在该屏消费的键下(转壳会丢内容)',
+          },
+          {
+            kind: 'page-only-capability',
+            route: 'b',
+            extras: ['X'],
+            why: '这一页带着共享屏/壳没有的能力:硬编码正文 150 字不在该屏消费的键下(转壳会丢内容)',
+          },
+          {
+            kind: 'page-only-capability',
+            route: 'c',
+            why: '这一页带着共享屏/壳没有的能力:硬编码正文 300 字不在该屏消费的键下(转壳会丢内容)',
+          },
+          { kind: 'convertible', route: 'd', extras: [], why: '' },
+        ])
+        return [freq.get('X'), freq.get(UNLEDGERED_TOKEN), unledgered]
+      })(),
+      [2, 1, ['c']],
+    )
+    P('S27 反向对照:旧口径(从 why 切)把同族拆成每页唯一 tok ⇒ 聚不起族', (() => {
+      const legacy = (why) => String(why).replace(/^.*能力:/, '').split(', ').filter(Boolean)
+      const toks = [
+        { why: '能力:硬编码正文 120 字不在该屏消费的键下' },
+        { why: '能力:硬编码正文 150 字不在该屏消费的键下' },
+      ]
+        .map((r) => legacy(r.why))
+        .flat()
+      // 两页 → 两个互不相同的 tok(各计 1);按 extras 聚合同两页得 X:2(S26 已钉)
+      return [toks.length, new Set(toks).size]
+    })(), [2, 2])
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
@@ -1255,7 +1353,8 @@ function main(argv) {
     `[plan-hand-mirror-conversion] 面=${p.face} 对=${p.pairs} 已承载=${p.hosted} 手写=${p.hand}(${p.handLines} 行)` +
       ` ⇒ 可转=${p.counts.convertible}(省 ${p.convertibleLinesSaved} 行) ` +
       `带私有能力=${p.counts['page-only-capability']} 无壳=${p.counts['no-shell']} ` +
-      `壳不渲染=${p.counts['shell-not-rendering']} 未判定=${p.counts.undetermined}`,
+      `壳不渲染=${p.counts['shell-not-rendering']} 未判定=${p.counts.undetermined}` +
+      ` 未入账=${p.unledgered.length}`,
   )
   const conv = p.rows
     .filter((r) => r.kind === 'convertible')
@@ -1291,6 +1390,9 @@ export const __test__ = {
   pageOnlyCapabilities,
   judgeConversion,
   plan,
+  blockedFrequency,
+  HARDCODED_TEXT_TOKEN,
+  UNLEDGERED_TOKEN,
   lifecycleBlocks,
   navTitleExpr,
   titleOnlyLifecycle,
