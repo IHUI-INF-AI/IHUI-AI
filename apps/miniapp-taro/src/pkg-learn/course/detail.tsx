@@ -87,9 +87,18 @@ export default function CourseDetail() {
         amount?: number
         status?: string
       }>('/courses/buy', { courseId })
-      // 支付页只读 `router.params.orderNo`(pkg-shop/pay/index.tsx:79,且 no 为空时 onPay 直接
-      // 返回并弹「订单异常」),而原实现把订单号当 orderId 传 ⇒ 课程购买点下去永远付不了。
-      // 免费课后端返回 orderNo='' + status='free',没有支付单可付,如实提示。
+      // 后端 /courses/buy 是**余额直接扣款**：成功即 status='paid'（余额已在服务端扣掉），
+      // 免费课返回 status='free'。改前不看 status 就一律跳收银台 ⇒ 用户余额已被扣一次，
+      // 又被引到微信/支付宝再付一次（重复收费）。已支付/免费都在本页收口。
+      if (res?.status === 'paid' || res?.status === 'free') {
+        Taro.showToast({ title: t('common.success'), icon: 'success' })
+        setTimeout(() => {
+          void Taro.navigateBack()
+        }, 600)
+        return
+      }
+      // 仍走预付单的入口：只读 `router.params.orderNo`（pkg-shop/pay/index.tsx，no 为空时
+      // onPay 直接弹「订单异常」），因此订单号必须作为 orderNo 传，不能当 orderId 传。
       const orderNo = res?.orderNo || res?.orderId || ''
       const amount = res?.amount ?? course?.price ?? 0
       if (!orderNo) {
@@ -100,8 +109,8 @@ export default function CourseDetail() {
         url: `/pkg-shop/pay/index?orderNo=${encodeURIComponent(orderNo)}&amount=${amount}`,
       })
     } catch {
-      // 后端无购买端点,toast 提示 + mock
-      Taro.showToast({ title: t('course.buyDeveloping'), icon: 'none' })
+      // 失败原因已由 api-bridge 统一 toast（余额不足会显示后端原文 402「余额不足」），
+      // 这里不能再盖一句「功能开发中」——那会让用户以为课程买不了是产品没上线。
     }
   }, [course?.id, course?.price, t])
 
