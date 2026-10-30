@@ -2454,6 +2454,13 @@
       "when": 1793332800000,
       "tag": "20261030120000_relay_qoder_public_market",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 354,
+      "when": 1793359800000,
+      "tag": "20261030193000_agnes_video_pricing",
+      "breakpoints": true
     }
 
   ]
