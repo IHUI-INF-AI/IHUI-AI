@@ -106,28 +106,28 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 612 | `dbTables` |
-| schema 文件 | 237 | `dbSchemaFiles` |
-| API 路由 | 4616 | `apiRoutes` |
-| 路由文件 | 651 | `apiRouteFiles` |
-| AI 服务路由 | 613 | `aiServiceRoutes` |
+| 数据库表 | 617 | `dbTables` |
+| schema 文件 | 240 | `dbSchemaFiles` |
+| API 路由 | 4653 | `apiRoutes` |
+| 路由文件 | 656 | `apiRouteFiles` |
+| AI 服务路由 | 624 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 67 | `cliCommandFiles` |
-| CLI 工具文件 | 72 | `cliToolFiles` |
+| CLI 命令文件 | 68 | `cliCommandFiles` |
+| CLI 工具文件 | 73 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3607 | `testFiles` |
-| CI 工作流 | 50 | `ciWorkflows` |
+| 测试文件 | 3690 | `testFiles` |
+| CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 299 | `guardianGates` |
-| — blocking | 273 | `guardianBlocking` |
+| 工程守门 | 305 | `guardianGates` |
+| — blocking | 279 | `guardianBlocking` |
 | — warn | 28 | `guardianWarn` |
-| 跟踪文件 | 17728 | `trackedFiles` |
+| 跟踪文件 | 18156 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-30。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -2030,6 +2030,9 @@ IHUI-AI/
 | **号池账号体检速查 CLI**    | `pnpm relay:inspect -- --file x.json｜--local`                | `apps/api/scripts/relay-account-inspect.ts`(2026-10-26 立):把「这枚号还能不能用、还剩多久、下一步做什么」折成一行话,零 DB / 零上游请求 / **输出永不回显凭据明文**;六态结论 `usable` / `expiring-soon`(≤1 天) / `expired-renewable`(过期但带 refreshToken,进号池即由调度救回) / `expired-dead`(过期且无续期通道,只能重新登录重导) / `envelope-only`(值是 WorkBuddy 5.6 `$wbEncrypted` 信封:仅同机可解回,查积分/签到/跨机皆不可用,**不冒判过期也不冒判能用**) / `indeterminate`(三段读不到到期≠已失效,§0.3);`--local` 直读本机 `workbuddy-desktop{,-ai}.info` 当前登录态;退出码 `0` 全可用 / `1` 有需要处理 / `2` 未判定                                                               |
 | **账号池用量台账**          | `GET /admin/relay/account-pool/usage/:id?days=7`              | 表 `ai_relay_account_usage_ledger`:每次转发调用(成功与失败)由 recordAccountUsage 落一行,fire-and-forget(台账异常只记 warn,不影响转发主链路);list 侧批量聚合近 24h calls/tokens/failRate;本端点给 24h 汇总 + 按 days 窗口的分页明细与总条数;超保留期行由调度轮清理(24h 节流)                                                                                                                                                                                                                                                                       |
 | **补池认领工作流**          | `POST /admin/relay/accounts/:id/claim` + `:id/release`        | 运营认领账号维护:claimStatus unclaimed/claimed + claimedBy/claimedAt/claimNote;已被他人认领 ⇒ 409(点名认领人);释放默认只允许本人(非本人 409),`force=true` 供运维强制释放并留 warn 记录                                                                                                                                                                                                                                                                                                                                                            |
+| **切号携对话闭环 CLI**      | `pnpm relay:login-local-verified -- --provider <code> [--uid] [--dry-run]` | `apps/api/scripts/relay-login-local-verified.ts`(2026-10-30 立,2026-10-31 收口):一条命令完成「池里选票 → 切号前拍连续性快照 → 池票写回本机客户端(关端/写/拉起,写前同目录备份)→ 切号后再拍 → compare」;**本地正库对账面八平台** qoder/minimax/codex/zcode/opencode/workbuddy/codearts/loomy(平台全集与 `check-switch-continuity` 同源;2026-10-31 本机取证推翻「云端平台本地无正库」旧口径:WorkBuddy `~/.workbuddy/projects` 两层 JSONL 91 场、CodeArts `workspaceStorage/**/chatSessions` 45 场、Loomy IndexedDB 键族 2 场);对话是云端回包缓存的豆包如实 `no-continuity-face` 不冒对账;qoder/codearts/minimax/opencode 无会话模板时显式告警「账号资料仍沿用旧号」但不拦写回;失败路径统一走 `exitWith(2)` 显式退出(原只设 exitCode 会被 pg 池挂住);多票不点名 exit 2 绝不猜票;输出零凭据;退出码 0 ok/1 broken(切号真丢了会话)/2 未判定 |
+| **统一切号入口**            | `pnpm switch:client -- --list｜--current｜--to <uid|名称> --provider <p>` | `scripts/switch-client-account.mjs`(2026-10-31 立):trae/trae-solo 转 `scripts/switch-trae-client-with-chat.mjs`(SOLO 自动补 `--product "TRAE SOLO CN"`),其余九平台转 `relay-login-local-verified`;平台名归一与参数映射为纯函数(`__test__`),未知 provider exit 2 并列全支持集;`--list/--current` 仅 Trae 系原生支持,其余如实指向号池巡检入口 |
+| **MiniMax 会话回灌**        | BullMQ `minimax-session-sync` 每 10 分钟 / `node scripts/sync-minimax-client-session.mjs [--dry-run]` | `scripts/sync-minimax-client-session.mjs` + `apps/api/scripts/relay-minimax-session-sync.ts`(2026-10-31 立):读 `~/.minimax/auth/prod/<region>/mcode-public/auth.json`(明文)回流号池;判据走 Trae 的 `decideSync` 单源;取证实证 uid 随票旋转而变 ⇒ **uid > recordKey 两级匹配**(否则轮换后每轮新建行、旧行永久 down);adapter 无公开刷新端点 ⇒ 健康态只凭「新票未过期且与池内不同」上行、绝不下行;零凭据回显;退出码 0 全部处理/1 落库失败/2 未判定 |
 | **模型别名目录**            | `/admin/relay/model-catalog` + `ai_relay_model_catalog` 表    | 上游模型(providerCode/upstreamModel)→ 平台别名(alias/displayName)映射的 list / 新建 / 删除;别名冲突 400、待删记录不存在 404                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **出口代理池**              | `/admin/relay/proxy-pool` + `ai_relay_proxy_pool` 表          | 每账号独立出口 IP 降风控:proxyUrl 限 http/https/socks5 协议、重复新增 409;list 分页 + status(active/dead/exhausted)过滤、PATCH 更新 status/boundAccountId/proxyUrl、DELETE 删除、`POST :id/check` 人工标记活性(markProxyChecked);管理员可见 proxyUrl 原样(含内嵌账密)                                                                                                                                                                                                                                                                             |
 | **账号上游余额点查**        | `POST /admin/relay/accounts/:id/quota`                        | 按需点查上游余额/积分(2026-10-23 立),**不进调度轮询**——只在 admin 点击时发一次上游请求,回包带 queriedAt;仅已实证余额端点的平台可用(现 trae / qoder / workbuddy 适配器实现 getQuota;2026-10-27 扩容八平台 codex/opencode/minimax/zcode/loomy/doubao/lingma/grokbot 适配器已注册,余额端点形状均未实证 ⇒ getQuota 一律如实未判定(401/403 回 authFailed,200 回响应键名清单,不猜字段)——workbuddy 2026-10-27 真号实弹闭环 billing summary;codearts 套餐/积分余额**无接口**(官方明细只在控制台 personal-usage 页,免费额度按月重置),适配器只挂了限时福利 balance 端点(opengw.developer…/api/v1/user/tokens/balance,2026-10-27 取证),其响应形状未实证 ⇒ 面板点查如实回未判定并带响应键名清单),未注册平台同样 400;取不到的一律留 null,不拿 0 冒充(0 在面板读成积分耗尽)                                                                                                                                                                                                                                                   |
