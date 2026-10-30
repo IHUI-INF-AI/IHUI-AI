@@ -3,15 +3,16 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 切号前后"对话随行"对账入口 —— 判 Qoder CN / MiniMax Code 登录后本地会话清单是否连续。
+ * 切号前后"对话随行"对账入口 —— 判各平台切号登录后本地会话清单是否连续。
  *
- *   node scripts/check-switch-continuity.mjs snapshot [qoder|minimax|--all] [--json]
+ *   node scripts/check-switch-continuity.mjs snapshot <平台…|all> [--json]
  *   node scripts/check-switch-continuity.mjs compare --before <前快照.json> --after <后快照.json>
  *   node scripts/check-switch-continuity.mjs --help
  *
- * 用法(每端):切号前跑一次 snapshot 存文件 → 切号并登录新号 → 再 snapshot → compare 出结论。
- * 立因与"为什么不是迁移而是对账"见 scripts/lib/switch-continuity-check.mjs 头注(取证实证:
- * 两端本地正库按工作区/设备组织、不含账号字段)。只读判机器状态 ⇒ 不进提交链(§12e)。
+ * 平台全集 = switch-continuity-check 的 APPS 注册表现读(2026-10-30 起 5 键:
+ * qoder/minimax/codex/zcode/opencode;分族口径——哪些平台对话在云端、哪些由携对话腿自证——
+ * 见该文件头注,不在此重复)。用法(每端):切号前跑一次 snapshot 存文件 → 切号并登录新号
+ * → 再 snapshot → compare 出结论。只读判机器状态 ⇒ 不进提交链(§12e)。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -23,19 +24,20 @@ const STATE_DIR = path.join(HERE, '.ihui-agent', 'state', 'switch-continuity')
 
 const USAGE =
   '用法:\n' +
-  '  node scripts/check-switch-continuity.mjs snapshot qoder|minimax|all [--json]  # 切号前各跑一次\n' +
+  '  node scripts/check-switch-continuity.mjs snapshot <平台…|all> [--json]  # 切号前各跑一次(平台全集按 APPS 注册表现读)\n' +
   '  node scripts/check-switch-continuity.mjs compare --before <a.json> --after <b.json>\n' +
   '快照默认落 .ihui-agent/state/switch-continuity/(gitignored);compare 只吃两份 JSON。\n'
 
 function parse(argv) {
   const o = { mode: null, apps: [], before: '', after: '', json: false, help: false, error: null }
+  const appKeys = Object.keys(C.APPS)
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === 'snapshot' || a === 'compare') {
       if (o.mode) o.error = `模式互斥:${o.mode} 与 ${a}`
       o.mode = a
-    } else if (a === 'qoder' || a === 'minimax') o.apps.push(a)
-    else if (a === 'all') o.apps.push('qoder', 'minimax')
+    } else if (appKeys.includes(a)) o.apps.push(a)
+    else if (a === 'all') o.apps.push(...appKeys)
     else if (a === '--before') o.before = argv[++i] || ''
     else if (a === '--after') o.after = argv[++i] || ''
     else if (a === '--json') o.json = true
@@ -43,12 +45,12 @@ function parse(argv) {
     else o.error = `未知参数: ${a}`
   }
   if (!o.help && !o.error) {
-    if (o.mode === 'snapshot' && !o.apps.length) o.error = 'snapshot 需要指定 qoder|minimax|all'
+    if (o.mode === 'snapshot' && !o.apps.length) o.error = `snapshot 需要指定 ${appKeys.join('|')}|all`
     if (o.mode === 'compare' && (!o.before || !o.after)) o.error = 'compare 需要 --before 与 --after'
     if (!o.mode) o.error = '缺少模式:snapshot | compare'
   }
-  if (o.mode === 'snapshot' && (!o.apps.length || o.apps.some((x) => !Object.keys(C.APPS).includes(x)))) {
-    if (!o.error) o.error = `应用名不认识(可用:${Object.keys(C.APPS).join('/')})`
+  if (o.mode === 'snapshot' && (!o.apps.length || o.apps.some((x) => !appKeys.includes(x)))) {
+    if (!o.error) o.error = `应用名不认识(可用:${appKeys.join('/')})`
   }
   return o
 }

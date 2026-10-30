@@ -80,6 +80,39 @@ grep -E '<your-|<generate-' .env.production  # 应无输出(校验占位符)
 `ANTHROPIC_API_KEY`(付费)。`LITELLM_MODEL` 默认 `stepfun/step-3.7-flash`。
 全部为空时降级 stub 模式,**不可生产**。
 
+Agnes 视频通道(2026-10-30 接入公开计费面 `POST /v1/videos/generations` `{"vendor":"agnes"}`):
+
+**该厂商域名与 key 按账号成对绑定,拆开必然 401**(2026-10-30 四组合直连 `GET /v1/models` 实测):
+
+| 队列 | base URL | 认哪把 key | 本机直连实测 |
+|---|---|---|---|
+| 主(国内网关) | `https://api.agnes-ai.cn/v1` | 仅新 key | 200,含 `agnes-video-2.5-flash` / `agnes-video-2.5` |
+| 备(apihub) | `https://apihub.agnes-ai.cn/v1` | 仅旧 key | 200,同两档 |
+| 备(境外域) | `https://apihub.agnes-ai.com/v1` | 仅旧 key | 200(2026-10-23 曾测直连 000,线路会抖;apps/api 的代理名单仍留该 host,见 `relay-outbound-proxy.ts` 头注) |
+
+可选覆盖(不填则整体回退通用通道,**生产最小配置就是什么都不填**):
+
+- base URL 优先级链:`AGNES_VIDEO_API_BASE` → 回退 `AGNES_API_BASE` → 回退代码默认 `https://api.agnes-ai.cn/v1`
+- key 优先级链:`AGNES_VIDEO_API_KEY` → 回退 `AGNES_API_KEY`
+- 两条队列**都配满**(key+base 成对)才算把视频流切到另一条账号;只配 base 不配 key = 拿 A 账号的 key 打 B 域名,必 401。
+- 定价源:`ai_pricing` 迁移 `20261030193000_agnes_video_pricing`(`per_video` + `video_unit='call'`,
+  单位=分 ⇒ 对外公示自动折成 ¥0.20/次、¥0.60/次)。管理员改价走 `/admin/ai-pricing`,
+  该迁移幂等判据是「该 model 无当前生效行才补」,不会覆盖管理员已设价。
+- 上游容量现状(2026-10-30 实测三条队列):提交位全回 `503 video_queue_full`。
+  此时**不扣费**(扣费只在提交拿到 taskId 之后),用户拿到带原因的失败响应;
+  要不要把「队列满」映射成可重试语义由后手裁,本票不改 `callVendor` 的通用错误面(会波及全部厂商)。
+
+Agnes 图像通道(2026-10-30 同票接入公开计费面 `POST /v1/images/generations` `{"vendor":"agnes"}`):
+
+- **走通用通道**(`AGNES_API_KEY` + `AGNES_API_BASE`),不占用视频那对可选覆盖 —— 图像与文本同属一条队列,
+  视频那一对是给「付费视频流单独挂另一账号」用的;图像是同步端点(上游实测 40-50s),无需独立。
+- 上游实测(2026-10-30):`agnes-image-2.5-flash` **200 真出图**(返回 `data[0].url`,图床
+  `cos-platform-outputs.agnes-ai.cn`);`agnes-image-2.1-flash` 与任何 `n>1` 都回 **429**
+  (上游要平台实名认证才放开 rpm)⇒ 本平台对 `vendor=agnes` 的 `n>1` **显式回 400 拒绝**,
+  不静默截断成一张(按 n 计费只出 1 张 = 计费与出片两头对不上)。
+- 定价源同上迁移 `20261030193000_agnes_video_pricing`,另登记 `per_image` 两行(单位=分/张 ⇒ 公示 ¥0.20/张),
+  与视频 flash 档同价(同一族两档媒体同价,上游零成本)。
+
 ### 2.3 可选
 
 | 变量 | 默认 | 说明 |

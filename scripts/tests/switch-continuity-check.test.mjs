@@ -143,8 +143,62 @@ test('snapshotApp 未判定腿点名原因,不抛异常', () => {
   if (s.state === 'undetermined') assert.ok(s.why.length > 0)
 })
 
+test('2026-10-30 扩容三键在册:codex/zcode/opencode 可寻址(fileSet 形态各异)', () => {
+  for (const k of ['codex', 'zcode', 'opencode']) {
+    assert.ok(C.APPS[k], `${k} 必须在 APPS 注册表`)
+    assert.ok(C.APPS[k].label)
+  }
+  assert.ok(C.APPS.opencode.fileSet, 'opencode 必须是 fileSet 形态(主库 0 行,清单钉取 history-snip 文件族)')
+  assert.equal(C.APPS.codex.sessions.distinct, true, 'codex 会话必须 DISTINCT thread_id')
+})
+
+test('DISTINCT 摘要:同 thread 多行只计一场(codex 形态合成库)', () => {
+  const scratch = mkScratch('cont-distinct')
+  try {
+    const file = path.join(scratch, 'thread_history_1.sqlite')
+    const db = new DatabaseSync(file)
+    db.exec('CREATE TABLE thread_items (item_id TEXT PRIMARY KEY, thread_id TEXT, item_type TEXT)')
+    const ins = db.prepare('INSERT INTO thread_items(item_id, thread_id, item_type) VALUES(?,?,?)')
+    // 6 条 item 分属 2 个 thread ⇒ DISTINCT thread_id = 2
+    for (let i = 0; i < 6; i++) ins.run(`i-${i}`, `t-${i % 2}`, 'message')
+    db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+    db.close()
+    const s = C.snapshotApp('codex', { dbPath: file })
+    assert.equal(s.state, 'ok')
+    assert.equal(s.sessions.count, 2, 'DISTINCT 后会话数 = thread 数,不是 item 数')
+    assert.equal(s.messageRows.count, 6)
+  } finally {
+    cleanScratch(scratch)
+  }
+})
+
+test('fileSet 快照:文件名集合即清单钉,增删文件翻钉(opencode 形态合成目录)', () => {
+  const scratch = mkScratch('cont-fileset')
+  try {
+    const dir = path.join(scratch, 'history-snip')
+    fs.mkdirSync(dir, { recursive: true })
+    for (const n of ['ses_a.json', 'ses_b.json', 'ses_c.json']) fs.writeFileSync(path.join(dir, n), '{}')
+    const s1 = C.snapshotApp('opencode', { dbPath: dir })
+    assert.equal(s1.state, 'ok')
+    assert.equal(s1.sessions.count, 3)
+    assert.equal(s1.messageRows, null, '文件族形态无消息行维度')
+    fs.writeFileSync(path.join(dir, 'ses_d.json'), '{}')
+    const s2 = C.snapshotApp('opencode', { dbPath: dir })
+    assert.notEqual(s1.sessions.digest, s2.sessions.digest, '多一份会话文件 ⇒ 钉必须翻')
+    const cmp = C.compareSnapshots(s1, s2)
+    assert.equal(cmp.verdict, 'continuity-ok', '只增不删 ⇒ continuity-ok 且多出的一枚进 gainedFp')
+    assert.equal(cmp.gainedFp.length, 1)
+    fs.rmSync(path.join(dir, 'ses_a.json'))
+    const cmp2 = C.compareSnapshots(s1, C.snapshotApp('opencode', { dbPath: dir }))
+    assert.equal(cmp2.verdict, 'continuity-broken', '少一份会话文件 ⇒ broken 并点名')
+    assert.equal(cmp2.lostFp.length, 1)
+  } finally {
+    cleanScratch(scratch)
+  }
+})
+
 test('不认识的应用 ⇒ CheckError bad-app(绝不静默返回空清单)', () => {
-  assert.throws(() => C.locateDbAll('zcode'), /bad-app|不认识/)
-  assert.throws(() => C.snapshotApp('zcode'), /bad-app|不认识/)
+  assert.throws(() => C.locateDbAll('nosuchapp'), /bad-app|不认识/)
+  assert.throws(() => C.snapshotApp('nosuchapp'), /bad-app|不认识/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
