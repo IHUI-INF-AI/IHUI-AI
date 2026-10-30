@@ -50,6 +50,7 @@ const GATE_CLI = join(REPO, 'scripts', 'check-portal-fixed.mjs')
 const WEB_SRC_REL = 'apps/web/src'
 
 /** 真仓 HEAD 在册路径(逐字取自 `git ls-tree -r HEAD` / `git grep HEAD` 的实测输出)。 */
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DEBT_REL = 'apps/web/src/components/feedback/portal-panel.tsx'
 const INLINE_OK_REL = 'apps/web/src/components/chat/add-menu-popover.tsx'
 const CLASS_OK_REL = 'apps/web/src/components/ai/context-usage-ring.tsx'
@@ -59,8 +60,12 @@ const HEAD_BLOBS = catBatch(REPO, [DEBT_REL, INLINE_OK_REL, CLASS_OK_REL, NON_SO
 
 function head(rel) {
   const text = HEAD_BLOBS.get(`HEAD:${rel}`)
-  assert.equal(typeof text, 'string', `HEAD 面取不到 ${rel} —— 判不了就点名,绝不回落成自造夹具`)
-  return text
+  if (typeof text === 'string') return text
+  // 批量清单只收扫描面内的 .tsx/.jsx(风格口径),而两跳常量解析要用到的库文件是 .ts ⇒
+  // 这里按单文件现取兜底;取不到仍点名失败,绝不回落成自造夹具(§0.3)。
+  const r = gitRead(['show', `HEAD:${rel}`])
+  assert.equal(r.status, 0, `HEAD 面取不到 ${rel} —— 判不了就点名,绝不回落成自造夹具`)
+  return String(r.stdout ?? '')
 }
 
 /** 面内定位:第一个包含 needle 的行下标(0 基),找不到返回 -1。 */
@@ -77,9 +82,12 @@ function replaceLine(lines, idx, repl) {
   return lines.map((l, i) => (i === idx ? repl : l))
 }
 
-function judge(lines, startIdx, rel) {
+function judge(lines, startIdx, rel, rootDir = ROOT) {
   const findings = []
-  gate.checkPortalElement(lines, startIdx, rel, findings)
+  // 第 5 参 = 磁盘绝对路径:2026-10-30 起门会做两跳常量解析(style 引用 → 常量定义 → 字面量),
+  // 需要按 import 说明符去找目标文件。`rootDir` 让调用方能把它钉在**同一棵树**上
+  // (T4 用 scratch 铺面时会传入 scratch 根,否则一面解析真树、一面解析 scratch ⇒ 假分歧)。
+  gate.checkPortalElement(lines, startIdx, rel, findings, join(rootDir, ...rel.split('/')))
   return findings
 }
 
@@ -180,28 +188,28 @@ function layFace(dir, pairs) {
 }
 
 describe('check-portal-fixed · §22c 镜像测试(判据一律走门体导出的 gate)', () => {
-  it('T1 真仓 HEAD 逐字面判红 + 补 inline position 的反向对照(有牙证明,内存构造面)', () => {
+  it('T1 真仓 HEAD 的定位经共享常量展开 ⇒ 解析确认后 0 处;引用无法解析时仍要报(两面)', () => {
     const lines = head(DEBT_REL).split('\n')
     const startIdx = lineIdx(lines, 'createPortal(')
     assert.ok(startIdx >= 0, 'HEAD 面里应能找到 createPortal 调用行(找不到 = 面变了,先怀疑尺子)')
-    const findings = judge(lines, startIdx, DEBT_REL)
-    assert.equal(findings.length, 1, `真实存量面应判出 1 处,实得 ${JSON.stringify(findings)}`)
-    const f = findings[0]
-    assert.equal(f.level, 'FAIL')
-    assert.equal(f.file, DEBT_REL)
-    const divIdx = lineIdx(lines, '<div', startIdx)
-    assert.ok(divIdx >= 0, 'HEAD 面里 createPortal 之后应有容器元素行')
-    assert.equal(f.line, divIdx + 1, '报的行号必须落在容器元素那一行')
-    assert.ok(lines[f.line - 1].includes('<div'), '同一判据反过来钉住"行号指向容器行"这一读法')
-
+    // 2026-10-30 改判口径:该处定位来自 `PORTAL_PANEL_POSITION_STYLE = { position: 'fixed' }`
+    // (lib/portal-panel-position.ts)⇒ 门做两跳常量解析后应判通过;仍报红就是解析没接上(误报)。
+    assert.deepEqual(judge(lines, startIdx, DEBT_REL), [], '引用常量已含 position 仍判红 = 解析没接上或误报')
     const styleIdx = lineIdx(lines, 'style={{')
     assert.ok(styleIdx >= 0, 'HEAD 面里应有一行 style={{ … }}')
+    // 有牙证明(失效方向):引用一个根本不存在的标识符 ⇒ 必须仍报一处,且是 WARN 档
+    // ("无法静态确认,交人工"),不得静默放行。
+    const broken = replaceLine(lines, styleIdx, '      style={{ ...notDefinedAnywhere, top: 0 }}')
+    const f = judge(broken, startIdx, DEBT_REL)
+    assert.equal(f.length, 1, `引用无法解析时必须仍报一处,实得 ${JSON.stringify(f)}`)
+    assert.equal(f[0].level, 'WARN', '解析不到只能降成人工确认,不得冒充 FAIL 也不得冒充通过')
+    // 反向对照:补 inline position ⇒ 通过;改回引用行 ⇒ 又回到需要报的状态。
     const fixed = replaceLine(lines, styleIdx, "      style={{ position: 'fixed', top: 0, left: 0 }}")
     assert.deepEqual(judge(fixed, startIdx, DEBT_REL), [], '补上 inline position 后仍判红 = 判据没牙')
     assert.equal(
       judge(replaceLine(fixed, styleIdx, lines[styleIdx]), startIdx, DEBT_REL).length,
-      1,
-      '改回 HEAD 原行后必须重新判红(否则上一句的放行是断言恒真,不是判据生效)',
+      0,
+      '改回原行后应重新走常量解析并通过(与第一句同源,证明放行来自解析而不是恒真)',
     )
   })
 
@@ -234,15 +242,18 @@ describe('check-portal-fixed · §22c 镜像测试(判据一律走门体导出�
   it('T4 两条入口同判:同一 HEAD blob 走 gate.scanFile(读盘)与 gate.checkPortalElement(内存面)结论逐字一致', () => {
     const scratch = mkScratch('ihui-portal-fixed-t4-')
     try {
-      const rels = [DEBT_REL, INLINE_OK_REL, CLASS_OK_REL]
+      // 两跳常量解析要用到的库文件必须与面一起铺:否则 scanFile 在 scratch 里解析不到、
+      // judge 在真树里解析得到 ⇒ 两面"不同判"是环境差,不是门体内两条真相(2026-10-30 实测)。
+      const LIB_REL = 'apps/web/src/lib/portal-panel-position.ts'
+      const rels = [DEBT_REL, INLINE_OK_REL, CLASS_OK_REL, LIB_REL]
       layFace(scratch, rels.map((rel) => ({ rel, text: head(rel) })))
-      for (const rel of rels) {
+      for (const rel of [DEBT_REL, INLINE_OK_REL, CLASS_OK_REL]) {
         const abs = join(scratch, ...rel.split('/'))
         const disk = []
         gate.scanFile(abs, rel, disk)
         const lines = head(rel).split('\n')
         const startIdx = lineIdx(lines, 'createPortal(')
-        const mem = startIdx >= 0 ? judge(lines, startIdx, rel) : []
+        const mem = startIdx >= 0 ? judge(lines, startIdx, rel, scratch) : []
         assert.deepEqual(disk, mem, `${rel}:同一面两条入口给出不同结论 = 门体内两条真相`)
       }
 
@@ -259,8 +270,9 @@ describe('check-portal-fixed · §22c 镜像测试(判据一律走门体导出�
       gate.scanFile(join(scratch, ...varRel.split('/')), varRel, findings)
       assert.deepEqual(findings, [], 'createPortal(<变量>, …) 那一臂应放过(门体注释写明静态不可追)')
 
-      // 反向对照:同一构造面只把变量换成容器元素 ⇒ 判据必须立刻有反应
-      const hitFace = replaceLine(varFace, lineIdx(varFace, 'createPortal('), '  return createPortal(<div role="menu" />, document.body)')
+      // 反向对照:构造一个**最小独立面**(不基于 DEBT_REL——那边第一处 `createPortal(`
+      // 可能落在注释里,替换命中注释会让这一臂落空)。容器缺定位却没判 = 放过臂宽到了不该宽的地方。
+      const hitFace = ['export function F() {', '  return createPortal(<div role="menu" />, document.body)', '}']
       const hitRel = `${WEB_SRC_REL}/constructed-hit-face.tsx`
       layFace(scratch, [{ rel: hitRel, text: hitFace.join('\n') }])
       const hit = []
@@ -329,8 +341,13 @@ describe('check-portal-fixed · §22c 镜像测试(判据一律走门体导出�
           'CLI 点名的站点集合与 gate 对同一面的读数不等价(两面同料必须同判)',
         )
         assert.equal(rc, fails.length > 0 ? 1 : 0, `FAIL ${fails.length} 处时退出码应为 ${fails.length > 0 ? 1 : 0},实得 ${rc}`)
-        assert.equal(fails.length, 1, `HEAD 面读数应恰有 1 处 FAIL(实得 ${JSON.stringify(fails)})`)
-        assert.equal(fails[0].file, DEBT_REL, '那一处必须就是 portal-panel 的既有存量,不是别处新长出来的')
+        // 2026-10-30 口径:portal-panel 的定位来自共享常量,而本用例只铺 HEAD 扫描面
+        // (.tsx/.jsx),不含 lib 里那份 `.ts` 常量 ⇒ 门**解析不到**,只能降成 WARN(交人工),
+        // 不得冒充 FAIL,也不得冒充通过。这条同时钉住"降档"与"多要一次确认"的失效方向。
+        assert.equal(fails.length, 0, `HEAD 面不应再有 FAIL(实得 ${JSON.stringify(fails)})`)
+        const warns = findings.filter((f) => f.level === 'WARN')
+        assert.equal(warns.length, 1, `缺常量文件时应恰 1 处 WARN,实得 ${JSON.stringify(warns)}`)
+        assert.equal(warns[0].file, DEBT_REL, '那一处必须就是 portal-panel 的既有存量,不是别处新长出来的')
       } finally {
         rmScratch(scratch, { bestEffort: true })
       }
@@ -340,8 +357,17 @@ describe('check-portal-fixed · §22c 镜像测试(判据一律走门体导出�
   it(
     'T7 装车证明(--staged 档):临时 git 仓里 staged 违规面 ⇒ exit 1,staged 合规面 ⇒ exit 0',
     () => {
+      // 违规面用**最小独立面**:DEBT_REL 现在靠共享常量解析通过(缺 lib 时也只降 WARN),
+      // 拿它当"违规面"会让这条装车证明失去牙 —— 真违规必须是"既无 inline position、无定位类、
+      // 也没有可解析的 style 引用"。
+      const BAD_REL = `${WEB_SRC_REL}/constructed-bad.tsx`
+      const BAD_TEXT = [
+        'export function F() {',
+        '  return createPortal(<div className="z-50" />, document.body)',
+        '}',
+      ].join('\n')
       const cases = [
-        { name: '违规面', rel: DEBT_REL, expectRc: 1 },
+        { name: '违规面', rel: BAD_REL, text: BAD_TEXT, expectRc: 1 },
         { name: '合规面', rel: INLINE_OK_REL, expectRc: 0 },
       ]
       for (const c of cases) {
@@ -350,12 +376,15 @@ describe('check-portal-fixed · §22c 镜像测试(判据一律走门体导出�
           assert.equal(gitRead(['init', '--quiet'], repo).status, 0, '临时仓 init 失败')
           assert.equal(gitRead(['config', 'user.email', 'gate-test@example.invalid'], repo).status, 0)
           assert.equal(gitRead(['config', 'user.name', 'gate-test'], repo).status, 0)
-          layFace(repo, [{ rel: c.rel, text: head(c.rel) }])
+          layFace(repo, [{ rel: c.rel, text: c.text ?? head(c.rel) }])
           assert.equal(gitRead(['add', '--', c.rel], repo).status, 0, '临时仓 add 失败')
           const { rc, out } = runCli(['--staged'], repo)
           assert.equal(rc, c.expectRc, `${c.name}:--staged 档退出码应为 ${c.expectRc},实得 ${rc} / 输出 ${out.slice(0, 200)}`)
           if (c.expectRc === 1) {
-            assert.deepEqual(reportedSites(out), [`${c.rel}:${lineIdx(head(c.rel).split('\n'), '<div', lineIdx(head(c.rel).split('\n'), 'createPortal(')) + 1}`])
+            const lns = (c.text ?? head(c.rel)).split('\n')
+            const sites = reportedSites(out)
+            assert.equal(sites.length, 1, `违规面应点名 1 处,实得 ${JSON.stringify(sites)}`)
+            assert.equal(sites[0], `${c.rel}:${lineIdx(lns, '<div', lineIdx(lns, 'createPortal(')) + 1}`)
           }
         } finally {
           rmScratch(repo, { bestEffort: true })

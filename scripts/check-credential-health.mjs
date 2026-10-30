@@ -235,6 +235,24 @@ export function readFileSyncOr(path) {
 }
 
 /**
+ * key 读取的三态窄出口(2026-09-24 本机实测的病,用例早在自检档里,函数一直没落地 ⇒
+ * `--self-test` 从那天起一直 `ReferenceError: pickKey is not defined`,自检能力缺了一个多月)。
+ *
+ * 为什么要"形状不合 ⇒ 空串"而不是把原文交给调用方:同步盘会在同目录留下 `_冲突文件_` 副本,
+ * 那种内容长得像 token 又不是 token(`a97fghp_0123…` 就是 classic 前缀被拼在 32 位 hex 前面)。
+ * 把它当凭据发出去,轻则 401 烧掉锁定预算,重则**连垃圾串一起进 URL query**(GET 访问日志会记)。
+ * 所以消费方一律先过这一道,拿不到形状合法的值就走"取不到"那一支。
+ *
+ * 三态:非字符串(文件/目录不存在 ⇒ null)⇒ '';不匹配 re ⇒ '';匹配 ⇒ trim 后的原值。
+ * 失效方向恒为"拿不到 ⇒ 空",绝不返回一个没依据的串。
+ */
+export function pickKey(raw, re) {
+  if (typeof raw !== 'string') return ''
+  const v = raw.trim()
+  return re.test(v) ? v : ''
+}
+
+/**
  * ⑥ 应用 .env 关键凭据**齐备性**(2026-09-27 立)。
  *
  * 为什么本门原有各条都看不见它:①②③④判的是"凭据在不在、还有效吗",全部指向**外部**凭据
@@ -385,9 +403,20 @@ export async function runChecks() {
   // ④ Gitee token(代码镜像仓已弃用,但**桌面端安装包资产仍由 Gitee release 直链分发** ——
   //    线上 /desktop-feed.json 的 Windows 包 href 就指向它,实测 HTTP 200 ⇒ 这把 key 仍须有效,
   //    失效会让每次发版的资产补传静默失败。判据只查"这把 token 还能用吗",不再关联任何镜像仓。)
-  const gitee = readFileSyncOr(join(GIT_KEY_DIR, 'gitee apikey.txt'))
-  if (gitee) {
-    const p = await probeHttps('gitee.com', '/api/v5/user?access_token=' + encodeURIComponent(gitee))
+  const giteePath = join(GIT_KEY_DIR, 'gitee apikey.txt')
+  const giteeRaw = readFileSyncOr(giteePath)
+  const giteeToken = pickKey(giteeRaw, /^[0-9a-f]{32}$/)
+  if (giteeRaw && !giteeToken) {
+    // 取到了东西但形状不合 ⇒ 点名,不静默当成"没有这条凭据"(§0.3「没判」绝不写成「判过」),
+    // 更不把它拼进 GET 的 query(访问日志会原样记下)。
+    out.push({
+      name: 'Gitee 令牌形态不合(疑同步盘冲突副本)',
+      level: 'fail',
+      detail: `文件 ${giteePath} len=${giteeRaw.length} 非 32 位十六进制(疑同步盘 _冲突文件_ 副本/含杂散字符)⇒ 不发探测`,
+    })
+  }
+  if (giteeToken) {
+    const p = await probeHttps('gitee.com', '/api/v5/user?access_token=' + encodeURIComponent(giteeToken))
     let login = ''
     try {
       login = JSON.parse(p.body).login || ''
