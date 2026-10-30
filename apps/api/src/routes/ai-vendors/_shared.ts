@@ -398,8 +398,14 @@ export const VENDORS: Record<string, VendorConfig> = {
   agnes: {
     name: 'Agnes AI(文本/图片/视频)',
     keyEnv: 'AGNES_API_KEY',
-    // 2026-10-10:境外 apihub.agnes-ai.com 路由不可达,切国内域名(A/B 实测 200/401)
-    baseUrl: 'https://api.agnes-ai.cn/v1',
+    // 域名与 key 按账号成对绑定,拆开必然 401(2026-10-30 直连实测四组合):
+    //   api.agnes-ai.cn    → 只认新 key;apihub.agnes-ai.{cn,com} → 只认旧 key;两域互不认账=两条独立队列。
+    // 默认取国内 api.agnes-ai.cn;AGNES_API_BASE 此前只在 provider-models/ai-service 侧被读,
+    // 本表忽略它 ⇒ env 登记面与消费面不同形,现按同一口径补齐(与 provider-models.ts 同写法)。
+    baseUrl: (process.env.AGNES_API_BASE?.trim() || 'https://api.agnes-ai.cn/v1').replace(
+      /\/+$/,
+      '',
+    ),
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   bailian: {
@@ -1185,15 +1191,56 @@ export async function pollVolcengineTask(
   return null
 }
 
-export async function callVendor(
+/**
+ * Agnes 视频通道(键 + 端点)。单列一对可选覆盖键 AGNES_VIDEO_API_KEY / AGNES_VIDEO_API_BASE
+ * 的原因是实测事实:该厂商两个域名是两条互不认账的队列(键与域按账号成对绑定),
+ * 付费视频流需要能独立于文本/图片挂到另一条队列上;未配时逐项回退到 VENDORS.agnes 那对。
+ * 判据一律在调用时读 env(与 requireVendorKey 同形),不在表里做加载期快照 ——
+ *   含最后一档回退:VENDORS.agnes.baseUrl 本身就是模块加载期快照,若直接拿它兜底,
+ *   「调用时读」这句话只对前两档成立 ⇒ 这里先读 AGNES_API_BASE(调用时),
+ *   读不到才落到那张表(它=加载期 AGNES_API_BASE 或代码默认域名)。
+ * 端点与键必须成对:实测两域名只认各自那把 key,拆开必然 401(见部署手册对照表)。
+ */
+export function resolveAgnesVideoChannel(): { key: string; baseUrl: string } | null {
+  const envValue = (name: string): string => process.env[name]?.trim() ?? ''
+  const key = envValue('AGNES_VIDEO_API_KEY') || envValue('AGNES_API_KEY')
+  if (!key) return null
+  const baseUrl = (
+    envValue('AGNES_VIDEO_API_BASE') ||
+    envValue('AGNES_API_BASE') ||
+    VENDORS.agnes!.baseUrl
+  ).replace(/\/+$/, '')
+  return { key, baseUrl }
+}
+
+/** Agnes 视频查询端点选择(与上游 CLI buildVideoGetUrl / ai-service provider 同判据,单源在此)。 */
+export function agnesVideoPollUrl(baseUrl: string, upstreamId: string): string {
+  const origin = baseUrl.replace(/\/v1$/, '')
+  return upstreamId.startsWith('task_')
+    ? `${baseUrl}/videos/${encodeURIComponent(upstreamId)}`
+    : `${origin}/agnesapi?video_id=${encodeURIComponent(upstreamId)}`
+}
+
+/** Agnes 成片地址取值次序(上游把 URL 散在五个位置,与 ai-service agnes_video_provider._extract_video_url 同序)。 */
+export function pickAgnesVideoUrl(record: unknown): string {
+  const r = (record ?? {}) as Record<string, unknown>
+  const metadata = (r.metadata ?? {}) as Record<string, unknown>
+  const result = (r.result ?? {}) as Record<string, unknown>
+  const candidates = [metadata.url, r.video_url, r.url, r.output_url, result.video_url]
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && /^https?:\/\//.test(candidate)) return candidate
+  }
+  return ''
+}
+
+export async function callVendorWithKey(
   vendor: string,
   url: string,
   reply: FastifyReply,
-  options: RequestInit = {},
+  options: RequestInit,
+  key: string,
   timeoutMs = 30_000,
 ): Promise<unknown | null> {
-  const key = requireVendorKey(vendor, reply)
-  if (key === null) return null
   const cfg = VENDORS[vendor]!
   try {
     const resp = await fetchWithTimeout(
@@ -1223,6 +1270,18 @@ export async function callVendor(
     reply.status(502).send(error(502, `${cfg.name} 调用异常: ${msg}`))
     return null
   }
+}
+
+export async function callVendor(
+  vendor: string,
+  url: string,
+  reply: FastifyReply,
+  options: RequestInit = {},
+  timeoutMs = 30_000,
+): Promise<unknown | null> {
+  const key = requireVendorKey(vendor, reply)
+  if (key === null) return null
+  return callVendorWithKey(vendor, url, reply, options, key, timeoutMs)
 }
 
 export interface AsyncTask {

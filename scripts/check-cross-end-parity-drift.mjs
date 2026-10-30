@@ -130,6 +130,26 @@ export function notApplicableSince(rows, sinceIso) {
   }).length
 }
 
+/**
+ * 取不到 ⇒ null(未判定),绝不折成 0(§0.3:没判不能写成"没有")。
+ * 注意 `Number(null) === 0` —— 直接 Number() 会把"没有基线"读成"基线是零",
+ * 于是"本轮第一次量到"被当成"净增"喊出去(实测:旧快照没有新维时 0 → 28 假净增)。
+ */
+function finiteOrNull(v) {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+/**
+ * 数组长度即该维计数;未判定标记非空 ⇒ 同样 null(那一维本轮没判,不冒红也不记 0)。
+ * 口径来源只有尺子一处(§0.6):本文件不自己解析台账、不自己数"几行坏了"。
+ */
+function countOrNull(items, undetermined) {
+  if (!Array.isArray(items)) return null
+  if (Array.isArray(undetermined) && undetermined.length > 0) return null
+  return items.length
+}
+
 function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRows = null }) {
   const cur = {
     mirrored: coverage?.json?.stats?.mirroredShared ?? null,
@@ -173,6 +193,24 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
     conversionUpgradable: conversion?.json?.upgradable ?? null,
     conversionRefused: conversion?.json?.refused ?? null,
   }
+  // 承载面维 + 段级豁免四维(2026-10-30 立):**单独放 extras**,不进 cur。
+  // 为什么单独放:cur 的 null 扫描会把"取不到"升级成**整轮未判定**;而这几维取不到时,
+  // 该判未判定的只是**本维**(不产出理由、不折成 0),不该把别的维一起拖成未判定(§0.3)。
+  // 去重只此一份:承载面(web 键组)计数由尺子算(尺子的 alignedUnique),本文件不自己按 web 键
+  // 再去重一次(§0.6 单一真相源)—— 台账行数掉而承载面不掉,那正是"折叠重复行",不是"承载被拆"。
+  const extras = {
+    alignedUnique: finiteOrNull(webParity?.json?.alignedUnique),
+    prefixContradicted: countOrNull(
+      webParity?.json?.prefixContradicted,
+      webParity?.json?.prefixContradictedUndetermined
+    ),
+    staleCountAssertions: countOrNull(webParity?.json?.staleCountAssertions),
+    missingExpiry: countOrNull(
+      webParity?.json?.missingExpiry,
+      webParity?.json?.missingExpiryUndetermined
+    ),
+    duplicateWebKeys: finiteOrNull(webParity?.json?.duplicateWebKeys),
+  }
   const reasons = []
   // 派生文档滞后档:点名、可追,但不算倒退(不进 state、不进退出码)。
   const stale = []
@@ -191,6 +229,7 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
     return {
       state: 'undetermined',
       cur,
+      extras,
       reasons,
       missing,
       why: `取不到输入:${missing.join(',')}(不记绿也不冒红)`,
@@ -281,18 +320,65 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
         '⇒ 查是哪条标记/登记被删(与门 237 R3 同判据);确属撤假声明,就往裁决台账写 not-applicable 并附证据',
     })
 
-  // web→RN 那一侧的同一格(此前只有小程序侧有涨跌维):aligned 是"web 有这屏、RN 也有承载"的对数,
+  // web→RN 那一侧的同一格(此前只有小程序侧有涨跌维):承载面是"web 有这屏、RN 也有承载"的**一组路由**,
   // 它掉了 = 有人把 RN 承载拆了而账面无声;unmapped 涨了 = 新增 web 页没人判过 RN 侧。
+  // 口径改判(2026-10-30):比的是**承载面(去重 web 键)**而不是台账行数 —— 台账把同一 web 键的重复行
+  // 折叠掉时行数会掉、承载面不变;照旧比行数会把"归并台账"读成"RN 承载被拆"(假告警,而承载面没变)。
+  // 上轮基线没有去重口径(旧快照只有行数)⇒ 本维**未判定**:不产出理由、也不折成"没退"(§0.3);
+  // 走 stale 档(可追、点名、不响),下一轮起恢复比较。
+  if (prev && !Number.isFinite(prev.alignedUnique) && Number.isFinite(prev.aligned))
+    stale.push({
+      dim: 'web-aligned-uncompared',
+      detail: `上轮基线没有承载面去重口径(旧快照只有台账行数 ${prev.aligned})⇒ 本轮不判"RN 承载被拆"这一维(不产假告警),下一轮起恢复比较`,
+    })
   if (
     prev &&
-    Number.isFinite(prev.aligned) &&
-    Number.isFinite(cur.aligned) &&
-    cur.aligned < prev.aligned
+    Number.isFinite(prev.alignedUnique) &&
+    Number.isFinite(extras.alignedUnique) &&
+    extras.alignedUnique < prev.alignedUnique
   )
     reasons.push({
       dim: 'web-aligned-decrease',
-      detail: `web→RN 已对齐 ${prev.aligned} → ${cur.aligned}(净减 ${prev.aligned - cur.aligned})⇒ 出路:node scripts/check-web-rn-screen-parity.mjs 看是哪条路由的承载体没了,再按 scripts/data/web-rn-screen-map.jsonl 恢复 aligned 指向`,
+      detail: `web→RN 承载面 ${prev.alignedUnique} → ${extras.alignedUnique}(去重 web 键,净减 ${prev.alignedUnique - extras.alignedUnique})⇒ 出路:node scripts/check-web-rn-screen-parity.mjs 看是哪条路由的承载体没了,再按 scripts/data/web-rn-screen-map.jsonl 恢复 aligned 指向`,
     })
+  // 段级豁免四维(2026-10-30 立):门户互斥 / 自述计数腐烂 / 豁免到期 / 同键双行。
+  // 立因:这四维是尺子本轮新增的「段级豁免三维」,**此前零告警面**(§0.9「造好没装车」= 没有)——
+  // 门户表新长一条 admin/* 路由、或某枚段级豁免过了 reviewBy,尺子会点名但没人喊,盲绿以同形态回来。
+  // 口径与段级一致:只喊**净增**(存量只报数、净增才到人,§12e);取不到 ⇒ 该维本轮未判定,不冒红也不记 0。
+  for (const [key, dim, label, exit] of [
+    [
+      'prefixContradicted',
+      'web-prefix-contradicted-increase',
+      '门户表说 WebView 承载、段级豁免却写成"不承载"的路由',
+      'node scripts/check-web-rn-screen-parity.mjs 看「段级互斥」那一段,给这些路由逐条补 status:"portal" 行(台账承认承载),或改段级豁免的措辞 —— 机器只点名,豁免措辞由人裁',
+    ],
+    [
+      'staleCountAssertions',
+      'web-stale-count-increase',
+      '豁免 reason 自述计数与现读脱节',
+      'node scripts/check-web-rn-screen-parity.mjs 看「自述计数 ≠ 现读」那一段,把 reason 里的数字按现读改(不要改口径去迁就文本)',
+    ],
+    [
+      'missingExpiry',
+      'web-expiry-missing-increase',
+      '段级豁免缺存活期或已到期',
+      'node scripts/check-web-rn-screen-parity.mjs 看「段级豁免存活期」那一段,缺期的补 reviewBy、已到期的重新判一次(§0.7 豁免必须会到期)',
+    ],
+    [
+      'duplicateWebKeys',
+      'web-duplicate-key-increase',
+      '同一 web 键多行(aligned/portal 两个分母同时灌水)',
+      'node scripts/check-web-rn-screen-parity.mjs 看「重复 web 键」那一段,按「更具体的判定赢」折成一行',
+    ],
+  ]) {
+    const a = finiteOrNull(prev?.[key])
+    const b = finiteOrNull(extras[key])
+    if (a !== null && b !== null && b > a)
+      reasons.push({
+        dim,
+        detail: `${label} ${a} → ${b}(净增 ${b - a})⇒ 出路:${exit}`,
+      })
+  }
   if (
     prev &&
     Number.isFinite(prev.unmapped) &&
@@ -342,6 +428,7 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
     state: reasons.length > 0 ? 'regressed' : 'ok',
     stale,
     cur,
+    extras,
     prev: prev ?? null,
     reasons,
     doc: docCur,
@@ -354,6 +441,12 @@ function readPrev() {
     return {
       mirrored: o?.cur?.mirrored ?? o?.mirrored ?? null,
       aligned: o?.cur?.aligned ?? null,
+      // 承载面与段级豁免四维(2026-10-30 立):存在 extras 面里(不进 cur,免得"取不到"升级成整轮未判定)。
+      alignedUnique: o?.extras?.alignedUnique ?? null,
+      prefixContradicted: o?.extras?.prefixContradicted ?? null,
+      staleCountAssertions: o?.extras?.staleCountAssertions ?? null,
+      missingExpiry: o?.extras?.missingExpiry ?? null,
+      duplicateWebKeys: o?.extras?.duplicateWebKeys ?? null,
       unmapped: o?.cur?.unmapped ?? null,
       fidelityHosted: o?.cur?.fidelityHosted ?? null,
       fidelityMissing: o?.cur?.fidelityMissing ?? null,
@@ -885,7 +978,7 @@ function main() {
   } else {
     console.log(`STATE=${result.state}`)
     console.log(
-      `现读:镜像 ${result.cur?.mirrored ?? '?'} / 登记 ${result.cur?.registryEntries ?? '?'} / web aligned ${result.cur?.aligned ?? '?'} / unmapped ${result.cur?.unmapped ?? '?'} / 还原度: 承载 ${result.cur?.fidelityHosted ?? '?'} 手写 ${result.cur?.fidelityHand ?? '?'} 未还原键 ${result.cur?.fidelityMissing ?? '?'} 断链 ${result.cur?.fidelityBroken ?? '?'} 声明不符 ${result.cur?.fidelityOther ?? '?'} 本端词包缺命名空间 ${result.cur?.fidelityPackAbsent ?? '未判定'}`,
+      `现读:镜像 ${result.cur?.mirrored ?? '?'} / 登记 ${result.cur?.registryEntries ?? '?'} / web aligned ${result.cur?.aligned ?? '?'}(台账行) / 承载面(去重 web 键) ${result.extras?.alignedUnique ?? '未判定'} / unmapped ${result.cur?.unmapped ?? '?'} / 段级互斥 ${result.extras?.prefixContradicted ?? '未判定'} / 自述计数腐 ${result.extras?.staleCountAssertions ?? '未判定'} / 豁免缺期 ${result.extras?.missingExpiry ?? '未判定'} / 同键双行 ${result.extras?.duplicateWebKeys ?? '未判定'} / 还原度: 承载 ${result.cur?.fidelityHosted ?? '?'} 手写 ${result.cur?.fidelityHand ?? '?'} 未还原键 ${result.cur?.fidelityMissing ?? '?'} 断链 ${result.cur?.fidelityBroken ?? '?'} 声明不符 ${result.cur?.fidelityOther ?? '?'} 本端词包缺命名空间 ${result.cur?.fidelityPackAbsent ?? '未判定'}`,
     )
     if (result.why) console.log(`未判定原因:${result.why}`)
     for (const r of result.reasons || []) console.log(`· ${r.dim} —— ${r.detail}`)

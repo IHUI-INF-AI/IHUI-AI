@@ -9,9 +9,12 @@ import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon, { type IconName } from '@/components/LineIcon'
+import { formatPrice } from '@ihui/shared/utils/format'
 import CompareTable from './compare-table'
 
-// 套餐方案(对标原 vip/details.vue 月度¥39.9/30天 + 年度¥299/365天)
+// 套餐方案(对标原 vip/details.vue 月度¥39.9/30天 + 年度¥299/365天;
+// price 单位为「分」,与 GET /vip/levels 的库里列同源(0037_vip_captcha.sql 种 3990/29900),
+// 展示一律走 formatPrice(守门 248:分→元只许这一个出口)
 interface VipPlan {
   type: 'monthly' | 'yearly'
   price: number
@@ -65,7 +68,7 @@ export default function VipDetailsPage() {
   const PLANS: VipPlan[] = [
     {
       type: 'monthly',
-      price: 39.9,
+      price: 3990,
       days: 30,
       benefits: [
         t('vip.details.features.chatCount') + ': ' + t('vip.details.features.vipColumn'),
@@ -75,7 +78,7 @@ export default function VipDetailsPage() {
     },
     {
       type: 'yearly',
-      price: 299,
+      price: 29900,
       days: 365,
       benefits: [
         tt('vip.details.monthlyAllBenefits', '月度会员所有权益'),
@@ -89,6 +92,7 @@ export default function VipDetailsPage() {
   const goUpgrade = () => {
     const plan = PLANS.find((p) => p.type === selectedPlan) ?? PLANS[0]
     if (!plan) return
+    // price 透传「分」,与 /vip/levels 的 price 列同单位(升级页现读不消费该参数,自行拉取档位)
     Taro.navigateTo({
       url: `/pkg-shop/vip/upgrade?plan=${plan.type}&price=${plan.price}&days=${plan.days}`,
     })
@@ -172,7 +176,7 @@ export default function VipDetailsPage() {
                       ¥
                     </Text>
                     <Text className="text-[length:40rpx] text-[var(--color-danger)] font-semibold leading-none ml-[4rpx]">
-                      {p.price}
+                      {formatPrice(p.price)}
                     </Text>
                   </View>
                   <View className="flex flex-col gap-[10rpx]">

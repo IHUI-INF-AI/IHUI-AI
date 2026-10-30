@@ -7573,6 +7573,9 @@ const CROSS_END_LEGS = new Set([
   // 2026-10-29 立:跨端驾驶舱(编排器 parity-auto.mjs)。不在册 ⇒ 它整轮跑不起来时一声不出,
   // 而"没人跑完整趟"与"跑完整趟且全绿"是两件必须分开的事(§5e-3:能看见的才谈得上修)。
   'parity-cockpit',
+  // 2026-10-30 立:手写页升级腿(sweepHandMirrorUpgrades)。此前不在册 ⇒ 未知腿分支把它的
+  // 未判定当场吞掉(mailed:false、连起点件都不写),而 08:49 实测它正整轮解析不出结论行。
+  'hand-upgrade',
 ])
 const crossEndUndetFile = (leg) =>
   join(WORKTREE, '.ihui-agent', 'state', `cross-end-${leg}-undetermined-first.json`)
@@ -8036,14 +8039,26 @@ export function sweepParityCockpit(opts = {}) {
     )
   }
   if (others > 0) {
-    settleCrossEndLeg('parity-cockpit', { logger })
+    // 2026-10-30 改判:这一支原先**先 settle 再打印"本轮不得记绿"** —— 起点账被清掉,
+    // "连续未判定满门槛到人"对这条腿结构上永远走不到(实测 08:53 一轮 15/15 阶段里 2 道
+    // 未判定,账面只留下一行 ⚠️,无起点件)。有阶段没判 ⇒ 本轮整体就是没判(§0.3),
+    // 必须走 note 记连击;只有真拿到确定结论(ok 或纯红)才许 settle。
     logger(
       `⚠️ 跨端驾驶舱巡检:${ran}/${total} 阶段 · 未判定/坏掉 ${others} 道 ⇒ 本轮不得记绿(§0.3),` +
         ` 红 ${reds} 道已按各自腿到人`,
     )
+    noteCrossEndUndetermined(
+      'parity-cockpit',
+      `本轮 ${ran}/${total} 阶段中有 ${others} 道未判定/坏掉(${notJudged.join(',') || '无名'})。\n` +
+        `这表示「跨端链这一轮没被完整判过」,不是"跑过且没红";连续如此即编排器或其中一阶段瞎了。\n` +
+        `出路:node scripts/parity-auto.mjs --json(只读复跑,看它实际报哪几阶段没判)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
     return { ran: true, ok: false, state: 'undetermined', reds, others }
   }
-  settleCrossEndLeg('parity-cockpit', { logger })
+  // 2026-10-30:两枚 settle 必须与上面的 note 同用 undetFile(原先走默认路径 ⇒ 注入档的
+  // 测试夹具里"全绿清账"落不到起点件上,形状锁的阳性对照当场判不出来)。
+  settleCrossEndLeg('parity-cockpit', { logger, file: undetFile })
   if (reds > 0) {
     logger(
       `⚠️ 跨端驾驶舱巡检:${ran}/${total} 阶段全判过 · 红 ${reds} 道(${redIds.join(',')})⇒ 各维由对应巡检腿按稳定身份到人,本汇总面不重复寄(§5e-1)`,
@@ -8519,11 +8534,25 @@ export function sweepCrossEndShellPages(opts = {}) {
     )
     return { ran: true, ok: false, state: 'unparsed' }
   }
-  settleCrossEndLeg('shell-land', { logger, file: undetFile })
+  // 2026-10-30 改判:原先只要 summary.state 是字符串就直接 settle —— 子进程**自报
+  // undetermined**(实测 08:49「待产 7 …undetermined」)也会被当成"取到确定结论"而清掉起点账,
+  // 存续性门槛对这一型结构上永远走不到。自报未判定与"结论不可用"同型 ⇒ 一律走 note 记连击;
+  // 只有真拿到确定结论(clean/landed/pending/blocked)才许 settle。
   const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
   const counts =
     `待产 ${n(summary.planned)} / 本轮 ${n(summary.batch)} / blob ${n(summary.blobs)} / ` +
     `拒 ${n(summary.refused)}(cap=${n(summary.cap)}) / 账本 ${String(summary.doc ?? '?')}`
+  if (summary.state === 'undetermined') {
+    noteCrossEndUndetermined(
+      'shell-land',
+      `造页器自报 state=undetermined(${counts}):${String(summary.why || summary.note || '未附原因').slice(0, 200)}\n` +
+        `这表示**自动造页这一格是瞎的**(小程序缺页不会自己长回来),不是"缺口已清零"。\n` +
+        `出路:node scripts/land-cross-end-shell-pages.mjs(只读预演,看它实际报什么)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
+  } else {
+    settleCrossEndLeg('shell-land', { logger, file: undetFile })
+  }
   if (summary.state === 'clean') logger(`🧭 跨端造页闭环:clean ${counts} —— 无缺口即零写零推`)
   else if (summary.state === 'landed')
     logger(`🧭 跨端造页闭环:landed ${counts} ✅ 已落 HEAD(推送由 post-commit 腿负责)`)
@@ -8805,6 +8834,10 @@ export function sweepHandMirrorUpgrades(opts = {}) {
     tickFile = join(dirname(LOG), 'hand-mirror-upgrade-last.json'),
     logger = log,
     runner = null,
+    notify = notifyGuardRed,
+    // 只为成对夹具开(测试不得碰真 .ihui-agent/state 的起点件):生产调用一律走默认值
+    undetFile = crossEndUndetFile('hand-upgrade'),
+    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'upgrade-miniapp-shell-pages.mjs')
   if (!existsSync(script)) {
@@ -8840,7 +8873,16 @@ export function sweepHandMirrorUpgrades(opts = {}) {
   if (!res || typeof res !== 'object') {
     const why = r.signal ? `子进程被 ${r.signal} 杀掉(多为超时)` : '子进程已退出但末行不是结论 JSON'
     logger(
-      `ℹ️ 手写页升级:结论行解析不出(${why},status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
+      `⚠️ 手写页升级:结论行解析不出(${why},status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
+    )
+    // 2026-10-30 立:这一支原先只 log 只 return,**一次都没记连击** —— 实测 08:49 起
+    // 「结论行解析不出」整轮未判定,起点件却不存在,存续性门槛结构上永远走不到(§5e-3)。
+    noteCrossEndUndetermined(
+      'hand-upgrade',
+      `${why}(status=${r.status},signal=${r.signal ?? '-'});stderr 前 120:${String(r.stderr ?? '').slice(0, 120) || '(空)'}\n` +
+        `这表示「手写页→壳承载的自动升级这一格是瞎的」,不是"没有可升级的页"。\n` +
+        `出路:node scripts/upgrade-miniapp-shell-pages.mjs --land --json --cap=2(只读复跑看它实际报什么)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
     )
     return { ran: true, ok: false, why: '结论解析失败', status: r.status, signal: r.signal }
   }
@@ -8848,6 +8890,8 @@ export function sweepHandMirrorUpgrades(opts = {}) {
   logger(
     `ℹ️ 手写页升级:可落地=${res.upgradable ?? 0} 本批=${res.batch?.length ?? 0} 落地=${landedN}${res.landed?.declLanded ? ' + 声明件' : ''}${res.landed?.err ? ` | ${String(res.landed.err).split('\n')[0].slice(0, 120)}` : ''}`,
   )
+  // 取到确定结论(含"零可落地")⇒ 撤掉在册起点,不背着旧账到人
+  settleCrossEndLeg('hand-upgrade', { logger, file: undetFile })
   return { ran: true, ok: true, ...res }
 }
 

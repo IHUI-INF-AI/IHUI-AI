@@ -16,6 +16,7 @@ import {
   recordUsage,
   createTask,
   genId,
+  VENDORS,
   chatBody,
   imageBody,
   ttsBody,
@@ -105,7 +106,6 @@ const agnesImageBody = z.object({
   ratio: z.string().optional(),
   n: z.number().int().min(1).max(10).optional(),
 })
-
 
 // Doubao seededit 图片编辑:官方完整参数
 const doubaoImageEditBody = z.object({
@@ -343,7 +343,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = chatBody.parse(request.body)
       if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
-      const data = await callVendor('agnes', 'https://api.agnes-ai.cn/v1/chat/completions', reply, {
+      const data = await callVendor('agnes', `${VENDORS.agnes!.baseUrl}/chat/completions`, reply, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -372,7 +372,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       // Agnes 同步出图约 40-50s,timeout 90s 防误断(与 ai-service 侧一致)
       const data = await callVendor(
         'agnes',
-        'https://api.agnes-ai.cn/v1/images/generations',
+        `${VENDORS.agnes!.baseUrl}/images/generations`,
         reply,
         { method: 'POST', body: JSON.stringify(body) },
         90_000,
@@ -403,14 +403,13 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       }),
     },
     async (_request, reply) => {
-      const data = await callVendor('agnes', 'https://api.agnes-ai.cn/v1/models', reply, {
+      const data = await callVendor('agnes', `${VENDORS.agnes!.baseUrl}/models`, reply, {
         method: 'GET',
       })
       if (data === null) return
       return reply.send(success(data))
     },
   )
-
 
   server.post(
     '/dashscope/image-edit',
