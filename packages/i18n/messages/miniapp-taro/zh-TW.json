@@ -270,6 +270,12 @@
     "moreTitle": "更多課程",
     "studentCount": "{count} 人學過",
     "empty": "暫無課程"
+,
+    "player": "影片載入後即可播放",
+    "progress": "學習進度",
+    "progressLessons": "已學 {completed}/{total} 節",
+    "completed": "已學完",
+    "complete": "標記學完"
   },
   "live": {
     "viewers": "{n} 人觀看",
@@ -479,6 +485,8 @@
     "totalRecharge": "累計儲值",
     "totalWithdraw": "累計提現",
     "withdraw": "提現"
+,
+    "points": "智匯值"
   },
   "community": {
     "posts": "貼文",
@@ -504,6 +512,9 @@
     "m3": "請輸入查找的智慧體名稱",
     "y1": "{p1}時長",
     "y2": "購買智慧體:{p1}"
+,
+    "follow": "關注",
+    "follower": "粉絲"
   },
   "action": {
     "like": "點讚",
@@ -514,6 +525,8 @@
     "title": "智慧體",
     "empty": "暫無智慧體",
     "uses": "次"
+,
+    "config": "設定"
   },
   "setting": {
     "hint": "提示",
@@ -1182,6 +1195,9 @@
     "loadFailed": "載入失敗",
     "openWorkflow": "開啟工作流",
     "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續"
+,
+    "placeholder": "請輸入您的問題",
+    "streaming": "正在生成..."
   },
   "agentDialogue": {
     "sendFailed": "傳送失敗,請重試",
@@ -1606,6 +1622,17 @@
     "withdrawn": "已提現",
     "myTeam": "我的團隊",
     "columnTitle": "分銷訂單"
+,
+    "retry": "重試",
+    "empty": "暫無資料",
+    "subtitle": "推廣商品,賺取佣金",
+    "level": "分銷等級",
+    "commissionRate": "佣金比例",
+    "totalEarnings": "累計收益",
+    "pending": "待結算",
+    "withdrawMin": "滿 ¥{amount} 方可提現",
+    "products": "分銷商品",
+    "sales": "已售 {count} 件"
   },
   "about": {
     "ctaDesc": "注冊即得 1000 積分,全模型免費試用,無需信用卡。",
@@ -2359,6 +2386,8 @@
     "faqGuideBtn": "去了解",
     "contactHeading": "其他問題?",
     "contactDesc": "諮詢客服,獲得多對一線上答疑"
+,
+    "copy": "複製"
   },
   "developer": {
     "withdrawal": {
@@ -2644,6 +2673,11 @@
       "loadFailed": "取得詳情"
     },
     "noData": "暫無排行數據"
+,
+    "subtitle": "學習排行榜,看看你排第幾",
+    "retry": "重試",
+    "me": "我",
+    "studyHours": "學習 {count} 小時"
   },
   "recruitment": {
     "title": "操盤手計劃",
@@ -2674,6 +2708,9 @@
     "agreePrefix": "我已閱讀並同意",
     "userAgreement": "《使用者協議》",
     "privacyPolicy": "《隱私協議》"
+,
+    "sendCodeFailed": "驗證碼發送失敗,請重試",
+    "registering": "註冊中..."
   },
   "message": {
     "tabs": {
@@ -3267,6 +3304,17 @@
     "subscribeTitle": "訂閱服務包",
     "subscribed": "訂閱成功",
     "verified": "認證"
+,
+    "title": "VIP 操盤手",
+    "subtitle": "尊享操盤手專屬權益",
+    "badge": "操盤手專屬",
+    "heroDesc": "限時 ¥{price} 開通,贈送 {power} 算力,尊享大額分銷與專屬客製權益",
+    "entryTeam": "我的團隊",
+    "entryStats": "收益統計",
+    "entryWithdraw": "去提現",
+    "benefits": "專屬權益",
+    "benefitCount": "共 {count} 項",
+    "lifetime": "終身有效"
   },
   "vip": {
     "benefitList": {
@@ -3429,6 +3477,16 @@
       "aiChat": "AI智慧對話",
       "aiChatDesc": "智慧助手解答各類問題"
     }
+,
+    "retry": "重試",
+    "subtitle": "開通會員,尊享更多權益",
+    "currentLevel": "目前等級",
+    "expireAt": "到期時間",
+    "levelsTitle": "會員等級",
+    "empty": "暫無會員等級資訊",
+    "currentBadge": "目前等級",
+    "duration": "{days} 天",
+    "benefitsCount": "{count} 項專屬權益"
   },
   "learnDevelop": {
     "title": "學習發展",
@@ -3441,6 +3499,8 @@
     "teacher": "講師",
     "free": "免費",
     "rankEntry": "學習排行榜"
+,
+    "contactLabel": "直接聯繫李總"
   },
   "settingPrivacy": {
     "systemPermissions": "系統權限",
@@ -3807,6 +3867,11 @@
     "menuWebLink": "網頁連結",
     "menuFileUpload": "檔案上傳",
     "menuHistory": "歷史對話"
+,
+    "modelLabel": "模型",
+    "stop": "停止",
+    "thinking": "思考中...",
+    "title": "IHUI AI"
   },
   "tabBar": {
     "community": "智匯社群",
@@ -4220,6 +4285,14 @@
     "d1": "技術",
     "d2": "產品",
     "d4": "營運"
+,
+    "title": "發布提問",
+    "titlePlaceholder": "一句話概括你的問題",
+    "contentLabel": "內容",
+    "contentPlaceholder": "詳細描述你的問題",
+    "tagsLabel": "標籤",
+    "tagsPlaceholder": "多個標籤用逗號分隔",
+    "submit": "發布"
   },
   "liveCalendar": {
     "d1": "立即觀看",
@@ -4233,6 +4306,11 @@
     "d5": "其他原因",
     "y1": "說明:{p1}",
     "y2": "聯絡:{p1}"
+,
+    "subtitle": "選擇訂單,提交退款申請",
+    "retry": "重試",
+    "empty": "暫無可退款的訂單",
+    "reasonPlaceholder": "請填寫退款原因"
   },
   "settingTheme": {
     "d1": "根據系統設定自動切換淺色或深色",
@@ -4271,6 +4349,11 @@
   "rankingDetail": {
     "d1": "測試中",
     "d2": "已下線"
+,
+    "points": "積分",
+    "rank": "排名",
+    "studyHours": "學習時長",
+    "levelDesc": "等級"
   },
   "EmptyIllustration": {
     "d1": "未找到相關內容",
@@ -4711,6 +4794,12 @@
       "loginRequired": "請先登入"
     },
     "notLoggedIn": "未登入"
+,
+    "nickname": "未設定暱稱",
+    "logout": "登出",
+    "myFavorites": "我的收藏",
+    "myOrders": "我的訂單",
+    "editProfile": "編輯資料"
   },
   "verify": {
     "phoneEmpty": "手機號碼為空",
@@ -6011,6 +6100,13 @@
   },
   "identityVerify": {
     "loadFailed": "載入認證失敗"
+,
+    "uploadFront": "上傳身分證人像面",
+    "uploadBack": "上傳身分證國徽面",
+    "uploadSelfie": "上傳手持身分證照片",
+    "title": "身分認證",
+    "subtitle": "完成身分認證,保障帳戶安全",
+    "submitting": "提交中..."
   },
   "referrer": {
     "title": "推薦人",
@@ -7254,5 +7350,31 @@
     "markSuccess": "已標記為掌握",
     "markFailed": "標記失敗",
     "loadMore": "載入更多"
+  }
+,
+  "settings": {
+    "oldPassword": "舊密碼",
+    "confirmPassword": "確認新密碼",
+    "icpRecord": "ICP 備案",
+    "pwdFieldsRequired": "請填寫完整的密碼資訊",
+    "pwdTooShort": "新密碼至少 6 位",
+    "pwdNotMatch": "兩次輸入的密碼不一致",
+    "pwdChanged": "密碼修改成功",
+    "pwdChangeFailed": "密碼修改失敗,請重試",
+    "logoutConfirm": "確認退出當前帳號?",
+    "notifPush": "推播通知",
+    "notifMessage": "站內訊息",
+    "notifEmail": "郵件通知",
+    "notification": "訊息通知",
+    "account": "帳號與安全",
+    "changePassword": "修改密碼",
+    "newPassword": "新密碼"
+  },
+  "liveList": {
+    "subtitle": "精彩直播,不見不散",
+    "retry": "重試"
+  },
+  "withdraw": {
+    "availableBalance": "可提現金額(元)"
   }
 }
