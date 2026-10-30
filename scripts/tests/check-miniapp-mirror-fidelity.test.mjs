@@ -452,6 +452,20 @@ test('T24 flattenPack:嵌套命名空间按点拼回,与 t 的键形态一致', 
   assert.equal(flat.top, '顶')
 })
 
+test('T25 原生标题载体:config 的 navigationBarTitleText 也是页面真实文案', () => {
+  assert.equal(gate.localConfigRel('apps/miniapp-taro/src/pages/study/plan.tsx'), 'apps/miniapp-taro/src/pages/study/plan.config.ts')
+  assert.equal(gate.configTitleOf("export default definePageConfig({\n  navigationBarTitleText: '学习计划',\n})"), '学习计划')
+  assert.equal(gate.configTitleOf('export default {}'), null, '没有标题 ⇒ null,不减免')
+  const hit = gate.aliasSameKeys(
+    ['studyPlan.title'],
+    new Set(['common.back']),
+    () => '学习计划',
+    { 'common.back': '返回' },
+    ['学习计划'],
+  )
+  assert.deepEqual(hit, ['studyPlan.title'], '标题在 config 里也应当算作页面已还原')
+})
+
 test('P4 并集语义:住在 messages/shared 里的命名空间不算缺(少算它会凭空报出 200+)', () => {
   const gap = gate.packNamespaceGap({
     usedKeys: ['settings.pwdTooShort', 'profile.logout'],
