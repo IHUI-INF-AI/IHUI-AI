@@ -7,21 +7,27 @@
  * 统一所有签到路由的奖励计算 + 日期处理逻辑,消除 5 处重复定义。
  */
 
+import { bizDayKey, shiftBizDayKey } from './biz-day.js'
+
 /** 签到奖励:第1天10分,逐日+5,第7天起50分封顶 */
 export function calcSignInReward(consecutiveDays: number): number {
   if (consecutiveDays >= 7) return 50
   return 10 + (consecutiveDays - 1) * 5
 }
 
-/** 返回今日日期字符串 YYYY-MM-DD(UTC) */
+/**
+ * 今日业务日键 YYYY-MM-DD。
+ * 日界的算法唯一住在 utils/biz-day.ts(守门 246 按名字拦第四份),本函数**只做转发** ——
+ * 原实现是 `toISOString().slice(0,10)`(UTC 日),于是签到日在北京时间 08:00 翻面:
+ * 20:00 签一次、次日 01:00 再签会被判"已签到",而 00:00–07:59 那窗又把连续天数断掉。
+ * biz-day.ts 头注早把这一格登记成"扇出 6 个签到/积分调用点"的那份少数派,存量不回算。
+ */
 export function todayString(): string {
-  return new Date().toISOString().slice(0, 10)
+  return bizDayKey()
 }
 
-/** 日期偏移:days 为正向后,为负向前(基于 UTC) */
+/** 日期偏移:days 正向后、负向前(与 bizDayKey 同一口径,不引入第三种日历算法) */
 export function shiftDate(date: string, days: number): string {
-  const d = new Date(date + 'T00:00:00Z')
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
+  return shiftBizDayKey(date, days)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
