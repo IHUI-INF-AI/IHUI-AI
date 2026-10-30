@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 93150d6ab16e2dfe2d5cab5b3ea6b4e6aac49a3a
-// inputsSha256: 53d05e07748aa804b3109d3c7f8ff75869550d951c3f86180f16d8e952a35cc3
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 8162576e7806c28e3cb289c97abb2c06585d05da0abf43474182abd5e88ad506
+// sourceCommit: 0e875130c07814858082c62ecbc72a95ed2bbddf
+// inputsSha256: 1f0887d063e2d0fbe847d3254e1f11aa4bde7f4b9f562e0ccd7cd70e7643941b
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx c34be0516d9640088bce3d50b34c7816e97fa626fd00980a604ca532165edfd5
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-30T08:09:07.957Z
+// generatedAt: 2026-10-30T12:30:22.489Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 331 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 333 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -71,6 +71,8 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'EduDashboard', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'SecurityCenter', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ApiKeys', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Devices', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'PendingDecisions', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'DataRights', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ConnectedAccounts', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Usage', tab: false, requiresParams: false, requiredParams: [] },
