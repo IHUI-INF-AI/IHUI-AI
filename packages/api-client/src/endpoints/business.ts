@@ -166,10 +166,8 @@ export async function getRanking(
   return fetchApi<PageData<RankingItem>>(`/api/ranking${buildQs(query)}`)
 }
 
-/** 获取用户在排行榜中的位置 */
-export async function getUserRanking(type?: string): Promise<ApiResult<RankingItem>> {
-  return fetchApi<RankingItem>(`/api/ranking/me${buildQs(type ? { type } : {})}`)
-}
+// 2026-10-30 g35-s8 死端点簇清账:删除 getUserRanking —— GET /api/ranking/me 两引擎零注册
+// (在册只有 GET /api/ranking),全仓零消费方。
 
 // ===================== tools（工具） =====================
 
@@ -318,12 +316,7 @@ export async function unfollowTrader(id: string): Promise<ApiResult<{ success: b
 
 // ===================== stock（股票） =====================
 
-/** 获取股票列表 */
-export async function getStocks(
-  query: PageQuery & { market?: string; keyword?: string } = {},
-): Promise<ApiResult<PageData<Stock>>> {
-  return fetchApi<PageData<Stock>>(`/api/stock${buildQs(query)}`)
-}
+// 2026-10-30 g35-s8 死端点簇清账:删除 getStocks —— GET /api/stock 两引擎零注册,全仓零消费方。
 
 /** 获取股票详情 */
 export async function getStockDetail(code: string): Promise<ApiResult<Stock>> {

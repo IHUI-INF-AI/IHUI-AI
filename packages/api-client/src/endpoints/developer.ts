@@ -161,12 +161,8 @@ export async function updateDeveloperInfo(
   })
 }
 
-/** 获取开发者列表（管理员） */
-export async function getDevelopers(
-  query: PageQuery & { status?: DeveloperInfo['status'] } = {},
-): Promise<ApiResult<PageData<DeveloperInfo>>> {
-  return fetchApi<PageData<DeveloperInfo>>(`/api/developer${buildQs(query)}`)
-}
+// 2026-10-30 g35-s8 死端点簇清账:删除 getDevelopers —— GET /api/developer 两引擎零注册,
+// 全仓零消费方。
 
 /** 审核开发者（管理员） */
 export async function auditDeveloper(
