@@ -9,10 +9,10 @@
  * 为什么必须有门(2026-10-31 实测):
  *  - H1 命中尺寸:`packages/design-tokens/src/geometry.js` 早有 `tapBox: 36` 这一档,端内十几个文件
  *    在用它 —— **有档、有消费方、零判据**。新写一枚 24×24 的图标钮不会编译报错、不会红任何门,
- *    只有用户点不中才发现。
- *  - H2 按压反馈:触屏没有 hover,"按下去什么都不变"就等于告诉用户"我没点上"。实测 RN 端可点元素
- *    里绝大多数既无 onPressIn/Out、无 children 函数形态、也无 className `active:` —— 用户以为没点上
- *    就连着点,属"符合使用习惯"的直接缺陷。此前**无人看守**。
+ *    只有用户点不中才发现。立门当轮已把现读存量 **22 处清零**(故 H1 才敢用绝对零容忍)。
+ *  - H2 按压反馈:触屏没有 hover,"按下去什么都不变"就等于告诉用户"我没点上"。现读 HEAD 面
+ *    = **352 处**(337 枚 `Pressable` 没有默认按压态 + 13 枚把默认反馈关掉的
+ *    `TouchableOpacity activeOpacity={1}` + 2 枚 `TouchableWithoutFeedback`);此前**无人看守**。
  *
  * 判据刻意保守(误报的代价是逼人跳门,连带废掉全部守门 §12e,所以宁窄勿宽):
  *  H1 只判**宽高都是显式数字**且「较小者 + 2×hitSlop」< 档位 的可点元素。hitSlop 按补足量算,
@@ -24,8 +24,13 @@
  *      (`style={fn}`)、`width:'100%'` 这类非数字值 —— 这些要量真机几何,静态判不了,写在这里
  *      而不是假装看过。
  *      嵌套对象整体跳过:`shadowOffset: { width: 0, height: 0 }` 不是命中尺寸,判它即凭空造违规。
- *  H2 只判"四种反馈形态一种都没有":onPressIn / onPressOut、children 函数形态 `{({ pressed })`、
- *      className 里的 `active:` 变体、props 区里出现 `pressed`(函数形态 style 的按压入参)。
+ *  H2 按**原语各自的默认态**判,不数"有没有写 onPressIn":
+ *      `TouchableOpacity` 默认 `activeOpacity=0.2` ⇒ 按下即变暗,本来就有反馈(只有显式
+ *      `activeOpacity={1}` 才算关掉);`TouchableHighlight` 按下铺 underlay ⇒ 结构上有;
+ *      `TouchableWithoutFeedback` 类名自述没有 ⇒ 判;`Pressable` 无默认态 ⇒ 必须有四形态之一
+ *      (onPressIn/onPressOut、children 函数形态 `{({ pressed })`、className `active:`、
+ *      props 区出现 `pressed` 的函数形态 style)。
+ *      上一版把 957 枚 TouchableOpacity 一并算成"无反馈"—— 那是拿误报逼人补冗余代码。
  *
  * 档位取 36 不取 44:本仓既定档就是 `tapBox: 36`(geometry.js 注明对齐 web 顶栏 `w-9`,
  * 两端已各自对齐到它)。另立一个 44 就是造第二份真相,比漏判更糟。要改档值须先改那张表。
@@ -330,6 +335,24 @@ function resolveStyle(props, table) {
 const FEEDBACK_RE = /onPressIn\s*=|onPressOut\s*=|\bpressed\b|active:\w/
 
 /**
+ * 按压反馈是否"由原语自带"。判错方向的代价不对称:
+ *  - 把自带反馈的算成缺(上一版就是这么错的):1296 处里 957 处是 `TouchableOpacity`,
+ *    它默认 `activeOpacity=0.2` ⇒ 按下即变暗,**本来就有反馈**。照判就是逼人补冗余
+ *    onPressIn,甚至逼人跳门(§12e 同一句警告)。
+ *  - 把没有反馈的算成有:才是本门要拦的。
+ * 口径:
+ *  - `TouchableOpacity`:默认有;唯一关掉它的方式是 `activeOpacity={1}` ⇒ 只在那时判。
+ *  - `TouchableHighlight`:按下铺 underlay(默认黑)⇒ 结构上有反馈,不判。
+ *  - `TouchableWithoutFeedback`:类名自己就说没有 ⇒ 判。
+ *  - `Pressable`:RN 不给任何默认态 ⇒ 必须有四形态之一。
+ */
+function hasNativeFeedback(tag, props) {
+  if (tag === 'TouchableOpacity') return !/\bactiveOpacity\s*=\s*\{\s*1(?:\.0+)?\s*\}/.test(props)
+  if (tag === 'TouchableHighlight') return true
+  return false
+}
+
+/**
  * 纯判据(自检、镜像测试与主流程共用同一份实现,§22c 不在测试里另抄)。
  * @param {string} text 被审面上的源码
  * @param {number} minTap 命中方块下限(由调用方从**同面**的 geometry.js 现读)
@@ -360,7 +383,12 @@ function scanText(text, minTap, rel = '') {
     }
     if (!r.hit) skipped.push(r.why)
     const after = stripped.slice(end, end + 160)
-    if (!FEEDBACK_RE.test(props) && !/\{\s*\(\s*\{/.test(after)) h2.push({ line, tag })
+    if (
+      !hasNativeFeedback(tag, props) &&
+      !FEEDBACK_RE.test(props) &&
+      !/\{\s*\(\s*\{/.test(after)
+    )
+      h2.push({ line, tag })
   }
   return { h1, h2, skipped, slopOnly }
 }
@@ -414,7 +442,24 @@ function runSelfTest() {
 
   const small = scan('<TouchableOpacity style={{ width: 24, height: 24 }} onPress={go} />')
   ok(small.h1.length === 1, 'H1 失效:24×24 的可点元素必须被点名')
-  ok(small.h2.length === 1, 'H2 失效:无任何按压反馈必须被点名')
+  ok(
+    small.h2.length === 0,
+    'H2 过头:TouchableOpacity 默认 activeOpacity=0.2 自带按压变暗,不该判成没有反馈',
+  )
+  const noDim = scan(
+    '<TouchableOpacity activeOpacity={1} style={{ width: 44, height: 44 }} onPress={go} />',
+  )
+  ok(noDim.h2.length === 1, 'H2 失守:activeOpacity={1} 就是把默认反馈关了,必须判')
+  const without = scan(
+    '<TouchableWithoutFeedback onPress={go}><View style={{ width: 44, height: 44 }} /></TouchableWithoutFeedback>',
+  )
+  ok(without.h2.length === 1, 'H2 失守:TouchableWithoutFeedback 类名自述无反馈')
+  const pressable = scan('<Pressable style={{ width: 44, height: 44 }} onPress={go} />')
+  ok(pressable.h2.length === 1, 'H2 失守:Pressable 没有默认按压态,必须点名')
+  const highlight = scan(
+    '<TouchableHighlight onPress={go}><Text style={{}} /></TouchableHighlight>',
+  )
+  ok(highlight.h2.length === 0, 'H2 过头:TouchableHighlight 按下铺 underlay,结构上有反馈')
 
   const slop = scan(
     '<TouchableOpacity hitSlop={8} style={{ width: 24, height: 24 }} onPress={go} />',
@@ -693,6 +738,7 @@ export const __test__ = {
   topDims,
   tagRegion,
   styleTable,
+  hasNativeFeedback,
   runSelfTest,
   SKIP_ENV,
   SRC_RELS,
