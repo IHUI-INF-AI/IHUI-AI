@@ -58,15 +58,9 @@ interface ConversationRow {
   title: string
 }
 
-const TASK_STATUSES = [
-  'queued',
-  'claimed',
-  'running',
-  'completed',
-  'failed',
-  'expired',
-] as const
-type TaskStatus = (typeof TASK_STATUSES)[number]
+/** 任务状态六档(与 RN 侧 DevicesScreen 的状态徽标同源同序;值面由 TASK_STATUS_CLASS 的
+ *  Record 键穷举锁住,此数组只作类型源 ⇒ 直接写类型,不留"只用作类型"的值面) */
+type TaskStatus = 'queued' | 'claimed' | 'running' | 'completed' | 'failed' | 'expired'
 
 /** 任务状态 → 徽标配色(queued/expired 灰、claimed 蓝、running 琥珀、completed 绿、failed 红) */
 const TASK_STATUS_CLASS: Record<TaskStatus, string> = {
@@ -79,7 +73,10 @@ const TASK_STATUS_CLASS: Record<TaskStatus, string> = {
 }
 
 /** lastSeenAt → 相对时间文案(与 foldable-section 同阈值,词键收在本页 devices 命名空间) */
-function formatLastSeen(iso: string, t: (key: string, values?: Record<string, string | number>) => string): string {
+function formatLastSeen(
+  iso: string,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
   const ms = Date.parse(iso)
   if (Number.isNaN(ms)) return '—'
   const diff = Date.now() - ms
@@ -147,7 +144,10 @@ export default function DevicesPage() {
       const res = await issuePairCode()
       if (res.success && res.data) {
         const expiresAtMs = Date.parse(res.data.expires_at)
-        setPairCode({ code: res.data.code, expiresAtMs: Number.isNaN(expiresAtMs) ? 0 : expiresAtMs })
+        setPairCode({
+          code: res.data.code,
+          expiresAtMs: Number.isNaN(expiresAtMs) ? 0 : expiresAtMs,
+        })
       } else {
         setPairCode(null)
         setPairError(res.status === 429 ? 'rate' : 'failed')
@@ -172,11 +172,15 @@ export default function DevicesPage() {
   const [delegateSessionId, setDelegateSessionId] = React.useState('')
   const [delegateDeviceId, setDelegateDeviceId] = React.useState('')
   const [delegateSubmitting, setDelegateSubmitting] = React.useState(false)
-  const [delegateResult, setDelegateResult] = React.useState<{ ok: boolean; msg: string } | null>(null)
+  const [delegateResult, setDelegateResult] = React.useState<{ ok: boolean; msg: string } | null>(
+    null,
+  )
 
   const loadConversations = React.useCallback(async () => {
     try {
-      const res = await fetchApi<{ conversations: ConversationRow[] }>('/api/chat/conversations?page=1')
+      const res = await fetchApi<{ conversations: ConversationRow[] }>(
+        '/api/chat/conversations?page=1',
+      )
       if (res.success && res.data) setConversations(res.data.conversations ?? [])
     } catch {
       // 会话列表取不到不阻断页面:委派区显示空选项即可
@@ -191,7 +195,10 @@ export default function DevicesPage() {
       const res = await delegateSession(delegateSessionId, delegateDeviceId)
       if (res.success) {
         // success 分支 data 必为 {task_id,status}(收窄后可在 else 分支读 errorCode/status)
-        setDelegateResult({ ok: true, msg: t('devices.delegateSuccess', { taskId: res.data.task_id }) })
+        setDelegateResult({
+          ok: true,
+          msg: t('devices.delegateSuccess', { taskId: res.data.task_id }),
+        })
       } else if (res.status === 503 || res.errorCode === 'DEVICE_DELEGATION_DISABLED') {
         setDelegateResult({ ok: false, msg: t('devices.delegateDisabled') })
       } else if (res.status === 403) {
@@ -259,7 +266,11 @@ export default function DevicesPage() {
         const res = await revokeDevice(device.id)
         if (res.success) {
           // 本地即刻打撤销标 + 重拉列表(后端列表已过滤 revoked,双保险)
-          setDevices((prev) => prev.map((d) => (d.id === device.id ? { ...d, revokedAt: new Date().toISOString() } : d)))
+          setDevices((prev) =>
+            prev.map((d) =>
+              d.id === device.id ? { ...d, revokedAt: new Date().toISOString() } : d,
+            ),
+          )
           void loadDevices()
         } else {
           setDevicesError(res.error || t('devices.revokeFailed'))
@@ -344,11 +355,17 @@ export default function DevicesPage() {
                       </TableCell>
                       <TableCell>
                         {device.online ? (
-                          <Badge variant="outline" className="border-transparent bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                          <Badge
+                            variant="outline"
+                            className="border-transparent bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                          >
                             {t('devices.online')}
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="border-transparent bg-muted text-muted-foreground">
+                          <Badge
+                            variant="outline"
+                            className="border-transparent bg-muted text-muted-foreground"
+                          >
                             {t('devices.offline')}
                           </Badge>
                         )}
@@ -387,7 +404,12 @@ export default function DevicesPage() {
         <CardContent>
           <p className="mb-3 text-xs text-muted-foreground">{t('devices.pairHint')}</p>
           {pairError === 'rate' && (
-            <Alert variant="warning" title={t('devices.pairRateLimited')} closable className="mb-3" />
+            <Alert
+              variant="warning"
+              title={t('devices.pairRateLimited')}
+              closable
+              className="mb-3"
+            />
           )}
           {pairError === 'failed' && (
             <Alert variant="danger" title={t('devices.pairFailed')} closable className="mb-3" />
@@ -406,9 +428,14 @@ export default function DevicesPage() {
               <div className="flex items-center justify-between">
                 <span
                   data-testid="pair-code-countdown"
-                  className={cn('text-xs', pairExpired ? 'text-destructive' : 'text-muted-foreground')}
+                  className={cn(
+                    'text-xs',
+                    pairExpired ? 'text-destructive' : 'text-muted-foreground',
+                  )}
                 >
-                  {pairExpired ? t('devices.pairExpired') : t('devices.pairExpiresIn', { time: formatCountdown(pairSecondsLeft) })}
+                  {pairExpired
+                    ? t('devices.pairExpired')
+                    : t('devices.pairExpiresIn', { time: formatCountdown(pairSecondsLeft) })}
                 </span>
                 <Button
                   variant="outline"
@@ -428,9 +455,7 @@ export default function DevicesPage() {
               onClick={() => void handleIssuePairCode()}
               disabled={pairLoading}
             >
-              {pairLoading ? (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              ) : null}
+              {pairLoading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
               {t('devices.pairGenerate')}
             </Button>
           )}
@@ -456,7 +481,9 @@ export default function DevicesPage() {
           )}
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             <label className="block text-xs">
-              <span className="mb-1 block text-muted-foreground">{t('devices.delegateSessionLabel')}</span>
+              <span className="mb-1 block text-muted-foreground">
+                {t('devices.delegateSessionLabel')}
+              </span>
               <select
                 data-testid="delegate-session-select"
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
@@ -472,7 +499,9 @@ export default function DevicesPage() {
               </select>
             </label>
             <label className="block text-xs">
-              <span className="mb-1 block text-muted-foreground">{t('devices.delegateDeviceLabel')}</span>
+              <span className="mb-1 block text-muted-foreground">
+                {t('devices.delegateDeviceLabel')}
+              </span>
               <select
                 data-testid="delegate-device-select"
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
@@ -512,7 +541,9 @@ export default function DevicesPage() {
         <CardContent className="space-y-3">
           <div className="flex items-end gap-2">
             <label className="block flex-1 text-xs">
-              <span className="mb-1 block text-muted-foreground">{t('devices.delegateDeviceLabel')}</span>
+              <span className="mb-1 block text-muted-foreground">
+                {t('devices.delegateDeviceLabel')}
+              </span>
               <select
                 data-testid="tasks-device-select"
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
@@ -545,7 +576,9 @@ export default function DevicesPage() {
           {tasksLoading ? (
             <p className="py-6 text-center text-sm text-muted-foreground">{t('devices.loading')}</p>
           ) : tasksDeviceId && tasks.length === 0 && !tasksError ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">{t('devices.tasksEmpty')}</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {t('devices.tasksEmpty')}
+            </p>
           ) : tasks.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
