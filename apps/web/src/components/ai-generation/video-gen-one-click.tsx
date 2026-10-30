@@ -25,6 +25,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 
 const STYLES = [
   { value: 'photo', labelKey: 'stylePhoto' as const },
@@ -153,7 +154,12 @@ export function VideoGenOneClick() {
               <p className="text-sm text-destructive">{task.error}</p>
             ) : null}
             {videos.map((url) => (
-              <video key={url} src={url} controls className="w-full rounded-md border">
+              <video
+                key={url}
+                src={toMediaStreamUrl(url)}
+                controls
+                className="w-full rounded-md border"
+              >
                 <track kind="captions" />
               </video>
             ))}
