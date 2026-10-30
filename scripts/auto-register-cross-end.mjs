@@ -685,7 +685,13 @@ function appendMapRows(rows, opt = {}) {
   const headRows = parseMapRows(cov.faceRead('head', MAP_PATH))
   const workRows = parseMapRows(readFileSync(R(MAP_PATH), 'utf8'))
   // portal 行按 web 键**取代**同一路由的其它判定行(承载权已由门户表行使,旧判定留着就是第二把尺子)。
-  const supersedeWebs = new Set(rows.filter((r) => r.status === 'portal').map((r) => r.web))
+  // opt.supersedeWebs:调用方点名**本批没产出、但仍须清掉旧判定行**的 web 键(D1)。
+  // 为什么需要它:幂等跳过的那枚路由不在本批里 ⇒ 不在本集合 ⇒ HEAD 侧的旧 gap/excluded 行
+  // 不被剔除 ⇒ 归并后同一 web 落两行(旧判定 + 工作树的 portal)= 尺子维四的重复键。
+  const supersedeWebs = new Set([
+    ...rows.filter((r) => r.status === 'portal').map((r) => r.web),
+    ...(opt.supersedeWebs ?? []),
+  ])
   // ①b 的改判行只取代调用方**显式点名的 (web,status) 对**:不顺手把 aligned 当成万能覆盖档,
   // 否则一次复判会洗掉别席在同一枚路由上的在册判定。
   const dropPairs = new Set((opt.supersede || []).map((s) => `${s.web}::${s.dropStatus}`))
@@ -873,6 +879,10 @@ portalUndet.push(...portalPlan.undetermined)
 const portalRowsToLand = portalPlan.rows
 const portalFamilies = portalPlan.families
 const portalSkips = portalPlan.skipped
+// 取代清单(D1):幂等跳过的那枚路由,其 HEAD 侧旧判定行仍要被清掉 ——
+// 写盘层的取代集合若只由"本批产出的行"派生,被跳过的那枚就不在其中 ⇒
+// 归并后同一 web 落两行(旧 gap + 工作树 portal)= 尺子维四的重复键。
+const portalSupersede = portalPlan.supersede
 if (convergePortal && portalUndet.length > 0)
   console.error(`❌ 未判定:${portalUndet.join(' + ')} ⇒ 台账一条不改`)
 summary.portalConverge = {
@@ -933,6 +943,8 @@ if (applyMode) {
     land(p.file, p.shared, p.rn, p.miniapp, `子代理判定:${p.evidence}`)
   const addedMap = appendMapRows(mapRowsToAdd, {
     supersede: renderRowsToLand.map((r) => ({ web: r.web, dropStatus: 'gap' })),
+    // 幂等跳过的那枚路由仍须清掉 HEAD 侧旧判定行(D1);取代不等于本批产出。
+    supersedeWebs: portalSupersede,
   })
   const addedReg = appendRegistry(regEntries.map(({ shared, rn, miniapp }) => ({ shared, rn, miniapp })))
   summary.applied = {
