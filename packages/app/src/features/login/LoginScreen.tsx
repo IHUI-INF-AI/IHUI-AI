@@ -1116,9 +1116,9 @@ function QrTabContent({ t, styles, tk, qrConfig, qrPlatforms, renderQrPanel }: Q
                     <Text
                       style={{
                         color: tk.surface.light,
-                        fontSize: 9,
+                        fontSize: rnType.badge.size,
                         fontWeight: '600',
-                        lineHeight: 10,
+                        lineHeight: rnType.badge.lineHeight,
                       }}
                     >
                       {p.label.charAt(0)}

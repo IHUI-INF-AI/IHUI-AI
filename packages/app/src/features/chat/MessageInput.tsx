@@ -379,7 +379,11 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.xs,
     },
     fileVideoBadge: { color: tk.text.secondary, fontSize: rnType.title.size, marginBottom: 2 },
-    fileVideoText: { color: tk.text.secondary, fontSize: 9, textAlign: 'center' },
+    fileVideoText: {
+      color: tk.text.secondary,
+      fontSize: rnType.badge.size,
+      textAlign: 'center',
+    },
     fileDocPlaceholder: {
       width: '100%',
       height: '100%',
@@ -389,7 +393,11 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.xs,
     },
     fileDocIcon: { fontSize: rnType.heading.size, marginBottom: 2 },
-    fileDocText: { fontSize: 9, color: tk.text.secondary, textAlign: 'center' },
+    fileDocText: {
+      fontSize: rnType.badge.size,
+      color: tk.text.secondary,
+      textAlign: 'center',
+    },
     fileRemove: {
       position: 'absolute',
       top: 2.5,
