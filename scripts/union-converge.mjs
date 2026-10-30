@@ -199,6 +199,7 @@ import { declaredRows, rowStateOf, titleFpOf } from './scrub-declared-removals.m
 // 本器只做取材与"不补回"这一步 —— 不在这里写第二份"什么算被移出"。
 import { archiveDropCaps, selectMovedOut, ARCHIVE_REL } from './lib/live-doc-archive-drops.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+import { judgeFlags, unknownFlagEscape, USAGE as FLAG_USAGE } from './lib/union-converge-flags.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;§5b 明写"脚本一律不得依赖环境取 git")。
@@ -5182,6 +5183,26 @@ function selfTest() {
 async function main() {
   resetUnionCaches()
   const argv = process.argv.slice(2)
+  // 未知旗闸(RP-79 剩余面):清单、判据、放行出路全在 lib/union-converge-flags.mjs,本处只接线、零复算。
+  // 失效方向按 §0.10:拿不准的旗标要一次定向说明,而不是把同步链的正当动作拦停。
+  const flagVerdict = judgeFlags(process.argv)
+  if (flagVerdict.verdict === 'undetermined') {
+    console.log(`❌ 闸未判定:${flagVerdict.reason}`)
+    process.exit(2)
+  }
+  if (flagVerdict.verdict === 'unknown') {
+    const esc = unknownFlagEscape()
+    if (!esc.allowed) {
+      console.log(`❌ 用法错:${flagVerdict.flag} 不在已登记旗标清单里 ⇒ ${esc.problem}`)
+      console.log(FLAG_USAGE.join('\n'))
+      process.exit(2)
+    }
+    console.log(`⚠️ 未知旗 ${flagVerdict.flag} 按定向说明放行:${esc.reason}`)
+  }
+  if (argv.includes('--help') || argv.includes('-h')) {
+    console.log(FLAG_USAGE.join('\n'))
+    return
+  }
   if (argv.includes('--self-test')) return selfTest()
   const apply = argv.includes('--apply')
   // --theirs <sha> 的取值交单源出口(G-322)。旧写法 `argv[i + 1]` 有两型吞值都**静默降级**:
