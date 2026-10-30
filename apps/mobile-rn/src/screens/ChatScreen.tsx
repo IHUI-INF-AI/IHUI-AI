@@ -2282,7 +2282,7 @@ export function ChatScreen() {
           {materialCards.map((card) => (
             <View key={card.id} style={styles.materialCard}>
               <Pressable
-                hitSlop={8}
+                hitSlop={10}
                 onPress={() => removeMaterialCard(card.id)}
                 style={styles.materialCardClose}
                 accessibilityLabel={t('chat.matDeleteA11y')}
@@ -2313,7 +2313,7 @@ export function ChatScreen() {
           {inputFiles.map((file) => (
             <View key={file.id} style={styles.imgsListItem}>
               <Pressable
-                hitSlop={8}
+                hitSlop={10}
                 onPress={() => removeImage(file.id)}
                 style={styles.imgsListClose}
                 accessibilityLabel={t('chat.imageDelete')}

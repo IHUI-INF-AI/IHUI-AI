@@ -88,11 +88,19 @@ vi.mock('../src/lib/sso', () => ({
 
 vi.mock('@ihui/rn-app', async () => {
   const tokens = await import('../../../packages/app/src/theme/tokens')
+  // 同 g958 那笔:端内 LoginScreen 取了共享层的 useWrapFocus(守门 212 的描边唯一实现),
+  // 替身少这条出口就挂载即崩 ⇒ 补真实现。
+  const wrapFocus = await import('../../../packages/app/src/hooks/use-wrap-focus')
   const Fake = (props: Record<string, unknown>) => {
     sharedPropsCaptured.push(props)
     return createElement('div', { 'data-testid': 'shared-login-screen' })
   }
-  return { LoginScreen: Fake, getTokens: tokens.getTokens, tokens: tokens.tokens }
+  return {
+    LoginScreen: Fake,
+    getTokens: tokens.getTokens,
+    tokens: tokens.tokens,
+    useWrapFocus: wrapFocus.useWrapFocus,
+  }
 })
 
 vi.mock('@ihui/shared/hooks', async () => {

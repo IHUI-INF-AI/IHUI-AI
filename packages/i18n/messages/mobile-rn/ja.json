@@ -952,6 +952,7 @@
     "logoutConfirmBody": "このアカウントからログアウトしますか？"
   },
   "menu": {
+    "artifacts": "成果物センター",
     "about": "私たちについて",
     "feedback": "フィードバック",
     "privacy": "プライバシーポリシー",

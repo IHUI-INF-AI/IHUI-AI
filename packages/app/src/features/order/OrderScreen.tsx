@@ -149,7 +149,7 @@ export function OrderScreen({
                 <View style={styles.amountRow}>
                   <Text style={styles.amountLabel}>{t('order.amount')}</Text>
                   <Text style={styles.amountValue}>
-                    ¥{item.amount !== null ? item.amount.toFixed(2) : '—'}
+                    {item.amount !== null ? `¥${item.amount.toFixed(2)}` : '—'}
                   </Text>
                 </View>
               </>
