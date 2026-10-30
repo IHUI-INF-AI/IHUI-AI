@@ -40380,3 +40380,5 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 - 🐞 修复:消掉门 89 的 R5 撞号恒红 + 回补门 237 被无关提交洗掉的 996 行版 + 换掉一把会替人下因果结论的坏尺子 (3ef804fc3f9)
 - 🔧 工程/其他:撤销 1442baa1e0e 的整条移除——补回运营商一键登录的注册腿与消费腿 (b09e82f82c8)
 - 计划/台账: `check-plan-dup-pointer-ratchet.mjs` `check-plan-sha-resolvable.mjs` `check-plan-sha-form.mjs` `check-baseline-freshness.mjs` `check-agents-doc-size.mjs` `check-plan-id-pool.mjs` `check-plan-closed-stock.mjs` `check-plan-claims-vs-head.mjs` `check-plan-archive-monotonic.mjs`(门 239,2026-10-24 由撞号 237 改号;已归档✅票复活成未勾活行/逐字孪生回插即红,stagedTriggers=PROJECT_PLAN.md) `check-live-doc-archive-reinflation.mjs`(门体已造、尚未纳入 runner 注册表) `check-task-claims.mjs` `check-plan-fields.mjs` `check-sweeper-liveness.mjs`(2026-10-23 立:清扫背离巡检只读探针——派发在动 ∧ 留痕静默 >2h ∧ 可清存量 >0 ⇒ 器物空转;不走提交链,派发层 = git-guardian 的 `auditSweeperLiveness`)
+**RN 样式裸数字回潮锁** `scripts/check-token-literal-debt.mjs`(门 270,差值棘轮):只拦本次把
+- 跨端/产物 CI 问责(2026-10-31 接线): `check-miniapp-build-artifacts.mjs`(小程序产物结构对账:入口三件套/页面/分包/tabBar 引用全在位,构建产物只在构后存在 ⇒ CI 构后是唯一正确落点) `check-mrn-vitest-mock-alias-surface.mjs`(mobile-rn vitest 手写替身面观测,按门体契约恒 RC=0 只报名)
