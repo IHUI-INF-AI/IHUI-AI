@@ -31,7 +31,7 @@ import { splitUserMessageParts } from '@ihui/shared/chat'
 // 点开图片的唯一出口(与助手侧共用一份"外链开新窗 / 其余进面板"的判断)
 import { openImageSource } from '@/lib/open-image-source'
 // 外部 http(s) 图片经同源代理走 /api/media/image,满足收窄后的 CSP img-src
-import { toMediaImageUrl } from '@/lib/media-proxy'
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 
 export interface UserMessageBodyProps {
   content: string
@@ -98,7 +98,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
         <video
           key={`${url}-${i}`}
           data-testid="user-message-video"
-          src={url}
+          src={toMediaStreamUrl(url)}
           controls
           className="max-h-64 w-full rounded-lg bg-muted"
         >

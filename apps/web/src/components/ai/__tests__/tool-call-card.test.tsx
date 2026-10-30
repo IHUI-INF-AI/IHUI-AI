@@ -328,7 +328,10 @@ describe('ToolCallCard media rendering (music/video)', () => {
     fireEvent.click(rowOf('music_generation'))
     const audio = screen.getByTestId('tool-media-audio')
     expect(audio).toBeTruthy()
-    expect(audio.getAttribute('src')).toBe('https://cdn.example.com/song.mp3')
+    // 音频源经同源代理(/api/media/stream),外部 http(s) 直链被 CSP media-src 拦截
+    expect(audio.getAttribute('src')).toBe(
+      `/api/media/stream?url=${encodeURIComponent('https://cdn.example.com/song.mp3')}`,
+    )
   })
 
   it('voice_tts + data URI audioUrl 时渲染 <audio> 播放器(edge-tts 产物)', () => {

@@ -23,7 +23,7 @@ import { getArtifactToken } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 // CSP img-src 收窄后,图片必须走同源代理 /api/media/image 渲染;下载走 /api/media/download
-import { toMediaImageUrl, toMediaDownloadUrl } from '@/lib/media-proxy'
+import { toMediaImageUrl, toMediaDownloadUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
@@ -834,7 +834,7 @@ function AudioResultBlock({ audioUrl, prompt }: { audioUrl: string; prompt?: str
       {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
       <audio
         controls
-        src={audioUrl}
+        src={toMediaStreamUrl(audioUrl)}
         preload="metadata"
         className="w-full"
         data-testid="tool-media-audio"
@@ -873,11 +873,10 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
 
   // 视频经同源代理播放:web rewrites 把 /api/media/* 转发到 ai-service 8803,
   // 浏览器同源请求自动带 httpOnly auth cookie 鉴权,<video> 标签无需也不能带自定义 header。
-  // 后端 /api/media/stream 复用下载代理的 SSRF 闸门(URL 必须命中平台登记产物)并透传 Range。
-  const streamUrl = React.useMemo(
-    () => `/api/media/stream?url=${encodeURIComponent(videoUrl)}`,
-    [videoUrl],
-  )
+  // 后端 /api/media/stream 复用下载代理的 SSRF 闸门并透传 Range。
+  // 统一走 toMediaStreamUrl(与 AudioResultBlock 同源):手写拼接不区分 http(s) 与
+  // data:/blob:,后者会被错误代理而后端 400(data: 不在 media-src 白名单,应原样返回)。
+  const streamUrl = React.useMemo(() => toMediaStreamUrl(videoUrl), [videoUrl])
 
   // 跨域直链的 download 属性会被浏览器忽略,用 blob 落盘。
   // 2026-10-30 走查实证:直连 fetch 外部 CDN 会被 CORS 拒绝(agnes 源站不带 ACAO)

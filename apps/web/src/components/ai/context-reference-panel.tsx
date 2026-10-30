@@ -23,7 +23,7 @@ import {
 
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { toMediaImageUrl } from '@/lib/media-proxy'
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 import type { ReferenceType, ReferenceItem } from '@/hooks/use-message-references'
 
@@ -96,7 +96,7 @@ export function ContextReferencePanel({
                     />
                   ) : hasThumbnail && ref.type === 'video' ? (
                     <video
-                      src={ref.thumbnail}
+                      src={toMediaStreamUrl(ref.thumbnail)}
                       className="h-10 w-10 shrink-0 rounded-md border bg-black object-cover"
                       muted
                       preload="metadata"
@@ -211,7 +211,7 @@ export function ContextReferencePanel({
                       </div>
                     ) : (
                       <video
-                        src={ref.thumbnail}
+                        src={toMediaStreamUrl(ref.thumbnail)}
                         className="max-h-64 w-full rounded-md"
                         controls
                         preload="metadata"
