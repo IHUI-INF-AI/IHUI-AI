@@ -136,7 +136,7 @@
           },
           {
             "file": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx",
-            "line": 831,
+            "line": 960,
             "contains": "subagent 三帧聚合进 aiCards.subagentTasks"
           }
         ]
@@ -223,28 +223,8 @@
           }
         ]
       },
-      "appUpdate.readyBody": {
-        "reason": "packages/i18n/tests/app-update-copy-parity.test.ts 的 RN_ONLY_KEYS(:75 起,:83 逐字 'readyBody')把该键钉成两端更新卡的形状键:同文件 :133 那条 it('RN 独占键五语言齐备且非空')对 mobile-rn 五语言逐键断言 toBeTypeOf('string') 且非空串(:137)。本端无静态 t() 引用属实(UpdatePrompt.tsx:125 取 appUpdate.body、:90 取 appUpdate.installing,SettingsScreen.tsx:223 取 appUpdate.ready),但删键必须与该测试同批 —— 2026-10-30 实测单摘本端五语该键 ⇒ 该文件 10 例中 2 例翻红('mobile-rn/zh-CN 缺 RN 独占键 readyBody')。2026-10-28 机主「怎么还能提示用户去刷新页面」定案:web 的 body 讲刷新页面、RN 讲点按钮重启进程,就绪态改用 RN 自己的 readyBody。故本端保留该键、登记为形状键契约,不作孤儿处理。",
-        "evidence": [
-          {
-            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
-            "line": 83,
-            "contains": "'readyBody'"
-          },
-          {
-            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
-            "line": 133,
-            "contains": "RN 独占键五语言齐备且非空"
-          },
-          {
-            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
-            "line": 137,
-            "contains": "缺 RN 独占键"
-          }
-        ]
-      },
       "appUpdate.installingHint": {
-        "reason": "同 appUpdate.readyBody:packages/i18n/tests/app-update-copy-parity.test.ts 的 RN_ONLY_KEYS(:75 起,:84 逐字 'installingHint')钉成形状键,该测试对 mobile-rn 五语言逐键断言取到非空字符串(:133/:137)。本端无静态 t() 引用属实(渲染位取的是 appUpdate.installing),而该键是 2026-10-28 机主「重启迟迟不回来时的兜底说明同理只在 RN 出现」那一批补的 RN 独占文案,单摘本端词包即让该测试翻红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
+        "reason": "本键与 appUpdate 族同一裁定(2026-10-28 机主:RN 不复用 web 的刷新页面文案，就绪态/兜底各自成键);依据见 packages/i18n/tests/app-update-copy-parity.test.ts 的 RN_ONLY_KEYS(:75 起,:84 逐字 'installingHint')钉成形状键,该测试对 mobile-rn 五语言逐键断言取到非空字符串(:133/:137)。本端无静态 t() 引用属实(渲染位取的是 appUpdate.installing),而该键是 2026-10-28 机主「重启迟迟不回来时的兜底说明同理只在 RN 出现」那一批补的 RN 独占文案,单摘本端词包即让该测试翻红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
         "evidence": [
           {
             "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
@@ -264,7 +244,7 @@
         ]
       },
       "appUpdate.restartNow": {
-        "reason": "同 appUpdate.readyBody:packages/i18n/tests/app-update-copy-parity.test.ts 的 RN_ONLY_KEYS(:75 起,:85 逐字 'restartNow')钉成形状键,该测试对 mobile-rn 五语言逐键断言取到非空字符串(:133/:137)。本端无静态 t() 引用属实(RN 更新卡当前按钮位取 appUpdate.action/restart 族文案),但该键属 2026-10-28 那批 RN 独占补文,删键须与该测试同批、单删本端词包即判红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
+        "reason": "本键与 appUpdate 族同一裁定(2026-10-28 机主:RN 不复用 web 的刷新页面文案，就绪态/兜底各自成键);依据见 packages/i18n/tests/app-update-copy-parity.test.ts 的 RN_ONLY_KEYS(:75 起,:85 逐字 'restartNow')钉成形状键,该测试对 mobile-rn 五语言逐键断言取到非空字符串(:133/:137)。本端无静态 t() 引用属实(RN 更新卡当前按钮位取 appUpdate.action/restart 族文案),但该键属 2026-10-28 那批 RN 独占补文,删键须与该测试同批、单删本端词包即判红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
         "evidence": [
           {
             "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
@@ -310,17 +290,17 @@
         "evidence": [
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 41,
+            "line": 44,
             "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 91,
+            "line": 130,
             "contains": "return t(UNDO_CLAIM_KEY_PREFIX + 'undoSucceeded', { count });"
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 73,
+            "line": 112,
             "contains": "return 'undoSucceeded';"
           }
         ]
@@ -330,17 +310,17 @@
         "evidence": [
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 41,
+            "line": 44,
             "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 98,
+            "line": 137,
             "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 71,
+            "line": 111,
             "contains": "if (input.partial) return 'undoPartialWarning';"
           }
         ]
@@ -350,12 +330,12 @@
         "evidence": [
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 41,
+            "line": 44,
             "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 98,
+            "line": 137,
             "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
           },
           {
@@ -370,17 +350,17 @@
         "evidence": [
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 41,
+            "line": 44,
             "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 98,
+            "line": 137,
             "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 70,
+            "line": 101,
             "contains": "if (input.verdict === 'changed') return 'undoFailedChanged';"
           }
         ]
@@ -485,17 +465,17 @@
         "evidence": [
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 41,
+            "line": 44,
             "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 98,
+            "line": 137,
             "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
           },
           {
             "file": "apps/cli/src/commands/undo-claim-copy.ts",
-            "line": 69,
+            "line": 102,
             "contains": "if (input.verdict === 'unknown') return 'undoFailedUnverifiable';"
           }
         ]

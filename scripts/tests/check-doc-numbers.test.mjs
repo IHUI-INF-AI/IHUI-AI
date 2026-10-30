@@ -28,6 +28,7 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { catBatch } from '../lib/face-reader.mjs'
 import { BLOCK_BEGIN, BLOCK_END } from '../gen-doc-numbers.mjs'
 import { CLAIMS, LEGACY_GROUP_RE, decide, findStaleClaims, usesNumFabric } from '../check-doc-numbers.mjs'
+import { UPDATES_BEGIN, UPDATES_END } from '../check-doc-numbers.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const GATE = resolve(HERE, '..', 'check-doc-numbers.mjs')
@@ -312,3 +313,27 @@ test('T9 逗号分组只由 NUM 出一份 + 真历史文本阳性对照(G-111744
     throw new Error(`wsEndpoints 英文分支必须点名 "25 WebSocket endpoints"(25≠26),实得 ${JSON.stringify(r2.violations)}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T10 RECENT UPDATES 块屏蔽:9fdbc207ba 曾把这条判据当"回退残留"吃掉,本条是它的复洁器', () => {
+  const numbers = { llmModels: 118, dbTables: 583, testFiles: 2778 }
+  // 正向:块内是"旧值→新值"的历史陈述,把它读成当前总量声明就是本门自己造假阳
+  const inside = `${UPDATES_BEGIN}\n- 文档:补齐对外口径(176 llms → 101 llms) (333fd912418)\n${UPDATES_END}\n`
+  const rIn = findStaleClaims(inside, numbers)
+  if (rIn.violations.length !== 0)
+    throw new Error(`更新块内的 176/101 是历史陈述,不得判红,实得 ${JSON.stringify(rIn.violations)}`)
+  if (rIn.checked !== 0) throw new Error(`更新块必须整段挖空(checked 归 0),实得 checked=${rIn.checked}`)
+  // 反向①:屏蔽只作用于块内 —— 同一句话写在块外必须点名 176,否则这道屏蔽就是新的瞎子
+  const outside = `补齐对外口径(176 llms → 101 llms)\n${UPDATES_BEGIN}\nx\n${UPDATES_END}\n`
+  const rOut = findStaleClaims(outside, numbers)
+  if (!rOut.violations.some((v) => v.key === 'llmModels' && v.found === 176))
+    throw new Error(`块外的 176 必须照红,实得 ${JSON.stringify(rOut.violations)}`)
+  // 反向②:更新块未闭合(有 begin 无 end)⇒ danglingBlock 必须为真,不得把后半篇静默当块内
+  const dangling = `${UPDATES_BEGIN}\n- 补齐对外口径(176 llms → 101 llms)\n`
+  if (findStaleClaims(dangling, numbers).danglingBlock !== true)
+    throw new Error('更新块有 begin 无 end ⇒ 必须点名 danglingBlock;静默挖掉等于把判据关掉')
+  // 反向③:两型块同时在位时都必须挖(同一套机制两处出口,少挖一个就是假阳回流)
+  const both = `${BLOCK_BEGIN}\n542 张表\n${BLOCK_END}\n${UPDATES_BEGIN}\n101 llms\n${UPDATES_END}\n`
+  const rBoth = findStaleClaims(both, numbers)
+  if (rBoth.violations.length !== 0 || rBoth.checked !== 0)
+    throw new Error(`两型机器块都该挖净,实得 violations=${JSON.stringify(rBoth.violations)} checked=${rBoth.checked}`)
+})

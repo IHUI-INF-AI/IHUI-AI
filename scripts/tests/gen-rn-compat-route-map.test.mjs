@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { buildRouteMapFromText } from '../gen-rn-compat.mjs'
+import { __test__ as GEN } from '../gen-rn-compat.mjs'
 
 const RN = (n) => `apps/mobile-rn/src/screens/${n}.tsx`
 const reg = (rn, miniapp) => ({ rn, miniapp })
@@ -276,6 +277,141 @@ test('N5 形状锁:--write 段落盘一律走 atomicWriteFileSync,且两处写�
     (body.match(/injectWatermark\(/g) || []).length,
     2,
     '两处正文写完都必须紧随注入(§5c:漏注 = 下一次提交链红在没人写过那行的地方)',
+  )
+})
+
+// ── C 组:幂等判据 routeMapCovers ──────────────────────────────────────────────
+// 立因(2026-10-30 实测的"绿灯即缺陷"):登记表面回正了 CourseMain / NewsCategory / Assistant
+// 三条的 miniapp 指向,键名一条没变;旧判据只比键名集合 ⇒ `--write` 自报「✓ 路由映射无变化
+// (盘上已覆盖现读 257 条)」并拒绝写盘,生成物与登记面长期背离。`--write` 是门 251 C3 点名的
+// 修复出口,出口安静不干活即 AGENTS §0.8 禁止的"文档写了跑不通的出路"。
+const PRETTY_MAP = `export const RN_ROUTE_MAP: Record<string, string> = {
+  A: '/x/index',
+  B: '/pkg-learn/course/list',
+}
+`
+
+test('C1 键在册且指向逐字相等 ⇒ 判"已覆盖"(prettier 后的裸键单引号形态)', () => {
+  const entries = [
+    ['A', '/x/index'],
+    ['B', '/pkg-learn/course/list'],
+  ]
+  assert.equal(GEN.routeMapCovers(entries, PRETTY_MAP), true)
+})
+
+test('C2 反向牙(本轮真事):同键不同值必须判"有变化",否则改指向永远落不了盘', () => {
+  const entries = [
+    ['A', '/x/index'],
+    ['B', '/pkg-mirror/course/index'],
+  ]
+  assert.equal(
+    GEN.routeMapCovers(entries, PRETTY_MAP),
+    false,
+    '只比键名的旧判据在这里返回 true ⇒ 生成器自述"无变化"却不写盘',
+  )
+})
+
+test('C3 现读键在盘上不存在 ⇒ 判"有变化"(补新页这一型不能被当成已覆盖)', () => {
+  const entries = [['NewScreen', '/pkg-new/index']]
+  assert.equal(GEN.routeMapCovers(entries, PRETTY_MAP), false)
+})
+
+test('C4 盘上读不到任何映射 ⇒ 判"有变化",绝不把"读不到"写成"已覆盖"(§0.3)', () => {
+  const entries = [['A', '/x/index']]
+  assert.equal(GEN.routeMapCovers(entries, ''), false, '空文件')
+  assert.equal(GEN.routeMapCovers(entries, '// 没有表体的一行\n'), false, '无 map 形态')
+})
+
+test('C5 自生成自识别闭环:renderRouteMap 的产物喂回判据必须为真(双引号形态)', () => {
+  const map = new Map([
+    ['Assistant', '/pkg-ai/agent-dialogue/index'],
+    ['CourseMain', '/pkg-learn/course/list'],
+  ])
+  const rendered = GEN.renderRouteMap(map)
+  assert.equal(
+    GEN.routeMapCovers([...map.entries()], rendered),
+    true,
+    '渲染器与幂等判据必须认同一种形态,否则每轮都"有变化"、改动面被无意义重写长期占用',
+  )
+})
+
+test('C6 形状锁:源脚本里不得再长出"只比键名"的第二份幂等判据(§22c)', () => {
+  const src = readFileSync(fileURLToPath(new URL('../gen-rn-compat.mjs', import.meta.url)), 'utf8')
+  assert.ok(
+    !/routeKeysNew\.every/.test(src),
+    '旧判据(逐键名 includes)被搬回来了 ⇒ 值漂移重新变成看不见的缺陷',
+  )
+  assert.ok(
+    /const routesAlreadyCovered = routeMapCovers\(/.test(src),
+    'main() 必须走 routeMapCovers 这一个出口,不许在调用点另写一份',
+  )
+})
+
+// ── I 组:图标表的幂等判据 iconTableCovers ────────────────────────────────────
+// 立因(2026-10-30 审计确证,与 C 组同型)：产物 `icons-generated.tsx` 的 `const S` 里每个名字的**值是现算
+// 的 SVG data URI**；旧判据只比名字集合 + `length >=`，于是 lucide 升版/某图标路径改动时(名字一条不变)
+// 器物打「✓ 图标无变化」并拒绝写盘 —— 端上继续用旧字形，门 251 C2 同样只比名，两头都看不见。
+const ICON_ROWS = [
+  `  'Activity': ${JSON.stringify('data:image/svg+xml,<svg a="1"></svg>')},`,
+  `  'Folder': ${JSON.stringify('data:image/svg+xml,<svg b="2"></svg>')},`,
+]
+const ICON_DISK_JSON = `const S: Record<string, string> = {
+${ICON_ROWS.join('\n')}
+}
+`
+// prettier 会把不含单引号的串归一成单引号形态 —— 内容相同、字面形态不同
+const ICON_DISK_PRETTY = `const S: Record<string, string> = {
+  Activity: 'data:image/svg+xml,<svg a="1"></svg>',
+  Folder: 'data:image/svg+xml,<svg b="2"></svg>',
+}
+`
+
+test('I1 名在册且 SVG 取值逐字相等 ⇒ 判"已覆盖"(JSON 双引号形态)', () => {
+  assert.equal(GEN.iconTableCovers(ICON_ROWS, ICON_DISK_JSON), true)
+})
+
+test('I2 反向牙:名不变、值变了必须判"有变化"(lucide 升版那一型)', () => {
+  const drifted = [
+    `  'Activity': ${JSON.stringify('data:image/svg+xml,<svg a="1"></svg>')},`,
+    `  'Folder': ${JSON.stringify('data:image/svg+xml,<svg b="CHANGED"></svg>')},`,
+  ]
+  assert.equal(
+    GEN.iconTableCovers(drifted, ICON_DISK_PRETTY),
+    false,
+    '旧判据(逐名 includes)在这里返回 true ⇒ 自报"图标无变化"却不写盘',
+  )
+})
+
+test('I3 新名不在盘上 ⇒ 判"有变化"(补图标这一型不能被当成已覆盖)', () => {
+  assert.equal(
+    GEN.iconTableCovers([...ICON_ROWS, `  'NewIcon': "data:image/svg+xml,x",`], ICON_DISK_PRETTY),
+    false,
+  )
+})
+
+test('I4 盘上读不到图标表 ⇒ 判"有变化",绝不把"读不到"写成"已覆盖"(§0.3)', () => {
+  assert.equal(GEN.iconTableCovers(ICON_ROWS, ''), false, '空文件')
+  assert.equal(GEN.iconTableCovers(ICON_ROWS, 'export const A = makeIcon("A", src("A"))\n'), false)
+})
+
+test('I5 引号形态无关:同一内容在 JSON 双引号与 prettier 单引号两形态下都判"已覆盖"', () => {
+  assert.equal(GEN.iconTableCovers(ICON_ROWS, ICON_DISK_PRETTY), true)
+  const prettyRows = [
+    `  'Activity': 'data:image/svg+xml,<svg a="1"></svg>',`,
+    `  'Folder': 'data:image/svg+xml,<svg b="2"></svg>',`,
+  ]
+  assert.equal(GEN.iconTableCovers(prettyRows, ICON_DISK_JSON), true)
+})
+
+test('I6 形状锁:图标腿不得再退回"只比名 + 计数"的幂等判据(§22c)', () => {
+  const src = readFileSync(fileURLToPath(new URL('../gen-rn-compat.mjs', import.meta.url)), 'utf8')
+  assert.ok(
+    !/iconNamesNew\.every/.test(src),
+    '逐名 includes 那套被搬回来了 ⇒ 图标值漂移重新变成看不见的缺陷',
+  )
+  assert.ok(
+    /const iconsAlreadyCovered = iconTableCovers\(/.test(src),
+    'main() 必须走 iconTableCovers 这一个出口,与路由腿同尺',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

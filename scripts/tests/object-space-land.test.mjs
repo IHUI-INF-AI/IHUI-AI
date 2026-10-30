@@ -50,10 +50,32 @@ const GIT = resolveGitBin() || 'git'
 // 的路径按"本门不适用"放行(2026-10-22 实测:原 26 条端到端红即"门在主仓问临时仓的树"那一型)。
 // 故本文件**不再给全局桩**:桩会让真门的取材失败被掩盖,而这一票的存在理由正是"未判定不得
 // 被读成通过"。只有 T-WB 三态用例为钉传输/判决而自带会记账的桩。
-const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
+const runOpts = {
+  encoding: 'utf8',
+  windowsHide: true,
+  timeout: 60_000,
+  maxBuffer: 64 << 20,
+  stdio: ['ignore', 'pipe', 'pipe'],
+}
 // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
 const runGit = (dir, args) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], { ...runOpts, stdio: ['ignore', 'pipe', 'pipe'] })
+  execFileSync(
+    GIT,
+    [
+      '-c',
+      'safe.directory=*',
+      '-c',
+      'user.email=t@e2e.local',
+      '-c',
+      'user.name=e2e',
+      '-c',
+      'core.autocrlf=false',
+      '-C',
+      dir,
+      ...args,
+    ],
+    { ...runOpts, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
 
 function makeRepo(t) {
   const dir = mkScratch('osl-')
@@ -123,29 +145,64 @@ function makeLocaleRepo(t) {
   return { dir, ancestor9: ancestor.slice(0, 9) }
 }
 
-function runLand(dir, { paths = '', msg = 'chore: e2e land', baseRef, allowStale, blobs, proof, jsonStructure, extraEnv = {} } = {}) {
+function runLand(
+  dir,
+  {
+    paths = '',
+    msg = 'chore: e2e land',
+    baseRef,
+    allowStale,
+    blobs,
+    proof,
+    jsonStructure,
+    extraEnv = {},
+  } = {},
+) {
   const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: paths, LAND_MSG: msg, ...extraEnv }
   // 门 231 走真门:G-929 起落地器透传 --root,夹具仓的树真判(不再用桩抹平取材失败)。
   if (baseRef) env.LAND_BASE_REF = baseRef
   else delete env.LAND_BASE_REF
   if (allowStale) env.LAND_ALLOW_STALE = '1'
   else delete env.LAND_ALLOW_STALE
+  // 声明式还原通道必须**默认不举旗**:外层 shell 恰好带着 LAND_RESTORE_MANIFEST 时,
+  // "反向③(不传旗逐字节同形)"那条锁就会假绿(T-JS-3 用同一手法关 LAND_JSON_STRUCTURE)。
+  if (!env.LAND_RESTORE_MANIFEST) delete env.LAND_RESTORE_MANIFEST
   // G-816037 的结构档必须**默认关闭**:不带这面旗时行为与加档前逐字同形(T-JS-3 钉这一条)。
   if (jsonStructure) env.LAND_JSON_STRUCTURE = '1'
   else delete env.LAND_JSON_STRUCTURE
   if (blobs) {
-    env.LAND_BLOBS = writeFileSync(join(dir, '.blobs.json'), JSON.stringify({ files: blobs })) || join(dir, '.blobs.json')
+    env.LAND_BLOBS =
+      writeFileSync(join(dir, '.blobs.json'), JSON.stringify({ files: blobs })) ||
+      join(dir, '.blobs.json')
     env.LAND_BLOB_PROOF = proof || 'e2e 取证:构造内容只动本票行'
   } else {
     delete env.LAND_BLOBS
     delete env.LAND_BLOB_PROOF
   }
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 test('T1 §22c 导出面:判据函数必须在 __test__ 里', () => {
-  for (const k of ['parseArgs', 'clobberedPaths', 'lineDelta', 'resurrectAnalysis', 'detectStaleLanding', 'jsonStructuralSuperset', 'staleReport', 'commitFacePresence'])
+  for (const k of [
+    'parseArgs',
+    'clobberedPaths',
+    'lineDelta',
+    'resurrectAnalysis',
+    'detectStaleLanding',
+    'jsonStructuralSuperset',
+    'staleReport',
+    'commitFacePresence',
+    'validateRestoreManifest',
+    'loadRestoreManifest',
+  ])
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
 })
 
@@ -162,8 +219,16 @@ test('T2 happy path:落地 ⇒ 提交面回读 + 主索引对齐(新文件不留
   assert.notEqual(head, before, 'HEAD 必须前进')
   assert.equal(headBlobOf(head, 'a.txt', { root: dir }), writeBlob('v3\n', { root: dir }))
   assert.notEqual(headBlobOf(head, 'b.txt', { root: dir }), 'ABSENT')
-  assert.equal(headBlobOf(head, 'sub/keep.txt', { root: dir }), headBlobOf(before, 'sub/keep.txt', { root: dir }), '非声明路径必须原样')
-  assert.equal(indexBlobOf('a.txt', { root: dir }), headBlobOf(head, 'a.txt', { root: dir }), '主索引必须对齐到新 blob')
+  assert.equal(
+    headBlobOf(head, 'sub/keep.txt', { root: dir }),
+    headBlobOf(before, 'sub/keep.txt', { root: dir }),
+    '非声明路径必须原样',
+  )
+  assert.equal(
+    indexBlobOf('a.txt', { root: dir }),
+    headBlobOf(head, 'a.txt', { root: dir }),
+    '主索引必须对齐到新 blob',
+  )
   assert.notEqual(indexBlobOf('b.txt', { root: dir }), 'ABSENT', '新文件不得留在"暂存删除"形态')
 })
 
@@ -190,8 +255,16 @@ test('T4 防覆盖护栏:目标路径在基线与当下 HEAD 之间被别人改�
   assert.equal(r.status, 1, `护栏必须拦,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.match(r.stderr + r.stdout, /被别人改过/)
   assert.match(r.stderr + r.stdout, /a\.txt/, '必须点名是哪条路径')
-  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), theirsHead, 'HEAD 必须仍停在别人的提交上(未新增落地提交)')
-  assert.equal(headBlobOf('HEAD', 'a.txt', { root: dir }), writeBlob('v2-theirs\n', { root: dir }), '别人的 v2 不得被覆盖')
+  assert.equal(
+    git(['rev-parse', 'HEAD'], { root: dir }),
+    theirsHead,
+    'HEAD 必须仍停在别人的提交上(未新增落地提交)',
+  )
+  assert.equal(
+    headBlobOf('HEAD', 'a.txt', { root: dir }),
+    writeBlob('v2-theirs\n', { root: dir }),
+    '别人的 v2 不得被覆盖',
+  )
 })
 
 test('T5 声明无差异 ⇒ 事先拒绝(提交面回读永远证不了"改了它")', (t) => {
@@ -214,7 +287,11 @@ test('T6 归属纪律端到端:索引==别人新暂存 ⇒ 落地成功但对齐
   assert.equal(r.status, 0, `落地本身应成功:${r.stderr}`)
   assert.match(r.stdout, /未动\(归属他人\)[\s\S]*a\.txt/)
   assert.equal(indexBlobOf('a.txt', { root: dir }), foreign, '别人暂存的 v2 必须原样留在索引里')
-  assert.equal(headBlobOf('HEAD', 'a.txt', { root: dir }), writeBlob('v3\n', { root: dir }), '提交面照落 v3')
+  assert.equal(
+    headBlobOf('HEAD', 'a.txt', { root: dir }),
+    writeBlob('v3\n', { root: dir }),
+    '提交面照落 v3',
+  )
 })
 
 test('T7 parseArgs 纯函数面:同一 env 两次调用结论一致(连跑不漂移的最小证明)', (t) => {
@@ -230,7 +307,11 @@ test('T7 parseArgs 纯函数面:同一 env 两次调用结论一致(连跑不漂
   assert.match(String(noPaths.error), /LAND_PATHS/)
   const noMsg = __test__.parseArgs({ LAND_PATHS: 'a.txt', LAND_ROOT: dir })
   assert.match(String(noMsg.error), /LAND_MSG/)
-  const notRepo = __test__.parseArgs({ LAND_PATHS: 'a.txt', LAND_MSG: 'm', LAND_ROOT: mkScratch('osl-notrepo-') })
+  const notRepo = __test__.parseArgs({
+    LAND_PATHS: 'a.txt',
+    LAND_MSG: 'm',
+    LAND_ROOT: mkScratch('osl-notrepo-'),
+  })
   assert.match(String(notRepo.error), /不是可用仓库/)
 })
 
@@ -252,7 +333,11 @@ test('T8 陈旧落地(a):盘上副本等于祖先版本且会抹掉基线活行 
   assert.match(out, /消失: lineD/, '必须给出有界的样例行,不能只报数')
   assert.match(out, /重现: lineB/)
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '拒绝路径上 HEAD 必须一步没动')
-  assert.equal(headBlobOf('HEAD', 'pack.txt', { root: dir }), writeBlob(NEW_FORM, { root: dir }), '别人的 B 形态不得被动过')
+  assert.equal(
+    headBlobOf('HEAD', 'pack.txt', { root: dir }),
+    writeBlob(NEW_FORM, { root: dir }),
+    '别人的 B 形态不得被动过',
+  )
 })
 
 test('T9 陈旧落地(b)反向对照:人真删掉的行(内容不等于任何祖先)⇒ 必须照样落地', (t) => {
@@ -261,18 +346,29 @@ test('T9 陈旧落地(b)反向对照:人真删掉的行(内容不等于任何祖
   writeFileSync(join(dir, 'pack.txt'), 'lineA\nlineD\n')
   const r = runLand(dir, { paths: 'pack.txt', msg: 'chore: honest deletion' })
   assert.equal(r.status, 0, `真删除必须能落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
-  assert.equal(headBlobOf('HEAD', 'pack.txt', { root: dir }), writeBlob('lineA\nlineD\n', { root: dir }))
+  assert.equal(
+    headBlobOf('HEAD', 'pack.txt', { root: dir }),
+    writeBlob('lineA\nlineD\n', { root: dir }),
+  )
 })
 
 test('T10 陈旧落地(c):LAND_ALLOW_STALE=1 ⇒ 放行、大声留痕、逐条点名被回写的路径', (t) => {
   const { dir, ancestor9 } = makeTwoCommitRepo(t, { oldText: OLD_FORM, newText: NEW_FORM })
   writeFileSync(join(dir, 'pack.txt'), OLD_FORM)
-  const r = runLand(dir, { paths: 'pack.txt', msg: 'chore: intentional regeneration', allowStale: true })
+  const r = runLand(dir, {
+    paths: 'pack.txt',
+    msg: 'chore: intentional regeneration',
+    allowStale: true,
+  })
   assert.equal(r.status, 0, `显式放行必须能落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.match(r.stdout, /LAND_ALLOW_STALE=1/, '放行必须打印留痕行(不得静默落地)')
   assert.match(r.stdout, /放行 1 处陈旧落地/)
   assert.ok(r.stdout.includes(ancestor9), '放行时同样要点名祖先,便于事后归因')
-  assert.equal(headBlobOf('HEAD', 'pack.txt', { root: dir }), writeBlob(OLD_FORM, { root: dir }), '放行后确实按盘上内容落了')
+  assert.equal(
+    headBlobOf('HEAD', 'pack.txt', { root: dir }),
+    writeBlob(OLD_FORM, { root: dir }),
+    '放行后确实按盘上内容落了',
+  )
 })
 
 test('T11 陈旧落地(d)【2026-09-28 重新定性】:内容等于祖先、相对基线**零消失**但复活了行 ⇒ 必须拒绝', (t) => {
@@ -314,14 +410,25 @@ test('T12 形状锁:祖先判定与祖先窗口只能各引守门 84 那一份,�
     '必须从守门 84 import 那一份判定,而不是各写一份',
   )
   assert.match(code, /staleAncestorAnalysis\s*\(/, 'import 了却没调用 = 判据仍是自写的(假接线)')
-  for (const secondImpl of [/function\s+analyze\b/, /function\s+ancestorCommits\b/, /\bANCESTOR_WINDOW\b/])
+  for (const secondImpl of [
+    /function\s+analyze\b/,
+    /function\s+ancestorCommits\b/,
+    /\bANCESTOR_WINDOW\b/,
+  ])
     assert.ok(!secondImpl.test(code), `出现第二份祖先判定的形状:${secondImpl}`)
   for (const rawOnly of [/--find-object/, /\[\s*['"]log['"]\s*,/])
     assert.ok(!rawOnly.test(src), `本器自己派生 git 找祖先(那正是守门 84 的活):${rawOnly}`)
   // ── 行级复活那一支的三条同源锁(2026-09-28 补;同日判据提取到 lib 后**改的是位置,不是松紧**)──
-  assert.match(src, /import\s*\{[^}]*\bancestorCommits\b[^}]*\}\s*from\s*['"]\.\/check-stale-revert\.mjs['"]/,
-    '祖先窗口必须走守门 84 的 ancestorCommits 出口(窗口长度住在它内部),不得在本器另立数字')
-  assert.match(code, /ancestorCommits\s*\(/, 'import 了窗口出口却没调用 = 行级判据拿的是自造清单(假接线)')
+  assert.match(
+    src,
+    /import\s*\{[^}]*\bancestorCommits\b[^}]*\}\s*from\s*['"]\.\/check-stale-revert\.mjs['"]/,
+    '祖先窗口必须走守门 84 的 ancestorCommits 出口(窗口长度住在它内部),不得在本器另立数字',
+  )
+  assert.match(
+    code,
+    /ancestorCommits\s*\(/,
+    'import 了窗口出口却没调用 = 行级判据拿的是自造清单(假接线)',
+  )
   assert.ok(!/max-count\s*=/.test(src), '本器自己数祖先窗口(出现 --max-count=)就是第二份窗口阈值')
   /**
    * 剥尾 `\r` 的计行口径**仍然只能有一份** —— 2026-09-28 起那一份住在
@@ -336,7 +443,11 @@ test('T12 形状锁:祖先判定与祖先窗口只能各引守门 84 那一份,�
     '计行口径已提取到 lib:本器内不得再出现任何一处剥尾 \\r(出现即为第二份实现)',
   )
   assert.equal(
-    (readFileSync(join(HERE, '..', 'lib', 'stale-content-analysis.mjs'), 'utf8').match(/replace\(\/\\r\$\//g) ?? []).length,
+    (
+      readFileSync(join(HERE, '..', 'lib', 'stale-content-analysis.mjs'), 'utf8').match(
+        /replace\(\/\\r\$\//g,
+      ) ?? []
+    ).length,
     1,
     'lib 里必须**恰好**一处剥尾 \\r(linesOf);0 处=判据没落地,2 处=同一文件里又分了叉',
   )
@@ -345,9 +456,18 @@ test('T12 形状锁:祖先判定与祖先窗口只能各引守门 84 那一份,�
     /import\s*\{[^}]*\bresurrectAnalysis\b[^}]*\}\s*from\s*['"]\.\/lib\/stale-content-analysis\.mjs['"]/,
     '行级复活判据必须从 lib import(与守门 84 的 R1r 同源)',
   )
-  for (const moved of [/function\s+linesOf\b/, /function\s+tallyLines\b/, /function\s+resurrectAnalysis\b/, /function\s+lineDelta\b/])
+  for (const moved of [
+    /function\s+linesOf\b/,
+    /function\s+tallyLines\b/,
+    /function\s+resurrectAnalysis\b/,
+    /function\s+lineDelta\b/,
+  ])
     assert.ok(!moved.test(code), `已提取到 lib 的实现不得在本器重新出现:${moved}`)
-  assert.match(code, /catBatch\s*\(/, '祖先正文必须走 face-reader 的批量读取口(守门 118 的取材面纪律),不得逐 blob 派生')
+  assert.match(
+    code,
+    /catBatch\s*\(/,
+    '祖先正文必须走 face-reader 的批量读取口(守门 118 的取材面纪律),不得逐 blob 派生',
+  )
 })
 
 /**
@@ -357,19 +477,47 @@ test('T12 形状锁:祖先判定与祖先窗口只能各引守门 84 那一份,�
  */
 test('T18 同一性:本器用的复活/计行判据必须与 lib 是同一个函数对象(不是复制品)', async () => {
   const lib = await import('../lib/stale-content-analysis.mjs')
-  assert.equal(__test__.resurrectAnalysis, lib.resurrectAnalysis, 'resurrectAnalysis 必须是 lib 的那一个')
+  assert.equal(
+    __test__.resurrectAnalysis,
+    lib.resurrectAnalysis,
+    'resurrectAnalysis 必须是 lib 的那一个',
+  )
   assert.equal(__test__.lineDelta, lib.lineDelta, 'lineDelta 必须是 lib 的那一个')
   // 守门 84 那一侧也必须是同一个函数对象(它经由自己的 import 引 lib;两条门各自持有拷贝就是漂移的起点)
   const gate = await import('../check-stale-revert.mjs')
   const gateSrc = readFileSync(join(HERE, '..', 'check-stale-revert.mjs'), 'utf8')
-  assert.match(gateSrc, /from\s*['"]\.\/lib\/stale-content-analysis\.mjs['"]/, '守门 84 必须引 lib 那一份')
-  assert.equal(typeof gate.__test__.analyzeResurrect, 'function', 'R1r 出口必须在位(不在即红,不得写成 ?? 兜底)')
+  assert.match(
+    gateSrc,
+    /from\s*['"]\.\/lib\/stale-content-analysis\.mjs['"]/,
+    '守门 84 必须引 lib 那一份',
+  )
+  assert.equal(
+    typeof gate.__test__.analyzeResurrect,
+    'function',
+    'R1r 出口必须在位(不在即红,不得写成 ?? 兜底)',
+  )
   // 三态语义在 lib 层也被钉一次(与 T16 的构造面同源,防提取时把某一态写丢)
-  assert.equal(lib.resurrectAnalysis({ baseText: 'a\n', newText: 'a\n', ancestors: [] }).status, 'out-of-scope')
-  assert.equal(lib.resurrectAnalysis({ baseText: null, newText: 'a\n', ancestors: [{ commit: 'c', text: 'a\n' }] }).status, 'undetermined')
-  assert.equal(lib.resurrectAnalysis({ baseText: 'a\n', newText: 'a\n', ancestors: [{ commit: 'c', text: 'a\n' }] }).status, 'judged')
+  assert.equal(
+    lib.resurrectAnalysis({ baseText: 'a\n', newText: 'a\n', ancestors: [] }).status,
+    'out-of-scope',
+  )
+  assert.equal(
+    lib.resurrectAnalysis({
+      baseText: null,
+      newText: 'a\n',
+      ancestors: [{ commit: 'c', text: 'a\n' }],
+    }).status,
+    'undetermined',
+  )
+  assert.equal(
+    lib.resurrectAnalysis({
+      baseText: 'a\n',
+      newText: 'a\n',
+      ancestors: [{ commit: 'c', text: 'a\n' }],
+    }).status,
+    'judged',
+  )
 })
-
 
 test('T13 lineDelta 纯函数面:多重集计数 / CRLF 不算删除 / 取不到正文不得折成 0', () => {
   const d = __test__.lineDelta('a\nb\nc\n', 'a\nc\n')
@@ -391,8 +539,15 @@ test('T13 lineDelta 纯函数面:多重集计数 / CRLF 不算删除 / 取不到
   assert.equal(none.vanished, null)
   assert.equal(none.appeared, null)
   // 采样有界:不把终端刷成一份完整 diff
-  assert.equal(__test__.lineDelta(Array.from({ length: 40 }, (_, i) => `l${i}`).join('\n'), '').vanished, 40)
-  assert.equal(__test__.lineDelta(Array.from({ length: 40 }, (_, i) => `l${i}`).join('\n'), '').appearedSample.length, 0)
+  assert.equal(
+    __test__.lineDelta(Array.from({ length: 40 }, (_, i) => `l${i}`).join('\n'), '').vanished,
+    40,
+  )
+  assert.equal(
+    __test__.lineDelta(Array.from({ length: 40 }, (_, i) => `l${i}`).join('\n'), '').appearedSample
+      .length,
+    0,
+  )
 })
 
 /**
@@ -420,7 +575,10 @@ test('T14 事故形状:祖先副本 ⊕ 一行真新键 ⇒ 必须拒绝并点�
   assert.equal(o.resurrected, 5, '五条 quit* 文案都在 A 里、都不在 HEAD 里 ⇒ 复活 5 行')
   assert.equal(o.vanished, 1, 'HEAD 里的 cancel 会被抹掉 ⇒ 消失 1 行')
   assert.equal(o.appeared, 6, '五条复活 + 一条真新键')
-  assert.ok(o.resurrectedBy.includes(ancestor9), `必须点名复活内容出自哪枚祖先,实得 ${o.resurrectedBy}`)
+  assert.ok(
+    o.resurrectedBy.includes(ancestor9),
+    `必须点名复活内容出自哪枚祖先,实得 ${o.resurrectedBy}`,
+  )
   assert.ok(
     o.resurrectedSample.every((l) => l.includes('quit')),
     `复活样例只能是被搬回的旧文案,实得 ${JSON.stringify(o.resurrectedSample)}`,
@@ -443,19 +601,26 @@ test('T14 事故形状:祖先副本 ⊕ 一行真新键 ⇒ 必须拒绝并点�
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '拒绝路径上 HEAD 必须一步没动')
 
   // 反向臂:只删掉那 5 行复活内容、**保留**真新键 ⇒ 同一条判据必须放行
-  writeFileSync(join(dir, 'locale.json'), LOCALE_B.replace('  "settings"', `${NEW_KEY_LINE}\n  "settings"`))
+  writeFileSync(
+    join(dir, 'locale.json'),
+    LOCALE_B.replace('  "settings"', `${NEW_KEY_LINE}\n  "settings"`),
+  )
   const r2 = runLand(dir, { paths: 'locale.json', msg: 'chore: honest edit only' })
   assert.equal(r2.status, 0, `只加真新行必须能落,实得 ${r2.status}:${r2.stderr}|${r2.stdout}`)
   assert.match(r2.stdout, /提交面回读 1\/1 路径在树/)
   assert.ok(
-    headBlobOf('HEAD', 'locale.json', { root: dir }) === writeBlob(LOCALE_B.replace('  "settings"', `${NEW_KEY_LINE}\n  "settings"`), { root: dir }),
+    headBlobOf('HEAD', 'locale.json', { root: dir }) ===
+      writeBlob(LOCALE_B.replace('  "settings"', `${NEW_KEY_LINE}\n  "settings"`), { root: dir }),
     '落地内容必须就是那份"HEAD ⊕ 真新键"',
   )
 })
 
 test('T15 事故形状 + LAND_ALLOW_STALE=1 ⇒ 放行、大声留痕、把放过的条数报出来', (t) => {
   const { dir, ancestor9 } = makeLocaleRepo(t)
-  writeFileSync(join(dir, 'locale.json'), LOCALE_A.replace('  "settings"', `${NEW_KEY_LINE}\n  "settings"`))
+  writeFileSync(
+    join(dir, 'locale.json'),
+    LOCALE_A.replace('  "settings"', `${NEW_KEY_LINE}\n  "settings"`),
+  )
   const r = runLand(dir, { paths: 'locale.json', msg: 'chore: intentional', allowStale: true })
   assert.equal(r.status, 0, `显式放行必须能落,实得 ${r.status}:${r.stderr}|${r.stdout}`)
   assert.match(r.stdout, /LAND_ALLOW_STALE=1/, '放行必须打印留痕行')
@@ -472,13 +637,23 @@ test('T16 resurrectAnalysis 纯函数面:三态不并桶 + 多重集取 min + �
   const A = { commit: 'aaaaaaaaa', text: `${L1}\n${L2}\n` }
   // judged:①②③ 齐 ⇒ 计数,③ 不成立 ⇒ 0(这一对就是 T14 两臂的构造面版本)
   assert.deepEqual(
-    pick(__test__.resurrectAnalysis({ baseText: `${L1}\n`, newText: `${L1}\n${L2}\n${L3}\n`, ancestors: [A] })),
+    pick(
+      __test__.resurrectAnalysis({
+        baseText: `${L1}\n`,
+        newText: `${L1}\n${L2}\n${L3}\n`,
+        ancestors: [A],
+      }),
+    ),
     { status: 'judged', count: 1, commits: ['aaaaaaaaa'] },
   )
   // 同一行落地加了 3 份、祖先只有 1 份 ⇒ 只算 1 份旧账,另 2 份是真新内容(不得把新账算成旧账)
   const K = 'key_multi: 值一'
   assert.equal(
-    __test__.resurrectAnalysis({ baseText: 'x: 1\n', newText: `${K}\n${K}\n${K}\n`, ancestors: [{ commit: 'c', text: `${K}\n` }] }).count,
+    __test__.resurrectAnalysis({
+      baseText: 'x: 1\n',
+      newText: `${K}\n${K}\n${K}\n`,
+      ancestors: [{ commit: 'c', text: `${K}\n` }],
+    }).count,
     1,
   )
   // 多个祖先各含一部分 ⇒ 出处逐枚报名(报告要能指到至少一枚,这里两枚都点名)
@@ -487,23 +662,71 @@ test('T16 resurrectAnalysis 纯函数面:三态不并桶 + 多重集取 min + �
   const two = __test__.resurrectAnalysis({
     baseText: '{\n',
     newText: `{\n${P}\n${Q}\n`,
-    ancestors: [{ commit: 'c1', text: `{\n${P}\n` }, { commit: 'c2', text: `{\n${Q}\n` }],
+    ancestors: [
+      { commit: 'c1', text: `{\n${P}\n` },
+      { commit: 'c2', text: `{\n${Q}\n` },
+    ],
   })
   assert.equal(two.count, 2)
   assert.deepEqual(two.commits, ['c1', 'c2'])
   // 噪声行不算证据,两条门槛各钉一条(都是真仓量出来的,不是审美):
   //  ① 不含字母的行(空行 / 纯标点)  ② 含字母但短于 12 字符的骨架行(`return (` = 9)
-  assert.equal(__test__.resurrectAnalysis({ baseText: 'a\n', newText: 'a\n\n  },\n  {  }\n', ancestors: [{ commit: 'c', text: 'a\n\n  },\n  {  }\n' }] }).count, 0)
-  assert.equal(__test__.resurrectAnalysis({ baseText: 'x: 1\n', newText: 'x: 1\nreturn (\n', ancestors: [{ commit: 'c', text: 'x: 1\nreturn (\n' }] }).count, 0)
+  assert.equal(
+    __test__.resurrectAnalysis({
+      baseText: 'a\n',
+      newText: 'a\n\n  },\n  {  }\n',
+      ancestors: [{ commit: 'c', text: 'a\n\n  },\n  {  }\n' }],
+    }).count,
+    0,
+  )
+  assert.equal(
+    __test__.resurrectAnalysis({
+      baseText: 'x: 1\n',
+      newText: 'x: 1\nreturn (\n',
+      ancestors: [{ commit: 'c', text: 'x: 1\nreturn (\n' }],
+    }).count,
+    0,
+  )
   // 同样带词、够长的行被搬回来就是证据 —— 与上一条只差长度,证明门槛真的在生效
-  assert.equal(__test__.resurrectAnalysis({ baseText: 'x: 1\n', newText: 'x: 1\nquitChecking: 正在检查\n', ancestors: [{ commit: 'c', text: 'x: 1\nquitChecking: 正在检查\n' }] }).count, 1)
+  assert.equal(
+    __test__.resurrectAnalysis({
+      baseText: 'x: 1\n',
+      newText: 'x: 1\nquitChecking: 正在检查\n',
+      ancestors: [{ commit: 'c', text: 'x: 1\nquitChecking: 正在检查\n' }],
+    }).count,
+    1,
+  )
   // 三态分得清清楚楚:**判据该跑而没跑成** = undetermined(调用方按拒绝处理);
   // **按定义不在这条规则射程** = out-of-scope(不拒,但逐条报名)。两种都不能被读成"通过"。
-  assert.equal(__test__.resurrectAnalysis({ baseText: 'a\n', newText: 'a\nbeta_key: 值\n', ancestors: [] }).status, 'out-of-scope')
-  assert.equal(__test__.resurrectAnalysis({ baseText: 'a\n', newText: 'a\nbeta_key: 值\n', ancestors: [{ commit: 'c', text: null }] }).status, 'undetermined')
-  assert.equal(__test__.resurrectAnalysis({ baseText: null, newText: 'a\nbeta_key: 值\n', ancestors: [A] }).status, 'undetermined')
-  const big = __test__.resurrectAnalysis({ baseText: 'a\n', newText: `a\n${NEW_KEY_LINE}\n`, ancestors: [A], maxBlobBytes: 8 })
-  assert.equal(big.status, 'out-of-scope', '尺寸护栏是"不覆盖",不是"判不过"—— 否则 PROJECT_PLAN.md 这类大文件每次落地都必红')
+  assert.equal(
+    __test__.resurrectAnalysis({ baseText: 'a\n', newText: 'a\nbeta_key: 值\n', ancestors: [] })
+      .status,
+    'out-of-scope',
+  )
+  assert.equal(
+    __test__.resurrectAnalysis({
+      baseText: 'a\n',
+      newText: 'a\nbeta_key: 值\n',
+      ancestors: [{ commit: 'c', text: null }],
+    }).status,
+    'undetermined',
+  )
+  assert.equal(
+    __test__.resurrectAnalysis({ baseText: null, newText: 'a\nbeta_key: 值\n', ancestors: [A] })
+      .status,
+    'undetermined',
+  )
+  const big = __test__.resurrectAnalysis({
+    baseText: 'a\n',
+    newText: `a\n${NEW_KEY_LINE}\n`,
+    ancestors: [A],
+    maxBlobBytes: 8,
+  })
+  assert.equal(
+    big.status,
+    'out-of-scope',
+    '尺寸护栏是"不覆盖",不是"判不过"—— 否则 PROJECT_PLAN.md 这类大文件每次落地都必红',
+  )
   assert.equal(big.count, null, '未覆盖的份数必须是 null,不是 0 —— 0 会被下游读成"查过了,干净"')
   // 二进制正文:行级判据按定义不适用 ⇒ out-of-scope(与"读不到"分两态)
   const bin = __test__.resurrectAnalysis({ baseText: 'a\n', newText: null, ancestors: [A] })
@@ -573,12 +796,28 @@ function hashText(dir, text) {
   }
 }
 
-function runLandBlob(dir, { paths, manifest, proof = 'e2e 构造证明', msg = 'chore: blob 模式落地' } = {}) {
-  const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: paths, LAND_MSG: msg, LAND_BLOB_PROOF: proof }
+function runLandBlob(
+  dir,
+  { paths, manifest, proof = 'e2e 构造证明', msg = 'chore: blob 模式落地' } = {},
+) {
+  const env = {
+    ...process.env,
+    LAND_ROOT: dir,
+    LAND_PATHS: paths,
+    LAND_MSG: msg,
+    LAND_BLOB_PROOF: proof,
+  }
   if (manifest) env.LAND_BLOBS = manifest
   else delete env.LAND_BLOBS
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 test('T-BLOB-1 blob 模式未出具替代证明 ⇒ 直接拒落(少一道守卫不得静默)', (t) => {
@@ -588,8 +827,14 @@ test('T-BLOB-1 blob 模式未出具替代证明 ⇒ 直接拒落(少一道守卫
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'a.txt', blob }] }))
   const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: 'a.txt', LAND_MSG: 'm', LAND_BLOBS: mf }
   delete env.LAND_BLOB_PROOF
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(r.status, 2, `无证明必须判死,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.match(r.stderr + r.stdout, /LAND_BLOB_PROOF/, '要指出缺的是哪一道')
 })
@@ -604,7 +849,15 @@ test('T-BLOB-2 清单与声明面不一致 ⇒ 双向拒绝(不得多落一个�
   assert.match(r1.stderr + r1.stdout, /清单里缺这些声明路径/)
 
   const mfExtra = join(dir, 'mf-extra.json')
-  writeFileSync(mfExtra, JSON.stringify({ files: [{ path: 'a.txt', blob: ok }, { path: 'sub/keep.txt', blob: ok }] }))
+  writeFileSync(
+    mfExtra,
+    JSON.stringify({
+      files: [
+        { path: 'a.txt', blob: ok },
+        { path: 'sub/keep.txt', blob: ok },
+      ],
+    }),
+  )
   const r2 = runLandBlob(dir, { paths: 'a.txt', manifest: mfExtra })
   assert.equal(r2.status, 2, '清单里有未声明路径 ⇒ 声明面与内容面必须一致')
   assert.match(r2.stderr + r2.stdout, /未声明路径/)
@@ -640,11 +893,23 @@ test('T-BLOB-4 端到端:落地成功、索引对齐,而盘上那份(别人的)�
   assert.match(r.stdout, /主索引已对齐 1\/1 路径/)
   const after = runGit(dir, ['rev-parse', 'HEAD']).trim()
   assert.notEqual(after, before, 'HEAD 必须前进')
-  assert.equal(runGit(dir, ['rev-parse', 'HEAD:a.txt']).trim(), mine, '新 HEAD 的内容必须是清单里那份')
-  assert.equal(readFileSync(join(dir, 'a.txt'), 'utf8'), '别人的在飞改动\n', 'blob 模式绝不改写工作树')
+  assert.equal(
+    runGit(dir, ['rev-parse', 'HEAD:a.txt']).trim(),
+    mine,
+    '新 HEAD 的内容必须是清单里那份',
+  )
+  assert.equal(
+    readFileSync(join(dir, 'a.txt'), 'utf8'),
+    '别人的在飞改动\n',
+    'blob 模式绝不改写工作树',
+  )
   // 状态位是**两列**的:索引已对齐到 HEAD(第 1 列空格),盘上那份仍是别人的(第 2 列 M)。
   // 刻意不 trim —— trim 会把行首那一列吃掉,于是"索引已对齐"与"还停在旧 blob"两种相反状态都能过。
-  assert.match(runGit(dir, ['status', '--porcelain']), /^ M a\.txt/, '留在别人改动那一格,不冒充已暂存')
+  assert.match(
+    runGit(dir, ['status', '--porcelain']),
+    /^ M a\.txt/,
+    '留在别人改动那一格,不冒充已暂存',
+  )
 })
 
 /**
@@ -654,10 +919,16 @@ test('T-BLOB-4 端到端:落地成功、索引对齐,而盘上那份(别人的)�
  */
 test('T-BLOB-5 接线与措辞:blob 模式已装进主流程,且不得凭空声称发生过一次放行', () => {
   const src = readFileSync(TOOL, 'utf8')
-  assert.match(src, /const \{ root, paths, (?:removePaths, )?msg, baseRef, blobOf(?:, jsonStructure)? \} =/, 'main 必须取 blobOf(G-816037 起该解构多一个字段,允许带上;G-926 起 paths 后可多一个 removePaths)')
+  assert.match(
+    src,
+    /const \{ root, paths, (?:removePaths, )?msg, baseRef, blobOf(?:, jsonStructure)? \} =/,
+    'main 必须取 blobOf(G-816037 起该解构多一个字段,允许带上;G-926 起 paths 后可多一个 removePaths)',
+  )
   assert.match(src, /else if \(skipWatermark\)/, '"跳过了水印预检"这句必须只在真设了应急变量时打印')
   assert.ok(
-    !/if \(!skipWatermark && !blobOf\) \{[\s\S]{0,600}?\} else \{\s*console\.log\('⚠️ IHUI_LAND_SKIP_WATERMARK/.test(src),
+    !/if \(!skipWatermark && !blobOf\) \{[\s\S]{0,600}?\} else \{\s*console\.log\('⚠️ IHUI_LAND_SKIP_WATERMARK/.test(
+      src,
+    ),
     '又写回无条件 else 了 ⇒ blob 模式会打印一句没发生过的放行',
   )
 })
@@ -669,7 +940,8 @@ test('T-BLOB-5 接线与措辞:blob 模式已装进主流程,且不得凭空声�
  */
 test('T-BLOB-6 阳性对照:基线有横幅而构造内容抹掉 ⇒ 必须拒落', (t) => {
   const dir = makeRepo(t)
-  const banner = '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top\n// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。\n// [IHUI-AI-PROVENANCE]:x\n'
+  const banner =
+    '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top\n// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。\n// [IHUI-AI-PROVENANCE]:x\n'
   writeFileSync(join(dir, 'src.txt'), banner + 'v1 正文\n')
   runGit(dir, ['add', '--', 'src.txt'])
   runGit(dir, ['commit', '-q', '-m', 'A: 带横幅'])
@@ -732,7 +1004,10 @@ test('T-G801-2 修前臂(阳性对照,本票存在理由):同一枚提交上旧�
   )
   // 且失败原因必须精确到八进制转写(而不是"路径压根没进清单"的另一种红):
   const escaped = [...oldSet].find((x) => x.startsWith('"docs/') && /\\\d{3}/.test(x))
-  assert.ok(escaped, `默认档必须把中文路径转写成引号+八进制形态,实得清单 ${JSON.stringify([...oldSet])}`)
+  assert.ok(
+    escaped,
+    `默认档必须把中文路径转写成引号+八进制形态,实得清单 ${JSON.stringify([...oldSet])}`,
+  )
   // 加 quotePath=false 后同一条清单逐字命中 ⇒ 唯一变量就是转写,修法定位无歧义
   const fixedSet = new Set(
     runGit(dir, ['-c', 'core.quotePath=false', 'show', '--name-only', '--format=', head])
@@ -757,7 +1032,11 @@ test('T-G801-3 commitFacePresence 三态闭合:非 ASCII 路径不得被静默�
   const paths = [ZH_PATH, zhMissing, 'a.txt']
   const res = __test__.commitFacePresence({ root: dir, commit: head, paths })
   assert.deepEqual(res.present, [ZH_PATH, 'a.txt'], '在位的(含非 ASCII)必须逐条判 present')
-  assert.deepEqual(res.absent, [zhMissing], '非 ASCII 的缺项必须判 absent —— 静默跳过或折进未判定都算失明')
+  assert.deepEqual(
+    res.absent,
+    [zhMissing],
+    '非 ASCII 的缺项必须判 absent —— 静默跳过或折进未判定都算失明',
+  )
   assert.deepEqual(res.undetermined, [])
   assert.equal(
     res.present.length + res.absent.length + res.undetermined.length,
@@ -777,7 +1056,11 @@ test('T-G801-3 commitFacePresence 三态闭合:非 ASCII 路径不得被静默�
  */
 test('T-G801-4 形状锁:回读走 cat-file -e 探针且 --name-only 只作混提辅助(D171 起走 lib 的 -z 出口关转写)', () => {
   const src = readFileSync(TOOL, 'utf8')
-  assert.match(src, /commitFacePresence\(\{ root, commit: landed, paths \}\)/, 'main 必须真调用探针(判据在而无人调 = 判据不存在,守门 70/76/81 同型)')
+  assert.match(
+    src,
+    /commitFacePresence\(\{ root, commit: landed, paths \}\)/,
+    'main 必须真调用探针(判据在而无人调 = 判据不存在,守门 70/76/81 同型)',
+  )
   assert.match(src, /'cat-file', '-e'/, '探针必须问 git 的存在性结论')
   // D171(2026-09-30):混提辅助清单从"show --name-only + -c core.quotePath=false"统一到
   // lib/git-paths 的 diff-tree -z 出口(-z 分帧在 git 侧本就不做 quotePath 转写),与
@@ -788,7 +1071,11 @@ test('T-G801-4 形状锁:回读走 cat-file -e 探针且 --name-only 只作混�
     '混提辅助清单必须走 lib/git-paths 的 -z 出口(quotePath 转写形态不得回来)',
   )
   const libSrc = readFileSync(join(HERE, '..', 'lib', 'git-paths.mjs'), 'utf8')
-  assert.match(libSrc, /'diff-tree', '-r', '--root', '--no-commit-id', '--name-only', '--no-renames', '-z'/, 'lib 出口必须用 diff-tree -z NUL 分帧取真路径')
+  assert.match(
+    libSrc,
+    /'diff-tree', '-r', '--root', '--no-commit-id', '--name-only', '--no-renames', '-z'/,
+    'lib 出口必须用 diff-tree -z NUL 分帧取真路径',
+  )
   assert.ok(
     !/paths\.filter\(\(p\) => !inCommit\.has\(p\)\)/.test(src),
     '旧的"输出文本逐字比对"判据不得回来:那正是 G-801 的事故形态',
@@ -896,7 +1183,11 @@ test('T-WM-NEW-3 已存在路径不受注入:入树内容必须与清单 oid 逐
   const r = runLandBlob(dir, { paths: 'keep.ts', manifest: mf })
   assert.equal(r.status, 0, `既有路径的落地语义不得变,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.equal(/新建路径已按 §5c 注入/.test(r.stdout), false, '既有路径不得进注入射程')
-  assert.equal(git(['rev-parse', 'HEAD:keep.ts'], { root: dir }), want, '入树内容必须与清单 oid 逐字节一致')
+  assert.equal(
+    git(['rev-parse', 'HEAD:keep.ts'], { root: dir }),
+    want,
+    '入树内容必须与清单 oid 逐字节一致',
+  )
 })
 
 /**
@@ -909,7 +1200,11 @@ test('T-WM-NEW-3 已存在路径不受注入:入树内容必须与清单 oid 逐
  */
 test('T-WM-NEW-4 注入编排纯函数面:五桶各一且不并桶,入参 Map 不被改写,取不到新 oid 不得换号', () => {
   const hex40 = (s) =>
-    [...s].map((c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('').padEnd(40, '0').slice(0, 40)
+    [...s]
+      .map((c) => c.charCodeAt(0).toString(16).padStart(2, '0'))
+      .join('')
+      .padEnd(40, '0')
+      .slice(0, 40)
   const 清单原值 = new Map([
     ['brand-new-doc.md', hex40('brand-new-doc.md')],
     ['seeded-note.md', hex40('seeded-note.md')],
@@ -957,16 +1252,35 @@ test('T-WM-NEW-4 注入编排纯函数面:五桶各一且不并桶,入参 Map �
     ['hash-missterious.md', 'unreadable-body.md'],
     '取不到正文 与 注入后取不到新 oid 都是 refused(未判定),不得与 skipped 并桶',
   )
-  assert.equal(清单原值.get('brand-new-doc.md'), hex40('brand-new-doc.md'), '入参 Map 不得被就地改写')
-  assert.equal(got.blobs.get('never-declared.md'), hex40('never-declared.md'), '未列入 newPaths 的路径原样保留')
+  assert.equal(
+    清单原值.get('brand-new-doc.md'),
+    hex40('brand-new-doc.md'),
+    '入参 Map 不得被就地改写',
+  )
+  assert.equal(
+    got.blobs.get('never-declared.md'),
+    hex40('never-declared.md'),
+    '未列入 newPaths 的路径原样保留',
+  )
   assert.equal(got.blobs.get('seeded-note.md'), hex40('seeded-note.md'), 'already 桶不得重取号')
-  assert.equal(got.blobs.get('hash-missterious.md'), hex40('hash-missterious.md'), '问不到新 oid 时不得换成假 oid')
-  assert.equal(got.blobs.get('brand-new-doc.md'), hex40('injected:brand-new-doc.md'), 'injected 必须换成注入后的新 oid')
+  assert.equal(
+    got.blobs.get('hash-missterious.md'),
+    hex40('hash-missterious.md'),
+    '问不到新 oid 时不得换成假 oid',
+  )
+  assert.equal(
+    got.blobs.get('brand-new-doc.md'),
+    hex40('injected:brand-new-doc.md'),
+    'injected 必须换成注入后的新 oid',
+  )
   assert.ok(
     WM.payloadIntact(注入时看到的正文.get('brand-new-doc.md')),
     '交给 hashText 的那一份必须已带可解码载荷(§5c:进 HEAD 的就是这一份字节)',
   )
-  assert.ok(注入时看到的正文.get('brand-new-doc.md').includes('待注入的一行'), '正文一行都不许在注入中丢失')
+  assert.ok(
+    注入时看到的正文.get('brand-new-doc.md').includes('待注入的一行'),
+    '正文一行都不许在注入中丢失',
+  )
 })
 
 /**
@@ -976,7 +1290,9 @@ test('T-WM-NEW-4 注入编排纯函数面:五桶各一且不并桶,入参 Map �
  */
 test('T-WM-NEW-5 端到端 already 臂:新建件已自带完整载荷 ⇒ 不重复注入且入树 oid 就是清单那一份', (t) => {
   const dir = makeRepo(t)
-  const seeded = WM.injectText('# 取证:这枚新建件交来时就有完整载荷\n', { rel: 'seeded-note.md' }).text
+  const seeded = WM.injectText('# 取证:这枚新建件交来时就有完整载荷\n', {
+    rel: 'seeded-note.md',
+  }).text
   const seededOid = hashText(dir, seeded)
   const mf = join(dir, 'mf-seeded-g04b.json')
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'notes/seeded-note.md', blob: seededOid }] }))
@@ -1005,7 +1321,10 @@ test('T-WM-NEW-6 形状锁:新建路径档只调那一份编排,未判定必须 
   const code = maskCommentsAndStrings(src)
   const from = src.indexOf('const newPaths = paths.filter')
   const to = src.indexOf('  if (blobOf) {', from)
-  assert.ok(from > 0 && to > from, '新建路径档的两个边界必须能在源码里定位;被挪走 ⇒ 本锁必须红,不得静默不判')
+  assert.ok(
+    from > 0 && to > from,
+    '新建路径档的两个边界必须能在源码里定位;被挪走 ⇒ 本锁必须红,不得静默不判',
+  )
   const seg = src.slice(from, to)
   assert.match(seg, /injectNewPathBlobs\s*\(/, '主流程必须真调编排(import 了不用 = 假接线)')
   assert.equal((seg.match(/writeFileSync\s*\(/g) ?? []).length, 0, '档内不得出现任何写工作树的动作')
@@ -1021,13 +1340,18 @@ test('T-WM-NEW-6 形状锁:新建路径档只调那一份编排,未判定必须 
   assert.match(code, /injectText\s*\(/, '引了 injectText 却不调用 = 判据仍是自写的')
   const 编排函数体 = String(__test__.injectNewPathBlobs)
   assert.match(编排函数体, /injectText\s*\(/, '编排内部必须真调 injectText')
-  for (const 第二份形状 of [/makeBanner/, /encodePayload/, /tailFor/, /INVISIBLE_MARK/, /© \d{4} IHUI/])
+  for (const 第二份形状 of [
+    /makeBanner/,
+    /encodePayload/,
+    /tailFor/,
+    /INVISIBLE_MARK/,
+    /© \d{4} IHUI/,
+  ])
     assert.ok(!第二份形状.test(编排函数体), `注入编排里出现第二份水印构造的形状:${第二份形状}`)
   assert.match(seg, /createExclusionPredicate\s*\(/, '第三方豁免面必须问那份单源判据')
   assert.match(seg, /judgeToolGenerated\s*\(/, '上游工具生成物豁免面必须问那份单源判据')
   assert.ok(!/scripts\/data\//.test(seg), '豁免清单只住在 lib 的台账里,本器不得自持一张表')
 })
-
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -1049,14 +1373,30 @@ function runLandRaw(dir, paths, msg, extraEnv = {}) {
     IHUI_LAND_SKIP_WATERMARK: '1',
     ...extraEnv,
   }
-  for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE', 'LAND_DANGLING_GATE', 'IHUI_LAND_SKIP_DANGLING_GATE', 'LAND_WARM_BORDER_GATE', 'IHUI_LAND_SKIP_WARM_BORDER']) {
+  for (const k of [
+    'LAND_BLOBS',
+    'LAND_BLOB_PROOF',
+    'LAND_BASE_REF',
+    'LAND_ALLOW_STALE',
+    'LAND_DANGLING_GATE',
+    'IHUI_LAND_SKIP_DANGLING_GATE',
+    'LAND_WARM_BORDER_GATE',
+    'IHUI_LAND_SKIP_WARM_BORDER',
+  ]) {
     if (!(k in extraEnv)) delete env[k]
   }
   // 门 231(暖色描边)是落地器的第二枚"涉事判据":它按 `--rev <tree> --root <仓根>` 审树。
   // G-929 起门体认 `--root`、落地器原样透传 ⇒ 夹具仓的真树真判,不再需要桩(桩会把
   // "取材失败 ⇒ 未判定"这条本票要盯的路径盖住)。射程外的夹具路径由门判"本门不适用"。
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+  return spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 const unreachableCommits = (dir) =>
@@ -1081,20 +1421,34 @@ function writeGateStub(dir, name = 'stub-gate.mjs') {
 test('T-IMP-1 反例臂(端到端):声明面引用了未随本次落地的相对模块 ⇒ 必须拒绝,且不留任何 unreachable commit', (t) => {
   const dir = makeRepo(t)
   mkdirSync(join(dir, 'src', 'lib'), { recursive: true })
-  writeFileSync(join(dir, 'src', 'a.mjs'), "import { x } from './lib/missing.mjs'\nexport const y = x\n")
+  writeFileSync(
+    join(dir, 'src', 'a.mjs'),
+    "import { x } from './lib/missing.mjs'\nexport const y = x\n",
+  )
   const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
   const r = runLandRaw(dir, 'src/a.mjs', 'test: 只交引用方')
   assert.notEqual(r.status, 0, '缺实体时不得落地成功')
-  assert.match(r.stderr + r.stdout, /悬空相对引用预检不通过/, '拒绝原因必须点名本闸,不能是一句泛化失败')
+  assert.match(
+    r.stderr + r.stdout,
+    /悬空相对引用预检不通过/,
+    '拒绝原因必须点名本闸,不能是一句泛化失败',
+  )
   assert.match(r.stderr + r.stdout, /lib\/missing\.mjs/, '必须点名缺失的说明符')
   assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), before, 'HEAD 必须未动')
-  assert.equal(unreachableCommits(dir), 0, '被拒的落地不得留下 unreachable commit(守门 30a 只数 commit 行)')
+  assert.equal(
+    unreachableCommits(dir),
+    0,
+    '被拒的落地不得留下 unreachable commit(守门 30a 只数 commit 行)',
+  )
 })
 
 test('T-IMP-2 正例臂(端到端):引用与实体同枚声明 ⇒ 必须放行(否则本闸就是新的恒红拦路虎)', (t) => {
   const dir = makeRepo(t)
   mkdirSync(join(dir, 'src', 'lib'), { recursive: true })
-  writeFileSync(join(dir, 'src', 'a.mjs'), "import { x } from './lib/present.mjs'\nexport const y = x\n")
+  writeFileSync(
+    join(dir, 'src', 'a.mjs'),
+    "import { x } from './lib/present.mjs'\nexport const y = x\n",
+  )
   writeFileSync(join(dir, 'src', 'lib', 'present.mjs'), 'export const x = 1\n')
   const r = runLandRaw(dir, 'src/a.mjs;src/lib/present.mjs', 'test: 引用与实体同枚')
   assert.equal(r.status, 0, `同枚带实体必须成功,实际输出:\n${r.stdout}\n${r.stderr}`)
@@ -1123,7 +1477,10 @@ test('T-IMP-4 未建模扩展名只报不拦:import ./x.css 不在树 ⇒ exit 0
 test('T-IMP-5 注释里的相对路径不算调用点(maskComments 装车的反向锁)', (t) => {
   const dir = makeRepo(t)
   mkdirSync(join(dir, 'src'), { recursive: true })
-  writeFileSync(join(dir, 'src', 'n.mjs'), "// 曾经写 import './gone.mjs' 后来删了\nexport const n = 1\n")
+  writeFileSync(
+    join(dir, 'src', 'n.mjs'),
+    "// 曾经写 import './gone.mjs' 后来删了\nexport const n = 1\n",
+  )
   const r = runLandRaw(dir, 'src/n.mjs', 'test: 注释提了一句')
   assert.equal(r.status, 0, `注释不是调用点:\n${r.stdout}\n${r.stderr}`)
 })
@@ -1131,11 +1488,23 @@ test('T-IMP-5 注释里的相对路径不算调用点(maskComments 装车的反�
 test('T-IMP-6 形状锁:onTree 必须真传进 commitTreeWithIndex,且两个开关各有其位', () => {
   const src = readFileSync(TOOL, 'utf8')
   assert.match(src, /onTree:/, '摘掉 onTree 就等于本闸不存在 —— 判据在而无人调度是本仓最高频失效型')
-  assert.match(src, /IHUI_LAND_SKIP_IMPORT_CHECK === '1'/, '应急跳过通道必须真实存在(文档不得写跑不通的出路)')
+  assert.match(
+    src,
+    /IHUI_LAND_SKIP_IMPORT_CHECK === '1'/,
+    '应急跳过通道必须真实存在(文档不得写跑不通的出路)',
+  )
   assert.match(src, /拒绝落地\(未创建任何 commit/, '拒绝路径必须明说"什么都没创建"')
-  assert.match(src, /runDanglingGate\(\{ root, tree, anchor: head \}\)/, 'G-815985:涉事判据必须在 onTree 里以仓根+树+锚点跑(先 commit 再审会留 unreachable 地雷;G-929 同型票:漏 root 则换仓即失明)')
+  assert.match(
+    src,
+    /runDanglingGate\(\{ root, tree, anchor: head \}\)/,
+    'G-815985:涉事判据必须在 onTree 里以仓根+树+锚点跑(先 commit 再审会留 unreachable 地雷;G-929 同型票:漏 root 则换仓即失明)',
+  )
   assert.match(src, /IHUI_LAND_SKIP_DANGLING_GATE === '1'/, '涉事判据的应急跳过必须真实存在')
-  assert.match(src, /danglingGate\.undetermined \? 2 : 1/, '未判定与判红必须走不同退出码(三态不并桶)')
+  assert.match(
+    src,
+    /danglingGate\.undetermined \? 2 : 1/,
+    '未判定与判红必须走不同退出码(三态不并桶)',
+  )
   const bg = readFileSync(join(dirname(TOOL), 'lib', 'bypass-git.mjs'), 'utf8')
   assert.match(bg, /if \(typeof onTree === 'function'\)/, 'plumbing 侧的钩子必须在位')
   assert.match(bg, /rejected\b/, '被拒时必须回报 rejected 而不是静默返回空 commit')
@@ -1157,7 +1526,7 @@ test('T-IMP-8 回归(本闸第一版被自己的落地枚打回的那一型):字
   mkdirSync(join(dir, 'src'), { recursive: true })
   writeFileSync(
     join(dir, 'src', 'fixture.mjs'),
-    "const tpl = \"import { x } from './lib/ghost.mjs'\\n\"\nexport const tpl2 = tpl\n",
+    'const tpl = "import { x } from \'./lib/ghost.mjs\'\\n"\nexport const tpl2 = tpl\n',
   )
   const r = runLandRaw(dir, 'src/fixture.mjs', 'test: 夹具里写着别人的 import')
   assert.equal(r.status, 0, `字符串内容里的 import 不是调用点:\n${r.stdout}\n${r.stderr}`)
@@ -1183,9 +1552,15 @@ test('T-JS-0 纯函数面:四态各一(键丢/元素丢/标量变允许/非 JSON
   const ok = f({ baseText: B_JSON, nextText: LAND_JSON })
   assert.equal(ok.applicable, true, '两侧都是 JSON ⇒ 本档适用')
   assert.equal(ok.pass, true, `基线键与元素零丢失就应放行,实得:${JSON.stringify(ok)}`)
-  const dropped = f({ baseText: '{"read": 2,\n  "keep": "a-long-enough-value"}\n', nextText: '{"read": 3}\n' })
+  const dropped = f({
+    baseText: '{"read": 2,\n  "keep": "a-long-enough-value"}\n',
+    nextText: '{"read": 3}\n',
+  })
   assert.equal(dropped.pass, false, '基线有 keep 而落地没有 ⇒ 必须判不成立')
-  assert.ok(dropped.droppedKeys.some((k) => k.includes('keep')), `要能点名是哪个键丢了:${JSON.stringify(dropped)}`)
+  assert.ok(
+    dropped.droppedKeys.some((k) => k.includes('keep')),
+    `要能点名是哪个键丢了:${JSON.stringify(dropped)}`,
+  )
   const shrunk = f({ baseText: B_JSON, nextText: '{\n  "read": 3,\n  "items": []\n}\n' })
   assert.equal(shrunk.pass, false, '数组元素被清空 = 真回写,不得放过')
   assert.ok(shrunk.shrunkArrays.length > 0, '必须点名少了哪个元素')
@@ -1210,7 +1585,11 @@ test('T-JS-1 正例(端到端):台账形态的"数组追加 + 计数自增"声�
   assert.match(out, /复活 1 行/, '被豁免的那三个数必须照登(消失/重现/复活)')
   assert.match(out, /LAND_JSON_STRUCTURE/, '要写明本档来自显式声明,不是默认放宽')
   assert.ok(out.includes(ancestor9), `样本行仍要点名祖先 ${ancestor9}:\n${out}`)
-  assert.equal(headBlobOf('HEAD', 'pack.txt', { root: dir }), writeBlob(LAND_JSON, { root: dir }), '确实按盘上内容落了')
+  assert.equal(
+    headBlobOf('HEAD', 'pack.txt', { root: dir }),
+    writeBlob(LAND_JSON, { root: dir }),
+    '确实按盘上内容落了',
+  )
 })
 
 test('T-JS-2 反例(端到端,本票的存在理由):搬回祖先行的同时又丢了基线键 ⇒ 结构档不得豁免它', (t) => {
@@ -1218,14 +1597,23 @@ test('T-JS-2 反例(端到端,本票的存在理由):搬回祖先行的同时又
   // 盘上这份 = 把 bbb 搬回来(这一半正是 T-JS-1 的假阳形态)⊖ 把 keepme 抹掉(这一半是真回写)。
   // ⇒ 行级判据照样拒绝,且报告必须说清"结构档不成立",而不是让人以为被豁免后又抽风。
   const ANC = '{\n  "read": 1,\n  "items": [\n    "aaa-item-one",\n    "bbb-item-two"\n  ]\n}\n'
-  const BASE = '{\n  "read": 2,\n  "items": [\n    "aaa-item-one"\n  ],\n  "keepme": "baseline-only-long-value"\n}\n'
+  const BASE =
+    '{\n  "read": 2,\n  "items": [\n    "aaa-item-one"\n  ],\n  "keepme": "baseline-only-long-value"\n}\n'
   const TOSEND = '{\n  "read": 3,\n  "items": [\n    "aaa-item-one",\n    "bbb-item-two"\n  ]\n}\n'
   const { dir, ancestor9 } = makeTwoCommitRepo(t, { oldText: ANC, newText: BASE })
   const before = git(['rev-parse', 'HEAD'], { root: dir })
   writeFileSync(join(dir, 'pack.txt'), TOSEND)
-  const r = runLand(dir, { paths: 'pack.txt', msg: 'chore: 试着用结构档把丢键蒙过去', jsonStructure: true })
+  const r = runLand(dir, {
+    paths: 'pack.txt',
+    msg: 'chore: 试着用结构档把丢键蒙过去',
+    jsonStructure: true,
+  })
   const out = r.stdout + r.stderr
-  assert.equal(r.status, 1, `丢基线键 + 搬回祖先行必须拦(否则本档就是给整文件回写开后门),实得:\n${out}`)
+  assert.equal(
+    r.status,
+    1,
+    `丢基线键 + 搬回祖先行必须拦(否则本档就是给整文件回写开后门),实得:\n${out}`,
+  )
   assert.match(out, /结构档不成立/, `要说明为什么没被豁免,而不是只喊原判决:\n${out}`)
   assert.match(out, /丢键 1/)
   assert.doesNotMatch(out, /结构等值成立/)
@@ -1249,7 +1637,11 @@ test('T-JS-4 活文档不受影响:非 JSON 的面带上结构档旗也照原判
   const NEW = 'title: 更新检查\nsettings: 设置\n'
   const { dir, ancestor9 } = makeTwoCommitRepo(t, { oldText: OLD, newText: NEW })
   writeFileSync(join(dir, 'pack.txt'), OLD)
-  const r = runLand(dir, { paths: 'pack.txt', msg: 'docs: 活文档复活他人删掉的行', jsonStructure: true })
+  const r = runLand(dir, {
+    paths: 'pack.txt',
+    msg: 'docs: 活文档复活他人删掉的行',
+    jsonStructure: true,
+  })
   const out = r.stdout + r.stderr
   assert.equal(r.status, 1, `活文档不是 JSON ⇒ 本档不适用,必须照拦,实得:\n${out}`)
   assert.match(out, /复活 1 行/)
@@ -1261,26 +1653,57 @@ test('T-JS-5 形状锁:结构档三条件都在,且 blob 模式明确不套用�
   const src = readFileSync(TOOL, 'utf8')
   assert.match(src, /env\.LAND_JSON_STRUCTURE === '1'/, 'env 必须被真的读取(不是文档里写了就算)')
   assert.match(src, /jsonStructure = false/, '形参默认关闭')
-  assert.match(src, /refuseByLines && !wholeHit && jsonStructure/, '三条同时成立才生效:行级判到了 + 整 blob 没命中祖先 + 显式声明')
+  assert.match(
+    src,
+    /refuseByLines && !wholeHit && jsonStructure/,
+    '三条同时成立才生效:行级判到了 + 整 blob 没命中祖先 + 显式声明',
+  )
   assert.match(src, /kind: 'json-structure-exempt'/, '豁免必须留痕成一条 note(报告要能点名)')
   // 失效方向检查:整 blob 命中祖先(真回写)那一支不得被顺手豁免。
   // **刻意不用"字符窗口内搜"的形状锁** —— 窗口宽度会随插代码漂(本仓记过:窗口型锁会静默变恒红),
   // 这里改成两条与距离无关的判据:顺序 + 赋值次数。
-  assert.match(src, /const refuseByBlob = !!wholeHit/, 'blob 判据必须排在豁免之外且不受 jsonStructure 影响')
+  assert.match(
+    src,
+    /const refuseByBlob = !!wholeHit/,
+    'blob 判据必须排在豁免之外且不受 jsonStructure 影响',
+  )
   const iBlob = src.indexOf('const refuseByBlob = !!wholeHit')
   const iIf = src.indexOf('if (refuseByBlob || refuseByLines)')
   assert.ok(iBlob > 0 && iIf > iBlob, `拒绝决策必须在 blob 判据之后(blob ${iBlob} / if ${iIf})`)
   const seg = src.slice(iBlob, iIf)
-  assert.ok(seg.includes('jsonStructuralSuperset('), '中间段必须真的调用结构判据(引了不用 = 假接线,守门 118 那一型)')
+  assert.ok(
+    seg.includes('jsonStructuralSuperset('),
+    '中间段必须真的调用结构判据(引了不用 = 假接线,守门 118 那一型)',
+  )
   assert.equal(
     (src.match(/\brefuseByBlob\s*=(?!=)/g) ?? []).length,
     1,
     'refuseByBlob 只允许被赋值一次(声明处);再赋值 = 把唯一拦真回写的支路拆掉',
   )
+  // 三处:声明 + ①结构档豁免 + ②声明式还原白名单(2026-10-30)。第二处有没有牙不靠计数证明,
+  // 靠下面三条:它必须落在 restoreBy 门内、必须要求逐行配平出的 restore.match === true、
+  // 必须排除 undetermined/键路径档/整 blob 命中祖先三档;再多出第四处照旧红(那才是私改口径)。
   assert.equal(
     (src.match(/\brefuseByLines\s*=(?!=)/g) ?? []).length,
-    2,
-    'refuseByLines 只允许"声明 + 结构档豁免"两处赋值;多出第三处就是在私改拒绝口径',
+    3,
+    'refuseByLines 只允许"声明 + 结构档豁免 + 声明式还原白名单"三处赋值;多出第四处就是在私改拒绝口径',
+  )
+  const iRestore = src.indexOf('if (restoreBy?.has(p))')
+  const iRestoreAssign = src.indexOf('refuseByLines = false', iRestore)
+  assert.ok(
+    iRestore > 0 && iRestoreAssign > iRestore,
+    '还原白名单那一处赋值必须落在 restoreBy 门内(门外的放行 = 无条件开后门)',
+  )
+  const restoreSeg = src.slice(iRestore, iRestoreAssign)
+  assert.ok(
+    /line\.restore\.match === true/.test(restoreSeg),
+    '还原白名单必须要求逐行配平结论 restore.match === true 才放行(只凭"声明了"就免 = 没核验)',
+  )
+  assert.ok(
+    /line\.status === 'judged'/.test(restoreSeg) &&
+      /!jsonMode/.test(restoreSeg) &&
+      /!wholeHit/.test(restoreSeg),
+    '还原白名单必须排除 undetermined / 键路径档 / 整 blob 命中祖先三档(射程外永不免)',
   )
 })
 
@@ -1302,7 +1725,10 @@ test('T-BLOB-7 出口放行臂:祖先命中 + 声明与差集逐行等值 ⇒ �
   const mf = join(dir, 'mf-clash.json')
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'a.txt', blob: ancestorBlob }] }))
   const sc = join(dir, 'scope-ok.json')
-  writeFileSync(sc, JSON.stringify({ files: [{ path: 'a.txt', removed: ['别人的新内容'], added: ['v1'] }] }))
+  writeFileSync(
+    sc,
+    JSON.stringify({ files: [{ path: 'a.txt', removed: ['别人的新内容'], added: ['v1'] }] }),
+  )
   const env = {
     ...process.env,
     LAND_ROOT: dir,
@@ -1312,15 +1738,30 @@ test('T-BLOB-7 出口放行臂:祖先命中 + 声明与差集逐行等值 ⇒ �
     LAND_BLOBS: mf,
     LAND_CLASH_SCOPE: sc,
   }
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(r.status, 0, `声明与差集等值时应放行,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   const out = r.stdout + r.stderr
-  assert.match(out, /命中祖先 .* 但差集与本票声明逐行等值/, '必须点名"命中过祖先"这件事,不得静默放行')
+  assert.match(
+    out,
+    /命中祖先 .* 但差集与本票声明逐行等值/,
+    '必须点名"命中过祖先"这件事,不得静默放行',
+  )
   assert.match(out, /写回旧态的本票行: 别人的新内容/, '放行的每一条都要列出会被写回的行')
   assert.match(out, /恢复的本票行: *v1/, '同理列出被恢复的行')
   assert.match(out, /1 个命中祖先但已按行级声明点名放行/, '汇总行必须把两档分开报数')
-  assert.equal(runGit(dir, ['rev-parse', 'HEAD:a.txt']).trim(), ancestorBlob, '放行后新 HEAD 内容必须是清单那份')
+  assert.equal(
+    runGit(dir, ['rev-parse', 'HEAD:a.txt']).trim(),
+    ancestorBlob,
+    '放行后新 HEAD 内容必须是清单那份',
+  )
 })
 
 test('T-BLOB-8 出口有牙臂(阳性对照):声明漏报他人行 ⇒ 照旧拒落并点名那几行', (t) => {
@@ -1337,7 +1778,10 @@ test('T-BLOB-8 出口有牙臂(阳性对照):声明漏报他人行 ⇒ 照旧拒
   const mf = join(dir, 'mf-partial.json')
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'two.txt', blob: ancestorBlob }] }))
   const sc = join(dir, 'scope-partial.json')
-  writeFileSync(sc, JSON.stringify({ files: [{ path: 'two.txt', removed: ['mine-v2'], added: ['mine-v1'] }] }))
+  writeFileSync(
+    sc,
+    JSON.stringify({ files: [{ path: 'two.txt', removed: ['mine-v2'], added: ['mine-v1'] }] }),
+  )
   const env = {
     ...process.env,
     LAND_ROOT: dir,
@@ -1347,8 +1791,15 @@ test('T-BLOB-8 出口有牙臂(阳性对照):声明漏报他人行 ⇒ 照旧拒
     LAND_BLOBS: mf,
     LAND_CLASH_SCOPE: sc,
   }
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(r.status, 1, `声明不完整必须仍拒落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   const out = r.stdout + r.stderr
   assert.match(out, /声明的改动行与祖先↔基线的实际差集不等/, '要说清是"不等"而不是笼统的"等于祖先"')
@@ -1369,27 +1820,54 @@ test('T-BLOB-9 出口的两个判死臂:坏 JSON 与射程外声明都不得被�
   const bad = join(dir, 'scope-bad.json')
   writeFileSync(bad, '{这不是 JSON')
   const r1 = spawnSync(process.execPath, [TOOL], {
-    env: { ...process.env, LAND_ROOT: dir, LAND_PATHS: 'a.txt', LAND_MSG: 'm', LAND_BLOB_PROOF: 'p', LAND_BLOBS: mf, LAND_CLASH_SCOPE: bad },
+    env: {
+      ...process.env,
+      LAND_ROOT: dir,
+      LAND_PATHS: 'a.txt',
+      LAND_MSG: 'm',
+      LAND_BLOB_PROOF: 'p',
+      LAND_BLOBS: mf,
+      LAND_CLASH_SCOPE: bad,
+    },
     encoding: 'utf8',
     windowsHide: true,
     timeout: 180_000,
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
-  assert.equal(r1.status, 2, `坏声明文件必须判死而不是当"无声明"落,实得 ${r1.status}:${r1.stdout}|${r1.stderr}`)
+  assert.equal(
+    r1.status,
+    2,
+    `坏声明文件必须判死而不是当"无声明"落,实得 ${r1.status}:${r1.stdout}|${r1.stderr}`,
+  )
   assert.match(r1.stdout + r1.stderr, /LAND_CLASH_SCOPE/)
 
   const unknown = join(dir, 'scope-unknown.json')
-  writeFileSync(unknown, JSON.stringify({ files: [{ path: 'sub/keep.txt', removed: [], added: [] }] }))
+  writeFileSync(
+    unknown,
+    JSON.stringify({ files: [{ path: 'sub/keep.txt', removed: [], added: [] }] }),
+  )
   const r2 = spawnSync(process.execPath, [TOOL], {
-    env: { ...process.env, LAND_ROOT: dir, LAND_PATHS: 'a.txt', LAND_MSG: 'm', LAND_BLOB_PROOF: 'p', LAND_BLOBS: mf, LAND_CLASH_SCOPE: unknown },
+    env: {
+      ...process.env,
+      LAND_ROOT: dir,
+      LAND_PATHS: 'a.txt',
+      LAND_MSG: 'm',
+      LAND_BLOB_PROOF: 'p',
+      LAND_BLOBS: mf,
+      LAND_CLASH_SCOPE: unknown,
+    },
     encoding: 'utf8',
     windowsHide: true,
     timeout: 180_000,
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
-  assert.equal(r2.status, 2, `射程外声明永不被核验 ⇒ 判死,实得 ${r2.status}:${r2.stdout}|${r2.stderr}`)
+  assert.equal(
+    r2.status,
+    2,
+    `射程外声明永不被核验 ⇒ 判死,实得 ${r2.status}:${r2.stdout}|${r2.stderr}`,
+  )
   assert.match(r2.stdout + r2.stderr, /射程外|未声明落地/)
 })
 
@@ -1404,8 +1882,16 @@ test('T-BLOB-10 形状锁:多重集口径只住在 lib,本器只 import', () => 
   }
   assert.ok(!/function\s+tallyLines\b/.test(src), '本器里不得出现第二份 tallyLines')
   const lib = readFileSync(join(HERE, '..', 'lib', 'stale-content-analysis.mjs'), 'utf8')
-  assert.equal((lib.match(/const extras = \(/g) ?? []).length, 1, 'lib 里差集口径只能有一处(计数与样本必须同源)')
-  assert.match(lib, /const maps = lineDeltaMaps\(baseText, newText\)/, 'lineDelta 必须是 lineDeltaMaps 的投影,不是并列的第二份实现')
+  assert.equal(
+    (lib.match(/const extras = \(/g) ?? []).length,
+    1,
+    'lib 里差集口径只能有一处(计数与样本必须同源)',
+  )
+  assert.match(
+    lib,
+    /const maps = lineDeltaMaps\(baseText, newText\)/,
+    'lineDelta 必须是 lineDeltaMaps 的投影,不是并列的第二份实现',
+  )
 })
 
 /**
@@ -1416,7 +1902,10 @@ test('T-BLOB-10 形状锁:多重集口径只住在 lib,本器只 import', () => 
  */
 test('T-BANNER-P 纯函数面:只差在零宽载荷位 ⇒ 默认拒(fail-closed),经 verify 复核后才算修复', () => {
   const ZW = String.fromCodePoint(0x200b, 0x200d, 0x2060)
-  const good = '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top\n// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。\n// [IHUI-AI-PROVENANCE]:' + ZW.repeat(6) + '\n正文 A\n'
+  const good =
+    '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top\n// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。\n// [IHUI-AI-PROVENANCE]:' +
+    ZW.repeat(6) +
+    '\n正文 A\n'
   // 夹具必须**只用零宽族**造差异:掺进任何可见字符,判据就会走"改写可见文案"那一支,
   // 而我这条测的是"只差在载荷位"那一支(第一版掺了 'x'/'y',测到的其实是另一条判序)。
   const damaged = good.replace(ZW.repeat(6), String.fromCodePoint(0x200c).repeat(6))
@@ -1434,13 +1923,24 @@ test('T-BANNER-Q 反向锁:可见文案被改写 ⇒ 不得借"载荷复核"通�
   const rewritten = base.replace('2026 IHUI AI', '2027 IHUI AI')
   const r = decideBanner({ baseText: base, newText: rewritten, newPayloadOk: true })
   assert.equal(r.verdict, 'broken', '换了可见文案就是改写,载荷复核过也不认')
-  assert.notEqual(r.needsPayloadCheck, true, '这一档不得带"待复核"旗 —— 带了就等于给真改写开了第二次机会')
+  assert.notEqual(
+    r.needsPayloadCheck,
+    true,
+    '这一档不得带"待复核"旗 —— 带了就等于给真改写开了第二次机会',
+  )
 })
 
 test('T-BANNER-R 形状锁:零宽族的剥离只许有一份实现,且载荷完坏只能问 watermark CLI', () => {
   const src = readFileSync(TOOL, 'utf8')
-  assert.match(src, /import \{[^}]*dropZeroWidth[^}]*\} from '\.\/lib\/watermark-lines\.mjs'/, '前三行的比较必须引 lib 的剥离出口')
-  assert.ok(!/fromCodePoint\(0x2060/.test(src), '本器里不得再拼一份零宽族(§5c:哪一行算隐写只许有一份)')
+  assert.match(
+    src,
+    /import \{[^}]*dropZeroWidth[^}]*\} from '\.\/lib\/watermark-lines\.mjs'/,
+    '前三行的比较必须引 lib 的剥离出口',
+  )
+  assert.ok(
+    !/fromCodePoint\(0x2060/.test(src),
+    '本器里不得再拼一份零宽族(§5c:哪一行算隐写只许有一份)',
+  )
   assert.match(src, /WATERMARK_CLI, 'verify'/, '"载荷完不完好"只能问那份 CLI,不在本器里重写解码')
 })
 
@@ -1501,7 +2001,11 @@ test('T-BANNER-BOM4 被放宽那一臂仍有牙:两边都规范 + 带 BOM + 前�
   const base = PS1_BANNER
   const tampered = BOM + base.replace('[IHUI-AI-PROVENANCE]:', '[IHUI-AI-PROVENANCE]:x')
   const r = decideBanner({ baseText: base, newText: tampered })
-  assert.equal(r.verdict, 'broken', `剥 BOM 不得把可见文案的改动一起剥掉,实得 ${r.verdict}:${r.why}`)
+  assert.equal(
+    r.verdict,
+    'broken',
+    `剥 BOM 不得把可见文案的改动一起剥掉,实得 ${r.verdict}:${r.why}`,
+  )
   assert.match(r.why, /前三行仍被换掉/, '必须落在"改写横幅文字"那一支,而不是被别的分支接走')
 })
 
@@ -1519,7 +2023,11 @@ test('T-BANNER-BOM-E2E 端到端:blob 模式仅前插 BOM ⇒ 落地成功、HEA
   assert.match(r.stdout, /水印横幅保持 1\/1 路径/)
   const head = git(['rev-parse', 'HEAD'], { root: dir })
   assert.notEqual(head, before, 'HEAD 必须前进')
-  assert.equal(headBlobOf(head, 'scripts/x.ps1', { root: dir }), want, '入树内容必须带 BOM(不能是剥掉 BOM 的版本)')
+  assert.equal(
+    headBlobOf(head, 'scripts/x.ps1', { root: dir }),
+    want,
+    '入树内容必须带 BOM(不能是剥掉 BOM 的版本)',
+  )
 })
 
 test('T-BANNER-BOM-E2E-REV 端到端反向:带 BOM 且改了横幅 ⇒ 拒绝落地,HEAD 未动', (t) => {
@@ -1540,12 +2048,19 @@ test('T-BANNER-BOM-E2E-REV 端到端反向:带 BOM 且改了横幅 ⇒ 拒绝落
 test('T-BANNER-BOM-CTRL 对照:不带 BOM 的普通改动(工作树模式)行为与改前逐字同形', (t) => {
   const dir = makePs1Repo(t)
   const before = git(['rev-parse', 'HEAD'], { root: dir })
-  writeFileSync(join(dir, 'scripts', 'x.ps1'), PS1_BANNER.replace('Write-Output "hi"', 'Write-Output "bye"'), 'utf8')
+  writeFileSync(
+    join(dir, 'scripts', 'x.ps1'),
+    PS1_BANNER.replace('Write-Output "hi"', 'Write-Output "bye"'),
+    'utf8',
+  )
   const r = runLand(dir, { paths: 'scripts/x.ps1', msg: 'chore: 改正文一行(无 BOM)' })
   assert.equal(r.status, 0, `无 BOM 的普通改动必须照常落地:${r.stdout}|${r.stderr}`)
   const head = git(['rev-parse', 'HEAD'], { root: dir })
   assert.notEqual(head, before, 'HEAD 必须前进')
-  assert.equal(headBlobOf(head, 'scripts/x.ps1', { root: dir }), writeBlob(PS1_BANNER.replace('Write-Output "hi"', 'Write-Output "bye"'), { root: dir }))
+  assert.equal(
+    headBlobOf(head, 'scripts/x.ps1', { root: dir }),
+    writeBlob(PS1_BANNER.replace('Write-Output "hi"', 'Write-Output "bye"'), { root: dir }),
+  )
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1567,9 +2082,20 @@ function runLandGateStubbed(dir, paths, msg, stubRc, stubName = 'stub-gate.mjs')
     LAND_DANGLING_GATE: gate,
     STUB_RC: String(stubRc),
   }
-  for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE']) delete env[k]
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  return { r: spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }), gate }
+  for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE'])
+    delete env[k]
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return {
+    r: spawnSync(process.execPath, [TOOL], {
+      env,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 180_000,
+      maxBuffer: 64 << 20,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }),
+    gate,
+  }
 }
 
 test('T-DG1 成对①:门说干净 ⇒ 源码照样落地(否则本闸就是新的恒红拦路虎)', (t) => {
@@ -1579,18 +2105,35 @@ test('T-DG1 成对①:门说干净 ⇒ 源码照样落地(否则本闸就是新�
   const stubLog = join(dir, 'stub-argv.log')
   const gate = writeGateStub(dir)
   const env = {
-    ...process.env, LAND_ROOT: dir, LAND_PATHS: 'src/a.ts', LAND_MSG: 'test: 门说干净', IHUI_LAND_SKIP_WATERMARK: '1',
-    LAND_DANGLING_GATE: gate, STUB_RC: '0', STUB_LOG: stubLog,
+    ...process.env,
+    LAND_ROOT: dir,
+    LAND_PATHS: 'src/a.ts',
+    LAND_MSG: 'test: 门说干净',
+    IHUI_LAND_SKIP_WATERMARK: '1',
+    LAND_DANGLING_GATE: gate,
+    STUB_RC: '0',
+    STUB_LOG: stubLog,
   }
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(r.status, 0, `门说干净必须放行:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /涉事判据.*通过/, '放行也要报数,不得静默')
   const logged = readFileSync(stubLog, 'utf8')
   const argvLogged = JSON.parse(logged.trim().split('\n').pop())
   assert.ok(argvLogged.includes('--rev'), '必须把树传给门(审的是落盘树,不是 HEAD)')
   assert.ok(argvLogged.includes('--anchor'), '必须把锚点传给门(否则棘轮无基准)')
-  assert.equal(argvLogged[argvLogged.indexOf('--root') + 1], dir, '必须把被审仓根传给门(漏 --root = 换仓即在主仓问临时仓的树,门 231 G-929 同型根因)')
+  assert.equal(
+    argvLogged[argvLogged.indexOf('--root') + 1],
+    dir,
+    '必须把被审仓根传给门(漏 --root = 换仓即在主仓问临时仓的树,门 231 G-929 同型根因)',
+  )
 })
 
 test('T-DG2 成对②:门说有悬空 ⇒ 必须拒绝,HEAD 未动且不留 unreachable commit', (t) => {
@@ -1603,7 +2146,11 @@ test('T-DG2 成对②:门说有悬空 ⇒ 必须拒绝,HEAD 未动且不留 unre
   assert.notEqual(r.status, 0, '门判红不得落地')
   assert.match(r.stderr + r.stdout, /涉事判据判红/, '拒绝原因必须点名本闸')
   assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), before, 'HEAD 必须未动')
-  assert.equal(unreachableCommits(dir), 0, '被拒的落地不得留下 unreachable commit(守门 30a 只数 commit 行)')
+  assert.equal(
+    unreachableCommits(dir),
+    0,
+    '被拒的落地不得留下 unreachable commit(守门 30a 只数 commit 行)',
+  )
 })
 
 test('T-DG3 未判定 ⇒ 拒绝但 exit 2(与"判红"不是同一件事,取不到结论不得按通过落)', (t) => {
@@ -1619,11 +2166,22 @@ test('T-DG4 非源码声明面不触发本闸(把不存在的门路径给它也�
   const dir = makeRepo(t)
   writeFileSync(join(dir, 'notes.md'), '# 叙述\n')
   const env = {
-    ...process.env, LAND_ROOT: dir, LAND_PATHS: 'notes.md', LAND_MSG: 'test: 只动文档', IHUI_LAND_SKIP_WATERMARK: '1',
+    ...process.env,
+    LAND_ROOT: dir,
+    LAND_PATHS: 'notes.md',
+    LAND_MSG: 'test: 只动文档',
+    IHUI_LAND_SKIP_WATERMARK: '1',
     LAND_DANGLING_GATE: join(dir, 'no-such-gate.mjs'),
   }
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(r.status, 0, `文档面必须照常落地:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /未触发/, '并如实说明本次没有源码在声明面')
 })
@@ -1633,11 +2191,23 @@ test('T-DG5 应急跳过真实存在(文档不得写跑不通的出路),跳过�
   mkdirSync(join(dir, 'src'), { recursive: true })
   writeFileSync(join(dir, 'src', 'a.ts'), 'export const a = 1\n')
   const env = {
-    ...process.env, LAND_ROOT: dir, LAND_PATHS: 'src/a.ts', LAND_MSG: 'test: 应急跳过', IHUI_LAND_SKIP_WATERMARK: '1',
-    LAND_DANGLING_GATE: join(dir, 'no-such-gate.mjs'), IHUI_LAND_SKIP_DANGLING_GATE: '1',
+    ...process.env,
+    LAND_ROOT: dir,
+    LAND_PATHS: 'src/a.ts',
+    LAND_MSG: 'test: 应急跳过',
+    IHUI_LAND_SKIP_WATERMARK: '1',
+    LAND_DANGLING_GATE: join(dir, 'no-such-gate.mjs'),
+    IHUI_LAND_SKIP_DANGLING_GATE: '1',
   }
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(r.status, 0, `应急跳过必须能落地:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /IHUI_LAND_SKIP_DANGLING_GATE=1/, '跳过必须打一行留痕')
 })
@@ -1655,7 +2225,7 @@ function runLandWarmStubbed(dir, paths, msg, stubRc) {
   writeFileSync(
     gate,
     "import { appendFileSync } from 'node:fs'\n" +
-      "const log = process.env.STUB_LOG\n" +
+      'const log = process.env.STUB_LOG\n' +
       "if (log) appendFileSync(log, JSON.stringify(process.argv.slice(2)) + '\\n')\n" +
       'process.exit(Number(process.env.STUB_RC_WARM_BORDER ?? 0))\n',
   )
@@ -1669,9 +2239,28 @@ function runLandWarmStubbed(dir, paths, msg, stubRc) {
     STUB_LOG: log,
     STUB_RC_WARM_BORDER: String(stubRc),
   }
-  for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE', 'LAND_DANGLING_GATE', 'IHUI_LAND_SKIP_DANGLING_GATE', 'IHUI_LAND_SKIP_WARM_BORDER']) delete env[k]
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  return { r: spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }), log }
+  for (const k of [
+    'LAND_BLOBS',
+    'LAND_BLOB_PROOF',
+    'LAND_BASE_REF',
+    'LAND_ALLOW_STALE',
+    'LAND_DANGLING_GATE',
+    'IHUI_LAND_SKIP_DANGLING_GATE',
+    'IHUI_LAND_SKIP_WARM_BORDER',
+  ])
+    delete env[k]
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return {
+    r: spawnSync(process.execPath, [TOOL], {
+      env,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 180_000,
+      maxBuffer: 64 << 20,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }),
+    log,
+  }
 }
 
 test('T-WB1 通过臂:门 231 说干净 ⇒ 照常落地,且被审仓根与树、清单一起传下去', (t) => {
@@ -1679,11 +2268,19 @@ test('T-WB1 通过臂:门 231 说干净 ⇒ 照常落地,且被审仓根与树�
   writeFileSync(join(dir, 'notes.md'), '# 叙述\n')
   const { r, log } = runLandWarmStubbed(dir, 'notes.md', 'test: 暖色门说干净', 0)
   assert.equal(r.status, 0, `暖色门说干净必须放行:\n${r.stdout}\n${r.stderr}`)
-  assert.match(r.stdout, /暖色描边涉事判据\(门 231 --rev <tree>\):通过/, '放行也要点名本闸,不得静默')
+  assert.match(
+    r.stdout,
+    /暖色描边涉事判据\(门 231 --rev <tree>\):通过/,
+    '放行也要点名本闸,不得静默',
+  )
   const argv = JSON.parse(readFileSync(log, 'utf8').trim().split('\n').pop())
   assert.ok(argv.includes('--rev'), '必须把落盘树传给门')
   assert.ok(argv.includes('--only'), '必须把本轮声明清单传给门(由门自己判射程)')
-  assert.equal(argv[argv.indexOf('--root') + 1], dir, '必须把被审仓根传给门(否则换仓即失明 = G-929 的根因)')
+  assert.equal(
+    argv[argv.indexOf('--root') + 1],
+    dir,
+    '必须把被审仓根传给门(否则换仓即失明 = G-929 的根因)',
+  )
 })
 
 test('T-WB2 判红臂:门 231 真违规 ⇒ 拒绝,HEAD 未动且不留 unreachable commit', (t) => {
@@ -1694,7 +2291,11 @@ test('T-WB2 判红臂:门 231 真违规 ⇒ 拒绝,HEAD 未动且不留 unreacha
   assert.equal(r.status, 1, `判红必须以业务拒绝 exit 1:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stderr + r.stdout, /暖色描边涉事判据判红/, '拒绝原因必须点名"判红"')
   assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), before, 'HEAD 必须未动')
-  assert.equal(unreachableCommits(dir), 0, '被拒的落地不得留下 unreachable commit(守门 30a 只数 commit 行)')
+  assert.equal(
+    unreachableCommits(dir),
+    0,
+    '被拒的落地不得留下 unreachable commit(守门 30a 只数 commit 行)',
+  )
 })
 
 test('T-WB3 未判定臂:门 231 取不到结论 ⇒ exit 2 且不得折成"判红"/不得静默放行', (t) => {
@@ -1719,8 +2320,18 @@ test('T-DG6 形状锁:触发面必须与门体 SRC_RE 同形,且门以子进程�
     assert.ok(m, `${name} 的字面量形态变了,锁先红再改锁`)
     return m[1].split('|').sort()
   }
-  assert.deepEqual(extsOf(src, 'SOURCE_LIKE_RE'), extsOf(gateSrc, 'SRC_RE'), '触发面与门的扩展名表必须同形(一边扩一边不扩=一半形态失明)')
-  assert.match(src, /execFileSync\(process\.execPath, \[gate, '--rev', tree, '--anchor', anchor, '--root', root\]/, '门必须以子进程跑并传树+锚点+被审仓根(import 期崩溃不得连带杀死本器;漏 --root = G-929 同型换仓失明)')
+  assert.deepEqual(
+    extsOf(src, 'SOURCE_LIKE_RE'),
+    extsOf(gateSrc, 'SRC_RE'),
+    '触发面与门的扩展名表必须同形(一边扩一边不扩=一半形态失明)',
+  )
+  // 只锁"调用形状",不锁排版:prettier 会把这一句按 120 列折行,按逐字单行匹配的锁会在
+  // 纯格式化提交上翻红(那会把"改锁"训练成噪音)。归一空白后仍要求同样的实参、同样的顺序。
+  assert.match(
+    src.replace(/\s+/g, ' '),
+    /execFileSync\( process\.execPath, \[gate, '--rev', tree, '--anchor', anchor, '--root', root\]/,
+    '门必须以子进程跑并传树+锚点+被审仓根(import 期崩溃不得连带杀死本器;漏 --root = G-929 同型换仓失明)',
+  )
   assert.match(src, /windowsHide: true/, '派生控制台程序必须带 windowsHide(守门 52)')
   assert.match(src, /IHUI_LAND_SKIP_DANGLING_GATE === '1'/, '应急跳过通道必须真实存在')
 })
@@ -1738,8 +2349,10 @@ test('T-DG6 形状锁:触发面必须与门体 SRC_RE 同形,且门以子进程�
 // 水印预检统一用 IHUI_LAND_SKIP_WATERMARK=1 跳过(夹具文件没有横幅,与上面几组同一处置,是有意的)。
 // ─────────────────────────────────────────────────────────────────────────────
 const REG_A = '  - **G-900001 甲行(夹具)**:三面都在的无关登记行,用来确认现场里只有乙行被写回吞掉。'
-const REG_B = '  - **G-900002 乙行(夹具)**:这一行已由别人的提交入库,本轮那份滞后底稿里没有它 ⇒ 必须被点名。'
-const REG_C = '  - **G-900003 丙行(夹具)**:本次落地要新加的登记行 —— 它让整 blob 不等于任何祖先(事故的真实形状)。'
+const REG_B =
+  '  - **G-900002 乙行(夹具)**:这一行已由别人的提交入库,本轮那份滞后底稿里没有它 ⇒ 必须被点名。'
+const REG_C =
+  '  - **G-900003 丙行(夹具)**:本次落地要新加的登记行 —— 它让整 blob 不等于任何祖先(事故的真实形状)。'
 // 语料必须够"肥":规模安全闸按 missing/seen 判基线异常(默认 40%),只放 3 条登记行的夹具会被它
 // 正确地拒掉 ⇒ 本组要测的是"补跑有没有发生",不是那道闸(那道闸在门体自检里有成对用例)。
 const REG_FILL = [1, 2, 3, 4].map(
@@ -1765,6 +2378,12 @@ function makeLedgerRepo(t) {
   writeFileSync(join(dir, 'PROJECT_PLAN.md'), PLAN_V1)
   runGit(dir, ['add', '--', 'PROJECT_PLAN.md'])
   runGit(dir, ['commit', '-q', '-m', 'plan: 甲+乙入库'])
+  // 门 71 自 62f0cb342a 起把"两本摘除台账在位"当判定前置:缺任一本 ⇒ exit 2 未判定 ⇒ 本轮零回捞。
+  // 本夹具要证的正是"能回捞",所以必须把这两本账建出来;内容留空 —— 证明的是"账在"这一维,
+  // 不是"账里有条目"(空账 = 没有任何行被声明摘除,回捞判据照常逐行判)。
+  mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
+  for (const f of ['stale-claim-strip.jsonl', 'plan-row-drop.jsonl'])
+    writeFileSync(join(dir, '.ihui-agent', 'state', f), '')
   return dir
 }
 
@@ -1805,10 +2424,18 @@ test('L1 G-816708 正向(行为断言):落地含台账 ⇒ 就地补跑真门,�
   const out = `${r.stdout}\n${r.stderr}`
   assert.equal(r.status, 0, `落地应成功,实得 ${r.status}:\n${out}`)
   // ① 补跑真的发生了(落地器自己报名的那一行)
-  assert.match(out, /\[G-816708\][\s\S]{0,120}就地补跑守门 71/, '必须报名"这一跑是 post-commit 的替身"')
+  assert.match(
+    out,
+    /\[G-816708\][\s\S]{0,120}就地补跑守门 71/,
+    '必须报名"这一跑是 post-commit 的替身"',
+  )
   // ② 真门的三档读数与点名必须穿过派生层回到本器 stdout(只写 stderr 的名字在落地那一刻等于没点)
   assert.match(out, /\[分档\] 历史登记行 \d+ 条/, '补跑要的是真门,不是桩:它的读数必须可见')
-  assert.match(out, /\[点名\/HEAD\][^\n]*G-900002 乙行/, '被写回吞掉的那一行必须**点名**到行,不得只报数')
+  assert.match(
+    out,
+    /\[点名\/HEAD\][^\n]*G-900002 乙行/,
+    '被写回吞掉的那一行必须**点名**到行,不得只报数',
+  )
   // ③ 最硬的一条是**仓库状态**:本次落地 + 就地恢复 = 恰好两枚提交,而恢复那一枚的父就是本次落地
   const after = git(['rev-parse', 'HEAD'], { root: dir })
   assert.equal(
@@ -1816,7 +2443,7 @@ test('L1 G-816708 正向(行为断言):落地含台账 ⇒ 就地补跑真门,�
     2,
     `应为"落地一枚 + 补跑恢复一枚"两枚提交,实得 HEAD=${after.slice(0, 9)} / before=${before.slice(0, 9)}:\n${out}`,
   )
-  const landedCommit = git(['rev-parse', "HEAD^"], { root: dir })
+  const landedCommit = git(['rev-parse', 'HEAD^'], { root: dir })
   const landedText = git(['show', `${landedCommit}:PROJECT_PLAN.md`], { root: dir, raw: true })
   assert.match(landedText, /G-900003 丙行/, '本次落地那枚确实带进了新行(现场成立)')
   assert.doesNotMatch(landedText, /G-900002 乙行/, '本次落地那枚确实把别人的行写回吞掉了(现场成立)')
@@ -1847,8 +2474,16 @@ test('L2 G-816708 反向对照:同样的落地但不含台账 ⇒ 那个进程�
   writeFileSync(join(dir, 'notes.md'), '本轮只动这份\n')
   const r = runLandRaw(dir, 'notes.md', 'docs: 只动 notes(反向对照)')
   assert.equal(r.status, 0, `只落 notes.md 应成功:\n${r.stdout}\n${r.stderr}`)
-  assert.equal(existsSync(healSentinel(dir)), false, '不含台账的落地不得多派生那一个进程(哨兵被写了)')
-  assert.doesNotMatch(`${r.stdout}\n${r.stderr}`, /\[G-816708\]/, '没跑就不许喊"补跑过"(凭空声称一个没发生的动作)')
+  assert.equal(
+    existsSync(healSentinel(dir)),
+    false,
+    '不含台账的落地不得多派生那一个进程(哨兵被写了)',
+  )
+  assert.doesNotMatch(
+    `${r.stdout}\n${r.stderr}`,
+    /\[G-816708\]/,
+    '没跑就不许喊"补跑过"(凭空声称一个没发生的动作)',
+  )
 })
 
 test('L3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但必须喊出来,且不得冒出"无缺失"', (t) => {
@@ -1858,7 +2493,11 @@ test('L3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但�
   const r = runLandRaw(dir, 'PROJECT_PLAN.md', 'docs(plan): G-816708 失败臂')
   const out = `${r.stdout}\n${r.stderr}`
   assert.ok(existsSync(healSentinel(dir)), '摘掉补跑调用 ⇒ 这一条先红(哨兵没人写)')
-  assert.equal(JSON.parse(readFileSync(healSentinel(dir), 'utf8')).join(' '), '--heal --commit', '补跑必须是**提交档**(与 post-commit 第 6 节同形),报告档等于把回补留给下一个人')
+  assert.equal(
+    JSON.parse(readFileSync(healSentinel(dir), 'utf8')).join(' '),
+    '--heal --commit',
+    '补跑必须是**提交档**(与 post-commit 第 6 节同形),报告档等于把回补留给下一个人',
+  )
   assert.equal(r.status, 0, `替身没跑成不该把零丢失自证已过的落地判红,实得 ${r.status}:\n${out}`)
   assert.match(out, /跑而未成|未派生成功/, '失败必须点名是哪一档(跑而未成 / 根本没派生)')
   assert.doesNotMatch(out, /无缺失,无需回捞/, '补跑没跑成时,"无缺失"这句话不得由任何人替它说')
@@ -1869,14 +2508,14 @@ test('L4 G-816708 触发条件的单位锁:只认声明的落地面,提交信息
   assert.equal(landsLedger(['./PROJECT_PLAN.md']), true, '仓库相对路径的 `./` 前缀要归一')
   assert.equal(landsLedger(['src/a.ts', 'PROJECT_PLAN.md']), true, '多路径里只要含台账就成立')
   assert.equal(landsLedger(['docs\\PROJECT_PLAN.md']), false, '子目录里那份不是台账')
-  assert.equal(landsLedger(['README.md', 'notes.md']), false, '不含台账 ⇒ 不得触发(反向对照的单位面)')
+  assert.equal(
+    landsLedger(['README.md', 'notes.md']),
+    false,
+    '不含台账 ⇒ 不得触发(反向对照的单位面)',
+  )
   assert.equal(landsLedger([]), false)
   assert.equal(landsLedger(undefined), false, '调用方漏传也不炸,且不触发')
 })
-
-
-
-
 
 // ============ 空内容守卫(2026-10-18 立)============
 // 成因不是设计出来的:当天一枚真实落地把 1,673,110 字节的 pnpm-lock.yaml 落成了 **0 字节**并推到远端,
@@ -1962,4 +2601,237 @@ test('T-EMPTY4 未判定:清单里的 oid 在对象库取不到字节数 ⇒ 拒
     LAND_BLOB_PROOF: '探针',
   })
   assert.match(String(r.error ?? ''), /取不到|判不出/, '字节数问不到 ⇒ 判不出,不记绿')
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T-RM 族(2026-10-30,g35-s7):声明式还原通道 LAND_RESTORE_MANIFEST。
+// 要钉的机制缺口:「有意还原被误删的祖先行」与「拿滞后副本回退 HEAD」在行级复活守卫上
+// 同尺同红,而此前唯一具名出口 LAND_ALLOW_STALE 是**整颗守卫关掉** —— 本族钉新出口
+// 只做白名单逐行放行:牙(反向①)缺位即假修复,票面三型自证缺一不可。
+// ─────────────────────────────────────────────────────────────────────────────
+const RM_A = 'export const intentionalRestoreLine = true'
+const RM_B = 'export const secondRestoreLine = true'
+const RM_TICKET = '// 本票新内容行(tail)'
+
+function makeRmRepo(t) {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'r.txt'), `alpha\n${RM_A}\n${RM_B}\nbeta\n`)
+  runGit(dir, ['add', '--', 'r.txt'])
+  runGit(dir, ['commit', '-q', '-m', 'A: 含两枚日后被误删的行'])
+  const A = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  writeFileSync(join(dir, 'r.txt'), 'alpha\nbeta\ngamma\n')
+  runGit(dir, ['add', '--', 'r.txt'])
+  runGit(dir, ['commit', '-q', '-m', 'B: 删掉了那两行'])
+  return { dir, A, B: runGit(dir, ['rev-parse', 'HEAD']).trim() }
+}
+const rmManifest = (dir, entries) => {
+  const f = join(dir, '.restore-manifest.json')
+  writeFileSync(f, JSON.stringify({ entries }), 'utf8')
+  return f
+}
+
+test('T-RM-1 形态闸(纯函数):顶层坏/空 entries/射程外/短 sha/why 过短/多行 line ⇒ 逐条点名且不出 entries', () => {
+  const full = 'a'.repeat(40)
+  const ok = {
+    path: 'r.txt',
+    line: RM_A,
+    restoredFrom: full,
+    why: '还原被收编吞掉的守卫行,双尺已在提交信息',
+  }
+  const good = __test__.validateRestoreManifest({ entries: [ok] }, { paths: ['r.txt'] })
+  assert.equal(good.errors.length, 0, `合法声明应零错,现读:${good.errors.join(' | ')}`)
+  assert.equal(good.entries.length, 1)
+  const badCases = [
+    ['顶层不是 {entries}', { x: 1 }, /entries/],
+    ['entries 空数组', { entries: [] }, /空数组/],
+    ['射程外路径', { entries: [{ ...ok, path: 'zz.txt' }] }, /不在本次 LAND_PATHS/],
+    ['短 sha(30 位)', { entries: [{ ...ok, restoredFrom: 'a'.repeat(30) }] }, /40 位全量/],
+    ['why 只有 3 字', { entries: [{ ...ok, why: '太短了' }] }, /why 缺失或过短/],
+    ['line 含换行', { entries: [{ ...ok, line: 'a\nb' }] }, /单行/],
+    ['line 非字符串', { entries: [{ ...ok, line: 42 }] }, /line 必须是字符串/],
+  ]
+  for (const [name, input, re] of badCases) {
+    const r = __test__.validateRestoreManifest(input, { paths: ['r.txt'] })
+    assert.equal(r.entries.length, 0, `${name}:形态坏不得产出可用 entries`)
+    assert.ok(
+      r.errors.length > 0 && re.test(r.errors.join('\n')),
+      `${name}:报错文案必须命中 ${re},现读:${r.errors.join(' | ')}`,
+    )
+  }
+  // CJK 按码点计:10 个汉字的 why 必须过(不许用字节数糊)
+  const cjk = __test__.validateRestoreManifest(
+    { entries: [{ ...ok, why: '还原被误删的纪元声明行' }] },
+    { paths: ['r.txt'] },
+  )
+  assert.equal(cjk.errors.length, 0, `10 码点 CJK why 必须合法,现读:${cjk.errors.join(' | ')}`)
+})
+
+test('T-RM-2 lib 配平面:restore 读数双向等值;不传 declaredLines ⇒ 返回对象不得长出 restore 键(守门 84 同形锁)', () => {
+  const A = `alpha\n${RM_A}\n${RM_B}\nbeta\n`
+  const base = 'alpha\nbeta\ngamma\n'
+  const next = `alpha\n${RM_A}\nbeta\n${RM_TICKET}\n`
+  const ancestors = [{ commit: 'cafe00001', text: A }]
+  const plain = __test__.resurrectAnalysis({ baseText: base, newText: next, ancestors })
+  assert.equal(
+    'restore' in plain,
+    false,
+    '不传 declaredLines 时返回值不得多任何键 —— 守门 84 R1r 读的正是这个对象,多一键就是动了别人的判据面',
+  )
+  assert.equal(plain.count, 1, '夹具前提:RM_A 恰算 1 行复活')
+  const exact = __test__.resurrectAnalysis({
+    baseText: base,
+    newText: next,
+    ancestors,
+    declaredLines: [RM_A],
+  })
+  assert.equal(exact.restore.match, true, '逐项等值必须 match')
+  assert.deepEqual(exact.restore.undeclared, [])
+  assert.deepEqual(exact.restore.overDeclared, [])
+  assert.equal(exact.restore.resurrected, 1)
+  const empty = __test__.resurrectAnalysis({
+    baseText: base,
+    newText: next,
+    ancestors,
+    declaredLines: [],
+  })
+  assert.equal(empty.restore.match, false, '空清单不得把复活洗成 0(举旗而无声明 = 整闸放行)')
+  assert.equal(empty.restore.undeclared.length, 1, '未声明的复活行必须逐条点名')
+  const over = __test__.resurrectAnalysis({
+    baseText: base,
+    newText: next,
+    ancestors,
+    declaredLines: [RM_A, RM_B],
+  })
+  assert.equal(
+    over.restore.match,
+    false,
+    '多余声明(RM_B 没复活)必须不 match —— 未被核验的声明就是腐烂守卫',
+  )
+  assert.equal(over.restore.overDeclared.length, 1)
+})
+
+test('T-RM-3 正控端到端:清单点名一枚真还原 ⇒ 放行落地,行进树且清单逐字进提交信息', (t) => {
+  const { dir, A } = makeRmRepo(t)
+  writeFileSync(join(dir, 'r.txt'), `alpha\n${RM_A}\nbeta\n${RM_TICKET}\n`)
+  const mf = rmManifest(dir, [
+    { path: 'r.txt', line: RM_A, restoredFrom: A, why: 'e2e 正控:有意还原被误删的行' },
+  ])
+  const r = runLand(dir, {
+    paths: 'r.txt',
+    msg: 'fix: 还原守卫行(正控)',
+    extraEnv: { LAND_RESTORE_MANIFEST: mf },
+  })
+  assert.equal(
+    r.status,
+    0,
+    `正控必须放行,rc=${r.status}:${((r.stdout || '') + (r.stderr || '')).slice(0, 900)}`,
+  )
+  const body = runGit(dir, ['show', '--format=%B', '-s', 'HEAD']).toString()
+  assert.match(body, /Restore-Manifest-Entry/, '清单必须逐字进提交信息(留痕,可事后追责)')
+  assert.ok(body.includes(RM_A), '提交信息里的 entry 必须含被还原行原文')
+  const face = runGit(dir, ['show', 'HEAD:r.txt']).toString()
+  assert.ok(face.includes(RM_A) && face.includes(RM_TICKET), '还原行与本票行都必须真进树')
+})
+
+test('T-RM-4 反向①(整件事的牙):同枚落地夹带一行未声明的滞后复活 ⇒ 当场拒落并点名该行', (t) => {
+  const { dir, A } = makeRmRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  writeFileSync(join(dir, 'r.txt'), `alpha\n${RM_A}\n${RM_B}\nbeta\n${RM_TICKET}\n`)
+  const mf = rmManifest(dir, [
+    { path: 'r.txt', line: RM_A, restoredFrom: A, why: 'e2e 反向①:只声明第一行' },
+  ])
+  const r = runLand(dir, {
+    paths: 'r.txt',
+    msg: 'fix: 反向①',
+    extraEnv: { LAND_RESTORE_MANIFEST: mf },
+  })
+  assert.equal(r.status, 1, `夹带未声明复活必须拒,实得 rc=${r.status}`)
+  const out = (r.stderr || '') + (r.stdout || '')
+  assert.ok(
+    out.includes(RM_B),
+    `拒绝报告必须点名那枚未声明的复活行 "${RM_B}",现读:${out.slice(0, 600)}`,
+  )
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
+})
+
+test('T-RM-5 反向②:假 restoredFrom(blob 里没这行)⇒ rc 1 核验未过;坏形态 ⇒ rc 2;HEAD 都不动', (t) => {
+  const { dir, B } = makeRmRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  writeFileSync(join(dir, 'r.txt'), `alpha\n${RM_A}\nbeta\n${RM_TICKET}\n`)
+  const mfFake = rmManifest(dir, [
+    { path: 'r.txt', line: RM_A, restoredFrom: B, why: 'e2e 反向②:sha 指着一枚没写过该行的提交' },
+  ])
+  const r1 = runLand(dir, {
+    paths: 'r.txt',
+    msg: 'fix: 反向②假sha',
+    extraEnv: { LAND_RESTORE_MANIFEST: mfFake },
+  })
+  assert.equal(
+    r1.status,
+    1,
+    `假声明必须 rc=1,实得 ${r1.status}:${((r1.stderr || '') + (r1.stdout || '')).slice(0, 400)}`,
+  )
+  assert.match((r1.stderr || '') + (r1.stdout || ''), /核验未过/)
+  const mfShort = rmManifest(dir, [{ path: 'r.txt', line: RM_A, restoredFrom: B, why: '短' }])
+  const r2 = runLand(dir, {
+    paths: 'r.txt',
+    msg: 'fix: 反向②短why',
+    extraEnv: { LAND_RESTORE_MANIFEST: mfShort },
+  })
+  assert.equal(r2.status, 2, 'why 过短属用法错 ⇒ exit 2')
+  const mfRead = join(dir, '.no-such-manifest.json')
+  const r3 = runLand(dir, {
+    paths: 'r.txt',
+    msg: 'fix: 反向②读不到',
+    extraEnv: { LAND_RESTORE_MANIFEST: mfRead },
+  })
+  assert.equal(r3.status, 2, '清单文件读不到 ⇒ exit 2,绝不折成"没有声明"')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
+})
+
+test('T-RM-6 反向③:不传旗 ⇒ 与设立前同形(同一现场照旧被陈旧守卫拒,报告里不得长出任何 Restore-Manifest 字样)', (t) => {
+  const { dir } = makeRmRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  writeFileSync(join(dir, 'r.txt'), `alpha\n${RM_A}\nbeta\n${RM_TICKET}\n`)
+  const r = runLand(dir, { paths: 'r.txt', msg: 'fix: 反向③' })
+  assert.equal(r.status, 1, '不传旗必须照旧拒')
+  const out = (r.stderr || '') + (r.stdout || '')
+  assert.match(out, /陈旧落地守卫/, '拒绝文案必须仍是既有的陈旧落地守卫(判据没有被悄悄放宽)')
+  assert.doesNotMatch(
+    out,
+    /Restore-Manifest/,
+    '不举旗的新通道痕迹不得出现在旧路径报告里(反向③的最小可证形态)',
+  )
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
+})
+
+test('T-RM-7 未被消费的声明 ⇒ 拒(与 LAND_CLASH_SCOPE 射程外声明同纪律);与 ALLOW_STALE 同举 ⇒ exit 2', (t) => {
+  const { dir, A } = makeRmRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  // 盘上没有复活(基线 ⊕ 一行真新内容),清单却声明了一枚历史行
+  writeFileSync(join(dir, 'r.txt'), `alpha\nbeta\ngamma\n${RM_TICKET}\n`)
+  const mf = rmManifest(dir, [
+    { path: 'r.txt', line: RM_A, restoredFrom: A, why: 'e2e T-RM-7:本轮该行没有复活' },
+  ])
+  const r = runLand(dir, {
+    paths: 'r.txt',
+    msg: 'fix: T-RM-7',
+    extraEnv: { LAND_RESTORE_MANIFEST: mf },
+  })
+  assert.equal(
+    r.status,
+    1,
+    `未消费的声明必须拒落,实得 rc=${r.status}:${((r.stderr || '') + (r.stdout || '')).slice(0, 400)}`,
+  )
+  assert.match((r.stderr || '') + (r.stdout || ''), /声明未被核验|没有一条被核验/)
+  const r2 = runLand(dir, {
+    paths: 'r.txt',
+    msg: 'fix: T-RM-7 同举',
+    // ALLOW_STALE 必须走 runLand 的具名形参:extraEnv 里塞会被它默认的"else delete"洗掉
+    // (夹具形状错会退化成"只举还原旗"⇒ rc 1 假绿,钉不住互斥那一格)
+    allowStale: true,
+    extraEnv: { LAND_RESTORE_MANIFEST: mf },
+  })
+  assert.equal(r2.status, 2, '逐行放行与整闸关掉不得同时举旗 ⇒ 用法错 exit 2')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
 })
