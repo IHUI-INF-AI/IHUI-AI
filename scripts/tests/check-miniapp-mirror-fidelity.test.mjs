@@ -414,6 +414,24 @@ test('P3 动态拼键:整段是模板的(${ns})跳过,"固定 ns + 动态 leaf"�
   assert.deepEqual(gap, ['legalDocs', 'realPage'])
 })
 
+test('T21 载体面:同目录相对 import 的模块必须计入(拆子模块的页否则被读成缺 16 键)', () => {
+  const rels = gate.localModuleRels(
+    'apps/miniapp-taro/src/a/b.tsx',
+    "import { X } from './b-parts'\nimport Y from './b-core.ts'\nimport Z from '@/x'\nimport W from '../w'",
+  )
+  assert.ok(rels.includes('apps/miniapp-taro/src/a/b-parts.tsx'), '缺 .tsx 候选')
+  assert.ok(rels.includes('apps/miniapp-taro/src/a/b-core.ts'), '已带扩展名的不得再补第二次')
+  assert.ok(!rels.some((r) => r.endsWith('/w.tsx')), '../ 越目录的一律不取')
+  assert.ok(!rels.some((r) => r.includes('@/x')), '别名 import 不是相对路径,不取')
+})
+
+test('T22 装车锁:computeFidelity 的 mpKeys 必须并入同目录模块(只读主文件 = 拆模块页恒假缺口)', () => {
+  const src = gate
+    .batchReadTexts('worktree', ['scripts/check-miniapp-mirror-fidelity.mjs'])
+    .get('scripts/check-miniapp-mirror-fidelity.mjs')
+  assert.ok(/localModulesOf\(p\)/.test(src || ''), 'mpKeys 未并入同目录模块,载体面退回只读主文件')
+})
+
 test('P4 并集语义:住在 messages/shared 里的命名空间不算缺(少算它会凭空报出 200+)', () => {
   const gap = gate.packNamespaceGap({
     usedKeys: ['settings.pwdTooShort', 'profile.logout'],
