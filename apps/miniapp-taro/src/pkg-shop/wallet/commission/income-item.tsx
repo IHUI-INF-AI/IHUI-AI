@@ -7,8 +7,15 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { formatPrice } from '@/utils/time'
 
-/** 卡片状态序与共享屏 statusOf 一致:取消结算优先于已结算/待结算 */
-export type IncomeStatus = 'pending' | 'settled' | 'cancelled'
+/**
+ * 卡片状态序与共享屏 statusOf 一致。
+ * 可达性复核(2026-10-30 取证):共享屏还有 cancelled 一态,但其数据源条件
+ * `commission_flows.status === 0`(0=invalid)在本后端**无任何生产者** ——
+ * 全仓无 update(commissionFlows),唯一 insert 硬编码 status:1
+ * (apps/api/src/db/commission-queries.ts createCommissionFlow)。
+ * ⇒ 该态永不渲染,按「撤死分支让门继续报缺」处置,不保留假绿(机主复核令)。
+ */
+export type IncomeStatus = 'pending' | 'settled'
 
 /** 一张收益卡的数据(佣金流水行与提现「已结算」行同构) */
 export interface IncomeRow {
@@ -30,12 +37,10 @@ export function IncomeItem({ row }: { row: IncomeRow }) {
   const STATUS_TEXT: Record<IncomeStatus, string> = {
     pending: t('income.pending'),
     settled: t('income.settled'),
-    cancelled: t('income.cancelled'),
   }
   const STATUS_CLASS: Record<IncomeStatus, string> = {
     pending: 'text-warning',
     settled: 'text-success',
-    cancelled: 'text-muted-foreground',
   }
 
   const copyOrder = () => {

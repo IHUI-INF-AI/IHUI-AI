@@ -80,6 +80,8 @@
     "toolAudioTranscription": "Transcribe audio",
     "toolVisionAnalyze": "Analyze an image",
     "toolDispatchSubagent": "Dispatch a subagent",
+    "toolInitAgentsMd": "Initialize Agents Doc",
+    "toolTeamTask": "Team Task",
     "toolScheduleTask": "Create a scheduled task",
     "toolBgTaskStatus": "Check background tasks",
     "toolUiDescribe": "Inspect page controls",

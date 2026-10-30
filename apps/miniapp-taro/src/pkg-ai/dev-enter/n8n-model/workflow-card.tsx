@@ -5,23 +5,22 @@
 import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 
-/** 列表行载荷来自 /workflows/n8n(字段可能缺),这里归一成展示形,不凭空造后端新字段。 */
+/**
+ * 列表行载荷来自 /workflows/n8n(字段可能缺),这里归一成展示形,不凭空造后端新字段。
+ * 后端映射面(apps/api miniapp-compat-routes GET /workflows/n8n)只回 id/name/active/updatedAt ——
+ * `calls` 不在契约里(全仓无产出点),端上取 0 会把"没有这个数"渲染成"0 次调用"的假断言,
+ * 故本卡不渲染调用次数(RN 屏同字段同样恒 0,属两端共有的后端口径,不在端内单独造数)。
+ */
 export interface WorkflowCardItem {
   id: string
   name: string
   desc: string
   active: boolean
-  calls: number
   updatedAt: string
 }
 
 function asText(v: unknown): string {
   return typeof v === 'string' ? v : ''
-}
-
-function asCount(v: unknown): number {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
 }
 
 /** 原始行 → 卡片数据(active 是后端唯一可靠状态位,与 RN mapWorkflow 同口径) */
@@ -31,7 +30,6 @@ export function normalizeWorkflow(raw: Record<string, unknown>): WorkflowCardIte
     name: asText(raw.name) || asText(raw.title),
     desc: asText(raw.description) || asText(raw.desc),
     active: raw.active === true,
-    calls: asCount(raw.calls),
     updatedAt: asText(raw.updatedAt) || asText(raw.createTime),
   }
 }
@@ -46,7 +44,8 @@ interface WorkflowCardProps {
 
 /**
  * 列表卡片:对齐 RN N8nModelScreen 的 cardHead(名称 + 状态徽章)/ cardDesc /
- * cardMeta(调用次数 + 更新时间)/ cardActions(启停 + 编辑)四段结构。
+ * cardMeta(更新时间;RN 的调用次数一列因后端不产 calls 而撤,见类型注释)/
+ * cardActions(启停 + 编辑)四段结构。
  */
 export default function WorkflowCard({
   item,
@@ -72,7 +71,6 @@ export default function WorkflowCard({
       </View>
       {item.desc ? <Text className="nm-list-desc text-ellipsis-2">{item.desc}</Text> : null}
       <View className="mt-[20rpx] flex flex-wrap items-center gap-[24rpx] text-[length:22rpx] text-[color:var(--color-text-tertiary)]">
-        <Text>{t('n8nModel.calls', { count: item.calls })}</Text>
         {item.updatedAt ? <Text>{item.updatedAt}</Text> : null}
       </View>
       <View className="mt-[24rpx] flex items-center gap-[20rpx]">
