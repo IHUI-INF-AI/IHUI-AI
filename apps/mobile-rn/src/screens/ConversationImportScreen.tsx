@@ -85,6 +85,9 @@ const ALLOWED_EXTENSIONS: Record<ConversationImportSource, readonly string[]> = 
   codex: ['.jsonl', '.json'],
   cursor: ['.json', '.jsonl', '.vscdb', '.db', '.sqlite'],
   aider: ['.md', '.json', '.jsonl'],
+  // E2 两源只吃解包后的单个 conversations.json / conversation-*.json(importers 解析器口径)
+  chatgpt: ['.json'],
+  claude_ai: ['.json'],
   // 微信导出物是归档包/纯文本,与其余四源的 jsonl/sqlite 家族完全不同
   wechat: ['.zip', '.txt'],
 }
