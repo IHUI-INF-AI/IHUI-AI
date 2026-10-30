@@ -40,7 +40,7 @@ import { execFileSync } from 'node:child_process'
 import { __test__ as parity } from './check-web-rn-screen-parity.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 // 判定台账的路径与读写口径归单源 lib(§0.6):本文件只调它,不自己写一遍路径/解析/归并。
-import { writeVerdictRows } from './lib/cross-end-verdicts.mjs'
+import { indexVerdicts, readVerdicts, writeVerdictRows } from './lib/cross-end-verdicts.mjs'
 // 镜像标记的形态与插入点归单源 lib(§0.6):本文件不自己拼这行字。
 import { hasMirrorMarker, insertMirrorMarker } from './lib/cross-end-mirror-write.mjs'
 // 剥注释的遮罩实现全仓只许一份(§0.6):形状锁要"数代码里的用量"就问它,不自己写正则剥注释。
@@ -381,7 +381,13 @@ const mirrored = new Set()
 for (const p of mp) for (const s of cov.mirroredSpecs(p)) mirrored.add(s)
 const registry = JSON.parse(readFileSync(R(REGISTRY_PATH), 'utf8'))
 const existingPairs = new Set(registry.entries.map((e) => `${e.shared}::${e.miniapp}`))
+// 判定台账已裁「缺页待造(missing)」的屏,不给既有同名路由补声明 —— 人裁的是"另造一页",
+// 不是"这一页就是那一页"。实测(2026-10-30):RankingScreen 是学员积分榜、pkg-ai/ranking 是 AI 工具榜,
+// 只因命名空间都叫 ranking 就被配成一对;配上即假声明(门 237 R1 认它,还原度会把两榜算成同物)。
+const verdictIndex = indexVerdicts(readVerdicts(FACE, ROOT).rows || [])
 const miniappCandidates = []
+// 被裁决台账挡下的配对(缺页待造的屏不认领既有同名页)—— 逐条点名,不静默少报
+const missingVerdictSkips = []
 if (!only || only === 'miniapp') {
   const gaps = shared.filter((s) => !mirrored.has(s.spec))
   for (const g of gaps) {
@@ -429,6 +435,10 @@ if (!only || only === 'miniapp') {
     }
     cands.sort((a, b) => b.score - a.score)
     if (cands.length === 0) continue
+    if (verdictIndex.get(g.spec)?.verdict === 'missing') {
+      missingVerdictSkips.push(`${g.spec} ⇸ ${cands[0].miniapp}`)
+      continue
+    }
     miniappCandidates.push({
       shared: g.spec,
       rn: owners[0],
@@ -549,6 +559,10 @@ if (proposalsArg) {
         }
         if (regPairs.has(`${s.spec}::${page.route}`)) {
           refuse('registry 已有该配对')
+          continue
+        }
+        if (verdictIndex.get(s.spec)?.verdict === 'missing') {
+          refuse('判定台账已裁「缺页待造」⇒ 该屏要的是新造一页,不给既有同名路由补声明(交 land-cross-end-shell-pages)')
           continue
         }
         proposals.miniapp.push({ shared: s.spec, rn: it.rn, miniapp: page.route, file: page.file, evidence: ev })
@@ -878,6 +892,10 @@ if (jsonMode) {
   console.log(`\n① web→RN 可自动登记 ${summary.webRn.length} 条:`)
   for (const c of summary.webRn)
     console.log(`  ${c.web}  →  ${c.rn}  (端点 ${c.commonEps} 条, jac ${c.jac}; 名称 ${c.nameHit.join('+')})`)
+  if (missingVerdictSkips.length > 0)
+    console.log(
+      `\n②′ 被裁决台账挡下 ${missingVerdictSkips.length} 对(该屏已裁「缺页待造」⇒ 交造页器,不认领既有同名页):\n  ${missingVerdictSkips.join('\n  ')}`,
+    )
   console.log(`\n② RN→小程序 可自动声明 ${summary.miniapp.length} 条:`)
   for (const c of summary.miniapp) {
     const why = []

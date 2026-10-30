@@ -5,6 +5,7 @@
 // 会员等级目录(从 index.tsx 拆出:页面已超 250 行,新增块按规矩落同目录子模块)
 import { View, Text } from '@tarojs/components'
 import { useI18n } from '@/i18n'
+import { formatPrice } from '@ihui/shared/utils/format'
 import type { VipLevel } from '@/api'
 
 /**
@@ -62,7 +63,7 @@ export default function LevelsSection({
                     {t('vip.duration', { days: level.durationDays })}
                   </Text>
                   <Text className="text-[length:32rpx] font-bold text-[var(--color-vip-gold-start)]">
-                    ¥ {(level.price / 100).toFixed(2)}
+                    ¥ {formatPrice(level.price)}
                   </Text>
                 </View>
                 {benefitsCount > 0 ? (

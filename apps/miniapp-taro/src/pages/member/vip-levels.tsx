@@ -4,6 +4,7 @@
 
 import { View, Text } from '@tarojs/components'
 import { t, useTt } from '@/i18n'
+import { formatPrice } from '@ihui/shared/utils/format'
 import type { VipLevel } from '@/api'
 
 interface VipLevelsProps {
@@ -12,6 +13,31 @@ interface VipLevelsProps {
   /** 拉取失败时的提示文案;空串 = 正常 */
   error: string
   onRetry: () => void
+}
+
+/**
+ * 在架最低档 —— 母页「开通 VIP」CTA 的价格源(与本页同一支 GET /vip/levels,不另取端点)。
+ * `/vip/levels` 已由 listVipLevels(true) 过滤 status=1,这里再核一次是防在册清单口径变动。
+ * 取不到档位 ⇒ 返回 null,由调用方整块不渲染(拿 0 或写死常量冒充 = 可见错误文案)。
+ */
+export function pickEntryLevel(levels: VipLevel[]): VipLevel | null {
+  return levels
+    .filter((l) => l.status === 1)
+    .reduce<VipLevel | null>((min, l) => (!min || l.price < min.price ? l : min), null)
+}
+
+/**
+ * 时长最长的一档 —— 母页「升级永久 VIP」CTA 的价格源。
+ * 库里没有「永久」标志位,可判定的最近语义是 durationDays 最大(种子 0037:永久会员 36500 天);
+ * 划线原价后端无字段(vip_levels 无 original_price 列)⇒ 不伪造,母页不再展示原价。
+ */
+export function pickPermanentLevel(levels: VipLevel[]): VipLevel | null {
+  return levels
+    .filter((l) => l.status === 1)
+    .reduce<VipLevel | null>(
+      (max, l) => (!max || l.durationDays > max.durationDays ? l : max),
+      null,
+    )
 }
 
 /**
@@ -57,7 +83,7 @@ export default function VipLevels({ levels, error, onRetry }: VipLevelsProps) {
                   {benefitsCount > 0 ? t('vip.benefitsCount', { count: benefitsCount }) : ''}
                 </Text>
                 <Text className="text-[length:36rpx] font-bold text-[var(--color-vip-gold-start)]">
-                  ¥ {(level.price / 100).toFixed(2)}
+                  ¥ {formatPrice(level.price)}
                 </Text>
               </View>
             </View>

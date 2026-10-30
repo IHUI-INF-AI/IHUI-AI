@@ -20,8 +20,9 @@ import {
 } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
+import { formatPrice } from '@ihui/shared/utils/format'
 import ThemeRoot from '@/components/ThemeRoot'
-import VipLevels from './vip-levels'
+import VipLevels, { pickEntryLevel, pickPermanentLevel } from './vip-levels'
 import './index.css'
 
 interface BenefitItem {
@@ -207,6 +208,12 @@ export default function MemberIndexPage() {
       ? tt('vip.daysRemaining', '剩余 {count} 天', { count: remainDays })
       : ''
 
+  // VIP CTA 的价格一律取同页 <VipLevels> 已拉到的 GET /vip/levels 真档位(price 单位为分,公开端点):
+  // 此处曾写死 ¥588 / ¥1288,而库里在册档位是 3990/29900/99000/32400 分(packages/database/drizzle/
+  // 0037_vip_captcha.sql 种子)⇒ 写死价就是可见错误文案。取不到档位时整块不渲染,不拿 0 或常量冒充。
+  const entryLevel = useMemo(() => pickEntryLevel(vipLevels), [vipLevels])
+  const permanentLevel = useMemo(() => pickPermanentLevel(vipLevels), [vipLevels])
+
   // 根据成长值推算当前等级
   const growth = info.growth || 0
   const currentLevelKey =
@@ -391,10 +398,11 @@ export default function MemberIndexPage() {
               <Text className="member-vip-desc">
                 {tt('member.index.openVipDesc', '享受更多特权,提升 AI 体验')}
               </Text>
-              <View className="member-vip-price">
-                <Text className="member-current-price">¥588</Text>
-                <Text className="member-original-price">¥1288</Text>
-              </View>
+              {entryLevel ? (
+                <View className="member-vip-price">
+                  <Text className="member-current-price">¥{formatPrice(entryLevel.price)}</Text>
+                </View>
+              ) : null}
             </View>
             <Button className="member-vip-button" onClick={goToPayment}>
               {tt('vip.purchase', '开通会员')}
@@ -423,10 +431,11 @@ export default function MemberIndexPage() {
               <Text className="member-price-label">
                 {tt('member.index.upgradePermanent', '升级永久 VIP 会员')}
               </Text>
-              <View className="member-price-display">
-                <Text className="member-current-price">¥588</Text>
-                <Text className="member-original-price">¥1288</Text>
-              </View>
+              {permanentLevel ? (
+                <View className="member-price-display">
+                  <Text className="member-current-price">¥{formatPrice(permanentLevel.price)}</Text>
+                </View>
+              ) : null}
             </View>
             <Text className="member-cta-text">
               {tt('member.index.upgradeHint', '您已是 VIP 会员,可升级为永久 VIP')}

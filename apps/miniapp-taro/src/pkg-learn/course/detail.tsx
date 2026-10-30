@@ -34,10 +34,13 @@ import {
 } from './detail-sections'
 
 /**
- * 详情端点(apps/api miniapp-public-fallback-routes 的 toCourseRow)已返回 isFree / signupCount /
- * isEnrolled,端内 Course 类型尚未收敛这三列 —— 按同一份返回投影读取,不在端内造第二份投影。
+ * 详情端点(apps/api miniapp-public-fallback-routes 的 toCourseRow)已返回 isFree / signupCount,
+ * 端内 Course 类型尚未收敛这两列 —— 按同一份返回投影读取,不在端内造第二份投影。
+ * 「已报名」态:本页消费的详情端点不回 isEnrolled 列 —— 仓内唯一出现该键的是另一条
+ * `/course` 列表路由,且服务端写死 false(apps/api user/course-routes.ts:65,恒假桩) ⇒
+ * 只认本次报名成功后的本地状态,不读一个恒假字段。
  */
-type CourseExtra = Course & { isFree?: boolean; signupCount?: number; isEnrolled?: boolean }
+type CourseExtra = Course & { isFree?: boolean; signupCount?: number }
 
 export default function CourseDetail() {
   const router = useRouter()
@@ -198,7 +201,7 @@ export default function CourseDetail() {
   const detail = course as CourseExtra
   /** 免费判定与共享屏同口径:服务端 isFree 为真,或价格不为正 */
   const isFree = detail.isFree === true || (course.price ?? 0) <= 0
-  const isEnrolled = enrolled || detail.isEnrolled === true
+  const isEnrolled = enrolled
   const currentIdx = Math.floor((learningProgress / 100) * (course.outline?.length || 0))
 
   const headerData: CourseHeaderData = {

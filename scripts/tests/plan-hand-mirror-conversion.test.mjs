@@ -281,4 +281,42 @@ test('M19 返回键两端同源:壳交 onBack ∧ 共享屏渲染 <BackChevron> 
     [],
   )
 })
+
+test('拦路账只认 extras 这一张清单面(2026-10-30 立:12 页曾因出路只写 why 而在账上隐形)', () => {
+  const { blockedFrequency, HARDCODED_TEXT_TOKEN, UNLEDGERED_TOKEN } = conv
+  // 同族两页(每页字数不同)必须聚成 2 —— 旧口径从 why 切 ', ' 会得两个唯一 tok、各计 1
+  const a = blockedFrequency([
+    {
+      kind: 'page-only-capability',
+      route: 'a',
+      extras: [HARDCODED_TEXT_TOKEN],
+      why: '这一页带着共享屏/壳没有的能力:硬编码正文 120 字不在该屏消费的键下(转壳会丢内容)',
+    },
+    {
+      kind: 'page-only-capability',
+      route: 'b',
+      extras: [HARDCODED_TEXT_TOKEN],
+      why: '这一页带着共享屏/壳没有的能力:硬编码正文 150 字不在该屏消费的键下(转壳会丢内容)',
+    },
+  ])
+  assert.equal(a.freq.get(HARDCODED_TEXT_TOKEN), 2)
+  assert.deepEqual(a.unledgered, [])
+  // 缺 extras 的出路 ⇒ 不折成"没卡",计入未入账档并逐条点名(§0.3)
+  const b = blockedFrequency([
+    { kind: 'page-only-capability', route: 'c', why: '这一页带着共享屏/壳没有的能力:硬编码正文 300 字' },
+    { kind: 'convertible', route: 'd', extras: [], why: '' },
+  ])
+  assert.equal(b.freq.get(UNLEDGERED_TOKEN), 1)
+  assert.deepEqual(b.unledgered, ['c'])
+  // 摘掉即翻红:硬编码正文那条出路必须自己写 extras
+  const r = conv.judgeConversion({
+    spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+    pageText: `const copy = '${'隐'.repeat(120)}'`,
+    shellText: `import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){return null}`,
+    sharedText: `export function DemoScreen(){ return t('demo.body') }`,
+    messagesText: '{"other":{"note":"x"}}',
+  })
+  assert.equal(r.kind, 'page-only-capability')
+  assert.deepEqual(r.extras, [HARDCODED_TEXT_TOKEN])
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
