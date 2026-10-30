@@ -93,8 +93,15 @@ export default function CourseDetail() {
     Taro.navigateTo({ url: `/pkg-learn/teacher/detail?id=${teacherId}` })
   }, [course])
 
-  const handleSign = useCallback(() => {
-    Taro.showToast({ title: t('course.signSuccess'), icon: 'success' })
+  // 三处原先都只弹"成功"toast、一个请求都不发 ⇒ 用户以为签到/评价/笔记已保存,
+  // 实际什么都没落库(笔记尤其:写完的内容直接丢失)。接上后端真实端点。
+  const handleSign = useCallback(async () => {
+    try {
+      await post('/sign-in', {})
+      Taro.showToast({ title: t('course.signSuccess'), icon: 'success' })
+    } catch {
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+    }
   }, [t])
 
   const handleLessonClick = useCallback(
@@ -111,20 +118,40 @@ export default function CourseDetail() {
   )
 
   const handleSubmitRating = useCallback(
-    (rating: number, _comment: string) => {
-      setShowRating(false)
-      Taro.showToast({ title: t('course.rated', { n: rating }), icon: 'success' })
+    async (rating: number, comment: string) => {
+      const courseId = router.params.id || ''
+      if (!courseId) return
+      try {
+        // 课程页只有一个星级,后端 createRateSchema 按三个分项存 ⇒ 统一填到"内容实用性"
+        // (最接近"这门课好不好"的整体判断),不虚构另外两项。
+        await post(`/learn/${encodeURIComponent(courseId)}/rates`, {
+          content: comment.trim() || undefined,
+          contentUtilityScore: Math.min(5, Math.max(1, Math.round(rating))),
+        })
+        setShowRating(false)
+        Taro.showToast({ title: t('course.rated', { n: rating }), icon: 'success' })
+      } catch {
+        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      }
     },
-    [t],
+    [t, router.params.id],
   )
 
   const handleSaveNote = useCallback(
-    (content: string) => {
-      setNoteContent(content)
-      setShowNote(false)
-      Taro.showToast({ title: t('course.noteSaved'), icon: 'success' })
+    async (content: string) => {
+      const courseId = router.params.id || ''
+      const text = content.trim()
+      if (!courseId || !text) return
+      try {
+        await post(`/edu/courses/${encodeURIComponent(courseId)}/notes`, { content: text })
+        setNoteContent(content)
+        setShowNote(false)
+        Taro.showToast({ title: t('course.noteSaved'), icon: 'success' })
+      } catch {
+        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      }
     },
-    [t],
+    [t, router.params.id],
   )
 
   const handleLessonComplete = useCallback(() => {
