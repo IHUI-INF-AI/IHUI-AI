@@ -16,10 +16,9 @@
 //   不用假数据顶绿。后端把 channel_id 与频道 id 同型(uuid)或提供 uuid 兼容端点后,
 //   可按本文件 git 历史原样接回(键 liveDetail.chat / chatEmpty / chatPlaceholder / chatSend)。
 
-import { View, Text, Input } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import { useI18n } from '@/i18n'
 import type { Live } from '@/api'
-import { useState, useCallback } from 'react'
 
 // ---------------------------------------------------------------------------
 // 详情数据腿投影(供 detail.tsx 使用;拆到本模块同为「单页 < 250 行」)
