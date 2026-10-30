@@ -24,8 +24,13 @@ type PayMethod = 'wechat' | 'alipay' | 'balance'
 interface CouponItem {
   id: string
   title: string
+  /** 本单可折减金额（分）。服务端按与核销同一份算法算出，前端只显示 */
   amount: number
   threshold: number
+  /** 是否本单可用（门槛不足/不适用范围/已过期都会列出但标 false） */
+  usable?: boolean
+  /** 不可用原因（服务端已转成中文） */
+  reason?: string
 }
 
 interface OrderDetailInfo {
@@ -37,6 +42,8 @@ interface OrderDetailInfo {
 interface OrderRow {
   status?: string
   amount?: number
+  originalPrice?: number
+  discountAmount?: number
   targetTitle?: string | null
   createdAt?: string
   expiresAt?: string | null
@@ -95,7 +102,11 @@ export default function PayIndex() {
   const router = useRouter()
 
   const [orderNo, setOrderNo] = useState('')
+  // 应付金额(分)。选券后由 apply-coupon 回填服务端 orders.amount —— 前端不再自己减:
+  // 券的门槛、取整、封顶规则都在服务端,本地减出来的数与实际扣款必然分叉。
   const [amount, setAmount] = useState(0)
+  // 券前原价(分),用于展示"已优惠 N 元"
+  const [originalAmount, setOriginalAmount] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [payMethod, setPayMethod] = useState<PayMethod>('wechat')
   const [balance, setBalance] = useState(0)
@@ -110,8 +121,10 @@ export default function PayIndex() {
 
   const expired = remaining <= 0
   const selectedCoupon = coupons.find((c) => c.id === selectedCouponId)
-  const couponDiscount = selectedCoupon?.amount ?? 0
-  const finalAmount = Math.max(0, amount - couponDiscount)
+  // 应付与优惠都以服务端口径为准:amount 是 orders.amount(已是折后),
+  // couponDiscount 只是"原价 - 应付"的展示差额,不参与任何金额计算。
+  const finalAmount = amount
+  const couponDiscount = Math.max(0, originalAmount - amount)
   const balanceInsufficient = balance < finalAmount
   // G-933 冷启动门控用就绪位（见下方 effect 内的 return 说明）
   const { ready } = useAuthReadyGate()
@@ -123,6 +136,7 @@ export default function PayIndex() {
     // 入口传参单位不统一（订单行是分、课程购买返回的是元），先按分记着，
     // 详情一到就以服务端 orders.amount（分）覆盖 —— 显示与支付都以它为准。
     setAmount(amt)
+    setOriginalAmount(amt)
     if (!no) return
     // G-933：这一支的余额查询需鉴权（miniapp-compat-routes.ts:2247 checkAuth 同一鉴权面），
     // 与 /orders/:no、/coupons/available 三支共用同一个 Promise.all 与同一次状态事务，
@@ -155,6 +169,12 @@ export default function PayIndex() {
       const order = orderRes?.order
       if (order) {
         if (typeof order.amount === 'number' && order.amount > 0) setAmount(order.amount)
+        // 原价基准：有 original_price 用它，否则用「现价 + 已折减」还原存量单（下单时该列落 0）
+        const base =
+          typeof order.originalPrice === 'number' && order.originalPrice > 0
+            ? order.originalPrice
+            : (order.amount ?? 0) + Math.max(0, order.discountAmount ?? 0)
+        if (base > 0) setOriginalAmount(base)
         setOrderDetail({
           goodsName: order.targetTitle ?? undefined,
           createTime: fmtDateTime(order.createdAt),
@@ -187,18 +207,44 @@ export default function PayIndex() {
     setPayMethod(m)
   }
 
+  /**
+   * 选券必须落到订单上：服务端改价 + 核销券，返回的 amount 才是真正要付的钱。
+   * 改前只 setSelectedCouponId，实付金额一分没变（券形同虚设）。
+   */
+  const applyCoupon = async (id: string) => {
+    if (!orderNo) {
+      Taro.showToast({ title: t('pay.orderAbnormal'), icon: 'none' })
+      return
+    }
+    try {
+      const res = await post<{ amount: number; originalPrice: number; discountAmount: number }>(
+        `/orders/${encodeURIComponent(orderNo)}/apply-coupon`,
+        { userCouponId: id || null },
+      )
+      setAmount(res.amount)
+      if (res.originalPrice > 0) setOriginalAmount(res.originalPrice)
+      setSelectedCouponId(id)
+    } catch {
+      // 失败原因已由 unwrapApi 统一 toast（门槛不足/已使用/已过期…），不再叠一条通用文案
+    }
+  }
+
   const onSelectCoupon = () => {
-    if (coupons.length === 0) {
+    // 只列本单可用的券：门槛不足/不适用的券选下去必然报错，列出来只会误导
+    const usable = coupons.filter((c) => c.usable !== false)
+    if (usable.length === 0) {
       Taro.showToast({ title: tt('pay.noCoupon', '暂无可用优惠券'), icon: 'none' })
       return
     }
     const items = [
       { name: tt('pay.couponNone', '不使用优惠券'), id: '' },
-      ...coupons.map((c) => ({ name: `${c.title} (-¥${yuan(c.amount)})`, id: c.id })),
+      ...usable.map((c) => ({ name: `${c.title} (-¥${yuan(c.amount)})`, id: c.id })),
     ]
     Taro.showActionSheet({
       itemList: items.map((i) => i.name),
-      success: (res) => setSelectedCouponId(items[res.tapIndex]?.id ?? ''),
+      success: (res) => {
+        void applyCoupon(items[res.tapIndex]?.id ?? '')
+      },
     })
   }
 
@@ -217,7 +263,18 @@ export default function PayIndex() {
     setSubmitting(true)
     try {
       if (payMethod === 'balance') {
-        await post('/pay/balance', { orderNo })
+        const res = await post<{ paid?: boolean; activated?: boolean; warning?: string }>(
+          '/pay/balance',
+          { orderNo },
+        )
+        // 余额已扣、订单已结清，但权益发放失败：如实告知而不是谎报成功。
+        // 钱已付出不可回滚，所以仍跳结果页（订单确实已支付），只是提示用户联系客服。
+        if (res?.activated === false) {
+          Taro.showToast({
+            title: res.warning || tt('pay.activateDelayed', '权益发放延迟，请联系客服'),
+            icon: 'none',
+          })
+        }
         Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${orderNo}&status=paid` })
         return
       }
@@ -252,8 +309,11 @@ export default function PayIndex() {
         return
       }
       await dispatchPay(res.payInfo, orderNo)
-    } catch {
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+    } catch (err) {
+      // unwrapApi 已 toast 过后端给的具体原因（余额不足 / 订单已超时 / 状态已变更），
+      // 这里再弹一条"操作失败"只会把它盖掉；只有拿不到原因的异常才兜一条通用文案。
+      const msg = err instanceof Error ? err.message : ''
+      if (!msg) Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }
