@@ -21,9 +21,19 @@
 import { Platform } from 'react-native'
 import * as wechatLib from 'react-native-wechat-lib'
 import type { AuthResponse } from 'react-native-wechat-lib'
+import appJson from '../../app.json'
 
-const WECHAT_APP_ID = process.env.EXPO_PUBLIC_WECHAT_APP_ID
-const WECHAT_UNIVERSAL_LINK = process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK
+/**
+ * AppID / Universal Link 取值链:构建期 env 优先,缺失时回退 app.json extra。
+ *
+ * 为什么必须有这条回退:Metro 只内联 `EXPO_PUBLIC_*`,而 CI/EAS 与本地 build 脚本注入的是
+ * 无前缀的 `WX_APP_APPID`。此前 `registerWechat()` 在 env 缺失时直接 `return false`
+ * ⇒ 微信登录静默降级为 Alert 兜底,且症状(「未安装微信」/「开放平台不一致」)完全不像配置问题。
+ * app.json 的 extra 随包走、且与 app.config.js 的兜底同源,是稳定权威源。
+ */
+const WECHAT_APP_ID = process.env.EXPO_PUBLIC_WECHAT_APP_ID || appJson.expo.extra.WX_APP_APPID
+const WECHAT_UNIVERSAL_LINK =
+  process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || appJson.expo.extra.WX_UNIVERSAL_LINK
 
 // 微信 SDK 错误码常量(对齐微信开放平台文档)
 // -2: 用户取消授权(非错误,handleThirdPartyLogin 应静默处理,不弹错误提示)
@@ -65,7 +75,7 @@ export async function isWechatInstalled(): Promise<boolean> {
 
 /**
  * 微信登录能力是否可用(同步检查,供 UI 层快速判断是否走兜底)。
- * 判定条件:① native 平台;② 已配置 EXPO_PUBLIC_WECHAT_APP_ID;③ SDK 已 registerApp 成功。
+ * 判定条件:① native 平台;② 已解析出 AppID(env 或 app.json extra 任一);③ SDK 已 registerApp 成功。
  * 注意:此函数只检查 SDK 是否就绪,不检查用户是否安装微信 App(用 isWechatInstalled 异步检查)。
  */
 export function isWechatAvailable(): boolean {

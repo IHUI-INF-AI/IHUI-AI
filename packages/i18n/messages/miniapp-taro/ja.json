@@ -118,6 +118,8 @@
     "more": "もっと見る",
     "discountAmount": "割引",
     "loadFailed": "読み込みに失敗しました"
+,
+    "operationFailed": "操作に失敗しました"
   },
   "login": {
     "loginSuccess": "ログイン成功",
@@ -5245,6 +5247,8 @@
       "absent": "欠席",
       "leave": "休み"
     }
+,
+    "student": "生徒"
   },
   "eduMgmt": {
     "attendanceTitle": "出席管理",
@@ -7406,6 +7410,8 @@
     "newPassword": "新しいパスワード",
     "language": "言語",
     "theme": "テーマ"
+,
+    "version": "バージョン"
   },
   "liveList": {
     "subtitle": "素晴らしいライブをお見逃しなく",
@@ -7573,5 +7579,35 @@
     "feature": "機能",
     "premium": "プレミアム",
     "title": "会員比較"
+  }
+,
+  "coupon": {
+    "useHint": "商品ページでご利用ください"
+  },
+  "eduChildBills": {
+    "arrears": "未納",
+    "className": "クラス",
+    "paid": "支払済み",
+    "term": "学期",
+    "total": "合計"
+  },
+  "eduChildMeals": {
+    "date": "日付",
+    "dish": "料理",
+    "ingredients": "食材",
+    "mealType": "食事",
+    "nutrition": "栄養"
+  },
+  "eduChildStudyPlans": {
+    "planType": "種類",
+    "range": "期間",
+    "title2": "計画"
+  },
+  "eduSchedule": {
+    "classroom": "教室",
+    "course": "科目",
+    "teacher": "担当",
+    "time": "時間",
+    "weekdayTitle": "曜日"
   }
 }

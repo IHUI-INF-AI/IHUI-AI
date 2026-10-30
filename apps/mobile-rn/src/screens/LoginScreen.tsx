@@ -18,6 +18,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -35,7 +36,9 @@ import {
   loginByWechat,
   sendEmailCode,
   sendSmsCode,
+  verifyTwoFactorLogin,
   type AuthUser,
+  type LoginResult,
 } from '@ihui/api-client'
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { apiFailureToText } from '@ihui/shared/utils'
@@ -314,6 +317,12 @@ type LoginNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'
 type PendingLoginAction =
   'email' | 'phone' | 'password' | 'carrier' | { kind: 'thirdParty'; platform: ThirdPartyPlatform }
 
+/** 登录响应可能携带 2FA 挑战(后端 twoFactorRequired + challengeToken),对齐 web LoginFormContent */
+type LoginResponseWith2fa = LoginResult & {
+  twoFactorRequired?: boolean
+  challengeToken?: string
+}
+
 export function LoginScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
@@ -383,25 +392,76 @@ export function LoginScreen() {
     setLoginHistory(credentialStorage.clearLoginHistory?.() ?? [])
   }, [])
 
+  // ===== 2FA 登录挑战(对齐 web LoginFormContent 的 with2fa) =====
+  // 密码登录命中后端 twoFactorRequired 时,loginApi 会 await 这里返回的 Promise;
+  // 面板提交 TOTP/备用码后 resolve(code),对共享 useLoginForm 完全透明(它只看到最终成功/失败)。
+  const [pending2faVisible, setPending2faVisible] = useState(false)
+  const [twoFactorCode, setTwoFactorCode] = useState('')
+  const [twoFactorErr, setTwoFactorErr] = useState('')
+  const pending2faResolve = useRef<((code: string) => void) | null>(null)
+  const request2faCode = useCallback(
+    (_challengeToken: string) =>
+      new Promise<string>((resolve) => {
+        pending2faResolve.current = resolve
+        setTwoFactorCode('')
+        setTwoFactorErr('')
+        setPending2faVisible(true)
+      }),
+    [],
+  )
+  const submit2fa = useCallback(() => {
+    const v = twoFactorCode.trim()
+    if (v.length < 6) {
+      setTwoFactorErr(t('auth.twoFactorError'))
+      return
+    }
+    setPending2faVisible(false)
+    pending2faResolve.current?.(v)
+    pending2faResolve.current = null
+  }, [twoFactorCode, t])
+  const cancel2fa = useCallback(() => {
+    setPending2faVisible(false)
+    pending2faResolve.current?.('')
+    pending2faResolve.current = null
+  }, [])
+
   // ===== 账号密码登录 + SSO(复用共享 hook) =====
   const form = useLoginForm({
     loginApi: async (account, password): Promise<LoginApiResult> => {
       const res = await loginByAccount(account, password)
-      if (res.success) {
-        const user = res.data.user
-        fullUserRef.current = user
+      if (!res.success) return { success: false, error: res.error }
+      const data = res.data as LoginResponseWith2fa
+      // 2FA 挑战拦截(对齐 web with2fa):收集 TOTP/备用码 → verifyTwoFactorLogin → 最终 token
+      if (data.twoFactorRequired && data.challengeToken) {
+        const code = await request2faCode(data.challengeToken)
+        if (!code) return { success: false, error: t('auth.twoFactorCancelled') }
+        const verified = await verifyTwoFactorLogin(data.challengeToken, code)
+        if (!verified.success) return { success: false, error: verified.error }
+        const vuser = verified.data.user
+        fullUserRef.current = vuser
         return {
           success: true,
-          accessToken: res.data.accessToken,
-          refreshToken: res.data.refreshToken,
+          accessToken: verified.data.accessToken,
+          refreshToken: verified.data.refreshToken,
           user: {
-            id: user.id,
-            nickname: user.nickname ?? user.username ?? '',
-            avatar: user.avatar,
+            id: vuser.id,
+            nickname: vuser.nickname ?? vuser.username ?? '',
+            avatar: vuser.avatar,
           },
         }
       }
-      return { success: false, error: res.error }
+      const user = data.user
+      fullUserRef.current = user
+      return {
+        success: true,
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        user: {
+          id: user.id,
+          nickname: user.nickname ?? user.username ?? '',
+          avatar: user.avatar,
+        },
+      }
     },
     storage: credentialStorage,
     onLoginSuccess: async (accessToken, refreshToken) => {
@@ -1247,6 +1307,63 @@ export function LoginScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+      {/* 2FA 登录面板(对齐 web LoginFormContent 的 TwoFactorPanel):密码登录命中 twoFactorRequired 时弹出,
+          收集 TOTP(6 位)或备用码(AAAA-AAAA) → verifyTwoFactorLogin 完成登录 */}
+      <Modal
+        visible={pending2faVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={cancel2fa}
+        statusBarTranslucent
+      >
+        <Pressable style={styles.agreementModalOverlay} onPress={cancel2fa}>
+          <Pressable style={styles.agreementModalCard} onPress={() => {}}>
+            <View style={styles.agreementModalHeader}>
+              <Text style={styles.agreementModalTitle}>{t('auth.twoFactorTitle')}</Text>
+            </View>
+            <View style={styles.agreementModalBody}>
+              <Text style={styles.agreementModalText}>{t('auth.twoFactorHint')}</Text>
+              <TextInput
+                style={styles.twoFactorInput}
+                value={twoFactorCode}
+                onChangeText={(v) => {
+                  setTwoFactorCode(v)
+                  setTwoFactorErr('')
+                }}
+                placeholder={t('auth.twoFactorPlaceholder')}
+                placeholderTextColor={tokens.text.tertiary}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                autoFocus
+                maxLength={12}
+                returnKeyType="done"
+                onSubmitEditing={submit2fa}
+              />
+              {twoFactorErr ? <Text style={styles.twoFactorErr}>{twoFactorErr}</Text> : null}
+            </View>
+            <View style={styles.agreementModalFooter}>
+              <TouchableOpacity
+                style={styles.agreementModalCancelBtn}
+                onPress={cancel2fa}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={t('auth.twoFactorCancel')}
+              >
+                <Text style={styles.agreementModalCancelText}>{t('auth.twoFactorCancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.agreementModalConfirmBtn}
+                onPress={submit2fa}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={t('auth.twoFactorSubmit')}
+              >
+                <Text style={styles.agreementModalConfirmText}>{t('auth.twoFactorSubmit')}</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
       {/* 非阻塞错误提示(对齐 uniapp uni.showToast,覆盖第三方登录配置缺失/微信未安装等场景) */}
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>
@@ -1401,6 +1518,22 @@ const styles = StyleSheet.create({
   agreementModalConfirmText: {
     fontSize: rpx(32),
     color: tokens.brand.ctaForeground,
+  },
+  // ===== 2FA 登录面板输入框(复用协议弹窗的卡/按钮样式,仅补输入框与错误行) =====
+  twoFactorInput: {
+    height: rpx(88),
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: rnRadius.sm,
+    paddingHorizontal: rpx(20),
+    fontSize: rpx(30),
+    color: tokens.gray.black,
+    backgroundColor: tokens.surface.light,
+  },
+  twoFactorErr: {
+    marginTop: rpx(12),
+    fontSize: rpx(24),
+    color: tokens.danger.DEFAULT,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

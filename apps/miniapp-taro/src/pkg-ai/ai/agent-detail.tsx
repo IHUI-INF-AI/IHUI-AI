@@ -11,9 +11,11 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import type { Agent } from '@ihui/api-client'
 import { useState, useCallback, useMemo } from 'react'
-import { getAgentDetail, getAgentPermission, getAgentList, type AgentPermission } from '@/api'
+import { get, getAgentDetail, getAgentPermission, getAgentList, type AgentPermission } from '@/api'
 import AgentRuntimePanel from '@/components/AgentRuntimePanel'
 import ThemeRoot from '@/components/ThemeRoot'
+import { ErrorState } from '@/components/ScreenStates.taro'
+import AgentDetailMeta from './agent-detail-meta'
 
 /**
  * 本地视图模型(非 api-client Agent 直投):
@@ -186,6 +188,13 @@ type RelatedAgent = Pick<Agent, 'name'> & {
   description?: string
 }
 
+/** GET /agents/:id 原始行里的定价/归属字段(api 层 getAgentDetail 的映射不带出这三项) */
+interface AgentRawPricing {
+  userName?: string | null
+  price?: number
+  isFree?: boolean
+}
+
 /** 记录最近使用的智能体(写入本地存储,用于 agent.tsx 最近使用 Tab) */
 function recordRecentUse(id: string): void {
   try {
@@ -209,6 +218,12 @@ export default function AgentDetailPage() {
   const [agent, setAgent] = useState<AgentDetail | null>(null)
   const [permission, setPermission] = useState<AgentPermission | null>(null)
   const [permLoading, setPermLoading] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [pricing, setPricing] = useState<{
+    creator: string
+    price: number
+    isFree: boolean
+  } | null>(null)
   const [tab, setTab] = useState<DetailTab>('info')
   const [useCount, setUseCount] = useState<number | undefined>(undefined)
   const [category, setCategory] = useState<string>('')
@@ -218,6 +233,7 @@ export default function AgentDetailPage() {
   const load = useCallback(async () => {
     const id = router.params.id
     if (!id) return
+    setLoadFailed(false)
     try {
       const a = await getAgentDetail(id)
       setAgent({
@@ -229,6 +245,19 @@ export default function AgentDetailPage() {
         prologue: a.prologue,
         isVipExclusive: a.isVipExclusive,
       })
+      // 创建者/定价:同一 GET /agents/:id 的原始行里有(userName/price/isFree),api 层映射未带出 ⇒ 单独取一次
+      const rawPricing = await get<AgentRawPricing>(`/agents/${encodeURIComponent(id)}`).catch(
+        () => null,
+      )
+      setPricing(
+        rawPricing
+          ? {
+              creator: typeof rawPricing.userName === 'string' ? rawPricing.userName : '',
+              price: typeof rawPricing.price === 'number' ? rawPricing.price : 0,
+              isFree: Boolean(rawPricing.isFree),
+            }
+          : null,
+      )
       const cat = detectCategory(a.name || '', a.desc || '', CATEGORY_KEYWORDS(tt))
       setCategory(cat)
       try {
@@ -257,7 +286,8 @@ export default function AgentDetailPage() {
       }
     } catch (e) {
       logger.error('ai/agent-detail', tt('aiAgentdetail.q1', '获取Agent详情'), e)
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      // 详情取不到 ⇒ 由 ErrorState 常驻呈现(agentDetail.loadFailed),不只留一次性 toast 后白屏
+      setLoadFailed(true)
     }
     setPermLoading(true)
     try {
@@ -339,6 +369,27 @@ export default function AgentDetailPage() {
   const rating = useMemo(() => estimateRating(useCount), [useCount])
   const ratingDist = useMemo(() => estimateRatingDistribution(useCount), [useCount])
 
+  const onEdit = useCallback(() => {
+    if (!agent) return
+    // 编辑入口对齐共享屏头右侧编辑键;端内编辑页 = pkg-user/agent-edit(壳承载 AgentEditScreen)
+    Taro.navigateTo({ url: `/pkg-user/agent-edit/index?id=${encodeURIComponent(agent.id)}` })
+  }, [agent])
+
+  // 详情取不到 ⇒ 整屏错误态(对齐共享屏 ErrorState:重试重发详情请求)
+  if (loadFailed && !agent) {
+    return (
+      <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx]">
+        <ErrorState
+          message={t('agentDetail.loadFailed')}
+          onRetry={() => {
+            void load()
+          }}
+          retryLabel={t('common.retry')}
+        />
+      </View>
+    )
+  }
+
   return (
     <View className="min-h-screen bg-background">
       <View className="flex bg-card">
@@ -368,6 +419,14 @@ export default function AgentDetailPage() {
 
       {tab === 'info' && (
         <View>
+          {/* 已有旧数据时重取失败:常驻提示(不静默把旧内容当真) */}
+          {agent && loadFailed && (
+            <View className="mx-[20rpx] mt-[24rpx] px-[20rpx] py-[16rpx] rounded-sm bg-[var(--color-warning-amber-light)]">
+              <Text className="text-[length:24rpx] text-[var(--color-warning-amber-text)]">
+                {t('agentDetail.loadFailed')}
+              </Text>
+            </View>
+          )}
           {agent && (
             <View className="mx-[20rpx] my-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
               <View className="flex items-center">
@@ -377,41 +436,35 @@ export default function AgentDetailPage() {
                   mode="aspectFill"
                 />
                 <View className="ml-[24rpx] flex-1">
-                  <View className="flex items-center">
-                    <Text className="text-[length:48rpx] text-foreground font-bold">
-                      {agent.name}
-                    </Text>
-                    {agent.isVipExclusive && (
-                      <Text className="ml-[16rpx] text-[length:20rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)] text-[var(--color-surface-light)] font-semibold">
-                        {t('ai.agentDetail.vipExclusive')}
+                  <View className="flex items-center justify-between">
+                    <View className="flex items-center flex-1">
+                      <Text className="text-[length:48rpx] text-foreground font-bold">
+                        {agent.name}
                       </Text>
-                    )}
+                      {agent.isVipExclusive && (
+                        <Text className="ml-[16rpx] text-[length:20rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)] text-[var(--color-surface-light)] font-semibold">
+                          {t('ai.agentDetail.vipExclusive')}
+                        </Text>
+                      )}
+                    </View>
+                    {/* 编辑入口 — 对齐共享屏头右侧编辑键(后端 PUT 归属校验兜,前端不另判) */}
+                    <Text
+                      className="flex-shrink-0 ml-[16rpx] px-[20rpx] py-[8rpx] text-[length:24rpx] text-foreground border border-border rounded-sm"
+                      onClick={onEdit}
+                    >
+                      {t('agentEdit.entry')}
+                    </Text>
                   </View>
-                  <Text className="block text-[length:32rpx] text-foreground mt-[8rpx]">
-                    {agent.description}
+                  <Text className="block text-[length:22rpx] text-muted-foreground mt-[12rpx]">
+                    {t('agentDetail.description')}
+                  </Text>
+                  <Text className="block text-[length:32rpx] text-foreground mt-[4rpx]">
+                    {agent.description || '—'}
                   </Text>
                   <View className="flex items-center mt-[12rpx]">
                     {categoryLabel && (
                       <Text className="text-[length:28rpx] text-[var(--color-primary)] mr-[16rpx]">
                         {categoryLabel}
-                      </Text>
-                    )}
-                    {rating > 0 && (
-                      <View className="flex items-center mr-[16rpx]">
-                        <LineIcon
-                          name="star-fill"
-                          size={22}
-                          color="var(--color-warning-amber)"
-                          className="mr-[6rpx]"
-                        />
-                        <Text className="text-[length:28rpx] text-[var(--color-warning-amber)]">
-                          {rating.toFixed(1)}
-                        </Text>
-                      </View>
-                    )}
-                    {useCount !== undefined && (
-                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                        {t('ai.agentDetail.useCount', { n: useCount })}
                       </Text>
                     )}
                   </View>
@@ -459,6 +512,15 @@ export default function AgentDetailPage() {
                 </View>
               ) : null}
             </View>
+          )}
+          {agent && (
+            <AgentDetailMeta
+              creator={pricing?.creator ?? ''}
+              uses={useCount ?? 0}
+              rating={rating}
+              isFree={pricing ? pricing.isFree : null}
+              price={pricing ? pricing.price : null}
+            />
           )}
           {agent?.prologue && (
             <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">

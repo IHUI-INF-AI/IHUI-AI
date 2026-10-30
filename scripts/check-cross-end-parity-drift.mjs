@@ -34,6 +34,8 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 裁决台账单源(§0.6):镜像数减少的唯一豁免凭据,判据不在此复算。
+import { readVerdicts } from './lib/cross-end-verdicts.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -108,7 +110,27 @@ function docNumbers(md) {
  *   conversion-available —— 落地器预演读到手写页可转壳承载(机会窗,不是倒退;带齐两步命令)
  * 涨跌只比"本轮有没有变坏",不比绝对值大小,免得把正常增长判成异常。
  */
-function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
+/**
+ * 「上一轮快照之后」写下的 not-applicable 裁决条数 —— 镜像数减少的唯一合法解释。
+ * 基线时刻取不到 / 台账读不出 / 行内 at 解析不出 ⇒ 返回 0 ⇒ 照旧判红:
+ * 不拿"没读到"当豁免(§0.3),也不给"没证据的撤声明"开路(§0.7 豁免必须验过才免)。
+ */
+export function notApplicableSince(rows, sinceIso) {
+  // 台账 at 只有日精度(2026-10-30),而基线快照是当天凌晨的 ISO 时刻 —— 直接比瞬时会把**当天写的裁决**
+  // 判成"早于基线",于是撤假声明永远豁免不掉、哨兵天天报倒退。两边都归一到"日",同日算同期。
+  const dayOf = (v) => {
+    const t = Date.parse(String(v ?? '').trim())
+    return Number.isFinite(t) ? Math.floor(t / 86400000) : NaN
+  }
+  const sinceDay = dayOf(sinceIso)
+  if (!Number.isFinite(sinceDay) || !Array.isArray(rows)) return 0
+  return rows.filter((r) => {
+    const d = dayOf(r?.at)
+    return r && r.verdict === 'not-applicable' && Number.isFinite(d) && d >= sinceDay
+  }).length
+}
+
+function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRows = null }) {
   const cur = {
     mirrored: coverage?.json?.stats?.mirroredShared ?? null,
     registryEntries: coverage?.json?.stats?.registryEntries ?? null,
@@ -137,6 +159,8 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
     conversionRefused: conversion?.json?.refused ?? null,
   }
   const reasons = []
+  // 派生文档滞后档:点名、可追,但不算倒退(不进 state、不进退出码)。
+  const stale = []
   const missing = []
   for (const [k, v] of Object.entries(cur)) if (v === null || v === undefined) missing.push(k)
   if (!coverage.ok) missing.push('coverage')
@@ -211,10 +235,16 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
         '(两步同批:声明件按 HEAD 面派生,只落页会把门 251 C9 打成红)',
     })
 
-  if (prev && Number.isFinite(prev.mirrored) && cur.mirrored < prev.mirrored)
+  // 撤下一条「挂错业务对象的假声明」不是丢镜像。只认**上一轮快照之后**写下的 not-applicable 裁决条数
+  // (台账取不到 / 时刻解析不出 ⇒ 0,照旧判红 —— 豁免必须"验过才免",§0.7)。
+  const lostMirrored = prev && Number.isFinite(prev.mirrored) ? prev.mirrored - cur.mirrored : 0
+  const newlyExempted = prev ? notApplicableSince(verdictRows, prev.at) : 0
+  if (lostMirrored > 0 && lostMirrored > newlyExempted)
     reasons.push({
       dim: 'mirrored-decrease',
-      detail: `镜像声明 ${prev.mirrored} → ${cur.mirrored}(净减 ${prev.mirrored - cur.mirrored})`,
+      detail:
+        `镜像声明 ${prev.mirrored} → ${cur.mirrored}(净减 ${lostMirrored};同期带证据的新裁决 ${newlyExempted} 条,不足以解释这一减)` +
+        '⇒ 查是哪条标记/登记被删(与门 237 R3 同判据);确属撤假声明,就往裁决台账写 not-applicable 并附证据',
     })
 
   // web→RN 那一侧的同一格(此前只有小程序侧有涨跌维):aligned 是"web 有这屏、RN 也有承载"的对数,
@@ -266,13 +296,17 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
   const docMismatch =
     docCur.mirrored !== null && cur.mirrored !== null ? docCur.mirrored !== cur.mirrored : null
   if (docMismatch)
-    reasons.push({
+    // 账本是**纯派生文档**:它滞后不代表三端对齐变坏(对齐本身由上面各维量)。混进 reasons
+    // 的后果是"文档没跟着重生成"被当成倒退寄邮件给机主(§5e-1 可整改性准入:喊人的那一维必须
+    // 是能让人动手修的东西)。这里单独出一档 stale —— 照样逐条点名、照样进 json 与人读面,只是不响警报。
+    stale.push({
       dim: 'doc-stale',
       detail: `账本文档自述 ${docCur.mirrored},现读 ${cur.mirrored} ⇒ 重跑 node scripts/report-rn-miniapp-gaps.mjs --write ${DOC_PATH}`,
     })
 
   return {
     state: reasons.length > 0 ? 'regressed' : 'ok',
+    stale,
     cur,
     prev: prev ?? null,
     reasons,
@@ -377,7 +411,7 @@ function selfTestMain() {
     })(),
   })
   cases.push({
-    name: 'T4 文档数字与现读不等 ⇒ doc-stale(可整改,给出重跑命令)',
+    name: 'T4 文档数字与现读不等 ⇒ doc-stale 单列滞后档(带重跑命令,但不算倒退)',
     pass: (() => {
       const j = judge({
         conversion: mkConv(),
@@ -387,7 +421,11 @@ function selfTestMain() {
         doc: '- 已被小程序显式镜像: **79**',
         prev: { mirrored: 91 },
       })
-      return j.reasons.some((r) => r.dim === 'doc-stale' && /report-rn-miniapp-gaps/.test(r.detail))
+      return (
+        j.state === 'ok' &&
+        j.stale.some((r) => r.dim === 'doc-stale' && /report-rn-miniapp-gaps/.test(r.detail)) &&
+        !j.reasons.some((r) => r.dim === 'doc-stale')
+      )
     })(),
   })
   cases.push({
@@ -522,6 +560,78 @@ function selfTestMain() {
       })
       const d = j.reasons.find((r) => r.dim === 'mirror-declaration-mismatch')?.detail ?? ''
       return d.length > 0 && !d.includes('点名:')
+    })(),
+  })
+  cases.push({
+    name: 'T21 镜像数减少且同期有带证据的新裁决 ⇒ 不判倒退(撤假声明是纠正)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(87, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, at: '2026-10-29T21:02:31.548Z' },
+        verdictRows: ['w', 'x', 'y', 'z'].map((s) => ({
+          shared: `packages/app/src/features/${s}/X${s}Screen.tsx`,
+          verdict: 'not-applicable',
+          at: '2026-10-30',
+        })),
+      })
+      return !j.reasons.some((r) => r.dim === 'mirrored-decrease')
+    })(),
+  })
+  cases.push({
+    name: 'T22 反向对照:同样减少但台账取不到 / 裁决写在基线之前 ⇒ 照旧判红(没读到不等于豁免)',
+    pass: (() => {
+      const base = {
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(87, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, at: '2026-10-29T21:02:31.548Z' },
+      }
+      const noLedger = judge({ ...base, verdictRows: null })
+      const staleVerdict = judge({
+        ...base,
+        verdictRows: [{ shared: 'a/X.tsx', verdict: 'not-applicable', at: '2026-10-28' }],
+      })
+      const badAt = judge({
+        ...base,
+        verdictRows: [{ shared: 'a/X.tsx', verdict: 'not-applicable', at: '不是时刻' }],
+      })
+      const hit = (j) => j.reasons.some((r) => r.dim === 'mirrored-decrease')
+      return hit(noLedger) && hit(staleVerdict) && hit(badAt) && notApplicableSince(null, '2026-10-29') === 0
+    })(),
+  })
+  cases.push({
+    name: 'T23 账本滞后只出 stale 档 ⇒ state 不因此变红;混有实质倒退时仍 regressed 且 stale 照样点名',
+    pass: (() => {
+      const doc = '- 已被小程序显式镜像: **256**'
+      const onlyStale = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc,
+        prev: null,
+      })
+      const withRot = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 1, 0),
+        webParity: mk(91, 0, 0),
+        doc,
+        prev: null,
+      })
+      return (
+        onlyStale.state === 'ok' &&
+        (onlyStale.stale || []).some((r) => r.dim === 'doc-stale') &&
+        !(onlyStale.reasons || []).some((r) => r.dim === 'doc-stale') &&
+        withRot.state === 'regressed' &&
+        (withRot.stale || []).some((r) => r.dim === 'doc-stale')
+      )
     })(),
   })
   cases.push({
@@ -716,7 +826,15 @@ function main() {
     }
   })()
   const prev = readPrev()
-  const result = judge({ coverage, webParity, fidelity, conversion, doc, prev })
+  // 裁决台账取 HEAD 面(与其余各尺同面同轮,§0.4);取不到 ⇒ null ⇒ 豁免数记 0,不折成"全是新裁决"。
+  let verdictRows = null
+  try {
+    const read = readVerdicts('head', ROOT)
+    verdictRows = Array.isArray(read?.rows) ? read.rows : null
+  } catch {
+    verdictRows = null
+  }
+  const result = judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRows })
   result.at = new Date().toISOString()
   if (recordMode) {
     mkdirSync(dirname(STATE_FILE), { recursive: true })
@@ -732,6 +850,7 @@ function main() {
     )
     if (result.why) console.log(`未判定原因:${result.why}`)
     for (const r of result.reasons || []) console.log(`· ${r.dim} —— ${r.detail}`)
+    for (const r of result.stale || []) console.log(`(派生文档滞后,不算倒退不喊人) ${r.dim} —— ${r.detail}`)
   }
   process.exit(result.state === 'regressed' ? 1 : result.state === 'undetermined' ? 2 : 0)
 }
@@ -743,5 +862,5 @@ if (isDirectRun) {
   else main()
 }
 
-export const __test__ = { judge, docNumbers, DOC_PATH }
+export const __test__ = { judge, notApplicableSince, docNumbers, DOC_PATH }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
