@@ -34,6 +34,8 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 裁决台账单源(§0.6):镜像数减少的唯一豁免凭据,判据不在此复算。
+import { readVerdicts } from './lib/cross-end-verdicts.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -108,7 +110,21 @@ function docNumbers(md) {
  *   conversion-available —— 落地器预演读到手写页可转壳承载(机会窗,不是倒退;带齐两步命令)
  * 涨跌只比"本轮有没有变坏",不比绝对值大小,免得把正常增长判成异常。
  */
-function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
+/**
+ * 「上一轮快照之后」写下的 not-applicable 裁决条数 —— 镜像数减少的唯一合法解释。
+ * 基线时刻取不到 / 台账读不出 / 行内 at 解析不出 ⇒ 返回 0 ⇒ 照旧判红:
+ * 不拿"没读到"当豁免(§0.3),也不给"没证据的撤声明"开路(§0.7 豁免必须验过才免)。
+ */
+export function notApplicableSince(rows, sinceIso) {
+  const since = Date.parse(String(sinceIso ?? '').trim())
+  if (!Number.isFinite(since) || !Array.isArray(rows)) return 0
+  return rows.filter((r) => {
+    const at = Date.parse(String(r?.at ?? '').trim())
+    return r && r.verdict === 'not-applicable' && Number.isFinite(at) && at > since
+  }).length
+}
+
+function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRows = null }) {
   const cur = {
     mirrored: coverage?.json?.stats?.mirroredShared ?? null,
     registryEntries: coverage?.json?.stats?.registryEntries ?? null,
@@ -211,10 +227,16 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
         '(两步同批:声明件按 HEAD 面派生,只落页会把门 251 C9 打成红)',
     })
 
-  if (prev && Number.isFinite(prev.mirrored) && cur.mirrored < prev.mirrored)
+  // 撤下一条「挂错业务对象的假声明」不是丢镜像。只认**上一轮快照之后**写下的 not-applicable 裁决条数
+  // (台账取不到 / 时刻解析不出 ⇒ 0,照旧判红 —— 豁免必须"验过才免",§0.7)。
+  const lostMirrored = prev && Number.isFinite(prev.mirrored) ? prev.mirrored - cur.mirrored : 0
+  const newlyExempted = prev ? notApplicableSince(verdictRows, prev.at) : 0
+  if (lostMirrored > 0 && lostMirrored > newlyExempted)
     reasons.push({
       dim: 'mirrored-decrease',
-      detail: `镜像声明 ${prev.mirrored} → ${cur.mirrored}(净减 ${prev.mirrored - cur.mirrored})`,
+      detail:
+        `镜像声明 ${prev.mirrored} → ${cur.mirrored}(净减 ${lostMirrored};同期带证据的新裁决 ${newlyExempted} 条,不足以解释这一减)` +
+        '⇒ 查是哪条标记/登记被删(与门 237 R3 同判据);确属撤假声明,就往裁决台账写 not-applicable 并附证据',
     })
 
   // web→RN 那一侧的同一格(此前只有小程序侧有涨跌维):aligned 是"web 有这屏、RN 也有承载"的对数,
@@ -525,6 +547,49 @@ function selfTestMain() {
     })(),
   })
   cases.push({
+    name: 'T21 镜像数减少且同期有带证据的新裁决 ⇒ 不判倒退(撤假声明是纠正)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(87, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, at: '2026-10-29T21:02:31.548Z' },
+        verdictRows: ['w', 'x', 'y', 'z'].map((s) => ({
+          shared: `packages/app/src/features/${s}/X${s}Screen.tsx`,
+          verdict: 'not-applicable',
+          at: '2026-10-30',
+        })),
+      })
+      return !j.reasons.some((r) => r.dim === 'mirrored-decrease')
+    })(),
+  })
+  cases.push({
+    name: 'T22 反向对照:同样减少但台账取不到 / 裁决写在基线之前 ⇒ 照旧判红(没读到不等于豁免)',
+    pass: (() => {
+      const base = {
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(87, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, at: '2026-10-29T21:02:31.548Z' },
+      }
+      const noLedger = judge({ ...base, verdictRows: null })
+      const staleVerdict = judge({
+        ...base,
+        verdictRows: [{ shared: 'a/X.tsx', verdict: 'not-applicable', at: '2026-10-28' }],
+      })
+      const badAt = judge({
+        ...base,
+        verdictRows: [{ shared: 'a/X.tsx', verdict: 'not-applicable', at: '不是时刻' }],
+      })
+      const hit = (j) => j.reasons.some((r) => r.dim === 'mirrored-decrease')
+      return hit(noLedger) && hit(staleVerdict) && hit(badAt) && notApplicableSince(null, '2026-10-29') === 0
+    })(),
+  })
+  cases.push({
     name: 'T20 端词包缺整块命名空间 ⇒ 出声且带点名(两把尺都看不见这一型,没人喊就是满屏空白)',
     pass: (() => {
       const j = judge({
@@ -716,7 +781,15 @@ function main() {
     }
   })()
   const prev = readPrev()
-  const result = judge({ coverage, webParity, fidelity, conversion, doc, prev })
+  // 裁决台账取 HEAD 面(与其余各尺同面同轮,§0.4);取不到 ⇒ null ⇒ 豁免数记 0,不折成"全是新裁决"。
+  let verdictRows = null
+  try {
+    const read = readVerdicts('head', ROOT)
+    verdictRows = Array.isArray(read?.rows) ? read.rows : null
+  } catch {
+    verdictRows = null
+  }
+  const result = judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRows })
   result.at = new Date().toISOString()
   if (recordMode) {
     mkdirSync(dirname(STATE_FILE), { recursive: true })
@@ -743,5 +816,5 @@ if (isDirectRun) {
   else main()
 }
 
-export const __test__ = { judge, docNumbers, DOC_PATH }
+export const __test__ = { judge, notApplicableSince, docNumbers, DOC_PATH }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
