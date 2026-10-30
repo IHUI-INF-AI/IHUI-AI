@@ -153,6 +153,8 @@ import { backupOrphanCommit, orphanBackupRefName } from './lib/orphan-backup.mjs
 // G-113(2026-10-23):旁路落地不跑钩子 ⇒ 落地后必须自带"复跑受影响判据"(与 object-space-land
 // 头注④同一出口;开工时本器被 G-815913 折叠层在飞持有,那一格如实登记未闭环,本轮补上)。
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
+// 旗标取值的唯一出口(G-322):`--theirs` / `--base` 的"给了旗标就必须有值"判据归单源,本文件不写副本。
+import { requireFlagValue } from './lib/flag-value.mjs'
 import {
   auditPlan,
   malformedLine,
@@ -5182,7 +5184,17 @@ async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
   const apply = argv.includes('--apply')
-  const ti = argv.indexOf('--theirs')
+  // --theirs <sha> 的取值交单源出口(G-322)。旧写法 `argv[i + 1]` 有两型吞值都**静默降级**:
+  //   ① `--theirs` 收尾(无值)⇒ undefined 进 resolveTargets,被读成"调用方没点名" ⇒ 回落到自动
+  //      解析 origin/<branch>,`explicit` 那一维也翻假,于是"本地纯落后"短路把一次显式点名的合并
+  //      报成"无需合并"(与 G-815406 同型的第二次入口);
+  //   ② `--theirs --apply` ⇒ 把 `--apply` 当提交规格喂 git。
+  //   现在两型都 exit 2 并点名"实得的是什么",不再由本器替调用方改动作。
+  const theirsFlag = requireFlagValue(argv, '--theirs', { noun: '提交规格', fallback: '' })
+  if (theirsFlag.error) {
+    console.log(`❌ ${theirsFlag.error}`)
+    process.exit(2)
+  }
   // --take-ours <path>(可重复):仅在"两侧同改且能证明对侧那一版在本树必红"时使用。
   //   它不隐藏任何事:输出会逐条列出,合并提交信息里也带同一份清单(见 msg 拼装处)。
   const takeOurs = new Set()
@@ -5429,9 +5441,17 @@ async function main() {
   // --base <sha>(2026-10-14):显式指定三方归并的基底。仅在远端被强制重写过、merge-base 返回
   //   "被重写前的旧分叉点"(相对新两侧是空基底,炸出大片假人工裁决)时才需要喂 —— 此时真实共同
   //   祖先是被重写前的远端 tip。缺省行为完全不变(仍走 merge-base)。
-  const bi = argv.indexOf('--base')
-  const baseOverride = bi >= 0 && argv[bi + 1] ? argv[bi + 1] : null
-  const t = resolveTargets(ti >= 0 ? argv[ti + 1] : '')
+  //   G-322(本器首害):旧写法 `argv[bi + 1] ? argv[bi + 1] : null` 把"值被吞"折成 null ⇒
+  //   **静默回落 merge-base**,恰好是本文件头注那场"空基底 ⇒ 大片假人工裁决"事故的复现口,
+  //   而调用方看不出自己用错了 base。现在取值交单源:给了 `--base` 就必须有合法值,否则 exit 2;
+  //   "本机取不到该提交"仍由 plan() 判未判定(职责分层不变)。
+  const baseFlag = requireFlagValue(argv, '--base', { noun: '提交对象' })
+  if (baseFlag.error) {
+    console.log(`❌ ${baseFlag.error}`)
+    process.exit(2)
+  }
+  const baseOverride = baseFlag.value
+  const t = resolveTargets(theirsFlag.value)
   if (t.skip) {
     console.log(`[union-converge] ${t.skip} ⇒ 无需合并`)
     process.exit(0)
@@ -5447,7 +5467,7 @@ async function main() {
   // 显式点名了 --theirs 而本地又落后于它:不再打印"无需合并"(G-815406 同族、G-814402 实测的那次
   // 差点吞掉一整个已验证交付),而是**照常归并并说清为什么**。快进确实是更省的动作,但那是对调用方
   // 说的,不该由本器代替他下结论后 exit 0。
-  if (ti >= 0 && String(argv[ti + 1] || '').trim() !== '' && isAncestor(t.head, t.theirs, ROOT))
+  if (String(theirsFlag.value || '').trim() !== '' && isAncestor(t.head, t.theirs, ROOT))
     console.log(
       '[union-converge] 本地落后于所点名的 --theirs ⇒ 这不是"无需合并";按显式目标照常归并' +
         '(要快进请自己跑 git merge --ff-only,本器不替调用方决定动作)',
