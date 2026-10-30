@@ -2,14 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// ⚠️ 桶文件 `@/components` 必须排在 ScrollJumpButton 之前:mini-css-extract 只比 module
-// 次序、不看声明内容,本入口若让 ScrollJumpButton.css 先于桶带出的 PayPopup.css 落地,就与
-// share/index.tsx(桶在前)的相对次序相反 ⇒ 生产构建在 chunk `common` 抛
-// `Error: chunk common [mini-css-extract-plugin] Conflicting order`(票 G-948;同一组判据
-// 的完整推理见 pages/index/index.tsx 桶文件上方注释)。import 排序工具不得把这两行换回去。
-import { FloatBox, EmptyState, PayPopup } from '@/components'
-import { localDayKey } from '@ihui/shared'
-import type { PayInfo } from '@/components'
 import { aizhsUrl } from '@/constants/icon-urls'
 import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import ScrollJumpButton, { pxToTaroRpx, scrollJumpInsetRpx } from '@/components/ScrollJumpButton'
@@ -31,6 +23,8 @@ import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import AgentListPanel from '@/components/AgentListPanel'
 import ThemeRoot from '@/components/ThemeRoot'
+import { FloatBox, EmptyState, PayPopup } from '@/components'
+import type { PayInfo } from '@/components'
 import { requestPayment } from '@/platform/pay'
 import { chooseImages } from '@/utils/upload-image'
 import { getTopBarMetrics } from '@/utils/system-info'
@@ -217,8 +211,7 @@ export default function Community() {
       const rawList = Array.isArray(res?.list) ? res.list : []
       const dateMap = new Map<string, Array<{ id: string | number; title: string; date: string }>>()
       for (const chat of rawList) {
-        // 按日分桶同样走本地时区出口(原来 slice(0,10) 是 UTC 日 ⇒ 与 web 侧差一天)
-        const dateKey = localDayKey(chat.time) ?? tt('ai.agentList.tabRecent', '最近')
+        const dateKey = chat.time ? chat.time.slice(0, 10) : tt('ai.agentList.tabRecent', '最近')
         if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
         dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
       }

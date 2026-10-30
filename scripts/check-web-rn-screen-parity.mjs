@@ -29,6 +29,10 @@
 // 挂提交链 = 恒红门(§12e),与 check-temp-landing / check-dispatch-premise 同列只读尺子。
 import { pathToFileURL } from 'node:url'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
+// 承载体判据单源:与造页器同一条(§0.6)。aligned 指向共享屏时,必须真有 RN 屏渲染它 ——
+// 2026-10-27 实测 3 条在册行(web following / user/follow / edu/dashboard)指向的共享屏
+// 在 RN 端**零渲染方**,却在账本里记"已对齐":那不是对齐,是登记表替代码背书。
+import { rendersSharedIn } from './gen-miniapp-mirror.mjs'
 
 const MAP_PATH = 'scripts/data/web-rn-screen-map.jsonl'
 const WEB_APP_DIR = 'apps/web/app'
@@ -160,7 +164,8 @@ function evaluateMap(webRoutes, map, rnScreens, face) {
   // 共享层有同名屏时 byName 记的是共享层 rel,而登记表写的是端内路径)。
   const rnByRel = new Map()
   for (const s of cov.collectShared(face)) rnByRel.set(s.rel, s)
-  for (const r of cov.collectRn(face)) rnByRel.set(r.file, { rel: r.file, name: r.name })
+  const rnList = cov.collectRn(face)
+  for (const r of rnList) rnByRel.set(r.file, { rel: r.file, name: r.name })
 
   const rot = []
   const aligned = []
@@ -198,6 +203,19 @@ function evaluateMap(webRoutes, map, rnScreens, face) {
         rot.push({ line: row.line, why: `aligned 指向的 RN 屏不存在:${String(row.rn)}` })
         continue
       }
+      // 指向共享屏时:必须真有 RN 屏以 JSX 渲染它。只判"文件存在"会放过「共享屏在、无人渲染」这一型 ——
+      // 本仓把它叫名义对齐:web 路由在 RN 端实际不可达,而账本记为 aligned(2026-10-27 实测 3 条)。
+      if (String(row.rn).startsWith('packages/app/src/features/')) {
+        const symbol = String(row.rn).split('/').pop().replace(/\.tsx$/, '')
+        const rendered = rnList.some((r) => r.file !== row.rn && rendersSharedIn(r.text, symbol))
+        if (!rendered) {
+          rot.push({
+            line: row.line,
+            why: `aligned 指向的共享屏没有任何 RN 屏以 JSX 渲染(名义对齐):${String(row.rn)}`,
+          })
+          continue
+        }
+      }
       aligned.push(row)
       continue
     }
@@ -233,6 +251,8 @@ function evaluateMap(webRoutes, map, rnScreens, face) {
 function run() {
   const webRoutes = collectWebRoutes(FACE)
   const rnScreens = collectRnScreens(FACE)
+  // gap 候选的工作形态要问"有没有 RN 屏真的渲染它" ⇒ 取一次正文(同面,§0.4)
+  const rnTexts = cov.collectRn(FACE)
   if (webRoutes.length === 0 || rnScreens.length === 0) {
     console.error(
       `❌ 未判定:取不到被审面(web 路由 ${webRoutes.length} / RN 屏 ${rnScreens.length}),不记绿也不冒红`,
@@ -276,6 +296,24 @@ function run() {
         web: r.route,
         candidates: suggestCandidates(r.route, rnScreens, topN),
       })),
+    // gap 行的同名候选(只提示,不改判定):72 条「RN 零承载」里混着一批"RN 以另一种形态内联承载"
+    // (实测 news/category/[id] 的分类切换就在 NewsScreen 内联),逐条翻代码太贵 ⇒ 先把候选排成队列。
+    // 每条候选再标工作形态(决定成本,也是"最大化减少开发"的判据):
+    //   host-only  = 共享屏已在、没有任何 RN 屏渲染它 ⇒ 只补一个薄宿主(零 UI 开发)
+    //   covered    = 共享屏已在且已有 RN 屏渲染它 ⇒ 疑似"已被承载",优先做语义核对(可能是记账错)
+    //   other      = 不在共享层或形态不明
+    gapCandidates: judgedGap
+      .map((r) => ({
+        web: r.web,
+        candidates: suggestCandidates(r.web, rnScreens, topN).map((c) => {
+          const isShared = String(c.rel).startsWith('packages/app/src/features/')
+          const hasRenderer =
+            isShared && rnTexts.some((t) => t.file !== c.rel && rendersSharedIn(t.text, c.name))
+          const workShape = !isShared ? 'other' : hasRenderer ? 'covered' : 'host-only'
+          return { ...c, workShape }
+        }),
+      }))
+      .filter((x) => x.candidates.length > 0),
   }
   if (jsonMode) {
     console.log(JSON.stringify(json, null, 2))
@@ -298,6 +336,22 @@ function run() {
   for (const s of json.suggestions) {
     const c = s.candidates.map((x) => `${x.exact ? '[同名] ' : ''}${x.name}(${x.hit.join('+')})`).join(' | ') || '—'
     log(`  ${s.web}  →  ${c}`)
+  }
+  if (json.gapCandidates.length > 0) {
+    const shapes = json.gapCandidates.flatMap((g) => g.candidates.map((c) => c.workShape))
+    const nHost = shapes.filter((s) => s === 'host-only').length
+    const nCovered = shapes.filter((s) => s === 'covered').length
+    log('')
+    log(
+      `gap 待复核(同名候选,只提示不改判定): ${json.gapCandidates.length}/${json.judgedGap} 条` +
+        ` · 候选形态 host-only ${nHost} / covered ${nCovered}`,
+    )
+    for (const g of json.gapCandidates.slice(0, fullMode ? undefined : 20)) {
+      const c = g.candidates
+        .map((x) => `${x.workShape === 'host-only' ? '[宿主] ' : x.workShape === 'covered' ? '[已渲染] ' : ''}${x.exact ? '[同名] ' : ''}${x.name}(${x.rel})`)
+        .join(' | ')
+      log(`  ${g.web}  →  ${c}`)
+    }
   }
   if (rot.length > 0) {
     log('')

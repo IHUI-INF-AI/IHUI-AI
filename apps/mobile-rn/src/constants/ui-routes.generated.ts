@@ -8,12 +8,21 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
+<<<<<<< HEAD
 // sourceCommit: fe86578df95e3e1f9f850148fa95a1f2631e4681
 // inputsSha256: 41e02c6aa53692c7212fcb1da12be024571b32b2dc36e4d33db0d8c2d4074ecd
 // input: apps/mobile-rn/src/navigation/RootNavigator.tsx f0d0eea4b1c28acd95ad49eef5d049f20c0d3080c1a5ebd2977d08fa5df427d5
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
 // generatedAt: 2026-10-27T05:04:23.830Z
+=======
+// sourceCommit: 013a9112e249548408d48910b872f97e3342794f
+// inputsSha256: d31cb1b6659f4c26597f9edd2672e7c7087bf6dff9cb0e824a1334301969fdfb
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 98b2ff8a1a1db2d1cb96c822d8b2eb4b7b5d8487f811fc728dbf38bb3170de1e
+// input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
+// skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
+// generatedAt: 2026-10-27T03:08:27.688Z
+>>>>>>> 403855087d0051ac69397b69698574351ff8233c
 // IHUI-GEN-PIN-END
 
 

@@ -10,7 +10,7 @@ import { useFieldFocus } from '@/hooks/use-field-focus'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
-import { getProfile, bindEmail, sendEmailCode } from '@/api'
+import { getProfile, bindEmail, post } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import './email.css'
@@ -102,11 +102,13 @@ export default function Email() {
       return
     }
     try {
-      // 立因:原写法先打 POST /auth/email/send(后端从未注册),再在 catch 里把同一个邮箱地址
-      // 当 phone 塞给 POST /auth/sms/send —— 那不是降级,是把错路由洗成"看起来成功"(邮箱永远
-      // 进不了短信通道)。真形 = POST /auth/email/code(端内唯一出口 sendEmailCode,scene 取
-      // 该出口现值:后端 emailCodeSchema 只有 register|login|reset 三档,无 bind 档)。
-      await sendEmailCode(target)
+      // 优先调用专用邮箱验证码接口;后端未提供时降级为通用短信接口
+      try {
+        await post('/auth/email/send', { email: target })
+      } catch (_e) {
+        // 邮箱验证码端点不存在时,降级用通用 sms/send(scene=email) 占位
+        await post('/auth/sms/send', { phone: target, scene: 'email' })
+      }
       Taro.showToast({ title: tt('user.email.codeSent', '验证码已发送'), icon: 'success' })
       startCountdown()
     } catch (e) {

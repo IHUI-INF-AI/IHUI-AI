@@ -47,7 +47,6 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = join(HERE, '..', 'check-api-routes.mjs')
-const SRC = readFileSync(SCRIPT, 'utf8')
 // 方法推导判据 2026-10-24 起搬到 lib 单源(§0.6);源码锁跟随判据本体,
 // 不再锁"门体里有没有第二份副本" —— 门体只剩 import。
 const LIB = readFileSync(join(HERE, '..', 'lib', 'api-route-method-infer.mjs'), 'utf8')

@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { Fragment, useMemo } from 'react'
 import type { ReactNode } from 'react'
@@ -168,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     pressed: { opacity: 0.85 },
-    headRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    headRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
     iconBox: {
       width: 48,
       height: 48,
@@ -178,32 +178,32 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       overflow: 'hidden',
     },
-    iconEmoji: { fontSize: 24 },
+    iconEmoji: { fontSize: rnType.display.size },
     iconImg: { width: 48, height: 48, borderRadius: rnRadius.xl },
-    meta: { flex: 1, gap: 4 },
-    name: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    description: { fontSize: 14, color: tk.text.secondary },
+    meta: { flex: 1, gap: rnSpacing.xs },
+    name: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
+    description: { fontSize: rnType.body.size, color: tk.text.secondary },
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     tag: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadius.md,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
     },
-    tagText: { fontSize: 11, color: tk.text.secondary },
-    footerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
-    footerText: { fontSize: 11, color: tk.text.tertiary },
-    ratingText: { fontSize: 11, color: tk.warning.DEFAULT, fontWeight: '600' },
+    tagText: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    footerRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md, flexWrap: 'wrap' },
+    footerText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    ratingText: { fontSize: rnType.caption.size, color: tk.warning.DEFAULT, fontWeight: '600' },
     footerSpacer: { flex: 1, minWidth: 8 },
-    price: { fontSize: 16, fontWeight: '700', color: tk.danger.bright },
+    price: { fontSize: rnType.title.size, fontWeight: '700', color: tk.danger.bright },
     freeTag: {
       backgroundColor: FREE_TINT,
       borderRadius: rnRadius.md,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
     },
-    freeTagText: { fontSize: 11, fontWeight: '700', color: tk.success.DEFAULT },
-    footer: { marginTop: 8 },
+    freeTagText: { fontSize: rnType.caption.size, fontWeight: '700', color: tk.success.DEFAULT },
+    footer: { marginTop: rnSpacing.sm },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -31,10 +31,15 @@
  *   node scripts/check-cross-end-screen-coverage.mjs --self-test
  */
 
-import { existsSync, readdirSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import { execFileSync } from 'node:child_process'
+import { catBatch } from './lib/face-reader.mjs'
+import { shellRefsOf, shellTargetRel } from './lib/rn-shell-refs.mjs'
+// 判决台账单源(§0.6):造页器已按它拒造「不承载」屏,覆盖尺也必须按它分桶 ——
+// 否则那几枚永远被读成"未判定(没人验过)",把"验过且结论是不承载"混进"没人验过"里。
+import { parseVerdictRows, VERDICTS_PATH } from './lib/cross-end-verdicts.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = join(HERE, '..')
@@ -68,8 +73,7 @@ const FACE_LABEL = {
   worktree: '工作树(磁盘,人工逃生舱)',
 }
 
-/** 当前面上的文件清单(仓库相对路径,正斜杠)。face 除三档外可传任意 git 可解析 ref
- *  (还原度门的 CI 问责腿 --base=<ref> 用;'head' 仍映射 HEAD,三档行为一字不变)。 */
+/** 当前面上的文件清单(仓库相对路径,正斜杠) */
 function faceList(face, dirPrefix) {
   if (face === 'worktree') {
     const base = R(dirPrefix)
@@ -81,9 +85,13 @@ function faceList(face, dirPrefix) {
   const args =
     face === 'staged'
       ? ['ls-files', '-c', '--', dirPrefix]
-      : ['ls-tree', '-r', '--name-only', face === 'head' ? 'HEAD' : face, '--', dirPrefix]
+      : ['ls-tree', '-r', '--name-only', 'HEAD', '--', dirPrefix]
   try {
-    return gitRaw(args, ROOT, { maxBuffer: 64 * 1024 * 1024 })
+    return execFileSync('git', ['-C', ROOT, ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: 64 * 1024 * 1024,
+    })
       .split('\n')
       .map((s) => s.trim().replace(/\\/g, '/'))
       .filter(Boolean)
@@ -93,9 +101,32 @@ function faceList(face, dirPrefix) {
   }
 }
 
+/** 同面批量预取缓存:逐文件 `git show` 在 Windows 上每次约 0.2~0.4s,~500 个屏要跑 2~3 分钟,
+ * 尺子慢到没人愿意日常跑就等于没有。catBatch 一次取完;取不到(抛)就**不填缓存**,
+ * 回落到原逐文件路径 —— 宁可慢,也不把"没取到"记成 null 冒充"该面没有这份件"。
+ * key 带面前缀(staged/head 同路径不同 blob,绝不能串)。 */
+const FACE_CACHE = new Map()
+function prefetchFace(face, rels) {
+  if (face === 'worktree' || rels.length === 0) return
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const keys = [...new Set(rels.map((r) => r.replace(/\\/g, '/')))]
+  const missing = keys.filter((k) => !FACE_CACHE.has(`${face}:${k}`))
+  if (missing.length === 0) return
+  let got
+  try {
+    got = catBatch(ROOT, missing.map((k) => prefix + k), { maxBuffer: 1 << 28 })
+  } catch {
+    return
+  }
+  for (const k of missing) {
+    if (got.has(prefix + k)) FACE_CACHE.set(`${face}:${k}`, got.get(prefix + k))
+  }
+}
+
 /** 当前面上的文件内容;读不到 = null(该面没有这份件,不回落另一个面) */
 function faceRead(face, rel) {
   const key = rel.replace(/\\/g, '/')
+<<<<<<< HEAD
   const ck = faceCacheKey(face, key)
   if (faceCache.has(ck)) return faceCache.get(ck)
   // 正文一律经取材层(§0.4 / 门 118):磁盘面走 readWorktreeFile,git 两档走 catBatch ——
@@ -105,16 +136,32 @@ function faceRead(face, rel) {
       const v = readWorktreeFile(ROOT, key)
       faceCache.set(ck, v)
       return v
+=======
+  if (face === 'worktree') {
+    try {
+      return readFileSync(R(key), 'utf8')
+>>>>>>> 403855087d0051ac69397b69698574351ff8233c
     } catch {
       faceCache.set(ck, null)
       return null
     }
   }
+<<<<<<< HEAD
   const spec = faceSpec(face, key)
   try {
     const v = catBatch(ROOT, [spec], { maxBuffer: 64 * 1024 * 1024 }).get(spec) ?? null
     faceCache.set(ck, v)
     return v
+=======
+  if (FACE_CACHE.has(`${face}:${key}`)) return FACE_CACHE.get(`${face}:${key}`)
+  const spec = face === 'staged' ? `:${key}` : `HEAD:${key}`
+  try {
+    return execFileSync('git', ['-C', ROOT, 'show', spec], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: 64 * 1024 * 1024,
+    })
+>>>>>>> 403855087d0051ac69397b69698574351ff8233c
   } catch {
     faceCache.set(ck, null)
     return null
@@ -196,6 +243,7 @@ function collectShared(face = FACE) {
 /** RN 屏:apps/mobile-rn/src/screens/*.tsx(按面读正文) */
 function collectRn(face = FACE) {
   const files = faceList(face, RN_SCREENS).filter((rel) => rel.endsWith('.tsx'))
+<<<<<<< HEAD
   // 一次批量取回本面全部 RN 屏正文(旧实现逐个起 git 子进程 ⇒ 上千次 spawn,门跑不完)
   prefetchFace(face, files)
   return files.map((rel) => ({
@@ -204,6 +252,12 @@ function collectRn(face = FACE) {
       .split('/')
       .pop()
       .replace(/\.tsx$/, ''),
+=======
+  prefetchFace(face, files)
+  return files.map((rel) => ({
+    file: rel,
+    name: rel.split('/').pop().replace(/\.tsx$/, ''),
+>>>>>>> 403855087d0051ac69397b69698574351ff8233c
     text: faceRead(face, rel),
   }))
 }
@@ -241,6 +295,11 @@ function collectMiniapp(face = FACE) {
   }
   prefetchFace(face, [...candAll, ...sideAll])
   const out = []
+  const candsAll = pages.flatMap((p) => [`${MP_SRC}/${p}.tsx`, `${MP_SRC}/${p}/index.tsx`, `${MP_SRC}/${p}/index.jsx`])
+  prefetchFace(face, [
+    ...candsAll,
+    ...candsAll.flatMap((c) => [c.replace(/\.tsx$/, '.css'), c.replace(/[^/]*$/, 'index.css')]),
+  ])
   for (const p of pages) {
     const cands = [`${MP_SRC}/${p}.tsx`, `${MP_SRC}/${p}/index.tsx`, `${MP_SRC}/${p}/index.jsx`]
     const hit = cands.find((c) => faceRead(face, c) !== null)
@@ -278,7 +337,10 @@ function rnConsumes(rn, sharedName) {
  */
 function gitGrep(pattern, pathspec) {
   try {
-    return gitRaw(['grep', '-n', '-E', pattern, 'HEAD', '--', pathspec], ROOT)
+    return execFileSync('git', ['-C', ROOT, 'grep', '-n', '-E', pattern, 'HEAD', '--', pathspec], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
   } catch {
     return ''
   }
@@ -290,17 +352,52 @@ function gitGrep(pattern, pathspec) {
  * 曾因 git grep 扫整个 src(把未注册页/组件里的引用也算进来)而当前面只扫注册页
  * ⇒ 未注册页上的标记被读成「本次被删」,当场造出假红(变异测试抓到)。
  */
+/**
+ * 未镜像集按判决台账分桶:台账判过「不承载」的进 judgedNotApplicable,其余仍算未判定。
+ * 纯函数 ⇒ --self-test 能直接打(桶口径改错时门槛低到不会漏测)。
+ */
+export function splitUnmirrored(unmirrored, notApplicable) {
+  const na = notApplicable instanceof Set ? notApplicable : new Set(notApplicable || [])
+  const judgedNotApplicable = []
+  const undetermined = []
+  for (const spec of unmirrored) (na.has(spec) ? judgedNotApplicable : undetermined).push(spec)
+  return { judgedNotApplicable, undetermined }
+}
+
 function headMirroredSpecs(allowedFiles) {
   const out = new Set()
   const allow = new Set(allowedFiles || [])
+<<<<<<< HEAD
   for (const line of gitGrep(
     'packages/app/src/features/[A-Za-z0-9_-]+/[A-Za-z0-9_]+Screen',
     MP_SRC,
   ).split('\n')) {
+=======
+  const hitByFile = new Map()
+  for (const line of gitGrep('packages/app/src/features/[A-Za-z0-9_-]+/[A-Za-z0-9_]+Screen', MP_SRC).split('\n')) {
+>>>>>>> 403855087d0051ac69397b69698574351ff8233c
     const pm = line.match(/^HEAD:([^:]+):\d+:/)
     if (!pm || !allow.has(pm[1])) continue
     const m = line.match(/(packages\/app\/src\/features\/[A-Za-z0-9_-]+\/[A-Za-z0-9_]+Screen\.tsx)/)
-    if (m) out.add(m[1])
+    if (m) hitByFile.set(pm[1], (hitByFile.get(pm[1]) ?? new Set()).add(m[1]))
+  }
+  // 一次批取这些页的正文(逐枚 faceRead 会把本门拖成超时 = 等于没装车);只为判"引了不存在的壳"
+  const texts = new Map()
+  const rels = [...hitByFile.keys()]
+  for (let i = 0; i < rels.length; i += 300) {
+    const chunk = rels.slice(i, i + 300)
+    const got = catBatch(ROOT, chunk.map((r) => `HEAD:${r}`))
+    for (const r of chunk) texts.set(r, String(got.get(`HEAD:${r}`) ?? ''))
+  }
+  const shells = new Set()
+  for (const t of texts.values()) for (const n of shellRefsOf(t)) shells.add(n)
+  const shellSpecs = [...shells].map((n) => `HEAD:${shellTargetRel(n)}`)
+  const shellGot = shellSpecs.length ? catBatch(ROOT, shellSpecs) : new Map()
+  const missingShell = new Set([...shells].filter((n) => shellGot.get(`HEAD:${shellTargetRel(n)}`) == null))
+  for (const [file, specs] of hitByFile) {
+    const text = texts.get(file) ?? ''
+    if ([...shellRefsOf(text)].some((n) => missingShell.has(n))) continue // 编不过的页不算已镜像
+    for (const sp of specs) out.add(sp)
   }
   return out
 }
@@ -349,14 +446,34 @@ function run() {
   for (const s of shared) if (rn.some((r) => rnConsumes(r, s.name))) rnConsumed.add(s.spec)
 
   // --- 小程序显式镜像 ---
+  // 引了不存在壳的页在真产物里编不过 ⇒ 不得计入"已镜像"(与守门 251 C5 同一把尺子:lib/rn-shell-refs)。
+  // 立因:造页器曾把"有 RN 屏 import 了这张共享屏"当成"同名 RN 壳存在",产出 2 枚 dangling 页,
+  // 而标记行让覆盖率账面看起来是涨的 —— 账面绿、产物坏,正是本尺最不该复制的那种失效。
+  const danglingPages = new Set(
+    mp
+      .filter((p) => {
+        const refs = shellRefsOf(p.text)
+        return refs.size > 0 && [...refs].some((n) => faceRead(FACE, shellTargetRel(n)) === null)
+      })
+      .map((p) => p.file),
+  )
   const mirrored = new Map() // spec -> [route]
   for (const s of shared) {
+<<<<<<< HEAD
     for (const p of mp)
       if (mirroredSpecs(p).has(s.spec)) {
         if (!mirrored.has(s.spec)) mirrored.set(s.spec, [])
         mirrored.get(s.spec).push(p.route)
       }
+=======
+    for (const p of mp) if (!danglingPages.has(p.file) && mirroredSpecs(p).has(s.spec)) {
+      if (!mirrored.has(s.spec)) mirrored.set(s.spec, [])
+      mirrored.get(s.spec).push(p.route)
+    }
+>>>>>>> 403855087d0051ac69397b69698574351ff8233c
   }
+  if (danglingPages.size > 0)
+    log(`⚠️ 排除出镜像计数(壳不存在,页编不过):${[...danglingPages].join(', ')} —— 守门 251 C5 同源判据`)
 
   // --- R1:登记表真实性 ---
   const r1Red = []
@@ -402,6 +519,21 @@ function run() {
   const lostMirrored = [...headMirroredSpecs(anchorWidth)].filter((x) => !nowMirrored.includes(x))
   const lostDelegated = [...headDelegatedRn()].filter((x) => !nowDelegated.includes(x))
 
+  // 已判「不承载」的屏(台账里 verdict=not-applicable)单列:它们不是"没人验过",也不该算缺口。
+  // 台账取不到 ⇒ 一个都不扣(失效方向恒为"多留一个未判定",绝不把没读过的东西当判过,§0.3)。
+  const verdictText = faceRead(FACE, VERDICTS_PATH)
+  const notApplicable = new Set()
+  let verdictBad = 0
+  if (typeof verdictText === 'string') {
+    const parsed = parseVerdictRows(verdictText)
+    verdictBad = parsed.bad.length
+    for (const r of parsed.rows) {
+      if (r.verdict === 'not-applicable' && typeof r.shared === 'string') notApplicable.add(r.shared)
+    }
+  }
+  const unmirrored = shared.filter((s) => !mirrored.has(s.spec)).map((s) => s.spec)
+  const { judgedNotApplicable, undetermined } = splitUnmirrored(unmirrored, notApplicable)
+
   const stats = {
     face: FACE,
     faceLabel: FACE_LABEL[FACE],
@@ -416,7 +548,9 @@ function run() {
     mirroredShared: nowMirrored.length,
     mirroredRatio: shared.length ? +(nowMirrored.length / shared.length).toFixed(4) : 0,
     registryEntries: (registry.entries || []).length,
-    undeterminedMiniapp: shared.length - nowMirrored.length - r1Red.length,
+    judgedNotApplicable: judgedNotApplicable.length,
+    verdictBadRows: verdictBad,
+    undeterminedMiniapp: undetermined.length,
   }
 
   const red = []
@@ -425,6 +559,7 @@ function run() {
   for (const x of lostDelegated) red.push({ rule: 'R4', why: `RN 屏不再委托共享层: ${x}` })
 
   if (jsonMode) {
+<<<<<<< HEAD
     console.log(
       JSON.stringify(
         {
@@ -437,6 +572,9 @@ function run() {
         2,
       ),
     )
+=======
+    console.log(JSON.stringify({ stats, red, mirrored: nowMirrored, gaps: shared.filter((s) => !mirrored.has(s.spec)).map((s) => s.spec), judgedNotApplicable, undetermined }, null, 2))
+>>>>>>> 403855087d0051ac69397b69698574351ff8233c
   } else {
     log(`判定面                  : ${stats.faceLabel}`)
     log(`共享屏(真相源)          : ${stats.sharedTotal}`)
@@ -448,7 +586,9 @@ function run() {
     )
     log(`共享屏被 RN 消费        : ${stats.rnConsumedShared}/${stats.sharedTotal}`)
     log(`共享屏被小程序显式镜像  : ${stats.mirroredShared}/${stats.sharedTotal}`)
+    log(`已判不承载(判决台账)    : ${stats.judgedNotApplicable}(验过、结论是不该由小程序承载;不算缺口)`)
     log(`未判定(无标记,不算缺口): ${stats.undeterminedMiniapp}`)
+    if (stats.verdictBadRows > 0) log(`⚠ 判决台账坏行 ${stats.verdictBadRows} 条(读不出来 ≠ 没判过)`)
     log(`登记表条目              : ${stats.registryEntries}`)
     if (red.length) {
       log('')
@@ -499,11 +639,32 @@ function selfTestFn() {
   const hm = headMirroredSpecs(mp.map((p) => p.file).filter(Boolean))
   cases.push({ name: 'A9 棘轮锚点=HEAD 面:已镜像集合可算且非空', pass: hm.size > 0, got: hm.size })
   const hd = headDelegatedRn()
+<<<<<<< HEAD
   cases.push({
     name: 'A10 棘轮锚点=HEAD 面:RN 下沉集合可算且非空',
     pass: hd.size > 0,
     got: hd.size,
   })
+=======
+  cases.push({ name: 'A10 棘轮锚点=HEAD 面:RN 下沉集合可算且非空', pass: hd.size > 0, got: hd.size })
+  // A16 判决台账分桶:判过「不承载」的不许混进未判定;台账取不到时一条都不扣(失效方向恒为多留)
+  {
+    const r1 = splitUnmirrored(['a', 'b', 'c'], new Set(['b']))
+    const r2 = splitUnmirrored(['a', 'b'], new Set())
+    const r3 = splitUnmirrored(['a'], null)
+    cases.push({
+      name: 'A16 未镜像集分桶:台账判不承载的进单列,其余仍未判定;台账空则一条不扣',
+      pass:
+        r1.judgedNotApplicable.length === 1 &&
+        r1.judgedNotApplicable[0] === 'b' &&
+        r1.undetermined.join(',') === 'a,c' &&
+        r2.judgedNotApplicable.length === 0 &&
+        r2.undetermined.length === 2 &&
+        r3.undetermined.length === 1,
+      got: `${r1.judgedNotApplicable.length}/${r1.undetermined.length} ${r2.judgedNotApplicable.length}/${r2.undetermined.length} ${r3.undetermined.length}`,
+    })
+  }
+>>>>>>> 403855087d0051ac69397b69698574351ff8233c
   // 取材面纪律(§0.4)的三条:读不到就是 null(不许回落另一个面)、列举与读取同面、
   // 在册页若在某一面上有文件,那一面必须真读得出内容(跨面回落会在这里当场露形)。
   cases.push({
@@ -551,6 +712,7 @@ function selfTestFn() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 /** §22c:判据单一出口 —— 取证测试 import 这份,禁止在测试里另抄一份面读取器 */
+<<<<<<< HEAD
 export const __test__ = {
   faceRead,
   faceList,
@@ -564,6 +726,9 @@ export const __test__ = {
   FACE,
   MARK_RE,
 }
+=======
+export const __test__ = { faceRead, splitUnmirrored, faceList, collectShared, collectRn, collectMiniapp, mirroredSpecs, rnConsumes, headMirroredSpecs, headDelegatedRn, FACE, MARK_RE }
+>>>>>>> 403855087d0051ac69397b69698574351ff8233c
 
 if (isDirectRun) {
   if (selfTest) process.exit(selfTestFn())

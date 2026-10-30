@@ -82,7 +82,7 @@ export const TENCENT_MARKETING_TEMPLATE_ENV_KEYS: Record<SmsMarketingTemplateKey
 
 /** 国内号码补 `+86`。已有 `+` 的原样保留(国际号码由调用方负责);
  *  `0086` 是国际字冠写法,只剥前面的 `00`、保留 `86` —— 连国家码一起削会发成一个不存在的号码。 */
-function toTencentPhone(phone: string): string {
+export function toTencentPhone(phone: string): string {
   const t = phone.trim()
   if (t.startsWith('+')) return t
   if (t.startsWith('0086')) return `+${t.slice(2)}`
@@ -100,7 +100,7 @@ export function isTencentSmsConfigured(): boolean {
 }
 
 /** 按场景取模板 ID;该场景没单独配 ⇒ 回落主模板。空串按未配处理。 */
-function pickTencentTemplateId(scene?: SmsScene): string | undefined {
+export function pickTencentTemplateId(scene?: SmsScene): string | undefined {
   const scoped = scene ? env[TENCENT_SCENE_TEMPLATE_ENV_KEYS[scene]] : undefined
   return scoped || env.TENCENT_SMS_TEMPLATE_CODE
 }
@@ -133,7 +133,7 @@ function extractTencentMeta(raw: unknown): { requestId?: string; serialNo?: stri
  *  `Response.SendStatusSet[].Code !== 'Ok'`(单号级失败,如号码在黑名单 / 模板变量不合法 /
  *  超频)。只有 `Code === 'Ok'` 才表示进了发送队列。
  *  判不出来(缺字段 / 空数组 / Code 非字符串)一律算**没发出去** —— 不许默认成功。 */
-function judgeTencentSendResponse(raw: unknown): SmsDeliveryResult {
+export function judgeTencentSendResponse(raw: unknown): SmsDeliveryResult {
   const resp = (raw as { Response?: Record<string, unknown> } | null | undefined)?.Response
   if (!resp || typeof resp !== 'object')
     return { sent: false, reason: 'tencent_response_unparsable' }

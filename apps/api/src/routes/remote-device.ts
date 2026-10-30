@@ -23,7 +23,7 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, desc, and, lt, sql } from 'drizzle-orm'
+import { eq, desc, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { remoteDevices, remoteDeviceTasks } from '@ihui/database'
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
@@ -282,24 +282,19 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     if (task.retryCount >= task.maxRetries) {
       return reply.status(400).send(error(400, `已达最大重试次数 ${task.maxRetries}`))
     }
-    // 上限判定必须落在 WHERE 里:上面那次 select 只是给"读后即答"的提示用,
-    // 两个并发重试会各自读到 retryCount=N-1、各自写 N+1 ⇒ 既吞一次计数,也**绕过 maxRetries
-    // 白送一次重试**(设备任务被重复下发)。库里加 `retry_count < max_retries` 守卫,
-    // 空集就是"这一次没抢到额度",如实回 409。
     const [updated] = await db
       .update(remoteDeviceTasks)
       .set({
         status: 'pending',
-        retryCount: sql`${remoteDeviceTasks.retryCount} + 1`,
+        retryCount: task.retryCount + 1,
         errorMessage: null,
         dispatchedAt: null,
         startedAt: null,
         completedAt: null,
         updatedAt: new Date(),
       })
-      .where(and(eq(remoteDeviceTasks.id, taskId), lt(remoteDeviceTasks.retryCount, remoteDeviceTasks.maxRetries)))
+      .where(eq(remoteDeviceTasks.id, taskId))
       .returning()
-    if (!updated) return reply.status(409).send(error(409, '重试次数已达上限,未执行本次重试'))
     return reply.send(success(updated))
   })
 

@@ -17,7 +17,7 @@ import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export type EarningsTrendDirection = 'up' | 'down'
 
@@ -209,12 +209,12 @@ export default function EarningsStatisticsCard({
 
 const styles = StyleSheet.create({
   card: {
-    padding: 16,
+    padding: rnSpacing.lg,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
   } as ViewStyle,
   label: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.text.secondary,
     textTransform: 'uppercase',
@@ -223,22 +223,22 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
   } as ViewStyle,
   title: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
     fontWeight: '700',
     color: tokens.text.primary,
   } as TextStyle,
   trend: {
-    fontSize: 12,
-    marginLeft: 8,
+    fontSize: rnType.label.size,
+    marginLeft: rnSpacing.sm,
   } as TextStyle,
   // ── Tab 切换(对齐原项目 tab-switcher) ──
   tabSwitcher: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: rnSpacing.lg,
   } as ViewStyle,
   tabItemWrap: {
     flexDirection: 'row',
@@ -269,44 +269,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   // ── 数据行 ──
-  // 等分读数格:放不下就整格换行,绝不把「¥12,345.67」折成两行(docs/UI_GUIDELINES.md §13.4)。
-  // minWidth 按最坏读数「¥999,999.99」(12 字符 @16px ≈ 105px)+ 余量取 112。
   dataRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
+    marginBottom: rnSpacing.md,
   } as ViewStyle,
   dataItem: {
     flex: 1,
-    minWidth: 112,
     alignItems: 'center',
   } as ViewStyle,
   dataValue: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   } as TextStyle,
   dataLabel: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     marginTop: 2,
   } as TextStyle,
   // ── 底部统计 ──
   bottomStats: {
     flexDirection: 'row',
-    paddingTop: 12,
+    paddingTop: rnSpacing.md,
   } as ViewStyle,
   statItem: {
     flex: 1,
     alignItems: 'center',
   } as ViewStyle,
   statValue: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.text.primary,
   } as TextStyle,
   statLabel: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
     marginTop: 2,
   } as TextStyle,

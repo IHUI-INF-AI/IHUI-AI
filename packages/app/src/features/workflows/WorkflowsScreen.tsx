@@ -2,11 +2,11 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { darkTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import {
   EmptyState,
@@ -66,27 +66,13 @@ export function WorkflowsScreen({
   onRefresh,
 }: WorkflowsScreenProps) {
   const styles = useMemo(() => createStyles(tk), [tk])
-  /**
-   * 状态四件套 / 入口卡是主题驱动组件(`colorScheme` 形参默认 'light')。本屏不另建主题来源:
-   * 调用方注入的 `tk` 就是它按 `resolvedTheme` 解析出的 token 集,而 `getTokens` 只可能返回
-   * `lightTokens` / `darkTokens` 两个单例(identity 契约由 dark-mode.test.tsx 钉住),
-   * 故由 `tk` 反推出来的档案与屏幕自身配色必然同档 —— 这正是门 91 要的不"同屏两套档案"。
-   */
-  const colorScheme: 'light' | 'dark' = tk === darkTokens ? 'dark' : 'light'
 
   if (loading && items.length === 0) {
-    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+    return <ScreenSkeleton variant="list" count={4} />
   }
 
   if (error) {
-    return (
-      <ErrorState
-        message={error}
-        onRetry={onRefresh}
-        retryLabel={t('common.retry')}
-        colorScheme={colorScheme}
-      />
-    )
+    return <ErrorState message={error} onRetry={onRefresh} retryLabel={t('common.retry')} />
   }
 
   if (items.length === 0) {
@@ -95,7 +81,6 @@ export function WorkflowsScreen({
         title={t('workflows.empty')}
         actionLabel={onRefresh ? t('common.retry') : undefined}
         onAction={onRefresh}
-        colorScheme={colorScheme}
       />
     )
   }
@@ -109,12 +94,7 @@ export function WorkflowsScreen({
       }
     >
       {items.map((item) => (
-        <PressableCard
-          key={item.id}
-          style={styles.card}
-          onPress={() => onOpen(item.id)}
-          colorScheme={colorScheme}
-        >
+        <PressableCard key={item.id} style={styles.card} onPress={() => onOpen(item.id)}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardTitle} numberOfLines={1}>
               {item.name}
@@ -146,10 +126,10 @@ export function WorkflowsScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    listBody: { padding: 16, paddingBottom: 24, gap: 12 },
-    muted: { fontSize: 14, color: tk.text.secondary },
+    listBody: { padding: rnSpacing.lg, paddingBottom: rnSpacing['2xl'], gap: rnSpacing.md },
+    muted: { fontSize: rnType.body.size, color: tk.text.secondary },
     card: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -160,15 +140,15 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
-    cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    statusTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.md },
+    cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    statusTag: { paddingHorizontal: rnSpacing.sm, paddingVertical: 2, borderRadius: rnRadius.md },
     statusTagActive: { backgroundColor: tk.success.light },
     statusTagPaused: { backgroundColor: tk.surface.muted },
-    statusTagText: { fontSize: 12, color: tk.text.primary },
-    meta: { fontSize: 12, color: tk.text.secondary },
-    lastResult: { fontSize: 12, color: tk.text.tertiary },
+    statusTagText: { fontSize: rnType.label.size, color: tk.text.primary },
+    meta: { fontSize: rnType.label.size, color: tk.text.secondary },
+    lastResult: { fontSize: rnType.label.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

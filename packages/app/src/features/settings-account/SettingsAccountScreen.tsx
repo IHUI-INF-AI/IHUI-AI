@@ -7,7 +7,7 @@ import { ScrollView, Text, TouchableOpacity, ActivityIndicator, StyleSheet } fro
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SettingsAccountScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 import { ScreenSkeleton } from '../../components/ScreenStates'
@@ -90,31 +90,31 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingBottom: rnSpacing['3xl'],
     },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '700',
       color: tk.text.primary,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
-    label: { marginTop: 12, fontSize: 14, color: tk.text.secondary },
+    label: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.text.secondary },
     input: {
-      marginTop: 8,
-      paddingHorizontal: 12,
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    error: { marginTop: 12, fontSize: 14, color: tk.danger.DEFAULT },
-    toast: { marginTop: 12, fontSize: 14, color: tk.success.DEFAULT },
+    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    toast: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.success.DEFAULT },
     saveBtn: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
       height: 50,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,
@@ -122,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },
-    saveText: { color: tk.brandAccent.foreground, fontSize: 16, fontWeight: '600' },
+    saveText: { color: tk.brandAccent.foreground, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

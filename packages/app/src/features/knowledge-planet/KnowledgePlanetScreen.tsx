@@ -14,6 +14,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Newspaper } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 import { rnRadius } from '@ihui/design-tokens'
 import type { KnowledgePlanetScreenProps } from '@ihui/types'
@@ -44,22 +45,13 @@ export function KnowledgePlanetScreen({
         <Text style={styles.title}>知识星球</Text>
       </View>
       {loading ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.loadingText}>加载中...</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : error ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
-            <Text style={styles.retryText}>重试</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState message={error} onRetry={onRefresh} colorScheme={colorScheme} />
       ) : (
         <View style={styles.flex}>
           {items.length === 0 ? (
-            <View style={styles.centerWrap}>
-              <Text style={styles.emptyText}>暂无内容</Text>
-            </View>
+            <EmptyState title="暂无内容" colorScheme={colorScheme} />
           ) : (
             <View style={styles.list}>
               {items.map((item) => (
@@ -112,27 +104,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     flex: { flex: 1 } as ViewStyle,
-    centerWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-      gap: 12,
-    } as ViewStyle,
-    loadingText: { fontSize: 16, color: tk.text.secondary } as TextStyle,
-    errorText: {
-      fontSize: 16,
-      lineHeight: 18,
-      color: tk.error.text,
-      textAlign: 'center',
-    } as TextStyle,
-    retryBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    } as ViewStyle,
-    retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,
     list: {
       paddingHorizontal: 10,
       paddingBottom: 24,
@@ -161,7 +132,6 @@ function createStyles(tk: AppThemeTokens) {
     itemTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary } as TextStyle,
     itemSummary: { fontSize: 14, color: tk.text.secondary } as TextStyle,
     itemDate: { fontSize: 11, color: tk.text.tertiary } as TextStyle,
-    emptyText: { fontSize: 16, color: tk.text.secondary } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

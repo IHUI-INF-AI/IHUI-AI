@@ -54,6 +54,8 @@ const BENEFIT_BALANCE_URL = 'https://opengw.developer.huaweicloud.com/api/v1/use
 /** OAuth 客户端标识(= 桌面端 product.json 的 urlProtocol);secrets 缺省时兜底 */
 const DEFAULT_CLIENT_ID = 'codearts-agent'
 const PLUGIN_VERSION = '26.9.902'
+/** STS 凭据默认寿命 ~2h(响应无 expiration 时的兜底) */
+const DEFAULT_CREDENTIAL_TTL_MS = 2 * 60 * 60 * 1000
 
 /** 凭证失效类错误码(触发 401 自愈路径) */
 const AUTH_FAILURE_CODES = ['APIG.0301', 'APIG.0303', 'STS5.1804', 'STS5.1806']
@@ -392,8 +394,7 @@ async function attemptRefresh(
   return {
     token: creds.security_token,
     refreshToken: newRefresh || refreshTokenOld,
-    // 响应无 expiration ⇒ null(未知);不再拿 2h 兜底冒充上游给的到期时刻
-    expiresAt,
+    expiresAt: expiresAt ?? new Date(Date.now() + DEFAULT_CREDENTIAL_TTL_MS),
     // 刷新轮转**整套** STS 凭据,不止 security_token;DPoP 私钥/PKCE verifier 不变
     secrets: {
       accessKeyId: creds.access_key_id,

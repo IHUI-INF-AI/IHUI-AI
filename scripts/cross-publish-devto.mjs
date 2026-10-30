@@ -25,7 +25,6 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { requireFlagValue } from './lib/flag-value.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -40,12 +39,8 @@ const API_KEY = process.env.DEV_TO_API_KEY
 // ---------- 参数解析 ----------
 const argv = process.argv.slice(2)
 function argValue(name) {
-  const f = requireFlagValue(argv, name, { noun: '值' })
-  if (f.error) {
-    console.error(`❌ ${f.error}`)
-    process.exit(2)
-  }
-  return f.value
+  const i = argv.indexOf(name)
+  return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null
 }
 const DRY_RUN = argv.includes('--dry-run')
 const PUBLISH = argv.includes('--publish')

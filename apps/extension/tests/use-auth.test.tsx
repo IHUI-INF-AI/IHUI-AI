@@ -385,9 +385,7 @@ async function renderHook<T>(hookFn: () => T): Promise<{
   }
 }
 
-// 默认预算 1000ms 是照抄 RTL 出厂值,而本机实测:事件循环被同步占 1200ms 时同一条链首跳从 3ms
-// 变 1201ms(2026-10-24)⇒ 1000ms 量的是机器负载不是被测件。抬到 4000ms,断言一条不减。
-async function waitFor<T>(fn: () => T, timeout = 4000): Promise<T> {
+async function waitFor<T>(fn: () => T, timeout = 1000): Promise<T> {
   const start = Date.now()
   while (true) {
     try {

@@ -73,13 +73,13 @@ awesome-mcp-servers #11005(91k stars)收到 github-actions[bot] 反馈:要求在
 ### 1. punkpeye/awesome-mcp-servers (Aggregators section)
 
 ```
-- [IHUI-INF-AI/IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) 📇 ☁️ 🏠 🍎 🪟 🐧 - 9-platform full-stack AI operating system (web / API / AI service / CLI / desktop / extension / mobile / mobile-cap / miniapp) that unifies 101 LLMs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, etc.) via LangGraph + MCP + A2A. Includes RAG knowledge base, agent marketplace, multi-tenant RLS over 340 tables, 1300+ APIs. Apache 2.0 commercial-friendly. Live demo: https://aizhs.top
+- [IHUI-INF-AI/IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) 📇 ☁️ 🏠 🍎 🪟 🐧 - 8-platform full-stack AI operating system (web / API / AI service / CLI / desktop / extension / mobile / miniapp) that unifies 176 LLMs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, etc.) via LangGraph + MCP + A2A. Includes RAG knowledge base, agent marketplace, multi-tenant RLS over 340 tables, 1300+ APIs. Apache 2.0 commercial-friendly. Live demo: https://aizhs.top
 ```
 
 ### 2. Hannibal046/Awesome-LLM (LLM Applications section)
 
 ```
-- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - 9-platform full-stack AI operating system (web/API/AI-service/CLI/desktop/extension/mobile/mobile-cap/miniapp) unifying 101 LLMs via LangGraph + MCP + A2A. 340 tables, 1300+ APIs, Apache 2.0 commercial-friendly.
+- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - 8-platform full-stack AI operating system (web/API/AI-service/CLI/desktop/extension/mobile/miniapp) unifying 176 LLMs via LangGraph + MCP + A2A. 340 tables, 1300+ APIs, Apache 2.0 commercial-friendly.
 ```
 
 ### 3. awesome-selfhosted-data (YAML, software/ihui-ai.yml) — closed
@@ -88,7 +88,7 @@ awesome-mcp-servers #11005(91k stars)收到 github-actions[bot] 反馈:要求在
 name: IHUI-AI
 website_url: https://aizhs.top
 source_code_url: https://github.com/IHUI-INF-AI/IHUI-AI
-description: 9-platform full-stack AI operating system unifying 101 LLMs via LangGraph + MCP + A2A, with multi-tenant RLS, RAG knowledge base and agent marketplace.
+description: 8-platform full-stack AI operating system unifying 176 LLMs via LangGraph + MCP + A2A, with multi-tenant RLS, RAG knowledge base and agent marketplace.
 licenses:
   - Apache-2.0
 platforms:
@@ -108,7 +108,7 @@ depends_3rdparty: true
 ```yaml
 - name: IHUI-AI
   slug: ihui-ai
-  description: 9-platform full-stack AI operating system unifying 101 LLMs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, GLM, Doubao, Kimi, Ollama, vLLM) via LangGraph + MCP + A2A. Includes RAG knowledge base, agent marketplace, multi-tenant RLS over 340 tables, 1300+ APIs. Apache 2.0 commercial-friendly.
+  description: 8-platform full-stack AI operating system unifying 176 LLMs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, GLM, Doubao, Kimi, Ollama, vLLM) via LangGraph + MCP + A2A. Includes RAG knowledge base, agent marketplace, multi-tenant RLS over 340 tables, 1300+ APIs. Apache 2.0 commercial-friendly.
   website: https://aizhs.top
   source: https://github.com/IHUI-INF-AI/IHUI-AI
   tags:
@@ -121,13 +121,13 @@ depends_3rdparty: true
 ### 5. steven2358/awesome-generative-ai (Coding > Developer tools, DISCOVERIES.md)
 
 ```
-- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - Nine-platform full-stack AI operating system (web, API, AI service, CLI, desktop, browser extension, mobile, mini-program) unifying 176 large language models via LangGraph, MCP, and A2A. Includes RAG knowledge base, agent marketplace, and multi-tenant row-level security. #opensource
+- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - Eight-platform full-stack AI operating system (web, API, AI service, CLI, desktop, browser extension, mobile, mini-program) unifying 176 large language models via LangGraph, MCP, and A2A. Includes RAG knowledge base, agent marketplace, and multi-tenant row-level security. #opensource
 ```
 
 ### 6. punkpeye/awesome-mcp-clients (MCP Clients)
 
 ```
-- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) 📇 ☁️ 🏠 🍎 🪟 🐧 - 9-platform full-stack AI operating system with 101 LLMs (LangGraph + MCP + A2A). MCP host/client: consumes MCP servers as tools. Apache 2.0.
+- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) 📇 ☁️ 🏠 🍎 🪟 🐧 - 8-platform full-stack AI operating system with 176 LLMs (LangGraph + MCP + A2A). MCP host/client: consumes MCP servers as tools. Apache 2.0.
 ```
 
 ### 7. kyrolabs/awesome-langchain — closed (定位错误:LangGraph ≠ LangChain)
@@ -135,13 +135,13 @@ depends_3rdparty: true
 ### 8. svcvit/Awesome-Dify-Workflow
 
 ```
-- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - 9-platform full-stack AI operating system with 101 LLMs (LangGraph + MCP + A2A). Dify alternative with multi-tenant RLS + agent marketplace. Apache 2.0.
+- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - 8-platform full-stack AI operating system with 176 LLMs (LangGraph + MCP + A2A). Dify alternative with multi-tenant RLS + agent marketplace. Apache 2.0.
 ```
 
 ### 9. awesome-rag/awesome-rag
 
 ```
-- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - 9-platform full-stack AI OS with RAG knowledge base (pgvector) + 101 LLMs (LangGraph + MCP + A2A). Apache 2.0.
+- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - 8-platform full-stack AI OS with RAG knowledge base (pgvector) + 176 LLMs (LangGraph + MCP + A2A). Apache 2.0.
 ```
 
 ### 10. Shubhamsaboo/awesome-llm-apps — closed (要求自包含可运行示例,纯链接不符)

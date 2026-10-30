@@ -15,8 +15,6 @@
 用法:
     POST /voice/tts  {"text": "你好", "voice": "zh-CN-XiaoxiaoNeural", "rate": "+0%"}
     → 200 audio/mpeg 音频流
-    POST /voice/tts/stream {"text": "第一句。第二句。"}
-    → 200 application/x-ndjson:policy(打断判据)→ segment × N → done(逐段流式)
     POST /voice/tts  {"text": "你好", "engine": "token6688", "voice": "alloy"}
     → 200 audio/mpeg(Token6688 网关,单 key;声纹可传声纹库 voice_id)
     GET  /voice/voices              → token6688 声纹库列表(voice-clone 用)
@@ -28,15 +26,11 @@
 
 from __future__ import annotations
 
-import asyncio
-import base64
-import json
 import logging
-from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
@@ -175,100 +169,6 @@ async def synthesize_tts(req: TTSRequest) -> Response:
         content=audio,
         media_type=content_type or "audio/mpeg",
         headers={"X-TTS-Engine": "token6688", "X-TTS-Voice": req.voice},
-    )
-
-
-class TTSStreamRequest(BaseModel):
-    """逐段流式合成请求(barge-in 用;仅 edge 免费引擎)。"""
-
-    text: str = Field(..., description="要合成的文本(≤2000 字符,按句读切段)")
-    voice: str = Field(default=DEFAULT_VOICE, description="声音(白名单内)")
-    rate: str = Field(default="+0%", description="语速,如 +10% / -20%")
-
-
-def _ndjson(event: dict[str, Any]) -> str:
-    """一行 NDJSON;中文不转义(客户端直接按 UTF-8 解析)。"""
-    return json.dumps(event, ensure_ascii=False) + "\n"
-
-
-@router.post("/voice/tts/stream")
-async def synthesize_tts_stream(req: TTSStreamRequest) -> StreamingResponse:
-    """逐段流式 TTS(NDJSON):policy → segment × N → done。
-
-    立体因(2026-10-24 D11 第二工):整段一次返回的链路没有"段"这个概念,客户端
-    无从在段间静默里判打断。本端点按句读切段、逐段合成、逐段下发,客户端播完
-    一段即进入 `segmentTailSilenceMs` 静默余量 —— 这就是"可打断"的物理窗口。
-
-    首帧下发打断判据(app/core/voice_barge_in.policy_payload),客户端不得自行
-    硬编码数字;判据的三条口径与实测基线见该模块头注。
-
-    可打断的另一半在传输层:客户端 abort 后 StreamingResponse 会取消本生成器,
-    尚未合成的段落不会再向 edge-tts 发起请求(零计费、零残留;edge-tts 的
-    asyncio 流式取消由 FreeVoiceProvider.tts 的 CancelledError 直通承担)。
-
-    校验失败(空文本/超长/声音不在白名单)在任何字节下发前按 400 返回;段级合成
-    失败时已发的帧无法撤回,按 `{"type":"error",...}` 帧如实上报并停止。
-    """
-    text = req.text.strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="text 不能为空")
-    if len(text) > MAX_TEXT_CHARS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"text 超长({len(text)}>{MAX_TEXT_CHARS} 字符)",
-        )
-    # 流式链路只走免费 edge 引擎:token6688 是单次整段网关,无逐段语义
-    if req.voice not in VOICE_WHITELIST:
-        raise HTTPException(status_code=400, detail=f"voice 不在白名单: {req.voice}")
-    rate = req.rate if req.rate.startswith(("+", "-")) and req.rate.endswith("%") else "+0%"
-
-    from ..core.voice_barge_in import policy_payload, split_speech_segments
-
-    segments = split_speech_segments(text)
-    policy = policy_payload()
-
-    async def _events() -> AsyncIterator[str]:
-        yield _ndjson(policy)
-        from ..providers.free_voice_provider import FreeVoiceProvider, VoiceProviderError
-
-        provider = FreeVoiceProvider()
-        emitted = 0
-        for index, segment in enumerate(segments):
-            try:
-                audio, content_type = await provider.tts(
-                    segment, voice=req.voice, rate=rate,
-                )
-            except asyncio.CancelledError:
-                raise  # 客户端 abort:停在这里,后续分段不再合成
-            except VoiceProviderError as e:
-                yield _ndjson({
-                    "type": "error",
-                    "stage": "tts",
-                    "index": index,
-                    "status": e.status_code,
-                    "message": str(e),
-                })
-                return
-            yield _ndjson({
-                "type": "segment",
-                "index": index,
-                "total": len(segments),
-                "text": segment,
-                "contentType": content_type or "audio/mpeg",
-                "audioBase64": base64.b64encode(audio).decode("ascii"),
-            })
-            emitted += 1
-        yield _ndjson({"type": "done", "segments": emitted})
-
-    return StreamingResponse(
-        _events(),
-        media_type="application/x-ndjson",
-        headers={
-            "X-TTS-Engine": "edge-tts",
-            "X-TTS-Voice": req.voice,
-            "X-Barge-In-Policy": policy["policy"],
-            "Cache-Control": "no-store",
-        },
     )
 
 

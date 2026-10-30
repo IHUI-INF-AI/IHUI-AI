@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import {
   ChatAdvancedParams,
   CHAT_ADVANCED_DEFAULTS,
@@ -377,11 +377,12 @@ export const ChatGenOpenAICompat = React.memo(function ChatGenOpenAICompat() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { vendor: string; body: Record<string, unknown> }) => {
-      const res = await api<unknown>(`/api/ai/${payload.vendor}/chat`, {
+      const res = await fetchApi<unknown>(`/api/ai/${payload.vendor}/chat`, {
         method: 'POST',
         body: JSON.stringify(payload.body),
       })
-      const text = extractChatText(res)
+      if (!res.success) throw new Error(res.error)
+      const text = extractChatText(res.data)
       if (!text) throw new Error(t('noResult'))
       return text
     },

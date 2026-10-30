@@ -224,40 +224,6 @@ test('G-345④ 跨深度不变性:深层与浅层工作树必须推出同一个�
   assert.ok(existsSync(a) || a === join(ROOT, 'DevEnv'), `盘根形态必须是 <drive>/DevEnv,实际 ${a}`)
 })
 
-test('2026-10-25 机器根识别:仓内 .DevEnv 只是 scratch 空壳时不得顶掉盘根实体', () => {
-  // 立因:mkScratch 会主动建 `<repo>/.DevEnv/Temp/ihui-scratch` ⇒ "存在"不再等于"搬迁完成"。
-  // 纯判据 + 注入 exists(§22c 构造面):本机是仓内空壳 + 盘根实体,迁移机是仓内带机器标记。
-  const norm = (p) => String(p).replace(/\\/g, '/').toLowerCase()
-  const repo = join(parse(resolve(SCRIPTS, '..')).root, 'ihui-fake-repo')
-  const inRepo = join(repo, '.DevEnv')
-  const drive = join(parse(repo).root, 'DevEnv')
-  const fake = (paths) => {
-    const set = new Set(paths.map(norm))
-    return (p) => set.has(norm(p))
-  }
-  assert.equal(
-    __test__.chooseDevEnvRoot({ repoRoot: repo, exists: fake([inRepo, join(inRepo, 'Temp'), drive]) }),
-    drive,
-    '仓内只有 Temp 空壳 ⇒ 必须回落盘根实体(否则 prod/备份/锁归档全被吸进仓树)',
-  )
-  assert.equal(
-    __test__.chooseDevEnvRoot({ repoRoot: repo, exists: fake([inRepo, join(inRepo, 'runtimes'), drive]) }),
-    inRepo,
-    '带机器标记(runtimes/tools/…)的仓内根才是迁移完成形态,优先',
-  )
-  assert.equal(
-    __test__.chooseDevEnvRoot({ repoRoot: repo, exists: fake([inRepo, join(inRepo, 'Temp')]) }),
-    inRepo,
-    '两代布局:盘根不存在时保留仓内 legacy 根(不制造新失败出口)',
-  )
-  assert.equal(__test__.chooseDevEnvRoot({ repoRoot: repo, exists: fake([]) }), drive, '两处都没有 ⇒ 盘根默认落点')
-  assert.equal(
-    __test__.chooseDevEnvRoot({ repoRoot: repo, exists: fake([]), override: join(repo, 'X') }),
-    resolve(join(repo, 'X')),
-    'IHUI_DEVENV_ROOT 覆盖恒优先',
-  )
-})
-
 test('G-345④ 仓根本身在夹具里 ⇒ 必须抛错点名,不得安静返回一个落在夹具内的"外置根"', () => {
   const dir = mkScratch('seal-root-')
   try {

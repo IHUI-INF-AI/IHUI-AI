@@ -243,10 +243,8 @@ export function collectCandidatePaths(entries, listFilesInDir) {
 /** 阈值解析:CLI(--threshold-min n / --threshold-min=n)> env > 默认 */
 export function resolveThresholdMin(argv, env) {
   const inline = argv.find((a) => a.startsWith('--threshold-min='))?.split('=')[1]
-  // 空格形态取值走 G-322 单源:present 时交出紧邻 token 原样(含无效形),下游 Number 校验
-  // 照旧把非正数折回 env/默认 —— 取值口径归一,校验分层不动。
-  const spacedF = flagValue(argv, '--threshold-min')
-  const spaced = spacedF.present ? spacedF.token : undefined
+  const spacedIdx = argv.indexOf('--threshold-min')
+  const spaced = spacedIdx >= 0 ? argv[spacedIdx + 1] : undefined
   const cliRaw = inline ?? spaced
   const envRaw = env?.[THRESHOLD_ENV]
   for (const raw of [cliRaw, envRaw]) {

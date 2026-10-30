@@ -10,11 +10,7 @@
  * 回到"只有 admin"的初始状态,不影响后续本地开发或下一次 CI 运行。
  *
  * 环境变量开关:
- * - E2E_AUTO_CLEANUP=1:执行 cleanup(默认**跳过**)。2026-10-25 起默认从"清理"翻为
- *   "跳过":共享 dev 库的 test@aizhs.top 当日两次被并发席裸跑的 teardown 删掉
- *   (hasConcurrentPlaywright 只拦"时间重叠"的跑,拦不住"交错"——对方跑完清理的瞬间
- *   本席浏览器未起);且 CI 侧本就显式设 '0'(e2e.yml)、无任何消费方依赖默认清理。
- *   要清理显式设 =1;残留用户恢复/手动清理出口 = `node apps/api/scripts/cleanup-test-users.mjs`。
+ * - E2E_AUTO_CLEANUP=0:跳过 cleanup(默认 1,即默认 cleanup,保留 test@aizhs.top 用于调试)
  *
  * 失败策略:只 warn 不 throw,teardown 失败不应阻塞测试报告生成
  * (残留 test@aizhs.top 时可手动跑 `node apps/api/scripts/cleanup-test-users.mjs` 清理)。
@@ -54,10 +50,8 @@ function hasConcurrentPlaywright(): boolean {
 }
 
 export default async function globalTeardown(): Promise<void> {
-  if (process.env.E2E_AUTO_CLEANUP !== '1') {
-    console.log(
-      '[e2e:global-teardown] E2E_AUTO_CLEANUP≠1,跳过 cleanup(默认跳过:共享库测试用户被并发裸跑删除已两次复发;要清理显式设 =1)',
-    )
+  if (process.env.E2E_AUTO_CLEANUP === '0') {
+    console.log('[e2e:global-teardown] E2E_AUTO_CLEANUP=0,跳过 cleanup(保留 test@aizhs.top)')
     return
   }
 

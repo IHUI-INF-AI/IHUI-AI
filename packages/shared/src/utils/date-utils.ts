@@ -145,54 +145,20 @@ const RTF_CACHE = new Map<string, Intl.RelativeTimeFormat>()
  * 纯 JS 相对时间 fallback(React Native Hermes 引擎无 Intl.RelativeTimeFormat,2026-08-15 立)。
  * 语义对齐 Intl.RelativeTimeFormat zh-CN numeric:'auto' 的常用输出(刚刚 / X 分钟前 / …)。
  */
-/**
- * Intl.RelativeTimeFormat 不可用时的兜底。
- * 这里以前只有两个分支:中文 or **英文散文**("just now" / "3 min ago")⇒ 日语/韩语等
- * 所有非中文用户在这条路径上直接看到英文(界面其余部分全是本地语言,读起来就是坏了)。
- * 兜底不该冒充翻译,也不该选一门自然语言当默认:非中文一律退成**语言中性**的紧凑时长
- * (数字 + 单位符号,与 iOS/Android 系统控件同一形态),真正的本地化文案走 Intl 那条主路径。
- */
-/**
- * 按**本地时区**取分组键(YYYY-MM / YYYY-MM-DD)。
- *
- * 为什么需要它:三处列表页此前直接 `chat.time.slice(0, 7)` / `slice(0, 10)` 分组,
- * 而 `chat.time` 是后端给的 UTC ISO 串 ⇒ 分桶其实是**按 UTC 切的**。
- * 后果:北京 11-01 00:30 的会话被归进「2026-10」组(UTC 还是 10-31),月末那 8 小时
- * 每天都会归错月份;而 web 侧同一份数据用 `Intl.DateTimeFormat(locale)`(本地时区)分组,
- * 两端把同一条记录挂在不同标题下。取数一律走这里,不在端内 slice 字符串。
- * 解析不出来时返回 null,由调用方决定归到哪一桶(不许拿"今天"冒充)。
- */
-function localParts(input: string | number | Date | null | undefined): { y: number; m: number; d: number } | null {
-  if (input === null || input === undefined || input === '') return null
-  const date = input instanceof Date ? input : new Date(input)
-  if (!Number.isFinite(date.getTime())) return null
-  return { y: date.getFullYear(), m: date.getMonth() + 1, d: date.getDate() }
-}
-
-export function localMonthKey(input: string | number | Date | null | undefined): string | null {
-  const p = localParts(input)
-  return p ? `${p.y}-${String(p.m).padStart(2, '0')}` : null
-}
-
-export function localDayKey(input: string | number | Date | null | undefined): string | null {
-  const p = localParts(input)
-  return p ? `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}` : null
-}
-
 function relativeTimeFallback(diffSec: number, locale: string): string {
   const zh = locale.toLowerCase().startsWith('zh')
   const abs = Math.abs(diffSec)
   const n = (v: number) => String(Math.round(v))
   const pick = (unit: string): string => {
     if (zh) return `${unit}${diffSec < 0 ? '前' : '后'}`
-    return unit
+    return `${unit}${diffSec < 0 ? ' ago' : ' from now'}`
   }
-  if (abs < 60) return zh ? '刚刚' : `${n(abs)}s`
-  if (abs < 3600) return pick(zh ? `${n(abs / 60)} 分钟` : `${n(abs / 60)}m`)
-  if (abs < 86400) return pick(zh ? `${n(abs / 3600)} 小时` : `${n(abs / 3600)}h`)
-  if (abs < 2592000) return pick(zh ? `${n(abs / 86400)} 天` : `${n(abs / 86400)}d`)
-  if (abs < 31536000) return pick(zh ? `${n(abs / 2592000)} 个月` : `${n(abs / 2592000)}mo`)
-  return pick(zh ? `${n(abs / 31536000)} 年` : `${n(abs / 31536000)}y`)
+  if (abs < 60) return zh ? '刚刚' : 'just now'
+  if (abs < 3600) return pick(zh ? `${n(abs / 60)} 分钟` : `${n(abs / 60)} min`)
+  if (abs < 86400) return pick(zh ? `${n(abs / 3600)} 小时` : `${n(abs / 3600)} h`)
+  if (abs < 2592000) return pick(zh ? `${n(abs / 86400)} 天` : `${n(abs / 86400)} d`)
+  if (abs < 31536000) return pick(zh ? `${n(abs / 2592000)} 个月` : `${n(abs / 2592000)} mo`)
+  return pick(zh ? `${n(abs / 31536000)} 年` : `${n(abs / 31536000)} y`)
 }
 
 export function formatRelativeTime(

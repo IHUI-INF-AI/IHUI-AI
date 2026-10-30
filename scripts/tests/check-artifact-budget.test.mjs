@@ -186,21 +186,92 @@ test('C5 分包目录不得计入主包(构造面正反同夹具对照)', () => 
       subpackages: [{ root: 'pkg-ai', pages: ['a'] }],
       subPackages: undefined,
     })
-    makeDist(dir, 'apps/miniapp-taro/dist', { 'pkg-ai/blob.js': 3 * 1024 * 1024 }, appJson)
+    // 2026-10-26 改:这里原来放 3 MiB 分包并断言 exit 0 —— AB3(单分包 2 MiB)上线后
+    // 那已经是**该红**的形态,继续拿它当"主包口径正例"就会把 AB3 当成误伤。
+    // 主包口径的正例只需"分包字节不进主包",与大小无关 ⇒ 用 1,000 B。
+    makeDist(dir, 'apps/miniapp-taro/dist', { 'pkg-ai/blob.js': 1000 }, appJson)
     const sub = run(dir, ['--target', 'miniapp'])
     assert.equal(sub.status, 0, `分包体积被算进主包了:\n${sub.stdout}`)
     assert.match(sub.stdout, /主包 实测 [0-9]{2,3} B/)
-    assert.match(sub.stdout, /pkg-ai: 3,145,728 B/)
+    assert.match(sub.stdout, /pkg-ai: 1,000 B/)
+    const j1 = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(j1.ab3Fail, false)
 
-    // 反向:把同一个文件挪进主包(其余一字不改)⇒ 必红
+    // 反向:把**同一份字节**挪进主包 ⇒ 主包读数必须恰好涨这么多(口径对称性),
+    // 不再拿"变红"当对照 —— AB3 上线后 3 MiB 分包本身就该红,拿它当正例会把 AB3 读成误伤。
     mkdirSync(join(dir, 'apps/miniapp-taro/dist/pages/index'), { recursive: true })
-    writeFileSync(
-      join(dir, 'apps/miniapp-taro/dist/pages/index/blob.js'),
-      readFileSync(join(dir, 'apps/miniapp-taro/dist/pkg-ai/blob.js')),
+    const moved = readFileSync(join(dir, 'apps/miniapp-taro/dist/pkg-ai/blob.js'))
+    writeFileSync(join(dir, 'apps/miniapp-taro/dist/pages/index/blob.js'), moved)
+    const j2 = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(
+      j2.measuredBytes,
+      j1.measuredBytes + moved.length,
+      '同一份字节进主包后,主包读数必须逐字节地涨,否则口径有一半是假的',
     )
-    const main = run(dir, ['--target', 'miniapp'])
-    assert.equal(main.status, 1, '同一批字节挪进主包必须判红,否则 C5 的正例无牙')
-    assert.match(main.stdout, /超硬上限/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * AB4 整档总量:微信 20 MiB 是**整档**上限,逐包都绿也可能整档传不上去。
+ * 夹具刻意把量摊到 12 个分包、每个 1.9 MiB —— 于是 AB1(主包)与 AB3(单分包)都必须仍判绿,
+ * 红的只有 AB4。若哪天有人把总量维并进主包那一维、或把上限写错,这条就会露馅。
+ */
+test('C10 整档总量超 20 MiB ⇒ 判红并点名总量维(主包与逐包仍必须绿)', () => {
+  const dir = mkFakeRepo('ab-c10-')
+  try {
+    const per = 1_900_000
+    const files = {}
+    const subs = []
+    for (let i = 0; i < 12; i += 1) {
+      files[`pkg-b${i}/blob.js`] = per
+      subs.push({ root: `pkg-b${i}`, pages: ['a'] })
+    }
+    makeDist(dir, 'apps/miniapp-taro/dist', files, JSON.stringify({ pages: ['pages/index/index'], subpackages: subs }))
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 1, `总量超限没判红:\n${r.stdout}`)
+    assert.match(r.stdout, /AB4 整档总量/)
+    assert.match(r.stdout, /整档总量超 20 MiB/)
+    const j = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(j.ab4Fail, true)
+    assert.equal(j.ab3Fail, false, '每个分包都只有 1.9 MiB ⇒ AB3 必须仍绿,红的只能是总量维')
+    assert.equal(j.status, 'ok', '主包必须仍报 ok,否则测不出"只有总量红"这一型')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * AB3:单个分包超 2 MiB 必须判红 —— 主包可能完全正常(实测形态:pkg-user 3.77 MB 而主包 82%)。
+ * 这条同时是"主包绿 ⇒ 能上传"这个旧假设的反证。
+ */
+test('C9 单个分包超 2 MiB ⇒ 判红,且文案点名是哪一包、超多少', () => {
+  const dir = mkFakeRepo('ab-c9-')
+  try {
+    makeDist(
+      dir,
+      'apps/miniapp-taro/dist',
+      { 'pkg-user/blob.js': 2 * 1024 * 1024 + 4096 },
+      JSON.stringify({ pages: ['pages/index/index'], subpackages: [{ root: 'pkg-user', pages: ['a'] }] }),
+    )
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 1, `分包超限没判红:\n${r.stdout}`)
+    assert.match(r.stdout, /AB3 单分包尺寸/)
+    assert.match(r.stdout, /pkg-user: 2,10[0-9],[0-9]{3} B/)
+    assert.match(r.stdout, /上传会被拒/)
+    const j = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(j.ab3Fail, true)
+    assert.equal(j.fail, true)
+    assert.equal(j.ab3.overs.length, 1)
+    assert.equal(j.ab3.overs[0].root, 'pkg-user')
+    assert.equal(j.status, 'ok', '主包本身必须仍报 ok —— 两桶是分开判的')
+
+    // 反向:同一份字节缩到限内(恰好等于上限)⇒ 必须转绿,否则这是恒红门
+    writeFileSync(join(dir, 'apps/miniapp-taro/dist/pkg-user/blob.js'), Buffer.alloc(2 * 1024 * 1024))
+    const okRun = run(dir, ['--target', 'miniapp'])
+    assert.equal(okRun.status, 0, `恰好等于上限不该判红:\n${okRun.stdout}`)
+    assert.match(okRun.stdout, /全部在限内/)
   } finally {
     rmScratch(dir)
   }

@@ -120,7 +120,7 @@ export default function AnnouncementDetail() {
     void (async () => {
       setError('')
       try {
-        const res = await fetchApi<AnnouncementDetailItem>(`/announcements/${id}?platform=miniapp`)
+        const res = await fetchApi<AnnouncementDetailItem>(`/announcements/${id}`)
         if (!res.success) throw new Error()
         if (!cancelled) setItem(res.data ?? null)
       } catch {

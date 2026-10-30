@@ -67,7 +67,6 @@ import {
 } from '../plugins/business-metrics.js'
 import { logger } from '../utils/logger.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
-import { accountSchedulableCondition } from './relay-account-pool-scheduler.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
 import {
   clearAccountCooldown,
@@ -310,8 +309,8 @@ async function selectAccountCandidates(
       and(
         ownerCond,
         inArray(aiRelayAccountPool.providerCode, providerCodes),
-        // 「能不能被选中」与巡检同一条判据(单源):巡检判 down 的号当场不再进入候选。
-        accountSchedulableCondition(),
+        eq(aiRelayAccountPool.isEnabled, true),
+        eq(aiRelayAccountPool.tempUnschedulable, false),
       ),
     )
     .orderBy(

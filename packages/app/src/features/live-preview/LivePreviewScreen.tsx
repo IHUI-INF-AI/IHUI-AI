@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LivePreviewItem, LivePreviewScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -97,24 +97,29 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: rnSpacing.md,
       paddingHorizontal: 10,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     body: { padding: 10 },
-    liveTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    meta: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    intro: { marginTop: 12, fontSize: 16, color: tk.text.medium, lineHeight: 22 },
+    liveTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    intro: {
+      marginTop: rnSpacing.md,
+      fontSize: rnType.title.size,
+      color: tk.text.medium,
+      lineHeight: 22,
+    },
     btn: {
-      marginTop: 20,
+      marginTop: rnSpacing.xl,
       backgroundColor: tk.brand.cta,
       paddingVertical: 15,
       borderRadius: rnRadius.sm,
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },
-    btnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    btnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

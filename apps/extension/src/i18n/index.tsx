@@ -2,15 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-  type ReactNode,
-} from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { mergeMessages, translate } from '@ihui/i18n/loader'
 import type { Locale, Messages } from '@ihui/i18n/types'
 // 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/extension/
@@ -128,13 +120,11 @@ export function I18nProvider({ children }: I18nProviderProps) {
     [locale],
   )
 
-  // 2026-10-25 定身:context value 只在「真正会变的东西」变化时才换新身份。
-  // 母型缺陷原形(与 mobile-rn 同一具):value 是渲染期新建的字面量 ⇒ Provider 每渲染一次
-  // 整个 context 就换一次身份 ⇒ 任何把 `t` 写进 effect 依赖的真实页面都会跟着重跑
-  // (mobile-rn 实测形状 = 钱包页 [load] 重跑、getBalance 被真调第二次)。
-  // 依赖数组里只放会改变行为的量:setLocale / t 自身已是 useCallback,只有 locale 变了 t 才换。
-  // 回归锁见 tests/i18n-provider-value-identity.test.tsx(改前后红绿成对钉死)。
-  const value = useMemo<I18nContextValue>(() => ({ locale, setLocale, t }), [locale, setLocale, t])
+  const value: I18nContextValue = {
+    locale,
+    setLocale,
+    t,
+  }
 
   // 2026-07-23 修复:原代码 !ready 时 return null → popup 整个空白(用户反馈"啥也没出来")
   // 改为渲染 children + 默认 locale 的 t,确保 popup/sidepanel 始终有内容

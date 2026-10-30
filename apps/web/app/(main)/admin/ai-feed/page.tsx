@@ -142,7 +142,7 @@ export default function AiFeedHealthPage() {
       )}
 
       {/* 汇总卡片 */}
-      <div className="grid grid-cols-2 gap-3 tablet:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <SummaryCard label="数据源总数" value={list.length} />
         <SummaryCard label="启用源" value={enabledCount} />
         <SummaryCard label="采集失败源" value={errorCount} danger={errorCount > 0} />

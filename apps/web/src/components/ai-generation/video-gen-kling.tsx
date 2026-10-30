@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 
 const DURATIONS = ['5', '10'] as const
@@ -55,11 +55,12 @@ export function VideoGenKling() {
       const body = hasImage
         ? { image: payload.image, prompt: payload.prompt, duration: payload.duration }
         : { prompt: payload.prompt, duration: payload.duration }
-      const res = await api<{ task_id?: string; task_status?: string }>(
+      const res = await fetchApi<{ task_id?: string; task_status?: string }>(
         hasImage ? '/api/chat/kling/video/image-to-video' : '/api/chat/kling/video/generate',
         { method: 'POST', body: JSON.stringify(body) },
       )
-      const taskId = res?.task_id
+      if (!res.success) throw new Error(res.error)
+      const taskId = res.data?.task_id
       if (!taskId) throw new Error('生成任务未返回 task_id')
       return { taskId }
     },
@@ -73,8 +74,9 @@ export function VideoGenKling() {
   const { data: task } = useQuery({
     queryKey: ['ai-task', taskId],
     queryFn: async () => {
-      const res = await api<AsyncTask>(`/api/ai/tasks/${taskId}`)
-      return res
+      const res = await fetchApi<AsyncTask>(`/api/ai/tasks/${taskId}`)
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     enabled: !!taskId,
     refetchInterval: (query) => {

@@ -37,15 +37,15 @@ const LANDING_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IHUI-AI · 开源 AI 商业级基座 — VIP 订阅</title>
-<meta name="description" content="IHUI-AI VIP 订阅 - 开源 AI 商业级基座,9 端 + 606 表 + 101 模型,完整商业闭环,支付宝安全支付">
+<meta name="description" content="IHUI-AI VIP 订阅 - 开源 AI 商业级基座,8 端 + 339 表 + 100 模型,完整商业闭环,支付宝安全支付">
 <meta name="keywords" content="IHUI-AI,VIP,AI平台,开源,商业级,支付宝订阅">
 <meta property="og:title" content="IHUI-AI 开源 AI 商业级基座 — VIP 订阅">
-<meta property="og:description" content="开源 AI 商业级基座,9 端 + 606 表 + 101 模型,完整商业闭环,支付宝安全支付">
+<meta property="og:description" content="开源 AI 商业级基座,8 端 + 339 表 + 100 模型,完整商业闭环,支付宝安全支付">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://api.aizhs.top/landing">
 <meta property="og:image" content="https://api.aizhs.top/landing/og.png">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Product","name":"IHUI-AI VIP 订阅","description":"开源 AI 商业级基座,9 端 + 606 表 + 101 模型,完整商业闭环,支付宝安全支付","brand":{"@type":"Brand","name":"IHUI-AI"},"offers":{"@type":"Offer","priceCurrency":"CNY","price":"9.90","availability":"https://schema.org/InStock","seller":{"@type":"Organization","name":"吉林省爱智汇人工智能科技有限公司"}}}
+{"@context":"https://schema.org","@type":"Product","name":"IHUI-AI VIP 订阅","description":"开源 AI 商业级基座,8 端 + 339 表 + 100 模型,完整商业闭环,支付宝安全支付","brand":{"@type":"Brand","name":"IHUI-AI"},"offers":{"@type":"Offer","priceCurrency":"CNY","price":"9.90","availability":"https://schema.org/InStock","seller":{"@type":"Organization","name":"吉林省爱智汇人工智能科技有限公司"}}}
 </script>
 <style>
   :root {
@@ -246,10 +246,10 @@ const LANDING_HTML = `<!DOCTYPE html>
     <div class="container">
       <h1>IHUI-AI 开源 AI 商业级基座</h1>
       <div class="promo">🎉 限时优惠:前 100 名用户享 8 折,售完恢复原价</div>
-      <p>Apache 2.0 商用 · 9 端 + 606 表 + 101 模型 + 完整商业闭环 · 3 年省 $35,000</p>
+      <p>Apache 2.0 商用 · 8 端 + 339 表 + 100 模型 + 完整商业闭环 · 3 年省 $35,000</p>
       <div class="badges">
-        <span class="badge">9 端 Monorepo</span>
-        <span class="badge">38 平台发布</span>
+        <span class="badge">8 端 Monorepo</span>
+        <span class="badge">14 平台发布</span>
         <span class="badge">AI 教育全栈</span>
         <span class="badge">完整计费系统</span>
       </div>
@@ -275,17 +275,17 @@ const LANDING_HTML = `<!DOCTYPE html>
       <div class="features">
         <div class="feature-card">
           <div class="icon">🏗️</div>
-          <div class="title">9 端 Monorepo</div>
-          <div class="desc">一次开发,9 端同步(web/api/ai-service/desktop/extension/mobile-rn/mobile-cap/miniapp/cli)</div>
+          <div class="title">8 端 Monorepo</div>
+          <div class="desc">一次开发,8 端同步(web/api/ai-service/desktop/extension/mobile/miniapp/cli)</div>
         </div>
         <div class="feature-card">
           <div class="icon">🗄️</div>
-          <div class="title">606 张数据库表</div>
+          <div class="title">339 张数据库表</div>
           <div class="desc">完整商业闭环,3 年省 $35,000 开发成本</div>
         </div>
         <div class="feature-card">
           <div class="icon">🤖</div>
-          <div class="title">101 AI 模型</div>
+          <div class="title">100+ AI 模型</div>
           <div class="desc">集成 GPT/Claude/Gemini/通义/文心等主流模型</div>
         </div>
         <div class="feature-card">

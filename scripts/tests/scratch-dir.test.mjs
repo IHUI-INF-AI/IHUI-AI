@@ -2,12 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// scratch-dir 回归测试:钉死两条选址不变量(落点 git 面不可见 + 不依赖进程 TEMP)。
+// scratch-dir 回归测试:钉死两条选址不变量(落点在仓库树外 + 不依赖进程 TEMP)。
 // 成因见 scripts/lib/scratch-dir.mjs 注释:夹具曾随 os.tmpdir() 把 C 盘当垃圾场,
-// 单日 45 个目录;而"非 git 仓库"用例要求 git 面问不到夹具的祖先仓。
-// G-158(2026-10-23):落点从「盘根 DevEnv(树目录外)」改为「仓内 .DevEnv(git 面由
-// 坏 gitfile 边界阻断 + .gitignore 在册)」—— 不变量从"路径在树外"换成"git 面逃逸被阻断",
-// 前者由落点断言钉,后者由本文件对夹具实跑 rev-parse 钉。
+// 单日 45 个目录;而"非 git 仓库"用例要求夹具必须在任何仓库树之外。
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -22,8 +19,6 @@ import {
   chooseScratchRoot,
   countScratchSegments,
   evaluateDeleteTarget,
-  gitFaceEscapesToRepo,
-  isAllowedScratchRoot,
   mkScratch,
   rmScratch,
   scanForNestedScratchRoot,
@@ -35,34 +30,14 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..')
 const SCRIPTS_DIR = resolve(HERE, '..')
 
-test('G-158:mkScratch 落点 = 仓内 .DevEnv 批准根,且 git 面逃逸被边界阻断(否则"非 git"夹具恒红)', () => {
+test('mkScratch 建的目录不在仓库树内(否则"非 git"夹具会逃逸到真仓库)', () => {
   const dir = mkScratch('abspath-')
   try {
-    // 判据单源:落点合法性 + git 面逃逸都取自 scratch-dir(§0.6/§22c,这里不再抄第二份)
-    assert.equal(isAllowedScratchRoot(dir), true, `落点不合法(既非仓外,也非批准的 .DevEnv): ${dir}`)
-    if (process.platform === 'win32') {
-      const approved = resolve(join(REPO_ROOT, '.DevEnv'))
-      assert.ok(
-        dir.startsWith(approved + '\\') || dir.startsWith(approved + '/'),
-        `落点不在批准的 .DevEnv 根下: ${dir}`,
-      )
-    }
-    // 不变量的实质半边:夹具里 git 问不出祖先仓(无边界时实测 toplevel=真仓 ⇒ E5a 型用例恒红)
-    const face = gitFaceEscapesToRepo(dir)
-    assert.equal(face.state, 'measured', `git 面不得未判定(没量到不等于不逃逸):${face.why}`)
-    assert.equal(face.escapes, false, `夹具逃逸到真仓库: ${face.top}`)
+    assert.ok(!dir.startsWith(REPO_ROOT + '\\'), `夹具落在仓库内: ${dir}`)
+    assert.ok(!dir.startsWith(REPO_ROOT + '/'), `夹具落在仓库内: ${dir}`)
   } finally {
     rmScratch(dir)
   }
-})
-
-test('isAllowedScratchRoot:仓内非 .DevEnv 拒建、批准的 .DevEnv 放行(结构维不是恒真式)', () => {
-  assert.equal(isAllowedScratchRoot(join(REPO_ROOT, 'scripts', SCRATCH_DIR_NAME)), false, '仓内非批准目录必须拒建')
-  assert.equal(
-    isAllowedScratchRoot(join(REPO_ROOT, '.DevEnv', 'Temp', SCRATCH_DIR_NAME)),
-    true,
-    'G-158 批准的 .DevEnv 根必须放行',
-  )
 })
 
 test('mkScratch 不跟随进程 TEMP(把 TEMP 指向一个钉在 C 盘的旧值也必须不理它)', () => {
@@ -391,28 +366,9 @@ test('G-286:scanForNestedScratchRoot 有界(预算耗尽 ⇒ truncated,不是"�
   }
 })
 
-test('CI 可移植性:win32 臂必须逐字保持「<仓根>/.DevEnv/Temp」(G-158 新址,不得被非 win 那一臂带漂)', () => {
+test('CI 可移植性:win32 臂必须逐字保持「盘根 + DevEnv/Temp」(不得被非 win 那一臂带漂)', () => {
   const win = chooseScratchRoot({ moduleDir: 'D:\\IHUI-AI\\scripts\\lib', platform: 'win32', env: {} })
-  assert.equal(
-    win,
-    join('D:\\', 'IHUI-AI', '.DevEnv', 'Temp', SCRATCH_DIR_NAME),
-    `Windows 臂改了落点: ${win}`,
-  )
-})
-
-test('G-158:IHUI_DEVENV_ROOT 在 win32 臂上接管外置根(与 seal-c-root-stray.devEnvRoot() 同源覆盖)', () => {
-  const r = chooseScratchRoot({
-    moduleDir: 'D:\\IHUI-AI\\scripts\\lib',
-    platform: 'win32',
-    env: { IHUI_DEVENV_ROOT: 'E:\\SomeDevEnv' },
-  })
-  assert.equal(r, join('E:\\SomeDevEnv', 'Temp', SCRATCH_DIR_NAME), `IHUI_DEVENV_ROOT 没被吃: ${r}`)
-  // IHUI_SCRATCH_DIR 仍是最高优先级(既有 API 不变)
-  const both = chooseScratchRoot({
-    platform: 'win32',
-    env: { IHUI_DEVENV_ROOT: 'E:\\SomeDevEnv', IHUI_SCRATCH_DIR: 'F:\\direct' },
-  })
-  assert.equal(both, 'F:\\direct', 'IHUI_SCRATCH_DIR 必须压过 IHUI_DEVENV_ROOT')
+  assert.equal(win, join('D:\\', 'DevEnv', 'Temp', SCRATCH_DIR_NAME), `Windows 臂改了落点: ${win}`)
 })
 
 test('CI 可移植性:非 win32 臂不得推导成文件系统根下的 DevEnv(GitHub runner 实测 EACCES)', () => {

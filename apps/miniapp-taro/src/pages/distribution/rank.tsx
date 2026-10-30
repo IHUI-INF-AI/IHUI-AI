@@ -6,7 +6,6 @@ import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { formatPrice } from '@ihui/shared'
 import { getDistributionRank } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -90,7 +89,7 @@ export default function DistributionRank() {
                   {item.nickname}
                 </Text>
                 <Text className="text-[length:28rpx] text-[var(--color-success)] mt-[16rpx]">
-                  ¥{formatPrice(item.commission)}
+                  ¥{item.commission}
                 </Text>
                 <Text
                   className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-[length:22rpx] text-[var(--color-surface-light)]"
@@ -124,7 +123,7 @@ export default function DistributionRank() {
                 {u.nickname}
               </Text>
               <Text className="text-[length:32rpx] font-bold text-[var(--color-success)]">
-                ¥{formatPrice(u.commission)}
+                ¥{u.commission}
               </Text>
             </View>
           ))}

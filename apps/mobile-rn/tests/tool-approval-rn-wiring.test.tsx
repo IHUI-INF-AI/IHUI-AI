@@ -37,20 +37,6 @@ const h = vi.hoisted(() => ({
 
 // 别名 '@ihui/api-client' 在 vitest.config.ts 里直指真实源码(给它写替身,测的就是替身),
 // 这里只换掉"上行回传"一个出口:既拿到 payload,又不让用例依赖真实 fetch。
-// 保留文件内 react-native mock(收归例外):本套件对 Modal 有行为定制——恒渲染以断言 visible prop、
-// 暴露 onRequestClose 模拟安卓返回键(全局替身的 Modal 是 visible 才渲染的简化形)。迁移前先改全局替身。
-vi.mock('react-native', async (importOriginal) => {
-  const mod = await importOriginal<Record<string, unknown>>()
-  const { createElement: ce } = await import('react')
-  const Modal = (props: Record<string, unknown>) => {
-    h.modal = props
-    return props.visible === true
-      ? ce('div', { 'data-modal-open': '1' }, props.children as ReactNode)
-      : null
-  }
-  return { ...(mod as Record<string, unknown>), Modal }
-})
-
 vi.mock('@ihui/api-client', async (importOriginal) => {
   const mod = await importOriginal<Record<string, unknown>>()
   return {
@@ -65,6 +51,17 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
 
 // react-native 走端内桩(tests/__mocks__/react-native.ts);桩的 Modal 只在 visible 时渲染且
 // 不暴露 onRequestClose,而"关闭 ≠ 决策"这条正好要按返回键来试 ⇒ 保留其余导出,只替 Modal 并留 props。
+vi.mock('react-native', async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>()
+  const { createElement: ce } = await import('react')
+  const Modal = (props: Record<string, unknown>) => {
+    h.modal = props
+    return props.visible === true
+      ? ce('div', { 'data-modal-open': '1' }, props.children as ReactNode)
+      : null
+  }
+  return { ...(mod as Record<string, unknown>), Modal }
+})
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCREEN_SRC = resolve(HERE, '../src/screens/ChatScreen.tsx')

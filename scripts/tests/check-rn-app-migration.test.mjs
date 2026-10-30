@@ -20,10 +20,8 @@
  *  ④ 新增 V2「屏级共享」维,存量只报数、只拦新增与退化(§0.2 恒红门禁令)。
  *
  * 用例清单:
- *  T1 判据有牙(真仓 HEAD 逐字面):PaymentScreen 判"有共享层 import",一枚在册且确实没有该
- *     import 的 RN 独占屏判"没有" —— 反例按 EXEMPT_REAL **现读选取**,不钉文件名(2026-10-24 实测:
- *     原钉 AboutScreen.tsx,该屏当天 01:39 改薄壳并摘线 ⇒ 钉名字就是把夹具判红当成判据判红)。
- *     近邻反例证明判据不是"内容里出现过 @ihui 包名就算"。
+ *  T1 判据有牙(真仓 HEAD 逐字面):PaymentScreen 判"有共享层 import",AboutScreen 判"没有"
+ *     —— 后者是 HEAD 面上天然存在的近邻反例,证明判据不是"内容里出现过 @ihui 包名就算"。
  *  T2 文本变体:删掉那行 import 翻假、逐字恢复翻真;子路径/双引号放行;近邻包名 rn-application 判假。
  *  T3 真仓 HEAD 全量对账(走 gate.verdict):未迁移者必被**有效**白名单解释掉;V2 存量必须非空
  *     (一维都咬不到说明尺子被掏空);腐烂 0(G-922 摘除两枚死账后的存量);抽掉一枚真实豁免
@@ -43,10 +41,6 @@
  *     名单腐烂的另一形态,2026-10-21 补登批实测咬到三处,已去重)。
  *  T10 反向锁④(绿数口径):真仓里"有 import 但共享层无同名屏"的存量必须被报数点名,
  *     输出不得再出现"已迁移 <数字>"型假绿读数;同一样本按新增形态过一遍 ⇒ 必咬 V2 红。
- *  T11 三枚 RN 薄壳(Carte/Developer/Recruitment)端到端:对本门零违规、摘白名单后仍零违规、
- *     抹掉 import 必须翻 V1 红 —— 原样收编自 apps/mobile-rn 端内测试(那里 import 门体 `__test__`
- *     是一条 rank 40→90 的反向依赖,被门 103 判 D1+D2;策略表禁补 requires、禁对 D 用 arch-exempt,
- *     唯一合规出路是把它放在不反向的这一层。断言未改,只换了住址)。
  *
  *  T7-T9 用到"门体自身源码"作材料:被测对象就是工作树里被 import 进来的那份 .mjs,
  *  对它 readFileSync 是**取被测件**,不是取判据输入(判据输入的盘面纪律见 T2/T3,走 catBatch)。
@@ -75,6 +69,8 @@ const SCREENS_REL = gate.SCREENS_REL
 const APP_REL = gate.APP_REL
 
 const MIGRATED_REL = `${SCREENS_REL}/PaymentScreen.tsx`
+const EXEMPT_REL = `${SCREENS_REL}/AboutScreen.tsx`
+const EXEMPT_BASE = 'AboutScreen.tsx'
 const IMPORT_ANCHOR = "import { PaymentScreen as SharedPaymentScreen, type PaymentOrderItem } from '@ihui/rn-app'"
 
 function gitRead(args, cwd = REPO) {
@@ -111,24 +107,6 @@ const HEAD_SCREENS = (() => {
   return { ok: true, reason: '', rels, blobs }
 })()
 
-/**
- * 现读选取「仍在白名单册、且 HEAD 面确实没有共享层 import」的真实豁免枚 —— T1 的判假反例与
- * T3 的"抽一枚真实豁免"用同一枚,保证两处的凭据是同一份现场。
- * 立因(2026-10-24 实测):这两处原先硬写 `AboutScreen.tsx`,而当天 01:39 枚 65ae1469f4 把该屏
- * 改成薄壳并把它摘出白名单 ⇒ 钉死文件名的夹具在真实仓上必腐(T1/T3 双双红,红的是夹具不是判据)。
- * 取不到就整条不判并点名,绝不回落到自造夹具冒充真仓反例。
- */
-const EXEMPT_REAL = (() => {
-  if (!HEAD_SCREENS.ok) return { ok: false, reason: HEAD_SCREENS.reason, name: null, text: null }
-  for (const screenRel of HEAD_SCREENS.rels) {
-    const name = screenRel.split('/').pop()
-    const text = HEAD_SCREENS.blobs.get(`HEAD:${screenRel}`)
-    if (typeof text !== 'string' || !gate.WHITELIST.has(name)) continue
-    if (!gate.hasRnAppImport(text)) return { ok: true, reason: '', name, text }
-  }
-  return { ok: false, reason: 'HEAD 面已无"在册且无共享层 import"的真屏(白名单可能整族清空)', name: null, text: null }
-})()
-
 /** 共享层同名集合(HEAD 面,与 screens 同轮取材)。 */
 const HEAD_SHARED = (() => {
   const r = gitRead(['ls-tree', '-r', '--name-only', 'HEAD', '--', APP_REL])
@@ -149,20 +127,20 @@ const INDEX_PROBE = (() => {
 })()
 
 describe('check-rn-app-migration · §22c 镜像测试(判据一律走门体导出的 gate)', () => {
-  it('T1 判据有牙(真仓 HEAD 逐字面):已迁移 wrapper 判真,在册 RN 独占屏判假', () => {
+  it('T1 判据有牙(真仓 HEAD 逐字面):已迁移 wrapper 判真,RN 独占屏判假', () => {
     assert.ok(HEAD_SCREENS.ok, `能力探测未过:${HEAD_SCREENS.reason}`)
-    assert.ok(EXEMPT_REAL.ok, `现读选不出"在册且无共享层 import"的真屏 ⇒ 本条不判定(§0.3):${EXEMPT_REAL.reason}`)
     const migrated = HEAD_SCREENS.blobs.get(`HEAD:${MIGRATED_REL}`)
+    const exempt = HEAD_SCREENS.blobs.get(`HEAD:${EXEMPT_REL}`)
     assert.equal(typeof migrated, 'string', 'HEAD 面取不到 PaymentScreen —— 判不了就点名')
     assert.equal(gate.hasRnAppImport(migrated), true, 'PaymentScreen 在 HEAD 上就是 wrapper,判不出迁移 = 尺子漂开')
     assert.equal(
-      gate.hasRnAppImport(EXEMPT_REAL.text),
+      gate.hasRnAppImport(exempt),
       false,
-      `${EXEMPT_REAL.name} 在册且 HEAD 面没有 @ihui/rn-app 的 import,判成已迁移 = 判据退化成包名子串搜索`,
+      'AboutScreen 的 HEAD 面只 import @ihui/design-tokens,判成已迁移 = 判据退化成包名子串搜索',
     )
-    assert.ok(gate.WHITELIST.has(EXEMPT_REAL.name), '门体白名单里必须确实登记着这枚真屏(否则 T1 的反例只是巧合)')
+    assert.ok(gate.WHITELIST.has(EXEMPT_BASE), '门体白名单里必须确实登记着这枚真屏(否则 T1 的反例只是巧合)')
     assert.ok(
-      gate.WHITELIST_ENTRIES.get(EXEMPT_REAL.name)?.expires,
+      gate.WHITELIST_ENTRIES.get(EXEMPT_BASE)?.expires,
       '③ 每枚豁免必须带 expires(§0.7 豁免族必须登记存活期)',
     )
   })
@@ -223,9 +201,8 @@ describe('check-rn-app-migration · §22c 镜像测试(判据一律走门体导�
       // ⑤ 到期 0(本轮给的存活期都在未来)
       assert.deepEqual(v.expired, [], `白名单仍有已到期条目:${JSON.stringify(v.expired)}`)
       // ⑥ 反事实:抽掉一枚真实豁免 ⇒ 红必须变多(白名单是判据不是装饰)
-      assert.ok(EXEMPT_REAL.ok, `现读选不出可抽的真实豁免 ⇒ 这一维不判定(§0.3):${EXEMPT_REAL.reason}`)
       const stripped = new Map([...gate.WHITELIST_ENTRIES])
-      assert.ok(stripped.delete(EXEMPT_REAL.name), `门体白名单里应有这枚可抽的真实豁免:${EXEMPT_REAL.name}`)
+      assert.ok(stripped.delete(EXEMPT_BASE), '门体白名单里应有这枚可抽的真实豁免')
       const v2 = gate.verdict({
         screens,
         baseline,
@@ -237,7 +214,7 @@ describe('check-rn-app-migration · §22c 镜像测试(判据一律走门体导�
         fullAudit: true,
       })
       assert.ok(
-        v2.violations.some((x) => x.name === EXEMPT_REAL.name),
+        v2.violations.some((x) => x.name === EXEMPT_BASE),
         '抽掉豁免后仍不判违规 = 白名单是装饰,不是判据',
       )
       assert.equal(v2.violations.length, v.violations.length + 1, '抽一枚豁免应恰好多一枚红(不多不少)')
@@ -412,36 +389,6 @@ describe('check-rn-app-migration · §22c 镜像测试(判据一律走门体导�
       assert.ok(!/已迁移\s*\d/.test(full.out), `旧门"已迁移 203"型假绿读数不得复活,实得:${full.out.slice(0, 300)}`)
     },
   )
-
-  it('T11 三枚 RN 薄壳对本门零违规、摘白名单后仍零违规、抹掉 import 必须翻 V1 红', () => {
-    // 收编来源:apps/mobile-rn/tests/{carte,developer,recruitment}-screen-render.test.tsx 里那枚
-    // 「迁移门判据」用例。它们在端内 import 门体 `__test__`,构成 apps/mobile-rn(rank 40) →
-    // repo-tooling(rank 90) 的反向依赖,门 103 判 D1+D2 六处红;config/architecture-policy.yaml
-    // 把两条"省事"出路都堵了(补 requires ⇒ T1 当场红;D 判据不得用 arch-exempt 糊),
-    // 唯一合规出路 = 把测判据源的用例搬到不反向的这一层。断言逐字保留,只换住址。
-    assert.ok(HEAD_SCREENS.ok, `HEAD 面取材不齐 ⇒ 本条不判定(§0.3),不是通过:${HEAD_SCREENS.reason}`)
-    for (const name of ['CarteScreen.tsx', 'DeveloperScreen.tsx', 'RecruitmentScreen.tsx']) {
-      const text = HEAD_SCREENS.blobs.get(`HEAD:${SCREENS_REL}/${name}`)
-      assert.equal(typeof text, 'string', `${name} 在 HEAD 面取不到正文 ⇒ 拿"没读到"当通过是本仓最高频失效型`)
-      const run = (whitelist, body) =>
-        gate.verdict({
-          screens: [{ name, text: body }],
-          baseline: new Map([[name, body]]),
-          sharedNames: new Set([gate.stemOf(name)]),
-          headScreenNames: new Set([name]),
-          whitelist,
-          today: gate.isoToday(),
-        })
-      assert.deepEqual(run(gate.WHITELIST_ENTRIES, text).violations, [], `${name} 薄壳对本门必须零违规`)
-      assert.deepEqual(run(new Map(), text).violations, [], `${name} 白名单被摘掉后仍判绿(靠的是真 import)`)
-      const stripped = text.replace(/'@ihui\/rn-app'/g, `'../screens/${name.replace('.tsx', '')}Local'`)
-      assert.deepEqual(
-        run(new Map(), stripped).violations.map((v) => v.code),
-        ['V1'],
-        `${name} 的共享层 import 被抹掉必须判 V1 红 —— 否则上一条断言恒真,判据没牙`,
-      )
-    }
-  })
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

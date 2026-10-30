@@ -19,7 +19,6 @@
  * 是内联实现,为不动共享路由文件,此处按相同 SQL 语义实现并注明来源)。
  */
 import { and, eq, inArray, sql, gte, lte } from 'drizzle-orm'
-import { bizDayStartUtc } from '../utils/biz-day.js'
 import { dbRead } from '../db/index.js'
 import {
   aiRelayChannelGroups,
@@ -114,7 +113,18 @@ export interface RelayOpsSnapshot {
   }
 }
 
-// 业务日界唯一出口在 utils/biz-day.ts(守门 246 拦第二份副本)
+// ===== 时区工具:Asia/Shanghai 日界(UTC 表示)——与 relay-stats.ts 同语义 =====
+function shanghaiDayStartUtc(daysAgo = 0): Date {
+  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
+  return new Date(
+    Date.UTC(
+      shanghaiNow.getUTCFullYear(),
+      shanghaiNow.getUTCMonth(),
+      shanghaiNow.getUTCDate() - daysAgo,
+    ) -
+      8 * 3600 * 1000,
+  )
+}
 
 function deltaRate(curr: number, prev: number): number {
   if (prev === 0) return curr === 0 ? 0 : 1
@@ -266,10 +276,10 @@ async function buildChannelsSection(): Promise<RelayOpsSnapshot['channels']> {
 
 // ===== 用量段:overview(与 REST /stats/overview 同语义) =====
 async function buildUsageSection(): Promise<RelayOpsSnapshot['usage']> {
-  const todayStart = bizDayStartUtc(0)
-  const yesterdayStart = bizDayStartUtc(1)
-  const last7dStart = bizDayStartUtc(6)
-  const last30dStart = bizDayStartUtc(29)
+  const todayStart = shanghaiDayStartUtc(0)
+  const yesterdayStart = shanghaiDayStartUtc(1)
+  const last7dStart = shanghaiDayStartUtc(6)
+  const last30dStart = shanghaiDayStartUtc(29)
   const now = new Date()
 
   const [today, yesterday, last7d, last30d] = await Promise.all([

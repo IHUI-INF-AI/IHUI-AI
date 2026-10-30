@@ -50,7 +50,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -405,11 +405,11 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
   } as ViewStyle,
   headTabText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
   } as TextStyle,
   headTabTextActive: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as TextStyle,
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   searchBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   } as TextStyle,
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   avatarFallbackText: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
     fontWeight: '600',
     color: tokens.text.secondary,
   } as TextStyle,
@@ -497,14 +497,14 @@ const styles = StyleSheet.create({
     flex: 1,
   } as ViewStyle,
   cardTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     color: tokens.agentName.DEFAULT,
   } as TextStyle,
   cardDesc: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.medium,
     lineHeight: 18,
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
   } as TextStyle,
   cardFooter: {
     marginTop: rpx(10),
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
   } as ViewStyle,
   setBtnText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.brand.ctaForeground,
     fontWeight: '500',
   } as TextStyle,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   offlineBtn: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.brandAccent.deep,
     fontWeight: '500',
     textDecorationLine: 'underline',
@@ -539,12 +539,12 @@ const styles = StyleSheet.create({
     gap: rpx(6),
   } as ViewStyle,
   metaLine: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.medium,
   } as TextStyle,
   footerText: {
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
     paddingVertical: rpx(16),
   } as TextStyle,
@@ -590,11 +590,11 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brandAccent.DEFAULT,
   } as ViewStyle,
   promptCancelText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.medium,
   } as TextStyle,
   promptConfirmText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.primary,
   } as TextStyle,
 })

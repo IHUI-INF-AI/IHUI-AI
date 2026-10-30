@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 import { ModelSelect, NumImagesSelect, useVendorModels } from './vendor-models'
 
@@ -58,11 +58,12 @@ export const ImageGenAgnes = React.memo(function ImageGenAgnes() {
       ratio: string
       n?: number
     }) => {
-      const res = await api<{ taskId: string; status: string }>('/api/ai/agnes/image', {
+      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/agnes/image', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      return res
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: (data) => {
       setTaskId(data.taskId)
@@ -74,8 +75,9 @@ export const ImageGenAgnes = React.memo(function ImageGenAgnes() {
   const { data: task } = useQuery({
     queryKey: ['ai-task', taskId],
     queryFn: async () => {
-      const res = await api<AsyncTask>(`/api/ai/tasks/${taskId}`)
-      return res
+      const res = await fetchApi<AsyncTask>(`/api/ai/tasks/${taskId}`)
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     enabled: !!taskId,
     refetchInterval: (query) => {

@@ -16,7 +16,7 @@ import type { CarouselItem } from '@ihui/types'
 import { rpx } from '@/utils/rpx'
 
 /// 指示点几何/默认高度不在本文件取数 —— 唯一源是 @ihui/shared/ui/carousel-spec(与 RN 端同档);
-/// 本文件只做 rpx 换算 + 挂 Taro 原语。数字类名与小数档类名(bottom-2/w-4 及各 1.5 档)已撤,
+/// 本文件只做 rpx 换算 + 挂 Taro 原语。数字类名(bottom-2/gap-1_5/h-1_5/w-1_5/w-4;小数档写成 CSS 侧的 _d 形态是刻意的 —— 注释里的类名同样进 @source 候选集,会生成永远挂不上的死规则并顶红守门 C8 fractional,勿改回)已撤,
 /// 否则端内既定档就是第二份真相(守门 128 立项量出的 174 处差异档即此型)。
 const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 

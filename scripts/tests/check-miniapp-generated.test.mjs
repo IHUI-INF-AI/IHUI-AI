@@ -277,11 +277,9 @@ const PIN = gate.pinKit
 const GEN_REL = 'scripts/gen-i18n-compressed.mjs'
 
 /** 造一份"钉按 pristine 输入算"的离线包夹具(钉永远代表旧的那次生成,磁盘可以是新的) */
-function pinBundleText({ inputs }) {
-  const merged = {}
-  for (const l of gate.REMOTE_LOCALES) merged[l] = { greeting: `hello-${l}` }
+function pinBundleText({ inputs, leavesOf }) {
   const b64For = (obj) => Buffer.from(gzipSync(Buffer.from(JSON.stringify(obj), 'utf8'))).toString('base64')
-  const data = gate.REMOTE_LOCALES.map((l) => `  ${l}: '${b64For(merged[l])}',`).join('\n')
+  const data = gate.REMOTE_LOCALES.map((l) => `  ${l}: '${b64For(leavesOf ? leavesOf(l) : { greeting: `hello-${l}` })}',`).join('\n')
   const pin = PIN.renderPin({
     generator: GEN_REL,
     sourceCommit: 'cafebabe',
@@ -291,15 +289,29 @@ function pinBundleText({ inputs }) {
   return { pin: `${pin}\n`, data }
 }
 
-function pinFixture(dir, { breakInputRel, withPin = true } = {}) {
-  const inputs = gate.REMOTE_LOCALES.flatMap((l) => [
-    { rel: `${gate.MESSAGE_ROOT}/shared/${l}.json`, text: JSON.stringify({ greeting: `hello-${l}` }) },
-    { rel: `${gate.MESSAGE_ROOT}/miniapp-taro/${l}.json`, text: '{}' },
-  ])
+/**
+ * 钉的输入清单**由共享规则构造**(§22c:测试不许再抄一份路径)——
+ * 这条夹具与门共用 lib/i18n-bundle-inputs.mjs,所以"门抄漏一层"这种事在本文件里也会被立刻判出来。
+ */
+function pinInputList({ withCarried }) {
+  const out = []
+  for (const l of gate.REMOTE_LOCALES) {
+    out.push({ rel: gate.baseSourceRel(l), text: JSON.stringify({ greeting: `hello-${l}` }) })
+    out.push({ rel: gate.overrideSourceRel(l), text: '{}' })
+    if (withCarried) out.push({ rel: gate.carriedSourceRel(l), text: JSON.stringify({ carried: { note: `c-${l}` } }) })
+  }
+  return out
+}
+
+function pinFixture(dir, { breakInputRel, withPin = true, withCarried = false, leavesOf } = {}) {
+  const inputs = pinInputList({ withCarried })
   for (const i of inputs) {
     put(dir, i.rel, i.rel === breakInputRel ? JSON.stringify({ greeting: 'LATER-EDIT' }) : i.text)
   }
-  const { pin, data } = pinBundleText({ inputs, breakInputRel })
+  const bundleLeaves =
+    leavesOf ||
+    ((l) => (withCarried ? { greeting: `hello-${l}`, carried: { note: `c-${l}` } } : { greeting: `hello-${l}` }))
+  const { pin, data } = pinBundleText({ inputs, leavesOf: bundleLeaves })
   put(dir, gate.I18N_BUNDLE, `// GENERATED\n${withPin ? pin : ''}export const REMOTE_LOCALE_B64 = {\n${data}\n}\n`)
 }
 
@@ -359,6 +371,82 @@ test('T15 端到端三态:matched 绿 / stale 红并点名 / absent 未判定但
     assert.match(r.out, /未判定 ≠ 通过/, '必须明写"未判定不等于通过",不得让读者当成已通过')
   } finally {
     rmScratch(absent)
+  }
+})
+
+test('T15b 承载层(mobile-rn 词包)是钉的一等输入 —— git 面必须真读它(2026-10-27 漂移的正面锁)', () => {
+  // 立因:生成器 2026-10-26 给离线包加了第三层输入,门没跟,且即便跟了清单也要进 prefetch 才取得到字节。
+  // 两种缺法在磁盘面都看不出来(worktree 的 read 不走批量缓存),只有 HEAD 面会暴露 ⇒ 本例三面都量。
+  const dir = mkScratch('cmg-pin-carry')
+  try {
+    pinFixture(dir, { withCarried: true })
+    git(dir, ['init', '-q', '-b', 'main'])
+    git(dir, ['add', '-A'])
+    git(dir, ['commit', '-q', '-m', 'init'])
+
+    // ① 结构锁:门按共享规则列出的输入集里必须有那 4 份承载源,且每条都取到了字节(不是 ABSENT)
+    const reader = gate.makeReader('worktree', dir)
+    const listed = gate.readPinInputs(reader)
+    const carried = listed.filter((i) => i.rel.includes('/mobile-rn/'))
+    assert.equal(carried.length, gate.REMOTE_LOCALES.length, `钉输入里承载层应有 ${gate.REMOTE_LOCALES.length} 份,实得 ${carried.length}`)
+    assert.ok(carried.every((i) => typeof i.text === 'string' && i.text.length > 0), '承载层取到清单却没取到字节 ⇒ digest 会折成 ABSENT')
+    assert.deepEqual(
+      listed.map((i) => i.rel).sort(),
+      gate.bundleInputRels(gate.REMOTE_LOCALES, (rel) => gate.makeReader('worktree', dir).has(rel)).sort(),
+      '门的输入集必须逐字等于那条共享规则(§0.6 单一真相源)',
+    )
+
+    // ② HEAD 面 matched:钉带着三层输入而面上三层字节未变 ⇒ 绿(修复前这里是 stale + 4 条 ABSENT)
+    const ok = runGuard(['--root', dir, '--group', 'i18n'])
+    assert.equal(ok.code, 0, `HEAD 面三层齐全期望 0,实际 ${ok.code}:${ok.out || ok.err}`)
+    assert.match(ok.out, /自述钉\(G-680\):matched/, `HEAD 面必须 matched,实得:${ok.out}`)
+
+    // ③ 阳性对照:只改承载层源而钉没重算 ⇒ 必须红,并且点名的就是那份 mobile-rn(不是别处)
+    put(dir, gate.carriedSourceRel('ja'), JSON.stringify({ carried: { note: 'LATER-EDIT' } }))
+    git(dir, ['add', '-A'])
+    git(dir, ['commit', '-q', '-m', 'carry-changed'])
+    const stale = runGuard(['--root', dir, '--group', 'i18n'])
+    assert.equal(stale.code, 1, `承载层变了而钉没重算期望 1,实际 ${stale.code}:${stale.out}`)
+    assert.match(stale.out, /\[G5\]/, `必须点名 G5:${stale.out}`)
+    assert.ok(
+      stale.out.includes(gate.carriedSourceRel('ja')),
+      `红点必须点名变了的那份承载源 ${gate.carriedSourceRel('ja')},实际:${stale.out}`,
+    )
+    assert.doesNotMatch(stale.out, /ABSENT/, '输入在面上存在时不得再报"ABSENT"(那是清单/预取缺位的形态)')
+  } finally {
+    rmScratch(dir)
+  }
+  // ④ 反向对照:面上根本没有 RN 词包 ⇒ 承载层不算一份输入,两层口径照样绿(不得造恒红门 §12e)
+  const noCarry = mkScratch('cmg-pin-nocarry')
+  try {
+    pinFixture(noCarry, {})
+    git(noCarry, ['init', '-q', '-b', 'main'])
+    git(noCarry, ['add', '-A'])
+    git(noCarry, ['commit', '-q', '-m', 'init'])
+    const r = runGuard(['--root', noCarry, '--group', 'i18n'])
+    assert.equal(r.code, 0, `没有承载层时期望 0,实际 ${r.code}:${r.out || r.err}`)
+    assert.match(r.out, /自述钉\(G-680\):matched/)
+  } finally {
+    rmScratch(noCarry)
+  }
+})
+
+test('T15c 承载补键是合法内容,不得被 B3 报成"源已无的孤儿";真孤儿照旧点名', () => {
+  const dir = mkScratch('cmg-pin-orphan')
+  try {
+    // 包里既有一个只存在于承载层的键(carried.note ⇒ 合法),也有一个哪儿都不存在的键(ghost.key ⇒ 真孤儿)
+    pinFixture(dir, {
+      withCarried: true,
+      leavesOf: (l) => ({ greeting: `hello-${l}`, carried: { note: `c-${l}` }, ghost: { key: 'nope' } }),
+    })
+    const r = runGuard(['--root', dir, '--worktree', '--group', 'i18n', '--strict'])
+    assert.equal(r.code, 1, `有真孤儿时期望 1,实际 ${r.code}:${r.out || r.err}`)
+    const b3 = (r.out.match(/\[B3\][^\n]*/g) || []).join('\n')
+    assert.ok(b3.length > 0, `必须报出 B3 孤儿:${r.out}`)
+    assert.ok(b3.includes('ghost.key'), `真孤儿 ghost.key 必须被点名,实际:${b3}`)
+    assert.ok(!b3.includes('carried.note'), `承载补键 carried.note 不该算孤儿,实际:${b3}`)
+  } finally {
+    rmScratch(dir)
   }
 })
 

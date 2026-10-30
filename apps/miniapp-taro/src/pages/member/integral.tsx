@@ -128,7 +128,9 @@ export default function IntegralPage() {
                 </Text>
               </View>
               <View className="mt-[16rpx] flex justify-end">
-                <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">{it.time}</Text>
+                <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                  {it.time}
+                </Text>
               </View>
             </View>
           ))}

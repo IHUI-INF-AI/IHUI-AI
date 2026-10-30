@@ -25,31 +25,6 @@ fn main() {
             "embedded_browser_state",
             "embedded_browser_new_tab",
             "embedded_browser_devtools",
-            // 2026-10-24 立:右侧工作区「停靠浏览器」(src/embedded_browser_dock.rs)12 枚命令。
-            // 远程页(https://aizhs.top)要能 invoke 这几枚,必须同时落在本表与
-            // capabilities/default.json 的 allow-*(缺一即运行期 Plugin not found,见文件头注)。
-            "embedded_browser_dock_open",
-            "embedded_browser_dock_bounds",
-            "embedded_browser_dock_close",
-            "embedded_browser_dock_destroy",
-            "embedded_browser_dock_navigate",
-            "embedded_browser_dock_back",
-            "embedded_browser_dock_forward",
-            "embedded_browser_dock_reload",
-            "embedded_browser_dock_stop",
-            "embedded_browser_dock_home",
-            "embedded_browser_dock_pick",
-            "embedded_browser_dock_devtools",
-            "embedded_browser_dock_url",
-            "embedded_browser_dock_new_tab",
-            "embedded_browser_dock_switch_tab",
-            "embedded_browser_dock_close_tab",
-            "embedded_browser_dock_tabs",
-            "embedded_browser_dock_popout",
-            "embedded_browser_dock_store",
-            "embedded_browser_dock_favorite_toggle",
-            "embedded_browser_dock_favorite_remove",
-            "embedded_browser_dock_history_clear",
             "get_admin_window_info",
             "toggle_devtools",
             "quit_app",
@@ -82,9 +57,6 @@ fn main() {
             "set_tray_always_visible",
             "get_desktop_prefs",
             "set_desktop_prefs",
-            // 2026-10-25 立:浏览器内存策略设置(标签上限 / 空闲休眠阈值)。
-            "get_browser_settings",
-            "set_browser_settings",
             "resolve_close_choice",
             "set_desktop_badge",
             "take_pending_deep_links",
@@ -95,9 +67,6 @@ fn main() {
             // 2026-10-16 内嵌浏览器改版:外部 Chrome 的 open_in_chrome/close_in_chrome 已删除
             // (三处调用点全部改走内嵌浏览器),登录窗开/关统一用 embedded_browser_*。
             "checkin_workbuddy_web_login_probe",
-            // 2026-10-24 立:Trae 网页登录探测(src/checkin_trae_web_login.rs)——读停靠浏览器
-            // cookie jar 换票,远程页签到页 invoke,故同样必须进本表 + default.json allow-*。
-            "checkin_trae_web_login_probe",
             "checkin_reset_device_ids",
             "checkin_get_public_ip",
             "checkin_one_click_reset",

@@ -152,7 +152,7 @@ import { inferVendor } from '../lib/vendor-infer'
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { tabBarDockSpacer } from '../components/TabBar.styles'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
@@ -1579,13 +1579,16 @@ export function HomeScreen() {
   )
 
   /** 智能体卡分享 → ShareSheet(标题随卡片) */
-  const handleAgentCardShare = useCallback((data: AiModelData) => {
-    setCardShareTarget({
-      title: `智汇AI社区 - ${data.name}`,
-      description: String(data.subname || ''),
-    })
-    setAssistantShareVisible(true)
-  }, [])
+  const handleAgentCardShare = useCallback(
+    (data: AiModelData) => {
+      setCardShareTarget({
+        title: t('home.shareBoardTitle', { name: data.name }),
+        description: String(data.subname || ''),
+      })
+      setAssistantShareVisible(true)
+    },
+    [t],
+  )
 
   /** FunctionBlockColumn 点击路由映射 */
   const onFunctionBlockPress = (id: string) => {
@@ -1659,7 +1662,7 @@ export function HomeScreen() {
               name: m.name,
               description:
                 m.model_tier && MODEL_TIER_LABELS[m.model_tier]
-                  ? t(MODEL_TIER_LABELS[m.model_tier]!)
+                  ? t(MODEL_TIER_LABELS[m.model_tier] ?? '')
                   : '',
               // 厂商品牌图标优先:vendor 有值时 ModelList 渲染 BrandIcon 真实矢量
               // (web 同源 @lobehub/icons);provider 缺失按 inferVendor 从模型 id 推断
@@ -2219,6 +2222,7 @@ export function HomeScreen() {
                 )
               })}
             </ScrollView>
+            <View style={shellStyles.modelModalHairline} />
             {/* 技能 tab 渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);
                 搜索态跨全部分类渲染模型列表;其余 tab 渲染分类过滤后的模型列表 */}
             {modelModalTab === 'skills' && !modelSearch.trim() ? (
@@ -2460,14 +2464,6 @@ export function HomeScreen() {
          *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2)。
          *  transparentBackground:底色/顶描边由停靠区玻璃统一提供(2026-10-16)。 */}
         <InputArea
-          // D43 语音笔记 RN 腿接线(2026-10-24 复挂:ChatScreen 同款经 voiceNoteNode 槽传入;
-          // 此前某轮 HomeScreen 重构把挂载丢了,voice-note-mount 契约三例钉红)
-          voiceNoteNode={
-            <VoiceNote
-              conversationId={null}
-              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
-            />
-          }
           value={inputValue}
           onChangeText={setInputValue}
           placeholder={t('home.inputPlaceholder')}
@@ -2486,6 +2482,15 @@ export function HomeScreen() {
           selectedModelName={selectedModel?.name ?? null}
           onClearModel={handleClearModel}
           onOpenModelConfig={() => setShowModelConfig(true)}
+          // D43 票③ RN 大输入框挂载位(2026-10-23 强制令到终态的顺延格,与 ChatScreen
+          // L3025 同形):首页尚未开会话 ⇒ conversationId 恒 null,归档笔记标"无会话";
+          // 「插入对话」= 追加进本页输入框既有通道(setInputValue),提交时随消息带过去。
+          voiceNoteNode={
+            <VoiceNote
+              conversationId={null}
+              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
+            />
+          }
           transparentBackground
         />
         {/* 悬浮胶囊让位区:透明,停靠区玻璃透出;TabBar 绝对定位在其中浮起 */}
@@ -2558,7 +2563,7 @@ const shellStyles = {
     color: tokens.text.primary,
   } as const,
   materialCardClose: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 18,
     color: tokens.text.tertiary,
     fontWeight: '400',
@@ -2619,7 +2624,7 @@ const shellStyles = {
   detailDialogTitle: {
     flex: 1,
     marginRight: rpx(16),
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '600',
     color: tokens.text.primary,
   } as const,
@@ -2701,7 +2706,7 @@ const shellStyles = {
   } as const,
   modelModalTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   } as const,
@@ -2712,7 +2717,7 @@ const shellStyles = {
     fontWeight: '300',
     paddingHorizontal: rpx(8),
   } as const,
-  // ── 弹窗深化(2026-10-15):把手 + 副标题计数 + 分类 tab + 搜索 ──
+  // ── 弹窗深化(2026-10-15):把手 + 副标题计数 + 分类 tab + 发丝线 + 搜索 ──
   modelModalGrabber: {
     alignSelf: 'center',
     width: rpx(72),
@@ -2726,7 +2731,7 @@ const shellStyles = {
     paddingRight: rpx(16),
   } as const,
   modelModalSubtitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
     marginTop: 2,
   } as const,
@@ -2777,6 +2782,11 @@ const shellStyles = {
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as const,
+  modelModalHairline: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: tokens.border.light,
+    marginHorizontal: rpx(32),
+  } as const,
   // ── 弹窗内搜索(头部图标开关 + 展开态胶囊输入框)──
   modelSearchToggle: {
     width: rpx(56),
@@ -2799,13 +2809,13 @@ const shellStyles = {
   } as const,
   modelSearchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
     // RN web 端 TextInput 默认内边距偏大,压平与图标同行
     paddingVertical: 0,
   } as const,
   modelSearchClear: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     lineHeight: 20,
     color: tokens.text.tertiary,
     paddingHorizontal: rpx(8),
@@ -2834,7 +2844,7 @@ const shellStyles = {
   } as const,
   qrTitle: {
     marginTop: rpx(20),
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
     textAlign: 'center',
@@ -2843,10 +2853,10 @@ const shellStyles = {
     position: 'absolute',
     top: 10,
     right: 14,
-    padding: 4,
+    padding: rnSpacing.xs,
   } as const,
   qrCloseText: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
     lineHeight: 26,
     color: tokens.text.tertiary,
     fontWeight: '300',

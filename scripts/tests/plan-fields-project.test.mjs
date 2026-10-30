@@ -76,14 +76,12 @@ describe('投影规划:加标头 + 删逐字等价的归属句同批(规格 §4.
     )
   })
 
-  it('删了会挪复合主键 ⇒ 退回"只加标头、保留散文"(不再整行拒投影)', () => {
+  it('删了会挪复合主键 ⇒ 拒投影(守恒闸有牙,不是注释承诺)', () => {
     const line = '- [ ] **G-10 事件** 归属:门 130 持有人,细节'
     const r = rec({ key: compositeKeyOf(line) })
     const p = P.planRow(line, r)
-    assert.equal(p.action, 'rewrite')
-    assert.equal(p.removedProse, 0, '删了会改判 ⇒ 散文句必须留着')
-    assert.ok(p.line.includes('归属:门 130 持有人'), '原散文逐字保留')
-    assert.equal(compositeKeyOf(p.line), compositeKeyOf(line), '复合主键不变')
+    assert.equal(p.action, 'skip')
+    assert.match(p.reason, /composite/)
   })
 
   it('render → parse → render 幂等(集成断言,不改 plan-field-line)', () => {

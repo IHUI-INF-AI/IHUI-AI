@@ -8,6 +8,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CustomerServiceInfo, CustomerServiceScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 客服共享屏 — props 注入式跨端组件 */
 export type { CustomerServiceInfo, CustomerServiceScreenProps }
@@ -27,16 +28,16 @@ export function CustomerServiceScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error || !info) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error || t('customerService.empty')}</Text>
+      <View style={styles.container}>
+        <ErrorState message={error || t('customerService.empty')} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -88,13 +89,6 @@ export function CustomerServiceScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: 14,
-    },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -114,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     label: { fontSize: 14, color: tk.text.secondary },
-    dot: { width: 8, height: 8, borderRadius: rnRadius.sm }, 
+    dot: { width: 8, height: 8, borderRadius: rnRadius.sm },
     dotOnline: { backgroundColor: tk.success.DEFAULT },
     dotOffline: { backgroundColor: tk.text.tertiary },
     statusText: { fontSize: 14, fontWeight: '600' },
@@ -129,8 +123,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     contactRowLast: { marginTop: 8 },
     value: { fontSize: 14, color: tk.text.primary },
-    muted: { fontSize: 14, color: tk.text.secondary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

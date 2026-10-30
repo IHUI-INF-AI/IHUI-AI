@@ -27,8 +27,6 @@ import {
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
-import { ErrorCode } from '../errors/codes.js'
-import { UPSTREAM_AUTH_FAILED_MESSAGE, mapUpstreamOutbound } from '../errors/upstream-status.js'
 import {
   bindConversationWorkspace,
   createMessage,
@@ -1644,20 +1642,6 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       )
       const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
       if (!resp.ok) {
-        // 票 L7648:上游(LiteLLM/第三方 LLM)401/403 是"上游凭据错误",不是用户会话
-        // 失效 —— 映射 502 + UPSTREAM_AUTH_FAILED,不得透传 401 让端上弹"重新登录"。
-        const outbound = mapUpstreamOutbound(resp.status)
-        if (outbound.remapped) {
-          return reply
-            .status(outbound.status)
-            .send(
-              error(
-                outbound.status,
-                UPSTREAM_AUTH_FAILED_MESSAGE,
-                ErrorCode.UPSTREAM_AUTH_FAILED.code,
-              ),
-            )
-        }
         // 透传 ai-service 状态码(422/404/429),前端据 429 提示队列已满
         return reply.status(resp.status).send(data)
       }
@@ -1710,19 +1694,6 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       )
       const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
       if (!resp.ok) {
-        // 票 L7648:上游 401/403 映射 502 + UPSTREAM_AUTH_FAILED(非会话死亡,不弹登录)。
-        const outbound = mapUpstreamOutbound(resp.status)
-        if (outbound.remapped) {
-          return reply
-            .status(outbound.status)
-            .send(
-              error(
-                outbound.status,
-                UPSTREAM_AUTH_FAILED_MESSAGE,
-                ErrorCode.UPSTREAM_AUTH_FAILED.code,
-              ),
-            )
-        }
         // 透传 ai-service 422(准入拒绝),metadata 保持原样(不部分生效)
         return reply.status(resp.status).send(data)
       }
@@ -1777,19 +1748,6 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       })
       const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
       if (!resp.ok) {
-        // 票 L7648:上游 401/403 映射 502 + UPSTREAM_AUTH_FAILED(非会话死亡,不弹登录)。
-        const outbound = mapUpstreamOutbound(resp.status)
-        if (outbound.remapped) {
-          return reply
-            .status(outbound.status)
-            .send(
-              error(
-                outbound.status,
-                UPSTREAM_AUTH_FAILED_MESSAGE,
-                ErrorCode.UPSTREAM_AUTH_FAILED.code,
-              ),
-            )
-        }
         return reply.status(resp.status).send(data)
       }
       return reply.send(data)

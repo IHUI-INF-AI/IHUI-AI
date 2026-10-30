@@ -38,7 +38,6 @@ import type { ConversationMetaField, ConversationUpdatedEvent } from '@ihui/type
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { getQueryClient } from '@/lib/query-client'
-import { fetchChatSyncSnapshot } from '@/api/chat-sync-api'
 import { toast } from '@/components/common'
 
 /** 侧栏/历史页缓存里那一行的最小形状(只声明本文件真的读的字段,不抄端内那份完整 interface) */
@@ -179,17 +178,6 @@ export function patchConversationCaches(
 
 // ===================== 提示条(React 树外的 toast) =====================
 
-/** gap 快照拉取的失败冷却(票 B02 第三切片):404/409/网络失败都不是"立刻重试能好"的 */
-const GAP_REFETCH_COOLDOWN_MS = 60_000
-/** 冷却表封顶(与下方 noticeSeen 的 200 档同形):防无界内存 */
-const GAP_COOLDOWN_LIMIT = 200
-/** 在飞快照拉取(同 messageId 去重 —— gap 帧可能连发,坐标表只去重不节流在途) */
-const gapFetchInflight = new Set<string>()
-/** messageId → 冷却截止时刻(失败才记;成功由 store 摘坐标,天然不再进本 effect) */
-const gapFetchCooldownUntil = new Map<string, number>()
-
-/** 一次性提示条:同 (会话,字段,时刻) 只弹一次 */
-
 /** 已弹过提示的帧指纹(会话|字段|时刻);封顶保留,不做无界增长 */
 const NOTICE_SEEN_LIMIT = 200
 const noticeSeen = new Set<string>()
@@ -265,8 +253,6 @@ export function useConversationBroadcastSync(): {
   // 票71 第二切片:消息面房间同步的订阅键。`subscribeChatSync` 在建订阅时把
   // conversationId 钉死(它不做会跟随的可变房间),所以切会话 = 本 effect 重建订阅。
   const conversationId = useChatStore((s) => s.conversationId)
-  // B02 第三切片:gap 坐标表 —— store 判 gap 时记下的精确坐标,拉取 effect 的输入。
-  const gapMessageIds = useChatStore((s) => s.chatSyncGapMessageIds)
   const [undetermined, setUndetermined] = React.useState(0)
   const [connected, setConnected] = React.useState(false)
 
@@ -315,8 +301,7 @@ export function useConversationBroadcastSync(): {
     })
     // 票71 第二切片:消息面同步只走契约内核 —— 房间过滤与 (messageId,rev) 幂等裁定
     // 都在 `applyChatSync` 里(store 侧单点),本处不做第二份去重。被拒(duplicate/
-    // stale/gap)时 store 不写 messages 数组;gap 置旗 + 记坐标,由下方 gap 拉取
-    // effect(B02 第三切片)按坐标拉权威快照回喂内核。
+    // stale/gap)时 store 不写 messages 数组;gap 会置 resync 旗,由后续切片拉快照。
     const chatSub = conversationId
       ? subscribeChatSync(config, conversationId, (evt) =>
           useChatStore.getState().applyChatSync(evt),
@@ -327,41 +312,6 @@ export function useConversationBroadcastSync(): {
       chatSub?.close()
     }
   }, [token, conversationId])
-
-  // ── B02 第三切片(2026-10-25):gap 拉取接线(契约 §7 第 3 项 resync 传输)────────
-  // store 判 gap 时只置旗记坐标,不发起拉取(store 不碰网络);拉取在这里:
-  // 逐坐标拉权威快照 → applyChatSyncSnapshot(两步走内核,created 补达 → snapshot)。
-  // 三条防风暴纪律:
-  //  ① 在飞去重:同 messageId 的快照在途时不重复拉(gap 帧可能连发);
-  //  ② 失败冷却 60s + 表封顶:重试风暴正是"同故障高重复"那一型;旗保留在账(诚实),
-  //     下一帧 gap 或下一次进会话再试,不弹 toast 打扰;
-  //  ③ 成功由 store 摘坐标(applyChatSyncSnapshot),本 effect 由坐标表驱动自然停。
-  React.useEffect(() => {
-    if (!conversationId) return
-    if (typeof window === 'undefined') return
-    if (!gapMessageIds || gapMessageIds.length === 0) return
-    for (const messageId of gapMessageIds) {
-      if (gapFetchInflight.has(messageId)) continue
-      if (Date.now() < (gapFetchCooldownUntil.get(messageId) ?? 0)) continue
-      gapFetchInflight.add(messageId)
-      fetchChatSyncSnapshot(conversationId, messageId)
-        .then((snap) => {
-          useChatStore.getState().applyChatSyncSnapshot(snap)
-        })
-        .catch(() => {
-          const now = Date.now()
-          gapFetchCooldownUntil.set(messageId, now + GAP_REFETCH_COOLDOWN_MS)
-          if (gapFetchCooldownUntil.size > GAP_COOLDOWN_LIMIT) {
-            // Map 迭代序 = 插入序:删最早插入的一条,封顶保序不留无界内存
-            const oldest = gapFetchCooldownUntil.keys().next().value
-            if (oldest !== undefined) gapFetchCooldownUntil.delete(oldest)
-          }
-        })
-        .finally(() => {
-          gapFetchInflight.delete(messageId)
-        })
-    }
-  }, [gapMessageIds, conversationId])
 
   return { connected, undetermined }
 }

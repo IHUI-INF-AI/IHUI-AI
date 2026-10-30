@@ -25,7 +25,6 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, rmSyn
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { requireFlagValue } from './lib/flag-value.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -178,12 +177,7 @@ export function applyGeneratedYield(repoRoot, plan) {
 
 function main() {
   const apply = process.argv.includes('--apply')
-  const repoFlag = requireFlagValue(process.argv, '--repo', { noun: '路径', fallback: ROOT })
-  if (repoFlag.error) {
-    console.error(`❌ 用法错:${repoFlag.error}`)
-    process.exit(2)
-  }
-  const repo = repoFlag.value
+  const repo = process.argv.includes('--repo') ? process.argv[process.argv.indexOf('--repo') + 1] : ROOT
   const plan = planGeneratedYield(repo, readFileSync(REGISTRY, 'utf8'))
   console.log(JSON.stringify({ mode: apply ? 'APPLY' : 'DRY-RUN', repo, ...plan }, null, 1))
   if (apply && !plan.fatal) console.log(JSON.stringify({ applied: applyGeneratedYield(repo, plan) }, null, 1))

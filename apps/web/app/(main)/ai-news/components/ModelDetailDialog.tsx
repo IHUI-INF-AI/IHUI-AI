@@ -98,17 +98,14 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
           : null,
     },
     { label: t('winRate'), value: entry.winRate ? `${entry.winRate.toFixed(1)}%` : null },
-    {
-      label: t('voteCount'),
-      value: entry.voteCount !== null ? entry.voteCount.toLocaleString() : null,
-    },
+    { label: t('voteCount'), value: entry.voteCount ? entry.voteCount.toLocaleString() : null },
     { label: t('contextWindow'), value: entry.contextWindow },
     { label: t('maxOutput'), value: entry.maxOutput },
     { label: t('inputPrice'), value: entry.inputPrice },
     { label: t('outputPrice'), value: entry.outputPrice },
     { label: t('releaseDate'), value: entry.releaseDate },
     { label: t('license'), value: entry.license },
-  ].filter((r) => r.value !== null && r.value !== undefined && r.value !== '')
+  ].filter((r) => r.value)
 
   function handleQuickImport() {
     if (!platform) return

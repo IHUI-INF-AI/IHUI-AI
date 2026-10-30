@@ -19,7 +19,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { TextField } from '@ihui/rn-app'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import Empty from '../components/common/Empty'
 import { appAlert } from '../components/BottomPops'
 import {
   deleteRepoWikiDoc,
@@ -169,7 +168,7 @@ export function RepoWikiScreen() {
                 setViewingId('')
                 setDetail('')
               }}
-              className="ml-2 rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
+              className="ml-2 rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
             >
               <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                 {t('repoWiki.backToList')}
@@ -178,7 +177,7 @@ export function RepoWikiScreen() {
           </View>
           {loadingDetail ? (
             <View className="items-center py-10">
-              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('repoWiki.loadingDetail')}</Text>
+              <Text className="text-sm text-neutral-500">{t('repoWiki.loadingDetail')}</Text>
             </View>
           ) : (
             <ScrollView className="flex-1">
@@ -206,38 +205,34 @@ export function RepoWikiScreen() {
                 placeholderTextColor={tokens.text.tertiary}
                 autoCapitalize="none"
                 autoCorrect={false}
-                className="mr-2 h-9 flex-1 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100 min-h-[44px]"
+                className="mr-2 h-9 flex-1 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
               />
               <TouchableOpacity
                 disabled={loading}
                 onPress={onSearch}
-                className="rounded-sm bg-neutral-900 px-3 py-2 dark:bg-neutral-100 min-h-[44px]"
+                className="rounded-sm bg-neutral-900 px-3 py-2 dark:bg-neutral-100"
               >
                 <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                   {t('repoWiki.searchBtn')}
                 </Text>
               </TouchableOpacity>
             </View>
-            <Text className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{t('repoWiki.generateHint')}</Text>
+            <Text className="mt-2 text-xs text-neutral-500">{t('repoWiki.generateHint')}</Text>
           </View>
 
           {error ? (
             <View className="mt-3 px-4">
-              <Empty
-                text={error}
-                actionText={t('common.retry')}
-                onAction={() => void load(repoName)}
-              />
+              <Text className="text-sm text-red-600 dark:text-red-400">{error}</Text>
             </View>
           ) : null}
 
           {loading && docs.length === 0 ? (
             <View className="items-center py-16">
-              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('repoWiki.loadingDocs')}</Text>
+              <Text className="text-sm text-neutral-500">{t('repoWiki.loadingDocs')}</Text>
             </View>
           ) : docs.length === 0 ? (
             <View className="items-center py-16">
-              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('repoWiki.emptyList')}</Text>
+              <Text className="text-sm text-neutral-500">{t('repoWiki.emptyList')}</Text>
             </View>
           ) : (
             <View className="px-4 pb-6 pt-3">
@@ -260,9 +255,9 @@ export function RepoWikiScreen() {
                     </View>
                   </View>
                   {doc.modulePath ? (
-                    <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{doc.modulePath}</Text>
+                    <Text className="mt-1 text-xs text-neutral-500">{doc.modulePath}</Text>
                   ) : null}
-                  <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  <Text className="mt-1 text-xs text-neutral-500">
                     {t('repoWiki.generatedAt', { time: formatStamp(doc.generatedAt) })}
                     {' · '}
                     {t('repoWiki.fileCount', { count: doc.fileCount })}
@@ -271,7 +266,7 @@ export function RepoWikiScreen() {
                     <TouchableOpacity
                       disabled={loadingDetail}
                       onPress={() => void onView(doc)}
-                      className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100 min-h-[44px]"
+                      className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
                     >
                       <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                         {t('repoWiki.view')}
@@ -280,7 +275,7 @@ export function RepoWikiScreen() {
                     <TouchableOpacity
                       disabled={busyId === doc.id}
                       onPress={() => onDelete(doc)}
-                      className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
+                      className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
                     >
                       <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                         {t('repoWiki.delete')}

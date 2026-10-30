@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet } from 'rea
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AccountCancelScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -220,7 +220,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: rnCssLight.black50,
       alignItems: 'center',
       justifyContent: 'center',
       padding: rnSpacing['2xl'],

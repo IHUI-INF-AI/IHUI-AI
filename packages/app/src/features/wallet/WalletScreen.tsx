@@ -9,6 +9,7 @@ import type { WalletBalance, WalletScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 钱包/Props 类型 re-export(单一来源 @ihui/types) */
 export type { WalletBalance, WalletScreenProps }
@@ -55,9 +56,7 @@ export function WalletScreen({
         refreshControl={<RefreshControl refreshing={loading && !!balance} onRefresh={onRefresh} />}
       >
         {loading && !balance ? (
-          <View style={styles.center}>
-            <Text style={styles.muted}>{t('common.loading')}</Text>
-          </View>
+          <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
         ) : cards.length === 0 ? (
           <View style={styles.center}>
             <Text style={styles.muted}>{t('wallet.loadFailed')}</Text>

@@ -9,51 +9,63 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./user": {
       "types": "./dist/user.d.ts",
-      "import": "./dist/user.js"
+      "import": "./dist/user.js",
+      "default": "./dist/user.js"
     },
     "./api": {
       "types": "./dist/api.d.ts",
-      "import": "./dist/api.js"
+      "import": "./dist/api.js",
+      "default": "./dist/api.js"
     },
     "./ai": {
       "types": "./dist/ai.d.ts",
-      "import": "./dist/ai.js"
+      "import": "./dist/ai.js",
+      "default": "./dist/ai.js"
     },
     "./chat": {
       "types": "./dist/chat.d.ts",
-      "import": "./dist/chat.js"
+      "import": "./dist/chat.js",
+      "default": "./dist/chat.js"
     },
     "./message-repair": {
       "types": "./dist/message-repair.d.ts",
-      "import": "./dist/message-repair.js"
+      "import": "./dist/message-repair.js",
+      "default": "./dist/message-repair.js"
     },
     "./workspace": {
       "types": "./dist/workspace.d.ts",
-      "import": "./dist/workspace.js"
+      "import": "./dist/workspace.js",
+      "default": "./dist/workspace.js"
     },
     "./api-contracts": {
       "types": "./dist/api-contracts.d.ts",
-      "import": "./dist/api-contracts.js"
+      "import": "./dist/api-contracts.js",
+      "default": "./dist/api-contracts.js"
     },
     "./orchestration": {
       "types": "./dist/orchestration.d.ts",
-      "import": "./dist/orchestration.js"
+      "import": "./dist/orchestration.js",
+      "default": "./dist/orchestration.js"
     },
     "./permission-mode": {
       "types": "./dist/permission-mode.d.ts",
-      "import": "./dist/permission-mode.js"
+      "import": "./dist/permission-mode.js",
+      "default": "./dist/permission-mode.js"
     },
     "./knowledge-team": {
       "types": "./dist/knowledge-team.d.ts",
-      "import": "./dist/knowledge-team.js"
+      "import": "./dist/knowledge-team.js",
+      "default": "./dist/knowledge-team.js"
     },
     "./chat-sync-contract": {
       "types": "./dist/chat-sync-contract.d.ts",
-      "import": "./dist/chat-sync-contract.js"
+      "import": "./dist/chat-sync-contract.js",
+      "default": "./dist/chat-sync-contract.js"
     },
     "./package.json": "./package.json"
   },

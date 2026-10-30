@@ -4,10 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { FlatList, RefreshControl, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
+import { FlatList, RefreshControl, Text, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertListScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 证书列表共享屏 — props 注入式跨端组件 */
 export type { CertListScreenProps }
@@ -34,9 +35,7 @@ export function CertListScreen({
       </View>
       {error ? <Text style={styles.errorBar}>{error}</Text> : null}
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList
           data={items}
@@ -44,13 +43,13 @@ export function CertListScreen({
           contentContainerStyle={styles.listBody}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('certList.empty')}</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title={t('certList.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => onPressItem(item.id)}>
+            <PressableCard
+              style={[styles.card, { backgroundColor: 'transparent' }]}
+              onPress={() => onPressItem(item.id)}
+              colorScheme={colorScheme}
+            >
               <Text style={styles.cardTitle} numberOfLines={1}>
                 {item.name}
               </Text>
@@ -63,7 +62,7 @@ export function CertListScreen({
                 </Text>
                 <Text style={styles.score}>{item.score}</Text>
               </View>
-            </TouchableOpacity>
+            </PressableCard>
           )}
         />
       )}
@@ -85,8 +84,6 @@ function createStyles(tk: AppThemeTokens) {
     errorBar: { paddingHorizontal: 10, paddingBottom: 8, fontSize: 14, color: tk.danger.DEFAULT },
     listBody: { padding: 10 },
     separator: { height: 12 },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary },
     card: { padding: 12, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tk.border.light },
     cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     label: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
@@ -96,7 +93,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       marginTop: 8,
     },
-    score: { flexShrink: 0, fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT },
+    score: { fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

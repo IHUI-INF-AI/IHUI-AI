@@ -830,11 +830,8 @@ function GradesView({ childId }: { childId: string }) {
   }, {})
 
   const subjectAvgs = Object.entries(grouped).map(([subject, items]) => {
-    const totalScore = items[0]?.totalScore ?? 100
-    // 两个分母都得守:科目空分组会让均分变 NaN,满分 0(科目未设满分)会让百分比变 Infinity
-    if (items.length === 0 || totalScore <= 0)
-      return { subject, avg: 0, totalScore, percentage: 0, count: items.length }
     const avg = Math.round(items.reduce((s, i) => s + i.score, 0) / items.length)
+    const totalScore = items[0]?.totalScore ?? 100
     const percentage = Math.round((avg / totalScore) * 100)
     return { subject, avg, totalScore, percentage, count: items.length }
   })

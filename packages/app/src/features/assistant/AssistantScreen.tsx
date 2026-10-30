@@ -15,6 +15,7 @@ import type {
 
 import { rnRadius } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 助手管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AssistantItem, AssistantScreenProps, AssistantStatus, AssistantSubTab, AssistantTab }
@@ -226,11 +227,11 @@ export function AssistantScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>
-              {loading ? t('assistant.loading') : t('assistant.empty')}
-            </Text>
-          </View>
+          loading ? (
+            <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('assistant.empty')} colorScheme={colorScheme} />
+          )
         }
         renderItem={renderItem}
       />
@@ -277,8 +278,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
     errorText: { fontSize: 14, color: tk.brandAccent.deep },
-    empty: { alignItems: 'center', paddingVertical: 48 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,

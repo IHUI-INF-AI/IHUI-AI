@@ -3,24 +3,33 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 「跨端登记自动器」装车的接线锁(2026-10-25 立)。
+ * 「跨端登记自动器」装车的接线锁(2026-10-25 立;同日由同步 runLogged 档改版为 detached 后台派发档)。
  *
  * 锁的是哪一格:器物 scripts/auto-register-cross-end.mjs 造完后**全仓零调用方**
  * (2026-10-25 现读:`.husky/`、`scripts/guardian-runner.mjs`、`scripts/lib/pre-commit-hook.js`、
  * 根 `package.json` 四处各 grep 一次,零命中)—— AGENTS.md §0.9「造好没装车 = 没有」。
- * 本轮把它接进 `scripts/lib/post-commit-hook.js` 末尾一条腿。本仓多会话共享工作区,
- * 并发旧基线提交会静默把这条腿写回"没有"(同型事故见该文件头注与守门 226 立因),
+ * 本仓多会话共享工作区,并发旧基线提交会静默把这条腿写回"没有"(同型事故见该文件头注与守门 226 立因),
  * 所以装车必须有锁,不靠口头"我记得装了"。
  *
- * ⚠ 本锁只判**接线形态**(源码里锚点是否成套),不判节流行为。
- * 原因不是偷懒:节流判据 `crossEndThrottleVerdict` 住在那枚 CJS 正文里,而该文件
- * **被薄壳直启、不被 import** —— require 它 = 真跑一遍推送链(禁止);
- * 在测试里另抄一份判据 = 违反 §22c(第二份必然漂移,有门 191 判红)。
- * 故行为面(读不到状态文件 ⇒ 该跑 / 30 分钟内 ⇒ 跳过)是**已知缺口**,写在这里而不是假称验过;
- * 下面第 ③ 条锁住的是"状态文件路径常量与窗口常量成套出现 + 先盖时刻后派发"这一形态。
+ * 改版立因(主会话实测,本锁随之以新形态为准):旧档 runLogged→execSync 同步等子扫描,
+ * 480000ms 到点把孩子掐死(留痕 lastResult="failed" + cmd.exe ETIMEDOUT),且等待期间
+ * **全程持有 post-commit 第 0 段的 git 写锁**——最坏情况别人 acquire --timeout 180000 超时,
+ * 自动推送腿不跑。⇒ 本腿语义 = 不占锁、不等结论的后台派发,对齐第 7 段「快档延后守门补跑」范式。
+ * 旧的"timeout 档 ≥300000ms"锁因此作废,由 ⑤ 的后台派发形状锁替代。
  *
- * 比对一律先折叠空白(`norm`),再按子串/正则比 —— 本仓 prettier/eslint 会折行,
+ * ⚠ 本锁只判**接线形态**(源码里锚点是否成套:派发形态、状态先写后派的时序、双旗、
+ * 子侧回写出口),**不判运行时行为**。原因不是偷懒:节流判据 `crossEndThrottleVerdict`
+ * 与派发器都住在那枚 CJS 正文里,而该文件**被薄壳直启、不被 import** —— require 它 =
+ * 真跑一遍推送链(禁止);在测试里另抄一份判据 = 违反 §22c(第二份必然漂移,有门 191 判红)。
+ * 故"派发是否真的跑成"不在本锁射程内——它的物证面是
+ * `.ihui-agent/state/cross-end-autoreg.json`(lastResult: dispatched→ok/failed/spawn-failed)
+ * 与 `.ihui-agent/state/hook-logs/post-commit-cross-end-autoreg.log` 的子侧留痕块;
+ * 本锁保证的是"这条腿装成了必留痕的形状,断在哪一档都会有名字"。
+ *
+ * 比对一律先剥整行注释、再折叠空白(`norm`),按子串/正则比 —— 本仓 prettier/eslint 会折行,
  * 按原始缩进或行号比会造出与正确性无关的假红(AGENTS.md §1「证据指针禁止行号」同理)。
+ * 派发器源码常量 CROSS_END_AUTOREG_WRAPPER_SRC 里的 spawnSync 是**子侧(后台)行为**,
+ * 判"腿内不得同步等待"时先把该数据区抠掉(elideWrapper),不许连子侧一起禁。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -52,29 +61,50 @@ const stripLineComments = (text) =>
     .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
     .join('\n')
 
+/** 本腿区间文本:起点(段标题注释)到 EOF,剥整行注释、折叠空白;起点找不到返回 ''(由调用方判缺) */
+function legNormOf(src) {
+  const start = src.indexOf('跨端登记自动链路')
+  if (start < 0) return ''
+  return norm(stripLineComments(src.slice(start)))
+}
+
+/** 抠掉派发器源码数组这一段(它是"子侧数据",里面的 spawnSync 不属于腿内同步等待) */
+function elideWrapper(legN) {
+  const wStart = legN.indexOf('CROSS_END_AUTOREG_WRAPPER_SRC = [')
+  const wEndNeedle = "].join('\\n')"
+  const wEnd = legN.indexOf(wEndNeedle)
+  if (wStart < 0 || wEnd <= wStart) return legN
+  return legN.slice(0, wStart) + ' [WRAPPER-ELIDED] ' + legN.slice(wEnd + wEndNeedle.length)
+}
+
 /**
  * 接线锚点表(单份实现:① 与 ⑦ 共用同一把尺子 —— 成对反控不是另抄一套判据)。
  * 返回缺失锚点的描述数组;空数组 = 这套锚点在源码里成套在位。
+ * 2026-10-25 改版:旧"label 必须真被 runLogged 用作首参"锚点作废,换成派发三件套
+ * (派发器源码常量 + node -e 实参 + spawn 直启);日志 label 保留 —— 子侧仍同名落痕。
  */
 function missingWiringAnchors(src) {
-  const s = norm(src)
+  const s = legNormOf(src)
   const missing = []
-  const labelIdx = s.indexOf(`'post-commit-cross-end-autoreg'`)
-  if (labelIdx < 0) missing.push("runLogged 的 label 'post-commit-cross-end-autoreg'")
-  if (!/runLogged\(\s*'post-commit-cross-end-autoreg'/.test(s))
-    missing.push('该 label 必须真被 runLogged 用作首参(写在别处不算接线)')
-  // 同一条调用的命令实参:必须带 --apply(默认档只预演,不落地等于不登记),且指向那枚器物
-  const call = labelIdx < 0 ? '' : s.slice(labelIdx, labelIdx + 400)
-  if (!/--apply/.test(call)) missing.push('命令实参里的 --apply(预演档一行都不写盘)')
-  if (!/CROSS_END_AUTOREG_SCRIPT/.test(call))
+  if (!/post-commit-cross-end-autoreg\.log/.test(s))
+    missing.push("日志留痕文件名 'post-commit-cross-end-autoreg.log'")
+  if (!/CROSS_END_AUTOREG_WRAPPER_SRC/.test(s))
+    missing.push('子侧派发器源码常量 CROSS_END_AUTOREG_WRAPPER_SRC(父不等结论,结论只能子侧回写,子侧必须有可跑的执行器)')
+  if (!/-e', CROSS_END_AUTOREG_WRAPPER_SRC/.test(s))
+    missing.push("派发器源码必须真被送进 node -e 实参(只声明不派发不算接线)")
+  if (!/spawn\(\s?process\.execPath/.test(s))
+    missing.push('spawn(process.execPath, …) 直启派发(取代 runLogged/execSync 同步等待)')
+  if (!/--apply/.test(s))
+    missing.push('器物子调用带 --apply(预演档一行都不写盘 = 不登记)')
+  if (!/CROSS_END_AUTOREG_SCRIPT/.test(s))
     missing.push('命令由脚本路径常量 CROSS_END_AUTOREG_SCRIPT 拼出(不许出现第二处硬写路径)')
-  // 双旗守卫缺一不可:应急放行 + 防递归,且递归旗要透给子进程
+  // 双旗守卫缺一不可:应急放行 + 防递归,且递归旗要随 env 透给派发器(派发器再透给器物)
   if (!/process\.env\.HUSKY_SKIP_CROSS_END_AUTOREG !== '1'/.test(s))
     missing.push('应急放行旗 HUSKY_SKIP_CROSS_END_AUTOREG')
   if (!/process\.env\.IHUI_CROSS_END_AUTOREG_COMMIT !== '1'/.test(s))
     missing.push('防递归旗 IHUI_CROSS_END_AUTOREG_COMMIT')
-  if (!/env: \{ IHUI_CROSS_END_AUTOREG_COMMIT: '1' \}/.test(s))
-    missing.push('递归旗透给子进程(将来本腿若接提交就是递归坑)')
+  if (!/env: \{ \.\.\.process\.env, IHUI_CROSS_END_AUTOREG_COMMIT: '1' \}/.test(s))
+    missing.push('递归旗随 spawn env 透给子进程(将来本腿若接提交就是递归坑)')
   return missing
 }
 
@@ -121,19 +151,34 @@ test('③ 节流凭据形态成套:状态文件路径 + 窗口常量 + headSha +
     /headSha/.test(leg) && /lastRunAt/.test(leg),
     '状态文件必须同时记 lastRunAt 与 headSha(只有时刻就没法判读是哪枚提交触的)',
   )
-  // 时序不变式:先盖 lastRunAt,再 runLogged 派发 —— 反过来(先跑后盖)孩子被 timeout 杀掉/
-  // 机器断电时窗口不成立,同一枚慢提交会反复触发同一条重活。
-  const stampIdx = leg.indexOf('lastRunAt: new Date().toISOString()')
-  const dispatchIdx = leg.indexOf("'post-commit-cross-end-autoreg'")
+  // 时序不变式(本仓事故型"自愈配额写在阻塞调用之后 ⇒ 计数恒 0、每周期重犯"的反面):
+  // 先写 lastRunAt + lastResult:'dispatched' 在飞凭据,再 spawn 派发 —— 反过来(先派后写)
+  // 父已退出而状态未落,窗口不成立,同一枚慢提交会反复触发同一条重活。
+  const legN = legNormOf(HOOK_RAW)
+  const stampIdx = legN.indexOf('lastRunAt: new Date().toISOString()')
+  const inflightIdx = legN.indexOf("lastResult: 'dispatched'")
+  const spawnIdx = legN.search(/spawn\(\s?process\.execPath/)
   assert.ok(
-    stampIdx >= 0 && dispatchIdx >= 0 && stampIdx < dispatchIdx,
-    `lastRunAt(状态补丁里那一次,不是判据读的字段)必须盖在派发之前(stamp=${stampIdx}, dispatch=${dispatchIdx})`,
+    stampIdx >= 0 && inflightIdx >= 0 && spawnIdx >= 0 && stampIdx < inflightIdx && inflightIdx < spawnIdx,
+    `lastRunAt 与 dispatched 在飞凭据必须盖在 spawn 之前(stamp=${stampIdx}, dispatched=${inflightIdx}, spawn=${spawnIdx})`,
   )
   // 判据取输入的那一句必须是"状态文本 + Date.now()",不许有人把它换成别的时钟源
   assert.match(
-    norm(leg),
+    legN,
     /crossEndThrottleVerdict\(readCrossEndAutoregState\(\), Date\.now\(\)\)/,
     '节流判据的输入面被改写 ⇒ 本锁的"读不到⇒该跑"结论不再成立',
+  )
+  // 在飞守卫成套:后台档没有旧同步档的超时兜底,不拦"上一枚 dispatched 未收尾再派"就是叠扫描;
+  // 而 dispatchedAt 取不到/坏形/在未来 ⇒ 不设防(失效方向恒为多跑一次,§0.3)。
+  assert.match(
+    legN,
+    /st\.lastResult === 'dispatched'/,
+    '节流判据里的在飞守卫被摘 ⇒ 后台派发失去叠扫描防线(超时掐孩子那档已随同步形态一起没了)',
+  )
+  assert.match(
+    HOOK,
+    /const CROSS_END_AUTOREG_RUNNING_CAP_MS = 60 \* 60 \* 1000/,
+    '在飞上限常量缺失或数值形态被改 ⇒ 守卫无数值可依(上限取值须显著高于一轮扫描)',
   )
 })
 

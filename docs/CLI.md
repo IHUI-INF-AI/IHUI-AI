@@ -24,7 +24,7 @@
 完整源码位于 `apps/cli/src/`(50+ 子目录),测试位于 `apps/cli/tests/`。
 
 - 包结构总览见 [PACKAGES.md](./PACKAGES.md)。
-- 多端协同与 9 端定位见 [MULTI_END.md](./MULTI_END.md)。
+- 多端协同与 8 端定位见 [MULTI_END.md](./MULTI_END.md)。
 - 发布流程见 [RELEASE.md](./RELEASE.md)。
 
 ### 关键依赖

@@ -42,43 +42,17 @@ function runProdForeignProbe() {
   }
 }
 
-/**
- * 未判定的**逐型归因**取用处(2026-10-24 立)。尺子侧早已把根因拆成机读 `undet[]`(归因码集合)
- * 与 JSON 的 `why`,本层不再复述旧的三合一散文「(nssm 取不到实跑路径 / 签出不可读 / git 失败)」——
- * 那张文案会把后手指引到已经不存在的载体形态上(本机实测:nssm 不在位、无独立生产签出,
- * 尺子走的是 `surface=absent-surveyed` 那一档,连"未判定"都不算)。
- * 三档出口,绝不回落旧散文冒判(§0.3):`undet` 非空 ⇒ 逐型点名;它空而 `why` 在 ⇒ 用尺子给的 `why`;
- * 两者皆无 ⇒ 显式点名"尺子没给归因",不猜原因。
- */
-export function prodForeignUndetText(parsed) {
-  const codes = (Array.isArray(parsed?.undet) ? parsed.undet : []).map((x) => String(x ?? '').trim()).filter((x) => x !== '')
-  if (codes.length > 0) return codes.join(' | ')
-  const why = typeof parsed?.why === 'string' ? parsed.why.trim() : ''
-  if (why) return why
-  return '(尺子未给出归因码:undet 为空且 why 缺失 ⇒ 要查的是尺子侧的归因层,不是本机有没有签出)'
-}
-
-/**
- * 告警正文唯一拼装处:路径 + blob 前 12 位 + 行数差 + 人工出路(归人,器物不代删代提交)。
- * `repoRoot` 恒取当次现读值(默认 = `WORKTREE`,由 `resolveWorktree()` 实测:env 别名 →
- * `git rev-parse --show-toplevel` → 脚本自身位置上两级),**禁止写死盘符**(AGENTS 前言七类机器事实、
- * §15 禁止 `process.cwd()` 定根、守门 70);做成默认参是为镜像测试注入假根,不在测试里抄第二份判据。
- */
-export function prodForeignAlertDetail(parsed, kindLabel, opts = {}) {
-  const repoRoot = opts.repoRoot || WORKTREE
+/** 告警正文唯一拼装处:路径 + blob 前 12 位 + 行数差 + 人工出路(归人,器物不代删代提交)。 */
+export function prodForeignAlertDetail(parsed, kindLabel) {
   const c = parsed.counts || {}
   const lines = [`判定面:生产签出 ${parsed.prodRoot || '(路径未取到)'} 的工作区/索引 blob ↔ prod HEAD ↔ origin/main`, `计数:foreign=${c.foreign ?? 0} duplicate=${c.duplicate ?? 0} staged=${c.staged ?? 0} unjudged=${c.unjudged ?? 0}`]
   for (const it of parsed.foreign || [])
     lines.push(`[外来] ${it.path} blob=${it.blob}${it.lineDiff ? ` 行数差 +${it.lineDiff.added ?? '?'}/-${it.lineDiff.deleted ?? '?'}` : ''}`)
   for (const it of parsed.staged || []) lines.push(`[已暂存·远端没有] ${it.path} blob=${it.blob}`)
   for (const it of parsed.unjudged || []) lines.push(`[未判定] ${it.path} —— ${it.why}`)
-  if (parsed.surface) lines.push(`[判定面 surface] ${parsed.surface}(absent-surveyed = 各通道都量到了、本机确实没有独立生产签出;none/judged-but-unresolved = 有通道没量到,归因见下行)`)
-  const undet = prodForeignUndetText(parsed)
-  // 未判定的信**必须**点名根因(哪怕是"尺子没给归因"这一句);非未判定的信没归因可报就不加行,免得噪声。
-  if ((Array.isArray(parsed.undet) && parsed.undet.length > 0) || parsed.state === 'unjudged') lines.push(`[归因 undet] ${undet}`)
   if (parsed.why) lines.push(`[整轮未判定] ${parsed.why}`)
   return (
-    `${kindLabel}:生产签出(独立于本仓 ${repoRoot})里有不进任何仓/远端/CI 的工作,一次 checkout/reset 就静默蒸发。\n` +
+    `${kindLabel}:生产签出(独立于本仓 D:/IHUI-AI)里有不进任何仓/远端/CI 的工作,一次 checkout/reset 就静默蒸发。\n` +
     `${lines.join('\n')}\n` +
     '人工出路(二选一,都归人;器物绝不代删代提交):把活落进仓(在有归属的会话里提交推送),或确认可丢后由持有者自己处置。\n' +
     '手动复核:node scripts/check-prod-checkout-foreign-work.mjs(结论行 PROBE-RESULT 恒纯 ASCII)。'
@@ -93,10 +67,6 @@ export function prodForeignAlertDetail(parsed, kindLabel, opts = {}) {
  * 16:0x 实测其工作区 blob `bf7ee8ab8c...` 在 prod HEAD 与 origin 两侧都是 `4159ac393c...` ⇒ 29 行新增
  * 只活在盘上,一次 checkout 就静默蒸发;另有 11 枚 `A ` 的远端没有的新文件,一次 reset 整批蒸发。
  * 14:27/15:5x 两枚部署冻结(未提交文件与更新路径重叠挡 ff)也是同一个签出的脏态。
- * 〔2026-10-24 归因补记:上面那段是**立项当日的现场**,那台机的载体形态后来漂了 —— 本机现读
- *  nssm 不在位、无 IHUI-DEPLOYLOOP 服务,承载服务直跑本仓工作树。尺子侧因此改成多通道现读
- *  (注册表 → nssm → 约定目录 → 人工指定),并把结论分成 `surface=judged|absent-surveyed|none`
- *  与逐型 `undet=` 两维。本模块不得再把任何一种根因写死成散文:根因一律从尺子的 JSON 里读。〕
  *
  * 三态分流(与尺子退出码同形,互不顶掉):
  *   foreign ⇒ 首轮即到人("正在丢失的边缘"),notifyGuardRed(critical)。
@@ -107,10 +77,8 @@ export function prodForeignAlertDetail(parsed, kindLabel, opts = {}) {
  *       在飞工作读成事故并刷屏("重复告警就是缺陷")。连满 30 分钟(≈15 趟)仍在 ⇒ 按"一次
  *       reset 整批蒸发"的存续性风险到人;身份 = `prod-staged;faces=…;tier=…`,跨持续档即新
  *       身份立刻重报,越拖越响不会被压成静音(与 unjudged 同一把量过的尺子)。
- *   unjudged  ⇒ notifyEnvUndetermined 持续门槛(单轮某条通道抢不到不是结构性故障;
+ *   unjudged  ⇒ notifyEnvUndetermined 持续门槛(单轮 nssm/git 抢不到不是结构性故障;
  *       连满 30 分钟 ≈ 15 趟才按"这一格瞎了"到人 —— 与 env-drift/egress 同一把量过的尺子)。
- *       到人/日志的**根因**取自尺子 JSON 的 `undet[]`(逐型归因码,`prodForeignUndetText`),
- *       本模块不写死任何一种根因散文;标题保持稳定(它进身份去重面,明细只进正文)。
  *   duplicate ⇒ 只写日志不发信:内容已在仓里,无丢失风险;但它挡 ff 的部署冻结由 auditDeployStall
  *       那格负责,本格不重复盖一层(尺子头注同文)。
  * run/notify/logger 全可注入(§22c:镜像测试用假派发器断言"哪种结论发哪种身份",绝不真发信)。
@@ -157,14 +125,9 @@ export function auditProdForeignWork(opts = {}) {
   }
   const counts = parsed.counts || {}
   if (parsed.state === 'unjudged') {
-    // 逐型点名(2026-10-24):旧的三合一散文「nssm 取不到实跑路径 / 签出不可读 / git 失败」已废 ——
-    // 它把三种根因揉成一条,而本机真实根因是"独立生产签出这一载体形态不存在"(尺子侧另有一档
-    // surface=absent-surveyed 连未判定都不算)。归因一律取自尺子的 `undet`(见 prodForeignUndetText)。
-    logger(`❓ 生产签出外来工作巡检未判定,不记为通过;尺子 surface=${parsed.surface ?? '(尺子没给)'};逐型归因 undet=${prodForeignUndetText(parsed)}`)
+    logger('❓ 生产签出外来工作巡检未判定(nssm 取不到实跑路径 / 签出不可读 / git 失败),不记为通过')
     notifyEnvUndetermined(
-      // 标题进到人身份的去重面(notifyEnvUndetermined 的 dedupKey=`…;name=<标题>`)⇒ 恒为稳定文案,
-      // 归因明细只进正文:把路径/次数写进身份 = 门 224 射程内的抖动身份(§5e-3)。
-      '生产签出外来工作巡检未判定(逐型归因见正文「归因 undet」行)',
+      '生产签出外来工作巡检未判定(生产签出取不到或 git 失败)',
       prodForeignAlertDetail(parsed, '未判定'),
       notify,
       logger,

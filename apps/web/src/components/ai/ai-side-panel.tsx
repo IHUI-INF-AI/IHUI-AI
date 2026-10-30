@@ -68,7 +68,7 @@ import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
 // Runtime 插话能力声明落库口(会话元数据 → store)
 import { noteRuntimeCapabilities } from '@/hooks/use-chat/runtime-capabilities'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { judgePageAdvance } from '@/lib/pagination-stall'
 // P1-6 断点续传(片3,2026-10-21):编排与 ChatPaneBody 共用 useResumeBranch 一份出口
 import { useResumeBranch } from '@/hooks/use-chat/resume-stream'
@@ -398,7 +398,7 @@ export function AISidePanel() {
         toast.error(tc('headerActions.createDraftPullRequestFailed'))
         return
       }
-      const res = await api<{ html_url?: string }>('/api/workspace/github/prs', {
+      const res = await fetchApi<{ html_url?: string }>('/api/workspace/github/prs', {
         method: 'POST',
         body: JSON.stringify({
           owner: gh.owner,
@@ -409,7 +409,8 @@ export function AISidePanel() {
           draft: true,
         }),
       })
-      const prUrl = res?.html_url
+      if (!res.success) throw new Error(res.error ?? 'create draft pull request failed')
+      const prUrl = res.data?.html_url
       toast.success(tc('headerActions.createDraftPullRequestOk'), {
         description: prUrl,
       })
@@ -655,14 +656,8 @@ export function AISidePanel() {
         resetPager(cached.oldestCursor, cached.hasMore)
         setLoadingHistory(false)
 
-        // 后台异步拉取最新消息对比更新(不阻塞 UI,完成后覆盖缓存数据)。
-        // 必须 await:loadHistory 的 .finally 是续接点火点(见下方 runAfterHistory)。
-        // 若此处 fire-and-forget 立刻 return,续接会与这次整体覆盖赛跑 —— 覆盖回调里的
-        // isLocalMessagesChanged 只看"拉取期间本地是否被写入",而续接此刻正卡在
-        // resume/status 请求上、尚未写 store ⇒ 判成"本地未变",用服务端快照(不含未落库的
-        // 半截 assistant)整体覆盖 messages;随后 tail 的 appendToMessage 命中不到原 id,
-        // 静默丢弃(根窗格 e2e ④a 即此型;窗格主体是单腿 async,故 ④b 不受影响)。
-        await (async () => {
+        // 后台异步拉取最新消息对比更新(不阻塞 UI,完成后覆盖缓存数据)
+        void (async () => {
           // 记录拉取前的 messages 引用,识别拉取期间本地是否被写入(见 isLocalMessagesChanged)
           const localBefore = useChatStore.getState().messages
           try {
@@ -901,14 +896,12 @@ export function AISidePanel() {
       // keyset 模式:cursor 为服务端下发的 base64url 复合游标,direction=older 向前翻更早消息
       const res = await getMessages(convId, { cursor, direction: 'older', pageSize: 50 })
       if (!res.success) return
-      // await 期间会话可能已切走(切换 effect 会同步写 store.conversationId)⇒ 复验不等即整页作废:
-      // 否则旧会话的一页 prepend 进新会话、resetPager 把旧游标装进新会话、
-      // patchConversationCache 把串会话的列表写进旧会话缓存桶(LRU 持久污染)。
-      if (useChatStore.getState().conversationId !== convId) return
-      // 与首次加载(:676/:732)和非根窗格(chat-pane-body.tsx:222)走**同一水合出口** ——
-      // 原手写 map 只留 id/role/content/createdAt,翻上来的旧消息丢 toolCalls/planSteps/
-      // citations/pinnedAt/parentMessageId+siblingIndex(版本族判不出 ⇒ "点一次编辑出两个气泡")。
-      const older = hydrateHistoryMessages(res.data.messages)
+      const older = res.data.messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        createdAt: new Date(m.createdAt).getTime(),
+      }))
       // G-816010 分页结果双重复核:响应游标 == 请求游标 ⇒ 本次没有任何前进信息,收下它与
       // replay 不可区分(下次上翻发同一个游标、拿回同一页,账面每次加载都成功而更早的历史
       // 永远读不到)⇒ 停止补拉并按可重试失败上报,不当"成功且没有更多",也不静默。
@@ -1884,11 +1877,15 @@ function WorkspaceNameSync({ onNameChange }: { onNameChange: (name: string | nul
     let cancelled = false
     void (async () => {
       try {
-        const res = await api<{ project: { id: string; name: string } }>(
+        const res = await fetchApi<{ project: { id: string; name: string } }>(
           `/api/workspace/projects/${encodeURIComponent(projectId)}`,
         )
         if (cancelled) return
-        onNameChange(res?.project?.name ?? null)
+        if (res.success && res.data?.project?.name) {
+          onNameChange(res.data.project.name)
+        } else {
+          onNameChange(null)
+        }
       } catch {
         if (!cancelled) onNameChange(null)
       }

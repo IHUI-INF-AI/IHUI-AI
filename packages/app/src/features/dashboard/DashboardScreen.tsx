@@ -4,8 +4,8 @@
 
 import { useMemo, type ReactNode } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { rnRadius } from '@ihui/design-tokens'
-import { darkTokens, type AppThemeTokens } from '../../theme/tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import type { AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -79,17 +79,10 @@ export function DashboardScreen({
 }: DashboardScreenProps) {
   const styles = useMemo(() => createStyles(tk), [tk])
   const groups = useMemo(() => groupItems(items), [items])
-  /**
-   * 状态四件套是主题驱动组件(`colorScheme` 形参默认 'light')。本屏不另建主题来源:
-   * 调用方注入的 `tk` 就是它按 `resolvedTheme` 解析出的 token 集,而 `getTokens` 只可能返回
-   * `lightTokens` / `darkTokens` 两个单例(identity 契约由 dark-mode.test.tsx 钉住),
-   * 故由 `tk` 反推出来的档案与屏幕自身配色必然同档 —— 这正是门 91 要的不"同屏两套档案"。
-   */
-  const colorScheme: 'light' | 'dark' = tk === darkTokens ? 'dark' : 'light'
 
   if (loading && items.length === 0) {
     if (renderLoading) return <>{renderLoading()}</>
-    return <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
+    return <ScreenSkeleton variant="grid" count={4} />
   }
 
   const isEmpty = items.length === 0
@@ -113,7 +106,7 @@ export function DashboardScreen({
         renderEmpty ? (
           renderEmpty()
         ) : (
-          <EmptyState title={t('common.empty')} colorScheme={colorScheme} />
+          <EmptyState title={t('common.empty')} />
         )
       ) : (
         groups.map((group) => (
@@ -124,7 +117,9 @@ export function DashboardScreen({
                 const card = (
                   <View style={styles.card}>
                     <Text style={styles.cardLabel}>{metric.label}</Text>
-                    <Text style={styles.cardValue}>{metric.value}</Text>
+                    <Text style={styles.cardValue} numberOfLines={1}>
+                      {metric.value}
+                    </Text>
                     {metric.hint ? <Text style={styles.cardHint}>{metric.hint}</Text> : null}
                   </View>
                 )
@@ -154,41 +149,43 @@ export function DashboardScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    content: { padding: 16, paddingBottom: 24, gap: 16 },
-    errorWrap: { gap: 8 },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    content: { padding: rnSpacing.lg, paddingBottom: rnSpacing['2xl'], gap: rnSpacing.lg },
+    errorWrap: { gap: rnSpacing.sm },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     retryBtn: {
       alignSelf: 'flex-start',
       paddingVertical: 6,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.medium,
     },
-    retryBtnText: { fontSize: 14, color: tk.text.primary },
+    retryBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
     section: {},
-    sectionTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
+    sectionTitle: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.sm,
+    },
     sectionGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       justifyContent: 'space-between',
       gap: 10,
     },
-    /* 原先靠 numberOfLines={1} 防断行 = 把数字截成省略号(违反 UI_GUIDELINES §13)。
-       改成 minWidth + 父级 flexWrap:22px 最坏读数(9 字符 ≈ 108 + padding 24)放得下,
-       窄屏放不下时整格换行,数字始终完整。 */
-    cell: { flexBasis: '48%', minWidth: 150 },
+    cell: { flexBasis: '48%' },
     card: {
       flexGrow: 1,
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    cardLabel: { fontSize: 12, color: tk.text.secondary },
-    cardValue: { marginTop: 4, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    cardHint: { marginTop: 4, fontSize: 12, color: tk.text.secondary },
+    cardLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
+    cardValue: { marginTop: rnSpacing.xs, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    cardHint: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

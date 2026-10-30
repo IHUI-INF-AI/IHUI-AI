@@ -21,8 +21,9 @@ import type {
   ModelPlazaTypeFilter,
 } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 模型广场共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ModelPlazaItem, ModelPlazaProvider, ModelPlazaScreenProps }
@@ -206,23 +207,23 @@ export function ModelPlazaScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>
-              {loading
-                ? t('common.loading')
-                : error
-                  ? t('modelPlaza.loadFailed')
-                  : t('modelPlaza.emptyType')}
-            </Text>
-          </View>
+          loading ? (
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : error ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>{t('modelPlaza.loadFailed')}</Text>
+            </View>
+          ) : (
+            <EmptyState title={t('modelPlaza.emptyType')} colorScheme={colorScheme} />
+          )
         }
         renderItem={({ item }) => {
           const tb = typeBadge(item.type, tk)
           return (
-            <TouchableOpacity
+            <PressableCard
               style={styles.modelCard}
               onPress={() => onPressItem(item)}
-              activeOpacity={0.85}
+              colorScheme={colorScheme}
             >
               <View style={styles.cardTop}>
                 <Text style={styles.modelName} numberOfLines={1}>
@@ -264,7 +265,7 @@ export function ModelPlazaScreen({
                 ))}
                 {item.payMode ? <Text style={styles.payMode}>{item.payMode}</Text> : null}
               </View>
-            </TouchableOpacity>
+            </PressableCard>
           )
         }}
       />
@@ -339,7 +340,7 @@ function createStyles(tk: AppThemeTokens) {
       ...shadowSoft,
     },
     providerTabActive: {
-      backgroundColor: 'rgba(0, 0, 0, 0.08)',
+      backgroundColor: rnCssLight.black8,
     },
     providerTabIcon: {
       width: 18,
@@ -386,7 +387,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       ...shadowSoft,
     },
-    typeTabActive: { backgroundColor: 'rgba(0, 0, 0, 0.08)' },
+    typeTabActive: { backgroundColor: rnCssLight.black8 },
     typeTabText: { fontSize: 16, color: tk.text.secondary },
     typeTabTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     listBody: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 32 },

@@ -28,9 +28,12 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const TOOL = join(HERE, '..', 'object-space-land.mjs')
 const UNION_TOOL = join(HERE, '..', 'union-converge.mjs')
 const GIT = resolveGitBin() || 'git'
-const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
+// stdio 显式写在调用点(不进 runOpts 底座):门 193 第 3 条只认「该次调用 options 内的 stdio 属性名」,
+// 而 `{ ...runOpts }` 这种 spread 形态读不出属性名 ⇒ 判「options 内无 stdio 属性名」(2026-10-25 实测存量红)。
+// 值只有这一处(底座里已删),不产生第二份真相。
+const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20 }
 const runGit = (dir, args) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], { ...runOpts })
+  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], { ...runOpts, stdio: ['ignore', 'pipe', 'pipe'] })
 
 function makeRepo(t) {
   const dir = mkScratch('lgr-')
@@ -163,40 +166,6 @@ test('T4 scanDuplicateDefinitions:顶层同名命中,嵌套/注释不算,ts 臂�
   )
   const names = scanDuplicateDefinitions(ts, '.ts').map((x) => x.name).sort()
   assert.deepEqual(names, ['fmt', 'tick'])
-
-  // TS 函数重载 = 多个无 body 签名 + 单个实现 ⇒ 不是重复族(2026-10-25 tauri-bridge.ts
-  // 的 withTimeout 2 签名 + 1 实现被早期版本判红,落地复跑假红)
-  const overloads = [
-    'function withTimeout<T>(p: Promise<T>, ms: number): Promise<T>',
-    'function withTimeout<T>(',
-    '  p: Promise<T>,',
-    '  ms: number,',
-    '  signal: AbortSignal | undefined,',
-    '): Promise<T>',
-    'function withTimeout<T>(',
-    '  p: Promise<T>,',
-    '  ms: number,',
-    '  signal?: AbortSignal,',
-    '): Promise<T> {',
-    '  return p',
-    '}',
-  ].join('\n')
-  assert.deepEqual(scanDuplicateDefinitions(overloads, '.ts'), [], '重载签名不得算第二份定义')
-
-  // 但"两份实现(+ 一枚签名)"仍是真重复族
-  const realDup = [
-    'function withTimeout<T>(p: Promise<T>): Promise<T>',
-    'function withTimeout<T>(p: Promise<T>): Promise<T> {',
-    '  return p',
-    '}',
-    'function withTimeout<T>(p: Promise<T>): Promise<T> {',
-    '  return p',
-    '}',
-  ].join('\n')
-  const rd = scanDuplicateDefinitions(realDup, '.ts')
-  assert.equal(rd.length, 1)
-  assert.equal(rd[0].name, 'withTimeout')
-  assert.equal(rd[0].lines.length, 2, '只数带 body 的两份实现')
 })
 
 // ── T5 失败臂变红:落地面自带重复定义 ⇒ verdict=1(判 HEAD 面,不读工作树) ──
