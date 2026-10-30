@@ -68,6 +68,15 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'ACCOUNT_RESTRICTED.action',
     category: 'authForbidden',
   },
+  // —— 守门 94(R1):PROVIDER_BUSY 由 apps/ai-service/app/services/mcp_server.py:7026 真实产出
+  //   (agnes 排队类失败 → 工具层映射),必须进 catalog。语义为「服务提供商暂时繁忙/过载」,
+  //   属后端侧瞬时不可用、建议稍后重试 ⇒ 分类取 backendTimeout(与 REQUEST_TIMEOUT 同档,
+  //   对侧 actionKey 是「请稍后重试」)。五语言词包已在 packages/i18n/messages/web/*.json 补齐。
+  PROVIDER_BUSY: {
+    titleKey: 'PROVIDER_BUSY.title',
+    actionKey: 'PROVIDER_BUSY.action',
+    category: 'backendTimeout',
+  },
   // —— D08① 团队任务表六码闭集(2026-10-24 补录;产出点 apps/ai-service/app/services/mcp_server.py
   // 的 _team_task_* 族)——
   // 语义分档:BOARD_FULL 是表容量上限(resourceLimitExceeded);TASK_NOT_FOUND 是条目不存在

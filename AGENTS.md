@@ -443,4 +443,3 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **207 体积对账**:`check-agents-doc-size.mjs`(blocking,预算 96,000 字节,跳过 `HUSKY_SKIP_AGENTS_DOC_SIZE=1`);阈值出处 = 同一份会话日志 1,261,607 B ⇒ ratio 1.000、96KB ≈ 7.6% 的实测锚点,不是拍的整数;阈值/定级以门体头注与 runner 现值为准。
 - **门名点名索引**(按主题归堆;编号与档位以 runner 现值为准):**已整体迁 `README.md` 的「守门脚本点名索引」节**(R4 的文档面本就含 README,本文不再重复抄一份;2026-10-25 守门 207 清偿第二刀,原 9 行逐字在 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`)。
 - **非色档三族同源(2026-10-28 立)**:间距 `SPACING_STEPS` / 字号 `TYPE_STEPS`+`FONT_WEIGHTS` / 阴影 `ELEVATION_CSS` 是唯一真源,由 `scripts/sync-css-tokens.mjs` 生成到 tokens.css 的 `css-tokens:managed` 受管块(`@theme` 内末尾,47 档),web 由此获得 `p-md` / `text-body` / `shadow-elevation-md` 这类工具类(写进 `:root` 则 v4 一条工具类都不产出,见脚本头注 §二实测)。受管块是**派生态禁止手改**:改值改 TS 源后跑 `node scripts/sync-css-tokens.mjs --write`;守门 93 的 R9/R10/R11 判受管块与 TS 源逐值同源(缺档/漂移/多档三方向都红),`pnpm check:tokens-css` 可单跑。圆角仍走 `radius.js` 单源,不重复生成(同值两名生产者 = 漂移)。
-
