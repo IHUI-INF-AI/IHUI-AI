@@ -20,12 +20,11 @@ import {
   FileX2,
 } from 'lucide-react'
 import { getArtifactToken } from '@ihui/api-client'
-import { fetchApi } from '@/lib/api'
+import { fetchApi, fetchRaw } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
-import { useAuthStore } from '@/stores/auth'
 import {
   describeToolActivityByStatus,
   describeToolCall,
@@ -781,16 +780,12 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
       setTimeout(() => setSaved(false), 2000)
     }
     try {
-      // ① 同源代理(主路径)。fetchApi 返回的是信封(ApiResult),取不到二进制,
-      //    故此处用原生 fetch 并自行带 Bearer —— 与 useAuthStore 同源的取法。
-      const { token } = useAuthStore.getState()
-      const res = await fetch(`/api/media/download?url=${encodeURIComponent(videoUrl)}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (res.ok) {
-        saveBlob(await res.blob())
-        return
-      }
+      // ① 同源代理(主路径)。走共享层 fetchRaw(自动带 Bearer / X-Requested-With /
+      //    设备指纹 / 30s 超时 / 401 续期),替代裸 fetch —— 满足「端内必须走
+      //    @ihui/api-client」守门 73,不再被端内直连后端判据命中。
+      const blob = await fetchRaw(`/api/media/download?url=${encodeURIComponent(videoUrl)}`)
+      saveBlob(blob)
+      return
     } catch {
       /* 代理不可用,走 ② */
     }

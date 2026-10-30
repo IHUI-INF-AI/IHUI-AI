@@ -8764,6 +8764,10 @@
           "title": "帳戶受限",
           "action": "聯絡管理員"
         },
+        "PROVIDER_BUSY": {
+          "title": "服務提供商繁忙",
+          "action": "請稍後重試"
+        },
         "ALREADY_CLAIMED": {
           "title": "該任務已被他人認領",
           "action": "改領其他任務，或等對方釋放後再試"
