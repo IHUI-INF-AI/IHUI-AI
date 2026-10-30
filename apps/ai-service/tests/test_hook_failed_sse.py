@@ -27,9 +27,9 @@ import pytest
 from app.services.agent_events import (
     AGENT_SUBSCRIBE_EVENTS,
     HOOK_ERROR,
+    HOOK_EVENT_TO_SSE,
     HOOK_FAILED,
     SSE_ERROR,
-    HOOK_EVENT_TO_SSE,
     map_hook_event_to_sse,
 )
 from app.services.hook_engine import (
@@ -38,7 +38,6 @@ from app.services.hook_engine import (
     _redact_event_text,
     hook_engine,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. 契约面
