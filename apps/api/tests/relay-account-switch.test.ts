@@ -548,7 +548,7 @@ describe('client lifecycle', () => {
         alive = []
       },
       intervalMs: 1,
-      timeoutMs: 50,
+      gracefulMs: 50,
     })
     expect(r.ok).toBe(true)
     expect(r.runningBefore).toBe(2)
@@ -560,10 +560,29 @@ describe('client lifecycle', () => {
       probe: () => ['WorkBuddy.exe'],
       close: () => {},
       intervalMs: 1,
-      timeoutMs: 5,
+      gracefulMs: 5,
     })
     expect(r.ok).toBe(false)
     expect(r.error).toContain('仍有')
+  })
+
+  it('closeClientAndWait:优雅不退 ⇒ 强制关闭兜底并回报 forced(真机:WorkBuddy 托盘常驻)', () => {
+    let alive = ['WorkBuddy.exe']
+    const forcedCalls: string[] = []
+    const r = closeClientAndWait({
+      probe: () => alive,
+      close: () => {},
+      forceClose: (img) => {
+        forcedCalls.push(img)
+        alive = []
+      },
+      intervalMs: 1,
+      gracefulMs: 3,
+      forceWaitMs: 20,
+    })
+    expect(forcedCalls).toEqual(['WorkBuddy.exe'])
+    expect(r.ok).toBe(true)
+    expect(r.forced).toBe(true)
   })
 
   it('closeClientAndWait:关闭命令抛错 ⇒ 立即失败且带原因', () => {
@@ -619,7 +638,7 @@ describe('client lifecycle', () => {
             probe: () => ['WorkBuddy.exe'],
             close: () => {},
             intervalMs: 1,
-            timeoutMs: 5,
+            gracefulMs: 5,
           },
         },
       ),
