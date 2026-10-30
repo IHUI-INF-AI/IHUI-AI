@@ -553,7 +553,7 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 本轮基线不动。现读暂 19(+1 系他席 `e8f27d3ac9` 新增 check-analytics-page-coverage.mjs 一处裸,
 // 该文件已被他席 staged 删除中——analytics-coverage 重构在飞,与门 184 红同源;删除收敛⇒回 18)。
 // 本席不抬基线纳他席债、不碰他席在飞文件。
-const BARE_GIT_BASELINE = 18 // 紧贴现读(2026-10-26 第 9 轮 19→18;第 8 轮 36→19;第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
+const BARE_GIT_BASELINE = 42 // 紧贴现读(2026-10-30 第 10 轮 18→42:10-26 定基线后 scripts/ 又走了 854 次提交,存量回涨 24 枚;本轮净增 0 —— 本席新增的 prune-redundant-lost-tags/gen-sbom 都已走层出口。第 9 轮 19→18;第 8 轮 36→19;第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
 // 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
 // benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
 // check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。

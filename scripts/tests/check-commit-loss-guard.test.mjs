@@ -479,6 +479,12 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
       G(dir, ['config', 'user.email', `${name}@test.local`])
       G(dir, ['config', 'user.name', name])
       G(dir, ['config', 'commit.gpgsign', 'false'])
+      // 2026-10-30:关掉 auto-gc / 自动 maintenance。本用例在阶段②会真跑一次 `git fetch`,
+      // 而 fetch 收尾可能拉起 `git maintenance run --auto` —— 那是**后台**进程,会在
+      // spawnSync 已经返回之后仍握着仓库句柄,导致临时目录 rmdir 报 EBUSY(实测踩到)。
+      // 它既是本用例的抖动源,也与"用例只验门的行为"无关,故在造仓时就关掉。
+      G(dir, ['config', 'gc.auto', '0'])
+      G(dir, ['config', 'maintenance.auto', 'false'])
       writeFileSync(join(dir, 'README.md'), `# ${name}\n`)
       G(dir, ['add', 'README.md'])
       G(dir, ['commit', '-m', `init ${name}`])
@@ -498,7 +504,34 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
       '前置:本机确实没有这个 tag',
     )
 
-    const r = runScript(['--blocking'], { cwd: local })
+    // ⚠️ 必须显式开远端档(2026-10-30 修正):本门的远端扫描由 `IHUI_COMMIT_LOSS_REMOTE=1` 门控 ——
+    // 提交链上每枚提交都做一次 ls-remote 是不可接受的(实测单次 60s 超时上限),所以默认档
+    // **完全不看远端**,`remoteTagScan()` 直接返回 null ⇒ `remoteCheckSkipped=true` ⇒ heal 分支
+    // 根本不执行。原用例没开这个档,于是它测的其实是"压根没看远端",与用例名要证的
+    // "走自愈、不是干脆不看远端"恰好相反 —— 一条永远不可能失败的假绿。
+    // 下面两段成对:① 远端档开着 ⇒ 必须真把 tag 拉回来并固化;② 默认档 ⇒ 不联网、不阻塞。
+    const REMOTE_ON = { IHUI_COMMIT_LOSS_REMOTE: '1' }
+
+    // 阶段①(先跑,因为它是"不做任何处置"的那一档):默认档 = 提交链形态,必须**不联网**。
+    // 顺序有讲究:本仓此刻本机没有任何指向那枚 commit 的 ref,所以它既不会出现在远端 diff 的
+    // "仅远端"里被补拉,也不会在本地制造悬空 —— 两件事都不发生,才是干净的"未判定"证据。
+    // (若把它放到阶段②之后再跑,补拉已经发生过,删掉本地 tag 反而会造出一枚真悬空 commit,
+    //  门判红是对的,断言就变成在测别的东西了。)
+    const off = runScript(['--blocking'], { cwd: local, env: { IHUI_COMMIT_LOSS_REMOTE: '' } })
+    assert.equal(
+      G(local, ['tag', '-l', 'lost-commit/only-on-remote']).trim(),
+      '',
+      '默认档不得联网补 tag(提交链上每枚提交都 ls-remote 是不可接受的)',
+    )
+    assert.equal(off.status, 0, `默认档对"未判定"的远端差异不得判红,实际 ${off.status}`)
+    assert.match(
+      off.stdout,
+      /远端|跳过/,
+      '默认档必须明写"远端校验跳过",不得静默(静默 = 把没判读成判过了)',
+    )
+
+    // 阶段②:远端档 ⇒ 必须真把 tag 拉回来并固化(证明走的是自愈,不是"干脆不看远端")
+    const r = runScript(['--blocking'], { cwd: local, env: REMOTE_ON })
     assert.doesNotMatch(
       r.stdout,
       /❌ 仅远端/,
@@ -521,6 +554,7 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
     const gitDir = G(local, ['rev-parse', '--absolute-git-dir']).trim()
     const packed = readFileSync(join(gitDir, 'packed-refs'), 'utf8')
     assert.match(packed, /refs\/tags\/lost-commit\/only-on-remote/, '自愈后必须固化进 packed-refs')
+
   } finally {
     rmScratch(base)
   }

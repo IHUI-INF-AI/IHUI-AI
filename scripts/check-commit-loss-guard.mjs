@@ -74,6 +74,7 @@
  *   正则/分类逻辑 —— 那正是 §22c 禁的镜像模式(抄的那份会静默漂移,而漂移的表现是恒绿)。
  *   现由 `isDirectRun` 守卫执行,判定单元经 `export const __test__` 供测试取用。
  */
+import { createHash } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -282,6 +283,20 @@ const realGitDir = () => {
 const remoteScanCachePath = () => join(realGitDir(), 'ihui-remote-tag-scan.json')
 // 本地 git 命令(批量 subject 获取)限时,防单次调用异常挂起
 const LOCAL_GIT_TIMEOUT_MS = 10_000
+
+// ── 分段计时探针(2026-10-30)──────────────────────────────────────────────
+// 立因:门 30a 反复"修完还是慢",前三次改动都没治到根 —— 因为没有一处能回答
+// "这 9 分钟到底花在哪"。此前的诊断全靠手工插桩再撤销,插桩一撤就再也回不去。
+// 这里把探针固化成常驻能力:`IHUI_LOSS_TIMING=1` 时每过一个阶段打一行 `[t+ <ms>] <标签>`,
+// 关闭时零输出、零开销(只多一次布尔判断)。读数即归因,不再靠猜。
+// 归一化口径:**时间戳是自进程启动起的毫秒数**,不是相邻两段的差值 —— 差值要人脑算,
+// 而"哪一段最大"往往与直觉相反(实测 filterStashLike 曾占 84/380 秒却长期没人怀疑它)。
+const TIMING_ON = process.env.IHUI_LOSS_TIMING === '1'
+const TIMING_T0 = Date.now()
+function mark(label) {
+  if (!TIMING_ON) return
+  console.log(`  [t+${String(Date.now() - TIMING_T0).padStart(6)}ms] ${label}`)
+}
 /** 旧 `runGit()`(spawnSync 通道)的默认上限;层默认 60s,这里显式保住原值,免得迁移改了失败时机 */
 const SPAWN_DEFAULT_TIMEOUT_MS = 120_000
 
@@ -510,9 +525,47 @@ const lossCachePath = () => join(realGitDir(), 'ihui-commit-loss-cache.json')
 function currentHeadSha() {
   return gitText(['rev-parse', 'HEAD'], { allowFail: true })
 }
+/**
+ * 缓存的**判定输入面** —— 只有这一组取值逐字相同的旧结论才可以复用。
+ *
+ * 立因(2026-10-30,由端到端用例 #42/#43 逼出来):原缓存只按 (isBlocking + TTL) 复用,
+ * 完全不看本轮用的是哪个**判据档**。于是同一面墙下:
+ *   - `--window-days 0`(全量档,safe-gc 的破坏性前置就靠它)拿到的却是默认 30 天窗的**绿结论**;
+ *   - `--strict`(问责存量档)同样被默认档的绿结论顶掉;
+ *   - `--list-unbacked` / `--list-out-of-window` 更是直接 `process.exit`,连名单都打不出来。
+ * 这不是"缓存不准",是**同一道门在不同判据下给同一个答案** —— 判据被缓存吃掉了。
+ * 判据档是命令行给定的确定输入,不是仓库状态,所以它必须进键;名单出口本来就不是结论,
+ * 一律现算(见 readLossCache 的 isList* 早退)。
+ */
+// 判据档在 `main()` 里才解析出来(winDim 依赖 flag/env 合并),而缓存读写发生在 module 级
+// 函数里 ⇒ 用一次显式登记把"本轮判据面"递进去。未登记时返回 null ⇒ 任何缓存都不复用
+// (宁算一遍),这是唯一安全的缺省方向。
+/**
+ * 备份 tag 集合的指纹(缓存新鲜度的**唯一**状态输入)。
+ *
+ * 为什么必须是集合指纹而不是条数:条数会撞(add 一枚 + del 一枚 = 条数不变)。虽然本仓
+ * 这种巧合概率极低,但缓存失效方向错了就是"把处置过的读成没处置"或反之 —— 前者卡死提交,
+ * 后者放走真丢的东西。指纹取 64 位足够:它只需要区分"两轮之间有没有动过",不做安全用途。
+ * 排序后 join 再哈希:git 的输出顺序不保证稳定(松散 ref 与 packed-refs 混排)。
+ */
+function backupTagFingerprint(lostTags, backups) {
+  const joined = [...lostTags, ...backups].sort().join('\n')
+  return createHash('sha256').update(joined).digest('hex').slice(0, 16)
+}
+
+let LOSS_CACHE_FACE = null
+function setLossCacheFace(face) {
+  LOSS_CACHE_FACE = face
+}
+function lossCacheFace() {
+  return LOSS_CACHE_FACE
+}
+
 function readLossCache() {
   // 只在 blocking 档(提交链)复用;手动查询档(--list-* / --fetch)一律现算,避免给人旧数。
   if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return null
+  // 名单出口的产物是**名单**,不是结论:缓存里没有名单,命中即等于把名单吞掉。
+  if (isListUnbacked || isListOutOfWindow) return null
   try {
     const j = JSON.parse(readFileSync(lossCachePath(), 'utf8'))
     if (!j || typeof j.ts !== 'number' || typeof j.blocking !== 'boolean') return null
@@ -520,6 +573,13 @@ function readLossCache() {
     // ⇒ 拿 HEAD 当 key 等于"缓存永不命中"(第一版就是这么写的,实测首跑 231s 后第二次仍全量)。
     // 悬空集合只由 reset / stash / gc 驱动,用 TTL 控新鲜度即可。
     if (Date.now() - j.ts > LOSS_CACHE_TTL_MS) return null
+    // 判定档变了 ⇒ 旧结论不可复用。缺失 face 的旧版缓存件同样不可复用(宁算一遍)。
+    const face = lossCacheFace()
+    if (!face) return null
+    if (!j.face || j.face.windowDays !== face.windowDays) return null
+    if (j.face.strict !== face.strict) return null
+    if (j.face.filterStash !== face.filterStash) return null
+    if (j.face.tagFingerprint !== face.tagFingerprint) return null
     return j
   } catch {
     /* 无缓存/损坏/过期 ⇒ 正常全量算,读失败绝不影响判据 */
@@ -529,7 +589,7 @@ function readLossCache() {
 function writeLossCache(obj) {
   if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return
   try {
-    writeFileSync(lossCachePath(), JSON.stringify(obj))
+    writeFileSync(lossCachePath(), JSON.stringify({ ...obj, face: lossCacheFace() }))
   } catch {
     /* 写不进去只是下次重算,不影响本次判定 */
   }
@@ -857,29 +917,59 @@ function detectUnreachable() {
   return listUnreachableHashes()
 }
 
-function filterStashLike(hashes) {
-  // 对每个 hash 取 subject,若是 stash-like 形态(WIP / On main / index on main)则过滤
-  // 2026-08-17 性能修复:原实现对每个 hash 单独 execSync(git log -1),仓库悬空 commit
-  // 数百个时累积 10+ 分钟,阻塞 pre-commit。改为 git log --no-walk 分批批量获取 subject。
-  // 注意:--no-walk 输出顺序与参数顺序不一致(实测 058d/1630/2b3f vs 传参 058d/ecc5/...),
-  // 必须用 %H 完整 hash 建 map 关联,严禁按行索引对应(曾致 stash-like 过滤错位误报)。
-  // 2026-10-21 再提速:批宽 50 → 400。本仓悬空 commit 现读 18,448 枚 ⇒ 批宽 50 要 369 次
-  // `git log --no-walk`(每次实测 100–300ms)≈ 40–110s,占首跑四分钟的大头;400 宽时
-  // 400×41=16.4KB 仍在 Windows 32KB 命令行上限内(与下方 DATE_WALK_BATCH=400 同口径)。
-  const BATCH = 400
-  const subjectByHash = new Map()
-  for (let i = 0; i < hashes.length; i += BATCH) {
-    const batch = hashes.slice(i, i + BATCH)
-    const out = gitText(['log', '--no-walk', '--format=%H%x09%s', ...batch], {
+/**
+ * 批量取 commit subject(全门唯一的 subject 派生出口)。
+ *
+ * 2026-10-30 三次提速后的定论:**Windows 上每次 spawn 一个 git 进程约 2 秒**,
+ * 所以"批量"的正解是"把 N 次派生压成 1 次",而不是继续调批宽。本仓实测同输出同条数:
+ *   - 批宽 400 ⇒ 44 次派生 = 84 秒
+ *   - `git log --no-walk --stdin` 一次读 17,436 枚 = **0.403 秒**
+ * 差 208 倍的是进程启动,不是 git 的计算;`--stdin` 同时绕开 Windows 32KB 命令行上限,
+ * 于是"按 argv 宽度算批"这件事本身也不再需要。
+ *
+ * `--no-walk` 输出顺序与传参**不一致**(实测 058d/1630/2b3f vs 传参 058d/ecc5/…),
+ * 必须按 `%H` 完整 hash 建映射,严禁按行索引对应(曾致 stash-like 过滤错位误报)。
+ *
+ * 失效方向:整条命令失败(含"某个 rev 不被接受")时回退分批,把损失限制在一批 ——
+ * 必须是"少判一批",绝不可是"整轮读成没有悬空"。
+ */
+function subjectsForHashes(hashes) {
+  const map = new Map()
+  if (hashes.length === 0) return map
+  const out = gitText(['log', '--no-walk', '--format=%H%x09%s', '--stdin'], {
+    allowFail: true,
+    timeout: LOCAL_GIT_TIMEOUT_MS,
+    input: hashes.join('\n') + '\n',
+  })
+  if (out) {
+    for (const line of out.split('\n')) {
+      const [hash, ...rest] = line.split('\t')
+      if (hash) map.set(hash, rest.join('\t'))
+    }
+    return map
+  }
+  for (let i = 0; i < hashes.length; i += DATE_WALK_BATCH) {
+    const batch = hashes.slice(i, i + DATE_WALK_BATCH)
+    const part = gitText(['log', '--no-walk', '--format=%H%x09%s', ...batch], {
       allowFail: true,
       timeout: LOCAL_GIT_TIMEOUT_MS,
     })
-    if (!out) continue
-    for (const line of out.split('\n')) {
+    if (!part) continue
+    for (const line of part.split('\n')) {
       const [hash, ...rest] = line.split('\t')
-      if (hash) subjectByHash.set(hash, rest.join('\t'))
+      if (hash) map.set(hash, rest.join('\t'))
     }
   }
+  return map
+}
+
+function filterStashLike(hashes) {
+  // 对每个 hash 取 subject,若是 stash-like 形态(WIP / On main / index on main)则过滤。
+  // 2026-08-17 性能修复:原实现逐条 `git log -1`,数百枚悬空就累积 10+ 分钟阻塞 pre-commit。
+  // 2026-10-30 定论:批量的正解是 `--stdin` 一次派生,不是调批宽(见 subjectsForHashes 头注)。
+  // 取不到 subject 的 hash 原样留下(退化成"不过滤"),这是朝红的方向 —— 不静默读成"没有悬空"。
+  if (hashes.length === 0) return hashes
+  const subjectByHash = subjectsForHashes(hashes)
   return hashes.filter((c) => !isStashSubject(subjectByHash.get(c) || ''))
 }
 
@@ -902,19 +992,38 @@ function committerUnixFor(oids) {
   let failedBatches = 0
   let batches = 0
   const list = [...oids]
-  for (let i = 0; i < list.length; i += DATE_WALK_BATCH) {
-    const batch = list.slice(i, i + DATE_WALK_BATCH)
-    batches++
-    const out = gitText(['log', '--no-walk', '--format=%H%x09%ct', ...batch], {
-      allowFail: true,
-      timeout: LOCAL_GIT_TIMEOUT_MS,
-    })
-    if (!out) {
-      failedBatches++
-      continue
+  if (list.length === 0) return { map, failedBatches: 0, batches: 0 }
+  // 同 subjectsForHashes:一次 `--stdin` 取代 N 次派生(Windows 上每次 spawn ≈ 2 秒)。
+  // `batches` 的语义随之变化:原来的"批"只为绕 Windows 32KB argv 上限而存在,`--stdin`
+  // 已不需要它,所以成功路径恒 `batches=1`。`failedBatches` 的语义**一字未改** ——
+  // 仍是"这一次没量到",调用方照样走 `wholeWalkFailed` 保守全拦(不朝绿折)。
+  batches = 1
+  const out = gitText(['log', '--no-walk', '--format=%H%x09%ct', '--stdin'], {
+    allowFail: true,
+    timeout: LOCAL_GIT_TIMEOUT_MS,
+    input: list.join('\n') + '\n',
+  })
+  if (!out) {
+    // 整条失败(含"某个 rev 不被接受"⇒ 整条命令非零,不是逐条跳过)⇒ 回退分批,
+    // 把损失限制在一批。失效方向必须是"少判一批",绝不可是"整轮读成没有时刻"。
+    failedBatches = 0
+    batches = 0
+    for (let i = 0; i < list.length; i += DATE_WALK_BATCH) {
+      const batch = list.slice(i, i + DATE_WALK_BATCH)
+      batches++
+      const part = gitText(['log', '--no-walk', '--format=%H%x09%ct', ...batch], {
+        allowFail: true,
+        timeout: LOCAL_GIT_TIMEOUT_MS,
+      })
+      if (!part) {
+        failedBatches++
+        continue
+      }
+      for (const [hash, ts] of parseCommitterDateLines(part)) map.set(hash, ts)
     }
-    for (const [hash, ts] of parseCommitterDateLines(out)) map.set(hash, ts)
+    return { map, failedBatches, batches }
   }
+  for (const [hash, ts] of parseCommitterDateLines(out)) map.set(hash, ts)
   return { map, failedBatches, batches }
 }
 
@@ -1152,6 +1261,25 @@ async function main() {
     flagValue: windowDaysFlagValue,
     envValue: process.env[WINDOW_DAYS_ENV],
   })
+  // 备份 tag 清单在缓存检查**之前**取:它既是判据的一部分,也是缓存新鲜度的指纹来源。
+  // 成本实测 listLostCommitTags 150ms + listBackups 127ms(26k tag 的仓),与缓存要省的
+  // 数十秒不在一个量级;而它换来的是"tag 一动缓存即失效"这条硬保证。
+  // 立因(2026-10-30,端到端 #42 逼出来):原注释写"悬空集合只由 reset / stash / gc 驱动",
+  // 漏了**打 tag 备份本身** —— 照 §22 给一枚悬空 commit 打上 lost-commit/* 之后,它就不再是
+  // "未备份悬空",判定必须翻绿,而按 TTL 复用的旧结论会把它按旧账继续拦 30 分钟。
+  // 也就是说:缓存会把"已经处置过"读成"还没处置",让人无论怎么备份都提交不上去。
+  const lostTags = listLostCommitTags()
+  mark(`listLostCommitTags(${lostTags.length})`)
+  const backups = listBackups()
+  mark(`listBackups(${backups.length})`)
+  // 登记本轮判据面(缓存键的另一半,见 lossCacheFace 头注)
+  setLossCacheFace({
+    windowDays: winDim.days,
+    winSource: winDim.source,
+    strict: isStrict ? 1 : 0,
+    filterStash: isFilterStash ? 1 : 0,
+    tagFingerprint: backupTagFingerprint(lostTags, backups),
+  })
   console.log(
     `  ${C.dim}悬空 commit 量纲:${C.reset}` +
       (winDim.days > 0
@@ -1174,19 +1302,23 @@ async function main() {
   }
 
   const resets = detectResets()
+  mark('detectResets')
   const rawUnreachable = detectUnreachable()
+  mark(`detectUnreachable(${rawUnreachable.length})`)
   // --filter-stash: 过滤掉 stash-like 对象(WIP / On main / index on main)
   const unreachable = isFilterStash ? filterStashLike(rawUnreachable) : rawUnreachable
+  mark(`filterStashLike(${unreachable.length})`)
   const stashCount = isFilterStash ? rawUnreachable.length - unreachable.length : 0
-  const lostTags = listLostCommitTags()
-  const backups = listBackups()
   // 2026-07-26 升级:远程 tag 完整性校验
   // 2026-09-06 修复:null=ls-remote 失败/超时 → 降级跳过远程 diff(不产生误导性差异)
   const remoteLostTags = listRemoteLostCommitTags()
+  mark('listRemoteLostCommitTags')
   const remoteBackups = listRemoteBackups()
+  mark('listRemoteBackups')
   const remoteCheckSkipped = remoteLostTags === null || remoteBackups === null
   const allLocalBackupTags = [...lostTags, ...backups]
   const reachability = verifyAllTagReachability(allLocalBackupTags)
+  mark(`verifyAllTagReachability(${reachability.length})`)
   const lostTagDiff = remoteCheckSkipped
     ? { onlyLocal: [], onlyRemote: [], both: [] }
     : compareTagSets(lostTags, remoteLostTags)
@@ -1241,6 +1373,8 @@ async function main() {
       }
     }
   }
+
+  mark(`heal(attempted=${remoteHeal.attempted},cooling=${!!remoteHeal.coolingDown},fetched=${remoteHeal.fetched.length})`)
 
   // ── 1. reflog reset 检测 ──
   console.log(header('1. reflog 最近 50 步 reset 操作检测'))
@@ -1449,6 +1583,8 @@ async function main() {
     )
   }
 
+  mark('sections-1-3-printed')
+
   // ── 4. 综合判定 ──
   console.log(header('4. 综合判定'))
 
@@ -1514,6 +1650,7 @@ async function main() {
         /* 批量失败时安全降级:backedTrees 为空,退回 hash/subject 判定 */
       }
     }
+    mark('backedTrees')
     // 性能:批量取 subject(同 filterStashLike 的 --no-walk 分批法),
     // 再对仍未放行者一次批量取 tree,避免逐 commit 派生.
     // ③ 同内容副本白名单(G-1018289②,2026-10-08)也在这条链里:经过 ①② 仍未放行的悬空
@@ -1526,20 +1663,10 @@ async function main() {
     const { unbacked, whitelistedSameContent, subjectByHash } = (() => {
       const candidates = unreachable.filter((c) => !backedUp.has(c))
       // ① subject 内嵌原 hash 匹配(stash-like 指向已备份 base)
-      const BATCH = 50
-      const subjectByHash = new Map()
-      for (let i = 0; i < candidates.length; i += BATCH) {
-        const batch = candidates.slice(i, i + BATCH)
-        const out = gitText(['log', '--no-walk', '--format=%H%x09%s', ...batch], {
-          allowFail: true,
-          timeout: LOCAL_GIT_TIMEOUT_MS,
-        })
-        if (!out) continue
-        for (const line of out.split('\n')) {
-          const [hash, ...rest] = line.split('\t')
-          if (hash) subjectByHash.set(hash, rest.join('\t'))
-        }
-      }
+      // 2026-10-30:原为 BATCH=50 的 argv 分批 ⇒ 本仓 15,947 枚候选 = 220 次派生 ≈ **109 秒**,
+      // 是 filterStashLike 治好后暴露出来的最大单段。改走同一出口 subjectsForHashes 一次派生。
+      mark(`unbacked-candidates(${candidates.length})`)
+      const subjectByHash = subjectsForHashes(candidates)
       const survivors = []
       for (const c of candidates) {
         const subject = subjectByHash.get(c) || ''
@@ -1607,6 +1734,7 @@ async function main() {
       // 只问"窗内新产生的、且无出处的悬空"要谁负责;超窗那部分是 §29 写明的人工 GC 存量,
       // 逐枚算在每个提交者头上,得到的从来不是备份,是全员跳门(§12f)。
       const walked = committerUnixFor(unbacked)
+      mark('window-begin')
       const win = splitUnbackedByWindow({
         unbacked,
         committerUnixByHash: walked.map,
