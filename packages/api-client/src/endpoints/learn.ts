@@ -387,12 +387,8 @@ export async function getMyMemberInfo(): Promise<ApiResult<Member>> {
   return fetchApi<Member>('/api/members/me')
 }
 
-/** 获取会员列表 */
-export async function getMembers(
-  query: PageQuery & { level?: number; status?: Member['status'] } = {},
-): Promise<ApiResult<PageData<Member>>> {
-  return fetchApi<PageData<Member>>(`/api/members${buildQs(query)}`)
-}
+// 2026-10-30 g35-s8 死端点簇清账:删除 getMembers —— GET /api/members 两引擎零注册,
+// 全仓零消费方。
 
 // 死调用清账(2026-10-21):getMemberDetail / updateMember 打的 GET·PUT /api/members/:id
 // 在服务端**从未注册**(全仓零路由,唯一近邻是 user/member-routes 的 /members/me),

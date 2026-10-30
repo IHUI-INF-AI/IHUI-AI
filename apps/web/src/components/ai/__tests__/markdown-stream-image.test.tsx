@@ -94,7 +94,9 @@ describe('G-738 流式内联图三态', () => {
     // 同位置改写图片(流式中 src 变化,MarkdownImage 组件实例被 React 复用)
     rerender(<MarkdownStream content={'![图二](https://img.test/b.png)'} isStreaming />)
     await waitFor(() =>
-      expect(container.querySelector('img[src="https://img.test/b.png"]')).toBeTruthy(),
+      expect(
+        container.querySelector('img[src="/api/media/image?url=https%3A%2F%2Fimg.test%2Fb.png"]'),
+      ).toBeTruthy(),
     )
     // 配对判据:state.source(a) !== 当前 src(b) ⇒ 旧 error 作废
     expect(container.querySelector('[data-markdown-image-state="error"]')).toBeNull()

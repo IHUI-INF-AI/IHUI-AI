@@ -106,7 +106,8 @@
     "empty": "暫無資料",
     "failed": "載入失敗",
     "free": "免費",
-    "loading": "檢測中...",
+    "detecting": "檢測中...",
+    "loading": "載入中...",
     "loadingShort": "載入中...",
     "noMore": "沒有更多了",
     "retry": "重試",
@@ -117,6 +118,8 @@
     "more": "更多",
     "discountAmount": "優惠",
     "loadFailed": "載入失敗"
+,
+    "operationFailed": "操作失敗"
   },
   "login": {
     "loginSuccess": "登入成功",
@@ -268,7 +271,12 @@
     "studentUnit": "人學",
     "moreTitle": "更多課程",
     "studentCount": "{count} 人學過",
-    "empty": "暫無課程"
+    "empty": "暫無課程",
+    "player": "影片載入後即可播放",
+    "progress": "學習進度",
+    "progressLessons": "已學 {completed}/{total} 節",
+    "completed": "已學完",
+    "complete": "標記學完"
   },
   "live": {
     "viewers": "{n} 人觀看",
@@ -362,7 +370,16 @@
     "titleRequired": "請輸入直播標題",
     "startFailed": "開啟直播失敗",
     "endFailed": "結束直播失敗",
-    "copySuccess": "已複製到剪貼簿"
+    "copySuccess": "已複製到剪貼簿",
+    "copyHint": "已複製",
+    "previewActive": "已開始預覽",
+    "previewIdle": "未開始預覽",
+    "productAddBtn": "新增商品",
+    "statRecvBytes": "下行流量",
+    "statSendBytes": "上行流量",
+    "statViewers": "線上人數",
+    "stats": "直播統計",
+    "title": "主播中心"
   },
   "order": {
     "title": "訂單",
@@ -477,7 +494,8 @@
     "title": "我的錢包",
     "totalRecharge": "累計儲值",
     "totalWithdraw": "累計提現",
-    "withdraw": "提現"
+    "withdraw": "提現",
+    "points": "智匯值"
   },
   "community": {
     "posts": "貼文",
@@ -502,7 +520,9 @@
     "m2": "A I 應用商店",
     "m3": "請輸入查找的智慧體名稱",
     "y1": "{p1}時長",
-    "y2": "購買智慧體:{p1}"
+    "y2": "購買智慧體:{p1}",
+    "follow": "關注",
+    "follower": "粉絲"
   },
   "action": {
     "like": "點讚",
@@ -512,7 +532,8 @@
   "agent": {
     "title": "智慧體",
     "empty": "暫無智慧體",
-    "uses": "次"
+    "uses": "次",
+    "config": "設定"
   },
   "setting": {
     "hint": "提示",
@@ -1127,7 +1148,14 @@
     "failed4": "複製失敗,請重試",
     "text5": "對話頁未設定",
     "confirm6": "確定刪除此對話?",
-    "title": "分享"
+    "title": "分享",
+    "code": "分享碼",
+    "create": "生成分享",
+    "expireAt": "有效期至",
+    "remark": "備註",
+    "remarkPlaceholder": "請輸入備註",
+    "shareNow": "立即分享",
+    "url": "連結"
   },
   "aiGroup": {
     "title": "智慧體廣場",
@@ -1180,7 +1208,9 @@
     "noUrl": "暫無存取位址",
     "loadFailed": "載入失敗",
     "openWorkflow": "開啟工作流",
-    "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續"
+    "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續",
+    "placeholder": "請輸入您的問題",
+    "streaming": "正在生成..."
   },
   "agentDialogue": {
     "sendFailed": "傳送失敗,請重試",
@@ -1335,6 +1365,8 @@
     "introLabel": "簡介"
   },
   "exam": {
+    "attempts": "考試次數",
+    "duration": "考試時長",
     "tabs": {
       "all": "全部",
       "pending": "待完成",
@@ -1347,8 +1379,8 @@
     },
     "questions": "{n} 題",
     "minutes": "{n} 分鐘",
-    "passScore": "及格分 {n}",
-    "totalScore": "總分 {n}",
+    "passScore": "及格分",
+    "totalScore": "總分",
     "removedPaper": "試卷已下架",
     "passed": "已通過",
     "notPassed": "未通過",
@@ -1602,7 +1634,17 @@
     "pendingSettle": "待結算",
     "withdrawn": "已提現",
     "myTeam": "我的團隊",
-    "columnTitle": "分銷訂單"
+    "columnTitle": "分銷訂單",
+    "retry": "重試",
+    "empty": "暫無資料",
+    "subtitle": "推廣商品,賺取佣金",
+    "level": "分銷等級",
+    "commissionRate": "佣金比例",
+    "totalEarnings": "累計收益",
+    "pending": "待結算",
+    "withdrawMin": "滿 ¥{amount} 方可提現",
+    "products": "分銷商品",
+    "sales": "已售 {count} 件"
   },
   "about": {
     "ctaDesc": "注冊即得 1000 積分,全模型免費試用,無需信用卡。",
@@ -2355,7 +2397,8 @@
     "faqGuideDesc": "建立智能體、配置模型、提交審核",
     "faqGuideBtn": "去了解",
     "contactHeading": "其他問題?",
-    "contactDesc": "諮詢客服,獲得多對一線上答疑"
+    "contactDesc": "諮詢客服,獲得多對一線上答疑",
+    "copy": "複製"
   },
   "developer": {
     "withdrawal": {
@@ -2640,7 +2683,13 @@
       "contentTitle": "詳細介紹",
       "loadFailed": "取得詳情"
     },
-    "noData": "暫無排行數據"
+    "noData": "暫無排行數據",
+    "subtitle": "學習排行榜,看看你排第幾",
+    "retry": "重試",
+    "me": "我",
+    "studyHours": "學習 {count} 小時",
+    "anonymous": "匿名用戶",
+    "title": "排行榜"
   },
   "recruitment": {
     "title": "操盤手計劃",
@@ -2670,7 +2719,11 @@
     "submitting": "註冊中…",
     "agreePrefix": "我已閱讀並同意",
     "userAgreement": "《使用者協議》",
-    "privacyPolicy": "《隱私協議》"
+    "privacyPolicy": "《隱私協議》",
+    "sendCodeFailed": "驗證碼發送失敗,請重試",
+    "registering": "註冊中...",
+    "confirmPassword": "確認密碼",
+    "confirmPasswordPlaceholder": "請再次輸入密碼"
   },
   "message": {
     "tabs": {
@@ -2792,7 +2845,7 @@
     },
     "couponList": {
       "received": "領取成功",
-        "receiveFailed": "領取失敗",
+      "receiveFailed": "領取失敗",
       "unit": "元",
       "coupon": "優惠券",
       "receive": "立即領取",
@@ -2996,7 +3049,8 @@
       "searchPlaceholder": "搜尋講師",
       "courseCount": "{n} 門課程",
       "studentCount": "{n} 位學員",
-      "empty": "暫無講師"
+      "empty": "暫無講師",
+      "title": "講師"
     },
     "detail": {
       "courses": "課程",
@@ -3263,7 +3317,17 @@
     "subscribe": "訂閱",
     "subscribeTitle": "訂閱服務包",
     "subscribed": "訂閱成功",
-    "verified": "認證"
+    "verified": "認證",
+    "title": "VIP 操盤手",
+    "subtitle": "尊享操盤手專屬權益",
+    "badge": "操盤手專屬",
+    "heroDesc": "限時 ¥{price} 開通,贈送 {power} 算力,尊享大額分銷與專屬客製權益",
+    "entryTeam": "我的團隊",
+    "entryStats": "收益統計",
+    "entryWithdraw": "去提現",
+    "benefits": "專屬權益",
+    "benefitCount": "共 {count} 項",
+    "lifetime": "終身有效"
   },
   "vip": {
     "benefitList": {
@@ -3425,7 +3489,19 @@
       "aiAnalysisDesc": "智慧分析各類資料報表",
       "aiChat": "AI智慧對話",
       "aiChatDesc": "智慧助手解答各類問題"
-    }
+    },
+    "retry": "重試",
+    "subtitle": "開通會員,尊享更多權益",
+    "currentLevel": "目前等級",
+    "expireAt": "到期時間",
+    "levelsTitle": "會員等級",
+    "empty": "暫無會員等級資訊",
+    "currentBadge": "目前等級",
+    "duration": "{days} 天",
+    "benefitsCount": "{count} 項專屬權益",
+    "daysRemaining": "剩餘 {count} 天",
+    "purchase": "開通會員",
+    "title": "會員中心"
   },
   "learnDevelop": {
     "title": "學習發展",
@@ -3437,7 +3513,8 @@
     "loadFailed": "載入失敗",
     "teacher": "講師",
     "free": "免費",
-    "rankEntry": "學習排行榜"
+    "rankEntry": "學習排行榜",
+    "contactLabel": "直接聯繫李總"
   },
   "settingPrivacy": {
     "systemPermissions": "系統權限",
@@ -3803,7 +3880,11 @@
     "menuVoiceNote": "語音筆記",
     "menuWebLink": "網頁連結",
     "menuFileUpload": "檔案上傳",
-    "menuHistory": "歷史對話"
+    "menuHistory": "歷史對話",
+    "modelLabel": "模型",
+    "stop": "停止",
+    "thinking": "思考中...",
+    "title": "IHUI AI"
   },
   "tabBar": {
     "community": "智匯社群",
@@ -4115,7 +4196,9 @@
     "d17": "探討 AI 覺醒後的人類處境,生成一段哲思短文。",
     "d18": "AI 覺醒 意識 共存",
     "d19": "深空迴響",
-    "r1": "在資料洪流中,我們以程式碼為筆,以演算法為墨,描繪著數位時代的詩與遠方。每一段文字都是思想的延伸,每一次生成都是創造的開始。"
+    "r1": "在資料洪流中,我們以程式碼為筆,以演算法為墨,描繪著數位時代的詩與遠方。每一段文字都是思想的延伸,每一次生成都是創造的開始。",
+    "playAudio": "播放音訊",
+    "publish": "發布"
   },
   "aiAgentdetail": {
     "q1": "取得Agent詳情",
@@ -4216,7 +4299,14 @@
   "askCreate": {
     "d1": "技術",
     "d2": "產品",
-    "d4": "營運"
+    "d4": "營運",
+    "title": "發布提問",
+    "titlePlaceholder": "一句話概括你的問題",
+    "contentLabel": "內容",
+    "contentPlaceholder": "詳細描述你的問題",
+    "tagsLabel": "標籤",
+    "tagsPlaceholder": "多個標籤用逗號分隔",
+    "submit": "發布"
   },
   "liveCalendar": {
     "d1": "立即觀看",
@@ -4229,7 +4319,11 @@
     "d4": "與描述不符",
     "d5": "其他原因",
     "y1": "說明:{p1}",
-    "y2": "聯絡:{p1}"
+    "y2": "聯絡:{p1}",
+    "subtitle": "選擇訂單,提交退款申請",
+    "retry": "重試",
+    "empty": "暫無可退款的訂單",
+    "reasonPlaceholder": "請填寫退款原因"
   },
   "settingTheme": {
     "d1": "根據系統設定自動切換淺色或深色",
@@ -4267,7 +4361,11 @@
   },
   "rankingDetail": {
     "d1": "測試中",
-    "d2": "已下線"
+    "d2": "已下線",
+    "points": "積分",
+    "rank": "排名",
+    "studyHours": "學習時長",
+    "levelDesc": "等級"
   },
   "EmptyIllustration": {
     "d1": "未找到相關內容",
@@ -4291,7 +4389,13 @@
   "circleCreate": {
     "d1": "公開",
     "d2": "僅好友",
-    "d3": "私密"
+    "d3": "私密",
+    "descPlaceholder": "請輸入圈子描述",
+    "description": "圈子描述",
+    "name": "圈子名稱",
+    "namePlaceholder": "請輸入圈子名稱",
+    "submit": "建立",
+    "title": "建立圈子"
   },
   "learndevelop": {
     "d1": "前端工程師",
@@ -4707,7 +4811,12 @@
     "userCard": {
       "loginRequired": "請先登入"
     },
-    "notLoggedIn": "未登入"
+    "notLoggedIn": "未登入",
+    "nickname": "未設定暱稱",
+    "logout": "登出",
+    "myFavorites": "我的收藏",
+    "myOrders": "我的訂單",
+    "editProfile": "編輯資料"
   },
   "verify": {
     "phoneEmpty": "手機號碼為空",
@@ -4752,7 +4861,7 @@
     "allowInvites": "允許被邀請"
   },
   "memberDashboard": {
-    "title": "會員中心",
+    "title": "會員概覽",
     "level": "會員等級",
     "points": "我的積分",
     "coupons": "優惠券",
@@ -5138,6 +5247,8 @@
       "absent": "缺勤",
       "leave": "請假"
     }
+,
+    "student": "學生"
   },
   "eduMgmt": {
     "attendanceTitle": "考勤管理",
@@ -5159,7 +5270,7 @@
   },
   "agreement": {
     "title": "協議與政策",
-    "subtitle": "請仔細閱讀以下協議"
+    "subtitle": "請仔細閱讀本協議"
   },
   "agreementSections": {
     "sectionTerms": "服務條款",
@@ -5981,7 +6092,7 @@
     "loadFailed": "載入推廣失敗"
   },
   "promotion": {
-    "title": "優惠券",
+    "title": "優惠券中心",
     "empty": "暫無可用優惠券",
     "minSpend": "滿 ¥{minSpend} 可用",
     "expireDate": "有效期限至",
@@ -6007,7 +6118,13 @@
     "submitting": "提交中..."
   },
   "identityVerify": {
-    "loadFailed": "載入認證失敗"
+    "loadFailed": "載入認證失敗",
+    "uploadFront": "上傳身分證人像面",
+    "uploadBack": "上傳身分證國徽面",
+    "uploadSelfie": "上傳手持身分證照片",
+    "title": "身分認證",
+    "subtitle": "完成身分認證,保障帳戶安全",
+    "submitting": "提交中..."
   },
   "referrer": {
     "title": "推薦人",
@@ -6152,12 +6269,20 @@
   },
   "agentScreen": {
     "loadFailed": "載入智慧體失敗",
-    "title": "智慧體"
+    "title": "智慧體",
+    "rating": "評分",
+    "useCount": "使用次數"
   },
   "aiAssistant": {
     "startChat": "開始對話",
     "vendorOther": "其他",
-    "copyOkToast": "連結已複製到剪貼板"
+    "copyOkToast": "連結已複製到剪貼板",
+    "empty": "暫無智慧體",
+    "favoriteCount": "{count} 收藏",
+    "searchPlaceholder": "搜尋智慧體",
+    "subtitle": "選擇智慧體開始對話",
+    "title": "AI 助手",
+    "useCount": "{count} 使用"
   },
   "resources": {
     "loadMore": "載入更多"
@@ -7049,7 +7174,21 @@
     "noTask": "無任務描述"
   },
   "aigcPublish": {
-    "typeText": "文案"
+    "typeText": "文案",
+    "fileAddText": "點擊新增檔案",
+    "labelTextContent": "文字內容",
+    "labelType": "類型",
+    "labelUpload": "上傳",
+    "pickFromAlbum": "從相簿選擇",
+    "placeholderDescription": "輸入描述",
+    "placeholderPrompt": "輸入提示詞",
+    "placeholderTextContent": "輸入文字內容",
+    "placeholderTitle": "輸入標題",
+    "placeholderUrl": "輸入連結",
+    "subtitle": "分享你的 AI 作品",
+    "uploading": "上傳中 {progress}%...",
+    "uploadingShort": "上傳中",
+    "urlAddBtn": "新增連結"
   },
   "chatWorkbenchPage": {
     "title": "對話",
@@ -7251,5 +7390,224 @@
     "markSuccess": "已標記為掌握",
     "markFailed": "標記失敗",
     "loadMore": "載入更多"
+  },
+  "settings": {
+    "oldPassword": "舊密碼",
+    "confirmPassword": "確認新密碼",
+    "icpRecord": "ICP 備案",
+    "pwdFieldsRequired": "請填寫完整的密碼資訊",
+    "pwdTooShort": "新密碼至少 6 位",
+    "pwdNotMatch": "兩次輸入的密碼不一致",
+    "pwdChanged": "密碼修改成功",
+    "pwdChangeFailed": "密碼修改失敗,請重試",
+    "logoutConfirm": "確認退出當前帳號?",
+    "notifPush": "推播通知",
+    "notifMessage": "站內訊息",
+    "notifEmail": "郵件通知",
+    "notification": "訊息通知",
+    "account": "帳號與安全",
+    "changePassword": "修改密碼",
+    "newPassword": "新密碼",
+    "language": "語言",
+    "theme": "主題"
+,
+    "version": "版本"
+  },
+  "liveList": {
+    "subtitle": "精彩直播,不見不散",
+    "retry": "重試",
+    "lecturer": "講師",
+    "startAt": "開始時間",
+    "viewerCount": "觀看人數"
+  },
+  "withdraw": {
+    "availableBalance": "可提現金額(元)",
+    "amount": "提現金額",
+    "bankCard": "銀行卡",
+    "bankCardPlaceholder": "請選擇銀行卡",
+    "feeHint": "提現手續費 {fee}%",
+    "submit": "提交",
+    "submitting": "提交中...",
+    "title": "提現"
+  },
+  "agentDetail": {
+    "creator": "建立者",
+    "description": "簡介",
+    "free": "免費",
+    "loadFailed": "載入智慧體詳情失敗",
+    "price": "價格",
+    "rating": "評分",
+    "uses": "使用次數"
+  },
+  "articleDetail": {
+    "loadFailed": "載入文章失敗",
+    "views": "瀏覽量"
+  },
+  "articleList": {
+    "empty": "暫無文章",
+    "title": "文章",
+    "views": "瀏覽量"
+  },
+  "circleDetail": {
+    "join": "加入",
+    "leave": "退出",
+    "members": "成員",
+    "membersAction": "成員管理",
+    "post": "發布貼文",
+    "posts": "貼文"
+  },
+  "examResult": {
+    "loadFailed": "載入失敗",
+    "passed": "已通過",
+    "wrongQuestions": "錯題",
+    "yourAnswer": "你的答案"
+  },
+  "favorite": {
+    "tab_aigc": "AI作品",
+    "tab_all": "全部",
+    "tab_course": "課程",
+    "tab_live": "直播",
+    "tab_news": "資訊",
+    "tab_post": "帖子"
+  },
+  "help": {
+    "empty": "暫無幫助"
+  },
+  "liveDetail": {
+    "chat": "互動",
+    "chatEmpty": "暫無互動,快來搶個頭香吧",
+    "chatPlaceholder": "說點什麼...",
+    "chatSend": "發送",
+    "empty": "直播不存在或已結束",
+    "intro": "直播介紹",
+    "lecturer": "講師",
+    "ongoing": "直播中",
+    "subscribe": "預約直播",
+    "subscribed": "已預約",
+    "subscribing": "預約中...",
+    "upcoming": "即將開播",
+    "viewerCount": "{count} 人觀看"
+  },
+  "messageCenter": {
+    "conversations": "會話",
+    "title": "訊息",
+    "type": {
+      "course": "課程",
+      "order": "訂單"
+    }
+  },
+  "modelEdit": {
+    "labelAudience": "可見範圍",
+    "labelCategory": "分類",
+    "labelCycle": "結算週期",
+    "labelDiscount": "折扣",
+    "labelFreeDur": "免費時長",
+    "labelSaleType": "販售類型",
+    "submit": "儲存",
+    "submitting": "提交中..."
+  },
+  "modelIncome": {
+    "accumulated": "累計收入",
+    "empty": "暫無收益紀錄",
+    "orderLabel": "訂單",
+    "rateLabel": "分成比例",
+    "retry": "重試",
+    "tip": "收益資料每日更新",
+    "title": "收益管理",
+    "withdrawModal": {
+      "confirm": "確認提現",
+      "moreMethods": "更多提現方式",
+      "title": "選擇提現方式",
+      "wechat": "微信提現"
+    },
+    "withdrawable": "可提現",
+    "withdrawn": "已提現"
+  },
+  "n8nModel": {
+    "actionEdit": "編輯",
+    "actionStart": "啟動",
+    "actionStop": "停止",
+    "calls": "呼叫次數",
+    "running": "執行中",
+    "searchPlaceholder": "搜尋模型",
+    "stopped": "已停止",
+    "title": "n8n 模型"
+  },
+  "orderDetail": {
+    "amount": "金額",
+    "loadFailed": "載入訂單詳情失敗",
+    "paidAt": "支付時間",
+    "product": "商品"
+  },
+  "privacy": {
+    "sectionCookie": "Cookie 使用",
+    "sectionCookieBody": "我們使用 Cookie 來記住您的偏好和登入狀態,以提供更好的瀏覽體驗。您可以在瀏覽器設定中停用 Cookie,但部分功能可能無法正常使用。",
+    "sectionData": "資料收集",
+    "sectionDataBody": "我們收集您在使用本平臺過程中主動提供的資訊,包括帳號資訊、學習紀錄、互動內容等,用於為您提供個人化服務和改進產品體驗。",
+    "sectionThirdParty": "第三方共用",
+    "sectionThirdPartyBody": "我們不會出售您的個人資訊。在法律要求或為您提供服務所必要的情況下,我們可能與可信的合作夥伴共用必要的資訊,但我們會確保其遵守同等嚴格的資料保護標準。",
+    "subtitle": "我們重視您的隱私"
+  },
+  "studyPlan": {
+    "deadline": "截止時間",
+    "lessons": "課程數",
+    "progress": "進度",
+    "status": {
+      "overdue": "已逾期",
+      "paused": "已暫停"
+    }
+  },
+  "tokenValue": {
+    "balanceLabel": "智匯值餘額",
+    "bonus": "獎勵",
+    "empty": "暫無資料",
+    "frozen": "凍結",
+    "packagesTitle": "儲值套餐",
+    "popular": "熱門",
+    "recordsTitle": "交易紀錄",
+    "tab": {
+      "cost": "消費",
+      "recharge": "儲值"
+    },
+    "title": "智匯值",
+    "tokenUnit": "智匯值",
+    "totalCost": "總消費"
+  },
+  "vipCompare": {
+    "basic": "基礎",
+    "enterprise": "企業",
+    "feature": "功能",
+    "premium": "高級",
+    "title": "會員對比"
+  }
+,
+  "coupon": {
+    "useHint": "請前往商品頁使用"
+  },
+  "eduChildBills": {
+    "arrears": "欠費",
+    "className": "班級",
+    "paid": "已付",
+    "term": "學期",
+    "total": "總額"
+  },
+  "eduChildMeals": {
+    "date": "日期",
+    "dish": "菜品",
+    "ingredients": "食材",
+    "mealType": "餐類",
+    "nutrition": "營養"
+  },
+  "eduChildStudyPlans": {
+    "planType": "類型",
+    "range": "週期",
+    "title2": "計劃"
+  },
+  "eduSchedule": {
+    "classroom": "教室",
+    "course": "課程",
+    "teacher": "教師",
+    "time": "時段",
+    "weekdayTitle": "星期"
   }
 }

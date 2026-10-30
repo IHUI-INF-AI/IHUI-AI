@@ -19,7 +19,13 @@ import { fetchApi } from '@/lib/api'
 /** 回退范围:仅回滚对话历史 / 仅回滚代码文件 / 两者都回滚 */
 export type CheckpointScope = 'conversation' | 'code' | 'both'
 
-/** checkpoint 元数据(列表项,不全量返回消息历史) */
+/** checkpoint 元数据(列表项,不全量返回消息历史)
+ *
+ * `created_at` / `expires_at` 在本模块出口是 **epoch 毫秒**,与 web 侧会话时刻(`Date.now()`、
+ * `ChatMessage.createdAt`)同基准。服务端原始形态是 **epoch 秒**(`agent_checkpoint.py`
+ * 的 `time.time()` 原样进 JSONB payload,读回时走 payload 而非 timestamptz 列),
+ * 折算只在本文件 `normalizeCheckpointList` 一处做 —— 见该条注释里的失效形态。
+ */
 export interface CheckpointMeta {
   checkpoint_id: string
   session_id: string
@@ -75,13 +81,39 @@ export interface CheckpointImpactResult {
   truncated: boolean
 }
 
+/** 服务端 epoch 秒 → web 侧 epoch 毫秒。非有限值原样返回(让「判不出」继续是判不出,不编一个 0)。 */
+export function epochSecondsToMs(seconds: number): number {
+  return Number.isFinite(seconds) ? seconds * 1000 : seconds
+}
+
+/**
+ * 把列表响应的两枚时刻折成毫秒。**单位折算只在这一处出口做**。
+ *
+ * 立因(2026-10-30 实测):`pickRevertCheckpoint` 判 `c.created_at > createdAt`、
+ * `send-message.ts` 判 `c.created_at <= targetTime`,两处的 `createdAt/targetTime` 都是毫秒;
+ * 而服务端下发的是秒(≈1.76e9)⇒ 恒小于毫秒(≈1.76e12)⇒ 「不晚于该消息」这一支永不成立,
+ * 选择器退化成「取最新一枚」,「恢复到本轮之前」会把用户回到**未来**的状态,
+ * `countAffectedTurns` 同时把全部轮次算成受影响。列本身是 `timestamptz`(入库前已转 ISO),
+ * 坏在响应把 payload 里的原始秒值直接回吐,所以修在客户端边界,不动服务端契约。
+ */
+export function normalizeCheckpointList(data: CheckpointListResult): CheckpointListResult {
+  return {
+    ...data,
+    checkpoints: (data.checkpoints ?? []).map((c) => ({
+      ...c,
+      created_at: epochSecondsToMs(c.created_at),
+      expires_at: epochSecondsToMs(c.expires_at),
+    })),
+  }
+}
+
 /** 列出指定会话可回滚的 checkpoint */
 export async function listCheckpoints(sessionId: string): Promise<CheckpointListResult> {
   const r = await fetchApi<CheckpointListResult>(
     `/api/checkpoints?session_id=${encodeURIComponent(sessionId)}`,
   )
   if (!r.success) throw new Error(r.error || '加载 checkpoint 失败')
-  return r.data
+  return normalizeCheckpointList(r.data)
 }
 
 /** 恢复到指定 checkpoint(可指定回退范围:对话 / 文件 / 两者) */

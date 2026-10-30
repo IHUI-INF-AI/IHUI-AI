@@ -137,6 +137,80 @@ export function batchReadTexts(face, rels) {
 }
 
 /**
+ * 页面拆分子模块时,文案消费落在同目录 `./xxx` 模块里(实测 conversation-import 拆了
+ * parts/analysis/core/transport 四个,16 个真实消费的键全在 parts 里) ⇒ 载体面必须含它们。
+ * 只认 `./` 且不越目录:`../` 一律不取 —— 父目录/兄弟页不是本页的载体,取了会把别人的键
+ * 算成本页已还原(那是"多放",失效方向与 §0.10 相反)。扩展名按 TS 工程惯例补候选。
+ */
+export function localModuleRels(pageRel, pageText) {
+  const rel = String(pageRel || '').replace(/\\/g, '/')
+  const slash = rel.lastIndexOf('/')
+  if (slash < 0) return []
+  const dir = rel.slice(0, slash)
+  const out = new Set()
+  for (const m of String(pageText || '').matchAll(/from\s+['"](\.\/[^'"]+)['"]/g)) {
+    const spec = m[1]
+    if (spec.includes('../')) continue
+    const base = spec.replace(/^\.\//, '')
+    if (/\.(tsx?|jsx?)$/.test(base)) out.add(`${dir}/${base}`)
+    else for (const ext of ['.tsx', '.ts', '/index.tsx', '/index.ts']) out.add(`${dir}/${base}${ext}`)
+  }
+  return [...out]
+}
+
+/**
+ * 页面同名的页面配置:`pages/study/plan.tsx` → `pages/study/plan.config.ts`。
+ * 小程序的页面标题只能写在 config 的 navigationBarTitleText 里(没有 t() 可用),
+ * 所以标题类文案的载体面必须含它 —— 实测 12 个缺口键正是这样被原生导航栏承担。
+ */
+export function localConfigRel(pageRel) {
+  const rel = String(pageRel || '').replace(/\\/g, '/')
+  const slash = rel.lastIndexOf('/')
+  if (slash < 0) return null
+  const name = rel.slice(slash + 1).replace(/\.(tsx?|jsx?)$/, '')
+  return `${rel.slice(0, slash)}/${name}.config.ts`
+}
+
+/** 从页面配置正文取原生导航栏标题;取不到返回 null(判不出就不减免)。 */
+export function configTitleOf(text) {
+  const m = String(text || '').match(/navigationBarTitleText\s*:\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/)
+  return m ? m[2] : null
+}
+
+/** 词包 JSON → 扁平 key→译文。嵌套命名空间按点拼回,与 t('a.b') 的键形态一致。 */
+export function flattenPack(obj, prefix = '', out = {}) {
+  for (const [k, v] of Object.entries(obj || {})) {
+    const key = prefix ? `${prefix}.${k}` : k
+    if (v && typeof v === 'object' && !Array.isArray(v)) flattenPack(v, key, out)
+    else out[key] = String(v ?? '')
+  }
+  return out
+}
+
+/**
+ * 同值别名:页面用的键与共享屏的键**译文逐字相同** ⇒ 同一句文案,页面确实渲染了它,
+ * 只是两套命名空间各起了一个名(实测 setting.version / settings.version 同为「版本」)。
+ * 只按 zh-CN 判:这是"这句文案在不在"的存在性证据,不是译文质量判据(五语对齐另有门 133/19)。
+ * 值取不到(词包缺该键)一律不算 —— 判不出就不减免(§0.3)。
+ */
+export function aliasSameKeys(sharedKeys, pageKeys, valueOfSharedKey, mpValues, extraValues = []) {
+  if (!mpValues) return []
+  const pageValues = new Set()
+  for (const u of pageKeys || []) {
+    const v = mpValues[u]
+    if (v) pageValues.add(String(v).trim())
+  }
+  // 非 t() 载体:原生导航栏标题(config)、以及调用方认定的其它页面内文案
+  for (const v of extraValues || []) if (v) pageValues.add(String(v).trim())
+  const out = []
+  for (const k of sharedKeys || []) {
+    const v = valueOfSharedKey(k)
+    if (v && pageValues.has(String(v).trim())) out.push(k)
+  }
+  return out
+}
+
+/**
  * 通道 ②:键表数组里声明的键。命中 0 是合法的(人工改写后的页没有这些块),
  * 所以**不做「取不到即未判定」**——它不是必选输入,是并集的一条腿。
  */
@@ -277,6 +351,25 @@ export function computeFidelity(face) {
     shared.map((s) => s.spec).filter((spec) => paired.has(spec)),
   )
 
+  // 手写页拆子模块时,文案消费散在同目录 ./xxx 里 ⇒ 同面批取一次,按页拼回载体面。
+  const moduleTexts = batchReadTexts(
+    face,
+    [...new Set(miniapp.flatMap((p) => (p.file ? localModuleRels(p.file, p.text) : [])))],
+  )
+  const localModulesOf = (p) =>
+    (p.file ? localModuleRels(p.file, p.text) : []).map((r) => moduleTexts.get(r) || '').join('\n')
+
+  // 页面配置里的原生导航栏标题(小程序只能用 config 写标题,没有 t() 可用)
+  const configTexts = batchReadTexts(
+    face,
+    [...new Set(miniapp.map((p) => (p.file ? localConfigRel(p.file) : null)).filter(Boolean))],
+  )
+  const pageExtraValuesOf = (p) => {
+    const rel = p.file ? localConfigRel(p.file) : null
+    const title = rel ? configTitleOf(configTexts.get(rel)) : null
+    return title ? [title] : []
+  }
+
   // 壳承载要判「@rn-shells/<X> 指过去的那个壳在不在面上、引的是不是这一屏」⇒ 一次批取全部壳正文
   // (同名壳文件逐枚 faceRead 会把本门推到分钟级,慢到没人日常跑 = 等于没装车)。
   const shellRels = [
@@ -291,8 +384,23 @@ export function computeFidelity(face) {
   const PACK_RELS = [
     'packages/i18n/messages/miniapp-taro/zh-CN.json',
     'packages/i18n/messages/shared/zh-CN.json',
+    // 共享屏的键住在 RN 包 ⇒ 同值对账要拿它当"这句文案本来该长什么样"的取值面。
+    'packages/i18n/messages/mobile-rn/zh-CN.json',
   ]
   const packTexts = batchReadTexts(face, PACK_RELS)
+  const flatOf = (rel) => {
+    const t = packTexts.get(rel)
+    if (t === null || t === undefined) return null
+    try {
+      return flattenPack(JSON.parse(t))
+    } catch {
+      return null
+    }
+  }
+  const mpValues = flatOf(PACK_RELS[0])
+  const sharedValues = flatOf(PACK_RELS[1])
+  const rnValues = flatOf(PACK_RELS[2])
+  const valueOfSharedKey = (k) => (rnValues && rnValues[k]) || (sharedValues && sharedValues[k]) || null
   const topsOf = (rel) => {
     const t = packTexts.get(rel)
     if (t === null || t === undefined) return null
@@ -319,9 +427,24 @@ export function computeFidelity(face) {
       if (!p.file) continue
       if (!mirroredSpecs(p).has(s.spec)) continue
       const { form, why } = hostingFormOf({ spec: s.spec, pageText: p.text, readShell })
-      const mpKeys = consumedKeys(`${p.text || ''}\n${p.cssText || ''}`)
+      const mpKeys = consumedKeys(
+        `${p.text || ''}\n${p.cssText || ''}\n${localModulesOf(p)}`,
+      )
       // 承载页的文案由共享源本体渲染 ⇒ 无键可缺;断链/手写页照旧逐键数,一分不宽。
-      const missing = form === 'hosted' ? [] : sharedKeys.filter((k) => !mpKeys.has(k))
+      // 同值别名单独记一列并从缺口中扣除:两套命名空间同一句译文 = 页面真渲染了这句。
+      const aliasSame =
+        form === 'hosted'
+          ? []
+          : aliasSameKeys(
+              sharedKeys,
+              mpKeys,
+              valueOfSharedKey,
+              mpValues,
+              pageExtraValuesOf(p),
+            ).filter((k) => !mpKeys.has(k))
+      const aliasSet = new Set(aliasSame)
+      const missing =
+        form === 'hosted' ? [] : sharedKeys.filter((k) => !mpKeys.has(k) && !aliasSet.has(k))
       const gap = packNamespaceGap({ usedKeys: sharedKeys, available: packAvailable })
       rows.push({
         spec: s.spec,
@@ -331,6 +454,8 @@ export function computeFidelity(face) {
         sharedKeys: sharedKeys.length,
         covered: sharedKeys.length - missing.length,
         missing,
+        // 同值别名(译名不同、译文逐字相同)单列报数:它算已还原,但不等于该页做了这块 UI
+        aliasSame,
         fidelity: (sharedKeys.length - missing.length) / sharedKeys.length,
         // 本端词包里根本不存在的那些命名空间(null ⇒ 词包取不到,这一维未判定,不折成空数组冒绿)
         packAbsent: gap,
@@ -341,6 +466,7 @@ export function computeFidelity(face) {
   const totalShared = rows.reduce((a, r) => a + r.sharedKeys, 0)
   const totalCovered = rows.reduce((a, r) => a + r.covered, 0)
   const totalMissing = rows.reduce((a, r) => a + r.missing.length, 0)
+  const totalAliasSame = rows.reduce((a, r) => a + (r.aliasSame?.length ?? 0), 0)
   return {
     face,
     sharedCount: shared.length,
@@ -349,6 +475,8 @@ export function computeFidelity(face) {
     totalShared,
     totalCovered,
     totalMissing,
+    // 同值别名(译名不同、译文逐字相同)总数:已计入 covered,单列出来是为了让"缺多少"可解释
+    totalAliasSame,
     // 新维(2026-10-29):取不到词包 ⇒ packUndetermined 为真,由调用方落未判定档,
     // 绝不在这里把"没判"写成"零缺口"(§0.3)。
     packUndetermined: packAvailable === null,
@@ -491,6 +619,7 @@ function run() {
     avgPct: pct(now.avg),
     totalShared: now.totalShared,
     totalMissing: now.totalMissing,
+    totalAliasSame: now.totalAliasSame ?? 0,
     hosted: now.hosted,
     hand: now.hand,
     other: now.other,
@@ -509,7 +638,7 @@ function run() {
     return reg.length > 0 ? 1 : 0
   }
 
-  const head = `FIDELITY-RESULT face=${face} base=${baseLabel} pairs=${now.pairs} hosted=${now.hosted} hand=${now.hand} other=${now.other} broken=${now.broken} packAbsentRows=${now.packUndetermined === true ? '?' : (now.packAbsentRows ?? 0)} avg=${pct(now.avg)} missing=${now.totalMissing} regressions=${reg.length} state=${state}`
+  const head = `FIDELITY-RESULT face=${face} base=${baseLabel} pairs=${now.pairs} hosted=${now.hosted} hand=${now.hand} other=${now.other} broken=${now.broken} packAbsentRows=${now.packUndetermined === true ? '?' : (now.packAbsentRows ?? 0)} avg=${pct(now.avg)} missing=${now.totalMissing} aliasSame=${now.totalAliasSame ?? 0} regressions=${reg.length} state=${state}`
   console.log(head)
   if (now.broken > 0) {
     console.log('❌ 壳承载断链(引了壳而链不成立 ⇒ 这一页在产物里渲染不出,比缺文案严重):')
@@ -583,6 +712,11 @@ if (isDirectRun) {
 
 export const __test__ = {
   batchReadTexts,
+  localModuleRels,
+  localConfigRel,
+  configTitleOf,
+  flattenPack,
+  aliasSameKeys,
   extractDeclaredKeys,
   isBusinessKey,
   businessKeys,

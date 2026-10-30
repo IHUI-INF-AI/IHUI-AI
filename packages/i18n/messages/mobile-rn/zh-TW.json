@@ -1575,7 +1575,7 @@
   },
   "about": {
     "heroBadge": "關於智匯 AI",
-    "heroTitle": "一碼九端,一站 AI",
+    "heroTitle": "一碼六端,一站 AI",
     "heroSubtitle": "智匯 AI(IHUI AI)是開源的全棧 AI 操作系統,把 Agent 設計、知識庫、多模型調度、跨端協作和團隊運營裝進同一個平臺。",
     "storyBadge": "我們的故事",
     "storyTitle": "為什麼做智匯 AI?",
@@ -1583,10 +1583,10 @@
     "storyP2": "於是我們做了智匯 AI:開源、統一、跨端、可私有化。把 12-18 個月的自研時間,壓縮到 30 分鐘開通賬號。",
     "valueOpenTitle": "完全開源",
     "valueOpenDesc": "Apache 2.0 協議,核心代碼公開,商業可用,Self-host 零成本。",
-    "valueCrossTitle": "九端同源",
+    "valueCrossTitle": "六端同源",
     "valueCrossDesc": "Web / 桌面 / 小程序 / 瀏覽器插件 / React Native / CLI,一套代碼,一次發布,全端觸達。",
     "valueFreeTitle": "個人版永久免費",
-    "valueFreeDesc": "每月 1000 積分,全模型可用,九端同發。Pro 版 ¥49/月起,企業版支持私有化。",
+    "valueFreeDesc": "每月 1000 積分,全模型可用,六端同發。Pro 版 ¥49/月起,企業版支持私有化。",
     "valueEnterpriseTitle": "企業級安全",
     "valueEnterpriseDesc": "SSO/OAuth、審計日誌、角色權限、私有化部署,服務多家上市公司。",
     "platformTitle": "全棧 AI 操作系統",
@@ -3588,7 +3588,14 @@
     "termsOfService": "服務條款",
     "thirdPartyLogin": "第三方登入",
     "ssoFailed": "網頁授權登入失敗,請重試或使用帳密登入",
-    "loginFailed": "登入失敗，請重試"
+    "loginFailed": "登入失敗，請重試",
+    "twoFactorTitle": "兩步驗證",
+    "twoFactorHint": "請輸入驗證器（Authenticator）中的 6 位動態碼，或使用備用碼。",
+    "twoFactorPlaceholder": "動態碼或備用碼",
+    "twoFactorError": "請輸入至少 6 位驗證碼",
+    "twoFactorSubmit": "驗證並登入",
+    "twoFactorCancel": "取消",
+    "twoFactorCancelled": "已取消兩步驗證"
   },
   "bookmark": {
     "empty": "暫無收藏",

@@ -69,6 +69,7 @@ import { runManualCompact } from '@/hooks/use-chat/manual-compact'
 // P3 #30 diff 意见条 / D154 MCP 状态行(2026-09-30 起)由 InputStatusSlot 统一按优先级挂载
 // 任务进度常驻状态条:输入框上方动态显示"在做什么 / 第几步 / 改了多少文件",plan_updated 驱动
 import { TaskStatusBar } from '@/components/ai/task-status-bar'
+import { PendingCommandHint } from '@/components/chat/pending-command-hint'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
 // D124(G-238):发送前位图标注 —— 图片附件可进 canvas 标注编辑器,结果回填为新附件
 import { ImageAnnotator, dataUrlToFile } from '@/components/chat/image-annotator'
@@ -1178,6 +1179,7 @@ export function MessageInput({
           onModeChange={(mode: FollowUpMode) => chatStore.getState().setFollowUpQueueMode(mode)}
           onInterruptAndRun={handleInterruptAndRun}
         />
+        <PendingCommandHint conversationId={conversationId ?? null} revision={isStreaming} />
         {/* D01(2026-10-25 立)对话内 Agent 选择器:输入卡上方的「已切换 XX 专家」交代条。
             形态复用 steer-notice-bar 同族的 FoldableSection;未选专家时自渲染为 null。 */}
         <AgentNoticeBar />

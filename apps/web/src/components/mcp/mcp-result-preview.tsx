@@ -7,6 +7,8 @@
 import Image from 'next/image'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ihui/ui-react'
 
+import { toMediaImageUrl } from '@/lib/media-proxy'
+
 import { McpDataStructure } from './mcp-data-structure'
 
 export interface McpResultPreviewProps {
@@ -39,7 +41,7 @@ export function McpResultPreview({ result, mimeType }: McpResultPreviewProps) {
     return (
       <div className="flex justify-center rounded-lg border p-3">
         <Image
-          src={src}
+          src={toMediaImageUrl(src)}
           alt="result"
           width={800}
           height={600}

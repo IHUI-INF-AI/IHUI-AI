@@ -20,6 +20,7 @@ import './create.css'
 interface FormState {
   title: string
   content: string
+  tags: string
   reward: number
   category: string
   images: string[]
@@ -51,6 +52,7 @@ export default function AskCreatePage() {
   const [form, setForm] = useState<FormState>({
     title: '',
     content: '',
+    tags: '',
     reward: 0,
     category: '',
     images: [],
@@ -70,6 +72,7 @@ export default function AskCreatePage() {
           setForm({
             title: saved.title || '',
             content: saved.content || '',
+            tags: saved.tags || '',
             reward: Number(saved.reward) || 0,
             category: saved.category || '',
             images: Array.isArray(saved.images) ? saved.images : [],
@@ -158,9 +161,15 @@ export default function AskCreatePage() {
     }
     setSubmitting(true)
     try {
+      // 标签按逗号(中英文)切分去空;后端 POST /asks 的 tags 为可选字符串数组
+      const tags = form.tags
+        .split(/[,，]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
       await createAsk({
         title: form.title.trim(),
         content: form.content.trim(),
+        tags,
       } as { title: string; content: string })
       Taro.removeStorageSync(DRAFT_KEY)
       Taro.showToast({ title: tt('ask.create.published', '问题已发布'), icon: 'success' })
@@ -171,14 +180,14 @@ export default function AskCreatePage() {
     } finally {
       setSubmitting(false)
     }
-  }, [form.title, form.content, tt])
+  }, [form.title, form.content, form.tags, tt])
 
   const canSubmit = form.title.trim().length > 0 && form.content.trim().length >= 5
 
   return (
     <ThemeRoot>
       <View className="ask-create-page">
-        <NavBar title={tt('ask.create.pageTitle', '提问')} showBack />
+        <NavBar title={tt('askCreate.title', '发布提问')} showBack />
         <ScrollView scrollY className="ask-create-body">
           {/* 标题 */}
           <View className="ask-create-card">
@@ -191,7 +200,7 @@ export default function AskCreatePage() {
             <FocusInput
               className="ask-create-input"
               value={form.title}
-              placeholder={tt('ask.create.titlePlaceholder', '一句话描述你的问题')}
+              placeholder={tt('askCreate.titlePlaceholder', '一句话概括你的问题')}
               maxlength={TITLE_MAX}
               onInput={(e) => updateForm({ title: e.detail.value })}
             />
@@ -200,7 +209,7 @@ export default function AskCreatePage() {
           {/* 详细描述 */}
           <View className="ask-create-card">
             <View className="ask-create-label-row">
-              <Text className="ask-create-label">{tt('ask.create.detailLabel', '详细描述')}</Text>
+              <Text className="ask-create-label">{tt('askCreate.contentLabel', '内容')}</Text>
               <Text className="ask-create-counter">
                 {tt('ask.create.contentCount', '{n}/500', { n: form.content.length })}
               </Text>
@@ -208,12 +217,21 @@ export default function AskCreatePage() {
             <FocusTextarea
               className="ask-create-textarea"
               value={form.content}
-              placeholder={tt(
-                'ask.create.detailPlaceholder',
-                '详细描述你的问题,越详细越容易得到回答',
-              )}
+              placeholder={tt('askCreate.contentPlaceholder', '详细描述你的问题')}
               maxlength={CONTENT_MAX}
               onInput={(e) => updateForm({ content: e.detail.value })}
+            />
+          </View>
+
+          {/* 标签(对齐 RN tags 输入:逗号分隔,提交时转数组走 POST /asks 的 tags 字段) */}
+          <View className="ask-create-card">
+            <Text className="ask-create-label">{tt('askCreate.tagsLabel', '标签')}</Text>
+            <FocusInput
+              className="ask-create-input"
+              value={form.tags}
+              placeholder={tt('askCreate.tagsPlaceholder', '多个标签用逗号分隔')}
+              maxlength={100}
+              onInput={(e) => updateForm({ tags: e.detail.value })}
             />
           </View>
 
@@ -303,9 +321,7 @@ export default function AskCreatePage() {
             disabled={!canSubmit || submitting}
             onClick={onSubmit}
           >
-            {submitting
-              ? tt('ask.create.submitting', '发布中…')
-              : tt('ask.create.submit', '发布问题')}
+            {submitting ? tt('ask.create.submitting', '发布中…') : tt('askCreate.submit', '发布')}
           </Button>
         </View>
 

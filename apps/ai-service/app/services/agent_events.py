@@ -197,6 +197,15 @@ HOOK_PLAN_STEP = "plan.step"
 HOOK_TERMINAL_DELTA = "terminal.delta"  # P0-B(2026-09-18):run_command 逐行 stdout/stderr
 HOOK_COMPACTION = "compaction"  # W9#5(2026-09-18):AgentLoopV2 上下文压缩发生(实时通知前端)
 HOOK_AGENT_STATUS = "agent.status"  # W9#6(2026-09-18):pause/cancel 过渡事件(pausing/cancelling/resuming)
+# G-87 补链(2026-10-29 立):**hook 执行失败**事件。此前失败信息只落 hook_engine 的
+# `_make_log` / DLQ / orchestration_hub(内部编排总线,不进任何 SSE 通道)⇒ 前端六态卡
+# (`apps/web/src/components/chat/message-list/hook-failure-card.tsx`)零数据源。
+# 生产点 = `hook_engine._broadcast_hook_failed`(重试耗尽后经订阅面广播,不经 `emit()`)。
+# 与 `HOOK_ERROR = "error"` 的区别(别再混):`error` 是 agent_loop_v2 的 hook **总线**
+# 错误事件,载荷 `{message/error_type}`,映射到 SSE 的 `error` 帧(LLM 主线错误);
+# 本事件是**hook 动作自己执行失败**的六字段证据(hookName/event/command/stderr/
+# exitCode/durationMs),必须走独立的 SSE 名,否则前端的 `onError` 会把它读成"回答失败"。
+HOOK_FAILED = "hook.failed"
 
 # ---------------------------------------------------------------------------
 # hook 事件 → SSE 事件映射
@@ -222,6 +231,12 @@ HOOK_EVENT_TO_SSE: dict[str, str] = {
     HOOK_TERMINAL_DELTA: "terminal-delta",
     HOOK_COMPACTION: "compaction",
     HOOK_AGENT_STATUS: "agent-status",
+    # G-87 补链(2026-10-29):hook 执行失败 → SSE `hook-failed`。
+    # 命名沿用 kebab-case 族(与 tool-approval / self-heal / plan-step 同族),
+    # **刻意不映射到 SSE_ERROR**:帧载荷是六字段证据,消费面是 HookFailureCard
+    # (挂到某条 assistant 消息的 meta.hookFailures),与 LLM 主线错误是两件事,
+    # 混到 `error` 会让前端把"某个 hook 挂了"读成"这条回答失败了"。
+    HOOK_FAILED: "hook-failed",
 }
 
 
@@ -256,5 +271,9 @@ AGENT_SUBSCRIBE_EVENTS: tuple[str, ...] = (
     HOOK_TERMINAL_DELTA,
     HOOK_COMPACTION,
     HOOK_AGENT_STATUS,
+    # G-87 补链(2026-10-29):hook **执行失败**。此前这条订阅集合里只有"hook 总线干了什么",
+    # 没有"hook 动作自己失败了" ⇒ 前端六态卡零数据源(判定层 2026-09-24 交付后一直空转)。
+    # 三个 SSE 端点(execute/stream、tasks/stream、{agent_id}/stream)共用本元组,故一处补齐三处生效。
+    HOOK_FAILED,
 )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

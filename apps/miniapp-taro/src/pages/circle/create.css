@@ -5,8 +5,9 @@
 */
 
 /*
-  对齐 RN 端 packages/app/src/features/circle-create/CircleCreateScreen.tsx(共享屏,
-  经 apps/mobile-rn/src/screens/CircleCreateScreen.tsx 薄包装)。
+  端内独立实现:本页=圈内发布动态富表单,与共享包里那张简单建圈表单业务对象不同
+  (本页=圈内发布动态富表单,那屏=建圈名称/简介),不参与镜像对账
+  (2026-10-30 撤声明并记 not-applicable 裁决;以下只保留视觉语言参照)。
   注:小程序页为"圈内发布动态"富表单(内容/图片/话题/AIGC/可见范围),RN 共享屏为
   简单表单(名称/简介);业务结构保留,视觉语言对齐共享表单屏:
   - 页面底 surface.bg→--color-background / 输入块 surface.muted→--color-muted /

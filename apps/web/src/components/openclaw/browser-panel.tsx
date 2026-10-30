@@ -13,6 +13,8 @@ import { Globe, Camera, ExternalLink, Loader2, Wrench, Download, MessageSquare }
 
 import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { listOpenclawTools, executeBrowserTool, type OpenclawToolItem } from '@/lib/openclaw-api'
+// CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 const BROWSER_KEYWORDS = ['browser', 'navigate', 'screenshot', 'click', 'input', 'page', 'web']
 
@@ -128,11 +130,11 @@ export function BrowserPanel() {
               <p className="text-sm font-medium">{t('browserView')}</p>
               <div className="relative h-80 overflow-hidden rounded-md border border-border bg-background">
                 <Image
-                  src={
+                  src={toMediaImageUrl(
                     screenshot.startsWith('data:')
                       ? screenshot
-                      : `data:image/png;base64,${screenshot}`
-                  }
+                      : `data:image/png;base64,${screenshot}`,
+                  )}
                   alt={t('browserCurrentPage')}
                   fill
                   className="object-contain"

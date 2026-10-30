@@ -640,9 +640,9 @@
     {
       "path": "packages/desktop/src",
       "status": "windowed",
-      "files": 265,
-      "read": 98,
-      "notes": "host 11/47、main a-m 19/104、main n-z+browserView 27/84、index.ts+遥测族 14/14(W3-4 全读完该切片)。剩余 processResource*/resourceManager* ≈25、cua*/windows* ≈20、chromeCookie*/browserData* ≈8、desktopMainIpc* 3、autoUpdater/forceUpdate* ≈5。",
+      "files": 233,
+      "read": 66,
+      "notes": "host 11/47、main a-m 19/104、main n-z+browserView 27/84、index.ts+遥测族 14/14(W3-4 全读完该切片)。剩余 processResource*/resourceManager* ≈25、cua*/windows* ≈20、chromeCookie*/browserData* ≈8、desktopMainIpc* 3、autoUpdater/forceUpdate* ≈5。〔10-30 g35-s15:index.ts 已拆出为子片，本串中「index.ts+遥测族 14/14」那枚改由子片记账。〕〔10-30 g35-s21:遥测/ARMS 12 枚 + processResource* 15 枚 + resourceManager* 4 枚共 31 枚已逐枚拆出为子片(各 deep 1/1 带行数兑现);本片 files 264→233、read 97→66(父子不同计一枚,全表 read 之和守恒),本串「遥测族 14/14」「剩余 processResource*/resourceManager* ≈25」两处改由子片记账。〕",
       "tickets": ["G-379"],
       "evidence": [
         "packages/desktop/src/scheduler/index.ts:88-118",
@@ -657,7 +657,7 @@
         "packages/desktop/src/main/browserView/browserPlaywrightTimeout.ts:11-12",
         "packages/desktop/src/host/hostResourceTelemetryEnvironment.ts:5-7"
       ],
-      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 15 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 2 枚,指针 4 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第六十六批具名回填:本区 +8 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 15 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 2 枚,指针 4 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第六十六批具名回填:本区 +8 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。 ｜10-30 g35-s15 入账:packages/desktop/src/main/index.ts 独立成子片(deep 1/1)⇒ 本片 files 265→264、read 98→97，该枚的出处与读量改由子片承载，父子不再同计一枚。｜10-30 g35-s21 入账:main 下遥测/ARMS 12、processResource* 15、resourceManager* 4 共 31 枚逐枚成片(克隆 HEAD 29628c9 现量行数逐枚兑现)⇒ 本片 files 264→233、read 97→66;父片 97 系历史自报(仅 10 条具名可兑现、不可逐枚分解),故不做 12/19 拆分,按守恒口径整批下账,全表 read 之和 2552→2552。",
       "readFiles": [
         {
           "p": "packages/desktop/src/main/appLaunchGate.ts",
@@ -18923,6 +18923,528 @@
         }
       ],
       "notes": "Read 主 handler:分流 image/video/pdf(能力按执行模型 inputFormat 现判,resolveModelContract 动态注入 PDF 描述行与 pages schema、resolveTimeoutBudgetMs 仅 PDF+pages 给 150s 档)否则文本;readFileState 缓存键含 offset/limit,新鲜判定与写前校验同一整数毫秒归一策略,命中回 file_unchanged「Wasted call」stub(免内容回灌);isPartialView 只在 truncatedByTokenCap 为真时置位(range view≠partial view,Write/Edit 必须拒截断视图);输入预检失败包成 <tool_use_error> 而非裸 ZodError JSON;PDF pages 语义约束提到 validateInput 防错调用穿过 hook/权限才炸;图片/视频 tool result 只留媒体 block(尺寸提示拼进会让 provider-visible content 随缩放漂移);missing file 附同 stem/编辑距离≤3 建议;fallbackReadFileStates WeakMap 兜无端口宿主。"
+    },
+    {
+      "path": "packages/desktop/src/main/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/desktop/src/main/index.ts:2",
+        "packages/desktop/src/main/index.ts:276-278",
+        "packages/desktop/src/main/index.ts:999-1095",
+        "packages/desktop/src/main/index.ts:1252-1304",
+        "packages/desktop/src/main/index.ts:1410-1423",
+        "packages/desktop/src/main/index.ts:2326-2328",
+        "packages/desktop/src/main/index.ts:2197-2203",
+        "packages/desktop/src/main/index.ts:2223-2249",
+        "packages/desktop/src/host/index.ts:2271-2290"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/index.ts",
+          "lines": 2384
+        }
+      ],
+      "notes": "装配主入口(2384 行,本席整读到体)。六格可迁移判据:①L2 `/* eslint-disable max-lines */` 把体积上限整文件关掉——与票面 P0③「400 行上限被突破」同源,上游的解法是豁免而非拆分(现量:desktop/main 35 枚>400L、ui/lib 10 枚);②L276-278 仅挂 unhandledRejection(只记日志不退出),全文件无 uncaughtException 落点,而同包 host 进程 L2271-2290 有 uncaughtException→disposeHostResources→exit(1)——即 main 崩时不走 L999-1095 那道 prepareAppQuit 屏障,而 L1087-1090 自述「不等 host 清理完就退,agent 会被 init 接管成残留进程」,所以崩溃路径恰好绕开它自己论证过的必要屏障;③遥测的 configure* 全套在 L2203 `ZCODE_TELEMETRY_ENABLED && ZCODE_ARMS_RUM_ENDPOINT` 闸内,而 register*(L2228/2229/2231/2233/2249,含 IPC 与窗口聚合器)在闸外无条件接线——「配不配」与「接不接」两条口径不同,消费方是否自带开关须读那 11 枚 register* 本体(不在本席落点);④L2197 `await armsInitPromise` 把 APM SDK 初始化放在首窗创建之前(注释理由:dom-ready 早于 SDK 注册即无上报)——遥测可用性挡首屏,与我方「声明必须有消费者/埋点不得挡渲染」同族判据;⑤L1410-1423+L2326-2328 跨进程临时全局态(快捷键录制标志)的收口不依赖 renderer 合作,而在窗口 closed 与 render-process-gone 两条宿主事件上按 owner 复位,幂等——正是我方「钩子无终态不得渲染成完成」「登出标记必须比凭据活得久」的上游同型解法;⑥L1252-1304 Windows 更新前按「命令行引用安装目录」实时扫描进程树强杀(不是按退出前记录的 PID,注释理由 PID 可能已复用)+ 可写探针,是我方 Tauri 更新器同类「文件被占用导致半更新」问题的唯一成形解法(归属:apps/desktop 与 scripts 侧,不在本席落点)。上游 main/index.ts 无任何单测/E2E 引用(grep 全库仅 tsup.config.ts 提到该路径),接线=package.json main=out/main/index.js。｜10-30 g35-s15 入账:本枚由 g33-s2 席位整读产出(path 键在 871 片中无同路径项 ⇒ 作新片插入；readFiles.lines=2384 与父片 notes「index.ts+遥测族 14/14」同值；verified 保持 agent，未经主会话复验不得当已证事实派单)。"
+    },
+    {
+      "path": "packages/desktop/src/main/databaseStartupTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/databaseStartupTelemetry.ts:52-105"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/databaseStartupTelemetry.ts",
+          "lines": 129
+        }
+      ],
+      "notes": "数据库启动阶段事件唯一出口:attempt 状态机按 attemptId 去重(≤128 桶)、terminal 后不再补发;磁盘可用量下降以 null 表示「未采到」而非 0。可迁移:启动时序指标必须先归约成显式阶段机,否则同一 attempt 重复计数。｜10-30 g35-s21 逐枚整读到体入账(129L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/desktopArmsCustomEvent.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopArmsCustomEvent.ts:127-178"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/desktopArmsCustomEvent.ts",
+          "lines": 178
+        }
+      ],
+      "notes": "ARMS custom 事件的 main 侧统一装配 + E2E 内存 ring(≤200,不落盘):dispatchFinalArmsCustomEvent 先 record 再按 suppressedEventNames 决定是否真发,「捕获在发送前」使 E2E 读到真实上报内容。可迁移:抑制清单在发送点单点判定。｜10-30 g35-s21 逐枚整读到体入账(178L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/desktopMcpTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopMcpTelemetry.ts:16-45"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/desktopMcpTelemetry.ts",
+          "lines": 115
+        }
+      ],
+      "notes": "MCP 遥测映射:memory 类事件显式停发(旧 CLI 仍可解析协议),进程/会话三类映射成 stability 组;sendCustom 只 warn 不抛。可迁移:「协议仍解析但事件已废弃」要写成显式早退,不能指望上游不再发。｜10-30 g35-s21 逐枚整读到体入账(115L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/desktopNetworkTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopNetworkTelemetry.ts:86-110"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/desktopNetworkTelemetry.ts",
+          "lines": 172
+        }
+      ],
+      "notes": "网络遥测:开发 1min/生产 5min flush 出 perf_network_window;阶段耗时只在 sample_count>0 时带出,避免零样本均值冒充事实;register 前先 stop+reset,重复注册不叠加。｜10-30 g35-s21 逐枚整读到体入账(172L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/desktopRemoteUsageArmsTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopRemoteUsageArmsTelemetry.ts:113-181"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/desktopRemoteUsageArmsTelemetry.ts",
+          "lines": 210
+        }
+      ],
+      "notes": "远程用量三事件 + 5min 周期 gauge;gauge 只在 activeSessionCount>0 时上报、定时器 unref、setInterval/clearInterval 可注入。可迁移:周期指标的空值语义要显式(0 不发)。｜10-30 g35-s21 逐枚整读到体入账(210L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/desktopResourceTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopResourceTelemetry.ts:272-322"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/desktopResourceTelemetry.ts",
+          "lines": 500
+        }
+      ],
+      "notes": "main 侧资源遥测唯一出口:10s 采样、5min(dev/E2E 1min)flush 出 perf_process_window + perf_system_window;两阶段采样(先全部 sample 再 sampleDevice)不靠调用顺序传值;退出 flushPendingWindows 只排空已收读数、不新采样。｜10-30 g35-s21 逐枚整读到体入账(500L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/desktopStabilityTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopStabilityTelemetry.ts:303-366"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/desktopStabilityTelemetry.ts",
+          "lines": 1097
+        }
+      ],
+      "notes": "稳定性上报集中模块:ANR 5s/freeze 30s 分级轮询、crash 三分类(kind/scope/cause)、Agent stderr 降噪后再选摘要并 sha256 前16 指纹;脱敏(路径/home/Bearer/sk-key/敏感赋值)与指纹同批。可迁移:指纹源必须是脱敏后文本,否则指纹泄路径。｜10-30 g35-s21 逐枚整读到体入账(1097L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/desktopTelemetryFetch.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopTelemetryFetch.ts:1-7"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/desktopTelemetryFetch.ts",
+          "lines": 7
+        }
+      ],
+      "notes": "7 行纯适配器:把注入的 fetch 源直接暴露成 fetch,ARMS SDK 走同一通道便于测试替换,不另开 HTTP 栈。｜10-30 g35-s21 逐枚整读到体入账(7L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/desktopZCodeDataSizeTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/desktopZCodeDataSizeTelemetry.ts:211-316"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/desktopZCodeDataSizeTelemetry.ts",
+          "lines": 441
+        }
+      ],
+      "notes": "数据目录体积日采样:发送前先原子写 reportReservedAt 预约再上报(落盘失败宁可少一个样本也不重复上报)、稳定 jitter 按 deviceMid+日桶哈希错峰、扫描中每秒复查 busy/前台并 abort(关 TOCTOU)。可迁移:「先记账后发送」的幂等预约。｜10-30 g35-s21 逐枚整读到体入账(441L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/networkTelemetryAggregator.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/networkTelemetryAggregator.ts:224-268"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/networkTelemetryAggregator.ts",
+          "lines": 405
+        }
+      ],
+      "notes": "网络观测聚合:按 transport×interface 分桶(每 transport ≤128,超出归 other);HTTP 路径段只放行静态白名单,未命中一律 :id ⇒ slug/邮箱不进 ARMS;flush 每 transport 取 requestTotal 前 40。可迁移:指标维度必须先白名单化。｜10-30 g35-s21 逐枚整读到体入账(405L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceAppTotals.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceAppTotals.ts:1-31"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceAppTotals.ts",
+          "lines": 31
+        }
+      ],
+      "notes": "AppResourceTotals 唯一类型与相加逻辑:CPU 只在相加结束后 roundMetric,避免逐次取整随进程数累积误差。｜10-30 g35-s21 逐枚整读到体入账(31L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceChromiumSource.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceChromiumSource.ts:35-55"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceChromiumSource.ts",
+          "lines": 55
+        }
+      ],
+      "notes": "Chromium 体系样本来源(10s 读 app.getAppMetrics):按角色聚合后同时 addRoleSample 与 addAppProcessTotals;采样抛错则该 tick 无设备样本,不拿旧读数顶替。｜10-30 g35-s21 逐枚整读到体入账(55L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceCliSource.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceCliSource.ts:228-272"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceCliSource.ts",
+          "lines": 272
+        }
+      ],
+      "notes": "CLI 角色样本:按 角色×surface×环境×运行机 分组,每 60s 只在有新读数时交付(同一读数不重复进 sample_count),用显式 delivered 标记而非比时间戳;退出 flushPending 只搬已有读数。｜10-30 g35-s21 逐枚整读到体入账(272L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceExternalAppSamples.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceExternalAppSamples.ts:56-103"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceExternalAppSamples.ts",
+          "lines": 108
+        }
+      ],
+      "notes": "外部来源最近样本表(≤128):只收 local 面、非法值丢弃、过期 = 2×该来源自报周期,collect 顺手清僵尸来源。可迁移:宁可少算也不拿旧值充当当前事实。｜10-30 g35-s21 逐枚整读到体入账(108L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceMcpTelemetrySource.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceMcpTelemetrySource.ts:114-144"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceMcpTelemetrySource.ts",
+          "lines": 148
+        }
+      ],
+      "notes": "MCP 资源样本:按 (surface,环境,instanceToken,mcpId) 去重且只接受更新 sampledAt;每窗口 ≤32 组、实例 ≤256;设备总量沿真实到达时刻,不被 10s tick 续期。｜10-30 g35-s21 逐枚整读到体入账(148L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceRendererHeapSource.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceRendererHeapSource.ts:29-69"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceRendererHeapSource.ts",
+          "lines": 69
+        }
+      ],
+      "notes": "renderer heap 来源:只认主应用窗口 webContents(其余归 chromium_other/guest)、payload 走 strict schema、每 tick 先取走再投递(交付即清空),多窗口取本 tick 最大。｜10-30 g35-s21 逐枚整读到体入账(69L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceRoleClassifier.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceRoleClassifier.ts:78-146"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceRoleClassifier.ts",
+          "lines": 146
+        }
+      ],
+      "notes": "Chromium 七角色归类纯函数 + 按角色聚合(固定输出顺序便于断言);main/renderer_main/guest/host/scheduler 靠 pid 注册表,其余落 chromium_other。｜10-30 g35-s21 逐枚整读到体入账(146L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceSampleSourceRegistry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceSampleSourceRegistry.ts:1-24"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceSampleSourceRegistry.ts",
+          "lines": 24
+        }
+      ],
+      "notes": "样本来源注册表:新来源 = 新文件 + 数组加一行,数组顺序不表达依赖(同 tick 事实由第二阶段上下文给)。可迁移:「注册表只加一行」把并行开发冲突压到相邻行。｜10-30 g35-s21 逐枚整读到体入账(24L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceSampleSources.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceSampleSources.ts:70-119"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceSampleSources.ts",
+          "lines": 119
+        }
+      ],
+      "notes": "来源接口与调度:每来源 try/catch 隔离,单来源失败只丢自己的样本;sample/sampleDevice/flushPending/reset 四钩子分别表达本 tick 事实、依赖前阶段、退出排空、清瞬时态。｜10-30 g35-s21 逐枚整读到体入账(119L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceSelfHeapSource.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceSelfHeapSource.ts:24-54"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceSelfHeapSource.ts",
+          "lines": 54
+        }
+      ],
+      "notes": "host/scheduler 自采 heap:两条传输链路在摄入点合成同一信任边界(strict schema),同 tick 多窗口取最大,交付即清空。｜10-30 g35-s21 逐枚整读到体入账(54L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceSystemSource.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceSystemSource.ts:52-88"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceSystemSource.ts",
+          "lines": 88
+        }
+      ],
+      "notes": "设备级来源:os.cpus() 两次快照差分得整机 CPU(差分不可用返回 null、本 tick 不出样本),freemem 取剩余内存,应用总量 = 本 tick 精确合计 + 外部最近样本。｜10-30 g35-s21 逐枚整读到体入账(88L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceSystemWindowAggregator.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceSystemWindowAggregator.ts:68-114"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceSystemWindowAggregator.ts",
+          "lines": 119
+        }
+      ],
+      "notes": "设备级有界窗口(≤32):telemetrySelfMs 自证开销在无设备样本的窗口里顺延到下一个窗口。可迁移:采样全失败的窗口恰恰最需要看遥测自身成本。｜10-30 g35-s21 逐枚整读到体入账(119L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceSystemWindowEvent.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceSystemWindowEvent.ts:12-37"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceSystemWindowEvent.ts",
+          "lines": 37
+        }
+      ],
+      "notes": "perf_system_window 属性投影纯函数(17 个 key),hardware 维度描述桌面机本身。｜10-30 g35-s21 逐枚整读到体入账(37L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceWindowAggregator.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceWindowAggregator.ts:108-188"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceWindowAggregator.ts",
+          "lines": 225
+        }
+      ],
+      "notes": "角色窗口聚合:窗口 key = 角色×surface×环境×mcpId×硬件指纹,窗口上限 64;backgroundRatio 的 scene 计数只此一份、drain 会清零故设备事件要在 drain 前取值;heap 只作附加维度。｜10-30 g35-s21 逐枚整读到体入账(225L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/processResourceWindowEvent.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/processResourceWindowEvent.ts:20-67"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/processResourceWindowEvent.ts",
+          "lines": 67
+        }
+      ],
+      "notes": "perf_process_window 属性投影:hardware 逐字段覆盖(远端 CLI 只带部分字段),undefined 不进 payload ⇒ 部分角色天然 18 属性。｜10-30 g35-s21 逐枚整读到体入账(67L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/resourceManagerHostSampling.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/resourceManagerHostSampling.ts:46-93"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/resourceManagerHostSampling.ts",
+          "lines": 93
+        }
+      ],
+      "notes": "资源管理器→Host 采样 fan-out:按 requestId 每 Host 一次在飞请求(超时复用上一轮结果避免列表闪空),回帖必须 label 匹配,Host 退出清兜底缓存。｜10-30 g35-s21 逐枚整读到体入账(93L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/resourceManagerProcessNames.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/resourceManagerProcessNames.ts:39-64"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/resourceManagerProcessNames.ts",
+          "lines": 64
+        }
+      ],
+      "notes": "非 BrowserWindow renderer 的显示名:标题/URL/devtools/owner 窗口多级回退,最终统一 formatZCodeRendererProcessName。｜10-30 g35-s21 逐枚整读到体入账(64L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/resourceManagerStorage.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/resourceManagerStorage.ts:56-94"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/resourceManagerStorage.ts",
+          "lines": 94
+        }
+      ],
+      "notes": "存储 tab:main 持唯一 StorageService(worker 线程扫盘),进度推给发起窗口、窗口关闭即取消;reveal 路径必须落在数据根内(纯函数 isPathInsideStorageRoots)防 renderer 打开任意路径。｜10-30 g35-s21 逐枚整读到体入账(94L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/resourceManagerWindow.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/resourceManagerWindow.ts:462-502"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/resourceManagerWindow.ts",
+          "lines": 502
+        }
+      ],
+      "notes": "资源管理器:main 只做 Electron 指标/系统总量/合并 Host 回报(外部进程采样一律在 Host 内;历史 bug = main 起 ps/PowerShell 卡死 App);单例窗口 + AbortController 随窗口关闭 abort;workingSetSize 按 KB。｜10-30 g35-s21 逐枚整读到体入账(502L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/startupTelemetryDelivery.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/startupTelemetryDelivery.ts:4-56"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/startupTelemetryDelivery.ts",
+          "lines": 56
+        }
+      ],
+      "notes": "启动遥测投递装饰器:包装 SDK request,按 startup_event_id 回执 http_received/unconfirmed;15s 超时 + 至多 3 次指数退避,超时后不再复制请求。可迁移:「收到响应头才算送达」要区分已确认与未确认。｜10-30 g35-s21 逐枚整读到体入账(56L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
+    },
+    {
+      "path": "packages/desktop/src/main/zcodeDataSizeTelemetryState.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["packages/desktop/src/main/zcodeDataSizeTelemetryState.ts:9-58"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/zcodeDataSizeTelemetryState.ts",
+          "lines": 58
+        }
+      ],
+      "notes": "体积遥测状态文件读写:严格校验字段类型、ENOENT 视为无状态、写入走 临时文件+rename 原子替换且失败清理。可迁移:状态文件必须原子写。｜10-30 g35-s21 逐枚整读到体入账(58L;克隆 HEAD 29628c9 现量;verified=agent 未经主会话复验)。"
     }
   ],
   "ticketIndex": {

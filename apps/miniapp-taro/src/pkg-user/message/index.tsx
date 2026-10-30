@@ -39,6 +39,8 @@ import {
   type MessageDetailItem,
   type NotificationSettingItem,
 } from '@/components'
+// 同目录 ./ 子模块:共享屏 order/course 两类的站内消息卡片(还原度门并入本页载体面)
+import { InSiteMessagePane } from './in-site-messages'
 
 interface Room {
   id?: string
@@ -71,6 +73,8 @@ export default function MessageIndex() {
   const [tabs, setTabs] = useState<MessageTabItem[]>(() => [
     { key: 'all', label: t('message.tabs.all') },
     { key: 'system', label: t('message.tabs.system'), unread: 0 },
+    { key: 'order', label: t('messageCenter.type.order') },
+    { key: 'course', label: t('messageCenter.type.course') },
     { key: 'interaction', label: t('message.tabs.interaction'), unread: 0 },
     { key: 'private', label: t('message.tabs.private'), unread: 0 },
   ])
@@ -166,6 +170,8 @@ export default function MessageIndex() {
       setTabs([
         { key: 'all', label: t('message.tabs.all') },
         { key: 'system', label: t('message.tabs.system'), unread: res.unreadCount?.system || 0 },
+        { key: 'order', label: t('messageCenter.type.order') },
+        { key: 'course', label: t('messageCenter.type.course') },
         { key: 'interaction', label: t('message.tabs.interaction'), unread: 0 },
         { key: 'private', label: t('message.tabs.private'), unread: res.unreadCount?.private || 0 },
       ])
@@ -347,6 +353,15 @@ export default function MessageIndex() {
   }
 
   const renderTabContent = () => {
+    if (activeTab === 'order' || activeTab === 'course') {
+      // 对齐共享屏 TABS=['system','order','course','social'] 的 order/course 两类:
+      // 站内消息卡片(与 spec NotificationCard 同信息结构:类型徽章 + 标题 + 正文 + 时间)
+      return (
+        <ThemeRoot>
+          <InSiteMessagePane msgType={activeTab} />
+        </ThemeRoot>
+      )
+    }
     if (activeTab === 'system') {
       return (
         <ThemeRoot>
@@ -382,6 +397,12 @@ export default function MessageIndex() {
             onInput={setKeyword}
             onClear={() => setKeyword('')}
           />
+          {/* 会话区标题(对齐 RN MessageCenterScreen convSection.convTitle) */}
+          {!loading && filtered.length ? (
+            <Text className="block text-[length:26rpx] font-semibold text-muted-foreground mt-[16rpx] mb-[8rpx]">
+              {t('messageCenter.conversations')}
+            </Text>
+          ) : null}
           {loading ? (
             <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
               {t('common.loading')}
@@ -466,7 +487,7 @@ export default function MessageIndex() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <NavBar
-          title={t('message.center')}
+          title={t('messageCenter.title')}
           notification={notification}
           rightText={t('message.settings')}
           onRightClick={() => setShowSettings(true)}

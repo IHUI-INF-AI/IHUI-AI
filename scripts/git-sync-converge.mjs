@@ -54,6 +54,12 @@ import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 // 孤儿提交备份腿的单一实现(2026-10-29 门 30a 根因票):四台旁路落地器共用一份判据(§0.6),
 // 本器只留薄封装与再导出 —— conv 档命名/幂等/pack-refs/留痕/永不抛 全部住在那一层。
 import { orphanBackupRefName, backupOrphanCommit } from './lib/orphan-backup.mjs'
+// G-322:「带值旗标吞值」判据全仓只许一份(§0.6/§22c)。旧 `getOpt` 写的是
+//   `i >= 0 && argv[i + 1] ? argv[i + 1] : dflt`,把「没点旗标」与「点了旗标却没给值」折成同一件事:
+//   实测改前 `--branch --dry-run` ⇒ branch 被喂成 `'--dry-run'`,本器**照常出结论并 rc=0**
+//   (远端面读不到就退到 FETCH_HEAD 继续判),而 `--branch` 结尾无值则静默回到 `'main'`
+//   —— 调用方以为自己在别的分支上收敛,实际归并目标是 main。这正是普查 B 档那一型。
+import { requireFlagValue } from './lib/flag-value.mjs'
 // 旁路合并的"对侧独有新增必须 ∈ 结果"复量:判据一律 import 守门 100 自己那份 A1 实现,
 // 本器不复算第二份集合运算(AGENTS §0.6 单一真相源 / §22c 镜像测试纪律)。
 import { auditOne as auditMergeAdditionLoss } from './check-merge-addition-loss.mjs'
@@ -1831,12 +1837,17 @@ function selfTest() {
 function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) process.exit(selfTest() ? 0 : 1)
-  const getOpt = (name, dflt) => {
-    const i = argv.indexOf(name)
-    return i >= 0 && argv[i + 1] ? argv[i + 1] : dflt
+  // 用法错一律 exit 2 并点名实得 token(与本器既有的「未判定 = exit 2」同档),不得静默走默认档。
+  const getOpt = (name, dflt, noun) => {
+    const rf = requireFlagValue(argv, name, { noun })
+    if (rf.error) {
+      console.error(`❌ ${rf.error}`)
+      process.exit(2)
+    }
+    return rf.present ? rf.value : dflt
   }
-  const branch = getOpt('--branch', 'main')
-  const maxRounds = Number(getOpt('--rounds', 3))
+  const branch = getOpt('--branch', 'main', '分支名参数')
+  const maxRounds = Number(getOpt('--rounds', 3, '轮数参数'))
   const dryRun = argv.includes('--dry-run')
   // `--no-proxy`(2026-10-26 立):显式临时绕开仓库配的代理。
   // 立因:当天给的出路"手打 `git -c http.proxy= …`"在本器上**跑不通**(本器自己派生 git,不吃调用方的 argv),

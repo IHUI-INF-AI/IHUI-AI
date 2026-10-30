@@ -1,0 +1,44 @@
+// i18n-cross-end-waivers.jsonl —— 跨端同名键文案漂移的**在册裁定**台账。
+// 一行一条 JSON:{key, kind, reason, expires}。对账尺 = scripts/check-i18n-cross-end-wording.mjs
+// (只读尺子,不进提交链也不进 CI:§12e —— 判的是文案裁定面,存量未清时挂成提交门就是恒红门)。
+// 类别允许集单源在尺子的 LEGAL_KINDS(§0.6),本注释只指向不重抄。
+// reason 需 ≥20 字的定向说明;expires 必填(YYYY-MM-DD),到期即回到未裁队列(§0.7)。
+// 刻意不给 same-screen-drift 留类别:同一个界面两端读两套字是**待修项**,写进这里也判红。
+// 本批凭据来源:2026-10-30 三席只读取证(逐调用点扫 t()/tt() 直调 + 数据表间接取词两通道,
+// 每个 0 命中带阳性对照;词包一律 JSON.parse 按键路径取,不用 grep 搜点分路径)。
+// 未登记在本台账的 about.heroTitle / valueCrossTitle / valueCrossDesc / valueFreeDesc 四枚
+// 是"对外端数事实",按现读证据(apps/* 9 目录含 2 后端服务;mobile-cap 无自有 src、www 由
+// apps/web/out 复制、downloads.config.ts 把 android-apk 版本回退到 mobileRnPkg 且 mobile-cap
+// 零命中)应统一为"六端"—— 那是待修,不是可豁免差异,故不写在这里。
+{"key":"conversationImport.pickFile","kind":"platform-adaptation","reason":"微信侧只能从会话文件中选取,给不出本机路径,故端内写「从微信会话中选择导出文件」比基准侧「选择导出文件」更准确","expires":"2027-06-30"}
+{"key":"conversationImport.sourceClaudeCodeHint","kind":"platform-adaptation","reason":"基准侧提示给的是本机路径 ~/.claude/projects,小程序无法访问本机文件系统,端内改为按导出文件类型提示","expires":"2027-06-30"}
+{"key":"conversationImport.sourceCodexHint","kind":"platform-adaptation","reason":"同上:~/.codex/sessions 是本机路径,小程序侧只能告知要上传的文件类型","expires":"2027-06-30"}
+{"key":"conversationImport.sourceCursorHint","kind":"platform-adaptation","reason":"同上:Cursor 工作区 state.vscdb 是本机路径提示,小程序侧改为文件类型提示","expires":"2027-06-30"}
+{"key":"conversationImport.sourceAiderHint","kind":"platform-adaptation","reason":"同上:~/.aider/chat 历史为本机路径,小程序侧只能按导出文件类型说明","expires":"2027-06-30"}
+{"key":"conversationImport.sourceWechatHint","kind":"platform-adaptation","reason":"端内写「导出文件:.zip / .txt」是选择器实际可收形态,基准侧写的是来源描述,两者服务不同输入通道","expires":"2027-06-30"}
+{"key":"chat.meta.pullOnly","kind":"platform-adaptation","reason":"端内那句明写「小程序端将在下次打开时同步」,是该端拉取时机的专属说明,基准侧描述的是列表刷新","expires":"2027-06-30"}
+{"key":"chat.truncation.maxLengthNotice","kind":"platform-adaptation","reason":"端内写「发送“继续”」、基准侧写「回复“继续”」:两端续写入口的交互动词不同(输入框发送 vs 回复一条消息),按各端实况保留","expires":"2027-06-30"}
+{"key":"aiGroup.title","kind":"different-screen","reason":"实测同名不同屏:小程序侧 pkg-ai/ai-group/index 是端内手写的智能体广场列表,基准侧消费点是 AiGroupScreen 的群聊列表(getGroups/join/cardMembers)","expires":"2027-06-30"}
+{"key":"aiGroup.empty","kind":"different-screen","reason":"同上两屏空态各写自己的对象(智能体 vs 群聊);词包侧亦证 mini 独有 agent/useCount/tabAll,RN 独有 subtitle/join/tabMine","expires":"2027-06-30"}
+{"key":"aiGroup.loadFailed","kind":"different-screen","reason":"同名键服务两个不同屏的失败态,端内那处挂在广场列表错误视图,基准侧挂在群聊屏 setError","expires":"2027-06-30"}
+{"key":"aiAssistantN8n.empty","kind":"different-screen","reason":"端内是 n8n 工作流列表的空态,基准侧同键是助手对话页的引导语(该页另有 emptyNoAgent/placeholder/send),不是同一处 UI","expires":"2027-06-30"}
+{"key":"comment.send","kind":"different-screen","reason":"端内是评论弹窗可见按钮(宿主在册页 study/video-detail),基准侧同键只用作 accessibilityLabel,可见文案另走 article.send,角色不同","expires":"2027-06-30"}
+{"key":"ranking.empty","kind":"different-screen","reason":"同名不同物:端内是 AI 榜单/抽屉空态,基准侧 RankingScreen 是用户积分排行;端内用户榜另用 ranking.noData,已并存两值","expires":"2027-06-30"}
+{"key":"vipTrader.opened","kind":"different-screen","reason":"基准侧该键兼作「已开通态按钮标签」与确认弹窗结果提示两角色,端内只在支付成功 toast 用 ⇒ 键的角色不同,非同一处文案","expires":"2027-06-30"}
+{"key":"agreement.title","kind":"semantic-split-needed","reason":"端内同键既被 setNavigationBarTitle 当聚合页名(协议与政策)又被壳内屏当页标题(单份协议),基准侧只有后者 ⇒ 待拆成聚合名与屏标题两枚键","expires":"2027-01-31"}
+{"key":"exam.questions","kind":"semantic-split-needed","reason":"两宿主不同形态:壳承载的 ExamScreen 渲成「{n} 题:5」(端内取词不传 params 即不插值,会把占位符原样上屏),而 wrong-list 手写页要的是带值的「{n} 题」⇒ 必须拆键","expires":"2027-01-31"}
+{"key":"common.failed","kind":"semantic-split-needed","reason":"逐调用点实测 27 处:15 处语义确是「加载失败」(现值对),12 处是「操作/动作失败」含提现记录状态位(现值不准)⇒ 直改基准值会把 15 处改错,待拆 common.actionFailed","expires":"2027-01-31"}
+{"key":"conversationImport.desc","kind":"pending-product","reason":"基准侧比端内多一句「导入后可在历史对话列表查看」,属信息增删而非平台限制,要不要给小程序补这句需产品定口径","expires":"2027-01-31"}
+{"key":"course.loadFailed","kind":"pending-product","reason":"「课程加载失败」与「加载课程失败」语序差,两端均无语义损失也不涉平台限制;统一需先定哪侧是文案规范,不单方面改","expires":"2027-01-31"}
+{"key":"error.network","kind":"pending-product","reason":"基准侧多一句「请稍后重试」的行动指引,属文案增删;两值都成立,统一口径需产品定","expires":"2027-01-31"}
+{"key":"feedback.content","kind":"pending-product","reason":"端内「内容」/基准「反馈内容」:同屏内表单标签的详略差异,不涉平台也不涉语义,待文案口径统一时一并裁","expires":"2027-01-31"}
+{"key":"feedback.type","kind":"pending-product","reason":"端内「类型」/基准「反馈类型」:同上,表单标签详略差,待统一裁","expires":"2027-01-31"}
+{"key":"feedback.submit","kind":"pending-product","reason":"端内「提交反馈」/基准「提交」:按钮文案详略差,受按钮宽度与所在表单语境影响,需产品定后再统一","expires":"2027-01-31"}
+{"key":"feedback.contactPlaceholder","kind":"pending-product","reason":"端内多「(选填)」标注,是字段必填性的呈现选择而非平台限制;若统纲要保留需同步 RN 侧,由产品定","expires":"2027-01-31"}
+{"key":"feedback.contentPlaceholder","kind":"pending-product","reason":"端内「请输入反馈详情」/基准「请输入反馈内容」:近义措辞,无用户可辨缺陷,待文案口径统一时一并裁","expires":"2027-01-31"}
+{"key":"liveHost.streamKey","kind":"pending-product","reason":"端内「流密钥」/基准「推流密钥」:直播开播面板字段标签,术语正字待定(推流更准确但会牵动同屏其它标签)","expires":"2027-01-31"}
+{"key":"liveHost.starting","kind":"pending-product","reason":"端内「开启中...」/基准「开始中...」:基准值本身中文不通,属待修文案而非端差异,需产品定正字后两端同改","expires":"2027-01-31"}
+{"key":"learnDevelop.title","kind":"pending-product","reason":"实测两端同导航槽位但不同 spec(端内页含路径卡+推荐课+排行入口,基准侧是 5 张入口卡),词包除 title 外不相交 ⇒ 是否同屏未判定,不硬覆盖","expires":"2027-01-31"}
+{"key":"messageInput.addFile","kind":"pending-product","reason":"端内「添加」/基准「添加附件」:图标旁短标签与全字标签的取舍,受输入框宽度影响,需产品定后统一","expires":"2027-01-31"}
+{"key":"teacher.detail.viewCourses","kind":"pending-product","reason":"端内「查看课程」/基准「查看全部课程」:入口按钮详略差,两值都不算错,待文案口径统一","expires":"2027-01-31"}
+{"key":"vipTrader.openNow","kind":"pending-product","reason":"两端渲染器不同(端内底部主 CTA vs 共享屏 CTA 兼确认弹窗按钮),仅同槽位无同屏凭据 ⇒ 未判定;且基准侧一键两角色需先拆键再谈对齐","expires":"2027-01-31"}

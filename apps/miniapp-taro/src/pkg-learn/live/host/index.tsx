@@ -120,20 +120,32 @@ export default function LiveHost() {
         ? tt('liveHost.statusInactive', '已结束')
         : tt('liveHost.statusIdle', '未开始')
 
+  // 对齐 RN streamInfo:推流地址/流密钥两行行尾都带「(已复制)」提示
+  const copyHint = tt('liveHost.copyHint', '已复制')
+
   const stats: { label: string; value: string }[] = [
     { label: tt('liveHost.duration', '直播时长'), value: formatDuration(duration) },
-    { label: tt('liveHost.viewers', '观众数'), value: String(viewers) },
-    { label: tt('liveHost.recvBytes', '收到字节'), value: formatBytes(stream?.recvBytes ?? null) },
-    { label: tt('liveHost.sendBytes', '发送字节'), value: formatBytes(stream?.sendBytes ?? null) },
+    { label: tt('liveHost.statViewers', '在线人数'), value: String(viewers) },
+    {
+      label: tt('liveHost.statRecvBytes', '下行流量'),
+      value: formatBytes(stream?.recvBytes ?? null),
+    },
+    {
+      label: tt('liveHost.statSendBytes', '上行流量'),
+      value: formatBytes(stream?.sendBytes ?? null),
+    },
   ]
 
   return (
     <ThemeRoot>
       {/* 对齐 RN shared LiveHostScreen container(tk.surface.bg → var(--color-background))
-          注:RN header paddingTop 48 为补偿 RN 自带 NavBar,小程序原生导航栏已占位;标题由原生导航栏承载 */}
+          注:RN header paddingTop 48 为补偿 RN 自带 NavBar,小程序原生导航栏已占位;页内标题与原生标题同为「主播中心」 */}
       <View className="min-h-screen bg-[var(--color-background)]">
-        {/* header:状态徽章(11dp → 22rpx,radius 12 → 24rpx) */}
-        <View className="flex items-center px-[20rpx] pt-[16rpx] pb-[16rpx]">
+        {/* header:标题(RN title 20dp→40rpx 600)+ 状态徽章(11dp → 22rpx,radius 12 → 24rpx) */}
+        <View className="flex items-center justify-between px-[20rpx] pt-[16rpx] pb-[16rpx]">
+          <Text className="text-[length:40rpx] font-semibold text-foreground">
+            {tt('liveHost.title', '主播中心')}
+          </Text>
           <View className={`px-[16rpx] py-[4rpx] rounded-xl ${badgeCls}`}>
             <Text className="text-[length:22rpx] text-[var(--color-primary-foreground)]">
               {badgeText}
@@ -151,8 +163,8 @@ export default function LiveHost() {
         <View className="mx-[20rpx] mt-[16rpx] h-[352rpx] rounded-xl bg-[var(--color-screen-canvas)] flex items-center justify-center">
           <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
             {status === 'active'
-              ? tt('liveHost.cameraPreviewActive', '直播推流中')
-              : tt('liveHost.cameraPreview', '摄像头预览')}
+              ? tt('liveHost.previewActive', '已开始预览')
+              : tt('liveHost.previewIdle', '未开始预览')}
           </Text>
         </View>
 
@@ -175,7 +187,7 @@ export default function LiveHost() {
                 hoverClass="opacity-60"
               >
                 <Text className="block mt-[16rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
-                  {tt('liveHost.pushUrl', '推流地址')}:{stream.pushUrl || '—'}
+                  {tt('liveHost.pushUrl', '推流地址')}:{stream.pushUrl || '—'}({copyHint})
                 </Text>
               </View>
               <View
@@ -184,7 +196,7 @@ export default function LiveHost() {
                 hoverClass="opacity-60"
               >
                 <Text className="block mt-[16rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
-                  {tt('liveHost.streamKey', '流密钥')}:{stream.streamKey}
+                  {tt('liveHost.streamKey', '流密钥')}:{stream.streamKey}({copyHint})
                 </Text>
               </View>
             </View>
@@ -224,7 +236,7 @@ export default function LiveHost() {
         {/* 直播数据:sectionTitle 18dp → 36rpx semibold;statLabel 14 → 28rpx;statValue 16 → 32rpx */}
         <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[length:2rpx] border-[var(--color-border)]">
           <Text className="block text-[length:36rpx] font-semibold text-foreground mb-[16rpx]">
-            {tt('liveHost.liveData', '直播数据')}
+            {tt('liveHost.stats', '直播统计')}
           </Text>
           <View className="flex flex-wrap">
             {stats.map((s) => (
@@ -255,7 +267,7 @@ export default function LiveHost() {
               hoverClass="opacity-60"
             >
               <Text className="text-[length:28rpx] text-[var(--color-success)]">
-                {tt('liveHost.addProduct', '+ 添加商品')}
+                {tt('liveHost.productAddBtn', '添加商品')}
               </Text>
             </View>
           </View>

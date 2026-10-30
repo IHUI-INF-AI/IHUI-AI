@@ -826,16 +826,13 @@ const nextConfig: NextConfig = {
             ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${scriptSrcHosts}`
             : `script-src 'self' 'unsafe-inline' ${scriptSrcHosts}`,
           "style-src 'self' 'unsafe-inline'",
-          // 2026-10-28 评估后**保留** https: 通配,不按 next.config 的 images.remotePatterns 收窄。
-          // 取舍依据(收窄会直接打断功能,不是理论风险):
-          //  - src/components/ai/markdown-stream.tsx:751 明写「AI 返回的图片 URL 可能是任意来源,
-          //    不走 next/image 优化」—— 聊天/文章正文里的图来自模型输出,域名不可枚举;
-          //  - 用户头像/封面由后端存 URL(Avatar 走 next/image,但 unoptimized:true 直出 <img src>),
-          //    第三方 OAuth 头像域名同样不可枚举。
-          // 收窄到 remotePatterns 那 7 个域名 = AI 回答里的图全裂、部分用户头像裂。
-          // 剩余风险(已知并接受):https 图片可被当作数据外泄信道(把数据拼进 img src)。
-          // 正确解法是后端图片代理 + 域名白名单后再收窄,属跨端改造,不在本轮范围。
-          "img-src 'self' data: blob: https:",
+          // 2026-10-30 收口:img-src 由 `https:` 通配收窄到 curated remotePatterns 白名单。
+          // 与 media-src(已收窄 'self' blob:)同思路:AI 对话 / 文章 / 用户附件里的图现在全部经
+          // 同源代理 /api/media/image 加载(浏览器同源、自动带 httpOnly auth cookie,源站 CDN
+          // 不再被直连),外部域名不再进入 CSP 评估面,https 图片外泄信道清零。
+          // 保留的 7 个域名与 images.remotePatterns 完全一致 —— 那是 next/image 已约束的
+          // 头像/图标信任边界(avatars / icons),与本次收窄同尺,不引入新信任面。
+          "img-src 'self' data: blob: https://aizhs.top https://*.aizhs.top https://api.dicebear.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://platform-lookaside.fbsx.com https://api.qrserver.com https://test-for-dp.oss-cn-guangzhou.aliyuncs.com",
           "font-src 'self' data:",
           // connect-src:开发模式才放行本机(localhost/127.0.0.1),供直连 dev 的 8802/8803/8801
           // 与 SSE/WebSocket 调试;生产模式收紧,仅 'self' + 标准 wss/https 等外部连接,
@@ -848,6 +845,14 @@ const nextConfig: NextConfig = {
           isDev
             ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
             : "connect-src 'self' https: wss: http://ipc.localhost https://ipc.localhost",
+          // 2026-10-30 一度放行 https:/data:(与 img-src 同型取舍);2026-10-30 末已根治收紧:
+          //  - 视频/音频现全部走同源代理 —— 前端 <video src="/api/media/stream?url=…">
+          //    经 web rewrites(/api/media/* → 8803)同源访问,浏览器自动带 httpOnly auth cookie
+          //    鉴权,源站 CDN 不再被浏览器直接触达,故无需 https: 通配;
+          //  - 后端 /api/media/stream 复用下载代理的 SSRF 闸门(URL 必须命中平台登记产物)
+          //    并透传 Range,使播放器可拖拽 seek;
+          //  - blob: 保留:下载按钮走 fetch→ObjectURL 落盘,正是 blob: 源。
+          // 剩余风险(已清零):外部 CDN 直链不再进入 CSP 评估面,https: 媒体外泄信道已去除。
           "media-src 'self' blob:",
           "object-src 'none'",
           "base-uri 'self'",

@@ -166,17 +166,33 @@ import {
   stripWatermarkStructure,
   CANONICAL_BANNER_LINES,
 } from './lib/watermark-lines.mjs'
+// G-322:「带值旗标吞值」判据全仓只许一份(§22c)。本门原有两份复制品
+// (`resolveRoot` 与 `--ledger-from` 那格),都写成 `!p || p.startsWith('--')` —— 只挡双划线:
+//   实测 `--ledger-from -y`(单划线)旧副本照收,门**照常出具「✓ 全部通过」(rc=0)**,
+//   而 B11 那一格其实根本没判。单源 `requireFlagValue` 挡的是任何以 `-` 开头的 token。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
+/**
+ * 用法错出口(与 G-322 同批收紧的一格):这两格住在**模块顶层求值**,改前实测连
+ * `--root --staged`(旧副本本来就挡的那支)也只是 `throw` ⇒ 抛穿成裸 Node 栈、rc=1,
+ * 文档写着"用法错"给的却是一串栈。现按本门既有档位收口:
+ *   直执行 ⇒ 单源措辞一行 + exit 2;被 import(镜像测试断言的就是异常本身)⇒ 原样抛回,
+ *   绝不把测试的输入吞成 process.exit。
+ */
+function usageError(msg) {
+  if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    console.error(`❌ ${msg}`)
+    process.exit(2)
+  }
+  throw new Error(msg)
+}
 /** 仓库根:由脚本自身位置推导(§15,不写死盘符也不信 cwd)。 */
 function resolveRoot(argv) {
-  const i = argv.indexOf('--root')
-  if (i >= 0) {
-    const p = argv[i + 1]
-    if (!p || p.startsWith('--')) throw new Error('--root 需要一个目录参数')
-    return resolve(p)
-  }
-  return resolve(HERE, '..')
+  const rf = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rf.error) usageError(rf.error)
+  if (!rf.present) return resolve(HERE, '..')
+  return resolve(rf.value)
 }
 
 const MIG_DIR_REL = 'packages/database/drizzle'
@@ -193,10 +209,10 @@ const requireIdle = args.includes('--require-idle')
 const b11Strict = args.includes('--strict')
 /** 取证通道:`--ledger-from <json>` 给 B11 喂夹具账本(只为证明"判据有人调",不代表库内实态)。 */
 const ledgerFromPath = (() => {
-  const i = args.indexOf('--ledger-from')
-  if (i < 0) return null
-  const p = args[i + 1]
-  if (!p || p.startsWith('--')) throw new Error('--ledger-from 需要一个 JSON 文件参数')
+  const rf = requireFlagValue(args, '--ledger-from', { noun: 'JSON 文件参数' })
+  if (rf.error) usageError(rf.error)
+  if (!rf.present) return null
+  const p = rf.value
   return isAbsolute(p) ? p : resolve(ROOT, p)
 })()
 

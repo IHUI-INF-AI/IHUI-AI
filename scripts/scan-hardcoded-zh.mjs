@@ -190,17 +190,25 @@ function flagValue(flag) {
 // `--json` 两档:带路径 ⇒ 写文件(既有行为,一字不改);不带路径 / 下一个 token 是别的旗标 ⇒ JSON 打到 stdout
 const JSON_OUT = flagValue('--json')
 const JSON_STDOUT = args.has('--json') && JSON_OUT === null
-const TOP_RAW = args.has('--top') ? argv[argv.indexOf('--top') + 1] : null
-const TOP_VALID = typeof TOP_RAW === 'string' && /^\d+$/.test(TOP_RAW)
-const TOP_INVALID = args.has('--top') && !TOP_VALID
-const TOP_N = TOP_VALID ? Number(TOP_RAW) : 30
+// `--top` 三态:没给 ⇒ 默认 30;给了且是纯数字 ⇒ 用之;给了但值被吞(下一枚是旗标 / 收尾无值)
+// 或非数字 ⇒ **未判定 exit 2**。G-322(本站,blocking 腿):旧写法 `argv[indexOf('--top') + 1]`
+// 在这三型下都只印一行"忽略无效值"然后**照跑默认 30** —— 调用方以为自己换了阈值、拿到的读数还
+// 完全自洽,等于把"没判"渲染成"判过"(§0.3)。取值形状归单源,本文件不写第二份。
+const TOP_F = args.has('--top') ? libFlagValue(argv, '--top') : null
+const TOP_NUMERIC = TOP_F !== null && TOP_F.valid && /^\d+$/.test(TOP_F.value)
+if (TOP_F !== null && !TOP_NUMERIC) {
+  console.error(
+    `[scan-hardcoded-zh] ❌ --top 需要一个纯数字 —— 紧邻的 token 实得:${describeFlagToken(TOP_F)}(不得静默退回默认 30)`,
+  )
+  process.exit(2)
+}
+const TOP_N = TOP_NUMERIC ? Number(TOP_F.value) : 30
 /** 人读提示的去向。JSON-stdout 档必须把一切非 JSON 文本挪出 stdout,否则调用方 JSON.parse(stdout) 直接失败
  *  (本门有两处判定面提示会在扫描中途打 stdout)。其余档(人读 / `--json <文件>`)的 stdout 行为一字未变。 */
 function notice(msg) {
   if (JSON_STDOUT) console.error(msg)
   else console.log(msg)
 }
-if (TOP_INVALID) notice('[scan-hardcoded-zh] 忽略无效的 --top 值(需要一个纯数字,紧邻的下一个 token 不是数字),已退回默认 30')
 // G-322(本站,blocking 腿):旧写法 `args.has('--exit') && argv[indexOf('--exit')+1] === '1'`
 // 把"实得的不是 1"与"根本没给 --exit"读成同一件事 ⇒ `--exit --staged`、`--exit 2`、`--exit`
 // 落在末尾这三型都会**静默关掉棘轮**,而调用方以为自己跑的是拒绝档(§0.10:失效方向绝不能是
