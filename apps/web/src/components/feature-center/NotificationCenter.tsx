@@ -18,6 +18,10 @@ export interface NoticeItem {
   type: 'info' | 'success' | 'warning' | 'error'
   read: boolean
   createdAt: string
+  /** 原始通知类型(未归一化;G2 自动化结果为 'automation',用于渲染深链) */
+  rawType?: string
+  /** G2 自动化通知的可深链会话 id(conversationId ?? auto_<automationId>) */
+  sessionId?: string | null
 }
 
 /** D193:待决策条目(与 api-client 的 PendingDecisionItem 同形,本组件保持展示层零耦合) */
@@ -37,6 +41,8 @@ export interface NotificationCenterProps {
   /** D193:「我的待决策」聚合(传 undefined = 整区隐藏;传数组 = 展示,含空态) */
   pendingDecisions?: PendingDecisionView[]
   onDecisionItemClick?: (item: PendingDecisionView) => void
+  /** G2:「查看会话」深链点击(自动化终态通知带 sessionId 时出现) */
+  onSessionLinkClick?: (sessionId: string) => void
 }
 
 const TYPE_COLORS: Record<NoticeItem['type'], string> = {
@@ -55,6 +61,7 @@ export function NotificationCenter({
   onItemClick,
   pendingDecisions,
   onDecisionItemClick,
+  onSessionLinkClick,
 }: NotificationCenterProps) {
   const t = useTranslations('nav')
   const unreadCount = items.filter((n) => !n.read).length
@@ -180,6 +187,21 @@ export function NotificationCenter({
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {formatDate(item.createdAt)}
                   </p>
+                  {item.rawType === 'automation' && item.sessionId && (
+                    <button
+                      type="button"
+                      data-testid="notice-session-link"
+                      data-session-id={item.sessionId}
+                      onClick={(e) => {
+                        // 深链优先:点「查看会话」不再顺带触发整条通知的 onItemClick
+                        e.stopPropagation()
+                        onSessionLinkClick?.(item.sessionId!)
+                      }}
+                      className="mt-1 text-xs text-primary hover:underline"
+                    >
+                      {t('viewConversation')}
+                    </button>
+                  )}
                 </div>
                 {!item.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-cta" />}
               </div>

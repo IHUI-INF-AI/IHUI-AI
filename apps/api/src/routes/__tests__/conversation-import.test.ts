@@ -388,7 +388,8 @@ describe('外部会话导入路由(D28)', () => {
       const badSource = await app.inject({
         method: 'POST',
         url: '/api/conversation-import/commit',
-        payload: makeCommitBody({ source: 'chatgpt' }),
+        // E2 起 chatgpt/claude_ai 已入白名单,非法示例改用未收录的 gemini
+        payload: makeCommitBody({ source: 'gemini' }),
       })
       expect(badSource.statusCode).toBe(400)
 
@@ -481,6 +482,35 @@ describe('外部会话导入路由(D28)', () => {
       expect(historyValues.status).toBe('success')
       expect(historyValues.fileName).toBe('wechat-export.zip')
     })
+
+    it.each(['chatgpt', 'claude_ai'] as const)(
+      'source=%s → 201,批次记录与 metadata 落 %s(E2 网页导出源)',
+      async (source) => {
+        store.insertQueue.push([{ id: CONV_ID }])
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/conversation-import/commit',
+          payload: makeCommitBody({
+            source,
+            fileName: 'conversations.json',
+            title: '网页导出会话',
+          }),
+        })
+        expect(res.statusCode).toBe(201)
+        expect(res.json().data.conversationId).toBe(CONV_ID)
+
+        const convValues = store.insertValues[0] as Record<string, unknown>
+        expect(convValues.metadata).toEqual({
+          importedFrom: source,
+          importedVia: 'conversation-import',
+          fileName: 'conversations.json',
+        })
+        // varchar(32) 容得下 chatgpt/claude_ai,无需迁移
+        const historyValues = store.insertValues[2] as Record<string, unknown>
+        expect(historyValues.source).toBe(source)
+        expect(historyValues.status).toBe('success')
+      },
+    )
 
     it('时间戳缺省 → 回退导入时刻(Date 实例)', async () => {
       store.insertQueue.push([{ id: CONV_ID }])

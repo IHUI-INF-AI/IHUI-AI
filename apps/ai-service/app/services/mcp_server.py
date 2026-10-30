@@ -5734,6 +5734,18 @@ from ..tools import (  # noqa: E402
     generate_report as _generate_report,
 )
 
+# G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具(artifact_tools,
+# payload 落 tmp/artifacts 白名单目录 + 元数据经 artifacts_store 挂会话附件)
+from ..tools import (  # noqa: E402
+    create_artifact as _create_artifact,
+)
+
+# G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化(automation_tools,
+# 经 internal 凭证腿调 apps/api POST /api/automations;edu 工具同路线)
+from ..tools import (  # noqa: E402
+    create_automation as _create_automation,
+)
+
 # D07 残余②:「/init 式 AGENTS.md」能力接入(实现已入库,此前未注册 ⇒ 外部不可调用)
 from ..tools import (
     init_agents_md as _init_agents_md,
@@ -10437,6 +10449,101 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # G3 Beyond-Coding 泛化:对话可产出五类交付物(html_report/slides/sheet/doc/video_ref)。
+        # 路由身份(__user_id/__session_id)由 call_tool 宿主注入覆盖,LLM 不可控(同
+        # request_business_form 的纪律);message_id 是**源转录锚点**(产物挂在哪条消息),
+        # 必填但非路由身份,由调用侧/模型给出。
+        name="create_artifact",
+        description=(
+            "创建或更新一个交付物 Artifact(带版本与源转录锚点,可导出)。kind 五选一:"
+            "html_report(content=自包含 HTML 字符串)、doc(content=Markdown 正文)、"
+            "slides(content=JSON 字符串 {\"slides\":[{\"title\":\"..\",\"bullets\":[\"..\"],\"notes\":\"..\"}]})、"
+            "sheet(content=JSON 字符串 {\"columns\":[\"列名\"],\"rows\":[[单元格,..]]})、"
+            "video_ref(content=JSON 字符串 {\"url\":\"..\",\"provider\":\"..\"})。"
+            "message_id 必填(锚定到产生本产物的 assistant 消息)。传 artifact_id 即更新:"
+            "version+1 且旧版 payload 保留。产物落 tmp/artifacts 并登记为会话附件,"
+            "可经 /api/artifacts/:id/download?fmt=html|md|csv 导出。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": ["html_report", "slides", "sheet", "doc", "video_ref"],
+                    "description": "交付物种类",
+                },
+                "title": {"type": "string", "description": "产物标题(非空)"},
+                "content": {
+                    "type": "string",
+                    "description": "payload 正文:html_report/doc 为文本原样,slides/sheet/video_ref 为对应 JSON 字符串",
+                },
+                "message_id": {"type": "string", "description": "源转录锚点:所属消息 id(必填)"},
+                "anchor_index": {"type": "integer", "minimum": 0, "description": "锚点序号(可选,同消息多产物时区分)"},
+                "status": {"type": "string", "enum": ["draft", "final"], "description": "草稿/定稿,默认 draft"},
+                "artifact_id": {"type": "string", "description": "更新既有产物时传入其 id(version+1,旧版保留)"},
+            },
+            "required": ["kind", "title", "content", "message_id"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化。
+        # 实现经 internal 凭证腿调 apps/api POST /api/automations(排期/互斥/归属判据
+        # 只住 api 路由一处);rrule 白名单比 api 更严(未知段/语义错配段直接拒)。
+        # 路由身份 __user_id/__session_id 由宿主注入覆盖,LLM 不可控(create_artifact 同款纪律)。
+        name="create_automation",
+        description=(
+            "创建用户定时自动化(到点自动执行一段提示词)。schedule_type=once 必须带 "
+            "scheduled_at(ISO 8601 含时区偏移,如 2026-11-01T09:00:00+08:00);recurring "
+            "必须带 rrule(MVP 子集:FREQ=HOURLY|DAILY|WEEKLY,可选 BYHOUR=0-23、"
+            "BYMINUTE=0-59、BYDAY=MO,TU,..;WEEKLY 必带 BYDAY,HOURLY 不接受任何 BY* 段)。"
+            "timezone 为 IANA 时区名(默认 Asia/Shanghai)。可选 goal={target, max_runs}"
+            "启用 Goal 自评迭代:每次执行成功后模型对照 target 自评,未达标且预算与余额"
+            "允许时自动重跑(max_runs 默认 3、上限 10)。执行结果终态会推送站内通知。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "自动化名称(非空,≤200 字)"},
+                "prompt": {"type": "string", "description": "每次到点执行的提示词(非空,≤8000 字)"},
+                "schedule_type": {
+                    "type": "string",
+                    "enum": ["once", "recurring"],
+                    "description": "once=一次性(配 scheduled_at);recurring=周期重复(配 rrule)",
+                },
+                "scheduled_at": {
+                    "type": "string",
+                    "description": "once 的执行时刻:ISO 8601 且必须带时区偏移(与 rrule 互斥)",
+                },
+                "rrule": {
+                    "type": "string",
+                    "description": "recurring 的重复规则(MVP 子集,与 scheduled_at 互斥),如 FREQ=DAILY;BYHOUR=9;BYMINUTE=30",
+                },
+                "timezone": {
+                    "type": "string",
+                    "description": "墙钟解释用的 IANA 时区(可选,默认 Asia/Shanghai)",
+                },
+                "goal": {
+                    "type": "object",
+                    "description": "可选 Goal 自评迭代配置(未达标自动重跑,预算/余额受限)",
+                    "properties": {
+                        "target": {"type": "string", "description": "目标描述(非空,≤2000 字,自评的对照基准)"},
+                        "max_runs": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10,
+                            "description": "最多执行次数(含首跑),默认 3",
+                        },
+                    },
+                    "required": ["target"],
+                    "additionalProperties": False,
+                },
+            },
+            "required": ["name", "prompt", "schedule_type"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="parse_document",
         description=(
             "解析本地文档为可注入上下文的文本/Markdown,支持 15 种格式:"
@@ -11502,6 +11609,10 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "generate_chart": _generate_chart,
     # PROJECT_PLAN #81 最小一环:报表模板生成器(2026-09-28,与 chart 共用产物基础设施)
     "generate_report": _generate_report,
+    # G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具
+    "create_artifact": _create_artifact,
+    # G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化(调 apps/api 端点)
+    "create_automation": _create_automation,
     "parse_document": _parse_document,
     # D07 残余②:AGENTS.md 草稿生成(默认不落盘,写盘须显式 output_path;
     # workspace_root 经 MCP 面校验后才下传,见 _init_agents_md_guarded)

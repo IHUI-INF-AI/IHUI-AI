@@ -21,7 +21,8 @@
  *   2. 微信预览期就把"这是群聊记录、谁在说、跨了多久"说清(发言人从正文前缀现算)
  *   3. 导入历史:补来源标签与「打开会话」入口(此前只有文件名/状态/条数,五源长得一样)
  *
- * 覆盖全部 5 个来源(2026-10-03 补齐微信):claude_code / codex / cursor / aider / wechat。
+ * 覆盖全部 7 个来源(2026-10-30 E2 补齐 ChatGPT/Claude.ai 网页导出):
+ * claude_code / codex / cursor / aider / chatgpt / claude_ai / wechat。
  * 错误一律诚实上屏:解析失败带服务端原文、truncated 与 warnings 在预览区逐条列出、
  * 逐会话 commit 失败原因去重后展示 —— 不做静默吞掉。
  */
@@ -107,6 +108,20 @@ const IMPORT_SOURCES: Array<{
     accept: '.md,.json,.jsonl',
   },
   {
+    // ChatGPT 网页版「导出数据」单文件,固定名 conversations.json
+    value: 'chatgpt',
+    labelKey: 'sourceChatgpt',
+    hintKey: 'sourceChatgptHint',
+    accept: '.json',
+  },
+  {
+    // Claude.ai 导出解包后为目录内多个 conversation-*.json,一次上传一个
+    value: 'claude_ai',
+    labelKey: 'sourceClaudeAi',
+    hintKey: 'sourceClaudeAiHint',
+    accept: '.json',
+  },
+  {
     // 微信导出物是归档包/纯文本,与其余四源的 jsonl/sqlite 家族完全不同。
     // 与 CLI(SESSION_SOURCE_CONFIG)/RN(ALLOWED_EXTENSIONS)同口径。
     value: 'wechat',
@@ -132,6 +147,8 @@ const HISTORY_SOURCE_LABEL_KEY: Record<string, string> = {
   codex: 'sourceCodex',
   cursor: 'sourceCursor',
   aider: 'sourceAider',
+  chatgpt: 'sourceChatgpt',
+  claude_ai: 'sourceClaudeAi',
   wechat: 'sourceWechat',
 }
 
@@ -398,7 +415,9 @@ export function ConversationImportPanel() {
         const reason = e instanceof Error ? e.message : String(e)
         setCommitted((prev) =>
           prev.map((c) =>
-            c.conversationId === conversationId ? { ...c, knowledge: { state: 'failed', reason } } : c,
+            c.conversationId === conversationId
+              ? { ...c, knowledge: { state: 'failed', reason } }
+              : c,
           ),
         )
         toast.error(t('toKnowledgeFailed', { error: reason }))
@@ -606,9 +625,7 @@ export function ConversationImportPanel() {
                                 count: wechatInfo.speakerCount,
                                 names: formatSpeakerList(wechatInfo.speakers),
                               })}
-                              {wechatInfo.range && (
-                                <span> · {wechatInfo.range}</span>
-                              )}
+                              {wechatInfo.range && <span> · {wechatInfo.range}</span>}
                             </span>
                           )}
                         </label>
@@ -703,8 +720,7 @@ export function ConversationImportPanel() {
                         <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                         <span>{t('toKnowledge')}</span>
                       </Button>
-                    ) : c.knowledge?.state === 'done' ||
-                      c.knowledge?.state === 'deduped' ? (
+                    ) : c.knowledge?.state === 'done' || c.knowledge?.state === 'deduped' ? (
                       <span
                         className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[11px] text-muted-foreground"
                         data-testid="import-result-knowledge-done"
@@ -725,7 +741,8 @@ export function ConversationImportPanel() {
                         <span>{t('toKnowledge')}</span>
                       </Button>
                     )}
-                  </div>                </div>
+                  </div>{' '}
+                </div>
               ))}
             </div>
             <Button size="sm" variant="ghost" onClick={() => setCommitted([])}>
