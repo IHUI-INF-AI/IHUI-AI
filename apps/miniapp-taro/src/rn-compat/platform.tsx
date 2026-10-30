@@ -8,7 +8,8 @@
  * 这些都是"能力名不同、语义相同"的一对一映射,不引入任何新机制:
  *  Clipboard → Taro.setClipboardData;expo-image-picker → Taro.chooseImage/chooseMedia;
  *  expo-media-library → Taro.saveImageToPhotosAlbum/saveVideoToPhotosAlbum;
- *  react-native-safe-area-context → 端内导航栏已让位,直接透传容器。
+ *  react-native-safe-area-context → 端内导航栏已让位,直接透传容器;
+ *  expo-blur → 小程序无原生高斯模糊:BlurTargetView 透传容器,BlurView 用 opacity 承载「变淡」这一可见语义。
  */
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
@@ -87,6 +88,47 @@ export function SafeAreaView({
 
 export function KeyboardAvoidingViewCompat({ children }: { children?: ReactNode }) {
   return <View>{children}</View>
+}
+
+/**
+ * `expo-blur` 的小程序等价实现(2026-10-30 立,现读构建红根因)。
+ *
+ * 为什么必须有这组出口:壳复用腿把 `apps/mobile-rn/src/screens/*` 纳入小程序编译面,其中
+ * Home/Course/Live/News/Plaza 五屏 `import { BlurTargetView } from 'expo-blur'`。端内没有替身时
+ * webpack 去解析 expo-blur 真身 ⇒ 它经 `expo-modules-core` 拿到 SDK 57 的未编译 TS 源
+ * (`main: src/index.ts`)⇒ 落进"无 loader"当场 `ModuleParseError: Unexpected token (5:7)`,整轮产物出不来。
+ *
+ * 语义降级如实登记(不是空壳糊弄):
+ *  · BlurTargetView 在 RN 侧是"被 TabBar 采样做动态模糊的目标区",本身无视觉 ⇒ 这里透传容器,
+ *    ref 收下不使用(小程序没有可采样的原生模糊层,拿不到也无需拿)。
+ *  · BlurView 的 `intensity` 是无高斯模糊原语时唯一可折算的量:强度越大越不透明,与 RN 观感同向;
+ *    用 opacity 而不是硬编 rgba,避免在端内自立一档颜色(AGENTS §4 色档单一源头)。
+ */
+export function BlurTargetView({
+  children,
+  style,
+  ref: _ref,
+}: {
+  children?: ReactNode
+  style?: Record<string, unknown>
+  ref?: unknown
+}) {
+  return <View style={style}>{children}</View>
+}
+
+export function BlurView({
+  children,
+  style,
+  intensity = 80,
+  tint: _tint = 'light',
+}: {
+  children?: ReactNode
+  style?: Record<string, unknown>
+  intensity?: number
+  tint?: 'light' | 'dark' | 'extra-light' | 'default' | 'systemChromeMaterial'
+}) {
+  const alpha = Math.min(1, Math.max(0, intensity / 100))
+  return <View style={{ ...style, opacity: alpha }}>{children}</View>
 }
 
 export const useSafeAreaInsets = () => ({ top: 0, bottom: 0, left: 0, right: 0 })
