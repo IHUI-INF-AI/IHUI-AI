@@ -1894,7 +1894,7 @@ const MessageItem = React.memo(function MessageItem({
             )}
             {/* 差距⑤(2026-10-30):AI 消息「分享此回合」深链。序号不可推导(null)时
                 整钮不渲染 —— 验收「无序号可取的消息不渲染入口,不猜」。 */}
-            {!isUser && turnOrdinal != null && (
+            {!isUser && typeof turnOrdinal === 'number' && (
               <Tooltip content={t('message.shareTurn')} side="top">
                 <button
                   type="button"
