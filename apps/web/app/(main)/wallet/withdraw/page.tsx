@@ -16,6 +16,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchApi, apiOrThrow } from '@/lib/api'
+import { formatPrice } from '@ihui/shared/utils/format'
 import {
   Button,
   Input,
@@ -74,7 +75,9 @@ export default function WithdrawPage() {
     formState: { errors },
   } = useForm<WithdrawValues>({
     resolver: zodResolver(
-      makeWithdrawSchema(availableQ.data?.available),
+      // 可提现余额（available）单位是「分」，表单金额按「元」填 ⇒ 上限也要折成元，
+      // 否则用户填 100 元会被"100 分"的上限拦下（余额够却提不出来）。
+      makeWithdrawSchema(availableQ.data ? Math.floor(availableQ.data.available) / 100 : undefined),
     ) as unknown as Resolver<WithdrawValues>,
     defaultValues: { amount: 0, method: 'wechat', accountInfo: '' },
   })
@@ -89,7 +92,9 @@ export default function WithdrawPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: values.amount,
+          // 表单是「元」，后端 applyWithdrawal 全程按「分」运算（手续费 floor(amount*0.02)、
+          // 余额冻结 token_quantity 都是分）⇒ 提交前必须折成分，否则提现 100 元只冻结 100 分。
+          amount: Math.round(values.amount * 100),
           method: values.method,
           accountInfo: values.accountInfo,
         }),
@@ -137,7 +142,9 @@ export default function WithdrawPage() {
                   {(availableQ.error as Error).message}
                 </div>
               ) : (
-                <div className="mt-1 text-2xl font-bold">{availableQ.data?.available ?? 0}</div>
+                <div className="mt-1 text-2xl font-bold">
+                  ¥{formatPrice(availableQ.data?.available ?? 0)}
+                </div>
               )}
             </div>
 
