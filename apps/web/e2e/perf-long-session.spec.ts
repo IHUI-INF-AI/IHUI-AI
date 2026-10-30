@@ -269,6 +269,26 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
       `[perf-long-session] ①首屏 ${elapsed}ms / 预算 ${FIRST_SCREEN_BUDGET_MS * M}ms(${IS_CI ? 'CI 生产口径' : 'dev×2'})`,
     )
 
+    // 冷/热两档读数(goal-b39-s4,只读数不设断言):上面 elapsed 是"冷"档 —— 本地 dev 档
+    // 首次导航还含 Turbopack 按需编译与机器并发 CPU 争用,单次读数分不开"产品渲染"与
+    // "dev 编译"。重载后再走同一交互(模块已编译进 dev server 内存)即"热"档;两档并排打
+    // 日志即可判:热档落回预算内而冷档超 ⇒ 差额是编译/争用(环境放大),两档同超 ⇒ 产品侧。
+    // 放在断言之前量:冷档判红时这份归因读数仍然拿得到。
+    await page.reload()
+    await page.waitForLoadState('domcontentloaded')
+    const warmItem = page.getByRole('button', { name: CONV_TITLE }).first()
+    await expect(warmItem).toBeVisible({ timeout: 20_000 })
+    const warmT0 = Date.now()
+    await warmItem.click()
+    await expect(panel).toHaveAttribute('data-window-total', String(PAGE_SIZE), {
+      timeout: 20_000,
+    })
+    await expect(page.getByText('H20-PERF-MSG-49').first()).toBeVisible({ timeout: 20_000 })
+    const warmElapsed = Date.now() - warmT0
+    console.log(
+      `[perf-long-session] ①冷档 ${elapsed}ms / 热档 ${warmElapsed}ms(重载后再开同一会话)/ 预算 ${FIRST_SCREEN_BUDGET_MS * M}ms —— 仅读数,断言只判冷档`,
+    )
+
     expect(
       elapsed,
       `首屏耗时 ${elapsed}ms 超过 H20 预算 ${FIRST_SCREEN_BUDGET_MS * M}ms(CI=${IS_CI ? '生产口径' : 'dev×2'})`,
@@ -282,12 +302,32 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
 
     // 页面任何脚本前挂 longtask 观察器:采集全部 >50ms 主线程长任务的时间与时长
     await page.addInitScript(() => {
-      const sink: Array<{ startTime: number; duration: number }> = []
+      // goal-b39-s4:除时刻/时长外把 attribution 一并落账 —— 判"长任务是 dev 按需编译
+      // (chunk 脚本装载)还是产品渲染"时,靠 src/type 两格分桶;浏览器不给归因时留空串。
+      const sink: Array<{ startTime: number; duration: number; src: string; type: string }> = []
       ;(window as unknown as { __h20LongTasks: typeof sink }).__h20LongTasks = sink
       try {
         const obs = new PerformanceObserver((list) => {
           for (const e of list.getEntries()) {
-            sink.push({ startTime: e.startTime, duration: e.duration })
+            const attrib = (
+              e as PerformanceEntry & {
+                attribution?: Array<{
+                  name?: string
+                  containerType?: string
+                  containerSrc?: string
+                }>
+              }
+            ).attribution
+            const src = (attrib ?? [])
+              .map((a) => a.containerSrc ?? a.name ?? '')
+              .filter(Boolean)
+              .join('|')
+              .slice(0, 160)
+            const type = (attrib ?? [])
+              .map((a) => a.containerType ?? '')
+              .filter(Boolean)
+              .join('|')
+            sink.push({ startTime: e.startTime, duration: e.duration, src, type })
           }
         })
         obs.observe({ type: 'longtask', buffered: true })
@@ -373,13 +413,45 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
     ).toBeGreaterThanOrEqual(10)
 
     const during = await page.evaluate((t0) => {
-      const all = (window as unknown as { __h20LongTasks: Array<{ startTime: number }> })
-        .__h20LongTasks
+      const all = (
+        window as unknown as {
+          __h20LongTasks: Array<{ startTime: number; duration: number; src: string }>
+        }
+      ).__h20LongTasks
       return all.filter((e) => e.startTime >= t0)
     }, sendT0)
-    console.log(
-      `[perf-long-session] ②流式窗口 >50ms 长任务=${during.length}(预算 0), rAF=${rafFrames}帧/500ms`,
+    // 归因读数(goal-b39-s4):窗口内新装载的脚本。dev 档按需编译会在流式窗口里现拉
+    // chunk(该数>0 ⇒ 长任务至少有一部分是编译);生产 build 首屏已装载完,该数应为 0。
+    const scriptsAfterSend = await page.evaluate(
+      (t0) =>
+        (performance.getEntriesByType('resource') as PerformanceResourceTiming[])
+          .filter((r) => r.initiatorType === 'script' && r.startTime >= t0)
+          .map((r) => ({ name: r.name.split('/').pop() ?? '', dur: Math.round(r.duration) })),
+      sendT0,
     )
+    const withAttribution = during.filter((e) => e.src).length
+    console.log(
+      `[perf-long-session] ②流式窗口 >50ms 长任务=${during.length}(预算 0), rAF=${rafFrames}帧/500ms, 带归因=${withAttribution}/${during.length}, 窗口内新装载脚本=${scriptsAfterSend.length}`,
+    )
+    if (during.length > 0) {
+      const top = [...during].sort((a, b) => b.duration - a.duration).slice(0, 5)
+      console.log(
+        `[perf-long-session] ②最长 5 个: ${top
+          .map(
+            (e) =>
+              `${Math.round(e.duration)}ms@${Math.round(e.startTime)}${e.src ? ` src=${e.src}` : ''}`,
+          )
+          .join(' | ')}`,
+      )
+      if (scriptsAfterSend.length > 0) {
+        console.log(
+          `[perf-long-session] ②窗口内脚本: ${scriptsAfterSend
+            .slice(0, 3)
+            .map((s) => `${s.name}(${s.dur}ms)`)
+            .join(', ')}`,
+        )
+      }
+    }
 
     expect(
       during,
