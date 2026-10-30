@@ -18,6 +18,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMediaRelease } from './media-release'
+// CSP media-src 为 'self' blob:(无 https: 通配)⇒ 外部 http(s) 源必须走同源代理 /api/media/stream
+import { toMediaStreamUrl } from '@/lib/media-proxy'
 
 interface VideoPlayerProps {
   src: string
@@ -54,6 +56,10 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   const t = useTranslations('a11y')
   const ref = React.useRef<HTMLVideoElement>(null)
+  // CSP media-src 为 'self' blob:(无 https: 通配)⇒ 外部 http(s) 源必须走同源代理。
+  // 代理化后**元素上渲染的 src 就是 streamUrl**,故 useMediaRelease 也必须传它
+  // (它内部用 el.getAttribute('src') !== src 判定"React 已挂上新源",传原始 URL 会恒不等)。
+  const streamUrl = toMediaStreamUrl(src)
   const [playing, setPlaying] = React.useState(autoPlay)
   const [mutedState, setMutedState] = React.useState(muted)
   const [progress, setProgress] = React.useState(0)
@@ -69,7 +75,7 @@ export function VideoPlayer({
 
   // 切离即停:换 src(切 item)/ 卸载(关弹层、宿主摘掉这一项)⇒ 释放解码资源;
   // active=false(视图被藏起来)⇒ 暂停。宿主元素按源重建(纪律②),见 media-release 的用法约束。
-  useMediaRelease(ref, src, active)
+  useMediaRelease(ref, streamUrl, active)
 
   const togglePlay = () => {
     const v = ref.current
@@ -125,7 +131,7 @@ export function VideoPlayer({
         // 旧源的迟到事件也不会命中新节点的处理器
         key={mediaKey}
         ref={ref}
-        src={src}
+        src={streamUrl}
         poster={poster}
         autoPlay={autoPlay}
         loop={loop}

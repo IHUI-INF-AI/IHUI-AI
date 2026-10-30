@@ -74,8 +74,16 @@ test('⑦ 仓内登记表自证:真实登记表 + 真实白名单 ⇒ 零 proble
     assert.equal(
       e.isRelayPublic,
       false,
-      `${e.providerCode} 是账号池 provider,isRelayPublic 必须 false`,
+      `${e.providerCode} 账号池 provider 默认不公开;要公开必须逐模型显式声明 isRelayPublic=true + publicReason`,
     )
+    for (const m of e.models) {
+      if (m.isRelayPublic === true)
+        assert.ok(
+          typeof m.publicReason === 'string' && m.publicReason.trim().length >= 10,
+          `${e.providerCode}/${m.alias} 声明公开必须带 publicReason(≥10 字)`,
+        )
+      else assert.notEqual(m.isRelayPublic, true, '只有显式 true 才算公开')
+    }
     assert.ok(
       e.models.every((m) => m.alias && m.upstreamModel),
       `${e.providerCode} 模型行缺 alias/upstreamModel`,
@@ -217,5 +225,48 @@ test('⑫ 出处字面量单一真相源:库层只 import plan 层,不再自拼�
   )
   assert.equal(typeof plan.PROVENANCE_MARK, 'string', '__test__ 形状锁:镜像测试不抄常量')
   assert.ok(provenanceDescription('x').includes(PROVENANCE_MARK))
+})
+
+test('⑬ 单模型公开覆盖:只有显式 isRelayPublic=true 的那条产 updateModel', () => {
+  const ours = cfg(49)
+  const models = [
+    { id: 1, configId: 49, modelId: 'qoder/auto', enabled: true, isRelayPublic: false },
+    { id: 2, configId: 49, modelId: 'qoder/kmodel', enabled: true, isRelayPublic: false },
+  ]
+  const e = entry({
+    models: [
+      { alias: 'qoder/auto', upstreamModel: 'auto' },
+      {
+        alias: 'qoder/kmodel',
+        upstreamModel: 'kmodel',
+        isRelayPublic: true,
+        publicReason: '与既有公开档位 kimi-k2.7-code 同模型同价,号池 5 枚 healthy 承载',
+      },
+    ],
+  })
+  const p = planRegistration([e], snap([ours], models))
+  assert.deepEqual(p.problems, [])
+  assert.equal(p.actions.length, 1, `实得动作:${p.actions.map(describeAction).join(' | ')}`)
+  assert.equal(p.actions[0].kind, 'updateModel')
+  assert.equal(p.actions[0].id, 2, '只动显式公开那条')
+  assert.equal(p.actions[0].isRelayPublic, true)
+  assert.equal(
+    p.rows.find((r) => r.alias === 'qoder/auto').state,
+    'matched',
+    'provider 默认 false 的兄弟档一条动作都不产生',
+  )
+})
+
+test('⑭ 单模型公开不带 publicReason ⇒ parseRegistry 判未判定(整轮不落)', () => {
+  const text = JSON.stringify({
+    ...entry(),
+    models: [{ alias: 'qoder/kmodel', upstreamModel: 'kmodel', isRelayPublic: true }],
+  })
+  const got = parseRegistry(text, CODES)
+  assert.equal(got.entries.length, 0)
+  assert.ok(
+    got.problems.some((x) => /publicReason/.test(x)),
+    `必须点名缺 publicReason,实得:${got.problems.join(' / ')}`,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

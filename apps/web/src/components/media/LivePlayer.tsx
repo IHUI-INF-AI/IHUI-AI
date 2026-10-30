@@ -10,6 +10,9 @@ import { useTranslations } from 'next-intl'
 import { Play, Pause, Volume2, VolumeX, Maximize, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { releaseMediaElement } from './media-release'
+// CSP media-src 为 'self' blob:(无 https: 通配)⇒ 外部 http(s) 源必须走同源代理 /api/media/stream
+// CSP img-src 已收窄为 'self' data: blob: + 白名单域名 ⇒ poster(图片加载)同理走 /api/media/image
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 
 interface LivePlayerProps {
   src: string
@@ -127,7 +130,9 @@ export function LivePlayer({
             }
           })
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = url
+          // 原生 HLS 回退(Safari 等):直接给 video.src。
+          // CSP media-src 为 'self' blob:(无 https: 通配)⇒ 外部 http(s) 源同样走同源代理。
+          video.src = toMediaStreamUrl(url)
           video.onloadedmetadata = () => {
             setLoading(false)
             if (autoPlay) video.play().catch(() => {})
@@ -137,7 +142,9 @@ export function LivePlayer({
           setLoading(false)
         }
       } else {
-        video.src = url
+        // 渐进分支(非 HLS/FLV):直接给 video.src。
+        // CSP media-src 为 'self' blob:(无 https: 通配)⇒ 外部 http(s) 源同样走同源代理。
+        video.src = toMediaStreamUrl(url)
         video.onloadedmetadata = () => {
           setLoading(false)
           if (autoPlay) video.play().catch(() => {})
@@ -197,7 +204,7 @@ export function LivePlayer({
     <div className={cn('group relative overflow-hidden rounded-lg bg-black', className)}>
       <video
         ref={videoRef}
-        poster={poster}
+        poster={poster ? toMediaImageUrl(poster) : poster}
         autoPlay={autoPlay}
         muted={muted}
         playsInline

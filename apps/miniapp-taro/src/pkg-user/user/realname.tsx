@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/identity-verify/IdentityVerifyScreen.tsx
+// 对齐目标(RN 共享屏): packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button, Image } from '@tarojs/components'
@@ -20,9 +20,6 @@ const ID_CARD_REGEX = /^\d{17}[\dXx]$/
 
 type AuthStatus = 'unverified' | 'reviewing' | 'verified' | 'rejected'
 
-/** 证件照三面(对齐共享屏 IdentityVerifyScreen 的 items:人像面 / 国徽面 / 手持照) */
-type PhotoSide = 'front' | 'back' | 'selfie'
-
 function maskIdCard(id: string): string {
   if (!id || id.length < 8) return id || ''
   return id.slice(0, 4) + '********' + id.slice(-4)
@@ -36,10 +33,8 @@ export default function Realname() {
   const [idCard, setIdCard] = useState('')
   const [frontPhoto, setFrontPhoto] = useState('')
   const [backPhoto, setBackPhoto] = useState('')
-  const [selfiePhoto, setSelfiePhoto] = useState('')
   const [frontUploading, setFrontUploading] = useState(false)
   const [backUploading, setBackUploading] = useState(false)
-  const [selfieUploading, setSelfieUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [status, setStatus] = useState<AuthStatus>('unverified')
   const [authedName, setAuthedName] = useState('')
@@ -80,14 +75,9 @@ export default function Realname() {
     })
   })
 
-  const pickPhoto = (side: PhotoSide) => {
-    const busy =
-      side === 'front' ? frontUploading : side === 'back' ? backUploading : selfieUploading
-    if (busy) return
-    const setUrl: (v: string) => void =
-      side === 'front' ? setFrontPhoto : side === 'back' ? setBackPhoto : setSelfiePhoto
-    const setUploading: (v: boolean) => void =
-      side === 'front' ? setFrontUploading : side === 'back' ? setBackUploading : setSelfieUploading
+  const pickPhoto = (side: 'front' | 'back') => {
+    const uploading = side === 'front' ? frontUploading : backUploading
+    if (uploading) return
     Taro.chooseImage({
       count: 1,
       sizeType: ['compressed', 'original'],
@@ -95,6 +85,8 @@ export default function Realname() {
       success: async (res) => {
         const tempPath = res.tempFilePaths && res.tempFilePaths[0]
         if (!tempPath) return
+        const setUploading = side === 'front' ? setFrontUploading : setBackUploading
+        const setUrl = side === 'front' ? setFrontPhoto : setBackPhoto
         setUrl(tempPath)
         setUploading(true)
         Taro.showLoading({ title: tt('common.uploading', '上传中…') })
@@ -140,9 +132,6 @@ export default function Realname() {
         idCard: idCard.toUpperCase(),
         idCardFront: frontPhoto,
         idCardBack: backPhoto,
-        // 手持照是共享屏 IdentityVerifyScreen 就有的第三面;后端 zod 目前只取
-        // realName/idCard/authSource(未登记的摄影字段一律被 strip,正反面同此),有值才带
-        ...(selfiePhoto ? { idCardHand: selfiePhoto } : {}),
       })
       Taro.showToast({ title: t('user.realname.authSuccess'), icon: 'success' })
       setStatus('reviewing')
@@ -182,20 +171,13 @@ export default function Realname() {
 
   const isReviewing = status === 'reviewing'
 
-  // 三面证件照的标签走共享屏 IdentityVerifyScreen 的键(人像面 / 国徽面 / 手持照)
-  const photoSides: ReadonlyArray<{ side: PhotoSide; label: string }> = [
-    { side: 'front', label: tt('identityVerify.uploadFront', '上传身份证人像面') },
-    { side: 'back', label: tt('identityVerify.uploadBack', '上传身份证国徽面') },
-    { side: 'selfie', label: tt('identityVerify.uploadSelfie', '上传手持身份证照片') },
-  ]
-
   return (
     <ThemeRoot>
       <View className="rn-page">
         <View className="rn-intro">
-          <Text className="rn-intro-title">{tt('identityVerify.title', '身份认证')}</Text>
+          <Text className="rn-intro-title">{tt('user.realname.title', '实名认证')}</Text>
           <Text className="rn-intro-line">
-            {tt('identityVerify.subtitle', '完成身份认证,保障账户安全')}
+            {tt('user.realname.desc', '为保障账户安全与合规,部分功能需完成实名认证后使用')}
           </Text>
           <Text className="rn-intro-line rn-intro-muted">
             {tt(
@@ -249,36 +231,40 @@ export default function Realname() {
             <Text className="rn-label">{tt('user.realname.idCardPhotos', '身份证照片')}</Text>
           </View>
           <View className="rn-photo-row">
-            {photoSides.map((p) => {
-              const url =
-                p.side === 'front' ? frontPhoto : p.side === 'back' ? backPhoto : selfiePhoto
-              const uploading =
-                p.side === 'front'
-                  ? frontUploading
-                  : p.side === 'back'
-                    ? backUploading
-                    : selfieUploading
-              return (
-                <View
-                  key={p.side}
-                  className="rn-photo-box"
-                  hoverClass="opacity-60"
-                  onClick={() => pickPhoto(p.side)}
-                >
-                  {url ? (
-                    <Image className="rn-photo-img" src={url} mode="aspectFill" />
-                  ) : (
-                    <View className="rn-photo-placeholder">
-                      <Text className="rn-photo-plus">+</Text>
-                      <Text className="rn-photo-tip text-center">{p.label}</Text>
-                    </View>
-                  )}
-                  {uploading ? (
-                    <Text className="rn-photo-loading">{tt('common.uploading', '上传中…')}</Text>
-                  ) : null}
+            <View
+              className="rn-photo-box"
+              hoverClass="opacity-60"
+              onClick={() => pickPhoto('front')}
+            >
+              {frontPhoto ? (
+                <Image className="rn-photo-img" src={frontPhoto} mode="aspectFill" />
+              ) : (
+                <View className="rn-photo-placeholder">
+                  <Text className="rn-photo-plus">+</Text>
+                  <Text className="rn-photo-tip">{tt('user.realname.frontPhoto', '人像面')}</Text>
                 </View>
-              )
-            })}
+              )}
+              {frontUploading ? (
+                <Text className="rn-photo-loading">{tt('common.uploading', '上传中…')}</Text>
+              ) : null}
+            </View>
+            <View
+              className="rn-photo-box"
+              hoverClass="opacity-60"
+              onClick={() => pickPhoto('back')}
+            >
+              {backPhoto ? (
+                <Image className="rn-photo-img" src={backPhoto} mode="aspectFill" />
+              ) : (
+                <View className="rn-photo-placeholder">
+                  <Text className="rn-photo-plus">+</Text>
+                  <Text className="rn-photo-tip">{tt('user.realname.backPhoto', '国徽面')}</Text>
+                </View>
+              )}
+              {backUploading ? (
+                <Text className="rn-photo-loading">{tt('common.uploading', '上传中…')}</Text>
+              ) : null}
+            </View>
           </View>
           <Text className="rn-photo-hint">
             {tt('user.realname.uploadHint', '请确保照片清晰、完整、无遮挡')}
@@ -293,7 +279,7 @@ export default function Realname() {
           {isReviewing
             ? tt('user.realname.reviewing', '审核中')
             : submitting
-              ? tt('identityVerify.submitting', '提交中...')
+              ? tt('user.realname.submitting', '提交中…')
               : t('user.realname.submit')}
         </Button>
       </View>

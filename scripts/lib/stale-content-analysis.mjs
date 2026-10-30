@@ -371,8 +371,7 @@ export function watermarkReinjection({
     sample: [],
   })
   const absentText = [baseText, newText].some((t) => typeof t !== 'string')
-  if (absentText)
-    return no('基准或待检正文取不到文本 ⇒ 无从判"多的行是不是全是水印"')
+  if (absentText) return no('基准或待检正文取不到文本 ⇒ 无从判"多的行是不是全是水印"')
   if (baseText.length > maxBlobBytes || newText.length > maxBlobBytes)
     return no(
       `正文 ${Math.max(baseText.length, newText.length)}B 超过行级尺寸护栏 ${maxBlobBytes}B ⇒ 不放行(整 blob 判据照判)`,
@@ -394,7 +393,8 @@ export function watermarkReinjection({
     }
   }
   // removed 侧的样本也要报:放行是靠"一行没少"这个事实,少掉了什么必须能看见(不得只给数)。
-  for (const [line] of maps.removed) if (sample.length < sampleLines) sample.push(`-[${clip(line)}]`)
+  for (const [line] of maps.removed)
+    if (sample.length < sampleLines) sample.push(`-[${clip(line)}]`)
 
   return {
     status: 'judged',
@@ -442,6 +442,12 @@ export function watermarkReinjection({
  *    与 `README.md`(3.09MB),天然超护栏 ⇒ 按拒处理就是每台每次必红,唯一出路是人长期带着
  *    放行开关跑它,那连事故那一型也一起放行(AGENTS §12e 恒红门同型)。
  *    这两个文件仍由整 blob 那一支看守 —— 它比 sha,不读正文,不受尺寸护栏影响。
+ *
+ * 可选入参 `declaredLines`(2026-10-30,供落地器的**声明式还原通道** LAND_RESTORE_MANIFEST 配平):
+ *  传入时返回值多一个 `restore` 字段 = 声明行多重集 vs 本轮复活多重集的逐项等值读数
+ *  (match/undeclared/overDeclared/declared/resurrected)。**不传 ⇒ 返回对象与今日逐字节同形**,
+ *  守门 84 R1r 走的正是"不传"这一支——本参数不改变任何既有判据的松紧,只是把"声明配平"这件
+ *  必须与复活计数同尺的事放在同一份实现里算(第二把尺子必然漂开)。
  */
 export function resurrectAnalysis({
   baseText,
@@ -453,6 +459,7 @@ export function resurrectAnalysis({
   sampleCol = SAMPLE_COL,
   facePaths = null,
   path = null,
+  declaredLines = null,
 } = {}) {
   const clip = (l) => (l.length > sampleCol ? `${l.slice(0, sampleCol)}…` : l)
   const noProvenance = {
@@ -518,6 +525,24 @@ export function resurrectAnalysis({
   // 取"任一面自证即算":这条档只影响命中白名单的**注释自述行**,内容行照旧,放宽面窄到可以点名。
   const generated = isGeneratedSelfDescribing(newFace) || isGeneratedSelfDescribing(baseFace)
   const key = generated ? generatedProvenanceResurrectKey : resurrectKey
+
+  // ── 声明式还原通道的**配平侧**(2026-10-30 立,仅 `declaredLines` 传入时生效)──────────
+  // 本层仍是纯函数:只算"声明行多重集"与"本轮复活多重集"是否**逐项等值**,不判"该不该放行"
+  // —— 判决、取材核验(祖先 blob 里到底有没有这一行)、留痕都住在落地器侧。这里只做归一化
+  // 配平,且必须用与复活计数**同一把 key**(上面刚定的那把):声明侧另起一套口径就是第二份尺子。
+  // 不传 declaredLines ⇒ 本块与 `restore` 返回字段都不存在,守门 84 的读数逐字节不变。
+  let declaredTally = null
+  let declaredReqTally = null
+  const declaredRawBy = new Map()
+  if (Array.isArray(declaredLines)) {
+    declaredTally = new Map()
+    declaredReqTally = new Map()
+    for (const dl of declaredLines) {
+      const dk = key(String(dl))
+      declaredTally.set(dk, (declaredTally.get(dk) ?? 0) + 1)
+      if (!declaredRawBy.has(dk)) declaredRawBy.set(dk, String(dl))
+    }
+  }
 
   const baseT = tallyLines(baseFace, key)
   const newT = tallyLines(newFace, key)
@@ -601,7 +626,9 @@ export function resurrectAnalysis({
       }
     }
     if (best === 0) continue // ③ 没有任何祖先含这一行 ⇒ 它是真新内容,不是回潮
-    count += Math.min(extra, best)
+    const n = Math.min(extra, best)
+    count += n
+    if (declaredTally) declaredReqTally.set(line, (declaredReqTally.get(line) ?? 0) + n)
     if (bestCommit && !seenCommit.has(bestCommit)) {
       seenCommit.add(bestCommit)
       commits.push(bestCommit)
@@ -623,6 +650,32 @@ export function resurrectAnalysis({
       if (!strictBase.has(resurrectKey(l))) provenanceValueDrift++
     }
   }
+  // **声明式还原的配平读数**(仅 declaredLines 传入时存在;字段形状见上块注释):
+  //  - match = 声明多重集与复活多重集**逐项等值**(双向:未声明的复活行 ⇒ 牙;多声明而没复活的行
+  //    ⇒ "声明未被核验"的腐烂,同样不放行 —— 与 LAND_CLASH_SCOPE 的"逐项等值"同一纪律);
+  //  - undeclared/overDeclared 各带**原文样本**,落地器渲染拒绝时要能点名是哪一行。
+  let restore = null
+  if (declaredTally) {
+    const undeclared = []
+    const overDeclared = []
+    for (const [k, need] of declaredReqTally) {
+      const dec = declaredTally.get(k) ?? 0
+      if (dec < need)
+        undeclared.push({ raw: clip(clipBy.get(k) ?? k), needed: need, declared: dec })
+    }
+    for (const [k, dec] of declaredTally) {
+      const need = declaredReqTally.get(k) ?? 0
+      if (need < dec)
+        overDeclared.push({ raw: clip(declaredRawBy.get(k) ?? k), declared: dec, needed: need })
+    }
+    restore = {
+      declared: declaredLines.length,
+      resurrected: count,
+      match: undeclared.length === 0 && overDeclared.length === 0,
+      undeclared,
+      overDeclared,
+    }
+  }
   return {
     status: 'judged',
     reason: null,
@@ -639,6 +692,7 @@ export function resurrectAnalysis({
     generatedInputOnFace: inputOnFace.length,
     generatedInputOnFaceLines: inputOnFace,
     generatedInputOffFace: inputOffFace,
+    ...(restore ? { restore } : {}),
   }
 }
 

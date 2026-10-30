@@ -22,7 +22,6 @@ import { subscribeUserBroadcast, type UserBroadcastConfig } from '@ihui/api-clie
 import type { CheckpointAvailabilityEvent, CheckpointAvailabilityState } from '@ihui/types'
 
 import { useAuthStore } from '@/stores/auth'
-import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
 
 export interface CheckpointAvailabilityEntry {
   workspacePath: string
@@ -114,7 +113,7 @@ export function useCheckpointAvailability(workspacePath: string): {
     if (!token) return
     if (typeof window === 'undefined') return
     const config: UserBroadcastConfig = {
-      baseUrl: resolveWsApiBaseUrl(),
+      baseUrl: window.location.origin,
       tokenProvider: () => useAuthStore.getState().token,
     }
     const sub = subscribeUserBroadcast(config, {

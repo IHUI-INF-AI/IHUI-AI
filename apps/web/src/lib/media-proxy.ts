@@ -38,28 +38,75 @@ function isWhitelistedHost(host: string): boolean {
   return false
 }
 
-export function toMediaImageUrl(url?: string | null): string {
+/** 控制字符可以把 `java\nscript:` 伪装成看似无害的值 —— 与 doc-link-sanitizer 同一判据:先拒不修。 */
+function hasControlChars(value: string): boolean {
+  for (const ch of value) {
+    const cp = ch.codePointAt(0)
+    if (cp !== undefined && (cp <= 0x1f || (cp >= 0x7f && cp <= 0x9f))) return true
+  }
+  return false
+}
+
+/**
+ * 入参归一:去空白 → 拒控制字符 → 协议相对补成 https。
+ *
+ * 协议相对(`//cdn.example.com/a.png`)必须补齐:它按页面协议解析后是**跨源**直链,
+ * 既不会被下面的 http(s) 分支接住(前缀不是 `http://`),也不是站内可渲染资源 ——
+ * 结果是原样落进 `src`/`href`,被 CSP 的 `img-src 'self'` 当场拦掉(图裂),且后端
+ * SSRF 闸门也判不了它(无 scheme)。补齐后与普通外链同一条路走。
+ */
+function normalizeInput(url?: string | null): string {
   if (!url || typeof url !== 'string') return ''
-  if (/^https?:\/\//i.test(url)) {
+  const trimmed = url.trim()
+  if (!trimmed || hasControlChars(trimmed)) return ''
+  if (trimmed.startsWith('//')) return `https:${trimmed}`
+  return trimmed
+}
+
+/**
+ * 非 http(s) 值的去留裁定:相对路径与 blob: 原样,data: 只放行本助手对应的媒体子类型,
+ * 其余显式 scheme(`javascript:` / `vbscript:` / `file:` …)一律丢弃。
+ *
+ * 为什么下载路径也要这一刀:下载助手既进 `fetch()`,也被调用方拼进 `<a href>`;
+ * `javascript:` 值在 `fetch` 里只是抛错,在 `href` 里却是可点的脚本 URI。丢弃比放行安全,
+ * 且丢弃后渲染成空值(`src=""` / 不可点),不会把坏值伪装成能用的链接。
+ */
+function passThroughNonHttp(value: string, dataPattern: RegExp): string {
+  const matched = /^([a-z][a-z0-9+.-]*):/i.exec(value)
+  if (!matched) return value // 相对路径 / 裸文件名:同源,照原样
+  const scheme = (matched[1] ?? '').toLowerCase()
+  if (scheme === 'blob') return value
+  if (scheme === 'data') return dataPattern.test(value) ? value : ''
+  return ''
+}
+
+const DATA_IMAGE = /^data:image\//i
+const DATA_MEDIA = /^data:(?:video|audio)\//i
+
+export function toMediaImageUrl(url?: string | null): string {
+  const value = normalizeInput(url)
+  if (!value) return ''
+  if (/^https?:\/\//i.test(value)) {
     try {
-      const u = new URL(url)
+      const u = new URL(value)
       // 白名单域名直连(CSP img-src 已放行);其余任意公网直链走同源代理。
-      if (isWhitelistedHost(u.hostname)) return url
+      if (isWhitelistedHost(u.hostname)) return value
     } catch {
       // 解析失败(异常输入)一律进代理,由后端 SSRF 闸门兜底拦截。
     }
-    return `/api/media/image?url=${encodeURIComponent(url)}`
+    return `/api/media/image?url=${encodeURIComponent(value)}`
   }
-  return url
+  return passThroughNonHttp(value, DATA_IMAGE)
 }
 
 /** 下载代理路径(后端 /api/media/download 带 Content-Disposition,同源无 CORS 问题)。 */
 export function toMediaDownloadUrl(url?: string | null): string {
-  if (!url || typeof url !== 'string') return ''
-  if (/^https?:\/\//i.test(url)) {
-    return `/api/media/download?url=${encodeURIComponent(url)}`
+  const value = normalizeInput(url)
+  if (!value) return ''
+  if (/^https?:\/\//i.test(value)) {
+    return `/api/media/download?url=${encodeURIComponent(value)}`
   }
-  return url
+  return passThroughNonHttp(value, /^data:(?:image|video|audio|application)\//i)
 }
 
 /**
@@ -72,9 +119,10 @@ export function toMediaDownloadUrl(url?: string | null): string {
  * 代理 data:,原样返回,沿用既有行为);same-origin / blob: 原样返回。
  */
 export function toMediaStreamUrl(url?: string | null): string {
-  if (!url || typeof url !== 'string') return ''
-  if (/^https?:\/\//i.test(url)) {
-    return `/api/media/stream?url=${encodeURIComponent(url)}`
+  const value = normalizeInput(url)
+  if (!value) return ''
+  if (/^https?:\/\//i.test(value)) {
+    return `/api/media/stream?url=${encodeURIComponent(value)}`
   }
-  return url
+  return passThroughNonHttp(value, DATA_MEDIA)
 }
