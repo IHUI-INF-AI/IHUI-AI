@@ -14,6 +14,7 @@ import { toast } from '@/components/common'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 import {
   AdvancedParamsPanel,
   parseParamValues,
@@ -125,9 +126,9 @@ export const ImageEditQwen = React.memo(function ImageEditQwen() {
           <div className="space-y-2">
             {images.map((url) => (
               <div key={url} className="space-y-1">
-                <Image
-                  src={url}
-                  alt={prompt}
+              <Image
+                src={toMediaImageUrl(url)}
+                alt={prompt}
                   width={800}
                   height={600}
                   unoptimized

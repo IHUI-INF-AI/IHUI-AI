@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 const SIZES = ['1024*1024', '1280*720', '720*1280'] as const
 const MODELS = ['imagen-3.0-generate-002', 'imagen-4.0-generate-001'] as const
@@ -136,7 +137,7 @@ export function ImageGenGemini() {
           {images.map((url) => (
             <div key={url.slice(-24)} className="space-y-1">
               <Image
-                src={url}
+                src={toMediaImageUrl(url)}
                 alt={prompt}
                 width={800}
                 height={600}
