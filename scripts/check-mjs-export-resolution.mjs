@@ -26,10 +26,18 @@
  *      早已搬进 `lib/api-route-registration-expand.mjs` ⇒ 门 8 一跑就
  *      `ReferenceError: findBraceBlockEnd is not defined`(2026-10-26 实测),D1/D2 都在 import 面
  *      上判,结构上看不见"没有 import 却在按名调用";
+ *   D4 模块对象属性取用(只看本枚改动的文件,2026-10-30 立):`import { __test__ as G }` + `G.x(...)`、
+ *      `import * as Ns` + `Ns.x(...)`,而 x 不在目标的 `__test__` 键集 / 具名出口面 ⇒ 判红。
+ *      立因:当日 15:41 合车把 `gen-miniapp-mirror.mjs` 的 4 枚具名出口与 `__test__` 同名键一起洗掉,
+ *      消费方走的是属性取用 ⇒ D1(只看 import 说明符,`__test__` 一直在)/D2(只看具名出口)双盲,
+ *      5 件器物在 HEAD 上 ESM 链接期即抛、跨端对账与三条自愈腿停摆 1.5 小时。
+ *      保守向(§12e 不造假红):仅两种"整模块对象"绑定;目标含 `export *`、`__test__` 含展开、
+ *      接收者被同文件重声明 ⇒ 记「D4 未判定」不判;只查一层属性。
  *   解析不了的文件 ⇒ 记「未判定」点名,不折成绿(§0.3),也不折成"没问题";
  *   .json 目标不判(它的出口面不是 TS 语法),但计数照报,免得"跳过"被读成"验过"。
- * 【档位】D1/D2 都收在本枚改动集 ⇒ 结构性不可能因存量恒红(§12e),blocking 无需棘轮基线;
- *   整面命中只作**存量报数**打印(现读存量由那笔批量回退造成,归属待人工裁,不由本门代裁)。
+ * 【档位】D1/D2/D3/D4 都收在本枚改动集 ⇒ 结构性不可能因存量恒红(§12e),blocking 无需棘轮基线;
+ *   整面命中**逐条点名**打印(2026-10-30 补:此前只报匿名数字,当日那 3 条真死链在日志里
+ *   只剩「全数档存量 3 条」,看的人无从知道点的是谁),`--stock` 另给全部条目。
  * 【面】§0.4 同面同轮:全量判 HEAD blob(基线 HEAD^)、--staged 判索引 blob(基线 HEAD)、
  *   --worktree 仅人工逃生舱。
  *
@@ -204,6 +212,152 @@ function importsOf(path, text) {
     list.push(rec)
   }
   return { fail: null, list }
+}
+
+/** 取模块 `export const __test__ = {...}` 的键集(纯,零 IO)。
+ * 返回 null = 判不了(没这个导出 / 不是对象字面量 / 含展开 ⇒ 键不全),调用侧按"未判定"处理,不猜。 */
+export function testKeysOf(path, text) {
+  let sf
+  try {
+    sf = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.MJS)
+  } catch {
+    return null
+  }
+  if ((sf.parseDiagnostics ?? []).length > 0) return null
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue
+    for (const d of stmt.declarationList.declarations) {
+      if (!d.name || d.name.getText(sf) !== '__test__') continue
+      if (!d.initializer || !ts.isObjectLiteralExpression(d.initializer)) return null
+      const keys = new Set()
+      for (const p of d.initializer.properties) {
+        // 含展开 ⇒ 键集不完整,判了就是假红(2026-10-30 保守向)
+        if (ts.isSpreadAssignment(p)) return null
+        const n = p.name
+        if (n && (ts.isIdentifier(n) || ts.isStringLiteral(n)))
+          keys.add(n.getText(sf).replace(/^['"]|['"]$/g, ''))
+      }
+      return keys
+    }
+  }
+  return null
+}
+
+/** D4(2026-10-30 立):**模块对象上的属性取用**必须真存在于出口面。
+ *
+ * 立因(当日实测):15:41 那笔 258 文件合车把 `scripts/gen-miniapp-mirror.mjs` 的 4 枚具名出口 + `__test__`
+ * 里 4 个同名键一起洗掉,而消费方走的是 `import { __test__ as G }` + `G.buildShellPage(...)` 与
+ * `import * as gen` + `gen.buildShellPage(...)` —— D1 只看 import 说明符(`__test__` 本身一直在出口面),
+ * D2 只看**具名**出口被削 ⇒ 这一型在三维里全盲(实测 5 件器物在 HEAD 上 ESM 链接期即抛)。
+ *
+ * 判据面刻意保守(§12e 不许造假红):
+ *   · 只判两种"整模块对象"绑定:namespace 导入(`import * as Ns`)、`__test__` 别名;
+ *   · 目标模块含 `export *`(具名面不全)或 `__test__` 含展开 ⇒ 该绑定记 skipped,不判;
+ *   · 同文件里以参数/变量/函数/类名重声明过该标识符 ⇒ 跳过(无法证明访问的就是模块对象);
+ *   · 只查一层属性(`Ns.a`);`Ns.a.b` 的第二层是值属性,本门结构上不知道,不判。
+ */
+export function propertyAccessFindings(contents, opts = {}) {
+  const { onlyPaths = null } = opts
+  const findings = []
+  const skipped = []
+  const expCache = new Map()
+  for (const [path, text] of contents) {
+    if (onlyPaths && !onlyPaths.has(path)) continue
+    if (text === null || text === undefined) continue
+    let sf
+    try {
+      sf = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.MJS)
+    } catch (e) {
+      skipped.push({ path, why: `parse-throw:${String(e?.message ?? e).slice(0, 60)}` })
+      continue
+    }
+    if ((sf.parseDiagnostics ?? []).length > 0) {
+      skipped.push({ path, why: 'parse-diag' })
+      continue
+    }
+    const bindings = new Map()
+    for (const stmt of sf.statements) {
+      if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier)) continue
+      const spec = stmt.moduleSpecifier.text
+      if (!spec.startsWith('.')) continue
+      const target = resolveSpec(path, spec)
+      if (!target) continue
+      const ic = stmt.importClause
+      if (!ic) continue
+      // 命名空间导入在 AST 里是 ImportClause.namedBindings(NamespaceImport),不是 namespaceSpecifier
+      // —— 后者在本仓 TS 版本上恒 undefined(2026-10-30 实测:按它判 ⇒ 这一维零候选,假绿)。
+      if (ic.namedBindings && ts.isNamespaceImport(ic.namedBindings))
+        bindings.set(ic.namedBindings.name.getText(sf), { target, kind: 'star' })
+      for (const el of ic.namedBindings && ts.isNamedImports(ic.namedBindings) ? ic.namedBindings.elements : []) {
+        if ((el.propertyName?.getText(sf) ?? el.name.getText(sf)) === '__test__')
+          bindings.set(el.name.getText(sf), { target, kind: 'tester', at: sf.getLineAndCharacterOfPosition(stmt.getStart(sf)).line + 1 })
+      }
+    }
+    if (bindings.size === 0) continue
+    const shadowed = new Set()
+    const collect = (node) => {
+      if (
+        ts.isVariableDeclaration(node) ||
+        ts.isParameter(node) ||
+        ts.isFunctionDeclaration(node) ||
+        ts.isClassDeclaration(node)
+      ) {
+        const n = node.name
+        if (n && ts.isIdentifier(n)) shadowed.add(n.getText(sf))
+      }
+      ts.forEachChild(node, collect)
+    }
+    ts.forEachChild(sf, collect)
+    const faces = new Map()
+    const faceOf = (b) => {
+      const key = `${b.kind}:${b.target}`
+      if (faces.has(key)) return faces.get(key)
+      const t = contents.get(b.target)
+      if (t === null || t === undefined) {
+        faces.set(key, { skip: '目标面取不到' })
+        return faces.get(key)
+      }
+      let face
+      if (b.kind === 'star') {
+        const rec = exportsOf(b.target, t, expCache)
+        face = rec.fail
+          ? { skip: `目标解析不了:${rec.fail}` }
+          : rec.starFrom.length > 0
+            ? { skip: '目标含 export *(具名面不全)' }
+            : { names: rec.names }
+      } else {
+        const keys = testKeysOf(b.target, t)
+        face = keys ? { names: keys } : { skip: '__test__ 键集判不了(缺/非对象字面量/含展开)' }
+      }
+      faces.set(key, face)
+      return face
+    }
+    const visit = (node) => {
+      if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression)) {
+        const local = node.expression.getText(sf)
+        const b = bindings.get(local)
+        if (b && !shadowed.has(local)) {
+          const face = faceOf(b)
+          const prop = node.name.getText(sf)
+          if (face.skip) {
+            skipped.push({ path, at: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1, name: prop, target: b.target, why: face.skip })
+          } else if (!face.names.has(prop)) {
+            findings.push({
+              path,
+              at: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
+              local,
+              name: prop,
+              target: b.target,
+              kind: b.kind,
+            })
+          }
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    ts.forEachChild(sf, visit)
+  }
+  return { findings, skipped }
 }
 
 /** 判定核心:纯输入输出,便于夹具取证(§22c:判据只此一份实现)。 */
@@ -480,27 +634,56 @@ function runFace() {
   const d3All = undeclaredLibCalls(contents, libExportIndex(contents))
   const d3 = d3All.filter((f) => changedSet.has(f.path))
   const d3Stock = d3All.length - d3.length
+  // D4:本枚改动文件里的"模块对象属性取用"(见 propertyAccessFindings 头注)。存量按旗标现算,默认不扫。
+  const d4 = propertyAccessFindings(contents, { onlyPaths: changedSet })
+  const d4Stock = argv.includes('--stock') ? propertyAccessFindings(contents, {}) : null
+  const stockD1 = [
+    ...r.findings.missingExport,
+    ...r.findings.missingModule,
+    ...r.findings.missingDefault,
+  ].filter((f) => !changedSet.has(f.path))
   const d1 = {
     missingModule: r.findings.missingModule.filter((f) => changedSet.has(f.path)),
     missingExport: r.findings.missingExport.filter((f) => changedSet.has(f.path)),
     missingDefault: r.findings.missingDefault.filter((f) => changedSet.has(f.path)),
   }
   const blocking =
-    d1.missingModule.length + d1.missingExport.length + d1.missingDefault.length + amp.length + d3.length
+    d1.missingModule.length +
+    d1.missingExport.length +
+    d1.missingDefault.length +
+    amp.length +
+    d3.length +
+    d4.findings.length
   for (const f of d1.missingExport) console.log(`D1 缺出口 ${f.path}:${f.at} 取 {${f.name}} ← ${f.spec}(目标 ${f.target} 现在没有这个出口)`)
   for (const f of d1.missingModule) console.log(`D1 悬空模块 ${f.path}:${f.at} ← ${f.spec}(解析为 ${f.resolved},被审面上没有)`)
   for (const f of d1.missingDefault) console.log(`D1 缺默认出口 ${f.path}:${f.at} 默认导入 ${f.name} ← ${f.spec}`)
   for (const f of amp) console.log(`D2 出口被削 ${f.producer} 不再导出 {${f.name}},而 ${f.consumer}:${f.at} 仍在按名取用 ⇒ 那一刻起它 import 即崩`)
   for (const f of d3) console.log(`D3 用了却没 import ${f.path}:${f.at} 调用 ${f.name}( —— 该名由 ${f.exporters.join(',')} 导出,本文件既没 import 它也没有同名声明 ⇒ 跑到这一行必 ReferenceError`)
+  for (const f of d4.findings)
+    console.log(
+      `D4 属性取用越过出口面 ${f.path}:${f.at} ${f.local}.${f.name} —— ${f.kind === 'tester' ? '目标 __test__ 的键集' : '目标模块的具名出口'}里没有 ${f.name}(目标 ${f.target})⇒ 跑到这一行必 undefined/TypeError`,
+    )
+  for (const f of d4.skipped) console.log(`? D4 未判定 ${f.path}${f.at ? `:${f.at}` : ''}${f.name ? ` ${f.name}` : ''} —— ${f.why}`)
+  // 存量点名:全数档默认打印,便于守护日志直接看见"是谁";--stock 额外给出全部条目(逐条一行)
+  if (stockD1.length > 0) {
+    const names = stockD1.slice(0, 3).map((f) => `${f.path}:${f.at} {${f.name}}`)
+    console.log(`ℹ️ 存量点名(D1,不在本枚改动集):${stockD1.length} 条;首 3 = ${names.join(' / ')}`)
+    if (argv.includes('--stock')) for (const f of stockD1) console.log(`   · ${f.path}:${f.at} {${f.name}} ← ${f.spec ?? f.resolved ?? ''}`)
+  }
+  if (d4Stock) {
+    console.log(`ℹ️ 存量点名(D4,全射程):${d4Stock.findings.length} 条,判不了 ${d4Stock.skipped.length} 条`)
+    for (const f of d4Stock.findings) console.log(`   · D4 ${f.path}:${f.at} ${f.local}.${f.name}(目标 ${f.target})`)
+    for (const f of d4Stock.skipped) console.log(`   ? D4 未判定 ${f.path}${f.at ? `:${f.at}` : ''}${f.name ? ` ${f.name}` : ''} —— ${f.why}`)
+  }
   for (const f of r.findings.unparsed) console.log(`? 未判定(解析不了)${f.path}:${f.why}`)
   const stock = r.total
   const stockOutside = stock - (d1.missingExport.length + d1.missingModule.length + d1.missingDefault.length)
   const head =
     blocking > 0
-      ? `❌ 本枚带进 ${blocking} 条(D1 ${d1.missingExport.length + d1.missingModule.length + d1.missingDefault.length} / D2 ${amp.length} / D3 ${d3.length}),射程 ${contents.size} 枚,另有存量 ${stockOutside} 条不在本枚射程`
+      ? `❌ 本枚带进 ${blocking} 条(D1 ${d1.missingExport.length + d1.missingModule.length + d1.missingDefault.length} / D2 ${amp.length} / D3 ${d3.length} / D4 ${d4.findings.length}),射程 ${contents.size} 枚,另有存量 ${stockOutside} 条不在本枚射程`
       : r.findings.unparsed.length > 0
         ? `⚠️ 未判定:${r.findings.unparsed.length} 枚解析不了 ⇒ 不记绿(射程 ${contents.size} 枚,存量 ${stock} 条)`
-        : `✅ 本枚零缺口:改动 ${changed.length} 枚 .mjs,D1/D2/D3 零命中(全数档存量 ${stock} 条,D3 射程外存量 ${d3Stock} 条)`
+        : `✅ 本枚零缺口:改动 ${changed.length} 枚 .mjs,D1/D2/D3/D4 零命中(全数档存量 ${stock} 条,存量已点名见上,D3 射程外存量 ${d3Stock} 条)`
   console.log(head)
   if (argv.includes('--json')) {
     console.log(
@@ -512,7 +695,10 @@ function runFace() {
           d1: d1.missingExport.length + d1.missingModule.length + d1.missingDefault.length,
           d2: amp.length,
           d3: d3.length,
+          d4: d4.findings.length,
+          d4Skipped: d4.skipped.length,
           d3Stock,
+          stockD1Named: stockD1.length,
           unparsed: r.findings.unparsed.length,
           stock,
           blocking,
@@ -723,7 +909,90 @@ function selfTest() {
     console.log(`${ok ? '✓' : '✗'} ${c.name}(期望 ${JSON.stringify(c.want)},实得 ${JSON.stringify(got)})`)
     if (ok) pass += 1
   }
-  const all = cases.length + ampCases.length + d3Cases.length
+  const d4Of = (obj, onlyPaths = null) =>
+    propertyAccessFindings(mk(obj), { onlyPaths: onlyPaths ? new Set(onlyPaths) : null }).findings.length
+  const d4Cases = [
+    {
+      name: 'D4 正控:__test__ 别名取用了一个已被削掉的键 ⇒ 1 条(2026-10-30 当日那一型)',
+      want: 1,
+      got: () =>
+        d4Of({
+          'scripts/a.mjs': `import { __test__ as G } from './b.mjs'\nexport const y = G.buildShellPage({})\n`,
+          'scripts/b.mjs': `export const __test__ = { buildPage: 1 }\n`,
+        }),
+    },
+    {
+      name: 'D4 反向对照:键还在 ⇒ 0 条(不是"用了 __test__ 就红")',
+      want: 0,
+      got: () =>
+        d4Of({
+          'scripts/a.mjs': `import { __test__ as G } from './b.mjs'\nexport const y = G.buildPage({})\n`,
+          'scripts/b.mjs': `export const __test__ = { buildPage: 1 }\n`,
+        }),
+    },
+    {
+      name: 'D4 命名空间导入同理:Ns.foo 而目标没导出 foo ⇒ 1 条',
+      want: 1,
+      got: () =>
+        d4Of({
+          'scripts/a.mjs': `import * as Ns from './b.mjs'\nexport const y = Ns.nope()\n`,
+          'scripts/b.mjs': `export const ok = 1\n`,
+        }),
+    },
+    {
+      name: 'D4 目标含 export * ⇒ 不判(具名面不全,判了就是假红)',
+      want: 0,
+      got: () =>
+        d4Of({
+          'scripts/a.mjs': `import * as Ns from './b.mjs'\nexport const y = Ns.maybeThere()\n`,
+          'scripts/b.mjs': `export * from './c.mjs'\n`,
+          'scripts/c.mjs': `export const maybeThere = 1\n`,
+        }),
+    },
+    {
+      name: 'D4 __test__ 含展开 ⇒ 不判(键集不完整)',
+      want: 0,
+      got: () =>
+        d4Of({
+          'scripts/a.mjs': `import { __test__ as G } from './b.mjs'\nexport const y = G.spreadKey()\n`,
+          'scripts/b.mjs': `import { x } from './c.mjs'\nexport const __test__ = { ...x }\n`,
+          'scripts/c.mjs': `export const x = { spreadKey: 1 }\n`,
+        }),
+    },
+    {
+      name: 'D4 接收者被同文件重声明 ⇒ 跳过(不能证明访问的是模块对象)',
+      want: 0,
+      got: () =>
+        d4Of({
+          'scripts/a.mjs': `import { __test__ as G } from './b.mjs'\nexport const f = (G) => G.whatever()\n`,
+          'scripts/b.mjs': `export const __test__ = { buildPage: 1 }\n`,
+        }),
+    },
+    {
+      name: 'D4 只判改动集:onlyPaths 之外的文件不点名',
+      want: 0,
+      got: () =>
+        d4Of(
+          {
+            'scripts/a.mjs': `import { __test__ as G } from './b.mjs'\nexport const y = G.gone()\n`,
+            'scripts/b.mjs': `export const __test__ = { buildPage: 1 }\n`,
+          },
+          ['scripts/b.mjs'],
+        ),
+    },
+  ]
+  for (const c of d4Cases) {
+    let got
+    try {
+      got = c.got()
+    } catch (e) {
+      got = `throw:${String(e?.message ?? e).slice(0, 60)}`
+    }
+    const ok = got === c.want
+    console.log(`${ok ? '✓' : '✗'} ${c.name}(期望 ${JSON.stringify(c.want)},实得 ${JSON.stringify(got)})`)
+    if (ok) pass += 1
+  }
+  const all = cases.length + ampCases.length + d3Cases.length + d4Cases.length
   console.log(pass === all ? `自检 ${pass}/${all} 通过` : `❌ 自检 ${pass}/${all}`)
   process.exit(pass === all ? 0 : 1)
 }
@@ -737,5 +1006,5 @@ if (isDirectRun) {
   } else process.exit(runFace())
 }
 
-export const __test__ = { judge, exportsOf, importsOf, resolveSpec }
+export const __test__ = { judge, exportsOf, importsOf, resolveSpec, testKeysOf, propertyAccessFindings }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
