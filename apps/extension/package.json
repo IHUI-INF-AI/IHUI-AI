@@ -6,11 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "wxt",
-    "postinstall": "wxt prepare",
     "build": "wxt build",
     "zip": "wxt zip",
     "gen:ui-routes": "node scripts/generate-ext-ui-routes.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "wxt prepare && tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
     "clean": "rimraf .output .wxt dist .turbo node_modules"

@@ -110,11 +110,6 @@ jobs:
       - name: Install dependencies
         id: install
         run: pnpm install --frozen-lockfile
-      # WXT 生成 apps/extension/.wxt/tsconfig.json(extension 的 tsconfig 继承它)。
-      # 缺此步 -> .wxt/ 被 gitignore 未入库 -> tsc 读不到 → TS5083 + 200+ 级联错误(2026-09-10 实测)。
-      - name: Prepare WXT types (extension)
-        id: prepare-wxt
-        run: pnpm --filter @ihui/extension exec wxt prepare
       # 类型包前置构建(2026-10-09 立,补本 job 与 ci.yml 的那道差):
       # @ihui/types 的 main/types/exports 全指向 ./dist/* 且产物不入库,而 `pnpm install`
       # 从不构建 workspace 包 ⇒ 本 job 的 `pnpm run typecheck` 结构上拿不到它的类型声明。
@@ -128,6 +123,15 @@ jobs:
       - name: Build type-consumable workspace deps (topological closure, prerequisite of typecheck)
         id: build-types-deps
         run: pnpm --filter "@ihui/api-client..." run build
+      # WXT 生成 apps/extension/.wxt/tsconfig.json(extension 的 tsconfig 继承它)。
+      # 缺此步 -> .wxt/ 被 gitignore 未入库 -> tsc 读不到 → TS5083 + 200+ 级联错误(2026-09-10 实测)。
+      # **必须在上面那条建包步之后**:`wxt prepare` 会经 vite 解析 `@ihui/i18n` 入口,而该包
+      # main/exports 恒指 ./dist/* 且 dist 不入库 ⇒ 在干净检出上"install 后立刻 prepare"必然报
+      # `Failed to resolve entry for package "@ihui/i18n"`(2026-10-30 实测 run 41059553779;
+      # 本机因 dist 常在而永不复现,属"本机恒绿、CI 独享红"型)。ci.yml 的步序本来就是对的。
+      - name: Prepare WXT types (extension)
+        id: prepare-wxt
+        run: pnpm --filter @ihui/extension exec wxt prepare
       - name: Typecheck
         id: typecheck
         run: pnpm run typecheck
@@ -140,7 +144,7 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install prepare-wxt build-types-deps typecheck typecheck-e2e
+          TRIAGE_IDS: checkout install build-types-deps prepare-wxt typecheck typecheck-e2e
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
           O_PREPARE_WXT: ${{ steps.prepare-wxt.outcome }}
@@ -317,11 +321,12 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install turbo-build artifact-budget upload
+          TRIAGE_IDS: checkout install turbo-build artifact-budget mirror-fidelity upload
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
           O_TURBO_BUILD: ${{ steps.turbo-build.outcome }}
           O_ARTIFACT_BUDGET: ${{ steps.artifact-budget.outcome }}
+          O_MIRROR_FIDELITY: ${{ steps.mirror-fidelity.outcome }}
           O_UPLOAD: ${{ steps.upload.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
