@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnHue, rnRadius, rnTokens } from '@ihui/design-tokens'
+import { rnHue, rnHueTintOnly, rnRadius, rnTokens } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -18,7 +18,7 @@ export const TICKET_STATUS_PALETTE = {
   open: { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg },
   resolved: { bg: rnHue.emerald.tint, fg: rnHue.emerald.fg },
   closed: { bg: rnHue.orange.tintStrong, fg: rnHue.orange.fg },
-  rejected: { bg: rnHue.red.tintStrong, fg: rnTokens.danger.DEFAULT },
+  rejected: { bg: rnHueTintOnly.red.tintStrong, fg: rnTokens.danger.DEFAULT },
 } as const
 
 /** 优先级色板(与 web 端 amber/sky/red 语义同源;取档同上,值来自 rnHue)。 */
@@ -26,7 +26,7 @@ export const TICKET_PRIORITY_PALETTE = {
   low: { bg: rnHue.tailwindGray.tintStrong, fg: rnHue.tailwindGray.fg },
   medium: { bg: rnHue.sky.tint, fg: rnHue.sky.fg },
   high: { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg },
-  urgent: { bg: rnHue.red.tintStrong, fg: rnTokens.danger.DEFAULT },
+  urgent: { bg: rnHueTintOnly.red.tintStrong, fg: rnTokens.danger.DEFAULT },
 } as const
 
 /** 服务评价星标琥珀色(web fill-amber-500 同源,取 design-tokens 的 warning.amber 单一真相源)。 */
