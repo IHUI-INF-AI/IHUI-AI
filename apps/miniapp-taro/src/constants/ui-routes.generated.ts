@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 0d3c0fb6624ca1243072591066dd2612f488822e
-// inputsSha256: 0e36d37c86c3183fa32dec439b20a535c4835be35366691c4bc6eacdbdb17a6a
+// sourceCommit: 5c023fe3f249fd1d12e830f8d3cfb314fece3016
+// inputsSha256: 61d142ba4f3c8f0c0a62c96b117b82b5e497a8ef732c7eefb1b7619022736e0a
 // input: apps/miniapp-taro/src/api/index.ts aa08d7d485b105d4a33d3f5fe4002993adda7cb69fc2e63e3346283da6900410
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
 // input: apps/miniapp-taro/src/app.config.ts bb552d34c71549101dbdca73c794756b9c1f491cd87d2f554e959a18be4e5df8
@@ -255,7 +255,7 @@
 // input: apps/miniapp-taro/src/pkg-about/about/aboutSections.ts f62ae6d6cb5277da31847f7c369d93451b594c4105ed68ff60a27b08a4c717e3
 // input: apps/miniapp-taro/src/pkg-about/about/agreement/index.tsx 76956cec0cd623a8f64b6dee0f9972247f2fc2851faeffff3606b8dfaef48be3
 // input: apps/miniapp-taro/src/pkg-about/about/api-settings/index.config.ts f86b31a106aae781add21b036e1d3f6a039a16fe957ff4c455cd13b2d6316977
-// input: apps/miniapp-taro/src/pkg-about/about/api-settings/index.tsx eea5d10795b61c84c1b70a86904bd22f106192837daf98f6770d913584b4152b
+// input: apps/miniapp-taro/src/pkg-about/about/api-settings/index.tsx 284dc5d3af8d7c3c738b0f6289a5c05ce90bd7f93b118002b4f348417f43ef98
 // input: apps/miniapp-taro/src/pkg-about/about/app-permission/index.config.ts 8a9124ba4a8f0f21b0dfccb9966576937190c1a37b786419a474c9122ba3b489
 // input: apps/miniapp-taro/src/pkg-about/about/app-permission/index.tsx 75c4ea6e46ba19d9b1b33751db6d2dba2a25aadefa6e546c64cbc3d7c3f889c6
 // input: apps/miniapp-taro/src/pkg-about/about/business-license/index.config.ts 60fda1b97caa3c8f6428ba547d591196b797a1ee4cb3c18356cd89c3c3b45613
@@ -694,7 +694,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 558 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=198(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-30T00:17:38.056Z
+// generatedAt: 2026-10-30T00:13:51.283Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */

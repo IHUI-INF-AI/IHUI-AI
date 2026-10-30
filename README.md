@@ -24667,3 +24667,7 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 - 这条路径原先的状态:小程序「领券中心」页打的是 `GET /api/coupons?status=available`,而后端 `status` 枚举只收 `unused|used|expired` ⇒ **必 400**,用户点进去永远看到"加载失败";`promo_coupons` 表结构、领取事务、防超发全都齐备,唯独没有任何用户面读出口 ⇒ 属"表在、链路在、入口从未存在"。
 - 数据现状如实说明:端点上线不等于列表有内容。当前可领的券仍需由 admin `POST /api/admin/coupons` 建出来,这是运营动作,不是代码缺口(全仓无 `promo_coupons` 的 seed)。
 **工具目录 seed(2026-10-30 立,补 `/tools` 页的数据面):**`GET /api/tools` 与 `tools` 表、web `/tools` 页三向都齐,但此前**全仓无 seed、也无运营建工具的页面** ⇒ 新库这张表恒空,页面三个分类各显示「暂无工具」。`packages/database/seed/tools-seed.ts` 落 9 条基线,每条对应一个本仓真实存在、点得动的 web 路由(`tools/pdf/{merge,split,watermark,convert}`、`tools/voice-stt`、`models`、`knowledge-base`、`mcp-store`、`web-tools`),按 name 幂等、已注册进 seed 主流程。因三端工具页(web `/tools`、RN `ToolsScreen`、小程序 `pkg-user/tools`)同取这一个端点,一份 seed 三端同时有内容。
+自检 `node --test scripts/tests/check-version-drift.test.mjs`(每条判据都配了能被它抓住的反例;这里不写用例总数 —— 数字比代码先腐)。
+自检 `node --test scripts/tests/check-version-drift.test.mjs`(每条判据都配了能被它抓住的反例;这里不写用例总数 —— 数字比代码先腐)。
+  自检 `node --test scripts/tests/check-version-drift.test.mjs`(每条判据都配了能被它抓住的反例;这里不写用例总数 —— 数字比代码先腐)。
+自检 `node --test scripts/tests/check-version-drift.test.mjs`(每条判据都配了能被它抓住的反例;这里不写用例总数 —— 数字比代码先腐)。

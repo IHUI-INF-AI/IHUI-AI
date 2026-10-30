@@ -103,3 +103,4 @@
 {"shared":"packages/app/src/features/vip-level/VipLevelScreen.tsx","verdict":"generated","evidence":"已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补","at":"2026-10-27","source":"repair-cross-end-mirror"}
 {"shared":"packages/app/src/features/wallet/WalletScreen.tsx","verdict":"generated","evidence":"已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补","at":"2026-10-27","source":"repair-cross-end-mirror"}
 {"shared":"packages/app/src/features/workflows/WorkflowsScreen.tsx","verdict":"generated","evidence":"已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补","at":"2026-10-27","source":"repair-cross-end-mirror"}
+{"shared":"packages/app/src/features/ai-group/AiGroupScreen.tsx","verdict":"not-applicable","evidence":"小程序端无 AI 群组业务页:唯一声明镜像它的是 pkg-ai/ai-group/index,而该页调 getAgentList 且带办公/写作/编程等分类,是智能体列表;共享屏是群组成员/消息/进入群组,业务对象不同 ⇒ 声明挂错屏(2026-10-30 逐页核对)","at":"2026-10-30","source":"parity-close-2026-10-30"}

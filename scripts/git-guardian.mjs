@@ -6990,6 +6990,83 @@ export function sweepParityCockpit(opts = {}) {
 const CROSS_END_WEB_RN_INTERVAL_MS = Number(
   process.env.IHUI_CROSS_END_WEB_RN_INTERVAL_MS || 60 * 60 * 1000,
 )
+
+const I18N_CROSS_END_INTERVAL_MS = Number(
+  process.env.IHUI_I18N_CROSS_END_INTERVAL_MS || 60 * 60 * 1000,
+)
+
+/**
+ * 跨端同名键文案漂移巡检(2026-10-30 立):尺子 `scripts/check-i18n-cross-end-wording.mjs`
+ * 是**只读对账尺** —— 它判的是"这批文案差异有没有人裁过",存量未清时挂进提交链就是恒红门(§12e,
+ * 唯一结局是逼人 --no-verify 连带废掉全部守门),故刻意不进提交链也不进 CI,唯一调度器 = 本函数。
+ *
+ * 只写日志、不喊人:它报的是一类**常态存量**(42 枚漂移待裁定),不是一次故障。每 60 分钟为此
+ * 寄一封等于把人淹掉(§5e-1:能整改的给可执行下一步 —— 这里的下一步是"往台账里写裁定",
+ * 属于有人在清理时顺手做的事,不需要页人)。真出事的那一型(清单腐烂 / 裁定过期)也一并写行,
+ * 由清理者按报表收口。
+ */
+export function auditI18nCrossEndWording(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = I18N_CROSS_END_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'i18n-cross-end-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'check-i18n-cross-end-wording.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ 跨端文案漂移巡检:器物不在位(scripts/check-i18n-cross-end-wording.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run =
+    runner ??
+    (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--json'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+          timeout: 120000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'], // §12g
+        })
+        return { ok: true, out: String(out ?? ''), status: 0 }
+      } catch (e) {
+        // 尺子 exit 1 = 判出未裁,不是"坏了":结论整份在 stdout。
+        return {
+          ok: false,
+          out: String(e?.stdout ?? ''),
+          err: String(e?.stderr ?? ''),
+          status: typeof e?.status === 'number' ? e.status : null,
+        }
+      }
+    })
+  const r = run()
+  const stdout = String(r.out ?? r.stdout ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面"结论不可用"那一支 */
+  }
+  if (!parsed || typeof parsed.state !== 'string') {
+    logger(
+      `⚠️ 跨端文案漂移巡检:结论不可用 ⇒ 本轮没判,不等于"没有未裁漂移"(§0.3)` +
+        ` —— ${String(r.err ?? '').slice(0, 110) || '未取到 JSON'}`,
+    )
+    return { ran: true, ok: false, state: 'unparsed' }
+  }
+  logger(
+    `ℹ️ 跨端文案漂移巡检:同名键 ${parsed.sharedKeys ?? '?'} · 漂移 ${parsed.driftTotal ?? '?'} · ` +
+      `未裁 ${(parsed.unclearedKeys ?? parsed.uncleared ?? []).length} · 形态坏 ${(parsed.invalid ?? []).length} · ` +
+      `过期 ${(parsed.expired ?? []).length} · 清单腐烂 ${(parsed.rot ?? []).length} state=${parsed.state}`,
+  )
+  return { ran: true, ok: parsed.state === 'clean', state: parsed.state }
+}
 /** web→RN 巡检的五个功能维 + 样式维(维名同时是到人身份,不随计数抖动) */
 const WEB_RN_DIMS = [
   ['unmapped', '未映射(web 有路由、台账零判定)'],
@@ -8576,6 +8653,8 @@ function main() {
     if (!CHECK_ONLY) sweepHandMirrorUpgrades()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
     if (!CHECK_ONLY) sweepParityCockpit()
+    // 只读对账尺:不进提交链,靠这一腿被自动跑起来(§0.9 造好没装车 = 没有)。
+    if (!CHECK_ONLY) auditI18nCrossEndWording()
     if (!CHECK_ONLY) healI18nBundleLeg()
     if (!CHECK_ONLY) auditPushDivergenceLeg()
     if (!CHECK_ONLY) healMirrorPurgeLeg()
@@ -9606,6 +9685,8 @@ export const __test__ = {
   auditImmutableGuardNewCommits,
   // 跨端驾驶舱派发腿(镜像测试 git-guardian-parity-cockpit 按名 import,不复制判据 §22c)。
   sweepParityCockpit,
+  // 跨端文案漂移巡检腿(只读尺子的唯一调度器;镜像测试按名 import)。
+  auditI18nCrossEndWording,
   auditDispatchSites,
   auditPublicPathProbe,
   auditTunnelLegHealth,
