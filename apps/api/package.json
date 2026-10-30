@@ -28,6 +28,7 @@
     "relay:sessions:backup": "tsx scripts/relay-session-backup.ts",
     "relay:switch-account": "tsx scripts/relay-account-switch.ts",
     "relay:ide-switch": "tsx scripts/relay-ide-switch.ts",
+    "relay:ide-trae-chat-switch": "tsx scripts/relay-trae-chat-switch.ts",
     "relay:sessions:restore": "tsx scripts/relay-session-restore.ts",
     "relay:session-links": "tsx scripts/relay-session-links.ts",
     "relay:session-move": "tsx scripts/relay-session-move.ts",
