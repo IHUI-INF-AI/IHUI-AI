@@ -6357,6 +6357,23 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_PLAN_CLOSED_STOCK',
   },
   {
+    id: '268',
+    label: '🧹 PROJECT_PLAN.md 回捞件差值棘轮(拦"摘除台账已声明删除的行又被带回被审面";全量档只报数)',
+    script: 'check-head-recall-stock.mjs',
+    args: [],
+    mode: 'blocking',
+    // 2026-10-30 立(机主令"把这个计划任务文档跳跃的问题彻底解决 根治 不允许再发生")。
+    // 立因是硬证据枚 7864cde002(10-30 17:12 手工收敛):父1(本侧)=40 枚未勾 / 父2(origin/main)=338 / 结果=342
+    // —— 一次普通 git merge 把带旧台账的一侧整份带回 HEAD,绕开 union 行级判据;此后 342→325→321 反复跳。
+    // 为什么既有的两件器物拦不住:scrub-declared-removals 的维一/维三以「HEAD 面无此行」为前提(污染就在
+    // HEAD 面上时恒 0 扣);union-converge 的 declaredDropCaps 只管「本侧 0 份」(行来自对侧 ⇒ 不认)。
+    // 判据 import scripts/lib/head-recall.mjs(再 import declaredRows 的「声明为删除」证据面 + titleFpOf),
+    // 门体零复算(§0.6/§22c)。定档 = 差值棘轮:只拦"枚数变多",存量 280 枚不担责(§12e 恒红门禁令),
+    // 存量清偿与节拍归 scripts/strip-head-recall-rows.mjs(guardian 巡检腿 sweepHeadRecallRows)。
+    stagedTriggers: ['PROJECT_PLAN.md'],
+    skipEnv: 'HUSKY_SKIP_HEAD_RECALL_STOCK',
+  },
+  {
     id: '70b',
     label: '🌐 i18n 死 key 扫描(blocking,判定面=索引 blob;2026-10-22 从 pre-commit 移入并行池)',
     script: 'scan-dead-i18n-keys.mjs',
