@@ -133,13 +133,19 @@ def _role(payload: dict[str, Any]) -> str | None:
 
 def _model(payload: dict[str, Any], content: Any) -> str | None:
     """新形态模型名在 author.metadata.model,部分版本落在 content.model。"""
+    # 先绑局部再判 isinstance:`isinstance(meta.get("model"), str)` 只收窄那一个表达式,
+    # 不收窄 `meta["model"]` 的下标结果(dict[Any, Any] ⇒ Any),照下标 return 就是 no-any-return。
     author = payload.get("author")
     if isinstance(author, dict):
         meta = author.get("metadata")
-        if isinstance(meta, dict) and isinstance(meta.get("model"), str) and meta["model"].strip():
-            return meta["model"].strip()
-    if isinstance(content, dict) and isinstance(content.get("model"), str) and content["model"].strip():
-        return content["model"].strip()
+        if isinstance(meta, dict):
+            model = meta.get("model")
+            if isinstance(model, str) and model.strip():
+                return model.strip()
+    if isinstance(content, dict):
+        model = content.get("model")
+        if isinstance(model, str) and model.strip():
+            return model.strip()
     return None
 
 
