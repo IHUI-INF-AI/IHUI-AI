@@ -70,17 +70,7 @@ export interface UrlPreviewProbeOptions {
 
 import { isPrivateIPv4Literal as isPrivateIPv4 } from '../utils/ssrf-guard.js'
 
-function isPrivateIPv6(ip: string): boolean {
-  const v = ip.toLowerCase()
-  if (v === '::' || v === '::1') return true
-  const mapped = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
-  if (mapped?.[1]) return isPrivateIPv4(mapped[1])
-  if (v.startsWith('::ffff:')) return true // mapped 但非点分 → 一律禁止
-  if (v.startsWith('fe80:') || v.startsWith('fc') || v.startsWith('fd')) return true
-  if (v.startsWith('ff')) return true // 组播
-  if (v.startsWith('64:ff9b:') || v.startsWith('100::')) return true // NAT64 / 保留
-  return false
-}
+import { isPrivateIPv6Literal as isPrivateIPv6 } from '../utils/ssrf-guard.js'
 
 function isForbiddenHost(hostname: string): boolean {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, '')
