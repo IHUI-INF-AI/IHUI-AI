@@ -48,6 +48,7 @@ const {
   mockNativePrepay,
   mockBuildJsapiSign,
   mockVerifyCallbackSignature,
+  mockConsumeNotifyNonce,
   mockDecryptCallback,
   mockWxQueryOrder,
   mockWxCloseOrder,
@@ -61,6 +62,8 @@ const {
   mockNativePrepay: vi.fn(),
   mockBuildJsapiSign: vi.fn(),
   mockVerifyCallbackSignature: vi.fn(),
+  // 默认 'ok':这些用例要验的是回调业务分支,去重属另一维度(见 tests/notify-nonce.test.ts)
+  mockConsumeNotifyNonce: vi.fn().mockResolvedValue('ok'),
   mockDecryptCallback: vi.fn(),
   mockWxQueryOrder: vi.fn(),
   mockWxCloseOrder: vi.fn(),
@@ -76,6 +79,9 @@ vi.mock('../src/services/wechat-pay.js', () => ({
   nativePrepay: mockNativePrepay,
   buildJsapiSign: mockBuildJsapiSign,
   verifyCallbackSignature: mockVerifyCallbackSignature,
+  // 2026-10-30:回调报文级去重新增的协作方,工厂式 mock 必须补上 —— 缺它是
+  // "No export is defined on the mock",与限流/去重实现无关,纯测试替身不同步。
+  consumeNotifyNonce: mockConsumeNotifyNonce,
   decryptCallback: mockDecryptCallback,
   queryOrder: mockWxQueryOrder,
   closeOrder: mockWxCloseOrder,
