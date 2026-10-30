@@ -8,8 +8,9 @@ import { hasUnclosedFence, healIncompleteMarkdown } from '../markdown-incomplete
 /**
  * 流式 markdown 未闭合 token 补全测试(2026-10-13 立,对标 Trae fillInIncompleteTokens)。
  *
- * 覆盖:围栏补全(既有行为的迁移)/ 行内代码 / 粗体 / 删除线 /
- * 围栏感知(围栏内不计数)/ 闭合完备时不追加 / 只追加不删改。
+ * 覆盖:围栏 / 行内代码 / 粗斜体 / 删除线 / 未闭合链接(不发明 URL) /
+ * setext 末尾孤立 -/= 前插零宽 / 未闭合 HTML / $$ 与行内 $ /
+ * 围栏感知 / 闭合完备时不追加 / 只追加不删改。
  */
 describe('hasUnclosedFence', () => {
   it('偶数围栏闭合,奇数围栏未闭合', () => {
@@ -89,4 +90,54 @@ describe('healIncompleteMarkdown', () => {
     expect(out.healed).toBe('')
     expect(out.healedAny).toBe(false)
   })
+
+  it('未闭合斜体:追加一个 * 或 _', () => {
+    expect(healIncompleteMarkdown('这是 *斜体').healed).toBe('这是 *斜体*')
+    expect(healIncompleteMarkdown('这是 _斜体').healed).toBe('这是 _斜体_')
+    expect(healIncompleteMarkdown('这是 __粗体').healed).toBe('这是 __粗体__')
+  })
+
+  it('列表标记的星号不当斜体补', () => {
+    const text = '* 列表项已经写完'
+    expect(healIncompleteMarkdown(text).healed).toBe(text)
+  })
+
+  it('未闭合链接只补括号,不写入占位地址', () => {
+    const text = '见 [文档'
+    const out = healIncompleteMarkdown(text)
+    expect(out.healed).toBe('见 [文档]')
+    expect(out.healed.startsWith(text)).toBe(true)
+    expect(out.healed).not.toMatch(/https?:\/\//)
+
+    const dest = '见 [文档](https://example.com/a'
+    expect(healIncompleteMarkdown(dest).healed).toBe('见 [文档](https://example.com/a)')
+  })
+
+  it('setext 末尾孤立 - 或 = 前插零宽,原文一个字不删', () => {
+    const dash = '标题\n-'
+    const healedDash = healIncompleteMarkdown(dash).healed
+    expect(healedDash).toBe(`标题\n${'\u200b'}-`)
+    expect(healedDash.replaceAll('\u200b', '')).toBe(dash)
+
+    const eq = '标题\n='
+    expect(healIncompleteMarkdown(eq).healed).toBe(`标题\n${'\u200b'}=`)
+
+    const rule = '段落\n\n---'
+    expect(healIncompleteMarkdown(rule).healed).toBe(rule)
+  })
+
+  it('未闭合 HTML 只追加结束符', () => {
+    expect(healIncompleteMarkdown('<div>内容').healed).toBe('<div>内容</div>')
+    expect(healIncompleteMarkdown('<section').healed).toBe('<section></section>')
+    const closed = '已闭合 <span>文字</span>'
+    expect(healIncompleteMarkdown(closed).healed).toBe(closed)
+  })
+
+  it('未闭合 $$ 与行内 $ 追加闭合符;货币 $5 不动', () => {
+    expect(healIncompleteMarkdown('$$\nE=mc^2').healed).toBe('$$\nE=mc^2$$')
+    expect(healIncompleteMarkdown('行内 $x').healed).toBe('行内 $x$')
+    const price = '价格 $5 元'
+    expect(healIncompleteMarkdown(price).healed).toBe(price)
+  })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
