@@ -356,6 +356,9 @@
     "sendAi": "问 AI",
     "saveWord": "保存到生词本",
     "saved": "已保存",
+    "lookupFailed": "查词失败，请检查网络后重试",
+    "retry": "重试",
+    "retrying": "查询中…",
     "close": "关闭"
   },
   "page": {

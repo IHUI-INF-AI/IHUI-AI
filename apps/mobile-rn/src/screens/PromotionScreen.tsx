@@ -28,7 +28,11 @@ export function PromotionScreen() {
       // 后端 GET /coupons 回 success({ list, total, page, pageSize })(promotions.ts)，
       // 同端点另一屏 CouponScreen 读的是分页对象；本屏按数组读 ⇒ 优惠券永远空。
       const resp = await fetchApi<{ list: PromotionCoupon[] }>('/coupons')
-      if (!resp.success) throw new Error('http')
+      if (!resp.success) {
+        // 透出后端 message,而非一律「加载失败」。
+        setError(resp.error || t('promotion.loadFailed'))
+        return
+      }
       setItems(resp.data?.list ?? [])
     } catch {
       setError(t('promotion.loadFailed'))

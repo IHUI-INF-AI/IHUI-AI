@@ -8,7 +8,7 @@ import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
-import { getCourseDetail, post, type Course } from '@/api'
+import { get, getCourseDetail, post, type Course } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import { ScreenSkeleton, ErrorState } from '@/components/ScreenStates.taro'
 import {
@@ -50,7 +50,8 @@ export default function CourseDetail() {
   const [showRating, setShowRating] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showComplete, setShowComplete] = useState(false)
-  const [learningProgress, setLearningProgress] = useState(35)
+  // 真实学习进度:原先硬编码 35 ⇒ 进度环、"已看 N 课时"、"当前课时"与统计数字全是编的。
+  const [learningProgress, setLearningProgress] = useState(0)
   const [noteContent, setNoteContent] = useState('')
   /** 加载失败文案(共享屏同一套键 courseDetail.loadFailed);空串 = 还在加载 */
   const [loadError, setLoadError] = useState('')
@@ -62,6 +63,15 @@ export default function CourseDetail() {
       try {
         const res = await getCourseDetail(id)
         setCourse(res)
+        // GET /edu/courses/:id/progress 返回 { progress };未报名时 404 ⇒ 按 0 处理(不弹错)。
+        try {
+          const p = await get<{ progress?: number }>(
+            `/edu/courses/${encodeURIComponent(id)}/progress`,
+          )
+          setLearningProgress(typeof p.progress === 'number' ? p.progress : 0)
+        } catch {
+          setLearningProgress(0)
+        }
         setLoadError('')
       } catch {
         // 只停骨架屏等于"加载中"永远不结束:失败必须留下可重试的错误态
@@ -91,18 +101,36 @@ export default function CourseDetail() {
     const courseId = course?.id
     if (courseId === null || courseId === undefined) return
     try {
-      const res = await post<{ orderId?: string; orderNo?: string; amount?: number }>(
-        '/courses/buy',
-        { courseId },
-      )
-      const orderId = res?.orderId || res?.orderNo || ''
+      const res = await post<{
+        orderId?: string
+        orderNo?: string
+        amount?: number
+        status?: string
+      }>('/courses/buy', { courseId })
+      // 后端 /courses/buy 是**余额直接扣款**：成功即 status='paid'（余额已在服务端扣掉），
+      // 免费课返回 status='free'。改前不看 status 就一律跳收银台 ⇒ 用户余额已被扣一次，
+      // 又被引到微信/支付宝再付一次（重复收费）。已支付/免费都在本页收口。
+      if (res?.status === 'paid' || res?.status === 'free') {
+        Taro.showToast({ title: t('common.success'), icon: 'success' })
+        setTimeout(() => {
+          void Taro.navigateBack()
+        }, 600)
+        return
+      }
+      // 仍走预付单的入口：只读 `router.params.orderNo`（pkg-shop/pay/index.tsx，no 为空时
+      // onPay 直接弹「订单异常」），因此订单号必须作为 orderNo 传，不能当 orderId 传。
+      const orderNo = res?.orderNo || res?.orderId || ''
       const amount = res?.amount ?? course?.price ?? 0
+      if (!orderNo) {
+        Taro.showToast({ title: t('course.buyDeveloping'), icon: 'none' })
+        return
+      }
       Taro.navigateTo({
-        url: `/pkg-shop/pay/index?orderId=${orderId}&amount=${amount}`,
+        url: `/pkg-shop/pay/index?orderNo=${encodeURIComponent(orderNo)}&amount=${amount}`,
       })
     } catch {
-      // 后端无购买端点,toast 提示 + mock
-      Taro.showToast({ title: t('course.buyDeveloping'), icon: 'none' })
+      // 失败原因已由 api-bridge 统一 toast（余额不足会显示后端原文 402「余额不足」），
+      // 这里不能再盖一句「功能开发中」——那会让用户以为课程买不了是产品没上线。
     }
   }, [course?.id, course?.price, t])
 
@@ -138,8 +166,12 @@ export default function CourseDetail() {
     Taro.navigateTo({ url: `/pkg-learn/teacher/detail?id=${teacherId}` })
   }, [course])
 
-  const handleSign = useCallback(() => {
-    Taro.showToast({ title: t('course.signSuccess'), icon: 'success' })
+  // 三处原先都只弹"成功"toast、一个请求都不发 ⇒ 用户以为签到/评价/笔记已保存,
+  // 实际什么都没落库(笔记尤其:写完的内容直接丢失)。接上后端真实端点。
+  const handleSign = useCallback(async () => {
+      await post('/sign-in', {})
+      Taro.showToast({ title: t('course.signSuccess'), icon: 'success' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
   }, [t])
 
   const handleLessonClick = useCallback(
@@ -156,20 +188,40 @@ export default function CourseDetail() {
   )
 
   const handleSubmitRating = useCallback(
-    (rating: number, _comment: string) => {
-      setShowRating(false)
-      Taro.showToast({ title: t('course.rated', { n: rating }), icon: 'success' })
+    async (rating: number, comment: string) => {
+      const courseId = router.params.id || ''
+      if (!courseId) return
+      try {
+        // 课程页只有一个星级,后端 createRateSchema 按三个分项存 ⇒ 统一填到"内容实用性"
+        // (最接近"这门课好不好"的整体判断),不虚构另外两项。
+        await post(`/learn/${encodeURIComponent(courseId)}/rates`, {
+          content: comment.trim() || undefined,
+          contentUtilityScore: Math.min(5, Math.max(1, Math.round(rating))),
+        })
+        setShowRating(false)
+        Taro.showToast({ title: t('course.rated', { n: rating }), icon: 'success' })
+      } catch {
+        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      }
     },
-    [t],
+    [t, router.params.id],
   )
 
   const handleSaveNote = useCallback(
-    (content: string) => {
-      setNoteContent(content)
-      setShowNote(false)
-      Taro.showToast({ title: t('course.noteSaved'), icon: 'success' })
+    async (content: string) => {
+      const courseId = router.params.id || ''
+      const text = content.trim()
+      if (!courseId || !text) return
+      try {
+        await post(`/edu/courses/${encodeURIComponent(courseId)}/notes`, { content: text })
+        setNoteContent(content)
+        setShowNote(false)
+        Taro.showToast({ title: t('course.noteSaved'), icon: 'success' })
+      } catch {
+        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      }
     },
-    [t],
+    [t, router.params.id],
   )
 
   const handleLessonComplete = useCallback(() => {

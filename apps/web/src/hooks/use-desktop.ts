@@ -390,6 +390,38 @@ export function useDesktopCaptionTheme(): void {
  *
  * 浏览器端 isTauri()=false,此 hook 不注册监听,无副作用。
  */
+/** Rust 侧托盘动作积压的取回命令名 —— 与 lib.rs 的 `TRAY_TAKE_COMMAND`、
+ *  `invoke_handler!` 注册项逐字同名(三方一致性由 scripts/check-desktop-event-wiring.mjs 对账)。 */
+const TRAY_TAKE_COMMAND = 'take_pending_tray_actions'
+
+/**
+ * 托盘动作 → 前端 CustomEvent 的唯一派发出口。
+ *
+ * 为什么必须抽成一份:它有两个调用面 —— ①实时 `desktop-tray-action` 监听;
+ * ②冷启动/页面重载后从 Rust pending 队列补投的那批。两处各写一份 switch 的话,
+ * 新增一个托盘动作必然只改一处,另一处静默失效(用户"有的时候有反应、有的时候没有")。
+ */
+function applyTrayAction(action: string): void {
+  switch (action) {
+    case 'new_chat':
+      // 复用浏览器内 Ctrl+Shift+N 相同的 CustomEvent
+      window.dispatchEvent(new CustomEvent('global-shortcut:new-chat'))
+      break
+    case 'toggle_theme':
+      window.dispatchEvent(new CustomEvent('desktop-theme-toggle'))
+      break
+    case 'open_settings':
+      window.dispatchEvent(new CustomEvent('desktop-open-settings'))
+      break
+    case 'check_update':
+      window.dispatchEvent(new CustomEvent('desktop-check-update'))
+      break
+    default:
+      // 未知动作不得静默:Rust 侧新增菜单项而前端没接,用户点下去就是"没反应"
+      logger.warn('[desktop] 未知托盘动作,已忽略:', action)
+  }
+}
+
 export function useDesktopEvents(): void {
   // 2026-09-27:改判 useTauriIpcReady 而非同步 isTauri() —— 原写法在 IPC 尚未注入的
   // 那一帧挂载时,整个会话都不会注册托盘监听(真机表现:托盘「退出」无人接)。
@@ -410,28 +442,28 @@ export function useDesktopEvents(): void {
     let pendingPromise: Promise<void> | null = null
 
     pendingPromise = (async () => {
-      const { listen } = await import('@tauri-apps/api/event')
+      // 并行 import 而非串行 await:少一段 chunk 往返就少一段"窗口在、监听未生效"的丢动作窗口期
+      const [{ listen }, { invoke }] = await Promise.all([
+        import('@tauri-apps/api/event'),
+        import('@tauri-apps/api/core'),
+      ])
       if (cancelled) return
 
       // 托盘菜单事件
       unlistenTray = await listen<string>('desktop-tray-action', (event) => {
-        const action = event.payload
-        switch (action) {
-          case 'new_chat':
-            // 复用浏览器内 Ctrl+Shift+N 相同的 CustomEvent
-            window.dispatchEvent(new CustomEvent('global-shortcut:new-chat'))
-            break
-          case 'toggle_theme':
-            window.dispatchEvent(new CustomEvent('desktop-theme-toggle'))
-            break
-          case 'open_settings':
-            window.dispatchEvent(new CustomEvent('desktop-open-settings'))
-            break
-          case 'check_update':
-            window.dispatchEvent(new CustomEvent('desktop-check-update'))
-            break
-        }
+        applyTrayAction(event.payload)
       })
+
+      // 注册成功之后才取积压:在此之前用户点的托盘菜单被 Rust 侧暂存(不会投给不存在的监听)。
+      // 没有这一步时,冷启动/页面重载窗口期内点「新建对话/切换主题/设置/检查更新」会静默消失,
+      // 用户只能再点一次 —— 这正是本闸门立项的那一型。
+      try {
+        const backlog = await invoke<string[]>(TRAY_TAKE_COMMAND)
+        for (const action of backlog) applyTrayAction(action)
+      } catch (err) {
+        // 取不回积压 = 这一段窗口期的托盘动作确实丢了,必须喊出来而不是静默继续
+        logger.warn('[desktop] 取回托盘动作积压失败,窗口期内的托盘点击未被补投:', err)
+      }
 
       // 系统级快捷键事件
       unlistenShortcut = await listen<string>('desktop-shortcut', (event) => {

@@ -11,6 +11,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowDownToLine, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
+import { formatPrice } from '@ihui/shared/utils/format'
 import {
   Button,
   Card,
@@ -26,32 +27,56 @@ import { cn } from '@/lib/utils'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
+/**
+ * `GET /api/finance/withdrawal/summary` 回的是 withdrawalSummary()：
+ * { totalWithdrawn, pendingAmount }（单位分）。原类型写成 { total, processing, completed }
+ * ⇒ 三个汇总卡永远渲染 undefined 兜底的 0。
+ */
 interface SummaryData {
-  total: number
-  processing: number
-  completed: number
+  totalWithdrawn: number
+  pendingAmount: number
 }
 
 type WithdrawalStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
 interface WithdrawalItem {
   id: string
+  /** 申请金额（分）—— 后端原字段名 originalAmount */
+  originalAmount: number
+  /** 实际到账（分）= 申请额 − 手续费 */
   amount: number
   fee: number
-  actualAmount: number
   status: WithdrawalStatus
   method: string
   createdAt: string
   processedAt: string | null
 }
 
-interface ListData {
-  items: WithdrawalItem[]
-  total: number
+/**
+ * `GET /api/finance/withdrawal/list` 直接回 withdrawal_flows 原始行：
+ * amount = 实际到账（分）、fee = 手续费（分）、original_amount = 申请额（分）、
+ * status 是**整数** 0=pending 1=processing 2=completed 3=failed（见 finance.ts 路由注释）。
+ * 前端原类型写的是 actualAmount + 字符串状态 ⇒ 到账金额永远 undefined、状态徽章永远查不到键。
+ */
+interface RawWithdrawalItem {
+  id: string
+  amount: number
+  fee: number
+  originalAmount: number
+  status: number
+  method: string
+  createdAt: string
+  processedAt: string | null
+}
+
+const STATUS_BY_CODE: Record<number, WithdrawalStatus> = {
+  0: 'pending',
+  1: 'processing',
+  2: 'completed',
+  3: 'failed',
 }
 
 const PAGE_SIZE = 20
-
 const STATUS_KEY: Record<WithdrawalStatus, string> = {
   pending: 'statusPending',
   processing: 'statusProcessing',
@@ -86,8 +111,24 @@ export default function WithdrawRecordsPage() {
   })
   const listQ = useQuery({
     queryKey: ['wallet', 'withdrawal', 'list', page],
-    queryFn: () =>
-      apiOrThrow<ListData>(`/api/finance/withdrawal/list?page=${page}&limit=${PAGE_SIZE}`),
+    queryFn: async () => {
+      const raw = await apiOrThrow<{ items: RawWithdrawalItem[]; total: number }>(
+        `/api/finance/withdrawal/list?page=${page}&limit=${PAGE_SIZE}`,
+      )
+      return {
+        total: raw.total,
+        items: raw.items.map((it): WithdrawalItem => ({
+          id: it.id,
+          originalAmount: it.originalAmount,
+          amount: it.amount,
+          fee: it.fee,
+          status: STATUS_BY_CODE[it.status] ?? 'pending',
+          method: it.method,
+          createdAt: it.createdAt,
+          processedAt: it.processedAt,
+        })),
+      }
+    },
     enabled: allow,
   })
 
@@ -109,9 +150,8 @@ export default function WithdrawRecordsPage() {
   }
 
   const stats = [
-    { label: t('availableAmount'), value: summaryQ.data?.total ?? 0 },
-    { label: t('processingAmount'), value: summaryQ.data?.processing ?? 0 },
-    { label: t('completedAmount'), value: summaryQ.data?.completed ?? 0 },
+    { label: t('completedAmount'), value: formatPrice(summaryQ.data?.totalWithdrawn ?? 0) },
+    { label: t('processingAmount'), value: formatPrice(summaryQ.data?.pendingAmount ?? 0) },
   ]
 
   return (
@@ -183,10 +223,13 @@ export default function WithdrawRecordsPage() {
                 ) : (
                   items.map((it) => (
                     <TableRow key={it.id}>
-                      <TableCell className="px-4 py-2.5 font-medium">{it.amount}</TableCell>
+                      {/* amount / originalAmount / fee 都是「分」（applyWithdrawal 全程按分落库） */}
+                      <TableCell className="px-4 py-2.5 font-medium">
+                        ¥{formatPrice(it.originalAmount)}
+                      </TableCell>
                       <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
-                        <div className="font-medium text-foreground">{it.actualAmount}</div>
-                        <div className="text-xs">-{it.fee}</div>
+                        <div className="font-medium text-foreground">¥{formatPrice(it.amount)}</div>
+                        <div className="text-xs">-¥{formatPrice(it.fee)}</div>
                       </TableCell>
                       <TableCell className="px-4 py-2.5">
                         {t(METHOD_KEY[it.method] ?? 'methodWechat')}

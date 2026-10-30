@@ -212,6 +212,9 @@ export default function CircleCreatePage() {
       setTimeout(() => Taro.navigateBack(), 1200)
     } catch (e) {
       logger.error('circle/create', '发布动态', e)
+      // 失败必须出声:原实现只写日志 ⇒ 用户点"发布"后按钮复位、页面原地不动,
+      // 无从判断是失败还是没点上(web/RN 同功能都有失败提示)。草稿不清,可直接重试。
+      Taro.showToast({ title: tt('circle.create.publishFailed', '发布失败,请重试'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }

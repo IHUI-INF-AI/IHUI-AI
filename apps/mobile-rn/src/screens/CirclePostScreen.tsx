@@ -65,6 +65,12 @@ export function CirclePostScreen() {
   const pickImage = useCallback(async () => {
     setError(null)
     try {
+      // 权限被拒时原实现直接调 launchImageLibraryAsync ⇒ 什么都不发生、也不提示。
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (perm.status !== 'granted') {
+        setError(t('home.pubPermAlbumImage'))
+        return
+      }
       const picked = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,

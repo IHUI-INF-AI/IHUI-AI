@@ -1680,13 +1680,15 @@ test('T-JS-5 形状锁:结构档三条件都在,且 blob 模式明确不套用�
     1,
     'refuseByBlob 只允许被赋值一次(声明处);再赋值 = 把唯一拦真回写的支路拆掉',
   )
-  // 三处:声明 + ①结构档豁免 + ②声明式还原白名单(2026-10-30)。第二处有没有牙不靠计数证明,
-  // 靠下面三条:它必须落在 restoreBy 门内、必须要求逐行配平出的 restore.match === true、
-  // 必须排除 undetermined/键路径档/整 blob 命中祖先三档;再多出第四处照旧红(那才是私改口径)。
+  // 四处:声明 + ①结构档豁免 + ②声明式还原白名单(行级) + ③声明式还原白名单(element 型,
+  // 2026-10-30 补)。第二、第三处有没有牙不靠计数证明,靠下面逐支的结构断言:它们必须落在
+  // restoreBy 门内,必须要求配平结论 match === true,必须排除 undetermined / 整 blob 命中祖先;
+  // 行级那一支另须排除键路径档(!jsonMode),element 那一支另须要求基线零丢(vanished === 0)。
+  // 再多出第五处照旧红(那才是私改口径)。
   assert.equal(
     (src.match(/\brefuseByLines\s*=(?!=)/g) ?? []).length,
-    3,
-    'refuseByLines 只允许"声明 + 结构档豁免 + 声明式还原白名单"三处赋值;多出第四处就是在私改拒绝口径',
+    4,
+    'refuseByLines 只允许"声明 + 结构档豁免 + 声明式还原白名单(行级) + 声明式还原白名单(element)"四处赋值;多出第五处就是在私改拒绝口径',
   )
   const iRestore = src.indexOf('if (restoreBy?.has(p))')
   const iRestoreAssign = src.indexOf('refuseByLines = false', iRestore)
@@ -1694,16 +1696,32 @@ test('T-JS-5 形状锁:结构档三条件都在,且 blob 模式明确不套用�
     iRestore > 0 && iRestoreAssign > iRestore,
     '还原白名单那一处赋值必须落在 restoreBy 门内(门外的放行 = 无条件开后门)',
   )
-  const restoreSeg = src.slice(iRestore, iRestoreAssign)
+  // 第一处(element 型):restoreBy 门内的**第一条**赋值就是它 —— 若有人把它挪到门外/挪到
+  // 行级支之后,下面这段切片就取不到它该有的牙。
+  const elementSeg = src.slice(iRestore, iRestoreAssign)
+  assert.ok(
+    /cmp\.match === true/.test(elementSeg),
+    'element 型还原必须要求配平结论 cmp.match === true 才放行(只凭"声明了"就免 = 没核验)',
+  )
+  assert.ok(
+    /line\.status === 'judged'/.test(elementSeg) &&
+      /!wholeHit/.test(elementSeg) &&
+      /\(delta\.vanished \?\? 0\) === 0/.test(elementSeg),
+    'element 型还原必须排除 undetermined / 整 blob 命中祖先 / 基线丢键三档(丢是真回写,不在"还原"语义里)',
+  )
+  // 第二处(行级):从 element 支的赋值之后取到行级支自己的赋值。
+  const iLineAssign = src.indexOf('refuseByLines = false', iRestoreAssign + 1)
+  assert.ok(iLineAssign > iRestoreAssign, '行级还原支的赋值必须存在(两支各一处,不许合并)')
+  const restoreSeg = src.slice(iRestoreAssign, iLineAssign)
   assert.ok(
     /line\.restore\.match === true/.test(restoreSeg),
-    '还原白名单必须要求逐行配平结论 restore.match === true 才放行(只凭"声明了"就免 = 没核验)',
+    '行级还原白名单必须要求逐行配平结论 restore.match === true 才放行(只凭"声明了"就免 = 没核验)',
   )
   assert.ok(
     /line\.status === 'judged'/.test(restoreSeg) &&
       /!jsonMode/.test(restoreSeg) &&
       /!wholeHit/.test(restoreSeg),
-    '还原白名单必须排除 undetermined / 键路径档 / 整 blob 命中祖先三档(射程外永不免)',
+    '行级还原白名单必须排除 undetermined / 键路径档 / 整 blob 命中祖先三档(射程外永不免)',
   )
 })
 
@@ -2833,5 +2851,284 @@ test('T-RM-7 未被消费的声明 ⇒ 拒(与 LAND_CLASH_SCOPE 射程外声明�
     extraEnv: { LAND_RESTORE_MANIFEST: mf },
   })
   assert.equal(r2.status, 2, '逐行放行与整闸关掉不得同时举旗 ⇒ 用法错 exit 2')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
+})
+
+// T-RM-E 族(2026-10-30):声明式还原通道的 **element 型** —— 键路径档(.json/.jsonl)的窄出口。
+// 要钉的机制缺口:键路径档下"复活"= 同一键路径在祖先取过同值(真阳性),而 LAND_JSON_STRUCTURE
+// 与行级 LAND_RESTORE_MANIFEST 都被 `!jsonMode` 排除 ⇒ 那一型过去只剩"整闸关掉"(LAND_ALLOW_STALE)。
+// 本族六条成对钉:形态闸、真声明放行、三种假声明各拒一支、基线丢键不受理。
+// 失效方向必须恒为"多拒一次":少一条牙,通道就退化成后门。
+// ─────────────────────────────────────────────────────────────────────────────
+const rmJson = (entries) => `${JSON.stringify({ entries }, null, 2)}\n`
+
+function makeRmJsonRepo(t) {
+  const dir = makeRepo(t)
+  // 祖先 A:roots 里有两枚日后被删的元素,另有一个日后会被删的标量键 legacy
+  writeFileSync(
+    join(dir, 'reg.json'),
+    rmJson([{ id: 'a', legacy: 'old', roots: ['x.svg', 'minus.svg', 'plus.svg'] }]),
+  )
+  runGit(dir, ['add', '--', 'reg.json'])
+  runGit(dir, ['commit', '-q', '-m', 'A: roots 含 minus/plus,带 legacy 键'])
+  const A = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  // B(HEAD):两枚元素与 legacy 键都被删掉
+  writeFileSync(join(dir, 'reg.json'), rmJson([{ id: 'a', roots: ['x.svg'] }]))
+  runGit(dir, ['add', '--', 'reg.json'])
+  runGit(dir, ['commit', '-q', '-m', 'B: 删掉 minus/plus 与 legacy'])
+  return { dir, A, B: runGit(dir, ['rev-parse', 'HEAD']).trim() }
+}
+
+const rmElem = (jsonPath, value, restoredFrom, why) => ({
+  element: { jsonPath, value },
+  restoredFrom,
+  why,
+})
+
+test('T-RM-E1 形态闸(element 型,纯函数):两型同给/都没给/jsonPath 不以 $ 起/缺 value/同路径混型 ⇒ 逐条点名', () => {
+  const full = 'a'.repeat(40)
+  const okEl = { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', full, '还原被误删的元素声明') }
+  const good = __test__.validateRestoreManifest({ entries: [okEl] }, { paths: ['reg.json'] })
+  assert.equal(good.errors.length, 0, `合法 element 声明应零错,现读:${good.errors.join(' | ')}`)
+  assert.equal(good.entries.length, 1)
+  assert.deepEqual(
+    good.entries[0].element,
+    { jsonPath: '$.entries[].roots', value: 'minus.svg' },
+    'element 必须原样交给下游核验(不许在形态层改写值)',
+  )
+  assert.equal(good.entries[0].line, null, 'element 型条目的 line 必须是 null(两型互斥)')
+
+  const badCases = [
+    [
+      '两型同给',
+      { entries: [{ ...okEl, line: 'x' }] },
+      /两型都给 ⇒ 口径不同不得混用/,
+    ],
+    ['两型都没给', { entries: [{ path: 'reg.json', restoredFrom: full, why: '什么都没声明的空壳条目' }] }, /都没给/],
+    [
+      'jsonPath 不以 $ 起',
+      { entries: [{ ...okEl, element: { jsonPath: 'entries[].roots', value: 'x' } }] },
+      /必须以 \$ 起/,
+    ],
+    [
+      '缺 value',
+      { entries: [{ ...okEl, element: { jsonPath: '$.entries[].roots' } }] },
+      /element\.value 缺失/,
+    ],
+    [
+      'element 不是对象',
+      { entries: [{ ...okEl, element: 'minus.svg' }] },
+      /element 必须是对象/,
+    ],
+  ]
+  for (const [name, input, re] of badCases) {
+    const r = __test__.validateRestoreManifest(input, { paths: ['reg.json'] })
+    assert.equal(r.entries.length, 0, `${name}:形态坏不得产出可用 entries`)
+    assert.ok(
+      r.errors.length > 0 && re.test(r.errors.join('\n')),
+      `${name}:报错文案必须命中 ${re},现读:${r.errors.join(' | ')}`,
+    )
+  }
+  // 同一路径混型:两支走两把尺,"哪条声明被消费了"就不可判 ⇒ 必须拒
+  const mixed = __test__.validateRestoreManifest(
+    {
+      entries: [
+        okEl,
+        { path: 'reg.json', line: 'x', restoredFrom: full, why: '同一路径又来了一发行级声明' },
+      ],
+    },
+    { paths: ['reg.json'] },
+  )
+  assert.ok(
+    /混了 line 与 element/.test(mixed.errors.join('\n')),
+    `同路径混型必须点名,现读:${mixed.errors.join(' | ')}`,
+  )
+})
+
+test('T-RM-E2 配平纯函数:标量键复活不受理 / 未声明与多余声明双向点名 / 超上限放弃配平', () => {
+  const el = (p, v, c) => ({ kind: 'array', path: p, element: JSON.stringify(v), count: c })
+  const decl = (jsonPath, value) => ({ jsonPath, value })
+  // 双向等值 ⇒ match
+  const hit = __test__.compareElementRestore({
+    evidence: [el('$.e[].roots', 'minus.svg', 1)],
+    overflow: false,
+    declared: [decl('$.e[].roots', 'minus.svg')],
+  })
+  assert.equal(hit.match, true, `声明与证据同形必须 match,现读:${hit.why}`)
+  // 少声明一条 ⇒ 不 match 且点名未声明
+  const under = __test__.compareElementRestore({
+    evidence: [el('$.e[].roots', 'minus.svg', 1), el('$.e[].roots', 'plus.svg', 1)],
+    overflow: false,
+    declared: [decl('$.e[].roots', 'minus.svg')],
+  })
+  assert.equal(under.match, false, '少声明一条未覆盖的复活必须不 match')
+  assert.equal(under.undeclared.length, 1)
+  assert.match(under.undeclared[0].raw, /plus\.svg/)
+  // 多声明一条没复活 ⇒ 不 match(未被核验的声明就是腐烂守卫)
+  const over = __test__.compareElementRestore({
+    evidence: [el('$.e[].roots', 'minus.svg', 1)],
+    overflow: false,
+    declared: [decl('$.e[].roots', 'minus.svg'), decl('$.e[].roots', 'ghost.svg')],
+  })
+  assert.equal(over.match, false, '多声明一条没复活的元素必须不 match')
+  assert.equal(over.overDeclared.length, 1)
+  // 标量键复活:element 型只覆盖数组元素 ⇒ 一律不受理
+  const scalar = __test__.compareElementRestore({
+    evidence: [{ kind: 'key', path: '$.e[].legacy', value: '"old"' }],
+    overflow: false,
+    declared: [decl('$.e[].roots', 'minus.svg')],
+  })
+  assert.equal(scalar.match, false, '标量键复活必须不受理')
+  assert.match(scalar.why, /标量键/, `必须点名是标量键那一型,现读:${scalar.why}`)
+  // 证据超上限 ⇒ 放弃配平(不截断后比对)
+  const overflowed = __test__.compareElementRestore({
+    evidence: [el('$.e[].roots', 'minus.svg', 1)],
+    overflow: true,
+    declared: [decl('$.e[].roots', 'minus.svg')],
+  })
+  assert.equal(overflowed.match, false, '证据溢出必须放弃配平(截断比对会把未覆盖读成已覆盖)')
+  assert.match(overflowed.why, /上限/)
+})
+
+test('T-RM-E3 正控端到端:键路径档还原一枚被删的数组元素 ⇒ 放行,element 逐字进提交信息', (t) => {
+  const { dir, A } = makeRmJsonRepo(t)
+  // 追加一枚新条目(不修改既有条目 ⇒ 基线零丢),把两枚元素搬回来
+  writeFileSync(
+    join(dir, 'reg.json'),
+    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', roots: ['minus.svg'] }]),
+  )
+  const mf = join(dir, '.restore-manifest.json')
+  writeFileSync(
+    mf,
+    JSON.stringify({
+      entries: [
+        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 正控:还原被删的元素') },
+      ],
+    }),
+  )
+  const r = runLand(dir, {
+    paths: 'reg.json',
+    msg: 'fix: 还原 reg.json 里的元素(正控)',
+    extraEnv: { LAND_RESTORE_MANIFEST: mf },
+  })
+  assert.equal(
+    r.status,
+    0,
+    `element 型正控必须放行,rc=${r.status}:${((r.stdout || '') + (r.stderr || '')).slice(0, 1200)}`,
+  )
+  const body = runGit(dir, ['show', '--format=%B', '-s', 'HEAD']).toString()
+  assert.match(body, /Restore-Manifest-Entry/, '清单必须逐字进提交信息')
+  assert.match(body, /"element":\{"jsonPath":"\$\.entries\[\]\.roots","value":"minus\.svg"\}/,
+    `trailer 必须带 element(jsonPath + value),现读:${body.slice(0, 600)}`)
+  const face = runGit(dir, ['show', 'HEAD:reg.json']).toString()
+  assert.ok(face.includes('minus.svg'), '被还原的元素必须真进树')
+})
+
+test('T-RM-E4 反向①:夹带一枚未声明的元素复活 ⇒ 当场拒落并点名该元素', (t) => {
+  const { dir, A } = makeRmJsonRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  writeFileSync(
+    join(dir, 'reg.json'),
+    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', roots: ['minus.svg', 'plus.svg'] }]),
+  )
+  const mf = join(dir, '.restore-manifest.json')
+  writeFileSync(
+    mf,
+    JSON.stringify({
+      entries: [
+        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向①:只声明一枚') },
+      ],
+    }),
+  )
+  const r = runLand(dir, {
+    paths: 'reg.json',
+    msg: 'fix: 反向①未声明元素',
+    extraEnv: { LAND_RESTORE_MANIFEST: mf },
+  })
+  assert.equal(r.status, 1, `夹带未声明复活必须拒,实得 rc=${r.status}`)
+  const out = (r.stderr || '') + (r.stdout || '')
+  assert.ok(out.includes('plus.svg'), `拒绝报告必须点名未声明的 plus.svg,现读:${out.slice(0, 800)}`)
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
+})
+
+test('T-RM-E5 反向②:声明对象里还有标量键复活 ⇒ element 型不受理(照拒并点名该型)', (t) => {
+  const { dir, A } = makeRmJsonRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  // legacy 是 B 里被删掉的**标量键**,这里把它搬回来 + 还原一枚元素
+  writeFileSync(
+    join(dir, 'reg.json'),
+    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', legacy: 'old', roots: ['minus.svg'] }]),
+  )
+  const mf = join(dir, '.restore-manifest.json')
+  writeFileSync(
+    mf,
+    JSON.stringify({
+      entries: [
+        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向②:只声明元素') },
+      ],
+    }),
+  )
+  const r = runLand(dir, {
+    paths: 'reg.json',
+    msg: 'fix: 反向②标量键复活',
+    extraEnv: { LAND_RESTORE_MANIFEST: mf },
+  })
+  assert.equal(r.status, 1, `标量键复活不在 element 型射程内,必须照拒,实得 rc=${r.status}`)
+  const out = (r.stderr || '') + (r.stdout || '')
+  assert.match(out, /标量键/, `必须点名"标量键复活不受理",现读:${out.slice(0, 800)}`)
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
+})
+
+test('T-RM-E6 反向③:假声明(该祖先 blob 的容器里没有这枚元素)⇒ rc 1;基线丢键 ⇒ 不受理', (t) => {
+  const { dir } = makeRmJsonRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const B = head // B 里 minus.svg 已被删 ⇒ 拿它当 restoredFrom 就是假声明
+  writeFileSync(
+    join(dir, 'reg.json'),
+    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', roots: ['minus.svg'] }]),
+  )
+  const mfFake = join(dir, '.restore-manifest.json')
+  writeFileSync(
+    mfFake,
+    JSON.stringify({
+      entries: [{ path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', B, '假声明:指着一枚没有它的提交') }],
+    }),
+  )
+  const r1 = runLand(dir, {
+    paths: 'reg.json',
+    msg: 'fix: 反向③假 sha',
+    extraEnv: { LAND_RESTORE_MANIFEST: mfFake },
+  })
+  assert.equal(
+    r1.status,
+    1,
+    `假 element 声明必须 rc=1,实得 ${r1.status}:${((r1.stderr || '') + (r1.stdout || '')).slice(0, 500)}`,
+  )
+  assert.match((r1.stderr || '') + (r1.stdout || ''), /核验未过|没有声明的那枚元素/)
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
+})
+
+test('T-RM-E7 反向④:改既有条目导致基线丢元素 ⇒ element 型不受理(丢是真回写,不是还原)', (t) => {
+  const { dir, A } = makeRmJsonRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  // 直接在既有条目 a 的 roots 里补回 minus.svg:父元素身份随内容变化 ⇒ 基线那枚元素消失
+  writeFileSync(join(dir, 'reg.json'), rmJson([{ id: 'a', roots: ['x.svg', 'minus.svg'] }]))
+  const mf = join(dir, '.restore-manifest.json')
+  writeFileSync(
+    mf,
+    JSON.stringify({
+      entries: [
+        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向④:改既有条目形态') },
+      ],
+    }),
+  )
+  const r = runLand(dir, {
+    paths: 'reg.json',
+    msg: 'fix: 反向④改既有条目',
+    extraEnv: { LAND_RESTORE_MANIFEST: mf },
+  })
+  assert.equal(r.status, 1, `基线丢元素时 element 型必须不受理,实得 rc=${r.status}`)
+  const out = (r.stderr || '') + (r.stdout || '')
+  assert.match(out, /消失|丢/, `必须把"丢"讲明白,现读:${out.slice(0, 800)}`)
   assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
 })

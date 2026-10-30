@@ -47,7 +47,7 @@ export function parseArgs(argv) {
 
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
 
-/** 捕获结果 → 同步脚本的 stdin 载荷(纯函数,测试锁形状;绝不带凭据以外的东西)。 */
+/** 捕获结果 → 同步脚本的 stdin 载荷(纯函数,测试锁形状;凭据与账号身份键只走管道面,不进输出)。 */
 export function buildPayload(sessions, meta) {
   const accounts = (Array.isArray(sessions) ? sessions : [])
     .map((s) => {
@@ -63,6 +63,10 @@ export function buildPayload(sessions, meta) {
       const machineCode = str(s?.machineCode)
       const machineType = str(s?.machineType)
       const version = str(s?.version)
+      // 身份键族:missing 自动入池时交 importAccounts 的统一名判据(O66 手机号优先);
+      // 仅随 stdin 走内存管道,任何输出面不回显(2026-10-30)
+      const phone = str(s?.phone)
+      const nickname = str(s?.nickname)
       return {
         uid,
         token,
@@ -76,6 +80,8 @@ export function buildPayload(sessions, meta) {
         ...(machineCode ? { machineCode } : {}),
         ...(machineType ? { machineType } : {}),
         ...(version ? { version } : {}),
+        ...(phone ? { phone } : {}),
+        ...(nickname ? { nickname } : {}),
       }
     })
     .filter(Boolean)
@@ -213,7 +219,7 @@ async function main(argv) {
   } else if (result.json) {
     const s = result.json
     process.stderr.write(
-      `回灌完成: applied=${s.applied} skipped=${s.skipped} missing=${s.missing} failed=${s.failed}${s.dryRun ? '(dry-run 未写)' : ''}\n`,
+      `回灌完成: applied=${s.applied} skipped=${s.skipped} missing=${s.missing} imported=${s.imported ?? 0} failed=${s.failed}${s.dryRun ? '(dry-run 未写)' : ''}\n`,
     )
     for (const r of s.rows ?? []) {
       process.stderr.write(

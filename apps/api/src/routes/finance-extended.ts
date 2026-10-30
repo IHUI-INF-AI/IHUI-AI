@@ -130,14 +130,18 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
     try {
       const rows = await db
         .select({
-          dateStr: sql<string>`to_char(${commissionFlows.createdAt}, 'YYYY-MM-DD')`,
+          dateStr: sql<string>`to_char(${commissionFlows.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`,
           totalAmount: sql<number>`COALESCE(SUM(${commissionFlows.amount}), 0)::int`,
           totalCount: sql<number>`count(*)::int`,
         })
         .from(commissionFlows)
         .where(where)
-        .groupBy(sql`to_char(${commissionFlows.createdAt}, 'YYYY-MM-DD')`)
-        .orderBy(sql`to_char(${commissionFlows.createdAt}, 'YYYY-MM-DD') DESC`)
+        .groupBy(
+          sql`to_char(${commissionFlows.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`,
+        )
+        .orderBy(
+          sql`to_char(${commissionFlows.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') DESC`,
+        )
       return reply.send(success(rows))
     } catch (e) {
       request.log.error(e)
@@ -153,7 +157,7 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
       const [dayRows, monthRows, totalRow] = await Promise.all([
         db
           .select({
-            dateStr: sql<string>`to_char(${commissionFlows.createdAt}, 'YYYY-MM-DD')`,
+            dateStr: sql<string>`to_char(${commissionFlows.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`,
             amount: sql<number>`COALESCE(SUM(${commissionFlows.amount}), 0)::int`,
             count: sql<number>`count(*)::int`,
           })
@@ -165,11 +169,15 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
               sql`${commissionFlows.createdAt} >= NOW() - INTERVAL '30 days'`,
             ),
           )
-          .groupBy(sql`to_char(${commissionFlows.createdAt}, 'YYYY-MM-DD')`)
-          .orderBy(sql`to_char(${commissionFlows.createdAt}, 'YYYY-MM-DD') DESC`),
+          .groupBy(
+            sql`to_char(${commissionFlows.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`,
+          )
+          .orderBy(
+            sql`to_char(${commissionFlows.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') DESC`,
+          ),
         db
           .select({
-            monthStr: sql<string>`to_char(${commissionFlows.createdAt}, 'YYYY-MM')`,
+            monthStr: sql<string>`to_char(${commissionFlows.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM')`,
             amount: sql<number>`COALESCE(SUM(${commissionFlows.amount}), 0)::int`,
             count: sql<number>`count(*)::int`,
           })
@@ -181,8 +189,12 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
               sql`${commissionFlows.createdAt} >= NOW() - INTERVAL '12 months'`,
             ),
           )
-          .groupBy(sql`to_char(${commissionFlows.createdAt}, 'YYYY-MM')`)
-          .orderBy(sql`to_char(${commissionFlows.createdAt}, 'YYYY-MM') DESC`),
+          .groupBy(
+            sql`to_char(${commissionFlows.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM')`,
+          )
+          .orderBy(
+            sql`to_char(${commissionFlows.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM') DESC`,
+          ),
         db
           .select({
             totalAmount: sql<number>`COALESCE(SUM(${commissionFlows.amount}), 0)::int`,
