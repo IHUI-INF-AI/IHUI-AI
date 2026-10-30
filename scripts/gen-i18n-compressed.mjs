@@ -529,7 +529,7 @@ for (const locale of REMOTE_LOCALES) {
 }
 manifestLines.push('}')
 manifestLines.push('')
-writeFileSync(manifestFile, manifestLines.join('\n'), 'utf8')
+writeFileWithRetry(manifestFile, manifestLines.join('\n'), 'utf8')
 
 // 产物②:CDN 部署载荷(与 ① 的 b64 逐字节相同,无换行尾巴 —— 运行时按清单 bytes 粗校验)。
 // 部署动作属运维既有通道:把本目录拷进 cdn-server.js 的 server-root(与 remote-images 同法)。
@@ -559,7 +559,7 @@ const zhLines = [
   `export const ZH_CN_CRITICAL: Record<string, unknown> = ${JSON.stringify(zhCritical)}`,
   '',
 ]
-writeFileSync(zhPackFile, zhLines.join('\n'), 'utf8')
+writeFileWithRetry(zhPackFile, zhLines.join('\n'), 'utf8')
 
 // 溯源水印:生成产物同样是 git 跟踪文件,受 `scripts/check-watermark-coverage.mjs` 门禁约束。
 // 此前生成器不写横幅 → 该文件长期缺失水印,使 pre-commit 与 CI 的 watermark 门禁必红。
