@@ -21,6 +21,7 @@ import {
   fmtTarget,
   listSwitchTargets,
   main,
+  parseTasklistCsvPids,
   planSwitch,
   resolveClientExe,
   rollbackAuth,
@@ -551,6 +552,41 @@ describe('rollbackAuth / runLinkedSessionSwap 单元', () => {
 // ── 客户端生命周期(桌面一键启动器:关 → 切 → 开) ─────────────────────────
 // 判据全部注入:绝不真的关闭/拉起本机程序,也不落到真实 ~/.wb-switch。
 describe('client lifecycle', () => {
+  // ── PID 枚举的解析判据(守门 52 N1 的替代腿:先枚举再按 /PID 杀,绝不 taskkill /IM)──
+  // 为什么要单测这一层:本机 `tasklist` 输出**是本地化的**,中文宿主里"没有任务"那行是
+  // `信息: ...`,拿文案去排除等于没排除;所以判据只剩「以 " 开头的 CSV 行」+「第 2 列是正整数」。
+  describe('parseTasklistCsvPids', () => {
+    it('正常 CSV 数据行 ⇒ 取到每一枚 PID', () => {
+      expect(
+        parseTasklistCsvPids(
+          '"WorkBuddy.exe","4712","Console","1","123,456 K"\r\n"WorkBuddy.exe","5008","Console","1","10 K"\r\n',
+        ),
+      ).toEqual([4712, 5008])
+    })
+
+    it('反向对照①:中文宿主的"没有运行的任务"信息行 ⇒ 空(不靠文案匹配也能排除)', () => {
+      expect(parseTasklistCsvPids('信息: 没有运行的任务，指定筛选条件为“IMAGENAME eq WorkBuddy.exe”。\n')).toEqual([])
+    })
+
+    it('反向对照②:英文 INFO 行 ⇒ 空(本地化两种形态都不进候选)', () => {
+      expect(parseTasklistCsvPids('INFO: No tasks are running which match the specified criteria.\n')).toEqual([])
+    })
+
+    it('反向对照③:带 /NH 时仍可能混进的表头行 ⇒ 第 2 列不是数字即丢弃', () => {
+      expect(parseTasklistCsvPids('"Image Name","PID","Session Name","Session#","Mem Usage"\n')).toEqual([])
+    })
+
+    it('反向对照④:PID 为 0 / 负数 / 非整数 ⇒ 一律丢弃(0 与小数都不是可用 PID)', () => {
+      expect(parseTasklistCsvPids('"a.exe","0","Console","1","1 K"\n')).toEqual([])
+      expect(parseTasklistCsvPids('"a.exe","-7","Console","1","1 K"\n')).toEqual([])
+      expect(parseTasklistCsvPids('"a.exe","12.5","Console","1","1 K"\n')).toEqual([])
+    })
+
+    it('反向对照⑤:空输出 ⇒ 空数组(调用方据此拒杀,不回落按映像名扫全场)', () => {
+      expect(parseTasklistCsvPids('')).toEqual([])
+    })
+  })
+
   it('closeClientAndWait:本来没开 ⇒ 不执行关闭、零等待', () => {
     let closeCalls = 0
     const r = closeClientAndWait({
