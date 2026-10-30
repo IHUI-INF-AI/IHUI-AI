@@ -74,7 +74,7 @@ function normalizeInput(url?: string | null): string {
 function passThroughNonHttp(value: string, dataPattern: RegExp): string {
   const matched = /^([a-z][a-z0-9+.-]*):/i.exec(value)
   if (!matched) return value // 相对路径 / 裸文件名:同源,照原样
-  const scheme = matched[1].toLowerCase()
+  const scheme = (matched[1] ?? '').toLowerCase()
   if (scheme === 'blob') return value
   if (scheme === 'data') return dataPattern.test(value) ? value : ''
   return ''
