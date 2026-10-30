@@ -1063,6 +1063,7 @@ declare module '@rn-shells/OrderScreen' {
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const OrderScreen: ComponentType<Record<string, unknown>>
+  export const parsePayAmount: ComponentType<Record<string, unknown>>
 }
 
 declare module '@rn-shells/OrderTrackScreen' {
