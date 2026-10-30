@@ -682,14 +682,22 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
     }
   })
 
-  test('`--top` 只认纯数字:`--top --staged` ⇒ 退回 30 并在人读面点名"忽略无效"', () => {
+  test('`--top` 吞值 ⇒ 未判定 exit 2(G-322:旧档"印一行忽略无效后照跑默认 30"已废止)', () => {
     const root = twoHitFixture()
     try {
       const r = runScript(['--top', '--staged'], { cwd: root })
-      const out = `${r.stdout}\n${r.stderr}`
-      assert.match(out, /忽略无效的 --top 值/, 'NaN 阈值不得静默:必须写明忽略了什么')
-      assert.match(r.stdout, /=== 硬编码中文 TOP 30 文件/, '必须退回默认 30(表头即档名)')
-      assert.throws(() => JSON.parse(r.stdout), '无效 --top 只影响阈值,不得把输出换成 JSON 档')
+      assert.equal(r.status, 2, `给了旗标却没给合法值必须未判定,实得 exit=${r.status}`)
+      assert.match(r.stderr, /--top 需要一个纯数字/, '必须点名少打的是什么')
+      assert.match(r.stderr, /"--staged"/, '三态点名:值被下一枚旗标顶掉时须报出实得的是哪一枚')
+      assert.ok(
+        !/=== 硬编码中文 TOP/.test(r.stdout),
+        '未判定档不得照样出具报告 —— 静默退回默认 30 会让调用方以为阈值变了(§0.3)',
+      )
+      // 反向对照(成对夹具):同一夹具、同一调用形态,只把值换成合法数字 ⇒ 必须照旧出具报告,
+      // 证明上面那条不是恒真断言。
+      const ok = runScript(['--top', '30', '--staged'], { cwd: root })
+      assert.notEqual(ok.status, 2, `合法值不得落未判定,实得 exit=${ok.status}:${ok.stderr}`)
+      assert.match(ok.stdout, /=== 硬编码中文 TOP 30 文件/, '合法数字必须照旧生效')
     } finally {
       rmScratch(root)
     }
@@ -710,12 +718,14 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
 
   test('形状锁:带值旗标必须拒绝"下一个 token 是旗标",且 stdout 档的提示必须走 stderr', () => {
     const code = readFileSync(SCRIPT_PATH, 'utf8')
-    assert.match(
-      code,
-      /!v\.startsWith\('-'\)/,
-      'flagValue 必须保留"以 - 开头即不算值"这条判据(摘掉它就回到本次立项那一型)',
+    // G-322(2026-10-30):"以 - 开头即不算值"这条判据已迁单源出口(§22c),本文件只允许**取用**它:
+    // 断言改为"引了单源" + "本文件不再留裸取值形状",比原先钉字符串更紧(裸形状一出现就红)。
+    assert.match(code, /from '\.\/lib\/flag-value\.mjs'/, '旗标取值判据必须来自单源出口 lib/flag-value.mjs')
+    assert.ok(
+      !/argv\[\s*argv\.indexOf\([^)]*\)\s*\+\s*1\s*\]/.test(code),
+      '不得再留 `argv[argv.indexOf(f) + 1]` 裸取值:值被下一枚旗标顶掉时会静默折回默认',
     )
-    assert.match(code, /\/\^\\d\+\$\/\.test\(TOP_RAW\)/, '--top 必须按纯数字判(旧写法 parseInt 会把旗标折成 NaN)')
+    assert.match(code, /\/\^\\d\+\$\/\.test\(TOP_F\.value\)/, '--top 必须按单源取出的值判纯数字(旧写法 parseInt 会把旗标折成 NaN)')
     assert.match(
       code,
       /function notice\(msg\) \{\s*\n\s*if \(JSON_STDOUT\) console\.error\(msg\)/,

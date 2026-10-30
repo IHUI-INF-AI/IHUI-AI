@@ -4,7 +4,6 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-
 # 安全策略(Security Policy)
 
 本文件描述 IHUI-AI 项目的安全策略,包括漏洞报告流程、响应时间承诺、支持版本范围、
@@ -492,31 +491,6 @@ EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形�
   才代拉,轮询到终态,拿不到路径/状态一律判未判定、不动作。镜像 16 例 + 两次真停服务的变异自证
   (首版在 START_PENDING 就断言失败,正是被自证抓出来改掉的)。
 
-### 10.8.1 外部可达面实测(2026-10-29,第三方多点探测)
-
-回源鉴权证明的是"带错头会被拒",它**不能**回答"外面到底能不能连上"。这两件事必须分开量:端口若压根
-没被路由器映射,守卫根本没机会被调用;端口若被 DMZ 全转发,则整台机器的监听面都是外部可达 —— 后者
-会让"只映射 8801"这个前提当场失效。故用第三方多点探测(check-host.net,节点在境外,不依赖本机出网
-路径)做了一组**成对对照**:
-
-| 目标 | 探测节点 | 结果 |
-|---|---|---|
-| `218.27.68.23:8801` | 加拿大 / 瑞士 / 哈萨克斯坦 | **TCP 连接成功**(0.22–0.26s) |
-| `218.27.68.23:8802` | 俄罗斯 / 瑞典 | **Connect timeout**(两节点皆超时) |
-| `218.27.68.23:8899` | 德国 / 香港 | **Connect timeout** |
-| `http://218.27.68.23:8801/` | 斯洛文尼亚 / 英国 | **403 Forbidden** |
-
-两个结论:
-
-1. **路由器只映射了 8801,没有 DMZ 全转发** —— 对照组两个端口外部完全不可达。这是"本机入站面已
-   收干"唯一站得住的证据;否则它只是"我以为关了"。
-2. **守卫对真实外部请求有效** —— 境外节点不属内网、也不带 EO 回源头,拿到的是 403 而不是站点 HTML。
-
-口径提醒:出口 IP 是**联通动态地址**(当次实测已从 `218.27.70.129` 变为 `218.27.68.23`),本组读数只在
-探测当次成立,换 IP 后必须重测,不得引历史结论。复现:
-`curl -H 'Accept: application/json' 'https://check-host.net/check-tcp?host=<IP>:<PORT>&max_nodes=3'`,
-取 `request_id` 后查 `/check-result/<id>`。
-
 ### 10.9 P0 — 2026-10-29 二轮加固:未授权面 / 本地文件面 / 边缘 IP 身份
 
 > 五组修复,全部有代码级回归锁,且在生产实测闭环。本节只记"改了什么 + 怎么验",
@@ -580,35 +554,23 @@ EdgeOne 直连 —— 边缘那 500rps 限流和 EdgeOne 的 DDoS 防护都形�
   写 `ADMIN_TOTP_MODE=warn` 作过渡。**机主在「设置 → 安全」绑定 TOTP 后删掉那一行即回到
   enforce**;绑定期内 admin 面仍可被单密码进入,这是本轮唯一保留的已知风险。
 
-**⑥ 鉴权默认拒绝兜底闸 —— 2026-10-29 已切 enforce**
+**⑥ 鉴权默认拒绝兜底闸 —— observe 档已上线**
 
-api 的鉴权此前是"每路由手挂 `authenticate`",没有根级默认;新增路由忘挂即裸奔。
-本轮补了 `apps/api/src/plugins/auth-default-deny.ts`:用 `onRoute` 把一道兜底 preHandler
+api 的鉴权此前是"每路由手挂 `authenticate`",没有根级默认;新增路由忘挂即裸奔
+(实测 `developer-relay-keys-admin` 恒 401 属碰巧 fail-closed)。本轮补了
+`apps/api/src/plugins/auth-default-deny.ts`:用 `onRoute` 把一道兜底 preHandler
 **追加到每个路由 preHandler 链末尾** —— 前面的路由级/插件级鉴权先跑并写 `request.userId`,
 兜底见 `userId` / `apiKey` / `openCapability` 任一存在即放行(**不重复查库**),
 只兜"完全没人管"的路由。
 
-三档:`off` / `observe` / `enforce`。上线路径 = **先 observe 再 enforce**,理由被实测坐实:
-- observe 5 分钟即抓到 `POST /api/github-app/webhook`(HMAC 验签的匿名回调)——初版名单漏了,
-  直接 enforce 会打断 CI;
-- 切 enforce 后 `enforce-401` 日志立刻点名 **12 条真裸奔路由**,其中
-  `/api/chat/conversations` 此前**匿名可读会话列表**(IDOR),`/api/subagents/*`、
-  `/api/workspace/permission/*`、`POST /api/agent-control/capability` 同类。
-  逐条判读后:app-version 与 news 是合法公开面(补入名单),其余保持拦截。
+三档:`off` / `observe`(默认) / `enforce`。**当前生产 = observe**:只记
+`[auth-default-deny] <METHOD> <path> 无凭据且不在公开名单`,不拦人。
+上线 5 分钟即抓到一条真实流量:`POST /api/github-app/webhook`(HMAC 验签,匿名)——
+直接切 enforce 会打断 CI 回调,已补进名单。这条实例本身就是"为什么必须先 observe"的证据。
 
-**踩到的坑(已修,带回归锁)**:Fastify 的 preHandler 里 `reply.send()` 之后只 `return`
-(返回 undefined)不会终止链,链尾还会被调用 ⇒ 二次 send 抛 "Reply was already sent"
-并被全局处理器收敛成 **500 而非 401**。修复 = `authGuard` 开头 `if (reply.sent) return`
-(根治,不依赖上游写法) + knowledge 的 preHandler 改 `return reply`。
-回归锁:`auth-default-deny.test` 的 D2b(上游已 send ⇒ 仍 401 且兜底零次认证)。
-
-**切档纪律**:observe 满 24h 且 `D:\DevEnv\logs\svc-api-*-nssm.log` 里不再出现新的
-`auth_default_deny_observe` 路径后再切 enforce;回滚 = `.env` 改回 `observe` + 蓝绿切流。
-
-**运维要点**:生产是 blue/green 双色(`IHUI-API-BLUE` 8842 / `IHUI-API-GREEN` 8843),
-router 按 `deploy/run/api-bluegreen.json` 的 `active` 转发。**只重启其中一色不会生效** ——
-必须用 `deploy/win/ihui-api-bluegreen.ps1 -Target <色>` 做健康门禁 + 原子切流。
-(本轮就踩过:改了代码只重启 blue,而 active 是 green,线上跑了两小时旧代码。)
+**切 enforce 的前置**:observe 满 24h 且 `D:\DevEnv\logs\svc-api-blue-nssm.log` 里
+不再出现新的 `auth_default_deny_observe` 路径。反向(先 enforce)遇到漏列公开面就是
+整站 401,比没有这道闸更糟。
 
 现状读数(立案时盘点):341 个路由文件 / 3470 个注册点 / 188 个插件级 preHandler /
 1450 处鉴权调用。

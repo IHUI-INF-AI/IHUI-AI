@@ -113,7 +113,7 @@ import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
 import { resolveInterjectionSupport } from '@/hooks/use-chat/runtime-capabilities'
 // G-171a:审批待决事实源(turn-status-line 的 waitingConfirm 同一位,不另取数)
 import { useToolApprovalPending } from '@/components/ai/tool-approval-dialog'
-import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
+import { QUEUE_OPS_NAMESPACE, type FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@ihui/shared/plugins-data'
@@ -264,6 +264,9 @@ export function MessageInput({
   onFloatDragStart,
 }: MessageInputProps) {
   const t = useTranslations('chat')
+  // 差距③配套(2026-10-30 立):「打断并发送」按钮文案复用既有 ai.pane.queueOps 词包
+  // (与 QueueInteractionBar 的 interruptAndRun 动词同源,不新增 key)
+  const tq = useTranslations(QUEUE_OPS_NAMESPACE)
   // 票60 步序二(2026-10-18):chat store 消费面按窗格寻址。本组件内对 chat 状态的
   // 读/写全部经 chatStore(getState/setState/selector 同一实例,内部自洽);
   // 无 Provider 时它是单例 useChatStore 本尊 —— 本轮行为零变化。
@@ -444,6 +447,7 @@ export function MessageInput({
     removePendingMessage,
     sendPendingMessage,
     steer,
+    interruptAndSend,
   } = useMessageSend({
     value,
     setValue,
@@ -465,6 +469,8 @@ export function MessageInput({
     inputCoreRef,
     draftKey,
     onSent: promptHistory.pushSent,
+    // 差距③配套(2026-10-30 立):「打断并发送」的停流出口 = W2 既有 onStop(唯一出口)
+    onStop,
   })
   // D166:发送即收卡 —— 包装保持 submit 原签名 `(overrideValue?: string) => Promise<void>`,
   // 发送动作与结果零变更,仅在发送链启动后关闭链接预览卡(探测失败本就不阻断发送)。
@@ -1530,6 +1536,28 @@ export function MessageInput({
                           data-testid="steer-button"
                         >
                           <Zap className="h-4 w-4" />
+                        </button>
+                      </span>
+                    </Tooltip>
+                    {/* 差距③配套(2026-10-30 立):「打断并发送」= 组合语义(零新状态机)——
+                        先按 submit 同款 W27 路径入队当前输入,再走既有 onStop 停流;
+                        本组件"流结束自动出队"effect 随即发送队首。空输入禁用(双保险)。 */}
+                    <Tooltip content={tq('interruptAndRun')}>
+                      <span className="inline-flex">
+                        <button
+                          type="button"
+                          onClick={() => void interruptAndSend()}
+                          disabled={!value.trim()}
+                          className={cn(
+                            ICON_BUTTON_ACTION_BASE_CLASS,
+                            value.trim()
+                              ? 'bg-violet-500 text-white hover:bg-violet-600'
+                              : ICON_BUTTON_ACTION_DISABLED_CLASS,
+                          )}
+                          aria-label={tq('interruptAndRun')}
+                          data-testid="interrupt-and-send-button"
+                        >
+                          <ArrowUp className="h-4 w-4" />
                         </button>
                       </span>
                     </Tooltip>

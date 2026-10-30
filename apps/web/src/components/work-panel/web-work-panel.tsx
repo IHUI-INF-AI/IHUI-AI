@@ -24,6 +24,7 @@ import {
   dockedBrowserCloseTab,
   dockedBrowserDevtools,
   dockedBrowserForward,
+  dockedBrowserHome,
   dockedBrowserNavigate,
   dockedBrowserNewTab,
   dockedBrowserPick,
@@ -37,7 +38,6 @@ import {
   dockedBrowserFavoriteRemove,
   dockedBrowserFavoriteToggle,
   dockedBrowserHistoryClear,
-  dockedBrowserHome,
   onDockedBrowserPoppedOut,
   onDockedBrowserTabs,
 } from '@/lib/tauri-bridge'
@@ -103,9 +103,11 @@ export function WebWorkPanel() {
       dragInsertBefore: tw('dragInsertBefore'),
       dragInsertAfter: tw('dragInsertAfter'),
       closeTab: tw('closeTab'),
-      // 2026-10-30 补回注记:原实现此处还注入 home/pickElement/picking/devtools/popout 五键,
-      // 但 @ihui/ui-react 的 WorkPanelLabels 类型层与 9fdbc207ba 同批被削(本票禁改第 4 枚文件),
-      // 现类型无这些键 ⇒ 暂不注入;ui-react props 层补回时须同批加回(词包五键五语言俱在)。
+      home: tw('home'),
+      pickElement: tw('pickElement'),
+      picking: tw('picking'),
+      devtools: tw('devtools'),
+      popout: tw('popout'),
     }),
     [tw],
   )
@@ -771,7 +773,7 @@ export function WebWorkPanel() {
              多标签(2026-10-24 用户要求):原生侧一个标签一个子 webview,
              这里的标签栏与独立窗口同语义(点击切换 / X 关闭 / + 新建)。 */
           <div className="flex h-full w-full flex-col">
-            <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border/60 bg-muted/30 px-1.5 py-1">
+            <div className="flex shrink-0 items-center gap-1 overflow-x-auto bg-muted/30 px-1.5 py-1">
               {dockTabs.map((t) => (
                 <div
                   key={t.id}

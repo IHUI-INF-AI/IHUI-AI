@@ -63,6 +63,9 @@ export interface UseMessageSendParams {
   draftKey: string
   /** D36 发送成功后回调(推送该条用户文本到会话输入历史栈),由主组件传入以解耦历史持久化 */
   onSent?: (text: string) => void
+  /** 差距③配套(2026-10-30 立):宿主停流唯一出口(use-chat terminateStream)。
+   *  interruptAndSend 入队后调用它停流;缺省时只入队不停流。 */
+  onStop?: () => void
 }
 
 /** 返回值 */
@@ -87,6 +90,10 @@ export interface UseMessageSendResult {
   /** Steer 中途引导(2026-09-19 立):流式期间闪电按钮触发,不打断当前工具执行,
    *  将输入框文本经网关 /chat/steer 注入 ai-service 队列,下一轮 LLM 调用前生效 */
   steer: () => Promise<void>
+  /** 差距③配套(2026-10-30 立):「打断并发送」组合语义 —— 流式期间先按 submit 同款
+   *  W27 路径入队当前输入,再 onStop() 停流;既有"流结束自动出队"effect 随即发送队首,
+   *  零新状态机(不引入第三条发送路径)。 */
+  interruptAndSend: () => Promise<void>
 }
 
 /**
@@ -154,6 +161,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     inputCoreRef,
     draftKey,
     onSent,
+    onStop,
   } = params
   const t = useTranslations('chat')
   const { track } = useAnalytics()
@@ -588,8 +596,9 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
   /** Steer(中途引导,2026-09-19 立):仅流式期间可用(Enter 保持 W27 FIFO 不变,
    *  本函数是闪电按钮专属路径)。取当前流式 assistant 消息 ID(网关凭
    *  conversationId+messageId 反查 upstreamSessionId)调网关 POST /chat/steer,
-   *  由 ai-service 在 tool loop 边界注入;badge 由 SSE steer 事件回执驱动
-   *  (onSteer → appendSteerNotice),此处不做乐观写入避免重复追加。
+   *  由 ai-service 在 tool loop 边界注入;差距③(2026-10-30 立)起入队成功即乐观
+   *  写入 queued 条目(呈现撤回按钮),SSE injected 回执(onSteer → appendSteerNotice)
+   *  按 queuedAt/同文本匹配就地提升,不重复追加。
    *  入队成功即清空输入框文本(引导为纯文本,不含附件引用);失败保留内容供重试。 */
   const steer = React.useCallback(async () => {
     const text = value.trim()
@@ -617,6 +626,14 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       }
       // 埋点:中途引导发送成功(web 端)
       track({ name: 'chat_steer', category: 'chat', label: 'web' })
+      // 差距③(2026-10-30 立):乐观写入 queued 条目,steer-notice-bar 据此渲染撤回按钮。
+      // queuedAt = 入队 ACK 回显的撤回凭据(SteerChatStreamResult.queuedAt,ISO 串;
+      // SSE injected 帧 timestamp 同值,SSE 回执据此就地提升);旧服务端无回显时回落本地钟。
+      useChatStore.getState().appendSteerNotice(messageId, {
+        text,
+        phase: 'queued',
+        queuedAt: result.data?.queuedAt ?? new Date().toISOString(),
+      })
       setValue('')
       if (typeof window !== 'undefined') clearDraft(draftKey)
       requestAnimationFrame(() => inputCoreRef.current?.resize())
@@ -625,6 +642,22 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       toast.warning(t('steerFailed'))
     }
   }, [value, isStreaming, references, setValue, detachReferences, inputCoreRef, draftKey, track, t])
+
+  /** 差距③配套(2026-10-30 立):「打断并发送」组合语义 —— 先按 submit 流式分支同款
+   *  W27 路径入队当前输入(清输入/引用/草稿),再 onStop() 停流;message-input.tsx 既有
+   *  "流结束自动出队"effect 随即发送队首 ⇒ 不引入第三条发送路径、零新状态机。
+   *  非流式 / 空输入:静默不动作(按钮仅流式中渲染且有内容才启用,此处为双保险)。 */
+  const interruptAndSend = React.useCallback(async () => {
+    const text = value.trim()
+    if (!text || !isStreaming) return
+    setPendingMessages((prev) => [...prev, { text, refs: references.map((r) => ({ ...r })) }])
+    setValue('')
+    // 不释放 blob URL:队列条目出队时还要用它们拼 markdown(同 submit 流式分支)
+    detachReferences()
+    if (typeof window !== 'undefined') clearDraft(draftKey)
+    requestAnimationFrame(() => inputCoreRef.current?.resize())
+    onStop?.()
+  }, [value, isStreaming, references, setValue, detachReferences, draftKey, inputCoreRef, onStop])
 
   return {
     isDragOver,
@@ -639,6 +672,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     removePendingMessage,
     sendPendingMessage,
     steer,
+    interruptAndSend,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

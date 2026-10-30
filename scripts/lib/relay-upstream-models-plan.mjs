@@ -9,9 +9,11 @@
  * `scripts/lib/relay-upstream-models-db.mjs`,测试钉的是判据本身。
  *
  * 四条不显然的口径:
- *  1. `isRelayPublic` 是登记器的写面之一,且恒按登记表(false):渠道路由
- *     `relay-channel-router#selectChannelCandidates` 的入口谓词要求 is_relay_public=true,登记成
- *     true 会把「只有账号池适配器能服务」的 provider 冒充成 OpenAI 兼容渠道去直连不存在的端点。
+ *  1. `isRelayPublic` 是登记器的写面之一,默认恒 false(账号池 provider 对外不可见)。单模型公开必须
+ *     在 models[] 里显式写 `isRelayPublic:true` + `publicReason`(≥10 字),没有显式声明一律 false。
+ *     公开的副作用是 `relay-channel-router#selectChannelCandidates` 也会把它当 OpenAI 兼容渠道路由候选:
+ *     账号池 provider 在 ai_relay_key_pool 无行时该查询返回空 ⇒ 仍回落账号池(行为不变);一旦有人给
+ *     同 provider 灌 key,直连会先于账号池被尝试 —— 故公开必须逐模型点名,不随 provider 批量开。
  *  2. **同键判据 = (provider_code, COALESCE(base_url,''))**:同 provider 不同 base_url 是两行
  *     (库里 `uq_ai_model_config_global_provider_base` 就是这个键),plan 层不靠库索引也表达同一关系。
  *     同键行只有当 description 带本器出处标记(`PROVENANCE_MARK`)才算"自己写的" —— 不带 ⇒
@@ -93,6 +95,13 @@ export function parseRegistry(text, providerCodes, today = new Date().toISOStrin
         o.models.forEach((m, j) => {
           if (!str(m?.alias) || !str(m?.upstreamModel))
             return void bad.push(`models[${j}] 缺 alias/upstreamModel`)
+          if (m?.isRelayPublic !== undefined && typeof m.isRelayPublic !== 'boolean')
+            bad.push(`models[${j}].isRelayPublic(必须布尔)`)
+          if (
+            m?.isRelayPublic === true &&
+            (!str(m.publicReason) || m.publicReason.trim().length < 10)
+          )
+            bad.push(`models[${j}] isRelayPublic=true 必须带 publicReason(≥10 字定向说明)`)
           const key = `${pk}\u0000${m.alias}`
           if (aliasSeen.has(key)) bad.push(`models[${j}] alias=${m.alias} 在同 provider 内重复`)
           aliasSeen.add(key)
@@ -183,6 +192,8 @@ export function planRegistration(entries, snapshot) {
       } else push(e.providerCode, null, 'matched', `配置行 id=${configId} 已一致`)
     }
     for (const m of e.models) {
+      // 可见性:provider 默认 false;单模型可显式覆盖(parseRegistry 已强制 publicReason)
+      const publicFlag = m.isRelayPublic ?? e.isRelayPublic
       const mine = (snapshot.models ?? []).filter((x) => Number(x.configId) === configId)
       const exact = mine.find((x) => String(x.modelId) === String(m.alias))
       const ciVar =
@@ -203,7 +214,7 @@ export function planRegistration(entries, snapshot) {
           alias: m.alias,
           upstreamModel: m.upstreamModel,
           displayName: m.displayName ?? null,
-          isRelayPublic: e.isRelayPublic,
+          isRelayPublic: publicFlag,
         })
         push(
           e.providerCode,
@@ -215,8 +226,8 @@ export function planRegistration(entries, snapshot) {
       }
       const diff = []
       if (exact.enabled !== true) diff.push(`enabled 库=${exact.enabled} 应为 true`)
-      if (exact.isRelayPublic !== e.isRelayPublic)
-        diff.push(`is_relay_public 库=${exact.isRelayPublic} 表=${e.isRelayPublic}`)
+      if (exact.isRelayPublic !== publicFlag)
+        diff.push(`is_relay_public 库=${exact.isRelayPublic} 表=${publicFlag}`)
       if (diff.length) {
         if (state !== 'missing') state = 'drift'
         actions.push({
@@ -224,7 +235,7 @@ export function planRegistration(entries, snapshot) {
           providerCode: e.providerCode,
           id: Number(exact.id),
           enabled: true,
-          isRelayPublic: e.isRelayPublic,
+          isRelayPublic: publicFlag,
         })
         push(e.providerCode, m.alias, 'drift', diff.join(' · '))
       } else push(e.providerCode, m.alias, 'matched', '已一致')
