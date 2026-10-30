@@ -564,7 +564,7 @@
     {
       "shared": "packages/app/src/features/identity-verify/IdentityVerifyScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/IdentityVerifyScreen.tsx",
-      "miniapp": "pkg-user/user/realname"
+      "miniapp": "pkg-user/identity-verify/index"
     },
     {
       "shared": "packages/app/src/features/image-gen-gallery/ImageGenGalleryScreen.tsx",
