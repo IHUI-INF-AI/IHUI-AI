@@ -20,11 +20,15 @@
  *      expected 取 env `IHUI_DECLARED_FILES`(safe-commit 本就把声明集传给钩子链)—— 本链自己
  *      在窗口期对声明路径的 add 放行,其余新进一律判红;
  *   5. 判红输出以 `IHUI_HOOK_WINDOW_GUARD_BLOCK` 结尾,safe-commit 据此**拒绝 --no-verify 兜底**
- *      (兜底会把外来件照样交出去,护栏就白装了)并 exit 1。
+ *      (兜底会把外来件照样交出去,护栏就白装了)并 exit 1;
+ *   6. **空树档(2026-10-30 补)**:同一处复量还比较"此刻写树是否等于 HEAD 的树"。相等 ⇒ 这枚
+ *      提交什么都没交出去(索引被并发会话 reset 清空那格的实测形态),一律拦。它排在
+ *      `blocking` 之前:外来件至少说明有内容进了提交,空树则连内容都没有,而调用者毫不知情。
  *
  * 刻意不给豁免 env(G-920 同判):出路只有两条 —— 等窗口期外来件被其主会话落地/撤走后重跑,
  * 或改走 `scripts/object-space-land.mjs`(只交声明集,天然无窗口)。
  */
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -124,14 +128,38 @@ export function buildWrappedHooksDir({ repoRoot, tmpRoot, baselinePaths }) {
 }
 
 /**
+ * 当前索引写出的树是否与 HEAD **完全相同**(⇒ 提交出去只能得到一枚空提交)。
+ *
+ * 2026-10-30 立(实测踩中):`git commit` 在索引已空、而钩子运行前已判定"有变化"时,
+ * 会把 HEAD 的树原样交成一枚新提交 —— 树与父提交一字不差,`git log` 多一条噪音,
+ * 而调用者声明的文件**根本没进去**。safe-commit 随后在 Step 5 报"未落地的声明路径",
+ * 归因却指向"暂存面被清空" —— 现象与成因对不上,因为真正该拦住它的时刻是**这里**。
+ *
+ * 判据只取退出码,不取路径(路径取材仍唯一走 gitStagedPaths,§22c):
+ *   `git diff --cached --quiet HEAD --` → 0 = 无差异 / 1 = 有差异 / 其余 = 取不到判定面。
+ * 取不到(初生仓无 HEAD、索引损坏)一律返回 **false 不据此拦** —— 宁可漏拦一次,
+ * 也不让一个读不出的判定面把所有提交钉死(§12e 恒红门禁令)。
+ */
+export function indexMatchesHead(repoRoot) {
+  const r = spawnSync('git', ['diff', '--cached', '--quiet', 'HEAD', '--'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  return r.status === 0
+}
+
+/**
  * pre-commit 末尾的复量(判据 = diffForeignIndexEntries,唯一一份)。
  * 基线 = 发令前全量索引快照;expected = env 声明集(本链窗口期对声明路径的 add 放行)。
- * 返回判据原样结果;CLI 层负责打印与退出码。
+ * 返回判据原样结果(附 `emptyWrite`:此刻写树是否必然产出空提交);CLI 层负责打印与退出码。
  */
 export function checkHookWindow({ repoRoot, baselineFile, expectedRaw = '' }) {
   const baseline = JSON.parse(readFileSync(baselineFile, 'utf8')).map(norm)
   const current = gitStagedPaths({ root: repoRoot }).map(norm)
-  return diffForeignIndexEntries({ baseline, current, expected: parseExpectedEnv(expectedRaw) })
+  const d = diffForeignIndexEntries({ baseline, current, expected: parseExpectedEnv(expectedRaw) })
+  return { ...d, emptyWrite: indexMatchesHead(repoRoot) }
 }
 
 function printCheck({ repoRoot, baselineFile }) {
@@ -144,6 +172,30 @@ function printCheck({ repoRoot, baselineFile }) {
     console.log(
       `[hook-window] 窗口期 ${d.resolved.length} 条已从索引消失(别家先落地带走了)—— 只记账,不拦: ${d.resolved.slice(0, 6).join(', ')}${d.resolved.length > 6 ? ' …' : ''}`,
     )
+  }
+  // 2026-10-30:空树档必须排在 blocking 之前 —— 它的后果比"被灌入外来件"更彻底:
+  // 外来件至少说明有内容进了提交,空树则是这一枚什么都没交出去,而调用者毫不知情。
+  if (d.emptyWrite) {
+    console.error(
+      '[hook-window] 拒发本枚提交:当前索引与 HEAD 完全相同 —— 写树得到的树与父提交一字不差,' +
+        '这一枚会是一枚**空提交**(git log 多一条噪音,而声明的改动根本没进去)。',
+    )
+    console.error(
+      '  最常见成因:并发会话的 safe-commit Step 1 会 `git reset HEAD` 清空整个共享索引,' +
+        '而本机钩子链长达 9~15 分钟,窗口期足以被清空 —— 于是 git 在索引已空的时刻写树。',
+    )
+    if (d.resolved.length)
+      console.error(
+        `  本次窗口期已观测到 ${d.resolved.length} 条从索引消失(见上方记账行),与"空树"互相印证。`,
+      )
+    for (const p of parseExpectedEnv(process.env.IHUI_DECLARED_FILES ?? '').slice(0, 6))
+      console.error(`     声明: ${p}`)
+    console.error(
+      '  出路:原样重试本命令(Step 1-3 会重新暂存并逐文件校验)。' +
+        '**不要** `git reset HEAD~1` —— HEAD~1 是相对位置不是身份,并发会话随时可以把尖端推走。',
+    )
+    console.error(GUARD_MARK)
+    return 1
   }
   if (!d.blocking) {
     console.log(`[hook-window] 写树前复量通过(基线 ${d.baselineForeign.length} 条水位未涨)`)
@@ -203,6 +255,7 @@ export const __test__ = {
   buildForwardBody,
   buildWrappedHooksDir,
   checkHookWindow,
+  indexMatchesHead,
   GUARD_MARK,
   // §22c 接线锁:护栏的判据必须是 commit-payload-attribution 那一份本体,不得复制第二遍。
   judgeRef: diffForeignIndexEntries,

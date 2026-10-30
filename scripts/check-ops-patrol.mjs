@@ -999,40 +999,12 @@ export function checkUndeliveredAlertDebt({
  * 故这里解析生产 checkout 的那一份(`devEnvRoot` 即 `D:\DevEnv`,再进 `ihui-prod`)。
  * 语义守恒:文件存在但陈旧 ⇒ 仍正确报红(活环真停了);文件不存在 ⇒ undetermined(不冒充"没问题")。
  */
-/**
- * 部署环所跑的**生产 checkout 根**(2026-10-17 抽出,原先只在这条日志路径里内联一次)。
- *
- * 与上面那条注记同一条事实:nssm 的 `IHUI-DEPLOYLOOP` / `IHUI-WEB` 跑的是 `<DevEnv>\ihui-prod`
- * 那一份,不是仓内这份 checkout。所以凡是问"**线上此刻**是什么状态"的判据(部署环心跳台账、
- * `.next/IHUI_BUILD_SHA` 线上构建标记、回滚点)一律从这里取根 —— 读仓内那份 `.next` 会拿到
- * 上一次本地构建留下的旧 sha(2026-10-17 实测:仓内标记停在 10-13 10:32,而线上标记 11:36 刚写过
- * `cf3d5fc6e0`,凭据巡检据此起寄了连续四天的"部署停摆 97.7 小时"假警报)。
- *
- * 语义守恒:根不存在(别人那台机没有这个形态)⇒ 调用方必须落**未判定**并点名,不得折成红或绿。
- */
-export function prodCheckoutRoot(repoRoot = REPO, exists = existsSync, env = process.env) {
-  const candidate = join(devEnvRoot(repoRoot), 'ihui-prod')
-  if (exists(candidate)) return candidate
-  // 显式覆盖 = 调用方（含测试夹具）对"哪一个根"的强声明，解析器不得越权改它的主张。
-  // 这一条不是防御性冗余：没有它，夹具声明"生产根不存在"时会被真机另一侧的 ihui-prod 找回输入，
-  // 把本该"未判定"的维度判成有读数 —— check-credential-health T17 锁的正是这一格(实测踩通过)。
-  if ((env.IHUI_DEVENV_ROOT || '').trim()) return candidate
-  // 双形态并集回落(2026-10-30 实测补):G-814433 只把 `backups`/`Temp` 搬进仓内 `.DevEnv`,
-  // `ihui-prod` 仍留在盘根侧(本机实测 D:/DevEnv/ihui-prod 存在 · D:/IHUI-AI/.DevEnv/ihui-prod 不存在);
-  // 而 devEnvRoot 选的粒度是"仓内 .DevEnv 这个**根目录**在不在"——根在、目标子路径不在 ⇒ 本函数
-  // 恒指一个不存在的根 ⇒ 两条"线上此刻"oracle(部署环心跳台账 / .next/IHUI_BUILD_SHA)在这种机器上
-  // 永远读"未判定",哨兵装了却不看路(§0.9"造好没装车=没有"同族)。正解是并集探测,不是放宽判据
-  // (先例口径见 scrub-temp-fixtures:"出口只能是并集,不是放宽判据")。
-  // 失效方向逐字不变:两候选都不存在 ⇒ 仍返回主候选,由调用方按既有语义落**未判定**并点名根路径,
-  // 既不冒红也不记绿(§0.3)。
-  const fallback = join(parse(repoRoot).root, 'DevEnv', 'ihui-prod')
-  if (fallback !== candidate && exists(fallback)) return fallback
-  return candidate
-}
-
-export function prodDeployLoopLog(repoRoot = REPO, exists = existsSync, env = process.env) {
-  return join(prodCheckoutRoot(repoRoot, exists, env), 'deploy/win/deploy-loop.log')
-}
+// 生产 checkout 根的判据已下沉单源 lib/prod-checkout-root.mjs（2026-10-30，RP-90）：
+// 同一条「线上此刻取材根」先前有三门各拼一次(devEnvRoot 双形态把 ihui-prod 挡在探测面外的机器上
+// 会恒指不存在的根)，现只许一份实现。本门只薄再导出 —— 既有 import 面(含 check-credential-health.mjs
+// 与本门 __test__ 出口)一字不动，消费方一律改取 lib，避免 lib 反向依赖 2600 行门体(§0.6)。
+import { prodCheckoutRoot, prodDeployLoopLog } from './lib/prod-checkout-root.mjs'
+export { prodCheckoutRoot, prodDeployLoopLog }
 
 export function heartbeatRows({ now, devEnv, databases, execCands = EXEC_CANDIDATES }) {
   const rows = []

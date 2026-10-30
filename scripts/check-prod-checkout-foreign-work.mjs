@@ -87,7 +87,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // §0.6 单一真相源:nssm 判读/候选路径与 UTF-16LE 解码复用 check-service-binary-paths 的出口,禁抄第二份
 import { NSSM_CANDIDATES, decodeNssm, interpretNssmGet, pickPowerShell } from './check-service-binary-paths.mjs'
 // §0.6 DevEnv 根的推导只有一份(项目内/盘根双形态由它自己判),本器不另数两级
-import { devEnvRoot } from './seal-c-root-stray.mjs'
+import { prodCheckoutRoot } from './lib/prod-checkout-root.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 
@@ -581,17 +581,19 @@ export function listServiceNamesFromQuery(text, parentKey = REG_SERVICES_KEY) {
   return { ok: true, code: 0, names }
 }
 
-/** 通道 C 的候选目录:`<devEnvRoot>/ihui-prod`(出口 = seal-c-root-stray 的 `devEnvRoot`,§0.6)。
- *  `devEnvRoot` 在"仓库根本身在夹具内"时抛错 ⇒ 显式落成 refused 归因码,不静默当"没有"。 */
-export function conventionalProdRoots(repoRoot, { exists = existsSync } = {}) {
-  let root
+/** 通道 C 的候选目录 = 单源 `lib/prod-checkout-root.mjs` 的 `prodCheckoutRoot`（2026-10-30，RP-90）。
+ *  本器比"目录在不在"更严一层：要的是一份**带 `.git` 的生产 checkout** ⇒ 把这层守卫包成存在性
+ *  谓词交给单源去选根（`(p) => exists(join(p, '.git'))`），而不是在这里再拼第二份候选序（§0.6）。
+ *  单源内部 `devEnvRoot` 在"仓库根本身在夹具内"时抛错 ⇒ 照旧显式落成 refused 归因码，不静默当"没有"。 */
+export function conventionalProdRoots(repoRoot, { exists = existsSync, env = process.env } = {}) {
+  const hasCheckout = (p) => exists(join(p, '.git'))
+  let cand
   try {
-    root = devEnvRoot(repoRoot)
+    cand = prodCheckoutRoot(repoRoot, hasCheckout, env)
   } catch (e) {
     return { state: 'refused', roots: [], reason: String(e?.message || e).slice(0, 120) }
   }
-  const cand = join(root, 'ihui-prod')
-  if (!exists(join(cand, '.git'))) return { state: 'measured', roots: [] }
+  if (!hasCheckout(cand)) return { state: 'measured', roots: [] }
   return { state: 'measured', roots: [cand] }
 }
 
