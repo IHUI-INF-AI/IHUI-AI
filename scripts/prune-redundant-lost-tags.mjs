@@ -174,13 +174,23 @@ if (redundant.length === 0) {
 
 // ── 4. 先删远端 ─────────────────────────────────────────────────
 if (!LOCAL_ONLY) {
-  const CHUNK = 80
+  // 批宽与耗时都是 2026-10-30 量出来的,不是拍的:
+  //   ① 原批宽 80 ⇒ 8093 枚要 102 次 push,实测 3~4 分钟/批、外推 5 小时。代价不在 ref
+  //      advertisement(我先猜错过一次,实测否掉),而在每次 `git push` 触发的 .husky/pre-push
+  //      全量代码质量门。那道门的 tag-only 豁免原先只看 `$1 ~ /^refs\/tags\//`,而**删除 tag**
+  //      时 git 传的 local 侧是 `(nil)`、tag 名只住在远端侧 ⇒ 豁免结构上够不着。已在钩子判据
+  //      里治本(回归锁 scripts/tests/pre-push-tag-only-exemption.test.mjs,含变异自证),
+  //      所以这里**不设任何跳门变量** —— 纯删 ref 的推送本就该被那道门自己放行。
+  //   ② 批宽取 500:argv 受 Windows 32767 字符上限约束(500 × ~48 字符 ≈ 24KB,留余量),
+  //      摘掉重复的门之后 8093 枚只需 17 次 push。不用 --atomic:单条 not-exist 不该拖垮整批,
+  //      判"删干净没有"的尺子是下面那次 ls-remote 回读,不是退出码。
+  const CHUNK = 500
   let pushed = 0
   for (let i = 0; i < redundant.length; i += CHUNK) {
     const chunk = redundant.slice(i, i + CHUNK)
     const refspecs = chunk.map((x) => `:refs/tags/${x.name}`)
     try {
-      git(['push', 'origin', ...refspecs], { timeout: 600_000 })
+      git(['push', 'origin', ...refspecs], { timeout: 900_000 })
       pushed += chunk.length
     } catch (e) {
       const msg = String(e.stderr || e.message || '')
@@ -190,7 +200,7 @@ if (!LOCAL_ONLY) {
       }
       pushed += chunk.length
     }
-    if ((i / CHUNK) % 10 === 0) console.log(`  远端已删 ${pushed}/${redundant.length}`)
+    console.log(`  远端已删 ${pushed}/${redundant.length}`)
   }
   console.log(`远端删除完成 ${pushed}`)
 
