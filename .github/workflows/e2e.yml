@@ -148,6 +148,7 @@ jobs:
         run: |
           echo "E2E_ADMIN_ACCOUNT=e2e_admin" >> "$GITHUB_ENV"
           echo "E2E_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "E2E_USER_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
 
       - name: Seed E2E 测试用户(test@aizhs.top)
         env:
