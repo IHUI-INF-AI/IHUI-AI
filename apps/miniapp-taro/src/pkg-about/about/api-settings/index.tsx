@@ -74,8 +74,12 @@ export default function ApiSettings() {
 
   const load = useCallback(async () => {
     try {
-      const res = await get<ApiConfig>('/about/api-config')
-      if (res) setConfig(res)
+      // 真身 = Coze 通道自检读数(GET /api/cozeZhsApi/agents/test/auth-config);
+      // 原 /about/api-config 全仓零注册 ⇒ 「运行环境」这一行永远只有 '-'
+      const res = await get<{ apiBaseUrl?: string }>('/cozeZhsApi/agents/test/auth-config')
+      if (res?.apiBaseUrl) {
+        setConfig((prev) => ({ ...prev, environment: res.apiBaseUrl as string }))
+      }
     } catch (e) {
       logger.error('about/api-settings', '获取 API 配置', e)
     }
@@ -139,11 +143,19 @@ export default function ApiSettings() {
   const testConnection = useCallback(async () => {
     setTesting('testing')
     try {
-      const res = await post<{ ok?: boolean; version?: string }>('/about/api-test', {
-        token: apiToken,
-        workflowId,
-      })
-      if (res && (res.ok || res.version)) {
+      // 真身 = POST /api/cozeZhsApi/agents/test/fetch-details(服务端用自己的 COZE 凭据打远端,
+      // 回 hasRemote + cozeError);原 /about/api-test 全仓零注册,这颗按钮今天怎么点都是"失败",
+      // 而且旧写法还把令牌明文交给了一条不存在的路径
+      if (!botId) {
+        setTesting('failed')
+        Taro.showToast({ title: t('apiSettings.testFailed'), icon: 'none' })
+        return
+      }
+      const res = await post<{ hasRemote?: boolean; cozeError?: string }>(
+        '/cozeZhsApi/agents/test/fetch-details',
+        { bot_id: botId },
+      )
+      if (res?.hasRemote) {
         setTesting('success')
         Taro.showToast({
           title: t('apiSettings.testSuccess'),
@@ -151,6 +163,11 @@ export default function ApiSettings() {
         })
       } else {
         setTesting('failed')
+        logger.warn('about/api-settings', '测试连接', res?.cozeError ?? '未取到远端详情')
+        Taro.showToast({
+          title: t('apiSettings.testFailed'),
+          icon: 'none',
+        })
       }
     } catch (e) {
       logger.error('about/api-settings', '测试连接', e)
@@ -160,7 +177,7 @@ export default function ApiSettings() {
         icon: 'none',
       })
     }
-  }, [apiToken, workflowId, t])
+  }, [botId, t])
 
   useDidShow(() => load())
 

@@ -102,13 +102,10 @@ export default function Email() {
       return
     }
     try {
-      // 优先调用专用邮箱验证码接口;后端未提供时降级为通用短信接口
-      try {
-        await post('/auth/email/send', { email: target })
-      } catch (_e) {
-        // 邮箱验证码端点不存在时,降级用通用 sms/send(scene=email) 占位
-        await post('/auth/sms/send', { phone: target, scene: 'email' })
-      }
+      // 发码与 /user/email/bind 同一份存储(identifier=邮箱),scene=bind 让邮件文案说真话
+      // (旧写法打 /auth/email/send —— 全仓零注册,再降级 /auth/sms/send 把邮箱当 phone 传,
+      //  而 sms 的 scene 枚举里也没有 'email' ⇒ 两条腿必然都失败)
+      await post<{ sent: boolean }>('/auth/email/code', { email: target, scene: 'bind' })
       Taro.showToast({ title: tt('user.email.codeSent', '验证码已发送'), icon: 'success' })
       startCountdown()
     } catch (e) {

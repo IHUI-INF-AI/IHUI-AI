@@ -238,12 +238,13 @@ function note(text: string): string {
 // ================= 类型化模板 =================
 
 /** 验证码场景 */
-export type VerificationScene = 'register' | 'login' | 'reset'
+export type VerificationScene = 'register' | 'login' | 'reset' | 'bind'
 
 const SCENE_TEXT: Record<VerificationScene, string> = {
   register: '注册账号',
   login: '登录账号',
   reset: '重置密码',
+  bind: '绑定邮箱',
 }
 
 /** 渲染验证码邮件(真实文本验证码,可选中复制) */
