@@ -432,6 +432,26 @@ test('T22 装车锁:computeFidelity 的 mpKeys 必须并入同目录模块(只�
   assert.ok(/localModulesOf\(p\)/.test(src || ''), 'mpKeys 未并入同目录模块,载体面退回只读主文件')
 })
 
+test('T23 同值别名:两套命名空间同一句译文 ⇒ 记已还原;译文不同或取不到值 ⇒ 一律不减免', () => {
+  const values = { 'settings.version': '版本', 'settings.logoutConfirm': '确认退出当前账号?', 'settings.x': '' }
+  const mp = { 'setting.version': '版本', 'setting.logoutConfirm': '确定要退出登录吗?', 'setting.y': '版本 ' }
+  const hit = gate.aliasSameKeys(
+    ['settings.version', 'settings.logoutConfirm', 'settings.x', 'settings.unknown'],
+    new Set(['setting.version', 'setting.logoutConfirm', 'setting.y']),
+    (k) => values[k] || null,
+    mp,
+  )
+  assert.deepEqual(hit, ['settings.version'], '只认逐字相同;空值与词包缺键都不减免')
+  assert.deepEqual(gate.aliasSameKeys(['a.b'], new Set(['x.y']), () => 'v', null), [], '词包取不到 ⇒ 零减免')
+})
+
+test('T24 flattenPack:嵌套命名空间按点拼回,与 t 的键形态一致', () => {
+  const flat = gate.flattenPack({ settings: { version: '版本', pwd: { tooShort: '太短' } }, top: '顶' })
+  assert.equal(flat['settings.version'], '版本')
+  assert.equal(flat['settings.pwd.tooShort'], '太短')
+  assert.equal(flat.top, '顶')
+})
+
 test('P4 并集语义:住在 messages/shared 里的命名空间不算缺(少算它会凭空报出 200+)', () => {
   const gap = gate.packNamespaceGap({
     usedKeys: ['settings.pwdTooShort', 'profile.logout'],
