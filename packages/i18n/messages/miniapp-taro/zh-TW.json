@@ -6204,7 +6204,8 @@
     "uploadSelfie": "上傳手持身分證照片",
     "title": "身分認證",
     "subtitle": "完成身分認證,保障帳戶安全",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "submit": "提交認證"
   },
   "referrer": {
     "title": "推薦人",

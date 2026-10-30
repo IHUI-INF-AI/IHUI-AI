@@ -201,6 +201,7 @@ export default defineAppConfig({
         'circle-create/index',
         'circle-detail/index',
         'ranking-detail/index',
+        'identity-verify/index',
       ],
     },
     {
