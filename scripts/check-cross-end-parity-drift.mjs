@@ -116,11 +116,17 @@ function docNumbers(md) {
  * 不拿"没读到"当豁免(§0.3),也不给"没证据的撤声明"开路(§0.7 豁免必须验过才免)。
  */
 export function notApplicableSince(rows, sinceIso) {
-  const since = Date.parse(String(sinceIso ?? '').trim())
-  if (!Number.isFinite(since) || !Array.isArray(rows)) return 0
+  // 台账 at 只有日精度(2026-10-30),而基线快照是当天凌晨的 ISO 时刻 —— 直接比瞬时会把**当天写的裁决**
+  // 判成"早于基线",于是撤假声明永远豁免不掉、哨兵天天报倒退。两边都归一到"日",同日算同期。
+  const dayOf = (v) => {
+    const t = Date.parse(String(v ?? '').trim())
+    return Number.isFinite(t) ? Math.floor(t / 86400000) : NaN
+  }
+  const sinceDay = dayOf(sinceIso)
+  if (!Number.isFinite(sinceDay) || !Array.isArray(rows)) return 0
   return rows.filter((r) => {
-    const at = Date.parse(String(r?.at ?? '').trim())
-    return r && r.verdict === 'not-applicable' && Number.isFinite(at) && at > since
+    const d = dayOf(r?.at)
+    return r && r.verdict === 'not-applicable' && Number.isFinite(d) && d >= sinceDay
   }).length
 }
 
