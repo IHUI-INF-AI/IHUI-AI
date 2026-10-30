@@ -50,7 +50,7 @@ import { createRequire } from 'node:module'
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 // 正解 = 把本生成器搬到根 scripts/(与 sync-miniapp-tokens.mjs 同一条先例;D2 只比 rank,
 // 所以只改说明符照样红),前置 = 等两台机的分叉裁决定后再搬,避免刚搬完就被并回旧路径。
