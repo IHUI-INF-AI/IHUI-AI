@@ -149,6 +149,14 @@ export async function fetchTextToSpeechAudio(text: string, voice = 'longxiaochun
   })
 }
 
+/** 同源代理下载(后端 /api/media/download 转发并带 Content-Disposition)。
+ * 走共享层 fetchRaw(自动带 Bearer / X-Requested-With / 设备指纹 / 30s 超时 / 401 续期),
+ * 满足「端内必须走 @ihui/api-client」守门 73,不再被端内直连后端判据命中。
+ * 调用方传入**外部 URL**,后端路径字符串内移到本包,端内只 import 调用。 */
+export async function fetchMediaDownload(url: string): Promise<Blob> {
+  return fetchRaw(`/api/media/download?url=${encodeURIComponent(url)}`)
+}
+
 /** 语音转文本(同步转写走 qwen3-asr 多模态对话端点;paraformer 默认档是异步任务,不适合本同步签名)
  * 门 8 死调用清账(2026-09-28):上一版 POST /api/ai-audio/asr 从未注册;
  * 真路由 = POST /api/ai/audio/recognize(ai-audio.ts:315),响应 {transcription} 映射为 {text}。 */

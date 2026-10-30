@@ -87,23 +87,31 @@
  *              (只对工作树模式有意义;blob 模式的对应判据是祖先对账,不放行)
  *  LAND_RESTORE_MANIFEST 可选,指向一份 JSON 清单**文件的路径**(与 LAND_BLOBS/LAND_CLASH_SCOPE 同形,
  *              传路径不传内联):
- *              `{entries:[{path, line, restoredFrom, why}]}` —— **声明式还原通道**(2026-10-30 立)。
- *              要解的机制缺口:"有意把被误删的祖先行还原回来"这一型,还原的内容按定义就是
- *              "祖先里有、基线里没了的行" ⇒ 行级复活守卫**必然触红**,而此前唯一具名出口是
+ *              `{entries:[{path, line, restoredFrom, why}]}` 或
+ *              `{entries:[{path, element:{jsonPath, value}, restoredFrom, why}]}` —— **声明式还原通道**
+ *              (2026-10-30 立;element 型同日补,补的正是"键路径档下没有窄出口"那一格)。
+ *              要解的机制缺口:"有意把被误删的祖先内容还原回来"这一型,还原的内容按定义就是
+ *              "祖先里有、基线里没了的行/键路径" ⇒ 复活守卫**必然触红**,而此前唯一具名出口是
  *              LAND_ALLOW_STALE=1 —— 那是整颗守卫关掉,同一枚落地里真夹带滞后回退也没人挡
- *              (本仓 2026-10-29/30 一波实测六次撞此型)。本旗把出口收窄成**白名单式逐行放行**:
- *              ① 只有清单点名的那些复活行参与配平,其余任何复活/滞后形态照旧拒落;
+ *              (本仓 2026-10-29/30 一波实测六次撞此型)。本旗把出口收窄成**白名单式逐条放行**:
+ *              ⓪ **两型按路径选一种**,不得混用(同一路径的声明全 line 或全 element,混用 ⇒ exit 2):
+ *                 · line —— 非 JSON 体(活文档/源码)用,按**行文字**配平;
+ *                 · element —— .json/.jsonl 用(键路径档),按 `{jsonPath, value}` 声明的**数组元素**
+ *                   配平(值按深排序 JSON 归一,与键路径复活判据同一把 canonOf);
+ *              ① 只有清单点名的那些复活参与配平,其余任何复活/滞后形态照旧拒落;
  *              ② 声明必须逐项核验后才免(§0.7"验过才免"):line 必须是**单行原文**;
  *                 restoredFrom 必须是 40 位全量 sha、是 baseRef 的祖先、且 `<sha>:<path>` 的 blob
- *                 里确实写着这一行(按复活判据同一把 resurrectKey 归一后在)—— 假 sha/行不在其中 ⇒ 拒;
- *                 why ≥10 字定向说明,缺/短/形态坏 ⇒ exit 2(用法错);
- *              ③ 配平是**多重集逐项等值**(与 LAND_CLASH_SCOPE 同纪律):少声明一行复活 ⇒ 拒并点名
- *                 未声明的复活行;多声明一行没被复活 ⇒ 拒("未被核验的声明"就是腐烂的守卫);
- *              ④ 射程只有行级复活那一支:整 blob 命中祖先走 LAND_CLASH_SCOPE、.json/.jsonl 键路径档
- *                 走 LAND_JSON_STRUCTURE、undetermined 永不免(§0.3)—— 声明了却落在射程外 ⇒ 拒;
- *              ⑤ 与 LAND_ALLOW_STALE **互斥**(两面旗同给当场 exit 2):一边是逐行放行、一边是整闸
+ *                 里确实写着这一行(resurrectKey 归一)/ 确实含这枚元素(canonOf 归一)—— 假 sha/
+ *                 内容不在其中 ⇒ 拒;why ≥10 字定向说明,缺/短/形态坏 ⇒ exit 2(用法错);
+ *              ③ 配平是**多重集双向等值**(与 LAND_CLASH_SCOPE 同纪律):少声明一条复活 ⇒ 拒并点名
+ *                 未覆盖项;多声明一条没被复活 ⇒ 拒("未被核验的声明"就是腐烂的守卫);
+ *              ④ 射程:line 型只管**行级**复活那一支(整 blob 命中祖先走 LAND_CLASH_SCOPE);
+ *                 element 型只管**键路径档的数组元素**复活(标量键复活不受理 —— 值回滚不是"还原
+ *                 登记";基线丢键更不受理 —— 那是真回写);undetermined 永不免(§0.3);
+ *                 声明落在射程外 ⇒ 拒;
+ *              ⑤ 与 LAND_ALLOW_STALE **互斥**(两面旗同给当场 exit 2):一边是逐条放行、一边是整闸
  *                 关掉,同时举旗说明调用方自己都不知道要什么;
- *              ⑥ 每次放行必须大声:逐条 entry(path/line/restoredFrom/why)既打 stdout,又**逐字
+ *              ⑥ 每次放行必须大声:逐条 entry(path/line|element/restoredFrom/why)既打 stdout,又**逐字
  *                 追加进提交信息**(Restore-Manifest-Entry trailer),事后从提交史即可追责。
  *              不传本旗 ⇒ 行为与设立前逐字节一致(镜像 T-RM-3 钉这条)。
  *  LAND_JSON_STRUCTURE=1 (G-816037)声明"本次落地面是机器格式化 JSON"⇒ 行级复活那一支可走
@@ -679,40 +687,87 @@ export function detectStaleLanding({
     // 放行只撤销这一支的拒绝;offenders 其余维度与其余路径一律照旧。
     if (restoreBy?.has(p)) {
       const entries = restoreBy.get(p)
-      const exempt =
-        line.status === 'judged' &&
-        !jsonMode &&
-        !wholeHit &&
-        !!line.restore &&
-        line.restore.match === true
-      restoreEval.set(p, {
-        consumed: exempt,
-        entries,
-        restore: line.restore ?? null,
-        why: exempt
-          ? null
-          : line.status !== 'judged'
-            ? `行级判据此轮为 ${line.status}(${line.reason ?? '无名'})⇒ 白名单不豁免"没判/不在射程",声明未被核验`
-            : jsonMode
-              ? '该路径走键路径档(.json/.jsonl)⇒ 行级清单不覆盖这一维,声明未被核验(这一型用 LAND_JSON_STRUCTURE)'
-              : wholeHit
-                ? '整 blob 命中祖先 ⇒ 判决在祖先对账(LAND_CLASH_SCOPE 行级声明),行级还原白名单不覆盖'
-                : `声明与本轮复活集不逐项等值:未声明的复活行 ${line.restore?.undeclared?.length ?? '?'} 条 / 多余声明 ${line.restore?.overDeclared?.length ?? '?'} 条(逐条点名见下)`,
-      })
-      if (exempt) {
-        refuseByLines = false
-        notes.push({
-          path: p,
-          kind: 'restore-manifest-exempt',
-          why:
-            `LAND_RESTORE_MANIFEST 白名单逐行放行:本轮复活 ${line.count} 行**全部**被清单逐条声明且已通过核验` +
-            `(restoredFrom 为 baseRef 祖先、其 <sha>:<path> blob 逐字写着该行)。` +
-            `本通道只免点名的这些行;未声明的复活/滞后形态照旧拒落,清单逐字写入提交信息可事后追责。` +
-            `读数:消失 ${delta.vanished} / 重现 ${delta.appeared} / 复活 ${line.count}(声明 ${line.restore.declared} 条)。`,
-          resurrected: line.count,
-          resurrectedSample: line.sample,
-          restoreEntries: entries,
+      const elementMode = jsonMode && entries.every((en) => en.element)
+      if (elementMode) {
+        // element 型(2026-10-30):键路径档下"有意还原被误删的数组元素"的窄出口。
+        // 放行条件与行级通道同纪律:判定面必须是 judged、整 blob 没命中祖先(那是真回写,
+        // 另有 LAND_CLASH_SCOPE)、基线零丢(丢是真回写,不在"还原"语义里),加上声明 ↔ 证据
+        // 双向多重集等值。任何一条不成立都照拒。
+        const cmp = compareElementRestore({
+          evidence: line.evidence,
+          overflow: line.evidenceOverflow,
+          declared: entries.map((en) => en.element),
         })
+        const exempt =
+          line.status === 'judged' &&
+          !wholeHit &&
+          (delta.vanished ?? 0) === 0 &&
+          cmp.match === true
+        restoreEval.set(p, {
+          consumed: exempt,
+          entries,
+          restore: { match: cmp.match, undeclared: cmp.undeclared, overDeclared: cmp.overDeclared },
+          why: exempt
+            ? null
+            : line.status !== 'judged'
+              ? `键路径判据此轮为 ${line.status}(${line.reason ?? '无名'})⇒ 白名单不豁免"没判/不在射程",声明未被核验`
+              : wholeHit
+                ? '整 blob 命中祖先 ⇒ 判决在祖先对账(LAND_CLASH_SCOPE 行级声明),element 型还原清单不覆盖'
+                : (delta.vanished ?? 0) > 0
+                  ? `基线有 ${delta.vanished} 处键路径/数组元素在落地内容里消失 ⇒ 这是丢(真回写),不在"还原"语义里,声明不豁免它`
+                  : cmp.why,
+        })
+        if (exempt) {
+          refuseByLines = false
+          notes.push({
+            path: p,
+            kind: 'restore-manifest-exempt',
+            why:
+              `LAND_RESTORE_MANIFEST 白名单逐元素放行(键路径档):本轮 ${line.count} 条复活证据**全部是数组元素**,` +
+              `且被清单逐条声明、双向多重集等值;声明元素已在 restoredFrom 那个祖先 blob 的同一容器里核验到。` +
+              `基线零丢(消失 0)才免 —— 丢是真回写,这一支不覆盖它。清单逐字写入提交信息可事后追责。` +
+              `读数:消失 ${delta.vanished} / 重现 ${delta.appeared} / 复活 ${line.count}(声明 ${entries.length} 条)。`,
+            resurrected: line.count,
+            resurrectedSample: line.sample,
+            restoreEntries: entries,
+          })
+        }
+      } else {
+        const exempt =
+          line.status === 'judged' &&
+          !jsonMode &&
+          !wholeHit &&
+          !!line.restore &&
+          line.restore.match === true
+        restoreEval.set(p, {
+          consumed: exempt,
+          entries,
+          restore: line.restore ?? null,
+          why: exempt
+            ? null
+            : line.status !== 'judged'
+              ? `行级判据此轮为 ${line.status}(${line.reason ?? '无名'})⇒ 白名单不豁免"没判/不在射程",声明未被核验`
+              : jsonMode
+                ? '该路径走键路径档(.json/.jsonl)⇒ **行级**清单不覆盖这一维(键路径档的复活口径是同一键路径取过同值,不是行文字);这一型请改用 element 型声明(见下 exit ③)'
+                : wholeHit
+                  ? '整 blob 命中祖先 ⇒ 判决在祖先对账(LAND_CLASH_SCOPE 行级声明),行级还原白名单不覆盖'
+                  : `声明与本轮复活集不逐项等值:未声明的复活行 ${line.restore?.undeclared?.length ?? '?'} 条 / 多余声明 ${line.restore?.overDeclared?.length ?? '?'} 条(逐条点名见下)`,
+        })
+        if (exempt) {
+          refuseByLines = false
+          notes.push({
+            path: p,
+            kind: 'restore-manifest-exempt',
+            why:
+              `LAND_RESTORE_MANIFEST 白名单逐行放行:本轮复活 ${line.count} 行**全部**被清单逐条声明且已通过核验` +
+              `(restoredFrom 为 baseRef 祖先、其 <sha>:<path> blob 逐字写着该行)。` +
+              `本通道只免点名的这些行;未声明的复活/滞后形态照旧拒落,清单逐字写入提交信息可事后追责。` +
+              `读数:消失 ${delta.vanished} / 重现 ${delta.appeared} / 复活 ${line.count}(声明 ${line.restore.declared} 条)。`,
+            resurrected: line.count,
+            resurrectedSample: line.sample,
+            restoreEntries: entries,
+          })
+        }
       }
     }
     // G-816037 结构档:只对"调用方显式声明 + 整 blob 没命中祖先 + 行级判据确实读到了东西"的那一格生效。
@@ -878,6 +933,7 @@ export function validateRestoreManifest(parsed, { paths, removePaths = [] } = {}
     }
     const p = typeof e.path === 'string' ? e.path : ''
     const l = typeof e.line === 'string' ? e.line : null
+    const el = e.element && typeof e.element === 'object' && !Array.isArray(e.element) ? e.element : null
     const sha = typeof e.restoredFrom === 'string' ? e.restoredFrom : ''
     const why = typeof e.why === 'string' ? e.why.trim() : ''
     if (!p) {
@@ -889,15 +945,46 @@ export function validateRestoreManifest(parsed, { paths, removePaths = [] } = {}
       )
       bad++
     }
-    if (l === null) {
-      errors.push(`${at}:line 必须是字符串`)
+    // 声明**两型按路径选一种**:line(行级原文,给非 JSON 路径)与 element(键路径数组元素,
+    // 给 .json/.jsonl)。两型同给 = 不知道该按哪把尺核验 ⇒ 形态错;两型都不给 = 空声明。
+    const hasLine = 'line' in e
+    const hasElement = 'element' in e
+    if (hasLine && hasElement) {
+      errors.push(`${at}:line 与 element 两型都给 ⇒ 口径不同不得混用(按路径选一种)`)
       bad++
-    } else if (l === '') {
-      errors.push(`${at}:line 为空串 ⇒ 无从配平`)
+    } else if (!hasLine && !hasElement) {
+      errors.push(`${at}:line 与 element 都没给 ⇒ 空声明无从配平`)
       bad++
-    } else if (/[\r\n]/.test(l)) {
-      errors.push(`${at}:line 必须是单行原文(含换行 ⇒ 形态错)`)
+    } else if (hasLine) {
+      if (l === null) {
+        errors.push(`${at}:line 必须是字符串`)
+        bad++
+      } else if (l === '') {
+        errors.push(`${at}:line 为空串 ⇒ 无从配平`)
+        bad++
+      } else if (/[\r\n]/.test(l)) {
+        errors.push(`${at}:line 必须是单行原文(含换行 ⇒ 形态错)`)
+        bad++
+      }
+    } else if (el === null) {
+      errors.push(`${at}:element 必须是对象 {jsonPath, value}`)
       bad++
+    } else {
+      const jp = typeof el.jsonPath === 'string' ? el.jsonPath.trim() : ''
+      if (!jp) {
+        errors.push(`${at}:element.jsonPath 必须是非空字符串(如 "$.entries[].roots")`)
+        bad++
+      } else if (jp !== '$' && !jp.startsWith('$')) {
+        errors.push(`${at}:element.jsonPath 必须以 \$ 起(键路径口径,实得 "${jp.slice(0, 48)}")`)
+        bad++
+      } else if (/[\r\n\u0000]/.test(jp)) {
+        errors.push(`${at}:element.jsonPath 不得含换行或 NUL`)
+        bad++
+      }
+      if (!('value' in el)) {
+        errors.push(`${at}:element.value 缺失(要还原的那个数组元素值,按深排序 JSON 归一后比对)`)
+        bad++
+      }
     }
     if (!/^[0-9a-f]{40}$/.test(sha)) {
       errors.push(
@@ -911,7 +998,26 @@ export function validateRestoreManifest(parsed, { paths, removePaths = [] } = {}
     }
     // 只把**一条错都不沾**的 entry 交出去:带病条目进了下游就是"errors 有人读、entries 也有人读"
     // 的两条真相;调用方在 errors 非空时本就该 exit 2,这里再把产出面收干净是第二道锁。
-    if (bad === 0) entries.push({ path: p, line: l, restoredFrom: sha, why })
+    if (bad === 0)
+      entries.push({
+        path: p,
+        line: l,
+        element: el === null ? null : { jsonPath: String(el.jsonPath).trim(), value: el.value },
+        restoredFrom: sha,
+        why,
+      })
+  }
+  // 同一路径的声明必须**同型**:一型走行级配平、一型走键路径配平,混在一条路径上会让
+  // "哪条声明被消费了"变得不可判(§0.10:举了旗就必须能逐条对上判据)。
+  const typeByPath = new Map()
+  for (const en of entries) {
+    const t = en.element ? 'element' : 'line'
+    const prev = typeByPath.get(en.path)
+    if (prev && prev !== t)
+      errors.push(
+        `path "${en.path}":同一路径的声明混了 line 与 element 两型 ⇒ 判据口径不一致,拒绝(同一路径请统一用一型)`,
+      )
+    typeByPath.set(en.path, t)
   }
   return { entries, errors }
 }
@@ -989,13 +1095,41 @@ export function loadRestoreManifest({
       )
       continue
     }
-    const dk = resurrectKey(en.line)
-    const tally = tallyLines(blobText, resurrectKey)
-    if (!tally.has(dk)) {
-      problems.push(
-        `${en.path} ← ${en.restoredFrom.slice(0, 12)}:blob 里逐字没有声明的那一行(按复活判据同一把 resurrectKey 归一后仍不在)⇒ 假声明,拒`,
-      )
-      continue
+    if (en.element) {
+      // element 型:核验「该祖先 blob 的指定数组容器里确实有这枚元素」(深排序 JSON 归一,
+      // 与键路径复活判据同一把 canonOf)。行级那一套(resurrectKey / tallyLines)对
+      // .json/.jsonl 不适用 —— 那两个档位的复活口径是键路径,不是行文字。
+      const kind = jsonGuardKindFor(en.path)
+      if (!kind) {
+        problems.push(
+          `${en.path} ← ${en.restoredFrom.slice(0, 12)}:element 型声明只对 .json/.jsonl 生效(该路径不在键路径档)⇒ 这一型在此核验不了,拒`,
+        )
+        continue
+      }
+      const fp = jsonKeyPathFingerprint(blobText, kind)
+      if (!fp.ok) {
+        problems.push(
+          `${en.path} ← ${en.restoredFrom.slice(0, 12)}:该提交的正文${fp.reason} ⇒ 键路径核验不了,拒`,
+        )
+        continue
+      }
+      const tal = fp.arrays.get(en.element.jsonPath)
+      const n = tal?.get(canonOf(en.element.value)) ?? 0
+      if (n <= 0) {
+        problems.push(
+          `${en.path} ← ${en.restoredFrom.slice(0, 12)}:该提交的 ${en.element.jsonPath} 容器里没有声明的那枚元素(按深排序 JSON 归一后仍不在)⇒ 假声明,拒`,
+        )
+        continue
+      }
+    } else {
+      const dk = resurrectKey(en.line)
+      const tally = tallyLines(blobText, resurrectKey)
+      if (!tally.has(dk)) {
+        problems.push(
+          `${en.path} ← ${en.restoredFrom.slice(0, 12)}:blob 里逐字没有声明的那一行(按复活判据同一把 resurrectKey 归一后仍不在)⇒ 假声明,拒`,
+        )
+        continue
+      }
     }
     if (!byPath.has(en.path)) byPath.set(en.path, [])
     byPath.get(en.path).push(en)
@@ -1231,6 +1365,15 @@ function jsonKeyPathDelta(base, next) {
  * ③ 是票面第二格的牙:只按行文本命中(同数字不同切片、别的切片同形行)一律不算凭据。
  * 祖先解析失败的那几枚提供不了证据(跳过,不冒充"查过");一枚能用都没有 ⇒ undetermined 不放行。
  */
+/**
+ * 键路径复活证据的条数上限(2026-10-30,随 element 型还原通道一起立)。
+ *
+ * 为什么需要上限:证据清单是给 element 型声明逐条配平用的,**超上限就必须放弃配平**
+ * (保守拒),不能截断后拿去比对 —— 截断会把"还有没声明的复活"读成"已全覆盖",
+ * 那正是本仓最高频的失效型(把没判写成判过了)。
+ */
+const RESURRECT_EVIDENCE_MAX = 256
+
 function jsonKeyPathResurrect({ base, next, ancestors }) {
   if (ancestors.length === 0)
     return {
@@ -1239,6 +1382,8 @@ function jsonKeyPathResurrect({ base, next, ancestors }) {
       count: null,
       sample: [],
       commits: [],
+      evidence: [],
+      evidenceOverflow: false,
     }
   const usable = ancestors.filter((a) => a.fp && a.fp.ok)
   if (usable.length === 0)
@@ -1248,19 +1393,28 @@ function jsonKeyPathResurrect({ base, next, ancestors }) {
       count: null,
       sample: [],
       commits: [],
+      evidence: [],
+      evidenceOverflow: false,
     }
   const clip = (s) => (s.length > SAMPLE_COL ? `${s.slice(0, SAMPLE_COL)}…` : s)
   let count = 0
   const sample = []
   const commits = []
   const seenCommit = new Set()
-  const record = (n, text, commit) => {
+  // 逐条证据(element 型声明按它配平;sample 只截前几条供人读,证据不截但超上限即置溢出标)
+  const evidence = []
+  let evidenceOverflow = false
+  const record = (n, text, commit, ev) => {
     count += n
     if (commit && !seenCommit.has(commit)) {
       seenCommit.add(commit)
       commits.push(commit)
     }
     if (sample.length < SAMPLE_LINES) sample.push(clip(text))
+    if (ev) {
+      if (evidence.length >= RESURRECT_EVIDENCE_MAX) evidenceOverflow = true
+      else evidence.push(ev)
+    }
   }
   for (const [p, vals] of next.paths) {
     if (base.paths.has(p)) continue // ② 基线里这条键路径还活着 ⇒ 值变化是本轮的合法编辑,不是复活
@@ -1273,7 +1427,7 @@ function jsonKeyPathResurrect({ base, next, ancestors }) {
         }
       }
       if (!bestCommit) continue
-      record(1, `${p} = ${v}`, bestCommit)
+      record(1, `${p} = ${v}`, bestCommit, { kind: 'key', path: p, value: v })
     }
   }
   for (const [p, m] of next.arrays) {
@@ -1295,10 +1449,88 @@ function jsonKeyPathResurrect({ base, next, ancestors }) {
       //    否则复用 lastNotNull 这类常见值必误报(2026-10-23:追加面板复用同形 options)。
       const removed = best - (bm.get(el) ?? 0)
       if (removed <= 0) continue
-      record(Math.min(extra, removed), `${p} ⇐ 元素 ${el}`, bestCommit)
+      const n = Math.min(extra, removed)
+      record(n, `${p} ⇐ 元素 ${el}`, bestCommit, { kind: 'array', path: p, element: el, count: n })
     }
   }
-  return { status: 'judged', reason: null, count, sample, commits }
+  return { status: 'judged', reason: null, count, sample, commits, evidence, evidenceOverflow }
+}
+
+/**
+ * element 型声明与键路径复活证据的**双向多重集配平**(2026-10-30,补 jsonMode 的窄出口)。
+ *
+ * 为什么需要这一支:`.json/.jsonl` 路径走键路径档(`jsonMode`),那里的"复活"是**同一键路径
+ * 在祖先 blob 里取过同值**,是真阳性;而 `LAND_JSON_STRUCTURE` 被 `!jsonMode` 排除、行级
+ * `LAND_RESTORE_MANIFEST` 也被 `!jsonMode` 排除 ⇒ 那一型过去只剩"整闸关掉"(LAND_ALLOW_STALE)。
+ * 本函数给"有意还原被误删的**数组元素**"这一类提供窄出口,判据三条:
+ *  ① 证据必须**全部是数组元素**(标量键复活不受理 —— 值回滚不是"还原登记",照拒);
+ *  ② 证据条数超上限 ⇒ 放弃配平(不截断后比对,见 RESURRECT_EVIDENCE_MAX);
+ *  ③ 声明多重集与证据多重集**双向等值**:少声明一条未覆盖的复活 / 多声明一条没复活的都不行
+ *     (与行级通道同一把尺:双向等值才算配平,单向"⊆"会给多声明留后门)。
+ */
+function compareElementRestore({ evidence, overflow, declared }) {
+  if (overflow)
+    return {
+      match: false,
+      why: `本轮键路径复活证据超过 ${RESURRECT_EVIDENCE_MAX} 条上限 ⇒ 不做逐条配平(截断后比对等于把"未覆盖"读成"已覆盖")`,
+      undeclared: [],
+      overDeclared: [],
+    }
+  const scalar = (evidence ?? []).filter((e) => e.kind !== 'array')
+  if (scalar.length)
+    return {
+      match: false,
+      why:
+        `本路径还有 ${scalar.length} 条**标量键**复活(${scalar
+          .slice(0, 3)
+          .map((e) => `${e.path} = ${String(e.value).slice(0, 48)}`)
+          .join(' ; ')})⇒ element 型声明只覆盖数组元素,标量键复活照拒` +
+        `(这一型要放行只能 LAND_ALLOW_STALE=1 整闸并留痕)`,
+      undeclared: [],
+      overDeclared: [],
+    }
+  const computed = new Map()
+  for (const e of evidence ?? []) {
+    const k = `${e.path}\u0000${e.element}`
+    computed.set(k, (computed.get(k) ?? 0) + e.count)
+  }
+  const want = new Map()
+  for (const d of declared) {
+    const k = `${d.jsonPath}\u0000${canonOf(d.value)}`
+    want.set(k, (want.get(k) ?? 0) + 1)
+  }
+  const undeclared = []
+  for (const [k, c] of computed) {
+    const d = want.get(k) ?? 0
+    if (c > d) undeclared.push({ k, needed: c, declared: d, raw: k.replace('\u0000', ' ⊇ ') })
+  }
+  const overDeclared = []
+  for (const [k, d] of want) {
+    const c = computed.get(k) ?? 0
+    if (d > c) overDeclared.push({ k, needed: c, declared: d, raw: k.replace('\u0000', ' ⊇ ') })
+  }
+  const fmt = (x) => x.k.replace('\u0000', ' ⊇ ')
+  if (undeclared.length === 0 && overDeclared.length === 0)
+    return { match: true, why: null, undeclared, overDeclared }
+  return {
+    match: false,
+    why:
+      `声明与键路径复活集不逐项等值:未声明的复活元素 ${undeclared.length} 条 / 多余声明 ${overDeclared.length} 条` +
+      (undeclared.length
+        ? `(未声明:${undeclared
+            .slice(0, 3)
+            .map((x) => `${fmt(x)} ×${x.needed}`)
+            .join(' ; ')})`
+        : '') +
+      (overDeclared.length
+        ? `(多余:${overDeclared
+            .slice(0, 3)
+            .map((x) => `${fmt(x)} ×${x.declared}`)
+            .join(' ; ')})`
+        : ''),
+    undeclared,
+    overDeclared,
+  }
 }
 
 /**
@@ -1382,7 +1614,7 @@ function staleReport(guard, { allowStale }) {
     lines.push(`   ✗ LAND_RESTORE_MANIFEST 声明未被核验 @ ${rf.path}:${rf.why}`)
     for (const en of rf.entries)
       lines.push(
-        `       entry: 「${String(en.line).slice(0, SAMPLE_COL)}」 ← ${en.restoredFrom.slice(0, 12)}… 说明:${en.why}`,
+        `       entry: 「${(en.element ? `${en.element.jsonPath} ⊇ ${canonOf(en.element.value)}` : String(en.line)).slice(0, SAMPLE_COL)}」 ← ${en.restoredFrom.slice(0, 12)}… 说明:${en.why}`,
       )
     for (const u of rf.undeclared.slice(0, SAMPLE_LINES))
       lines.push(`       ↺ 未声明的复活行(needed ${u.needed} / declared ${u.declared}): ${u.raw}`)
@@ -1416,16 +1648,22 @@ function staleReport(guard, { allowStale }) {
     }
     lines.push('   出口 ② 确属有意重生成 ⇒ LAND_ALLOW_STALE=1 重跑本器(会大声留痕,不会静默放行)')
     lines.push(
-      '   出口 ③ 确属**有意还原被误删的祖先行** ⇒ 用窄声明通道 LAND_RESTORE_MANIFEST=<JSON 清单路径>:',
+      '   出口 ③ 确属**有意还原被误删的祖先内容** ⇒ 用窄声明通道 LAND_RESTORE_MANIFEST=<JSON 清单路径>,按路径类型选**一型**:',
     )
     lines.push(
-      '            {entries:[{path, line(单行原文), restoredFrom(40 位全量 sha,须是基线祖先且其 blob 逐字写着该行), why(≥10 字)}]}',
+      '            非 JSON 体(活文档/源码):{path, line(单行原文), restoredFrom(40 位全量 sha,须是基线祖先且其 blob 逐字写着该行), why(≥10 字)}',
     )
     lines.push(
-      '            白名单**逐行**放行被点名的复活行,其余复活/滞后形态照旧拒落;清单逐字写入提交信息,事后可追责。',
+      '            .json/.jsonl(键路径档):{path, element:{jsonPath(如 "$.entries[].roots"), value(被还原的那枚数组元素值)}, restoredFrom(同上;核验其 blob 的同一容器里有这枚元素), why}',
     )
     lines.push(
-      '            (与出口 ② 互斥:一边是逐行放行,一边是整闸关掉;拿不准就用 ③,它的失效方向是"多拒一次"。)',
+      '            两型**逐条放行**:行级按行文字、element 按深排序 JSON 多重集,都要求声明 ↔ 证据**双向等值**;',
+    )
+    lines.push(
+      '            其余复活/滞后形态照旧拒落(标量键复活、基线丢键一律不受理 —— 那是回写不是还原);清单逐字写入提交信息,事后可追责。',
+    )
+    lines.push(
+      '            (与出口 ② 互斥:一边是逐条放行,一边是整闸关掉;拿不准就用 ③,它的失效方向是"多拒一次"。)',
     )
     lines.push(
       '   标了"未判定"的行是**判据没读到东西**(浅历史 / 超过尺寸护栏 / git 派生失败),不是"检查过且干净";',
@@ -2545,12 +2783,17 @@ async function main() {
   if ((guard.restoreExempt?.length ?? 0) > 0) {
     const n = guard.restoreExempt.reduce((a, e) => a + e.entries.length, 0)
     restoreTrailer =
-      `\n\nRestore-Manifest-Channel: LAND_RESTORE_MANIFEST 白名单逐行放行 ${guard.restoreExempt.length} 个路径共 ${n} 条声明(其余复活/滞后形态照旧参与拒绝;清单逐字如下)` +
+      `\n\nRestore-Manifest-Channel: LAND_RESTORE_MANIFEST 白名单逐条放行 ${guard.restoreExempt.length} 个路径共 ${n} 条声明(行级按行文字、element 按数组元素多重集;其余复活/滞后形态照旧参与拒绝;清单逐字如下)` +
       guard.restoreExempt
         .flatMap((e) =>
           e.entries.map(
             (en) =>
-              `\nRestore-Manifest-Entry: ${JSON.stringify({ path: e.path, line: en.line, restoredFrom: en.restoredFrom, why: en.why })}`,
+              `\nRestore-Manifest-Entry: ${JSON.stringify({
+                path: e.path,
+                ...(en.element ? { element: en.element } : { line: en.line }),
+                restoredFrom: en.restoredFrom,
+                why: en.why,
+              })}`,
           ),
         )
         .join('')
@@ -3438,6 +3681,7 @@ export const __test__ = {
   detectStaleLanding,
   validateRestoreManifest,
   loadRestoreManifest,
+  compareElementRestore,
   jsonStructuralSuperset,
   jsonGuardKindFor,
   jsonKeyPathAudit,
