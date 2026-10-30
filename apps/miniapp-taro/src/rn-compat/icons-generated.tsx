@@ -228,6 +228,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-link-2-off"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M9 17H7A5 5 0 0 1 7 7" />\n  <path d="M15 7h2a5 5 0 0 1 4 8" />\n  <line x1="8" x2="12" y1="12" y2="12" />\n  <line x1="2" x2="22" y1="2" y2="22" />\n</svg>\n',
   ListChecks:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-list-checks"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M13 5h8" />\n  <path d="M13 12h8" />\n  <path d="M13 19h8" />\n  <path d="m3 17 2 2 4-4" />\n  <path d="m3 7 2 2 4-4" />\n</svg>\n',
+  ListTodo:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-list-todo"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M13 5h8" />\n  <path d="M13 12h8" />\n  <path d="M13 19h8" />\n  <path d="m3 17 2 2 4-4" />\n  <rect x="3" y="4" width="6" height="6" rx="1" />\n</svg>\n',
   Loader2:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-loader-2"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M21 12a9 9 0 1 1-6.219-8.56" />\n</svg>\n',
   Lock: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-lock"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />\n  <path d="M7 11V7a5 5 0 0 1 10 0v4" />\n</svg>\n',
@@ -265,6 +267,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-minus"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M5 12h14" />\n</svg>\n',
   Monitor:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-monitor"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="20" height="14" x="2" y="3" rx="2" />\n  <line x1="8" x2="16" y1="21" y2="21" />\n  <line x1="12" x2="12" y1="17" y2="21" />\n</svg>\n',
+  MonitorSmartphone:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-monitor-smartphone"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M18 8V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8" />\n  <path d="M10 19v-3.96 3.15" />\n  <path d="M7 19h5" />\n  <rect width="6" height="10" x="16" y="12" rx="2" />\n</svg>\n',
   Moon: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-moon"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" />\n</svg>\n',
   MoreHorizontal:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-more-horizontal"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <circle cx="12" cy="12" r="1" />\n  <circle cx="19" cy="12" r="1" />\n  <circle cx="5" cy="12" r="1" />\n</svg>\n',
@@ -564,6 +568,7 @@ export const Link = makeIcon('Link', src('Link'))
 export const Link2 = makeIcon('Link2', src('Link2'))
 export const Link2Off = makeIcon('Link2Off', src('Link2Off'))
 export const ListChecks = makeIcon('ListChecks', src('ListChecks'))
+export const ListTodo = makeIcon('ListTodo', src('ListTodo'))
 export const Loader2 = makeIcon('Loader2', src('Loader2'))
 export const Lock = makeIcon('Lock', src('Lock'))
 export const LogIn = makeIcon('LogIn', src('LogIn'))
@@ -585,6 +590,7 @@ export const Minimize = makeIcon('Minimize', src('Minimize'))
 export const Minimize2 = makeIcon('Minimize2', src('Minimize2'))
 export const Minus = makeIcon('Minus', src('Minus'))
 export const Monitor = makeIcon('Monitor', src('Monitor'))
+export const MonitorSmartphone = makeIcon('MonitorSmartphone', src('MonitorSmartphone'))
 export const Moon = makeIcon('Moon', src('Moon'))
 export const MoreHorizontal = makeIcon('MoreHorizontal', src('MoreHorizontal'))
 export const MousePointerClick = makeIcon('MousePointerClick', src('MousePointerClick'))
