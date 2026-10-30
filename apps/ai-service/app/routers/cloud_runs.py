@@ -14,7 +14,11 @@ main.py 以 `app.include_router(cloud_runs.router, prefix="/api", tags=["cloud-r
   GET /api/cloud-runs/{run_id}   → 单条运行详情(含最终输出/状态/起止时间)
 
 存储:复用 cloud_run_store(进程内 dict + data/cloud_runs.json 文件持久化)。
-认证:与 research.py 一致,复用 get_current_user_id(云会话历史仅登录用户可见)。
+认证:与 research.py 一致,复用 get_current_user_id。**授权**:云会话历史是归属型记录,
+只按**令牌主体**过滤/放行 —— get/list/complete 都必须把 user_id 显式传进 store(§5
+「认证不等于授权」)。本路由此前只把 user_id 写进 logger,读端跨用户出他人任务文本与
+完整 output、PATCH 端可改写他人运行状态,2026-10-31 现读收口;"不是本人的"与"不存在"
+一律同一个 404,不做区分回复(否则 run_id 可被枚举)。
 响应统一信封 {code:0,message:data},对齐前端 api-client(api-client 以 code===0 判定成功)。
 """
 
@@ -80,7 +84,9 @@ async def complete_cloud_run(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """结束一次云运行记录(状态 done/error,含最终输出/错误)。幂等;不存在返回 404。"""
-    run = cloud_run_store.complete(run_id, status=req.status, output=req.output, error=req.error)
+    run = cloud_run_store.complete(
+        run_id, user_id=user_id, status=req.status, output=req.output, error=req.error
+    )
     if not run:
         raise HTTPException(status_code=404, detail=f"运行记录不存在: {run_id}")
     logger.info(
@@ -99,7 +105,9 @@ async def list_cloud_runs(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """云托管运行历史列表(分页,可选 status 过滤)。"""
-    data = cloud_run_store.list(page=page, page_size=page_size, status=status)
+    data = cloud_run_store.list(
+        user_id=user_id, page=page, page_size=page_size, status=status
+    )
     for item in data["list"]:
         output = item.get("output", "") or ""
         if len(output) > _SUMMARY_LEN:
@@ -119,7 +127,7 @@ async def get_cloud_run(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """单条运行详情(含状态/最终输出/起止时间)。"""
-    run = cloud_run_store.get(run_id)
+    run = cloud_run_store.get(run_id, user_id=user_id)
     if not run:
         raise HTTPException(status_code=404, detail=f"运行记录不存在: {run_id}")
     logger.info("cloud-runs detail user=%s run=%s", user_id, run_id)
