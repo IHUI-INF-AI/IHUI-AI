@@ -1,0 +1,36 @@
+==== 2026/10/26 11:56:18 :: scripts/lib/post-commit-hook.js ====
+❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)
+   修复后请手动: git push origin main
+   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log
+==== 2026/10/26 13:25:07 :: scripts/lib/post-commit-hook.js ====
+❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)
+   修复后请手动: git push origin main
+   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log
+==== 2026/10/26 13:31:07 :: scripts/lib/post-commit-hook.js ====
+❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)
+   修复后请手动: git push origin main
+   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log
+==== 2026/10/27 9:21:18 :: scripts/lib/post-commit-hook.js ====
+❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)
+   修复后请手动: git push origin main
+   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log
+==== 2026/10/27 11:10:22 :: scripts/lib/post-commit-hook.js ====
+❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)
+   修复后请手动: git push origin main
+   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log
+==== 2026/10/27 11:20:46 :: scripts/lib/post-commit-hook.js ====
+❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)
+   修复后请手动: git push origin main
+   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log
+==== 2026/10/27 11:21:16 :: scripts/lib/post-commit-hook.js ====
+❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)
+   修复后请手动: git push origin main
+   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log
+==== 2026/10/27 11:53:18 :: scripts/lib/post-commit-hook.js ====
+❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)
+   修复后请手动: git push origin main
+   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log
+==== 2026/10/27 12:18:04 :: scripts/lib/post-commit-hook.js ====
+❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)
+   修复后请手动: git push origin main
+   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log

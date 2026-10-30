@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-10-27T04:17:59.714Z",
+  "count": 4,
+  "gates": [
+    {
+      "id": "30a",
+      "label": "🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)",
+      "script": "check-commit-loss-guard.mjs"
+    },
+    {
+      "id": "47",
+      "label": "💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区)",
+      "script": "check-watermark-coverage.mjs"
+    },
+    {
+      "id": "89",
+      "label": "🔌 守门接线层对账(blocking,R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据)",
+      "script": "check-gate-wiring.mjs"
+    },
+    {
+      "id": "172",
+      "label": "🛡  跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增)",
+      "script": "check-skip-env-promise.mjs"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "domain": "legal",
+  "unitScreen": "LegalDoc",
+  "newFiles": [
+    "packages/app/src/features/legal-doc/LegalDocScreen.tsx",
+    "packages/app/src/features/legal-doc/LegalDocsHubScreen.tsx",
+    "apps/mobile-rn/src/screens/LegalDocScreen.tsx"
+  ],
+  "indexExports": [
+    "export { LegalDocsHubScreen } from './features/legal-doc/LegalDocsHubScreen'",
+    "export type { LegalDocKind, LegalDocsHubScreenProps } from './features/legal-doc/LegalDocsHubScreen'",
+    "export type { LegalDocTagGroup, LegalDocScreenPropsEx } from './features/legal-doc/LegalDocScreen'"
+  ],
+  "navigator": {
+    "import": "import { LegalDocScreen } from '../screens/LegalDocScreen'",
+    "param": "  LegalDoc: { doc?: 'terms' | 'usagePolicy' | 'supportedRegions' | 'serviceSpecificTerms' } | undefined",
+    "screen": "<RootStack.Screen name=\"LegalDoc\" component={LegalDocScreen} />"
+  },
+  "i18n": {
+    "en": {},
+    "zh-CN": {},
+    "zh-TW": {},
+    "ja": {},
+    "ko": {}
+  },
+  "i18nNote": "零新增键。四文档全部文案(terms 10 章 / usagePolicy 5 节 / serviceSpecificTerms 5 节 / supportedRegions intro+4 组标签+lastUpdated / nav 四入口标签)已在 packages/i18n/messages/shared/{en,zh-CN,zh-TW,ja,ko}.json 的 legal.* 命名空间五语齐备(脚本逐键校验通过);mobile-rn i18n 深合并 shared(见 apps/mobile-rn/src/i18n/index.tsx),RN 端 t('legal.*') 现取现用,无需落任何消息文件。",
+  "ledger": [
+    {
+      "web": "legal/terms",
+      "rn": "apps/mobile-rn/src/screens/LegalDocScreen.tsx",
+      "status": "aligned",
+      "note": "Wave1@2026-10-26: 路由 LegalDoc(doc='terms')→共享 hub LegalDocsHubScreen→扩展 LegalDocScreen 承载 10 章(ch1-ch10 Title/Body,shared 消息 legal.terms.* 五语)+lastUpdated;纯静态无端点",
+      "at": "2026-10-26"
+    },
+    {
+      "web": "legal/usage-policy",
+      "rn": "apps/mobile-rn/src/screens/LegalDocScreen.tsx",
+      "status": "aligned",
+      "note": "Wave1@2026-10-26: 按台账建议一屏四入口,复用 legal-doc/LegalDocScreen(经 LegalDocsHubScreen tabs);usagePolicy s1-s5 Title/Body 五语键承载",
+      "at": "2026-10-26"
+    },
+    {
+      "web": "legal/service-specific-terms",
+      "rn": "apps/mobile-rn/src/screens/LegalDocScreen.tsx",
+      "status": "aligned",
+      "note": "Wave1@2026-10-26: LegalDoc(doc='serviceSpecificTerms')→LegalDocsHubScreen;serviceSpecificTerms s1-s5 Title/Body 五语键承载",
+      "at": "2026-10-26"
+    },
+    {
+      "web": "legal/supported-regions",
+      "rn": "apps/mobile-rn/src/screens/LegalDocScreen.tsx",
+      "status": "aligned",
+      "note": "Wave1@2026-10-26: LegalDoc(doc='supportedRegions')→LegalDocsHubScreen;内容缺口在 legal-doc 目录内扩展补齐(LegalDocScreen 新增 intro/groups 标签组渲染,restricted 组走 tk.danger token),supportedTitle/restrictedTitle/restrictedIntro+15 地区/7 受限/3 支付/5 语言标签五语键承载",
+      "at": "2026-10-26"
+    }
+  ]
+}

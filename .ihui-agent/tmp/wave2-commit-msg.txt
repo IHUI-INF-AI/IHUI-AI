@@ -1,0 +1,21 @@
+feat(rn): Wave2 补屏 21 条 gap 路由 —— student/edu-ai/ai-world/tools/plan 五域
+
+台账判定面 gap 90 → 69、aligned 249 → 270(未映射恒 0、腐烂零命中)。
+
+- student(5): 学生中心/我的评论/我的课程/我的资源/线下记录,新端点 10 枚
+- edu-ai(5): 四 tab 枢纽(AIGC 工具库/教师认证/K12·高校课程/政策库)+ AI 视频编排,新端点 12 枚;
+  文案 96 键五语逐条取自 web 同源消息(eduAi.* 扁平化映射),零新造文案
+- ai-world(4): 详情/编辑/收藏/历史;history 后端路由缺失与 web 同口径如实标注(ledger note 写在册)
+- tools(4): 工具目录 + PDF merge/split/watermark 真链路(后端收 JSON fileIds,web 侧发 FormData 的契约 bug 另计)
+- plan(3): 列表/详情/新建,本地持久化复刻 web localStorage 语义
+
+验证:三包 typecheck 零报错(@ihui/rn-app、@ihui/mobile-rn、@ihui/api-client)、
+eslint 47 文件零告警、format 差值门绿(52 文件)、暂存面对账尺 270/101+9/69/0、
+水印 52 文件逐字节校验齐、i18n 五语 parity 绿(新增 eduAiPage 96 键×5)。
+
+本票产物在 mobile-rn tsconfig 下暴露的 4 处类型错一并修复:MetaRow 未使用的 tk prop 摘除、
+PlanStatusBadge 未使用导出摘除、TARGET_TYPE_KEYS 索引访问收窄、POSITIONS 兜底加非空断言;
+edu-ai 调色板 star 档补 bg(泛型取色处缺键)。
+
+集成器 apply-manifests 扩两项能力:barrel 追加必须插在末行水印之前(否则水印被新增导出挤到中间)、
+navigator 数组形与对象形都吃(tools 域交的是数组形,旧脚本对它静默注册 0 条路由)。

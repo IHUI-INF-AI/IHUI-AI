@@ -1,0 +1,396 @@
+==== 2026/10/26 11:57:39 :: scripts/scan-dead-i18n-keys.mjs --dry-run ====
+[scan-dead-i18n-keys] 判定面: HEAD blob(git ls-tree -r HEAD + 一次 cat-file --batch 读满 4798 个对象;盘上未提交的并行改动不参与本次判定 —— 盘上随后改对不算修好,判的仍是HEAD这一份)
+[scan-dead-i18n-keys] target=web 加载基准: packages/i18n/messages/web/zh-CN.json
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/en.json (24290 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ja.json (24290 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ko.json (24290 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/zh-TW.json (24290 keys)
+[scan-dead-i18n-keys] 扫描代码: 4792 个文件
+[scan-dead-i18n-keys] 静态引用 key: 14020 个(去重)
+[scan-dead-i18n-keys] useTranslations/getTranslations namespace: 773 个
+[scan-dead-i18n-keys] 契约键声明:7 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)
+  - `eduCertificates.certificateNo` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.empty` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusRevoked` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusValid` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.subtitle` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.title` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.view` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+
+=== 总览 ===
+  基准语言 leaf keys: 24290
+  代码静态引用 key: 14020
+  useTranslations/getTranslations namespace: 773
+  死 key: 0 (0.0%)
+  翻译不完整 key: 0
+  契约键声明免除: 7 枚(仅免死键判定)
+  动态 t(`prefix.${var}`) 命中: 183 处
+
+[scan-dead-i18n-keys] --dry-run:跳过报告写入
+[scan-dead-i18n-keys] web → web=ok(判定面:HEAD blob(git show HEAD:<path>))
+==== 2026/10/26 13:33:37 :: scripts/scan-dead-i18n-keys.mjs --dry-run ====
+[scan-dead-i18n-keys] 判定面: HEAD blob(git ls-tree -r HEAD + 一次 cat-file --batch 读满 4840 个对象;盘上未提交的并行改动不参与本次判定 —— 盘上随后改对不算修好,判的仍是HEAD这一份)
+[scan-dead-i18n-keys] target=web 加载基准: packages/i18n/messages/web/zh-CN.json
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/en.json (24296 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ja.json (24296 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ko.json (24296 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/zh-TW.json (24296 keys)
+[scan-dead-i18n-keys] 扫描代码: 4834 个文件
+[scan-dead-i18n-keys] 静态引用 key: 14429 个(去重)
+[scan-dead-i18n-keys] useTranslations/getTranslations namespace: 774 个
+[scan-dead-i18n-keys] 契约键声明:7 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)
+  - `eduCertificates.certificateNo` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.empty` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusRevoked` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusValid` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.subtitle` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.title` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.view` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+
+=== 总览 ===
+  基准语言 leaf keys: 24296
+  代码静态引用 key: 14429
+  useTranslations/getTranslations namespace: 774
+  死 key: 0 (0.0%)
+  翻译不完整 key: 0
+  契约键声明免除: 7 枚(仅免死键判定)
+  动态 t(`prefix.${var}`) 命中: 185 处
+
+[scan-dead-i18n-keys] --dry-run:跳过报告写入
+[scan-dead-i18n-keys] web → web=ok(判定面:HEAD blob(git show HEAD:<path>))
+==== 2026/10/27 10:37:34 :: scripts/scan-dead-i18n-keys.mjs --dry-run ====
+[scan-dead-i18n-keys] 判定面: HEAD blob(git ls-tree -r HEAD + 一次 cat-file --batch 读满 4864 个对象;盘上未提交的并行改动不参与本次判定 —— 盘上随后改对不算修好,判的仍是HEAD这一份)
+[scan-dead-i18n-keys] target=web 加载基准: packages/i18n/messages/web/zh-CN.json
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/en.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ja.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ko.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/zh-TW.json (24353 keys)
+[scan-dead-i18n-keys] 扫描代码: 4858 个文件
+[scan-dead-i18n-keys] 静态引用 key: 14527 个(去重)
+[scan-dead-i18n-keys] useTranslations/getTranslations namespace: 775 个
+[scan-dead-i18n-keys] 契约键声明:7 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)
+  - `eduCertificates.certificateNo` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.empty` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusRevoked` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusValid` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.subtitle` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.title` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.view` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+
+=== 总览 ===
+  基准语言 leaf keys: 24353
+  代码静态引用 key: 14527
+  useTranslations/getTranslations namespace: 775
+  死 key: 0 (0.0%)
+  翻译不完整 key: 0
+  契约键声明免除: 7 枚(仅免死键判定)
+  动态 t(`prefix.${var}`) 命中: 185 处
+
+[scan-dead-i18n-keys] --dry-run:跳过报告写入
+[scan-dead-i18n-keys] web → web=ok(判定面:HEAD blob(git show HEAD:<path>))
+==== 2026/10/27 10:43:18 :: scripts/scan-dead-i18n-keys.mjs --dry-run ====
+[scan-dead-i18n-keys] 判定面: HEAD blob(git ls-tree -r HEAD + 一次 cat-file --batch 读满 4870 个对象;盘上未提交的并行改动不参与本次判定 —— 盘上随后改对不算修好,判的仍是HEAD这一份)
+[scan-dead-i18n-keys] target=web 加载基准: packages/i18n/messages/web/zh-CN.json
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/en.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ja.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ko.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/zh-TW.json (24353 keys)
+[scan-dead-i18n-keys] 扫描代码: 4864 个文件
+[scan-dead-i18n-keys] 静态引用 key: 14529 个(去重)
+[scan-dead-i18n-keys] useTranslations/getTranslations namespace: 775 个
+[scan-dead-i18n-keys] 契约键声明:7 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)
+  - `eduCertificates.certificateNo` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.empty` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusRevoked` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusValid` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.subtitle` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.title` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.view` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+
+=== 总览 ===
+  基准语言 leaf keys: 24353
+  代码静态引用 key: 14529
+  useTranslations/getTranslations namespace: 775
+  死 key: 0 (0.0%)
+  翻译不完整 key: 0
+  契约键声明免除: 7 枚(仅免死键判定)
+  动态 t(`prefix.${var}`) 命中: 185 处
+
+[scan-dead-i18n-keys] --dry-run:跳过报告写入
+[scan-dead-i18n-keys] web → web=ok(判定面:HEAD blob(git show HEAD:<path>))
+==== 2026/10/27 10:48:18 :: scripts/scan-dead-i18n-keys.mjs --dry-run ====
+[scan-dead-i18n-keys] 判定面: HEAD blob(git ls-tree -r HEAD + 一次 cat-file --batch 读满 4870 个对象;盘上未提交的并行改动不参与本次判定 —— 盘上随后改对不算修好,判的仍是HEAD这一份)
+[scan-dead-i18n-keys] target=web 加载基准: packages/i18n/messages/web/zh-CN.json
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/en.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ja.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ko.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/zh-TW.json (24353 keys)
+[scan-dead-i18n-keys] 扫描代码: 4864 个文件
+[scan-dead-i18n-keys] 静态引用 key: 14529 个(去重)
+[scan-dead-i18n-keys] useTranslations/getTranslations namespace: 775 个
+[scan-dead-i18n-keys] 契约键声明:7 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)
+  - `eduCertificates.certificateNo` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.empty` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusRevoked` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusValid` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.subtitle` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.title` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.view` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+
+=== 总览 ===
+  基准语言 leaf keys: 24353
+  代码静态引用 key: 14529
+  useTranslations/getTranslations namespace: 775
+  死 key: 0 (0.0%)
+  翻译不完整 key: 0
+  契约键声明免除: 7 枚(仅免死键判定)
+  动态 t(`prefix.${var}`) 命中: 185 处
+
+[scan-dead-i18n-keys] --dry-run:跳过报告写入
+[scan-dead-i18n-keys] web → web=ok(判定面:HEAD blob(git show HEAD:<path>))
+==== 2026/10/27 10:49:34 :: scripts/scan-dead-i18n-keys.mjs --dry-run ====
+[scan-dead-i18n-keys] 判定面: HEAD blob(git ls-tree -r HEAD + 一次 cat-file --batch 读满 4870 个对象;盘上未提交的并行改动不参与本次判定 —— 盘上随后改对不算修好,判的仍是HEAD这一份)
+[scan-dead-i18n-keys] target=web 加载基准: packages/i18n/messages/web/zh-CN.json
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/en.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ja.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ko.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/zh-TW.json (24353 keys)
+[scan-dead-i18n-keys] 扫描代码: 4864 个文件
+[scan-dead-i18n-keys] 静态引用 key: 14529 个(去重)
+[scan-dead-i18n-keys] useTranslations/getTranslations namespace: 775 个
+[scan-dead-i18n-keys] 契约键声明:7 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)
+  - `eduCertificates.certificateNo` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.empty` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusRevoked` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusValid` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.subtitle` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.title` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.view` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+
+=== 总览 ===
+  基准语言 leaf keys: 24353
+  代码静态引用 key: 14529
+  useTranslations/getTranslations namespace: 775
+  死 key: 0 (0.0%)
+  翻译不完整 key: 0
+  契约键声明免除: 7 枚(仅免死键判定)
+  动态 t(`prefix.${var}`) 命中: 185 处
+
+[scan-dead-i18n-keys] --dry-run:跳过报告写入
+[scan-dead-i18n-keys] web → web=ok(判定面:HEAD blob(git show HEAD:<path>))
+==== 2026/10/27 11:25:01 :: scripts/scan-dead-i18n-keys.mjs --dry-run ====
+[scan-dead-i18n-keys] 判定面: HEAD blob(git ls-tree -r HEAD + 一次 cat-file --batch 读满 4872 个对象;盘上未提交的并行改动不参与本次判定 —— 盘上随后改对不算修好,判的仍是HEAD这一份)
+[scan-dead-i18n-keys] target=web 加载基准: packages/i18n/messages/web/zh-CN.json
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/en.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ja.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ko.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/zh-TW.json (24353 keys)
+[scan-dead-i18n-keys] 扫描代码: 4866 个文件
+[scan-dead-i18n-keys] 静态引用 key: 14536 个(去重)
+[scan-dead-i18n-keys] useTranslations/getTranslations namespace: 775 个
+[scan-dead-i18n-keys] 契约键声明:7 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)
+  - `eduCertificates.certificateNo` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.empty` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusRevoked` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusValid` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.subtitle` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.title` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.view` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+
+=== 总览 ===
+  基准语言 leaf keys: 24353
+  代码静态引用 key: 14536
+  useTranslations/getTranslations namespace: 775
+  死 key: 0 (0.0%)
+  翻译不完整 key: 0
+  契约键声明免除: 7 枚(仅免死键判定)
+  动态 t(`prefix.${var}`) 命中: 185 处
+
+[scan-dead-i18n-keys] --dry-run:跳过报告写入
+[scan-dead-i18n-keys] web → web=ok(判定面:HEAD blob(git show HEAD:<path>))
+==== 2026/10/27 11:57:49 :: scripts/scan-dead-i18n-keys.mjs --dry-run ====
+[scan-dead-i18n-keys] 判定面: HEAD blob(git ls-tree -r HEAD + 一次 cat-file --batch 读满 4873 个对象;盘上未提交的并行改动不参与本次判定 —— 盘上随后改对不算修好,判的仍是HEAD这一份)
+[scan-dead-i18n-keys] target=web 加载基准: packages/i18n/messages/web/zh-CN.json
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/en.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ja.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ko.json (24353 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/zh-TW.json (24353 keys)
+[scan-dead-i18n-keys] 扫描代码: 4867 个文件
+[scan-dead-i18n-keys] 静态引用 key: 14540 个(去重)
+[scan-dead-i18n-keys] useTranslations/getTranslations namespace: 775 个
+[scan-dead-i18n-keys] 契约键声明:7 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)
+  - `eduCertificates.certificateNo` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.empty` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusRevoked` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusValid` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.subtitle` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.title` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.view` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+
+=== 总览 ===
+  基准语言 leaf keys: 24353
+  代码静态引用 key: 14540
+  useTranslations/getTranslations namespace: 775
+  死 key: 0 (0.0%)
+  翻译不完整 key: 0
+  契约键声明免除: 7 枚(仅免死键判定)
+  动态 t(`prefix.${var}`) 命中: 185 处
+
+[scan-dead-i18n-keys] --dry-run:跳过报告写入
+[scan-dead-i18n-keys] web → web=ok(判定面:HEAD blob(git show HEAD:<path>))
+==== 2026/10/27 12:21:26 :: scripts/scan-dead-i18n-keys.mjs --dry-run ====
+[scan-dead-i18n-keys] 判定面: HEAD blob(git ls-tree -r HEAD + 一次 cat-file --batch 读满 4874 个对象;盘上未提交的并行改动不参与本次判定 —— 盘上随后改对不算修好,判的仍是HEAD这一份)
+[scan-dead-i18n-keys] target=web 加载基准: packages/i18n/messages/web/zh-CN.json
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/en.json (24357 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ja.json (24357 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/ko.json (24357 keys)
+[scan-dead-i18n-keys] 加载: packages/i18n/messages/web/zh-TW.json (24357 keys)
+[scan-dead-i18n-keys] 扫描代码: 4868 个文件
+[scan-dead-i18n-keys] 静态引用 key: 14512 个(去重)
+[scan-dead-i18n-keys] useTranslations/getTranslations namespace: 775 个
+[scan-dead-i18n-keys] 契约键声明:7 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)
+  - `eduCertificates.certificateNo` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.empty` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusRevoked` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.statusValid` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.subtitle` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.title` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+  - `eduCertificates.view` ← ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。
+      依据 apps/web/tests/family-i18n-contract.test.ts:217(须含 "eduCertificates.* (7 leaves)")
+      依据 apps/web/tests/family-i18n-contract.test.ts:219(须含 "the entry is repointed, never deleted")
+
+=== 总览 ===
+  基准语言 leaf keys: 24357
+  代码静态引用 key: 14512
+  useTranslations/getTranslations namespace: 775
+  死 key: 0 (0.0%)
+  翻译不完整 key: 0
+  契约键声明免除: 7 枚(仅免死键判定)
+  动态 t(`prefix.${var}`) 命中: 185 处
+
+[scan-dead-i18n-keys] --dry-run:跳过报告写入
+[scan-dead-i18n-keys] web → web=ok(判定面:HEAD blob(git show HEAD:<path>))

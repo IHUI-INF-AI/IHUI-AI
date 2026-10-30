@@ -1,0 +1,411 @@
+{
+  "domain": "distribution + chat-favorites",
+  "wave": "wave3-c",
+  "unitScreen": "distribution/orders + distribution/token + distribution/withdraw/records + chat/favorites",
+  "newFiles": [
+    "packages/api-client/src/endpoints/commission-orders.ts",
+    "packages/app/src/features/distribution/CommissionOrdersScreen.tsx",
+    "apps/mobile-rn/src/screens/CommissionOrdersScreen.tsx",
+    "packages/api-client/src/endpoints/token-wallet.ts",
+    "packages/app/src/features/distribution/TokenWalletScreen.tsx",
+    "apps/mobile-rn/src/screens/TokenWalletScreen.tsx",
+    "packages/api-client/src/endpoints/withdraw-records.ts",
+    "packages/app/src/features/distribution/WithdrawRecordsScreen.tsx",
+    "apps/mobile-rn/src/screens/WithdrawRecordsScreen.tsx",
+    "packages/api-client/src/endpoints/chat-favorites.ts",
+    "packages/app/src/features/chat/ChatFavoritesScreen.tsx",
+    "apps/mobile-rn/src/screens/ChatFavoritesScreen.tsx"
+  ],
+  "indexExports": [
+    "export { CommissionOrdersScreen } from './features/distribution/CommissionOrdersScreen'",
+    "export type { CommissionOrderRowView, CommissionOrdersScreenProps } from './features/distribution/CommissionOrdersScreen'",
+    "export { TokenWalletScreen } from './features/distribution/TokenWalletScreen'",
+    "export type { TokenFlowRowView, TokenWalletScreenProps } from './features/distribution/TokenWalletScreen'",
+    "export { WithdrawRecordsScreen } from './features/distribution/WithdrawRecordsScreen'",
+    "export type { WithdrawRecordRowView, WithdrawRecordsScreenProps } from './features/distribution/WithdrawRecordsScreen'",
+    "export { ChatFavoritesScreen } from './features/chat/ChatFavoritesScreen'",
+    "export type { FavoriteConversationRowView, ChatFavoritesScreenProps } from './features/chat/ChatFavoritesScreen'"
+  ],
+  "apiClientIndexExports": [
+    "export * from './endpoints/commission-orders.js'",
+    "export * from './endpoints/token-wallet.js'",
+    "export * from './endpoints/withdraw-records.js'",
+    "export * from './endpoints/chat-favorites.js'"
+  ],
+  "apiClientIndexNote": "需在 packages/api-client/src/index.ts 追加上述 4 行 re-export,否则 4 枚薄壳 import 报「无此导出」。既有 token.ts(GET /api/user/token-balance)、wallet.ts(GET /api/wallet/withdraw/records)是不同数据源,未复用。",
+  "navigator": [
+    {
+      "import": "import { CommissionOrdersScreen } from '../screens/CommissionOrdersScreen'",
+      "param": "  CommissionOrders: undefined",
+      "screen": "<RootStack.Screen name=\"CommissionOrders\" component={CommissionOrdersScreen} />"
+    },
+    {
+      "import": "import { TokenWalletScreen } from '../screens/TokenWalletScreen'",
+      "param": "  TokenWallet: undefined",
+      "screen": "<RootStack.Screen name=\"TokenWallet\" component={TokenWalletScreen} />"
+    },
+    {
+      "import": "import { WithdrawRecordsScreen } from '../screens/WithdrawRecordsScreen'",
+      "param": "  WithdrawRecords: undefined",
+      "screen": "<RootStack.Screen name=\"WithdrawRecords\" component={WithdrawRecordsScreen} />"
+    },
+    {
+      "import": "import { ChatFavoritesScreen } from '../screens/ChatFavoritesScreen'",
+      "param": "  ChatFavorites: undefined",
+      "screen": "<RootStack.Screen name=\"ChatFavorites\" component={ChatFavoritesScreen} />"
+    }
+  ],
+  "i18n": {
+    "en": {
+      "commissionOrdersPage": {
+        "title": "Commission orders",
+        "statusAll": "All status",
+        "loading": "Loading...",
+        "empty": "No data",
+        "totalOf": "Total {total}",
+        "colOrderType": "Order type",
+        "colAmount": "Amount",
+        "colTime": "Time",
+        "orderStatusPending": "Pending",
+        "orderStatusPaid": "Paid",
+        "orderStatusCancelled": "Cancelled",
+        "orderStatusRefunded": "Refunded",
+        "loginRequired": "Please log in",
+        "error": "Load Failed"
+      },
+      "tokenWalletPage": {
+        "title": "Token wallet",
+        "tokenBalance": "Token balance",
+        "tokenFlows": "Token flows",
+        "opTypeAll": "All types",
+        "flowType": "Type",
+        "flowAmount": "Amount",
+        "flowBalance": "Balance",
+        "flowTime": "Time",
+        "flowRemark": "Remark",
+        "flowRecharge": "Recharge",
+        "flowDeduct": "Deduct",
+        "flowExpire": "Expired",
+        "empty": "No data",
+        "loading": "Loading...",
+        "totalOf": "Total {total}",
+        "loginRequired": "Please log in",
+        "error": "Load Failed"
+      },
+      "withdrawRecordsPage": {
+        "title": "Withdraw records",
+        "colActualAmount": "Actual amount",
+        "colFee": "Fee",
+        "colMethod": "Method",
+        "colTime": "Time",
+        "colProcessedAt": "Processed at",
+        "empty": "No data",
+        "loading": "Loading...",
+        "totalOf": "Total {total}",
+        "withdrawStatusPending": "Pending Review",
+        "withdrawStatusProcessing": "Processing",
+        "withdrawStatusCompleted": "Completed",
+        "withdrawStatusFailed": "Failed",
+        "methodWechat": "WeChat",
+        "methodAlipay": "Alipay",
+        "methodBank": "Bank Card",
+        "loginRequired": "Please log in",
+        "error": "Load Failed"
+      },
+      "chatFavoritesPage": {
+        "favoritesTitle": "Favorite Chats",
+        "favoritesSubtitle": "Your saved AI conversations",
+        "favoritesEmpty": "No favorite conversations",
+        "loading": "Loading...",
+        "loginRequired": "Please log in"
+      }
+    },
+    "zh-CN": {
+      "commissionOrdersPage": {
+        "title": "佣金订单",
+        "statusAll": "全部状态",
+        "loading": "加载中...",
+        "empty": "暂无数据",
+        "totalOf": "共 {total} 条",
+        "colOrderType": "订单类型",
+        "colAmount": "金额",
+        "colTime": "时间",
+        "orderStatusPending": "待支付",
+        "orderStatusPaid": "已支付",
+        "orderStatusCancelled": "已取消",
+        "orderStatusRefunded": "已退款",
+        "loginRequired": "请先登录",
+        "error": "加载失败"
+      },
+      "tokenWalletPage": {
+        "title": "代币钱包",
+        "tokenBalance": "代币余额",
+        "tokenFlows": "代币流水",
+        "opTypeAll": "全部类型",
+        "flowType": "类型",
+        "flowAmount": "数量",
+        "flowBalance": "余额",
+        "flowTime": "时间",
+        "flowRemark": "备注",
+        "flowRecharge": "充值",
+        "flowDeduct": "扣减",
+        "flowExpire": "过期",
+        "empty": "暂无数据",
+        "loading": "加载中...",
+        "totalOf": "共 {total} 条",
+        "loginRequired": "请先登录",
+        "error": "加载失败"
+      },
+      "withdrawRecordsPage": {
+        "title": "提现记录",
+        "colActualAmount": "实际金额",
+        "colFee": "手续费",
+        "colMethod": "方式",
+        "colTime": "时间",
+        "colProcessedAt": "处理时间",
+        "empty": "暂无数据",
+        "loading": "加载中...",
+        "totalOf": "共 {total} 条",
+        "withdrawStatusPending": "待审核",
+        "withdrawStatusProcessing": "处理中",
+        "withdrawStatusCompleted": "已完成",
+        "withdrawStatusFailed": "失败",
+        "methodWechat": "微信",
+        "methodAlipay": "支付宝",
+        "methodBank": "银行卡",
+        "loginRequired": "请先登录",
+        "error": "加载失败"
+      },
+      "chatFavoritesPage": {
+        "favoritesTitle": "收藏的任务",
+        "favoritesSubtitle": "您收藏的 AI 任务",
+        "favoritesEmpty": "暂无收藏的任务",
+        "loading": "加载中...",
+        "loginRequired": "请先登录"
+      }
+    },
+    "zh-TW": {
+      "commissionOrdersPage": {
+        "title": "傭金訂單",
+        "statusAll": "全部狀態",
+        "loading": "加載中...",
+        "empty": "暫無數據",
+        "totalOf": "共 {total} 條",
+        "colOrderType": "訂單類型",
+        "colAmount": "金額",
+        "colTime": "時間",
+        "orderStatusPending": "待支付",
+        "orderStatusPaid": "已支付",
+        "orderStatusCancelled": "已取消",
+        "orderStatusRefunded": "已退款",
+        "loginRequired": "請先登錄",
+        "error": "加載失敗"
+      },
+      "tokenWalletPage": {
+        "title": "代幣錢包",
+        "tokenBalance": "代幣餘額",
+        "tokenFlows": "代幣流水",
+        "opTypeAll": "全部類型",
+        "flowType": "類型",
+        "flowAmount": "數量",
+        "flowBalance": "餘額",
+        "flowTime": "時間",
+        "flowRemark": "備注",
+        "flowRecharge": "充值",
+        "flowDeduct": "扣減",
+        "flowExpire": "過期",
+        "empty": "暫無數據",
+        "loading": "加載中...",
+        "totalOf": "共 {total} 條",
+        "loginRequired": "請先登錄",
+        "error": "加載失敗"
+      },
+      "withdrawRecordsPage": {
+        "title": "提現記錄",
+        "colActualAmount": "實際金額",
+        "colFee": "手續費",
+        "colMethod": "方式",
+        "colTime": "時間",
+        "colProcessedAt": "處理時間",
+        "empty": "暫無數據",
+        "loading": "加載中...",
+        "totalOf": "共 {total} 條",
+        "withdrawStatusPending": "待審核",
+        "withdrawStatusProcessing": "處理中",
+        "withdrawStatusCompleted": "已完成",
+        "withdrawStatusFailed": "失敗",
+        "methodWechat": "微信",
+        "methodAlipay": "支付寶",
+        "methodBank": "銀行卡",
+        "loginRequired": "請先登錄",
+        "error": "加載失敗"
+      },
+      "chatFavoritesPage": {
+        "favoritesTitle": "收藏的任務",
+        "favoritesSubtitle": "您收藏的 AI 任務",
+        "favoritesEmpty": "暫無收藏的任務",
+        "loading": "加載中...",
+        "loginRequired": "請先登錄"
+      }
+    },
+    "ja": {
+      "commissionOrdersPage": {
+        "title": "コミッション",
+        "statusAll": "てステータス",
+        "loading": "読み込み中...",
+        "empty": "なしデータ",
+        "totalOf": "{total}",
+        "colOrderType": "タイプ",
+        "colAmount": "金額",
+        "colTime": "時間",
+        "orderStatusPending": "支払い待ち",
+        "orderStatusPaid": "支払済み",
+        "orderStatusCancelled": "キャンセル済み",
+        "orderStatusRefunded": "返金済み",
+        "loginRequired": "ログインしてください",
+        "error": "読み込みに失敗しました"
+      },
+      "tokenWalletPage": {
+        "title": "トークンウォレット",
+        "tokenBalance": "TokenBalance",
+        "tokenFlows": "トークン",
+        "opTypeAll": "てタイプ",
+        "flowType": "タイプ",
+        "flowAmount": "Count",
+        "flowBalance": "残高",
+        "flowTime": "時間",
+        "flowRemark": "備考",
+        "flowRecharge": "チャージ",
+        "flowDeduct": "減算",
+        "flowExpire": "期限切れ",
+        "empty": "なしデータ",
+        "loading": "読み込み中...",
+        "totalOf": "{total}",
+        "loginRequired": "ログインしてください",
+        "error": "読み込みに失敗しました"
+      },
+      "withdrawRecordsPage": {
+        "title": "Withdraw Records",
+        "colActualAmount": "の",
+        "colFee": "手数料",
+        "colMethod": "メソッド",
+        "colTime": "時間",
+        "colProcessedAt": "Process",
+        "empty": "なしデータ",
+        "loading": "読み込み中...",
+        "totalOf": "{total}",
+        "withdrawStatusPending": "審査待ち",
+        "withdrawStatusProcessing": "処理中",
+        "withdrawStatusCompleted": "完了",
+        "withdrawStatusFailed": "失敗",
+        "methodWechat": "微信",
+        "methodAlipay": "Alipay",
+        "methodBank": "カード",
+        "loginRequired": "ログインしてください",
+        "error": "読み込みに失敗しました"
+      },
+      "chatFavoritesPage": {
+        "favoritesTitle": "おにりの",
+        "favoritesSubtitle": "おにりにしたai",
+        "favoritesEmpty": "おにりのがありません",
+        "loading": "読み込み中...",
+        "loginRequired": "ログインしてください"
+      }
+    },
+    "ko": {
+      "commissionOrdersPage": {
+        "title": "수수료 주문",
+        "statusAll": "모든상태",
+        "loading": "로딩 중...",
+        "empty": "없음데이마음",
+        "totalOf": "총 {total}건",
+        "colOrderType": "주의문유형",
+        "colAmount": "금액",
+        "colTime": "시간",
+        "orderStatusPending": "결제 대기",
+        "orderStatusPaid": "결제 완료",
+        "orderStatusCancelled": "취소됨",
+        "orderStatusRefunded": "환불됨",
+        "loginRequired": "로그인해 주세요",
+        "error": "로딩 실패"
+      },
+      "tokenWalletPage": {
+        "title": "토큰 지갑",
+        "tokenBalance": "TokenBalance",
+        "tokenFlows": "토큰 내역",
+        "opTypeAll": "모든유형",
+        "flowType": "유형",
+        "flowAmount": "금액",
+        "flowBalance": "잔액",
+        "flowTime": "시간",
+        "flowRemark": "비고",
+        "flowRecharge": "충전",
+        "flowDeduct": "차감",
+        "flowExpire": "만료",
+        "empty": "없음데이마음",
+        "loading": "로딩 중...",
+        "totalOf": "총 {total}건",
+        "loginRequired": "로그인해 주세요",
+        "error": "로딩 실패"
+      },
+      "withdrawRecordsPage": {
+        "title": "Withdraw Records",
+        "colActualAmount": "실제 금액",
+        "colFee": "수수료",
+        "colMethod": "메서드",
+        "colTime": "시간",
+        "colProcessedAt": "처리시간",
+        "empty": "없음데이마음",
+        "loading": "로딩 중...",
+        "totalOf": "총 {total}건",
+        "withdrawStatusPending": "심사 대기",
+        "withdrawStatusProcessing": "처리 중",
+        "withdrawStatusCompleted": "완료",
+        "withdrawStatusFailed": "실패",
+        "methodWechat": "위챗",
+        "methodAlipay": "알리페이",
+        "methodBank": "은행 카드",
+        "loginRequired": "로그인해 주세요",
+        "error": "로딩 실패"
+      },
+      "chatFavoritesPage": {
+        "favoritesTitle": "즐겨찾기 대화",
+        "favoritesSubtitle": "즐겨찾기한 AI 대화",
+        "favoritesEmpty": "즐겨찾기 대화 없음",
+        "loading": "로딩 중...",
+        "loginRequired": "로그인해 주세요"
+      }
+    }
+  },
+  "ledger": [
+    {
+      "web": "distribution/orders",
+      "rn": "apps/mobile-rn/src/screens/CommissionOrdersScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-c@2026-10-27: 新建共享屏 packages/app/src/features/distribution/CommissionOrdersScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/commission-orders.ts;后端契约现读 = GET /api/finance/commission/orders(apps/api/src/routes/finance.ts:174-201,authenticate)→success({items,total});status 打 orders.status、orderType 打 orders.payment_method(finance.ts:187-188,后者为字面列错位如实透传);金额单位分,五列文案与 orderStatus* 取 web distribution 同 ns 逐字值;未登录不发注定 401 查询(web useAuthGate 同口径)。",
+      "at": "2026-10-27"
+    },
+    {
+      "web": "distribution/token",
+      "rn": "apps/mobile-rn/src/screens/TokenWalletScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-c@2026-10-27: 新建共享屏 packages/app/src/features/distribution/TokenWalletScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/token-wallet.ts;后端契约现读 = GET /api/finance/margin/balance(finance.ts:40-45)→success({balance}) 与 GET /api/finance/margin/flows(finance.ts:139-153)→success({items,total}),均 authenticate;opType 0=充值1=扣减2=过期,文案取 web distribution 同 ns;与 endpoints/token.ts(GET /api/user/token-balance)不同源不可顶替。",
+      "at": "2026-10-27"
+    },
+    {
+      "web": "distribution/withdraw/records",
+      "rn": "apps/mobile-rn/src/screens/WithdrawRecordsScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-c@2026-10-27: 新建共享屏 packages/app/src/features/distribution/WithdrawRecordsScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/withdraw-records.ts;后端契约现读 = GET /api/finance/withdrawal/list(finance.ts:288-293,authenticate)→success({items,total}),行 listWithdrawals(commission-queries.ts:529-547);金额分;web distribution.withdrawStatus* 四键全库缺失(web 页渲染裸键),状态文案取 admin.shop.withdrawals.status/flowStatus 逐字值(0待审核1处理中2已完成3失败),方式取 wallet/admin.edu.finance.index 逐字值;web 底部提现入口在 RN 无对应表单屏路由,不渲染该按钮避免死按钮。",
+      "at": "2026-10-27"
+    },
+    {
+      "web": "chat/favorites",
+      "rn": "apps/mobile-rn/src/screens/ChatFavoritesScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-c@2026-10-27: 新建共享屏 packages/app/src/features/chat/ChatFavoritesScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/chat-favorites.ts;后端契约现读 = GET /api/chat/favorites(apps/api/src/routes/chat.ts:1670-1700,经 routes/index.ts:580 以 prefix /api/chat 注册,requireAuth,分页字段 page/pageSize)→success({favorites,page,pageSize,total});置顶优先排序仅本页内 pinned 前置(web sortPinnedFirst 同语义);文案取 web chatHistory 同 ns 逐字值(ja 为仓库既有串码,不新造)。",
+      "at": "2026-10-27"
+    }
+  ],
+  "notLanded": []
+}

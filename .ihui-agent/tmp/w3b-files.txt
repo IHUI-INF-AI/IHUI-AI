@@ -1,0 +1,12 @@
+packages/api-client/src/endpoints/sign-ups.ts
+packages/app/src/features/sign-up/SignUpScreen.tsx
+apps/mobile-rn/src/screens/SignUpScreen.tsx
+apps/mobile-rn/src/navigation/RootNavigator.tsx
+packages/app/src/index.ts
+packages/api-client/src/index.ts
+packages/i18n/messages/mobile-rn/en.json
+packages/i18n/messages/mobile-rn/ja.json
+packages/i18n/messages/mobile-rn/ko.json
+packages/i18n/messages/mobile-rn/zh-CN.json
+packages/i18n/messages/mobile-rn/zh-TW.json
+scripts/data/web-rn-screen-map.jsonl

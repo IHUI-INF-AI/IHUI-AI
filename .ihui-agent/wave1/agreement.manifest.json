@@ -1,0 +1,85 @@
+{
+  "domain": "agreement",
+  "unitScreen": "AgreementByType",
+  "newFiles": [
+    "packages/app/src/features/agreement/AgreementScreen.tsx",
+    "packages/app/src/features/agreement/agreement-type.ts",
+    "packages/app/src/features/agreement/agreement-styles.ts",
+    "apps/mobile-rn/src/screens/AgreementByTypeScreen.tsx"
+  ],
+  "indexExports": [
+    "export { normalizeAgreementType, agreementTitleKey, AGREEMENT_TYPE_MAP } from './features/agreement/agreement-type'",
+    "export type { AgreementContentView, AgreementCurrentScreenProps } from './features/agreement/AgreementScreen'"
+  ],
+  "navigator": {
+    "import": "import { AgreementByTypeScreen } from '../screens/AgreementByTypeScreen'",
+    "param": "  AgreementByType: { type: string }",
+    "screen": "<RootStack.Screen name=\"AgreementByType\" component={AgreementByTypeScreen} />"
+  },
+  "i18n": {
+    "en": {
+      "agreement": {
+        "loading": "Loading...",
+        "version": "Version",
+        "effectiveDate": "Effective Date",
+        "titleUserAgreement": "User Agreement",
+        "titlePrivacyPolicy": "Privacy Policy",
+        "titleTermsOfService": "Terms of Service",
+        "titleDisclaimer": "Disclaimer"
+      }
+    },
+    "zh-CN": {
+      "agreement": {
+        "loading": "加载中...",
+        "version": "版本",
+        "effectiveDate": "生效日期",
+        "titleUserAgreement": "用户协议",
+        "titlePrivacyPolicy": "隐私政策",
+        "titleTermsOfService": "服务条款",
+        "titleDisclaimer": "免责声明"
+      }
+    },
+    "zh-TW": {
+      "agreement": {
+        "loading": "載入中...",
+        "version": "版本",
+        "effectiveDate": "生效日期",
+        "titleUserAgreement": "使用者協議",
+        "titlePrivacyPolicy": "隱私權政策",
+        "titleTermsOfService": "服務條款",
+        "titleDisclaimer": "免責聲明"
+      }
+    },
+    "ja": {
+      "agreement": {
+        "loading": "読み込み中...",
+        "version": "バージョン",
+        "effectiveDate": "生效日付",
+        "titleUserAgreement": "利用規約",
+        "titlePrivacyPolicy": "プライバシーポリシー",
+        "titleTermsOfService": "サービス規約",
+        "titleDisclaimer": "免責事項"
+      }
+    },
+    "ko": {
+      "agreement": {
+        "loading": "로딩 중...",
+        "version": "버전",
+        "effectiveDate": "시행일",
+        "titleUserAgreement": "이용약관",
+        "titlePrivacyPolicy": "개인정보 처리방침",
+        "titleTermsOfService": "서비스 약관",
+        "titleDisclaimer": "면책 조항"
+      }
+    }
+  },
+  "ledger": [
+    {
+      "web": "agreement/[type]",
+      "rn": "apps/mobile-rn/src/screens/AgreementByTypeScreen.tsx",
+      "status": "aligned",
+      "note": "Wave1@2026-10-26: 按类型取当前版本已承载 — 薄壳 normalizeAgreementType(agreement-type.ts,TYPE_MAP 与 web PageClient.tsx:27 同源)后经 @ihui/api-client getCurrentAgreement(legacy-public.ts:96 GET /api/agreements/current?type=)取当前生效协议,共享屏 features/agreement/AgreementScreen.tsx 渲染 title/version/effectiveDate/正文段落,取不到回退静态条款(与 web error/!data 分支同口径)",
+      "at": "2026-10-26"
+    }
+  ]
+}

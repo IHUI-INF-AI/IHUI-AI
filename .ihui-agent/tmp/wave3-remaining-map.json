@@ -1,0 +1,205 @@
+{
+  "at": "2026-10-27T03:26:52.882Z",
+  "buckets": {
+    "screenable": [
+      {
+        "web": "learn/topic",
+        "apis": "/api/topics/ /api/learn/topics/ /api/topics /api/learn/topics"
+      },
+      {
+        "web": "chat/favorites",
+        "apis": "/api/chat/favorites"
+      },
+      {
+        "web": "agents/edit/[id]",
+        "apis": "/api/agents/ /api/categories/list"
+      },
+      {
+        "web": "agents/my",
+        "apis": "/api/agents/my"
+      },
+      {
+        "web": "ai-generation",
+        "apis": "/api/ai/dashscope/chat /api/ai/dashscope/image /api/ai/doubao/image /api/ai/agnes/image /api/ai/jimeng4/image /api/chat/kling/video/generate /api/chat/kling/task/ /api/ai/dashscope/video /api/ai/audio/speech /api/ai/suno/generate /api/ai/tencent/hunyuan3d/submit /api/ai/jimeng4/video/tasks /api/ai/jimeng4/video/tasks/"
+      },
+      {
+        "web": "ai-generation/video-tasks",
+        "apis": "/api/ai/jimeng4/video/tasks /api/ai/jimeng4/video/tasks/"
+      },
+      {
+        "web": "business-card/favorites",
+        "apis": "/api/business-card/favorites /api/business-card/favorites/"
+      },
+      {
+        "web": "certificate/download",
+        "apis": "/api/certificates/my /api/certificates/"
+      },
+      {
+        "web": "chat/settings",
+        "apis": "/api/chat/settings"
+      },
+      {
+        "web": "comments",
+        "apis": "/api/comments/mine /api/comments/"
+      },
+      {
+        "web": "distribution/orders",
+        "apis": "/api/finance/commission/orders"
+      },
+      {
+        "web": "distribution/token",
+        "apis": "/api/finance/margin/balance /api/finance/margin/flows"
+      },
+      {
+        "web": "distribution/withdraw/records",
+        "apis": "/api/finance/withdrawal/list"
+      },
+      {
+        "web": "drama",
+        "apis": "/api/drama/scripts/"
+      },
+      {
+        "web": "edu-points",
+        "apis": "/api/edu-points/channels /api/edu-points/my-points [无注册证据] /api/points/mall/redeem /api/points/mall/redeem/"
+      },
+      {
+        "web": "edu/edu-management/grades/trend/[studentId]",
+        "apis": "/api/edu-ai-management/exam-score/trend/ /api/edu-ai-management/exam-score/weakness/"
+      },
+      {
+        "web": "edu/edu-management/homework",
+        "apis": "/api/edu-ai-management/term /api/edu-ai-management/class /api/edu-ai-management/homework-submission/stats /api/edu-ai-management/homework-submission /api/edu-ai-management/homework-submission/"
+      },
+      {
+        "web": "edu/edu-management/study-plan",
+        "apis": "/api/edu-ai-management/term /api/edu-ai-management/class /api/edu-ai-management/study-plan /api/edu-ai-management/study-plan/ /api/edu-ai-management/plan-item/ /api/edu-ai-management/term/ /api/edu-ai-management/study-plan/completion-stats /api/edu-ai-management/study-plan/progress-timeline"
+      },
+      {
+        "web": "edu/schedule",
+        "apis": "/api/edu/schedule"
+      },
+      {
+        "web": "fund-data",
+        "apis": "/api/fund /api/fund/"
+      },
+      {
+        "web": "knowledge",
+        "apis": "/api/agents/memory/search"
+      },
+      {
+        "web": "knowledge-base/[id]",
+        "apis": "/api/knowledge-base/"
+      },
+      {
+        "web": "knowledge-base/search",
+        "apis": "/api/knowledge-base"
+      },
+      {
+        "web": "knowledge-graph",
+        "apis": "/api/ai/knowledge-graph/data /api/ai/knowledge-graph/build"
+      },
+      {
+        "web": "learn/buyconfirm",
+        "apis": "/api/learn/lessons/ /api/orders"
+      },
+      {
+        "web": "lecturers",
+        "apis": "/api/live/lecturers /api/live/lecturers/ /api/live/channels"
+      },
+      {
+        "web": "lecturers/[id]",
+        "apis": "/api/live/lecturers/ /api/live/channels"
+      },
+      {
+        "web": "mcp-projects",
+        "apis": "/api/ai/mcp/resources"
+      },
+      {
+        "web": "member/dashboard",
+        "apis": "/api/members/me /api/orders/me"
+      },
+      {
+        "web": "member/settings",
+        "apis": "/api/member/settings"
+      },
+      {
+        "web": "oauth/my-authorized",
+        "apis": "/api/auth/oauth/my-authorized /api/auth/oauth/my-authorized/"
+      },
+      {
+        "web": "publish/monitor",
+        "apis": "/api/publish/monitor/verify /api/publish/monitor/refresh-metrics /api/publish/monitor/overview"
+      },
+      {
+        "web": "schedule",
+        "apis": "/api/schedule/tasks"
+      },
+      {
+        "web": "self-media/automation",
+        "apis": "/api/self-media/automation/tasks /api/self-media/automation/history /api/self-media/automation/tasks/"
+      },
+      {
+        "web": "self-media/koubo",
+        "apis": "/api/self-media/koubo/history /api/self-media/koubo/generate /api/self-media/koubo/validate"
+      },
+      {
+        "web": "self-media/wechat",
+        "apis": "/api/self-media/wechat/history /api/self-media/wechat/generate /api/self-media/wechat/validate /api/self-media/wechat/publish"
+      },
+      {
+        "web": "stock",
+        "apis": "/api/stock/token-balance /api/stock/history /api/stock/analyse"
+      },
+      {
+        "web": "traders",
+        "apis": "/api/trader /api/trader/ /api/trader/apply"
+      },
+      {
+        "web": "user/comment",
+        "apis": "/api/comments"
+      },
+      {
+        "web": "user/resource",
+        "apis": "/api/resources"
+      },
+      {
+        "web": "wallet/withdraw/records",
+        "apis": "/api/finance/withdrawal/summary /api/finance/withdrawal/list"
+      },
+      {
+        "web": "workspace/[id]",
+        "apis": "/api/workspace/projects/ /api/workspace/files/ /api/files/"
+      }
+    ],
+    "suspectNoBackend": [
+      {
+        "web": "memory-manager",
+        "apis": [
+          "/api/longterm-memory/entries"
+        ]
+      }
+    ],
+    "noApiLiteral": [
+      "agent-plan",
+      "agent-plan/progress",
+      "cloud-agent",
+      "cloud-run",
+      "knowledge-cards",
+      "media-tasks",
+      "member/exam/sign-up",
+      "memory/[id]",
+      "plugins",
+      "registry",
+      "rules",
+      "settings/agent-security",
+      "settings/model-record",
+      "skills-market",
+      "skills-market/[id]",
+      "skills/market",
+      "subagents/detail",
+      "subagents/dispatch",
+      "voices",
+      "web-tools"
+    ]
+  }
+}

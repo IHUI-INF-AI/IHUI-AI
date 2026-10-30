@@ -1,0 +1,24 @@
+docs(ledger): comments 接线复用改判 aligned;certificate/download 补「缺的是平台原语不是屏」
+
+台账 aligned 276 → 277、gap 63 → 62(449 行零重复键、未映射恒 0)。
+
+comments → aligned(零新代码,逐语义核过):web /comments 只有两条数据动作
+  GET /api/comments/mine?page&pageSize=20(page.tsx:86/:44)与 DELETE /api/comments/:id 带确认弹窗(:91/:211);
+  既有 RN 屏 MyCommentsScreen 恰好同两条(getMyComments({page,pageSize:20}) :41/:18、
+  deleteMyComment + Alert 确认 :70/:61),路由 MyComments 已在 RootNavigator:523 注册。
+  它的数据面是上一枚 d9e1d9c5 才补注册的(此前全仓零命中)⇒ 这条从"打空面"变成真承载,不是补数字。
+
+certificate/download 保持 gap,但把真因钉进账面(此前那条 gap 的依据是"RN 零候选",不准确):
+  后端两面都在 —— GET /certificates/my(certificate.ts:129,userId 强制当前用户)、
+  POST /certificates/:id/download(:164,PDFKit 服务端产 PDF,非本人 403)。
+  卡点在端侧:api-client 唯一二进制出口 fetchRaw 返回 Blob,而
+  apps/mobile-rn/src/screens/PublishAccountsScreen.tsx:102-104 已实测记录 RN 的 Blob 到不了渲染层、
+  要吃就得再引 base64/落盘依赖;端内现无 bytes→base64 手段(toBase64/base64-js/Encoding 全仓零命中),
+  且该面是 POST-only,expo-file-system downloadAsync 只支持 GET。
+  ⇒ 闭合要先定"给 RN 加二进制落盘原语"这条基础设施(引哪个依赖、放共享层还是端内),
+    不在补屏范围内,也不该由收账提交悄悄替这个决策拍板。
+
+验证:--staged 面读数 aligned 277 / gap 62 / 未映射 0、腐烂零命中;449 行零重复 web 键;
+除台账外零文件改动(本枚不动代码)。
+
+落地口径:graft 重放(只换父不换字节,基线 75e454f427bb),逐路径三方合并;不用双父 merge(会把本侧旧台账快照带进判定面)。

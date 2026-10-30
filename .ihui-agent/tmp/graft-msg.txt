@@ -1,0 +1,36 @@
+feat(api): 补 GET /api/comments/mine 自范围面 —— 修「取错数据」一型并纠两笔假账
+
+立因不是"缺屏",而是跨端盘点量到一个**看起来正常但数据错**的断链:
+apps/web/app/(main)/user/comment/page.tsx 打 `GET /api/comments?authorId=<本人>`,
+而 apps/api/src/routes/comments.ts:107 起的列表面只认 resourceType/resourceId/parentId ——
+zod 默认剥未知键 ⇒ authorId 被静默丢弃,页面拿回的是"全站顶级评论"而不是本人评论。
+这类失效比 404 更难发现:200、有数据、界面不报错,只有逐条比对契约才看得见。
+
+修法不选"给公开面加 authorId 参数"(那等于开出"可枚举任意用户评论"的面),
+而是新增自范围面:主体一律取自令牌 request.userId,不接受客户端自报(§5 认证不等于授权)。
+
+- apps/api/src/db/comment-queries.ts:ListCommentsOpts 增 authorId 与 anyDepth;
+  resourceType/resourceId 改为"resource 对或 authorId 至少给一个",两者皆缺直接抛错 ⇒ 不开无界全表面;
+  authorId 面不套"只回顶级"语义(否则"我的评论"会漏掉全部回复)。
+- apps/api/src/routes/comments.ts:注册 GET /comments/mine(该插件 93 行 preHandler 已统一 requireAuth)。
+- apps/api/src/routes/__tests__/comments-mine-contract.test.ts:5 例钉 A 面存在 /
+  B 范围锁令牌(阳性对照:query 里故意传别人的 authorId 必须被忽略)/ C 分页越界由模式先拒不发查询 /
+  D1 未登录 401 且零查询(逮"鉴权写漏")/ D2 既有公开面回归不变。
+- apps/web/...(user/comment)/page.tsx:改打 /api/comments/mine,并把页内那条还在写 authorId 语义的
+  旧注释一并更正(不留与代码矛盾的说明)。
+
+台账纠账两笔(净额不变:aligned 276 / gap 63,449 行零重复键):
+- user/comment:gap → aligned。承载 = Wave2 已注册屏 MyCommentsScreen(它打的 /api/comments/mine
+  本枚起才真实存在);同因 student/my-comments 与 comments 两页(均打 /mine)由假绿转为真承载。
+- student/my-resources:aligned → gap。**这是下调账面,不是消红**:该屏打的
+  GET /api/resources/mine 在 apps/api 与 apps/ai-service 全仓零命中,且 resources 表
+  (packages/database/src/schema/resource.ts:42-78)无任何所有者列(user_id 属于 144 行的
+  resourceDownloads,不是 resources)⇒ "我上传的资源"在当前数据模型里不可表达,原 aligned 是假绿。
+- user/resource:保持 gap 并写明同上证据;闭合需 schema 迁移 + 存量归属回填决策,不属建屏范围。
+
+验证:新测试 5/5;受影响既有测试 39/39;node scripts/check-typecheck.mjs exit 0(全量含 mypy);
+五件 eslint exit 0;watermark verify 解载荷 0 残迹;资源侧我一度加过 authorId 维与 /resources/mine,
+查证表无所有者列后**整段回退**(不保留半个假面),残留引用 0。
+
+落地口径:本枚把我的改动面重放到远端当前尖(只换父不换字节),不用双父合并 —— 本枚不动 PROJECT_PLAN.md,而 merge 会把我这侧旧台账快照当"本侧独有内容"带进判定面,
+实测触发 union-converge 的 F4 副本行/F6 整块重复 needHuman 与 5 枚语言包 merge-file 冲突区,并对远端既存红逐道误归到本枚。

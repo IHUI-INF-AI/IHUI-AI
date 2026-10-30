@@ -1,0 +1,134 @@
+{
+  "domain": "knowledge-base",
+  "wave": "wave3-q1",
+  "unitScreen": "knowledge-base/search + knowledge-base/[id]",
+  "newFiles": [
+    "packages/api-client/src/endpoints/knowledge-base.ts",
+    "packages/app/src/features/knowledge-base/KnowledgeBaseSearchScreen.tsx",
+    "apps/mobile-rn/src/screens/KnowledgeBaseSearchScreen.tsx",
+    "packages/app/src/features/knowledge-base/KnowledgeBaseArticleScreen.tsx",
+    "apps/mobile-rn/src/screens/KnowledgeBaseArticleScreen.tsx"
+  ],
+  "indexExports": [
+    "export { KnowledgeBaseSearchScreen } from './features/knowledge-base/KnowledgeBaseSearchScreen'",
+    "export type { KnowledgeBaseSearchRowView, KnowledgeBaseSearchScreenProps } from './features/knowledge-base/KnowledgeBaseSearchScreen'",
+    "export { KnowledgeBaseArticleScreen } from './features/knowledge-base/KnowledgeBaseArticleScreen'",
+    "export type { KnowledgeBaseArticleView, KnowledgeBaseArticleScreenProps } from './features/knowledge-base/KnowledgeBaseArticleScreen'"
+  ],
+  "apiClientIndexExports": [
+    "export * from './endpoints/knowledge-base.js'"
+  ],
+  "apiClientIndexNote": "需在 packages/api-client/src/index.ts 追加 1 行 re-export,否则 2 枚薄壳从 @ihui/api-client 取 getKnowledgeBaseList/getKnowledgeBaseArticle 报「无此导出」。既有 knowledge-card.ts / knowledge-rag.ts / team-knowledge.ts 是另外三个数据源(knowledge_cards / knowledge_rag / team_knowledge 表),不可顶替,故新开 knowledge-base.ts。",
+  "navigator": [
+    {
+      "import": "import { KnowledgeBaseSearchScreen } from '../screens/KnowledgeBaseSearchScreen'",
+      "param": "  KnowledgeBaseSearch: { q?: string } | undefined",
+      "screen": "<RootStack.Screen name=\"KnowledgeBaseSearch\" component={KnowledgeBaseSearchScreen} />"
+    },
+    {
+      "import": "import { KnowledgeBaseArticleScreen } from '../screens/KnowledgeBaseArticleScreen'",
+      "param": "  KnowledgeBaseArticle: { id: string }",
+      "screen": "<RootStack.Screen name=\"KnowledgeBaseArticle\" component={KnowledgeBaseArticleScreen} />"
+    }
+  ],
+  "i18n": {
+    "en": {
+      "knowledgeBaseSearchPage": {
+        "title": "Search results",
+        "resultSummary": "Found {count} results for \"{q}\"",
+        "inputKeyword": "Enter a search keyword",
+        "searching": "Searching...",
+        "noResult": "No matching articles found",
+        "searchPlaceholder": "Search knowledge base articles...",
+        "loginRequired": "Please log in"
+      },
+      "knowledgeBaseDetailPage": {
+        "notFound": "Article not found",
+        "viewCount": "{count} views"
+      }
+    },
+    "zh-CN": {
+      "knowledgeBaseSearchPage": {
+        "title": "搜索结果",
+        "resultSummary": "关键词「{q}」共找到 {count} 条结果",
+        "inputKeyword": "请输入搜索关键词",
+        "searching": "搜索中...",
+        "noResult": "未找到相关文章",
+        "searchPlaceholder": "搜索知识库文章...",
+        "loginRequired": "请先登录"
+      },
+      "knowledgeBaseDetailPage": {
+        "notFound": "文章不存在",
+        "viewCount": "{count} 次浏览"
+      }
+    },
+    "zh-TW": {
+      "knowledgeBaseSearchPage": {
+        "title": "搜索結果",
+        "resultSummary": "關鍵詞「{q}」共找到 {count} 條結果",
+        "inputKeyword": "請輸入搜索關鍵詞",
+        "searching": "搜索中...",
+        "noResult": "未找到相關文章",
+        "searchPlaceholder": "搜索知識庫文章...",
+        "loginRequired": "請先登錄"
+      },
+      "knowledgeBaseDetailPage": {
+        "notFound": "文章不存在",
+        "viewCount": "{count} 次瀏覽"
+      }
+    },
+    "ja": {
+      "knowledgeBaseSearchPage": {
+        "title": "検索結果",
+        "resultSummary": "キーワード「{q}」で {count} 件の結果が見つかりました",
+        "inputKeyword": "検索キーワードを入力してください",
+        "searching": "検索中...",
+        "noResult": "関連する記事が見つかりません",
+        "searchPlaceholder": "ナレッジベースの記事を検索...",
+        "loginRequired": "ログインしてください"
+      },
+      "knowledgeBaseDetailPage": {
+        "notFound": "記事が存在しません",
+        "viewCount": "{count} 回閲覧"
+      }
+    },
+    "ko": {
+      "knowledgeBaseSearchPage": {
+        "title": "검색 결과",
+        "resultSummary": "키워드 \"{q}\"에 대해 {count}개 결과를 찾았습니다",
+        "inputKeyword": "검색어를 입력해 주세요",
+        "searching": "검색 중...",
+        "noResult": "관련 문서를 찾지 못했습니다",
+        "searchPlaceholder": "지식 베이스 문서 검색...",
+        "loginRequired": "로그인해 주세요"
+      },
+      "knowledgeBaseDetailPage": {
+        "notFound": "문서가 존재하지 않습니다",
+        "viewCount": "{count}회 조회"
+      }
+    }
+  },
+  "ledger": [
+    {
+      "web": "knowledge-base/search",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeBaseSearchScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-q1@2026-10-27: 新建共享屏 packages/app/src/features/knowledge-base/KnowledgeBaseSearchScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/knowledge-base.ts;后端契约现读 = GET /api/knowledge-base?search&pageSize&page(apps/api/src/routes/other/knowledge-base-routes.ts:33-83,信封 success({ list, total }) 发送在 :82;other 路由经 apps/api/src/routes/index.ts:1119 以 prefix /api 挂载,子注册 apps/api/src/routes/other/index.ts:67),该路由无 preHandler ⇒ 公开可读;pageSize 上限 100(knowledge-base-routes.ts:51),search 走 title/summary ILIKE(:54);行取 id/title/summary/viewCount/updatedAt/categoryId + leftJoin 的 categoryName/authorName(:64-77)。web 同参消费方 apps/web/app/(main)/knowledge-base/search/PageClient.tsx:65-73(search + pageSize=50,RN 同 50)。登录门与 web 同口径(PageClient.tsx:58,121-122 useAuthGate),未登录不发注定 401 的查询;口径差:web 的 <mark> 命中高亮 RN 无内联富文本切片,按原文渲染,已登记在屏头注。",
+      "at": "2026-10-27"
+    },
+    {
+      "web": "knowledge-base/[id]",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeBaseArticleScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-q1@2026-10-27: 新建共享屏 packages/app/src/features/knowledge-base/KnowledgeBaseArticleScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/knowledge-base.ts;后端契约现读 = GET /api/knowledge-base/:id(apps/api/src/routes/other/knowledge-base-routes.ts:130-145,信封 success({ item }) 发送在 :144;:id 经 parseIdParam(apps/api/src/routes/other/_shared.ts:37-44)校验,畸形 400、未命中 404(:138),命中后浏览量 +1(:140-143))。⚠ 契约错位如实登记:web 详情页按 { article, prev, next } 解析(apps/web/app/(main)/knowledge-base/[id]/PageClient.tsx:31-35,46),后端只回 { item } ⇒ RN 按后端真实信封取 data.item(web 侧 article 恒 undefined 是 web 自身 bug,未在 RN 复制);后端全列 select(:133-137)不含 categoryName/authorName/tags/prev/next ⇒ 分类/作者/标签位留空、「上一篇/下一篇」不渲染(不放死按钮);web 右栏目录依赖 markdown 锚点,RN 无 markdown 渲染器故省略,正文按纯文本渲染,已在屏头注登记。日期与 web 同参 Intl(year numeric + month long + day numeric,PageClient.tsx:49-53);404 落「文章不存在」空态,其余失败落错误态+重试。",
+      "at": "2026-10-27"
+    }
+  ],
+  "notLanded": [
+    {
+      "web": "knowledge",
+      "verdict": "保持 gap(不改判)",
+      "why": "web 页 POST /api/agents/memory/search(apps/web/app/(main)/knowledge/page.tsx:27-47,走 fetchAiServiceJson 因该端点无 {code,data} 包装),该 path 是 next rewrites 转发到 ai-service 8803 的(apps/web/next.config.ts:513-516),apps/api 无同名用户态路由:全仓 grep 'agents/memory/search' 只命中 apps/api/src/routes/v1-knowledge-tools.ts:2186-2224 —— 那是 v1 API-Key 形态(preHandler requireApiKeyAuth + requireCapability('memory:read'),路径 POST /v1/memory/search,仅作转发壳),RN 用户态(会话 JWT)不可用;apps/api 的 GET/POST /api/memory(apps/api/src/routes/memory.ts:158,185)是记忆条目读写,不是该页的语义检索语义,顶替即换契约。RN 基址为 apps/api(apps/mobile-rn/src/lib/config.ts:42-49),拿不到 ai-service 8803 ⇒ 无可用数据源,铺屏=造点了必 404 的死搜索,故按口径保持 gap,不写 aligned、不造假按钮。"
+    }
+  ]
+}

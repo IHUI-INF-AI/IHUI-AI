@@ -1,0 +1,8 @@
+fix(scripts): feedback-loop-status 的 git log 派生补 stdio —— 门 193 既存红点清零
+
+scripts/feedback-loop-status.mjs 的 runGitLog 用 spawnSync 派生 git log 但 options 里
+没有 stdio 属性名,与 origin/main 逐字节一致(不是本票带进来的)。它是 blocking 门 193
+的唯一红点,每次 pre-push 都被拦 ⇒ 恒红门,实际后果就是人人 --no-verify 把整条守门链废掉(§12e)。
+
+补 stdio: ['ignore','pipe','pipe'](保留 stderr 可读,调用方的 r.stderr 诊断分支不受影响)。
+验证:193 索引面判红 0 处;scripts/tests/feedback-loop-status.test.mjs 9/9 通过。

@@ -1,0 +1,46 @@
+
+===== 2026-10-26T03:56:26.304Z post-commit-push-guard ok=false =====
+[36m🔍 git-push-guard 启动 → 分支: [1mmain[0m | 模式: [32m检测+自动推送[0m[0m
+[33m⚠️ 当前分支 [33mgap-screens[0m 与目标分支 [33mmain[0m 不一致,改用当前分支[0m
+[31m❌ 远端 origin/gap-screens 不存在或取不到(无网络且无跟踪 ref)⇒ 本轮不推,不做任何同步结论[0m
+Command failed: node scripts/git-push-guard.mjs
+===== 2026-10-26T05:25:15.403Z post-commit-push-guard ok=false =====
+[36m🔍 git-push-guard 启动 → 分支: [1mmain[0m | 模式: [32m检测+自动推送[0m[0m
+[33m⚠️ 当前分支 [33mgap-screens[0m 与目标分支 [33mmain[0m 不一致,改用当前分支[0m
+[31m❌ 远端 origin/gap-screens 不存在或取不到(无网络且无跟踪 ref)⇒ 本轮不推,不做任何同步结论[0m
+Command failed: node scripts/git-push-guard.mjs
+===== 2026-10-26T05:31:15.033Z post-commit-push-guard ok=false =====
+[36m🔍 git-push-guard 启动 → 分支: [1mmain[0m | 模式: [32m检测+自动推送[0m[0m
+[33m⚠️ 当前分支 [33mgap-screens[0m 与目标分支 [33mmain[0m 不一致,改用当前分支[0m
+[31m❌ 远端 origin/gap-screens 不存在或取不到(无网络且无跟踪 ref)⇒ 本轮不推,不做任何同步结论[0m
+Command failed: node scripts/git-push-guard.mjs
+===== 2026-10-27T01:21:25.764Z post-commit-push-guard ok=false =====
+[36m🔍 git-push-guard 启动 → 分支: [1mmain[0m | 模式: [32m检测+自动推送[0m[0m
+[33m⚠️ 当前分支 [33mgap-screens[0m 与目标分支 [33mmain[0m 不一致,改用当前分支[0m
+[31m❌ 远端 origin/gap-screens 不存在或取不到(无网络且无跟踪 ref)⇒ 本轮不推,不做任何同步结论[0m
+Command failed: node scripts/git-push-guard.mjs
+===== 2026-10-27T03:10:31.350Z post-commit-push-guard ok=false =====
+[36m🔍 git-push-guard 启动 → 分支: [1mmain[0m | 模式: [32m检测+自动推送[0m[0m
+[33m⚠️ 当前分支 [33mgap-screens[0m 与目标分支 [33mmain[0m 不一致,改用当前分支[0m
+[31m❌ 远端 origin/gap-screens 不存在或取不到(无网络且无跟踪 ref)⇒ 本轮不推,不做任何同步结论[0m
+Command failed: node scripts/git-push-guard.mjs
+===== 2026-10-27T03:20:54.270Z post-commit-push-guard ok=false =====
+[36m🔍 git-push-guard 启动 → 分支: [1mmain[0m | 模式: [32m检测+自动推送[0m[0m
+[33m⚠️ 当前分支 [33mgap-screens[0m 与目标分支 [33mmain[0m 不一致,改用当前分支[0m
+[31m❌ 远端 origin/gap-screens 不存在或取不到(无网络且无跟踪 ref)⇒ 本轮不推,不做任何同步结论[0m
+Command failed: node scripts/git-push-guard.mjs
+===== 2026-10-27T03:21:24.544Z post-commit-push-guard ok=false =====
+[36m🔍 git-push-guard 启动 → 分支: [1mmain[0m | 模式: [32m检测+自动推送[0m[0m
+[33m⚠️ 当前分支 [33mgap-screens[0m 与目标分支 [33mmain[0m 不一致,改用当前分支[0m
+[31m❌ 远端 origin/gap-screens 不存在或取不到(无网络且无跟踪 ref)⇒ 本轮不推,不做任何同步结论[0m
+Command failed: node scripts/git-push-guard.mjs
+===== 2026-10-27T03:53:25.648Z post-commit-push-guard ok=false =====
+[36m🔍 git-push-guard 启动 → 分支: [1mmain[0m | 模式: [32m检测+自动推送[0m[0m
+[33m⚠️ 当前分支 [33mgap-screens[0m 与目标分支 [33mmain[0m 不一致,改用当前分支[0m
+[31m❌ 远端 origin/gap-screens 不存在或取不到(无网络且无跟踪 ref)⇒ 本轮不推,不做任何同步结论[0m
+Command failed: node scripts/git-push-guard.mjs
+===== 2026-10-27T04:18:13.292Z post-commit-push-guard ok=false =====
+[36m🔍 git-push-guard 启动 → 分支: [1mmain[0m | 模式: [32m检测+自动推送[0m[0m
+[33m⚠️ 当前分支 [33mgap-screens[0m 与目标分支 [33mmain[0m 不一致,改用当前分支[0m
+[31m❌ 远端 origin/gap-screens 不存在或取不到(无网络且无跟踪 ref)⇒ 本轮不推,不做任何同步结论[0m
+Command failed: node scripts/git-push-guard.mjs

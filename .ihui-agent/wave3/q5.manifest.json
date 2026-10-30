@@ -1,0 +1,117 @@
+{
+  "domain": "workspace/[id] + voices(另复核 skills-market 并发落件)",
+  "wave": "wave3-q5",
+  "unitScreen": "workspace/[id] + voices + skills-market",
+  "newFiles": [
+    "packages/api-client/src/endpoints/workspace-detail.ts",
+    "packages/app/src/features/workspace/WorkspaceDetailScreen.tsx",
+    "apps/mobile-rn/src/screens/WorkspaceDetailScreen.tsx"
+  ],
+  "indexExports": [
+    "export { WorkspaceDetailScreen } from './features/workspace/WorkspaceDetailScreen'",
+    "export type { WorkspaceFileRowView, WorkspaceProjectHeaderView, WorkspaceDetailScreenProps } from './features/workspace/WorkspaceDetailScreen'"
+  ],
+  "apiClientIndexExports": [
+    "export * from './endpoints/workspace-detail.js'"
+  ],
+  "apiClientIndexNote": "需在 packages/api-client/src/index.ts 追加 1 行 re-export,否则薄壳 import { fetchWorkspaceProject / fetchWorkspaceProjectFiles / deleteWorkspaceProjectFile } 报「无此导出」。既有 endpoints/workspace.ts 的 getFiles(:134-141)把该端点声明成 PageData<WorkspaceFile>,与后端 success({files}) 不符,故按后端信封另立 workspace-detail.ts,未改旧件。",
+  "navigator": [
+    {
+      "import": "import { WorkspaceDetailScreen } from '../screens/WorkspaceDetailScreen'",
+      "param": "  WorkspaceDetail: { id: string }",
+      "screen": "<RootStack.Screen name=\"WorkspaceDetail\" component={WorkspaceDetailScreen} />"
+    }
+  ],
+  "i18n": {
+    "en": {
+      "workspaceDetailPage": {
+        "title": "Workspace Detail",
+        "description": "Description",
+        "files": "Files",
+        "loading": "Loading...",
+        "emptyFiles": "No files yet. Drag or click above to upload.",
+        "deleteFile": "Delete file",
+        "deleteConfirm": "Are you sure you want to delete {name}? This cannot be undone.",
+        "loginRequired": "Please log in"
+      }
+    },
+    "zh-CN": {
+      "workspaceDetailPage": {
+        "title": "工作区详情",
+        "description": "项目描述",
+        "files": "文件",
+        "loading": "加载中...",
+        "emptyFiles": "暂无文件，拖拽或点击上方区域上传",
+        "deleteFile": "删除文件",
+        "deleteConfirm": "确定要删除 {name} 吗？此操作不可恢复。",
+        "loginRequired": "请先登录"
+      }
+    },
+    "zh-TW": {
+      "workspaceDetailPage": {
+        "title": "工作區詳情",
+        "description": "項目描述",
+        "files": "文件",
+        "loading": "加載中...",
+        "emptyFiles": "暫無文件，拖拽或點擊上方區域上傳",
+        "deleteFile": "刪除文件",
+        "deleteConfirm": "確定要刪除 {name} 嗎？此操作不可恢復。",
+        "loginRequired": "請先登錄"
+      }
+    },
+    "ja": {
+      "workspaceDetailPage": {
+        "title": "ワークスペース詳細",
+        "description": "プロジェクト",
+        "files": "ファイル",
+        "loading": "読み込み中...",
+        "emptyFiles": "ファイルがありません。のエリアをドラッグまたはクリックしてアップロード",
+        "deleteFile": "ファイルを",
+        "deleteConfirm": "{name} を削除してもよろしいですか？この操作は元に戻せません。",
+        "loginRequired": "ログインしてください"
+      }
+    },
+    "ko": {
+      "workspaceDetailPage": {
+        "title": "워크스페이스 상세",
+        "description": "설명",
+        "files": "파일",
+        "loading": "로딩 중...",
+        "emptyFiles": "파일이 없습니다. 위 영역을 드래그하거나 클릭하여 업로드하세요",
+        "deleteFile": "파일 삭제",
+        "deleteConfirm": "{name}을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+        "loginRequired": "로그인해 주세요"
+      }
+    }
+  },
+  "ledger": [
+    {
+      "web": "workspace/[id]",
+      "rn": "apps/mobile-rn/src/screens/WorkspaceDetailScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3@2026-10-27: 新建共享屏 packages/app/src/features/workspace/WorkspaceDetailScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/workspace-detail.ts;后端契约现读 = GET /api/workspace/projects/:id → success({project})(apps/api/src/routes/workspace.ts:264-279)、GET /api/workspace/projects/:id/files → success({files})(workspace.ts:335-351)、DELETE /api/workspace/files/:id → success({deleted})(workspace.ts:653-690,软删除),prefix 注册见 routes/index.ts:563。承载=项目头+文件列表+删除+下拉刷新;未承载=上传(multipart 需文档选择器)/下载预览(web 走 fetchRaw+createObjectURL)/转 Markdown 弹窗;AIWorkspaceTabs 是 AI_MOCK 静态样例(helpers.ts:9-41 零后端)刻意不搬,避免造假界面。口径差:web 两条 useQuery 分区报错,RN 合并为整屏 error。",
+      "at": "2026-10-27"
+    },
+    {
+      "web": "skills-market",
+      "rn": "apps/mobile-rn/src/screens/SkillsMarketScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3@2026-10-27: 本席未产件 —— 该路由由并发 Q6 席位在同一 worktree 落件(见 .ihui-agent/wave3/q6.manifest.json:SkillsMarketScreen/SkillMarketDetailScreen + endpoints/skills-market-engagement.ts),其共享屏头注自述同时承载 /skills/market 与 /skills-market。本席核对后端契约一致(GET /api/skills/market → success({items,total,page,pageSize}),apps/api/src/routes/skills.ts:744-774),为避免撞车未重复产件,也未重复登记 navigator/indexExports(Q6 已登记 SkillsMarket 路由)。集成方注意:Q6 的 jsonl 行只写了 skills-market/[id] 与 skills/market,普通 skills-market 这一行仍需补。",
+      "at": "2026-10-27"
+    },
+    {
+      "web": "voices",
+      "rn": null,
+      "status": "gap",
+      "note": "Wave3@2026-10-27: 无产物,保持 gap。后端缺 /api/voice/voices —— 该资源只存在于 ai-service(apps/ai-service/app/routers/voice_tts.py:275-290,GET/POST/DELETE /voice/voices[/:id]),apps/api 未注册任何 /api/voice* 代理(grep 'voice' apps/api/src/routes/index.ts 仅命中 /api/voice-notes:575、/api/engine/voice:821、/api/webrtc-voice:1151,均非声纹库)。RN 只走 apps/api 基址(normalizeUrl 前缀 /api,client.ts:564-572),无法直达 ai-service;web 同页 apps/web/app/(main)/voices/page.tsx:107 打 /voice/voices 亦无 apps/api 承接。照纪律不写 aligned、不造假按钮。",
+      "at": "2026-10-27"
+    }
+  ],
+  "notLanded": [
+    {
+      "route": "voices",
+      "reason": "后端缺 /api/voice/voices(apps/api 未代理 ai-service 声纹库);证据 apps/ai-service/app/routers/voice_tts.py:275-290 + apps/api/src/routes/index.ts 无 /api/voice 注册",
+      "keepGap": true
+    }
+  ]
+}

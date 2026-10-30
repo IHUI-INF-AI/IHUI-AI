@@ -1,0 +1,83 @@
+{
+ "circlesTitle": "圈子",
+ "post": {
+  "cardTitle": "發帖",
+  "contentLabel": "內容",
+  "contentPlaceholder": "請輸入帖子內容",
+  "errorCircleRequired": "請選擇圈子",
+  "errorTitleContentRequired": "標題和內容不能為空",
+  "images": "圖片",
+  "selectCircle": "選擇圈子",
+  "selectCirclePlaceholder": "請選擇圈子",
+  "titleLabel": "標題",
+  "titlePlaceholder": "請輸入帖子標題",
+  "title": "帖子"
+ },
+ "invitations": {
+  "copied": "已復制",
+  "copy": "復制",
+  "emptyCodes": "暫無邀請碼，點擊右上角生成",
+  "emptyInvitees": "暫無已邀請用戶",
+  "expiresAt": "過期時間",
+  "generate": "生成邀請碼",
+  "invitees": "已邀請用戶",
+  "loading": "加載中...",
+  "myCodes": "我的邀請碼",
+  "registeredAt": "注冊時間",
+  "reward": "獎勵",
+  "rewardValue": "邀請人 +{inviter} / 被邀請人 +{invitee} 積分",
+  "subtitle": "邀請好友，雙方均可獲得獎勵",
+  "title": "邀請有獎",
+  "user": "用戶",
+  "status": {
+   "expired": "已過期",
+   "unused": "有效",
+   "used": "已使用"
+  }
+ },
+ "letters": {
+  "delete": "刪除",
+  "deleteConfirm": "確定刪除這條私信？",
+  "empty": "暫無會話",
+  "error": "加載失敗",
+  "loading": "加載中...",
+  "members": "聯系人",
+  "noConversation": "選擇左側會話開始聊天",
+  "searchPlaceholder": "搜索聯系人...",
+  "send": "發送",
+  "sendPlaceholder": "輸入消息內容...",
+  "sendSuccess": "發送成功",
+  "subtitle": "與平臺用戶一對一的私密溝通",
+  "title": "私信",
+  "you": "我"
+ },
+ "news": {
+  "backToList": "返回資訊",
+  "subtitle": "瞭解最新動態",
+  "notFound": "資訊不存在",
+  "empty": "暫無資訊",
+  "pinned": "置頂",
+  "publishedAt": "發布於 {date}",
+  "viewCount": "{count} 閱讀",
+  "total": "共 {total} 篇",
+  "prev": "上一頁",
+  "next": "下一頁"
+ },
+ "searchHistory": {
+  "clearAll": "清空",
+  "subtitle": "最近的搜索記錄",
+  "title": "搜尋紀錄",
+  "loading": "載入中...",
+  "empty": "暫無搜尋紀錄",
+  "resultCount": "共 {count} 筆",
+  "delete": "刪除"
+ },
+ "common": {
+  "back": "返回",
+  "submit": "提交",
+  "cancel": "取消",
+  "confirm": "確認"
+ },
+ "uploadFailed": "上傳失敗",
+ "loginRequired": "請先登錄"
+}

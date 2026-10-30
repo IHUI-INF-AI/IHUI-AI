@@ -1,0 +1,33 @@
+feat(rn): Wave3 首批补屏 5 条 gap 路由 —— 社区与检索(circles/post、invitations、letters、news/category、search/history)
+
+台账判定面 gap 69 → 64、aligned 270 → 275(未映射恒 0、腐烂零命中、零重复 web 键)。
+
+新建 18 件:共享屏 packages/app/src/features/community/{CirclePost,Invitations,Letters,LetterChat,NewsCategory,SearchHistory}Screen.tsx
++ RN 薄壳同名 6 件 + 端点封装按域四件 invitations/circles-post/news-category/search-history + letter-time.ts。
+文案 72 键五语全量取自 web 同源消息(i18n 闭环校验:代码引用 69 键,manifest 声明全含,零缺失)。
+
+端点件按域拆开:席位初版把 5 个域塞进一枚 wave3-community.ts —— 批次号烙进永久文件名就是未来的腐烂锚点,
+且同域已有 private-letters.ts 时不该另立第二份(§0.6)。私信形状修正 3 个符号并入既有同域件(它已在 barrel 出口)。
+拆分前后导出名集合 17→17 逐名守恒,零丢失零新增;五件水印过 watermark verify(解载荷,不是判存在)。
+
+修复席位产物两处真实破损(都是"没人跑过 eslint 就不会被发现"那一型):
+- InvitationsScreen 两处 textAlign: 'right } 未闭合字符串 ⇒ 整枚文件语法坏(逐行单引号奇偶扫描定位,共 2 处);
+- 薄壳里 Clipboard.setString(...).then(...) —— 该 API 返回 void,链式 .then 把失败读成成功;
+  改走端内单源出口 useClipboard(先例 ChatTemplatesScreen/ImageGenTemplatesScreen)。
+
+集成器两处口径修正(后续批次直接继承,不再逐次手修):
+- screen 行自动补 12 空格缩进 —— 判据原写 /^\s*</,"\s*"允许零个空白,未缩进行也被判成已缩进,补丁当时无效;
+- 去重改按 trim 后文本比,否则"已注册但缩进不同"的路由会被再插一遍。
+
+验证读数:本票声明集 eslint exit 0;三包 tsc 本票归因 0 错(api-client rc=0;rn-app/mobile-rn 其余报错
+全部位于 22 个在飞席位的未跟踪文件,不入本枚);暂存面对账尺 275/64/0。
+归因器 v1 实测假绿:execFileSync('pnpm') 在 Windows 起不动 .CMD 垫片 ⇒ 空输出被解析成"零错误",
+v2 改为直接喂 node 跑 tsc、加解析器阳性对照,并把"rc≠0 却解析不到错误行"判成未判定 exit 2(§0.3)。
+
+
+落地口径:本枚不是双父合并,而是把我的 27 个文件字节重放到远端当前尖 5b2c9429 上(只换父不换字节)。
+理由(实测):本枚没动 PROJECT_PLAN.md,双父合并却会把我这侧的旧台账快照当成"本侧独有内容",
+让 union-converge 落出 F4 副本行 / F6 整块重复两类 needHuman,并对 5 枚语言包报 merge-file 冲突区;
+而我的增量与远端零撞车(远端台账这 5 条仍为 gap、六个薄壳名远端不存在)。
+重放后自证:台账 275/110/64(远端 270/110/69 + 本枚 5 条 gap→aligned)、零重复 web 键、
+app barrel 与 RootNavigator 水印仍在末行、顶格 JSX 0 处、private-letters.ts 私信并入三符号在位且水印归位。

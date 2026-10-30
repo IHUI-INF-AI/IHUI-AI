@@ -1,0 +1,1037 @@
+==== 2026/10/26 13:27:11 :: scripts/guardian-runner.mjs --push-gate ====
+🧮 并发诊断:parMax=8 guardianSerial=false checks=2 池内=0 fastMode=false 预算=35000ms
+[T1] 🔍 push 门全量 typecheck(staged-scope 降级)...
+[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出) [push-scope(本次推送改动范围) 降级启用,4565 文件(原始 53 + 反向依赖新增 4512)]...
+[check-typecheck] ℹ️ G-406 ②:改动的下游 importer 已纳入降级判据(4512 个)——改契约时 importer 自身的类型报错不再被当噪音放行
+[typecheck:full] 清除 .tsbuildinfo 增量缓存...
+[typecheck:full] 已删除 1 个 .tsbuildinfo 文件：
+  - .\node_modules\.cache\tsbuildinfo\apps-mobile-rn.tsbuildinfo
+[typecheck:full] 检测到 9 个包的 dist 比 src 旧(或整个不存在),先重建再 typecheck:
+  - @ihui/api-client
+  - @ihui/auth
+  - @ihui/browser-platform
+  - @ihui/context-compaction
+  - @ihui/database
+  - @ihui/dom-actions
+  - @ihui/sdk
+  - @ihui/shared
+  - @ihui/ui-react
+[atomic-build] 完成：新构建已原子换入 dist
+[atomic-build] 完成：dist 被占用，已用原地覆盖兜底（下次构建自动清理孤儿文件）
+[atomic-build] 完成：dist 被占用，已用原地覆盖兜底（下次构建自动清理孤儿文件）
+✅ embed-types: dist/ihui-types.d.ts 已生成,改写 13 个声明文件,无 @ihui/* 残留
+[typecheck:full] 前置重建完成,继续全量 typecheck。
+
+[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...
+Scope: 25 of 26 workspace projects
+apps/ai-service typecheck$ echo 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: Done
+packages/context-compaction typecheck$ tsc --noEmit
+packages/database typecheck$ tsc --noEmit
+packages/design-tokens typecheck$ tsc -p tsconfig.json --noEmit
+packages/browser-platform typecheck$ tsc --noEmit
+packages/design-tokens typecheck: Done
+packages/i18n typecheck$ tsc -p tsconfig.json --noEmit
+packages/browser-platform typecheck: Done
+packages/types typecheck$ tsc --noEmit
+packages/context-compaction typecheck: Done
+packages/database typecheck: Done
+packages/i18n typecheck: Done
+packages/types typecheck: Done
+packages/dom-actions typecheck$ tsc --noEmit
+packages/sdk typecheck$ tsc -p tsconfig.json --noEmit
+packages/api-client typecheck$ tsc -p tsconfig.json --noEmit
+packages/sdk typecheck: Done
+packages/dom-actions typecheck: Done
+packages/api-client typecheck: Done
+packages/shared typecheck$ tsc --noEmit
+packages/shared typecheck: Done
+apps/cli typecheck$ tsc --noEmit
+apps/miniapp-taro typecheck$ tsc --noEmit
+packages/auth typecheck$ tsc --noEmit
+packages/app typecheck$ tsc --noEmit
+packages/auth typecheck: Done
+packages/ui-native typecheck$ tsc --noEmit
+packages/ui-native typecheck: Done
+packages/ui-react typecheck$ tsc --noEmit
+packages/ui-react typecheck: Done
+apps/cli typecheck: Done
+packages/app typecheck: Done
+apps/miniapp-taro typecheck: Done
+apps/mobile-rn typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/api typecheck$ tsc --noEmit
+apps/extension typecheck$ tsc --noEmit
+apps/extension typecheck: Done
+apps/mobile-rn typecheck: Done
+apps/api typecheck: Done
+apps/web typecheck: Done
+
+[typecheck:full] 运行 apps/web/e2e typecheck (blocking)...
+[typecheck:full] ✅ e2e typecheck 通过(apps/web/e2e/ 无类型错误)
+[typecheck:full] ⚠️  未找到 mypy(无 apps/ai-service/.venv,且 PATH 中也不存在)。
+[typecheck:full]     已跳过本地 mypy 二次校验 —— 权威阻塞门是 CI 的 test-python job
+[typecheck:full]     (uv pip install --system -e ".[dev]" 后 blocking 跑 mypy app/)。
+[typecheck:full]     本地启用:cd apps/ai-service && uv sync(生成 .venv 后重跑)。
+
+[typecheck:full] 全量类型检查通过(TS + mypy)。
+[check-typecheck] ✅ 全量 typecheck 验证通过
+  ▸   1/2  50%  ok   [T1] 158382ms
+$ node ../../scripts/lib/atomic-build.mjs -p tsconfig.json
+(node:22480) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+$ tsc
+$ tsc
+$ node ../../scripts/lib/atomic-build.mjs -p tsconfig.json
+(node:20208) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+$ tsc --build --force
+$ node ../../scripts/lib/atomic-build.mjs -p tsconfig.build.json
+(node:24852) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+$ tsc -p tsconfig.json && node scripts/embed-types.mjs
+$ tsc
+$ rimraf dist && tsc
+$ tsc
+$ tsc -p e2e/tsconfig.json --noEmit
+(node:22868) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)...
+git 派生 stdio 纪律对账(判定面:HEAD blob):射程 scripts(含 scripts/lib 149 个) / 跟踪源码文件 1502 个(其中 scripts/tests 692 个) / 判红 1 处(经 cmd.exe 0 处) / 不判: hiddenInLiteral 245 / inputStdinUnreadable 2 / unknownBinary 2 / exemptedByLedger 1
+   (非源码扩展名跳过 174 个,如实报数不静默)
+   新维 input↔stdin(口径第 3b 条):判红 0 处(本次新增) / 存量 0 处(不判红) / 判不出 2 处 / 台账豁免 0 处 —— 全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量
+      · 判不出 scripts/audit-decision-log.mjs:77 —— stdioShorthand
+      · 判不出 scripts/union-converge.mjs:199 —— stdioValueUnreadable((三元分支含 pipe/ignore))
+  ▸   2/2 100%  FAIL [193]   5987ms
+❌ 判红 1 处,分布在 1 个文件(生产/非测试面 1 个,测试面 0 个):
+❌ scripts/feedback-loop-status.mjs   [scripts]
+   L267  options 内无 stdio 属性名
+
+  💡 病根(2026-10-03,30 组对照实测;本门立时复测 2 组 × 10 次同形):
+     · execFileSync/execSync 派生 git 时 options **不写** `stdio` ⇒ 0/30 成功,抛 EBUSY;
+       同一段补 `stdio: ['ignore','pipe','pipe']` ⇒ 30/30 成功。
+     · 同刻在交互 bash 里直接跑 git 正常 ⇒ 与 git 被锁、并发无关。
+     · **绝对路径 GIT_BIN / gitBinary() / resolveGitBin() 不是豁免** —— EBUSY 是派生面的病,
+       与怎么找到那个 exe 无关(所以"改绝对路径就安全"在本机是错的)。
+     · 另一副面孔:`execSync(<字符串>)` / `shell: true` 经 cmd.exe,同样 100% EBUSY。
+  ⚠️ 不要用单次探测下结论:实测有一次测到"不写 stdio 6/6 通过" —— 单次/小样本会给出
+     "不需要 stdio"的假象。**任何相关判断必须成组对照**(每组 ≥10 次)。
+  修法:options 里显式写 `stdio` 属性名。**取值两种都合规**:
+     `['ignore','pipe','pipe']`(不带 input)与
+     `['pipe','pipe','pipe']`(喂 stdin 的 batch 族,见 scripts/lib/face-reader.mjs:94)。
+     判据只认属性名、不认取值 —— 判取值会把喂 stdin 的那一族误伤成红。
+     **ES6 属性简写也合规**:`{ stdio }` / `{ stdio, cwd }` / `{ cwd, stdio }`(= 已接管 stdio)。
+     但值位置的 `stdio`(`{ encoding: stdio }`)不算,`xstdio:` / `my_stdio:` / `{ stdioX }` 也不算。
+  ⚠️ 判据落在**该次调用的 options 内**,不按文件判:同一文件里另一处合规调用
+     (如 scripts/check-root-dir-clean.mjs:265/:281)不得洗白本文件的裸奔处(:75)。
+  豁免只能进具名数据文件 `scripts/check-git-stdio-exemptions.json`(字段 file/reason/owner/reviewBy),
+     **行内注释不是豁免通道**:它长在被审面里,格式化与搬运都会带着它走,而审它的人看不见它。
+     裁决账(只登记"证据不足、限期再看")也不是豁免通道,不得借用。
+  单跑:node scripts/check-git-stdio-discipline.mjs [--staged|--worktree]
+     自检:node scripts/check-git-stdio-discipline.mjs --self-test
+
+
+  💡 病根(2026-10-03 实测):options 里**不写** `stdio` ⇒ 派生 git 抛 EBUSY(0/30);
+     同一段补 `stdio: ['ignore','pipe','pipe']` ⇒ 30/30 成功。
+     绝对路径 GIT_BIN / gitBinary() / resolveGitBin() **不是豁免** —— EBUSY 是派生面的病。
+     另一副面孔:`execSync(<字符串>)` / `shell: true` 经 cmd.exe,同样 100% EBUSY。
+  ⚠️ 不要用单次探测下结论:实测有一次测到"不写 stdio 6/6 通过" —— 单次/小样本会给出
+     "不需要 stdio"的假象。任何相关判断必须**成组对照**(每组 ≥10 次)。
+  修法:options 里显式写 `stdio` 属性名。取值两种都合规:
+     ['ignore','pipe','pipe'] 与 ['pipe','pipe','pipe']。
+  豁免只能进具名数据文件 scripts/check-git-stdio-exemptions.json
+     (字段 file/reason/owner/reviewBy);**行内注释不是豁免通道**。
+  单独复验:node scripts/check-git-stdio-discipline.mjs [--staged|--worktree]
+     自检:node scripts/check-git-stdio-discipline.mjs --self-test(23 例,含折行不改判据命门例 + ES6 属性简写族)
+     镜像:node --test scripts/tests/check-git-stdio-discipline.test.mjs(16 例;T13 可能因 AD 态文件在环境性红)
+  紧急跳过(不推荐):HUSKY_SKIP_GIT_STDIO_DISCIPLINE=1 git commit ...
+
+[31m❌ [193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30) 失败,提交已阻止[0m
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 2(已执行 2)
+  [32m通过: 1[0m
+  [33m警告: 0[0m
+  [31m失败: 1[0m
+  [2m跳过: 0[0m
+  总耗时: 164.4s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=21790604c792…,selfSkipped=0,undeclaredSkipHits=0)[0m
+
+[1m[31m🚫 1 道 blocking 门失败 —— 本轮已跑完全部 2 项,未提前中止:[0m
+   · [193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)
+     单独复现:node scripts/check-git-stdio-discipline.mjs
+  [2m(紧急只跑首个即停:GUARDIAN_STOP_ON_FIRST=1)[0m
+==== 2026/10/26 13:31:36 :: scripts/guardian-runner.mjs --push-gate ====
+🧮 并发诊断:parMax=8 guardianSerial=false checks=2 池内=0 fastMode=false 预算=35000ms
+[T1] 🔍 push 门全量 typecheck(staged-scope 降级)...
+[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出) [push-scope(本次推送改动范围) 降级启用,4566 文件(原始 54 + 反向依赖新增 4512)]...
+[check-typecheck] ℹ️ G-406 ②:改动的下游 importer 已纳入降级判据(4512 个)——改契约时 importer 自身的类型报错不再被当噪音放行
+[typecheck:full] 清除 .tsbuildinfo 增量缓存...
+[typecheck:full] 已删除 16 个 .tsbuildinfo 文件：
+  - .\node_modules\.cache\tsbuildinfo\apps-api.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-cli.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-miniapp-taro.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-mobile-rn.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web-e2e.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-auth.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-browser-platform.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-context-compaction.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-database.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-dom-actions.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-sdk.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-shared.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-types.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-native.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo
+[typecheck:full] 陈旧 dist 前置:packages 全部与源码同新,无需重建。
+
+[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...
+Scope: 25 of 26 workspace projects
+apps/ai-service typecheck$ echo 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: Done
+packages/browser-platform typecheck$ tsc --noEmit
+packages/context-compaction typecheck$ tsc --noEmit
+packages/database typecheck$ tsc --noEmit
+packages/design-tokens typecheck$ tsc -p tsconfig.json --noEmit
+packages/design-tokens typecheck: Done
+packages/i18n typecheck$ tsc -p tsconfig.json --noEmit
+packages/context-compaction typecheck: Done
+packages/types typecheck$ tsc --noEmit
+packages/browser-platform typecheck: Done
+packages/i18n typecheck: Done
+packages/types typecheck: Done
+packages/database typecheck: Done
+packages/api-client typecheck$ tsc -p tsconfig.json --noEmit
+packages/dom-actions typecheck$ tsc --noEmit
+packages/sdk typecheck$ tsc -p tsconfig.json --noEmit
+packages/sdk typecheck: Done
+packages/dom-actions typecheck: Done
+packages/api-client typecheck: Done
+packages/shared typecheck$ tsc --noEmit
+packages/shared typecheck: Done
+apps/cli typecheck$ tsc --noEmit
+apps/miniapp-taro typecheck$ tsc --noEmit
+packages/app typecheck$ tsc --noEmit
+packages/auth typecheck$ tsc --noEmit
+packages/auth typecheck: Done
+packages/ui-native typecheck$ tsc --noEmit
+packages/ui-native typecheck: Done
+packages/ui-react typecheck$ tsc --noEmit
+packages/ui-react typecheck: Done
+apps/cli typecheck: Done
+packages/app typecheck: Done
+apps/miniapp-taro typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/extension typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/mobile-rn typecheck$ tsc --noEmit
+apps/extension typecheck: Done
+apps/mobile-rn typecheck: Done
+apps/api typecheck: Done
+apps/web typecheck: Done
+
+[typecheck:full] 运行 apps/web/e2e typecheck (blocking)...
+[typecheck:full] ✅ e2e typecheck 通过(apps/web/e2e/ 无类型错误)
+[typecheck:full] ⚠️  未找到 mypy(无 apps/ai-service/.venv,且 PATH 中也不存在)。
+[typecheck:full]     已跳过本地 mypy 二次校验 —— 权威阻塞门是 CI 的 test-python job
+[typecheck:full]     (uv pip install --system -e ".[dev]" 后 blocking 跑 mypy app/)。
+[typecheck:full]     本地启用:cd apps/ai-service && uv sync(生成 .venv 后重跑)。
+
+[typecheck:full] 全量类型检查通过(TS + mypy)。
+[check-typecheck] ✅ 全量 typecheck 验证通过
+  ▸   1/2  50%  ok   [T1] 113638ms
+$ tsc -p e2e/tsconfig.json --noEmit
+(node:22424) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)...
+git 派生 stdio 纪律对账(判定面:HEAD blob):射程 scripts(含 scripts/lib 149 个) / 跟踪源码文件 1502 个(其中 scripts/tests 692 个) / 判红 0 处(经 cmd.exe 0 处) / 不判: hiddenInLiteral 245 / inputStdinUnreadable 2 / unknownBinary 2 / exemptedByLedger 1
+   (非源码扩展名跳过 174 个,如实报数不静默)
+   新维 input↔stdin(口径第 3b 条):判红 0 处(本次新增) / 存量 0 处(不判红) / 判不出 2 处 / 台账豁免 0 处 —— 全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量
+      · 判不出 scripts/audit-decision-log.mjs:77 —— stdioShorthand
+      · 判不出 scripts/union-converge.mjs:199 —— stdioValueUnreadable((三元分支含 pipe/ignore))
+✅ 射程内 git 派生调用的 options 均已显式接管 stdio
+  ▸   2/2 100%  ok   [193]   5953ms
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 2(已执行 2)
+  [32m通过: 2[0m
+  [33m警告: 0[0m
+  [31m失败: 0[0m
+  [2m跳过: 0[0m
+  总耗时: 119.6s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=fc902ea36ac2…,selfSkipped=0,undeclaredSkipHits=0)[0m
+[2m⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)[0m
+==== 2026/10/27 10:24:48 :: scripts/guardian-runner.mjs --push-gate ====
+🧮 并发诊断:parMax=8 guardianSerial=false checks=2 池内=0 fastMode=false 预算=35000ms
+[T1] 🔍 push 门全量 typecheck(staged-scope 降级)...
+[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出) [staged-scope(暂存区) 降级启用,7004 文件(原始 672 + 反向依赖新增 6332)]...
+[check-typecheck] ℹ️ G-406 ②:改动的下游 importer 已纳入降级判据(6332 个)——改契约时 importer 自身的类型报错不再被当噪音放行
+[typecheck:full] 清除 .tsbuildinfo 增量缓存...
+[typecheck:full] 已删除 16 个 .tsbuildinfo 文件：
+  - .\node_modules\.cache\tsbuildinfo\apps-api.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-cli.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-miniapp-taro.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-mobile-rn.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web-e2e.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-auth.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-browser-platform.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-context-compaction.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-database.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-dom-actions.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-sdk.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-shared.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-types.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-native.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo
+[typecheck:full] 检测到 4 个包的 dist 比 src 旧(或整个不存在),先重建再 typecheck:
+  - @ihui/api-client
+  - @ihui/database
+  - @ihui/shared
+  - @ihui/ui-react
+src/index.ts(406,15): error TS2307: Cannot find module './endpoints/keepalive.js' or its corresponding type declarations.
+D:\IHUI-AI-wt\gap-screens\packages\api-client:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @ihui/api-client@0.0.0 build: `node ../../scripts/lib/atomic-build.mjs -p tsconfig.json`
+Exit status 2
+ℹ️ 1/1 个报错文件在本次改动范围内,维持失败(样例前 20 个):
+   - src/index.ts
+  ▸   1/2  50%  FAIL [T1]  14353ms
+$ node ../../scripts/lib/atomic-build.mjs -p tsconfig.json
+[atomic-build] tsc 失败 (exit=2)，旧 dist 保持原样
+
+[typecheck:full] 重建 @ihui/api-client 失败(exit 2)—— 不带着旧产物继续跑类型检查。
+❌ 全量 typecheck 失败,推送已阻止(exit 2)
+[31m❌ [T1] 🔍 push 门全量 typecheck(staged-scope 降级) 失败,提交已阻止[0m
+[193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)...
+git 派生 stdio 纪律对账(判定面:HEAD blob):射程 scripts(含 scripts/lib 149 个) / 跟踪源码文件 1501 个(其中 scripts/tests 692 个) / 判红 0 处(经 cmd.exe 0 处) / 不判: hiddenInLiteral 245 / inputStdinUnreadable 2 / unknownBinary 2 / exemptedByLedger 1
+   (非源码扩展名跳过 174 个,如实报数不静默)
+   新维 input↔stdin(口径第 3b 条):判红 0 处(本次新增) / 存量 0 处(不判红) / 判不出 2 处 / 台账豁免 0 处 —— 全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量
+      · 判不出 scripts/audit-decision-log.mjs:77 —— stdioShorthand
+      · 判不出 scripts/union-converge.mjs:199 —— stdioValueUnreadable((三元分支含 pipe/ignore))
+✅ 射程内 git 派生调用的 options 均已显式接管 stdio
+  ▸   2/2 100%  ok   [193]  10426ms
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 2(已执行 2)
+  [32m通过: 1[0m
+  [33m警告: 0[0m
+  [31m失败: 1[0m
+  [2m跳过: 0[0m
+  总耗时: 24.8s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=9ff63d69889e…,selfSkipped=0,undeclaredSkipHits=0)[0m
+
+[1m[31m🚫 1 道 blocking 门失败 —— 本轮已跑完全部 2 项,未提前中止:[0m
+   · [T1] 🔍 push 门全量 typecheck(staged-scope 降级)
+     单独复现:node scripts/check-typecheck.mjs
+  [2m(紧急只跑首个即停:GUARDIAN_STOP_ON_FIRST=1)[0m
+==== 2026/10/27 10:34:10 :: scripts/guardian-runner.mjs --push-gate ====
+🧮 并发诊断:parMax=8 guardianSerial=false checks=2 池内=0 fastMode=false 预算=35000ms
+[T1] 🔍 push 门全量 typecheck(staged-scope 降级)...
+[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出) [head-diff(origin/main..HEAD 推断兜底) 降级启用,6009 文件(原始 116 + 反向依赖新增 5893)]...
+[check-typecheck] ℹ️ G-406 ②:改动的下游 importer 已纳入降级判据(5893 个)——改契约时 importer 自身的类型报错不再被当噪音放行
+[typecheck:full] 清除 .tsbuildinfo 增量缓存...
+[typecheck:full] 已删除 16 个 .tsbuildinfo 文件：
+  - .\node_modules\.cache\tsbuildinfo\apps-api.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-cli.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-miniapp-taro.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-mobile-rn.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web-e2e.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-auth.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-browser-platform.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-context-compaction.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-database.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-dom-actions.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-sdk.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-shared.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-types.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-native.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo
+[typecheck:full] 陈旧 dist 前置:packages 全部与源码同新,无需重建。
+
+[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...
+Scope: 25 of 26 workspace projects
+apps/ai-service typecheck$ echo 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: Done
+packages/browser-platform typecheck$ tsc --noEmit
+packages/database typecheck$ tsc --noEmit
+packages/context-compaction typecheck$ tsc --noEmit
+packages/design-tokens typecheck$ tsc -p tsconfig.json --noEmit
+packages/design-tokens typecheck: Done
+packages/i18n typecheck$ tsc -p tsconfig.json --noEmit
+packages/context-compaction typecheck: Done
+packages/types typecheck$ tsc --noEmit
+packages/browser-platform typecheck: Done
+packages/i18n typecheck: Done
+packages/types typecheck: Done
+packages/database typecheck: Done
+packages/api-client typecheck$ tsc -p tsconfig.json --noEmit
+packages/sdk typecheck$ tsc -p tsconfig.json --noEmit
+packages/dom-actions typecheck$ tsc --noEmit
+packages/sdk typecheck: Done
+packages/dom-actions typecheck: Done
+packages/api-client typecheck: Done
+packages/shared typecheck$ tsc --noEmit
+packages/shared typecheck: Done
+apps/miniapp-taro typecheck$ tsc --noEmit
+apps/cli typecheck$ tsc --noEmit
+packages/app typecheck$ tsc --noEmit
+packages/auth typecheck$ tsc --noEmit
+packages/auth typecheck: Done
+packages/ui-native typecheck$ tsc --noEmit
+packages/ui-native typecheck: Done
+packages/ui-react typecheck$ tsc --noEmit
+packages/ui-react typecheck: Done
+apps/cli typecheck: Done
+packages/app typecheck: Done
+apps/miniapp-taro typecheck: Done
+apps/mobile-rn typecheck$ tsc --noEmit
+apps/extension typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/api typecheck$ tsc --noEmit
+apps/extension typecheck: Done
+apps/mobile-rn typecheck: Done
+apps/api typecheck: Done
+apps/web typecheck: Done
+
+[typecheck:full] 运行 apps/web/e2e typecheck (blocking)...
+[typecheck:full] ✅ e2e typecheck 通过(apps/web/e2e/ 无类型错误)
+[typecheck:full] ⚠️  未找到 mypy(无 apps/ai-service/.venv,且 PATH 中也不存在)。
+[typecheck:full]     已跳过本地 mypy 二次校验 —— 权威阻塞门是 CI 的 test-python job
+[typecheck:full]     (uv pip install --system -e ".[dev]" 后 blocking 跑 mypy app/)。
+[typecheck:full]     本地启用:cd apps/ai-service && uv sync(生成 .venv 后重跑)。
+
+[typecheck:full] 全量类型检查通过(TS + mypy)。
+[check-typecheck] ✅ 全量 typecheck 验证通过
+  ▸   1/2  50%  ok   [T1] 191561ms
+$ tsc -p e2e/tsconfig.json --noEmit
+(node:20492) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)...
+git 派生 stdio 纪律对账(判定面:HEAD blob):射程 scripts(含 scripts/lib 155 个) / 跟踪源码文件 1542 个(其中 scripts/tests 721 个) / 判红 0 处(经 cmd.exe 0 处) / 不判: hiddenInLiteral 245 / inputStdinUnreadable 2 / unknownBinary 2 / exemptedByLedger 1
+   (非源码扩展名跳过 176 个,如实报数不静默)
+   新维 input↔stdin(口径第 3b 条):判红 0 处(本次新增) / 存量 0 处(不判红) / 判不出 2 处 / 台账豁免 0 处 —— 全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量
+      · 判不出 scripts/audit-decision-log.mjs:77 —— stdioShorthand
+      · 判不出 scripts/union-converge.mjs:199 —— stdioValueUnreadable((三元分支含 pipe/ignore))
+✅ 射程内 git 派生调用的 options 均已显式接管 stdio
+  ▸   2/2 100%  ok   [193]  10432ms
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 2(已执行 2)
+  [32m通过: 2[0m
+  [33m警告: 0[0m
+  [31m失败: 0[0m
+  [2m跳过: 0[0m
+  总耗时: 202.0s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=4397f98fc1f6…,selfSkipped=0,undeclaredSkipHits=0)[0m
+[2m⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)[0m
+==== 2026/10/27 10:39:46 :: scripts/guardian-runner.mjs --push-gate ====
+🧮 并发诊断:parMax=8 guardianSerial=false checks=2 池内=0 fastMode=false 预算=35000ms
+[T1] 🔍 push 门全量 typecheck(staged-scope 降级)...
+[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出) [push-scope(本次推送改动范围) 降级启用,4582 文件(原始 27 + 反向依赖新增 4555)]...
+[check-typecheck] ℹ️ G-406 ②:改动的下游 importer 已纳入降级判据(4555 个)——改契约时 importer 自身的类型报错不再被当噪音放行
+[typecheck:full] 清除 .tsbuildinfo 增量缓存...
+[typecheck:full] 已删除 16 个 .tsbuildinfo 文件：
+  - .\node_modules\.cache\tsbuildinfo\apps-api.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-cli.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-miniapp-taro.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-mobile-rn.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web-e2e.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-auth.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-browser-platform.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-context-compaction.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-database.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-dom-actions.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-sdk.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-shared.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-types.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-native.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo
+[typecheck:full] 检测到 3 个包的 dist 比 src 旧(或整个不存在),先重建再 typecheck:
+  - @ihui/api-client
+  - @ihui/database
+  - @ihui/ui-react
+[atomic-build] 完成：新构建已原子换入 dist
+[typecheck:full] 前置重建完成,继续全量 typecheck。
+
+[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...
+Scope: 25 of 26 workspace projects
+apps/ai-service typecheck$ echo 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: Done
+packages/context-compaction typecheck$ tsc --noEmit
+packages/browser-platform typecheck$ tsc --noEmit
+packages/database typecheck$ tsc --noEmit
+packages/design-tokens typecheck$ tsc -p tsconfig.json --noEmit
+packages/design-tokens typecheck: Done
+packages/i18n typecheck$ tsc -p tsconfig.json --noEmit
+packages/context-compaction typecheck: Done
+packages/types typecheck$ tsc --noEmit
+packages/browser-platform typecheck: Done
+packages/database typecheck: Done
+packages/i18n typecheck: Done
+packages/types typecheck: Done
+packages/api-client typecheck$ tsc -p tsconfig.json --noEmit
+packages/sdk typecheck$ tsc -p tsconfig.json --noEmit
+packages/dom-actions typecheck$ tsc --noEmit
+packages/sdk typecheck: Done
+packages/dom-actions typecheck: Done
+packages/api-client typecheck: Done
+packages/shared typecheck$ tsc --noEmit
+packages/shared typecheck: Done
+apps/miniapp-taro typecheck$ tsc --noEmit
+apps/cli typecheck$ tsc --noEmit
+packages/app typecheck$ tsc --noEmit
+packages/auth typecheck$ tsc --noEmit
+packages/auth typecheck: Done
+packages/ui-native typecheck$ tsc --noEmit
+packages/ui-native typecheck: Done
+packages/ui-react typecheck$ tsc --noEmit
+packages/ui-react typecheck: Done
+apps/cli typecheck: Done
+packages/app typecheck: Done
+apps/miniapp-taro typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/mobile-rn typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/extension typecheck$ tsc --noEmit
+apps/extension typecheck: Done
+apps/mobile-rn typecheck: Done
+apps/api typecheck: Done
+apps/web typecheck: Done
+
+[typecheck:full] 运行 apps/web/e2e typecheck (blocking)...
+[typecheck:full] ✅ e2e typecheck 通过(apps/web/e2e/ 无类型错误)
+[typecheck:full] ⚠️  未找到 mypy(无 apps/ai-service/.venv,且 PATH 中也不存在)。
+[typecheck:full]     已跳过本地 mypy 二次校验 —— 权威阻塞门是 CI 的 test-python job
+[typecheck:full]     (uv pip install --system -e ".[dev]" 后 blocking 跑 mypy app/)。
+[typecheck:full]     本地启用:cd apps/ai-service && uv sync(生成 .venv 后重跑)。
+
+[typecheck:full] 全量类型检查通过(TS + mypy)。
+[check-typecheck] ✅ 全量 typecheck 验证通过
+  ▸   1/2  50%  ok   [T1] 201411ms
+$ node ../../scripts/lib/atomic-build.mjs -p tsconfig.json
+(node:22160) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+$ tsc --build --force
+$ rimraf dist && tsc
+$ tsc
+$ tsc -p e2e/tsconfig.json --noEmit
+(node:12260) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)...
+git 派生 stdio 纪律对账(判定面:HEAD blob):射程 scripts(含 scripts/lib 155 个) / 跟踪源码文件 1542 个(其中 scripts/tests 721 个) / 判红 0 处(经 cmd.exe 0 处) / 不判: hiddenInLiteral 245 / inputStdinUnreadable 2 / unknownBinary 2 / exemptedByLedger 1
+   (非源码扩展名跳过 176 个,如实报数不静默)
+   新维 input↔stdin(口径第 3b 条):判红 0 处(本次新增) / 存量 0 处(不判红) / 判不出 2 处 / 台账豁免 0 处 —— 全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量
+      · 判不出 scripts/audit-decision-log.mjs:77 —— stdioShorthand
+      · 判不出 scripts/union-converge.mjs:199 —— stdioValueUnreadable((三元分支含 pipe/ignore))
+✅ 射程内 git 派生调用的 options 均已显式接管 stdio
+  ▸   2/2 100%  ok   [193]   9055ms
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 2(已执行 2)
+  [32m通过: 2[0m
+  [33m警告: 0[0m
+  [31m失败: 0[0m
+  [2m跳过: 0[0m
+  总耗时: 210.5s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=43e49e24f7c9…,selfSkipped=0,undeclaredSkipHits=0)[0m
+[2m⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)[0m
+==== 2026/10/27 10:44:58 :: scripts/guardian-runner.mjs --push-gate ====
+🧮 并发诊断:parMax=8 guardianSerial=false checks=2 池内=0 fastMode=false 预算=35000ms
+[T1] 🔍 push 门全量 typecheck(staged-scope 降级)...
+[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出) [push-scope(本次推送改动范围) 降级启用,4582 文件(原始 27 + 反向依赖新增 4555)]...
+[check-typecheck] ℹ️ G-406 ②:改动的下游 importer 已纳入降级判据(4555 个)——改契约时 importer 自身的类型报错不再被当噪音放行
+[typecheck:full] 清除 .tsbuildinfo 增量缓存...
+[typecheck:full] 已删除 16 个 .tsbuildinfo 文件：
+  - .\node_modules\.cache\tsbuildinfo\apps-api.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-cli.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-miniapp-taro.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-mobile-rn.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web-e2e.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-auth.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-browser-platform.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-context-compaction.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-database.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-dom-actions.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-sdk.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-shared.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-types.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-native.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo
+[typecheck:full] 检测到 1 个包的 dist 比 src 旧(或整个不存在),先重建再 typecheck:
+  - @ihui/api-client
+[atomic-build] 完成：新构建已原子换入 dist
+[typecheck:full] 前置重建完成,继续全量 typecheck。
+
+[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...
+Scope: 25 of 26 workspace projects
+apps/ai-service typecheck$ echo 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: Done
+packages/browser-platform typecheck$ tsc --noEmit
+packages/context-compaction typecheck$ tsc --noEmit
+packages/design-tokens typecheck$ tsc -p tsconfig.json --noEmit
+packages/database typecheck$ tsc --noEmit
+packages/design-tokens typecheck: Done
+packages/i18n typecheck$ tsc -p tsconfig.json --noEmit
+packages/context-compaction typecheck: Done
+packages/types typecheck$ tsc --noEmit
+packages/browser-platform typecheck: Done
+packages/i18n typecheck: Done
+packages/types typecheck: Done
+packages/database typecheck: Done
+packages/dom-actions typecheck$ tsc --noEmit
+packages/api-client typecheck$ tsc -p tsconfig.json --noEmit
+packages/sdk typecheck$ tsc -p tsconfig.json --noEmit
+packages/sdk typecheck: Done
+packages/dom-actions typecheck: Done
+packages/api-client typecheck: Done
+packages/shared typecheck$ tsc --noEmit
+packages/shared typecheck: Done
+apps/miniapp-taro typecheck$ tsc --noEmit
+apps/cli typecheck$ tsc --noEmit
+packages/auth typecheck$ tsc --noEmit
+packages/app typecheck$ tsc --noEmit
+packages/auth typecheck: Done
+packages/ui-native typecheck$ tsc --noEmit
+packages/ui-native typecheck: Done
+packages/ui-react typecheck$ tsc --noEmit
+packages/ui-react typecheck: Done
+apps/cli typecheck: Done
+packages/app typecheck: Done
+apps/miniapp-taro typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/extension typecheck$ tsc --noEmit
+apps/mobile-rn typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/extension typecheck: Done
+apps/mobile-rn typecheck: Done
+apps/api typecheck: Done
+apps/web typecheck: Done
+
+[typecheck:full] 运行 apps/web/e2e typecheck (blocking)...
+[typecheck:full] ✅ e2e typecheck 通过(apps/web/e2e/ 无类型错误)
+[typecheck:full] ⚠️  未找到 mypy(无 apps/ai-service/.venv,且 PATH 中也不存在)。
+[typecheck:full]     已跳过本地 mypy 二次校验 —— 权威阻塞门是 CI 的 test-python job
+[typecheck:full]     (uv pip install --system -e ".[dev]" 后 blocking 跑 mypy app/)。
+[typecheck:full]     本地启用:cd apps/ai-service && uv sync(生成 .venv 后重跑)。
+
+[typecheck:full] 全量类型检查通过(TS + mypy)。
+[check-typecheck] ✅ 全量 typecheck 验证通过
+  ▸   1/2  50%  ok   [T1] 189533ms
+$ node ../../scripts/lib/atomic-build.mjs -p tsconfig.json
+(node:12940) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+$ tsc -p e2e/tsconfig.json --noEmit
+(node:14732) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)...
+git 派生 stdio 纪律对账(判定面:HEAD blob):射程 scripts(含 scripts/lib 155 个) / 跟踪源码文件 1542 个(其中 scripts/tests 721 个) / 判红 0 处(经 cmd.exe 0 处) / 不判: hiddenInLiteral 245 / inputStdinUnreadable 2 / unknownBinary 2 / exemptedByLedger 1
+   (非源码扩展名跳过 176 个,如实报数不静默)
+   新维 input↔stdin(口径第 3b 条):判红 0 处(本次新增) / 存量 0 处(不判红) / 判不出 2 处 / 台账豁免 0 处 —— 全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量
+      · 判不出 scripts/audit-decision-log.mjs:77 —— stdioShorthand
+      · 判不出 scripts/union-converge.mjs:199 —— stdioValueUnreadable((三元分支含 pipe/ignore))
+✅ 射程内 git 派生调用的 options 均已显式接管 stdio
+  ▸   2/2 100%  ok   [193]   8960ms
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 2(已执行 2)
+  [32m通过: 2[0m
+  [33m警告: 0[0m
+  [31m失败: 0[0m
+  [2m跳过: 0[0m
+  总耗时: 198.5s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=8d0a0b2d5293…,selfSkipped=0,undeclaredSkipHits=0)[0m
+[2m⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)[0m
+==== 2026/10/27 10:49:33 :: scripts/guardian-runner.mjs --push-gate ====
+[32m⚡ [push-gate] 命中缓存:类型相关内容指纹 58a7b513922 于 1.3 分钟前已通过全量门,跳过重复 typecheck[0m
+[2m   (内容一致复用结果;强制重跑:HUSKY_SKIP_PUSHGATE_CACHE=1)[0m
+==== 2026/10/27 11:12:45 :: scripts/guardian-runner.mjs --push-gate ====
+🧮 并发诊断:parMax=8 guardianSerial=false checks=2 池内=0 fastMode=false 预算=35000ms
+[T1] 🔍 push 门全量 typecheck(staged-scope 降级)...
+[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出) [push-scope(本次推送改动范围) 降级启用,4573 文件(原始 12 + 反向依赖新增 4561)]...
+[check-typecheck] ℹ️ G-406 ②:改动的下游 importer 已纳入降级判据(4561 个)——改契约时 importer 自身的类型报错不再被当噪音放行
+[typecheck:full] 清除 .tsbuildinfo 增量缓存...
+[typecheck:full] 已删除 16 个 .tsbuildinfo 文件：
+  - .\node_modules\.cache\tsbuildinfo\apps-api.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-cli.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-miniapp-taro.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-mobile-rn.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web-e2e.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-auth.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-browser-platform.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-context-compaction.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-database.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-dom-actions.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-sdk.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-shared.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-types.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-native.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo
+[typecheck:full] 检测到 3 个包的 dist 比 src 旧(或整个不存在),先重建再 typecheck:
+  - @ihui/api-client
+  - @ihui/shared
+  - @ihui/ui-react
+src/index.ts(322,1): error TS2308: Module './endpoints/sign-ups.js' has already exported a member named 'getMySignUps'. Consider explicitly re-exporting to resolve the ambiguity.
+D:\IHUI-AI-wt\gap-screens\packages\api-client:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @ihui/api-client@0.0.0 build: `node ../../scripts/lib/atomic-build.mjs -p tsconfig.json`
+Exit status 2
+ℹ️ 1/1 个报错文件在本次改动范围内,维持失败(样例前 20 个):
+   - src/index.ts
+  ▸   1/2  50%  FAIL [T1]  10959ms
+$ node ../../scripts/lib/atomic-build.mjs -p tsconfig.json
+[atomic-build] tsc 失败 (exit=2)，旧 dist 保持原样
+
+[typecheck:full] 重建 @ihui/api-client 失败(exit 2)—— 不带着旧产物继续跑类型检查。
+❌ 全量 typecheck 失败,推送已阻止(exit 2)
+[31m❌ [T1] 🔍 push 门全量 typecheck(staged-scope 降级) 失败,提交已阻止[0m
+[193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)...
+git 派生 stdio 纪律对账(判定面:HEAD blob):射程 scripts(含 scripts/lib 155 个) / 跟踪源码文件 1545 个(其中 scripts/tests 723 个) / 判红 0 处(经 cmd.exe 0 处) / 不判: hiddenInLiteral 245 / inputStdinUnreadable 2 / unknownBinary 2 / exemptedByLedger 1
+   (非源码扩展名跳过 176 个,如实报数不静默)
+   新维 input↔stdin(口径第 3b 条):判红 0 处(本次新增) / 存量 0 处(不判红) / 判不出 2 处 / 台账豁免 0 处 —— 全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量
+      · 判不出 scripts/audit-decision-log.mjs:77 —— stdioShorthand
+      · 判不出 scripts/union-converge.mjs:199 —— stdioValueUnreadable((三元分支含 pipe/ignore))
+✅ 射程内 git 派生调用的 options 均已显式接管 stdio
+  ▸   2/2 100%  ok   [193]   9150ms
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 2(已执行 2)
+  [32m通过: 1[0m
+  [33m警告: 0[0m
+  [31m失败: 1[0m
+  [2m跳过: 0[0m
+  总耗时: 20.2s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=a7acc4937359…,selfSkipped=0,undeclaredSkipHits=0)[0m
+
+[1m[31m🚫 1 道 blocking 门失败 —— 本轮已跑完全部 2 项,未提前中止:[0m
+   · [T1] 🔍 push 门全量 typecheck(staged-scope 降级)
+     单独复现:node scripts/check-typecheck.mjs
+  [2m(紧急只跑首个即停:GUARDIAN_STOP_ON_FIRST=1)[0m
+==== 2026/10/27 11:21:55 :: scripts/guardian-runner.mjs --push-gate ====
+🧮 并发诊断:parMax=8 guardianSerial=false checks=2 池内=0 fastMode=false 预算=35000ms
+[T1] 🔍 push 门全量 typecheck(staged-scope 降级)...
+[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出) [push-scope(本次推送改动范围) 降级启用,4573 文件(原始 12 + 反向依赖新增 4561)]...
+[check-typecheck] ℹ️ G-406 ②:改动的下游 importer 已纳入降级判据(4561 个)——改契约时 importer 自身的类型报错不再被当噪音放行
+[typecheck:full] 清除 .tsbuildinfo 增量缓存...
+[typecheck:full] 已删除 16 个 .tsbuildinfo 文件：
+  - .\node_modules\.cache\tsbuildinfo\apps-api.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-cli.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-miniapp-taro.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-mobile-rn.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web-e2e.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-auth.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-browser-platform.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-context-compaction.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-database.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-dom-actions.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-sdk.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-shared.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-types.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-native.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo
+[typecheck:full] 检测到 1 个包的 dist 比 src 旧(或整个不存在),先重建再 typecheck:
+  - @ihui/api-client
+[atomic-build] 完成：新构建已原子换入 dist
+[typecheck:full] 前置重建完成,继续全量 typecheck。
+
+[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...
+Scope: 25 of 26 workspace projects
+apps/ai-service typecheck$ echo 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: Done
+packages/context-compaction typecheck$ tsc --noEmit
+packages/browser-platform typecheck$ tsc --noEmit
+packages/database typecheck$ tsc --noEmit
+packages/design-tokens typecheck$ tsc -p tsconfig.json --noEmit
+packages/design-tokens typecheck: Done
+packages/i18n typecheck$ tsc -p tsconfig.json --noEmit
+packages/context-compaction typecheck: Done
+packages/types typecheck$ tsc --noEmit
+packages/browser-platform typecheck: Done
+packages/i18n typecheck: Done
+packages/types typecheck: Done
+packages/database typecheck: Done
+packages/api-client typecheck$ tsc -p tsconfig.json --noEmit
+packages/sdk typecheck$ tsc -p tsconfig.json --noEmit
+packages/dom-actions typecheck$ tsc --noEmit
+packages/sdk typecheck: Done
+packages/dom-actions typecheck: Done
+packages/api-client typecheck: Done
+packages/shared typecheck$ tsc --noEmit
+packages/shared typecheck: Done
+apps/miniapp-taro typecheck$ tsc --noEmit
+apps/cli typecheck$ tsc --noEmit
+packages/auth typecheck$ tsc --noEmit
+packages/app typecheck$ tsc --noEmit
+packages/auth typecheck: Done
+packages/ui-native typecheck$ tsc --noEmit
+packages/ui-native typecheck: Done
+packages/ui-react typecheck$ tsc --noEmit
+packages/ui-react typecheck: Done
+apps/cli typecheck: Done
+packages/app typecheck: Done
+apps/miniapp-taro typecheck: Done
+apps/mobile-rn typecheck$ tsc --noEmit
+apps/extension typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/api typecheck$ tsc --noEmit
+apps/extension typecheck: Done
+apps/mobile-rn typecheck: Done
+apps/api typecheck: Done
+apps/web typecheck: Done
+
+[typecheck:full] 运行 apps/web/e2e typecheck (blocking)...
+[typecheck:full] ✅ e2e typecheck 通过(apps/web/e2e/ 无类型错误)
+[typecheck:full] ⚠️  未找到 mypy(无 apps/ai-service/.venv,且 PATH 中也不存在)。
+[typecheck:full]     已跳过本地 mypy 二次校验 —— 权威阻塞门是 CI 的 test-python job
+[typecheck:full]     (uv pip install --system -e ".[dev]" 后 blocking 跑 mypy app/)。
+[typecheck:full]     本地启用:cd apps/ai-service && uv sync(生成 .venv 后重跑)。
+
+[typecheck:full] 全量类型检查通过(TS + mypy)。
+[check-typecheck] ✅ 全量 typecheck 验证通过
+  ▸   1/2  50%  ok   [T1] 168355ms
+$ node ../../scripts/lib/atomic-build.mjs -p tsconfig.json
+(node:9548) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+$ tsc -p e2e/tsconfig.json --noEmit
+(node:21040) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)...
+git 派生 stdio 纪律对账(判定面:HEAD blob):射程 scripts(含 scripts/lib 155 个) / 跟踪源码文件 1545 个(其中 scripts/tests 723 个) / 判红 0 处(经 cmd.exe 0 处) / 不判: hiddenInLiteral 245 / inputStdinUnreadable 2 / unknownBinary 2 / exemptedByLedger 1
+   (非源码扩展名跳过 176 个,如实报数不静默)
+   新维 input↔stdin(口径第 3b 条):判红 0 处(本次新增) / 存量 0 处(不判红) / 判不出 2 处 / 台账豁免 0 处 —— 全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量
+      · 判不出 scripts/audit-decision-log.mjs:77 —— stdioShorthand
+      · 判不出 scripts/union-converge.mjs:199 —— stdioValueUnreadable((三元分支含 pipe/ignore))
+✅ 射程内 git 派生调用的 options 均已显式接管 stdio
+  ▸   2/2 100%  ok   [193]  15191ms
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 2(已执行 2)
+  [32m通过: 2[0m
+  [33m警告: 0[0m
+  [31m失败: 0[0m
+  [2m跳过: 0[0m
+  总耗时: 183.6s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=8db4d007eaaf…,selfSkipped=0,undeclaredSkipHits=0)[0m
+[2m⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)[0m
+==== 2026/10/27 11:55:50 :: scripts/guardian-runner.mjs --push-gate ====
+🧮 并发诊断:parMax=8 guardianSerial=false checks=2 池内=0 fastMode=false 预算=35000ms
+[T1] 🔍 push 门全量 typecheck(staged-scope 降级)...
+[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出) [push-scope(本次推送改动范围) 降级启用,16 文件(原始 5 + 反向依赖新增 11)]...
+[check-typecheck] ℹ️ G-406 ②:改动的下游 importer 已纳入降级判据(11 个)——改契约时 importer 自身的类型报错不再被当噪音放行
+[typecheck:full] 清除 .tsbuildinfo 增量缓存...
+[typecheck:full] 已删除 16 个 .tsbuildinfo 文件：
+  - .\node_modules\.cache\tsbuildinfo\apps-api.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-cli.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-miniapp-taro.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-mobile-rn.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web-e2e.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-auth.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-browser-platform.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-context-compaction.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-database.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-dom-actions.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-sdk.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-shared.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-types.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-native.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo
+[typecheck:full] 检测到 2 个包的 dist 比 src 旧(或整个不存在),先重建再 typecheck:
+  - @ihui/api-client
+  - @ihui/ui-react
+[atomic-build] 完成：新构建已原子换入 dist
+[typecheck:full] 前置重建完成,继续全量 typecheck。
+
+[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...
+Scope: 25 of 26 workspace projects
+apps/ai-service typecheck$ echo 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: Done
+packages/browser-platform typecheck$ tsc --noEmit
+packages/context-compaction typecheck$ tsc --noEmit
+packages/database typecheck$ tsc --noEmit
+packages/design-tokens typecheck$ tsc -p tsconfig.json --noEmit
+packages/design-tokens typecheck: Done
+packages/i18n typecheck$ tsc -p tsconfig.json --noEmit
+packages/context-compaction typecheck: Done
+packages/types typecheck$ tsc --noEmit
+packages/browser-platform typecheck: Done
+packages/i18n typecheck: Done
+packages/types typecheck: Done
+packages/database typecheck: Done
+packages/api-client typecheck$ tsc -p tsconfig.json --noEmit
+packages/dom-actions typecheck$ tsc --noEmit
+packages/sdk typecheck$ tsc -p tsconfig.json --noEmit
+packages/sdk typecheck: Done
+packages/dom-actions typecheck: Done
+packages/api-client typecheck: Done
+packages/shared typecheck$ tsc --noEmit
+packages/shared typecheck: Done
+apps/cli typecheck$ tsc --noEmit
+packages/app typecheck$ tsc --noEmit
+packages/auth typecheck$ tsc --noEmit
+apps/miniapp-taro typecheck$ tsc --noEmit
+packages/auth typecheck: Done
+packages/ui-native typecheck$ tsc --noEmit
+packages/ui-native typecheck: Done
+packages/ui-react typecheck$ tsc --noEmit
+packages/ui-react typecheck: Done
+apps/cli typecheck: Done
+packages/app typecheck: Done
+apps/miniapp-taro typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/extension typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/mobile-rn typecheck$ tsc --noEmit
+apps/extension typecheck: Done
+apps/mobile-rn typecheck: src/components/UpdatePrompt.tsx(21,26): error TS2307: Cannot find module 'expo-updates' or its corresponding type declarations.
+apps/mobile-rn typecheck: Failed
+D:\IHUI-AI-wt\gap-screens\apps\mobile-rn:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @ihui/mobile-rn@0.0.6 typecheck: `tsc --noEmit`
+Exit status 2
+
+ℹ️ 全部报错文件均不在本次改动范围(push-scope(本次推送改动范围),属并行会话工作区噪音),降级为警告
+ℹ️ 解析到报错文件共 1 个(样例前 20 个):
+   - src/components/UpdatePrompt.tsx
+ℹ️ 判定:本次 push 放行(exit 0);报错文件的类型修复由其所属会话负责
+  ▸   1/2  50%  ok   [T1] 106735ms
+$ node ../../scripts/lib/atomic-build.mjs -p tsconfig.json
+(node:22380) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+$ rimraf dist && tsc
+$ tsc
+
+[typecheck:full] 失败，退出码 2
+[193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)...
+git 派生 stdio 纪律对账(判定面:HEAD blob):射程 scripts(含 scripts/lib 155 个) / 跟踪源码文件 1545 个(其中 scripts/tests 723 个) / 判红 0 处(经 cmd.exe 0 处) / 不判: hiddenInLiteral 245 / inputStdinUnreadable 2 / unknownBinary 2 / exemptedByLedger 1
+   (非源码扩展名跳过 177 个,如实报数不静默)
+   新维 input↔stdin(口径第 3b 条):判红 0 处(本次新增) / 存量 0 处(不判红) / 判不出 2 处 / 台账豁免 0 处 —— 全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量
+      · 判不出 scripts/audit-decision-log.mjs:77 —— stdioShorthand
+      · 判不出 scripts/union-converge.mjs:199 —— stdioValueUnreadable((三元分支含 pipe/ignore))
+✅ 射程内 git 派生调用的 options 均已显式接管 stdio
+  ▸   2/2 100%  ok   [193]   9947ms
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 2(已执行 2)
+  [32m通过: 2[0m
+  [33m警告: 0[0m
+  [31m失败: 0[0m
+  [2m跳过: 0[0m
+  总耗时: 116.7s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=654fc77fed30…,selfSkipped=0,undeclaredSkipHits=0)[0m
+[2m⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)[0m
+==== 2026/10/27 12:19:20 :: scripts/guardian-runner.mjs --push-gate ====
+🧮 并发诊断:parMax=8 guardianSerial=false checks=2 池内=0 fastMode=false 预算=35000ms
+[T1] 🔍 push 门全量 typecheck(staged-scope 降级)...
+[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出) [push-scope(本次推送改动范围) 降级启用,1 文件(原始 1 + 反向依赖新增 0)]...
+[typecheck:full] 清除 .tsbuildinfo 增量缓存...
+[typecheck:full] 已删除 15 个 .tsbuildinfo 文件：
+  - .\node_modules\.cache\tsbuildinfo\apps-api.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-cli.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-miniapp-taro.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-mobile-rn.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\apps-web.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-auth.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-browser-platform.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-context-compaction.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-database.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-dom-actions.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-sdk.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-shared.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-types.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-native.tsbuildinfo
+  - .\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo
+[typecheck:full] 检测到 2 个包的 dist 比 src 旧(或整个不存在),先重建再 typecheck:
+  - @ihui/api-client
+  - @ihui/database
+[atomic-build] 完成：新构建已原子换入 dist
+[typecheck:full] 前置重建完成,继续全量 typecheck。
+
+[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...
+Scope: 25 of 26 workspace projects
+apps/ai-service typecheck$ echo 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'
+apps/ai-service typecheck: Done
+packages/context-compaction typecheck$ tsc --noEmit
+packages/browser-platform typecheck$ tsc --noEmit
+packages/design-tokens typecheck$ tsc -p tsconfig.json --noEmit
+packages/database typecheck$ tsc --noEmit
+packages/design-tokens typecheck: Done
+packages/i18n typecheck$ tsc -p tsconfig.json --noEmit
+packages/context-compaction typecheck: Done
+packages/types typecheck$ tsc --noEmit
+packages/browser-platform typecheck: Done
+packages/database typecheck: Done
+packages/i18n typecheck: Done
+packages/types typecheck: Done
+packages/sdk typecheck$ tsc -p tsconfig.json --noEmit
+packages/dom-actions typecheck$ tsc --noEmit
+packages/api-client typecheck$ tsc -p tsconfig.json --noEmit
+packages/sdk typecheck: Done
+packages/dom-actions typecheck: Done
+packages/api-client typecheck: Done
+packages/shared typecheck$ tsc --noEmit
+packages/shared typecheck: Done
+packages/app typecheck$ tsc --noEmit
+apps/miniapp-taro typecheck$ tsc --noEmit
+packages/auth typecheck$ tsc --noEmit
+apps/cli typecheck$ tsc --noEmit
+packages/auth typecheck: Done
+packages/ui-native typecheck$ tsc --noEmit
+packages/ui-native typecheck: Done
+packages/ui-react typecheck$ tsc --noEmit
+packages/ui-react typecheck: Done
+apps/cli typecheck: Done
+packages/app typecheck: Done
+apps/miniapp-taro typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/extension typecheck$ tsc --noEmit
+apps/mobile-rn typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/extension typecheck: Done
+apps/mobile-rn typecheck: src/components/UpdatePrompt.tsx(21,26): error TS2307: Cannot find module 'expo-updates' or its corresponding type declarations.
+apps/mobile-rn typecheck: Failed
+D:\IHUI-AI-wt\gap-screens\apps\mobile-rn:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @ihui/mobile-rn@0.0.6 typecheck: `tsc --noEmit`
+Exit status 2
+
+ℹ️ 全部报错文件均不在本次改动范围(push-scope(本次推送改动范围),属并行会话工作区噪音),降级为警告
+ℹ️ 解析到报错文件共 1 个(样例前 20 个):
+   - src/components/UpdatePrompt.tsx
+ℹ️ 判定:本次 push 放行(exit 0);报错文件的类型修复由其所属会话负责
+  ▸   1/2  50%  ok   [T1] 113522ms
+$ node ../../scripts/lib/atomic-build.mjs -p tsconfig.json
+(node:2156) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+$ tsc --build --force
+
+[typecheck:full] 失败，退出码 2
+[193] 🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)...
+git 派生 stdio 纪律对账(判定面:HEAD blob):射程 scripts(含 scripts/lib 155 个) / 跟踪源码文件 1545 个(其中 scripts/tests 723 个) / 判红 0 处(经 cmd.exe 0 处) / 不判: hiddenInLiteral 245 / inputStdinUnreadable 2 / unknownBinary 2 / exemptedByLedger 1
+   (非源码扩展名跳过 177 个,如实报数不静默)
+   新维 input↔stdin(口径第 3b 条):判红 0 处(本次新增) / 存量 0 处(不判红) / 判不出 2 处 / 台账豁免 0 处 —— 全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量
+      · 判不出 scripts/audit-decision-log.mjs:77 —— stdioShorthand
+      · 判不出 scripts/union-converge.mjs:199 —— stdioValueUnreadable((三元分支含 pipe/ignore))
+✅ 射程内 git 派生调用的 options 均已显式接管 stdio
+  ▸   2/2 100%  ok   [193]  10973ms
+
+[1m🛡️ 守门脚本批量检查汇总[0m
+  总检查数: 2(已执行 2)
+  [32m通过: 2[0m
+  [33m警告: 0[0m
+  [31m失败: 0[0m
+  [2m跳过: 0[0m
+  [33m❓ 未判定: 0(取不到输入,§0.3 不记绿也不冒红,见下方逐道点名)[0m
+  总耗时: 124.6s
+[2m🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=e2cbbec31958…,selfSkipped=0,undeclaredSkipHits=0)[0m
+[2m⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)[0m

@@ -1,0 +1,83 @@
+{
+ "circlesTitle": "Circles",
+ "post": {
+  "cardTitle": "New Post",
+  "contentLabel": "Content",
+  "contentPlaceholder": "Enter post content",
+  "errorCircleRequired": "Please select a circle",
+  "errorTitleContentRequired": "Title and content cannot be empty",
+  "images": "Images",
+  "selectCircle": "Select Circle",
+  "selectCirclePlaceholder": "Please select a circle",
+  "titleLabel": "Title",
+  "titlePlaceholder": "Enter post title",
+  "title": "Post"
+ },
+ "invitations": {
+  "copied": "Copied",
+  "copy": "Copy",
+  "emptyCodes": "No codes yet, generate one above",
+  "emptyInvitees": "No invitees yet",
+  "expiresAt": "Expires",
+  "generate": "Generate Code",
+  "invitees": "Invitees",
+  "loading": "Loading...",
+  "myCodes": "My Codes",
+  "registeredAt": "Registered",
+  "reward": "Reward",
+  "rewardValue": "Inviter +{inviter} / Invitee +{invitee} points",
+  "subtitle": "Invite friends and both of you earn rewards",
+  "title": "Invitations",
+  "user": "User",
+  "status": {
+   "expired": "Expired",
+   "unused": "Active",
+   "used": "Used"
+  }
+ },
+ "letters": {
+  "delete": "Delete",
+  "deleteConfirm": "Delete this message?",
+  "empty": "No conversations",
+  "error": "Failed to load",
+  "loading": "Loading...",
+  "members": "Contacts",
+  "noConversation": "Select a conversation to start chatting",
+  "searchPlaceholder": "Search contacts...",
+  "send": "Send",
+  "sendPlaceholder": "Type a message...",
+  "sendSuccess": "Sent",
+  "subtitle": "One-on-one private chat with platform users",
+  "title": "Private Messages",
+  "you": "Me"
+ },
+ "news": {
+  "backToList": "Back to news",
+  "subtitle": "Stay up to date",
+  "notFound": "News not found",
+  "empty": "No news",
+  "pinned": "Pinned",
+  "publishedAt": "Published {date}",
+  "viewCount": "{count} reads",
+  "total": "{total} articles",
+  "prev": "Previous",
+  "next": "Next"
+ },
+ "searchHistory": {
+  "clearAll": "Clear All",
+  "subtitle": "Your recent searches",
+  "title": "Search History",
+  "loading": "Loading...",
+  "empty": "No search history",
+  "resultCount": "{count} result(s)",
+  "delete": "Delete"
+ },
+ "common": {
+  "back": "Back",
+  "submit": "Submit",
+  "cancel": "Cancel",
+  "confirm": "Confirm"
+ },
+ "uploadFailed": "Upload failed",
+ "loginRequired": "Please log in first"
+}

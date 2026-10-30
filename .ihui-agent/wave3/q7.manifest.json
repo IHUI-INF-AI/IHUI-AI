@@ -1,0 +1,293 @@
+{
+  "domain": "rules + registry + mcp-projects",
+  "wave": "wave3-q7",
+  "unitScreen": "rules + registry + mcp-projects",
+  "newFiles": [
+    "packages/api-client/src/endpoints/rules.ts",
+    "packages/app/src/features/rules/RulesScreen.tsx",
+    "apps/mobile-rn/src/screens/RulesScreen.tsx",
+    "packages/api-client/src/endpoints/registry.ts",
+    "packages/app/src/features/registry/RegistryScreen.tsx",
+    "apps/mobile-rn/src/screens/RegistryScreen.tsx",
+    "packages/api-client/src/endpoints/mcp-projects.ts",
+    "packages/app/src/features/mcp-projects/McpProjectsScreen.tsx",
+    "apps/mobile-rn/src/screens/McpProjectsScreen.tsx"
+  ],
+  "indexExports": [
+    "export { RulesScreen } from './features/rules/RulesScreen'",
+    "export type { RuleRowView, RulesScreenProps } from './features/rules/RulesScreen'",
+    "export { RegistryScreen } from './features/registry/RegistryScreen'",
+    "export type { RegistryItemRowView, RegistryFilterOption, RegistryScreenProps } from './features/registry/RegistryScreen'",
+    "export { McpProjectsScreen } from './features/mcp-projects/McpProjectsScreen'",
+    "export type { McpResourceRowView, McpProjectsScreenProps } from './features/mcp-projects/McpProjectsScreen'"
+  ],
+  "apiClientIndexExports": [
+    "export * from './endpoints/rules.js'",
+    "export * from './endpoints/registry.js'",
+    "export * from './endpoints/mcp-projects.js'"
+  ],
+  "apiClientIndexNote": "需在 packages/api-client/src/index.ts 追加 export * from './endpoints/rules.js'；此前无 rules 域封装(既有的 point-rule / usage-rules 屏与 /api/rules 不同源)。",
+  "navigator": [
+    {
+      "import": "import { RulesScreen } from '../screens/RulesScreen'",
+      "param": "  Rules: undefined",
+      "screen": "<RootStack.Screen name=\"Rules\" component={RulesScreen} />"
+    },
+    {
+      "import": "import { RegistryScreen } from '../screens/RegistryScreen'",
+      "param": "  Registry: undefined",
+      "screen": "<RootStack.Screen name=\"Registry\" component={RegistryScreen} />"
+    },
+    {
+      "import": "import { McpProjectsScreen } from '../screens/McpProjectsScreen'",
+      "param": "  McpProjects: undefined",
+      "screen": "<RootStack.Screen name=\"McpProjects\" component={McpProjectsScreen} />"
+    }
+  ],
+  "i18n": {
+    "en": {
+      "rulesPage": {
+        "title": "Rule management",
+        "subtitle": "A user-editable rule set that is injected into the system prompt at agent runtime according to its match conditions",
+        "total": "Total {n} rules, sorted by priority descending",
+        "empty": "No rules yet. Click \"New rule\" to create one",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "priority": "Priority",
+        "scope": "Scope",
+        "scopeGlobal": "Global",
+        "scopeWorkspace": "Workspace",
+        "scopeAgent": "Agent",
+        "matchType": "Match type",
+        "matchAlways": "Always inject",
+        "matchKeyword": "Keyword",
+        "matchRegex": "Regex",
+        "matchSemantic": "Semantic",
+        "loginRequired": "Please log in first"
+      },
+      "registryPage": {
+        "title": "Resource Center",
+        "total": "{total} total",
+        "filterAll": "All",
+        "typeMcp": "MCP",
+        "typeSkill": "Skill",
+        "typePlugin": "Plugin",
+        "install": "Install",
+        "installing": "Installing...",
+        "installed": "Installed",
+        "notInstalled": "Not installed",
+        "empty": "No resources",
+        "loading": "Loading...",
+        "loginRequired": "Please log in first"
+      },
+      "mcpProjectsPage": {
+        "title": "MCP Projects",
+        "subtitle": "Manage Model Context Protocol projects",
+        "empty": "No content",
+        "uri": "Resource URI",
+        "loading": "Loading...",
+        "loginRequired": "Please log in first"
+      }
+    },
+    "zh-CN": {
+      "rulesPage": {
+        "title": "规则管理",
+        "subtitle": "用户可编辑的规则集,在 agent 运行时按匹配条件动态注入到 system prompt",
+        "total": "共 {n} 条规则,按优先级降序排列",
+        "empty": "暂无规则,点击「新建规则」创建",
+        "enabled": "启用",
+        "disabled": "禁用",
+        "priority": "优先级",
+        "scope": "作用域",
+        "scopeGlobal": "全局",
+        "scopeWorkspace": "工作区",
+        "scopeAgent": "智能体",
+        "matchType": "匹配类型",
+        "matchAlways": "始终注入",
+        "matchKeyword": "关键词",
+        "matchRegex": "正则",
+        "matchSemantic": "语义",
+        "loginRequired": "请先登录"
+      },
+      "registryPage": {
+        "title": "资源中心",
+        "total": "共 {total} 个",
+        "filterAll": "全部",
+        "typeMcp": "MCP",
+        "typeSkill": "Skill",
+        "typePlugin": "Plugin",
+        "install": "安装",
+        "installing": "安装中...",
+        "installed": "已安装",
+        "notInstalled": "未安装",
+        "empty": "暂无资源",
+        "loading": "加载中...",
+        "loginRequired": "请先登录"
+      },
+      "mcpProjectsPage": {
+        "title": "MCP 项目",
+        "subtitle": "管理 Model Context Protocol 项目",
+        "empty": "暂无内容",
+        "uri": "资源地址",
+        "loading": "加载中...",
+        "loginRequired": "请先登录"
+      }
+    },
+    "zh-TW": {
+      "rulesPage": {
+        "title": "規則管理",
+        "subtitle": "用戶可編輯的規則集,在 agent 運行時按匹配條件動態注入到 system prompt",
+        "total": "共 {n} 條規則,按優先級降序排列",
+        "empty": "暫無規則,點擊「新建規則」創建",
+        "enabled": "啟用",
+        "disabled": "禁用",
+        "priority": "優先級",
+        "scope": "作用域",
+        "scopeGlobal": "全局",
+        "scopeWorkspace": "工作區",
+        "scopeAgent": "智能體",
+        "matchType": "匹配類型",
+        "matchAlways": "始終注入",
+        "matchKeyword": "關鍵詞",
+        "matchRegex": "正則",
+        "matchSemantic": "語義",
+        "loginRequired": "請先登錄"
+      },
+      "registryPage": {
+        "title": "資源中心",
+        "total": "共 {total} 個",
+        "filterAll": "全部",
+        "typeMcp": "MCP",
+        "typeSkill": "Skill",
+        "typePlugin": "Plugin",
+        "install": "安裝",
+        "installing": "安裝中...",
+        "installed": "已安裝",
+        "notInstalled": "未安裝",
+        "empty": "暫無資源",
+        "loading": "載入中...",
+        "loginRequired": "請先登錄"
+      },
+      "mcpProjectsPage": {
+        "title": "MCP 項目",
+        "subtitle": "管理 Model Context Protocol 項目",
+        "empty": "暫無內容",
+        "uri": "資源地址",
+        "loading": "載入中...",
+        "loginRequired": "請先登錄"
+      }
+    },
+    "ja": {
+      "rulesPage": {
+        "title": "ルール管理",
+        "subtitle": "ユーザーが編集できるルールセット。agent 実行時にマッチ条件に応じて system prompt へ動的に注入されます",
+        "total": "合計 {n} 件のルール、優先度の降順で並べ替え",
+        "empty": "ルールがありません。「新規ルール」から作成してください",
+        "enabled": "有効",
+        "disabled": "無効",
+        "priority": "優先度",
+        "scope": "スコープ",
+        "scopeGlobal": "グローバル",
+        "scopeWorkspace": "ワークスペース",
+        "scopeAgent": "エージェント",
+        "matchType": "マッチ種別",
+        "matchAlways": "常に注入",
+        "matchKeyword": "キーワード",
+        "matchRegex": "正規表現",
+        "matchSemantic": "セマンティック",
+        "loginRequired": "先にログインしてください"
+      },
+      "registryPage": {
+        "title": "リソースセンター",
+        "total": "合計 {total} 個",
+        "filterAll": "すべて",
+        "typeMcp": "MCP",
+        "typeSkill": "Skill",
+        "typePlugin": "Plugin",
+        "install": "インストール",
+        "installing": "インストール中...",
+        "installed": "インストール済み",
+        "notInstalled": "未インストール",
+        "empty": "なしResource",
+        "loading": "読み込み中...",
+        "loginRequired": "先にログインしてください"
+      },
+      "mcpProjectsPage": {
+        "title": "MCP プロジェクト",
+        "subtitle": "Model Context Protocol プロジェクトを管理",
+        "empty": "なしコンテンツ",
+        "uri": "リソースURI",
+        "loading": "読み込み中...",
+        "loginRequired": "先にログインしてください"
+      }
+    },
+    "ko": {
+      "rulesPage": {
+        "title": "규칙 관리",
+        "subtitle": "사용자가 편집할 수 있는 규칙 세트. agent 실행 시 조건에 따라 system prompt에 동적 주입",
+        "total": "총 {n}개 규칙, 우선순위 내림차순 정렬",
+        "empty": "규칙이 없습니다. '새 규칙'을 눌러 만드세요",
+        "enabled": "활성",
+        "disabled": "비활성",
+        "priority": "우선순위",
+        "scope": "범위",
+        "scopeGlobal": "전역",
+        "scopeWorkspace": "작업 공간",
+        "scopeAgent": "에이전트",
+        "matchType": "유형",
+        "matchAlways": "항상 주입",
+        "matchKeyword": "키워드",
+        "matchRegex": "정규식",
+        "matchSemantic": "의미",
+        "loginRequired": "먼저 로그인하세요"
+      },
+      "registryPage": {
+        "title": "리소스센터",
+        "total": "총 {total}개",
+        "filterAll": "전체",
+        "typeMcp": "MCP",
+        "typeSkill": "Skill",
+        "typePlugin": "Plugin",
+        "install": "설치",
+        "installing": "설치 중...",
+        "installed": "설치됨",
+        "notInstalled": "미설치",
+        "empty": "없음리소스",
+        "loading": "불러오는 중...",
+        "loginRequired": "먼저 로그인하세요"
+      },
+      "mcpProjectsPage": {
+        "title": "MCP 프로젝트",
+        "subtitle": "Model Context Protocol 프로젝트 관리",
+        "empty": "콘텐츠 없음",
+        "uri": "리소스 주소",
+        "loading": "불러오는 중...",
+        "loginRequired": "먼저 로그인하세요"
+      }
+    }
+  },
+  "ledger": [
+    {
+      "web": "rules",
+      "rn": "apps/mobile-rn/src/screens/RulesScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-q7@2026-10-27: 新建共享屏 packages/app/src/features/rules/RulesScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/rules.ts;后端契约现读 = GET /api/rules(apps/api/src/routes/rules.ts:142-148,requireAuth)→success({rules,total})(services/rules-service.ts:444-451);启用态切换 PATCH /api/rules/:id(rules.ts:303-333 区间,body {enabled});web 页 apps/web/app/(main)/rules/page.tsx:19-31 经 components/rules/rules-manager.tsx:46-153 渲染。口径差:web 的新建/编辑/删除/测试/冲突检测/模板库/全局统计/A-B/自动生成/知识图谱 10 个弹窗族未承载,RN 不渲染对应入口(不造假按钮);文案取 web rules ns 逐字值,scope='agent' 全库无 rules.scopeAgent,取 plugins.catAgent 逐字值并如实登记。",
+      "at": "2026-10-27"
+    },
+    {
+      "web": "registry",
+      "rn": "apps/mobile-rn/src/screens/RegistryScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-q7@2026-10-27: 新建共享屏 packages/app/src/features/registry/RegistryScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/registry.ts;后端契约现读 = GET /api/registry/items(apps/api/src/routes/registry-sync.ts:282-296,requireAuth)→success({items,total,page,pageSize,installedIds}),查询 schema 见同文件:83-91;安装 POST /api/registry/install(registry-sync.ts:485-534,checkAuth,写 user_preferences group='registry_installs')→success({success,installed,version,message});registrySyncRoutes 挂 prefix /api(index.ts:1251)。web 页 apps/web/app/(main)/registry/page.tsx:38-194 经 src/lib/api-registry.ts:31-47。口径差:①排序固定 sort='latest',web 的「最热/最优」两档全库无对应 i18n 文案,不自造故不渲染;②管理员面板(同步/配置漂移/Worker 指标/同步日志)后端全 requireAdmin(registry-sync.ts:316/331/605/677),RN 未承载;③web 页零 i18n(全硬编码中文),标题取 web resources.title 逐字值、安装/状态取 mcpStore.install / skills.market.installed 逐字值、筛选取 plugins.catAll 逐字值,均在本 manifest 登记来源。",
+      "at": "2026-10-27"
+    },
+    {
+      "web": "mcp-projects",
+      "rn": "apps/mobile-rn/src/screens/McpProjectsScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-q7@2026-10-27: 新建共享屏 packages/app/src/features/mcp-projects/McpProjectsScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/mcp-projects.ts;后端契约现读 = GET /api/ai/mcp/resources(apps/api/src/routes/ai-frontend-routes.ts:308-330,代理 ai-service /api/mcp/resources 后拆壳 success(data.resources ?? []) → data 为裸数组),aiFrontendRoutes 挂 prefix /api(routes/index.ts:1108)。web 消费方 apps/web/app/(main)/mcp-projects/PageClient.tsx:84-92。口径差:web 页 5 Tab(servers/tools/resources/prompts/usage,PageClient.tsx:49-72),RN 仅承载 resources 一档(有自洽契约);servers 档后端 ai-frontend-routes.ts:193-219 返回 mcpServers 表行,与 web mcp-manager.tsx:154 期望的 {name,url,transport,status} 不一致;tools/prompts/usage 档本次未扩;故共享屏不渲染 Tab 与「添加服务器」入口,避免死按钮。既有 endpoints/mcp.ts 覆盖 /api/mcp/directory|external|store,与 /api/ai/mcp/* 不同源,不可顶替。",
+      "at": "2026-10-27"
+    }
+  ],
+  "notLanded": []
+}

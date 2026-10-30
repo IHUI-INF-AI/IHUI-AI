@@ -1,0 +1,190 @@
+{
+  "domain": "chat-settings + business-card-favorites",
+  "wave": "wave3-d",
+  "unitScreen": "chat/settings + business-card/favorites",
+  "newFiles": [
+    "packages/api-client/src/endpoints/chat-settings.ts",
+    "packages/app/src/features/chat/ChatSettingsScreen.tsx",
+    "apps/mobile-rn/src/screens/ChatSettingsScreen.tsx",
+    "packages/api-client/src/endpoints/business-card-favorites.ts",
+    "packages/app/src/features/business-card/BusinessCardFavoritesScreen.tsx",
+    "apps/mobile-rn/src/screens/BusinessCardFavoritesScreen.tsx"
+  ],
+  "indexExports": [
+    "export { ChatSettingsScreen } from './features/chat/ChatSettingsScreen'",
+    "export type { ChatModelOptionView, ChatSettingsScreenProps } from './features/chat/ChatSettingsScreen'",
+    "export { BusinessCardFavoritesScreen } from './features/business-card/BusinessCardFavoritesScreen'",
+    "export type { BusinessCardFavRowView, BusinessCardFavoritesScreenProps } from './features/business-card/BusinessCardFavoritesScreen'"
+  ],
+  "apiClientIndexExports": [
+    "export * from './endpoints/chat-settings.js'",
+    "export * from './endpoints/business-card-favorites.js'"
+  ],
+  "apiClientIndexNote": "需在 packages/api-client/src/index.ts 追加上述 2 行 re-export,否则 2 枚薄壳 import 报「无此导出」。既有 endpoints/chat.ts 承载 /api/chat 域其他端点,本票端点独立成文件(与上批 chat-favorites 同法),不并入既有文件避免与并发批次抢锚。",
+  "navigator": [
+    {
+      "import": "import { ChatSettingsScreen } from '../screens/ChatSettingsScreen'",
+      "param": "  ChatSettings: undefined",
+      "screen": "<RootStack.Screen name=\"ChatSettings\" component={ChatSettingsScreen} />"
+    },
+    {
+      "import": "import { BusinessCardFavoritesScreen } from '../screens/BusinessCardFavoritesScreen'",
+      "param": "  BusinessCardFavorites: undefined",
+      "screen": "<RootStack.Screen name=\"BusinessCardFavorites\" component={BusinessCardFavoritesScreen} />"
+    }
+  ],
+  "i18n": {
+    "en": {
+      "chatSettingsPage": {
+        "title": "Chat Settings",
+        "subtitle": "Configure model parameters and system prompt",
+        "model": "Model",
+        "temperature": "Temperature (0-2)",
+        "maxTokens": "max_tokens",
+        "systemPrompt": "System prompt",
+        "systemPromptPlaceholder": "Set the assistant's behavior and role...",
+        "saved": "Settings saved",
+        "saving": "Saving...",
+        "errorTempRange": "Temperature must be between 0 and 2",
+        "errorMaxTokensRange": "max_tokens must be between 1 and 32768",
+        "saveFailed": "Failed to save",
+        "loginRequired": "Please sign in to configure chat settings"
+      },
+      "businessCardFavPage": {
+        "title": "Favorited Cards",
+        "countText": "{count} cards favorited",
+        "empty": "No favorited cards",
+        "favoritedAt": "Favorited {date}",
+        "unfavorite": "Unfavorite",
+        "loginRequired": "Please sign in to view favorited cards"
+      }
+    },
+    "zh-CN": {
+      "chatSettingsPage": {
+        "title": "聊天设置",
+        "subtitle": "配置模型参数和系统提示词",
+        "model": "模型",
+        "temperature": "温度 (0-2)",
+        "maxTokens": "max_tokens",
+        "systemPrompt": "系统提示词",
+        "systemPromptPlaceholder": "设定助手的行为和角色...",
+        "saved": "设置已保存",
+        "saving": "保存中...",
+        "errorTempRange": "温度需在 0-2 之间",
+        "errorMaxTokensRange": "max_tokens 需在 1-32768 之间",
+        "saveFailed": "保存失败",
+        "loginRequired": "请先登录后配置对话设置"
+      },
+      "businessCardFavPage": {
+        "title": "收藏的名片",
+        "countText": "共收藏 {count} 张名片",
+        "empty": "暂无收藏名片",
+        "favoritedAt": "收藏于 {date}",
+        "unfavorite": "取消收藏",
+        "loginRequired": "请先登录后查看收藏的名片"
+      }
+    },
+    "zh-TW": {
+      "chatSettingsPage": {
+        "title": "聊天設置",
+        "subtitle": "配置模型參數和系統提示詞",
+        "model": "模型",
+        "temperature": "溫度 (0-2)",
+        "maxTokens": "max_tokens",
+        "systemPrompt": "系統提示詞",
+        "systemPromptPlaceholder": "設定助手的行為和角色...",
+        "saved": "設置已保存",
+        "saving": "保存中...",
+        "errorTempRange": "溫度需在 0-2 之間",
+        "errorMaxTokensRange": "max_tokens 需在 1-32768 之間",
+        "saveFailed": "保存失敗",
+        "loginRequired": "請先登錄後配置對話設置"
+      },
+      "businessCardFavPage": {
+        "title": "收藏的名片",
+        "countText": "共收藏 {count} 張名片",
+        "empty": "暫無收藏名片",
+        "favoritedAt": "收藏於 {date}",
+        "unfavorite": "取消收藏",
+        "loginRequired": "請先登錄後查看收藏的名片"
+      }
+    },
+    "ja": {
+      "chatSettingsPage": {
+        "title": "チャット設定",
+        "subtitle": "モデルパラメータとシステムプロンプトを設定",
+        "model": "モデル",
+        "temperature": "温度 (0-2)",
+        "maxTokens": "max_tokens",
+        "systemPrompt": "システムプロンプト",
+        "systemPromptPlaceholder": "アシスタントの動作と役割を設定...",
+        "saved": "設定を保存しました",
+        "saving": "保存中...",
+        "errorTempRange": "温度は 0-2 の間である必要があります",
+        "errorMaxTokensRange": "max_tokens は 1-32768 の間である必要があります",
+        "saveFailed": "保存に失敗しました",
+        "loginRequired": "ログインしてからチャット設定を構成してください"
+      },
+      "businessCardFavPage": {
+        "title": "お気に入りカード",
+        "countText": "お気に入りカード {count} 件",
+        "empty": "お気に入りカードがありません",
+        "favoritedAt": "お気に入り登録日 {date}",
+        "unfavorite": "お気に入り解除",
+        "loginRequired": "ログインしてお気に入りカードをご確認ください"
+      }
+    },
+    "ko": {
+      "chatSettingsPage": {
+        "title": "채팅 설정",
+        "subtitle": "모델 매개변수 및 시스템 프롬프트 구성",
+        "model": "모델",
+        "temperature": "온도 (0-2)",
+        "maxTokens": "max_tokens",
+        "systemPrompt": "시스템 프롬프트",
+        "systemPromptPlaceholder": "어시스턴트의 동작과 역할을 설정...",
+        "saved": "설정이 저장되었습니다",
+        "saving": "저장 중...",
+        "errorTempRange": "온도는 0-2 사이여야 합니다",
+        "errorMaxTokensRange": "max_tokens는 1-32768 사이여야 합니다",
+        "saveFailed": "저장 실패",
+        "loginRequired": "로그인 후 대화 설정을 구성하세요"
+      },
+      "businessCardFavPage": {
+        "title": "즐겨찾기한 명함",
+        "countText": "총 {count}장의 명함",
+        "empty": "즐겨찾기한 명함 없음",
+        "favoritedAt": "즐겨찾기 {date}",
+        "unfavorite": "즐겨찾기 해제",
+        "loginRequired": "로그인 후 즐겨찾기한 명함을 보세요"
+      }
+    }
+  },
+  "i18nNotes": {
+    "chatSettingsPage": "13 键落典。kit 附 14 键中 back/cancel/save 三键未落本段——动作按钮复用字典既有通用键 common.back/common.cancel/common.save(值与 kit 同句「返回/取消/保存」,接键先复用既有键纪律);本段新增 saveFailed(RN 侧 res.error 缺失时兜底,web 无对应键——web onError 直显错误 message,RN 需 fallback 文案,依据薄壳 submit 注释)、loginRequired(web AuthGatePrompt 硬编码「请先登录后配置对话设置」逐字取为键值)。其余 14-3+2=13 全为代码引用位现读反推,零幽灵键。",
+    "businessCardFavPage": "6 键落典。web 页全硬编码中文无键段,键值自 web 源串逐字取(countText/empty/favoritedAt/unfavorite/title/loginRequired)。loading/error 复用 common.loading/common.loadFailed(既有通用键,字典现读在册);back 复用 common.back;「查看」按钮 web label 键(view)不落典——RN 未注册 share 路由不渲染死按钮,引用侧零命中即幽灵键。"
+  },
+  "ledger": [
+    {
+      "web": "chat/settings",
+      "rn": "apps/mobile-rn/src/screens/ChatSettingsScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-d@2026-10-27: 新建共享屏 packages/app/src/features/chat/ChatSettingsScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/chat-settings.ts;后端契约现读 = PUT /api/chat/settings(apps/api/src/routes/chat.ts:2183-2255,requireAuth,chatRoutes 挂 prefix /api/chat)→success({model,temperature,maxTokens,systemPrompt});GET /settings(chat.ts:2191)在册但 web 基准页不消费(无注水),RN 对齐同不请求,防止双端注水漂移,已注释立因;模型下拉=GET /api/v2/user/llm-providers 端内 fetchApi 直调(LlmSettingsScreen.tsx:133-137 先例同式),filter enabled→{modelId,displayName} 映射与 web useConfiguredModels(page.tsx:40-47)同语义,空/失败降级 FALLBACK_MODELS(@ihui/shared,AiAssistantN8nScreen:107 先例 import);前端校验口径照抄 web(0-2 / 1-32768,严于后端 2_000_000 上限,取 web 值);web 初值不回写 quirk 照抄保留;保存成功 web=toast+push('/chat'),RN=appAlert(BottomPops 禁原生弹窗既定替代)确认后 goBack,口径差登记;"
+    },
+    {
+      "web": "business-card/favorites",
+      "rn": "apps/mobile-rn/src/screens/BusinessCardFavoritesScreen.tsx",
+      "status": "aligned",
+      "note": "Wave3-d@2026-10-27: 新建共享屏 packages/app/src/features/business-card/BusinessCardFavoritesScreen.tsx + 薄壳 + 端点 packages/api-client/src/endpoints/business-card-favorites.ts;后端契约现读 = GET /api/business-card/favorites(apps/api/src/routes/other/business-card-routes.ts:267-306)→success({list,total,page,pageSize}),**list=扁平行**(id=名片 id,与 userId 并列;favoritedAt=收藏时间/favoriteCount/author*),web 页 FavListData 声明的 {card,favoriteId,createdAt} 嵌套 shape 与后端真实不符(entry.card undefined,web 现场缺陷)——RN 按后端真实 shape 消费,删除参数=id(cardId,DELETE :id 按 cardId+userId 删行 business-card-routes.ts:309-329);Intl 同参 {month:'2-digit',day:'2-digit'}(ChatFavorites 薄壳先例同式,locale 由 useI18n);取消收藏成功重拉第 1 页(web invalidateQueries 同语义),失败静默(web mutation 无 onError,不擅加);「查看」按钮 RN 不渲染(RootNavigator 现读未注册 share 路由,避免死按钮,与上批 withdraw 按钮先例同法);头计数 web 取 items.length(当前页行数)非 total,RN 同为 rows.length(分页续载后随增长,形态差登记)。"
+    },
+    {
+      "web": "certificate/download",
+      "rn": null,
+      "status": "gap",
+      "note": "Wave3-d@2026-10-27: 本票不补屏,保持 gap 并沿用台账现判(Wave3-c@2026-10-27 复核注):阻塞点是 RN 二进制落盘原语缺失(fetchRaw 返回 Blob 到不了渲染层,PublishAccountsScreen.tsx:102-104 实测记录;下载面 POST-only,expo-file-system downloadAsync 仅支持 GET),属基础设施专项(引哪个依赖、放共享层还是端内需先定案),不在补屏范围内。前后端契约本身两面都在(GET /certificates/my certificate.ts:129 + POST /certificates/:id/download :164,PDFKit 服务端产 PDF)。"
+    }
+  ],
+  "notLanded": [
+    "certificate/download —— infra-only(见 ledger 第 3 条依据链),非本席位可闭环,待基础设施票先行"
+  ]
+}

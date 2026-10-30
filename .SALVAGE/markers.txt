@@ -1,0 +1,3 @@
+HEAD=d41527efaa4897e82d62fc8405c4a69785a5b3e4
+gitdir=D:/IHUI-AI-git-repo/worktrees/gap-screens
+ORIG_HEAD=d41527efaa4897e82d62fc8405c4a69785a5b3e4

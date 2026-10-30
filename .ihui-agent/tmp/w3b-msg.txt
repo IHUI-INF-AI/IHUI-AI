@@ -1,0 +1,22 @@
+feat(rn): Wave3-b 补 user/sign-up —— 我的报名(课程+试卷两路聚合)gap→aligned
+
+台账 gap 64 → 63、aligned 275 → 276。
+
+新建:packages/api-client/src/endpoints/sign-ups.ts(封装 GET /api/sign-ups?userId=,
+事实源 apps/api/src/routes/sign-ups.ts:40 经 routes/index.ts:868 以 prefix /api/sign-ups 注册,
+preHandler requireAuth,非本人且非 admin 被 :45-47 拒)、
+packages/app/src/features/sign-up/SignUpScreen.tsx(共享屏,四态齐,状态色与 web STATUS_STYLE 同源)、
+apps/mobile-rn/src/screens/SignUpScreen.tsx(薄壳,取当前登录用户 id,未登录不发注定 401 的查询,同 web useAuthGate)。
+文案 7 键五语逐字取自 web 同 ns user.sign-up;错误面复用既有 common.loadFailed,不新造键;
+targetType 与 web 同形原文渲染(web 未给它建文案键 ⇒ 不自造译文)。
+
+同批查证后**没有**改判两条,并如实记在 manifest.notLanded:
+- user/comment:web 打 GET /api/comments?authorId=,后端 comments.ts 只注册 /comments/:id 与
+  replies|like 等(现读 295/347/368/382/392 行),无列表 GET;/api/comments/mine 全仓零命中;
+- user/resource:web 打 GET /api/resources?authorId=,apps/api 全仓 get('/resources' 零命中
+  (social.ts:653 是 /tags/:id/resources,另一契约),authorId 在两文件零出现。
+⇒ 这两条没有可用数据源。给打不通的接口铺屏就是本仓明令禁止的"点了没反应的按钮",
+  不为凑 gap 数字改判,留在 gap 交后端补面。
+
+验证:三件 eslint exit 0;@ihui/rn-app tsc --noEmit exit 0(整包零错);
+水印三件 head/tail 齐 + 逐行单引号奇偶扫描 0 处破损;登记面 276/110/63、SignUp 路由恰 1 次、顶格 JSX 0 处。

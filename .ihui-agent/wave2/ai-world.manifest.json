@@ -1,0 +1,314 @@
+{
+  "domain": "ai-world",
+  "unitScreen": "AiWorldDetail",
+  "newFiles": [
+    "packages/api-client/src/endpoints/ai-world.ts",
+    "packages/app/src/features/ai-world/AiWorldDetailScreen.tsx",
+    "packages/app/src/features/ai-world/ai-world-detail-styles.ts",
+    "packages/app/src/features/ai-world/AiWorldEditScreen.tsx",
+    "packages/app/src/features/ai-world/AiWorldCollectionScreen.tsx",
+    "apps/mobile-rn/src/screens/AiWorldDetailScreen.tsx",
+    "apps/mobile-rn/src/screens/AiWorldEditScreen.tsx",
+    "apps/mobile-rn/src/screens/AiWorldFavoritesScreen.tsx",
+    "apps/mobile-rn/src/screens/AiWorldHistoryScreen.tsx"
+  ],
+  "indexExports": [
+    "export { AiWorldDetailScreen } from './features/ai-world/AiWorldDetailScreen'",
+    "export type { AiWorldDetailData, AiWorldDetailScreenProps } from './features/ai-world/AiWorldDetailScreen'",
+    "export { AiWorldEditScreen } from './features/ai-world/AiWorldEditScreen'",
+    "export type { AiWorldEditFormState, AiWorldEditCategoryOption, AiWorldEditScreenProps } from './features/ai-world/AiWorldEditScreen'",
+    "export { AiWorldCollectionScreen } from './features/ai-world/AiWorldCollectionScreen'",
+    "export type { AiWorldCollectionRow, AiWorldCollectionScreenProps } from './features/ai-world/AiWorldCollectionScreen'"
+  ],
+  "apiClientIndexExports": [
+    "export * from './endpoints/ai-world.js'"
+  ],
+  "navigator": {
+    "import": [
+      "import { AiWorldDetailScreen } from '../screens/AiWorldDetailScreen'",
+      "import { AiWorldEditScreen } from '../screens/AiWorldEditScreen'",
+      "import { AiWorldFavoritesScreen } from '../screens/AiWorldFavoritesScreen'",
+      "import { AiWorldHistoryScreen } from '../screens/AiWorldHistoryScreen'"
+    ],
+    "param": [
+      "  AiWorldDetail: { id: string }",
+      "  AiWorldEdit: { id: string }",
+      "  AiWorldFavorites: undefined",
+      "  AiWorldHistory: undefined"
+    ],
+    "screen": [
+      "<RootStack.Screen name=\"AiWorldDetail\" component={AiWorldDetailScreen} />",
+      "<RootStack.Screen name=\"AiWorldEdit\" component={AiWorldEditScreen} />",
+      "<RootStack.Screen name=\"AiWorldFavorites\" component={AiWorldFavoritesScreen} />",
+      "<RootStack.Screen name=\"AiWorldHistory\" component={AiWorldHistoryScreen} />"
+    ]
+  },
+  "wiringNotes": [
+    "既有共享屏 packages/app/src/features/ai-world/AiWorldScreen.tsx 顶栏已预留 onPressFavorites/onPressHistory 可选 props(文案键 aiWorld.favorites/history 已存在),但 RN 薄壳 apps/mobile-rn/src/screens/AiWorldScreen.tsx 未传(该薄壳不在本票可改范围)。集成方请在薄壳补:navigation.navigate('AiWorldFavorites') / navigation.navigate('AiWorldHistory')。",
+    "AI 世界列表条目点击进详情:共享屏 AiWorldScreen 的 EntryCard 目前无 onPress 通道,如需列表→AiWorldDetail 入口,集成方可在域目录内给共享屏加可选 onPressItem prop 并在薄壳接线(本票未动既有屏)。",
+    "web /ai-world/[id] 的「相关推荐」读 GET /api/ai-world 的 hotApps 字段,但后端该响应(routes/ai-world.ts GET /ai-world)从不返回 hotApps ⇒ web 实渲染恒为空,RN 详情屏同口径不承载。",
+    "web /ai-world/history 调 GET /api/ai-world/history,后端 apps/api 未注册该路由(openapi.json 亦无)⇒ web 端该页恒为错误态;RN 历史屏按 web 同口径承载端点封装,后端补路由后即通。"
+  ],
+  "i18n": {
+    "en": {
+      "aiWorldDetailPage": {
+        "title": "Details",
+        "fetchFailed": "Failed to load this item",
+        "createdLabel": "Published",
+        "updatedLabel": "Updated",
+        "favorited": "Favorited",
+        "favoriteFailed": "Favorite action failed, please try again later"
+      },
+      "aiWorldEditPage": {
+        "title": "Edit AI World Item",
+        "subtitle": "Update this item's information",
+        "formTitle": "Item Info",
+        "nameLabel": "Name",
+        "namePlaceholder": "Item name",
+        "descLabel": "Description",
+        "descPlaceholder": "Describe this item",
+        "categoryLabel": "Category",
+        "noCategory": "No category",
+        "categoryEmpty": "No categories",
+        "categoryLoadFailed": "Failed to load categories",
+        "coverLabel": "Cover image URL",
+        "coverPlaceholder": "https://… (optional)",
+        "save": "Save",
+        "submitting": "Saving…",
+        "errNameRequired": "Please enter a name",
+        "nameTooLong": "Name must be at most {max} characters",
+        "coverTooLong": "Cover URL must be at most {max} characters",
+        "saveFailed": "Save failed, please try again later",
+        "fetchFailed": "Failed to load this item"
+      },
+      "aiWorldFavoritesPage": {
+        "title": "Favorited Items",
+        "subtitle": "AI World items you favorited",
+        "empty": "No favorites yet",
+        "fetchFailed": "Failed to load favorites",
+        "loginRequired": "Sign in to view your favorited items"
+      },
+      "aiWorldHistoryPage": {
+        "title": "Version History",
+        "subtitle": "All historical version records",
+        "empty": "No history yet",
+        "fetchFailed": "Failed to load history",
+        "loginRequired": "Sign in to view version history"
+      }
+    },
+    "zh-CN": {
+      "aiWorldDetailPage": {
+        "title": "条目详情",
+        "fetchFailed": "条目加载失败",
+        "createdLabel": "发布于",
+        "updatedLabel": "更新时间",
+        "favorited": "已收藏",
+        "favoriteFailed": "收藏操作失败,请稍后重试"
+      },
+      "aiWorldEditPage": {
+        "title": "编辑 AI 世界条目",
+        "subtitle": "修改条目信息",
+        "formTitle": "条目信息",
+        "nameLabel": "名称",
+        "namePlaceholder": "条目名称",
+        "descLabel": "描述",
+        "descPlaceholder": "介绍这个条目的内容",
+        "categoryLabel": "分类",
+        "noCategory": "不选择分类",
+        "categoryEmpty": "暂无分类",
+        "categoryLoadFailed": "分类加载失败",
+        "coverLabel": "封面图地址",
+        "coverPlaceholder": "https://…(选填)",
+        "save": "保存",
+        "submitting": "保存中…",
+        "errNameRequired": "请输入名称",
+        "nameTooLong": "名称最多 {max} 个字符",
+        "coverTooLong": "封面地址最多 {max} 个字符",
+        "saveFailed": "保存失败,请稍后重试",
+        "fetchFailed": "条目加载失败"
+      },
+      "aiWorldFavoritesPage": {
+        "title": "收藏的项目",
+        "subtitle": "你收藏的 AI 世界项目",
+        "empty": "暂无收藏",
+        "fetchFailed": "收藏加载失败",
+        "loginRequired": "请先登录后查看收藏的项目"
+      },
+      "aiWorldHistoryPage": {
+        "title": "历史版本",
+        "subtitle": "查看所有历史版本记录",
+        "empty": "暂无历史记录",
+        "fetchFailed": "历史加载失败",
+        "loginRequired": "请先登录后查看历史版本"
+      }
+    },
+    "zh-TW": {
+      "aiWorldDetailPage": {
+        "title": "條目詳情",
+        "fetchFailed": "條目載入失敗",
+        "createdLabel": "發佈於",
+        "updatedLabel": "更新時間",
+        "favorited": "已收藏",
+        "favoriteFailed": "收藏操作失敗,請稍後重試"
+      },
+      "aiWorldEditPage": {
+        "title": "編輯 AI 世界條目",
+        "subtitle": "修改條目資訊",
+        "formTitle": "條目資訊",
+        "nameLabel": "名稱",
+        "namePlaceholder": "條目名稱",
+        "descLabel": "描述",
+        "descPlaceholder": "介紹這個條目的內容",
+        "categoryLabel": "分類",
+        "noCategory": "不自訂分類",
+        "categoryEmpty": "暫無分類",
+        "categoryLoadFailed": "分類載入失敗",
+        "coverLabel": "封面圖網址",
+        "coverPlaceholder": "https://…(選填)",
+        "save": "儲存",
+        "submitting": "儲存中…",
+        "errNameRequired": "請輸入名稱",
+        "nameTooLong": "名稱最多 {max} 個字元",
+        "coverTooLong": "封面網址最多 {max} 個字元",
+        "saveFailed": "儲存失敗,請稍後重試",
+        "fetchFailed": "條目載入失敗"
+      },
+      "aiWorldFavoritesPage": {
+        "title": "收藏的項目",
+        "subtitle": "你收藏的 AI 世界項目",
+        "empty": "暫無收藏",
+        "fetchFailed": "收藏載入失敗",
+        "loginRequired": "請先登入後檢視收藏的項目"
+      },
+      "aiWorldHistoryPage": {
+        "title": "歷史版本",
+        "subtitle": "檢視所有歷史版本記錄",
+        "empty": "暫無歷史記錄",
+        "fetchFailed": "歷史載入失敗",
+        "loginRequired": "請先登入後檢視歷史版本"
+      }
+    },
+    "ja": {
+      "aiWorldDetailPage": {
+        "title": "詳細",
+        "fetchFailed": "項目の読み込みに失敗しました",
+        "createdLabel": "公開日",
+        "updatedLabel": "更新日時",
+        "favorited": "お気に入り済み",
+        "favoriteFailed": "操作に失敗しました。後でもう一度お試しください"
+      },
+      "aiWorldEditPage": {
+        "title": "AI ワールド項目を編集",
+        "subtitle": "項目情報を修正",
+        "formTitle": "項目情報",
+        "nameLabel": "名前",
+        "namePlaceholder": "項目名",
+        "descLabel": "説明",
+        "descPlaceholder": "この項目の内容を紹介します",
+        "categoryLabel": "カテゴリ",
+        "noCategory": "カテゴリを指定しない",
+        "categoryEmpty": "カテゴリがありません",
+        "categoryLoadFailed": "カテゴリの読み込みに失敗しました",
+        "coverLabel": "カバー画像 URL",
+        "coverPlaceholder": "https://…(任意)",
+        "save": "保存",
+        "submitting": "保存中…",
+        "errNameRequired": "名前を入力してください",
+        "nameTooLong": "名前は最大 {max} 文字です",
+        "coverTooLong": "カバー URL は最大 {max} 文字です",
+        "saveFailed": "保存に失敗しました。後でもう一度お試しください",
+        "fetchFailed": "項目の読み込みに失敗しました"
+      },
+      "aiWorldFavoritesPage": {
+        "title": "お気に入りの項目",
+        "subtitle": "お気に入りに登録した AI ワールドの項目",
+        "empty": "お気に入りがありません",
+        "fetchFailed": "お気に入りの読み込みに失敗しました",
+        "loginRequired": "ログイン後にお気に入りの項目を表示できます"
+      },
+      "aiWorldHistoryPage": {
+        "title": "履歴バージョン",
+        "subtitle": "すべての履歴バージョン記録",
+        "empty": "履歴がありません",
+        "fetchFailed": "履歴の読み込みに失敗しました",
+        "loginRequired": "ログイン後に履歴バージョンを表示できます"
+      }
+    },
+    "ko": {
+      "aiWorldDetailPage": {
+        "title": "항목 상세",
+        "fetchFailed": "항목을 불러오지 못했습니다",
+        "createdLabel": "게시일",
+        "updatedLabel": "업데이트",
+        "favorited": "즐겨찾기됨",
+        "favoriteFailed": "즐겨찾기 작업에 실패했습니다. 나중에 다시 시도해 주세요"
+      },
+      "aiWorldEditPage": {
+        "title": "AI 월드 항목 편집",
+        "subtitle": "항목 정보 수정",
+        "formTitle": "항목 정보",
+        "nameLabel": "이름",
+        "namePlaceholder": "항목 이름",
+        "descLabel": "설명",
+        "descPlaceholder": "이 항목의 내용을 소개하세요",
+        "categoryLabel": "카테고리",
+        "noCategory": "카테고리 없음",
+        "categoryEmpty": "카테고리 없음",
+        "categoryLoadFailed": "카테고리를 불러오지 못했습니다",
+        "coverLabel": "커버 이미지 URL",
+        "coverPlaceholder": "https://…(선택)",
+        "save": "저장",
+        "submitting": "저장 중…",
+        "errNameRequired": "이름을 입력해 주세요",
+        "nameTooLong": "이름은 최대 {max}자입니다",
+        "coverTooLong": "커버 URL은 최대 {max}자입니다",
+        "saveFailed": "저장에 실패했습니다. 나중에 다시 시도해 주세요",
+        "fetchFailed": "항목을 불러오지 못했습니다"
+      },
+      "aiWorldFavoritesPage": {
+        "title": "즐겨찾기 항목",
+        "subtitle": "즐겨찾기한 AI 월드 항목",
+        "empty": "즐겨찾기가 없습니다",
+        "fetchFailed": "즐겨찾기를 불러오지 못했습니다",
+        "loginRequired": "로그인 후 즐겨찾기 항목을 볼 수 있습니다"
+      },
+      "aiWorldHistoryPage": {
+        "title": "히스토리 버전",
+        "subtitle": "모든 히스토리 버전 기록",
+        "empty": "기록이 없습니다",
+        "fetchFailed": "히스토리를 불러오지 못했습니다",
+        "loginRequired": "로그인 후 히스토리 버전을 볼 수 있습니다"
+      }
+    }
+  },
+  "ledger": [
+    {
+      "web": "ai-world/[id]",
+      "rn": "apps/mobile-rn/src/screens/AiWorldDetailScreen.tsx",
+      "status": "aligned",
+      "note": "Wave2@2026-10-26: 承载证据=共享屏 packages/app/src/features/ai-world/AiWorldDetailScreen.tsx + 端点 packages/api-client/src/endpoints/ai-world.ts getAiWorldItem(GET /api/ai-world/:id)/getAiWorldCategories + 复用 social.ts checkFavorite/addFavorite/deleteFavorite(GET /api/favorites/check/aiworld/:id、POST /api/favorites、DELETE /api/favorites/aiworld/:id,resourceType='aiworld')。web「相关推荐」不承载:后端 GET /api/ai-world 响应无 hotApps 字段,web 实渲染恒为空。",
+      "at": "2026-10-26"
+    },
+    {
+      "web": "ai-world/edit/[id]",
+      "rn": "apps/mobile-rn/src/screens/AiWorldEditScreen.tsx",
+      "status": "aligned",
+      "note": "Wave2@2026-10-26: 承载证据=共享屏 packages/app/src/features/ai-world/AiWorldEditScreen.tsx + 端点 packages/api-client/src/endpoints/ai-world.ts updateAiWorldItem(PUT /api/ai-world/:id,toastUpdated/errNameRequired 语义→内联 saved 提示与 errNameRequired 校验)+ getAiWorldItem 水合。web 表单 config 字段后端 zod 不存在(静默 strip),与创建屏同口径不提供。",
+      "at": "2026-10-26"
+    },
+    {
+      "web": "ai-world/favorites",
+      "rn": "apps/mobile-rn/src/screens/AiWorldFavoritesScreen.tsx",
+      "status": "aligned",
+      "note": "Wave2@2026-10-26: 承载证据=共享屏 packages/app/src/features/ai-world/AiWorldCollectionScreen.tsx(variant='favorites') + 端点 packages/api-client/src/endpoints/ai-world.ts getAiWorldFavorites(GET /api/ai-world/favorites);未登录门与 web useAuthGate 同口径(不发注定 401 请求)。",
+      "at": "2026-10-26"
+    },
+    {
+      "web": "ai-world/history",
+      "rn": "apps/mobile-rn/src/screens/AiWorldHistoryScreen.tsx",
+      "status": "aligned",
+      "note": "Wave2@2026-10-26: 承载证据=共享屏 packages/app/src/features/ai-world/AiWorldCollectionScreen.tsx(variant='history',时间列取 updatedAt) + 端点 packages/api-client/src/endpoints/ai-world.ts getAiWorldHistory(GET /api/ai-world/history)。注意:后端 apps/api 未注册该路由(openapi.json 亦无),web 端该页恒错误态;RN 屏按 web 同口径承载,后端补路由后即通。",
+      "at": "2026-10-26"
+    }
+  ]
+}

@@ -1,0 +1,1796 @@
+diff --git a/apps/web/app/(main)/admin/monitor/wallboard/page.tsx b/apps/web/app/(main)/admin/monitor/wallboard/page.tsx
+index c8474994f479..4012d2638352 100644
+--- a/apps/web/app/(main)/admin/monitor/wallboard/page.tsx
++++ b/apps/web/app/(main)/admin/monitor/wallboard/page.tsx
+@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query'
+ import {
+   Activity,
+   AlertTriangle,
++  ArrowRight,
+   Bell,
+   Clock3,
+   Cpu,
+@@ -29,6 +30,7 @@ import {
+   Gauge,
+   Globe,
+   HardDrive,
++  Layers,
+   Maximize2,
+   Minimize2,
+   MousePointerClick,
+@@ -205,7 +207,15 @@ interface TrafficSnapshot {
+   aggregationAgeSec: number | null
+   truncated: boolean | null
+   /** 近 24h 页面访问排行(visit_logs 口径);null = 页面热度腿取不到 */
+-  pageTop: Array<{ url: string; scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
++  pageTop: Array<{
++    url: string
++    scope: 'public' | 'admin' | 'auth'
++    platform: 'web' | 'rn' | 'mp' | 'ex'
++    pv: number
++    uv: number
++  }> | null
++  /** 近 24h visit_logs 同口径总 PV(排行占比的分母);null = 页面热度腿取不到 */
++  pageTotalPv: number | null
+   /** 近 24h 各访问面 PV/UV(前台/后台/登录页);null = 同一条腿取不到 */
+   scopeSplit: Array<{ scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
+   /** 近 24h 各端 PV/UV(web/RN/小程序/浏览器插件)+ 90 日接入史;null = 同一条腿取不到 */
+@@ -217,12 +227,128 @@ interface TrafficSnapshot {
+     pv90d?: number
+     lastSeenAt?: string | null
+   }> | null
++  /** 近 24h 会话质量(来了之后看了几屏 / 落地页排行);null = 同一条腿取不到 */
++  sessionQuality: {
++    /** 窗口内会话数(标签页级口径:一个标签页一个 session) */
++    sessions: number
++    /** 只停留在一个页面的会话数 */
++    singlePageSessions: number
++    /** 单页会话占比 0..1;会话数为 0 ⇒ null(「没判」不是「零」) */
++    singlePageRate: number | null
++    /** 平均每会话 PV;会话数为 0 ⇒ null */
++    avgPvPerSession: number | null
++    /** 会话深度分档(1 / 2-3 / 4-7 / 8+ 屏) */
++    depth: Array<{ bucket: '1' | '2-3' | '4-7' | '8+'; sessions: number }>
++    /** 落地页 TOP(进来的会话最多的页面)+ 其中「只停这一页」的会话数 */
++    entryPages: Array<{ url: string; sessions: number; singlePageSessions: number }>
++  } | null
++  /** 近 24h 访问来源(直接访问/本机开发/站内/外部 + 主机 TOP);null = 同一条腿取不到 */
++  visitSource: {
++    /** 窗口内总 PV(所有来源之和) */
++    totalPv: number
++    /** 来源分类桶(未配自有域时不含 internal) */
++    buckets: Array<{
++      kind: 'direct' | 'local' | 'internal' | 'external'
++      pv: number
++    }>
++    /** 来源主机 TOP(按 PV 降序) */
++    hosts: Array<{
++      host: string
++      kind: 'direct' | 'local' | 'internal' | 'external'
++      pv: number
++    }>
++    /** 是否做了站内/外部二分(配了自有域才有) */
++    splitInternal: boolean
++  } | null
++  /** 近 24h 页面流转(相邻页对 TOP);null = 同一条腿取不到 */
++  visitTransition: {
++    /** 相邻跳转总次数(已排除同页刷新) */
++    totalMoves: number
++    /** 发生过的不同页对数 */
++    distinctPairs: number
++    top: Array<{ fromUrl: string; toUrl: string; n: number }>
++  } | null
+   /** 近 5 分钟去重会话数(实时在线近似);null = 同一条腿取不到 */
+   online5m: number | null
+   /** 近 5 分钟浏览量 */
+   pv5m: number | null
+ }
+ 
++/**
++ * 端前缀着色:四端埋点写同一张表,`/chat`(网站)与 `/rn/Chat`(移动端)在页面排行里
++ * 是并列两行,不给前缀上色就分不清「这一行是哪一端」。
++ *
++ * 刻意**不新增端徽章文案**:「各端使用量」面板已经逐行列了网站/移动端/小程序/浏览器插件,
++ * 再加一枚文字徽章既重复又会把窄列挤扁;前缀本来就是端身份的一部分(服务端
++ * `classifyVisitPlatform` 按同一组前缀分桶),给它上色即可,不引入第二套端说法。
++ */
++const PLATFORM_PREFIX_CLASS: Record<'rn' | 'mp' | 'ex', string> = {
++  rn: 'text-violet-600 dark:text-violet-400',
++  mp: 'text-green-700 dark:text-green-400',
++  ex: 'text-orange-700 dark:text-orange-400',
++}
++const PLATFORM_PREFIXES: Array<['rn' | 'mp' | 'ex', string]> = [
++  ['rn', '/rn/'],
++  ['mp', '/mp/'],
++  ['ex', '/ex/'],
++]
++
++/** 行首端前缀拆分:命中则返回 [前缀, 其余路径],未命中返回 null(web 裸路径)。 */
++function splitPlatformPrefix(url: string): ['rn' | 'mp' | 'ex', string, string] | null {
++  for (const [platform, prefix] of PLATFORM_PREFIXES) {
++    if (url.startsWith(prefix)) return [platform, prefix, url.slice(prefix.length)]
++  }
++  return null
++}
++
++/**
++ * 会话深度分档 → 文案键。
++ *
++ * 桶**不是**前端自己数的:服务端 `services/session-quality-stats-service.ts` 按 PV 数
++ * 分好四档回传(判据单一真相源),前端只负责把桶渲染出来 + 配文案。
++ * 档位边界(1 / 2-3 / 4-7 / 8+)不许在前端另写一份 —— 那样两侧早晚会漂。
++ */
++const SESSION_DEPTH_LABEL_KEY: Record<
++  '1' | '2-3' | '4-7' | '8+',
++  'sessionDepth1' | 'sessionDepth23' | 'sessionDepth47' | 'sessionDepth8Plus'
++> = {
++  '1': 'sessionDepth1',
++  '2-3': 'sessionDepth23',
++  '4-7': 'sessionDepth47',
++  '8+': 'sessionDepth8Plus',
++}
++
++/**
++ * 深度分档堆叠条的档位配色(同色系递减,不引入告警色)。
++ * 刻意不给「单屏会话占比高」染红 —— 那是事实不是故障,染成告警会让面板天天报警。
++ */
++const SESSION_DEPTH_BAR_CLASS = ['bg-info', 'bg-info/70', 'bg-info/45', 'bg-info/25'] as const
++
++/**
++ * 来源类别 → 文案键(判据在服务端 `services/visit-source-stats-service.ts`,
++ * 前端只按 kind 渲染,不自己判来源)。
++ */
++const VISIT_SOURCE_KIND_LABEL_KEY: Record<
++  'direct' | 'local' | 'internal' | 'external',
++  'visitSourceDirect' | 'visitSourceLocal' | 'visitSourceInternal' | 'visitSourceExternal'
++> = {
++  direct: 'visitSourceDirect',
++  local: 'visitSourceLocal',
++  internal: 'visitSourceInternal',
++  external: 'visitSourceExternal',
++}
++
++/**
++ * 来源主机的着色:本机开发压成灰(不是渠道),站内用 info,外部用前景色。
++ * 刻意不给外部用告警色 —— 外部来源量大是事实,不是故障,染成告警会让面板天天报警。
++ */
++const VISIT_SOURCE_HOST_CLASS: Record<'direct' | 'local' | 'internal' | 'external', string> = {
++  direct: 'text-foreground',
++  local: 'text-muted-foreground',
++  internal: 'text-info-text',
++  external: 'text-foreground',
++}
++
+ interface RelayPoolSnapshot {
+   keyTotal: number | null
+   keySchedulable: number | null
+@@ -2694,19 +2820,44 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
+                 {t('pageUsageTop')}
+               </div>
+               <div className="space-y-1">
+-                {(traffic?.pageTop ?? []).slice(0, 8).map((p) => (
+-                  <div
+-                    key={p.url}
+-                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+-                  >
+-                    <span className="truncate text-[10px] text-foreground">{p.url}</span>
+-                    {/* 读数 = PV / UV:前者答「用了多少次」,后者答「多少人」 */}
+-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+-                      {fmtCompact(p.pv)}
+-                      <span className="text-muted-foreground"> / {fmtCompact(p.uv)}</span>
+-                    </span>
+-                  </div>
+-                ))}
++                {(traffic?.pageTop ?? []).slice(0, 8).map((p) => {
++                  // 占比条:这个页面占近 24h visit_logs 总 PV 的比例。
++                  // 分母取不到就不画条(绝不折 0 —— 那是把"没判"画成"零")。
++                  const sharePct =
++                    typeof traffic?.pageTotalPv === 'number' && traffic.pageTotalPv > 0
++                      ? Math.max(0, Math.min(100, (p.pv / traffic.pageTotalPv) * 100))
++                      : null
++                  const prefix = splitPlatformPrefix(p.url)
++                  return (
++                    <div
++                      key={p.url}
++                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
++                    >
++                      {sharePct !== null ? (
++                        <div
++                          aria-hidden
++                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
++                          style={{ width: `${sharePct}%` }}
++                        />
++                      ) : null}
++                      <span className="relative truncate text-[10px] text-foreground">
++                        {prefix ? (
++                          <>
++                            <span className={PLATFORM_PREFIX_CLASS[prefix[0]]}>{prefix[1]}</span>
++                            {prefix[2]}
++                          </>
++                        ) : (
++                          p.url
++                        )}
++                      </span>
++                      {/* 读数 = PV / UV:前者答「用了多少次」,后者答「多少人」 */}
++                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
++                        {fmtCompact(p.pv)}
++                        <span className="text-muted-foreground"> / {fmtCompact(p.uv)}</span>
++                      </span>
++                    </div>
++                  )
++                })}
+                 {traffic?.pageTop && traffic.pageTop.length === 0 ? (
+                   <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                     {t('pageUsageNoData')}
+@@ -2776,6 +2927,279 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
+             </div>
+           </Panel>
+ 
++          {/* 会话质量(2026-10-26):visit_logs 的 session_id 族 —— 来了之后看了几屏、从哪一页落地。
++              口径 = 标签页级会话(web 端写在 sessionStorage,一个标签页一个 sid),不是 30 分钟
++              滚动窗口 ⇒ 文案照实说,不包装成行业通用定义。分档判据在服务端,前端只渲染。 */}
++          <Panel
++            title={t('panelSessionQuality')}
++            icon={<Layers className="h-3.5 w-3.5" />}
++            className="wb-c6 wb-c3-md"
++            right={
++              traffic === null || traffic.sessionQuality === null ? (
++                <SourceGap text={t('sourceUnreachable')} />
++              ) : (
++                <span className="text-[10px] text-muted-foreground">
++                  {t('sessionQualitySessions', { count: fmtInt(traffic.sessionQuality.sessions) })}
++                </span>
++              )
++            }
++            bodyClassName="wb-split wb-split-c3"
++          >
++            <div>
++              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
++                {t('sessionQualityDepth')}
++              </div>
++              {/* 深度堆叠条:分母为 0(窗口内没有会话)时整条不画 ——
++                  把"没判"画成"零"是本仓明令禁止。 */}
++              <div className="flex h-1.5 w-full overflow-hidden rounded-md bg-muted">
++                {(traffic?.sessionQuality?.depth ?? []).map((d, i) => {
++                  const total = traffic?.sessionQuality?.sessions ?? 0
++                  const w = total > 0 ? (d.sessions / total) * 100 : 0
++                  if (w <= 0) return null
++                  return (
++                    <div
++                      key={d.bucket}
++                      className={SESSION_DEPTH_BAR_CLASS[i]}
++                      style={{ width: `${w}%` }}
++                    />
++                  )
++                })}
++              </div>
++              <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
++                {(traffic?.sessionQuality?.depth ?? []).map((d, i) => (
++                  <div key={d.bucket} className="flex min-w-0 items-center gap-1">
++                    <span
++                      className={cn('h-1.5 w-1.5 shrink-0 rounded-sm', SESSION_DEPTH_BAR_CLASS[i])}
++                    />
++                    <span className="truncate text-[9px] text-muted-foreground">
++                      {t(SESSION_DEPTH_LABEL_KEY[d.bucket])}
++                    </span>
++                    <span className="wb-num ml-auto shrink-0 text-[10px] text-foreground">
++                      {fmtInt(d.sessions)}
++                    </span>
++                  </div>
++                ))}
++              </div>
++              <div className="mt-1.5 space-y-1">
++                <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1">
++                  <span className="text-[10px] text-foreground">
++                    {t('sessionQualitySinglePage')}
++                  </span>
++                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
++                    {isNum(traffic?.sessionQuality?.singlePageRate)
++                      ? `${Math.round((traffic?.sessionQuality?.singlePageRate ?? 0) * 100)}%`
++                      : '—'}
++                  </span>
++                </div>
++                <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1">
++                  <span className="text-[10px] text-foreground">{t('sessionQualityAvgPv')}</span>
++                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
++                    {isNum(traffic?.sessionQuality?.avgPvPerSession)
++                      ? (traffic?.sessionQuality?.avgPvPerSession ?? 0).toFixed(1)
++                      : '—'}
++                  </span>
++                </div>
++              </div>
++              {traffic?.sessionQuality === null ? (
++                <div className="flex justify-center px-2 py-2">
++                  <SourceGap text={t('sourceUnreachable')} />
++                </div>
++              ) : null}
++            </div>
++            <div>
++              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
++                {t('sessionQualityEntryTop')}
++              </div>
++              <div className="space-y-1">
++                {(traffic?.sessionQuality?.entryPages ?? []).map((p) => (
++                  <div
++                    key={p.url}
++                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
++                  >
++                    <span className="truncate text-[10px] text-foreground">{p.url}</span>
++                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
++                      {fmtInt(p.sessions)}
++                      <span className="text-muted-foreground">
++                        {' '}
++                        / {fmtInt(p.singlePageSessions)}
++                      </span>
++                    </span>
++                  </div>
++                ))}
++                {traffic?.sessionQuality && traffic.sessionQuality.entryPages.length === 0 ? (
++                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
++                    {t('sessionQualityNoData')}
++                  </div>
++                ) : null}
++                {traffic?.sessionQuality === null ? (
++                  <div className="flex justify-center px-2 py-2">
++                    <SourceGap text={t('sourceUnreachable')} />
++                  </div>
++                ) : null}
++              </div>
++            </div>
++          </Panel>
++
++          {/* 访问来源(2026-10-26):流量从哪来 —— 直接访问 / 本机开发 / 站内 / 外部 + 主机 TOP。
++              生产实测 GitHub 是最大入口,而本机开发流量占着约三成 ⇒ 不分类就分不清推广渠道。
++              只给 PV:来源维度上访客数无法精确去重(同一访客既从外部进来又在站内点了两页),
++              与其给一个看着准、实际重复计的数字,不如少给一格。 */}
++          <Panel
++            title={t('panelVisitSource')}
++            icon={<Globe className="h-3.5 w-3.5" />}
++            className="wb-c6 wb-c3-md"
++            right={
++              traffic === null || traffic.visitSource === null ? (
++                <SourceGap text={t('sourceUnreachable')} />
++              ) : (
++                <span className="text-[10px] text-muted-foreground">
++                  {t('visitSourceTotal', { count: fmtInt(traffic.visitSource.totalPv) })}
++                </span>
++              )
++            }
++            bodyClassName="wb-split wb-split-c3"
++          >
++            <div>
++              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
++                {t('visitSourceBuckets')}
++              </div>
++              <div className="space-y-1">
++                {(traffic?.visitSource?.buckets ?? []).map((b) => {
++                  const total = traffic?.visitSource?.totalPv ?? 0
++                  // 分母取不到就不画条、也不写百分比:把"没判"画成"零"是本仓明令禁止
++                  const pct = total > 0 ? (b.pv / total) * 100 : null
++                  return (
++                    <div
++                      key={b.kind}
++                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
++                    >
++                      {pct !== null ? (
++                        <div
++                          aria-hidden
++                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
++                          style={{ width: `${pct}%` }}
++                        />
++                      ) : null}
++                      <span className="relative truncate text-[10px] text-foreground">
++                        {t(VISIT_SOURCE_KIND_LABEL_KEY[b.kind])}
++                      </span>
++                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
++                        {fmtInt(b.pv)}
++                        {pct !== null ? (
++                          <span className="text-muted-foreground"> · {Math.round(pct)}%</span>
++                        ) : null}
++                      </span>
++                    </div>
++                  )
++                })}
++                {traffic?.visitSource && traffic.visitSource.buckets.length === 0 ? (
++                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
++                    {t('visitSourceNoData')}
++                  </div>
++                ) : null}
++                {traffic?.visitSource === null ? (
++                  <div className="flex justify-center px-2 py-2">
++                    <SourceGap text={t('sourceUnreachable')} />
++                  </div>
++                ) : null}
++              </div>
++            </div>
++            <div>
++              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
++                {t('visitSourceHosts')}
++              </div>
++              <div className="space-y-1">
++                {(traffic?.visitSource?.hosts ?? []).map((h) => {
++                  const total = traffic?.visitSource?.totalPv ?? 0
++                  const pct = total > 0 ? (h.pv / total) * 100 : null
++                  return (
++                    <div
++                      key={h.host}
++                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
++                    >
++                      {pct !== null ? (
++                        <div
++                          aria-hidden
++                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
++                          style={{ width: `${pct}%` }}
++                        />
++                      ) : null}
++                      <span
++                        className={cn(
++                          'relative truncate text-[10px]',
++                          VISIT_SOURCE_HOST_CLASS[h.kind],
++                        )}
++                      >
++                        {h.host}
++                      </span>
++                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
++                        {fmtInt(h.pv)}
++                      </span>
++                    </div>
++                  )
++                })}
++                {traffic?.visitSource && traffic.visitSource.hosts.length === 0 ? (
++                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
++                    {t('visitSourceNoData')}
++                  </div>
++                ) : null}
++                {traffic?.visitSource === null ? (
++                  <div className="flex justify-center px-2 py-2">
++                    <SourceGap text={t('sourceUnreachable')} />
++                  </div>
++                ) : null}
++              </div>
++            </div>
++          </Panel>
++
++          {/* 页面流转(2026-10-26):同一标签页会话内相邻两页 —— 人从哪走到哪。
++              排行只说"哪个页面热"、会话质量只说"看了几屏",都不答这一句;
++              生产实测最大的一跳是 `/ → /sso/login` 与 `/sso/login → /`(登录↔首页打转)。
++              同页刷新不算流转(服务端已剔除),箭头用矢量图标,不用字符箭头。 */}
++          <Panel
++            title={t('panelVisitTransition')}
++            icon={<ArrowRight className="h-3.5 w-3.5" />}
++            className="wb-c6 wb-c3-md"
++            right={
++              traffic === null || traffic.visitTransition === null ? (
++                <SourceGap text={t('sourceUnreachable')} />
++              ) : (
++                <span className="text-[10px] text-muted-foreground">
++                  {t('visitTransitionMoves', { count: fmtInt(traffic.visitTransition.totalMoves) })}
++                </span>
++              )
++            }
++          >
++            <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
++              {t('visitTransitionTop')}
++            </div>
++            <div className="space-y-1">
++              {(traffic?.visitTransition?.top ?? []).map((row) => (
++                <div
++                  key={`${row.fromUrl}->${row.toUrl}`}
++                  className="flex items-center gap-1.5 rounded-md bg-muted/50 px-2 py-1"
++                >
++                  <span className="truncate text-[10px] text-foreground">{row.fromUrl}</span>
++                  <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
++                  <span className="truncate text-[10px] text-foreground">{row.toUrl}</span>
++                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
++                    {fmtInt(row.n)}
++                  </span>
++                </div>
++              ))}
++              {traffic?.visitTransition && traffic.visitTransition.top.length === 0 ? (
++                <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
++                  {t('visitTransitionNoData')}
++                </div>
++              ) : null}
++              {traffic?.visitTransition === null ? (
++                <div className="flex justify-center px-2 py-2">
++                  <SourceGap text={t('sourceUnreachable')} />
++                </div>
++              ) : null}
++            </div>
++          </Panel>
++
+           {/* 访客构成(2026-10-26):近 24h「第一次来的人」与「回头客」各多少。
+               身份口径与 UV/实时在线同一把尺(coalesce(session_id, ip)),所以新访客 + 回访 = 窗口访客。 */}
+           <Panel
+diff --git a/apps/web/app/(main)/admin/relay/account-pool/page.tsx b/apps/web/app/(main)/admin/relay/account-pool/page.tsx
+index a3455f472a52..9fde6fcf6f72 100644
+--- a/apps/web/app/(main)/admin/relay/account-pool/page.tsx
++++ b/apps/web/app/(main)/admin/relay/account-pool/page.tsx
+@@ -22,10 +22,13 @@ import {
+   DialogFooter,
+   DialogHeader,
+   DialogTitle,
++  Eye,
++  EyeOff,
+   FileText,
+   Input,
+   Label,
+   Loader2,
++  LogIn,
+   PartyPopper,
+   Pencil,
+   Power,
+@@ -42,6 +45,7 @@ import {
+   SheetHeader,
+   SheetTitle,
+   ShieldAlert,
++  ShieldCheck,
+   Switch,
+   Plus,
+   Tabs,
+@@ -54,9 +58,25 @@ import {
+   Wallet,
+ } from '@ihui/ui-react'
+ import { Skeleton } from '@/components/ui/skeleton'
+-import { BackButton } from '@/components/common'
++import { TruncatedText, BackButton } from '@/components/common'
+ import { Tooltip } from '@/components/feedback'
+ import { useConfirm } from '@/hooks/use-confirm'
++import { useTauriIpcReady } from '@/hooks/use-desktop'
++import { useWorkPanelStore } from '@/stores/work-panel'
++import { closeDockedBrowser } from '@/lib/tauri-bridge'
++import {
++  RELAY_WEB_LOGIN,
++  RELAY_WEB_LOGIN_PROVIDERS,
++  normalizeTraeProbe,
++  relayWebLoginAccountToImport,
++  type RelayWebLoginProvider,
++} from '@/lib/relay-web-login'
++
++/** 平台 → 网页重登能力(未登记的平台返回 null:该平台没进注册表,按钮 Tooltip 如实说明) */
++function relayWebLoginCap(providerCode: string) {
++  if (!(RELAY_WEB_LOGIN_PROVIDERS as readonly string[]).includes(providerCode)) return null
++  return RELAY_WEB_LOGIN[providerCode as RelayWebLoginProvider]
++}
+ 
+ const PAGE_SIZE = 20
+ const selectClass =
+@@ -64,6 +84,28 @@ const selectClass =
+ const textareaClass =
+   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs'
+ 
++// 账号级代理与代理池同口径:只接受 http(s)/socks5
++const PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:'])
++
++function isSupportedProxyUrl(raw: string): boolean {
++  try {
++    return PROXY_PROTOCOLS.has(new URL(raw).protocol)
++  } catch {
++    return false
++  }
++}
++
++/** 代理池列表脱敏展示:只留协议+主机,账密不渲染、不进 title */
++function maskProxyDisplay(raw?: string | null): string {
++  if (!raw) return '-'
++  try {
++    const u = new URL(raw)
++    return `${u.protocol}//${u.username || u.password ? '***@' : ''}${u.host}`
++  } catch {
++    return '已隐藏'
++  }
++}
++
+ const PROVIDER_OPTIONS = ['trae', 'workbuddy', 'codearts', 'qoder'] as const
+ type ProviderCode = (typeof PROVIDER_OPTIONS)[number]
+ 
+@@ -107,6 +149,8 @@ interface AccountRow {
+   refreshFailureCount: number
+   consecutiveFailures: number
+   hasProxy: boolean
++  /** 后端脱敏投影:scheme://***@host:port;明文账密/路径/查询串不返回前端 */
++  proxyUrlMasked: string | null
+   totalCalls: number
+   extraMetadata: unknown
+   createdAt: string
+@@ -114,6 +158,10 @@ interface AccountRow {
+   usageSummary?: UsageSummary | null
+   circuitBreakReason?: string | null
+   expiresSoon?: boolean | null
++  /** 体检结论机器枚(判据单源 @ihui/shared,UI 只映射文案不重写判据) */
++  verdict?: string | null
++  tokenRemainingDays?: number | null
++  idleDays?: number | null
+   claimStatus?: string | null
+   claimedBy?: string | null
+   claimedAt?: string | null
+@@ -212,6 +260,32 @@ const HEALTH_LABEL: Record<string, string> = {
+   down: '异常',
+ }
+ 
++// 体检徽章(admin 面写死中文映射即可,门 70 排除 admin;i18n  parity 不涉)
++const VERDICT_LABEL: Record<string, string> = {
++  usable: '可用',
++  'expiring-soon': '临期',
++  'expired-renewable': '可救回',
++  'expired-dead': '待重登',
++  'envelope-only': '仅同机',
++  indeterminate: '未知',
++}
++const VERDICT_CLASS: Record<string, string> = {
++  usable: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
++  'expiring-soon': 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
++  'expired-renewable': 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
++  'expired-dead': 'bg-red-500/10 text-red-600 dark:text-red-400',
++  'envelope-only': 'bg-muted text-muted-foreground',
++  indeterminate: 'bg-muted text-muted-foreground',
++}
++const VERDICT_HINT: Record<string, string> = {
++  'envelope-only': '信封凭据仅同机可解,号池无法代刷',
++  'expired-dead': '无 refreshToken,调度救不回,需重新登录/导出',
++  'expired-renewable': '过期但有票,临期/保活档会自动续',
++  usable: '',
++  'expiring-soon': '1 天内到期,保活档会兜住;本机用则开一次客户端',
++  indeterminate: '读不到到期,以健康检查为准',
++}
++
+ const IMPORT_STATUS_LABEL: Record<string, string> = {
+   imported: '新增',
+   updated: '更新',
+@@ -273,6 +347,8 @@ interface QuotaResult {
+     ratio?: number
+     unit?: string
+     resetsAt?: string
++    /** 订阅档名(workbuddy 实证:summary 的 SubscriptionPackageName,如"体验版") */
++    subscriptionName?: string
+     packs?: Array<{ name?: string; limit?: number; remaining?: number; endAt?: string }>
+   } | null
+   queriedAt: string
+@@ -281,6 +357,7 @@ interface QuotaResult {
+ // 余额一行话:优先"剩余/总额";平台只给已用时按 total 换算,两者都给不到就不编数字。
+ function formatQuotaLine(q: NonNullable<QuotaResult['quota']>): string {
+   const unit = q.unit ?? '额度'
++  const sub = q.subscriptionName ? `(${q.subscriptionName}) ` : ''
+   const remaining =
+     q.remaining ?? (q.used !== undefined && q.total !== undefined ? q.total - q.used : undefined)
+   const pct =
+@@ -288,10 +365,10 @@ function formatQuotaLine(q: NonNullable<QuotaResult['quota']>): string {
+       ? ` · 已用 ${(q.ratio * 100).toFixed(1)}%`
+       : ''
+   if (remaining !== undefined && q.total !== undefined) {
+-    return `余额 ${fmtNum(remaining)} / ${fmtNum(q.total)} ${unit}${pct}`
++    return `${sub}余额 ${fmtNum(remaining)} / ${fmtNum(q.total)} ${unit}${pct}`
+   }
+-  if (remaining !== undefined) return `余额 ${fmtNum(remaining)} ${unit}`
+-  if (q.used !== undefined) return `已用 ${fmtNum(q.used)} ${unit}`
++  if (remaining !== undefined) return `${sub}余额 ${fmtNum(remaining)} ${unit}`
++  if (q.used !== undefined) return `${sub}已用 ${fmtNum(q.used)} ${unit}`
+   return '余额接口已应答,但字段未识别(未判定)'
+ }
+ 
+@@ -327,17 +404,67 @@ export default function AdminRelayAccountPoolPage() {
+     'all',
+   )
+   const [importOpen, setImportOpen] = React.useState(false)
++  // 一键重登(2026-10-27 第 3 格):进行中的账号 id + 阶段;null = 空闲。
++  // 能力登记在 @/lib/relay-web-login(单一源);trae 有实证链,其余明示未判定。
++  const [relogin, setRelogin] = React.useState<{
++    id: string
++    phase: 'waiting' | 'importing'
++  } | null>(null)
++  const reloginDockTabRef = React.useRef<string | null>(null)
++  const reloginDockSeenRef = React.useRef(false)
+   const [importProvider, setImportProvider] = React.useState<ProviderCode | ''>('')
+   const [importText, setImportText] = React.useState('')
+   const [importResult, setImportResult] = React.useState<ImportResult | null>(null)
++  // ⑤ 拖拽/点选文件(2026-10-26,机主「更傻瓜」):第三方工具导出的备份 .json 拖进来即可
++  const importFileRef = React.useRef<HTMLInputElement | null>(null)
++  const [importDragOver, setImportDragOver] = React.useState(false)
++  const [importFileName, setImportFileName] = React.useState('')
++  // 读文件只填文本框,解析/入库仍走同一条 submitImport 通道(不另起第二份导入判据)
++  const applyImportFile = (file: File | null | undefined): void => {
++    if (!file) return
++    const name = file.name || 'pasted.json'
++    if (!/\.(json|txt)$/i.test(name)) {
++      toast.error('只接受 .json / .txt 账号导出文件')
++      return
++    }
++    if (file.size > 8 * 1024 * 1024) {
++      toast.error(`文件过大(${Math.round(file.size / 1048576)}MB),单次上限 8MB`)
++      return
++    }
++    file
++      .text()
++      .then((t) => {
++        if (!t.trim()) {
++          toast.error('文件是空的')
++          return
++        }
++        setImportText(t)
++        setImportFileName(name)
++        toast.success(`已读取「${name}」,点「提交导入」入池`)
++      })
++      .catch(() => toast.error('读取文件失败,请改用「粘贴」'))
++  }
++  // 导出包顶层自带 providerCode 时自动选平台(用户手选过则尊重手选)
++  const autofillProviderFromPayload = (parsed: unknown): void => {
++    if (importProvider) return
++    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return
++    const raw = (parsed as { providerCode?: unknown }).providerCode
++    const alt = (parsed as { provider?: unknown }).provider
++    const v = typeof raw === 'string' ? raw : typeof alt === 'string' ? alt : ''
++    if ((PROVIDER_OPTIONS as readonly string[]).includes(v)) setImportProvider(v as ProviderCode)
++  }
++
+   const [editing, setEditing] = React.useState<AccountRow | null>(null)
+   const [editForm, setEditForm] = React.useState({
+     name: '',
+     priority: '0',
+     weight: '1',
+     tempUnschedulable: false,
+-    proxyUrl: '',
+   })
++  // 代理:keep=不改动(默认),set=替换,clear=移除;避免打开编辑即把已有代理清空
++  const [proxyMode, setProxyMode] = React.useState<'keep' | 'set' | 'clear'>('keep')
++  const [proxyDraft, setProxyDraft] = React.useState('')
++  const [proxyVisible, setProxyVisible] = React.useState(false)
+   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
+   const [usageAccountId, setUsageAccountId] = React.useState<string | null>(null)
+   const [tab, setTab] = React.useState<PoolTab>('accounts')
+@@ -548,7 +675,12 @@ export default function AdminRelayAccountPoolPage() {
+   })
+ 
+   const importMut = useMutation({
+-    mutationFn: async (body: { providerCode: string; accounts: unknown[] }) => {
++    mutationFn: async (body: {
++      providerCode: string
++      accounts: unknown[]
++      /** 一键重登专用:本批未带 refreshToken 时保留库内旧票(重登只换得到 access) */
++      preserveMissingRefresh?: boolean
++    }) => {
+       const r = await fetchApi<ImportResult>('/api/admin/relay/accounts/import', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+@@ -559,12 +691,17 @@ export default function AdminRelayAccountPoolPage() {
+     },
+     onSuccess: (d) => {
+       setImportResult(d)
++      setImportFileName('')
++      setRelogin(null)
+       toast.success(
+         `导入完成:新增 ${d.imported} / 更新 ${d.updated} / 跳过 ${d.skipped} / 失败 ${d.failed}`,
+       )
+       invalidate()
+     },
+-    onError: (e: Error) => toast.error(e.message || '导入失败'),
++    onError: (e: Error) => {
++      setRelogin(null)
++      toast.error(e.message || '导入失败')
++    },
+   })
+ 
+   const sweepMut = useMutation({
+@@ -615,8 +752,10 @@ export default function AdminRelayAccountPoolPage() {
+       priority: String(k.priority),
+       weight: String(k.weight),
+       tempUnschedulable: k.tempUnschedulable,
+-      proxyUrl: '',
+     })
++    setProxyMode('keep')
++    setProxyDraft('')
++    setProxyVisible(false)
+   }
+ 
+   const submitEdit = (e: React.FormEvent) => {
+@@ -632,41 +771,59 @@ export default function AdminRelayAccountPoolPage() {
+       weight: Number(editForm.weight) || 1,
+       tempUnschedulable: editForm.tempUnschedulable,
+     }
+-    const proxy = editForm.proxyUrl.trim()
+-    body.proxyUrl = proxy ? proxy : null
++    // 只有显式更换/清除才带 proxyUrl;keep 状态绝不提交,防止覆盖已有代理
++    if (proxyMode === 'set') {
++      const proxy = proxyDraft.trim()
++      if (!proxy) {
++        toast.error('请输入代理地址')
++        return
++      }
++      if (!isSupportedProxyUrl(proxy)) {
++        toast.error('代理地址必须是 http(s)/socks5 协议')
++        return
++      }
++      body.proxyUrl = proxy
++    } else if (proxyMode === 'clear') {
++      body.proxyUrl = null
++    }
+     editMut.mutate({ id: editing.id, body })
+   }
+ 
+   const submitImport = (e: React.FormEvent) => {
+     e.preventDefault()
+-    if (!importProvider) {
+-      toast.error('请选择平台')
+-      return
+-    }
+     const raw = importText.trim()
+     if (!raw) {
+-      toast.error('请粘贴账号导出 JSON')
++      toast.error('把 .json 拖进来、点「选文件」,或直接粘贴账号导出 JSON')
+       return
+     }
+     let accounts: unknown[]
++    let parsedTop: unknown
+     try {
+-      const parsed: unknown = JSON.parse(raw)
+-      if (Array.isArray(parsed)) {
+-        accounts = parsed
++      parsedTop = JSON.parse(raw)
++      if (Array.isArray(parsedTop)) {
++        accounts = parsedTop
+       } else if (
+-        parsed &&
+-        typeof parsed === 'object' &&
+-        Array.isArray((parsed as { accounts?: unknown }).accounts)
++        parsedTop &&
++        typeof parsedTop === 'object' &&
++        Array.isArray((parsedTop as { accounts?: unknown }).accounts)
+       ) {
+-        accounts = (parsed as { accounts: unknown[] }).accounts
++        accounts = (parsedTop as { accounts: unknown[] }).accounts
++      } else if (parsedTop && typeof parsedTop === 'object' && !Array.isArray(parsedTop)) {
++        // 单条账号对象也吃(最傻瓜:workbuddy-switch 等工具常一文件一号)
++        accounts = [parsedTop]
+       } else {
+-        toast.error('JSON 需为账号数组或 { accounts: [...] } 整包')
++        toast.error('JSON 需为账号数组、{ accounts: [...] } 整包或单条对象')
+         return
+       }
+     } catch {
+       toast.error('JSON 解析失败,请检查格式')
+       return
+     }
++    autofillProviderFromPayload(parsedTop)
++    if (!importProvider) {
++      toast.error('请选择平台(或让导出 JSON 顶层带 providerCode)')
++      return
++    }
+     if (accounts.length === 0) {
+       toast.error('accounts 为空')
+       return
+@@ -678,6 +835,98 @@ export default function AdminRelayAccountPoolPage() {
+     importMut.mutate({ providerCode: importProvider, accounts })
+   }
+ 
++  // ── 一键重登(第 3 格):凭据死了在页内直接唤起网页登录换票,走同一条导入通道覆盖凭证 ──
++  const desktop = useTauriIpcReady()
++  // 嵌入页检测(与签到页同判据:内嵌浏览器工具条注入脚本定义 window.__ihuiNav;
++  // 内容页没有 IPC,probe 全被 capability 拒,入口必须只在桌面主窗可用)
++  const [embedBrowser, setEmbedBrowser] = React.useState(false)
++  React.useEffect(() => {
++    if (typeof (window as unknown as { __ihuiNav?: unknown }).__ihuiNav === 'function') {
++      setEmbedBrowser(true)
++    }
++  }, [])
++
++  // 收尾共用:关登录 Tab(没别的 Tab 时面板一并收)+ 销毁原生 webview。
++  const endReloginDock = React.useCallback(() => {
++    const store = useWorkPanelStore.getState()
++    const tabId = reloginDockTabRef.current
++    reloginDockTabRef.current = null
++    reloginDockSeenRef.current = false
++    if (tabId) store.closeTab(tabId)
++    if (useWorkPanelStore.getState().tabs.length === 0) store.closePanel()
++    void closeDockedBrowser()
++  }, [])
++
++  const startRelogin = (k: AccountRow) => {
++    const cap = relayWebLoginCap(k.providerCode)
++    if (!cap) return
++    if (cap.kind === 'none') {
++      toast.error(cap.reason)
++      return
++    }
++    if (!desktop || embedBrowser) {
++      toast.error('一键重登要在桌面主窗里用:内嵌浏览器内容页没有 IPC,读不到登录 Cookie')
++      return
++    }
++    reloginDockSeenRef.current = false
++    setRelogin({ id: k.id, phase: 'waiting' })
++    reloginDockTabRef.current = useWorkPanelStore
++      .getState()
++      .openDockedTab(cap.loginUrl, cap.tabTitle)
++  }
++
++  // 轮询探测(2.5s):ok ⇒ 关登录 Tab + 走导入通道覆盖凭证(preserveMissingRefresh 保住
++  // 库内旧 refreshToken —— 重登只换得到 access,不保留就把能自续的号抹成待重登死号);
++  // 见过窗口之后又没了 = 用户关窗 ⇒ 复位;waiting/error 继续等,6.5min 超时兜底。
++  React.useEffect(() => {
++    if (!relogin || relogin.phase !== 'waiting') return
++    const row = list.find((k) => k.id === relogin.id)
++    const cap = row ? relayWebLoginCap(row.providerCode) : null
++    if (!cap || cap.kind !== 'ipc-trae') return
++    let stopped = false
++    const poll = async () => {
++      if (stopped) return
++      try {
++        const probe = normalizeTraeProbe(await cap.probe())
++        if (stopped) return
++        if (probe.status === 'waiting' && !probe.windowGone) reloginDockSeenRef.current = true
++        if (probe.status === 'ok') {
++          stopped = true
++          endReloginDock()
++          setRelogin({ id: relogin.id, phase: 'importing' })
++          importMut.mutate({
++            providerCode: 'trae',
++            accounts: [relayWebLoginAccountToImport(probe.account)],
++            preserveMissingRefresh: true,
++          })
++        } else if (probe.status === 'waiting' && probe.windowGone && reloginDockSeenRef.current) {
++          stopped = true
++          endReloginDock()
++          setRelogin(null)
++          toast.error('登录窗已关闭,重登未完成')
++        }
++      } catch {
++        // 瞬态(窗口未建好/IPC 注入竞态):下一轮再试
++      }
++    }
++    const timer = setInterval(() => void poll(), 2500)
++    return () => {
++      stopped = true
++      clearInterval(timer)
++    }
++    // eslint-disable-next-line react-hooks/exhaustive-deps -- importMut 是稳定引用,进依赖只会空转
++  }, [relogin, list, desktop, embedBrowser, endReloginDock])
++
++  React.useEffect(() => {
++    if (!relogin || relogin.phase !== 'waiting') return
++    const timer = setTimeout(() => {
++      endReloginDock()
++      setRelogin(null)
++      toast.error('等了 6 分半还没等到登录完成,已退出;确认网络后可再点一次重试')
++    }, 390_000)
++    return () => clearTimeout(timer)
++  }, [relogin, endReloginDock])
++
+   const copyUid = (uid: string) => {
+     navigator.clipboard?.writeText(uid).then(
+       () => toast.success('已复制 uid'),
+@@ -690,6 +939,8 @@ export default function AdminRelayAccountPoolPage() {
+     setImportResult(null)
+     setImportText('')
+     setImportProvider('')
++    setImportFileName('')
++    setImportDragOver(false)
+   }
+ 
+   return (
+@@ -854,6 +1105,7 @@ export default function AdminRelayAccountPoolPage() {
+                     <th className="px-3 py-2 text-left">平台</th>
+                     <th className="px-3 py-2 text-left">uid</th>
+                     <th className="px-3 py-2 text-left">健康</th>
++                    <th className="px-3 py-2 text-left">体检</th>
+                     <th className="px-3 py-2 text-left">熔断</th>
+                     <th className="px-3 py-2 text-left">签到</th>
+                     <th className="px-3 py-2 text-right">24h 用量</th>
+@@ -875,20 +1127,20 @@ export default function AdminRelayAccountPoolPage() {
+                   {isLoading ? (
+                     Array.from({ length: 8 }).map((_, i) => (
+                       <tr key={`sk-${i}`}>
+-                        <td colSpan={20} className="px-3 py-2">
++                        <td colSpan={21} className="px-3 py-2">
+                           <Skeleton className="h-6 w-full" />
+                         </td>
+                       </tr>
+                     ))
+                   ) : isError ? (
+                     <tr>
+-                      <td colSpan={20} className="px-3 py-8 text-center text-red-500">
++                      <td colSpan={21} className="px-3 py-8 text-center text-red-500">
+                         加载失败:{error instanceof Error ? error.message : '未知错误'}
+                       </td>
+                     </tr>
+                   ) : list.length === 0 ? (
+                     <tr>
+-                      <td colSpan={20} className="px-3 py-8 text-center text-muted-foreground">
++                      <td colSpan={21} className="px-3 py-8 text-center text-muted-foreground">
+                         暂无数据
+                       </td>
+                     </tr>
+@@ -902,6 +1154,7 @@ export default function AdminRelayAccountPoolPage() {
+                       const claimed = k.claimStatus === 'claimed'
+                       const failPct = failRatePct(k.usageSummary?.failRate24h)
+                       const ci = checkinItems[k.id]
++                      const relCap = relayWebLoginCap(k.providerCode)
+                       return (
+                         <tr key={k.id} className={soon ? 'bg-amber-500/5' : undefined}>
+                           <td className="px-3 py-2">
+@@ -962,6 +1215,34 @@ export default function AdminRelayAccountPoolPage() {
+                               {HEALTH_LABEL[k.healthStatus] ?? k.healthStatus}
+                             </span>
+                           </td>
++                          <td className="px-3 py-2">
++                            {k.verdict ? (
++                              <Tooltip
++                                content={
++                                  VERDICT_HINT[k.verdict]
++                                    ? `${k.verdict}：${VERDICT_HINT[k.verdict]}`
++                                    : `剩余 ${k.tokenRemainingDays ?? '?'} 天`
++                                }
++                              >
++                                <span className="inline-flex items-center gap-1">
++                                  <span
++                                    className={`rounded-md px-2 py-0.5 text-xs ${
++                                      VERDICT_CLASS[k.verdict] ?? VERDICT_CLASS.indeterminate
++                                    }`}
++                                  >
++                                    {VERDICT_LABEL[k.verdict] ?? k.verdict}
++                                  </span>
++                                  {typeof k.idleDays === 'number' && (
++                                    <span className="text-xs tabular-nums text-muted-foreground">
++                                      闲置{Math.round(k.idleDays)}天
++                                    </span>
++                                  )}
++                                </span>
++                              </Tooltip>
++                            ) : (
++                              <span className="text-xs text-muted-foreground">-</span>
++                            )}
++                          </td>
+                           <td className="px-3 py-2">
+                             {k.circuitBreakReason ? (
+                               <Tooltip content={k.circuitBreakReason}>
+@@ -1069,7 +1350,18 @@ export default function AdminRelayAccountPoolPage() {
+                           <td className="px-3 py-2 text-right tabular-nums">
+                             {k.refreshFailureCount}
+                           </td>
+-                          <td className="px-3 py-2 text-xs">{k.hasProxy ? '是' : '否'}</td>
++                          <td className="px-3 py-2 text-xs">
++                            {k.hasProxy ? (
++                              <Tooltip content={`代理：${k.proxyUrlMasked ?? '已配置（脱敏）'}`}>
++                                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400">
++                                  <ShieldCheck className="h-3 w-3" />
++                                  私有
++                                </span>
++                              </Tooltip>
++                            ) : (
++                              <span className="text-muted-foreground">直连</span>
++                            )}
++                          </td>
+                           <td className="px-3 py-2 text-xs text-muted-foreground">
+                             {k.lastUsedAt ? fmt.format(new Date(k.lastUsedAt)) : '-'}
+                           </td>
+@@ -1159,6 +1451,31 @@ export default function AdminRelayAccountPoolPage() {
+                                   </Button>
+                                 </span>
+                               </Tooltip>
++                              <Tooltip
++                                content={
++                                  relCap
++                                    ? relCap.kind === 'ipc-trae'
++                                      ? '一键重登:停靠浏览器打开登录页,换新票自动覆盖凭证(保留原 refreshToken)'
++                                      : relCap.reason
++                                    : '该平台未登记网页重登链(出路见告警话术:导入账号 JSON)'
++                                }
++                              >
++                                <span className="inline-flex">
++                                  <Button
++                                    size="sm"
++                                    variant="ghost"
++                                    aria-label="一键重登"
++                                    disabled={relogin !== null || !desktop}
++                                    onClick={() => startRelogin(k)}
++                                  >
++                                    {relogin?.id === k.id ? (
++                                      <Loader2 className="h-4 w-4 animate-spin" />
++                                    ) : (
++                                      <LogIn className="h-4 w-4" />
++                                    )}
++                                  </Button>
++                                </span>
++                              </Tooltip>
+                               <Tooltip content="查余额">
+                                 <span className="inline-flex">
+                                   <Button
+@@ -1332,14 +1649,135 @@ export default function AdminRelayAccountPoolPage() {
+                 临时摘除(暂不参与调度)
+               </Label>
+             </div>
+-            <div className="space-y-2">
+-              <Label htmlFor="a-proxy">代理地址</Label>
+-              <Input
+-                id="a-proxy"
+-                value={editForm.proxyUrl}
+-                onChange={(e) => setEditForm({ ...editForm, proxyUrl: e.target.value })}
+-                placeholder="http://127.0.0.1:7890(留空则清除)"
+-              />
++            <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
++              <div className="flex items-start justify-between gap-3">
++                <div className="flex min-w-0 items-center gap-2">
++                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
++                  <div className="min-w-0">
++                    <div className="text-sm font-medium leading-none">账号代理</div>
++                    <p className="mt-1 text-[11px] text-muted-foreground">
++                      仅对该账号生效，不进入共享代理池
++                    </p>
++                  </div>
++                </div>
++                <span
++                  className={
++                    editing?.hasProxy
++                      ? 'shrink-0 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-600 dark:text-emerald-400'
++                      : 'shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground'
++                  }
++                >
++                  {editing?.hasProxy ? '已配置' : '直连'}
++                </span>
++              </div>
++
++              {editing?.hasProxy && proxyMode === 'keep' ? (
++                <div className="flex items-center gap-2">
++                  <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs">
++                    {editing.proxyUrlMasked ?? '已配置（脱敏）'}
++                  </code>
++                  <Button
++                    type="button"
++                    size="sm"
++                    variant="outline"
++                    onClick={() => {
++                      setProxyMode('set')
++                      setProxyDraft('')
++                      setProxyVisible(false)
++                    }}
++                  >
++                    更换
++                  </Button>
++                  <Button
++                    type="button"
++                    size="sm"
++                    variant="ghost"
++                    className="text-muted-foreground"
++                    onClick={() => setProxyMode('clear')}
++                  >
++                    清除
++                  </Button>
++                </div>
++              ) : null}
++
++              {!editing?.hasProxy && proxyMode === 'keep' ? (
++                <Button
++                  type="button"
++                  size="sm"
++                  variant="outline"
++                  onClick={() => {
++                    setProxyMode('set')
++                    setProxyVisible(false)
++                  }}
++                >
++                  设置代理
++                </Button>
++              ) : null}
++
++              {proxyMode === 'set' ? (
++                <div className="space-y-2">
++                  <div className="relative">
++                    <Input
++                      id="a-proxy"
++                      type={proxyVisible ? 'text' : 'password'}
++                      value={proxyDraft}
++                      onChange={(e) => setProxyDraft(e.target.value)}
++                      placeholder="http://user:pass@host:port 或 socks5://host:port"
++                      autoComplete="off"
++                      spellCheck={false}
++                      className="pr-9 font-mono text-xs"
++                    />
++                    <button
++                      type="button"
++                      className="absolute right-1 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground"
++                      onClick={() => setProxyVisible((v) => !v)}
++                      aria-label={proxyVisible ? '隐藏代理地址' : '显示代理地址'}
++                    >
++                      {proxyVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
++                    </button>
++                  </div>
++                  <p className="text-[11px] text-muted-foreground">
++                    支持 http(s):// 与 socks5://，保存后聊天、换票、巡检都走该出口。
++                  </p>
++                  {editing?.hasProxy ? (
++                    <p className="text-[11px] text-muted-foreground">
++                      当前：{editing.proxyUrlMasked ?? '已配置（脱敏）'}
++                    </p>
++                  ) : null}
++                  <div className="flex justify-end">
++                    <Button
++                      type="button"
++                      size="sm"
++                      variant="ghost"
++                      onClick={() => {
++                        setProxyMode('keep')
++                        setProxyDraft('')
++                        setProxyVisible(false)
++                      }}
++                    >
++                      取消
++                    </Button>
++                  </div>
++                </div>
++              ) : null}
++
++              {proxyMode === 'clear' ? (
++                <div className="space-y-2">
++                  <p className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
++                    保存后将移除该账号的代理，回落到共享代理池或直连。
++                  </p>
++                  <div className="flex justify-end">
++                    <Button
++                      type="button"
++                      size="sm"
++                      variant="ghost"
++                      onClick={() => setProxyMode('keep')}
++                    >
++                      撤销
++                    </Button>
++                  </div>
++                </div>
++              ) : null}
+             </div>
+             <DialogFooter>
+               <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+@@ -1384,18 +1822,54 @@ export default function AdminRelayAccountPoolPage() {
+               </div>
+             </div>
+             <div className="space-y-2">
+-              <Label htmlFor="a-import-json">账号导出 JSON</Label>
++              <div className="flex items-center justify-between gap-2">
++                <Label htmlFor="a-import-json">账号导出 JSON</Label>
++                <div className="flex items-center gap-1">
++                  <input
++                    ref={importFileRef}
++                    type="file"
++                    accept=".json,.txt,application/json,text/plain"
++                    className="hidden"
++                    onChange={(e) => applyImportFile(e.target.files?.[0])}
++                  />
++                  <Button
++                    type="button"
++                    variant="outline"
++                    size="xs"
++                    className="px-2 text-xs"
++                    onClick={() => importFileRef.current?.click()}
++                  >
++                    <FileText className="mr-1 h-3 w-3" />
++                    选文件
++                  </Button>
++                </div>
++              </div>
+               <textarea
+                 id="a-import-json"
+                 rows={10}
+                 value={importText}
+                 onChange={(e) => setImportText(e.target.value)}
+-                placeholder='支持整包 { "accounts": [...] } 或裸数组 [ ... ]'
+-                className={textareaClass}
++                onDragOver={(e) => {
++                  e.preventDefault()
++                  setImportDragOver(true)
++                }}
++                onDragLeave={() => setImportDragOver(false)}
++                onDrop={(e) => {
++                  e.preventDefault()
++                  setImportDragOver(false)
++                  applyImportFile(e.dataTransfer.files?.[0])
++                }}
++                placeholder='把 .json 备份文件拖进来 / 点「选文件」;也支持粘贴整包 { "accounts": [...] }、裸数组、单条,以及 workbuddy-switch 等第三方导出(access_token 形状由服务端自动归一)'
++                className={
++                  textareaClass +
++                  ' transition-colors' +
++                  (importDragOver ? ' border-brand-accent-deep bg-primary/5 ring-1 ring-brand-accent-deep/40' : '')
++                }
+               />
+               <p className="text-xs text-muted-foreground">
+-                字段:name / token / refreshToken / deviceId / machineId / enabled / cookies(proxyUrl
+-                可选)。示例:
++                {importFileName
++                  ? `已载入文件 ${importFileName}（点「提交导入」才写进号池）`
++                  : '字段:name / token / refreshToken / deviceId / machineId / enabled / cookies(proxyUrl 可选);第三方导出自动识别。示例:'}
+               </p>
+               <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
+                 {EXAMPLE_JSON}
+@@ -1744,18 +2218,20 @@ function ProxyPoolPanel() {
+                   const rowStatus = toProxyStatus(p.status)
+                   return (
+                     <tr key={p.id}>
+-                      <td
+-                        className="max-w-[18rem] truncate px-3 py-2 font-mono text-xs"
+-                        title={p.proxyUrl ?? undefined}
+-                      >
+-                        {p.proxyUrl ?? '-'}
++                      <td className="px-3 py-2">
++                        <TruncatedText
++                          value={maskProxyDisplay(p.proxyUrl)}
++                          mono
++                          className="max-w-[18rem] text-xs"
++                        />
+                       </td>
+                       <td className="px-3 py-2 text-xs">{p.providerCode ?? '-'}</td>
+-                      <td
+-                        className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs"
+-                        title={p.boundAccountId ?? undefined}
+-                      >
+-                        {p.boundAccountId ?? '-'}
++                      <td className="px-3 py-2">
++                        <TruncatedText
++                          value={p.boundAccountId ?? '-'}
++                          mono
++                          className="max-w-[12rem] text-xs"
++                        />
+                       </td>
+                       <td className="px-3 py-2">
+                         <Badge variant="outline" className={PROXY_STATUS_CLASS[rowStatus]}>
+diff --git a/apps/web/app/(main)/admin/relay/account-proxy/page.tsx b/apps/web/app/(main)/admin/relay/account-proxy/page.tsx
+new file mode 100644
+index 000000000000..617425c2a34a
+--- /dev/null
++++ b/apps/web/app/(main)/admin/relay/account-proxy/page.tsx
+@@ -0,0 +1,461 @@
++// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
++// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
++// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
++
++'use client'
++
++/**
++ * 账号代理管理页(2026-10-27 立)。
++ *
++ * 账号级 proxyUrl 只对该账号生效、不进共享代理池;落库是密文,后端只回脱敏值
++ * (`proxyUrlMasked`),本页全程不回显明文 —— 编辑框按密码型,仅管理员本次输入时
++ * 可临时切到可见。保存/清除都走 `PUT /admin/relay/accounts/:id`,只提交 proxyUrl
++ * 一个字段,不连带覆盖名称/权重等其他字段。
++ */
++
++import * as React from 'react'
++import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
++import { useLocale } from 'next-intl'
++import { toast } from 'sonner'
++import { fetchApi } from '@/lib/api'
++import {
++  Button,
++  ChevronLeft,
++  ChevronRight,
++  Dialog,
++  DialogContent,
++  DialogFooter,
++  DialogHeader,
++  DialogTitle,
++  Eye,
++  EyeOff,
++  Input,
++  Label,
++  Loader2,
++  RefreshCw,
++  SearchInput,
++  Select,
++  SelectContent,
++  SelectItem,
++  SelectTrigger,
++  SelectValue,
++  ShieldCheck,
++} from '@ihui/ui-react'
++import { Skeleton } from '@/components/ui/skeleton'
++import { TruncatedText, BackButton } from '@/components/common'
++import { useConfirm } from '@/hooks/use-confirm'
++
++const PAGE_SIZE = 20
++const selectClass =
++  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
++const PROVIDER_OPTIONS = ['trae', 'workbuddy', 'codearts', 'qoder'] as const
++// 与后端 updateBodySchema 同口径:只接受 http(s)/socks5
++const PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:'])
++
++function isSupportedProxyUrl(raw: string): boolean {
++  try {
++    return PROXY_PROTOCOLS.has(new URL(raw).protocol)
++  } catch {
++    return false
++  }
++}
++
++interface AccountProxyRow {
++  id: string
++  providerCode: string
++  uid: string | null
++  name: string
++  isEnabled: boolean
++  healthStatus: string
++  hasProxy: boolean
++  /** back-end 脱敏投影:scheme://***@host;明文账密/路径/查询串不返回 */
++  proxyUrlMasked: string | null
++  lastUsedAt: string | null
++}
++interface ListData {
++  list: AccountProxyRow[]
++  total: number
++  page: number
++  pageSize: number
++}
++
++const HEALTH_CLASS: Record<string, string> = {
++  unknown: 'bg-muted text-muted-foreground',
++  healthy: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
++  degraded: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
++  down: 'bg-red-500/10 text-red-600 dark:text-red-400',
++}
++const HEALTH_LABEL: Record<string, string> = {
++  unknown: '未知',
++  healthy: '健康',
++  degraded: '降级',
++  down: '异常',
++}
++
++export default function AccountProxyPage() {
++  const qc = useQueryClient()
++  const locale = useLocale()
++  const { confirm, ConfirmDialogRenderer } = useConfirm()
++
++  const [page, setPage] = React.useState(1)
++  const [search, setSearch] = React.useState('')
++  const [provider, setProvider] = React.useState('')
++  const [proxyState, setProxyState] = React.useState<'all' | 'private' | 'direct'>('all')
++  const [editing, setEditing] = React.useState<AccountProxyRow | null>(null)
++  const [draft, setDraft] = React.useState('')
++  const [visible, setVisible] = React.useState(false)
++
++  const qs = React.useMemo(() => {
++    const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
++    if (search.trim()) p.set('search', search.trim())
++    if (provider) p.set('provider', provider)
++    if (proxyState !== 'all') p.set('hasProxy', proxyState === 'private' ? 'true' : 'false')
++    return p.toString()
++  }, [page, search, provider, proxyState])
++
++  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
++    queryKey: ['admin', 'relay', 'account-proxy', qs],
++    queryFn: async () => {
++      const r = await fetchApi<ListData>(`/api/admin/relay/accounts?${qs}`)
++      if (!r.success) throw new Error(r.error)
++      return r.data
++    },
++  })
++
++  const list = data?.list ?? []
++  const total = data?.total ?? 0
++  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
++  const fmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
++
++  const invalidate = React.useCallback(() => {
++    void qc.invalidateQueries({ queryKey: ['admin', 'relay', 'account-proxy'] })
++    // 账号池页消费同一份账号数据,保存后一并失效,避免两页视图不一致
++    void qc.invalidateQueries({ queryKey: ['admin', 'relay', 'account-pool'] })
++  }, [qc])
++
++  const saveMut = useMutation({
++    mutationFn: async (vars: { id: string; proxyUrl: string | null }) => {
++      const r = await fetchApi<{ id: string }>(`/api/admin/relay/accounts/${vars.id}`, {
++        method: 'PUT',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ proxyUrl: vars.proxyUrl }),
++      })
++      if (!r.success) throw new Error(r.error)
++      return r.data
++    },
++    onSuccess: (_d, vars) => {
++      toast.success(vars.proxyUrl ? '代理已保存' : '已清除代理,回落到共享代理池/直连')
++      setEditing(null)
++      setDraft('')
++      setVisible(false)
++      invalidate()
++    },
++    onError: (e: Error) => toast.error(e.message || '保存失败'),
++  })
++
++  const openEditor = (row: AccountProxyRow) => {
++    setEditing(row)
++    setDraft('')
++    setVisible(false)
++  }
++
++  const submit = (e: React.FormEvent) => {
++    e.preventDefault()
++    if (!editing) return
++    const v = draft.trim()
++    if (!v) {
++      toast.error('请输入代理地址')
++      return
++    }
++    if (!isSupportedProxyUrl(v)) {
++      toast.error('代理地址必须是 http(s)/socks5 协议')
++      return
++    }
++    saveMut.mutate({ id: editing.id, proxyUrl: v })
++  }
++
++  const clearProxy = (row: AccountProxyRow) => {
++    void confirm({
++      title: `清除「${row.name}」的代理?`,
++      description: '清除后该账号回落到共享代理池;池内无可用代理时按直连。',
++      confirmText: '清除',
++      variant: 'destructive',
++    }).then((ok) => {
++      if (ok) saveMut.mutate({ id: row.id, proxyUrl: null })
++    })
++  }
++
++  return (
++    <div className="space-y-4 px-4 py-4">
++      <BackButton />
++      <div className="flex items-end justify-between">
++        <div>
++          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
++            <ShieldCheck className="h-6 w-6 text-primary" />
++            账号代理
++          </h1>
++          <p className="mt-1 text-sm text-muted-foreground">
++            给单个账号绑定专属代理,固定它的出口 IP;仅对该账号生效,不进入共享代理池
++          </p>
++        </div>
++        <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
++          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
++          刷新
++        </Button>
++      </div>
++
++      <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
++        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
++        <span>
++          生效顺序：账号代理 &gt; 共享代理池 &gt;
++          直连。保存后聊天、换票、巡检都会立即走该代理；地址按密文落库，页面只展示脱敏值。
++        </span>
++      </div>
++
++      <div className="flex flex-wrap items-center gap-2">
++        <SearchInput
++          value={search}
++          onChange={(e) => {
++            setPage(1)
++            setSearch(e.target.value)
++          }}
++          placeholder="搜索 name / uid"
++          wrapperClassName="max-w-xs flex-1"
++        />
++        <Select
++          value={provider || 'all'}
++          onValueChange={(v) => {
++            setPage(1)
++            setProvider(v === 'all' ? '' : v)
++          }}
++        >
++          <SelectTrigger className={selectClass} aria-label="平台">
++            <SelectValue />
++          </SelectTrigger>
++          <SelectContent>
++            <SelectItem value="all">全部平台</SelectItem>
++            {PROVIDER_OPTIONS.map((p) => (
++              <SelectItem key={p} value={p}>
++                {p}
++              </SelectItem>
++            ))}
++          </SelectContent>
++        </Select>
++        <Select
++          value={proxyState}
++          onValueChange={(v) => {
++            setPage(1)
++            setProxyState(v as typeof proxyState)
++          }}
++        >
++          <SelectTrigger className={selectClass} aria-label="代理状态">
++            <SelectValue />
++          </SelectTrigger>
++          <SelectContent>
++            <SelectItem value="all">全部账号</SelectItem>
++            <SelectItem value="private">已配置代理</SelectItem>
++            <SelectItem value="direct">直连</SelectItem>
++          </SelectContent>
++        </Select>
++      </div>
++
++      <div className="rounded-lg border border-border bg-card">
++        <div className="overflow-x-auto">
++          <table className="w-full text-sm">
++            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
++              <tr>
++                <th className="px-3 py-2 text-left">账号</th>
++                <th className="px-3 py-2 text-left">平台</th>
++                <th className="px-3 py-2 text-left">状态</th>
++                <th className="px-3 py-2 text-left">健康</th>
++                <th className="px-3 py-2 text-left">代理地址</th>
++                <th className="px-3 py-2 text-left">最近使用</th>
++                <th className="px-3 py-2 text-right">操作</th>
++              </tr>
++            </thead>
++            <tbody>
++              {isLoading ? (
++                Array.from({ length: 6 }).map((_, i) => (
++                  <tr key={`sk-${i}`}>
++                    <td colSpan={7} className="px-3 py-2">
++                      <Skeleton className="h-6 w-full" />
++                    </td>
++                  </tr>
++                ))
++              ) : isError ? (
++                <tr>
++                  <td colSpan={7} className="px-3 py-8 text-center text-red-500">
++                    加载失败:{error instanceof Error ? error.message : '未知错误'}
++                  </td>
++                </tr>
++              ) : list.length === 0 ? (
++                <tr>
++                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
++                    暂无匹配账号
++                  </td>
++                </tr>
++              ) : (
++                list.map((k) => (
++                  <tr key={k.id}>
++                    <td className="px-3 py-2">
++                      <div className="font-medium">{k.name}</div>
++                      {k.uid ? (
++                        <TruncatedText
++                          value={k.uid}
++                          mono
++                          className="max-w-[14rem] text-xs text-muted-foreground"
++                        />
++                      ) : null}
++                    </td>
++                    <td className="px-3 py-2 text-xs">{k.providerCode}</td>
++                    <td className="px-3 py-2">
++                      <span
++                        className={
++                          k.isEnabled
++                            ? 'rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400'
++                            : 'rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground'
++                        }
++                      >
++                        {k.isEnabled ? '启用' : '停用'}
++                      </span>
++                    </td>
++                    <td className="px-3 py-2">
++                      <span
++                        className={`rounded-md px-2 py-0.5 text-xs ${
++                          HEALTH_CLASS[k.healthStatus] ?? HEALTH_CLASS.unknown
++                        }`}
++                      >
++                        {HEALTH_LABEL[k.healthStatus] ?? k.healthStatus}
++                      </span>
++                    </td>
++                    <td className="px-3 py-2">
++                      {k.hasProxy ? (
++                        <TruncatedText
++                          value={k.proxyUrlMasked ?? '已配置（脱敏）'}
++                          mono
++                          className="inline-block max-w-[16rem] rounded-md border border-border bg-background px-2 py-0.5 text-xs"
++                        />
++                      ) : (
++                        <span className="text-xs text-muted-foreground">直连</span>
++                      )}
++                    </td>
++                    <td className="px-3 py-2 text-xs text-muted-foreground">
++                      {k.lastUsedAt ? fmt.format(new Date(k.lastUsedAt)) : '-'}
++                    </td>
++                    <td className="px-3 py-2">
++                      <div className="flex items-center justify-end gap-1">
++                        <Button size="sm" variant="outline" onClick={() => openEditor(k)}>
++                          {k.hasProxy ? '更换' : '设置代理'}
++                        </Button>
++                        {k.hasProxy ? (
++                          <Button
++                            size="sm"
++                            variant="ghost"
++                            className="text-muted-foreground"
++                            disabled={saveMut.isPending}
++                            onClick={() => clearProxy(k)}
++                          >
++                            清除
++                          </Button>
++                        ) : null}
++                      </div>
++                    </td>
++                  </tr>
++                ))
++              )}
++            </tbody>
++          </table>
++        </div>
++      </div>
++
++      <div className="flex items-center justify-between">
++        <span className="text-sm text-muted-foreground">共 {total} 个账号</span>
++        <div className="flex items-center gap-2">
++          <Button
++            variant="outline"
++            size="sm"
++            disabled={page <= 1}
++            onClick={() => setPage((p) => Math.max(1, p - 1))}
++          >
++            <ChevronLeft className="h-4 w-4" />
++            上一页
++          </Button>
++          <span className="text-sm text-muted-foreground">
++            {page} / {totalPages}
++          </span>
++          <Button
++            variant="outline"
++            size="sm"
++            disabled={page >= totalPages}
++            onClick={() => setPage((p) => p + 1)}
++          >
++            下一页
++            <ChevronRight className="h-4 w-4" />
++          </Button>
++        </div>
++      </div>
++
++      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
++        <DialogContent>
++          <form onSubmit={submit} className="space-y-4">
++            <DialogHeader>
++              <DialogTitle>
++                {editing?.hasProxy ? '更换代理' : '设置代理'}
++                {editing ? `:${editing.name}` : ''}
++              </DialogTitle>
++            </DialogHeader>
++
++            {editing?.hasProxy ? (
++              <div className="space-y-1">
++                <Label className="text-xs text-muted-foreground">当前代理（脱敏）</Label>
++                <code className="block truncate rounded-md border border-border bg-muted/30 px-2 py-1.5 font-mono text-xs">
++                  {editing.proxyUrlMasked ?? '已配置（脱敏）'}
++                </code>
++              </div>
++            ) : null}
++
++            <div className="space-y-2">
++              <Label htmlFor="ap-proxy">代理地址</Label>
++              <div className="relative">
++                <Input
++                  id="ap-proxy"
++                  type={visible ? 'text' : 'password'}
++                  value={draft}
++                  onChange={(e) => setDraft(e.target.value)}
++                  placeholder="http://user:pass@host:port 或 socks5://host:port"
++                  autoComplete="off"
++                  spellCheck={false}
++                  className="pr-9 font-mono text-xs"
++                />
++                <button
++                  type="button"
++                  className="absolute right-1 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground"
++                  onClick={() => setVisible((v) => !v)}
++                  aria-label={visible ? '隐藏代理地址' : '显示代理地址'}
++                >
++                  {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
++                </button>
++              </div>
++              <p className="text-[11px] text-muted-foreground">
++                支持 http(s):// 与
++                socks5://。保存后立即用于该账号的转发、换票与巡检，其他账号不受影响。
++              </p>
++            </div>
++
++            <DialogFooter>
++              <Button type="button" variant="outline" onClick={() => setEditing(null)}>
++                取消
++              </Button>
++              <Button type="submit" disabled={saveMut.isPending}>
++                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
++                保存
++              </Button>
++            </DialogFooter>
++          </form>
++        </DialogContent>
++      </Dialog>
++
++      <ConfirmDialogRenderer />
++    </div>
++  )
++}

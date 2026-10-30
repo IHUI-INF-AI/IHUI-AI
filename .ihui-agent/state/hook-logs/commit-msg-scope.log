@@ -1,0 +1,100 @@
+==== 2026/10/26 11:51:42 :: scripts/check-commit-scope-consistency.mjs D:/IHUI-AI-git-repo/worktrees/gap-screens/COMMIT_EDITMSG ====
+
+[31m[1m❌ Commit 污染特征签名检测触发 (blocking)[0m
+[2m依据: 多 agent 并行时 git add -A 可能混入其他 agent 改动(AGENTS.md §16)[0m
+
+[31m规则 R2: i18n 文件 5 个 + scope="web-rn-parity" != "i18n" (疑似 git add -A 混入)[0m
+
+[1mCommit message:[0m feat(web-rn-parity): Wave1 gap 屏补齐 — legal/workflows/teams/tags/agreement/support 六域 13 条路由 gap→aligned
+[1mStaged 文件领域分布:[0m
+  🎯 [36mmobile-rn[0m [2m(11 文件)[0m
+     [36mapi-client[0m [2m(5 文件)[0m
+     [36mi18n[0m [2m(5 文件)[0m
+     [36mscripts[0m [2m(1 文件)[0m
+
+[1m修复方法:[0m
+[2m  1. git diff --cached --stat   # 查看 staged 文件清单是否属于本任务[0m
+[2m  2. git restore --staged <违规文件>  # 从 staging 区移除非本任务文件(非破坏)[0m
+[2m  3. 若确认所有 staged 文件属于本任务,修改 commit message scope 为实际领域[0m
+[2m     例: feat(i18n): ...  而非  feat(seo): ...[0m
+
+[2m紧急跳过(不推荐): HUSKY_SKIP_SCOPE_CHECK=1 git commit ...[0m
+
+==== 2026/10/26 13:20:33 :: scripts/check-commit-scope-consistency.mjs D:/IHUI-AI-git-repo/worktrees/gap-screens/COMMIT_EDITMSG ====
+
+[31m[1m❌ Commit 污染特征签名检测触发 (blocking)[0m
+[2m依据: 多 agent 并行时 git add -A 可能混入其他 agent 改动(AGENTS.md §16)[0m
+
+[31m规则 R2: i18n 文件 5 个 + scope="rn" != "i18n" (疑似 git add -A 混入)[0m
+
+[1mCommit message:[0m feat(rn): Wave2 补屏 21 条 gap 路由 —— student/edu-ai/ai-world/tools/plan 五域
+[1mStaged 文件领域分布:[0m
+  🎯 [36mmobile-rn[0m [2m(17 文件)[0m
+     [36mapi-client[0m [2m(5 文件)[0m
+     [36mi18n[0m [2m(5 文件)[0m
+     [36mscripts[0m [2m(1 文件)[0m
+
+[1m修复方法:[0m
+[2m  1. git diff --cached --stat   # 查看 staged 文件清单是否属于本任务[0m
+[2m  2. git restore --staged <违规文件>  # 从 staging 区移除非本任务文件(非破坏)[0m
+[2m  3. 若确认所有 staged 文件属于本任务,修改 commit message scope 为实际领域[0m
+[2m     例: feat(i18n): ...  而非  feat(seo): ...[0m
+
+[2m紧急跳过(不推荐): HUSKY_SKIP_SCOPE_CHECK=1 git commit ...[0m
+
+==== 2026/10/26 13:26:08 :: scripts/check-commit-scope-consistency.mjs D:/IHUI-AI-git-repo/worktrees/gap-screens/MERGE_MSG ====
+[2m⏭  commit scope 一致性检查(合并提交:暂存集是两条分支的并集,领域分散属定义使然 — 跳过本门)[0m
+==== 2026/10/26 13:31:07 :: scripts/check-commit-scope-consistency.mjs D:/IHUI-AI-git-repo/worktrees/gap-screens/COMMIT_EDITMSG ====
+[2m⏭  commit scope 一致性检查(1 文件, scope="scripts", 通过)[0m
+==== 2026/10/27 9:16:28 :: scripts/check-commit-scope-consistency.mjs D:/IHUI-AI-git-repo/worktrees/gap-screens/COMMIT_EDITMSG ====
+
+[31m[1m❌ Commit 污染特征签名检测触发 (blocking)[0m
+[2m依据: 多 agent 并行时 git add -A 可能混入其他 agent 改动(AGENTS.md §16)[0m
+
+[31m规则 R2: i18n 文件 5 个 + scope="rn" != "i18n" (疑似 git add -A 混入)[0m
+
+[1mCommit message:[0m feat(rn): Wave3 首批补屏 5 条 gap 路由 —— 社区与检索(circles/post、invitations、letters、news/category、search/history)
+[1mStaged 文件领域分布:[0m
+  🎯 [36mmobile-rn[0m [2m(8 文件)[0m
+     [36mapi-client[0m [2m(6 文件)[0m
+     [36mi18n[0m [2m(5 文件)[0m
+     [36mscripts[0m [2m(1 文件)[0m
+
+[1m修复方法:[0m
+[2m  1. git diff --cached --stat   # 查看 staged 文件清单是否属于本任务[0m
+[2m  2. git restore --staged <违规文件>  # 从 staging 区移除非本任务文件(非破坏)[0m
+[2m  3. 若确认所有 staged 文件属于本任务,修改 commit message scope 为实际领域[0m
+[2m     例: feat(i18n): ...  而非  feat(seo): ...[0m
+
+[2m紧急跳过(不推荐): HUSKY_SKIP_SCOPE_CHECK=1 git commit ...[0m
+
+==== 2026/10/27 11:01:41 :: scripts/check-commit-scope-consistency.mjs D:/IHUI-AI-git-repo/worktrees/gap-screens/COMMIT_EDITMSG ====
+
+[31m[1m❌ Commit 污染特征签名检测触发 (blocking)[0m
+[2m依据: 多 agent 并行时 git add -A 可能混入其他 agent 改动(AGENTS.md §16)[0m
+
+[31m规则 R2: i18n 文件 5 个 + scope="rn" != "i18n" (疑似 git add -A 混入)[0m
+
+[1mCommit message:[0m feat(rn): Wave3-b 补 user/sign-up —— 我的报名(课程+试卷两路聚合)gap→aligned
+[1mStaged 文件领域分布:[0m
+  🎯 [36mmobile-rn[0m [2m(2 文件)[0m
+     [36mapi-client[0m [2m(2 文件)[0m
+     [36mi18n[0m [2m(5 文件)[0m
+     [36mscripts[0m [2m(1 文件)[0m
+
+[1m修复方法:[0m
+[2m  1. git diff --cached --stat   # 查看 staged 文件清单是否属于本任务[0m
+[2m  2. git restore --staged <违规文件>  # 从 staging 区移除非本任务文件(非破坏)[0m
+[2m  3. 若确认所有 staged 文件属于本任务,修改 commit message scope 为实际领域[0m
+[2m     例: feat(i18n): ...  而非  feat(seo): ...[0m
+
+[2m紧急跳过(不推荐): HUSKY_SKIP_SCOPE_CHECK=1 git commit ...[0m
+
+==== 2026/10/27 11:20:45 :: scripts/check-commit-scope-consistency.mjs D:/IHUI-AI-git-repo/worktrees/gap-screens/COMMIT_EDITMSG ====
+[2m⏭  commit scope 一致性检查(2 文件, scope="rn", 1 端, 通过)[0m
+==== 2026/10/27 11:21:15 :: scripts/check-commit-scope-consistency.mjs D:/IHUI-AI-git-repo/worktrees/gap-screens/COMMIT_EDITMSG ====
+[2m⏭  commit scope 一致性检查(无 staged 文件, 跳过)[0m
+==== 2026/10/27 11:53:17 :: scripts/check-commit-scope-consistency.mjs D:/IHUI-AI-git-repo/worktrees/gap-screens/COMMIT_EDITMSG ====
+[2m⏭  commit scope 一致性检查(5 文件, scope="api", 2 端, 通过)[0m
+==== 2026/10/27 12:18:03 :: scripts/check-commit-scope-consistency.mjs D:/IHUI-AI-git-repo/worktrees/gap-screens/COMMIT_EDITMSG ====
+[2m⏭  commit scope 一致性检查(1 文件, scope="ledger", 通过)[0m

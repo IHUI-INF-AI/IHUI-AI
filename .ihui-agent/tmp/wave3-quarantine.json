@@ -1,0 +1,126 @@
+{
+  "at": "2026-10-27T02:27:46.394Z",
+  "reason": "席位撞 150 轮/配额上限,产物未验证且会污染整包 tsc",
+  "files": [
+    {
+      "from": "apps/mobile-rn/src/screens/DramaEditorScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/apps/mobile-rn/src/screens/DramaEditorScreen.tsx",
+      "bytes": 9149
+    },
+    {
+      "from": "apps/mobile-rn/src/screens/KBArticleDetailScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/apps/mobile-rn/src/screens/KBArticleDetailScreen.tsx",
+      "bytes": 3544
+    },
+    {
+      "from": "apps/mobile-rn/src/screens/KBArticleSearchScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/apps/mobile-rn/src/screens/KBArticleSearchScreen.tsx",
+      "bytes": 3468
+    },
+    {
+      "from": "apps/mobile-rn/src/screens/KnowledgeCardsScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/apps/mobile-rn/src/screens/KnowledgeCardsScreen.tsx",
+      "bytes": 11434
+    },
+    {
+      "from": "apps/mobile-rn/src/screens/MemoryDetailScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/apps/mobile-rn/src/screens/MemoryDetailScreen.tsx",
+      "bytes": 9734
+    },
+    {
+      "from": "apps/mobile-rn/src/screens/SkillsMarketDetailScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/apps/mobile-rn/src/screens/SkillsMarketDetailScreen.tsx",
+      "bytes": 12903
+    },
+    {
+      "from": "apps/mobile-rn/src/screens/VoiceLibraryScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/apps/mobile-rn/src/screens/VoiceLibraryScreen.tsx",
+      "bytes": 15101
+    },
+    {
+      "from": "packages/api-client/src/endpoints/drama.ts",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/api-client/src/endpoints/drama.ts",
+      "bytes": 6820
+    },
+    {
+      "from": "packages/api-client/src/endpoints/knowledge-base.ts",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/api-client/src/endpoints/knowledge-base.ts",
+      "bytes": 8080
+    },
+    {
+      "from": "packages/api-client/src/endpoints/rules.ts",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/api-client/src/endpoints/rules.ts",
+      "bytes": 3365
+    },
+    {
+      "from": "packages/api-client/src/endpoints/self-media-wechat.ts",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/api-client/src/endpoints/self-media-wechat.ts",
+      "bytes": 8076
+    },
+    {
+      "from": "packages/api-client/src/endpoints/skills-market-engagement.ts",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/api-client/src/endpoints/skills-market-engagement.ts",
+      "bytes": 7645
+    },
+    {
+      "from": "packages/api-client/src/endpoints/skills-market-publish.ts",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/api-client/src/endpoints/skills-market-publish.ts",
+      "bytes": 6111
+    },
+    {
+      "from": "packages/api-client/src/endpoints/voice-clone.ts",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/api-client/src/endpoints/voice-clone.ts",
+      "bytes": 8229
+    },
+    {
+      "from": "packages/app/src/features/drama/DramaEditorScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/app/src/features/drama/DramaEditorScreen.tsx",
+      "bytes": 17397
+    },
+    {
+      "from": "packages/app/src/features/knowledge-base/KBArticleDetailScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/app/src/features/knowledge-base/KBArticleDetailScreen.tsx",
+      "bytes": 7632
+    },
+    {
+      "from": "packages/app/src/features/knowledge-base/KBArticleSearchScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/app/src/features/knowledge-base/KBArticleSearchScreen.tsx",
+      "bytes": 11530
+    },
+    {
+      "from": "packages/app/src/features/knowledge-card/KnowledgeCardsScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/app/src/features/knowledge-card/KnowledgeCardsScreen.tsx",
+      "bytes": 21944
+    },
+    {
+      "from": "packages/app/src/features/knowledge-card/knowledge-card-styles.ts",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/app/src/features/knowledge-card/knowledge-card-styles.ts",
+      "bytes": 8146
+    },
+    {
+      "from": "packages/app/src/features/memory/MemoryDetailScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/app/src/features/memory/MemoryDetailScreen.tsx",
+      "bytes": 16262
+    },
+    {
+      "from": "packages/app/src/features/self-media/SelfMediaWechatScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/app/src/features/self-media/SelfMediaWechatScreen.tsx",
+      "bytes": 17794
+    },
+    {
+      "from": "packages/app/src/features/skills-market-detail/SkillsMarketDetailScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/app/src/features/skills-market-detail/SkillsMarketDetailScreen.tsx",
+      "bytes": 20096
+    },
+    {
+      "from": "packages/app/src/features/voice-clone/VoiceLibraryScreen.tsx",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/app/src/features/voice-clone/VoiceLibraryScreen.tsx",
+      "bytes": 15895
+    },
+    {
+      "from": "packages/app/src/features/voice-clone/voice-clone-styles.ts",
+      "to": ".ihui-agent/tmp/wave3-quarantine/packages/app/src/features/voice-clone/voice-clone-styles.ts",
+      "bytes": 8022
+    }
+  ]
+}

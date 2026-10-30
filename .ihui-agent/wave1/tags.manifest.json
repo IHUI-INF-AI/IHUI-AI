@@ -1,0 +1,171 @@
+{
+  "domain": "tags",
+  "unitScreen": "Tags",
+  "verdict": "BUILD",
+  "newFiles": [
+    "packages/api-client/src/endpoints/tags.ts",
+    "packages/app/src/features/tags/tags-styles.ts",
+    "packages/app/src/features/tags/TagsScreen.tsx",
+    "packages/app/src/features/tags/TagDetailScreen.tsx",
+    "apps/mobile-rn/src/screens/TagsScreen.tsx",
+    "apps/mobile-rn/src/screens/TagDetailScreen.tsx"
+  ],
+  "indexExports": [
+    "export { TagsScreen } from './features/tags/TagsScreen'",
+    "export { TagDetailScreen } from './features/tags/TagDetailScreen'",
+    "export type { TagCloudItem, TagsScreenProps } from './features/tags/TagsScreen'",
+    "export type { TagDetailResourceItem, TagDetailScreenProps } from './features/tags/TagDetailScreen'"
+  ],
+  "apiClientBarrel": {
+    "file": "packages/api-client/src/index.ts",
+    "line": "export * from './endpoints/tags.js'",
+    "note": "RN 薄壳按样板链从 '@ihui/api-client' 根入口 import getTags/getTagBySlug/getTagResources/TagResourceItem;该 barrel 行不在本 agent 白名单内,请集成方补上(补后 typecheck 残留 TS2305 消失)。"
+  },
+  "navigator": {
+    "import": [
+      "import { TagsScreen } from '../screens/TagsScreen'",
+      "import { TagDetailScreen } from '../screens/TagDetailScreen'"
+    ],
+    "param": [
+      "  Tags: undefined",
+      "  TagDetail: { slug: string }"
+    ],
+    "screen": [
+      "<RootStack.Screen name=\"Tags\" component={TagsScreen} />",
+      "<RootStack.Screen name=\"TagDetail\" component={TagDetailScreen} />"
+    ]
+  },
+  "i18n": {
+    "en": {
+      "tagsPage": {
+        "title": "Tags",
+        "subtitle": "Browse all tags",
+        "loading": "Loading...",
+        "empty": "No tags yet",
+        "popular": "Popular Tags",
+        "usageCount": "{count} uses",
+        "fetchFailed": "Failed to load tags",
+        "refresh": "Refresh",
+        "notFound": "Tag not found",
+        "backToList": "Back to tags",
+        "resourceCount": "{count} resources",
+        "resourcesTitle": "Related resources",
+        "emptyResources": "No related resources",
+        "groupProject": "Projects",
+        "groupFile": "Files",
+        "groupDoc": "Docs",
+        "groupPost": "Posts",
+        "groupComment": "Comments",
+        "groupOther": "Other"
+      }
+    },
+    "zh-CN": {
+      "tagsPage": {
+        "title": "标签中心",
+        "subtitle": "浏览所有标签",
+        "loading": "加载中...",
+        "empty": "暂无标签",
+        "popular": "热门标签",
+        "usageCount": "{count} 次使用",
+        "fetchFailed": "标签加载失败",
+        "refresh": "刷新",
+        "notFound": "标签不存在",
+        "backToList": "返回标签中心",
+        "resourceCount": "{count} 个资源",
+        "resourcesTitle": "相关资源",
+        "emptyResources": "暂无相关资源",
+        "groupProject": "项目",
+        "groupFile": "文件",
+        "groupDoc": "文档",
+        "groupPost": "帖子",
+        "groupComment": "评论",
+        "groupOther": "其他"
+      }
+    },
+    "zh-TW": {
+      "tagsPage": {
+        "title": "標簽中心",
+        "subtitle": "瀏覽所有標簽",
+        "loading": "加載中...",
+        "empty": "暫無標簽",
+        "popular": "熱門標簽",
+        "usageCount": "{count} 次使用",
+        "fetchFailed": "標簽加載失敗",
+        "refresh": "刷新",
+        "notFound": "標簽不存在",
+        "backToList": "返回標簽中心",
+        "resourceCount": "{count} 個資源",
+        "resourcesTitle": "相關資源",
+        "emptyResources": "暫無相關資源",
+        "groupProject": "項目",
+        "groupFile": "文件",
+        "groupDoc": "文檔",
+        "groupPost": "帖子",
+        "groupComment": "評論",
+        "groupOther": "其他"
+      }
+    },
+    "ja": {
+      "tagsPage": {
+        "title": "タグ",
+        "subtitle": "すべてのタグを見る",
+        "loading": "読み込み中...",
+        "empty": "タグがありません",
+        "popular": "人気タグ",
+        "usageCount": "{count} 回使用",
+        "fetchFailed": "タグの読み込みに失敗しました",
+        "refresh": "更新",
+        "notFound": "タグが見つかりません",
+        "backToList": "タグ一覧に戻る",
+        "resourceCount": "{count} 件のリソース",
+        "resourcesTitle": "関連リソース",
+        "emptyResources": "関連リソースがありません",
+        "groupProject": "プロジェクト",
+        "groupFile": "ファイル",
+        "groupDoc": "ドキュメント",
+        "groupPost": "投稿",
+        "groupComment": "コメント",
+        "groupOther": "その他"
+      }
+    },
+    "ko": {
+      "tagsPage": {
+        "title": "태그",
+        "subtitle": "모든 태그 보기",
+        "loading": "로딩 중...",
+        "empty": "태그가 없습니다",
+        "popular": "인기 태그",
+        "usageCount": "{count}회 사용",
+        "fetchFailed": "태그 로드 실패",
+        "refresh": "새로고침",
+        "notFound": "태그를 찾을 수 없음",
+        "backToList": "태그 목록으로 돌아가기",
+        "resourceCount": "{count}개 리소스",
+        "resourcesTitle": "관련 리소스",
+        "emptyResources": "관련 리소스 없음",
+        "groupProject": "프로젝트",
+        "groupFile": "파일",
+        "groupDoc": "문서",
+        "groupPost": "게시물",
+        "groupComment": "댓글",
+        "groupOther": "기타"
+      }
+    }
+  },
+  "ledger": [
+    {
+      "web": "tags",
+      "rn": "apps/mobile-rn/src/screens/TagsScreen.tsx",
+      "status": "aligned",
+      "note": "Wave1@2026-10-26: RN 薄壳 TagsScreen.tsx 经 api-client getTags(packages/api-client/src/endpoints/tags.ts,GET /api/tags)取数 ↔ web apps/web/app/(main)/tags/page.tsx:42 同址;共享屏 packages/app/src/features/tags/TagsScreen.tsx 渲染标签云(usageCount 归一占比→rnType 字号档,web :49-52 同口径)+热门标签 top5(web :104 同档),点击 onTagPress 跳 TagDetail(web :83 /tags/[slug] 链的 RN 等价)。",
+      "at": "2026-10-26"
+    },
+    {
+      "web": "tags/[slug]",
+      "rn": "apps/mobile-rn/src/screens/TagDetailScreen.tsx",
+      "status": "aligned",
+      "note": "Wave1@2026-10-26: RN 薄壳 TagDetailScreen.tsx 经 api-client getTagBySlug(GET /api/tags/:slug)+getTagResources(GET /api/tags/:id/resources)两段取数 ↔ web PageClient.tsx:70/:77 同址同序;共享屏 packages/app/src/features/tags/TagDetailScreen.tsx 按 resourceType 分组渲染资源列表+计数+日期(web :55-61/:85-93 同口径),404 走 notFound 空态(web :105-119 等价)。",
+      "at": "2026-10-26"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+Merge origin/main into gap-screens —— 语言包按语义合并,文件面零丢失
+
+冲突面只有 packages/i18n/messages/mobile-rn/*.json 五枚(JSON 整份格式化让文本三方合并炸开)。
+处置不是选边:取远端为底(356 顶层 ns),再用集成器把本票 5 个命名空间深合并回去
+(circlePost/invitations/letters/newsCategory/searchHistory,各 15/21/15/12/9 键 × 五语)。
+自证:合并后顶层 361 = 356 + 5,diff 410 行全为新增、零删除 ⇒ 远端内容一条没丢。
+
+顺带修集成器一个真缺陷(它会在每次"合并后重放"时追加出第二份导出,实测 TS2300 Duplicate identifier
+× 26):去重原先按单行原文 includes() 比对,而 lint-staged/prettier 已把长 export type {...}
+折成多行且留尾逗号(Props, } from),两侧永远判不等。改为归一化比对(空白折叠 + 剥尾逗号 +
+标点邻接空白清零),并用成对对照钉死:折行正例必须命中、不同导出反例必须不命中。
+两轮重放逐字节不变 ⇒ 幂等成立(后续 20+ 枚 manifest 全依赖这一条)。
+
+顺带清掉合并带进来的一道 blocking 恒红门(§12e,不是跳门):
+apps/web/app/(main)/admin/relay/account-proxy/page.tsx 与 account-pool/page.tsx 共 4 处
+原生 title= 违规,全部改走仓内规范出口 TruncatedText(仅真溢出才挂项目 Tooltip,
+先例 api-groups/api-logs/AsksTable 同形)。check-native-title-tooltip --staged 现读 0 处,
+两文件 eslint exit 0。不修的话每个后续会话的合并枚都会被它拦住并被迫 --no-verify。
