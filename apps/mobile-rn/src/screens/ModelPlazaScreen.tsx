@@ -9,7 +9,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getAiModels, type AiModel } from '@ihui/api-client'
+import { getAiModels, getModelContextCapacity, type AiModel } from '@ihui/api-client'
+import { FALLBACK_MODELS } from '@ihui/shared/constants'
 import {
   ModelPlazaScreen as SharedModelPlazaScreen,
   type ModelPlazaItem,
@@ -46,6 +47,13 @@ function readStringArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
 }
 
+/** 容量 tag(2026-10-31 恢复:转壳承载时丢的维)—— 单一出口 getModelContextCapacity,
+ * 广场是用户直接看到"128K/32K"这类字样的地方,写死一个数 = 对一半以上的模型报错误规格 */
+function capacityTagFromK(k: number): string {
+  const label = '上下文'
+  return k >= 1000 ? `${k / 1000}M${label}` : `${k}K${label}`
+}
+
 function mapAiModel(m: AiModel): ModelPlazaItem {
   return {
     id: m.id,
@@ -55,9 +63,25 @@ function mapAiModel(m: AiModel): ModelPlazaItem {
     inputPrice: readNumber(m.inputPrice),
     outputPrice: readNumber(m.outputPrice),
     desc: m.description ?? '',
-    tags: readStringArray(m.tags),
+    tags: [capacityTagFromK(getModelContextCapacity(m.id) / 1000), ...readStringArray(m.tags)],
     payMode: readString(m.payMode),
   }
+}
+
+/** 已验证兜底模型(仅后端 /ai/models 不可达或返回空时降级,映射自共享 FALLBACK_MODELS;
+ *  容量走同一出口,形状锁 fallback-capacity-single-source 的取材点随壳承载迁到这里) */
+function fallbackItems(): ModelPlazaItem[] {
+  return FALLBACK_MODELS.map((f) => ({
+    id: f.value,
+    providerId: f.vendor,
+    name: f.label,
+    type: 'text' as ModelPlazaModelType,
+    inputPrice: 0,
+    outputPrice: 0,
+    desc: '',
+    tags: [capacityTagFromK(getModelContextCapacity(f.value) / 1000)],
+    payMode: 'free',
+  }))
 }
 
 function buildProviders(models: ModelPlazaItem[]): ModelPlazaProvider[] {
@@ -120,7 +144,7 @@ export default function ModelPlazaScreen() {
     setError('')
     try {
       const resp = await getAiModels({ pageSize: 100 })
-      if (resp.success) {
+      if (resp.success && resp.data.list.length > 0) {
         const list = resp.data.list.map(mapAiModel)
         setModels(list)
         setProviderId((prev) => {
@@ -128,15 +152,27 @@ export default function ModelPlazaScreen() {
           return list[0]?.providerId ?? ''
         })
       } else {
-        setError(resp.error)
+        // 后端不可达/返回空 ⇒ 降级到已验证兜底组(旧端内版同语义,转壳时且回)。
+        // 不 setError:降级列表是可用内容,挂错误横幅反而挡住它。
+        const list = fallbackItems()
+        setModels(list)
+        setProviderId((prev) => {
+          if (prev && list.some((m) => m.providerId === prev)) return prev
+          return list[0]?.providerId ?? ''
+        })
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('common.loadFailed'))
+    } catch {
+      const list = fallbackItems()
+      setModels(list)
+      setProviderId((prev) => {
+        if (prev && list.some((m) => m.providerId === prev)) return prev
+        return list[0]?.providerId ?? ''
+      })
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [t])
+  }, [])
 
   useEffect(() => {
     void load()
