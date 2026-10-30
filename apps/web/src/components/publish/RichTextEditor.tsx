@@ -368,14 +368,26 @@ export function RichTextEditor({
           document.execCommand('insertHTML', false, `<img src="${safeSrc}" alt="${safeAlt}" />`)
           return
         }
-        applyWrap([`![${file.name}](`, ')'])
-        // 占位:用 url 替换最后一个 (https://) 占位
-        onChange((value + '').replace(/\(https:\/\/\)$/, `(${url})`))
+        // 一次算完再交出去。原实现先 applyWrap 插占位并 onChange,紧接着又拿**闭包里的旧 value**
+        // 做 replace 再 onChange 一次 ⇒ 第二次把第一次整段覆盖回旧文本(旧 value 里没有
+        // `(https://)` 占位,替换根本不命中)⇒ 用户选的图静默丢失。
+        const ta = taRef.current
+        const start = ta?.selectionStart ?? value.length
+        const end = ta?.selectionEnd ?? value.length
+        const snippet = `![${file.name.replace(/[[\]]/g, '')}](${url})`
+        onChange(value.slice(0, start) + snippet + value.slice(end))
+        requestAnimationFrame(() => {
+          if (!ta) return
+          ta.focus()
+          const pos = start + snippet.length
+          ta.selectionStart = pos
+          ta.selectionEnd = pos
+        })
       } catch {
         // 上传失败静默(由调用方 toast)
       }
     },
-    [onImageUpload, applyWrap, onChange, value, mode],
+    [onImageUpload, onChange, value, mode],
   )
 
   // 自动保存草稿(防抖)。原实现 setInterval 依赖 [value,mode] ⇒ 每敲一个字重建定时器,
