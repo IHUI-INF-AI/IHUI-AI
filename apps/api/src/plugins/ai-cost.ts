@@ -19,6 +19,7 @@ import {
 } from '@ihui/database'
 import { requireAdmin } from './require-permission.js'
 import { success, error } from '../utils/response.js'
+import { parsePositiveInt } from '../utils/positive-int.js'
 import { calculateCost } from '../services/pricing-service.js'
 import { resolvePrice, type ResolvedPrice } from '../services/pricing-engine.js'
 import { checkOrgSpendBudget } from '../services/org-policy-service.js'
@@ -667,8 +668,17 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         userId?: string
         model?: string
       }
-      const limit = Math.min(parseInt(query.limit ?? '50', 10), 200)
-      const offset = parseInt(query.offset ?? '0', 10)
+      // limit/offset 走 utils/positive-int.ts 既有出口:`?limit=abc` 旧形态算出 NaN,
+      // 而 Math.min(NaN,200) 仍是 NaN ⇒ 直接进 Drizzle .limit() ⇒ Postgres
+      // "invalid input syntax for type numeric" ⇒ 500(带驱动原文),该给的是 400/回落。
+      const limit = parsePositiveInt(query.limit, 50, 'ai-cost.records.limit', {
+        min: 1,
+        max: 200,
+      })
+      // offset=0 是常态,不能走 parsePositiveInt(它把 0 判成非法 ⇒ 每页都记一条告警,
+      // 告警噪声本身是缺陷);这里只做"非负且有限"两件事,坏值回落 0。
+      const rawOffset = Number.parseInt(query.offset ?? '0', 10)
+      const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0
 
       const conditions: SQL[] = []
       if (query.userId) conditions.push(eq(aiCostRecords.userId, query.userId))
@@ -783,11 +793,17 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         endDate?: string
         limit?: string
       }
-      const endDate = query.endDate ? new Date(query.endDate) : new Date()
-      const startDate = query.startDate
-        ? new Date(query.startDate)
-        : new Date(endDate.getTime() - 30 * 24 * 3600 * 1000)
-      const limit = Math.min(parseInt(query.limit ?? '10', 10), 50)
+      // 同一条纪律:`?endDate=xyz` → new Date('xyz') 是 Invalid Date,getTime() 得 NaN,
+      // 于是 startDate 也 Invalid,两个 NaN-NaN-NaN 进 timestamptz 比较 ⇒ 500。
+      // 非法入参按"没给"处理(回落默认窗口),不把客户端笔误升成服务端故障。
+      const parsedEnd = query.endDate ? new Date(query.endDate) : null
+      const endDate = parsedEnd && !Number.isNaN(parsedEnd.getTime()) ? parsedEnd : new Date()
+      const parsedStart = query.startDate ? new Date(query.startDate) : null
+      const startDate =
+        parsedStart && !Number.isNaN(parsedStart.getTime())
+          ? parsedStart
+          : new Date(endDate.getTime() - 30 * 24 * 3600 * 1000)
+      const limit = parsePositiveInt(query.limit, 10, 'ai-cost.rank.limit', { min: 1, max: 50 })
 
       const rows = await db
         .select({
