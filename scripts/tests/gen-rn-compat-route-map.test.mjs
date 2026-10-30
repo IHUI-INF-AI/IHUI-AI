@@ -346,4 +346,72 @@ test('C6 形状锁:源脚本里不得再长出"只比键名"的第二份幂等�
     'main() 必须走 routeMapCovers 这一个出口,不许在调用点另写一份',
   )
 })
+
+// ── I 组:图标表的幂等判据 iconTableCovers ────────────────────────────────────
+// 立因(2026-10-30 审计确证,与 C 组同型)：产物 `icons-generated.tsx` 的 `const S` 里每个名字的**值是现算
+// 的 SVG data URI**；旧判据只比名字集合 + `length >=`，于是 lucide 升版/某图标路径改动时(名字一条不变)
+// 器物打「✓ 图标无变化」并拒绝写盘 —— 端上继续用旧字形，门 251 C2 同样只比名，两头都看不见。
+const ICON_ROWS = [
+  `  'Activity': ${JSON.stringify('data:image/svg+xml,<svg a="1"></svg>')},`,
+  `  'Folder': ${JSON.stringify('data:image/svg+xml,<svg b="2"></svg>')},`,
+]
+const ICON_DISK_JSON = `const S: Record<string, string> = {
+${ICON_ROWS.join('\n')}
+}
+`
+// prettier 会把不含单引号的串归一成单引号形态 —— 内容相同、字面形态不同
+const ICON_DISK_PRETTY = `const S: Record<string, string> = {
+  Activity: 'data:image/svg+xml,<svg a="1"></svg>',
+  Folder: 'data:image/svg+xml,<svg b="2"></svg>',
+}
+`
+
+test('I1 名在册且 SVG 取值逐字相等 ⇒ 判"已覆盖"(JSON 双引号形态)', () => {
+  assert.equal(GEN.iconTableCovers(ICON_ROWS, ICON_DISK_JSON), true)
+})
+
+test('I2 反向牙:名不变、值变了必须判"有变化"(lucide 升版那一型)', () => {
+  const drifted = [
+    `  'Activity': ${JSON.stringify('data:image/svg+xml,<svg a="1"></svg>')},`,
+    `  'Folder': ${JSON.stringify('data:image/svg+xml,<svg b="CHANGED"></svg>')},`,
+  ]
+  assert.equal(
+    GEN.iconTableCovers(drifted, ICON_DISK_PRETTY),
+    false,
+    '旧判据(逐名 includes)在这里返回 true ⇒ 自报"图标无变化"却不写盘',
+  )
+})
+
+test('I3 新名不在盘上 ⇒ 判"有变化"(补图标这一型不能被当成已覆盖)', () => {
+  assert.equal(
+    GEN.iconTableCovers([...ICON_ROWS, `  'NewIcon': "data:image/svg+xml,x",`], ICON_DISK_PRETTY),
+    false,
+  )
+})
+
+test('I4 盘上读不到图标表 ⇒ 判"有变化",绝不把"读不到"写成"已覆盖"(§0.3)', () => {
+  assert.equal(GEN.iconTableCovers(ICON_ROWS, ''), false, '空文件')
+  assert.equal(GEN.iconTableCovers(ICON_ROWS, 'export const A = makeIcon("A", src("A"))\n'), false)
+})
+
+test('I5 引号形态无关:同一内容在 JSON 双引号与 prettier 单引号两形态下都判"已覆盖"', () => {
+  assert.equal(GEN.iconTableCovers(ICON_ROWS, ICON_DISK_PRETTY), true)
+  const prettyRows = [
+    `  'Activity': 'data:image/svg+xml,<svg a="1"></svg>',`,
+    `  'Folder': 'data:image/svg+xml,<svg b="2"></svg>',`,
+  ]
+  assert.equal(GEN.iconTableCovers(prettyRows, ICON_DISK_JSON), true)
+})
+
+test('I6 形状锁:图标腿不得再退回"只比名 + 计数"的幂等判据(§22c)', () => {
+  const src = readFileSync(fileURLToPath(new URL('../gen-rn-compat.mjs', import.meta.url)), 'utf8')
+  assert.ok(
+    !/iconNamesNew\.every/.test(src),
+    '逐名 includes 那套被搬回来了 ⇒ 图标值漂移重新变成看不见的缺陷',
+  )
+  assert.ok(
+    /const iconsAlreadyCovered = iconTableCovers\(/.test(src),
+    'main() 必须走 iconTableCovers 这一个出口,与路由腿同尺',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
