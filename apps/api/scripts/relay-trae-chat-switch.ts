@@ -50,6 +50,7 @@ const { setTimeout: sleep } = await import('node:timers/promises')
 
 interface Args {
   target: string
+  product: string
   dryRun: boolean
   force: boolean
   noLaunch: boolean
@@ -61,6 +62,7 @@ interface Args {
 function parseArgs(argv: string[]): Args {
   const o: Args = {
     target: '',
+    product: '',
     dryRun: false,
     force: false,
     noLaunch: false,
@@ -77,6 +79,20 @@ function parseArgs(argv: string[]): Args {
         break
       }
       o.target = v
+    } else if (a === '--product') {
+      const v = argv[++i]
+      if (!v || v.startsWith('--')) {
+        o.error = '--product 需要 <Trae CN | TRAE SOLO CN | Trae>(缺省 = 自动定位现役那份)'
+        break
+      }
+      const known = (proc.TRAE_PRODUCTS as readonly string[]).find(
+        (p) => p.toLowerCase() === v.trim().toLowerCase(),
+      )
+      if (!known) {
+        o.error = `--product 不认识:${v}(可用:${proc.TRAE_PRODUCTS.join(' / ')})`
+        break
+      }
+      o.product = known
     } else if (a === '--dry-run') o.dryRun = true
     else if (a === '--force') o.force = true
     else if (a === '--no-launch') o.noLaunch = true
@@ -149,8 +165,8 @@ export async function main(argv: string[]): Promise<number> {
   }
   if (o.help) {
     process.stdout.write(
-      '用法: pnpm trae:chat-switch --to <uid|名称> [--dry-run] [--force] [--no-launch] [--json]\n' +
-        '把池号写回本机 Trae 登录态,并把旧登录号的对话记录重绑到该号(切号携带对话)。\n',
+      '用法: pnpm tsx apps/api/scripts/relay-trae-chat-switch.ts --to <uid|名称> [--product <Trae CN|TRAE SOLO CN|Trae>] [--dry-run] [--force] [--no-launch] [--json]\n' +
+        '把池号写回本机客户端登录态,并把旧登录号(该产品面)的对话记录重绑到该号(切号携带对话;日常入口 = node scripts/switch-trae-client-with-chat.mjs)。\n',
     )
     return 0
   }
@@ -167,12 +183,14 @@ export async function main(argv: string[]): Promise<number> {
     return 1
   }
 
-  const storageFile = sw.findStorageFile()
+  const storageFile = o.product ? sw.findStorageFileForProduct(o.product) : sw.findStorageFile()
   if (!storageFile) {
     process.stderr.write('❌ 本机未找到 Trae storage.json(未判定)\n')
     return 2
   }
-  const userDataDir = path.dirname(path.dirname(path.dirname(storageFile))) // ...\Trae CN
+  const userDataDir = path.dirname(path.dirname(path.dirname(storageFile)))
+  const product =
+    o.product || proc.productOfDir(path.basename(userDataDir)) || path.basename(userDataDir)
   const newUid = String(row.uid)
 
   // 旧登录号:读当前信封(只取 uid,不输其他)
@@ -195,10 +213,22 @@ export async function main(argv: string[]): Promise<number> {
     steps,
   }
 
+  const planBlock = {
+    product,
+    rebindingFrom: oldUid ?? null,
+    rebindingTo: newUid,
+    userDataDir,
+    agentDb: carry.locateAgentDatabase(userDataDir),
+    storageFile,
+    willCloseClient: !o.noLaunch,
+  }
+
   if (oldUid && oldUid === newUid) {
-    // 本机已经登着目标号:对话本来就在名下,无事可做(不重加密、不折腾文件)
+    // 该客户端已登着目标号:对话本来就在名下,无事可做(不重加密、不折腾文件)
+    // 注:产品面是 per-client 的 —— SOLO 与 Trae CN 各自判各自的登录态,互不顶替。
     steps.push('noop-same-account')
     report.outcome = 'unchanged'
+    report.plan = planBlock
     process.stdout.write(`${JSON.stringify(report)}\n`)
     return 0
   }
@@ -208,19 +238,22 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   if (o.dryRun) {
-    report.plan = {
-      rebindingFrom: oldUid ?? null,
-      rebindingTo: newUid,
-      userDataDir,
-      agentDb: carry.locateAgentDatabase(userDataDir),
-      willCloseClient: !o.noLaunch,
-    }
+    report.plan = planBlock
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
     return 0
   }
 
-  if (sw.isTraeRunning() && !o.force) {
-    process.stderr.write('❌ Trae 正在运行 —— 先完全退出,或 --force 由本器代关(按 pid 逐个关)。\n')
+  const runningPids = sw.isProductRunning(product)
+  if (runningPids === null) {
+    process.stderr.write(
+      `❌ 查不到 ${product} 的进程面(tasklist 失败)⇒ 未判定;不能确认客户端是否正在跑,拒绝写回(它退出时会用内存态覆盖)\n`,
+    )
+    return 2
+  }
+  if (runningPids.length > 0 && !o.force) {
+    process.stderr.write(
+      `❌ ${product} 正在运行(${runningPids.length} 个进程)—— 先完全退出,或 --force 由本器代关(按 pid 逐个关)。\n`,
+    )
     return 2
   }
 
@@ -244,8 +277,10 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   // ① 关端(在跑且 --force)
-  if (sw.isTraeRunning()) {
-    sw.killTrae()
+  if (runningPids.length > 0) {
+    const closed = proc.closeProduct(product, { pids: runningPids })
+    if (!closed.closed)
+      return fail(`代关 ${product} 未成功:${JSON.stringify(closed).slice(0, 160)}`, 2)
     await sleep(2000)
     steps.push('client-closed')
   }
@@ -322,7 +357,7 @@ export async function main(argv: string[]): Promise<number> {
   if (dbFile && oldUid) {
     steps.push('agent-db-found')
     try {
-      const exe = proc.resolveProductExe(path.basename(userDataDir))
+      const exe = proc.resolveProductExe(product)
       const exePath = typeof exe === 'string' ? exe : ((exe as { path?: string })?.path ?? '')
       const dllCandidates = [
         exePath
@@ -338,7 +373,7 @@ export async function main(argv: string[]): Promise<number> {
         path.join(
           process.env.LOCALAPPDATA ?? '',
           'Programs',
-          path.basename(userDataDir),
+          product,
           'resources',
           'app',
           'modules',
@@ -384,10 +419,10 @@ export async function main(argv: string[]): Promise<number> {
   // ⑥ 拉起客户端
   report.outcome = 'carried'
   if (!o.noLaunch) {
-    const exe = proc.resolveProductExe(path.basename(userDataDir))
+    const exe = proc.resolveProductExe(product)
     const exePath = typeof exe === 'string' ? exe : (exe?.path ?? '')
     const launched = exePath
-      ? proc.launchProduct(exePath, { product: path.basename(userDataDir) })
+      ? proc.launchProduct(exePath, { product })
       : { launched: false, error: '无 exe 路径' }
     report.launch = launched
     steps.push(launched.launched ? 'client-relaunched' : 'launch-failed')
