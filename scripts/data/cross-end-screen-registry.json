@@ -22,24 +22,9 @@
       "miniapp": "pkg-content/activity/index"
     },
     {
-      "shared": "packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
-      "miniapp": "pkg-ai/ai-assistant-n8n/index"
-    },
-    {
-      "shared": "packages/app/src/features/ai-assistant/AiAssistantScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AiAssistantScreen.tsx",
-      "miniapp": "pkg-ai/ai-assistant/index"
-    },
-    {
       "shared": "packages/app/src/features/ai-career/AiCareerScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AiCareerScreen.tsx",
       "miniapp": "pkg-ai/ai-career/index"
-    },
-    {
-      "shared": "packages/app/src/features/ai-group/AiGroupScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AiGroupScreen.tsx",
-      "miniapp": "pkg-ai/ai-group/index"
     },
     {
       "shared": "packages/app/src/features/ai-skill/AiSkillDetailScreen.tsx",
@@ -120,16 +105,6 @@
       "shared": "packages/app/src/features/check-in/CheckInScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CheckInScreen.tsx",
       "miniapp": "pkg-user/check-in/index"
-    },
-    {
-      "shared": "packages/app/src/features/circle-create/CircleCreateScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/CircleCreateScreen.tsx",
-      "miniapp": "pages/circle/create"
-    },
-    {
-      "shared": "packages/app/src/features/circle-detail/CircleDetailScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/CircleDetailScreen.tsx",
-      "miniapp": "pages/circle/detail"
     },
     {
       "shared": "packages/app/src/features/course-detail/CourseDetailScreen.tsx",
@@ -255,16 +230,6 @@
       "shared": "packages/app/src/features/post-detail/PostDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/PostDetailScreen.tsx",
       "miniapp": "pkg-content/plaza/detail/index"
-    },
-    {
-      "shared": "packages/app/src/features/ranking-detail/RankingDetailScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/RankingDetailScreen.tsx",
-      "miniapp": "pkg-ai/ranking/detail"
-    },
-    {
-      "shared": "packages/app/src/features/ranking/RankingScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/RankingScreen.tsx",
-      "miniapp": "pkg-ai/ranking/index"
     },
     {
       "shared": "packages/app/src/features/recruitment/RecruitmentScreen.tsx",

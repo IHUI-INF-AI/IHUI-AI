@@ -10,10 +10,9 @@ import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/t
 import { useState, useEffect, useCallback } from 'react'
 import { getCourseDetail, post, type Course } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import { ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { ScreenSkeleton, ErrorState } from '@/components/ScreenStates.taro'
 import {
   CourseHeader,
-  CourseCatalog,
   TeacherCard,
   CourseIntro,
   LessonListItem,
@@ -25,9 +24,20 @@ import {
   QrCodeShare,
   LearningStreak,
   type CourseHeaderData,
-  type LessonListItemData,
   type StreakDay,
 } from '@/components'
+import {
+  CourseMetaTags,
+  CourseActionBar,
+  LessonsSection,
+  type CourseLessonRow,
+} from './detail-sections'
+
+/**
+ * 详情端点(apps/api miniapp-public-fallback-routes 的 toCourseRow)已返回 isFree / signupCount /
+ * isEnrolled,端内 Course 类型尚未收敛这三列 —— 按同一份返回投影读取,不在端内造第二份投影。
+ */
+type CourseExtra = Course & { isFree?: boolean; signupCount?: number; isEnrolled?: boolean }
 
 export default function CourseDetail() {
   const router = useRouter()
@@ -39,13 +49,20 @@ export default function CourseDetail() {
   const [showComplete, setShowComplete] = useState(false)
   const [learningProgress, setLearningProgress] = useState(35)
   const [noteContent, setNoteContent] = useState('')
+  /** 加载失败文案(共享屏同一套键 courseDetail.loadFailed);空串 = 还在加载 */
+  const [loadError, setLoadError] = useState('')
+  const [enrolled, setEnrolled] = useState(false)
+  const [enrolling, setEnrolling] = useState(false)
 
   const loadDetail = useCallback(
     async (id: string | number) => {
       try {
         const res = await getCourseDetail(id)
         setCourse(res)
+        setLoadError('')
       } catch {
+        // 只停骨架屏等于"加载中"永远不结束:失败必须留下可重试的错误态
+        setLoadError(t('courseDetail.loadFailed'))
         Taro.showToast({ title: t('course.loadFailed'), icon: 'none' })
       }
     },
@@ -86,6 +103,31 @@ export default function CourseDetail() {
     }
   }, [course?.id, course?.price, t])
 
+  /**
+   * 报名/支付按钮(共享屏 onEnroll 同语义):
+   * - 免费课 → 与 RN 容器 enrollCourse 同一端点 POST /learn/lessons/:id/sign-up,成功后切「已报名」
+   * - 付费课 → 走本页既有购买链路(下单 → 收银台),不另造一套
+   */
+  const handleEnroll = useCallback(async () => {
+    const courseId = course?.id
+    if (courseId === null || courseId === undefined || enrolling) return
+    const isFreeCourse =
+      (course as CourseExtra | null)?.isFree === true || (course?.price ?? 0) <= 0
+    if (!isFreeCourse) {
+      await handleBuy()
+      return
+    }
+    setEnrolling(true)
+    try {
+      await post(`/learn/lessons/${encodeURIComponent(String(courseId))}/sign-up`)
+      setEnrolled(true)
+    } catch {
+      // 失败提示由 api-bridge 统一 toast(带服务端 error);这里只保证按钮回到可点态
+    } finally {
+      setEnrolling(false)
+    }
+  }, [course, enrolling, handleBuy])
+
   const handleTeacherClick = useCallback(() => {
     const teacherId =
       (course as (Course & { teacherId?: string | number }) | null)?.teacherId ?? course?.id ?? ''
@@ -98,7 +140,7 @@ export default function CourseDetail() {
   }, [t])
 
   const handleLessonClick = useCallback(
-    (lesson: LessonListItemData, idx: number) => {
+    (lesson: CourseLessonRow, idx: number) => {
       if (lesson.locked) {
         Taro.showToast({ title: t('course.buyFirst'), icon: 'none' })
         return
@@ -137,29 +179,44 @@ export default function CourseDetail() {
     return (
       <ThemeRoot>
         <View className="min-h-screen bg-background">
-          <ScreenSkeleton variant="list" count={4} />
+          {loadError ? (
+            <ErrorState
+              message={loadError}
+              retryLabel={t('common.retry')}
+              onRetry={() => {
+                void loadDetail(router.params.id || '')
+              }}
+            />
+          ) : (
+            <ScreenSkeleton variant="list" count={4} />
+          )}
         </View>
       </ThemeRoot>
     )
   }
+
+  const detail = course as CourseExtra
+  /** 免费判定与共享屏同口径:服务端 isFree 为真,或价格不为正 */
+  const isFree = detail.isFree === true || (course.price ?? 0) <= 0
+  const isEnrolled = enrolled || detail.isEnrolled === true
+  const currentIdx = Math.floor((learningProgress / 100) * (course.outline?.length || 0))
 
   const headerData: CourseHeaderData = {
     title: course.title,
     cover: course.coverUrl,
     teacher: course.teacher,
     lessonCount: course.outline?.length,
-    price: course.price ?? 0,
+    // 免费课不摆「¥0 / 付费项目」:价格语义由底部操作条的 courseDetail.free 承担
+    price: isFree ? undefined : (course.price ?? 0),
     tags: course.subtitle ? [course.subtitle] : undefined,
   }
 
-  const lessons: LessonListItemData[] = (course.outline || []).map((item, idx) => ({
+  const lessonRows: CourseLessonRow[] = (course.outline || []).map((item, idx) => ({
     id: String(idx),
     title: item.title,
-    duration: item.duration,
-    type: 'video',
-    isFree: idx === 0,
-    watched: idx < Math.floor((learningProgress / 100) * (course.outline?.length || 0)),
+    completed: idx < currentIdx,
     locked: idx > 0 && (course.price ?? 0) > 0,
+    current: idx === currentIdx,
   }))
 
   const weekDays: StreakDay[] = [
@@ -179,6 +236,9 @@ export default function CourseDetail() {
           data={headerData}
           onTeacherClick={() => Taro.showToast({ title: t('course.viewTeacher'), icon: 'none' })}
         />
+
+        {/* 共享屏 tagRow:等级 + 学习人数 */}
+        <CourseMetaTags level={course.level} studentCount={detail.signupCount} />
 
         {/* 工具行卡片:对齐 RN card(白底 + border.light 描边 + radius12/padding14) */}
         <View className="flex items-center justify-around mx-3 my-3 bg-card rounded-lg p-[28rpx] border border-border">
@@ -259,11 +319,8 @@ export default function CourseDetail() {
           }}
         />
 
-        <CourseCatalog
-          lessons={lessons}
-          currentId={String(Math.floor((learningProgress / 100) * (course.outline?.length || 0)))}
-          onLessonClick={handleLessonClick}
-        />
+        {/* 课程目录(共享屏 lessons 区:section 标题 + 逐节完成态) */}
+        <LessonsSection lessons={lessonRows} onLessonClick={handleLessonClick} />
 
         <View className="mx-3 my-3">
           <LessonListItem
@@ -281,20 +338,14 @@ export default function CourseDetail() {
           />
         </View>
 
-        {/* 底部购买条:价格/按钮字号字重对齐 RN actionRow(price 20dp w700 + enroll btn radius12/16dp 字) */}
-        <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_var(--color-black-6)]">
-          <View className="flex-1 flex flex-row items-baseline">
-            <Text className="text-[length:28rpx] text-primary font-bold">¥</Text>
-            <Text className="text-[length:40rpx] text-primary font-bold">{course.price ?? 0}</Text>
-          </View>
-          <View
-            className="px-[20rpx] h-[80rpx] leading-[80rpx] bg-cta text-cta-foreground rounded-xl text-[length:32rpx] font-semibold"
-            hoverClass="opacity-60"
-            onClick={handleBuy}
-          >
-            <Text>{t('course.buyNow')}</Text>
-          </View>
-        </View>
+        {/* 底部操作条:价格 + 已报名徽章 / 报名·支付按钮(共享屏 actionRow 同语义) */}
+        <CourseActionBar
+          isFree={isFree}
+          price={course.price ?? 0}
+          enrolled={isEnrolled}
+          enrolling={enrolling}
+          onEnroll={() => void handleEnroll()}
+        />
 
         <NoteEditor
           visible={showNote}

@@ -21,7 +21,16 @@ const { nextImageStub, useTranslationsStub } = vi.hoisted(() => {
   // 只转发合法 img 属性,unoptimized/placeholder 等 next 专属 prop 不落 DOM(避免未知属性告警噪音)。
   const nextImageStub = (props: Record<string, unknown>) => {
     const { src, alt, onLoad, onError, style, className, width, height } = props
-    return React.createElement('img', { src, alt, onLoad, onError, style, className, width, height })
+    return React.createElement('img', {
+      src,
+      alt,
+      onLoad,
+      onError,
+      style,
+      className,
+      width,
+      height,
+    })
   }
   return { nextImageStub, useTranslationsStub }
 })
@@ -287,7 +296,7 @@ describe('G-751 ImageViewer 加载三态', () => {
     expect(container.querySelector('[data-image-viewer-state="error"]')).toBeNull()
     expect(container.querySelector('[role="status"]')).toBeTruthy()
     const nodeB = container.querySelector(
-      `img[src="${galleryAt(1).url}"]`,
+      `img[src="/api/media/image?url=${encodeURIComponent(galleryAt(1).url)}"]`,
     ) as HTMLImageElement
     expect(nodeB).toBeTruthy()
     // key 按资源重建:B 是全新节点,不是 A 的复用(否则 A 的迟到异步事件会命中 B 的处理器)

@@ -191,6 +191,7 @@
     "check:mirror-fidelity": "node scripts/check-miniapp-mirror-fidelity.mjs",
     "plan:hand-mirror-conversion": "node scripts/plan-hand-mirror-conversion.mjs",
     "check:parity-auto": "node scripts/parity-auto.mjs",
+    "check:i18n-cross-end": "node scripts/check-i18n-cross-end-wording.mjs",
     "check:web-rn-parity": "node scripts/check-web-rn-screen-parity.mjs",
     "check:analytics-coverage": "node scripts/check-analytics-page-coverage.mjs",
     "check:sms-channel-health": "node scripts/check-sms-channel-health.mjs",

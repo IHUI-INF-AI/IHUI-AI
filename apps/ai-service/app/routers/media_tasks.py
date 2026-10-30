@@ -20,9 +20,13 @@ import hmac
 import json
 import logging
 import os
+import re
 from typing import Any
+from urllib.parse import urlsplit
 
+import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import StreamingResponse
 
 from ..services.media_tasks import (
     _STATUS_IN_FLIGHT,
@@ -35,6 +39,7 @@ from ..services.media_tasks import (
     query_media_tasks,
     update_media_task,
 )
+from ..services.screenshot_service import _validate_url_ssrf
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -427,4 +432,236 @@ async def media_tasks_cancel_batch(
         logger.warning("[media_tasks] 批量取消失败: %s", e)
         raise HTTPException(status_code=500, detail=f"媒体任务批量取消异常: {e}") from e
     return {"ok": True, "data": result}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/media/download?url=<产物直链> —— 媒体产物下载代理(2026-10-30 立)
+#
+# 起因(UI 走查实证):视频卡片的「下载视频」按钮在对话框里点不动 —— 浏览器侧
+# fetch 外部 CDN(agnes 的 cos-platform-outputs.*)被 CORS 拒绝,blob 落盘这条路
+# 在跨域且源站不带 ACAO 时根本不成立,实测只能退化成新窗口打开(等于没下载)。
+# 同源代理是唯一稳解:前端 fetchApi → 本端 → 源站,浏览器全程只碰同源。
+#
+# SSRF 防线(关键):2026-10-30 放宽 —— 不再要求 url 命中 media_tasks 登记
+# (与 /api/media/image 一致)。AI 视频/音频来自不可枚举的公网域名(kling/luma/
+# runway/suno/elevenlabs/mureka…),无法预先登记;CSM media-src 已收窄到
+# 'self' blob:,故所有媒体必须走同源代理。此处仅保留 `_user_scope` + `_validate_url_ssrf`
+# 两道闸门:任意 SSRF 安全的公网直链均可经同源代理下载。攻击者无法借本端去打
+# 内网/元数据服务(SSRF 闸门封死)。
+# ─────────────────────────────────────────────────────────────────────────────
+_DOWNLOAD_KIND_SUFFIX = {"video": "mp4", "music": "mp3", "tts": "mp3", "image": "png"}
+_DOWNLOAD_NAME_RE = re.compile(r"[^A-Za-z0-9._-]")
+# 2026-10-30:download/stream 放宽后不再查 media_tasks,kind 无从取得;
+# 当直链末段无扩展名时按 URL 路径扩展名反推,避免下载文件名一律退化成 .bin。
+_DOWNLOAD_EXT_SUFFIX = {
+    "mp4": "mp4", "m4v": "mp4", "webm": "webm", "mov": "mov",
+    "mp3": "mp3", "m4a": "mp3", "wav": "wav", "aac": "mp3", "ogg": "ogg", "flac": "flac",
+    "png": "png", "jpg": "jpg", "jpeg": "jpg", "webp": "webp", "gif": "gif", "svg": "svg",
+}
+
+
+def _safe_filename(url: str, kind: str | None) -> str:
+    """从直链末段取文件名并做 header 安全化(去引号/换行/路径分隔符)。"""
+    try:
+        path = urlsplit(url).path
+        seg = path.rsplit("/", 1)[-1]
+    except Exception:  # noqa: BLE001
+        path, seg = "", ""
+    name = _DOWNLOAD_NAME_RE.sub("_", (seg or "").strip())[:80].strip("._")
+    if not name or "." not in name:
+        ext = _DOWNLOAD_KIND_SUFFIX.get(kind or "")
+        if not ext:
+            # 按 URL 路径扩展名反推(如 .../result.mp4 → mp4)
+            raw_ext = path.rsplit(".", 1)[-1].lower() if "." in path.rsplit("/", 1)[-1] else ""
+            ext = _DOWNLOAD_EXT_SUFFIX.get(raw_ext, "bin")
+        name = f"ihui-media.{ext}"
+    return name
+
+
+@router.get("/media/download")
+async def download_media_artifact(url: str, request: Request) -> Any:
+    """按产物直链代理下载(带 Content-Disposition: attachment)。
+
+    不再要求 media_tasks 登记(与 /api/media/image 一致),仅保留 _user_scope +
+    _validate_url_ssrf 两道闸门;任意 SSRF 安全的公网直链均可经同源代理取流/下载。
+    源站异常回 502;文件按 URL 末段命名;kind/扩展名从 URL 推导(无 row 时用默认 bin)。
+    """
+    _user_scope(request)  # 401 未登录;越权不在本端点(产物 URL 命中即放行,URL 本身是凭证)
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="url 必须是 http(s) 直链")
+
+    # SSRF 闸门:封死私有/环回/链路本地/元数据 IP;任意 SSRF 安全公网直链放行
+    ok_ssrf, reason_ssrf = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        raise HTTPException(status_code=400, detail=f"URL 不允许访问: {reason_ssrf}")
+
+    # 不再查 media_tasks:kind 无法从 row 取,改为从 URL 推导(默认 'bin')
+    fname = _safe_filename(url, None)
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(20.0, read=180.0), follow_redirects=True
+    )
+    try:
+        resp = await client.send(client.build_request("GET", url), stream=True)
+    except Exception as e:  # noqa: BLE001
+        await client.aclose()
+        logger.warning("[media_tasks] 下载代理连接源站失败: %s", e)
+        raise HTTPException(status_code=502, detail=f"源站连接失败: {e}") from e
+    if resp.status_code >= 400:
+        status = resp.status_code
+        await resp.aclose()
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"源站返回 {status}")
+
+    ctype = resp.headers.get("content-type", "application/octet-stream") or "application/octet-stream"
+    clen = resp.headers.get("content-length")
+
+    async def _body() -> Any:
+        try:
+            async for chunk in resp.aiter_bytes(chunk_size=65536):
+                yield chunk
+        finally:
+            await resp.aclose()
+            await client.aclose()
+
+    headers = {"Content-Disposition": f'attachment; filename="{fname}"'}
+    if clen and clen.isdigit():
+        headers["Content-Length"] = clen
+    return StreamingResponse(_body(), media_type=ctype, headers=headers)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/media/stream?url=<产物直链> —— 媒体产物流式播放代理(2026-10-30 立)
+#
+# 与 /media/download 同族:同源代理。2026-10-30 放宽 —— 不再要求 URL 命中
+# media_tasks 登记(与 /api/media/image 一致):AI 视频/音频来自不可枚举公网域名,
+# 预先登记不可行;CSM media-src 已收窄到 'self' blob:,故媒体必须走同源代理。
+# 仅保留 _user_scope + _validate_url_ssrf 两道闸门(SSRF 封死内网/元数据)。
+# 面向 <video>/<audio> 播放而非下载,关键差异:
+#  - **透传浏览器 Range 请求**到源站,原样回传 200/206 + Content-Range +
+#    Accept-Ranges,使播放器可拖拽进度、可 seek(不转发 Range 则进度条拖不动、
+#    部分浏览器全屏异常);
+#  - 不返回 Content-Disposition,头部透传上游 content-type(视频格式由源站决定,
+#    切勿用 media_type 覆盖,否则浏览器按 octet-stream 处理);
+#  - 浏览器经 web rewrites(/api/media/* → 8803)同源访问,自动带 httpOnly
+#    auth_token cookie,无需在 <video src> 里拼 token,也无需 CSP 放开 https:
+#    ⇒ media-src 可收窄回 'self' blob:,外泄信道面清零(根治 img-src 同型遗留)。
+# ─────────────────────────────────────────────────────────────────────────────
+@router.get("/media/stream")
+async def stream_media_artifact(url: str, request: Request) -> Any:
+    """按产物直链代理流式播放(透传 Range,支持 seek)。
+
+    不再要求 media_tasks 登记(与 /api/media/image 一致),仅保留 _user_scope +
+    _validate_url_ssrf 两道闸门;任意 SSRF 安全的公网直链均可经同源代理取流/下载。
+    """
+    _user_scope(request)  # 401 未登录;产物 URL 命中即放行,URL 本身是凭证
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="url 必须是 http(s) 直链")
+
+    # SSRF 闸门:封死私有/环回/链路本地/元数据 IP;任意 SSRF 安全公网直链放行
+    ok_ssrf, reason_ssrf = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        raise HTTPException(status_code=400, detail=f"URL 不允许访问: {reason_ssrf}")
+
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(20.0, read=300.0), follow_redirects=True
+    )
+    req_headers: dict[str, str] = {}
+    rng = request.headers.get("range")
+    if rng:
+        req_headers["range"] = rng
+    try:
+        resp = await client.send(
+            client.build_request("GET", url, headers=req_headers), stream=True
+        )
+    except Exception as e:  # noqa: BLE001
+        await client.aclose()
+        logger.warning("[media_tasks] 播放代理连接源站失败: %s", e)
+        raise HTTPException(status_code=502, detail=f"源站连接失败: {e}") from e
+    if resp.status_code >= 400:
+        status = resp.status_code
+        await resp.aclose()
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"源站返回 {status}")
+
+    # 透传上游与播放相关的响应头(含 Range 场景的 content-range / accept-ranges)
+    passthrough: dict[str, str] = {}
+    for k in ("content-type", "content-length", "content-range", "accept-ranges"):
+        v = resp.headers.get(k)
+        if v:
+            passthrough[k] = v
+
+    async def _stream_body() -> Any:
+        try:
+            async for chunk in resp.aiter_bytes(chunk_size=65536):
+                yield chunk
+        finally:
+            await resp.aclose()
+            await client.aclose()
+
+    # 不传 media_type:保留上游 content-type,避免覆盖视频格式
+    return StreamingResponse(_stream_body(), status_code=resp.status_code, headers=passthrough)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/media/image?url=<图片直链> —— 同源自适应图片代理(2026-10-30 立)
+#
+# 与 /media/download、/media/stream 同族:同源代理 + 同一道 SSRF 闸门(复用
+# screenshot_service._validate_url_ssrf,封死私有/环回/链路本地/元数据 IP)。
+# 但本端点**不碰数据库**:download/stream 只允许命中 media_tasks 表里平台自己
+# 记录过的产物 URL,而 markdown/用户贴入的图片来自不可枚举的任意公网域名,无法
+# 预先登记 —— 它们本就因前端透传 https: 外链,导致 img-src 必须放开 https: 这道
+# 外泄信道。本端点把"任意 SSRF 安全的公网直链"收口到同域 /api/media/image,
+# 浏览器只碰同源,img-src 可收窄回 'self' blob:,外泄信道面清零。
+# ─────────────────────────────────────────────────────────────────────────────
+@router.get("/media/image")
+async def proxy_image(url: str, request: Request) -> Any:
+    """按图片直链同源代理(内联显示,非下载);SSRF 闸门 + 任意安全公网 URL。
+
+    与 download/stream 不同:本端点不查 media_tasks 库,允许任何通过
+    _validate_url_ssrf 的公网直链 —— AI/markdown/用户图片来自不可枚举域名,
+    无法预先登记,只能靠 SSRF 防护而非白名单鉴权。无 Content-Disposition(内联)。
+    """
+    _user_scope(request)  # 401 未登录;本端点是 SSRF 收口,不做库内产物归属校验
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="url 必须是 http(s) 直链")
+
+    from ..services.screenshot_service import _validate_url_ssrf
+
+    ok, reason = _validate_url_ssrf(url)
+    if not ok:
+        raise HTTPException(status_code=400, detail=f"URL 不允许访问: {reason}")
+
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(20.0, read=60.0), follow_redirects=True
+    )
+    try:
+        resp = await client.send(client.build_request("GET", url), stream=True)
+    except Exception as e:  # noqa: BLE001
+        await client.aclose()
+        logger.warning("[media_tasks] 图片代理连接源站失败: %s", e)
+        raise HTTPException(status_code=502, detail=f"源站连接失败: {e}") from e
+    if resp.status_code >= 400:
+        status = resp.status_code
+        await resp.aclose()
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"源站返回 {status}")
+
+    ctype = resp.headers.get("content-type", "image/png") or "image/png"
+    passthrough: dict[str, str] = {"cache-control": "private, max-age=3600"}
+    clen = resp.headers.get("content-length")
+    if clen and clen.isdigit():
+        passthrough["Content-Length"] = clen
+
+    async def _body() -> Any:
+        try:
+            async for chunk in resp.aiter_bytes(chunk_size=65536):
+                yield chunk
+        finally:
+            await resp.aclose()
+            await client.aclose()
+
+    # 不显式传 status_code(默认 200);内容类型经 media_type 透传,不内联下载
+    return StreamingResponse(_body(), media_type=ctype, headers=passthrough)
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

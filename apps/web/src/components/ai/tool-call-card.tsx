@@ -22,9 +22,12 @@ import {
 import { getArtifactToken } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+// CSP img-src 收窄后,图片必须走同源代理 /api/media/image 渲染;下载走 /api/media/download
+import { toMediaImageUrl, toMediaDownloadUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { useAuthStore } from '@/stores/auth'
 import {
   describeToolActivityByStatus,
   describeToolCall,
@@ -49,6 +52,7 @@ import {
   type StreamStatus,
 } from '@/components/chat/stream/stream-ui'
 import { InlineDiffCard } from './inline-diff-card'
+import { ToolDiffJumpButton } from './open-tool-diff'
 // 2026-10-21 首屏瘦身:走**子路径**而不是 @/components/media 的 barrel。
 // barrel 会把 ImageViewer / VideoPlayer / LivePlayer / CodeViewer / MarkdownViewer 一并
 // 拖进本文件所在的那枚 chunk(本文件在营销页的静态链上:根 layout → GlobalShell →
@@ -642,6 +646,77 @@ function ImageResultBlock({
   const t = useTranslations('ai.toolCall')
   const [loaded, setLoaded] = React.useState(false)
   const [errored, setErrored] = React.useState(false)
+  const { copy, copied } = useClipboard()
+  const [saving, setSaving] = React.useState(false)
+  const [saved, setSaved] = React.useState(false)
+  const [shareCopied, setShareCopied] = React.useState(false)
+  // 从直链取文件名(agnes 返回 task_xxx.png);取不到给通用名
+  const fileName = React.useMemo(() => {
+    try {
+      const seg = new URL(imageUrl).pathname.split('/').filter(Boolean).pop()
+      return seg && /\.png$|\.jpe?g$|\.webp$|\.gif$/i.test(seg) ? seg : 'image.png'
+    } catch {
+      return 'image.png'
+    }
+  }, [imageUrl])
+
+  // 跨域直链的 download 属性会被浏览器忽略,用 blob 落盘;先走同源代理 /api/media/download
+  // (后端转发并带 Content-Disposition,浏览器全程只碰同源,无 CORS 问题),代理不可用再回退直连。
+  const handleDownload = React.useCallback(async () => {
+    if (saving) return
+    setSaving(true)
+    const saveBlob = (blob: Blob) => {
+      const objUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(objUrl)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
+    try {
+      const { token } = useAuthStore.getState()
+      const res = await fetch(toMediaDownloadUrl(imageUrl), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (res.ok) {
+        saveBlob(await res.blob())
+        return
+      }
+    } catch {
+      /* 代理不可用,走回退 */
+    }
+    try {
+      const res = await fetch(imageUrl)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      saveBlob(await res.blob())
+    } catch {
+      window.open(imageUrl, '_blank', 'noopener')
+    } finally {
+      setSaving(false)
+    }
+  }, [imageUrl, fileName, saving])
+
+  // 分享:支持系统分享面板则调用;否则降级为复制链接 + 提示。
+  const handleShare = React.useCallback(async () => {
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: fileName, url: imageUrl })
+      } catch {
+        /* 用户取消分享面板,不算错误 */
+      }
+      return
+    }
+    await copy(imageUrl)
+    setShareCopied(true)
+    setTimeout(() => setShareCopied(false), 2000)
+  }, [imageUrl, fileName, copy])
+
+  const actionBtn =
+    'inline-flex items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
 
   // D64 ②:画廊只在「多图 ∧ 当前图确在画廊内」时启用 —— 轮询取件的图片可能不在
   // 宿主画廊里(宿主只收集 tc.image_url),那时退回单图模式,绝不显示成别张图。
@@ -679,7 +754,7 @@ function ImageResultBlock({
           )}
           {/* eslint-disable-next-line @next/next/no-img-element -- next/image 不适用动态远程图片,降级用 img */}
           <img
-            src={imageUrl}
+            src={toMediaImageUrl(imageUrl)}
             alt={prompt || t('imageAltDefault')}
             className={cn(
               'w-full object-contain transition-opacity',
@@ -691,15 +766,61 @@ function ImageResultBlock({
           />
         </div>
       )}
-      <a
-        href={imageUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
-      >
-        <ExternalLink className="h-3.5 w-3.5" />
-        <span>{t('openInNewWindow')}</span>
-      </a>
+      <div className="flex flex-wrap items-center gap-2" data-testid="tool-media-image-actions">
+        <button
+          type="button"
+          onClick={() => void copy(imageUrl)}
+          data-testid="tool-media-image-copy"
+          className={actionBtn}
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-green-600" />
+          ) : (
+            <Link2 className="h-3.5 w-3.5" />
+          )}
+          <span>{copied ? t('imageLinkCopied') : t('copyImageLink')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleDownload()}
+          disabled={saving}
+          data-testid="tool-media-image-download"
+          className={actionBtn}
+        >
+          {saving ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : saved ? (
+            <Check className="h-3.5 w-3.5 text-green-600" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+          <span>
+            {saving ? t('imageDownloading') : saved ? t('imageDownloaded') : t('downloadImage')}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleShare()}
+          data-testid="tool-media-image-share"
+          className={actionBtn}
+        >
+          {shareCopied ? (
+            <Check className="h-3.5 w-3.5 text-green-600" />
+          ) : (
+            <Share2 className="h-3.5 w-3.5" />
+          )}
+          <span>{shareCopied ? t('imageLinkCopied') : t('shareImage')}</span>
+        </button>
+        <a
+          href={imageUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          <span>{t('openInNewWindow')}</span>
+        </a>
+      </div>
     </div>
   )
 }
@@ -713,7 +834,7 @@ function AudioResultBlock({ audioUrl, prompt }: { audioUrl: string; prompt?: str
       {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
       <audio
         controls
-        src={audioUrl}
+        src={toMediaStreamUrl(audioUrl)}
         preload="metadata"
         className="w-full"
         data-testid="tool-media-audio"
@@ -740,9 +861,6 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
   const { copy, copied } = useClipboard()
   const [saving, setSaving] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
-  // 系统分享面板(桌面 Chrome/Edge 与移动端可用;不支持则整键隐藏,不留死按钮)
-  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
-
   // 从直链取文件名(agnes 返回 task_xxx.mp4);取不到给通用名
   const fileName = React.useMemo(() => {
     try {
@@ -753,14 +871,22 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
     }
   }, [videoUrl])
 
-  // 跨域直链的 download 属性会被浏览器忽略,用 blob 落盘;CORS 拒绝时回退新窗口打开
+  // 视频经同源代理播放:web rewrites 把 /api/media/* 转发到 ai-service 8803,
+  // 浏览器同源请求自动带 httpOnly auth cookie 鉴权,<video> 标签无需也不能带自定义 header。
+  // 后端 /api/media/stream 复用下载代理的 SSRF 闸门并透传 Range。
+  // 统一走 toMediaStreamUrl(与 AudioResultBlock 同源):手写拼接不区分 http(s) 与
+  // data:/blob:,后者会被错误代理而后端 400(data: 不在 media-src 白名单,应原样返回)。
+  const streamUrl = React.useMemo(() => toMediaStreamUrl(videoUrl), [videoUrl])
+
+  // 跨域直链的 download 属性会被浏览器忽略,用 blob 落盘。
+  // 2026-10-30 走查实证:直连 fetch 外部 CDN 会被 CORS 拒绝(agnes 源站不带 ACAO)
+  // ⇒ blob 落盘这条路在跨域时不成立,下载按钮点了只退化成新窗口打开。
+  // 改为**先走同源代理** /api/media/download(后端转发并带 Content-Disposition,
+  // 浏览器全程只碰同源,无 CORS 问题);代理不可用(旧后端/未登记产物)时再回退直连。
   const handleDownload = React.useCallback(async () => {
     if (saving) return
     setSaving(true)
-    try {
-      const res = await fetch(videoUrl)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const blob = await res.blob()
+    const saveBlob = (blob: Blob) => {
       const objUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = objUrl
@@ -771,20 +897,51 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
       URL.revokeObjectURL(objUrl)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    }
+    try {
+      // ① 同源代理(主路径)。fetchApi 返回的是信封(ApiResult),取不到二进制,
+      //    故此处用原生 fetch 并自行带 Bearer —— 与 useAuthStore 同源的取法。
+      const { token } = useAuthStore.getState()
+      const res = await fetch(`/api/media/download?url=${encodeURIComponent(videoUrl)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (res.ok) {
+        saveBlob(await res.blob())
+        return
+      }
     } catch {
+      /* 代理不可用,走 ② */
+    }
+    try {
+      // ② 直连兜底(同源产物 / 源站带 CORS 头时才成立)
+      const res = await fetch(videoUrl)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      saveBlob(await res.blob())
+    } catch {
+      // 两条都不通:至少让用户能拿到文件(新窗口由浏览器自行播放/下载)
       window.open(videoUrl, '_blank', 'noopener')
     } finally {
       setSaving(false)
     }
   }, [videoUrl, fileName, saving])
 
+  // 分享:支持系统分享面板(navigator.share)则调用;否则降级为复制链接 + 提示,
+  // 确保分享按钮在所有浏览器都可用,不留死按钮也不隐藏。
+  const [shareMsg, setShareMsg] = React.useState(false)
   const handleShare = React.useCallback(async () => {
-    try {
-      await navigator.share({ title: fileName, url: videoUrl })
-    } catch {
-      /* 用户取消分享面板,不算错误 */
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: fileName, url: videoUrl })
+      } catch {
+        /* 用户取消分享面板,不算错误 */
+      }
+      return
     }
-  }, [videoUrl, fileName])
+    // 降级:复制直链并提示已复制
+    await copy(videoUrl)
+    setShareMsg(true)
+    setTimeout(() => setShareMsg(false), 2000)
+  }, [videoUrl, fileName, copy])
 
   const actionBtn =
     'inline-flex items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
@@ -795,7 +952,7 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
       {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
       <video
         controls
-        src={videoUrl}
+        src={streamUrl}
         preload="metadata"
         className="w-full rounded-md border border-border bg-muted/30"
         data-testid="tool-media-video"
@@ -835,17 +992,19 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
             {saving ? t('videoDownloading') : saved ? t('videoDownloaded') : t('downloadVideo')}
           </span>
         </button>
-        {canShare && (
-          <button
-            type="button"
-            onClick={() => void handleShare()}
-            data-testid="tool-media-video-share"
-            className={actionBtn}
-          >
+        <button
+          type="button"
+          onClick={() => void handleShare()}
+          data-testid="tool-media-video-share"
+          className={actionBtn}
+        >
+          {shareMsg ? (
+            <Check className="h-3.5 w-3.5 text-green-600" />
+          ) : (
             <Share2 className="h-3.5 w-3.5" />
-            <span>{t('shareVideo')}</span>
-          </button>
-        )}
+          )}
+          <span>{shareMsg ? t('videoLinkCopied') : t('shareVideo')}</span>
+        </button>
         <a
           href={videoUrl}
           target="_blank"
@@ -1164,6 +1323,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
 }: ToolCallCardProps) {
   const [expanded, setExpanded] = React.useState(false)
   const t = useTranslations('ai.toolCall')
+  const tDiff = useTranslations('chat.sessionDiff')
   // 取不到文件路径时的占位由文案层给出(组件不产硬编码文案)
   const unknownFileLabel = t('toolUnknownFile')
   // 工具行禁止直显英文工具码名:映射命中的内置工具显示本地化功能名
@@ -1337,6 +1497,21 @@ export const ToolCallCard = React.memo(function ToolCallCard({
               direction={FILE_WRITE_TOOLS.has(toolName) ? 'write' : 'read'}
             />
           ) : null}
+        </div>
+      ) : null}
+      {showInlineDiff && diffInfo && diffInfo.file_path ? (
+        <div className="pl-1">
+          <ToolDiffJumpButton
+            label={tDiff('title')}
+            source={{
+              filePath: diffInfo.file_path,
+              toolName,
+              oldContent: diffInfo.old_content,
+              newContent: diffInfo.new_content,
+              isNewFile: diffInfo.is_new_file,
+              applyStatus: diffInfo.applyStatus,
+            }}
+          />
         </div>
       ) : null}
       {expanded && (

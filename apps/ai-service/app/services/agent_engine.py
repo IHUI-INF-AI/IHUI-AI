@@ -2671,7 +2671,7 @@ class AgentEngine:
             "model": thread.model,
             "permission_mode": thread.permission_mode,
             "max_iterations": thread.max_iterations,
-            "tool_names": list(thread.tool_names) if thread.tool_names else None,
+            "tool_names": None if thread.tool_names is None else list(thread.tool_names),
             "workspace": thread.workspace,
             "approval_policies": dict(thread.approval_policies) or None,
             "model_params": dict(thread.model_params) or None,
@@ -3146,6 +3146,7 @@ class AgentEngine:
         queues = self._subscribe_events()
         forwarder = asyncio.ensure_future(self._forward_events(thread, emit, queues))
         started = time.perf_counter()
+        loop: Any = None
         try:
             loop = await self._loop_factory(_spec(thread), host_tools)
             thread.loop = loop
@@ -3216,6 +3217,13 @@ class AgentEngine:
             # 异常由各子方法隔离,主流程照常返回 payload。
             await self._enrich_turn_telemetry(thread, emit)
             return payload
+        except asyncio.CancelledError:
+            # 取消发生在 loop.run 内部时,finally 会先摘掉 thread.loop。
+            # 在那之前把 cancel() 排进独立任务,子循环正在跑的工具才能看到取消标志。
+            cancel_running = getattr(loop, "cancel", None)
+            if cancel_running is not None and not getattr(loop, "_cancel_requested", False):
+                asyncio.get_running_loop().create_task(cancel_running())
+            raise
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
             # 批 44 steer 竞态兜底:提交时回合在 running 但主循环已过最后注入点
@@ -5449,11 +5457,35 @@ class AgentEngine:
                     "type": "integer",
                     "description": "可选,子代理最大迭代(默认 6,上限 12)",
                 },
+                "allowedTools": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "可选。非空时是硬边界:子代理只能调用这些工具,且不能超出父线程白名单。"
+                        "省略或空数组表示沿用父线程默认权限。"
+                    ),
+                },
+                "disallowedTools": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "可选。与父线程已有禁止名单取并集;同一名字同时被允许和禁止时,禁止优先。"
+                    ),
+                },
             },
             "required": ["prompt"],
         }
 
         async def _exec(args: dict[str, Any]) -> Any:
+            from .agent_loop_v2 import TEAM_RELAY_SUMMARY_MAX
+            from .subagent_spawn_policy import (
+                SubagentToolListError,
+                parent_visible_subagent_response,
+                parse_optional_tool_list,
+                remember_subagent_transcript,
+                resolve_subagent_tool_surface,
+            )
+
             prompt = args.get("prompt")
             if not isinstance(prompt, str) or not prompt.strip():
                 return {"error": "spawn_subagent 需要非空 prompt"}
@@ -5466,14 +5498,30 @@ class AgentEngine:
                 return {
                     "error": f"role 非法: {role!r},须为 {sorted(_AGENT_ROLE_TEMPLATES)} 之一"
                 }
-            # G-742:同一形状的第二处 —— 内置 `spawn_subagent` 每轮都派生一条**持久**线程。
-            # 与 `_handle_thread_review` 共用 `_identity_of` 那一份实现,不在此重抄键名判断。
+            try:
+                call_allow = parse_optional_tool_list(args.get("allowedTools"), "allowedTools")
+                call_deny = parse_optional_tool_list(
+                    args.get("disallowedTools"), "disallowedTools"
+                )
+            except SubagentToolListError as err:
+                return {"error": f"{err.field} 须为非空字符串组成的数组"}
+            allow, deny = resolve_subagent_tool_surface(
+                thread.tool_names,
+                list(thread.deny_tools),
+                call_allow,
+                call_deny,
+            )
+            # 子线程只收到本次任务文本,不复制父线程消息(密钥与未交出的上下文留在父侧)。
             sub_params: dict[str, Any] = {
                 "input": prompt.strip(),
                 "permissionMode": thread.permission_mode,
                 "maxIterations": max(1, min(int(args.get("maxIterations") or 6), 12)),
                 **_identity_of(thread),
             }
+            if allow is not None:
+                sub_params["tools"] = allow
+            if deny:
+                sub_params["denyTools"] = deny
             if role is not None:
                 sub_params["role"] = role
             model = args.get("model")
@@ -5494,14 +5542,16 @@ class AgentEngine:
                 },
             )
             started = await self._handle_thread_start(sub_params, _noop_emitter)
-            sub_thread = self._threads.get(started["threadId"])
+            child_id = started["threadId"]
+            sub_thread = self._threads.get(child_id)
             if sub_thread is not None:
                 sub_thread.depth = thread.depth + 1
-            result = await self._handle_thread_prompt(
-                {**sub_params, "threadId": started["threadId"]}, _noop_emitter
-            )
-            with contextlib.suppress(Exception):
-                thread_obj = self._threads.pop(started["threadId"], None)
+            try:
+                result = await self._handle_thread_prompt(
+                    {**sub_params, "threadId": child_id}, _noop_emitter
+                )
+            finally:
+                thread_obj = self._threads.pop(child_id, None)
                 if thread_obj is not None:
                     thread_obj.status = "closed"
             # SubagentStop(第十二批,对标 Codex SubagentStop 钩子)
@@ -5515,21 +5565,41 @@ class AgentEngine:
                     "success": result.get("success"),
                 },
             )
-            return {
-                "threadId": started["threadId"],
+            full_text = str(result.get("finalResponse") or "")
+            visible, truncated = parent_visible_subagent_response(
+                full_text, limit=TEAM_RELAY_SUMMARY_MAX
+            )
+            if truncated:
+                store = getattr(self, "_subagent_transcripts", None)
+                order = getattr(self, "_subagent_transcript_order", None)
+                if not isinstance(store, dict) or not isinstance(order, list):
+                    store = {}
+                    order = []
+                    self._subagent_transcripts = store
+                    self._subagent_transcript_order = order
+                remember_subagent_transcript(store, order, child_id, full_text)
+            payload: dict[str, Any] = {
+                "threadId": child_id,
                 "role": role,
                 "success": result.get("success"),
-                "response": result.get("finalResponse"),
+                "response": visible,
                 "iterations": result.get("iterations"),
                 "usage": result.get("usage"),
             }
+            if truncated:
+                payload["responseTruncated"] = True
+                payload["responseChars"] = len(full_text)
+            return payload
 
         return ToolDefinition(
             name="spawn_subagent",
             description=(
                 "派生一个一次性子代理独立完成任务并返回其最终答复"
-                "(适合需要隔离上下文的子任务);可用 role 指定内置角色模板"
-                "(implementer/reviewer/researcher/tester/planner);嵌套深度有上限。"
+                "(适合需要隔离上下文的子任务;父线程消息不会交给子代理)。"
+                "可用 role 指定内置角色模板"
+                "(implementer/reviewer/researcher/tester/planner);"
+                "allowedTools / disallowedTools 收窄子代理工具面;嵌套深度有上限。"
+                "回传正文超过接力摘要预算时只交摘要,全文不进入父上下文。"
             ),
             parameters=parameters,
             executor=_exec,

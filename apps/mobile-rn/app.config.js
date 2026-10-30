@@ -115,6 +115,9 @@ module.exports = ({ config }) => {
       // media3 钉版:react-native-video 6.19.2 期望 1.8.0,依赖图会解到 1.9.0 ⇒ 进播放器
       // NoSuchMethodError 闪退(2026-10-20 真机实测;当时全仓无入口到播放器,崩溃从未暴露)
       './plugins/withMedia3Pin.cjs',
+      // 签名统一:debug 变体也用正式 keystore(IHUI_RELEASE_* 存在时),让一个应用身份只有一把 key ——
+      // 否则 dev client 与 release 各持一把 key,互装不上,每次换包必须先卸载(2026-10-30 实测)
+      './plugins/withAndroidSigning.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name

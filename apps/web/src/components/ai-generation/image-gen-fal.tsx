@@ -26,6 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 const IMAGE_SIZES = ['square_hd', 'square', 'landscape_16_9', 'portrait_16_9'] as const
 const MODELS = ['fal-ai/flux/dev', 'fal-ai/flux/schnell', 'fal-ai/flux-pro/v1.1'] as const
@@ -129,7 +130,7 @@ export function ImageGenFal() {
           {images.map((url) => (
             <div key={url} className="space-y-1">
               <Image
-                src={url}
+                src={toMediaImageUrl(url)}
                 alt={prompt}
                 width={800}
                 height={600}

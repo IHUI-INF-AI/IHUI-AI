@@ -15,6 +15,7 @@ import { saveImageToPhotosAlbum } from '@/utils/save-album'
 import NavBar from '@/components/NavBar'
 import DistributionStats, { type ColumnItem } from '@/components/DistributionStats'
 import CustomerServiceFloat from '@/components/CustomerServiceFloat'
+import CommissionOverview from './commission-overview'
 import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -52,6 +53,8 @@ export default function DistributionIndex() {
   const [idNum, setIdNum] = useState('')
   const [idName, setIdName] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // 佣金概览块的重取令牌:每次页面显示(useDidShow)递增,块内同批拉 /distribution/overview
+  const [overviewTick, setOverviewTick] = useState(0)
 
   const load = useCallback(async () => {
     try {
@@ -65,6 +68,7 @@ export default function DistributionIndex() {
 
   useDidShow(() => {
     load()
+    setOverviewTick((n) => n + 1)
   })
 
   const onGetQrCode = useCallback(async () => {
@@ -320,6 +324,9 @@ export default function DistributionIndex() {
             </View>
           ))}
         </View>
+
+        {/* 分销佣金概览(等级/佣金比例/收益卡/提现/分销商品)— 对齐 RN 容器底部渲染的共享屏 */}
+        <CommissionOverview reloadTick={overviewTick} />
       </View>
 
       {/* CustomerServiceFloat 分佣浮标 */}

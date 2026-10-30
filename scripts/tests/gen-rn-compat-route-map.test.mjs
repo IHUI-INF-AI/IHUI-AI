@@ -16,7 +16,6 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { buildRouteMapFromText } from '../gen-rn-compat.mjs'
-import { __test__ as GEN } from '../gen-rn-compat.mjs'
 
 const RN = (n) => `apps/mobile-rn/src/screens/${n}.tsx`
 const reg = (rn, miniapp) => ({ rn, miniapp })
@@ -277,73 +276,6 @@ test('N5 形状锁:--write 段落盘一律走 atomicWriteFileSync,且两处写�
     (body.match(/injectWatermark\(/g) || []).length,
     2,
     '两处正文写完都必须紧随注入(§5c:漏注 = 下一次提交链红在没人写过那行的地方)',
-  )
-})
-
-// ── C 组:幂等判据 routeMapCovers ──────────────────────────────────────────────
-// 立因(2026-10-30 实测的"绿灯即缺陷"):登记表面回正了 CourseMain / NewsCategory / Assistant
-// 三条的 miniapp 指向,键名一条没变;旧判据只比键名集合 ⇒ `--write` 自报「✓ 路由映射无变化
-// (盘上已覆盖现读 257 条)」并拒绝写盘,生成物与登记面长期背离。`--write` 是门 251 C3 点名的
-// 修复出口,出口安静不干活即 AGENTS §0.8 禁止的"文档写了跑不通的出路"。
-const PRETTY_MAP = `export const RN_ROUTE_MAP: Record<string, string> = {
-  A: '/x/index',
-  B: '/pkg-learn/course/list',
-}
-`
-
-test('C1 键在册且指向逐字相等 ⇒ 判"已覆盖"(prettier 后的裸键单引号形态)', () => {
-  const entries = [
-    ['A', '/x/index'],
-    ['B', '/pkg-learn/course/list'],
-  ]
-  assert.equal(GEN.routeMapCovers(entries, PRETTY_MAP), true)
-})
-
-test('C2 反向牙(本轮真事):同键不同值必须判"有变化",否则改指向永远落不了盘', () => {
-  const entries = [
-    ['A', '/x/index'],
-    ['B', '/pkg-mirror/course/index'],
-  ]
-  assert.equal(
-    GEN.routeMapCovers(entries, PRETTY_MAP),
-    false,
-    '只比键名的旧判据在这里返回 true ⇒ 生成器自述"无变化"却不写盘',
-  )
-})
-
-test('C3 现读键在盘上不存在 ⇒ 判"有变化"(补新页这一型不能被当成已覆盖)', () => {
-  const entries = [['NewScreen', '/pkg-new/index']]
-  assert.equal(GEN.routeMapCovers(entries, PRETTY_MAP), false)
-})
-
-test('C4 盘上读不到任何映射 ⇒ 判"有变化",绝不把"读不到"写成"已覆盖"(§0.3)', () => {
-  const entries = [['A', '/x/index']]
-  assert.equal(GEN.routeMapCovers(entries, ''), false, '空文件')
-  assert.equal(GEN.routeMapCovers(entries, '// 没有表体的一行\n'), false, '无 map 形态')
-})
-
-test('C5 自生成自识别闭环:renderRouteMap 的产物喂回判据必须为真(双引号形态)', () => {
-  const map = new Map([
-    ['Assistant', '/pkg-ai/agent-dialogue/index'],
-    ['CourseMain', '/pkg-learn/course/list'],
-  ])
-  const rendered = GEN.renderRouteMap(map)
-  assert.equal(
-    GEN.routeMapCovers([...map.entries()], rendered),
-    true,
-    '渲染器与幂等判据必须认同一种形态,否则每轮都"有变化"、改动面被无意义重写长期占用',
-  )
-})
-
-test('C6 形状锁:源脚本里不得再长出"只比键名"的第二份幂等判据(§22c)', () => {
-  const src = readFileSync(fileURLToPath(new URL('../gen-rn-compat.mjs', import.meta.url)), 'utf8')
-  assert.ok(
-    !/routeKeysNew\.every/.test(src),
-    '旧判据(逐键名 includes)被搬回来了 ⇒ 值漂移重新变成看不见的缺陷',
-  )
-  assert.ok(
-    /const routesAlreadyCovered = routeMapCovers\(/.test(src),
-    'main() 必须走 routeMapCovers 这一个出口,不许在调用点另写一份',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

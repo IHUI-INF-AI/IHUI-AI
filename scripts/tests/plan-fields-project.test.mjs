@@ -8,6 +8,11 @@
  * 承重的是"什么情况下**不许**改行":信息不被侧车覆盖 / 把预算内的行顶过 400 字档(那才是
  * 新增一条长行) / 三维守恒任一违规 / 记录里没有可渲染的信息。失效方向永远是"少改一行",
  * 绝不是"先收下再说"。
+ *
+ * 2026-10-25 改判(`6596afa1ba`)后,"删等价归属句"这一族多了一档:**删话只是长度优化**,
+ * 删了会挪维 ⇒ 先退回"只加标头、散文逐字留着"再验一次守恒(复合主键不动、`removedProse=0`);
+ * 只有"删也挪主键、保也顶破预算"两条退路同时不通时才整行 `skip` 并点名 `composite`。
+ * 两档各有一例钉住 —— 少了前者会把合法投影判成拒投影,少了后者回退就成了绕闸的后门。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -76,11 +81,28 @@ describe('投影规划:加标头 + 删逐字等价的归属句同批(规格 §4.
     )
   })
 
-  it('删了会挪复合主键 ⇒ 拒投影(守恒闸有牙,不是注释承诺)', () => {
+  it('删了会挪复合主键 ⇒ 退回"只加标头、保留散文"(不再整行拒投影)', () => {
+    // 2026-10-25 改判(`6596afa1ba`):删等价归属句是**长度优化**,不是投影的必要条件;
+    // 删了会挪维度 ⇒ 先退回"只加标头、保留散文"再验一次守恒。守恒闸的牙仍在(下一条例子钉它),
+    // 只是这一型的合法结局从"整行不动"变成"不删话的改写"。
     const line = '- [ ] **G-10 事件** 归属:门 130 持有人,细节'
     const r = rec({ key: compositeKeyOf(line) })
     const p = P.planRow(line, r)
-    assert.equal(p.action, 'skip')
+    assert.equal(p.action, 'rewrite')
+    assert.equal(p.removedProse, 0, '删了会改判 ⇒ 散文句必须留着')
+    assert.ok(p.line.includes('归属:门 130 持有人'), '原散文逐字保留')
+    assert.equal(compositeKeyOf(p.line), compositeKeyOf(line), '复合主键不变')
+  })
+
+  it('删散文会挪主键、保留散文又顶破预算 ⇒ 整行拒投影(守恒闸仍有牙)', () => {
+    // 上一型的退路是"保留散文";这一型把两条退路同时掐断(删 ⇒ 挪主键,保 ⇒ 超预算),
+    // 必须回到 skip 并点名 composite —— 否则"保散文回退"就成了绕过守恒闸的后门。
+    const line = '- [ ] **G-10 事件** 归属:门 130 持有人,细节'
+    const r = rec({ key: compositeKeyOf(line) })
+    const loose = P.planRow(line, r)
+    assert.equal(loose.action, 'rewrite', '预算宽裕时按上一型保散文改写')
+    const p = P.planRow(line, r, { maxLen: loose.line.length - 1 })
+    assert.equal(p.action, 'skip', `两条退路都不通时必须整行不动,实得 ${p.action}`)
     assert.match(p.reason, /composite/)
   })
 

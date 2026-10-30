@@ -986,6 +986,7 @@ export function judgeService(rec) {
   }
   const state = rec.state
   if (state.kind === 'unmeasured') hard('STATE', state.reason)
+  else if (state.value !== 'RUNNING') problems.push(`STATE=${state.value}`)
   else {
     // 档位分岔的唯一书写处 = stateProblemOf(Running/Stopped/Paused/过渡/未知各给各的话,绝不并桶)
     const sp = stateProblemOf(state.value)
@@ -2024,6 +2025,7 @@ export function judgeRuntimeFreshness({
 }) {
   if (state !== 'RUNNING')
     return unmeasured(
+      `服务态=${state ?? '(未量到)'},非 RUNNING ⇒ 没有活进程可与脚本比(它停着这件事由 STATE 维负责,本维不重复计账)`,
       `服务态=${state ?? '(未量到)'},非 RUNNING ⇒ 没有活进程可与脚本比(这一态是哪一档由 STATE 维负责判,本维不重复计账)`,
     )
   if (!start) return unmeasured('进程枚举里没有这个服务的启动时刻条目 ⇒ 无从比较')
@@ -2545,6 +2547,7 @@ export function renderText(meta) {
       )
     }
     L.push(
+      `结论:入审 ${t.services} 个 —— 量到问题 ${t.issue} / 未出具合格证(有维量不到)${t.unattested} / 全维健康 ${t.ok} / 非 nssm 托管跳过 ${t.skipped};各维未判定 STATE=${t.dimUnmeasured.state} Application=${t.dimUnmeasured.application} 端口声明=${t.dimUnmeasured.ports} 监听观察=${t.dimUnmeasured.observed} 应答=${t.dimUnmeasured.probe} 托管性=${t.dimUnmeasured.nssmManaged}`,
       `结论:入审 ${t.services} 个 —— 量到问题 ${t.issue} / 未出具合格证(有维量不到)${t.unattested} / 全维健康 ${t.ok} / 非 nssm 托管跳过 ${t.skipped}(其中『停着是设计内』${t.expectedStopped});各维未判定 STATE=${t.dimUnmeasured.state} Application=${t.dimUnmeasured.application} 端口声明=${t.dimUnmeasured.ports} 监听观察=${t.dimUnmeasured.observed} 应答=${t.dimUnmeasured.probe} 托管性=${t.dimUnmeasured.nssmManaged}`,
     )
     if (t.stateBands) {
@@ -3190,6 +3193,10 @@ function selfTest(opts) {
       rmSync(bin)
       ok('F2 真夹具:同一路径删掉后 ⇒ missing(证明 missing 来自文件系统,不是硬编码)',
         judge({ appExists: measured(depsFileKind(bin)) }).level === 'issue')
+      // 本模块就在 <repo>/scripts/ 下 ⇒ 上一级就是仓库根;写成两级会把"父目录"当仓库根,
+      // 于是这条锁在任何机器上都恒假(夹具永远"在仓库内")—— 永假断言与永真断言同样没用。
+      const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+      ok('F3 夹具落点不得在仓库树内(§26 唯一夹具落点)', !dir.startsWith(repo))
       // G-158 之后"仓内"不等于"在真仓 git 面内":批准的 `<repo>/.DevEnv` 靠坏 gitfile 边界
       // 把 discovery 挡在真仓之外。旧判据 `!dir.startsWith(repo)` 没跟上这次搬家 ⇒ 恒红。
       // 现在两维都判,且判据只从 scratch-dir 取(§0.6 单一真相源):
@@ -3205,6 +3212,7 @@ function selfTest(opts) {
       )
       fixtureNote = `\n  (真夹具 3 条已跑;落点 ${dir})`
     } finally {
+      rmScratch(dir)
       // bestEffort(2026-10-28):清理失败**不得改写判据结论**。立因是现读实测 —— 宿主
       // `node-safe-delete-shim.cjs` 把 rmSync 转成 trash 操作,而本机 trash 会失败
       // (`Error during a trash operation: Some operations were aborted`),于是 finally 抛错被
@@ -3491,6 +3499,7 @@ export const __test__ = {
   measured, unmeasured, decodeNssm, interpretNssmGet, interpretNssmGetMultiline, looksCorrupted, extractPortsFromConfig,
   decodeRegistryConfigBlob, buildEnumerationScript, buildRegistryScript, parseServiceList,
   parseRegistryOutput, compileFilter, pickPowerShell, resolveApplication, resolveNssmManaged,
+  resolvePorts, existenceOf, judgeService, computeExitCode, parseArgs, renderText, main, selfTest,
   resolvePorts, normalizeStartType, parseServiceBaseline, compareServiceBaseline, readAndCompareBaseline,
   BASELINE_REL, SERVICE_BASELINE_PATH,
   existenceOf, judgeService, computeExitCode, parseArgs, renderText, main, selfTest,

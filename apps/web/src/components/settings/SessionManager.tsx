@@ -12,6 +12,7 @@ import { Users, Loader2, ChevronRight } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { OverviewError } from './OverviewError'
 import type { PageData } from '@/lib/edu'
 
 interface SessionInfo {
@@ -26,20 +27,27 @@ export function SessionManager() {
   const t = useTranslations('settings')
   const [count, setCount] = React.useState(0)
   const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState(false)
   const { allow } = useAuthGate()
 
-  React.useEffect(() => {
+  const load = React.useCallback(() => {
     if (!allow) {
       setLoading(false)
       return
     }
+    setError(false)
+    setLoading(true)
     fetchApi<PageData<SessionInfo>>('/settings/authorizations?page=1&pageSize=1')
       .then((res) => {
         if (res.success) setCount(res.data.total ?? 0)
       })
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [allow])
+
+  React.useEffect(() => {
+    load()
+  }, [load])
 
   return (
     <Card>
@@ -54,6 +62,8 @@ export function SessionManager() {
           <div className="flex justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
+        ) : error ? (
+          <OverviewError onRetry={load} />
         ) : (
           <Link
             href="/settings/authorizations"

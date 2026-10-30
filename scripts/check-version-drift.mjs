@@ -120,12 +120,30 @@ export function findVersionDrift(input) {
   // app.config.js 的 version 取 `IHUI_MOBILE_VERSION || pkg.version`,而未注入时的兜底值就是
   // apps/mobile-rn/package.json —— 它若与 app.json 的 version 漂开,包里显示的就是旧号。
   // 实测现成事故形态:package.json=0.0.6、app.json=0.0.8、README=0.0.7 三处各说一套。
-  const appJsonV = mobileAppJson?.version
+  // 2026-10-30 修:此前取的是顶层 `mobileAppJson?.version`,而真实 app.json 是
+  // `{ expo: { version } }`(Expo 的 schema 一层包裹)⇒ 左值恒 undefined ⇒ `A && B` 恒假,
+  // 判据静默失效。实测:app.json=0.0.9 而 package.json=0.0.5,本门照判 PASS。
+  // 平行的自测也按同一错误假设写(夹具用扁平 `{ version }`),两边互相"验证"了错误。
+  // 现两种形态都认(expo 包裹优先),缺一侧仍不判 —— 那是本门既有契约,不改。
+  const appJsonV = mobileAppJson?.expo?.version ?? mobileAppJson?.version
   const mobilePkgV = mobilePkg?.version
   if (appJsonV && mobilePkgV && appJsonV !== mobilePkgV) {
     v.push(
       `I 移动端版本双写不一致:app.json=${appJsonV} 而 apps/mobile-rn/package.json=${mobilePkgV}` +
         '(未注入 IHUI_MOBILE_VERSION 的构建会回落成后者,包内显示的版本号就此落后)',
+    )
+  }
+
+  // I2 静态 versionCode 是死值(2026-10-30 立,实测咬到):构建读的是 app.config.js 的
+  // resolveBuildNumber() 派生值,app.json 里那份静态号**没有任何消费者** —— 于是它必然与真实
+  // 版本漂开(实测 app.json=26102802 而当日实产 26103001)。这正是本门头注要消灭的那类字符串:
+  // 看起来像版本号、却不被任何东西驱动。
+  const staticVc = mobileAppJson?.expo?.android?.versionCode
+  if (staticVc !== undefined && staticVc !== null) {
+    v.push(
+      `I2 app.json 声明了静态 android.versionCode=${staticVc}:构建实际用 app.config.js 的 ` +
+        'resolveBuildNumber() 派生值,这份声明没有消费者,只会与真实版本号漂开(要固定号段请改 ' +
+        'resolveBuildNumber,不要写静态声明)',
     )
   }
 
