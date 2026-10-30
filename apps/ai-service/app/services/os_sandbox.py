@@ -47,6 +47,25 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.core.sandbox_metrics import (
+    BACKEND_NONE,
+    CATEGORY_FILE,
+    CATEGORY_POLICY,
+    CATEGORY_PROCESS,
+    DECISION_ALLOW,
+    DECISION_BLOCK,
+    RULE_POLICY_TIER_CEILING_EXCEEDED,
+    RULE_POLICY_TIER_FIELD_DENIED,
+    RULE_POLICY_TIER_RESOLVED,
+    RULE_POLICY_TIER_ROOTS_EMPTY,
+    RULE_POLICY_TIER_UNKNOWN,
+    RULE_PROCESS_ARGV_EMPTY,
+    RULE_PROCESS_PATH_VIOLATION_BLOCK,
+    classify_acl,
+    record_block,
+    record_decision,
+)
+
 __all__ = [
     "DEFAULT_POLICY_TIER",
     "POLICY_TIER_READ_ONLY",
@@ -370,20 +389,29 @@ DEFAULT_POLICY_TIER = POLICY_TIER_READ_ONLY
 TIER_TUNABLE_FIELDS: frozenset[str] = frozenset({*_TIER_LIMIT_FIELDS, "denied_paths"})
 
 
+def _record_policy_decision(rule_id: str, decision: str) -> None:
+    """档位层的计量出口(只记不判;policy 类判定点都不绑定具体后端 ⇒ backend=none)。"""
+    record_decision(rule_id, CATEGORY_POLICY, decision, backend=BACKEND_NONE)
+
+
 def resolve_policy_tier(tier: str | None) -> PolicyTier:
     """档位名 → 登记表条目(**唯一**的档位取名入口)。
 
     - ``None`` / 空串 ⇒ :data:`DEFAULT_POLICY_TIER`(最严档,fail-closed);
     - 登记表里没有这个名字 ⇒ :class:`PolicyError` —— 不猜、不回退到更宽的档,
       也不静默换成默认档(那会把"点了个不存在的档位"这件事变成"看起来跑了")。
+
+    两条出口同一批各落一枚计数(拦下的与放行 denominator 都要有数,§5e-3 + §0.3)。
     """
     selected_name = tier if tier else DEFAULT_POLICY_TIER
     selected = SANDBOX_POLICY_TIERS.get(selected_name)
     if selected is None:
+        _record_policy_decision(RULE_POLICY_TIER_UNKNOWN, DECISION_BLOCK)
         raise PolicyError(
             f"未知策略档位: {selected_name!r};可用档位(服务端登记表): "
             f"{sorted(SANDBOX_POLICY_TIERS)}"
         )
+    _record_policy_decision(RULE_POLICY_TIER_RESOLVED, DECISION_ALLOW)
     return selected
 
 
@@ -405,8 +433,13 @@ def build_tier_policy(
 
     Raises:
         PolicyError: roots 为空 / 请求方试图提供或放宽限制项。
+
+    三处拒绝(roots 空 / 越权字段 / 超档位上限)各落一枚计数,与抛出同批 —— 这三条正是
+    "调用方试图把沙箱强度关掉"的尝试面,量不到就等于把最该被看见的一类拦截留成静默拒绝
+    (对照程序里对应 ``risk_rule_id`` 的那一格)。
     """
     if not roots:
+        _record_policy_decision(RULE_POLICY_TIER_ROOTS_EMPTY, DECISION_BLOCK)
         raise PolicyError(
             "服务端未声明任何工作区根目录(档位 roots 为空),拒绝执行 —— "
             "readable_paths 留空在本模块语义下等于不限制读"
@@ -415,6 +448,7 @@ def build_tier_policy(
     provided: dict[str, Any] = dict(constraints or {})
     illegal = sorted(set(provided) - TIER_TUNABLE_FIELDS)
     if illegal:
+        _record_policy_decision(RULE_POLICY_TIER_FIELD_DENIED, DECISION_BLOCK)
         raise PolicyError(
             f"以下限制项只能由服务端档位决定,请求方不得提供或借此关掉限制: {illegal}"
         )
@@ -432,11 +466,16 @@ def build_tier_policy(
             limits[field_name] = ceiling
             continue
         raw = provided[field_name]
+        # 三档上限违反(非整数 / 非正 / 超档位)都是"请求方想把限制关掉",同一规则身份;
+        # 具体差在异常原文里给人看,不进时序身份(那会把每次抖动变成一条新序列)。
         if isinstance(raw, bool) or not isinstance(raw, int):
+            _record_policy_decision(RULE_POLICY_TIER_CEILING_EXCEEDED, DECISION_BLOCK)
             raise PolicyError(f"{field_name} 必须为整数,得到 {raw!r}")
         if raw <= 0:
+            _record_policy_decision(RULE_POLICY_TIER_CEILING_EXCEEDED, DECISION_BLOCK)
             raise PolicyError(f"{field_name} 必须为正整数,得到 {raw!r}")
         if raw > ceiling:
+            _record_policy_decision(RULE_POLICY_TIER_CEILING_EXCEEDED, DECISION_BLOCK)
             raise PolicyError(
                 f"{field_name}={raw} 超出档位 {selected.name} 的上限 {ceiling}"
                 "(请求方只能收窄,不得放宽)"
@@ -1057,15 +1096,41 @@ def _looks_like_path(text: str) -> bool:
     return "/" in lowered and "." in last
 
 
+def _record_acl_probe(
+    policy: SandboxPolicy,
+    path: str,
+    intent: str,
+    *,
+    allowed: bool,
+    backend: str = "none",
+) -> None:
+    """把一次**已经做完**的 ACL 判定贴上稳定规则身份。
+
+    只记不判:``allowed`` 由调用方用自己的谓词(``can_read`` / ``can_write``)算好传进来,
+    本函数不重新做一次判定,也不得改判(§0.6 单一真相源 + 计量绝不改判)。
+    多问一次 ``is_denied`` 只为分清"命中 deny 矩阵"与"没被规则覆盖"两种拦截身份 ——
+    这是对照程序 ``risk_rule_id`` 那一维在本仓的等价物,不是新的判定面。
+    """
+    rule_id, decision = classify_acl(
+        denied=policy.is_denied(path), allowed=allowed, intent=intent
+    )
+    record_decision(rule_id, CATEGORY_FILE, decision, backend=backend)
+
+
 def validate_command_paths(
     policy: SandboxPolicy,
     argv: Sequence[str],
     *,
     cwd: str | None = None,
+    backend: str = "none",
 ) -> list[str]:
     """启动前策略校验,返回违规描述列表(空 = 通过)。
 
     校验面:argv 各 token 的路径(含写意图 flag 的值按写入校验)与 cwd 读权限。
+
+    判定结果与加计量之前逐条相同(返回值一字不变);新增的只是每个判定同一批落一枚
+    计数(§5e-3「量与拦同批」)。成对对照用例见
+    ``tests/test_sandbox_block_metrics.py``:开档与关档各跑一遍,断言 violations 相等。
     """
     violations: list[str] = []
     pending_write = False
@@ -1075,19 +1140,30 @@ def validate_command_paths(
         if flag_head in _WRITE_INTENT_FLAGS:
             pending_write = True
             if "=" in t:
-                if not policy.can_write(t.split("=", 1)[1]):
+                value = t.split("=", 1)[1]
+                allowed = policy.can_write(value)
+                _record_acl_probe(policy, value, "write", allowed=allowed, backend=backend)
+                if not allowed:
                     violations.append(f"写入越权: {t}")
                 pending_write = False
             continue
         if _looks_like_path(t):
             if pending_write:
-                if not policy.can_write(t):
+                allowed = policy.can_write(t)
+                _record_acl_probe(policy, t, "write", allowed=allowed, backend=backend)
+                if not allowed:
                     violations.append(f"写入越权: {t}")
-            elif not policy.can_read(t):
-                violations.append(f"读取越权: {t}")
+            else:
+                allowed = policy.can_read(t)
+                _record_acl_probe(policy, t, "read", allowed=allowed, backend=backend)
+                if not allowed:
+                    violations.append(f"读取越权: {t}")
         pending_write = False
-    if cwd is not None and not policy.can_read(cwd):
-        violations.append(f"读取越权: cwd={cwd}")
+    if cwd is not None:
+        allowed_cwd = policy.can_read(cwd)
+        _record_acl_probe(policy, cwd, "read", allowed=allowed_cwd, backend=backend)
+        if not allowed_cwd:
+            violations.append(f"读取越权: cwd={cwd}")
     return violations
 
 
@@ -1118,9 +1194,13 @@ class WinJobBackend:
         self.check_available()
         cmd = [str(a) for a in argv]
         if not cmd:
+            record_block(RULE_PROCESS_ARGV_EMPTY, CATEGORY_PROCESS, backend=self.backend_name)
             raise SandboxError("argv 不能为空")
-        violations = validate_command_paths(self.policy, cmd, cwd=cwd)
+        violations = validate_command_paths(self.policy, cmd, cwd=cwd, backend=self.backend_name)
         if violations:
+            record_block(
+                RULE_PROCESS_PATH_VIOLATION_BLOCK, CATEGORY_PROCESS, backend=self.backend_name
+            )
             raise SandboxError("命令路径越权: " + "; ".join(violations))
         # 白名单过滤一切环境来源(继承 + 调用方传入),仅系统必需变量豁免
         merged_env: dict[str, str] = dict(os.environ)
@@ -1484,9 +1564,13 @@ class LinuxSandboxBackend:
         import shutil
         cmd = [str(a) for a in argv]
         if not cmd:
+            record_block(RULE_PROCESS_ARGV_EMPTY, CATEGORY_PROCESS, backend=self.backend_name)
             raise SandboxError("argv 不能为空")
-        violations = validate_command_paths(self.policy, cmd, cwd=cwd)
+        violations = validate_command_paths(self.policy, cmd, cwd=cwd, backend=self.backend_name)
         if violations:
+            record_block(
+                RULE_PROCESS_PATH_VIOLATION_BLOCK, CATEGORY_PROCESS, backend=self.backend_name
+            )
             raise SandboxError("命令路径越权: " + "; ".join(violations))
         full = (
             build_bwrap_argv(self.policy, cmd, env)
@@ -1601,9 +1685,13 @@ class MacSeatbeltBackend:
         self.check_available()
         cmd = [str(a) for a in argv]
         if not cmd:
+            record_block(RULE_PROCESS_ARGV_EMPTY, CATEGORY_PROCESS, backend=self.backend_name)
             raise SandboxError("argv 不能为空")
-        violations = validate_command_paths(self.policy, cmd, cwd=cwd)
+        violations = validate_command_paths(self.policy, cmd, cwd=cwd, backend=self.backend_name)
         if violations:
+            record_block(
+                RULE_PROCESS_PATH_VIOLATION_BLOCK, CATEGORY_PROCESS, backend=self.backend_name
+            )
             raise SandboxError("命令路径越权: " + "; ".join(violations))
         full = seatbelt_argv(self.policy, cmd)
         start = time.monotonic()
