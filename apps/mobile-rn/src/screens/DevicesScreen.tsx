@@ -513,7 +513,7 @@ function makeStyles() {
     panel: {
       marginTop: rnSpacing.xs,
       padding: 10,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.xl,
       backgroundColor: tokens.surface.card,
       borderWidth: 1,
       borderColor: tokens.border.light,
