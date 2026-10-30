@@ -344,6 +344,7 @@ export function ShareScreen() {
                   {/* 守门 131 改型:absolute 定位盒(position/top/right/24×24)是外层槽位,
                       底色圆角等可视档进满尺寸内层 face,pressed 淡出仍覆盖整颗圆钮。 */}
                   <Pressable
+                  hitSlop={6}
                     style={styles.clearBtn}
                     onPress={() => setImageUri('')}
                     accessibilityRole="button"

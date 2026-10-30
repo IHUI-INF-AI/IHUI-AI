@@ -6436,6 +6436,30 @@ const checks = [
   },
   // --- 全端杀手锏常量二次写死锁(2026-10-31 复登:门体/自检/豁免表一直在盘上,四路调度点皆无)---
   {
+    // 编号 273:注册前已核本文件与 HEAD 面 `id: '273'` 均为 0;现值以本文件为准(撞号由门 89 R5/R13 反查)。
+    id: '273',
+    label:
+      '👆 RN 触屏交互卫生对账(blocking;H1 命中尺寸绝对零容忍(存量 22→0 后才升档)+ H2 按压反馈差值棘轮(1296 处存量只报数);档位取 geometry.js 的 tapBox,门内从被审面现读)',
+    script: 'check-rn-interaction-hygiene.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/', 'packages/ui-native/src/'],
+    skipEnv: 'HUSKY_SKIP_RN_INTERACTION_HYGIENE',
+    onFailHint: [
+      '',
+      '  💡 H1 命中尺寸:方块取档位 `rnGeometry.tapBox`(两端同源,不在端内写 44/24 这类第二份真相);',
+      '     图标钮尺寸不该动就补 `hitSlop`(必须补满:min(w,h)+2×slop ≥ 档位;`hitSlop={0}` 不算补过)。',
+      '     hitSlop 在小程序侧无对应机制(端内 Sheet.tsx 头注自述"本端不设")⇒ 跨端源里只靠它过关的,',
+      '     本门会进 `slopOnly` 普查点名(小程序腿没被补上),那不是"两端都过关"。',
+      '  💡 H2 按压反馈:用 onPressIn/onPressOut、children 函数形态 `{({ pressed }) => …}` 或 className',
+      '     `active:` 变体;函数形态 style 会被 cssInterop 吃掉(守门 131),所以端内先例一律走前三型。',
+      '  💡 判不了的(静态盲区,门头注已点名):padding/flex 撑出来的尺寸、跨文件样式、style={fn}。',
+      '  💡 自检:node scripts/check-rn-interaction-hygiene.mjs --self-test | 存量口径:--strict',
+      '  💡 紧急跳过(不推荐,须留痕):HUSKY_SKIP_RN_INTERACTION_HYGIENE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  {
     // 编号 271:注册前已核本文件 `id: '271'` 为 0;现值以本文件为准。
     id: '271',
     label:
