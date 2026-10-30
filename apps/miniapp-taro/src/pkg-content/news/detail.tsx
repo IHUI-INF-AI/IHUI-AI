@@ -12,7 +12,8 @@ import * as api from '@/api'
 import { getNewsDetail, type News } from '@/api'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
-import { EmptyState, PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import NewsState from './news-state'
 import LineIcon from '@/components/LineIcon'
 
 // 防御式扩展:likeNews / getRelatedNews 当前 @/api 未导出,运行时若存在则调用,否则静默 fallback
@@ -28,6 +29,7 @@ export default function NewsDetailPage() {
   const tt = useTt()
   const [news, setNews] = useState<News>({} as News)
   const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
   const [id, setId] = useState('')
   const [liked, setLiked] = useState(false)
   const [likes, setLikes] = useState(0)
@@ -37,6 +39,7 @@ export default function NewsDetailPage() {
   const load = useCallback(async () => {
     if (!id) return
     setLoading(true)
+    setFailed(false)
     try {
       const data = await getNewsDetail(id)
       setNews(data)
@@ -57,6 +60,7 @@ export default function NewsDetailPage() {
       }
     } catch (e) {
       logger.error('news/detail', '获取资讯详情', e)
+      setFailed(true)
       Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -139,7 +143,7 @@ export default function NewsDetailPage() {
             <View className="flex flex-row items-center gap-[16rpx] mb-[24rpx]">
               <View className="flex flex-row items-center bg-card px-[16rpx] py-[4rpx] rounded-lg">
                 <Text className="text-[length:22rpx] text-muted-foreground">
-                  {tt('news.readCount', '{n}阅读', { n: news.views || 0 })}
+                  {tt('articleDetail.views', '阅读量')} {news.views || 0}
                 </Text>
               </View>
               <View className="flex flex-row items-center gap-[8rpx] bg-card px-[16rpx] py-[4rpx] rounded-lg">
@@ -192,7 +196,7 @@ export default function NewsDetailPage() {
           </View>
         ) : null}
 
-        {!loading && !news.title ? <EmptyState title={tt('common.empty', '暂无数据')} /> : null}
+        {!loading && !news.title ? <NewsState failed={failed} onRetry={load} /> : null}
 
         {/* 底部操作栏:对齐 RN wrapper bottomBar(space-around + hairline 上边框 + 白底) */}
         {!loading && news.title ? (

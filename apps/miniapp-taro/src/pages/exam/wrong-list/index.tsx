@@ -8,9 +8,10 @@ import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { get, post, deleteExamWrongQuestion } from '@/api'
+import { get, post, put, deleteExamWrongQuestion } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import type { WrongQuestionListItem as WrongQuestionItem } from '@ihui/types'
+import { StatsBar, FilterChips, formatTime, type WrongStats, type WrongFilter } from './header'
 
 interface WrongListData {
   list: WrongQuestionItem[]
@@ -34,20 +35,29 @@ export default function WrongList() {
   const [loading, setLoading] = useState(false)
   const [explainingId, setExplainingId] = useState<string | null>(null)
   const [explanations, setExplanations] = useState<Record<string, string>>({})
+  const [filter, setFilter] = useState<WrongFilter>('all')
+  const [stats, setStats] = useState<WrongStats | null>(null)
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
 
   const load = useCallback(
-    async (nextPage: number, append: boolean) => {
+    async (nextPage: number, append: boolean, nextFilter: WrongFilter) => {
       setLoading(true)
       try {
-        const res = await get<WrongListData>('/exam/wrong-questions', {
+        const params: Record<string, string | number | boolean> = {
           page: nextPage,
           pageSize: PAGE_SIZE,
-        })
+        }
+        if (nextFilter !== 'all') params.isResolved = nextFilter === 'resolved'
+        const [res, statsRes] = await Promise.all([
+          get<WrongListData>('/exam/wrong-questions', params),
+          get<{ stats: WrongStats }>('/exam/wrong-questions/stats'),
+        ])
         setItems((prev) => (append ? [...prev, ...(res.list || [])] : res.list || []))
         setTotal(res.total || 0)
+        setStats(statsRes.stats ?? null)
         setPage(nextPage)
       } catch {
-        Taro.showToast({ title: t('exam.detail.loadFailed'), icon: 'none' })
+        Taro.showToast({ title: t('wrongQuestions.loadFailed'), icon: 'none' })
       } finally {
         setLoading(false)
       }
@@ -56,8 +66,33 @@ export default function WrongList() {
   )
 
   useDidShow(() => {
-    load(1, false)
+    load(1, false, filter)
   })
+
+  const changeFilter = useCallback(
+    (next: WrongFilter) => {
+      setFilter(next)
+      load(1, false, next)
+    },
+    [load],
+  )
+
+  const handleResolve = useCallback(
+    async (item: WrongQuestionItem) => {
+      if (resolvingId !== null) return
+      setResolvingId(item.questionId)
+      try {
+        await put(`/exam/wrong-questions/${item.questionId}/resolve`)
+        Taro.showToast({ title: t('wrongQuestions.markSuccess'), icon: 'none' })
+        load(1, false, filter)
+      } catch {
+        Taro.showToast({ title: t('wrongQuestions.markFailed'), icon: 'none' })
+      } finally {
+        setResolvingId(null)
+      }
+    },
+    [filter, load, resolvingId, t],
+  )
 
   const handleExplain = useCallback(
     async (item: WrongQuestionItem) => {
@@ -67,7 +102,7 @@ export default function WrongList() {
         const res = await post<ExplainData>(`/exam/wrong-questions/${item.questionId}/explain`, {})
         setExplanations((prev) => ({ ...prev, [item.id]: res.explanation }))
       } catch {
-        Taro.showToast({ title: t('exam.detail.loadFailed'), icon: 'none' })
+        Taro.showToast({ title: t('wrongQuestions.explainFailed'), icon: 'none' })
       } finally {
         setExplainingId(null)
       }
@@ -103,8 +138,13 @@ export default function WrongList() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="flex flex-row items-center px-[20rpx] pt-[24rpx] pb-[16rpx] gap-[16rpx]">
-          <Text className="text-[length:44rpx] font-semibold text-foreground">错题本</Text>
+          <Text className="text-[length:44rpx] font-semibold text-foreground">
+            {t('wrongQuestions.title')}
+          </Text>
         </View>
+
+        <StatsBar stats={stats} />
+        <FilterChips filter={filter} onChange={changeFilter} />
 
         <View className="p-[28rpx] pb-[64rpx]">
           {items.map((item) => (
@@ -117,7 +157,10 @@ export default function WrongList() {
               </Text>
               <View className="flex flex-row flex-wrap gap-x-[24rpx] gap-y-[8rpx] mt-[16rpx]">
                 <Text className="text-[length:28rpx] text-muted-foreground">
-                  {t('exam.questions', { n: item.wrongCount })}
+                  {t('wrongQuestions.wrongCount', { count: item.wrongCount })}
+                </Text>
+                <Text className="text-[length:26rpx] text-[var(--color-text-tertiary)]">
+                  {t('wrongQuestions.time')}: {formatTime(item.createdAt)}
                 </Text>
                 {item.paperTitle && item.questionTitle && (
                   <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
@@ -132,14 +175,25 @@ export default function WrongList() {
                   </Text>
                 </View>
               )}
-              <View className="flex flex-row gap-[16rpx] mt-[16rpx]">
+              <View className="flex flex-row flex-wrap gap-[16rpx] mt-[16rpx]">
                 <View
                   className="px-[24rpx] py-[12rpx] rounded-lg bg-primary"
                   hoverClass="opacity-60"
                   onClick={() => handleExplain(item)}
                 >
                   <Text className="text-[length:28rpx] text-primary-foreground">
-                    {explainingId === item.id ? t('common.loading') : 'AI 讲解'}
+                    {explainingId === item.id ? t('common.loading') : t('wrongQuestions.aiExplain')}
+                  </Text>
+                </View>
+                <View
+                  className="px-[24rpx] py-[12rpx] rounded-lg bg-card border border-solid border-border"
+                  hoverClass="opacity-60"
+                  onClick={() => handleResolve(item)}
+                >
+                  <Text className="text-[length:28rpx] text-foreground">
+                    {resolvingId === item.questionId
+                      ? t('common.loading')
+                      : t('wrongQuestions.markAsResolved')}
                   </Text>
                 </View>
                 <View
@@ -159,7 +213,7 @@ export default function WrongList() {
         {!loading && items.length === 0 && (
           <View className="flex justify-center py-[80rpx]">
             <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
-              {t('common.empty')}
+              {t('wrongQuestions.empty')}
             </Text>
           </View>
         )}
@@ -175,10 +229,10 @@ export default function WrongList() {
             <View
               className="px-[32rpx] py-[12rpx] rounded-lg bg-card border border-solid border-border"
               hoverClass="opacity-60"
-              onClick={() => load(page + 1, true)}
+              onClick={() => load(page + 1, true, filter)}
             >
               <Text className="text-[length:28rpx] text-muted-foreground">
-                {loading ? t('common.loading') : t('common.more')}
+                {loading ? t('common.loading') : t('wrongQuestions.loadMore')}
               </Text>
             </View>
           </View>

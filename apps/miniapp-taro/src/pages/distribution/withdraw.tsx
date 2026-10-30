@@ -18,10 +18,16 @@ export default function DistributionWithdraw() {
   const gate = useAuthReadyGate()
   const [available, setAvailable] = useState(0)
   const [amount, setAmount] = useState('')
+  // 收款银行卡(对齐共享屏 WithdrawScreen 的 bankCardId 受控字段)。
+  // 端内 /distribution/withdraw 当前契约只有 { amount, method },withdrawal_flows.account_info
+  // 列存在但路由尚未读入参 ⇒ 本端先按同一信息结构采集,入参接线待后端契约补齐。
+  const [bankCardId, setBankCardId] = useState('')
   const [payType, setPayType] = useState('wechat')
   const [submitting, setSubmitting] = useState(false)
   // 提现金额输入盒的运行时聚焦档(描边在盒子上,不在 Input 上)
   const ffAmount = useFieldFocus()
+  // 银行卡输入盒同上(小程序无 :focus 伪类,聚焦态只能运行时切换)
+  const ffBankCard = useFieldFocus()
   const availableRef = useRef(0)
 
   const payTypes = [
@@ -76,10 +82,16 @@ export default function DistributionWithdraw() {
 
   return (
     <ThemeRoot className="min-h-screen bg-background">
+      {/* 对齐 RN WithdrawScreen header:页标题(本页无自绘返回键,返回由原生导航栏承担) */}
+      <View className="mx-[20rpx] mt-[24rpx]">
+        <Text className="text-[length:40rpx] font-semibold text-foreground">
+          {t('withdraw.title')}
+        </Text>
+      </View>
       {/* 对齐 RN WithdrawScreen balanceCard:白卡 + 28rpx 标签 + 56rpx 加粗余额 */}
-      <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-lg p-[28rpx]">
+      <View className="mx-[20rpx] mt-[24rpx] bg-card rounded-lg p-[28rpx]">
         <Text className="text-[length:28rpx] text-muted-foreground">
-          {t('distribution.withdraw.available')}
+          {t('withdraw.availableBalance')}
         </Text>
         <Text className="block text-[length:56rpx] text-foreground font-bold mt-[16rpx]">
           ¥{available}
@@ -87,8 +99,9 @@ export default function DistributionWithdraw() {
       </View>
       {/* 对齐 RN card:白卡 + 描边 + 输入框(muted 底 + 描边圆角) */}
       <View className="mx-[20rpx] mt-[24rpx] bg-card border border-border rounded-lg p-[24rpx]">
+        <Text className="text-[length:28rpx] text-muted-foreground">{t('withdraw.amount')}</Text>
         <View
-          className="flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]"
+          className="mt-[16rpx] flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]"
           style={ffAmount.focusStyle}
         >
           <Text className="text-[length:32rpx] font-semibold text-foreground">¥</Text>
@@ -107,6 +120,23 @@ export default function DistributionWithdraw() {
           >
             {t('distribution.withdraw.all')}
           </Button>
+        </View>
+        {/* 对齐 RN 第二组输入:收款银行卡(同档标签 28rpx + 同形输入盒) */}
+        <Text className="block mt-[24rpx] text-[length:28rpx] text-muted-foreground">
+          {t('withdraw.bankCard')}
+        </Text>
+        <View
+          className="mt-[16rpx] flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]"
+          style={ffBankCard.focusStyle}
+        >
+          <Input
+            className="flex-1 text-[length:32rpx] text-foreground"
+            {...ffBankCard.spread}
+            value={bankCardId}
+            onInput={(e) => setBankCardId(e.detail.value)}
+            placeholder={t('withdraw.bankCardPlaceholder')}
+            placeholder-style="color: var(--color-text-tertiary)"
+          />
         </View>
         <View className="mt-[24rpx]">
           <Text className="text-[length:28rpx] text-muted-foreground">
@@ -132,8 +162,13 @@ export default function DistributionWithdraw() {
         disabled={submitting}
         onClick={onSubmit}
       >
-        {t('distribution.withdraw.submit')}
+        {submitting ? t('withdraw.submitting') : t('withdraw.submit')}
       </Button>
+      {/* 对齐 RN hint:caption 档 tertiary 字色;费率取后端实际取值
+          (apps/api/src/routes/distribution.ts 建单时 fee 恒 0、amount 与 originalAmount 等额) */}
+      <Text className="block mx-[20rpx] mt-[16rpx] text-[length:24rpx] text-[var(--color-text-tertiary)]">
+        {t('withdraw.feeHint', { fee: 0 })}
+      </Text>
     </ThemeRoot>
   )
 }

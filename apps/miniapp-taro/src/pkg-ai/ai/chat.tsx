@@ -1669,6 +1669,16 @@ export default function ChatPage() {
         style={{ background: 'transparent', display: navBarHidden ? 'none' : 'flex' }}
       >
         <View className="nav-left" onClick={openModelDrawer} hoverClass="opacity-60">
+          {/* 对齐 RN ChatScreen modelBar 的「{模型}: {当前模型}」:选择器此前没有字段名,只有值 */}
+          <Text
+            style={{
+              fontSize: '22rpx',
+              color: 'var(--color-muted-foreground)',
+              marginRight: '8rpx',
+            }}
+          >
+            {t('chat.modelLabel')}:
+          </Text>
           <Text className="nav-title">{currentModelName || t('ai.title')}</Text>
           <LineIcon
             name="chevron-down"

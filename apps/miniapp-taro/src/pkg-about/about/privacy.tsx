@@ -538,8 +538,12 @@ export default function PrivacyPage() {
       <ScrollView className="h-screen bg-background" scrollY>
         <View className="px-[28rpx] pt-[28rpx] pb-[64rpx]">
           <View className="bg-card rounded-lg border border-border p-[28rpx] mb-[24rpx]">
-            <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[16rpx]">
+            <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[8rpx]">
               {tt('about.privacy.mainTitle', '隐私政策')}
+            </Text>
+            {/* 副标题(对齐 RN LegalDocScreen subtitle:标题下方一句政策基调) */}
+            <Text className="block text-[length:26rpx] text-[var(--color-text-medium)] mb-[16rpx]">
+              {tt('privacy.subtitle', '我们重视您的隐私')}
             </Text>
             <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)] mb-[8rpx]">
               {tt('about.privacy.updateDate', '更新日期: 2025年06月21日')}

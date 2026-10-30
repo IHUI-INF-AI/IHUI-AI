@@ -24,7 +24,8 @@ const QUERY_URL = 'https://beian.miit.gov.cn/'
 
 export default function IcpRecord() {
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: tt('about.icpRecord.title', 'ICP备案') })
+    // 页头标题取共享屏 IcpRecordScreen 的同一个键(settings.icpRecord),原生导航栏即 RN header 位
+    Taro.setNavigationBarTitle({ title: tt('settings.icpRecord', 'ICP 备案') })
   })
   const { t } = useI18n()
   const tt = useCallback(
