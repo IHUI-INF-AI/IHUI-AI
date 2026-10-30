@@ -127,6 +127,27 @@
 
 > **不便宜但最刺眼的一条**(不入上表排序,单独记):`apps/desktop/src/` 实测 2 个文件 —— 我们的桌面端今天仍然是 web 的壳,而对照程序把主进程做成了 19.5 MB 的能力宿主(独立子进程 ×3 + 插件视图沙箱 + 原生外设)。这不是"少个功能",是**产品形态层级的差**，任何"端侧接线"类的第 10 条差距在 desktop 这一端都无处可接。
 
+### 3b 上表逐条复核(2026-10-30 深夜,交付前第二遍现读 —— **第 1、5 行被推翻**)
+
+派工前对上表每条复跑承载判据,结果如下。**凡我判错就照原样登记,不删原行**(原行保留作留痕):
+
+| 行 | 复核结论 | 现读证据 |
+| --- | --- | --- |
+| 1 审批收件箱 | **推翻:此缺口不存在** | web 侧 `apps/web/src/components/feature-center/NotificationCenter.tsx` 已有 `pendingDecisions` 区块(含空态/条数/`myPendingDecisions` 文案)+ 测试 `__tests__/d193-decision-inbox.test.tsx`;RN 侧 `apps/mobile-rn/src/screens/PendingDecisionsScreen.tsx`(270 行)独立屏 + 30 分钟超时判据;数据源两侧同吃 `listPendingDecisions()`(packages/api-client/src/endpoints/chat.ts)。**残余只有一格**:收件箱里只能深链回源会话,不能当场结算(`onDecisionItemClick` 只做跳转)——而对照程序本来也是在会话内批准,故这一格不构成差距 |
+| 5 "批准即生成规则" | **推翻:后端已有** | `apps/ai-service/app/services/agent_loop_v2.py:682 grant_tool_approval_persist(approval_id, scope)` 支持 `session` / `always` 两级("批 53 persist 通道",注释自陈对标 codex PERSIST_SESSION/ALWAYS),契约侧 `packages/types/src/tool-contract.ts` 有 `TOOL_PERSIST_SCOPES`。**残余只在"UI 是否暴露该档"——本轮未取证,标 [未知]** |
+| 3 压缩默认不触发 | **半真** | `_compaction_context_limit_from_env()` 默认 `"0"` 确为"未配置=不压缩"(agent_loop_v2.py:1637-1643),但同处注释明写"生产按模型实际上下文窗口设置(如 128000)"⇒ 是否真不触发取决于 **生产 env**,本机只读到默认值,标 [未知];不得据默认值断言线上不压缩 |
+| 4 automation 执行腿 | **真** | `grep -rn automation_executor apps/ai-service/app` 除自身文件外**零命中**;`automation_thread.py` 同 |
+| 2 目标机读预算 | **真** | `packages/database/src/schema/` 无任何 goal 表;`services/` 与 `core/` 对 `turnsUsed/turns_used/goal_turn_budget/maxTurns` **零命中**;只有 `services/goal_resume.py`(300 行,零消费)与 CLI 侧 `goal-verification.ts` |
+| 11 peer 权限边界 | **真** | `services/agent_teams.py` 内 `peer|teammate` **零命中**,连概念都没有 |
+| 6 钩子 14 vs 28 | **真** | `packages/types/src/agent-runtime.ts:37-52` 恰 14 值 |
+| 8 工作流可重放 | **真,但有一半等价** | CLI `subagents/state-store.ts` 的 `resumeFrom` 是**子代理断点续跑**,不是对照那种"`agent()` 调用按 (prompt,opts) 命中缓存、改哪段只重跑哪段"的编排级重放 |
+| 9 桌面端 2 文件 | **真** | `apps/desktop/src/` 现读 2 文件 |
+| 12 按用途 12 档路由 | **真** | 全仓 `MODEL_PURPOSE|model_purpose` 零命中 |
+| 10 端侧契约消费 | **真** | `tool-contract`/`schema-projection` 仅 cli + ai-service import |
+| 7 模型可编程定时 | **真(入口有、执行腿断)** | 见第 4 行,同一根因 |
+
+**复核后的真实待办序**:④(automation 执行腿)> ②(goals 机读预算)> ⑪(12 档用途路由)> ⑥(钩子扩面)> ⑫(收件箱内结算,可选)> ①(作废)。**教训**:Top 榜也不可信到"照着开工"——本仓"造好没装车"与"装好了没人记得"两种形态同时存在,判"我方没有"必须先 `grep` 到消费点,而不是只 `grep` 到声明点。**第 1 行这条假缺口如果照单开工,就是给已交付的 D193 重做一遍。**
+
 ## 4 我方不输/反超项(防单向自卑,每条同样给锚)
 
 1. **进程级 OS 沙箱**:Windows Job Object(ctypes)在 `core/proc_sandbox.py`,对照程序**未见 OS 级沙箱**(S2§6)。
@@ -169,7 +190,7 @@
 
 ## 8 下一步(已按 AGENTS §24 代裁,不是请示)
 
-- 本册先立**判定面**;§3 那 12 行是接下来要落的批次,顺序即优先级,第 1–4 项互不重叠可并行切席。
+- 本册先立**判定面**;**派工顺序以 §3b 复核表为准,不以 §3 原表为准**(原表第 1 行是假缺口、第 5 行后端已有,照原表开工会给已交付的 D193 重做一遍)。当前真实序:④ automation 执行腿 → ② goals 机读预算 → ⑪ 12 档用途路由 → ⑥ 钩子扩面 →(可选)⑫ 收件箱内结算。
 - 立票动作走 `scripts/live-doc-edit.mjs` + `plan-fields-extract`(侧车是第四种交代),**不在本轮顺手写台账**——本轮交付物是取证与判定,票面要按 §1 的编号/主键/交代三要素一次性立齐,免得产出第二套"僵尸票"。
 - 0.4.9 与 0.5.1 的 SDK 差集已交 S8 件,但 **0.4.3 → 0.4.9 那一格仍无取证物**(本机已无 0.4.3 目录)⇒ 上一册凡依赖 0.4.3 字面检索的结论,状态一律读作 [未知],不得沿用。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
