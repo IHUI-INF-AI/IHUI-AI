@@ -21,9 +21,17 @@ import { describe, expect, it } from 'vitest'
 const END_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 
 describe('兜底模型容量不得写死', () => {
-  for (const rel of ['src/pages/index/index.tsx', 'src/pkg-ai/model-plaza/index.tsx']) {
+  // 取材点随壳承载迁移(2026-10-31):model-plaza/index.tsx 已转壳承载(0fb91af8f8,端内
+  // 27 行薄壳,数据面在 RN 壳 ModelPlazaScreen)⇒ 兜底容量消费迁到 apps/mobile-rn 取材;
+  // pages/index 未转壳仍在端内,取材点原地保留。
+  for (const rel of [
+    'src/pages/index/index.tsx',
+    'apps/mobile-rn/src/screens/ModelPlazaScreen.tsx',
+  ]) {
     it(`${rel}:不出现容量字面量,且引用唯一出口`, () => {
-      const src = readFileSync(join(END_ROOT, rel), 'utf8')
+      // 端内相对路径以端根为基;apps/ 起头的是仓根相对(RN 壳在端外,仓根 = 端根上跳两级)
+      const repoRoot = join(END_ROOT, '..', '..')
+      const src = readFileSync(join(rel.startsWith('apps/') ? repoRoot : END_ROOT, rel), 'utf8')
       expect(src).not.toMatch(/context_?[lL]ength\s*[:=]\s*128[_,]?000/)
       expect(src).toMatch(/getModelContextCapacity\s*\(\s*f\.value\s*\)/)
       expect(src).toMatch(/import\s*\{[^}]*getModelContextCapacity[^}]*\}\s*from\s*'@ihui\/api-client'/)
