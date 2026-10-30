@@ -21,7 +21,7 @@ import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, Literal, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, cast
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 if TYPE_CHECKING:
@@ -5208,9 +5208,24 @@ _ADVERTISED_DESCRIPTION_PROVIDERS: dict[str, Callable[[], str]] = {
 }
 
 
+class _ToolSurfaceKwargs(TypedDict, total=False):
+    """dispatch_subagent 传给 orchestrator 的工具面收窄参数(键集封闭)。
+
+    为什么必须是 TypedDict 而不是 `dict[str, list[str]]`:两处调用都用星号展开
+    (`**surface_extra`)传进 `invoke` / `invoke_parallel`,裸 dict 在 mypy strict 下
+    无法证明不含 `session_id` / `progress_callback` 之类的**同一调用里的其它参数**,
+    于是把 `list[str]` 硬套到 `str | None`、`Callable[...] | None` 上报 arg-type 红。
+    收紧键集后星号展开与签名逐一对得上,不需要忽略注释去放宽判据(§0.2 反过来读:
+    修类型缺口,不是关掉门)。
+    """
+
+    tool_allow: list[str]
+    tool_deny: list[str]
+
+
 def _dispatch_tool_surface_kwargs(
     arguments: Mapping[str, object],
-) -> tuple[dict[str, list[str]], str | None]:
+) -> tuple[_ToolSurfaceKwargs, str | None]:
     """聊天 SSE 把模型入参原样交给 dispatch_subagent。
 
     allowedTools / disallowedTools 两键都缺时返回空 dict,派发参数与从前相同。
@@ -5240,7 +5255,7 @@ def _dispatch_tool_surface_kwargs(
     except SubagentToolListError as err:
         return {}, err.field
     allow, deny = resolve_subagent_tool_surface(None, [], call_allow, call_deny)
-    extra: dict[str, list[str]] = {}
+    extra: _ToolSurfaceKwargs = {}
     if allow is not None:
         extra["tool_allow"] = allow
     if deny:

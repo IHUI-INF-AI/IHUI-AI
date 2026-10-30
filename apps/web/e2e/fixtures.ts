@@ -18,10 +18,11 @@ export type { Page, APIRequestContext }
  * - token 写入 cookie `auth_token`（middleware 也会兜底读取 `token`）
  * - JWT payload 含 userId / roleId / role / exp；admin 判定：roleId >= 1
  *
- * 账号来源：
- * - 普通用户（test@aizhs.top）由 seed 脚本保证
- * - e2e 管理员是测试专用账号，由 seed 脚本按 E2E_ADMIN_PASSWORD 写入
+ * 账号来源（口令一律环境变量注入，仓库内零默认值）：
+ * - 普通用户：account 默认 test@aizhs.top（由 seed 脚本保证），口令取 E2E_USER_PASSWORD
+ * - e2e 管理员：account 默认 e2e_admin，口令取 E2E_ADMIN_PASSWORD
  *   （仅隔离 test/CI 库；生产 system admin 不参与 e2e）
+ * - 任一口令环境变量缺失 ⇒ 该登录腿运行期具名失败；其余无关用例照常装载
  *
  * 现有 34 个 spec 文件直接 `import { test } from '@playwright/test'`，不受本文件影响；
  * 需要登录态的新测试可 `import { test, expect } from './fixtures'` 并使用 authenticatedPage / adminPage。
@@ -31,7 +32,7 @@ export type { Page, APIRequestContext }
  * e2e 口令一律由环境变量注入：仓库内不保存任何可登录口令的默认值。
  * 缺失即失败，避免"仓内公开口令 = 某环境真实口令"。
  */
-function requireEnv(name: string): string {
+export function requireEnv(name: string): string {
   const value = process.env[name]
   if (!value) {
     throw new Error(
@@ -42,10 +43,16 @@ function requireEnv(name: string): string {
   return value
 }
 
-// 测试用户凭据（从环境变量读取，提供默认值，不硬编码敏感信息）
+// 测试用户凭据：口令**只**从环境变量取，仓库内不提供任何明文默认值。
+// 缺失即当场具名 throw（不 warn、不回落、不降级为空串）。
+// 惰性求值同 ADMIN_USER：顶层求值会让任何 `import './fixtures'` 的 spec 在
+// Playwright **加载阶段**整片崩（Total: 0 tests in 0 files），故把求值时机后移到
+// 真正读取 .password（即真要登录）的那一刻。
 const TEST_USER = {
   account: process.env.E2E_USER_ACCOUNT ?? 'test@aizhs.top',
-  password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
+  get password(): string {
+    return requireEnv('E2E_USER_PASSWORD')
+  },
 }
 
 const ADMIN_USER = {
