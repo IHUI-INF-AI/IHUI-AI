@@ -113,6 +113,17 @@ export interface BackupPlanOptions {
 }
 
 /**
+ * 快照目录时间戳(UTC 秒级,冒号/短横吃掉的紧凑形态)。
+ * 唯一实现:computeBackupPlan 与一键模式的"目的地跟随注入 home"共用,复制一份就会漂。
+ */
+export function backupStampOf(now: Date): string {
+  return now
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}/, '')
+}
+
+/**
  * 计算备份计划(纯只读面)。默认目的地 `~/.wb-switch/backups/sessions/<UTC时间戳>/`,
  * `destOverride` 供测试与 --dest 注入;`opts.gzip` 为新增可选压缩档(默认关)。
  */
@@ -123,10 +134,7 @@ export function computeBackupPlan(
   destOverride?: string,
   opts?: BackupPlanOptions,
 ): BackupPlan {
-  const stamp = now
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace(/\.\d{3}/, '')
+  const stamp = backupStampOf(now)
   const destDir = destOverride ?? join(homedir(), '.wb-switch', 'backups', 'sessions', stamp)
   const sourcePresent = existsSync(sessionsRoot) || existsSync(projectsRoot)
   const files: BackupFileEntry[] = []

@@ -14,6 +14,7 @@
  *
  * 零上游请求:只动本地文件。恢复路径 = 再切回旧快照(备份本身就在快照库里)。
  */
+import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   copyFileSync,
@@ -27,7 +28,7 @@ import {
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { computeBackupPlan, applyBackup } from './relay-session-backup.js'
+import { computeBackupPlan, applyBackup, backupStampOf } from './relay-session-backup.js'
 import {
   appendOps,
   applyTransfers,
@@ -50,6 +51,10 @@ export interface SwitchMainDeps {
   movePaths?: MovePaths
   now?: Date
   runningProcs?: string[]
+  /** 覆盖 home(测试注入临时目录;缺省 homedir) */
+  home?: string
+  /** 客户端生命周期(测试注入;缺省真实探测/关闭/拉起) */
+  clientLifecycle?: ClientLifecycle
 }
 
 export interface SwitchPaths {
@@ -489,6 +494,8 @@ function ensureSessionBackup(
     join(home, '.workbuddy', 'workspace', 'sessions'),
     join(home, '.workbuddy', 'projects'),
     now,
+    // 目的地跟随 home(测试注入临时 home 时绝不落到真实 ~/.wb-switch)
+    join(backupsDir, backupStampOf(now)),
   )
   let lock: { release: () => void } | null = null
   try {
@@ -505,6 +512,151 @@ function ensureSessionBackup(
   }
 }
 
+/** 同步睡眠:轮询等客户端退出用,不占 CPU、不引第三方依赖 */
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.max(0, ms))
+}
+
+const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
+
+/** 客户端生命周期依赖面(测试全部注入,绝不真关/真开本机程序) */
+export interface ClientLifecycle {
+  probe?: () => string[]
+  close?: (imageName: string) => void
+  launch?: (exe: string) => { ok: boolean; error?: string }
+  resolveExe?: () => ResolvedClientExe
+  intervalMs?: number
+  timeoutMs?: number
+}
+
+export interface CloseClientResult {
+  /** 关闭前检测到的进程数(0 = 本来就没开) */
+  runningBefore: number
+  ok: boolean
+  waitedMs: number
+  error?: string
+}
+
+/**
+ * 切号前置:优雅关闭 WorkBuddy 并等进程全部退出。
+ * 不带 /F —— taskkill 对 GUI 进程发 WM_CLOSE,强杀会丢未落盘会话;超时仍存活即失败,
+ * 调用方必须中止切换(此时登录态一个字节都还没改)。
+ */
+export function closeClientAndWait(opts: ClientLifecycle = {}): CloseClientResult {
+  const probe = opts.probe ?? (() => detectClientProcesses())
+  const before = probe()
+  if (before.length === 0) return { runningBefore: 0, ok: true, waitedMs: 0 }
+  // 平台闸只对默认实现成立:注入 close 时由调用方接管(测试在 Linux CI 也能跑同一判据)
+  if (!opts.close && process.platform !== 'win32') {
+    return {
+      runningBefore: before.length,
+      ok: false,
+      waitedMs: 0,
+      error: '仅 Windows 支持自动关闭客户端,请手动退出 WorkBuddy 后重试',
+    }
+  }
+  const image = before[0] ?? 'WorkBuddy.exe'
+  try {
+    if (opts.close) opts.close(image)
+    else execFileSync('taskkill', ['/IM', image, '/T'], { stdio: 'ignore', windowsHide: true })
+  } catch (e) {
+    return {
+      runningBefore: before.length,
+      ok: false,
+      waitedMs: 0,
+      error: `关闭命令失败: ${errMsg(e)}`,
+    }
+  }
+  const interval = opts.intervalMs ?? 400
+  const timeout = opts.timeoutMs ?? 20_000
+  let waited = 0
+  let alive = probe()
+  while (alive.length > 0 && waited < timeout) {
+    sleepSync(interval)
+    waited += interval
+    alive = probe()
+  }
+  if (alive.length > 0) {
+    return {
+      runningBefore: before.length,
+      ok: false,
+      waitedMs: waited,
+      error: `已等待 ${Math.round(waited / 1000)}s 仍有 ${alive.length} 个进程存活(可能有未保存会话),请手动退出后重试`,
+    }
+  }
+  return { runningBefore: before.length, ok: true, waitedMs: waited }
+}
+
+/** 从注册表卸载项读客户端 exe;读不到返回 undefined,绝不抛 */
+function queryClientExeFromRegistry(): string | undefined {
+  if (process.platform !== 'win32') return undefined
+  const roots = [
+    'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+    'HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+    'HKLM\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+  ]
+  for (const root of roots) {
+    try {
+      const out = execFileSync('reg', ['query', root, '/s', '/f', 'WorkBuddy', '/t', 'REG_SZ'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+      })
+      for (const block of out.split(/\r?\n\r?\n/)) {
+        if (!/DisplayName\s+REG_SZ\s+.*WorkBuddy/i.test(block)) continue
+        const m = /DisplayIcon\s+REG_SZ\s+(.+?)(?:,\s*-?\d+)?\s*$/m.exec(block)
+        const p = m?.[1]?.trim().replace(/^"|"$/g, '')
+        if (p && /\.exe$/i.test(p)) return p
+      }
+    } catch {
+      // 该根不可读就试下一个;三层全部落空 = 未找到,由调用方提示手动打开
+    }
+  }
+  return undefined
+}
+
+export interface ResolvedClientExe {
+  path?: string
+  source: string
+}
+
+/** 客户端 exe 三层解析:环境变量 > 注册表卸载项 > 标准安装位(机器事实现读,不写死盘符) */
+export function resolveClientExe(
+  opts: {
+    env?: NodeJS.ProcessEnv
+    queryRegistry?: () => string | undefined
+    exists?: (p: string) => boolean
+  } = {},
+): ResolvedClientExe {
+  const env = opts.env ?? process.env
+  const exists = opts.exists ?? existsSync
+  const fromEnv = env['IHUI_WORKBUDDY_EXE']
+  if (fromEnv && exists(fromEnv)) return { path: fromEnv, source: 'env:IHUI_WORKBUDDY_EXE' }
+  const reg = (opts.queryRegistry ?? queryClientExeFromRegistry)()
+  if (reg && exists(reg)) return { path: reg, source: 'registry' }
+  const localAppData = env['LOCALAPPDATA'] ?? ''
+  const candidates = [
+    localAppData ? join(localAppData, 'Programs', 'WorkBuddy', 'WorkBuddy.exe') : '',
+    'C:\\Program Files\\WorkBuddy\\WorkBuddy.exe',
+    'C:\\Program Files (x86)\\WorkBuddy\\WorkBuddy.exe',
+  ]
+  for (const c of candidates) {
+    if (c && exists(c)) return { path: c, source: 'candidate' }
+  }
+  return { source: 'not-found' }
+}
+
+/** 拉起客户端(独立进程,不随本脚本退出) */
+export function launchClient(exe: string): { ok: boolean; error?: string } {
+  try {
+    const child = spawn(exe, [], { detached: true, stdio: 'ignore', windowsHide: false })
+    child.unref()
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: errMsg(e) }
+  }
+}
+
 export function main(
   argv: string[],
   pathsOverride?: SwitchPaths,
@@ -516,6 +668,10 @@ export function main(
   const oneClick = argv.includes('--one-click')
   // --one-click 隐含换桶(带对话过去 + 自动建会话库快照);否则沿用显式 --with-sessions
   const withSessions = argv.includes('--with-sessions') || oneClick
+  // 客户端生命周期由外层启动器显式传入(桌面双击场景);不隐含在 --one-click 里,守门/CI 不误关本机程序
+  const closeClient = argv.includes('--close-client')
+  const restartClient = argv.includes('--restart-client')
+  const lifecycle = deps.clientLifecycle ?? {}
   const lines: string[] = []
   let targetName: string | undefined
   if (toIdx === -1) {
@@ -583,7 +739,7 @@ export function main(
   )
   // 一键 + apply:先确保当日会话库快照(换桶红线的硬性前提),失败即中止(不改动登录态)
   if (oneClick && apply) {
-    const ensured = ensureSessionBackup(deps.now ?? new Date())
+    const ensured = ensureSessionBackup(deps.now ?? new Date(), deps.home)
     if (!ensured.ok) {
       console.error(`⚠ 一键模式: 建立会话库快照失败,中止(未改动任何登录态): ${ensured.error}`)
       return 1
@@ -602,15 +758,48 @@ export function main(
     console.log(lines.join('\n'))
     return 0
   }
+  // 客户端生命周期:切号前必须让客户端退出 —— 否则客户端退出时用旧登录态覆盖 auth,
+  // 且换桶会因客户端存续闸直接回滚(见 runLinkedSessionSwap)。失败即中止,登录态未动。
+  let closedClient = false
+  if (closeClient) {
+    const c = closeClientAndWait(lifecycle)
+    if (!c.ok) {
+      console.error(`⚠ 关闭 WorkBuddy 失败,已中止(登录态未改动): ${c.error}`)
+      return 1
+    }
+    closedClient = c.runningBefore > 0
+    if (closedClient) {
+      console.log(
+        `已关闭 WorkBuddy(${c.runningBefore} 个进程,等待 ${Math.round(c.waitedMs / 1000)}s 退出)`,
+      )
+    }
+  }
+  /** 收尾:按 --restart-client 重新拉起客户端(切换成功与失败都要还机主一个可用客户端) */
+  const finish = (code: number): number => {
+    if (restartClient && closedClient) {
+      const exe = (lifecycle.resolveExe ?? resolveClientExe)()
+      if (!exe.path) {
+        console.log('⚠ 未找到 WorkBuddy 安装路径(可设 IHUI_WORKBUDDY_EXE),请手动打开客户端')
+      } else {
+        const r = (lifecycle.launch ?? launchClient)(exe.path)
+        console.log(
+          r.ok
+            ? `已重新启动 WorkBuddy: ${exe.path}`
+            : `⚠ 启动 WorkBuddy 失败: ${r.error}(请手动打开)`,
+        )
+      }
+    }
+    return code
+  }
   const out = applySwitch(plan)
   if (!out.ok) {
     console.error(`切换失败: ${out.error}`)
-    return 1
+    return finish(1)
   }
   const switchedLine = `✅ 已切换: 现生效 sha=${out.newSha12};旧登录态备份于 ${out.backupPath};请重启 WorkBuddy 桌面端`
   if (!withSessions) {
     console.log([...lines, switchedLine].join('\n'))
-    return 0
+    return finish(0)
   }
   // --with-sessions / 一键:auth 已切 ⇒ 联动换桶(失败回滚 auth)
   const swapDeps = {
@@ -623,7 +812,7 @@ export function main(
     // auth 已回滚(或回滚失败)⇒ 不再声明"已切换";dry-run 那行的会话面从未动过
     console.error(`⚠ 会话联动: ${res.message}`)
     console.log(lines.join('\n'))
-    return 1
+    return finish(1)
   }
   const tail =
     res.status === 'swapped'
@@ -632,7 +821,7 @@ export function main(
         ? `ℹ 会话联动: ${res.message}`
         : `⚠ 会话联动: ${res.message}`
   console.log([...lines, switchedLine, tail].join('\n'))
-  return 0
+  return finish(0)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

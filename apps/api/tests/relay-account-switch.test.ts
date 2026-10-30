@@ -17,10 +17,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   applySwitch,
   assertNoSecretLeak,
+  closeClientAndWait,
   fmtTarget,
   listSwitchTargets,
   main,
   planSwitch,
+  resolveClientExe,
   rollbackAuth,
   runLinkedSessionSwap,
   type SwitchPaths,
@@ -518,6 +520,187 @@ describe('rollbackAuth / runLinkedSessionSwap 单元', () => {
       runningProcs: [],
     })
     expect(res.status).toBe('no-target-uid')
+  })
+})
+
+// ── 客户端生命周期(桌面一键启动器:关 → 切 → 开) ─────────────────────────
+// 判据全部注入:绝不真的关闭/拉起本机程序,也不落到真实 ~/.wb-switch。
+describe('client lifecycle', () => {
+  it('closeClientAndWait:本来没开 ⇒ 不执行关闭、零等待', () => {
+    let closeCalls = 0
+    const r = closeClientAndWait({
+      probe: () => [],
+      close: () => {
+        closeCalls += 1
+      },
+    })
+    expect(r).toEqual({ runningBefore: 0, ok: true, waitedMs: 0 })
+    expect(closeCalls).toBe(0)
+  })
+
+  it('closeClientAndWait:优雅关闭后轮询到全部退出', () => {
+    let alive = ['WorkBuddy.exe', 'WorkBuddy.exe']
+    const seen: string[] = []
+    const r = closeClientAndWait({
+      probe: () => alive,
+      close: (image) => {
+        seen.push(image)
+        alive = []
+      },
+      intervalMs: 1,
+      timeoutMs: 50,
+    })
+    expect(r.ok).toBe(true)
+    expect(r.runningBefore).toBe(2)
+    expect(seen).toEqual(['WorkBuddy.exe'])
+  })
+
+  it('closeClientAndWait:关不掉 ⇒ 超时判失败(调用方据此中止,不动登录态)', () => {
+    const r = closeClientAndWait({
+      probe: () => ['WorkBuddy.exe'],
+      close: () => {},
+      intervalMs: 1,
+      timeoutMs: 5,
+    })
+    expect(r.ok).toBe(false)
+    expect(r.error).toContain('仍有')
+  })
+
+  it('closeClientAndWait:关闭命令抛错 ⇒ 立即失败且带原因', () => {
+    const r = closeClientAndWait({
+      probe: () => ['WorkBuddy.exe'],
+      close: () => {
+        throw new Error('boom')
+      },
+    })
+    expect(r.ok).toBe(false)
+    expect(r.error).toContain('boom')
+  })
+
+  it('resolveClientExe:env > registry > candidate > not-found', () => {
+    expect(
+      resolveClientExe({
+        env: { IHUI_WORKBUDDY_EXE: 'D:/env/workbuddy.exe', LOCALAPPDATA: 'C:/LA' },
+        exists: () => true,
+        queryRegistry: () => 'R:/wb.exe',
+      }),
+    ).toEqual({ path: 'D:/env/workbuddy.exe', source: 'env:IHUI_WORKBUDDY_EXE' })
+
+    expect(
+      resolveClientExe({ env: {}, exists: () => true, queryRegistry: () => 'R:/wb.exe' }),
+    ).toEqual({ path: 'R:/wb.exe', source: 'registry' })
+
+    const candidate = join('C:/LA', 'Programs', 'WorkBuddy', 'WorkBuddy.exe')
+    expect(
+      resolveClientExe({
+        env: { LOCALAPPDATA: 'C:/LA' },
+        exists: (p) => p === candidate,
+        queryRegistry: () => undefined,
+      }),
+    ).toEqual({ path: candidate, source: 'candidate' })
+
+    expect(
+      resolveClientExe({ env: {}, exists: () => false, queryRegistry: () => undefined }),
+    ).toEqual({ source: 'not-found' })
+  })
+
+  it('main --close-client:关不掉 ⇒ exit 1 且登录态一个字节都没改', () => {
+    mkdirSync(join(paths.authFile, '..'), { recursive: true })
+    writeFileSync(paths.authFile, authBody('当前号'))
+    seedSnapshot('workbuddy-desktop.target.info', authBody('目标号', { uid: NEW_UID }))
+    const before = sha12(paths.authFile)
+
+    const r = runCapture(() =>
+      main(
+        ['--one-click', '--to', 'workbuddy-desktop.target.info', '--apply', '--close-client'],
+        paths,
+        {
+          clientLifecycle: {
+            probe: () => ['WorkBuddy.exe'],
+            close: () => {},
+            intervalMs: 1,
+            timeoutMs: 5,
+          },
+        },
+      ),
+    )
+    expect(r.code).toBe(1)
+    expect(r.err).toContain('关闭 WorkBuddy 失败')
+    expect(sha12(paths.authFile)).toBe(before)
+  })
+
+  it('main --close-client --restart-client:关 → 切 → 换桶 → 重启客户端', () => {
+    mkdirSync(join(paths.authFile, '..'), { recursive: true })
+    writeFileSync(paths.authFile, authBody('当前号', { uid: OLD_UID }))
+    seedSnapshot('workbuddy-desktop.target.info', authBody('目标号', { uid: NEW_UID }))
+    const mp = moveFixture()
+    const now = new Date()
+    seedSwapStore(mp, now, OLD_UID, NEW_UID)
+    const home = join(root, 'fake-home')
+    mkdirSync(home, { recursive: true })
+
+    const launched: string[] = []
+    const closed: string[] = []
+    let alive = ['WorkBuddy.exe']
+
+    const r = runCapture(() =>
+      main(
+        [
+          '--one-click',
+          '--to',
+          'workbuddy-desktop.target.info',
+          '--apply',
+          '--close-client',
+          '--restart-client',
+        ],
+        paths,
+        {
+          home,
+          now,
+          movePaths: mp,
+          runningProcs: [],
+          clientLifecycle: {
+            probe: () => alive,
+            close: (img) => {
+              closed.push(img)
+              alive = []
+            },
+            resolveExe: () => ({ path: 'X:/WorkBuddy.exe', source: 'test' }),
+            launch: (exe) => {
+              launched.push(exe)
+              return { ok: true }
+            },
+          },
+        },
+      ),
+    )
+    expect(r.code).toBe(0)
+    expect(closed).toEqual(['WorkBuddy.exe'])
+    expect(launched).toEqual(['X:/WorkBuddy.exe'])
+    expect(r.out).toContain('已重新启动 WorkBuddy')
+    expect(r.out).toContain('会话已联动换桶')
+    // 会话库快照落在注入的 home 下,绝不写真实 ~/.wb-switch
+    expect(existsSync(join(home, '.wb-switch', 'backups', 'sessions'))).toBe(true)
+  })
+
+  it('main dry-run + --close-client:不探测也不关客户端', () => {
+    mkdirSync(join(paths.authFile, '..'), { recursive: true })
+    writeFileSync(paths.authFile, authBody('当前号'))
+    seedSnapshot('workbuddy-desktop.target.info', authBody('目标号', { uid: NEW_UID }))
+    let probes = 0
+
+    const r = runCapture(() =>
+      main(['--one-click', '--to', 'workbuddy-desktop.target.info', '--close-client'], paths, {
+        clientLifecycle: {
+          probe: () => {
+            probes += 1
+            return ['WorkBuddy.exe']
+          },
+        },
+      }),
+    )
+    expect(r.code).toBe(0)
+    expect(probes).toBe(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
