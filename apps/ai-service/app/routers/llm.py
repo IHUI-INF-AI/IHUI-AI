@@ -3372,6 +3372,24 @@ def _record_compaction_step(
         logger.warning("compaction 指标上报失败(不影响主流程): %s", e)
 
 
+def _effective_context_limit(req: LLMCompleteRequest) -> int:
+    """自动压缩用的上下文上限:客户端声明值优先,缺省则**按请求模型解析**。
+
+    此前两处压缩门都写成 ``if req.context_limit and req.context_limit > 0``,而该字段
+    由客户端自报 —— 不带它的调用方等于完全没有自动压缩,一旦超窗就由提供方回 400
+    把会话打死。本仓执行器侧(``routers/agents.py`` 的 ``_new_v2_loop``)早已改为按模型
+    解析,聊天侧却仍留在"等客户端传数"。两处现在共用同一份
+    ``model_context_window.resolve_with_env_priority``(env
+    ``AGENT_COMPACTION_CONTEXT_LIMIT`` 仍最优先),**不产生第二套口径**。
+    """
+    declared = getattr(req, "context_limit", None)
+    if isinstance(declared, int) and declared > 0:
+        return declared
+    from app.core.model_context_window import resolve_with_env_priority
+
+    return resolve_with_env_priority(getattr(req, "model", None))
+
+
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
@@ -3415,10 +3433,11 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
-    if req.context_limit and req.context_limit > 0:
+    _ctx_limit = _effective_context_limit(req)
+    if _ctx_limit > 0:
         original_messages = messages
         _compact_started = time.perf_counter()
-        messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        messages, compaction_info = compress_messages_if_needed(messages, _ctx_limit)
         # P1-②(2026-09-18)决策链保留:把被压缩 head 段每轮 assistant 推理蒸馏为结构化
         # 决策条目注入摘要消息(纯确定性、零 LLM 调用;开关 AGENT_DECISION_CHAIN_ENABLED
         # 关闭 / 无摘要消息 / 无 head / 异常 → 产物与现状逐零差异),并自证推理保留率。
@@ -4119,10 +4138,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         injection_frames.append(_expert_frame)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
-    if req.context_limit and req.context_limit > 0:
+    _ctx_limit = _effective_context_limit(req)
+    if _ctx_limit > 0:
         original_messages = messages
         _compact_started = time.perf_counter()
-        messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        messages, compaction_info = compress_messages_if_needed(messages, _ctx_limit)
         # P1-②(2026-09-18)决策链保留:同 /v1/chat 主路径 —— 蒸馏 head 段推理注入摘要消息
         # (纯确定性、零 LLM;任何不适用/异常场景都退化为与现状逐零差异),并自证推理保留率。
         if compaction_info.get("compressed"):
