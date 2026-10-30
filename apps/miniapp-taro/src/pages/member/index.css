@@ -269,11 +269,6 @@
   color: var(--color-vip-gold-start);
   margin-right: 16rpx;
 }
-.member-original-price {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
-  text-decoration: line-through;
-}
 /* RN purchaseBtn:height 50 → 100rpx,gold 底 + gray.800 深字;圆角按角色档 control→sm */
 .member-vip-button,
 .member-cta-button {

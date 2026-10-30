@@ -6,14 +6,24 @@ import { View, Text, Image } from '@tarojs/components'
 import { useTt } from '@/i18n'
 import { PressableCard } from '@/components/ScreenStates.taro'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
+import { formatDateByTemplate } from '@ihui/shared'
 import type { StudyRecord } from '@/api'
 
 /**
- * 学习记录行:GET /study/records 除共享类型 StudyRecord 外还回 lessonTitle,
- * 列表兼容字段可能带 coverUrl。status 未进共享类型,故本页三态一律由 progress 派生
- * —— 与 RN 共享屏 completed / in_progress / paused 同义(paused 即零进度、灰档)。
+ * 学习记录行:GET /study/records 除共享类型 StudyRecord 外还回 lessonTitle(study-routes.ts:49-61)。
+ * status 未进共享类型,故本页三态一律由 progress 派生 —— 与 RN 共享屏
+ * completed / in_progress / paused 同义(paused 即零进度、灰档;该端点每行 progress 为真值,
+ * 报名未学即为 0 ⇒ 三档均可达)。
+ * 两点如实登记:① 该端点不产出 coverUrl ⇒ 封面无图腿是当前常态,兜底文案恒展示;
+ * ② 行上的时刻字段真名是 lastStudyAt / createdAt(study-routes.ts:59-60),
+ * 共享类型里的 time 后端从未给出 ⇒ 展示时刻只认这两个,不读 time。
  */
-export type StudyRecordRow = StudyRecord & { coverUrl?: string; lessonTitle?: string }
+export type StudyRecordRow = StudyRecord & {
+  coverUrl?: string
+  lessonTitle?: string
+  lastStudyAt?: string
+  createdAt?: string
+}
 
 export type RecordStatus = 'completed' | 'in_progress' | 'paused'
 
@@ -46,17 +56,16 @@ export function RecordCard({ row, onOpen }: { row: StudyRecordRow; onOpen: () =>
       : st === 'paused'
         ? 'bg-muted text-muted-foreground'
         : 'bg-[var(--color-warning-light)] text-foreground'
-  // 对齐 RN:courseTitle → lessonTitle → 未命名学习记录
+  // 对齐 RN:courseTitle → lessonTitle → 未命名学习记录(lessons.title 为 notNull,
+  // 兜底只在历史空串行上命中)
   const title = row.courseTitle || row.lessonTitle || tt('studyRecord.untitled', '未命名学习记录')
-  // 对齐 RN metaRow 的时长/进度二选一:后端目前对每行恒返 duration=0(study-routes 写死 0),
-  // 故只有真给出分钟数时才展示「时长」,常态展示「进度」—— 两键都按真实数据出现,不摆空壳。
+  // metaRow 只展示进度:每行的「时长」字段是处理器写死的 0(study-routes.ts:55 `duration: 0`),
+  // 不是真实分钟数 ⇒ 展示它等于摆假数据。对应文案键已从本页撤除,等后端真出该字段再接回。
   const meta: string[] = []
-  if (typeof row.duration === 'number' && row.duration > 0) {
-    meta.push(`${tt('studyRecord.duration', '时长')}: ${row.duration}`)
-  }
   if (typeof row.progress === 'number') {
     meta.push(`${tt('studyRecord.progress', '进度')}: ${clampPercent(row.progress)}%`)
   }
+  const lastStudyAt = formatDateByTemplate(row.lastStudyAt || row.createdAt || '', 'YYYY-MM-DD')
 
   return (
     <PressableCard
@@ -94,7 +103,7 @@ export function RecordCard({ row, onOpen }: { row: StudyRecordRow; onOpen: () =>
         <View className="mt-[10rpx] flex items-center justify-between">
           <Text className={META_TEXT}>{meta.join(' · ')}</Text>
           <Text className={META_TEXT}>
-            {tt('study.recordPage.lastTime', '上次学习')}: {row.time}
+            {tt('study.recordPage.lastTime', '上次学习')}: {lastStudyAt}
           </Text>
         </View>
         <View className="mt-[12rpx] self-end py-[16rpx] px-[32rpx] bg-cta rounded-xl">
