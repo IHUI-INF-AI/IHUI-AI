@@ -502,11 +502,6 @@
       "miniapp": "pkg-learn/course/list"
     },
     {
-      "shared": "packages/app/src/features/identity-verify/IdentityVerifyScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/IdentityVerifyScreen.tsx",
-      "miniapp": "pkg-user/user/realname"
-    },
-    {
       "shared": "packages/app/src/features/income/IncomeScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/IncomeScreen.tsx",
       "miniapp": "pkg-shop/wallet/commission/index"
