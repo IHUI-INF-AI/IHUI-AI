@@ -29,7 +29,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
-import { toMediaImageUrl } from '@/lib/media-proxy'
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 
 interface AigcRecord {
   recordId: string
@@ -95,13 +95,13 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
         )
       case 'video':
         return (
-          <video src={url} controls className="w-full rounded-md border">
+          <video src={toMediaStreamUrl(url)} controls className="w-full rounded-md border">
             <track kind="captions" />
           </video>
         )
       case 'audio':
         return (
-          <audio src={url} controls className="w-full">
+          <audio src={toMediaStreamUrl(url)} controls className="w-full">
             <track kind="captions" />
           </audio>
         )
