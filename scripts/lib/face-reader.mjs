@@ -1001,6 +1001,128 @@ export function parseBatchBuffers(out, revs) {
   return map
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 规格 → oid 预解析(2026-10-30 立:治"每道门都在超时边缘")
+//
+// 现象:门 25 连续 rc=2 ——`git cat-file --batch-check 失败(14963 个规格) … ETIMEDOUT`,
+//   而同一批对象换成 blob sha 只要 7 秒级。本机实测(17,705 在册文件):
+//     `HEAD:<path>` × 14,963  ⇒ **2 分 48 秒**   ← 每条规格都从根树逐级走到该路径
+//     `<blob oid>`   × 17,299  ⇒ **7.2 秒**      ← 直接按 oid 查 pack
+//     `git ls-tree -r -z HEAD` ⇒ **1.5 秒**      ← 一次线性枚举出全部 path→oid
+//   根因是**规格形态**,不是 tag 数量、不是对象库大小(`for-each-ref` 全量仅 2.6 秒)。
+//   `BATCH_TIMEOUT=120s` 恰好卡在 168s 的中位,于是同一道门时绿时红;而 rc=2 不报警,
+//   跑久了所有人都当成绿的(AGENTS §0.3) —— 这比判红危险得多。
+//
+// 语义等价性(只许换取法,不许换判定):
+//   - 路径在被审面不存在 ⇒ 映射 null,与 `HEAD:<path> missing` 同义(cat-file 对 missing
+//     与 unmerged 都返回非 blob 头,`parseBatchCheckSizes` 一律归 null);
+//   - 合并冲突(unmerged):`ls-files -s` 对同一路径给出多个 stage ⇒ 同样归 null;
+//   - 子模块(gitlink):`ls-tree` 给的是 commit oid;cat-file 对它与对 `HEAD:sub` 都返回
+//     `commit <size>`,两边都归 null,batch 读到的也是同一份 commit 正文;
+//   - 非路径形态(`HEAD^{tree}` / 分支名 / 标签 / 短 sha)原样透传,一个都不猜。
+//   同一 blob 被多条路径引用时**只查一次**再回填每条 spec —— 这正是 17,705→17,299 的差。
+//
+// 逃生舱:`IHUI_FACE_SPEC_FASTPATH=0` 强制走老路(对照测试与线上排障用);
+//   规格数 < `FASTPATH_MIN_SPECS` 时不启用(小批量不值得多一次派生)。
+// 解析失败 ⇒ 写一行 stderr 并**透传原 spec**,行为与改造前完全一致 —— 不引入新的失败模式。
+const FASTPATH_MIN_SPECS = Number(process.env.IHUI_FACE_SPEC_FASTPATH_MIN) || 200
+const OID_SPEC_RE = /^[0-9a-f]{40,64}$/
+const HEAD_PATH_SPEC_RE = /^HEAD:(.+)$/s
+const INDEX_PATH_SPEC_RE = /^:(.+)$/s
+
+/** `ls-tree -r -z` / `ls-files -s -z` 的公共解析:`<meta…>TAB<path>NUL`。路径用 indexOf 切,不按 TAB 全拆(文件名允许含 TAB)。 */
+function parseZPathOidTable(out, { unmergedAsNull = false } = {}) {
+  const map = new Map()
+  const conflicted = new Set()
+  for (const rec of String(out).split('\u0000')) {
+    if (!rec) continue
+    const tab = rec.indexOf('\t')
+    if (tab < 0) continue
+    const meta = rec.slice(0, tab).split(' ')
+    const rel = rec.slice(tab + 1)
+    if (meta.length < 3 || !rel) continue
+    const oid = meta[2]
+    if (!OID_SPEC_RE.test(oid)) continue
+    if (map.has(rel)) {
+      // 同一路径第二次出现 ⇒ 多 stage(合并冲突)。`:path` 在冲突态本就是 unmerged,
+      // 这里必须显式置 null,不能留成"最后一条赢"。
+      conflicted.add(rel)
+      continue
+    }
+    map.set(rel, oid)
+  }
+  if (unmergedAsNull) for (const rel of conflicted) map.set(rel, null)
+  return map
+}
+
+/**
+ * 把一批 rev 规格解析成 oid。返回 `Map<spec, oid|null>`(null = 被审面上不存在)。
+ * 无法离线解析的形态原样映射到自身,由 cat-file 自己去解释。
+ */
+export function resolveSpecOids(root, specs, opts = {}) {
+  const list = [...specs]
+  const result = new Map()
+  const headPaths = []
+  const indexPaths = []
+  for (const s of list) {
+    if (OID_SPEC_RE.test(s)) {
+      result.set(s, s)
+      continue
+    }
+    const hm = HEAD_PATH_SPEC_RE.exec(s)
+    if (hm) {
+      headPaths.push([s, hm[1]])
+      continue
+    }
+    const im = INDEX_PATH_SPEC_RE.exec(s)
+    if (im) {
+      indexPaths.push([s, im[1]])
+      continue
+    }
+    result.set(s, s)
+  }
+  const fastpathEnabled = process.env.IHUI_FACE_SPEC_FASTPATH !== '0'
+  if (!fastpathEnabled || list.length < FASTPATH_MIN_SPECS) {
+    for (const [s] of headPaths) result.set(s, s)
+    for (const [s] of indexPaths) result.set(s, s)
+    return result
+  }
+  const timeout = opts.timeout ?? BATCH_TIMEOUT
+  try {
+    if (headPaths.length) {
+      const out = gitRaw(['ls-tree', '-r', '-z', 'HEAD'], root, { timeout })
+      const table = parseZPathOidTable(out)
+      for (const [spec, rel] of headPaths) result.set(spec, table.has(rel) ? table.get(rel) : null)
+    }
+    if (indexPaths.length) {
+      const out = gitRaw(['ls-files', '--cached', '-s', '-z'], root, { timeout })
+      const table = parseZPathOidTable(out, { unmergedAsNull: true })
+      for (const [spec, rel] of indexPaths) result.set(spec, table.has(rel) ? table.get(rel) : null)
+    }
+  } catch (e) {
+    // 取不到树/索引 ⇒ 退回改造前的形态,并如实点名(不静默、不折成"没有文件")
+    process.stderr.write(
+      `⚠ face-reader: 规格预解析失败,回退逐条 derive(${String((e && e.message) || e).split('\n')[0].slice(0, 160)})\n`,
+    )
+    for (const [s] of headPaths) result.set(s, s)
+    for (const [s] of indexPaths) result.set(s, s)
+  }
+  return result
+}
+
+/** 把 `Map<spec, oid>` 折成「去重后的 oid 清单」+「回填表」,不丢任何 spec。 */
+function foldSpecsByOid(oidOfSpec) {
+  const query = []
+  const seen = new Set()
+  for (const [, oid] of oidOfSpec) {
+    if (oid === null || oid === undefined) continue
+    if (seen.has(oid)) continue
+    seen.add(oid)
+    query.push(oid)
+  }
+  return query
+}
+
 /**
  * `cat-file --batch-check` 的头解析(纯函数,与派生分开 —— "某条 missing"这一支只能构造证明)。
  * 行格式 `<oid> blob <size>`;missing / unmerged / 目录树都归 null。
@@ -1019,11 +1141,25 @@ export function parseBatchCheckSizes(out, specs) {
 export function catBatchSizes(root, specs, opts = {}) {
   const list = [...specs]
   if (list.length === 0) return new Map()
+  const oidOfSpec = resolveSpecOids(root, list, opts)
+  const query = foldSpecsByOid(oidOfSpec)
+  if (query.length === 0) return new Map(list.map((s) => [s, null]))
+  const byOid = catBatchSizesByOid(root, query, opts, list.length)
+  const out = new Map()
+  for (const s of list) {
+    const oid = oidOfSpec.get(s)
+    out.set(s, oid === null || oid === undefined ? null : (byOid.get(oid) ?? null))
+  }
+  return out
+}
+
+/** 只吃 oid 的取大小实现(`catBatchSizes` 的底座;预解析后规格已折成去重 oid 集)。 */
+function catBatchSizesByOid(root, oids, opts = {}, specCount = null) {
   let out
   try {
     out = batchExecFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch-check'], {
       cwd: root,
-      input: Buffer.from(list.join('\n') + '\n', 'utf8'),
+      input: Buffer.from(oids.join('\n') + '\n', 'utf8'),
       encoding: 'utf8',
       windowsHide: true,
       maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
@@ -1031,11 +1167,12 @@ export function catBatchSizes(root, specs, opts = {}) {
       stdio: ['pipe', 'pipe', 'pipe'],
     })
   } catch (e) {
+    // 报原始规格数(调用方关心的是"多少个文件没取到",不是折成多少个 oid)
     throw new Undetermined(
-      `git cat-file --batch-check 失败(${list.length} 个规格),${root} 的判定面无法取材: ${spawnCauseText(e, opts.maxBuffer ?? GIT_MAX_BUFFER, '取大小')}`,
+      `git cat-file --batch-check 失败(${specCount ?? oids.length} 个规格),${root} 的判定面无法取材: ${spawnCauseText(e, opts.maxBuffer ?? GIT_MAX_BUFFER, '取大小')}`,
     )
   }
-  return parseBatchCheckSizes(out, list)
+  return parseBatchCheckSizes(out, oids)
 }
 
 /**
@@ -1079,13 +1216,18 @@ function catBatchRaw(root, revs, opts = {}) {
   // 单块预算取 min(默认块上限, 调用方给的缓冲区) —— 调用方把 maxBuffer 调大只该让它
   // **更敢读**,不该反过来把块撑大到一个 blob 就能顶爆的量。
   const maxBytes = opts.maxBytes ?? Math.min(BATCH_BLOCK_BYTES, maxBuffer)
-  const sizes = list.length > 1 ? catBatchSizes(root, list, opts) : new Map()
-  const bytesOf = (s) => sizes.get(s) ?? 0
-  const blocks = packByBytes(list, bytesOf, {
+  // 规格先折成 oid(见 resolveSpecOids 头注):同一个 blob 被多条路径引用时只读一次,
+  // `HEAD:<path>` 也不再逐条走树 —— 本机实测 14,963 条路径规格 168s → 9s 级。
+  const oidOfSpec = resolveSpecOids(root, list, opts)
+  const query = foldSpecsByOid(oidOfSpec)
+  if (query.length === 0) return new Map(list.map((s) => [s, null]))
+  const sizes = query.length > 1 ? catBatchSizesByOid(root, query, opts, list.length) : new Map()
+  const bytesOf = (o) => sizes.get(o) ?? 0
+  const blocks = packByBytes(query, bytesOf, {
     maxBytes,
     maxCount: opts.chunkSize ?? CAT_BATCH_CHUNK,
   })
-  const out = new Map()
+  const byOid = new Map()
   let seen = 0
   for (let c = 0; c < blocks.length; c++) {
     const part = blocks[c]
@@ -1107,8 +1249,14 @@ function catBatchRaw(root, revs, opts = {}) {
         `git cat-file --batch 失败,${root} 的判定面无法取材(第 ${c + 1}/${blocks.length} 块,${part.length} 个规格): ${spawnCauseText(e, budget, `块 ${c + 1}/${blocks.length}`)}`,
       )
     }
-    for (const [k, v] of parseBatchBuffersWithOffset(raw, part, seen)) out.set(k, v)
+    for (const [k, v] of parseBatchBuffersWithOffset(raw, part, seen)) byOid.set(k, v)
     seen += part.length
+  }
+  // 回填到调用方给的**原始规格**键上(调用方按 faceSpecOf(face, rel) 取值,键形状不能变)
+  const out = new Map()
+  for (const s of list) {
+    const oid = oidOfSpec.get(s)
+    out.set(s, oid === null || oid === undefined ? null : (byOid.get(oid) ?? null))
   }
   return out
 }
