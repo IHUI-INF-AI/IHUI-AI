@@ -4696,6 +4696,112 @@ const FEEDBACK_CLOSURE_LAST = join(
   'feedback-loop-closure-last.json',
 )
 
+// ── 源站回源鉴权守卫的存续哨兵(2026-10-30 立,尺子 = scripts/check-origin-guard-liveness.mjs)──
+// 立因:守卫在 enforce 档下已实录拦下外部直连(现读 12h 内 40 个来源被拒),但全仓零条判据读 router
+// 日志(`grep -r svc-web-router scripts/` 现读 0 命中)⇒ "有人正在试"与"守卫哪天被静默降档"都没人看。
+// 为什么只喊降档、不喊数量:40 个/12h 属互联网背景扫描噪声,做进告警就是天天喊(§12e 恒红门同型);
+// 而"档位不是 enforce"是二值事实且当场可整改(改 env + 重启)⇒ 符合 §5e-1 可整改性准入。
+// 判机器状态 ⇒ 刻意不进提交链(§12e)。读数取进程**自述**而非 env:env 改了进程没重启是假绿。
+const ORIGIN_GUARD_INTERVAL_MS = Number(process.env.IHUI_ORIGIN_GUARD_INTERVAL_MS || 6 * 60 * 60 * 1000)
+const ORIGIN_GUARD_TICK = join(WORKTREE, '.ihui-agent', 'state', 'origin-guard-tick.iso')
+const ORIGIN_GUARD_LAST = join(WORKTREE, '.ihui-agent', 'state', 'origin-guard-last.json')
+
+export function auditOriginGuardLiveness(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = ORIGIN_GUARD_INTERVAL_MS,
+    tickFile = ORIGIN_GUARD_TICK,
+    lastFile = ORIGIN_GUARD_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-origin-guard-liveness.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 源站守卫存续:尺子不在位(scripts/check-origin-guard-liveness.mjs)⇒ 本轮跳过,不记为已巡检')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    let call
+    try {
+      const out = execFileSync(process.execPath, [script, '--json'], {
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 120_000,
+      })
+      call = { status: 0, stdout: String(out || ''), stderr: '' }
+    } catch (e) {
+      call = {
+        status: typeof e.status === 'number' ? e.status : 2,
+        stdout: String(e.stdout || ''),
+        stderr: String(e.stderr || e.message || ''),
+      }
+    }
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    const state = parsed?.liveness?.state
+    if (typeof state !== 'string') {
+      logger(
+        `⚠️ 源站守卫存续未产出结论(未判定,不记为已巡检):rc=${call.status} ` +
+          String([call.stderr, call.stdout].filter(Boolean).join(' ')).slice(0, 160),
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性,不影响发信本身 */
+    }
+    if (state === 'breach') {
+      const mode = String(parsed?.liveness?.mode || '?')
+      const p = parsed?.probes || {}
+      notify(
+        `源站回源鉴权已降档为 ${mode}(不再是 enforce)`,
+        `router 最近一次启动自述 edgeGuard="${parsed?.liveness?.detail || mode}"(启动于 ${parsed?.liveness?.at || '?'})。\n` +
+          '此刻任何知道源站 IP 的主体都能绕过 EdgeOne 直连,边缘限流与 DDoS 防护形同虚设。\n\n' +
+          '整改次序:\n' +
+          '  ① 查服务 env 的 IHUI_EDGE_SECRET_MODE / IHUI_EDGE_SECRET(值不外传):\n' +
+          '     pwsh -c "(Get-ItemProperty \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\IHUI-WEB-ROUTER\\Parameters\').AppEnvironmentExtra"\n' +
+          '  ② env 已对而档位仍低 ⇒ 进程没重启(改了不重读)⇒ nssm restart IHUI-WEB-ROUTER\n' +
+          '  ③ 复跑尺子(它读进程自述而非 env,所以是唯一凭据):\n' +
+          '     node scripts/check-origin-guard-liveness.mjs\n' +
+          '  ④ 外网复验:不带回源头打源站 IP 应得 403\n\n' +
+          `本窗口外部被拒来源 ${p.externalDistinct ?? '?'} 个 / 事件 ${p.events ?? '?'} 条(只报数,不喊人)。`,
+        { severity: 'warning', dedupKey: `origin-guard:downgrade:${mode}` },
+      )
+      logger(`❌ 源站守卫存续:档位=${mode}(breach,已按身份去重发信)`)
+      return { ran: true, judged: true, breaches: 1, mode }
+    }
+    if (state === 'unjudged') {
+      logger(`ℹ️ 源站守卫存续:未判定 —— ${String(parsed?.liveness?.why || '(无原因)').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    const p2 = parsed?.probes || {}
+    logger(
+      `✅ 源站守卫存续:enforce 在位(启动自述 ${parsed?.liveness?.at || '?'});` +
+        `24h 外部被拒来源 ${p2.externalDistinct ?? '?'} 个(只报数)${parsed?.truncated ? ' [尾部截断]' : ''}`,
+    )
+    return { ran: true, judged: true, breaches: 0, externalDistinct: p2.externalDistinct ?? 0 }
+  } catch (e) {
+    logger('⚠️ 源站守卫存续派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 export function auditAssetPathHealth(opts = {}) {
   const {
     now = Date.now(),
@@ -8227,6 +8333,9 @@ function main() {
     // 资产路径可达性 + 证书到期(2026-10-28 立,尺子 = scripts/check-asset-path-health.mjs):立因 =
     // 生产 .env 四条支付宝证书路径写在已不存在的 F: 盘上,SDK 静默读不到证书,全仓零门喊过。6h 节流。
     if (!CHECK_ONLY) auditAssetPathHealth()
+    // 源站回源鉴权存续(2026-10-30 立):守卫已实录拦下外部探测,但"被降档"这件事此前无人看。
+    // 判机器状态 ⇒ 不进提交链(§12e);只挂单轮路径与上一行同格(计划任务档每 2 分钟冷启,6h 节流)。
+    if (!CHECK_ONLY) auditOriginGuardLiveness()
     // AASA 公网健康(2026-10-29 立):这台尺子造出来时只接了手工入口 `pnpm check:aasa-health`,
     // 没人按时跑它 —— 而它守的是"AASA 两腿公网可达且与单源同构",属机主面之外唯一能自动守的半格。
     if (!CHECK_ONLY) auditAasaPublicHealth()
@@ -9320,6 +9429,8 @@ export const __test__ = {
   // daemon 存活兜底的纯判据(2026-10-29 立):镜像只吃这一份,不复制 STATE 码表
   judgeGuardDaemonAlive,
   ensureGuardDaemonAlive,
+  // 源站守卫存续派发腿(2026-10-30 立):接线锁要钉"挂上了、且尺子取不到结论时不记绿"
+  auditOriginGuardLiveness,
   // 恢复面的"当次实测形态分派"唯一出口(gitdir-pointer 票本席收的格,镜像只 import 这一份)
   gitdirTargetVerdictFromFace,
   // `.git` 指针形态的修复面(2026-10-27 票面第③格补的口):判据、现读形态、两形态分流、
