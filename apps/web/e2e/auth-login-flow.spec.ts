@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect } from '@playwright/test'
+import { requireEnv } from './fixtures'
 
 /**
  * 8 端关键路径 — 认证登录流程 (含 SSO)
@@ -91,7 +92,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
       request,
       baseURL ?? 'http://localhost:8801',
       process.env.E2E_USER_ACCOUNT ?? 'test@aizhs.top',
-      process.env.E2E_USER_PASSWORD ?? 'Test@123456',
+      requireEnv('E2E_USER_PASSWORD'),
     )
     if (!result.ok && result.code === null) {
       test.skip(true, '后端 API 不可用,跳过')
@@ -135,7 +136,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
       request,
       baseURL ?? 'http://localhost:8801',
       process.env.E2E_USER_ACCOUNT ?? 'test@aizhs.top',
-      process.env.E2E_USER_PASSWORD ?? 'Test@123456',
+      requireEnv('E2E_USER_PASSWORD'),
     )
     if (!result.ok) {
       test.skip(true, '后端不可用或测试账号未 seed,跳过')

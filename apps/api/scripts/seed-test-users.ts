@@ -65,15 +65,27 @@ interface SeedUser {
   roleId: number
 }
 
-const SEED_USERS: SeedUser[] = [
-  {
+/**
+ * 普通 e2e 用户：口令同样只从环境变量读取（2026-10-30,G-23 同族）。
+ * 此前这里是仓内公开字面量 —— 与 G-23 的 admin 口令同一型暴露：任何能读仓的人
+ * 都拿到了一个真实可登录账号的口令。缺失即**不 seed**并告警，绝不回落到仓内字面量。
+ */
+const SEED_USERS: SeedUser[] = []
+const e2eUserPassword = process.env.E2E_USER_PASSWORD
+if (e2eUserPassword) {
+  SEED_USERS.push({
     email: 'test@aizhs.top',
     username: 'test_e2e',
     nickname: 'Test User',
-    password: 'Test@123456',
+    password: e2eUserPassword,
     roleId: 0,
-  },
-]
+  })
+} else {
+  console.warn(
+    '[seed-test-users] 未设置 E2E_USER_PASSWORD，跳过普通 e2e 用户 seed；' +
+      '需要用户登录态的用例会失败（口令仅允许从环境注入）。',
+  )
+}
 
 /**
  * e2e 管理员：测试专用，非 system admin（不触碰 0067 的不可变触发器）。

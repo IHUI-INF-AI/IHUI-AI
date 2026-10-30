@@ -12,7 +12,7 @@
  * - parallelism: 1 (单线程,防 DoS)
  *
  * 与 apps/api/scripts/seed-test-users.ts 等价:
- * - 同样 seed email='test@aizhs.top' / username='test_e2e' / password='Test@123456' / roleId=0
+ * - 同样 seed email='test@aizhs.top' / username='test_e2e' / password 取 E2E_USER_PASSWORD / roleId=0
  * - 同样用 argon2id 实时 hash(不再用预生成的 bcrypt hash)
  *
  * 依赖说明:
@@ -44,8 +44,17 @@ const ARGON2ID_OPTIONS = {
   parallelism: 1,
 } as const
 
-/** 测试用户明文密码(与 seed-test-users.ts 一致) */
-const TEST_USER_PASSWORD = 'Test@123456'
+/**
+ * 测试用户口令:只从环境变量读(2026-10-30,G-23 同族收口)。
+ * 此前这里是仓内公开字面量 —— 任何能读仓的人都拿到一个真实可登录账号的口令。
+ * 与 apps/api/scripts/seed-test-users.ts 同一口径:缺失即拒绝执行,不回落到仓内字面量。
+ */
+const TEST_USER_PASSWORD = process.env.E2E_USER_PASSWORD ?? ''
+if (!TEST_USER_PASSWORD) {
+  throw new Error(
+    '[database/seed/users] 缺少环境变量 E2E_USER_PASSWORD:测试用户口令只从环境注入,仓库内不提供默认值。',
+  )
+}
 
 interface DefaultUser {
   email: string
