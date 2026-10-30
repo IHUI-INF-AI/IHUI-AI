@@ -952,6 +952,7 @@
     "logoutConfirmBody": "Sign out of this account?"
   },
   "menu": {
+    "artifacts": "Artifacts",
     "about": "About us",
     "feedback": "Feedback",
     "privacy": "Privacy Policy",
