@@ -20,9 +20,13 @@
 # 在【当前进程】内执行加固脚本,绝不另起 powershell 子进程 —— 改回 `& powershell -File`
 # 会让看门狗静默失效(服务照常 Running,规则却一条都没重放)。
 #
-# 重放间隔:2026-10-28 落地时是 6h,被篡改最长有 6h 暴露窗;现默认 1h。
-# 可用环境变量 IHUI_FW_WATCHDOG_INTERVAL_SEC 覆盖(nssm AppEnvironmentExtra 注入),
-# 出现异常时可临时调大而不用改脚本。
+# 重放间隔:默认 6h。2026-10-30 曾按"被篡改最长暴露窗"把它收到 1h,当天又按实测收回 ——
+# 加固脚本对每条规则是 **先 delete 再 add**(不是"已达标就跳过"),一次重放在这台机上要
+# 跑 11~13 分钟(netsh 单调用 10~60s),于是"1h 间隔"= 每小时有十几分钟在逐条拆建边界,
+# 单条 DENY 在拆与建之间是**不存在**的。间隔越短,这种窗口越多,与"缩短篡改暴露窗"的初衷相反。
+# 真正的修法是让加固脚本先读后改(合规即跳过),那之前保持长间隔更安全,也更省机时
+# (重放期间 netsh 密集调用会把同机的 git 判据压到超时,见门 25/30a/47 的 rc=2/killed)。
+# 可用环境变量 IHUI_FW_WATCHDOG_INTERVAL_SEC 覆盖(nssm AppEnvironmentExtra 注入),不必改脚本。
 
 $ErrorActionPreference = 'Continue'
 
@@ -31,7 +35,7 @@ $script      = Join-Path $PSScriptRoot 'ihui-firewall-hardening.ps1'
 $logDir      = if ($env:IHUI_FW_WATCHDOG_LOG_DIR) { $env:IHUI_FW_WATCHDOG_LOG_DIR } else { 'D:\DevEnv\logs' }
 $log         = Join-Path $logDir 'ihui-firewall-watchdog.log'
 $auditScript = Join-Path $PSScriptRoot 'ihui-audit-policy.ps1'
-$intervalSec = if ($env:IHUI_FW_WATCHDOG_INTERVAL_SEC) { [int]$env:IHUI_FW_WATCHDOG_INTERVAL_SEC } else { 3600 }
+$intervalSec = if ($env:IHUI_FW_WATCHDOG_INTERVAL_SEC) { [int]$env:IHUI_FW_WATCHDOG_INTERVAL_SEC } else { 21600 }
 # 日志轮转:单文件超过 8MB 就改名为 .1 重开一个(只保留一份历史,不堆备份)
 $logMaxBytes = 8MB
 
