@@ -84,21 +84,18 @@ export const WEBHOOK_PATH = '/webhook'
 export const HEALTH_PATH = '/health'
 export const INSTALLATIONS_PATH = '/installations'
 
-interface ApiOk<T> {
-  code: 0
-  message: 'success'
-  data: T
-}
-
 interface ApiFailure {
   code: number
   message: string
   data: null
 }
 
-function ok<T>(data: T): ApiOk<T> {
-  return { code: 0, message: 'success', data }
-}
+/**
+ * 成功信封不在端内重造:`success()`/`ApiSuccess` 的唯一实现住在 utils/response.ts,
+ * 本文件的形状与它逐字节相同(code:0 / message:'success' / data),只留别名不换 16 处调用点。
+ */
+type ApiOk<T> = ApiSuccess<T>
+const ok = success
 
 function fail(code: number, message: string): ApiFailure {
   return { code, message, data: null }
@@ -247,13 +244,11 @@ async function applyInstallationEvent(
 }
 
 /**
- * /installations 的缺省 admin 闸门:懒加载 require-permission(其静态链拖 auth/rbac/db,
- * 不能在模块顶层 import,否则 webhook 单测的加载面被污染)。
+ * /installations 的缺省 admin 闸门:懒加载形态的唯一实现住在
+ * plugins/lazy-admin-guard.ts(此前与 automations.ts 各写一份逐字相同的 shim)。
  */
-async function requireAdminGuardLazy(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const { requireAdmin } = await import('../plugins/require-permission.js')
-  return requireAdmin(request, reply)
-}
+import { requireAdminGuardLazy } from '../plugins/lazy-admin-guard.js'
+import { success, type ApiSuccess } from '../utils/response.js'
 
 type IgnoredParse = Extract<WebhookParseResult, { status: 'ignored' }>
 
