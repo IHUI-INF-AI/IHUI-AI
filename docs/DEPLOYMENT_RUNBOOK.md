@@ -113,6 +113,44 @@ Agnes 图像通道(2026-10-30 同票接入公开计费面 `POST /v1/images/gener
 - 定价源同上迁移 `20261030193000_agnes_video_pricing`,另登记 `per_image` 两行(单位=分/张 ⇒ 公示 ¥0.20/张),
   与视频 flash 档同价(同一族两档媒体同价,上游零成本)。
 
+#### Agnes 生产落地三步(在生产宿主上执行)
+
+**本机不是生产宿主**:`node scripts/check-prod-checkout-foreign-work.mjs` 判 `surface=absent-surveyed`
+(765 枚服务枚举完毕,只有本机开发用 `PostgreSQL16IHUI`;`D:\DevEnv\ihui-prod` 不存在)⇒ 下面三步必须在生产宿主上跑。
+
+1. **写密钥面**(生产根 `D:\DevEnv\ihui-prod\apps\api\.env`;改前整份备份到 `D:\DevEnv\backup\` ——
+   同机改 env 的既有做法见 §2.5 短信签名那条,含「改中文字段值别让 PowerShell 经手」的坑):
+   - `AGNES_API_KEY` = 与 `AGNES_API_BASE` **成对**的那把 key(见上表:国内网关只认新 key)
+   - `AGNES_API_BASE` = 对应域名(如 `https://api.agnes-ai.cn/v1`)
+   - 可选:`AGNES_VIDEO_API_KEY` + `AGNES_VIDEO_API_BASE`(成对),用于把付费视频流单独挂另一个账号
+   - 改完 `nssm restart IHUI-API` → 回读这两行确认(不回显密钥原文)
+2. **落定价行**(幂等,不覆盖管理员已设价):
+   `pnpm --filter @ihui/database db:migrate` → `pnpm --filter @ihui/database db:check`
+   (部署环 `IHUI-DEPLOYLOOP` 每 60s 轮询 origin/main,也会自动跑这步)
+3. **验三处**(任一不过即未落地):
+   - 定价行在册(单位是分,`/api/ai-pricing` 已回传 `billingMode` / `perUnitPrice` / `videoUnit`):
+
+     ```powershell
+     curl -s http://127.0.0.1:8802/api/ai-pricing | jq '.data.items[] | select(.modelId|startswith("agnes-")) | {modelId,billingMode,perUnitPrice,videoUnit}'
+     ```
+
+     期望 4 行:`agnes-video-2.5-flash`(per_video / 20 / call)、`agnes-video-2.5`(per_video / 60 / call)、
+     `agnes-image-2.5-flash`(per_image / 20)、`agnes-image-2.1-flash`(per_image / 20)
+   - 视频真出片(平台 API Key 需带 `videos:write` 能力位):
+
+     ```powershell
+     curl -s -X POST http://127.0.0.1:8802/v1/videos/generations -H "Authorization: Bearer <平台 API Key>" -H "content-type: application/json" -d '{"model":"agnes-video-2.5-flash","prompt":"a red apple","vendor":"agnes"}'
+     ```
+
+     上游队列满时回 503/502 且带「视频队列已满」原因,**不扣费**(扣费只在拿到 taskId 之后)
+   - 图像真出片:
+
+     ```powershell
+     curl -s -X POST http://127.0.0.1:8802/v1/images/generations -H "Authorization: Bearer <平台 API Key>" -H "content-type: application/json" -d '{"model":"agnes-image-2.5-flash","prompt":"a red apple","vendor":"agnes"}'
+     ```
+
+     期望 `data[0].url`;`n>1` 必被本平台回 400(上游 rpm 限制,见上)
+
 ### 2.3 可选
 
 | 变量 | 默认 | 说明 |
