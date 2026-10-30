@@ -6,6 +6,8 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
+// 外部 http(s) 图片经同源代理走 /api/media/image,满足收窄后的 CSP img-src
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 /**
  * 平台图标 — 按 platformId 映射真实品牌图标(38 平台全覆盖)
@@ -108,7 +110,7 @@ export function PlatformIcon({ platform, platformName, size = 28, className }: P
         {/* 图标加载失败时回落首字符,避免出现空框 */}
         {/* eslint-disable-next-line @next/next/no-img-element -- 平台图标 URL 来自运行时配置,组件需支持 onError 回退 */}
         <img
-          src={icon.src}
+          src={toMediaImageUrl(icon.src)}
           alt=""
           width={Math.round(size * 0.62)}
           height={Math.round(size * 0.62)}

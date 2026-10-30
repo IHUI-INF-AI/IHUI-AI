@@ -17,6 +17,8 @@ import { Smartphone, Monitor } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+// CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
+import { toMediaImageUrl } from '@/lib/media-proxy'
 
 export interface PlatformPreviewProps {
   readonly content: string
@@ -60,7 +62,7 @@ function mdToHtml(md: string): string {
   })
   s = s.replace(/!\[\]\(([^)]+)\)/g, (_match: string, url: string) => {
     const safeSrc = SAFE_HREF_RE.test(url) ? url : ''
-    return `<img src="${safeSrc}" alt="" />`
+    return `<img src="${toMediaImageUrl(safeSrc)}" alt="" />`
   })
   s = s.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
   s = s.replace(/^---$/gm, '<hr/>')
