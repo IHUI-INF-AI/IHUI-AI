@@ -611,6 +611,127 @@ _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端
 _approval_sessions: dict[str, dict[str, dict[str, Any]]] = {}
 
 
+# ---------------------------------------------------------------------------
+# G-87 补链(2026-10-29 立):主对话流对 hook 执行失败的订阅与转发。
+#
+# 为什么单开一小节而不是照抄 agents.py 的整段订阅循环:对话流只关心**一个**事件
+# (`hook.failed`),订阅面是"本流开始到本流结束"这段窗口。抄一份多事件订阅循环进来
+# 会把 workbench 那套 run_id 过滤/属主过滤一起搬过来,而这里的过滤判据不同(见
+# `_hook_failure_frame`),两套混在一处必然漂移。
+#
+# 失效方向:订阅失败/帧构造失败一律**降级为日志**,绝不阻塞主聊天 —— hook 失败卡
+# 是"锦上添花"的可见性,不是回答本身。
+# ---------------------------------------------------------------------------
+
+
+def _subscribe_hook_failures(event: str) -> "asyncio.Queue[Any]":
+    """订一个 hook 失败队列(调用方负责在 finally 里 `unsubscribe`)。"""
+    from ..services.hook_engine import hook_engine
+
+    return hook_engine.subscribe(event)
+
+
+def _unsubscribe_hook_failures(event: str, queue: "asyncio.Queue[Any] | None") -> None:
+    """摘订阅;取不到/已摘过一律静默(hook 引擎是进程级共享,摘失败的代价只是多一个空队列)。"""
+    if queue is None:
+        return
+    try:
+        from ..services.hook_engine import hook_engine
+
+        hook_engine.unsubscribe(event, queue)
+    except Exception:  # noqa: BLE001 - 收尾清理失败不覆盖主链路的异常
+        logger.debug("hook.failed 订阅摘除失败(忽略)", exc_info=True)
+
+
+def _hook_failure_frame(payload: dict[str, Any], message_id: str | None) -> dict[str, Any]:
+    """`hook.failed` wire 载荷 → 前端六态卡可消费的**单条记录**(G-87 契约形态)。
+
+    出参形状 = `apps/web/src/components/chat/message-list/hook-failure-card.tsx` 的
+    `hookFailureRecordsFromMeta()` 逐字段要的那几个键(camelCase):
+    `state / hookName / hookEvent / command / stderr / exitCode / durationMs / failedAt`,
+    外加 `id`(幂等键)。
+
+    **幂等键**:服务端每条失败广播只发一次,但 SSE 重连/网关重放可能让同一帧到两次。
+    键取 `hookId::failedAt::event` —— `failedAt` 是逐次执行取的时刻,两次真失败必有
+    不同时刻,而同一帧重放三者全同。**不用下标/序号**:重放顺序可能变。
+
+    **缺席纪律**:`command`/`stderr`/`exitCode` 三个键在源载荷缺席时**整键不写**
+    (不是写 null、不是写 0) —— 前端 `hookFailureRecordsFromMeta` 对非 string/number
+    一律折 null,而 0 会被读成"确实以 0 退出"这个肯定结论。
+    """
+    hook_id = str(payload.get("hook_id") or "")
+    failed_at = str(payload.get("failed_at") or "")
+    event = str(payload.get("event") or "")
+    state = payload.get("state")
+    record: dict[str, Any] = {
+        "id": f"{hook_id}::{failed_at}::{event}",
+        # 实体 id 必须随记录一起下发:前端 `appendMessageHookFailure` 的幂等键与
+        # `HookFailureEvent.hookId` 都读它,缺了就是空串(卡片认不出是哪个 hook)。
+        "hookId": hook_id,
+        "state": state if state in ("failed", "timedOut") else "failed",
+        "hookName": str(payload.get("hook_name") or ""),
+        "hookEvent": event,
+        "durationMs": payload.get("duration_ms")
+        if isinstance(payload.get("duration_ms"), int)
+        else None,
+        "failedAt": failed_at,
+    }
+    echo_session = payload.get("session_id") or payload.get("run_id")
+    if isinstance(echo_session, str) and echo_session:
+        record["sessionId"] = echo_session
+    for wire_key, camel_key in (
+        ("command", "command"),
+        ("stderr", "stderr"),
+        ("error", "error"),
+    ):
+        raw = payload.get(wire_key)
+        if isinstance(raw, str) and raw:
+            record[camel_key] = raw
+    exit_code = payload.get("exit_code")
+    if isinstance(exit_code, int):
+        record["exitCode"] = exit_code
+    if message_id:
+        record["messageId"] = message_id
+    return record
+
+
+def _drain_hook_failure_frames(
+    queue: "asyncio.Queue[Any] | None",
+    message_id: str | None,
+    expected_session: str | None,
+) -> list[str]:
+    """非阻塞取干本流期间的 hook 失败帧(每轮与 goal/steer 的 drain 同位调用)。
+
+    会话归属:本流拿到的队列是**进程级广播**,同进程里别的会话的 hook 失败也会进来。
+    过滤判据 = 载荷自带的 `session_id`/`run_id` 必须等于本流的 `streamSessionId`;
+    **载荷不带该键、或本流没有 session 可对时一律不转发**(fail-closed):宁可少一帧,
+    也不能把 A 会话的 hook 失败挂到 B 会话的 assistant 消息上 —— 错挂比不显示更糟
+    (用户会照着提示去改错的 hook)。
+    """
+    if queue is None:
+        return []
+    frames: list[str] = []
+    while True:
+        try:
+            payload = queue.get_nowait()
+        except asyncio.QueueEmpty:
+            return frames
+        except Exception:  # noqa: BLE001 - 队列实现异常绝不影响主链路
+            return frames
+        if not isinstance(payload, dict):
+            continue
+        echo_session = payload.get("session_id") or payload.get("run_id")
+        if not expected_session or not isinstance(echo_session, str):
+            continue
+        if echo_session != expected_session:
+            continue
+        try:
+            frames.append(_sse("hook-failed", _hook_failure_frame(payload, message_id)))
+        except Exception:  # noqa: BLE001 - 单帧构造失败不该拖垮整轮 drain
+            logger.warning("hook.failed 帧构造失败(跳过该帧)", exc_info=True)
+    return frames
+
+
 def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str]:
     """D690(方案 A,2026-10-22;承 D131 取证、D1047 diff②)重连重放的组帧出口。
 
@@ -3975,6 +4096,29 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
         _goal_conversation_id = str((req.metadata or {}).get("conversationId") or "")
         _goal_queue = _register_goal_listener(_goal_conversation_id)
+        # G-87 补链(2026-10-29 立):主对话流订阅 hook 执行失败。
+        #
+        # **立因**:前端六态卡(`hook-failure-card.tsx`)读的是「某条 assistant 消息」的
+        # `meta.hookFailures`,而这条消息只在这一条流上生成 —— 所以 hook 失败必须**在这条流上**
+        # 到端,走 agent 任务流(tasks/stream)到的帧挂不到 chat 消息上,两条通道各自独立。
+        #
+        # 而此前本路由对 `hook_engine` **一次订阅都没有**(全文件 grep `hook_engine` 零命中)。
+        # hook 失败只在 hook_engine 的订阅面广播,没有订阅者 ⇒ 帧发出去也是空投。
+        #
+        # **这里的生产点是谁**(不是"为将来预留"):主对话流的工具循环里 `dispatch_subagent`
+        # 会在本进程内起 `AgentLoopV2`,子 agent 的 tool.before/after 等事件经
+        # `AgentEventStream.emit → hook_engine.emit` 真跑用户 hook;那些 hook 失败就在这条流
+        # 的时间窗内发生。另外 `POST /hooks/emit` 与 `llm_gateway` 的 model.reroute 同在一个进程。
+        #
+        # 只订阅 `hook.failed` 一个事件:其余 hook 总线事件在对话流上没有消费面(它们属于
+        # workbench 运行时视图),订了就是白跑队列。摘除点与 goal 监听同一个 finally。
+        _hook_failed_queue: "asyncio.Queue[Any] | None" = None
+        try:
+            from ..services.agent_events import HOOK_FAILED as _HOOK_FAILED_EVENT
+
+            _hook_failed_queue = _subscribe_hook_failures(_HOOK_FAILED_EVENT)
+        except Exception as _hook_sub_err:  # noqa: BLE001 - 订阅失败绝不阻塞主聊天
+            logger.warning("hook.failed 订阅失败(该流不会出现 hook 失败卡): %s", _hook_sub_err)
         # 流首带出当前目标:新接入的端不必等下一次 set 就能看到"这个会话正在追什么"。
         # 取不到(会话无引擎线程行 / 无 goal / 主副本坏了)一律静默跳过 —— 一帧都没有
         # 是本来的形状,不得为这一格把整条流改判成 error。
@@ -4137,6 +4281,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if _goal_payload.get(_goal_key) is not None:
                                     _goal_evt[_goal_key] = _goal_payload[_goal_key]
                             yield _sse("goal_updated", _goal_evt)
+                        # G-87 补链:本轮期间发生的 hook 执行失败(与 goal/steer 同一位排空)。
+                        # 放在轮首而不是流尾,是因为用户看到的顺序应当是"工具跑挂了 hook"→
+                        # "回答继续";堆到流尾会让卡片出现在一条已经写完的回答下面。
+                        for _hook_failure_frame_str in _drain_hook_failure_frames(
+                            _hook_failed_queue, message_id, session_id
+                        ):
+                            yield _hook_failure_frame_str
                         # G-815975:吸收改走类型轴 —— 只吸收队首连续的可 inline 条目;
                         # 遇 control(设置轮)条目即停,它之后的条目(哪怕 kind=guide)
                         # 本轮同样不得被吸收,留给收口回报路径按序处理。
@@ -6297,6 +6448,28 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # D152:摘掉本流的 goal 监听(与上面三个注册表同一收尾)。不摘就会留着
             # 一个没人 await 的队列,后续 publish 只会把帧堆进内存直到满。
             _unregister_goal_listener(_goal_conversation_id, _goal_queue)
+            # G-87 补链:收尾前把本轮最后一次窗口里到达的 hook 失败帧补发出去,再摘订阅。
+            # 顺序不能反 —— 先摘后 drain 会丢掉"最后一条工具刚失败"的那一帧(它正是最该
+            # 被看见的一帧);先 drain 后摘,最坏也只是多取到一帧本会话的。
+            # `_stream_exiting`(客户端断开/GenExit)时不允许 yield,降级为日志留痕:
+            # 那一档客户端已经走了,补发也没有接收方。
+            try:
+                _tail_hook_failures = _drain_hook_failure_frames(
+                    _hook_failed_queue, message_id, session_id
+                )
+                if _tail_hook_failures:
+                    if _stream_exiting:
+                        logger.info(
+                            "[hook.failed] 流已退出,%d 帧 hook 失败无法补发(客户端已断开)",
+                            len(_tail_hook_failures),
+                        )
+                    else:
+                        for _tail_frame in _tail_hook_failures:
+                            yield _tail_frame
+            except Exception:  # noqa: BLE001 - 补发失败绝不覆盖收尾主逻辑
+                logger.warning("hook.failed 收尾补发失败(忽略)", exc_info=True)
+            finally:
+                _unsubscribe_hook_failures("hook.failed", _hook_failed_queue)
             # D1(2026-09-19 立):流收尾处发出消息级 usage 计量帧(event: usage)。
             # 覆盖所有收尾路径(正常 done / 异常 error / 客户端断开),确保每条回复结束都能拿到
             # 本条消息的 token 用量与耗时。独立 try:计量帧失败/生成器关闭绝不影响主链路。
