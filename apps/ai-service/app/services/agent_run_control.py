@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -72,9 +73,12 @@ __all__ = [
     "ResumeResult",
     "ResumeRunner",
     "SessionNotFoundError",
+    "budget_snapshot",
+    "can_continue",
     "clear_all",
     "detach_run",
     "entry_count",
+    "note_turn",
     "pause_session",
     "register_run",
     "resume_session",
@@ -94,6 +98,9 @@ _PAUSED_RECORD_TTL_SECONDS: float = 2 * 60 * 60.0
 
 # 容量硬上限:与 run_ownership 同一套纪律 —— 异常流量不得把这张表撑成无界 dict。
 _MAX_RECORDS: int = 20_000
+
+# 单调时钟单点:测试替换它即可用假时钟断言耗时维,不依赖真实计时。
+_clock: Callable[[], float] = time.monotonic
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +173,21 @@ LatestCheckpointLoader = Callable[[str], Awaitable[AgentLoopCheckpoint]]
 
 
 @dataclass
+class _RunBudget:
+    """一次 run 的三维机读计数(对照 `goals/<id>.json` 的 turnsUsed 等键)。
+
+    `credits_used is None` = 执行方没有提供每轮成本,如实标"未提供",不以 0 冒充。
+    `max_turns` 由执行方(loop 的 max_iterations)投影进来,本层不另立上限。
+    """
+
+    started_at: float
+    max_turns: int | None = None
+    turns_used: int = 0
+    time_used_seconds: float = 0.0
+    credits_used: float | None = None
+
+
+@dataclass
 class _RunRecord:
     """一个在飞/已暂停 run 的控制面事实。
 
@@ -180,6 +202,7 @@ class _RunRecord:
     checkpoint_id: str | None
     expires_at: float
     updated_at: float
+    budget: _RunBudget
 
 
 _records: dict[str, _RunRecord] = {}
@@ -194,13 +217,21 @@ def _purge_expired(now: float) -> None:
 
 
 async def register_run(
-    session_id: str, *, owner_user_id: str, loop: PausableLoop
+    session_id: str,
+    *,
+    owner_user_id: str,
+    loop: PausableLoop,
+    max_turns: int | None = None,
 ) -> None:
-    """登记一个开始执行的 run。`owner_user_id` 必须是**令牌主体**,不得取请求体字段。"""
+    """登记一个开始执行的 run。`owner_user_id` 必须是**令牌主体**,不得取请求体字段。
+
+    `max_turns` 省略 = 不设轮次上限(零行为变化);执行方也可以每轮经 `note_turn`
+    投影同一个上限,两处取值同源(loop 的 max_iterations),不在本层另算一套。
+    """
     if not session_id or not owner_user_id:
         # 空属主不建记录:一条无主记录等于把该会话交给"任何人都能暂停/续跑"的判定
         return
-    now = time.monotonic()
+    now = _clock()
     async with _lock:
         if len(_records) >= _MAX_RECORDS:
             _purge_expired(now)
@@ -216,6 +247,10 @@ async def register_run(
             # 真正靠 TTL 兜底的是 paused 那一支
             expires_at=now + _PAUSED_RECORD_TTL_SECONDS,
             updated_at=now,
+            budget=_RunBudget(
+                started_at=now,
+                max_turns=max_turns if max_turns is not None and max_turns > 0 else None,
+            ),
         )
 
 
@@ -228,7 +263,7 @@ async def detach_run(
     running 记录直接删除。返回是否确有记录被处理 —— 调用方不得据此判成功与否,
     这条只用于日志。
     """
-    now = time.monotonic()
+    now = _clock()
     async with _lock:
         rec = _records.get(session_id)
         if rec is None:
@@ -243,6 +278,78 @@ async def detach_run(
         else:
             _records.pop(session_id, None)
         return True
+
+
+# ---------------------------------------------------------------------------
+# 轮次 / 耗时 / 额度计数(每轮唯一挂点见 agent_loop_v2._run_loop)
+# ---------------------------------------------------------------------------
+
+
+def _can_continue(rec: _RunRecord | None) -> bool:
+    """唯一判定出口:这个 run 还能不能再跑一轮。
+
+    无记录 = 记账器没有载体(非 v2 run / 已 detach),按"未判定不拦"返回 True;
+    有记录而未设上限 = 不拦;否则 `turns_used < max_turns`。
+    """
+    if rec is None:
+        return True
+    budget = rec.budget
+    if budget.max_turns is None:
+        return True
+    return budget.turns_used < budget.max_turns
+
+
+async def note_turn(
+    session_id: str,
+    *,
+    max_turns: int | None = None,
+    credits: float | None = None,
+) -> bool:
+    """记一轮已开始,返回记账后"还能不能再跑"(结论只来自 `_can_continue`)。
+
+    `max_turns` 是执行方上限的投影(同一值幂等写入);`credits is None` 时额度维
+    保持未提供,不以 0 冒充。本函数不改变 loop 的控制流:它只回答,不代执行方停。
+    """
+    now = _clock()
+    async with _lock:
+        rec = _records.get(session_id)
+        if rec is None:
+            return True
+        if max_turns is not None and max_turns > 0:
+            rec.budget.max_turns = max_turns
+        rec.budget.turns_used += 1
+        # 单调时钟差值即本 run 已耗时;每轮刷新而不是累加,避免重复计时。
+        rec.budget.time_used_seconds = max(0.0, now - rec.budget.started_at)
+        if credits is not None and math.isfinite(credits) and credits >= 0.0:
+            rec.budget.credits_used = (rec.budget.credits_used or 0.0) + credits
+        rec.updated_at = now
+        return _can_continue(rec)
+
+
+async def can_continue(session_id: str) -> bool:
+    """只读判定(唯一实现是 `_can_continue`):该会话还能不能再跑一轮。"""
+    async with _lock:
+        return _can_continue(_records.get(session_id))
+
+
+async def budget_snapshot(session_id: str) -> dict[str, object]:
+    """三维计数的只读快照(无记录返回 `{}`,与 `snapshot_records` 同形)。
+
+    键名对照 `goals/<id>.json` 的 turnsUsed/timeUsedSeconds/creditsUsed/maxTurns;
+    `credits_used is None` 表示额度维未提供。
+    """
+    async with _lock:
+        rec = _records.get(session_id)
+        if rec is None:
+            return {}
+        budget = rec.budget
+        return {
+            "turns_used": budget.turns_used,
+            "time_used_seconds": budget.time_used_seconds,
+            "credits_used": budget.credits_used,
+            "max_turns": budget.max_turns,
+            "can_continue": _can_continue(rec),
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +393,7 @@ async def pause_session(session_id: str, requester: str) -> PauseResult:
     两级都有值而不一致 ⇒ fail-closed 判越权:两份在同一个写入点由同一个
     `current_user` 落笔,分歧只可能是 bug 或在途篡改,没有理由信其中任一份。
     """
-    now = time.monotonic()
+    now = _clock()
     async with _lock:
         rec = _records.get(session_id)
         if rec is not None and rec.expires_at <= now:
@@ -377,7 +484,7 @@ async def pause_session(session_id: str, requester: str) -> PauseResult:
         if live is rec:
             live.paused = True
             live.checkpoint_id = checkpoint_id
-            live.updated_at = time.monotonic()
+            live.updated_at = _clock()
             live.expires_at = live.updated_at + _PAUSED_RECORD_TTL_SECONDS
     logger.info(
         "agent run 已暂停:requester=%s session=%s checkpoint=%s",
@@ -463,7 +570,7 @@ async def resume_session(
     (O19 落的持久属主,见 `AgentLoopCheckpoint.owner_user_id`),它与
     `resume_agent_execute` 的属主两级口径同形 —— 不得在此另立一套。
     """
-    now = time.monotonic()
+    now = _clock()
     async with _lock:
         rec = _records.get(session_id)
         if rec is not None and rec.expires_at <= now:
@@ -553,7 +660,7 @@ async def resume_session(
         live = _records.get(session_id)
         if live is not None and live is rec:
             live.paused = False
-            live.updated_at = time.monotonic()
+            live.updated_at = _clock()
 
     async def _restore_paused() -> None:
         """把记录翻回 paused。
@@ -567,7 +674,7 @@ async def resume_session(
             back = _records.get(session_id)
             if back is not None and back is rec and not back.paused:
                 back.paused = True
-                back.updated_at = time.monotonic()
+                back.updated_at = _clock()
                 back.expires_at = back.updated_at + _PAUSED_RECORD_TTL_SECONDS
 
     # V3 #84:续跑前把恢复点按**它自己声明的**耐久视野续期一次(只走既有 save_checkpoint
@@ -607,7 +714,7 @@ async def resume_session(
             if stopped:
                 cid = run_result.get("checkpoint_id")
                 after.checkpoint_id = cid if isinstance(cid, str) else None
-                after.expires_at = time.monotonic() + _PAUSED_RECORD_TTL_SECONDS
+                after.expires_at = _clock() + _PAUSED_RECORD_TTL_SECONDS
             else:
                 _records.pop(session_id, None)
 

@@ -579,6 +579,10 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     "crawl_site",
     "review_pr",
     "schedule_task",
+    # 2026-10-31:定时任务的查询/撤销与创建同档。底层 scheduler_service.list_tasks(None)
+    # 不带任何归属过滤、remove_task 也无归属校验 ⇒ 放给 role 0 就是跨用户枚举 + 任意撤销,
+    # 与 schedule_task 已限定 admin 的口径不一致即漏洞(defense-in-depth,同 screenshot_url)。
+    "list_scheduled_tasks", "cancel_scheduled_task",
 }
 
 # agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
@@ -5716,6 +5720,17 @@ from .artifacts_store import _fallback_cache as _ARTIFACTS_CACHE
 # `__all__` 是 ruff 认可的「这是有意的再导出」信号,在此显式声明以锁定该兼容契约。
 __all__ = ["_ARTIFACTS_CACHE"]
 
+# G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具(artifact_tools,
+# payload 落 tmp/artifacts 白名单目录 + 元数据经 artifacts_store 挂会话附件)
+from ..tools import (  # noqa: E402
+    create_artifact as _create_artifact,
+)
+
+# G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化(automation_tools,
+# 经 internal 凭证腿调 apps/api POST /api/automations;edu 工具同路线)
+from ..tools import (  # noqa: E402
+    create_automation as _create_automation,
+)
 from ..tools import (
     document_tables as _document_tables,
 )
@@ -5732,18 +5747,6 @@ from ..tools import (  # noqa: E402
 # PROJECT_PLAN #81 最小一环:报表模板生成器(report_tools,同 chart 的零依赖路线)
 from ..tools import (  # noqa: E402
     generate_report as _generate_report,
-)
-
-# G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具(artifact_tools,
-# payload 落 tmp/artifacts 白名单目录 + 元数据经 artifacts_store 挂会话附件)
-from ..tools import (  # noqa: E402
-    create_artifact as _create_artifact,
-)
-
-# G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化(automation_tools,
-# 经 internal 凭证腿调 apps/api POST /api/automations;edu 工具同路线)
-from ..tools import (  # noqa: E402
-    create_automation as _create_automation,
 )
 
 # D07 残余②:「/init 式 AGENTS.md」能力接入(实现已入库,此前未注册 ⇒ 外部不可调用)
@@ -8773,6 +8776,80 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _tool_list_scheduled_tasks(arguments: dict[str, Any]) -> dict[str, Any]:
+    """list_scheduled_tasks: 列出定时任务(补 schedule_task 的"看得见"动词)。
+
+    判据全住 scheduler_service.list_tasks(Redis 扫描 / 内存降级 / stub 三态),
+    本层只把 conversation_id 原样透传,不自己过滤 —— 第二份过滤必然与持久化面漂移。
+    """
+    from app.services.scheduler_service import task_scheduler
+
+    raw = arguments.get("conversation_id")
+    conversation_id = raw.strip() if isinstance(raw, str) and raw.strip() else None
+    try:
+        result = await task_scheduler.list_tasks(conversation_id)
+    except Exception as e:
+        logger.warning("[list_scheduled_tasks] list_tasks 失败: %s", e)
+        return {
+            "tool": "list_scheduled_tasks", "ok": False,
+            "errorCode": "SCHEDULER_ERROR", "message": f"读取定时任务失败: {e}",
+        }
+    tasks = result.get("tasks") or []
+    return {
+        "tool": "list_scheduled_tasks", "ok": bool(result.get("ok", True)),
+        "conversation_id": conversation_id,
+        "tasks": tasks,
+        "count": result.get("count", len(tasks)),
+        "stub": bool(result.get("stub", False)),
+    }
+
+
+async def _tool_cancel_scheduled_task(arguments: dict[str, Any]) -> dict[str, Any]:
+    """cancel_scheduled_task: 取消定时任务(补 schedule_task 的"撤得掉"动词)。
+
+    get_task 只为取回执摘要 + 让"取消不存在的任务"不静默成功;删除动作本身只有
+    task_scheduler.remove_task 一处实现(APScheduler job + Redis/memory 双删)。
+    归属口径沿用服务层现态:remove_task 不做 owner 校验,本层不另造一套鉴权。
+    """
+    from app.services.scheduler_service import task_scheduler
+
+    task_id = str(arguments.get("task_id") or "").strip()
+    if not task_id:
+        return {
+            "tool": "cancel_scheduled_task", "ok": False,
+            "errorCode": "MISSING_PARAMS", "error": "缺少 task_id 参数",
+        }
+    try:
+        found = await task_scheduler.get_task(task_id)
+        if not found.get("ok") or not found.get("task"):
+            return {
+                "tool": "cancel_scheduled_task", "ok": False,
+                "errorCode": "NOT_FOUND", "task_id": task_id,
+                "message": f"任务不存在: {task_id}",
+            }
+        removed = await task_scheduler.remove_task(task_id)
+    except Exception as e:
+        logger.warning("[cancel_scheduled_task] 取消任务失败(task_id=%s): %s", task_id, e)
+        return {
+            "tool": "cancel_scheduled_task", "ok": False,
+            "errorCode": "SCHEDULER_ERROR", "task_id": task_id,
+            "message": f"取消定时任务失败: {e}",
+        }
+    task = found["task"]
+    return {
+        "tool": "cancel_scheduled_task", "ok": bool(removed.get("ok", True)),
+        "task_id": task_id,
+        "cancelled": {
+            "task_id": task_id,
+            "name": task.get("name", ""),
+            "schedule": task.get("trigger_type", ""),
+            "next_run_at": task.get("next_run_at", ""),
+        },
+        "stub": bool(removed.get("stub", False)),
+        "message": f"任务已取消: {task_id}",
+    }
+
+
 async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any]:
     """proactive_suggestion: 基于当前会话上下文主动建议后续工作(对标 Codex Proactive work proposals)。
 
@@ -10378,6 +10455,39 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="list_scheduled_tasks",
+        description=(
+            "列出已调度的定时任务(schedule_task 创建的任务)。"
+            "数据源 = task_scheduler(Redis 持久化,Redis 不可用降级内存,未配置 redis_url 时 stub 返回空)。"
+            "conversation_id 可选,按任务记录里的该字段精确过滤。"
+            "admin 专属工具:任务记录无归属字段,与 schedule_task 同档。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "conversation_id": {
+                    "type": "string",
+                    "description": "会话 ID(可选,传了才过滤)",
+                },
+            },
+        },
+    ),
+    MCPTool(
+        name="cancel_scheduled_task",
+        description=(
+            "按 task_id 取消定时任务(APScheduler job 与持久化记录一并删除),回执被取消任务的摘要。"
+            "task_id 不存在时返回 NOT_FOUND,不静默成功。"
+            "admin 专属工具:remove_task 无归属校验,与 schedule_task 同档。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "任务 ID(必填,list_scheduled_tasks 可查)"},
+            },
+            "required": ["task_id"],
+        },
+    ),
+    MCPTool(
         name="proactive_suggestion",
         description=(
             "基于当前会话上下文,主动建议后续工作(follow_up/refactor/test/improve/explore)。"
@@ -11604,6 +11714,12 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "review_pr": _tool_review_pr,
     "summarize_artifacts": _tool_summarize_artifacts,
     "schedule_task": _tool_schedule_task,
+    # 定时任务工具面投影(2026-10-30 立):服务层早有 list_tasks/remove_task,
+    # 此前只有创建动词 ⇒ 模型自建的任务看不见也撤不掉。
+    # 与 schedule_task 同档(admin):任务记录无归属字段,且 remove_task 无归属校验,
+    # 放给 role 0 = 跨用户枚举 + 任意撤销,比"看不见"更糟。
+    "list_scheduled_tasks": _tool_list_scheduled_tasks,
+    "cancel_scheduled_task": _tool_cancel_scheduled_task,
     "proactive_suggestion": _tool_proactive_suggestion,
     # ===== P0 新增工具(2026-09-01,竞品对标:图表生成 + 文档解析)=====
     "generate_chart": _generate_chart,
