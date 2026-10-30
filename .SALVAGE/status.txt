@@ -1,0 +1,14 @@
+ M .loomy-attachments/ses_e93f1017cffeM8faKImNfUZNoe/1792814284541-0-_RN__2026-10-24_11-57.md
+ M apps/ai-service/app/services/parent_child_chunking.py
+ M apps/ai-service/app/services/retrieval_eval.py
+ M apps/ai-service/tests/test_bench_golden_retrieval.py
+ M apps/ai-service/tests/test_rag_parent_child.py
+ M apps/ai-service/tests/test_retrieval_eval.py
+ M apps/api/src/services/__tests__/relay-account-pool-auth-reject-converge.test.ts
+ M apps/api/tests/embed-proxy-ssrf-redirect.test.ts
+ M apps/api/tests/ssrf-outbound-guard.test.ts
+ M apps/mobile-rn/src/components/UpdatePromptGate.tsx
+ M scripts/gen-rn-host-shell.mjs
+ M scripts/tests/check-cross-end-parity-drift.test.mjs
+ M scripts/tests/gen-rn-host-shell.test.mjs
+?? .admin-index-stash-27892.bin

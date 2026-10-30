@@ -1,0 +1,3 @@
+HEAD=06d6f9d71aaf57dfd297885ab778a9b10297fb33
+gitdir=D:/IHUI-AI-git-repo/worktrees/wt-tokens
+ORIG_HEAD=f83bf2cf12da48e7ca093d83bca49090c65b6d51

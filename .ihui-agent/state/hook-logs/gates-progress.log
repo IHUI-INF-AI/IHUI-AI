@@ -1,0 +1,16 @@
+[2026-10-28T14:14:10.540Z] pass  16c        7154ms check-staged-typecheck-mirror-sync.mjs
+[2026-10-28T14:14:10.541Z] fail  19         7035ms check-staged-pollution.mjs
+[2026-10-28T14:14:10.542Z] pass  44         7134ms check-root-dir-clean.mjs
+[2026-10-28T14:14:12.251Z] pass  80         2565ms check-git-read-timeout.mjs
+[2026-10-28T14:14:15.568Z] pass  79         5877ms check-no-conflict-markers.mjs
+[2026-10-28T14:14:15.591Z] pass  95         5893ms check-watermark-syntax.mjs
+[2026-10-28T14:14:15.592Z] pass  99          830ms check-staged-deletions.mjs
+[2026-10-28T14:14:15.592Z] pass  101        3497ms check-lock-manifest-consistency.mjs
+[2026-10-28T14:14:15.597Z] pass  118        4620ms check-gate-face-discipline.mjs
+[2026-10-28T14:14:15.597Z] pass  154         297ms check-scratch-root-no-nesting.mjs
+[2026-10-28T14:14:15.598Z] pass  158        5523ms check-gate-presence-exemption.mjs
+[2026-10-28T14:14:15.702Z] pass  194        5580ms check-direct-run-guard.mjs
+[2026-10-28T14:14:15.702Z] pass  221        4679ms check-mjs-syntax.mjs
+[2026-10-28T14:14:18.015Z] pass  236        1268ms check-tracked-ignored.mjs
+[2026-10-28T14:14:18.347Z] pass  23          331ms check-staged-files.mjs
+[2026-10-28T14:14:18.702Z] pass  13d         681ms check-plan-dup-pointer-ratchet.mjs
