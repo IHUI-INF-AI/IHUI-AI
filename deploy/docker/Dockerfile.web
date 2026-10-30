@@ -23,6 +23,7 @@ COPY apps/web/package.json ./apps/web/
 # 复制 @ihui/web 的 workspace 传递闭包(原清单引用了不存在的 packages/config、packages/ui、
 # packages/ui-primitives,且遗漏 app/i18n/ui-react/tsconfig → docker build 必挂,2026-09-10 修正)。
 COPY packages/api-client/package.json ./packages/api-client/
+COPY packages/app/package.json ./packages/app/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/design-tokens/package.json ./packages/design-tokens/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
