@@ -536,6 +536,28 @@ def _raise_unsafe_ctype(ctype: str, kind: str) -> None:
     )
 
 
+# 三个代理的 httpx 客户端统一用「不压缩」上游:httpx 默认发 `accept-encoding: gzip`
+# 并**自动解压** `aiter_bytes()`,此时上游 content-length 是压缩后长度,与本端产出
+# 的字节数不一致 —— 原样透传会让浏览器少读(截断)或挂起等永不来的后续字节
+# (实测 httpbin/gzip:header=198,实际 252)。要求 identity 后两者恒等。
+_UPSTREAM_NO_COMPRESSION = {"accept-encoding": "identity"}
+
+
+def _safe_content_length(headers: Any) -> str | None:
+    """上游 content-length 仅在「响应未被压缩」时才可透传。
+
+    兜底第二层:即便上游无视 `accept-encoding: identity` 仍返回压缩体,只要它声明了
+    非 identity 的 content-encoding,就不透传长度(交给 chunked 传输),避免长度谎报。
+    """
+    enc = str(headers.get("content-encoding") or "").strip().lower()
+    if enc and enc != "identity":
+        return None
+    clen = headers.get("content-length")
+    if clen is not None and str(clen).strip().isdigit():
+        return str(clen).strip()
+    return None
+
+
 @router.get("/media/download")
 async def download_media_artifact(url: str, request: Request) -> Any:
     """按产物直链代理下载(带 Content-Disposition: attachment)。
@@ -556,7 +578,9 @@ async def download_media_artifact(url: str, request: Request) -> Any:
     # 不再查 media_tasks:kind 无法从 row 取,改为从 URL 推导(默认 'bin')
     fname = _safe_filename(url, None)
     client = httpx.AsyncClient(
-        timeout=httpx.Timeout(20.0, read=180.0), follow_redirects=True
+        timeout=httpx.Timeout(20.0, read=180.0),
+        follow_redirects=True,
+        headers=_UPSTREAM_NO_COMPRESSION,
     )
     try:
         resp = await client.send(client.build_request("GET", url), stream=True)
@@ -571,7 +595,6 @@ async def download_media_artifact(url: str, request: Request) -> Any:
         raise HTTPException(status_code=502, detail=f"源站返回 {status}")
 
     ctype = resp.headers.get("content-type", "application/octet-stream") or "application/octet-stream"
-    clen = resp.headers.get("content-length")
 
     async def _body() -> Any:
         try:
@@ -585,8 +608,9 @@ async def download_media_artifact(url: str, request: Request) -> Any:
     # 纵深防御:attachment 已强制下载不渲染,再加 nosniff + CSP 兜住
     # 「浏览器忽略 attachment / 被中间层改写」这类极端情况。
     headers.update(_proxy_hardening_headers())
-    if clen and clen.isdigit():
-        headers["Content-Length"] = clen
+    safe_len = _safe_content_length(resp.headers)
+    if safe_len:
+        headers["Content-Length"] = safe_len
     return StreamingResponse(_body(), media_type=ctype, headers=headers)
 
 
@@ -625,7 +649,9 @@ async def stream_media_artifact(url: str, request: Request) -> Any:
         raise HTTPException(status_code=400, detail=f"URL 不允许访问: {reason_ssrf}")
 
     client = httpx.AsyncClient(
-        timeout=httpx.Timeout(20.0, read=300.0), follow_redirects=True
+        timeout=httpx.Timeout(20.0, read=300.0),
+        follow_redirects=True,
+        headers=_UPSTREAM_NO_COMPRESSION,
     )
     req_headers: dict[str, str] = {}
     rng = request.headers.get("range")
@@ -645,12 +671,16 @@ async def stream_media_artifact(url: str, request: Request) -> Any:
         await client.aclose()
         raise HTTPException(status_code=502, detail=f"源站返回 {status}")
 
-    # 透传上游与播放相关的响应头(含 Range 场景的 content-range / accept-ranges)
+    # 透传上游与播放相关的响应头(含 Range 场景的 content-range / accept-ranges)。
+    # content-length 走 _safe_content_length:压缩响应绝不透传长度(见该函数头注)。
     passthrough: dict[str, str] = {}
-    for k in ("content-type", "content-length", "content-range", "accept-ranges"):
+    for k in ("content-type", "content-range", "accept-ranges"):
         v = resp.headers.get(k)
         if v:
             passthrough[k] = v
+    safe_len = _safe_content_length(resp.headers)
+    if safe_len:
+        passthrough["content-length"] = safe_len
 
     # 同源代理加固:只放行音视频类型,绝不把源站 text/html 之类原样转发
     # (修前 /media/stream?url=<任意HTML> 会返回 200 + text/html ⇒ 同源 XSS)。
@@ -705,7 +735,9 @@ async def proxy_image(url: str, request: Request) -> Any:
         raise HTTPException(status_code=400, detail=f"URL 不允许访问: {reason}")
 
     client = httpx.AsyncClient(
-        timeout=httpx.Timeout(20.0, read=60.0), follow_redirects=True
+        timeout=httpx.Timeout(20.0, read=60.0),
+        follow_redirects=True,
+        headers=_UPSTREAM_NO_COMPRESSION,
     )
     try:
         resp = await client.send(client.build_request("GET", url), stream=True)
@@ -731,9 +763,9 @@ async def proxy_image(url: str, request: Request) -> Any:
 
     passthrough: dict[str, str] = {"cache-control": "private, max-age=3600"}
     passthrough.update(_proxy_hardening_headers())
-    clen = resp.headers.get("content-length")
-    if clen and clen.isdigit():
-        passthrough["Content-Length"] = clen
+    safe_len = _safe_content_length(resp.headers)
+    if safe_len:
+        passthrough["Content-Length"] = safe_len
 
     async def _body() -> Any:
         try:
