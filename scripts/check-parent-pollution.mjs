@@ -65,6 +65,16 @@ const PARENT_DIR = dirname(ROOT) // 项目父目录(动态推导,符合 AGENTS.m
 const ENTRY_BUDGET = Number(process.env.IHUI_PARENT_POLLUTION_ENTRY_BUDGET ?? 200_000)
 let entryCount = 0
 let budgetHit = false
+// §15b 明文批准的"项目外落点"根:AGENTS 写着"项目外落点只允许批准目录(D:\DevEnv\{Temp,logs,backups,cache} 等)"。
+// 批准 = 放这儿合规 ⇒ 它下面的东西按定义**不是父目录污染**,整棵树不进巡查射程。
+// 这不是削判据:射程从"父目录里的一切"收回"父目录里除批准落点以外的一切",判的仍是"谁违规乱放"。
+// 立因(2026-10-30):D:\ 深度 2 枚举里 DevEnv 是条目量最大的一支,含它就必然超预算、卡到被判超时。
+const APPROVED_OUTSIDE_ROOTS = new Set(
+  (process.env.IHUI_POLLUTION_APPROVED_ROOTS ?? join(PARENT_DIR, 'DevEnv'))
+    .split(';')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
+)
 const GRANDPARENT_DIR = dirname(PARENT_DIR) // 项目祖父目录(动态推导)
 
 /**
@@ -394,6 +404,8 @@ function findPollution(dir, recursive = false, depth = 0) {
     const relPath = relative(ROOT, full).replace(/\\/g, '/')
 
     if (entry.isDirectory()) {
+      // §15b 批准落点整棵树不进射程(见 APPROVED_OUTSIDE_ROOTS 头注)
+      if (APPROVED_OUTSIDE_ROOTS.has(full.toLowerCase())) continue
       // 豁免本仓库的关联 git worktree(并行会话合法工作区,2026-09-07 立)
       if (isLinkedWorktree(full)) continue
       if (recursive && depth < 2) {
