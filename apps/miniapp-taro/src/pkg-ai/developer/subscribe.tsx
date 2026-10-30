@@ -78,7 +78,7 @@ export default function DeveloperSubscribePage() {
       const [profileRes, modelsRes, postsRes] = await Promise.all([
         get<Record<string, unknown>>(`/developer/${devId}/profile`).catch(() => null),
         get<{ list?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
-          '/developer/agents',
+          `/developer/${devId}/agents`,
         ).catch(() => null),
         get<{ list?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
           `/developer/${devId}/posts`,

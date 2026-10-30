@@ -7,7 +7,13 @@ import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { eq, sql, desc, and, inArray } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { commissionFlows, withdrawalFlows, users, systemConfigs } from '@ihui/database'
+import {
+  commissionFlows,
+  withdrawalFlows,
+  users,
+  systemConfigs,
+  userAuthInfo,
+} from '@ihui/database'
 import {
   listCommissionFlows,
   listDistributionOrders,
@@ -89,6 +95,65 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
         invitedCount: invitedRow?.total ?? 0,
         activeCount: activeRow?.total ?? 0,
         orderCount: Number(orderRow?.total ?? 0),
+      }),
+    )
+  })
+
+  // GET /operator/data-card — 小程序分销页顶部的运营数据卡(原路径从未注册,页面恒空)
+  // 只读聚合;今日/本月按 Asia/Shanghai 自然日切,累计为全量。
+  server.get('/operator/data-card', async (request, reply) => {
+    const userId = request.userId!
+    const dayStart = sql`date_trunc('day', now() at time zone 'Asia/Shanghai') at time zone 'Asia/Shanghai'`
+    const monthStart = sql`date_trunc('month', now() at time zone 'Asia/Shanghai') at time zone 'Asia/Shanghai'`
+
+    const [[profile], [auth], [flowStats], [inviteStats]] = await Promise.all([
+      dbRead
+        .select({ avatar: users.avatar, nickname: users.nickname, level: users.level })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1),
+      dbRead
+        .select({ authStatus: userAuthInfo.authStatus })
+        .from(userAuthInfo)
+        .where(eq(userAuthInfo.userUuid, userId))
+        .limit(1),
+      dbRead
+        .select({
+          sumEarnings: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)`,
+          sumOrders: sql<number>`count(distinct ${commissionFlows.orderId})::int`,
+          dayEarnings: sql<number>`coalesce(sum(${commissionFlows.amount}) filter (where ${commissionFlows.createdAt} >= ${dayStart}), 0)`,
+          dayOrders: sql<number>`count(distinct ${commissionFlows.orderId}) filter (where ${commissionFlows.createdAt} >= ${dayStart})::int`,
+          monthEarnings: sql<number>`coalesce(sum(${commissionFlows.amount}) filter (where ${commissionFlows.createdAt} >= ${monthStart}), 0)`,
+          monthOrders: sql<number>`count(distinct ${commissionFlows.orderId}) filter (where ${commissionFlows.createdAt} >= ${monthStart})::int`,
+        })
+        .from(commissionFlows)
+        .where(eq(commissionFlows.beneficiaryId, userId)),
+      dbRead
+        .select({
+          sumInvites: sql<number>`count(*)::int`,
+          dayInvites: sql<number>`count(*) filter (where ${users.createdAt} >= ${dayStart})::int`,
+          monthInvites: sql<number>`count(*) filter (where ${users.createdAt} >= ${monthStart})::int`,
+        })
+        .from(users)
+        .where(eq(users.parentId, userId)),
+    ])
+
+    return reply.send(
+      success({
+        avatar: profile?.avatar ?? null,
+        nickname: profile?.nickname ?? null,
+        verified: auth?.authStatus === 'approved',
+        stats: {
+          dayEarnings: Number(flowStats?.dayEarnings ?? 0),
+          dayOrders: flowStats?.dayOrders ?? 0,
+          dayInvites: inviteStats?.dayInvites ?? 0,
+          monthEarnings: Number(flowStats?.monthEarnings ?? 0),
+          monthOrders: flowStats?.monthOrders ?? 0,
+          monthInvites: inviteStats?.monthInvites ?? 0,
+          sumEarnings: Number(flowStats?.sumEarnings ?? 0),
+          sumOrders: flowStats?.sumOrders ?? 0,
+          sumInvites: inviteStats?.sumInvites ?? 0,
+        },
       }),
     )
   })

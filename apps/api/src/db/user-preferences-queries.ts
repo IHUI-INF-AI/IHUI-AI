@@ -26,6 +26,9 @@ export const USER_PREFERENCE_GROUPS = {
   // 'security' 早在 auth.ts 的 login-preferences(autoLogin/autoRenew)里写库,只是这份具名
   // 出口一直没登记它。移动端安全设置屏读的同一条腿(biometric/loginAlert),不得再抄裸字面量。
   security: 'security',
+  // 小程序「设置需求偏好」页(pkg-content/plaza/set-need)的一条 JSON 偏好;它不是广场条目,
+  // 不能写进 zhs_demand_square(那是公开需求列表),故落本表的独立 group。
+  plazaNeed: 'plaza_need',
 } as const
 
 export type UserPreferenceGroup =

@@ -22,6 +22,9 @@ import {
   teams,
   teamMembers,
   orders,
+  agents,
+  aiFeedPosts,
+  userFollows,
 } from '@ihui/database'
 import { requireAuth } from '../plugins/require-permission.js'
 import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
@@ -34,6 +37,7 @@ import {
   activateDeveloperSubscription,
   getMyDeveloperSubscription,
 } from '../db/developer-queries.js'
+import { followUser, unfollowUser, isFollowing } from '../db/social-queries.js'
 import {
   USER_PREFERENCE_GROUPS,
   findUserPreferences,
@@ -375,6 +379,107 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
   // 统一鉴权：所有开发者 API 密钥端点需登录
   server.addHook('preHandler', requireAuth)
 
+  // ===== 开发者主页(小程序 pkg-ai/developer/subscribe 消费)=====
+  // 读侧只出昵称/头像/简介与聚合计数;手机号、实名、idCard 一律不出本文件。
+  const developerIdParams = z.object({ id: z.string().uuid() })
+
+  server.get('/:id/profile', async (request, reply) => {
+    const parsed = developerIdParams.safeParse(request.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的开发者 ID'))
+    const developerId = parsed.data.id
+    const [profile] = await db
+      .select({
+        id: users.id,
+        nickname: users.nickname,
+        avatar: users.avatar,
+        bio: users.bio,
+      })
+      .from(users)
+      .where(eq(users.id, developerId))
+      .limit(1)
+    if (!profile) return reply.status(404).send(error(404, '开发者不存在'))
+
+    const [[followers], [modelStats], subscribed] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(userFollows)
+        .where(eq(userFollows.followingId, developerId)),
+      db
+        .select({
+          count: sql<number>`count(*)::int`,
+          uses: sql<number>`coalesce(sum(${agents.usageCount}), 0)::int`,
+        })
+        .from(agents)
+        .where(and(eq(agents.userId, developerId), eq(agents.status, 'published'))),
+      request.userId ? isFollowing(request.userId, developerId) : Promise.resolve(false),
+    ])
+
+    return reply.send(
+      success({
+        id: profile.id,
+        name: profile.nickname,
+        avatar: profile.avatar,
+        bio: profile.bio,
+        subscribed,
+        subscribers: followers?.count ?? 0,
+        modelCount: modelStats?.count ?? 0,
+        totalUses: modelStats?.uses ?? 0,
+      }),
+    )
+  })
+
+  server.get('/:id/agents', async (request, reply) => {
+    const parsed = developerIdParams.safeParse(request.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的开发者 ID'))
+    const list = await db
+      .select({
+        id: agents.agentId,
+        name: agents.name,
+        description: agents.description,
+        avatar: agents.avatar,
+        usageCount: agents.usageCount,
+      })
+      .from(agents)
+      .where(and(eq(agents.userId, parsed.data.id), eq(agents.status, 'published')))
+      .orderBy(desc(agents.usageCount))
+      .limit(50)
+    return reply.send(success({ list }))
+  })
+
+  server.get('/:id/posts', async (request, reply) => {
+    const parsed = developerIdParams.safeParse(request.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的开发者 ID'))
+    const list = await db
+      .select({
+        id: aiFeedPosts.id,
+        title: aiFeedPosts.title,
+        content: aiFeedPosts.content,
+        createdAt: aiFeedPosts.createdAt,
+      })
+      .from(aiFeedPosts)
+      .where(and(eq(aiFeedPosts.authorId, parsed.data.id), eq(aiFeedPosts.isPublished, true)))
+      .orderBy(desc(aiFeedPosts.createdAt))
+      .limit(20)
+    return reply.send(success({ list }))
+  })
+
+  server.post('/:id/subscribe', async (request, reply) => {
+    const parsed = developerIdParams.safeParse(request.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的开发者 ID'))
+    if (parsed.data.id === request.userId) {
+      return reply.status(400).send(error(400, '不能关注自己'))
+    }
+    await followUser(request.userId!, parsed.data.id)
+    return reply.status(201).send(success({ following: true }))
+  })
+
+  server.post('/:id/unsubscribe', async (request, reply) => {
+    const parsed = developerIdParams.safeParse(request.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的开发者 ID'))
+    await unfollowUser(request.userId!, parsed.data.id)
+    return reply.send(success({ following: false }))
+  })
+
   // GET /api-keys — 列出当前用户的 API 密钥
   server.get('/api-keys', async (request, reply) => {
     const userId = request.userId!
@@ -665,7 +770,17 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       // 2FA step-up 闸：已开 2FA 的账号，敏感操作前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
       const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
       if (!stepUp.ok) {
-        return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+        return reply
+          .status(401)
+          .send(
+            error(
+              401,
+              stepUp.code === 'STEP_UP_REQUIRED'
+                ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+                : '暂时无法确认该账号的两步验证状态，请稍后重试',
+              stepUp.code,
+            ),
+          )
       }
       const parsed = withdrawBodySchema.safeParse(request.body)
       if (!parsed.success) {

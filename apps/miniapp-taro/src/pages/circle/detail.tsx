@@ -123,7 +123,7 @@ export default function CircleDetailPage() {
     const prev = following
     setFollowing(!prev)
     try {
-      await post('/circles/follow', { userId: data.authorId })
+      await post('/interactions/follow', { userId: data.authorId })
       Taro.showToast({
         title: prev
           ? tt('circle.detail.unfollowed', '已取消关注')
