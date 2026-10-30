@@ -5,75 +5,26 @@
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
-import * as dns from 'node:dns'
 import { db } from '../db/index.js'
 import { zhsUserAgentContext, docs } from '@ihui/database'
 import { success, error } from '../utils/response.js'
+import { parsePaging } from '../utils/paging.js'
+import { assertSafeFetchUrl, safeFetch } from '../utils/ssrf-guard.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { isUuidString } from '../utils/uuid.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
-const BLOCKED_HOSTNAMES = new Set(['localhost', 'ip6-localhost', 'metadata.google.internal'])
-
-function isPrivateIPv4(ip: string): boolean {
-  const parts = ip.split('.').map(Number)
-  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
-    return false
-  }
-  const [a = -1, b = -1] = parts
-  if (a === 0 || a === 10 || a === 127) return true
-  if (a === 169 && b === 254) return true
-  if (a === 172 && b >= 16 && b <= 31) return true
-  if (a === 192 && b === 168) return true
-  return false
-}
-
-function isPrivateIPv6(ip: string): boolean {
-  const v = ip.toLowerCase()
-  if (v === '::1') return true
-  if (v.startsWith('fe80:')) return true
-  if (v.startsWith('fc') || v.startsWith('fd')) return true
-  return false
-}
-
-async function isPrivateOrLoopback(url: string): Promise<boolean> {
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return true
-  }
-  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
-  if (BLOCKED_HOSTNAMES.has(hostname)) return true
-  if (hostname.includes(':')) return isPrivateIPv6(hostname)
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return isPrivateIPv4(hostname)
-  try {
-    const addrs = await dns.promises.lookup(hostname, { all: true })
-    if (addrs.length === 0) return true
-    for (const { address, family } of addrs) {
-      const blocked = family === 6 ? isPrivateIPv6(address) : isPrivateIPv4(address)
-      if (blocked) return true
-    }
-    return false
-  } catch {
-    return true
-  }
-}
-
-function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
-  const page = Math.max(1, Math.floor(Number(q.page) || 1))
-  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
-  return { page, pageSize }
-}
+// SSRF 判据不在本文件另写一份:私有/保留族、DNS rebinding 复检、逐跳重定向复检
+// 全部住在 utils/ssrf-guard.ts(§0.6)。本路由此前自带一套 10 行的 isPrivateIPv4,
+// 缺 CGNAT 100.64/10、multicast 224/4、v4-mapped IPv6 内嵌地址等族,
+// 且裸 fetch 默认跟随重定向(302 → 内网即绕过首跳校验)—— 两处一并接到规范出口。
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // P0 安全修复(2026-09-09 第九轮):本插件此前零鉴权——remote_proxy 配置全量
   // CRUD(存于 system_configs)与 /remote/proxy 任意 URL 转发(SSRF 面)匿名可达,
   // 且无任何前端调用方。整体收权为 admin,后续如需开放再按路由细化。
-  server.addHook('preHandler', async (request, reply) => {
-    return requireAdmin(request, reply)
-  })
+  server.addHook('preHandler', requireAdmin)
 
   // -------------------------------------------------------------------------
   // remote — 远程代理配置（存储于 system_configs 表，category='remote_proxy'）
@@ -222,20 +173,24 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.post('/remote/proxy', async (req, reply) => {
     const b = proxySchema.safeParse(req.body)
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
-    const blocked = await isPrivateOrLoopback(b.data.url)
+    const blocked = !(await assertSafeFetchUrl(b.data.url, { allowCustomPort: true })).safe
     if (blocked) {
       return reply.status(400).send(error(400, 'URL not allowed: potential SSRF'))
     }
     try {
-      const resp = await fetch(b.data.url, {
-        method: b.data.method,
-        headers: b.data.headers ?? {},
-        body:
-          b.data.body !== undefined && b.data.method !== 'GET'
-            ? JSON.stringify(b.data.body)
-            : undefined,
-        signal: AbortSignal.timeout(10000),
-      })
+      const resp = await safeFetch(
+        b.data.url,
+        {
+          method: b.data.method,
+          headers: b.data.headers ?? {},
+          body:
+            b.data.body !== undefined && b.data.method !== 'GET'
+              ? JSON.stringify(b.data.body)
+              : undefined,
+          signal: AbortSignal.timeout(10000),
+        },
+        { allowCustomPort: true },
+      )
       const MAX_RESPONSE_BYTES = 10 * 1024 * 1024
       const reader = resp.body?.getReader()
       const chunks: Uint8Array[] = []
