@@ -225,6 +225,9 @@ export * from './knowledge-base-reading.js'
 export * from './knowledge-base-list.js'
 export * from './learn-homework.js'
 export * from './lecturer.js'
+// 逆向-复现-超越 §0.11(2026-10-31):Agent 失败的「结局二分 + 停摆位置」状态词表(§30 一等契约)。
+// 只经主入口导出;Python 侧镜像 apps/ai-service/app/core/agent_failure_vocabulary.py 逐字等值。
+export * from './agent-failure-vocabulary.js'
 export * from './news.js'
 export * from './news-category.js'
 export * from './skills-market.js'
