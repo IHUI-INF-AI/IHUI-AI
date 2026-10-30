@@ -57,6 +57,14 @@ const log = createLogger()
 const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)))
 const PROJECT_NAME = basename(ROOT) // IHUI-AI
 const PARENT_DIR = dirname(ROOT) // 项目父目录(动态推导,符合 AGENTS.md §15)
+// 枚举预算(2026-10-30 立):D:\ 深度 2 会进场到 DevEnv 这类二十万条目级的分区,而 readdirSync
+// 是**同步阻塞**的 —— 实测一轮复跑 CPU 只 8.41s 却跑满 40 分钟(I/O 等待),进程卡到被判超时
+// SIGKILL;三席并发时还能在盘上挂 68 分钟。卡死 = 门不可用;超预算 = 门诚实地说"我没扫完"。
+// 所以预算命中**不静默通过**,而是判未判定 exit 2(§0.3)。调预算:`IHUI_PARENT_POLLUTION_ENTRY_BUDGET`
+// (0 = 不限,回到旧行为)。
+const ENTRY_BUDGET = Number(process.env.IHUI_PARENT_POLLUTION_ENTRY_BUDGET ?? 200_000)
+let entryCount = 0
+let budgetHit = false
 const GRANDPARENT_DIR = dirname(PARENT_DIR) // 项目祖父目录(动态推导)
 
 /**
@@ -369,6 +377,10 @@ function findPollution(dir, recursive = false, depth = 0) {
   }
 
   for (const entry of entries) {
+    if (ENTRY_BUDGET > 0 && ++entryCount > ENTRY_BUDGET) {
+      budgetHit = true
+      return pollutions
+    }
     // 跳过项目目录自身
     if (dir === PARENT_DIR && entry.name === PROJECT_NAME) continue
     // 跳过系统隐藏目录
@@ -446,6 +458,16 @@ function main() {
 
   // 2. 扫描项目祖父目录(桌面)的根级文件(不递归,避免误伤其他项目)
   allPollutions.push(...findPollution(GRANDPARENT_DIR, false, 0))
+
+  // 枚举预算命中 ⇒ 未判定(exit 2),不记绿也不冒红(§0.3)。
+  // 刻意排在两次扫描之后而非每次递归里 exit:先把已扫到的结果留给调用方看,再说明"我没扫完"。
+  if (budgetHit) {
+    log.error(
+      `❌ parent-pollution 未判定:枚举超过预算 ${ENTRY_BUDGET} 条(实扫 ${entryCount} 条)⇒ exit 2`,
+    )
+    log.error('   出路:调 IHUI_PARENT_POLLUTION_ENTRY_BUDGET,或先清掉该分区下数量爆炸的目录')
+    process.exit(2)
+  }
 
   // 3. 扫描用户主目录根级(只扫 agent 临时产物命名模式的文件,不递归)
   //    覆盖 agent 误写到 ~/ 的情况(如 ~/*.ps1 / ~/*.txt 调试日志)

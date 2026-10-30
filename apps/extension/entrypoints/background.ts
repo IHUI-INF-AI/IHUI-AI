@@ -200,8 +200,10 @@ async function handleVocabLookup(payload: {
   } catch {
     // ignore — fallback below
   }
-  // fallback:本地直译(不调 API)
-  return { word, translation: word, definitions: ['离线模式:无法连接服务器'] }
+  // fallback:本地直译(不调 API)。
+  // translation 不再回填原词 —— 弹层会把 translation 当译文渲染,用户读成"这个词就是这个意思";
+  // 留空并靠 definitions 里那句离线说明交代失败原因(与"取不到就说取不到"同口径)。
+  return { word, translation: '', definitions: ['离线模式:无法连接服务器'] }
 }
 
 function parseVocabContent(content: string): {
