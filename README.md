@@ -40379,3 +40379,4 @@ A: Yes. ~14839+ tests / 3544 test files / 67 e2e spec / 4600 API 路由 / 611 �
 `check-rn-compat-coverage.mjs`(小程序复用共享屏源的覆盖面对账 C1/C2/C3)
 `check-ruff-python.mjs`(Python lint 接进提交链,pin 唯一源 `apps/ai-service/pyproject.toml`)
 `check-web-rn-screen-parity.mjs`(web→RN 功能覆盖账本,只读报表)
+- 后端装配: `check-api-route-uniqueness.mjs`(门 269,2026-10-31 立:同一 `(method,path)` 被注册两次只在 Fastify 装配期抛,提交链零判据 ⇒ 本门按 `METHOD 对外真实路径` 判"≥2 个不同站点",`--staged` 判索引 blob、差值棘轮只拦新增、三档剔除(fallback/动态前缀/内联别名塌陷)报数不判红;判据单源 `scripts/lib/api-route-uniqueness.mjs` 复用 `route-registration-extract` 挂载图,零复算;跳过 `HUSKY_SKIP_API_ROUTE_UNIQUENESS=1`)
