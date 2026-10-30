@@ -104,6 +104,9 @@ vi.mock('react-native', async () => {
     // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
     // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    // AppState(2026-10-30):回屏/回前台重取收口到共享层后,useRefreshOnFocus 的 RN adapter
+    // 在挂载期订阅 AppState。本套件不测回前台,只需可订阅/可退订(缺出口 ⇒ 挂载即崩)。
+    AppState: { currentState: 'active' as const, addEventListener: () => ({ remove() {} }) },
     // BottomPops(经 AgentScreen 的 appAlert 导入拉入)模块求值期读窗口高:
     // const SCREEN_HEIGHT = Dimensions.get('window').height,缺它则整文件加载即炸。
     Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },
