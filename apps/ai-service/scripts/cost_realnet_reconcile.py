@@ -21,7 +21,6 @@ import json
 import sys
 import urllib.request
 from pathlib import Path
-from typing import Any, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -56,11 +55,7 @@ def _load_key() -> str:
     raise SystemExit("FAIL: OPENROUTER_API_KEY 未配置")
 
 
-# 2026-10-28 修:返回类型原写 dict[str, object] —— 太粗,以至于调用方的 `data.get("usage")`
-# 拿到 object,三个 .get 全被判 attr-defined。JSON 解析结果的诚实类型就是 Any
-# (json.loads 本身返回 Any),改 dict[str, Any] 不是放弃检查,是**按真实契约对齐**:
-# 本脚本只在这里做 "." 取值,且下面每步都有 `or {}` / 默认值兜底。
-def _real_call(key: str) -> dict[str, Any]:
+def _real_call(key: str) -> dict[str, object]:
     body = json.dumps(
         {
             "model": REALNET_MODEL,
@@ -78,10 +73,7 @@ def _real_call(key: str) -> dict[str, Any]:
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=60) as resp:
-        # json.loads 的静态类型是 Any,而 strict 的 warn_return_any 不允许把裸 Any 当
-        # 返回值交出去(下游拿到的东西会被静默逃过检查)。这里是 HTTP JSON 响应,形状由
-        # 上游 API 契约而非本地类型系统保证,cast 是这一格的准确表达。
-        return cast("dict[str, Any]", json.loads(resp.read().decode()))
+        return json.loads(resp.read().decode())
 
 
 def main() -> int:

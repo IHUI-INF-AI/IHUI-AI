@@ -18,6 +18,7 @@
 export {
   isOverseasLocale,
   planLoginRegion,
+  reorderByPriority,
   resolveLoginRegion,
 } from '@ihui/shared/auth/login-region-policy'
 export type {

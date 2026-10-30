@@ -95,7 +95,7 @@ data: [DONE]
 
 ### 代码示例
 
-**TypeScript(@ihui-ai/sdk)**
+**TypeScript(@ihui/sdk)**
 
 ```typescript
 // 非流式

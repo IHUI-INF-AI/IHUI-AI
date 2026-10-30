@@ -4615,121 +4615,6 @@ export function auditAssetPathHealth(opts = {}) {
 }
 
 
-/**
- * AASA(apple-app-site-association)公网健康的**常驻**派发点(尺子 = `scripts/check-aasa-public-health.mjs`,
- * 2026-10-29 立)。立因:这台尺子造出来时没人按时跑它 —— 只接了 `pnpm check:aasa-health` 一个手工入口,
- * 而它判的是"公网两腿能不能取到与单源同构的 AASA",属机主面之外唯一可自动守的那半格
- * (UniversalLink 控制台填写那一半仍归机主)。按 §12e 它是只读尺子,刻意不进提交链,唯一调度器就是这里。
- *
- * 三态语义照抄资产路径那台:breach 发信、warn 只报数、unjudged 既不续命也不清零(§0.3)、ok 清零。
- * 身份按"breach 条数档"折叠:`alertCountTier` 管计数,具体靶名会随整改位移,写进身份就是风暴(守门 224)。
- */
-const AASA_TICK = join(WORKTREE, '.ihui-agent', 'state', 'aasa-health-tick.ts')
-const AASA_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'aasa-health-first.json')
-const AASA_LAST = join(WORKTREE, '.ihui-agent', 'state', 'aasa-health-last.json')
-const AASA_INTERVAL_MS = Number(process.env.IHUI_AASA_INTERVAL_MS || 6 * 60 * 60 * 1000)
-const AASA_TIMEOUT_MS = Number(process.env.IHUI_AASA_TIMEOUT_MS || 120_000)
-
-export function auditAasaPublicHealth(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = AASA_INTERVAL_MS,
-    tickFile = AASA_TICK,
-    firstFile = AASA_FIRST,
-    lastFile = AASA_LAST,
-    logger = log,
-    notify = notifyGuardRed,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-aasa-public-health.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ AASA 公网健康:尺子脚本不在位(scripts/check-aasa-public-health.mjs)⇒ 本轮跳过,不记为已探测')
-    return { ran: false, why: '尺子脚本不在位' }
-  }
-  let lastTick = NaN
-  try {
-    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-    const call =
-      typeof runner === 'function'
-        ? runner()
-        : (() => {
-            try {
-              const out = execFileSync(process.execPath, [script, '--json'], {
-                cwd: WORKTREE,
-                encoding: 'utf8',
-                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
-                timeout: AASA_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
-                maxBuffer: 1 << 22,
-                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
-              })
-              return { status: 0, stdout: String(out || ''), stderr: '' }
-            } catch (e) {
-              return {
-                status: typeof e.status === 'number' ? e.status : 2,
-                stdout: String(e.stdout || ''),
-                stderr: String(e.stderr || e.message || ''),
-              }
-            }
-          })()
-    let parsed = null
-    try {
-      parsed = JSON.parse(String(call.stdout || ''))
-    } catch {
-      /* 落到未判定 */
-    }
-    if (!parsed || typeof parsed.verdict !== 'string') {
-      logger(
-        `⚠️ AASA 公网健康未产出结论(未判定,不记为已探测):rc=${call.status} ` +
-          `${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(0, 200)}`,
-      )
-      return { ran: true, judged: false, why: '结论不可解析' }
-    }
-    try {
-      mkdirSync(dirname(lastFile), { recursive: true })
-      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
-    } catch {
-      /* 状态件写不掉只影响可见性,不影响告警本身 */
-    }
-    const breach = Array.isArray(parsed?.breach) ? parsed.breach : []
-    if (parsed.verdict === 'breach') {
-      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
-      notify(
-        `AASA 公网健康 breach:${breach.length} 维不达标`,
-        `不达标维(逐条来自尺子 JSON 的 breach 数组):\n${breach.slice(0, 10).map((b) => `· ${b}`).join('\n') || '(无)'}`,
-        {
-          severity: 'warning',
-          dedupKey: `verdict=breach;breach=${alertCountTier(breach.length)};held=${held.tier}`,
-        },
-      )
-      logger(`❌ AASA 公网健康 breach ${breach.length} 维(已按身份去重发信)`)
-      return { ran: true, judged: true, breaches: breach.length }
-    }
-    if (parsed.verdict === 'warn') {
-      logger(`⚠️ AASA 公网健康报数(不判红):${String(parsed.why || '有机主面待办').slice(0, 180)}`)
-      clearUndeterminedStreak(firstFile)
-      return { ran: true, judged: true, breaches: 0, warns: 1 }
-    }
-    if (parsed.verdict === 'unjudged') {
-      // 未判定既不续命也不清零(§0.3);取不到输入不等于坏,更不等于好
-      logger(`ℹ️ AASA 公网健康:未判定 —— ${String(parsed.why || '(无原因)').slice(0, 200)}`)
-      return { ran: true, judged: false, why: '未判定' }
-    }
-    clearUndeterminedStreak(firstFile)
-    logger(`✅ AASA 公网健康:${Array.isArray(parsed?.legs) ? parsed.legs.length : 0} 腿可达且与单源同构`)
-    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
-  } catch (e) {
-    logger('⚠️ AASA 公网健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
-    return { ran: false, why: '派发异常' }
-  }
-}
-
 /** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
@@ -5728,12 +5613,6 @@ function main() {
     if (!CHECK_ONLY) auditOpsPatrol()
     // lint-staged stdio 三针盯针:与上一行同挂点语义(判机器状态 ⇒ 不进提交链,§12e),45 分钟节流。
     if (!CHECK_ONLY) auditLintStagedPins()
-    // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
-    // .ihui-agent/state/feedback-loop-closure-tick.ts 节流戳 ⇒ 双执行体并存只有先到那一个真跑,
-    // 不会翻倍发信)。为什么必须挂在 tick 而不是只挂 main():startDaemon 是内存常驻的
-    // setTimeout 链,不重读本文件;只挂 main() 一次性路径的话,常驻守护**永远跑不到**这一格,
-    // 闭环就退回"器件在、没人看"。挂上后本改动需重启守护进程才生效(常驻不重读)。
-    auditFeedbackLoopClosure()
     // 巡检**自己**也要有人看(2026-10-17 立):上面那行派发它,而它一旦停摆,账面没有任何一格会红
     // —— 它判的是"别的任务没在跑", "它自己没在跑"没有任何判据。挂点与上面各层同格(健康轮次
     // 早退之前 + !CHECK_ONLY),读它每轮落的 ops-patrol-last.json,超 3 期未更新即就地起跳一轮。
@@ -5751,9 +5630,6 @@ function main() {
     // 资产路径可达性 + 证书到期(2026-10-28 立,尺子 = scripts/check-asset-path-health.mjs):立因 =
     // 生产 .env 四条支付宝证书路径写在已不存在的 F: 盘上,SDK 静默读不到证书,全仓零门喊过。6h 节流。
     if (!CHECK_ONLY) auditAssetPathHealth()
-    // AASA 公网健康(2026-10-29 立):这台尺子造出来时只接了手工入口 `pnpm check:aasa-health`,
-    // 没人按时跑它 —— 而它守的是"AASA 两腿公网可达且与单源同构",属机主面之外唯一能自动守的半格。
-    if (!CHECK_ONLY) auditAasaPublicHealth()
     // 「完成即删」兜底清扫已提前到 healWorktreeTracked 之后(2026-10-22 调度加固,见该处注释):
     // 挂在这一长串探测之后实测整轮到不了,清扫心跳会长期停摆。
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
@@ -5806,10 +5682,6 @@ function main() {
     if (!CHECK_ONLY) dispatchGateRot()
     if (!CHECK_ONLY) dispatchRelayCapacity()
     if (!CHECK_ONLY) dispatchAutoTriage()
-    if (!CHECK_ONLY) dispatchDeployOutcomeIntake()
-    if (!CHECK_ONLY) dispatchDeployFeedback()
-    if (!CHECK_ONLY) dispatchExportUserFeedback()
-    if (!CHECK_ONLY) dispatchE2eAutofill()
     if (!CHECK_ONLY) dispatchDepAdvisoryRadar()
     if (!CHECK_ONLY) dispatchAutoEvolve()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
@@ -6400,151 +6272,6 @@ export function dispatchAutoTriage(opts = {}) {
   return { ran: true, ok: r.ok, registered, undetermined }
 }
 
-// ── 自进化闭环装车腿(goal-b21/W2) ──────────────────────────────────────────
-// 以下四件器件已在 HEAD 且单测全绿,但此前零生产引用(§0.9「造好没装车=没有」)。
-// 本批把它们接进派发轮:默认开启、可经 IHUI_GUARDIAN_DISABLE_<NAME>=1 关闭、
-// 失败不阻断主轮、节流各自独立。每函数均接受 exists/runner 注入以便测试钉行为。
-
-export function dispatchDeployOutcomeIntake(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = Number(process.env.IHUI_DEPLOY_OUTCOME_INTERVAL_MS || 20 * 60 * 1000),
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'deploy-outcome-intake-dispatch-last.json'),
-    logger = log,
-    exists = existsSync,
-    runner = null,
-  } = opts
-  if (process.env.IHUI_GUARDIAN_DISABLE_DEPLOY_OUTCOME === '1') {
-    logger('⏸ 部署结果入库派发:IHUI_GUARDIAN_DISABLE_DEPLOY_OUTCOME=1 ⇒ 跳过')
-    return { ran: false, why: '被 env 关闭' }
-  }
-  const script = join(GUARDIAN_SCRIPTS_DIR, 'deploy-outcome-intake.mjs')
-  if (!exists(script)) {
-    logger('ℹ 部署结果入库派发:器物不在位(scripts/deploy-outcome-intake.mjs)⇒ 本轮跳过')
-    return { ran: false, why: '器物缺席' }
-  }
-  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  stampDispatchTick(tickFile, now, logger)
-  const run = runner ?? (() => {
-    try {
-      const out = execFileSync(process.execPath, [script], {
-        cwd: WORKTREE, encoding: 'utf8', windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 1 << 22, stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      return { ok: true, out: String(out ?? '') }
-    } catch (e) {
-      return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
-    }
-  })
-  const r = run()
-  logger(`${r.ok ? '✅' : '⚠️'} 部署结果入库派发:${r.ok ? '完成' : '异常'}｜${String(r.out ?? '').split(/\r?\n/).filter(Boolean).slice(-1).join('').slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`)
-  return { ran: true, ok: r.ok }
-}
-
-export function dispatchDeployFeedback(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = Number(process.env.IHUI_DEPLOY_FEEDBACK_INTERVAL_MS || 20 * 60 * 1000),
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'deploy-feedback-dispatch-last.json'),
-    logger = log,
-    exists = existsSync,
-    runner = null,
-  } = opts
-  if (process.env.IHUI_GUARDIAN_DISABLE_DEPLOY_FEEDBACK === '1') {
-    logger('⏸ 部署反馈派发:IHUI_GUARDIAN_DISABLE_DEPLOY_FEEDBACK=1 ⇒ 跳过')
-    return { ran: false, why: '被 env 关闭' }
-  }
-  const script = join(GUARDIAN_SCRIPTS_DIR, 'deploy-feedback.mjs')
-  if (!exists(script)) {
-    logger('ℹ 部署反馈派发:器物不在位(scripts/deploy-feedback.mjs)⇒ 本轮跳过')
-    return { ran: false, why: '器物缺席' }
-  }
-  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  stampDispatchTick(tickFile, now, logger)
-  const run = runner ?? (() => {
-    try {
-      const out = execFileSync(process.execPath, [script, '--once'], {
-        cwd: WORKTREE, encoding: 'utf8', windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 1 << 22, stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      return { ok: true, out: String(out ?? '') }
-    } catch (e) {
-      return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
-    }
-  })
-  const r = run()
-  logger(`${r.ok ? '✅' : '⚠️'} 部署反馈派发:${r.ok ? '完成(--once 仅扫描)' : '异常'}｜${String(r.out ?? '').split(/\r?\n/).filter(Boolean).slice(-1).join('').slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`)
-  return { ran: true, ok: r.ok }
-}
-
-export function dispatchExportUserFeedback(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = Number(process.env.IHUI_USER_FEEDBACK_EXPORT_INTERVAL_MS || 20 * 60 * 1000),
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'user-feedback-export-dispatch-last.json'),
-    logger = log,
-    exists = existsSync,
-    runner = null,
-  } = opts
-  if (process.env.IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_EXPORT === '1') {
-    logger('⏸ 用户反馈导出派发:IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_EXPORT=1 ⇒ 跳过')
-    return { ran: false, why: '被 env 关闭' }
-  }
-  const script = join(GUARDIAN_SCRIPTS_DIR, 'export-user-feedback.mjs')
-  if (!exists(script)) {
-    logger('ℹ 用户反馈导出派发:器物不在位(scripts/export-user-feedback.mjs)⇒ 本轮跳过')
-    return { ran: false, why: '器物缺席' }
-  }
-  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  stampDispatchTick(tickFile, now, logger)
-  const run = runner ?? (() => {
-    try {
-      const out = execFileSync(process.execPath, [script], {
-        cwd: WORKTREE, encoding: 'utf8', windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 1 << 22, stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      return { ok: true, out: String(out ?? '') }
-    } catch (e) {
-      return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
-    }
-  })
-  const r = run()
-  logger(`${r.ok ? '✅' : '⚠️'} 用户反馈导出派发:${r.ok ? '完成(只读查库→导出件)' : '异常'}｜${String(r.out ?? '').split(/\r?\n/).filter(Boolean).slice(-1).join('').slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`)
-  return { ran: true, ok: r.ok }
-}
-
-export function dispatchE2eAutofill(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = Number(process.env.IHUI_E2E_AUTOFILL_INTERVAL_MS || 30 * 60 * 1000),
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'e2e-autofill-dispatch-last.json'),
-    logger = log,
-    exists = existsSync,
-    runner = null,
-  } = opts
-  if (process.env.IHUI_GUARDIAN_DISABLE_E2E_AUTOFILL === '1') {
-    logger('⏸ E2E 自动补测派发:IHUI_GUARDIAN_DISABLE_E2E_AUTOFILL=1 ⇒ 跳过')
-    return { ran: false, why: '被 env 关闭' }
-  }
-  const script = join(GUARDIAN_SCRIPTS_DIR, 'e2e-autofill.mjs')
-  if (!exists(script)) {
-    logger('ℹ E2E 自动补测派发:器物不在位(scripts/e2e-autofill.mjs)⇒ 本轮跳过')
-    return { ran: false, why: '器物缺席' }
-  }
-  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  stampDispatchTick(tickFile, now, logger)
-  const run = runner ?? (() => {
-    try {
-      const out = execFileSync(process.execPath, [script, '--check'], {
-        cwd: WORKTREE, encoding: 'utf8', windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 1 << 22, stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      return { ok: true, out: String(out ?? '') }
-    } catch (e) {
-      return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
-    }
-  })
-  const r = run()
-  logger(`${r.ok ? '✅' : '⚠️'} E2E 自动补测派发(--check 只读):${r.ok ? '完成' : '异常'}｜${String(r.out ?? '').split(/\r?\n/).filter(Boolean).slice(-1).join('').slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`)
-  return { ran: true, ok: r.ok }
-}
-
 /** 依赖安全通告派发(第 3 期③装车):每日一轮,`--register` 走 live-doc-edit 唯一登记入口。 */
 export function dispatchDepAdvisoryRadar(opts = {}) {
   const {
@@ -6833,10 +6560,6 @@ export const __test__ = {
   // 钉不住行为,而这一族的失效形态全是安静(多 spawn 一次 = 多派一个会话)。
   dispatchAutoEvolve,
   dispatchAutoTriage,
-  dispatchDeployOutcomeIntake,
-  dispatchDeployFeedback,
-  dispatchExportUserFeedback,
-  dispatchE2eAutofill,
   dispatchDepAdvisoryRadar,
   dispatchGateRot,
   dispatchRelayCapacity,

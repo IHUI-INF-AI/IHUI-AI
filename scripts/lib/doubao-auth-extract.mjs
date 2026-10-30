@@ -95,17 +95,6 @@ export function stripDoubaoAppPrefix(plaintextOrBuf) {
 }
 
 /**
- * 写回端配套(2026-10-28):明文值前重新拼上豆包自家 32 字节头,再交 os_crypt 封。
- * (与 stripDoubaoAppPrefix 互逆;头魔数即上面实证的恒定值。)
- */
-export function wrapDoubaoAppPrefix(value) {
-  return Buffer.concat([
-    Buffer.from(DOUBAO_APP_PLAIN_PREFIX_HEX, 'hex'),
-    Buffer.from(String(value), 'utf8'),
-  ])
-}
-
-/**
  * Chromium os_crypt cookie 密文(v10/v11 + nonce12 + ct + tag16,AES-256-GCM)→ 明文。
  * opts.rawBuffer=true ⇒ 返回 Buffer(豆包自家 24 字节二进制头需字节级剥除,先转 utf8 会产生
  * U+FFFD 不可逆损毁 —— 2026-10-27 实证);默认返回 utf8 字符串(旧签名兼容)。
@@ -309,34 +298,12 @@ export async function extractDoubaoAccounts(opts = {}) {
           { code: 'DOUBAO_NO_SESSION' },
         )
       }
-      // 捆绑单账号(2026-10-28):豆包登录态 = 一整套字节 passport 族 cookie,
-      // 拆成逐 cookie 多行号池没有意义(转发适配器 doubao-adapter 吃的就是整包 cookiesEnc)。
-      // token 取主票(按登录判据优先级),uid 用整包指纹(同机同会话重导入 ⇒ 同 uid 覆盖)。
-      const primary =
-        ['sessionid', 'sessionid_ss', 'sid_tt', 'uid_tt', 'ttwid', 'odin_tt']
-          .map((n) => valid.find((e) => e.key === n))
-          .find(Boolean) ?? valid[0]
-      const seed = valid
-        .map((e) => `${e.host}|${e.key}=${e.value}`)
-        .sort()
-        .join('\n')
-      const bundleUid = `auto:${crypto.createHash('sha256').update(seed).digest('hex').slice(0, 32)}`
       return {
         providerCode: 'doubao',
-        accounts: [
-          {
-            name: `豆包本机(${primary.key},${valid.length}票)`,
-            token: primary.value,
-            uid: bundleUid,
-            cookies: valid,
-            enabled: true,
-          },
-        ],
+        accounts: valid,
         meta: {
-          bundle: true,
           sourceDir: dir,
           dbPath,
-          primaryCookie: `${primary.host}/${primary.key}`,
           count: valid.length,
           skipped,
           notes: skips,
@@ -357,8 +324,6 @@ export const __test__ = {
   candidateUserDataDirs,
   summarizeEntry,
   pickImportableEntries,
-  stripDoubaoAppPrefix,
-  wrapDoubaoAppPrefix,
   SESSION_COOKIE_NAMES,
   HOST_SUFFIXES,
   GLOBAL_HOST_SUFFIXES,

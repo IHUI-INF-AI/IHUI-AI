@@ -687,33 +687,6 @@
     }
   },
   "admin": {
-    "relayTasks": {
-        "wbTitle": "WorkBuddy task automation",
-        "wbAccount": "Account",
-        "wbAccountEmpty": "No WorkBuddy account",
-        "wbDryRun": "Preview (dry run)",
-        "wbRefresh": "Refresh",
-        "wbNoAccount": "Select an account first",
-        "wbLoading": "Loading tasks…",
-        "wbReadFailed": "Failed to load",
-        "wbUnjudged": "Unjudged",
-        "wbNoTasks": "No runnable tasks",
-        "wbColTask": "Task",
-        "wbColProgress": "Progress",
-        "wbColStatus": "Status",
-        "wbColReward": "Reward",
-        "wbKindGrowth": "Growth",
-        "wbKindTravel": "Travel",
-        "wbKindActivity": "Activity",
-        "wbKindBlackcat": "Night owl",
-        "wbRunOk": "Task executed",
-        "wbRunFailed": "Execution failed",
-        "wbAccepted": "Accepted",
-        "wbClaimed": "Claimed",
-        "wbCreditDelta": "Credits",
-        "wbEnergyDelta": "Energy",
-        "wbNeverRun": "Not run yet"
-    },
     "smsOperations": {
       "page": {
         "title": "SMS Channel Operations",
@@ -2044,14 +2017,10 @@
     "developer": {
       "cancel": "Cancel",
       "colActions": "Actions",
-      "colAddress": "Address",
       "colCozeId": "Coze ID",
-      "colCreatedAt": "Created At",
-      "colCreator": "Creator",
       "colNickname": "Nickname",
       "colPlatform": "Platform",
       "colSignAccount": "Sign Account",
-      "colSignNickname": "Sign Nickname",
       "colStatus": "Status",
       "cozeCreate": "Add Account",
       "cozeCreateTitle": "Add Coze Account",
@@ -9615,9 +9584,6 @@
     "title": "AI Career Guidance"
   },
   "aiChat": {
-    "favorite": "Add bookmark",
-    "unfavorite": "Remove bookmark",
-    "delete": "Delete",
     "bindIssue": "Bind issue",
     "actions": {
       "archive": "Archive",
@@ -9818,7 +9784,6 @@
       "title": "PowerShell Terminal"
     },
     "thisMonth": "This Month",
-    "earlier": "Earlier",
     "thisWeek": "This Week",
     "title": "AIChat",
     "toast": {
@@ -10703,11 +10668,6 @@
     "noAssessment": "No assessments yet"
   },
   "goalCard": {
-    "resumeServerOk": "Goal resumed",
-    "resumeAlreadyActive": "Goal is already active, nothing to resume",
-    "resumeTerminal": "Goal is completed and cannot be resumed",
-    "resumeNoGoal": "No resumable goal in this session",
-    "resumeFailed": "Resume failed: {message}",
     "editAriaLabel": "Edit goal",
     "editSave": "Save",
     "editCancel": "Cancel",
@@ -11268,16 +11228,6 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
-    "favorite": "Add bookmark",
-    "unfavorite": "Remove bookmark",
-    "workbenchSessions": "Sessions",
-    "feedbackLike": "Helpful",
-    "feedbackDislike": "Not helpful",
-    "workbenchHeroTitle": "AI Chat Workbench",
-    "workbenchHeroHint": "Type below to start a new conversation right here, or pick a session on the left to continue.",
-    "workbenchSplit": "Split panes",
-    "workbenchDropHere": "Drag a conversation here from the left",
-    "workbenchQuickStart": "Quick actions",
     "truncation": {
       "maxLengthNotice": "This reply was cut off at the maximum output length and is incomplete; send \"continue\" to keep generating."
     },
@@ -12170,27 +12120,6 @@
       "noContent": "(no content)",
       "openGitHub": "Open GitHub",
       "promptPlaceholder": "Prompt template content",
-      "reloadSkills": "Reload skills",
-      "reloadSkillsHint": "Rescan SKILL.md on disk so changes take effect immediately",
-      "reloadSkillsRunning": "Reloading…",
-      "reloadSkillsSuccess": "Reload complete",
-      "reloadSkillsFailed": "Reload failed",
-      "reloadSkillsAdded": "Added",
-      "reloadSkillsRemoved": "Removed",
-      "reloadSkillsChanged": "Changed",
-      "reloadSkillsUnchanged": "Unchanged",
-      "reloadSkillsTotal": "{count} skills in total",
-      "reloadSkillsNoChange": "No content changes in this reload",
-      "reloadSkillsAuto": "{count} from auto sources",
-      "reloadPlugins": "Reload plugin surface",
-      "reloadPluginsHint": "Rescan the plugin surface and feed the latest command list back to the host",
-      "reloadPluginsRunning": "Reloading…",
-      "reloadPluginsSuccess": "Plugin surface reloaded",
-      "reloadPluginsFailed": "Plugin surface reload failed",
-      "reloadPluginsCommandCount": "{count} commands",
-      "reloadPluginsSkillCount": "{count} skills",
-      "reloadPluginsCommandList": "Latest command list",
-      "reloadPluginsNoCommand": "No commands available right now",
       "save": "Save",
       "saving": "Saving…",
       "scenario": "Scenario",
@@ -12205,8 +12134,6 @@
       "sectionCustom": "My custom",
       "statusAvailable": "Available",
       "statusComingSoon": "Coming soon",
-      "tabAiSkills": "AI Skills",
-      "tabAll": "All",
       "tabCustom": "Custom",
       "tabMcp": "MCP",
       "tabOpenclaw": "OpenClaw",
@@ -12303,7 +12230,6 @@
       "feedbackRecorded": "Feedback recorded, thank you",
       "feedbackSaved": "Feedback saved",
       "feedbackFailed": "Failed to submit feedback",
-      "dislikeThanks": "Thanks — you can add details from the survey card",
       "messageDeleted": "Message deleted",
       "operationFailed": "Operation failed",
       "regenerating": "Regenerating…",
@@ -15062,18 +14988,7 @@
       "toolFailures": "Tool Failures",
       "trigger": "Trigger",
       "triggerError": "Trigger failed",
-      "triggerSuccess": "Triggered successfully",
-      "refresh": "Rescan memory source",
-      "refreshSuccess": "Memory source rescanned",
-      "refreshReadFailed": "Memory source read failed (previous memory kept)",
-      "refreshFailed": "Memory source rescan failed",
-      "refreshTotal": "{before} before → {after} after rescan",
-      "refreshLoadState": "Read state",
-      "refreshAdded": "Added",
-      "refreshRemoved": "Removed",
-      "refreshChanged": "Changed",
-      "refreshUnchanged": "Unchanged",
-      "refreshNoChange": "No content changes in this rescan"
+      "triggerSuccess": "Triggered successfully"
     },
     "orch": {
       "dashboard": "Dashboard",
@@ -18448,12 +18363,7 @@
     "dashboardSuccessRate": "Success rate",
     "dashboardAvgLatency": "Avg latency",
     "dashboardNoData": "No data",
-    "dashboardLatency": "{value}s",
-    "clearAuth": "Revoke authorization",
-    "clearAuthHint": "Revoke the OAuth credential you granted to this server (this one only)",
-    "clearAuthSuccess": "Authorization for {name} revoked",
-    "clearAuthNoOauth": "{name} does not use the OAuth channel, nothing to revoke",
-    "clearAuthFailed": "Failed to revoke authorization for {name}"
+    "dashboardLatency": "{value}s"
   },
   "member": {
     "feedback": {

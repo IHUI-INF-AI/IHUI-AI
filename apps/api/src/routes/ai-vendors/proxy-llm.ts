@@ -26,7 +26,6 @@ import {
 } from './_shared.js'
 import { spendPoints } from '../../services/points-service.js'
 import { findUserPoints } from '../../db/gamification-queries.js'
-import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 // OpenAI messages → Gemini contents(官方 generateContent 协议转换)
 function toGeminiContents(messages: unknown[] | undefined): unknown[] {
@@ -277,7 +276,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/dashscope/chat',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '通义千问对话补全',
         description: '代理调用 Dashscope 兼容模式 chat/completions 接口',
@@ -329,7 +327,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/agnes/chat',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Agnes AI 对话补全',
         description:
@@ -415,7 +412,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/dashscope/image-edit',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '通义万相图片编辑',
         description: '代理调用 Dashscope multimodal-generation/generation 接口进行图片编辑',
@@ -496,7 +492,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/dashscope/asr',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '通义千问语音识别',
         description: '代理调用 Dashscope audio/asr/transcription 接口进行语音转写',
@@ -555,7 +550,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/dashscope/video',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '通义万相视频生成',
         description: '代理调用 Dashscope video-synthesis 异步视频生成接口',
@@ -634,7 +628,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/dashscope/multimodal',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '通义千问多模态生成',
         description: '代理调用 Dashscope multimodal-generation/generation 接口进行多模态生成',
@@ -679,7 +672,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/dashscope/agent',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '通义千问智能体调用',
         description: '代理调用 Dashscope agents/generation 接口进行智能体调用',
@@ -720,7 +712,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/doubao/chat',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '豆包对话补全',
         description: '代理调用 Doubao(火山方舟)chat/completions 接口',
@@ -771,7 +762,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/doubao/image-edit',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '豆包图片编辑',
         description: '代理调用 Doubao images/generations 接口进行图片编辑(prompt+image 必填)',
@@ -864,7 +854,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/doubao/asr',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '豆包语音识别',
         description: '代理调用 Doubao openspeech asr 接口进行语音转写',
@@ -925,7 +914,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/doubao/video',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '豆包视频生成',
         description: '代理调用 Doubao contents/generations/tasks 异步视频生成接口',
@@ -1003,7 +991,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/doubao/multimodal',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '豆包多模态对话',
         description: '代理调用 Doubao(火山方舟)chat/completions 接口进行多模态对话',
@@ -1040,7 +1027,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/gemini/chat',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Gemini 对话生成',
         description: '代理调用 Gemini generateContent 接口进行对话生成(默认 gemini-2.0-flash)',
@@ -1162,7 +1148,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/gemini/asr',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Gemini 语音识别',
         description: '代理调用 Google Cloud Speech-to-Text speech:recognize 接口',
@@ -1227,7 +1212,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/gemini/video',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Gemini 视频生成',
         description: '代理调用 Gemini veo-3.1 predictLongRunning 异步视频生成接口',
@@ -1313,7 +1297,6 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/gemini/multimodal',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Gemini 多模态生成',
         description: '代理调用 Gemini generateContent 接口进行多模态生成(默认 gemini-2.0-flash)',
@@ -1366,7 +1349,6 @@ export const llmVendorV2Routes: FastifyPluginAsync = async (server) => {
   server.post(
     '/v2/dashscope/chat',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '[V2] 通义千问对话补全',
         description: 'V2 新签名样板:代理调用 Dashscope 兼容模式 chat/completions',
@@ -1455,7 +1437,6 @@ export const llmVendorV2Routes: FastifyPluginAsync = async (server) => {
   server.post(
     '/v2/dashscope/asr',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '[V2] 通义千问语音识别',
         description: 'V2 新签名样板:代理调用 Dashscope audio/asr/transcription 接口',
@@ -1492,7 +1473,6 @@ export const llmVendorV2Routes: FastifyPluginAsync = async (server) => {
   server.post(
     '/v2/doubao/chat',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '[V2] 豆包对话补全',
         description: 'V2 新签名样板:代理调用 Doubao(火山方舟)chat/completions',
@@ -1518,7 +1498,6 @@ export const llmVendorV2Routes: FastifyPluginAsync = async (server) => {
   server.post(
     '/v2/gemini/chat',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: '[V2] Gemini 对话生成',
         description: 'V2 新签名样板:代理调用 Gemini generateContent(默认 gemini-2.0-flash)',

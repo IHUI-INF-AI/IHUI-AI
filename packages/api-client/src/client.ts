@@ -70,7 +70,7 @@ import { serializeError } from './error-serialize.js'
  * `./src/*.ts`(实测 `node scripts/check-pkg-installable.mjs packages/types` 有 6 条 blocker),
  * 所以只要这行在,本包的 `dependencies` 就摘不掉 `workspace:` 协议 —— 发出去即 ERR_MODULE_NOT_FOUND。
  * 改成包内常量后,`@ihui/types` 降级为纯类型面(devDependency),tsc 把 `import type` 整条抹掉,
- * dist 里不再有任何 `@ihui/types` 运行时引用;这与 `@ihui-ai/sdk` 的既有形态同形
+ * dist 里不再有任何 `@ihui/types` 运行时引用;这与 `@ihui/sdk` 的既有形态同形
  * (实测 `packages/sdk/dist/*.js` 对 `@ihui/types` 零命中,而它是本仓唯一已通过可安装自检的包)。
  *
  * 为什么这不构成"第二份真相":契约仍然只有 `DeviceFingerprintCollector` 一个来源(上一行按名导入)。
@@ -5782,107 +5782,6 @@ export async function postSessionGoal(
     accepted: ack?.accepted === true,
     ...(typeof ack?.status === 'string' ? { status: ack?.status as GoalWireStatus } : {}),
     ...(typeof ack?.sessionId === 'string' ? { sessionId: ack?.sessionId } : {}),
-  }
-}
-
-/**
- * 控制帧 `resume_goal`(2026-10-28 立):把会话目标从「被暂停」恢复到 active。
- *
- * POST /llm/sessions/{session_id}/goal/resume
- *
- * 与 `postSessionGoal(action:'resume')` 的差别 = **入口是帧名**而不是猜 action 串:
- * 竞品原帧即 `request({type:"resume_goal"})`,判据是「宿主显式调用 + 必须回报结果」。
- * 服务端那一侧两条路共用同一份实现(`services/goal_resume.py`),不存在两处漂移。
- *
- * 失败必抛(同 `postSessionGoal` 的教训):静默吞掉 = 用户点了「恢复」而服务端一个字
- * 都没写,界面停在「恢复好了」的假象上。
- *
- * ⚠️ **回退口径**:`ok:false` 表示服务端这一轮**没有**这条会话的主副本
- * (不存在 / 不属于本主体 —— 两种情形服务端同形回包,不给存在性预言机)。调用方据此
- * **退回纯本地态**(stores/goal 仍是缓存,功能不中断),不得把它当成「恢复失败」弹错。
- * `ok:true` 但 `accepted:false` 时 `reason` 给出**确定原因**(见 `GoalResumeReason`),
- * 那一侧是调用方自己那条会话的确定答案,应当把原因显示出来。
- */
-export type GoalResumeReason =
-  | 'no_goal'
-  | 'terminal'
-  | 'already_active'
-  | 'not_resumable'
-  | 'no_objective'
-
-export interface SessionGoalResumeResult {
-  /** 帧是否给出了确定结论(false = 同形拒绝:不存在 / 非属主 / 未鉴权) */
-  ok: boolean
-  /** 本次调用是否真的把服务端主副本写成了 active */
-  accepted: boolean
-  /** 是否真的发生了「被暂停 → active」的状态迁移(不谎报) */
-  resumed: boolean
-  /** 服务端权威状态;同形拒绝时缺席 */
-  status?: GoalWireStatus
-  /** 恢复后保留的目标文本(恢复不换目标) */
-  objective?: string
-  sessionId?: string
-  /** 有结论但没恢复的原因码(仅归属闸门已过时出现) */
-  reason?: GoalResumeReason
-}
-
-export async function resumeSessionGoal(
-  sessionId: string,
-): Promise<SessionGoalResumeResult> {
-  const aiServiceUrl = aiServiceBaseUrl()
-  let resp: Response
-  try {
-    resp = await fetchWithAuthRefresh(
-      `${aiServiceUrl}/api/llm/sessions/${encodeURIComponent(sessionId)}/goal/resume`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      },
-    )
-  } catch (e) {
-    throw new Error(
-      `resumeSessionGoal network error (session=${sessionId}): ${(e as Error).message}`,
-    )
-  }
-  if (!resp.ok) {
-    let detail = ''
-    try {
-      detail = (await resp.text()).slice(0, 200)
-    } catch {
-      // 忽略 body 读取失败,只保留 status
-    }
-    throw new Error(
-      `resumeSessionGoal failed: HTTP ${resp.status} (session=${sessionId})${detail ? `: ${detail}` : ''}`,
-    )
-  }
-  let ack: {
-    ok?: unknown
-    accepted?: unknown
-    resumed?: unknown
-    status?: unknown
-    objective?: unknown
-    sessionId?: unknown
-    reason?: unknown
-  }
-  try {
-    ack = (await resp.json()) as typeof ack
-  } catch (e) {
-    throw new Error(
-      `resumeSessionGoal ack unreadable (session=${sessionId}): ${(e as Error).message}`,
-    )
-  }
-  const reason = ack?.reason
-  return {
-    ok: ack?.ok === true,
-    accepted: ack?.accepted === true,
-    resumed: ack?.resumed === true,
-    ...(typeof ack?.status === 'string' ? { status: ack?.status as GoalWireStatus } : {}),
-    ...(typeof ack?.objective === 'string' ? { objective: ack?.objective } : {}),
-    ...(typeof ack?.sessionId === 'string' ? { sessionId: ack?.sessionId } : {}),
-    ...(typeof reason === 'string'
-      ? { reason: reason as GoalResumeReason }
-      : {}),
   }
 }
 

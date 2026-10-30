@@ -25,10 +25,8 @@
  *     device-credential-vault.js):Electron safeStorage(v10 DPAPI 同构)加密后存
  *     `<userData>\shared-session-sync\[environments\<scopeKey>\]device-credential.json`,
  *     字段 {version, scope_key, encrypted(base64), device_id, app_id, status} ——
- *     〔更正@2026-10-28〕上一版按"明文扫 .log/.ldb 找不到键名"判本机**未登录**,是错的:
- *     真实库 47 条键里 `loomy-auth-session` 确实在(uid 261023222726664932 / 199****5160),
- *     它在 `000005.ldb` 的 **snappy 压缩块**里 —— 明文逐字节扫连键名都搜不到。现改走
- *     `leveldb-log.readLevelDbEntries`(sst 块解析 + seq 收敛)补齐,压缩块里的会话也能出号;
+ *     本机 2026-10-27 现读:该目录不存在 + localStorage 无 loomy-auth-session 键
+ *     ⇒ **未登录态**,两路径探测照常走,登录后即可提取;
  *   - 结论:提取器按「源码实证键 + Electron 通用候选键」双路径探测
  *     (Local Storage leveldb + Cookies + device-credential.json 探测注记),
  *     取不到 ⇒ LOOMY_NO_SESSION(未判定,不冒绿)。
@@ -37,12 +35,6 @@
  * **逐字直通**(不猜字段、不改名、不拼装),归一与凭证拆分全交服务端单一映射。
  * 值抽取是字节级扫描(leveldb log/sstable 直读):值截断/跨块/压缩 ⇒ 解析不出完整值
  * 就如实丢给 skipped 并点名,绝不补猜。
- *
- * 出号形状(2026-10-28 定案「捆绑单账号」):只有主键 loomy-auth-session 命中才出
- * **一条**账号 {source:'local-storage', key:'loomy-auth-session', value:<整份会话
- * JSON 逐字直通>, companions:{配套键命中值}};主键不命中 ⇒ LOOMY_NO_SESSION(未登录,
- * 不冒绿)。cookie 命中与 DeviceCredentialVault 路径只进 meta.notes 指路,不建行
- * (实证主 Cookies 库 0 行、分区无 Cookies ⇒ cookie 命中本就属异常,不能当会话)。
  *
  * 安全:令牌零回显 —— meta 摘要只打 sha256 前 12 位指纹/长度;错误信息不含凭据明文;
  * DPAPI 子进程只收密文、只回密钥(管道内,不进日志)。
@@ -59,8 +51,6 @@ const require = createRequire(import.meta.url)
 
 /** DPAPI/v10 解密单一源:直接复用 codearts 提取器已实证的实现(§0.6,不抄第二份解密器) */
 import { readAesKeyFromLocalState } from './codearts-auth-extract.mjs'
-/** LevelDB 读取单一源(日志 + sstable 压缩块 + Chromium 值编码);本模块不另写解析器 */
-import { readLevelDbEntries, lsValueKey, decodeStoredValue } from './leveldb-log.mjs'
 
 /**
  * Local Storage 候选键名探测清单(只筛「取哪把钥匙」,不做字段映射,§0.6):
@@ -241,24 +231,6 @@ export function scanLocalStorageEntries(dir) {
       }
     }
   }
-  /**
-   * 压缩块兜底(2026-10-28 实测):sst 的数据块是 snappy 压缩的,明文逐字节扫**连键名都搜不到** ——
-   * 本机 000005.ldb 里明明有 loomy-auth-session(167 字节),上面那圈扫描却命中 0 条,
-   * 提取器于是报"未登录"。这里用 leveldb-log 的单源读取器按块解出来补齐/覆盖:
-   * 读取器能给出客户端读法下的最新值(seq 收敛),比字节扫描更权威。
-   */
-  try {
-    const db = readLevelDbEntries(ldbDir, fs, path)
-    for (const key of LOCAL_STORAGE_KEY_CANDIDATES) {
-      const raw = db.entries.get(lsValueKey(key).toString('latin1'))
-      if (!raw) continue
-      const decoded = decodeStoredValue(raw)
-      const value = finalizeValue(decoded ?? '')
-      if (value) byKey.set(key, { source: 'local-storage', key, value, file: '(leveldb 块解析)' })
-    }
-  } catch {
-    /* 读取器整面取不到 ⇒ 保留字节扫描结论,不升级成"未登录"以外的结论 */
-  }
   const entries = [...byKey.values()]
   return {
     entries,
@@ -402,12 +374,8 @@ export function pickImportableEntries(entries) {
   return { valid, skipped }
 }
 
-/** 配套键(捆绑进账号 companions,值同样逐字直通;命中与否都不影响出号) */
-const LOOMY_COMPANION_KEYS = ['loomy-last-login-phone', 'loomy-user-identity']
-
 /**
- * 提取本机 Loomy 会话 → 编排器 payload(捆绑单账号,2026-10-28 定案)。
- * 目录缺失 / 主键 loomy-auth-session 不命中 / 解密失败一律 throw 带 code,
+ * 提取本机 Loomy 会话 → 编排器 payload。目录缺失 / 0 命中 / 解密失败一律 throw 带 code,
  * 绝不静默返回空数组冒绿(§0.3)。
  * @param {{roamingDir?: string, shellBin?: string}} [opts] 仅供测试注入
  */
@@ -429,44 +397,33 @@ export async function extractLoomyAccounts(opts = {}) {
       const ls = scanLocalStorageEntries(dir)
       const ck = readCookieEntries(dir, { shellBin: opts.shellBin })
       const vaultHits = probeDeviceCredentialVault(dir)
-      const notes = [...ls.skips, ...ck.skips]
-      if (vaultHits.length) {
-        notes.push(`DeviceCredentialVault 落点在盘(未解未导,登录后可作为设备票源): ${vaultHits.join('; ')}`)
-      }
-      if (ck.entries.length > 0) {
-        notes.push(
-          `Cookies 命中 ${ck.entries.length} 条(${ck.entries.map((c) => `${c.host}/${c.key}`).join(', ')})` +
-            ' —— 仅注记不建行(实证会话走 localStorage,cookie 命中属异常形态)',
-        )
-      }
-      const main = ls.entries.find((e) => e.key === 'loomy-auth-session')
-      if (!main) {
+      const vaultNotes = vaultHits.length
+        ? [
+            `DeviceCredentialVault 落点在盘(未解未导,登录后可作为设备票源): ${vaultHits.join('; ')}`,
+          ]
+        : []
+      const all = [...ls.entries, ...ck.entries]
+      const notes = [...ls.skips, ...ck.skips, ...vaultNotes]
+      const { valid, skipped } = pickImportableEntries(all)
+      if (valid.length === 0) {
         throw Object.assign(
           new Error(
-            `目录在盘但主键 loomy-auth-session 未出现(源码实证登录会话主键;asar setItem 一手证据)` +
-              ` ⇒ 本机 Loomy 处于未登录态,登录后重跑即可。取证注记: ${notes.join('; ') || '(无)'}`,
+            `目录在盘但 0 条会话候选命中(源码实证主键 loomy-auth-session 未出现 ⇒ ` +
+              `本机 Loomy 处于未登录态;登录后重跑即可)。取证注记: ${notes.join('; ') || '(无)'}`,
           ),
           { code: 'LOOMY_NO_SESSION' },
         )
       }
-      const companions = {}
-      for (const name of LOOMY_COMPANION_KEYS) {
-        const hit = ls.entries.find((e) => e.key === name)
-        if (hit) companions[name] = hit.value
-      }
-      const accounts = [
-        { source: 'local-storage', key: 'loomy-auth-session', value: main.value, companions },
-      ]
       return {
         providerCode: 'loomy',
-        accounts,
+        accounts: valid,
         meta: {
           sourceDir: dir,
-          count: accounts.length,
-          skipped: Math.max(0, ls.entries.length - 1 - Object.keys(companions).length) + ck.entries.length,
+          count: valid.length,
+          skipped,
           notes,
           keysProbed: LOCAL_STORAGE_KEY_CANDIDATES,
-          sessions: [summarizeEntry(main)],
+          sessions: valid.map(summarizeEntry),
         },
       }
     } catch (e) {

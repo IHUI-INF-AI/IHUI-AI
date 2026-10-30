@@ -278,9 +278,7 @@ export async function addApiLog(input: {
   })
 }
 
-/** 批量写入 API 日志(由 api-logger 缓冲 flush 调用,失败忽略)。
- * createdAt 由调用方逐行携带(= 各请求自己的完成时刻);缺省时退回列默认 now(),
- * 而 PG 的 now() 在同一 INSERT 内恒等 ⇒ 没带时刻的那几行会共享 flush 时刻,事件时间不可信。 */
+/** 批量写入 API 日志(由 api-logger 缓冲 flush 调用,失败忽略)。 */
 export async function addApiLogsBatch(
   logs: Array<{
     userId?: string
@@ -291,7 +289,6 @@ export async function addApiLogsBatch(
     ip?: string
     userAgent?: string
     error?: string
-    createdAt?: Date
   }>,
 ): Promise<void> {
   if (logs.length === 0) return
@@ -305,7 +302,6 @@ export async function addApiLogsBatch(
       ip: input.ip,
       userAgent: input.userAgent,
       error: input.error,
-      createdAt: input.createdAt,
     })),
   )
 }

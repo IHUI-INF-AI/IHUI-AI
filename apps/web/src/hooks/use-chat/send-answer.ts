@@ -49,13 +49,11 @@ import {
   createToolSummaryHandler,
   createReviewFindingHandler,
   createUsageHandler,
+  createDeltaBatcher,
   createAgentDeltaBatcher,
   localizeQuotaExhausted,
   isMaxTokensTruncatedFinishReason,
 } from './stream-handlers'
-// 2026-10-28 流式观感档续:send-answer 正文/思考两泵与 sendMessage 同谱换 smooth
-// (逐帧推进,落后越多追越快;batch/flush/cancel 契约逐参数一致,drop-in)。
-import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 import type { ChatActionContext } from './types'
 
@@ -155,11 +153,10 @@ export function createSendAnswer(
     }, 60000)
 
     // #9 流式 token 节流(2026-07-25 立,与 sendMessage 对称)
-    // 2026-10-28:与 sendMessage 同谱升 smooth(此前 answer 链两泵仍是帧级整坨)。
-    const contentBatcher = createSmoothDeltaBatcher((d) =>
+    const contentBatcher = createDeltaBatcher((d) =>
       chatStore.getState().appendToMessage(assistantId, d),
     )
-    const reasoningBatcher = createSmoothDeltaBatcher((d) =>
+    const reasoningBatcher = createDeltaBatcher((d) =>
       chatStore.getState().appendReasoningToMessage(assistantId, d),
     )
     const agentBatcher = createAgentDeltaBatcher()

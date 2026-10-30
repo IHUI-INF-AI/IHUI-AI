@@ -112,7 +112,7 @@ async function hasVerifiedApiKeyCarrier(request: FastifyRequest): Promise<boolea
     normalizeHeader(request.headers['x-goog-api-key']),
     normalizeHeader(request.headers['x-api-key']),
     typeof (request.query as { key?: unknown } | undefined)?.key === 'string'
-      ? (request.query as { key: string }).key.trim() || undefined
+      ? ((request.query as { key: string }).key).trim() || undefined
       : undefined,
   ].filter((v): v is string => typeof v === 'string' && v.length > 0)
   if (candidates.length === 0) return false
@@ -150,6 +150,18 @@ const PUBLIC_PREFIXES = [
   '/.well-known/',
   // 服务回调（HMAC/共享密钥，无 JWT）
   '/api/ai/callback',
+  // 短信厂商回调（2026-10-26 立）：腾讯云服务器到服务器投递，永远不带 CSRF token，
+  // 与浏览器 cookie 会话无关 ⇒ CSRF 在此没有防护对象。防线只有已登记的两道：SMS_CALLBACK_TOKEN
+  // 定长比较 + 可选 IP 白名单；**两道都未配时路由回 503 并记 error**（fail-closed，不静默放行），
+  // 除此之外没有第三道兜底 —— 别在注释里写不存在的防线（§0.8 出路必须真跑得通）。
+  // **刻意按这三条路径登记,而不是放开 /api/sms/callback/ 整个前缀**(纪律同下方 webhooks/github
+  // 与 github-app/webhook,O19 事故原文:参数化前缀连带放开静态子路由)。matchesPrefix 是段边界
+  // 语义:精确命中 + 该路径的子路径命中 ⇒ 放过的是这三条及其子路径(status/reply 本就住在
+  // tencent 之下),而 /api/sms/callback/ 下**将来另起的兄弟族**不再自动继承豁免 ——
+  // 这一条由 tests/csrf.test.ts 用兄弟路径钉死(摘掉本档改动,该用例当场翻红)。
+  '/api/sms/callback/tencent',
+  '/api/sms/callback/tencent/status',
+  '/api/sms/callback/tencent/reply',
   // 支付服务端回调（P2 修复 2026-08-06:豁免最小化,仅保留纯回调路径,且入口均有签名/密钥验签）:
   // - wechat/notify + wechat/notify/refund:verifyCallbackSignature 微信平台证书验签
   // - alipay/notify:verifyNotify 支付宝 RSA 验签
@@ -178,17 +190,6 @@ const PUBLIC_PREFIXES = [
   // 生产实测(2026-09-26,公网 https://aizhs.top/api/github-app/webhook)POST 被 403
   // `CSRF 令牌缺失或无效` 拦在签名层之前,安装事件/PR 回调全进不来。
   '/api/github-app/webhook',
-  // 短信厂商回调(路由 2026-10-26 立,2026-10-28 补豁免)。腾讯服务器到服务器投递,
-  // 永远不带 CSRF token;防线是路由自身的 SMS_CALLBACK_TOKEN / SMS_CALLBACK_IP_ALLOWLIST
-  // (fail-closed:两道都没配回 503,不是放行 —— 见 routes/sms-callback.ts 安全边界)。
-  // 与上面 GitHub App 完全同型:不豁免 ⇒ 请求被 CSRF 403 拦在 token 校验之前,而腾讯把
-  // 4xx 当"永久失败"丢弃且不重试 ⇒ 送达回执与上行退订永久丢失,且日志里看起来像
-  // "短信发了没回执"而不是"回调被拦"。**刻意写三条精确整路径而不是 /api/sms/callback/
-  // 前缀**(纪律同上条):前缀会把该族未来路由一起放过,反向锁见 tests/csrf.test.ts 的
-  // "未登记兄弟仍被 CSRF 拦"那条。
-  '/api/sms/callback/tencent',
-  '/api/sms/callback/tencent/status',
-  '/api/sms/callback/tencent/reply',
   // 崩溃上报(2026-08-12 立,匿名可上报,崩溃时未必持有 token;
   // 风险低:仅写 crash_reports 表一条记录,无敏感操作;全局限流防滥用)
   '/api/crash-reports',

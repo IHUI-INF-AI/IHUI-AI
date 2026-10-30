@@ -10,7 +10,6 @@ import { zhsUserAgentImage } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { directEgressFetch, boundedOptionsFromRequestInit } from '../utils/proxy-dispatcher.js'
-import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
 
 const DASHSCOPE_BASE = process.env.DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com/api/v1'
 
@@ -168,7 +167,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /ai-image/doubao/edit - 豆包图片编辑
   // -------------------------------------------------------------------------
-  server.post('/ai-image/doubao/edit', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
+  server.post('/ai-image/doubao/edit', async (request, reply) => {
     await authenticate(request)
     const parsed = doubaoEditSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -236,7 +235,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /ai-image/doubao/inpaint - 豆包图片修复
   // -------------------------------------------------------------------------
-  server.post('/ai-image/doubao/inpaint', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
+  server.post('/ai-image/doubao/inpaint', async (request, reply) => {
     await authenticate(request)
     const parsed = doubaoInpaintSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -303,7 +302,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /ai-image/tongyi/edit - 通义图片编辑
   // -------------------------------------------------------------------------
-  server.post('/ai-image/tongyi/edit', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
+  server.post('/ai-image/tongyi/edit', async (request, reply) => {
     await authenticate(request)
     const parsed = tongyiEditSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -460,7 +459,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /ai-image/tongyi/image-to-image - 通义图生图
   // -------------------------------------------------------------------------
-  server.post('/ai-image/tongyi/image-to-image', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
+  server.post('/ai-image/tongyi/image-to-image', async (request, reply) => {
     await authenticate(request)
     const parsed = tongyiImageToImageSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -716,7 +715,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /ai-image/tongyi/style-transfer - 通义风格迁移
   // -------------------------------------------------------------------------
-  server.post('/ai-image/tongyi/style-transfer', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
+  server.post('/ai-image/tongyi/style-transfer', async (request, reply) => {
     await authenticate(request)
     const parsed = tongyiStyleTransferSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -786,7 +785,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /ai-image/tongyi/background-generation - 通义背景生成
   // -------------------------------------------------------------------------
-  server.post('/ai-image/tongyi/background-generation', { bodyLimit: MEDIA_BASE64_BODY_LIMIT }, async (request, reply) => {
+  server.post('/ai-image/tongyi/background-generation', async (request, reply) => {
     await authenticate(request)
     const parsed = tongyiBackgroundGenerationSchema.safeParse(request.body)
     if (!parsed.success) {

@@ -1,0 +1,6 @@
+<resources>
+  <!-- 暗档墨反转:亮 #000000 → 暗 #FFFFFF,与 JS 层 brand.DEFAULT 暗档逐字同值。 -->
+  <color name="accent_ink">#FFFFFF</color>
+  <color name="ripple_ink">#1FFFFFFF</color>
+  <color name="selection_ink">#33FFFFFF</color>
+</resources>

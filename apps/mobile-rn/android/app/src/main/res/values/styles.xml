@@ -1,0 +1,22 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+    <item name="colorPrimary">@color/colorPrimary</item>
+    <item name="android:statusBarColor">@android:color/transparent</item>
+    <item name="android:navigationBarColor">@android:color/transparent</item>
+    <!-- 2026-10-20 立:原生强调色必须显式钉中性墨档。不钉 ⇒ colorControlActivated 回落系统强调色
+         (HyperOS 实测橙),它会经 EditText 背景 / 光标 / 选中句柄 / ripple / 文字选中底纹五条腿
+         渗进界面,而本项目 UI 规范只允许墨档与中性/brandAccent 档。editTextBackground 那圈描边
+         已在 drawable 侧清空,这里管住剩下四条腿。 -->
+    <item name="colorAccent">@color/accent_ink</item>
+    <item name="android:colorAccent">@color/accent_ink</item>
+    <item name="colorControlActivated">@color/accent_ink</item>
+    <item name="android:colorControlActivated">@color/accent_ink</item>
+    <item name="colorControlHighlight">@color/ripple_ink</item>
+    <item name="android:colorControlHighlight">@color/ripple_ink</item>
+    <item name="android:textColorHighlight">@color/selection_ink</item>
+  </style>
+  <style name="Theme.App.SplashScreen" parent="AppTheme">
+    <item name="android:windowBackground">@drawable/ic_launcher_background</item>
+  </style>
+</resources>

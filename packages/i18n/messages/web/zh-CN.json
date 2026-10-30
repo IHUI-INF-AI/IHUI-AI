@@ -687,33 +687,6 @@
     }
   },
   "admin": {
-    "relayTasks": {
-        "wbTitle": "WorkBuddy 任务自动化",
-        "wbAccount": "账号",
-        "wbAccountEmpty": "暂无 WorkBuddy 账号",
-        "wbDryRun": "预览(干跑)",
-        "wbRefresh": "刷新",
-        "wbNoAccount": "请先选择账号",
-        "wbLoading": "读取任务清单…",
-        "wbReadFailed": "读取失败",
-        "wbUnjudged": "未判定",
-        "wbNoTasks": "没有可执行任务",
-        "wbColTask": "任务",
-        "wbColProgress": "进度",
-        "wbColStatus": "状态",
-        "wbColReward": "奖励",
-        "wbKindGrowth": "成长",
-        "wbKindTravel": "旅行",
-        "wbKindActivity": "活跃",
-        "wbKindBlackcat": "黑猫(夜间)",
-        "wbRunOk": "任务已执行",
-        "wbRunFailed": "执行失败",
-        "wbAccepted": "已接取",
-        "wbClaimed": "已领取",
-        "wbCreditDelta": "积分变化",
-        "wbEnergyDelta": "体力变化",
-        "wbNeverRun": "尚未执行"
-    },
     "smsOperations": {
       "page": {
         "title": "短信通道运营",
@@ -2044,14 +2017,10 @@
     "developer": {
       "cancel": "取消",
       "colActions": "操作",
-      "colAddress": "地址",
       "colCozeId": "Coze ID",
-      "colCreatedAt": "创建时间",
-      "colCreator": "创建人",
       "colNickname": "昵称",
       "colPlatform": "平台",
       "colSignAccount": "签权账号",
-      "colSignNickname": "签权昵称",
       "colStatus": "状态",
       "cozeCreate": "新增账号",
       "cozeCreateTitle": "新增 Coze 账号",
@@ -9615,9 +9584,6 @@
     "title": "AI 生涯指导"
   },
   "aiChat": {
-    "favorite": "添加收藏",
-    "unfavorite": "取消收藏",
-    "delete": "删除",
     "bindIssue": "绑定 Issue",
     "actions": {
       "archive": "归档",
@@ -9818,7 +9784,6 @@
       "title": "PowerShell 终端"
     },
     "thisMonth": "本月",
-    "earlier": "更早",
     "thisWeek": "本周",
     "title": "AI任务",
     "toast": {
@@ -10703,11 +10668,6 @@
     "noAssessment": "暂无评估记录"
   },
   "goalCard": {
-    "resumeServerOk": "目标已恢复",
-    "resumeAlreadyActive": "目标已在进行中,无需恢复",
-    "resumeTerminal": "目标已结束,无法恢复",
-    "resumeNoGoal": "该会话没有可恢复的目标",
-    "resumeFailed": "恢复失败:{message}",
     "editAriaLabel": "编辑目标",
     "editSave": "保存",
     "editCancel": "取消",
@@ -11268,16 +11228,6 @@
     "expiryDate": "到期日期"
   },
   "chat": {
-    "favorite": "添加收藏",
-    "unfavorite": "取消收藏",
-    "workbenchSessions": "会话",
-    "feedbackLike": "有帮助",
-    "feedbackDislike": "没帮助",
-    "workbenchHeroTitle": "AI 对话工作台",
-    "workbenchHeroHint": "在下方直接输入即可开新会话，或从左侧选择会话继续任务。",
-    "workbenchSplit": "拆分窗格",
-    "workbenchDropHere": "从左侧把会话拖到这里",
-    "workbenchQuickStart": "快捷动作",
     "truncation": {
       "maxLengthNotice": "本条回答在达到最大输出长度时被截断，内容不完整；发送“继续”可接着生成。"
     },
@@ -12170,27 +12120,6 @@
       "noContent": "（无内容）",
       "openGitHub": "访问 GitHub",
       "promptPlaceholder": "Prompt 模板内容",
-      "reloadSkills": "重载技能",
-      "reloadSkillsHint": "重新扫描磁盘上的 SKILL.md，让改动立即生效",
-      "reloadSkillsRunning": "重载中…",
-      "reloadSkillsSuccess": "重载完成",
-      "reloadSkillsFailed": "重载失败",
-      "reloadSkillsAdded": "新增",
-      "reloadSkillsRemoved": "移除",
-      "reloadSkillsChanged": "更新",
-      "reloadSkillsUnchanged": "未变",
-      "reloadSkillsTotal": "共 {count} 个技能",
-      "reloadSkillsNoChange": "本次重载没有内容变化",
-      "reloadSkillsAuto": "auto 来源 {count} 个",
-      "reloadPlugins": "重载插件面",
-      "reloadPluginsHint": "重扫插件面，并把最新命令列表回灌给宿主",
-      "reloadPluginsRunning": "重载中…",
-      "reloadPluginsSuccess": "插件面已重载",
-      "reloadPluginsFailed": "插件面重载失败",
-      "reloadPluginsCommandCount": "命令 {count} 条",
-      "reloadPluginsSkillCount": "技能 {count} 个",
-      "reloadPluginsCommandList": "最新命令清单",
-      "reloadPluginsNoCommand": "当前没有可用命令",
       "save": "保存",
       "saving": "保存中…",
       "scenario": "场景",
@@ -12205,8 +12134,6 @@
       "sectionCustom": "我的自定义",
       "statusAvailable": "已上线",
       "statusComingSoon": "即将上线",
-      "tabAiSkills": "AI 技能",
-      "tabAll": "全部",
       "tabCustom": "自定义",
       "tabMcp": "MCP",
       "tabOpenclaw": "OpenClaw",
@@ -12303,7 +12230,6 @@
       "feedbackRecorded": "已记录反馈,感谢支持",
       "feedbackSaved": "反馈已记录",
       "feedbackFailed": "反馈提交失败",
-      "dislikeThanks": "已记录 —— 可通过反馈卡补充原因",
       "messageDeleted": "已删除消息",
       "operationFailed": "操作失败",
       "regenerating": "正在重新生成…",
@@ -15066,18 +14992,7 @@
       "toolFailures": "工具失败",
       "trigger": "手动触发",
       "triggerError": "触发失败",
-      "triggerSuccess": "触发成功",
-      "refresh": "重新扫描记忆源",
-      "refreshSuccess": "记忆源已重扫",
-      "refreshReadFailed": "记忆源读取失败（已保留刷新前的记忆）",
-      "refreshFailed": "记忆源重扫失败",
-      "refreshTotal": "刷新前 {before} 条 → 刷新后 {after} 条",
-      "refreshLoadState": "读取状态",
-      "refreshAdded": "新增",
-      "refreshRemoved": "移除",
-      "refreshChanged": "更新",
-      "refreshUnchanged": "未变",
-      "refreshNoChange": "本次重扫没有内容变化"
+      "triggerSuccess": "触发成功"
     },
     "orch": {
       "dashboard": "仪表盘",
@@ -18452,12 +18367,7 @@
     "dashboardSuccessRate": "成功率",
     "dashboardAvgLatency": "平均延迟",
     "dashboardNoData": "暂无数据",
-    "dashboardLatency": "{value}s",
-    "clearAuth": "撤回授权",
-    "clearAuthHint": "撤回你授予该 Server 的 OAuth 凭据(只撤这一台)",
-    "clearAuthSuccess": "{name} 的授权已撤回",
-    "clearAuthNoOauth": "{name} 未使用 OAuth 通道,没有可撤回的授权",
-    "clearAuthFailed": "{name} 撤回授权失败"
+    "dashboardLatency": "{value}s"
   },
   "member": {
     "feedback": {

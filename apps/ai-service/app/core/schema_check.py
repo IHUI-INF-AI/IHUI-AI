@@ -42,7 +42,7 @@ _APP_DIR = Path(__file__).resolve().parent.parent  # apps/ai-service/app
 # "表未在 TS schema 中管理(数据孤岛风险)" 的 WARNING。逐张确认过:
 #   ① TS schema 里**均无**声明(grep packages/database/src/schema 零命中);
 #   ② 均由 ai-service 的 `CREATE TABLE IF NOT EXISTS` 自建(自建源见下)。
-# 这是既有设计(签到 / 媒体 / 发布 / RAG / 保活 五组表由各自 service 原生 SQL 管),
+# 这是既有设计(签到 / 媒体 / 发布 / RAG 四组表由各自 service 原生 SQL 管),
 # 不是字段漂移。记在这里的意义是**显式承认现状**,而不是假装它们受 Drizzle
 # 管理(那才是说谎);同时把噪音从 WARNING 降为 INFO —— 狼来了会让真正的
 # 孤岛告警被淹没。
@@ -55,8 +55,6 @@ _APP_DIR = Path(__file__).resolve().parent.parent  # apps/ai-service/app
 #   publish_metrics / publish_style_check
 #                    -> app/services/publish/metrics_collector.py
 #   rag_chunks       -> app/services/pgvector_store.py
-#   keepalive_account_state / keepalive_events
-#                    -> app/services/keepalive/store.py(运行期懒建表,由 lifespan fail-open 调用)
 KNOWN_NON_DRIZZLE_TABLES: frozenset[str] = frozenset({
     "checkin_accounts",
     "checkin_records",
@@ -66,8 +64,6 @@ KNOWN_NON_DRIZZLE_TABLES: frozenset[str] = frozenset({
     "publish_metrics",
     "publish_style_check",
     "rag_chunks",
-    "keepalive_account_state",
-    "keepalive_events",
 })
 
 # packages/database/src/schema 目录(用于解析 TS schema)
@@ -539,7 +535,7 @@ def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
             for name in sorted(tables & set(owned)):
                 if name in drizzle_tables:
                     logger.warning(
-                        "[schema_check] %s: 同名建表 DDL 在 sqlite 侧文件 %s,但它由 TS Drizzle 管理 => 按 Postgres 侧保留校验",
+                        "[schema_check] %s: 同名建表 DDL 在 sqlite 侧文件 %s,但它由 TS Drizzle 管理 ⇒ 按 Postgres 侧保留校验",
                         name,
                         owned[name],
                     )

@@ -37,9 +37,10 @@ function appUpdateOf(platform: 'web' | 'mobile-rn', locale: string): Record<stri
   return ns as Record<string, string>
 }
 
-/** 两端必须都有的键(RN 只用这 7 个;web 另有 gate* 强更文案与 body)。 */
+/** 两端必须都有的键(RN 只用这 8 个;web 另有 gate* 强更文案)。 */
 const SHARED_KEYS = [
   'title',
+  'body',
   'action',
   'close',
   'ready',
@@ -48,15 +49,8 @@ const SHARED_KEYS = [
   'errorDesc',
 ] as const
 
-/**
- * web 独占文案。
- *   · gate* 强更弹窗:web 有阻塞弹窗,RN 目前没有强更通道;
- *   · body:2026-10-28 机主「怎么还能提示用户去刷新页面」后归 web 独占 ——
- *     web 的 body 讲的是"刷新页面"(PWA),RN 是点按钮重启进程,复用即措辞失真,
- *     RN 侧对应位置由 RN_ONLY_KEYS 的 readyBody 承担。
- */
+/** web 独占的强更弹窗文案(web 有阻塞弹窗,RN 目前没有强更通道)。 */
 const WEB_ONLY_KEYS = [
-  'body',
   'gateTitle',
   'gateBody',
   'gateForceBody',
@@ -77,12 +71,6 @@ const RN_ONLY_KEYS = [
   'currentBundle',
   'bundleEmbedded',
   'bundleOta',
-  // 2026-10-28 机主「怎么还能提示用户去刷新页面」:RN 不能复用 web 的 body
-  // (web 是 PWA 刷新页面,RN 是点按钮重启进程),就绪态改用自己的 readyBody;
-  // 重启迟迟不回来时的兜底按钮与说明同理只在 RN 出现。
-  'readyBody',
-  'installingHint',
-  'restartNow',
 ] as const
 
 /**

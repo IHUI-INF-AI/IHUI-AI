@@ -18,40 +18,32 @@
  * 的可被调度器续期;没有的直接标 down + 摘除),是否可用交给健康检查/转发链路判定。
  */
 import { createHash } from 'node:crypto'
-import { and, eq, inArray, isNull, like, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
-import { db, dbRead } from '../db/index.js'
+import { db } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
 import {
   credentialShapeIssue,
-  detectPhoneMask,
   earliestCookieExpiry,
   extractTenantId,
   extractTokenExpiry,
   extractUid,
   foreignPassthroughMetadata,
-  isFullPhone,
   normalizeCredentialValue,
   normalizeForeignAccountShape,
   parseFlexibleExpiry,
-  parseJwtClaims,
-  phoneMatchesMask,
-  recognizeImportShape,
   resolveOverwriteRefresh,
-  resolveRelayCredentialSlots,
   type RelayProviderCode,
 } from './relay-account-format.js'
 import {
   buildPoolSyncAccount,
   checkinPlatformFor,
-  clearCheckinSyncPending,
   extractCosy,
   markCheckinSyncPending,
-  pemFromSecrets,
   pushPoolSync,
   type PoolSyncAccount,
 } from './relay-account-pool-checkin-sync.js'
-import { encryptAccountProxyUrl, resolveAccountProxyUrl } from './relay-proxy-pool.js'
+import { encryptAccountProxyUrl } from './relay-proxy-pool.js'
 
 // =============================================================================
 // 类型
@@ -69,6 +61,8 @@ export interface ImportAccountInput {
   /** 设备证明材料(Trae 桌面渠道续票必需;密钥对进 secretsEnc,两个都给才生效) */
   deviceKeyPem?: string
   devicePubPem?: string
+  /** Trae 会话模板(账号资料全量,凭证已剔除;进 secretsEnc,「登录本机」重封信封用) */
+  sessionTemplate?: Record<string, unknown>
   enabled?: boolean
   cookies?: unknown[]
   /** 账号级出口代理(可选) */
@@ -101,20 +95,6 @@ export interface ImportBatchResult {
    * 落待推条数(由 retryPendingCheckinSyncs / 对账收敛器清偿)。失败不阻塞导入。
    */
   checkinSync?: { pushed: number; skipped: number; pending: number; error: string | null }
-  /**
-   * O72 设备指纹重复报告(2026-10-28 立;只报告、不改写、不加迁移/唯一索引 ——
-   * 唯一索引会把存量池硬失败,升格需机主签字)。同一池内 (providerCode, deviceId)
-   * 相同的多行 = 从同一真实客户端导出的 N 个账号,这是上游可直接完成跨账号关联的
-   * 暴露面;此前导入面对它零信号。本字段点名这些行,由运营者自行区分/重导。
-   */
-  deviceCollisions?: Array<{ deviceId: string; uids: string[] }>
-  /**
-   * deviceCollisions 的判定范围三态(§0.3 取不到不冒绿):
-   * - checked   = 本批落库行 + 池内既有行(同 providerCode/归属)一并核对过;
-   * - unjudged  = 池内既有行查询失败 ⇒ deviceCollisions 只覆盖本批内部,池面未判定;
-   * - none      = 本批没有任何带 deviceId 的落库行(无从碰撞,一次池内查询都不发起)。
-   */
-  deviceCollisionScope?: 'checked' | 'unjudged' | 'none'
 }
 
 /** 批量导入的行为开关(覆盖语义;缺省 = 存量语义,调用方零改动) */
@@ -147,16 +127,57 @@ function cstr(v: unknown): string {
 }
 
 /**
- * Trae 设备材料 → secrets(2026-10-25 立):新版 ExchangeToken 用设备私钥签名
- * 换票,桌面客户端签发的票只认这条路。只收"两个 PEM 都在"的完整材料,
- * 缺一半视同没有(adapter 会退回旧通道)。token/refreshToken/uid 走原路径,
- * 不参与映射(避免与 opaque token 平台的分支语义混淆)。
+ * Trae 设备材料 + 会话模板 → secrets(2026-10-25 立,2026-10-27 扩模板)。
+ * 新版 ExchangeToken 用设备私钥签名换票,桌面客户端签发的票只认这条路。只收
+ * "两个 PEM 都在"的完整材料,缺一半视同没有(adapter 会退回旧通道)。
+ *
+ * 合并语义(2026-10-27):secretsEnc 是单列,网页重登等"只带 access token"的导入
+ * 不会带模板/设备材料,整列覆盖会把它们抹掉 ⇒ 以既有 secrets 为底,只在本次确实
+ * 提供时覆盖对应键。全都没提供 ⇒ 返回 null(调用方省略该列,保留原值)。
  */
-function mapTraeImport(acc: ImportAccountInput): { secrets: Record<string, unknown> } | null {
+function mapTraeImport(
+  acc: ImportAccountInput,
+  existingSecrets: Record<string, unknown> | null,
+): { secrets: Record<string, unknown> } | null {
   const keyPem = cstr(acc['deviceKeyPem'])
   const pubPem = cstr(acc['devicePubPem'])
-  if (!keyPem || !pubPem) return null
-  return { secrets: { deviceKeyPem: keyPem, devicePubPem: pubPem } }
+  const rawTemplate = acc['sessionTemplate']
+  const template =
+    rawTemplate && typeof rawTemplate === 'object' && !Array.isArray(rawTemplate)
+      ? (rawTemplate as Record<string, unknown>)
+      : null
+  const merged: Record<string, unknown> = { ...(existingSecrets ?? {}) }
+  let touched = false
+  if (keyPem && pubPem) {
+    merged.deviceKeyPem = keyPem
+    merged.devicePubPem = pubPem
+    touched = true
+  }
+  if (template && Object.keys(template).length > 0) {
+    merged.sessionTemplate = template
+    touched = true
+  }
+  return touched ? { secrets: merged } : null
+}
+
+/**
+ * secrets 单列合并(2026-10-27 全平台):secretsEnc 同时装会话模板/设备材料/凭据图,
+ * 而网页重登、手工 JSON 导入等"只带凭证"的导入不会带模板 ⇒ 整列覆盖会抹掉模板。
+ * 判据:空值(null/undefined/空对象)不覆盖既有键,其余以本批为准。
+ */
+function mergeSecrets(
+  existing: Record<string, unknown> | null,
+  incoming: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null {
+  if (!incoming) return null
+  const compact: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(incoming)) {
+    if (v === null || v === undefined) continue
+    if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) continue
+    compact[k] = v
+  }
+  if (Object.keys(compact).length === 0) return null
+  return { ...(existing ?? {}), ...compact }
 }
 
 /** DPoP 私钥既可能是 JWK 对象也可能是 JSON 字符串,统一解析为对象 */
@@ -183,15 +204,11 @@ function parseJwkValue(v: unknown): Record<string, unknown> | null {
  */
 function mapCodeartsImport(acc: ImportAccountInput): CodeartsImportMapping | null {
   const a = acc as Record<string, unknown>
-  // 凭据落点单源在 relay-account-format 的槽位表(STS 票 / AK / SK 三槽全命中才算一条)
-  const { hits } = resolveRelayCredentialSlots(a, 'codearts')
-  const sts = hits[0]
-  const ak = hits[1]
-  const sk = hits[2]
-  if (!sts || !ak || !sk) return null
-  const token = sts.value
-  const accessKeyId = ak.value
-  const secretAccessKey = sk.value
+  const token =
+    cstr(a['securitytoken']) || cstr(a['security_token']) || cstr(a['cloud_dragon_token'])
+  const accessKeyId = cstr(a['accessKey']) || cstr(a['access_key_id'])
+  const secretAccessKey = cstr(a['secretKey']) || cstr(a['secret_access_key'])
+  if (!token || !accessKeyId || !secretAccessKey) return null
 
   const account = a['account'] as Record<string, unknown> | undefined
   const loginContext = a['loginContext'] as Record<string, unknown> | undefined
@@ -211,6 +228,33 @@ function mapCodeartsImport(acc: ImportAccountInput): CodeartsImportMapping | nul
   const expRaw = cstr(a['expires_at']) || cstr(a['expiration'])
   const expDate = expRaw ? new Date(expRaw) : null
 
+  // 会话模板(2026-10-27):state.vscdb 解出的整份会话剔凭证后存 secretsEnc,
+  // 「登录本机」用它 + 池内最新 STS 凭据重封 v10 密文写回。AK/SK/DPoP 私钥仍由
+  // 下方 secrets 单独持有(写回端优先用它们,模板只补 account/loginContext 形状)。
+  const providedTemplate = objField(a, 'sessionTemplate')
+  const templateSource = providedTemplate ?? a
+  const template: Record<string, unknown> = {}
+  const CODEARTS_TEMPLATE_CRED = new Set([
+    'sessionTemplate',
+    'securitytoken',
+    'security_token',
+    'cloud_dragon_token',
+    'refresh_token',
+    'refreshToken',
+    'expires_at',
+    'expiration',
+    'accessKey',
+    'access_key_id',
+    'secretKey',
+    'secret_access_key',
+    'dpop_private_key',
+    'code_verifier',
+  ])
+  for (const [k, v] of Object.entries(templateSource)) {
+    if (CODEARTS_TEMPLATE_CRED.has(k)) continue
+    template[k] = v
+  }
+
   return {
     token,
     refreshToken,
@@ -225,6 +269,7 @@ function mapCodeartsImport(acc: ImportAccountInput): CodeartsImportMapping | nul
       clientId: cstr(a['client_id']) || CODEARTS_DEFAULT_CLIENT_ID,
       domainId: cstr(a['domainId']) || cstr(a['domain_id']),
       userName: userName || label,
+      sessionTemplate: Object.keys(template).length > 0 ? template : null,
     },
   }
 }
@@ -251,12 +296,13 @@ interface QoderImportMapping {
   refreshExpiresAt: Date | null
   name: string | null
   cosy: Record<string, string> | null
+  /** 会话模板 + 数据目录(「登录本机」重封 auth.v1.dat 用;无模板时不带,保留既有) */
+  secrets?: Record<string, unknown>
 }
 
 function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
   const a = acc as Record<string, unknown>
-  const { hits } = resolveRelayCredentialSlots(a, 'qoder')
-  const token = hits[0]?.value ?? ''
+  const token = cstr(a['token'])
   if (!token) return null
   const user =
     a['user'] !== null && typeof a['user'] === 'object' && !Array.isArray(a['user'])
@@ -281,21 +327,26 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
     const v = cstr(a[srcKey])
     if (v) cosy[storeKey] = v
   }
+  // 会话模板(2026-10-27):qoder-capture.ps1 的 rawSession 已由提取器剔凭证成 canonical
+  // sessionTemplate;appDir/edition 一并写入模板,写回端可优先按原目录定位(失效再扫描)。
+  const template = objField(a, 'sessionTemplate')
+  const secrets: Record<string, unknown> = {}
+  if (template) {
+    secrets.sessionTemplate = {
+      ...template,
+      ...(cstr(a['appDir']) ? { appDir: cstr(a['appDir']) } : {}),
+      ...(cstr(a['edition']) ? { edition: cstr(a['edition']) } : {}),
+    }
+  }
   return {
     token,
     refreshToken: cstr(a['refreshToken']) || null,
     uid,
     expiresAt: parseFlexibleExpiry(a['expiresAt']) ?? extractTokenExpiry(token),
     refreshExpiresAt: parseFlexibleExpiry(a['refreshTokenExpiresAt']),
-    // 号池统一名称 = 官方绑定手机号(2026-10-28 定):phone 优先,昵称/显示名只作兜底;
-    // 取不到 phone 才退回 nickname → name,绝不拿昵称当统一名。
-    name:
-      cstr(a['phone']) ||
-      (user ? cstr(user['phone']) : '') ||
-      cstr(a['nickname']) ||
-      cstr(a['name']) ||
-      null,
+    name: cstr(a['name']) || cstr(a['nickname']) || cstr(a['phone']) || null,
     cosy: Object.keys(cosy).length > 0 ? cosy : null,
+    ...(Object.keys(secrets).length > 0 ? { secrets } : {}),
   }
 }
 
@@ -303,12 +354,19 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
 // 2026-10-27 扩容八平台导入映射(提取器 raw 直通 → 在此单一映射,§0.6)
 // =============================================================================
 
-/**
- * 映射必选平台的导入失败点名(§0.3:取不到就报原因,不静默)。
- *
- * 判据单源在 relay-account-format 的 RELAY_IMPORT_SHAPE_REASON —— 这里不再抄一份
- * 文案(Web 路由闸门 / CLI 预检 / 服务端逐条报错共用同一句人话,抄一份就分叉一次)。
- */
+/** 映射必选平台的导入失败点名(§0.3:取不到就报原因,不静默) */
+const MAPPED_PROVIDER_MISSING_REASONS: Partial<Record<RelayProviderCode, string>> = {
+  codearts: 'CodeArts 导入缺少 STS 凭据(securitytoken/accessKey/secretAccessKey)',
+  qoder: 'Qoder 导入缺少 token',
+  codex: 'Codex 导入缺少 tokens.access_token(auth.json 形状不符或 keyring 模式)',
+  opencode: 'OpenCode 导入条目缺 key/access 字段(auth.json 形状不符)',
+  minimax: 'MiniMax 导入缺少 accessToken(mcode auth.json 形状不符)',
+  zcode: 'ZCode 导入缺可用凭据(oauth:bigmodel:access_token / zcodejwttoken / project key 全缺)',
+  loomy: 'Loomy 导入条目缺 value(会话候选形状不符)',
+  doubao: '豆包导入条目缺 value(cookie 会话族形状不符)',
+  lingma: '灵码导入 raw 凭证无 token/accessToken/access_token 字段(字段级形状未实证)',
+  grokbot: 'GrokBot 本机凭证为 sandSealedFile 密封串,无明文 token 可导入(待解封方案取证)',
+}
 
 /** uid 退化哈希(对齐 codearts 的 auto: 前缀形态) */
 function autoUid(seed: string): string {
@@ -351,10 +409,17 @@ function mapCodexImport(acc: ImportAccountInput): {
 } | null {
   const a = acc as Record<string, unknown>
   const tokens = objField(a, 'tokens')
-  const { hits } = resolveRelayCredentialSlots(a, 'codex')
-  const token = hits[0]?.value ?? ''
+  const token = cstr(tokens?.['access_token'])
   if (!token) return null
   const accountId = cstr(tokens?.['account_id'])
+  // 会话模板(2026-10-27):auth.json 去掉 tokens 后的整份资料(凭证已剔除),
+  // 「登录本机」用它 + 池内凭证重建登录态;id_token 是重建所需凭证,单独进 secretsEnc。
+  const providedTemplate = objField(a, 'sessionTemplate')
+  const template: Record<string, unknown> = { ...(providedTemplate ?? {}) }
+  delete template.tokens
+  if (cstr(a['authMode'])) template.auth_mode = cstr(a['authMode'])
+  if (cstr(a['lastRefresh'])) template.last_refresh = cstr(a['lastRefresh'])
+  const idToken = cstr(tokens?.['id_token'])
   return {
     token,
     refreshToken: cstr(tokens?.['refresh_token']) || null,
@@ -365,12 +430,24 @@ function mapCodexImport(acc: ImportAccountInput): {
     secrets: {
       authMode: cstr(a['authMode']) || null,
       accountId: accountId || null,
-      idTokenPresent: Boolean(tokens?.['id_token']),
+      idToken: idToken || null,
       lastRefresh: cstr(a['lastRefresh']) || null,
       fingerprint: cstr(a['fingerprint']) || null,
+      sessionTemplate: Object.keys(template).length > 0 ? template : null,
     },
   }
 }
+
+/** OpenCode 凭证族(会话模板必须剔除;写回端按 authType 重新落 key/access/refresh/expires) */
+const OPENCODE_TEMPLATE_CRED = new Set([
+  'key',
+  'access',
+  'accessToken',
+  'refresh',
+  'refreshToken',
+  'expires',
+  'expiresAt',
+])
 
 /** OpenCode:auth.json 每 provider 一条(type:"api" 用 key,"oauth" 用 access/refresh) */
 function mapOpencodeImport(acc: ImportAccountInput): {
@@ -383,24 +460,48 @@ function mapOpencodeImport(acc: ImportAccountInput): {
 } | null {
   const a = acc as Record<string, unknown>
   const auth = objField(a, 'auth')
-  const { hits } = resolveRelayCredentialSlots(a, 'opencode')
-  const token = hits[0]?.value ?? ''
+  const token = cstr(auth?.['key']) || cstr(auth?.['access'])
   if (!token) return null
   const providerID = cstr(a['providerID'])
+  const accountId = cstr(auth?.['accountId'])
+  // 会话模板(2026-10-27):该 provider 条目去掉凭证后的整份资料,「登录本机」用它 +
+  // 池内凭证重建 auth.json 条目;providerID 是定位键,单独存 secrets(模板里也留一份)。
+  const providedTemplate = objField(a, 'sessionTemplate')
+  const templateSource = providedTemplate ?? auth ?? {}
+  const template: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(templateSource)) {
+    if (OPENCODE_TEMPLATE_CRED.has(k)) continue
+    template[k] = v
+  }
   return {
     token,
     refreshToken: cstr(auth?.['refresh']) || null,
-    uid: cstr(auth?.['accountId']) || autoUid(`${providerID}:${token}`),
+    uid: accountId || autoUid(`${providerID}:${token}`),
     name: providerID ? `opencode:${providerID}` : null,
     expiresAt: parseFlexibleExpiry(auth?.['expires']),
     secrets: {
       providerID: providerID || null,
       authType: cstr(auth?.['type']) || null,
+      accountId: accountId || null,
       enterpriseUrl: cstr(auth?.['enterpriseUrl']) || null,
       fingerprint: cstr(a['fingerprint']) || null,
+      sessionTemplate: Object.keys(template).length > 0 ? template : null,
     },
   }
 }
+
+/** MiniMax 凭证 + 提取器溯源键(会话模板必须剔除;溯源键写回客户端会污染 records 条目) */
+const MINIMAX_TEMPLATE_SKIP = new Set([
+  'accessToken',
+  'refreshToken',
+  'expiresAtMs',
+  'region',
+  'regions',
+  'recordKey',
+  'sourceRoot',
+  'sourcePath',
+  'fingerprint',
+])
 
 /** MiniMax:mcode auth 记录(accessToken/refreshToken/expiresAtMs + region 溯源) */
 function mapMinimaxImport(acc: ImportAccountInput): {
@@ -412,11 +513,19 @@ function mapMinimaxImport(acc: ImportAccountInput): {
   secrets: Record<string, unknown>
 } | null {
   const a = acc as Record<string, unknown>
-  const { hits } = resolveRelayCredentialSlots(a, 'minimax')
-  const token = hits[0]?.value ?? ''
+  const token = cstr(a['accessToken'])
   if (!token) return null
   const expMs = typeof a['expiresAtMs'] === 'number' ? (a['expiresAtMs'] as number) : null
   const region = cstr(a['region']) || null
+  // 会话模板(2026-10-27):记录去掉凭证后的整份资料(保留 tokenType/scopes/audience/
+  // generation/loginEpoch 等旁键),「登录本机」用它 + 池内凭证重写 records[recordKey]。
+  const providedTemplate = objField(a, 'sessionTemplate')
+  const templateSource = providedTemplate ?? a
+  const template: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(templateSource)) {
+    if (MINIMAX_TEMPLATE_SKIP.has(k)) continue
+    template[k] = v
+  }
   return {
     token,
     refreshToken: cstr(a['refreshToken']) || null,
@@ -433,6 +542,7 @@ function mapMinimaxImport(acc: ImportAccountInput): {
       recordKey: cstr(a['recordKey']) || null,
       sourcePath: cstr(a['sourcePath']) || null,
       fingerprint: cstr(a['fingerprint']) || null,
+      sessionTemplate: Object.keys(template).length > 0 ? template : null,
     },
   }
 }
@@ -447,9 +557,27 @@ function mapZcodeImport(acc: ImportAccountInput): {
   secrets: Record<string, unknown>
 } | null {
   const a = acc as Record<string, unknown>
-  const RESERVED = new Set(['region', 'regions', 'sourceRoot', 'sourcePath', 'fingerprint'])
-  const { hits } = resolveRelayCredentialSlots(a, 'zcode')
-  const token = hits[0]?.value ?? ''
+  // rawCredentials = 提取器附带的原始 enc:v1: 密文图(仅供溯源),绝不能再进 credentialMap
+  // (那是写回端的明文基准;混进密文会把 token 定位键算错,也白占一份密文副本)。region/
+  // regions/source* / fingerprint 是溯源元数据,不属于客户端凭据图,同样不进 credentialMap。
+  const RESERVED = new Set([
+    'region',
+    'regions',
+    'sourceRoot',
+    'sourcePath',
+    'fingerprint',
+    'rawCredentials',
+    'sessionTemplate',
+  ])
+  const token =
+    cstr(a['oauth:bigmodel:access_token']) ||
+    cstr(a['zcodejwttoken']) ||
+    (() => {
+      for (const [k, v] of Object.entries(a)) {
+        if (k.startsWith('project-key-location:v1:') && typeof v === 'string' && v) return v
+      }
+      return ''
+    })()
   if (!token) return null
   const rawMap: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(a)) {
@@ -473,7 +601,6 @@ function mapZcodeImport(acc: ImportAccountInput): {
 
 /** Loomy/豆包共用:会话条目 {source,key,host,value} → token=value */
 function mapSessionEntryImport(
-  providerCode: 'loomy' | 'doubao',
   providerLabel: string,
   acc: ImportAccountInput,
 ): {
@@ -485,8 +612,7 @@ function mapSessionEntryImport(
   secrets: Record<string, unknown>
 } | null {
   const a = acc as Record<string, unknown>
-  const { hits } = resolveRelayCredentialSlots(a, providerCode)
-  const token = hits[0]?.value ?? ''
+  const token = cstr(a['value'])
   if (!token) return null
   const key = cstr(a['key'])
   return {
@@ -503,8 +629,8 @@ function mapSessionEntryImport(
   }
 }
 
-const mapLoomyImport = (acc: ImportAccountInput) => mapSessionEntryImport('loomy', 'loomy', acc)
-const mapDoubaoImport = (acc: ImportAccountInput) => mapSessionEntryImport('doubao', 'doubao', acc)
+const mapLoomyImport = (acc: ImportAccountInput) => mapSessionEntryImport('loomy', acc)
+const mapDoubaoImport = (acc: ImportAccountInput) => mapSessionEntryImport('doubao', acc)
 
 /** 灵码:raw 凭证记录(字段级形状未实证,token 按常见键名探测,取不到如实 null) */
 function mapLingmaImport(acc: ImportAccountInput): {
@@ -516,8 +642,7 @@ function mapLingmaImport(acc: ImportAccountInput): {
   secrets: Record<string, unknown>
 } | null {
   const a = acc as Record<string, unknown>
-  const { hits } = resolveRelayCredentialSlots(a, 'lingma')
-  const token = hits[0]?.value ?? ''
+  const token = cstr(a['token']) || cstr(a['accessToken']) || cstr(a['access_token'])
   if (!token) return null
   return {
     token,
@@ -536,45 +661,6 @@ function mapLingmaImport(acc: ImportAccountInput): {
 function mapGrokbotImport(_acc: ImportAccountInput): null {
   return null
 }
-
-// =============================================================================
-// 设备指纹碰撞报告(O72@2026-10-28;判据纯函数,测试经 __test__ 直用生产实现)
-// =============================================================================
-
-interface DeviceRowRef {
-  uid: string
-  deviceId: string | null
-}
-
-/**
- * 按 (deviceId) 分组点名碰撞:同一 deviceId 下出现 ≥2 个不同 uid 即碰撞。
- * - deviceId 为空/纯空白 ⇒ 不参与(无设备材料的行不构成同设备证据);
- * - uid 天然按行去重((providerCode, uid) 是本表去重键,批内+池面两路行集合并后
- *   同一 uid 出现多次只算一枚);
- * - 输出按 deviceId、uids 双升序,报告形态确定可测。
- */
-function computeDeviceCollisions(
-  rows: ReadonlyArray<DeviceRowRef>,
-): Array<{ deviceId: string; uids: string[] }> {
-  const byDevice = new Map<string, Set<string>>()
-  for (const r of rows) {
-    const d = typeof r.deviceId === 'string' ? r.deviceId.trim() : ''
-    if (!d) continue
-    let set = byDevice.get(d)
-    if (!set) {
-      set = new Set<string>()
-      byDevice.set(d, set)
-    }
-    set.add(r.uid)
-  }
-  const out: Array<{ deviceId: string; uids: string[] }> = []
-  for (const [deviceId, uidSet] of byDevice) {
-    if (uidSet.size > 1) out.push({ deviceId, uids: [...uidSet].sort() })
-  }
-  return out.sort((a, b) => (a.deviceId < b.deviceId ? -1 : a.deviceId > b.deviceId ? 1 : 0))
-}
-
-export const __test__ = { computeDeviceCollisions }
 
 // =============================================================================
 // 批量导入
@@ -607,8 +693,6 @@ export async function importAccounts(
   const seenInBatch = new Set<string>()
   // O64:签到推送载荷收集(明文凭证仅本进程内传递,循环结束后一次性推送)
   const checkinPush: PoolSyncAccount[] = []
-  // O72:本批落库行的设备材料收集(uid 是 (providerCode,uid) 去重键,可直接当行标识)
-  const writtenDeviceRows: Array<{ uid: string; deviceId: string | null }> = []
 
   for (let i = 0; i < accounts.length; i++) {
     // 外来格式自适应(判据单源 relay-account-format,与 validateAccountExport 同一函数):
@@ -618,21 +702,6 @@ export async function importAccounts(
     const accName = typeof acc.name === 'string' && acc.name ? acc.name : ''
     let displayName = accName || `#${i + 1}`
     try {
-      // 形状闸门(单源判据 relay-account-format.recognizeImportShape):只有本仓认得的
-      // 平台形状才放行;认不出就整条拒掉并点名缺哪个键 —— 绝不静默丢弃,也绝不把
-      // 认不出的东西塞成"无效账号"进库(Web 路由闸门 / CLI 预检共用同一判据)。
-      const shape = recognizeImportShape(providerCode, acc)
-      if (!shape.importable) {
-        result.failed++
-        result.items.push({
-          index: i,
-          name: displayName,
-          uid: null,
-          status: 'failed',
-          reason: shape.reason ?? `${providerCode} 导入缺少 token`,
-        })
-        continue
-      }
       // 非 JWT 平台映射分支:CodeArts(2026-10-22)STS 凭据包 / Qoder(2026-10-23)
       // opaque token 会话 / 2026-10-27 扩容八平台(codex/opencode/minimax/zcode/
       // loomy/doubao/lingma/grokbot)。各格式的 uid/expiresAt 都在映射层显式解析,
@@ -659,11 +728,19 @@ export async function importAccounts(
                           : providerCode === 'grokbot'
                             ? mapGrokbotImport(acc)
                             : null
-      // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
-      const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
-      // 号池统一名称 = 官方绑定手机号:qoder 映射出的 name 即 phone,具备权威性,
-      // 压过载荷自带的 name(捕获件里它是客户端昵称,不能当统一名;2026-10-28 定)
-      if (mapped?.name && (!accName || providerCode === 'qoder')) displayName = mapped.name
+      if (!accName && mapped?.name) displayName = mapped.name
+      const missingReason = mapped ? null : (MAPPED_PROVIDER_MISSING_REASONS[providerCode] ?? null)
+      if (missingReason && providerCode !== 'trae' && providerCode !== 'workbuddy') {
+        result.failed++
+        result.items.push({
+          index: i,
+          name: displayName,
+          uid: null,
+          status: 'failed',
+          reason: missingReason,
+        })
+        continue
+      }
       // 入口归一化:从 JSON 整段复制的粘贴值会带包裹引号,上游按前缀校验 ⇒ 一个多余字符
       // 就令号池自刷新与每日签到同时失败(dev 实测 `"drt-…` 那枚,详见 normalizeCredentialValue 头注)
       const token = normalizeCredentialValue(mapped ? mapped.token : acc.token) ?? ''
@@ -674,16 +751,9 @@ export async function importAccounts(
           name: displayName,
           uid: null,
           status: 'failed',
-          reason: `${providerCode} 的凭据归一后为空(剥掉包裹引号/空白后没有内容)`,
+          reason: '缺少 token',
         })
         continue
-      }
-      // WorkBuddy 全号通道(2026-10-28 立):Keycloak JWT 的 preferred_username 就是官方
-      // 绑定的完整手机号;客户端会话只有昵称、第三方导出件常带脱敏号,故以票内声明为准
-      // 覆盖统一名。只对全号形态生效,解不出/非手机号形态一律不动(维持原兜底命名)。
-      if (providerCode === 'workbuddy') {
-        const pref = parseJwtClaims(token)?.['preferred_username']
-        if (typeof pref === 'string' && /^1[3-9]\d{9}$/.test(pref)) displayName = pref
       }
       const refreshToken = normalizeCredentialValue(mapped ? mapped.refreshToken : acc.refreshToken)
       const uid = normalizeCredentialValue(mapped ? mapped.uid : acc.uid) ?? extractUid(token)
@@ -721,7 +791,9 @@ export async function importAccounts(
       const now = new Date()
       const expired = tokenExpiresAt !== null && tokenExpiresAt <= now
 
-      // 既有行先查出来:覆盖语义(保不保留旧 refreshToken)与"过期是否摘除"都依赖它
+      // 既有行先查出来:覆盖语义(保不保留旧 refreshToken)与"过期是否摘除"都依赖它。
+      // secretsEnc 一并取出:Trae 的会话模板/设备材料是合并语义(见 mapTraeImport),
+      // 网页重登那种只带 access 的导入绝不能把模板抹掉。
       const existing = await db
         .select({
           id: aiRelayAccountPool.id,
@@ -739,7 +811,6 @@ export async function importAccounts(
           ),
         )
         .limit(1)
-      // 既有 secrets 解出(模板三键保留判据用;坏密文/密钥轮换 ⇒ 当作无既有 secrets,本次提供的照写)
       let existingSecrets: Record<string, unknown> | null = null
       if (existing[0]?.secretsEnc) {
         try {
@@ -748,9 +819,21 @@ export async function importAccounts(
             existingSecrets = parsed as Record<string, unknown>
           }
         } catch {
-          /* 非法 secrets → 视为空 */
+          /* 坏密文/密钥轮换 ⇒ 当作无既有 secrets,本次提供的照写 */
         }
       }
+      // Trae 模板/设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
+      const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc, existingSecrets) : null
+      // secrets 单列合并(2026-10-27 全平台):模板/设备材料/凭据图同住 secretsEnc。
+      // "只带凭证"的导入(网页重登、手工 JSON)不带模板 ⇒ 整列覆盖会抹掉模板,
+      // 所以以既有 secrets 为底、本次确实提供的键才覆盖(判据单源:mergeSecrets)。
+      const incomingSecrets: Record<string, unknown> | null =
+        providerCode === 'trae'
+          ? (traeSecrets?.secrets ?? null)
+          : mapped && 'secrets' in mapped
+            ? (mapped.secrets as Record<string, unknown>)
+            : null
+      const mergedSecrets = mergeSecrets(existingSecrets, incomingSecrets)
       // 一键重登只换 access:本批未带 refreshToken 时按开关保留旧票(判据单源在 format)
       const overwriteRefresh = resolveOverwriteRefresh({
         providerCode,
@@ -790,12 +873,6 @@ export async function importAccounts(
       // NUL 消毒(2026-10-27 实弹:MiniMax recordKey 内嵌 leveldb 键分隔符 \u0000,
       // PG text/jsonb 拒收 NUL ⇒ 透传值里所有字符串统一剥除,不改语义只去非法字节)。
       Object.assign(extra, stripNulDeep(foreignPassthroughMetadata(acc)))
-      // 掩码待补全标记(2026-10-28 立):Trae 会话协议只下发脱敏号(前3后2),导入后
-      // 统一名可能仍是掩码形态 ⇒ 落 extraMetadata.phoneMask 供管理面识别"待补全"、
-      // complete-phone 归位校验与 match-phone 批量匹配。补全成功后该键被折成
-      // {original, completedAt, via};以全号重导入则整键消失(待补全态自然解除)。
-      const nameMask = detectPhoneMask(displayName)
-      if (nameMask) extra.phoneMask = { ...nameMask, detectedAt: new Date().toISOString() }
 
       // 平台映射(目前仅 qoder)优先;其余平台认账号对象上的 refreshTokenExpiresAt
       // (Trae 提取器已写入,2026-10-24:此前只有 qoder 分支会落这一列 ⇒ trae 恒 NULL)
@@ -803,39 +880,6 @@ export async function importAccounts(
         mapped && 'refreshExpiresAt' in mapped
           ? mapped.refreshExpiresAt
           : parseFlexibleExpiry(acc['refreshTokenExpiresAt'])
-
-      // 本次导入的 secrets 图(口径与 gate 一致:mapped.secrets 优先,trae 设备材料独立成档)
-      const incomingSecrets: Record<string, unknown> | null =
-        mapped && 'secrets' in mapped
-          ? (mapped.secrets as Record<string, unknown>)
-          : traeSecrets
-            ? traeSecrets.secrets
-            : null
-      // 模板三键保留(2026-10-28,HEAD mergeSecrets 对这三键语义的最小恢复):secretsEnc 同时装
-      // 凭据图与会话模板三键(sessionTemplate/sealedPaths/edition —— worker cron 每 10 分钟经
-      // relay-workbuddy-session-sync 回灌,「登录本机」relay-local-login 唯一消费面)。导入载荷
-      // 通常只带凭证 ⇒ 整列覆盖会把三键抹掉。判据:以既有为底,仅当本批 secrets 图显式提供
-      // 非空值才覆盖这三键;本批不带任何 secrets ⇒ 该列不动(等价 HEAD 的 undefined 语义)。
-      let secretsEncOut: string | null | undefined
-      if (incomingSecrets) {
-        const merged: Record<string, unknown> = { ...incomingSecrets }
-        if (existingSecrets) {
-          for (const k of ['sessionTemplate', 'sealedPaths', 'edition'] as const) {
-            const cur = merged[k]
-            const provided =
-              cur !== null &&
-              cur !== undefined &&
-              !(typeof cur === 'object' && !Array.isArray(cur) && Object.keys(cur).length === 0)
-            const keep = existingSecrets[k]
-            if (!provided && keep !== null && keep !== undefined) merged[k] = keep
-          }
-        }
-        secretsEncOut = encryptField(JSON.stringify(merged))
-      } else if (existingSecrets) {
-        secretsEncOut = undefined
-      } else {
-        secretsEncOut = null
-      }
 
       const values = {
         ownerUserId,
@@ -845,7 +889,9 @@ export async function importAccounts(
         tokenEnc: encryptField(token),
         refreshTokenEnc: refreshToken ? encryptField(refreshToken) : null,
         cookiesEnc: cookies.length > 0 ? encryptField(JSON.stringify(cookies)) : null,
-        secretsEnc: secretsEncOut,
+        // 本次没提供任何 secrets(非可采集平台,或只带凭证的导入)⇒ undefined =
+        // 覆盖时不写该列(保留既有模板/凭据图);insert 时按列默认 NULL 落库
+        secretsEnc: mergedSecrets ? encryptField(JSON.stringify(mergedSecrets)) : undefined,
         deviceId:
           typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId.slice(0, 128) : null,
         machineId:
@@ -934,7 +980,6 @@ export async function importAccounts(
           reason: down ? 'token 已过期且无 refreshToken,入库即摘除' : null,
         })
       }
-      writtenDeviceRows.push({ uid, deviceId: values.deviceId })
       checkinPush.push(
         buildPoolSyncAccount({
           id: writtenId,
@@ -995,306 +1040,7 @@ export async function importAccounts(
       }
     }
   }
-  // O72 设备指纹碰撞报告(只报告不改写;报告失败绝不阻塞导入本身):
-  // 本批落库行 + 同池(providerCode/归属一致)既有行一并核对 (deviceId) 分组,
-  // 点名"从同一真实客户端导出 N 号 ⇒ N 行共用一枚 device_id"的跨账号关联暴露面。
-  const batchDeviceIds = [
-    ...new Set(
-      writtenDeviceRows
-        .map((r) => (typeof r.deviceId === 'string' ? r.deviceId.trim() : ''))
-        .filter((d) => d !== ''),
-    ),
-  ]
-  if (batchDeviceIds.length === 0) {
-    result.deviceCollisionScope = 'none'
-    result.deviceCollisions = []
-  } else {
-    const merged: Array<{ uid: string; deviceId: string | null }> = [...writtenDeviceRows]
-    try {
-      const poolRows = await dbRead
-        .select({ uid: aiRelayAccountPool.uid, deviceId: aiRelayAccountPool.deviceId })
-        .from(aiRelayAccountPool)
-        .where(
-          and(
-            ownerUserId === null
-              ? isNull(aiRelayAccountPool.ownerUserId)
-              : eq(aiRelayAccountPool.ownerUserId, ownerUserId),
-            eq(aiRelayAccountPool.providerCode, providerCode),
-            inArray(aiRelayAccountPool.deviceId, batchDeviceIds),
-          ),
-        )
-      for (const row of poolRows) {
-        if (typeof row.uid === 'string' && row.uid) {
-          merged.push({ uid: row.uid, deviceId: row.deviceId ?? null })
-        }
-      }
-      result.deviceCollisionScope = 'checked'
-    } catch {
-      // 池面查询失败 ⇒ 只报了本批内部,池面维度如实落 unjudged(§0.3 不记绿)
-      result.deviceCollisionScope = 'unjudged'
-    }
-    result.deviceCollisions = computeDeviceCollisions(merged)
-  }
   return result
-}
-
-// =============================================================================
-// 手机号补全(2026-10-28 立:号池统一名 = 官方绑定手机号全号)
-// =============================================================================
-//
-// 立因:Trae 会话协议只下发脱敏号(前3后2,如 180******69),掩码名曾直接当池内
-// 统一名,补全只能靠手写 SQL —— 产品层没有功能。本节把补全做成正式能力:
-// - completeAccountPhone:单账号人工补全(掩码吻合校验防归位错号);
-// - matchPhoneCandidates:批量候选号自动匹配(前3后2 唯一命中才改名,歧义挂起待人工);
-// - 改名一律经 applyPhoneCompletion:落名 + phoneMask 归档 + cred_version 前进 +
-//   签到副本传播(改名不 bump 版本会被签到侧防降级 CAS 吞掉,传播永远失效)。
-
-/** 补全结果码(调用方按码映射 HTTP:not_found=404,invalid_phone/mask_mismatch=400,already_full=409) */
-export type CompletePhoneCode =
-  'ok' | 'not_found' | 'invalid_phone' | 'mask_mismatch' | 'already_full'
-
-/** 补全后签到传播结果(pending=true ⇒ 已落待推,由重推器/对账收敛器清偿) */
-export interface CheckinSyncOutcome {
-  pushed: number
-  pending: boolean
-  error: string | null
-}
-
-export interface CompletePhoneResult {
-  code: CompletePhoneCode
-  message: string | null
-  id: string | null
-  oldName: string | null
-  name: string | null
-  changed: boolean
-  checkinSync: CheckinSyncOutcome
-}
-
-const NO_SYNC: CheckinSyncOutcome = { pushed: 0, pending: false, error: null }
-
-function failPhone(code: Exclude<CompletePhoneCode, 'ok'>, message: string): CompletePhoneResult {
-  return {
-    code,
-    message,
-    id: null,
-    oldName: null,
-    name: null,
-    changed: false,
-    checkinSync: NO_SYNC,
-  }
-}
-
-/**
- * 落名 + 归档 + 传播(单账号)。extraMetadata 走 jsonb || 合并,checkinSync 等
- * 其它键原样保留;phoneMask 折成 {original, completedAt, via} 留补全痕迹。
- */
-async function applyPhoneCompletion(
-  row: AiRelayAccountPool,
-  phone: string,
-  via: 'manual' | 'match' | 'owner_override',
-): Promise<CompletePhoneResult> {
-  const oldName = row.name ?? ''
-  const maskShape = detectPhoneMask(oldName)
-  const newName = phone.slice(0, 128)
-  const [written] = await db
-    .update(aiRelayAccountPool)
-    .set({
-      name: newName,
-      credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
-      extraMetadata: sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) || jsonb_build_object(
-        'phoneMask', jsonb_build_object(
-          'original', ${maskShape ? maskShape.mask : null}::text,
-          'completedAt', ${new Date().toISOString()}::text,
-          'via', ${via}::text
-        )
-      )`,
-      updatedAt: new Date(),
-    })
-    .where(eq(aiRelayAccountPool.id, row.id))
-    .returning({ id: aiRelayAccountPool.id, credVersion: aiRelayAccountPool.credVersion })
-  if (!written) {
-    return { ...failPhone('not_found', '账号不存在或已被删除'), oldName, name: newName }
-  }
-  // 签到传播(旁路,失败不阻塞改名):凭证未动,载荷 = 库内现值解密重建 + 新名 + 新版本。
-  const checkinSync: CheckinSyncOutcome = { pushed: 0, pending: false, error: null }
-  const platform = checkinPlatformFor(row.providerCode)
-  if (platform) {
-    try {
-      const credentials = decryptAccountCredentials(row)
-      const acc = buildPoolSyncAccount({
-        id: row.id,
-        ownerUserId: row.ownerUserId,
-        uid: row.uid ?? '',
-        name: newName,
-        token: credentials.token,
-        refreshToken: credentials.refreshToken,
-        credVersion: written.credVersion,
-        enabled: row.isEnabled,
-        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
-        deviceId: row.deviceId,
-        machineId: row.machineId,
-        cosy: extractCosy(row.extraMetadata),
-        deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
-        devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
-        tokenExpiresAt: row.tokenExpiresAt,
-      })
-      const push = await pushPoolSync(platform, [acc])
-      if (push.ok && push.failed === 0) {
-        checkinSync.pushed = push.pushed
-        await clearCheckinSyncPending([row.id])
-      } else {
-        checkinSync.error = push.error
-        try {
-          await markCheckinSyncPending([row.id], 'cred', null, push.error ?? '补全后签到推送失败')
-          checkinSync.pending = true
-        } catch {
-          /* pending 落库失败只意味着少一条待推痕迹,对账收敛器兜底 */
-        }
-      }
-    } catch (e) {
-      checkinSync.error = e instanceof Error ? e.message.slice(0, 200) : '签到同步异常'
-    }
-  }
-  return {
-    code: 'ok',
-    message: null,
-    id: row.id,
-    oldName,
-    name: newName,
-    changed: true,
-    checkinSync,
-  }
-}
-
-/**
- * 单账号人工补全手机号。
- * 校验链:全号形态 → 行存在 → 掩码归位吻合(现名是掩码时)→ 现名已是全号则拒绝换号。
- * 现名是昵称/占位(非掩码非全号)允许直接落成全号 —— 统一命名规约本就要求全号。
- * opts.force=true 只放开掩码吻合闸门(机主换绑场景:掩码是旧绑定号,新全号对不上);
- * already_full/幂等分支不受 force 影响(现名已是全号仍须重导入,防误覆盖活号)。
- * force 调用应配 via='owner_override',归档的 phoneMask.via 留运维痕迹。
- */
-export async function completeAccountPhone(
-  accountId: string,
-  phone: string,
-  via: 'manual' | 'match' | 'owner_override' = 'manual',
-  opts?: { force?: boolean },
-): Promise<CompletePhoneResult> {
-  const p = phone.trim()
-  if (!isFullPhone(p)) {
-    return failPhone(
-      'invalid_phone',
-      '手机号必须是 11 位大陆全号(1[3-9] 开头),掩码形态请走 match-phone',
-    )
-  }
-  const [row] = await dbRead
-    .select()
-    .from(aiRelayAccountPool)
-    .where(eq(aiRelayAccountPool.id, accountId))
-    .limit(1)
-  if (!row) return failPhone('not_found', '账号不存在')
-  const oldName = row.name ?? ''
-  const maskShape = detectPhoneMask(oldName)
-  if (!opts?.force && maskShape && !phoneMatchesMask(p, maskShape)) {
-    return failPhone(
-      'mask_mismatch',
-      `与池内掩码 ${maskShape.mask} 前3后2不吻合,拒绝归位(防止张冠李戴);确属机主换绑可带 force=true 强制`,
-    )
-  }
-  if (!maskShape && isFullPhone(oldName)) {
-    if (oldName === p) {
-      return {
-        code: 'ok',
-        message: '现名已是同一全号,无需补全',
-        id: row.id,
-        oldName,
-        name: p,
-        changed: false,
-        checkinSync: NO_SYNC,
-      }
-    }
-    return failPhone(
-      'already_full',
-      `现名 ${oldName} 已是全号且与新号不一致;确属换绑请重新导入该账号`,
-    )
-  }
-  return applyPhoneCompletion(row, p, via)
-}
-
-/** 批量候选匹配报告(零凭据;只报 id/名/候选号,歧义项交人工裁决) */
-export interface MatchPhoneReport {
-  scannedMasked: number
-  matched: Array<{ id: string; oldName: string; name: string; checkinSync: CheckinSyncOutcome }>
-  ambiguous: Array<{ id: string; name: string; candidates: string[] }>
-  unmatched: Array<{ id: string; name: string }>
-  rejected: Array<{ phone: string; reason: string }>
-}
-
-/**
- * 批量候选全号 → 池内掩码名账号自动归位。
- * 判据:一个掩码行只有唯一候选、且该候选也只命中这一行 ⇒ 自动改名;
- * 任一方向出现多对多 ⇒ ambiguous 挂起待人工(绝不猜号归位)。
- */
-export async function matchPhoneCandidates(phones: string[]): Promise<MatchPhoneReport> {
-  const clean: string[] = []
-  const rejected: MatchPhoneReport['rejected'] = []
-  const seen = new Set<string>()
-  for (const raw of phones) {
-    const p = typeof raw === 'string' ? raw.trim() : ''
-    if (!isFullPhone(p)) {
-      rejected.push({ phone: p.slice(0, 32), reason: '非 11 位大陆全号形态' })
-      continue
-    }
-    if (seen.has(p)) continue
-    seen.add(p)
-    clean.push(p)
-  }
-  const report: MatchPhoneReport = {
-    scannedMasked: 0,
-    matched: [],
-    ambiguous: [],
-    unmatched: [],
-    rejected,
-  }
-  const rows = await dbRead
-    .select()
-    .from(aiRelayAccountPool)
-    .where(like(aiRelayAccountPool.name, '%*%'))
-  const masked = rows.flatMap((row) => {
-    const shape = detectPhoneMask(row.name ?? '')
-    return shape ? [{ row, shape }] : []
-  })
-  report.scannedMasked = masked.length
-  // 候选 → 命中行数(双向唯一才放行)
-  const hitCount = new Map<string, number>()
-  for (const m of masked) {
-    for (const p of clean) {
-      if (phoneMatchesMask(p, m.shape)) hitCount.set(p, (hitCount.get(p) ?? 0) + 1)
-    }
-  }
-  for (const m of masked) {
-    const candidates = clean.filter((p) => phoneMatchesMask(p, m.shape))
-    if (candidates.length === 0) {
-      report.unmatched.push({ id: m.row.id, name: m.row.name ?? '' })
-      continue
-    }
-    if (candidates.length > 1 || (hitCount.get(candidates[0]!) ?? 0) > 1) {
-      report.ambiguous.push({ id: m.row.id, name: m.row.name ?? '', candidates })
-      continue
-    }
-    const result = await applyPhoneCompletion(m.row, candidates[0]!, 'match')
-    if (result.code === 'ok' && result.changed) {
-      report.matched.push({
-        id: m.row.id,
-        oldName: result.oldName ?? '',
-        name: candidates[0]!,
-        checkinSync: result.checkinSync,
-      })
-    } else {
-      report.unmatched.push({ id: m.row.id, name: m.row.name ?? '' })
-    }
-  }
-  return report
 }
 
 // =============================================================================

@@ -1,0 +1,36 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+  repositories {
+    google()
+    mavenCentral()
+  }
+  dependencies {
+    classpath('com.android.tools.build:gradle')
+    classpath('com.facebook.react:react-native-gradle-plugin')
+    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+  }
+}
+
+allprojects {
+  repositories {
+    google()
+    mavenCentral()
+    maven { url 'https://www.jitpack.io' }
+  }
+}
+
+apply plugin: "expo-root-project"
+apply plugin: "com.facebook.react.rootproject"
+
+// IHUI media3 pin: react-native-video 期望 media3 1.8.0;1.9.0 的 DefaultAllocator 构造签名变更会让
+// RNVLoadControl 抛 NoSuchMethodError(进播放器即崩溃)。整组钉回上游声明版本。
+allprojects {
+    configurations.all {
+        resolutionStrategy.eachDependency { d ->
+            if (d.requested.group == 'androidx.media3') {
+                d.useVersion '1.8.0'
+            }
+        }
+    }
+}

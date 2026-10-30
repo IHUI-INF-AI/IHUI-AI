@@ -1,0 +1,3 @@
+HEAD=367d0a9fc237ce467b680203ab0fe531f3421b8a
+gitdir=D:/IHUI-AI-git-repo/worktrees/rnmp-latest
+ORIG_HEAD=4595a36125871e6416d74dc7d1221cc62883ad74

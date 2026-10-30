@@ -267,9 +267,7 @@ export function assertSafeConversationId(conversationId: string): void {
     conversationId === '.' ||
     conversationId === '..'
   ) {
-    throw new Error(
-      `会话 id 形态不可用于导出文件名: ${JSON.stringify(conversationId).slice(0, 80)}(len=${conversationId.length})`,
-    )
+    throw new Error(`会话 id 形态不可用于导出文件名: ${JSON.stringify(conversationId)}`)
   }
 }
 

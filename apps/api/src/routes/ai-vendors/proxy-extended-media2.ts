@@ -26,7 +26,6 @@ import {
   taskIdParam,
   type FastifyPluginAsync,
 } from './_shared.js'
-import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 // ---- Ideogram V3 官方参数(prompt/aspect_ratio/style_type/magic_prompt_option 等) ----
 const ideogramBody = z.object({
@@ -228,7 +227,6 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
   server.post(
     '/vidu/generate',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Vidu 文生/图生视频',
@@ -301,7 +299,6 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
   server.post(
     '/pixverse/generate',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'PixVerse 文生/图生视频',
@@ -545,7 +542,6 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
   server.post(
     '/zhipu/video',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       preHandler: requireAuth,
       schema: buildSchema({
         summary: '智谱 CogVideoX 视频生成',

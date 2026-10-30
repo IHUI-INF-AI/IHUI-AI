@@ -113,17 +113,9 @@ function looksLikeHtmlLoginPage(bodyText: string): boolean {
 
 function isAuthFailure(statusCode: number, bodyText: string): boolean {
   if (statusCode === 401 || statusCode === 403) return true
-  /**
-   * 404/405 = **端点不存在**,正文是 SPA 兜底页,不是鉴权结论(§0.3 取不到 ≠ 失效)。
-   * 2026-10-28 实测:Loomy 的 quota 端点是推断的,真实站对未知路径回 404 + 整站 HTML,
-   * 该 HTML 的导航里必然带「登录」二字 ⇒ 旧判据把好号判成 authFailed ⇒ 入池当场 health=down,
-   * 调度器据此不下发任务(号池里多出一枚"看起来坏了"的好号)。
-   */
-  if (statusCode === 404 || statusCode === 405) return false
   const lower = bodyText.toLowerCase()
   if (AUTH_BODY_MARKERS.some((m) => lower.includes(m))) return true
-  // HTML 登录墙只在"服务端正常应答"时才成立;错误码下的正文一律不作鉴权证据
-  return statusCode >= 200 && statusCode < 400 && looksLikeHtmlLoginPage(bodyText)
+  return looksLikeHtmlLoginPage(bodyText)
 }
 
 /** Loomy 上游错误(带 HTTP 状态码;消息截断防泄漏) */
@@ -143,9 +135,6 @@ export class LoomyUpstreamError extends Error {
 export const loomyAdapter: RelayUpstreamAdapter = {
   // 主会话集成点:需把 'loomy' 加入 relay-account-format.ts 的 RELAY_PROVIDERS(本文件不改共享文件)
   providerCode: 'loomy' as RelayProviderCode,
-  // 刷新能力:恒 null 空壳 ⇒ 声明为不可续期(见 relay-upstream-adapters.isRefreshableProviderCode)。
-  // 否则保活窗口/临期档会把"刷新失败"记到它头上,连续 3 次误判自动摘除好号。
-  refreshTokenSupported: false,
 
   /**
    * chat 请求构造(推断层):OpenAI 同构 body 透传,Bearer 票鉴权,accept 按 stream 二分。

@@ -78,7 +78,7 @@ Content-Type: application/json
 
 ### 代码示例
 
-**TypeScript(@ihui-ai/sdk)**
+**TypeScript(@ihui/sdk)**
 
 ```typescript
 const response = await client.ai.embeddings({

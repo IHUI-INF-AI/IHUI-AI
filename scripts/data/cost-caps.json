@@ -5,7 +5,7 @@
   "kinds": {
     "deploy": {
       "perHour": 8,
-      "perDay": 60,
+      "perDay": 40,
       "minutesPerDay": 480
     },
     "session": {

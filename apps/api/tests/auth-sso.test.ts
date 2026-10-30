@@ -11,7 +11,7 @@ const { mockVerifyAccessToken, mockVerifyRefreshToken, mockUser, mockPermissions
     mockVerifyAccessToken: vi.fn(),
     mockVerifyRefreshToken: vi.fn(),
     mockUser: {
-      id: '00000000-0000-4000-8000-000000000c01',
+      id: 'user-001',
       phone: '13800000001',
       email: 'test@example.com',
       nickname: 'Tester',
@@ -122,7 +122,7 @@ import { authSsoRoutes } from '../src/routes/auth-sso.js'
 import responseSanitizerPlugin from '../src/plugins/response-sanitizer.js'
 
 const mockPayload = {
-  userId: '00000000-0000-4000-8000-000000000c01',
+  userId: 'user-001',
   phone: '13800000001',
   roleId: 0,
   familyId: 'fam-001',
@@ -163,7 +163,7 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
     mockFindRefreshToken.mockReset()
     mockFindRefreshToken.mockResolvedValue({
       token: 'real-refresh-token-xyz789',
-      userId: '00000000-0000-4000-8000-000000000c01',
+      userId: 'user-001',
       familyId: 'fam-001',
       revokedAt: null,
     })
@@ -362,7 +362,7 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
       expect(body.data.refreshToken).toBe('real-refresh-token-xyz789')
       expect(body.data.expiresIn).toBe(3600)
       expect(body.data.refreshExpiresIn).toBe(30 * 24 * 60 * 60)
-      expect(body.data.user.id).toBe('00000000-0000-4000-8000-000000000c01')
+      expect(body.data.user.id).toBe('user-001')
       expect(body.data.user.permissions).toEqual(['read:courses', 'write:notes'])
     })
 
@@ -444,7 +444,7 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
       expect(body.data.refreshToken).toBe('real-refresh-token-xyz789')
       expect(body.data.expiresIn).toBe(3600)
       expect(body.data.refreshExpiresIn).toBe(30 * 24 * 60 * 60)
-      expect(body.data.user.id).toBe('00000000-0000-4000-8000-000000000c01')
+      expect(body.data.user.id).toBe('user-001')
       expect(body.data.user.permissions).toEqual(['read:courses', 'write:notes'])
       // 旧 token 被吊销
       expect(mockRevokeRefreshToken).toHaveBeenCalledWith('real-refresh-token-xyz789')
@@ -484,7 +484,7 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
     it('refreshToken 已被标记 revokedAt 返回 401', async () => {
       mockFindRefreshToken.mockResolvedValueOnce({
         token: 'revoked-token',
-        userId: '00000000-0000-4000-8000-000000000c01',
+        userId: 'user-001',
         familyId: 'fam-001',
         revokedAt: new Date('2026-07-01'),
       })
@@ -554,9 +554,7 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
       })
       expect(res.statusCode).toBe(200)
       expect(res.json().data.loggedOut).toBe(true)
-      expect(mockRevokeAllUserRefreshTokens).toHaveBeenCalledWith(
-        '00000000-0000-4000-8000-000000000c01',
-      )
+      expect(mockRevokeAllUserRefreshTokens).toHaveBeenCalledWith('user-001')
     })
 
     it('未登录返回 401', async () => {
@@ -579,7 +577,7 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.data.valid).toBe(true)
-      expect(body.data.user.id).toBe('00000000-0000-4000-8000-000000000c01')
+      expect(body.data.user.id).toBe('user-001')
       expect(body.data.user.permissions).toEqual(['read:courses', 'write:notes'])
     })
 

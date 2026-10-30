@@ -17,11 +17,7 @@
  *   zcode    ~/.zcode/v2/credentials.json                              enc:v1: AES-256-GCM,可重封;GUI 同上
  *   codearts %APPDATA%\codearts-agent\...\state.vscdb                  DPAPI+AES-GCM,可重封;GUI 同上
  *   qoder    %APPDATA%\com.qoder[cn].app.*\auth.v1.dat                DPAPI+AES-GCM,可重封;GUI 同上
- *   workbuddy %LOCALAPPDATA%\CodeBuddyExtension\...\auth\workbuddy-desktop[-ai].info
- *            $wbEncrypted 字段信封,密钥取自运行中主进程 inspector;取钥→关端→重封→拉起
- *   doubao   %LOCALAPPDATA%\Doubao\User Data\Default\Network\Cookies  Chromium os_crypt v10,可重封;GUI 同上
- *   loomy    %APPDATA%\Loomy\Local Storage\leveldb\<活日志>.log       Chromium DOM Storage WriteBatch 追加(后写为准);GUI 同上
- *   其余(lingma/grokbot)无法离线重封,由服务层给明确 409 原因。
+ *   其余(workbuddy/loomy/lingua/doubao/grokbot)无法离线重封,由服务层给明确 409 原因。
  *
  * 与 trae 的一致性(2026-10-28 补齐):凡"运行中客户端会在退出/续期时回写落点"的平台,
  * 一律 探测 → 优雅关闭(不退再补一轮,仍不退强杀)→ 写(原子落盘)→ 原样拉起,
@@ -42,7 +38,6 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { clientHomeEnvs } from './lib/client-home.mjs'
-import * as lv from './lib/leveldb-log.mjs'
 import {
   closeProduct,
   launchProduct,
@@ -86,9 +81,6 @@ export const SUPPORTED_PROVIDERS = Object.freeze([
   'zcode',
   'codearts',
   'qoder',
-  'workbuddy',
-  'doubao',
-  'loomy',
 ])
 
 const PROVIDER_LABEL = Object.freeze({
@@ -98,9 +90,6 @@ const PROVIDER_LABEL = Object.freeze({
   zcode: 'ZCode',
   codearts: 'CodeArts',
   qoder: 'Qoder',
-  workbuddy: 'WorkBuddy',
-  doubao: '豆包',
-  loomy: 'Loomy',
 })
 
 function asText(v) {
@@ -159,8 +148,6 @@ export function normalizePayload(raw) {
     expiresAt: asIso(raw.expiresAt),
     refreshExpiresAt: asIso(raw.refreshExpiresAt),
     secrets,
-    // 豆包捆绑账号的整套 cookie 条目 [{source,key,host,value}](其它平台为空)
-    cookies: Array.isArray(raw.cookies) ? raw.cookies : [],
     target: asText(raw.target),
   }
 }
@@ -179,7 +166,6 @@ export function assertTemplateUid(template, uid) {
     template.user_id,
     template.account_id,
     template.account?.id,
-    template.account?.uid,
     asObj(template.tokens)?.account_id,
     asObj(template.user)?.id,
     asObj(template.user)?.userId,
@@ -299,7 +285,6 @@ export function assertReadBack(what, verify) {
  *   qoder     auth.v1.dat,适配器注释已点明"运行中客户端退出时可能覆写";
  *   minimax   auth.json 由 MiniMax Code 桌面端持在内存,退出/token 续期时回写;
  *   zcode     credentials.json(enc:v1:)同属桌面端整块回写的那一类;
- *   loomy     Local Storage leveldb 活日志由 Electron 客户端持在内存,退出/续期时落盘;
  *   codex/opencode 是 CLI,每次执行现读 auth.json,写文件不需要动进程(也不该去杀)。
  * 候选名按"先具体后宽泛"排列(同一平台国内版/国际版映像名不同,取第一个命中的)。
  */
@@ -308,16 +293,7 @@ export const CLIENT_IMAGES = Object.freeze({
   qoder: ['Qoder CN', 'Qoder'],
   minimax: ['MiniMax Code', 'MiniMaxCode'],
   zcode: ['ZCode'],
-  doubao: ['Doubao'],
-  loomy: ['Loomy'],
 })
-
-/**
- * workbuddy 刻意**不进** CLIENT_IMAGES:它的字段密钥只存在于运行中的主进程
- * (9229 inspector 取 loggerGet()),main() 的预关会把钥源一起关掉。
- * 关端/写盘/拉起由 applyWorkbuddy 适配器自己做(取钥 → 关端 → 写 → 自检 → 拉起),
- * 回报字段与 CLIENT_IMAGES 平台同名同义。
- */
 
 /**
  * 映像名之外的兜底判据(2026-10-28 补):同一产品的不同发行版/版本,exe 名未必落在上面
@@ -330,8 +306,6 @@ export const CLIENT_PATH_HINTS = Object.freeze({
   qoder: ['qoder'],
   minimax: ['minimax'],
   zcode: ['zcode'],
-  doubao: ['doubao'],
-  loomy: ['loomy'],
 })
 
 /**
@@ -402,70 +376,6 @@ export function assertClientClosed(info) {
     `已尝试关闭 ${info.product} 但进程仍在运行(或关断结果未判定)⇒ 拒绝写入:运行中的客户端会用内存态覆写登录态。请手动退出 ${info.product} 后重试`,
     'target-locked',
   )
-}
-
-/**
- * leveldb 目录里的"多余文件"会被客户端自己的回收清掉(2026-10-28 实测:写前留的
- * `000004.log.ihui-login-*.bak` 十几分钟后就不在了 —— 备份等于没留)。所以 loomy 的写前留底
- * 落在**库目录之外**的同用户数据目录 `<userData>\.ihui-login-backups\`,名字照旧带原文件名与时刻。
- */
-function backupLeveldbOutsideDb(logFile) {
-  if (!fs.existsSync(logFile)) return null
-  const userData = path.resolve(path.dirname(logFile), '..', '..')
-  const bakRoot = path.join(userData, '.ihui-login-backups')
-  fs.mkdirSync(bakRoot, { recursive: true })
-  const backupFile = path.join(bakRoot, `${path.basename(logFile)}.ihui-login-${stamp()}.bak`)
-  fs.copyFileSync(logFile, backupFile)
-  return backupFile
-}
-
-/**
- * 写在**落笔点**的存续闸(2026-10-28 立)。`main()` 已按"先关端再写"走,但适配器是导出的,
- * 任何直调 applyXxx 的路径(脚本、探针、人工排查)都会绕过那道关端 —— 而运行中的客户端
- * 既不读我们追加的记录,又会在退出时用内存态把它覆掉。本机实测踩过一次:Loomy 正在跑对话,
- * 有人(本会话)直调 applyLoomy 写进去了,记录序号落在客户端自己的序号区间里。
- * 所以这条不变量必须住在落笔那一刻,不能只住在 CLI 流程里(AGENTS §0.9)。
- * 探测不到 ⇒ 未判定,同样拒写(§0.3:宁可多要一次定向说明,不冒绿)。
- */
-export function assertNoLiveClient(provider, opts = {}) {
-  const probe = opts.clientProbe ?? defaultClientProbe
-  let running
-  try {
-    running = probe(provider, opts.env ?? process.env)
-  } catch (e) {
-    throw new WriteError(
-      `探测 ${PROVIDER_LABEL[provider] ?? provider} 客户端是否在跑失败(${e instanceof Error ? e.message : String(e)})⇒ 未判定,拒绝盲写`,
-      'target-locked',
-    )
-  }
-  if (running === null || running === undefined) {
-    throw new WriteError(
-      `探测 ${PROVIDER_LABEL[provider] ?? provider} 客户端是否在跑取不到结论 ⇒ 未判定,拒绝盲写`,
-      'target-locked',
-    )
-  }
-  if (running === true) {
-    throw new WriteError(
-      `${PROVIDER_LABEL[provider] ?? provider} 客户端正在运行 ⇒ 拒绝写入:它不会重读我们追加的记录,退出时还会用内存态覆掉。` +
-        '请走后台「一键登录」(会先关端再写),或先手动退出客户端',
-      'client-running',
-    )
-  }
-}
-
-/** 默认探测:精确映像名 + 安装路径兜底(与 closeClientForWrite 同一批出口,不另写一份判据) */
-function defaultClientProbe(provider, env = process.env) {
-  // 与 closeClientForWrite 同档:非 Windows / 显式关掉进程管控 ⇒ 这台机没有可探的客户端进程面
-  if (!CLIENT_IMAGES[provider] || process.platform !== 'win32') return false
-  if (String(env.IHUI_LOCAL_LOGIN_PROC_CONTROL ?? '').trim() === '0') return false
-  for (const image of CLIENT_IMAGES[provider] ?? []) {
-    const pids = listProductPids(image, env)
-    if (pids === null) return null
-    if (pids.length > 0) return true
-  }
-  const scanned = listProcessesByPath(CLIENT_PATH_HINTS[provider] ?? [], env)
-  if (scanned === null) return null
-  return scanned.length > 0
 }
 
 /** 写完后原样拉起(服务身份走 run-as-user.ps1,桌面身份 detached spawn) */
@@ -871,9 +781,7 @@ function readElectronKey(extract, localStatePath) {
 export function encryptSafeStorageBlob(plaintext, key) {
   const nonce = crypto.randomBytes(12)
   const c = crypto.createCipheriv('aes-256-gcm', key, nonce)
-  // Buffer 直通(豆包 32 字节自家头必须按原始字节入密文,String(buf) 会串成十进制字节列表)
-  const data = Buffer.isBuffer(plaintext) ? plaintext : Buffer.from(String(plaintext), 'utf8')
-  const ct = Buffer.concat([c.update(data), c.final()])
+  const ct = Buffer.concat([c.update(String(plaintext), 'utf8'), c.final()])
   return Buffer.concat([Buffer.from('v10', 'ascii'), nonce, ct, c.getAuthTag()])
 }
 
@@ -1125,468 +1033,6 @@ export function applyQoder(payload, opts = {}) {
 }
 
 // =============================================================================
-// WorkBuddy — %LOCALAPPDATA%\CodeBuddyExtension\Data\Public\auth\workbuddy-desktop[-ai].info
-// =============================================================================
-
-/**
- * 写回配方(2026-10-28 本机实证):
- * - 字段密钥只存在于运行中的主进程(inspector 取 loggerGet)⇒ 先取钥,再关端;
- * - 落点是带 $wbEncrypted 信封的 JSON 树,客户端只认信封形态:
- *   本机文件是同账号会话(account.uid === payload.uid)⇒ 整树原样搬(含全部信封),
- *   只重封 auth.accessToken/refreshToken 并刷新 auth 明文时刻族(同账号净零场景);
- *   本机是别人号/文件缺 ⇒ 用池内 sessionTemplate 重建树,按导入实采的 sealedPaths
- *   逐路重封资料信封,再补凭证(拿不到模板就 409 no-template,绝不冒绿);
- * - 写后按客户端读法解密自检(凭证 + account.uid),再原样拉起。
- * 进程控制由适配器自己做(workbuddy 不在 CLIENT_IMAGES,main() 预关会关掉钥源),
- * 回报 client* 字段与其它 GUI 平台同名同义。
- */
-export async function applyWorkbuddy(payload, opts = {}) {
-  const extract = opts.extract
-  const env = opts.env ?? process.env
-  const procControl = String(env.IHUI_LOCAL_LOGIN_PROC_CONTROL ?? '').trim() !== '0'
-
-  // 1) 取钥:必须有且只有一个运行中的主进程
-  const mains = extract.listWorkbuddyMainProcesses()
-  if (mains.length === 0) {
-    throw new WriteError(
-      '未发现运行中的 WorkBuddy 主进程 ⇒ 取不到字段密钥(请先启动并登录 WorkBuddy 再试)',
-      'no-target',
-    )
-  }
-  if (mains.length > 1) {
-    throw new WriteError(
-      `发现 ${mains.length} 个 WorkBuddy 主进程,不确定取哪个钥源;请只保留一个再重试`,
-      'duplicate-accounts',
-    )
-  }
-  const { pid, userDataDir } = mains[0]
-  const edition = asText(payload.secrets.edition) || extract.resolveEdition(userDataDir)
-  if (!edition) throw new WriteError(`无法判定 WorkBuddy 版本: ${userDataDir}`, 'target-shape')
-  let file = asText(payload.target) ? path.resolve(payload.target) : asText(payload.secrets.authFile)
-  if (!file) file = extract.workbuddyAuthFilePath(edition)
-  if (!fs.existsSync(file)) {
-    throw new WriteError(`本机没有 WorkBuddy 登录会话文件:${file} ⇒ 请先在本机登录一次任意账号`, 'no-target')
-  }
-  let key
-  let keyId
-  try {
-    const bootstrap = await extract.readAtRestBootstrap(pid)
-    const derived = extract.deriveAtRestKey(bootstrap.atRestSecretKey)
-    key = derived.key
-    keyId = derived.keyId
-  } catch (e) {
-    throw new WriteError(
-      `取 WorkBuddy 字段密钥失败:${e instanceof Error ? e.message : String(e)}`,
-      'target-locked',
-    )
-  }
-
-  // 2) 关端(运行中客户端退出时会用内存态覆写落点 ⇒ 必须先关再写)
-  let client = { product: '', wasRunning: false, closed: false, forced: false, exePath: '' }
-  try {
-    if (process.platform === 'win32' && procControl) {
-      const pids = listProductPids('WorkBuddy', env)
-      if (pids === null) {
-        throw new WriteError('探测 WorkBuddy.exe 进程失败(未判定)⇒ 拒绝盲写', 'target-locked')
-      }
-      if (pids.length > 0) {
-        const exePath = resolveProductExe('WorkBuddy', env) || ''
-        const r = closeProduct('WorkBuddy', { env, pids })
-        client = {
-          product: 'WorkBuddy',
-          wasRunning: true,
-          closed: r.closed === true,
-          forced: r.forced === true,
-          exePath,
-        }
-        if (!client.closed) {
-          throw new WriteError(
-            '已尝试关闭 WorkBuddy 但进程仍在运行(或关断结果未判定)⇒ 拒绝写入:运行中的客户端会用内存态覆写登录态。请手动退出 WorkBuddy 后重试',
-            'target-locked',
-          )
-        }
-      }
-    }
-
-    // 3) 读原始树 → 判账号 → 打补丁 → 重封
-    let raw
-    try {
-      raw = JSON.parse(fs.readFileSync(file, 'utf8'))
-    } catch (e) {
-      throw new WriteError(
-        `读/解析 WorkBuddy 会话文件失败:${file}(${e instanceof Error ? e.message : String(e)})⇒ 拒绝覆盖`,
-        'target-shape',
-      )
-    }
-    if (!asObj(raw)) throw new WriteError(`WorkBuddy 会话文件顶层不是对象:${file}`, 'target-shape')
-    const localSealed = extract.collectSealedPaths(raw)
-    const session = extract.decryptSessionTree(raw, key, keyId)
-    const localUid = asText(asObj(session?.account)?.uid)
-    const replacedUid = localUid || null
-    let tree
-    if (localUid && localUid === String(payload.uid)) {
-      tree = raw
-    } else {
-      const template = templateOf(payload)
-      assertTemplateUid(template, payload.uid)
-      if (!template) {
-        throw new WriteError(
-          `本机 WorkBuddy 在登的是${localUid ? `另一个号(${localUid})` : '未判定账号'},而该池号没有会话模板` +
-            '(导入时未采集)⇒ 无法重建登录态,请重新 --from workbuddy 导入',
-          'no-template',
-        )
-      }
-      tree = cloneJson(template)
-      const sealedPaths =
-        Array.isArray(payload.secrets.sealedPaths) && payload.secrets.sealedPaths.length > 0
-          ? payload.secrets.sealedPaths
-          : localSealed
-      for (const p of sealedPaths) {
-        if (p === '$.auth.accessToken' || p === '$.auth.refreshToken') continue
-        const v = extract.getPathByJsonPath(tree, p)
-        if (typeof v === 'string') extract.setPathByJsonPath(tree, p, extract.sealField(v, key, keyId))
-      }
-    }
-    if (!asObj(tree.auth)) tree.auth = {}
-    tree.auth.accessToken = extract.sealField(payload.token, key, keyId)
-    if (payload.refreshToken) tree.auth.refreshToken = extract.sealField(payload.refreshToken, key, keyId)
-    if (payload.expiresAt) tree.auth.expiresAt = payload.expiresAt
-    if (payload.refreshExpiresAt) tree.auth.refreshExpiresAt = payload.refreshExpiresAt
-    tree.auth.lastRefreshTime = new Date().toISOString()
-
-    const backupFile = backupOf(file)
-    atomicWrite(file, `${JSON.stringify(tree)}\n`)
-    // 4) 写后自检:按客户端读法解密,凭证与账号必须都是目标号
-    assertReadBack('WorkBuddy 会话文件', () => {
-      const reread = extract.decryptSessionTree(JSON.parse(fs.readFileSync(file, 'utf8')), key, keyId)
-      return (
-        asText(asObj(reread?.auth)?.accessToken) === payload.token &&
-        (!payload.refreshToken || asText(asObj(reread?.auth)?.refreshToken) === payload.refreshToken) &&
-        asText(asObj(reread?.account)?.uid) === String(payload.uid)
-      )
-    })
-    // 5) 拉起 + 回报
-    let restarted = false
-    let launchError = ''
-    if (client.wasRunning && client.closed) {
-      const helperPath = path.resolve(HERE, '..', 'apps', 'api', 'scripts', 'run-as-user.ps1')
-      const l = launchProduct(client.exePath, { product: client.product, helperPath, env })
-      restarted = l.launched === true
-      launchError = l.error || ''
-    }
-    return writeResult('workbuddy', file, backupFile, {
-      uid: payload.uid,
-      replacedUid,
-      notes: [
-        `版本:${edition}`,
-        `信封重封:auth.accessToken${payload.refreshToken ? '+auth.refreshToken' : ''}(其余${localSealed.length}路信封按形态保留/重封)`,
-      ],
-      restartHint: restarted
-        ? `已重新打开 WorkBuddy,登录态即时生效`
-        : client.wasRunning
-          ? '写入前已关闭 WorkBuddy,但未能自动重新打开:请手动启动客户端'
-          : '启动 WorkBuddy 后生效',
-      clientProduct: client.product,
-      clientWasRunning: client.wasRunning,
-      clientClosed: client.closed,
-      clientForced: client.forced,
-      clientRestarted: restarted,
-      ...(launchError ? { clientLaunchError: launchError } : {}),
-    })
-  } catch (e) {
-    // 写失败也要把刚关掉的客户端拉回来(与 main() 对 CLIENT_IMAGES 平台的兜底同口径)
-    if (client.wasRunning && client.closed) {
-      try {
-        const helperPath = path.resolve(HERE, '..', 'apps', 'api', 'scripts', 'run-as-user.ps1')
-        launchProduct(client.exePath, { product: client.product, helperPath, env })
-      } catch {
-        /* 拉不回来由用户手动启动,不掩盖写入错误 */
-      }
-    }
-    throw e
-  } finally {
-    if (key) key.fill(0)
-  }
-}
-
-// =============================================================================
-// 豆包 — %LOCALAPPDATA%\Doubao\User Data\Default\Network\Cookies(Chromium os_crypt)
-// =============================================================================
-
-/** Chromium epoch:1601-01-01 UTC 起算的微秒 */
-function chromiumNowUs() {
-  return BigInt(Date.now()) * 1000n + 11644473600000000n
-}
-
-/** node:sqlite 的 BLOB 回读形态兼容(裸 Uint8Array/Buffer,与提取器同判据) */
-function asBlob(rawEv) {
-  if (rawEv === null || rawEv === undefined) return null
-  if (Buffer.isBuffer(rawEv)) return rawEv
-  if (ArrayBuffer.isView(rawEv)) return Buffer.from(rawEv.buffer, rawEv.byteOffset, rawEv.byteLength)
-  return rawEv.data ? Buffer.from(rawEv.data) : null
-}
-
-/**
- * 写回配方(2026-10-28 本机实证):豆包登录态 = 字节 passport 族 cookie 整包。
- * 落点是 Chromium 旧列名 schema 的 Cookies 库(NOT NULL 全列),值 = v10 封
- * (32 字节豆包自家头 + utf8 真值,AES-256-GCM,密钥 = Local State os_crypt 剥
- * DPAPI 前缀后 CurrentUser 解)。行存在 ⇒ UPDATE(host_key,name),不存在 ⇒ INSERT
- * (默认值镜像本机实证的 ttwid 行)。进程控制走 CLIENT_IMAGES['Doubao'](main() 关/拉)。
- */
-export function applyDoubao(payload, opts = {}) {
-  const extract = opts.extract
-  const entries = (Array.isArray(payload.cookies) ? payload.cookies : [])
-    .map((c) => ({ host: asText(c?.host), name: asText(c?.key), value: asText(c?.value) }))
-    .filter((c) => c.host && c.name && c.value)
-  if (entries.length === 0) {
-    throw new WriteError(
-      '该池号没有 cookie 捆绑包(导入时未采集豆包会话)⇒ 无法写回,请重新 --from doubao 导入',
-      'no-template',
-    )
-  }
-  let userDataDir = ''
-  if (payload.target) {
-    userDataDir = path.resolve(payload.target)
-  } else {
-    for (const env of clientEnvs(opts)) {
-      const hit = (extract.doubaoCandidateUserDataDirs(env) ?? []).find((d) =>
-        fs.existsSync(path.join(d, 'Default', 'Network', 'Cookies')),
-      )
-      if (hit) {
-        userDataDir = hit
-        break
-      }
-    }
-  }
-  if (!userDataDir) {
-    throw new WriteError(
-      '本机没找到豆包 Cookies 库(%LOCALAPPDATA%\\Doubao\\User Data\\Default\\Network\\Cookies)' +
-        ' ⇒ 请先安装豆包桌面端并登录一次任意账号',
-      'no-target',
-    )
-  }
-  const dbFile = path.join(userDataDir, 'Default', 'Network', 'Cookies')
-  if (!fs.existsSync(dbFile)) {
-    throw new WriteError(`豆包 Cookies 库不存在:${dbFile}`, 'no-target')
-  }
-  const key = readElectronKey(extract, path.join(userDataDir, 'Local State'))
-  const { DatabaseSync } = require('node:sqlite')
-  let backupFile = null
-  const written = []
-  try {
-    const db = new DatabaseSync(dbFile)
-    try {
-      try {
-        db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
-      } catch {
-        /* 非 WAL 模式 / 无 WAL 可合并 */
-      }
-      backupFile = backupOf(dbFile)
-      const nowUs = chromiumNowUs()
-      const upd = db.prepare(
-        "UPDATE cookies SET value = '', encrypted_value = ?, last_update_utc = ?, last_access_utc = ? WHERE host_key = ? AND name = ?",
-      )
-      const ins = db.prepare(
-        'INSERT INTO cookies (creation_utc, host_key, top_frame_site_key, name, value, encrypted_value, path,' +
-          ' expires_utc, is_secure, is_httponly, last_access_utc, has_expires, is_persistent, priority, samesite,' +
-          ' source_scheme, source_port, last_update_utc, source_type, has_cross_site_ancestor)' +
-          ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      )
-      for (const e of entries) {
-        const blob = encryptSafeStorageBlob(extract.wrapDoubaoAppPrefix(e.value), key)
-        const r = upd.run(blob, nowUs, nowUs, e.host, e.name)
-        if (Number(r.changes ?? 0) === 0) {
-          // 行不存在 ⇒ 按本机实证 ttwid 行的默认值族新建(非会话票一律 NOT NULL 补齐)
-          ins.run(
-            nowUs, e.host, '', e.name, '', blob, '/',
-            0, 1, 1, nowUs, 0, 1, 1, 0, 2, 443, nowUs, 1, 0,
-          )
-        }
-        written.push(`${e.host}/${e.name}`)
-      }
-    } finally {
-      db.close()
-    }
-    // 写后自检:按豆包读法逐条解密剥头,必须读回刚写入的值
-    assertReadBack('豆包 Cookies 库', () => {
-      const ro = new DatabaseSync(dbFile, { readOnly: true })
-      try {
-        for (const e of entries) {
-          const row = ro
-            .prepare('SELECT encrypted_value FROM cookies WHERE host_key = ? AND name = ?')
-            .get(e.host, e.name)
-          const blob = asBlob(row?.encrypted_value)
-          if (!blob) return false
-          const plain = extract.stripDoubaoAppPrefix(
-            extract.decryptOsCryptString(blob, key, { rawBuffer: true }),
-          )
-          if (plain !== e.value) return false
-        }
-        return true
-      } finally {
-        ro.close()
-      }
-    })
-  } catch (e) {
-    if (e instanceof WriteError) throw e
-    throw new WriteError(
-      `写豆包 Cookies 库失败(豆包正在运行会独占库):${e instanceof Error ? e.message : String(e)}。请退出豆包后重试`,
-      'target-locked',
-    )
-  }
-  return writeResult('doubao', dbFile, backupFile, {
-    uid: payload.uid,
-    replacedUid: null,
-    notes: [`已写入 ${written.length} 条会话族 cookie:${written.join(', ')}`],
-    restartHint: '重启豆包桌面端后生效(运行中客户端退出时可能覆写库,建议先退出再写)',
-  })
-}
-
-// =============================================================================
-// Loomy — %APPDATA%\Loomy\Local Storage\leveldb\<活日志>.log(Chromium DOM Storage)
-// =============================================================================
-
-/**
- * 写回配方(2026-10-28 装车;键与会话形状为 asar 源码级实证,日志格式判据单源
- * scripts/lib/leveldb-log.mjs):
- * Loomy 登录会话 = localStorage 键 loomy-auth-session,值 =
- * JSON.stringify({phone, maskedPhone, session, userid, loggedInAt})(session 即会话票)。
- * DOM Storage 落点是 LevelDB 日志:客户端关闭时 .log 会被打开方重放进 memtable,
- * 同键**更高 seq 的 WriteBatch 后写为准** ⇒ 追加一条新批次就是客户端自己的读法,
- * 不需要 SQLite/独占/加密。运行中的客户端把整块会话持在内存、退出时回写 ⇒
- * 先关后写再拉起(走 CLIENT_IMAGES.loomy,main() 统一处理)。
- * 写回值 = 池内 secrets.sessionTemplate(导入时剔票的整份资料)+ 池内权威 token 重建
- * (键序不必与原始一致,客户端按 JSON 解析;净零判据 = 解析后字段集/值一致)。
- * 配套键 loomy-last-login-phone / loomy-user-identity 同批写入(secrets.companions)。
- * 元数据键 `META:file://` / `METAACCESS:file://` / `VERSION`(2026-10-28 按真库现读更正,原注写的
- * `_file://\0\0` 并不存在)不动:净零等长写回无碍;跨账号字节数漂移
- * 由客户端下次 setItem 自修(如实进 notes)。设备凭证(safeStorage 加密的
- * shared-session-sync\device-credential.json)不在写回范围:客户端下次同步自会重建。
- */
-
-/** leveldb 目录里最高号的 .log(活日志;数字前缀比较,与 LevelDB file-number 语义一致) */
-function newestLeveldbLog(dir) {
-  if (!fs.existsSync(dir)) return ''
-  const logs = fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith('.log'))
-    .map((f) => ({ f, n: parseInt(f, 10) }))
-    .filter((x) => Number.isFinite(x.n))
-    .sort((a, b) => a.n - b.n)
-  return logs.length ? path.join(dir, logs[logs.length - 1].f) : ''
-}
-
-/** 模板 userid 与目标 uid 对不上 ⇒ 拒写(与 assertTemplateUid 同判据,loomy 键名为 userid) */
-function assertLoomyTemplateUid(template, uid) {
-  const raw = template?.userid
-  const found =
-    typeof raw === 'string' ? raw.trim() : typeof raw === 'number' && Number.isFinite(raw) ? String(raw) : ''
-  if (found && !String(uid).startsWith('auto:') && found !== String(uid)) {
-    throw new WriteError(
-      `会话模板的账号(${found})与目标 uid(${uid})不一致 ⇒ 拒绝写入(模板与账号错配)`,
-      'template-uid-mismatch',
-    )
-  }
-  return found || null
-}
-
-export function applyLoomy(payload, opts = {}) {
-  const extract = opts.extract
-  const template = asObj(payload.secrets.sessionTemplate) ?? {}
-  assertLoomyTemplateUid(template, payload.uid)
-  const value = JSON.stringify({ ...template, session: payload.token })
-
-  let logFile = ''
-  if (payload.target) {
-    logFile = path.resolve(payload.target)
-  } else {
-    for (const env of clientEnvs(opts)) {
-      for (const dir of extract.loomyCandidateRoamingDirs(env) ?? []) {
-        logFile = newestLeveldbLog(path.join(dir, 'Local Storage', 'leveldb'))
-        if (logFile) break
-      }
-      if (logFile) break
-    }
-  }
-  if (!logFile) {
-    throw new WriteError(
-      '本机没找到 Loomy 的 Local Storage 活日志(%APPDATA%\\Loomy\\Local Storage\\leveldb\\<n>.log)' +
-        ' ⇒ 请先安装并登录 Loomy 客户端',
-      'no-target',
-    )
-  }
-  if (!fs.existsSync(logFile)) {
-    throw new WriteError(`Loomy 活日志不存在:${logFile}`, 'no-target')
-  }
-
-  const keyBuf = lv.lsValueKey('loomy-auth-session')
-  const beforeBuf = fs.readFileSync(logFile)
-  /**
-   * 写前现值(净零判据 + replacedUid 如实回报)。**必须按客户端读法读整库**:
-   * 会话经常已被压缩进 .ldb 压缩块(本机 2026-10-28 实测就在 000005.ldb 里),
-   * 只看活日志会把它读成"不存在" ⇒ replacedUid 恒 null、净零判据失效。
-   * 整库读取失败才退回日志面(失效方向 = 少报一个 replacedUid,不猜)。
-   */
-  let prevPlain = null
-  try {
-    const db = lv.readLevelDbEntries(path.dirname(logFile), fs, path)
-    prevPlain = lv.decodeStoredValue(db.entries.get(keyBuf.toString('latin1')))
-  } catch {
-    prevPlain = null
-  }
-  if (prevPlain === null) prevPlain = lv.decodeStoredValue(lv.latestStoredValue(beforeBuf, keyBuf))
-  let replacedUid = null
-  if (prevPlain) {
-    try {
-      const prev = JSON.parse(prevPlain)
-      const raw = prev?.userid
-      replacedUid =
-        typeof raw === 'string' ? raw.trim() : typeof raw === 'number' && Number.isFinite(raw) ? String(raw) : null
-    } catch {
-      /* 现值不是合法 JSON ⇒ 只说明写前形状异常,不阻塞写 */
-    }
-  }
-
-  // 批次条目:主键 + 配套键(companions 命中才同批落)
-  const writes = [{ name: 'loomy-auth-session', plain: value }]
-  const companions = asObj(payload.secrets.companions) ?? {}
-  for (const name of ['loomy-last-login-phone', 'loomy-user-identity']) {
-    const v = asText(companions[name])
-    if (v) writes.push({ name, plain: v })
-  }
-  const entries = writes.map((w) => ({ key: lv.lsValueKey(w.name), value: lv.encodeStoredValue(w.plain) }))
-  const nextSeq = lv.maxBatchSeq(beforeBuf) + 1n
-  const batch = lv.buildBatch(nextSeq, entries)
-
-  assertNoLiveClient('loomy', opts)
-
-  const backupFile = backupLeveldbOutsideDb(logFile)
-  atomicWrite(logFile, lv.appendRecords(beforeBuf, [batch]))
-
-  // 写后自检:按客户端读法(重放日志、后写为准、varint 精确解码)取回,必须逐键全等
-  assertReadBack('Loomy Local Storage', () => {
-    const after = fs.readFileSync(logFile)
-    for (const w of writes) {
-      const got = lv.decodeStoredValue(lv.latestStoredValue(after, lv.lsValueKey(w.name)))
-      if (got !== w.plain) return false
-    }
-    const back = JSON.parse(lv.decodeStoredValue(lv.latestStoredValue(after, keyBuf)) ?? 'null')
-    return back !== null && back.session === payload.token
-  })
-
-  return writeResult('loomy', logFile, backupFile, {
-    uid: payload.uid,
-    replacedUid,
-    notes: [
-      `已向活日志追加 WriteBatch(seq=${nextSeq},条目=${writes.map((w) => w.name).join(', ')})`,
-      '库级元数据键(META:file:// / METAACCESS:file:// / VERSION)未动:净零等长写回无碍;跨账号字节数漂移由客户端下次 setItem 自修',
-      '设备凭证(safeStorage 加密 shared-session-sync\\device-credential.json)不在写回范围:客户端下次同步自会重建',
-    ],
-    restartHint: '重启 Loomy 客户端后生效(运行中的客户端会把内存态回写 leveldb,故必须先关后写)',
-  })
-}
-
-// =============================================================================
 // CLI
 // =============================================================================
 
@@ -1597,21 +1043,15 @@ export const ADAPTERS = Object.freeze({
   zcode: applyZcode,
   codearts: applyCodearts,
   qoder: applyQoder,
-  workbuddy: applyWorkbuddy,
-  doubao: applyDoubao,
-  loomy: applyLoomy,
 })
 
 async function loadExtract() {
-  const [codex, opencode, minimax, zcode, codearts, workbuddy, doubao, loomy] = await Promise.all([
+  const [codex, opencode, minimax, zcode, codearts] = await Promise.all([
     import(pathToFileURL(path.join(HERE, 'lib', 'codex-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'opencode-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'minimax-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'zcode-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'codearts-auth-extract.mjs')).href),
-    import(pathToFileURL(path.join(HERE, 'lib', 'workbuddy-auth-extract.mjs')).href),
-    import(pathToFileURL(path.join(HERE, 'lib', 'doubao-auth-extract.mjs')).href),
-    import(pathToFileURL(path.join(HERE, 'lib', 'loomy-auth-extract.mjs')).href),
   ])
   return {
     resolveCodexHome: codex.resolveCodexHome,
@@ -1625,21 +1065,6 @@ async function loadExtract() {
     readSecretBlobsFromVscdb: codearts.readSecretBlobsFromVscdb,
     readAesKeyFromLocalState: codearts.readAesKeyFromLocalState,
     decryptSafeStorageBlob: codearts.decryptSafeStorageBlob,
-    listWorkbuddyMainProcesses: workbuddy.listWorkbuddyMainProcesses,
-    readAtRestBootstrap: workbuddy.readAtRestBootstrap,
-    deriveAtRestKey: workbuddy.deriveAtRestKey,
-    decryptSessionTree: workbuddy.decryptSessionTree,
-    sealField: workbuddy.sealField,
-    collectSealedPaths: workbuddy.collectSealedPaths,
-    getPathByJsonPath: workbuddy.getPathByJsonPath,
-    setPathByJsonPath: workbuddy.setPathByJsonPath,
-    resolveEdition: workbuddy.resolveEdition,
-    workbuddyAuthFilePath: workbuddy.workbuddyAuthFilePath,
-    doubaoCandidateUserDataDirs: (env) => doubao.candidateUserDataDirs(env),
-    wrapDoubaoAppPrefix: doubao.wrapDoubaoAppPrefix,
-    stripDoubaoAppPrefix: doubao.stripDoubaoAppPrefix,
-    decryptOsCryptString: doubao.decryptOsCryptString,
-    loomyCandidateRoamingDirs: (env) => loomy.candidateRoamingDirs(env),
   }
 }
 
@@ -1731,7 +1156,7 @@ export async function main(argv) {
   }
   let result
   try {
-    result = await adapter(payload, { extract })
+    result = adapter(payload, { extract })
   } catch (e) {
     // 写失败也要把刚关掉的客户端拉回来,不能把用户的客户端扔在关闭状态
     if (client?.wasRunning) relaunchClient(client)
@@ -1784,9 +1209,6 @@ export const __test__ = {
   applyZcode,
   applyCodearts,
   applyQoder,
-  applyWorkbuddy,
-  applyDoubao,
-  applyLoomy,
   WriteError,
   CREDENTIAL_KEYS,
 }

@@ -17,7 +17,6 @@ import { buildSchema } from '../../utils/swagger.js'
 import { success } from '../../utils/response.js'
 import { callVendor, recordUsage, VENDORS } from './_shared.js'
 import { ensurePointsBalance, chargePointsForCall } from './proxy-llm.js'
-import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 // Anthropic Messages API 官方参数集
 const anthropicChatBody = z.object({
@@ -58,7 +57,6 @@ export const anthropicVendorRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/anthropic/chat',
     {
-      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Anthropic Claude 对话补全',
         description:

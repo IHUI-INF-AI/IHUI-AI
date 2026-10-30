@@ -1,8 +1,5 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// D141 控制帧三帧的客户端出口(2026-10-28 立):reload_plugins / refresh_memory /
-// mcp_clear_auth。第四帧 resume_goal 的出口在 client.ts(与 postSessionGoal 同族)。
-export * from './endpoints/control-frames.js'
 export * from './endpoints/ai-world.js'
 export * from './endpoints/edu-ai.js'
 export * from './endpoints/student.js'
@@ -72,10 +69,6 @@ export {
   // D152(2026-09-29 立):会话目标的服务端主副本上行出口。同批必须在此 re-export ——
   // 本包入口是**显式命名清单**,漏一条端内拿到 undefined(守门 149 记过的同一型)。
   postSessionGoal,
-  // 控制帧 `resume_goal`(2026-10-28 立):会话目标的「恢复」帧入口。显式命名清单纪律同
-  // postSessionGoal —— 漏一条端内 import 得 undefined,而 web 构建 ignoreBuildErrors 吞掉
-  // TS2305,只有点到「恢复」按钮的人知道。
-  resumeSessionGoal,
   // 票77(2026-10-18 立):My Quests 跨会话目标聚合下行出口。同上,入口是显式命名清单,
   // 漏一条端内 import 得 undefined;web 构建 ignoreBuildErrors 吞掉 TS2305,只 typecheck 可见。
   listMyGoals,
@@ -113,10 +106,6 @@ export type {
   // D152(2026-09-29 立):会话目标状态帧的类型 —— 与 postSessionGoal 同批入入口,否则
   // 端内要写 onGoalUpdate 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   GoalUpdateEvent,
-  // 控制帧 `resume_goal`(2026-10-28 立):恢复帧的回执类型 —— 与 resumeSessionGoal 同批
-  // 入入口,否则端内要写 onResume 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
-  SessionGoalResumeResult,
-  GoalResumeReason,
   // 票77(2026-10-18):跨会话目标聚合行类型 —— 与 listMyGoals 同批入入口。
   MyGoalRow,
   MyGoalAssessment,

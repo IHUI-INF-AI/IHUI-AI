@@ -1,0 +1,14 @@
+<resources>
+  <color name="splashscreen_background">#000000</color>
+  <color name="iconBackground">#000000</color>
+  <color name="colorPrimary">#023c69</color>
+
+  <!-- 原生控件强调档(2026-10-20 立):钉死 colorAccent / colorControlActivated /
+       colorControlHighlight / textColorHighlight 的取值,不让未钉主题时回落到
+       系统强调色(HyperOS 实测橙 #E59700 —— 它会画进 EditText 背景、光标、选中句柄、
+       ripple 与文字选中底纹)。墨档随 DayNight 反转,与 JS 层聚焦描边同源同值
+       (packages/app/src/hooks/use-wrap-focus.ts → brand.DEFAULT)。 -->
+  <color name="accent_ink">#000000</color>
+  <color name="ripple_ink">#1F000000</color>
+  <color name="selection_ink">#33000000</color>
+</resources>

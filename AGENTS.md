@@ -28,9 +28,8 @@
 
 - 唯一任务计划文档 = `PROJECT_PLAN.md`(根目录)。所有计划/进度/待办**只写**此文件,禁止在别处新建计划/TODO/ROADMAP 文件(唯一例外:`/goal` 模式的 `.ihui-agent/goal-runtime/STATE.md` + `loop-run-log.md`,以及 `.ihui-agent/skills/SKILL.md`)。
 - 完成翻勾 `[ ]` → `[x] ✅(日期)`;新增任务追加到对应优先级(P0/P1/P2)末尾;commit message 用 `feat/fix/docs/chore/test/refactor` 前缀。
-- **完成即整行删除**(2026-10-28 起结清即删:`live-doc-edit` 把 `[ ]`→`[x]` 默认转成删行;回退 `LIVE_KEEP_CLOSED_ROW=1` 才写已勾形态);新增任务追加到对应优先级末尾;commit message 用 `feat/fix/docs/chore/test/refactor` 前缀。
 - **认领即租约**:开始任务在 `- [ ]` 后追加 `（进行中@YYYY-MM-DD/持有者短名）`,三要素齐备才算认领(裸 `（进行中）` 自 2026-10-22 定档起**新增即拦** = CL4,HEAD 已欠着的只报数;年龄 >72h 判红 = CL1;守门 109 四档同用 HEAD 存量棘轮,只拦本次带进来的);完成翻勾并摘牌;**提交链上的门绝不代摘任何人的认领**,而超龄牌由兜底器物 `scripts/strip-stale-claim-marks.mjs` 代摘(guardian 每 30 分钟派发;判据 import 守门 109 的 `claimMarkOf`+`resolveTtlHours`,本层零复算;只摘「完整租约 ∧ 超龄」——正在干活的席位会续租,天然落在射程外;落地走 `object-space-land` 并把旧形态逐行写进 `removed` ⇒ 活文档行 union 不得再从对侧取回这一型;裸标记由器物**默认代摘**(依据不是口头状态,而是同批的 CL4:新增已在提交链被拦住,而器物只读 HEAD 面 ⇒ 别人刚写下还没提交的牌进不了射程),机主原话写进留痕条目的 `ruling` 字段(`IHUI_CLAIM_STRIP_LEGACY_RULING="<原话>"`),行内只留 `#seq` 指针(实测注记最长 52 字),原牌日期/持有者/超龄量/摘除前后整行/基线与落地枚 sha 逐条落仓外留痕 `.ihui-agent/state/stale-claim-strip.jsonl`(90 天窗口老化,被裁条数必报,取不到判未判定)—— 注记本身会被活文档归并洗掉(实测一轮 64 枚只剩 6 枚),所以可追责的真相源是留痕 + 提交信息,不是台账行)。派单前先扫进行中项:`node scripts/check-task-claims.mjs`。**挂牌判据单源 = `scripts/lib/plan-task-index.mjs` 的 `claimMarkOf`**(2026-10-22 收三口径漂移:① 复选框后可带空白、② 带 `@日期/持有者` 的完整租约形写在行尾也算、③ 反引号码段内的裸标记属叙述不算;两把尺子曾各自读出 31 与 59,差值同时是"真牌隐身⇒两席领同一张票"和"叙述锁死真票⇒派单面虚低"两个方向的失真)。
-- **一个编号只能有一行"当前状态"**:新登记同一件事必须把旧行删除(结清即删)或就地改写,不得再抄一份(复合主键 = 编号 + 标题前缀逐字等值,不是相似度;机器闸在 `scripts/live-doc-edit.mjs` 写盘闸 + 守门 130 差值棘轮)。归并出口:`node scripts/plan-tasks-merge.mjs --heal --commit`(F4 只加指针、绝不动勾选)。
+- **一个编号只能有一行"当前状态"**:新登记同一件事必须把旧行翻勾或就地改写,不得再抄一份(复合主键 = 编号 + 标题前缀逐字等值,不是相似度;机器闸在 `scripts/live-doc-edit.mjs` 写盘闸 + 守门 130 差值棘轮)。归并出口:`node scripts/plan-tasks-merge.mjs --heal --commit`(F4 只加指针、绝不动勾选)。
 - **派单口径只认一个入口**:`node scripts/plan-tasks.mjs --open --dispatchable --exclude-inflight`(数字现读;被摘除的"在飞"行是临时让位不是完成)。
 - **证据指针禁止行号、禁止 7-12 位短 sha**:行号一次 append 就挪位;短 sha 腐烂率 30.2%——**要么全量 40 位,要么内容锚点**(编号 + 标题原文)。两条登记入口(`live-doc-edit.mjs` / `safe-commit.mjs`)已接机器闸。
 - **未带指针而整行逐字节相同的未勾登记行,唯一合法摘除通道 = `node scripts/plan-tasks-merge.mjs --fold-identical-open-rows [--commit]`**(2026-10-16 立,承台账票「台账"同一件事的多份逐字相同待办"没有任何一条合法摘除通道」方向①):同文两份在派单清单里是两行 ⇒ 两个会话各领同一张票,这就是"打架重复做"的机器成因;该档把多重集折到 1,**不加任何注记**(机主 2026-10-13 明令),断言为「claimable 一枚不动 ∧ F4+F4b 副本计数恰好减去删除份数 ∧ 注记枚数不增」,任一不过即整批不落。同题不同号而正文已漂开的副本**不归它**(机器折半即有损,交人工),带指针的那一族仍走 `--dedupe-open-rows`;两面旗同给当场 exit 2。
@@ -253,7 +252,7 @@ UI 改动必须真机/真浏览器验证(截图或 e2e),禁止只凭代码审查
 
 ## 20. 任务完成硬定义(强制)
 
-5 条全满足才可声明"完成":①代码合入 main 并推送;②验证齐绿(typecheck/build/test);③守门全过;④结清行已按「完成即删」删除(回退档才翻勾);⑤交付报告带证据。commit 后忘记 push = 协作事故;4 道自动防线:post-commit 自动 push / push-state 跟踪 / converge 核验 / 任务完成定义。工具失联按流程升级,不得静默放弃。
+5 条全满足才可声明"完成":①代码合入 main 并推送;②验证齐绿(typecheck/build/test);③守门全过;④PROJECT_PLAN 翻勾;⑤交付报告带证据。commit 后忘记 push = 协作事故;4 道自动防线:post-commit 自动 push / push-state 跟踪 / converge 核验 / 任务完成定义。工具失联按流程升级,不得静默放弃。
 
 ## 21. 功能开发同步更新 README 规则(强制)
 
@@ -325,7 +324,7 @@ export const __test__ = {/* 暴露给测试的核心函数 */}
 
 ## 28. 根目录整洁铁律(强制)
 
-一级目录只允许 `check-root-dir-clean.mjs` 白名单内条目(配置/标准文档/`AGENTS.md`/`PROJECT_PLAN.md`/标准目录);禁止在一级目录生成 .log/.html/cookies/截图/ad-hoc 脚本,临时产物进 `tmp/`/`logs/`;新增合法条目必须显式改白名单随 commit 提交;指向 `D:/DevEnv/{Temp,Logs}` 的 junction 由 `isSealedLink` 放行(实体目录照旧红);任务收尾跑 `node scripts/check-root-dir-clean.mjs --staged`;被忽略的一级条目纳入只告警层。守门 44(blocking,跳过 `HUSKY_SKIP_ROOT_DIR_GUARD=1`)。
+一级目录只允许 `check-root-dir-clean.mjs` 白名单内条目(配置/标准文档/`AGENTS.md`/`PROJECT_PLAN.md`/标准目录);禁止在一级目录生成 .log/.html/cookies/截图/ad-hoc 脚本,临时产物进 `tmp/`/`logs/`;新增合法条目必须显式改白名单随 commit 提交;任务收尾跑 `node scripts/check-root-dir-clean.mjs --staged`;被忽略的一级条目纳入只告警层。守门 44(blocking,跳过 `HUSKY_SKIP_ROOT_DIR_GUARD=1`)。
 
 ## 29. dangling commit 备份策略(2026-08-19 立)
 
@@ -396,13 +395,8 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **R4 漏点名补记 ④(2026-10-27)**:两枚只读尺子、均不进提交链(§12e)——`scripts/dispatch-board.mjs`(`check:dispatch-board`:派单口径单入口 + 切席 + 空转归因,磁盘容量是第 0 步前置判据)· `scripts/check-lint-staged-stdio-pin.mjs`(`check:lint-staged-pin`:只读盯 `patch-lint-staged-stdio.mjs` 三针是否还在 `node_modules`,判据住被 spawn 的脚本、本器零复制);判据/自检/镜像例数与退役口径逐字底稿 = `.ihui-agent/archive/AGENTS_trim-2026-10-28.md`。
 - **R4 漏点名补记 ⑤(2026-10-27)**:`check-gate-triggers.mjs`(253,blocking,射程 `scripts/`,跳过 `HUSKY_SKIP_GATE_TRIGGERS=1`)判「注册表登记门没声明 `stagedTriggers` 射程」——同一份缺省在提交通道读成「任何提交都跑」(§15d)、在落地通道被 `selectAffectedGates` 读成「永不复跑」,两通道反义 ⇒「落地后 N 臂全绿」可以是盲绿;差值棘轮锚点 = HEAD^(缺省判 HEAD 面不是索引),摘射程亦红,存量只报数;`land-gate-rerun.mjs` 同批补 `countUntriggered`。判据全文与 2026-10-27 实证(门 193 缺射程,一笔落地往 `check-ps1-bom.mjs` 写进两处裸派生 git、落地器仍报 19 臂全绿)逐字底稿 = `.ihui-agent/archive/AGENTS_trim-2026-10-28.md`。
 - **R4 漏点名补记 ⑦(2026-10-27,守门 89 R4 清偿)**:`check-cross-end-spec-coverage.mjs`(256,blocking,args=`--ratchet`,射程 `packages/shared/src/ui/`、`packages/ui-react/src/components/`、`packages/ui-native/src/`、`apps/web/src/components/data/`、`scripts/check-cross-end-spec-coverage.mjs`、`scripts/data/cross-end-spec-baseline.json`,跳过 `HUSKY_SKIP_CROSS_END_SPEC_COVERAGE=1`):跨端视觉原子 spec 覆盖率棘轮 —— 阶段1/2 把 card/input/badge/tabs/dialog/tooltip/vip-badge/switch/sheet/avatar 双端消费 spec,阶段3 把「覆盖率不退化」接进提交链与 CI(同 `sheet-flex-contract` 独立 job);口径见脚本头注与 `cross-end-spec-baseline.json`(11 项含 button,collapsible 为 EXEMPT 不计分母)。退化(某原子 spec 在却某端不再消费)才红,涨不拦。
+- **R4 漏点名补记 ⑧(2026-10-28)**:`check-asset-path-health.mjs`(只读巡检,判机器状态故不进提交链 §12e;派发面 = `scripts/git-guardian.mjs` 的 `auditAssetPathHealth` 每 6h;`--json`/`--self-test`;断链或证书错 exit 1,取不到输入 exit 2 未判定):受管 `.env` 引用的绝对路径可达性 + 证书到期,判据委托 `cert-expiry-check.mjs` 单源。
 <!-- 2026-10-27 守门 207 体积清偿批二/批三:14 行同族重复副本与失效历史指针(批二)＋3 行失效指针与空壳条目(批三,原 L374/L388/L401)整区逐字迁出件,分别见 `.ihui-agent/archive/AGENTS_trim-2026-10-27b.md` 与 `AGENTS_trim-2026-10-27.md`;§0–§29 规则条款一条未减。 -->
 <!-- 2026-10-28 守门 207 体积清偿批:重复登记副本短版(R4 补记②③④⑤⑥⑦ 六枚短版 + §1 五条长文的短版副本 + 批注指针注释的同文副本)、失效原文(旧 §24「须用户确认」整节、游离在代码块外的裸 filter 片段、§6 单端 typecheck 旧形态)整区逐字迁 `.ihui-agent/archive/AGENTS_trim-2026-10-28.md`,原位置只留指针注记;R4②④⑤⑥ 四份超长守门登记压成指针行(全文同在该件,门名/档位/射程/跳过变量留在指针行点名,守门 89 R4 义务不受影响);同族更全的现行版一律留在本文,§0–§29 规则条款一条未减;§24 编号由两份并成一份(决策口径版留在 §24 位)。 -->
 - **R4 漏点名补记 ⑥(2026-10-27)**:`check-ruff-python.mjs`(254,blocking,射程 `apps/ai-service/`,跳过 `HUSKY_SKIP_RUFF=1`):Python lint 由「只挂 CI」接进提交链(旁路落地与 `chore(auto)` 收编不跑钩子,欠账能在 HEAD 面静默积累);判定面照门 35 同口径(HEAD/索引/磁盘 ⇒ 先经 `face-reader` 取材 + `scratch-dir` 物化),pin 唯一源 `apps/ai-service/pyproject.toml`;uvx 缺失/pin 坏/面取不到 ⇒ exit 2 未判定且优先于红;自检与镜像例数、接线锁逐字底稿 = `.ihui-agent/archive/AGENTS_trim-2026-10-28.md`。
 - **短信通道只读哨兵** `check-sms-channel-health.mjs`(2026-10-27 立,判机器状态不进提交链):吃本地投递审计表判短信通道健康(欠费停机型,如 OUT_OF_SERVICE 悬而无人喊),不碰云端接口、不引新凭据;判据/自检/派发面见门体头注。
-- **R4 漏点名补记 ⑧(2026-10-28)**:`check-asset-path-health.mjs`(只读巡检,判机器状态故不进提交链 §12e;派发面 = `scripts/git-guardian.mjs` 的 `auditAssetPathHealth` 每 6h;`--json`/`--self-test`;断链或证书错 exit 1,取不到输入 exit 2 未判定):受管 `.env` 引用的绝对路径可达性 + 证书到期,判据委托 `cert-expiry-check.mjs` 单源。
-- **R4 漏点名补记 ⑨**:`check-live-doc-merge-recall.mjs`(merge 后探活文档回捞,只读不进提交链,接 `.husky/post-merge`;判据 import `liveDocExpectedCounts` 零复算,自检4/镜像6,无跳过变量) + `check-ddos-guard-wiring.mjs`(257)。
-- **R4 漏点名补记 ⑨**:`check-live-doc-merge-recall.mjs`(只读、不进提交链 §12e;接线 `.husky/post-merge`):普通 merge 带回已结清行的探测,判据 import `liveDocExpectedCounts` 零复算;自检 4/4、镜像 6/6;无跳过变量。
-- **R4 点名补记(2026-10-28)**:`check-live-doc-merge-recall.mjs` 普通 merge 落点后探活文档回捞;判据 import `liveDocExpectedCounts` 零复算;接 `.husky/post-merge`;自检 4 例/镜像 6 例。 + `check-ddos-guard-wiring.mjs`(257)
-
-

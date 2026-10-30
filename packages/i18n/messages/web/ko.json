@@ -687,33 +687,6 @@
     }
   },
   "admin": {
-    "relayTasks": {
-        "wbTitle": "WorkBuddy 작업 자동화",
-        "wbAccount": "계정",
-        "wbAccountEmpty": "WorkBuddy 계정 없음",
-        "wbDryRun": "미리보기(드라이런)",
-        "wbRefresh": "새로고침",
-        "wbNoAccount": "먼저 계정을 선택하세요",
-        "wbLoading": "작업을 불러오는 중…",
-        "wbReadFailed": "불러오기 실패",
-        "wbUnjudged": "미판정",
-        "wbNoTasks": "실행 가능한 작업 없음",
-        "wbColTask": "작업",
-        "wbColProgress": "진행률",
-        "wbColStatus": "상태",
-        "wbColReward": "보상",
-        "wbKindGrowth": "성장",
-        "wbKindTravel": "여행",
-        "wbKindActivity": "활동",
-        "wbKindBlackcat": "야간",
-        "wbRunOk": "작업이 실행되었습니다",
-        "wbRunFailed": "실행 실패",
-        "wbAccepted": "수락됨",
-        "wbClaimed": "수령됨",
-        "wbCreditDelta": "크레딧 변화",
-        "wbEnergyDelta": "에너지 변화",
-        "wbNeverRun": "아직 실행 안 됨"
-    },
     "smsOperations": {
       "page": {
         "title": "SMS 채널 운영",
@@ -2044,14 +2017,10 @@
     "developer": {
       "cancel": "취소",
       "colActions": "작업",
-      "colAddress": "주소",
       "colCozeId": "코즈 ＩＤ",
-      "colCreatedAt": "생성 시간",
-      "colCreator": "작성자",
       "colNickname": "닉네임",
       "colPlatform": "플랫폼",
       "colSignAccount": "서명 계정",
-      "colSignNickname": "서명 닉네임",
       "colStatus": "상태",
       "cozeCreate": "계정 추가",
       "cozeCreateTitle": "Coze 계정 추가",
@@ -9615,9 +9584,6 @@
     "title": "AI 진로 지도"
   },
   "aiChat": {
-    "favorite": "즐겨찾기 추가",
-    "unfavorite": "즐겨찾기 해제",
-    "delete": "삭제",
     "bindIssue": "이슈 연결",
     "actions": {
       "archive": "보관",
@@ -9818,7 +9784,6 @@
       "title": "PowerShell 터미널"
     },
     "thisMonth": "이번 달",
-    "earlier": "이전",
     "thisWeek": "이번 주",
     "title": "ai채팅",
     "toast": {
@@ -10703,11 +10668,6 @@
     "noAssessment": "평가 기록이 없습니다"
   },
   "goalCard": {
-    "resumeServerOk": "목표를 재개했습니다",
-    "resumeAlreadyActive": "목표가 이미 진행 중입니다. 재개할 필요가 없습니다",
-    "resumeTerminal": "목표가 완료되어 재개할 수 없습니다",
-    "resumeNoGoal": "이 세션에 재개할 수 있는 목표가 없습니다",
-    "resumeFailed": "재개에 실패했습니다: {message}",
     "editAriaLabel": "목표 편집",
     "editSave": "저장",
     "editCancel": "취소",
@@ -11268,16 +11228,6 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
-    "favorite": "즐겨찾기 추가",
-    "unfavorite": "즐겨찾기 해제",
-    "workbenchSessions": "세션",
-    "feedbackLike": "도움이 됨",
-    "feedbackDislike": "도움이 안 됨",
-    "workbenchHeroTitle": "AI 대화 워크벤치",
-    "workbenchHeroHint": "아래에 입력하면 새 대화가 바로 시작되고, 왼쪽에서 세션을 선택해 계속할 수도 있습니다.",
-    "workbenchSplit": "패널 분할",
-    "workbenchDropHere": "왼쪽에서 대화를 여기로 끌어다 놓기",
-    "workbenchQuickStart": "빠른 작업",
     "truncation": {
       "maxLengthNotice": "이 답변은 최대 출력 길이에 도달하여 잘렸으며 내용이 불완전합니다. \"계속\"을 보내면 이어서 생성됩니다."
     },
@@ -12170,27 +12120,6 @@
       "noContent": "(내용 없음)",
       "openGitHub": "GitHub 열기",
       "promptPlaceholder": "프롬프트 템플릿 내용",
-      "reloadSkills": "스킬 다시 불러오기",
-      "reloadSkillsHint": "디스크의 SKILL.md를 다시 스캔해 변경 사항을 즉시 반영합니다",
-      "reloadSkillsRunning": "불러오는 중…",
-      "reloadSkillsSuccess": "불러오기 완료",
-      "reloadSkillsFailed": "불러오기 실패",
-      "reloadSkillsAdded": "추가",
-      "reloadSkillsRemoved": "삭제",
-      "reloadSkillsChanged": "변경",
-      "reloadSkillsUnchanged": "변경 없음",
-      "reloadSkillsTotal": "총 {count}개 스킬",
-      "reloadSkillsNoChange": "이번 재로드에서 내용 변경이 없습니다",
-      "reloadSkillsAuto": "auto 소스 {count}개",
-      "reloadPlugins": "플러그인 면 다시 불러오기",
-      "reloadPluginsHint": "플러그인 면을 다시 스캔하고 최신 명령 목록을 호스트에 반영합니다",
-      "reloadPluginsRunning": "불러오는 중…",
-      "reloadPluginsSuccess": "플러그인 면을 다시 불러왔습니다",
-      "reloadPluginsFailed": "플러그인 면을 다시 불러오지 못했습니다",
-      "reloadPluginsCommandCount": "명령 {count}개",
-      "reloadPluginsSkillCount": "스킬 {count}개",
-      "reloadPluginsCommandList": "최신 명령 목록",
-      "reloadPluginsNoCommand": "현재 사용할 수 있는 명령이 없습니다",
       "save": "저장",
       "saving": "저장 중…",
       "scenario": "시나리오",
@@ -12205,8 +12134,6 @@
       "sectionCustom": "내 커스텀",
       "statusAvailable": "사용 가능",
       "statusComingSoon": "곧 출시",
-      "tabAiSkills": "AI 스킬",
-      "tabAll": "전체",
       "tabCustom": "커스텀",
       "tabMcp": "MCP",
       "tabOpenclaw": "OpenClaw",
@@ -12303,7 +12230,6 @@
       "feedbackRecorded": "피드백이 기록되었습니다. 감사합니다",
       "feedbackSaved": "피드백이 기록되었습니다",
       "feedbackFailed": "피드백 제출 실패",
-      "dislikeThanks": "기록되었습니다 — 설문 카드에서 사유를 보충할 수 있습니다",
       "messageDeleted": "메시지 삭제됨",
       "operationFailed": "작업 실패",
       "regenerating": "재생성 중…",
@@ -15065,18 +14991,7 @@
       "toolFailures": "도구 실패",
       "trigger": "수동 트리거",
       "triggerError": "트리거 실패",
-      "triggerSuccess": "트리거 성공",
-      "refresh": "기억 소스 다시 스캔",
-      "refreshSuccess": "기억 소스를 다시 스캔했습니다",
-      "refreshReadFailed": "기억 소스 읽기에 실패했습니다(재스캔 전 기억은 유지됩니다)",
-      "refreshFailed": "기억 소스 재스캔에 실패했습니다",
-      "refreshTotal": "재스캔 전 {before}개 → 재스캔 후 {after}개",
-      "refreshLoadState": "읽기 상태",
-      "refreshAdded": "추가",
-      "refreshRemoved": "삭제",
-      "refreshChanged": "변경",
-      "refreshUnchanged": "변경 없음",
-      "refreshNoChange": "이번 재스캔에서 내용 변경이 없습니다"
+      "triggerSuccess": "트리거 성공"
     },
     "orch": {
       "dashboard": "대시보드",
@@ -18451,12 +18366,7 @@
     "dashboardSuccessRate": "성공률",
     "dashboardAvgLatency": "평균 지연",
     "dashboardNoData": "데이터 없음",
-    "dashboardLatency": "{value}초",
-    "clearAuth": "인증 취소",
-    "clearAuthHint": "이 서버에 부여한 OAuth 자격 증명을 취소합니다(이 서버만)",
-    "clearAuthSuccess": "{name}의 인증을 취소했습니다",
-    "clearAuthNoOauth": "{name}은(는) OAuth 채널을 사용하지 않아 취소할 인증이 없습니다",
-    "clearAuthFailed": "{name}의 인증 취소에 실패했습니다"
+    "dashboardLatency": "{value}초"
   },
   "member": {
     "feedback": {

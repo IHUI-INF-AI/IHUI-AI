@@ -99,7 +99,7 @@ import { staleClosedVerdict } from './check-plan-closed-stock.mjs'
 //   摘除台账 rowBefore 集合 = scrub-declared-removals 的 declaredRows,
 //   复合主键 = lib/plan-task-index 的 keyOfRow。
 // 在本器里再抄一份"什么算同一件事"的正则 = 第二份真相,下一次必然漂开。
-import { extractTaskFingerprint, bulletTitleKey } from './check-plan-task-duplicates.mjs'
+import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
 import { declaredRows } from './scrub-declared-removals.mjs'
 // H4 的尺子**一律借守门 71 自己的出口**(§0.6/§22c 单一真相源):
 //   historyMarkers = 历史配平状态机(它决定一个 marker 到底算「勾销」还是「仍保护」),
@@ -189,37 +189,6 @@ function blobOf(spec) {
   }
 }
 
-/** 取一个 ref 的 40 位 sha;取不到(含无父提交)返回空串,由调用方落「未判定」 */
-function shaOf(ref) {
-  try {
-    const v = git(['rev-parse', ref]).trim()
-    return /^[0-9a-f]{40}$/.test(v) ? v : ''
-  } catch {
-    return ''
-  }
-}
-
-/**
- * 面漂移判据(纯函数,零 IO):底稿读的那一面,还是不是落地前这一面?
- *
- * 立因(2026-10-28 实测枚 `1d73ea96161a`,不是推断):本器读完 HEAD 面之后要跑「落地前受影响门
- * 预探」,那段是分钟级;窗口里别席提交了活文档 ⇒ 本器手里的 `plan.text` 是**旧面的产物**,
- * 落地就是把旧面整份覆盖到新父面上。那一枚的实测后果:4 分钟前刚改写的 i18n 题面被回退,
- * 已结清的「兜底轮削尾」票被翻回未勾 —— 而本器自己的 H0/H0b/H1/H2/H3 与落地器的 clobber
- * 检查**全都只在各自那一面上自洽**,没有一条比较"我读的那一面还是不是当下这一面"。
- *
- * 三态(§0.3):两面都取得到且逐字节同 ⇒ ok;取得到而不同 ⇒ 判出漂移(拒绝落地);
- * 任一取不到 ⇒ undetermined,由调用方 exit 2,绝不读成"没漂移"。
- *
- * @returns {{ok:boolean, undetermined?:boolean, why?:string}}
- */
-export function faceDriftVerdict(textAtRead, textNow) {
-  if (typeof textAtRead !== 'string' || typeof textNow !== 'string')
-    return { ok: false, undetermined: true, why: '面取不到(读时或落地前)' }
-  if (textNow !== textAtRead) return { ok: false, why: '底稿面在读取之后被推进' }
-  return { ok: true }
-}
-
 /**
  * 纯函数:从底稿里摘掉指定行号的行,并跑三条守恒。
  * @returns {{ok:boolean, text?:string, removed?:number, why?:string, keptClosed:number}}
@@ -233,21 +202,6 @@ export function buildStripPlan(baseText, staleLines) {
       ok: false,
       keptClosed: 0,
       why: `H0 行号集有 ${drop.size - removed} 枚指不到行(面已变)`,
-    }
-  // H0b 行号不只要求"指得到行",还要求"指的是滞留已勾登记行"。
-  // 立因(2026-10-28 实测枚 c32fae1fb9):计划面的行号集被套用到已变落地面 ⇒ 索引偏一格,
-  // 摘除连吃了目标行下面的空行与紧邻的一枚无编号未勾票;H0 只看"指得到行"(空行也是行)、
-  // H2 只看"删了几行=集大小"(它自己删了 4 行也算自洽)⇒ 两把尺都接不住这一型。
-  const misaligned = [...drop]
-    .sort((a, b) => a - b)
-    .filter((n) => !/^\s*- \[x\]/i.test(lines[n - 1] ?? ''))
-  if (misaligned.length > 0)
-    return {
-      ok: false,
-      keptClosed: 0,
-      why:
-        `H0b 行号集里有 ${misaligned.length} 枚指向的不是已勾登记行(行 ${misaligned.join(',')}` +
-        ';计划与落地之间面被移动过 ⇒ 行号已失配,整批不落)',
     }
   const out = lines.filter((_, i) => !drop.has(i + 1))
   const openBefore = lines.filter((l) => /^\s*- \[ \]/.test(l))
@@ -405,16 +359,13 @@ export function findDropLedgerDebt(commits, ledgerEntries, { subjectRe = SWEEP_S
 }
 
 /**
- * 留痕回捞腿的档②输入池(纯函数):给一批候选原文行,建「整行逐字 / 题面指纹 / 复合主键 /
- * 正文粗体题面」四面集合。
- * 四面判据全部 import 单源(extractTaskFingerprint / bulletTitleKey / keyOfRow,§0.6/§22c),
- * 本器零复算。
+ * 留痕回捞腿的档②输入池(纯函数):给一批候选原文行,建「整行逐字 / 题面指纹 / 复合主键」三面集合。
+ * 三面判据全部 import 单源(extractTaskFingerprint / keyOfRow,§0.6/§22c),本器零复算。
  */
 export function buildSubjectPool(lines) {
   const verbatim = new Set()
   const fps = new Set()
   const keys = new Set()
-  const titles = new Set()
   for (const l of Array.isArray(lines) ? lines : []) {
     if (typeof l !== 'string') continue
     verbatim.add(l.endsWith('\r') ? l.slice(0, -1) : l)
@@ -422,10 +373,8 @@ export function buildSubjectPool(lines) {
     if (fp) fps.add(fp)
     const k = keyOfRow(l)
     if (k) keys.add(k)
-    const t = bulletTitleKey(l)
-    if (t) titles.add(t)
   }
-  return { verbatim, fps, keys, titles }
+  return { verbatim, fps, keys }
 }
 
 /**
@@ -447,10 +396,7 @@ export function buildSubjectPool(lines) {
  *          取不到的输入传 null —— 该通道一条也不认(不猜),而不是报错放行。
  * @returns {{paid:Array<{row:string, via:string}>, lost:Array<string>}}
  */
-export function adjudicateUnexpectedOpenRows(
-  openRows,
-  { landedText, headText, ledgerPool, archivePool } = {},
-) {
+export function adjudicateUnexpectedOpenRows(openRows, { landedText, headText, ledgerPool, archivePool } = {}) {
   const paid = []
   const lost = []
   const facePools = []
@@ -459,11 +405,9 @@ export function adjudicateUnexpectedOpenRows(
   for (const row of Array.isArray(openRows) ? openRows : []) {
     const fp = extractTaskFingerprint(row)
     const key = keyOfRow(row)
-    const title = bulletTitleKey(row)
     const hit = (pool, what) =>
       (fp !== null && pool.fps.has(fp) ? what + '(指纹)' : null) ||
       (key !== null && pool.keys.has(key) ? what + '(主键)' : null) ||
-      (title !== null && pool.titles.has(title) ? what + '(正文粗体题面)' : null) ||
       (pool.verbatim.has(row) ? what + '(逐字)' : null)
     let via = null
     for (const pool of facePools) {
@@ -542,13 +486,7 @@ export function reconcileDropLedgerDebt({
   const run = gitRun || ((args) => gitRaw(args, root))
   let rawLog = null
   try {
-    rawLog = run([
-      'log',
-      '--format=%H%x1f%P%x1f%s',
-      `-n${Number.isFinite(scan) && scan > 0 ? scan : DEBT_SCAN_DEFAULT}`,
-      '--',
-      file,
-    ])
+    rawLog = run(['log', '--format=%H%x1f%P%x1f%s', `-n${Number.isFinite(scan) && scan > 0 ? scan : DEBT_SCAN_DEFAULT}`, '--', file])
   } catch (e) {
     return {
       ...empty,
@@ -710,25 +648,13 @@ export function reconcileDropLedgerDebt({
       undetermined.push({ sha: d.sha, why: '差集里 0 枚已勾登记行(与题面自报枚数矛盾)⇒ 不补' })
       continue
     }
-    if (closed.length < d.expected)
-      short.push({ sha: d.sha, expected: d.expected, found: closed.length })
+    if (closed.length < d.expected) short.push({ sha: d.sha, expected: d.expected, found: closed.length })
     if (!write) {
       pending += closed.length
       items.push({ sha: d.sha, rows: closed.length })
       continue
     }
-    const r = append(
-      closed,
-      {
-        file,
-        seat: 'stale-closed-sweep',
-        commit: d.sha,
-        baseline: d.parent,
-        via: 'debt-reconcile',
-        at: now,
-      },
-      root,
-    )
+    const r = append(closed, { file, seat: 'stale-closed-sweep', commit: d.sha, baseline: d.parent, via: 'debt-reconcile', at: now }, root)
     if (!r.ok) {
       undetermined.push({ sha: d.sha, why: `补写失败:${r.why ?? '未知'}` })
       continue
@@ -742,12 +668,7 @@ export function reconcileDropLedgerDebt({
   res.items = items
   res.written = written
   res.pending = pending
-  if (undetermined.length > 0)
-    return {
-      ...res,
-      state: 'undetermined',
-      why: `${undetermined.length} 枚无法判定(逐枚点名见 items)`,
-    }
+  if (undetermined.length > 0) return { ...res, state: 'undetermined', why: `${undetermined.length} 枚无法判定(逐枚点名见 items)` }
   if (written > 0) return { ...res, state: 'recovered' }
   return { ...res, state: 'pending' }
 }
@@ -1084,20 +1005,6 @@ function selfTest() {
       ok: false,
     },
     {
-      // c32fae1fb9 那一刀的形态:行号集来自旧面,落到新面时目标行下面那枚空行被一起吃掉。
-      // H0 认得空行也是"行"、H2 拿自删数自证 ⇒ 只有 H0b 能拦住。
-      n: 'H0b 行号指向空行(索引失配)⇒ 整批不落',
-      base: [openRow, '', staleClosed].join('\n'),
-      drop: [2],
-      ok: false,
-    },
-    {
-      n: 'H0b 行号指向邻着的未勾票 ⇒ 整批不落',
-      base: [staleClosed, openRow].join('\n'),
-      drop: [2],
-      ok: false,
-    },
-    {
       n: '零行清扫 ⇒ 成立且不动任何字节',
       base: [openRow, staleClosed].join('\n'),
       drop: [],
@@ -1220,14 +1127,11 @@ function selfTest() {
     p5.ok === false && p5.held.length === 1 && p5.freshVerify > 0 && p5.why.includes('H4 复验'),
     ` ok=${p5.ok} held=${p5.held.length} freshVerify=${p5.freshVerify} why=${p5.why}`,
   )
-  // 反证:摘除集里混进未勾行 ⇒ 由守恒拦下并落「未判定」,不是"放行后少删一行"
-  // 〔2026-10-28 补〕拦它的那把尺可以是 H0b(行号指向的非已勾登记行)或 H1(未勾行逐字节同序);
-  // H0b 排在 H1 之前,所以这一型的点名从 H1 变成 H0b。**不变量一条没松**:整批不落 + 落「未判定」,
-  // 且 `why` 必须出自这两把守恒尺之一(无点名放行、或拿别的理由放行,照样红)。
+  // 反证:摘除集里混进未勾行 ⇒ 由守恒(H1)拦下并落「未判定」,不是"放行后少删一行"
   const p6 = partitionStaleByProtection(P_HEAD, [{ line: 2, raw: P_OPEN }], () => [])
   t(
-    '⑥摘除集含未勾行 ⇒ 预演即被守恒拦下(未判定,不落)',
-    p6.undetermined === true && p6.ok === false && /H0b|H1/.test(p6.why),
+    '⑥摘除集含未勾行 ⇒ 预演即被 H1 拦下(未判定,不落)',
+    p6.undetermined === true && p6.ok === false && p6.why.includes('H1'),
     ` undetermined=${p6.undetermined} why=${p6.why}`,
   )
   // 分档退出码契约(守护日志靠它 + SWEEP-RESULT 分三态)
@@ -1256,37 +1160,25 @@ function selfTest() {
   // 摘完后复量"滞留集==跳过集"必须成立 ⇒ H3 自洽;判据若只报首枚,摘完首枚会冒出
   // 第二枚"新"滞留,H3 恒拒、台账提交管道卡死(门 229 拦一切 × 清扫器摘不动)。
   const DUP_OPEN = '- [ ] G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性'
-  const DUP_R1 =
-    '- [x] ✅(2026-10-20/甲) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性'
-  const DUP_R2 =
-    '- [x] ✅(2026-10-20/乙) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性〔第二枚拷贝〕'
+  const DUP_R1 = '- [x] ✅(2026-10-20/甲) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性'
+  const DUP_R2 = '- [x] ✅(2026-10-20/乙) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性〔第二枚拷贝〕'
   const DUP_FACE = [DUP_OPEN, DUP_R1, DUP_R2].join('\n')
   const vDup = staleClosedVerdict(DUP_FACE, DUP_FACE)
   t(
     '⑩同号未勾+同主键两枚滞留已勾 ⇒ 两枚拷贝一次全检出(未勾副本不遮蔽、首枚不吞后续)',
-    !vDup.undetermined &&
-      vDup.stale.length === 2 &&
-      vDup.stale.map((r) => r.line).join(',') === '2,3',
+    !vDup.undetermined && vDup.stale.length === 2 && vDup.stale.map((r) => r.line).join(',') === '2,3',
     ` stale=${vDup.stale.length} lines=${vDup.stale.map((r) => r.line).join(',')} undetermined=${vDup.undetermined}`,
   )
   const pDup = partitionStaleByProtection(DUP_FACE, vDup.stale, () => [])
-  const afterDup = pDup.ok
-    ? staleClosedVerdict(pDup.text, DUP_FACE)
-    : { stale: [{ raw: '(未过档)' }] }
+  const afterDup = pDup.ok ? staleClosedVerdict(pDup.text, DUP_FACE) : { stale: [{ raw: '(未过档)' }] }
   t(
     '⑩b H3 复量自洽:摘完两枚拷贝后滞留集==跳过集(0==0)⇒ 不再恒拒',
     pDup.ok &&
       pDup.strippable.length === 2 &&
       pDup.held.length === 0 &&
       afterDup.stale.length === pDup.held.length &&
-      afterDup.stale
-        .map((r) => r.raw)
-        .sort()
-        .join('\n') ===
-        [...pDup.held]
-          .map((h) => h.row.raw)
-          .sort()
-          .join('\n'),
+      afterDup.stale.map((r) => r.raw).sort().join('\n') ===
+        [...pDup.held].map((h) => h.row.raw).sort().join('\n'),
     ` ok=${pDup.ok} strippable=${pDup.strippable.length} held=${pDup.held.length} after=${afterDup.stale.length}${pDup.why ? ' why=' + pDup.why : ''}`,
   )
   // ── 留痕回捞腿(2026-10-26 立;本次实测"摘了却没留痕"就是缺这一腿的认账)───────────
@@ -1309,9 +1201,7 @@ function selfTest() {
   const subjMatch = SWEEP_SUBJECT_RE.exec(DEBT_SUBJECT)
   t(
     '⑪题面单源:SWEEP_SUBJECT_RE 解析得出自己生成的清扫题面,且枚数读得回 2',
-    subjMatch !== null &&
-      subjMatch[1] === '2' &&
-      DEBT_SUBJECT.startsWith('chore(plan): 自动摘除 2 条'),
+    subjMatch !== null && subjMatch[1] === '2' && DEBT_SUBJECT.startsWith('chore(plan): 自动摘除 2 条'),
     `match=${subjMatch ? subjMatch[1] : 'null'}`,
   )
   const dDiff = removedRowsBetween(DEBT_HEAD, DEBT_LANDED)
@@ -1342,11 +1232,7 @@ function selfTest() {
   let dLines = []
   let dFileExists = false
   try {
-    dRec1 = reconcileDropLedgerDebt({
-      root: debtDir,
-      gitRun: debtGit,
-      now: '2026-10-26T13:00:00.000Z',
-    })
+    dRec1 = reconcileDropLedgerDebt({ root: debtDir, gitRun: debtGit, now: '2026-10-26T13:00:00.000Z' })
     dFileExists = existsSync(path.join(debtDir, DROP_LEDGER))
     dLines = dFileExists
       ? readFileSync(path.join(debtDir, DROP_LEDGER), 'utf8')
@@ -1354,11 +1240,7 @@ function selfTest() {
           .filter((l) => l.trim() !== '')
           .map((l) => JSON.parse(l))
       : []
-    dRec2 = reconcileDropLedgerDebt({
-      root: debtDir,
-      gitRun: debtGit,
-      now: '2026-10-26T13:00:05.000Z',
-    })
+    dRec2 = reconcileDropLedgerDebt({ root: debtDir, gitRun: debtGit, now: '2026-10-26T13:00:05.000Z' })
   } finally {
     rmScratch(debtDir)
   }
@@ -1368,10 +1250,7 @@ function selfTest() {
       dRec1.state === 'recovered' &&
       dRec1.written === 2 &&
       dLines.length === 2 &&
-      dLines
-        .map((o) => o.rowBefore)
-        .sort()
-        .join('\n') === [DEBT_R1, DEBT_R2].sort().join('\n') &&
+      dLines.map((o) => o.rowBefore).sort().join('\n') === [DEBT_R1, DEBT_R2].sort().join('\n') &&
       dLines.every(
         (o) =>
           o.commit === DEBT_COMMIT &&
@@ -1396,11 +1275,7 @@ function selfTest() {
   }
   t(
     '⑭b dry 档只点名不落盘(预演档不得有副作用 —— 与主流程 --check 契约同一条)',
-    dDry &&
-      dDry.state === 'pending' &&
-      dDry.pending === 2 &&
-      dDry.written === 0 &&
-      dDryFile === false,
+    dDry && dDry.state === 'pending' && dDry.pending === 2 && dDry.written === 0 && dDryFile === false,
     ` state=${dDry?.state} pending=${dDry?.pending} written=${dDry?.written} 落盘=${dDryFile}`,
   )
   const unjDir = mkScratch('ihui-drop-debt-unj-')
@@ -1415,9 +1290,7 @@ function selfTest() {
       },
     })
     dUnjLines = existsSync(path.join(unjDir, DROP_LEDGER))
-      ? readFileSync(path.join(unjDir, DROP_LEDGER), 'utf8')
-          .split('\n')
-          .filter((l) => l.trim()).length
+      ? readFileSync(path.join(unjDir, DROP_LEDGER), 'utf8').split('\n').filter((l) => l.trim()).length
       : 0
   } finally {
     rmScratch(unjDir)
@@ -1447,9 +1320,7 @@ function selfTest() {
       },
     })
     dBrokeLines = existsSync(path.join(brokeDir, DROP_LEDGER))
-      ? readFileSync(path.join(brokeDir, DROP_LEDGER), 'utf8')
-          .split('\n')
-          .filter((l) => l.trim()).length
+      ? readFileSync(path.join(brokeDir, DROP_LEDGER), 'utf8').split('\n').filter((l) => l.trim()).length
       : 0
   } finally {
     rmScratch(brokeDir)
@@ -1466,14 +1337,10 @@ function selfTest() {
   )
   // ⑮c 拒落的**可处置性**:两桶都得进样本。过去只取 lostHere,而"非登记行"桶计数报了、样本恒空
   // ⇒ 清扫器天天整批拒落却无人看得见该看哪一行(2026-10-27 实测:完成即删清扫空转 237 分钟)。
-  const sBoth = undeterminedSample(
-    ['非登记行A', '非登记行B', '非登记行C', '非登记行D'],
-    ['丢失X', '丢失Y'],
-  )
+  const sBoth = undeterminedSample(['非登记行A', '非登记行B', '非登记行C', '非登记行D'], ['丢失X', '丢失Y'])
   t(
     '⑮c 未判定样本:非登记行与真丢失候选两桶都报名(各截 3),空桶不再产出"拒落而不点名"',
-    sBoth.join('\u0001') ===
-      ['非登记行A', '非登记行B', '非登记行C', '丢失X', '丢失Y'].join('\u0001') &&
+    sBoth.join('\u0001') === ['非登记行A', '非登记行B', '非登记行C', '丢失X', '丢失Y'].join('\u0001') &&
       undeterminedSample(['只有非登记行'], []).length === 1 &&
       undeterminedSample([], []).length === 0,
     ` sample=${JSON.stringify(sBoth)}`,
@@ -1489,18 +1356,17 @@ function selfTest() {
   // ⑮e/⑮f 非登记行接进两问(2026-10-27 二次收口):成对用例,一条不许少。
   const proseDir = mkScratch('ihui-drop-debt-prose-')
   const PROSE = '- **补充说明**:一行散文,不是登记行(压缩批次常动它)'
-  const proseGit =
-    ({ headHasProse }) =>
-    (args) => {
-      if (args[0] === 'log')
-        return `${DEBT_COMMIT}\u001f${DEBT_PARENT}\u001f${sweepCommitSubject(1, 0)}\n`
-      if (args[0] === 'ls-files') return ''
-      const spec = String(args[2] ?? '')
-      if (spec === `${DEBT_PARENT}:PROJECT_PLAN.md`) return `${DEBT_R1}\n${PROSE}\n`
-      if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`) return '# 台账\n'
-      if (spec === `HEAD:PROJECT_PLAN.md`) return headHasProse ? `# 台账\n${PROSE}\n` : '# 台账\n'
-      throw new Error('夹具没有这一面:' + spec)
-    }
+  const proseGit = ({ headHasProse }) => (args) => {
+    if (args[0] === 'log')
+      return `${DEBT_COMMIT}\u001f${DEBT_PARENT}\u001f${sweepCommitSubject(1, 0)}\n`
+    if (args[0] === 'ls-files') return ''
+    const spec = String(args[2] ?? '')
+    if (spec === `${DEBT_PARENT}:PROJECT_PLAN.md`) return `${DEBT_R1}\n${PROSE}\n`
+    if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`) return '# 台账\n'
+    if (spec === `HEAD:PROJECT_PLAN.md`)
+      return headHasProse ? `# 台账\n${PROSE}\n` : '# 台账\n'
+    throw new Error('夹具没有这一面:' + spec)
+  }
   let dProsePaid = null
   let dProseLost = null
   try {
@@ -1550,8 +1416,7 @@ function selfTest() {
     ` closed=${dEol.closed.length} unexpected=${dEol.unexpected.length} removed=${dEol.removed.length}`,
   )
   const eolGit = (args) => {
-    if (args[0] === 'log')
-      return `${DEBT_COMMIT}\u001f${DEBT_PARENT}\u001f${sweepCommitSubject(1, 0)}\n`
+    if (args[0] === 'log') return `${DEBT_COMMIT}\u001f${DEBT_PARENT}\u001f${sweepCommitSubject(1, 0)}\n`
     const spec = String(args[2] ?? '')
     if (spec === `${DEBT_PARENT}:PROJECT_PLAN.md`) return EOL_PARENT
     if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`) return EOL_LANDED
@@ -1560,11 +1425,7 @@ function selfTest() {
   const eolDir = mkScratch('ihui-drop-debt-eol-')
   let dEolRec = null
   try {
-    dEolRec = reconcileDropLedgerDebt({
-      root: eolDir,
-      gitRun: eolGit,
-      now: '2026-10-27T00:00:00.000Z',
-    })
+    dEolRec = reconcileDropLedgerDebt({ root: eolDir, gitRun: eolGit, now: '2026-10-27T00:00:00.000Z' })
   } finally {
     rmScratch(eolDir)
   }
@@ -1607,19 +1468,14 @@ function selfTest() {
     const spec = String(args[2] ?? '')
     if (spec === `${DEBT_PARENT}:PROJECT_PLAN.md`) return DEBT_HEAD
     // 落地面把已勾行与未勾行**全**摘掉(未勾行无同题存续)
-    if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`)
-      return '# 台账\n- [ ] G-8888 无关题:与夹具票既不同题也不同号\n'
+    if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`) return '# 台账\n- [ ] G-8888 无关题:与夹具票既不同题也不同号\n'
     throw new Error(`夹具没有这一面:${spec}`)
   }
   const ledgDir = mkScratch('ihui-drop-debt-ledgerpool-')
   let dLedgerPool = null
   try {
     mkdirSync(path.join(ledgDir, path.dirname(DROP_LEDGER)), { recursive: true })
-    appendDropLedger(
-      [DEBT_OPEN],
-      { commit: 'd'.repeat(40), baseline: 'c'.repeat(40), note: '别轮正当摘除该未勾行' },
-      ledgDir,
-    )
+    appendDropLedger([DEBT_OPEN], { commit: 'd'.repeat(40), baseline: 'c'.repeat(40), note: '别轮正当摘除该未勾行' }, ledgDir)
     dLedgerPool = reconcileDropLedgerDebt({ root: ledgDir, gitRun: ledgerGit })
   } finally {
     rmScratch(ledgDir)
@@ -1639,8 +1495,7 @@ function selfTest() {
     if (args[0] === 'ls-files') return '.ihui-agent/archive/PROJECT_PLAN_test_snapshot.md\u0000'
     const spec = String(args[2] ?? '')
     if (spec === `${DEBT_PARENT}:PROJECT_PLAN.md`) return DEBT_HEAD
-    if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`)
-      return '# 台账\n- [ ] G-8888 无关题:与夹具票既不同题也不同号\n'
+    if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`) return '# 台账\n- [ ] G-8888 无关题:与夹具票既不同题也不同号\n'
     if (spec === 'HEAD:.ihui-agent/archive/PROJECT_PLAN_test_snapshot.md')
       return '# 归档\n' + DEBT_OPEN + '\n'
     throw new Error(`夹具没有这一面:${spec}`)
@@ -1665,8 +1520,7 @@ function selfTest() {
     if (args[0] === 'log') return `${DEBT_COMMIT}\u001f${DEBT_PARENT}\u001f${DEBT_SUBJECT}\n`
     const spec = String(args[2] ?? '')
     if (spec === `${DEBT_PARENT}:PROJECT_PLAN.md`) return DEBT_HEAD
-    if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`)
-      return '# 台账\n- [ ] G-8888 无关题:与夹具票既不同题也不同号\n'
+    if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`) return '# 台账\n- [ ] G-8888 无关题:与夹具票既不同题也不同号\n'
     throw new Error(`夹具没有这一面:${spec}`) // HEAD 面 / ls-files 都不给 ⇒ 三通道取不到 ⇒ 一律不认
   }
   const swDir = mkScratch('ihui-drop-debt-swallow-')
@@ -1675,9 +1529,7 @@ function selfTest() {
   try {
     dSw = reconcileDropLedgerDebt({ root: swDir, gitRun: swallowGit })
     dSwLines = existsSync(path.join(swDir, DROP_LEDGER))
-      ? readFileSync(path.join(swDir, DROP_LEDGER), 'utf8')
-          .split('\n')
-          .filter((l) => l.trim()).length
+      ? readFileSync(path.join(swDir, DROP_LEDGER), 'utf8').split('\n').filter((l) => l.trim()).length
       : 0
   } finally {
     rmScratch(swDir)
@@ -1760,11 +1612,18 @@ function main() {
   // 写盘只在 --apply(派发档)或显式 --reconcile 时发生;裸跑/`--check` 仍是零副作用预演(契约不变)。
   if (apply || reconcileOnly) {
     const rec = reconcileDropLedgerDebt({ write: !dryRun })
-    const tag = rec.state === 'clean' ? C.green : rec.state === 'undetermined' ? C.yellow : C.cyan
+    const tag =
+      rec.state === 'clean'
+        ? C.green
+        : rec.state === 'undetermined'
+          ? C.yellow
+          : C.cyan
     console.log(
       `${tag}🧾 留痕回捞腿${C.reset}:扫 ${rec.scanned} 枚提交 / 台账 ${rec.ledgerEntries ?? '?'} 条(坏行 ${rec.malformed ?? 0})` +
         `/ 欠账 ${rec.debt} 枚 → ` +
-        (dryRun ? `待补 ${rec.pending} 条(dry:只点名,不写)` : `已补 ${rec.written} 条`) +
+        (dryRun
+          ? `待补 ${rec.pending} 条(dry:只点名,不写)`
+          : `已补 ${rec.written} 条`) +
         (rec.short && rec.short.length
           ? ` / 另 ${rec.short.length} 枚与题面自报枚数不符(以两面差集为准,不照自报数补)`
           : ''),
@@ -1773,11 +1632,7 @@ function main() {
       console.error(`${C.red}❗ 无法判定 ${String(u.sha).slice(0, 12)}:${u.why}${C.reset}`)
       // 拒落必须带得出"该看哪一行":只报计数不报行,等于把每一轮清扫变成无人能处置的死循环。
       for (const s of u.sample || [])
-        console.error(
-          `   ↳ 点名 ${String(s ?? '')
-            .split('\n')[0]
-            .slice(0, 160)}`,
-        )
+        console.error(`   ↳ 点名 ${String(s ?? '').split('\n')[0].slice(0, 160)}`)
     }
     // 机读行前缀刻意不叫 SWEEP-RESULT:派发层按**第一条** SWEEP-RESULT 分档,
     // 这里再发一条会把本轮的三态读数顶掉(等于把"清扫做没做成"读错)。
@@ -1794,12 +1649,8 @@ function main() {
     if (reconcileOnly) process.exit(dryRun && rec.pending > 0 ? 1 : 0)
   }
 
-  // 两面按 **sha 固定**读,不按符号 HEAD/HEAD^ 各读一次:两次 cat-file 之间若有人推进 HEAD,
-  // 这两面会来自不同提交,门 229 的"父面也已勾"那一维当场错位(而错位方向不报错,只是判错)。
-  const headShaAtRead = shaOf('HEAD')
-  const baseShaAtRead = shaOf('HEAD^')
-  const headText = headShaAtRead ? blobOf(`${headShaAtRead}:${FILE}`) : null
-  const baseText = baseShaAtRead ? blobOf(`${baseShaAtRead}:${FILE}`) : null
+  const headText = blobOf('HEAD:' + FILE)
+  const baseText = blobOf('HEAD^:' + FILE)
   if (headText === null || baseText === null) {
     console.error(`${C.yellow}⏭ 未判定:${C.reset}HEAD 或 HEAD^ 面的 ${FILE} 取不到 ⇒ 不清扫(§0.3)`)
     emitResult('undetermined', {
@@ -1974,18 +1825,7 @@ function main() {
     console.log(
       `${C.yellow}⏭ 落地前受影响门预探未跑:${C.reset}lib/land-gate-rerun.mjs 取不到(净检出形态)⇒ 归因不可用,落地器 exit≠0 时照旧落 refused(不猜"存量红")`,
     )
-  else if (process.env.IHUI_LAND_PROBE !== '1') {
-    // 默认不预探(2026-10-28 依据实测裁):一批受影响门并发后仍要 70s,而本机当天三个轮次里
-    // 两轮 pre 全绿(对归因零信息)、一轮 pre=0/post=1(结论相反,归因本来就失败)⇒ 预探的
-    // 信息量在当下工作流是 0,成本是每轮 70s;且它是"批批叠三轮门"的源头(landStatus≠0 时
-    // 还会再跑一次 postProbe)。归因不可用的后果是"落地器 exit≠0 → refused"(§0.10 失效方向
-    // = 多要一次定向说明),不是放行;HEAD 该推进的照旧推进、留痕照旧写、推送腿照旧跑。
-    // 诊断需要时置 IHUI_LAND_PROBE=1 恢复改前行为(两批门,含归因)。
-    console.log(
-      `${C.yellow}⏭ 落地前受影响门预探未跑:${C.reset}默认关闭(每批约 70s,实测信息量为 0)` +
-        `⇒ 落地器 exit≠0 时归因不可用,照旧落 refused(不猜"存量红");诊断时置 IHUI_LAND_PROBE=1`,
-    )
-  } else if (process.env.IHUI_LAND_SKIP_AFFECTED_GATES !== '1') {
+  else if (process.env.IHUI_LAND_SKIP_AFFECTED_GATES !== '1') {
     console.log(
       `${C.cyan}🔎 落地前受影响门预探(只读;与落地后复跑同一实现 lib/land-gate-rerun,不跳过任何门)${C.reset}`,
     )
@@ -1997,38 +1837,6 @@ function main() {
           : ' 无判红臂'),
     )
   }
-  // ── 面漂移守卫(2026-10-28 立;实测枚 1d73ea96161a)─────────────────────────
-  // 必须排在预探之后:预探是分钟级的,它自己就是漂移窗口的主要来源。取不到现面 ⇒ exit 2 未判定。
-  const drift = faceDriftVerdict(headText, blobOf('HEAD:' + FILE))
-  if (!drift.ok) {
-    if (drift.undetermined) {
-      console.error(
-        `${C.yellow}⏭ 未判定(面漂移守卫):${C.reset}${drift.why} ⇒ 本轮不落地(§0.3:没量到不写成没漂移)。`,
-      )
-      emitResult('undetermined', {
-        stale: v.stale.length,
-        held: part.held.length,
-        stripped: 0,
-        why: 'face-unavailable',
-      })
-      process.exit(2)
-    }
-    const headShaNow = shaOf('HEAD') || '取不到'
-    console.error(
-      `${C.red}❌ 面漂移:${C.reset}底稿读于 ${headShaAtRead.slice(0, 11)},落地前已是 ${headShaNow.slice(0, 11)}` +
-        ` ⇒ 手里的 plan.text 是旧面产物,落地会整面覆盖这期间别人的改动` +
-        `(2026-10-28 枚 1d73ea96161a 即此型:回退了 4 分钟前刚改写的两行、把已结清票翻回未勾)。` +
-        `整批不落,下一轮按新面重读重做。`,
-    )
-    emitResult('refused', {
-      stale: v.stale.length,
-      held: part.held.length,
-      stripped: 0,
-      why: 'face-drift-since-read',
-    })
-    process.exit(1)
-  }
-
   const dir = mkScratch('ihui-strip-closed-')
   // 落地器的退出码要带出 try 块:留痕段(try 之后)要拿它决定"该怎么解释这次推进"。
   // **绝不在 try 里 process.exit**:那会让留痕与推送腿被整段跳过 —— 2026-10-24 实测
@@ -2092,14 +1900,11 @@ function main() {
   const advanced = Boolean(landedSha) && landedSha !== headBefore
   if (advanced) {
     const baseSha = git(['rev-parse', 'HEAD^']).trim()
-    const ledger = appendDropLedger(
-      part.strippable.map((r) => r.raw),
-      {
-        seat: 'stale-closed-sweep',
-        commit: landedSha,
-        baseline: baseSha,
-      },
-    )
+    const ledger = appendDropLedger(part.strippable.map((r) => r.raw), {
+      seat: 'stale-closed-sweep',
+      commit: landedSha,
+      baseline: baseSha,
+    })
     if (!ledger.ok) {
       // 留痕写不进去 ⇒ 这一批下次必被 union 带回,等于本轮白做。大声点名,但不改落地成败
       // (行确实已经摘掉了,修好留痕后重跑即可补上)。
@@ -2109,9 +1914,7 @@ function main() {
     } else {
       console.log(
         `${C.cyan}📝 摘除留痕 ${ledger.written} 条 → ${ledger.file}(回潮防线的凭据)` +
-          (landStatus !== 0
-            ? ` —— 落地器 exit ${landStatus} 但 HEAD 已推进 ⇒ 按推进事实留痕`
-            : '') +
+          (landStatus !== 0 ? ` —— 落地器 exit ${landStatus} 但 HEAD 已推进 ⇒ 按推进事实留痕` : '') +
           C.reset,
       )
     }
@@ -2142,8 +1945,7 @@ function main() {
   // 归因成功 = 报告"摘除已落地 + 存量红仍在(点名)",门照旧红、提交链照旧拦。
   if (landStatus !== 0) {
     let postProbe = null
-    // 归因要 pre/post 两面;预探默认关 ⇒ postProbe 也没有比较对象,一并跳过(省第三批 ~70s)。
-    if (advanced && rerunAffectedGates && process.env.IHUI_LAND_PROBE === '1') {
+    if (advanced && rerunAffectedGates) {
       console.log(`${C.cyan}🔎 落地后受影响门复跑(归因用;与预探同一实现)${C.reset}`)
       postProbe = rerunAffectedGates({ root: ROOT, paths: [FILE] })
     }
@@ -2208,7 +2010,6 @@ if (isDirectRun) {
 
 export const __test__ = {
   buildStripPlan,
-  faceDriftVerdict,
   appendDropLedger,
   sweepCommitSubject,
   removedRowsBetween,
