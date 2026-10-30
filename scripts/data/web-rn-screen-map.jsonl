@@ -1,4 +1,4 @@
-{"web":"admin/**","status":"excluded","reason":"管理后台(335 页),App/小程序不原生承载;RN 屏面现读无任何 Admin* 屏(同法扫 Edu 族命中 36 文件/14 导出为正例)。其中 18 枚 /admin* 由 WebView 门户承载(web-portal.ts domain:admin),已逐条补 status:\"portal\" 行 ⇒ 本段射程只覆盖其余","at":"2026-10-24","reviewBy":"2027-04-30"}
+{"web":"admin/**","status":"excluded","reason":"管理后台(336 页),App/小程序不原生承载;RN 屏面现读无任何 Admin* 屏(同法扫 Edu 族命中 36 文件/14 导出为正例)。其中 18 枚 /admin* 由 WebView 门户承载(web-portal.ts domain:admin),已逐条补 status:\"portal\" 行 ⇒ 本段射程只覆盖其余","at":"2026-10-24","reviewBy":"2027-04-30"}
 {"web":"sso/**","status":"excluded","reason":"OAuth 中转壳页;RN/desktop 走 ihui://sso/callback 深链,不是屏(AGENTS §9)","at":"2026-10-24","reviewBy":"2027-04-30"}
 {"web":"compare/**","status":"excluded","reason":"SEO 营销对比落地页(ihui-vs-* 与 compare 首页合计 37 页),App 不承载营销落地页。VipCompareScreen 承载的是会员价格对比、与 web 的 vip/details 对齐行同源,不属于本段","at":"2026-10-24","reviewBy":"2027-04-30"}
 {"web":"settings","rn":"packages/app/src/features/security-settings/SecuritySettingsScreen.tsx","status":"aligned","note":"web securityCenter ↔ RN securitySettings 键空间双侧确认","at":"2026-10-24"}
@@ -478,3 +478,5 @@
 {"web":"developer/relay","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-30):此前落在 developer/** 段级豁免射程内,而门户表说这条确实由 WebView 承载 ⇒ 逐条承认承载,段级只覆盖其余","at":"2026-10-30"}
 {"web":"developer/webhooks","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-30):此前落在 developer/** 段级豁免射程内,而门户表说这条确实由 WebView 承载 ⇒ 逐条承认承载,段级只覆盖其余","at":"2026-10-30"}
 {"web":"feature-center","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-30):此前落在 feature-center/** 段级豁免射程内,而门户表说这条确实由 WebView 承载 ⇒ 逐条承认承载,段级只覆盖其余","at":"2026-10-30"}
+{"web":"settings/devices","rn":"apps/mobile-rn/src/screens/DevicesScreen.tsx","status":"aligned","note":"2026-10-31 登记:web 设备管理页四块(设备列表+撤销 / 配对码 / 会话委派 / 任务列表)↔ RN 端内自包含屏 DevicesScreen.tsx(头注逐条列同一批 api-client 用户面方法 listDevices/revokeDevice/issuePairCode/delegateSession/getDeviceTasks;端点 /api/devices、/api/devices/:id、/api/devices/pair-code、/api/chat/sessions/:id/delegate 与 web 页逐字同源)。","at":"2026-10-31"}
+{"web":"artifacts","status":"gap","note":"2026-10-31 判:产物中心(GET /api/artifacts 枚举 + /api/artifacts/:id/download 导出 + 签名预览 token 链路)在 RN 与共享层零承载 —— git grep -li artifact HEAD -- apps/mobile-rn/src packages/app/src 现读 0 命中(正例对照:同法词 devices 命中 apps/mobile-rn/src/screens/DevicesScreen.tsx)⇒ 移动端缺口;补屏或下线 web 入口二选一。","at":"2026-10-31"}
