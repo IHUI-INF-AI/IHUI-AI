@@ -151,7 +151,9 @@ function listFiles(f) {
 
 function main() {
   if (wantHelp) {
-    console.log('用法: node scripts/check-modal-keyboard-avoid.mjs [--staged|--worktree|--self-test]')
+    console.log(
+      '用法: node scripts/check-modal-keyboard-avoid.mjs [--staged|--worktree|--self-test]',
+    )
     console.log(`跳过开关:${SKIP_ENV}(应急用,须留痕)`)
     return 0
   }
@@ -178,7 +180,11 @@ function main() {
   } else {
     const rev = face === 'staged' ? '' : 'HEAD'
     try {
-      texts = catBatch(ROOT, files.map((r) => `${rev}:${r}`), { maxBuffer: 1 << 29 })
+      texts = catBatch(
+        ROOT,
+        files.map((r) => `${rev}:${r}`),
+        { maxBuffer: 1 << 29 },
+      )
     } catch (e) {
       console.error(`❌ 无法判定:${e.message}`)
       return 2
@@ -187,7 +193,10 @@ function main() {
   const violations = []
   let undetermined = 0
   for (const rel of files) {
-    const text = face === 'worktree' ? texts.get(rel) : (texts.get(`${face === 'staged' ? '' : 'HEAD'}:${rel}`) ?? null)
+    const text =
+      face === 'worktree'
+        ? texts.get(rel)
+        : (texts.get(`${face === 'staged' ? '' : 'HEAD'}:${rel}`) ?? null)
     if (text === null || text === undefined) {
       undetermined += 1
       continue
@@ -202,12 +211,16 @@ function main() {
       `❌ ${violations.length} 处弹层输入没有键盘避让层(RN Modal 是独立原生窗,挂在外面的 KAV 无效):`,
     )
     for (const v of violations.slice(0, 20))
-      console.error(`   ${v.rel}:${v.modalLine} Modal 内 TextInput@${v.inputs} 无 KeyboardAvoidingView`)
+      console.error(
+        `   ${v.rel}:${v.modalLine} Modal 内 TextInput@${v.inputs} 无 KeyboardAvoidingView`,
+      )
     console.error(
-      '   改法:把该 Modal 的唯一直接子容器就地换成 <KeyboardAvoidingView style={原容器} behavior={Platform.OS===\'ios\'?\'padding\':undefined}>;' +
+      "   改法:把该 Modal 的唯一直接子容器就地换成 <KeyboardAvoidingView style={原容器} behavior={Platform.OS==='ios'?'padding':undefined}>;" +
         '若那层是带 onPress 的遮罩 Pressable,把遮罩点击下移一枚 StyleSheet.absoluteFill 的 Pressable(端内 5 处先例)。',
     )
-    console.error(`   注意跨文件封装看不见:children 由调用方传入的弹层(BottomPops 等)由渲染锁守住,见文件头注。`)
+    console.error(
+      `   注意跨文件封装看不见:children 由调用方传入的弹层(BottomPops 等)由渲染锁守住,见文件头注。`,
+    )
     return 1
   }
   console.log(`✅ ${files.length} 个 .tsx 全数核对:无「Modal 内含输入框而无避让层」的形态`)
@@ -216,8 +229,7 @@ function main() {
 
 export const __test__ = { findMissingAvoids, runSelfTest, SKIP_ENV, SRC_RELS }
 
-const isDirectRun =
-  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun) {
   try {

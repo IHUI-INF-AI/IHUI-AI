@@ -12,6 +12,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 
+import { maskComments } from '../lib/code-mask.mjs'
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GATE = join(ROOT, 'scripts/check-modal-keyboard-avoid.mjs')
 const RUNNER = readFileSync(join(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
@@ -29,9 +31,24 @@ test('① 装车:runner 注册块存在,blocking + skipEnv + stagedTriggers 成�
   assert.match(block, /stagedTriggers:\s*\[[^\]]*packages\/app\/src\//, '触发面缺共享屏侧')
 })
 
-test('② 编号唯一:id 272 在全 runner 只出现一次(R5/R13 同型防线)', () => {
-  const n = (RUNNER.match(/id:\s*'272'/g) ?? []).length
-  assert.equal(n, 1, `id '272' 出现 ${n} 次 ⇒ 要么撞号,要么一个对象里写了两个 id`)
+test('② 编号唯一:id 272 作为注册条目只出现一次(R5/R13 同型防线)', () => {
+  // 用仓内遮罩库剥注释,不自己写正则:上一版用 /^\s*\/\/.*$/gm + /\*[\s\S]*?\*/ 剥,
+  // 结果 runner 里 label 字符串中的 `*/` 让块注释正则一路误吞,把整片注册表都剥没了
+  // (code 面数到 0,"唯一性"就这么假绿过去)。本仓早有统一出口 code-mask(§0.6 单一实现)。
+  const code = maskComments(RUNNER)
+  const n = (code.match(/id:\s*'272'/g) ?? []).length
+  assert.equal(n, 1, `id '272' 在代码面出现 ${n} 次 ⇒ 要么撞号,要么一个对象里写了两个 id`)
+  // 归一化本身要被量到:不剥注释数到 2(注册块上方说明文字提过一次);
+  // 而"剥多了"(整片注册表不见)必须由下面这条一起挡住 —— 它要求代码面仍能数到 1。
+  assert.equal(
+    (RUNNER.match(/id:\s*'272'/g) ?? []).length,
+    2,
+    '不剥注释应当数到 2 ⇒ 若不是 2,说明说明文字变了,本条对照失效',
+  )
+  assert.ok(
+    maskComments(RUNNER).includes("script: 'check-modal-keyboard-avoid.mjs'"),
+    '剥注释后必须还能看到本门的 script 行 ⇒ 看不到就是遮罩吞掉了注册表(老尺子的失效形态)',
+  )
 })
 
 test('③ 射程与触发面成对:门体枚举的根必须都在 runner 触发面里', () => {
