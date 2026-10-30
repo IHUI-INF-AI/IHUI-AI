@@ -1030,7 +1030,7 @@ const OID_SPEC_RE = /^[0-9a-f]{40,64}$/
 const HEAD_PATH_SPEC_RE = /^HEAD:(.+)$/s
 const INDEX_PATH_SPEC_RE = /^:(.+)$/s
 
-/** `ls-tree -r -z` / `ls-files -s -z` 的公共解析:`<meta…>TAB<path>NUL`。路径用 indexOf 切,不按 TAB 全拆(文件名允许含 TAB)。 */
+/** `ls-tree -r -z` 的解析:`<mode> <type> <oid>TAB<path>NUL`。路径用 indexOf 切,不按 TAB 全拆(文件名允许含 TAB)。 */
 function parseZPathOidTable(out, { unmergedAsNull = false } = {}) {
   const map = new Map()
   const conflicted = new Set()
@@ -1046,6 +1046,39 @@ function parseZPathOidTable(out, { unmergedAsNull = false } = {}) {
     if (map.has(rel)) {
       // 同一路径第二次出现 ⇒ 多 stage(合并冲突)。`:path` 在冲突态本就是 unmerged,
       // 这里必须显式置 null,不能留成"最后一条赢"。
+      conflicted.add(rel)
+      continue
+    }
+    map.set(rel, oid)
+  }
+  if (unmergedAsNull) for (const rel of conflicted) map.set(rel, null)
+  return map
+}
+
+/**
+ * `git ls-files --cached -s -z` 的解析:`<mode> <oid> <stage>TAB<path>NUL` —— 与
+ * `ls-tree -r -z`(`<mode> <type> <oid>TAB<path>`)的**第三段语义不同**:索引面第三段是
+ * stage 号(`0`..`3`),oid 在第二段。
+ *
+ * 立因(2026-10-30 实测):两种格式此前共用 `parseZPathOidTable`(取 meta[2]),于是在
+ * 索引面取到的是 `"0"`,过不了 `OID_SPEC_RE` ⇒ 整张表为空 ⇒ `--staged` 面**每一枚**
+ * blob 都被判"取不到"(门 47/194/221/254 全落未判定),把每枚提交逼向 `--no-verify`
+ * (RP-80 的真根因;全量档走 ls-tree 所以一直是绿的,把病灶藏在了另一个面)。
+ * 同路径多 stage(= 合并冲突)按 `unmergedAsNull` 置 null,与 `:path` 的 unmerged 语义一致。
+ */
+function parseZLsFilesTable(out, { unmergedAsNull = true } = {}) {
+  const map = new Map()
+  const conflicted = new Set()
+  for (const rec of String(out).split('\u0000')) {
+    if (!rec) continue
+    const tab = rec.indexOf('\t')
+    if (tab < 0) continue
+    const meta = rec.slice(0, tab).split(' ')
+    const rel = rec.slice(tab + 1)
+    if (meta.length < 3 || !rel) continue
+    const oid = meta[1]
+    if (!OID_SPEC_RE.test(oid)) continue
+    if (map.has(rel)) {
       conflicted.add(rel)
       continue
     }
@@ -1096,7 +1129,7 @@ export function resolveSpecOids(root, specs, opts = {}) {
     }
     if (indexPaths.length) {
       const out = gitRaw(['ls-files', '--cached', '-s', '-z'], root, { timeout })
-      const table = parseZPathOidTable(out, { unmergedAsNull: true })
+      const table = parseZLsFilesTable(out, { unmergedAsNull: true })
       for (const [spec, rel] of indexPaths) result.set(spec, table.has(rel) ? table.get(rel) : null)
     }
   } catch (e) {
