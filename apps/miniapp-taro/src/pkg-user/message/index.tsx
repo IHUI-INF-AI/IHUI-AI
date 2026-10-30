@@ -382,6 +382,12 @@ export default function MessageIndex() {
             onInput={setKeyword}
             onClear={() => setKeyword('')}
           />
+          {/* 会话区标题(对齐 RN MessageCenterScreen convSection.convTitle) */}
+          {!loading && filtered.length ? (
+            <Text className="block text-[length:26rpx] font-semibold text-muted-foreground mt-[16rpx] mb-[8rpx]">
+              {t('messageCenter.conversations')}
+            </Text>
+          ) : null}
           {loading ? (
             <Text className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
               {t('common.loading')}

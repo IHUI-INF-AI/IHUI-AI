@@ -11,6 +11,12 @@ import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
+/** 分佣比例表 —— 与共享屏 RATE_TABLE 同源(共享源这三组是字面量,不是词条,故此处同样不取词) */
+const RATE_TABLE = [
+  { level: 'VIP 会员', rate: '20%', desc: '好友开通 VIP 会员费的 20%' },
+  { level: 'SVIP 会员', rate: '25%', desc: '好友开通 SVIP 会员费的 25%' },
+]
+
 export default function DistributionPlan() {
   const tt = useTt()
   const gate = useAuthReadyGate()
@@ -60,6 +66,13 @@ export default function DistributionPlan() {
 
   return (
     <ThemeRoot className="min-h-screen bg-background p-[28rpx] pb-[200rpx]">
+      {/* 对齐 RN header(返回 + 标题):小程序返回键由原生导航栏承担,标题按共享屏同一层级写在页内
+          —— config 的 navigationBarTitleText 取不到 t(),这里才是唯一可取词的标题位 */}
+      <View className="flex flex-row items-center pb-[24rpx]">
+        <Text className="block text-[length:40rpx] font-semibold text-foreground">
+          {tt('earnCommission.title', '分佣计划')}
+        </Text>
+      </View>
       {/* 对齐 RN EarnCommissionScreen introCard:标题+描述+统计同卡,内容居中 */}
       <View className="bg-card ui-card rounded-lg p-[28rpx] flex flex-col items-center gap-[24rpx]">
         <Text className="block text-[length:36rpx] font-bold text-foreground text-center">
@@ -67,8 +80,8 @@ export default function DistributionPlan() {
         </Text>
         <Text className="block text-[length:28rpx] text-muted-foreground text-center leading-[40rpx]">
           {tt(
-            'distribution.plan.introDesc',
-            '加入我们的分佣计划,邀请好友注册成为会员,您将获得会员费20%的佣金收益',
+            'earnCommission.introDesc',
+            '加入分佣计划,邀请好友注册成为会员,即可获得会员费 20% 的佣金收益',
           )}
         </Text>
         <View className="flex flex-row justify-around w-full mt-[16rpx]">
@@ -106,13 +119,34 @@ export default function DistributionPlan() {
         ))}
       </View>
 
+      {/* 对齐 RN sectionCard(分佣比例):档位 → 比例 → 说明,共享屏同一信息结构 */}
+      <View className="bg-card ui-card rounded-lg p-[28rpx] mt-[24rpx] flex flex-col gap-[24rpx]">
+        <Text className="block text-[length:32rpx] font-semibold text-foreground text-center">
+          {tt('earnCommission.rateTitle', '分佣比例')}
+        </Text>
+        {RATE_TABLE.map((row) => (
+          <View
+            key={row.level}
+            className="flex flex-row items-center gap-[24rpx] bg-[var(--color-muted)] rounded-sm px-[24rpx] py-[20rpx]"
+          >
+            <Text className="flex-1 text-[length:28rpx] font-medium text-foreground">
+              {row.level}
+            </Text>
+            <Text className="text-[length:32rpx] font-bold text-[var(--color-primary)] min-w-[88rpx]">
+              {row.rate}
+            </Text>
+            <Text className="flex-[2] text-[length:28rpx] text-muted-foreground">{row.desc}</Text>
+          </View>
+        ))}
+      </View>
+
       <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[28rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card">
         <View
           className="h-[100rpx] leading-[100rpx] text-center bg-cta text-cta-foreground text-[length:32rpx] font-semibold rounded-xl"
           onClick={onOpenVip}
           hoverClass="opacity-60"
         >
-          <Text>{tt('distribution.plan.openVipBtn', '开通VIP会员 参与分佣计划')}</Text>
+          <Text>{tt('earnCommission.openVip', '开通 VIP 会员 参与分佣计划')}</Text>
         </View>
       </View>
     </ThemeRoot>

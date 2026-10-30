@@ -392,6 +392,10 @@ export default function AigcList() {
                         className="audio-play-icon"
                         color="var(--color-primary)"
                       />
+                      {/* 对齐 RN audioPlayText:按钮内文案(共享屏有、本页原先只有图标) */}
+                      <Text className="ml-[8rpx] text-[length:28rpx] font-semibold text-[color:var(--color-primary)]">
+                        {t('aigcList.playAudio')}
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -411,6 +415,19 @@ export default function AigcList() {
             <Text className="state-text">— {t('common.noMore')} —</Text>
           </View>
         ) : null}
+      </View>
+
+      {/* FAB 占位:发布按钮悬浮在列表之上,末行不被遮挡 */}
+      <View className="h-[140rpx]" />
+      {/* 发布入口(对齐 RN AigcListScreen fab:底部居中 160x44,品牌实底 + ctaForeground) */}
+      <View
+        className="fixed bottom-[48rpx] left-0 right-0 z-10 mx-auto flex h-[88rpx] w-[320rpx] items-center justify-center rounded-sm bg-cta"
+        onClick={() => Taro.navigateTo({ url: '/pkg-ai/aigc/publish' })}
+        hoverClass="opacity-60"
+      >
+        <Text className="text-[length:32rpx] font-semibold text-cta-foreground">
+          {t('aigcList.publish')}
+        </Text>
       </View>
     </ThemeRoot>
   )

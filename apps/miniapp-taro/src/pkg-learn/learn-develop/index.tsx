@@ -107,6 +107,11 @@ export default function LearnDevelop() {
     Taro.navigateTo({ url: '/pages/study/rank' })
   }, [])
 
+  // 直接联系李总 → 创客名片页(对齐 RN wrapper 的 onContact → navigate('Carte'))
+  const onContact = useCallback(() => {
+    Taro.navigateTo({ url: '/pkg-content/carte/index' })
+  }, [])
+
   return (
     <ThemeRoot>
       {/* 对齐 RN LearnDevelopScreen:容器底 surface.bg;头部无卡片底(与 RN header 一致直接置于页面底色上),标题 20dp→40rpx/600 */}
@@ -229,6 +234,17 @@ export default function LearnDevelop() {
             </View>
             <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
           </PressableCard>
+
+          {/* 联系入口(对齐 RN onContact 按钮:宽 187dp→374rpx / 高 38dp→76rpx / control 圆角 + 居中) */}
+          <View
+            className="mt-[48rpx] mx-auto w-[374rpx] h-[76rpx] flex items-center justify-center rounded-sm bg-warning"
+            onClick={onContact}
+            hoverClass="opacity-80"
+          >
+            <Text className="text-[length:32rpx] font-bold text-foreground">
+              {tt('learnDevelop.contactLabel', '直接联系李总')}
+            </Text>
+          </View>
         </View>
       </View>
     </ThemeRoot>

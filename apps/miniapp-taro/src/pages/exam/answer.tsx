@@ -11,6 +11,7 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import ThemeRoot from '@/components/ThemeRoot'
+import { ErrorState } from '@/components/ScreenStates.taro'
 import {
   getExamPaper,
   getExamQuestions,
@@ -32,6 +33,7 @@ export default function ExamAnswer() {
   const { t, tList } = useI18n()
   const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
+  const [loadFailed, setLoadFailed] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({})
   const [remain, setRemain] = useState(0)
@@ -110,7 +112,9 @@ export default function ExamAnswer() {
       })
       .catch((e) => {
         logger.error('unknown', '考试加载', e)
-        Taro.showToast({ title: t('exam.answer.loadFailed'), icon: 'none' })
+        // 对齐 RN SharedExamQuestionScreen:加载失败由 ErrorState 常驻呈现(message 取
+        // examQuestion.loadFailed),重试落点同 RN 的 onRetry = 返回上一屏
+        setLoadFailed(true)
       })
     return () => {
       if (timerRef.current) {
@@ -118,7 +122,7 @@ export default function ExamAnswer() {
         timerRef.current = null
       }
     }
-  }, [router.params.id, t])
+  }, [router.params.id])
 
   const select = useCallback(
     (val: AnswerValue) => {
@@ -223,6 +227,23 @@ export default function ExamAnswer() {
     })
   }
 
+  // 试卷取不到 ⇒ 整屏错误态(不渲染计时条/交卷键,避免"0/0 题 + 交卷"把失败读成空卷)
+  if (loadFailed && !questions.length) {
+    return (
+      <ThemeRoot>
+        <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx]">
+          <ErrorState
+            message={t('examQuestion.loadFailed')}
+            onRetry={() => {
+              Taro.navigateBack()
+            }}
+            retryLabel={t('common.back')}
+          />
+        </View>
+      </ThemeRoot>
+    )
+  }
+
   return (
     <ThemeRoot>
       {/* 对齐 RN SharedExamQuestionScreen:背景 surface.bg / 水平 padding 20rpx / 内容流内按钮行;
@@ -239,6 +260,17 @@ export default function ExamAnswer() {
 
         {current && (
           <View>
+            {/* 对齐 RN qType 题型行:共享屏按 multi/其它 二分取词,但那两词只对单/多选成立
+                (判断题/填空/主观题不是单多选),故只在选择题上渲染,避免贴错题型 */}
+            {current.type === 'single_choice' || current.type === 'multi_choice' ? (
+              <View className="mt-[16rpx] flex">
+                <Text className="px-[16rpx] py-[4rpx] rounded-sm bg-[var(--color-success-light)] text-[length:22rpx] font-semibold text-[var(--color-success)]">
+                  {current.type === 'multi_choice'
+                    ? t('examQuestion.multi')
+                    : t('examQuestion.single')}
+                </Text>
+              </View>
+            ) : null}
             <Text className="mt-[16rpx] block text-[length:36rpx] text-foreground font-semibold leading-relaxed">
               {currentIdx + 1}. {current.title}
             </Text>

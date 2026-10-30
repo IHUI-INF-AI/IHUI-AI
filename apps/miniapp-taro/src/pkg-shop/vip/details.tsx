@@ -213,32 +213,37 @@ export default function VipDetailsPage() {
         </View>
       </View>
 
-      {/* 权益对比表(对齐 RN VipCompareScreen table:m32/border2/r24,表头与隔行 muted,cell 22) */}
-      <View className="m-[32rpx] border-[length:2rpx] border-border rounded-xl overflow-hidden">
-        <View className="flex items-stretch bg-muted">
-          <Text className="flex-[1.2] py-[20rpx] px-[20rpx] text-left text-foreground font-semibold text-[length:22rpx]">
-            {t('vip.details.feature')}
-          </Text>
-          <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[length:22rpx]">
-            {t('vip.details.normal')}
-          </Text>
-          <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[length:22rpx]">
-            {t('vip.details.vipColumn')}
-          </Text>
-        </View>
-        {BENEFITS.map((b, i) => (
-          <View key={b.label} className={`flex items-stretch ${i % 2 === 1 ? 'bg-muted' : ''}`}>
+      {/* 权益对比表(对齐 RN VipCompareScreen header.title + table:m32/border2/r24,表头与隔行 muted,cell 22) */}
+      <View className="mx-[32rpx] my-[32rpx]">
+        <Text className="block text-[length:32rpx] font-bold text-foreground mb-[16rpx]">
+          {t('vipCompare.title')}
+        </Text>
+        <View className="border-[length:2rpx] border-border rounded-xl overflow-hidden">
+          <View className="flex items-stretch bg-muted">
             <Text className="flex-[1.2] py-[20rpx] px-[20rpx] text-left text-foreground font-semibold text-[length:22rpx]">
-              {b.label}
+              {t('vip.details.feature')}
             </Text>
             <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[length:22rpx]">
-              {b.normal}
+              {t('vip.details.normal')}
             </Text>
             <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[length:22rpx]">
-              {b.vip}
+              {t('vip.details.vipColumn')}
             </Text>
           </View>
-        ))}
+          {BENEFITS.map((b, i) => (
+            <View key={b.label} className={`flex items-stretch ${i % 2 === 1 ? 'bg-muted' : ''}`}>
+              <Text className="flex-[1.2] py-[20rpx] px-[20rpx] text-left text-foreground font-semibold text-[length:22rpx]">
+                {b.label}
+              </Text>
+              <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[length:22rpx]">
+                {b.normal}
+              </Text>
+              <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[length:22rpx]">
+                {b.vip}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       <Button

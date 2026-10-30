@@ -71,6 +71,8 @@ export default function ConversationImportPage() {
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [error, setError] = useState('')
   const [history, setHistory] = useState<ConversationImportHistoryItem[]>([])
+  // 历史拉取失败态:与共享屏一致(historyError 落在历史卡里),而不是静默显示成"从没导过"
+  const [historyError, setHistoryError] = useState('')
   // 解析结果正文只留在 state 里:预览行只是元信息,提交时按 id 取回
   const [conversations, setConversations] = useState<ParsedImportConversation[]>([])
   // D28 补齐层(2026-10-03):导入结果区 + 「用场景分析」面板目标。
@@ -79,14 +81,20 @@ export default function ConversationImportPage() {
   const [analysisTarget, setAnalysisTarget] = useState<CommittedImportConversation | null>(null)
 
   const loadHistory = useCallback(async () => {
+    setHistoryError('')
     try {
       const res = await getConversationImportHistory()
       setHistory(res.success && Array.isArray(res.data.list) ? res.data.list : [])
-    } catch {
-      // 历史取不到不阻断导入主流程,但不能假装"从没导过" —— 页面会显示为空态
+    } catch (e) {
+      // 历史取不到不阻断导入主流程,但不能假装"从没导过" —— 失败在历史卡里显式点名
       setHistory([])
+      setHistoryError(
+        tt('conversationImport.historyFailed', '获取导入历史失败:{error}', {
+          error: e instanceof Error ? e.message : String(e),
+        }),
+      )
     }
-  }, [])
+  }, [tt])
 
   useDidShow(() => {
     void loadHistory()
@@ -387,6 +395,11 @@ export default function ConversationImportPage() {
           />
 
           {/* Step 4 导入历史 */}
+          {historyError ? (
+            <Text className="block text-[length:24rpx] text-destructive mb-[12rpx]">
+              {historyError}
+            </Text>
+          ) : null}
           <ImportHistoryList items={history} tt={tt} />
         </View>
       </ScrollView>
